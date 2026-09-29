@@ -1,0 +1,42 @@
+/* _kit.css: dev gallery (#/_kit). Owner: foundation. */
+.v-_kit .kit-sec { padding-bottom: 8px; }
+.v-_kit .kit-cap { margin: 16px 0 8px; }
+.v-_kit .kit-wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.v-_kit .kit-cell { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.v-_kit .kit-sizes { align-items: flex-end; }
+.v-_kit .kit-avgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(196px, 1fr)); gap: 14px 12px; }
+.v-_kit .kit-av { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.v-_kit .kit-avrow { display: flex; gap: 10px; padding: 4px; }
+.v-_kit .kit-type { display: flex; flex-direction: column; gap: 10px; }
+.v-_kit .kit-typerow { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; min-width: 0; }
+.v-_kit .kit-typerow > :first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-_kit .kit-rank { width: 20px; text-align: center; margin-right: 8px; }
+.v-_kit .kit-trail { display: flex; flex-direction: column; align-items: flex-end; color: var(--ink); }
+.v-_kit .kit-switch { padding: 0; }
+.v-_kit .kit-switch .row { padding: 0 16px; }
+.v-_kit .kit-ringhub { display: flex; flex-direction: column; align-items: center; }
+.v-_kit .kit-rings { justify-content: space-between; }
+.v-_kit .kit-demo { display: flex; align-items: center; gap: 10px; min-height: 56px; flex-wrap: wrap; }
+.v-_kit .kit-sp { flex: 1; }
+.v-_kit .kit-odo { min-width: 44px; }
+.v-_kit .kit-flip {
+  width: 120px; height: 56px; border-radius: 12px;
+  display: grid; place-items: center;
+  background: var(--surface-2);
+  backface-visibility: hidden;
+}
+.v-_kit .kit-flip.is-on { background: var(--tint-soft); color: var(--tint); box-shadow: inset 0 0 0 1.5px var(--tint); }
+.v-_kit .kit-stamp {
+  display: inline-block; padding: 4px 10px; border-radius: 8px;
+  font-family: var(--font-num); font-weight: 800; font-size: 20px; letter-spacing: .04em;
+  color: var(--gold); box-shadow: inset 0 0 0 2px var(--gold);
+  rotate: -6deg;
+}
+.v-_kit .kit-icons { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; }
+.v-_kit .kit-icon { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 4px; border-radius: 12px; background: var(--surface-1); min-width: 0; }
+.v-_kit .kit-icon > span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-_kit .kit-sum { margin-bottom: 8px; font-weight: 600; }
+.v-_kit .kit-checkrow .row-sub { white-space: normal; }
+.v-_kit .kit-check { white-space: normal; }
+.v-_kit .kit-checkrow .row-title { white-space: normal; }
+.sh-kit .sheet-body .group { margin-bottom: 8px; }

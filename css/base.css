@@ -1,0 +1,209 @@
+/* Reset, typography, layout primitives (spec 4.4, 4.6, 3.5, 5.8, 5.9). Owner: foundation. */
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: var(--bg); }
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+body {
+  color: var(--ink);
+  font-family: var(--font-text);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+}
+h1, h2, h3, h4, h5, h6, p, ul, ol, li, figure, blockquote, dl, dd { margin: 0; padding: 0; }
+ul, ol { list-style: none; }
+h1, h2, h3, h4, h5, h6 { font-size: inherit; font-weight: inherit; }
+img, svg, canvas, video { display: block; max-width: 100%; }
+svg { flex: none; }
+button, input, select, textarea { font: inherit; color: inherit; letter-spacing: inherit; }
+button { background: none; border: 0; padding: 0; margin: 0; cursor: pointer; text-align: inherit; -webkit-appearance: none; appearance: none; }
+button:disabled { cursor: default; }
+a { color: inherit; text-decoration: none; }
+a, button, [data-press], label, input, select, textarea, summary {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+table { border-collapse: collapse; }
+[hidden] { display: none !important; }
+small { font-size: inherit; }
+
+/* Focus: 2px tint ring with 2px offset, keyboard only */
+:focus { outline: none; }
+:focus-visible { outline: 2px solid var(--tint); outline-offset: 2px; border-radius: 6px; }
+.row:focus-visible, .card:focus-visible, .bug:focus-visible { outline-offset: -2px; }
+
+.sr-only {
+  position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+
+/* ---------------------------------------------------------------- Typography */
+.t-large    { font: 700 var(--fs-large)/var(--lh-large) var(--font-text); letter-spacing: 0; }
+.t-1        { font: 700 var(--fs-1)/var(--lh-1) var(--font-text); }
+.t-2        { font: 700 var(--fs-2)/var(--lh-2) var(--font-text); }
+.t-3        { font: 600 var(--fs-3)/var(--lh-3) var(--font-text); }
+.t-headline { font: 600 var(--fs-headline)/var(--lh-headline) var(--font-text); }
+.t-body     { font: 400 var(--fs-body)/var(--lh-body) var(--font-text); }
+.t-callout  { font: 400 var(--fs-callout)/var(--lh-callout) var(--font-text); }
+.t-sub      { font: 400 var(--fs-sub)/var(--lh-sub) var(--font-text); }
+.t-foot     { font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); }
+.t-cap      { font: 500 var(--fs-cap)/var(--lh-cap) var(--font-text); }
+
+.n-hero, .n1, .n2, .n3, .n4, .n5, .ovl {
+  font-family: var(--font-num);
+  font-weight: 800;
+  font-stretch: condensed;
+  font-variant-numeric: tabular-nums;
+  font-synthesis: none;
+}
+.n-hero { font-size: var(--fs-n-hero); line-height: var(--lh-n-hero); letter-spacing: -.01em; }
+.n1 { font-size: var(--fs-n1); line-height: var(--lh-n1); }
+.n2 { font-size: var(--fs-n2); line-height: var(--lh-n2); }
+.n3 { font-size: var(--fs-n3); line-height: var(--lh-n3); }
+.n4 { font-size: var(--fs-n4); line-height: var(--lh-n4); }
+.n5 { font-size: var(--fs-n5); line-height: var(--lh-n5); }
+.ovl { font-size: var(--fs-ovl); line-height: var(--lh-ovl); text-transform: uppercase; letter-spacing: .06em; }
+/* ui.score(): decimals at 62% in ink-3 */
+:is(.n-hero, .n1, .n2, .n3, .n4, .n5, .num) small { font-size: .62em; color: var(--ink-3); font-weight: inherit; letter-spacing: 0; }
+.num { font-family: var(--font-num); font-weight: 800; font-stretch: condensed; font-variant-numeric: tabular-nums; }
+
+/* Color utilities */
+.ink  { color: var(--ink); }
+.ink2 { color: var(--ink-2); }
+.ink3 { color: var(--ink-3); }
+.ink4 { color: var(--ink-4); }
+.tint { color: var(--tint); }
+.gold { color: var(--gold); }
+.wrong { color: var(--wrong); }
+
+/* Small layout utilities (views may use these) */
+.ell { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.clamp2 { min-width: 0; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+.center { text-align: center; }
+.bleed { margin-left: calc(-1 * var(--gutter)); margin-right: calc(-1 * var(--gutter)); }
+.gutter { padding-left: var(--gutter); padding-right: var(--gutter); }
+.hstack { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.vstack { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.note { margin-top: 12px; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+.mt-8 { margin-top: 8px; } .mt-12 { margin-top: 12px; } .mt-16 { margin-top: 16px; }
+.mt-24 { margin-top: 24px; } .mt-32 { margin-top: 32px; }
+.ic { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ---------------------------------------------------------------- App frame */
+#app {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: var(--bg);
+  isolation: isolate;
+}
+#stage { position: absolute; inset: 0; z-index: 1; overflow: hidden; }
+.tab-layer { position: absolute; inset: 0; }
+.tab-layer[hidden] { display: none !important; }
+#covers { position: absolute; inset: 0; z-index: var(--z-cover); pointer-events: none; }
+#covers:empty { display: none; }
+#overlays { position: absolute; inset: 0; z-index: var(--z-scrim); pointer-events: none; }
+#overlays:empty { display: none; }
+#toasts { z-index: var(--z-toast); }
+
+/* Desktop: everything lives in a centered column with 1px side rules */
+@media (min-width: 720px) {
+  html, body { background: #000; }
+  #app {
+    left: 0; right: 0;
+    width: min(100%, var(--col-w));
+    margin: 0 auto;
+    box-shadow: 1px 0 0 #1C1C1E, -1px 0 0 #1C1C1E;
+  }
+}
+
+/* ---------------------------------------------------------------- Screens */
+.screen {
+  position: absolute;
+  inset: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  contain: layout paint;
+  background: var(--bg);
+  padding-bottom: calc(var(--tab-h) + 24px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  z-index: var(--z-screen);
+  outline: none;
+}
+.screen[data-under] { visibility: hidden; }
+.screen.is-animating { pointer-events: none; }
+.screen-body { position: relative; padding: 0 var(--gutter); min-width: 0; }
+.screen:not(:has(> .nav)) > .screen-body { padding-top: 0; }
+.cover { position: absolute; inset: 0; background: var(--bg); pointer-events: auto; z-index: 2; overflow: hidden; }
+.cover-scrim { position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: auto; z-index: 1; }
+.cover .screen { padding-bottom: max(16px, env(safe-area-inset-bottom, 0px)); }
+/* Dim and edge layers used by push/pop; app.js pins them to the visible area at transition start. */
+.screen-dim {
+  position: absolute; left: 0; right: 0; top: 0; height: 100%;
+  background: #000; opacity: 0; pointer-events: none; z-index: 40;
+}
+.screen-edge {
+  position: absolute; left: 0; top: 0; height: 100%; width: 10px;
+  background: linear-gradient(90deg, rgba(255,255,255,.07), rgba(255,255,255,0));
+  box-shadow: inset 1px 0 0 rgba(255,255,255,.08);
+  opacity: 0; pointer-events: none; z-index: 40;
+}
+
+/* Full-screen states (league failed to load) */
+.fatal {
+  position: absolute; inset: 0; z-index: var(--z-boot);
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg);
+  padding: env(safe-area-inset-top, 0px) 16px env(safe-area-inset-bottom, 0px);
+}
+
+/* ---------------------------------------------------------------- Boot splash (CSS-only Today skeleton) */
+#boot {
+  position: absolute; inset: 0; z-index: var(--z-boot);
+  background: var(--bg);
+  padding: calc(var(--nav-h) + 4px) 16px 0;
+  pointer-events: none;
+  transition: opacity 180ms var(--ease-out);
+}
+#boot.is-out { opacity: 0; }
+#boot i { display: block; background: var(--surface-1); border-radius: 8px; }
+#boot .bt-eyebrow { width: 42%; height: 13px; margin-top: 6px; }
+#boot .bt-title { width: 36%; height: 34px; margin-top: 8px; border-radius: 10px; }
+#boot .bt-card { margin-top: 24px; background: var(--surface-1); border-radius: var(--r-hero); padding: 20px; display: flex; flex-direction: column; align-items: center; }
+#boot .bt-card i { background: var(--surface-2); }
+#boot .bt-ovl { width: 30%; height: 13px; align-self: flex-start; }
+#boot .bt-ring { width: 200px; height: 200px; border-radius: 50%; margin-top: 16px; background: none !important; box-shadow: inset 0 0 0 16px var(--surface-2); }
+#boot .bt-line { width: 60%; height: 15px; margin-top: 16px; }
+#boot .bt-btn { width: 100%; height: 50px; margin-top: 16px; border-radius: var(--r-group); }
+#boot .bt-row { width: 100%; height: 40px; margin-top: 12px; border-radius: 12px; }
+#boot .bt-tab { position: absolute; left: 0; right: 0; bottom: 0; height: var(--tab-h); background: var(--bar-solid); border-top: 1px solid var(--separator); }
+#boot i, #boot .bt-card { animation: sk-pulse 1.2s ease-in-out infinite alternate; }
+
+@keyframes sk-pulse { from { opacity: 1; } to { opacity: .5; } }
+
+/* ---------------------------------------------------------------- Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; }
+  #boot i, #boot .bt-card, .sk { animation: none !important; }
+}
+html.rm .sk { animation: none !important; }
+
+/* ---------------------------------------------------------------- Lite mode (no blur) */
+html.lite .nav-bg,
+html.lite #tabbar,
+html.lite .bar {
+  background: var(--bar-solid) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}

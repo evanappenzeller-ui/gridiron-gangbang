@@ -1,0 +1,178 @@
+/* Design tokens (spec 4.1-4.5, 5.1). Owner: foundation. Dark only. */
+
+@font-face {
+  font-family: "Barlow Condensed";
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url(../fonts/barlow-condensed-800.woff2) format("woff2");
+}
+
+:root {
+  color-scheme: dark;
+
+  /* 4.1 Color */
+  --bg: #000000;
+  --surface-1: #1C1C1E;
+  --surface-2: #2C2C2E;
+  --surface-3: #3A3A3C;
+  --fill: rgba(118,118,128,.24);
+  --separator: #38383A;
+  --bar: rgba(22,22,24,.72);
+  --bar-solid: #161618;
+  --bar-filter: saturate(180%) blur(20px);
+  --scrim: rgba(0,0,0,.5);
+  --ink: #FFFFFF;
+  --ink-2: #AEAEB2;
+  --ink-3: #8E8E93;
+  --ink-4: #636366;
+  --tint: #7CF058;
+  --tint-pressed: #68D646;
+  --on-tint: #06210A;
+  --tint-soft: rgba(124,240,88,.16);
+  --wrong: #FF453A;
+  --wrong-soft: rgba(255,69,58,.16);
+  --gold: #FFCC4D;
+  --gold-soft: rgba(255,204,77,.16);
+  --silver: #D1D1D6;
+  --bronze: #E0975A;
+  --flame-1: #FFD24A;
+  --flame-2: #FF7A2F;
+  --link: #64D2FF;
+  --thumb: #636366;
+  --switch-off: #39393D;
+  --grabber: #5A5A5E;
+
+  /* 4.4 Type */
+  --font-num: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --font-text: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --fs-n-hero: 96px; --lh-n-hero: 88px;
+  --fs-n1: 64px; --lh-n1: 60px;
+  --fs-n2: 48px; --lh-n2: 46px;
+  --fs-n3: 32px; --lh-n3: 32px;
+  --fs-n4: 22px; --lh-n4: 24px;
+  --fs-n5: 17px; --lh-n5: 20px;
+  --fs-ovl: 13px; --lh-ovl: 16px;
+  --fs-large: 34px; --lh-large: 41px;
+  --fs-1: 28px; --lh-1: 34px;
+  --fs-2: 22px; --lh-2: 28px;
+  --fs-3: 20px; --lh-3: 25px;
+  --fs-headline: 17px; --lh-headline: 22px;
+  --fs-body: 17px; --lh-body: 22px;
+  --fs-callout: 16px; --lh-callout: 21px;
+  --fs-sub: 15px; --lh-sub: 20px;
+  --fs-foot: 13px; --lh-foot: 18px;
+  --fs-cap: 12px; --lh-cap: 16px;
+  --fs-tab: 10px; --lh-tab: 12px;
+
+  /* 4.5 Space */
+  --s-2: 2px; --s-4: 4px; --s-8: 8px; --s-12: 12px; --s-16: 16px;
+  --s-20: 20px; --s-24: 24px; --s-32: 32px; --s-40: 40px; --s-56: 56px;
+  --gutter: 16px;
+
+  /* Radii */
+  --r-badge: 6px;
+  --r-seg: 9px;
+  --r-thumb: 7px;
+  --r-field: 10px;
+  --r-cell: 12px;
+  --r-group: 14px;
+  --r-card: 18px;
+  --r-hero: 24px;
+  --r-sheet: 28px;
+  --r-pill: 999px;
+
+  /* Depth: floating layers only */
+  --float-shadow: 0 8px 24px rgba(0,0,0,.45), inset 0 .5px 0 rgba(255,255,255,.12);
+
+  /* Z-order */
+  --z-screen: 1;
+  --z-tab: 20;
+  --z-cover: 30;
+  --z-scrim: 40;
+  --z-sheet: 41;
+  --z-toast: 50;
+  --z-confetti: 60;
+  --z-boot: 70;
+
+  /* 5.1 Motion (cubic fallbacks; js/core/ui.js overwrites the spring pairs with linear() when supported) */
+  --spring-snappy: cubic-bezier(.2,.9,.3,1);
+  --spring-snappy-dur: 300ms;
+  --spring-smooth: cubic-bezier(.32,.72,0,1);
+  --spring-smooth-dur: 420ms;
+  --spring-bouncy: cubic-bezier(.34,1.56,.64,1);
+  --spring-bouncy-dur: 500ms;
+  --ease-out: cubic-bezier(.22,1,.36,1);
+  --ease-in: cubic-bezier(.4,0,1,1);
+  --ease-out-expo: cubic-bezier(.16,1,.3,1);
+  --dur-fast: 160ms;
+  --dur-base: 240ms;
+  --dur-exit: 200ms;
+
+  /* 4.6 Layout */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --nav-h: calc(44px + env(safe-area-inset-top, 0px));
+  --tab-h: calc(56px + env(safe-area-inset-bottom, 0px));
+  --acc-h: 44px;
+  --col-w: 480px;
+}
+
+/* The app is dark only; both theme guards resolve to the same palette. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #000000; --surface-1: #1C1C1E; --surface-2: #2C2C2E; --surface-3: #3A3A3C;
+    --fill: rgba(118,118,128,.24); --separator: #38383A; --bar: rgba(22,22,24,.72); --bar-solid: #161618;
+    --ink: #FFFFFF; --ink-2: #AEAEB2; --ink-3: #8E8E93; --ink-4: #636366;
+    --tint: #7CF058; --tint-pressed: #68D646; --on-tint: #06210A; --tint-soft: rgba(124,240,88,.16);
+    --wrong: #FF453A; --wrong-soft: rgba(255,69,58,.16); --gold: #FFCC4D; --gold-soft: rgba(255,204,77,.16);
+  }
+}
+:root[data-theme="dark"], :root[data-theme="light"] {
+  color-scheme: dark;
+  --bg: #000000; --surface-1: #1C1C1E; --surface-2: #2C2C2E; --surface-3: #3A3A3C;
+  --fill: rgba(118,118,128,.24); --separator: #38383A; --bar: rgba(22,22,24,.72); --bar-solid: #161618;
+  --ink: #FFFFFF; --ink-2: #AEAEB2; --ink-3: #8E8E93; --ink-4: #636366;
+  --tint: #7CF058; --tint-pressed: #68D646; --on-tint: #06210A; --tint-soft: rgba(124,240,88,.16);
+  --wrong: #FF453A; --wrong-soft: rgba(255,69,58,.16); --gold: #FFCC4D; --gold-soft: rgba(255,204,77,.16);
+}
+
+body { background: var(--bg); color: var(--ink); }
+
+/* 4.2 Manager identity: --mc accent and --mc-deep fill (hex fallback, color-mix when supported). */
+.mc-ben     { --mc: #FF8A4C; --mc-deep: #35231A; }
+.mc-corbin  { --mc: #4C8DFF; --mc-deep: #182337; }
+.mc-dresden { --mc: #FFD84D; --mc-deep: #352F1B; }
+.mc-evan    { --mc: #9D7BFF; --mc-deep: #252037; }
+.mc-jackson { --mc: #FF6B9E; --mc-deep: #351E28; }
+.mc-jacob   { --mc: #2ED3BE; --mc-deep: #132E2D; }
+.mc-jaymin  { --mc: #D6B08A; --mc-deep: #2E2924; }
+.mc-jayton  { --mc: #3CC0F5; --mc-deep: #152B36; }
+.mc-john    { --mc: #EE6BDB; --mc-deep: #321E31; }
+.mc-mason   { --mc: #8C9EFF; --mc-deep: #222637; }
+.mc-mitch   { --mc: #C77DFF; --mc-deep: #2C2137; }
+.mc-sayer   { --mc: #9EB1C8; --mc-deep: #25292E; }
+/* Fallback set for unknown ids: sum(charCodes) % 12 over the same list. */
+.mc-x0  { --mc: #FF8A4C; --mc-deep: #35231A; }
+.mc-x1  { --mc: #4C8DFF; --mc-deep: #182337; }
+.mc-x2  { --mc: #FFD84D; --mc-deep: #352F1B; }
+.mc-x3  { --mc: #9D7BFF; --mc-deep: #252037; }
+.mc-x4  { --mc: #FF6B9E; --mc-deep: #351E28; }
+.mc-x5  { --mc: #2ED3BE; --mc-deep: #132E2D; }
+.mc-x6  { --mc: #D6B08A; --mc-deep: #2E2924; }
+.mc-x7  { --mc: #3CC0F5; --mc-deep: #152B36; }
+.mc-x8  { --mc: #EE6BDB; --mc-deep: #321E31; }
+.mc-x9  { --mc: #8C9EFF; --mc-deep: #222637; }
+.mc-x10 { --mc: #C77DFF; --mc-deep: #2C2137; }
+.mc-x11 { --mc: #9EB1C8; --mc-deep: #25292E; }
+/* Opponent drawn in ink when two managers' hues are within 35 degrees (views add .mc-ink on side B). */
+.mc-ink { --mc: #FFFFFF; --mc-deep: #2C2C2E; }
+
+@supports (color: color-mix(in srgb, red 16%, blue)) {
+  .mc-ben, .mc-corbin, .mc-dresden, .mc-evan, .mc-jackson, .mc-jacob, .mc-jaymin, .mc-jayton,
+  .mc-john, .mc-mason, .mc-mitch, .mc-sayer,
+  .mc-x0, .mc-x1, .mc-x2, .mc-x3, .mc-x4, .mc-x5, .mc-x6, .mc-x7, .mc-x8, .mc-x9, .mc-x10, .mc-x11 {
+    --mc-deep: color-mix(in srgb, var(--mc) 16%, #0E0F11);
+  }
+}
