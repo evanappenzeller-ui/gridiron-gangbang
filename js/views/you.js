@@ -50,12 +50,15 @@ function installHTML() {
 function youBody() {
   const L = data.DATA && data.DATA.league ? data.DATA.league.name : 'Gridiron Gangbang';
   const sp = data.span;
-  const haptics = ui.HAPTICS_SUPPORTED
-    ? ui.group(ui.row({lead: `<span class="c-ys-ic">${ui.icon('pulse', {size: 20})}</span>`, title: 'Haptics', trail: ui.switchCtl({name: 'haptics', checked: ui.lsGet('gg-haptics') !== '0', label: 'Haptics'})}))
-    : '';
+  const MOTION = "Motion follows your phone's Reduce Motion setting.";
+  // No vibrate (every iPhone): no Haptics switch, so the motion note becomes the section's row instead of a
+  // footnote under an empty header.
+  const feel = ui.HAPTICS_SUPPORTED
+    ? sec('Feel', ui.group(ui.row({lead: `<span class="c-ys-ic">${ui.icon('pulse', {size: 20})}</span>`, title: 'Haptics', trail: ui.switchCtl({name: 'haptics', checked: ui.lsGet('gg-haptics') !== '0', label: 'Haptics'})})), MOTION)
+    : sec('Feel', ui.group(ui.row({lead: `<span class="c-ys-ic">${ui.icon('pulse', {size: 20})}</span>`, title: MOTION, cls: 'c-ys-wrap'})));
   return sec('Which one are you?', gridHTML(), 'Only saved on this phone. Used to highlight you.')
     + sec('Leaderboard', ui.group(nickRow(), {cls: 'c-ys-nickg'}))
-    + sec('Feel', haptics, "Motion follows your phone's Reduce Motion setting.")
+    + feel
     + sec('Data', ui.group(
       ui.row({lead: `<span class="c-ys-ic">${ui.icon('calendar', {size: 20})}</span>`, title: dataLine(), cls: 'c-ys-dataline'})
       + ui.row({lead: `<span class="c-ys-ic">${ui.icon('arrow-down', {size: 20})}</span>`, title: 'Check for new week', attrs: {'data-reload': ''}, cls: 'c-ys-act'})))
@@ -240,10 +243,14 @@ export function openPlayerCard(uid, {managerId} = {}) {
     } else bars += `<span class="c-pc-b is-miss${n === P ? ' is-now' : ''}" aria-hidden="true"></span>`;
   }
   const k = 'pc-' + uid + '-';
+  // Every tile carries a sub line, so the values in each 2-up row sit on the same baseline.
+  let bestN = 0;
+  Object.keys(days).forEach(n => { const d = days[n]; if (d && typeof d === 'object' && (d.p || 0) === best && +n > bestN) bestN = +n; });
+  const bestWhen = best && bestN ? daily.dateOf(bestN).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : '—';
   const tiles = `<div class="tiles c-pc-tiles">${[
-    ui.statTile({label: 'Days played', countTo: played, format: 'int', key: k + 'played'}),
-    ui.statTile({label: 'Avg / day', countTo: avg, format: 'int', key: k + 'avg'}),
-    ui.statTile({label: 'Best day', countTo: best, format: 'int', key: k + 'best'}),
+    ui.statTile({label: 'Days played', countTo: played, format: 'int', key: k + 'played', sub: `of ${nf(P)}`}),
+    ui.statTile({label: 'Avg / day', countTo: avg, format: 'int', key: k + 'avg', sub: 'points'}),
+    ui.statTile({label: 'Best day', countTo: best, format: 'int', key: k + 'best', sub: bestWhen}),
     ui.statTile({label: 'Best streak', countTo: sk.best, format: 'int', key: k + 'streak', sub: sk.best === 1 ? 'day' : 'days'})
   ].join('')}</div>`;
   const team = mid ? data.team(mid) : '';

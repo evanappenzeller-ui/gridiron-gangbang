@@ -5,7 +5,7 @@ import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as daily from '../core/daily.js';
 import {mountBoard, flameIcon, stepParts, ZERO_PARTS, PUZZLE_ICON, whenVisible, countdownHTML, tickCountdown,
-  ensureDefs} from './board.js';
+  ensureDefs, finishedThisSession, gradeTitle} from './board.js';
 import {openStreakSheet} from './you.js';
 import {renderShareCard} from './sharecard.js';
 
@@ -16,6 +16,7 @@ const COPIED = 'Results copied. Paste them in the league chat.';
 
 const RES = new WeakMap();   // ctx → state
 const rolled = new Set();    // puzzle days whose streak odometer already rolled this session
+const RETRY_HOLD = 600;      // "Try again": the loading state stays up at least this long, so the tap reads
 const revealKey = () => 'res-total-' + daily.PNUM;
 const ready = () => daily.status === 'ready' && !!daily.DAY;
 
@@ -108,25 +109,28 @@ function doneHTML() {
   });
   const rows = daily.STEPS.map((s, i) => {
     const p = s.pts(), f = Math.min(1, p / s.max), perfect = p === s.max;
+    // Title on its own full-width line; the result and "160 / 200" share the second line, above the bar.
     return `<div class="c-rb" role="listitem" aria-label="${esc(`Puzzle ${i + 1}, ${s.label}: ${s.result()}, ${p} of ${s.max} points`)}">
 <span class="c-rb-tile" aria-hidden="true">${ui.icon(PUZZLE_ICON[i], {size: 22})}</span>
-<div class="c-rb-main" aria-hidden="true"><div class="c-rb-top"><span class="c-rb-t">Puzzle ${i + 1} · ${esc(s.label)}</span><span class="c-rb-v"><span class="n4">${esc(nf(p))}</span><span class="c-rb-max">/ ${esc(nf(s.max))}</span></span></div>
-<p class="c-rb-sub">${esc(s.result())}${perfect ? ` ${ui.icon('check-circle', {size: 14, cls: 'c-rb-perf'})}` : ''}</p>
+<div class="c-rb-main" aria-hidden="true"><p class="c-rb-t">Puzzle ${i + 1} · ${esc(s.label)}</p>
+<div class="c-rb-mid"><p class="c-rb-sub"><span class="c-rb-res">${esc(s.result())}</span>${perfect ? ui.icon('check-circle', {size: 14, cls: 'c-rb-perf'}) : ''}</p><span class="c-rb-v"><span class="n4">${esc(nf(p))}</span><span class="c-rb-max">/ ${esc(nf(s.max))}</span></span></div>
 <span class="c-rb-bar"><i class="c-rb-fill${perfect ? ' is-perfect' : ''}" data-f="${f}" style="transform:scaleX(${reveal ? 0 : f})"></i></span></div>
 </div>`;
   }).join('');
   const s = daily.streakLocal();
-  const roll = !ui.RM && s.current > 0 && !rolled.has(daily.PNUM);
+  // Streak +1 rolls only the first time results show after a finish this page session saw (never on a reopen).
+  const roll = !ui.RM && s.current > 0 && finishedThisSession() && !rolled.has(daily.PNUM);
   const shownN = roll ? s.current - 1 : s.current;
   const share = daily.shareText();
-  return `<section class="c-rhero" aria-label="Your score">
-<p class="ovl c-grade${gold ? ' is-gold' : ''}">${gold ? ui.icon('trophy', {size: 16}) : ''}<span>${esc(grade)}</span></p>
+  // On the first view the grade waits (hidden) and lands when the count does; tabindex lets lock-in move focus here.
+  return `<section class="c-rhero" tabindex="-1" aria-label="Your score">
+<p class="ovl c-grade${gold ? ' is-gold' : ''}${reveal ? ' is-pending' : ''}">${gold ? ui.icon('trophy', {size: 16}) : ''}<span>${esc(grade)}</span></p>
 ${ring}
 </section>
 <div class="group c-rbreak" role="list" aria-label="Breakdown">${rows}</div>
 <button type="button" class="group c-rstreak" data-streak aria-label="${esc(`${s.current}-day streak, best ${s.best}. Open streak`)}">
 <span class="c-rs-flame">${flameIcon({size: 26, cold: !s.current})}</span>
-<span class="c-rs-main"><span class="c-rs-t"><span class="c-rs-n" data-n="${s.current}">${shownN}</span>-day streak</span><span class="c-rs-sub">Best ${esc(s.best)}</span></span>${CHEV}
+<span class="c-rs-main"><span class="c-rs-t"><span class="c-rs-n" data-n="${s.current}"${roll ? ' data-roll' : ''}>${shownN}</span>-day streak</span><span class="c-rs-sub">Best ${esc(s.best)}</span></span>${CHEV}
 </button>
 <section class="c-post" data-postbox data-kind="${postKind()}">${postHTML()}</section>
 <section class="c-share" aria-label="Share">
@@ -136,7 +140,7 @@ ${ui.button({label: 'Share image', kind: 'secondary', icon: 'sparkle', attrs: {'
 <textarea class="c-share-ta" rows="7" readonly hidden aria-label="Results to copy"></textarea>
 </section>
 <div class="c-board-host"></div>
-<div class="c-cd-host">${countdownHTML()}</div>`;
+<div class="c-cd-host">${countdownHTML(false)}</div>`;
 }
 
 function bodyHTML(ph = phase()) {
@@ -165,6 +169,7 @@ function teardown(st) {
   if (st.board) { st.board.destroy(); st.board = null; }
   st.shareGen++;
   st.file = null;
+  st.imgQueued = false;
 }
 
 function attach(st) {
@@ -175,9 +180,8 @@ function attach(st) {
   if (host) st.board = mountBoard(host, {mode: 'today', ctx: st.ctx});
   const pb = st.el.querySelector('[data-postbox]');
   if (pb) pb.dataset.rank = String(myRank());
+  // The share PNG is rendered after the reveal (queueImage), so its ~50 ms canvas work never lands mid count-up.
   if (st.ctx.visible) reveal(st);
-  const id = ui.onIdle(() => prepareImage(st));
-  st.cancels.push(() => { try { cancelIdleCallback(id); } catch (_) { clearTimeout(id); } });
 }
 
 function swapBody(st) {
@@ -186,18 +190,32 @@ function swapBody(st) {
   teardown(st);
   const go = () => { body.innerHTML = bodyHTML(); ui.hydrate(body); };
   if (!ui.RM && st.ctx.visible) ui.crossfade(body, go, {duration: 220}); else go();
+  // bodyHTML is pure; the countdown's day check happens here instead.
+  tickCountdown(body.querySelector('.c-cd-host'), {animate: false});
   patchBar(st);
   attach(st);
 }
 
-// Finished state entrance: ring fill and total count-up in sync, bars fill, one success haptic at the end.
+/** Render the share PNG at the next idle period (once per attach; lb changes re-render it on their own). */
+function queueImage(st) {
+  if (st.dead || st.imgQueued || st.phase !== 'done') return;
+  st.imgQueued = true;
+  const id = ui.onIdle(() => prepareImage(st));
+  st.cancels.push(() => { try { cancelIdleCallback(id); } catch (_) {} clearTimeout(id); });
+}
+
+// Finished state entrance: ring fill and total count-up in sync, bars fill, then the grade lands with one
+// success haptic. It waits until the cover slide (or the swap / cross-fade that brought this body in) has
+// settled: those are ui.animate calls, so ui.whenIdle holds until they finish.
 function reveal(st) {
   if (st.revealed || st.phase !== 'done') return;
   st.revealed = true;
   const el = st.el;
   const ring = el.querySelector('.c-rring');
   const tot = el.querySelector('.c-rtotal');
-  if (!ring || !tot) return;
+  const grade = el.querySelector('.c-grade');
+  const showGrade = () => { if (grade) grade.classList.remove('is-pending'); };
+  if (!ring || !tot) { showGrade(); queueImage(st); return; }
   const total = daily.totalPts();
   const parts = stepParts();
   const key = revealKey();
@@ -207,40 +225,65 @@ function reveal(st) {
     tot.innerHTML = esc(nf(total));
     tot.setAttribute('aria-label', nf(total));
     fills.forEach(f => { f.style.transform = `scaleX(${f.dataset.f})`; });
+    showGrade();
     rollStreak(st, false);
+    queueImage(st);
     return;
   }
-  const grade = el.querySelector('.c-grade');
-  st.cancels.push(whenVisible(ring, () => {
-    // The grade lands when the count does.
-    if (grade) grade.style.opacity = '0';
+  // After the count lands: the streak +1 roll (the next beat) and the share PNG. Runs once.
+  let after = false;
+  const afterCount = () => { if (after || st.dead) return; after = true; rollStreak(st, true); queueImage(st); };
+  // The bar's points pill would show the final total while the ring still counts from 0: it waits for the count.
+  const pill = st.el.querySelector('.c-rpill');
+  const showPill = (fade) => {
+    if (!pill || pill.style.opacity !== '0') return;
+    pill.style.opacity = '';
+    if (fade) ui.animate(pill, [{opacity: 0, transform: 'scale(.9)'}, {opacity: 1, transform: 'none'}], {spring: 'snappy'});
+  };
+  const start = () => {
+    if (st.dead) return;
+    if (pill) { pill.style.opacity = '0'; st.cancels.push(() => showPill(false)); }
     // Arcs fill in tint; perfect ones turn gold when the count lands.
     ui.ringUpdate(ring, parts.map(p => Object.assign({}, p, {perfect: false})), {from: 'zero', duration: 1100});
     ui.countUp(tot, total, {from: 0, duration: 1100, key, format: 'int'}).then(() => {
-      if (grade) { grade.style.opacity = ''; ui.animate(grade, [{opacity: 0, transform: 'translateY(6px) scale(.92)'}, {opacity: 1, transform: 'none'}], {spring: 'bouncy'}); }
-      ui.ringUpdate(ring, parts, {animate: false});
+      showPill(!st.dead);
       if (st.dead) return;
+      ui.ringUpdate(ring, parts, {animate: false});
+      // The grade lands when the count does.
+      if (grade) {
+        showGrade();
+        ui.animate(grade, [{opacity: 0, transform: 'translateY(6px) scale(.92)'}, {opacity: 1, transform: 'none'}], {spring: 'bouncy'});
+      }
       if (total >= 1000) {
         ui.haptic('celebrate');
         ui.animate(ring, [{transform: 'scale(1)'}, {transform: 'scale(1.04)', offset: .45}, {transform: 'scale(1)'}], {duration: 620, easing: 'cubic-bezier(.34,1.56,.64,1)'});
         ui.confetti(ring.getBoundingClientRect(), {count: 120, colors: ['#7CF058', '#FFCC4D', '#FFFFFF']});
       } else ui.haptic('success');
+      afterCount();
     });
     fills.forEach((f, i) => {
       const v = f.dataset.f;
       f.style.transform = `scaleX(${v})`;
       ui.animate(f, [{transform: 'scaleX(0)'}, {transform: `scaleX(${v})`}], {duration: 500, delay: 260 + i * 80, easing: 'cubic-bezier(.22,1,.36,1)', fill: 'backwards'});
     });
+  };
+  st.cancels.push(ui.whenIdle(() => {
+    if (st.dead) return;
+    st.cancels.push(whenVisible(ring, start));
+    // Safety: the ring may never reach 60% on screen (scrolled away at once); the streak row and the share
+    // image must not wait on it forever.
+    const t = setTimeout(afterCount, 2500);
+    st.cancels.push(() => clearTimeout(t));
   }));
-  rollStreak(st, true);
 }
 
-// Streak +1: the number rolls from n−1 the first time results show after today's completion; the flame pops.
+// Streak +1: the number rolls from n−1 the first time results show after a finish in this page session; the
+// flame pops. Marked with data-roll by doneHTML.
 function rollStreak(st, animate) {
   const n = st.el.querySelector('.c-rs-n');
   if (!n) return;
   const to = +n.dataset.n;
-  if (rolled.has(daily.PNUM) || !to) { n.textContent = String(to); return; }
+  if (!n.hasAttribute('data-roll') || rolled.has(daily.PNUM) || !to) { n.textContent = String(to); return; }
   if (!animate || ui.RM) { rolled.add(daily.PNUM); n.textContent = String(to); return; }
   const row = st.el.querySelector('.c-rstreak');
   st.cancels.push(whenVisible(row, () => {
@@ -250,7 +293,7 @@ function rollStreak(st, animate) {
       ui.odometer(n, to - 1, to);
       const f = row.querySelector('.c-flame');
       if (f) ui.stamp(f, {from: .45});
-    }, 450);
+    }, 300);
     st.cancels.push(() => clearTimeout(t));
   }, {threshold: .9}));
 }
@@ -318,7 +361,8 @@ function onClick(st, e) {
     const text = daily.shareText();
     const ta = st.el.querySelector('.c-share-ta');
     ui.copyText(text, {fallbackTextarea: ta}).then(ok => {
-      if (ok) { ui.toast(COPIED, {icon: 'check-circle'}); ui.haptic('success'); } else ui.toast('Select the text and copy it.');
+      // The fallback textarea only stays up when the text must be copied by hand (the preview already shows it).
+      if (ok) { if (ta) ta.hidden = true; ui.toast(COPIED, {icon: 'check-circle'}); ui.haptic('success'); } else ui.toast('Select the text and copy it.');
     });
     return;
   }
@@ -334,26 +378,49 @@ function onClick(st, e) {
   if (t.hasAttribute('data-streak')) { openStreakSheet(); return; }
   if (t.hasAttribute('data-goto')) { st.ctx.replace('/today/play/' + t.dataset.goto); return; }
   if (t.hasAttribute('data-lockin')) { lockIn(st); return; }
-  if (t.hasAttribute('data-retry')) {
-    const body = st.el.querySelector('.c-rbody');
-    if (body) body.innerHTML = loadingHTML();
-    daily.ensure().catch(() => {});
-    return;
-  }
+  if (t.hasAttribute('data-retry')) { retry(st); return; }
   if (t.hasAttribute('data-cd-load')) location.reload();
+}
+
+// "Try again": show the loading state for at least RETRY_HOLD so the tap visibly does something, then swap to
+// whatever came back; a second failure says so. Focus follows to the new card's button.
+function retry(st) {
+  const body = st.el.querySelector('.c-rbody');
+  if (!body || st.retrying) return;
+  st.retrying = true;
+  const hadFocus = body.contains(document.activeElement);
+  const go = () => { body.innerHTML = loadingHTML(); };
+  if (!ui.RM && st.ctx.visible) ui.crossfade(body, go, {duration: 160}); else go();
+  if (hadFocus) focusQuiet(body.querySelector('.c-rload')); else ui.announce('Loading puzzles.');
+  Promise.allSettled([daily.ensure(), new Promise(r => setTimeout(r, RETRY_HOLD))]).then(() => {
+    st.retrying = false;
+    if (st.dead) return;
+    swapBody(st);
+    if (daily.status === 'error') ui.toast("Still can't reach the puzzles.");
+    if (hadFocus) focusQuiet(body.querySelector('[data-retry], [data-goto], .c-rhero'));
+  });
+}
+function focusQuiet(el) {
+  if (!el) return;
+  if (!el.matches('button, a[href], input, [tabindex]')) el.setAttribute('tabindex', '-1');
+  try { el.focus({preventScroll: true}); } catch (_) {}
 }
 
 async function lockIn(st) {
   const v = await ui.actionSheet({
     title: 'Lock in your score?',
     message: "Unfinished puzzles count as they are now. This can't be undone.",
-    actions: [{label: 'Lock in', value: 'lock', role: 'destructive'}, {label: 'Keep playing', value: null, role: 'cancel'}]
+    actions: [{label: 'Lock in', value: 'lock', role: 'destructive'}, {label: 'Keep playing', value: null, role: 'cancel'}],
+    // Locked in: the trigger went with the old body, so focus lands on the score (tabindex -1) instead.
+    returnFocus: () => (daily.allDone() && !st.dead ? st.el.querySelector('.c-rhero') || st.el.querySelector('.c-rbar-done') : null)
   });
   if (v !== 'lock' || st.dead || daily.allDone()) return;
   ui.haptic('warning');
   daily.lockIn();          // emits 'progress' → the body swaps to the finished state
   daily.maybeAutoPost();
   if (st.phase !== 'done') swapBody(st);
+  const total = daily.totalPts();
+  ui.announce(`Locked in. ${gradeTitle(daily.gradeFor(total))}. ${nf(total)} points.`);
 }
 
 function onSubmit(st, e) {
@@ -372,7 +439,7 @@ function onSubmit(st, e) {
 
 function onDaily(st, type, d) {
   if (st.dead) return;
-  if (type === 'ready' || type === 'error') { swapBody(st); return; }
+  if (type === 'ready' || type === 'error') { if (!st.retrying) swapBody(st); return; }
   if (type === 'progress') {
     patchBar(st);
     if (phase() !== st.phase) swapBody(st); else patchShare(st);
@@ -404,7 +471,7 @@ export default {
 
   mount(el, ctx) {
     ensureDefs();
-    const st = {el, ctx, board: null, phase: null, revealed: false, cancels: [], shareGen: 0, file: null, fileRank: null, postPending: false, dead: false, cancelImg: null};
+    const st = {el, ctx, board: null, phase: null, revealed: false, cancels: [], shareGen: 0, file: null, fileRank: null, postPending: false, dead: false, cancelImg: null, imgQueued: false, retrying: false};
     RES.set(ctx, st);
     el.addEventListener('click', e => onClick(st, e));
     el.addEventListener('submit', e => onSubmit(st, e));

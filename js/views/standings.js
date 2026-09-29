@@ -71,13 +71,13 @@ function rowHtml(r, i, key, meId) {
   const m = metric(r, key);
   return ui.row({
     key: r.id,
-    cls: 'std-row',
+    cls: 'row-72 std-row',
     me: r.id === meId,
     lead: `<span class="std-rank n5" aria-hidden="true">${i + 1}</span>${ui.avatar(r.id, {size: 40, you: r.id === meId, attrs: {'data-morph-from': ''}})}`,
     title: ui.raw(`<span class="std-nm">${esc(data.name(r.id))}</span>${trophies(r.titles)}`),
     sub: data.team(r.id),
     trail: metricHtml(m),
-    attrs: {'data-nav': '/managers/' + r.id, 'data-enter': '', 'aria-label': rowLabel(r, i, m)}
+    attrs: {'data-nav': '/managers/' + r.id, 'aria-label': rowLabel(r, i, m)}
   });
 }
 
@@ -87,7 +87,7 @@ function listHtml(sort) {
   const rows = sortedRows(sort);
   if (!rows.length) return noGames();
   const meId = data.me();
-  return `${ui.group(rows.map((r, i) => rowHtml(r, i, sort.key, meId)).join(''), {cls: 'std-group'})}<p class="note">Regular season record.</p>`;
+  return `<div class="group-wrap" data-enter>${ui.group(rows.map((r, i) => rowHtml(r, i, sort.key, meId)).join(''), {cls: 'std-group'})}<p class="group-f">Regular season record.</p></div>`;
 }
 
 function thHtml(c, sort) {
@@ -112,7 +112,7 @@ function tableHtml(sort) {
     + `<caption class="sr-only">All-time standings, regular season record</caption>`
     + `<thead><tr>${COLS.map(c => thHtml(c, sort)).join('')}</tr></thead>`
     + `<tbody>${rows.map(r => trHtml(r, meId)).join('')}</tbody></table></div></div>`
-    + `<p class="note">Regular season record. Tap a column to sort.</p>`;
+    + `<p class="group-f">Regular season record. Tap a column to sort.</p>`;
 }
 
 function seasonCard(s) {
@@ -166,7 +166,7 @@ function syncTableEdges(root) {
 function patchHeader(st) {
   const b = st.el.querySelector('[data-sort-open]');
   if (!b) { const h = st.el.querySelector('.std-ah'); if (h) h.innerHTML = allHeader(st.sort); return; }
-  b.innerHTML = sortBtnLabel(st.sort).__html;
+  (b.querySelector('.btn-label') || b).innerHTML = sortBtnLabel(st.sort).__html;
   b.setAttribute('aria-label', `Sort: ${labelOf(st.sort.key)}, ${dirText(st.sort)}`);
 }
 
@@ -229,6 +229,7 @@ async function openSort(ctx) {
   const cur = st.sort;
   const v = await ui.actionSheet({
     title: 'Sort all-time',
+    cls: 'sh-sort',
     message: `${labelOf(cur.key)}, ${dirText(cur)}. Choose it again to reverse.`,
     actions: SORTS.map(s => ({label: s.label, value: s.key, checked: s.key === cur.key}))
   });
@@ -298,6 +299,7 @@ export default {
   },
   onAction(id, ctx) {
     if (id === 'sort') return openSort(ctx);
+    // app.js re-renders the trail after this and keeps keyboard focus on the swapped button.
     if (id === 'table' || id === 'list') setView(ctx, id);
   }
 };

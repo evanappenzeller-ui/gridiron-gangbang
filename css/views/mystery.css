@@ -40,9 +40,12 @@
 }
 .v-run .my-pip.is-lit > b { opacity: 1; transform: none; transition-timing-function: var(--ease-out); }
 .v-run .my-pip.is-gold > b { background: var(--gold); }
-.v-run .my-stamp { position: absolute; z-index: 2; left: 18px; top: 52px; height: 28px; padding: 0 9px; font-size: 15px; background: linear-gradient(var(--gold-soft), var(--gold-soft)), var(--surface-1); }
-
 .v-run .my-reveal { position: relative; margin-top: 16px; padding-top: 14px; }
+/* Name row: the FIRST-BALLOT stamp takes its own slot at the right (like 5 FOR 5 in the College recap), so it
+   never covers the title or the name at any width; a long name wraps beside it. */
+.v-run .my-rh { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 40px; }
+.v-run .my-rh > .my-rname { flex: 1 1 auto; }
+.v-run .my-stamp { height: 28px; padding: 0 9px; margin-right: 4px; font-size: 15px; }
 .v-run .my-reveal[hidden] { display: none; }
 .v-run .my-reveal::before {
   content: ""; position: absolute; left: 0; right: 0; top: 0; height: 1px;
@@ -94,7 +97,7 @@
 .v-run .my-actions .btn { padding: 0 10px; }
 .v-run .my-actions .btn[hidden] { display: none; }
 .v-run .my-actions:has(.my-next[hidden]) > [data-my-guess] { grid-column: 1 / -1; }
-.v-run .my-minus { color: var(--ink-3); font-weight: 500; font-size: 14px; }
+.v-run .my-minus { color: var(--ink-2); font-weight: 500; font-size: 14px; } /* ink-3 is only 4.3:1 on surface-2 */
 .v-run .my-note { grid-column: 1 / -1; margin-top: 2px; text-align: center; }
 
 html.rm .v-run .my-pip > b { transition: none; }

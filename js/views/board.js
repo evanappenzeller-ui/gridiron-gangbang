@@ -27,9 +27,9 @@ export function ensureDefs() {
   document.body.appendChild(s);
 }
 
-/** Streak flame: gradient-filled (flame tokens), or grey when cold / at risk. */
+/** Streak flame: gradient-filled (flame tokens), or grey when cold / at risk. Pure markup: the gradient comes
+ *  from ensureDefs(), which every mount / sheet opener calls. */
 export function flameIcon({size = 18, cold = false, cls = ''} = {}) {
-  ensureDefs();
   const st = cold ? '' : 'fill:url(#c-flame-g);stroke:url(#c-flame-g);';
   return `<svg class="ic c-flame${cold ? ' is-cold' : ''}${cls ? ' ' + cls : ''}" style="${st}width:${size}px;height:${size}px" aria-hidden="true" focusable="false"><use href="#i-flame"/></svg>`;
 }
@@ -38,7 +38,8 @@ export function flameIcon({size = 18, cold = false, cls = ''} = {}) {
 export function streakPillHTML(s, {tag = 'button', attrs = ''} = {}) {
   const n = s.current || 0;
   const cold = !n || !!s.atRisk;
-  const ty = tag === 'button' ? ' type="button"' : '';
+  // A non-button pill is an image to assistive tech (aria-label on a bare span is ignored).
+  const ty = tag === 'button' ? ' type="button"' : ' role="img"';
   return `<${tag}${ty} class="c-spill${s.atRisk ? ' is-risk' : ''}${!n ? ' is-cold' : ''}" aria-label="Streak: ${n} day${n === 1 ? '' : 's'}${s.atRisk ? ', ends at midnight' : ''}"${attrs ? ' ' + attrs : ''}>${flameIcon({size: 18, cold})}<span class="n5 c-spill-n">${n}</span></${tag}>`;
 }
 
@@ -65,7 +66,7 @@ export function whenVisible(el, fn, {threshold = .6} = {}) {
   let done = false;
   const io = new IntersectionObserver(es => {
     if (done) return;
-    if (es.some(e => e.isIntersecting && e.intersectionRatio >= threshold - .01)) { done = true; io.disconnect(); fn(); }
+    if (es.some(e => e.isIntersecting && e.intersectionRatio >= threshold - .01 && ui.rendered(e.target))) { done = true; io.disconnect(); fn(); }
   }, {threshold: [0, threshold, 1]});
   io.observe(el);
   return () => { done = true; io.disconnect(); };
@@ -78,7 +79,8 @@ export function msToMidnight(now = new Date()) {
 function isNewDay() {
   try { return daily.status === 'ready' && daily.checkDay(); } catch (_) { return false; }
 }
-export function countdownHTML(newDay = isNewDay()) {
+/** Pure markup (render-safe). The first ctx.timer tick (tickCountdown) swaps in the banner once the day changed. */
+export function countdownHTML(newDay = false) {
   if (newDay) {
     return `<div class="c-cd c-cd-new" role="status"><span class="c-cd-nt">${ui.icon('sparkle', {size: 18})}<span>New puzzles are here</span></span>${ui.button({label: 'Load', size: 's', attrs: {'data-cd-load': ''}})}</div>`;
   }
@@ -123,8 +125,21 @@ function safeRows(mode, players) {
   try { return daily.boardRows(mode, players); } catch (e) { console.error(e); return []; }
 }
 
-// Module-level 'lb' handler: the passed-you toast and taking #1 run once per event, however many boards are mounted.
+// ---------------------------------------------------------------------------- Finished in this page session
+// Puzzle days this page session saw unfinished. A day that is complete now and is in this set was finished in
+// this session, so the streak +1 roll may play; a day already complete at load never rolls. Evaluated at use
+// time, so it does not depend on the order in which 'progress' subscribers run. No storage (compat contract).
+const seenOpen = new Set();
+function noteOpen() {
+  try { if (daily.status === 'ready' && daily.DAY && !daily.allDone()) seenOpen.add(daily.PNUM); } catch (_) {}
+}
+noteOpen();
+export const finishedThisSession = () => daily.status === 'ready' && !!daily.DAY && seenOpen.has(daily.PNUM) && daily.allDone();
+
+// Module-level daily handler: the session tracker, plus the passed-you toast and taking #1, which run once per
+// event however many boards are mounted.
 daily.subscribe((type, d) => {
+  if (type === 'ready' || type === 'progress') { noteOpen(); return; }
   if (type !== 'lb') return;
   try {
     const LB = daily.LB;
@@ -196,14 +211,14 @@ function seeBoard() {
   }
 }
 
-/** Debug handle for manual testing from the console (read-only use; never called by the app). */
-export const __dev = {
+/** Debug handle for manual testing from the console, on dev hosts only (null in production). */
+export const __dev = daily.DEV_NO_POST ? {
   checkPassed, checkTop, seeBoard, visibleBoard,
   get boards() { return [...boards]; },
   markPosting() { const mine = safeRows('today').find(r => r.me); rankBeforePost = mine ? mine.rank : null; },
   markPosted() { postedAt = Date.now(); },
   reset() { topDay = 0; celebrate = null; rankBeforePost = null; postedAt = 0; }
-};
+} : null;
 
 // ---------------------------------------------------------------------------- Markup
 function moveChip(m) {
@@ -273,10 +288,12 @@ const EMPTY = {
 const OFF = "The leaderboard isn't connected right now. Your score is saved on this phone, and Share results copies it for the group chat.";
 
 function bodyHTML(st, key, rows) {
+  if (key === 'wait') return '';
   if (key === 'loading') return `<div class="c-board-sk">${ui.skeleton('rows', 3, {label: 'Loading scores.'})}</div>`;
   if (key === 'off') return `<p class="c-board-note">${esc(OFF)}</p>`;
   if (key.startsWith('empty')) {
-    const t = st.mode === 'today' ? `<p class="c-board-et">Nobody's played yet today.</p>` : '';
+    // One message, not two about zero scores: a short title that adds something, over the existing body copy.
+    const t = st.mode === 'today' ? `<p class="c-board-et">Be first on the board.</p>` : '';
     return `<div class="c-board-empty">${t}<p class="c-board-eb">${esc(EMPTY[st.mode])}</p></div>`
       + (st.mode === 'today' ? `<div data-r="still">${stillHTML()}</div>` : '');
   }
@@ -288,8 +305,10 @@ function bodyHTML(st, key, rows) {
     + (st.mode === 'today' ? `<div data-r="still">${stillHTML()}</div>` : '');
 }
 
+// 'wait': the puzzles failed to load, so the board never started (Firebase starts after puzzles). Nothing true
+// can be said about scores yet, so the card is hidden until the Daily loads ('off' is only for LB.off).
 function stateKey(st, rows) {
-  if (daily.status === 'error') return 'off';
+  if (daily.status === 'error') return 'wait';
   if (daily.status !== 'ready') return 'loading';
   const LB = daily.LB;
   if (LB.off) return 'off';
@@ -318,7 +337,12 @@ export function mountBoard(container, {mode = 'today', compactTop = 10, ctx = nu
 
   function rebuild(key, rows, animate) {
     const go = () => { body.innerHTML = bodyHTML(st, key, rows); ui.hydrate(body); };
-    if (animate && st.key != null && !ui.RM) ui.crossfade(body, go, {duration: 160});
+    const wasHidden = container.hidden;
+    container.hidden = key === 'wait';
+    if (wasHidden && !container.hidden) {
+      go();
+      if (animate && !ui.RM) ui.animate(root, [{opacity: 0, transform: 'translateY(8px)'}, {opacity: 1, transform: 'none'}], {duration: 320, easing: 'cubic-bezier(.22,1,.36,1)'});
+    } else if (animate && st.key != null && !ui.RM && !container.hidden) ui.crossfade(body, go, {duration: 160});
     else go();
     st.key = key;
     st.rows = rows;

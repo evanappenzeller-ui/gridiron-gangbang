@@ -29,6 +29,8 @@ const ST = new WeakMap();
 // ---------------------------------------------------------------------------------------------- chrome data
 function fracOf(i) {
   const s = daily.STEPS[i], ds = daily.DS;
+  // Spec 7.2: the Grid segment is filled squares / 9, even after giving up (the label still says "finished").
+  if (i === 2) return ds.grid.cells.filter(Boolean).length / 9;
   if (s.done()) return 1;
   if (i === 0) return Math.min(1, ds.col.a.length / 5);
   if (i === 1) return 0;
@@ -101,6 +103,18 @@ function reveal(st, el, {smooth = true} = {}) {
   let dy = 0;
   if (r.bottom > hi) dy = r.bottom - hi;
   if (r.top - dy < lo) dy = r.top - lo;
+  // Never leave the page header (overline and prompt) sliced under the top bar: scroll past it completely when the
+  // target still fits, else keep it whole.
+  const head = st.stage.querySelector('.rn-page:not(.is-out) .rn-head');
+  const edge = sr.top + st.top.offsetHeight;
+  if (head && dy > 1) {
+    const h = head.getBoundingClientRect();
+    if (h.top - dy < edge && h.bottom - dy > edge) {
+      const past = h.bottom - edge;
+      if (r.top - past >= edge) dy = past;
+      else dy = Math.max(0, h.top - edge);
+    }
+  }
   if (Math.abs(dy) > 1) s.scrollBy({top: dy, behavior: (smooth && !ui.RM) ? 'smooth' : 'auto'});
 }
 
@@ -131,7 +145,7 @@ function refreshChrome(st, {swap = false, animate = true} = {}) {
   });
   if (r) setPts(st, animate && !swap);
   const btn = st.next;
-  const done = r && daily.STEPS[st.i].done();
+  const done = r && daily.STEPS[st.i].done() && !(st.inst && st.inst.holdCta && st.inst.holdCta());
   const wasPrimary = btn.classList.contains('btn-primary');
   btn.classList.toggle('btn-primary', done);
   btn.classList.toggle('btn-secondary', !done);
@@ -275,11 +289,15 @@ function onClick(st, e) {
     return;
   }
   if (e.target.closest('[data-rn-next]')) {
-    if (st.i < 2) st.ctx.replace('/today/play/' + SLUGS[st.i + 1]);
-    else {
-      st.ctx.replace('/today/results');
-      if (ready()) daily.maybeAutoPost();
-    }
+    // The bar stays put while the page swaps under it: a double tap must not skip a puzzle. Locked until the
+    // replace has settled (+300 ms; under reduced motion there is no swap to wait for).
+    if (st.navPending || st.swap) return;
+    st.navPending = true;
+    const last = st.i === 2;
+    Promise.resolve(st.ctx.replace(last ? '/today/results' : '/today/play/' + SLUGS[st.i + 1]))
+      .catch(() => {})
+      .finally(() => setTimeout(() => { st.navPending = false; }, 300));
+    if (last && ready()) daily.maybeAutoPost();
     return;
   }
   const retry = e.target.closest('[data-rn-retry]');

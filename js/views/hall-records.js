@@ -54,7 +54,7 @@ function inlineLink(id, text) {
   const t = String(text);
   const k = t.search(/\s/);
   const head = k < 0 ? t : t.slice(0, k), tail = k < 0 ? '' : t.slice(k);
-  return `<a class="rl" href="${prof(id)}"><span class="rl-h">${ui.avatar(id, {size: 20, attrs: MORPH})}${esc(head)}</span>${glue(tail)}</a>`;
+  return `<a class="rl" href="${prof(id)}" aria-label="${esc(t.trim())}"><span class="rl-h">${ui.avatar(id, {size: 20, attrs: MORPH})}${esc(head)}</span>${glue(tail)}</a>`;
 }
 
 // Every matched team name becomes a profile link with an inline avatar (hero line, fun facts).
@@ -68,6 +68,18 @@ function valHTML(v) {
   const m = /^([−-]?[\d,]*\d)(\.\d+)$/.exec(s.trim());
   return m ? `${esc(m[1])}<small>${esc(m[2])}</small>` : esc(s);
 }
+// Rendered width of a value at .n4 (22 px Barlow Condensed 800), from measured advance widths. The tile has
+// 68 px of room: values that do not fit step down to .n5, then to 13 px (never wrapping mid-number).
+function valWidth(v) {
+  const s = String(v == null ? '' : v).trim();
+  const m = /^(.*?)(\.\d+)?$/.exec(s);
+  const W = ch => /\d/.test(ch) ? 11.44 : ch === ',' ? 4.9 : ch === '.' ? 5.2 : /[−–\-]/.test(ch) ? 9.6 : /\s/.test(ch) ? 5 : 10.5;
+  let w = 0;
+  for (const ch of m[1]) w += W(ch);
+  for (const ch of (m[2] || '')) w += ch === '.' ? 3.2 : 7.1;
+  return w;
+}
+const valSize = v => { const w = valWidth(v); return w <= 68 ? '' : w * 17 / 22 <= 68 ? ' is-long' : ' is-xlong'; };
 function numOf(v) {
   const s = String(v == null ? '' : v).trim().replace(/,/g, '').replace(/^−/, '-');
   return /^-?\d+(\.\d+)?$/.test(s) ? Number(s) : NaN;
@@ -129,10 +141,9 @@ function holderLine(line, matches) {
 function recordRow(r) {
   const lines = (r.holders || []).map((h, k) => holderLine(h, r.matches && r.matches[k])).join('');
   const v = String(r.val == null ? '' : r.val);
-  const long = v.replace(/[.,]/g, '').length > 6;
   return `<div class="rc" data-key="${esc(r.key)}">`
     + `<div class="rc-main"><h3 class="rc-l">${esc(r.label)}</h3>${lines ? `<div class="rc-hs">${lines}</div>` : ''}</div>`
-    + `<div class="rc-v"><span class="n4${long ? ' is-long' : ''}">${valHTML(v)}</span>${r.unit ? `<span class="t-cap">${esc(r.unit)}</span>` : ''}</div>`
+    + `<div class="rc-v"><span class="n4${valSize(v)}">${valHTML(v)}</span>${r.unit ? `<span class="t-cap">${esc(r.unit)}</span>` : ''}</div>`
     + `</div>`;
 }
 
@@ -148,7 +159,7 @@ export function render() {
   const {R, secs} = model();
   let h = heroCard(R) + funFacts(R);
   if (!secs.length) {
-    h += `<div class="hl-empty" data-enter>${ui.empty({icon: 'medal', title: 'No records yet.', body: 'The record book fills in once games are played.'})}</div>`;
+    h += `<div class="hl-empty" data-enter>${ui.empty({icon: 'medal', title: 'No records yet.', body: 'The record book opens after the first full season.'})}</div>`;
     return `<div class="hl-rec">${h}</div>`;
   }
   if (secs.length > 1) {
@@ -190,6 +201,7 @@ function spySetup() {
   if (!H) return; // hidden layer: set up again when shown
   S.spy = new IntersectionObserver(es => {
     if (!S) return;
+    if (!ui.rendered(scr)) return; // hidden tab layer: keep the last spy state
     es.forEach(e => { const i = +e.target.dataset.sec; if (e.isIntersecting) S.inBand.add(i); else S.inBand.delete(i); });
     spyPick();
   }, {root: scr, rootMargin: `-${top}px 0px -${Math.max(0, H - top - 1)}px 0px`, threshold: 0});
@@ -197,6 +209,7 @@ function spySetup() {
   if (S.end) {
     S.endIO = new IntersectionObserver(es => {
       if (!S) return;
+      if (!ui.rendered(scr)) return;
       S.atEnd = es[es.length - 1].isIntersecting;
       spyPick();
     }, {root: scr, rootMargin: `0px 0px -${tabH}px 0px`, threshold: 0});
@@ -226,8 +239,11 @@ function scrollToSection(i) {
   if (!sec) return;
   const {scr, navH, accH} = chrome();
   const h = sec.querySelector('.sh') || sec;
-  const target = Math.max(0, Math.round(topIn(scr, h) - navH - accH - 8));
-  S.lockUntil = performance.now() + (ui.RM ? 120 : 900);
+  const target = Math.min(Math.max(0, Math.round(topIn(scr, h) - navH - accH - 8)), scr.scrollHeight - scr.clientHeight);
+  if (Math.abs(scr.scrollTop - target) < 1) { S.lockUntil = 0; return; }
+  // The tapped chip stays selected until the scroll ends (scrollend clears the lock; the cap covers
+  // browsers without it, and a smooth scroll that starts late).
+  S.lockUntil = performance.now() + (ui.RM ? 150 : 2000);
   scr.scrollTo({top: target, behavior: ui.RM ? 'auto' : 'smooth'});
 }
 
@@ -238,15 +254,35 @@ function factsSetup() {
   S.rail = rail;
   S.dots = [...S.el.querySelectorAll('.ff-dot')];
   if (!S.dots.length || typeof IntersectionObserver !== 'function') return;
-  const ratios = new Map();
+  S.ratios = new Map();
   S.factIO = new IntersectionObserver(es => {
     if (!S) return;
-    es.forEach(e => ratios.set(+e.target.dataset.i, e.intersectionRatio));
-    let best = -1, bi = S.fact || 0;
-    ratios.forEach((r, i) => { if (r > best + .001) { best = r; bi = i; } });
-    if (best >= .5) setDot(bi);
-  }, {root: rail, threshold: [0, .25, .5, .75, 1]});
+    if (!es.length || !ui.rendered(es[0].target)) return;
+    es.forEach(e => S.ratios.set(+e.target.dataset.i, e.intersectionRatio));
+    // A dot tap already shows its target: the cards the smooth scroll passes do not move the dot.
+    if (S.factTarget != null) {
+      if ((S.ratios.get(S.factTarget) || 0) < .99) return;
+      endFactScroll();
+      return;
+    }
+    pickDot();
+  }, {root: rail, threshold: [0, .25, .5, .75, .99, 1]});
   rail.querySelectorAll('.ff-card').forEach(c => S.factIO.observe(c));
+  const sig = {signal: S.ac.signal, passive: true};
+  rail.addEventListener('scrollend', () => { if (S && S.factTarget != null) endFactScroll(); }, sig);
+  // The reader takes over mid-scroll: follow the cards again.
+  ['pointerdown', 'wheel', 'touchstart'].forEach(t => rail.addEventListener(t, () => { if (S && S.factTarget != null) endFactScroll(); }, sig));
+}
+function pickDot() {
+  if (!S.ratios) return;
+  let best = -1, bi = S.fact || 0;
+  S.ratios.forEach((r, i) => { if (r > best + .001) { best = r; bi = i; } });
+  if (best >= .5) setDot(bi);
+}
+function endFactScroll() {
+  S.factTarget = null;
+  clearTimeout(S.factT);
+  pickDot();
 }
 function setDot(i) {
   if (!S.dots || i === S.fact) return;
@@ -260,20 +296,28 @@ function scrollToFact(i) {
   const card = S.rail && S.rail.querySelector(`.ff-card[data-i="${i}"]`);
   if (!card) return;
   const pad = parseFloat(getComputedStyle(S.rail).scrollPaddingLeft) || 16;
-  S.rail.scrollTo({left: Math.max(0, card.offsetLeft - pad), behavior: ui.RM ? 'auto' : 'smooth'});
+  const left = Math.max(0, Math.min(card.offsetLeft - pad, S.rail.scrollWidth - S.rail.clientWidth));
   setDot(i);
+  if (Math.abs(S.rail.scrollLeft - left) < 1) return;
+  S.factTarget = i;
+  clearTimeout(S.factT);
+  // Fallback for browsers without scrollend (the IO normally ends it as the target lands fully in view).
+  S.factT = setTimeout(() => { if (S && S.factTarget != null) endFactScroll(); }, 1500);
+  S.rail.scrollTo({left, behavior: ui.RM ? 'auto' : 'smooth'});
 }
 
 // ---------------- Focus param
-function wantFocus(ctx) {
+function wantFocus(ctx, reason = ctx.reason) {
   // A data reload or a "me" change rebuilds the list quietly: never jump or flash again.
-  if (ctx.reason === 'data' || ctx.reason === 'me') { S.focus = null; return; }
+  if (reason === 'data' || reason === 'me') { S.focus = null; return; }
   const f = ctx.params && ctx.params.focus;
   S.focus = f ? String(f) : null;
   S.focusDone = false;
   if (S.focus && !S.keys.has(S.focus)) {
     S.focus = null;
     ui.toast(BAD_LINK);
+    // Drop the stale key from the address (queued behind the current navigation; lands in params()).
+    ctx.replace('/hall/records');
   }
   if (S.focus && ctx.visible) runFocus();
 }
@@ -289,7 +333,8 @@ function runFocus() {
   const target = topIn(scr, row) + row.offsetHeight / 2 - (bandTop + bandBot) / 2;
   S.lockUntil = 0;
   scr.scrollTop = Math.max(0, Math.round(target));
-  // The chip shows the focused record's section until the reader touches the screen.
+  S.focusTop = scr.scrollTop;
+  // The chip shows the focused record's section until the reader touches or scrolls the screen.
   const i = +((row.closest('.rc-sec') || {}).dataset || {}).sec;
   if (S.chips && isFinite(i)) { S.active = -1; setActive(i); S.hold = true; }
   row.classList.remove('is-focus');
@@ -308,8 +353,8 @@ export function mount(el, ctx) {
     secs: [...el.querySelectorAll('.rc-sec')],
     end: el.querySelector('.rc-end'),
     active: 0, lockUntil: 0, hold: false, inBand: new Set(), atEnd: false, bandTop: 0,
-    spy: null, endIO: null, factIO: null, rail: null, dots: null, fact: 0,
-    focus: null, focusDone: false, flashT: 0, ac: new AbortController()
+    spy: null, endIO: null, factIO: null, rail: null, dots: null, fact: 0, ratios: null, factTarget: null, factT: 0,
+    focus: null, focusDone: false, focusTop: 0, flashT: 0, ac: new AbortController()
   };
   const sig = {signal: S.ac.signal};
 
@@ -335,17 +380,29 @@ export function mount(el, ctx) {
     S.chips.addEventListener('click', e => {
       const c = e.target.closest('.chip');
       if (!c) return;
+      // ui.js's document listener (after this one) selects the chip and plays the selection haptic;
+      // here we only scroll, also when the tapped chip is already the selected one.
       const i = +c.dataset.value;
-      if (i !== S.active) ui.haptic('selection');
       S.active = i;
-      ui.setChips(S.chips, String(i), {scroll: true});
+      S.hold = false;
       scrollToSection(i);
     }, sig);
     const scr = ctx.screen;
     if (scr) {
-      scr.addEventListener('scrollend', () => { if (S) S.lockUntil = 0; }, {signal: S.ac.signal, passive: true});
-      const release = () => { if (S) S.hold = false; };
-      ['pointerdown', 'touchstart', 'wheel', 'keydown'].forEach(t => scr.addEventListener(t, release, {signal: S.ac.signal, passive: true}));
+      const psig = {signal: S.ac.signal, passive: true};
+      scr.addEventListener('scrollend', () => { if (!S) return; S.lockUntil = 0; spyPick(); }, psig);
+      // The reader takes over: any touch, wheel or key ends the focus hold and a chip-tap lock.
+      const takeOver = () => {
+        if (!S || (!S.hold && !S.lockUntil)) return;
+        S.hold = false; S.lockUntil = 0;
+        spyPick();
+      };
+      ['pointerdown', 'touchstart', 'wheel', 'keydown'].forEach(t => scr.addEventListener(t, takeOver, psig));
+      // The focus hold also ends on any scroll that did not come from the focus itself (a tab re-tap
+      // scrolling to the top, for one).
+      scr.addEventListener('scroll', () => {
+        if (S && S.hold && Math.abs(scr.scrollTop - S.focusTop) > 4) { S.hold = false; spyPick(); }
+      }, psig);
     }
     addEventListener('resize', () => { if (S && S.ctx.visible) spySetup(); }, {signal: S.ac.signal, passive: true});
   }
@@ -361,10 +418,10 @@ export function mount(el, ctx) {
   wantFocus(ctx);
 }
 
-// A different record in focus while Records is already showing.
-export function params(ctx) {
+// A different record in focus while Records is already showing (reason: see hall.js update).
+export function params(ctx, reason) {
   if (!S) return;
-  wantFocus(ctx);
+  wantFocus(ctx, reason);
 }
 
 export function show() {
@@ -380,5 +437,6 @@ export function unmount() {
   if (S.endIO) S.endIO.disconnect();
   if (S.factIO) S.factIO.disconnect();
   clearTimeout(S.flashT);
+  clearTimeout(S.factT);
   S = null;
 }

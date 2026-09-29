@@ -91,7 +91,7 @@ function podiumHtml(s) {
       + `<span class="pod-base" aria-hidden="true"><span class="pod-plinth"><span class="${place === 1 ? 'n3' : 'n4'}">${place}</span></span></span></a>`;
   };
   const worst = s.lastPlace ? `<p class="sea-worst">${ui.icon('anchor', {size: 14})}<span>Worst record: ${esc(data.name(s.lastPlace))}</span></p>` : '';
-  return `<div class="sea-podium" data-year="${s.year}">${spot(s.runnerUp, 2)}${spot(s.champion, 1)}${spot(s.thirdPlace, 3)}</div>${worst}`;
+  return `<div data-enter><div class="sea-podium" data-year="${s.year}">${spot(s.runnerUp, 2)}${spot(s.champion, 1)}${spot(s.thirdPlace, 3)}</div>${worst}</div>`;
 }
 
 function seasonRow(s, r, me) {
@@ -101,7 +101,7 @@ function seasonRow(s, r, me) {
   const fin = s.live ? null : data.finishOf(s, id);
   const finTxt = {champion: 'champion', runnerUp: 'runner-up', third: 'third place', playoffs: 'made the playoffs', last: 'worst record', missed: 'missed the playoffs'}[fin] || '';
   const label = `${s.live ? 'Rank' : 'Seed'} ${r.seed}, ${nm}, ${tm}, ${rec}${finTxt ? ', ' + finTxt : ''}. Points for ${n2(r.pf)}, against ${n2(r.pa)}.`;
-  return `<a class="row sea-row${id === me ? ' is-me' : ''}" href="#/managers/${esc(id)}" data-key="${esc(id)}" data-enter aria-label="${esc(label)}">`
+  return `<a class="row sea-row${id === me ? ' is-me' : ''}" href="#/managers/${esc(id)}" data-key="${esc(id)}" aria-label="${esc(label)}">`
     + `<span class="row-lead"><span class="sea-seed n5">${r.seed}</span>${ui.avatar(id, {size: 28, you: id === me, attrs: {'data-morph-from': ''}})}</span>`
     + `<span class="row-main"><span class="row-title">${esc(nm)}</span><span class="row-sub">${esc(tm)}</span><span class="row-sub sea-pf">PF ${n2(r.pf)} · PA ${n2(r.pa)}</span></span>`
     + `<span class="row-trail sea-trail"><span class="n4">${rec}</span>${fin ? ui.badge(fin) : ''}</span></a>`;
@@ -122,10 +122,11 @@ function tableHtml(R) {
   });
   const tw = data.throughWeek(s);
   return (!s.live && s.champion ? podiumHtml(s) : '')
-    + `<div class="sea-colh" aria-hidden="true"><span>${s.live ? 'Rank' : 'Seed'}</span><span>Record</span></div>`
+    + `<div data-enter><div class="sea-colh" aria-hidden="true"><span>${s.live ? 'Rank' : 'Seed'}</span><span>Record</span></div>`
     + ui.group(rows, {cls: 'sea-group'})
+    + (s.live ? `<p class="group-f">Season in progress, through week ${tw}.</p>` : '') + '</div>'
     + (s.live
-      ? `<p class="note">Season in progress, through week ${tw}.</p>`
+      ? ''
       : `<a class="card sea-review" href="#/standings/${s.year}/review"><span class="sea-rv-ic" aria-hidden="true">${ui.icon('sparkle', {size: 22})}</span><span class="sea-rv-t"><span class="card-ovl">Season in review</span><span class="card-title">${s.year}: the awards</span></span>${ui.icon('chevron-right', {cls: 'chev'})}</a>`);
 }
 
@@ -133,12 +134,14 @@ function tableHtml(R) {
 function bugCard(s, g, weekGames, {hero = false, foot = true} = {}) {
   const i = s.games.indexOf(g);
   const kinds = gameBadges(g, weekGames);
-  const reg = isReg(g);
-  const footer = !foot ? '' : reg ? 'Final' : ROUND_NAME[g.type] || '';
+  // Only playoff and consolation cards carry a round overline; the week header already names a regular week
+  // (and a "FINAL" there would read as the championship, which the scrubber calls "Final").
+  const footer = !foot || isReg(g) ? '' : ROUND_NAME[g.type] || '';
+  const cls = [g.type === 'final' ? 'sea-final' : '', !footer && !kinds.length ? 'is-bare' : ''].filter(Boolean).join(' ');
   let html = ui.scoreBug(g, {
     card: true, hero, teams: true, footer, badges: kinds,
     seeds: g.playoff ? seedsOf(s) : null,
-    cls: g.type === 'final' ? 'sea-final' : '',
+    cls,
     attrs: {'data-game': `${s.year}:${i}`, 'data-enter': '', 'aria-haspopup': 'dialog'}
   });
   if (g.type === 'final' && g.sa !== g.sb) html = crownWinner(html);
@@ -240,15 +243,41 @@ function playPodium(st) {
   }
 }
 
+// The scrollTop at which the accessory starts to stick: its natural top (measured from the element above it,
+// so it is right even while the bar is stuck) minus its sticky offset, calc(var(--nav-h) - 1px).
+function pinPoint(ctx, st) {
+  const sc = ctx.screen, acc = st.el.querySelector('.sea-acc'), prev = acc && acc.previousElementSibling;
+  if (!sc || !acc || !prev) return null;
+  const ca = getComputedStyle(acc);
+  const gap = Math.max(parseFloat(getComputedStyle(prev).marginBottom) || 0, parseFloat(ca.marginTop) || 0); // collapsed margins
+  const natural = sc.scrollTop + prev.getBoundingClientRect().bottom + gap - sc.getBoundingClientRect().top - sc.clientTop;
+  return natural - (parseFloat(ca.top) || 0);
+}
+
 // Keep the segmented bar pinned where it was when the content below it changes.
 function keepPinned(ctx, st, fn) {
-  const sc = ctx.screen, years = st.el.querySelector('.sea-years'), nav = sc && sc.querySelector(':scope > .nav');
-  let pinAt = null;
-  if (sc && years) pinAt = st.el.offsetTop + years.offsetTop + years.offsetHeight - (nav ? nav.offsetHeight : 0);
+  const sc = ctx.screen;
   const was = sc ? sc.scrollTop : 0;
+  const p0 = pinPoint(ctx, st);
+  // The app marks the bar pinned once any of it tucks under the nav, i.e. past p0 - 1.
+  const pinned = p0 != null && was > p0 - 1;
   fn();
+  if (!sc) return;
+  // The header can change height (a year switch), so measure the pin point again after the swap.
+  const p1 = pinned ? pinPoint(ctx, st) : null;
   // Explicit either way, so scroll anchoring never jumps the page when the content is swapped.
-  if (sc) sc.scrollTop = pinAt != null && was > pinAt ? pinAt : was;
+  sc.scrollTop = p1 != null ? Math.ceil(p1) : was;
+}
+
+// Enable or disable a scrubber step. A disabled button drops focus to <body>, so a step that is about to
+// disable itself under keyboard focus (first or last week) first hands focus to the selected week chip.
+function setStep(scrub, btn, off) {
+  if (!btn || btn.disabled === off) return;
+  if (off && btn === document.activeElement) {
+    const chip = scrub.querySelector('.chip[aria-pressed="true"]');
+    if (chip) chip.focus({preventScroll: true});
+  }
+  btn.disabled = off;
 }
 
 function patch(ctx, st, R) {
@@ -285,8 +314,8 @@ function patch(ctx, st, R) {
         ui.setChips(scrub.querySelector('.chips'), R.week, {scroll: true});
         const i = R.weeks.indexOf(R.week);
         const [prev, next] = scrub.querySelectorAll('[data-wk]');
-        if (prev) prev.disabled = i <= 0;
-        if (next) next.disabled = i < 0 || i >= R.weeks.length - 1;
+        setStep(scrub, prev, i <= 0);
+        setStep(scrub, next, i < 0 || i >= R.weeks.length - 1);
       } else {
         const tmp = document.createElement('div');
         tmp.innerHTML = scrubHtml(R);
@@ -402,8 +431,8 @@ export default {
     const R = st ? st.R : resolve(ctx.params);
     // ui.share runs synchronously inside this tap (iOS user activation).
     return ui.share({text: shareText(R), url: ui.absLink(pathFor(R.year, R.seg, R.seg === 'weeks' ? R.week : null))}).then(r => {
-      if (r === 'copied') ui.toast('Link copied.', {icon: 'check-circle'});
-      else if (r === 'unavailable') ui.toast("Couldn't share the link.");
+      if (r === 'copied') ui.toast('Link copied. Paste it in the league chat.', {icon: 'check-circle'});
+      else if (r === 'unavailable') ui.toast("Couldn't copy the link.");
     });
   }
 };

@@ -52,6 +52,7 @@
 /* ---------------------------------------------------------------- Daily card */
 .v-today .c-dc-wrap { margin-top: 12px; }
 .v-today .c-dc { display: flex; flex-direction: column; padding: 18px 20px 6px; overflow: hidden; }
+.v-today .c-dc:focus { outline: none; } /* programmatic focus target while "Try again" reloads */
 .v-today .c-dc-top { display: flex; align-items: center; justify-content: space-between; min-height: 16px; }
 .v-today .c-dc-top .card-ovl { color: var(--ink-3); }
 .v-today .c-dc-ringw { display: grid; place-items: center; margin-top: 10px; }

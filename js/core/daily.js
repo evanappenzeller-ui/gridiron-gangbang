@@ -187,6 +187,42 @@ export function exampleFor(r, c, exclude) {
   return best;
 }
 
+// critOk with the criterion parsed once (for scans over every player).
+function critFn(c) {
+  const [k, v] = String(c).split(':');
+  if (k === 't') { const ch = TA[+v]; return p => p[1].includes(ch); }
+  if (k === 'p') return p => p[2] === v;
+  if (k === 'd') return p => p[3] === v;
+  if (k === 'c') { const ch = TA[+v]; return p => p[6].includes(ch); }
+  return () => false;
+}
+/** exampleFor() for all nine squares of today's grid in one pass over the players (row-major, -1 when none).
+ *  Same rule and pick as exampleFor: the most famous fit that is not excluded, first index on ties. */
+export function examplesFor(exclude = new Set(), day = DAY) {
+  const best = Array(9).fill(-1);
+  if (!PZ || !day) return best;
+  const ex = exclude instanceof Set ? exclude : new Set(exclude);
+  const R = day.g.slice(0, 3).map(critFn), C = day.g.slice(3, 6).map(critFn);
+  for (let i = 0; i < PP.length; i++) {
+    if (ex.has(i)) continue;
+    const p = PP[i];
+    let rm = 0, cm = 0;
+    for (let r = 0; r < 3; r++) if (R[r](p)) rm |= 1 << r;
+    if (!rm) continue;
+    for (let c = 0; c < 3; c++) if (C[c](p)) cm |= 1 << c;
+    if (!cm) continue;
+    for (let r = 0; r < 3; r++) {
+      if (!(rm & (1 << r))) continue;
+      for (let c = 0; c < 3; c++) {
+        if (!(cm & (1 << c))) continue;
+        const k = r * 3 + c;
+        if (best[k] < 0 || p[7] > PP[best[k]][7]) best[k] = i;
+      }
+    }
+  }
+  return best;
+}
+
 export function whoClues(i) {
   const n = PZ.N[i], p = PP[i], pos = p[2], S = k => stat(i, k);
   let line;
@@ -399,6 +435,7 @@ export function ensure() {
     emit('ready', {PNUM});
     buildIndexIdle();
     idle(() => { startFirebase(); });
+    idle(() => warmDeepCuts());
   }).catch(e => {
     status = 'error';
     loadError = e;
@@ -555,18 +592,52 @@ export function gradeFor(total) {
 // percentile of all valid answers for that square, and the square has at least 8 valid answers.
 // r and c are criteria strings (e.g. 't:5'), or row/column indexes 0-2 into today's grid.
 const deepCache = new Map();
-export function deepCut(r, c, i) {
-  if (!PZ || i == null || !PP[i]) return false;
-  const R = typeof r === 'number' ? DAY.g[r] : r, C = typeof c === 'number' ? DAY.g[3 + c] : c;
+const squareCrit = (r, c) => [typeof r === 'number' ? DAY.g[r] : r, typeof c === 'number' ? DAY.g[3 + c] : c];
+// The fame cutoff for a square (one scan over every player, ~5 ms; memoized).
+function deepCutoff(R, C) {
   const key = R + '|' + C;
   let cut = deepCache.get(key);
   if (cut === undefined) {
+    const fr = critFn(R), fc = critFn(C);
     const fames = [];
-    for (let j = 0; j < PP.length; j++) if (critOk(R, PP[j]) && critOk(C, PP[j])) fames.push(PP[j][7]);
+    for (let j = 0; j < PP.length; j++) if (fr(PP[j]) && fc(PP[j])) fames.push(PP[j][7]);
     fames.sort((a, b) => a - b);
     cut = fames.length >= 8 ? fames[Math.ceil(0.25 * fames.length) - 1] : null;
     deepCache.set(key, cut);
   }
+  return cut;
+}
+export function deepCut(r, c, i) {
+  if (!PZ || i == null || !PP[i]) return false;
+  const [R, C] = squareCrit(r, c);
+  const cut = deepCutoff(R, C);
   if (cut == null) return false;
   return critOk(R, PP[i]) && critOk(C, PP[i]) && PP[i][7] <= cut;
 }
+/** True when deepCut() for this square is already computed (a call costs nothing). */
+export function deepReady(r, c) {
+  if (!PZ || !DAY) return false;
+  const [R, C] = squareCrit(r, c);
+  return deepCache.has(R + '|' + C);
+}
+/** Computes today's nine DEEP CUT cutoffs, one square per idle callback, then calls done().
+ *  ensure() runs it at idle, so render-time deepCut() calls are normally free. */
+export function warmDeepCuts(done) {
+  if (!PZ || !DAY) { if (done) done(); return; }
+  const day = DAY, todo = [];
+  for (let k = 0; k < 9; k++) if (!deepReady(Math.floor(k / 3), k % 3)) todo.push(k);
+  const step = () => {
+    if (DAY !== day) return;
+    const k = todo.shift();
+    if (k == null) { if (done) done(); return; }
+    const [R, C] = squareCrit(Math.floor(k / 3), k % 3);
+    deepCutoff(R, C);
+    idle(step);
+  };
+  if (!todo.length) { if (done) done(); return; }
+  idle(step);
+}
+
+// Debug only (never called by the app): emit a synthetic event, e.g.
+// daily.__dev.emit('lb', {prev: daily.LB.players, why: 'snapshot'}) after editing LB.players in the console.
+export const __dev = {emit: (type, detail) => emit(type, detail)};

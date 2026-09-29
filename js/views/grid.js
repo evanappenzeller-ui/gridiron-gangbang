@@ -18,72 +18,27 @@ const cells = () => daily.DS.grid.cells;
 const nameOf = i => daily.PP[i][0];
 const wait = ms => new Promise(r => setTimeout(r, ms));
 
-// Examples ("Try {name}") exclude every player on the grid, like the old gridBody. All nine come from one pass
-// over the players with pre-parsed criteria (same rules as daily.critOk, same pick as daily.exampleFor: the
-// most famous fit, first index on ties), so a finished grid renders in a few ms instead of nine full scans.
-function matcher(c) {
-  const [k, v] = String(c).split(':');
-  if (k === 't') { const ch = daily.TA[+v]; return p => p[1].includes(ch); }
-  if (k === 'p') return p => p[2] === v;
-  if (k === 'd') return p => p[3] === v;
-  if (k === 'c') { const ch = daily.TA[+v]; return p => p[6].includes(ch); }
-  return () => false;
-}
-function examplesAll(exclude) {
-  const g = daily.DAY.g, PP = daily.PP;
-  const R = g.slice(0, 3).map(matcher), C = g.slice(3, 6).map(matcher);
-  const best = Array(9).fill(-1);
-  for (let i = 0; i < PP.length; i++) {
-    if (exclude.has(i)) continue;
-    const p = PP[i];
-    let rm = 0, cm = 0;
-    for (let r = 0; r < 3; r++) if (R[r](p)) rm |= 1 << r;
-    if (!rm) continue;
-    for (let c = 0; c < 3; c++) if (C[c](p)) cm |= 1 << c;
-    if (!cm) continue;
-    for (let r = 0; r < 3; r++) {
-      if (!(rm & (1 << r))) continue;
-      for (let c = 0; c < 3; c++) {
-        if (!(cm & (1 << c))) continue;
-        const k = r * 3 + c;
-        if (best[k] < 0 || p[7] > PP[best[k]][7]) best[k] = i;
-      }
-    }
-  }
-  return best;
-}
+// Examples ("Try {name}") exclude every player on the grid, like the old gridBody. daily.examplesFor gives all
+// nine from one pass over the players (same pick as daily.exampleFor), so a finished grid renders in a few ms.
 let exCache = {key: '', best: null};
 function example(k) {
   const used = cells().filter(Boolean).map(c => c.p);
   const key = daily.PNUM + ':' + used.join(',');
-  if (exCache.key !== key) exCache = {key, best: examplesAll(new Set(used))};
+  if (exCache.key !== key) exCache = {key, best: daily.examplesFor(new Set(used))};
   return exCache.best[k];
 }
 
-// DEEP CUT: daily.deepCut scans every player the first time a square is asked (~5 ms). Squares already asked
-// are "warm"; render only asks warm squares and the rest are filled in at idle (see warm() and mount()).
-const deepWarm = new Set();
-const deepKey = k => daily.PNUM + ':' + k;
+// DEEP CUT: daily.deepCut scans every player the first time a square is asked (~5 ms). daily warms today's nine
+// squares at idle after ensure(); render only asks warm squares and the rest are filled in at idle (see mount()).
 const isDeep = k => {
   const c = cells()[k];
-  if (!c || !c.ok) return false;
-  const v = !!daily.deepCut(Math.floor(k / 3), k % 3, c.p);
-  deepWarm.add(deepKey(k));
-  return v;
+  return !!(c && c.ok && daily.deepCut(Math.floor(k / 3), k % 3, c.p));
 };
-const deepKnown = k => deepWarm.has(deepKey(k));
-/** Warm DEEP CUT for every correct square, one square per idle callback (the run cover calls it on mount). */
+const deepKnown = k => daily.deepReady(Math.floor(k / 3), k % 3);
+/** Warm DEEP CUT for every square, one square per idle callback (the run cover calls it on mount). */
 function warm(done) {
   if (daily.status !== 'ready' || !daily.DS.grid) return;
-  const todo = [];
-  for (let k = 0; k < 9; k++) { const c = cells()[k]; if (c && c.ok && !deepKnown(k)) todo.push(k); }
-  const step = () => {
-    const k = todo.shift();
-    if (k == null) { if (done) done(); return; }
-    isDeep(k);
-    ui.onIdle(step, 1000);
-  };
-  ui.onIdle(step, 1000);
+  daily.warmDeepCuts(done);
 }
 
 // ---------------------------------------------------------------------------------------------- markup
@@ -301,8 +256,6 @@ function tapCell(I, cell, kb) {
   ui.haptic('light');
   // Keyboard users keep the focus ring when focus comes back to the square; pointer users do not get one.
   cell.classList.toggle('no-ring', !kb);
-  // The sheet returns focus to its trigger; make the square the trigger even where taps do not focus buttons (iOS).
-  if (document.activeElement !== cell) restoreFocus(cell);
   const used = new Set(cells().filter(Boolean).map(c => c.p));
   openPicker({kind: 'grid', criteria: [rowC(k), colC(k)], disabled: j => (used.has(j) ? 'On your grid' : '')})
     .then(i => onPick(I, k, i, cell));

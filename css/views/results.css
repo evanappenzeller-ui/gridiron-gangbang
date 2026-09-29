@@ -32,11 +32,15 @@
 
 /* ---------------------------------------------------------------- Hero: grade + ring */
 .v-results .c-rhero { display: flex; flex-direction: column; align-items: center; padding: 16px 0 4px; }
+/* Programmatic focus target after lock-in (a region, not a control): no ring, like .screen. */
+.v-results .c-rhero:focus { outline: none; }
 .v-results .c-grade {
   display: inline-flex; align-items: center; gap: 6px;
   font-size: 15px; line-height: 20px; letter-spacing: .09em;
   color: var(--ink-2);
 }
+/* First view: the grade keeps its space but stays hidden until the count lands (reveal() removes the class). */
+.v-results .c-grade.is-pending { opacity: 0; }
 .v-results .c-grade.is-gold { color: var(--gold); }
 .v-results .c-grade .ic { stroke-width: 2.2; margin-top: -2px; }
 .v-results .c-rring { margin-top: 14px; }
@@ -58,19 +62,21 @@
 }
 .v-results .c-rb-tile .ic { stroke-width: 1.9; }
 .v-results .c-rb-main { flex: 1; min-width: 0; }
-.v-results .c-rb-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; min-width: 0; }
+/* The title gets the full width on one line ("Puzzle 2 · Mystery player" fits at 360); the value sits on the
+   second line with the result, right above the end of its bar. Rows share one height. */
 .v-results .c-rb-t {
-  min-width: 0; overflow: hidden;
-  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+  display: block; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   font: 600 var(--fs-headline)/var(--lh-headline) var(--font-text);
 }
-.v-results .c-rb-v { padding-top: 1px; }
+.v-results .c-rb-mid { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; min-width: 0; margin-top: 2px; }
 .v-results .c-rb-v { flex: none; display: inline-flex; align-items: baseline; gap: 3px; }
 .v-results .c-rb-v .n4 { color: var(--ink); }
 .v-results .c-rb-max { font-family: var(--font-num); font-weight: 800; font-stretch: condensed; font-size: 15px; color: var(--ink-3); }
-.v-results .c-rb-sub { display: flex; align-items: center; gap: 4px; margin-top: 1px; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
-.v-results .c-rb-perf { color: var(--gold); stroke-width: 2.2; }
-.v-results .c-rb-bar { position: relative; display: block; height: 4px; margin-top: 8px; border-radius: 2px; background: var(--surface-3); overflow: hidden; }
+.v-results .c-rb-sub { flex: 1; min-width: 0; display: flex; align-items: center; gap: 4px; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+.v-results .c-rb-res { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.v-results .c-rb-perf { flex: none; color: var(--gold); stroke-width: 2.2; }
+.v-results .c-rb-bar { position: relative; display: block; height: 4px; margin-top: 6px; border-radius: 2px; background: var(--surface-3); overflow: hidden; }
 .v-results .c-rb-fill { position: absolute; inset: 0; border-radius: 2px; background: var(--tint); transform-origin: left center; }
 .v-results .c-rb-fill.is-perfect { background: var(--gold); }
 

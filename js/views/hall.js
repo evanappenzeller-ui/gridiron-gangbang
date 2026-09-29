@@ -36,6 +36,15 @@ function clampScroll(st, ctx) {
   if (scr.scrollTop > max) scr.scrollTop = max;
 }
 
+// Horizontal rails keep their position across a quiet rebuild (a data reload).
+const RAILS = ['.ff-rail', '.sc-rail'];
+function railPos(st) {
+  return RAILS.map(sel => { const r = st.body.querySelector(sel); return r ? r.scrollLeft : 0; });
+}
+function restoreRails(st, pos) {
+  RAILS.forEach((sel, i) => { const r = st.body.querySelector(sel); if (r && pos[i]) r.scrollLeft = pos[i]; });
+}
+
 function swap(st, ctx, seg, {fade}) {
   try { SEGS[st.seg].unmount(); } catch (e) { console.error(e); }
   const body = st.body;
@@ -62,7 +71,7 @@ export default {
 
   mount(el, ctx) {
     const seg = segOf(ctx);
-    const st = {el, body: el.querySelector('.hl-body'), seg};
+    const st = {el, body: el.querySelector('.hl-body'), seg, path: ctx.path};
     ST.set(ctx, st);
     el.addEventListener('ui:change', e => {
       if (!e.detail || e.detail.name !== 'hall-seg') return;
@@ -80,20 +89,35 @@ export default {
     if (sub) { const t = subtitle(); if (sub.textContent !== t) sub.textContent = t; }
     const segEl = st.el.querySelector('.hl-seg > .seg');
     if (segEl) ui.setSeg(segEl, seg, {animate: ctx.visible});
-    if (ctx.reason === 'params') {
-      if (seg === st.seg) {
-        // Same segment, new params (a different record in focus).
-        if (SEGS[seg].params) SEGS[seg].params(ctx);
-        return;
-      }
-      clampScroll(st, ctx); // before the swap, so a record focused by the new segment's mount keeps its scroll
-      swap(st, ctx, seg, {fade: true});
+    // 'params' also arrives for a link to the route already shown (same path): re-run the focus then.
+    const routed = ctx.reason === 'params' || ctx.path !== st.path;
+    st.path = ctx.path;
+    if (ctx.reason === 'data') {
+      // league.json changed: rebuild the segment quietly, keeping the page and rail positions.
+      const same = seg === st.seg;
+      if (!same) clampScroll(st, ctx);
+      const top = ctx.screen ? ctx.screen.scrollTop : 0;
+      const rails = same ? railPos(st) : null;
+      swap(st, ctx, seg, {fade: false});
+      if (ctx.screen) ctx.screen.scrollTop = top;
+      if (rails) restoreRails(st, rails);
+      if (routed && SEGS[seg].params) SEGS[seg].params(ctx, 'params');
       return;
     }
-    // 'data' (league.json changed) or 'me': rebuild the segment quietly, keeping the scroll position.
-    const top = ctx.screen ? ctx.screen.scrollTop : 0;
-    swap(st, ctx, seg, {fade: false});
-    if (ctx.screen) ctx.screen.scrollTop = top;
+    if (routed) {
+      if (seg === st.seg) {
+        // Same segment, new params (a different record in focus).
+        if (SEGS[seg].params) SEGS[seg].params(ctx, 'params');
+      } else {
+        clampScroll(st, ctx); // before the swap, so a record focused by the new segment's mount keeps its scroll
+        swap(st, ctx, seg, {fade: true});
+        // The new segment's mount skips the focus param under 'me'; apply it as the route change it is.
+        if (ctx.reason !== 'params' && SEGS[seg].params) SEGS[seg].params(ctx, 'params');
+      }
+    }
+    // 'me': Records has nothing that depends on it; Trophies patches its highlights in place, so the
+    // rails and the champion moment are left alone.
+    if (ctx.reason === 'me' && SEGS[st.seg].me) SEGS[st.seg].me(ctx);
   },
 
   onShow(ctx) {

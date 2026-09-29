@@ -39,6 +39,9 @@
   max-width: 100%; min-width: 0;
 }
 .v-profile .pf-crowns + .pf-name { margin-top: 6px; }
+/* The name takes focus (tabindex -1) when a pick from the unknown-id grid replaces the screen: a landing point
+   for the screen reader, not a control, so no ring. */
+.v-profile .pf-name:focus-visible { outline: none; }
 .v-profile .pf-name-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .v-profile .pf-you { display: inline-flex; flex: none; }
 .v-profile .pf-you[hidden] { display: none; }
@@ -82,10 +85,17 @@
   color: var(--gold); fill: currentColor; stroke-width: 1.5;
 }
 .v-profile .pf-gold .tile-value { color: var(--gold); }
+/* Values sit right under the label (not pinned to the bottom), so a tile without a sub (a count of 0) keeps its
+   number level with its neighbours'. */
+.v-profile .pf-tiles3 .tile-value { margin-top: 0; }
 .v-profile .tile-sub:empty { display: none; }
 
 /* ---------------------------------------------------------------- Sections */
-.v-profile .pf-note { margin: 8px 16px 0; }
+.v-profile .pf-note { margin: 6px 16px 0; } /* the same group footer as .group-f everywhere else */
+/* Sections below the first screen skip layout and paint until they near the viewport (spec 11 budget: the push
+   starts within a frame). The inline contain-intrinsic-size is a per-section estimate; `auto` then remembers the
+   real height (estimates include the header's 32 px top margin, which containment keeps inside the section). */
+.v-profile .pf-sec.is-lazy { content-visibility: auto; }
 
 /* Year column shared by the name reel, seasons and draft rows */
 .v-profile .pf-yr { display: block; width: 44px; color: var(--ink-3); }
@@ -146,6 +156,15 @@
 .v-profile .pf-sl.is-out { color: var(--ink-3); }
 .v-profile .pf-sl.is-champ { color: var(--gold); }
 .v-profile .pf-sl .ic { width: 12px; height: 12px; fill: currentColor; stroke-width: 1.5; }
+/* Y axis: seed 1 at the top, the last seed at the bottom, in the card's side padding (left of the plot). */
+.v-profile .pf-yl {
+  position: absolute; right: calc(100% + 7px);
+  transform: translateY(-50%);
+  font: 800 12px/12px var(--font-num);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+  pointer-events: none;
+}
 .v-profile .pf-reveal {
   position: absolute; left: -12px; right: -12px; top: -32px; bottom: -24px;
   background: var(--surface-1);
@@ -177,6 +196,13 @@
 .v-profile a.pf-bwt { transition: transform var(--spring-snappy-dur) var(--spring-snappy); }
 .v-profile a.pf-bwt.is-pressed { transform: scale(.97); transition: none; }
 .v-profile .pf-bwt .tile-label { padding-right: 16px; }
+/* The caption carries the week: wrap it (two lines at most) rather than cut "wk 14" off at 360 px. Values sit
+   right under the label (not pinned to the bottom), so they stay level across a row when one caption wraps. */
+.v-profile .pf-bwt .tile-value { margin-top: 0; }
+.v-profile .pf-bwt .tile-sub {
+  white-space: normal; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+}
 .v-profile .pf-go { position: absolute; top: 16px; right: 10px; width: 14px; height: 14px; color: var(--ink-4); stroke-width: 2.2; }
 .v-profile .pf-bwt.is-win .tile-value { color: var(--tint); }
 .v-profile .pf-bwt.is-loss .tile-value { color: var(--wrong); }
@@ -184,7 +210,9 @@
 .v-profile .pf-bwt.is-none .tile-value { color: var(--ink-4); }
 
 /* Rivalries */
-.v-profile .pf-rk { font-weight: 600; }
+.v-profile .pf-rk { font-weight: 600; white-space: nowrap; }
+/* "Toughest matchup · Most played" is wider than a 360 px row: wrap between the labels rather than cut one off. */
+.v-profile .pf-rival .row-sub { white-space: normal; }
 .v-profile .pf-rk-own { color: var(--tint); }
 .v-profile .pf-rk-nem { color: var(--wrong); }
 .v-profile .pf-rk-most { color: var(--ink-2); }
@@ -197,8 +225,11 @@
 .v-profile .pf-rv .ink2 + .pf-bar { color: var(--ink-2); }
 
 /* Records held */
-.v-profile .pf-rec .row-title,
-.v-profile .pf-rec .row-sub { white-space: normal; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+.v-profile .pf-rec .row-title { white-space: normal; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+/* Holder lines are never clamped: each one wraps in full, so the week and year are never cut off. */
+.v-profile .pf-rec .row-sub { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
+.v-profile .pf-rec .pf-hl { display: block; }
+.v-profile .pf-rec .pf-hl + .pf-hl { margin-top: 2px; }
 .v-profile .pf-val { display: flex; flex-direction: column; align-items: flex-end; min-width: 56px; max-width: 96px; }
 .v-profile .pf-val .n4 { color: var(--ink); white-space: nowrap; }
 .v-profile .pf-val .t-cap { color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }

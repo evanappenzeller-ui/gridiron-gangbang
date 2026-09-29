@@ -136,8 +136,8 @@ export function sectionHeader({title = '', action, level = 2, id} = {}) {
   let act = '';
   if (action) {
     act = action.href
-      ? `<a class="btn btn-plain" href="${esc(action.href)}"${attrs(action.attrs)}>${T(action.label)}</a>`
-      : `<button type="button" class="btn btn-plain"${attrs(action.attrs)}>${T(action.label)}</button>`;
+      ? `<a class="btn btn-plain" href="${esc(action.href)}"${attrs(action.attrs)}><span class="btn-label">${T(action.label)}</span></a>`
+      : `<button type="button" class="btn btn-plain"${attrs(action.attrs)}><span class="btn-label">${T(action.label)}</span></button>`;
   }
   return `<div class="sh"${id ? ` id="${esc(id)}"` : ''}><${h}>${T(title)}</${h}>${act}</div>`;
 }
@@ -156,11 +156,14 @@ export function group(inner, {header, footer, cls = '', attrs: at} = {}) {
 export function row({lead, title = '', sub, trail, chevron, attrs: at, key, cls = '', tag, selected, me, disabled} = {}) {
   const A = attrs(at);
   const tg = tag || (/\shref=/.test(A) ? 'a' : (chevron || /\sdata-/.test(A)) ? 'button' : 'div');
-  const k = `row${selected ? ' is-selected' : ''}${me ? ' is-me' : ''}${disabled ? ' is-disabled' : ''}${cls ? ' ' + cls : ''}`;
+  // Height classes are set here (not with :has() in CSS), so long lists pay no per-row selector cost.
+  const hasSub = sub != null && sub !== '';
+  const tall = lead && /av-40/.test(lead) ? ' row-72' : hasSub ? ' row-2l' : '';
+  const k = `row${tall}${selected ? ' is-selected' : ''}${me ? ' is-me' : ''}${disabled ? ' is-disabled' : ''}${cls ? ' ' + cls : ''}`;
   const ty = tg === 'button' ? ' type="button"' : '';
   const dis = disabled ? (tg === 'button' ? ' disabled' : ' aria-disabled="true"') : '';
   const cur = selected && tg !== 'div' ? ' aria-current="true"' : '';
-  return `<${tg} class="${k}"${ty}${key != null ? ` data-key="${esc(key)}"` : ''}${dis}${cur}${A}>${lead ? `<span class="row-lead">${lead}</span>` : ''}<span class="row-main"><span class="row-title">${T(title)}</span>${sub != null && sub !== '' ? `<span class="row-sub">${T(sub)}</span>` : ''}</span>${trail != null && trail !== '' ? `<span class="row-trail">${trail}</span>` : ''}${chevron ? `<svg class="ic chev" aria-hidden="true" focusable="false"><use href="#i-chevron-right"/></svg>` : ''}</${tg}>`;
+  return `<${tg} class="${k}"${ty}${key != null ? ` data-key="${esc(key)}"` : ''}${dis}${cur}${A}>${lead ? `<span class="row-lead">${lead}</span>` : ''}<span class="row-main"><span class="row-title">${T(title)}</span>${hasSub ? `<span class="row-sub">${T(sub)}</span>` : ''}</span>${trail != null && trail !== '' ? `<span class="row-trail">${trail}</span>` : ''}${chevron ? `<svg class="ic chev" aria-hidden="true" focusable="false"><use href="#i-chevron-right"/></svg>` : ''}</${tg}>`;
 }
 
 // ============================================================================ Numbers
@@ -318,7 +321,7 @@ export function scoreBug(g, {year, seeds, footer, card, compact, badges, teams, 
   if (compact) {
     const cA = color(A).cls, cB = hueClose(A, B) ? 'mc-ink' : color(B).cls;
     const rd = !g.reg && g.type && RSHORT[g.type] ? (g.type === 'final' ? badge('final') : badge('round', RSHORT[g.type])) : '';
-    return `<${tg}${ty} class="bug bug-compact${cls ? ' ' + cls : ''}"${dk} aria-label="${esc(label)}"${A_}><span class="bug-c a ${cA}${winA ? ' is-win' : ''}"><span class="n4">${score(sA)}</span></span><span class="bug-mid"><span>Wk ${esc(g.week)}</span>${rd}</span><span class="bug-c b ${cB}${!tie && !winA ? ' is-win' : ''}"><span class="n4">${score(sB)}</span></span></${tg}>`;
+    return `<${tg}${ty} class="bug bug-compact${cls ? ' ' + cls : ''}"${dk} aria-label="${esc(label)}"${A_}><span class="bug-c a ${cA}${winA ? ' is-win' : tie ? ' is-tie' : ''}"><span class="n4">${score(sA)}</span></span><span class="bug-mid"><span>Wk ${esc(g.week)}</span>${rd}</span><span class="bug-c b ${cB}${!tie && !winA ? ' is-win' : tie ? ' is-tie' : ''}"><span class="n4">${score(sB)}</span></span></${tg}>`;
   }
   const side = (id, sc, st) => {
     const t = tm ? tm(id) : '';
@@ -464,6 +467,7 @@ export function spring({k, c, v0 = 0}) {
 }
 const SPRING_P = {snappy: {k: 520, c: 40}, smooth: {k: 380, c: 39}, bouncy: {k: 280, c: 20}};
 const CUBIC = {snappy: ['cubic-bezier(.2,.9,.3,1)', 300], smooth: ['cubic-bezier(.32,.72,0,1)', 420], bouncy: ['cubic-bezier(.34,1.56,.64,1)', 500]};
+const EASE_OUT_CSS = 'cubic-bezier(.22,1,.36,1)';
 /** {snappy, smooth, bouncy}: each {easing, duration}. linear() springs, or the cubic fallbacks. */
 export const springs = {};
 for (const k of Object.keys(SPRING_P)) springs[k] = LINEAR_OK ? spring(SPRING_P[k]) : {easing: CUBIC[k][0], duration: CUBIC[k][1]};
@@ -496,6 +500,11 @@ export function whenIdle(fn) {
   t = setTimeout(check, 0);
   return () => { dead = true; clearTimeout(t); };
 }
+/**
+ * False while el sits in a subtree skipped by content-visibility (a hidden tab layer). Observer callbacks ignore
+ * records from there, so a hidden screen's collapse, pinned, stuck, spy and count-up states never change while hidden.
+ */
+export const rendered = el => !el || typeof el.checkVisibility !== 'function' || el.checkVisibility();
 /** requestIdleCallback with a setTimeout(200) fallback. */
 export function onIdle(fn, timeout = 2000) {
   if (typeof requestIdleCallback === 'function') return requestIdleCallback(fn, {timeout});
@@ -572,7 +581,8 @@ export function flip(container, mutate, {selector = '[data-key]', spring: sp = '
   const first = new Map();
   container.querySelectorAll(selector).forEach(el => { const k = el.dataset.key; if (k != null) first.set(k, el.getBoundingClientRect()); });
   mutate && mutate();
-  if (RM) return Promise.resolve();
+  // Reduced motion (spec 5.8): nothing glides; the reordered container cross-fades in (150 ms, opacity) as the cue.
+  if (RM) return animate(container, [{opacity: 0}, {opacity: 1}], {duration: 150, easing: 'linear'}).finished.catch(() => {});
   const anims = [];
   container.querySelectorAll(selector).forEach(el => {
     const k = el.dataset.key, r0 = first.get(k);
@@ -587,10 +597,47 @@ export function flip(container, mutate, {selector = '[data-key]', spring: sp = '
   return Promise.all(anims.map(a => a.finished.catch(() => {})));
 }
 
-/** Content cross-fade after a segment/chip change (opacity, 120ms). */
+/**
+ * Content cross-fade after a segment/chip change. A real dissolve: a snapshot of the old content (an inert clone laid
+ * over the same box) fades 1→0 over `duration` while the new content fades .2→1 slightly slower, so the swap never
+ * blinks through the black canvas. Very large regions skip the clone and fade from .4 instead.
+ */
 export function crossfade(el, mutate, {duration = 120} = {}) {
+  if (!el || !el.isConnected || !el.parentElement || !el.getClientRects().length) {
+    mutate && mutate();
+    return el ? animate(el, [{opacity: .4}, {opacity: 1}], {duration: duration + 40, easing: EASE_OUT_CSS}) : doneAnim(null);
+  }
+  let ghost = null, box = null;
+  if (el.getElementsByTagName('*').length <= 700) {
+    box = el.getBoundingClientRect();
+    ghost = el.cloneNode(true);
+    ghost.removeAttribute('id');
+    ghost.querySelectorAll('[id]').forEach(n => n.removeAttribute('id'));
+    // The snapshot must never be wired (count-ups, the collapse sentinel, FLIP keys, stagger).
+    for (const a of ['data-count-to', 'data-collapse', 'data-key', 'data-enter']) {
+      ghost.removeAttribute(a);
+      ghost.querySelectorAll(`[${a}]`).forEach(n => n.removeAttribute(a));
+    }
+    ghost.setAttribute('aria-hidden', 'true');
+    ghost.inert = true;
+  }
   mutate && mutate();
-  if (el) return animate(el, [{opacity: 0}, {opacity: 1}], {duration, easing: 'linear'});
+  const inc = animate(el, [{opacity: ghost ? .2 : .4}, {opacity: 1}], {duration: duration + 40, easing: EASE_OUT_CSS});
+  if (ghost && el.isConnected && el.parentElement) {
+    // Same parent, appended last: every scoped selector that styled the old content still matches the snapshot.
+    el.parentElement.appendChild(ghost);
+    ghost.style.cssText += `;position:absolute;left:0;top:0;margin:0;pointer-events:none;z-index:1;box-sizing:border-box;`
+      + `width:${box.width}px;height:${box.height}px;`;
+    // Measure where left/top 0 landed (whatever the containing block is), then shift onto the old box.
+    const g = ghost.getBoundingClientRect();
+    ghost.style.left = (box.left - g.left) + 'px';
+    ghost.style.top = (box.top - g.top) + 'px';
+    const out = animate(ghost, [{opacity: 1}, {opacity: 0}], {duration, easing: 'linear', fill: 'forwards'});
+    const rm = () => ghost.remove();
+    out.finished.then(rm, rm);
+    setTimeout(rm, duration + 400); // no frames (hidden page): never leave the snapshot behind
+  }
+  return inc;
 }
 
 // Count-ups: once per key per session, at 60% visibility, ease-out-expo.
@@ -605,16 +652,18 @@ export function countUp(el, to, {from = 0, duration = 700, format, key} = {}) {
   if (!el.getAttribute('role')) el.setAttribute('role', 'img');
   if (el._cuIO) { el._cuIO.disconnect(); el._cuIO = null; }
   if (el._cuRaf) { cancelAnimationFrame(el._cuRaf); el._cuRaf = 0; }
+  if (el._cuBusy) { el._cuBusy = false; busyN = Math.max(0, busyN - 1); } // a count cut short by a newer one
   if (RM || (key && counted.has(key)) || from === to || !isFinite(to)) { el.innerHTML = fin; return Promise.resolve(); }
   el.innerHTML = f(from, false);
   return new Promise(res => {
     const go = () => {
       if (key) counted.add(key);
       busyN++;
+      el._cuBusy = true;
       const t0 = performance.now();
       const step = now => {
         const t = Math.min(1, (now - t0) / duration);
-        if (t >= 1 || !el.isConnected) { el.innerHTML = fin; el._cuRaf = 0; busyN = Math.max(0, busyN - 1); res(); return; }
+        if (t >= 1 || !el.isConnected) { el.innerHTML = fin; el._cuRaf = 0; if (el._cuBusy) { el._cuBusy = false; busyN = Math.max(0, busyN - 1); } res(); return; }
         const e = 1 - Math.pow(2, -10 * t);
         el.innerHTML = f(from + (to - from) * e, false);
         el._cuRaf = requestAnimationFrame(step);
@@ -622,9 +671,14 @@ export function countUp(el, to, {from = 0, duration = 700, format, key} = {}) {
       el._cuRaf = requestAnimationFrame(step);
     };
     if (typeof IntersectionObserver !== 'function') { go(); return; }
+    // "Visible" leaves out the nav bar and (inside a tab) the tab bar, which float over the screen's content.
+    const scr = el.closest('.screen');
+    const nav = scr && scr.querySelector(':scope > .nav');
+    const tb = el.closest('.tab-layer') ? document.getElementById('tabbar') : null;
+    const mt = nav ? nav.offsetHeight : 0, mb = tb ? tb.offsetHeight : 0;
     const io = new IntersectionObserver(es => {
-      if (es.some(e => e.isIntersecting && e.intersectionRatio >= .6)) { io.disconnect(); el._cuIO = null; go(); }
-    }, {threshold: [0, .6, 1]});
+      if (es.some(e => e.isIntersecting && e.intersectionRatio >= .6 && rendered(e.target))) { io.disconnect(); el._cuIO = null; go(); }
+    }, {threshold: [0, .6, 1], rootMargin: `-${mt}px 0px -${mb}px 0px`});
     el._cuIO = io;
     io.observe(el);
   });
@@ -637,6 +691,8 @@ export function odometer(el, from, to) {
   if (!el) return Promise.resolve();
   const a0 = String(Math.max(0, Math.round(Number(from) || 0))), b0 = String(Math.max(0, Math.round(Number(to) || 0)));
   el.setAttribute('aria-label', b0);
+  // A newer roll on the same element wins: an older one that finishes later must not write its stale value.
+  const seq = el._odoSeq = (el._odoSeq || 0) + 1;
   if (RM || a0 === b0) { el.textContent = b0; return Promise.resolve(); }
   const L = Math.max(a0.length, b0.length);
   const a = a0.padStart(L, ' '), b = b0.padStart(L, ' ');
@@ -648,14 +704,23 @@ export function odometer(el, from, to) {
     c.style.transform = `translateY(${-d1}em)`;
     if (d0 !== d1) anims.push(animate(c, [{transform: `translateY(${-d0}em)`}, {transform: `translateY(${-d1}em)`}], {spring: 'smooth'}));
   });
-  return Promise.all(anims.map(x => x.finished.catch(() => {}))).then(() => { if (el.querySelector('.odo')) el.textContent = b0; });
+  return Promise.all(anims.map(x => x.finished.catch(() => {}))).then(() => { if (el._odoSeq === seq && el.querySelector('.odo')) el.textContent = b0; });
 }
 
 /** First 8 nodes (or [data-enter] inside a container) fade up 12px, 320ms ease-out, 24ms apart. */
 export function stagger(nodes, {step = 24, max = 8, y = 12, duration = 320} = {}) {
   if (!nodes || RM) return;
-  const list = nodes instanceof Element ? [...nodes.querySelectorAll('[data-enter]')] : [...nodes];
-  list.slice(0, max).forEach((n, i) => animate(n, [{opacity: 0, transform: `translateY(${y}px)`}, {opacity: 1, transform: 'none'}], {duration, easing: 'cubic-bezier(.22,1,.36,1)', delay: i * step, fill: 'backwards'}));
+  let list = nodes instanceof Element ? [...nodes.querySelectorAll('[data-enter]')] : [...nodes];
+  // A [data-enter] inside another one moves with its parent (never twice).
+  const set = new Set(list);
+  list = list.filter(n => { for (let p = n.parentElement; p; p = p.parentElement) if (set.has(p)) return false; return true; });
+  const go = (n, i) => animate(n, [{opacity: 0, transform: `translateY(${y}px)`}, {opacity: 1, transform: 'none'}], {duration, easing: EASE_OUT_CSS, delay: i * step, fill: 'backwards'});
+  list.slice(0, max).forEach(go);
+  // Items past the cap that are already on screen enter with the last one, never before it (no holes mid-list).
+  if (list.length > max) {
+    const H = innerHeight;
+    list.slice(max).forEach(n => { const r = n.getBoundingClientRect(); if (r.bottom > 0 && r.top < H && r.height) go(n, max - 1); });
+  }
 }
 
 /** "+40" rises 24px and fades over 600ms from an element. cls: extra class (e.g. 'gold', 'wrong'). */
@@ -944,6 +1009,17 @@ let sheetSeq = 0;
 /** Number of sheets currently open (not closing). */
 export const sheetCount = () => sheets.filter(s => s.state === 'open').length;
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+const canFocus = el => !!(el && el.isConnected && typeof el.focus === 'function' && el !== document.body && !el.closest('[inert], [hidden], [data-under]') && el.getClientRects().length);
+// The screen the reader is looking at: the cover's screen, else the top screen of the visible tab.
+function visibleScreenEl() {
+  const cov = [...document.querySelectorAll('#covers .cover > .screen')].filter(canFocus);
+  if (cov.length) return cov[cov.length - 1];
+  const tops = [...document.querySelectorAll('#stage > .tab-layer:not([hidden]) > .screen:not([data-under])')].filter(canFocus);
+  return tops.length ? tops[tops.length - 1] : null;
+}
+// A sheet's exit finishes even when the page produces no animation frames (a background tab), so the background
+// never stays inert: the same guard app.js keeps on screen transitions.
+const guarded = p => Promise.race([p, new Promise(r => setTimeout(r, 1000))]);
 
 let inertSaved = null;
 function setBackgroundInert(on) {
@@ -963,15 +1039,21 @@ export const absLink = path => `${location.origin}${location.pathname}#${path ||
  * Bottom sheet with full physics (spec 5.6).
  * opts: title (text) | header (HTML for the title slot), body (HTML), detents ['medium','large'] (also 'fit' or px heights),
  * detent (initial), cls (e.g. 'sh-picker'), onClose(), focus (element or selector to focus synchronously), label, chrome
- * (false = no header row). Returns {el, body, close(), setDetent(d)}. Elements with [data-sheet-close] close it.
+ * (false = no header row), returnFocus (element, or fn → element, focused on close instead of the trigger).
+ * Returns {el, body, close(), setDetent(d)}. Elements with [data-sheet-close] close it.
+ * Focus returns to returnFocus, else the trigger (the focused element at open, or the element tapped just before:
+ * iOS does not focus tapped buttons), else the sheet below, else the visible screen.
  */
 export function openSheet(o = {}) {
-  const {title = '', header, body = '', cls = '', onClose, focus, label, chrome = true} = o;
+  const {title = '', header, body = '', cls = '', onClose, focus, label, chrome = true, returnFocus} = o;
   const detents = (o.detents && o.detents.length) ? o.detents : ['medium', 'large'];
   const isFit = detents.includes('fit');
   let cur = o.detent || detents[0];
   const host = layer('overlays');
-  const trigger = document.activeElement;
+  const byPointer = !!lastPress && performance.now() - lastPress.at < 1500 && lastKeyAt < lastPress.at;
+  let trigger = document.activeElement;
+  // iOS never focuses a tapped button: focus is still on <body> or on a container (the screen) holding it.
+  if (byPointer && lastPress.el.isConnected && (!trigger || trigger === document.body || trigger === DOC || (trigger !== lastPress.el && trigger.contains(lastPress.el)))) trigger = lastPress.el;
   const k = sheets.length;
   const uid = 'sheet' + (++sheetSeq);
 
@@ -1082,7 +1164,19 @@ export function openSheet(o = {}) {
     else sheets[sheets.length - 1].el.inert = false;
     if (window.visualViewport) { visualViewport.removeEventListener('resize', onVV); visualViewport.removeEventListener('scroll', onVV); }
     removeEventListener('resize', onVV);
-    if (trigger && trigger.isConnected && typeof trigger.focus === 'function') { try { trigger.focus({preventScroll: true}); } catch (_) {} }
+    restoreFocus();
+  };
+  // Only move focus when it was inside this sheet (or already lost): never steal it from where the user went.
+  const restoreFocus = () => {
+    const a = document.activeElement;
+    if (a && a !== document.body && a !== DOC && !sh.contains(a) && a.isConnected) return;
+    let t = typeof returnFocus === 'function' ? (() => { try { return returnFocus(); } catch (_) { return null; } })() : returnFocus;
+    if (!canFocus(t)) t = canFocus(trigger) ? trigger : null;
+    if (!t && sheets.length) t = sheets[sheets.length - 1].el;
+    if (!t) t = visibleScreenEl();
+    if (!t) return;
+    // After a tap, the returned focus draws no ring (focusVisible: false where supported).
+    try { t.focus({preventScroll: true, focusVisible: !byPointer}); } catch (_) { try { t.focus(); } catch (_) {} }
   };
   const animateOut = (v = 0) => {
     const end = G.sheetH + 24;
@@ -1099,7 +1193,7 @@ export function openSheet(o = {}) {
     if (rec.state === 'closing') return;
     rec.state = 'closing';
     fireClose();
-    if (animated) animateOut().then(cleanup); else cleanup();
+    if (animated) guarded(animateOut()).then(cleanup); else cleanup();
   };
   const requestClose = () => {
     if (rec.state !== 'open') return;
@@ -1110,7 +1204,7 @@ export function openSheet(o = {}) {
     if (rec.state !== 'open') return;
     rec.state = 'closing';
     fireClose();
-    animateOut(v).then(cleanup);
+    guarded(animateOut(v)).then(cleanup);
     if (HIST && rec.hid != null) HIST.back(rec);
   };
   if (HIST) rec.hid = HIST.pushOverlay(rec);
@@ -1195,6 +1289,21 @@ export function openSheet(o = {}) {
   // ---- interactions
   scrim.addEventListener('click', requestClose);
   sh.addEventListener('click', e => { if (e.target.closest('[data-sheet-close]')) requestClose(); });
+  // Keyboard focus that lands below the screen edge (the sheet is translated at a lower detent, so focusing never
+  // scrolls it into view): rise to the next detent that shows it, or the top one.
+  sh.addEventListener('focusin', e => {
+    const t = e.target;
+    if (rec.state !== 'open' || drag || !t || t === sh || !bodyEl.contains(t)) return;
+    const d = dets();
+    if (y <= d[0].y + 1) return;
+    // Both rects move with the transform, so their difference is the offset inside the sheet; G.sheetH - y shows.
+    const over = (t.getBoundingClientRect().bottom - sh.getBoundingClientRect().top) - (G.sheetH - y) + 16;
+    if (over <= 0) return;
+    const up = d.filter(x => x.y < y - 1);
+    const best = up.slice().reverse().find(x => x.y <= y - over) || d[0];
+    cur = best.d;
+    moveTo(best.y);
+  });
   sh.addEventListener('keydown', e => {
     if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); requestClose(); return; }
     if (e.key !== 'Tab') return;
@@ -1224,15 +1333,16 @@ export function openSheet(o = {}) {
   };
 }
 
-/** Confirm / action sheet. actions: [{label, value, role: 'destructive'|'cancel', checked}]. Resolves value or null. */
-export function actionSheet({title, message, actions = [], cancelLabel = 'Cancel'} = {}) {
+/** Confirm / action sheet. actions: [{label, value, role: 'destructive'|'cancel', checked}]. Resolves value or null.
+ *  cls: an extra scope class (e.g. 'sh-sort') next to .sh-action; returnFocus: see openSheet. */
+export function actionSheet({title, message, actions = [], cancelLabel = 'Cancel', cls = '', returnFocus} = {}) {
   return new Promise(res => {
     let chosen = null;
     const main = actions.filter(a => a.role !== 'cancel');
     const cancel = actions.find(a => a.role === 'cancel') || {label: cancelLabel, value: null};
     const head = (title || message) ? `<div class="as-head">${title ? `<p class="as-title">${T(title)}</p>` : ''}${message ? `<p class="as-msg">${T(message)}</p>` : ''}</div>` : '';
     const body = `<div class="as-group">${head}${main.map((a, i) => `<button type="button" class="as-btn${a.role === 'destructive' ? ' is-destructive' : ''}" data-as="${i}"${a.checked ? ' aria-current="true"' : ''}>${T(a.label)}${a.checked ? icon('check') : ''}</button>`).join('')}</div><div class="as-group"><button type="button" class="as-btn is-cancel" data-as="c">${T(cancel.label)}</button></div>`;
-    const s = openSheet({cls: 'sh-action', detents: ['fit'], chrome: false, body, label: stripTags(T(title)) || 'Choose', onClose: () => res(chosen)});
+    const s = openSheet({cls: 'sh-action' + (cls ? ' ' + cls : ''), detents: ['fit'], chrome: false, body, label: stripTags(T(title)) || 'Choose', returnFocus, onClose: () => res(chosen)});
     s.body.addEventListener('click', e => {
       const b = e.target.closest('[data-as]');
       if (!b) return;
@@ -1244,14 +1354,14 @@ export function actionSheet({title, message, actions = [], cancelLabel = 'Cancel
 }
 
 /** Manager picker: 4x3 grid of 56px avatars. Resolves an id, 'none' (allowNone), or null when dismissed. */
-export function pickManager({title = 'Pick a manager', selected, disabled = [], note, allowNone} = {}) {
+export function pickManager({title = 'Pick a manager', selected, disabled = [], note, allowNone, returnFocus} = {}) {
   return new Promise(res => {
     let chosen = null;
     const dis = new Set([].concat(disabled || []).filter(Boolean));
     const cells = ids.map(id => `<button type="button" class="pm-cell" data-pick="${esc(id)}" aria-pressed="${id === selected}"${dis.has(id) ? ' disabled' : ''}>${avatar(id, {size: 56, you: id === selected})}<span>${esc(name(id))}</span></button>`).join('');
     const none = allowNone ? `<div class="pm-none">${button({label: 'Not in the league', kind: 'secondary', attrs: {'data-pick': 'none', 'aria-pressed': String(selected === 'none')}})}</div>` : '';
     const body = `<div class="pm-grid">${cells}</div>${none}${note ? `<p class="pm-note">${T(note)}</p>` : ''}`;
-    const s = openSheet({title, body, cls: 'sh-manager', detents: ['fit'], onClose: () => res(chosen)});
+    const s = openSheet({title, body, cls: 'sh-manager', detents: ['fit'], returnFocus, onClose: () => res(chosen)});
     s.body.addEventListener('click', e => {
       const b = e.target.closest('[data-pick]');
       if (!b || b.disabled) return;
@@ -1310,15 +1420,42 @@ export function setChips(chipsEl, value, {emit = false, scroll = true} = {}) {
   if (emit && changed && hit) emitChange(chipsEl, chipsEl.dataset.chips, hit.dataset.value);
 }
 
-let pressEl = null, pressX = 0, pressY = 0, pressT = 0, pressTimer = 0;
+let pressEl = null, pressX = 0, pressY = 0, pressT = 0, pressOn = false, pressDelay = 0;
+let lastPress = null; // {el, at}: the control tapped last (a sheet opened from it returns focus there; iOS never focuses it)
+let lastKeyAt = -1;
 const PRESSABLE = 'button, a[href], [data-press], [role="button"], summary';
+// Touch inside something that scrolls (a screen, a sheet body, a horizontal rail) delays the highlight by 90 ms, like
+// iOS scroll views (delaysContentTouches): a scroll that starts on a row or card never lights it up. Bars, segmented
+// controls, chips, switches, icon buttons and the puzzle run keep the instant press (nothing scrolls under them).
+const PRESS_DELAY = 90;
+const SCROLLS = '.screen, .sheet-body, [data-hscroll]';
+const INSTANT = '#tabbar, .nav, .bar, .sheet-head, .seg, .chip, .switch, .icon-btn, .search-clear, .v-run, .as-group';
+const pressOff = el => {
+  clearTimeout(el._prT);
+  el._prT = 0;
+  el.classList.remove('is-pressed');
+};
+// Each element keeps its own release timer, so a quick second tap elsewhere never cancels the first one's release.
+const pressOffLater = (el, ms) => { clearTimeout(el._prT); el._prT = setTimeout(() => pressOff(el), ms); };
 function pressDown(e) {
   if (e.pointerType === 'mouse' && e.button !== 0) return;
   const t = e.target && e.target.closest ? e.target.closest(PRESSABLE) : null;
   releasePress(true);
+  if (t && !t.disabled) lastPress = {el: t, at: performance.now()};
   if (!t || t.disabled || t.getAttribute('aria-disabled') === 'true' || t.dataset.press === 'off') return;
   pressEl = t; pressX = e.clientX; pressY = e.clientY; pressT = performance.now();
-  t.classList.add('is-pressed');
+  clearTimeout(t._prT);
+  if (e.pointerType === 'touch' && t.closest(SCROLLS) && !t.closest(INSTANT)) {
+    pressOn = false;
+    pressDelay = setTimeout(() => {
+      if (pressEl !== t) return;
+      pressOn = true; pressT = performance.now();
+      t.classList.add('is-pressed');
+    }, PRESS_DELAY);
+  } else {
+    pressOn = true;
+    t.classList.add('is-pressed');
+  }
 }
 function pressMove(e) {
   if (!pressEl) return;
@@ -1328,10 +1465,18 @@ function releasePress(now) {
   const el = pressEl;
   if (!el) return;
   pressEl = null;
-  clearTimeout(pressTimer);
+  clearTimeout(pressDelay);
+  if (!pressOn) {
+    // Moved, scrolled or cancelled before the delayed highlight showed: nothing was pressed.
+    if (now === true) return;
+    // A quick tap that ended before the delay: show the feedback now, briefly.
+    el.classList.add('is-pressed');
+    pressOffLater(el, PRESS_DELAY);
+    return;
+  }
   const held = performance.now() - pressT;
-  if (now === true || held >= 70) el.classList.remove('is-pressed');
-  else pressTimer = setTimeout(() => el.classList.remove('is-pressed'), 70 - held);
+  if (now === true || held >= 70) pressOff(el);
+  else pressOffLater(el, 70 - held);
 }
 
 function onClick(e) {
@@ -1363,6 +1508,7 @@ function onClick(e) {
   }
 }
 function onKey(e) {
+  lastKeyAt = performance.now();
   if (e.key === 'Escape' && !e.defaultPrevented) {
     const top = [...sheets].reverse().find(s => s.state === 'open');
     if (top) { e.preventDefault(); e.stopImmediatePropagation(); top.requestClose(); return; }

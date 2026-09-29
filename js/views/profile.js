@@ -60,9 +60,12 @@ function derive(id) {
   const reigning = !!(data.DONE[0] && data.DONE[0].champion === id);
   const pool = data.AT.filter(x => x.gp > 0);
 
-  // Seeds (oldest first) for the sparkline; the playoff cut is the largest playoff field on record.
+  // Seeds (oldest first) for the sparkline. The axis runs 1..league size; the playoff cut is the largest playoff
+  // field on record (null before any season has finished: then there is no playoff line to draw).
   const seeds = played.slice().reverse().map(({s, row}) => ({year: s.year, seed: row.seed, live: s.live, champ: s.champion === id, n: s.table.length}));
-  const cut = data.DONE.length ? Math.max(...data.DONE.map(s => s.playoffTeams.size)) : 6;
+  const leagueSize = Math.max(2, ...data.SEASONS.map(s => s.table.length));
+  const cutMax = data.DONE.length ? Math.max(...data.DONE.map(s => s.playoffTeams.size)) : 0;
+  const cut = cutMax > 0 && cutMax < leagueSize ? cutMax : null;
 
   // Best and worst games (all game types).
   let hi = null, lo = null, bw = null, bl = null;
@@ -81,7 +84,8 @@ function derive(id) {
   const riv = data.ids.filter(o => o !== id).map(o => {
     const h = data.h2hC(id, o);
     const n = h.games.length;
-    return {id: o, n, w: h.aw, l: h.bw, t: h.t, share: n ? (h.aw + h.t / 2) / n : 0};
+    const last = h.games.reduce((m, g) => Math.max(m, (Number(g.year) || 0) * 100 + (Number(g.week) || 0)), 0);
+    return {id: o, n, w: h.aw, l: h.bw, t: h.t, share: n ? (h.aw + h.t / 2) / n : 0, last};
   }).filter(r => r.n > 0);
   const thr = riv.some(r => r.n >= 4) ? 4 : 2;
   const elig = riv.filter(r => r.n >= thr);
@@ -90,7 +94,11 @@ function derive(id) {
   let owns = elig.length ? elig.reduce((b, r) => better(r, b) ? r : b) : null;
   let nem = elig.length ? elig.reduce((b, r) => worse(r, b) ? r : b) : null;
   if (owns && nem && owns.id === nem.id) { if (owns.share < .5) owns = null; else nem = null; }
-  const most = riv.length ? riv.reduce((b, r) => r.n > b.n ? r : b) : null;
+  // Most played: the most games. A tie prefers an opponent not already shown as Owns or Nemesis, then the most
+  // recent meeting. When the one most-played opponent is also Owns or Nemesis, that row carries both labels.
+  const shown = r => !!((owns && owns.id === r.id) || (nem && nem.id === r.id));
+  const morePlayed = (a, b) => a.n !== b.n ? a.n > b.n : shown(a) !== shown(b) ? !shown(a) : a.last > b.last;
+  const most = riv.length ? riv.reduce((b, r) => morePlayed(r, b) ? r : b) : null;
 
   // Records whose holder line names this manager first.
   const flat = data.recordsFlat();
@@ -118,7 +126,7 @@ function derive(id) {
   const topPartner = Object.entries(partners).sort((a, b) => b[1] - a[1] || data.name(a[0]).localeCompare(data.name(b[0])))[0] || null;
 
   const d = {
-    id, at, played, first, done, titleYears, secondYears, lastYears, reigning, seeds, cut,
+    id, at, played, first, done, titleYears, secondYears, lastYears, reigning, seeds, cut, leagueSize,
     pctRank: rankIn(pool, id, 'pct'), ppgRank: rankIn(pool, id, 'ppg'),
     hi, lo, bw, bl, owns, nem, most, recs, recTotal: flat.length,
     hasDrafts: drafts.length > 0, picks, hasTrades: allTrades.length > 0, trades, topPartner,
@@ -129,8 +137,10 @@ function derive(id) {
 }
 
 // ---------------------------------------------------------------------------------------------- Markup
-const sec = (title, inner, {action, cls = '', note} = {}) =>
-  `<section class="pf-sec${cls ? ' ' + cls : ''}">${ui.sectionHeader({title, action})}${inner}${note ? `<p class="note pf-note">${esc(note)}</p>` : ''}</section>`;
+// est: an estimated height for sections below the first screen. They get content-visibility:auto, so a push lays
+// out and paints only the hero, the tiles and the reel before the slide starts (the rest renders as it nears view).
+const sec = (title, inner, {action, cls = '', note, est} = {}) =>
+  `<section class="pf-sec${cls ? ' ' + cls : ''}${est ? ' is-lazy' : ''}"${est ? ` style="contain-intrinsic-size:auto ${Math.round(est + 32)}px"` : ''}>${ui.sectionHeader({title, action})}${inner}${note ? `<p class="note pf-note">${esc(note)}</p>` : ''}</section>`;
 
 // "210.54" → 210<small>.54</small>; other record values pass through as text.
 function valHtml(v) {
@@ -158,7 +168,7 @@ function hero(id, d) {
     <div class="pf-hero-in">
       <div class="pf-av">${ui.avatar(id, {size: 96, hero: true, champ: titles > 0, label: titles ? `${nm}, ${plural(titles, 'title')}` : nm})}</div>
       ${crownRow(titles)}
-      <h1 class="t-1 pf-name"><span class="pf-name-t">${esc(nm)}</span><span class="pf-you"${you ? '' : ' hidden'}>${ui.badge('you')}</span></h1>
+      <h1 class="t-1 pf-name" tabindex="-1"><span class="pf-name-t">${esc(nm)}</span><span class="pf-you"${you ? '' : ' hidden'}>${ui.badge('you')}</span></h1>
       <span class="pf-sentinel" data-collapse aria-hidden="true"></span>
       ${tm ? `<p class="pf-team">${esc(tm)}</p>` : ''}
       <p class="pf-since">${esc(since)}</p>
@@ -224,19 +234,20 @@ function seasons(id, d) {
       attrs: {href: '#/standings/' + s.year}
     });
   }).join('');
-  return sec('Seasons', ui.group(rows, {cls: 'pf-seasons'}));
+  return sec('Seasons', ui.group(rows, {cls: 'pf-seasons'}), {est: 54 + 60 * d.played.length});
 }
 
 // Seed by season: an HTML/SVG hybrid so the dots stay round at any width (the line stretches, the dots don't).
 function seedChart(id, d) {
   const P = d.seeds;
   if (!P.length) return '';
-  const N = Math.max(12, ...P.map(p => p.n));
+  const N = Math.max(d.leagueSize, ...P.map(p => p.n));
   const H = 96, pad = 8;
   const X = i => P.length === 1 ? 50 : 4 + i * 92 / (P.length - 1);
   const Y = s => pad + (Math.min(N, Math.max(1, s)) - 1) * (H - 2 * pad) / (N - 1);
-  const cut = Math.min(N - 1, Math.max(1, d.cut));
-  const cutY = (Y(cut) + Y(cut + 1)) / 2;
+  // The dashed playoff line sits between the last seed in and the first seed out.
+  const cut = d.cut ? Math.min(N - 1, Math.max(1, d.cut)) : null;
+  const cutY = cut ? (Y(cut) + Y(cut + 1)) / 2 : 0;
   const line = P.length > 1 ? `<svg class="pf-svg" viewBox="0 0 100 ${H}" preserveAspectRatio="none" aria-hidden="true" focusable="false"><polyline class="pf-line" points="${P.map((p, i) => `${X(i).toFixed(2)},${Y(p.seed).toFixed(2)}`).join(' ')}"/></svg>` : '';
   // Seed labels sit above peaks and below valleys, so they never sit on the line.
   const valley = i => {
@@ -247,22 +258,24 @@ function seedChart(id, d) {
   const dots = P.map((p, i) => {
     const st = `left:${X(i).toFixed(2)}%;top:${Y(p.seed).toFixed(2)}px`;
     const lab = p.champ ? `${ui.icon('crown')}<span>${p.seed}</span>` : `<span>${p.seed}</span>`;
-    return `<span class="pf-dot${p.live ? ' is-live' : ''}${p.champ ? ' is-champ' : ''}" style="${st}"></span><span class="pf-sl n5${p.champ ? ' is-champ' : ''}${p.seed <= cut ? '' : ' is-out'}${valley(i) ? ' is-below' : ''}" style="${st}">${lab}</span>`;
+    return `<span class="pf-dot${p.live ? ' is-live' : ''}${p.champ ? ' is-champ' : ''}" style="${st}"></span><span class="pf-sl n5${p.champ ? ' is-champ' : ''}${!cut || p.seed <= cut ? '' : ' is-out'}${valley(i) ? ' is-below' : ''}" style="${st}">${lab}</span>`;
   }).join('');
   const every = P.length > 14 ? 2 : 1;
   const short = P.length > 8;
   const xs = P.map((p, i) => (i % every && i !== P.length - 1) ? '' : `<span style="left:${X(i).toFixed(2)}%">${short ? '’' + String(p.year).slice(-2) : p.year}</span>`).join('');
-  const label = 'Seeds by season: ' + P.map(p => `${p.year} ${ui.ordinal(p.seed)}${p.champ ? ', champion' : ''}${p.live ? ' so far' : ''}`).join(', ') + `. Seeds 1 to ${cut} make the playoffs.`;
+  const label = 'Seeds by season: ' + P.map(p => `${p.year} ${ui.ordinal(p.seed)}${p.champ ? ', champion' : ''}${p.live ? ' so far' : ''}`).join(', ') + (cut ? `. Seeds 1 to ${cut} make the playoffs.` : '.');
   const live = P.some(p => p.live);
+  const legend = (cut ? '<span><i class="pf-lg-cut"></i>Playoff line</span>' : '') + (live ? '<span><i class="pf-lg-live"></i>In progress</span>' : '');
   return sec('Seed by season', `<div class="card pf-chart ${data.color(id).cls}" role="img" aria-label="${esc(label)}">
     <div class="pf-plot" aria-hidden="true">
-      <span class="pf-cut" style="top:${cutY.toFixed(2)}px"></span>
+      ${cut ? `<span class="pf-cut" style="top:${cutY.toFixed(2)}px"></span>` : ''}
       ${line}${dots}
       <span class="pf-reveal"></span>
+      <span class="pf-yl" style="top:${Y(1).toFixed(2)}px">1</span><span class="pf-yl" style="top:${Y(N).toFixed(2)}px">${N}</span>
     </div>
     <div class="pf-xaxis" aria-hidden="true">${xs}</div>
-    <div class="pf-legend" aria-hidden="true"><span><i class="pf-lg-cut"></i>Playoff line</span>${live ? '<span><i class="pf-lg-live"></i>In progress</span>' : ''}</div>
-  </div>`);
+    ${legend ? `<div class="pf-legend" aria-hidden="true">${legend}</div>` : ''}
+  </div>`, {est: 254});
 }
 
 function bwTile(label, x, kind, id) {
@@ -279,42 +292,49 @@ function bwTile(label, x, kind, id) {
 }
 function bestWorst(id, d) {
   if (!d.hi) return '';
-  return sec('Best and worst', `<div class="tiles pf-bw">${bwTile('Highest score', d.hi, '', id)}${bwTile('Lowest score', d.lo, '', id)}${bwTile('Biggest win', d.bw, 'win', id)}${bwTile('Worst loss', d.bl, 'loss', id)}</div>`);
+  return sec('Best and worst', `<div class="tiles pf-bw">${bwTile('Highest score', d.hi, '', id)}${bwTile('Lowest score', d.lo, '', id)}${bwTile('Biggest win', d.bw, 'win', id)}${bwTile('Worst loss', d.bl, 'loss', id)}</div>`, {est: 257});
 }
 
-function rivalRow(id, r, label, tone) {
+// alsoMost: this opponent is also the most played; the row says so instead of showing them twice.
+function rivalRow(id, r, label, tone, alsoMost) {
   const rec = data.recStr(r.w, r.l, r.t);
   const st = r.w > r.l ? 'tint' : r.l > r.w ? 'wrong' : 'ink2';
+  const games = plural(r.n, 'game');
+  const sub = alsoMost
+    ? `<span class="pf-rk pf-rk-${tone}">${esc(label)}</span> · <span class="pf-rk pf-rk-most">Most played</span>`
+    : `<span class="pf-rk pf-rk-${tone}">${esc(label)}</span> · ${esc(games)}`;
   return ui.row({
     lead: ui.avatar(r.id, {size: 40}),
     title: data.name(r.id),
-    sub: ui.raw(`<span class="pf-rk pf-rk-${tone}">${esc(label)}</span> · ${esc(plural(r.n, 'game'))}`),
+    sub: ui.raw(sub),
     trail: `<span class="pf-rv"><span class="n4 ${st}">${esc(rec)}</span><span class="pf-bar" aria-hidden="true"><i style="transform:scaleX(${r.share.toFixed(3)})"></i></span></span>`,
     chevron: true,
     cls: 'pf-rival',
-    attrs: {href: `#/rivals/${id}-vs-${r.id}`, 'aria-label': `${label}: ${data.name(r.id)}, ${rec} in ${plural(r.n, 'game')}`}
+    attrs: {href: `#/rivals/${id}-vs-${r.id}`, 'aria-label': `${label}${alsoMost ? ' and most played' : ''}: ${data.name(r.id)}, ${rec} in ${games}`}
   });
 }
 function rivalries(id, d) {
   const rows = [];
-  if (d.owns) rows.push(rivalRow(id, d.owns, d.owns.share > .5 ? 'Owns' : 'Best matchup', 'own'));
-  if (d.nem) rows.push(rivalRow(id, d.nem, d.nem.share < .5 ? 'Nemesis' : 'Toughest matchup', 'nem'));
-  if (d.most) rows.push(rivalRow(id, d.most, 'Most played', 'most'));
+  const dup = x => !!(x && d.most && d.most.id === x.id);
+  if (d.owns) rows.push(rivalRow(id, d.owns, d.owns.share > .5 ? 'Owns' : 'Best matchup', 'own', dup(d.owns)));
+  if (d.nem) rows.push(rivalRow(id, d.nem, d.nem.share < .5 ? 'Nemesis' : 'Toughest matchup', 'nem', dup(d.nem)));
+  if (d.most && !dup(d.owns) && !dup(d.nem)) rows.push(rivalRow(id, d.most, 'Most played', 'most'));
   if (!rows.length) return sec('Rivalries', `<div class="card pf-none"><p class="t-sub ink2">Not enough games against anyone yet.</p></div>`);
-  return sec('Rivalries', ui.group(rows.join(''), {cls: 'pf-rivals'}));
+  return sec('Rivalries', ui.group(rows.join(''), {cls: 'pf-rivals'}), {est: 36 + 63 * rows.length});
 }
 
 function records(id, d) {
   if (!d.recs.length) return '';
   const rows = d.recs.map(r => ui.row({
     title: r.label,
-    sub: r.lines.join(' · '),
+    // One line per holder entry, each wrapping in full: the week and year say when the record was set.
+    sub: ui.raw(r.lines.map(l => `<span class="pf-hl">${esc(l)}</span>`).join('')),
     trail: `<span class="pf-val"><span class="n4">${valHtml(r.val)}</span>${r.unit ? `<span class="t-cap">${esc(r.unit)}</span>` : ''}</span>`,
     chevron: true,
     cls: 'pf-rec',
     attrs: {href: '#/hall/records/' + r.key}
   })).join('');
-  return sec('Records held', ui.group(rows, {cls: 'pf-recs'}), {note: `${d.recs.length} of ${d.recTotal} league records.`});
+  return sec('Records held', ui.group(rows, {cls: 'pf-recs'}), {note: `${d.recs.length} of ${d.recTotal} league records.`, est: 45 + 80 * d.recs.length});
 }
 
 function draftCapital(id, d) {
@@ -330,7 +350,7 @@ function draftCapital(id, d) {
       attrs: {href: `#/moves/drafts/${p.year}?m=${encodeURIComponent(id)}`, 'aria-label': `${p.year} · ${pp} · ${p.player}`}
     });
   }).join('');
-  return sec('Draft capital', ui.group(rows, {cls: 'pf-drafts'}), {note: 'First-round picks.'});
+  return sec('Draft capital', ui.group(rows, {cls: 'pf-drafts'}), {note: 'First-round picks.', est: 62 + 44 * d.picks.length});
 }
 
 const listAnd = a => a.length <= 1 ? (a[0] || '') : a.length === 2 ? `${a[0]} and ${a[1]}` : `${a.slice(0, -1).join(', ')} and ${a[a.length - 1]}`;
@@ -358,7 +378,7 @@ function tradesSec(id, d) {
   const partner = d.topPartner && d.topPartner[1] > 1 ? ` · most with ${data.name(d.topPartner[0])} (${d.topPartner[1]})` : '';
   const head = `<p class="pf-tcount"><span class="n3">${data.nf(n)}</span><span class="pf-tcount-t">${n === 1 ? 'trade' : 'trades'}</span><span class="pf-tcount-s">since ${since}${esc(partner)}</span></p>`;
   return sec('Trades', head + ui.group(d.trades.slice(0, 3).map(t => tradeRow(id, t)).join(''), {cls: 'pf-trades'}),
-    {action: {label: 'See all', href: '#/moves/trades?m=' + encodeURIComponent(id)}});
+    {action: {label: 'See all', href: '#/moves/trades?m=' + encodeURIComponent(id)}, est: 92 + 60 * Math.min(3, n)});
 }
 
 // Unknown id: the empty state, plus the whole league one tap away (each avatar flies into its profile).
@@ -443,7 +463,7 @@ const drawn = new Set();    // manager ids whose seed chart already revealed thi
 
 function teardown(st) {
   if (!st) return;
-  if (st.io) { st.io.disconnect(); st.io = null; }
+  st.ios.forEach(io => io.disconnect()); st.ios.clear();
   st.timers.forEach(clearTimeout); st.timers.clear();
   st.parked.clear();
   st.anims.forEach(a => { try { a.finish(); } catch (_) {} }); st.anims.clear();
@@ -487,29 +507,80 @@ function playChart(st, chart, id) {
   a.finished.then(fin, fin);
 }
 
-// Arm the first-view motion (the hidden start state is set before the first paint) and play it once it scrolls
-// into view with the screen at rest.
+// The strip at the bottom of the viewport that the tab bar covers (0 when it is hidden or not docked there).
+function bottomInset() {
+  const tb = document.getElementById('tabbar');
+  if (!tb) return 0;
+  const r = tb.getBoundingClientRect();
+  if (!r.height || r.top >= innerHeight || r.bottom < innerHeight - 1) return 0;
+  return Math.max(0, Math.min(Math.round(innerHeight - r.top), Math.round(innerHeight / 2)));
+}
+
+// Play `run` once enough of `targets` is on screen above the tab bar, with the screen at rest (the move is the
+// moment; it should play where the user can see it, not behind the tab bar or under the push). enough(seen) and
+// some(seen) read the latest entry per target. A section left part-way on screen (some, not enough) plays after
+// IDLE ms at rest, so a reader who never scrolls further does not keep looking at blank rows.
+const IDLE = 2000;
+function watch(st, ctx, targets, {enough, some, threshold}, run) {
+  const seen = new Map();
+  let idle = 0, over = false;
+  const stopIdle = () => { if (idle) { clearTimeout(idle); st.timers.delete(idle); idle = 0; } };
+  const fire = () => {
+    if (over) return;
+    over = true; stopIdle();
+    io.disconnect(); st.ios.delete(io);
+    whenSettled(st, ctx, run);
+  };
+  const inset = bottomInset() + 16;
+  const io = new IntersectionObserver(es => {
+    if (!ui.rendered(ctx.screen)) return; // hidden tab layer: nothing to see yet
+    es.forEach(e => seen.set(e.target, e));
+    if (over) return;
+    stopIdle();
+    if (enough(seen, inset)) { fire(); return; }
+    if (some(seen)) { idle = setTimeout(() => { st.timers.delete(idle); idle = 0; fire(); }, IDLE); st.timers.add(idle); }
+  }, {rootMargin: `0px 0px -${inset}px 0px`, threshold});
+  st.ios.add(io);
+  targets.forEach(t => io.observe(t));
+}
+
+const fully = e => e.isIntersecting && e.intersectionRatio >= .99;
+
+// Arm the first-view motion (the hidden start state is set before the first paint) and play it once it is on
+// screen with the screen at rest.
 function wire(el, ctx, id) {
   let st = S.get(ctx);
-  if (!st) { st = {io: null, timers: new Set(), anims: new Set(), parked: new Set(), dead: false}; S.set(ctx, st); }
+  if (!st) { st = {ios: new Set(), timers: new Set(), anims: new Set(), parked: new Set(), dead: false}; S.set(ctx, st); }
   teardown(st);
   st.el = el; st.id = id; st.dead = false;
   if (!id || ui.RM || typeof IntersectionObserver !== 'function') return;
-  const jobs = new Map();
+  // The reel: its first min(8, n) rows are the ones that roll. It plays once 3 of them (all of them, when fewer)
+  // are fully above the tab bar, so the roll happens in view rather than at the bottom edge.
   const group = el.querySelector('.pf-names');
-  if (group && !reeled.has(id)) { group.classList.add('is-armed'); jobs.set(group, () => playReel(st, group, id)); }
+  const rows = group ? [...group.querySelectorAll(':scope > .row')].slice(0, 8) : [];
+  if (rows.length && !reeled.has(id)) {
+    group.classList.add('is-armed');
+    const need = Math.min(rows.length, 3);
+    watch(st, ctx, rows, {
+      threshold: [0, .99, 1],
+      enough: seen => [...seen.values()].filter(fully).length >= need,
+      some: seen => [...seen.values()].some(fully)
+    }, () => playReel(st, group, id));
+  }
+  // The chart wipe: once 60% of the card is above the tab bar (or half the free screen, for a card taller than that).
   const chart = el.querySelector('.pf-chart');
-  if (chart && !drawn.has(id)) { chart.classList.add('is-armed'); jobs.set(chart, () => playChart(st, chart, id)); }
-  if (!jobs.size) return;
-  const io = new IntersectionObserver(es => es.forEach(e => {
-    if (!e.isIntersecting || !jobs.has(e.target)) return;
-    io.unobserve(e.target);
-    const job = jobs.get(e.target);
-    jobs.delete(e.target);
-    whenSettled(st, ctx, job);
-  }), {rootMargin: '0px 0px -72px 0px', threshold: 0});
-  st.io = io;
-  jobs.forEach((_, t) => io.observe(t));
+  if (chart && !drawn.has(id)) {
+    chart.classList.add('is-armed');
+    watch(st, ctx, [chart], {
+      threshold: [0, .25, .6, 1],
+      enough: (seen, inset) => {
+        const e = seen.get(chart);
+        return !!e && e.isIntersecting && (e.intersectionRatio >= .6
+          || e.intersectionRect.height >= Math.min(e.boundingClientRect.height, (innerHeight - inset) * .5) - 1);
+      },
+      some: seen => { const e = seen.get(chart); return !!e && e.isIntersecting && e.intersectionRatio >= .25; }
+    }, () => playChart(st, chart, id));
+  }
 }
 
 // ---------------------------------------------------------------------------------------------- View
@@ -534,10 +605,11 @@ export default {
 
   mount(el, ctx) {
     const id = resolveId(ctx.params.id);
-    wire(el, ctx, id);
+    // The morph reads the hero rect first (the one layout this mount forces); wiring the observers after it is free.
     const from = ctx.transition && ctx.transition.morphFrom;
     const av = id && from && !ui.RM && !ui.LITE && el.querySelector('.pf-av > .av');
     if (av) flyIn(from, av, sourceCopy(sourceAvatar(from, ctx.screen), id));
+    wire(el, ctx, id);
     // Unknown id: picking a manager turns this screen into that profile (replace, so Back skips the bad link).
     el.addEventListener('click', e => {
       const a = e.target.closest && e.target.closest('.pf-mgr');
@@ -566,8 +638,15 @@ export default {
       if (st && st.id === id && el.querySelector(id ? '.pf-hero' : '.pf-unknown')) return;
       const pending = st && st.pending;
       if (st) st.pending = null;
+      // The grid link that had focus is about to be replaced: move focus to the new name, so keyboard and
+      // screen-reader users keep their place and hear which profile opened.
+      const hadFocus = el.contains(document.activeElement);
       paint(el, ctx, id);
       ctx.screen.scrollTo({top: 0, behavior: 'auto'});
+      if (hadFocus) {
+        const to = el.querySelector('.pf-name') || ctx.screen;
+        try { to.focus({preventScroll: true}); } catch (_) { try { to.focus(); } catch (_) {} }
+      }
       const av = id && pending && el.querySelector('.pf-av > .av');
       if (av) flyIn(pending.rect, av, pending.html);
       return;
@@ -587,11 +666,12 @@ export default {
     const a = d.at;
     const titles = a.titles ? `${plural(a.titles, 'title')} (${yearsText(d.titleYears)})` : 'No titles';
     const tm = data.team(id);
-    const text = `${data.name(id)}${tm ? ' · ' + tm : ''}. ${titles}, ${data.recStr(a.w, a.l, a.t)} all-time (${data.pct(a.pct)}).`;
-    // ui.share must start synchronously inside this tap (iOS user activation); it falls back to copying.
+    const text = `${data.name(id)}${tm ? ' · ' + tm : ''}. ${titles}, ${data.recStr(a.w, a.l, a.t)} in the regular season (${data.pct(a.pct)}).`;
+    // ui.share must start synchronously inside this tap (iOS user activation); its fallback copies the text and
+    // the link together, so the toast says the profile was copied, not just the link.
     return ui.share({text, url: ui.absLink('/managers/' + id)}).then(r => {
-      if (r === 'copied') ui.toast('Profile link copied.', {icon: 'check-circle'});
-      else if (r === 'unavailable') ui.toast("Couldn't share from this browser.", {icon: 'info'});
+      if (r === 'copied') ui.toast('Profile copied. Paste it in the league chat.', {icon: 'check-circle'});
+      else if (r === 'unavailable') ui.toast("Couldn't copy the profile.");
     });
   },
 

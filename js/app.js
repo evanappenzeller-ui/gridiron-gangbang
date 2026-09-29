@@ -14,7 +14,7 @@
 //   ('mount'|'params'|'data'|'me'|'show'), first (first mount of this view id this session), visible,
 //   nav(path, {morphFrom: element}), replace(path, {dir: 1|-1}), back(), on('data'|'me', fn(detail)) /
 //   on('daily', fn(type, detail)) → unsubscribe (auto on unmount), timer(fn, ms) → cancel (interval; paused while
-//   hidden; runs fn once on resume), setTitle(s), setActions(list), refreshChrome() (re-scan [data-collapse] and
+//   hidden; runs fn once on resume), setTitle(s), setBackTitle(s) (the back label of screens pushed on top), setActions(list), refreshChrome() (re-scan [data-collapse] and
 //   .accessory after patching the body yourself), busy(promise?) → release(), isBusy().
 //   ctx.first is true only for the first mount of a view id this session; it turns false before any refresh.
 //   'data' refreshes wait for ui.whenIdle(); 'me' refreshes run synchronously inside data.setMe().
@@ -123,6 +123,10 @@ export function parseRoute(input, depth = 0) {
 // ============================================================================ State
 const $ = id => document.getElementById(id);
 const layerOf = tab => document.querySelector(`#stage > .tab-layer[data-tab="${tab}"]`);
+// Hidden tab layers stay rendered but skipped (content-visibility: hidden in base.css keeps their layout cached, so
+// switching back costs no full style and layout pass). Skipped content is also out of the tab order and the a11y
+// tree, so no inert (toggling inert restyles the whole subtree: ~10 ms per switch).
+function setLayerHidden(layer, h) { if (layer) layer.hidden = h; }
 const S = {tab: 'today', stacks: {}, cover: null, sheets: [], n: 0};
 let entrySeq = 0;
 const newEntry = (route, tab, kind) => ({id: ++entrySeq, route, tab, kind, scr: null});
@@ -197,7 +201,7 @@ function viewTitle(view, ctxLike, tab) {
 }
 function titleOfEntry(e) {
   if (!e) return '';
-  if (e.scr) return screenTitle(e.scr);
+  if (e.scr) return e.scr.backTitleOverride != null ? e.scr.backTitleOverride : screenTitle(e.scr);
   const v = mods.get(e.route.view);
   if (v) { const t = viewTitle(v, {params: e.route.params, query: e.route.query, route: e.route.path, path: e.route.path, tab: e.tab}); if (t) return t; }
   return e.kind === 'root' ? TAB_TITLES[e.tab] || '' : '';
@@ -246,7 +250,18 @@ function renderActions(scr) {
   if (!list) { try { list = (scr.view.actions && scr.view.actions(scr.ctx)) || []; } catch (e) { console.error(e); list = []; } }
   const html = list.slice(0, 2).map(a => ui.iconButton({icon: a.icon, label: a.label, attrs: {'data-nav-action': a.id}})).join('');
   const trail = scr.nav.querySelector('.nav-trail');
-  if (trail._html !== html) { trail.innerHTML = html; trail._html = html; }
+  if (trail._html === html) return;
+  // Swapping the buttons destroys a focused one (e.g. "Show as table" becomes "Show as list"): keep keyboard focus
+  // in the bar on the button with the same action id, else the one at the same position.
+  const a = document.activeElement;
+  const had = a && trail.contains(a) ? {id: a.dataset.navAction, i: [...trail.children].indexOf(a)} : null;
+  trail.innerHTML = html;
+  trail._html = html;
+  if (had) {
+    const btns = [...trail.querySelectorAll('[data-nav-action]')];
+    const next = btns.find(b => b.dataset.navAction === had.id) || btns[Math.min(had.i, btns.length - 1)];
+    if (next) focusQuiet(next); else focusQuiet(scr.el);
+  }
 }
 function updateNav(scr) {
   if (!scr.nav) return;
@@ -269,7 +284,7 @@ function observeCollapse(scr) {
   scr.navH = navH;
   scr.io = new IntersectionObserver(es => {
     const e = es[es.length - 1];
-    if (!e.rootBounds || !e.rootBounds.height) return;
+    if (!e.rootBounds || !e.rootBounds.height || !ui.rendered(e.target)) return; // hidden layer: keep the state
     scr.el.classList.toggle('is-collapsed', !e.isIntersecting && e.boundingClientRect.bottom <= e.rootBounds.top + 1);
   }, {root: scr.el, rootMargin: `-${navH}px 0px 0px 0px`, threshold: 0});
   scr.io.observe(s);
@@ -281,7 +296,7 @@ function observeAccessories(scr) {
   if (!accs.length || !scr.nav) return;
   const navH = scr.nav.offsetHeight || 44;
   scr.aio = new IntersectionObserver(es => es.forEach(e => {
-    if (!e.rootBounds || !e.rootBounds.height) return;
+    if (!e.rootBounds || !e.rootBounds.height || !ui.rendered(e.target)) return;
     e.target.classList.toggle('is-pinned', e.isIntersecting && e.intersectionRatio > 0 && e.intersectionRatio < 1 && e.boundingClientRect.top <= e.rootBounds.top + 1);
   }), {root: scr.el, rootMargin: `-${navH}px 0px 0px 0px`, threshold: [0, 1]});
   accs.forEach(a => scr.aio.observe(a));
@@ -305,6 +320,8 @@ function makeCtx(scr, transition) {
     on: (src, fn) => subscribeFor(scr, src, fn),
     timer: (fn, ms) => timerFor(scr, fn, ms),
     setTitle: s => { scr.titleOverride = s == null ? null : String(s); updateNav(scr); refreshBackLabels(); },
+    // The back label of screens pushed on top (default: the compact title). null restores the default.
+    setBackTitle: s => { scr.backTitleOverride = s == null ? null : String(s); refreshBackLabels(); },
     setActions: list => { scr.actionsOverride = list || null; renderActions(scr); },
     // Re-scan the body for [data-collapse] and .accessory after patching it outside render/mount/update.
     refreshChrome: () => { if (!scr.dead) afterContent(scr); },
@@ -376,7 +393,7 @@ function buildScreen(entry, view, o = {}) {
     nav: sec.querySelector(':scope > .nav'), body: sec.querySelector(':scope > .screen-body'),
     dim: sec.querySelector(':scope > .screen-dim'), edge: sec.querySelector(':scope > .screen-edge'),
     ctx: null, visible: false, dirty: null, cleanups: [], timers: new Set(),
-    titleOverride: null, actionsOverride: null, io: null, aio: null, hasLarge: false, broken: false
+    titleOverride: null, backTitleOverride: null, actionsOverride: null, io: null, aio: null, hasLarge: false, broken: false
   };
   scr.ctx = makeCtx(scr, mkTransition(o.transition || 'none', o.morphFrom || null));
   secMap.set(sec, scr);
@@ -418,6 +435,15 @@ function applyRoute(scr, r) {
   const c = scr.ctx;
   c.route = c.path = r.path; c.params = r.params; c.query = r.query; c.view = r.view;
   scr.el.dataset.path = r.path;
+}
+// A hidden screen collects every pending reason (a route change then a reload must both reach update()).
+function markDirty(scr, reason) { (scr.dirty || (scr.dirty = new Set())).add(reason); }
+function flushDirty(scr) {
+  const d = scr.dirty;
+  scr.dirty = null;
+  if (!d || !d.size || scr.dead) return;
+  if (!scr.view || !scr.view.update) { refresh(scr, d.has('data') ? 'data' : d.has('params') ? 'params' : 'me'); return; } // one re-render covers all
+  ['params', 'data', 'me'].forEach(r => { if (d.has(r) && !scr.dead) refresh(scr, r); });
 }
 function refresh(scr, reason) {
   scr.dirty = null;
@@ -468,7 +494,7 @@ function setVisible(scr, v) {
   if (v) {
     checkNavHeight(scr);
     fitNavTitle(scr);
-    if (scr.dirty) refresh(scr, scr.dirty);
+    if (scr.dirty) flushDirty(scr);
     if (!document.hidden) resumeTimers(scr);
     scr.ctx.reason = 'show';
     try { scr.view && scr.view.onShow && scr.view.onShow(scr.ctx); } catch (e) { console.error(e); }
@@ -505,19 +531,104 @@ function clearInline(scr) {
 }
 const EASE_OUT = 'cubic-bezier(.22,1,.36,1)', EASE_IN = 'cubic-bezier(.4,0,1,1)';
 
+// ---- Anchored nav bar (push, pop, swipe-back). Each screen owns its sticky .nav, so a bar would slide with its page.
+// Instead the bar stays put, as on iOS: for the length of the transition both bars are replaced by inert copies in one
+// layer above the screens. The material (background + hairline) never moves; it only cross-fades between the two
+// screens' collapse states. The leaving bar's contents fade out over the first 40% (its title drifting 40 px away),
+// the arriving bar's fade in over the first 60% (its title arriving from 40 px). p runs 0→1 (from → to).
+const XF_OUT = .4, XF_IN = .6;
+function navXfade(from, to, dir) {
+  if (ui.RM || !from || !to || !from.nav || !to.nav || from.el.parentElement !== to.el.parentElement) return null;
+  const layer = to.el.parentElement;
+  const lr = layer.getBoundingClientRect(), nr = from.nav.getBoundingClientRect();
+  if (!nr.width) return null;
+  const wrap = document.createElement('div');
+  wrap.className = 'nav-xfade';
+  wrap.setAttribute('aria-hidden', 'true');
+  wrap.inert = true;
+  wrap.style.cssText = `position:absolute;left:${nr.left - lr.left}px;top:${nr.top - lr.top}px;width:${nr.width}px;height:${nr.height}px;z-index:30;pointer-events:none;`;
+  const copy = scr => {
+    // The collapse state is read from the scroll position now (a re-created screen's observer has not reported yet),
+    // and the bar's parts take their settled values for that state (never a CSS transition's first frame).
+    const s = scr.hasLarge && scr.body.querySelector('[data-collapse]');
+    if (s) scr.el.classList.toggle('is-collapsed', s.getBoundingClientRect().bottom <= scr.el.getBoundingClientRect().top + (scr.navH || scr.nav.offsetHeight) + 1);
+    const col = scr.el.classList.contains('is-collapsed');
+    const c = scr.nav.cloneNode(true);
+    c.style.cssText = 'position:absolute;left:0;top:0;right:0;margin:0;';
+    const part = sel => {
+      const o = scr.nav.querySelector(':scope > ' + sel), k = c.querySelector(':scope > ' + sel);
+      if (!o || !k) return null;
+      k.style.transition = 'none';
+      return {el: k, o: +getComputedStyle(o).opacity || 0, t: ''};
+    };
+    const bg = part('.nav-bg'), title = part('.nav-title');
+    if (bg) {
+      Object.assign(bg, {o: col ? 1 : 0});
+      // Keep the material's look outside the screen (e.g. the solid slab of a nav merged with a pinned accessory).
+      const cs = getComputedStyle(scr.nav.querySelector(':scope > .nav-bg'));
+      Object.assign(bg.el.style, {background: cs.background, boxShadow: cs.boxShadow, backdropFilter: cs.backdropFilter, webkitBackdropFilter: cs.webkitBackdropFilter || cs.backdropFilter});
+    }
+    if (title) Object.assign(title, {o: col ? 1 : 0, t: col ? '' : 'translateY(4px)'});
+    return {c, bg, title, lead: part('.nav-lead'), trail: part('.nav-trail')};
+  };
+  const A = copy(from), B = copy(to);
+  if (!A.bg || !B.bg) return null;
+  B.bg.el.style.display = 'none'; // one material layer: A's, cross-faded to B's state
+  wrap.append(A.c, B.c);
+  layer.appendChild(wrap);
+  from.nav.style.visibility = 'hidden';
+  to.nav.style.visibility = 'hidden';
+  const X = {wrap, A, B, dir, from, to, anims: []};
+  X.style = p => {
+    const s = [];
+    const fo = Math.max(0, 1 - p / XF_OUT), fi = Math.min(1, p / XF_IN);
+    s.push([A.bg.el, {opacity: A.bg.o + (B.bg.o - A.bg.o) * p}]);
+    for (const k of ['lead', 'trail']) {
+      if (A[k]) s.push([A[k].el, {opacity: A[k].o * fo}]);
+      if (B[k]) s.push([B[k].el, {opacity: B[k].o * fi}]);
+    }
+    if (A.title) s.push([A.title.el, {opacity: A.title.o * fo, transform: `translateX(${-40 * dir * Math.min(1, p / XF_OUT)}px) ${A.title.t}`}]);
+    if (B.title) s.push([B.title.el, {opacity: B.title.o * fi, transform: `translateX(${40 * dir * (1 - fi)}px) ${B.title.t}`}]);
+    return s;
+  };
+  // Direct styles for a gesture-driven progress (swipe-back).
+  X.set = p => X.style(p).forEach(([el, st]) => Object.assign(el.style, st));
+  // Spring-driven p0 → p1, sampled into keyframes (the spring eases the whole progress, like the screens).
+  X.run = (p0, p1, o = {}) => {
+    const N = 10, per = new Map();
+    for (let i = 0; i <= N; i++) {
+      const p = p0 + (p1 - p0) * i / N;
+      X.style(p).forEach(([el, st]) => { if (!per.has(el)) per.set(el, []); per.get(el).push({...st, offset: i / N}); });
+    }
+    X.set(p1);
+    X.anims = [...per].map(([el, kf]) => ui.animate(el, kf, {spring: 'smooth', ...o}));
+    return X.anims;
+  };
+  X.done = () => {
+    X.anims.forEach(a => { try { a.cancel(); } catch (_) {} });
+    wrap.remove();
+    from.nav.style.visibility = '';
+    to.nav.style.visibility = '';
+  };
+  X.set(0);
+  return X;
+}
+
 async function animPush(inc, out) {
   if (!inc || !out) return;
   pinLayers(inc); pinLayers(out);
   inc.el.classList.add('is-animating'); out.el.classList.add('is-animating');
+  const xf = navXfade(out, inc, 1);
   const list = ui.RM
     ? [ui.animate(inc.el, [{opacity: 0}, {opacity: 1}], {duration: 180, easing: 'linear'})]
     : [
       ui.animate(inc.el, [{transform: 'translateX(100%)'}, {transform: 'translateX(0)'}], {spring: 'smooth', fill: 'backwards'}),
       ui.animate(out.el, [{transform: 'translateX(0)'}, {transform: 'translateX(-30%)'}], {spring: 'smooth', fill: 'forwards'}),
       ui.animate(out.dim, [{opacity: 0}, {opacity: .3}], {spring: 'smooth', fill: 'forwards'}),
-      ui.animate(inc.edge, [{opacity: 0}, {opacity: 1}], {spring: 'smooth', fill: 'forwards'})
+      ui.animate(inc.edge, [{opacity: 0}, {opacity: 1}], {spring: 'smooth', fill: 'forwards'}),
+      ...(xf ? xf.run(0, 1) : [])
     ];
-  await track(list);
+  try { await track(list); } finally { if (xf) xf.done(); }
   if (!out.dead && topOf(out.entry.tab) !== out.entry) out.el.setAttribute('data-under', '');
   list.forEach(a => a.cancel());
   clearInline(inc); clearInline(out);
@@ -527,15 +638,17 @@ async function animPop(top, under, {v0 = 0} = {}) {
   pinLayers(top); pinLayers(under);
   top.el.classList.add('is-animating');
   if (under) under.el.classList.add('is-animating');
+  const xf = under ? navXfade(top, under, -1) : null;
   const list = ui.RM
     ? [ui.animate(top.el, [{opacity: 1}, {opacity: 0}], {duration: 180, easing: 'linear', fill: 'forwards'})]
     : [
       ui.animate(top.el, [{transform: getComputedStyle(top.el).transform === 'none' ? 'translateX(0)' : getComputedStyle(top.el).transform}, {transform: 'translateX(100%)'}], {spring: 'smooth', v0, fill: 'forwards'}),
       under && ui.animate(under.el, [{transform: 'translateX(-30%)'}, {transform: 'translateX(0)'}], {spring: 'smooth', v0}),
       under && ui.animate(under.dim, [{opacity: .3}, {opacity: 0}], {spring: 'smooth', v0}),
-      ui.animate(top.edge, [{opacity: 1}, {opacity: 0}], {spring: 'smooth', v0, fill: 'forwards'})
+      ui.animate(top.edge, [{opacity: 1}, {opacity: 0}], {spring: 'smooth', v0, fill: 'forwards'}),
+      ...(xf ? xf.run(0, 1, {v0}) : [])
     ];
-  await track(list);
+  try { await track(list); } finally { if (xf) xf.done(); }
   clearInline(under);
 }
 async function animCoverIn(wrap, scrim) {
@@ -805,9 +918,11 @@ async function switchTabUI(T, {motion = true} = {}) {
   const from = S.tab;
   saveLayerScroll(from);
   const fromTop = topOf(from).scr;
-  layerOf(from).hidden = true;
+  // A link on one tab's screen that switches tabs: focus would be left in the hidden layer (then on <body>).
+  const hadFocus = layerOf(from).contains(document.activeElement);
+  setLayerHidden(layerOf(from), true);
   S.tab = T;
-  layerOf(T).hidden = false;
+  setLayerHidden(layerOf(T), false);
   if (!topE.scr) {
     const m = mods.get(topE.route.view);
     buildScreen(topE, m || null, {z: st.length, transition: motion ? 'tab' : 'none', restore: false, err: m ? null : new Error('import failed')});
@@ -819,8 +934,13 @@ async function switchTabUI(T, {motion = true} = {}) {
   updateTabBar(T, {animate: motion});
   if (fromTop) setVisible(fromTop, false);
   syncVisibility();
+  if (hadFocus && topE.scr) {
+    const a = document.activeElement; // onShow may already have placed focus somewhere sensible
+    if (!a || a === document.body || a.closest('.tab-layer[hidden]') || !a.getClientRects().length) focusQuiet(topE.scr.el);
+  }
   if (motion && topE.scr) {
-    track([ui.animate(topE.scr.el, [{opacity: .5}, {opacity: 1}], {duration: 160, easing: EASE_OUT})]);
+    // A hint of arrival only (.85→1): a deeper dip reads as the screen blinking on every tab tap.
+    track([ui.animate(topE.scr.el, [{opacity: .85}, {opacity: 1}], {duration: 160, easing: EASE_OUT})]);
   }
 }
 
@@ -833,7 +953,7 @@ async function setRootRoute(T, r) {
   if (!root.scr) return;
   if (same) {
     applyRoute(root.scr, r);
-    if (root.scr.visible) refresh(root.scr, 'params'); else root.scr.dirty = 'params';
+    if (root.scr.visible) refresh(root.scr, 'params'); else markDirty(root.scr, 'params');
   } else {
     unmountScreen(root.scr, {save: false});
   }
@@ -842,7 +962,7 @@ async function setRootRoute(T, r) {
 async function showTop() {
   const st = S.stacks[S.tab];
   const top = st[st.length - 1];
-  layerOf(S.tab).hidden = false;
+  setLayerHidden(layerOf(S.tab), false);
   if (!top.scr) await ensureScreen(top, {z: st.length, restore: true, transition: 'none'});
   st.forEach((e, i) => {
     if (!e.scr) return;
@@ -887,18 +1007,30 @@ async function pushRoute(r, {morphRect, addEntry = true} = {}) {
   if (hadFocus && !scr.dead) focusQuiet(scr.el);
 }
 
+// A link to the root route a tab already shows (Today's "Record of the day" to the record Hall has in focus,
+// a profile's "Nemesis" link to the pair Rivals shows) is still a navigation: the root starts at the top again
+// and its view gets update(ctx) with reason 'params' (same ctx.path), so it can re-run deep-link behavior.
 async function goRoot(r) {
   await stripOverlays();
   const T = r.tab;
+  const root = S.stacks[T][0];
+  const again = root.route.path === r.path && !!root.scr;
   if (T === S.tab) {
-    if (S.stacks[T].length > 1) await popStack(T, 0, {animate: true});
+    const popping = S.stacks[T].length > 1;
+    if (again && popping) root.scr.el.scrollTop = 0; // hidden under the pushed screens: reset before the pop
+    if (popping) await popStack(T, 0, {animate: true});
     await setRootRoute(T, r);
     if (!topOf(T).scr) await showTop();
+    if (again && root.scr && !root.scr.dead) {
+      if (!popping && root.scr.el.scrollTop > 0) root.scr.el.scrollTo({top: 0, behavior: ui.RM ? 'auto' : 'smooth'});
+      if (root.scr.visible) refresh(root.scr, 'params'); else markDirty(root.scr, 'params');
+    }
     await rebuildHistory();
     return;
   }
   resetStack(T);
   await setRootRoute(T, r);
+  if (again && root.scr) { root.savedTop = 0; markDirty(root.scr, 'params'); } // applied when the tab shows
   await switchTabUI(T, {motion: true});
   await rebuildHistory();
 }
@@ -986,7 +1118,7 @@ async function opReplace(scr, path, {dir} = {}) {
     applyRoute(scr, r);
     const k = projection().findIndex(x => x.entry === e);
     if (k === S.n) safeReplace(k, r.path);
-    if (!same) { if (scr.visible) refresh(scr, 'params'); else scr.dirty = 'params'; }
+    if (!same) { if (scr.visible) refresh(scr, 'params'); else markDirty(scr, 'params'); }
     refreshBackLabels();
     return;
   }
@@ -1132,8 +1264,19 @@ function updateTabBar(T, {animate = true} = {}) {
     ui.haptic('selection');
   }
 }
+// The tab icon is persistent chrome: until puzzles.json is loaded (a cold open on a history tab loads it at idle)
+// it paints what this phone last showed today (gg-ring, same local date), else a neutral ring with no dot, so it
+// never flashes a wrong "unfinished" state. The real state replaces it silently on 'ready'.
+const RING_KEY = 'gg-ring';
+const ringDate = () => new Date().toDateString();
+function cachedRing() {
+  try {
+    const v = JSON.parse(ui.lsGet(RING_KEY) || 'null');
+    return v && v.date === ringDate() && Array.isArray(v.parts) && v.parts.length === 3 ? v : null;
+  } catch (_) { return null; }
+}
 function dailyParts() {
-  if (daily.status !== 'ready' || !daily.DAY) return [{frac: 0}, {frac: 0}, {frac: 0}];
+  if (daily.status !== 'ready' || !daily.DAY) { const c = cachedRing(); return c ? c.parts : [{frac: 0}, {frac: 0}, {frac: 0}]; }
   // Rings show points: each arc fills with that puzzle's points / max (gold when perfect, ink-4 track when done with 0).
   return daily.STEPS.map(s => {
     const done = s.done(), p = s.pts();
@@ -1148,14 +1291,16 @@ function updateTodayIcon(animate = false) {
   if (!holder.firstElementChild) holder.innerHTML = ui.ring(parts, {mini: true});
   else ui.ringUpdate(holder, parts, {animate});
   const ready = daily.status === 'ready' && !!daily.DAY;
-  const done = ready && daily.allDone();
-  btn.querySelector('.tab-dot').hidden = done;
+  const cached = ready ? null : cachedRing();
+  const left = ready ? daily.STEPS.filter(s => !s.done()).length : cached ? cached.left : null;
+  btn.querySelector('.tab-dot').hidden = left == null || left === 0;
   let label = 'Today';
-  if (ready) {
-    const left = daily.STEPS.filter(s => !s.done()).length;
-    label = left ? `Today, ${left === 1 ? '1 puzzle' : left + ' puzzles'} left` : 'Today, all puzzles done';
-  }
+  if (left != null) label = left ? `Today, ${left === 1 ? '1 puzzle' : left + ' puzzles'} left` : 'Today, all puzzles done';
   btn.setAttribute('aria-label', label);
+  if (ready) {
+    const v = JSON.stringify({date: ringDate(), parts, left});
+    if (ui.lsGet(RING_KEY) !== v) ui.lsSet(RING_KEY, v);
+  }
 }
 // Re-tap runs as a queued op: during a push/pop it waits for that op (the tap already finish()ed the motion),
 // then acts on the settled stack. With an idle queue it runs synchronously, so focusSearch stays inside the tap.
@@ -1254,6 +1399,7 @@ export function enableSwipeBack() {
       pinLayers(top); pinLayers(under);
       top.el.classList.add('is-animating'); under.el.classList.add('is-animating');
       top.edge.style.opacity = '1';
+      g.xf = navXfade(top, under, -1);
       ui.busy.inc();
     }
     // preventDefault happens in `blocker` (registered after this listener, same dispatch).
@@ -1262,6 +1408,7 @@ export function enableSwipeBack() {
     g.top.el.style.transform = `translateX(${g.x}px)`;
     g.under.el.style.transform = `translateX(${-30 * (1 - g.p)}%)`;
     g.under.dim.style.opacity = String(.3 * (1 - g.p));
+    if (g.xf) g.xf.set(g.p);
     const now = performance.now();
     g.s.push([now, t.clientX]);
     while (g.s.length > 2 && now - g.s[0][0] > 100) g.s.shift();
@@ -1282,12 +1429,13 @@ export function enableSwipeBack() {
     const list = [
       ui.animate(G.top.el, [{transform: `translateX(${G.x}px)`}, {transform: `translateX(${toX}px)`}], {spring: 'smooth', v0, fill: 'forwards'}),
       ui.animate(G.under.el, [{transform: `translateX(${uFrom}%)`}, {transform: `translateX(${uTo}%)`}], {spring: 'smooth', v0, fill: 'forwards'}),
-      ui.animate(G.under.dim, [{opacity: .3 * (1 - G.p)}, {opacity: commit ? 0 : .3}], {spring: 'smooth', v0, fill: 'forwards'})
+      ui.animate(G.under.dim, [{opacity: .3 * (1 - G.p)}, {opacity: commit ? 0 : .3}], {spring: 'smooth', v0, fill: 'forwards'}),
+      ...(G.xf ? G.xf.run(G.p, commit ? 1 : 0, {v0}) : [])
     ];
     G.top.el.style.transform = `translateX(${toX}px)`;
     G.under.el.style.transform = `translateX(${uTo}%)`;
     G.under.dim.style.opacity = commit ? '0' : '.3';
-    await track(list);
+    try { await track(list); } finally { if (G.xf) G.xf.done(); }
     list.forEach(a => a.cancel());
     if (commit) {
       back({animate: false});
@@ -1323,6 +1471,13 @@ document.addEventListener('click', e => {
   const mf = t.matches('[data-morph-from]') ? t : t.querySelector('[data-morph-from]');
   nav(path, {morphFrom: mf || undefined});
 });
+// The shell never scrolls. Browsers without overflow:clip let focus() scroll an overflow:hidden box (a button in a
+// translated sheet, a screen mid-push), which would shift the whole app: undo it at once.
+document.addEventListener('scroll', e => {
+  const t = e.target;
+  if (!t || t.nodeType !== 1 || !(t.id === 'app' || t.id === 'stage' || t.classList.contains('cover'))) return;
+  if (t.scrollTop || t.scrollLeft) { t.scrollTop = 0; t.scrollLeft = 0; }
+}, {capture: true, passive: true});
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape' || e.defaultPrevented || ui.sheetCount()) return;
   if (S.cover) { e.preventDefault(); back(); }
@@ -1336,7 +1491,7 @@ data.subscribe(type => {
   const apply = () => {
     allMounted().forEach(s => {
       if (s.visible) refresh(s, type);
-      else s.dirty = s.dirty === 'data' ? 'data' : type;
+      else markDirty(s, type);
     });
     refreshBackLabels();
   };

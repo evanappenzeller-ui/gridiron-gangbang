@@ -9,9 +9,12 @@ const prof = id => `#/managers/${encodeURIComponent(id)}`;
 const MORPH = {'data-morph-from': ''};
 
 // The champion moment plays once per session (sessionStorage gg-s-champ) and never under reduced motion.
-const momentPending = () => !ui.RM && ui.ssGet('gg-s-champ') !== '1';
+// momentDone also covers this page's lifetime when sessionStorage throws (ssSet cannot record it then).
+let momentDone = false;
+const momentPending = () => !ui.RM && !momentDone && ui.ssGet('gg-s-champ') !== '1';
+const SAFETY_MS = 3000; // in view this long without playing (something kept the app busy): play anyway
 
-let S = null; // mounted state: {el, ctx, hc, io, inView, cancel, played}
+let S = null; // mounted state: {el, ctx, hc, target, io, inView, cancel, safety, played, ac}
 
 // ------------------------------------------------------------------ Champion hero
 function hero(pending) {
@@ -23,7 +26,7 @@ function hero(pending) {
   const score = fin ? ` ${data.fmt(fin.ws)} to ${data.fmt(fin.ls)}` : '';
   // (existing) copy, word for word
   const line = `${team} won the ${s.year} title${s.runnerUp ? `, beating ${data.name(s.runnerUp)}${score} in the championship` : ''}.`;
-  return `<a class="card card-hero hc ${data.color(id).cls}${pending ? ' is-pending' : ''}" href="${prof(id)}" data-enter>`
+  return `<a class="card card-hero hc ${data.color(id).cls}${pending ? ' is-pending' : ''}" href="${prof(id)}" aria-label="${esc(`Reigning champion: ${data.name(id)}, ${team}. ${line}`)}" data-enter>`
     + `<span class="hc-av">`
     + `<svg class="hc-ring" viewBox="0 0 120 120" aria-hidden="true" focusable="false"><circle cx="60" cy="60" r="57" pathLength="100"/></svg>`
     + ui.avatar(id, {size: 96, hero: true, crown: true, attrs: MORPH})
@@ -48,32 +51,12 @@ function banner(s) {
     + `<a class="bn-link" href="#/standings/${s.year}" aria-label="${esc(label)}"></a>`
     + `<div class="bn-year" aria-hidden="true"><span class="n3">${s.year}</span>${ui.icon('trophy-fill')}</div>`
     + `<div class="bn-main">`
-    + `<div class="bn-top"><a class="bn-champ" href="${prof(ch)}">${ui.avatar(ch, {size: 40, attrs: MORPH})}<span class="bn-cm"><span class="bn-cn">${esc(data.name(ch))}</span><span class="bn-ct">${esc(data.teamIn(s, ch))}</span></span></a>${ui.badge('champ')}</div>`
+    + `<div class="bn-top"><a class="bn-champ" href="${prof(ch)}" aria-label="${esc(`Champion: ${data.name(ch)}, ${data.teamIn(s, ch)}`)}">${ui.avatar(ch, {size: 40, attrs: MORPH})}<span class="bn-cm"><span class="bn-cn">${esc(data.name(ch))}</span><span class="bn-ct">${esc(data.teamIn(s, ch))}</span></span></a>${ui.badge('champ')}</div>`
     + `<div class="bn-rest">`
     + mini(s.runnerUp, ui.badge('2nd', 'Runner-up'), 'Runner-up')
     + mini(s.thirdPlace, ui.badge('3rd', 'Third'), 'Third')
     + mini(s.lastPlace, ui.badge('last', 'Worst record'), 'Worst record')
     + `</div></div></article>`;
-}
-
-// The season being played: a dashed banner that is still up for grabs.
-function liveBanner() {
-  const s = data.SEASONS.find(x => x.live);
-  if (!s) return '';
-  const wk = data.throughWeek(s);
-  const top = s.table[0];
-  const played = top && (top.w + top.l + top.t) > 0;
-  const lead = played
-    ? `<div class="bn-mini"><a class="bn-who" href="${prof(top.id)}" aria-label="${esc('Top seed: ' + data.name(top.id))}">${ui.avatar(top.id, {size: 24, attrs: MORPH})}<span class="ell">${esc(data.name(top.id))}</span></a><span class="bn-note">Top seed · ${esc(data.recStr(top.w, top.l, top.t))}</span></div>`
-    : '';
-  return `<article class="bn bn-live" data-enter>`
-    + `<a class="bn-link" href="#/standings/${s.year}" aria-label="${esc(`${s.year} season: in progress${wk ? `, through week ${wk}` : ''}`)}"></a>`
-    + `<div class="bn-year" aria-hidden="true"><span class="n3">${s.year}</span></div>`
-    + `<div class="bn-main">`
-    + `<div class="bn-lv">${ui.badge('progress', wk ? `IN PROGRESS · THROUGH WK ${wk}` : 'IN PROGRESS')}</div>`
-    + `<p class="bn-open">Banner still up for grabs.</p>`
-    + lead
-    + `</div></article>`;
 }
 
 // ------------------------------------------------------------------ Title count
@@ -101,13 +84,18 @@ function titleCount() {
 
 // ------------------------------------------------------------------ Still chasing
 function stillChasing() {
+  if (!data.DONE.length) return ''; // nobody can be "still chasing" before a title has been decided
   const me = data.me();
+  // Seasons counted are the completed ones they played (the header counts the same seasons).
+  const tries = id => data.DONE.filter(s => s.table.some(r => r.id === id)).length;
   const none = data.AT.filter(x => x.titles === 0 && x.seasons > 0)
-    .sort((x, y) => y.seasons - x.seasons || data.name(x.id).localeCompare(data.name(y.id)));
+    .map(x => ({id: x.id, n: tries(x.id)}))
+    .sort((x, y) => y.n - x.n || data.name(x.id).localeCompare(data.name(y.id)));
   if (!none.length) return '';
-  const items = none.map(x => `<a class="sc-it" href="${prof(x.id)}" aria-label="${esc(`${data.name(x.id)}, ${plural(x.seasons, 'season')} without a title`)}">`
+  const cap = n => n ? plural(n, 'season') : 'First season';
+  const items = none.map(x => `<a class="sc-it" href="${prof(x.id)}" data-id="${esc(x.id)}" aria-label="${esc(x.n ? `${data.name(x.id)}, ${plural(x.n, 'season')} without a title` : `${data.name(x.id)}, first season`)}">`
     + ui.avatar(x.id, {size: 40, you: x.id === me, attrs: MORPH})
-    + `<span class="sc-n">${esc(data.name(x.id))}</span><span class="sc-s">${esc(plural(x.seasons, 'season'))}</span></a>`).join('');
+    + `<span class="sc-n">${esc(data.name(x.id))}</span><span class="sc-s">${esc(cap(x.n))}</span></a>`).join('');
   // (existing) footnote
   const note = `Still chasing a first title: ${none.map(x => data.name(x.id)).join(', ')}.`;
   return `<section class="sc" data-enter aria-labelledby="hl-sc">${ui.sectionHeader({title: 'Still chasing', id: 'hl-sc'})}`
@@ -124,29 +112,57 @@ export function render() {
   } else {
     h += `<div class="hl-empty" data-enter>${ui.empty({icon: 'trophy', title: 'No champions yet.', body: 'The first banner goes up after the championship.'})}</div>`;
   }
-  const banners = liveBanner() + done.map(banner).join('');
+  const banners = done.map(banner).join(''); // one per completed season (spec 7.13)
   if (banners) h += `<section class="bns" aria-labelledby="hl-bn">${ui.sectionHeader({title: 'Banners', id: 'hl-bn'})}<div class="bn-list">${banners}</div></section>`;
   h += titleCount();
   h += stillChasing();
   return `<div class="hl-tro">${h}</div>`;
 }
 
+// ------------------------------------------------------------------ Champion moment
+// Whether at least 60% of the hero avatar is inside the screen, measured directly. Used when the page or
+// the screen was hidden while the IntersectionObserver would have reported (it does not report again
+// until the intersection changes).
+function measureInView() {
+  const scr = S.ctx.screen;
+  if (!S.target || !scr) return false;
+  const r = S.target.getBoundingClientRect(), R = scr.getBoundingClientRect();
+  if (!r.height || !R.height) return false;
+  return Math.max(0, Math.min(r.bottom, R.bottom) - Math.max(r.top, R.top)) / r.height >= .6;
+}
+
+const canPlay = () => S && S.inView && S.ctx.visible && !document.hidden;
+
+function disarm() {
+  if (S.cancel) { S.cancel(); S.cancel = null; }
+  clearTimeout(S.safety);
+  S.safety = 0;
+}
+
 function tryPlay() {
-  if (!S || !S.hc || S.played || S.cancel) return;
-  if (!S.inView || !S.ctx.visible || document.hidden) return;
+  if (!S || !S.hc || S.played || S.cancel || !canPlay()) return;
   if (ui.RM) { settle(); return; }
-  // Wait for the push/tab motion and the entrance stagger to settle, then play.
+  // Wait for the push/tab motion and the entrance stagger to settle, then play. A page hidden when the
+  // idle callback fires leaves the moment armable again (the visibility hook calls tryPlay).
   S.cancel = ui.whenIdle(() => {
     if (!S) return;
     S.cancel = null;
-    if (S.inView && S.ctx.visible && !document.hidden) play();
+    if (canPlay()) { clearTimeout(S.safety); play(); }
   });
+  // Safety net: never leave the ring and crown hidden because the app stayed busy.
+  clearTimeout(S.safety);
+  S.safety = setTimeout(() => {
+    if (!S || S.played) return;
+    if (canPlay()) { disarm(); ui.RM ? settle() : play(); }
+  }, SAFETY_MS);
 }
 
 // Final state without motion (reduced motion switched on after render).
 function settle() {
   if (!S || !S.hc) return;
   S.played = true;
+  momentDone = true;
+  disarm();
   if (S.io) { S.io.disconnect(); S.io = null; }
   S.hc.classList.remove('is-pending');
 }
@@ -154,6 +170,8 @@ function settle() {
 function play() {
   const hc = S.hc;
   S.played = true;
+  momentDone = true;
+  disarm();
   if (S.io) { S.io.disconnect(); S.io = null; }
   ui.ssSet('gg-s-champ', '1');
   const circle = hc.querySelector('.hc-ring circle');
@@ -170,25 +188,48 @@ function play() {
 }
 
 export function mount(el, ctx) {
-  S = {el, ctx, hc: el.querySelector('.hc.is-pending'), io: null, inView: false, cancel: null, played: false};
+  const hc = el.querySelector('.hc.is-pending');
+  S = {el, ctx, hc, target: hc && (hc.querySelector('.hc-av') || hc), io: null, inView: false, cancel: null, safety: 0, played: false, ac: new AbortController()};
   if (!S.hc) return;
-  const target = S.hc.querySelector('.hc-av') || S.hc;
+  // The app does not call onShow when the page itself comes back from the background.
+  document.addEventListener('visibilitychange', () => {
+    if (!S || document.hidden || S.played) return;
+    S.inView = measureInView();
+    tryPlay();
+  }, {signal: S.ac.signal});
   if (typeof IntersectionObserver !== 'function') { S.inView = true; return; }
   S.io = new IntersectionObserver(es => {
     if (!S) return;
     const e = es[es.length - 1];
+    if (!ui.rendered(e.target)) return; // hidden tab layer: keep the state until it is shown again
     S.inView = e.isIntersecting && e.intersectionRatio >= .6;
     if (S.inView) tryPlay();
-    else if (S.cancel) { S.cancel(); S.cancel = null; }
+    else disarm();
   }, {root: ctx.screen || null, threshold: [0, .6, 1]});
-  S.io.observe(target);
+  S.io.observe(S.target);
 }
 
-export function show() { tryPlay(); }
+export function show() {
+  if (!S || !S.hc || S.played) return;
+  if (S.io) S.inView = measureInView();
+  tryPlay();
+}
+
+// "Me" changed: only the Title count highlight and the Still chasing ring depend on it.
+export function me() {
+  if (!S) return;
+  const id = data.me();
+  S.el.querySelectorAll('.tc-row[data-key]').forEach(r => r.classList.toggle('is-me', r.dataset.key === id));
+  S.el.querySelectorAll('.sc-it[data-id]').forEach(a => {
+    const av = a.querySelector(':scope > .av');
+    if (av) av.classList.toggle('av-you', a.dataset.id === id);
+  });
+}
 
 export function unmount() {
   if (!S) return;
+  S.ac.abort();
   if (S.io) S.io.disconnect();
-  if (S.cancel) S.cancel();
+  disarm();
   S = null;
 }

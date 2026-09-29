@@ -12,7 +12,7 @@
 .v-run .gd-ring { width: 32px; height: 32px; flex: none; overflow: visible; }
 .v-run .gd-rt, .v-run .gd-rf { fill: none; stroke-width: 4; }
 .v-run .gd-rt { stroke: var(--surface-2); }
-.v-run .gd-rf { stroke: var(--tint); stroke-linecap: round; transition: stroke-dashoffset 700ms var(--ease-out-expo), stroke 300ms; }
+.v-run .gd-rf { stroke: var(--tint); stroke-linecap: round; transition: stroke-dashoffset 700ms var(--ease-out-expo); } /* the gold swap on 9/9 is instant; the corner pops instead */
 .v-run .gd-n { color: var(--ink); }
 .v-run .gd-corner.is-gold .gd-rf { stroke: var(--gold); }
 .v-run .gd-corner.is-gold .gd-n { color: var(--gold); }
@@ -53,10 +53,9 @@
 }
 .v-run .gc[aria-disabled="true"] { cursor: default; }
 .v-run .gc.is-open.is-pressed { transform: scale(.95); transition: none; }
-.v-run .gc.no-ring:focus-visible { outline: none; }
 .v-run .gc-plus { color: var(--ink-4); display: grid; place-items: center; }
 .v-run .gc-plus > .ic { width: 20px; height: 20px; stroke-width: 2; }
-.v-run .gc.is-open:hover .gc-plus { color: var(--ink-3); }
+@media (hover: hover) and (pointer: fine) { .v-run .gc.is-open:hover .gc-plus { color: var(--ink-3); } }
 
 .v-run .gc.is-ok { background: var(--tint-soft); box-shadow: inset 0 0 0 1.5px var(--tint); }
 .v-run .gc.is-no { background: var(--wrong-soft); }

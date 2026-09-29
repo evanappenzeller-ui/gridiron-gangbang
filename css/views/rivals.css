@@ -33,6 +33,8 @@
   transition: transform var(--spring-snappy-dur) var(--spring-snappy);
 }
 .v-rivals .rv-pick.is-pressed .rv-av { transform: scale(.93); transition: none; }
+/* A new manager picked from the list while the header is off screen: hidden until it pops in view. */
+.v-rivals .rv-pick.is-arriving :is(.rv-av, .rv-glow, .rv-pname) { opacity: 0; }
 .v-rivals .rv-pname {
   display: flex; align-items: center; justify-content: center;
   max-width: 100%; min-width: 0;
@@ -85,7 +87,8 @@
   color: var(--mc);
   transition: opacity 240ms linear;
 }
-.v-rivals .rv-side.is-trail .rv-num { opacity: .55; }
+/* Trailer at 72% (spec says 55%): at 55% the darker accents (azure, violet) fall to ~2.4:1, under the 3:1 large-text floor. */
+.v-rivals .rv-side.is-trail .rv-num { opacity: .72; }
 .v-rivals .rv-wl { margin-top: 2px; color: var(--ink-3); }
 .v-rivals .rv-dash { display: flex; justify-content: center; padding-bottom: 18px; color: var(--ink-3); }
 .v-rivals .rv-split { margin-top: 16px; }
@@ -150,15 +153,20 @@
   background: var(--bar-solid);
   box-shadow: inset 0 -1px 0 var(--separator), inset 0 1px 0 var(--separator);
 }
+/* Stuck under the nav: one bar with the nav (solid, no blur), and a single hairline (this header's bottom one). */
+.v-rivals .rv-yh.is-stuck { box-shadow: inset 0 -1px 0 var(--separator); }
+.v-rivals:has(.rv-yh.is-stuck) > .nav .nav-bg {
+  background: var(--bar-solid); -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none;
+}
 .v-rivals .rv-yy { color: var(--ink); }
 .v-rivals .rv-ysum {
   min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font: 600 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2);
 }
 .v-rivals .rv-log .bug-compact { min-height: 52px; }
-.v-rivals .rv-log .bug-compact .n4 small { color: inherit; opacity: .6; }
+/* Decimals keep the foundation's ink-3 (never dimmed further); the winner's step up to ink-2. */
+.v-rivals .rv-log .bug-compact .bug-c.is-win .n4 small { color: var(--ink-2); }
 .v-rivals .rv-log .bug-compact .bug-c:not(.is-win) { color: var(--ink-3); }
-.v-rivals .rv-log .bug-compact.is-tie .bug-c { color: var(--ink-2); }
 .v-rivals .rv-log .bug-compact .bug-mid { font-weight: 600; }
 
 /* ================================================================ "{A} against everyone" */

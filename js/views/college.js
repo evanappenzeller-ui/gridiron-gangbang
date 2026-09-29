@@ -25,22 +25,27 @@ const answered = () => daily.DS.col.a.length;
 const perfect = () => daily.colDone() && daily.colScore() === total();
 
 // ---------------------------------------------------------------------------------------------- markup
+// A locked-in score (daily.lockIn) fills the unanswered players with -1: those count as missed, not answered.
+const skipped = x => !(x >= 0);
 function dotsLabel() {
   const a = daily.DS.col.a;
-  let right = 0, wrong = 0;
-  a.forEach((x, r) => { if (x === Q(r)[2]) right++; else wrong++; });
+  let right = 0, wrong = 0, skip = 0;
+  a.forEach((x, r) => { if (skipped(x)) skip++; else if (x === Q(r)[2]) right++; else wrong++; });
   const left = total() - a.length;
-  return `${right} right, ${wrong} wrong${left ? `, ${left} to go` : ''}`;
+  return [`${right} right`, (wrong || !skip) && `${wrong} wrong`, skip && `${skip} not answered`, left && `${left} to go`].filter(Boolean).join(', ');
 }
+const dotState = (a, r) => r >= a.length || skipped(a[r]) ? '' : a[r] === Q(r)[2] ? 'is-right' : 'is-wrong';
 function dotsHTML(gold) {
   const a = daily.DS.col.a;
   return Array.from({length: total()}, (_, r) => {
-    const st = r >= a.length ? '' : a[r] === Q(r)[2] ? ' is-right' : ' is-wrong';
-    return `<i class="cl-dot${st}${gold ? ' is-gold' : ''}"><b></b></i>`;
+    const st = dotState(a, r);
+    return `<i class="cl-dot${st ? ' ' + st : ''}${gold ? ' is-gold' : ''}"><b></b></i>`;
   }).join('');
 }
 function countText(showR) {
-  return showR == null ? 'All five answered' : `Player ${showR + 1} of ${total()}`;
+  if (showR != null) return `Player ${showR + 1} of ${total()}`;
+  const a = daily.DS.col.a;
+  return a.some(skipped) ? `Locked in · ${a.filter(x => !skipped(x)).length} of ${total()} answered` : 'All five answered';
 }
 
 function peeksHTML(n) {
@@ -68,7 +73,8 @@ function recapHTML(stampHidden) {
     const a = ds.col.a[r], ok = a === q[2];
     const right = daily.PZ.CL[q[1][q[2]]];
     const sub = ok ? right : (a >= 0 && a < q[1].length ? `${right}, not ${daily.PZ.CL[q[1][a]]}` : `${right}. Not answered.`);
-    const lead = ui.icon(ok ? 'check-circle' : 'x-circle', {cls: 'cl-ri ' + (ok ? 'tint' : 'wrong'), label: ok ? 'Right' : 'Wrong'});
+    const miss = !ok && skipped(a);
+    const lead = ui.icon(ok ? 'check-circle' : 'x-circle', {cls: 'cl-ri ' + (ok ? 'tint' : miss ? 'ink3' : 'wrong'), label: ok ? 'Right' : miss ? 'Not answered' : 'Wrong'});
     return ui.row({lead, title: daily.PP[q[0]][0], sub});
   }).join('');
   const stamp = score === total() ? `<span class="rn-stamp cl-stamp" data-cl-stamp${stampHidden ? ' style="opacity:0"' : ''}>5 for 5</span>` : '';
@@ -99,9 +105,13 @@ function refs(I) {
 function paintDots(I, gold) {
   const a = daily.DS.col.a;
   [...I.dots.children].forEach((d, r) => {
-    d.classList.toggle('is-right', r < a.length && a[r] === Q(r)[2]);
-    d.classList.toggle('is-wrong', r < a.length && a[r] !== Q(r)[2]);
+    const st = dotState(a, r);
+    const was = d.classList.contains('is-right') ? 'is-right' : d.classList.contains('is-wrong') ? 'is-wrong' : '';
+    d.classList.toggle('is-right', st === 'is-right');
+    d.classList.toggle('is-wrong', st === 'is-wrong');
     if (gold != null) d.classList.toggle('is-gold', gold);
+    // The color swaps instantly; a newly answered dot pops in (transform only).
+    if (st && !was) ui.animate(d, [{transform: 'scale(.4)'}, {transform: 'none'}], {spring: 'bouncy'});
   });
   I.dots.setAttribute('aria-label', dotsLabel());
 }
@@ -160,8 +170,9 @@ function setPeeks(stack, n, animate) {
   if (p2) ui.animate(p2, [{transform: 'translateY(24px) scale(.88)', opacity: 0}, {transform: 'translateY(16px) scale(.92)', opacity: .3}], {spring: 'smooth'});
 }
 
+// Picks are not gated on the fly-off: the new options are live as soon as they are painted (next() stays
+// guarded by colShow). Only the busy hold follows the leaving clone.
 function advance(I, r, kb) {
-  I.locked = true;
   const release = I.api.busy();
   const stack = I.main.querySelector('[data-cl-stack]');
   const card = stack.querySelector('[data-cl-card]');
@@ -199,7 +210,6 @@ function advance(I, r, kb) {
     if (ended) return;
     ended = true;
     clone.remove();
-    I.locked = false;
     release();
   };
   settle(fly, 420).then(done);
@@ -265,6 +275,9 @@ function mount(el, ctx, api) {
     if (e.target.closest('[data-cl-next]')) next(I, e.detail === 0);
   });
   return {
+    // While a verdict is showing, its in-card "Next player" / "See how you did" is the next step: the run's bottom
+    // button stays secondary until then, so the screen never shows two primary actions at once.
+    holdCta: () => I.colShow != null,
     unmount() {
       I.dead = true;
       I.timers.forEach(clearTimeout);

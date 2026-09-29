@@ -140,7 +140,14 @@ export function openPicker(o = {}) {
     };
 
     const pick = row => {
-      if (closing || picked != null || !row || row.dis) return;
+      if (closing || picked != null || !row) return;
+      if (row.dis) {
+        // Spec 9: the duplicate-guess toasts stay. The sheet stays open so another name can be typed.
+        const n = daily.PP[row.i] ? daily.PP[row.i][0] : 'That player';
+        ui.toast(kind === 'grid' ? `${n} is already on your grid.` : `You already guessed ${n}.`);
+        ui.haptic('warning');
+        return;
+      }
       picked = row.i;
       ui.haptic('light');
       row.el.classList.add('is-picked');
@@ -166,6 +173,7 @@ export function openPicker(o = {}) {
         e.preventDefault();
         const k = hl >= 0 && rows[hl] && !rows[hl].dis ? hl : firstEnabled();
         if (k >= 0) pick(rows[k]);
+        else if (rows.length) pick(rows[0]); // every match is already used: say so
       }
     });
     list.addEventListener('click', e => {

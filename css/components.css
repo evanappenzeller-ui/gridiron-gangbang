@@ -131,12 +131,23 @@
 .accessory::after {
   content: ""; position: absolute; inset: 0; z-index: -1;
   background: var(--bar-solid);
-  box-shadow: inset 0 -1px 0 var(--separator);
+  box-shadow: inset 0 -1px 0 var(--acc-hairline, var(--separator));
   opacity: 0;
   transition: opacity var(--dur-fast) linear;
   pointer-events: none;
 }
+/* A view whose own sticky header (with its own hairline) sits right under the accessory can drop this one:
+   set --acc-hairline: transparent on the .accessory (or the screen) while that header is stuck. */
 .accessory.is-pinned::after { opacity: 1; }
+/* Pinned under the nav bar, the two read as one bar (iOS nav bar + scope bar): the nav turns into the same solid
+   slab and drops its own hairline, so only the accessory's hairline remains. Views with their own sticky header
+   directly under the nav add a matching rule for their stuck state. */
+.screen:has(> .screen-body .accessory.is-pinned) > .nav .nav-bg {
+  background: var(--bar-solid);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: none;
+}
 .accessory > .chips { margin: 0 calc(-1 * var(--gutter)); flex: 1; }
 
 /* ================================================================ Section header */
@@ -254,8 +265,8 @@ button.card, a.card { width: 100%; text-align: left; color: inherit; }
   transition: background-color 250ms linear;
   min-width: 0;
 }
-.row:has(.row-sub) { min-height: 60px; }
-.row:has(> .row-lead .av-40), .row.row-72 { min-height: 72px; }
+.row.row-2l { min-height: 60px; }   /* ui.row() adds these: a sub line (60), or a 40 px avatar lead (72) */
+.row.row-72 { min-height: 72px; }
 .row.is-pressed { background-color: var(--surface-2); transition: none; }
 .row-lead { flex: none; align-self: center; display: flex; align-items: center; margin-right: 12px; min-width: 0; }
 .row-main {
@@ -279,6 +290,7 @@ button.card, a.card { width: 100%; text-align: left; color: inherit; }
   content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--tint);
 }
 .row.is-me { background-color: var(--surface-2); }
+.row.is-me.is-pressed { background-color: var(--surface-3); } /* your own row still shows press feedback */
 .row:disabled, .row[aria-disabled="true"], .row.is-disabled { opacity: .45; pointer-events: none; }
 
 /* ================================================================ Segmented control */
@@ -439,6 +451,8 @@ button.card, a.card { width: 100%; text-align: left; color: inherit; }
   white-space: nowrap; min-width: 0; flex: none;
 }
 .pill > .ic { width: 14px; height: 14px; }
+/* The label ellipsizes (overflow hidden): give it a real line box so descenders (g, y, p) are not clipped. */
+.pill > .ell { line-height: 1.4; min-width: 0; }
 .pill .av { margin-left: -6px; }
 .pill-tint  { background: var(--tint-soft); color: var(--tint); }
 .pill-gold  { background: var(--gold-soft); color: var(--gold); }
@@ -552,9 +566,11 @@ button.bug, a.bug { color: var(--ink-3); }
 }
 .bug-compact .bug-c.b { justify-content: flex-end; }
 .bug-compact .bug-c.is-win { color: var(--ink); }
+.bug-compact .bug-c.is-tie { color: var(--ink-2); }
 .bug-compact .bug-c.is-win::before { content: ""; position: absolute; top: 8px; bottom: 8px; width: 3px; border-radius: 2px; background: var(--mc); }
-.bug-compact .bug-c.a.is-win::before { left: 0; }
-.bug-compact .bug-c.b.is-win::before { right: 0; }
+/* Winner markers sit 6 px inside the card edge (flush, they read as a stray border clipped by the corner). */
+.bug-compact .bug-c.a.is-win::before { left: 6px; }
+.bug-compact .bug-c.b.is-win::before { right: 6px; }
 .bug-compact .bug-mid { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font: 500 13px/16px var(--font-text); color: var(--ink-2); padding: 6px 0; }
 .bug-compact .bug-mid .badge { height: 18px; font-size: 11px; padding: 0 5px; }
 
@@ -565,12 +581,12 @@ button.bug, a.bug { color: var(--ink-3); }
 }
 .tape + .tape { box-shadow: inset 0 1px 0 rgba(56,56,58,.6); }
 .tape-v { position: relative; min-width: 0; padding: 8px 14px; color: var(--ink-2); display: flex; flex-direction: column; }
-.tape-a { align-items: flex-start; text-align: left; }
-.tape-b { align-items: flex-end; text-align: right; }
+.tape-a { align-items: flex-start; text-align: left; padding-left: 18px; }
+.tape-b { align-items: flex-end; text-align: right; padding-right: 18px; }
 .tape-v.is-better { color: var(--ink); }
-.tape-v.is-better::before { content: ""; position: absolute; top: 12px; bottom: 12px; width: 3px; border-radius: 2px; background: var(--mc, var(--ink)); }
-.tape-a.is-better::before { left: 0; }
-.tape-b.is-better::before { right: 0; }
+.tape-v.is-better::before { content: ""; position: absolute; top: 14px; bottom: 14px; width: 3px; border-radius: 2px; background: var(--mc, var(--ink)); }
+.tape-a.is-better::before { left: 6px; }
+.tape-b.is-better::before { right: 6px; }
 .tape-val { font-family: var(--font-num); font-weight: 800; font-size: var(--fs-n4); line-height: var(--lh-n4); font-variant-numeric: tabular-nums; }
 .tape-val small { font-size: .62em; color: var(--ink-3); }
 .tape-sub { font: 500 var(--fs-cap)/var(--lh-cap) var(--font-text); color: var(--ink-3); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
@@ -690,6 +706,8 @@ button.bug, a.bug { color: var(--ink-3); }
 .sheet.is-fit .sheet-body { flex: 0 1 auto; }
 .sheet.is-dragging, .sheet.is-dragging * { user-select: none; -webkit-user-select: none; }
 .sheet .group, .sheet .tile, .sheet .card { background: var(--surface-2); --stack-ring: var(--surface-2); }
+/* On --surface-2 the #38383A hairline almost vanishes (~1.1:1): groups in sheets use the action sheet's elevated one. */
+.sheet .group { --separator: rgba(84,84,88,.65); }
 .sheet .row.is-pressed { background-color: var(--surface-3); }
 .sheet .search { background: var(--surface-2); }
 .sheet .skel, .sheet .sk { background: var(--surface-2); }
@@ -769,6 +787,8 @@ button.bug, a.bug { color: var(--ink-3); }
   white-space: nowrap;
   text-shadow: 0 1px 2px rgba(0,0,0,.5);
 }
+.float-text.wrong { color: var(--wrong); }
+.float-text.gold { color: var(--gold); }
 .odo { display: inline-flex; overflow: hidden; vertical-align: top; height: 1em; line-height: 1em; }
 .odo-col { display: flex; flex-direction: column; }
 .odo-col > span { display: block; height: 1em; line-height: 1em; text-align: center; }

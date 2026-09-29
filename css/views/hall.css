@@ -73,7 +73,7 @@
 }
 .v-hall .bn-year > .n3 { letter-spacing: -.035em; margin-right: -.035em; white-space: nowrap; } /* 4 digits in 64 px */
 .v-hall .bn-year > .ic { width: 18px; height: 18px; margin-top: auto; color: var(--gold); }
-.v-hall .bn-main { min-width: 0; padding: 10px 0 12px; }
+.v-hall .bn-main { min-width: 0; padding: 10px 0 4px; } /* the last 44 px row brings its own air */
 .v-hall .bn-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .v-hall .bn-champ {
   flex: 1 1 auto; min-width: 0;
@@ -86,35 +86,22 @@
 .v-hall .bn-cm { min-width: 0; display: flex; flex-direction: column; }
 .v-hall .bn-cn { font: 600 var(--fs-headline)/var(--lh-headline) var(--font-text); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .v-hall .bn-ct { font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.v-hall .bn-rest { margin-top: 6px; padding-top: 4px; position: relative; }
+.v-hall .bn-rest { margin-top: 6px; position: relative; }
 .v-hall .bn-rest::before {
   content: ""; position: absolute; left: 0; right: 0; top: 0; height: 1px;
   background: var(--separator); transform: scaleY(.5); transform-origin: top;
 }
-.v-hall .bn-mini { display: flex; align-items: center; gap: 8px; min-height: 32px; min-width: 0; }
+/* Each compact row is a full 44 px target (spec 10); rows do not overlap. */
+.v-hall .bn-mini { display: flex; align-items: center; gap: 8px; min-height: 44px; min-width: 0; }
 .v-hall .bn-who {
-  position: relative; flex: 1 1 auto; min-width: 0;
+  position: relative; flex: 1 1 auto; min-width: 0; align-self: stretch;
   display: flex; align-items: center; gap: 8px;
   font: 500 15px/20px var(--font-text); color: var(--ink-2);
   transition: opacity 200ms linear;
 }
-.v-hall .bn-who::before { content: ""; position: absolute; left: -8px; right: -4px; top: -6px; bottom: -6px; } /* 44 px hit area */
+.v-hall .bn-who::before { content: ""; position: absolute; left: -8px; right: -4px; top: 0; bottom: 0; }
 .v-hall .bn-who.is-pressed { opacity: .55; transition: none; }
 .v-hall .bn-mini > .badge { flex: none; }
-.v-hall .bn-note { flex: none; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); white-space: nowrap; }
-
-/* The season being played: dashed, still up for grabs */
-.v-hall .bn-live { background: transparent; }
-.v-hall .bn-live::after {
-  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
-  border: 1px dashed var(--ink-4);
-}
-.v-hall .bn-live .bn-year { background: var(--surface-1); box-shadow: inset 0 3px 0 var(--ink-4); min-height: 88px; }
-.v-hall .bn-live .bn-year > .n3 { color: var(--ink-2); }
-.v-hall .bn-lv { display: flex; min-width: 0; padding-top: 4px; }
-.v-hall .bn-lv > .badge { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
-.v-hall .bn-open { margin-top: 8px; font: 400 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink-2); }
-.v-hall .bn-live .bn-mini { margin-top: 6px; }
 
 /* ================================================================ Title count */
 .v-hall .tc-row .row-trail { gap: 10px; color: var(--ink); }
@@ -195,7 +182,8 @@
 .v-hall .ff-no { color: var(--ink-3); }
 .v-hall .ff-t { margin-top: 8px; color: var(--ink-2); overflow-wrap: anywhere; }
 .v-hall .ff-dots { display: flex; justify-content: center; margin: 2px 0 -10px; }
-.v-hall .ff-dot { position: relative; width: 22px; height: 44px; display: grid; place-items: center; }
+/* 44×44 targets (spec 10): 7 dots fit at 360 px; more shrink toward 22 px rather than overflow. */
+.v-hall .ff-dot { position: relative; flex: 0 1 44px; min-width: 22px; height: 44px; display: grid; place-items: center; }
 .v-hall .ff-dot > i {
   display: block; width: 6px; height: 6px; border-radius: 3px;
   background: var(--ink);
@@ -210,6 +198,7 @@
 .v-hall .rc-sec { padding-top: 28px; }
 .v-hall .rc-sec > .sh { margin-top: 0; }
 .v-hall .rc-list > .rc-sec:first-child { padding-top: 12px; }
+.v-hall .hl-rec > .rc-list:first-child > .rc-sec:first-child { padding-top: 20px; } /* facts fallback: no hero or chips above */
 .v-hall .rc {
   position: relative;
   display: flex; align-items: center; gap: 12px;
@@ -228,6 +217,10 @@
 }
 .v-hall .rc.is-focus::after { animation: hl-flash 1200ms linear both; }
 @keyframes hl-flash { 0% { opacity: 0; } 22% { opacity: 1; } 55% { opacity: 1; } 100% { opacity: 0; } }
+/* Reduced motion: no ramp, the tint is simply there and then fades out over 200 ms (like the RM red flash). */
+html.rm .v-hall .rc.is-focus::after { animation-name: hl-flash-rm; }
+@media (prefers-reduced-motion: reduce) { .v-hall .rc.is-focus::after { animation-name: hl-flash-rm; } }
+@keyframes hl-flash-rm { 0%, 83% { opacity: 1; } 100% { opacity: 0; } }
 .v-hall .rc-main { position: relative; z-index: 1; flex: 1 1 auto; min-width: 0; }
 .v-hall .rc-l { font: 600 var(--fs-headline)/var(--lh-headline) var(--font-text); overflow-wrap: anywhere; }
 .v-hall .rc-hs { margin-top: 2px; }
@@ -238,8 +231,12 @@
   font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3);
   overflow-wrap: anywhere; min-width: 0;
 }
-.v-hall .rc-h.is-link { transition: opacity 200ms linear; }
-.v-hall .rc-h.is-link::before { content: ""; position: absolute; left: -8px; right: -4px; top: -3px; bottom: -3px; }
+/* Holder links sit on the text's own 24 px line pitch; the 44 px target (spec 10) comes from a hit layer that reaches
+   10 px above and below. Stacked holders split the space between them (their hit layers meet at the shared edge). */
+.v-hall .rc-h.is-link { padding: 3px 0; transition: opacity 200ms linear; }
+.v-hall .rc-h.is-link::before { content: ""; position: absolute; left: -8px; right: -4px; top: -10px; bottom: -10px; }
+.v-hall .rc-h + .rc-h.is-link::before { top: 0; }
+.v-hall .rc-h.is-link:not(:last-child)::before { bottom: 0; }
 .v-hall .rc-h.is-link.is-pressed { opacity: .55; transition: none; }
 .v-hall .rc-h > .av { margin-top: -1px; }
 .v-hall .rc-ht { min-width: 0; }
@@ -253,8 +250,11 @@
   background: var(--surface-2);
   text-align: center;
 }
-.v-hall .rc-v > .n4 { max-width: 100%; overflow-wrap: anywhere; }
+.v-hall .rc-v > .n4 { max-width: 100%; white-space: nowrap; }
 .v-hall .rc-v > .n4.is-long { font-size: var(--fs-n5); line-height: var(--lh-n5); }
-.v-hall .rc-v > .t-cap { margin-top: 2px; max-width: 100%; color: var(--ink-3); line-height: 14px; overflow-wrap: anywhere; }
+.v-hall .rc-v > .n4.is-xlong { font-size: 13px; line-height: 16px; white-space: normal; overflow-wrap: anywhere; }
+.v-hall .rc-v > .t-cap { margin-top: 2px; max-width: 100%; color: var(--ink-2); line-height: 14px; overflow-wrap: anywhere; }
+/* On surface-2, ink-3 is 4.27:1: the unit and the small decimals use ink-2 (6.3:1) in the tile. */
+.v-hall .rc-v small { color: var(--ink-2); }
 .v-hall .rc-src { margin-top: 16px; }
 .v-hall .rc-end { display: block; height: 1px; }

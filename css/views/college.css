@@ -7,7 +7,6 @@
 .v-run .cl-dot {
   position: relative; display: block; width: 8px; height: 8px; border-radius: 50%;
   background: var(--surface-3);
-  transition: background-color 200ms;
 }
 .v-run .cl-dot.is-right { background: var(--tint); }
 .v-run .cl-dot.is-wrong { background: var(--wrong); }
@@ -48,7 +47,7 @@
   color: var(--ink);
   font: 600 var(--fs-headline)/var(--lh-headline) var(--font-text);
   text-align: left;
-  transition: transform var(--spring-snappy-dur) var(--spring-snappy), opacity 200ms, background-color 160ms, color 160ms;
+  transition: transform var(--spring-snappy-dur) var(--spring-snappy), opacity 200ms; /* colors swap instantly (compositor-only motion) */
 }
 .v-run .cl-opt.is-pressed { transform: scale(.96); transition: none; }
 .v-run .cl-opt:disabled { cursor: default; }
@@ -82,7 +81,7 @@
 .v-run .cl-verdict[hidden] { display: none; }
 .v-run .cl-vt { flex: 1 1 140px; min-width: 0; font: 600 var(--fs-headline)/var(--lh-headline) var(--font-text); }
 .v-run .cl-vt.is-right { color: var(--tint); }
-.v-run .cl-vt.is-wrong { color: var(--ink); }
+.v-run .cl-vt.is-wrong { color: var(--wrong); }
 .v-run .cl-verdict .btn-s { flex: none; }
 
 /* Recap */

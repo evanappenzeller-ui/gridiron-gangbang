@@ -49,9 +49,11 @@
   position: absolute; inset: 0;
   background: var(--tint);
   transform-origin: 0 50%;
-  transition: transform var(--spring-smooth-dur) var(--spring-smooth), background-color 300ms;
+  transition: transform var(--spring-smooth-dur) var(--spring-smooth);
 }
-.v-run .rn-fill.is-perfect { background: var(--gold); }
+/* Perfect: a gold layer fades in over the tint (opacity only; the fill color itself never tweens) */
+.v-run .rn-fill::after { content: ""; position: absolute; inset: 0; background: var(--gold); opacity: 0; transition: opacity 300ms var(--ease-out); }
+.v-run .rn-fill.is-perfect::after { opacity: 1; }
 .v-run .rn-seg:focus-visible { outline-offset: -2px; }
 
 .v-run .rn-pts {
@@ -63,7 +65,7 @@
 }
 .v-run .rn-pts.is-pending { opacity: 0; }
 .v-run .rn-pn { font-size: 19px; line-height: 32px; color: var(--ink); }
-.v-run .rn-pu { font: 500 var(--fs-cap)/32px var(--font-text); color: var(--ink-3); }
+.v-run .rn-pu { font: 500 var(--fs-cap)/32px var(--font-text); color: var(--ink-2); } /* ink-3 is only 4.3:1 on surface-2 */
 
 /* ------------------------------------------------------------------ Stage and header */
 .v-run .rn-stage { display: grid; flex: 1 0 auto; min-width: 0; }
@@ -107,7 +109,7 @@
 }
 
 /* ------------------------------------------------------------------ Reduced motion */
-html.rm .v-run .rn-track, html.rm .v-run .rn-fill, html.rm .v-run .rn-bg { transition: none; }
+html.rm .v-run .rn-track, html.rm .v-run .rn-fill, html.rm .v-run .rn-fill::after, html.rm .v-run .rn-bg { transition: none; }
 @media (prefers-reduced-motion: reduce) {
-  .v-run .rn-track, .v-run .rn-fill, .v-run .rn-bg { transition: none; }
+  .v-run .rn-track, .v-run .rn-fill, .v-run .rn-fill::after, .v-run .rn-bg { transition: none; }
 }

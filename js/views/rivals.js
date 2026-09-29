@@ -8,6 +8,7 @@ const esc = s => data.esc(s);
 const nm = id => data.name(id);
 const SHARE = [{id: 'share', icon: 'share', label: 'Share this rivalry'}];
 const FOOTNOTE = 'Includes playoff and consolation games. Tap a name to see that matchup.';
+const USER_VIA = ['swap', 'pick', 'list', 'ext']; // pair changes the person asked for (announced)
 
 // One Rivals screen exists at a time (it is the Rivals tab root); its live state lives here and is reset
 // in mount/unmount. Nothing derived from data.* outlives a reload: the model is rebuilt on every update.
@@ -67,6 +68,13 @@ function footText(m) {
 function srSummary(m) {
   const {h} = m;
   return `Series: ${nm(m.a)} ${h.aw} ${h.aw === 1 ? 'win' : 'wins'}, ${nm(m.b)} ${h.bw} ${h.bw === 1 ? 'win' : 'wins'}${h.t ? `, ${h.t} ${h.t === 1 ? 'tie' : 'ties'}` : ''}. ${nm(m.a)} has won ${m.pct} percent of games.`;
+}
+// What a screen reader hears when the pair changes (swap, pick, list row, outside link).
+function spoken(m) {
+  if (!m.n) return `${nm(m.a)} and ${nm(m.b)} haven't played each other yet.`;
+  const {h} = m;
+  const w = n => `${n} ${n === 1 ? 'win' : 'wins'}`;
+  return `${nm(m.a)} against ${nm(m.b)}. ${nm(m.a)} ${w(h.aw)}, ${nm(m.b)} ${w(h.bw)}. ${footText(m)}`;
 }
 function titleOf(m) {
   if (!m || !m.b) return 'Rivals';
@@ -166,7 +174,7 @@ function logHTML(m) {
   const seasons = bySeason(m.h);
   const head = `<div class="rv-mhead">${whoLink(m.a, 'a')}<span class="ovl rv-mcount">${m.n} ${m.n === 1 ? 'meeting' : 'meetings'}</span>${whoLink(m.b, 'b')}</div>`;
   return head + seasons.map(s => {
-    const bugs = s.games.map(g => ui.scoreBug(g, {compact: true, a: m.a, cls: g.sa === g.sb ? 'is-tie' : '', attrs: {role: 'listitem'}})).join('');
+    const bugs = s.games.map(g => ui.scoreBug(g, {compact: true, a: m.a, attrs: {role: 'listitem'}})).join('');
     return `<section class="rv-yr" style="contain-intrinsic-size:auto ${48 + s.games.length * 48}px">`
       + `<h3 class="rv-yh"><span class="n5 rv-yy">${esc(s.year)}</span><span class="sr-only">, </span><span class="rv-ysum">${esc(seasonLine(s, m))}</span></h3>`
       + ui.group(bugs, {attrs: {role: 'list', 'aria-label': `${s.year} meetings`}})
@@ -208,7 +216,7 @@ function listHTML(m) {
   return `<ul class="group rv-opps" aria-label="${esc(`${nm(m.a)} against everyone`)}">${rows.map(x => oppRow(m.a, x, m.b)).join('')}</ul>`;
 }
 function listSecHTML(m) {
-  return `<div class="rv-sec rv-list" data-enter>${ui.sectionHeader({title: `${nm(m.a)} against everyone`})}<div class="rv-list-w">${listHTML(m)}</div><p class="note">${FOOTNOTE}</p></div>`;
+  return `<div class="rv-sec rv-list" data-enter>${ui.sectionHeader({title: `${nm(m.a)} against everyone`})}<div class="rv-list-w">${listHTML(m)}</div><p class="group-f">${FOOTNOTE}</p></div>`;
 }
 
 function pageHTML(m) {
@@ -243,7 +251,7 @@ function markRendered(root) {
 }
 
 // Odometer, serialized per element: a roll that is still running finishes, then rolls on to the latest
-// target (two overlapping ui.odometer calls on one element would leave the first one's final value).
+// target (a second ui.odometer call mid-roll would restart the columns from its own start value).
 function rollTo(el, to, animate) {
   if (!el) return;
   to = Math.max(0, Math.round(Number(to) || 0));
@@ -267,29 +275,37 @@ function rollTo(el, to, animate) {
 function onScreen(el) {
   const scr = st && st.ctx.screen;
   if (!el || !scr) return true;
+  const nav = scr.querySelector(':scope > .nav');
   const r = el.getBoundingClientRect(), s = scr.getBoundingClientRect();
-  return r.top >= s.top + 20 && r.top < s.bottom - 80;
+  const top = nav ? nav.getBoundingClientRect().bottom : s.top + 20;
+  return r.top >= top - 4 && r.top < s.bottom - 80;
 }
-// Runs fn once el scrolls on screen: a list tap scrolls back to the top first, so the numbers roll where
-// they can be seen. Falls back once the scroll has settled (160 ms without scroll events) or after 1.6 s.
-// One pending wait at a time (a newer one replaces it; patchBoard always renders the latest pair).
+// Runs fn once el scrolls on screen: a list tap (or a pair arriving from another screen) scrolls back to
+// the top first, so the header pops and the numbers roll where they can be seen. Falls back once the
+// scroll has stopped (no scroll event for 160 ms, 250 ms when none came yet, AND no movement across the
+// next frame: on a slow phone a long task can starve scroll events mid-scroll) or after 1.6 s.
+// One pending wait at a time: a newer one flushes the older (its patch lands at once, never lost);
+// unmount drops it (stop() without flush).
 function whenSeen(el, fn) {
   const scr = st && st.ctx.screen;
   if (!el || !scr) return fn();
-  if (st.seen) st.seen();
-  let idle = 0, max = 0;
-  const stop = () => {
+  if (st.seen) st.seen(true);
+  let idle = 0, max = 0, raf = 0;
+  const stop = flush => {
     scr.removeEventListener('scroll', onScroll);
-    clearTimeout(idle); clearTimeout(max);
+    clearTimeout(idle); clearTimeout(max); cancelAnimationFrame(raf);
     if (st && st.seen === stop) st.seen = null;
+    if (flush === true && el.isConnected) fn();
   };
   const go = () => { stop(); if (el.isConnected) fn(); };
-  const onScroll = () => {
-    if (onScreen(el)) { go(); return; }
-    clearTimeout(idle);
-    idle = setTimeout(go, 160);
+  const settle = () => {
+    const y = scr.scrollTop;
+    raf = requestAnimationFrame(() => { raf = 0; if (scr.scrollTop === y) go(); else arm(160); });
   };
+  const arm = ms => { clearTimeout(idle); cancelAnimationFrame(raf); idle = setTimeout(settle, ms); };
+  const onScroll = () => { if (onScreen(el)) go(); else arm(160); };
   scr.addEventListener('scroll', onScroll, {passive: true});
+  arm(250);
   max = setTimeout(go, 1600);
   st.seen = stop;
 }
@@ -304,9 +320,22 @@ function flicker(el) {
   ], {duration: 960, easing: 'ease-in-out'});
 }
 
-function patchHeader(m, {animate, via}) {
+// A new manager lands in a header slot: the avatar pops (stamp), its glow fades up and the name rises.
+function arrive(btn) {
+  if (!btn || !btn.isConnected) return;
+  btn.classList.remove('is-arriving');
+  ui.stamp(btn.querySelector('.rv-av'), {from: .6});
+  ui.animate(btn.querySelector('.rv-glow'), [{opacity: 0}, {opacity: 1}], {duration: 420, easing: 'ease-out'});
+  ui.animate(btn.querySelector('.rv-pname'), [{opacity: 0, transform: 'translateY(4px)'}, {opacity: 1, transform: 'none'}], {duration: 240, easing: 'cubic-bezier(.22,1,.36,1)'});
+}
+
+// Returns the header buttons whose arrival is held back (defer: the header is off screen; the caller plays
+// arrive() once it scrolls into view). Until then .is-arriving keeps the new avatar hidden, so it never shows
+// up still and then blinks into the pop. Every patch rewrites className, so the class can never stick.
+function patchHeader(m, {animate, via, defer}) {
   const hdr = st.r.hdr;
-  if (!hdr) return;
+  const held = [];
+  if (!hdr) return held;
   const meChanged = `${data.me()}|${reigning()}` !== st.meKey;
   ['a', 'b'].forEach(side => {
     const btn = hdr.querySelector('.rv-pick.' + side);
@@ -319,16 +348,15 @@ function patchHeader(m, {animate, via}) {
     btn.dataset.id = id;
     btn.setAttribute('aria-label', pickLabel(id, side));
     if (changed && animate && via !== 'swap') {
-      ui.stamp(btn.querySelector('.rv-av'), {from: .6});
-      ui.animate(btn.querySelector('.rv-glow'), [{opacity: 0}, {opacity: 1}], {duration: 420, easing: 'ease-out'});
-      ui.animate(btn.querySelector('.rv-pname'), [{opacity: 0, transform: 'translateY(4px)'}, {opacity: 1, transform: 'none'}], {duration: 240, easing: 'cubic-bezier(.22,1,.36,1)'});
+      if (defer) { btn.classList.add('is-arriving'); held.push(btn); } else arrive(btn);
     }
   });
   // The swap's crossing avatars land exactly where the new content sits: drop them in the same frame.
   if (st.swapAnims) { st.swapAnims.forEach(a => { try { a.cancel(); } catch (_) {} }); st.swapAnims = null; }
+  return held;
 }
 
-function patchBoard(animate) {
+function patchBoard(animate, via) {
   const m = st && st.m;
   const board = m && st.r.main && st.r.main.querySelector('.rv-board');
   if (!board || !m.n) return;
@@ -360,7 +388,8 @@ function patchBoard(animate) {
   const fw = board.querySelector('.rv-flame-w');
   const hot = h.streak.n >= 3;
   const key = `${h.streak.who}|${h.streak.n}`;
-  const flare = hot && animate && (fw.hidden || st.flameKey !== key);
+  // Delight 8.12: a hot streak's flame flickers when it first shows, when the streak changes, and on a swap.
+  const flare = hot && animate && (via === 'swap' || fw.hidden || st.flameKey !== key);
   fw.hidden = !hot;
   if (flare) flicker(fw.querySelector('.rv-flame'));
   st.flameKey = key;
@@ -427,31 +456,36 @@ function patchList(m, {animate, meChanged}) {
   if (!same) ul.replaceChildren(...els);
 }
 
-// The compact title reads "{A} {aw}–{bw} {B}" while Rivals is on screen. setTitle also labels the back
-// button of screens pushed on top, so onHide restores the plain "Rivals" (a clean "‹ Rivals" back label
-// instead of "‹ Ben 8–0 Say…"); onShow puts the matchup back. Both run before the push/pop's first frame.
+// The compact title reads "{A} {aw}–{bw} {B}". Screens pushed on top keep the plain "‹ Rivals" back label
+// (ctx.setBackTitle in mount), never "‹ Ben 8–0 Say…".
 function chrome(m) {
   st.title = titleOf(m);
-  if (st.ctx.visible) st.ctx.setTitle(st.title);
+  st.ctx.setTitle(st.title);
   st.ctx.setActions(m && m.b && m.n ? null : []);
 }
 
 // Apply a (possibly new) pair. Phase 1 (this frame): the matchup header, the scoreboard and the title, so a
 // swap or a pick lands at once. Phase 2 (next frame): the tape, the meeting log and the list, which sit
 // below the fold; splitting keeps each task short on slow phones.
+// via: 'swap' | 'pick' | 'list' (a row in "{A} against everyone") | 'ext' (the route moved from outside,
+// e.g. a profile's Rivalries link over Rivals) | null (data, me, canonicalizing).
 function apply(pair, {animate = true, via = null} = {}) {
   const prev = st.m;
   const m = model(pair.a, pair.b);
-  const main = st.r.main;
+  const main = st.r.main, hdr = st.r.hdr;
   const board = main.querySelector('.rv-board');
   const both = !!(prev && prev.n && m.n);
-  const deferBoard = both && animate && via === 'list' && !onScreen(board); // a layout read, before any write
+  // 'list' and 'ext' scroll back to the top: the header's arrival and the roll wait until they are in view.
+  // (layout reads, before any write; the header sits above the board, so it is the one to watch)
+  const far = animate && (via === 'list' || via === 'ext');
+  const waitOn = !far ? null : !onScreen(hdr) ? hdr : (both && !onScreen(board)) ? board : null;
   st.m = m;
-  patchHeader(m, {animate, via});
+  const held = patchHeader(m, {animate, via, defer: !!waitOn});
   st.meKey = `${data.me()}|${reigning()}`;
+  let later = null;
   if (both) {
-    if (deferBoard) whenSeen(board, () => patchBoard(true));
-    else patchBoard(animate);
+    if (waitOn) later = () => patchBoard(true, via);
+    else patchBoard(animate, via);
   } else if (!prev || prev.a !== m.a || prev.b !== m.b || !!prev.n !== !!m.n) {
     const put = () => { main.innerHTML = mainHTML(m); markRendered(main); };
     if (animate) {
@@ -460,8 +494,20 @@ function apply(pair, {animate = true, via = null} = {}) {
       if (nb) ui.splitIn(nb);
     } else put();
   }
+  if (waitOn) whenSeen(waitOn, () => { held.forEach(arrive); if (later) later(); });
   chrome(m);
   schedule2(animate);
+  if (!USER_VIA.includes(via)) return;
+  // Spec 9: the new matchup is only drawn (the score is aria-hidden, .rv-sr is silent), so say it.
+  ui.announce(spoken(m));
+  // A list row or a link on a pushed profile leaves focus at the bottom of the page, on the screen, or in
+  // another tab's now hidden layer while the page scrolls to the top: move it to the opponent picker, which
+  // now names the new opponent.
+  if ((via === 'list' || via === 'ext') && st.ctx.visible) {
+    const f = document.activeElement;
+    if (!f || f === document.body || f === st.ctx.screen || (st.r.listSec && st.r.listSec.contains(f))
+      || !f.getClientRects().length || !!f.closest('.tab-layer[hidden]')) focusPicker('b');
+  }
 }
 
 // Phase 2. Idempotent: always brings the lower sections up to date with st.m.
@@ -499,6 +545,11 @@ function go(a, b, via) {
 function scrollTop() {
   const scr = st.ctx.screen;
   if (scr.scrollTop > 0) scr.scrollTo({top: 0, behavior: ui.RM ? 'auto' : 'smooth'});
+}
+// preventScroll: a smooth scroll to the top that is under way carries on.
+function focusPicker(side) {
+  const b = st && st.r.hdr && st.r.hdr.querySelector('.rv-pick.' + side);
+  if (b) b.focus({preventScroll: true});
 }
 
 async function pick(side) {
@@ -546,7 +597,11 @@ function swap() {
 function chooseOpp(id) {
   if (!st || st.swapping || !st.m) return;
   if (!data.M[id] || id === st.m.a) return;
-  if (id === st.m.b) { scrollTop(); return; }
+  if (id === st.m.b) {
+    scrollTop();
+    if (st.r.listSec && st.r.listSec.contains(document.activeElement)) focusPicker('b');
+    return;
+  }
   ui.haptic('selection');
   // Instant feedback: the tint bar moves before the route update lands.
   const ul = st.r.listW.querySelector('.rv-opps');
@@ -563,7 +618,13 @@ function onClick(e) {
   const t = e.target.closest && e.target.closest('[data-swap], [data-pick], [data-opp]');
   if (!t || !st) return;
   if (t.hasAttribute('data-swap')) swap();
-  else if (t.hasAttribute('data-pick')) pick(t.dataset.pick === 'a' ? 'a' : 'b');
+  else if (t.hasAttribute('data-pick')) {
+    const side = t.dataset.pick === 'a' ? 'a' : 'b';
+    // The no-games card's button is gone once the pick lands: let the header picker own the sheet, so
+    // focus has somewhere to come back to (openSheet returns it to document.activeElement at open).
+    if (t.closest('.rv-none')) focusPicker(side);
+    pick(side);
+  }
   else if (t.hasAttribute('data-opp')) chooseOpp(t.dataset.opp);
 }
 
@@ -584,6 +645,28 @@ export default {
       meKey: `${data.me()}|${reigning()}`, flameKey: null, secKey: null, listA: null, listMe: null, p2: null, seen: null, title: null,
       cleanups: [], entrance: false, shown: false};
     el.addEventListener('click', onClick);
+    ctx.setBackTitle('Rivals');
+    // A year header stuck under the nav merges with it (rivals.css): mark it on scroll, once per frame. Headers in
+    // skipped (content-visibility) years are never measured.
+    const scr = ctx.screen;
+    let raf = 0;
+    const markStuck = () => {
+      raf = 0;
+      if (!st || st.ctx !== ctx) return;
+      const nav = scr.querySelector(':scope > .nav');
+      const line = scr.getBoundingClientRect().top + (nav ? nav.offsetHeight : 44);
+      scr.querySelectorAll('.rv-yh').forEach(h => {
+        let on = false;
+        if (typeof h.checkVisibility !== 'function' || h.checkVisibility({contentVisibilityAuto: true})) {
+          const r = h.getBoundingClientRect();
+          on = r.height > 0 && r.top <= line && r.bottom > line;
+        }
+        if (h.classList.contains('is-stuck') !== on) h.classList.toggle('is-stuck', on);
+      });
+    };
+    const onScroll = () => { if (!raf) raf = requestAnimationFrame(markStuck); };
+    scr.addEventListener('scroll', onScroll, {passive: true});
+    st.cleanups.push(() => { scr.removeEventListener('scroll', onScroll); cancelAnimationFrame(raf); });
     if (!p.a || !p.b) { chrome(null); return; }
     st.m = model(p.a, p.b);
     grab(el);
@@ -601,7 +684,6 @@ export default {
 
   onShow(ctx) {
     if (!st || st.ctx !== ctx) return;
-    ctx.setTitle(st.title || 'Rivals');
     if (st.shown) return;
     st.shown = true;
     if (!st.entrance || !st.m || !st.m.n) return;
@@ -616,24 +698,31 @@ export default {
     st.cleanups.push(() => clearTimeout(t));
   },
 
-  onHide(ctx) {
-    if (st && st.ctx === ctx) ctx.setTitle(null);
-  },
-
   update(ctx) {
     if (!st || st.ctx !== ctx) return;
     const el = st.el;
+    const own = ctx.path === st.expect; // a replace this screen made (a tap, or canonicalizing the URL)
+    if (own) st.expect = null;
+    const shown = st.m && st.m.b ? canon(st.m.a, st.m.b) : null;
+    let via = own ? st.via : null;
+    st.via = null;
     let p;
-    if (ctx.reason === 'params') {
+    if (ctx.reason === 'params' || (!own && ctx.path !== shown)) {
+      // The second case: app.js folds a pending 'params' into 'me'/'data' for a hidden screen.
       p = resolvePair(ctx.params);
-      if (ctx.path !== st.expect) { st.isDefault = p.isDefault; st.via = null; }
-    } else if (ctx.reason === 'me' && st.isDefault) {
+      if (!own) {
+        // From outside (a profile's Rivalries link over Rivals, a typed link): handled like a list tap,
+        // so the new matchup is brought into view instead of landing far above a scrolled-down page.
+        st.isDefault = p.isDefault;
+        if (st.m && st.m.b && p.a && p.b && (st.m.a !== p.a || st.m.b !== p.b)) via = 'ext';
+      }
+    } else if (st.isDefault) {
+      // A default pair follows "Which one are you?" and new games. Re-run on 'data' too: a hidden screen's
+      // pending 'me' is folded into 'data' when a reload lands before it is shown.
       p = resolvePair({});
     } else {
       p = st.m && data.M[st.m.a] && data.M[st.m.b] ? {a: st.m.a, b: st.m.b} : resolvePair(ctx.params);
     }
-    const via = st.via;
-    st.via = null;
     const ok = !!(p.a && p.b);
     if (ok !== !!(st.m && st.m.b)) {
       // The league gained or lost its second manager: render afresh.
@@ -645,6 +734,7 @@ export default {
       chrome(st.m);
     } else if (ok) {
       apply(p, {animate: true, via});
+      if (via === 'ext') scrollTop();
     } else {
       chrome(null);
     }

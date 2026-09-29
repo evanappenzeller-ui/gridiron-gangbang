@@ -149,3 +149,4 @@
 .v-standings .std-table tr.is-me > .std-c1 { box-shadow: inset 3px 0 0 var(--tint); }
 .v-standings .std-table tbody tr + tr.is-me > .std-c1 { box-shadow: inset 3px 0 0 var(--tint), inset 0 1px 0 rgba(56,56,58,.7); }
 .v-standings .std-table tr.is-me > * { background: var(--surface-2); }
+.v-standings .std-ah .btn-label { display: inline-flex; align-items: center; gap: 8px; }

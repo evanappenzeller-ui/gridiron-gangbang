@@ -159,14 +159,16 @@ export function computeFacts() {
   F.push({label:'Highest score in a week', val:fmt(hi.s), detail:`${name(hi.id)} vs ${name(hi.opp)}, ${when(hi.g)}`});
   F.push({label:'Lowest score in a week', val:fmt(lo.s), detail:`${name(lo.id)} vs ${name(lo.opp)}, ${when(lo.g)}`});
   const decided = GAMES.filter(g => !g.tie);
-  const blow = decided.reduce((m, g) => g.margin > m.margin ? g : m);
-  const close = decided.reduce((m, g) => g.margin < m.margin ? g : m);
-  F.push({label:'Biggest blowout', val:fmt(blow.margin), unit:'points', detail:`${name(blow.win)} beat ${name(blow.lose)} ${fmt(blow.ws)} to ${fmt(blow.ls)}, ${when(blow)}`});
-  F.push({label:'Closest game', val:fmt(close.margin), unit:'points', detail:`${name(close.win)} edged ${name(close.lose)} ${fmt(close.ws)} to ${fmt(close.ls)}, ${when(close)}`});
-  const bl = decided.reduce((m, g) => g.ls > m.ls ? g : m);
-  const fw = decided.reduce((m, g) => g.ws < m.ws ? g : m);
-  F.push({label:'Most points in a loss', val:fmt(bl.ls), detail:`${name(bl.lose)} lost to ${name(bl.win)}, ${when(bl)}`});
-  F.push({label:'Fewest points in a win', val:fmt(fw.ws), detail:`${name(fw.win)} still beat ${name(fw.lose)}, ${when(fw)}`});
+  if (decided.length) {
+    const blow = decided.reduce((m, g) => g.margin > m.margin ? g : m);
+    const close = decided.reduce((m, g) => g.margin < m.margin ? g : m);
+    F.push({label:'Biggest blowout', val:fmt(blow.margin), unit:'points', detail:`${name(blow.win)} beat ${name(blow.lose)} ${fmt(blow.ws)} to ${fmt(blow.ls)}, ${when(blow)}`});
+    F.push({label:'Closest game', val:fmt(close.margin), unit:'points', detail:`${name(close.win)} edged ${name(close.lose)} ${fmt(close.ws)} to ${fmt(close.ls)}, ${when(close)}`});
+    const bl = decided.reduce((m, g) => g.ls > m.ls ? g : m);
+    const fw = decided.reduce((m, g) => g.ws < m.ws ? g : m);
+    F.push({label:'Most points in a loss', val:fmt(bl.ls), detail:`${name(bl.lose)} lost to ${name(bl.win)}, ${when(bl)}`});
+    F.push({label:'Fewest points in a win', val:fmt(fw.ws), detail:`${name(fw.win)} still beat ${name(fw.lose)}, ${when(fw)}`});
+  }
 
   let bw = {n:0}, blst = {n:0};
   DATA.managers.forEach(m => {
@@ -181,14 +183,17 @@ export function computeFacts() {
   if (bw.n) F.push({label:'Longest winning streak', val:bw.n, unit:'games', detail:`${name(bw.id)}, ${spanTxt(bw)}`});
   if (blst.n) F.push({label:'Longest losing streak', val:blst.n, unit:'games', detail:`${name(blst.id)}, ${spanTxt(blst)}`});
 
+  // Completed seasons only; a first-year league (just the in-progress season) has none yet.
   const seasonRows = DONE.flatMap(s => s.table.map(r => Object.assign({year:s.year, s}, r)));
-  const best = seasonRows.reduce((m, r) => ((r.w + r.t/2) - (m.w + m.t/2) || r.pf - m.pf) > 0 ? r : m);
-  const mostPf = seasonRows.reduce((m, r) => r.pf > m.pf ? r : m);
-  const unlucky = seasonRows.reduce((m, r) => r.pa > m.pa ? r : m);
-  const bestFinish = best.id === best.s.champion ? 'and won the title' : `but ${best.id === best.s.runnerUp ? 'lost in the championship' : 'didn\u2019t win the title'}`;
-  F.push({label:'Best regular season', val:recStr(best.w, best.l, best.t), detail:`${name(best.id)} in ${best.year}, ${bestFinish}`});
-  F.push({label:'Most points in a season', val:fmt(mostPf.pf), detail:`${name(mostPf.id)} in ${mostPf.year}`});
-  F.push({label:'Toughest schedule', val:fmt(unlucky.pa), unit:'points against', detail:`${name(unlucky.id)} in ${unlucky.year}, went ${recStr(unlucky.w, unlucky.l, unlucky.t)}`});
+  if (seasonRows.length) {
+    const best = seasonRows.reduce((m, r) => ((r.w + r.t/2) - (m.w + m.t/2) || r.pf - m.pf) > 0 ? r : m);
+    const mostPf = seasonRows.reduce((m, r) => r.pf > m.pf ? r : m);
+    const unlucky = seasonRows.reduce((m, r) => r.pa > m.pa ? r : m);
+    const bestFinish = best.id === best.s.champion ? 'and won the title' : `but ${best.id === best.s.runnerUp ? 'lost in the championship' : 'didn\u2019t win the title'}`;
+    F.push({label:'Best regular season', val:recStr(best.w, best.l, best.t), detail:`${name(best.id)} in ${best.year}, ${bestFinish}`});
+    F.push({label:'Most points in a season', val:fmt(mostPf.pf), detail:`${name(mostPf.id)} in ${mostPf.year}`});
+    F.push({label:'Toughest schedule', val:fmt(unlucky.pa), unit:'points against', detail:`${name(unlucky.id)} in ${unlucky.year}, went ${recStr(unlucky.w, unlucky.l, unlucky.t)}`});
+  }
 
   const top = (k) => AT.slice().sort((x, y) => y[k] - x[k])[0];
   const ru = top('seconds'); if (ru && ru.seconds > 1) F.push({label:'Most runner-up finishes', val:ru.seconds, detail:name(ru.id)});

@@ -2,8 +2,41 @@
    Every selector starts with .v-moves. Motion: transform/opacity only. */
 
 /* ================================================================ Header: search field and segment */
-.v-moves .mv-q { margin-top: 6px; }
-.v-moves .mv-segwrap { margin: 14px 0 6px; }
+.v-moves .mv-q { position: relative; margin-top: 6px; }
+.v-moves .mv-segwrap { margin: 14px 0 6px; transition: opacity 200ms linear; }
+/* While search results show, the segment is dimmed and inert (it would do nothing to mixed results). */
+.v-moves .mv-segwrap.is-off { opacity: .4; }
+
+/* Search bar with Cancel. The field never changes size (no layout animation): its fill and focus ring are layers
+   that scale from the left to leave room, the clear button and the text's end move in by the same amount
+   (--mv-cw, set by moves.js with --mv-k), and Cancel slides in from the right. */
+.v-moves .mv-q .search { background: none; isolation: isolate; }
+.v-moves .mv-q .search::before {
+  content: ""; position: absolute; inset: 0; z-index: -1;
+  border-radius: inherit;
+  background: var(--fill);
+  pointer-events: none;
+}
+.v-moves .mv-q .search::before, .v-moves .mv-q .search::after, .v-moves .mv-q .search-clear, .v-moves .mv-cancel {
+  transform-origin: left center;
+  transition: transform var(--spring-smooth-dur) var(--spring-smooth), opacity 200ms linear;
+}
+.v-moves .mv-q.is-active .search::before,
+.v-moves .mv-q.is-active .search::after { transform: scaleX(var(--mv-k, .8)); }
+.v-moves .mv-q.is-active .search-clear { transform: translateX(calc(-1 * var(--mv-cw, 76px))); }
+.v-moves .mv-q.is-active .search input { margin-right: var(--mv-cw, 76px); }
+.v-moves .mv-cancel {
+  position: absolute; right: 0; top: 0;
+  height: 44px; padding: 0 2px 0 8px;
+  color: var(--tint);
+  font: 400 17px/22px var(--font-text);
+  white-space: nowrap;
+  opacity: 0; transform: translateX(24px);
+  pointer-events: none;
+}
+.v-moves .mv-q.is-active .mv-cancel { opacity: 1; transform: none; pointer-events: auto; }
+.v-moves .mv-q.is-active .mv-cancel.is-pressed { opacity: .5; transition: none; }
+html.rm .v-moves .mv-q *, html.rm .v-moves .mv-q .search::before, html.rm .v-moves .mv-q .search::after { transition-property: opacity; }
 
 /* ================================================================ Manager filter rail */
 .v-moves .mv-rail {
@@ -101,17 +134,28 @@
   pointer-events: none;
 }
 .v-moves .mv-sh.is-stuck::before { opacity: 1; }
+/* A round header stuck right under the pinned year chips: one bar, one hairline (the header's). */
+.v-moves:has(.mv-content[data-seg="drafts"] .mv-sh.is-stuck) .accessory { --acc-hairline: transparent; }
 .v-moves .mv-sh > .ovl { color: var(--ink-2); }
+/* Trades: a year header stuck right under the nav merges with it (one solid bar, one hairline: the header's). */
+.v-moves:has(.mv-content[data-seg="trades"] .mv-sh.is-stuck) > .nav .nav-bg {
+  background: var(--bar-solid); -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none;
+}
 .v-moves .mv-yr { color: var(--ink); }
 .v-moves .mv-yn { font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); white-space: nowrap; }
 
 /* ================================================================ Draft picks */
-.v-moves .mv-pick {
-  position: relative;
+.v-moves .mv-pick { position: relative; min-width: 0; }
+/* The whole row links to the manager's profile (one 56 px target); pressed: --surface-2, fading out over 250 ms. */
+.v-moves .mv-row {
   display: flex; align-items: center; gap: 12px;
   min-height: 56px; padding: 0 16px;
   min-width: 0;
+  color: inherit;
+  background-color: transparent;
+  transition: background-color 250ms linear;
 }
+.v-moves .mv-row.is-pressed { background-color: var(--surface-2); transition: none; }
 .v-moves .mv-tile {
   flex: none;
   width: 44px; height: 44px;
@@ -131,34 +175,22 @@
   font: 600 var(--fs-headline)/var(--lh-headline) var(--font-text);
   min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-/* Manager part of the row: a link to the profile with a 44 px hit area and a capsule press state. */
+/* Manager line: avatar 20 plus the name. */
 .v-moves .mv-by {
-  position: relative; isolation: isolate;
   align-self: flex-start;
   display: inline-flex; align-items: center; gap: 6px;
   max-width: 100%; min-width: 0; height: 20px;
   color: var(--ink-2);
   font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text);
 }
-/* 44 px tall and kept inside the 56 px row (link at 30-50 → hit 12-56): the next row paints over anything lower. */
-.v-moves .mv-by::before { content: ""; position: absolute; left: -8px; right: -12px; top: -18px; bottom: -6px; }
-.v-moves .mv-by::after {
-  content: ""; position: absolute; z-index: -1;
-  left: -4px; right: -9px; top: -3px; bottom: -3px;
-  border-radius: var(--r-pill);
-  background: var(--surface-3);
-  opacity: 0;
-  transition: opacity 250ms linear;
-}
-.v-moves .mv-by.is-pressed::after { opacity: 1; transition: none; }
 .v-moves .mv-by-n { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .v-moves .mv-pos { height: 22px; padding: 0 8px; font-size: 12px; letter-spacing: .04em; }
 /* Hairlines inset to the text column */
-.v-moves .mv-pick + .mv-pick > .mv-main::before {
+.v-moves .mv-pick + .mv-pick .mv-main::before {
   content: ""; position: absolute; top: 0; left: 0; right: -200vw; height: 1px;
   background: var(--separator); transform: scaleY(.5); transform-origin: top;
 }
-.v-moves .mv-pick:focus-visible { outline-offset: -2px; } /* the group clips outside outlines */
+.v-moves .mv-row:focus-visible, .v-moves .mv-pick:focus-visible { outline-offset: -2px; } /* the group clips outside outlines */
 /* Your picks: a 3 px tint leading bar */
 .v-moves .mv-pick.is-mine::before {
   content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
@@ -256,6 +288,14 @@
 .v-moves .mv-res .row.mv-mine::before {
   content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--tint);
 }
+/* Rows past the first screenful come in chunks that skip style and layout while off screen (JS sets the height). */
+.v-moves .mv-chunk { content-visibility: auto; contain-intrinsic-size: auto 630px; }
+/* The group's own hairline rule only sees direct .row siblings: every chunked row gets one, except a group's very first. */
+.v-moves .mv-chunk > .row > .row-main::before {
+  content: ""; position: absolute; top: 0; left: 0; right: -200vw; height: 1px;
+  background: var(--separator); transform: scaleY(.5); transform-origin: top;
+}
+.v-moves .group > .mv-chunk:first-child > .row:first-child > .row-main::before { content: none; }
 
 /* ================================================================ Search hit flash (opacity overlay) */
 .v-moves .mv-pick.is-hit::after, .v-moves .mv-trade.is-hit::after {

@@ -14,6 +14,11 @@
   background: radial-gradient(120% 120% at 100% 0%, rgba(255,204,77,.12), transparent 60%), var(--surface-2);
 }
 .sh-matchup .mu-bug .bug-name > b { font-size: 17px; }
+/* The team gets its own line under the name (the crown stays beside it), so the 40 px avatar, seed and .n3
+   score never squeeze it to a few letters at 360 px. */
+.sh-matchup .mu-bug .bug-name { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: 8px; row-gap: 0; }
+.sh-matchup .mu-bug .bug-name > b { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.sh-matchup .mu-bug .bug-team { grid-column: 1 / -1; }
 .sh-matchup .mu-bug .bug-score { min-width: 84px; }
 .sh-matchup .mu-bug .bug-caret { width: 7px; height: 12px; }
 .sh-matchup .mu-badges { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 16px 0; }
@@ -32,8 +37,10 @@
 .sh-matchup .mu-pad { padding: 12px 16px 14px; }
 
 .sh-matchup .mu-sb { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; margin-bottom: 10px; }
-.sh-matchup .mu-sv { display: flex; align-items: center; gap: 10px; min-width: 0; opacity: .55; }
-.sh-matchup .mu-sv.is-lead { opacity: 1; }
+.sh-matchup .mu-sv { display: flex; align-items: center; gap: 10px; min-width: 0; }
+/* The trailer recedes, but its win count stays readable: at .78 every palette color clears 3:1 on surface-2. */
+.sh-matchup .mu-sv:not(.is-lead) .av { opacity: .55; }
+.sh-matchup .mu-sv:not(.is-lead) .n3 { opacity: .78; }
 .sh-matchup .mu-sv.b { flex-direction: row-reverse; justify-content: flex-start; }
 .sh-matchup .mu-sv .n3 { color: var(--mc, var(--ink)); }
 .sh-matchup .mu-vs { color: var(--ink-3); padding: 0 8px; }

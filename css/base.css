@@ -31,6 +31,18 @@ a, button, [data-press], label, input, select, textarea, summary {
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
 }
+/* No link-preview callout and no text-selection loupe on long-press of controls and list chrome (iOS). */
+a, button, [role="button"], [data-press], .row, .card, .bug, .tile, .chip, .tab, .nav, .sheet-head, .rn-top {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+/* Text people may want to copy by hand stays selectable. */
+input, textarea, .c-share-prev, .c-share-ta {
+  -webkit-touch-callout: default;
+  -webkit-user-select: text;
+  user-select: text;
+}
 table { border-collapse: collapse; }
 [hidden] { display: none !important; }
 small { font-size: inherit; }
@@ -39,6 +51,8 @@ small { font-size: inherit; }
 :focus { outline: none; }
 :focus-visible { outline: 2px solid var(--tint); outline-offset: 2px; border-radius: 6px; }
 .row:focus-visible, .card:focus-visible, .bug:focus-visible { outline-offset: -2px; }
+/* Pointer taps that hand focus back to a control (sheet close, grid square) add .no-ring: no ring until a key is used. */
+.no-ring:focus-visible { outline: none; }
 
 .sr-only {
   position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px;
@@ -107,7 +121,13 @@ small { font-size: inherit; }
 }
 #stage { position: absolute; inset: 0; z-index: 1; overflow: hidden; }
 .tab-layer { position: absolute; inset: 0; }
+/* A hidden tab layer stays in the render tree but is skipped: content-visibility keeps its style and layout cached,
+   so a tab switch never re-runs layout for the whole target screen. Skipped content is unfocusable and out of the
+   accessibility tree; pointer-events keeps the empty layer box from catching taps meant for the visible one. */
 .tab-layer[hidden] { display: none !important; }
+@supports (content-visibility: hidden) {
+  .tab-layer[hidden] { display: block !important; content-visibility: hidden; pointer-events: none; }
+}
 #covers { position: absolute; inset: 0; z-index: var(--z-cover); pointer-events: none; }
 #covers:empty { display: none; }
 #overlays { position: absolute; inset: 0; z-index: var(--z-scrim); pointer-events: none; }
@@ -146,6 +166,9 @@ small { font-size: inherit; }
 .screen-body { position: relative; padding: 0 var(--gutter); min-width: 0; }
 .screen:not(:has(> .nav)) > .screen-body { padding-top: 0; }
 .cover { position: absolute; inset: 0; background: var(--bg); pointer-events: auto; z-index: 2; overflow: hidden; }
+/* overflow:hidden boxes can still be scrolled by focus() (a button in a translated sheet or an off-screen push would
+   scroll the whole app). clip never makes a scroll container; app.js also resets any such scroll. */
+@supports (overflow: clip) { #app, #stage, .cover { overflow: clip; } }
 .cover-scrim { position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: auto; z-index: 1; }
 .cover .screen { padding-bottom: max(16px, env(safe-area-inset-bottom, 0px)); }
 /* Dim and edge layers used by push/pop; app.js pins them to the visible area at transition start. */

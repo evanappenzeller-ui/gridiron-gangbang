@@ -5,7 +5,7 @@ import * as data from '../core/data.js';
 
 const esc = data.esc;
 
-/** Round names for overlines and footers ({reg: 'Final'} is the plain "FINAL" of a regular game). */
+/** Round names for overlines and card footers (regular games carry no round name). */
 export const ROUND_NAME = {quarter: 'Quarterfinal', semi: 'Semifinal', final: 'Championship', third: 'Third place', consol: 'Consolation'};
 
 /** {id: seed} from a season's regular-season table. */
@@ -25,9 +25,10 @@ export function gameBadges(g, weekGames) {
   const out = [];
   const top = Math.max(...(weekGames && weekGames.length ? weekGames : [g]).map(x => Math.max(x.sa, x.sb)));
   if (Math.max(g.sa, g.sb) === top && weekGames && weekGames.length > 1) out.push('high');
-  const m = Math.abs(g.sa - g.sb);
-  if (g.sa !== g.sb && m >= 50) out.push('blowout');
-  if (g.sa !== g.sb && m < 2) out.push('nail');
+  // Compare the margin in whole cents: 150.20 - 100.20 is 49.999999999999986 in floating point.
+  const c = Math.round(Math.abs(g.sa - g.sb) * 100);
+  if (c && c >= 5000) out.push('blowout');
+  if (c && c < 200) out.push('nail');
   return out;
 }
 
@@ -106,8 +107,8 @@ export function openMatchup(game, ctx) {
   const sh = ui.openSheet({
     header: `<span class="ovl mu-ovl">${esc(ovl)}</span>`,
     label: `${ovl}: ${data.name(a)} ${data.fmt(g.sa)}, ${data.name(b)} ${data.fmt(g.sb)}`,
-    // 'fit': the whole card (buttons included) is visible at once; it never needs a drag to reach the links.
-    body, cls: 'sh-matchup', detents: ['fit']
+    // Spec 7.10: medium. The hero, badges and entering records rest at medium; the series and links are one drag up.
+    body, cls: 'sh-matchup', detents: ['medium', 'large']
   });
   // Navigate through the calling screen (serial queue); without a ctx fall back to the app router.
   const go = (path, o) => (ctx && ctx.nav ? ctx.nav(path, o) : import('../app.js').then(m => m.nav(path, o)));

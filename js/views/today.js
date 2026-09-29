@@ -335,17 +335,37 @@ function onClick(st, e) {
     return;
   }
   if (t.hasAttribute('data-onb-skip')) { st.onbTap = 'none'; data.setMe('none'); return; }
-  if (t.hasAttribute('data-retry')) {
-    const wrap = st.el.querySelector('.c-dc-wrap');
-    if (wrap) wrap.innerHTML = loadingCard();
-    daily.ensure().catch(() => {});
-    return;
-  }
+  if (t.hasAttribute('data-retry')) { retry(st); return; }
   if (t.hasAttribute('data-cd-load')) { location.reload(); }
 }
 
+// "Try again": the loading card stays up at least RETRY_HOLD so the tap visibly does something (offline, the
+// fetch fails within a frame); a second failure says so. Focus follows to the new card's button.
+const RETRY_HOLD = 600;
+function retry(st) {
+  const wrap = st.el.querySelector('.c-dc-wrap');
+  if (!wrap || st.retrying) return;
+  st.retrying = true;
+  const hadFocus = wrap.contains(document.activeElement);
+  const go = () => { wrap.innerHTML = loadingCard(); };
+  if (!ui.RM && st.ctx.visible) ui.crossfade(wrap, go, {duration: 160}); else go();
+  if (hadFocus) focusQuiet(wrap.querySelector('.c-dc')); else ui.announce('Loading puzzles.');
+  Promise.allSettled([daily.ensure(), new Promise(r => setTimeout(r, RETRY_HOLD))]).then(() => {
+    st.retrying = false;
+    if (!HUB.has(st.ctx)) return;
+    swapDaily(st);
+    if (daily.status === 'error') ui.toast("Still can't reach the puzzles.");
+    if (hadFocus) focusQuiet(wrap.querySelector('[data-retry], .c-dc-cta'));
+  });
+}
+function focusQuiet(el) {
+  if (!el) return;
+  if (!el.matches('button, a[href], input, [tabindex]')) el.setAttribute('tabindex', '-1');
+  try { el.focus({preventScroll: true}); } catch (_) {}
+}
+
 function onDaily(st, type) {
-  if (type === 'ready' || type === 'error') { swapDaily(st); return; }
+  if (type === 'ready' || type === 'error') { if (!st.retrying) swapDaily(st); return; }
   if (type === 'progress') { if (st.ctx.visible) sync(st, true); else st.pending = true; return; }
   if (type === 'newday') tickCountdown(st.el.querySelector('.c-cd-host'), {animate: st.ctx.visible});
 }
@@ -363,13 +383,13 @@ export default {
       + onb
       + `<div class="c-dc-wrap" data-key="daily" data-enter>${dailyCardHTML()}</div>`
       + `<div class="c-board-host" data-key="board" data-enter></div>`
-      + `<div class="c-cd-host" data-key="cd" data-enter>${countdownHTML()}</div>`
+      + `<div class="c-cd-host" data-key="cd" data-enter>${countdownHTML(false)}</div>`
       + `<div class="c-rotd-host" data-key="rotd" data-enter data-sig="${esc(rotdSig(r))}">${rotdHTML(r)}</div>`;
   },
 
   mount(el, ctx) {
     ensureDefs();
-    const st = {el, ctx, board: null, pending: false, cancelRing: null, onbTap: null};
+    const st = {el, ctx, board: null, pending: false, cancelRing: null, onbTap: null, retrying: false};
     HUB.set(ctx, st);
     const you = el.querySelector('.c-you');
     if (you) you.dataset.me = String(data.me());

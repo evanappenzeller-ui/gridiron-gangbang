@@ -12,6 +12,9 @@ const count = (n, one, many) => `${data.nf(n)} ${n === 1 ? one : many}`;
 const SEARCH_MAX = 50;
 const DEBOUNCE = 120;
 const ROW_H = 56, HEAD_H = 32;
+// Search results: rows are 63 tall; the first RES_FIRST (about a phone screen) are laid out at once and the rest sit in
+// content-visibility chunks, so a keystroke only styles and lays out what can be on screen.
+const RES_ROW_H = 63, RES_FIRST = 12, RES_CHUNK = 10;
 
 // ============================================================================ Derived lists
 // Cached per DATA object: data.reload() assigns a new DATA, so a stale cache can never be read.
@@ -108,8 +111,10 @@ const ST = new WeakMap(); // ctx → per-screen state
 
 // ============================================================================ Markup
 function headHTML() {
+  // "Cancel" slides in beside the field while it is focused or holds text (the iOS search bar pattern).
   return ui.largeTitle({title: 'Moves'}) +
-    `<div class="mv-q">${ui.searchField({name: 'q', placeholder: 'Search players', label: 'Search players'})}</div>`;
+    `<div class="mv-q">${ui.searchField({name: 'q', placeholder: 'Search players', label: 'Search players'})}`
+    + `<button type="button" class="mv-cancel" data-mv-cancel tabindex="-1" aria-hidden="true">Cancel</button></div>`;
 }
 function segHTML(s) {
   return `<div class="mv-segwrap">${ui.seg({name: 'mv-seg', label: 'Drafts or trades', value: s.seg,
@@ -132,7 +137,8 @@ function draftsHTML(s) {
   const L = lists();
   if (!L.drafts.length) return ui.empty({icon: 'list-number', title: 'No draft history added yet.'});
   const chips = ui.chips({name: 'mv-year', label: 'Draft year', value: s.year, items: L.drafts.map(d => ({id: d.year, label: String(d.year)}))});
-  return `<div class="accessory mv-acc">${chips}</div>${railHTML('drafts', s.m)}<div class="mv-list">${draftListHTML(s)}</div>`;
+  // The manager rail comes first in both segments, so it never moves when Drafts and Trades switch.
+  return `${railHTML('drafts', s.m)}<div class="accessory mv-acc">${chips}</div><div class="mv-list">${draftListHTML(s)}</div>`;
 }
 function draftListHTML(s) {
   const L = lists();
@@ -151,13 +157,14 @@ function draftListHTML(s) {
   picks.forEach(p => { const r = Number(p.round) || 0; if (!rounds.has(r)) rounds.set(r, []); rounds.get(r).push(p); });
   const keys = [...rounds.keys()].sort((a, b) => a - b);
   const me = data.me();
+  // Entrance: whole round sections rise as one (a header plus its inset group); rows never move inside a static card.
   let n = 0;
-  const E = () => (n++ < 7 ? ' data-enter' : '');
+  const E = () => (n++ < 3 ? ' data-enter' : '');
   const secs = keys.map(r => {
     const list = rounds.get(r);
-    const h = HEAD_H + 4 + list.length * ROW_H + 16;
-    return `<section class="mv-sec" style="contain-intrinsic-size:auto ${h}px"><h3 class="mv-sh"${E()}><span class="ovl">Round ${esc(r)}</span></h3>` +
-      `<ol class="group mv-picks">${list.map(p => pickHTML(d.year, p, me, E())).join('')}</ol></section>`;
+    const h = HEAD_H + 4 + list.length * ROW_H; // content size: the section's 16 px bottom padding is added on top
+    return `<section class="mv-sec"${E()} style="contain-intrinsic-size:auto ${h}px"><h3 class="mv-sh"><span class="ovl">Round ${esc(r)}</span></h3>` +
+      `<ol class="group mv-picks">${list.map(p => pickHTML(d.year, p, me, '')).join('')}</ol></section>`;
   }).join('');
   const sum = s.m ? `${who(s.m)} · ${count(picks.length, 'pick', 'picks')} in ${d.year}` : `${count(picks.length, 'pick', 'picks')} · ${count(keys.length, 'round', 'rounds')}`;
   return sumHTML(sum) + secs;
@@ -166,12 +173,15 @@ const pickKey = (year, round, pick) => `${year}-${round}.${pad2(pick)}`;
 function pickHTML(year, p, me, enter) {
   const id = String(p.manager || '');
   const pk = `${p.round}.${pad2(p.pick)}`;
+  // The whole row is the link to the manager's profile: one 56 px target, so the name line and the manager line
+  // never disagree about what a tap does. The 20 px avatar is the morph source.
   return `<li class="mv-pick${me && id === me ? ' is-mine' : ''}" data-pk="${esc(pickKey(year, p.round, p.pick))}" data-m="${esc(id)}"${enter}>` +
+    `<a class="mv-row" href="#/managers/${esc(encodeURIComponent(id))}">` +
     `<span class="mv-tile n5" aria-hidden="true">${esc(pk)}</span>` +
     `<span class="mv-main"><span class="mv-player"><span class="sr-only">Round ${esc(p.round)}, pick ${esc(p.pick)}: </span>${esc(p.player)}</span>` +
-    `<a class="mv-by" href="#/managers/${esc(encodeURIComponent(id))}">${ui.avatar(id, {size: 20, attrs: {'data-morph-from': true}})}<span class="mv-by-n">${esc(data.name(id))}</span></a></span>` +
-    (p.pos ? `<span class="pill mv-pos">${esc(p.pos)}</span>` : '') +
-    `</li>`;
+    `<span class="mv-by"><span class="sr-only">, drafted by </span>${ui.avatar(id, {size: 20, attrs: {'data-morph-from': true}})}<span class="mv-by-n">${esc(data.name(id))}</span></span></span>` +
+    (p.pos ? `<span class="pill mv-pos"><span class="sr-only">, </span>${esc(p.pos)}</span>` : '') +
+    `</a></li>`;
 }
 
 // ---- Trades
@@ -193,9 +203,9 @@ function tradeListHTML(s) {
   let n = 0;
   const E = () => (n++ < 7 ? ' data-enter' : '');
   const secs = years.map(y => {
-    const h = HEAD_H + 4 + y.rows.reduce((a, r) => a + estTrade(r.t) + 12, 0) - 12 + 16;
+    const h = HEAD_H + 4 + y.rows.reduce((a, r) => a + estTrade(r.t) + 12, 0) - 12; // content size, padding excluded
     return `<section class="mv-sec" style="contain-intrinsic-size:auto ${h}px"><h3 class="mv-sh"${E()}><span class="mv-yr n5">${esc(y.year)}</span> <span class="mv-yn">· ${count(y.rows.length, 'trade', 'trades')}</span></h3>` +
-      `<div class="mv-cards">${y.rows.map(r => tradeHTML(r, me, E())).join('')}</div></section>`;
+      `<div class="mv-cards">${y.rows.map(r => tradeHTML(r, me, E(), s.m)).join('')}</div></section>`;
   }).join('');
   const first = rows[rows.length - 1].t.year, last = rows[0].t.year;
   const sum = s.m ? `${who(s.m)} · ${count(rows.length, 'trade', 'trades')}` : `${count(rows.length, 'trade', 'trades')} · ${first === last ? first : `${first}–${last}`}`;
@@ -207,8 +217,10 @@ function estTrade(t) {
   // Measured: a two-sided card is 118 + 20 per line of the longer side; stacked sides are ~64 each.
   return sides.length === 2 ? 118 + most * 20 : 58 + sides.length * (64 + Math.max(0, most - 1) * 22);
 }
-function tradeHTML({t, i}, me, enter) {
-  const sides = t.sides || [];
+function tradeHTML({t, i}, me, enter, m) {
+  // Filtered to a manager: that manager's side leads (left, or first in a stack), so every card reads the same way.
+  const raw = t.sides || [];
+  const sides = m ? raw.filter(x => x.manager === m).concat(raw.filter(x => x.manager !== m)) : raw;
   const two = sides.length === 2;
   const ids = sides.map(x => String(x.manager || ''));
   const mine = !!me && ids.includes(me);
@@ -227,28 +239,40 @@ function tradeHTML({t, i}, me, enter) {
 }
 
 // ---- Search results
+// The first `plain` rows go straight in; the rest in chunks of RES_CHUNK that content-visibility skips while off screen.
+function chunked(rows, plain) {
+  let h = rows.slice(0, plain).join('');
+  for (let i = Math.max(0, plain); i < rows.length; i += RES_CHUNK) {
+    const part = rows.slice(i, i + RES_CHUNK);
+    h += `<div class="mv-chunk" style="contain-intrinsic-size:auto ${part.length * RES_ROW_H}px">${part.join('')}</div>`;
+  }
+  return h;
+}
 function resultsHTML(r) {
   if (!r.d.length && !r.t.length) return ui.empty({icon: 'search', title: 'No players match.', body: 'Check the spelling.'});
   const me = data.me();
   const foot = n => (n > SEARCH_MAX ? `First ${SEARCH_MAX} of ${data.nf(n)}. Keep typing.` : null);
-  let h = '';
+  let h = '', plain = RES_FIRST;
   if (r.d.length) {
-    h += ui.group(r.d.slice(0, SEARCH_MAX).map((e, k) => ui.row({
+    const rows = r.d.slice(0, SEARCH_MAX).map((e, k) => ui.row({
       lead: ui.avatar(e.manager, {size: 24}),
       title: ui.raw(highlight(e.player, r.toks)),
       sub: `${e.year} · ${e.round}.${pad2(e.pick)} · ${data.name(e.manager)}`,
       chevron: true, cls: me && e.manager === me ? 'mv-mine' : '',
       attrs: {'data-mv-hit': 'd:' + k}
-    })).join(''), {header: `Drafted · ${data.nf(r.d.length)}`, footer: foot(r.d.length)});
+    }));
+    h += ui.group(chunked(rows, plain), {header: `Drafted · ${data.nf(r.d.length)}`, footer: foot(r.d.length)});
+    plain -= rows.length;
   }
   if (r.t.length) {
-    h += ui.group(r.t.slice(0, SEARCH_MAX).map((e, k) => ui.row({
+    const rows = r.t.slice(0, SEARCH_MAX).map((e, k) => ui.row({
       lead: ui.avatar(e.manager, {size: 24}),
       title: ui.raw(highlight(e.player, r.toks)),
-      sub: `${e.year} ${e.week < 1 ? 'preseason' : 'wk ' + e.week} · to ${data.name(e.manager)}`,
+      sub: `${e.year} ${e.week < 1 ? 'Preseason' : 'wk ' + e.week} · to ${data.name(e.manager)}`,
       chevron: true, cls: me && e.manager === me ? 'mv-mine' : '',
       attrs: {'data-mv-hit': 't:' + k}
-    })).join(''), {header: `Traded · ${data.nf(r.t.length)}`, footer: foot(r.t.length)});
+    }));
+    h += ui.group(chunked(rows, plain), {header: `Traded · ${data.nf(r.t.length)}`, footer: foot(r.t.length)});
   }
   return `<div class="mv-res">${h}</div>`;
 }
@@ -261,22 +285,74 @@ function refs(st) {
   st.results = el.querySelector('.mv-results');
   st.segEl = el.querySelector('.mv-segwrap .seg');
   st.content = el.querySelector('.mv-content');
+  st.q0 = el.querySelector('.mv-q');
+  st.cancel = el.querySelector('[data-mv-cancel]');
+}
+// Search bar state: active while the field is focused or holds text. The field keeps its box (compositor-only):
+// its fill and focus ring scale to make room, the clear button moves in, and Cancel slides into the gap.
+function setActive(st, on) {
+  const q = st.q0;
+  if (!q || q.classList.contains('is-active') === on) return;
+  if (on) {
+    const w = q.offsetWidth, cw = st.cancel.offsetWidth + 8;
+    if (w) { q.style.setProperty('--mv-cw', cw + 'px'); q.style.setProperty('--mv-k', ((w - cw) / w).toFixed(4)); }
+  }
+  q.classList.toggle('is-active', on);
+  st.cancel.tabIndex = on ? 0 : -1;
+  if (on) st.cancel.removeAttribute('aria-hidden'); else st.cancel.setAttribute('aria-hidden', 'true');
+}
+function cancelSearch(st) {
+  if (st.input.value) { st.input.value = ''; st.input.dispatchEvent(new Event('input', {bubbles: true})); }
+  st.input.blur();
+  setActive(st, false);
 }
 const navH = st => { const n = st.ctx.screen.querySelector(':scope > .nav'); return (n && n.offsetHeight) || 44; };
 const accH = st => { const a = st.content.querySelector('.accessory'); return a && !st.below.hidden ? a.offsetHeight : 0; };
 const tabH = () => { const t = document.getElementById('tabbar'); return (t && t.offsetHeight) || 0; };
 
 // Sticky section headers: a solid bar layer fades in only while a header is stuck (like .accessory.is-pinned).
-function observeHeads(st) {
+// The observer covers ordinary scrolling. It says nothing about a header whose section content-visibility was
+// skipping at the moment of a jump (scrollbar drag, programmatic scroll), so a cheap re-check runs once scrolling
+// settles: skipped sections are off screen (never stuck), the rest are measured.
+function unobserveHeads(st) {
   if (st.hio) { st.hio.disconnect(); st.hio = null; }
-  const heads = st.content.querySelectorAll('.mv-sh');
-  if (!heads.length || typeof IntersectionObserver !== 'function') return;
+  if (st.recheck) {
+    const scr = st.ctx.screen;
+    scr.removeEventListener('scrollend', st.recheck);
+    scr.removeEventListener('scroll', st.recheckSoon);
+    clearTimeout(st.recheckT);
+    st.recheck = st.recheckSoon = null;
+  }
+}
+function observeHeads(st) {
+  unobserveHeads(st);
+  const heads = [...st.content.querySelectorAll('.mv-sh')];
+  if (!heads.length) return;
   const top = parseFloat(getComputedStyle(heads[0]).top) || 0;
-  st.hio = new IntersectionObserver(es => es.forEach(e => {
-    if (!e.rootBounds || !e.rootBounds.height) return;
-    e.target.classList.toggle('is-stuck', e.isIntersecting && e.intersectionRatio < 1 && e.boundingClientRect.top <= e.rootBounds.top + 1);
-  }), {root: st.ctx.screen, rootMargin: `-${Math.round(top + 1)}px 0px 0px 0px`, threshold: [0, 1]});
-  heads.forEach(h => st.hio.observe(h));
+  const scr = st.ctx.screen;
+  if (typeof IntersectionObserver === 'function') {
+    st.hio = new IntersectionObserver(es => es.forEach(e => {
+      if (!e.rootBounds || !e.rootBounds.height || !ui.rendered(scr)) return; // hidden tab layer: keep the state
+      e.target.classList.toggle('is-stuck', e.isIntersecting && e.intersectionRatio < 1 && e.boundingClientRect.top <= e.rootBounds.top + 1);
+    }), {root: scr, rootMargin: `-${Math.round(top + 1)}px 0px 0px 0px`, threshold: [0, 1]});
+    heads.forEach(h => st.hio.observe(h));
+  }
+  const skipped = h => typeof h.checkVisibility === 'function' && !h.checkVisibility({contentVisibilityAuto: true});
+  st.recheck = () => {
+    if (st.dead || st.below.hidden) return;
+    const line = scr.getBoundingClientRect().top + top + 1; // the observer's root top edge
+    for (const h of heads) {
+      if (skipped(h)) { h.classList.remove('is-stuck'); continue; } // measuring would force the skipped section's layout
+      const r = h.getBoundingClientRect();
+      // Same rule as the observer: crossing the line (stuck, or being pushed out by the next section).
+      h.classList.toggle('is-stuck', r.height > 0 && r.top < line && r.bottom > line);
+    }
+  };
+  if ('onscrollend' in window) scr.addEventListener('scrollend', st.recheck, {passive: true});
+  else {
+    st.recheckSoon = () => { clearTimeout(st.recheckT); st.recheckT = setTimeout(st.recheck, 150); };
+    scr.addEventListener('scroll', st.recheckSoon, {passive: true});
+  }
 }
 
 // Bring the selected year chip and manager into view (both rails scroll sideways).
@@ -319,6 +395,30 @@ function scrollToContent(st) {
   scr.scrollTo({top: Math.max(0, y), behavior: ui.RM || far ? 'auto' : 'smooth'});
 }
 
+// A 'data' update rebuilds the list, so remembered section sizes are gone: keep the first visible pick or card
+// at the same place on screen. Only sections near the viewport are measured (the rest stay skipped).
+function visibleAnchor(st) {
+  const scr = st.ctx.screen;
+  const sr = scr.getBoundingClientRect();
+  const line = sr.top + navH(st) + accH(st) + HEAD_H; // under the sticky chrome and a stuck section header
+  for (const sec of st.content.querySelectorAll('.mv-sec')) {
+    const r = sec.getBoundingClientRect();
+    if (r.bottom <= line) continue;
+    if (r.top >= sr.bottom) break;
+    for (const it of sec.querySelectorAll('[data-pk], [data-tk]')) {
+      const ir = it.getBoundingClientRect();
+      if (ir.bottom > line) return {sel: it.dataset.pk != null ? `[data-pk="${CSS.escape(it.dataset.pk)}"]` : `[data-tk="${CSS.escape(it.dataset.tk)}"]`, top: ir.top};
+    }
+  }
+  return null;
+}
+function restoreAnchor(st, a) {
+  const el = st.content.querySelector(a.sel);
+  if (!el) return;
+  const d = Math.round(el.getBoundingClientRect().top - a.top);
+  if (d) st.ctx.screen.scrollTop += d;
+}
+
 // Focus survives a patch (spec 10): when the focused control is replaced, focus its twin in the new markup
 // (same manager button, the pressed year chip, the same search hit), else a persistent control.
 function focusTwin(a) {
@@ -326,6 +426,8 @@ function focusTwin(a) {
   if (a.matches('[data-mv-m]')) return `[data-mv-m="${CSS.escape(a.dataset.mvM || '')}"]`;
   if (a.closest('[data-chips="mv-year"]')) return '[data-chips="mv-year"] [aria-pressed="true"]';
   if (a.matches('[data-mv-hit]')) return `[data-mv-hit="${CSS.escape(a.dataset.mvHit)}"]`;
+  const pick = a.closest('[data-pk]');
+  if (pick && a.matches('.mv-row')) return `[data-pk="${CSS.escape(pick.dataset.pk)}"] .mv-row`;
   return null;
 }
 function focusHome(st) {
@@ -358,6 +460,10 @@ function swapContent(st, s, {fade = true} = {}) {
 const go = (st, path) => st.ctx.replace(path);
 
 // ---- Search
+function warmIndex(st, timeout = 2000) {
+  if (lists().idx) return;
+  ui.onIdle(() => { if (!st.dead) index(); }, timeout); // index() is a no-op once built
+}
 function onInput(st, e) {
   if (e.target !== st.input) return;
   const v = st.input.value;
@@ -378,6 +484,9 @@ function runSearch(st, {announce = true} = {}) {
 }
 function enterSearch(st) {
   st.searching = true;
+  // The Drafts/Trades control means nothing to mixed results: dimmed and out of reach until the search ends.
+  const sw = st.segEl && st.segEl.parentElement;
+  if (sw) { sw.classList.add('is-off'); sw.inert = true; }
   st.below.hidden = true;
   st.results.hidden = false;
   ui.animate(st.results, [{opacity: 0}, {opacity: 1}], {duration: 120, easing: 'linear'});
@@ -389,6 +498,8 @@ function enterSearch(st) {
 }
 function exitSearch(st, fade) {
   st.searching = false;
+  const sw = st.segEl && st.segEl.parentElement;
+  if (sw) { sw.classList.remove('is-off'); sw.inert = false; }
   st.res = null;
   st.results.hidden = true;
   st.results.innerHTML = '';
@@ -399,6 +510,7 @@ function clearQuery(st) {
   clearTimeout(st.timer);
   st.q = '';
   if (st.input) { st.input.value = ''; st.input.parentElement.classList.remove('is-filled'); }
+  if (st.input && document.activeElement !== st.input) setActive(st, false);
 }
 
 // A search hit: jump to that pick (drafts, filtered to its manager) or that trade card, then flash it.
@@ -410,7 +522,8 @@ async function openHit(st, key) {
   const sel = k === 'd' ? `[data-pk="${pickKey(e.year, e.round, e.pick)}"]` : `[data-tk="${e.ti}"]`;
   clearQuery(st);
   st.input.blur();
-  await go(st, path);
+  st.hitNav = true;
+  try { await go(st, path); } finally { st.hitNav = false; }
   if (st.dead) return;
   if (st.searching) exitSearch(st, true); // same route: update() did not run
   reveal(st, sel);
@@ -418,8 +531,13 @@ async function openHit(st, key) {
 function reveal(st, sel) {
   const el = st.content.querySelector(sel);
   if (!el) return;
+  // Lay out the target's section and every section above it for real, so the measured position is exact:
+  // skipped sections only carry estimated heights, and a long name that wraps would shift the target later.
+  // Back to auto afterwards; contain-intrinsic-size:auto remembers the real sizes from now on.
   const sec = el.closest('.mv-sec');
-  if (sec) sec.style.contentVisibility = 'visible';
+  const secs = [...st.content.querySelectorAll('.mv-sec')];
+  const shown = secs.slice(0, sec ? secs.indexOf(sec) + 1 : 0);
+  shown.forEach(x => { x.style.contentVisibility = 'visible'; });
   const scr = st.ctx.screen;
   const place = () => {
     const top = navH(st) + accH(st) + HEAD_H;
@@ -429,24 +547,34 @@ function reveal(st, sel) {
     return Math.max(0, Math.min(Math.round(y), scr.scrollHeight - scr.clientHeight));
   };
   const y = place();
-  const smooth = !ui.RM && Math.abs(y - scr.scrollTop) < scr.clientHeight * 1.5;
+  const smooth = !ui.RM && Math.abs(y - scr.scrollTop) > 2 && Math.abs(y - scr.scrollTop) < scr.clientHeight * 1.5;
   scr.scrollTo({top: y, behavior: smooth ? 'smooth' : 'auto'});
   const release = st.ctx.busy();
+  let done = false, fallback = 0;
   const finish = () => {
+    if (done) return;
+    done = true;
+    clearTimeout(fallback);
+    scr.removeEventListener('scrollend', finish);
     release();
+    shown.forEach(x => { x.style.contentVisibility = ''; });
     if (st.dead) return;
-    const y2 = place(); // sections above may have rendered at their real height meanwhile
-    if (Math.abs(y2 - scr.scrollTop) > 2) scr.scrollTop = y2;
     el.classList.remove('is-hit');
     void el.offsetWidth;
     el.classList.add('is-hit');
-    el.tabIndex = -1;
-    try { el.focus({preventScroll: true}); } catch (_) {}
+    const f = el.querySelector('.mv-row') || el; // a pick's row link; a trade card itself
+    if (f === el) el.tabIndex = -1;
+    try { f.focus({preventScroll: true}); } catch (_) {}
     clearTimeout(st.hitT);
     st.hitT = setTimeout(() => el.classList.remove('is-hit'), 1300);
   };
-  // Flash once the scroll has settled and the list's 120 ms cross-fade is over.
-  setTimeout(finish, smooth ? 480 : 160);
+  // Flash once the scroll has settled (scrollend where supported) and the list's 120 ms cross-fade is over.
+  if (smooth && 'onscrollend' in window) {
+    scr.addEventListener('scrollend', finish, {once: true});
+    fallback = setTimeout(finish, 900);
+  } else {
+    fallback = setTimeout(finish, smooth ? 480 : 160);
+  }
 }
 
 // ---- Events
@@ -474,6 +602,7 @@ function onClick(st, e) {
     go(st, st.s.seg === 'trades' ? tradesPath(next) : draftsPath(st.s.year, next)).finally(() => { st.railTap = false; });
     return;
   }
+  if (t.closest('[data-mv-cancel]')) { cancelSearch(st); return; }
   const g = t.closest('[data-mv-go]');
   if (g && st.el.contains(g)) { go(st, g.dataset.mvGo); return; }
   const h = t.closest('[data-mv-hit]');
@@ -518,9 +647,18 @@ export default {
     el.addEventListener('click', e => onClick(st, e));
     el.addEventListener('input', e => onInput(st, e));
     el.addEventListener('keydown', e => onKey(st, e));
+    // The search index is built off the keystroke path: at idle after mount, and again when the field takes focus
+    // (a no-op once built; after a data reload it rebuilds for the new DATA).
+    el.addEventListener('focusin', e => { if (e.target === st.input) { warmIndex(st, 150); setActive(st, true); } });
+    // Cancel stays while the field holds text (a scroll that hides the keyboard keeps the search open).
+    el.addEventListener('focusout', e => {
+      if (e.target !== st.input) return;
+      setTimeout(() => { if (!st.dead && document.activeElement !== st.input && document.activeElement !== st.cancel && !st.input.value) setActive(st, false); }, 0);
+    });
     observeHeads(st);
     scrollRail(st);
     if (ctx.first) ui.stagger(el);
+    warmIndex(st);
   },
   onShow(ctx) {
     const st = ST.get(ctx);
@@ -537,11 +675,15 @@ export default {
     if (s.seg === 'drafts') st.lastDraftYear = s.year;
     if (ctx.reason === 'data') {
       // New league.json: recompute everything below the search field in place (app.js waits for idle).
+      // The first visible pick or card stays where it was on screen.
+      const anchor = st.searching ? null : visibleAnchor(st);
       swapContent(st, s, {fade: false});
       ui.setSeg(st.segEl, s.seg, {animate: false});
+      if (anchor) restoreAnchor(st, anchor);
       observeHeads(st);
       scrollRail(st);
       if (st.searching && st.q) runSearch(st, {announce: false});
+      warmIndex(st);
       return;
     }
     // 'params': a segment, year or filter change (ours, or a link from elsewhere such as a profile's "See all").
@@ -558,7 +700,9 @@ export default {
       swapList(st, s);
     }
     observeHeads(st);
-    if (!wasSearching) scrollToContent(st);
+    // A search hit scrolls to its own target (reveal); anything else (chips, rail, a "See all" link that
+    // lands while a search was open) brings the top of the new list under the sticky chrome.
+    if (!st.hitNav) scrollToContent(st);
     scrollRail(st, 'smooth', {chipsOnly: !!st.railTap && prev.seg === s.seg});
   },
   onAction(id, ctx) { if (id === 'focus-search') focusSearch(ctx); },
@@ -568,10 +712,10 @@ export default {
     st.dead = true;
     clearTimeout(st.timer);
     clearTimeout(st.hitT);
-    if (st.hio) st.hio.disconnect();
+    unobserveHeads(st);
     ST.delete(ctx);
   }
 };
 
 // Debug hooks for the console (read-only helpers).
-export const __moves = {search, index, lists, resolve, state: ctx => ST.get(ctx)};
+export const __moves = {search, index, lists, resolve, resultsHTML, state: ctx => ST.get(ctx), reset: () => { CACHE = null; }};

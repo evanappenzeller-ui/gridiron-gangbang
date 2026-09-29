@@ -147,6 +147,7 @@
 .v-season .sea-cards { display: flex; flex-direction: column; gap: 8px; }
 .v-season .sea-cards > .bug-card + .bug-card { margin-top: 0; }
 .v-season .bug-card { padding-top: 6px; }
+.v-season .bug-card.is-bare { padding-bottom: 6px; } /* no footer (no round, no badges): even padding */
 .v-season .bug-card .bug-foot .ovl { font-size: 11px; line-height: 14px; color: var(--ink-3); }
 .v-season .bug-card .bug-foot .badge { height: 18px; font-size: 11px; padding: 0 6px; }
 .v-season .bug-card.sea-final {
@@ -185,3 +186,8 @@
 .v-season .sea-bye { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; font-weight: 600; color: var(--ink); vertical-align: middle; }
 .v-season .sea-bye .av { vertical-align: middle; }
 .v-season .sea-br .bug-hero .bug-side { height: 50px; }
+/* Championship hero: the team gets its own line under the name (the crown stays beside it), so the 40 px avatar,
+   seed and .n3 score never squeeze it to a few letters at 360 px. */
+.v-season .sea-br .bug-hero .bug-name { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: 8px; row-gap: 0; }
+.v-season .sea-br .bug-hero .bug-name > b { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.v-season .sea-br .bug-hero .bug-team { grid-column: 1 / -1; }

@@ -51,12 +51,14 @@ function meterState(st) {
   return {label: 'Worth', val: worthOf(st.clues), lit: 8 - st.clues, gold: false};
 }
 
-function revealHTML(st, w, countFrom0) {
+function revealHTML(st, w, {count0 = false, stampHidden = false} = {}) {
   const pts = daily.ptsWho();
   const line = st.won
-    ? `You got him on clue ${st.clues} of 7. +<span class="my-rp" data-my-rp>${esc(data.nf(countFrom0 ? 0 : pts))}</span> pts`
+    ? `You got him on clue ${st.clues} of 7. +<span class="my-rp" data-my-rp>${esc(data.nf(count0 ? 0 : pts))}</span> pts`
     : 'He stumped you today.';
-  return `<p class="my-rname t-1">${esc(nameOf(w))}</p><p class="my-rline t-sub">${line}</p>`;
+  const stamp = st.won && st.clues === 1
+    ? `<span class="rn-stamp my-stamp" data-my-stamp${stampHidden ? ' style="opacity:0"' : ''}>First-ballot</span>` : '';
+  return `<div class="my-rh"><p class="my-rname t-1">${esc(nameOf(w))}</p>${stamp}</div><p class="my-rline t-sub">${line}</p>`;
 }
 
 function chipHTML(i) {
@@ -67,7 +69,6 @@ function noteText(st) { return `Clue ${st.clues} of 7. Solving now is worth ${wo
 
 function render() {
   const st = W(), w = daily.DAY.w, clues = daily.whoClues(w), m = meterState(st);
-  const firstBallot = st.done && st.won && st.clues === 1;
   const rows = clues.map((_, j) => {
     const lab = clueLabel(j, clues, st);
     return `<div class="${clueCls(j, st)}" role="listitem" data-key="c${j}" data-j="${j}"${lab ? ` aria-label="${esc(lab)}"` : ''}>${clueInner(j, clues, st)}</div>`;
@@ -81,13 +82,13 @@ function render() {
     + `<div class="my-worth" role="img" aria-label="${esc(`${m.label} ${m.val} points`)}" data-my-worth>`
     + `<span class="my-wv"><span class="my-wl" data-my-wl>${m.label}</span><span class="n4 my-wn" data-my-wn>${esc(data.nf(m.val))}</span></span>`
     + `<span class="my-pips" data-my-pips>${pipsHTML(m.lit, m.gold)}</span></div>`
-    + (firstBallot ? `<span class="rn-stamp my-stamp" data-my-stamp>First-ballot</span>` : '')
     + `</div>`
-    + `<div class="my-reveal" data-my-reveal${st.done ? '' : ' hidden'}>${st.done ? revealHTML(st, w, false) : ''}</div>`
+    + `<div class="my-reveal" data-my-reveal${st.done ? '' : ' hidden'}>${st.done ? revealHTML(st, w) : ''}</div>`
     + `</div>`
     + `<div class="group my-clues" role="list" aria-label="Clues" data-my-clues>${rows}</div>`
-    + `<div class="my-chips" role="list" aria-label="Wrong guesses" data-my-chips${st.g.length ? '' : ' hidden'}>${st.g.map(chipHTML).join('')}</div>`
+    // The wrong-guess chips sit below the actions: a new chip never pushes the buttons out from under the thumb.
     + `<div class="my-actions" data-my-actions${st.done ? ' hidden' : ''}>${actions}</div>`
+    + `<div class="my-chips" role="list" aria-label="Wrong guesses" data-my-chips${st.g.length ? '' : ' hidden'}>${st.g.map(chipHTML).join('')}</div>`
     + `</div>`;
 }
 
@@ -112,6 +113,19 @@ function refs(I) {
   I.actions = q('[data-my-actions]');
 }
 
+/** Blocks below a region that is about to change height glide from where they were (FLIP) instead of snapping. */
+function glideBelow(nodes, mutate) {
+  const els = nodes.filter(n => n && n.isConnected && !n.hidden);
+  const y0 = els.map(n => n.getBoundingClientRect().top);
+  mutate();
+  if (ui.RM) return;
+  els.forEach((n, k) => {
+    if (n.hidden) return;
+    const dy = y0[k] - n.getBoundingClientRect().top;
+    if (Math.abs(dy) > .5) ui.animate(n, [{transform: `translateY(${dy}px)`}, {transform: 'none'}], {spring: 'smooth'});
+  });
+}
+
 /** Reveal clue row j (cross-fade the redaction into the text; rows below glide if the row grows). */
 function revealClue(I, j, {late = false, animate = true} = {}) {
   const row = I.list.querySelector(`[data-j="${j}"]`);
@@ -131,7 +145,8 @@ function revealClue(I, j, {late = false, animate = true} = {}) {
     if (animate) ui.animate(row.querySelector('.my-val'), [{opacity: 0}, {opacity: 1}], {duration: 180});
     return;
   }
-  ui.flip(I.list, mutate, {fade: false});
+  // A value that wraps to a second line grows the list: the actions and chips below glide down with it.
+  glideBelow([I.actions, I.chips], () => ui.flip(I.list, mutate, {fade: false}));
   const val = row.querySelector('.my-val'), red = row.querySelector('.my-red');
   ui.animate(val, [{opacity: 0, transform: 'scale(.98)'}, {opacity: 1, transform: 'none'}], {duration: 240, easing: EASE_OUT});
   if (red) {
@@ -148,6 +163,11 @@ function markNewest(I) {
   I.list.querySelectorAll('.my-clue').forEach(r => r.classList.toggle('is-new', !st.done && +r.dataset.j === st.clues - 1));
 }
 
+/** "−50" floats off a spent pip in the wrong color. */
+function floatCost(p) {
+  ui.floatText(p, `−${daily.PTS.who}`, {cls: 'wrong'});
+}
+
 /** Worth meter after a spent clue: one pip drops and fades, "−50" floats off, the number counts down. */
 function spendPip(I, fromClues) {
   const st = W();
@@ -156,7 +176,7 @@ function spendPip(I, fromClues) {
     const p = pips[k];
     if (!p.classList.contains('is-lit')) continue;
     p.classList.remove('is-lit');
-    ui.floatText(p, `−${daily.PTS.who}`, {cls: 'wrong'});
+    floatCost(p);
   }
   const to = worthOf(st.clues), from = worthOf(fromClues);
   I.worth.setAttribute('aria-label', `Worth ${to} points`);
@@ -176,9 +196,11 @@ function patchActions(I) {
 }
 
 function nextClue(I) {
-  if (I.locked) return;
+  // A double tap must not spend two clues: the button barely moves after a reveal, so hold it for 400 ms.
+  if (I.locked || performance.now() - (I.clueAt || 0) < 400) return;
   const from = W().clues;
   if (!daily.whoNextClue()) return;
+  I.clueAt = performance.now();
   ui.haptic('light');
   revealClue(I, W().clues - 1);
   markNewest(I);
@@ -215,7 +237,7 @@ function flipDisc(I, won, animate) {
   ui.animate(I.disc, [{transform: 'rotateY(0deg)'}, {transform: 'rotateY(180deg)'}], {spring: 'smooth'});
 }
 
-async function finish(I, won) {
+async function finish(I, won, pre = '') {
   I.locked = true;
   const release = I.api.busy();
   try {
@@ -229,11 +251,13 @@ async function finish(I, won) {
     if (I.dead) return;
     // Actions leave, the remaining clues come in (dimmed past the solve point), the disc flips.
     if (I.actions.contains(document.activeElement)) { try { I.head.setAttribute('tabindex', '-1'); I.head.focus({preventScroll: true}); } catch (_) {} }
-    I.actions.hidden = true;
-    ui.flip(I.list, () => {
-      I.clues.forEach((_, j) => revealClue(I, j, {late: j >= st.clues, animate: false}));
-      markNewest(I);
-    }, {fade: false});
+    glideBelow([I.chips], () => {
+      I.actions.hidden = true;
+      ui.flip(I.list, () => {
+        I.clues.forEach((_, j) => revealClue(I, j, {late: j >= st.clues, animate: false}));
+        markNewest(I);
+      }, {fade: false});
+    });
     I.list.querySelectorAll('.my-clue.is-late .my-val').forEach((v, k) => {
       ui.animate(v, [{opacity: 0}, {opacity: 1}], {duration: 240, delay: k * 40, fill: 'backwards'});
     });
@@ -246,19 +270,22 @@ async function finish(I, won) {
     [...I.pips.children].forEach((p, k) => { p.classList.toggle('is-lit', k < m.lit); p.classList.toggle('is-gold', m.gold); });
     await wait(ui.RM ? 0 : 200);
     if (I.dead) return;
-    I.reveal.innerHTML = revealHTML(st, w, won);
-    I.reveal.hidden = false;
+    // The header card grows by the reveal block; the clue list (and chips) glide down under it instead of dropping.
+    glideBelow([I.list, I.chips], () => {
+      I.reveal.innerHTML = revealHTML(st, w, {count0: won, stampHidden: true});
+      I.reveal.hidden = false;
+    });
     ui.animate(I.reveal, [{opacity: 0, transform: 'translateY(8px)'}, {opacity: 1, transform: 'none'}], {spring: 'smooth'});
     const rp = I.reveal.querySelector('[data-my-rp]');
     if (rp) ui.countUp(rp, daily.ptsWho(), {from: 0, duration: 700, format: 'int'});
-    ui.announce(won ? `${nameOf(w)}. You got him on clue ${st.clues} of 7. +${daily.ptsWho()} points.${st.clues === 1 ? ' First-ballot.' : ''}` : `${nameOf(w)}. He stumped you today.`);
+    ui.announce(pre + (won ? `${nameOf(w)}. You got him on clue ${st.clues} of 7. +${daily.ptsWho()} points.${st.clues === 1 ? ' First-ballot.' : ''}` : `${nameOf(w)}. He stumped you today.`));
     I.api.refreshChrome();
-    if (won && st.clues === 1) {
+    const stamp = I.reveal.querySelector('[data-my-stamp]');
+    if (stamp) {
+      // The stamp's slot is laid out from the start (next to the name), so it never covers the title or the name.
       await wait(ui.RM ? 0 : 260);
       if (I.dead) return;
-      const top = I.head.querySelector('.my-top');
-      top.insertAdjacentHTML('beforeend', `<span class="rn-stamp my-stamp" data-my-stamp>First-ballot</span>`);
-      const stamp = top.querySelector('[data-my-stamp]');
+      stamp.style.opacity = '';
       ui.stamp(stamp);
       ui.haptic('celebrate');
     } else if (won) {
@@ -270,9 +297,13 @@ async function finish(I, won) {
   }
 }
 
-function guess(I) {
+function guess(I, kb) {
   if (I.locked || W().done) return;
   ui.haptic('light');
+  // The sheet hands focus back to "Guess the player" (ui.openSheet treats the tapped button as its trigger, iOS
+  // included), under the new clue. Pointer users get no ring there.
+  const g0 = I.actions.querySelector('[data-my-guess]');
+  if (g0) g0.classList.toggle('no-ring', !kb);
   const st = W();
   const p = openPicker({kind: 'mystery', title: 'Name the player', worth: worthOf(st.clues), disabled: i => (W().g.includes(i) ? 'Guessed' : '')});
   p.then(async i => {
@@ -287,13 +318,15 @@ function guess(I) {
     if (r === 'win') { finish(I, true); return; }
     addChip(I, i);
     ui.haptic('error');
-    ui.announce(`Not ${name}.`);
-    if (r === 'stumped') { finish(I, false); return; }
-    // 'wrong': the next clue opens, same motion as "Next clue".
+    if (r === 'stumped') { finish(I, false, `Not ${name}. `); return; }
+    // 'wrong': the next clue opens, same motion as "Next clue". One announcement carries both (ui.announce
+    // keeps only the last call per frame).
     revealClue(I, W().clues - 1);
     markNewest(I);
     spendPip(I, from);
     patchActions(I);
+    const n = W().clues, [lab, val] = I.clues[n - 1];
+    ui.announce(`Not ${name}. Clue ${n}. ${lab}: ${val}.`);
     I.api.refreshChrome();
     const g = I.actions.querySelector('[data-my-guess]');
     if (g && g.isConnected) ui.shake(g);
@@ -305,8 +338,11 @@ function mount(el, ctx, api) {
   const I = {el, ctx, api, dead: false, locked: false, clues: daily.whoClues(daily.DAY.w)};
   refs(I);
   el.addEventListener('click', e => {
-    if (e.target.closest('[data-my-guess]')) { guess(I); return; }
+    if (e.target.closest('[data-my-guess]')) { guess(I, e.detail === 0); return; }
     if (e.target.closest('[data-my-clue]')) nextClue(I);
+  });
+  el.addEventListener('keydown', e => {
+    if (e.key === 'Tab') el.querySelectorAll('.no-ring').forEach(b => b.classList.remove('no-ring'));
   });
   return {unmount() { I.dead = true; }};
 }

@@ -24,9 +24,6 @@
   content: ""; position: absolute; top: 0; left: 0; right: -200vw; height: 1px;
   background: var(--separator); transform: scaleY(.5); transform-origin: top;
 }
-.c-board .c-brow.is-pressed { background-color: var(--surface-2); }
-.c-board .c-brow.is-me { background-color: var(--surface-2); }
-.c-board .c-brow.is-me.is-pressed { background-color: var(--surface-3); }
 .c-board .c-brank {
   flex: none; width: 28px; margin-right: 6px;
   text-align: center; color: var(--ink-3);
@@ -66,7 +63,6 @@
 .c-board .c-still-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; min-width: 0; }
 .c-board .c-still-p { max-width: 100%; background: var(--surface-2); color: var(--ink-2); padding-left: 10px; }
 .c-board .c-still-p .av { margin-left: -4px; }
-.c-board .c-still-p .ell { line-height: 18px; padding-bottom: 1px; }
 .c-board .c-still-p.is-me { color: var(--ink); box-shadow: inset 0 0 0 1px var(--tint); }
 .c-board .c-still-more { padding: 0 10px; }
 
