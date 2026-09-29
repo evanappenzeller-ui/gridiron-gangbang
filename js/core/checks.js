@@ -375,8 +375,9 @@ export async function runChecks() {
   // 5. boardRows('today') sub strings match the old leaderboardHTML format
   check("boardRows('today') sub strings, sort and ranks match the old leaderboard", () => {
     needDaily();
-    const P = daily.PNUM, players = fakePlayers(P);
-    const mine = daily.boardRows('today', players).map(r => ({id: r.id, name: r.name, pts: r.pts, sub: r.sub, rank: r.rank, me: r.me}));
+    // The old board only ever showed three-puzzle days: test on today if it is one, else on day 1 (a v1 day).
+    const P = daily.isV2() ? 1 : daily.PNUM, players = fakePlayers(P);
+    const mine = daily.boardRows('today', players, P).map(r => ({id: r.id, name: r.name, pts: r.pts, sub: r.sub, rank: r.rank, me: r.me}));
     const old = oldBoard(players, 'today', P, daily.LB.uid);
     const expect = [
       'fake-2|Someone|800|College 4/5, grid 7/9, no ID|1',
@@ -405,6 +406,8 @@ export async function runChecks() {
   check('social() and streakOf() on a fake player list', () => {
     needDaily();
     const P = daily.PNUM, players = fakePlayers(P);
+    // On a five-puzzle day, today's entries need the v2 fields to count as played (entryFor).
+    if (daily.isV2()) players.forEach(p => { const d = p.days[P]; if (d) Object.assign(d, {s: 0, j: 0}); });
     const s = daily.social(players);
     const st = daily.streakOf(players[2]);
     const pass = s.played.length === 3 && s.regulars === 4 && s.leader === 'Someone'
@@ -654,18 +657,21 @@ export async function runChecks() {
     return {pass, detail: `${path && path.colleges.join(' > ')} > ${teams.join(' > ')} (now ${path && path.current}); ${clues.join('; ')}; fallback ${rnd}`};
   });
 
-  check('boardRows(): v2 day entries append faces and path', () => {
+  check('boardRows(): v2 day entries append faces and path; old-format entries do not count on a v2 day', () => {
     needDaily();
-    const P = daily.PNUM;
+    // A five-puzzle day: today if it is one, else the first v2 day in the file.
+    const P = daily.isV2() ? daily.PNUM : daily.PZ.days.findIndex(d => daily.isV2(d)) + 1;
     const players = [
       {id: 'v2-a', nick: 'Evan', days: {[P]: {p: 1180, g: 6, c: 4, w: 2, j: 1, s: 3}}, total: 1180, played: 1, last: P},
       {id: 'v2-b', nick: 'Mason', days: {[P]: {p: 380, g: 3, c: 2, w: 0, j: 0, s: 0}}, total: 380, played: 1, last: P},
+      // Posted for the day's earlier three-puzzle version (Sep 29 was re-released as v2 mid-day): not on the board.
       {id: 'v1-c', nick: 'Zed', days: {[P]: {p: 620, g: 5, c: 3, w: 3}}, total: 620, played: 1, last: P}
     ];
-    const got = daily.boardRows('today', players).map(r => r.id + '|' + r.sub + '|' + r.rank).join(';');
-    const want = ['v2-a|College 4/5, faces 3/5, ID on clue 2, path on guess 1, grid 6/9|1', 'v1-c|College 3/5, grid 5/9, ID on clue 3|2',
-      'v2-b|College 2/5, faces 0/5, no ID, no path, grid 3/9|3'].join(';');
-    return {pass: got === want, detail: got};
+    const got = daily.boardRows('today', players, P).map(r => r.id + '|' + r.sub + '|' + r.rank).join(';');
+    const want = ['v2-a|College 4/5, faces 3/5, ID on clue 2, path on guess 1, grid 6/9|1',
+      'v2-b|College 2/5, faces 0/5, no ID, no path, grid 3/9|2'].join(';');
+    const stale = daily.entryFor(players[2], P) === null && daily.entryFor(players[0], P) === players[0].days[P];
+    return {pass: P > 0 && got === want && stale, detail: `day ${P}: ${got}; old-format entry ignored: ${stale}`};
   });
 
   check('dayLabel(), dayFor() and the dev ?day= preview', () => {
@@ -709,11 +715,12 @@ export async function runChecks() {
     return {pass: !bad.length, detail: bad.length ? 'squares differ: ' + bad.join(', ') : `${days.length * 9} squares agree (${older} pre-2010, ${specs} specialists): ${names.join(', ')}`};
   });
 
-  check('puzzles.json: days 1 and 2 are v1, v2 entries are well-formed', () => {
+  check('puzzles.json: day 1 is v1, v2 entries are well-formed', () => {
     needDaily();
     const PZ = daily.PZ, PP = daily.PP, bad = [];
     let v2 = 0;
-    if (daily.isV2(PZ.days[0]) || daily.isV2(PZ.days[1])) bad.push('days 1-2 must stay v1');
+    // Day 1 stays v1 (people finished it); day 2 (Sep 29) was re-released as v2 mid-day.
+    if (daily.isV2(PZ.days[0])) bad.push('day 1 must stay v1');
     PZ.days.forEach((d, i) => {
       if (!daily.isV2(d)) return;
       v2++;

@@ -122,13 +122,13 @@ ${ui.button({label: cta.label, kind: 'primary', attrs: {'data-go': cta.path}, cl
 </section>`;
 }
 // Puzzle rows before puzzles.json arrives: what this phone showed today (the tab ring's gg-ring cache, same local
-// date), else five (every puzzle day from Wed, Sep 30 2026 on is a five-puzzle day), so the card does not jump.
+// date), else five (every puzzle day from Tue, Sep 29 2026 on is a five-puzzle day), so the card does not jump.
 function loadingRows() {
   try {
     const v = JSON.parse(localStorage.getItem('gg-ring') || 'null');
     if (v && v.date === new Date().toDateString() && Array.isArray(v.parts) && (v.parts.length === 3 || v.parts.length === 5)) return v.parts.length;
   } catch (_) {}
-  return new Date() < new Date(2026, 8, 30) ? 3 : 5;
+  return new Date() < new Date(2026, 8, 29) ? 3 : 5;
 }
 function loadingCard() {
   const n = loadingRows();

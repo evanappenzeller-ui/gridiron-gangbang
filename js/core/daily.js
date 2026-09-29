@@ -105,10 +105,15 @@ function freshDS(raw) {
   return ds;
 }
 
-function readDS(key) {
+function readDS(key, day) {
   let raw = {};
   try { raw = JSON.parse(localStorage.getItem(key)) || {}; } catch (_) { raw = {}; }
-  return freshDS(raw);
+  // A day re-released in the five-puzzle format (Sep 29 2026 went v1 -> v2 mid-day) drops progress saved against its
+  // old version: v2 progress is stamped v: 2, anything else on a v2 day starts over.
+  if (isV2(day) && raw && raw.v !== 2) raw = {};
+  const ds = freshDS(raw);
+  if (isV2(day)) ds.v = 2;
+  return ds;
 }
 
 export function saveDS() { try { localStorage.setItem(SKEY, JSON.stringify(DS)); } catch (_) {} }
@@ -123,7 +128,7 @@ function initDay(pz) {
   SLUGS = slugsFor(DAY);
   TODAY_LABEL = devDay ? dayLabel(PNUM, {long: true}) : new Date().toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'});
   SKEY = 'gg-daily-' + PNUM;
-  DS = readDS(SKEY);
+  DS = readDS(SKEY, DAY);
   seenIndex = dayIndex;
   deepCache.clear();
   NW = null; // the search index belongs to this PP
@@ -583,7 +588,7 @@ async function startFirebase() {
       LB.ready = true;
       const mine = LB.players.find(p => p.id === LB.uid);
       if (mine && mine.nick) LB.nick = mine.nick;
-      if (mine && mine.days && mine.days[PNUM]) DS.posted = true;
+      if (entryFor(mine)) DS.posted = true;
       lbChanged('snapshot', prev);
       maybeAutoPost();
     }, err => { LB.err = err.code; LB.ready = true; lbChanged('error'); });
@@ -591,6 +596,16 @@ async function startFirebase() {
 }
 
 export const displayName = p => (p.nick || 'Someone');
+
+// A player's posted entry for puzzle day pnum, or null. On a five-puzzle day an entry without the v2 fields was
+// posted for the day's earlier three-puzzle version (Sep 29 2026 was re-released mid-day): it no longer counts as
+// played today, and posting the new score replaces it.
+export function entryFor(p, pnum = PNUM) {
+  const d = p && p.days && p.days[pnum];
+  if (!d) return null;
+  const day = PZ ? PZ.days[(pnum - 1) % PZ.days.length] : null;
+  return isV2(day) && d.s == null ? null : d;
+}
 
 export function maybeAutoPost() {
   if (!allDone() || DS.posted || !LB.save || LB.posting || LB.status === 'denied') return;
@@ -602,7 +617,7 @@ export async function postScore(nick) {
   LB.posting = true; LB.status = 'posting'; lbChanged('status');
   const me = LB.players.find(p => p.id === LB.uid);
   const days = Object.assign({}, me && me.days);
-  if (!days[PNUM]) {
+  if (!entryFor(me)) {
     days[PNUM] = {p: totalPts(), g: gridScore(), c: colScore(), w: DS.who.won ? DS.who.clues : 0};
     if (isV2()) { days[PNUM].j = jrGuessNo(); days[PNUM].s = silScore(); } // Journey guess no (0 = missed), faces right
   }
@@ -696,8 +711,8 @@ function tieRanks(rows, key) {
 
 // Board rows exactly as the old leaderboardHTML built them (same sub strings, sort and tie ranks),
 // plus {rank, me, managerId, move}. mode: 'today' | 'season' | 'streaks' (default LB.mode).
-// players defaults to LB.players (pass a list to compute rows for something else).
-export function boardRows(mode = LB.mode, players = LB.players) {
+// players defaults to LB.players (pass a list to compute rows for something else); pnum defaults to today.
+export function boardRows(mode = LB.mode, players = LB.players, pnum = PNUM) {
   if (mode === 'streaks') {
     const rows = players.map(p => {
       const s = streakOf(p);
@@ -710,7 +725,7 @@ export function boardRows(mode = LB.mode, players = LB.players) {
   }
   const rows = players.map(p => {
     if (mode === 'today') {
-      const d = p.days && p.days[PNUM];
+      const d = entryFor(p, pnum);
       return d ? {id: p.id, name: displayName(p), pts: d.p, sub: daySub(d)} : null;
     }
     if (!p.played) return null;
@@ -723,7 +738,7 @@ export function boardRows(mode = LB.mode, players = LB.players) {
     // Rank by total before today's points; players whose only day is today are 'new'.
     const prevRows = players.map(p => {
       if (!p.played) return null;
-      const t = p.days && p.days[PNUM];
+      const t = p.days && p.days[pnum];
       if (p.played - (t ? 1 : 0) <= 0) return null;
       return {id: p.id, pts: (p.total || 0) - ((t && t.p) || 0)};
     }).filter(Boolean).sort((a, b) => b.pts - a.pts);
@@ -741,12 +756,12 @@ export function boardRows(mode = LB.mode, players = LB.players) {
 
 // Social line: today's players (board rows, highest first), how many regulars there are,
 // who is still to play, and the leader's name.
-export function social(players = LB.players) {
-  const played = boardRows('today', players);
+export function social(players = LB.players, pnum = PNUM) {
+  const played = boardRows('today', players, pnum);
   // A regular has posted at least once (played > 0, last >= 1) within the last 7 puzzle days.
   // Without the played/last guard, docs that never posted count as regulars in the first week (PNUM <= 7).
-  const recent = p => (p.played || 0) > 0 && (p.last || 0) >= 1 && p.last >= PNUM - 7;
-  const today = p => !!(p.days && p.days[PNUM]);
+  const recent = p => (p.played || 0) > 0 && (p.last || 0) >= 1 && p.last >= pnum - 7;
+  const today = p => !!entryFor(p, pnum);
   const regulars = players.filter(p => recent(p) || today(p)).length;
   const stillToPlay = players.filter(p => recent(p) && !today(p)).map(p => ({id: p.id, name: displayName(p), managerId: managerFor(p), me: p.id === LB.uid}));
   const leaderRow = played[0] || null;
