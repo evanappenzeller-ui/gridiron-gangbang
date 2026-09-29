@@ -2,7 +2,7 @@
 // Network-first (2.5 s timeout, then cache) for navigations, HTML, JSON, JS and CSS, so weekly data and new
 // puzzles show up right away; cache-first for the font and icons. Other apps share this origin, so only
 // caches named gg-* or gridiron-* are ever deleted, and cross-origin requests (Firebase) are never touched.
-const CACHE = 'gg-v3';
+const CACHE = 'gg-v4';
 const VIEWS = ['today', 'board', 'you', 'sharecard', 'results', 'run', 'college', 'mystery', 'grid', 'picker',
   'standings', 'season', 'review', 'matchup', 'rivals', 'hall', 'hall-trophies', 'hall-records', 'moves', 'profile', '_kit'];
 const VIEW_CSS = ['today', 'board', 'results', 'you', 'run', 'college', 'mystery', 'grid', 'picker',
@@ -11,7 +11,7 @@ const SHELL = [
   './', 'index.html', 'manifest.webmanifest',
   'css/tokens.css', 'css/base.css', 'css/components.css',
   ...VIEW_CSS.map(v => `css/views/${v}.css`),
-  'js/app.js', 'js/core/ui.js', 'js/core/data.js', 'js/core/daily.js', 'js/core/checks.js',
+  'js/app.js', 'js/core/ui.js', 'js/core/data.js', 'js/core/daily.js', 'js/core/checks.js', 'js/core/motw.js',
   ...VIEWS.map(v => `js/views/${v}.js`),
   'fonts/barlow-condensed-800.woff2',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png',

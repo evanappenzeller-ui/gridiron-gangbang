@@ -223,3 +223,74 @@
 }
 .v-rivals .rv-opp > .chev { margin-left: -2px; }
 .v-rivals .rv-nobody { margin-top: 0; }
+
+/* ================================================================ Matchup of the Week */
+.v-rivals .rv-motw { padding: 0 var(--gutter); margin: 4px 0 28px; }
+.v-rivals .rv-motw-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.v-rivals .rv-motw-head .t-2 { margin: 0; }
+.v-rivals .rv-motw-wk { color: var(--tint); white-space: nowrap; }
+.v-rivals .rv-motw-sub { margin: 2px 0 12px; color: var(--ink-3); font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); }
+.v-rivals .rv-motw-seg { margin-bottom: 12px; }
+.v-rivals .rv-motw-card { padding: 0; overflow: hidden; }
+.v-rivals .rv-motw-list { list-style: none; margin: 0; padding: 0; }
+.v-rivals .rv-mc {
+  position: relative;
+  display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; column-gap: 10px;
+  grid-template-areas: "place pair hype" ". tags tags";
+  align-items: center;
+  padding: 12px 14px 12px 12px;
+}
+.v-rivals .rv-mc + .rv-mc::after {
+  content: ""; position: absolute; left: 44px; right: 0; top: 0; height: .5px;
+  background: var(--separator); pointer-events: none;
+}
+.v-rivals .rv-mc.is-more { display: none; }
+.v-rivals .rv-motw.is-all .rv-mc.is-more { display: grid; }
+.v-rivals .rv-mc-hit {
+  position: absolute; inset: 0; width: 100%;
+  background-color: transparent;
+  transition: background-color 250ms linear;
+}
+.v-rivals .rv-mc-hit.is-pressed { background-color: var(--surface-2); transition: none; }
+.v-rivals .rv-mc-hit:focus-visible { outline-offset: -2px; }
+.v-rivals .rv-mc > :not(.rv-mc-hit) { position: relative; pointer-events: none; }
+.v-rivals .rv-mc-place { grid-area: place; color: var(--ink-3); text-align: center; }
+.v-rivals .rv-mc-pair { grid-area: pair; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.v-rivals .rv-mc-side { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 0; }
+.v-rivals .rv-mc-side.b { flex-direction: row-reverse; text-align: right; }
+.v-rivals .rv-mc-side .av { flex: none; }
+.v-rivals .rv-mc-txt { display: flex; flex-direction: column; min-width: 0; }
+.v-rivals .rv-mc-n {
+  font: 600 var(--fs-sub)/var(--lh-sub) var(--font-text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.v-rivals .rv-mc-r { color: var(--ink-3); font: 400 var(--fs-cap)/var(--lh-cap) var(--font-text); white-space: nowrap; }
+.v-rivals .rv-mc-vs { flex: none; color: var(--ink-4); }
+.v-rivals .rv-mc-hype {
+  grid-area: hype; display: flex; flex-direction: column; align-items: flex-end;
+  min-width: 40px; position: relative; padding-bottom: 6px;
+}
+.v-rivals .rv-mc-hype .ovl { color: var(--ink-3); }
+.v-rivals .rv-mc-hype i {
+  position: absolute; right: 0; bottom: 0; width: 40px; height: 3px; border-radius: 2px;
+  background: var(--tint); transform-origin: right center; opacity: .85;
+}
+.v-rivals .rv-mc-tags { grid-area: tags; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.v-rivals .rv-mc-tag {
+  padding: 3px 8px; border-radius: var(--r-pill);
+  background: var(--fill); color: var(--ink-2);
+  font: 500 var(--fs-cap)/var(--lh-cap) var(--font-text); white-space: nowrap;
+}
+/* The top pick gets the room: bigger avatars and score, a tint wash, gold first tag. */
+.v-rivals .rv-mc.is-top { padding-top: 16px; padding-bottom: 16px; background: linear-gradient(180deg, var(--tint-soft), transparent 70%); }
+.v-rivals .rv-mc.is-top .rv-mc-place { color: var(--tint); }
+.v-rivals .rv-mc.is-top .rv-mc-n { font-size: var(--fs-headline); line-height: var(--lh-headline); }
+.v-rivals .rv-mc.is-top .rv-mc-tag:first-child { background: var(--gold-soft); color: var(--gold); }
+.v-rivals .rv-motw-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 8px 12px 12px; border-top: .5px solid var(--separator);
+}
+@media (max-width: 374px) {
+  .v-rivals .rv-mc-side .av { display: none; }
+  .v-rivals .rv-mc.is-top .rv-mc-side .av { display: grid; }
+}

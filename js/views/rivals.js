@@ -3,6 +3,7 @@
 // meeting log cross-fade, and "{A} against everyone" reorders with FLIP.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
+import * as motw from '../core/motw.js';
 
 const esc = s => data.esc(s);
 const nm = id => data.name(id);
@@ -219,12 +220,116 @@ function listSecHTML(m) {
   return `<div class="rv-sec rv-list" data-enter>${ui.sectionHeader({title: `${nm(m.a)} against everyone`})}<div class="rv-list-w">${listHTML(m)}</div><p class="group-f">${FOOTNOTE}</p></div>`;
 }
 
+// ============================================================================ Matchup of the Week
+// The next scheduled week's games, ranked (core/motw.js), so the league has a shortlist to vote on. Tapping a
+// game loads it into the head to head below. Shows the top 3 until "Show all".
+const LENS_KEY = 'gg-motw-lens';
+function readLens() {
+  try { const v = localStorage.getItem(LENS_KEY); return motw.LENSES.some(l => l.id === v) ? v : 'overall'; } catch (_) { return 'overall'; }
+}
+function saveLens(v) { try { localStorage.setItem(LENS_KEY, v); } catch (_) {} }
+const SHOWN = 3;
+const LENS_SUB = {overall: 'Standings and history, blended.', standings: 'Where both teams sit right now.', history: 'How close and storied each series is.'};
+const lensSub = lens => `${LENS_SUB[lens] || LENS_SUB.overall} Tap a game for the full history.`;
+const recOf = x => x.rank ? `#${x.rank} · ${data.recStr(x.w, x.l, x.t)}` : 'No games yet';
+
+function mcSide(id, x, side, size) {
+  return `<span class="rv-mc-side ${side}">${ui.avatar(id, {size, you: id === data.me()})}`
+    + `<span class="rv-mc-txt"><span class="rv-mc-n">${esc(nm(id))}</span><span class="rv-mc-r">${esc(recOf(x))}</span></span></span>`;
+}
+function mcRow(c) {
+  const top = c.place === 1;
+  const label = `${c.place}. ${nm(c.a)} versus ${nm(c.b)}. Hype ${c.hype}.${c.tags.length ? ' ' + c.tags.join('. ') + '.' : ''} Show this rivalry`;
+  return `<li class="rv-mc${top ? ' is-top' : ''}${c.place > SHOWN ? ' is-more' : ''}" data-key="${esc(c.a + '|' + c.b)}">`
+    + `<button type="button" class="rv-mc-hit" data-motw="${esc(c.a + '|' + c.b)}" aria-label="${esc(label)}"></button>`
+    + `<span class="rv-mc-place n5" aria-hidden="true">${c.place}</span>`
+    + `<span class="rv-mc-pair" aria-hidden="true">${mcSide(c.a, c.A, 'a', top ? 44 : 28)}<span class="rv-mc-vs ovl">vs</span>${mcSide(c.b, c.B, 'b', top ? 44 : 28)}</span>`
+    + `<span class="rv-mc-hype" aria-hidden="true"><span class="${top ? 'n3' : 'n4'}">${c.hype}</span><span class="ovl">Hype</span><i style="transform:scaleX(${c.hype / 100})"></i></span>`
+    + (c.tags.length ? `<span class="rv-mc-tags" aria-hidden="true">${c.tags.map(t => `<span class="rv-mc-tag">${esc(t)}</span>`).join('')}</span>` : '')
+    + `</li>`;
+}
+function motwRows(res) { return res.list.map(mcRow).join(''); }
+function motwHTML(lens) {
+  const res = motw.candidates(lens);
+  if (!res || !res.list.length) return '';
+  const more = res.list.length > SHOWN;
+  return `<section class="rv-motw" data-enter aria-labelledby="rv-motw-h">`
+    + `<div class="rv-motw-head"><h2 class="t-2" id="rv-motw-h">Matchup of the Week</h2><span class="ovl rv-motw-wk">Week ${res.week}</span></div>`
+    + `<p class="rv-motw-sub">${esc(lensSub(res.lens))}</p>`
+    + ui.seg({name: 'motw-lens', items: motw.LENSES, value: res.lens, small: true, label: 'Rank by', cls: 'rv-motw-seg'})
+    + `<div class="card rv-motw-card"><ol class="rv-motw-list" aria-label="${esc(`Week ${res.week} games, best first`)}">${motwRows(res)}</ol>`
+    + `<div class="rv-motw-foot">`
+    + (more ? ui.button({label: `Show all ${res.list.length}`, kind: 'plain', size: 's', attrs: {'data-motw-more': '', 'aria-expanded': 'false'}}) : '<span></span>')
+    + ui.button({label: 'Share for the vote', kind: 'secondary', size: 's', icon: 'share', attrs: {'data-motw-share': ''}})
+    + `</div></div></section>`;
+}
+// Re-rank in place (lens change, new data, new "me"). FLIP moves rows that change places.
+function patchMotw(animate) {
+  const sec = st && st.el.querySelector('.rv-motw');
+  const res = motw.candidates(st ? st.lens : readLens());
+  if (!sec) {
+    // A reload brought a schedule where there was none: add the section above the head to head.
+    if (res && res.list.length && st && st.r.hdr) {
+      st.r.hdr.insertAdjacentHTML('beforebegin', motwHTML(st.lens));
+      if (st.all) toggleMore(true);
+    }
+    return;
+  }
+  if (!res || !res.list.length) { sec.remove(); return; }
+  const list = sec.querySelector('.rv-motw-list');
+  const wk = sec.querySelector('.rv-motw-wk');
+  if (wk) wk.textContent = `Week ${res.week}`;
+  const put = () => { list.innerHTML = motwRows(res); };
+  if (animate) ui.flip(list, put); else put();
+}
+function toggleMore(on) {
+  const sec = st && st.el.querySelector('.rv-motw');
+  if (!sec) return;
+  st.all = on;
+  sec.classList.toggle('is-all', on);
+  const b = sec.querySelector('[data-motw-more]');
+  if (b) {
+    const n = sec.querySelectorAll('.rv-mc').length;
+    b.setAttribute('aria-expanded', String(on));
+    const lab = b.querySelector('.btn-label');
+    if (lab) lab.textContent = on ? 'Show top 3' : `Show all ${n}`;
+  }
+  if (on) sec.querySelectorAll('.rv-mc.is-more').forEach(li => ui.animate(li, [{opacity: 0, transform: 'translateY(-6px)'}, {opacity: 1, transform: 'none'}], {duration: 220, easing: 'ease-out'}));
+}
+function chooseMotw(key) {
+  if (!st || st.swapping || !st.m) return;
+  let [a, b] = key.split('|');
+  if (!data.M[a] || !data.M[b]) return;
+  if (b === data.me()) [a, b] = [b, a]; // your side on the left
+  ui.haptic('selection');
+  const same = (st.m.a === a && st.m.b === b) || (st.m.a === b && st.m.b === a);
+  if (!same) go(a, b, 'list');
+  // Bring the head to head into view, just under the bar.
+  const scr = st.ctx.screen, hdr = st.r.hdr;
+  if (hdr) {
+    const nav = scr.querySelector(':scope > .nav');
+    const top = hdr.getBoundingClientRect().top - scr.getBoundingClientRect().top + scr.scrollTop - (nav ? nav.offsetHeight : 44) - 8;
+    scr.scrollTo({top: Math.max(0, top), behavior: ui.RM ? 'auto' : 'smooth'});
+  }
+  focusPicker('b');
+}
+function shareMotw() {
+  const res = motw.candidates(st ? st.lens : readLens());
+  if (!res) return;
+  const text = motw.shareText(res, ui.absLink('/rivals')); // ui.share runs inside the tap (iOS user activation)
+  return ui.share({text}).then(r => {
+    if (r === 'copied') ui.toast('Shortlist copied. Paste it in the league chat.', {icon: 'check-circle'});
+    else if (r === 'unavailable') ui.toast("Couldn't copy the shortlist.");
+  });
+}
+
 function pageHTML(m) {
   if (!m || !m.b) {
     return ui.largeTitle({title: 'Rivals'})
       + ui.empty({icon: 'versus', title: 'No rivals yet.', body: 'Rivals needs at least two managers in the league.'});
   }
   return ui.largeTitle({title: 'Rivals'})
+    + motwHTML(st ? st.lens : readLens())
     + headerHTML(m)
     + `<div class="rv-main">${mainHTML(m)}</div>`
     + listSecHTML(m);
@@ -615,9 +720,12 @@ function chooseOpp(id) {
 }
 
 function onClick(e) {
-  const t = e.target.closest && e.target.closest('[data-swap], [data-pick], [data-opp]');
+  const t = e.target.closest && e.target.closest('[data-swap], [data-pick], [data-opp], [data-motw], [data-motw-more], [data-motw-share]');
   if (!t || !st) return;
-  if (t.hasAttribute('data-swap')) swap();
+  if (t.hasAttribute('data-motw')) chooseMotw(t.dataset.motw);
+  else if (t.hasAttribute('data-motw-more')) { ui.haptic('light'); toggleMore(!st.all); }
+  else if (t.hasAttribute('data-motw-share')) shareMotw();
+  else if (t.hasAttribute('data-swap')) swap();
   else if (t.hasAttribute('data-pick')) {
     const side = t.dataset.pick === 'a' ? 'a' : 'b';
     // The no-games card's button is gone once the pick lands: let the header picker own the sheet, so
@@ -643,8 +751,18 @@ export default {
     const p = resolvePair(ctx.params);
     st = {ctx, el, m: null, r: {}, isDefault: p.isDefault, expect: null, via: null, swapping: false, swapAnims: null,
       meKey: `${data.me()}|${reigning()}`, flameKey: null, secKey: null, listA: null, listMe: null, p2: null, seen: null, title: null,
-      cleanups: [], entrance: false, shown: false};
+      cleanups: [], entrance: false, shown: false, lens: readLens(), all: false};
     el.addEventListener('click', onClick);
+    const onLens = e => {
+      if (!st || !e.detail || e.detail.name !== 'motw-lens') return;
+      st.lens = e.detail.value;
+      saveLens(st.lens);
+      const sub = el.querySelector('.rv-motw-sub');
+      if (sub) sub.textContent = lensSub(st.lens);
+      patchMotw(true);
+    };
+    el.addEventListener('ui:change', onLens);
+    st.cleanups.push(() => el.removeEventListener('ui:change', onLens));
     ctx.setBackTitle('Rivals');
     // A year header stuck under the nav merges with it (rivals.css): mark it on scroll, once per frame. Headers in
     // skipped (content-visibility) years are never measured.
@@ -742,6 +860,8 @@ export default {
       const path = canon(p.a, p.b);
       if (ctx.path !== path) { st.expect = path; ctx.replace(path); }
     }
+    // New games or a new schedule re-rank the week; a new "me" moves the you-ring.
+    if (ctx.reason === 'data' || ctx.reason === 'me') patchMotw(false);
   },
 
   onAction(id, ctx) {
