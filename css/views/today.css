@@ -1,1 +1,124 @@
-/* today.css: owned by the daily-hub view package. Placeholder from the foundation package. */
+/* today.css: Today hub (spec 7.1). Owner: daily-hub package. Every selector is scoped under .v-today. */
+
+/* ---------------------------------------------------------------- Large title trailing: streak pill + You */
+.v-today .lt-trail { gap: 6px; margin-right: -6px; }
+.v-today .c-spill-slot { display: inline-flex; }
+.v-today .c-spill-slot:empty { display: none; }
+.v-today .c-you {
+  position: relative;
+  width: 44px; height: 44px; flex: none;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  transition: transform var(--spring-snappy-dur) var(--spring-snappy);
+}
+.v-today .c-you.is-pressed { transform: scale(.9); transition: none; }
+.v-today .c-you-empty {
+  width: 32px; height: 32px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--surface-2); color: var(--ink-2);
+}
+.v-today .c-you-empty .ic { stroke-width: 2; }
+
+/* ---------------------------------------------------------------- Onboarding: "Which one are you?" */
+.v-today .c-onb { margin-top: 12px; padding: 18px 0 6px; overflow: hidden; }
+.v-today .c-onb-t { padding: 0 16px; font: 600 var(--fs-3)/var(--lh-3) var(--font-text); }
+.v-today .c-onb-s { padding: 0 16px; margin-top: 4px; font: 400 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink-2); }
+.v-today .c-onb-rail {
+  display: flex; gap: 2px;
+  margin-top: 14px; padding: 6px 10px 4px;
+  overflow-x: auto; overflow-y: hidden;
+  scroll-snap-type: x proximity; scroll-padding: 0 10px;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 10px, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(to right, transparent 0, #000 10px, #000 calc(100% - 28px), transparent);
+}
+.v-today .c-onb-rail::-webkit-scrollbar { display: none; }
+.v-today .c-onb-av {
+  flex: none; width: 64px; min-width: 0;
+  display: flex; flex-direction: column; align-items: center; gap: 7px;
+  padding: 4px 0 6px;
+  scroll-snap-align: start;
+  color: var(--ink-2);
+  font: 500 13px/16px var(--font-text);
+  transition: transform var(--spring-snappy-dur) var(--spring-snappy);
+}
+.v-today .c-onb-av.is-pressed { transform: scale(.92); transition: none; }
+.v-today .c-onb-av[aria-pressed="true"] { color: var(--ink); }
+.v-today .c-onb-n { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-today .c-onb-foot { display: flex; justify-content: flex-end; padding: 0 8px; }
+.v-today .c-onb-skip { color: var(--ink-2); font-weight: 600; }
+
+/* ---------------------------------------------------------------- Daily card */
+.v-today .c-dc-wrap { margin-top: 12px; }
+.v-today .c-dc { display: flex; flex-direction: column; padding: 18px 20px 6px; overflow: hidden; }
+.v-today .c-dc-top { display: flex; align-items: center; justify-content: space-between; min-height: 16px; }
+.v-today .c-dc-top .card-ovl { color: var(--ink-3); }
+.v-today .c-dc-ringw { display: grid; place-items: center; margin-top: 10px; }
+.v-today .c-dc-ring .ring-center { gap: 0; }
+.v-today .c-dc-total { color: var(--ink); letter-spacing: -.005em; }
+.v-today .c-dc-of { font: 500 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); margin-top: 2px; }
+.v-today .c-dc-status {
+  margin: 14px 8px 16px; min-height: 20px;
+  text-align: center;
+  font: 400 var(--fs-sub)/var(--lh-sub) var(--font-text);
+  color: var(--ink-2);
+}
+.v-today .c-dc-rows { margin: 10px -20px 0; }
+.v-today .c-pz { min-height: 64px; padding: 0 20px; align-items: center; }
+.v-today .c-pz .row-main { padding: 10px 0; }
+.v-today .c-pz + .c-pz > .row-main::before {
+  content: ""; position: absolute; top: 0; left: 0; right: -200vw; height: 1px;
+  background: var(--separator); transform: scaleY(.5); transform-origin: top;
+}
+.v-today .c-pz.is-pressed { background-color: var(--surface-2); }
+.v-today .c-pz-tile {
+  width: 40px; height: 40px; border-radius: var(--r-cell);
+  display: grid; place-items: center;
+  background: var(--surface-2); color: var(--ink);
+  transition: background-color 250ms linear;
+}
+.v-today .c-pz.is-pressed .c-pz-tile { background: var(--surface-3); transition: none; }
+.v-today .c-pz-tile .ic { stroke-width: 1.9; }
+.v-today .c-pz-trail { gap: 6px; }
+.v-today .c-pz-prog { font: 500 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.v-today .c-pz-pts { color: var(--ink); }
+.v-today .c-pz-check { color: var(--tint); stroke-width: 2; }
+.v-today .c-pz-check.is-gold { color: var(--gold); }
+.v-today .c-pz-check.is-zero { color: var(--ink-3); }
+.v-today .c-pz-pts.is-zero { color: var(--ink-2); }
+.v-today .c-pz .chev { margin-left: 2px; }
+
+/* Loading */
+.v-today .c-dc.is-loading .sk { background: var(--surface-2); }
+.v-today .c-sk-ovl { width: 84px; height: 13px; }
+.v-today .c-sk-ring { width: 200px; height: 200px; border-radius: 50%; background: none !important; box-shadow: inset 0 0 0 16px var(--surface-2); }
+.v-today .c-sk-status { width: 56%; height: 14px; margin: 17px auto 19px; }
+.v-today .c-sk-tile { width: 40px; height: 40px; border-radius: var(--r-cell); }
+.v-today .c-pz-sk .row-main { gap: 7px; }
+.v-today .c-pz-sk .sk-line { height: 12px; }
+.v-today .c-sk-sub { height: 10px !important; opacity: .7; }
+/* Error */
+.v-today .c-dc.is-error { padding: 4px 16px 20px; }
+
+/* ---------------------------------------------------------------- Board, countdown (see board.css) */
+.v-today .c-board-host { margin-top: 12px; }
+
+/* ---------------------------------------------------------------- Record of the day */
+.v-today .c-rotd-host:empty { display: none; }
+.v-today .c-rotd-host > .sh { margin-top: 32px; }
+.v-today .c-rotd { padding: 16px 44px 16px 16px; }
+.v-today .c-rotd .card-ovl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-today .c-rotd-label { margin-top: 6px; font: 600 var(--fs-headline)/var(--lh-headline) var(--font-text); overflow-wrap: anywhere; }
+.v-today .c-rotd-val { display: flex; align-items: baseline; gap: 6px; margin-top: 6px; }
+.v-today .c-rotd-val .n3 { color: var(--ink); }
+.v-today .c-rotd-unit { font: 500 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+.v-today .c-rotd-h {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 12px; min-width: 0;
+  font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2);
+}
+.v-today .c-rotd-h .stack { flex: none; }
+.v-today .c-rotd-ht { min-width: 0; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow-wrap: anywhere; }
+.v-today .c-rotd-more { flex: none; font: 600 12px/16px var(--font-text); color: var(--ink-3); background: var(--surface-2); border-radius: var(--r-pill); padding: 2px 7px; }
+.v-today .c-rotd > .chev { right: 16px; }

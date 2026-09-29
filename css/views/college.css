@@ -1,1 +1,106 @@
-/* college.css: owned by the puzzle-run view package. Placeholder from the foundation package. */
+/* college.css: College puzzle inside the run cover (spec 7.3). Owner: puzzle-run package. Scope: .v-run */
+
+/* Progress row: "Player 2 of 5" and five dots */
+.v-run .cl-prog { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 20px; margin-bottom: 12px; }
+.v-run .cl-count { color: var(--ink-2); font-weight: 500; }
+.v-run .cl-dots { display: flex; gap: 6px; flex: none; }
+.v-run .cl-dot {
+  position: relative; display: block; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--surface-3);
+  transition: background-color 200ms;
+}
+.v-run .cl-dot.is-right { background: var(--tint); }
+.v-run .cl-dot.is-wrong { background: var(--wrong); }
+.v-run .cl-dot > b { position: absolute; inset: -1px; border-radius: 50%; background: var(--gold); opacity: 0; }
+.v-run .cl-dot.is-gold > b { opacity: 1; }
+
+/* Card stack: the current card plus up to two peeking underneath */
+.v-run .cl-stack { position: relative; padding-bottom: 16px; isolation: isolate; }
+.v-run .cl-card, .v-run .cl-fly {
+  position: relative; z-index: 2;
+  background: var(--surface-1);
+  border-radius: var(--r-card);
+  padding: 20px;
+  min-height: 112px;
+  display: flex; flex-direction: column; justify-content: center;
+  transform-origin: 50% 100%;
+}
+.v-run .cl-fly { position: absolute; left: 0; right: 0; top: 0; z-index: 3; pointer-events: none; transform-origin: 50% 80%; }
+.v-run .cl-peek {
+  position: absolute; left: 0; right: 0; top: 0; bottom: 16px; z-index: 1;
+  border-radius: var(--r-card);
+  background: var(--surface-1);
+  transform-origin: 50% 100%;
+}
+.v-run .cl-p1 { transform: translateY(8px) scale(.96); opacity: .6; }
+.v-run .cl-p2 { transform: translateY(16px) scale(.92); opacity: .3; z-index: 0; }
+.v-run .cl-name { min-width: 0; overflow-wrap: anywhere; }
+.v-run .cl-line { margin-top: 4px; color: var(--ink-2); }
+
+/* Options: 2 x 2 */
+.v-run .cl-opts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
+.v-run .cl-opt {
+  position: relative;
+  display: flex; align-items: center; gap: 8px;
+  min-height: 64px; padding: 10px 12px 10px 14px;
+  border-radius: var(--r-cell);
+  background: var(--surface-2);
+  color: var(--ink);
+  font: 600 var(--fs-headline)/var(--lh-headline) var(--font-text);
+  text-align: left;
+  transition: transform var(--spring-snappy-dur) var(--spring-snappy), opacity 200ms, background-color 160ms, color 160ms;
+}
+.v-run .cl-opt.is-pressed { transform: scale(.96); transition: none; }
+.v-run .cl-opt:disabled { cursor: default; }
+.v-run .cl-ot {
+  flex: 1 1 auto; min-width: 0;
+  overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+  overflow-wrap: anywhere;
+}
+.v-run .cl-mk { display: none; flex: none; width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.v-run .cl-mk path { stroke-dasharray: 1; stroke-dashoffset: 1; }
+.v-run .cl-opt.is-right { background: var(--tint); color: var(--on-tint); }
+.v-run .cl-opt.is-right .cl-ck,
+.v-run .cl-opt.is-answer .cl-ck,
+.v-run .cl-opt.is-wrong .cl-x { display: block; }
+.v-run .cl-opt.is-right .cl-ck path,
+.v-run .cl-opt.is-answer .cl-ck path,
+.v-run .cl-opt.is-wrong .cl-x path { animation: cl-draw 240ms var(--ease-out) 60ms forwards; }
+.v-run .cl-opt.is-answer { box-shadow: inset 0 0 0 2px var(--tint); }
+.v-run .cl-opt.is-answer .cl-ck { color: var(--tint); }
+.v-run .cl-opt.is-wrong { background: var(--wrong-soft); box-shadow: inset 0 0 0 1.5px var(--wrong); }
+.v-run .cl-opt.is-wrong .cl-x { color: var(--wrong); }
+.v-run .cl-opt.is-dim { opacity: .4; }
+@keyframes cl-draw { to { stroke-dashoffset: 0; } }
+
+/* Verdict and "Next player" */
+.v-run .cl-verdict {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 12px;
+  margin-top: 16px; min-height: 44px;
+  scroll-margin-bottom: 96px;
+}
+.v-run .cl-verdict[hidden] { display: none; }
+.v-run .cl-vt { flex: 1 1 140px; min-width: 0; font: 600 var(--fs-headline)/var(--lh-headline) var(--font-text); }
+.v-run .cl-vt.is-right { color: var(--tint); }
+.v-run .cl-vt.is-wrong { color: var(--ink); }
+.v-run .cl-verdict .btn-s { flex: none; }
+
+/* Recap */
+.v-run .cl-recap { padding: 20px 16px 4px; }
+.v-run .cl-recap:focus { outline: none; }
+.v-run .cl-rh { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 4px 14px; }
+.v-run .cl-rs { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; min-width: 0; }
+.v-run .cl-rp { white-space: nowrap; }
+.v-run .cl-stamp { rotate: -6deg; margin-right: 2px; }
+.v-run .cl-recap > .group { margin: 0 -16px; }
+.v-run .cl-rlist .row-lead .ic { width: 24px; height: 24px; }
+.v-run .cl-rlist .row-sub { color: var(--ink-2); white-space: normal; overflow-wrap: anywhere; }
+
+html.rm .v-run .cl-opt.is-right .cl-ck path,
+html.rm .v-run .cl-opt.is-answer .cl-ck path,
+html.rm .v-run .cl-opt.is-wrong .cl-x path { animation: none; stroke-dashoffset: 0; }
+html.rm .v-run .cl-opt { transition: none; }
+@media (prefers-reduced-motion: reduce) {
+  .v-run .cl-opt.is-right .cl-ck path, .v-run .cl-opt.is-answer .cl-ck path, .v-run .cl-opt.is-wrong .cl-x path { animation: none; stroke-dashoffset: 0; }
+  .v-run .cl-opt { transition: none; }
+}

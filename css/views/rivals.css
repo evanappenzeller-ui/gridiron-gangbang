@@ -1,1 +1,217 @@
-/* rivals.css: owned by the rivals view package. Placeholder from the foundation package. */
+/* Rivals (spec 7.12, 4.2, 6, delight 8.12). Owner: rivals package. Every selector is scoped under .v-rivals. */
+
+/* ================================================================ Matchup header */
+.v-rivals .rv-hdr {
+  position: relative;
+  display: grid; grid-template-columns: minmax(0, 1fr) 56px minmax(0, 1fr);
+  align-items: start;
+  padding: 0 20px;
+  margin-top: 4px;
+}
+.v-rivals .rv-pick {
+  position: relative; isolation: isolate;
+  display: flex; flex-direction: column; align-items: center;
+  min-width: 0; padding: 10px 0 6px;
+  color: var(--ink);
+  border-radius: var(--r-card);
+  -webkit-user-select: none; user-select: none;
+}
+.v-rivals .rv-pick.b { z-index: 1; } /* crosses in front during the swap */
+.v-rivals .rv-glow {
+  position: absolute; z-index: -1;
+  left: 50%; top: 46px;
+  width: 176px; height: 176px; margin: -88px 0 0 -88px;
+  pointer-events: none;
+}
+.v-rivals .rv-glow::before {
+  content: ""; position: absolute; inset: 0; border-radius: 50%;
+  background: radial-gradient(closest-side, var(--mc), transparent);
+  opacity: .24;
+}
+.v-rivals .rv-av {
+  display: block; margin-bottom: 10px;
+  transition: transform var(--spring-snappy-dur) var(--spring-snappy);
+}
+.v-rivals .rv-pick.is-pressed .rv-av { transform: scale(.93); transition: none; }
+.v-rivals .rv-pname {
+  display: flex; align-items: center; justify-content: center;
+  max-width: 100%; min-width: 0;
+  font: 600 var(--fs-headline)/var(--lh-headline) var(--font-text);
+}
+.v-rivals .rv-pname::before { content: ""; flex: none; width: 17px; } /* balances the chevron so the name stays centered */
+.v-rivals .rv-pn { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-rivals .rv-dd { flex: none; width: 15px; height: 15px; margin-left: 2px; color: var(--ink-3); stroke-width: 2.4; }
+.v-rivals .rv-pteam {
+  max-width: 100%; margin-top: 1px;
+  font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.v-rivals .rv-mid { position: relative; z-index: 2; display: flex; justify-content: center; padding-top: 24px; } /* the pivot stays on top while the avatars cross under it */
+.v-rivals .rv-swap {
+  position: relative;
+  display: grid; place-items: center;
+  width: 44px; height: 44px; border-radius: 50%;
+  color: var(--ink);
+  background: var(--surface-1);
+  box-shadow: inset 0 0 0 1px var(--separator);
+  transition: transform var(--spring-snappy-dur) var(--spring-snappy), background-color 200ms linear;
+}
+.v-rivals .rv-swap.is-pressed { transform: scale(.88); background: var(--surface-2); transition: none; }
+.v-rivals .rv-swap-ic { width: 20px; height: 20px; stroke-width: 2.1; }
+
+/* ================================================================ Scoreboard card */
+.v-rivals .rv-board {
+  margin-top: 14px;
+  padding: 18px 20px 0;
+  overflow: hidden; isolation: isolate;
+}
+.v-rivals .rv-wash {
+  position: absolute; top: 0; bottom: 0; z-index: -1;
+  width: 75%;
+  opacity: .2;
+  pointer-events: none;
+}
+.v-rivals .rv-wash.a { left: 0; background: radial-gradient(100% 90% at 0% 0%, var(--mc), transparent 70%); }
+.v-rivals .rv-wash.b { right: 0; background: radial-gradient(100% 90% at 100% 0%, var(--mc), transparent 70%); }
+.v-rivals .rv-wash.mc-ink { opacity: .09; }
+.v-rivals .rv-score {
+  display: grid; grid-template-columns: minmax(0, 1fr) 56px minmax(0, 1fr);
+  align-items: center;
+}
+.v-rivals .rv-side { display: flex; flex-direction: column; align-items: center; min-width: 0; }
+.v-rivals .rv-num {
+  display: block;
+  height: 64px; font-size: 64px; line-height: 64px; /* 1em = the line box, so odometer digits never jump */
+  color: var(--mc);
+  transition: opacity 240ms linear;
+}
+.v-rivals .rv-side.is-trail .rv-num { opacity: .55; }
+.v-rivals .rv-wl { margin-top: 2px; color: var(--ink-3); }
+.v-rivals .rv-dash { display: flex; justify-content: center; padding-bottom: 18px; color: var(--ink-3); }
+.v-rivals .rv-split { margin-top: 16px; }
+.v-rivals .rv-split .split-pct { color: var(--ink); font-weight: 600; }
+.v-rivals .rv-foot {
+  margin: 18px -20px 0; padding: 12px 20px 14px;
+  box-shadow: inset 0 1px 0 var(--separator);
+  font: 400 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink-2);
+  text-align: center; text-wrap: balance;
+}
+.v-rivals .rv-flame-w { display: inline-block; margin-right: 5px; vertical-align: -3px; }
+.v-rivals .rv-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+.v-rivals .rv-flame {
+  width: 18px; height: 18px;
+  color: var(--flame-2);
+  fill: url(#rv-flame-g); stroke: url(#rv-flame-g); stroke-width: 1.5;
+  transform-origin: 50% 90%;
+}
+
+/* No games between the pair */
+.v-rivals .rv-none { margin-top: 14px; padding: 0 16px 8px; }
+.v-rivals .rv-none .empty { padding: 28px 8px 16px; }
+
+/* ================================================================ Tale of the tape */
+.v-rivals .rv-thead {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  min-height: 44px; padding: 0 4px;
+}
+.v-rivals .rv-thead + .tape { box-shadow: inset 0 1px 0 var(--separator); }
+.v-rivals .rv-tape .tape-sub { color: var(--ink-3); }
+.v-rivals .rv-who {
+  position: relative;
+  display: inline-flex; align-items: center; gap: 8px;
+  min-width: 0; max-width: 50%; min-height: 44px; padding: 0 10px;
+  font: 600 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2);
+  transition: opacity 250ms linear;
+}
+.v-rivals .rv-who.b { flex-direction: row-reverse; }
+.v-rivals .rv-who.is-pressed { opacity: .5; transition: none; }
+.v-rivals .rv-who-n { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ================================================================ Every meeting */
+.v-rivals .rv-mhead {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center;
+  margin: -4px -10px 4px;
+}
+.v-rivals .rv-mhead .rv-who { max-width: 100%; }
+.v-rivals .rv-mhead .rv-who.a { justify-self: start; }
+.v-rivals .rv-mhead .rv-who.b { justify-self: end; }
+.v-rivals .rv-mcount { color: var(--ink-3); white-space: nowrap; }
+.v-rivals .rv-yr {
+  content-visibility: auto;
+  margin: 0 calc(-1 * var(--gutter));
+  padding: 0 var(--gutter) 16px;
+}
+.v-rivals .rv-yh {
+  position: sticky; top: calc(var(--nav-h) - 1px); z-index: 5;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  height: 32px;
+  margin: 0 calc(-1 * var(--gutter)) 8px;
+  padding: 0 var(--gutter);
+  background: var(--bar-solid);
+  box-shadow: inset 0 -1px 0 var(--separator), inset 0 1px 0 var(--separator);
+}
+.v-rivals .rv-yy { color: var(--ink); }
+.v-rivals .rv-ysum {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font: 600 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2);
+}
+.v-rivals .rv-log .bug-compact { min-height: 52px; }
+.v-rivals .rv-log .bug-compact .n4 small { color: inherit; opacity: .6; }
+.v-rivals .rv-log .bug-compact .bug-c:not(.is-win) { color: var(--ink-3); }
+.v-rivals .rv-log .bug-compact.is-tie .bug-c { color: var(--ink-2); }
+.v-rivals .rv-log .bug-compact .bug-mid { font-weight: 600; }
+
+/* ================================================================ "{A} against everyone" */
+.v-rivals .rv-opps { margin: 0; padding: 0; list-style: none; }
+.v-rivals .rv-opp {
+  position: relative;
+  display: flex; align-items: center; gap: 12px;
+  min-height: 60px; padding: 0 12px 0 10px;
+}
+.v-rivals .rv-opp + .rv-opp::after {
+  content: ""; position: absolute; top: 0; left: 60px; right: 0; height: 1px;
+  background: var(--separator); transform: scaleY(.5); transform-origin: top;
+  pointer-events: none;
+}
+.v-rivals .rv-opp.is-selected::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; z-index: 1;
+  background: var(--tint);
+  pointer-events: none;
+}
+.v-rivals .rv-opp-hit {
+  position: absolute; inset: 0; width: 100%;
+  background-color: transparent;
+  transition: background-color 250ms linear;
+}
+.v-rivals .rv-opp-hit.is-pressed { background-color: var(--surface-2); transition: none; }
+.v-rivals .rv-opp-hit:focus-visible { outline-offset: -2px; border-radius: var(--r-group); }
+.v-rivals .rv-opp > :not(.rv-opp-hit) { position: relative; pointer-events: none; }
+.v-rivals .rv-opp > .rv-opp-av {
+  pointer-events: auto;
+  display: grid; place-items: center; flex: none;
+  width: 44px; height: 44px; margin-right: -6px; border-radius: 50%;
+  transition: transform var(--spring-snappy-dur) var(--spring-snappy);
+}
+.v-rivals .rv-opp-av.is-pressed { transform: scale(.9); transition: none; }
+.v-rivals .rv-opp-n {
+  flex: 1 1 auto; min-width: 0;
+  font: 600 var(--fs-headline)/var(--lh-headline) var(--font-text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.v-rivals .rv-opp-rec { flex: none; }
+.v-rivals .rv-opp-bar {
+  flex: none; overflow: hidden;
+  width: 60px; height: 4px; border-radius: 2px;
+  background: var(--surface-3);
+}
+.v-rivals .rv-opp-bar > i {
+  position: absolute; inset: 0;
+  background: var(--mc);
+  transform-origin: left center;
+}
+.v-rivals .rv-opp-bar::after { /* even-split tick */
+  content: ""; position: absolute; top: 0; bottom: 0; left: calc(50% - .5px); width: 1px;
+  background: var(--surface-1);
+}
+.v-rivals .rv-opp > .chev { margin-left: -2px; }
+.v-rivals .rv-nobody { margin-top: 0; }

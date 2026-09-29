@@ -1,1 +1,117 @@
-/* board.css: owned by the daily-hub view package. Placeholder from the foundation package. */
+/* board.css: the league leaderboard card (.c-board, on Today and Results) and the small pieces the daily-hub
+   screens share (streak pill, flame, countdown). Owner: daily-hub package. Every selector starts with one of
+   this package's scope roots. */
+
+/* ================================================================ Leaderboard card */
+.c-board { padding: 16px 16px 8px; overflow: hidden; }
+.c-board .c-board-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 26px; }
+.c-board .c-board-t { font: 600 var(--fs-3)/var(--lh-3) var(--font-text); }
+.c-board .c-board-seg { margin-top: 12px; }
+.c-board .c-board-body { margin-top: 4px; min-height: 60px; }
+
+/* Social line */
+.c-board .c-board-social { display: flex; align-items: center; gap: 10px; margin: 12px 0 4px; min-width: 0; }
+.c-board .c-board-social .stack { flex: none; }
+.c-board .c-board-soc-t { min-width: 0; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2); }
+
+/* Rows: flush with the card edges, hairlines inset to the text */
+.c-board .c-brows, .c-board .c-bpin-rows { margin: 0 -16px; }
+.c-board .c-brows { margin-top: 6px; }
+.c-board .c-brow-w { position: relative; }
+.c-board .c-brow { min-height: 60px; padding: 0 16px 0 10px; align-items: center; }
+.c-board .c-brow .row-main { padding: 9px 0; }
+.c-board .c-brows > .c-brow-w + .c-brow-w > .c-brow > .row-main::before {
+  content: ""; position: absolute; top: 0; left: 0; right: -200vw; height: 1px;
+  background: var(--separator); transform: scaleY(.5); transform-origin: top;
+}
+.c-board .c-brow.is-pressed { background-color: var(--surface-2); }
+.c-board .c-brow.is-me { background-color: var(--surface-2); }
+.c-board .c-brow.is-me.is-pressed { background-color: var(--surface-3); }
+.c-board .c-brank {
+  flex: none; width: 28px; margin-right: 6px;
+  text-align: center; color: var(--ink-3);
+  align-self: center;
+}
+.c-board .c-brank.is-r1 { color: var(--gold); }
+.c-board .c-brank.is-r2 { color: var(--silver); }
+.c-board .c-brank.is-r3 { color: var(--bronze); }
+.c-board .c-brow .row-lead { margin-right: 12px; }
+.c-board .c-brow .row-title { display: flex; align-items: center; gap: 6px; }
+.c-board .c-bnick { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.c-board .c-brow .row-trail { gap: 8px; margin-left: 10px; }
+.c-board .c-bval { color: var(--ink); min-width: 36px; text-align: right; }
+.c-board .c-bstreak { display: inline-flex; align-items: center; gap: 4px; }
+.c-board .c-bmove {
+  display: inline-flex; align-items: center; height: 20px; padding: 0 6px;
+  border-radius: var(--r-badge);
+  font: 800 12px/1 var(--font-num); font-stretch: condensed; letter-spacing: .04em;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.c-board .c-bmove.is-up { color: var(--tint); background: var(--tint-soft); }
+.c-board .c-bmove.is-down { color: var(--wrong); background: var(--wrong-soft); }
+.c-board .c-bmove.is-new { color: var(--ink-2); background: var(--surface-2); }
+.c-board .c-brow.is-me .c-bmove.is-new { background: var(--surface-3); }
+
+/* Your row pinned under the top 10 */
+.c-board .c-bpin[hidden] { display: none; }
+.c-board .c-bpin-gap { display: flex; justify-content: center; gap: 4px; padding: 6px 0; }
+.c-board .c-bpin-gap > i { width: 4px; height: 4px; border-radius: 2px; background: var(--ink-4); }
+
+.c-board .c-board-more { display: flex; margin: 2px auto 0; font-weight: 600; }
+.c-board [data-r="more"]:empty, .c-board [data-r="social"]:empty, .c-board [data-r="still"]:empty { display: none; }
+
+/* Still to play */
+.c-board .c-board-still { margin: 10px 0 8px; }
+.c-board .c-board-lbl { font: 600 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+.c-board .c-still-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; min-width: 0; }
+.c-board .c-still-p { max-width: 100%; background: var(--surface-2); color: var(--ink-2); padding-left: 10px; }
+.c-board .c-still-p .av { margin-left: -4px; }
+.c-board .c-still-p .ell { line-height: 18px; padding-bottom: 1px; }
+.c-board .c-still-p.is-me { color: var(--ink); box-shadow: inset 0 0 0 1px var(--tint); }
+.c-board .c-still-more { padding: 0 10px; }
+
+/* States */
+.c-board .c-board-sk { margin: 8px -16px 0; }
+.c-board .c-board-sk .sk-rows { background: transparent; }
+.c-board .c-board-note { padding: 14px 2px 10px; font: 400 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink-2); }
+.c-board .c-board-empty { padding: 18px 8px 12px; text-align: center; }
+.c-board .c-board-et { font: 600 var(--fs-headline)/var(--lh-headline) var(--font-text); }
+.c-board .c-board-eb { margin: 4px auto 0; max-width: 300px; font: 400 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink-2); }
+.c-board .c-board-empty + [data-r="still"] .c-board-still { margin-top: 4px; }
+
+/* ================================================================ Streak flame and pill (shared) */
+.c-board .c-flame, .v-today .c-flame, .v-results .c-flame, .sh-streak .c-flame, .sh-player .c-flame { stroke-width: 1.5; }
+.c-board .c-flame.is-cold, .v-today .c-flame.is-cold, .v-results .c-flame.is-cold,
+.sh-streak .c-flame.is-cold, .sh-player .c-flame.is-cold { fill: var(--surface-3); stroke: var(--ink-3); }
+
+.v-today .c-spill, .sh-player .c-spill {
+  position: relative; flex: none;
+  display: inline-flex; align-items: center; gap: 4px;
+  height: 32px; padding: 0 12px 0 9px;
+  border-radius: var(--r-pill);
+  background: var(--surface-2); color: var(--ink);
+  transition: transform var(--spring-snappy-dur) var(--spring-snappy);
+}
+.v-today .c-spill::before { content: ""; position: absolute; left: -2px; right: -2px; top: -6px; bottom: -6px; }
+.v-today .c-spill.is-pressed { transform: scale(.94); transition: none; }
+.v-today .c-spill.is-risk, .sh-player .c-spill.is-risk { outline: 1px dashed var(--ink-3); outline-offset: -1px; }
+.v-today .c-spill.is-cold .c-spill-n, .sh-player .c-spill.is-cold .c-spill-n { color: var(--ink-2); }
+.v-today .c-spill-n, .sh-player .c-spill-n { min-width: 1ch; transform: translateY(1px); }
+.sh-player .c-spill { background: var(--surface-2); }
+
+/* ================================================================ Countdown and the midnight banner (shared) */
+.v-today .c-cd-host, .v-results .c-cd-host { margin-top: 24px; }
+.v-today .c-cd, .v-results .c-cd {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3);
+}
+.v-today .c-cd .ic, .v-results .c-cd .ic { stroke-width: 2; flex: none; }
+.v-today .c-cd-v, .v-results .c-cd-v { color: var(--ink-2); font-weight: 600; font-variant-numeric: tabular-nums; }
+.v-today .c-cd-new, .v-results .c-cd-new {
+  justify-content: space-between; gap: 12px;
+  min-height: 52px; padding: 8px 8px 8px 16px;
+  border-radius: var(--r-group);
+  background: var(--tint-soft); color: var(--tint);
+  font: 600 var(--fs-sub)/var(--lh-sub) var(--font-text);
+}
+.v-today .c-cd-nt, .v-results .c-cd-nt { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }

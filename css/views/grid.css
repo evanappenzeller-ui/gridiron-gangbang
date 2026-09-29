@@ -1,1 +1,113 @@
-/* grid.css: owned by the puzzle-run view package. Placeholder from the foundation package. */
+/* grid.css: the Grid inside the run cover (spec 7.5). Owner: puzzle-run package. Scope: .v-run */
+
+.v-run .gd {
+  display: grid;
+  grid-template-columns: 88px repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 2px;
+}
+
+/* Corner: mini ring + "3/9" */
+.v-run .gd-corner { display: flex; align-items: center; justify-content: center; gap: 6px; height: 56px; }
+.v-run .gd-ring { width: 32px; height: 32px; flex: none; overflow: visible; }
+.v-run .gd-rt, .v-run .gd-rf { fill: none; stroke-width: 4; }
+.v-run .gd-rt { stroke: var(--surface-2); }
+.v-run .gd-rf { stroke: var(--tint); stroke-linecap: round; transition: stroke-dashoffset 700ms var(--ease-out-expo), stroke 300ms; }
+.v-run .gd-n { color: var(--ink); }
+.v-run .gd-corner.is-gold .gd-rf { stroke: var(--gold); }
+.v-run .gd-corner.is-gold .gd-n { color: var(--gold); }
+
+/* Criteria headers */
+.v-run .gd-ch {
+  height: 56px; min-width: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 3px;
+  padding-bottom: 2px;
+  text-align: center; color: var(--ink-2);
+  font: 600 13px/15px var(--font-text);
+}
+.v-run .gd-rh {
+  min-width: 0;
+  display: flex; flex-direction: column; align-items: flex-end; justify-content: center; gap: 3px;
+  padding-right: 4px;
+  text-align: right; color: var(--ink-2);
+  font: 600 12.5px/15px var(--font-text);
+}
+.v-run .gd-hi { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 7px; background: var(--surface-1); color: var(--ink-3); flex: none; }
+.v-run .gd-hi > .ic { width: 14px; height: 14px; stroke-width: 2; }
+.v-run .gd-t {
+  max-width: 100%; min-width: 0;
+  overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+  overflow-wrap: anywhere; hyphens: auto;
+}
+
+/* Cells */
+.v-run .gc {
+  position: relative;
+  aspect-ratio: 1 / 1; min-width: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  padding: 7px 6px;
+  border-radius: var(--r-cell);
+  background: var(--surface-1);
+  text-align: center;
+  transition: transform var(--spring-snappy-dur) var(--spring-snappy);
+}
+.v-run .gc[aria-disabled="true"] { cursor: default; }
+.v-run .gc.is-open.is-pressed { transform: scale(.95); transition: none; }
+.v-run .gc.no-ring:focus-visible { outline: none; }
+.v-run .gc-plus { color: var(--ink-4); display: grid; place-items: center; }
+.v-run .gc-plus > .ic { width: 20px; height: 20px; stroke-width: 2; }
+.v-run .gc.is-open:hover .gc-plus { color: var(--ink-3); }
+
+.v-run .gc.is-ok { background: var(--tint-soft); box-shadow: inset 0 0 0 1.5px var(--tint); }
+.v-run .gc.is-no { background: var(--wrong-soft); }
+.v-run .gc.is-miss { background: var(--surface-1); box-shadow: inset 0 0 0 1px var(--separator); }
+.v-run .gc-name {
+  max-width: 100%; min-width: 0;
+  font: 700 13px/15px var(--font-text); color: var(--ink);
+  overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3;
+  overflow-wrap: anywhere; hyphens: auto;
+}
+.v-run .gc.is-no .gc-name { color: var(--ink-3); text-decoration: line-through; text-decoration-thickness: 1.5px; -webkit-line-clamp: 2; line-clamp: 2; }
+.v-run .gc-try {
+  max-width: 100%; min-width: 0;
+  font: italic 400 var(--fs-foot)/15px var(--font-text); color: var(--ink-2);
+  overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3;
+  overflow-wrap: anywhere; hyphens: auto;
+}
+.v-run .gc.is-no .gc-try { -webkit-line-clamp: 2; line-clamp: 2; font-size: 12px; line-height: 14px; }
+.v-run .gc-badge {
+  position: absolute; top: 5px; right: 5px;
+  width: 16px; height: 16px; border-radius: 50%;
+  display: grid; place-items: center;
+}
+.v-run .gc-badge > svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; }
+.v-run .gc.is-ok .gc-badge { background: var(--tint); color: var(--on-tint); }
+.v-run .gc.is-no .gc-badge { background: var(--wrong); color: #fff; width: 14px; height: 14px; }
+.v-run .gc.is-no .gc-badge > svg { width: 9px; height: 9px; }
+
+/* DEEP CUT sticker, slapped on the top-left corner */
+.v-run .gc-deep { position: absolute; top: -7px; left: -5px; z-index: 2; pointer-events: none; }
+.v-run .gc-deep .badge { height: 17px; padding: 0 5px; font-size: 10.5px; letter-spacing: .04em; }
+.v-run .gc-twinkle { position: absolute; top: -9px; right: -10px; color: var(--gold); pointer-events: none; }
+.v-run .gc-twinkle > .ic { width: 14px; height: 14px; fill: var(--gold); stroke-width: 1; }
+.v-run .gc-glow { position: absolute; inset: 0; border-radius: inherit; background: rgba(255,255,255,.14); pointer-events: none; }
+
+/* Footer */
+.v-run .gd-foot { display: flex; justify-content: center; margin-top: 14px; min-height: 44px; }
+.v-run .gd-give { font-weight: 600; }
+.v-run .gd-done { margin-top: 0; align-self: center; text-align: center; color: var(--ink-2); max-width: 32em; }
+.v-run .gd-rule { text-align: center; margin-top: 8px; }
+
+/* Narrow phones: 360 px and below */
+@media (max-width: 374px) {
+  .v-run .gc { padding: 6px 5px; }
+  .v-run .gc-badge { top: 4px; right: 4px; width: 14px; height: 14px; }
+  .v-run .gc-badge > svg { width: 9px; height: 9px; }
+  .v-run .gc-name { font-size: 12px; line-height: 14px; }
+  .v-run .gc-try { font-size: 11px; line-height: 13px; }
+  .v-run .gd-ch { font-size: 12px; line-height: 14px; }
+  .v-run .gd-rh { font-size: 12px; line-height: 14px; }
+}
+
+html.rm .v-run .gd-rf { transition: none; }
+@media (prefers-reduced-motion: reduce) { .v-run .gd-rf { transition: none; } }

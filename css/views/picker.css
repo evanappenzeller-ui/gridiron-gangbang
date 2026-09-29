@@ -1,1 +1,57 @@
-/* picker.css: owned by the puzzle-run view package. Placeholder from the foundation package. */
+/* picker.css: player picker sheet (spec 7.6). Owner: puzzle-run package. Scope: .sh-picker */
+
+/* Header: "Name the player" + "Worth 300", or two criteria chips */
+.sh-picker .pk-head { display: flex; flex-direction: column; align-items: center; min-width: 0; line-height: 1; }
+.sh-picker .pk-t { font: 600 17px/22px var(--font-text); color: var(--ink); }
+.sh-picker .pk-cap { font: 500 var(--fs-cap)/var(--lh-cap) var(--font-text); color: var(--ink-3); }
+.sh-picker .pk-worth { font: 800 13px/16px var(--font-num); font-stretch: condensed; color: var(--tint); letter-spacing: .02em; }
+.sh-picker .pk-crit { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; min-width: 0; }
+.sh-picker .pk-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 30px; padding: 0 10px 0 8px; min-width: 0; max-width: calc(50% - 10px);
+  border-radius: var(--r-pill);
+  background: var(--surface-3); color: var(--ink);
+  font: 600 14px/1 var(--font-text);
+}
+.sh-picker .pk-chip > .ic { width: 15px; height: 15px; flex: none; color: var(--ink-2); stroke-width: 2; }
+.sh-picker .pk-cl { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sh-picker .pk-x { flex: none; color: var(--ink-3); font: 600 15px/1 var(--font-text); }
+
+/* Search field pinned to the top of the body */
+.sh-picker .sheet-body { padding-top: 0; }
+.sh-picker .pk-search {
+  position: sticky; top: 0; z-index: 2;
+  padding: 4px 0 12px;
+  background: var(--surface-1);
+}
+
+/* Results */
+.sh-picker .pk-list { background: var(--surface-2); border-radius: var(--r-group); overflow: hidden; }
+.sh-picker .pk-list:empty { display: none; }
+.sh-picker .pk-row {
+  position: relative;
+  display: flex; align-items: center; gap: 12px;
+  min-height: 56px; padding: 0 16px;
+  cursor: pointer;
+  transition: background-color 250ms linear;
+  user-select: none; -webkit-user-select: none;
+}
+.sh-picker .pk-row + .pk-row > .pk-main::before {
+  content: ""; position: absolute; top: 0; left: 0; right: -200vw; height: 1px;
+  background: var(--separator); transform: scaleY(.5); transform-origin: top;
+}
+.sh-picker .pk-row.is-hl::after { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--tint); }
+.sh-picker .pk-row.is-pressed { background-color: var(--surface-3); transition: none; }
+.sh-picker .pk-row.is-picked { background-color: var(--tint-soft); transition: none; }
+.sh-picker .pk-row[aria-disabled="true"] { opacity: .45; cursor: default; }
+.sh-picker .pk-main { position: relative; flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; justify-content: center; padding: 8px 0; align-self: stretch; }
+.sh-picker .pk-name {
+  font: 600 var(--fs-headline)/var(--lh-headline) var(--font-text); color: var(--ink-2);
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sh-picker .pk-name > b { color: var(--ink); font-weight: 600; }
+.sh-picker .pk-sub { font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); margin-top: 1px; }
+.sh-picker .pk-dis { flex: none; font: 500 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2); }
+
+.sh-picker .pk-msg { padding: 28px 24px; text-align: center; color: var(--ink-3); font: 400 var(--fs-sub)/var(--lh-sub) var(--font-text); }
+.sh-picker .pk-msg[hidden] { display: none; }

@@ -1,1 +1,280 @@
-/* moves.css: owned by the moves view package. Placeholder from the foundation package. */
+/* moves.css: Moves tab (spec 7.15): Drafts, Trades and player search. Owner: moves package.
+   Every selector starts with .v-moves. Motion: transform/opacity only. */
+
+/* ================================================================ Header: search field and segment */
+.v-moves .mv-q { margin-top: 6px; }
+.v-moves .mv-segwrap { margin: 14px 0 6px; }
+
+/* ================================================================ Manager filter rail */
+.v-moves .mv-rail {
+  display: flex; align-items: center; gap: 2px;
+  overflow-x: auto; overflow-y: hidden;
+  margin: 0 calc(-1 * var(--gutter));
+  padding: 4px var(--gutter); /* room for the 2 px focus ring at its 2 px offset (the rail clips vertically) */
+  scroll-padding: 0 var(--gutter);
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+}
+.v-moves .mv-rail::-webkit-scrollbar { display: none; }
+.v-moves .mv-rail::after { content: ""; flex: none; width: 16px; }
+
+.v-moves .mv-all {
+  position: relative; flex: none;
+  height: 36px; min-width: 52px; padding: 0 16px; margin-right: 8px;
+  border-radius: var(--r-pill);
+  background: var(--surface-1);
+  box-shadow: inset 0 0 0 1px var(--separator);
+  color: var(--ink-2);
+  font: 600 15px/20px var(--font-text);
+  transition: transform var(--spring-snappy-dur) var(--spring-snappy), background-color 150ms linear, color 150ms linear;
+}
+.v-moves .mv-all::before { content: ""; position: absolute; left: 0; right: 0; top: -4px; bottom: -4px; }
+.v-moves .mv-all[aria-pressed="true"] { background: #fff; color: #000; box-shadow: none; }
+.v-moves .mv-all.is-pressed { transform: scale(.94); transition: none; }
+
+.v-moves .mv-av {
+  position: relative; flex: none;
+  width: 44px; height: 44px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  transition: opacity 220ms linear;
+}
+.v-moves .mv-av > .av { transition: transform var(--spring-snappy-dur) var(--spring-snappy); }
+.v-moves .mv-av.is-pressed > .av { transform: scale(.88); transition: none; }
+/* Selection ring (ink): a layer that pops in on the bouncy spring. */
+.v-moves .mv-av::before {
+  content: ""; position: absolute; inset: 0;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2px var(--ink);
+  opacity: 0; transform: scale(.78);
+  transition: opacity 140ms linear, transform var(--spring-bouncy-dur) var(--spring-bouncy);
+  pointer-events: none;
+}
+.v-moves .mv-av[aria-pressed="true"]::before { opacity: 1; transform: none; }
+.v-moves .mv-rail.has-sel .mv-av[aria-pressed="false"] { opacity: .4; }
+/* You: a small tint dot under your avatar. */
+.v-moves .mv-av.is-you::after {
+  content: ""; position: absolute; left: 50%; bottom: -1px;
+  width: 5px; height: 5px; margin-left: -2.5px; border-radius: 50%;
+  background: var(--tint);
+}
+
+/* Summary line under the rail ("Evan · 15 picks in 2024") */
+.v-moves .mv-sum {
+  margin: 8px 0 10px;
+  font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text);
+  color: var(--ink-3);
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.v-moves .mv-sum b { color: var(--ink-2); font-weight: 600; }
+
+/* ================================================================ Sections with sticky headers */
+/* Full-bleed box: content-visibility implies paint containment, which would clip the full-bleed sticky bar. */
+.v-moves .mv-sec {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 600px;
+  margin: 0 calc(-1 * var(--gutter));
+  padding: 0 var(--gutter) 16px;
+}
+.v-moves .mv-sh {
+  position: sticky; z-index: 5;
+  top: calc(var(--nav-h) + var(--acc-h) - 1px); /* under the year chips */
+  display: flex; align-items: center; gap: 6px;
+  height: 32px;
+  margin: 0 calc(-1 * var(--gutter)) 4px;
+  padding: 0 var(--gutter);
+  background: var(--bg); /* opaque from the first stuck frame: rows never show through while the bar layer fades in */
+  color: var(--ink-2);
+  min-width: 0;
+}
+.v-moves .mv-content[data-seg="trades"] .mv-sh { top: calc(var(--nav-h) - 1px); } /* no accessory on Trades */
+/* The bar layer (solid, so the nav stays the only blurred bar) fades in only while the header is stuck.
+   z-index -1 inside the header's own stacking context (sticky + z-index 5) paints it above that background. */
+.v-moves .mv-sh::before {
+  content: ""; position: absolute; inset: 0; z-index: -1;
+  background: var(--bar-solid);
+  box-shadow: inset 0 -1px 0 var(--separator);
+  opacity: 0;
+  transition: opacity var(--dur-fast) linear;
+  pointer-events: none;
+}
+.v-moves .mv-sh.is-stuck::before { opacity: 1; }
+.v-moves .mv-sh > .ovl { color: var(--ink-2); }
+.v-moves .mv-yr { color: var(--ink); }
+.v-moves .mv-yn { font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); white-space: nowrap; }
+
+/* ================================================================ Draft picks */
+.v-moves .mv-pick {
+  position: relative;
+  display: flex; align-items: center; gap: 12px;
+  min-height: 56px; padding: 0 16px;
+  min-width: 0;
+}
+.v-moves .mv-tile {
+  flex: none;
+  width: 44px; height: 44px;
+  display: grid; place-items: center;
+  border-radius: var(--r-field);
+  background: var(--surface-2);
+  color: var(--ink);
+  letter-spacing: .01em;
+}
+.v-moves .mv-main {
+  position: relative; flex: 1 1 auto; min-width: 0;
+  align-self: stretch;
+  display: flex; flex-direction: column; justify-content: center; gap: 1px;
+  padding: 6px 0;
+}
+.v-moves .mv-player {
+  font: 600 var(--fs-headline)/var(--lh-headline) var(--font-text);
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* Manager part of the row: a link to the profile with a 44 px hit area and a capsule press state. */
+.v-moves .mv-by {
+  position: relative; isolation: isolate;
+  align-self: flex-start;
+  display: inline-flex; align-items: center; gap: 6px;
+  max-width: 100%; min-width: 0; height: 20px;
+  color: var(--ink-2);
+  font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text);
+}
+/* 44 px tall and kept inside the 56 px row (link at 30-50 → hit 12-56): the next row paints over anything lower. */
+.v-moves .mv-by::before { content: ""; position: absolute; left: -8px; right: -12px; top: -18px; bottom: -6px; }
+.v-moves .mv-by::after {
+  content: ""; position: absolute; z-index: -1;
+  left: -4px; right: -9px; top: -3px; bottom: -3px;
+  border-radius: var(--r-pill);
+  background: var(--surface-3);
+  opacity: 0;
+  transition: opacity 250ms linear;
+}
+.v-moves .mv-by.is-pressed::after { opacity: 1; transition: none; }
+.v-moves .mv-by-n { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-moves .mv-pos { height: 22px; padding: 0 8px; font-size: 12px; letter-spacing: .04em; }
+/* Hairlines inset to the text column */
+.v-moves .mv-pick + .mv-pick > .mv-main::before {
+  content: ""; position: absolute; top: 0; left: 0; right: -200vw; height: 1px;
+  background: var(--separator); transform: scaleY(.5); transform-origin: top;
+}
+.v-moves .mv-pick:focus-visible { outline-offset: -2px; } /* the group clips outside outlines */
+/* Your picks: a 3 px tint leading bar */
+.v-moves .mv-pick.is-mine::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+  background: var(--tint);
+}
+
+/* ================================================================ Trades */
+.v-moves .mv-cards { display: flex; flex-direction: column; gap: 12px; }
+.v-moves .mv-trade {
+  position: relative;
+  background: var(--surface-1);
+  border-radius: var(--r-card);
+  padding: 14px 16px 16px;
+  min-width: 0;
+  overflow: hidden;
+  --stack-ring: var(--surface-1);
+}
+.v-moves .mv-trade.is-mine::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+  background: var(--tint);
+}
+.v-moves .mv-when { color: var(--ink-3); }
+.v-moves .mv-sides {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 36px minmax(0, 1fr);
+  align-items: start;
+  margin-top: 12px;
+}
+.v-moves .mv-side { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; }
+.v-moves .mv-side-b { align-items: flex-end; text-align: right; }
+.v-moves .mv-who {
+  position: relative; isolation: isolate;
+  display: inline-flex; align-items: center; gap: 8px;
+  max-width: 100%; min-width: 0;
+  color: var(--ink);
+}
+.v-moves .mv-side-b .mv-who { flex-direction: row-reverse; }
+.v-moves .mv-who::before { content: ""; position: absolute; inset: -6px -8px; }
+.v-moves .mv-who::after {
+  content: ""; position: absolute; z-index: -1;
+  top: -4px; bottom: -4px; left: -4px; right: -10px;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  opacity: 0;
+  transition: opacity 250ms linear;
+}
+.v-moves .mv-side-b .mv-who::after { left: -10px; right: -4px; }
+.v-moves .mv-who.is-pressed::after { opacity: 1; transition: none; }
+.v-moves .mv-who-n {
+  font: 600 var(--fs-headline)/var(--lh-headline) var(--font-text);
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.v-moves .mv-rcv { margin-top: 10px; color: var(--ink-3); }
+.v-moves .mv-got {
+  margin-top: 2px; max-width: 100%;
+  font: 400 var(--fs-sub)/var(--lh-sub) var(--font-text);
+  color: var(--ink);
+}
+.v-moves .mv-got > li {
+  overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+  overflow: hidden;
+}
+.v-moves .mv-got > li + li { margin-top: 2px; }
+.v-moves .mv-medal {
+  justify-self: center;
+  width: 28px; height: 28px; margin-top: 2px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--ink-2);
+}
+.v-moves .mv-medal > .ic { width: 16px; height: 16px; stroke-width: 2; }
+/* Three or more sides: stacked rows with hairlines, no medallion. */
+.v-moves .mv-trade.is-multi .mv-sides { display: block; margin-top: 4px; }
+.v-moves .mv-trade.is-multi .mv-side {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  grid-template-rows: auto auto;
+  column-gap: 12px;
+  align-items: center;
+  padding: 10px 0;
+}
+.v-moves .mv-trade.is-multi .mv-side + .mv-side { box-shadow: inset 0 1px 0 var(--separator); }
+.v-moves .mv-trade.is-multi .mv-side:last-child { padding-bottom: 0; }
+.v-moves .mv-trade.is-multi .mv-who { grid-column: 1; grid-row: 1; justify-self: start; }
+.v-moves .mv-trade.is-multi .mv-rcv { grid-column: 1; grid-row: 2; margin: 0 0 0 40px; }
+.v-moves .mv-trade.is-multi .mv-got { grid-column: 2; grid-row: 1 / span 2; margin: 0; text-align: right; justify-self: end; }
+
+/* ================================================================ Search results */
+.v-moves .mv-results { padding-top: 14px; }
+.v-moves .mv-res .group-wrap + .group-wrap { margin-top: 24px; }
+.v-moves .mv-res .row-title { color: var(--ink-2); }
+.v-moves .mv-res .row-title b { color: var(--ink); font-weight: inherit; }
+.v-moves .mv-res .row.mv-mine::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--tint);
+}
+
+/* ================================================================ Search hit flash (opacity overlay) */
+.v-moves .mv-pick.is-hit::after, .v-moves .mv-trade.is-hit::after {
+  content: ""; position: absolute; inset: 0;
+  border-radius: inherit;
+  background: var(--tint-soft);
+  pointer-events: none;
+  opacity: 0;
+  animation: mv-flash 1200ms var(--ease-out);
+}
+@keyframes mv-flash { 0%, 30% { opacity: 1; } 100% { opacity: 0; } }
+
+/* ================================================================ Reduced motion: no transform transitions */
+/* The search-hit flash becomes a static highlight that clears after 1.3 s (JS removes .is-hit). */
+html.rm .v-moves .mv-av::before, html.rm .v-moves .mv-av > .av, html.rm .v-moves .mv-all { transition-property: opacity, background-color, color; }
+html.rm .v-moves .mv-av::before { transform: none; }
+html.rm .v-moves .is-hit::after { animation: none; opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .v-moves .mv-av::before, .v-moves .mv-av > .av, .v-moves .mv-all { transition-property: opacity, background-color, color; }
+  .v-moves .mv-av::before { transform: none; }
+  .v-moves .mv-pick.is-hit::after, .v-moves .mv-trade.is-hit::after { animation: none; opacity: 1; }
+}

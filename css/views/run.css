@@ -1,1 +1,113 @@
-/* run.css: owned by the puzzle-run view package. Placeholder from the foundation package. */
+/* run.css: the puzzle run cover (spec 7.2). Owner: puzzle-run package. Scope: .v-run */
+
+/* The cover draws its own bars: the body is a full-height column so the sticky bottom bar sits at the
+   bottom when the puzzle is short and follows the content when it is long. */
+.v-run.screen { padding-bottom: 0; }
+.v-run > .screen-body { min-height: 100%; display: flex; flex-direction: column; }
+
+/* ------------------------------------------------------------------ Bars (material fades in when content is under them) */
+.v-run .rn-top, .v-run .rn-bottom { isolation: isolate; }
+.v-run .rn-bg {
+  position: absolute; inset: 0; z-index: -1;
+  opacity: 0; pointer-events: none;
+  transition: opacity 160ms var(--ease-out);
+}
+.v-run .rn-bg::after {
+  content: ""; position: absolute; left: 0; right: 0; height: 1px;
+  background: var(--separator); transform: scaleY(.5);
+}
+.v-run .rn-top .rn-bg::after { bottom: 0; transform-origin: bottom; }
+.v-run .rn-bottom .rn-bg::after { top: 0; transform-origin: top; }
+.v-run .rn-top.is-scrolled .rn-bg, .v-run .rn-bottom.is-over .rn-bg { opacity: 1; }
+
+/* ------------------------------------------------------------------ Top bar */
+.v-run .rn-top {
+  position: sticky; top: 0; z-index: 10;
+  margin: 0 calc(-1 * var(--gutter));
+  height: calc(56px + var(--safe-top));
+  padding: var(--safe-top) 12px 0 6px;
+  display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; align-items: center; column-gap: 10px;
+}
+.v-run .rn-close { color: var(--ink); }
+.v-run .rn-segs { display: flex; gap: 6px; min-width: 0; }
+.v-run .rn-seg {
+  position: relative; flex: 1 1 0; min-width: 0; height: 44px;
+  display: flex; align-items: center;
+}
+.v-run .rn-seg:disabled { cursor: default; }
+.v-run .rn-track {
+  position: relative; display: block; width: 100%; height: 8px;
+  border-radius: 4px; overflow: hidden;
+  background: var(--surface-2);
+  transform: scaleY(.75);
+  transition: transform var(--spring-snappy-dur) var(--spring-snappy);
+}
+.v-run .rn-seg[aria-current="step"] .rn-track { transform: none; }
+.v-run .rn-seg.is-pressed .rn-track { transform: scaleY(.6); transition: none; }
+.v-run .rn-seg[aria-current="step"].is-pressed .rn-track { transform: scaleY(.85); }
+.v-run .rn-fill {
+  position: absolute; inset: 0;
+  background: var(--tint);
+  transform-origin: 0 50%;
+  transition: transform var(--spring-smooth-dur) var(--spring-smooth), background-color 300ms;
+}
+.v-run .rn-fill.is-perfect { background: var(--gold); }
+.v-run .rn-seg:focus-visible { outline-offset: -2px; }
+
+.v-run .rn-pts {
+  display: inline-flex; align-items: baseline; justify-content: center; gap: 3px;
+  min-width: 64px; height: 32px; padding: 0 12px;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  line-height: 32px;
+}
+.v-run .rn-pts.is-pending { opacity: 0; }
+.v-run .rn-pn { font-size: 19px; line-height: 32px; color: var(--ink); }
+.v-run .rn-pu { font: 500 var(--fs-cap)/32px var(--font-text); color: var(--ink-3); }
+
+/* ------------------------------------------------------------------ Stage and header */
+.v-run .rn-stage { display: grid; flex: 1 0 auto; min-width: 0; }
+.v-run .rn-stage > * { grid-area: 1 / 1; min-width: 0; }
+.v-run .rn-page { padding-bottom: 24px; }
+.v-run .rn-page.is-out { pointer-events: none; }
+.v-run .rn-head { padding: 6px 0 18px; }
+.v-run .rn-ovl { display: flex; align-items: center; gap: 6px; color: var(--ink-3); }
+.v-run .rn-ovl > .ic { width: 16px; height: 16px; stroke-width: 2; flex: none; }
+.v-run .rn-ovl > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-run .rn-prompt { margin-top: 6px; color: var(--ink-2); max-width: 36em; }
+
+/* Loading and error */
+.v-run .rn-sk { display: flex; flex-direction: column; gap: 16px; padding-top: 4px; }
+.v-run .rn-sk .sk-card { height: 132px; }
+.v-run .rn-sk-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.v-run .rn-sk-grid > .sk { height: 64px; border-radius: var(--r-cell); }
+.v-run .rn-err { padding-top: 24px; }
+
+/* ------------------------------------------------------------------ Bottom bar */
+.v-run .rn-bottom {
+  position: sticky; bottom: 0; z-index: 10;
+  margin: auto calc(-1 * var(--gutter)) 0;
+  padding: 12px 16px max(12px, var(--safe-bottom));
+}
+
+/* ------------------------------------------------------------------ Stamps (5 FOR 5, FIRST-BALLOT) */
+.v-run .rn-stamp {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 32px; padding: 0 11px;
+  border-radius: 8px;
+  color: var(--gold);
+  background: var(--gold-soft);
+  box-shadow: inset 0 0 0 2px var(--gold), inset 0 0 0 4px rgba(0,0,0,.25);
+  font: 800 17px/1 var(--font-num); font-stretch: condensed;
+  letter-spacing: .08em; text-transform: uppercase;
+  white-space: nowrap;
+  rotate: -8deg;
+  pointer-events: none;
+  flex: none;
+}
+
+/* ------------------------------------------------------------------ Reduced motion */
+html.rm .v-run .rn-track, html.rm .v-run .rn-fill, html.rm .v-run .rn-bg { transition: none; }
+@media (prefers-reduced-motion: reduce) {
+  .v-run .rn-track, .v-run .rn-fill, .v-run .rn-bg { transition: none; }
+}

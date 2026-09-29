@@ -1,1 +1,79 @@
-/* review.css: owned by the standings view package. Placeholder from the foundation package. */
+/* review.css: Season in review (spec 7.11). Owner: standings package. Scoped to .v-review. */
+
+.v-review .rv-dek {
+  margin-top: 6px;
+  font: 400 var(--fs-body)/var(--lh-body) var(--font-text); color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+.v-review .rv-group > .sh { margin-top: 28px; }
+.v-review .rv-list { display: flex; flex-direction: column; gap: 10px; }
+.v-review .rv-group:not(:first-of-type) .rv-list { content-visibility: auto; contain-intrinsic-size: auto 480px; }
+
+/* Award card: radius 18, 3 px leading edge in the featured manager's color. */
+.v-review .rv-card {
+  position: relative; isolation: isolate;
+  display: flex; flex-direction: column;
+  width: 100%; min-width: 0;
+  padding: 14px 40px 14px 19px;
+  border-radius: var(--r-card);
+  background: var(--surface-1);
+  box-shadow: inset 3px 0 0 var(--mc, var(--ink-4));
+  color: var(--ink); text-align: left;
+  --stack-ring: var(--surface-1);
+  transition: transform var(--spring-snappy-dur) var(--spring-snappy);
+}
+.v-review .rv-card.is-pressed { transform: scale(.97); transition: none; }
+.v-review .rv-ovl {
+  display: flex; align-items: center; gap: 5px;
+  font: 800 13px/16px var(--font-num); font-stretch: condensed;
+  text-transform: uppercase; letter-spacing: .06em;
+  color: var(--ink-3);
+}
+.v-review .rv-ovl .ic { width: 13px; height: 13px; stroke-width: 2; flex: none; }
+.v-review .rv-top { display: flex; align-items: center; gap: 12px; margin-top: 10px; min-width: 0; }
+.v-review .rv-who { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; }
+.v-review .rv-name { max-width: 100%; font: 600 var(--fs-headline)/var(--lh-headline) var(--font-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-review .rv-team { max-width: 100%; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-review .rv-stat { flex: none; display: flex; flex-direction: column; align-items: flex-end; text-align: right; max-width: 48%; }
+.v-review .rv-stat .n3 { white-space: nowrap; }
+.v-review .rv-unit { font: 500 var(--fs-cap)/var(--lh-cap) var(--font-text); color: var(--ink-3); white-space: nowrap; }
+.v-review .rv-detail {
+  margin-top: 10px;
+  font: 400 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+.v-review .rv-chev { position: absolute; right: 14px; top: 50%; margin-top: -8px; }
+
+/* Champion: the hero card (radius 24, a wash of the champion's color, 72 px hero avatar with the crown). */
+.v-review .rv-card.is-hero {
+  border-radius: var(--r-hero);
+  padding: 20px 40px 20px 22px;
+  box-shadow: inset 3px 0 0 var(--mc, var(--gold)), inset 0 0 0 1px rgba(255,204,77,.28);
+}
+.v-review .rv-card.is-hero::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit;
+  background: radial-gradient(130% 110% at 100% 0%, rgba(255,204,77,.16), transparent 62%);
+  pointer-events: none;
+}
+@supports (color: color-mix(in srgb, red 28%, transparent)) {
+  .v-review .rv-card.is-hero::before {
+    background:
+      radial-gradient(120% 100% at 0% 0%, color-mix(in srgb, var(--mc) 26%, transparent), transparent 62%),
+      radial-gradient(130% 110% at 100% 0%, rgba(255,204,77,.12), transparent 60%);
+  }
+}
+.v-review .rv-card.is-hero .rv-ovl { color: var(--gold); }
+.v-review .rv-card.is-hero .rv-top { margin-top: 14px; gap: 16px; }
+.v-review .rv-card.is-hero .rv-name { font: 700 var(--fs-2)/var(--lh-2) var(--font-text); }
+.v-review .rv-card.is-hero .rv-team { font-size: var(--fs-sub); line-height: var(--lh-sub); color: var(--ink-2); }
+.v-review .rv-card.is-hero .badge { margin-top: 6px; }
+.v-review .rv-card.is-hero .av-crown { fill: var(--gold); }
+.v-review .rv-card.is-hero .rv-top > .av { margin-top: 6px; }
+.v-review .rv-card.is-anchor .rv-ovl { color: var(--wrong); }
+
+.v-review .rv-foot { margin-top: 32px; }
+.v-review .rv-foot > .note { text-align: center; }
+
+@media (max-width: 370px) {
+  .v-review .rv-card .n3 { font-size: 28px; line-height: 30px; }
+}

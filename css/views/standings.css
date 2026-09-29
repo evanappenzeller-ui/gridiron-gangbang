@@ -1,1 +1,151 @@
-/* standings.css: owned by the standings view package. Placeholder from the foundation package. */
+/* standings.css: Standings root (spec 7.9). Owner: standings package. Scoped to .v-standings. */
+
+.v-standings .std-seasons > .sh { margin-top: 20px; }
+
+/* ---------------------------------------------------------------- Seasons rail */
+.v-standings .std-rail {
+  display: flex; gap: 8px;
+  overflow-x: auto; overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scroll-padding: 0 var(--gutter);
+  margin: 0 calc(-1 * var(--gutter));
+  padding: 2px var(--gutter) 4px;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+}
+.v-standings .std-rail::-webkit-scrollbar { display: none; }
+.v-standings .std-rail::after { content: ""; flex: none; width: 8px; }
+.v-standings .std-li { flex: none; scroll-snap-align: start; }
+.v-standings .std-scard {
+  position: relative; isolation: isolate;
+  display: flex; flex-direction: column; justify-content: space-between;
+  width: 132px; height: 108px; padding: 12px 12px 12px;
+  border-radius: var(--r-card);
+  background: var(--surface-1);
+  color: var(--ink);
+  overflow: hidden;
+  transition: transform var(--spring-snappy-dur) var(--spring-snappy);
+  --stack-ring: var(--surface-1);
+}
+/* Radial wash of the champion's color at 18% (a layer, so press scale never repaints a gradient). */
+.v-standings .std-scard::before {
+  content: ""; position: absolute; inset: 0; z-index: -1;
+  background: radial-gradient(140% 110% at 100% 0%, rgba(255,255,255,.06), transparent 70%);
+  pointer-events: none;
+}
+@supports (color: color-mix(in srgb, red 18%, transparent)) {
+  .v-standings .std-scard[class*="mc-"]::before {
+    background: radial-gradient(140% 110% at 100% 0%, color-mix(in srgb, var(--mc) 18%, transparent), transparent 72%);
+  }
+}
+.v-standings .std-scard.is-pressed { transform: scale(.97); transition: none; }
+.v-standings .std-sy { display: block; letter-spacing: .01em; }
+.v-standings .std-sbot { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.v-standings .std-swho { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; }
+.v-standings .std-swho > b {
+  display: block; max-width: 100%;
+  font: 600 15px/18px var(--font-text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.v-standings .std-swho .badge { height: 18px; padding: 0 6px; font-size: 11px; }
+.v-standings .std-sbot-live { flex-direction: column; align-items: flex-start; gap: 4px; }
+.v-standings .std-sthru { font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+.v-standings .std-scard.is-live .std-sy { color: var(--ink-2); }
+
+/* ---------------------------------------------------------------- All-time header + sort button */
+.v-standings .std-ah .sh { align-items: center; }
+.v-standings [data-sort-open] {
+  gap: 4px; height: 32px; padding: 0 2px 0 8px;
+  font: 500 15px/20px var(--font-text);
+  color: var(--tint);
+}
+.v-standings [data-sort-open] .ic { width: 15px; height: 15px; stroke-width: 2.2; }
+
+/* ---------------------------------------------------------------- List rows */
+.v-standings .std-row .row-lead { gap: 0; }
+.v-standings .std-rank {
+  width: 22px; margin: 0 8px 0 -4px;
+  text-align: center; color: var(--ink-3);
+}
+.v-standings .std-row .row-title { display: flex; align-items: center; gap: 6px; }
+.v-standings .std-nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-standings .std-tro { flex: none; display: inline-flex; align-items: center; gap: 1px; color: var(--gold); }
+.v-standings .std-tro .ic { width: 14px; height: 14px; stroke-width: 1.6; }
+.v-standings .std-trx { font: 800 14px/1 var(--font-num); font-stretch: condensed; margin-left: 2px; }
+.v-standings .std-row .row-trail { min-width: 60px; justify-content: flex-end; }
+.v-standings .std-metric { display: flex; flex-direction: column; align-items: flex-end; }
+.v-standings .std-metric .n4 { color: var(--ink); }
+.v-standings .std-cap { font: 500 var(--fs-cap)/var(--lh-cap) var(--font-text); color: var(--ink-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* ---------------------------------------------------------------- Table view */
+.v-standings .std-tcard {
+  position: relative;
+  background: var(--surface-1);
+  border-radius: var(--r-group);
+  overflow: hidden;
+  --stack-ring: var(--surface-1);
+}
+.v-standings .std-tscroll {
+  overflow-x: auto; overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+}
+.v-standings .std-tscroll::-webkit-scrollbar { display: none; }
+.v-standings .std-tscroll.is-end { -webkit-mask-image: none; mask-image: none; }
+.v-standings .std-tscroll:focus-visible { outline-offset: -2px; }
+.v-standings .std-table { width: 100%; min-width: 488px; border-collapse: separate; border-spacing: 0; }
+.v-standings .std-table th, .v-standings .std-table td {
+  padding: 0 12px; height: 56px;
+  text-align: right; white-space: nowrap;
+  font-weight: 800;
+  background: var(--surface-1);
+  transition: background-color 250ms linear;
+}
+.v-standings .std-table td { color: var(--ink-2); }
+.v-standings .std-table thead th {
+  height: 44px; padding: 0;
+  font: 600 13px/16px var(--font-text);
+  color: var(--ink-2);
+  box-shadow: inset 0 -1px 0 var(--separator);
+}
+.v-standings .std-table thead th button {
+  display: inline-flex; align-items: center; justify-content: flex-end; gap: 3px;
+  width: 100%; height: 44px; padding: 0 12px;
+  font: inherit; color: inherit; white-space: nowrap;
+}
+.v-standings .std-table thead th.std-c1 button { justify-content: flex-start; padding-left: 16px; }
+.v-standings .std-table thead th.is-sorted { color: var(--tint); }
+.v-standings .std-table thead th button.is-pressed { opacity: .5; }
+.v-standings .std-arr { width: 12px; height: 12px; stroke-width: 2.4; }
+.v-standings .std-table tbody tr + tr > * { box-shadow: inset 0 1px 0 rgba(56,56,58,.7); }
+.v-standings .std-table .std-c1 {
+  position: sticky; left: 0; z-index: 2;
+  width: 150px; min-width: 150px; max-width: 150px;
+  padding: 0; text-align: left;
+}
+/* Hairline on the sticky column's edge once the table is scrolled sideways. */
+.v-standings .std-table .std-c1::after {
+  content: ""; position: absolute; top: 0; bottom: 0; right: 0; width: 1px;
+  background: var(--separator);
+  opacity: 0; transition: opacity var(--dur-fast) linear;
+}
+.v-standings .std-tscroll.is-scrolled .std-c1::after { opacity: 1; }
+.v-standings .std-tman {
+  display: flex; align-items: center; gap: 10px;
+  height: 56px; padding: 0 8px 0 16px; min-width: 0;
+  color: var(--ink);
+}
+.v-standings .std-tnm { display: flex; flex-direction: column; min-width: 0; }
+.v-standings .std-tnm b { font: 600 15px/20px var(--font-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-standings .std-tnm small { font: 400 12px/16px var(--font-text); color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-standings .std-table td.n5 { font-size: 17px; }
+.v-standings .std-tt { display: inline-flex; align-items: center; gap: 3px; color: var(--gold); }
+.v-standings .std-tt .ic { width: 13px; height: 13px; }
+.v-standings .std-table tr.is-pressed > * { background: var(--surface-2); transition: none; }
+.v-standings .std-table tr.is-me > .std-c1 { box-shadow: inset 3px 0 0 var(--tint); }
+.v-standings .std-table tbody tr + tr.is-me > .std-c1 { box-shadow: inset 3px 0 0 var(--tint), inset 0 1px 0 rgba(56,56,58,.7); }
+.v-standings .std-table tr.is-me > * { background: var(--surface-2); }

@@ -1,1 +1,101 @@
-/* mystery.css: owned by the puzzle-run view package. Placeholder from the foundation package. */
+/* mystery.css: Mystery player inside the run cover (spec 7.4). Owner: puzzle-run package. Scope: .v-run */
+
+/* Header card: disc, title, worth meter; the reveal block opens under it when the puzzle ends */
+.v-run .my-head { padding: 16px 16px 16px; }
+.v-run .my-head:focus { outline: none; }
+.v-run .my-top { position: relative; display: flex; align-items: center; gap: 14px; min-width: 0; perspective: 600px; }
+.v-run .my-title { flex: 1 1 auto; min-width: 0; }
+.v-run .my-disc {
+  position: relative; flex: none;
+  width: 72px; height: 72px;
+  transform-style: preserve-3d;
+}
+.v-run .my-disc.is-flipped { transform: rotateY(180deg); }
+.v-run .my-face {
+  position: absolute; inset: 0; border-radius: 50%;
+  display: grid; place-items: center;
+  -webkit-backface-visibility: hidden; backface-visibility: hidden;
+}
+.v-run .my-front { background: var(--surface-2); color: var(--ink-2); box-shadow: inset 0 0 0 1.5px var(--surface-3); }
+.v-run .my-front > .ic { width: 34px; height: 34px; stroke-width: 1.6; }
+.v-run .my-back {
+  transform: rotateY(180deg);
+  background: var(--tint); color: var(--on-tint);
+  font: 800 30px/1 var(--font-num); font-stretch: condensed; letter-spacing: .02em;
+}
+.v-run .my-back.is-stumped { background: var(--surface-3); color: var(--ink); }
+
+.v-run .my-worth { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 7px; }
+.v-run .my-worth[hidden] { display: none; }
+.v-run .my-wv { display: flex; align-items: baseline; gap: 5px; }
+.v-run .my-wl { font: 600 12px/16px var(--font-text); color: var(--ink-3); text-transform: uppercase; letter-spacing: .04em; }
+.v-run .my-wn { min-width: 2.2ch; text-align: right; }
+.v-run .my-pips { display: flex; gap: 4px; }
+.v-run .my-pip { position: relative; display: block; width: 8px; height: 8px; border-radius: 50%; background: var(--surface-3); }
+.v-run .my-pip > b {
+  position: absolute; inset: 0; border-radius: 50%;
+  background: var(--tint);
+  opacity: 0; transform: translateY(6px);
+  transition: transform 320ms var(--ease-in), opacity 320ms var(--ease-in);
+}
+.v-run .my-pip.is-lit > b { opacity: 1; transform: none; transition-timing-function: var(--ease-out); }
+.v-run .my-pip.is-gold > b { background: var(--gold); }
+.v-run .my-stamp { position: absolute; z-index: 2; left: 18px; top: 52px; height: 28px; padding: 0 9px; font-size: 15px; background: linear-gradient(var(--gold-soft), var(--gold-soft)), var(--surface-1); }
+
+.v-run .my-reveal { position: relative; margin-top: 16px; padding-top: 14px; }
+.v-run .my-reveal[hidden] { display: none; }
+.v-run .my-reveal::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 1px;
+  background: var(--separator); transform: scaleY(.5); transform-origin: top;
+}
+.v-run .my-rname { overflow-wrap: anywhere; }
+.v-run .my-rline { margin-top: 4px; color: var(--ink-2); }
+.v-run .my-rp { color: var(--tint); font-weight: 600; }
+
+/* Clue list: all seven rows from the start */
+.v-run .my-clues { margin-top: 16px; }
+.v-run .my-clue {
+  position: relative;
+  display: flex; align-items: center; gap: 12px;
+  min-height: 52px; padding: 7px 16px;
+}
+.v-run .my-clue + .my-clue > .my-cm::before {
+  content: ""; position: absolute; top: -7px; left: 0; right: -200vw; height: 1px;
+  background: var(--separator); transform: scaleY(.5); transform-origin: top;
+}
+.v-run .my-ci {
+  flex: none; width: 30px; height: 30px; border-radius: 9px;
+  display: grid; place-items: center;
+  background: var(--surface-2); color: var(--ink-2);
+}
+.v-run .my-ci > .ic { width: 17px; height: 17px; stroke-width: 1.9; }
+.v-run .my-cm { position: relative; flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.v-run .my-cl { color: var(--ink-3); }
+.v-run .my-cv { display: grid; min-height: 22px; align-items: center; }
+.v-run .my-cv > * { grid-area: 1 / 1; min-width: 0; }
+.v-run .my-val { font: 500 17px/22px var(--font-text); color: var(--ink); overflow-wrap: anywhere; }
+.v-run .my-red { display: block; width: 60%; height: 12px; border-radius: 6px; background: var(--surface-3); }
+.v-run .my-cost { flex: none; display: flex; align-items: center; gap: 3px; color: var(--ink-3); font: 500 var(--fs-cap)/var(--lh-cap) var(--font-text); }
+.v-run .my-cost > .ic { width: 14px; height: 14px; stroke-width: 2; }
+.v-run .my-clue.is-locked .my-ci { color: var(--ink-4); }
+.v-run .my-clue.is-new::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--tint); }
+.v-run .my-clue.is-new .my-ci { background: var(--tint-soft); color: var(--tint); }
+.v-run .my-clue.is-late .my-val { color: var(--ink-3); }
+.v-run .my-clue.is-late .my-ci { opacity: .55; }
+
+/* Wrong guesses */
+.v-run .my-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.v-run .my-chips[hidden] { display: none; }
+.v-run .my-chip { max-width: 100%; height: 30px; font-size: 14px; }
+
+/* Actions: Guess (primary) and Next clue side by side; Guess spans the row once Next clue is gone */
+.v-run .my-actions { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 10px; margin-top: 16px; scroll-margin-bottom: 96px; }
+.v-run .my-actions[hidden] { display: none; }
+.v-run .my-actions .btn { padding: 0 10px; }
+.v-run .my-actions .btn[hidden] { display: none; }
+.v-run .my-actions:has(.my-next[hidden]) > [data-my-guess] { grid-column: 1 / -1; }
+.v-run .my-minus { color: var(--ink-3); font-weight: 500; font-size: 14px; }
+.v-run .my-note { grid-column: 1 / -1; margin-top: 2px; text-align: center; }
+
+html.rm .v-run .my-pip > b { transition: none; }
+@media (prefers-reduced-motion: reduce) { .v-run .my-pip > b { transition: none; } }

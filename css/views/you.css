@@ -1,1 +1,71 @@
-/* you.css: owned by the daily-hub view package. Placeholder from the foundation package. */
+/* you.css: the You, Streak and Player card sheets (spec 7.8). Owner: daily-hub package.
+   Sheets render in #overlays, so every selector is scoped under .sh-you, .sh-streak or .sh-player. */
+
+/* ================================================================ You sheet */
+.sh-you .c-ys { margin-top: 24px; }
+.sh-you .c-ys:first-child { margin-top: 8px; }
+.sh-you .c-ys-install:empty { display: none; }
+.sh-you .c-ys-h { margin: 0 0 6px 16px; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2); text-transform: uppercase; letter-spacing: .02em; }
+.sh-you .c-ys-f { margin: 8px 16px 0; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+.sh-you .c-you-grid { background: var(--surface-2); border-radius: var(--r-group); padding: 14px 6px 10px; gap: 14px 4px; }
+.sh-you .c-you-cell[aria-pressed="true"] > span:last-child { font-weight: 600; }
+.sh-you .c-you-none { margin-top: 8px; color: var(--ink); }
+.sh-you .c-you-none .c-you-nck { display: none; color: var(--tint); stroke-width: 2.4; }
+.sh-you .c-you-none[aria-pressed="true"] { box-shadow: inset 0 0 0 1.5px var(--tint); }
+.sh-you .c-you-none[aria-pressed="true"] .c-you-nck { display: block; }
+.sh-you .c-ys-ic { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; background: var(--surface-3); color: var(--ink); }
+.sh-you .c-ys-ic .ic { stroke-width: 2; }
+.sh-you .row .row-lead { margin-right: 14px; }
+.sh-you .c-ys-act .row-title { color: var(--tint); font-weight: 400; }
+.sh-you .c-ys-act .row-trail .spin { width: 18px; height: 18px; color: var(--ink-3); }
+.sh-you .c-ys-wrap .row-title { white-space: normal; font-weight: 400; color: var(--ink-2); }
+.sh-you .c-ys-dataline .row-title, .sh-you .c-ys-nick .row-title { font-weight: 400; white-space: normal; }
+.sh-you .row .switch { margin-right: -2px; }
+.sh-you .group > .row + .row > .row-main::before { left: 0; }
+
+/* ================================================================ Streak sheet */
+.sh-streak .sheet-body { padding-top: 0; }
+.sh-streak .c-sk-hero { display: flex; flex-direction: column; align-items: center; padding: 0 0 4px; }
+.sh-streak .c-sk-flame { display: grid; place-items: center; width: 64px; height: 64px; }
+.sh-streak .c-sk-flame .c-flame { stroke-width: 1.25; }
+.sh-streak .c-sk-num { display: flex; align-items: baseline; gap: 8px; margin-top: 4px; }
+.sh-streak .c-sk-n { color: var(--ink); }
+.sh-streak .c-sk-u { font: 600 var(--fs-3)/var(--lh-3) var(--font-text); color: var(--ink-2); }
+.sh-streak .c-sk-best { margin-top: 2px; font: 500 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+
+.sh-streak .c-sk-cal { display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 20px auto 0; padding: 14px 12px 10px; max-width: 320px; border-radius: var(--r-card); background: var(--surface-2); }
+.sh-streak .c-sk-wk { display: grid; grid-template-columns: repeat(7, 28px); gap: 10px; }
+.sh-streak .c-sk-head > span { text-align: center; font: 600 var(--fs-cap)/var(--lh-cap) var(--font-text); color: var(--ink-3); }
+.sh-streak .c-sk-d { position: relative; width: 28px; height: 28px; border-radius: 8px; background: var(--surface-3); }
+.sh-streak .c-sk-d.is-done { background: var(--tint); }
+.sh-streak .c-sk-d.is-perfect { background: var(--gold); }
+.sh-streak .c-sk-d.is-today { background: transparent; box-shadow: inset 0 0 0 1.5px var(--tint); }
+.sh-streak .c-sk-d.is-today.is-risk { box-shadow: none; outline: 1.5px dashed var(--tint); outline-offset: -1.5px; }
+.sh-streak .c-sk-d.is-before { background: transparent; }
+.sh-streak .c-sk-d.is-future { background: transparent; }
+.sh-streak .c-sk-d.is-future::after { content: ""; position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px 0 0 -2px; border-radius: 2px; background: var(--ink-4); }
+.sh-streak .c-sk-d.is-now.is-done, .sh-streak .c-sk-d.is-now.is-perfect { box-shadow: 0 0 0 2px var(--surface-2), 0 0 0 3.5px var(--ink); }
+.sh-streak .c-sk-range { margin-top: 2px; font: 500 var(--fs-cap)/var(--lh-cap) var(--font-text); color: var(--ink-3); }
+.sh-streak .c-sk-copy { margin-top: 18px; text-align: center; font: 600 var(--fs-headline)/var(--lh-headline) var(--font-text); }
+.sh-streak .c-sk-copy.is-risk { color: var(--flame-1); }
+.sh-streak .c-sk-foot { margin: 6px auto 4px; max-width: 300px; text-align: center; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+
+/* ================================================================ Player card */
+.sh-player .sheet-body { padding-top: 0; }
+.sh-player .c-pc-head { display: flex; align-items: center; gap: 14px; min-width: 0; padding: 0 0 18px; }
+.sh-player .c-pc-id { flex: 1; min-width: 0; }
+.sh-player .c-pc-name { font: 700 var(--fs-2)/var(--lh-2) var(--font-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sh-player .c-pc-sub { display: flex; align-items: center; gap: 6px; margin-top: 2px; min-width: 0; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+.sh-player .c-pc-team { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sh-player .c-pc-tiles .tile-value { color: var(--ink); }
+.sh-player .c-pc-chart { margin-top: 20px; padding: 14px 16px 12px; border-radius: var(--r-card); background: var(--surface-2); }
+.sh-player .c-pc-h { font: 600 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2); }
+.sh-player .c-pc-bars, .sh-player .c-pc-axis { width: 192px; max-width: 100%; margin-left: auto; margin-right: auto; }
+.sh-player .c-pc-bars { display: flex; align-items: flex-end; gap: 4px; height: 64px; margin-top: 14px; box-shadow: 0 1px 0 var(--separator); }
+.sh-player .c-pc-b { flex: none; width: 10px; border-radius: 3px 3px 1px 1px; background: var(--tint); transform-origin: bottom center; }
+.sh-player .c-pc-b.is-perfect { background: var(--gold); }
+.sh-player .c-pc-b.is-miss { height: 3px; border-radius: 2px; background: var(--ink-4); }
+.sh-player .c-pc-b.is-none { height: 0; background: transparent; }
+.sh-player .c-pc-axis { display: flex; justify-content: space-between; margin-top: 8px; font: 500 var(--fs-cap)/var(--lh-cap) var(--font-text); color: var(--ink-3); }
+.sh-player .c-pc-foot { margin: 12px 4px 4px; text-align: center; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+.sh-player .empty { padding-top: 16px; }

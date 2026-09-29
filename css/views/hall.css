@@ -1,1 +1,260 @@
-/* hall.css: owned by the hall view package. Placeholder from the foundation package. */
+/* hall.css: Hall › Trophies and Hall › Records (spec 7.13, 7.14). Owner: hall package.
+   Every selector is scoped under .v-hall. Motion is transform/opacity only (the ring draw uses
+   stroke-dashoffset, the one allowed exception). */
+
+/* ================================================================ Frame */
+.v-hall .hl-seg { margin: 10px 0 0; }
+.v-hall .hl-body { min-width: 0; }
+.v-hall .hl-tro, .v-hall .hl-rec { min-width: 0; }
+.v-hall .hl-empty { margin-top: 16px; background: var(--surface-1); border-radius: var(--r-card); }
+
+/* ================================================================ Champion hero */
+.v-hall .hc {
+  position: relative; isolation: isolate; overflow: hidden;
+  display: flex; flex-direction: column; align-items: center;
+  margin-top: 16px; padding: 30px 20px 22px;
+  text-align: center;
+}
+/* Radial wash of the champion's color at 28% over surface-1 */
+.v-hall .hc::before {
+  content: ""; position: absolute; inset: 0; z-index: -1;
+  background: radial-gradient(120% 78% at 50% 0%, var(--mc) 0%, transparent 72%);
+  opacity: .28;
+  pointer-events: none;
+}
+.v-hall .hc > span { display: block; max-width: 100%; min-width: 0; }
+.v-hall .hc-av { position: relative; width: 96px; height: 96px; margin-bottom: 20px; flex: none; }
+.v-hall .hc-av > .av { position: absolute; inset: 0; }
+.v-hall .hc-ring {
+  position: absolute; left: -12px; top: -12px; width: 120px; height: 120px; max-width: none;
+  transform: rotate(-90deg);
+  overflow: visible; pointer-events: none;
+}
+.v-hall .hc-ring circle {
+  fill: none; stroke: var(--gold); stroke-width: 2.5; stroke-linecap: round;
+  stroke-dasharray: 100 100; stroke-dashoffset: 0;
+}
+.v-hall .hc-av .av-crown { width: 40px; height: 40px; top: -21px; right: -15px; }
+.v-hall .hc.is-pending .hc-ring circle { stroke-dashoffset: 100; }
+.v-hall .hc.is-pending .av-crown { opacity: 0; }
+.v-hall .hc-ovl { display: inline-flex !important; align-items: center; justify-content: center; gap: 6px; color: var(--gold); }
+.v-hall .hc-ovl > .ic { width: 14px; height: 14px; }
+.v-hall .hc-name { margin-top: 4px; overflow-wrap: anywhere; }
+.v-hall .hc-team { margin-top: 2px; color: var(--ink-2); overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow-wrap: anywhere; }
+.v-hall .hc-line { margin-top: 14px; max-width: 320px !important; color: var(--ink-2); overflow-wrap: anywhere; }
+
+/* ================================================================ Banners */
+.v-hall .bn-list { display: flex; flex-direction: column; gap: 10px; }
+.v-hall .bn {
+  position: relative; isolation: isolate;
+  display: grid; grid-template-columns: 64px minmax(0, 1fr); column-gap: 14px;
+  padding: 0 14px 0 12px;
+  min-width: 0;
+  background: var(--surface-1);
+  border-radius: var(--r-card);
+  --stack-ring: var(--surface-1);
+  transition: transform var(--spring-snappy-dur) var(--spring-snappy);
+}
+.v-hall .bn:has(> .bn-link.is-pressed) { transform: scale(.97); transition: none; }
+/* The whole banner opens the season; the names inside sit above it and open profiles. */
+.v-hall .bn-link { position: absolute; inset: 0; z-index: 0; border-radius: inherit; }
+.v-hall .bn-link:focus-visible { outline-offset: -2px; border-radius: var(--r-card); }
+.v-hall .bn-year, .v-hall .bn-main { position: relative; z-index: 1; pointer-events: none; }
+.v-hall .bn-main a { pointer-events: auto; }
+/* Hanging pennant: a 64 px column with a V-notch bottom and a 3 px rod in the champion's color */
+.v-hall .bn-year {
+  align-self: stretch;
+  display: flex; flex-direction: column; align-items: center;
+  margin-bottom: 14px; padding: 15px 0 24px;
+  min-height: 96px;
+  background: var(--surface-2);
+  box-shadow: inset 0 3px 0 var(--mc, var(--ink-4));
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 12px), 0 100%);
+}
+.v-hall .bn-year > .n3 { letter-spacing: -.035em; margin-right: -.035em; white-space: nowrap; } /* 4 digits in 64 px */
+.v-hall .bn-year > .ic { width: 18px; height: 18px; margin-top: auto; color: var(--gold); }
+.v-hall .bn-main { min-width: 0; padding: 10px 0 12px; }
+.v-hall .bn-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.v-hall .bn-champ {
+  flex: 1 1 auto; min-width: 0;
+  display: flex; align-items: center; gap: 12px;
+  min-height: 52px; margin: 0 -8px; padding: 0 8px;
+  border-radius: 12px;
+  transition: background-color 250ms linear;
+}
+.v-hall .bn-champ.is-pressed { background-color: var(--surface-2); transition: none; }
+.v-hall .bn-cm { min-width: 0; display: flex; flex-direction: column; }
+.v-hall .bn-cn { font: 600 var(--fs-headline)/var(--lh-headline) var(--font-text); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-hall .bn-ct { font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-hall .bn-rest { margin-top: 6px; padding-top: 4px; position: relative; }
+.v-hall .bn-rest::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 1px;
+  background: var(--separator); transform: scaleY(.5); transform-origin: top;
+}
+.v-hall .bn-mini { display: flex; align-items: center; gap: 8px; min-height: 32px; min-width: 0; }
+.v-hall .bn-who {
+  position: relative; flex: 1 1 auto; min-width: 0;
+  display: flex; align-items: center; gap: 8px;
+  font: 500 15px/20px var(--font-text); color: var(--ink-2);
+  transition: opacity 200ms linear;
+}
+.v-hall .bn-who::before { content: ""; position: absolute; left: -8px; right: -4px; top: -6px; bottom: -6px; } /* 44 px hit area */
+.v-hall .bn-who.is-pressed { opacity: .55; transition: none; }
+.v-hall .bn-mini > .badge { flex: none; }
+.v-hall .bn-note { flex: none; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); white-space: nowrap; }
+
+/* The season being played: dashed, still up for grabs */
+.v-hall .bn-live { background: transparent; }
+.v-hall .bn-live::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  border: 1px dashed var(--ink-4);
+}
+.v-hall .bn-live .bn-year { background: var(--surface-1); box-shadow: inset 0 3px 0 var(--ink-4); min-height: 88px; }
+.v-hall .bn-live .bn-year > .n3 { color: var(--ink-2); }
+.v-hall .bn-lv { display: flex; min-width: 0; padding-top: 4px; }
+.v-hall .bn-lv > .badge { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.v-hall .bn-open { margin-top: 8px; font: 400 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink-2); }
+.v-hall .bn-live .bn-mini { margin-top: 6px; }
+
+/* ================================================================ Title count */
+.v-hall .tc-row .row-trail { gap: 10px; color: var(--ink); }
+.v-hall .tc-marks { display: inline-flex; align-items: center; gap: 2px; color: var(--gold); }
+.v-hall .tc-marks > .ic { width: 14px; height: 14px; }
+.v-hall .tc-x { margin-left: 2px; font: 800 13px/1 var(--font-num); font-stretch: condensed; color: var(--gold); }
+.v-hall .tc-n { min-width: 12px; text-align: right; color: var(--ink); }
+
+/* ================================================================ Still chasing */
+.v-hall .sc-rail {
+  display: flex; gap: 8px;
+  overflow-x: auto; overflow-y: hidden;
+  scroll-snap-type: x proximity; scroll-padding: 0 16px;
+  margin: 0 calc(-1 * var(--gutter)); padding: 6px var(--gutter) 4px;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+.v-hall .sc-rail::-webkit-scrollbar { display: none; }
+.v-hall .sc-rail::after { content: ""; flex: none; width: 1px; }
+.v-hall .sc-it {
+  flex: none; width: 72px;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 4px 0 6px;
+  scroll-snap-align: start;
+  transition: transform var(--spring-snappy-dur) var(--spring-snappy);
+}
+.v-hall .sc-it.is-pressed { transform: scale(.94); transition: none; }
+.v-hall .sc-it > .av { opacity: .7; margin-bottom: 6px; }
+.v-hall .sc-it > .av.av-you { opacity: .85; }
+.v-hall .sc-n { max-width: 100%; font: 600 13px/16px var(--font-text); color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-hall .sc-s { max-width: 100%; font: 500 var(--fs-cap)/var(--lh-cap) var(--font-text); color: var(--ink-3); white-space: nowrap; }
+.v-hall .sc .note { margin-top: 8px; }
+
+/* ================================================================ Records › hero */
+.v-hall .rh { position: relative; isolation: isolate; overflow: hidden; margin-top: 16px; }
+.v-hall .rh::before {
+  content: ""; position: absolute; inset: 0; z-index: -1;
+  background: radial-gradient(90% 90% at 100% 0%, var(--mc, transparent) 0%, transparent 70%);
+  opacity: .2; pointer-events: none;
+}
+.v-hall .rh-ovl { color: var(--ink-2); }
+.v-hall .rh-val { margin-top: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.v-hall .rh-line { margin-top: 10px; color: var(--ink-2); overflow-wrap: anywhere; }
+
+/* Inline profile links in running text (record hero, fun facts) */
+.v-hall .rl { color: var(--ink); font-weight: 600; transition: opacity 200ms linear; }
+.v-hall .rl.is-pressed { opacity: .55; transition: none; }
+.v-hall .rl-h { white-space: nowrap; }
+.v-hall .rl .av { display: inline-grid; vertical-align: -4px; margin-right: 5px; }
+
+/* ================================================================ Records › fun facts */
+.v-hall .ff-rail {
+  position: relative;
+  display: flex; gap: 12px;
+  overflow-x: auto; overflow-y: hidden;
+  scroll-snap-type: x mandatory; scroll-padding: 0 var(--gutter);
+  margin: 0 calc(-1 * var(--gutter)); padding: 0 0 0 var(--gutter);
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+  outline: none;
+}
+.v-hall .ff-rail::-webkit-scrollbar { display: none; }
+.v-hall .ff-rail::after { content: ""; flex: none; width: 4px; } /* with the 12 px gap: a 16 px end gutter */
+.v-hall .ff-card {
+  position: relative; isolation: isolate; overflow: hidden;
+  flex: 0 0 86%; min-width: 0; min-height: 140px;
+  display: flex; flex-direction: column;
+  padding: 14px 18px 18px;
+  border-radius: var(--r-card);
+  background: var(--surface-1);
+  scroll-snap-align: start;
+}
+.v-hall .ff-card::before {
+  content: ""; position: absolute; inset: 0; z-index: -1;
+  background: radial-gradient(80% 70% at 100% 0%, var(--mc, transparent) 0%, transparent 72%);
+  opacity: .16; pointer-events: none;
+}
+.v-hall .ff-no { color: var(--ink-3); }
+.v-hall .ff-t { margin-top: 8px; color: var(--ink-2); overflow-wrap: anywhere; }
+.v-hall .ff-dots { display: flex; justify-content: center; margin: 2px 0 -10px; }
+.v-hall .ff-dot { position: relative; width: 22px; height: 44px; display: grid; place-items: center; }
+.v-hall .ff-dot > i {
+  display: block; width: 6px; height: 6px; border-radius: 3px;
+  background: var(--ink);
+  opacity: .28; transform: scale(.84);
+  transition: opacity 200ms linear, transform var(--spring-snappy-dur) var(--spring-snappy);
+}
+.v-hall .ff-dot.is-on > i { opacity: 1; transform: none; }
+.v-hall .ff-dot.is-pressed > i { transform: scale(.7); transition: none; }
+
+/* ================================================================ Records › section chips + rows */
+.v-hall .rc-acc { margin-top: 20px; }
+.v-hall .rc-sec { padding-top: 28px; }
+.v-hall .rc-sec > .sh { margin-top: 0; }
+.v-hall .rc-list > .rc-sec:first-child { padding-top: 12px; }
+.v-hall .rc {
+  position: relative;
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 12px 12px 16px;
+  min-width: 0;
+}
+.v-hall .rc + .rc::before {
+  content: ""; position: absolute; top: 0; left: 16px; right: 0; height: 1px;
+  background: var(--separator); transform: scaleY(.5); transform-origin: top;
+}
+/* Focus flash: an overlay whose opacity goes 0 → 1 → 0 over 1,200 ms */
+.v-hall .rc::after {
+  content: ""; position: absolute; inset: 0; z-index: 0;
+  background: var(--tint-soft);
+  opacity: 0; pointer-events: none;
+}
+.v-hall .rc.is-focus::after { animation: hl-flash 1200ms linear both; }
+@keyframes hl-flash { 0% { opacity: 0; } 22% { opacity: 1; } 55% { opacity: 1; } 100% { opacity: 0; } }
+.v-hall .rc-main { position: relative; z-index: 1; flex: 1 1 auto; min-width: 0; }
+.v-hall .rc-l { font: 600 var(--fs-headline)/var(--lh-headline) var(--font-text); overflow-wrap: anywhere; }
+.v-hall .rc-hs { margin-top: 2px; }
+.v-hall .rc-h {
+  position: relative;
+  display: flex; align-items: flex-start; gap: 7px;
+  padding: 4px 0;
+  font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3);
+  overflow-wrap: anywhere; min-width: 0;
+}
+.v-hall .rc-h.is-link { transition: opacity 200ms linear; }
+.v-hall .rc-h.is-link::before { content: ""; position: absolute; left: -8px; right: -4px; top: -3px; bottom: -3px; }
+.v-hall .rc-h.is-link.is-pressed { opacity: .55; transition: none; }
+.v-hall .rc-h > .av { margin-top: -1px; }
+.v-hall .rc-ht { min-width: 0; }
+.v-hall .rc-h b { font-weight: 600; color: var(--ink); }
+.v-hall .rc-v {
+  position: relative; z-index: 1;
+  flex: none; width: 76px; min-height: 58px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 8px 4px;
+  border-radius: var(--r-cell);
+  background: var(--surface-2);
+  text-align: center;
+}
+.v-hall .rc-v > .n4 { max-width: 100%; overflow-wrap: anywhere; }
+.v-hall .rc-v > .n4.is-long { font-size: var(--fs-n5); line-height: var(--lh-n5); }
+.v-hall .rc-v > .t-cap { margin-top: 2px; max-width: 100%; color: var(--ink-3); line-height: 14px; overflow-wrap: anywhere; }
+.v-hall .rc-src { margin-top: 16px; }
+.v-hall .rc-end { display: block; height: 1px; }

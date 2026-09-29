@@ -1,1 +1,261 @@
-/* profile.css: owned by the profile view package. Placeholder from the foundation package. */
+/* profile.css: manager profile (#/managers/:id, spec 7.16). Owner: profile package.
+   Scope roots: .v-profile (the screen) and .c-pfmorph (the avatar clone that flies in, lives on <body>). */
+
+/* ---------------------------------------------------------------- Hero */
+.v-profile .pf-hero {
+  position: relative;
+  isolation: isolate;
+  display: flex; flex-direction: column; align-items: center;
+  text-align: center;
+  padding: 4px 0 0;
+  min-width: 0;
+}
+/* Radial manager-color wash at 30%, fading to --bg over 260 px; it reaches up under the transparent nav bar. */
+.v-profile .pf-wash {
+  position: absolute; z-index: -1;
+  left: calc(-1 * var(--gutter)); right: calc(-1 * var(--gutter));
+  top: calc(-1 * var(--nav-h));
+  height: calc(var(--nav-h) + 260px);
+  background: radial-gradient(75% 100% at 50% 0%, var(--mc) 0%, transparent 100%);
+  opacity: .3;
+  pointer-events: none;
+}
+.v-profile .pf-hero-in {
+  display: flex; flex-direction: column; align-items: center;
+  width: 100%; min-width: 0;
+  transform-origin: 50% 0;
+}
+.v-profile .pf-av { position: relative; padding: 4px; }
+.v-profile .pf-crowns {
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  margin-top: 12px; height: 18px;
+  color: var(--gold);
+}
+.v-profile .pf-crowns .ic { width: 18px; height: 18px; fill: currentColor; stroke-width: 1.5; }
+.v-profile .pf-crowns-n { margin-left: 2px; }
+.v-profile .pf-name {
+  margin-top: 10px;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  max-width: 100%; min-width: 0;
+}
+.v-profile .pf-crowns + .pf-name { margin-top: 6px; }
+.v-profile .pf-name-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-profile .pf-you { display: inline-flex; flex: none; }
+.v-profile .pf-you[hidden] { display: none; }
+.v-profile .pf-team {
+  margin-top: 2px;
+  max-width: min(100%, 320px); min-width: 0;
+  font: 600 var(--fs-headline)/var(--lh-headline) var(--font-text);
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+  overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+}
+.v-profile .pf-since {
+  margin-top: 6px;
+  font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text);
+  color: var(--ink-3);
+}
+.v-profile .pf-reign { margin-top: 12px; }
+.v-profile .pf-reign .pill .ic { fill: currentColor; stroke-width: 1.5; }
+/* The compact title appears as the name slides under the bar (the sentinel rides along with the hero drift). */
+.v-profile .pf-sentinel { display: block; align-self: stretch; height: 1px; margin-top: -1px; visibility: hidden; pointer-events: none; }
+
+/* The hero drifts back and fades as it scrolls under the bar (scroll-driven, compositor-only). */
+@supports (animation-timeline: scroll()) {
+  .v-profile .pf-hero-in {
+    animation: pf-hero-away linear both;
+    animation-timeline: scroll(nearest block);
+    animation-range: 0px 220px;
+  }
+}
+@keyframes pf-hero-away {
+  to { opacity: .3; transform: translateY(28px) scale(.93); }
+}
+
+/* ---------------------------------------------------------------- Tiles */
+.v-profile .pf-stats { margin-top: 24px; }
+.v-profile .pf-tiles3 { margin-top: 8px; }
+.v-profile .pf-tiles .tile-value, .v-profile .pf-tiles3 .tile-value { font-variant-numeric: tabular-nums; }
+.v-profile .pf-tiles .tile-label .pf-tl-ic {
+  display: inline-block; vertical-align: -2px;
+  width: 14px; height: 14px; margin-right: 4px;
+  color: var(--gold); fill: currentColor; stroke-width: 1.5;
+}
+.v-profile .pf-gold .tile-value { color: var(--gold); }
+.v-profile .tile-sub:empty { display: none; }
+
+/* ---------------------------------------------------------------- Sections */
+.v-profile .pf-note { margin: 8px 16px 0; }
+
+/* Year column shared by the name reel, seasons and draft rows */
+.v-profile .pf-yr { display: block; width: 44px; color: var(--ink-3); }
+.v-profile .row-lead > .pf-yr { margin-right: -4px; }
+
+/* "Every team name": each line is a reel window; the text slides up into it on first view. */
+.v-profile .pf-names .row { min-height: 48px; }
+.v-profile .pf-names .row-main { padding: 12px 0; }
+.v-profile .pf-names .row-title { white-space: normal; overflow: visible; text-overflow: clip; }
+.v-profile .pf-reel { display: block; overflow: hidden; min-width: 0; }
+.v-profile .pf-reel-t { display: block; overflow-wrap: anywhere; }
+.v-profile .pf-names .row-lead { align-self: flex-start; padding-top: 13px; }
+.v-profile .pf-names .row-lead .pf-reel-t { line-height: 20px; }
+.v-profile .pf-names.is-armed > .row:nth-child(-n+8) .pf-reel-t { transform: translateY(105%); }
+
+/* Seasons */
+.v-profile .pf-season .row-title,
+.v-profile .pf-trade .row-title {
+  white-space: normal; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+}
+.v-profile .pf-st { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.v-profile .pf-st .n4 { color: var(--ink); }
+
+/* Seed by season */
+.v-profile .pf-chart { padding: 32px 16px 12px; overflow: hidden; }
+.v-profile .pf-plot { position: relative; height: 96px; margin: 0 8px; }
+.v-profile .pf-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.v-profile .pf-line {
+  fill: none; stroke: var(--mc); stroke-width: 2;
+  stroke-linejoin: round; stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+  opacity: .85;
+}
+.v-profile .pf-cut {
+  position: absolute; left: -8px; right: -8px; height: 0;
+  border-top: 1px dashed var(--ink-4);
+}
+.v-profile .pf-dot {
+  position: absolute; width: 10px; height: 10px; margin: -5px 0 0 -5px;
+  border-radius: 50%;
+  background: var(--mc);
+  box-shadow: 0 0 0 3px var(--surface-1);
+}
+.v-profile .pf-dot.is-live { background: var(--surface-1); box-shadow: inset 0 0 0 2px var(--mc), 0 0 0 3px var(--surface-1); }
+.v-profile .pf-dot.is-champ { box-shadow: 0 0 0 2px var(--surface-1), 0 0 0 3.5px var(--gold); }
+.v-profile .pf-sl {
+  position: absolute;
+  display: flex; align-items: center; gap: 1px;
+  transform: translate(-50%, calc(-100% - 8px));
+  font-size: 15px; line-height: 16px;
+  color: var(--ink);
+  white-space: nowrap;
+  pointer-events: none;
+  text-shadow: 0 0 3px var(--surface-1), 0 0 3px var(--surface-1);
+}
+.v-profile .pf-sl.is-below { transform: translate(-50%, 8px); }
+.v-profile .pf-sl.is-out { color: var(--ink-3); }
+.v-profile .pf-sl.is-champ { color: var(--gold); }
+.v-profile .pf-sl .ic { width: 12px; height: 12px; fill: currentColor; stroke-width: 1.5; }
+.v-profile .pf-reveal {
+  position: absolute; left: -12px; right: -12px; top: -32px; bottom: -24px;
+  background: var(--surface-1);
+  transform-origin: 100% 50%;
+  display: none;
+  pointer-events: none;
+}
+.v-profile .pf-chart.is-armed .pf-reveal { display: block; }
+.v-profile .pf-xaxis { position: relative; height: 16px; margin: 24px 8px 0; }
+.v-profile .pf-xaxis > span {
+  position: absolute; top: 0; transform: translateX(-50%);
+  font: 500 var(--fs-cap)/var(--lh-cap) var(--font-text);
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.v-profile .pf-legend {
+  display: flex; flex-wrap: wrap; gap: 4px 16px;
+  margin-top: 12px; padding-top: 10px;
+  box-shadow: inset 0 1px 0 rgba(56,56,58,.6);
+  font: 500 var(--fs-cap)/var(--lh-cap) var(--font-text);
+  color: var(--ink-3);
+}
+.v-profile .pf-legend > span { display: inline-flex; align-items: center; gap: 6px; }
+.v-profile .pf-lg-cut { display: inline-block; width: 16px; border-top: 1px dashed var(--ink-3); }
+.v-profile .pf-lg-live { display: inline-block; width: 9px; height: 9px; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--mc); }
+
+/* Best and worst: tappable tiles that open that week */
+.v-profile .pf-bw .tile { position: relative; color: inherit; }
+.v-profile a.pf-bwt { transition: transform var(--spring-snappy-dur) var(--spring-snappy); }
+.v-profile a.pf-bwt.is-pressed { transform: scale(.97); transition: none; }
+.v-profile .pf-bwt .tile-label { padding-right: 16px; }
+.v-profile .pf-go { position: absolute; top: 16px; right: 10px; width: 14px; height: 14px; color: var(--ink-4); stroke-width: 2.2; }
+.v-profile .pf-bwt.is-win .tile-value { color: var(--tint); }
+.v-profile .pf-bwt.is-loss .tile-value { color: var(--wrong); }
+.v-profile .pf-bwt.is-win .tile-value small, .v-profile .pf-bwt.is-loss .tile-value small { color: inherit; opacity: .72; }
+.v-profile .pf-bwt.is-none .tile-value { color: var(--ink-4); }
+
+/* Rivalries */
+.v-profile .pf-rk { font-weight: 600; }
+.v-profile .pf-rk-own { color: var(--tint); }
+.v-profile .pf-rk-nem { color: var(--wrong); }
+.v-profile .pf-rk-most { color: var(--ink-2); }
+.v-profile .pf-rv { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.v-profile .pf-rv .ink2 { color: var(--ink-2); }
+.v-profile .pf-bar { display: block; width: 60px; height: 4px; border-radius: 2px; background: var(--surface-3); overflow: hidden; }
+.v-profile .pf-bar > i { display: block; height: 100%; border-radius: 2px; background: currentColor; transform-origin: 0 50%; }
+.v-profile .pf-rv .tint + .pf-bar { color: var(--tint); }
+.v-profile .pf-rv .wrong + .pf-bar { color: var(--wrong); }
+.v-profile .pf-rv .ink2 + .pf-bar { color: var(--ink-2); }
+
+/* Records held */
+.v-profile .pf-rec .row-title,
+.v-profile .pf-rec .row-sub { white-space: normal; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+.v-profile .pf-val { display: flex; flex-direction: column; align-items: flex-end; min-width: 56px; max-width: 96px; }
+.v-profile .pf-val .n4 { color: var(--ink); white-space: nowrap; }
+.v-profile .pf-val .t-cap { color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+
+/* Draft capital */
+.v-profile .pf-draft .row-lead { gap: 4px; }
+.v-profile .pf-pick {
+  display: inline-grid; place-items: center;
+  min-width: 48px; height: 28px; padding: 0 8px;
+  font-size: 15px;
+  border-radius: var(--r-field);
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+/* Trades */
+.v-profile .pf-tcount {
+  display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 8px;
+  margin: 0 0 12px 4px; min-width: 0;
+}
+.v-profile .pf-tcount-t { font: 600 var(--fs-headline)/var(--lh-headline) var(--font-text); }
+.v-profile .pf-tcount-s { font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); min-width: 0; }
+.v-profile .pf-tlead { display: grid; place-items: center; width: 40px; }
+
+.v-profile .pf-none { padding: 14px 16px; }
+.v-profile .pf-unknown { padding-top: 32px; }
+.v-profile .pf-mgrs {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px 8px;
+  padding: 16px 8px;
+  background: var(--surface-1); border-radius: var(--r-card);
+}
+.v-profile .pf-mgr {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  min-width: 0; padding: 2px 0;
+  font: 500 13px/16px var(--font-text); color: var(--ink-2);
+  transition: transform var(--spring-snappy-dur) var(--spring-snappy);
+}
+.v-profile .pf-mgr.is-pressed { transform: scale(.94); transition: none; }
+.v-profile .pf-mgr-n { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------------------------------------------------------------- Avatar fly-in clone (lives on <body>) */
+.c-pfmorph { border-radius: 50%; }
+.c-pfmorph > .av { position: absolute; left: 0; top: 0; }
+.c-pfmorph-src { position: absolute; inset: 0; }
+.c-pfmorph-src > .av { position: absolute; left: 0; top: 0; }
+.c-pfmorph-ring {
+  position: absolute; inset: 0; border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--gold);
+  opacity: 0;
+}
+
+/* ---------------------------------------------------------------- Reduced motion: no reel, reveal or drift */
+html.rm .v-profile .pf-hero-in { animation: none; }
+html.rm .v-profile .pf-names.is-armed > .row .pf-reel-t { transform: none; }
+html.rm .v-profile .pf-chart.is-armed .pf-reveal { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .v-profile .pf-hero-in { animation: none; }
+  .v-profile .pf-names.is-armed > .row:nth-child(n) .pf-reel-t { transform: none; }
+  .v-profile .pf-chart.is-armed .pf-reveal { display: none; }
+}
