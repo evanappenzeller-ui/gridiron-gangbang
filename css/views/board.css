@@ -35,6 +35,8 @@
 .c-board .c-brow .row-lead { margin-right: 12px; }
 .c-board .c-brow .row-title { display: flex; align-items: center; gap: 6px; }
 .c-board .c-bnick { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Five-puzzle day subs wrap to two lines (the row grows to ~72px) instead of losing Faces, Journey and Grid. */
+.c-board .c-brow .row-sub.is-two { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
 .c-board .c-brow .row-trail { gap: 8px; margin-left: 10px; }
 .c-board .c-bval { color: var(--ink); min-width: 36px; text-align: right; }
 .c-board .c-bstreak { display: inline-flex; align-items: center; gap: 4px; }

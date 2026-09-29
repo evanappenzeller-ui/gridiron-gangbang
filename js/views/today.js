@@ -5,13 +5,16 @@
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as daily from '../core/daily.js';
-import {mountBoard, streakPillHTML, stepParts, ZERO_PARTS, gradeTitle, PUZZLE_ICON, whenVisible,
-  countdownHTML, tickCountdown, ensureDefs} from './board.js';
+import {mountBoard, streakPillHTML, stepParts, zeroParts, gradeTitle, stepIcon, whenVisible,
+  countdownHTML, tickCountdown, ensureDefs, ringHTML, maxPts, countWord, dayLabel} from './board.js';
 import {openYouSheet, openStreakSheet} from './you.js';
 
 const esc = data.esc;
 const nf = n => data.nf(n);
-const SUBS = ['5 players · up to 200', '7 clues · up to 350', '9 squares · up to 450'];
+// Row subs by step id (v1: col, who, grid; v2 adds sil and jr).
+const SUBS = {col: '5 players · up to 200', sil: '5 faces · up to 250', who: '7 clues · up to 350', jr: '3 guesses · up to 250', grid: '9 squares · up to 450'};
+const subOf = i => { const s = daily.STEPS[i]; return SUBS[s.id] || `up to ${nf(s.max)}`; };
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 const CHEV = '<svg class="ic chev" aria-hidden="true" focusable="false"><use href="#i-chevron-right"/></svg>';
 
 // Module memory for this page session: what the hub last showed, so count-ups and the streak roll start from it.
@@ -51,23 +54,27 @@ function onbHTML() {
 function statusLine() {
   const S = daily.STEPS;
   if (daily.allDone()) return `Locked in. ${gradeTitle(daily.gradeFor(daily.totalPts()))}.`;
-  if (!daily.anyStarted()) return 'Three puzzles. 1,000 points.';
+  if (!daily.anyStarted()) return `${cap(countWord())} puzzles. ${nf(maxPts())} points.`;
   const open = S[daily.firstOpen()];
   let last = null;
   S.forEach(s => { if (s.done()) last = s; });
-  return last ? `${last.label} done. ${open.label} is up.` : `${open.label} is up.`;
+  // "Silhouettes are up." (a plural label takes "are")
+  const up = `${open.label} ${/s$/.test(open.label) ? 'are' : 'is'} up.`;
+  return last ? `${last.label} done. ${up}` : up;
 }
 function ctaInfo() {
   if (daily.allDone()) return {label: 'See your results', path: '/today/results'};
   const i = daily.firstOpen();
   const path = '/today/play/' + daily.slug(i);
-  if (!daily.anyStarted()) return {label: "Start today's three", path};
+  if (!daily.anyStarted()) return {label: `Start today's ${countWord()}`, path};
   return {label: `Resume · ${daily.STEPS[i].label}`, path};
 }
 function progressText(i) {
-  const ds = daily.DS;
-  if (i === 0) return `${ds.col.a.length} of 5`;
-  if (i === 1) return `Clue ${ds.who.clues}`;
+  const ds = daily.DS, id = daily.STEPS[i].id;
+  if (id === 'col') return `${ds.col.a.length} of 5`;
+  if (id === 'sil') return `${((ds.sil && ds.sil.a) || []).length} of 5`;
+  if (id === 'who') return `Clue ${ds.who.clues}`;
+  if (id === 'jr') return `Guess ${Math.min(3, ((ds.jr && ds.jr.g) || []).length + 1)} of 3`;
   return `${ds.grid.cells.filter(Boolean).length} of 9`;
 }
 function pzState(i) {
@@ -84,38 +91,49 @@ function pzTrail(x) {
 function pzLabel(i, x) {
   const s = daily.STEPS[i];
   const st = x.k === 'done' ? `done, ${nf(x.p)} points${x.perfect ? ', perfect' : ''}` : x.k === 'started' ? `in progress, ${x.t}` : 'not started';
-  return `${s.label}, ${SUBS[i].replace(' · ', ', ')} points, ${st}`;
+  return `${s.label}, ${subOf(i).replace(' · ', ', ')} points, ${st}`;
 }
 function pzRowHTML(i) {
   const x = pzState(i);
   return `<button type="button" class="row c-pz" data-go="/today/play/${daily.slug(i)}" data-pz="${i}" data-sig="${esc(JSON.stringify(x))}" aria-label="${esc(pzLabel(i, x))}">`
-    + `<span class="row-lead"><span class="c-pz-tile">${ui.icon(PUZZLE_ICON[i], {size: 22})}</span></span>`
-    + `<span class="row-main"><span class="row-title">${esc(daily.STEPS[i].label)}</span><span class="row-sub">${esc(SUBS[i])}</span></span>`
+    + `<span class="row-lead"><span class="c-pz-tile">${ui.icon(stepIcon(i), {size: 22})}</span></span>`
+    + `<span class="row-main"><span class="row-title">${esc(daily.STEPS[i].label)}</span><span class="row-sub">${esc(subOf(i))}</span></span>`
     + `<span class="row-trail c-pz-trail">${pzTrail(x)}</span></button>`;
 }
 
 function readyCard() {
   const pnum = daily.PNUM;
-  const fresh = shown.pnum === pnum && shown.parts;
+  const fresh = shown.pnum === pnum && shown.parts && shown.parts.length === daily.STEPS.length;
   // The ring and total render at what this session last showed; onShow animates them to the live values.
-  const parts = fresh ? shown.parts : (ui.RM ? stepParts() : ZERO_PARTS);
+  const parts = fresh ? shown.parts : (ui.RM ? stepParts() : zeroParts());
   const total = fresh ? shown.total : (ui.RM ? daily.totalPts() : 0);
   const cta = ctaInfo();
-  const ring = ui.ring(parts, {
-    center: `<span class="n2 c-dc-total">${esc(nf(total))}</span><span class="c-dc-of">of 1,000</span>`,
-    label: `Today: ${nf(daily.totalPts())} of 1,000`, cls: 'c-dc-ring'
+  const max = nf(maxPts());
+  const ring = ringHTML(parts, {
+    center: `<span class="n2 c-dc-total">${esc(nf(total))}</span><span class="c-dc-of">of ${esc(max)}</span>`,
+    label: `Today: ${nf(daily.totalPts())} of ${max}`, cls: 'c-dc-ring'
   });
-  return `<section class="card card-hero c-dc is-ready" aria-labelledby="c-dc-o">
-<div class="c-dc-top"><p class="card-ovl" id="c-dc-o">Daily #${esc(pnum)}</p></div>
+  return `<section class="card card-hero c-dc is-ready${daily.STEPS.length > 3 ? ' is-five' : ''}" aria-labelledby="c-dc-o">
+<div class="c-dc-top"><p class="card-ovl" id="c-dc-o">Daily · ${esc(dayLabel(pnum))}</p></div>
 <div class="c-dc-ringw">${ring}</div>
 <p class="c-dc-status">${esc(statusLine())}</p>
 ${ui.button({label: cta.label, kind: 'primary', attrs: {'data-go': cta.path}, cls: 'c-dc-cta'})}
-<div class="c-dc-rows">${[0, 1, 2].map(pzRowHTML).join('')}</div>
+<div class="c-dc-rows">${daily.STEPS.map((_, i) => pzRowHTML(i)).join('')}</div>
 </section>`;
 }
+// Puzzle rows before puzzles.json arrives: what this phone showed today (the tab ring's gg-ring cache, same local
+// date), else five (every puzzle day from Wed, Sep 30 2026 on is a five-puzzle day), so the card does not jump.
+function loadingRows() {
+  try {
+    const v = JSON.parse(localStorage.getItem('gg-ring') || 'null');
+    if (v && v.date === new Date().toDateString() && Array.isArray(v.parts) && (v.parts.length === 3 || v.parts.length === 5)) return v.parts.length;
+  } catch (_) {}
+  return new Date() < new Date(2026, 8, 30) ? 3 : 5;
+}
 function loadingCard() {
-  const rows = [0, 1, 2].map(i => `<div class="row c-pz c-pz-sk" aria-hidden="true"><span class="row-lead"><span class="sk c-sk-tile"></span></span><span class="row-main"><span class="sk sk-line" style="width:${[42, 58, 34][i]}%"></span><span class="sk sk-line c-sk-sub" style="width:${[56, 48, 60][i]}%"></span></span></div>`).join('');
-  return `<section class="card card-hero c-dc is-loading" aria-busy="true">
+  const n = loadingRows();
+  const rows = Array.from({length: n}, (_, i) => `<div class="row c-pz c-pz-sk" aria-hidden="true"><span class="row-lead"><span class="sk c-sk-tile"></span></span><span class="row-main"><span class="sk sk-line" style="width:${[42, 58, 34, 50, 38][i]}%"></span><span class="sk sk-line c-sk-sub" style="width:${[56, 48, 60, 52, 44][i]}%"></span></span></div>`).join('');
+  return `<section class="card card-hero c-dc is-loading${n > 3 ? ' is-five' : ''}" aria-busy="true">
 <div class="c-dc-top"><span class="sk sk-line c-sk-ovl" aria-hidden="true"></span></div>
 <div class="c-dc-ringw" aria-hidden="true"><span class="sk c-sk-ring"></span></div>
 <span class="sk sk-line c-sk-status" aria-hidden="true"></span>
@@ -162,7 +180,7 @@ const rotdSig = r => r ? `${r.key}|${r.label}|${r.val}|${r.holders.join(';')}` :
 
 // ============================================================================ Patching
 function sameParts(a, b) {
-  if (!a || !b) return false;
+  if (!a || !b || a.length !== b.length) return false;
   return a.every((p, i) => p.frac === b[i].frac && !!p.perfect === !!b[i].perfect && !!p.doneZero === !!b[i].doneZero);
 }
 function setText(el, text, animate) {
@@ -203,7 +221,7 @@ function sync(st, animate = true) {
   const total = daily.totalPts();
   const ring = card.querySelector('.ring');
   const tot = card.querySelector('.c-dc-total');
-  if (ring) ring.setAttribute('aria-label', `Today: ${nf(total)} of 1,000`);
+  if (ring) ring.setAttribute('aria-label', `Today: ${nf(total)} of ${nf(maxPts())}`);
   const same = shown.pnum === daily.PNUM && shown.total === total && sameParts(shown.parts, parts);
   shown.pnum = daily.PNUM; shown.total = total; shown.parts = parts;
   patchPill(st, animate);

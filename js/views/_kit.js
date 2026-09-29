@@ -26,7 +26,7 @@ function routeRows() {
   const y = (data.DONE[0] && data.DONE[0].year) || data.span.last || 2025;
   const live = (data.SEASONS.find(s => s.live) || {}).year;
   const R = [
-    ['/today', 'root · Today'], ['/today/play/college', 'cover · run'], ['/today/play/mystery', 'cover · run'], ['/today/play/grid', 'cover · run'], ['/today/results', 'cover · results'],
+    ['/today', 'root · Today'], ['/today/play/college', 'cover · run'], ['/today/play/silhouette', 'cover · run (five-puzzle days)'], ['/today/play/mystery', 'cover · run'], ['/today/play/journey', 'cover · run (five-puzzle days)'], ['/today/play/grid', 'cover · run'], ['/today/results', 'cover · results'],
     ['/standings', 'root · Standings'], [`/standings/${y}`, 'push · season'], [`/standings/${y}/weeks`, 'push · season'], [`/standings/${y}/weeks/7`, 'push · season'], [`/standings/${y}/bracket`, 'push · season'], [`/standings/${y}/review`, 'push · review'],
     ...(live ? [[`/standings/${live}`, 'push · season in progress']] : []),
     ['/rivals', 'root · Rivals'], ['/rivals/evan-vs-mason', 'root · Rivals pair'],

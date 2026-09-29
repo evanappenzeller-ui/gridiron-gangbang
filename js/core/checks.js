@@ -29,10 +29,14 @@ function oldScoring(DS, DAY) {
   return {gridDone, gridScore, colDone, colScore, whoDone, ptsCol, ptsWho, ptsGrid, totalPts};
 }
 
-function oldShareText(DS, DAY, leagueName) {
+// The share header's date: today (a dev ?day= preview uses the previewed puzzle day, as daily.shareText does).
+const shareDate = () => (daily.DEV_DAY && daily.status === 'ready' ? daily.dateOf(daily.PNUM) : new Date());
+
+// when: the header date.
+function oldShareText(DS, DAY, leagueName, when = new Date()) {
   const nf = n => Number(n).toLocaleString('en-US');
   const {totalPts, colDone, whoDone, gridDone, gridScore} = oldScoring(DS, DAY);
-  const lines = [`${leagueName} daily, ${new Date().toLocaleDateString('en-US', {month: 'short', day: 'numeric'})}: ${nf(totalPts())} pts`];
+  const lines = [`${leagueName} daily, ${when.toLocaleDateString('en-US', {month: 'short', day: 'numeric'})}: ${nf(totalPts())} pts`];
   if (colDone()) lines.push('College ' + DS.col.a.map((a, r) => a === DAY.c[r][2] ? '🟩' : '🟥').join(''));
   if (whoDone()) lines.push(DS.who.won ? `Mystery player: clue ${DS.who.clues} of 7` : 'Mystery player: stumped');
   if (gridDone()) { lines.push(`Grid ${gridScore()}/9`); for (let r = 0; r < 3; r++) lines.push(DS.grid.cells.slice(r * 3, r * 3 + 3).map(c => c && c.ok ? '🟩' : '🟥').join('')); }
@@ -252,6 +256,50 @@ function craftDS2(DAY) {
   };
 }
 
+// The v1 checks run on a v1 day: today's entry when it is v1 (the normal case, so they test exactly
+// today's behavior), else the first v1 entry in days (a dev ?day= preview of a v2 day).
+function v1Day() {
+  if (!daily.isV2(daily.DAY)) return daily.DAY;
+  return daily.PZ.days.find(d => !daily.isV2(d));
+}
+
+// A crafted v2 day built from real P indexes of a v1 day: its grid, College rows and Mystery player,
+// a Journey for the Mystery player (his teams in P order, his N college) and five silhouette rounds
+// (answers = the College players, distractors = the higher/lower players), answer positions 0,1,2,3,0.
+function craftV2Day(base) {
+  const PP = daily.PP, w = base.w;
+  const pool = [...new Set(base.h.flat().filter(x => typeof x === 'number'))].filter(i => !base.c.some(c => c[0] === i));
+  const s = base.c.map((c, r) => {
+    const p = c[0], a = r % 4, o = pool.slice(r * 2, r * 2 + 3);
+    while (o.length < 3) o.push(r * 10 + o.length + 1);
+    o.splice(a, 0, p);
+    return {p, e: '0', o, a};
+  });
+  const col = daily.PZ.N[w] && daily.PZ.N[w][8] ? [daily.PZ.N[w][8]] : [];
+  return {v: 2, g: base.g.slice(), c: base.c, w, h: base.h, j: {p: w, col, t: PP[w][1]}, s};
+}
+
+// A crafted v2 DS: College 3 of 5 (120), Faces 3 of 5 (150), Mystery on clue 3 (250), Journey on guess 2
+// (150), Grid 5 of 9 (250). Hand-computed total 920.
+function craftV2DS(day) {
+  const ds = craftDS(day);
+  const S = day.s;
+  ds.sil = {a: [S[0].a, (S[1].a + 1) % 4, S[2].a, -1, S[4].a]};
+  ds.jr = {g: [day.j.p === 1 ? 2 : 1], done: true, won: true};
+  return ds;
+}
+// A perfect v2 DS: 200 + 250 + 350 + 250 + 450 = 1500.
+function perfectV2DS(day) {
+  return {
+    grid: {cells: Array.from({length: 9}, (_, k) => ({p: 200 + k, ok: true})), over: false},
+    col: {a: day.c.map(c => c[2])},
+    who: {g: [], clues: 1, done: true, won: true},
+    hl: {a: []},
+    sil: {a: day.s.map(x => x.a)},
+    jr: {g: [], done: true, won: true}
+  };
+}
+
 function fakePlayers(PNUM) {
   return [
     {id: 'fake-1', nick: 'Evan A.', days: {[PNUM]: {p: 620, g: 5, c: 3, w: 3}, [PNUM - 2]: {p: 580, g: 4, c: 3, w: 4}}, total: 1200, played: 2, last: PNUM},
@@ -285,9 +333,10 @@ export async function runChecks() {
   // 1. PNUM, dayIndex and DAY match the old formula
   check('PNUM, dayIndex and DAY match the old formula', () => {
     needDaily();
-    const PZ = daily.PZ, idx = oldDayIndex(PZ);
+    // A dev ?day=<PNUM> preview (dev hosts only) replaces the date-based index.
+    const PZ = daily.PZ, idx = daily.DEV_DAY ? daily.DEV_DAY - 1 : oldDayIndex(PZ);
     const pass = daily.dayIndex === idx && daily.PNUM === idx + 1 && daily.DAY === PZ.days[idx % PZ.days.length];
-    return {pass, detail: `dayIndex ${daily.dayIndex} (old ${idx}), PNUM ${daily.PNUM}, DAY is days[${idx % PZ.days.length}]: ${daily.DAY === PZ.days[idx % PZ.days.length]}`};
+    return {pass, detail: `dayIndex ${daily.dayIndex} (${daily.DEV_DAY ? 'dev ?day=' + daily.DEV_DAY : 'old ' + idx}), PNUM ${daily.PNUM}, DAY is days[${idx % PZ.days.length}]: ${daily.DAY === PZ.days[idx % PZ.days.length]}`};
   });
 
   // 2. SKEY
@@ -299,23 +348,27 @@ export async function runChecks() {
   // 3. totalPts for a crafted DS equals the hand-computed value
   check('totalPts() for a crafted DS equals the hand-computed value', () => {
     needDaily();
-    const ds = craftDS(daily.DAY), ds2 = craftDS2(daily.DAY);
-    const a = daily.totalPts(ds), b = daily.totalPts(ds2);
-    const oldA = oldScoring(ds, daily.DAY).totalPts(), oldB = oldScoring(ds2, daily.DAY).totalPts();
-    const steps = daily.STEPS.map(s => s.result(ds)).join(' | ');
+    const D = v1Day(), live = D === daily.DAY;
+    const ds = craftDS(D), ds2 = craftDS2(D);
+    // On a v1 day the default arguments (live DS/DAY/STEPS) must give the same answers.
+    const a = live ? daily.totalPts(ds) : daily.totalPts(ds, D), b = live ? daily.totalPts(ds2) : daily.totalPts(ds2, D);
+    const oldA = oldScoring(ds, D).totalPts(), oldB = oldScoring(ds2, D).totalPts();
+    const steps = (live ? daily.STEPS : daily.stepsFor(D)).map(s => s.result(ds, D)).join(' | ');
     const pass = a === 620 && b === 530 && oldA === 620 && oldB === 530
       && steps === '3 of 5 | Clue 3 of 7 | 5 of 9'
-      && daily.allDone(ds) && !daily.allDone(ds2) && daily.firstOpen(ds2) === 0;
-    return {pass, detail: `crafted ${a} (expected 620), second ${b} (expected 530); steps "${steps}"`};
+      && (live ? daily.allDone(ds) && !daily.allDone(ds2) && daily.firstOpen(ds2) === 0
+        : daily.allDone(ds, D) && !daily.allDone(ds2, D) && daily.firstOpen(ds2, D) === 0)
+      && (!live || (daily.STEPS === daily.stepsFor(D) && daily.maxPts() === 1000));
+    return {pass, detail: `crafted ${a} (expected 620), second ${b} (expected 530); steps "${steps}"${live ? '' : ' (on a v1 day; today is a v2 preview)'}`};
   });
 
   // 4. shareText for a crafted DS matches the old function
   check("shareText() for a crafted DS matches the old function's output", () => {
     needDaily(); needData();
-    const L = data.DATA.league.name;
-    const ds = craftDS(daily.DAY), ds2 = craftDS2(daily.DAY);
-    const a = daily.shareText(ds), b = daily.shareText(ds2);
-    const oa = oldShareText(ds, daily.DAY, L), ob = oldShareText(ds2, daily.DAY, L);
+    const L = data.DATA.league.name, D = v1Day(), live = D === daily.DAY;
+    const ds = craftDS(D), ds2 = craftDS2(D);
+    const a = live ? daily.shareText(ds) : daily.shareText(ds, D), b = live ? daily.shareText(ds2) : daily.shareText(ds2, D);
+    const oa = oldShareText(ds, D, L, shareDate()), ob = oldShareText(ds2, D, L, shareDate());
     return {pass: a === oa && b === ob && a.split('\n').length === 7, detail: JSON.stringify(a)};
   });
 
@@ -425,8 +478,13 @@ export async function runChecks() {
   });
 
   check('gradeFor() ladder', () => {
-    const g = [1000, 999, 850, 849, 650, 450, 250, 249, 0].map(daily.gradeFor).join(',');
-    return {pass: g === 'PERFECT DAY,ALL-PRO,ALL-PRO,PRO BOWL,PRO BOWL,STARTER,PRACTICE SQUAD,CUT DAY,CUT DAY', detail: g};
+    const want = 'PERFECT DAY,ALL-PRO,ALL-PRO,PRO BOWL,PRO BOWL,STARTER,PRACTICE SQUAD,CUT DAY,CUT DAY';
+    const T = [1000, 999, 850, 849, 650, 450, 250, 249, 0];
+    const g = T.map(t => daily.gradeFor(t, 1000)).join(',');
+    // Today's default max on a v1 day is 1,000; as an array callback the index is not taken as a max.
+    const v1 = !daily.isV2(daily.DAY);
+    const g2 = v1 ? T.map(daily.gradeFor).join(',') : want;
+    return {pass: g === want && g2 === want, detail: g};
   });
 
   check('Dev guard: no league-board writes from dev hosts without ?post=1', () => {
@@ -439,6 +497,234 @@ export async function runChecks() {
     const local = daily.isDevHost(location.hostname) && !post;
     const pass = !bad.length && daily.DEV_NO_POST === local && (!local || daily.LB.save === null);
     return {pass, detail: `${bad.length ? 'misclassified ' + bad.join(', ') + '; ' : ''}local ${local}, DEV_NO_POST ${daily.DEV_NO_POST}, LB.save ${daily.LB.save ? 'assigned' : 'unassigned'}, uid ${daily.LB.uid ? 'signed in' : 'none yet'}`};
+  });
+
+  // ---------------------------------------------------------------------------
+  // v2 days (5 puzzles, 1,500 points). Crafted from real P indexes; nothing is saved or emitted.
+  let V1 = null, V2 = null;
+  try { if (!dailyErr) { V1 = v1Day(); V2 = craftV2Day(V1); } } catch (_) { V1 = V2 = null; }
+  const needV2 = () => { needDaily(); if (!V2) throw new Error('could not craft a v2 day'); };
+
+  check('isV2, maxPts and the v1 / v2 step sets', () => {
+    needV2();
+    const ids = d => daily.stepsFor(d).map(s => s.id).join(','), sum = d => daily.stepsFor(d).reduce((t, s) => t + s.max, 0);
+    const pass = !daily.isV2(V1) && daily.isV2(V2) && daily.maxPts(V1) === 1000 && daily.maxPts(V2) === 1500
+      && daily.maxPts() === daily.maxPts(daily.DAY) && !daily.isV2(null) && daily.maxPts(null) === 1000
+      && ids(V1) === 'col,who,grid' && ids(V2) === 'col,sil,who,jr,grid' && sum(V1) === 1000 && sum(V2) === 1500
+      && daily.slugsFor(V1).join() === 'college,mystery,grid' && daily.slugsFor(V2).join() === 'college,silhouette,mystery,journey,grid'
+      && daily.STEPS === daily.stepsFor(daily.DAY) && daily.SLUGS === daily.slugsFor(daily.DAY)
+      && daily.SLUGS.every((s, i) => daily.slug(i) === s && daily.stepOf(s) === i) && daily.slug(daily.SLUGS.length) === null
+      && daily.__dev.scratch(V2, {}, () => daily.STEPS.length === 5 && daily.slug(3) === 'journey' && daily.stepOf('silhouette') === 1 && daily.maxPts() === 1500)
+      && daily.STEPS === daily.stepsFor(daily.DAY);
+    return {pass, detail: `v1 ${ids(V1)} = ${sum(V1)}, v2 ${ids(V2)} = ${sum(V2)}; today ${daily.isV2() ? 'v2' : 'v1'}, ${daily.STEPS.length} steps`};
+  });
+
+  check('totalPts() on a crafted v2 DS equals the hand-computed value', () => {
+    needV2();
+    const ds = craftV2DS(V2), pf = perfectV2DS(V2);
+    const part = {grid: {cells: Array(9).fill(null), over: false}, col: {a: [V2.c[0][2]]}, who: {g: [], clues: 1, done: false, won: false}, hl: {a: []}, sil: {a: []}, jr: {g: [], done: false, won: false}};
+    const a = daily.totalPts(ds, V2), p = daily.totalPts(pf, V2), q = daily.totalPts(part, V2);
+    const steps = daily.stepsFor(V2).map(s => s.result(ds, V2)).join(' | ');
+    const pts = daily.stepsFor(V2).map(s => s.pts(ds, V2)).join(',');
+    // The same DS scored as a v1 day ignores the v2 parts: 120 + 250 + 250.
+    const asV1 = daily.totalPts(ds, V1);
+    const pass = a === 920 && p === 1500 && q === 40 && asV1 === 620 && pts === '120,150,250,150,250'
+      && steps === '3 of 5 | 3 of 5 | Clue 3 of 7 | Guess 2 of 3 | 5 of 9'
+      && daily.allDone(ds, V2) && daily.allDone(pf, V2) && !daily.allDone(part, V2) && daily.firstOpen(part, V2) === 0
+      && daily.anyStarted(part, V2) && daily.firstOpen(Object.assign({}, pf, {jr: {g: [5], done: false, won: false}}), V2) === 3
+      && daily.jrGuessNo(ds) === 2 && daily.silScore(ds, V2) === 3;
+    return {pass, detail: `crafted ${a} (expected 920; ${pts}), perfect ${p} (1500), partial ${q} (40), as v1 ${asV1} (620); steps "${steps}"`};
+  });
+
+  check('gradeFor() on v2 totals (out of 1,500)', () => {
+    const g = [1500, 1499, 1275, 1274, 975, 974, 675, 375, 374, 0].map(t => daily.gradeFor(t, 1500)).join(',');
+    const want = 'PERFECT DAY,ALL-PRO,ALL-PRO,PRO BOWL,PRO BOWL,STARTER,STARTER,PRACTICE SQUAD,CUT DAY,CUT DAY';
+    return {pass: g === want, detail: g};
+  });
+
+  check('shareText() on v2 days: Faces and Journey lines', () => {
+    needV2(); needData();
+    const L = data.DATA.league.name, date = shareDate().toLocaleDateString('en-US', {month: 'short', day: 'numeric'});
+    const G = '🟩', R = '🟥';
+    const a = daily.shareText(craftV2DS(V2), V2);
+    const wantA = [`${L} daily, ${date}: 920 pts`, `College ${G}${R}${G}${G}${R}`, `Faces ${G}${R}${G}${R}${G}`, 'Mystery player: clue 3 of 7',
+      'Journey: guess 2 of 3', 'Grid 5/9', G + R + G, R + G + R, G + R + G].join('\n');
+    // Faces unfinished (no line), Journey missed, Mystery stumped, Grid all nine: 80 + 100 + 0 + 0 + 450 = 630.
+    const ds2 = Object.assign(craftDS2(V2), {sil: {a: [V2.s[0].a, V2.s[1].a]}, jr: {g: [1, 2, 3], done: true, won: false}});
+    const b = daily.shareText(ds2, V2);
+    const wantB = [`${L} daily, ${date}: 630 pts`, 'Mystery player: stumped', 'Journey: missed', 'Grid 9/9', G + G + G, G + G + G, G + G + G].join('\n');
+    const perfect = daily.shareText(perfectV2DS(V2), V2).split('\n')[0];
+    return {pass: a === wantA && b === wantB && perfect === `${L} daily, ${date}: 1,500 pts`, detail: JSON.stringify(a)};
+  });
+
+  check('silPick, journeyGuess and lockIn branching on a scratch DS', () => {
+    needV2();
+    const before = {ds: JSON.stringify(daily.DS), ls: (() => { try { return localStorage.getItem(daily.SKEY); } catch (_) { return null; } })(), day: daily.DAY};
+    let events = 0;
+    const off = daily.subscribe(t => { if (t === 'progress') events++; });
+    const log = [];
+    try {
+      const S = V2.s, wrongOf = r => (S[r].a + 1) % 4;
+      // Silhouettes
+      daily.__dev.scratch(V2, {}, ds => {
+        log.push(daily.silPick(1, 0) === null);                       // out of order
+        log.push(daily.silPick(0, 4) === null && daily.silPick(0, -1) === null && daily.silPick('x', 0) === null);
+        const r0 = daily.silPick('0', String(S[0].a));                 // strings coerce
+        log.push(!!r0 && r0.round === 0 && r0.correct === true && r0.ans === S[0].a && r0.p === S[0].p && ds.sil.a[0] === S[0].a);
+        log.push(daily.silPick(0, 0) === null);                         // already answered
+        const r1 = daily.silPick(1, wrongOf(1));
+        log.push(!!r1 && r1.correct === false && r1.ans === S[1].a);
+        for (let r = 2; r < 5; r++) daily.silPick(r, S[r].a);
+        log.push(daily.silPick(5, 0) === null && ds.sil.a.length === 5 && daily.silDone() && daily.silScore() === 4 && daily.ptsSil() === 200);
+      });
+      // Journey: three distinct wrong guesses lose, with hints after guesses 1 and 2
+      const J = V2.j.p, w = [1, 2, 3].map(x => x === J ? 4 : x);
+      daily.__dev.scratch(V2, {}, ds => {
+        log.push(daily.journeyGuess(-1) === null && daily.journeyGuess('abc') === null && daily.journeyHints().length === 0);
+        log.push(daily.journeyGuess(w[0]) === 'wrong' && daily.journeyHints().length === 1);
+        log.push(daily.journeyGuess(String(w[0])) === 'dup' && ds.jr.g.length === 1);
+        log.push(daily.journeyGuess(w[1]) === 'wrong' && daily.journeyHints().length === 2 && !ds.jr.done);
+        log.push(daily.journeyGuess(w[2]) === 'lost' && ds.jr.done && !ds.jr.won && daily.ptsJr() === 0 && daily.jrGuessNo() === 0);
+        log.push(daily.journeyGuess(J) === null && daily.journeyHints().length === 2);
+      });
+      // Journey: solved on guess 1 and on guess 3
+      daily.__dev.scratch(V2, {}, ds => { log.push(daily.journeyGuess(J) === 'win' && ds.jr.won && daily.jrGuessNo() === 1 && daily.ptsJr() === 250 && ds.jr.g.length === 0); });
+      daily.__dev.scratch(V2, {}, ds => {
+        daily.journeyGuess(w[0]); daily.journeyGuess(w[1]);
+        log.push(daily.journeyGuess(String(J)) === 'win' && daily.jrGuessNo() === 3 && daily.ptsJr() === 75 && daily.STEPS[3].result() === 'Guess 3 of 3');
+      });
+      // lockIn on v2: unanswered rounds become -1, Journey ends unsolved
+      daily.__dev.scratch(V2, {}, ds => {
+        daily.silPick(0, S[0].a); daily.silPick(1, S[1].a); daily.journeyGuess(w[0]);
+        daily.lockIn();
+        log.push(ds.sil.a.join() === [S[0].a, S[1].a, -1, -1, -1].join() && ds.jr.done && !ds.jr.won && ds.who.done && ds.grid.over
+          && ds.col.a.length === 5 && daily.allDone() && daily.totalPts() === 100);
+      });
+      // v1 day: the v2 actions refuse, and lockIn leaves the v2 parts alone
+      daily.__dev.scratch(V1, {}, ds => {
+        log.push(daily.silPick(0, 0) === null && daily.journeyGuess(V1.w) === null && daily.journeyPath() === null && daily.journeyHints().length === 0);
+        daily.lockIn();
+        log.push(ds.sil.a.length === 0 && !ds.jr.done && daily.allDone() && daily.totalPts() === 0);
+      });
+    } finally { off(); }
+    const after = {ds: JSON.stringify(daily.DS), ls: (() => { try { return localStorage.getItem(daily.SKEY); } catch (_) { return null; } })()};
+    const clean = after.ds === before.ds && after.ls === before.ls && daily.DAY === before.day && events === 0;
+    const bad = log.map((x, i) => x ? null : i + 1).filter(Boolean);
+    return {pass: !bad.length && clean && log.length === 17, detail: bad.length ? 'failed steps ' + bad.join(', ') : `${log.length} steps ok; live DS, storage and events untouched: ${clean}`};
+  });
+
+  check('v2 saved state: partial sil/jr objects are normalized; a previewed day never posts', () => {
+    needV2();
+    const S = V2.s, J = V2.j.p, wrong = J === 1 ? 2 : 1;
+    const log = [];
+    const v2n = daily.PZ.days.findIndex(d => daily.isV2(d)) + 1;
+    log.push(v2n > 0 && daily.pointsFor({sil: {}, jr: {done: false}}, v2n) === 0);   // read side on a real v2 day
+    daily.__dev.scratch(V2, {sil: {}, jr: {done: false}}, ds => {
+      log.push(Array.isArray(ds.sil.a) && Array.isArray(ds.jr.g) && ds.jr.done === false);
+      log.push(!!daily.silPick(0, S[0].a) && daily.journeyGuess(wrong) === 'wrong');
+      let threw = false; try { daily.lockIn(); } catch (_) { threw = true; }
+      log.push(!threw && ds.sil.a.length === 5 && ds.jr.done);
+    });
+    daily.__dev.scratch(V2, {sil: 'x', jr: {done: true, won: true}}, ds => { log.push(ds.sil.a.length === 0 && ds.jr.done && ds.jr.won && ds.jr.g.length === 0); });
+    // ?day=N on a dev host must keep posting off even with ?post=1 (DEV_NO_POST is fixed at load).
+    log.push(daily.DEV_DAY == null || daily.DEV_NO_POST === true);
+    const bad = log.map((x, i) => x ? null : i + 1).filter(Boolean);
+    return {pass: !bad.length, detail: bad.length ? 'failed steps ' + bad.join(', ') : `${log.length} steps ok (DEV_DAY ${daily.DEV_DAY}, DEV_NO_POST ${daily.DEV_NO_POST})`};
+  });
+
+  check('journeyPath() and journeyClues() on crafted v2 days', () => {
+    needV2();
+    const PP = daily.PP, PZ = daily.PZ, j = V2.j;
+    const path = daily.journeyPath(V2);
+    const teams = [...j.t].map(c => PZ.teams[daily.TA.indexOf(c)]);
+    const n = PZ.N[j.p];
+    const clues = daily.journeyClues(V2).map(x => x.join(': '));
+    const want = [`Position: ${daily.POSN[PP[j.p][2]]}`, `Draft: ${n[0]}, round ${n[1]}`];
+    // Fallbacks: a frozen j.d wins; else P's round with the first season; 'U' reads Undrafted.
+    const alt = t => Object.assign({}, V2, {j: Object.assign({}, j, t)});
+    const withD = daily.journeyClues(alt({d: [2019, 3]}))[1][1], undD = daily.journeyClues(alt({d: [null, 'U']}))[1][1];
+    const pu = PP.findIndex((p, i) => p[3] === 'U' && !PZ.N[i]), pr = PP.findIndex((p, i) => /^\d+$/.test(p[3]) && !PZ.N[i] && p[5] >= 2015);
+    const und = daily.journeyClues(alt({p: pu}))[1][1], rnd = daily.journeyClues(alt({p: pr}))[1][1];
+    const kc = daily.journeyPath(alt({col: ['Wake Forest', 'Michigan State'], t: 'cP'}));
+    const pass = !!path && path.teams.join() === teams.join() && path.current === teams[teams.length - 1] && path.colleges.join() === j.col.join()
+      && clues.join('|') === want.join('|') && withD === '2019, round 3' && undD === 'Undrafted' && und === 'Undrafted'
+      && rnd === `${PP[pr][4]}, round ${PP[pr][3]}`
+      && kc.colleges.join() === 'Wake Forest,Michigan State' && kc.teams.join() === 'Seahawks,Chiefs' && kc.current === 'Chiefs'
+      && daily.journeyHints({jr: {g: [1, 2, 3], done: true, won: false}}, V2).join('|') === want.join('|');
+    return {pass, detail: `${path && path.colleges.join(' > ')} > ${teams.join(' > ')} (now ${path && path.current}); ${clues.join('; ')}; fallback ${rnd}`};
+  });
+
+  check('boardRows(): v2 day entries append faces and path', () => {
+    needDaily();
+    const P = daily.PNUM;
+    const players = [
+      {id: 'v2-a', nick: 'Evan', days: {[P]: {p: 1180, g: 6, c: 4, w: 2, j: 1, s: 3}}, total: 1180, played: 1, last: P},
+      {id: 'v2-b', nick: 'Mason', days: {[P]: {p: 380, g: 3, c: 2, w: 0, j: 0, s: 0}}, total: 380, played: 1, last: P},
+      {id: 'v1-c', nick: 'Zed', days: {[P]: {p: 620, g: 5, c: 3, w: 3}}, total: 620, played: 1, last: P}
+    ];
+    const got = daily.boardRows('today', players).map(r => r.id + '|' + r.sub + '|' + r.rank).join(';');
+    const want = ['v2-a|College 4/5, faces 3/5, ID on clue 2, path on guess 1, grid 6/9|1', 'v1-c|College 3/5, grid 5/9, ID on clue 3|2',
+      'v2-b|College 2/5, faces 0/5, no ID, no path, grid 3/9|3'].join(';');
+    return {pass: got === want, detail: got};
+  });
+
+  check('dayLabel(), dayFor() and the dev ?day= preview', () => {
+    needDaily();
+    const f = daily.__dev.devDayFrom;
+    const parse = f('?day=3', 'localhost') === 3 && f('?day=3&x=1', '192.168.1.20') === 3 && f('?day=3', 'evanappenzeller-ui.github.io') === null
+      && f('?day=0', 'localhost') === null && f('?day=abc', 'localhost') === null && f('?day=-2', 'localhost') === null && f('', 'localhost') === null;
+    const labels = daily.dayLabel(1) === 'Mon, Sep 28' && daily.dayLabel(2) === 'Tue, Sep 29' && daily.dayLabel(3, {long: true}) === 'Wednesday, September 30'
+      && daily.dayLabel(daily.PNUM, {long: true}) === daily.TODAY_LABEL && daily.dayLabel() === daily.dayLabel(daily.PNUM);
+    const days = daily.dayFor(1) === daily.PZ.days[0] && daily.dayFor() === daily.DAY && daily.dayFor(daily.PZ.days.length + 1) === daily.PZ.days[0] && daily.dayFor(0) === null;
+    // Without a preview the day follows the calendar; a preview pins it (no 'newday').
+    const pinned = daily.DEV_DAY ? daily.PNUM === daily.DEV_DAY && daily.checkDay() === false : daily.DEV_DAY === null;
+    return {pass: parse && labels && days && pinned, detail: `day 1 ${daily.dayLabel(1)}, today ${daily.dayLabel()} / ${daily.TODAY_LABEL}; DEV_DAY ${daily.DEV_DAY}`};
+  });
+
+  check('Grid examples prefer audience players, then non-specialists, then the most recognizable', () => {
+    needDaily();
+    const PP = daily.PP, aud = daily.isAudienceIdx, spec = i => ['K', 'P', 'LS', 'ST'].includes(PP[i][2]);
+    // Today's grid plus a v2 day's (the ranking is the same on both versions).
+    const v2 = daily.PZ.days.find(d => daily.isV2(d));
+    const bad = [];
+    let older = 0, specs = 0;
+    const names = [];
+    const days = [daily.DAY, v2].filter((D, k, a) => D && a.indexOf(D) === k);
+    for (const D of days) {
+      const ex = daily.examplesFor(new Set(), D);
+      for (let k = 0; k < 9; k++) {
+        const r = D.g[Math.floor(k / 3)], c = D.g[3 + (k % 3)];
+        const fits = [];
+        for (let i = 0; i < PP.length; i++) if (daily.critOk(r, PP[i]) && daily.critOk(c, PP[i])) fits.push(i);
+        const best = fits.reduce((b, i) => b < 0 || daily.exampleRank(i) > daily.exampleRank(b) ? i : b, -1);
+        if (ex[k] !== best || daily.exampleFor(r, c, new Set()) !== best) bad.push(`${D === daily.DAY ? 'today' : 'v2'} ${k}`);
+        // the order's promises: an audience player whenever one fits; a non-specialist whenever an audience one fits
+        if (best >= 0 && !aud(best) && fits.some(aud)) bad.push(`${k} not audience`);
+        if (best >= 0 && spec(best) && fits.some(i => aud(i) && !spec(i))) bad.push(`${k} specialist`);
+        if (best >= 0 && !aud(best)) older++;
+        if (best >= 0 && spec(best)) specs++;
+        if (D === daily.DAY) names.push(best >= 0 ? PP[best][0] : '-');
+      }
+    }
+    return {pass: !bad.length, detail: bad.length ? 'squares differ: ' + bad.join(', ') : `${days.length * 9} squares agree (${older} pre-2010, ${specs} specialists): ${names.join(', ')}`};
+  });
+
+  check('puzzles.json: days 1 and 2 are v1, v2 entries are well-formed', () => {
+    needDaily();
+    const PZ = daily.PZ, PP = daily.PP, bad = [];
+    let v2 = 0;
+    if (daily.isV2(PZ.days[0]) || daily.isV2(PZ.days[1])) bad.push('days 1-2 must stay v1');
+    PZ.days.forEach((d, i) => {
+      if (!daily.isV2(d)) return;
+      v2++;
+      const at = `day ${i + 1}: `;
+      if (!Array.isArray(d.g) || d.g.length !== 6) bad.push(at + 'g');
+      if (!Array.isArray(d.c) || d.c.length !== 5 || d.c.some(c => !PP[c[0]] || c[1].length !== 4 || !(c[2] >= 0 && c[2] < 4))) bad.push(at + 'c');
+      if (!PP[d.w] || !PZ.N[d.w]) bad.push(at + 'w');
+      if (!d.j || !PP[d.j.p] || !Array.isArray(d.j.col) || !d.j.t || [...d.j.t].some(ch => daily.TA.indexOf(ch) < 0 || daily.TA.indexOf(ch) >= PZ.teams.length)) bad.push(at + 'j');
+      if (!Array.isArray(d.s) || d.s.length !== 5 || d.s.some(s => !PP[s.p] || !Array.isArray(s.o) || s.o.length !== 4 || s.o[s.a] !== s.p || new Set(s.o).size !== 4 || s.o.some(o => !PP[o]))) bad.push(at + 's');
+    });
+    return {pass: !bad.length, detail: bad.length ? bad.slice(0, 6).join('; ') + (bad.length > 6 ? ` (+${bad.length - 6})` : '') : `${PZ.days.length} days, ${v2} v2`};
   });
 
   return out;

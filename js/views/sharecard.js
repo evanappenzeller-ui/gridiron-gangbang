@@ -49,9 +49,11 @@ function flamePath() {
 export async function renderShareCard(o = {}) {
   if (daily.status !== 'ready' || !daily.DAY) throw new Error('The Daily is not loaded');
   const ds = o.ds || daily.DS, day = o.day || daily.DAY, pnum = o.pnum || daily.PNUM;
+  const v2 = daily.isV2(day);
+  const max = daily.maxPts(day);
   const total = daily.totalPts(ds, day);
-  const grade = daily.gradeFor(total);
-  const perfect = total >= 1000;
+  const grade = daily.gradeFor(total, max);
+  const perfect = total >= max;
   const streak = o.streak != null ? o.streak : daily.streakLocal().current;
   const rank = o.rank;
   try {
@@ -76,9 +78,9 @@ export async function renderShareCard(o = {}) {
   c.textAlign = 'center';
   c.textBaseline = 'alphabetic';
 
-  // Overline + date
+  // Overline + date (the puzzle day's date replaces the old "Daily #n")
   const league = (data.DATA && data.DATA.league && data.DATA.league.name) || 'Gridiron Gangbang';
-  const ovl = `${league} · Daily #${pnum}`.toUpperCase();
+  const ovl = `${league} · Daily`.toUpperCase();
   spacing(c, 4);
   c.fillStyle = C.ink3;
   fitFont(c, ovl, 800, 44, NUM, W - PAD * 2);
@@ -90,18 +92,23 @@ export async function renderShareCard(o = {}) {
   c.font = `400 34px ${txt}`;
   c.fillText(dateStr, W / 2, 204);
 
+  // Layout: v1 (three rows) keeps the original positions; v2 (five rows) tightens the hero and the rows.
+  const G = v2
+    ? {tot: 220, totY: 420, ofY: 474, grY: 548, grS: 52, rule: 592, rows: [616, 708, 800, 892, 984], sq: 64, sqGap: 12, pip: 50, cell: 46, cellGap: 8}
+    : {tot: 260, totY: 468, ofY: 526, grY: 612, grS: 56, rule: 668, rows: [706, 826, 928], sq: 72, sqGap: 14, pip: 56, cell: 56, cellGap: 10};
+
   // Total, "of 1,000", grade
   c.fillStyle = C.ink;
-  c.font = `800 260px ${NUM}`;
-  c.fillText(data.nf(total), W / 2, 468);
+  c.font = `800 ${G.tot}px ${NUM}`;
+  c.fillText(data.nf(total), W / 2, G.totY);
   c.fillStyle = C.ink3;
   c.font = `800 40px ${NUM}`;
   spacing(c, 2);
-  c.fillText('OF 1,000', W / 2, 526);
+  c.fillText(`OF ${data.nf(max)}`, W / 2, G.ofY);
   spacing(c, 6);
-  c.fillStyle = total >= 850 ? C.gold : C.ink2;
-  c.font = `800 56px ${NUM}`;
-  c.fillText(grade, W / 2, 612);
+  c.fillStyle = grade === 'ALL-PRO' || grade === 'PERFECT DAY' ? C.gold : C.ink2;
+  c.font = `800 ${G.grS}px ${NUM}`;
+  c.fillText(grade, W / 2, G.grY);
   spacing(c, 0);
 
   // Rows: label + points on the left, marks on the right.
@@ -118,53 +125,83 @@ export async function renderShareCard(o = {}) {
     c.fillText(`${data.nf(pts)} PTS`, L, y + 38);
     spacing(c, 0);
   };
-  // Hairline above the rows
-  c.fillStyle = C.s2;
-  c.fillRect(L, 668, R - L, 2);
-
-  // College: five 72px squares
-  let y = 706;
-  label('COLLEGE', daily.ptsCol(ds, day), y + 34);
-  const col = day.c.map((q, r) => ds.col.a[r] == null ? null : ds.col.a[r] === q[2]);
-  for (let i = 0; i < 5; i++) {
-    const x = R - (5 - i) * 72 - (4 - i) * 14;
-    rr(c, x, y, 72, 72, 16);
-    c.fillStyle = col[i] == null ? C.s3 : col[i] ? C.tint : C.wrong;
-    c.fill();
-  }
-
-  // Mystery: seven pips with the solving clue lit, or STUMPED
-  y = 826;
-  label('MYSTERY', daily.ptsWho(ds), y + 34);
-  if (ds.who.done && !ds.who.won) {
+  const word = (t, y, color) => {
     c.textAlign = 'right';
     spacing(c, 4);
-    c.fillStyle = C.wrong;
+    c.fillStyle = color;
     c.font = `800 56px ${NUM}`;
-    c.fillText('STUMPED', R, y + 56);
+    c.fillText(t, R, y + 56);
     spacing(c, 0);
-  } else {
-    const at = ds.who.won ? ds.who.clues : 0;
-    for (let i = 1; i <= 7; i++) {
-      const cx = R - (7 - i) * 56 - 20, cy = y + 36;
-      c.beginPath();
-      c.arc(cx, cy, i === at ? 20 : 14, 0, Math.PI * 2);
-      c.fillStyle = i === at ? C.tint : i < at ? C.ink4 : C.s3;
+  };
+  // Five rounded squares (College, Faces): tint right, red wrong, grey unanswered.
+  const squares = (marks, y) => {
+    for (let i = 0; i < 5; i++) {
+      const x = R - (5 - i) * G.sq - (4 - i) * G.sqGap;
+      rr(c, x, y, G.sq, G.sq, 16);
+      c.fillStyle = marks[i] == null ? C.s3 : marks[i] ? C.tint : C.wrong;
       c.fill();
     }
-  }
+  };
+  // Hairline above the rows
+  c.fillStyle = C.s2;
+  c.fillRect(L, G.rule, R - L, 2);
 
-  // Grid: 3×3 of 56px squares
-  y = 928;
-  label('GRID', daily.ptsGrid(ds), y + 34);
-  for (let k = 0; k < 9; k++) {
-    const r = Math.floor(k / 3), cc = k % 3;
-    const x = R - (3 - cc) * 56 - (2 - cc) * 10, yy = y + r * 66;
-    const cell = ds.grid.cells[k];
-    rr(c, x, yy, 56, 56, 12);
-    c.fillStyle = !cell ? C.s3 : cell.ok ? C.tint : C.wrong;
-    c.fill();
-  }
+  const order = v2 ? ['col', 'sil', 'who', 'jr', 'grid'] : ['col', 'who', 'grid'];
+  order.forEach((id, n) => {
+    const y = G.rows[n];
+    if (id === 'col') {
+      // College: five squares
+      label('COLLEGE', daily.ptsCol(ds, day), y + 34);
+      squares(day.c.map((q, r) => ds.col.a[r] == null ? null : ds.col.a[r] === q[2]), y);
+    } else if (id === 'sil') {
+      // Faces: five squares, one per silhouette
+      const a = (ds.sil && ds.sil.a) || [];
+      label('FACES', daily.ptsSil(ds, day), y + 34);
+      squares((day.s || []).map((q, r) => a[r] == null ? null : a[r] === q.a), y);
+    } else if (id === 'who') {
+      // Mystery: seven pips with the solving clue lit, or STUMPED
+      label('MYSTERY', daily.ptsWho(ds), y + 34);
+      if (ds.who.done && !ds.who.won) word('STUMPED', y, C.wrong);
+      else {
+        const at = ds.who.won ? ds.who.clues : 0;
+        for (let i = 1; i <= 7; i++) {
+          const cx = R - (7 - i) * G.pip - 20, cy = y + 36;
+          c.beginPath();
+          c.arc(cx, cy, i === at ? 20 : 14, 0, Math.PI * 2);
+          c.fillStyle = i === at ? C.tint : i < at ? C.ink4 : C.s3;
+          c.fill();
+        }
+      }
+    } else if (id === 'jr') {
+      // Journey: three guesses, the solving one lit (misses in red), or MISSED
+      const jr = ds.jr || {g: [], done: false, won: false};
+      label('JOURNEY', daily.ptsJr(ds), y + 34);
+      if (jr.done && !jr.won) word('MISSED', y, C.wrong);
+      else {
+        const at = daily.jrGuessNo(ds);
+        const miss = (jr.g || []).length; // wrong guesses
+        for (let i = 1; i <= 3; i++) {
+          const cx = R - (3 - i) * 64 - 22, cy = y + 36;
+          c.beginPath();
+          c.arc(cx, cy, i === at ? 22 : 15, 0, Math.PI * 2);
+          c.fillStyle = i === at ? C.tint : i <= miss ? C.wrong : C.s3;
+          c.fill();
+        }
+      }
+    } else {
+      // Grid: 3×3 squares
+      label('GRID', daily.ptsGrid(ds), y + 34);
+      const step = G.cell + G.cellGap;
+      for (let k = 0; k < 9; k++) {
+        const r = Math.floor(k / 3), cc = k % 3;
+        const x = R - (3 - cc) * G.cell - (2 - cc) * G.cellGap, yy = y + r * step;
+        const cell = ds.grid.cells[k];
+        rr(c, x, yy, G.cell, G.cell, 12);
+        c.fillStyle = !cell ? C.s3 : cell.ok ? C.tint : C.wrong;
+        c.fill();
+      }
+    }
+  });
 
   // Footer: flame + streak · rank, then the short URL
   const bits = [];

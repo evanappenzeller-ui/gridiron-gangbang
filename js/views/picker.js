@@ -1,7 +1,8 @@
 // Player picker (spec 7.6): a large sheet with a search field and up to 8 player rows.
 // Used by the Mystery player and the Grid inside the run cover. Owner: puzzle-run package.
 //
-//   openPicker({kind: 'mystery'|'grid', title, worth, criteria: [r, c], disabled: i => '' | 'Guessed' | 'On your grid'})
+//   openPicker({kind: 'mystery'|'journey'|'grid', title, worth, criteria: [r, c], disabled: i => '' | 'Guessed' | 'On your grid'})
+//   ('journey' looks and behaves like 'mystery': a title with the "Worth n" caption and "Guessed" rows.)
 //     → Promise<playerIndex | null>
 //
 // Call it synchronously inside the tap handler: the sheet and its search field are created and focused inside
@@ -77,7 +78,7 @@ function headerHTML({kind, title, worth, criteria}) {
  * drag, Esc, Android Back).
  */
 export function openPicker(o = {}) {
-  const kind = o.kind === 'grid' ? 'grid' : 'mystery';
+  const kind = o.kind === 'grid' || o.kind === 'journey' ? o.kind : 'mystery';
   const disabledOf = typeof o.disabled === 'function' ? o.disabled : () => '';
   const uid = 'pk' + (++seq);
   const label = kind === 'grid' && o.criteria && o.criteria.length === 2
@@ -119,7 +120,7 @@ export function openPicker(o = {}) {
     const search = () => {
       const q = input.value;
       const tokens = daily.norm(q).split(' ').filter(Boolean);
-      const res = tokens.length ? daily.searchPlayers(q) : [];
+      const res = tokens.length ? daily.searchPlayers(q, {audienceFirst: kind !== 'grid'}) : [];
       list.innerHTML = res.map((i, n) => {
         const p = daily.PP[i];
         const dis = disabledOf(i) || '';

@@ -1,0 +1,134 @@
+/* silhouette.css: Silhouettes inside the run cover (v2 days). Owner: views. Scope: .v-run
+   The options, marks, dots, verdict and recap use the College classes (college.css); this file draws the stage. */
+
+.v-run .sl-wrap { position: relative; isolation: isolate; }
+
+/* ------------------------------------------------------------------ Stage: spotlight, silhouette, photo, plate */
+/* The silhouette is the whole puzzle: the stage takes the free room, so the verdict and "Next face" still sit above
+   the bottom bar (244px at 360 x 740, 281px at 390 x 844). */
+.v-run .sl-stage {
+  position: relative; z-index: 2;
+  height: clamp(200px, min(72vw, 100svh - 496px), 330px); /* 496px: header, options, verdict and the bottom bar */
+  border-radius: var(--r-card);
+  background: var(--surface-1);
+  overflow: hidden;
+  -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
+}
+.v-run .sl-fly { position: absolute; left: 0; right: 0; top: 0; z-index: 3; pointer-events: none; transform-origin: 50% 80%; }
+
+/* A soft stage light behind the player: the black silhouette reads against it. */
+.v-run .sl-spot {
+  position: absolute; inset: 0;
+  background: radial-gradient(64% 80% at 50% 64%, var(--surface-3), var(--surface-1) 74%);
+  background: radial-gradient(64% 80% at 50% 64%, color-mix(in srgb, var(--ink) 30%, var(--surface-3)), var(--surface-3) 40%, var(--surface-1) 78%);
+}
+/* The verdict's color washes the light after the answer (opacity only). */
+.v-run .sl-glow { position: absolute; inset: 0; opacity: 0; transition: opacity 480ms var(--ease-out); }
+.v-run .sl-stage.is-right .sl-glow { background: radial-gradient(60% 78% at 50% 64%, var(--tint-soft), transparent 76%); opacity: 1; }
+.v-run .sl-stage.is-wrong .sl-glow { background: radial-gradient(60% 78% at 50% 64%, var(--wrong-soft), transparent 76%); opacity: 1; }
+.v-run .sl-stage::after {
+  content: ""; position: absolute; inset: 0; z-index: 5; border-radius: inherit; pointer-events: none;
+  box-shadow: inset 0 0 0 1.5px var(--tint);
+  opacity: 0; transition: opacity 300ms var(--ease-out);
+}
+.v-run .sl-stage.is-wrong::after { box-shadow: inset 0 0 0 1.5px var(--wrong); }
+.v-run .sl-stage.is-revealed::after { opacity: 1; }
+
+/* The two copies of the headshot, anchored to the bottom edge like a bust, enlarged a little (static `scale`, which
+   composes with the reveal's transform pulse) so the head, hair and ears fill more of the frame. */
+.v-run .sl-pics { position: absolute; left: 0; right: 0; top: 0; bottom: 0; z-index: 2; pointer-events: none; scale: 1.06; transform-origin: 50% 100%; }
+.v-run .sl-img {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: contain; object-position: 50% 100%;
+  pointer-events: none;
+}
+.v-run .sl-dark { filter: brightness(0); }
+.v-run .sl-real { opacity: 0; transition: opacity 620ms var(--ease-out); }
+.v-run .sl-stage.is-loading .sl-dark { opacity: 0; }
+.v-run .sl-stage.is-revealed .sl-real { opacity: 1; }
+.v-run .sl-stage.is-failed .sl-pics { display: none; }
+
+/* Loading: a pulsing bust-shaped skeleton (not the placeholder figure, which would read as the puzzle's silhouette);
+   the options wait (aria-disabled) until the photo or the no-photo clue shows. */
+.v-run .sl-sk { position: absolute; inset: 0; z-index: 2; opacity: 0; transition: opacity 200ms linear; pointer-events: none; }
+.v-run .sl-sk > i, .v-run .sl-sk > b { position: absolute; left: 50%; display: block; background: var(--surface-3); }
+.v-run .sl-sk > i { width: 30%; aspect-ratio: 1; max-width: 104px; top: 16%; translate: -50% 0; border-radius: 50%; }
+.v-run .sl-sk > b { width: 64%; height: 30%; bottom: 0; translate: -50% 0; border-radius: 48% 48% 0 0 / 70% 70% 0 0; }
+.v-run .sl-stage.is-loading .sl-sk { opacity: 1; }
+.v-run .sl-stage.is-loading .sl-sk > * { animation: sk-pulse 1.2s ease-in-out infinite alternate; }
+.v-run .sl-opt[aria-disabled="true"] { opacity: .55; cursor: progress; }
+
+/* Failed photo: a neutral filled figure plus the clue (his team and draft). */
+.v-run .sl-ph {
+  position: absolute; inset: 0; z-index: 2;
+  display: grid; place-items: center;
+  color: var(--ink-4);
+  opacity: 0; transition: opacity 200ms linear;
+}
+.v-run .sl-ph > .ic { width: 88px; height: 88px; margin-top: -44px; }
+.v-run .sl-stage.is-failed .sl-ph { opacity: 1; }
+.v-run .sl-stage.is-failed .sl-spot { opacity: .35; } /* the clue text needs the darker ground (4.5:1) */
+.v-run .sl-clue {
+  position: absolute; left: 16px; right: 16px; bottom: 16px; z-index: 3;
+  display: none; flex-direction: column; align-items: center; gap: 2px; text-align: center;
+  transition: opacity 200ms linear;
+}
+.v-run .sl-clue > .ovl { color: var(--ink-2); }
+.v-run .sl-clue-t { font: 600 var(--fs-headline)/var(--lh-headline) var(--font-text); color: var(--ink); overflow-wrap: anywhere; }
+.v-run .sl-stage.is-failed .sl-clue { display: flex; }
+/* At the reveal the clue fades out under the rising name plate (it stays in layout: no empty frame). */
+.v-run .sl-stage.is-failed.is-revealed .sl-clue { opacity: 0; }
+
+/* Team clue (rounds 4 and 5): a chip in the top left corner, above the silhouette. */
+.v-run .sl-hint {
+  position: absolute; left: 12px; top: 12px; z-index: 4; max-width: calc(100% - 24px);
+  display: inline-flex; align-items: baseline; gap: 6px;
+  padding: 5px 10px; border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  box-shadow: inset 0 0 0 1px var(--surface-3);
+  transition: opacity 200ms linear;
+}
+.v-run .sl-hint > .ovl { color: var(--ink-2); flex: none; }
+.v-run .sl-hint-t { font: 600 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-run .sl-stage.is-failed .sl-hint, .v-run .sl-stage.is-revealed .sl-hint { opacity: 0; }
+
+/* Name plate (written at the reveal): a lower third over the shoulders. The ground is nearly opaque under the text
+   and the text carries a soft shadow, so the name holds 4.5:1 over red and white jerseys. */
+.v-run .sl-plate {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 3;
+  display: none; flex-direction: column; gap: 1px;
+  padding: 34px 16px 12px;
+  background: linear-gradient(to top, var(--surface-1) 45%, color-mix(in srgb, var(--surface-1) 75%, transparent) 72%, transparent);
+}
+.v-run .sl-stage.is-revealed .sl-plate { display: flex; }
+.v-run .sl-pn { font: 700 var(--fs-headline)/var(--lh-headline) var(--font-text); color: var(--ink); overflow-wrap: anywhere; text-shadow: 0 1px 10px rgba(0,0,0,.55); }
+.v-run .sl-pl { font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2); text-shadow: 0 1px 10px rgba(0,0,0,.55); }
+
+/* Options sit a little closer to the stage than College's to its card stack. Names get three lines (hyphenated
+   surnames wrap at the hyphen: "Jeremiah Owusu-Koramoah"). */
+.v-run .sl-opts { margin-top: 14px; }
+.v-run .sl-opt .cl-ot { -webkit-line-clamp: 3; line-clamp: 3; }
+
+/* ------------------------------------------------------------------ Recap thumbnails */
+.v-run .sl-thumb {
+  position: relative; display: grid; place-items: center;
+  width: 40px; height: 40px; border-radius: 50%; flex: none;
+  background: var(--surface-2); overflow: hidden;
+}
+.v-run .sl-thumb > img {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; object-position: 50% 0;
+  transform: scale(1.3) translateY(10%);
+}
+.v-run .sl-ti { font: 800 15px/1 var(--font-num); font-stretch: condensed; color: var(--ink-2); letter-spacing: .02em; }
+.v-run .sl-rrow { min-height: 64px; }
+.v-run .sl-rrow .row-trail .ic { width: 22px; height: 22px; stroke-width: 2; }
+.v-run .sl-stamp { rotate: -6deg; }
+
+/* ------------------------------------------------------------------ Reduced motion */
+html.rm .v-run .sl-real, html.rm .v-run .sl-glow, html.rm .v-run .sl-stage::after, html.rm .v-run .sl-ph { transition-duration: 160ms; }
+html.rm .v-run .sl-stage.is-loading .sl-sk > * { animation: none; opacity: .7; }
+@media (prefers-reduced-motion: reduce) {
+  .v-run .sl-real, .v-run .sl-glow, .v-run .sl-stage::after, .v-run .sl-ph { transition-duration: 160ms; }
+  .v-run .sl-stage.is-loading .sl-sk > * { animation: none; opacity: .7; }
+}

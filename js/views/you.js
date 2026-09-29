@@ -5,7 +5,7 @@ import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as daily from '../core/daily.js';
 import {APP_VERSION, installEvent, promptInstall} from '../app.js';
-import {flameIcon, streakPillHTML, ensureDefs} from './board.js';
+import {flameIcon, streakPillHTML, ensureDefs, countWord} from './board.js';
 
 const esc = data.esc;
 const nf = n => data.nf(n);
@@ -187,7 +187,9 @@ export function openStreakSheet() {
   const s = daily.streakLocal();
   const copy = s.atRisk ? `Your ${s.current}-day streak ends at midnight.`
     : s.current > 0 ? 'Safe until tomorrow. See you then.'
-    : 'Finish all three today to start a streak.';
+    : `Finish all ${countWord()} today to start a streak.`;
+  // v1 days keep the original line; a five-puzzle day counts every puzzle of each day (three or five).
+  const foot = daily.isV2() ? 'Streaks count days you finished every puzzle on this phone.' : 'Streaks count days you finished all three puzzles on this phone.';
   const body = `<div class="c-sk-hero">
 <span class="c-sk-flame">${flameIcon({size: 56, cold: !s.current || s.atRisk})}</span>
 <p class="c-sk-num"><span class="n1 c-sk-n">${esc(s.current)}</span><span class="c-sk-u">day streak</span></p>
@@ -195,7 +197,7 @@ export function openStreakSheet() {
 </div>
 ${calendarHTML(s)}
 <p class="c-sk-copy${s.atRisk ? ' is-risk' : ''}">${esc(copy)}</p>
-<p class="c-sk-foot">Streaks count days you finished all three puzzles on this phone.</p>`;
+<p class="c-sk-foot">${esc(foot)}</p>`;
   const sh = ui.openSheet({title: 'Streak', body, cls: 'sh-streak', detents: ['fit']});
   if (!ui.RM) {
     const f = sh.body.querySelector('.c-sk-flame');
@@ -232,14 +234,19 @@ export function openPlayerCard(uid, {managerId} = {}) {
   const best = vals.reduce((a, d) => Math.max(a, d.p || 0), 0);
   const P = daily.PNUM;
   let bars = '', n14 = 0;
+  // Bars share one points scale: 1,000 while the window holds only three-puzzle days, 1,500 once a five-puzzle
+  // day is in it. Gold marks a perfect day on that day's own scale.
+  const maxOf = n => daily.maxPts(daily.dayFor(n));
+  let scale = 1000;
+  for (let n = Math.max(1, P - 13); n <= P; n++) if (days[n] && typeof days[n] === 'object') scale = Math.max(scale, maxOf(n));
   for (let n = P - 13; n <= P; n++) {
     if (n < 1) { bars += '<span class="c-pc-b is-none" aria-hidden="true"></span>'; continue; }
     const d = days[n];
     if (d && typeof d === 'object') {
       n14++;
-      const p = Math.max(0, Math.min(1000, d.p || 0));
-      const h = Math.max(4, Math.round(p / 1000 * 64));
-      bars += `<span class="c-pc-b${p >= 1000 ? ' is-perfect' : ''}${n === P ? ' is-now' : ''}" style="height:${h}px" aria-hidden="true"></span>`;
+      const p = Math.max(0, Math.min(scale, d.p || 0));
+      const h = Math.max(4, Math.round(p / scale * 64));
+      bars += `<span class="c-pc-b${p >= maxOf(n) ? ' is-perfect' : ''}${n === P ? ' is-now' : ''}" style="height:${h}px" aria-hidden="true"></span>`;
     } else bars += `<span class="c-pc-b is-miss${n === P ? ' is-now' : ''}" aria-hidden="true"></span>`;
   }
   const k = 'pc-' + uid + '-';

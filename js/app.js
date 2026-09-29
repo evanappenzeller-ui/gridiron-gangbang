@@ -44,7 +44,7 @@ export const TABS = ['today', 'standings', 'rivals', 'hall', 'moves'];
 const ROOTS = {today: '/today', standings: '/standings', rivals: '/rivals', hall: '/hall/trophies', moves: '/moves/drafts'};
 const TAB_TITLES = {today: 'Today', standings: 'Standings', rivals: 'Rivals', hall: 'Hall', moves: 'Moves'};
 const LEGACY = Object.assign(Object.create(null), {daily: '/today', records: '/hall/records', trophies: '/hall/trophies', standings: '/standings', rivals: '/rivals', moves: '/moves/drafts'}); // null prototype: '#constructor' is not a legacy hash
-const PUZZLES = ['college', 'mystery', 'grid'];
+const PUZZLES = ['college', 'silhouette', 'mystery', 'journey', 'grid']; // v1 days use college, mystery, grid
 const BAD_LINK = "That link didn't lead anywhere.";
 
 function matchSegs(p) {
@@ -1272,8 +1272,25 @@ const ringDate = () => new Date().toDateString();
 function cachedRing() {
   try {
     const v = JSON.parse(ui.lsGet(RING_KEY) || 'null');
-    return v && v.date === ringDate() && Array.isArray(v.parts) && v.parts.length === 3 ? v : null;
+    return v && v.date === ringDate() && Array.isArray(v.parts) && (v.parts.length === 3 || v.parts.length === 5) ? v : null;
   } catch (_) { return null; }
+}
+// One arc per puzzle: three is ui.ring itself; five (v2 days) uses the same geometry with 64° arcs, so
+// ui.ringUpdate keeps working on it. Mirrors ringHTML in views/board.js (kept here so boot never loads a view).
+function stepRing(parts, o) {
+  const n = parts.length;
+  if (n === 3 || !n) return ui.ring(parts, o);
+  const S = o.mini ? 24 : (o.size || 200), W = o.mini ? 3 : (o.stroke || 16);
+  const r = (S - W) / 2, c = S / 2, trim = (W / 2) / r, slot = 360 / n, rad = d => d * Math.PI / 180;
+  let tracks = '', fills = '';
+  parts.forEach((p, i) => {
+    const a0 = rad(4 + i * slot) + trim, a1 = rad(4 + i * slot + slot - 8) - trim;
+    const d = `M${(c + r * Math.sin(a0)).toFixed(3)} ${(c - r * Math.cos(a0)).toFixed(3)}A${r} ${r} 0 0 1 ${(c + r * Math.sin(a1)).toFixed(3)} ${(c - r * Math.cos(a1)).toFixed(3)}`;
+    const len = +(r * (a1 - a0)).toFixed(3), f = Math.min(1, Math.max(0, Number(p.frac) || 0));
+    tracks += `<path class="ring-track${p.doneZero ? ' is-zero' : ''}" d="${d}" stroke-width="${W}"/>`;
+    fills += `<path class="ring-fill${p.perfect ? ' is-perfect' : ''}${f <= 0 ? ' is-empty' : ''}" d="${d}" stroke-width="${W}" data-len="${len}" stroke-dasharray="${len} ${len}" style="stroke-dashoffset:${(len * (1 - f)).toFixed(3)}"/>`;
+  });
+  return `<div class="ring${o.mini ? ' ring-mini' : ''}" style="--rs:${S}px" aria-hidden="true" data-ring><svg viewBox="0 0 ${S} ${S}" aria-hidden="true" focusable="false">${tracks}${fills}</svg></div>`;
 }
 function dailyParts() {
   if (daily.status !== 'ready' || !daily.DAY) { const c = cachedRing(); return c ? c.parts : [{frac: 0}, {frac: 0}, {frac: 0}]; }
@@ -1288,7 +1305,8 @@ function updateTodayIcon(animate = false) {
   if (!btn) return;
   const holder = btn.querySelector('.tab-ring');
   const parts = dailyParts();
-  if (!holder.firstElementChild) holder.innerHTML = ui.ring(parts, {mini: true});
+  // A day with a different puzzle count (the cached ring, a v2 day) redraws the arcs; otherwise they update in place.
+  if (!holder.firstElementChild || holder.querySelectorAll('.ring-fill').length !== parts.length) holder.innerHTML = stepRing(parts, {mini: true});
   else ui.ringUpdate(holder, parts, {animate});
   const ready = daily.status === 'ready' && !!daily.DAY;
   const cached = ready ? null : cachedRing();
@@ -1297,7 +1315,7 @@ function updateTodayIcon(animate = false) {
   let label = 'Today';
   if (left != null) label = left ? `Today, ${left === 1 ? '1 puzzle' : left + ' puzzles'} left` : 'Today, all puzzles done';
   btn.setAttribute('aria-label', label);
-  if (ready) {
+  if (ready && daily.DEV_DAY == null) { // a dev ?day= preview never caches its ring under the real date
     const v = JSON.stringify({date: ringDate(), parts, left});
     if (ui.lsGet(RING_KEY) !== v) ui.lsSet(RING_KEY, v);
   }

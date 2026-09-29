@@ -1,0 +1,92 @@
+/* journey.css: Journey inside the run cover (v2 days). Owner: views. Scope: .v-run
+   The worth meter, hint rows and wrong-guess chips use the Mystery player classes (mystery.css); this file draws
+   the career path card, the reveal and the actions. */
+
+/* The card stacks above the hints: at the end the hints glide down under the growing reveal, never over the name. */
+.v-run .jr-card { position: relative; z-index: 1; padding: 16px; }
+.v-run .jr-card:focus { outline: none; }
+.v-run .jr-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 40px; }
+.v-run .jr-ovl { display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--ink-3); }
+.v-run .jr-ovl > .ic { width: 16px; height: 16px; stroke-width: 2; flex: none; }
+
+/* ------------------------------------------------------------------ The path: stops top to bottom */
+.v-run .jr-path { position: relative; margin: 14px 0 0; padding: 0; list-style: none; }
+.v-run .jr-stop { position: relative; display: flex; align-items: flex-start; gap: 14px; min-height: 54px; padding-bottom: 6px; }
+.v-run .jr-stop:last-child { min-height: 0; padding-bottom: 2px; }
+.v-run .jr-node {
+  position: relative; z-index: 1; flex: none;
+  width: 36px; height: 36px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--surface-2); color: var(--ink-2);
+}
+.v-run .jr-node > .ic { width: 18px; height: 18px; stroke-width: 1.9; }
+/* Team stops: a shield on a ringed disc and the nickname set like a jersey wordmark. */
+.v-run .jr-stop.is-team .jr-node { color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--surface-3); }
+/* "Now" is a neutral solid disc until he is named (tint means your answer); named, it takes the tint. */
+.v-run .jr-stop.is-now .jr-node { background: var(--ink); color: var(--bg); box-shadow: none; }
+.v-run .jr-path.is-lit .jr-stop.is-now .jr-node { background: var(--tint); color: var(--on-tint); }
+.v-run .jr-sm { display: flex; flex-direction: column; min-width: 0; padding-top: 0; }
+.v-run .jr-sl { color: var(--ink-3); }
+.v-run .jr-stop.is-now .jr-sl { color: var(--ink); }
+.v-run .jr-path.is-lit .jr-stop.is-now .jr-sl { color: var(--tint); }
+.v-run .jr-sn { font: 600 var(--fs-headline)/var(--lh-headline) var(--font-text); color: var(--ink); overflow-wrap: anywhere; }
+.v-run .jr-sn.jr-team {
+  font: 800 24px/26px var(--font-num); font-stretch: condensed;
+  text-transform: uppercase; letter-spacing: .02em;
+}
+.v-run .jr-stop.is-team:not(.is-now) .jr-sn { color: var(--ink-2); }
+/* A journeyman's folded middle teams: one wrapped line of nicknames. */
+.v-run .jr-stop.is-fold .jr-sn.jr-team { font-size: 19px; line-height: 22px; }
+/* Long paths (5+ stops): tighter stops and a smaller wordmark. */
+.v-run .jr-path.is-compact .jr-stop { min-height: 44px; }
+.v-run .jr-path.is-compact .jr-stop:last-child { min-height: 0; }
+.v-run .jr-path.is-compact .jr-sn.jr-team { font-size: 20px; line-height: 22px; }
+.v-run .jr-path.is-compact .jr-stop.is-fold .jr-sn.jr-team { font-size: 17px; line-height: 20px; }
+
+/* Route segment from a stop's node down to the next one (dashed across the jump to the pros). */
+.v-run .jr-line {
+  position: absolute; left: 17px; top: 40px; bottom: -4px; width: 2px;
+  border-radius: 1px; background: var(--surface-3);
+  transform-origin: 50% 0;
+}
+/* The jump to the pros: a longer gap and a 3/3 dash so it reads as dashed. */
+.v-run .jr-stop.is-cross { padding-bottom: 14px; }
+.v-run .jr-stop.is-cross > .jr-line { background: repeating-linear-gradient(to bottom, var(--surface-3) 0 3px, transparent 3px 6px); }
+.v-run .jr-line > i {
+  position: absolute; inset: 0; border-radius: inherit; background: var(--tint);
+  opacity: 0; transition: opacity 320ms var(--ease-out); transition-delay: calc(var(--k, 0) * 90ms);
+}
+.v-run .jr-stop.is-cross > .jr-line > i { background: repeating-linear-gradient(to bottom, var(--tint) 0 3px, transparent 3px 6px); }
+.v-run .jr-path.is-lit .jr-line > i { opacity: 1; }
+/* Named: each node gets a tint ring, one after another down the route. */
+.v-run .jr-node::after {
+  content: ""; position: absolute; inset: -3px; border-radius: 50%;
+  box-shadow: 0 0 0 1.5px var(--tint);
+  opacity: 0; transition: opacity 300ms var(--ease-out); transition-delay: calc(var(--k, 0) * 90ms);
+}
+.v-run .jr-path.is-lit .jr-node::after { opacity: 1; }
+
+/* ------------------------------------------------------------------ Reveal (name, position, points) */
+.v-run .jr-reveal { position: relative; margin-top: 12px; padding-top: 14px; }
+.v-run .jr-reveal[hidden] { display: none; }
+.v-run .jr-reveal::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 1px;
+  background: var(--separator); transform: scaleY(.5); transform-origin: top;
+}
+.v-run .jr-rh { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 40px; }
+.v-run .jr-rname { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.v-run .jr-stamp { height: 28px; padding: 0 9px; margin-right: 4px; font-size: 15px; }
+.v-run .jr-rpos { font: 400 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink-2); }
+.v-run .jr-rline { margin-top: 4px; color: var(--ink-2); }
+.v-run .jr-rp { color: var(--tint); font-weight: 600; }
+
+/* ------------------------------------------------------------------ Actions */
+.v-run .jr-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; scroll-margin-bottom: 96px; }
+.v-run .jr-actions[hidden] { display: none; }
+.v-run .jr-note { margin-top: 2px; text-align: center; }
+
+/* ------------------------------------------------------------------ Reduced motion */
+html.rm .v-run .jr-line > i, html.rm .v-run .jr-node::after { transition: none; }
+@media (prefers-reduced-motion: reduce) {
+  .v-run .jr-line > i, .v-run .jr-node::after { transition: none; }
+}

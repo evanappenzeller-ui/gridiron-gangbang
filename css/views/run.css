@@ -29,10 +29,11 @@
   display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; align-items: center; column-gap: 10px;
 }
 .v-run .rn-close { color: var(--ink); }
-.v-run .rn-segs { display: flex; gap: 6px; min-width: 0; }
+.v-run .rn-segs { display: flex; gap: 0; min-width: 0; }
 .v-run .rn-seg {
   position: relative; flex: 1 1 0; min-width: 0; height: 44px;
   display: flex; align-items: center;
+  padding: 0 3px; /* the 6px between tracks belongs to the targets (no dead taps between segments) */
 }
 .v-run .rn-seg:disabled { cursor: default; }
 .v-run .rn-track {
@@ -64,6 +65,11 @@
   line-height: 32px;
 }
 .v-run .rn-pts.is-pending { opacity: 0; }
+/* Five segments: a tighter bar keeps each segment 44px wide at 360; with a four-digit total the unit drops too
+   (the aria-label keeps it). */
+.v-run .rn-top:has(.rn-segs[data-n="5"]) { column-gap: 6px; padding-right: 8px; }
+.v-run .rn-top:has(.rn-segs[data-n="5"]) .rn-pts { padding: 0 10px; }
+.v-run .rn-pts.is-wide .rn-pu { display: none; }
 .v-run .rn-pn { font-size: 19px; line-height: 32px; color: var(--ink); }
 .v-run .rn-pu { font: 500 var(--fs-cap)/32px var(--font-text); color: var(--ink-2); } /* ink-3 is only 4.3:1 on surface-2 */
 

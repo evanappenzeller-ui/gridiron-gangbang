@@ -4,8 +4,8 @@
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as daily from '../core/daily.js';
-import {mountBoard, flameIcon, stepParts, ZERO_PARTS, PUZZLE_ICON, whenVisible, countdownHTML, tickCountdown,
-  ensureDefs, finishedThisSession, gradeTitle} from './board.js';
+import {mountBoard, flameIcon, stepParts, zeroParts, stepIcon, whenVisible, countdownHTML, tickCountdown,
+  ensureDefs, finishedThisSession, gradeTitle, gradeGold, ringHTML, maxPts, dayLabel} from './board.js';
 import {openStreakSheet} from './you.js';
 import {renderShareCard} from './sharecard.js';
 
@@ -19,6 +19,10 @@ const rolled = new Set();    // puzzle days whose streak odometer already rolled
 const RETRY_HOLD = 600;      // "Try again": the loading state stays up at least this long, so the tap reads
 const revealKey = () => 'res-total-' + daily.PNUM;
 const ready = () => daily.status === 'ready' && !!daily.DAY;
+/** '2026-09-29' for a puzzle day (the share image's file name). */
+function isoDate(pnum) {
+  try { const d = daily.dateOf(pnum); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; } catch (_) { return String(pnum); }
+}
 
 function phase() {
   if (daily.status === 'error') return 'error';
@@ -31,7 +35,7 @@ function barHTML() {
   const r = ready();
   return `<header class="c-rbar bar">
 <div class="c-rbar-l"><button type="button" class="btn btn-plain c-rbar-done" data-back>Done</button></div>
-<p class="c-rbar-t">${r ? `Daily #${esc(daily.PNUM)}` : 'Results'}</p>
+<p class="c-rbar-t">${r ? esc(dayLabel()) : 'Results'}</p>
 <div class="c-rbar-r"><span class="c-rpill"${r ? '' : ' hidden'} aria-label="${r ? esc(nf(daily.totalPts())) + ' points' : ''}"><span class="n5 c-rpill-n">${r ? esc(nf(daily.totalPts())) : '0'}</span><span class="c-rpill-u">pts</span></span></div>
 </header><span class="c-rsent" aria-hidden="true"></span>`;
 }
@@ -48,12 +52,13 @@ function errorHTML() {
 function almostHTML() {
   const open = daily.STEPS.map((s, j) => ({s, j})).filter(x => !x.s.done());
   const total = daily.totalPts();
-  const ring = ui.ring(stepParts(), {size: 132, stroke: 10, center: `<span class="n3">${esc(nf(total))}</span><span class="c-rof">of 1,000</span>`, label: `${nf(total)} of 1,000 points so far`, cls: 'c-almost-ring'});
+  const max = nf(maxPts());
+  const ring = ringHTML(stepParts(), {size: 132, stroke: 10, center: `<span class="n3">${esc(nf(total))}</span><span class="c-rof">of ${esc(max)}</span>`, label: `${nf(total)} of ${max} points so far`, cls: 'c-almost-ring'});
   return `<section class="c-almost" aria-labelledby="c-almost-t">
 ${ring}
 <h2 class="t-2 c-almost-t" id="c-almost-t">Almost there</h2>
 <p class="c-almost-s">You still have ${open.length === 1 ? 'one puzzle' : open.length + ' puzzles'} to finish before your score goes on the board.</p>
-<div class="c-almost-btns">${open.map(x => ui.button({label: `Go to puzzle ${x.j + 1}`, kind: 'secondary', icon: PUZZLE_ICON[x.j], attrs: {'data-goto': daily.slug(x.j), 'aria-label': `Go to puzzle ${x.j + 1}, ${x.s.label}`}})).join('')}</div>
+<div class="c-almost-btns">${open.map(x => ui.button({label: `Go to puzzle ${x.j + 1}`, kind: 'secondary', icon: stepIcon(x.j), attrs: {'data-goto': daily.slug(x.j), 'aria-label': `Go to puzzle ${x.j + 1}, ${x.s.label}`}})).join('')}</div>
 ${ui.button({label: 'Lock in my score as it is', kind: 'plain', attrs: {'data-lockin': ''}, cls: 'c-almost-lock'})}
 </section>`;
 }
@@ -99,19 +104,20 @@ function postHTML(kind = postKind()) {
 function doneHTML() {
   const total = daily.totalPts();
   const grade = daily.gradeFor(total);
-  const gold = total >= 850;
+  const gold = gradeGold(grade);
   const reveal = !ui.RM && !ui.countedKey(revealKey());
   const parts = stepParts();
-  const ring = ui.ring(reveal ? ZERO_PARTS : parts, {
+  const max = nf(maxPts());
+  const ring = ringHTML(reveal ? zeroParts() : parts, {
     size: 220, stroke: 14,
-    center: `<span class="n1 c-rtotal">${reveal ? '0' : esc(nf(total))}</span><span class="c-rof">of 1,000 points</span>`,
-    label: `${nf(total)} of 1,000 points`, cls: 'c-rring'
+    center: `<span class="n1 c-rtotal">${reveal ? '0' : esc(nf(total))}</span><span class="c-rof">of ${esc(max)} points</span>`,
+    label: `${nf(total)} of ${max} points`, cls: 'c-rring'
   });
   const rows = daily.STEPS.map((s, i) => {
     const p = s.pts(), f = Math.min(1, p / s.max), perfect = p === s.max;
     // Title on its own full-width line; the result and "160 / 200" share the second line, above the bar.
     return `<div class="c-rb" role="listitem" aria-label="${esc(`Puzzle ${i + 1}, ${s.label}: ${s.result()}, ${p} of ${s.max} points`)}">
-<span class="c-rb-tile" aria-hidden="true">${ui.icon(PUZZLE_ICON[i], {size: 22})}</span>
+<span class="c-rb-tile" aria-hidden="true">${ui.icon(stepIcon(i), {size: 22})}</span>
 <div class="c-rb-main" aria-hidden="true"><p class="c-rb-t">Puzzle ${i + 1} · ${esc(s.label)}</p>
 <div class="c-rb-mid"><p class="c-rb-sub"><span class="c-rb-res">${esc(s.result())}</span>${perfect ? ui.icon('check-circle', {size: 14, cls: 'c-rb-perf'}) : ''}</p><span class="c-rb-v"><span class="n4">${esc(nf(p))}</span><span class="c-rb-max">/ ${esc(nf(s.max))}</span></span></div>
 <span class="c-rb-bar"><i class="c-rb-fill${perfect ? ' is-perfect' : ''}" data-f="${f}" style="transform:scaleX(${reveal ? 0 : f})"></i></span></div>
@@ -154,7 +160,7 @@ function bodyHTML(ph = phase()) {
 function patchBar(st) {
   const r = ready();
   const t = st.el.querySelector('.c-rbar-t');
-  if (t) t.textContent = r ? `Daily #${daily.PNUM}` : 'Results';
+  if (t) t.textContent = r ? dayLabel() : 'Results';
   const pill = st.el.querySelector('.c-rpill');
   if (!pill) return;
   pill.hidden = !r;
@@ -254,7 +260,7 @@ function reveal(st) {
         showGrade();
         ui.animate(grade, [{opacity: 0, transform: 'translateY(6px) scale(.92)'}, {opacity: 1, transform: 'none'}], {spring: 'bouncy'});
       }
-      if (total >= 1000) {
+      if (total >= maxPts()) {
         ui.haptic('celebrate');
         ui.animate(ring, [{transform: 'scale(1)'}, {transform: 'scale(1.04)', offset: .45}, {transform: 'scale(1)'}], {duration: 620, easing: 'cubic-bezier(.34,1.56,.64,1)'});
         ui.confetti(ring.getBoundingClientRect(), {count: 120, colors: ['#7CF058', '#FFCC4D', '#FFFFFF']});
@@ -342,7 +348,7 @@ async function prepareImage(st) {
   let blob;
   try { blob = await renderShareCard({rank}); } catch (e) { console.warn(e); return; }
   if (st.dead || gen !== st.shareGen) return;
-  const file = new File([blob], `gridiron-daily-${daily.PNUM}.png`, {type: 'image/png'});
+  const file = new File([blob], `gridiron-daily-${isoDate(daily.PNUM)}.png`, {type: 'image/png'});
   let ok = false;
   try { ok = navigator.canShare({files: [file]}); } catch (_) { ok = false; }
   st.file = ok ? file : null;

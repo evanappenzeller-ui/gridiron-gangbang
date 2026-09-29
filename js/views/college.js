@@ -10,12 +10,13 @@ import * as daily from '../core/daily.js';
 
 const esc = data.esc;
 const EASE_IN = 'cubic-bezier(.4,0,1,1)', EASE_OUT = 'cubic-bezier(.22,1,.36,1)';
-const MARKS = '<svg class="cl-mk cl-ck" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12.5l4.6 4.6L19 7.6" pathLength="1"/></svg>'
+// Check / cross marks drawn into an answered option (silhouette.js reuses the College option styles and marks).
+export const MARKS = '<svg class="cl-mk cl-ck" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12.5l4.6 4.6L19 7.6" pathLength="1"/></svg>'
   + '<svg class="cl-mk cl-x" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7.5 7.5l9 9M16.5 7.5l-9 9" pathLength="1"/></svg>';
 
 // Resolves when the animation ends, or after ms at the latest (a hidden page may never produce the frames
 // that finish it; a lock must not depend on them).
-const settle = (a, ms) => new Promise(res => { const f = () => res(); if (a && a.finished) a.finished.then(f, f); setTimeout(f, ms); });
+export const settle = (a, ms) => new Promise(res => { const f = () => res(); if (a && a.finished) a.finished.then(f, f); setTimeout(f, ms); });
 
 const total = () => daily.DAY.c.length;
 const Q = r => daily.DAY.c[r];

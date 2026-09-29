@@ -89,6 +89,12 @@
 .v-today .c-pz-check.is-zero { color: var(--ink-3); }
 .v-today .c-pz-pts.is-zero { color: var(--ink-2); }
 .v-today .c-pz .chev { margin-left: 2px; }
+/* Five-puzzle days: compact rows (48px, 36px tiles) and a tighter status line, so the league board header stays above
+   the tab bar at 390 x 844. */
+.v-today .c-dc.is-five .c-pz { min-height: 48px; }
+.v-today .c-dc.is-five .c-dc-status { margin: 10px 8px 10px; }
+.v-today .c-dc.is-five .c-pz .row-main { padding: 4px 0; }
+.v-today .c-dc.is-five .c-pz-tile, .v-today .c-dc.is-five .c-sk-tile { width: 36px; height: 36px; }
 
 /* Loading */
 .v-today .c-dc.is-loading .sk { background: var(--surface-2); }

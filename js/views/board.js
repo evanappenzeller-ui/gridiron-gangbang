@@ -43,9 +43,24 @@ export function streakPillHTML(s, {tag = 'button', attrs = ''} = {}) {
   return `<${tag}${ty} class="c-spill${s.atRisk ? ' is-risk' : ''}${!n ? ' is-cold' : ''}" aria-label="Streak: ${n} day${n === 1 ? '' : 's'}${s.atRisk ? ', ends at midnight' : ''}"${attrs ? ' ' + attrs : ''}>${flameIcon({size: 18, cold})}<span class="n5 c-spill-n">${n}</span></${tag}>`;
 }
 
+// ---------------------------------------------------------------------------- The day's step set (v1: 3 puzzles,
+// 1,000 points; v2: 5 puzzles, 1,500 points). Everything reads daily.STEPS at use time (a live binding).
+const dailyReady = () => daily.status === 'ready' && !!daily.DAY;
+/** Steps of the loaded day ([] before puzzles load). */
+export const steps = () => (dailyReady() && Array.isArray(daily.STEPS) ? daily.STEPS : []);
+/** True on a v2 (five-puzzle) day. */
+export const isV2 = () => dailyReady() && daily.isV2();
+/** The day's maximum: 1,000 (v1) or 1,500 (v2). */
+export const maxPts = () => daily.maxPts();
+const NUM_WORD = {3: 'three', 5: 'five'};
+/** 'three' / 'five': how many puzzles the loaded day has. */
+export const countWord = () => NUM_WORD[steps().length] || String(steps().length || 3);
+/** Date label of a puzzle day ("Tue, Sep 29"; long: "Tuesday, September 29"). Replaces every "Daily #n". */
+export const dayLabel = (pnum = daily.PNUM, o) => daily.dayLabel(pnum, o);
+
 /** Ring parts for the live day (same rule as the tab icon: points / max, gold when perfect). */
 export function stepParts(ds) {
-  if (daily.status !== 'ready' || !daily.DAY) return ZERO_PARTS;
+  if (!dailyReady()) return ZERO_PARTS;
   const d = ds || daily.DS;
   return daily.STEPS.map(s => {
     const p = s.pts(d);
@@ -53,11 +68,46 @@ export function stepParts(ds) {
   });
 }
 export const ZERO_PARTS = [{frac: 0}, {frac: 0}, {frac: 0}];
+/** Empty parts, one per step of the loaded day (three before puzzles load). */
+export const zeroParts = () => (steps().length ? steps().map(() => ({frac: 0})) : ZERO_PARTS);
+
+const rad = d => d * Math.PI / 180;
+/**
+ * Step ring: one arc per puzzle. Three parts are ui.ring itself (the spec's 112° arcs); any other count uses the
+ * same geometry and markup (8° gaps from 12 o'clock + 4°, round caps trimmed so the gaps stay visible), so
+ * ui.ringUpdate and the ring CSS work on it unchanged. Options as ui.ring.
+ */
+export function ringHTML(parts = [], o = {}) {
+  const n = parts.length;
+  if (n === 3 || !n) return ui.ring(parts, o);
+  const {size, stroke, center = '', mini = false, label, cls = ''} = o;
+  const S = size || (mini ? 24 : 200), W = stroke || (mini ? 3 : 16);
+  const r = (S - W) / 2, c = S / 2, trim = (W / 2) / r, slot = 360 / n, gap = 8;
+  let tracks = '', fills = '';
+  for (let i = 0; i < n; i++) {
+    const a0 = rad(gap / 2 + i * slot) + trim, a1 = rad(gap / 2 + i * slot + slot - gap) - trim;
+    const x0 = c + r * Math.sin(a0), y0 = c - r * Math.cos(a0), x1 = c + r * Math.sin(a1), y1 = c - r * Math.cos(a1);
+    const d = `M${x0.toFixed(3)} ${y0.toFixed(3)}A${r} ${r} 0 0 1 ${x1.toFixed(3)} ${y1.toFixed(3)}`;
+    const len = +(r * (a1 - a0)).toFixed(3);
+    const p = parts[i] || {};
+    const f = Math.min(1, Math.max(0, Number(p.frac) || 0));
+    tracks += `<path class="ring-track${p.doneZero ? ' is-zero' : ''}" d="${d}" stroke-width="${W}"/>`;
+    fills += `<path class="ring-fill${p.perfect ? ' is-perfect' : ''}${f <= 0 ? ' is-empty' : ''}" d="${d}" stroke-width="${W}" data-len="${len}" stroke-dasharray="${len} ${len}" style="stroke-dashoffset:${(len * (1 - f)).toFixed(3)}"/>`;
+  }
+  const a11y = label ? ` role="img" aria-label="${esc(label)}"` : ' aria-hidden="true"';
+  return `<div class="ring${mini ? ' ring-mini' : ''}${cls ? ' ' + cls : ''}" style="--rs:${S}px"${a11y} data-ring><svg viewBox="0 0 ${S} ${S}" aria-hidden="true" focusable="false">${tracks}${fills}</svg>${center ? `<div class="ring-center">${center}</div>` : ''}</div>`;
+}
 
 /** 'PRO BOWL' → 'Pro Bowl', 'ALL-PRO' → 'All-Pro'. */
 export const gradeTitle = g => String(g || '').toLowerCase().replace(/(^|[\s-])([a-z])/g, (m, a, b) => a + b.toUpperCase());
+/** Gold grades (spec 7.7: 850 or more of 1,000, i.e. ALL-PRO and PERFECT DAY on either scale). */
+export const gradeGold = g => g === 'ALL-PRO' || g === 'PERFECT DAY';
 
+/** Puzzle icon by step id; PUZZLE_ICON[i] is the v1 order. */
+export const STEP_ICON = {col: 'grad-cap', sil: 'silhouette', who: 'mystery', jr: 'route', grid: 'grid-3'};
 export const PUZZLE_ICON = ['grad-cap', 'mystery', 'grid-3'];
+/** Icon of step i of the loaded day. */
+export const stepIcon = i => { const s = steps()[i]; return (s && STEP_ICON[s.id]) || PUZZLE_ICON[i] || 'football'; };
 
 /** Runs fn once el is at least 60% visible (IntersectionObserver), or at once without IO. Returns cancel. */
 export function whenVisible(el, fn, {threshold = .6} = {}) {
@@ -232,9 +282,18 @@ const rankCls = rk => rk === 1 ? ' is-r1' : rk === 2 ? ' is-r2' : rk === 3 ? ' i
 function rowSig(r, mode) {
   return JSON.stringify([mode, r.rank, r.name, r.managerId, r.me, r.sub, r.move, r.current, r.best]);
 }
+// A five-puzzle day's sub line ("College 4/5, faces 3/5, ID on clue 2, path on guess 1, grid 6/9") is too long for
+// a phone row: the row shows a compact form on up to two lines; the aria-label keeps daily's full text.
+const V2_SUB = /^College (\d+)\/5, faces (\d+)\/5, (?:ID on clue (\d+)|no ID), (?:path on guess (\d+)|no path), grid (\d+)\/9$/;
+function shortSub(sub) {
+  const m = V2_SUB.exec(sub || '');
+  if (!m) return null;
+  return `College ${m[1]}/5 · Faces ${m[2]}/5 · ${m[3] ? `Clue ${m[3]}` : 'No ID'} · ${m[4] ? `Path ${m[4]}/3` : 'No path'} · Grid ${m[5]}/9`;
+}
 function rowInner(r, mode) {
   const streaks = mode === 'streaks';
   const sub = streaks ? `Best ${r.best}` : r.sub;
+  const short = streaks ? null : shortSub(sub);
   const val = streaks ? r.current : r.pts;
   const trail = streaks
     ? `<span class="c-bstreak">${flameIcon({size: 18, cold: !r.current})}<span class="n4 c-bval">${esc(r.current)}</span></span>`
@@ -245,7 +304,7 @@ function rowInner(r, mode) {
     val,
     html: `<span class="c-brank n4${rankCls(r.rank)}" aria-hidden="true">${esc(r.rank)}</span>`
       + `<span class="row-lead">${ui.nickAvatar(r.name, {size: 36, managerId: r.managerId || null, you: r.me, crown: r.rank === 1})}</span>`
-      + `<span class="row-main"><span class="row-title"><span class="c-bnick">${esc(r.name)}</span>${r.me ? ui.badge('you') : ''}</span><span class="row-sub">${esc(sub)}</span></span>`
+      + `<span class="row-main"><span class="row-title"><span class="c-bnick">${esc(r.name)}</span>${r.me ? ui.badge('you') : ''}</span><span class="row-sub${short ? ' is-two' : ''}">${esc(short || sub)}</span></span>`
       + `<span class="row-trail">${trail}</span>`
   };
 }
@@ -285,6 +344,8 @@ const EMPTY = {
   season: 'No scores yet this season.',
   streaks: 'No streaks yet. Finish all three puzzles to start one.'
 };
+// v1 days keep the existing copy word for word; a five-puzzle day says five.
+const emptyText = mode => (isV2() ? EMPTY[mode].replace('all three puzzles', 'all five puzzles') : EMPTY[mode]);
 const OFF = "The leaderboard isn't connected right now. Your score is saved on this phone, and Share results copies it for the group chat.";
 
 function bodyHTML(st, key, rows) {
@@ -294,7 +355,7 @@ function bodyHTML(st, key, rows) {
   if (key.startsWith('empty')) {
     // One message, not two about zero scores: a short title that adds something, over the existing body copy.
     const t = st.mode === 'today' ? `<p class="c-board-et">Be first on the board.</p>` : '';
-    return `<div class="c-board-empty">${t}<p class="c-board-eb">${esc(EMPTY[st.mode])}</p></div>`
+    return `<div class="c-board-empty">${t}<p class="c-board-eb">${esc(emptyText(st.mode))}</p></div>`
       + (st.mode === 'today' ? `<div data-r="still">${stillHTML()}</div>` : '');
   }
   const plan = planRows(rows, st);
