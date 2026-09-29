@@ -1,4 +1,4 @@
-// Today hub (spec 7.1): large title with the streak pill and You button, "Which one are you?" onboarding,
+// Today hub (spec 7.1): large title with the streak pill and You button (picking who you are is the launch welcome screen),
 // the Daily card (three-arc ring, status line, CTA, puzzle rows), the league board, the midnight countdown
 // and Record of the day. Renders history-independent content at once and the Daily once puzzles load.
 // Owner: daily-hub package.
@@ -39,16 +39,6 @@ function trailHTML() {
   const s = pillState();
   return `<span class="c-spill-slot" data-sig="${pillSig(s)}">${s ? streakPillHTML(s, {attrs: 'data-streak'}) : ''}</span>`
     + `<button type="button" class="c-you" data-you aria-label="You and settings">${youInner()}</button>`;
-}
-
-function onbHTML() {
-  const cells = data.ids.map(id => `<button type="button" class="c-onb-av" data-onb="${esc(id)}" aria-pressed="false">${ui.avatar(id, {size: 40})}<span class="c-onb-n">${esc(data.name(id))}</span></button>`).join('');
-  return `<section class="card c-onb" data-key="onb" data-enter aria-labelledby="c-onb-t">
-<h2 class="c-onb-t" id="c-onb-t">Which one are you?</h2>
-<p class="c-onb-s">We'll highlight you across the app. Only saved on this phone.</p>
-<div class="c-onb-rail" data-hscroll role="group" aria-label="Managers">${cells}</div>
-<div class="c-onb-foot"><button type="button" class="btn btn-plain c-onb-skip" data-onb-skip>Skip</button></div>
-</section>`;
 }
 
 function statusLine() {
@@ -301,58 +291,14 @@ function swapDaily(st) {
   }
 }
 
-// Onboarding card: the tapped avatar pops, the card fades, and the cards below slide up (FLIP).
-function removeOnb(st) {
-  const card = st.el.querySelector('.c-onb');
-  if (!card || data.meRaw() == null || card.dataset.leaving) return;
-  card.dataset.leaving = '1';
-  const id = st.onbTap;
-  st.onbTap = null;
-  const hadFocus = card.contains(document.activeElement);
-  const after = () => { if (hadFocus) { try { st.ctx.screen.focus({preventScroll: true}); } catch (_) {} } };
-  if (!st.ctx.visible || ui.RM) { card.remove(); after(); return; }
-  const rel = st.ctx.busy();
-  const btn = id && id !== 'none' ? card.querySelector(`[data-onb="${CSS.escape(id)}"]`) : null;
-  let wait = 0;
-  if (btn) {
-    btn.setAttribute('aria-pressed', 'true');
-    const av = btn.querySelector('.av');
-    if (av) { av.classList.add('av-you'); ui.animate(av, [{transform: 'scale(.78)'}, {transform: 'none'}], {spring: 'bouncy'}); }
-    wait = 360;
-  }
-  setTimeout(() => {
-    const a = ui.animate(card, [{opacity: 1, transform: 'none'}, {opacity: 0, transform: 'scale(.97)'}], {duration: 200, easing: 'cubic-bezier(.4,0,1,1)', fill: 'forwards'});
-    a.finished.catch(() => {}).then(() => ui.flip(st.el, () => card.remove(), {selector: ':scope > [data-key]'})).then(() => { rel(); after(); }, () => { rel(); after(); });
-  }, wait);
-}
-
-// gg-me cleared (another tab, or storage wiped): ask again.
-function restoreOnb(st) {
-  if (data.meRaw() != null || st.el.querySelector('.c-onb')) return;
-  const lt = st.el.querySelector('.lt');
-  if (!lt) return;
-  const t = document.createElement('template');
-  t.innerHTML = onbHTML();
-  const card = t.content.firstElementChild;
-  ui.flip(st.el, () => lt.after(card), {selector: ':scope > [data-key]'});
-}
-
 // ============================================================================ Events
 function onClick(st, e) {
-  const t = e.target.closest('[data-go], [data-you], [data-streak], [data-onb], [data-onb-skip], [data-retry], [data-cd-load]');
+  const t = e.target.closest('[data-go], [data-you], [data-streak], [data-retry], [data-cd-load]');
   if (!t || !st.el.contains(t)) return;
   const {ctx} = st;
   if (t.hasAttribute('data-go')) { ctx.nav(t.dataset.go); return; }
   if (t.hasAttribute('data-you')) { openYouSheet(); return; }
   if (t.hasAttribute('data-streak')) { openStreakSheet(); return; }
-  if (t.hasAttribute('data-onb')) {
-    if (st.el.querySelector('.c-onb[data-leaving]')) return;
-    st.onbTap = t.dataset.onb;
-    ui.haptic('selection');
-    data.setMe(t.dataset.onb);
-    return;
-  }
-  if (t.hasAttribute('data-onb-skip')) { st.onbTap = 'none'; data.setMe('none'); return; }
   if (t.hasAttribute('data-retry')) { retry(st); return; }
   if (t.hasAttribute('data-cd-load')) { location.reload(); }
 }
@@ -395,10 +341,8 @@ export default {
   title: 'Today',
 
   render() {
-    const onb = data.meRaw() == null ? onbHTML() : '';
     const r = rotdPick();
     return ui.largeTitle({eyebrow: ready() ? daily.TODAY_LABEL : localLabel(), title: 'Today', trailing: trailHTML()})
-      + onb
       + `<div class="c-dc-wrap" data-key="daily" data-enter>${dailyCardHTML()}</div>`
       + `<div class="c-board-host" data-key="board" data-enter></div>`
       + `<div class="c-cd-host" data-key="cd" data-enter>${countdownHTML(false)}</div>`
@@ -407,7 +351,7 @@ export default {
 
   mount(el, ctx) {
     ensureDefs();
-    const st = {el, ctx, board: null, pending: false, cancelRing: null, onbTap: null, retrying: false};
+    const st = {el, ctx, board: null, pending: false, cancelRing: null, retrying: false};
     HUB.set(ctx, st);
     const you = el.querySelector('.c-you');
     if (you) you.dataset.me = String(data.me());
@@ -431,8 +375,6 @@ export default {
     const st = HUB.get(ctx);
     if (!st) return;
     patchYou(st);
-    removeOnb(st);
-    restoreOnb(st);
     if (ctx.reason === 'data') patchRotd(st, ctx.visible);
     if (st.board) st.board.refresh({animate: false});
   },

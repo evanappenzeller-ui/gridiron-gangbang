@@ -23,6 +23,7 @@
 import * as ui from './core/ui.js';
 import * as data from './core/data.js';
 import * as daily from './core/daily.js';
+import {needsWelcome, showWelcome} from './views/welcome.js';
 
 export const APP_VERSION = '2.0.0';
 
@@ -1598,6 +1599,8 @@ async function start() {
   }
   await deepLink(hash0, {warm: false});
   removeBoot();
+  // First open on this phone: ask who they are (a full-screen picker over whatever screen the link opened).
+  if (needsWelcome()) showWelcome();
   setupTabBar();
   if (ui.IOS_STANDALONE) enableSwipeBack();
   requestAnimationFrame(() => ui.onIdle(() => {

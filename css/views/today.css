@@ -19,36 +19,6 @@
 }
 .v-today .c-you-empty .ic { stroke-width: 2; }
 
-/* ---------------------------------------------------------------- Onboarding: "Which one are you?" */
-.v-today .c-onb { margin-top: 12px; padding: 18px 0 6px; overflow: hidden; }
-.v-today .c-onb-t { padding: 0 16px; font: 600 var(--fs-3)/var(--lh-3) var(--font-text); }
-.v-today .c-onb-s { padding: 0 16px; margin-top: 4px; font: 400 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink-2); }
-.v-today .c-onb-rail {
-  display: flex; gap: 2px;
-  margin-top: 14px; padding: 6px 10px 4px;
-  overflow-x: auto; overflow-y: hidden;
-  scroll-snap-type: x proximity; scroll-padding: 0 10px;
-  scrollbar-width: none;
-  overscroll-behavior-x: contain;
-  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 10px, #000 calc(100% - 28px), transparent);
-  mask-image: linear-gradient(to right, transparent 0, #000 10px, #000 calc(100% - 28px), transparent);
-}
-.v-today .c-onb-rail::-webkit-scrollbar { display: none; }
-.v-today .c-onb-av {
-  flex: none; width: 64px; min-width: 0;
-  display: flex; flex-direction: column; align-items: center; gap: 7px;
-  padding: 4px 0 6px;
-  scroll-snap-align: start;
-  color: var(--ink-2);
-  font: 500 13px/16px var(--font-text);
-  transition: transform var(--spring-snappy-dur) var(--spring-snappy);
-}
-.v-today .c-onb-av.is-pressed { transform: scale(.92); transition: none; }
-.v-today .c-onb-av[aria-pressed="true"] { color: var(--ink); }
-.v-today .c-onb-n { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.v-today .c-onb-foot { display: flex; justify-content: flex-end; padding: 0 8px; }
-.v-today .c-onb-skip { color: var(--ink-2); font-weight: 600; }
-
 /* ---------------------------------------------------------------- Daily card */
 .v-today .c-dc-wrap { margin-top: 12px; }
 .v-today .c-dc { display: flex; flex-direction: column; padding: 18px 20px 6px; overflow: hidden; }
