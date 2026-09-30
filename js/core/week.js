@@ -552,7 +552,26 @@ function merge(remote, local, kind) {
   (local || []).forEach(d => m.set(d[f], d));
   return [...m.values()];
 }
-const docOf = kind => d => Object.assign({}, d.data({serverTimestamps: 'estimate'}), {[idField(kind)]: d.id});
+// pending: a write from this page the server hasn't confirmed yet (Firestore shows it at once: its local echo).
+const docOf = kind => d => Object.assign({}, d.data({serverTimestamps: 'estimate'}), {[idField(kind)]: d.id},
+  d.metadata && d.metadata.hasPendingWrites ? {pending: true} : null);
+
+// Your own pick writes still on their way: weekKey -> Map(doc id -> {n (writes out), before (the doc as it was before
+// the first of them, as the server had it, or null)}). The snapshot shows such a write at once (a delete as the doc
+// gone), but the server may still refuse it or never get it (the cache lives in memory: a reload drops it), so the
+// picks a view treats as submitted (`saved`) keep what the write replaces until the server confirms it.
+const inflight = new Map();
+/**
+ * The docs as the server has confirmed them: docs with a pending write, and docs with a write of yours still out
+ * (flying: Map(doc id -> {before})), count as what they were before it. Exported for the checks.
+ */
+export function confirmedDocs(docs, flying) {
+  const list = docs || [];
+  if (!(flying && flying.size) && !list.some(d => d && d.pending)) return list;
+  const out = list.filter(d => d && !d.pending && !(flying && flying.has(d.id)));
+  if (flying) flying.forEach(f => { if (f && f.before) out.push(f.before); });
+  return out;
+}
 
 // ---------------------------------------------------------------------------
 // Subscriptions
@@ -650,7 +669,7 @@ function payload(e) {
 }
 
 function emptyNfl() {
-  return {picks: [], mine: {}, byGame: {}, count: 0, rows: [], you: null, games: [], next: null, stale: false, scores: null};
+  return {picks: [], mine: {}, saved: {}, byGame: {}, count: 0, rows: [], you: null, games: [], next: null, stale: false, scores: null};
 }
 function nflPayload(e, docs) {
   const {year, week} = e.P;
@@ -659,8 +678,10 @@ function nflPayload(e, docs) {
   const at = now(), uid = myUid(), me = myMe();
   const t = tallyNfl(docs, games, uid, {at, me});
   const rows = nflRowsFrom(docs, games, uid, {me});
+  const conf = confirmedDocs(docs, inflight.get(e.key));
+  const saved = conf === docs ? t.mine : tallyNfl(conf, games, uid, {at, me}).mine;
   return Object.assign(emptyNfl(), t, {
-    key: e.key, year, week, games, rows, you: rows.find(r => r.you) || null,
+    key: e.key, year, week, games, rows, you: rows.find(r => r.you) || null, saved,
     next: games.find(g => !gameLocked(g, at)) || null,
     error: errorOf(e.remoteErr), remote: e.remoteErr, ready: e.ready && e.boardReady, dev: standIn(),
     stale: !!(b && b.stale), scores: b && b.error ? b.error : null
@@ -676,6 +697,8 @@ export function subscribeVotes(key, fn) { return subscribe('motw', key, fn); }
 //   picks: [{uid, game, team, side: 'home'|'away', me, nick, at, you}]  the picks that count, oldest first, with
 //          the reveal rule applied (everyone's for games that have kicked off, plus all of yours),
 //   mine: {gameId: team}, count (your picks),
+//   saved: {gameId: team}: mine as the server has confirmed it (a write of yours still on its way counts as what it
+//          replaces: confirmedDocs); what a view should treat as submitted,
 //   byGame: {gameId: {home: n, away: n, voters: {home: [pick], away: [pick]}, n (picks in), revealed, locked,
 //            mine: 'home'|'away'|null}}  (before kickoff only n is filled in; home/away 0, voter lists empty),
 //   rows: the week's table as nflWeekResults() rows, you: your row or null,
@@ -798,18 +821,44 @@ async function writePick(f, team) {
   }
   let F;
   try { F = await fire.getFire(); } catch (_) { return 'failed'; }
-  if (kickPassed(ownDoc(key, F.uid, game), Date.now())) return 'locked';
-  const ref = F.fs.doc(F.db, 'nflpicks', key, SUB.nflpicks, nflPickId(F.uid, game));
+  return firePick(F, key, f.game, team);
+}
+
+// One pick doc on the real database -> 'ok' | 'locked' | 'denied' | 'failed'. A write the server hasn't confirmed
+// within WRITE_MS counts as failed (Firestore would keep retrying it in the background; if it lands later, the
+// snapshot shows it like any other saved pick). Until the server answers, the write is in `inflight`.
+const WRITE_MS = 15e3;
+async function firePick(F, key, g, team) {
+  const game = g.id, kick = kickOf(g);
+  const cur = ownDoc(key, F.uid, game);
+  if (kickPassed(cur, Date.now())) return 'locked';
+  const id = nflPickId(F.uid, game);
+  const ref = F.fs.doc(F.db, 'nflpicks', key, SUB.nflpicks, id);
+  let t = 0;
   try {
-    if (team == null) await F.fs.deleteDoc(ref);
-    else await F.fs.setDoc(ref, {uid: F.uid, game, team, me: myMe(), nick: myNick(), at: F.fs.serverTimestamp(), kick: new Date(kick)});
+    const w = team == null ? F.fs.deleteDoc(ref)
+      : F.fs.setDoc(ref, {uid: F.uid, game, team, me: myMe(), nick: myNick(), at: F.fs.serverTimestamp(), kick: new Date(kick)});
+    let wk = inflight.get(key);
+    if (!wk) inflight.set(key, wk = new Map());
+    let f = wk.get(id);
+    if (!f) wk.set(id, f = {n: 0, before: cur && !cur.pending ? cur : null});
+    f.n++;
+    // The server answered (or the page gave up on it: never, a queued write stays queued): the snapshot has it now.
+    const done = () => {
+      if (--f.n > 0 || wk.get(id) !== f) return;
+      wk.delete(id);
+      if (!wk.size && inflight.get(key) === wk) inflight.delete(key);
+      notify('nflpicks', key);
+    };
+    w.then(done, done);
+    await Promise.race([w, new Promise((_, no) => { t = setTimeout(() => no({code: 'timeout'}), WRITE_MS); })]);
     cache.delete('nflpicks:' + key);
     return 'ok';
   } catch (err) {
     if (fire.codeOf(err) !== 'denied') return 'failed';
     // Refused within a few minutes of kickoff: this phone's clock runs behind the server's and the game has started.
     return kick - Date.now() < 15 * 60e3 ? 'locked' : 'denied';
-  }
+  } finally { clearTimeout(t); }
 }
 
 // Pick a team to win one NFL game: team = its abbreviation ('PIT') or 'home' / 'away'. Saved at once (one doc per
@@ -831,6 +880,107 @@ export async function clearPick(gameId) {
   if (!f) return 'failed';
   if (gameLocked(f.game)) return 'locked';
   return writePick(f, null);
+}
+
+// ---------------------------------------------------------------------------
+// Submitting drafted picks. The Pick'em screen drafts picks on the phone (nothing is written while you tap) and
+// submits the changes together; others only ever see submitted picks.
+
+// Drafts against the saved picks -> {gameId: team | ''}: the games whose draft differs from what is saved ('' = clear
+// the saved pick). A draft equal to the saved pick, or a clear where nothing is saved, is no change.
+// drafts: {gameId: team | ''}; saved: {gameId: team} (a subscription's `mine`).
+export function pickChanges(drafts, saved) {
+  const out = {};
+  Object.keys(drafts || {}).forEach(id => {
+    const d = drafts[id];
+    if (typeof d !== 'string') return;
+    const s = saved && typeof saved[id] === 'string' ? saved[id].toUpperCase() : '';
+    if (d.toUpperCase() !== s) out[id] = d.toUpperCase();
+  });
+  return out;
+}
+
+// A submit's code from its lists (denied: how many of the failed were refused by the rules). 'denied' means pick'em is
+// switched off, so only when the rules refused everything that was tried: a submit that saved anything, or failed in
+// other ways too, is 'failed'. Exported for the checks.
+export function submitCode({ok, locked, failed}, denied = 0) {
+  if (failed.length) return denied && denied === failed.length && !ok.length ? 'denied' : 'failed';
+  return ok.length ? 'ok' : locked.length ? 'locked' : 'ok';
+}
+
+// When a game stops taking picks: its kickoff, or for a game without a set time 36 hours before the placeholder
+// (kickOf) until ESPN sets the time. g: an nfl.js game (or any {kickoff, tbd}) -> ms.
+export const pickDeadline = g => kickOf(g);
+
+// Submit a week's changes at once: changes = {gameId: team (an abbreviation, or 'home' / 'away') | '' (clear)}.
+// One doc per game (as pickGame / clearPick), all written in parallel rather than in one batch: the rules refuse a
+// batch as a whole when any game in it has kicked off, and each game must report on its own.
+// -> Promise<{ok: [gameId], locked: [gameId], failed: [gameId], code}> (every id given lands in exactly one list).
+//   locked: the game kicked off meanwhile (this module's clock, ESPN, or the rules said so): not saved, never will be.
+//   failed: an unknown game or team, or a write that did not go through (offline, refused, timed out).
+//   code: 'ok' | 'dev' (every write made; 'dev' on the local stand-in) | 'locked' (nothing left to write: every game
+//   had kicked off) | 'denied' (the rules refused every write and nothing was saved: pick'em isn't switched on) |
+//   'failed' (anything else that left a game unsaved; some may have saved: ok says which).
+// opt.games: the week's games when the caller has them (the live subscription's scores come first either way).
+// opt.at: a clock for this call only, on the local stand-in (the checks use it; ignored on a page that can write).
+export async function submitPicks(year, week, changes, opt = {}) {
+  const y = Number(year), w = Number(week), key = weekKey(y, w);
+  const out = {ok: [], locked: [], failed: [], code: standIn() ? 'dev' : 'ok'};
+  const ids = Object.keys(changes && typeof changes === 'object' ? changes : {});
+  if (!ids.length) return out;
+  if (!parseKey(key)) return Object.assign(out, {failed: ids, code: 'failed'});
+  const e = live.get('nflpicks:' + key);
+  let games = e && e.board && e.board.games.length ? e.board.games : Array.isArray(opt.games) && opt.games.length ? opt.games : null;
+  if (!games) { try { games = (await nfl.scoreboard(y, w)).games; } catch (_) { games = []; } }
+  const G = new Map(games.map(g => [String(g.id), g]));
+  const t = opt.at != null && standIn() && toMs(opt.at) != null ? toMs(opt.at) : now(), plan = [];
+  ids.forEach(id => {
+    const g = G.get(String(id)), raw = changes[id];
+    const clear = raw == null || raw === '';
+    const team = g && !clear ? teamFor(g, raw) : null;
+    if (!g || (!clear && !team)) out.failed.push(id);
+    else if (gameLocked(g, t) || (!clear && t >= kickOf(g))) out.locked.push(id);
+    else plan.push({id, g, team});
+  });
+  const fail = code => { plan.forEach(p => out.failed.push(p.id)); out.code = code; return out; };
+  if (!plan.length) { if (out.failed.length) out.code = 'failed'; else if (out.locked.length) out.code = 'locked'; return out; }
+  if (devFail) return fail(devFail === 'denied' ? 'denied' : 'failed');
+  if (standIn()) {
+    // One pass over the stand-in, stamped with the (possibly injected) clock, then one emit.
+    const uid = myUid(), me = myMe(), nick = myNick();
+    const o = readStore();
+    const K = o.nflpicks && typeof o.nflpicks === 'object' ? o.nflpicks : (o.nflpicks = {});
+    const W = K[key] && typeof K[key] === 'object' ? K[key] : (K[key] = {});
+    const done = [];
+    plan.forEach(({id, g, team}) => {
+      if (kickPassed(ownDoc(key, uid, g.id), t)) { out.locked.push(id); return; } // what the rules would say
+      const pid = nflPickId(uid, g.id);
+      if (team == null) delete W[pid]; else W[pid] = {uid, game: g.id, team, me, nick, at: t, kick: kickOf(g)};
+      done.push(id);
+    });
+    if (!Object.keys(W).length) delete K[key];
+    if (done.length && !writeStore(o)) { done.forEach(id => out.failed.push(id)); out.code = 'failed'; return out; }
+    done.forEach(id => out.ok.push(id));
+    cache.delete('nflpicks:' + key);
+    notify('nflpicks', key);
+    if (out.failed.length) out.code = 'failed';
+    else if (!done.length) out.code = 'locked';
+    return out;
+  }
+  // Offline, Firestore would queue the writes and apply them whenever the phone reconnects: say so now instead.
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return fail('failed');
+  let F;
+  try { F = await fire.getFire(); } catch (_) { return fail('failed'); }
+  const res = await Promise.all(plan.map(({g, team}) => firePick(F, key, g, team).catch(() => 'failed')));
+  let denied = 0;
+  res.forEach((r, i) => {
+    const id = plan[i].id;
+    if (r === 'ok') out.ok.push(id);
+    else if (r === 'locked') out.locked.push(id);
+    else { out.failed.push(id); if (r === 'denied') denied++; }
+  });
+  out.code = submitCode(out, denied);
+  return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -993,6 +1143,7 @@ try {
 //                                                 ESPN state leaves 'pre': nfl.__dev.patch(2026, 4, {id: {state: 'in'}}))
 //   week.__dev.as({uid: 'dev-fake-2', me: 'mason', nick: 'Mason'})  // act as another voter; null = yourself
 //   await week.castVote('jaymin|jayton'); await week.pickGame('401872964', 'PIT'); await week.clearPick('401872964')
+//   await week.submitPicks(2026, 4, {'401872964': 'PIT', '401872965': ''})   // what the Pick'em Submit button does
 //   week.__dev.seed()                             // 8 fake voters on the current Matchup of the Week
 //   await week.__dev.seedNfl(2026, 4)             // 8 fake NFL pickers on a week (default: the pick'em week)
 //   week.__dev.fail('denied')                     // show the "isn't switched on yet" states; null clears

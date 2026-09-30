@@ -7,11 +7,15 @@
 //   each a card: away and home as two big tap targets with logos, records and the kickoff in local time; after
 //   kickoff a lock, the live score and clock, then Final with your pick marked right or wrong, the pick split bar and
 //   who picked whom (sheet). Previous weeks are read-only results. Leaderboard sheet: This week / Season.
+//   Pick, then submit: a tap drafts a pick on this phone (dashed, "Not submitted"; kept in localStorage per week, see
+//   Drafts) and the Submit bar above the tab bar sends every change at once (week.submitPicks). Only submitted picks
+//   count anywhere: the summary, others' counts, the reveal, grading and the leaderboard.
 // Data: js/core/nfl.js (ESPN scoreboard: scoreboard, currentWeek, watch) and js/core/week.js (pickemWeek,
-//   subscribeNflPicks, pickGame, clearPick, nflWeekResults, nflStandings). Nothing here writes anywhere but through
-//   week.js (dev hosts save to its local stand-in).
-// Exports: badge() (the tab bar's dot: open games you haven't picked, remembered in localStorage 'gg-pickem-due' for a
-//   cold open; a 'gg:badge' event when it may have changed),
+//   subscribeNflPicks, pickChanges, submitPicks, nflWeekResults, nflStandings). Nothing here writes anywhere but
+//   through week.js (dev hosts save to its local stand-in).
+// Exports: badge() (the tab bar's dot: open games you haven't submitted a pick for, or unsubmitted drafts; remembered
+//   in localStorage 'gg-pickem-due' for a cold open; a 'gg:badge' event when it may have changed) and badgeText() (its
+//   label), drafts / pruneDrafts() / badgeFrom() (checks-pickem.js tests them),
 //   and for other screens summarize(), leaderText(), follow(), currentWeek(), logoURL(), kickText(), recText().
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
@@ -22,6 +26,10 @@ import {youButtonHTML} from './you.js';
 const esc = data.esc;
 const PICK_OFF = "Pick'em isn't switched on yet.";
 const LOCKED_MSG = 'That game has kicked off. Picks are locked.';
+const TBD_MSG = "No kickoff time yet. This game takes picks again once it's set.";
+const SUBMIT_FAIL = "Couldn't submit. Try again.";
+const OFF_NOTE = "Kept on this phone. Submit once pick'em is switched on.";
+const URGENT_MS = 60 * 60e3; // the Submit bar turns urgent this long before a drafted game kicks off
 const WEEKS = 18; // regular season
 const plural = (n, one, many) => `${n} ${n === 1 ? one : (many || one + 's')}`;
 const andJoin = l => l.length < 2 ? (l[0] || '') : `${l.slice(0, -1).join(', ')} and ${l[l.length - 1]}`;
@@ -116,6 +124,16 @@ function normBoard(b) {
   return {year: +b.year || null, week: +b.week || null, games, stale: !!b.stale, error: b.error || null};
 }
 const lockedGame = (g, at = nowMs()) => !!g && (g.state !== 'pre' || at >= g.kickoff.getTime());
+// A game without a set time stops taking picks 36 hours before its placeholder kickoff (week.pickDeadline: the rules
+// would refuse the pick), until ESPN sets the time. Not locked: it hasn't kicked off.
+const tbdShut = (g, at = nowMs()) => {
+  if (!g || !g.tbd || lockedGame(g, at)) return false;
+  let d = null;
+  try { d = typeof week.pickDeadline === 'function' ? week.pickDeadline(g) : null; } catch (_) { d = null; }
+  return d != null && at >= d;
+};
+// Open for picks (and drafts that can be submitted): not kicked off, and not a time-TBD game past its early lock.
+const pickable = (g, at = nowMs()) => !lockedGame(g, at) && !tbdShut(g, at);
 // The winning team's abbreviation once a game is final; null before, and for a tie or a game that never finished.
 const winnerOf = g => g && g.state === 'post' && g.final && g.winner ? g[g.winner].abbr : null;
 // Scores show while a game is on and once it is final; a game that never finished shows none (ESPN sends 0–0).
@@ -142,6 +160,9 @@ function logoHTML(t, size = 32, cls = '') {
 
 // ============================================================================ Picks (from week.subscribeNflPicks)
 function myUid() { try { return typeof week.myUid === 'function' ? week.myUid() : null; } catch (_) { return null; } }
+// Your submitted picks in a snapshot, as the server has confirmed them ({gameId: team}): a submit still on its way
+// shows in snap.mine at once (Firestore's local echo), but only counts once the server has it (snap.saved).
+const savedOf = snap => (snap && (snap.saved || snap.mine)) || {};
 // A picker as drawn: their manager when `me` is one, else their nick on a neutral initials disc.
 function who(v) {
   v = v || {};
@@ -175,11 +196,12 @@ function pickIndex(snap) {
  * {n, picked, right, wrong, decided (final untied games), live, open (not kicked off), done (all final),
  *  next (Date of the next kickoff or null), allIn (every open game picked), leaders: [{w, right, wrong}], best,
  *  people (pickers seen so far), mineMap}
- * `mine` overrides snap.mine (the screen's optimistic picks).
+ * Your picks are the submitted ones the server has confirmed (savedOf); `mine` overrides them (the screen's
+ * just-submitted picks).
  */
 export function summarize(games, snap, {mine, at = nowMs()} = {}) {
   const G = (games || []).map(g => g && g.kickoff instanceof Date && g.home && g.home.abbr ? g : normGame(g)).filter(Boolean);
-  const M = mine || (snap && snap.mine) || {};
+  const M = mine || savedOf(snap);
   let picked = 0, right = 0, wrong = 0, decided = 0, live = 0, open = 0, openPicked = 0, next = null;
   G.forEach(g => {
     const t = M[g.id];
@@ -240,6 +262,7 @@ export function currentWeek(force) {
   curP = Promise.resolve().then(get).then(r => {
     if (!r || !isFinite(+r.week)) throw new Error('No pick\'em week');
     memo.cur = {year: +r.year, week: +r.week};
+    drafts.sweep(memo.cur);
     if (Array.isArray(r.games)) { const b = normBoard(r); if (b.games.length || !memo.boards.has(wkey(b.year, b.week))) memo.boards.set(wkey(memo.cur.year, memo.cur.week), b); }
     return memo.cur;
   });
@@ -345,47 +368,226 @@ function on(s, fn) {
   try { return fn(); } finally { st = prev; }
 }
 
+// ============================================================================ Drafts
+// A tap drafts a pick on this phone; nothing is written until Submit (week.submitPicks). Drafts live in localStorage
+// per week ('gg-pk-draft-2026-w4': {gameId: team | ''}, '' = clear the submitted pick), so leaving the screen or
+// reloading never loses them; weeks before the current one are swept. A draft equal to the submitted pick is no change
+// (week.pickChanges). A game that kicks off takes its draft with it: it never counts (sweepDrafts says which).
+const DRAFT_KEY = 'gg-pk-draft-';
+const draftMem = new Map(); // '2026-w4' -> {gameId: team | ''}
+function cleanDrafts(o) {
+  const out = {};
+  if (o && typeof o === 'object' && !Array.isArray(o)) {
+    Object.keys(o).forEach(id => { const t = o[id]; if (/^[0-9]{1,12}$/.test(id) && typeof t === 'string' && /^[A-Za-z]{0,4}$/.test(t)) out[id] = t.toUpperCase(); });
+  }
+  return out;
+}
+/** The draft store: get(year, week, {fresh}) -> a copy; set(year, week, map) -> saved; sweep({year, week}). */
+export const drafts = {
+  key: (y, w) => DRAFT_KEY + wkey(y, w),
+  get(y, w, {fresh} = {}) {
+    const k = wkey(y, w);
+    if (fresh || !draftMem.has(k)) {
+      let o = null;
+      try { o = JSON.parse(ui.lsGet(DRAFT_KEY + k) || 'null'); } catch (_) { o = null; }
+      draftMem.set(k, cleanDrafts(o));
+    }
+    return Object.assign({}, draftMem.get(k));
+  },
+  set(y, w, map) {
+    const k = wkey(y, w), o = cleanDrafts(map);
+    draftMem.set(k, o);
+    return ui.lsSet(DRAFT_KEY + k, Object.keys(o).length ? JSON.stringify(o) : null);
+  },
+  // Drafts of weeks before `cur` are gone for good (their games are over).
+  sweep(cur) {
+    if (!cur) return 0;
+    let keys = [];
+    try { keys = Object.keys(localStorage).filter(k => k.startsWith(DRAFT_KEY)); } catch (_) { keys = []; }
+    let n = 0;
+    keys.forEach(k => {
+      const m = /^(\d{4})-w(\d{1,2})$/.exec(k.slice(DRAFT_KEY.length));
+      if (m && (+m[1] < cur.year || (+m[1] === cur.year && +m[2] < cur.week))) { ui.lsSet(k, null); draftMem.delete(m[1] + '-w' + m[2]); n++; }
+    });
+    return n;
+  }
+};
+// Save a week's drafts and tell everything that follows them (the tab dot, the kickoff timer).
+function putDrafts(y, w, map) {
+  drafts.set(y, w, map);
+  signalBadge();
+  armDrafts();
+}
+/**
+ * What a week's drafts can still use -> {keep: {gameId: team | ''}, dropped: [game]}. Drafts for games that have
+ * kicked off never count and go (`dropped`: those that were changes, for the toast naming them); so do drafts for
+ * games no longer on the slate, and, once the submitted picks are known (saved not null), drafts equal to them.
+ */
+export function pruneDrafts(dr, games, saved, at = nowMs()) {
+  const G = new Map((games || []).map(g => [String(g.id), g]));
+  const ch = saved ? week.pickChanges(dr, saved) : null;
+  const keep = {}, dropped = [];
+  Object.keys(dr || {}).forEach(id => {
+    const g = G.get(id);
+    if (!g) return;
+    if (lockedGame(g, at)) { if (ch && id in ch) dropped.push(g); return; }
+    if (ch && !(id in ch)) return;
+    keep[id] = dr[id];
+  });
+  return {keep, dropped};
+}
+// Your submitted picks for a week as this phone knows them: the subscription's, with a screen's just-submitted ones
+// on top (until the snapshot shows them).
+function savedFor(y, w) {
+  const saved = Object.assign({}, savedOf(memo.snaps.get(wkey(y, w))));
+  screens.forEach(s => {
+    if (s.dead || s.year !== y || s.week !== w) return;
+    s.pending.forEach((p, gid) => { if (p.team) saved[gid] = p.team; else delete saved[gid]; });
+  });
+  return saved;
+}
+const gameName = g => `${g.away.short} at ${g.home.short}`;
+const teamOf = (g, abbr) => (g.home.abbr === abbr ? g.home : g.away.abbr === abbr ? g.away : null);
+// Submits on their way, per week ('2026-w4' -> count): their drafts stay put until the answer (submit() settles them).
+const sending = new Map();
+// Drop what the current week's drafts can no longer use, with a toast naming the games that kicked off before their
+// draft was submitted. Runs on every patch, on new data and at each drafted game's kickoff (armDrafts), whichever
+// tab is showing.
+function sweepDrafts() {
+  const c = memo.cur;
+  if (!c) return;
+  const k = wkey(c.year, c.week);
+  const b = memo.boards.get(k), snap = memo.snaps.get(k);
+  if (!b || !b.games.length || sending.get(k)) return;
+  const dr = drafts.get(c.year, c.week);
+  const n = Object.keys(dr).length;
+  if (!n) return;
+  // Only once the picks are really known (not the first snapshot from the empty cache): a draft equal to what is
+  // submitted is no loss, and a cold open after a kickoff still names the game. Until then a kicked-off game's draft
+  // is simply ignored (vm).
+  if (!snap || snap.ready === false || snap.error) return;
+  const saved = savedFor(c.year, c.week);
+  const {keep, dropped} = pruneDrafts(dr, b.games, saved);
+  if (Object.keys(keep).length === n) return;
+  putDrafts(c.year, c.week, keep);
+  if (!dropped.length) return;
+  const names = dropped.map(gameName);
+  // A drafted change or clear that never went in leaves the submitted pick standing (named when it's one game); a
+  // drafted new pick simply didn't count.
+  const stands = dropped.filter(g => saved[g.id]);
+  const one = dropped.length === 1;
+  const was = one && stands.length ? teamOf(dropped[0], saved[dropped[0].id]) : null;
+  const what = !stands.length ? `Your unsubmitted ${one ? "pick didn't" : "picks didn't"} count.`
+    : stands.length < dropped.length ? "Unsubmitted changes didn't count. Your submitted picks stand."
+    : was ? `Your ${was.short} pick stands.` : `Your submitted ${one ? 'pick stands' : 'picks stand'}.`;
+  ui.toast(`${andJoin(names)} kicked off. ${what}`, {icon: 'lock', duration: 4000});
+}
+// One wake-up for the drafts: the next drafted game's urgent hour (the bar turns urgent) or its kickoff (the draft
+// goes). The screen's own 15 s tick covers the rest while it shows; this one runs whichever tab is showing.
+let draftT = 0;
+function armDrafts() {
+  clearTimeout(draftT);
+  draftT = 0;
+  const c = memo.cur;
+  const b = c ? memo.boards.get(wkey(c.year, c.week)) : null;
+  if (!b) return;
+  const dr = drafts.get(c.year, c.week), at = nowMs();
+  let next = Infinity;
+  b.games.forEach(g => {
+    if (!(g.id in dr) || lockedGame(g, at)) return;
+    const kt = g.kickoff.getTime();
+    [kt - URGENT_MS, kt].forEach(t => { if (t > at && t < next) next = t; });
+  });
+  const ms = Math.max(1000, next - at + 250); // (a frozen dev clock never reaches `next`: no tight loop)
+  if (isFinite(ms) && ms < 2 ** 31 - 1) {
+    draftT = setTimeout(() => { draftT = 0; sweepDrafts(); screens.forEach(s => on(s, () => patch())); signalBadge(); armDrafts(); }, ms);
+  }
+}
+
 // ============================================================================ Tab badge
 /**
- * The Pick'em tab's dot (app.js polls it): this week has games still open (not kicked off) that you haven't picked.
- * Reads only what the screen already fetched (the module memo, plus a mounted screen's unsaved taps), never a request;
- * kickoffs since the last poll lock games by the clock. What it last saw that way stays on this phone (DUE_KEY: the
- * kickoff times of the open games you hadn't picked), so a cold open, where nothing here has fetched yet (the app
- * opens on Puzzles), still shows the dot until those games kick off. Nothing known (never opened on this phone, or a
- * new week not seen yet) -> no dot. Picks made on another phone count once this screen has loaded the week again.
+ * The Pick'em tab's dot (app.js polls it): this week has games still open (not kicked off) that you haven't
+ * submitted a pick for, or drafts you haven't submitted. Reads only what the screen already fetched (the module memo,
+ * your drafts and a mounted screen's just-submitted picks), never a request; kickoffs since the last poll lock games
+ * by the clock. What it last saw that way stays on this phone (DUE_KEY: the kickoff times of those open games), so a
+ * cold open, where nothing here has fetched yet (the app opens on Puzzles), still shows the dot until those games
+ * kick off. Nothing known (never opened on this phone, or a new week not seen yet) -> no dot. Picks made on another
+ * phone count once this screen has loaded the week again.
  */
-const DUE_KEY = 'gg-pickem-due'; // {k: '2026-w4', due: [kickoff ms, ...]}
-let dueMem;                      // undefined until read
+const DUE_KEY = 'gg-pickem-due'; // {k: '2026-w4', due: [kickoff ms, ...], un: [kickoff ms of games with a draft]}
+let dueMem, unMem;               // undefined until read
+function readDue() {
+  if (dueMem !== undefined) return;
+  try {
+    const o = JSON.parse(ui.lsGet(DUE_KEY) || 'null');
+    dueMem = o && Array.isArray(o.due) ? o.due.filter(Number.isFinite) : null;
+    unMem = o && Array.isArray(o.un) ? o.un.filter(Number.isFinite) : [];
+  } catch (_) { dueMem = null; unMem = []; }
+}
 function savedDue(at) {
-  if (dueMem === undefined) {
-    try { const o = JSON.parse(ui.lsGet(DUE_KEY) || 'null'); dueMem = o && Array.isArray(o.due) ? o.due.filter(Number.isFinite) : null; } catch (_) { dueMem = null; }
-  }
+  readDue();
   return !!dueMem && dueMem.some(t => t > at);
 }
-function saveDue(k, due) {
-  dueMem = due;
-  const v = JSON.stringify({k, due});
+function saveDue(k, due, un) {
+  dueMem = due; unMem = un;
+  const v = JSON.stringify({k, due, un});
   if (ui.lsGet(DUE_KEY) !== v) ui.lsSet(DUE_KEY, v);
 }
-// Another tab of the app on this phone saw the week: read it again.
-try { addEventListener('storage', ev => { if (ev.key === DUE_KEY || ev.key === null) { dueMem = undefined; signalBadge(); } }); } catch (_) {}
+// Another tab of the app on this phone saw the week, or changed a draft: read it again.
+try {
+  addEventListener('storage', ev => {
+    if (ev.key === DUE_KEY || ev.key === null) { dueMem = undefined; signalBadge(); }
+    if (ev.key === null || (ev.key && ev.key.startsWith(DRAFT_KEY))) {
+      draftMem.clear();
+      signalBadge();
+      screens.forEach(s => on(s, () => patch()));
+    }
+  });
+} catch (_) {}
+/**
+ * The dot from what is known -> {on, due: [kickoff ms], unsent (games with a draft that isn't submitted)}. Open games
+ * count when nothing is submitted for them, or when a draft differs from what is (a draft alone is not a pick).
+ */
+export function badgeFrom({games, saved, drafts: dr, at = nowMs()}) {
+  const S = saved || {};
+  const ch = week.pickChanges(dr || {}, S);
+  const open = (games || []).filter(g => pickable(g, at));
+  const un = open.filter(g => g.id in ch);
+  const due = open.filter(g => g.id in ch || (S[g.id] !== g.home.abbr && S[g.id] !== g.away.abbr));
+  const ms = l => l.map(g => g.kickoff.getTime()).filter(Number.isFinite);
+  return {on: due.length > 0, due: ms(due), unsent: un.length, un: ms(un)};
+}
+const UNSENT = 'picks not submitted';
+let why = null; // the words for what badge() last decided; null: it went by what this phone saw before (readDue)
 export function badge() {
   const c = memo.cur, at = nowMs();
+  why = null;
   if (!c) return savedDue(at);
   const k = wkey(c.year, c.week);
   const b = memo.boards.get(k), snap = memo.snaps.get(k);
-  if (snap && snap.error) return false; // pick'em switched off, or the picks can't be read: unknown
+  if (snap && snap.error) {
+    // Pick'em switched off: no dot. The picks can't be read: what's due is unknown, but drafts live on this phone,
+    // so unsubmitted changes (against the last picks seen) still light it.
+    why = '';
+    if (/denied/.test(String(snap.error)) || !b || !b.games.length) return false;
+    const r = badgeFrom({games: b.games, saved: savedFor(c.year, c.week), drafts: drafts.get(c.year, c.week), at});
+    if (r.unsent) why = UNSENT;
+    return r.unsent > 0;
+  }
   // This week's games or your picks still on the way (a first snapshot from the empty local cache is not an answer).
   if (!b || !b.games.length || !snap || snap.ready === false) return savedDue(at);
-  const mine = Object.assign({}, snap.mine || {});
-  screens.forEach(s => {
-    if (s.dead || s.off || s.year !== c.year || s.week !== c.week) return;
-    s.pending.forEach((p, gid) => { if (p.team) mine[gid] = p.team; else delete mine[gid]; });
-  });
-  const due = b.games.filter(g => !lockedGame(g, at) && mine[g.id] !== g.home.abbr && mine[g.id] !== g.away.abbr)
-    .map(g => g.kickoff.getTime()).filter(Number.isFinite);
-  saveDue(k, due);
-  return due.length > 0;
+  const r = badgeFrom({games: b.games, saved: savedFor(c.year, c.week), drafts: drafts.get(c.year, c.week), at});
+  saveDue(k, r.due, r.un);
+  why = r.unsent ? UNSENT : r.on ? 'games to pick' : '';
+  return r.on;
+}
+/** The dot's words for the tab's label (app.js): unsubmitted drafts first. '' when there is no dot. */
+export function badgeText() {
+  if (why != null) return why;
+  readDue();
+  const at = nowMs();
+  if (unMem && unMem.some(t => t > at)) return UNSENT;
+  return dueMem && dueMem.some(t => t > at) ? 'games to pick' : '';
 }
 // Tell the tab bar to look again (it coalesces; badge() itself decides).
 const signalBadge = () => { try { document.dispatchEvent(new CustomEvent('gg:badge', {detail: {tab: 'pickem'}})); } catch (_) {} };
@@ -404,19 +606,48 @@ function shownWeek(ctx) {
 }
 const isCurrent = v => !!memo.cur && v.year === memo.cur.year && v.week === memo.cur.week;
 
-// The view model: the week's board and picks, with your optimistic picks on top.
+// The view model: the week's board and picks. saved: your submitted picks (with just-submitted ones on top until the
+// snapshot shows them); changes: your drafts that differ from them, open games of the current week only; mine: what
+// the cards show (saved with the changes on top). The summary and everything others see count saved only.
 function vm() {
   const k = wkey(st.year, st.week);
   const board = st.week ? memo.boards.get(k) || null : null;
   const snap = st.week ? memo.snaps.get(k) || null : null;
-  const mine = Object.assign({}, snap && snap.mine ? snap.mine : {});
-  st.pending.forEach((p, gid) => { if (p.team) mine[gid] = p.team; else delete mine[gid]; });
+  const saved = Object.assign({}, savedOf(snap));
+  st.pending.forEach((p, gid) => { if (p.team) saved[gid] = p.team; else delete saved[gid]; });
   const at = nowMs();
   const games = board ? board.games : [];
-  const sum = summarize(games, snap, {mine, at});
+  const current = isCurrent({year: st.year, week: st.week});
+  const changes = current ? changesOf(games, drafts.get(st.year, st.week), saved, at) : {};
+  const mine = Object.assign({}, saved);
+  Object.keys(changes).forEach(gid => { if (changes[gid]) mine[gid] = changes[gid]; else delete mine[gid]; });
+  const sum = summarize(games, snap, {mine: saved, at});
   const err = snap && snap.error ? String(snap.error) : '';
-  return {board, snap, games, mine, at, sum, current: isCurrent({year: st.year, week: st.week}),
+  return {board, snap, games, saved, mine, changes, at, sum, current,
     off: st.off || /denied/.test(err), picksErr: err && !/denied/.test(err) ? err : '', loadingPicks: !snap};
+}
+// The drafts that are changes to submit, games still open for picks only -> {gameId: team | ''}.
+function changesOf(games, dr, saved, at) {
+  const ch = week.pickChanges(dr, saved), out = {};
+  (games || []).forEach(g => { if (g.id in ch && pickable(g, at)) out[g.id] = ch[g.id]; });
+  return out;
+}
+// Changes as words: 'picks' while every one is a new pick, else 'changes' ("Submit 3 picks", "Submit 1 change").
+function wordsOf(changes, saved) {
+  const ids = Object.keys(changes);
+  const noun = ids.every(id => changes[id] && !saved[id]) ? 'pick' : 'change';
+  return {n: ids.length, noun, text: plural(ids.length, noun)};
+}
+const changeWords = v => wordsOf(v.changes, v.saved);
+// The drafted game kicking off first within the hour (the Submit bar's warning), or null.
+function urgentOf(v) {
+  let first = null;
+  v.games.forEach(g => {
+    if (!(g.id in v.changes) || g.tbd) return;
+    const left = g.kickoff.getTime() - v.at;
+    if (left > 0 && left <= URGENT_MS && (!first || g.kickoff < first.kickoff)) first = g;
+  });
+  return first;
 }
 
 // ============================================================================ Markup
@@ -450,7 +681,9 @@ function stripHTML(v) {
   return `<span class="pk-strip" aria-hidden="true">${v.games.map(g => {
     const t = v.mine[g.id], win = winnerOf(g);
     const picked = t === g.home.abbr || t === g.away.abbr;
-    const c = win && picked ? (t === win ? 'is-right' : 'is-wrong') : picked ? 'is-on' : g.state === 'in' ? 'is-live' : '';
+    // A draft: outlined (a drafted pick) or hollow with a ring (a submitted pick drafted away).
+    const draft = g.id in v.changes ? (picked ? 'is-draft' : 'is-clr') : '';
+    const c = win && picked ? (t === win ? 'is-right' : 'is-wrong') : draft || (picked ? 'is-on' : g.state === 'in' ? 'is-live' : '');
     return `<i class="${c}" data-seg="${esc(g.id)}"></i>`;
   }).join('')}</span>`;
 }
@@ -458,10 +691,12 @@ function sumHTML(v) {
   const s = v.sum;
   const played = s.right + s.wrong;
   const past = !v.current;
-  // Tile 1: progress. Tile 2: your record. Tile 3: what's next.
-  const allIn = !past && s.allIn;
+  const cw = changeWords(v);
+  // Tile 1: submitted picks only ("16 of 16 Submitted ✓", "12 of 16 Submitted"; drafts are counted on the Submit bar
+  // and outlined in the strip). Tile 2: your record. Tile 3: what's next.
+  const allIn = !past && s.allIn && !cw.n;
   const t1 = `<div class="pk-tile${allIn ? ' is-all' : ''}"><span class="pk-tv"><span class="n2 pk-pc">${s.picked}</span><span class="pk-of">of ${s.n}</span></span>`
-    + `<span class="pk-tl">${allIn ? `${ui.icon('check')}All in` : 'Picked'}</span></div>`;
+    + `<span class="pk-tl">${past ? 'Picked' : allIn ? `Submitted${ui.icon('check')}` : 'Submitted'}</span></div>`;
   const t2 = `<div class="pk-tile"><span class="pk-tv"><span class="n2${played ? '' : ' ink3'}">${played ? `${s.right}–${s.wrong}` : '0–0'}</span></span>`
     + `<span class="pk-tl">${!past && !s.done && played ? 'So far' : 'Your record'}</span></div>`;
   let t3;
@@ -477,7 +712,7 @@ function sumHTML(v) {
     + (s.leaders.length ? `<span class="pk-lead-av">${ui.avatarStack(s.leaders.slice(0, 3).map(r => stackItem(r.w)), {max: 3, size: 28})}</span>` : `<span class="pk-lead-av is-ic">${ui.icon('medal')}</span>`)
     + `<span class="pk-lead-tx"><span class="ovl pk-lead-o">Leaderboard</span><span class="pk-lead-t">${esc(leadTxt)}</span></span>`
     + ui.icon('chevron-right', {cls: 'chev'}) + `</button>`;
-  const say = `${s.picked} of ${s.n} picked. ${played ? `Your record ${s.right} and ${s.wrong}.` : ''} ${s.live ? `${plural(s.live, 'game')} ${stale ? 'last seen live' : 'live'}.` : s.next && !past ? `Next kickoff ${kickText(s.next)}.` : s.open && !past ? 'Kickoff times to be decided.' : ''}`;
+  const say = `${s.picked} of ${s.n} ${past ? 'picked' : 'submitted'}.${cw.n ? ` ${cw.text} not submitted yet.` : ''} ${played ? `Your record ${s.right} and ${s.wrong}.` : ''} ${s.live ? `${plural(s.live, 'game')} ${stale ? 'last seen live' : 'live'}.` : s.next && !past ? `Next kickoff ${kickText(s.next)}.` : s.open && !past ? 'Kickoff times to be decided.' : ''}`;
   return `<div class="card pk-sum" data-enter><p class="sr-only">${esc(say)}</p><div class="pk-tiles" aria-hidden="true">${t1}${t2}${t3}</div>${stripHTML(v)}${leadRow}</div>`;
 }
 function bannerHTML(v) {
@@ -489,8 +724,11 @@ function bannerHTML(v) {
   const c = memo.cur;
   if (c && !v.current && st.year === c.year && st.week < c.week) {
     const b = memo.boards.get(wkey(c.year, c.week));
-    const s = b ? summarize(b.games, memo.snaps.get(wkey(c.year, c.week)) || null) : null;
-    const txt = s && s.open && !s.allIn ? (s.picked ? `Week ${c.week}: ${s.picked} of ${s.n} picked` : `Week ${c.week} picks are open`) : `Back to week ${c.week}`;
+    const saved = savedFor(c.year, c.week);
+    const s = b ? summarize(b.games, memo.snaps.get(wkey(c.year, c.week)) || null, {mine: saved}) : null;
+    const un = b ? wordsOf(changesOf(b.games, drafts.get(c.year, c.week), saved, v.at), saved) : null;
+    const txt = un && un.n ? `Week ${c.week}: ${un.text} not submitted`
+      : s && s.open && !s.allIn ? (s.picked ? `Week ${c.week}: ${s.picked} of ${s.n} submitted` : `Week ${c.week} picks are open`) : `Back to week ${c.week}`;
     out.push(`<button type="button" class="pk-banner is-go" data-pk-week="${c.week}">${ui.icon('football')}<span>${esc(txt)}</span>${ui.icon('chevron-right', {cls: 'chev'})}</button>`);
   }
   return out.join('');
@@ -498,7 +736,7 @@ function bannerHTML(v) {
 function noteHTML(v) {
   if (!v.current || v.sum.done) return v.sum.n ? `<p class="pk-note">${v.current ? 'Every game is final.' : `Week ${st.week} is final.`} A point for every winner you called; a tie counts for nobody.</p>` : '';
   if (!v.sum.open || v.off) return '';
-  return `<p class="pk-note">Tap a team to pick it. Tap again to clear. Each game locks at kickoff.</p>`;
+  return `<p class="pk-note">Tap a team to pick it, tap again to clear, then submit. Only submitted picks count, and each game locks at kickoff.</p>`;
 }
 
 // Status column: kickoff time, the live clock, or Final.
@@ -551,8 +789,8 @@ function clockOf(g) {
   if (m) return [q(+m[2]), m[1]];
   return [d ? d.split(/\s+-\s+/)[0] : 'Live', ''];
 }
-// A game you can still pick: this week's, not kicked off, pick'em switched on.
-const canPick = (g, v) => v.current && !v.off && !lockedGame(g, v.at);
+// A game you can still pick: this week's, open for picks, pick'em switched on.
+const canPick = (g, v) => v.current && !v.off && pickable(g, v.at);
 function markHTML(g, t, v) {
   const mine = v.mine[g.id];
   const win = winnerOf(g);
@@ -560,25 +798,47 @@ function markHTML(g, t, v) {
     if (win) return mine === win ? `<span class="pk-mk is-right">${ui.icon('check')}</span>` : `<span class="pk-mk is-wrong">${ui.icon('x')}</span>`;
     // A tie (or a game that never finished) grades as no pick: a neutral mark.
     if (g.state === 'post') return `<span class="pk-mk is-push">${ui.icon('check')}</span>`;
+    // Drafted, not submitted: an outlined mark (a submitted pick is the filled one).
+    if (g.id in v.changes) return `<span class="pk-mk is-draft">${ui.icon('check')}</span>`;
     return `<span class="pk-mk is-on">${ui.icon('check')}</span>`;
   }
   return canPick(g, v) ? `<span class="pk-mk is-open"></span>` : '';
+}
+// A side's draft state: 'draft' (drafted, not submitted), 'cleared' (your submitted pick, cleared by a draft), 'was'
+// (your submitted pick, swapped for the other side by a draft: it still counts until you submit) or ''.
+function draftOf(g, t, v) {
+  if (!(g.id in v.changes)) return '';
+  if (v.mine[g.id] === t.abbr) return 'draft';
+  if (v.saved[g.id] !== t.abbr) return '';
+  return v.changes[g.id] === '' ? 'cleared' : 'was';
 }
 function teamLabel(g, t, side, v) {
   const other = side === 'away' ? g.home : g.away;
   const mine = v.mine[g.id];
   const win = winnerOf(g);
+  const d = draftOf(g, t, v);
   const bits = [`${t.name}${t.record ? `, ${recText(t.record)}` : ''}`];
   if (showScore(g) && t.score != null) bits.push(`${t.score} points${win === t.abbr ? ', won' : ''}`);
-  if (mine === t.abbr) bits.push(win ? (win === t.abbr ? 'Your pick, right' : 'Your pick, wrong') : g.state === 'post' ? 'Your pick. No result, so it counts for nobody' : 'Your pick');
+  if (mine === t.abbr) bits.push(win ? (win === t.abbr ? 'Your pick, right' : 'Your pick, wrong') : g.state === 'post' ? 'Your pick. No result, so it counts for nobody' : d ? 'Your pick, not submitted yet' : 'Your pick');
+  else if (d === 'cleared') bits.push('Your submitted pick, cleared but not submitted yet');
+  else if (d === 'was') bits.push(`Your submitted pick, changing to the ${other.short} when you submit`);
   if (canPick(g, v)) bits.push(mine === t.abbr ? 'Tap to clear' : `Pick to beat the ${other.short}`);
+  else if (v.current && !v.off && tbdShut(g, v.at)) bits.push('Picks open again once the kickoff time is set');
   return bits.join('. ');
 }
 function sideCls(g, t, v) {
   const mine = v.mine[g.id];
   const win = winnerOf(g);
+  const d = draftOf(g, t, v);
   // Before kickoff the side you didn't pick steps back; after it, winning and losing carry the emphasis.
-  return `pk-t${mine === t.abbr ? ' is-on' : mine && g.state === 'pre' ? ' is-dim' : ''}${win ? (win === t.abbr ? ' is-win' : ' is-lose') : ''}${canPick(g, v) ? '' : ' is-locked'}`;
+  return `pk-t${mine === t.abbr ? ' is-on' : mine && g.state === 'pre' ? ' is-dim' : ''}${d ? ' is-' + d : ''}${win ? (win === t.abbr ? ' is-win' : ' is-lose') : ''}${canPick(g, v) ? '' : ' is-locked'}`;
+}
+// The line under the team name: its record, and a marker on a draft: NOT SUBMITTED on the drafted side, CLEAR NOT
+// SUBMITTED on a submitted pick drafted away, SUBMITTED (neutral) on a submitted pick a draft would swap.
+function subHTML(g, t, v) {
+  const d = draftOf(g, t, v);
+  const ns = d === 'draft' ? 'Not submitted' : d === 'cleared' ? 'Clear not submitted' : d === 'was' ? 'Submitted' : '';
+  return `<span class="pk-trec">${esc(recText(t.record))}</span>${ns ? `<span class="pk-ns">${ns}</span>` : ''}`;
 }
 function sideHTML(g, side, v) {
   const t = g[side];
@@ -586,7 +846,7 @@ function sideHTML(g, side, v) {
   return `<button type="button" class="${sideCls(g, t, v)}" data-pick="${esc(g.id)}" data-team="${esc(t.abbr)}" data-side="${side}" aria-pressed="${v.mine[g.id] === t.abbr}"`
     + `${canPick(g, v) ? '' : ' aria-disabled="true"'} aria-label="${esc(teamLabel(g, t, side, v))}">`
     + logoHTML(t, 32)
-    + `<span class="pk-tn"><span class="pk-tnm">${esc(t.short)}</span><span class="pk-trec">${esc(recText(t.record))}</span></span>`
+    + `<span class="pk-tn"><span class="pk-tnm">${esc(t.short)}</span><span class="pk-tsub">${subHTML(g, t, v)}</span></span>`
     + `<span class="pk-mkw">${markHTML(g, t, v)}</span>`
     + `<span class="pk-sc n3">${esc(sc)}</span>`
     + `</button>`;
@@ -605,10 +865,10 @@ function crowdOf(g, v) {
   const home = map('home'), away = map('away');
   let n = b ? (b.n != null ? +b.n || 0 : (+b.home || 0) + (+b.away || 0)) : 0;
   if (!b && v.snap && Array.isArray(v.snap.picks)) n = (pickIndex(v.snap).get(g.id) || new Map()).size;
-  // Your own tap shows in the count before the server has it.
-  const saved = v.snap && v.snap.mine ? v.snap.mine[g.id] : null;
-  const eff = v.mine[g.id];
-  if (!lockedGame(g, v.at)) n = Math.max(0, n - (saved ? 1 : 0) + (eff ? 1 : 0));
+  // Your just-submitted pick shows in the count before the server has it (a draft never does: nobody else sees it).
+  const inSnap = v.snap && v.snap.mine ? v.snap.mine[g.id] : null;
+  const eff = v.saved[g.id];
+  if (!lockedGame(g, v.at)) n = Math.max(0, n - (inSnap ? 1 : 0) + (eff ? 1 : 0));
   return {home, away, n: Math.max(n, home.length + away.length)};
 }
 function barHTML(share, mine) {
@@ -707,6 +967,98 @@ function errHTML() {
   return ui.empty({icon: 'football', title: "Games didn't load.", body: 'Check your connection and try again.', action: {label: 'Try again', attrs: {'data-pk-retry': ''}}});
 }
 
+// ============================================================================ Submit bar
+// Sticky above the tab bar while this week has changes: Discard (every draft goes; a toast offers them back) and Submit
+// (all of them at once). Within the hour before a drafted game kicks off it turns urgent and says which game. While
+// pick'em is switched off it steps back (muted Submit, a note that the drafts are kept): a submit would be refused.
+function submitState(v) {
+  if (!v || !v.current || !v.games.length) return null;
+  const cw = changeWords(v);
+  if (!cw.n) return null;
+  const u = v.off ? null : urgentOf(v);
+  const note = v.off ? OFF_NOTE : u ? `Submit before ${gameName(u)} kicks off at ${timeShort(u.kickoff)}` : '';
+  return {cw, label: `Submit ${cw.text}`, undo: `Discard ${cw.text}, not submitted`, note, kind: v.off ? 'off' : u ? 'urgent' : '',
+    urgent: u ? note : ''};
+}
+const NOTE_ICON = {urgent: 'clock', off: 'info'};
+function submitBarHTML(v) {
+  const b = submitState(v);
+  const kind = b ? b.kind : '';
+  return `<div class="pk-sb${kind ? ' is-' + kind : ''}" role="region" aria-label="Unsubmitted picks"${b ? '' : ' hidden'}><div class="pk-sb-card">`
+    + `<p class="pk-sb-msg" id="pk-sb-msg" data-kind="${kind}"${kind ? '' : ' hidden'}>${ui.icon(NOTE_ICON[kind] || 'clock')}<span>${esc(b ? b.note : '')}</span></p>`
+    + `<div class="pk-sb-row">`
+    + ui.button({label: 'Discard', kind: 'secondary', cls: 'pk-sb-undo', attrs: {'data-pk-undo': '', 'aria-label': b ? b.undo : 'Discard'}})
+    + ui.button({label: b ? b.label : 'Submit picks', kind: 'primary', cls: 'pk-sb-go', attrs: {'data-pk-submit': '', 'aria-describedby': kind ? 'pk-sb-msg' : null}})
+    + `</div></div></div>`;
+}
+// Bring the bar in line with the view model: shown or hidden (it rises in and drops away), its count, urgency and
+// the loading state while a submit is on its way.
+function syncSubmitBar(v) {
+  const bar = st.el && st.el.querySelector('.pk-sb');
+  if (!bar) return;
+  const b = st.busy && v && v.current ? st.busy.b : submitState(v);
+  const show = !!b;
+  const card = bar.querySelector('.pk-sb-card');
+  if (show) {
+    const go = bar.querySelector('[data-pk-submit]'), undo = bar.querySelector('[data-pk-undo]');
+    const lab = go && go.querySelector('.btn-label');
+    if (lab && lab.textContent !== b.label) {
+      const was = lab.textContent;
+      lab.textContent = b.label;
+      if (!bar.hidden && was && st.ctx.visible) ui.animate(lab, [{transform: 'translateY(5px)', opacity: .3}, {transform: 'none', opacity: 1}], {spring: 'snappy'});
+    }
+    if (undo && undo.getAttribute('aria-label') !== b.undo) undo.setAttribute('aria-label', b.undo);
+    ui.setLoading(go, !!st.busy);
+    if (undo) { if (st.busy) undo.setAttribute('aria-disabled', 'true'); else undo.removeAttribute('aria-disabled'); }
+    // The note line: urgent (a drafted game kicks off within the hour) or off (pick'em isn't switched on).
+    const msg = bar.querySelector('.pk-sb-msg'), mt = msg && msg.querySelector('span');
+    if (msg && (msg.hidden !== !b.kind || msg.dataset.kind !== b.kind || mt.textContent !== b.note)) {
+      const first = !!b.kind && (msg.hidden || msg.dataset.kind !== b.kind);
+      if (b.kind && msg.dataset.kind !== b.kind) { const ic = msg.querySelector(':scope > .ic'); if (ic) ic.outerHTML = ui.icon(NOTE_ICON[b.kind]); }
+      msg.hidden = !b.kind;
+      msg.dataset.kind = b.kind;
+      mt.textContent = b.note;
+      bar.classList.toggle('is-urgent', b.kind === 'urgent');
+      bar.classList.toggle('is-off', b.kind === 'off');
+      if (go) { if (b.kind) go.setAttribute('aria-describedby', 'pk-sb-msg'); else go.removeAttribute('aria-describedby'); }
+      if (first) {
+        if (b.kind === 'urgent') ui.announce(b.note);
+        if (!bar.hidden && st.ctx.visible) ui.animate(msg, [{opacity: 0, transform: 'translateY(4px)'}, {opacity: 1, transform: 'none'}], {duration: 240, easing: 'cubic-bezier(.22,1,.36,1)'});
+      }
+    }
+    if (bar.hidden || bar.dataset.leaving) {
+      if (st.barAnim) { try { st.barAnim.cancel(); } catch (_) {} st.barAnim = null; }
+      delete bar.dataset.leaving;
+      bar.hidden = false;
+      if (st.ctx.visible) ui.animate(card, [{transform: 'translateY(24px) scale(.96)', opacity: 0}, {transform: 'none', opacity: 1}], {spring: 'smooth'});
+    }
+  } else if (!bar.hidden && !bar.dataset.leaving) {
+    // Focus on a button that is going away moves to the screen (not lost on <body>).
+    if (bar.contains(document.activeElement)) { try { st.ctx.screen.focus({preventScroll: true}); } catch (_) {} }
+    ui.setLoading(bar.querySelector('[data-pk-submit]'), false);
+    const undo = bar.querySelector('[data-pk-undo]');
+    if (undo) undo.removeAttribute('aria-disabled');
+    if (!st.ctx.visible) { bar.hidden = true; return; }
+    // The card drops away while the space it held closes with it, so a list scrolled to its end settles down smoothly
+    // instead of jumping when the bar goes.
+    const s0 = st, cs = getComputedStyle(bar);
+    bar.dataset.leaving = '1';
+    const a = ui.animate(card, [{transform: 'none', opacity: 1}, {transform: 'translateY(16px) scale(.98)', opacity: 0}], {duration: 200, easing: 'cubic-bezier(.4,0,1,1)', fill: 'forwards'});
+    const a2 = ui.animate(bar, [{height: bar.offsetHeight + 'px', marginTop: cs.marginTop, marginBottom: cs.marginBottom}, {height: '0px', marginTop: '0px', marginBottom: '0px'}],
+      {duration: 240, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'forwards'});
+    const anim = {cancel() { try { a.cancel(); } catch (_) {} try { a2.cancel(); } catch (_) {} }};
+    st.barAnim = anim;
+    let n = 2;
+    const done = () => {
+      if (--n > 0) return;
+      if (bar.dataset.leaving) { delete bar.dataset.leaving; bar.hidden = true; }
+      if (s0.barAnim === anim) { s0.barAnim = null; anim.cancel(); }
+    };
+    a.finished.then(done, done);
+    a2.finished.then(done, done);
+  }
+}
+
 // ============================================================================ Patching
 function morph(el, html) {
   if (!el || el._html === html) return false;
@@ -723,6 +1075,7 @@ function morph(el, html) {
 // Render the body afresh (week switch, me change, first data, a new slate).
 function renderBody({fade} = {}) {
   if (!st) return;
+  sweepDrafts();
   const main = st.el.querySelector('.pk-main');
   if (!main) return;
   const put = () => {
@@ -750,8 +1103,10 @@ function markShown(root) {
   });
 }
 // Patch in place: every card's classes, marks, scores, status and footer; the summary and banners.
-function patch({pop = null, all = false} = {}) {
+// pop: a tapped pick ({id, team}); all: every open game just got submitted; committed: game ids just submitted.
+function patch({pop = null, all = false, committed = null} = {}) {
   if (!st) return;
+  sweepDrafts();
   if (shapeKey() !== st.shape) { renderBody(); return; }
   if (!st.week) return;
   const v = vm();
@@ -794,6 +1149,15 @@ function patch({pop = null, all = false} = {}) {
     const pc = el.querySelector('.pk-pc');
     if (pc) ui.stamp(pc, {from: 1.35});
   }
+  // Submitted: each outlined mark turns solid with a small pop, in kickoff order.
+  if (committed && committed.length && st.ctx.visible) {
+    let i = 0;
+    v.games.forEach(g => {
+      if (!committed.includes(g.id)) return;
+      const m = el.querySelector(`.pk-g[data-g="${CSS.escape(g.id)}"] .pk-mk.is-on`);
+      if (m) ui.animate(m, [{transform: 'scale(.6)'}, {transform: 'scale(1)'}], {spring: 'bouncy', delay: Math.min(i++, 8) * 30});
+    });
+  }
   syncChrome();
 }
 function patchGame(li, g, v, pop) {
@@ -815,6 +1179,7 @@ function patchGame(li, g, v, pop) {
     const mk = b.querySelector('.pk-mkw');
     const mh = markHTML(g, t, v);
     if (mk && mk._html !== mh && mk.innerHTML !== mh) { mk.innerHTML = mh; mk._html = mh; }
+    morph(b.querySelector('.pk-tsub'), subHTML(g, t, v));
     const sc = b.querySelector('.pk-sc');
     const s = showScore(g) && t.score != null ? String(t.score) : '';
     if (sc && sc.textContent !== s) {
@@ -825,6 +1190,8 @@ function patchGame(li, g, v, pop) {
     if (pop && pop.team === t.abbr) {
       const m = b.querySelector('.pk-mk');
       if (m) ui.stamp(m, {from: .2});
+      const ns = b.querySelector('.pk-ns');
+      if (ns) ui.animate(ns, [{opacity: 0, transform: 'translateX(-4px)'}, {opacity: 1, transform: 'none'}], {duration: 200, easing: 'cubic-bezier(.22,1,.36,1)'});
       const lg = b.querySelector('.c-pk-logo');
       if (lg) ui.animate(lg, [{transform: 'scale(.86)'}, {transform: 'scale(1)'}], {spring: 'bouncy'});
     }
@@ -897,6 +1264,7 @@ function syncChrome() {
   const lt = st.el.querySelector('.lt-eyebrow');
   const eb = eyebrowText();
   if (lt && lt.textContent !== eb) lt.textContent = eb;
+  syncSubmitBar(st.week ? vm() : null);
 }
 
 // ============================================================================ Picking
@@ -915,43 +1283,127 @@ function tapTeam(gid, team) {
     return;
   }
   if (lockedGame(g, v.at)) { ui.toast(LOCKED_MSG, {icon: 'lock'}); return; }
+  if (tbdShut(g, v.at)) { ui.toast(TBD_MSG, {icon: 'clock'}); return; }
   if (v.off) { ui.toast(PICK_OFF, {icon: 'info'}); return; }
-  const was = v.mine[gid] || null;
-  const next = was === team ? null : team;
-  const seq = ++st.seq;
-  st.pending.set(gid, {team: next, seq});
-  const after = vm();
-  const all = !!next && after.sum.allIn && !v.sum.allIn;
-  ui.haptic(all ? 'success' : next ? 'light' : 'selection');
-  patch({pop: next ? {id: gid, team: next} : null, all});
-  const tm = next ? (next === g.home.abbr ? g.home : g.away) : null;
-  ui.announce(next ? `${tm.short} to win. ${all ? `All ${after.sum.open} open games picked.` : `${after.sum.picked} of ${after.sum.n} picked.`}` : `Pick cleared. ${after.sum.picked} of ${after.sum.n} picked.`);
-  let p;
-  try { p = next ? week.pickGame(gid, next) : week.clearPick(gid); } catch (e) { console.error(e); p = 'failed'; }
-  const s0 = st;
-  Promise.resolve(p).then(r => r, e => { console.error(e); return 'failed'; }).then(r => on(s0, () => {
-    const pd = st.pending.get(gid);
-    if (!pd || pd.seq !== seq) return; // a newer tap owns this game
-    if (r === 'ok' || r === 'dev') {
-      // Held until the snapshot shows it (Firestore echoes local writes at once); a quiet fallback after 4 s.
-      pd.saved = true;
-      if (snapHas(gid, next)) { st.pending.delete(gid); patch(); }
-      else setTimeout(() => on(s0, () => { if (st.pending.get(gid) === pd) { st.pending.delete(gid); patch(); } }), 4000);
-      return;
-    }
-    st.pending.delete(gid);
-    if (r === 'locked') { ui.toast(LOCKED_MSG, {icon: 'lock'}); }
-    else if (r === 'denied') { st.off = true; ui.toast(PICK_OFF, {icon: 'info'}); }
-    else ui.toast("Couldn't save your pick. Try again.", {icon: 'x-circle'});
-    ui.announce(r === 'locked' ? LOCKED_MSG : r === 'denied' ? PICK_OFF : "Couldn't save your pick.");
-    patch();
-  }));
+  // A draft on this phone, nothing written: back to what is submitted means no change (the draft goes).
+  const next = (v.mine[gid] || '') === team ? '' : team;
+  const dr = drafts.get(st.year, st.week);
+  if (next === (v.saved[gid] || '')) delete dr[gid]; else dr[gid] = next;
+  if (st.busy) st.busy.touched.add(gid); // drafted again while a submit is out: the answer leaves this one alone
+  const was = submitState(v);
+  putDrafts(st.year, st.week, dr);
+  const v2 = vm(), cw = changeWords(v2), now2 = submitState(v2);
+  ui.haptic(next ? 'light' : 'selection');
+  patch({pop: next ? {id: gid, team: next} : null});
+  const tm = next ? teamOf(g, next) : null;
+  // The tap's announcement carries the urgent line when this tap raised it (the bar's own would be cut off by it).
+  const urgent = now2 && now2.urgent && (!was || was.urgent !== now2.urgent) ? ` ${now2.urgent}.` : '';
+  ui.announce(`${next ? `${tm.short} to win.` : 'Pick cleared.'} ${cw.n ? `Not submitted. ${cw.text} to submit.` : 'Nothing to submit.'}${urgent}`);
 }
+
+// Submit every change at once (week.submitPicks). The button spins meanwhile and can't be pressed again; taps on the
+// cards still draft (a draft that changed meanwhile stays a draft).
+function submit() {
+  if (!st || st.busy) return;
+  const v = vm();
+  const b = submitState(v);
+  if (!b) return;
+  // Tried even when pick'em looks switched off: the answer ('denied') says so, and the drafts stay either way.
+  const y = st.year, w = st.week, k = wkey(y, w), s0 = st, sent = Object.assign({}, v.changes), wasAll = v.sum.allIn;
+  const busy = st.busy = {b, touched: new Set()};
+  const nav = st.ctx.nav;
+  sending.set(k, (sending.get(k) || 0) + 1);
+  ui.haptic('light');
+  syncSubmitBar(v);
+  let p;
+  try { p = week.submitPicks(y, w, sent, {games: v.games}); } catch (e) { p = Promise.reject(e); }
+  Promise.resolve(p).then(r => r && Array.isArray(r.ok) ? r : Promise.reject(new Error('submitPicks: ' + r)))
+    .catch(e => { console.error(e); return {ok: [], locked: [], failed: Object.keys(sent), code: 'failed'}; })
+    .then(r => {
+      const left = (sending.get(k) || 1) - 1;
+      if (left) sending.set(k, left); else sending.delete(k);
+      // The drafts first (whatever became of the screen): submitted ones match now, kicked-off ones never count, and
+      // the ones that didn't go through are back as they were sent unless drafted again meanwhile.
+      const dr = drafts.get(y, w);
+      r.ok.forEach(id => { if (dr[id] === sent[id]) delete dr[id]; });
+      r.locked.forEach(id => { delete dr[id]; });
+      r.failed.forEach(id => { if (id in sent && !busy.touched.has(id)) dr[id] = sent[id]; });
+      putDrafts(y, w, dr);
+      if (!on(s0, () => { settled(r, sent, wasAll, b.cw); return true; })) toastResult(r, b.cw, nav);
+    });
+}
+function settled(r, sent, wasAll, cw) {
+  const s0 = st;
+  st.busy = null;
+  // Held as saved until the snapshot shows them confirmed (a write the server acknowledged may reach the snapshot a
+  // moment after its answer); a quiet fallback after 4 s.
+  r.ok.forEach(id => {
+    const pd = {team: sent[id] || null, seq: ++st.seq, saved: true};
+    if (snapHas(id, pd.team)) return;
+    st.pending.set(id, pd);
+    setTimeout(() => on(s0, () => { if (st.pending.get(id) === pd) { st.pending.delete(id); patch(); } }), 4000);
+  });
+  if (r.code === 'denied') st.off = true;
+  if (r.ok.length) { dropLeaveToast(); leaveSig = ''; }
+  const v = vm();
+  const all = !!r.ok.length && v.sum.allIn && !wasAll && !Object.keys(v.changes).length;
+  toastResult(r, cw, st.ctx.visible ? null : st.ctx.nav);
+  patch({committed: r.ok, all});
+  if (r.ok.length && !r.failed.length) ui.announce(`${v.sum.picked} of ${v.sum.n} submitted.`);
+}
+// The toast (and haptic) for a submit's result. cw: the submitted changes as words. review: a way back to the screen
+// (ctx.nav) when the answer lands while it isn't showing: anything left to submit gets a Review button.
+function toastResult(r, cw, review) {
+  const lockedGames = r.locked.map(id => gameById(id) || (memo.cur && (memo.boards.get(wkey(memo.cur.year, memo.cur.week)) || {games: []}).games.find(g => g.id === id))).filter(Boolean);
+  const names = lockedGames.map(gameName);
+  const noun = cw ? cw.noun : 'pick';
+  const act = review ? {action: {label: 'Review', fn: () => review('/pickem')}, duration: 4500} : {};
+  if (r.code === 'denied') { ui.haptic('warning'); ui.toast(PICK_OFF, {icon: 'info'}); return; }
+  if (!r.ok.length && !r.locked.length) { ui.haptic('warning'); ui.toast(SUBMIT_FAIL, Object.assign({icon: 'x-circle'}, act)); return; }
+  if (r.locked.length || r.failed.length) {
+    // Some went in, some didn't: say which (kicked off: never counts; didn't go through: still a draft, try again).
+    ui.haptic('warning');
+    const bits = [];
+    if (r.locked.length) {
+      const them = r.locked.length === 1 ? (names[0] || 'That game') : names.length === r.locked.length ? andJoin(names) : plural(r.locked.length, 'game');
+      bits.push(`${r.ok.length ? `${r.ok.length === 1 ? cap(noun) : cap(noun) + 's'} submitted, but ${them}` : them} had already kicked off.`);
+      bits.push(`${r.locked.length === 1 ? "That pick didn't" : "Those picks didn't"} count.`);
+    } else bits.push(`${plural(r.ok.length, noun)} submitted.`);
+    if (r.failed.length) bits.push(`${plural(r.failed.length, noun)} didn't go through. Try again.`);
+    ui.toast(bits.join(' '), Object.assign({icon: r.locked.length ? 'lock' : 'x-circle', duration: 4500}, r.failed.length ? act : {}));
+    return;
+  }
+  ui.haptic('success');
+  const done = r.ok.length === 1 ? (noun === 'change' ? 'Change submitted.' : 'Pick submitted.') : 'Picks submitted.';
+  ui.toast(r.code === 'dev' ? `${done} Saved on this device (dev).` : done, {icon: 'check-circle'});
+}
+// Discard: every draft of the week goes; the toast can bring them back (as long as nothing was drafted since).
+function discard() {
+  if (!st || st.busy) return;
+  const v = vm();
+  const cw = changeWords(v);
+  if (!cw.n) return;
+  const y = st.year, w = st.week, before = drafts.get(y, w);
+  putDrafts(y, w, {});
+  dropLeaveToast(); leaveSig = '';
+  ui.haptic('selection');
+  patch();
+  ui.toast(`${cw.n === 1 ? `${cap(cw.noun)} discarded` : `${cw.text} discarded`}.`, {icon: 'x-circle', duration: 4000, action: {label: 'Restore', fn: () => {
+    putDrafts(y, w, Object.assign(before, drafts.get(y, w)));
+    screens.forEach(s => on(s, () => patch()));
+    ui.haptic('selection');
+  }}});
+}
+// The snapshot shows this pick as submitted and confirmed.
 function snapHas(gid, team) {
   const s = st && memo.snaps.get(wkey(st.year, st.week));
-  const m = s && s.mine ? s.mine[gid] || null : null;
-  return m === (team || null);
+  return (savedOf(s)[gid] || null) === (team || null);
 }
+
+// The leave reminder ("3 picks not submitted yet." with Review): one per set of changes (leaving again with the same
+// drafts doesn't repeat it), gone as soon as the screen shows again or the drafts are submitted or discarded.
+let leaveToast = null, leaveSig = '';
+function dropLeaveToast() { if (leaveToast) { leaveToast.dismiss(); leaveToast = null; } }
 
 // ============================================================================ Sheets
 function whoSheet(gid) {
@@ -1074,6 +1526,7 @@ function startFollow() {
     if (u.snap && !u.snap.error) st.off = false;
     // Your saved picks came back: drop the optimistic copies they confirm.
     st.pending.forEach((p, gid) => { if (p.saved && snapHas(gid, p.team)) st.pending.delete(gid); });
+    armDrafts(); // kickoffs may have moved; the drafts' wake-up follows the games
     later(() => patch());
   }));
   // A ?week= link opened before the current week was known: never show a week that hasn't started. A link to the
@@ -1111,8 +1564,9 @@ function setWeekFromCtx(ctx) {
   st.explicit = !!sw.explicit && !(memo.cur && sw.week === memo.cur.week && sw.year === memo.cur.year);
 }
 function newState(ctx, el) {
+  // pending: picks just submitted, held as saved until the snapshot shows them; busy: {b} while a submit is out.
   const s = {ctx, el, year: null, week: null, explicit: false, pending: new Map(), seen: new Map(), off: false, err: null, seq: 0,
-    stop: null, idle: null, kickT: 0, shape: null, titleShown: null};
+    stop: null, idle: null, kickT: 0, shape: null, titleShown: null, busy: null, barAnim: null};
   const prev = st;
   st = s;
   setWeekFromCtx(ctx);
@@ -1128,9 +1582,11 @@ function goWeek(n) {
 }
 
 function onClick(e) {
-  const t = e.target.closest && e.target.closest('[data-pick], [data-pk-who], [data-pk-board], [data-pk-retry], [data-pk-week]');
+  const t = e.target.closest && e.target.closest('[data-pick], [data-pk-who], [data-pk-board], [data-pk-retry], [data-pk-week], [data-pk-submit], [data-pk-undo]');
   if (!t || !st) return;
   if (t.hasAttribute('data-pick')) tapTeam(t.dataset.pick, t.dataset.team);
+  else if (t.hasAttribute('data-pk-submit')) submit();
+  else if (t.hasAttribute('data-pk-undo')) discard();
   else if (t.hasAttribute('data-pk-who')) { ui.haptic('light'); whoSheet(t.dataset.pkWho); }
   else if (t.hasAttribute('data-pk-board')) { ui.haptic('light'); boardSheet(); }
   else if (t.hasAttribute('data-pk-week')) { ui.haptic('light'); goWeek(t.dataset.pkWeek); }
@@ -1158,7 +1614,7 @@ export default {
     // The markup helpers read the screen state `st`: a throwaway one for this route (restored right after).
     const prev = st;
     st = newState(ctx, null);
-    try { return titleHTML() + chipsHTML() + `<div class="pk-main">${bodyHTML()}</div>`; } finally { st = prev; }
+    try { return titleHTML() + chipsHTML() + `<div class="pk-main">${bodyHTML()}</div>` + submitBarHTML(st.week ? vm() : null); } finally { st = prev; }
   },
 
   mount(el, ctx) {
@@ -1185,6 +1641,7 @@ export default {
 
   onShow(ctx) {
     on(screens.get(ctx), () => {
+      dropLeaveToast(); // back here: the Submit bar says it now
       if (!st.stop) startFollow();
       schedule();
     });
@@ -1195,6 +1652,17 @@ export default {
     on(screens.get(ctx), () => {
       stopFollow();
       clearTimeout(st.kickT);
+      // Leaving with drafts that aren't submitted: say so on the way out, once per set of changes (the tab's dot stays
+      // on until they are). Not while a submit is out (its answer says what's left, with a way back) nor while
+      // pick'em is switched off (nothing could be submitted).
+      const v = st.week && !st.busy ? vm() : null;
+      const cw = v && !v.off ? changeWords(v) : null;
+      if (!cw || !cw.n) return;
+      const sig = wkey(st.year, st.week) + JSON.stringify(v.changes);
+      if (sig === leaveSig) return;
+      dropLeaveToast();
+      leaveSig = sig;
+      leaveToast = ui.toast(`${cw.text} not submitted yet.`, {icon: 'clock', duration: 3500, action: {label: 'Review', fn: () => ctx.nav('/pickem')}});
     });
   },
 

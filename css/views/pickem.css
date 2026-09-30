@@ -75,6 +75,9 @@ html.rm .c-pk-dot::after { animation: none; }
 .v-pickem .pk-strip > i.is-right { background: var(--tint); }
 .v-pickem .pk-strip > i.is-wrong { background: var(--wrong); }
 .v-pickem .pk-strip > i.is-live { background: var(--ink-3); }
+/* Drafts: an outlined segment (a drafted pick) or a hollow one (a submitted pick drafted away). */
+.v-pickem .pk-strip > i.is-draft { background: transparent; box-shadow: inset 0 0 0 1.5px var(--tint); }
+.v-pickem .pk-strip > i.is-clr { background: transparent; box-shadow: inset 0 0 0 1.5px var(--ink-3); }
 
 /* The week's leader; the whole row opens the leaderboard sheet. */
 .v-pickem .pk-lead {
@@ -172,6 +175,17 @@ html.rm .c-pk-dot::after { animation: none; }
 .v-pickem .pk-t.is-on { background-color: var(--tint-soft); }
 .v-pickem .pk-t.is-on.is-lose { background-color: var(--wrong-soft); }
 .v-pickem .pk-t.is-on + .pk-t::before, .v-pickem .pk-t + .pk-t.is-on::before { opacity: 0; }
+/* A draft (picked on this phone, not submitted): no fill, a dashed tint outline inset from the card, an outlined
+   mark and the NOT SUBMITTED marker. Submitted picks keep the solid fill and the filled mark. */
+.v-pickem .pk-t.is-draft { background-color: transparent; }
+.v-pickem .pk-t.is-draft.is-pressed { background-color: var(--surface-2); }
+.v-pickem .pk-t.is-draft::after {
+  content: ""; position: absolute; inset: 4px 6px; z-index: 0;
+  border: 1.5px dashed color-mix(in srgb, var(--tint) 80%, transparent); border-radius: var(--r-cell);
+  background: color-mix(in srgb, var(--tint) 6%, transparent);
+  pointer-events: none;
+}
+.v-pickem .pk-t.is-draft > * { position: relative; z-index: 1; }
 .v-pickem .pk-t.is-dim .c-pk-logo { opacity: .5; }
 .v-pickem .pk-t.is-dim .pk-tnm { color: var(--ink-2); }
 
@@ -181,8 +195,23 @@ html.rm .c-pk-dot::after { animation: none; }
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   transition: color 200ms linear;
 }
-.v-pickem .pk-trec { font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+/* The tag wraps below the record when both don't fit (a narrow phone, a double-digit record) rather than losing words. */
+.v-pickem .pk-tsub { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; min-width: 0; }
+.v-pickem .pk-tsub:empty { display: none; }
+.v-pickem .pk-trec { flex: none; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); font-variant-numeric: tabular-nums; }
 .v-pickem .pk-trec:empty { display: none; }
+/* The NOT SUBMITTED marker: a small dashed tag (dashed = not submitted, like the outline around the side). */
+.v-pickem .pk-ns {
+  flex: none; max-width: 100%;
+  height: 18px; padding: 0 6px; border-radius: 6px;
+  border: 1px dashed color-mix(in srgb, var(--tint) 75%, transparent);
+  font: 800 11px/16px var(--font-num); font-stretch: condensed; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--tint);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.v-pickem .pk-t.is-cleared .pk-ns { color: var(--ink-2); border-color: var(--ink-4); }
+/* A submitted pick a draft would swap: a solid neutral SUBMITTED tag (it still counts until you submit). */
+.v-pickem .pk-t.is-was .pk-ns { color: var(--ink-2); border-style: solid; border-color: var(--ink-4); }
 .v-pickem .pk-t.is-on .pk-trec { color: var(--ink-2); }
 .v-pickem .pk-t.is-win .pk-tnm { font-weight: 700; }
 .v-pickem .pk-t.is-lose .pk-tnm, .v-pickem .pk-t.is-lose .pk-sc { color: var(--ink-3); }
@@ -194,6 +223,7 @@ html.rm .c-pk-dot::after { animation: none; }
 .v-pickem .pk-mk.is-open { box-shadow: inset 0 0 0 1.5px var(--ink-4); }
 .v-pickem .pk-t.is-pressed .pk-mk.is-open { box-shadow: inset 0 0 0 1.5px var(--ink-2); }
 .v-pickem .pk-mk.is-on, .v-pickem .pk-mk.is-right { background: var(--tint); color: var(--on-tint); }
+.v-pickem .pk-mk.is-draft { background: transparent; color: var(--tint); box-shadow: inset 0 0 0 1.5px var(--tint); }
 .v-pickem .pk-mk.is-wrong { background: var(--wrong); color: #fff; }
 .v-pickem .pk-mk.is-push { background: var(--surface-3); color: var(--ink-2); }
 .v-pickem .pk-g.is-post .pk-t.is-on:not(.is-win):not(.is-lose) { background-color: var(--surface-2); }
@@ -254,6 +284,46 @@ html.rm .c-pk-dot::after { animation: none; }
   background: var(--surface-2); color: var(--ink-2);
   font: 600 var(--fs-cap)/var(--lh-cap) var(--font-text); white-space: nowrap;
 }
+
+/* ---------------------------------------------------------------- Submit bar */
+/* In the flow after the games, sticky 8 px above the tab bar (so it never covers the last card). Sticky insets count
+   from the screen's content box, which already ends tab-h + 24 above the bottom (its padding): -16 px lands 8 above
+   the tab bar. The -16 px bottom margin eats into that padding, so at the very end it rests where it floats. Solid,
+   like a toast. */
+.v-pickem .pk-sb {
+  position: sticky; z-index: 6;
+  bottom: -16px;
+  margin: 20px 0 -16px;
+}
+.v-pickem .pk-sb[hidden] { display: none; }
+.v-pickem .pk-sb-card {
+  display: flex; flex-direction: column;
+  padding: 8px;
+  border-radius: 22px;
+  background: rgba(44,44,46,.97);
+  box-shadow: inset 0 0 0 1px var(--separator), inset 0 .5px 0 rgba(255,255,255,.12), 0 8px 24px rgba(0,0,0,.45);
+  transition: box-shadow 240ms linear;
+}
+.v-pickem .pk-sb-row { display: flex; gap: 8px; min-width: 0; }
+.v-pickem .pk-sb .btn { height: 48px; }
+.v-pickem .pk-sb-undo { flex: none; width: auto; padding: 0 18px; background: var(--surface-3); }
+.v-pickem .pk-sb-go { flex: 1 1 auto; min-width: 0; }
+/* Urgent: a drafted game kicks off within the hour. The line names it; the card picks up a gold edge. */
+.v-pickem .pk-sb-msg {
+  display: flex; align-items: center; gap: 8px; min-width: 0;
+  margin: 0; padding: 4px 8px 10px;
+  font: 600 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink);
+}
+.v-pickem .pk-sb-msg[hidden] { display: none; }
+.v-pickem .pk-sb-msg > .ic { flex: none; width: 16px; height: 16px; stroke-width: 2.2; color: var(--gold); }
+.v-pickem .pk-sb-msg > span { min-width: 0; text-wrap: pretty; }
+.v-pickem .pk-sb.is-urgent .pk-sb-card {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gold) 55%, transparent), inset 0 .5px 0 rgba(255,255,255,.12), 0 8px 24px rgba(0,0,0,.45);
+}
+/* Pick'em switched off: the drafts are kept, Submit steps back (it would be refused) and the note says why. */
+.v-pickem .pk-sb.is-off .pk-sb-msg { font-weight: 400; color: var(--ink-2); }
+.v-pickem .pk-sb.is-off .pk-sb-msg > .ic { color: var(--ink-3); }
+.v-pickem .pk-sb.is-off .pk-sb-go { background: var(--surface-3); color: var(--ink-2); }
 
 /* Loading */
 .v-pickem .pk-sum.is-sk { padding-bottom: 16px; }

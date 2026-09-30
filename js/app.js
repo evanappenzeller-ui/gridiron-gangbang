@@ -1333,7 +1333,8 @@ function updateTabBar(T, {animate = true} = {}) {
 }
 // ============================================================================ Tab badges
 // A 6 px tint dot on a tab icon: Puzzles while today's puzzles aren't finished, Pick'em while this week has open (not
-// kicked off) games you haven't picked, Matchup while MOTW voting is open and you haven't voted. Each of those tabs'
+// kicked off) games you haven't submitted a pick for or drafts you haven't submitted (its label says which:
+// badgeText()), Matchup while MOTW voting is open and you haven't voted. Each of those tabs'
 // root view modules exports badge() → boolean: cheap, reading only what that module (or a subscription it already
 // runs) holds, never a request of its own. A module not imported yet counts as no dot, except Puzzles: until
 // puzzles.json is in (a cold open on another tab loads it at idle) its dot comes from the Daily itself, then from what
@@ -1385,7 +1386,14 @@ function badgeLabel(T, on) {
     return base;
   }
   if (!on) return base;
-  return T === 'pickem' ? `${base}, games to pick` : T === 'matchup' ? `${base}, vote open` : base;
+  if (T === 'pickem') {
+    // The module says why (drafts not submitted, or games to pick) once it has loaded.
+    const ns = modNS.get(TAB_VIEW[T]);
+    let why = '';
+    try { why = ns && typeof ns.badgeText === 'function' ? ns.badgeText() : ''; } catch (e) { console.error(e); }
+    return `${base}, ${why || 'games to pick'}`;
+  }
+  return T === 'matchup' ? `${base}, vote open` : base;
 }
 let badgeQueued = false;
 function updateBadges() {

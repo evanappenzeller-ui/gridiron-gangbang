@@ -1,7 +1,9 @@
 // NFL pick'em checks for the dev gallery (#/_kit): js/core/nfl.js (ESPN client) and the NFL pick'em in
-// js/core/week.js, on a recorded ESPN payload. checks.js (owner: CORE-DAILY) imports pickemChecks and calls it
-// with its own check(name, fn) helper; every fn returns true or {pass, detail}. Pure: nothing here fetches,
-// writes to storage or touches the league board.
+// js/core/week.js, on a recorded ESPN payload, plus the Pick'em screen's drafts (js/views/pickem.js: pick, then
+// submit). checks.js (owner: CORE-DAILY) imports pickemChecks and calls it with its own check(name, fn) helper; every
+// fn returns true or {pass, detail}. Nothing here fetches or touches the league board. Two checks write, and remove
+// what they wrote: the draft store (a 1999 test week in localStorage) and submitPicks (a 2099 test week on the dev
+// stand-in only; skipped on a page that can write to the real database).
 // Owner: PICKEM-CORE.
 
 import * as data from './data.js';
@@ -306,5 +308,145 @@ export async function pickemChecks(check) {
     const re = new RegExp('^' + uid + '__[0-9]{1,12}$');
     const pass = ids.every(id => re.test(id)) && !re.test(week.nflPickId('someone-else', '401872948')) && week.weekKey(2026, 4) === '2026-w4';
     return {pass, detail: ids[0]};
+  });
+
+  // 10-14. Pick, then submit: drafts on the phone, one submit for every change.
+  let pk = null, pkErr = null;
+  try { pk = await import('../views/pickem.js'); } catch (e) { pkErr = e; }
+  const needPk = () => { if (!pk) throw new Error('views/pickem.js did not load: ' + ((pkErr && pkErr.message) || pkErr)); };
+  const J = o => JSON.stringify(o);
+
+  check('Submit: a draft equal to the submitted pick is no change; a clear is a change only when something is submitted', () => {
+    const saved = {'401872964': 'PIT', '401872965': 'IND'};
+    const ch = week.pickChanges({'401872964': 'pit', '401872965': 'WSH', '401872979': 'ATL', '401872966': '', '401872967': 7}, saved);
+    const clear = week.pickChanges({'401872965': ''}, saved);
+    const none = week.pickChanges({}, saved), same = week.pickChanges(saved, saved);
+    const pass = J(ch) === J({'401872965': 'WSH', '401872979': 'ATL'}) && J(clear) === J({'401872965': ''}) && J(none) === '{}' && J(same) === '{}';
+    return {pass, detail: `changes ${J(ch)}; a clear of IND ${J(clear)}; drafts equal to saved ${J(same)}`};
+  });
+
+  check('Drafts: the store round-trips through localStorage, drops junk, and sweeps weeks before the current one', () => {
+    needPk();
+    const Y = 1999, k1 = pk.drafts.key(Y, 1), k5 = pk.drafts.key(Y, 5);
+    try {
+      pk.drafts.set(Y, 5, {'401872964': 'pit', '401872965': '', x: 'PIT', '401872966': 'TOOLONG', '401872967': 7});
+      const raw = JSON.parse(localStorage.getItem(k5) || 'null');
+      const back = pk.drafts.get(Y, 5, {fresh: true});
+      const round = J(back) === J({'401872964': 'PIT', '401872965': ''}) && J(raw) === J(back) && k5 === 'gg-pk-draft-1999-w5';
+      pk.drafts.set(Y, 1, {'401872964': 'CLE'});
+      const swept = pk.drafts.sweep({year: Y, week: 3});
+      const gone = localStorage.getItem(k1) === null && localStorage.getItem(k5) !== null && J(pk.drafts.get(Y, 1)) === '{}';
+      pk.drafts.set(Y, 5, {});
+      const empty = localStorage.getItem(k5) === null && J(pk.drafts.get(Y, 5, {fresh: true})) === '{}';
+      return {pass: round && swept === 1 && gone && empty, detail: `read back ${J(back)}; week 1 swept at week 3: ${gone}; emptied: ${empty}`};
+    } finally { localStorage.removeItem(k1); localStorage.removeItem(k5); }
+  });
+
+  check('Drafts: at kickoff a game\'s draft is dropped and named (it never counts); drafts equal to the submitted pick go once picks are known', () => {
+    needPk();
+    const games = nfl.parse(clone(W4)).games, [thu, lon, mon] = games;
+    const T = thu.kickoff.getTime();
+    const dr = {[thu.id]: 'PIT', [lon.id]: 'IND', [mon.id]: 'ATL', '401879999': 'PIT'};
+    const saved = {[mon.id]: 'ATL'};
+    const ids = r => J(Object.keys(r.keep).sort()) + ' / ' + r.dropped.map(g => g.id).join();
+    const before = pk.pruneDrafts(dr, games, saved, T - MIN);   // nothing kicked off: Monday's equals saved, the unknown game goes
+    const at = pk.pruneDrafts(dr, games, saved, T);             // Thursday kicks off: its draft goes, named
+    const unknown = pk.pruneDrafts(dr, games, null, T);         // picks not known yet: Thursday goes unnamed, Monday stays
+    const same = pk.pruneDrafts({[thu.id]: 'PIT'}, games, {[thu.id]: 'PIT'}, T); // equal to the submitted pick: nothing lost
+    const pass = J(before.keep) === J({[thu.id]: 'PIT', [lon.id]: 'IND'}) && !before.dropped.length
+      && J(at.keep) === J({[lon.id]: 'IND'}) && at.dropped.length === 1 && at.dropped[0].id === thu.id
+      && J(unknown.keep) === J({[lon.id]: 'IND', [mon.id]: 'ATL'}) && !unknown.dropped.length
+      && J(same.keep) === '{}' && !same.dropped.length;
+    return {pass, detail: `before kickoff ${ids(before)}; at Thursday's kickoff ${ids(at)}; picks unknown ${ids(unknown)}`};
+  });
+
+  check('Tab dot: on while a draft isn\'t submitted (even with every game submitted), off once it is or its game kicks off', () => {
+    needPk();
+    const games = nfl.parse(clone(W4)).games, [thu, lon, mon] = games;
+    const at = thu.kickoff.getTime() - HOUR;
+    const all = {[thu.id]: 'PIT', [lon.id]: 'IND', [mon.id]: 'ATL'};
+    const a = pk.badgeFrom({games, saved: all, drafts: {}, at});
+    const b = pk.badgeFrom({games, saved: all, drafts: {[lon.id]: 'WSH'}, at});
+    const c = pk.badgeFrom({games, saved: all, drafts: {[lon.id]: 'IND'}, at});
+    const d = pk.badgeFrom({games, saved: {}, drafts: all, at});
+    const e = pk.badgeFrom({games, saved: all, drafts: {[thu.id]: 'CLE'}, at: thu.kickoff.getTime()});
+    const pass = !a.on && b.on && b.unsent === 1 && b.due.length === 1 && !c.on && d.on && d.unsent === 3 && d.due.length === 3 && !e.on && e.unsent === 0;
+    return {pass, detail: `all submitted ${a.on}; one draft ${b.on} (${b.unsent} unsent); draft equal to submitted ${c.on}; drafts only ${d.on} (${d.due.length} due); drafted game kicked off ${e.on}`};
+  });
+
+  check('Submit: submitPicks on the dev stand-in with an injected clock maps each game (kicked off -> locked, the rest saved; forced errors save nothing)', async () => {
+    if (!week.__dev || !week.__dev.standIn()) return {pass: true, detail: 'skipped: this page can write to the real database'};
+    const games = nfl.parse(clone(W4)).games, [thu, lon, mon] = games;
+    const Y = 2099, W = 4, key = week.weekKey(Y, W); // a test week nobody plays
+    const at = thu.kickoff.getTime() + MIN;           // Thursday has kicked off; London and Monday are open
+    const mineIn = () => { const w = (week.__dev.store().nflpicks || {})[key] || {}; return Object.values(w).filter(d => d.uid === week.myUid()).map(d => d.game.slice(-2) + ':' + d.team).sort().join(); };
+    const res = r => `ok ${r.ok.map(x => x.slice(-2))} locked ${r.locked.map(x => x.slice(-2))} failed ${r.failed.map(x => x.slice(-2))} ${r.code}`;
+    try {
+      const r1 = await week.submitPicks(Y, W, {[thu.id]: 'PIT', [lon.id]: 'home', [mon.id]: 'ATL'}, {games, at});
+      const s1 = mineIn();
+      const r2 = await week.submitPicks(Y, W, {[lon.id]: 'IND', [mon.id]: ''}, {games, at}); // a change and a clear
+      const s2 = mineIn();
+      const r3 = await week.submitPicks(Y, W, {[thu.id]: 'CLE'}, {games, at});              // every game kicked off
+      const r4 = await week.submitPicks(Y, W, {'401879999': 'PIT', [mon.id]: 'NE'}, {games, at}); // unknown game, wrong team
+      week.__dev.fail('denied');
+      const r5 = await week.submitPicks(Y, W, {[mon.id]: 'NO', [thu.id]: 'PIT'}, {games, at});
+      week.__dev.fail('failed');
+      const r6 = await week.submitPicks(Y, W, {[mon.id]: 'NO'}, {games, at});
+      week.__dev.fail(null);
+      const s6 = mineIn();
+      const pass = J(r1.ok) === J([lon.id, mon.id]) && J(r1.locked) === J([thu.id]) && !r1.failed.length && r1.code === 'dev' && s1 === '65:WSH,79:ATL'
+        && J(r2.ok) === J([lon.id, mon.id]) && r2.code === 'dev' && s2 === '65:IND'
+        && !r3.ok.length && J(r3.locked) === J([thu.id]) && r3.code === 'locked'
+        && J(r4.failed.slice().sort()) === J([mon.id, '401879999']) && !r4.ok.length && r4.code === 'failed'
+        && J(r5.failed) === J([mon.id]) && J(r5.locked) === J([thu.id]) && r5.code === 'denied' && J(r6.failed) === J([mon.id]) && r6.code === 'failed' && s6 === '65:IND';
+      return {pass, detail: `1: ${res(r1)} (saved ${s1}); 2: ${res(r2)} (saved ${s2}); all kicked off: ${res(r3)}; bad: ${res(r4)}; denied: ${res(r5)}; failed: ${res(r6)}`};
+    } finally {
+      week.__dev.fail(null);
+      // Remove the test week from the stand-in.
+      try { const o = JSON.parse(localStorage.getItem('gg-dev-week') || '{}'); if (o.nflpicks && o.nflpicks[key]) { delete o.nflpicks[key]; localStorage.setItem('gg-dev-week', JSON.stringify(o)); } } catch (_) {}
+    }
+  });
+
+  check('Submit: a write the server hasn\'t confirmed counts as what it replaces (saved), so a failed or lost submit keeps its drafts', () => {
+    const games = nfl.parse(clone(W4)).games, [thu, lon, mon] = games;
+    const T = thu.kickoff.getTime();
+    const P = (g, team, at, x) => Object.assign({id: week.nflPickId('me', g.id), uid: 'me', game: g.id, team, at, kick: g.kickoff.getTime()}, x);
+    const before = {thu: P(thu, 'CLE', T - DAY), lon: P(lon, 'IND', T - DAY)};
+    // Firestore's local echo of a submit on its way: Thursday changed to PIT, London deleted (gone from the snapshot),
+    // Monday new; all three writes still out. Someone else's London pick is confirmed.
+    const other = P(lon, 'WSH', T - DAY, {id: week.nflPickId('other', lon.id), uid: 'other'});
+    const docs = [P(thu, 'PIT', T - HOUR, {pending: true}), P(mon, 'ATL', T - HOUR, {pending: true}), other];
+    const flying = new Map([[before.thu.id, {before: before.thu}], [before.lon.id, {before: before.lon}], [week.nflPickId('me', mon.id), {before: null}]]);
+    const mineOf = d => week.tallyNfl(d, games, 'me', {at: T - HOUR}).mine;
+    const shown = mineOf(docs), saved = mineOf(week.confirmedDocs(docs, flying));
+    // No write out and no pending doc: the docs themselves. A pending doc nobody tracks (never confirmed) doesn't count.
+    const plain = week.confirmedDocs([other], new Map())[0] === other && week.confirmedDocs([other], null).length === 1;
+    const stray = mineOf(week.confirmedDocs([P(thu, 'PIT', T - HOUR, {pending: true})], null));
+    // The screen: drafts equal to the echo are still changes against saved (nothing prunes them while it's unconfirmed).
+    const ch = week.pickChanges({[thu.id]: 'PIT', [lon.id]: '', [mon.id]: 'ATL'}, saved);
+    const pass = J(shown) === J({[thu.id]: 'PIT', [mon.id]: 'ATL'}) && J(saved) === J({[thu.id]: 'CLE', [lon.id]: 'IND'}) && plain && J(stray) === '{}'
+      && J(ch) === J({[thu.id]: 'PIT', [lon.id]: '', [mon.id]: 'ATL'});
+    return {pass, detail: `the snapshot shows ${J(shown)}; saved (confirmed) ${J(saved)}; changes still to submit ${J(ch)}`};
+  });
+
+  check('Submit: "denied" (switched off) only when the rules refused everything and nothing saved; a partial submit is "failed"', () => {
+    const c = (ok, locked, failed, denied) => week.submitCode({ok: Array(ok).fill('x'), locked: Array(locked).fill('y'), failed: Array(failed).fill('z')}, denied);
+    const got = [c(2, 0, 0, 0), c(0, 2, 0, 0), c(1, 1, 0, 0), c(0, 0, 2, 2), c(1, 0, 1, 1), c(0, 0, 2, 1), c(0, 1, 1, 1), c(0, 0, 1, 0)];
+    const want = ['ok', 'locked', 'ok', 'denied', 'failed', 'failed', 'denied', 'failed'];
+    return {pass: J(got) === J(want), detail: got.join(' ')};
+  });
+
+  check('Drafts: a game without a set time stops taking picks at its early lock (36 h before the placeholder), and its draft is kept', () => {
+    needPk();
+    const p = clone(W4);
+    p.events[2].competitions[0].timeValid = false; // Monday night, time not set
+    const g = nfl.parse(p).games.find(x => x.id === p.events[2].id);
+    const K = g.kickoff.getTime(), D = week.pickDeadline(g);
+    const dr = {[g.id]: g.home.abbr};
+    const open = pk.badgeFrom({games: [g], saved: {}, drafts: dr, at: D - MIN});
+    const shut = pk.badgeFrom({games: [g], saved: {}, drafts: dr, at: D + MIN});
+    const kept = pk.pruneDrafts(dr, [g], {}, D + MIN);
+    const pass = g.tbd && K - D === 36 * HOUR && open.on && open.unsent === 1 && !shut.on && !shut.unsent && J(kept.keep) === J(dr) && !kept.dropped.length;
+    return {pass, detail: `tbd ${g.tbd}, early lock ${(K - D) / HOUR} h before; before it: dot ${open.on} (${open.unsent} unsent); after: dot ${shut.on}; draft kept ${J(kept.keep)}`};
   });
 }
