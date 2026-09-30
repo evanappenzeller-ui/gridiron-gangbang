@@ -25,7 +25,7 @@ import * as data from './core/data.js';
 import * as daily from './core/daily.js';
 import {needsWelcome, showWelcome} from './views/welcome.js';
 
-export const APP_VERSION = '2.0.0';
+export const APP_VERSION = '1.0';
 
 // ============================================================================ Registry and routes
 export const REGISTRY = {

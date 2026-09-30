@@ -6,7 +6,7 @@
 // A slow request falls back to whatever is cached under its path (from the previous worker too), so data whose
 // format changes gets a new file name rather than new content under the old one (data/puzzles-v3.json: see
 // js/core/daily.js).
-const CACHE = 'gg-v9';
+const CACHE = 'gg-v10';
 const CORE = ['ui', 'data', 'daily', 'fire', 'week', 'nfl', 'stats', 'motw', 'checks', 'checks-stats', 'checks-pickem'];
 const VIEWS = ['welcome', 'today', 'board', 'you', 'sharecard', 'results', 'run', 'college', 'silhouette', 'mystery', 'journey', 'grid', 'picker',
   'standings', 'season', 'review', 'wrap', 'matchup', 'rivals', 'pickem', 'hall', 'hall-trophies', 'hall-records', 'hall-shame', 'moves', 'profile', '_kit'];
