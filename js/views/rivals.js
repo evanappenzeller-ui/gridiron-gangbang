@@ -4,7 +4,8 @@
 // Above the head to head sits the week (core/week.js): Matchup of the Week voting on the league's matchups, the
 // compact NFL Pick'em card (the real NFL games; it opens #/pickem, views/pickem.js) and the past Matchups of the
 // Week. They render at once from data.js and fill in when the Firestore snapshots and ESPN scores arrive; nothing
-// here waits on Firebase or ESPN.
+// here waits on Firebase or ESPN. Right under the Matchup of the Week sits the Press Room card (the MOTW loser's
+// press conference, playable in place: core/press.js + views/press.js, loaded at idle; hidden until they answer).
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as motw from '../core/motw.js';
@@ -714,6 +715,81 @@ function npkStop() {
   if (w.idleN) { w.idleN(); w.idleN = null; }
 }
 
+// ---------------------------------------------------------------- Press Room (the Matchup of the Week loser's presser)
+// core/press.js (the pressers: Firestore plus the seeded archive) and views/press.js (the tile and its in-place
+// player) load at idle. The card shows the latest presser; with none (once the server answered) a compact prompt
+// opens the post sheet. Nothing shows while loading or on a failure (only the Press Room screen shows errors).
+let pvMod = null, prLoad = null;
+function loadPress() {
+  if (!prLoad) prLoad = Promise.all([import('../core/press.js'), import('./press.js')]).then(([c, v]) => { pvMod = v; return c; }, e => { prLoad = null; throw e; });
+  return prLoad;
+}
+function pressHTML() {
+  const s = st && st.press;
+  if (!s || !pvMod) return '';
+  const p = s.list[0];
+  if (!p) {
+    if (!s.ready || s.error) return '';
+    return `<section class="rv-press" aria-label="Press Room"><button type="button" class="card rv-press-post" data-rv-press-post aria-label="Press Room. Post the loser's press conference">`
+      + `<span class="rv-press-mic" aria-hidden="true">${ui.icon('mic', {size: 20})}</span>`
+      + `<span class="rv-press-pt" aria-hidden="true"><b>Press Room</b><span>Post the loser's press conference</span></span>`
+      + `${ui.icon('chevron-right', {cls: 'chev'})}</button></section>`;
+  }
+  const n = s.list.length;
+  return `<section class="rv-press" aria-labelledby="rv-press-h">`
+    + `<div class="rv-press-head"><h2 class="t-2" id="rv-press-h">Press Room</h2></div>`
+    + `<div class="card rv-press-card">${pvMod.tileHTML(p, {size: 'm'})}`
+    + `<a class="rv-press-all" href="#/press"><span>All press conferences</span><span class="rv-press-n">${n > 1 ? esc(String(n)) : ''}${ui.icon('chevron-right')}</span></a></div>`
+    + `</section>`;
+}
+// Patched only when the markup changes (a snapshot that changes nothing keeps a playing video playing).
+function patchPress() {
+  const w = st && st.el.querySelector('.rv-press-w');
+  if (!w) return;
+  let html = '';
+  try { html = pressHTML(); } catch (e) { console.error(e); html = ''; }
+  if (w._html === html) return;
+  const was = !!w.firstElementChild;
+  w.innerHTML = html;
+  w._html = html;
+  if (html && !was && st.ctx.visible && !ui.RM) ui.animate(w, [{opacity: 0, transform: 'translateY(8px)'}, {opacity: 1, transform: 'none'}], {duration: 320, easing: 'cubic-bezier(.22,1,.36,1)'});
+}
+function pressStart() {
+  const s = st;
+  if (!s || s.pressWant) return;
+  s.pressWant = true;
+  loadPress().then(pr => {
+    if (st !== s || !s.pressWant) return;
+    try { const b = pvMod.bindPlayers(s.el); s.pressStop = typeof b === 'function' ? b : b && typeof b.stop === 'function' ? () => b.stop() : null; } catch (e) { console.error(e); }
+    try {
+      s.pressUnsub = pr.subscribePressers(u => {
+        if (st !== s || !u) return;
+        s.press = {list: Array.isArray(u.list) ? u.list : [], ready: !!u.ready, error: u.error || null};
+        if (s.idleP) s.idleP();
+        s.idleP = ui.whenIdle(() => { s.idleP = null; if (st === s) patchPress(); });
+      });
+    } catch (e) { console.error(e); }
+  }, e => { console.warn('press room card', e); if (st === s) s.pressWant = false; });
+}
+// Leaving the screen: no presser keeps playing behind another screen.
+function pressPause() {
+  if (st && st.pressStop) { try { st.pressStop(); } catch (_) {} }
+}
+function pressEnd() {
+  if (!st) return;
+  pressPause();
+  if (st.idleP) { st.idleP(); st.idleP = null; }
+  if (typeof st.pressUnsub === 'function') { try { st.pressUnsub(); } catch (_) {} }
+  st.pressUnsub = null;
+  st.pressWant = false;
+}
+function onPressClick(e) {
+  const t = e.target.closest && e.target.closest('[data-rv-press-post]');
+  if (!t || !st || !pvMod) return;
+  ui.haptic('light');
+  try { pvMod.openPost(); } catch (err) { console.error(err); }
+}
+
 // ---------------------------------------------------------------- Past Matchups of the Week
 function pastItems(hist) {
   return (Array.isArray(hist) ? hist : []).filter(h => h && h.pick && data.M[pairOf(h.pick)[0]] && data.M[pairOf(h.pick)[1]])
@@ -976,10 +1052,11 @@ function pageHTML(m) {
     return ui.largeTitle({title: 'Rivals'})
       + ui.empty({icon: 'versus', title: 'No rivals yet.', body: 'Rivals needs at least two managers in the league.'});
   }
-  const wk = motwHTML(st ? st.lens : readLens()) + npkHTML();
+  const motwH = motwHTML(st ? st.lens : readLens()), npkH = npkHTML();
+  const wk = motwH + npkH;
   const past = st && st.wk && st.wk.hist ? pastHTML(st.wk.hist) : '';
   return ui.largeTitle({title: 'Rivals'})
-    + `<div class="rv-week">${wk}<div class="rv-past-w" id="rv-past">${past}</div></div>`
+    + `<div class="rv-week">${motwH}<div class="rv-press-w">${pressHTML()}</div>${npkH}<div class="rv-past-w" id="rv-past">${past}</div></div>`
     + `<h2 class="t-2 rv-h2h-t" id="rv-h2h"${wk || past ? '' : ' hidden'}>Head to head</h2>`
     + headerHTML(m)
     + `<div class="rv-main">${mainHTML(m)}</div>`
@@ -1432,13 +1509,16 @@ export default {
     const p = resolvePair(ctx.params);
     st = {ctx, el, m: null, r: {}, isDefault: p.isDefault, expect: null, via: null, swapping: false, swapAnims: null,
       meKey: `${data.me()}|${reigning()}`, flameKey: null, secKey: null, listA: null, listMe: null, p2: null, seen: null, title: null,
-      cleanups: [], entrance: false, shown: false, lens: readLens(), all: false, pastAll: false, wk: null, goSec: secOf(ctx.query)};
+      cleanups: [], entrance: false, shown: false, lens: readLens(), all: false, pastAll: false, wk: null, goSec: secOf(ctx.query),
+      press: null, pressWant: false, pressUnsub: null, pressStop: null, idleP: null};
     st.wk = newWk();
     el.addEventListener('click', onClick);
     // The week: Firestore and the NFL scores start once the first paint is done (never block the screen); the
     // vote's kickoff is checked every 20 s while the screen is visible.
     const wk = st.wk;
     ui.onIdle(() => { if (st && st.wk === wk) wkStart(); });
+    ui.onIdle(() => { if (st && st.wk === wk) pressStart(); });
+    el.addEventListener('click', onPressClick);
     ctx.timer(wkTick, 20000);
     const onLens = e => {
       if (!st || !e.detail || e.detail.name !== 'motw-lens') return;
@@ -1560,12 +1640,14 @@ export default {
     if (ctx.reason === 'data') wkData();
     if (ctx.reason === 'data' || ctx.reason === 'me') patchMotw(false);
     if (ctx.reason === 'me') { patchNpk(); patchPast(false); }
+    if (ctx.reason === 'data' || ctx.reason === 'me') patchPress();
     if (st.goSec) revealSec();
   },
 
   onHide(ctx) {
-    // The NFL card stops polling ESPN while Rivals is out of sight (it resumes from the cache in onShow).
-    if (st && st.ctx === ctx) npkStop();
+    // The NFL card stops polling ESPN while Rivals is out of sight (it resumes from the cache in onShow), and a
+    // playing presser stops.
+    if (st && st.ctx === ctx) { npkStop(); pressPause(); }
   },
 
   onAction(id, ctx) {
@@ -1580,7 +1662,9 @@ export default {
   unmount(el, ctx) {
     if (!st || st.ctx !== ctx) return;
     el.removeEventListener('click', onClick);
+    el.removeEventListener('click', onPressClick);
     npkStop();
+    pressEnd();
     wkUnsub();
     if (st.wk) { clearTimeout(st.wk.vT); st.wk.sheet = null; } // an open sheet goes with the navigation that unmounts us
     st.cleanups.splice(0).forEach(f => { try { f(); } catch (_) {} });

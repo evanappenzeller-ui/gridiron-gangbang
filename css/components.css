@@ -361,6 +361,7 @@ button.card, a.card { width: 100%; text-align: left; color: inherit; }
 .chip-dot { width: 7px; height: 7px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px currentColor; flex: none; }
 .chip > .av { margin-left: -8px; }
 .sheet .chip { background: var(--surface-3); box-shadow: none; }
+.sheet .chip[aria-pressed="true"] { background: #fff; color: #000; }
 
 /* ================================================================ Switch */
 .switch {

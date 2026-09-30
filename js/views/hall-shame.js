@@ -4,7 +4,8 @@
 // imported on demand, so the other Hall segments never wait for it or break with it; hall.js warms it at idle.
 //
 // Layout: scope control (All-time | This season) · "Rock bottom" hero (the lowest score in scope) · "Frequent
-// offenders" rail (who shows up most) · sticky section chips with scroll-spy · one inset group per section.
+// offenders" rail (who shows up most) · "Podium regulars" (most Matchup of the Week press conferences, from
+// core/press.js at idle; only once there is one) · sticky section chips with scroll-spy · one inset group per section.
 // A row names one manager (avatar, name, that season's team, when, what happened, value tile) and opens that game's
 // matchup sheet (single-game lists), the season page (season lists) or the profile (losing streaks). The
 // last-place list names each season on its own line instead.
@@ -155,6 +156,57 @@ function offenders(m) {
     + `<p class="note sm-off-note">Times each manager shows up in the lists below.</p></section>`;
 }
 
+// Podium regulars: who has faced the media most (the Press Room: the Matchup of the Week loser's press conference).
+// PRESS is the latest core/press.js subscribePressers payload (subscribed at idle while Shame is mounted). Scoped like
+// the page (all-time, or that season); nothing while loading, with no presser in scope, or on a failure.
+let pressP = null, PRESS = null, pressMod = null;
+const loadPress = () => pressP || (pressP = import('../core/press.js').then(m => (pressMod = m), e => { pressP = null; throw e; }));
+// [[id, n]], most first (press.stats: then the most recent presser, then the name).
+function podiumRows(y) {
+  const list = PRESS && Array.isArray(PRESS.list) ? PRESS.list.filter(p => p && data.M[p.who] && (y == null || +p.year === y)) : [];
+  if (!list.length || !pressMod) return [];
+  try { return pressMod.stats(list).top.map(t => [t.id, t.n]); } catch (e) { console.error(e); return []; }
+}
+const podiumSig = y => podiumRows(y).map(r => r.join(':')).join('|');
+function podiumHTML(y) {
+  const rows = podiumRows(y);
+  if (!rows.length) return '';
+  const me = data.me();
+  const items = rows.map(([id, c]) => `<li class="sm-li"><a class="sm-it" href="#/managers/${encodeURIComponent(id)}" aria-label="${esc(`${data.name(id)}: ${c} ${c === 1 ? 'press conference' : 'press conferences'}`)}">`
+    + ui.avatar(id, {size: 40, you: id === me, attrs: {'data-morph-from': ''}})
+    + `<span class="sm-it-n">${esc(data.name(id))}</span><span class="sm-it-c sm-pod-c">${ui.icon('mic', {size: 12})}<span class="n5">${c}</span></span></a></li>`).join('');
+  return `<section class="sm-pod" aria-labelledby="hl-sm-pod">${ui.sectionHeader({title: 'Podium regulars', id: 'hl-sm-pod', action: {label: 'Press Room', href: '#/press'}})}`
+    + `<ul class="sm-rail" data-hscroll>${items}</ul>`
+    + `<p class="note sm-off-note">Press conferences after losing the Matchup of the Week.</p></section>`;
+}
+const podiumHost = y => `<div class="sm-pod-host" data-sig="${esc(podiumSig(y))}">${podiumHTML(y)}</div>`;
+function patchPodium() {
+  const host = S && S.body ? S.body.querySelector('.sm-pod-host') : null;
+  if (!host) return;
+  const sig = podiumSig(S.y);
+  if (host.dataset.sig === sig) return;
+  const was = !!host.firstElementChild;
+  host.dataset.sig = sig;
+  host.innerHTML = podiumHTML(S.y);
+  if (host.firstElementChild && !was && !ui.RM && S.ctx.visible) ui.animate(host, [{opacity: 0}, {opacity: 1}], {duration: 240});
+}
+function podiumStart() {
+  const mine = S;
+  if (!mine || mine.pressWant) return;
+  mine.pressWant = true;
+  loadPress().then(pr => {
+    if (S !== mine || !mine.pressWant) return;
+    try {
+      mine.pressUnsub = pr.subscribePressers(u => {
+        if (S !== mine || !u) return;
+        PRESS = u;
+        if (mine.idleP) mine.idleP();
+        mine.idleP = ui.whenIdle(() => { mine.idleP = null; if (S === mine) patchPodium(); });
+      });
+    } catch (e) { console.error(e); }
+  }, e => { console.warn('shame: Press Room unavailable', e); if (S === mine) mine.pressWant = false; });
+}
+
 // One manager, one moment: the whole row is the target.
 function oneRow(sec, it) {
   const h = it.holders[0];
@@ -199,7 +251,7 @@ function contentHTML(y) {
   if (!m.secs.length) {
     return `<div class="hl-empty" data-enter>${ui.empty({icon: 'anchor', title: 'Nothing shameful yet.', body: y != null ? `${y} hasn't produced a low point. Give it a week.` : 'Give it a season.'})}</div>`;
   }
-  let h = heroCard(m) + offenders(m);
+  let h = heroCard(m) + offenders(m) + podiumHost(y);
   if (m.secs.length > 1) {
     h += `<div class="accessory sm-acc">${ui.chips({name: 'hall-shame-sec', items: m.secs.map((s, i) => ({id: String(i), label: s.title})), value: '0', label: 'Shame sections'})}</div>`;
   }
@@ -346,6 +398,8 @@ export function mount(el, ctx) {
   }
 
   if (!statsMod) load(ctx);
+  const mine = S;
+  ui.onIdle(() => { if (S === mine) podiumStart(); });
 }
 
 // A route change inside Shame (the scope query), or a link to /hall/shame while it is showing.
@@ -390,5 +444,7 @@ export function unmount() {
   if (!S) return;
   S.ac.abort();
   if (S.raf) cancelAnimationFrame(S.raf);
+  if (S.idleP) S.idleP();
+  if (typeof S.pressUnsub === 'function') { try { S.pressUnsub(); } catch (_) {} }
   S = null;
 }

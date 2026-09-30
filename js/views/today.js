@@ -1,6 +1,7 @@
 // Today hub (spec 7.1): large title with the streak pill and You button (picking who you are is the launch welcome screen),
 // the Daily card (three-arc ring, status line, CTA, puzzle rows), the league board, the midnight countdown
 // and Record of the day. Renders history-independent content at once and the Daily once puzzles load.
+// "This week" also carries a "New press conference" row for a few days after one is posted (core/press.js, at idle).
 // Owner: daily-hub package.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
@@ -288,7 +289,50 @@ function nflRowState(x) {
 /** The NFL row shows next to an open vote from the start (loading at first), and alone only while its week has games. */
 const nflRow = (c, x) => nflReady() && (c ? true : !!x && Array.isArray(x.games) && x.games.length > 0);
 /** Identity of the card's layout: which rows it has (a change rebuilds the card; anything else patches in place). */
-const cardSig = (c, x) => `${c ? c.key : ''}|${nflRow(c, x) ? 'nfl' : ''}`;
+const cardSig = (c, x, p) => `${c ? c.key : ''}|${nflRow(c, x) ? 'nfl' : ''}${p ? `|press:${p.key}:${p.who}` : ''}`;
+
+// ---- Press Room row: a presser posted in the last 4 days (by its `at`; the seeded archive has none) → /press/{key}.
+// PX is the latest core/press.js subscribePressers payload (null until it arrives; loaded at idle, after the Daily).
+// A failure only means no row (the Press Room screen itself shows errors).
+let PX = null, prsP = null;
+function loadPress() {
+  if (!prsP) prsP = import('../core/press.js').catch(e => { prsP = null; throw e; });
+  return prsP;
+}
+const PRESS_DAYS = 4;
+function freshPresser() {
+  const list = PX && Array.isArray(PX.list) ? PX.list : [];
+  const now = wkNow();
+  let best = null;
+  list.forEach(p => {
+    const at = p && Number(p.at);
+    if (at > 0 && now - at < PRESS_DAYS * 864e5 && data.M[p.who] && (!best || at > best.at)) best = p;
+  });
+  return best;
+}
+function pressRowHTML(p) {
+  const who = data.name(p.who);
+  return `<button type="button" class="row c-wk-row c-wk-press" data-go="/press/${esc(encodeURIComponent(p.key))}" aria-label="${esc(`New press conference. ${who}, week ${p.week}. Opens the Press Room.`)}">`
+    + `<span class="row-lead"><span class="c-wk-tile">${ui.icon('mic', {size: 22})}</span></span>`
+    + `<span class="row-main"><span class="row-title">New press conference</span><span class="row-sub c-wk-sub">${esc(`${who} · Week ${p.week}`)}</span></span>`
+    + `<span class="row-trail c-wk-trail">${ui.avatar(p.who, {size: 28})}</span>${CHEV}</button>`;
+}
+function startPress(st) {
+  const wk = st.wk;
+  if (wk.unsubP || wk.pressWant) return;
+  wk.pressWant = true;
+  loadPress().then(pr => {
+    if (HUB.get(st.ctx) !== st || !wk.pressWant) return;
+    try {
+      wk.unsubP = pr.subscribePressers(u => { if (HUB.get(st.ctx) !== st) return; PX = u || null; refreshWeek(st, false); }) || (() => {});
+    } catch (e) { console.error(e); wk.unsubP = () => {}; }
+  }, e => { console.warn('press row', e); wk.pressWant = false; });
+}
+function stopPress(st) {
+  const wk = st.wk;
+  wk.pressWant = false;
+  if (wk.unsubP) { try { wk.unsubP(); } catch (_) {} wk.unsubP = null; }
+}
 
 function wkRowHTML(kind, icon, title, x) {
   return `<button type="button" class="row c-wk-row" data-wk-go="${kind}" aria-label="${esc(x.label)}">`
@@ -296,16 +340,18 @@ function wkRowHTML(kind, icon, title, x) {
     + `<span class="row-main"><span class="row-title">${esc(title)}</span><span class="row-sub c-wk-sub">${esc(x.sub)}</span></span>`
     + `<span class="row-trail c-wk-trail">${x.trail}</span>${CHEV}</button>`;
 }
-// Overline: the fantasy week and when voting closes; with voting closed, the NFL week alone.
-const ovlText = (c, x) => (c ? `Week ${c.week} · voting ${closesText(c)}` : `NFL week ${x.week}`);
+// Overline: the fantasy week and when voting closes; with voting closed, the NFL week alone (the Press Room when a new
+// presser is all the card has).
+const ovlText = (c, x) => (c ? `Week ${c.week} · voting ${closesText(c)}` : nflRow(c, x) ? `NFL week ${x.week}` : 'Press Room');
 const cardLabel = (c, x) => ovlText(c, x).replace(' · ', ', ');
-function weekCardHTML(c, v, x) {
+function weekCardHTML(c, v, x, p = null) {
   const nfl = nflRow(c, x);
-  if (!c && !nfl) return '';
+  if (!c && !nfl && !p) return '';
   return ui.sectionHeader({title: 'This week'})
-    + `<section class="card c-wk" data-wk="${esc(cardSig(c, x))}" aria-label="${esc(cardLabel(c, x))}">`
+    + `<section class="card c-wk" data-wk="${esc(cardSig(c, x, p))}" aria-label="${esc(cardLabel(c, x))}">`
     + `<p class="card-ovl c-wk-ovl">${esc(ovlText(c, x))}</p>`
     + `<div class="c-wk-rows">${c ? wkRowHTML('motw', 'versus', 'Matchup of the Week', motwRowState(c, v)) : ''}`
+    + `${p ? pressRowHTML(p) : ''}`
     + `${nfl ? wkRowHTML('pickem', 'football', NFL_TITLE, nflRowState(x)) : ''}</div>`
     + `</section>`;
 }
@@ -464,7 +510,7 @@ function refreshWeek(st, animate) {
     if (c && wk.live) startVotes(st);
   }
   wk.cur = c;
-  const x = NX, sig = cardSig(c, x);
+  const x = NX, p = freshPresser(), sig = cardSig(c, x, p);
   const card = host.querySelector('.c-wk');
   if (sig === '|') {
     if (host.firstElementChild) {
@@ -474,7 +520,7 @@ function refreshWeek(st, animate) {
     return;
   }
   if (!card || card.dataset.wk !== sig) {
-    const go = () => { host.innerHTML = weekCardHTML(c, wk.votes, x); };
+    const go = () => { host.innerHTML = weekCardHTML(c, wk.votes, x, p); };
     if (animate && !ui.RM && st.ctx.visible && host.firstElementChild) ui.crossfade(host, go, {duration: 160}); else go();
     return;
   }
@@ -496,6 +542,7 @@ function startWeekSubs(st) {
   st.wk.live = true;
   startVotes(st);
   startNfl(st);
+  startPress(st);
 }
 function startVotes(st) {
   const wk = st.wk;
@@ -557,6 +604,7 @@ function nflTick(st) {
 function stopWeekSubs(st) {
   stopVotes(st);
   stopNfl(st);
+  stopPress(st);
 }
 
 function patchWrap(st, animate) {
@@ -648,7 +696,7 @@ export default {
       + `<div class="c-dc-wrap" data-key="daily" data-enter>${dailyCardHTML()}</div>`
       // "This week" is time-boxed (voting closes at the first kickoff; the NFL pick'em runs to Monday night): it sits
       // right under the Daily card, above the always-there leaderboard.
-      + `<div class="c-wk-host" data-key="wk" data-enter>${weekCardHTML(wc, null, NX)}</div>`
+      + `<div class="c-wk-host" data-key="wk" data-enter>${weekCardHTML(wc, null, NX, freshPresser())}</div>`
       + `<div class="c-board-host" data-key="board" data-enter></div>`
       + `<div class="c-cd-host" data-key="cd" data-enter>${countdownHTML(false)}</div>`
       + `<div class="c-wrap-host" data-key="wrap" data-enter data-sig="${esc(wrapSig(wr))}">${wrapCardHTML(wr)}</div>`
@@ -658,7 +706,8 @@ export default {
   mount(el, ctx) {
     ensureDefs();
     const st = {el, ctx, board: null, pending: false, cancelRing: null, retrying: false,
-      wk: {key: null, cur: null, votes: null, unsubV: null, live: false, unsubG: null, unsubN: null, nflStarting: false, nflAt: 0}};
+      wk: {key: null, cur: null, votes: null, unsubV: null, live: false, unsubG: null, unsubN: null, nflStarting: false, nflAt: 0,
+        unsubP: null, pressWant: false}};
     HUB.set(ctx, st);
     const you = el.querySelector('.c-you');
     if (you) you.dataset.me = String(data.me());

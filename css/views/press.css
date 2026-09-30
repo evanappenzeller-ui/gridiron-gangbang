@@ -1,0 +1,393 @@
+/* press.css: the Press Room (#/press) and its presser tiles and player. Owner: PRESS-SCREEN.
+   Scope roots: .v-press (the screen), .sh-press (the post sheet), .c-press* (the tile, the in-place YouTube player, the
+   small thumbnail and the how-to steps: also drawn on Rivals, Today, the Wrap, profiles and in the sheet).
+   Motion is opacity/transform only; the loading spinner is the only loop. The blurred backdrop behind a vertical
+   video is a static filter on an image (none in lite mode). */
+
+/* ================================================================ Tile (.c-press) */
+.c-press {
+  position: relative; display: block; min-width: 0;
+  color: var(--ink);
+  --press-r: var(--r-card);
+  --press-max-h: 70vh;
+}
+.c-press.is-m { --press-r: var(--r-cell); --press-max-h: 60vh; }
+.c-press.is-s { --press-r: 10px; --press-max-h: 60vh; display: flex; align-items: center; gap: 12px; }
+
+/* Media: the frame is 16:9; a vertical video's frame is 9:16 (at most --press-max-h tall), centered on a blurred copy
+   of its own thumbnail. The box has an explicit aspect ratio, so nothing shifts when the image or the player loads. */
+.c-press-media {
+  position: relative; z-index: 0; isolation: isolate;
+  display: flex; justify-content: center;
+  overflow: hidden; border-radius: var(--press-r);
+  background: #0B0C0F;
+}
+.c-press-frame { position: relative; flex: none; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; background: #000; }
+.c-press.is-tall:not(.is-s) .c-press-frame,
+.c-press.is-s.is-tall.is-playing .c-press-frame { aspect-ratio: 9 / 16; width: min(100%, calc(var(--press-max-h) * 9 / 16)); }
+.c-press-back { position: absolute; inset: 0; z-index: -1; display: none; overflow: hidden; }
+.c-press.is-tall:not(.is-s) .c-press-back,
+.c-press.is-s.is-tall.is-playing .c-press-back { display: block; }
+.c-press-back > img {
+  position: absolute; left: -32px; top: -32px;
+  width: calc(100% + 64px); height: calc(100% + 64px);
+  object-fit: cover; filter: blur(28px) saturate(1.3); opacity: .5;
+}
+.c-press-back::after { content: ""; position: absolute; inset: 0; background: rgba(0,0,0,.3); }
+html.lite .c-press-back > img { display: none; }
+.c-press.is-noimg .c-press-back { display: none !important; }
+
+/* The thumbnail button over the frame; the player slides in on top of it. */
+.c-press-cover {
+  position: absolute; inset: 0; z-index: 1;
+  display: block; width: 100%; height: 100%;
+  margin: 0; padding: 0; border: 0; border-radius: 0;
+  background: none; color: #fff; text-align: left;
+  overflow: hidden; cursor: pointer;
+}
+span.c-press-cover { cursor: inherit; }
+.c-press-cover:focus-visible { outline: 2px solid var(--tint); outline-offset: -2px; }
+.c-press-ph, .c-press-th > .c-press-ph {
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+  background: radial-gradient(120% 95% at 50% 30%, var(--mc-deep, #1C1C1E) 0%, #0B0C0F 72%);
+  color: var(--mc, var(--ink-4));
+}
+.c-press-ph > .ic { width: 36px; height: 36px; stroke-width: 1.5; opacity: .6; }
+/* Over the round play button's head, so the two never overlap. */
+.c-press-frame .c-press-ph > .ic { position: absolute; left: 50%; top: 50%; margin: -88px 0 0 -18px; }
+.c-press.is-m .c-press-frame .c-press-ph > .ic { width: 30px; height: 30px; margin: -76px 0 0 -15px; }
+.c-press.is-s:not(.is-playing) .c-press-frame .c-press-ph > .ic { width: 20px; height: 20px; margin: -10px 0 0 -10px; }
+.c-press-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.c-press-frame.is-noimg .c-press-img, .c-press-th.is-noimg > .c-press-img { visibility: hidden; }
+
+/* The week on the thumbnail, like a broadcast bug. */
+.c-press-bug {
+  position: absolute; left: 10px; top: 10px;
+  display: inline-flex; align-items: center; gap: 4px;
+  height: 22px; padding: 0 8px 0 6px;
+  border-radius: var(--r-pill);
+  background: rgba(0,0,0,.62);
+  font: 800 12px/1 var(--font-num); font-stretch: condensed; letter-spacing: .06em; text-transform: uppercase;
+  color: #fff; white-space: nowrap;
+}
+.c-press-bug > .ic { width: 12px; height: 12px; color: var(--mc, #fff); stroke-width: 2; }
+
+.c-press-btn {
+  position: absolute; left: 50%; top: 50%;
+  width: 64px; height: 64px; margin: -32px 0 0 -32px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: rgba(0,0,0,.56);
+  box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.22);
+  color: #fff;
+  transition: transform var(--spring-snappy-dur) var(--spring-snappy), background-color 200ms linear;
+}
+.c-press-btn > .ic { width: 28px; height: 28px; margin-left: 3px; }
+.c-press-btn > .spin { display: none; width: 26px; height: 26px; border-width: 2.5px; }
+.c-press.is-m .c-press-btn { width: 56px; height: 56px; margin: -28px 0 0 -28px; }
+.c-press.is-m .c-press-btn > .ic { width: 24px; height: 24px; }
+/* A small tile's play glyph sits in the corner (like the archive's thumbnails). */
+.c-press.is-s:not(.is-playing) .c-press-btn { left: 6px; top: auto; bottom: 6px; width: 22px; height: 22px; margin: 0; background: rgba(0,0,0,.6); box-shadow: none; }
+.c-press.is-s:not(.is-playing) .c-press-btn > .ic { width: 11px; height: 11px; margin-left: 1px; }
+.c-press.is-s:not(.is-playing) .c-press-btn > .spin { width: 14px; height: 14px; border-width: 2px; }
+.c-press-cover.is-pressed .c-press-btn { transform: scale(.9); background: rgba(0,0,0,.72); transition: none; }
+@media (hover: hover) { .c-press-cover:hover .c-press-btn { background: rgba(0,0,0,.72); } }
+.c-press-frame.is-playing:not(.is-loaded) .c-press-btn > .ic { display: none; }
+.c-press-frame.is-playing:not(.is-loaded) .c-press-btn > .spin { display: inline-block; }
+
+/* The player: YouTube's embed, faded in once loaded (the thumbnail and spinner show until then). */
+.c-press-frame.is-playing > .c-press-cover { pointer-events: none; }
+.c-press-ifr {
+  position: absolute; inset: 0; z-index: 2;
+  width: 100%; height: 100%; border: 0;
+  background: #000; opacity: 0;
+  transition: opacity 240ms linear;
+}
+.c-press-frame.is-loaded > .c-press-ifr { opacity: 1; }
+.c-press-yt:empty { display: none; }
+.c-press-yt { display: flex; justify-content: flex-end; padding: 2px 2px 0; }
+.c-press-yt > a {
+  display: inline-flex; align-items: center; min-height: 32px; padding: 0 2px;
+  font: 400 var(--fs-cap)/var(--lh-cap) var(--font-text); color: var(--ink-3);
+  text-decoration: underline; text-underline-offset: 2px;
+}
+
+/* Words: l and m */
+.c-press-body { min-width: 0; padding-top: 12px; }
+.c-press-mgr { display: flex; align-items: center; gap: 12px; min-width: 0; color: inherit; text-decoration: none; }
+a.c-press-mgr { border-radius: var(--r-cell); transition: opacity 200ms linear; }
+a.c-press-mgr.is-pressed { opacity: .6; transition: none; }
+.c-press-mgr > .av { flex: none; }
+.c-press-tx { display: flex; flex-direction: column; min-width: 0; }
+.c-press-who, .c-press-ctx, .c-press-by { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.c-press-who { font: 600 var(--fs-headline)/var(--lh-headline) var(--font-text); }
+.c-press-ctx { font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2); }
+.c-press-cap {
+  margin-top: 10px;
+  font: 400 var(--fs-callout)/var(--lh-callout) var(--font-text); color: var(--ink);
+  overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden;
+}
+.c-press-by { margin-top: 6px; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+.c-press.is-m .c-press-body { padding-top: 10px; }
+.c-press.is-m .c-press-mgr { gap: 10px; }
+.c-press.is-m .c-press-who { font-size: var(--fs-sub); line-height: var(--lh-sub); }
+.c-press.is-m .c-press-cap { margin-top: 6px; font-size: var(--fs-sub); line-height: var(--lh-sub); color: var(--ink-2); -webkit-line-clamp: 2; }
+
+/* Words: s (a compact row; full width while it plays) */
+.c-press.is-s .c-press-media { flex: none; width: 112px; }
+.c-press.is-s .c-press-body { flex: 1 1 auto; display: flex; flex-direction: column; gap: 1px; padding: 0; }
+.c-press-st { min-width: 0; font: 600 var(--fs-sub)/var(--lh-sub) var(--font-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.c-press-ss {
+  min-width: 0; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3);
+  overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+}
+.c-press.is-s.is-playing { flex-direction: column; align-items: stretch; gap: 8px; }
+.c-press.is-s.is-playing .c-press-media { width: 100%; }
+
+/* Small thumbnail (archive rows, the sheet's preview): 16:9 with a play glyph. */
+.c-press-th {
+  position: relative; flex: none; display: block;
+  width: 96px; aspect-ratio: 16 / 9;
+  border-radius: 8px; overflow: hidden;
+  background: #0B0C0F;
+}
+.c-press-th > .c-press-ph > .ic { width: 18px; height: 18px; }
+.c-press-glyph {
+  position: absolute; left: 6px; bottom: 6px;
+  display: grid; place-items: center;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: rgba(0,0,0,.6); color: #fff;
+}
+.c-press-glyph > .ic { width: 11px; height: 11px; margin-left: 1px; }
+
+/* How to post: numbered steps (in an inset group on the screen, in the sheet's disclosure). */
+.c-press-steps { list-style: none; margin: 0; padding: 0; }
+.c-press-steps > li { position: relative; display: flex; align-items: flex-start; gap: 12px; padding: 12px 16px; }
+.c-press-steps > li + li::before {
+  content: ""; position: absolute; top: 0; left: 52px; right: 0; height: 1px;
+  background: var(--separator); transform: scaleY(.5); transform-origin: top;
+}
+.c-press-step {
+  flex: none; display: grid; place-items: center;
+  width: 24px; height: 24px; margin-top: -1px; border-radius: 50%;
+  background: var(--surface-3); color: var(--ink);
+  font: 800 14px/1 var(--font-num); font-stretch: condensed; font-variant-numeric: tabular-nums;
+}
+.c-press-steps p { min-width: 0; font: 400 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink-2); text-wrap: pretty; }
+.c-press-steps b { font-weight: 600; color: var(--ink); }
+
+@media (prefers-reduced-motion: reduce) {
+  .c-press-ifr, .c-press-btn { transition: none; }
+}
+html.rm .c-press-ifr, html.rm .c-press-btn { transition: none; }
+
+/* ================================================================ Screen (.v-press) */
+.v-press .pr-main { min-width: 0; }
+.v-press .pr-sec:empty { display: none; }
+.v-press .pr-sec-empty > .empty, .v-press .pr-sec-err > .empty { margin-top: 12px; background: var(--surface-1); border-radius: var(--r-card); }
+.v-press .pr-sec-empty > .empty > .ic, .v-press .pr-sec-err > .empty > .ic { color: var(--ink-3); }
+
+/* Featured: the media runs edge to edge across the top of the card. */
+.v-press .pr-card { margin-top: 12px; padding: 0; overflow: hidden; border-radius: var(--r-hero); }
+.v-press .pr-card.is-pressed { transform: none; }
+.v-press .pr-card .c-press { --press-r: 0px; }
+.v-press .pr-card .c-press-yt { padding: 2px 14px 0; }
+.v-press .pr-card .c-press-body { padding: 16px 20px 0; }
+.v-press .pr-card .c-press-mgr { margin: -4px -6px; padding: 4px 6px; }
+.v-press .pr-acts {
+  display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr);
+  margin-top: 16px;
+  box-shadow: inset 0 .5px 0 var(--separator);
+}
+.v-press .pr-act {
+  position: relative; display: flex; align-items: center; justify-content: center; gap: 6px;
+  min-width: 0; height: 50px; padding: 0 8px;
+  font: 600 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--tint);
+  background-color: transparent; transition: background-color 250ms linear;
+}
+.v-press .pr-act > .ic { flex: none; width: 18px; height: 18px; stroke-width: 2; }
+.v-press .pr-act > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-press .pr-act + .pr-act::before { content: ""; position: absolute; left: 0; top: 12px; bottom: 12px; width: .5px; background: var(--separator); }
+.v-press .pr-act.is-destructive { color: var(--wrong); }
+.v-press .pr-act.is-pressed { background-color: var(--surface-2); transition: none; }
+.v-press .pr-act:focus-visible { outline-offset: -2px; }
+
+/* Skeleton in the shape of the featured card. */
+.v-press .pr-sk .pr-sk-media { display: block; aspect-ratio: 16 / 9; border-radius: 0; }
+.v-press .pr-sk-body { display: flex; align-items: center; gap: 12px; padding: 16px 20px 20px; }
+.v-press .pr-sk-body > .sk-circle { flex: none; width: 40px; height: 40px; }
+.v-press .pr-sk-lines { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.v-press .pr-sk-lines > .sk-line:first-child { width: 40%; }
+.v-press .pr-sk-lines > .sk-line:last-child { width: 72%; height: 10px; }
+.v-press .pr-sk-rows { margin-top: 32px; }
+
+/* Banner (the list loaded, something else didn't). */
+.v-press .pr-banner {
+  display: flex; align-items: center; gap: 8px;
+  min-height: 44px; margin: 12px 0 0; padding: 6px 6px 6px 14px;
+  border-radius: var(--r-group); background: var(--surface-1);
+  font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2);
+}
+.v-press .pr-banner > .ic { flex: none; width: 16px; height: 16px; color: var(--ink-3); }
+.v-press .pr-banner > span { flex: 1 1 auto; min-width: 0; }
+.v-press .pr-banner-a { flex: none; min-height: 32px; padding: 0 10px; border-radius: var(--r-pill); font-weight: 600; color: var(--tint); }
+.v-press .pr-banner-a.is-pressed { opacity: .5; }
+
+/* The loser who hasn't posted yet. */
+.v-press .pr-miss {
+  display: flex; align-items: center; gap: 12px;
+  margin-top: 12px; padding: 12px 12px 12px 16px;
+}
+.v-press .pr-miss-lead { flex: none; display: flex; }
+.v-press .pr-miss-ic { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--surface-2); color: var(--ink-2); }
+.v-press .pr-miss-ic > .ic { width: 20px; height: 20px; }
+.v-press .pr-miss-tx { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.v-press .pr-miss-o { color: var(--ink-3); }
+.v-press .pr-miss-t {
+  min-width: 0; font: 600 var(--fs-sub)/var(--lh-sub) var(--font-text);
+  overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+}
+.v-press .pr-miss-s { min-width: 0; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); overflow-wrap: anywhere; }
+.v-press .pr-miss-go {
+  flex: none; display: inline-flex; align-items: center; gap: 4px;
+  height: 32px; padding: 0 12px 0 9px; border-radius: var(--r-pill);
+  background: var(--tint-soft); color: var(--tint);
+  font: 600 var(--fs-sub)/var(--lh-sub) var(--font-text);
+}
+.v-press .pr-miss-go > .ic { width: 16px; height: 16px; stroke-width: 2.4; }
+
+/* Archive */
+.v-press .pr-h { margin: 32px 0 8px; }
+.v-press .pr-sec-arch .group-wrap + .group-wrap { margin-top: 24px; }
+.v-press .pr-row { min-height: 76px; padding-left: 12px; }
+.v-press .pr-row .row-lead { margin-right: 12px; }
+.v-press .pr-row .row-sub { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+.v-press .pr-row .row-trail { margin-left: 10px; }
+.v-press .pr-row-th { width: 88px; border-radius: 7px; }
+.v-press .pr-row.is-selected .pr-row-th { box-shadow: 0 0 0 2px var(--surface-1), 0 0 0 3.5px var(--tint); }
+.v-press .pr-arch-g > .row + .row > .row-main::before { left: 0; }
+
+/* How to post, and the test-mode note */
+.v-press .pr-help { margin-top: 32px; }
+.v-press .pr-sec-dev { margin: 24px 4px 0; text-align: center; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+
+/* ================================================================ Post sheet (.sh-press) */
+.sh-press .shp { display: flex; flex-direction: column; gap: 24px; padding-top: 4px; }
+.sh-press .shp-sec { min-width: 0; }
+.sh-press .shp-h {
+  display: block; margin: 0 4px 8px;
+  font: 600 13px/18px var(--font-text); letter-spacing: .02em; text-transform: uppercase;
+  color: var(--ink-2);
+}
+.sh-press .shp-hrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; margin-bottom: 8px; }
+.sh-press .shp-hrow > .shp-h { margin-bottom: 0; }
+
+.sh-press .shp-field { position: relative; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.sh-press .shp-in {
+  flex: 1 1 auto; min-width: 0;
+  height: 48px; padding: 0 14px;
+  border: 0; outline: 0; border-radius: var(--r-cell);
+  background: var(--surface-2); color: var(--ink);
+  font: 400 17px/22px var(--font-text);
+  -webkit-appearance: none; appearance: none;
+}
+.sh-press .shp-in::placeholder { color: var(--ink-3); opacity: 1; }
+.sh-press .shp-in:focus { box-shadow: inset 0 0 0 1px var(--tint); }
+.sh-press .shp-paste { flex: none; height: 48px; padding: 0 16px; border-radius: var(--r-cell); background: var(--surface-3); }
+.sh-press .shp-paste::before { display: none; }
+
+.sh-press .shp-check { margin-top: 10px; min-width: 0; }
+.sh-press .shp-msg { display: flex; align-items: flex-start; gap: 8px; padding: 0 4px; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+.sh-press .shp-msg > .ic { flex: none; width: 16px; height: 16px; margin-top: 1px; }
+.sh-press .shp-msg > span { min-width: 0; }
+.sh-press .shp-msg.is-wrong { color: var(--wrong); font-size: var(--fs-sub); line-height: var(--lh-sub); }
+.sh-press .shp-msg.is-wrong > .ic { width: 18px; height: 18px; }
+.sh-press .shp-msg.is-warn { color: var(--ink-2); margin-top: 8px; }
+.sh-press .shp-msg.is-warn > .ic { color: var(--gold); }
+.sh-press .shp-pv {
+  display: flex; align-items: center; gap: 12px; min-width: 0;
+  padding: 10px 12px 10px 10px;
+  border-radius: var(--r-group); background: var(--surface-2);
+}
+.sh-press .shp-pv > .c-press-th { width: 112px; }
+.sh-press .shp-pv-tx { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.sh-press .shp-pv-t {
+  min-width: 0; font: 600 var(--fs-sub)/var(--lh-sub) var(--font-text);
+  overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+}
+.sh-press .shp-pv-a { min-width: 0; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sh-press .shp-pv-tx > .sk { background: var(--surface-3); width: 80%; }
+.sh-press .shp-pv-tx > .shp-pv-sk2 { width: 45%; height: 10px; margin-top: 6px; }
+.sh-press .shp-pv-st { flex: none; display: grid; place-items: center; width: 22px; color: var(--ink-3); }
+.sh-press .shp-pv-st > .spin { width: 18px; height: 18px; }
+.sh-press .shp-pv-ok { width: 22px; height: 22px; color: var(--tint); stroke-width: 2; }
+
+.sh-press .shp-how { margin-top: 12px; border-radius: var(--r-group); background: var(--surface-2); overflow: hidden; --separator: rgba(84,84,88,.65); }
+.sh-press .shp-how > summary {
+  display: flex; align-items: center; gap: 8px;
+  min-height: 44px; padding: 0 14px;
+  list-style: none; cursor: pointer;
+  font: 500 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink-2);
+}
+.sh-press .shp-how > summary::-webkit-details-marker { display: none; }
+.sh-press .shp-how > summary > .ic { flex: none; width: 18px; height: 18px; color: var(--ink-3); }
+.sh-press .shp-how > summary > span { flex: 1 1 auto; min-width: 0; }
+.sh-press .shp-how-chev { transition: transform var(--spring-snappy-dur) var(--spring-snappy); }
+.sh-press .shp-how[open] .shp-how-chev { transform: rotate(180deg); }
+.sh-press .shp-how > summary.is-pressed { background: var(--surface-3); }
+.sh-press .shp-how .c-press-steps { box-shadow: inset 0 .5px 0 var(--separator); }
+.sh-press .shp-how .c-press-step { background: var(--surface-3); }
+.sh-press .shp-how-f { padding: 0 16px 12px 52px; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+
+/* Season select: a small pill (16 px text: no iOS zoom on focus). */
+.sh-press .shp-yr { position: relative; flex: none; display: inline-flex; align-items: center; }
+.sh-press .shp-yr > select {
+  height: 32px; padding: 0 30px 0 12px;
+  border: 0; outline: 0; border-radius: var(--r-pill);
+  background: var(--surface-3); color: var(--ink);
+  font: 600 16px/20px var(--font-text);
+  -webkit-appearance: none; appearance: none; cursor: pointer;
+}
+.sh-press .shp-yr > select:focus-visible { outline: 2px solid var(--tint); outline-offset: 2px; }
+.sh-press .shp-yr > .ic { position: absolute; right: 10px; width: 14px; height: 14px; color: var(--ink-2); stroke-width: 2.4; pointer-events: none; }
+
+.sh-press .shp-weeks .chips { padding-top: 4px; }
+.sh-press .shp-wk-ic { width: 14px; height: 14px; margin-left: -4px; stroke-width: 2; }
+.sh-press .shp-note:empty { display: none; }
+.sh-press .shp-note { margin: 6px 4px 0; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--gold); }
+
+.sh-press .shp-hint { margin: -2px 4px 8px; font: 400 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink-2); }
+/* The managers wrap (all twelve in view), suggested ones first. */
+.sh-press .shp-who-chips {
+  flex-wrap: wrap; overflow: visible;
+  margin: 0; padding: 2px 0;
+  -webkit-mask-image: none; mask-image: none;
+}
+.sh-press .shp-who-chips::after { display: none; }
+.sh-press .shp-who-chips > .chip { padding-left: 12px; }
+
+.sh-press .shp-count { font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.sh-press .shp-count.is-full { color: var(--gold); }
+
+.sh-press .shp-sw {
+  display: flex; align-items: center; gap: 12px;
+  min-height: 60px; padding: 8px 14px 8px 16px;
+  border-radius: var(--r-group); background: var(--surface-2);
+}
+.sh-press .shp-sw-tx { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.sh-press .shp-sw-t { font: 400 var(--fs-body)/var(--lh-body) var(--font-text); }
+.sh-press .shp-sw-s { font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+
+/* The Post button stays in reach at the bottom of the sheet. */
+.sh-press .shp-foot {
+  position: sticky; z-index: 2;
+  bottom: calc(-1 * max(16px, env(safe-area-inset-bottom, 0px)));
+  margin: -8px -16px calc(-1 * max(16px, env(safe-area-inset-bottom, 0px)));
+  padding: 12px 16px max(16px, env(safe-area-inset-bottom, 0px));
+  background: var(--surface-1);
+  box-shadow: inset 0 .5px 0 var(--separator);
+}
+.sh-press .shp-why { min-height: 18px; margin-top: 8px; text-align: center; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+.sh-press .shp-why:empty { visibility: hidden; }

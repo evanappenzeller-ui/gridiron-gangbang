@@ -37,6 +37,7 @@ export const REGISTRY = {
   review: () => import('./views/review.js'),
   wrap: () => import('./views/wrap.js'),
   pickem: () => import('./views/pickem.js'),
+  press: () => import('./views/press.js'),
   rivals: () => import('./views/rivals.js'),
   hall: () => import('./views/hall.js'),
   moves: () => import('./views/moves.js'),
@@ -98,6 +99,13 @@ function matchSegs(p) {
     case 'pickem':
       // NFL Pick'em (optional ?week=N): pushed on any tab; a cold link sits on Rivals (the week's home).
       if (n === 1) return R('pickem', 'push', 'any', {}, 'rivals');
+      return null;
+    case 'press':
+      // Press Room: #/press (the archive, latest presser featured), #/press/2026-w4 (that week's presser featured: the
+      // share link). Pushed on any tab; a cold link sits on Rivals. The view checks the key (an unknown one lands on
+      // the archive with a toast).
+      if (n === 1) return R('press', 'push', 'any', {}, 'rivals');
+      if (n === 2 && b) return R('press', 'push', 'any', {key: b}, 'rivals');
       return null;
     case '_kit':
       if (n === 1) return R('_kit', 'push', 'any', {}, 'today');

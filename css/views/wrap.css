@@ -117,6 +117,9 @@
 .v-wrap .wr-pk-go:focus-visible { outline-offset: -2px; }
 .v-wrap .wr-pk-go > .ic { flex: none; width: 16px; height: 16px; color: var(--ink-3); }
 
+/* The presser (the Press Room tile plays in place; views/press.js styles the tile itself) */
+.v-wrap .wr-press { margin: 12px 0 0; min-width: 0; }
+
 /* ================================================================ Power rankings */
 .v-wrap .wr-sec > .sh { margin-top: 32px; }
 .v-wrap .wr-pr .row-lead { gap: 10px; }

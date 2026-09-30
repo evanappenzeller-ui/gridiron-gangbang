@@ -1200,6 +1200,16 @@ export async function runChecks() {
     check("Pick'em checks (checks-pickem.js) loaded", () => ({pass: false, detail: pickemErr ? 'did not load: ' + (pickemErr.message || pickemErr) : 'no pickemChecks export'}));
   }
 
+  // Press Room checks (js/core/checks-press.js, owned by the Press Room core: YouTube links, the seeded archive,
+  // contexts, the post sheet's weeks, stand-in writes, the rules block). Guarded the same way.
+  let pressMod = null, pressErr = null;
+  try { pressMod = await import('./checks-press.js'); } catch (e) { pressErr = e; }
+  if (pressMod && typeof pressMod.pressChecks === 'function') {
+    try { await pressMod.pressChecks(check); } catch (e) { check('Press Room checks (checks-press.js)', () => { throw e; }); }
+  } else {
+    check('Press Room checks (checks-press.js) loaded', () => ({pass: false, detail: pressErr ? 'did not load: ' + (pressErr.message || pressErr) : 'no pressChecks export'}));
+  }
+
   await Promise.all(pending);
   return out;
 }

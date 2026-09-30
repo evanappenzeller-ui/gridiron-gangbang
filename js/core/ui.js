@@ -74,7 +74,7 @@ export const ICON_NAMES = [
   'list-number', 'versus', 'trophy', 'swap',
   'chevron-left', 'chevron-right', 'chevron-down', 'close', 'search', 'clear', 'share', 'copy', 'check', 'check-circle',
   'x', 'x-circle', 'sort', 'table', 'list', 'gear', 'person', 'info', 'plus', 'lock', 'clock', 'calendar', 'arrow-up', 'arrow-down',
-  'crown', 'medal', 'flame', 'sparkle', 'bolt', 'pulse', 'anchor', 'football',
+  'crown', 'medal', 'flame', 'sparkle', 'bolt', 'pulse', 'anchor', 'football', 'mic', 'mic-fill', 'play-fill',
   'grad-cap', 'mystery', 'grid-3', 'bulb', 'shield', 'figure', 'number', 'star', 'chart', 'letters'
 ];
 

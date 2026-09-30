@@ -1,11 +1,36 @@
 // Manager profile (#/managers/:id, spec 7.16). Owner: profile package.
 // A push that can sit on any tab. Hero (manager-color wash, 96 px hero avatar that the tapped avatar flies into,
 // crowns), all-time tiles with count-ups, the "Every team name" slot reel, seasons, a seed sparkline, best and
-// worst games, rivalries, records held, first-round picks and recent trades. Everything derives from league.json.
+// worst games, rivalries, records held, first-round picks and recent trades. Everything derives from league.json,
+// except "At the podium" (their Matchup of the Week press conferences: core/press.js + views/press.js, loaded at idle;
+// shown only when they have one).
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 
 const esc = data.esc;
+
+// ---------------------------------------------------------------------------------------------- At the podium
+// PRESS: the latest subscribePressers payload (shared by every mounted profile); PV: views/press.js once loaded.
+// Nothing shows before both are in, for a manager without a presser, or on a failure (the Press Room screen shows
+// errors). Each small tile opens that presser in the Press Room (#/press/2026-w4).
+let PRESS = null, PV = null, pressP = null;
+const loadPress = () => pressP || (pressP = Promise.all([import('../core/press.js'), import('./press.js')]).then(([c, v]) => { PV = v; return c; }, e => { pressP = null; throw e; }));
+function podiumSig(id) {
+  const list = PRESS && PV && Array.isArray(PRESS.list) ? PRESS.list.filter(p => p && p.who === id) : [];
+  return list.map(p => [p.key, p.vid, p.title, p.tall ? 1 : 0].join(':')).join('|');
+}
+function podiumHTML(id) {
+  const list = PRESS && PV && Array.isArray(PRESS.list) ? PRESS.list.filter(p => p && p.who === id) : []; // newest week first
+  if (!list.length) return '';
+  const n = list.length;
+  const tiles = list.map(p => `<a class="pf-pod-it" href="#/press/${esc(encodeURIComponent(p.key))}" aria-label="${esc(`${PV.presserName ? PV.presserName(p) : `Week ${p.week} press conference`}${p.title ? ': ' + p.title : ''}. Opens the Press Room`)}">`
+    + PV.tileHTML(p, {size: 's', play: false}) + ui.icon('chevron-right', {cls: 'chev'}) + `</a>`).join('');
+  return `<section class="pf-sec pf-podium">${ui.sectionHeader({title: 'At the podium'})}`
+    + `<p class="pf-tcount"><span class="n3">${data.nf(n)}</span><span class="pf-tcount-t">${n === 1 ? 'press conference' : 'press conferences'}</span>`
+    + `<span class="pf-tcount-s">after losing the Matchup of the Week</span></p>`
+    + `<div class="pf-pod">${tiles}</div></section>`;
+}
+const podiumHost = id => `<div class="pf-pod-host" data-sig="${esc(podiumSig(id))}">${podiumHTML(id)}</div>`;
 
 // ---------------------------------------------------------------------------------------------- Derivations
 // Cached per manager id; the cache is dropped whenever data.reload() swaps DATA (and on update 'data').
@@ -391,7 +416,44 @@ function unknown() {
 function page(id) {
   const d = derive(id);
   return hero(id, d) + tiles(id, d) + teamNames(id, d) + seasons(id, d) + seedChart(id, d) + bestWorst(id, d)
-    + rivalries(id, d) + records(id, d) + draftCapital(id, d) + tradesSec(id, d);
+    + rivalries(id, d) + podiumHost(id) + records(id, d) + draftCapital(id, d) + tradesSec(id, d);
+}
+
+// A new payload: patch the section in place when this manager's pressers changed.
+function patchPodium(st) {
+  const host = st && !st.dead && st.el && st.el.isConnected ? st.el.querySelector('.pf-pod-host') : null;
+  if (!host || !st.id) return;
+  const sig = podiumSig(st.id);
+  if (host.dataset.sig === sig) return;
+  const was = !!host.firstElementChild;
+  host.dataset.sig = sig;
+  let html = '';
+  try { html = podiumHTML(st.id); } catch (e) { console.error(e); html = ''; }
+  host.innerHTML = html;
+  if (html && !was && !ui.RM && st.ctx && st.ctx.visible) ui.animate(host, [{opacity: 0}, {opacity: 1}], {duration: 240});
+}
+function podiumStart(ctx) {
+  const st = S.get(ctx);
+  if (!st || st.dead || st.pressWant) return;
+  st.pressWant = true;
+  st.ctx = ctx;
+  loadPress().then(pr => {
+    if (S.get(ctx) !== st || st.dead || !st.pressWant) return;
+    try {
+      st.pressUnsub = pr.subscribePressers(u => {
+        if (S.get(ctx) !== st || st.dead || !u) return;
+        PRESS = u;
+        if (st.idleP) st.idleP();
+        st.idleP = ui.whenIdle(() => { st.idleP = null; patchPodium(st); });
+      });
+    } catch (e) { console.error(e); }
+  }, e => { console.warn('profile: Press Room unavailable', e); st.pressWant = false; });
+}
+function podiumEnd(st) {
+  if (!st) return;
+  if (st.idleP) { st.idleP(); st.idleP = null; }
+  if (typeof st.pressUnsub === 'function') { try { st.pressUnsub(); } catch (_) {} }
+  st.pressUnsub = null; st.pressWant = false;
 }
 
 // ---------------------------------------------------------------------------------------------- Motion
@@ -610,6 +672,7 @@ export default {
     const av = id && from && !ui.RM && !ui.LITE && el.querySelector('.pf-av > .av');
     if (av) flyIn(from, av, sourceCopy(sourceAvatar(from, ctx.screen), id));
     wire(el, ctx, id);
+    ui.onIdle(() => podiumStart(ctx));
     // Unknown id: picking a manager turns this screen into that profile (replace, so Back skips the bad link).
     el.addEventListener('click', e => {
       const a = e.target.closest && e.target.closest('.pf-mgr');
@@ -685,6 +748,6 @@ export default {
 
   unmount(el, ctx) {
     const st = S.get(ctx);
-    if (st) { st.dead = true; teardown(st); }
+    if (st) { st.dead = true; teardown(st); podiumEnd(st); }
   }
 };

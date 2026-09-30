@@ -469,6 +469,45 @@
 }
 .v-rivals .rv-npk-go > .ic { flex: none; width: 18px; height: 18px; stroke-width: 2.2; }
 
+/* ================================================================ Press Room (right under the Matchup of the Week) */
+.v-rivals .rv-press { margin: 0 0 28px; }
+.v-rivals .rv-press-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; min-height: 34px; margin-bottom: 8px; }
+.v-rivals .rv-press-head .t-2 { margin: 0; }
+/* The latest presser: its media runs edge to edge across the top of the card (the tile is views/press.js's). */
+.v-rivals .rv-press-card { padding: 0; overflow: hidden; min-width: 0; }
+.v-rivals .rv-press-card .c-press { --press-r: 0px; }
+.v-rivals .rv-press-card .c-press-yt { padding: 2px 12px 0; }
+.v-rivals .rv-press-card .c-press-body { padding: 12px 16px 14px; }
+.v-rivals .rv-press-all {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  min-height: 48px; padding: 0 12px 0 16px;
+  border-top: .5px solid var(--separator);
+  font: 600 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--tint);
+  transition: background-color 250ms linear;
+}
+.v-rivals .rv-press-all.is-pressed { background-color: var(--surface-2); transition: none; }
+.v-rivals .rv-press-all:focus-visible { outline-offset: -2px; }
+.v-rivals .rv-press-n { display: inline-flex; align-items: center; gap: 4px; flex: none; color: var(--ink-3); font-weight: 400; }
+.v-rivals .rv-press-n > .ic { width: 18px; height: 18px; }
+/* No presser yet: one compact row that opens the post sheet. */
+.v-rivals .rv-press-post {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; min-height: 60px; padding: 10px 12px 10px 14px;
+  color: var(--ink); text-align: left;
+  transition: transform var(--spring-snappy-dur) var(--spring-snappy);
+}
+.v-rivals .rv-press-post.is-pressed { transform: scale(.98); transition: none; }
+.v-rivals .rv-press-mic {
+  flex: none; display: grid; place-items: center;
+  width: 36px; height: 36px; border-radius: var(--r-cell);
+  background: var(--surface-2); color: var(--ink-2);
+}
+.v-rivals .rv-press-mic > .ic { stroke-width: 1.9; }
+.v-rivals .rv-press-pt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.v-rivals .rv-press-pt > b { font: 600 var(--fs-body)/var(--lh-body) var(--font-text); }
+.v-rivals .rv-press-pt > span { font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-rivals .rv-press-post > .chev { position: static; flex: none; width: 18px; height: 18px; margin: 0; color: var(--ink-3); }
+
 /* ================================================================ Past Matchups of the Week */
 .v-rivals .rv-past { margin: 0 0 28px; }
 .v-rivals .rv-past-h { margin: 0 0 8px; }

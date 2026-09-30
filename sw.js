@@ -2,16 +2,17 @@
 // Network-first (2.5 s timeout, then cache) for navigations, HTML, JSON, JS and CSS, so weekly data and new
 // puzzles show up right away; cache-first for the font and icons. Other apps share this origin, so only
 // caches named gg-* or gridiron-* are ever deleted, and cross-origin requests (Firebase, the ESPN scoreboard and
-// team logos) are never touched: live scores must never come from a cache here.
+// team logos, the Press Room's YouTube player and thumbnails) are never touched: live scores must never come from a
+// cache here.
 // A slow request falls back to whatever is cached under its path (from the previous worker too), so data whose
 // format changes gets a new file name rather than new content under the old one (data/puzzles-v3.json: see
 // js/core/daily.js).
-const CACHE = 'gg-v9';
-const CORE = ['ui', 'data', 'daily', 'fire', 'week', 'nfl', 'stats', 'motw', 'checks', 'checks-stats', 'checks-pickem'];
+const CACHE = 'gg-v10';
+const CORE = ['ui', 'data', 'daily', 'fire', 'week', 'nfl', 'stats', 'motw', 'press', 'checks', 'checks-stats', 'checks-pickem', 'checks-press'];
 const VIEWS = ['welcome', 'today', 'board', 'you', 'sharecard', 'results', 'run', 'college', 'silhouette', 'mystery', 'journey', 'grid', 'picker',
-  'standings', 'season', 'review', 'wrap', 'matchup', 'rivals', 'pickem', 'hall', 'hall-trophies', 'hall-records', 'hall-shame', 'moves', 'profile', '_kit'];
+  'standings', 'season', 'review', 'wrap', 'matchup', 'rivals', 'pickem', 'press', 'hall', 'hall-trophies', 'hall-records', 'hall-shame', 'moves', 'profile', '_kit'];
 const VIEW_CSS = ['welcome', 'today', 'board', 'results', 'you', 'run', 'college', 'silhouette', 'mystery', 'journey', 'grid', 'picker',
-  'standings', 'season', 'review', 'wrap', 'matchup', 'rivals', 'pickem', 'hall', 'moves', 'profile', '_kit'];
+  'standings', 'season', 'review', 'wrap', 'matchup', 'rivals', 'pickem', 'press', 'hall', 'moves', 'profile', '_kit'];
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest',
   'css/tokens.css', 'css/base.css', 'css/components.css',
@@ -20,7 +21,7 @@ const SHELL = [
   ...VIEWS.map(v => `js/views/${v}.js`),
   'fonts/barlow-condensed-800.woff2',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png',
-  'data/league.json'
+  'data/league.json', 'data/pressers.json'
 ];
 const TIMEOUT = 2500;
 

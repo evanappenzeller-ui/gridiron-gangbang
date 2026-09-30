@@ -254,6 +254,26 @@
 .v-profile .pf-tcount-s { font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); min-width: 0; }
 .v-profile .pf-tlead { display: grid; place-items: center; width: 40px; }
 
+/* At the podium: their press conferences (views/press.js's small tiles), newest first, in an inset group; each row
+   opens that presser in the Press Room. */
+.v-profile .pf-pod-host:empty { display: none; }
+.v-profile .pf-pod { background: var(--surface-1); border-radius: var(--r-group); overflow: hidden; }
+.v-profile .pf-pod-it {
+  position: relative;
+  display: flex; align-items: center; gap: 8px;
+  min-width: 0; min-height: 60px; padding: 10px 12px 10px 12px;
+  color: inherit;
+  transition: background-color 250ms linear;
+}
+.v-profile .pf-pod-it + .pf-pod-it::before {
+  content: ""; position: absolute; top: 0; left: 136px; right: 0; height: 1px;
+  background: var(--separator); transform: scaleY(.5); transform-origin: top;
+}
+.v-profile .pf-pod-it.is-pressed { background-color: var(--surface-2); transition: none; }
+.v-profile .pf-pod-it:focus-visible { outline-offset: -2px; }
+.v-profile .pf-pod-it > .c-press { flex: 1 1 auto; }
+.v-profile .pf-pod-it > .chev { flex: none; width: 18px; height: 18px; color: var(--ink-3); }
+
 .v-profile .pf-none { padding: 14px 16px; }
 .v-profile .pf-unknown { padding-top: 32px; }
 .v-profile .pf-mgrs {

@@ -3,7 +3,9 @@
 //   Large title "Week 3" (eyebrow THE WRAP · 2026) · sticky week chips (completed weeks) · lede card with the
 //   headline · recap cards (stats.wrap items; score bugs open the matchup sheet) · the week's Matchup of the Week
 //   result and the NFL pick'em's best record that week (week.js, filled in when Firestore and ESPN answer; never
-//   blocks) · power rankings top 5 with movement · Share button + previous/next week.
+//   blocks) · "The presser" (the week's Press Room video, playable in place; core/press.js + views/press.js, loaded
+//   at idle, hidden when the week has none or on a failure) · power rankings top 5 with movement · Share button +
+//   previous/next week.
 // Data: stats.wrap(year, week), stats.wrapWeeks(year), stats.powerRankings(year, week) (sync, js/core/stats.js);
 //   week.history() / week.nflWeekResults(year, week) (async, js/core/week.js, imported lazily so the recap never waits
 //   on it).
@@ -324,6 +326,61 @@ function extras(st, ctx) {
   }).catch(err => console.warn('wrap: week.js unavailable', err));
 }
 
+// ------------------------------------------------------------------ The presser (the Press Room)
+// The week's press conference from core/press.js's live list (subscribed at idle while the Wrap is mounted), drawn
+// with views/press.js's tile; it sits right after the Matchup of the Week card in the extras (at their top until that
+// arrives). Players stop when the Wrap is hidden or the week changes.
+let pressP = null;
+const loadPress = () => pressP || (pressP = Promise.all([import('../core/press.js'), import('./press.js')]).catch(e => { pressP = null; throw e; }));
+
+function presserCard(p, pv) {
+  return `<article class="wr-card is-press ${data.color(p.who).cls}">`
+    + `<h3 class="wr-ovl">${ui.icon('mic', {size: 14})}<span>The presser</span></h3>`
+    + `<div class="wr-press">${pv.tileHTML(p, {size: 'm'})}</div>`
+    + `<a class="wr-pk-go" href="#/press">All press conferences${ui.icon('chevron-right', {size: 16})}</a></article>`;
+}
+function putPress(st, ctx) {
+  if (!st.pv || !st.el.isConnected) return;
+  const box = st.el.querySelector('[data-extra]');
+  if (!box) return;
+  const m = st.m;
+  const list = st.press && Array.isArray(st.press.list) ? st.press.list : [];
+  const p = m && m.state === 'ok' ? list.find(x => x && +x.year === st.y && +x.week === st.w) : null;
+  let html = '';
+  try { html = p ? presserCard(p, st.pv) : ''; } catch (e) { console.error(e); html = ''; }
+  const old = box.querySelector('[data-x="press"]');
+  if (old && old._html === html) return;
+  if (!html) { if (old) old.remove(); return; }
+  const node = document.createElement('div');
+  node.dataset.x = 'press';
+  node.innerHTML = html;
+  node._html = html;
+  if (old) old.replaceWith(node);
+  else { const mo = box.querySelector('[data-x="motw"]'); if (mo) mo.after(node); else box.prepend(node); }
+  ui.hydrate(node);
+  if (!old && !ui.RM && ctx.visible) ui.animate(node, [{opacity: 0}, {opacity: 1}], {duration: 240});
+}
+function pressStart(st, ctx) {
+  if (st.pressWant) return;
+  st.pressWant = true;
+  loadPress().then(([pr, pv]) => {
+    if (ST.get(ctx) !== st || !st.pressWant) return;
+    st.pv = pv;
+    try { const b = pv.bindPlayers(st.el); st.pressStop = typeof b === 'function' ? b : b && typeof b.stop === 'function' ? () => b.stop() : null; } catch (e) { console.error(e); }
+    try {
+      st.pressUnsub = pr.subscribePressers(u => {
+        if (ST.get(ctx) !== st || !u) return;
+        st.press = u;
+        if (st.idleP) st.idleP();
+        st.idleP = ui.whenIdle(() => { st.idleP = null; if (ST.get(ctx) === st) putPress(st, ctx); });
+      });
+    } catch (e) { console.error(e); }
+  }, e => { console.warn('wrap: Press Room unavailable', e); st.pressWant = false; });
+}
+function pressPause(st) {
+  if (st && st.pressStop) { try { st.pressStop(); } catch (_) {} }
+}
+
 // ------------------------------------------------------------------ Share
 function shareText(m) {
   const link = ui.absLink(`/standings/${m.y}/wrap/${m.w}`);
@@ -387,6 +444,7 @@ export default {
     });
     if (ctx.first) ui.stagger(el);
     ui.onIdle(() => { if (ST.get(ctx) === st) extras(st, ctx); });
+    ui.onIdle(() => { if (ST.get(ctx) === st) pressStart(st, ctx); });
   },
 
   update(ctx) {
@@ -402,6 +460,7 @@ export default {
       if (main) { main.innerHTML = bodyHTML(st.m); const nx = main.querySelector('[data-extra]'); if (nx) nx.append(...keep); }
       return;
     }
+    if (weekChanged) pressPause(st);
     st.y = y; st.w = w; st.token++;
     const {m} = renderAll(ctx);
     st.m = m;
@@ -433,6 +492,7 @@ export default {
     }
     ctx.setActions(null);
     ui.onIdle(() => { if (ST.get(ctx) === st) extras(st, ctx); });
+    ui.onIdle(() => { if (ST.get(ctx) === st) putPress(st, ctx); });
   },
 
   onAction(id, ctx) {
@@ -440,9 +500,20 @@ export default {
     if (id === 'share' && st) doShare(st);
   },
 
+  // A screen pushed on top or another tab: the presser stops playing.
+  onHide(ctx) {
+    pressPause(ST.get(ctx));
+  },
+
   unmount(el, ctx) {
     const st = ST.get(ctx);
-    if (st) st.token++;
+    if (st) {
+      st.token++;
+      pressPause(st);
+      if (st.idleP) { st.idleP(); st.idleP = null; }
+      if (typeof st.pressUnsub === 'function') { try { st.pressUnsub(); } catch (_) {} }
+      st.pressUnsub = null; st.pressWant = false;
+    }
     ST.delete(ctx);
   }
 };
