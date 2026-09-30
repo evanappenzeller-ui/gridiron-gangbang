@@ -1,6 +1,10 @@
 // Grid (spec 7.5): name a player for each row x column square. Sub-module of the run cover.
 // Owner: puzzle-run package. Rendered once; a guess patches only its cell (with the flip), the corner ring and
 // the footer. Cells stay <button>s for their whole life so focus can return to the tapped square.
+//
+// The shape comes from the day (daily.gridShape): v1 and v2 days are 3 x 3 (the classic layout, unchanged); a v3
+// day is one row criterion x two column criteria, drawn as its own layout: the row criterion as a banner that forks
+// into two column headers over two large squares (see grid.css "One-row grids").
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as daily from '../core/daily.js';
@@ -11,15 +15,19 @@ const RULE_NOTE = 'Draft squares count drafts from 1980 on. College squares coun
 const CHECK = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12.5l4.6 4.6L19 7.6"/></svg>';
 const CROSS = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7.5 7.5l9 9M16.5 7.5l-9 9"/></svg>';
 
-const rowC = k => daily.DAY.g[Math.floor(k / 3)];
-const colC = k => daily.DAY.g[3 + (k % 3)];
-const diag = k => Math.floor(k / 3) + (k % 3);
+const shape = () => daily.gridShape();
+const N = () => shape().n;                                   // squares: 9 (3 x 3) or 2 (1 x 2)
+const ncol = () => shape().cols.length;
+const oneRow = () => shape().rows.length === 1;
+const rowC = k => shape().rows[Math.floor(k / ncol())];
+const colC = k => shape().cols[k % ncol()];
+const diag = k => Math.floor(k / ncol()) + (k % ncol());
 const cells = () => daily.DS.grid.cells;
 const nameOf = i => daily.PP[i][0];
 const wait = ms => new Promise(r => setTimeout(r, ms));
 
-// Examples ("Try {name}") exclude every player on the grid, like the old gridBody. daily.examplesFor gives all
-// nine from one pass over the players (same pick as daily.exampleFor), so a finished grid renders in a few ms.
+// Examples ("Try {name}") exclude every player on the grid, like the old gridBody. daily.examplesFor gives every
+// square's example from one pass over the players (same pick as daily.exampleFor), so a finished grid renders fast.
 let exCache = {key: '', best: null};
 function example(k) {
   const used = cells().filter(Boolean).map(c => c.p);
@@ -28,13 +36,14 @@ function example(k) {
   return exCache.best[k];
 }
 
-// DEEP CUT: daily.deepCut scans every player the first time a square is asked (~5 ms). daily warms today's nine
+// DEEP CUT: daily.deepCut scans every player the first time a square is asked (~5 ms). daily warms today's
 // squares at idle after ensure(); render only asks warm squares and the rest are filled in at idle (see mount()).
+// Squares are named by their two criteria, which works for any grid shape.
 const isDeep = k => {
   const c = cells()[k];
-  return !!(c && c.ok && daily.deepCut(Math.floor(k / 3), k % 3, c.p));
+  return !!(c && c.ok && daily.deepCut(rowC(k), colC(k), c.p));
 };
-const deepKnown = k => daily.deepReady(Math.floor(k / 3), k % 3);
+const deepKnown = k => daily.deepReady(rowC(k), colC(k));
 /** Warm DEEP CUT for every square, one square per idle callback (the run cover calls it on mount). */
 function warm(done) {
   if (daily.status !== 'ready' || !daily.DS.grid) return;
@@ -63,7 +72,8 @@ function cellLabel(k, lazy) {
 function cellInner(k, lazy) {
   const c = cells()[k];
   if (!c) {
-    if (!daily.gridDone()) return `<span class="gc-plus">${ui.icon('plus')}</span>`;
+    // One-row grids have room to say what an open square wants.
+    if (!daily.gridDone()) return `<span class="gc-plus">${ui.icon('plus')}</span>${oneRow() ? '<span class="gc-ask" aria-hidden="true">Name a player</span>' : ''}`;
     const ex = example(k);
     return ex >= 0 ? `<span class="gc-try">Try ${esc(nameOf(ex))}</span>` : '';
   }
@@ -83,31 +93,58 @@ function cellHTML(k) {
 
 const R = 14, CIRC = 2 * Math.PI * R;
 function cornerHTML() {
-  const n = daily.gridScore(), f = n / 9, gold = n === 9;
-  return `<div class="gd-corner${gold ? ' is-gold' : ''}" role="img" aria-label="${n} of 9 correct" data-gd-corner>`
+  const n = daily.gridScore(), all = N(), f = n / all, gold = n === all;
+  return `<div class="gd-corner${gold ? ' is-gold' : ''}" role="img" aria-label="${n} of ${all} correct" data-gd-corner>`
     + `<svg class="gd-ring" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><circle class="gd-rt" cx="16" cy="16" r="${R}"/>`
     + `<circle class="gd-rf" cx="16" cy="16" r="${R}" transform="rotate(-90 16 16)" stroke-dasharray="${CIRC.toFixed(3)} ${CIRC.toFixed(3)}" style="stroke-dashoffset:${(CIRC * (1 - f)).toFixed(3)}"/></svg>`
-    + `<span class="n5 gd-n" data-gd-n>${n}/9</span></div>`;
+    + `<span class="n5 gd-n" data-gd-n>${n}/${all}</span></div>`;
 }
 function headHTML(c, cls) {
   return `<div class="${cls}"><span class="gd-hi">${ui.icon(critIcon(c))}</span><span class="gd-t">${esc(daily.critLabel(c))}</span></div>`;
 }
 function footHTML() {
   if (!daily.gridDone()) return ui.button({label: 'Give up the empty squares', kind: 'destructive', cls: 'gd-give', attrs: {'data-gd-give': ''}});
-  return `<p class="note gd-done">${daily.gridScore()} of 9 for ${daily.ptsGrid()} points. Each square you missed shows one player who would have worked.</p>`;
+  return `<p class="note gd-done">${daily.gridScore()} of ${N()} for ${daily.ptsGrid()} points. Each square you missed shows one player who would have worked.</p>`;
+}
+
+/** Classic layout (any shape with two or more rows; v1 and v2 days are 3 x 3): corner, column headers, then each row
+ *  header followed by its squares. A 3 x 3 grid renders exactly as before (the column template is in grid.css). */
+function tableHTML(S) {
+  const C = S.cols.length;
+  let h = cornerHTML() + S.cols.map(c => headHTML(c, 'gd-ch')).join('');
+  S.rows.forEach((rc, r) => {
+    h += headHTML(rc, 'gd-rh');
+    for (let c = 0; c < C; c++) h += cellHTML(r * C + c);
+  });
+  return `<div class="gd" data-gd${C === 3 ? '' : ` style="--gd-cols:${C}"`}>${h}</div>`;
+}
+/** One-row layout (v3: 1 x 2): the row criterion is a banner with the score ring at its end; a fork splits it into
+ *  the column headers, each over its own large square. Every square is "banner x its column". */
+function bandHTML(S) {
+  const rc = S.rows[0];
+  return `<div class="gd gd-one" data-gd style="--gd-cols:${S.cols.length}">`
+    + `<div class="gd-band"><div class="gd-rh gd-rb"><span class="gd-hi">${ui.icon(critIcon(rc))}</span><span class="gd-t">${esc(daily.critLabel(rc))}</span></div>${cornerHTML()}</div>`
+    + `<div class="gd-fork" aria-hidden="true"><i></i></div>`
+    + S.cols.map(c => headHTML(c, 'gd-ch')).join('')
+    + S.cols.map((_, c) => cellHTML(c)).join('')
+    + `</div>`;
+}
+
+// The footnote: the full note on v1/v2 days (unchanged); on a v3 day only the sentences about squares it has.
+function ruleNote(S) {
+  if (!daily.isV3()) return RULE_NOTE;
+  const kinds = new Set([...S.rows, ...S.cols].map(daily.critKind));
+  const [draft, college] = RULE_NOTE.split(/(?<=\.) /);
+  return [kinds.has('d') ? draft : '', kinds.has('c') ? college : ''].filter(Boolean).join(' ');
 }
 
 function render() {
-  const g = daily.DAY.g;
-  let h = cornerHTML() + g.slice(3).map(c => headHTML(c, 'gd-ch')).join('');
-  for (let r = 0; r < 3; r++) {
-    h += headHTML(g[r], 'gd-rh');
-    for (let c = 0; c < 3; c++) h += cellHTML(r * 3 + c);
-  }
+  const S = shape();
+  const note = ruleNote(S);
   return `<div class="c-grid">`
-    + `<div class="gd" data-gd>${h}</div>`
+    + (S.rows.length === 1 ? bandHTML(S) : tableHTML(S))
     + `<div class="gd-foot" data-gd-foot>${footHTML()}</div>`
-    + `<p class="note gd-rule">${esc(RULE_NOTE)}</p>`
+    + (note ? `<p class="note gd-rule">${esc(note)}</p>` : '')
     + `</div>`;
 }
 
@@ -121,11 +158,11 @@ function paintCell(cell, k) {
 }
 
 function paintCorner(I) {
-  const n = daily.gridScore();
-  I.corner.classList.toggle('is-gold', n === 9);
-  I.corner.setAttribute('aria-label', `${n} of 9 correct`);
-  I.corner.querySelector('[data-gd-n]').textContent = `${n}/9`;
-  I.corner.querySelector('.gd-rf').style.strokeDashoffset = (CIRC * (1 - n / 9)).toFixed(3);
+  const n = daily.gridScore(), all = N();
+  I.corner.classList.toggle('is-gold', n === all);
+  I.corner.setAttribute('aria-label', `${n} of ${all} correct`);
+  I.corner.querySelector('[data-gd-n]').textContent = `${n}/${all}`;
+  I.corner.querySelector('.gd-rf').style.strokeDashoffset = (CIRC * (1 - n / all)).toFixed(3);
 }
 
 function paintFoot(I) {
@@ -145,8 +182,9 @@ const cellEl = (I, k) => I.cellEls[k];
  *  no animation frames (hidden page): after 700 ms the cell is painted without motion. */
 async function flipTo(cell, k) {
   let painted = false;
-  // A DEEP CUT sticker waits (hidden) for its own slap after the flip.
-  const paint = () => { painted = true; paintCell(cell, k); const dp = cell.querySelector('.gc-deep'); if (dp) dp.style.opacity = '0'; };
+  // A DEEP CUT sticker waits (hidden) for its own slap after the flip. Painted once: when the fallback below paints
+  // first, the cancelled flip still calls onHalf, which must not repaint (hiding the slapped sticker again).
+  const paint = () => { if (painted) return; painted = true; paintCell(cell, k); const dp = cell.querySelector('.gc-deep'); if (dp) dp.style.opacity = '0'; };
   const p = ui.flipCard(cell, {axis: 'x', onHalf: paint});
   await Promise.race([p, wait(700)]);
   if (!painted) {
@@ -174,7 +212,7 @@ function slapDeep(cell) {
 async function onDone(I, {wave}) {
   exCache = {key: '', best: null};
   const jobs = [];
-  for (let k = 0; k < 9; k++) {
+  for (let k = 0; k < N(); k++) {
     const el = cellEl(I, k), st = cellState(k);
     if (st === 'is-miss') {
       const go = () => flipTo(el, k);
@@ -226,8 +264,9 @@ async function onPick(I, k, i, cell) {
     if (I.dead) return;
     const deep = res === 'ok' && isDeep(k);
     if (res === 'ok') {
-      ui.floatText(cell, `+${daily.PTS.grid}`);
-      ui.announce(`Correct. +${daily.PTS.grid}${deep ? '. Deep cut.' : ''}`);
+      const pts = daily.PTS.grid; // per square: 50 (v1, v2) or 100 (v3)
+      ui.floatText(cell, `+${pts}`);
+      ui.announce(`Correct. +${pts}${deep ? '. Deep cut.' : ''}`);
       if (deep) { slapDeep(cell); ui.haptic('celebrate'); } else ui.haptic('success');
     } else {
       ui.announce(`${name} doesn't fit that square.`);
@@ -237,7 +276,7 @@ async function onPick(I, k, i, cell) {
     I.api.refreshChrome();
     if (daily.gridDone()) {
       await onDone(I, {wave: false});
-      if (daily.gridScore() === 9) immaculate(I);
+      if (daily.gridScore() === N()) immaculate(I);
       I.api.refreshChrome();
     }
   } finally {
@@ -280,7 +319,7 @@ async function giveUp(I) {
     I.api.refreshChrome();
     I.api.reveal(I.el.querySelector('[data-gd]'));
     await onDone(I, {wave: true});
-    ui.announce(`${daily.gridScore()} of 9 for ${daily.ptsGrid()} points.`);
+    ui.announce(`${daily.gridScore()} of ${N()} for ${daily.ptsGrid()} points.`);
     I.api.refreshChrome();
   } finally {
     release();

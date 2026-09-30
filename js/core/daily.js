@@ -2,6 +2,9 @@
 // Logic moved unchanged from the old single-file app. No DOM rendering here.
 // Puzzles v2: a day entry with `v: 2` has five puzzles (College, Silhouettes, Mystery, Journey, Grid; 1,500
 // points). Days without `v` are v1 (three puzzles, 1,000 points) and behave exactly as before.
+// Puzzles v3 (the short daily, from Sep 30 2026): `v: 3` days have the same five puzzles with one or two items each
+// (2 College players, 2 faces, 1 Mystery player, 1 Journey, a 1 x 2 grid; 1,000 points). Counts come from the day:
+// day.c.length, day.s.length and gridShape(day). v1 and v2 days keep their exact behavior.
 // Owner: foundation (core).
 
 import {DATA, nf, norm, me as dataMe} from './data.js';
@@ -15,15 +18,32 @@ export const TA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef';
 export const POSN = {QB:'Quarterback', RB:'Running back', WR:'Wide receiver', TE:'Tight end', OL:'Offensive lineman', DL:'Defensive lineman', LB:'Linebacker', DB:'Defensive back', K:'Kicker', P:'Punter', LS:'Long snapper', ST:'Special teams'};
 export const SK = ['pass_yards','pass_tds','pass_ints','rush_yards','rush_tds','receptions','rec_yards','rec_tds','def_sacks','def_ints','games'];
 export const SL = {pass_yards:'passing yards', pass_tds:'touchdown passes', rush_yards:'rushing yards', rush_tds:'rushing touchdowns', receptions:'catches', rec_yards:'receiving yards', rec_tds:'touchdown catches', def_sacks:'sacks', def_ints:'interceptions'};
-// sil: points per silhouette round. jr: Journey points when solved on guess 1, 2, 3 (v2 days only).
-export const PTS = {col: 40, grid: 50, who: 50, sil: 50, jr: [250, 150, 75]};
-export const PROMPTS = {
+// Points per item, by day version (ptsTable(day)). v1/v2 days: col per College player, grid per square, who = the
+// Mystery step (solved on clue n scores (8 - n) x 50), sil per silhouette round, jr = Journey points when solved on
+// guess 1, 2, 3 (v2 days only). v3 days: 100 per College player, face and grid square; who = 30, the cost of each
+// extra clue (Mystery scores 200 on clue 1, then 170, 140 ... 20: whoWorth()); Journey 200 / 120 / 60.
+const PTS_V2 = {col: 40, grid: 50, who: 50, sil: 50, jr: [250, 150, 75]};
+const PTS_V3 = {col: 100, grid: 100, who: 30, sil: 100, jr: [200, 120, 60]};
+const WHO_V3 = [200, 170, 140, 110, 80, 50, 20]; // v3 Mystery points when solved on clue 1..7
+// Live binding: the points table of the day being played (set when puzzles load; v1/v2 values until then).
+export let PTS = PTS_V2;
+const PROMPTS_V2 = {
   col: 'Pick the college each player was drafted out of. 40 points each.',
   who: 'Name the player. Each wrong guess or skipped clue shows another one. Fewer clues means more points.',
   grid: 'Name a player who fits each row and column. One guess per square, 50 points each. Franchise history counts, so a Houston Oilers season counts for the Titans.',
   sil: 'Name the player from his silhouette. Four choices and one pick per round, 50 points each.',
   jr: 'Follow his path from college to the team he plays for now, then name him. Three guesses: 250, 150, then 75 points.'
 };
+// v3 copy: the same prompts with the short daily's points.
+const PROMPTS_V3 = {
+  col: 'Pick the college each player was drafted out of. 100 points each.',
+  who: PROMPTS_V2.who,
+  grid: 'Name a player who fits the row and the column of each square. One guess per square, 100 points each. Franchise history counts, so a Houston Oilers season counts for the Titans.',
+  sil: 'Name the player from his silhouette. Four choices and one pick per round, 100 points each.',
+  jr: 'Follow his path from college to the team he plays for now, then name him. Three guesses: 200, 120, then 60 points.'
+};
+// Live binding: the prompt copy for the day being played (promptsFor(day) for any other day).
+export let PROMPTS = PROMPTS_V2;
 // "Audience" players for the examples shown under missed grid squares: played in 2010 or later.
 export const AUDIENCE_YEAR = 2010;
 
@@ -39,7 +59,13 @@ export const DEV_DAY = devDay;
 // A previewed day never posts, even with ?post=1: its score would land on the real board under a future day.
 export const DEV_NO_POST = !canWrite();
 
-const PUZZLES_URL = new URL('../../data/puzzles.json', import.meta.url).href;
+// The puzzle file has its own name per format generation: data/puzzles-v3.json holds the v1/v2 days unchanged and the
+// v3 days from Sep 30 2026 on. data/puzzles.json stays as it was (v2 days throughout) for phones still running the
+// previous build: the service worker answers a slow request from its cache, keyed by path, so new code must never
+// meet the old file under the same name (it would play Sep 30 as a v2 day) and old code must never meet the new one
+// (it can't read v3 days). A new path has no cached copy, so the worker always waits for the network. Install new
+// data here (and bump the name again if a future format changes days that older builds could still load).
+const PUZZLES_URL = new URL('../../data/puzzles-v3.json', import.meta.url).href;
 
 // ---------------------------------------------------------------------------
 // Live bindings, assigned when ensure() finishes
@@ -79,29 +105,48 @@ function indexFor(start, t) {
   return Math.max(0, Math.round((Date.UTC(t.getFullYear(), t.getMonth(), t.getDate()) - Date.UTC(y, m - 1, d)) / 86400000));
 }
 
-function freshDS(raw) {
+// Normalizes a saved-progress object (in place) for a day. The grid has one cell per square of the day's grid
+// (9 on v1/v2 days and when no day is given; gridShape(day).n on v3 days, where a stored list is cut or padded).
+function freshDS(raw, day) {
   let ds = raw;
   if (!ds || typeof ds !== 'object' || Array.isArray(ds)) ds = {};
-  ds.grid = ds.grid || {cells: Array(9).fill(null), over: false};
+  const obj = x => !!x && typeof x === 'object' && !Array.isArray(x);
+  const v3 = dayVersion(day) === 3, n = v3 ? gridShape(day).n : 9;
+  ds.grid = ds.grid || {cells: Array(n).fill(null), over: false};
+  if (v3) {
+    if (!obj(ds.grid)) ds.grid = {cells: Array(n).fill(null), over: false};
+    if (!Array.isArray(ds.grid.cells)) ds.grid.cells = Array(n).fill(null);
+    const c = ds.grid.cells;
+    if (c.length > n) c.length = n;
+    while (c.length < n) c.push(null);
+  }
   ds.col = ds.col || {a: []};
   ds.who = ds.who || {g: [], clues: 1, done: false, won: false};
   ds.hl = ds.hl || {a: []};
   // v2 parts, filled for any day (v1 days never read or write them). A partial or hand-edited object keeps what it
   // has and gets the missing arrays, so the actions never meet an undefined list.
-  const obj = x => !!x && typeof x === 'object' && !Array.isArray(x);
   if (!obj(ds.jr) || !Array.isArray(ds.jr.g)) ds.jr = {g: [], done: !!(obj(ds.jr) && ds.jr.done), won: !!(obj(ds.jr) && ds.jr.won)};
   if (!obj(ds.sil) || !Array.isArray(ds.sil.a)) ds.sil = {a: []};
   return ds;
 }
 
+// Progress saved for a v2 or v3 day is stamped with the day's version; progress with another stamp (or none) was
+// saved against an earlier version of that day and never counts for it.
+const stampOk = (raw, day) => { const v = dayVersion(day); return v < 2 || !!(raw && raw.v === v); };
+
 function readDS(key, day) {
   let raw = {};
   try { raw = JSON.parse(localStorage.getItem(key)) || {}; } catch (_) { raw = {}; }
-  // A day re-released in the five-puzzle format (Sep 29 2026 went v1 -> v2 mid-day) drops progress saved against its
-  // old version: v2 progress is stamped v: 2, anything else on a v2 day starts over.
-  if (isV2(day) && raw && raw.v !== 2) raw = {};
-  const ds = freshDS(raw);
-  if (isV2(day)) ds.v = 2;
+  return loadDS(raw, day);
+}
+// Saved progress (parsed) -> DS for a day. A day re-released in another format (Sep 29 2026 went v1 -> v2 mid-day)
+// drops progress saved against its old version: v2 progress is stamped v: 2 and v3 progress v: 3; anything else on
+// such a day starts over.
+function loadDS(raw, day) {
+  const v = dayVersion(day);
+  if (!stampOk(raw, day)) raw = {};
+  const ds = freshDS(raw, day);
+  if (v >= 2) ds.v = v;
   return ds;
 }
 
@@ -115,6 +160,8 @@ function initDay(pz) {
   DAY = PZ.days[dayIndex % PZ.days.length];
   STEPS = stepsFor(DAY);
   SLUGS = slugsFor(DAY);
+  PTS = ptsTable(DAY);
+  PROMPTS = promptsFor(DAY);
   TODAY_LABEL = devDay ? dayLabel(PNUM, {long: true}) : new Date().toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'});
   SKEY = 'gg-daily-' + PNUM;
   DS = readDS(SKEY, DAY);
@@ -288,27 +335,29 @@ function critFn(c) {
   if (k === 'c') { const ch = TA[+v]; return p => p[6].includes(ch); }
   return () => false;
 }
-/** exampleFor() for all nine squares of today's grid in one pass over the players (row-major, -1 when none).
- *  Same rule and pick as exampleFor (exampleRank order, first index on ties). */
+/** exampleFor() for every square of a day's grid in one pass over the players (row-major over gridShape(day):
+ *  nine on v1/v2 days, two on v3 days; -1 when none). Same rule and pick as exampleFor (exampleRank order, first
+ *  index on ties). */
 export function examplesFor(exclude = new Set(), day = DAY) {
-  const best = Array(9).fill(-1);
+  const best = Array(day ? gridShape(day).n : 9).fill(-1);
   if (!PZ || !day) return best;
   const rk = exampleRanks();
   const ex = exclude instanceof Set ? exclude : new Set(exclude);
-  const R = day.g.slice(0, 3).map(critFn), C = day.g.slice(3, 6).map(critFn);
+  const shape = gridShape(day);
+  const R = shape.rows.map(critFn), C = shape.cols.map(critFn), nr = R.length, nc = C.length;
   for (let i = 0; i < PP.length; i++) {
     if (ex.has(i)) continue;
     const p = PP[i];
     let rm = 0, cm = 0;
-    for (let r = 0; r < 3; r++) if (R[r](p)) rm |= 1 << r;
+    for (let r = 0; r < nr; r++) if (R[r](p)) rm |= 1 << r;
     if (!rm) continue;
-    for (let c = 0; c < 3; c++) if (C[c](p)) cm |= 1 << c;
+    for (let c = 0; c < nc; c++) if (C[c](p)) cm |= 1 << c;
     if (!cm) continue;
-    for (let r = 0; r < 3; r++) {
+    for (let r = 0; r < nr; r++) {
       if (!(rm & (1 << r))) continue;
-      for (let c = 0; c < 3; c++) {
+      for (let c = 0; c < nc; c++) {
         if (!(cm & (1 << c))) continue;
-        const k = r * 3 + c;
+        const k = r * nc + c;
         if (best[k] < 0 || rk[i] > rk[best[k]]) best[k] = i;
       }
     }
@@ -338,35 +387,92 @@ export function whoClues(i) {
 }
 
 // ---------------------------------------------------------------------------
-// Scoring: 1,000 points a day (v1 days: College, Mystery, Grid) or 1,500 (v2 days, `v: 2`: College,
-// Silhouettes, Mystery, Journey, Grid). Every function reads the live DS/DAY by default;
-// pass a DS-shaped object (and a day) to score something else without touching state.
-export const isV2 = (day = DAY) => !!(day && day.v === 2);
-export const maxPts = (day = DAY) => isV2(day) ? 1500 : 1000;
+// Scoring: 1,000 points a day (v1 days: College, Mystery, Grid), 1,500 (v2 days, `v: 2`: College, Silhouettes,
+// Mystery, Journey, Grid) or 1,000 (v3 days, `v: 3`: the same five puzzles, one or two items each).
+// Every function reads the live DS/DAY by default; pass a DS-shaped object (and a day) to score something else
+// without touching state.
+
+/** Puzzle format of a day entry: 1 (no `v`: three puzzles), 2 (`v: 2`: five puzzles, 1,500 points) or 3 (`v: 3`:
+ *  five short puzzles, 1,000 points). 1 for null. */
+export const dayVersion = (day = DAY) => !day ? 1 : day.v === 3 ? 3 : day.v === 2 ? 2 : 1;
+/** True on five-puzzle days (v2 AND v3): the day has Silhouettes and a Journey. Use dayVersion() for anything that
+ *  depends on the point scale or the item counts. */
+export const isV2 = (day = DAY) => { const v = dayVersion(day); return v === 2 || v === 3; };
+/** True on v3 (short daily) days only. */
+export const isV3 = (day = DAY) => dayVersion(day) === 3;
+export const maxPts = (day = DAY) => dayVersion(day) === 2 ? 1500 : 1000;
+/** Points per item for a day: {col, grid, who, sil, jr: [guess 1, 2, 3]} (see PTS). Shared objects: never mutate. */
+export const ptsTable = (day = DAY) => dayVersion(day) === 3 ? PTS_V3 : PTS_V2;
+/** Prompt copy for a day: {col, who, grid, sil, jr}. v1/v2 days share one fixed set; a v3 day's grid line only
+ *  explains franchise history when one of its squares is the Titans (memoized per day entry, frozen). */
+export function promptsFor(day = DAY) {
+  if (dayVersion(day) !== 3) return PROMPTS_V2;
+  let p = PROMPTS_BY_DAY.get(day);
+  if (!p) {
+    const s = gridShape(day);
+    const titans = [...s.rows, ...s.cols].some(c => critKind(c) === 't' && !!PZ && /Titans/.test(PZ.teams[+String(c).split(':')[1]] || ''));
+    p = Object.freeze(Object.assign({}, PROMPTS_V3, {grid: titans ? PROMPTS_V3.grid : PROMPTS_V3.grid.replace(/ Franchise history counts.*$/, '')}));
+    PROMPTS_BY_DAY.set(day, p);
+  }
+  return p;
+}
+const PROMPTS_BY_DAY = new WeakMap();
+/** Mystery points when solved on clue `clues` (1-7): v1/v2 (8 - clues) x 50 (350 ... 50), v3 200 ... 20. */
+export const whoWorth = (clues, day = DAY) => dayVersion(day) === 3 ? WHO_V3[Math.min(7, Math.max(1, Math.floor(clues) || 1)) - 1] : (8 - clues) * PTS_V2.who;
+/** Number of College players on a day (5 on v1/v2 days, 2 on v3 days; 5 when unknown). */
+export const colCount = (day = DAY) => (day && Array.isArray(day.c)) ? day.c.length : 5;
+
+// Grid shape: v1/v2 days are 3 x 3 (rows g[0..2], columns g[3..5]); v3 days are 1 x 2 (row g[0], columns g[1..]).
+// Squares are numbered row-major: square k is rows[floor(k / cols.length)] x cols[k % cols.length].
+const SHAPES = new WeakMap();
+const NO_SHAPE = Object.freeze({rows: Object.freeze([]), cols: Object.freeze([]), n: 0});
+/** {rows: [criterion], cols: [criterion], n: squares} for a day ({rows: [], cols: [], n: 0} for null). Memoized per
+ *  day entry and frozen. */
+export function gridShape(day = DAY) {
+  if (!day || typeof day !== 'object') return NO_SHAPE;
+  let s = SHAPES.get(day);
+  if (!s) {
+    const g = Array.isArray(day.g) ? day.g : [];
+    const v3 = dayVersion(day) === 3;
+    const rows = Object.freeze(v3 ? g.slice(0, 1) : g.slice(0, 3)), cols = Object.freeze(v3 ? g.slice(1) : g.slice(3, 6));
+    s = Object.freeze({rows, cols, n: rows.length * cols.length});
+    SHAPES.set(day, s);
+  }
+  return s;
+}
+/** Square k of a day's grid: {k, r, c, row, col} (r / c are row and column indexes, row / col their criteria), or
+ *  null when k is not a square of that grid. */
+export function gridSquare(k, day = DAY) {
+  const s = gridShape(day);
+  k = typeof k === 'number' ? k : Number(k);
+  if (!Number.isInteger(k) || k < 0 || k >= s.n) return null;
+  const r = Math.floor(k / s.cols.length), c = k % s.cols.length;
+  return {k, r, c, row: s.rows[r], col: s.cols[c]};
+}
 
 export const gridDone = (ds = DS) => ds.grid.over || ds.grid.cells.every(Boolean);
 export const gridScore = (ds = DS) => ds.grid.cells.filter(c => c && c.ok).length;
-export const colDone = (ds = DS) => ds.col.a.length >= 5;
+export const colDone = (ds = DS, day = DAY) => ds.col.a.length >= colCount(day);
 export const colScore = (ds = DS, day = DAY) => ds.col.a.filter((a, r) => a === day.c[r][2]).length;
 export const whoDone = (ds = DS) => ds.who.done;
-export const ptsCol = (ds = DS, day = DAY) => colScore(ds, day) * PTS.col;
-export const ptsWho = (ds = DS) => ds.who.won ? (8 - ds.who.clues) * PTS.who : 0;
-export const ptsGrid = (ds = DS) => gridScore(ds) * PTS.grid;
+export const ptsCol = (ds = DS, day = DAY) => colScore(ds, day) * ptsTable(day).col;
+export const ptsWho = (ds = DS, day = DAY) => ds.who.won ? whoWorth(ds.who.clues, day) : 0;
+export const ptsGrid = (ds = DS, day = DAY) => gridScore(ds) * ptsTable(day).grid;
 
-// Silhouettes (v2): DS.sil.a holds the option position picked per round (0-3; -1 = locked in unanswered).
+// Silhouettes (v2/v3): DS.sil.a holds the option position picked per round (0-3; -1 = locked in unanswered).
 const silA = ds => (ds && ds.sil && Array.isArray(ds.sil.a)) ? ds.sil.a : [];
 export const silRounds = (day = DAY) => (day && Array.isArray(day.s)) ? day.s.length : 5;
 export const silDone = (ds = DS, day = DAY) => silA(ds).length >= silRounds(day);
 export const silScore = (ds = DS, day = DAY) => silA(ds).filter((a, r) => !!(day && day.s && day.s[r]) && a === day.s[r].a).length;
-export const ptsSil = (ds = DS, day = DAY) => silScore(ds, day) * PTS.sil;
+export const ptsSil = (ds = DS, day = DAY) => silScore(ds, day) * ptsTable(day).sil;
 
-// Journey (v2): DS.jr = {g: [wrong guesses, like who.g], done, won}. Solved on guess g.length + 1.
+// Journey (v2/v3): DS.jr = {g: [wrong guesses, like who.g], done, won}. Solved on guess g.length + 1.
 const JR0 = {g: [], done: false, won: false};
 const jrOf = ds => (ds && ds.jr && Array.isArray(ds.jr.g)) ? ds.jr : JR0;
 export const jrDone = (ds = DS) => !!jrOf(ds).done;
 /** Guess number (1-3) the Journey was solved on, 0 when missed or unsolved. */
 export const jrGuessNo = (ds = DS) => { const j = jrOf(ds); return j.won ? Math.min(j.g.length + 1, 3) : 0; };
-export const ptsJr = (ds = DS) => { const n = jrGuessNo(ds); return n ? PTS.jr[n - 1] : 0; };
+export const ptsJr = (ds = DS, day = DAY) => { const n = jrGuessNo(ds); return n ? ptsTable(day).jr[n - 1] : 0; };
 
 const V1_STEPS = [
   {id: 'col', done: colDone, started: (ds = DS) => ds.col.a.length > 0, pts: ptsCol, max: 200, label: 'College', result: (ds = DS, day = DAY) => `${colScore(ds, day)} of 5`},
@@ -380,11 +486,20 @@ const V2_STEPS = [
   {id: 'jr', done: jrDone, started: (ds = DS) => jrOf(ds).g.length > 0 || jrOf(ds).done, pts: ptsJr, max: 250, label: 'Journey', result: (ds = DS) => jrGuessNo(ds) ? `Guess ${jrGuessNo(ds)} of 3` : 'Missed'},
   V1_STEPS[2]
 ];
+// v3 (short daily): 200 points a step. Results follow the day's counts: '1 of 2', '2 of 2', 'Clue 3 of 7',
+// 'Guess 1 of 3', '1 of 2'.
+const V3_STEPS = [
+  Object.assign({}, V1_STEPS[0], {max: 200, result: (ds = DS, day = DAY) => `${colScore(ds, day)} of ${colCount(day)}`}),
+  Object.assign({}, V2_STEPS[1], {max: 200}),
+  Object.assign({}, V1_STEPS[1], {max: 200}),
+  Object.assign({}, V2_STEPS[3], {max: 200}),
+  Object.assign({}, V1_STEPS[2], {max: 200, result: (ds = DS, day = DAY) => `${gridScore(ds)} of ${gridShape(day).n}`})
+];
 const V1_SLUGS = ['college', 'mystery', 'grid'];
 const V2_SLUGS = ['college', 'silhouette', 'mystery', 'journey', 'grid'];
-/** The step list (v1: 3 steps, v2: 5) for a day entry. The arrays are shared: never mutate them. */
-export const stepsFor = (day = DAY) => isV2(day) ? V2_STEPS : V1_STEPS;
-/** Route slugs in step order for a day entry. */
+/** The step list (v1: 3 steps, v2 and v3: 5) for a day entry. The arrays are shared: never mutate them. */
+export const stepsFor = (day = DAY) => { const v = dayVersion(day); return v === 3 ? V3_STEPS : v === 2 ? V2_STEPS : V1_STEPS; };
+/** Route slugs in step order for a day entry (v2 and v3 days share the five slugs). */
 export const slugsFor = (day = DAY) => isV2(day) ? V2_SLUGS : V1_SLUGS;
 
 // Live bindings: today's step set and route slugs (set in initDay; the v1 set until puzzles load).
@@ -448,13 +563,15 @@ export function whoGuess(i) {
   return result;
 }
 
-// Grid: guess player i for square k (0-8, row-major). Returns 'dup' | 'ok' | 'no'
-// ('dup' does not mutate; null when the square is taken, the grid is over, or k/i are invalid).
+// Grid: guess player i for square k (row-major over gridShape(): 0-8 on v1/v2 days, 0-1 on v3 days).
+// Returns 'dup' | 'ok' | 'no' ('dup' does not mutate; null when the square is taken, the grid is over, or k/i
+// are invalid).
 export function gridGuess(k, i) {
   k = toInt(k); i = toInt(i);
   if (!Number.isInteger(k) || !Number.isInteger(i) || !PP[i]) return null;
-  if (!(k >= 0 && k < 9) || gridDone() || DS.grid.cells[k]) return null;
-  const g = DAY.g, r = g[Math.floor(k / 3)], c = g[3 + (k % 3)];
+  const sq = gridSquare(k);
+  if (!sq || gridDone() || DS.grid.cells[k]) return null;
+  const r = sq.row, c = sq.col;
   if (DS.grid.cells.some(x => x && x.p === i)) return 'dup';
   const ok = critOk(r, PP[i]) && critOk(c, PP[i]);
   DS.grid.cells[k] = {p: i, ok};
@@ -468,7 +585,7 @@ export function gridGiveUp() {
   changed('gridGiveUp');
 }
 
-// Silhouettes (v2 days): answer round `round` (0-4, in order: round must equal DS.sil.a.length) with
+// Silhouettes (v2/v3 days): answer round `round` (0 to rounds - 1, in order: round must equal DS.sil.a.length) with
 // option position j (0-3). Returns {round, correct, ans, p} (ans = the right option position, p = the
 // answer's player index), or null on a v1 day, when the round is out of order, already answered or out
 // of range, or j is not an option position.
@@ -485,7 +602,7 @@ export function silPick(round, j) {
   return out;
 }
 
-// Journey (v2 days): guess player i. Returns 'win' | 'dup' | 'wrong' | 'lost' (lost = the third wrong
+// Journey (v2/v3 days): guess player i. Returns 'win' | 'dup' | 'wrong' | 'lost' (lost = the third wrong
 // guess), or null on a v1 day, when already finished, or i is not a player index. Wrong guesses are
 // kept in DS.jr.g (like DS.who.g); 'dup' (a player already guessed) does not mutate.
 export function journeyGuess(i) {
@@ -536,10 +653,10 @@ export function journeyPath(day = DAY) {
 }
 
 // Locks in the score as it is. The caller then runs maybeAutoPost() (the old flow).
-// On v2 days it also fills the unanswered silhouette rounds with -1 (wrong) and ends the Journey.
+// On v2/v3 days it also fills the unanswered silhouette rounds with -1 (wrong) and ends the Journey.
 export function lockIn() {
   DS.grid.over = true;
-  while (DS.col.a.length < 5) DS.col.a.push(-1);
+  while (DS.col.a.length < colCount()) DS.col.a.push(-1);
   if (!DS.who.done) { DS.who.done = true; DS.who.won = false; }
   if (isV2()) {
     while (DS.sil.a.length < silRounds()) DS.sil.a.push(-1);
@@ -580,14 +697,30 @@ async function startFirebase() {
 
 export const displayName = p => (p.nick || 'Someone');
 
-// A player's posted entry for puzzle day pnum, or null. On a five-puzzle day an entry without the v2 fields was
-// posted for the day's earlier three-puzzle version (Sep 29 2026 was re-released mid-day): it no longer counts as
-// played today, and posting the new score replaces it.
-export function entryFor(p, pnum = PNUM) {
+/** Format of a board day entry: 3 (carries v: 3), 2 (carries s, no v), 1 (neither: {p, g, c, w}); 0 for none. */
+export const entryVersion = d => !d ? 0 : d.v === 3 ? 3 : d.s != null ? 2 : 1;
+
+// A player's posted entry for puzzle day pnum, or null. On a v2 or v3 day an entry counts only when its format
+// matches the day's version: one without the v2 fields was posted for the day's earlier three-puzzle version
+// (Sep 29 2026 was re-released mid-day), so it no longer counts as played that day, and posting the new score
+// replaces it. v1 days take any entry, as before.
+// `day` (default: puzzle day pnum's entry) is the day the entry is judged against.
+export function entryFor(p, pnum = PNUM, day = PZ ? PZ.days[(pnum - 1) % PZ.days.length] : null) {
   const d = p && p.days && p.days[pnum];
   if (!d) return null;
-  const day = PZ ? PZ.days[(pnum - 1) % PZ.days.length] : null;
-  return isV2(day) && d.s == null ? null : d;
+  const v = dayVersion(day);
+  return v >= 2 && entryVersion(d) !== v ? null : d;
+}
+
+/** The board day entry postScore() writes for a DS on a day: v1 {p, g, c, w}; v2 {p, g, c, w, j, s};
+ *  v3 {v: 3, p, c, s, w, j, g}. c / s / g = College players, faces and grid squares right; w = the Mystery clue it
+ *  was solved on (0 = stumped); j = the Journey guess it was solved on (0 = missed). */
+export function boardEntry(ds = DS, day = DAY) {
+  const w = ds.who.won ? ds.who.clues : 0;
+  if (dayVersion(day) === 3) return {v: 3, p: totalPts(ds, day), c: colScore(ds, day), s: silScore(ds, day), w, j: jrGuessNo(ds), g: gridScore(ds)};
+  const e = {p: totalPts(ds, day), g: gridScore(ds), c: colScore(ds, day), w};
+  if (isV2(day)) { e.j = jrGuessNo(ds); e.s = silScore(ds, day); } // Journey guess no (0 = missed), faces right
+  return e;
 }
 
 export function maybeAutoPost() {
@@ -600,10 +733,7 @@ export async function postScore(nick) {
   LB.posting = true; LB.status = 'posting'; lbChanged('status');
   const me = LB.players.find(p => p.id === LB.uid);
   const days = Object.assign({}, me && me.days);
-  if (!entryFor(me)) {
-    days[PNUM] = {p: totalPts(), g: gridScore(), c: colScore(), w: DS.who.won ? DS.who.clues : 0};
-    if (isV2()) { days[PNUM].j = jrGuessNo(); days[PNUM].s = silScore(); } // Journey guess no (0 = missed), faces right
-  }
+  if (!entryFor(me)) days[PNUM] = boardEntry();
   const vals = Object.values(days);
   const body = {nick: (nick || '').trim().slice(0, 24), days, total: vals.reduce((s, d) => s + (d.p || 0), 0), played: vals.length, last: PNUM};
   try {
@@ -619,17 +749,22 @@ export async function postScore(nick) {
 // ---------------------------------------------------------------------------
 // Share
 // v1 days: the exact old text. v2 days add a "Faces" line after College and a "Journey" line after Mystery.
+// v3 days: the v2 lines with two squares each for College and Faces, and the grid's squares on one "Grid" line.
 export function shareText(ds = DS, day = DAY) {
   const leagueName = DATA && DATA.league ? DATA.league.name : 'Gridiron Gangbang';
-  const v2 = isV2(day);
+  const ver = dayVersion(day), v2 = ver >= 2;
+  const sq = c => c && c.ok ? '🟩' : '🟥';
   // The header date is today's (a dev ?day= preview shows the previewed puzzle day's date instead).
   const when = devDay && PZ ? dateOf(PNUM) : new Date();
   const lines = [`${leagueName} daily, ${when.toLocaleDateString('en-US', {month: 'short', day: 'numeric'})}: ${nf(totalPts(ds, day))} pts`];
-  if (colDone(ds)) lines.push('College ' + ds.col.a.map((a, r) => a === day.c[r][2] ? '🟩' : '🟥').join(''));
+  if (colDone(ds, day)) lines.push('College ' + ds.col.a.map((a, r) => a === day.c[r][2] ? '🟩' : '🟥').join(''));
   if (v2 && silDone(ds, day)) lines.push('Faces ' + silA(ds).map((a, r) => day.s[r] && a === day.s[r].a ? '🟩' : '🟥').join(''));
   if (whoDone(ds)) lines.push(ds.who.won ? `Mystery player: clue ${ds.who.clues} of 7` : 'Mystery player: stumped');
   if (v2 && jrDone(ds)) lines.push(jrGuessNo(ds) ? `Journey: guess ${jrGuessNo(ds)} of 3` : 'Journey: missed');
-  if (gridDone(ds)) { lines.push(`Grid ${gridScore(ds)}/9`); for (let r = 0; r < 3; r++) lines.push(ds.grid.cells.slice(r * 3, r * 3 + 3).map(c => c && c.ok ? '🟩' : '🟥').join('')); }
+  if (gridDone(ds)) {
+    if (ver === 3) lines.push('Grid ' + ds.grid.cells.slice(0, gridShape(day).n).map(sq).join(''));
+    else { lines.push(`Grid ${gridScore(ds)}/9`); for (let r = 0; r < 3; r++) lines.push(ds.grid.cells.slice(r * 3, r * 3 + 3).map(sq).join('')); }
+  }
   return lines.join('\n');
 }
 
@@ -679,9 +814,15 @@ function managerFor(p) {
 }
 
 // Today-mode sub line for a board day entry. v1 entries ({p, g, c, w}): the exact old text. v2 entries
-// (they carry s and/or j): the five parts in play order.
-function daySub(d) {
+// (they carry s and/or j): the five parts in play order. v3 entries (v: 3): the same five parts out of the day's
+// counts: 'College 1/2, faces 2/2, ID on clue 3, path on guess 1, grid 1/2'.
+function daySub(d, day) {
   const id = d.w ? 'ID on clue ' + d.w : 'no ID';
+  if (d.v === 3) {
+    const nc = day && Array.isArray(day.c) ? day.c.length : 2, ns = day && Array.isArray(day.s) ? day.s.length : 2;
+    const ng = day && gridShape(day).n || 2;
+    return `College ${d.c}/${nc}, faces ${d.s || 0}/${ns}, ${id}, ${d.j ? 'path on guess ' + d.j : 'no path'}, grid ${d.g}/${ng}`;
+  }
   if (d.s == null && d.j == null) return `College ${d.c}/5, grid ${d.g}/9, ${id}`;
   return `College ${d.c}/5, faces ${d.s || 0}/5, ${id}, ${d.j ? 'path on guess ' + d.j : 'no path'}, grid ${d.g}/9`;
 }
@@ -694,8 +835,9 @@ function tieRanks(rows, key) {
 
 // Board rows exactly as the old leaderboardHTML built them (same sub strings, sort and tie ranks),
 // plus {rank, me, managerId, move}. mode: 'today' | 'season' | 'streaks' (default LB.mode).
-// players defaults to LB.players (pass a list to compute rows for something else); pnum defaults to today.
-export function boardRows(mode = LB.mode, players = LB.players, pnum = PNUM) {
+// players defaults to LB.players (pass a list to compute rows for something else); pnum defaults to today; day (today's
+// mode only) defaults to puzzle day pnum's entry.
+export function boardRows(mode = LB.mode, players = LB.players, pnum = PNUM, day = dayFor(pnum)) {
   if (mode === 'streaks') {
     const rows = players.map(p => {
       const s = streakOf(p);
@@ -708,8 +850,8 @@ export function boardRows(mode = LB.mode, players = LB.players, pnum = PNUM) {
   }
   const rows = players.map(p => {
     if (mode === 'today') {
-      const d = entryFor(p, pnum);
-      return d ? {id: p.id, name: displayName(p), pts: d.p, sub: daySub(d)} : null;
+      const d = entryFor(p, pnum, day);
+      return d ? {id: p.id, name: displayName(p), pts: d.p, sub: daySub(d, day)} : null;
     }
     if (!p.played) return null;
     return {id: p.id, name: displayName(p), pts: p.total || 0, sub: `${p.played} day${p.played === 1 ? '' : 's'} played, ${Math.round((p.total || 0) / p.played)} a day`};
@@ -751,15 +893,18 @@ export function social(players = LB.players, pnum = PNUM) {
   return {played, regulars, stillToPlay, leader: leaderRow ? leaderRow.name : null, leaderRow};
 }
 
-// Points for a saved day (DS-shaped object) on puzzle day pnum, or null before puzzles load.
+// Points for a saved day (DS-shaped object) on puzzle day pnum, or null before puzzles load. On a v3 day only
+// progress stamped v: 3 counts (as when it is loaded: anything else scores 0).
 export function pointsFor(ds, pnum = PNUM) {
   if (!PZ) return null;
   const day = PZ.days[(pnum - 1) % PZ.days.length];
-  return totalPts(freshDS(ds), day);
+  if (dayVersion(day) === 3 && !stampOk(ds, day)) ds = {};
+  return totalPts(freshDS(ds, day), day);
 }
 
 // Streak from this phone's saved days (localStorage gg-daily-N). A day counts when every step of that
-// day's version is done (3 or 5); it is perfect when its points equal that day's maxPts (1,000 or 1,500).
+// day's version is done (3 or 5); it is perfect when its points equal that day's maxPts (1,000, 1,500 or 1,000).
+// On v3 days only progress stamped v: 3 counts.
 export function streakLocal() {
   const done = new Set(), perfect = new Set();
   const consider = (n, ds) => {
@@ -776,7 +921,10 @@ export function streakLocal() {
       if (!m || +m[1] === PNUM) continue;
       let raw = null;
       try { raw = JSON.parse(localStorage.getItem(key)); } catch (_) { raw = null; }
-      if (raw && typeof raw === 'object') consider(+m[1], freshDS(raw));
+      if (!raw || typeof raw !== 'object') continue;
+      const day = PZ ? dayFor(+m[1]) : null;
+      if (dayVersion(day) === 3 && !stampOk(raw, day)) continue;
+      consider(+m[1], freshDS(raw, day));
     }
   } catch (_) {}
   if (PNUM) consider(PNUM, DS);
@@ -819,9 +967,14 @@ export function gradeFor(total, max) {
 
 // DEEP CUT: player i is a valid answer for the square, its fame is at or below the 25th
 // percentile of all valid answers for that square, and the square has at least 8 valid answers.
-// r and c are criteria strings (e.g. 't:5'), or row/column indexes 0-2 into today's grid.
+// r and c are criteria strings (e.g. 't:5'), or row/column indexes into today's gridShape() (rows and columns
+// 0-2 on v1/v2 days; row 0 and columns 0-1 on v3 days).
 const deepCache = new Map();
-const squareCrit = (r, c) => [typeof r === 'number' ? DAY.g[r] : r, typeof c === 'number' ? DAY.g[3 + c] : c];
+const squareCrit = (r, c) => {
+  if (typeof r !== 'number' && typeof c !== 'number') return [r, c];
+  const s = gridShape();
+  return [typeof r === 'number' ? s.rows[r] : r, typeof c === 'number' ? s.cols[c] : c];
+};
 // The fame cutoff for a square (one scan over every player, ~5 ms; memoized).
 function deepCutoff(R, C) {
   const key = R + '|' + C;
@@ -849,17 +1002,17 @@ export function deepReady(r, c) {
   const [R, C] = squareCrit(r, c);
   return deepCache.has(R + '|' + C);
 }
-/** Computes today's nine DEEP CUT cutoffs, one square per idle callback, then calls done().
- *  ensure() runs it at idle, so render-time deepCut() calls are normally free. */
+/** Computes today's DEEP CUT cutoffs (every square of gridShape(): nine on v1/v2 days, two on v3 days), one square
+ *  per idle callback, then calls done(). ensure() runs it at idle, so render-time deepCut() calls are normally free. */
 export function warmDeepCuts(done) {
   if (!PZ || !DAY) { if (done) done(); return; }
-  const day = DAY, todo = [];
-  for (let k = 0; k < 9; k++) if (!deepReady(Math.floor(k / 3), k % 3)) todo.push(k);
+  const day = DAY, todo = [], sq = k => gridSquare(k, day);
+  for (let k = 0; k < gridShape(day).n; k++) if (!deepReady(sq(k).r, sq(k).c)) todo.push(k);
   const step = () => {
     if (DAY !== day) return;
     const k = todo.shift();
     if (k == null) { if (done) done(); return; }
-    const [R, C] = squareCrit(Math.floor(k / 3), k % 3);
+    const [R, C] = squareCrit(sq(k).r, sq(k).c);
     deepCutoff(R, C);
     idle(step);
   };
@@ -869,15 +1022,18 @@ export function warmDeepCuts(done) {
 
 // Debug only (never called by the app): emit a synthetic event, e.g.
 // daily.__dev.emit('lb', {prev: daily.LB.players, why: 'snapshot'}) after editing LB.players in the console.
-// __dev.scratch(day, ds, fn) runs fn() synchronously with DAY/DS/STEPS/SLUGS swapped for a scratch day and
-// DS (freshDS-normalized), with saving and 'progress' events muted, then restores everything; returns
-// fn's result. For core checks (actions on a crafted v2 day) only.
+// __dev.scratch(day, ds, fn) runs fn() synchronously with DAY/DS/STEPS/SLUGS/PTS/PROMPTS swapped for a scratch
+// day and DS (freshDS-normalized for that day), with saving and 'progress' events muted, then restores everything;
+// returns fn's result. For core checks (actions on crafted v2 / v3 days) only.
 export const __dev = {
   emit: (type, detail) => emit(type, detail),
   devDayFrom,
+  freshDS: (raw, day) => freshDS(raw, day),
   scratch(day, ds, fn) {
-    const keep = {DAY, DS, STEPS, SLUGS, muted};
-    DAY = day; DS = freshDS(ds); STEPS = stepsFor(day); SLUGS = slugsFor(day); muted = true;
-    try { return fn(DS); } finally { DAY = keep.DAY; DS = keep.DS; STEPS = keep.STEPS; SLUGS = keep.SLUGS; muted = keep.muted; }
-  }
+    const keep = {DAY, DS, STEPS, SLUGS, PTS, PROMPTS, muted};
+    DAY = day; DS = freshDS(ds, day); STEPS = stepsFor(day); SLUGS = slugsFor(day); PTS = ptsTable(day); PROMPTS = promptsFor(day); muted = true;
+    try { return fn(DS); } finally { DAY = keep.DAY; DS = keep.DS; STEPS = keep.STEPS; SLUGS = keep.SLUGS; PTS = keep.PTS; PROMPTS = keep.PROMPTS; muted = keep.muted; }
+  },
+  // The saved-progress rule for a crafted day (the stamp check + freshDS) without localStorage: for the core checks.
+  loadDS: (raw, day) => loadDS(raw, day)
 };

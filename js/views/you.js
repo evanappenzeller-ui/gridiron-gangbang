@@ -188,8 +188,8 @@ export function openStreakSheet() {
   const copy = s.atRisk ? `Your ${s.current}-day streak ends at midnight.`
     : s.current > 0 ? 'Safe until tomorrow. See you then.'
     : `Finish all ${countWord()} today to start a streak.`;
-  // v1 days keep the original line; a five-puzzle day counts every puzzle of each day (three or five).
-  const foot = daily.isV2() ? 'Streaks count days you finished every puzzle on this phone.' : 'Streaks count days you finished all three puzzles on this phone.';
+  // v1 days keep the original line; a five-puzzle day (v2 or v3) counts every puzzle of each day (three or five).
+  const foot = daily.STEPS.length > 3 ? 'Streaks count days you finished every puzzle on this phone.' : 'Streaks count days you finished all three puzzles on this phone.';
   const body = `<div class="c-sk-hero">
 <span class="c-sk-flame">${flameIcon({size: 56, cold: !s.current || s.atRisk})}</span>
 <p class="c-sk-num"><span class="n1 c-sk-n">${esc(s.current)}</span><span class="c-sk-u">day streak</span></p>
@@ -234,8 +234,8 @@ export function openPlayerCard(uid, {managerId} = {}) {
   const best = vals.reduce((a, d) => Math.max(a, d.p || 0), 0);
   const P = daily.PNUM;
   let bars = '', n14 = 0;
-  // Bars share one points scale: 1,000 while the window holds only three-puzzle days, 1,500 once a five-puzzle
-  // day is in it. Gold marks a perfect day on that day's own scale.
+  // Bars share one points scale: 1,000 while the window holds only 1,000-point days (v1 and v3), 1,500 once a v2 day
+  // is in it. Gold marks a perfect day on that day's own scale.
   const maxOf = n => daily.maxPts(daily.dayFor(n));
   let scale = 1000;
   for (let n = Math.max(1, P - 13); n <= P; n++) if (days[n] && typeof days[n] === 'object') scale = Math.max(scale, maxOf(n));

@@ -11,7 +11,10 @@ const CLUE_ICONS = ['figure', 'chart', 'star', 'number', 'grad-cap', 'shield', '
 const EASE_OUT = 'cubic-bezier(.22,1,.36,1)';
 
 const W = () => daily.DS.who;
-const worthOf = clues => (8 - clues) * daily.PTS.who;
+// Worth by clue count and the cost of one more clue come from daily's scoring for the day (v1 and v2: 350 minus 50 a
+// clue; v3: 200 minus 30 a clue).
+const worthOf = clues => daily.whoWorth(clues);
+const clueCost = () => daily.PTS.who;
 const nameOf = i => daily.PP[i][0];
 function initialsOf(name) {
   const w = String(name).split(' ').filter(x => x && !/^(Jr\.?|Sr\.?|II|III|IV|V)$/.test(x));
@@ -27,7 +30,7 @@ function clueInner(j, clues, st) {
   const val = shown
     ? `<span class="my-val">${esc(v)}</span>`
     : `<span class="my-red" aria-hidden="true"></span>`;
-  const cost = shown ? '' : `<span class="my-cost" aria-hidden="true">${ui.icon('lock')}<span>−${daily.PTS.who}</span></span>`;
+  const cost = shown ? '' : `<span class="my-cost" aria-hidden="true">${ui.icon('lock')}<span>−${clueCost()}</span></span>`;
   return `<span class="my-ci">${ui.icon(CLUE_ICONS[j] || 'info')}</span><span class="my-cm"><span class="my-cl ovl">${esc(k)}</span><span class="my-cv">${val}</span></span>${cost}`;
 }
 function clueCls(j, st) {
@@ -94,7 +97,7 @@ function render() {
 
 function actionsHTML(st) {
   return ui.button({label: 'Guess the player', kind: 'primary', attrs: {'data-my-guess': ''}})
-    + ui.button({label: ui.raw('Next clue <span class="my-minus">· −50</span>'), kind: 'secondary', cls: 'my-next', attrs: {'data-my-clue': '', 'aria-label': `Next clue, costs ${daily.PTS.who} points`, hidden: st.clues >= 7}})
+    + ui.button({label: ui.raw(`Next clue <span class="my-minus">· −${clueCost()}</span>`), kind: 'secondary', cls: 'my-next', attrs: {'data-my-clue': '', 'aria-label': `Next clue, costs ${clueCost()} points`, hidden: st.clues >= 7}})
     + `<p class="note my-note" data-my-note>${esc(noteText(st))}</p>`;
 }
 
@@ -163,12 +166,12 @@ function markNewest(I) {
   I.list.querySelectorAll('.my-clue').forEach(r => r.classList.toggle('is-new', !st.done && +r.dataset.j === st.clues - 1));
 }
 
-/** "−50" floats off a spent pip in the wrong color. */
+/** "−50" (v3: "−30") floats off a spent pip in the wrong color. */
 function floatCost(p) {
-  ui.floatText(p, `−${daily.PTS.who}`, {cls: 'wrong'});
+  ui.floatText(p, `−${clueCost()}`, {cls: 'wrong'});
 }
 
-/** Worth meter after a spent clue: one pip drops and fades, "−50" floats off, the number counts down. */
+/** Worth meter after a spent clue: one pip drops and fades, the clue's cost floats off, the number counts down. */
 function spendPip(I, fromClues) {
   const st = W();
   const pips = [...I.pips.children];

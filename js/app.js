@@ -36,6 +36,7 @@ export const REGISTRY = {
   season: () => import('./views/season.js'),
   review: () => import('./views/review.js'),
   wrap: () => import('./views/wrap.js'),
+  pickem: () => import('./views/pickem.js'),
   rivals: () => import('./views/rivals.js'),
   hall: () => import('./views/hall.js'),
   moves: () => import('./views/moves.js'),
@@ -93,6 +94,10 @@ function matchSegs(p) {
       return null;
     case 'managers':
       if (n === 2 && b) return R('profile', 'push', 'any', {id: b});
+      return null;
+    case 'pickem':
+      // NFL Pick'em (optional ?week=N): pushed on any tab; a cold link sits on Rivals (the week's home).
+      if (n === 1) return R('pickem', 'push', 'any', {}, 'rivals');
       return null;
     case '_kit':
       if (n === 1) return R('_kit', 'push', 'any', {}, 'today');

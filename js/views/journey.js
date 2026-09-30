@@ -1,6 +1,7 @@
-// Journey (v2 days, contract "UI"): a player's path from college to the team he plays for now, drawn as a vertical
-// route; name him with the player picker in three guesses (250 / 150 / 75). Each wrong guess unlocks a hint:
-// position after the first, draft year and round after the second. Sub-module of the run cover. Owner: views.
+// Journey (v2 and v3 days, contract "UI"): a player's path from college to the team he plays for now, drawn as a
+// vertical route; name him with the player picker in three guesses (250 / 150 / 75 on v2 days, 200 / 120 / 60 on v3,
+// from the day's scoring). Each wrong guess unlocks a hint: position after the first, draft year and round after the
+// second. Sub-module of the run cover. Owner: views.
 //
 // Rendered once; every guess patches the worth meter, one hint row, the wrong-guess chips and the actions. The
 // worth meter, hint rows and chips reuse the Mystery player styles (mystery.css), so both "name him" puzzles read
@@ -17,8 +18,7 @@ const HINT_AFTER = ['After 1 miss', 'After 2 misses'];
 const GUESSES = 3;
 
 const J = () => daily.DS.jr;
-const ladder = () => daily.PTS.jr;                       // [250, 150, 75]
-const worthOf = misses => ladder()[Math.min(misses, GUESSES - 1)];
+const worthOf = misses => daily.PTS.jr[Math.min(misses, GUESSES - 1)]; // 250 / 150 / 75 (v2) or 200 / 120 / 60 (v3)
 const nameOf = i => daily.PP[i][0];
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const ORD = ['1st', '2nd', '3rd'];

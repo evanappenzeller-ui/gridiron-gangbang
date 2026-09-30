@@ -1,5 +1,6 @@
-// Silhouettes (v2 days, contract "UI"): five rounds, each a player's headshot drawn as a solid black silhouette with
-// four names to pick from, one pick per round, 50 points each. Sub-module of the run cover. Owner: views.
+// Silhouettes (v2 and v3 days, contract "UI"): five rounds on v2 days (50 points each), two on v3 days (100 each),
+// each a player's headshot drawn as a solid black silhouette with four names to pick from, one pick per round.
+// Every count and points label comes from the day. Sub-module of the run cover. Owner: views.
 //
 // The headshot is ESPN's transparent PNG shown twice: a copy under `filter: brightness(0)` (the silhouette) and an
 // unfiltered copy at opacity 0 that cross-fades in once the round is answered (opacity only). The player's name is
@@ -8,13 +9,14 @@
 // current team as a clue; the round stays answerable.
 //
 // View-local state mirrors College's colShow: after a pick the stage stays on that player (verdict plus "Next face");
-// "Next face" moves to the next unanswered round, or to the recap after five. Rendered once; interactions patch nodes.
+// "Next face" moves to the next unanswered round, or to the recap after the last. Rendered once; interactions patch nodes.
 // The option buttons, marks, dots, verdict and recap reuse the College styles (college.css), so both puzzles answer
 // the same way.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as daily from '../core/daily.js';
 import {MARKS, settle} from './college.js';
+import {allAnswered} from './board.js';
 
 const esc = data.esc;
 const EASE_IN = 'cubic-bezier(.4,0,1,1)', EASE_OUT = 'cubic-bezier(.22,1,.36,1)';
@@ -92,7 +94,7 @@ function dotsHTML(gold) {
 function countText(showR) {
   if (showR != null) return `Face ${showR + 1} of ${total()}`;
   const a = picks();
-  return a.some(skipped) ? `Locked in · ${a.filter(x => !skipped(x)).length} of ${total()} answered` : 'All five answered';
+  return a.some(skipped) ? `Locked in · ${a.filter(x => !skipped(x)).length} of ${total()} answered` : allAnswered(total());
 }
 
 /** The stage: spotlight, the two copies of the photo, the loading skeleton, the no-photo placeholder, the team clue
@@ -233,7 +235,7 @@ function preloadNext(I) {
 let warmed = 0;
 const warmImgs = [];
 function warm() {
-  if (!daily.isV2() || !daily.DAY || warmed === daily.PNUM) return;
+  if (!daily.DAY || !Array.isArray(daily.DAY.s) || warmed === daily.PNUM) return;
   warmed = daily.PNUM;
   warmImgs.length = 0;
   rounds().forEach(q => {
@@ -302,8 +304,8 @@ function pick(I, j, btn, kb) {
   paintOptions(I, res.round, j);
   paintDots(I);
   revealStage(I, res.round, res.correct);
-  const name = nameOf(res.p);
-  const vt = res.correct ? `Correct. +${daily.PTS.sil}` : `It was ${name}.`;
+  const name = nameOf(res.p), pts = daily.PTS.sil; // per face: 50 (v2) or 100 (v3)
+  const vt = res.correct ? `Correct. +${pts}` : `It was ${name}.`;
   const v = I.main.querySelector('[data-sl-verdict]');
   const vtEl = v.querySelector('[data-sl-vt]');
   vtEl.textContent = vt;
@@ -311,9 +313,9 @@ function pick(I, j, btn, kb) {
   v.querySelector('.btn-label').textContent = res.round >= total() - 1 ? 'See how you did' : 'Next face';
   v.hidden = false;
   ui.animate(v, [{opacity: 0, transform: 'translateY(8px)'}, {opacity: 1, transform: 'none'}], {spring: 'smooth'});
-  ui.announce(res.correct ? `Correct. ${name}. +${daily.PTS.sil}` : vt);
+  ui.announce(res.correct ? `Correct. ${name}. +${pts}` : vt);
   if (res.correct) {
-    ui.floatText(btn, `+${daily.PTS.sil}`);
+    ui.floatText(btn, `+${pts}`);
     ui.haptic('success');
   } else {
     ui.shake(btn);
@@ -372,14 +374,15 @@ function celebrate(I) {
     d.classList.add('is-gold');
     ui.animate(d.querySelector('b'), [{opacity: 0, transform: 'scale(.2)'}, {opacity: 1, transform: 'none'}], {spring: 'bouncy', delay: r * 80, fill: 'backwards'});
   });
-  I.dots.setAttribute('aria-label', dotsLabel() + ', 5 for 5');
+  const sweep = `${total()} for ${total()}`;
+  I.dots.setAttribute('aria-label', dotsLabel() + ', ' + sweep);
   const stamp = I.main.querySelector('[data-sl-stamp]');
   I.timers.push(setTimeout(() => {
     if (I.dead || !stamp) return;
     stamp.style.opacity = '';
     ui.stamp(stamp);
     ui.haptic('celebrate');
-    ui.announce('Sharp eye. 5 for 5.');
+    ui.announce(`Sharp eye. ${sweep}.`);
     I.timers.push(setTimeout(() => {
       if (!I.dead && stamp.isConnected) ui.confetti(stamp.getBoundingClientRect(), {count: 24, colors: ['#7CF058', '#FFFFFF']});
     }, 140));

@@ -104,6 +104,18 @@
 .v-wrap .wr-pk-s { flex: none; }
 .v-wrap .wr-pk-s small { font-size: .62em; color: var(--ink-3); }
 .v-wrap .wr-pk.is-me .wr-pk-n { color: var(--tint); }
+/* NFL Pick'em: the week's games and picks (#/pickem?week=N). */
+.v-wrap .wr-pk-go {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  min-height: 44px; margin: 10px -16px -14px -19px; padding: 0 12px 0 19px;
+  border-top: .5px solid var(--separator);
+  border-radius: 0 0 var(--r-card) var(--r-card);
+  font: 400 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--tint);
+  transition: background-color 250ms linear;
+}
+.v-wrap .wr-pk-go.is-pressed { background-color: var(--surface-2); transition: none; }
+.v-wrap .wr-pk-go:focus-visible { outline-offset: -2px; }
+.v-wrap .wr-pk-go > .ic { flex: none; width: 16px; height: 16px; color: var(--ink-3); }
 
 /* ================================================================ Power rankings */
 .v-wrap .wr-sec > .sh { margin-top: 32px; }

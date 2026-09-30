@@ -6,14 +6,17 @@ import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as daily from '../core/daily.js';
 import {mountBoard, streakPillHTML, stepParts, zeroParts, gradeTitle, stepIcon, whenVisible,
-  countdownHTML, tickCountdown, ensureDefs, ringHTML, maxPts, countWord, dayLabel} from './board.js';
+  countdownHTML, tickCountdown, ensureDefs, ringHTML, maxPts, countWord, dayLabel, itemCount} from './board.js';
 import {openYouSheet, openStreakSheet} from './you.js';
 
 const esc = data.esc;
 const nf = n => data.nf(n);
-// Row subs by step id (v1: col, who, grid; v2 adds sil and jr).
-const SUBS = {col: '5 players · up to 200', sil: '5 faces · up to 250', who: '7 clues · up to 350', jr: '3 guesses · up to 250', grid: '9 squares · up to 450'};
-const subOf = i => { const s = daily.STEPS[i]; return SUBS[s.id] || `up to ${nf(s.max)}`; };
+// Row subs by step id (v1: col, who, grid; v2 and v3 add sil and jr), counted from the day: "5 players · up to 200"
+// on v1 and v2 days, "2 players · up to 200" on v3.
+const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+const SUBS = {col: () => plural(itemCount('col'), 'player'), sil: () => plural(itemCount('sil'), 'face'), who: () => '7 clues',
+  jr: () => '3 guesses', grid: () => plural(itemCount('grid'), 'square')};
+const subOf = i => { const s = daily.STEPS[i]; return SUBS[s.id] ? `${SUBS[s.id]()} · up to ${nf(s.max)}` : `up to ${nf(s.max)}`; };
 const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 const CHEV = '<svg class="ic chev" aria-hidden="true" focusable="false"><use href="#i-chevron-right"/></svg>';
 
@@ -61,11 +64,11 @@ function ctaInfo() {
 }
 function progressText(i) {
   const ds = daily.DS, id = daily.STEPS[i].id;
-  if (id === 'col') return `${ds.col.a.length} of 5`;
-  if (id === 'sil') return `${((ds.sil && ds.sil.a) || []).length} of 5`;
+  if (id === 'col') return `${ds.col.a.length} of ${itemCount('col')}`;
+  if (id === 'sil') return `${((ds.sil && ds.sil.a) || []).length} of ${itemCount('sil')}`;
   if (id === 'who') return `Clue ${ds.who.clues}`;
   if (id === 'jr') return `Guess ${Math.min(3, ((ds.jr && ds.jr.g) || []).length + 1)} of 3`;
-  return `${ds.grid.cells.filter(Boolean).length} of 9`;
+  return `${ds.grid.cells.filter(Boolean).length} of ${itemCount('grid')}`;
 }
 function pzState(i) {
   const s = daily.STEPS[i];
@@ -169,21 +172,26 @@ function rotdHTML(r = rotdPick()) {
 const rotdSig = r => r ? `${r.key}|${r.label}|${r.val}|${r.holders.join(';')}` : '';
 
 // ============================================================================ League week: "This week" and "The Wrap"
-// core/week.js (MOTW votes, pick'em, lock times) and core/stats.js (the Wrap) load lazily, so the Daily never
-// waits on them and a problem in either can only hide these two cards. Namespaces are kept once loaded, so
-// later renders include the cards at once.
-let WK = null, STATS = null, modsP = null;
+// core/week.js (MOTW votes, the NFL pick'em), core/nfl.js (the NFL week's live games) and core/stats.js (the Wrap)
+// load lazily, so the Daily never waits on them and a problem in any of them can only hide these cards. Namespaces
+// are kept once loaded, so later renders include the cards at once.
+let WK = null, STATS = null, NFL = null, modsP = null;
 function loadMods() {
   if (!modsP) {
-    modsP = Promise.allSettled([import('../core/week.js'), import('../core/stats.js')]).then(([w, s]) => {
+    modsP = Promise.allSettled([import('../core/week.js'), import('../core/stats.js'), import('../core/nfl.js')]).then(([w, s, n]) => {
       if (w.status === 'fulfilled') WK = w.value; else console.error(w.reason);
       if (s.status === 'fulfilled') STATS = s.value; else console.error(s.reason);
+      if (n.status === 'fulfilled') NFL = n.value; else console.error(n.reason);
     });
   }
   return modsP;
 }
 
-// The week the votes and picks are about, while it is still open; else null (card hidden).
+// "This week" shows while Matchup of the Week voting is open (the fantasy week, until its first kickoff) or while
+// the NFL pick'em week has games (all week long: picks lock game by game, and live results follow). The MOTW row
+// shows while voting is open; the NFL Pick'em row whenever the NFL week is known (it opens /pickem).
+
+// The fantasy week the votes are about, while voting is still open; else null (no MOTW row).
 // (week.js's clock: a dev host can inject one with week.__dev.setNow.)
 const wkNow = () => (WK && typeof WK.now === 'function' ? WK.now() : Date.now());
 function openWeek() {
@@ -210,11 +218,6 @@ function myVote(v) {
   if (!v || !v.mine) return null;
   return typeof v.mine === 'string' ? v.mine : v.mine.pick || null;
 }
-function myPicks(p) {
-  const m = p && p.mine;
-  if (!m || typeof m !== 'object') return {};
-  return m.picks && typeof m.picks === 'object' ? m.picks : m;
-}
 const errText = x => (x && x.error ? String(x.error.code || x.error.message || x.error) : '');
 const denied = x => /denied|permission/i.test(errText(x));
 // Counts are only worth showing once the league's votes are in (the first call comes from this phone alone).
@@ -233,30 +236,77 @@ function motwRowState(c, v) {
   const sub = n == null ? 'Pick the game everyone watches.' : !n ? 'No votes yet. Go first.' : `${n} vote${n === 1 ? '' : 's'} in. Yours isn't.`;
   return {sub, trail: ui.pill('Vote', {tone: 'tint'}), label: `Matchup of the Week. ${sub} Vote in Rivals.`};
 }
-function pickRowState(c, p) {
-  if (denied(p)) return {sub: "Pick'em isn't switched on yet.", trail: '', label: "Pick'em. Pick'em isn't switched on yet."};
-  const picks = myPicks(p);
-  const keys = Object.keys(picks).filter(k => picks[k]);
-  const has = g => keys.some(k => samePairKey(k, gameKeyOf(g)));
-  const total = c.games.length;
-  const n = c.games.filter(has).length;
-  const known = n > 0 || settled(p); // before the league's entries arrive, "0 of 6" could be wrong
-  const sub = !known ? `${total} games. Pick the winners.` : n >= total ? `All ${total} picked` : `${n} of ${total} picked`;
-  const pips = `<span class="c-wk-pips" aria-hidden="true">${c.games.map(g => `<i${has(g) ? ' class="is-on"' : ''}></i>`).join('')}</span>`;
-  return {sub, trail: pips, label: `Pick'em. ${sub}. Pick in Rivals.`};
+// ---- NFL Pick'em row. NX is this page session's view of the pick'em week: {year, week, games (nfl.js games, by
+// kickoff), stale, error, picks (week.subscribeNflPicks payload: {mine: {gameId: team}, ...}, null until it
+// arrives)}; null until the week is known. Module-level so a re-render shows the last state at once.
+let NX = null;
+const NFL_TITLE = "NFL Pick'em";
+/** The pick'em API is there (week.js with the NFL pick'em, nfl.js for the live games). */
+const nflReady = () => !!(WK && NFL && typeof WK.pickemWeek === 'function' && typeof WK.subscribeNflPicks === 'function');
+/** "Thu 5:15 PM" in local time; within three hours "in 2h 10m"; a kickoff without a set time is just its day. */
+function kickText(g) {
+  const ms = +g.kickoff - wkNow();
+  if (ms > 0 && ms < 3 * 3600e3) return `in ${ui.untilText(ms)}`;
+  const d = g.kickoff, day = d.toLocaleDateString('en-US', {weekday: 'short'});
+  return g.tbd ? day : `${day} ${d.toLocaleTimeString('en-US', {hour: 'numeric', minute: '2-digit'})}`;
 }
+/** Your record on the week's finished games (a tie grades as no pick). */
+function nflRecord(games, mine) {
+  let right = 0, wrong = 0;
+  games.forEach(g => {
+    const t = mine[g.id];
+    if (!t || !g.final || !g.winner || !g[g.winner]) return;
+    if (g[g.winner].abbr === t) right++; else wrong++;
+  });
+  return {right, wrong, text: right + wrong ? `${right}–${wrong}` : ''};
+}
+/** Keeps a phrase on one line when the sub wraps ("next kickoff Thu 5:15 PM"). */
+const keep = s => s.replace(/ /g, String.fromCharCode(160));
+const LIVE_TRAIL = '<span class="c-wk-live"><i aria-hidden="true"></i>Live</span>';
+function nflRowState(x) {
+  const say = (sub, trail = '') => ({sub, trail, label: `${NFL_TITLE}. ${sub.replace(/ · /g, ', ')}. Opens the pick'em.`});
+  if (!x || !Array.isArray(x.games)) return say("Loading this week's games.");
+  const games = x.games;
+  if (!games.length) return say(x.error ? "Can't reach the NFL scores right now." : 'No games this week.');
+  if (denied(x.picks)) return say("Pick'em isn't switched on yet.");
+  const known = !!x.picks && !errText(x.picks); // before your picks arrive, "0 of 16" could be wrong
+  const mine = (known && x.picks.mine) || {};
+  const total = games.length, picked = games.filter(g => mine[g.id]).length;
+  const open = games.filter(g => !NFL.gameStarted(g, wkNow())); // week.js's clock (a dev host can set it)
+  const rec = nflRecord(games, mine);
+  if (games.some(g => g.state === 'in')) {
+    return say(rec.text ? `Games in progress: ${rec.text} so far` : known ? `Games in progress · ${picked} of ${total} picked` : 'Games in progress', LIVE_TRAIL);
+  }
+  if (open.length && known && open.every(g => mine[g.id])) {
+    return say(rec.text ? `All picks in · ${rec.text} so far` : 'All picks in', ui.icon('check-circle', {size: 22, cls: 'c-wk-ok'}));
+  }
+  if (open.length) {
+    return say(`${known ? `${picked} of ${total} picked` : `${total} games`} · ${keep(`next kickoff ${kickText(open[0])}`)}`, ui.pill('Pick', {tone: 'tint'}));
+  }
+  return say(rec.text ? `Final: ${rec.text}` : known ? `${picked} of ${total} picked` : `${total} games`);
+}
+/** The NFL row shows next to an open vote from the start (loading at first), and alone only while its week has games. */
+const nflRow = (c, x) => nflReady() && (c ? true : !!x && Array.isArray(x.games) && x.games.length > 0);
+/** Identity of the card's layout: which rows it has (a change rebuilds the card; anything else patches in place). */
+const cardSig = (c, x) => `${c ? c.key : ''}|${nflRow(c, x) ? 'nfl' : ''}`;
+
 function wkRowHTML(kind, icon, title, x) {
   return `<button type="button" class="row c-wk-row" data-wk-go="${kind}" aria-label="${esc(x.label)}">`
     + `<span class="row-lead"><span class="c-wk-tile">${ui.icon(icon, {size: 22})}</span></span>`
     + `<span class="row-main"><span class="row-title">${esc(title)}</span><span class="row-sub c-wk-sub">${esc(x.sub)}</span></span>`
     + `<span class="row-trail c-wk-trail">${x.trail}</span>${CHEV}</button>`;
 }
-function weekCardHTML(c, v, p) {
-  if (!c) return '';
+// Overline: the fantasy week and when voting closes; with voting closed, the NFL week alone.
+const ovlText = (c, x) => (c ? `Week ${c.week} · voting ${closesText(c)}` : `NFL week ${x.week}`);
+const cardLabel = (c, x) => ovlText(c, x).replace(' · ', ', ');
+function weekCardHTML(c, v, x) {
+  const nfl = nflRow(c, x);
+  if (!c && !nfl) return '';
   return ui.sectionHeader({title: 'This week'})
-    + `<section class="card c-wk" data-wk="${esc(c.key)}" aria-label="${esc(`Week ${c.week}, ${closesText(c)}`)}">`
-    + `<p class="card-ovl c-wk-ovl">Week ${c.week} · <span class="c-wk-close">${esc(closesText(c))}</span></p>`
-    + `<div class="c-wk-rows">${wkRowHTML('motw', 'versus', 'Matchup of the Week', motwRowState(c, v))}${wkRowHTML('pickem', 'check-circle', "Pick'em", pickRowState(c, p))}</div>`
+    + `<section class="card c-wk" data-wk="${esc(cardSig(c, x))}" aria-label="${esc(cardLabel(c, x))}">`
+    + `<p class="card-ovl c-wk-ovl">${esc(ovlText(c, x))}</p>`
+    + `<div class="c-wk-rows">${c ? wkRowHTML('motw', 'versus', 'Matchup of the Week', motwRowState(c, v)) : ''}`
+    + `${nfl ? wkRowHTML('pickem', 'football', NFL_TITLE, nflRowState(x)) : ''}</div>`
     + `</section>`;
 }
 
@@ -400,39 +450,38 @@ function patchRotd(st, animate = true) {
   }
 }
 
-// ---- "This week": patch in place (keeps focus on a row), hide once the week locks.
+// ---- "This week": patch in place (keeps focus on a row); rebuilt only when a row comes or goes, hidden when neither
+// voting nor the NFL week has anything to show.
 function refreshWeek(st, animate) {
   const host = st.el.querySelector('.c-wk-host');
   if (!host) return;
   const c = openWeek();
   const wk = st.wk;
-  if (!c) {
-    stopWeekSubs(st);
-    wk.key = null;
+  if ((c ? c.key : null) !== wk.key) {
+    // Voting opened for a new week (data reload), closed, or the first fill: start over with its vote subscription.
+    stopVotes(st);
+    wk.key = c ? c.key : null; wk.votes = null;
+    if (c && wk.live) startVotes(st);
+  }
+  wk.cur = c;
+  const x = NX, sig = cardSig(c, x);
+  const card = host.querySelector('.c-wk');
+  if (sig === '|') {
     if (host.firstElementChild) {
       const go = () => { host.innerHTML = ''; };
       if (animate && !ui.RM && st.ctx.visible) ui.crossfade(host, go, {duration: 160}); else go();
     }
     return;
   }
-  if (c.key !== wk.key) {
-    // A new week (data reload) or the first fill: start over with this week's subscriptions.
-    stopWeekSubs(st);
-    wk.key = c.key; wk.votes = null; wk.picks = null;
-    if (wk.live) startWeekSubs(st);
-  }
-  wk.cur = c;
-  const card = host.querySelector('.c-wk');
-  if (!card || card.dataset.wk !== c.key) {
-    const go = () => { host.innerHTML = weekCardHTML(c, wk.votes, wk.picks); };
+  if (!card || card.dataset.wk !== sig) {
+    const go = () => { host.innerHTML = weekCardHTML(c, wk.votes, x); };
     if (animate && !ui.RM && st.ctx.visible && host.firstElementChild) ui.crossfade(host, go, {duration: 160}); else go();
     return;
   }
-  const close = card.querySelector('.c-wk-close');
-  const ct = closesText(c);
-  if (close && close.textContent !== ct) { close.textContent = ct; card.setAttribute('aria-label', `Week ${c.week}, ${ct}`); }
-  patchWkRow(card.querySelector('[data-wk-go="motw"]'), motwRowState(c, wk.votes));
-  patchWkRow(card.querySelector('[data-wk-go="pickem"]'), pickRowState(c, wk.picks));
+  const ovl = card.querySelector('.c-wk-ovl'), ot = ovlText(c, x);
+  if (ovl && ovl.textContent !== ot) { ovl.textContent = ot; card.setAttribute('aria-label', cardLabel(c, x)); }
+  if (c) patchWkRow(card.querySelector('[data-wk-go="motw"]'), motwRowState(c, wk.votes));
+  patchWkRow(card.querySelector('[data-wk-go="pickem"]'), nflRowState(x));
 }
 function patchWkRow(row, x) {
   if (!row) return;
@@ -441,21 +490,73 @@ function patchWkRow(row, x) {
   if (tr && tr.dataset.html !== x.trail) { tr.dataset.html = x.trail; tr.innerHTML = x.trail; }
   row.setAttribute('aria-label', x.label);
 }
-// Live votes and picks. Started once the puzzles are in and the page is idle (Firebase starts after the Daily).
+// Live votes, NFL games and picks. Started once the puzzles are in and the page is idle (Firebase starts after the
+// Daily).
 function startWeekSubs(st) {
+  st.wk.live = true;
+  startVotes(st);
+  startNfl(st);
+}
+function startVotes(st) {
   const wk = st.wk;
-  wk.live = true;
   if (!WK || !wk.key || wk.unsubV) return;
   const key = wk.key;
   const onV = v => { if (st.wk.key !== key) return; st.wk.votes = v || {}; refreshWeek(st, false); };
-  const onP = p => { if (st.wk.key !== key) return; st.wk.picks = p || {}; refreshWeek(st, false); };
   try { wk.unsubV = WK.subscribeVotes(key, onV) || (() => {}); } catch (e) { console.error(e); wk.unsubV = () => {}; }
-  try { wk.unsubP = WK.subscribePicks(key, onP) || (() => {}); } catch (e) { console.error(e); wk.unsubP = () => {}; }
 }
-function stopWeekSubs(st) {
+function stopVotes(st) {
   const wk = st.wk;
   if (wk.unsubV) { try { wk.unsubV(); } catch (_) {} wk.unsubV = null; }
-  if (wk.unsubP) { try { wk.unsubP(); } catch (_) {} wk.unsubP = null; }
+}
+// The pick'em week (week.pickemWeek: ESPN's current week, or the next once every game in it is final), its live
+// games (nfl.watch polls while games are on) and your picks (week.subscribeNflPicks).
+async function startNfl(st) {
+  const wk = st.wk;
+  if (!nflReady() || wk.nflStarting || wk.unsubG) return;
+  wk.nflStarting = true;
+  wk.nflAt = Date.now();
+  let w = null;
+  try { w = await WK.pickemWeek(); } catch (e) { w = null; if (!NX) NX = {year: 0, week: 0, games: [], error: (e && e.code) || 'offline', picks: null}; }
+  wk.nflStarting = false;
+  if (HUB.get(st.ctx) !== st || !w || wk.unsubG) { refreshWeek(st, false); return; }
+  const same = NX && NX.year === w.year && NX.week === w.week;
+  NX = {year: w.year, week: w.week, games: Array.isArray(w.games) ? w.games : (same ? NX.games : null), stale: !!w.stale, error: null, picks: same ? NX.picks : null};
+  const key = `${w.year}-w${w.week}`;
+  const mine = () => HUB.get(st.ctx) === st && NX && `${NX.year}-w${NX.week}` === key;
+  // Hidden while the week was being found: no live feed until Today shows again (onShow starts it).
+  if (!st.ctx.visible) { refreshWeek(st, false); return; }
+  try {
+    wk.unsubG = NFL.watch(w.year, w.week, d => {
+      if (!mine()) return;
+      if (!(d.error && !d.games.length && Array.isArray(NX.games) && NX.games.length)) NX.games = d.games;
+      NX.stale = !!d.stale; NX.error = d.error || null;
+      refreshWeek(st, false);
+    }) || (() => {});
+  } catch (e) { console.error(e); wk.unsubG = () => {}; }
+  try {
+    wk.unsubN = WK.subscribeNflPicks(w.year, w.week, p => { if (!mine()) return; NX.picks = p || {}; refreshWeek(st, false); }) || (() => {});
+  } catch (e) { console.error(e); wk.unsubN = () => {}; }
+  refreshWeek(st, false);
+}
+function stopNfl(st) {
+  const wk = st.wk;
+  if (wk.unsubG) { try { wk.unsubG(); } catch (_) {} wk.unsubG = null; }
+  if (wk.unsubN) { try { wk.unsubN(); } catch (_) {} wk.unsubN = null; }
+}
+/** Timer tick: when the pick'em week could not be found, try again (every minute); once every game of the shown week
+ *  is final, ask again which week the pick'em is on (every 5 minutes): the Tuesday after Monday night moves the row
+ *  on to next week. */
+function nflTick(st) {
+  const wk = st.wk, g = NX && NX.games, since = Date.now() - (wk.nflAt || 0);
+  if (!wk.live || wk.nflStarting || !nflReady()) return;
+  if (!wk.unsubG) { if (since >= 60e3) startNfl(st); return; }
+  if (!Array.isArray(g) || !g.length || !g.every(x => x.state === 'post') || since < 5 * 60e3) return;
+  stopNfl(st);
+  startNfl(st);
+}
+function stopWeekSubs(st) {
+  stopVotes(st);
+  stopNfl(st);
 }
 
 function patchWrap(st, animate) {
@@ -469,10 +570,11 @@ function patchWrap(st, animate) {
   if (animate && !ui.RM && st.ctx.visible && host.firstElementChild) ui.crossfade(host, go, {duration: 160}); else go();
 }
 
-// Rivals holds the voting and pick'em sections. Its section deep link (#/rivals?s=motw|pickem) switches to the
-// tab, keeps the matchup it shows, brings the section in under the bar and pulses it (also on a cold start).
-function goRivals(ctx, kind) {
-  return ctx.nav(`/rivals?s=${kind === 'pickem' ? 'pickem' : 'motw'}`);
+// Matchup of the Week voting lives in Rivals: its section deep link (#/rivals?s=motw) switches to the tab, keeps the
+// matchup it shows, brings the section in under the bar and pulses it (also on a cold start). The NFL pick'em is its
+// own screen, pushed on this tab (/pickem).
+function goWeek(ctx, kind) {
+  return kind === 'pickem' ? ctx.nav('/pickem') : ctx.nav('/rivals?s=motw');
 }
 
 function swapDaily(st) {
@@ -494,7 +596,7 @@ function onClick(st, e) {
   if (!t || !st.el.contains(t)) return;
   const {ctx} = st;
   if (t.hasAttribute('data-go')) { ctx.nav(t.dataset.go); return; }
-  if (t.hasAttribute('data-wk-go')) { goRivals(ctx, t.dataset.wkGo); return; }
+  if (t.hasAttribute('data-wk-go')) { goWeek(ctx, t.dataset.wkGo); return; }
   if (t.hasAttribute('data-you')) { openYouSheet(); return; }
   if (t.hasAttribute('data-streak')) { openStreakSheet(); return; }
   if (t.hasAttribute('data-retry')) { retry(st); return; }
@@ -544,9 +646,9 @@ export default {
     const wr = latestWrap();
     return ui.largeTitle({eyebrow: ready() ? daily.TODAY_LABEL : localLabel(), title: 'Today', trailing: trailHTML()})
       + `<div class="c-dc-wrap" data-key="daily" data-enter>${dailyCardHTML()}</div>`
-      // "This week" is time-boxed (it closes at kickoff and disappears): it sits right under the Daily card,
-      // above the always-there leaderboard.
-      + `<div class="c-wk-host" data-key="wk" data-enter>${weekCardHTML(wc, null, null)}</div>`
+      // "This week" is time-boxed (voting closes at the first kickoff; the NFL pick'em runs to Monday night): it sits
+      // right under the Daily card, above the always-there leaderboard.
+      + `<div class="c-wk-host" data-key="wk" data-enter>${weekCardHTML(wc, null, NX)}</div>`
       + `<div class="c-board-host" data-key="board" data-enter></div>`
       + `<div class="c-cd-host" data-key="cd" data-enter>${countdownHTML(false)}</div>`
       + `<div class="c-wrap-host" data-key="wrap" data-enter data-sig="${esc(wrapSig(wr))}">${wrapCardHTML(wr)}</div>`
@@ -556,7 +658,7 @@ export default {
   mount(el, ctx) {
     ensureDefs();
     const st = {el, ctx, board: null, pending: false, cancelRing: null, retrying: false,
-      wk: {key: null, cur: null, votes: null, picks: null, unsubV: null, unsubP: null, live: false}};
+      wk: {key: null, cur: null, votes: null, unsubV: null, live: false, unsubG: null, unsubN: null, nflStarting: false, nflAt: 0}};
     HUB.set(ctx, st);
     const you = el.querySelector('.c-you');
     if (you) you.dataset.me = String(data.me());
@@ -566,9 +668,8 @@ export default {
     ctx.timer(() => tickCountdown(el.querySelector('.c-cd-host'), {animate: ctx.visible}), 20000);
     if (ready()) patchPill(st, false);
     else if (daily.status !== 'error') daily.ensure().catch(() => {});
-    // League week cards: fill once the modules are in; live votes and picks wait for the Daily and an idle moment.
-    const wc = el.querySelector('.c-wk');
-    if (wc) st.wk.key = wc.dataset.wk || null;
+    // League week cards: fill once the modules are in; live votes, games and picks wait for the Daily and an idle
+    // moment.
     loadMods().then(() => {
       if (HUB.get(ctx) !== st) return;
       refreshWeek(st, false);
@@ -576,8 +677,9 @@ export default {
       const go = () => ui.onIdle(() => { if (HUB.get(ctx) === st) startWeekSubs(st); });
       if (daily.status === 'ready' || daily.status === 'error') go(); else daily.ensure().then(go, go);
     });
-    // The lock time passes while the app is open: keep "closes in" fresh and hide the card at kickoff.
-    ctx.timer(() => { if (WK) refreshWeek(st, ctx.visible); }, 30000);
+    // Time passes while the app is open: keep "closes in" and "next kickoff" fresh, drop the MOTW row when voting
+    // closes, and move the NFL row on to the next week once this one is over.
+    ctx.timer(() => { if (WK) { refreshWeek(st, ctx.visible); nflTick(st); } }, 30000);
     if (ctx.first) ui.stagger(el);
   },
 
@@ -586,6 +688,14 @@ export default {
     if (!st) return;
     st.pending = false;
     if (ready()) sync(st, true);
+    // The NFL row's live games and picks pause while Today is out of sight (onHide); pick them up again.
+    if (st.wk.live && !st.wk.unsubG) startNfl(st);
+  },
+
+  onHide(ctx) {
+    // Another tab (or a pushed screen) is showing: stop polling ESPN every 30 s and drop the picks listener.
+    const st = HUB.get(ctx);
+    if (st) stopNfl(st);
   },
 
   update(ctx) {

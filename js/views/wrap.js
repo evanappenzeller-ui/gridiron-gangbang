@@ -2,10 +2,11 @@
 // Pushed on any tab. Owner: WRAP + SHAME UI.
 //   Large title "Week 3" (eyebrow THE WRAP · 2026) · sticky week chips (completed weeks) · lede card with the
 //   headline · recap cards (stats.wrap items; score bugs open the matchup sheet) · the week's Matchup of the Week
-//   result and pick'em winners (week.js, filled in when Firestore answers; never blocks) · power rankings top 5
-//   with movement · Share button + previous/next week.
+//   result and the NFL pick'em's best record that week (week.js, filled in when Firestore and ESPN answer; never
+//   blocks) · power rankings top 5 with movement · Share button + previous/next week.
 // Data: stats.wrap(year, week), stats.wrapWeeks(year), stats.powerRankings(year, week) (sync, js/core/stats.js);
-//   week.history() / week.weekResults(key) (async, js/core/week.js, imported lazily so the recap never waits on it).
+//   week.history() / week.nflWeekResults(year, week) (async, js/core/week.js, imported lazily so the recap never waits
+//   on it).
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as stats from '../core/stats.js';
@@ -256,29 +257,38 @@ function motwCard(e, m) {
     + `</article>`;
 }
 
-// weekResults(key): {graded (games with a winner), rows: [{uid, me, nick, right, graded, rank, you}] (ranked),
-// winners (rank-1 rows once something is graded and someone got one right), error}.
-function pickemCard(r) {
-  if (!r) return '';
-  const rows = (r.rows || []).filter(x => x && isFinite(+x.right));
-  const graded = +r.graded || 0;
-  if (!rows.length || !graded) return '';
-  const winners = r.winners || [];
-  const best = winners.length ? +winners[0].right : 0;
-  const nameOf = x => (x.me && data.M[x.me]) ? data.name(x.me) : (x.nick || 'Someone');
-  const lead = !winners.length ? 'Nobody picked a single winner.'
-    : winners.length === 1 ? `${nameOf(winners[0])} went ${best} for ${graded}` + (best === graded ? ', a perfect week.' : '.')
-    : `${winners.length} tied at ${best} for ${graded}.`;
-  const body = `${lead} ${plural(rows.length, 'entry', 'entries')}.` + (winners.length && best <= graded / 2 ? ' Nobody saw this week coming.' : '');
-  const rowsHtml = rows.slice(0, 5).map(x => {
+// The week's NFL pick'em (the real NFL games of the same week): week.nflWeekResults(year, week) ->
+// [{who: {uid, me, nick, name}, me, nick, name, you, right, wrong, decided, picked, rank}], ranked by right, plus
+// .decidedGames and .error. Hidden when nobody's pick counted (or the games didn't load).
+function pickemCard(r, m) {
+  if (!Array.isArray(r)) return '';
+  const rows = r.filter(x => x && (+x.decided > 0 || +x.right > 0));
+  if (!rows.length) return '';
+  const nameOf = x => (x.me && data.M[x.me]) ? data.name(x.me) : (String(x.name || x.nick || '').trim() || 'Someone');
+  const rec = x => `${+x.right || 0}–${+x.wrong || 0}`;
+  // The best record: most right, then fewest wrong (rows arrive ranked by right).
+  const sorted = rows.slice().sort((x, y) => (+y.right || 0) - (+x.right || 0) || (+x.wrong || 0) - (+y.wrong || 0));
+  const top = sorted[0];
+  const best = sorted.filter(x => +x.right === +top.right && +x.wrong === +top.wrong);
+  const names = best.map(nameOf);
+  const list = names.length > 3 ? `${names.slice(0, 2).join(', ')} and ${names.length - 2} others` : names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0];
+  const perfect = +top.wrong === 0 && +top.right >= 3;
+  let body = +top.right > 0
+    ? `${list} went ${rec(top)} on the NFL slate${perfect ? ', a perfect week' : ''}.`
+    : 'Nobody called a single NFL winner this week.';
+  body += ` ${plural(rows.length, 'player')}.`;
+  if (+top.right > 0 && +top.decided >= 6 && +top.right / +top.decided < .6) body += ' A rough week for everyone.';
+  const rowsHtml = sorted.slice(0, 5).map((x, i) => {
     const mid = x.me && data.M[x.me] ? x.me : undefined;
-    // One denominator for the card: the week's decided games (a game someone didn't pick is a miss).
-    return `<li class="wr-pk${x.you ? ' is-me' : ''}"><span class="n5 wr-pk-r">${esc(x.rank != null ? x.rank : '')}</span>${ui.nickAvatar(nameOf(x), {size: 28, managerId: mid, you: !!x.you})}<span class="wr-pk-n">${esc(nameOf(x))}</span><span class="n4 wr-pk-s" aria-label="${esc(`${x.right} of ${graded} right`)}">${esc(x.right)}<small>/${esc(graded)}</small></span></li>`;
+    const rk = i && +x.right === +sorted[i - 1].right && +x.wrong === +sorted[i - 1].wrong ? '' : String(i + 1);
+    return `<li class="wr-pk${x.you ? ' is-me' : ''}"><span class="n5 wr-pk-r">${esc(rk)}</span>${ui.nickAvatar(nameOf(x), {size: 28, managerId: mid, you: !!x.you})}`
+      + `<span class="wr-pk-n">${esc(nameOf(x))}</span><span class="n4 wr-pk-s" aria-label="${esc(`${+x.right || 0} right, ${+x.wrong || 0} wrong`)}">${esc(rec(x))}</span></li>`;
   }).join('');
   return `<article class="wr-card is-pickem">`
-    + `<h3 class="wr-ovl">${ui.icon('check-circle', {size: 14})}<span>Pick'em</span></h3>`
+    + `<h3 class="wr-ovl">${ui.icon('football', {size: 14})}<span>NFL Pick'em</span></h3>`
     + `<p class="wr-story">${esc(body)}</p>`
-    + `<ol class="wr-pks">${rowsHtml}</ol></article>`;
+    + `<ol class="wr-pks">${rowsHtml}</ol>`
+    + `<a class="wr-pk-go" href="#/pickem?week=${encodeURIComponent(m.w)}">${esc(`Week ${m.w} games and picks`)}${ui.icon('chevron-right', {size: 16})}</a></article>`;
 }
 
 function extras(st, ctx) {
@@ -300,7 +310,6 @@ function extras(st, ctx) {
   };
   loadWeek().then(wk => {
     if (!slot()) return;
-    const key = typeof wk.weekKey === 'function' ? wk.weekKey(y, w) : `${y}-w${w}`;
     if (typeof wk.history === 'function') {
       Promise.resolve(wk.history(y)).then(list => {
         const e = (list || []).find(x => x && +x.year === y && +x.week === w);
@@ -308,9 +317,9 @@ function extras(st, ctx) {
         if (e && m && m.state === 'ok') put('motw', motwCard(e, m));
       }).catch(err => console.warn('wrap: MOTW history unavailable', err));
     }
-    if (typeof wk.weekResults === 'function') {
-      Promise.resolve(wk.weekResults(key)).then(r => put('pickem', pickemCard(r)))
-        .catch(err => console.warn('wrap: pick\'em results unavailable', err));
+    if (typeof wk.nflWeekResults === 'function') {
+      Promise.resolve(wk.nflWeekResults(y, w)).then(r => { const m = st.m; if (m && m.state === 'ok') put('pickem', pickemCard(r, m)); })
+        .catch(err => console.warn('wrap: NFL pick\'em results unavailable', err));
     }
   }).catch(err => console.warn('wrap: week.js unavailable', err));
 }

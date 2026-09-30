@@ -30,7 +30,8 @@ function routeRows() {
     ['/standings', 'root · Standings'], [`/standings/${y}`, 'push · season'], [`/standings/${y}/weeks`, 'push · season'], [`/standings/${y}/weeks/7`, 'push · season'], [`/standings/${y}/bracket`, 'push · season'], [`/standings/${y}/review`, 'push · review'],
     ...(live ? [[`/standings/${live}`, 'push · season in progress'], [`/standings/${live}/wrap/1`, 'push · wrap']] : []),
     [`/standings/${y}/wrap/16`, 'push · wrap (playoff week)'], [`/standings/${y}/wrap/99`, 'push · wrap (no such week)'],
-    ['/rivals', 'root · Rivals'], ['/rivals/evan-vs-mason', 'root · Rivals pair'], ['/rivals?s=pickem', "root · Rivals, Pick'em section"],
+    ['/rivals', 'root · Rivals'], ['/rivals/evan-vs-mason', 'root · Rivals pair'], ['/rivals?s=pickem', "root · Rivals, NFL Pick'em card"],
+    ['/pickem', "push · NFL Pick'em (this week)"], ['/pickem?week=3', "push · NFL Pick'em, week 3 (read-only)"], ['/pickem?week=18', "push · NFL Pick'em, future week → redirect"],
     ['/hall', 'redirect → /hall/trophies'], ['/hall/trophies', 'root · Hall'], ['/hall/records', 'root · Hall'], ['/hall/records/2.4', 'root · Hall focus'], ['/hall/shame', 'root · Hall Shame'], [`/hall/shame?y=${live || y}`, 'root · Hall Shame, one season'],
     ['/moves', 'redirect → /moves/drafts'], ['/moves/drafts', 'root · Moves'], ['/moves/drafts/2024?m=evan', 'root · Moves filtered'], ['/moves/trades?m=ben', 'root · Moves trades'],
     ['/managers/evan', 'push · profile'], ['/managers/nobody', 'push · unknown manager'], ['/_kit', 'push · this gallery'], ['/not-a-route', 'unknown → toast']

@@ -1,9 +1,10 @@
 // Rivals: head to head for any two managers (spec 7.12, delight 8.12). Owner: rivals package.
 // Mounts once, then patches: series numbers roll (odometer), the split bar re-splits, the tape and the
 // meeting log cross-fade, and "{A} against everyone" reorders with FLIP.
-// Above the head to head sits the week (core/week.js): Matchup of the Week voting, Pick'em with its season
-// standings, and the past Matchups of the Week. They render at once from data.js and fill in when the
-// Firestore snapshots arrive; nothing here waits on Firebase.
+// Above the head to head sits the week (core/week.js): Matchup of the Week voting on the league's matchups, the
+// compact NFL Pick'em card (the real NFL games; it opens #/pickem, views/pickem.js) and the past Matchups of the
+// Week. They render at once from data.js and fill in when the Firestore snapshots and ESPN scores arrive; nothing
+// here waits on Firebase or ESPN.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as motw from '../core/motw.js';
@@ -228,10 +229,9 @@ function listSecHTML(m) {
 // Firestore snapshots and local edits live in st.wk (created in mount). The models below read st.wk while
 // the screen is mounted; in render (st is null) they describe the week with no Firebase state yet.
 const VOTE_OFF = "Voting isn't switched on yet.";
-const PICK_OFF = "Pick'em isn't switched on yet.";
 const pairOf = key => String(key || '').split('|');
 const pairName = key => { const [a, b] = pairOf(key); return `${nm(a)} vs ${nm(b)}`; };
-const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+const plural = (n, one, many) => `${n} ${n === 1 ? one : (many || one + 's')}`;
 const andJoin = l => l.length < 2 ? (l[0] || '') : `${l.slice(0, -1).join(', ')} and ${l[l.length - 1]}`;
 const atMs = a => a == null ? 0 : typeof a === 'number' ? a : typeof a.toMillis === 'function' ? a.toMillis() : a.seconds ? a.seconds * 1000 : (+new Date(a) || 0);
 
@@ -258,11 +258,6 @@ function errKind(e) {
   if (!e) return '';
   const s = typeof e === 'string' ? e : `${e.code || ''} ${e.message || ''}`;
   return /denied|permission/i.test(s) ? 'denied' : 'failed';
-}
-function liveRow(id) {
-  const s = data.SEASONS.find(x => x.live);
-  const r = s && s.table.find(x => x.id === id);
-  return r ? {rank: r.seed, w: r.w, l: r.l, t: r.t} : {rank: null, w: 0, l: 0, t: 0};
 }
 // A voter or picker as drawn: their manager when `me` is one, else their nick on a neutral initials disc.
 function who(v) {
@@ -524,7 +519,7 @@ function morphInto(el, html) {
   const f = document.activeElement;
   let sel = null;
   if (f && f !== el && el.contains(f)) {
-    for (const a of ['data-vote', 'data-vt-who', 'data-pk-retry', 'data-pk-all', 'data-pk-stand']) {
+    for (const a of ['data-vote', 'data-vt-who']) {
       if (f.hasAttribute(a)) { sel = `[${a}="${CSS.escape(f.getAttribute(a))}"]`; break; }
     }
   }
@@ -598,233 +593,125 @@ function vote(key) {
   });
 }
 
-// ---------------------------------------------------------------- Pick'em
-function pickModel() {
-  const w = st && st.wk;
-  const cur = w ? w.cur : curWeek();
-  if (!cur) return null;
-  const snap = w ? w.psnap : null;
-  const locked = lockedNow(cur);
-  const off = !!(w && w.poff);
-  const uid = mineUid(snap);
-  const entries = markYou(snap && snap.entries, uid);
-  const mineE = (snap && snap.mine && typeof snap.mine === 'object' ? snap.mine : null) || entries.find(e => e.you) || null;
-  const saved = (mineE && mineE.picks) || {};
-  const picks = (w && w.draft && !locked) ? w.draft : saved;
-  const count = cur.games.filter(g => picks[g.key] === g.a || picks[g.key] === g.b).length;
-  // Until the server has answered (week.js: ready), your saved picks aren't known: taps wait, so a pick can
-  // never be saved over an entry that hasn't loaded yet.
-  const loading = !snap || snap.ready === false;
-  return {cur, locked, off, open: !locked && !off && !loading, wait: !locked && !off && loading, loading, entries, mineE, picks, count, n: cur.games.length,
-    save: w ? w.save : '', dirty: !!(w && w.dirty)};
+// ---------------------------------------------------------------- NFL Pick'em (the compact card)
+// The pick'em is on the real NFL games; the game itself lives on its own screen (#/pickem). This card follows the
+// current week through pickem.js (imported at idle: it brings nfl.js), and draws at once without it.
+let pkMod = null, pkLoad = null;
+function loadPk() {
+  if (pkMod) return Promise.resolve(pkMod);
+  if (!pkLoad) pkLoad = import('./pickem.js').then(m => (pkMod = m), e => { pkLoad = null; throw e; });
+  return pkLoad;
 }
-const pkMode = pm => pm.off ? 'off' : pm.locked ? 'locked' : pm.wait ? 'wait' : 'open';
-
-function pkSideHTML(g, id, side, pm) {
-  const other = side === 'a' ? g.b : g.a;
-  const pick = pm.picks[g.key];
-  const on = pick === id, dim = !!pick && !on;
-  const cls = `rv-pk-side ${side} ${data.color(id).cls}${on ? ' is-on' : ''}${dim ? ' is-dim' : ''}`;
-  const inner = `<span class="rv-pk-av">${ui.avatar(id, {size: 36, you: id === data.me()})}<span class="rv-pk-ck" aria-hidden="true">${ui.icon('check')}</span></span>`
-    + `<span class="rv-pk-txt"><span class="rv-pk-n">${esc(nm(id))}</span><span class="rv-pk-r">${esc(recOf(liveRow(id)))}</span></span>`;
-  if (pm.open || pm.wait) {
-    // While your saved picks load the sides look the same but wait (aria-disabled; a tap explains).
-    return `<button type="button" class="${cls}${pm.wait ? ' is-wait' : ''}" data-pk="${esc(g.key)}" data-id="${esc(id)}" aria-pressed="${on}"${pm.wait ? ' aria-disabled="true"' : ''} aria-label="${esc(`${nm(id)} to beat ${nm(other)}`)}">${inner}</button>`;
+// {state: 'load'|'err'|'empty'|'ok', week, sum, next, board, snap}
+function npkModel() {
+  const u = st && st.wk && st.wk.npk;
+  if (u && u.error && !u.board) return {state: 'err', week: u.week};
+  if (!u || !pkMod) return {state: 'load'};
+  const games = u.board ? u.board.games : null;
+  if (!games) return {state: u.error ? 'err' : 'load', week: u.week};
+  if (!games.length) return {state: u.board.stale || u.board.error ? 'err' : 'empty', week: u.week};
+  const sum = pkMod.summarize(games, u.snap);
+  return {state: 'ok', week: u.week, sum, stale: !!u.board.stale, off: !!(u.snap && /denied/.test(String(u.snap.error || '')))};
+}
+function npkStrip(m) {
+  const u = st.wk.npk;
+  const mine = m.sum.mineMap || {};
+  return `<span class="rv-npk-strip" aria-hidden="true">${u.board.games.map(g => {
+    const t = mine[g.id];
+    const picked = t === g.home.abbr || t === g.away.abbr;
+    const win = g.state === 'post' && g.final && g.winner ? g[g.winner].abbr : null;
+    return `<i class="${win && picked ? (t === win ? 'is-right' : 'is-wrong') : picked ? 'is-on' : ''}"></i>`;
+  }).join('')}</span>`;
+}
+function npkInner(m) {
+  const go = ui.icon('chevron-right', {cls: 'chev'});
+  if (m.state === 'load') {
+    return `<span class="rv-npk-msg"><span class="spin" aria-hidden="true"></span><span>Loading this week's NFL games</span></span>${go}`;
   }
-  // data-id: patchPicks matches both variants by it.
-  return `<div class="${cls} is-static" data-id="${esc(id)}" role="img" aria-label="${esc(`${nm(id)}${on ? ', your pick' : ''}`)}">${inner}</div>`;
+  if (m.state === 'err') return `<span class="rv-npk-msg">${ui.icon('info')}<span>The NFL games didn't load. Open Pick'em to try again.</span></span>${go}`;
+  if (m.state === 'empty') return `<span class="rv-npk-msg">${ui.icon('calendar')}<span>No NFL games this week.</span></span>${go}`;
+  const s = m.sum;
+  const played = s.right + s.wrong;
+  const allIn = s.allIn;
+  let when;
+  if (s.live) when = `<span class="rv-npk-row is-live"><i class="c-pk-dot" aria-hidden="true"></i><span>${esc(`${plural(s.live, 'game', 'games')} in progress`)}</span></span>`;
+  else if (s.next) when = `<span class="rv-npk-row">${ui.icon('clock')}<span>${esc(`Next kickoff ${pkMod.kickText(s.next)}`)}</span></span>`;
+  // Open games but no next kickoff: their times aren't set yet (ESPN lists them TBD).
+  else if (s.open) when = `<span class="rv-npk-row">${ui.icon('clock')}<span>Kickoff times not set yet</span></span>`;
+  else when = `<span class="rv-npk-row">${ui.icon('check-circle')}<span>${esc(s.done ? `All ${s.n} games are final` : 'Every game has kicked off')}</span></span>`;
+  const lt = pkMod.leaderText(s);
+  const lead = lt
+    ? `<span class="rv-npk-row is-lead"><span class="rv-npk-av">${ui.avatarStack(s.leaders.slice(0, 3).map(r => (r.w.id ? {id: r.w.id, you: r.w.you} : {nick: r.w.name, you: r.w.you})), {max: 3, size: 20})}</span><span>${esc(lt)}</span></span>`
+    : `<span class="rv-npk-row">${ui.icon('medal')}<span>${esc(s.people ? `${plural(s.people, 'person', 'people')} picking this week` : 'Nobody has picked yet')}</span></span>`;
+  const cta = s.open && !allIn && !m.off ? (s.picked ? 'Finish your picks' : 'Make your picks') : 'See the games';
+  return `<span class="rv-npk-top" aria-hidden="true">`
+    + `<span class="rv-npk-prog${allIn ? ' is-all' : ''}"><span class="n2">${s.picked}</span><span class="rv-npk-of">of ${s.n} picked${allIn ? ui.icon('check') : ''}</span></span>`
+    + `<span class="rv-npk-rec"><span class="n3${played ? '' : ' ink3'}">${played ? `${s.right}–${s.wrong}` : '0–0'}</span><span class="rv-npk-rl">${played && !s.done ? 'so far' : 'your record'}</span></span>`
+    + `</span>`
+    + npkStrip(m)
+    + `<span class="rv-npk-rows" aria-hidden="true">${when}${lead}</span>`
+    + `<span class="rv-npk-go" aria-hidden="true"><span>${esc(cta)}</span>${ui.icon('chevron-right')}</span>`;
 }
-// After kickoff: who the league picked, per game.
-function pkCrowdHTML(g, pm) {
-  const A = [], B = [];
-  pm.entries.forEach(e => { const p = e.picks && e.picks[g.key]; if (p === g.a) A.push(e); else if (p === g.b) B.push(e); });
-  const n = A.length + B.length;
-  if (!n) return `<div class="rv-pk-crowd is-none"><span class="rv-pk-nobody">Nobody picked this one.</span></div>`;
-  const sort = l => l.sort((x, y) => (y.you - x.you) || atMs(x.at) - atMs(y.at));
-  const stack = (l, side) => `<span class="rv-pk-cs ${side}">${l.length ? ui.avatarStack(sort(l).map(stackItem), {max: 2, size: 28}) : ''}</span>`;
-  const label = `${nm(g.a)} ${A.length}, ${nm(g.b)} ${B.length}`;
-  return `<div class="rv-pk-crowd" role="img" aria-label="${esc(`Picks: ${label}`)}">${stack(A, 'a')}<span class="rv-pk-split" aria-hidden="true">${ui.splitBar(g.a, g.b, A.length / n, {label})}</span>${stack(B, 'b')}</div>`;
+function npkLabel(m) {
+  if (m.state !== 'ok') return "NFL Pick'em. Open the week's games";
+  const s = m.sum;
+  const bits = [`NFL Pick'em, week ${m.week}`, `${s.picked} of ${s.n} picked`];
+  if (s.right + s.wrong) bits.push(`Your record ${s.right} and ${s.wrong}`);
+  if (s.live) bits.push(`${plural(s.live, 'game', 'games')} in progress`);
+  else if (s.next) bits.push(`Next kickoff ${pkMod.kickText(s.next)}`);
+  const lt = pkMod.leaderText(s);
+  if (lt) bits.push(lt);
+  return bits.join('. ') + '. Open Pick\'em';
 }
-function pkGameHTML(g, pm) {
-  return `<li class="rv-pk-game" data-key="${esc(g.key)}"><div class="rv-pk-pair" role="group" aria-label="${esc(`${nm(g.a)} versus ${nm(g.b)}`)}">`
-    + pkSideHTML(g, g.a, 'a', pm) + `<span class="rv-pk-vs ovl" aria-hidden="true">vs</span>` + pkSideHTML(g, g.b, 'b', pm)
-    + `</div>${pm.locked && !pm.loading ? pkCrowdHTML(g, pm) : ''}</li>`;
+function npkHTML() {
+  const m = npkModel();
+  const wk = m.week ? `Week ${m.week}` : '';
+  return `<section class="rv-pk" id="rv-pickem" data-enter aria-labelledby="rv-pk-h">`
+    + `<div class="rv-pk-head"><h2 class="t-2" id="rv-pk-h">NFL Pick'em</h2><span class="ovl rv-pk-wk">${esc(wk)}</span></div>`
+    + `<a class="card rv-npk is-${m.state}" href="#/pickem" aria-label="${esc(npkLabel(m))}">${npkInner(m)}</a></section>`;
 }
-function pkStatusHTML(pm) {
-  const dots = pm.cur.games.map(g => `<i class="${pm.picks[g.key] === g.a || pm.picks[g.key] === g.b ? 'on' : ''}" data-dot="${esc(g.key)}"></i>`).join('');
-  const all = pm.count === pm.n;
-  let left;
-  if (pm.off) left = `<span class="rv-pk-msg">${ui.icon('info')}<span>${esc(PICK_OFF)}</span></span>`;
-  else if (pm.wait) left = `<span class="rv-pk-msg is-wait"><span class="spin" aria-hidden="true"></span><span>Loading your picks</span></span>`;
-  else if (pm.locked && !pm.count) left = `<span class="rv-pk-msg">${ui.icon('lock')}<span>${pm.loading ? 'Picks closed' : 'You sat this week out'}</span></span>`;
-  else {
-    const txt = pm.locked ? `Your picks: ${pm.count} of ${pm.n}` : all ? `All ${pm.n} picked` : `${pm.count} of ${pm.n} picked`;
-    left = `<span class="rv-pk-prog${all ? ' is-all' : ''}"><span class="rv-pk-dots" aria-hidden="true">${dots}</span><span class="rv-pk-count">${esc(txt)}</span></span>`;
-  }
-  let right = '';
-  if (pm.locked && !pm.off) right = `<span class="rv-pk-save">${ui.icon('lock')}<span>Closed</span></span>`;
-  else if (pm.open) {
-    if (pm.save === 'failed') right = `<button type="button" class="rv-pk-save is-failed" data-pk-retry>${ui.icon('x-circle')}<span>Not saved. Retry</span></button>`;
-    else if (pm.save === 'saving' || pm.save === 'pending') right = `<span class="rv-pk-save is-saving"><span class="spin" aria-hidden="true"></span><span>Saving</span></span>`;
-    else if (pm.save === 'saved' || (pm.mineE && pm.count)) right = `<span class="rv-pk-save is-saved">${ui.icon('check')}<span>Saved</span></span>`;
-  }
-  return `<div class="rv-pk-status">${left}${right}</div>`;
-}
-function pkFootHTML(pm) {
-  const n = pm.entries.length;
-  const last = pkLastHTML();
-  if (pm.off) return last;
-  if (pm.locked) {
-    if (pm.loading) return last;
-    return `<div class="rv-pk-foot"><span class="rv-pk-fi">${ui.icon('person')}<span>${n ? `${plural(n, 'person', 'people')} made picks` : 'Nobody made picks this week'}</span></span>`
-      + (n ? ui.button({label: "Everyone's picks", kind: 'plain', size: 's', attrs: {'data-pk-all': '', 'aria-haspopup': 'dialog'}}) : '') + `</div>` + last;
-  }
-  const inSoFar = pm.loading ? '' : n ? `${n} in so far` : 'Nobody in yet';
-  return `<div class="rv-pk-foot"><span class="rv-pk-fi">${ui.icon('clock')}<span>Closes ${esc(closeText(pm.cur))}</span></span><span class="rv-pk-in">${esc(inSoFar)}</span></div>` + last;
-}
-// Last week's pick'em, once it is graded: your score and the week's best. Opens the season standings.
-function pkLastText(r) {
-  const you = r.rows.find(x => x.you);
-  const best = r.winners.map(x => x.you ? 'you' : who(x).name);
-  const bestStr = best.length > 2 ? `${best.slice(0, 2).join(', ')} and ${best.length - 2} more` : andJoin(best);
-  const top = r.winners[0];
-  // One denominator: the week's decided games (a game you didn't pick is a miss), same as the Wrap.
-  const n = r.graded;
-  if (you && top && you.rank === 1) return `Week ${r.week}: you went ${you.right} for ${n}, ${best.length > 1 ? 'tied for the best' : 'the best'} in the league.`;
-  if (you && top) return `Week ${r.week}: you went ${you.right} for ${n}. ${bestStr[0].toUpperCase() + bestStr.slice(1)} went ${top.right} for ${n}.`;
-  if (you) return `Week ${r.week}: you went ${you.right} for ${n}.`;
-  if (top) return `Week ${r.week}: ${bestStr} went ${top.right} for ${n}, the best in the league.`;
-  return '';
-}
-function pkLastHTML() {
-  const r = st && st.wk && st.wk.last;
-  const txt = r ? pkLastText(r) : '';
-  if (!txt) return '';
-  return `<button type="button" class="rv-pk-last" data-pk-stand aria-haspopup="dialog">${ui.icon('trophy')}<span class="rv-pk-lt">${esc(txt)}</span>${ui.icon('chevron-right', {cls: 'chev'})}</button>`;
-}
-function loadLast() {
-  const w = st && st.wk;
-  if (!w || !w.cur || w.cur.week < 2) { if (w) w.last = null; return; }
-  const key = week.weekKey(w.cur.year, w.cur.week - 1);
-  let p;
-  try { p = Promise.resolve(week.weekResults(key)); } catch (e) { p = Promise.reject(e); }
-  p.then(r => {
-    if (!st || st.wk !== w || !w.cur || week.weekKey(w.cur.year, w.cur.week - 1) !== key) return;
-    w.last = r && r.graded && r.rows && r.rows.length ? r : null;
-    ui.whenIdle(() => { if (st && st.wk === w) patchPicks({}); });
-  }, e => console.warn('pickem last week', e));
-}
-function pkSub(pm) {
-  if (pm.locked) return `Picks are locked. Here's how the league called week ${pm.cur.week}.`;
-  return `Pick the winner of all ${pm.n} week ${pm.cur.week} games. A point for every one you get right.`;
-}
-function pickemHTML() {
-  const pm = pickModel();
-  if (!pm) return '';
-  return `<section class="rv-pk" id="rv-pickem" data-enter data-mode="${pkMode(pm)}" aria-labelledby="rv-pk-h">`
-    + `<div class="rv-pk-head"><h2 class="t-2" id="rv-pk-h">Pick'em</h2>`
-    + ui.button({label: 'Leaderboard', kind: 'plain', size: 's', icon: 'medal', attrs: {'data-pk-stand': '', 'aria-haspopup': 'dialog'}}) + `</div>`
-    + `<p class="rv-pk-sub">${esc(pkSub(pm))}</p>`
-    + `<div class="card rv-pk-card"><div class="rv-pk-sw">${pkStatusHTML(pm)}</div>`
-    + `<ol class="rv-pk-list" aria-label="${esc(`Week ${pm.cur.week} games`)}">${pm.cur.games.map(g => pkGameHTML(g, pm)).join('')}</ol>`
-    + `<div class="rv-pk-fw">${pkFootHTML(pm)}</div></div></section>`;
-}
-// Patch in place (keeps focus and running pops); a mode change (open -> locked, denied) renders afresh.
-function patchPicks({pop = null, all = false} = {}) {
+// Patch the card in place (its link keeps focus); the week label follows.
+function patchNpk() {
   const sec = st && st.el.querySelector('.rv-pk');
-  const pm = pickModel();
   if (!sec) return;
-  if (!pm) { sec.remove(); syncH2hTitle(); return; }
-  if (sec.dataset.mode !== pkMode(pm) || (pm.locked && sec._crowd !== crowdKey(pm))) {
-    const t = document.createElement('template');
-    t.innerHTML = pickemHTML();
-    const n = t.content.firstElementChild;
-    n._crowd = crowdKey(pm);
-    sec.replaceWith(n);
-    return;
-  }
-  morphInto(sec.querySelector('.rv-pk-sw'), pkStatusHTML(pm));
-  morphInto(sec.querySelector('.rv-pk-fw'), pkFootHTML(pm));
-  const sub = sec.querySelector('.rv-pk-sub');
-  if (sub && sub.textContent !== pkSub(pm)) sub.textContent = pkSub(pm);
-  sec.querySelectorAll('.rv-pk-game').forEach(li => {
-    const key = li.dataset.key;
-    const pick = pm.picks[key];
-    li.querySelectorAll('.rv-pk-side').forEach(b => {
-      const on = pick === b.dataset.id;
-      b.classList.toggle('is-on', on);
-      b.classList.toggle('is-dim', !!pick && !on);
-      if (b.tagName === 'BUTTON') b.setAttribute('aria-pressed', String(on));
-    });
-  });
-  if (pop) {
-    const b = sec.querySelector(`.rv-pk-side[data-pk="${CSS.escape(pop.key)}"][data-id="${CSS.escape(pop.id)}"]`);
-    if (b) {
-      ui.stamp(b.querySelector('.rv-pk-ck'), {from: .2});
-      ui.animate(b.querySelector('.rv-pk-av .av'), [{transform: 'scale(.86)'}, {transform: 'scale(1)'}], {spring: 'bouncy'});
-    }
-    const dot = sec.querySelector(`.rv-pk-dots > i[data-dot="${CSS.escape(pop.key)}"]`);
-    if (dot) ui.stamp(dot, {from: .3});
-  }
-  if (all) {
-    const c = sec.querySelector('.rv-pk-prog');
-    if (c) ui.stamp(c.querySelector('.rv-pk-count'), {from: 1.25});
-  }
-  if (st.wk.sheet && st.wk.sheet.kind === 'picks') fillSheet();
+  const m = npkModel();
+  const a = sec.querySelector('.rv-npk');
+  const wk = sec.querySelector('.rv-pk-wk');
+  if (wk) { const t = m.week ? `Week ${m.week}` : ''; if (wk.textContent !== t) wk.textContent = t; }
+  if (!a) return;
+  const html = npkInner(m);
+  if (a._html !== html) { a.innerHTML = html; a._html = html; }
+  a.className = `card rv-npk is-${m.state}`;
+  a.setAttribute('aria-label', npkLabel(m));
 }
-const crowdKey = pm => pm.locked && !pm.loading ? pm.entries.map(e => `${e.uid}:${JSON.stringify(e.picks || {})}`).sort().join(',') : '';
-
-function pickSide(key, id) {
+// Follow the current NFL week while Rivals is on screen (pickem.follow: ESPN polling + the picks subscription).
+function npkStart() {
   const w = st && st.wk;
-  const pm = pickModel();
-  if (!w || !pm) return;
-  if (pm.wait) { ui.toast('Still loading your picks. One second.', {icon: 'clock'}); return; }
-  if (!pm.open) { ui.toast(pm.off ? PICK_OFF : "Pick'em closed at kickoff.", {icon: pm.off ? 'info' : 'lock'}); return; }
-  const g = pm.cur.games.find(x => x.key === key);
-  if (!g || (id !== g.a && id !== g.b)) return;
-  const picks = Object.assign({}, pm.picks);
-  const clear = picks[key] === id;
-  if (clear) delete picks[key]; else picks[key] = id;
-  w.draft = picks;
-  w.touched.set(key, clear ? null : id); // the draft is rebased onto the server's picks with these on top
-  w.dirty = true;
-  w.save = 'pending';
-  const count = pm.cur.games.filter(x => picks[x.key] === x.a || picks[x.key] === x.b).length;
-  const all = !clear && count === pm.n && pm.count < pm.n; // the tap that completes the card (not a switch after it)
-  ui.haptic(all ? 'success' : clear ? 'selection' : 'light');
-  patchPicks({pop: clear ? null : {key, id}, all});
-  ui.announce(clear ? `Pick cleared. ${count} of ${pm.n} picked.` : `${nm(id)} to win. ${all ? `All ${pm.n} picked.` : `${count} of ${pm.n} picked.`}`);
-  clearTimeout(w.saveT);
-  w.saveT = setTimeout(flushPicks, 700); // debounced: a run of taps is one write
+  if (!w || w.npkStop || w.npkWant) return;
+  w.npkWant = true;
+  loadPk().then(pk => {
+    if (!st || st.wk !== w || !w.npkWant || w.npkStop) return;
+    w.npkStop = pk.follow(null, u => {
+      if (!st || st.wk !== w) return;
+      w.npk = u;
+      if (w.idleN) w.idleN();
+      w.idleN = ui.whenIdle(() => { w.idleN = null; if (st && st.wk === w) patchNpk(); });
+    });
+    patchNpk();
+  }, e => {
+    console.warn('pickem card', e);
+    if (!st || st.wk !== w) return;
+    w.npkWant = false;
+    w.npk = {error: 'load'};
+    patchNpk();
+  });
 }
-function flushPicks() {
+function npkStop() {
   const w = st && st.wk;
   if (!w) return;
-  clearTimeout(w.saveT);
-  w.saveT = 0;
-  if (!w.dirty || !w.draft) return;
-  sendPicks(w, w.draft);
-}
-function sendPicks(w, picks) {
-  w.dirty = false;
-  w.save = 'saving';
-  const seq = ++w.saveSeq;
-  let p;
-  try { p = week.savePicks(picks); } catch (e) { console.error(e); p = 'failed'; }
-  Promise.resolve(p).then(r => r, () => 'failed').then(r => {
-    if (seq !== w.saveSeq) return; // a newer save owns the status
-    if (r === 'ok' || r === 'dev') {
-      w.save = 'saved';
-      // The snapshot may have echoed the write before this resolved: hand the truth back to it.
-      const m = w.psnap && w.psnap.mine && typeof w.psnap.mine === 'object' ? w.psnap.mine.picks : null;
-      if (!w.dirty && w.draft && m && sameMap(m, w.draft)) { w.draft = null; w.touched.clear(); }
-    }
-    else if (r === 'locked') { w.save = ''; w.draft = null; w.touched.clear(); if (st && st.wk === w) ui.toast("Pick'em closed at kickoff.", {icon: 'lock'}); }
-    else if (r === 'denied') { w.save = ''; w.draft = null; w.touched.clear(); w.poff = true; if (st && st.wk === w) ui.toast(PICK_OFF, {icon: 'info'}); }
-    else { w.save = 'failed'; w.dirty = true; } // the draft stays; Retry (or the next pick) sends it again
-    if (st && st.wk === w) patchPicks({});
-  });
-  if (st && st.wk === w) patchPicks({});
+  w.npkWant = false;
+  if (w.npkStop) { try { w.npkStop(); } catch (_) {} w.npkStop = null; }
+  if (w.idleN) { w.idleN(); w.idleN = null; }
 }
 
 // ---------------------------------------------------------------- Past Matchups of the Week
@@ -939,55 +826,11 @@ function votesSheetBody() {
   if (!vm.total) return head + ui.empty({icon: 'versus', title: 'No votes yet.', body: vm.open ? 'Tap Vote on the game you most want to watch.' : ''});
   return head + groups + rest;
 }
-function picksSheetBody() {
-  const pm = pickModel();
-  if (!pm) return ui.empty({icon: 'versus', title: 'No games this week.'});
-  if (!pm.entries.length) return ui.empty({icon: 'list-number', title: 'Nobody made picks.'});
-  const games = pm.cur.games.map(g => {
-    const col = id => {
-      const l = pm.entries.filter(e => e.picks && e.picks[g.key] === id).sort((x, y) => (y.you - x.you) || who(x).name.localeCompare(who(y).name));
-      return `<div class="rv-sp-col"><div class="rv-sp-h">${ui.avatar(id, {size: 24})}<span class="rv-sp-hn">${esc(nm(id))}</span><span class="n5 rv-sp-hc">${l.length}</span></div>`
-        + (l.length ? `<ul class="rv-sp-l">${l.map(e => `<li>${whoAvatar(e, 20)}<span>${esc(who(e).you ? 'You' : who(e).name)}</span></li>`).join('')}</ul>` : `<p class="rv-sp-none">Nobody</p>`)
-        + `</div>`;
-    };
-    return `<div class="rv-sp-g" role="group" aria-label="${esc(`${nm(g.a)} versus ${nm(g.b)}`)}">${col(g.a)}${col(g.b)}</div>`;
-  }).join('');
-  return `<p class="rv-sh-sub">${esc(`${plural(pm.entries.length, 'person', 'people')} made picks for week ${pm.cur.week}.`)}</p>${games}`;
-}
-function standBody(res) {
-  if (res === null) return ui.skeleton('rows', 5, {label: 'Loading standings.'});
-  if (res && res.error && !(Array.isArray(res) && res.some(r => r && r.graded > 0))) {
-    return errKind(res.error) === 'denied'
-      ? ui.empty({icon: 'info', title: PICK_OFF})
-      : ui.empty({icon: 'info', title: "Standings didn't load.", body: 'Check your connection and try again.', action: {label: 'Try again', attrs: {'data-pk-stand-retry': ''}}});
-  }
-  const rows = Array.isArray(res) ? res.filter(r => r && r.graded > 0) : [];
-  const cur = st && st.wk && st.wk.cur;
-  if (!rows.length) {
-    return ui.empty({icon: 'list-number', title: 'No standings yet.', body: cur ? `The table starts once week ${cur.week} is played.` : 'The table starts once a week with picks is played.'});
-  }
-  const uid = st && st.wk ? mineUid(st.wk.psnap) : null;
-  let rank = 0, prev = null;
-  const body = rows.map((r, i) => {
-    const rk = r.rank != null ? r.rank : (prev && prev.right === r.right && prev.graded === r.graded ? rank : i + 1);
-    rank = rk; prev = r;
-    const you = r.you === true || (!!uid && r.uid === uid);
-    const w = who(Object.assign({}, r, {you}));
-    const lead = `<span class="n5 rv-st-rk${rk === 1 ? ' gold' : ''}">${rk}</span>${w.id ? ui.avatar(w.id, {size: 32, you, crown: rk === 1}) : ui.nickAvatar(w.name, {size: 32, you, crown: rk === 1})}`;
-    const weeks = r.weeks != null ? plural(Array.isArray(r.weeks) ? r.weeks.length : +r.weeks || 0, 'week', 'weeks') : '';
-    // Out of every decided game in the weeks they played (week.js `games`; a skipped game is a miss).
-    const of = r.games || r.graded;
-    const pct = of ? `${Math.round(100 * r.right / of)}% right` : '';
-    return ui.row({lead, title: w.you ? `${w.name} (you)` : w.name, sub: [weeks, pct].filter(Boolean).join(' · '),
-      trail: `<span class="rv-st-v"><span class="n4">${r.right}</span><span class="t-cap ink3">of ${of}</span></span>`, me: you, key: r.uid});
-  }).join('');
-  return `<p class="rv-sh-sub">${esc(`${cur ? cur.year : ''} season. A point for every winner called; a game you skip is a miss.`.trim())}</p>` + ui.group(body, {cls: 'rv-st-list'});
-}
 function fillSheet() {
   const w = st && st.wk;
   const s = w && w.sheet;
   if (!s || !s.s.el.isConnected) return;
-  const html = s.kind === 'votes' ? votesSheetBody() : s.kind === 'picks' ? picksSheetBody() : standBody(w.stand);
+  const html = votesSheetBody();
   if (s.html === html) return;
   s.html = html;
   const b = s.s.body;
@@ -996,39 +839,23 @@ function fillSheet() {
   b.scrollTop = top;
   ui.hydrate(b);
 }
+// Who voted (the NFL pick'em's sheets live on its own screen, #/pickem).
 function openWeekSheet(kind, focusKey) {
   const w = st && st.wk;
-  if (!w) return;
-  const vm = kind === 'votes' ? voteModel() : null;
+  if (!w || kind !== 'votes') return;
+  const vm = voteModel();
   const cur = w.cur;
-  const title = kind === 'votes' ? `Week ${cur ? cur.week : ''} votes` : kind === 'picks' ? `Week ${cur ? cur.week : ''} picks` : "Pick'em leaderboard";
-  const body = kind === 'votes' ? votesSheetBody() : kind === 'picks' ? picksSheetBody() : standBody(w.stand);
+  const body = votesSheetBody();
   const rec = {kind, html: body, s: null};
-  rec.s = ui.openSheet({title, body, cls: `sh-rv sh-rv-${kind}`, detents: ['medium', 'large'],
+  rec.s = ui.openSheet({title: `Week ${cur ? cur.week : ''} votes`, body, cls: 'sh-rv sh-rv-votes', detents: ['medium', 'large'],
     onClose: () => { if (st && st.wk === w && w.sheet === rec) w.sheet = null; }});
   w.sheet = rec;
-  rec.s.el.addEventListener('click', e => {
-    if (!e.target.closest('[data-pk-stand-retry]') || !st || st.wk !== w) return;
-    w.stand = null;
-    fillSheet();
-    loadStandings(true);
-  });
-  if (kind === 'votes' && focusKey && vm && vm.tally[focusKey]) {
+  if (focusKey && vm && vm.tally[focusKey]) {
     // Opened from a game's voters: that game's group first in view.
     const b = rec.s.body;
     const h = [...b.querySelectorAll('.group-h')].find(x => x.textContent.startsWith(pairName(focusKey)));
     if (h && h !== b.querySelector('.group-h')) b.scrollTop = Math.max(0, h.getBoundingClientRect().top - b.getBoundingClientRect().top + b.scrollTop - 12);
   }
-  if (kind === 'stand') loadStandings(true);
-}
-function loadStandings(force) {
-  const w = st && st.wk;
-  if (!w || (w.standP && !force)) return w && w.standP;
-  let p;
-  try { p = Promise.resolve(week.standings()); } catch (e) { p = Promise.reject(e); }
-  w.standP = p.then(rows => { w.stand = Array.isArray(rows) ? rows : []; }, e => { console.warn('standings', e); w.stand = {error: e}; w.standP = null; })
-    .then(() => { if (st && st.wk === w && w.sheet && w.sheet.kind === 'stand') { const b = w.sheet.s.body; ui.crossfade(b, () => fillSheet()); } });
-  return w.standP;
 }
 function loadHistory() {
   const w = st && st.wk;
@@ -1046,14 +873,9 @@ function loadHistory() {
 // ---------------------------------------------------------------- Subscriptions and lifecycle
 function newWk() {
   const cur = curWeek();
-  return {cur, vsnap: null, psnap: null, vpend: undefined, vseq: 0, vT: 0, voff: false, poff: false,
-    draft: null, touched: new Map(), dirty: false, save: '', saveT: 0, saveSeq: 0, hist: null, histSeq: 0, stand: null, standP: null,
-    unsub: [], idleV: null, idleP: null, sheet: null, lockedShown: lockedNow(cur), started: false, last: null};
-}
-function sameMap(x, y) {
-  const a = x || {}, b = y || {};
-  const ka = Object.keys(a).filter(k => a[k]), kb = Object.keys(b).filter(k => b[k]);
-  return ka.length === kb.length && ka.every(k => a[k] === b[k]);
+  return {cur, vsnap: null, vpend: undefined, vseq: 0, vT: 0, voff: false, hist: null, histSeq: 0,
+    unsub: [], idleV: null, sheet: null, lockedShown: lockedNow(cur), started: false,
+    npk: null, npkStop: null, npkWant: false, idleN: null};
 }
 function wkSubscribe() {
   const w = st && st.wk;
@@ -1075,34 +897,13 @@ function wkSubscribe() {
     if (w.idleV) w.idleV();
     w.idleV = ui.whenIdle(() => { w.idleV = null; if (st && st.wk === w) patchVotes({animate: true}); });
   };
-  const onPicks = s => {
-    if (!st || st.wk !== w || !w.cur || w.cur.key !== key || !s) return;
-    const e = errKind(s.error);
-    w.poff = e === 'denied';
-    if (e && !s.entries) { if (!w.psnap) w.psnap = {entries: [], mine: null, error: s.error}; }
-    else w.psnap = s;
-    const m = s.mine && typeof s.mine === 'object' ? s.mine.picks : null;
-    if (w.draft && s.ready !== false && !e) {
-      // The server's picks are the base; only the games you tapped here sit on top of them. A pick made on
-      // another phone (or saved before this screen knew about it) is never dropped by a later save from here.
-      const next = Object.assign({}, m || {});
-      w.touched.forEach((v, k) => { if (v) next[k] = v; else delete next[k]; });
-      if (!sameMap(next, w.draft)) w.draft = next;
-    }
-    // Your own saved picks came back and match what's on screen: drop the draft (the server is the truth).
-    if (w.draft && !w.dirty && w.save !== 'saving' && m && sameMap(m, w.draft)) { w.draft = null; w.touched.clear(); }
-    if (w.idleP) w.idleP();
-    w.idleP = ui.whenIdle(() => { w.idleP = null; if (st && st.wk === w) patchPicks({}); });
-  };
   try { w.unsub.push(week.subscribeVotes(key, onVotes)); } catch (e) { console.error(e); }
-  try { w.unsub.push(week.subscribePicks(key, onPicks)); } catch (e) { console.error(e); }
 }
 function wkUnsub() {
   const w = st && st.wk;
   if (!w) return;
   w.unsub.splice(0).forEach(f => { try { if (typeof f === 'function') f(); } catch (_) {} });
   if (w.idleV) { w.idleV(); w.idleV = null; }
-  if (w.idleP) { w.idleP(); w.idleP = null; }
 }
 function wkStart() {
   const w = st && st.wk;
@@ -1110,18 +911,17 @@ function wkStart() {
   w.started = true;
   wkSubscribe();
   loadHistory();
-  loadLast();
+  npkStart();
 }
-// Kickoff passes while the screen is open: everything turns read-only in place.
+// Kickoff passes while the screen is open: the vote turns read-only in place.
 function wkTick() {
   const w = st && st.wk;
   if (!w || !w.cur) return;
   const locked = lockedNow(w.cur);
   if (locked === w.lockedShown) return;
   w.lockedShown = locked;
-  if (locked) { clearTimeout(w.saveT); w.saveT = 0; w.dirty = false; w.vpend = undefined; }
+  if (locked) w.vpend = undefined;
   patchVotes({animate: false});
-  patchPicks({});
 }
 // New data: the week may have moved on (subscribe to the new one), records and results changed.
 function wkData() {
@@ -1130,25 +930,11 @@ function wkData() {
   const cur = curWeek();
   const moved = (cur && cur.key) !== (w.cur && w.cur.key);
   if (moved) {
-    flushPicks();
     wkUnsub();
-    Object.assign(w, {cur, vsnap: null, psnap: null, vpend: undefined, draft: null, touched: new Map(), dirty: false, save: '', stand: null, standP: null, lockedShown: lockedNow(cur)});
+    Object.assign(w, {cur, vsnap: null, vpend: undefined, lockedShown: lockedNow(cur)});
     if (w.started) wkSubscribe();
   } else w.cur = cur;
-  replacePickem();
-  if (w.started) { loadHistory(); loadLast(); }
-}
-// Render the Pick'em section afresh (records, you-rings, a new week), or add / remove it.
-function replacePickem() {
-  const sec = st.el.querySelector('.rv-pk');
-  const html = pickemHTML();
-  if (sec) {
-    if (html) { const t = document.createElement('template'); t.innerHTML = html; sec.replaceWith(t.content.firstElementChild); } else sec.remove();
-  } else if (html) {
-    const anchor = st.el.querySelector('.rv-past-w');
-    if (anchor) anchor.insertAdjacentHTML('beforebegin', html);
-  }
-  syncH2hTitle();
+  if (w.started) loadHistory();
 }
 function syncH2hTitle() {
   const t = st && st.el.querySelector('.rv-h2h-t');
@@ -1190,7 +976,7 @@ function pageHTML(m) {
     return ui.largeTitle({title: 'Rivals'})
       + ui.empty({icon: 'versus', title: 'No rivals yet.', body: 'Rivals needs at least two managers in the league.'});
   }
-  const wk = motwHTML(st ? st.lens : readLens()) + pickemHTML();
+  const wk = motwHTML(st ? st.lens : readLens()) + npkHTML();
   const past = st && st.wk && st.wk.hist ? pastHTML(st.wk.hist) : '';
   return ui.largeTitle({title: 'Rivals'})
     + `<div class="rv-week">${wk}<div class="rv-past-w" id="rv-past">${past}</div></div>`
@@ -1612,14 +1398,10 @@ function chooseOpp(id) {
 
 function onClick(e) {
   const t = e.target.closest && e.target.closest('[data-swap], [data-pick], [data-opp], [data-motw], [data-motw-more], [data-motw-share], '
-    + '[data-vote], [data-vt-who], [data-pk], [data-pk-stand], [data-pk-all], [data-pk-retry], [data-past-more]');
+    + '[data-vote], [data-vt-who], [data-past-more]');
   if (!t || !st) return;
   if (t.hasAttribute('data-vote')) vote(t.dataset.vote);
   else if (t.hasAttribute('data-vt-who')) openWeekSheet('votes', t.dataset.vtWho);
-  else if (t.hasAttribute('data-pk')) pickSide(t.dataset.pk, t.dataset.id);
-  else if (t.hasAttribute('data-pk-stand')) openWeekSheet('stand');
-  else if (t.hasAttribute('data-pk-all')) openWeekSheet('picks');
-  else if (t.hasAttribute('data-pk-retry')) { const w = st.wk; if (w && w.draft) { ui.haptic('light'); sendPicks(w, w.draft); } }
   else if (t.hasAttribute('data-past-more')) { ui.haptic('light'); togglePast(); }
   else if (t.hasAttribute('data-motw')) chooseMotw(t.dataset.motw);
   else if (t.hasAttribute('data-motw-more')) { ui.haptic('light'); toggleMore(!st.all); }
@@ -1653,15 +1435,11 @@ export default {
       cleanups: [], entrance: false, shown: false, lens: readLens(), all: false, pastAll: false, wk: null, goSec: secOf(ctx.query)};
     st.wk = newWk();
     el.addEventListener('click', onClick);
-    // The week: Firestore starts once the first paint is done (never blocks the screen); kickoff is checked
-    // every 20 s while the screen is visible; a pick still waiting for its debounce is sent when the page goes away.
+    // The week: Firestore and the NFL scores start once the first paint is done (never block the screen); the
+    // vote's kickoff is checked every 20 s while the screen is visible.
     const wk = st.wk;
     ui.onIdle(() => { if (st && st.wk === wk) wkStart(); });
     ctx.timer(wkTick, 20000);
-    const onGone = () => { if (st && st.wk === wk) flushPicks(); };
-    window.addEventListener('pagehide', onGone);
-    document.addEventListener('visibilitychange', onGone);
-    st.cleanups.push(() => { window.removeEventListener('pagehide', onGone); document.removeEventListener('visibilitychange', onGone); });
     const onLens = e => {
       if (!st || !e.detail || e.detail.name !== 'motw-lens') return;
       st.lens = e.detail.value;
@@ -1714,7 +1492,7 @@ export default {
     if (!st || st.ctx !== ctx) return;
     syncChrome();
     if (st.goSec) revealSec();
-    if (st.wk && !st.wk.started) wkStart();
+    if (st.wk && !st.wk.started) wkStart(); else if (st.wk) npkStart();
     if (st.shown) return;
     st.shown = true;
     if (!st.entrance || !st.m || !st.m.n) return;
@@ -1781,12 +1559,13 @@ export default {
     // New games or a new schedule re-rank the week (and may move it on); a new "me" moves the you-ring.
     if (ctx.reason === 'data') wkData();
     if (ctx.reason === 'data' || ctx.reason === 'me') patchMotw(false);
-    if (ctx.reason === 'me') { replacePickem(); patchPast(false); }
+    if (ctx.reason === 'me') { patchNpk(); patchPast(false); }
     if (st.goSec) revealSec();
   },
 
   onHide(ctx) {
-    if (st && st.ctx === ctx) flushPicks();
+    // The NFL card stops polling ESPN while Rivals is out of sight (it resumes from the cache in onShow).
+    if (st && st.ctx === ctx) npkStop();
   },
 
   onAction(id, ctx) {
@@ -1801,7 +1580,7 @@ export default {
   unmount(el, ctx) {
     if (!st || st.ctx !== ctx) return;
     el.removeEventListener('click', onClick);
-    flushPicks();
+    npkStop();
     wkUnsub();
     if (st.wk) { clearTimeout(st.wk.vT); st.wk.sheet = null; } // an open sheet goes with the navigation that unmounts us
     st.cleanups.splice(0).forEach(f => { try { f(); } catch (_) {} });

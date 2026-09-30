@@ -1,12 +1,13 @@
-// College (spec 7.3): five players, pick the college each was drafted out of. Sub-module of the run cover.
-// Owner: puzzle-run package.
+// College (spec 7.3): pick the college each player was drafted out of. Five players on v1 and v2 days, two on v3
+// days: every count, dot and points label comes from the day. Sub-module of the run cover. Owner: puzzle-run package.
 //
 // View-local state mirrors the old dstate.colShow: after a pick the card stays on that player (verdict plus
-// "Next player"); "Next player" clears it and shows the next unanswered player, or the recap after five.
+// "Next player"); "Next player" clears it and shows the next unanswered player, or the recap after the last one.
 // Rendered once; every interaction patches individual nodes.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as daily from '../core/daily.js';
+import {allAnswered} from './board.js';
 
 const esc = data.esc;
 const EASE_IN = 'cubic-bezier(.4,0,1,1)', EASE_OUT = 'cubic-bezier(.22,1,.36,1)';
@@ -46,8 +47,10 @@ function dotsHTML(gold) {
 function countText(showR) {
   if (showR != null) return `Player ${showR + 1} of ${total()}`;
   const a = daily.DS.col.a;
-  return a.some(skipped) ? `Locked in · ${a.filter(x => !skipped(x)).length} of ${total()} answered` : 'All five answered';
+  return a.some(skipped) ? `Locked in · ${a.filter(x => !skipped(x)).length} of ${total()} answered` : allAnswered(total());
 }
+/** The perfect-score stamp: "5 for 5" (or "2 for 2"). */
+const sweep = () => `${total()} for ${total()}`;
 
 function peeksHTML(n) {
   return (n >= 2 ? '<span class="cl-peek cl-p2" aria-hidden="true"></span>' : '') + (n >= 1 ? '<span class="cl-peek cl-p1" aria-hidden="true"></span>' : '');
@@ -78,7 +81,7 @@ function recapHTML(stampHidden) {
     const lead = ui.icon(ok ? 'check-circle' : 'x-circle', {cls: 'cl-ri ' + (ok ? 'tint' : miss ? 'ink3' : 'wrong'), label: ok ? 'Right' : miss ? 'Not answered' : 'Wrong'});
     return ui.row({lead, title: daily.PP[q[0]][0], sub});
   }).join('');
-  const stamp = score === total() ? `<span class="rn-stamp cl-stamp" data-cl-stamp${stampHidden ? ' style="opacity:0"' : ''}>5 for 5</span>` : '';
+  const stamp = score === total() ? `<span class="rn-stamp cl-stamp" data-cl-stamp${stampHidden ? ' style="opacity:0"' : ''}>${sweep()}</span>` : '';
   return `<div class="cl-recap card" data-cl-recap tabindex="-1" aria-label="${esc(`College recap: ${score} of ${total()}, ${pts} points`)}" role="group">`
     + `<div class="cl-rh"><p class="cl-rs"><span class="n2">${score} of ${total()}</span><span class="n4 cl-rp ${pts ? 'tint' : 'ink3'}">+${esc(data.nf(pts))} pts</span></p>${stamp}</div>`
     + ui.group(rows, {cls: 'cl-rlist'})
@@ -140,7 +143,8 @@ function pick(I, j, btn, kb) {
   I.colShow = res.row;
   paintOptions(I, res.row, j);
   paintDots(I);
-  const vt = res.correct ? `Correct. +${daily.PTS.col}` : `It was ${optText(res.row, res.ans)}.`;
+  const pts = daily.PTS.col; // per player: 40 (v1, v2) or 100 (v3)
+  const vt = res.correct ? `Correct. +${pts}` : `It was ${optText(res.row, res.ans)}.`;
   const v = I.main.querySelector('[data-cl-verdict]');
   const vtEl = v.querySelector('[data-cl-vt]');
   vtEl.textContent = vt;
@@ -150,7 +154,7 @@ function pick(I, j, btn, kb) {
   ui.animate(v, [{opacity: 0, transform: 'translateY(8px)'}, {opacity: 1, transform: 'none'}], {spring: 'smooth'});
   ui.announce(vt);
   if (res.correct) {
-    ui.floatText(btn, `+${daily.PTS.col}`);
+    ui.floatText(btn, `+${pts}`);
     ui.haptic('success');
   } else {
     ui.shake(btn);
@@ -224,14 +228,14 @@ function celebrate(I) {
     d.classList.add('is-gold');
     ui.animate(d.querySelector('b'), [{opacity: 0, transform: 'scale(.2)'}, {opacity: 1, transform: 'none'}], {spring: 'bouncy', delay: r * 80, fill: 'backwards'});
   });
-  I.dots.setAttribute('aria-label', dotsLabel() + ', 5 for 5');
+  I.dots.setAttribute('aria-label', dotsLabel() + ', ' + sweep());
   const stamp = I.main.querySelector('[data-cl-stamp]');
   I.timers.push(setTimeout(() => {
     if (I.dead || !stamp) return;
     stamp.style.opacity = '';
     ui.stamp(stamp);
     ui.haptic('celebrate');
-    ui.announce('5 for 5.');
+    ui.announce(sweep() + '.');
     I.timers.push(setTimeout(() => {
       if (!I.dead && stamp.isConnected) ui.confetti(stamp.getBoundingClientRect(), {count: 24, colors: ['#7CF058', '#FFFFFF']});
     }, 140));

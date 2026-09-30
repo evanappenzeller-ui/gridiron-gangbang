@@ -104,15 +104,34 @@
 .v-today .c-wk-row.is-pressed .c-wk-tile { background: var(--surface-3); transition: none; }
 .v-today .c-wk-tile .ic { stroke-width: 1.9; }
 .v-today .c-wk-sub { color: var(--ink-2); }
+/* "3 of 16 picked · next kickoff Thu 5:15 PM" wraps rather than losing the time at phone widths. */
+.v-today .c-wk-row .row-sub.c-wk-sub {
+  white-space: normal; text-overflow: clip;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
+}
 .v-today .c-wk-trail { gap: 6px; }
 .v-today .c-wk-trail:empty { display: none; }
 .v-today .c-wk-trail .pill { font-weight: 600; }
 .v-today .c-wk-trail .stack { --stack-ring: var(--surface-1); }
 .v-today .c-wk-row.is-pressed .c-wk-trail .stack { --stack-ring: var(--surface-2); }
-.v-today .c-wk-pips { display: inline-flex; gap: 4px; }
-.v-today .c-wk-pips > i { width: 7px; height: 7px; border-radius: 50%; background: var(--surface-3); }
-.v-today .c-wk-pips > i.is-on { background: var(--tint); }
 .v-today .c-wk-row .chev { margin-left: 8px; margin-right: -4px; }
+/* NFL Pick'em row: a check once every open game is picked; "Live" with a pulsing dot while games are on. */
+.v-today .c-wk-ok { color: var(--tint); stroke-width: 2; }
+.v-today .c-wk-live {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 26px; padding: 0 10px 0 9px;
+  border-radius: var(--r-pill);
+  background: var(--wrong-soft); color: var(--wrong);
+  font: 700 var(--fs-cap)/1 var(--font-text); letter-spacing: .04em; text-transform: uppercase;
+}
+.v-today .c-wk-live > i { position: relative; width: 7px; height: 7px; border-radius: 50%; background: var(--wrong); }
+.v-today .c-wk-live > i::after {
+  content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--wrong);
+  animation: c-wk-pulse 1.6s var(--ease-out) infinite;
+}
+@keyframes c-wk-pulse { from { transform: scale(1); opacity: .7; } to { transform: scale(2.6); opacity: 0; } }
+html.rm .v-today .c-wk-live > i::after { animation: none; opacity: 0; }
+@media (prefers-reduced-motion: reduce) { .v-today .c-wk-live > i::after { animation: none; opacity: 0; } }
 
 /* ---------------------------------------------------------------- The Wrap (latest completed week) */
 .v-today .c-wrapc { padding: 16px; }

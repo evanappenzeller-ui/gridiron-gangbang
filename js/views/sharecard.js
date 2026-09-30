@@ -49,7 +49,7 @@ function flamePath() {
 export async function renderShareCard(o = {}) {
   if (daily.status !== 'ready' || !daily.DAY) throw new Error('The Daily is not loaded');
   const ds = o.ds || daily.DS, day = o.day || daily.DAY, pnum = o.pnum || daily.PNUM;
-  const v2 = daily.isV2(day);
+  const ver = daily.dayVersion(day), v2 = ver >= 2; // v2 and v3 days have five rows
   const max = daily.maxPts(day);
   const total = daily.totalPts(ds, day);
   const grade = daily.gradeFor(total, max);
@@ -92,10 +92,13 @@ export async function renderShareCard(o = {}) {
   c.font = `400 34px ${txt}`;
   c.fillText(dateStr, W / 2, 204);
 
-  // Layout: v1 (three rows) keeps the original positions; v2 (five rows) tightens the hero and the rows.
-  const G = v2
-    ? {tot: 220, totY: 420, ofY: 474, grY: 548, grS: 52, rule: 592, rows: [616, 708, 800, 892, 984], sq: 64, sqGap: 12, pip: 50, cell: 46, cellGap: 8}
-    : {tot: 260, totY: 468, ofY: 526, grY: 612, grS: 56, rule: 668, rows: [706, 826, 928], sq: 72, sqGap: 14, pip: 56, cell: 56, cellGap: 10};
+  // Layout: v1 (three rows) keeps the original positions; v2 (five rows, a 3 x 3 grid) tightens the hero and the rows;
+  // v3 (five rows, every row one line: two squares, pips, or 1 x 2 grid squares) spaces the rows evenly.
+  const G = ver === 3
+    ? {tot: 240, totY: 440, ofY: 496, grY: 574, grS: 54, rule: 622, rows: [654, 752, 850, 948, 1046], sq: 72, sqGap: 14, pip: 56, cell: 72, cellGap: 14}
+    : v2
+      ? {tot: 220, totY: 420, ofY: 474, grY: 548, grS: 52, rule: 592, rows: [616, 708, 800, 892, 984], sq: 64, sqGap: 12, pip: 50, cell: 46, cellGap: 8}
+      : {tot: 260, totY: 468, ofY: 526, grY: 612, grS: 56, rule: 668, rows: [706, 826, 928], sq: 72, sqGap: 14, pip: 56, cell: 56, cellGap: 10};
 
   // Total, "of 1,000", grade
   c.fillStyle = C.ink;
@@ -133,10 +136,12 @@ export async function renderShareCard(o = {}) {
     c.fillText(t, R, y + 56);
     spacing(c, 0);
   };
-  // Five rounded squares (College, Faces): tint right, red wrong, grey unanswered.
+  // One rounded square per item (College, Faces: five, or two on a v3 day), right-aligned: tint right, red wrong,
+  // grey unanswered.
   const squares = (marks, y) => {
-    for (let i = 0; i < 5; i++) {
-      const x = R - (5 - i) * G.sq - (4 - i) * G.sqGap;
+    const n = marks.length;
+    for (let i = 0; i < n; i++) {
+      const x = R - (n - i) * G.sq - (n - 1 - i) * G.sqGap;
       rr(c, x, y, G.sq, G.sq, 16);
       c.fillStyle = marks[i] == null ? C.s3 : marks[i] ? C.tint : C.wrong;
       c.fill();
@@ -150,17 +155,17 @@ export async function renderShareCard(o = {}) {
   order.forEach((id, n) => {
     const y = G.rows[n];
     if (id === 'col') {
-      // College: five squares
+      // College: one square per player
       label('COLLEGE', daily.ptsCol(ds, day), y + 34);
       squares(day.c.map((q, r) => ds.col.a[r] == null ? null : ds.col.a[r] === q[2]), y);
     } else if (id === 'sil') {
-      // Faces: five squares, one per silhouette
+      // Faces: one square per silhouette
       const a = (ds.sil && ds.sil.a) || [];
       label('FACES', daily.ptsSil(ds, day), y + 34);
       squares((day.s || []).map((q, r) => a[r] == null ? null : a[r] === q.a), y);
     } else if (id === 'who') {
       // Mystery: seven pips with the solving clue lit, or STUMPED
-      label('MYSTERY', daily.ptsWho(ds), y + 34);
+      label('MYSTERY', daily.ptsWho(ds, day), y + 34);
       if (ds.who.done && !ds.who.won) word('STUMPED', y, C.wrong);
       else {
         const at = ds.who.won ? ds.who.clues : 0;
@@ -175,7 +180,7 @@ export async function renderShareCard(o = {}) {
     } else if (id === 'jr') {
       // Journey: three guesses, the solving one lit (misses in red), or MISSED
       const jr = ds.jr || {g: [], done: false, won: false};
-      label('JOURNEY', daily.ptsJr(ds), y + 34);
+      label('JOURNEY', daily.ptsJr(ds, day), y + 34);
       if (jr.done && !jr.won) word('MISSED', y, C.wrong);
       else {
         const at = daily.jrGuessNo(ds);
@@ -189,12 +194,12 @@ export async function renderShareCard(o = {}) {
         }
       }
     } else {
-      // Grid: 3×3 squares
-      label('GRID', daily.ptsGrid(ds), y + 34);
-      const step = G.cell + G.cellGap;
-      for (let k = 0; k < 9; k++) {
-        const r = Math.floor(k / 3), cc = k % 3;
-        const x = R - (3 - cc) * G.cell - (2 - cc) * G.cellGap, yy = y + r * step;
+      // Grid: its squares in the day's shape (3 x 3, or 1 x 2 on a v3 day)
+      label('GRID', daily.ptsGrid(ds, day), y + 34);
+      const step = G.cell + G.cellGap, sh = daily.gridShape(day), nc = sh.cols.length;
+      for (let k = 0; k < sh.n; k++) {
+        const r = Math.floor(k / nc), cc = k % nc;
+        const x = R - (nc - cc) * G.cell - (nc - 1 - cc) * G.cellGap, yy = y + r * step;
         const cell = ds.grid.cells[k];
         rr(c, x, yy, G.cell, G.cell, 12);
         c.fillStyle = !cell ? C.s3 : cell.ok ? C.tint : C.wrong;

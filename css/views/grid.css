@@ -2,7 +2,7 @@
 
 .v-run .gd {
   display: grid;
-  grid-template-columns: 88px repeat(3, minmax(0, 1fr));
+  grid-template-columns: 88px repeat(var(--gd-cols, 3), minmax(0, 1fr));
   gap: 6px;
   margin-top: 2px;
 }
@@ -96,6 +96,58 @@
 .v-run .gd-give { font-weight: 600; }
 .v-run .gd-done { margin-top: 0; align-self: center; text-align: center; color: var(--ink-2); max-width: 32em; }
 .v-run .gd-rule { text-align: center; margin-top: 8px; }
+
+/* One-row grids (v3 days: 1 row x 2 columns). The row criterion is a banner (with the score ring at its end); a fork
+   splits it into the column headers, each over one large square, so the two squares read as "banner x column". */
+.v-run .gd-one { grid-template-columns: repeat(var(--gd-cols, 2), minmax(0, 1fr)); gap: 0 10px; margin-top: 4px; }
+.v-run .gd-band {
+  grid-column: 1 / -1;
+  display: flex; align-items: center; gap: 12px;
+  min-height: 60px; padding: 8px 10px 8px 12px;
+  border-radius: var(--r-group);
+  background: var(--surface-1);
+}
+.v-run .gd-band .gd-rb {
+  flex: 1 1 auto; min-width: 0;
+  flex-direction: row; align-items: center; justify-content: flex-start; gap: 10px;
+  padding-right: 0;
+  text-align: left; color: var(--ink);
+  font: 600 var(--fs-headline)/var(--lh-headline) var(--font-text);
+}
+.v-run .gd-band .gd-hi { width: 32px; height: 32px; border-radius: 9px; background: var(--surface-2); color: var(--ink-2); }
+.v-run .gd-band .gd-hi > .ic { width: 18px; height: 18px; }
+.v-run .gd-one .gd-corner { flex: none; height: 44px; padding-left: 4px; }
+/* Fork: a stub down from the banner, then a bracket over the column centers. Drawn with borders, no motion. */
+.v-run .gd-fork { grid-column: 1 / -1; position: relative; height: 18px; }
+.v-run .gd-fork > i { position: absolute; left: calc(50% - .75px); top: 0; width: 1.5px; height: 9px; background: var(--ink-4); }
+.v-run .gd-fork::before {
+  content: ""; position: absolute; top: 8px; bottom: 0;
+  left: calc((100% - (var(--gd-cols, 2) - 1) * 10px) / (2 * var(--gd-cols, 2)));
+  right: calc((100% - (var(--gd-cols, 2) - 1) * 10px) / (2 * var(--gd-cols, 2)));
+  border: 1.5px solid var(--ink-4); border-bottom: 0; border-radius: 8px 8px 0 0;
+}
+.v-run .gd-one .gd-ch {
+  height: auto; min-height: 58px;
+  justify-content: flex-start; gap: 5px;
+  padding: 2px 4px 10px;
+  color: var(--ink);
+  font: 600 15px/19px var(--font-text);
+}
+.v-run .gd-one .gd-ch .gd-hi { width: 26px; height: 26px; border-radius: 8px; }
+.v-run .gd-one .gd-ch .gd-hi > .ic { width: 15px; height: 15px; }
+.v-run .gd-one .gc { aspect-ratio: 1 / .92; min-height: 128px; padding: 14px 12px; gap: 6px; border-radius: var(--r-card); }
+.v-run .gd-one .gc-plus > .ic { width: 28px; height: 28px; }
+.v-run .gc-ask { font: 500 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+.v-run .gd-one .gc-name { font-size: 17px; line-height: 21px; }
+.v-run .gd-one .gc-try { font-size: var(--fs-sub); line-height: 19px; }
+.v-run .gd-one .gc.is-no .gc-try { font-size: 14px; line-height: 18px; }
+.v-run .gd-one .gc-badge { top: 9px; right: 9px; width: 22px; height: 22px; }
+.v-run .gd-one .gc-badge > svg { width: 14px; height: 14px; }
+.v-run .gd-one .gc.is-no .gc-badge { width: 20px; height: 20px; }
+.v-run .gd-one .gc.is-no .gc-badge > svg { width: 12px; height: 12px; }
+.v-run .gd-one .gc-deep { top: -8px; left: -4px; }
+.v-run .gd-one .gc-deep .badge { height: 20px; padding: 0 7px; font-size: 12px; }
+.v-run .gd-one .gc.is-open.is-pressed { transform: scale(.97); }
 
 /* Narrow phones: 360 px and below */
 @media (max-width: 374px) {

@@ -1,0 +1,305 @@
+/* pickem.css: NFL Pick'em (#/pickem). Owner: PICKEM-VIEWS.
+   Scope roots: .v-pickem (the screen), .sh-pk (its sheets), .c-pk-* (small parts the Rivals card reuses).
+   Motion is transform/opacity only; the live dot's pulse stops under reduced motion. */
+
+/* ================================================================ Shared parts (.c-pk-*) */
+.c-pk-logo {
+  position: relative; flex: none;
+  display: grid; place-items: center;
+  width: var(--lg, 32px); height: var(--lg, 32px);
+}
+.c-pk-logo > img { width: 100%; height: 100%; object-fit: contain; -webkit-user-drag: none; user-select: none; }
+.c-pk-logo > b {
+  display: none;
+  font: 800 calc(var(--lg, 32px) * .36)/1 var(--font-num); font-stretch: condensed; letter-spacing: .02em;
+  color: var(--ink-2);
+}
+.c-pk-logo.is-broken { border-radius: 50%; background: var(--surface-3); }
+.c-pk-logo.is-broken > img { display: none; }
+.c-pk-logo.is-broken > b { display: block; }
+
+/* Live: a small white dot with a soft ring that breathes (real live games only). */
+.c-pk-dot {
+  position: relative; flex: none; display: inline-block;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--ink);
+}
+.c-pk-dot::after {
+  content: ""; position: absolute; inset: 0; border-radius: 50%;
+  background: var(--ink); opacity: 0;
+  animation: pk-pulse 1.6s var(--ease-out) infinite;
+}
+@keyframes pk-pulse { 0% { transform: scale(1); opacity: .5; } 100% { transform: scale(2.8); opacity: 0; } }
+html.rm .c-pk-dot::after { animation: none; }
+/* Scores may be out of date: the dots stop claiming a game is live right now. */
+.pk-stale .c-pk-dot { opacity: .45; }
+.pk-stale .c-pk-dot::after { animation: none; }
+@media (prefers-reduced-motion: reduce) { .c-pk-dot::after { animation: none; } }
+
+/* Pick split: two segments with a 2 px gap, scaleX from each end. Neutral; your side in tint. */
+.c-pk-bar { position: relative; flex: 1 1 auto; min-width: 24px; height: 6px; }
+.c-pk-bar > i { position: absolute; top: 0; bottom: 0; border-radius: 3px; }
+.c-pk-bar > .a { left: 0; right: 2px; background: var(--ink-2); transform-origin: left center; }
+.c-pk-bar > .h { left: 2px; right: 0; background: var(--ink-4); transform-origin: right center; }
+.c-pk-bar.is-a > .a, .c-pk-bar.is-h > .h { background: var(--tint); }
+
+/* ================================================================ Screen */
+.v-pickem .pk-acc { margin-top: 4px; }
+.v-pickem .pk-main { min-width: 0; }
+.v-pickem .pk-main > .empty { margin-top: 24px; background: var(--surface-1); border-radius: var(--r-card); }
+.v-pickem .pk-main > .skeleton { margin-top: 24px; }
+
+/* ---------------------------------------------------------------- Summary */
+.v-pickem .pk-sum { margin-top: 12px; padding: 16px 16px 0; overflow: hidden; --stack-ring: var(--surface-1); }
+.v-pickem .pk-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.v-pickem .pk-tile { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.v-pickem .pk-tile + .pk-tile { padding-left: 12px; box-shadow: inset .5px 0 0 var(--separator); }
+.v-pickem .pk-tv { display: flex; align-items: baseline; gap: 5px; min-width: 0; height: 40px; white-space: nowrap; }
+.v-pickem .pk-tv .n2 { font-size: 40px; line-height: 40px; }
+.v-pickem .pk-of { display: inline-flex; align-items: center; gap: 5px; font: 600 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+.v-pickem .pk-tl {
+  display: flex; align-items: center; gap: 4px; min-width: 0;
+  font: 600 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.v-pickem .pk-tl > .ic { flex: none; width: 14px; height: 14px; stroke-width: 2.6; }
+.v-pickem .pk-tile.is-all .pk-tl, .v-pickem .pk-tile.is-all .pk-pc { color: var(--tint); }
+.v-pickem .pk-tile.is-live .pk-of { color: var(--ink); }
+.v-pickem .pk-tv-t { flex-direction: column; align-items: flex-start; justify-content: flex-end; gap: 0; }
+.v-pickem .pk-nd { font: 600 var(--fs-cap)/14px var(--font-text); color: var(--ink-3); text-transform: uppercase; letter-spacing: .04em; }
+.v-pickem .pk-nt { font: 800 24px/26px var(--font-num); font-stretch: condensed; font-variant-numeric: tabular-nums; color: var(--ink); }
+
+.v-pickem .pk-strip { display: flex; gap: 3px; margin-top: 16px; }
+.v-pickem .pk-strip > i { flex: 1 1 0; height: 6px; border-radius: 3px; background: var(--surface-3); transition: background-color 200ms linear; }
+.v-pickem .pk-strip > i.is-on { background: color-mix(in srgb, var(--tint) 55%, var(--surface-3)); }
+.v-pickem .pk-strip > i.is-right { background: var(--tint); }
+.v-pickem .pk-strip > i.is-wrong { background: var(--wrong); }
+.v-pickem .pk-strip > i.is-live { background: var(--ink-3); }
+
+/* The week's leader; the whole row opens the leaderboard sheet. */
+.v-pickem .pk-lead {
+  display: flex; align-items: center; gap: 12px; width: calc(100% + 32px);
+  min-height: 60px; margin: 14px -16px 0; padding: 8px 12px 8px 16px;
+  border-top: .5px solid var(--separator);
+  color: var(--ink); text-align: left;
+  background-color: transparent; transition: background-color 250ms linear;
+  --stack-ring: var(--surface-1);
+}
+.v-pickem .pk-lead.is-pressed { background-color: var(--surface-2); transition: none; --stack-ring: var(--surface-2); }
+.v-pickem .pk-lead:focus-visible { outline-offset: -2px; }
+.v-pickem .pk-lead-av { flex: none; display: flex; }
+.v-pickem .pk-lead-av .stack > * + * { margin-left: -8px; }
+.v-pickem .pk-lead-av.is-ic { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--gold-soft); color: var(--gold); }
+.v-pickem .pk-lead-av.is-ic > .ic { width: 16px; height: 16px; }
+.v-pickem .pk-lead-tx { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.v-pickem .pk-lead-o { color: var(--ink-3); }
+.v-pickem .pk-lead-t {
+  min-width: 0;
+  font: 600 var(--fs-sub)/var(--lh-sub) var(--font-text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.v-pickem .pk-lead > .chev { flex: none; width: 18px; height: 18px; color: var(--ink-3); }
+
+/* ---------------------------------------------------------------- Banners and notes */
+.v-pickem .pk-banners:empty { display: none; }
+.v-pickem .pk-banners { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.v-pickem .pk-banner {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  min-height: 44px; margin: 0; padding: 10px 14px;
+  border-radius: var(--r-group); background: var(--surface-1);
+  font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2); text-align: left;
+}
+.v-pickem .pk-banner > .ic { flex: none; width: 16px; height: 16px; color: var(--ink-3); }
+.v-pickem .pk-banner > span { flex: 1 1 auto; min-width: 0; }
+.v-pickem .pk-banner.is-stale > .ic { color: var(--gold); }
+.v-pickem .pk-banner.is-go { color: var(--ink); font-weight: 600; transition: transform var(--spring-snappy-dur) var(--spring-snappy); }
+.v-pickem .pk-banner.is-go > .ic:first-child { color: var(--tint); }
+.v-pickem .pk-banner.is-go > .chev { width: 16px; height: 16px; color: var(--ink-3); }
+.v-pickem .pk-banner.is-go.is-pressed { transform: scale(.98); transition: none; }
+.v-pickem .pk-note { margin: 12px 4px 0; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); text-wrap: pretty; }
+.v-pickem .pk-dev { margin: 28px 4px 0; text-align: center; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+
+/* ---------------------------------------------------------------- Slots */
+.v-pickem .pk-slot { margin-top: 24px; }
+.v-pickem .pk-sl-h {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  margin: 0 4px 8px;
+}
+.v-pickem .pk-sl-h > .ovl { color: var(--ink-2); }
+.v-pickem .pk-sl-r { display: inline-flex; align-items: center; gap: 6px; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); white-space: nowrap; }
+.v-pickem .pk-sl-r.is-live { color: var(--ink); font-weight: 600; }
+.v-pickem .pk-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+
+/* ---------------------------------------------------------------- Game card */
+.v-pickem .pk-g {
+  position: relative; min-width: 0;
+  border-radius: var(--r-card); background: var(--surface-1);
+  overflow: hidden;
+  --stack-ring: var(--surface-1);
+}
+/* Your result: a 3 px edge in tint (right) or wrong (missed); the check or x says it too. */
+.v-pickem .pk-g::after {
+  content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 3px; z-index: 1;
+  background: transparent; pointer-events: none;
+}
+.v-pickem .pk-g.is-right::after { background: var(--tint); }
+.v-pickem .pk-g.is-wrong::after { background: var(--wrong); }
+
+.v-pickem .pk-g-main { display: grid; grid-template-columns: minmax(0, 1fr) 76px; min-width: 0; }
+.v-pickem .pk-sides { display: flex; flex-direction: column; min-width: 0; }
+.v-pickem .pk-t {
+  position: relative;
+  display: grid; grid-template-columns: 34px minmax(0, 1fr) 24px 36px; align-items: center; column-gap: 12px;
+  width: 100%; min-width: 0; min-height: 60px; padding: 8px 10px 8px 14px;
+  color: var(--ink); text-align: left;
+  background-color: transparent;
+  transition: background-color 200ms linear;
+}
+.v-pickem .pk-g.is-pre .pk-t, .v-pickem .pk-g.is-off .pk-t { grid-template-columns: 34px minmax(0, 1fr) 24px; }
+/* No score column before kickoff, nor for a game that never finished (postponed, suspended, canceled). */
+.v-pickem .pk-g.is-pre .pk-sc, .v-pickem .pk-g.is-off .pk-sc { display: none; }
+.v-pickem .pk-t + .pk-t::before {
+  content: ""; position: absolute; top: 0; left: 60px; right: 0; height: .5px;
+  background: var(--separator); pointer-events: none;
+}
+.v-pickem .pk-t:focus-visible { outline-offset: -3px; border-radius: var(--r-cell); }
+.v-pickem .pk-t.is-pressed { background-color: var(--surface-2); transition: none; }
+.v-pickem .pk-t.is-pressed .c-pk-logo { transform: scale(.92); }
+.v-pickem .pk-t .c-pk-logo { transition: transform var(--spring-snappy-dur) var(--spring-snappy), opacity 200ms linear; }
+.v-pickem .pk-t.is-locked { cursor: default; }
+.v-pickem .pk-t.is-locked.is-pressed { background-color: transparent; }
+.v-pickem .pk-t.is-locked.is-pressed .c-pk-logo { transform: none; }
+.v-pickem .pk-t.is-on { background-color: var(--tint-soft); }
+.v-pickem .pk-t.is-on.is-lose { background-color: var(--wrong-soft); }
+.v-pickem .pk-t.is-on + .pk-t::before, .v-pickem .pk-t + .pk-t.is-on::before { opacity: 0; }
+.v-pickem .pk-t.is-dim .c-pk-logo { opacity: .5; }
+.v-pickem .pk-t.is-dim .pk-tnm { color: var(--ink-2); }
+
+.v-pickem .pk-tn { display: flex; flex-direction: column; min-width: 0; }
+.v-pickem .pk-tnm {
+  font: 600 var(--fs-headline)/var(--lh-headline) var(--font-text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  transition: color 200ms linear;
+}
+.v-pickem .pk-trec { font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.v-pickem .pk-trec:empty { display: none; }
+.v-pickem .pk-t.is-on .pk-trec { color: var(--ink-2); }
+.v-pickem .pk-t.is-win .pk-tnm { font-weight: 700; }
+.v-pickem .pk-t.is-lose .pk-tnm, .v-pickem .pk-t.is-lose .pk-sc { color: var(--ink-3); }
+.v-pickem .pk-t.is-lose.is-on .pk-tnm { color: var(--ink-2); }
+
+.v-pickem .pk-mkw { display: grid; place-items: center; width: 24px; height: 24px; }
+.v-pickem .pk-mk { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; }
+.v-pickem .pk-mk > .ic { width: 14px; height: 14px; stroke-width: 3; }
+.v-pickem .pk-mk.is-open { box-shadow: inset 0 0 0 1.5px var(--ink-4); }
+.v-pickem .pk-t.is-pressed .pk-mk.is-open { box-shadow: inset 0 0 0 1.5px var(--ink-2); }
+.v-pickem .pk-mk.is-on, .v-pickem .pk-mk.is-right { background: var(--tint); color: var(--on-tint); }
+.v-pickem .pk-mk.is-wrong { background: var(--wrong); color: #fff; }
+.v-pickem .pk-mk.is-push { background: var(--surface-3); color: var(--ink-2); }
+.v-pickem .pk-g.is-post .pk-t.is-on:not(.is-win):not(.is-lose) { background-color: var(--surface-2); }
+.v-pickem .pk-sc { text-align: right; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* Status column: kickoff, the live clock, Final. */
+.v-pickem .pk-stat {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  min-width: 0; padding: 8px 6px;
+  box-shadow: inset .5px 0 0 var(--separator);
+  text-align: center;
+}
+.v-pickem .pk-s1 {
+  display: inline-flex; align-items: center; gap: 5px;
+  font: 600 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3);
+  white-space: nowrap;
+}
+.v-pickem .pk-s2 {
+  font: 800 var(--fs-n5)/var(--lh-n5) var(--font-num); font-stretch: condensed; font-variant-numeric: tabular-nums;
+  color: var(--ink); white-space: nowrap;
+}
+.v-pickem .pk-s1.is-live { color: var(--ink); }
+.v-pickem .pk-s1.is-final {
+  font: 800 var(--fs-ovl)/var(--lh-ovl) var(--font-num); font-stretch: condensed;
+  text-transform: uppercase; letter-spacing: .06em; color: var(--ink-2);
+}
+.v-pickem .pk-g.is-post .pk-s2 { font-size: var(--fs-cap); color: var(--ink-3); }
+.v-pickem .pk-lock { position: absolute; top: 8px; right: 8px; width: 12px; height: 12px; stroke-width: 2.2; color: var(--ink-3); }
+.v-pickem .pk-g.is-post .pk-lock { display: none; }
+
+/* Footer: picks in (before kickoff), who picked whom (after). */
+.v-pickem .pk-foot {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; min-height: 44px; padding: 0 14px;
+  border-top: .5px solid var(--separator);
+  font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); text-align: left;
+  background-color: transparent;
+}
+.v-pickem button.pk-foot { transition: background-color 250ms linear; }
+.v-pickem button.pk-foot.is-pressed { background-color: var(--surface-2); transition: none; --stack-ring: var(--surface-2); }
+.v-pickem button.pk-foot:focus-visible { outline-offset: -2px; }
+.v-pickem .pk-f-in { flex: 1 1 auto; display: flex; align-items: center; gap: 6px; min-width: 0; }
+.v-pickem .pk-f-in > .ic { flex: none; width: 14px; height: 14px; }
+.v-pickem .pk-f-in > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-pickem .pk-f-r { flex: none; white-space: nowrap; }
+.v-pickem .pk-f-sk { display: block; width: 88px; height: 10px; border-radius: 5px; background: var(--surface-2); }
+.v-pickem .pk-f-cs { flex: none; display: flex; width: 64px; min-width: 0; }
+.v-pickem .pk-f-cs.h { justify-content: flex-end; }
+.v-pickem .pk-f-cs .stack > * + * { margin-left: -4px; }
+.v-pickem .pk-f-cs .stack-more { font-size: 11px; padding: 0 4px; }
+.v-pickem .pk-f-mid { flex: 1 1 auto; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.v-pickem .pk-f-p { flex: none; min-width: 3.2ch; color: var(--ink-2); }
+.v-pickem .pk-f-p:last-child { text-align: right; }
+.v-pickem .pk-f-p.tint { color: var(--tint); }
+.v-pickem .pk-where {
+  flex: none; padding: 1px 8px; border-radius: var(--r-pill);
+  background: var(--surface-2); color: var(--ink-2);
+  font: 600 var(--fs-cap)/var(--lh-cap) var(--font-text); white-space: nowrap;
+}
+
+/* Loading */
+.v-pickem .pk-sum.is-sk { padding-bottom: 16px; }
+.v-pickem .pk-sum.is-sk .sk { height: 58px; border-radius: var(--r-cell); }
+
+/* Narrow phones (360 px): tighter card columns, smaller logos. */
+@media (max-width: 374px) {
+  .v-pickem .pk-g-main { grid-template-columns: minmax(0, 1fr) 68px; }
+  .v-pickem .pk-t { column-gap: 10px; padding-left: 12px; grid-template-columns: 30px minmax(0, 1fr) 22px 32px; }
+  .v-pickem .pk-g.is-pre .pk-t, .v-pickem .pk-g.is-off .pk-t { grid-template-columns: 30px minmax(0, 1fr) 22px; }
+  .v-pickem .pk-t .c-pk-logo { --lg: 30px !important; }
+  .v-pickem .pk-t + .pk-t::before { left: 52px; }
+  .v-pickem .pk-sc.n3 { font-size: 28px; line-height: 28px; }
+  .v-pickem .pk-tv .n2 { font-size: 34px; line-height: 40px; }
+  .v-pickem .pk-tile + .pk-tile { padding-left: 10px; }
+}
+
+/* ================================================================ Sheets */
+.sh-pk .pk-sh-sub { margin: 0 4px 16px; font: 400 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink-2); text-wrap: pretty; }
+.sh-pk .empty { padding-top: 24px; }
+
+/* Who picked whom */
+.sh-pk-who .pk-wg { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+.sh-pk-who .pk-wc { min-width: 0; padding: 12px 12px 14px; border-radius: var(--r-group); background: var(--surface-2); --stack-ring: var(--surface-2); }
+.sh-pk-who .pk-wc-h { display: flex; align-items: center; gap: 8px; min-height: 32px; }
+.sh-pk-who .pk-wc-n { flex: 1 1 auto; min-width: 0; font: 600 var(--fs-sub)/var(--lh-sub) var(--font-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sh-pk-who .pk-wc.is-win .pk-wc-n { font-weight: 700; }
+.sh-pk-who .pk-wc-c { flex: none; color: var(--ink-2); }
+.sh-pk-who .pk-wc-l { list-style: none; margin: 10px 0 0; padding: 0; }
+.sh-pk-who .pk-wc-l > li { display: flex; align-items: center; gap: 8px; min-height: 32px; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink); }
+.sh-pk-who .pk-wc-l > li > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sh-pk-who .pk-wc-none { margin: 10px 0 0; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+
+/* Leaderboard */
+.sh-pk-board .pk-bs-seg { margin: 0 0 16px; }
+.sh-pk-board .pk-bs-rk { flex: none; width: 22px; margin-right: 8px; text-align: center; color: var(--ink-3); }
+.sh-pk-board .pk-bs-rk.gold { color: var(--gold); }
+.sh-pk-board .pk-bs-v { display: flex; flex-direction: column; align-items: flex-end; }
+.sh-pk-board .row-lead { display: flex; align-items: center; }
+/* Part of the table is missing or old: a quiet note that retries. */
+.sh-pk-board .pk-bs-warn {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  min-height: 44px; margin: 0 0 12px; padding: 10px 14px;
+  border-radius: var(--r-group); background: var(--surface-2);
+  font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2); text-align: left;
+}
+.sh-pk-board .pk-bs-warn > .ic { flex: none; width: 16px; height: 16px; color: var(--gold); }
+.sh-pk-board .pk-bs-warn > span:nth-child(2) { flex: 1 1 auto; min-width: 0; }
+.sh-pk-board .pk-bs-warn-a { flex: none; font-weight: 600; color: var(--tint); }

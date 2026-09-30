@@ -44,17 +44,26 @@ export function streakPillHTML(s, {tag = 'button', attrs = ''} = {}) {
 }
 
 // ---------------------------------------------------------------------------- The day's step set (v1: 3 puzzles,
-// 1,000 points; v2: 5 puzzles, 1,500 points). Everything reads daily.STEPS at use time (a live binding).
+// 1,000 points; v2: 5 puzzles, 1,500 points; v3: the same 5 puzzles with one or two items each, 1,000 points).
+// Everything reads daily.STEPS / daily.DAY at use time (live bindings).
 const dailyReady = () => daily.status === 'ready' && !!daily.DAY;
 /** Steps of the loaded day ([] before puzzles load). */
 export const steps = () => (dailyReady() && Array.isArray(daily.STEPS) ? daily.STEPS : []);
-/** True on a v2 (five-puzzle) day. */
-export const isV2 = () => dailyReady() && daily.isV2();
-/** The day's maximum: 1,000 (v1) or 1,500 (v2). */
+/** The day's maximum: 1,000 (v1, v3) or 1,500 (v2). */
 export const maxPts = () => daily.maxPts();
+/** How many items a step has on the loaded day: College players and grid squares (5 and 9 on v1 and v2 days, 2 and 2
+ *  on v3), silhouettes (5 on v2, 2 on v3). */
+export function itemCount(id) {
+  if (id === 'col') return daily.colCount();
+  if (id === 'sil') return daily.silRounds();
+  if (id === 'grid') return daily.gridShape().n;
+  return 0;
+}
 const NUM_WORD = {3: 'three', 5: 'five'};
 /** 'three' / 'five': how many puzzles the loaded day has. */
 export const countWord = () => NUM_WORD[steps().length] || String(steps().length || 3);
+/** A finished College or Silhouettes count line: 'All five answered', or 'Both answered' on a two-item day. */
+export const allAnswered = n => (n === 2 ? 'Both answered' : `All ${NUM_WORD[n] || n} answered`);
 /** Date label of a puzzle day ("Tue, Sep 29"; long: "Tuesday, September 29"). Replaces every "Daily #n". */
 export const dayLabel = (pnum = daily.PNUM, o) => daily.dayLabel(pnum, o);
 
@@ -282,13 +291,14 @@ const rankCls = rk => rk === 1 ? ' is-r1' : rk === 2 ? ' is-r2' : rk === 3 ? ' i
 function rowSig(r, mode) {
   return JSON.stringify([mode, r.rank, r.name, r.managerId, r.me, r.sub, r.move, r.current, r.best]);
 }
-// A five-puzzle day's sub line ("College 4/5, faces 3/5, ID on clue 2, path on guess 1, grid 6/9") is too long for
-// a phone row: the row shows a compact form on up to two lines; the aria-label keeps daily's full text.
-const V2_SUB = /^College (\d+)\/5, faces (\d+)\/5, (?:ID on clue (\d+)|no ID), (?:path on guess (\d+)|no path), grid (\d+)\/9$/;
+// A five-puzzle day's sub line ("College 4/5, faces 3/5, ID on clue 2, path on guess 1, grid 6/9", or on a short v3
+// day "College 1/2, faces 2/2, ID on clue 3, path on guess 1, grid 1/2") is too long for a phone row: the row shows a
+// compact form on up to two lines; the aria-label keeps daily's full text.
+const V2_SUB = /^College (\d+\/\d+), faces (\d+\/\d+), (?:ID on clue (\d+)|no ID), (?:path on guess (\d+)|no path), grid (\d+\/\d+)$/;
 function shortSub(sub) {
   const m = V2_SUB.exec(sub || '');
   if (!m) return null;
-  return `College ${m[1]}/5 · Faces ${m[2]}/5 · ${m[3] ? `Clue ${m[3]}` : 'No ID'} · ${m[4] ? `Path ${m[4]}/3` : 'No path'} · Grid ${m[5]}/9`;
+  return `College ${m[1]} · Faces ${m[2]} · ${m[3] ? `Clue ${m[3]}` : 'No ID'} · ${m[4] ? `Path ${m[4]}/3` : 'No path'} · Grid ${m[5]}`;
 }
 function rowInner(r, mode) {
   const streaks = mode === 'streaks';
@@ -344,8 +354,8 @@ const EMPTY = {
   season: 'No scores yet this season.',
   streaks: 'No streaks yet. Finish all three puzzles to start one.'
 };
-// v1 days keep the existing copy word for word; a five-puzzle day says five.
-const emptyText = mode => (isV2() ? EMPTY[mode].replace('all three puzzles', 'all five puzzles') : EMPTY[mode]);
+// v1 days keep the existing copy word for word; a five-puzzle day (v2 or v3) says five.
+const emptyText = mode => (steps().length > 3 ? EMPTY[mode].replace('all three puzzles', `all ${countWord()} puzzles`) : EMPTY[mode]);
 const OFF = "The leaderboard isn't connected right now. Your score is saved on this phone, and Share results copies it for the group chat.";
 
 function bodyHTML(st, key, rows) {

@@ -282,6 +282,24 @@ function craftV2Day(base) {
   return {v: 2, g: base.g.slice(), c: base.c, w, h: base.h, j: {p: w, col, t: PP[w][1]}, s};
 }
 
+// A crafted v3 day (the short daily) from a real v2 day: its first two College rows and silhouettes, its grid's
+// first row with the first two columns (both squares have answers on a real day), the same Mystery player and Journey.
+function craftV3Day(v2) {
+  return {v: 3, g: [v2.g[0], v2.g[3], v2.g[4]], c: v2.c.slice(0, 2), s: v2.s.slice(0, 2), w: v2.w, j: v2.j, h: v2.h};
+}
+// A crafted v3 DS (stamped v: 3): College 1 of 2 (100), Faces 2 of 2 (200), Mystery on clue 3 (200 - 2 x 30 = 140),
+// Journey on guess 1 (200), Grid 1 of 2 (100). Hand-computed total 740.
+function craftV3DS(day) {
+  return {v: 3, grid: {cells: [{p: 11, ok: true}, {p: 12, ok: false}], over: false},
+    col: {a: [day.c[0][2], (day.c[1][2] + 1) % day.c[1][1].length]}, who: {g: [5, 6], clues: 3, done: true, won: true}, hl: {a: []},
+    sil: {a: [day.s[0].a, day.s[1].a]}, jr: {g: [], done: true, won: true}};
+}
+// A perfect v3 DS: 200 + 200 + 200 + 200 + 200 = 1000.
+function perfectV3DS(day) {
+  return {v: 3, grid: {cells: [{p: 21, ok: true}, {p: 22, ok: true}], over: false}, col: {a: day.c.map(c => c[2])},
+    who: {g: [], clues: 1, done: true, won: true}, hl: {a: []}, sil: {a: day.s.map(x => x.a)}, jr: {g: [], done: true, won: true}};
+}
+
 // A crafted v2 DS: College 3 of 5 (120), Faces 3 of 5 (150), Mystery on clue 3 (250), Journey on guess 2
 // (150), Grid 5 of 9 (250). Hand-computed total 920.
 function craftV2DS(day) {
@@ -371,7 +389,7 @@ export async function runChecks() {
       && (live ? daily.allDone(ds) && !daily.allDone(ds2) && daily.firstOpen(ds2) === 0
         : daily.allDone(ds, D) && !daily.allDone(ds2, D) && daily.firstOpen(ds2, D) === 0)
       && (!live || (daily.STEPS === daily.stepsFor(D) && daily.maxPts() === 1000));
-    return {pass, detail: `crafted ${a} (expected 620), second ${b} (expected 530); steps "${steps}"${live ? '' : ' (on a v1 day; today is a v2 preview)'}`};
+    return {pass, detail: `crafted ${a} (expected 620), second ${b} (expected 530); steps "${steps}"${live ? '' : ` (on a v1 day; today is v${daily.dayVersion()})`}`};
   });
 
   // 4. shareText for a crafted DS matches the old function
@@ -388,7 +406,7 @@ export async function runChecks() {
   check("boardRows('today') sub strings, sort and ranks match the old leaderboard", () => {
     needDaily();
     // The old board only ever showed three-puzzle days: test on today if it is one, else on day 1 (a v1 day).
-    const P = daily.isV2() ? 1 : daily.PNUM, players = fakePlayers(P);
+    const P = daily.dayVersion() === 1 ? daily.PNUM : 1, players = fakePlayers(P);
     const mine = daily.boardRows('today', players, P).map(r => ({id: r.id, name: r.name, pts: r.pts, sub: r.sub, rank: r.rank, me: r.me}));
     const old = oldBoard(players, 'today', P, daily.LB.uid);
     const expect = [
@@ -418,15 +436,19 @@ export async function runChecks() {
   check('social() and streakOf() on a fake player list', () => {
     needDaily();
     const P = daily.PNUM, players = fakePlayers(P);
-    // On a five-puzzle day, today's entries need the v2 fields to count as played (entryFor).
-    if (daily.isV2()) players.forEach(p => { const d = p.days[P]; if (d) Object.assign(d, {s: 0, j: 0}); });
-    const s = daily.social(players);
+    // social() needs a day of history (Zed's last day is P - 1): on day 1 (a ?day=1 preview) it runs on day 8.
+    const S = P >= 2 ? P : 8, sp = S === P ? players : fakePlayers(S);
+    // On a five-puzzle day, the day's entries need that version's fields to count as played (entryFor): s and j on
+    // a v2 day, plus v: 3 on a v3 day.
+    const tv = daily.dayVersion(daily.dayFor(S));
+    if (tv >= 2) sp.forEach(p => { const d = p.days[S]; if (d) Object.assign(d, tv === 3 ? {v: 3, s: 0, j: 0} : {s: 0, j: 0}); });
+    const s = daily.social(sp, S);
     const st = daily.streakOf(players[2]);
     const pass = s.played.length === 3 && s.regulars === 4 && s.leader === 'Someone'
       && s.stillToPlay.map(x => x.id).join() === 'fake-4'
       && (P < 3 || (st.current === 3 && st.best === 3))
       && daily.streakOf(players[3]).current === (P > 1 ? 1 : 0);
-    return {pass, detail: `played ${s.played.length}, regulars ${s.regulars}, leader ${s.leader}, still ${s.stillToPlay.map(x => x.name).join(', ')}; Mason streak ${st.current}/${st.best}`};
+    return {pass, detail: `day ${S}: played ${s.played.length}, regulars ${s.regulars}, leader ${s.leader}, still ${s.stillToPlay.map(x => x.name).join(', ')}; Mason streak ${st.current}/${st.best}`};
   });
 
   // 6. holders
@@ -496,8 +518,8 @@ export async function runChecks() {
     const want = 'PERFECT DAY,ALL-PRO,ALL-PRO,PRO BOWL,PRO BOWL,STARTER,PRACTICE SQUAD,CUT DAY,CUT DAY';
     const T = [1000, 999, 850, 849, 650, 450, 250, 249, 0];
     const g = T.map(t => daily.gradeFor(t, 1000)).join(',');
-    // Today's default max on a v1 day is 1,000; as an array callback the index is not taken as a max.
-    const v1 = !daily.isV2(daily.DAY);
+    // Today's default max on a v1 or v3 day is 1,000; as an array callback the index is not taken as a max.
+    const v1 = daily.maxPts() === 1000;
     const g2 = v1 ? T.map(daily.gradeFor).join(',') : want;
     return {pass: g === want && g2 === want, detail: g};
   });
@@ -535,7 +557,7 @@ export async function runChecks() {
       && daily.SLUGS.every((s, i) => daily.slug(i) === s && daily.stepOf(s) === i) && daily.slug(daily.SLUGS.length) === null
       && daily.__dev.scratch(V2, {}, () => daily.STEPS.length === 5 && daily.slug(3) === 'journey' && daily.stepOf('silhouette') === 1 && daily.maxPts() === 1500)
       && daily.STEPS === daily.stepsFor(daily.DAY);
-    return {pass, detail: `v1 ${ids(V1)} = ${sum(V1)}, v2 ${ids(V2)} = ${sum(V2)}; today ${daily.isV2() ? 'v2' : 'v1'}, ${daily.STEPS.length} steps`};
+    return {pass, detail: `v1 ${ids(V1)} = ${sum(V1)}, v2 ${ids(V2)} = ${sum(V2)}; today v${daily.dayVersion()}, ${daily.STEPS.length} steps`};
   });
 
   check('totalPts() on a crafted v2 DS equals the hand-computed value', () => {
@@ -636,7 +658,7 @@ export async function runChecks() {
     needV2();
     const S = V2.s, J = V2.j.p, wrong = J === 1 ? 2 : 1;
     const log = [];
-    const v2n = daily.PZ.days.findIndex(d => daily.isV2(d)) + 1;
+    const v2n = daily.PZ.days.findIndex(d => daily.dayVersion(d) === 2) + 1;
     log.push(v2n > 0 && daily.pointsFor({sil: {}, jr: {done: false}}, v2n) === 0);   // read side on a real v2 day
     daily.__dev.scratch(V2, {sil: {}, jr: {done: false}}, ds => {
       log.push(Array.isArray(ds.sil.a) && Array.isArray(ds.jr.g) && ds.jr.done === false);
@@ -675,8 +697,8 @@ export async function runChecks() {
 
   check('boardRows(): v2 day entries append faces and path; old-format entries do not count on a v2 day', () => {
     needDaily();
-    // A five-puzzle day: today if it is one, else the first v2 day in the file.
-    const P = daily.isV2() ? daily.PNUM : daily.PZ.days.findIndex(d => daily.isV2(d)) + 1;
+    // A v2 day: today if it is one, else the first v2 day in the file (Sep 29).
+    const P = daily.dayVersion() === 2 ? daily.PNUM : daily.PZ.days.findIndex(d => daily.dayVersion(d) === 2) + 1;
     const players = [
       {id: 'v2-a', nick: 'Evan', days: {[P]: {p: 1180, g: 6, c: 4, w: 2, j: 1, s: 3}}, total: 1180, played: 1, last: P},
       {id: 'v2-b', nick: 'Mason', days: {[P]: {p: 380, g: 3, c: 2, w: 0, j: 0, s: 0}}, total: 380, played: 1, last: P},
@@ -706,20 +728,23 @@ export async function runChecks() {
   check('Grid examples prefer audience players, then non-specialists, then the most recognizable', () => {
     needDaily();
     const PP = daily.PP, aud = daily.isAudienceIdx, spec = i => ['K', 'P', 'LS', 'ST'].includes(PP[i][2]);
-    // Today's grid plus a v2 day's (the ranking is the same on both versions).
-    const v2 = daily.PZ.days.find(d => daily.isV2(d));
+    // Today's grid plus a v2 day's and a v3 day's (a real one when the file has one, else crafted; the ranking is the
+    // same on every version). Squares follow gridShape(): 3 x 3 on v1/v2 days, 1 x 2 on v3 days.
+    const v2 = daily.PZ.days.find(d => daily.dayVersion(d) === 2);
+    const v3 = daily.PZ.days.find(d => daily.dayVersion(d) === 3) || (v2 && craftV3Day(v2));
     const bad = [];
     let older = 0, specs = 0;
     const names = [];
-    const days = [daily.DAY, v2].filter((D, k, a) => D && a.indexOf(D) === k);
+    const days = [daily.DAY, v2, v3].filter((D, k, a) => D && a.indexOf(D) === k);
     for (const D of days) {
-      const ex = daily.examplesFor(new Set(), D);
-      for (let k = 0; k < 9; k++) {
-        const r = D.g[Math.floor(k / 3)], c = D.g[3 + (k % 3)];
+      const ex = daily.examplesFor(new Set(), D), n = daily.gridShape(D).n;
+      if (ex.length !== n || n !== (daily.dayVersion(D) === 3 ? 2 : 9)) bad.push(`v${daily.dayVersion(D)} has ${ex.length} examples for ${n} squares`);
+      for (let k = 0; k < n; k++) {
+        const {row: r, col: c} = daily.gridSquare(k, D);
         const fits = [];
         for (let i = 0; i < PP.length; i++) if (daily.critOk(r, PP[i]) && daily.critOk(c, PP[i])) fits.push(i);
         const best = fits.reduce((b, i) => b < 0 || daily.exampleRank(i) > daily.exampleRank(b) ? i : b, -1);
-        if (ex[k] !== best || daily.exampleFor(r, c, new Set()) !== best) bad.push(`${D === daily.DAY ? 'today' : 'v2'} ${k}`);
+        if (ex[k] !== best || daily.exampleFor(r, c, new Set()) !== best) bad.push(`${D === daily.DAY ? 'today' : 'v' + daily.dayVersion(D)} ${k}`);
         // the order's promises: an audience player whenever one fits; a non-specialist whenever an audience one fits
         if (best >= 0 && !aud(best) && fits.some(aud)) bad.push(`${k} not audience`);
         if (best >= 0 && spec(best) && fits.some(i => aud(i) && !spec(i))) bad.push(`${k} specialist`);
@@ -728,17 +753,19 @@ export async function runChecks() {
         if (D === daily.DAY) names.push(best >= 0 ? PP[best][0] : '-');
       }
     }
-    return {pass: !bad.length, detail: bad.length ? 'squares differ: ' + bad.join(', ') : `${days.length * 9} squares agree (${older} pre-2010, ${specs} specialists): ${names.join(', ')}`};
+    const sq = days.reduce((t, D) => t + daily.gridShape(D).n, 0);
+    return {pass: !bad.length, detail: bad.length ? 'squares differ: ' + bad.join(', ') : `${sq} squares on ${days.length} days agree (${older} pre-2010, ${specs} specialists): ${names.join(', ')}`};
   });
 
-  check('puzzles.json: day 1 is v1, v2 entries are well-formed', () => {
+  check('puzzles-v3.json: day 1 is v1, day 2 is v2, v2 entries are well-formed', () => {
     needDaily();
     const PZ = daily.PZ, PP = daily.PP, bad = [];
     let v2 = 0;
-    // Day 1 stays v1 (people finished it); day 2 (Sep 29) was re-released as v2 mid-day.
-    if (daily.isV2(PZ.days[0])) bad.push('day 1 must stay v1');
+    // Day 1 stays v1 (people finished it); day 2 (Sep 29) was re-released as v2 mid-day and stays v2.
+    if (daily.dayVersion(PZ.days[0]) !== 1) bad.push('day 1 must stay v1');
+    if (daily.dayVersion(PZ.days[1]) !== 2) bad.push('day 2 must stay v2');
     PZ.days.forEach((d, i) => {
-      if (!daily.isV2(d)) return;
+      if (daily.dayVersion(d) !== 2) return;
       v2++;
       const at = `day ${i + 1}: `;
       if (!Array.isArray(d.g) || d.g.length !== 6) bad.push(at + 'g');
@@ -751,8 +778,277 @@ export async function runChecks() {
   });
 
   // ---------------------------------------------------------------------------
-  // fire.js and week.js (Matchup of the Week votes, pick'em). Pure functions on crafted docs: nothing is read
-  // from or written to Firestore or the local stand-in.
+  // v3 days (the short daily from Sep 30 2026: 2 College players, 2 faces, 1 Mystery player, 1 Journey, a 1 x 2
+  // grid; 1,000 points). Crafted from a real v2 day (and checked on the file's first v3 day once it has one);
+  // nothing is saved or emitted.
+  let V3 = null, V2R = null, R3 = null, R3n = 0;
+  try {
+    if (!dailyErr) {
+      V2R = daily.PZ.days.find(d => daily.dayVersion(d) === 2) || null;
+      V3 = V2R ? craftV3Day(V2R) : null;
+      R3n = daily.PZ.days.findIndex(d => daily.dayVersion(d) === 3) + 1;
+      R3 = R3n ? daily.PZ.days[R3n - 1] : null;
+    }
+  } catch (_) { V3 = null; }
+  const needV3 = () => { needDaily(); if (!V3 || !V2) throw new Error('could not craft a v3 day'); };
+  const G = '🟩', R = '🟥';
+
+  check('dayVersion(), isV2/isV3, maxPts, ptsTable, prompts and the v3 step set', () => {
+    needV3();
+    const ids = d => daily.stepsFor(d).map(s => s.id).join(), maxes = d => daily.stepsFor(d).map(s => s.max).join();
+    const sum = d => daily.stepsFor(d).reduce((t, s) => t + s.max, 0);
+    const P3 = daily.promptsFor(V3), P2 = daily.promptsFor(V2);
+    const log = [
+      daily.dayVersion(V1) === 1 && daily.dayVersion(V2) === 2 && daily.dayVersion(V3) === 3 && daily.dayVersion(null) === 1 && daily.dayVersion({v: 4}) === 1,
+      !daily.isV2(V1) && daily.isV2(V2) && daily.isV2(V3) && !daily.isV3(V2) && daily.isV3(V3) && !daily.isV3(null) && !daily.isV2(null),
+      daily.maxPts(V1) === 1000 && daily.maxPts(V2) === 1500 && daily.maxPts(V3) === 1000 && daily.maxPts(null) === 1000,
+      ids(V3) === 'col,sil,who,jr,grid' && maxes(V3) === '200,200,200,200,200' && sum(V3) === 1000 && sum(V2) === 1500 && sum(V1) === 1000,
+      daily.stepsFor(V3).map(s => s.label).join() === 'College,Silhouettes,Mystery player,Journey,Grid' && daily.slugsFor(V3).join() === 'college,silhouette,mystery,journey,grid',
+      JSON.stringify(daily.ptsTable(V3)) === '{"col":100,"grid":100,"who":30,"sil":100,"jr":[200,120,60]}'
+        && JSON.stringify(daily.ptsTable(V2)) === '{"col":40,"grid":50,"who":50,"sil":50,"jr":[250,150,75]}' && daily.ptsTable(V1) === daily.ptsTable(V2),
+      daily.PTS === daily.ptsTable(daily.DAY) && daily.PROMPTS === daily.promptsFor(daily.DAY) && daily.promptsFor(V1) === P2,
+      // v1/v2 copy is unchanged; v3 copy names the v3 points and none of the v1/v2 counts.
+      P2.col === 'Pick the college each player was drafted out of. 40 points each.' && P2.jr.includes('250, 150, then 75')
+        && Object.values(P3).every(t => !/\b(40|50|75|150|250) points/.test(t) && !/250, 150/.test(t))
+        && ['col', 'sil', 'grid'].every(k => P3[k].includes('100 points each')) && P3.jr.includes('200, 120, then 60 points') && P3.who === P2.who,
+      daily.__dev.scratch(V3, {}, () => daily.STEPS === daily.stepsFor(V3) && daily.STEPS.length === 5 && daily.maxPts() === 1000 && daily.PTS.col === 100
+        && daily.PROMPTS === P3 && daily.slug(1) === 'silhouette' && daily.stepOf('grid') === 4 && daily.isV3()),
+      daily.PTS === daily.ptsTable(daily.DAY) && daily.PROMPTS === daily.promptsFor(daily.DAY) && daily.STEPS === daily.stepsFor(daily.DAY)
+    ];
+    const bad = log.map((x, i) => x ? null : i + 1).filter(Boolean);
+    return {pass: !bad.length, detail: bad.length ? 'failed steps ' + bad.join(', ') : `v3 ${ids(V3)} = ${maxes(V3)} (${sum(V3)}); today v${daily.dayVersion()}, PTS.col ${daily.PTS.col}`};
+  });
+
+  check('v3 scoring: 100 per College player, face and square; Mystery 200 minus 30 a clue; Journey 200/120/60', () => {
+    needV3();
+    const n7 = [1, 2, 3, 4, 5, 6, 7];
+    const who3 = n7.map(n => daily.whoWorth(n, V3)).join(), who2 = n7.map(n => daily.whoWorth(n, V2)).join();
+    const whoPts = n7.map(n => daily.ptsWho({who: {g: [], clues: n, done: true, won: true}}, V3)).join();
+    const stumped = daily.ptsWho({who: {g: [1, 2, 3, 4, 5, 6, 7], clues: 7, done: true, won: false}}, V3);
+    const jr = [0, 1, 2].map(n => daily.ptsJr({jr: {g: [1, 2, 3].slice(0, n), done: true, won: true}}, V3)).join();
+    const missed = daily.ptsJr({jr: {g: [1, 2, 3], done: true, won: false}}, V3);
+    const ds = craftV3DS(V3), pf = perfectV3DS(V3);
+    const part = {v: 3, grid: {cells: [null, null], over: false}, col: {a: [V3.c[0][2]]}, who: {g: [], clues: 1, done: false, won: false}, hl: {a: []}, sil: {a: []}, jr: {g: [], done: false, won: false}};
+    const a = daily.totalPts(ds, V3), p = daily.totalPts(pf, V3), q = daily.totalPts(part, V3);
+    const pts = daily.stepsFor(V3).map(s => s.pts(ds, V3)).join();
+    const steps = daily.stepsFor(V3).map(s => s.result(ds, V3)).join(' | ');
+    const log = [
+      who3 === '200,170,140,110,80,50,20' && whoPts === who3 && stumped === 0 && who2 === '350,300,250,200,150,100,50',
+      jr === '200,120,60' && missed === 0,
+      a === 740 && pts === '100,200,140,200,100' && steps === '1 of 2 | 2 of 2 | Clue 3 of 7 | Guess 1 of 3 | 1 of 2',
+      p === 1000 && daily.stepsFor(V3).map(s => s.result(pf, V3)).join(' | ') === '2 of 2 | 2 of 2 | Clue 1 of 7 | Guess 1 of 3 | 2 of 2',
+      q === 100 && !daily.allDone(part, V3) && daily.anyStarted(part, V3) && daily.firstOpen(part, V3) === 0 && daily.allDone(ds, V3) && daily.allDone(pf, V3),
+      daily.colDone({col: {a: [0, 0]}}, V3) && !daily.colDone({col: {a: [0, 0]}}, V2) && daily.silDone({sil: {a: [0, 0]}}, V3) && !daily.silDone({sil: {a: [0, 0]}}, V2),
+      daily.firstOpen(Object.assign({}, pf, {jr: {g: [4], done: false, won: false}}), V3) === 3 && daily.firstOpen(Object.assign({}, pf, {grid: {cells: [{p: 1, ok: true}, null], over: false}}), V3) === 4,
+      daily.gradeFor(p, daily.maxPts(V3)) === 'PERFECT DAY' && daily.gradeFor(a, daily.maxPts(V3)) === 'PRO BOWL' && daily.gradeFor(849, 1000) === 'PRO BOWL',
+      // The same crafted DS on the live day's own scale is untouched by the v3 table (scoring reads the day, not PTS).
+      daily.__dev.scratch(V3, {}, () => daily.totalPts(craftV2DS(V2), V2) === 920 && daily.totalPts(craftDS(V1), V1) === 620)
+    ];
+    const bad = log.map((x, i) => x ? null : i + 1).filter(Boolean);
+    return {pass: !bad.length, detail: bad.length ? 'failed steps ' + bad.join(', ') : `Mystery ${who3}; Journey ${jr}; crafted ${a} (${pts}), perfect ${p}, partial ${q}`};
+  });
+
+  check('gridShape(), gridSquare() and the 1 x 2 grid on a scratch v3 day', () => {
+    needV3();
+    const PP = daily.PP, s1 = daily.gridShape(V1), s3 = daily.gridShape(V3), g = V3.g;
+    const ex = daily.examplesFor(new Set(), V3);
+    // A player who fits the row but not the second column (a wrong answer for square 1).
+    const miss = PP.findIndex((p, i) => i !== ex[0] && daily.critOk(g[0], p) && !daily.critOk(g[2], p));
+    const sq1 = daily.gridSquare(1, V3), sq5 = daily.gridSquare(5, V1);
+    const log = [
+      s1.rows.join() === V1.g.slice(0, 3).join() && s1.cols.join() === V1.g.slice(3, 6).join() && s1.n === 9,
+      s3.rows.join() === g[0] && s3.cols.join() === g.slice(1).join() && s3.n === 2 && daily.gridShape(V3) === s3 && Object.isFrozen(s3.cols),
+      daily.gridShape(null).n === 0 && daily.gridShape().n === (daily.dayVersion() === 3 ? 2 : 9),
+      !!sq1 && sq1.r === 0 && sq1.c === 1 && sq1.row === g[0] && sq1.col === g[2] && daily.gridSquare('1', V3).k === 1
+        && daily.gridSquare(2, V3) === null && daily.gridSquare(-1, V3) === null && daily.gridSquare(1.5, V3) === null,
+      !!sq5 && sq5.r === 1 && sq5.c === 2 && sq5.row === V1.g[1] && sq5.col === V1.g[5],
+      ex.length === 2 && ex[0] >= 0 && ex[1] >= 0 && ex[0] === daily.exampleFor(g[0], g[1]) && ex[1] === daily.exampleFor(g[0], g[2])
+        && daily.examplesFor(new Set([ex[0]]), V3)[0] === daily.exampleFor(g[0], g[1], new Set([ex[0]])) && miss >= 0
+    ];
+    daily.__dev.scratch(V3, {}, ds => {
+      log.push(ds.grid.cells.length === 2 && daily.gridGuess(2, ex[0]) === null && daily.gridGuess(-1, ex[0]) === null && daily.gridGuess('x', ex[0]) === null);
+      log.push(daily.gridGuess('0', String(ex[0])) === 'ok' && ds.grid.cells[0].p === ex[0] && ds.grid.cells[0].ok === true);
+      log.push(daily.gridGuess(1, ex[0]) === 'dup' && daily.gridGuess(0, ex[1]) === null && !daily.gridDone());
+      log.push(daily.gridGuess(1, miss) === 'no' && daily.gridDone() && daily.gridScore() === 1 && daily.ptsGrid() === 100 && daily.STEPS[4].result() === '1 of 2');
+      log.push(daily.gridGuess(1, ex[1]) === null && ds.grid.cells.length === 2);
+      // DEEP CUT: numeric indexes follow the v3 shape (row 0, columns 0-1); a row 1 does not exist.
+      log.push(daily.deepCut(0, 1, ex[1]) === daily.deepCut(g[0], g[2], ex[1]) && daily.deepCut(0, 0, ex[0]) === daily.deepCut(g[0], g[1], ex[0])
+        && daily.deepReady(0, 1) && daily.deepCut(1, 0, ex[0]) === false);
+    });
+    daily.__dev.scratch(V3, {}, ds => {
+      daily.gridGuess(1, ex[1]); daily.gridGiveUp();
+      log.push(daily.gridDone() && ds.grid.over && ds.grid.cells[0] === null && daily.shareText().endsWith(`Grid ${R}${G}`));
+    });
+    // lockIn on v3: College and Faces filled to two with -1, the Journey and Mystery end, the grid is over.
+    daily.__dev.scratch(V3, {}, ds => {
+      daily.colPick(V3.c[0][2]);
+      log.push(daily.colPick(0) !== null && daily.colPick(0) === null && ds.col.a.length === 2);
+      ds.col.a.pop();
+      daily.silPick(0, V3.s[0].a);
+      log.push(daily.silPick(2, 0) === null);
+      daily.lockIn();
+      log.push(ds.col.a.length === 2 && ds.col.a[1] === -1 && ds.sil.a.join() === V3.s[0].a + ',-1' && ds.jr.done && !ds.jr.won && ds.who.done && ds.grid.over
+        && daily.allDone() && daily.totalPts() === 200 && daily.STEPS.map(s => s.result()).join(' | ') === '1 of 2 | 1 of 2 | Stumped | Missed | 0 of 2');
+    });
+    const bad = log.map((x, i) => x ? null : i + 1).filter(Boolean);
+    return {pass: !bad.length && log.length === 16, detail: bad.length ? 'failed steps ' + bad.join(', ') : `${log.length} steps ok; ${daily.critLabel(g[0])} x ${daily.critLabel(g[1])} / ${daily.critLabel(g[2])}: ${ex.map(i => PP[i][0]).join(', ')}`};
+  });
+
+  check('v3 saved state: the grid is sized to the day, progress is stamped v: 3, other stamps start over', () => {
+    needV3();
+    const F = daily.__dev.freshDS, L = daily.__dev.loadDS, c = k => ({p: k, ok: true});
+    const cut = F({grid: {cells: [c(1), c(2), c(3), null, null, null, null, null, null], over: false}}, V3).grid.cells;
+    const pad = F({grid: {cells: [c(1)], over: false}}, V3).grid.cells;
+    const col = ds => ds.col.a.join();
+    const live = daily.DS, lv = daily.dayVersion();
+    const log = [
+      F({}, V3).grid.cells.length === 2 && F({}, V1).grid.cells.length === 9 && F({}, V2).grid.cells.length === 9 && F({}, null).grid.cells.length === 9,
+      cut.length === 2 && cut[0].p === 1 && cut[1].p === 2 && pad.length === 2 && pad[0].p === 1 && pad[1] === null
+        && F({grid: {cells: 'x', over: true}}, V3).grid.cells.join() === ',' && F({grid: 'x'}, V3).grid.cells.length === 2,
+      // v1/v2 keep a 9-cell list as stored (unchanged behavior)
+      F({grid: {cells: [c(1)], over: false}}, V2).grid.cells.length === 1,
+      (() => { const d = L({v: 3, col: {a: [1]}}, V3); return col(d) === '1' && d.v === 3 && d.grid.cells.length === 2; })(),
+      (() => { const d = L({v: 2, col: {a: [1]}, grid: {cells: Array(9).fill(null), over: false}}, V3); return col(d) === '' && d.v === 3 && d.grid.cells.length === 2; })(),
+      (() => { const d = L({col: {a: [1]}}, V3); return col(d) === '' && d.v === 3; })(),
+      (() => { const d = L({v: 3, col: {a: [1]}}, V2); return col(d) === '' && d.v === 2 && d.grid.cells.length === 9; })(),
+      (() => { const d = L({v: 2, col: {a: [1]}}, V2); return col(d) === '1' && d.v === 2; })(),
+      (() => { const d = L({col: {a: [1]}}, V1); return col(d) === '1' && d.v === undefined; })(),
+      // Today's live DS carries today's stamp and grid size.
+      live.v === (lv >= 2 ? lv : live.v) && live.grid.cells.length === (lv === 3 ? daily.gridShape().n : 9)
+    ];
+    // pointsFor on the file's first v3 day: stamped progress counts, unstamped or v2-stamped progress scores 0.
+    if (R3) {
+      const pf = perfectV3DS(R3);
+      log.push(daily.pointsFor(pf, R3n) === 1000 && daily.pointsFor(Object.assign({}, pf, {v: 2}), R3n) === 0
+        && daily.pointsFor(Object.assign({}, pf, {v: undefined}), R3n) === 0 && daily.pointsFor(craftV3DS(R3), R3n) === 740);
+    }
+    // streakLocal agrees with the saved days on this phone: done = every step of that day's version, perfect = its maxPts.
+    const st = daily.streakLocal(), want = new Set(), wantP = new Set();
+    try {
+      for (let k = 0; k < localStorage.length; k++) {
+        const m = /^gg-daily-(\d+)$/.exec(localStorage.key(k) || '');
+        if (!m) continue;
+        const n = +m[1], day = daily.dayFor(n);
+        if (!(n >= 1 && n <= daily.PNUM) || !day) continue;
+        let raw = null; try { raw = JSON.parse(localStorage.getItem(localStorage.key(k))); } catch (_) {}
+        if (n === daily.PNUM) raw = JSON.parse(JSON.stringify(daily.DS));
+        if (!raw || typeof raw !== 'object' || (daily.dayVersion(day) === 3 && raw.v !== 3)) continue;
+        const ds = F(raw, day);
+        if (!daily.allDone(ds, day)) continue;
+        want.add(n);
+        if (daily.totalPts(ds, day) === daily.maxPts(day)) wantP.add(n);
+      }
+    } catch (_) {}
+    if (!want.has(daily.PNUM) && daily.allDone()) { want.add(daily.PNUM); if (daily.totalPts() === daily.maxPts()) wantP.add(daily.PNUM); }
+    log.push([...st.done].sort().join() === [...want].sort().join() && [...st.perfect].sort().join() === [...wantP].sort().join());
+    const bad = log.map((x, i) => x ? null : i + 1).filter(Boolean);
+    return {pass: !bad.length, detail: bad.length ? 'failed steps ' + bad.join(', ') : `${log.length} steps ok${R3 ? `; pointsFor on day ${R3n} (v3)` : '; no v3 day in the file yet'}; this phone: ${st.done.size} done, ${st.perfect.size} perfect`};
+  });
+
+  check('entryFor() and boardEntry() across versions', () => {
+    needV3();
+    const e1 = {p: 620, g: 5, c: 3, w: 3}, e2 = {p: 1180, g: 6, c: 4, w: 2, j: 1, s: 3}, e3 = {v: 3, p: 740, c: 1, s: 2, w: 3, j: 1, g: 1};
+    const pl = e => ({id: 'x', nick: 'X', days: {7: e}});
+    const E = (e, day) => daily.entryFor(pl(e), 7, day);
+    const log = [
+      daily.entryVersion(e1) === 1 && daily.entryVersion(e2) === 2 && daily.entryVersion(e3) === 3 && daily.entryVersion(null) === 0,
+      // v1 days take any entry (unchanged); v2 days only v2 entries; v3 days only v3 entries.
+      E(e1, V1) === e1 && E(e2, V1) === e2 && E(e3, V1) === e3,
+      E(e1, V2) === null && E(e2, V2) === e2 && E(e3, V2) === null,
+      E(e1, V3) === null && E(e2, V3) === null && E(e3, V3) === e3,
+      daily.entryFor(pl(e3), 8, V3) === null && daily.entryFor(null, 7, V3) === null,
+      // Real days: day 1 is v1, day 2 is v2 (the default day is puzzle day pnum's).
+      daily.entryFor({days: {1: e1}}, 1) === e1 && daily.entryFor({days: {2: e1}}, 2) === null && daily.entryFor({days: {2: e2}}, 2) === e2 && daily.entryFor({days: {2: e3}}, 2) === null,
+      !R3 || (daily.entryFor({days: {[R3n]: e3}}, R3n) === e3 && daily.entryFor({days: {[R3n]: e2}}, R3n) === null),
+      // What postScore writes, in key order.
+      JSON.stringify(daily.boardEntry(craftV3DS(V3), V3)) === '{"v":3,"p":740,"c":1,"s":2,"w":3,"j":1,"g":1}',
+      JSON.stringify(daily.boardEntry(perfectV3DS(V3), V3)) === '{"v":3,"p":1000,"c":2,"s":2,"w":1,"j":1,"g":2}',
+      JSON.stringify(daily.boardEntry(Object.assign(craftV3DS(V3), {who: {g: [1], clues: 7, done: true, won: false}, jr: {g: [1, 2, 3], done: true, won: false}}), V3)) === '{"v":3,"p":400,"c":1,"s":2,"w":0,"j":0,"g":1}',
+      JSON.stringify(daily.boardEntry(craftV2DS(V2), V2)) === '{"p":920,"g":5,"c":3,"w":3,"j":2,"s":3}',
+      JSON.stringify(daily.boardEntry(craftDS(V1), V1)) === '{"p":620,"g":5,"c":3,"w":3}',
+      daily.entryFor(pl(daily.boardEntry(craftV3DS(V3), V3)), 7, V3) !== null
+    ];
+    const bad = log.map((x, i) => x ? null : i + 1).filter(Boolean);
+    return {pass: !bad.length, detail: bad.length ? 'failed steps ' + bad.join(', ') : `${log.length} steps ok; v3 entry ${JSON.stringify(daily.boardEntry(craftV3DS(V3), V3))}`};
+  });
+
+  check('shareText() on v3 days: two squares for College, Faces and the Grid (one line)', () => {
+    needV3(); needData();
+    const L = data.DATA.league.name, date = shareDate().toLocaleDateString('en-US', {month: 'short', day: 'numeric'});
+    const a = daily.shareText(craftV3DS(V3), V3);
+    const wantA = [`${L} daily, ${date}: 740 pts`, `College ${G}${R}`, `Faces ${G}${G}`, 'Mystery player: clue 3 of 7', 'Journey: guess 1 of 3', `Grid ${G}${R}`].join('\n');
+    // College unfinished (no line), faces 0 of 2, Mystery stumped, Journey missed, grid given up with square 2 right:
+    // 100 + 0 + 0 + 0 + 100 = 200.
+    const ds2 = {v: 3, grid: {cells: [null, {p: 1, ok: true}], over: true}, col: {a: [V3.c[0][2]]}, who: {g: [1, 2, 3, 4, 5, 6, 7], clues: 7, done: true, won: false},
+      hl: {a: []}, sil: {a: [(V3.s[0].a + 1) % 4, -1]}, jr: {g: [1, 2, 3], done: true, won: false}};
+    const b = daily.shareText(ds2, V3);
+    const wantB = [`${L} daily, ${date}: 200 pts`, `Faces ${R}${R}`, 'Mystery player: stumped', 'Journey: missed', `Grid ${R}${G}`].join('\n');
+    const p = daily.shareText(perfectV3DS(V3), V3);
+    const wantP = [`${L} daily, ${date}: 1,000 pts`, `College ${G}${G}`, `Faces ${G}${G}`, 'Mystery player: clue 1 of 7', 'Journey: guess 1 of 3', `Grid ${G}${G}`].join('\n');
+    // Nothing done yet: just the header.
+    const e = daily.shareText(daily.__dev.freshDS({v: 3}, V3), V3);
+    const pass = a === wantA && b === wantB && p === wantP && e === `${L} daily, ${date}: 0 pts` && !a.includes('/9') && !a.includes('/2');
+    return {pass, detail: JSON.stringify(a)};
+  });
+
+  check("boardRows(): v3 sub strings ('College 1/2, faces 2/2, ID on clue 3, path on guess 1, grid 1/2')", () => {
+    needV3();
+    // The file's first v3 day when it has one, else the crafted v3 day passed as the day.
+    const P = R3 ? R3n : 3, D = R3 || V3;
+    const players = [
+      {id: 'v3-a', nick: 'Evan', days: {[P]: {v: 3, p: 740, c: 1, s: 2, w: 3, j: 1, g: 1}}, total: 740, played: 1, last: P},
+      {id: 'v3-b', nick: 'Mason', days: {[P]: {v: 3, p: 200, c: 1, s: 0, w: 0, j: 0, g: 1}}, total: 200, played: 1, last: P},
+      {id: 'v2-c', nick: 'Zed', days: {[P]: {p: 1180, g: 6, c: 4, w: 2, j: 1, s: 3}}, total: 1180, played: 1, last: P},
+      {id: 'v1-d', nick: 'Ann', days: {[P]: {p: 620, g: 5, c: 3, w: 3}}, total: 620, played: 1, last: P}
+    ];
+    const rows = daily.boardRows('today', players, P, D);
+    const got = rows.map(r => r.id + '|' + r.sub + '|' + r.rank).join(';');
+    const want = ['v3-a|College 1/2, faces 2/2, ID on clue 3, path on guess 1, grid 1/2|1',
+      'v3-b|College 1/2, faces 0/2, no ID, no path, grid 1/2|2'].join(';');
+    // With a real v3 day the defaults (day = that pnum's entry) give the same rows, and social() counts two players.
+    const real = !R3 || (daily.boardRows('today', players, P).map(r => r.id + '|' + r.sub + '|' + r.rank).join(';') === want && daily.social(players, P).played.length === 2);
+    return {pass: got === want && real, detail: `day ${P}${R3 ? '' : ' (crafted)'}: ${got}`};
+  });
+
+  check('puzzles-v3.json: days 3 onward are v3 and well-formed', () => {
+    needDaily();
+    const PZ = daily.PZ, PP = daily.PP, bad = [];
+    const critOk = c => {
+      const [k, v] = String(c).split(':');
+      if (k === 't') return /^\d+$/.test(v) && +v < PZ.teams.length;
+      if (k === 'c') return /^\d+$/.test(v) && +v < PZ.colleges.length;
+      if (k === 'p') return !!daily.POSN[v];
+      if (k === 'd') return v === '1' || v === 'U';
+      return false;
+    };
+    const silOk = s => !!s && !!PP[s.p] && Array.isArray(s.o) && s.o.length === 4 && s.o[s.a] === s.p && new Set(s.o).size === 4 && s.o.every(o => !!PP[o]);
+    let n3 = 0, empty = 0;
+    const t0 = performance.now();
+    PZ.days.forEach((d, i) => {
+      if (i < 2) return;
+      const at = `day ${i + 1}: `;
+      if (daily.dayVersion(d) !== 3) { bad.push(at + 'not v3'); return; }
+      n3++;
+      if (!Array.isArray(d.g) || d.g.length !== 3 || !d.g.every(critOk) || d.g[1] === d.g[2] || d.g[0] === d.g[1] || d.g[0] === d.g[2]) bad.push(at + 'g');
+      if (!Array.isArray(d.c) || d.c.length !== 2 || d.c[0][0] === d.c[1][0]
+        || d.c.some(c => !PP[c[0]] || !Array.isArray(c[1]) || c[1].length !== 4 || c[1].some(x => PZ.CL[x] == null) || !(c[2] >= 0 && c[2] < 4))) bad.push(at + 'c');
+      if (!Array.isArray(d.s) || d.s.length !== 2 || !d.s.every(silOk) || d.s[0].p === d.s[1].p) bad.push(at + 's');
+      if (!PP[d.w] || !PZ.N[d.w]) bad.push(at + 'w');
+      if (!d.j || !PP[d.j.p] || !Array.isArray(d.j.col) || !d.j.t || [...d.j.t].some(ch => daily.TA.indexOf(ch) < 0 || daily.TA.indexOf(ch) >= PZ.teams.length)) bad.push(at + 'j');
+      const sh = daily.gridShape(d);
+      if (sh.n !== 2 || sh.rows.length !== 1) bad.push(at + 'shape');
+      // Every square has at least one answer.
+      else if (daily.examplesFor(new Set(), d).some(x => x < 0)) { bad.push(at + 'a square has no answer'); empty++; }
+      if (daily.stepsFor(d).reduce((t, s) => t + s.max, 0) !== 1000 || daily.maxPts(d) !== 1000) bad.push(at + 'max');
+    });
+    const ms = Math.round(performance.now() - t0);
+    if (!n3 && !bad.length) bad.push('no v3 days in data/puzzles-v3.json yet (install out/puzzles-v3.json there)');
+    return {pass: !bad.length && n3 === PZ.days.length - 2, detail: bad.length ? bad.slice(0, 6).join('; ') + (bad.length > 6 ? ` (+${bad.length - 6})` : '') : `${n3} v3 days (days 3-${PZ.days.length}), every square answerable (${ms} ms)`};
+  });
+
+  // ---------------------------------------------------------------------------
+  // fire.js and week.js (Matchup of the Week votes). Pure functions on crafted docs: nothing is read from or
+  // written to Firestore or the local stand-in. The NFL pick'em has its own checks (checks-pickem.js, below).
 
   check('fire.js: one shared Firebase app; the dev write guard is unchanged', async () => {
     const same = fire.isDevHost === daily.isDevHost && daily.__dev.devDayFrom === fire.devDayFrom && daily.DEV_DAY === fire.DEV_DAY;
@@ -825,22 +1121,7 @@ export async function runChecks() {
     return {pass, detail: `tally ${tally}, order ${order}, leader checks ${lead.map(x => x ? 'ok' : 'x').join(' ')}`};
   });
 
-  check('tallyPicks(): normalized keys, invalid picks dropped, per-team counts', () => {
-    const docs = [
-      {uid: 'p1', picks: {'evan|mitch': 'evan', 'sayer|john': 'john', 'x|y': 'x', 'jaymin|jayton': 'mason'}, nick: 'A', at: 1},
-      {uid: 'p2', picks: {'mitch|evan': 'mitch'}, me: 'mitch', nick: 'Mitch', at: 2},
-      {uid: 'p3', picks: {}, nick: 'empty', at: 3},
-      {uid: 'p4', picks: 'bad', nick: 'bad', at: 4}
-    ];
-    const t = week.tallyPicks(docs, G3, 'p2');
-    const e = t.entries.map(x => x.uid + ':' + JSON.stringify(x.picks) + ':' + x.count).join(' ');
-    const pass = e === 'p1:{"evan|mitch":"evan","john|sayer":"john"}:2 p2:{"evan|mitch":"mitch"}:1'
-      && JSON.stringify(t.counts) === '{"evan|mitch":{"evan":1,"mitch":1},"john|sayer":{"john":1,"sayer":0},"jaymin|jayton":{"jaymin":0,"jayton":0}}'
-      && t.mine && t.mine.uid === 'p2' && t.mine.me === 'mitch';
-    return {pass, detail: e};
-  });
-
-  check('Tallies: server time after kickoff never counts; a manager on two phones counts once', () => {
+  check('tallyVotes(): server time after kickoff never counts; a manager on two phones counts once', () => {
     const lock = 10000;
     const votes = [
       {uid: 'a1', pick: 'evan|mitch', me: 'evan', nick: 'Evan', at: 1000},     // Evan, Safari
@@ -853,63 +1134,13 @@ export async function runChecks() {
     const t = week.tallyVotes(votes, G3, 'a1', {lock, me: 'evan'});
     const v = JSON.stringify(t.tally) === '{"evan|mitch":0,"john|sayer":2,"jaymin|jayton":0}' && t.total === 2
       && t.mine && t.mine.uid === 'a2' && week.tallyVotes(votes, G3, 'zz', {lock}).mine === null;
-    const picks = [
-      {uid: 'p1', picks: {'evan|mitch': 'evan'}, me: 'john', nick: 'John', at: 5000},
-      {uid: 'p2', picks: {'evan|mitch': 'mitch', 'john|sayer': 'john'}, me: 'john', nick: 'John', at: 6000},
-      {uid: 'p3', picks: {'evan|mitch': 'mitch'}, me: 'sayer', nick: 'Sayer', at: 20000}
-    ];
-    const p = week.tallyPicks(picks, G3, 'p1', {lock, me: 'john'});
-    const pk = p.entries.length === 1 && p.entries[0].uid === 'p2' && p.mine === p.entries[0] && p.counts['evan|mitch'].mitch === 1;
     // Without a lock (crafted docs) nothing is filtered by time.
     const open = week.tallyVotes(votes, G3, 'a1').total === 5;
-    return {pass: v && pk && open, detail: `votes ${JSON.stringify(t.tally)} (mine ${t.mine && t.mine.uid}), picks ${p.entries.map(e => e.uid).join()}, no lock ${week.tallyVotes(votes, G3, 'a1').total}`};
+    return {pass: v && open, detail: `votes ${JSON.stringify(t.tally)} (mine ${t.mine && t.mine.uid}), no lock ${week.tallyVotes(votes, G3, 'a1').total}`};
   });
 
   // Played, untied games of a 2026 week.
   const playedIn = w => data.GAMES.filter(g => g.year === 2026 && g.week === w && !g.tie);
-
-  check('scoreWeek() on a crafted entry (2026 week 3 results)', () => {
-    needData();
-    const g = playedIn(3);
-    if (g.length < 5) throw new Error('2026 week 3 has ' + g.length + ' decided games');
-    const picks = {};
-    picks[g[0].a + '|' + g[0].b] = g[0].win;          // right
-    picks[g[0].b + '|' + g[0].a] = g[0].lose;         // same game again, reversed key: ignored
-    picks[g[1].a + '|' + g[1].b] = g[1].lose;         // wrong
-    picks[g[2].b + '|' + g[2].a] = g[2].win;          // right (reversed key)
-    picks[g[3].a + '|' + g[3].b] = 'nobody';          // not one of the two teams: ignored
-    picks[g[0].a + '|' + g[1].a] = g[0].a;            // not a game that week: ungraded
-    const s = week.scoreWeek({picks}, 2026, 3);
-    const none = week.scoreWeek(null, 2026, 3), future = week.scoreWeek({picks: {[g[0].a + '|' + g[0].b]: g[0].a}}, 2026, 30);
-    const pass = s.right === 2 && s.graded === 3 && none.right === 0 && none.graded === 0 && future.graded === 0;
-    return {pass, detail: `right ${s.right} of ${s.graded} graded (expected 2 of 3)`};
-  });
-
-  check('standingsFrom(): season pick\'em table, equal right shares a rank', () => {
-    needData();
-    const w1 = playedIn(1), w2 = playedIn(2);
-    const all = (gs, pick) => Object.fromEntries(gs.map(g => [g.a + '|' + g.b, pick(g)]));
-    const weeks = [
-      {year: 2026, week: 1, entries: [
-        {uid: 'A', picks: all(w1, g => g.win), me: 'evan', nick: 'Evan'},
-        {uid: 'B', picks: all(w1, g => g.win), me: null, nick: 'Bee'},
-        {uid: 'C', picks: all(w1, g => g.lose), me: 'mason', nick: 'Old name'}]},
-      {year: 2026, week: 2, entries: [
-        {uid: 'B', picks: all(w2, g => g.lose), me: null, nick: 'Bee'},
-        {uid: 'C', picks: all(w2.slice(0, 3), g => g.win), me: 'mason', nick: 'Mason'},
-        {uid: 'D', picks: all(w2.slice(0, 1), g => g.win), me: null, nick: 'Dee'},
-        {uid: 'E', picks: {}, nick: 'nothing graded'}]}
-    ];
-    const n1 = w1.length, n2 = w2.length;
-    const rows = week.standingsFrom(weeks, 'C');
-    const got = rows.map(r => `${r.uid}:${r.right}/${r.graded}:${r.weeks}:#${r.rank}`).join(' ');
-    const want = `A:${n1}/${n1}:1:#1 B:${n1}/${n1 + n2}:2:#1 C:3/${n1 + 3}:2:#3 D:1/1:1:#4`;
-    const c = rows.find(r => r.uid === 'C'), d = rows.find(r => r.uid === 'D');
-    // games: every decided game of the weeks entered (a skipped game is a miss): D picked 1 of week 2's games.
-    const games = c.games === n1 + n2 && d.games === n2 && Math.abs(d.pct - 1 / n2) < 1e-9;
-    const pass = got === want && games && c.you && c.nick === 'Mason' && c.me === 'mason' && rows.filter(r => r.you).length === 1;
-    return {pass, detail: got};
-  });
 
   check('current(): the week from motw.upcoming(); hype replay equals motw.candidates()', () => {
     needData();
@@ -957,6 +1188,16 @@ export async function runChecks() {
     try { await statsMod.statsChecks(check); } catch (e) { check('Stats checks (checks-stats.js)', () => { throw e; }); }
   } else {
     check('Stats checks (checks-stats.js) loaded', () => ({pass: false, detail: statsErr ? 'did not load: ' + (statsErr.message || statsErr) : 'no statsChecks export'}));
+  }
+
+  // NFL pick'em checks (js/core/checks-pickem.js, owned by the pick'em core: ESPN parsing, week selection, locks,
+  // late picks, the reveal rule, grading and standings). Guarded the same way.
+  let pickemMod = null, pickemErr = null;
+  try { pickemMod = await import('./checks-pickem.js'); } catch (e) { pickemErr = e; }
+  if (pickemMod && typeof pickemMod.pickemChecks === 'function') {
+    try { await pickemMod.pickemChecks(check); } catch (e) { check("Pick'em checks (checks-pickem.js)", () => { throw e; }); }
+  } else {
+    check("Pick'em checks (checks-pickem.js) loaded", () => ({pass: false, detail: pickemErr ? 'did not load: ' + (pickemErr.message || pickemErr) : 'no pickemChecks export'}));
   }
 
   await Promise.all(pending);

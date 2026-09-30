@@ -2,7 +2,8 @@
 // the points pill), the puzzle header (overline + PROMPTS copy), the puzzle module and a sticky bottom bar.
 // Switching puzzles is an in-place update with the inner-swap motion. Owner: puzzle-run package.
 //
-// A v1 day has three puzzles (college, mystery, grid); a v2 day five (college, silhouette, mystery, journey, grid).
+// A v1 day has three puzzles (college, mystery, grid); v2 and v3 days five (college, silhouette, mystery, journey,
+// grid; v3 days have one or two items in each).
 // The day's order comes from daily.SLUGS / daily.STEPS (live bindings); this view keys everything by slug.
 //
 // Puzzle modules (college.js, silhouette.js, mystery.js, journey.js, grid.js) export {render(ctx), mount(el, ctx, api)
@@ -16,6 +17,7 @@ import silhouette from './silhouette.js';
 import mystery from './mystery.js';
 import journey from './journey.js';
 import grid from './grid.js';
+import {itemCount} from './board.js';
 
 const esc = data.esc;
 const MODS = {college, silhouette, mystery, journey, grid};
@@ -56,11 +58,12 @@ const ST = new WeakMap();
 // ---------------------------------------------------------------------------------------------- chrome data
 function fracOf(j) {
   const s = daily.STEPS[j], ds = daily.DS;
-  // Spec 7.2: the Grid segment is filled squares / 9, even after giving up (the label still says "finished").
-  if (s.id === 'grid') return ds.grid.cells.filter(Boolean).length / 9;
+  // Spec 7.2: the Grid segment is filled squares / all squares (9, or 2 on a v3 day), even after giving up (the label
+  // still says "finished").
+  if (s.id === 'grid') return Math.min(1, ds.grid.cells.filter(Boolean).length / itemCount('grid'));
   if (s.done()) return 1;
-  if (s.id === 'col') return Math.min(1, ds.col.a.length / 5);
-  if (s.id === 'sil') return Math.min(1, ds.sil.a.length / daily.silRounds());
+  if (s.id === 'col') return Math.min(1, ds.col.a.length / itemCount('col'));
+  if (s.id === 'sil') return Math.min(1, ds.sil.a.length / itemCount('sil'));
   return 0; // Mystery player, Journey: 1 when done
 }
 const perfectOf = j => daily.STEPS[j].pts() === daily.STEPS[j].max;
@@ -257,7 +260,7 @@ function fill(st) {
   if (ready()) {
     mountModule(st, page);
     if (st.slug !== 'grid' && grid.warm) grid.warm();
-    if (silhouette.warm) silhouette.warm(); // the day's five photos, before (or while) Silhouettes opens
+    if (silhouette.warm) silhouette.warm(); // the day's photos, before (or while) Silhouettes opens
   }
   ui.hydrate(page);
   st.shown = ready() ? daily.totalPts() : 0;
@@ -397,7 +400,7 @@ export default {
       const page = st.stage.querySelector('.rn-page');
       if (page) mountModule(st, page);
       if (st.slug !== 'grid' && grid.warm) grid.warm(); // DEEP CUT scans happen at idle, before the Grid is opened
-      if (silhouette.warm) silhouette.warm(); // the day's five photos, before (or while) Silhouettes opens
+      if (silhouette.warm) silhouette.warm(); // the day's photos, before (or while) Silhouettes opens
       canonical(st);
     } else {
       load(st); // cold deep link: skeleton until daily.ensure() resolves (a failed earlier load retries here)

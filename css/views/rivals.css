@@ -420,119 +420,54 @@
 .v-rivals .rv-vt-tag.is-lead > .ic { fill: var(--gold); }
 .v-rivals .rv-vt-tag.is-mine { background: var(--tint-soft); color: var(--tint); }
 
-/* ================================================================ Pick'em */
+/* ================================================================ NFL Pick'em (compact card; the game is #/pickem) */
 .v-rivals .rv-pk { margin: 0 0 28px; }
-.v-rivals .rv-pk-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 34px; }
+.v-rivals .rv-pk-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; min-height: 34px; margin-bottom: 8px; }
 .v-rivals .rv-pk-head .t-2 { margin: 0; }
-.v-rivals .rv-pk-head .btn-plain { margin-right: -6px; font-size: var(--fs-sub); }
-.v-rivals .rv-pk-head .btn-plain > .ic { width: 18px; height: 18px; }
-.v-rivals .rv-pk-sub { margin: 0 0 12px; color: var(--ink-3); font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); }
-.v-rivals .rv-pk-card { padding: 0; overflow: hidden; }
-.v-rivals .rv-pk-status {
+.v-rivals .rv-pk-wk { color: var(--ink-3); }
+.v-rivals .rv-npk {
+  position: relative; display: flex; flex-direction: column;
+  min-height: 72px; padding: 14px 16px 0;
+  color: var(--ink); overflow: hidden;
+  --stack-ring: var(--surface-1);
+  transition: transform var(--spring-snappy-dur) var(--spring-snappy);
+}
+.v-rivals .rv-npk.is-pressed { transform: scale(.98); transition: none; }
+.v-rivals .rv-npk:focus-visible { outline-offset: 2px; }
+.v-rivals .rv-npk:not(.is-ok) { flex-direction: row; align-items: center; gap: 10px; padding: 14px 12px 14px 16px; }
+.v-rivals .rv-npk > .chev { flex: none; width: 18px; height: 18px; margin-left: auto; color: var(--ink-3); }
+.v-rivals .rv-npk-msg { flex: 1 1 auto; display: flex; align-items: center; gap: 8px; min-width: 0; font: 400 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink-2); }
+.v-rivals .rv-npk-msg > .ic { flex: none; width: 18px; height: 18px; color: var(--ink-3); }
+.v-rivals .rv-npk-msg .spin { flex: none; width: 16px; height: 16px; border-width: 2px; }
+.v-rivals .rv-npk-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.v-rivals .rv-npk-prog { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.v-rivals .rv-npk-prog .n2 { font-size: 40px; line-height: 40px; }
+.v-rivals .rv-npk-of { display: inline-flex; align-items: center; gap: 4px; font: 600 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink-2); white-space: nowrap; }
+.v-rivals .rv-npk-of > .ic { width: 15px; height: 15px; stroke-width: 2.8; }
+.v-rivals .rv-npk-prog.is-all .n2, .v-rivals .rv-npk-prog.is-all .rv-npk-of { color: var(--tint); }
+.v-rivals .rv-npk-rec { display: flex; flex-direction: column; align-items: flex-end; flex: none; }
+.v-rivals .rv-npk-rl { font: 400 var(--fs-cap)/var(--lh-cap) var(--font-text); color: var(--ink-3); }
+.v-rivals .rv-npk-strip { display: flex; gap: 3px; margin-top: 12px; }
+.v-rivals .rv-npk-strip > i { flex: 1 1 0; height: 5px; border-radius: 3px; background: var(--surface-3); }
+.v-rivals .rv-npk-strip > i.is-on { background: color-mix(in srgb, var(--tint) 55%, var(--surface-3)); }
+.v-rivals .rv-npk-strip > i.is-right { background: var(--tint); }
+.v-rivals .rv-npk-strip > i.is-wrong { background: var(--wrong); }
+.v-rivals .rv-npk-rows { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+.v-rivals .rv-npk-row { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 22px; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2); }
+.v-rivals .rv-npk-row > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-rivals .rv-npk-row > .ic { flex: none; width: 16px; height: 16px; color: var(--ink-3); }
+.v-rivals .rv-npk-row > .c-pk-dot { margin: 0 4px 0 5px; }
+.v-rivals .rv-npk-row.is-live { color: var(--ink); font-weight: 600; }
+.v-rivals .rv-npk-row.is-lead { color: var(--ink); }
+.v-rivals .rv-npk-av { flex: none; display: flex; }
+.v-rivals .rv-npk-av .stack > * + * { margin-left: -5px; }
+.v-rivals .rv-npk-go {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  min-height: 44px; padding: 0 8px 0 14px;
-  border-bottom: .5px solid var(--separator);
-  font: 600 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2);
-}
-.v-rivals .rv-pk-prog { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.v-rivals .rv-pk-dots { display: flex; gap: 4px; flex: none; }
-.v-rivals .rv-pk-dots > i {
-  width: 8px; height: 8px; border-radius: 50%;
-  background: var(--surface-3);
-  transition: background-color 200ms linear;
-}
-.v-rivals .rv-pk-dots > i.on { background: var(--tint); }
-.v-rivals .rv-pk-count { white-space: nowrap; }
-.v-rivals .rv-pk-prog.is-all .rv-pk-count { color: var(--tint); }
-.v-rivals .rv-pk-msg { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.v-rivals .rv-pk-msg > .ic { flex: none; width: 16px; height: 16px; color: var(--ink-3); }
-.v-rivals .rv-pk-msg > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.v-rivals .rv-pk-save {
-  flex: none; display: inline-flex; align-items: center; gap: 5px;
-  min-height: 44px; padding: 0 6px;
-  color: var(--ink-3); white-space: nowrap;
-}
-.v-rivals .rv-pk-save > .ic { width: 14px; height: 14px; stroke-width: 2.4; }
-.v-rivals .rv-pk-save.is-saved > .ic { color: var(--tint); }
-.v-rivals .rv-pk-save .spin { width: 13px; height: 13px; border-width: 1.75px; }
-.v-rivals .rv-pk-save.is-failed { color: var(--wrong); border-radius: var(--r-cell); transition: opacity 250ms linear; }
-.v-rivals .rv-pk-save.is-failed.is-pressed { opacity: .5; transition: none; }
-
-.v-rivals .rv-pk-list { list-style: none; margin: 0; padding: 4px 0; }
-.v-rivals .rv-pk-game { position: relative; padding: 8px 12px; }
-.v-rivals .rv-pk-game + .rv-pk-game::before {
-  content: ""; position: absolute; left: 12px; right: 12px; top: 0; height: .5px;
-  background: var(--separator); pointer-events: none;
-}
-.v-rivals .rv-pk-pair { display: grid; grid-template-columns: minmax(0, 1fr) 26px minmax(0, 1fr); align-items: center; }
-.v-rivals .rv-pk-vs { text-align: center; color: var(--ink-4); }
-.v-rivals .rv-pk-side {
-  position: relative;
-  display: flex; align-items: center; gap: 10px;
-  min-width: 0; min-height: 56px; padding: 8px 10px;
-  border-radius: var(--r-cell);
-  background: var(--surface-2); color: var(--ink);
-  text-align: left;
-  transition: transform var(--spring-snappy-dur) var(--spring-snappy), background-color 200ms linear, box-shadow 200ms linear;
-}
-.v-rivals .rv-pk-side.b { flex-direction: row-reverse; text-align: right; }
-.v-rivals button.rv-pk-side.is-pressed { transform: scale(.96); transition: none; }
-.v-rivals .rv-pk-side.is-on { background: var(--tint-soft); box-shadow: inset 0 0 0 1.5px var(--tint); }
-.v-rivals .rv-pk-av { transition: opacity 200ms linear; }
-.v-rivals .rv-pk-n { transition: color 200ms linear; }
-/* The side you didn't pick steps back by colour, not opacity: its name stays readable (ink-2) and it is still a
-   live control. Only the (decorative) avatar fades. */
-.v-rivals .rv-pk-side.is-dim .rv-pk-av { opacity: .55; }
-.v-rivals .rv-pk-side.is-dim .rv-pk-n { color: var(--ink-2); }
-/* The check sits on the side's outer corner (toward the "vs"), never over the avatar's monogram. */
-.v-rivals .rv-pk-av { flex: none; display: grid; }
-.v-rivals .rv-pk-ck {
-  position: absolute; top: -6px; right: -6px; z-index: 1;
-  display: none; place-items: center;
-  width: 18px; height: 18px; border-radius: 50%;
-  background: var(--tint); color: var(--on-tint);
-  box-shadow: 0 0 0 2px var(--surface-1);
-}
-.v-rivals .rv-pk-side.b .rv-pk-ck { right: auto; left: -6px; }
-.v-rivals .rv-pk-msg.is-wait .spin { flex: none; width: 13px; height: 13px; border-width: 1.75px; }
-.v-rivals .rv-pk-side.is-on .rv-pk-ck { display: grid; }
-.v-rivals .rv-pk-ck > .ic { width: 12px; height: 12px; stroke-width: 3; }
-.v-rivals .rv-pk-txt { display: flex; flex-direction: column; min-width: 0; }
-.v-rivals .rv-pk-n {
-  font: 600 var(--fs-sub)/var(--lh-sub) var(--font-text);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.v-rivals .rv-pk-r {
-  font: 400 var(--fs-cap)/var(--lh-cap) var(--font-text); color: var(--ink-3);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.v-rivals .rv-pk-side.is-on .rv-pk-r { color: var(--ink-2); }
-/* After kickoff: who the league picked, under each game. */
-.v-rivals .rv-pk-crowd {
-  display: grid; grid-template-columns: 76px minmax(0, 1fr) 76px; align-items: center; gap: 8px;
-  margin-top: 8px; min-height: 28px;
-}
-.v-rivals .rv-pk-cs .stack > * + * { margin-left: -6px; }
-.v-rivals .rv-pk-crowd.is-none { display: block; text-align: center; }
-.v-rivals .rv-pk-nobody { font: 400 var(--fs-cap)/var(--lh-cap) var(--font-text); color: var(--ink-3); }
-.v-rivals .rv-pk-cs { display: flex; min-width: 0; }
-.v-rivals .rv-pk-cs.b { justify-content: flex-end; }
-.v-rivals .rv-pk-cs .stack-more { font-size: 11px; padding: 0 5px; }
-.v-rivals .rv-pk-split .split { gap: 6px; }
-.v-rivals .rv-pk-split .split-pct { font-size: var(--fs-cap); min-width: 3.5ch; }
-.v-rivals .rv-pk-split .split-bar, .v-rivals .rv-pk-split .split-bar > i { height: 6px; }
-.v-rivals .rv-pk-foot {
-  display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  min-height: 44px; padding: 0 8px 0 14px;
+  min-height: 48px; margin: 12px -16px 0; padding: 0 12px 0 16px;
   border-top: .5px solid var(--separator);
-  font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3);
+  font: 600 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--tint);
 }
-.v-rivals .rv-pk-fw:empty { display: none; }
-.v-rivals .rv-pk-fi { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.v-rivals .rv-pk-fi > .ic { flex: none; width: 15px; height: 15px; }
-.v-rivals .rv-pk-fi > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.v-rivals .rv-pk-in { flex: none; padding-right: 6px; white-space: nowrap; }
-.v-rivals .rv-pk-foot .btn-plain { flex: none; font-size: var(--fs-foot); }
+.v-rivals .rv-npk-go > .ic { flex: none; width: 18px; height: 18px; stroke-width: 2.2; }
 
 /* ================================================================ Past Matchups of the Week */
 .v-rivals .rv-past { margin: 0 0 28px; }
@@ -566,46 +501,18 @@
 /* ================================================================ Head to head title (under the week) */
 .v-rivals .rv-h2h-t { margin: 0 0 2px; }
 
-/* ================================================================ Sheets (who voted, everyone's picks, standings) */
+/* ================================================================ Sheets (who voted) */
 .sh-rv .rv-sh-sub { margin: 0 4px 16px; font: 400 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink-2); text-wrap: pretty; }
 .sh-rv .rv-sh-note { margin: 16px 16px 0; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
 .sh-rv .group-h { text-transform: none; letter-spacing: 0; font-weight: 600; }
 .sh-rv .empty { padding-top: 24px; }
-.sh-rv-picks .rv-sp-g { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
-.sh-rv-picks .rv-sp-g + .rv-sp-g { margin-top: 12px; }
-.sh-rv-picks .rv-sp-col { min-width: 0; padding: 10px 12px 12px; border-radius: var(--r-group); background: var(--surface-2); --stack-ring: var(--surface-2); }
-.sh-rv-picks .rv-sp-h { display: flex; align-items: center; gap: 8px; min-height: 28px; }
-.sh-rv-picks .rv-sp-hn { flex: 1 1 auto; min-width: 0; font: 600 var(--fs-sub)/var(--lh-sub) var(--font-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sh-rv-picks .rv-sp-hc { flex: none; color: var(--ink-2); }
-.sh-rv-picks .rv-sp-l { list-style: none; margin: 8px 0 0; padding: 0; }
-.sh-rv-picks .rv-sp-l > li { display: flex; align-items: center; gap: 8px; min-height: 28px; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2); }
-.sh-rv-picks .rv-sp-l > li > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sh-rv-picks .rv-sp-none { margin: 8px 0 0; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
-.sh-rv-stand .rv-st-rk { flex: none; width: 22px; margin-right: 8px; text-align: center; color: var(--ink-3); }
-.sh-rv-stand .rv-st-rk.gold { color: var(--gold); }
-.sh-rv-stand .rv-st-v { display: flex; flex-direction: column; align-items: flex-end; }
-.sh-rv-stand .rv-st-v .t-cap { margin-top: -2px; }
 
 @media (max-width: 374px) {
   /* The top pick keeps its avatars, smaller, so "Jaymin vs Jayton" is not "Jay… vs Jay…". */
   .v-rivals .rv-mc.is-top .rv-mc-side .av { --sz: 32px !important; }
   .v-rivals .rv-mc.is-top .rv-mc-side, .v-rivals .rv-mc.is-top .rv-mc-pair { gap: 6px; }
-  .v-rivals .rv-pk-side { gap: 8px; padding: 8px; }
-  .v-rivals .rv-pk-side .av { --sz: 32px; }
   .v-rivals .rv-vt-btn { min-width: 64px; padding: 0 12px; }
 }
-html.rm .v-rivals .rv-vt-btn, html.rm .v-rivals .rv-pk-side { transition: background-color 200ms linear, color 200ms linear, box-shadow 200ms linear; }
+html.rm .v-rivals .rv-vt-btn { transition: background-color 200ms linear, color 200ms linear, box-shadow 200ms linear; }
 /* A deep link's "here" pulse on the section's card (opacity only). */
 .v-rivals .rv-flash { position: absolute; inset: 0; z-index: 2; border-radius: inherit; background: var(--tint-soft); pointer-events: none; opacity: 0; }
-.v-rivals .rv-pk-last {
-  display: flex; align-items: center; gap: 8px; width: 100%;
-  min-height: 48px; padding: 10px 10px 10px 14px;
-  border-top: .5px solid var(--separator);
-  font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2); text-align: left;
-  background-color: transparent; transition: background-color 250ms linear;
-}
-.v-rivals .rv-pk-last.is-pressed { background-color: var(--surface-2); transition: none; }
-.v-rivals .rv-pk-last > .ic:first-child { flex: none; width: 16px; height: 16px; color: var(--gold); }
-.v-rivals .rv-pk-lt { flex: 1 1 auto; min-width: 0; }
-.v-rivals .rv-pk-last > .chev { flex: none; width: 16px; height: 16px; color: var(--ink-3); }
-.v-rivals .rv-pk-last:focus-visible { outline-offset: -2px; }

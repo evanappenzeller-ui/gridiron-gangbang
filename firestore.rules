@@ -13,7 +13,7 @@ service cloud.firestore {
 
     // Shared by the week features: a week key like 2026-w4, the display fields every doc carries, and the
     // server time. `at` must be the request time (the app writes serverTimestamp()), so it cannot be forged:
-    // the app drops votes and picks stamped after that week's kickoff.
+    // the app drops votes stamped after that week's kickoff and picks stamped after that game's kickoff.
     function weekOk(week) {
       return week.matches('^[0-9]{4}-w[1-9][0-9]?$');
     }
@@ -33,14 +33,42 @@ service cloud.firestore {
         && whoOk(request.resource.data);
       allow delete: if request.auth != null && request.auth.uid == uid;
     }
-    // Weekly pick'em entries: one per phone per week (pickem/2026-w4/entries/{uid}).
-    match /pickem/{week}/entries/{uid} {
+    // NFL pick'em: one doc per phone per real NFL game (nflpicks/2026-w4/picks/{uid}__{espnGameId}), stamped
+    // when it is made (`at`) and with the kickoff it was made for (`kick`). The kickoff lock is enforced here: no
+    // new pick at or after its `kick`, and no change or delete of a doc once its own `kick` has passed, so a pick
+    // can't be erased after its game. The app drops docs whose `kick` is later than ESPN's kickoff (so a forged
+    // future `kick` never counts) and docs whose `at` is at or after that game's kickoff.
+    function pickOk(pickId, d) {
+      return pickId == request.auth.uid + '__' + d.game
+        && d.keys().hasOnly(['uid', 'game', 'team', 'me', 'nick', 'at', 'kick'])
+        && d.uid == request.auth.uid
+        && d.game is string && d.game.matches('^[0-9]{1,12}$')
+        && d.team is string && d.team.size() <= 4
+        && d.kick is timestamp && request.time < d.kick
+        && whoOk(d);
+    }
+    match /nflpicks/{week}/picks/{pickId} {
       allow read: if true;
-      allow create, update: if request.auth != null && request.auth.uid == uid && weekOk(week)
-        && request.resource.data.keys().hasOnly(['picks', 'me', 'nick', 'at'])
-        && request.resource.data.picks is map && request.resource.data.picks.size() <= 20
+      allow create: if request.auth != null && weekOk(week) && pickOk(pickId, request.resource.data);
+      allow update: if request.auth != null && weekOk(week) && request.time < resource.data.kick
+        && pickOk(pickId, request.resource.data);
+      allow delete: if request.auth != null && pickId.matches('^' + request.auth.uid + '__[0-9]{1,12}$')
+        && request.time < resource.data.kick;
+    }
+
+    // Press Room: the Matchup of the Week loser's postgame press conference, one per week (pressers/2026-w4).
+    // The video lives on YouTube (unlisted); the doc holds its 11-character id. A friends' league: any phone may
+    // post, replace or remove a week's presser; the rules enforce the shape.
+    match /pressers/{week} {
+      allow read: if true;
+      allow create, update: if request.auth != null && weekOk(week)
+        && request.resource.data.keys().hasOnly(['vid', 'who', 'title', 'tall', 'me', 'nick', 'at'])
+        && request.resource.data.vid is string && request.resource.data.vid.matches('^[A-Za-z0-9_-]{11}$')
+        && request.resource.data.who is string && request.resource.data.who.size() > 0 && request.resource.data.who.size() <= 24
+        && (!('title' in request.resource.data) || (request.resource.data.title is string && request.resource.data.title.size() <= 80))
+        && (!('tall' in request.resource.data) || request.resource.data.tall is bool)
         && whoOk(request.resource.data);
-      allow delete: if request.auth != null && request.auth.uid == uid;
+      allow delete: if request.auth != null && weekOk(week);
     }
   }
 }

@@ -1,0 +1,310 @@
+// NFL pick'em checks for the dev gallery (#/_kit): js/core/nfl.js (ESPN client) and the NFL pick'em in
+// js/core/week.js, on a recorded ESPN payload. checks.js (owner: CORE-DAILY) imports pickemChecks and calls it
+// with its own check(name, fn) helper; every fn returns true or {pass, detail}. Pure: nothing here fetches,
+// writes to storage or touches the league board.
+// Owner: PICKEM-CORE.
+
+import * as data from './data.js';
+import * as nfl from './nfl.js';
+import * as week from './week.js';
+
+// ---------------------------------------------------------------------------
+// Recorded from https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?seasontype=2&week=3&dates=2026
+// on 2026-09-29 (every game final), trimmed to the fields nfl.js reads (and a few neighbours); the shape and values
+// are ESPN's. W4 is three games of week 4 from the same day (before kickoff: ESPN sends score '0' and no winner).
+
+const W3 = {"leagues":[{"season":{"year":2026,"displayName":"2026","type":{"id":"2","type":2,"name":"Regular Season","abbreviation":"reg"}},"calendar":[{"label":"Regular Season","value":"2","entries":[
+  {"label":"Week 1","value":"1","startDate":"2026-09-06T07:00Z","endDate":"2026-09-16T06:59Z"},{"label":"Week 2","value":"2","startDate":"2026-09-16T07:00Z","endDate":"2026-09-23T06:59Z"},
+  {"label":"Week 3","value":"3","startDate":"2026-09-23T07:00Z","endDate":"2026-09-30T06:59Z"},{"label":"Week 4","value":"4","startDate":"2026-09-30T07:00Z","endDate":"2026-10-07T06:59Z"},
+  {"label":"Week 5","value":"5","startDate":"2026-10-07T07:00Z","endDate":"2026-10-14T06:59Z"},{"label":"Week 6","value":"6","startDate":"2026-10-14T07:00Z","endDate":"2026-10-21T06:59Z"},
+  {"label":"Week 7","value":"7","startDate":"2026-10-21T07:00Z","endDate":"2026-10-28T06:59Z"},{"label":"Week 8","value":"8","startDate":"2026-10-28T07:00Z","endDate":"2026-11-04T07:59Z"},
+  {"label":"Week 9","value":"9","startDate":"2026-11-04T08:00Z","endDate":"2026-11-11T07:59Z"},{"label":"Week 10","value":"10","startDate":"2026-11-11T08:00Z","endDate":"2026-11-18T07:59Z"},
+  {"label":"Week 11","value":"11","startDate":"2026-11-18T08:00Z","endDate":"2026-11-25T07:59Z"},{"label":"Week 12","value":"12","startDate":"2026-11-25T08:00Z","endDate":"2026-12-02T07:59Z"},
+  {"label":"Week 13","value":"13","startDate":"2026-12-02T08:00Z","endDate":"2026-12-09T07:59Z"},{"label":"Week 14","value":"14","startDate":"2026-12-09T08:00Z","endDate":"2026-12-16T07:59Z"},
+  {"label":"Week 15","value":"15","startDate":"2026-12-16T08:00Z","endDate":"2026-12-23T07:59Z"},{"label":"Week 16","value":"16","startDate":"2026-12-23T08:00Z","endDate":"2026-12-30T07:59Z"},
+  {"label":"Week 17","value":"17","startDate":"2026-12-30T08:00Z","endDate":"2027-01-06T07:59Z"},{"label":"Week 18","value":"18","startDate":"2027-01-06T08:00Z","endDate":"2027-01-13T07:59Z"}]}]}],
+  "season":{"type":2,"year":2026},"week":{"number":3},"events":[
+  {"id":"401872948","date":"2026-09-25T00:15Z","name":"Atlanta Falcons at Green Bay Packers","shortName":"ATL @ GB","season":{"year":2026,"type":2},"week":{"number":3},"competitions":[{"timeValid":true,"neutralSite":false,"venue":{"fullName":"Lambeau Field","address":{"city":"Green Bay","state":"WI","country":"USA"}},"notes":[],"broadcasts":[{"names":["Prime Video"]}],"status":{"clock":0,"displayClock":"0:00","period":4,"type":{"id":"3","name":"STATUS_FINAL","state":"post","completed":true,"description":"Final","detail":"Final","shortDetail":"Final"}},"competitors":[{"id":"9","homeAway":"home","winner":false,"score":"14","team":{"id":"9","abbreviation":"GB","displayName":"Green Bay Packers","shortDisplayName":"Packers","color":"204e32","alternateColor":"ffb612","logo":"https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/gb.png"},"records":[{"type":"total","summary":"1-2"}]},{"id":"1","homeAway":"away","winner":true,"score":"35","team":{"id":"1","abbreviation":"ATL","displayName":"Atlanta Falcons","shortDisplayName":"Falcons","color":"a71930","alternateColor":"000000","logo":"https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/atl.png"},"records":[{"type":"total","summary":"1-2"}]}]}]},
+  {"id":"401872953","date":"2026-09-27T17:00Z","name":"Los Angeles Chargers at Buffalo Bills","shortName":"LAC @ BUF","season":{"year":2026,"type":2},"week":{"number":3},"competitions":[{"timeValid":true,"neutralSite":false,"venue":{"fullName":"Highmark Stadium","address":{"city":"Orchard Park","state":"NY","country":"USA"}},"notes":[],"broadcasts":[{"names":["FOX"]}],"status":{"clock":0,"displayClock":"0:00","period":4,"type":{"id":"3","name":"STATUS_FINAL","state":"post","completed":true,"description":"Final","detail":"Final","shortDetail":"Final"}},"competitors":[{"id":"2","homeAway":"home","winner":true,"score":"24","team":{"id":"2","abbreviation":"BUF","displayName":"Buffalo Bills","shortDisplayName":"Bills","color":"00338d","alternateColor":"d50a0a","logo":"https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/buf.png"},"records":[{"type":"total","summary":"3-0"}]},{"id":"24","homeAway":"away","winner":false,"score":"16","team":{"id":"24","abbreviation":"LAC","displayName":"Los Angeles Chargers","shortDisplayName":"Chargers","color":"0080c6","alternateColor":"ffc20e","logo":"https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/lac.png"},"records":[{"type":"total","summary":"0-3"}]}]}]},
+  {"id":"401872949","date":"2026-09-27T17:00Z","name":"Carolina Panthers at Cleveland Browns","shortName":"CAR @ CLE","season":{"year":2026,"type":2},"week":{"number":3},"competitions":[{"timeValid":true,"neutralSite":false,"venue":{"fullName":"Huntington Bank Field","address":{"city":"Cleveland","state":"OH","country":"USA"}},"notes":[],"broadcasts":[{"names":["FOX"]}],"status":{"clock":0,"displayClock":"0:00","period":4,"type":{"id":"3","name":"STATUS_FINAL","state":"post","completed":true,"description":"Final","detail":"Final","shortDetail":"Final"}},"competitors":[{"id":"5","homeAway":"home","winner":true,"score":"21","team":{"id":"5","abbreviation":"CLE","displayName":"Cleveland Browns","shortDisplayName":"Browns","color":"472a08","alternateColor":"ff3c00","logo":"https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/cle.png"},"records":[{"type":"total","summary":"2-1"}]},{"id":"29","homeAway":"away","winner":false,"score":"18","team":{"id":"29","abbreviation":"CAR","displayName":"Carolina Panthers","shortDisplayName":"Panthers","color":"0085ca","alternateColor":"000000","logo":"https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/car.png"},"records":[{"type":"total","summary":"1-2"}]}]}]},
+  {"id":"401872954","date":"2026-09-27T17:00Z","name":"New York Jets at Detroit Lions","shortName":"NYJ @ DET","season":{"year":2026,"type":2},"week":{"number":3},"competitions":[{"timeValid":true,"neutralSite":false,"venue":{"fullName":"Ford Field","address":{"city":"Detroit","state":"MI","country":"USA"}},"notes":[],"broadcasts":[{"names":["FOX"]}],"status":{"clock":0,"displayClock":"0:00","period":4,"type":{"id":"3","name":"STATUS_FINAL","state":"post","completed":true,"description":"Final","detail":"Final","shortDetail":"Final"}},"competitors":[{"id":"8","homeAway":"home","winner":true,"score":"31","team":{"id":"8","abbreviation":"DET","displayName":"Detroit Lions","shortDisplayName":"Lions","color":"0076b6","alternateColor":"bbbbbb","logo":"https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/det.png"},"records":[{"type":"total","summary":"2-1"}]},{"id":"20","homeAway":"away","winner":false,"score":"24","team":{"id":"20","abbreviation":"NYJ","displayName":"New York Jets","shortDisplayName":"Jets","color":"115740","alternateColor":"ffffff","logo":"https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/nyj.png"},"records":[{"type":"total","summary":"1-2"}]}]}]},
+  {"id":"401872951","date":"2026-09-27T17:00Z","name":"Houston Texans at Indianapolis Colts","shortName":"HOU @ IND","season":{"year":2026,"type":2},"week":{"number":3},"competitions":[{"timeValid":true,"neutralSite":false,"venue":{"fullName":"Lucas Oil Stadium","address":{"city":"Indianapolis","state":"IN","country":"USA"}},"notes":[],"broadcasts":[{"names":["CBS"]}],"status":{"clock":0,"displayClock":"0:00","period":4,"type":{"id":"3","name":"STATUS_FINAL","state":"post","completed":true,"description":"Final","detail":"Final","shortDetail":"Final"}},"competitors":[{"id":"11","homeAway":"home","winner":true,"score":"19","team":{"id":"11","abbreviation":"IND","displayName":"Indianapolis Colts","shortDisplayName":"Colts","color":"003b75","alternateColor":"ffffff","logo":"https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/ind.png"},"records":[{"type":"total","summary":"1-2"}]},{"id":"34","homeAway":"away","winner":false,"score":"17","team":{"id":"34","abbreviation":"HOU","displayName":"Houston Texans","shortDisplayName":"Texans","color":"021018","alternateColor":"eb0028","logo":"https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/hou.png"},"records":[{"type":"total","summary":"0-3"}]}]}]},
+  {"id":"401872952","date":"2026-09-27T17:00Z","name":"Kansas City Chiefs at Miami Dolphins","shortName":"KC @ MIA","season":{"year":2026,"type":2},"week":{"number":3},"competitions":[{"timeValid":true,"neutralSite":false,"venue":{"fullName":"Hard Rock Stadium","address":{"city":"Miami Gardens","state":"FL","country":"USA"}},"notes":[],"broadcasts":[{"names":["CBS"]}],"status":{"clock":0,"displayClock":"0:00","period":4,"type":{"id":"3","name":"STATUS_FINAL","state":"post","completed":true,"description":"Final","detail":"Final","shortDetail":"Final"}},"competitors":[{"id":"15","homeAway":"home","winner":false,"score":"10","team":{"id":"15","abbreviation":"MIA","displayName":"Miami Dolphins","shortDisplayName":"Dolphins","color":"008e97","alternateColor":"fc4c02","logo":"https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/mia.png"},"records":[{"type":"total","summary":"0-3"}]},{"id":"12","homeAway":"away","winner":true,"score":"24","team":{"id":"12","abbreviation":"KC","displayName":"Kansas City Chiefs","shortDisplayName":"Chiefs","color":"e31837","alternateColor":"ffb612","logo":"https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/kc.png"},"records":[{"type":"total","summary":"3-0"}]}]}]},
+  {"id":"401872956","date":"2026-09-27T17:00Z","name":"Tennessee Titans at New York Giants","shortName":"TEN @ NYG","season":{"year":2026,"type":2},"week":{"number":3},"competitions":[{"timeValid":true,"neutralSite":false,"venue":{"fullName":"MetLife Stadium","address":{"city":"East Rutherford","state":"NJ","country":"USA"}},"notes":[],"broadcasts":[{"names":["CBS"]}],"status":{"clock":0,"displayClock":"0:00","period":4,"type":{"id":"3","name":"STATUS_FINAL","state":"post","completed":true,"description":"Final","detail":"Final","shortDetail":"Final"}},"competitors":[{"id":"19","homeAway":"home","winner":true,"score":"12","team":{"id":"19","abbreviation":"NYG","displayName":"New York Giants","shortDisplayName":"Giants","color":"003c7f","alternateColor":"c9243f","logo":"https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/nyg.png"},"records":[{"type":"total","summary":"2-1"}]},{"id":"10","homeAway":"away","winner":false,"score":"7","team":{"id":"10","abbreviation":"TEN","displayName":"Tennessee Titans","shortDisplayName":"Titans","color":"4495d2","alternateColor":"001532","logo":"https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/ten.png"},"records":[{"type":"total","summary":"0-3"}]}]}]},
+  {"id":"401872950","date":"2026-09-27T17:00Z","name":"Cincinnati Bengals at Pittsburgh Steelers","shortName":"CIN @ PIT","season":{"year":2026,"type":2},"week":{"number":3},"competitions":[{"timeValid":true,"neutralSite":false,"venue":{"fullName":"Acrisure Stadium","address":{"city":"Pittsburgh","state":"PA","country":"USA"}},"notes":[],"broadcasts":[{"names":["CBS"]}],"status":{"clock":0,"displayClock":"0:00","period":4,"type":{"id":"3","name":"STATUS_FINAL","state":"post","completed":true,"description":"Final","detail":"Final","shortDetail":"Final"}},"competitors":[{"id":"23","homeAway":"home","winner":true,"score":"30","team":{"id":"23","abbreviation":"PIT","displayName":"Pittsburgh Steelers","shortDisplayName":"Steelers","color":"000000","alternateColor":"ffb612","logo":"https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/pit.png"},"records":[{"type":"total","summary":"2-1"}]},{"id":"4","homeAway":"away","winner":false,"score":"27","team":{"id":"4","abbreviation":"CIN","displayName":"Cincinnati Bengals","shortDisplayName":"Bengals","color":"fb4f14","alternateColor":"000000","logo":"https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/cin.png"},"records":[{"type":"total","summary":"2-1"}]}]}]},
+  {"id":"401872955","date":"2026-09-27T17:00Z","name":"Seattle Seahawks at Washington Commanders","shortName":"SEA @ WSH","season":{"year":2026,"type":2},"week":{"number":3},"competitions":[{"timeValid":true,"neutralSite":false,"venue":{"fullName":"Northwest Stadium","address":{"city":"Landover","state":"MD","country":"USA"}},"notes":[],"broadcasts":[{"names":["FOX"]}],"status":{"clock":0,"displayClock":"0:00","period":4,"type":{"id":"3","name":"STATUS_FINAL","state":"post","completed":true,"description":"Final","detail":"Final","shortDetail":"Final"}},"competitors":[{"id":"28","homeAway":"home","winner":true,"score":"33","team":{"id":"28","abbreviation":"WSH","displayName":"Washington Commanders","shortDisplayName":"Commanders","color":"5a1414","alternateColor":"ffb612","logo":"https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/wsh.png"},"records":[{"type":"total","summary":"1-2"}]},{"id":"26","homeAway":"away","winner":false,"score":"31","team":{"id":"26","abbreviation":"SEA","displayName":"Seattle Seahawks","shortDisplayName":"Seahawks","color":"002a5c","alternateColor":"69be28","logo":"https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/sea.png"},"records":[{"type":"total","summary":"2-1"}]}]}]},
+  {"id":"401872957","date":"2026-09-27T17:00Z","name":"New England Patriots at Jacksonville Jaguars","shortName":"NE @ JAX","season":{"year":2026,"type":2},"week":{"number":3},"competitions":[{"timeValid":true,"neutralSite":false,"venue":{"fullName":"EverBank Stadium","address":{"city":"Jacksonville","state":"FL","country":"USA"}},"notes":[],"broadcasts":[{"names":["CBS"]}],"status":{"clock":0,"displayClock":"0:00","period":4,"type":{"id":"3","name":"STATUS_FINAL","state":"post","completed":true,"description":"Final","detail":"Final","shortDetail":"Final"}},"competitors":[{"id":"30","homeAway":"home","winner":true,"score":"35","team":{"id":"30","abbreviation":"JAX","displayName":"Jacksonville Jaguars","shortDisplayName":"Jaguars","color":"007487","alternateColor":"d7a22a","logo":"https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/jax.png"},"records":[{"type":"total","summary":"2-1"}]},{"id":"17","homeAway":"away","winner":false,"score":"6","team":{"id":"17","abbreviation":"NE","displayName":"New England Patriots","shortDisplayName":"Patriots","color":"002a5c","alternateColor":"c60c30","logo":"https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/ne.png"},"records":[{"type":"total","summary":"1-2"}]}]}]},
+  {"id":"401872958","date":"2026-09-27T20:05Z","name":"Arizona Cardinals at San Francisco 49ers","shortName":"ARI @ SF","season":{"year":2026,"type":2},"week":{"number":3},"competitions":[{"timeValid":true,"neutralSite":false,"venue":{"fullName":"Levi's Stadium","address":{"city":"Santa Clara","state":"CA","country":"USA"}},"notes":[],"broadcasts":[{"names":["FOX"]}],"status":{"clock":0,"displayClock":"0:00","period":4,"type":{"id":"3","name":"STATUS_FINAL","state":"post","completed":true,"description":"Final","detail":"Final","shortDetail":"Final"}},"competitors":[{"id":"25","homeAway":"home","winner":true,"score":"36","team":{"id":"25","abbreviation":"SF","displayName":"San Francisco 49ers","shortDisplayName":"49ers","color":"aa0000","alternateColor":"b3995d","logo":"https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/sf.png"},"records":[{"type":"total","summary":"3-0"}]},{"id":"22","homeAway":"away","winner":false,"score":"30","team":{"id":"22","abbreviation":"ARI","displayName":"Arizona Cardinals","shortDisplayName":"Cardinals","color":"a40227","alternateColor":"ffffff","logo":"https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/ari.png"},"records":[{"type":"total","summary":"1-2"}]}]}]},
+  {"id":"401872959","date":"2026-09-27T20:05Z","name":"Minnesota Vikings at Tampa Bay Buccaneers","shortName":"MIN @ TB","season":{"year":2026,"type":2},"week":{"number":3},"competitions":[{"timeValid":true,"neutralSite":false,"venue":{"fullName":"Raymond James Stadium","address":{"city":"Tampa","state":"FL","country":"USA"}},"notes":[],"broadcasts":[{"names":["FOX"]}],"status":{"clock":0,"displayClock":"0:00","period":4,"type":{"id":"3","name":"STATUS_FINAL","state":"post","completed":true,"description":"Final","detail":"Final","shortDetail":"Final"}},"competitors":[{"id":"27","homeAway":"home","winner":false,"score":"16","team":{"id":"27","abbreviation":"TB","displayName":"Tampa Bay Buccaneers","shortDisplayName":"Buccaneers","color":"bd1c36","alternateColor":"3e3a35","logo":"https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/tb.png"},"records":[{"type":"total","summary":"0-3"}]},{"id":"16","homeAway":"away","winner":true,"score":"23","team":{"id":"16","abbreviation":"MIN","displayName":"Minnesota Vikings","shortDisplayName":"Vikings","color":"4f2683","alternateColor":"ffc62f","logo":"https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/min.png"},"records":[{"type":"total","summary":"3-0"}]}]}]},
+  {"id":"401872960","date":"2026-09-27T20:25Z","name":"Baltimore Ravens at Dallas Cowboys","shortName":"BAL VS DAL","season":{"year":2026,"type":2},"week":{"number":3},"competitions":[{"timeValid":true,"neutralSite":true,"venue":{"fullName":"Maracanã Stadium","address":{"city":"Rio De Janeiro","country":"Brazil"}},"notes":[{"headline":"NFL Rio Game"}],"broadcasts":[{"names":["CBS"]}],"status":{"clock":0,"displayClock":"0:00","period":4,"type":{"id":"3","name":"STATUS_FINAL","state":"post","completed":true,"description":"Final","detail":"Final","shortDetail":"Final"}},"competitors":[{"id":"6","homeAway":"home","winner":false,"score":"31","team":{"id":"6","abbreviation":"DAL","displayName":"Dallas Cowboys","shortDisplayName":"Cowboys","color":"002a5c","alternateColor":"b0b7bc","logo":"https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/dal.png"},"records":[{"type":"total","summary":"1-2"}]},{"id":"33","homeAway":"away","winner":true,"score":"34","team":{"id":"33","abbreviation":"BAL","displayName":"Baltimore Ravens","shortDisplayName":"Ravens","color":"29126f","alternateColor":"000000","logo":"https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/bal.png"},"records":[{"type":"total","summary":"2-1"}]}]}]},
+  {"id":"401872961","date":"2026-09-27T20:25Z","name":"Las Vegas Raiders at New Orleans Saints","shortName":"LV @ NO","season":{"year":2026,"type":2},"week":{"number":3},"competitions":[{"timeValid":true,"neutralSite":false,"venue":{"fullName":"Caesars Superdome","address":{"city":"New Orleans","state":"LA","country":"USA"}},"notes":[],"broadcasts":[{"names":["CBS"]}],"status":{"clock":0,"displayClock":"0:00","period":4,"type":{"id":"3","name":"STATUS_FINAL","state":"post","completed":true,"description":"Final","detail":"Final","shortDetail":"Final"}},"competitors":[{"id":"18","homeAway":"home","winner":false,"score":"27","team":{"id":"18","abbreviation":"NO","displayName":"New Orleans Saints","shortDisplayName":"Saints","color":"d3bc8d","alternateColor":"000000","logo":"https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/no.png"},"records":[{"type":"total","summary":"1-2"}]},{"id":"13","homeAway":"away","winner":true,"score":"35","team":{"id":"13","abbreviation":"LV","displayName":"Las Vegas Raiders","shortDisplayName":"Raiders","color":"000000","alternateColor":"a5acaf","logo":"https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/lv.png"},"records":[{"type":"total","summary":"3-0"}]}]}]},
+  {"id":"401872962","date":"2026-09-28T00:20Z","name":"Los Angeles Rams at Denver Broncos","shortName":"LAR @ DEN","season":{"year":2026,"type":2},"week":{"number":3},"competitions":[{"timeValid":true,"neutralSite":false,"venue":{"fullName":"Empower Field at Mile High","address":{"city":"Denver","state":"CO","country":"USA"}},"notes":[],"broadcasts":[{"names":["NBC"]}],"status":{"clock":0,"displayClock":"0:00","period":4,"type":{"id":"3","name":"STATUS_FINAL","state":"post","completed":true,"description":"Final","detail":"Final","shortDetail":"Final"}},"competitors":[{"id":"7","homeAway":"home","winner":true,"score":"30","team":{"id":"7","abbreviation":"DEN","displayName":"Denver Broncos","shortDisplayName":"Broncos","color":"0a2343","alternateColor":"fc4c02","logo":"https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/den.png"},"records":[{"type":"total","summary":"2-1"}]},{"id":"14","homeAway":"away","winner":false,"score":"26","team":{"id":"14","abbreviation":"LAR","displayName":"Los Angeles Rams","shortDisplayName":"Rams","color":"003594","alternateColor":"ffd100","logo":"https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/lar.png"},"records":[{"type":"total","summary":"1-2"}]}]}]},
+  {"id":"401872963","date":"2026-09-29T00:15Z","name":"Philadelphia Eagles at Chicago Bears","shortName":"PHI @ CHI","season":{"year":2026,"type":2},"week":{"number":3},"competitions":[{"timeValid":true,"neutralSite":false,"venue":{"fullName":"Soldier Field","address":{"city":"Chicago","state":"IL","country":"USA"}},"notes":[],"broadcasts":[{"names":["ESPN","ABC"]}],"status":{"clock":0,"displayClock":"0:00","period":4,"type":{"id":"3","name":"STATUS_FINAL","state":"post","completed":true,"description":"Final","detail":"Final","shortDetail":"Final"}},"competitors":[{"id":"3","homeAway":"home","winner":true,"score":"27","team":{"id":"3","abbreviation":"CHI","displayName":"Chicago Bears","shortDisplayName":"Bears","color":"0b1c3a","alternateColor":"e64100","logo":"https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/chi.png"},"records":[{"type":"total","summary":"2-1"}]},{"id":"21","homeAway":"away","winner":false,"score":"7","team":{"id":"21","abbreviation":"PHI","displayName":"Philadelphia Eagles","shortDisplayName":"Eagles","color":"06424d","alternateColor":"000000","logo":"https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/phi.png"},"records":[{"type":"total","summary":"2-1"}]}]}]}
+]};
+
+const W4 = {"season":{"type":2,"year":2026},"week":{"number":4},"events":[
+  {"id":"401872964","date":"2026-10-02T00:15Z","name":"Pittsburgh Steelers at Cleveland Browns","shortName":"PIT @ CLE","season":{"year":2026,"type":2},"week":{"number":4},"competitions":[{"timeValid":true,"neutralSite":false,"venue":{"fullName":"Huntington Bank Field","address":{"city":"Cleveland","state":"OH","country":"USA"}},"notes":[],"broadcasts":[{"names":["Prime Video"]}],"status":{"clock":0,"displayClock":"0:00","period":0,"type":{"id":"1","name":"STATUS_SCHEDULED","state":"pre","completed":false,"description":"Scheduled","detail":"Thu, October 1st at 8:15 PM EDT","shortDetail":"10/1 - 8:15 PM EDT"}},"competitors":[{"id":"5","homeAway":"home","score":"0","team":{"id":"5","abbreviation":"CLE","displayName":"Cleveland Browns","shortDisplayName":"Browns","color":"472a08","alternateColor":"ff3c00","logo":"https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/cle.png"},"records":[{"type":"total","summary":"2-1"}]},{"id":"23","homeAway":"away","score":"0","team":{"id":"23","abbreviation":"PIT","displayName":"Pittsburgh Steelers","shortDisplayName":"Steelers","color":"000000","alternateColor":"ffb612","logo":"https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/pit.png"},"records":[{"type":"total","summary":"2-1"}]}]}]},
+  {"id":"401872965","date":"2026-10-04T13:30Z","name":"Indianapolis Colts at Washington Commanders","shortName":"IND VS WSH","season":{"year":2026,"type":2},"week":{"number":4},"competitions":[{"timeValid":true,"neutralSite":true,"venue":{"fullName":"Tottenham Hotspur Stadium","address":{"city":"London","country":"England"}},"notes":[{"headline":"NFL London Games"}],"broadcasts":[{"names":["NFL Net"]}],"status":{"clock":0,"displayClock":"0:00","period":0,"type":{"id":"1","name":"STATUS_SCHEDULED","state":"pre","completed":false,"description":"Scheduled","detail":"Sun, October 4th at 9:30 AM EDT","shortDetail":"10/4 - 9:30 AM EDT"}},"competitors":[{"id":"28","homeAway":"home","score":"0","team":{"id":"28","abbreviation":"WSH","displayName":"Washington Commanders","shortDisplayName":"Commanders","color":"5a1414","alternateColor":"ffb612","logo":"https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/wsh.png"},"records":[{"type":"total","summary":"1-2"}]},{"id":"11","homeAway":"away","score":"0","team":{"id":"11","abbreviation":"IND","displayName":"Indianapolis Colts","shortDisplayName":"Colts","color":"003b75","alternateColor":"ffffff","logo":"https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/ind.png"},"records":[{"type":"total","summary":"1-2"}]}]}]},
+  {"id":"401872979","date":"2026-10-06T00:15Z","name":"Atlanta Falcons at New Orleans Saints","shortName":"ATL @ NO","season":{"year":2026,"type":2},"week":{"number":4},"competitions":[{"timeValid":true,"neutralSite":false,"venue":{"fullName":"Caesars Superdome","address":{"city":"New Orleans","state":"LA","country":"USA"}},"notes":[],"broadcasts":[{"names":["ESPN"]}],"status":{"clock":0,"displayClock":"0:00","period":0,"type":{"id":"1","name":"STATUS_SCHEDULED","state":"pre","completed":false,"description":"Scheduled","detail":"Mon, October 5th at 8:15 PM EDT","shortDetail":"10/5 - 8:15 PM EDT"}},"competitors":[{"id":"18","homeAway":"home","score":"0","team":{"id":"18","abbreviation":"NO","displayName":"New Orleans Saints","shortDisplayName":"Saints","color":"d3bc8d","alternateColor":"000000","logo":"https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/no.png"},"records":[{"type":"total","summary":"1-2"}]},{"id":"1","homeAway":"away","score":"0","team":{"id":"1","abbreviation":"ATL","displayName":"Atlanta Falcons","shortDisplayName":"Falcons","color":"a71930","alternateColor":"000000","logo":"https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/atl.png"},"records":[{"type":"total","summary":"1-2"}]}]}]}
+]};
+
+// ---------------------------------------------------------------------------
+// Helpers
+
+const clone = o => JSON.parse(JSON.stringify(o));
+const ms = s => Date.parse(s);
+const MIN = 60e3, HOUR = 3600e3, DAY = 864e5;
+// Every week-3 winner in kickoff order (hand-copied from the final scores above).
+const W3_WINNERS = 'ATL BUF CLE DET IND KC NYG PIT WSH JAX SF MIN BAL LV DEN CHI';
+
+// Set one recorded event's status and score (the shapes ESPN uses for those states).
+const STATUS = {
+  pre: {id: '1', name: 'STATUS_SCHEDULED', state: 'pre', completed: false, description: 'Scheduled', detail: 'Sun, October 4th at 9:30 AM EDT', shortDetail: '10/4 - 9:30 AM EDT'},
+  in: {id: '2', name: 'STATUS_IN_PROGRESS', state: 'in', completed: false, description: 'In Progress', detail: '4:12 - 3rd Quarter', shortDetail: '4:12 - 3rd'},
+  half: {id: '23', name: 'STATUS_HALFTIME', state: 'in', completed: false, description: 'Halftime', detail: 'Halftime', shortDetail: 'Halftime'},
+  post: {id: '3', name: 'STATUS_FINAL', state: 'post', completed: true, description: 'Final', detail: 'Final', shortDetail: 'Final'},
+  ot: {id: '3', name: 'STATUS_FINAL', state: 'post', completed: true, description: 'Final', detail: 'Final/OT', shortDetail: 'Final/OT'},
+  postponed: {id: '6', name: 'STATUS_POSTPONED', state: 'post', completed: false, description: 'Postponed', detail: 'Postponed', shortDetail: 'Postponed'},
+  canceled: {id: '5', name: 'STATUS_CANCELED', state: 'post', completed: false, description: 'Canceled', detail: 'Canceled', shortDetail: 'Canceled'}
+};
+function setGame(payload, id, kind, home, away) {
+  const e = payload.events.find(x => x.id === id);
+  const c = e.competitions[0];
+  c.status = {clock: kind === 'in' ? 252 : 0, displayClock: kind === 'in' ? '4:12' : '0:00', period: kind === 'in' ? 3 : kind === 'half' ? 2 : 4, type: clone(STATUS[kind])};
+  const H = c.competitors.find(x => x.homeAway === 'home'), A = c.competitors.find(x => x.homeAway === 'away');
+  H.score = String(home); A.score = String(away);
+  const done = kind === 'post' || kind === 'ot';
+  if (done) { H.winner = home > away; A.winner = away > home; } else { delete H.winner; delete A.winner; }
+  return payload;
+}
+
+const needData = () => { if (!data.DATA || !data.M) throw new Error('league did not load'); };
+const mgr = id => { if (!data.M[id]) throw new Error('no manager ' + id); return id; };
+
+// ---------------------------------------------------------------------------
+
+export async function pickemChecks(check) {
+  let err = null;
+  try { await data.load(); } catch (e) { err = e; }
+  const need = () => { if (err) throw new Error('league did not load: ' + (err.message || err)); needData(); };
+
+  // 1. The recorded week-3 payload
+  check('NFL scoreboard: recorded 2026 week 3 parses (16 final games, winners, scores, records, the Rio game)', () => {
+    const b = nfl.parse(clone(W3));
+    const g = b.games;
+    const winners = g.map(x => x[x.winner].abbr).join(' ');
+    const first = g[0], rio = g.find(x => x.id === '401872960'), mnf = g[g.length - 1];
+    const shape = b.year === 2026 && b.week === 3 && b.seasontype === 2 && b.weeks === 18 && b.cal.length === 18
+      && b.cal[3].week === 4 && b.cal[3].start === ms('2026-09-30T07:00Z')
+      && g.length === 16 && g.every(x => x.state === 'post' && x.final && !x.tie && x.detail === 'Final' && x.home.score != null && x.away.score != null)
+      && g.every((x, i) => !i || x.kickoff >= g[i - 1].kickoff) && new Set(g.map(x => x.id)).size === 16;
+    const one = first.id === '401872948' && first.kickoff.toISOString() === '2026-09-25T00:15:00.000Z' && first.label === 'ATL @ GB'
+      && first.away.abbr === 'ATL' && first.away.score === 35 && first.home.score === 14 && first.winner === 'away' && first.away.winner && !first.home.winner
+      && first.home.name === 'Green Bay Packers' && first.home.short === 'Packers' && first.home.record === '1–2' && first.home.color === '#204e32'
+      && /^https:\/\/a\.espncdn\.com\//.test(first.home.logo) && first.tv === 'Prime Video' && first.intl === '' && !first.neutral;
+    const intl = rio && rio.intl === 'Brazil' && rio.neutral && rio.note === 'NFL Rio Game' && rio.winner === 'away' && rio.away.abbr === 'BAL';
+    const pass = shape && one && intl && winners === W3_WINNERS && mnf.tv === 'ESPN / ABC' && mnf.home.abbr === 'CHI';
+    return {pass, detail: `${g.length} games, winners ${winners === W3_WINNERS ? 'match' : 'differ: ' + winners}; ${first.label} ${first.away.score}–${first.home.score}; ${rio && rio.label} in ${rio && rio.intl}`};
+  });
+
+  // 2. Before kickoff, live, halftime, overtime, postponed, malformed
+  check('NFL scoreboard: states before kickoff, live, halftime, OT, postponed; malformed events dropped', () => {
+    const b = nfl.parse(clone(W4));
+    const [thu, lon, mon] = b.games;
+    const pre = b.week === 4 && b.games.length === 3 && b.games.every(x => x.state === 'pre' && !x.final && x.winner === null && x.home.score === null && x.away.score === null && !x.home.winner)
+      && thu.detail === '10/1 - 8:15 PM EDT' && thu.kickoff.toISOString() === '2026-10-02T00:15:00.000Z' && thu.home.record === '2–1'
+      && lon.intl === 'England' && lon.note === 'NFL London Games' && lon.home.abbr === 'WSH' && lon.away.abbr === 'IND' && mon.label === 'ATL @ NO';
+    const p = clone(W4);
+    setGame(p, '401872964', 'in', 17, 10); setGame(p, '401872965', 'half', 3, 7); setGame(p, '401872979', 'ot', 23, 26);
+    const [a, h, o] = nfl.parse(p).games;
+    const states = a.state === 'in' && a.detail === '4:12 - 3rd' && a.clock === '4:12' && a.period === 3 && a.home.score === 17 && a.winner === null && !a.final
+      && h.state === 'in' && h.detail === 'Halftime' && o.final && o.detail === 'Final/OT' && o.winner === 'away' && o.away.winner;
+    const q = setGame(clone(W4), '401872965', 'postponed', 0, 0);
+    const pp = nfl.parse(q).games[1];
+    const off = pp.state === 'post' && !pp.final && pp.winner === null && !pp.tie;
+    const bad = clone(W4);
+    bad.events.push({id: 'x1', date: '2026-10-04T17:00Z', competitions: [bad.events[0].competitions[0]]});             // bad id
+    bad.events.push({id: '401872999', date: '2026-10-04T17:00Z', competitions: [{competitors: []}]});                   // no teams
+    bad.events.push(Object.assign(clone(bad.events[0]), {id: '401872998', date: 'soon'}));                              // bad date
+    bad.events.push(clone(bad.events[0]));                                                                              // duplicate
+    const drop = nfl.parse(bad).games.length === 3;
+    let threw = false;
+    try { nfl.parse({events: 'nope'}); } catch (_) { threw = true; }
+    return {pass: pre && states && off && drop && threw, detail: `pre ${pre}, live/half/OT ${states}, postponed ${off}, malformed dropped ${drop}, non-scoreboard throws ${threw}`};
+  });
+
+  // 3. Which week the pick'em is on
+  check('Pick\'em week: ESPN\'s week, or the next one once every game in it is over (a postponed game holds it)', () => {
+    const b3 = nfl.parse(clone(W3));
+    const w = nfl.pickWeek(b3);
+    const live = nfl.pickWeek(nfl.parse(setGame(clone(W3), '401872963', 'in', 7, 3)));
+    const w4 = nfl.pickWeek(nfl.parse(clone(W4)));
+    const pre = nfl.pickWeek(Object.assign({}, b3, {seasontype: 1, week: 3}));
+    const post = nfl.pickWeek(Object.assign({}, b3, {seasontype: 3, week: 1}));
+    const last = nfl.pickWeek(Object.assign({}, b3, {week: 18}));
+    const empty = nfl.pickWeek(Object.assign({}, b3, {games: []}));
+    // Postponed (state 'post', not completed) can come back: the week is not over, not cached for good, still polled.
+    // Canceled is over for good.
+    const pp = nfl.parse(setGame(clone(W3), '401872963', 'postponed', 0, 0)), held = nfl.pickWeek(pp);
+    const cx = nfl.parse(setGame(clone(W3), '401872963', 'canceled', 0, 0)), moved = nfl.pickWeek(cx);
+    const over = nfl.weekOver(b3.games) && !nfl.weekOver(pp.games) && nfl.weekOver(cx.games) && !nfl.weekOver([]) && !nfl.gameOver(pp.games[15]);
+    const pass = w.week === 4 && w.espnWeek === 3 && w.advanced && w.year === 2026 && live.week === 3 && !live.advanced && w4.week === 4
+      && pre.week === 1 && post.week === 18 && last.week === 18 && empty.week === 3 && held.week === 3 && !held.advanced && moved.week === 4 && over;
+    return {pass, detail: `all final: week ${w.week}; MNF live: ${live.week}; MNF postponed: ${held.week}; MNF canceled: ${moved.week}; week 4 before kickoff: ${w4.week}; preseason ${pre.week}, postseason ${post.week}, week 18 over ${last.week}`};
+  });
+
+  // 4. Locks
+  check('Lock per game: at its own kickoff (or once ESPN shows it started), not the week\'s', () => {
+    const [thu, lon] = nfl.parse(clone(W4)).games;
+    const k = thu.kickoff.getTime();
+    const early = nfl.parse(setGame(clone(W4), '401872965', 'in', 0, 0)).games[1]; // started before its listed time
+    const pass = !week.gameLocked(thu, k - 1) && week.gameLocked(thu, k) && week.gameLocked(thu, k + HOUR)
+      && !week.gameLocked(lon, k + HOUR) && week.gameLocked(lon, lon.kickoff.getTime()) && week.gameLocked(early, k)
+      && week.gameLocked(thu, new Date(k)) && !nfl.gameStarted(thu, k - 1) && nfl.gameStarted(thu, k);
+    return {pass, detail: `Thu locks ${thu.kickoff.toISOString()}; London still open then; London locks ${lon.kickoff.toISOString()}`};
+  });
+
+  // 5. Late picks
+  check('Late picks never count: stamped at or after that game\'s kickoff, unstamped, for another team, or saved against a later kickoff', () => {
+    need();
+    const p = clone(W4);
+    setGame(p, '401872964', 'post', 20, 17); // Thursday is over (its picks are revealed)
+    const games = nfl.parse(p).games, [thu, lon] = games;
+    const T = thu.kickoff.getTime(), L = lon.kickoff.getTime();
+    const P = (uid, g, team, at, me = null, extra = {}) => Object.assign({id: week.nflPickId(uid, g.id), uid, game: g.id, team, me, nick: uid, at}, extra);
+    const docs = [
+      P('a', thu, 'PIT', T - 1),                   // just in time
+      P('b', thu, 'CLE', T),                       // at kickoff: late
+      P('c', thu, 'CLE', T + 3 * HOUR),            // wrong clock, hours later: late
+      P('d', thu, 'CLE', null),                    // no server time
+      P('e', lon, 'IND', T + HOUR),                // after Thursday's kickoff but before London's: counts
+      P('f', lon, 'NE', T),                        // not one of the teams
+      P('g', lon, 'WSH', L - MIN, null, {id: 'z__401872965'}), // id does not match its uid
+      {uid: 'h', game: '401879999', team: 'PIT', nick: 'h', at: T - HOUR}, // not a game this week
+      P('i', thu, 'pit', {seconds: (T - HOUR) / 1000, nanoseconds: 0}), // a Firestore Timestamp; team case-folded
+      // `kick`: the kickoff the doc was saved against (the rules lock the doc at it).
+      P('k1', lon, 'IND', T, null, {kick: {seconds: L / 1000, nanoseconds: 0}}), // London's own kickoff: counts
+      P('k2', lon, 'WSH', T, null, {kick: new Date(L - DAY)}),                   // an earlier kickoff (game moved later): counts
+      P('k3', lon, 'WSH', T, null, {kick: L + HOUR}),                            // claims a later kickoff (still editable after the game): never counts
+      P('k4', lon, 'WSH', T, null, {kick: 'soon'})                               // malformed
+    ];
+    const rows = week.nflRowsFrom(docs, games, null);
+    const who = rows.map(r => r.uid).sort().join();
+    const t = week.tallyNfl(docs, games, 'a', {at: L - MIN});
+    const pass = who === 'a,e,i,k1,k2' && t.byGame[thu.id].n === 2 && t.byGame[lon.id].n === 3 && t.byGame[thu.id].away === 2 && t.byGame[thu.id].home === 0;
+    return {pass, detail: `counted ${who} (expected a,e,i,k1,k2); Thu ${t.byGame[thu.id].away} PIT / ${t.byGame[thu.id].home} CLE; London ${t.byGame[lon.id].n} in`};
+  });
+
+  // 6. Reveal
+  check('Reveal: others\' picks show once ESPN has the game started (never on the phone\'s clock); before, only the count and your own', () => {
+    need();
+    const p = clone(W4);
+    setGame(p, '401872964', 'post', 20, 17); // Thursday is over
+    const games = nfl.parse(p).games, [thu, lon, mon] = games;
+    const T = thu.kickoff.getTime(), L = lon.kickoff.getTime();
+    const E = mgr('evan'), M = mgr('mitch'), S = mgr('mason');
+    const P = (uid, g, team, at, me) => ({id: week.nflPickId(uid, g.id), uid, game: g.id, team, me, nick: data.name(me), at});
+    const docs = [
+      P('me', thu, 'PIT', T - HOUR, E), P('me', lon, 'IND', T - 2 * HOUR, E),
+      P('m1', thu, 'CLE', T - 3 * HOUR, M), P('m1', lon, 'WSH', T - 3 * HOUR, M), P('m1', mon, 'ATL', T - 3 * HOUR, M),
+      P('s1', lon, 'IND', L - MIN, S), P('s1', thu, 'PIT', T + MIN, S)
+    ];
+    const at = ms('2026-10-03T12:00Z'); // Saturday: Thursday's game is over, London and Monday are still open
+    const t = week.tallyNfl(docs, games, 'me', {at, me: E});
+    const bt = t.byGame[thu.id], bl = t.byGame[lon.id], bm = t.byGame[mon.id];
+    const thuOk = bt.revealed && bt.locked && bt.away === 1 && bt.home === 1 && bt.n === 2 && bt.voters.away[0].uid === 'me' && bt.voters.away[0].you
+      && bt.voters.home[0].uid === 'm1' && bt.mine === 'away';
+    const hidden = !bl.revealed && !bl.locked && bl.n === 3 && bl.home === 0 && bl.away === 0 && !bl.voters.home.length && !bl.voters.away.length && bl.mine === 'away'
+      && !bm.revealed && bm.n === 1 && bm.mine === null;
+    const picks = t.picks.map(p => p.uid + ':' + p.game.slice(-2) + ':' + p.team).join(' ');
+    const mine = JSON.stringify(t.mine) === JSON.stringify({[thu.id]: 'PIT', [lon.id]: 'IND'}) && t.count === 2;
+    // A phone clock at (or past) London's kickoff locks it, but its picks stay hidden until ESPN shows it started.
+    const t1 = week.tallyNfl(docs, games, 'me', {at: L + HOUR, me: E});
+    const clock = t1.byGame[lon.id].locked && !t1.byGame[lon.id].revealed && t1.byGame[lon.id].home === 0 && !t1.picks.some(x => x.game === lon.id && x.uid !== 'me');
+    // ESPN shows London live: its picks open up; Monday's stay hidden.
+    const t2 = week.tallyNfl(docs, nfl.parse(setGame(clone(p), '401872965', 'in', 7, 3)).games, 'me', {at: L, me: E});
+    const later = t2.byGame[lon.id].revealed && t2.byGame[lon.id].away === 2 && t2.byGame[lon.id].home === 1 && !t2.byGame[mon.id].revealed;
+    // Another phone claiming your manager ("Which one are you?" is only a claim): before kickoff it sees none of
+    // your picks, only the count; once a game has started, the pick that counts for your manager.
+    const imp = week.tallyNfl(docs, games, 'someone-else', {at, me: E});
+    const impostor = imp.mine[lon.id] === undefined && !imp.picks.some(x => x.game === lon.id) && imp.byGame[lon.id].n === 3
+      && imp.byGame[lon.id].mine === null && imp.mine[thu.id] === 'PIT' && imp.count === 1;
+    const pass = thuOk && hidden && mine && clock && later && impostor && picks === 'm1:64:CLE me:64:PIT me:65:IND';
+    return {pass, detail: `Saturday: ${picks}; London ${bl.n} in (hidden; still hidden on a clock past kickoff: ${clock}); ESPN live: ${t2.byGame[lon.id].away} IND / ${t2.byGame[lon.id].home} WSH; another phone claiming Evan sees ${JSON.stringify(imp.mine)}`};
+  });
+
+  // 7. Grading
+  check('Grading: right when your team won a final game; ties and postponed games are no pick; live is pending', () => {
+    const g3 = nfl.parse(clone(W3)).games;
+    const atl = g3[0];
+    const tie = nfl.parse(setGame(clone(W3), '401872948', 'post', 20, 20)).games[0];
+    const p = clone(W4);
+    setGame(p, '401872964', 'in', 17, 10); setGame(p, '401872965', 'postponed', 0, 0);
+    const [live, pp] = nfl.parse(p).games;
+    const G = week.gradeNfl;
+    const pass = G(atl, 'ATL') === 'right' && G(atl, 'GB') === 'wrong' && G(atl, null) === null && G(atl, '') === null
+      && tie.tie && !tie.winner && G(tie, 'ATL') === 'push' && G(tie, 'GB') === 'push'
+      && G(live, 'CLE') === 'pending' && G(pp, 'IND') === 'push'
+      && g3.every(g => G(g, g[g.winner].abbr) === 'right' && G(g, g[g.winner === 'home' ? 'away' : 'home'].abbr) === 'wrong');
+    return {pass, detail: `ATL right, GB wrong; 20–20 tie ${G(tie, 'ATL')}; live ${G(live, 'CLE')}; postponed ${G(pp, 'IND')}`};
+  });
+
+  // 8. Week table and season standings
+  check('Standings: week and season tables, one row per manager across two phones, nick-only per uid, ranked by right then fewer wrong', () => {
+    need();
+    const E = mgr('evan'), M = mgr('mitch'), J = mgr('john');
+    const g3 = nfl.parse(clone(W3)).games;
+    const p4 = clone(W4);
+    setGame(p4, '401872964', 'post', 20, 17);   // CLE beat PIT
+    setGame(p4, '401872965', 'post', 23, 23);   // London: a tie
+    setGame(p4, '401872979', 'in', 10, 14);     // Monday night: live
+    const g4 = nfl.parse(p4).games, [thu, lon, mon] = g4;
+    const k = g => g.kickoff.getTime();
+    const P = (uid, g, team, dt, me, nick) => ({id: week.nflPickId(uid, g.id), uid, game: g.id, team, me: me || null, nick: nick || (me ? data.name(me) : uid), at: k(g) + dt});
+    const win = g => g[g.winner].abbr, lose = g => g[g.winner === 'home' ? 'away' : 'home'].abbr;
+    const D3 = [
+      // Evan on two phones: the home-screen app's pick is newer and wins; an empty pick clears the other phone's.
+      P('e1', g3[0], win(g3[0]), -2 * HOUR, E), P('e2', g3[0], lose(g3[0]), -HOUR, E),
+      P('e1', g3[1], win(g3[1]), -HOUR, E), P('e2', g3[2], win(g3[2]), -HOUR, E),
+      P('e1', g3[5], win(g3[5]), -2 * HOUR, E), P('e2', g3[5], '', -HOUR, E),
+      // Mitch: every game but one wrong pick (game 6) and a Monday pick made after kickoff.
+      ...g3.slice(0, 15).map((g, i) => P('m1', g, i === 5 ? lose(g) : win(g), -HOUR, M)), P('m1', g3[15], win(g3[15]), 5 * MIN, M),
+      // John: three right.
+      P('j1', g3[3], win(g3[3]), -HOUR, J), P('j1', g3[4], win(g3[4]), -HOUR, J), P('j1', g3[6], win(g3[6]), -HOUR, J),
+      // Two nick-only players with the same nick: two rows.
+      P('f1', g3[0], win(g3[0]), -HOUR, null, 'Fan'), P('f2', g3[0], lose(g3[0]), -HOUR, null, 'Fan')
+    ];
+    const D4 = [P('e2', thu, 'CLE', -HOUR, E), P('e1', lon, 'IND', -HOUR, E), P('e2', mon, 'ATL', -HOUR, E),
+      P('m1', thu, 'PIT', -HOUR, M), P('m1', lon, 'WSH', -HOUR, M)];
+    const fmt = r => `${r.me || r.nick}:${r.right}-${r.wrong}:#${r.rank}`;
+    const wk = week.nflRowsFrom(D3, g3, 'e1', {me: E});
+    const wkGot = wk.map(fmt).join(' ');
+    const wkWant = `mitch:14-1:#1 john:3-0:#2 evan:2-1:#3 Fan:1-0:#4 Fan:0-1:#5`;
+    const ev = wk.find(r => r.me === E);
+    const evOk = ev && ev.you && ev.uid === 'e2' && ev.picked === 3 && ev.decided === 3 && wk.filter(r => r.you).length === 1 && ev.who.name === data.name(E) && ev.name === data.name(E) && ev.who.me === E;
+    const mt = wk.find(r => r.me === M);
+    const mtOk = mt && mt.picked === 15 && mt.decided === 15 && !mt.you;
+    const season = week.nflStandingsFrom([{year: 2026, week: 3, games: g3, docs: D3}, {year: 2026, week: 4, games: g4, docs: D4}], 'e1', {me: E});
+    const sGot = season.map(r => `${fmt(r)}:${r.weeks}w`).join(' ');
+    const sWant = `mitch:14-2:#1:2w john:3-0:#2:1w evan:3-1:#3:2w Fan:1-0:#4:1w Fan:0-1:#5:1w`;
+    const se = season.find(r => r.me === E);
+    const seOk = se && se.pushes === 1 && se.pending === 1 && se.picked === 6 && se.decided === 4 && Math.abs(se.pct - .75) < 1e-9 && se.you
+      && season.find(r => r.me === M).pushes === 1 && season.filter(r => r.you).length === 1;
+    // Your row is found by your manager even from a third phone that never picked.
+    const third = week.nflStandingsFrom([{year: 2026, week: 3, games: g3, docs: D3}], 'e3', {me: E}).find(r => r.you);
+    // A rank is shared only when right and wrong are both equal.
+    const tie = week.nflRowsFrom([P('x1', g3[0], win(g3[0]), -HOUR, null, 'X'), P('x2', g3[1], win(g3[1]), -HOUR, null, 'Y'), P('x3', g3[2], lose(g3[2]), -HOUR, null, 'Z')], g3, null);
+    const shared = tie.map(r => r.rank).join() === '1,1,3';
+    const pass = wkGot === wkWant && evOk && mtOk && sGot === sWant && seOk && !!third && third.me === E && shared;
+    return {pass, detail: `week 3: ${wkGot}; season: ${sGot}`};
+  });
+
+  // 9. Doc ids match the rules
+  check('Pick doc ids match the rules: {uid}__{gameId} with a 1–12 digit ESPN id', () => {
+    const uid = 'Xy9AbC0dEfGhIjKlMnOpQrStUv12';
+    const ids = nfl.parse(clone(W3)).games.map(g => week.nflPickId(uid, g.id));
+    const re = new RegExp('^' + uid + '__[0-9]{1,12}$');
+    const pass = ids.every(id => re.test(id)) && !re.test(week.nflPickId('someone-else', '401872948')) && week.weekKey(2026, 4) === '2026-w4';
+    return {pass, detail: ids[0]};
+  });
+}
