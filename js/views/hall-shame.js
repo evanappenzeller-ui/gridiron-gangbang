@@ -1,7 +1,7 @@
-// Hall › Shame (#/hall/shame, #/hall/shame?y=2026): the league's worst moments, all-time and this season
-// (week-features contract, Hall of Shame). A segment of hall.js: {render, mount, unmount, show, params, me, prefetch}.
+// League › Shame (#/league/shame, #/league/shame?y=2026): the league's worst moments, all-time and this season
+// (week-features contract, Hall of Shame). A segment of league.js: {render, mount, unmount, show, params, me, prefetch}.
 // The numbers come from stats.shame() / stats.shame({year}) (js/core/stats.js, owned by the STATS builder). stats.js is
-// imported on demand, so the other Hall segments never wait for it or break with it; hall.js warms it at idle.
+// imported on demand, so the Hall segments never wait for it or break with it; league.js warms it at idle.
 //
 // Layout: scope control (All-time | This season) · "Rock bottom" hero (the lowest score in scope) · "Frequent
 // offenders" rail (who shows up most) · "Podium regulars" (most Matchup of the Week press conferences, from
@@ -38,7 +38,7 @@ function scopeOf(ctx) {
   const y = q && /^\d{4}$/.test(q) ? Number(q) : null;
   return y != null && data.seasonByYear(y) ? y : null;
 }
-const pathOf = y => (y == null ? '/hall/shame' : `/hall/shame?y=${y}`);
+const pathOf = y => (y == null ? '/league/shame' : `/league/shame?y=${y}`);
 
 // ------------------------------------------------------------------ Model
 const GAME_LISTS = new Set(['low', 'blowout', 'unlucky', 'lucky', 'flops']);
@@ -402,7 +402,7 @@ export function mount(el, ctx) {
   ui.onIdle(() => { if (S === mine) podiumStart(); });
 }
 
-// A route change inside Shame (the scope query), or a link to /hall/shame while it is showing.
+// A route change inside Shame (the scope query), or a link to /league/shame while it is showing.
 export function params(ctx) {
   if (!S) return;
   const y = scopeOf(ctx);

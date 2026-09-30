@@ -1,4 +1,4 @@
-/* pickem.css: NFL Pick'em (#/pickem). Owner: PICKEM-VIEWS.
+/* pickem.css: NFL Pick'em (#/pickem, the Pick'em tab's root). Owner: SHELL (was PICKEM-VIEWS).
    Scope roots: .v-pickem (the screen), .sh-pk (its sheets), .c-pk-* (small parts the Rivals card reuses).
    Motion is transform/opacity only; the live dot's pulse stops under reduced motion. */
 

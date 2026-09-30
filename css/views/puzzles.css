@@ -1,0 +1,102 @@
+/* puzzles.css: the Puzzles tab root (tabs-v4 contract §3; replaces today.css). Owner: PUZZLES (tabs-v4).
+   Every selector is scoped under .v-puzzles. The board, streak pill and countdown live in board.css. */
+
+/* ---------------------------------------------------------------- Large title trailing: streak pill + your avatar */
+.v-puzzles .lt-trail { gap: 6px; }
+.v-puzzles .c-spill-slot { display: inline-flex; }
+.v-puzzles .c-spill-slot:empty { display: none; }
+
+/* ---------------------------------------------------------------- Hero card */
+.v-puzzles .c-hero-wrap { position: relative; margin-top: 12px; }
+.v-puzzles .c-hero {
+  display: flex; flex-direction: column; align-items: stretch;
+  padding: 20px 20px 22px;
+  text-align: center; overflow: hidden;
+}
+.v-puzzles .c-hero:focus { outline: none; } /* programmatic focus target while "Try again" reloads */
+.v-puzzles .c-hero-o { color: var(--ink-3); min-height: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-puzzles .c-hero-top { display: flex; flex-direction: column; align-items: center; min-width: 0; }
+.v-puzzles .c-hero-line {
+  margin-top: 10px;
+  font: 700 var(--fs-2)/var(--lh-2) var(--font-text); color: var(--ink);
+  overflow-wrap: anywhere;
+}
+/* The day's puzzle types: small and quiet (a finished one turns tint once it's done). */
+.v-puzzles .c-hero-types { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.v-puzzles .c-hero-ti {
+  width: 34px; height: 34px; flex: none;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: var(--surface-2); color: var(--ink-3);
+  transition: color 250ms linear;
+}
+.v-puzzles .c-hero-ti .ic { stroke-width: 1.9; }
+.v-puzzles .c-hero-ti.is-done { color: var(--tint); }
+
+/* The one big button (Play / Continue); finished: "See results" and "Share" side by side. */
+.v-puzzles .c-hero-ctas { display: flex; gap: 10px; margin-top: 20px; min-width: 0; }
+.v-puzzles .c-hero-cta, .v-puzzles .c-hero-share { flex: 1 1 0; min-width: 0; padding: 0 14px; }
+.v-puzzles .c-hero-cta.is-big {
+  height: 64px; border-radius: 18px; gap: 10px;
+  font: 700 21px/26px var(--font-text); letter-spacing: .005em;
+}
+.v-puzzles .c-hero-cta.is-big > .c-cta-ic { width: 22px; height: 22px; stroke-width: 1; margin-left: -4px; }
+.v-puzzles .c-hero-share > .ic { width: 20px; height: 20px; margin-top: -2px; }
+
+/* Started: one thin segment per puzzle under the button, then "1 of 3 done". */
+.v-puzzles .c-hero-prog:empty { display: none; }
+.v-puzzles .c-prog { display: flex; gap: 4px; margin: 16px 2px 0; }
+.v-puzzles .c-prog-s {
+  position: relative; flex: 1 1 0; height: 4px;
+  border-radius: 2px; overflow: hidden;
+  background: var(--surface-3);
+}
+.v-puzzles .c-prog-f {
+  position: absolute; inset: 0;
+  background: var(--tint);
+  transform-origin: 0 50%;
+  transition: transform var(--spring-smooth-dur) var(--spring-smooth);
+}
+/* Perfect: a gold layer fades in over the tint (opacity only). */
+.v-puzzles .c-prog-f::after { content: ""; position: absolute; inset: 0; background: var(--gold); opacity: 0; transition: opacity 300ms var(--ease-out); }
+.v-puzzles .c-prog-f.is-perfect::after { opacity: 1; }
+.v-puzzles .c-prog-t {
+  margin-top: 8px;
+  font: 500 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Finished: the score ring and the grade word. */
+.v-puzzles .c-hero-ringw { display: grid; place-items: center; margin-top: 14px; }
+.v-puzzles .c-hero-ring .ring-center { gap: 0; }
+.v-puzzles .c-hero-total { color: var(--ink); letter-spacing: -.005em; }
+.v-puzzles .c-hero-of { font: 500 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); margin-top: 2px; }
+.v-puzzles .c-hero-grade {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  margin-top: 14px; min-height: 18px;
+  color: var(--ink-2); letter-spacing: .1em;
+}
+.v-puzzles .c-hero-grade.is-gold { color: var(--gold); }
+.v-puzzles .c-hero-grade .ic { stroke-width: 2; flex: none; }
+
+/* Countdown (and the midnight banner) inside the hero; the look is in board.css. */
+.v-puzzles .c-hero .c-cd-host { margin-top: 16px; }
+.v-puzzles .c-hero .c-cd-host:empty { display: none; }
+.v-puzzles .c-hero .c-cd-new { text-align: left; }
+
+/* Loading */
+.v-puzzles .c-hero.is-loading .sk { background: var(--surface-2); }
+.v-puzzles .c-sk-ovl { display: inline-block; width: 112px; height: 13px; }
+.v-puzzles .c-sk-line { width: 62%; height: 20px; margin-top: 14px; border-radius: 6px; }
+.v-puzzles .c-hero.is-loading .c-hero-types { margin-top: 16px; }
+/* Error */
+.v-puzzles .c-hero.is-error { padding: 4px 16px 20px; }
+
+/* ---------------------------------------------------------------- Board */
+.v-puzzles .c-board-host { margin-top: 12px; }
+
+/* ---------------------------------------------------------------- Reduced motion */
+html.rm .v-puzzles .c-prog-f, html.rm .v-puzzles .c-prog-f::after, html.rm .v-puzzles .c-hero-ti { transition: none; }
+@media (prefers-reduced-motion: reduce) {
+  .v-puzzles .c-prog-f, .v-puzzles .c-prog-f::after, .v-puzzles .c-hero-ti { transition: none; }
+}

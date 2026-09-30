@@ -39,6 +39,13 @@ const LINKS = [
   ['Check this out https://youtu.be/cY_ifzuuk3s?si=abc', J],
   ["Jackson's presser (https://youtu.be/cY_ifzuuk3s).", J],
   ['Watch Mitch squirm: youtube.com/shorts/abcDEF12_-x', S, true],
+  ['https://studio.youtube.com/video/dQw4w9WgXcQ/edit', V],           // Studio's address bar after an upload
+  ['https://youtu.be/dQw4w9WgXcQ…', V],                           // a chat app's trailing ellipsis
+  ['https://www.youtube.com/watch?v=dQw4w9WgXcQ​', V],            // a zero-width space
+  ['https://youtube.com/watch?v=dQw4w9WgXcQ?si=x', V],                 // a second '?' after the id
+  ['https://WWW.YOUTUBE.COM/WATCH?V=dQw4w9WgXcQ', V],                  // upper-case path and key
+  ['https://studio.youtube.com/channel/UCuAXFkgsw1L7xaCfnd5JJOw', null],
+  ['https://www.youtube.com/watch?v=dQw4w9WgX$Q', null],
   ['https://www.youtube.com/playlist?list=PLFgquLnL59alCl_2TQvOiD5Vgm1hCaGSI', null],
   ['https://www.youtube.com/watch?list=PLFgquLnL59alCl_2TQvOiD5Vgm1hCaGSI', null],
   ['https://www.youtube.com/@RickAstleyYT', null],

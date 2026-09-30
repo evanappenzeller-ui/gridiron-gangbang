@@ -1,4 +1,5 @@
-/* run.css: the puzzle run cover (spec 7.2). Owner: puzzle-run package. Scope: .v-run */
+/* run.css: the puzzle run cover (spec 7.2, tabs-v4 contract section 4: the arrows). Owner: PUZZLES (tabs-v4; was the
+   puzzle-run package). Scope: .v-run */
 
 /* The cover draws its own bars: the body is a full-height column so the sticky bottom bar sits at the
    bottom when the puzzle is short and follows the content when it is long. */
@@ -20,44 +21,26 @@
 .v-run .rn-bottom .rn-bg::after { top: 0; transform-origin: top; }
 .v-run .rn-top.is-scrolled .rn-bg, .v-run .rn-bottom.is-over .rn-bg { opacity: 1; }
 
-/* ------------------------------------------------------------------ Top bar */
+/* ------------------------------------------------------------------ Top bar
+   Row 1: close, the day, the points pill. Row 2: the big ‹ › arrows at the edges flanking the puzzle's title with
+   "2 of 3" and one dot per puzzle. The whole bar takes horizontal swipes (touch-action: pan-y; see run.js). */
 .v-run .rn-top {
   position: sticky; top: 0; z-index: 10;
   margin: 0 calc(-1 * var(--gutter));
-  height: calc(56px + var(--safe-top));
-  padding: var(--safe-top) 12px 0 6px;
-  display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; align-items: center; column-gap: 10px;
+  padding: var(--safe-top) 8px 2px;
+  touch-action: pan-y;
 }
-.v-run .rn-close { color: var(--ink); }
-.v-run .rn-segs { display: flex; gap: 0; min-width: 0; }
-.v-run .rn-seg {
-  position: relative; flex: 1 1 0; min-width: 0; height: 44px;
-  display: flex; align-items: center;
-  padding: 0 3px; /* the 6px between tracks belongs to the targets (no dead taps between segments) */
+.v-run .rn-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; column-gap: 8px;
+  height: 44px;
 }
-.v-run .rn-seg:disabled { cursor: default; }
-.v-run .rn-track {
-  position: relative; display: block; width: 100%; height: 8px;
-  border-radius: 4px; overflow: hidden;
-  background: var(--surface-2);
-  transform: scaleY(.75);
-  transition: transform var(--spring-snappy-dur) var(--spring-snappy);
+.v-run .rn-close { color: var(--ink); justify-self: start; }
+.v-run .rn-date {
+  font: 800 13px/16px var(--font-num); letter-spacing: .06em; text-transform: uppercase;
+  color: var(--ink-3); white-space: nowrap;
 }
-.v-run .rn-seg[aria-current="step"] .rn-track { transform: none; }
-.v-run .rn-seg.is-pressed .rn-track { transform: scaleY(.6); transition: none; }
-.v-run .rn-seg[aria-current="step"].is-pressed .rn-track { transform: scaleY(.85); }
-.v-run .rn-fill {
-  position: absolute; inset: 0;
-  background: var(--tint);
-  transform-origin: 0 50%;
-  transition: transform var(--spring-smooth-dur) var(--spring-smooth);
-}
-/* Perfect: a gold layer fades in over the tint (opacity only; the fill color itself never tweens) */
-.v-run .rn-fill::after { content: ""; position: absolute; inset: 0; background: var(--gold); opacity: 0; transition: opacity 300ms var(--ease-out); }
-.v-run .rn-fill.is-perfect::after { opacity: 1; }
-.v-run .rn-seg:focus-visible { outline-offset: -2px; }
-
 .v-run .rn-pts {
+  justify-self: end; margin-right: 2px;
   display: inline-flex; align-items: baseline; justify-content: center; gap: 3px;
   min-width: 64px; height: 32px; padding: 0 12px;
   border-radius: var(--r-pill);
@@ -65,24 +48,51 @@
   line-height: 32px;
 }
 .v-run .rn-pts.is-pending { opacity: 0; }
-/* Five segments: a tighter bar keeps each segment 44px wide at 360; with a four-digit total the unit drops too
-   (the aria-label keeps it). */
-.v-run .rn-top:has(.rn-segs[data-n="5"]) { column-gap: 6px; padding-right: 8px; }
-.v-run .rn-top:has(.rn-segs[data-n="5"]) .rn-pts { padding: 0 10px; }
-.v-run .rn-pts.is-wide .rn-pu { display: none; }
 .v-run .rn-pn { font-size: 19px; line-height: 32px; color: var(--ink); }
 .v-run .rn-pu { font: 500 var(--fs-cap)/32px var(--font-text); color: var(--ink-2); } /* ink-3 is only 4.3:1 on surface-2 */
+
+/* 10 px clear of row 1, so a reach for ‹ that lands a little high never hits the close × above it. */
+.v-run .rn-nav {
+  display: grid; grid-template-columns: 48px minmax(0, 1fr) 48px; align-items: center; column-gap: 8px;
+  min-height: 54px; margin-top: 10px;
+}
+.v-run .rn-arrow {
+  position: relative;
+  width: 48px; height: 48px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--surface-2); color: var(--ink);
+  transition: transform var(--spring-snappy-dur) var(--spring-snappy), background-color 200ms, opacity 200ms;
+}
+.v-run .rn-arrow > .ic { width: 28px; height: 28px; stroke-width: 2.4; }
+.v-run .rn-prev > .ic { margin-left: -2px; }
+.v-run .rn-fwd > .ic { margin-right: -2px; }
+.v-run .rn-arrow.is-pressed { transform: scale(.9); background: var(--surface-3); transition: none; }
+.v-run .rn-arrow[aria-disabled="true"] { opacity: .28; cursor: default; }
+.v-run .rn-arrow[aria-disabled="true"].is-pressed { transform: none; background: var(--surface-2); }
+.v-run .rn-title { min-width: 0; text-align: center; }
+.v-run .rn-t {
+  font: 600 var(--fs-headline)/var(--lh-headline) var(--font-text); color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.v-run .rn-sub { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 16px; margin-top: 3px; }
+.v-run .rn-count { font: 600 var(--fs-cap)/var(--lh-cap) var(--font-text); color: var(--ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.v-run .rn-dots { display: inline-flex; align-items: center; gap: 5px; }
+.v-run .rn-dot { display: block; width: 6px; height: 6px; border-radius: 3px; background: var(--ink-4); }
+.v-run .rn-dot.is-done { background: var(--tint); }
+.v-run .rn-dot.is-perfect { background: var(--gold); }
+.v-run .rn-dot.is-cur { width: 16px; background: var(--ink); }
+.v-run .rn-dot.is-cur.is-done { background: var(--tint); }
+.v-run .rn-dot.is-cur.is-perfect { background: var(--gold); }
 
 /* ------------------------------------------------------------------ Stage and header */
 .v-run .rn-stage { display: grid; flex: 1 0 auto; min-width: 0; }
 .v-run .rn-stage > * { grid-area: 1 / 1; min-width: 0; }
 .v-run .rn-page { padding-bottom: 24px; }
 .v-run .rn-page.is-out { pointer-events: none; }
-.v-run .rn-head { padding: 6px 0 18px; }
-.v-run .rn-ovl { display: flex; align-items: center; gap: 6px; color: var(--ink-3); }
-.v-run .rn-ovl > .ic { width: 16px; height: 16px; stroke-width: 2; flex: none; }
-.v-run .rn-ovl > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.v-run .rn-prompt { margin-top: 6px; color: var(--ink-2); max-width: 36em; }
+.v-run .rn-page:focus { outline: none; } /* focus lands here when a key press swaps the page under it */
+/* The header (the prompt) takes horizontal swipes like the bar; the puzzle body below never does. */
+.v-run .rn-head { padding: 8px 0 18px; touch-action: pan-y; }
+.v-run .rn-prompt { color: var(--ink-2); max-width: 36em; }
 
 /* Loading and error */
 .v-run .rn-sk { display: flex; flex-direction: column; gap: 16px; padding-top: 4px; }
@@ -97,6 +107,9 @@
   margin: auto calc(-1 * var(--gutter)) 0;
   padding: 12px 16px max(12px, var(--safe-bottom));
 }
+.v-run .rn-bottom[hidden] { display: none; }
+.v-run .rn-next > .rn-next-ic { width: 20px; height: 20px; stroke-width: 2.4; margin-right: -6px; }
+.v-run .rn-next > .rn-next-ic.is-back { margin-right: 0; margin-left: -6px; }
 
 /* ------------------------------------------------------------------ Stamps (5 FOR 5, FIRST-BALLOT) */
 .v-run .rn-stamp {
@@ -115,7 +128,7 @@
 }
 
 /* ------------------------------------------------------------------ Reduced motion */
-html.rm .v-run .rn-track, html.rm .v-run .rn-fill, html.rm .v-run .rn-fill::after, html.rm .v-run .rn-bg { transition: none; }
+html.rm .v-run .rn-arrow, html.rm .v-run .rn-bg { transition: none; }
 @media (prefers-reduced-motion: reduce) {
-  .v-run .rn-track, .v-run .rn-fill, .v-run .rn-fill::after, .v-run .rn-bg { transition: none; }
+  .v-run .rn-arrow, .v-run .rn-bg { transition: none; }
 }

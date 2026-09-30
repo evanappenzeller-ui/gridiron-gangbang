@@ -1032,8 +1032,8 @@ function setBackgroundInert(on) {
     inertSaved = null;
   }
 }
-/** Absolute share link for an app path ("/rivals/evan-vs-mason"), built from the current location. */
-export const absLink = path => `${location.origin}${location.pathname}#${path || '/today'}`;
+/** Absolute share link for an app path ("/matchup/evan-vs-mason"), built from the current location. */
+export const absLink = path => `${location.origin}${location.pathname}#${path || '/puzzles'}`;
 
 /**
  * Bottom sheet with full physics (spec 5.6).

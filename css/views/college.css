@@ -1,16 +1,17 @@
 /* college.css: College puzzle inside the run cover (spec 7.3). Owner: puzzle-run package. Scope: .v-run */
 
-/* Progress row: "Player 2 of 5" and five dots */
+/* Progress row: "Player 2 of 5" and one short bar segment per player (also Silhouettes' faces). Segments, not dots:
+   the run bar above uses round dots for the day's puzzles, and the two rows must never read as the same thing. */
 .v-run .cl-prog { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 20px; margin-bottom: 12px; }
 .v-run .cl-count { color: var(--ink-2); font-weight: 500; }
-.v-run .cl-dots { display: flex; gap: 6px; flex: none; }
+.v-run .cl-dots { display: flex; gap: 4px; flex: none; }
 .v-run .cl-dot {
-  position: relative; display: block; width: 8px; height: 8px; border-radius: 50%;
+  position: relative; display: block; width: 18px; height: 4px; border-radius: 2px;
   background: var(--surface-3);
 }
 .v-run .cl-dot.is-right { background: var(--tint); }
 .v-run .cl-dot.is-wrong { background: var(--wrong); }
-.v-run .cl-dot > b { position: absolute; inset: -1px; border-radius: 50%; background: var(--gold); opacity: 0; }
+.v-run .cl-dot > b { position: absolute; inset: 0; border-radius: inherit; background: var(--gold); opacity: 0; }
 .v-run .cl-dot.is-gold > b { opacity: 1; }
 
 /* Card stack: the current card plus up to two peeking underneath */

@@ -1,6 +1,7 @@
 // PNG share card (spec 7.7), 1080×1350, drawn on a canvas. renderShareCard(opts) → Promise<Blob>.
 // Colors come from the design tokens at runtime; the league name, day, marks, streak and rank from live data.
-// Owner: daily-hub package.
+// Rows follow the day's steps (daily.stepsFor: three on v1 and v4 days, five on v2 and v3), in the day's order.
+// Owner: PUZZLES (tabs-v4; was the daily-hub package).
 import * as daily from '../core/daily.js';
 import * as data from '../core/data.js';
 
@@ -49,7 +50,9 @@ function flamePath() {
 export async function renderShareCard(o = {}) {
   if (daily.status !== 'ready' || !daily.DAY) throw new Error('The Daily is not loaded');
   const ds = o.ds || daily.DS, day = o.day || daily.DAY, pnum = o.pnum || daily.PNUM;
-  const ver = daily.dayVersion(day), v2 = ver >= 2; // v2 and v3 days have five rows
+  const ver = daily.dayVersion(day);
+  const ids = daily.stepsFor(day).map(s => s.id); // the rows, in the day's order
+  const five = ids.length > 3, short = ver >= 3; // short (v3, v4): one or two items per puzzle, one-line rows
   const max = daily.maxPts(day);
   const total = daily.totalPts(ds, day);
   const grade = daily.gradeFor(total, max);
@@ -93,11 +96,14 @@ export async function renderShareCard(o = {}) {
   c.fillText(dateStr, W / 2, 204);
 
   // Layout: v1 (three rows) keeps the original positions; v2 (five rows, a 3 x 3 grid) tightens the hero and the rows;
-  // v3 (five rows, every row one line: two squares, pips, or 1 x 2 grid squares) spaces the rows evenly.
-  const G = ver === 3
-    ? {tot: 240, totY: 440, ofY: 496, grY: 574, grS: 54, rule: 622, rows: [654, 752, 850, 948, 1046], sq: 72, sqGap: 14, pip: 56, cell: 72, cellGap: 14}
-    : v2
-      ? {tot: 220, totY: 420, ofY: 474, grY: 548, grS: 52, rule: 592, rows: [616, 708, 800, 892, 984], sq: 64, sqGap: 12, pip: 50, cell: 46, cellGap: 8}
+  // v3 (five rows, every row one line: two squares, pips, or 1 x 2 grid squares) spaces the rows evenly; v4 (three
+  // one-line rows) keeps the v1 hero and spaces its rows evenly.
+  const G = five
+    ? (short
+      ? {tot: 240, totY: 440, ofY: 496, grY: 574, grS: 54, rule: 622, rows: [654, 752, 850, 948, 1046], sq: 72, sqGap: 14, pip: 56, cell: 72, cellGap: 14}
+      : {tot: 220, totY: 420, ofY: 474, grY: 548, grS: 52, rule: 592, rows: [616, 708, 800, 892, 984], sq: 64, sqGap: 12, pip: 50, cell: 46, cellGap: 8})
+    : short
+      ? {tot: 260, totY: 468, ofY: 526, grY: 612, grS: 56, rule: 668, rows: [720, 864, 1008], sq: 72, sqGap: 14, pip: 56, cell: 72, cellGap: 14}
       : {tot: 260, totY: 468, ofY: 526, grY: 612, grS: 56, rule: 668, rows: [706, 826, 928], sq: 72, sqGap: 14, pip: 56, cell: 56, cellGap: 10};
 
   // Total, "of 1,000", grade
@@ -136,7 +142,7 @@ export async function renderShareCard(o = {}) {
     c.fillText(t, R, y + 56);
     spacing(c, 0);
   };
-  // One rounded square per item (College, Faces: five, or two on a v3 day), right-aligned: tint right, red wrong,
+  // One rounded square per item (College, Faces: five, or two on a v3 or v4 day), right-aligned: tint right, red wrong,
   // grey unanswered.
   const squares = (marks, y) => {
     const n = marks.length;
@@ -151,8 +157,7 @@ export async function renderShareCard(o = {}) {
   c.fillStyle = C.s2;
   c.fillRect(L, G.rule, R - L, 2);
 
-  const order = v2 ? ['col', 'sil', 'who', 'jr', 'grid'] : ['col', 'who', 'grid'];
-  order.forEach((id, n) => {
+  ids.forEach((id, n) => {
     const y = G.rows[n];
     if (id === 'col') {
       // College: one square per player
@@ -194,7 +199,7 @@ export async function renderShareCard(o = {}) {
         }
       }
     } else {
-      // Grid: its squares in the day's shape (3 x 3, or 1 x 2 on a v3 day)
+      // Grid: its squares in the day's shape (3 x 3, or 1 x 2 on a v3 or v4 day)
       label('GRID', daily.ptsGrid(ds, day), y + 34);
       const step = G.cell + G.cellGap, sh = daily.gridShape(day), nc = sh.cols.length;
       for (let k = 0; k < sh.n; k++) {

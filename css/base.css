@@ -191,7 +191,7 @@ small { font-size: inherit; }
   padding: env(safe-area-inset-top, 0px) 16px env(safe-area-inset-bottom, 0px);
 }
 
-/* ---------------------------------------------------------------- Boot splash (CSS-only Today skeleton) */
+/* ---------------------------------------------------------------- Boot splash (CSS-only Puzzles skeleton) */
 #boot {
   position: absolute; inset: 0; z-index: var(--z-boot);
   background: var(--bg);
@@ -201,15 +201,20 @@ small { font-size: inherit; }
 }
 #boot.is-out { opacity: 0; }
 #boot i { display: block; background: var(--surface-1); border-radius: 8px; }
-#boot .bt-eyebrow { width: 42%; height: 13px; margin-top: 6px; }
-#boot .bt-title { width: 36%; height: 34px; margin-top: 8px; border-radius: 10px; }
-#boot .bt-card { margin-top: 24px; background: var(--surface-1); border-radius: var(--r-hero); padding: 20px; display: flex; flex-direction: column; align-items: center; }
+#boot .bt-head { display: flex; align-items: flex-end; gap: 12px; }
+#boot .bt-htext { flex: 1; min-width: 0; }
+#boot .bt-eyebrow { width: 52%; height: 13px; margin-top: 6px; }
+#boot .bt-title { width: 44%; height: 34px; margin-top: 8px; border-radius: 10px; }
+#boot .bt-you { flex: none; width: 32px; height: 32px; border-radius: 50%; margin-bottom: 10px; }
+#boot .bt-card { margin-top: 20px; background: var(--surface-1); border-radius: var(--r-hero); padding: 20px; display: flex; flex-direction: column; align-items: center; }
 #boot .bt-card i { background: var(--surface-2); }
-#boot .bt-ovl { width: 30%; height: 13px; align-self: flex-start; }
-#boot .bt-ring { width: 200px; height: 200px; border-radius: 50%; margin-top: 16px; background: none !important; box-shadow: inset 0 0 0 16px var(--surface-2); }
-#boot .bt-line { width: 60%; height: 15px; margin-top: 16px; }
-#boot .bt-btn { width: 100%; height: 50px; margin-top: 16px; border-radius: var(--r-group); }
-#boot .bt-row { width: 100%; height: 40px; margin-top: 12px; border-radius: 12px; }
+#boot .bt-ovl { width: 34%; height: 13px; }
+#boot .bt-line { width: 62%; height: 20px; margin-top: 14px; }
+#boot .bt-btn { width: 100%; height: 64px; margin-top: 64px; border-radius: 18px; }
+#boot .bt-lb { margin-top: 12px; align-items: stretch; }
+#boot .bt-h { width: 46%; height: 22px; }
+#boot .bt-seg { height: 32px; margin-top: 16px; border-radius: 9px; }
+#boot .bt-row { height: 48px; margin-top: 12px; border-radius: 12px; }
 #boot .bt-tab { position: absolute; left: 0; right: 0; bottom: 0; height: var(--tab-h); background: var(--bar-solid); border-top: 1px solid var(--separator); }
 #boot i, #boot .bt-card { animation: sk-pulse 1.2s ease-in-out infinite alternate; }
 

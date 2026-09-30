@@ -43,10 +43,21 @@ const standIn = () => !fire.canWrite();
 
 // Ids YouTube uses in /embed/ paths that are not videos (both happen to be 11 characters).
 const RESERVED = new Set(['videoseries', 'live_stream']);
-const HOST_RE = /^(?:(?:www|m|music)\.)?(youtube\.com|youtu\.be|youtube-nocookie\.com)$/;
+const HOST_RE = /^(?:(www|m|music|studio)\.)?(youtube\.com|youtu\.be|youtube-nocookie\.com)$/;
 // A YouTube link inside any text (share sheets paste "Check this out https://youtu.be/…").
 const LINK_RE = /(?:https?:\/\/)?(?:[a-z0-9-]+\.)*(?:youtube(?:-nocookie)?\.com|youtu\.be)\/[^\s<>"'`]*/gi;
+// Invisible characters and the ellipsis chat apps add to a pasted link.
+const JUNK_RE = /[​-‍⁠﻿…]/g;
 const vidOk = id => (typeof id === 'string' && VID_RE.test(id) && !RESERVED.has(id) ? id : null);
+// A watch link's v= (the key in any case). A malformed "v=ID?si=…" keeps its 11-character id when a character that
+// can't be part of an id follows it.
+function watchId(u) {
+  let v = null;
+  u.searchParams.forEach((val, key) => { if (v == null && key.toLowerCase() === 'v') v = val; });
+  if (v == null) return null;
+  const m = /^([A-Za-z0-9_-]{11})(?:[^A-Za-z0-9_-]|$)/.exec(v);
+  return m ? vidOk(m[1]) : null;
+}
 
 function fromLink(raw) {
   let t = raw.replace(/&amp;/g, '&').replace(/[.,;:!?)\]}>'"»”’]+$/, ''); // HTML-escaped queries, sentence punctuation
@@ -56,28 +67,34 @@ function fromLink(raw) {
   const h = HOST_RE.exec(u.hostname.toLowerCase());
   if (!h) return null;
   const seg = u.pathname.split('/').filter(Boolean);
-  if (h[1] === 'youtu.be') {
+  const head = (seg[0] || '').toLowerCase();
+  if (h[1] === 'studio') {
+    // YouTube Studio's address bar after an upload: studio.youtube.com/video/<id>/edit
+    const id = h[2] === 'youtube.com' && head === 'video' && seg.length >= 2 ? vidOk(seg[1]) : null;
+    return id ? {vid: id, tall: false} : null;
+  }
+  if (h[2] === 'youtu.be') {
     const id = seg.length === 1 ? vidOk(seg[0].split('&')[0]) : null; // old "youtu.be/ID&feature=…" shares
     return id ? {vid: id, tall: false} : null;
   }
-  const head = (seg[0] || '').toLowerCase();
   if (head === 'watch' && seg.length === 1) {
-    const id = vidOk(u.searchParams.get('v'));
+    const id = watchId(u);
     return id ? {vid: id, tall: false} : null;
   }
-  if (seg.length === 2 && (h[1] === 'youtube-nocookie.com' ? head === 'embed' : ['shorts', 'live', 'embed', 'v'].includes(head))) {
+  if (seg.length === 2 && (h[2] === 'youtube-nocookie.com' ? head === 'embed' : ['shorts', 'live', 'embed', 'v'].includes(head))) {
     const id = vidOk(seg[1]);
     return id ? {vid: id, tall: head === 'shorts'} : null;
   }
   return null;
 }
 
-// A YouTube link (youtu.be, watch?v= with v anywhere in the query, /shorts/ (tall), /live/, /embed/ (also
-// youtube-nocookie.com), /v/; with or without scheme, www./m./music., extra params and trailing slashes), a bare
-// 11-character id, or a text containing such a link -> {vid, tall} | null. Channels, playlists without v=, other
-// sites and ids of the wrong length or charset -> null.
+// A YouTube link (youtu.be, watch?v= with v anywhere in the query (any case; a stray "?si=" after the id is
+// tolerated), /shorts/ (tall), /live/, /embed/ (also youtube-nocookie.com), /v/, YouTube Studio's /video/<id>; with
+// or without scheme, www./m./music., extra params and trailing slashes; zero-width characters and a trailing "…"
+// ignored), a bare 11-character id, or a text containing such a link -> {vid, tall} | null. Channels, playlists
+// without v=, other sites and ids of the wrong length or charset -> null.
 export function parseYouTube(input) {
-  const s = String(input == null ? '' : input).trim();
+  const s = String(input == null ? '' : input).replace(JUNK_RE, '').trim();
   if (!s) return null;
   const bare = vidOk(s);
   if (bare) return {vid: bare, tall: false};

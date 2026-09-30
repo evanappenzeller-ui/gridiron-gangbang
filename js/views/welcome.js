@@ -1,8 +1,9 @@
 // Launch welcome: "Who are you?" (a full-screen picker, not a route). Shown once per phone when the app opens
-// and no league member has been picked. Tap yourself, then "Continue as {name}"; "Just visiting" skips.
+// (over Puzzles, or whatever screen a link opened) and no league member has been picked. Tap yourself, then
+// "Continue as {name}"; "Just visiting" skips. Owner: SHELL.
 // The pick is gg-me (data.setMe); gg-welcome = '1' records that the question was answered, so it never
-// comes back (the You sheet still changes the pick). A member with no leaderboard name yet gets theirs as
-// the nickname, so their scores post under it.
+// comes back (the avatar button's You sheet still changes the pick). A member with no leaderboard name yet gets
+// theirs as the nickname, so their scores post under it. Focus returns to the screen underneath when it closes.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as daily from '../core/daily.js';
@@ -29,7 +30,7 @@ function pageHTML() {
     + `<header class="wl-head" data-enter>`
     + `<p class="ovl wl-ovl">${esc(data.DATA.league.name)}${first ? ` · ${first}–${last}` : ''}</p>`
     + `<h1 class="wl-title" id="wl-title">Who are you?</h1>`
-    + `<p class="wl-sub">Pick yourself. Your daily scores post under your name. Saved on this phone.</p>`
+    + `<p class="wl-sub">Pick yourself. Your puzzle scores and picks post under your name. Saved on this phone.</p>`
     + `</header>`
     + `<div class="wl-grid" role="group" aria-label="League members">${data.ids.map(cardHTML).join('')}</div>`
     + `</div>`
@@ -95,6 +96,11 @@ export function showWelcome() {
     const remove = () => el.remove();
     out.finished.catch(() => {}).then(remove);
     setTimeout(remove, 450);
+    // Focus was inside the welcome: hand it to the screen underneath (not <body>), without scrolling it.
+    if (el.contains(document.activeElement)) {
+      const scr = document.querySelector('#covers .cover > .screen') || document.querySelector('#stage > .tab-layer:not([hidden]) > .screen:not([data-under])');
+      if (scr) { try { scr.focus({preventScroll: true}); } catch (_) {} }
+    }
     if (value !== 'none') ui.toast(`Welcome, ${data.name(value)}.`, {icon: 'check-circle'});
     resolve(value);
   };

@@ -1,5 +1,5 @@
-/* moves.css: Moves tab (spec 7.15): Drafts, Trades and player search. Owner: moves package.
-   Every selector starts with .v-moves. Motion: transform/opacity only. */
+/* moves.css: the Draft tab (the Moves tab renamed; spec 7.15): Drafts, Trades and player search. Owner: SHELL (was the
+   moves package). Every selector starts with .v-moves (the view id stays 'moves'). Motion: transform/opacity only. */
 
 /* ================================================================ Header: search field and segment */
 .v-moves .mv-q { position: relative; margin-top: 6px; }

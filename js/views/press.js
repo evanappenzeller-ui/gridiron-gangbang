@@ -1,9 +1,10 @@
 // Press Room (#/press, #/press/2026-w4): the Matchup of the Week loser's postgame press conference, week by week,
-// rewatchable inside the app. Pushed on any tab (a cold link sits on Rivals). Owner: PRESS-SCREEN.
+// rewatchable inside the app. Pushed on any tab (a cold link sits on Matchup). Owner: PRESS-SCREEN.
 //   Large title (eyebrow "Matchup of the Week", "Press Room", "The loser faces the media.") · the featured presser as
 //   a big player card (the latest, or the route's week: the share link) with Share / Replace / Remove · a prompt when
 //   the latest Matchup of the Week loser hasn't posted yet · the archive by season (a row features that presser and
-//   plays it) · "How to post". The + in the bar opens the post sheet.
+//   plays it) · "How to post". The + in the bar opens the post sheet. Until the rules are pasted ('denied') the +,
+//   Replace and Remove are gone and the sheet's Post stays off with that reason.
 //   Post sheet (openPost): paste a YouTube link (checked live: the thumbnail and YouTube title, or what's wrong in
 //   plain words), the week (default: the latest week still without a presser) and who was at the podium (pre-filled
 //   from the MOTW loser), an optional caption (pre-filled from the YouTube title), a vertical switch (pre-set from a
@@ -12,7 +13,7 @@
 // merged over the seeded data/pressers.json; dev hosts write to its local stand-in). Playback is YouTube's embed
 // (youtube-nocookie.com) swapped in for the thumbnail on tap: one player at a time app-wide, and every screen that
 // shows tiles stops its players when it hides.
-// Exports for the other surfaces (Rivals, Today, the Wrap, profiles, Hall of Shame):
+// Exports for the other surfaces (Matchup, the Wrap, profiles, Hall of Shame):
 //   tileHTML(p, {size: 'l'|'m'|'s', play, context}) -> markup of a presser tile (data-press-key, data-press-vid)
 //   bindPlayers(root) -> stop()        tap-to-play on every tile under root; stop() puts them back to thumbnails
 //   stopAll()                          stops every player in the document
@@ -95,7 +96,8 @@ function thumbHTML(p, cls = '') {
 }
 
 /**
- * A presser tile: thumbnail (16:9; a vertical video is 9:16 on a blurred copy of itself, at most 70vh tall), a round
+ * A presser tile: thumbnail (16:9; a vertical video is 9:16 on a blurred copy of itself, at most 70vh tall; 'm' at
+ * most 52vh / 420 px: press.css), a round
  * play button, and the labels. The root carries data-press-key, data-press-vid (and data-press-tall, data-press-title)
  * for bindPlayers(). Pure (no DOM).
  *   size 'l': the Press Room's featured card (avatar 40 linking to the profile, game line, caption, "Posted by").
@@ -395,7 +397,8 @@ function checkHTML(S) {
     case 'bad': return msgHTML('x-circle', "Paste the link from YouTube's Share button.", 'is-wrong');
     case 'checking': return previewHTML(L.p, null, '');
     case 'ok': return previewHTML(L.p, L.info, 'ok');
-    case 'private': return msgHTML('x-circle', 'That video is private. In YouTube, set its visibility to Unlisted.', 'is-wrong');
+    // oEmbed answers 401/403 for a private video and for one with embedding turned off: the advice covers both.
+    case 'private': return msgHTML('x-circle', "That video can't be played here. In YouTube, set it to Unlisted and allow embedding.", 'is-wrong');
     case 'missing': return msgHTML('x-circle', "Couldn't find that video.", 'is-wrong');
     case 'offline': return previewHTML(L.p, null, 'warn') + msgHTML('info', "Couldn't check the link — you're offline? It'll still be saved.", 'is-warn');
     default: return `<p class="shp-msg">${ui.icon('info')}<span>In the YouTube app: Share, then Copy link. Unlisted videos work.</span></p>`;
@@ -550,6 +553,8 @@ function suggest(S) {
 
 // ---- post
 function whyNot(S) {
+  // Before the rules are pasted, nothing can be saved: say so from the start, not in a toast after Post.
+  if (S.snap && S.snap.error === 'denied') return OFF_MSG;
   const st = S.link.state;
   if (st === 'empty') return 'Paste a YouTube link to post.';
   if (st === 'bad' || st === 'private' || st === 'missing') return "That link can't be posted.";
@@ -680,7 +685,7 @@ const screens = new Map();
 function newState(ctx, el) {
   const k = ctx && ctx.params && ctx.params.key != null ? String(ctx.params.key) : null;
   return {ctx, el, snap: memo.snap, want: k, unsub: null, idle: null, names: '', miss: null, grace: null,
-    autoplay: false, goneShown: false, stop: null, onClick: null, dead: false};
+    autoplay: false, goneShown: false, stop: null, onClick: null, dead: false, offActs: false};
 }
 
 // The view model: the list, what is featured, and the state of the load.
@@ -693,7 +698,9 @@ function vm(s) {
   const loading = !list.length && !ready && !err;
   let feat = null, waiting = false;
   if (s.want && byKey[s.want]) feat = byKey[s.want];
-  else if (s.want && parseKey(s.want) && !ready && !err) waiting = true;
+  // A week link the list can't answer yet: still loading, or the read failed (the banner says so; featuring another
+  // week under that week's address would mislead).
+  else if (s.want && parseKey(s.want) && (!ready || err)) waiting = true;
   else feat = list[0] || null;
   return {snap, list, byKey, err, ready, loading, feat, waiting, dev: !!(snap && snap.dev)};
 }
@@ -704,11 +711,12 @@ function loadingHTML() {
     + `<div class="pr-sk-body"><span class="sk sk-circle"></span><span class="pr-sk-lines"><span class="sk sk-line"></span><span class="sk sk-line"></span></span></div></div>`
     + `<div class="pr-sk-rows">${ui.skeleton('rows', 3, {label: 'Loading the Press Room.'})}</div>`;
 }
-function featHTML(p) {
+// off: the Press Room isn't switched on ('denied'): Share only, nothing that would need a save.
+function featHTML(p, off) {
   const act = (icon, label, attr, cls = '') => `<button type="button" class="pr-act${cls}" ${attr}="${esc(p.key)}">${ui.icon(icon)}<span>${label}</span></button>`;
   return `<section class="card pr-card" aria-label="${esc(presserName(p))}" data-enter>`
     + tileHTML(p, {size: 'l'})
-    + `<div class="pr-acts">${act('share', 'Share', 'data-pr-share')}${act('swap', 'Replace', 'data-pr-replace')}${p.seed ? '' : act('x-circle', 'Remove', 'data-pr-remove', ' is-destructive')}</div>`
+    + `<div class="pr-acts">${act('share', 'Share', 'data-pr-share')}${off ? '' : act('swap', 'Replace', 'data-pr-replace')}${p.seed || off ? '' : act('x-circle', 'Remove', 'data-pr-remove', ' is-destructive')}</div>`
     + `</section>`;
 }
 function featSkHTML() {
@@ -799,7 +807,7 @@ function sections(s) {
   if (!v.list.length) return [[v.err ? 'err' : 'empty', v.err ? errHTML(v.err) : emptyHTML()], ['help', helpHTML()], ['dev', devHTML(v)]];
   return [
     ['banner', bannerHTML(v)],
-    ['feat', v.feat ? featHTML(v.feat) : featSkHTML()],
+    ['feat', v.feat ? featHTML(v.feat, v.err === 'denied') : featSkHTML()],
     ['prompt', promptHTML(s, v)],
     ['arch', archHTML(v)],
     ['help', helpHTML()],
@@ -824,6 +832,7 @@ function patch(s, {fade = false} = {}) {
   if (!s || s.dead || !s.el) return;
   const main = s.el.querySelector('.pr-main');
   if (!main) return;
+  syncActions(s);
   const secs = sections(s);
   const names = secs.map(x => x[0]).join();
   if (names !== s.names) {
@@ -912,6 +921,13 @@ function refresh(s) {
   patch(s);
   autoplay(s);
 }
+// The nav bar's + (post) goes while the Press Room isn't switched on: a post could never be saved.
+function syncActions(s) {
+  const off = vm(s).err === 'denied';
+  if (s.offActs === off) return;
+  s.offActs = off;
+  s.ctx.setActions(off ? [] : null);
+}
 // The route's week: a malformed key, or one the server doesn't have (once it answered), lands on the archive.
 function resolveWant(s) {
   const k = s.want;
@@ -942,7 +958,7 @@ function startMiss(s) {
     s.idle = ui.whenIdle(() => { s.idle = null; patch(s); });
   });
 }
-// A week link opened from a tap in the app (Today's "New press conference", a profile tile) starts playing once the
+// A week link opened from a tap in the app (a profile's presser tile) starts playing once the
 // presser is on screen. A cold link doesn't: nothing may autoplay without a tap.
 function autoplay(s) {
   if (!s.autoplay || !s.ctx.visible) return;
@@ -1050,6 +1066,7 @@ export default {
     const s = newState(ctx, el);
     screens.set(ctx, s);
     markSections(s);
+    syncActions(s);
     s.stop = bindPlayers(el);
     s.onClick = e => onClick(s, e);
     el.addEventListener('click', s.onClick);

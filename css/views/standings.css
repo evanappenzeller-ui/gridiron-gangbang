@@ -1,136 +1,138 @@
-/* standings.css: Standings root (spec 7.9 + power rankings and playoff odds). Owner: standings package. Scoped to .v-standings. */
+/* standings.css: League › Standings, the League tab's first segment (spec 7.9 + power rankings and playoff odds).
+   Owner: LEAGUE. Scoped to .v-league (the League root; league.js puts the class on its screen). */
 
-/* The first section under the large title sits 20 px below it (power rankings, else odds, else the rail). */
-.v-standings .lt + .std-power > .sh,
-.v-standings .lt + .std-odds > .sh,
-.v-standings .lt + .std-seasons > .sh { margin-top: 20px; }
+/* The first section under the segmented control sits 20 px below it (power rankings, else odds, else the rail). */
+.v-league .hl-std > .std-power:first-child > .sh,
+.v-league .hl-std > .std-odds:first-child > .sh,
+.v-league .hl-std > .std-seasons:first-child > .sh { margin-top: 20px; }
+.v-league .hl-std { min-width: 0; }
 
 /* ---------------------------------------------------------------- Live-season sections (shared) */
-.v-standings .std-xh { align-items: baseline; }
-.v-standings .std-xh-o { flex: none; color: var(--ink-3); white-space: nowrap; }
-.v-standings .std-more { display: flex; justify-content: center; margin-top: 4px; }
-.v-standings .std-more .btn { font-weight: 600; }
-.v-standings .std-foot { margin-top: 8px; }
-.v-standings .std-more + .std-foot, .v-standings .std-more + .std-od-worst { margin-top: 2px; }
+.v-league .std-xh { align-items: baseline; }
+.v-league .std-xh-o { flex: none; color: var(--ink-3); white-space: nowrap; }
+.v-league .std-more { display: flex; justify-content: center; margin-top: 4px; }
+.v-league .std-more .btn { font-weight: 600; }
+.v-league .std-foot { margin-top: 8px; }
+.v-league .std-more + .std-foot, .v-league .std-more + .std-od-worst { margin-top: 2px; }
 
 /* ---------------------------------------------------------------- Power rankings */
-.v-standings .std-pr { min-height: 76px; }
-.v-standings .std-pr .row-lead { margin-right: 12px; }
-.v-standings .std-pr-rk {
+.v-league .std-pr { min-height: 76px; }
+.v-league .std-pr .row-lead { margin-right: 12px; }
+.v-league .std-pr-rk {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
   width: 30px; margin: 0 8px 0 -6px;
 }
-.v-standings .std-pr-rk .n4 { color: var(--ink-2); }
-.v-standings .std-pr-rk .is-r1 { color: var(--gold); }
-.v-standings .std-pr-rk .is-r2 { color: var(--silver); }
-.v-standings .std-pr-rk .is-r3 { color: var(--bronze); }
-.v-standings .std-mv {
+.v-league .std-pr-rk .n4 { color: var(--ink-2); }
+.v-league .std-pr-rk .is-r1 { color: var(--gold); }
+.v-league .std-pr-rk .is-r2 { color: var(--silver); }
+.v-league .std-pr-rk .is-r3 { color: var(--bronze); }
+.v-league .std-mv {
   font: 800 12px/14px var(--font-num); font-stretch: condensed; letter-spacing: .02em;
   font-variant-numeric: tabular-nums; white-space: nowrap;
   color: var(--ink-3);
 }
-.v-standings .std-mv.is-up { color: var(--tint); }
-.v-standings .std-mv.is-down { color: var(--wrong); }
-.v-standings .std-pr .row-main { padding: 12px 0; }
-.v-standings .std-pr-t { display: flex; align-items: baseline; gap: 8px; }
-.v-standings .std-pr-rec {
+.v-league .std-mv.is-up { color: var(--tint); }
+.v-league .std-mv.is-down { color: var(--wrong); }
+.v-league .std-pr .row-main { padding: 12px 0; }
+.v-league .std-pr-t { display: flex; align-items: baseline; gap: 8px; }
+.v-league .std-pr-rec {
   flex: none;
   font: 800 16px/20px var(--font-num); font-stretch: condensed; font-variant-numeric: tabular-nums;
   color: var(--ink-3);
 }
-.v-standings .std-pr-why {
+.v-league .std-pr-why {
   margin-top: 2px;
   font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2);
   overflow: hidden; overflow-wrap: anywhere;
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
 }
-.v-standings .std-pr-sc { flex-direction: column; align-items: flex-end; gap: 6px; min-width: 48px; }
-.v-standings .std-pr-sc .n4 { color: var(--ink); }
-.v-standings .std-pr-bar {
+.v-league .std-pr-sc { flex-direction: column; align-items: flex-end; gap: 6px; min-width: 48px; }
+.v-league .std-pr-sc .n4 { color: var(--ink); }
+.v-league .std-pr-bar {
   position: relative; display: block;
   width: 48px; height: 4px; border-radius: 2px;
   background: var(--surface-3); overflow: hidden;
 }
-.v-standings .std-pr-bar > i {
+.v-league .std-pr-bar > i {
   position: absolute; inset: 0; border-radius: 2px;
   background: var(--mc, var(--ink-2));
   transform-origin: left center;
 }
-.v-standings .std-power:not(.is-all) .is-more,
-.v-standings .std-odds:not(.is-all) .is-more { display: none; }
+.v-league .std-power:not(.is-all) .is-more,
+.v-league .std-odds:not(.is-all) .is-more { display: none; }
 /* Your row below the cut stays in the collapsed list, after a gap (like Today's board). */
-.v-standings .std-power:not(.is-all) .row.is-pin,
-.v-standings .std-odds:not(.is-all) .row.is-pin { display: flex; }
-.v-standings .std-gap { display: none; }
-.v-standings .std-power:not(.is-all) .std-gap,
-.v-standings .std-odds:not(.is-all) .std-gap {
+.v-league .std-power:not(.is-all) .row.is-pin,
+.v-league .std-odds:not(.is-all) .row.is-pin { display: flex; }
+.v-league .std-gap { display: none; }
+.v-league .std-power:not(.is-all) .std-gap,
+.v-league .std-odds:not(.is-all) .std-gap {
   display: flex; align-items: center; justify-content: center;
   height: 22px; border-top: .5px solid var(--separator);
   color: var(--ink-4); font: 800 13px/1 var(--font-num); letter-spacing: .2em;
 }
-.v-standings .std-power.is-all .std-gap + .row > .row-main::before,
-.v-standings .std-odds.is-all .std-gap + .row > .row-main::before {
+.v-league .std-power.is-all .std-gap + .row > .row-main::before,
+.v-league .std-odds.is-all .std-gap + .row > .row-main::before {
   content: ""; position: absolute; top: 0; left: 0; right: -200vw; height: 1px;
   background: var(--separator); transform: scaleY(.5); transform-origin: top;
 }
 
 /* ---------------------------------------------------------------- Playoff odds */
-.v-standings .std-od-colh { display: flex; justify-content: flex-end; padding: 0 16px; margin: 0 0 6px; }
-.v-standings .std-od-colh > span,
-.v-standings .std-od-c { flex: none; width: 54px; }
-.v-standings .std-od-colh > span {
+.v-league .std-od-colh { display: flex; justify-content: flex-end; padding: 0 16px; margin: 0 0 6px; }
+.v-league .std-od-colh > span,
+.v-league .std-od-c { flex: none; width: 54px; }
+.v-league .std-od-colh > span {
   text-align: right;
   font: 600 11px/14px var(--font-text); letter-spacing: .03em; text-transform: uppercase;
   color: var(--ink-3);
 }
-.v-standings .std-od { min-height: 60px; align-items: center; }
-.v-standings .std-od .row-lead { margin-right: 10px; }
-.v-standings .std-od .row-main { padding: 10px 0; }
-.v-standings .std-od .row-sub { font-variant-numeric: tabular-nums; }
-.v-standings .std-od-c { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
-.v-standings .std-od-c .n5 { color: var(--ink-2); white-space: nowrap; }
-.v-standings .std-od-c.is-po .n5 { color: var(--ink); }
-.v-standings .std-od-bar {
+.v-league .std-od { min-height: 60px; align-items: center; }
+.v-league .std-od .row-lead { margin-right: 10px; }
+.v-league .std-od .row-main { padding: 10px 0; }
+.v-league .std-od .row-sub { font-variant-numeric: tabular-nums; }
+.v-league .std-od-c { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.v-league .std-od-c .n5 { color: var(--ink-2); white-space: nowrap; }
+.v-league .std-od-c.is-po .n5 { color: var(--ink); }
+.v-league .std-od-bar {
   position: relative; display: block;
   width: 36px; height: 3px; border-radius: 2px;
   background: var(--surface-3); overflow: hidden;
 }
-.v-standings .std-od-bar > i {
+.v-league .std-od-bar > i {
   position: absolute; inset: 0; border-radius: 2px;
   background: var(--ink-2); transform-origin: left center;
 }
-.v-standings .std-od.is-me .std-od-bar { background: var(--ink-4); }
-.v-standings .std-od-line {
+.v-league .std-od.is-me .std-od-bar { background: var(--ink-4); }
+.v-league .std-od-line {
   display: flex; align-items: center; gap: 10px;
   height: 26px; padding: 0 16px;
 }
-.v-standings .std-od-line::before, .v-standings .std-od-line::after {
+.v-league .std-od-line::before, .v-league .std-od-line::after {
   content: ""; flex: 1 1 0; min-width: 0; height: 0;
   border-top: 1px dashed var(--ink-4);
 }
-.v-standings .std-od-line > span {
+.v-league .std-od-line > span {
   flex: none;
   font: 800 11px/1 var(--font-num); font-stretch: condensed;
   text-transform: uppercase; letter-spacing: .1em;
   color: var(--ink-3);
 }
-.v-standings .std-od-worst {
+.v-league .std-od-worst {
   display: flex; align-items: flex-start; gap: 6px;
   margin: 8px 16px 0;
   font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2);
 }
-.v-standings .std-od-worst .ic { flex: none; margin-top: 2px; color: var(--wrong); stroke-width: 2; }
-.v-standings .std-od-worst + .std-foot { margin-top: 4px; }
+.v-league .std-od-worst .ic { flex: none; margin-top: 2px; color: var(--wrong); stroke-width: 2; }
+.v-league .std-od-worst + .std-foot { margin-top: 4px; }
 /* Skeleton while the season is simulated (same row height as the real list, so nothing below jumps). */
-.v-standings .std-od-sk { margin-bottom: 72px; } /* room for "Show all" and the footnotes */
-.v-standings .std-od-sk .sk { background: var(--surface-2); }
-.v-standings .std-od-skr .row-main { gap: 6px; }
-.v-standings .std-sk-av { width: 28px; height: 28px; border-radius: 50%; }
-.v-standings .std-sk-sub { width: 30%; height: 10px; opacity: .7; }
-.v-standings .std-sk-c { width: 34px; height: 14px; border-radius: 7px; }
+.v-league .std-od-sk { margin-bottom: 72px; } /* room for "Show all" and the footnotes */
+.v-league .std-od-sk .sk { background: var(--surface-2); }
+.v-league .std-od-skr .row-main { gap: 6px; }
+.v-league .std-sk-av { width: 28px; height: 28px; border-radius: 50%; }
+.v-league .std-sk-sub { width: 30%; height: 10px; opacity: .7; }
+.v-league .std-sk-c { width: 34px; height: 14px; border-radius: 7px; }
 
 /* ---------------------------------------------------------------- Seasons rail */
-.v-standings .std-rail {
+.v-league .std-rail {
   display: flex; gap: 8px;
   overflow-x: auto; overflow-y: hidden;
   scroll-snap-type: x mandatory;
@@ -142,10 +144,10 @@
   -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
   mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
 }
-.v-standings .std-rail::-webkit-scrollbar { display: none; }
-.v-standings .std-rail::after { content: ""; flex: none; width: 8px; }
-.v-standings .std-li { flex: none; scroll-snap-align: start; }
-.v-standings .std-scard {
+.v-league .std-rail::-webkit-scrollbar { display: none; }
+.v-league .std-rail::after { content: ""; flex: none; width: 8px; }
+.v-league .std-li { flex: none; scroll-snap-align: start; }
+.v-league .std-scard {
   position: relative; isolation: isolate;
   display: flex; flex-direction: column; justify-content: space-between;
   width: 132px; height: 108px; padding: 12px 12px 12px;
@@ -157,123 +159,123 @@
   --stack-ring: var(--surface-1);
 }
 /* Radial wash of the champion's color at 18% (a layer, so press scale never repaints a gradient). */
-.v-standings .std-scard::before {
+.v-league .std-scard::before {
   content: ""; position: absolute; inset: 0; z-index: -1;
   background: radial-gradient(140% 110% at 100% 0%, rgba(255,255,255,.06), transparent 70%);
   pointer-events: none;
 }
 @supports (color: color-mix(in srgb, red 18%, transparent)) {
-  .v-standings .std-scard[class*="mc-"]::before {
+  .v-league .std-scard[class*="mc-"]::before {
     background: radial-gradient(140% 110% at 100% 0%, color-mix(in srgb, var(--mc) 18%, transparent), transparent 72%);
   }
 }
-.v-standings .std-scard.is-pressed { transform: scale(.97); transition: none; }
-.v-standings .std-sy { display: block; letter-spacing: .01em; }
-.v-standings .std-sbot { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.v-standings .std-swho { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; }
-.v-standings .std-swho > b {
+.v-league .std-scard.is-pressed { transform: scale(.97); transition: none; }
+.v-league .std-sy { display: block; letter-spacing: .01em; }
+.v-league .std-sbot { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.v-league .std-swho { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; }
+.v-league .std-swho > b {
   display: block; max-width: 100%;
   font: 600 15px/18px var(--font-text);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.v-standings .std-swho .badge { height: 18px; padding: 0 6px; font-size: 11px; }
-.v-standings .std-sbot-live { flex-direction: column; align-items: flex-start; gap: 4px; }
-.v-standings .std-sthru { font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
-.v-standings .std-scard.is-live .std-sy { color: var(--ink-2); }
+.v-league .std-swho .badge { height: 18px; padding: 0 6px; font-size: 11px; }
+.v-league .std-sbot-live { flex-direction: column; align-items: flex-start; gap: 4px; }
+.v-league .std-sthru { font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+.v-league .std-scard.is-live .std-sy { color: var(--ink-2); }
 
 /* ---------------------------------------------------------------- All-time header + sort button */
-.v-standings .std-ah .sh { align-items: center; }
-.v-standings [data-sort-open] {
+.v-league .std-ah .sh { align-items: center; }
+.v-league [data-sort-open] {
   gap: 4px; height: 32px; padding: 0 2px 0 8px;
   font: 500 15px/20px var(--font-text);
   color: var(--tint);
 }
-.v-standings [data-sort-open] .ic { width: 15px; height: 15px; stroke-width: 2.2; }
+.v-league [data-sort-open] .ic { width: 15px; height: 15px; stroke-width: 2.2; }
 
 /* ---------------------------------------------------------------- List rows */
-.v-standings .std-row .row-lead { gap: 0; }
-.v-standings .std-rank {
+.v-league .std-row .row-lead { gap: 0; }
+.v-league .std-rank {
   width: 22px; margin: 0 8px 0 -4px;
   text-align: center; color: var(--ink-3);
 }
-.v-standings .std-row .row-title { display: flex; align-items: center; gap: 6px; }
-.v-standings .std-nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.v-standings .std-tro { flex: none; display: inline-flex; align-items: center; gap: 1px; color: var(--gold); }
-.v-standings .std-tro .ic { width: 14px; height: 14px; stroke-width: 1.6; }
-.v-standings .std-trx { font: 800 14px/1 var(--font-num); font-stretch: condensed; margin-left: 2px; }
-.v-standings .std-row .row-trail { min-width: 60px; justify-content: flex-end; }
-.v-standings .std-metric { display: flex; flex-direction: column; align-items: flex-end; }
-.v-standings .std-metric .n4 { color: var(--ink); }
-.v-standings .std-cap { font: 500 var(--fs-cap)/var(--lh-cap) var(--font-text); color: var(--ink-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.v-league .std-row .row-title { display: flex; align-items: center; gap: 6px; }
+.v-league .std-nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-league .std-tro { flex: none; display: inline-flex; align-items: center; gap: 1px; color: var(--gold); }
+.v-league .std-tro .ic { width: 14px; height: 14px; stroke-width: 1.6; }
+.v-league .std-trx { font: 800 14px/1 var(--font-num); font-stretch: condensed; margin-left: 2px; }
+.v-league .std-row .row-trail { min-width: 60px; justify-content: flex-end; }
+.v-league .std-metric { display: flex; flex-direction: column; align-items: flex-end; }
+.v-league .std-metric .n4 { color: var(--ink); }
+.v-league .std-cap { font: 500 var(--fs-cap)/var(--lh-cap) var(--font-text); color: var(--ink-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 /* ---------------------------------------------------------------- Table view */
-.v-standings .std-tcard {
+.v-league .std-tcard {
   position: relative;
   background: var(--surface-1);
   border-radius: var(--r-group);
   overflow: hidden;
   --stack-ring: var(--surface-1);
 }
-.v-standings .std-tscroll {
+.v-league .std-tscroll {
   overflow-x: auto; overflow-y: hidden;
   overscroll-behavior-x: contain;
   scrollbar-width: none;
   -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
   mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
 }
-.v-standings .std-tscroll::-webkit-scrollbar { display: none; }
-.v-standings .std-tscroll.is-end { -webkit-mask-image: none; mask-image: none; }
-.v-standings .std-tscroll:focus-visible { outline-offset: -2px; }
-.v-standings .std-table { width: 100%; min-width: 488px; border-collapse: separate; border-spacing: 0; }
-.v-standings .std-table th, .v-standings .std-table td {
+.v-league .std-tscroll::-webkit-scrollbar { display: none; }
+.v-league .std-tscroll.is-end { -webkit-mask-image: none; mask-image: none; }
+.v-league .std-tscroll:focus-visible { outline-offset: -2px; }
+.v-league .std-table { width: 100%; min-width: 488px; border-collapse: separate; border-spacing: 0; }
+.v-league .std-table th, .v-league .std-table td {
   padding: 0 12px; height: 56px;
   text-align: right; white-space: nowrap;
   font-weight: 800;
   background: var(--surface-1);
   transition: background-color 250ms linear;
 }
-.v-standings .std-table td { color: var(--ink-2); }
-.v-standings .std-table thead th {
+.v-league .std-table td { color: var(--ink-2); }
+.v-league .std-table thead th {
   height: 44px; padding: 0;
   font: 600 13px/16px var(--font-text);
   color: var(--ink-2);
   box-shadow: inset 0 -1px 0 var(--separator);
 }
-.v-standings .std-table thead th button {
+.v-league .std-table thead th button {
   display: inline-flex; align-items: center; justify-content: flex-end; gap: 3px;
   width: 100%; height: 44px; padding: 0 12px;
   font: inherit; color: inherit; white-space: nowrap;
 }
-.v-standings .std-table thead th.std-c1 button { justify-content: flex-start; padding-left: 16px; }
-.v-standings .std-table thead th.is-sorted { color: var(--tint); }
-.v-standings .std-table thead th button.is-pressed { opacity: .5; }
-.v-standings .std-arr { width: 12px; height: 12px; stroke-width: 2.4; }
-.v-standings .std-table tbody tr + tr > * { box-shadow: inset 0 1px 0 rgba(56,56,58,.7); }
-.v-standings .std-table .std-c1 {
+.v-league .std-table thead th.std-c1 button { justify-content: flex-start; padding-left: 16px; }
+.v-league .std-table thead th.is-sorted { color: var(--tint); }
+.v-league .std-table thead th button.is-pressed { opacity: .5; }
+.v-league .std-arr { width: 12px; height: 12px; stroke-width: 2.4; }
+.v-league .std-table tbody tr + tr > * { box-shadow: inset 0 1px 0 rgba(56,56,58,.7); }
+.v-league .std-table .std-c1 {
   position: sticky; left: 0; z-index: 2;
   width: 150px; min-width: 150px; max-width: 150px;
   padding: 0; text-align: left;
 }
 /* Hairline on the sticky column's edge once the table is scrolled sideways. */
-.v-standings .std-table .std-c1::after {
+.v-league .std-table .std-c1::after {
   content: ""; position: absolute; top: 0; bottom: 0; right: 0; width: 1px;
   background: var(--separator);
   opacity: 0; transition: opacity var(--dur-fast) linear;
 }
-.v-standings .std-tscroll.is-scrolled .std-c1::after { opacity: 1; }
-.v-standings .std-tman {
+.v-league .std-tscroll.is-scrolled .std-c1::after { opacity: 1; }
+.v-league .std-tman {
   display: flex; align-items: center; gap: 10px;
   height: 56px; padding: 0 8px 0 16px; min-width: 0;
   color: var(--ink);
 }
-.v-standings .std-tnm { display: flex; flex-direction: column; min-width: 0; }
-.v-standings .std-tnm b { font: 600 15px/20px var(--font-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.v-standings .std-tnm small { font: 400 12px/16px var(--font-text); color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.v-standings .std-table td.n5 { font-size: 17px; }
-.v-standings .std-tt { display: inline-flex; align-items: center; gap: 3px; color: var(--gold); }
-.v-standings .std-tt .ic { width: 13px; height: 13px; }
-.v-standings .std-table tr.is-pressed > * { background: var(--surface-2); transition: none; }
-.v-standings .std-table tr.is-me > .std-c1 { box-shadow: inset 3px 0 0 var(--tint); }
-.v-standings .std-table tbody tr + tr.is-me > .std-c1 { box-shadow: inset 3px 0 0 var(--tint), inset 0 1px 0 rgba(56,56,58,.7); }
-.v-standings .std-table tr.is-me > * { background: var(--surface-2); }
-.v-standings .std-ah .btn-label { display: inline-flex; align-items: center; gap: 8px; }
+.v-league .std-tnm { display: flex; flex-direction: column; min-width: 0; }
+.v-league .std-tnm b { font: 600 15px/20px var(--font-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-league .std-tnm small { font: 400 12px/16px var(--font-text); color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-league .std-table td.n5 { font-size: 17px; }
+.v-league .std-tt { display: inline-flex; align-items: center; gap: 3px; color: var(--gold); }
+.v-league .std-tt .ic { width: 13px; height: 13px; }
+.v-league .std-table tr.is-pressed > * { background: var(--surface-2); transition: none; }
+.v-league .std-table tr.is-me > .std-c1 { box-shadow: inset 3px 0 0 var(--tint); }
+.v-league .std-table tbody tr + tr.is-me > .std-c1 { box-shadow: inset 3px 0 0 var(--tint), inset 0 1px 0 rgba(56,56,58,.7); }
+.v-league .std-table tr.is-me > * { background: var(--surface-2); }
+.v-league .std-ah .btn-label { display: inline-flex; align-items: center; gap: 8px; }

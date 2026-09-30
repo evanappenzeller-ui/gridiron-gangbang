@@ -1,6 +1,6 @@
 /* press.css: the Press Room (#/press) and its presser tiles and player. Owner: PRESS-SCREEN.
    Scope roots: .v-press (the screen), .sh-press (the post sheet), .c-press* (the tile, the in-place YouTube player, the
-   small thumbnail and the how-to steps: also drawn on Rivals, Today, the Wrap, profiles and in the sheet).
+   small thumbnail and the how-to steps: also drawn on Matchup, the Wrap, profiles and in the sheet).
    Motion is opacity/transform only; the loading spinner is the only loop. The blurred backdrop behind a vertical
    video is a static filter on an image (none in lite mode). */
 
@@ -11,7 +11,8 @@
   --press-r: var(--r-card);
   --press-max-h: 70vh;
 }
-.c-press.is-m { --press-r: var(--r-cell); --press-max-h: 60vh; }
+/* A card on another screen (Matchup, the Wrap): a vertical video stays card-sized (at most 52vh, 420 px tall). */
+.c-press.is-m { --press-r: var(--r-cell); --press-max-h: min(52vh, 420px); }
 .c-press.is-s { --press-r: 10px; --press-max-h: 60vh; display: flex; align-items: center; gap: 12px; }
 
 /* Media: the frame is 16:9; a vertical video's frame is 9:16 (at most --press-max-h tall), centered on a blurred copy

@@ -1,6 +1,6 @@
-/* board.css: the league leaderboard card (.c-board, on Today and Results) and the small pieces the daily-hub
-   screens share (streak pill, flame, countdown). Owner: daily-hub package. Every selector starts with one of
-   this package's scope roots. */
+/* board.css: the league leaderboard card (.c-board, on the Puzzles tab and Results) and the small pieces the puzzle
+   screens share (streak pill, flame, countdown). Owner: PUZZLES (tabs-v4; was the daily-hub
+   package). Every selector starts with one of this package's scope roots. */
 
 /* ================================================================ Leaderboard card */
 .c-board { padding: 16px 16px 8px; overflow: hidden; }
@@ -78,11 +78,11 @@
 .c-board .c-board-empty + [data-r="still"] .c-board-still { margin-top: 4px; }
 
 /* ================================================================ Streak flame and pill (shared) */
-.c-board .c-flame, .v-today .c-flame, .v-results .c-flame, .sh-streak .c-flame, .sh-player .c-flame { stroke-width: 1.5; }
-.c-board .c-flame.is-cold, .v-today .c-flame.is-cold, .v-results .c-flame.is-cold,
+.c-board .c-flame, .v-puzzles .c-flame, .v-results .c-flame, .sh-streak .c-flame, .sh-player .c-flame { stroke-width: 1.5; }
+.c-board .c-flame.is-cold, .v-puzzles .c-flame.is-cold, .v-results .c-flame.is-cold,
 .sh-streak .c-flame.is-cold, .sh-player .c-flame.is-cold { fill: var(--surface-3); stroke: var(--ink-3); }
 
-.v-today .c-spill, .sh-player .c-spill {
+.v-puzzles .c-spill, .sh-player .c-spill {
   position: relative; flex: none;
   display: inline-flex; align-items: center; gap: 4px;
   height: 32px; padding: 0 12px 0 9px;
@@ -90,26 +90,26 @@
   background: var(--surface-2); color: var(--ink);
   transition: transform var(--spring-snappy-dur) var(--spring-snappy);
 }
-.v-today .c-spill::before { content: ""; position: absolute; left: -2px; right: -2px; top: -6px; bottom: -6px; }
-.v-today .c-spill.is-pressed { transform: scale(.94); transition: none; }
-.v-today .c-spill.is-risk, .sh-player .c-spill.is-risk { outline: 1px dashed var(--ink-3); outline-offset: -1px; }
-.v-today .c-spill.is-cold .c-spill-n, .sh-player .c-spill.is-cold .c-spill-n { color: var(--ink-2); }
-.v-today .c-spill-n, .sh-player .c-spill-n { min-width: 1ch; transform: translateY(1px); }
+.v-puzzles .c-spill::before { content: ""; position: absolute; left: -2px; right: -2px; top: -6px; bottom: -6px; }
+.v-puzzles .c-spill.is-pressed { transform: scale(.94); transition: none; }
+.v-puzzles .c-spill.is-risk, .sh-player .c-spill.is-risk { outline: 1px dashed var(--ink-3); outline-offset: -1px; }
+.v-puzzles .c-spill.is-cold .c-spill-n, .sh-player .c-spill.is-cold .c-spill-n { color: var(--ink-2); }
+.v-puzzles .c-spill-n, .sh-player .c-spill-n { min-width: 1ch; transform: translateY(1px); }
 .sh-player .c-spill { background: var(--surface-2); }
 
 /* ================================================================ Countdown and the midnight banner (shared) */
-.v-today .c-cd-host, .v-results .c-cd-host { margin-top: 24px; }
-.v-today .c-cd, .v-results .c-cd {
+.v-puzzles .c-cd-host, .v-results .c-cd-host { margin-top: 24px; }
+.v-puzzles .c-cd, .v-results .c-cd {
   display: flex; align-items: center; justify-content: center; gap: 6px;
   font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3);
 }
-.v-today .c-cd .ic, .v-results .c-cd .ic { stroke-width: 2; flex: none; }
-.v-today .c-cd-v, .v-results .c-cd-v { color: var(--ink-2); font-weight: 600; font-variant-numeric: tabular-nums; }
-.v-today .c-cd-new, .v-results .c-cd-new {
+.v-puzzles .c-cd .ic, .v-results .c-cd .ic { stroke-width: 2; flex: none; }
+.v-puzzles .c-cd-v, .v-results .c-cd-v { color: var(--ink-2); font-weight: 600; font-variant-numeric: tabular-nums; }
+.v-puzzles .c-cd-new, .v-results .c-cd-new {
   justify-content: space-between; gap: 12px;
   min-height: 52px; padding: 8px 8px 8px 16px;
   border-radius: var(--r-group);
   background: var(--tint-soft); color: var(--tint);
   font: 600 var(--fs-sub)/var(--lh-sub) var(--font-text);
 }
-.v-today .c-cd-nt, .v-results .c-cd-nt { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.v-puzzles .c-cd-nt, .v-results .c-cd-nt { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }

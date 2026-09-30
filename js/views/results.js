@@ -1,6 +1,7 @@
 // Results cover (spec 7.7): its own top bar (Done + points pill), the "Almost there" state with lock-in, and the
 // finished state: grade overline, ring + synced count-up, breakdown bars, streak odometer, post box, share
-// (text, native sheet, PNG card) and the league board. Owner: daily-hub package.
+// (text, native sheet, PNG card) and the league board. Generic over the day's steps (three rows on v1 and v4 days, five
+// on v2 and v3). Route /puzzles/results. Owner: PUZZLES (tabs-v4; was the daily-hub package).
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as daily from '../core/daily.js';
@@ -382,7 +383,7 @@ function onClick(st, e) {
     return;
   }
   if (t.hasAttribute('data-streak')) { openStreakSheet(); return; }
-  if (t.hasAttribute('data-goto')) { st.ctx.replace('/today/play/' + t.dataset.goto); return; }
+  if (t.hasAttribute('data-goto')) { st.ctx.replace('/puzzles/play/' + t.dataset.goto); return; }
   if (t.hasAttribute('data-lockin')) { lockIn(st); return; }
   if (t.hasAttribute('data-retry')) { retry(st); return; }
   if (t.hasAttribute('data-cd-load')) location.reload();

@@ -1,5 +1,5 @@
-// League leaderboard card (Today hub and Results) plus small Daily helpers shared by the daily-hub package.
-// Owner: daily-hub package.
+// League leaderboard card (the Puzzles tab and Results) plus small Daily helpers shared by the puzzle screens.
+// Owner: PUZZLES (tabs-v4; was the daily-hub package).
 //
 // mountBoard(container, {mode, compactTop, ctx}) renders the card into `container` and patches it in place on
 // daily 'lb' events (through ui.whenIdle), FLIPping reorders and counting up changed points.
@@ -44,15 +44,15 @@ export function streakPillHTML(s, {tag = 'button', attrs = ''} = {}) {
 }
 
 // ---------------------------------------------------------------------------- The day's step set (v1: 3 puzzles,
-// 1,000 points; v2: 5 puzzles, 1,500 points; v3: the same 5 puzzles with one or two items each, 1,000 points).
-// Everything reads daily.STEPS / daily.DAY at use time (live bindings).
+// 1,000 points; v2: 5 puzzles, 1,500 points; v3: the same 5 puzzles with one or two items each, 1,000 points; v4:
+// three of the five short v3 puzzles, 600 points). Everything reads daily.STEPS / daily.DAY at use time (live bindings).
 const dailyReady = () => daily.status === 'ready' && !!daily.DAY;
 /** Steps of the loaded day ([] before puzzles load). */
 export const steps = () => (dailyReady() && Array.isArray(daily.STEPS) ? daily.STEPS : []);
-/** The day's maximum: 1,000 (v1, v3) or 1,500 (v2). */
+/** The day's maximum: 1,000 (v1, v3), 1,500 (v2) or 600 (v4). */
 export const maxPts = () => daily.maxPts();
 /** How many items a step has on the loaded day: College players and grid squares (5 and 9 on v1 and v2 days, 2 and 2
- *  on v3), silhouettes (5 on v2, 2 on v3). */
+ *  on v3 and v4), silhouettes (5 on v2, 2 on v3 and v4). */
 export function itemCount(id) {
   if (id === 'col') return daily.colCount();
   if (id === 'sil') return daily.silRounds();
@@ -266,7 +266,7 @@ function seeBoard() {
   const b = visibleBoard();
   if (b) { scrollToEl(b.el); return; }
   if (navCtx) {
-    Promise.resolve(navCtx.nav('/today')).then(() => { const v = visibleBoard(); if (v) scrollToEl(v.el); }).catch(() => {});
+    Promise.resolve(navCtx.nav('/puzzles')).then(() => { const v = visibleBoard(); if (v) scrollToEl(v.el); }).catch(() => {});
   }
 }
 
@@ -293,12 +293,31 @@ function rowSig(r, mode) {
 }
 // A five-puzzle day's sub line ("College 4/5, faces 3/5, ID on clue 2, path on guess 1, grid 6/9", or on a short v3
 // day "College 1/2, faces 2/2, ID on clue 3, path on guess 1, grid 1/2") is too long for a phone row: the row shows a
-// compact form on up to two lines; the aria-label keeps daily's full text.
-const V2_SUB = /^College (\d+\/\d+), faces (\d+\/\d+), (?:ID on clue (\d+)|no ID), (?:path on guess (\d+)|no path), grid (\d+\/\d+)$/;
+// compact form on up to two lines; the aria-label keeps daily's full text. A three-puzzle v4 day's line (any three of
+// the five parts, e.g. "College 2/2, faces 1/2, ID on clue 3") gets the same compact parts. The v1 line ("College 4/5,
+// grid 7/9, ID on clue 2") is shown as it is.
+const SUB_PARTS = [
+  [/^College (\d+\/\d+)$/, m => `College ${m[1]}`],
+  [/^faces (\d+\/\d+)$/, m => `Faces ${m[1]}`],
+  [/^ID on clue (\d+)$/, m => `Clue ${m[1]}`],
+  [/^no ID$/, () => 'No ID'],
+  [/^path on guess (\d+)$/, m => `Path ${m[1]}/3`],
+  [/^no path$/, () => 'No path'],
+  [/^grid (\d+\/\d+)$/, m => `Grid ${m[1]}`]
+];
+const V1_SUB = /^College \d+\/\d+, grid \d+\/\d+, (?:ID on clue \d+|no ID)$/;
 function shortSub(sub) {
-  const m = V2_SUB.exec(sub || '');
-  if (!m) return null;
-  return `College ${m[1]} · Faces ${m[2]} · ${m[3] ? `Clue ${m[3]}` : 'No ID'} · ${m[4] ? `Path ${m[4]}/3` : 'No path'} · Grid ${m[5]}`;
+  const s = String(sub || '');
+  if (!s || V1_SUB.test(s)) return null;
+  const parts = s.split(', ');
+  if (parts.length < 3) return null;
+  const out = [];
+  for (const p of parts) {
+    const hit = SUB_PARTS.find(([re]) => re.test(p));
+    if (!hit) return null;
+    out.push(hit[1](hit[0].exec(p)));
+  }
+  return out.join(' · ');
 }
 function rowInner(r, mode) {
   const streaks = mode === 'streaks';
@@ -390,7 +409,7 @@ function stateKey(st, rows) {
 /**
  * Mount the leaderboard card into container.
  * opts: mode ('today'|'season'|'streaks'), compactTop (rows shown before "Show all"), ctx (the view's ctx; "See board"
- * uses it to go to Today when no board is on screen).
+ * uses it to go to the Puzzles tab when no board is on screen).
  */
 export function mountBoard(container, {mode = 'today', compactTop = 10, ctx = null} = {}) {
   ensureDefs();

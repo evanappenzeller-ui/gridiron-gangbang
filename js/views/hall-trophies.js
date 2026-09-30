@@ -1,5 +1,5 @@
-// Hall › Trophies (spec 7.13): champion hero with the once-per-session champion moment (spec 8.10),
-// one banner per completed season, the title count and "Still chasing". Owner: hall package.
+// League › Trophies (#/league/trophies; spec 7.13; a segment of league.js): champion hero with the once-per-session
+// champion moment (spec 8.10), one banner per completed season, the title count and "Still chasing". Owner: LEAGUE.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 

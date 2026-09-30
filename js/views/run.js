@@ -1,9 +1,13 @@
-// Puzzle run cover (spec 7.2, route /today/play/:puzzle): its own top bar (close, one progress segment per puzzle,
-// the points pill), the puzzle header (overline + PROMPTS copy), the puzzle module and a sticky bottom bar.
-// Switching puzzles is an in-place update with the inner-swap motion. Owner: puzzle-run package.
+// Puzzle run cover (route /puzzles/play/:puzzle; spec 7.2, tabs-v4 contract §4): its own top bar (close, the day and
+// the points pill; under them big ‹ › arrows flanking the puzzle's title, "2 of 3" and one dot per puzzle), the
+// puzzle header (the PROMPTS copy), the puzzle module and a sticky bottom bar (to the next unfinished puzzle, named by
+// its destination: "Next: Grid ›", "‹ Finish College", "Skip to Grid"; or "See results"). The arrows move freely
+// between the day's puzzles (no wrapping); so do a horizontal swipe
+// on the bar or the header (never on the puzzle body) and the Left / Right keys. Switching puzzles is an in-place
+// update with the direction-aware inner-swap motion. Owner: PUZZLES (tabs-v4; was the puzzle-run package).
 //
 // A v1 day has three puzzles (college, mystery, grid); v2 and v3 days five (college, silhouette, mystery, journey,
-// grid; v3 days have one or two items in each).
+// grid; v3 days have one or two items in each); a v4 day three of the five (daily.SLUGS, in canonical order).
 // The day's order comes from daily.SLUGS / daily.STEPS (live bindings); this view keys everything by slug.
 //
 // Puzzle modules (college.js, silhouette.js, mystery.js, journey.js, grid.js) export {render(ctx), mount(el, ctx, api)
@@ -17,79 +21,77 @@ import silhouette from './silhouette.js';
 import mystery from './mystery.js';
 import journey from './journey.js';
 import grid from './grid.js';
-import {itemCount} from './board.js';
 
 const esc = data.esc;
 const MODS = {college, silhouette, mystery, journey, grid};
 const SLUG_ID = {college: 'col', silhouette: 'sil', mystery: 'who', journey: 'jr', grid: 'grid'};
-const ICONS = {college: 'grad-cap', silhouette: 'silhouette', mystery: 'mystery', journey: 'route', grid: 'grid-3'};
 // Labels before puzzles load (then daily.STEPS[i].label).
 const SLUG_LABEL = {college: 'College', silhouette: 'Silhouettes', mystery: 'Mystery player', journey: 'Journey', grid: 'Grid'};
-const V1 = ['college', 'mystery', 'grid'], V2 = ['college', 'silhouette', 'mystery', 'journey', 'grid'];
 const EASE_IN = 'cubic-bezier(.4,0,1,1)', EASE_OUT = 'cubic-bezier(.22,1,.36,1)';
+const PLAY = slug => '/puzzles/play/' + slug;
 
 const ready = () => daily.status === 'ready' && !!daily.DAY && !!daily.DS && !!daily.DS.col;
 const isSlug = s => Object.prototype.hasOwnProperty.call(MODS, s);
-/** The route's slug, made canonical for the loaded day (a five-puzzle slug on a three-puzzle day → the first puzzle). */
+/** The route's slug, made canonical for the loaded day (a slug the day doesn't have, such as an old five-puzzle link
+ *  on a three-puzzle day → its first unfinished puzzle, or its first when every one is finished). */
 function slugOf(ctx) {
   const s = ctx && ctx.params && ctx.params.puzzle;
   const v = isSlug(s) ? s : 'college';
-  return ready() && daily.stepOf(v) < 0 ? daily.slug(0) : v;
+  return ready() && daily.stepOf(v) < 0 ? daily.slug(daily.firstOpen()) : v;
 }
-/** Slugs in play order: the day's, or a best guess before puzzles load (the v2-only slugs imply five). */
-const order = slug => (ready() ? daily.SLUGS : (slug === 'silhouette' || slug === 'journey' ? V2 : V1));
+/** Slugs in play order: the day's (before puzzles load only the route's own puzzle is known). */
+const order = slug => (ready() ? daily.SLUGS : [slug]);
 const idxOf = slug => Math.max(0, order(slug).indexOf(slug));
-const labelAt = (slug, j) => (ready() && daily.STEPS[j] ? daily.STEPS[j].label : SLUG_LABEL[order(slug)[j]] || '');
 const labelOf = slug => (ready() && daily.stepOf(slug) >= 0 ? daily.STEPS[daily.stepOf(slug)].label : SLUG_LABEL[slug] || '');
-const isLast = slug => idxOf(slug) === order(slug).length - 1;
+/** The puzzle next to slug (d = -1 / 1), or null at either end (no wrapping) and before puzzles load. */
+const adjSlug = (slug, d) => (ready() ? daily.SLUGS[idxOf(slug) + d] || null : null);
 /** Where "Next puzzle" goes from slug: the first unfinished puzzle after it (wrapping around), null when every other
- *  puzzle is finished (the button then reads "See results"). Before puzzles load: the next index, or null on the last. */
+ *  puzzle is finished (the button then reads "See results"). */
 function nextSlug(slug) {
-  if (!ready()) return isLast(slug) ? null : order(slug)[idxOf(slug) + 1];
+  if (!ready()) return null;
   const S = daily.STEPS, i = idxOf(slug), n = S.length;
   for (let k = 1; k < n; k++) { const j = (i + k) % n; if (!S[j].done()) return daily.slug(j); }
   return null;
 }
-const ctaLabel = slug => nextSlug(slug) ? 'Next puzzle' : 'See results';
+const perfectOf = j => daily.STEPS[j].done() && daily.STEPS[j].pts() === daily.STEPS[j].max;
 
 // Per screen state, keyed by ctx (a run screen can briefly coexist with another during a results swap).
 const ST = new WeakMap();
 
-// ---------------------------------------------------------------------------------------------- chrome data
-function fracOf(j) {
-  const s = daily.STEPS[j], ds = daily.DS;
-  // Spec 7.2: the Grid segment is filled squares / all squares (9, or 2 on a v3 day), even after giving up (the label
-  // still says "finished").
-  if (s.id === 'grid') return Math.min(1, ds.grid.cells.filter(Boolean).length / itemCount('grid'));
-  if (s.done()) return 1;
-  if (s.id === 'col') return Math.min(1, ds.col.a.length / itemCount('col'));
-  if (s.id === 'sil') return Math.min(1, ds.sil.a.length / itemCount('sil'));
-  return 0; // Mystery player, Journey: 1 when done
-}
-const perfectOf = j => daily.STEPS[j].pts() === daily.STEPS[j].max;
-function segLabel(slug, j) {
-  const base = `Puzzle ${j + 1}, ${labelAt(slug, j)}`;
-  if (!ready()) return base;
-  const s = daily.STEPS[j];
-  return `${base}, ${s.done() ? 'finished' : s.started() ? 'in progress' : 'not started'}`;
-}
-
 // ---------------------------------------------------------------------------------------------- markup
-function segsHTML(slug) {
-  const r = ready(), i = idxOf(slug);
-  return order(slug).map((_, j) => {
-    const f = r ? fracOf(j) : 0;
-    return `<button type="button" class="rn-seg" data-step="${j}" aria-label="${esc(segLabel(slug, j))}"${j === i ? ' aria-current="step"' : ''}${r ? '' : ' disabled'}>`
-      + `<span class="rn-track"><span class="rn-fill${r && perfectOf(j) ? ' is-perfect' : ''}" style="transform:scaleX(${f})"></span></span></button>`;
-  }).join('');
+function arrowState(d, slug) {
+  const to = adjSlug(slug, d);
+  const base = d < 0 ? 'Previous puzzle' : 'Next puzzle';
+  return {label: to ? `${base}: ${labelOf(to)}` : base, off: !to};
 }
+function arrowHTML(d, slug) {
+  const a = arrowState(d, slug);
+  return `<button type="button" class="rn-arrow ${d < 0 ? 'rn-prev' : 'rn-fwd'}" data-rn-go="${d}" aria-label="${esc(a.label)}"${a.off ? ' aria-disabled="true"' : ''}>`
+    + `${ui.icon(d < 0 ? 'chevron-left' : 'chevron-right')}</button>`;
+}
+/** "2 of 3", one dot per puzzle (finished: tint, gold when perfect; the current one wider) and the same for screen
+ *  readers. Empty before puzzles load. */
+function subHTML(slug) {
+  if (!ready()) return '';
+  const i = idxOf(slug), S = daily.STEPS, n = S.length, done = S.filter(s => s.done()).length;
+  return `<span class="rn-count" aria-hidden="true">${i + 1} of ${n}</span>`
+    + `<span class="rn-dots" aria-hidden="true">${S.map((s, j) => `<i class="${dotCls(j, i)}"></i>`).join('')}</span>`
+    + `<span class="sr-only">${esc(`Puzzle ${i + 1} of ${n}, ${done} finished`)}</span>`;
+}
+const dotCls = (j, i) => `rn-dot${j === i ? ' is-cur' : ''}${daily.STEPS[j].done() ? ' is-done' : ''}${perfectOf(j) ? ' is-perfect' : ''}`;
+
 function topHTML(slug) {
   const r = ready();
   const t = r ? daily.totalPts() : 0;
-  return `<div class="rn-top"><div class="rn-bg bar" aria-hidden="true"></div>`
+  return `<div class="rn-top" data-hscroll><div class="rn-bg bar" aria-hidden="true"></div>`
+    + `<div class="rn-row">`
     + ui.iconButton({icon: 'close', label: 'Close puzzles', cls: 'rn-close', attrs: 'data-back'})
-    + `<nav class="rn-segs" aria-label="Puzzles" data-n="${order(slug).length}">${segsHTML(slug)}</nav>`
-    + `<span class="rn-pts${r ? '' : ' is-pending'}${r && t >= 1000 && order(slug).length > 3 ? ' is-wide' : ''}" role="img" aria-label="${esc(data.nf(t))} points"${r ? '' : ' aria-hidden="true"'}><span class="n5 rn-pn" aria-hidden="true">${esc(data.nf(t))}</span><span class="rn-pu" aria-hidden="true">pts</span></span>`
+    + `<p class="rn-date" aria-hidden="true">${r ? esc(daily.dayLabel()) : ''}</p>`
+    + `<span class="rn-pts${r ? '' : ' is-pending'}" role="img" aria-label="${esc(data.nf(t))} points"${r ? '' : ' aria-hidden="true"'}><span class="n5 rn-pn" aria-hidden="true">${esc(data.nf(t))}</span><span class="rn-pu" aria-hidden="true">pts</span></span>`
+    + `</div>`
+    + `<div class="rn-nav">${arrowHTML(-1, slug)}`
+    + `<div class="rn-title"><p class="rn-t">${esc(labelOf(slug))}</p><p class="rn-sub">${subHTML(slug)}</p></div>`
+    + `${arrowHTML(1, slug)}</div>`
     + `</div>`;
 }
 
@@ -103,18 +105,38 @@ function errorHTML() {
 function pageHTML(slug, ctx) {
   const r = ready();
   const body = r ? MODS[slug].render(ctx) : skeletonHTML();
-  // Before puzzles load the count is not known yet: the overline is the puzzle's name alone.
-  const ovl = r ? `Puzzle ${idxOf(slug) + 1} of ${daily.STEPS.length} · ${labelOf(slug)}` : labelOf(slug);
-  return `<section class="rn-page" data-page="${slug}" aria-labelledby="rn-h-${slug}">`
-    + `<header class="rn-head"><h1 class="rn-ovl ovl" id="rn-h-${slug}">${ui.icon(ICONS[slug])}<span>${esc(ovl)}</span></h1>`
+  // The title sits in the bar; the page keeps a heading for screen readers (before puzzles load: the name alone).
+  const h = r ? `Puzzle ${idxOf(slug) + 1} of ${daily.STEPS.length}: ${labelOf(slug)}` : labelOf(slug);
+  return `<section class="rn-page" data-page="${slug}" aria-labelledby="rn-h-${slug}" tabindex="-1">`
+    + `<header class="rn-head"><h1 class="sr-only" id="rn-h-${slug}">${esc(h)}</h1>`
     + `<p class="rn-prompt t-sub">${esc(daily.PROMPTS[SLUG_ID[slug]] || '')}</p></header>`
     + `<div class="rn-body">${body}</div></section>`;
 }
 
+/** The bottom button, named by where it goes so it never reads like the › arrow (which only steps to the adjacent
+ *  puzzle): "See results" when every other puzzle is finished; while this one is unfinished "Skip to Grid"; once it is
+ *  finished "Next: Grid ›", or "‹ Finish College" when the first unfinished one is earlier. dir: the glyph's side. */
+function nextInfo(slug) {
+  const to = nextSlug(slug);
+  if (!to) return {label: 'See results', aria: 'See results', dir: 0};
+  const name = labelOf(to), back = idxOf(to) < idxOf(slug);
+  const dir = back ? -1 : 1;
+  if (!daily.STEPS[idxOf(slug)].done()) return {label: `Skip to ${name}`, aria: `Skip to ${name}`, dir};
+  return back ? {label: `Finish ${name}`, aria: `Back to ${name}, not finished yet`, dir}
+    : {label: `Next: ${name}`, aria: `Next puzzle: ${name}`, dir};
+}
+function nextInner(slug) {
+  const n = nextInfo(slug);
+  return (n.dir < 0 ? ui.icon('chevron-left', {cls: 'rn-next-ic is-back'}) : '')
+    + `<span class="btn-label">${esc(n.label)}</span>`
+    + (n.dir > 0 ? ui.icon('chevron-right', {cls: 'rn-next-ic'}) : '');
+}
+const nextAria = slug => nextInfo(slug).aria;
 function bottomHTML(slug) {
-  const done = ready() && daily.STEPS[idxOf(slug)].done();
-  return `<div class="rn-bottom"><div class="rn-bg bar" aria-hidden="true"></div>`
-    + ui.button({label: ctaLabel(slug), kind: done ? 'primary' : 'secondary', block: true, attrs: {'data-rn-next': ''}, cls: 'rn-next'})
+  const r = ready();
+  const done = r && daily.STEPS[idxOf(slug)].done();
+  return `<div class="rn-bottom"${r ? '' : ' hidden'}><div class="rn-bg bar" aria-hidden="true"></div>`
+    + `<button type="button" class="btn btn-${done ? 'primary' : 'secondary'} btn-block rn-next" data-rn-next aria-label="${esc(nextAria(slug))}">${nextInner(slug)}</button>`
     + `</div>`;
 }
 
@@ -139,8 +161,8 @@ function reveal(st, el, {smooth = true} = {}) {
   let dy = 0;
   if (r.bottom > hi) dy = r.bottom - hi;
   if (r.top - dy < lo) dy = r.top - lo;
-  // Never leave the page header (overline and prompt) sliced under the top bar: scroll past it completely when the
-  // target still fits, else keep it whole.
+  // Never leave the page header (the prompt) sliced under the top bar: scroll past it completely when the target
+  // still fits, else keep it whole.
   const head = st.stage.querySelector('.rn-page:not(.is-out) .rn-head');
   const edge = sr.top + st.top.offsetHeight;
   if (head && dy > 1) {
@@ -154,15 +176,11 @@ function reveal(st, el, {smooth = true} = {}) {
   if (Math.abs(dy) > 1) s.scrollBy({top: dy, behavior: (smooth && !ui.RM) ? 'smooth' : 'auto'});
 }
 
-/** Five segments and a four-digit total do not both fit a 360px bar: the "pts" unit drops (the label keeps it). */
-function widePill(st, t) { st.pill.classList.toggle('is-wide', t >= 1000 && order(st.slug).length > 3); }
-
 function setPts(st, animate) {
   const t = daily.totalPts();
   if (t === st.shown) return;
   const from = st.shown;
   st.shown = t;
-  widePill(st, t);
   st.pill.setAttribute('aria-label', `${data.nf(t)} points`);
   if (animate && !ui.RM && t > from) {
     ui.countUp(st.pn, t, {from, duration: 700, format: 'int'});
@@ -170,40 +188,54 @@ function setPts(st, animate) {
   } else st.pn.textContent = data.nf(t);
 }
 
-/** Rebuilds the segments when the day's puzzle count differs from what the skeleton guessed. */
-function syncSegs(st) {
-  const n = order(st.slug).length;
-  if (st.segs.length === n) return;
-  const nav = st.top.querySelector('.rn-segs');
-  nav.dataset.n = String(n);
-  nav.innerHTML = segsHTML(st.slug);
-  st.segs = [...nav.querySelectorAll('.rn-seg')];
-  if (!ui.RM) ui.animate(nav, [{opacity: 0}, {opacity: 1}], {duration: 200, easing: 'linear'});
+/** Title, "2 of 3" and the dots: patched in place (a newly finished puzzle's dot pops), rebuilt when the count
+ *  changes (the skeleton knew only the route's puzzle). */
+function patchTitle(st, animate) {
+  const t = labelOf(st.slug);
+  if (st.tEl.textContent !== t) st.tEl.textContent = t;
+  const r = ready(), i = idxOf(st.slug);
+  const dots = [...st.subEl.querySelectorAll('.rn-dot')];
+  if (!r || dots.length !== daily.STEPS.length) {
+    const h = subHTML(st.slug);
+    if (st.subEl.innerHTML !== h) st.subEl.innerHTML = h;
+    return;
+  }
+  dots.forEach((dot, j) => {
+    const c = dotCls(j, i);
+    if (dot.className === c) return;
+    const pop = animate && !ui.RM && !dot.classList.contains('is-done') && daily.STEPS[j].done();
+    dot.className = c;
+    if (pop) ui.stamp(dot, {from: .3});
+  });
+  const cnt = st.subEl.querySelector('.rn-count'), sr = st.subEl.querySelector('.sr-only');
+  const n = daily.STEPS.length, done = daily.STEPS.filter(s => s.done()).length;
+  if (cnt && cnt.textContent !== `${i + 1} of ${n}`) cnt.textContent = `${i + 1} of ${n}`;
+  if (sr) sr.textContent = `Puzzle ${i + 1} of ${n}, ${done} finished`;
+}
+
+function patchArrows(st) {
+  [[st.prev, -1], [st.fwd, 1]].forEach(([b, d]) => {
+    const a = arrowState(d, st.want || st.slug);
+    if (b.getAttribute('aria-label') !== a.label) b.setAttribute('aria-label', a.label);
+    if (a.off) b.setAttribute('aria-disabled', 'true'); else b.removeAttribute('aria-disabled');
+  });
 }
 
 function refreshChrome(st, {swap = false, animate = true} = {}) {
   if (st.dead) return;
   const r = ready();
   const i = idxOf(st.slug);
-  st.segs.forEach((b, j) => {
-    b.disabled = !r;
-    b.setAttribute('aria-label', segLabel(st.slug, j));
-    if (j === i) b.setAttribute('aria-current', 'step'); else b.removeAttribute('aria-current');
-    const fill = b.querySelector('.rn-fill');
-    const f = r ? fracOf(j) : 0;
-    const tf = `scaleX(${f})`;
-    if (fill.style.transform !== tf) fill.style.transform = tf;
-    fill.classList.toggle('is-perfect', r && perfectOf(j));
-  });
+  patchTitle(st, animate && !swap);
+  patchArrows(st);
   if (r) setPts(st, animate && !swap);
   const btn = st.next;
   const done = r && daily.STEPS[i].done() && !(st.inst && st.inst.holdCta && st.inst.holdCta());
   const wasPrimary = btn.classList.contains('btn-primary');
   btn.classList.toggle('btn-primary', done);
   btn.classList.toggle('btn-secondary', !done);
-  const lab = ctaLabel(st.slug);
-  const l = btn.querySelector('.btn-label');
-  if (l.textContent !== lab) l.textContent = lab;
+  const inner = nextInner(st.slug);
+  if (btn.dataset.inner !== inner) { btn.dataset.inner = inner; btn.innerHTML = inner; }
+  btn.setAttribute('aria-label', nextAria(st.slug));
   if (done && !wasPrimary && !swap && animate) {
     ui.animate(btn, [{transform: 'scale(.94)'}, {transform: 'none'}], {spring: 'bouncy'});
   }
@@ -246,7 +278,7 @@ function makePage(st, slug) {
  *  puzzle; the address follows quietly (same view, same slug: update() is a no-op). */
 function canonical(st) {
   if (!ready() || st.dead || !st.ctx.params || st.ctx.params.puzzle === st.slug) return;
-  Promise.resolve(st.ctx.replace('/today/play/' + st.slug)).catch(() => {});
+  Promise.resolve(st.ctx.replace(PLAY(st.slug))).catch(() => {});
 }
 
 function fill(st) {
@@ -256,16 +288,15 @@ function fill(st) {
   st.slug = slugOf(st.ctx);
   const page = makePage(st, st.slug);
   st.stage.replaceChildren(page);
-  syncSegs(st);
   if (ready()) {
     mountModule(st, page);
     if (st.slug !== 'grid' && grid.warm) grid.warm();
     if (silhouette.warm) silhouette.warm(); // the day's photos, before (or while) Silhouettes opens
   }
   ui.hydrate(page);
+  st.date.textContent = daily.dayLabel();
   st.shown = ready() ? daily.totalPts() : 0;
   st.pn.textContent = data.nf(st.shown);
-  widePill(st, st.shown);
   st.pill.setAttribute('aria-label', `${data.nf(st.shown)} points`);
   if (st.pill.classList.contains('is-pending')) {
     st.pill.classList.remove('is-pending');
@@ -275,6 +306,7 @@ function fill(st) {
   st.bottom.hidden = false;
   refreshChrome(st, {swap: true});
   ui.animate(page, [{opacity: 0}, {opacity: 1}], {duration: 200, easing: 'linear'});
+  if (!ui.RM) ui.animate(st.subEl, [{opacity: 0}, {opacity: 1}], {duration: 200, easing: 'linear'});
   canonical(st);
 }
 
@@ -307,8 +339,10 @@ function swapTo(st, ns) {
   finishSwap(st);
   const os = st.slug;
   if (ns === os) return;
+  // › slides the pages left, ‹ slides them right (spec 5.2 inner swap, mirrored for an earlier puzzle).
   const dir = idxOf(ns) > idxOf(os) ? 1 : -1;
   const old = st.stage.firstElementChild;
+  const hadFocus = !!(old && old.contains(document.activeElement));
   unmountModule(st);
   st.slug = ns;
   const page = makePage(st, ns);
@@ -320,6 +354,9 @@ function swapTo(st, ns) {
   const y = s.scrollTop;
   s.scrollTop = 0;
   ui.announce(`Puzzle ${idxOf(ns) + 1} of ${order(ns).length}, ${labelOf(ns)}.`);
+  // Focus inside the old page (a key press on a choice) moves to the new page rather than to <body>.
+  if (hadFocus) { try { page.focus({preventScroll: true}); } catch (_) {} }
+  if (!ui.RM) ui.animate(st.titleEl, [{opacity: 0, transform: `translateX(${14 * dir}px)`}, {opacity: 1, transform: 'none'}], {duration: 240, easing: EASE_OUT});
   if (!old) return;
   old.classList.add('is-out');
   old.setAttribute('aria-hidden', 'true');
@@ -344,12 +381,78 @@ function swapTo(st, ns) {
   });
 }
 
+/** Moves one puzzle left (-1) or right (1): the arrows, a header swipe and the arrow keys. Rapid moves chain from
+ *  the puzzle last asked for (st.want) until the replace lands. At either end nothing moves; the title nudges. */
+function go(st, d) {
+  if (!ready() || st.dead) return;
+  const from = st.want || st.slug;
+  const to = adjSlug(from, d);
+  if (!to) { nudge(st, d); return; }
+  st.want = to;
+  ui.haptic('selection');
+  patchArrows(st);
+  Promise.resolve(st.ctx.replace(PLAY(to))).catch(() => {}).finally(() => {
+    if (st.want !== to) return;
+    st.want = null;
+    if (!st.dead) patchArrows(st);
+  });
+}
+function nudge(st, d) {
+  if (ui.RM || st.dead) return;
+  ui.animate(st.titleEl, [{transform: 'none'}, {transform: `translateX(${6 * d}px)`, offset: .35}, {transform: 'none'}], {duration: 280, easing: 'ease-out'});
+}
+
+// Horizontal swipe on the top bar or the page header (touch-action: pan-y there): 48 px, or a quick 24 px flick,
+// moves one puzzle; a mostly vertical move is left to scrolling. The puzzle body never swipes.
+function wireSwipe(st) {
+  const el = st.el;
+  el.addEventListener('pointerdown', e => {
+    st.sw = null;
+    if (!e.isPrimary || (e.pointerType === 'mouse' && e.button !== 0) || !ready()) return;
+    const zone = e.target.closest && e.target.closest('.rn-top, .rn-head');
+    if (!zone || !el.contains(zone) || zone.closest('.is-out')) return;
+    st.sw = {x: e.clientX, y: e.clientY, t: performance.now(), id: e.pointerId, h: false};
+  });
+  el.addEventListener('pointermove', e => {
+    const s = st.sw;
+    if (!s || e.pointerId !== s.id || s.h) return;
+    const dx = e.clientX - s.x, dy = e.clientY - s.y;
+    if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.3) s.h = true;
+    else if (Math.abs(dy) > 10) st.sw = null;
+  });
+  el.addEventListener('pointerup', e => {
+    const s = st.sw;
+    st.sw = null;
+    if (!s || e.pointerId !== s.id || !s.h) return;
+    const dx = e.clientX - s.x, dt = Math.max(1, performance.now() - s.t);
+    if (Math.abs(dx) >= 48 || (Math.abs(dx) >= 24 && Math.abs(dx) / dt > .4)) {
+      st.swipedAt = performance.now(); // the click that may follow on a button under the finger is not a tap
+      go(st, dx < 0 ? 1 : -1);
+    }
+  });
+  el.addEventListener('pointercancel', () => { st.sw = null; });
+}
+
+// Left / Right keys, while this cover is the visible screen and no sheet is open; never while typing, on a segmented
+// control or on a horizontal scroller (they use the keys themselves).
+function onKey(st, e) {
+  if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+  if (st.dead || !st.ctx.visible || ui.sheetCount()) return;
+  const t = e.target;
+  if (t && t !== document && t !== document.body && t !== document.documentElement && !st.ctx.screen.contains(t)) return;
+  if (t && t.closest && t.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"], [role="tab"], [role="slider"], .chips')) return;
+  e.preventDefault();
+  go(st, e.key === 'ArrowRight' ? 1 : -1);
+}
+
 function onClick(st, e) {
-  const seg = e.target.closest('.rn-seg');
-  if (seg) {
-    if (seg.disabled || !ready()) return;
-    const j = +seg.dataset.step;
-    if (j !== idxOf(st.slug) && daily.slug(j)) { ui.haptic('selection'); st.ctx.replace('/today/play/' + daily.slug(j)); }
+  if (st.swipedAt && performance.now() - st.swipedAt < 400) { st.swipedAt = 0; return; }
+  const arrow = e.target.closest('[data-rn-go]');
+  if (arrow) {
+    const d = +arrow.dataset.rnGo;
+    if (arrow.getAttribute('aria-disabled') === 'true') { nudge(st, d); return; }
+    go(st, d);
     return;
   }
   if (e.target.closest('[data-rn-next]')) {
@@ -359,7 +462,7 @@ function onClick(st, e) {
     st.navPending = true;
     // The next unfinished puzzle (finished ones are skipped, wrapping around), else the results.
     const next = nextSlug(st.slug);
-    Promise.resolve(st.ctx.replace(next ? '/today/play/' + next : '/today/results'))
+    Promise.resolve(st.ctx.replace(next ? PLAY(next) : '/puzzles/results'))
       .catch(() => {})
       .finally(() => setTimeout(() => { st.navPending = false; }, 300));
     if (!next && ready()) daily.maybeAutoPost();
@@ -384,14 +487,20 @@ export default {
 
   mount(el, ctx) {
     const st = {
-      el, ctx, slug: slugOf(ctx), inst: null, dead: false, swap: null,
+      el, ctx, slug: slugOf(ctx), inst: null, dead: false, swap: null, want: null, sw: null, swipedAt: 0,
       top: el.querySelector('.rn-top'), stage: el.querySelector('.rn-stage'), bottom: el.querySelector('.rn-bottom'),
       pill: el.querySelector('.rn-pts'), pn: el.querySelector('.rn-pn'), next: el.querySelector('[data-rn-next]'),
-      segs: [...el.querySelectorAll('.rn-seg')], shown: ready() ? daily.totalPts() : 0
+      date: el.querySelector('.rn-date'), titleEl: el.querySelector('.rn-title'), tEl: el.querySelector('.rn-t'),
+      subEl: el.querySelector('.rn-sub'), prev: el.querySelector('.rn-prev'), fwd: el.querySelector('.rn-fwd'),
+      shown: ready() ? daily.totalPts() : 0
     };
+    st.next.dataset.inner = st.next.innerHTML;
     st.api = makeApi(st);
     ST.set(ctx, st);
     el.addEventListener('click', e => onClick(st, e));
+    wireSwipe(st);
+    st.onKey = e => onKey(st, e);
+    document.addEventListener('keydown', st.onKey);
     st.onScroll = () => checkBars(st);
     ctx.screen.addEventListener('scroll', st.onScroll, {passive: true});
     st.onResize = () => checkBars(st);
@@ -427,6 +536,7 @@ export default {
     st.dead = true;
     finishSwap(st);
     unmountModule(st);
+    document.removeEventListener('keydown', st.onKey);
     ctx.screen.removeEventListener('scroll', st.onScroll);
     removeEventListener('resize', st.onResize);
     ST.delete(ctx);

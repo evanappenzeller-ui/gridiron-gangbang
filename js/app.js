@@ -1,5 +1,13 @@
-// Boot, router, history projection, tab bar, transitions, swipe-back, scroll memory, view registry.
-// Owner: foundation (shell). Spec 3.2-3.5, 5.2, 11, 12.
+// Boot, router, history projection, tab bar (and its badges), transitions, swipe-back, scroll memory, view registry.
+// Owner: foundation (shell). Spec 3.2-3.5, 5.2, 11, 12; the five tabs of the tabs-v4 contract.
+//
+// TABS (id → root route · root view): puzzles /puzzles · puzzles, pickem /pickem · pickem, matchup /matchup · rivals,
+//   league /league/standings · league, draft /draft · moves. The app opens on Puzzles (HOME): it is the history base,
+//   covers (/puzzles/play/<slug>, /puzzles/results) present over it, and Back from another tab's root lands on it.
+//   Every root view draws its own large title with youButtonHTML() (views/you.js) in the trailing slot; a tap on any
+//   [data-you] opens the You sheet (delegated here). Tab badges: see "Tab badges" below (root views export badge()).
+// Legacy routes (/today…, /rivals…, /standings, /hall…, /moves…, the bare #daily-style hashes) redirect to their new
+//   homes in parseRoute, so the canonical path is what lands in history.
 //
 // VIEW CONTRACT (js/views/<id>.js default export):
 //   {id, chrome: 'nav' (default) | 'none', title: string | ctx => string, actions?: ctx => [{id, icon, label}] (max 2),
@@ -28,41 +36,103 @@ import {needsWelcome, showWelcome} from './views/welcome.js';
 export const APP_VERSION = '1.0';
 
 // ============================================================================ Registry and routes
+// Routed views only. standings.js and the hall-*.js segments are League's sub-modules (league.js imports them).
 export const REGISTRY = {
-  today: () => import('./views/today.js'),
+  puzzles: () => import('./views/puzzles.js'),
   results: () => import('./views/results.js'),
   run: () => import('./views/run.js'),
-  standings: () => import('./views/standings.js'),
+  pickem: () => import('./views/pickem.js'),
+  rivals: () => import('./views/rivals.js'),
+  league: () => import('./views/league.js'),
+  moves: () => import('./views/moves.js'),
   season: () => import('./views/season.js'),
   review: () => import('./views/review.js'),
   wrap: () => import('./views/wrap.js'),
-  pickem: () => import('./views/pickem.js'),
   press: () => import('./views/press.js'),
-  rivals: () => import('./views/rivals.js'),
-  hall: () => import('./views/hall.js'),
-  moves: () => import('./views/moves.js'),
   profile: () => import('./views/profile.js'),
   _kit: () => import('./views/_kit.js')
 };
-export const TABS = ['today', 'standings', 'rivals', 'hall', 'moves'];
-const ROOTS = {today: '/today', standings: '/standings', rivals: '/rivals', hall: '/hall/trophies', moves: '/moves/drafts'};
-const TAB_TITLES = {today: 'Today', standings: 'Standings', rivals: 'Rivals', hall: 'Hall', moves: 'Moves'};
-const LEGACY = Object.assign(Object.create(null), {daily: '/today', records: '/hall/records', trophies: '/hall/trophies', standings: '/standings', rivals: '/rivals', moves: '/moves/drafts'}); // null prototype: '#constructor' is not a legacy hash
-const PUZZLES = ['college', 'silhouette', 'mystery', 'journey', 'grid']; // v1 days use college, mystery, grid
+export const TABS = ['puzzles', 'pickem', 'matchup', 'league', 'draft'];
+const HOME = 'puzzles'; // the tab the app opens on: the history base, where covers present, where Back from a root lands
+const TAB_VIEW = {puzzles: 'puzzles', pickem: 'pickem', matchup: 'rivals', league: 'league', draft: 'moves'}; // root view ids
+const ROOTS = {puzzles: '/puzzles', pickem: '/pickem', matchup: '/matchup', league: '/league/standings', draft: '/draft'};
+const TAB_TITLES = {puzzles: 'Puzzles', pickem: "Pick'em", matchup: 'Matchup', league: 'League', draft: 'Draft'};
+// Old bare hashes (#daily, #records...) from the first app. Null prototype: '#constructor' is not a legacy hash.
+const LEGACY = Object.assign(Object.create(null), {daily: '/puzzles', records: '/league/records', trophies: '/league/trophies', standings: '/league/standings', rivals: '/matchup', moves: '/draft'});
+const PUZZLES = ['college', 'silhouette', 'mystery', 'journey', 'grid']; // every day's steps are some of these (daily.SLUGS)
+const LEAGUE_SEGS = ['standings', 'trophies', 'records', 'shame'];
 const BAD_LINK = "That link didn't lead anywhere.";
+// "evan-vs-mason" → {a, b} (strings, not validated: the Matchup view checks them), else null.
+const pairOf = s => { const i = s.indexOf('-vs-'); return i > 0 && i + 4 < s.length ? {a: s.slice(0, i), b: s.slice(i + 4)} : null; };
+const enc = encodeURIComponent;
 
-function matchSegs(p) {
+/**
+ * Route table. p: decoded path segments; q: the query (URLSearchParams). Returns {view, open, tab, params, home},
+ * {redirect: path, query?: false} (the query is carried over unless query is false), or null (unknown).
+ * `home`: the tab a cold link to a pushed route sits on ('any' routes push onto the current tab when warm).
+ */
+function matchSegs(p, q) {
   const [a, b, c, d] = p, n = p.length;
-  const R = (view, open, tab, params = {}, home) => ({view, open, tab, params, home: home || (tab === 'any' ? 'standings' : tab)});
+  const R = (view, open, tab, params = {}, home) => ({view, open, tab, params, home: home || (tab === 'any' ? 'league' : tab)});
   const yr = x => /^\d{4}$/.test(x || '') ? Number(x) : null;
   switch (a) {
+    case 'puzzles':
+      if (n === 1) return R('puzzles', 'root', 'puzzles');
+      if (n === 3 && b === 'play' && PUZZLES.includes(c)) return R('run', 'cover', 'puzzles', {puzzle: c});
+      if (n === 2 && b === 'results') return R('results', 'cover', 'puzzles');
+      return null;
+    case 'pickem':
+      // NFL Pick'em (optional ?week=N) is a tab root now: links to it switch to the tab.
+      if (n === 1) return R('pickem', 'root', 'pickem');
+      return null;
+    case 'matchup': {
+      if (n === 1) return R('rivals', 'root', 'matchup');
+      const pr = n === 2 ? pairOf(b) : null;
+      return pr ? R('rivals', 'root', 'matchup', pr) : null;
+    }
+    case 'league':
+      // One root with a segmented control: Standings · Trophies · Records · Shame (?y= on Shame).
+      if (n === 1) return {redirect: '/league/standings'};
+      if (n === 2 && LEAGUE_SEGS.includes(b)) return R(TAB_VIEW.league, 'root', 'league', {seg: b});
+      if (n === 3 && b === 'records') return R(TAB_VIEW.league, 'root', 'league', {seg: 'records', focus: c});
+      return null;
+    case 'draft': {
+      if (n === 1) return R('moves', 'root', 'draft', {seg: 'drafts'});
+      if (n === 2 && b === 'trades') return R('moves', 'root', 'draft', {seg: 'trades'});
+      const y = n === 2 ? yr(b) : null;
+      return y != null ? R('moves', 'root', 'draft', {seg: 'drafts', year: y}) : null;
+    }
+    // ---- Legacy routes (shared links, bookmarks, share texts, notifications): redirected to the new homes.
     case 'today':
-      if (n === 1) return R('today', 'root', 'today');
-      if (n === 3 && b === 'play' && PUZZLES.includes(c)) return R('run', 'cover', 'today', {puzzle: c});
-      if (n === 2 && b === 'results') return R('results', 'cover', 'today');
+      if (n === 1) return {redirect: '/puzzles'};
+      if (n === 3 && b === 'play' && PUZZLES.includes(c)) return {redirect: '/puzzles/play/' + c};
+      if (n === 2 && b === 'results') return {redirect: '/puzzles/results'};
+      return null;
+    case 'rivals': {
+      const pr = n === 2 ? pairOf(b) : null;
+      if (n !== 1 && !pr) return null;
+      // The old Rivals screen's NFL Pick'em card (?s=pickem, also section= or focus=, or 'picks'; on the plain screen
+      // or a pair) is its own tab now, and its week (?week=N) comes along.
+      const s = String(q.get('s') || q.get('section') || q.get('focus') || '').toLowerCase();
+      if (s === 'pickem' || s === 'picks') {
+        const w = q.get('week');
+        return {redirect: '/pickem' + (/^\d{1,2}$/.test(w || '') ? '?week=' + w : ''), query: false};
+      }
+      return n === 1 ? {redirect: '/matchup'} : {redirect: '/matchup/' + enc(b)};
+    }
+    case 'hall':
+      if (n === 1 || (n === 2 && b === 'trophies')) return {redirect: '/league/trophies'};
+      if (n === 2 && (b === 'records' || b === 'shame')) return {redirect: '/league/' + b};
+      if (n === 3 && b === 'records') return {redirect: '/league/records/' + enc(c)};
+      return null;
+    case 'moves':
+      if (n === 1 || (n === 2 && b === 'drafts')) return {redirect: '/draft'};
+      if (n === 3 && b === 'drafts' && yr(c) != null) return {redirect: '/draft/' + c};
+      if (n === 2 && b === 'trades') return {redirect: '/draft/trades'};
       return null;
     case 'standings': {
-      if (n === 1) return R('standings', 'root', 'standings');
+      // /standings itself moved to the League tab; the season pages keep their paths (pushed; cold links sit on League).
+      if (n === 1) return {redirect: '/league/standings'};
       const y = yr(b);
       if (y == null) return null;
       if (n === 2) return R('season', 'push', 'any', {year: y, seg: 'table'});
@@ -73,42 +143,18 @@ function matchSegs(p) {
       if (n === 4 && c === 'wrap' && /^\d{1,2}$/.test(d)) return R('wrap', 'push', 'any', {year: y, week: Number(d)});
       return null;
     }
-    case 'rivals':
-      if (n === 1) return R('rivals', 'root', 'rivals');
-      if (n === 2) {
-        const i = b.indexOf('-vs-');
-        if (i > 0 && i + 4 < b.length) return R('rivals', 'root', 'rivals', {a: b.slice(0, i), b: b.slice(i + 4)});
-      }
-      return null;
-    case 'hall':
-      if (n === 1) return {redirect: '/hall/trophies'};
-      if (n === 2 && b === 'trophies') return R('hall', 'root', 'hall', {seg: 'trophies'});
-      if (n === 2 && b === 'records') return R('hall', 'root', 'hall', {seg: 'records'});
-      if (n === 2 && b === 'shame') return R('hall', 'root', 'hall', {seg: 'shame'});
-      if (n === 3 && b === 'records') return R('hall', 'root', 'hall', {seg: 'records', focus: c});
-      return null;
-    case 'moves':
-      if (n === 1) return {redirect: '/moves/drafts'};
-      if (n === 2 && b === 'drafts') return R('moves', 'root', 'moves', {seg: 'drafts'});
-      if (n === 3 && b === 'drafts' && yr(c) != null) return R('moves', 'root', 'moves', {seg: 'drafts', year: yr(c)});
-      if (n === 2 && b === 'trades') return R('moves', 'root', 'moves', {seg: 'trades'});
-      return null;
     case 'managers':
       if (n === 2 && b) return R('profile', 'push', 'any', {id: b});
       return null;
-    case 'pickem':
-      // NFL Pick'em (optional ?week=N): pushed on any tab; a cold link sits on Rivals (the week's home).
-      if (n === 1) return R('pickem', 'push', 'any', {}, 'rivals');
-      return null;
     case 'press':
       // Press Room: #/press (the archive, latest presser featured), #/press/2026-w4 (that week's presser featured: the
-      // share link). Pushed on any tab; a cold link sits on Rivals. The view checks the key (an unknown one lands on
-      // the archive with a toast).
-      if (n === 1) return R('press', 'push', 'any', {}, 'rivals');
-      if (n === 2 && b) return R('press', 'push', 'any', {key: b}, 'rivals');
+      // share link). Pushed on any tab; a cold link sits on Matchup (its Press Room card). The view checks the key
+      // (an unknown one lands on the archive with a toast).
+      if (n === 1) return R('press', 'push', 'any', {}, 'matchup');
+      if (n === 2 && b) return R('press', 'push', 'any', {key: b}, 'matchup');
       return null;
     case '_kit':
-      if (n === 1) return R('_kit', 'push', 'any', {}, 'today');
+      if (n === 1) return R('_kit', 'push', 'any', {}, 'puzzles');
       return null;
   }
   return null;
@@ -122,17 +168,18 @@ export function parseRoute(input, depth = 0) {
   let s = String(input == null ? '' : input).trim();
   if (s.startsWith('#')) s = s.slice(1);
   if (LEGACY[s]) s = LEGACY[s]; // legacy hashes (#daily, #records, ...) also work when typed in later
-  if (!s || s === '/') s = '/today';
+  if (!s || s === '/') s = ROOTS[HOME];
   if (!s.startsWith('/')) s = '/' + s;
   const qi = s.indexOf('?');
   const pathPart = qi < 0 ? s : s.slice(0, qi);
   const qs = qi < 0 ? '' : s.slice(qi + 1);
   const segs = pathPart.split('/').filter(Boolean).map(x => { try { return decodeURIComponent(x); } catch (_) { return x; } });
-  const m = matchSegs(segs);
+  const usp = new URLSearchParams(qs);
+  const m = matchSegs(segs, usp);
   if (!m) return null;
-  if (m.redirect) return depth > 3 ? null : parseRoute(m.redirect + (qs ? '?' + qs : ''), depth + 1);
+  if (m.redirect) return depth > 3 ? null : parseRoute(m.redirect + (qs && m.query !== false ? '?' + qs : ''), depth + 1);
   const query = {};
-  new URLSearchParams(qs).forEach((v, k) => { query[k] = v; });
+  usp.forEach((v, k) => { query[k] = v; });
   const q = new URLSearchParams(query).toString();
   return Object.assign(m, {query, path: '/' + segs.map(encodeURIComponent).join('/') + (q ? '?' + q : '')});
 }
@@ -144,7 +191,7 @@ const layerOf = tab => document.querySelector(`#stage > .tab-layer[data-tab="${t
 // switching back costs no full style and layout pass). Skipped content is also out of the tab order and the a11y
 // tree, so no inert (toggling inert restyles the whole subtree: ~10 ms per switch).
 function setLayerHidden(layer, h) { if (layer) layer.hidden = h; }
-const S = {tab: 'today', stacks: {}, cover: null, sheets: [], n: 0};
+const S = {tab: HOME, stacks: {}, cover: null, sheets: [], n: 0};
 let entrySeq = 0;
 const newEntry = (route, tab, kind) => ({id: ++entrySeq, route, tab, kind, scr: null});
 const topOf = tab => { const st = S.stacks[tab]; return st[st.length - 1]; };
@@ -162,6 +209,7 @@ function loadView(id, retry) {
   const p = imp.then(m => {
     const v = (m && m.default) || {};
     mods.set(id, v); modNS.set(id, m); loading.delete(id);
+    if (m && typeof m.badge === 'function') queueBadges(); // a tab root's badge() is available now
     return v;
   }, err => { loading.delete(id); throw err; });
   if (!retry) loading.set(id, p);
@@ -722,6 +770,7 @@ async function drain() {
     res(out);
   }
   qBusy = false;
+  queueBadges(); // a navigation settled (tab badges follow route changes)
 }
 const curIndex = () => { const st = history.state; return st && st.gg === 1 && typeof st.n === 'number' ? st.n : S.n; };
 function armLate() {
@@ -772,9 +821,9 @@ function reanchor(state) {
 function projection() {
   const P = [];
   const st = S.stacks[S.tab];
-  if (S.tab === 'today') P.push({kind: 'root', entry: st[0], path: st[0].route.path});
+  if (S.tab === HOME) P.push({kind: 'root', entry: st[0], path: st[0].route.path});
   else {
-    P.push({kind: 'base', path: S.stacks.today[0].route.path});
+    P.push({kind: 'base', path: S.stacks[HOME][0].route.path});
     P.push({kind: 'root', entry: st[0], path: st[0].route.path});
   }
   for (let i = 1; i < st.length; i++) P.push({kind: 'push', entry: st[i], path: st[i].route.path, depth: i});
@@ -839,7 +888,7 @@ async function forwardTo(n, hash) {
   const r = parseRoute(hash);
   if (r && n === S.n + 1 && !S.cover && !S.sheets.length) {
     if (r.open === 'push' && topOf(S.tab).route.path !== r.path) { await pushRoute(r, {addEntry: false}); return; }
-    if (r.open === 'cover' && S.tab === 'today') { await openCover(r, {addEntry: false}); return; }
+    if (r.open === 'cover' && S.tab === HOME) { await openCover(r, {addEntry: false}); return; }
   }
   S.n = n;
   await go(-n);
@@ -862,17 +911,17 @@ async function popTo(n, {animate = true} = {}) {
   const rootGone = others.some(x => x.kind === 'root');
   const target = P[n];
   if (top.kind === 'cover') {
-    if (rootGone) { resetStack(S.tab); await switchTabUI('today', {motion: false}); }
+    if (rootGone) { resetStack(S.tab); await switchTabUI(HOME, {motion: false}); }
     else if (others.some(x => x.kind === 'push')) instantPopTo(S.tab, target.kind === 'push' ? target.depth : 0);
     await dismissCover({animate});
     return;
   }
   if (rootGone) {
-    // Back landed on the base entry (#/today): that is Today's root, so Today's remembered pushes go too
+    // Back landed on the base entry (#/puzzles): that is the Puzzles root, so its remembered pushes go too
     // (otherwise the projection would need new entries the user never navigated to).
     resetStack(S.tab);
-    resetStack('today');
-    await switchTabUI('today', {motion: animate});
+    resetStack(HOME);
+    await switchTabUI(HOME, {motion: animate});
     return;
   }
   await popStack(S.tab, target.kind === 'push' ? target.depth : 0, {animate});
@@ -1025,8 +1074,8 @@ async function pushRoute(r, {morphRect, addEntry = true} = {}) {
   if (hadFocus && !scr.dead) focusQuiet(scr.el);
 }
 
-// A link to the root route a tab already shows (Today's "Record of the day" to the record Hall has in focus,
-// a profile's "Nemesis" link to the pair Rivals shows) is still a navigation: the root starts at the top again
+// A link to the root route a tab already shows (Record of the day to the record League has in focus,
+// a profile's "Nemesis" link to the pair Matchup shows) is still a navigation: the root starts at the top again
 // and its view gets update(ctx) with reason 'params' (same ctx.path), so it can re-run deep-link behavior.
 async function goRoot(r) {
   await stripOverlays();
@@ -1054,7 +1103,7 @@ async function goRoot(r) {
 }
 
 function buildCover(r, v, err, transition) {
-  const e = newEntry(r, 'today', 'cover');
+  const e = newEntry(r, HOME, 'cover');
   const scrim = document.createElement('div');
   scrim.className = 'cover-scrim';
   const wrap = document.createElement('div');
@@ -1075,7 +1124,7 @@ async function openCover(r, {dir, addEntry = true} = {}) {
   if (S.cover) return swapCover(r, {dir});
   const trigger = document.activeElement;
   await stripOverlays();
-  if (S.tab !== 'today') { await switchTabUI('today', {motion: false}); await rebuildHistory(); }
+  if (S.tab !== HOME) { await switchTabUI(HOME, {motion: false}); await rebuildHistory(); }
   const {v, err} = await loadViewSafe(r.view);
   finishTransitions();
   const e = buildCover(r, v, err, 'cover');
@@ -1162,7 +1211,7 @@ async function opReplace(scr, path, {dir} = {}) {
 /** Deep link (cold boot, hand-edited hash, unknown history entry): rebuild the projection without animation. */
 async function deepLink(hash, {warm = false} = {}) {
   let r = parseRoute(hash);
-  if (!r) { r = parseRoute('/today'); ui.toast(BAD_LINK); }
+  if (!r) { r = parseRoute(ROOTS[HOME]); ui.toast(BAD_LINK); }
   S.sheets.splice(0).reverse().forEach(rec => rec.dismiss(false));
   if (S.cover) await dismissCover({animate: false});
   let T;
@@ -1175,7 +1224,7 @@ async function deepLink(hash, {warm = false} = {}) {
     resetStack(T);
     S.stacks[T].push(newEntry(r, T, 'push'));
   } else {
-    T = 'today';
+    T = HOME;
   }
   if (T !== S.tab) await switchTabUI(T, {motion: false});
   await showTop();
@@ -1208,7 +1257,7 @@ async function opBack({animate = true} = {}) {
 }
 
 // ============================================================================ Public navigation API
-/** Navigate: tab-root routes switch tabs (resetting that stack), 'any' routes push, cover routes open over Today.
+/** Navigate: tab-root routes switch tabs (resetting that stack), 'any' routes push, cover routes open over Puzzles.
  *  opts.morphFrom: the tapped avatar element (flies to the new screen's [data-morph] element). */
 export function nav(path, o = {}) {
   const morphRect = o.morphFrom && o.morphFrom.getBoundingClientRect ? o.morphFrom.getBoundingClientRect() : null;
@@ -1282,61 +1331,88 @@ function updateTabBar(T, {animate = true} = {}) {
     ui.haptic('selection');
   }
 }
-// The tab icon is persistent chrome: until puzzles.json is loaded (a cold open on a history tab loads it at idle)
-// it paints what this phone last showed today (gg-ring, same local date), else a neutral ring with no dot, so it
-// never flashes a wrong "unfinished" state. The real state replaces it silently on 'ready'.
-const RING_KEY = 'gg-ring';
+// ============================================================================ Tab badges
+// A 6 px tint dot on a tab icon: Puzzles while today's puzzles aren't finished, Pick'em while this week has open (not
+// kicked off) games you haven't picked, Matchup while MOTW voting is open and you haven't voted. Each of those tabs'
+// root view modules exports badge() → boolean: cheap, reading only what that module (or a subscription it already
+// runs) holds, never a request of its own. A module not imported yet counts as no dot, except Puzzles: until
+// puzzles.json is in (a cold open on another tab loads it at idle) its dot comes from the Daily itself, then from what
+// this phone showed today (gg-ring, same local date), so it never flashes a wrong state.
+// Polled after every navigation, on the Daily's events, on 'me' and 'data', every 30 s while the page is visible, when
+// a view module finishes loading, and whenever a view dispatches a 'gg:badge' event (on any node, or window).
+const BADGE_TABS = ['puzzles', 'pickem', 'matchup'];
+const RING_KEY = 'gg-ring'; // {date, parts, left}: also read by the Puzzles screen for its loading state
 const ringDate = () => new Date().toDateString();
 function cachedRing() {
   try {
     const v = JSON.parse(ui.lsGet(RING_KEY) || 'null');
-    return v && v.date === ringDate() && Array.isArray(v.parts) && (v.parts.length === 3 || v.parts.length === 5) ? v : null;
+    return v && v.date === ringDate() && Array.isArray(v.parts) && v.parts.length >= 1 && v.parts.length <= 5 ? v : null;
   } catch (_) { return null; }
 }
-// One arc per puzzle: three is ui.ring itself; five (v2 days) uses the same geometry with 64° arcs, so
-// ui.ringUpdate keeps working on it. Mirrors ringHTML in views/board.js (kept here so boot never loads a view).
-function stepRing(parts, o) {
-  const n = parts.length;
-  if (n === 3 || !n) return ui.ring(parts, o);
-  const S = o.mini ? 24 : (o.size || 200), W = o.mini ? 3 : (o.stroke || 16);
-  const r = (S - W) / 2, c = S / 2, trim = (W / 2) / r, slot = 360 / n, rad = d => d * Math.PI / 180;
-  let tracks = '', fills = '';
-  parts.forEach((p, i) => {
-    const a0 = rad(4 + i * slot) + trim, a1 = rad(4 + i * slot + slot - 8) - trim;
-    const d = `M${(c + r * Math.sin(a0)).toFixed(3)} ${(c - r * Math.cos(a0)).toFixed(3)}A${r} ${r} 0 0 1 ${(c + r * Math.sin(a1)).toFixed(3)} ${(c - r * Math.cos(a1)).toFixed(3)}`;
-    const len = +(r * (a1 - a0)).toFixed(3), f = Math.min(1, Math.max(0, Number(p.frac) || 0));
-    tracks += `<path class="ring-track${p.doneZero ? ' is-zero' : ''}" d="${d}" stroke-width="${W}"/>`;
-    fills += `<path class="ring-fill${p.perfect ? ' is-perfect' : ''}${f <= 0 ? ' is-empty' : ''}" d="${d}" stroke-width="${W}" data-len="${len}" stroke-dasharray="${len} ${len}" style="stroke-dashoffset:${(len * (1 - f)).toFixed(3)}"/>`;
-  });
-  return `<div class="ring${o.mini ? ' ring-mini' : ''}" style="--rs:${S}px" aria-hidden="true" data-ring><svg viewBox="0 0 ${S} ${S}" aria-hidden="true" focusable="false">${tracks}${fills}</svg></div>`;
+const dailyReady = () => daily.status === 'ready' && !!daily.DAY;
+// Puzzles left today: from the Daily once loaded, else the cached count, else null (unknown).
+function puzzlesLeft() {
+  if (dailyReady()) return daily.STEPS.filter(s => !s.done()).length;
+  const c = cachedRing();
+  return c && typeof c.left === 'number' ? c.left : null;
 }
-function dailyParts() {
-  if (daily.status !== 'ready' || !daily.DAY) { const c = cachedRing(); return c ? c.parts : [{frac: 0}, {frac: 0}, {frac: 0}]; }
-  // Rings show points: each arc fills with that puzzle's points / max (gold when perfect, ink-4 track when done with 0).
-  return daily.STEPS.map(s => {
+// Each arc's fill (points / max, gold when perfect, done-with-zero): the cache the Puzzles screen reads before load.
+function cacheRing() {
+  if (!dailyReady() || daily.DEV_DAY != null) return; // a dev ?day= preview never caches under the real date
+  try { if (daily.dateOf(daily.PNUM).toDateString() !== ringDate()) return; } catch (_) { return; } // past midnight, not reloaded yet
+  const parts = daily.STEPS.map(s => {
     const done = s.done(), p = s.pts();
     return {frac: Math.min(1, p / s.max), perfect: p === s.max, doneZero: done && p === 0};
   });
+  const v = JSON.stringify({date: ringDate(), parts, left: daily.STEPS.filter(s => !s.done()).length});
+  if (ui.lsGet(RING_KEY) !== v) ui.lsSet(RING_KEY, v);
 }
-function updateTodayIcon(animate = false) {
-  const btn = $('tabbar').querySelector('.tab[data-tab="today"]');
-  if (!btn) return;
-  const holder = btn.querySelector('.tab-ring');
-  const parts = dailyParts();
-  // A day with a different puzzle count (the cached ring, a v2 day) redraws the arcs; otherwise they update in place.
-  if (!holder.firstElementChild || holder.querySelectorAll('.ring-fill').length !== parts.length) holder.innerHTML = stepRing(parts, {mini: true});
-  else ui.ringUpdate(holder, parts, {animate});
-  const ready = daily.status === 'ready' && !!daily.DAY;
-  const cached = ready ? null : cachedRing();
-  const left = ready ? daily.STEPS.filter(s => !s.done()).length : cached ? cached.left : null;
-  btn.querySelector('.tab-dot').hidden = left == null || left === 0;
-  let label = 'Today';
-  if (left != null) label = left ? `Today, ${left === 1 ? '1 puzzle' : left + ' puzzles'} left` : 'Today, all puzzles done';
-  btn.setAttribute('aria-label', label);
-  if (ready && daily.DEV_DAY == null) { // a dev ?day= preview never caches its ring under the real date
-    const v = JSON.stringify({date: ringDate(), parts, left});
-    if (ui.lsGet(RING_KEY) !== v) ui.lsSet(RING_KEY, v);
+function badgeOf(T) {
+  if (T === 'puzzles' && !dailyReady()) { const l = puzzlesLeft(); return l != null && l > 0; }
+  const ns = modNS.get(TAB_VIEW[T]);
+  if (ns && typeof ns.badge === 'function') {
+    try { return !!ns.badge(); } catch (e) { console.error(e); }
   }
+  if (T === 'puzzles') { const l = puzzlesLeft(); return l != null && l > 0; }
+  return false;
+}
+function badgeLabel(T, on) {
+  const base = TAB_TITLES[T];
+  if (T === 'puzzles') {
+    const l = puzzlesLeft();
+    if (l === 0 && !on) return `${base}, all done`;
+    if (on) return l ? `${base}, ${l === 1 ? '1 puzzle' : l + ' puzzles'} left` : `${base}, not finished`;
+    return base;
+  }
+  if (!on) return base;
+  return T === 'pickem' ? `${base}, games to pick` : T === 'matchup' ? `${base}, vote open` : base;
+}
+let badgeQueued = false;
+function updateBadges() {
+  badgeQueued = false;
+  const bar = $('tabbar');
+  if (!bar) return;
+  cacheRing();
+  BADGE_TABS.forEach(T => {
+    const btn = bar.querySelector(`.tab[data-tab="${T}"]`);
+    const dot = btn && btn.querySelector('.tab-dot');
+    if (!dot) return;
+    const on = badgeOf(T);
+    const label = badgeLabel(T, on);
+    if (btn.getAttribute('aria-label') !== label) btn.setAttribute('aria-label', label);
+    if (dot.hidden !== !on) {
+      dot.hidden = !on;
+      // A dot that appears while you look pops in (a small bouncy scale); one that goes simply goes.
+      if (on && !document.hidden && !ui.RM && bar.dataset.badged) ui.animate(dot, [{transform: 'scale(0)'}, {transform: 'scale(1)'}], {spring: 'bouncy'});
+    }
+  });
+  bar.dataset.badged = '1';
+}
+/** Recompute the tab badges soon (coalesced: any number of calls in one task costs one pass). */
+function queueBadges() {
+  if (badgeQueued) return;
+  badgeQueued = true;
+  setTimeout(updateBadges, 0);
 }
 // Re-tap runs as a queued op: during a push/pop it waits for that op (the tap already finish()ed the motion),
 // then acts on the settled stack. With an idle queue it runs synchronously, so focusSearch stays inside the tap.
@@ -1355,13 +1431,12 @@ async function doRetap(T) {
   const scr = st[0].scr;
   if (!scr) return;
   if (scr.el.scrollTop > 2) { scr.el.scrollTo({top: 0, behavior: ui.RM ? 'auto' : 'smooth'}); return; }
-  if (T === 'moves') {
-    const ns = modNS.get('moves');
-    try {
-      if (ns && typeof ns.focusSearch === 'function') ns.focusSearch(scr.ctx);
-      else if (scr.view.onAction) scr.view.onAction('focus-search', scr.ctx);
-    } catch (e) { console.error(e); }
-  }
+  // At the top already: a root with a search field (Draft's player search) focuses it.
+  const ns = modNS.get(st[0].route.view);
+  try {
+    if (ns && typeof ns.focusSearch === 'function') ns.focusSearch(scr.ctx);
+    else if (T === 'draft' && scr.view && scr.view.onAction) scr.view.onAction('focus-search', scr.ctx);
+  } catch (e) { console.error(e); }
 }
 function setupTabBar() {
   const bar = $('tabbar');
@@ -1379,8 +1454,11 @@ function setupTabBar() {
     });
   });
   updateTabBar(S.tab, {animate: false});
-  updateTodayIcon(false);
-  daily.subscribe(t => { if (t === 'progress' || t === 'ready' || t === 'newday') updateTodayIcon(t === 'progress'); });
+  updateBadges();
+  daily.subscribe(t => { if (t === 'progress' || t === 'ready' || t === 'newday' || t === 'error') queueBadges(); });
+  data.subscribe(t => { if (t === 'me' || t === 'data') queueBadges(); });
+  addEventListener('gg:badge', queueBadges, true); // capture on window: sees it dispatched on any node, bubbling or not
+  setInterval(() => { if (!document.hidden) queueBadges(); }, 30e3);
   addEventListener('resize', () => {
     const cur = bar.querySelector('.tab[aria-current="page"]');
     if (cur) moveIndicator(cur, false);
@@ -1488,8 +1566,11 @@ export function enableSwipeBack() {
 // ============================================================================ Global delegation
 document.addEventListener('click', e => {
   if (e.defaultPrevented) return;
-  const t = e.target && e.target.closest && e.target.closest('[data-nav-back], [data-back], [data-nav-action], [data-screen-retry], a[href^="#/"], [data-nav]');
+  const t = e.target && e.target.closest && e.target.closest('[data-you], [data-nav-back], [data-back], [data-nav-action], [data-screen-retry], a[href^="#/"], [data-nav]');
   if (!t) return;
+  // The avatar button in every tab root's large title (views/you.js youButtonHTML): the You sheet. you.js is already
+  // loaded (the button's own view imported it), so this resolves in a microtask, still inside the tap.
+  if (t.matches('[data-you]')) { e.preventDefault(); openYou(); return; }
   if (t.matches('[data-nav-back], [data-back]')) { e.preventDefault(); back(); return; }
   if (t.matches('[data-screen-retry]')) { const s = secMap.get(t.closest('section.screen')); if (s) retryScreen(s); return; }
   if (t.matches('[data-nav-action]')) {
@@ -1532,7 +1613,13 @@ data.subscribe(type => {
     refreshBackLabels();
   };
   if (type === 'data') ui.whenIdle(apply); else apply();
+  // Every avatar button (hidden tab roots too) shows the new you at once, whatever its view's refresh does.
+  if (type === 'me' && document.querySelector('[data-you]')) youMod().then(m => m.patchYouButtons(document), err => console.error(err));
 });
+
+// views/you.js: the You sheet and the avatar button. Imported on first use (every root view already imports it).
+const youMod = () => import('./views/you.js');
+function openYou() { youMod().then(m => m.openYouSheet(), err => console.error(err)); }
 
 // ============================================================================ Install prompt
 /** The captured beforeinstallprompt event (live binding), or null. */
@@ -1579,6 +1666,7 @@ function onVisibility() {
   allMounted().forEach(s => { if (vis && s.visible) resumeTimers(s); else pauseTimers(s); });
   if (!vis) { persistScroll(); return; }
   try { daily.checkDay(); } catch (_) {}
+  queueBadges(); // kickoffs and vote locks passed while the page was away
   const now = Date.now();
   if (now - (data.lastLoad || 0) > 30 * 60 * 1000 && now - lastVisibleCheck > 60 * 1000) {
     lastVisibleCheck = now;
@@ -1606,7 +1694,7 @@ async function start() {
   const marked = takeBootMark();
   if (marked && st0 && st0.gg === 1 && st0.n === 0) hash0 = marked;
   const first = parseRoute(hash0);
-  if (first && first.tab === 'today') daily.ensure().catch(() => {});
+  if (first && first.tab === HOME) daily.ensure().catch(() => {});
   if (st0 && st0.gg === 1 && typeof st0.n === 'number' && st0.n > 0) {
     try { window.name = BOOT_MARK + JSON.stringify({h: hash0, t: Date.now(), prev: window.name || ''}); } catch (_) {}
     S.n = st0.n;
@@ -1622,7 +1710,7 @@ async function start() {
   if (ui.IOS_STANDALONE) enableSwipeBack();
   requestAnimationFrame(() => ui.onIdle(() => {
     daily.ensure().catch(() => {});
-    TABS.forEach(id => loadView(id).catch(() => {}));
+    TABS.forEach(t => loadView(TAB_VIEW[t]).catch(() => {}));
     ui.onIdle(() => ['season', 'profile', 'review', 'wrap', 'run', 'results'].forEach(id => loadView(id).catch(() => {})));
     registerSW();
   }));

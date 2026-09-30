@@ -50,15 +50,14 @@
   opacity: 0;
 }
 .tab-ind.is-ready { opacity: 1; }
-.tab-ring { width: 24px; height: 24px; display: grid; place-items: center; grid-area: 1 / 1; }
-.tab-ring .ring-track { stroke: currentColor; opacity: .38; }
-.tab-ring .ring-track.is-zero { stroke: var(--ink-4); opacity: 1; }
+/* Badge dot (Puzzles unfinished, Pick'em games to pick, Matchup vote open): top right of the 24 px icon. */
 .tab-dot {
   position: absolute; top: 1px; left: calc(50% + 12px);
   width: 6px; height: 6px; border-radius: 3px;
   background: var(--tint);
   box-shadow: 0 0 0 1.5px var(--bar-solid);
 }
+.tab-dot[hidden] { display: none; }
 
 /* ================================================================ Nav bar (compact) */
 .nav {
@@ -117,6 +116,23 @@
 .lt-trail { flex: none; display: flex; align-items: center; gap: 8px; padding-bottom: 4px; }
 .lt-sub { margin-top: 2px; font: 400 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink-2); }
 .lt-sentinel { display: block; height: 1px; margin-top: -1px; visibility: hidden; pointer-events: none; }
+/* Your avatar button (views/you.js youButtonHTML), last in every tab root's trailing slot: a 44 px target whose 32 px
+   monogram lines up with the 16 px gutter. */
+.c-you-btn {
+  position: relative;
+  width: 44px; height: 44px; flex: none;
+  margin-right: -6px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  transition: transform var(--spring-snappy-dur) var(--spring-snappy);
+}
+.c-you-btn.is-pressed { transform: scale(.9); transition: none; }
+.c-you-btn .c-you-empty {
+  width: 32px; height: 32px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--surface-2); color: var(--ink-2);
+}
+.c-you-btn .c-you-empty .ic { stroke-width: 2; }
 
 /* ================================================================ Sticky accessory */
 .accessory {

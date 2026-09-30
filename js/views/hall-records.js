@@ -1,8 +1,10 @@
-// Hall › Records (spec 7.14): record hero with a count-up, fun-facts carousel with page dots, sticky
-// section chips with scroll-spy, record rows whose holders link to profiles, and the focus param
-// (/hall/records/2.4 scrolls that row to the center and flashes it). Owner: hall package.
+// League › Records (spec 7.14; a segment of league.js): Record of the day (moved from Today: a small card on top that
+// brings its row into focus), record hero with a count-up, fun-facts carousel with page dots, sticky section chips
+// with scroll-spy, record rows whose holders link to profiles, and the focus param (/league/records/2.4 scrolls that
+// row to the center and flashes it). Owner: LEAGUE.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
+import * as daily from '../core/daily.js';
 
 const esc = data.esc;
 const prof = id => `#/managers/${encodeURIComponent(id)}`;
@@ -97,7 +99,52 @@ function model() {
     sec.items.push(r);
   });
   const fallback = flat.length > 0 && flat.every(r => r.key.startsWith('f.'));
-  return {R: R || null, secs, fallback, keys: new Set(flat.map(r => r.key))};
+  return {R: R || null, flat, secs, fallback, keys: new Set(flat.map(r => r.key))};
+}
+
+// ------------------------------------------------------------------ Record of the day
+// One record a day, the pick Today used to show: recordsFlat()[PNUM % n], so it turns over with the puzzles. It
+// needs the puzzle day number: until puzzles.json is in, a skeleton of the card's height holds its place (so a
+// focused row never shifts); if the puzzles can't load, the slot closes.
+const rotdReady = () => daily.status === 'ready' && !!daily.DAY;
+function rotdPick(flat) {
+  return rotdReady() && flat.length ? flat[daily.PNUM % flat.length] : null;
+}
+const rotdSig = r => r ? `${r.key}|${r.label}|${r.val}|${(r.holders || []).join(';')}` : daily.status === 'error' ? 'x' : 'sk';
+function rotdCard(r) {
+  const m0 = (r.matches && r.matches[0]) || [];
+  const ids = [...new Set(m0.map(x => x.id))].slice(0, 2);
+  const hs = r.holders || [];
+  const v = String(r.val == null ? '' : r.val);
+  const label = `Record of the day. ${r.section}: ${r.label}, ${v}${r.unit ? ' ' + r.unit : ''}. ${hs.join('; ')}`;
+  return `<a class="card rd" href="#/league/records/${esc(r.key)}" data-rd="${esc(r.key)}" aria-label="${esc(label)}">`
+    + `<span class="rd-main">`
+    + `<span class="card-ovl rd-ovl">${ui.icon('calendar', {size: 13})}<span class="rd-ot">Record of the day</span></span>`
+    + `<span class="rd-l">${esc(r.label)}</span>`
+    + (hs[0] ? `<span class="rd-h">${ids.length ? ui.avatarStack(ids, {size: 20, max: 2}) : ''}<span class="rd-ht">${esc(hs[0])}</span>${hs.length > 1 ? `<span class="rd-more">+${hs.length - 1}</span>` : ''}</span>` : '')
+    + `</span>`
+    + `<span class="rc-v" aria-hidden="true"><span class="n4${valSize(v)}">${valHTML(v)}</span>${r.unit ? `<span class="t-cap">${esc(r.unit)}</span>` : ''}</span>`
+    + `</a>`;
+}
+function rotdSkeleton() {
+  return `<div class="card rd rd-sk" aria-hidden="true"><span class="rd-main"><span class="sk sk-line rd-sk-o"></span><span class="sk sk-line rd-sk-l"></span><span class="sk sk-line rd-sk-h"></span></span><span class="sk rd-sk-v"></span></div>`;
+}
+function rotdInner(flat) {
+  const r = rotdPick(flat);
+  return r ? rotdCard(r) : daily.status === 'error' ? '' : rotdSkeleton();
+}
+const rotdHost = flat => `<div class="rd-host" data-enter data-sig="${esc(rotdSig(rotdPick(flat)))}">${rotdInner(flat)}</div>`;
+
+// Puzzles came in (or failed): swap the skeleton for the card (or close the slot).
+function patchRotd() {
+  const host = S && S.el.querySelector('.rd-host');
+  if (!host) return;
+  const flat = data.recordsFlat();
+  const sig = rotdSig(rotdPick(flat));
+  if (host.dataset.sig === sig) return;
+  host.dataset.sig = sig;
+  const go = () => { host.innerHTML = rotdInner(flat); };
+  if (S.ctx.visible && !ui.RM && host.firstElementChild && ui.rendered(host)) ui.crossfade(host, go, {duration: 160}); else go();
 }
 
 // ------------------------------------------------------------------ Pieces
@@ -156,8 +203,8 @@ function sections(secs) {
 
 // ------------------------------------------------------------------ Segment API
 export function render() {
-  const {R, secs} = model();
-  let h = heroCard(R) + funFacts(R);
+  const {R, flat, secs} = model();
+  let h = (flat.length ? rotdHost(flat) : '') + heroCard(R) + funFacts(R);
   if (!secs.length) {
     h += `<div class="hl-empty" data-enter>${ui.empty({icon: 'medal', title: 'No records yet.', body: 'The record book opens after the first full season.'})}</div>`;
     return `<div class="hl-rec">${h}</div>`;
@@ -308,6 +355,8 @@ function scrollToFact(i) {
 
 // ---------------- Focus param
 function wantFocus(ctx, reason = ctx.reason) {
+  const smooth = S.smooth;
+  S.smooth = false;
   // A data reload or a "me" change rebuilds the list quietly: never jump or flash again.
   if (reason === 'data' || reason === 'me') { S.focus = null; return; }
   const f = ctx.params && ctx.params.focus;
@@ -317,11 +366,29 @@ function wantFocus(ctx, reason = ctx.reason) {
     S.focus = null;
     ui.toast(BAD_LINK);
     // Drop the stale key from the address (queued behind the current navigation; lands in params()).
-    ctx.replace('/hall/records');
+    ctx.replace('/league/records');
   }
-  if (S.focus && ctx.visible) runFocus();
+  if (S.focus && ctx.visible) runFocus({smooth});
 }
-function runFocus() {
+
+// Record of the day: its row is on this page, so a tap brings that row into focus here (the address follows it).
+function onRotd(e, ctx) {
+  const a = e.target.closest && e.target.closest('a.rd[data-rd]');
+  if (!a || !S || !S.el.contains(a) || e.defaultPrevented) return;
+  if (e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return; // a new tab or window: the plain link
+  e.preventDefault();
+  const key = a.dataset.rd;
+  const path = '/league/records/' + encodeURIComponent(key);
+  if (ctx.path === path) {
+    S.focus = key; S.focusDone = false;
+    runFocus({smooth: true});
+  } else {
+    S.smooth = true;
+    ctx.replace(path);
+  }
+}
+// smooth: the Record of the day card, a tap on this same page, glides to its row (a deep link jumps there).
+function runFocus({smooth = false} = {}) {
   if (!S || !S.focus || S.focusDone) return;
   const row = S.el.querySelector(`.rc[data-key="${CSS.escape(S.focus)}"]`);
   const {scr, navH, tabH} = chrome();
@@ -331,9 +398,17 @@ function runFocus() {
   const accH = S.acc ? (S.acc.offsetHeight || 44) : 0;
   const bandTop = navH + accH, bandBot = scr.clientHeight - tabH;
   const target = topIn(scr, row) + row.offsetHeight / 2 - (bandTop + bandBot) / 2;
-  S.lockUntil = 0;
-  scr.scrollTop = Math.max(0, Math.round(target));
-  S.focusTop = scr.scrollTop;
+  const top = Math.max(0, Math.min(Math.round(target), scr.scrollHeight - scr.clientHeight));
+  if (smooth && !ui.RM && Math.abs(scr.scrollTop - top) > 1) {
+    // The glide is ours: the focus hold survives its scroll events (scrollend or a touch clears the lock).
+    S.lockUntil = performance.now() + 2000;
+    S.focusTop = top;
+    scr.scrollTo({top, behavior: 'smooth'});
+  } else {
+    S.lockUntil = 0;
+    scr.scrollTop = top;
+    S.focusTop = scr.scrollTop;
+  }
   // The chip shows the focused record's section until the reader touches or scrolls the screen.
   const i = +((row.closest('.rc-sec') || {}).dataset || {}).sec;
   if (S.chips && isFinite(i)) { S.active = -1; setActive(i); S.hold = true; }
@@ -354,9 +429,17 @@ export function mount(el, ctx) {
     end: el.querySelector('.rc-end'),
     active: 0, lockUntil: 0, hold: false, inBand: new Set(), atEnd: false, bandTop: 0,
     spy: null, endIO: null, factIO: null, rail: null, dots: null, fact: 0, ratios: null, factTarget: null, factT: 0,
-    focus: null, focusDone: false, focusTop: 0, flashT: 0, ac: new AbortController()
+    focus: null, focusDone: false, focusTop: 0, flashT: 0, smooth: false, unDaily: null, ac: new AbortController()
   };
   const sig = {signal: S.ac.signal};
+
+  // Record of the day: fill in once the puzzles are in (the app loads them at idle; a cold link here asks now).
+  el.addEventListener('click', e => onRotd(e, ctx), sig);
+  if (m.flat.length) {
+    S.unDaily = daily.subscribe(t => { if (t === 'ready' || t === 'error') patchRotd(); });
+    if (daily.status === 'idle') daily.ensure().catch(() => {});
+    else patchRotd(); // it may have settled between render and mount
+  }
 
   // Record hero count-up (only when the value is a number above zero).
   const hv = el.querySelector('.rh-val[data-rh-count]');
@@ -401,7 +484,7 @@ export function mount(el, ctx) {
       // The focus hold also ends on any scroll that did not come from the focus itself (a tab re-tap
       // scrolling to the top, for one).
       scr.addEventListener('scroll', () => {
-        if (S && S.hold && Math.abs(scr.scrollTop - S.focusTop) > 4) { S.hold = false; spyPick(); }
+        if (S && S.hold && performance.now() >= S.lockUntil && Math.abs(scr.scrollTop - S.focusTop) > 4) { S.hold = false; spyPick(); }
       }, psig);
     }
     addEventListener('resize', () => { if (S && S.ctx.visible) spySetup(); }, {signal: S.ac.signal, passive: true});
@@ -433,6 +516,7 @@ export function show() {
 export function unmount() {
   if (!S) return;
   S.ac.abort();
+  if (S.unDaily) S.unDaily();
   if (S.spy) S.spy.disconnect();
   if (S.endIO) S.endIO.disconnect();
   if (S.factIO) S.factIO.disconnect();

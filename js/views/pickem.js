@@ -1,7 +1,8 @@
-// NFL Pick'em (#/pickem, optional ?week=N): pick the winner of every real NFL game of the week. Pushed on any tab.
-// Owner: PICKEM-VIEWS.
-//   Large title (eyebrow "NFL · Week 4") · sticky week chips (week 1 through the current one) · summary card (your
-//   progress, your record, next kickoff or games live, the week's leader; opens the leaderboard) · games grouped by
+// NFL Pick'em (#/pickem, optional ?week=N): pick the winner of every real NFL game of the week. The Pick'em tab's root
+// (tabs-v4: links to /pickem switch to the tab; nothing pushes it any more). Owner: SHELL (was PICKEM-VIEWS).
+//   Large title (eyebrow "NFL · Week 4", your avatar button trailing) · sticky week chips (week 1 through the current
+//   one) · summary card (your progress, your record, next kickoff or games live, the week's leader; opens the
+//   leaderboard) · games grouped by
 //   slot (Thursday night, Sunday morning (international), Sunday early, Sunday late, Sunday night, Monday night),
 //   each a card: away and home as two big tap targets with logos, records and the kickoff in local time; after
 //   kickoff a lock, the live score and clock, then Final with your pick marked right or wrong, the pick split bar and
@@ -9,12 +10,14 @@
 // Data: js/core/nfl.js (ESPN scoreboard: scoreboard, currentWeek, watch) and js/core/week.js (pickemWeek,
 //   subscribeNflPicks, pickGame, clearPick, nflWeekResults, nflStandings). Nothing here writes anywhere but through
 //   week.js (dev hosts save to its local stand-in).
-// Exports (the Rivals card uses them; Today may): summarize(), leaderText(), follow(), currentWeek(), logoURL(),
-//   kickText(), recText().
+// Exports: badge() (the tab bar's dot: open games you haven't picked, remembered in localStorage 'gg-pickem-due' for a
+//   cold open; a 'gg:badge' event when it may have changed),
+//   and for other screens summarize(), leaderText(), follow(), currentWeek(), logoURL(), kickText(), recText().
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as week from '../core/week.js';
 import * as nfl from '../core/nfl.js';
+import {youButtonHTML} from './you.js';
 
 const esc = data.esc;
 const PICK_OFF = "Pick'em isn't switched on yet.";
@@ -168,7 +171,7 @@ function pickIndex(snap) {
 }
 
 /**
- * The week at a glance, for the screen, the Rivals card and Today:
+ * The week at a glance, for the screen and any other screen that follows the week:
  * {n, picked, right, wrong, decided (final untied games), live, open (not kicked off), done (all final),
  *  next (Date of the next kickoff or null), allIn (every open game picked), leaders: [{w, right, wrong}], best,
  *  people (pickers seen so far), mineMap}
@@ -224,7 +227,7 @@ export function leaderText(s, {done} = {}) {
   return `${cap(list)} ${names.length > 1 || names[0] === 'you' ? 'lead' : 'leads'} at ${rec}`;
 }
 
-// ============================================================================ Following a week (screen, Rivals, Today)
+// ============================================================================ Following a week (the screen, others)
 // Module memo: the last board and picks per week, so a re-mounted screen paints at once (nfl.js keeps its own caches).
 const memo = {cur: null, boards: new Map(), snaps: new Map()};
 const wkey = (y, w) => `${y}-w${w}`;
@@ -329,10 +332,10 @@ export function follow(target, fn) {
 }
 
 // ============================================================================ Screen state
-// A Pick'em screen can be pushed on more than one tab at once (Today's This week card, the Rivals card), so each
-// mounted screen keeps its own state (screens: ctx -> state). The helpers below all read `st`, the screen being
-// worked on: every entry point (lifecycle hooks, events, timers, data callbacks) runs through on(state, fn), which
-// points `st` at that screen for the call and restores it after.
+// One Pick'em root exists (the tab), but each mounted screen keeps its own state (screens: ctx -> state; a retry
+// builds a new screen before the old one goes). The helpers below all read `st`, the screen being worked on: every
+// entry point (lifecycle hooks, events, timers, data callbacks) runs through on(state, fn), which points `st` at that
+// screen for the call and restores it after.
 let st = null;
 const screens = new Map();
 function on(s, fn) {
@@ -341,6 +344,51 @@ function on(s, fn) {
   st = s;
   try { return fn(); } finally { st = prev; }
 }
+
+// ============================================================================ Tab badge
+/**
+ * The Pick'em tab's dot (app.js polls it): this week has games still open (not kicked off) that you haven't picked.
+ * Reads only what the screen already fetched (the module memo, plus a mounted screen's unsaved taps), never a request;
+ * kickoffs since the last poll lock games by the clock. What it last saw that way stays on this phone (DUE_KEY: the
+ * kickoff times of the open games you hadn't picked), so a cold open, where nothing here has fetched yet (the app
+ * opens on Puzzles), still shows the dot until those games kick off. Nothing known (never opened on this phone, or a
+ * new week not seen yet) -> no dot. Picks made on another phone count once this screen has loaded the week again.
+ */
+const DUE_KEY = 'gg-pickem-due'; // {k: '2026-w4', due: [kickoff ms, ...]}
+let dueMem;                      // undefined until read
+function savedDue(at) {
+  if (dueMem === undefined) {
+    try { const o = JSON.parse(ui.lsGet(DUE_KEY) || 'null'); dueMem = o && Array.isArray(o.due) ? o.due.filter(Number.isFinite) : null; } catch (_) { dueMem = null; }
+  }
+  return !!dueMem && dueMem.some(t => t > at);
+}
+function saveDue(k, due) {
+  dueMem = due;
+  const v = JSON.stringify({k, due});
+  if (ui.lsGet(DUE_KEY) !== v) ui.lsSet(DUE_KEY, v);
+}
+// Another tab of the app on this phone saw the week: read it again.
+try { addEventListener('storage', ev => { if (ev.key === DUE_KEY || ev.key === null) { dueMem = undefined; signalBadge(); } }); } catch (_) {}
+export function badge() {
+  const c = memo.cur, at = nowMs();
+  if (!c) return savedDue(at);
+  const k = wkey(c.year, c.week);
+  const b = memo.boards.get(k), snap = memo.snaps.get(k);
+  if (snap && snap.error) return false; // pick'em switched off, or the picks can't be read: unknown
+  // This week's games or your picks still on the way (a first snapshot from the empty local cache is not an answer).
+  if (!b || !b.games.length || !snap || snap.ready === false) return savedDue(at);
+  const mine = Object.assign({}, snap.mine || {});
+  screens.forEach(s => {
+    if (s.dead || s.off || s.year !== c.year || s.week !== c.week) return;
+    s.pending.forEach((p, gid) => { if (p.team) mine[gid] = p.team; else delete mine[gid]; });
+  });
+  const due = b.games.filter(g => !lockedGame(g, at) && mine[g.id] !== g.home.abbr && mine[g.id] !== g.away.abbr)
+    .map(g => g.kickoff.getTime()).filter(Number.isFinite);
+  saveDue(k, due);
+  return due.length > 0;
+}
+// Tell the tab bar to look again (it coalesces; badge() itself decides).
+const signalBadge = () => { try { document.dispatchEvent(new CustomEvent('gg:badge', {detail: {tab: 'pickem'}})); } catch (_) {} };
 
 function targetOf(ctx) {
   const q = ctx.query && ctx.query.week;
@@ -375,7 +423,7 @@ function vm() {
 // The eyebrow: "NFL · Week 4" (the season before the week is known).
 const eyebrowText = () => (st && st.week ? `NFL · Week ${st.week}` : `NFL · ${st && st.year ? st.year : seasonYear()}`);
 function titleHTML() {
-  return ui.largeTitle({eyebrow: eyebrowText(), title: "Pick'em"});
+  return ui.largeTitle({eyebrow: eyebrowText(), title: "Pick'em", trailing: youButtonHTML()});
 }
 // The week chips: from the season's first pick'em week (weeks before it never had picks) to the current week. Hidden
 // while there is only one week to show.
@@ -816,9 +864,10 @@ function patchGame(li, g, v, pop) {
   st.seen.set(g.id, {state: g.state, locked, revealed});
 }
 
-// Compact title and actions.
+// Compact title and actions (and the tab badge: every render and patch lands here).
 function syncChrome() {
   if (!st) return;
+  signalBadge();
   const t = st.week ? `Pick'em · Week ${st.week}` : "Pick'em";
   if (t !== st.titleShown) { st.titleShown = t; st.ctx.setTitle(t); }
   // Scores may be out of date: the live dots stop pulsing (they would claim a game is live right now).
@@ -1027,11 +1076,13 @@ function startFollow() {
     st.pending.forEach((p, gid) => { if (p.saved && snapHas(gid, p.team)) st.pending.delete(gid); });
     later(() => patch());
   }));
-  // A ?week= link opened before the current week was known: never show a week that hasn't started.
-  if (st.explicit) {
+  // A ?week= link opened before the current week was known: never show a week that hasn't started. A link to the
+  // current week (or past it: the current week is what shows) settles on the canonical /pickem.
+  if (st.explicit || targetOf(st.ctx) != null) {
     currentWeek().then(c => on(s0, () => {
       if (!st.stop) return; // hidden or gone meanwhile
-      if (st.year === c.year && st.week > c.week) { st.ctx.replace('/pickem'); return; }
+      const t = targetOf(st.ctx);
+      if (t != null && st.year === c.year && t >= c.week) { st.ctx.replace('/pickem'); return; }
       later(() => patch());
     }), () => {});
   }
@@ -1173,6 +1224,8 @@ function updateScreen(ctx) {
   if (ctx.reason === 'params') {
     const was = `${st.year}-${st.week}-${st.explicit}`;
     setWeekFromCtx(ctx);
+    // A ?week= link to the current week (or past it) shows the current week: its address is /pickem.
+    if (!st.explicit && targetOf(ctx) != null && memo.cur) ctx.replace('/pickem');
     if (`${st.year}-${st.week}-${st.explicit}` === was && st.week) { patch(); return; }
     stopFollow();
     st.pending.clear(); st.seen.clear(); st.err = null;

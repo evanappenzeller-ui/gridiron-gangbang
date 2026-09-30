@@ -1,8 +1,10 @@
-// Dev component gallery at #/_kit (not linked anywhere). Owner: foundation (shell).
-// Renders every ui.js primitive on real league data, plus the Core checks panel.
+// Dev component gallery at #/_kit (not linked anywhere; pushed, a cold link sits on Puzzles). Owner: foundation
+// (shell). Renders every ui.js primitive on real league data, plus the Core checks panel (checks.js, then the
+// shell's own route checks: the five tab roots, every legacy link's new home, the push routes' home tabs).
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import {runChecks} from '../core/checks.js';
+import {parseRoute, TABS} from '../app.js';
 
 const esc = data.esc;
 const sec = (title, inner, {note, id} = {}) => `<section class="kit-sec"${id ? ` id="${id}"` : ''}>${ui.sectionHeader({title})}${inner}${note ? `<p class="note">${esc(note)}</p>` : ''}</section>`;
@@ -26,18 +28,54 @@ function routeRows() {
   const y = (data.DONE[0] && data.DONE[0].year) || data.span.last || 2025;
   const live = (data.SEASONS.find(s => s.live) || {}).year;
   const R = [
-    ['/today', 'root · Today'], ['/today/play/college', 'cover · run'], ['/today/play/silhouette', 'cover · run (five-puzzle days)'], ['/today/play/mystery', 'cover · run'], ['/today/play/journey', 'cover · run (five-puzzle days)'], ['/today/play/grid', 'cover · run'], ['/today/results', 'cover · results'],
-    ['/standings', 'root · Standings'], [`/standings/${y}`, 'push · season'], [`/standings/${y}/weeks`, 'push · season'], [`/standings/${y}/weeks/7`, 'push · season'], [`/standings/${y}/bracket`, 'push · season'], [`/standings/${y}/review`, 'push · review'],
+    ['/puzzles', 'root · Puzzles'], ['/puzzles/play/college', 'cover · run'], ['/puzzles/play/silhouette', 'cover · run (v2, v3 and some v4 days)'], ['/puzzles/play/mystery', 'cover · run'], ['/puzzles/play/journey', 'cover · run (v2, v3 and some v4 days)'], ['/puzzles/play/grid', 'cover · run'], ['/puzzles/results', 'cover · results'],
+    ['/pickem', "root · Pick'em (this week)"], ['/pickem?week=3', "root · Pick'em, week 3 (read-only)"], ['/pickem?week=18', "root · Pick'em, future week → this week"],
+    ['/matchup', 'root · Matchup'], ['/matchup/evan-vs-mason', 'root · Matchup, head-to-head pair'],
+    ['/press', 'push · Press Room'], ['/press/2026-w2', 'push · Press Room, one week (share link)'], ['/press/foo', 'push · Press Room, unknown week → archive + toast'],
+    ['/league/standings', 'root · League, Standings'], ['/league/trophies', 'root · League, Trophies'], ['/league/records', 'root · League, Records'], ['/league/records/2.4', 'root · League, Records focus'], ['/league/shame', 'root · League, Shame'], [`/league/shame?y=${live || y}`, 'root · League, Shame for one season'],
+    [`/standings/${y}`, 'push · season'], [`/standings/${y}/weeks`, 'push · season'], [`/standings/${y}/weeks/7`, 'push · season'], [`/standings/${y}/bracket`, 'push · season'], [`/standings/${y}/review`, 'push · review'],
     ...(live ? [[`/standings/${live}`, 'push · season in progress'], [`/standings/${live}/wrap/1`, 'push · wrap']] : []),
     [`/standings/${y}/wrap/16`, 'push · wrap (playoff week)'], [`/standings/${y}/wrap/99`, 'push · wrap (no such week)'],
-    ['/rivals', 'root · Rivals'], ['/rivals/evan-vs-mason', 'root · Rivals pair'], ['/rivals?s=pickem', "root · Rivals, NFL Pick'em card"],
-    ['/pickem', "push · NFL Pick'em (this week)"], ['/pickem?week=3', "push · NFL Pick'em, week 3 (read-only)"], ['/pickem?week=18', "push · NFL Pick'em, future week → redirect"],
-    ['/press', 'push · Press Room'], ['/press/2026-w2', 'push · Press Room, one week (share link)'], ['/press/foo', 'push · Press Room, unknown week → archive + toast'],
-    ['/hall', 'redirect → /hall/trophies'], ['/hall/trophies', 'root · Hall'], ['/hall/records', 'root · Hall'], ['/hall/records/2.4', 'root · Hall focus'], ['/hall/shame', 'root · Hall Shame'], [`/hall/shame?y=${live || y}`, 'root · Hall Shame, one season'],
-    ['/moves', 'redirect → /moves/drafts'], ['/moves/drafts', 'root · Moves'], ['/moves/drafts/2024?m=evan', 'root · Moves filtered'], ['/moves/trades?m=ben', 'root · Moves trades'],
+    ['/draft', 'root · Draft (latest draft)'], ['/draft/2024?m=evan', 'root · Draft, 2024 filtered'], ['/draft/trades?m=ben', 'root · Draft, trades filtered'],
     ['/managers/evan', 'push · profile'], ['/managers/nobody', 'push · unknown manager'], ['/_kit', 'push · this gallery'], ['/not-a-route', 'unknown → toast']
   ];
-  return ui.group(R.map(([p, s]) => ui.row({title: p, sub: s, chevron: true, attrs: {'data-nav': p}})).join(''));
+  const rows = list => ui.group(list.map(([p, s]) => ui.row({title: p, sub: s, chevron: true, attrs: {'data-nav': p}})).join(''));
+  return rows(R) + `<div class="mt-16">${ui.group(LEGACY_LINKS.filter(([p]) => p).map(([p, to]) => ui.row({title: p, sub: '→ ' + to, chevron: true, attrs: {'data-nav': p}})).join(''), {header: 'Old links (redirected)'})}</div>`;
+}
+
+// ============================================================================ Route checks (shell)
+// Old links (shared links, bookmarks, share texts, notifications) and where they must land: [old, canonical new path].
+const LEGACY_LINKS = [
+  ['/today', '/puzzles'], ['/today/play/college', '/puzzles/play/college'], ['/today/play/journey', '/puzzles/play/journey'], ['/today/results', '/puzzles/results'],
+  ['/rivals', '/matchup'], ['/rivals/evan-vs-mason', '/matchup/evan-vs-mason'], ['/rivals?s=pickem', '/pickem'], ['/rivals?s=motw', '/matchup?s=motw'],
+  ['/rivals?s=pickem&week=4', '/pickem?week=4'], ['/rivals/evan-vs-mason?s=pickem', '/pickem'], ['/rivals/evan-vs-mason?s=motw', '/matchup/evan-vs-mason?s=motw'],
+  ['/standings', '/league/standings'], ['/hall', '/league/trophies'], ['/hall/trophies', '/league/trophies'], ['/hall/records', '/league/records'],
+  ['/hall/records/2.4', '/league/records/2.4'], ['/hall/shame', '/league/shame'], ['/hall/shame?y=2025', '/league/shame?y=2025'],
+  ['/moves', '/draft'], ['/moves/drafts', '/draft'], ['/moves/drafts/2024', '/draft/2024'], ['/moves/drafts/2024?m=evan', '/draft/2024?m=evan'],
+  ['/moves/trades', '/draft/trades'], ['/moves/trades?m=ben', '/draft/trades?m=ben'], ['/league', '/league/standings'],
+  ['#daily', '/puzzles'], ['#records', '/league/records'], ['#trophies', '/league/trophies'], ['#standings', '/league/standings'], ['#rivals', '/matchup'], ['#moves', '/draft'],
+  ['', '/puzzles']
+];
+function routeChecks() {
+  const out = [];
+  const bad = (list, f) => list.map(f).filter(Boolean);
+  // The five tab roots.
+  const roots = [['/puzzles', 'puzzles', 'puzzles'], ['/pickem', 'pickem', 'pickem'], ['/matchup', 'matchup', 'rivals'], ['/league/standings', 'league', null], ['/draft', 'draft', 'moves']];
+  let miss = bad(roots, ([p, tab, view]) => { const r = parseRoute(p); return r && r.open === 'root' && r.tab === tab && (!view || r.view === view) && r.path === p ? null : p; });
+  out.push({name: 'Routes: the five tab roots', pass: !miss.length && TABS.join() === 'puzzles,pickem,matchup,league,draft', detail: miss.length ? 'wrong: ' + miss.join(', ') : TABS.join(' · ')});
+  // Every legacy link lands on its canonical new path.
+  miss = bad(LEGACY_LINKS, ([p, to]) => { const r = parseRoute(p); return r && r.path === to ? null : `${p || '(empty)'} → ${r ? r.path : 'nothing'}`; });
+  out.push({name: 'Routes: old links redirect', pass: !miss.length, detail: miss.length ? miss.join('; ') : `${LEGACY_LINKS.length} old links land on their new homes`});
+  // Pushed routes and covers: how they open and which tab a cold link sits on.
+  const pushes = [['/standings/2024', 'push', 'league'], ['/standings/2024/wrap/3', 'push', 'league'], ['/managers/evan', 'push', 'league'], ['/press', 'push', 'matchup'],
+    ['/press/2026-w2', 'push', 'matchup'], ['/_kit', 'push', 'puzzles'], ['/puzzles/play/grid', 'cover', 'puzzles'], ['/puzzles/results', 'cover', 'puzzles']];
+  miss = bad(pushes, ([p, open, home]) => { const r = parseRoute(p); return r && r.open === open && r.home === home ? null : p; });
+  out.push({name: 'Routes: pushes, covers and their home tabs', pass: !miss.length, detail: miss.length ? 'wrong: ' + miss.join(', ') : `${pushes.length} routes`});
+  // Unknown and malformed links stay unknown (the app lands on Puzzles with a toast).
+  const unknown = ['/not-a-route', '/draft/20x4', '/league/nope', '/matchup/evan', '/puzzles/play/chess', '/pickem/3', '/hall/records/2.4/x'];
+  miss = unknown.filter(p => parseRoute(p));
+  out.push({name: 'Routes: unknown links', pass: !miss.length, detail: miss.length ? 'matched: ' + miss.join(', ') : `${unknown.length} unknown`});
+  return out;
 }
 
 function avatarsSection() {
@@ -190,7 +228,7 @@ function statesSection() {
 }
 
 function iconsSection() {
-  return sec('Icons', `<div class="kit-icons">${ui.ICON_NAMES.map(n => `<div class="kit-icon">${ui.icon(n)}<span class="t-cap ink3">${esc(n)}</span></div>`).join('')}${['list-number-fill', 'versus-fill', 'trophy-fill', 'swap-fill'].map(n => `<div class="kit-icon tint">${ui.icon(n)}<span class="t-cap ink3">${esc(n)}</span></div>`).join('')}</div>`);
+  return sec('Icons', `<div class="kit-icons">${ui.ICON_NAMES.map(n => `<div class="kit-icon">${ui.icon(n)}<span class="t-cap ink3">${esc(n)}</span></div>`).join('')}${['grid-3-fill', 'football-fill', 'versus-fill', 'trophy-fill', 'list-number-fill'].map(n => `<div class="kit-icon tint">${ui.icon(n)}<span class="t-cap ink3">${esc(n)}</span></div>`).join('')}</div>`);
 }
 
 function checksSection() {
@@ -202,6 +240,7 @@ async function renderChecks(el) {
   if (!box) return;
   let res;
   try { res = await runChecks(); } catch (e) { res = [{name: 'runChecks()', pass: false, detail: 'threw: ' + (e && e.message || e)}]; }
+  try { res = res.concat(routeChecks()); } catch (e) { res.push({name: 'Route checks', pass: false, detail: 'threw: ' + (e && e.message || e)}); }
   if (!box.isConnected) return;
   const ok = res.filter(r => r.pass).length;
   box.innerHTML = `<p class="t-sub ${ok === res.length ? 'tint' : 'wrong'} kit-sum" data-kit-summary>${ok} of ${res.length} passed</p>` +

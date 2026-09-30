@@ -1,4 +1,5 @@
-/* Rivals (spec 7.12, 4.2, 6, delight 8.12). Owner: rivals package. Every selector is scoped under .v-rivals. */
+/* Matchup tab (view id 'rivals': spec 7.12, 4.2, 6, delight 8.12; tabs-v4 contract 5). Owner: MATCHUP. Every screen
+   selector is scoped under .v-rivals; its sheets under .sh-rv (who voted) and .sh-rv-pre (an unplayed game). */
 
 /* ================================================================ Matchup header */
 .v-rivals .rv-hdr {
@@ -420,59 +421,43 @@
 .v-rivals .rv-vt-tag.is-lead > .ic { fill: var(--gold); }
 .v-rivals .rv-vt-tag.is-mine { background: var(--tint-soft); color: var(--tint); }
 
-/* ================================================================ NFL Pick'em (compact card; the game is #/pickem) */
-.v-rivals .rv-pk { margin: 0 0 28px; }
-.v-rivals .rv-pk-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; min-height: 34px; margin-bottom: 8px; }
-.v-rivals .rv-pk-head .t-2 { margin: 0; }
-.v-rivals .rv-pk-wk { color: var(--ink-3); }
-.v-rivals .rv-npk {
-  position: relative; display: flex; flex-direction: column;
-  min-height: 72px; padding: 14px 16px 0;
-  color: var(--ink); overflow: hidden;
-  --stack-ring: var(--surface-1);
-  transition: transform var(--spring-snappy-dur) var(--spring-snappy);
-}
-.v-rivals .rv-npk.is-pressed { transform: scale(.98); transition: none; }
-.v-rivals .rv-npk:focus-visible { outline-offset: 2px; }
-.v-rivals .rv-npk:not(.is-ok) { flex-direction: row; align-items: center; gap: 10px; padding: 14px 12px 14px 16px; }
-.v-rivals .rv-npk > .chev { flex: none; width: 18px; height: 18px; margin-left: auto; color: var(--ink-3); }
-.v-rivals .rv-npk-msg { flex: 1 1 auto; display: flex; align-items: center; gap: 8px; min-width: 0; font: 400 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink-2); }
-.v-rivals .rv-npk-msg > .ic { flex: none; width: 18px; height: 18px; color: var(--ink-3); }
-.v-rivals .rv-npk-msg .spin { flex: none; width: 16px; height: 16px; border-width: 2px; }
-.v-rivals .rv-npk-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
-.v-rivals .rv-npk-prog { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
-.v-rivals .rv-npk-prog .n2 { font-size: 40px; line-height: 40px; }
-.v-rivals .rv-npk-of { display: inline-flex; align-items: center; gap: 4px; font: 600 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink-2); white-space: nowrap; }
-.v-rivals .rv-npk-of > .ic { width: 15px; height: 15px; stroke-width: 2.8; }
-.v-rivals .rv-npk-prog.is-all .n2, .v-rivals .rv-npk-prog.is-all .rv-npk-of { color: var(--tint); }
-.v-rivals .rv-npk-rec { display: flex; flex-direction: column; align-items: flex-end; flex: none; }
-.v-rivals .rv-npk-rl { font: 400 var(--fs-cap)/var(--lh-cap) var(--font-text); color: var(--ink-3); }
-.v-rivals .rv-npk-strip { display: flex; gap: 3px; margin-top: 12px; }
-.v-rivals .rv-npk-strip > i { flex: 1 1 0; height: 5px; border-radius: 3px; background: var(--surface-3); }
-.v-rivals .rv-npk-strip > i.is-on { background: color-mix(in srgb, var(--tint) 55%, var(--surface-3)); }
-.v-rivals .rv-npk-strip > i.is-right { background: var(--tint); }
-.v-rivals .rv-npk-strip > i.is-wrong { background: var(--wrong); }
-.v-rivals .rv-npk-rows { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
-.v-rivals .rv-npk-row { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 22px; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2); }
-.v-rivals .rv-npk-row > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.v-rivals .rv-npk-row > .ic { flex: none; width: 16px; height: 16px; color: var(--ink-3); }
-.v-rivals .rv-npk-row > .c-pk-dot { margin: 0 4px 0 5px; }
-.v-rivals .rv-npk-row.is-live { color: var(--ink); font-weight: 600; }
-.v-rivals .rv-npk-row.is-lead { color: var(--ink); }
-.v-rivals .rv-npk-av { flex: none; display: flex; }
-.v-rivals .rv-npk-av .stack > * + * { margin-left: -5px; }
-.v-rivals .rv-npk-go {
-  display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  min-height: 48px; margin: 12px -16px 0; padding: 0 12px 0 16px;
-  border-top: .5px solid var(--separator);
-  font: 600 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--tint);
-}
-.v-rivals .rv-npk-go > .ic { flex: none; width: 18px; height: 18px; stroke-width: 2.2; }
+/* ================================================================ Week section heads (this week's games, last week) */
+.v-rivals .rv-wk-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; min-height: 34px; margin-bottom: 8px; }
+.v-rivals .rv-wk-head .t-2 { margin: 0; }
+.v-rivals .rv-wk-ovl { color: var(--ink-3); white-space: nowrap; }
 
-/* ================================================================ Press Room (right under the Matchup of the Week) */
+/* ================================================================ This week's games (each opens the matchup sheet) */
+.v-rivals .rv-games { margin: 0 0 28px; }
+.v-rivals .rv-gms { --stack-ring: var(--surface-1); }
+.v-rivals .rv-gm { padding-top: 8px; padding-bottom: 8px; }
+.v-rivals .rv-gm:focus-visible { outline-offset: -2px; border-radius: var(--r-group); }
+/* Unplayed: both names in ink (nobody has won or lost yet), each manager's season record where the score will be,
+   in plain secondary text: never the Barlow score numerals, so a record before kickoff can't read as a result. */
+.v-rivals .rv-gm.is-open .bug-side { color: var(--ink); }
+.v-rivals .rv-gm-rec { font: 500 15px/20px var(--font-text); font-variant-numeric: tabular-nums; color: var(--ink-2); }
+.v-rivals .rv-gms-f { margin-top: 6px; }
+
+/* ================================================================ Last week: The Wrap */
+.v-rivals .rv-last { margin: 0 0 28px; }
+.v-rivals .rv-wrapc { display: block; padding: 16px; color: var(--ink); --stack-ring: var(--surface-1); }
+.v-rivals .rv-wrapc:focus-visible { outline-offset: 2px; }
+.v-rivals .rv-wrapc-hl {
+  margin-top: 6px;
+  font: 600 var(--fs-3)/var(--lh-3) var(--font-text);
+  overflow: hidden; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3;
+}
+.v-rivals .rv-wrapc-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; min-width: 0; }
+.v-rivals .rv-wrapc-foot .stack { flex: none; }
+.v-rivals .rv-wrapc-btn { flex: none; pointer-events: none; }
+
+/* ================================================================ Press Room (under this week's games) */
 .v-rivals .rv-press { margin: 0 0 28px; }
 .v-rivals .rv-press-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; min-height: 34px; margin-bottom: 8px; }
 .v-rivals .rv-press-head .t-2 { margin: 0; }
+/* A presser posted in the last 4 days: the accent "New" pill across from the heading. */
+.v-rivals .rv-press-new { flex: none; display: inline-flex; align-self: center; }
+.v-rivals .rv-press-new .pill { font-weight: 700; letter-spacing: .02em; }
 /* The latest presser: its media runs edge to edge across the top of the card (the tile is views/press.js's). */
 .v-rivals .rv-press-card { padding: 0; overflow: hidden; min-width: 0; }
 .v-rivals .rv-press-card .c-press { --press-r: 0px; }
@@ -545,6 +530,10 @@
 .sh-rv .rv-sh-note { margin: 16px 16px 0; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
 .sh-rv .group-h { text-transform: none; letter-spacing: 0; font-weight: 600; }
 .sh-rv .empty { padding-top: 24px; }
+/* An unplayed game's matchup sheet (views/matchup.js's look, .sh-matchup): names in ink, the standings place where
+   the score will be. */
+.sh-rv-pre .rv-pre-bug .bug-side { color: var(--ink); }
+.sh-rv-pre .rv-pre-place { color: var(--ink-3); }
 
 @media (max-width: 374px) {
   /* The top pick keeps its avatars, smaller, so "Jaymin vs Jayton" is not "Jay… vs Jay…". */

@@ -1,6 +1,8 @@
-// Sheets opened from Today (spec 7.8): the You sheet (who you are, posting name, haptics, data, install, about),
-// the Streak sheet (5-week heatmap) and the Player card (a leaderboard nickname's posted days).
-// Owner: daily-hub package.
+// The avatar button every tab root shows (youButtonHTML) and the sheets it and the Puzzles screen open (spec 7.8): the
+// You sheet (who you are, posting name, haptics, data, install, about), the Streak sheet (5-week heatmap) and the
+// Player card (a leaderboard nickname's posted days).
+// Exports: youButtonHTML(), patchYouButtons(root), openYouSheet(), openStreakSheet(), openPlayerCard(uid, {managerId}).
+// Owner: SHELL (tabs-v4; was the daily-hub package).
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as daily from '../core/daily.js';
@@ -12,6 +14,30 @@ const nf = n => data.nf(n);
 
 function sec(title, inner, foot, attrs = '') {
   return `<section class="c-ys"${attrs ? ' ' + attrs : ''}><h3 class="c-ys-h">${esc(title)}</h3>${inner}${foot ? `<p class="c-ys-f">${esc(foot)}</p>` : ''}</section>`;
+}
+
+// ============================================================================ Avatar button
+// The trailing slot of every tab root's large title (Puzzles, Pick'em, Matchup, League, Draft): your monogram with
+// the white "you" ring, or a person glyph before you've picked. Views only render it: app.js opens the You sheet on
+// any [data-you] tap (one delegated handler) and redraws every button after a 'me' change (patchYouButtons below).
+function youInner(me) {
+  return me ? ui.avatar(me, {size: 32, you: true}) : `<span class="c-you-empty">${ui.icon('person', {size: 18})}</span>`;
+}
+/** The avatar button, for a large title's `trailing` slot. */
+export function youButtonHTML() {
+  const me = data.me();
+  return `<button type="button" class="c-you-btn" data-you data-me="${esc(String(me || ''))}" aria-label="You and settings">${youInner(me)}</button>`;
+}
+/** Redraws the avatar buttons under root that show someone else (app.js calls it on 'me'); a visible one pops in. */
+export function patchYouButtons(root = document) {
+  const me = data.me(), key = String(me || '');
+  root.querySelectorAll('[data-you]').forEach(b => {
+    if (b.dataset.me === key) return;
+    b.dataset.me = key;
+    b.innerHTML = youInner(me);
+    const shown = b.getClientRects().length && !b.closest('.tab-layer[hidden], [data-under]');
+    if (shown && !ui.RM && b.firstElementChild) ui.animate(b.firstElementChild, [{transform: 'scale(.6)', opacity: .4}, {transform: 'none', opacity: 1}], {spring: 'snappy'});
+  });
 }
 
 // ============================================================================ You sheet

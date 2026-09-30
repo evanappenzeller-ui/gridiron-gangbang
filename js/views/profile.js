@@ -335,7 +335,7 @@ function rivalRow(id, r, label, tone, alsoMost) {
     trail: `<span class="pf-rv"><span class="n4 ${st}">${esc(rec)}</span><span class="pf-bar" aria-hidden="true"><i style="transform:scaleX(${r.share.toFixed(3)})"></i></span></span>`,
     chevron: true,
     cls: 'pf-rival',
-    attrs: {href: `#/rivals/${id}-vs-${r.id}`, 'aria-label': `${label}${alsoMost ? ' and most played' : ''}: ${data.name(r.id)}, ${rec} in ${games}`}
+    attrs: {href: `#/matchup/${id}-vs-${r.id}`, 'aria-label': `${label}${alsoMost ? ' and most played' : ''}: ${data.name(r.id)}, ${rec} in ${games}`}
   });
 }
 function rivalries(id, d) {
@@ -357,7 +357,7 @@ function records(id, d) {
     trail: `<span class="pf-val"><span class="n4">${valHtml(r.val)}</span>${r.unit ? `<span class="t-cap">${esc(r.unit)}</span>` : ''}</span>`,
     chevron: true,
     cls: 'pf-rec',
-    attrs: {href: '#/hall/records/' + r.key}
+    attrs: {href: '#/league/records/' + r.key}
   })).join('');
   return sec('Records held', ui.group(rows, {cls: 'pf-recs'}), {note: `${d.recs.length} of ${d.recTotal} league records.`, est: 45 + 80 * d.recs.length});
 }
@@ -372,7 +372,7 @@ function draftCapital(id, d) {
       title: p.player,
       chevron: true,
       cls: 'pf-draft',
-      attrs: {href: `#/moves/drafts/${p.year}?m=${encodeURIComponent(id)}`, 'aria-label': `${p.year} · ${pp} · ${p.player}`}
+      attrs: {href: `#/draft/${p.year}?m=${encodeURIComponent(id)}`, 'aria-label': `${p.year} · ${pp} · ${p.player}`}
     });
   }).join('');
   return sec('Draft capital', ui.group(rows, {cls: 'pf-drafts'}), {note: 'First-round picks.', est: 62 + 44 * d.picks.length});
@@ -392,7 +392,7 @@ function tradeRow(id, t) {
     sub: `${when} · with ${withTxt}`,
     chevron: true,
     cls: 'pf-trade',
-    attrs: {href: '#/moves/trades?m=' + encodeURIComponent(id), 'aria-label': `${when}, with ${withTxt}. Received ${got.length ? listAnd(got) : 'nothing listed'}.`}
+    attrs: {href: '#/draft/trades?m=' + encodeURIComponent(id), 'aria-label': `${when}, with ${withTxt}. Received ${got.length ? listAnd(got) : 'nothing listed'}.`}
   });
 }
 function tradesSec(id, d) {
@@ -403,7 +403,7 @@ function tradesSec(id, d) {
   const partner = d.topPartner && d.topPartner[1] > 1 ? ` · most with ${data.name(d.topPartner[0])} (${d.topPartner[1]})` : '';
   const head = `<p class="pf-tcount"><span class="n3">${data.nf(n)}</span><span class="pf-tcount-t">${n === 1 ? 'trade' : 'trades'}</span><span class="pf-tcount-s">since ${since}${esc(partner)}</span></p>`;
   return sec('Trades', head + ui.group(d.trades.slice(0, 3).map(t => tradeRow(id, t)).join(''), {cls: 'pf-trades'}),
-    {action: {label: 'See all', href: '#/moves/trades?m=' + encodeURIComponent(id)}, est: 92 + 60 * Math.min(3, n)});
+    {action: {label: 'See all', href: '#/draft/trades?m=' + encodeURIComponent(id)}, est: 92 + 60 * Math.min(3, n)});
 }
 
 // Unknown id: the empty state, plus the whole league one tap away (each avatar flies into its profile).

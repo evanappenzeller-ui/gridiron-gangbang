@@ -1,9 +1,12 @@
-// Moves tab: Drafts, Trades and player search (spec 7.15). Owner: moves package.
-// Routes: /moves/drafts[/:year], /moves/trades, optional ?m=<managerId> on both.
+// Draft tab (the Moves tab renamed, tabs-v4): Drafts, Trades and player search (spec 7.15). Owner: SHELL (was the
+// moves package). Large title "Draft" (eyebrow "6 drafts · 41 trades") with your avatar button trailing.
+// Routes: /draft (the latest draft), /draft/<year>, /draft/trades, optional ?m=<managerId> on each (the old
+// /moves/drafts[/<year>] and /moves/trades links redirect here in app.js).
 // Mount once, then patch: segment, year and filter changes arrive through update(ctx) (reason 'params')
 // and swap only the list below the controls with a 120 ms cross-fade.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
+import {youButtonHTML} from './you.js';
 
 const esc = s => data.esc(s == null ? '' : String(s));
 const pad2 = n => String(n).padStart(2, '0');
@@ -103,16 +106,23 @@ function resolve(ctx) {
   return {seg, year, latest, m};
 }
 const sameState = (a, b) => a.seg === b.seg && a.year === b.year && a.m === b.m && a.latest === b.latest;
-const draftsPath = (year, m) => (year == null || year === latestYear() ? '/moves/drafts' : '/moves/drafts/' + year) + qs(m);
-const tradesPath = m => '/moves/trades' + qs(m);
+const draftsPath = (year, m) => (year == null || year === latestYear() ? '/draft' : '/draft/' + year) + qs(m);
+const tradesPath = m => '/draft/trades' + qs(m);
 const hasDraft = y => lists().drafts.some(d => d.year === y);
 
 const ST = new WeakMap(); // ctx → per-screen state
 
 // ============================================================================ Markup
+// Eyebrow "6 drafts · 41 trades" (every tab root has one, so the title and the avatar sit at the same height on all
+// five). Patched on a data reload.
+function eyebrowText() {
+  const L = lists();
+  const p = [L.drafts.length && count(L.drafts.length, 'draft', 'drafts'), L.trades.length && count(L.trades.length, 'trade', 'trades')].filter(Boolean);
+  return p.length ? p.join(' · ') : 'Drafts and trades';
+}
 function headHTML() {
   // "Cancel" slides in beside the field while it is focused or holds text (the iOS search bar pattern).
-  return ui.largeTitle({title: 'Moves'}) +
+  return ui.largeTitle({eyebrow: eyebrowText(), title: 'Draft', trailing: youButtonHTML()}) +
     `<div class="mv-q">${ui.searchField({name: 'q', placeholder: 'Search players', label: 'Search players'})}`
     + `<button type="button" class="mv-cancel" data-mv-cancel tabindex="-1" aria-hidden="true">Cancel</button></div>`;
 }
@@ -618,7 +628,7 @@ function onKey(st, e) {
   }
 }
 
-/** Called by app.js when the Moves tab is re-tapped at scroll top. Runs inside the tap (iOS raises the keyboard). */
+/** Called by app.js when the Draft tab is re-tapped at scroll top. Runs inside the tap (iOS raises the keyboard). */
 export function focusSearch(ctx) {
   const st = ctx && ST.get(ctx);
   const inp = (st && st.input) || (ctx && ctx.screen && ctx.screen.querySelector('.mv-q input'));
@@ -629,7 +639,7 @@ export function focusSearch(ctx) {
 
 export default {
   id: 'moves',
-  title: 'Moves',
+  title: 'Draft',
   render(ctx) {
     const s = resolve(ctx);
     // The segment stays visible during a search; only the content under it gives way to the results.
@@ -677,6 +687,8 @@ export default {
       // New league.json: recompute everything below the search field in place (app.js waits for idle).
       // The first visible pick or card stays where it was on screen.
       const anchor = st.searching ? null : visibleAnchor(st);
+      const eb = ctx.screen && ctx.screen.querySelector('.lt-eyebrow');
+      if (eb) { const t = eyebrowText(); if (eb.textContent !== t) eb.textContent = t; }
       swapContent(st, s, {fade: false});
       ui.setSeg(st.segEl, s.seg, {animate: false});
       if (anchor) restoreAnchor(st, anchor);

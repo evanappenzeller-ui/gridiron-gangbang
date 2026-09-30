@@ -1,15 +1,26 @@
-// Rivals: head to head for any two managers (spec 7.12, delight 8.12). Owner: rivals package.
-// Mounts once, then patches: series numbers roll (odometer), the split bar re-splits, the tape and the
-// meeting log cross-fade, and "{A} against everyone" reorders with FLIP.
-// Above the head to head sits the week (core/week.js): Matchup of the Week voting on the league's matchups, the
-// compact NFL Pick'em card (the real NFL games; it opens #/pickem, views/pickem.js) and the past Matchups of the
-// Week. They render at once from data.js and fill in when the Firestore snapshots and ESPN scores arrive; nothing
-// here waits on Firebase or ESPN. Right under the Matchup of the Week sits the Press Room card (the MOTW loser's
-// press conference, playable in place: core/press.js + views/press.js, loaded at idle; hidden until they answer).
+// Matchup tab root (#/matchup, #/matchup/:a-vs-:b; the view id stays 'rivals'): the league's week, then head to head
+// for any two managers (spec 7.12, delight 8.12; tabs-v4 contract 5). Owner: MATCHUP.
+// Large title "Matchup" (eyebrow "2026 season · Week 4") with your avatar button (views/you.js; app.js opens the You
+// sheet from [data-you]).
+// The week, top to bottom (core/week.js): 1. Matchup of the Week voting on the league's matchups (with the lock time);
+// 2. this week's six league games (the schedule; a score once the week is in the data), each opening the matchup
+// sheet (views/matchup.js; an unplayed game opens the same sheet's preview: records entering it and the series);
+// 3. the Press Room card (the MOTW loser's press conference, playable in place: core/press.js + views/press.js, loaded
+// at idle; hidden until they answer; a presser posted in the last 4 days is featured with a "New" pill);
+// 4. Last week: The Wrap card (core/stats.js, loaded at idle; opens the Wrap pushed on this tab); then the past
+// Matchups of the Week. They render at once from data.js and fill in when the Firestore snapshots arrive; nothing here
+// waits on Firebase. (The NFL pick'em is its own tab now: views/pickem.js.)
+// The head to head mounts once, then patches: series numbers roll (odometer), the split bar re-splits, the tape and
+// the meeting log cross-fade, and "{A} against everyone" reorders with FLIP.
+// Exports badge() -> boolean for the tab bar: Matchup of the Week voting is open and you haven't voted (known from
+// this screen's vote subscription, remembered per week in localStorage 'gg-motw-mine'; unknown -> no dot). A change
+// dispatches a bubbling 'gg:badge' event on document ({detail: {tab: 'matchup', on}}).
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as motw from '../core/motw.js';
 import * as week from '../core/week.js';
+import * as you from './you.js';
+import {openMatchup, enteringRecord} from './matchup.js';
 
 const esc = s => data.esc(s);
 const nm = id => data.name(id);
@@ -17,7 +28,7 @@ const SHARE = [{id: 'share', icon: 'share', label: 'Share this rivalry'}];
 const FOOTNOTE = 'Includes playoff and consolation games. Tap a name to see that matchup.';
 const USER_VIA = ['swap', 'pick', 'list', 'ext']; // pair changes the person asked for (announced)
 
-// One Rivals screen exists at a time (it is the Rivals tab root); its live state lives here and is reset
+// One Matchup screen exists at a time (it is the Matchup tab root); its live state lives here and is reset
 // in mount/unmount. Nothing derived from data.* outlives a reload: the model is rebuilt on every update.
 let st = null;
 
@@ -51,7 +62,7 @@ function resolvePair(params = {}) {
   const b = (pb && pb !== a) ? pb : opponentFor(a);
   return {a, b, isDefault: !pa && !pb};
 }
-const canon = (a, b) => '/rivals/' + encodeURIComponent(a + '-vs-' + b);
+const canon = (a, b) => '/matchup/' + encodeURIComponent(a + '-vs-' + b);
 
 // ============================================================================ Model
 function streakSentence(h) {
@@ -84,11 +95,11 @@ function spoken(m) {
   return `${nm(m.a)} against ${nm(m.b)}. ${nm(m.a)} ${w(h.aw)}, ${nm(m.b)} ${w(h.bw)}. ${footText(m)}`;
 }
 function titleOf(m) {
-  if (!m || !m.b) return 'Rivals';
+  if (!m || !m.b) return 'Matchup';
   return m.n ? `${nm(m.a)} ${m.h.aw}–${m.h.bw} ${nm(m.b)}` : `${nm(m.a)} vs ${nm(m.b)}`;
 }
 function shareText(m) {
-  const link = ui.absLink(`/rivals/${m.a}-vs-${m.b}`);
+  const link = ui.absLink(`/matchup/${m.a}-vs-${m.b}`);
   if (m.lead) {
     const L = m.lead === 'a' ? m.a : m.b, T = m.lead === 'a' ? m.b : m.a;
     const w = Math.max(m.h.aw, m.h.bw), l = Math.min(m.h.aw, m.h.bw);
@@ -489,7 +500,7 @@ function chooseMotw(key) {
 }
 function shareMotw() {
   const vm = voteModel();
-  const link = ui.absLink('/rivals');
+  const link = ui.absLink('/matchup');
   let text;
   if (vm && vm.locked && vm.leader) {
     const n = vm.tally[vm.leader] || 0;
@@ -501,7 +512,7 @@ function shareMotw() {
     // Before the rules are deployed (off) the chat still votes by number.
     // After kickoff with no votes there is nothing left to vote on: the plain shortlist.
     text = vm && vm.open
-      ? motw.shareText(res, ui.absLink('/rivals?s=motw')).replace(/ Vote by number:$/m, ' Vote in the app:')
+      ? motw.shareText(res, ui.absLink('/matchup?s=motw')).replace(/ Vote by number:$/m, ' Vote in the app:')
       : vm && vm.locked
         ? motw.shareText(res, link).replace(/ Vote by number:$/m, '')
         : motw.shareText(res, link);
@@ -581,6 +592,7 @@ function vote(key) {
   Promise.resolve(p).then(r => r, () => 'failed').then(r => {
     if (!st || st.wk !== w || seq !== w.vseq) return;
     if (r === 'ok' || r === 'dev') {
+      if (w.cur) noteVote(w.cur.key, !!next); // the tab's dot goes at once
       // Held until the snapshot shows it (Firestore's local echo is immediate); a quiet fallback after 4 s.
       clearTimeout(w.vT);
       w.vT = setTimeout(() => { if (st && st.wk === w && seq === w.vseq && w.vpend !== undefined && w.vsnap) { w.vpend = undefined; patchVotes({animate: true}); } }, 4000);
@@ -594,140 +606,254 @@ function vote(key) {
   });
 }
 
-// ---------------------------------------------------------------- NFL Pick'em (the compact card)
-// The pick'em is on the real NFL games; the game itself lives on its own screen (#/pickem). This card follows the
-// current week through pickem.js (imported at idle: it brings nfl.js), and draws at once without it.
-let pkMod = null, pkLoad = null;
-function loadPk() {
-  if (pkMod) return Promise.resolve(pkMod);
-  if (!pkLoad) pkLoad = import('./pickem.js').then(m => (pkMod = m), e => { pkLoad = null; throw e; });
-  return pkLoad;
-}
-// {state: 'load'|'err'|'empty'|'ok', week, sum, next, board, snap}
-function npkModel() {
-  const u = st && st.wk && st.wk.npk;
-  if (u && u.error && !u.board) return {state: 'err', week: u.week};
-  if (!u || !pkMod) return {state: 'load'};
-  const games = u.board ? u.board.games : null;
-  if (!games) return {state: u.error ? 'err' : 'load', week: u.week};
-  if (!games.length) return {state: u.board.stale || u.board.error ? 'err' : 'empty', week: u.week};
-  const sum = pkMod.summarize(games, u.snap);
-  return {state: 'ok', week: u.week, sum, stale: !!u.board.stale, off: !!(u.snap && /denied/.test(String(u.snap.error || '')))};
-}
-function npkStrip(m) {
-  const u = st.wk.npk;
-  const mine = m.sum.mineMap || {};
-  return `<span class="rv-npk-strip" aria-hidden="true">${u.board.games.map(g => {
-    const t = mine[g.id];
-    const picked = t === g.home.abbr || t === g.away.abbr;
-    const win = g.state === 'post' && g.final && g.winner ? g[g.winner].abbr : null;
-    return `<i class="${win && picked ? (t === win ? 'is-right' : 'is-wrong') : picked ? 'is-on' : ''}"></i>`;
-  }).join('')}</span>`;
-}
-function npkInner(m) {
-  const go = ui.icon('chevron-right', {cls: 'chev'});
-  if (m.state === 'load') {
-    return `<span class="rv-npk-msg"><span class="spin" aria-hidden="true"></span><span>Loading this week's NFL games</span></span>${go}`;
+// ---------------------------------------------------------------- The tab's badge (Matchup of the Week: open, not voted)
+// What this phone knows about your vote, per week: {k: weekKey, v: voted}. Written from this screen's vote snapshots
+// (once the server answered) and your own taps; read by badge() without any subscription of its own.
+const MEM_KEY = 'gg-motw-mine';
+let voteMem = null, voteMemRead = false, voteOffSeen = false, badgeShown = null;
+function mem() {
+  if (!voteMemRead) {
+    voteMemRead = true;
+    try { const o = JSON.parse(ui.lsGet(MEM_KEY) || 'null'); voteMem = o && typeof o.k === 'string' ? {k: o.k, v: !!o.v} : null; } catch (_) { voteMem = null; }
   }
-  if (m.state === 'err') return `<span class="rv-npk-msg">${ui.icon('info')}<span>The NFL games didn't load. Open Pick'em to try again.</span></span>${go}`;
-  if (m.state === 'empty') return `<span class="rv-npk-msg">${ui.icon('calendar')}<span>No NFL games this week.</span></span>${go}`;
-  const s = m.sum;
-  const played = s.right + s.wrong;
-  const allIn = s.allIn;
-  let when;
-  if (s.live) when = `<span class="rv-npk-row is-live"><i class="c-pk-dot" aria-hidden="true"></i><span>${esc(`${plural(s.live, 'game', 'games')} in progress`)}</span></span>`;
-  else if (s.next) when = `<span class="rv-npk-row">${ui.icon('clock')}<span>${esc(`Next kickoff ${pkMod.kickText(s.next)}`)}</span></span>`;
-  // Open games but no next kickoff: their times aren't set yet (ESPN lists them TBD).
-  else if (s.open) when = `<span class="rv-npk-row">${ui.icon('clock')}<span>Kickoff times not set yet</span></span>`;
-  else when = `<span class="rv-npk-row">${ui.icon('check-circle')}<span>${esc(s.done ? `All ${s.n} games are final` : 'Every game has kicked off')}</span></span>`;
-  const lt = pkMod.leaderText(s);
-  const lead = lt
-    ? `<span class="rv-npk-row is-lead"><span class="rv-npk-av">${ui.avatarStack(s.leaders.slice(0, 3).map(r => (r.w.id ? {id: r.w.id, you: r.w.you} : {nick: r.w.name, you: r.w.you})), {max: 3, size: 20})}</span><span>${esc(lt)}</span></span>`
-    : `<span class="rv-npk-row">${ui.icon('medal')}<span>${esc(s.people ? `${plural(s.people, 'person', 'people')} picking this week` : 'Nobody has picked yet')}</span></span>`;
-  const cta = s.open && !allIn && !m.off ? (s.picked ? 'Finish your picks' : 'Make your picks') : 'See the games';
-  return `<span class="rv-npk-top" aria-hidden="true">`
-    + `<span class="rv-npk-prog${allIn ? ' is-all' : ''}"><span class="n2">${s.picked}</span><span class="rv-npk-of">of ${s.n} picked${allIn ? ui.icon('check') : ''}</span></span>`
-    + `<span class="rv-npk-rec"><span class="n3${played ? '' : ' ink3'}">${played ? `${s.right}–${s.wrong}` : '0–0'}</span><span class="rv-npk-rl">${played && !s.done ? 'so far' : 'your record'}</span></span>`
-    + `</span>`
-    + npkStrip(m)
-    + `<span class="rv-npk-rows" aria-hidden="true">${when}${lead}</span>`
-    + `<span class="rv-npk-go" aria-hidden="true"><span>${esc(cta)}</span>${ui.icon('chevron-right')}</span>`;
+  return voteMem;
 }
-function npkLabel(m) {
-  if (m.state !== 'ok') return "NFL Pick'em. Open the week's games";
-  const s = m.sum;
-  const bits = [`NFL Pick'em, week ${m.week}`, `${s.picked} of ${s.n} picked`];
-  if (s.right + s.wrong) bits.push(`Your record ${s.right} and ${s.wrong}`);
-  if (s.live) bits.push(`${plural(s.live, 'game', 'games')} in progress`);
-  else if (s.next) bits.push(`Next kickoff ${pkMod.kickText(s.next)}`);
-  const lt = pkMod.leaderText(s);
-  if (lt) bits.push(lt);
-  return bits.join('. ') + '. Open Pick\'em';
+function noteVote(key, voted) {
+  if (!key) return;
+  const m = mem();
+  if (!m || m.k !== key || m.v !== !!voted) {
+    voteMem = {k: key, v: !!voted};
+    ui.lsSet(MEM_KEY, JSON.stringify(voteMem));
+  }
+  badgeChanged();
 }
-function npkHTML() {
-  const m = npkModel();
-  const wk = m.week ? `Week ${m.week}` : '';
-  return `<section class="rv-pk" id="rv-pickem" data-enter aria-labelledby="rv-pk-h">`
-    + `<div class="rv-pk-head"><h2 class="t-2" id="rv-pk-h">NFL Pick'em</h2><span class="ovl rv-pk-wk">${esc(wk)}</span></div>`
-    + `<a class="card rv-npk is-${m.state}" href="#/pickem" aria-label="${esc(npkLabel(m))}">${npkInner(m)}</a></section>`;
+// Tells the tab bar when the dot comes or goes (it also polls badge() on route changes).
+function badgeChanged() {
+  const on = badge();
+  if (on === badgeShown) return;
+  badgeShown = on;
+  try { document.dispatchEvent(new CustomEvent('gg:badge', {bubbles: true, detail: {tab: 'matchup', on}})); } catch (_) {}
 }
-// Patch the card in place (its link keeps focus); the week label follows.
-function patchNpk() {
-  const sec = st && st.el.querySelector('.rv-pk');
-  if (!sec) return;
-  const m = npkModel();
-  const a = sec.querySelector('.rv-npk');
-  const wk = sec.querySelector('.rv-pk-wk');
-  if (wk) { const t = m.week ? `Week ${m.week}` : ''; if (wk.textContent !== t) wk.textContent = t; }
-  if (!a) return;
-  const html = npkInner(m);
-  if (a._html !== html) { a.innerHTML = html; a._html = html; }
-  a.className = `card rv-npk is-${m.state}`;
-  a.setAttribute('aria-label', npkLabel(m));
+// Another tab of the app on this phone voted (or saw your vote): read it again.
+try { addEventListener('storage', ev => { if (ev.key === MEM_KEY || ev.key === null) { voteMemRead = false; badgeChanged(); } }); } catch (_) {}
+/** Tab bar dot: Matchup of the Week voting is open (before the week's first kickoff, and switched on) and this phone
+ *  knows you haven't voted this week. Pure: data.js, week.js's clock and the remembered vote; never a network call. */
+export function badge() {
+  if (voteOffSeen) return false;
+  let cur = null;
+  try { cur = week.current(); } catch (_) { return false; }
+  if (!cur || !cur.games || !cur.games.length || cur.locked) return false;
+  const m = mem();
+  return !!m && m.k === cur.key && !m.v;
 }
-// Follow the current NFL week while Rivals is on screen (pickem.follow: ESPN polling + the picks subscription).
-function npkStart() {
-  const w = st && st.wk;
-  if (!w || w.npkStop || w.npkWant) return;
-  w.npkWant = true;
-  loadPk().then(pk => {
-    if (!st || st.wk !== w || !w.npkWant || w.npkStop) return;
-    w.npkStop = pk.follow(null, u => {
-      if (!st || st.wk !== w) return;
-      w.npk = u;
-      if (w.idleN) w.idleN();
-      w.idleN = ui.whenIdle(() => { w.idleN = null; if (st && st.wk === w) patchNpk(); });
-    });
-    patchNpk();
-  }, e => {
-    console.warn('pickem card', e);
-    if (!st || st.wk !== w) return;
-    w.npkWant = false;
-    w.npk = {error: 'load'};
-    patchNpk();
-  });
+
+// ---------------------------------------------------------------- This week's games (the week's six league matchups)
+// week.current()'s games in schedule order. A game already in the data shows its score (a score bug; it opens the
+// matchup sheet); an unplayed one shows both managers' records and opens the sheet's preview.
+function gameOf(cur, x) {
+  return data.GAMES.find(g => g.year === cur.year && g.week === cur.week && ((g.a === x.a && g.b === x.b) || (g.a === x.b && g.b === x.a))) || null;
 }
-function npkStop() {
-  const w = st && st.wk;
+function tableRow(s, id) {
+  const r = s && s.table ? s.table.find(x => x.id === id) : null;
+  return r && (r.w + r.l + r.t) > 0 ? r : null;
+}
+function gmSide(s, id) {
+  const r = tableRow(s, id);
+  const team = s ? data.teamIn(s, id) : data.team(id);
+  return `<span class="bug-side is-tie">${ui.avatar(id, {size: 24, you: id === data.me()})}`
+    + `<span class="bug-name"><b>${esc(nm(id))}</b>${team ? `<span class="bug-team">${esc(team)}</span>` : ''}</span>`
+    + `<span class="bug-score rv-gm-rec">${esc(r ? data.recStr(r.w, r.l, r.t) : '0–0')}</span></span>`;
+}
+function gmLabel(s, x) {
+  const one = id => { const r = tableRow(s, id); return r ? `${nm(id)}, ${data.recStr(r.w, r.l, r.t)}, ${ui.ordinal(r.seed)}` : nm(id); };
+  return `${one(x.a)} versus ${one(x.b)}. Not played yet. Show the matchup`;
+}
+function gameItem(cur, s, x) {
+  const g = gameOf(cur, x);
+  if (g) return ui.scoreBug(g, {teams: true, cls: 'rv-gm', attrs: {'data-wg': x.key, 'data-press': 'row', 'aria-haspopup': 'dialog'}});
+  return `<button type="button" class="bug bug-row rv-gm is-open" data-wg="${esc(x.key)}" data-press="row" aria-haspopup="dialog" aria-label="${esc(gmLabel(s, x))}">`
+    + gmSide(s, x.a) + gmSide(s, x.b) + `</button>`;
+}
+function gamesHTML(cur) {
+  if (!cur || !cur.games || !cur.games.length) return '';
+  const s = data.seasonByYear(cur.year);
+  const played = cur.games.filter(x => gameOf(cur, x)).length;
+  const note = played === cur.games.length ? 'Final scores. Tap a game for the matchup.'
+    : played ? 'Scores so far. Tap a game for the matchup.' : 'Season records. Tap a game for the matchup.';
+  return `<section class="rv-games" data-enter aria-labelledby="rv-games-h">`
+    + `<div class="rv-wk-head"><h2 class="t-2" id="rv-games-h">This week's games</h2><span class="ovl rv-wk-ovl">Week ${esc(cur.week)}</span></div>`
+    + ui.group(cur.games.map(x => gameItem(cur, s, x)).join(''), {cls: 'rv-gms'})
+    + `<p class="group-f rv-gms-f">${esc(note)}</p></section>`;
+}
+function patchGames() {
+  const eb = st && st.el.querySelector('.lt-eyebrow');
+  if (eb) { const t = eyebrowText(); if (eb.textContent !== t) eb.textContent = t; }
+  const w = st && st.el.querySelector('.rv-games-w');
   if (!w) return;
-  w.npkWant = false;
-  if (w.npkStop) { try { w.npkStop(); } catch (_) {} w.npkStop = null; }
-  if (w.idleN) { w.idleN(); w.idleN = null; }
+  const html = gamesHTML(curWeek());
+  if (w._html === html) return;
+  const f = document.activeElement;
+  const fk = f && w.contains(f) && f.dataset ? f.dataset.wg : null;
+  w.innerHTML = html;
+  w._html = html;
+  if (fk) { const n = w.querySelector(`[data-wg="${CSS.escape(fk)}"]`); if (n) n.focus({preventScroll: true}); }
+  syncH2hTitle();
+  reland();
+}
+// The matchup sheet for an unplayed game (views/matchup.js draws played ones): the same look (.sh-matchup), with the
+// standings place where the score will be, the records entering the game and the all-time series.
+function seriesHTML(a, b) {
+  const h = data.h2hC(a, b);
+  const n = h.games.length;
+  const cA = data.color(a).cls, cB = data.hueClose(a, b) ? 'mc-ink' : data.color(b).cls;
+  const lead = h.aw === h.bw ? 0 : h.aw > h.bw ? 1 : -1;
+  const cap = !n ? 'First meeting' : lead === 0 ? `Even at ${h.aw}–${h.bw}` : lead > 0 ? `${nm(a)} leads ${h.aw}–${h.bw}` : `${nm(b)} leads ${h.bw}–${h.aw}`;
+  const extra = [`${n} meeting${n === 1 ? '' : 's'}`];
+  if (h.t) extra.push(`${h.t} tied`);
+  const share = n ? (h.aw + h.t / 2) / n : .5;
+  const side = (k, id, w, cls, on) => `<div class="mu-sv ${k} ${cls}${on ? ' is-lead' : ''}">${ui.avatar(id, {size: 28})}<span class="n3">${w}</span></div>`;
+  return `<div class="mu-series" role="img" aria-label="${esc(`All-time series: ${cap}, ${extra.join(', ')}`)}">`
+    + `<div class="mu-sb" aria-hidden="true">${side('a', a, h.aw, cA, lead >= 0)}<span class="mu-vs ovl">Series</span>${side('b', b, h.bw, cB, lead <= 0)}</div>`
+    + `<div aria-hidden="true">${ui.splitBar(a, b, share)}</div>`
+    + `<p class="mu-cap" aria-hidden="true"><b>${esc(cap)}</b> · ${esc(extra.join(' · '))}</p></div>`;
+}
+function openPreview(cur, x) {
+  const s = data.seasonByYear(cur.year);
+  const {a, b} = x;
+  const g = {a, b, week: cur.week, year: cur.year, type: 'reg', reg: true};
+  const locked = lockedNow(cur);
+  const place = id => { const r = tableRow(s, id); return r ? ui.ordinal(r.seed) : ''; };
+  const side = id => {
+    const t = s ? data.teamIn(s, id) : data.team(id);
+    return `<span class="bug-side is-tie">${ui.avatar(id, {size: 40, you: id === data.me()})}`
+      + `<span class="bug-name"><b>${esc(nm(id))}</b>${t ? `<span class="bug-team">${esc(t)}</span>` : ''}</span>`
+      + `<span class="bug-score n4 rv-pre-place">${esc(place(id))}</span></span>`;
+  };
+  const foot = locked ? 'Under way · Final scores after the week' : `Kickoff ${closeText(cur)}`;
+  const hero = `<div class="bug bug-row bug-hero mu-bug rv-pre-bug">${side(a)}${side(b)}<span class="bug-foot"><span class="ovl">${esc(foot.toUpperCase())}</span></span></div>`;
+  const ra = enteringRecord(s, g, a), rb = enteringRecord(s, g, b);
+  const better = ra.p == null || rb.p == null || ra.p === rb.p ? null : ra.p > rb.p ? 'a' : 'b';
+  const tape = ui.tape({label: g.week === 1 ? 'Season opener' : `Before week ${g.week}`, a: ra.rec, b: rb.rec, aSub: nm(a), bSub: nm(b), better, aId: a, bId: b});
+  const ovl = `Week ${cur.week} · ${cur.year}`;
+  const body = `<div class="mu">`
+    + `<div class="mu-hero">${hero}</div>`
+    + `<h3 class="mu-h">Records entering the game</h3><div class="mu-box">${tape}</div>`
+    + `<h3 class="mu-h">All-time series</h3><div class="mu-box mu-pad">${seriesHTML(a, b)}</div>`
+    + `<div class="mu-actions">${ui.button({label: 'Full rivalry', kind: 'secondary', icon: 'versus', attrs: {'data-mu': 'rivalry'}})}`
+    + `<div class="mu-profiles">${ui.button({label: `${nm(a)}'s profile`, kind: 'plain', attrs: {'data-mu': 'a'}})}${ui.button({label: `${nm(b)}'s profile`, kind: 'plain', attrs: {'data-mu': 'b'}})}</div></div>`
+    + `</div>`;
+  const ctx = st.ctx;
+  const sh = ui.openSheet({header: `<span class="ovl mu-ovl">${esc(ovl)}</span>`, label: `${ovl}: ${nm(a)} vs ${nm(b)}, not played yet`,
+    body, cls: 'sh-matchup sh-rv-pre', detents: ['medium', 'large']});
+  sh.body.addEventListener('click', e => {
+    const t = e.target.closest && e.target.closest('[data-mu]');
+    if (!t || !sh.open) return;
+    const k = t.dataset.mu;
+    sh.close();
+    if (k === 'rivalry') { if (st && st.ctx === ctx) chooseMotw(x.key); return; }
+    const id = k === 'a' ? a : b;
+    const sides = sh.body.querySelectorAll('.rv-pre-bug .bug-side');
+    const av = sides[k === 'a' ? 0 : 1] && sides[k === 'a' ? 0 : 1].querySelector('.av');
+    ctx.nav('/managers/' + encodeURIComponent(id), av ? {morphFrom: av} : undefined);
+  });
+  ui.splitIn(sh.body.querySelector('.split'));
+  return sh;
+}
+function openGame(key) {
+  const cur = curWeek();
+  const x = cur && cur.games.find(g => g.key === key);
+  if (!x || !st) return;
+  ui.haptic('light');
+  const g = gameOf(cur, x);
+  if (g) openMatchup(g, st.ctx); else openPreview(cur, x);
+}
+
+// ---------------------------------------------------------------- Last week: The Wrap (core/stats.js, loaded at idle)
+let STATS = null, statsP = null;
+function loadStats() {
+  if (STATS) return Promise.resolve(STATS);
+  if (!statsP) statsP = import('../core/stats.js').then(m => (STATS = m), e => { statsP = null; throw e; });
+  return statsP;
+}
+// The latest completed week of the live season that has a Wrap.
+function latestWrap() {
+  if (!STATS) return null;
+  const s = data.SEASONS.find(x => x.live);
+  if (!s) return null;
+  try {
+    const weeks = (STATS.wrapWeeks(s.year) || []).map(x => Number(x && typeof x === 'object' ? x.week : x)).filter(Number.isFinite);
+    if (!weeks.length) return null;
+    const wk = Math.max(...weeks);
+    const w = STATS.wrap(s.year, wk);
+    return w && w.headline ? {year: s.year, week: wk, w} : null;
+  } catch (e) { console.error(e); return null; }
+}
+function wrapHTML(x) {
+  if (!x) return '';
+  // Faces: whoever the headline names first, then the rest of the recap's cast.
+  const ids = [];
+  (x.w.items || []).forEach(it => (it && it.ids || []).forEach(id => { if (data.M[id] && !ids.includes(id)) ids.push(id); }));
+  const hl = x.w.headline.toLowerCase();
+  const at = id => { const i = hl.indexOf(nm(id).toLowerCase()); return i < 0 ? 1e6 : i; };
+  ids.sort((a, b) => at(a) - at(b));
+  return `<section class="rv-last" aria-labelledby="rv-last-h">`
+    + `<div class="rv-wk-head"><h2 class="t-2" id="rv-last-h">Last week</h2><span class="ovl rv-wk-ovl">Week ${esc(x.week)}</span></div>`
+    + `<a class="card rv-wrapc" href="#/standings/${esc(x.year)}/wrap/${esc(x.week)}" aria-label="${esc(`Read the Wrap for week ${x.week}: ${x.w.headline}`)}">`
+    + `<p class="card-ovl">The Wrap · Week ${esc(x.week)}</p>`
+    + `<p class="rv-wrapc-hl">${esc(x.w.headline)}</p>`
+    + `<span class="rv-wrapc-foot">${ids.length ? ui.avatarStack(ids.slice(0, 3), {size: 28, max: 3}) : '<span></span>'}`
+    + `<span class="btn btn-secondary btn-s rv-wrapc-btn" aria-hidden="true"><span class="btn-label">Read the Wrap</span></span></span></a></section>`;
+}
+function patchWrap(animate) {
+  const w = st && st.el.querySelector('.rv-wrap-w');
+  if (!w) return;
+  let html = '';
+  try { html = wrapHTML(latestWrap()); } catch (e) { console.error(e); html = ''; }
+  if (w._html === html) return;
+  const was = !!w.firstElementChild;
+  const put = () => { w.innerHTML = html; w._html = html; };
+  if (animate && !ui.RM && st.ctx.visible && was && html) ui.crossfade(w, put, {duration: 160});
+  else {
+    put();
+    if (animate && !ui.RM && st.ctx.visible && html && !was) ui.animate(w, [{opacity: 0, transform: 'translateY(8px)'}, {opacity: 1, transform: 'none'}], {duration: 320, easing: 'cubic-bezier(.22,1,.36,1)'});
+  }
+  syncH2hTitle();
+  reland();
+  if (html && st.goSec === 'rv-wrap') revealSec();
+}
+function wrapStart() {
+  const s = st;
+  if (!s || STATS) return;
+  loadStats().then(() => { if (st === s) patchWrap(true); }, e => console.warn('wrap card', e));
 }
 
 // ---------------------------------------------------------------- Press Room (the Matchup of the Week loser's presser)
 // core/press.js (the pressers: Firestore plus the seeded archive) and views/press.js (the tile and its in-place
-// player) load at idle. The card shows the latest presser; with none (once the server answered) a compact prompt
-// opens the post sheet. Nothing shows while loading or on a failure (only the Press Room screen shows errors).
+// player) load at idle. The card shows the latest presser; one posted in the last 4 days (by its `at`, on week.js's
+// clock; the seeded archive has none) is featured instead, with an accent "New" pill (what Today's "New press
+// conference" row said). With none (once the server answered) a compact prompt opens the post sheet. Nothing shows
+// while loading or on a failure (only the Press Room screen shows errors).
 let pvMod = null, prLoad = null;
 function loadPress() {
   if (!prLoad) prLoad = Promise.all([import('../core/press.js'), import('./press.js')]).then(([c, v]) => { pvMod = v; return c; }, e => { prLoad = null; throw e; });
   return prLoad;
 }
+const PRESS_DAYS = 4;
+function freshPresser(list) {
+  let t = 0;
+  try { t = week.now(); } catch (_) { t = Date.now(); }
+  let best = null;
+  list.forEach(p => {
+    const at = p && Number(p.at);
+    if (at > 0 && t - at < PRESS_DAYS * 864e5 && data.M[p.who] && (!best || at > best.at)) best = p;
+  });
+  return best;
+}
 function pressHTML() {
   const s = st && st.press;
   if (!s || !pvMod) return '';
-  const p = s.list[0];
+  const fresh = freshPresser(s.list);
+  const p = fresh || s.list[0];
   if (!p) {
     if (!s.ready || s.error) return '';
     return `<section class="rv-press" aria-label="Press Room"><button type="button" class="card rv-press-post" data-rv-press-post aria-label="Press Room. Post the loser's press conference">`
@@ -736,8 +862,9 @@ function pressHTML() {
       + `${ui.icon('chevron-right', {cls: 'chev'})}</button></section>`;
   }
   const n = s.list.length;
-  return `<section class="rv-press" aria-labelledby="rv-press-h">`
-    + `<div class="rv-press-head"><h2 class="t-2" id="rv-press-h">Press Room</h2></div>`
+  return `<section class="rv-press${fresh ? ' is-new' : ''}" aria-labelledby="rv-press-h">`
+    + `<div class="rv-press-head"><h2 class="t-2" id="rv-press-h">Press Room${fresh ? '<span class="sr-only">, new press conference</span>' : ''}</h2>`
+    + `${fresh ? `<span class="rv-press-new" aria-hidden="true">${ui.pill('New', {tone: 'tint'})}</span>` : ''}</div>`
     + `<div class="card rv-press-card">${pvMod.tileHTML(p, {size: 'm'})}`
     + `<a class="rv-press-all" href="#/press"><span>All press conferences</span><span class="rv-press-n">${n > 1 ? esc(String(n)) : ''}${ui.icon('chevron-right')}</span></a></div>`
     + `</section>`;
@@ -753,6 +880,9 @@ function patchPress() {
   w.innerHTML = html;
   w._html = html;
   if (html && !was && st.ctx.visible && !ui.RM) ui.animate(w, [{opacity: 0, transform: 'translateY(8px)'}, {opacity: 1, transform: 'none'}], {duration: 320, easing: 'cubic-bezier(.22,1,.36,1)'});
+  syncH2hTitle();
+  reland();
+  if (html && st.goSec === 'rv-press') revealSec();
 }
 function pressStart() {
   const s = st;
@@ -859,6 +989,7 @@ function patchPast(animate) {
   w.innerHTML = html;
   w._html = html;
   syncH2hTitle();
+  reland();
   if (animate && html && !was) ui.animate(w, [{opacity: 0, transform: 'translateY(8px)'}, {opacity: 1, transform: 'none'}], {duration: 320, easing: 'cubic-bezier(.22,1,.36,1)'});
 }
 function togglePast() {
@@ -950,8 +1081,7 @@ function loadHistory() {
 function newWk() {
   const cur = curWeek();
   return {cur, vsnap: null, vpend: undefined, vseq: 0, vT: 0, voff: false, hist: null, histSeq: 0,
-    unsub: [], idleV: null, sheet: null, lockedShown: lockedNow(cur), started: false,
-    npk: null, npkStop: null, npkWant: false, idleN: null};
+    unsub: [], idleV: null, sheet: null, lockedShown: lockedNow(cur), started: false};
 }
 function wkSubscribe() {
   const w = st && st.wk;
@@ -966,10 +1096,13 @@ function wkSubscribe() {
     w.voff = e === 'denied'; // follows the rules: switched on while the screen is open, it opens up
     if (e && !s.votes) { if (!w.vsnap) w.vsnap = {votes: [], mine: null, error: s.error}; }
     else w.vsnap = s;
+    const m = s.mine ? (typeof s.mine === 'string' ? s.mine : s.mine.pick || null) : null;
     if (w.vpend !== undefined) {
-      const m = s.mine ? (typeof s.mine === 'string' ? s.mine : s.mine.pick || null) : null;
       if (m === w.vpend || (w.vpend === null && !m)) { w.vpend = undefined; clearTimeout(w.vT); }
     }
+    // The tab's dot: remembered once the server has answered (a vote still on its way is not contradicted).
+    voteOffSeen = e === 'denied';
+    if (!e && s.ready !== false && w.vpend === undefined) noteVote(key, !!m); else badgeChanged();
     if (w.idleV) w.idleV();
     w.idleV = ui.whenIdle(() => { w.idleV = null; if (st && st.wk === w) patchVotes({animate: true}); });
   };
@@ -987,10 +1120,11 @@ function wkStart() {
   w.started = true;
   wkSubscribe();
   loadHistory();
-  npkStart();
 }
-// Kickoff passes while the screen is open: the vote turns read-only in place.
+// Kickoff passes while the screen is open: the vote turns read-only in place (and the tab's dot goes). A new
+// presser's "New" runs out after 4 days.
 function wkTick() {
+  patchPress();
   const w = st && st.wk;
   if (!w || !w.cur) return;
   const locked = lockedNow(w.cur);
@@ -998,6 +1132,7 @@ function wkTick() {
   w.lockedShown = locked;
   if (locked) w.vpend = undefined;
   patchVotes({animate: false});
+  badgeChanged();
 }
 // New data: the week may have moved on (subscribe to the new one), records and results changed.
 function wkData() {
@@ -1011,23 +1146,30 @@ function wkData() {
     if (w.started) wkSubscribe();
   } else w.cur = cur;
   if (w.started) loadHistory();
+  badgeChanged();
 }
 function syncH2hTitle() {
   const t = st && st.el.querySelector('.rv-h2h-t');
   if (!t) return;
-  const has = !!st.el.querySelector('.rv-week .rv-motw, .rv-week .rv-pk, .rv-week .rv-past');
+  const has = !!st.el.querySelector('.rv-week :is(.rv-motw, .rv-games, .rv-press, .rv-last, .rv-past)');
   t.hidden = !has;
   syncChrome();
 }
-// Deep links from other screens: #/rivals?s=motw | vote | pickem | picks | past | h2h
-const SEC = {motw: 'rv-motw', vote: 'rv-motw', votes: 'rv-motw', pickem: 'rv-pickem', picks: 'rv-pickem', past: 'rv-past', h2h: 'rv-h2h'};
+// Deep links from other screens: #/matchup?s=motw | vote | games | press | wrap | past | h2h (the NFL pick'em has
+// its own tab: app.js sends the old #/rivals?s=pickem there).
+const SEC = {motw: 'rv-motw', vote: 'rv-motw', votes: 'rv-motw', games: 'rv-games', week: 'rv-games', press: 'rv-press',
+  wrap: 'rv-wrap', last: 'rv-wrap', past: 'rv-past', h2h: 'rv-h2h'};
 function secOf(q) {
   const v = q && (q.s || q.section || q.focus);
   return v ? SEC[String(v).toLowerCase()] || null : null;
 }
+// The Press Room and the Wrap fill in at idle: a link to one of them waits until its card is there (patchPress and
+// patchWrap call revealSec again).
+const LATE_SEC = ['rv-press', 'rv-wrap'];
 function revealSec() {
   if (!st || !st.goSec || !st.ctx.visible) return;
   const id = st.goSec;
+  if (LATE_SEC.includes(id)) { const h = st.el.querySelector('#' + id); if (h && !h.firstElementChild) return; }
   st.goSec = null;
   const t = setTimeout(() => {
     const el = st && st.el.querySelector('#' + id);
@@ -1035,6 +1177,8 @@ function revealSec() {
     // Arriving from another screen: land on the section at once (no long scroll right after the tab switch),
     // then a soft tint pulse on its card says "here".
     scrollUnder(el, 8, 'auto');
+    const scr = st.ctx.screen;
+    st.landed = {id, until: Date.now() + 4000, top: scr ? scr.scrollTop : 0};
     const card = el.querySelector('.card, .group');
     if (card && !ui.RM) {
       const f = document.createElement('i');
@@ -1046,18 +1190,49 @@ function revealSec() {
   }, 60);
   st.cleanups.push(() => clearTimeout(t));
 }
+// A card that fills in above the section a link just landed on (the Press Room, the Wrap, the past picks) would push
+// it down: for a few seconds, and only while you haven't scrolled, the section is brought back under the bar.
+function reland() {
+  const l = st && st.landed;
+  if (!l) return;
+  const scr = st.ctx.screen;
+  if (Date.now() > l.until || !scr || Math.abs(scr.scrollTop - l.top) > 2) { st.landed = null; return; }
+  const el = st.el.querySelector('#' + l.id);
+  if (!el) return;
+  scrollUnder(el, 8, 'auto');
+  l.top = scr.scrollTop;
+}
+
+// Your avatar in the large title's trailing slot: views/you.js draws it (app.js redraws every one on 'me' and opens the
+// You sheet from [data-you]).
+function youHTML() {
+  try { return you.youButtonHTML(); } catch (e) { console.error(e); return ''; }
+}
+// Eyebrow "2026 season · Week 4" (every tab root has one, so the title and the avatar sit at the same height on all
+// five); patched by patchGames when the week moves on.
+function eyebrowText() {
+  const c = curWeek();
+  if (c) return `${c.year} season · Week ${c.week}`;
+  return data.span.last != null ? `${data.span.last} season` : '';
+}
+const titleHTML = () => ui.largeTitle({eyebrow: eyebrowText(), title: 'Matchup', trailing: youHTML()});
 
 function pageHTML(m) {
   if (!m || !m.b) {
-    return ui.largeTitle({title: 'Rivals'})
+    return titleHTML()
       + ui.empty({icon: 'versus', title: 'No rivals yet.', body: 'Rivals needs at least two managers in the league.'});
   }
-  const motwH = motwHTML(st ? st.lens : readLens()), npkH = npkHTML();
-  const wk = motwH + npkH;
+  const motwH = motwHTML(st ? st.lens : readLens());
+  const gamesH = gamesHTML(curWeek());
+  const wrapH = wrapHTML(latestWrap());
   const past = st && st.wk && st.wk.hist ? pastHTML(st.wk.hist) : '';
-  return ui.largeTitle({title: 'Rivals'})
-    + `<div class="rv-week">${motwH}<div class="rv-press-w">${pressHTML()}</div>${npkH}<div class="rv-past-w" id="rv-past">${past}</div></div>`
-    + `<h2 class="t-2 rv-h2h-t" id="rv-h2h"${wk || past ? '' : ' hidden'}>Head to head</h2>`
+  return titleHTML()
+    + `<div class="rv-week">${motwH}`
+    + `<div class="rv-games-w" id="rv-games">${gamesH}</div>`
+    + `<div class="rv-press-w" id="rv-press">${pressHTML()}</div>`
+    + `<div class="rv-wrap-w" id="rv-wrap">${wrapH}</div>`
+    + `<div class="rv-past-w" id="rv-past">${past}</div></div>`
+    + `<h2 class="t-2 rv-h2h-t" id="rv-h2h"${motwH || gamesH || wrapH || past ? '' : ' hidden'}>Head to head</h2>`
     + headerHTML(m)
     + `<div class="rv-main">${mainHTML(m)}</div>`
     + listSecHTML(m);
@@ -1073,6 +1248,10 @@ function grab(el) {
   };
   const pw = el.querySelector('.rv-past-w');
   if (pw) pw._html = pw.innerHTML ? pastHTML(st.wk && st.wk.hist) : '';
+  const gw = el.querySelector('.rv-games-w');
+  if (gw) gw._html = gw.innerHTML ? gamesHTML(curWeek()) : '';
+  const ww = el.querySelector('.rv-wrap-w');
+  if (ww) ww._html = ww.innerHTML ? wrapHTML(latestWrap()) : '';
   markRendered(el);
   st.listA = st.m ? st.m.a : null;
   st.listMe = st.meKey;
@@ -1291,7 +1470,7 @@ function patchList(m, {animate, meChanged}) {
   if (!same) ul.replaceChildren(...els);
 }
 
-// The compact title reads "{A} {aw}–{bw} {B}". Screens pushed on top keep the plain "‹ Rivals" back label
+// The compact title reads "{A} {aw}–{bw} {B}". Screens pushed on top keep the plain "‹ Matchup" back label
 // (ctx.setBackTitle in mount), never "‹ Ben 8–0 Say…".
 function chrome(m) {
   st.title = titleOf(m);
@@ -1319,7 +1498,7 @@ function syncChrome() {
   const key = `${inWeek}|${st.title}|${st.hasShare}|${cur ? cur.week : ''}`;
   if (key === st.chromeKey) return;
   st.chromeKey = key;
-  st.ctx.setTitle(inWeek ? (cur ? `Week ${cur.week}` : 'Rivals') : (st.title || 'Rivals'));
+  st.ctx.setTitle(inWeek ? (cur ? `Week ${cur.week}` : 'Matchup') : (st.title || 'Matchup'));
   st.ctx.setActions(!inWeek && st.hasShare ? null : []);
 }
 
@@ -1327,7 +1506,7 @@ function syncChrome() {
 // swap or a pick lands at once. Phase 2 (next frame): the tape, the meeting log and the list, which sit
 // below the fold; splitting keeps each task short on slow phones.
 // via: 'swap' | 'pick' | 'list' (a row in "{A} against everyone") | 'ext' (the route moved from outside,
-// e.g. a profile's Rivalries link over Rivals) | null (data, me, canonicalizing).
+// e.g. a profile's Rivalries link over Matchup) | null (data, me, canonicalizing).
 function apply(pair, {animate = true, via = null} = {}) {
   const prev = st.m;
   const m = model(pair.a, pair.b);
@@ -1475,9 +1654,10 @@ function chooseOpp(id) {
 
 function onClick(e) {
   const t = e.target.closest && e.target.closest('[data-swap], [data-pick], [data-opp], [data-motw], [data-motw-more], [data-motw-share], '
-    + '[data-vote], [data-vt-who], [data-past-more]');
+    + '[data-vote], [data-vt-who], [data-past-more], [data-wg]');
   if (!t || !st) return;
   if (t.hasAttribute('data-vote')) vote(t.dataset.vote);
+  else if (t.hasAttribute('data-wg')) openGame(t.dataset.wg);
   else if (t.hasAttribute('data-vt-who')) openWeekSheet('votes', t.dataset.vtWho);
   else if (t.hasAttribute('data-past-more')) { ui.haptic('light'); togglePast(); }
   else if (t.hasAttribute('data-motw')) chooseMotw(t.dataset.motw);
@@ -1497,7 +1677,7 @@ function onClick(e) {
 // ============================================================================ View
 export default {
   id: 'rivals',
-  title: 'Rivals',
+  title: 'Matchup',
   actions: () => SHARE,
 
   render(ctx) {
@@ -1513,11 +1693,12 @@ export default {
       press: null, pressWant: false, pressUnsub: null, pressStop: null, idleP: null};
     st.wk = newWk();
     el.addEventListener('click', onClick);
-    // The week: Firestore and the NFL scores start once the first paint is done (never block the screen); the
-    // vote's kickoff is checked every 20 s while the screen is visible.
+    // The week: Firestore, the Press Room and the Wrap start once the first paint is done (never block the screen);
+    // the vote's kickoff is checked every 20 s while the screen is visible.
     const wk = st.wk;
     ui.onIdle(() => { if (st && st.wk === wk) wkStart(); });
     ui.onIdle(() => { if (st && st.wk === wk) pressStart(); });
+    ui.onIdle(() => { if (st && st.wk === wk) wrapStart(); });
     el.addEventListener('click', onPressClick);
     ctx.timer(wkTick, 20000);
     const onLens = e => {
@@ -1530,7 +1711,7 @@ export default {
     };
     el.addEventListener('ui:change', onLens);
     st.cleanups.push(() => el.removeEventListener('ui:change', onLens));
-    ctx.setBackTitle('Rivals');
+    ctx.setBackTitle('Matchup');
     // A year header stuck under the nav merges with it (rivals.css): mark it on scroll, once per frame. Headers in
     // skipped (content-visibility) years are never measured.
     const scr = ctx.screen;
@@ -1572,7 +1753,7 @@ export default {
     if (!st || st.ctx !== ctx) return;
     syncChrome();
     if (st.goSec) revealSec();
-    if (st.wk && !st.wk.started) wkStart(); else if (st.wk) npkStart();
+    if (st.wk && !st.wk.started) wkStart();
     if (st.shown) return;
     st.shown = true;
     if (!st.entrance || !st.m || !st.m.n) return;
@@ -1599,13 +1780,13 @@ export default {
     const sec = own ? null : secOf(ctx.query);
     if (sec) st.goSec = sec;
     if (sec && !ctx.params.a && !ctx.params.b && st.m && st.m.b) {
-      // A link to a week section (Today's "This week" card): keep the matchup on screen, scroll to the section.
+      // A link to a week section (#/matchup?s=motw): keep the matchup on screen, scroll to the section.
       p = {a: st.m.a, b: st.m.b};
     } else if (ctx.reason === 'params' || (!own && ctx.path !== shown)) {
       // The second case: app.js folds a pending 'params' into 'me'/'data' for a hidden screen.
       p = resolvePair(ctx.params);
       if (!own) {
-        // From outside (a profile's Rivalries link over Rivals, a typed link): handled like a list tap,
+        // From outside (a profile's Rivalries link over Matchup, a typed link): handled like a list tap,
         // so the new matchup is brought into view instead of landing far above a scrolled-down page.
         st.isDefault = p.isDefault;
         if (st.m && st.m.b && p.a && p.b && (st.m.a !== p.a || st.m.b !== p.b)) via = 'ext';
@@ -1636,18 +1817,18 @@ export default {
       const path = canon(p.a, p.b);
       if (ctx.path !== path) { st.expect = path; ctx.replace(path); }
     }
-    // New games or a new schedule re-rank the week (and may move it on); a new "me" moves the you-ring.
+    // New games or a new schedule re-rank the week (and may move it on, with its games and a new Wrap); a new "me"
+    // moves the you-rings and your avatar button.
     if (ctx.reason === 'data') wkData();
-    if (ctx.reason === 'data' || ctx.reason === 'me') patchMotw(false);
-    if (ctx.reason === 'me') { patchNpk(); patchPast(false); }
-    if (ctx.reason === 'data' || ctx.reason === 'me') patchPress();
+    if (ctx.reason === 'data' || ctx.reason === 'me') { patchMotw(false); patchGames(); patchPress(); }
+    if (ctx.reason === 'data') patchWrap(ctx.visible);
+    if (ctx.reason === 'me') patchPast(false);
     if (st.goSec) revealSec();
   },
 
   onHide(ctx) {
-    // The NFL card stops polling ESPN while Rivals is out of sight (it resumes from the cache in onShow), and a
-    // playing presser stops.
-    if (st && st.ctx === ctx) { npkStop(); pressPause(); }
+    // A playing presser stops while Matchup is out of sight.
+    if (st && st.ctx === ctx) pressPause();
   },
 
   onAction(id, ctx) {
@@ -1663,7 +1844,6 @@ export default {
     if (!st || st.ctx !== ctx) return;
     el.removeEventListener('click', onClick);
     el.removeEventListener('click', onPressClick);
-    npkStop();
     pressEnd();
     wkUnsub();
     if (st.wk) { clearTimeout(st.wk.vT); st.wk.sheet = null; } // an open sheet goes with the navigation that unmounts us

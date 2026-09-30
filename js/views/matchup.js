@@ -118,7 +118,7 @@ export function openMatchup(game, ctx) {
     const k = t.dataset.mu;
     if (k === 'rivalry') {
       sh.close();
-      go(`/rivals/${a}-vs-${b}`);
+      go(`/matchup/${a}-vs-${b}`);
     } else if (k === 'a' || k === 'b') {
       const id = k === 'a' ? a : b;
       const sides = sh.body.querySelectorAll('.mu-bug .bug-side');

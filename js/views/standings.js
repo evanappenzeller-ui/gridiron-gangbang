@@ -1,6 +1,9 @@
-// Standings root (#/standings): power rankings and playoff odds for the live season, the seasons rail,
-// all-time list (FLIP on sort) or table, sort sheet.
-// Owner: standings package. Spec 7.9 + week-features contract (Power rankings, Playoff odds).
+// League › Standings (#/league/standings, the League tab's first segment): power rankings and playoff odds for the
+// live season, the seasons rail, all-time list (FLIP on sort) or table, sort sheet.
+// A segment of league.js (the League tab root, which draws the large title and the segmented control):
+// {render, mount, unmount, show, me, actions, onAction}. The compact-bar Sort and table/list buttons show while this
+// segment does. Owner: LEAGUE (was the Standings tab root). Spec 7.9 + week-features contract (Power rankings,
+// Playoff odds).
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as stats from '../core/stats.js';
@@ -143,12 +146,6 @@ function sortBtnLabel(sort) {
 }
 function allHeader(sort) {
   return ui.sectionHeader({title: 'All-time', action: {label: sortBtnLabel(sort), attrs: {'data-sort-open': '', 'aria-label': `Sort: ${labelOf(sort.key)}, ${dirText(sort)}`}}});
-}
-
-function subtitle() {
-  const sp = data.span;
-  if (sp.first == null) return '';
-  return `${sp.first === sp.last ? sp.first : `${sp.first}–${sp.last}`} · ${sp.managers} managers`;
 }
 
 // ---------------------------------------------------------------- Live season: power rankings
@@ -331,7 +328,7 @@ const afterIdle = (st, fn) => {
 function kickOdds(ctx, st) {
   const O = oddsSeason();
   if (!O || oddsMemo.has(O.s)) return;
-  const live = () => S.get(ctx) === st && st.el.isConnected;
+  const live = () => S.get(ctx) === st && !st.dead && st.el.isConnected;
   afterIdle(st, () => runOdds(O.s).then(res => {
     if (!live()) return;
     afterIdle(st, () => {
@@ -373,11 +370,12 @@ function toggleMore(ctx, st, which) {
 }
 
 function bodyHtml(st) {
-  return ui.largeTitle({title: 'Standings', subtitle: subtitle()})
+  return `<div class="hl-std">`
     + powerHtml(st)
     + oddsHtml(st)
     + `<section class="std-seasons">${railHtml()}</section>`
-    + `<section class="std-alltime"><div class="std-ah">${allHeader(st.sort)}</div><div class="std-all" data-view="${st.view}">${st.view === 'table' ? tableHtml(st.sort) : listHtml(st.sort)}</div></section>`;
+    + `<section class="std-alltime"><div class="std-ah">${allHeader(st.sort)}</div><div class="std-all" data-view="${st.view}">${st.view === 'table' ? tableHtml(st.sort) : listHtml(st.sort)}</div></section>`
+    + `</div>`;
 }
 
 // ---------------------------------------------------------------- Behavior
@@ -399,7 +397,7 @@ function patchHeader(st) {
 
 async function applySort(ctx, sort) {
   const st = S.get(ctx);
-  if (!st) return;
+  if (!st || st.dead) return;
   const prevKey = st.sort.key;
   st.sort = sort;
   lastSort = {...sort};
@@ -452,7 +450,7 @@ async function applySort(ctx, sort) {
 
 async function openSort(ctx) {
   const st = S.get(ctx);
-  if (!st) return;
+  if (!st || st.dead) return;
   const cur = st.sort;
   const v = await ui.actionSheet({
     title: 'Sort all-time',
@@ -460,7 +458,7 @@ async function openSort(ctx) {
     message: `${labelOf(cur.key)}, ${dirText(cur)}. Choose it again to reverse.`,
     actions: SORTS.map(s => ({label: s.label, value: s.key, checked: s.key === cur.key}))
   });
-  if (v == null || S.get(ctx) !== st) return;
+  if (v == null || S.get(ctx) !== st || st.dead) return;
   await applySort(ctx, pickSort(st.sort, v));
 }
 
@@ -483,7 +481,7 @@ function revealAll(ctx) {
 
 function setView(ctx, view) {
   const st = S.get(ctx);
-  if (!st || st.view === view) return;
+  if (!st || st.dead || st.view === view) return;
   st.view = view;
   ui.lsSet(VIEW_KEY, view);
   ui.haptic('selection');
@@ -497,64 +495,77 @@ function setView(ctx, view) {
   ui.announce(view === 'table' ? 'Showing the table.' : 'Showing the list.');
 }
 
-export default {
-  id: 'standings',
-  title: 'Standings',
-  actions(ctx) {
-    const v = stateOf(ctx).view;
-    return [
-      {id: 'sort', icon: 'sort', label: 'Sort'},
-      v === 'table' ? {id: 'list', icon: 'list', label: 'Show as list'} : {id: 'table', icon: 'table', label: 'Show as table'}
-    ];
-  },
-  render(ctx) {
-    return bodyHtml(stateOf(ctx));
-  },
-  mount(el, ctx) {
-    const prev = S.get(ctx);
-    const st = {el, sort: prev ? prev.sort : {...lastSort}, view: prev ? prev.view : readView(),
-      prAll: prev ? prev.prAll : false, oddsAll: prev ? prev.oddsAll : false, cancelOdds: null};
-    if (prev && prev.cancelOdds) prev.cancelOdds();
-    S.set(ctx, st);
-    el.addEventListener('click', e => {
-      const t = e.target;
-      if (!t || !t.closest) return;
-      const more = t.closest('[data-more]');
-      if (more) { toggleMore(ctx, st, more.dataset.more); return; }
-      if (t.closest('[data-sort-open]')) { openSort(ctx); return; }
-      const th = t.closest('button[data-sort]');
-      if (th) { ui.haptic('selection'); applySort(ctx, pickSort(st.sort, th.dataset.sort)); }
-    });
-    el.addEventListener('scroll', e => {
-      if (e.target && e.target.classList && e.target.classList.contains('std-tscroll')) syncTableEdges(el);
-    }, {capture: true, passive: true});
-    if (ctx.first) ui.stagger(el);
-    kickOdds(ctx, st);
-  },
-  onShow(ctx) {
-    const st = S.get(ctx);
-    if (st) syncTableEdges(st.el);
-  },
-  update(ctx) {
-    const st = S.get(ctx);
-    if (!st) return;
-    // 'data' (a reload found changes) or 'me' (your highlight): rebuild, keeping sort, view, expanded lists
-    // and rail scroll. A new week re-derives the live season, so the odds are simulated again.
-    const rail = st.el.querySelector('.std-rail');
-    const rl = rail ? rail.scrollLeft : 0;
-    st.el.innerHTML = bodyHtml(st);
-    const nr = st.el.querySelector('.std-rail');
-    if (nr) nr.scrollLeft = rl;
-    syncTableEdges(st.el);
-    kickOdds(ctx, st);
-  },
-  unmount(el, ctx) {
-    const st = S.get(ctx);
-    if (st && st.cancelOdds) { st.cancelOdds(); st.cancelOdds = null; }
-  },
-  onAction(id, ctx) {
-    if (id === 'sort') { revealAll(ctx); return openSort(ctx); }
-    // app.js re-renders the trail after this and keeps keyboard focus on the swapped button.
-    if (id === 'table' || id === 'list') { setView(ctx, id); revealAll(ctx); }
-  }
-};
+// ---------------------------------------------------------------- Segment API (league.js)
+// State lives per League screen (keyed by its ctx) and outlives the segment: switching to Trophies and back keeps the
+// sort, the view and the expanded lists. The listeners go with the segment (an AbortController), since `el` is the
+// League body that the other segments reuse.
+
+/** Compact-bar actions while Standings shows: Sort, and Show as table / Show as list. */
+export function actions(ctx) {
+  const v = stateOf(ctx).view;
+  return [
+    {id: 'sort', icon: 'sort', label: 'Sort'},
+    v === 'table' ? {id: 'list', icon: 'list', label: 'Show as list'} : {id: 'table', icon: 'table', label: 'Show as table'}
+  ];
+}
+
+export function render(ctx) {
+  return bodyHtml(stateOf(ctx));
+}
+
+export function mount(el, ctx) {
+  const prev = S.get(ctx);
+  const st = {el, sort: prev ? prev.sort : {...lastSort}, view: prev ? prev.view : readView(),
+    prAll: prev ? prev.prAll : false, oddsAll: prev ? prev.oddsAll : false, cancelOdds: null, dead: false, ac: new AbortController()};
+  if (prev) { prev.dead = true; if (prev.cancelOdds) prev.cancelOdds(); if (prev.ac) prev.ac.abort(); }
+  S.set(ctx, st);
+  const signal = st.ac.signal;
+  el.addEventListener('click', e => {
+    const t = e.target;
+    if (!t || !t.closest || st.dead) return;
+    const more = t.closest('[data-more]');
+    if (more) { toggleMore(ctx, st, more.dataset.more); return; }
+    if (t.closest('[data-sort-open]')) { openSort(ctx); return; }
+    const th = t.closest('button[data-sort]');
+    if (th) { ui.haptic('selection'); applySort(ctx, pickSort(st.sort, th.dataset.sort)); }
+  }, {signal});
+  el.addEventListener('scroll', e => {
+    if (e.target && e.target.classList && e.target.classList.contains('std-tscroll')) syncTableEdges(el);
+  }, {capture: true, passive: true, signal});
+  kickOdds(ctx, st);
+}
+
+export function show(ctx) {
+  const st = S.get(ctx);
+  if (st && !st.dead) syncTableEdges(st.el);
+}
+
+// 'me' (your highlight): rebuild, keeping sort, view, expanded lists and rail scroll. (A data reload swaps the whole
+// segment in league.js, which keeps the same state; a new week re-derives the live season, so the odds run again.)
+export function me(ctx) {
+  const st = S.get(ctx);
+  if (!st || st.dead) return;
+  const rail = st.el.querySelector('.std-rail');
+  const rl = rail ? rail.scrollLeft : 0;
+  st.el.innerHTML = bodyHtml(st);
+  const nr = st.el.querySelector('.std-rail');
+  if (nr) nr.scrollLeft = rl;
+  syncTableEdges(st.el);
+  kickOdds(ctx, st);
+}
+
+export function unmount(el, ctx) {
+  const st = ctx && S.get(ctx);
+  if (!st) return;
+  st.dead = true;
+  st.ac.abort();
+  if (st.cancelOdds) { st.cancelOdds(); st.cancelOdds = null; }
+}
+
+export function onAction(id, ctx) {
+  const st = S.get(ctx);
+  if (!st || st.dead) return;
+  if (id === 'sort') { revealAll(ctx); return openSort(ctx); }
+  // app.js re-renders the trail after this and keeps keyboard focus on the swapped button.
+  if (id === 'table' || id === 'list') { setView(ctx, id); revealAll(ctx); }
+}
