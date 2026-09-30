@@ -997,7 +997,7 @@ export async function runChecks() {
         const m = /^gg-daily-(\d+)$/.exec(localStorage.key(k) || '');
         if (!m) continue;
         const n = +m[1], day = daily.dayFor(n);
-        if (!(n >= 1 && n <= daily.PNUM) || !day) continue;
+        if (!(n >= daily.SCORE_FROM && n <= daily.PNUM) || !day) continue;
         let raw = null; try { raw = JSON.parse(localStorage.getItem(localStorage.key(k))); } catch (_) {}
         if (n === daily.PNUM) raw = JSON.parse(JSON.stringify(daily.DS));
         if (!raw || typeof raw !== 'object' || (daily.dayVersion(day) >= 3 && raw.v !== daily.dayVersion(day))) continue;

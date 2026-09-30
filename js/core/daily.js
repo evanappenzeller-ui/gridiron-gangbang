@@ -711,6 +711,19 @@ try { LB.nick = localStorage.getItem('gg-nick') || ''; } catch (_) { LB.nick = '
 
 function lbChanged(why, prev) { emit('lb', {prev: prev || LB.players, why}); }
 
+// Scoring starts on puzzle day 3 (Wed Sep 30 2026): the league reset the board there, so the launch days' scores
+// (Sep 28 v1, Sep 29 v2) never count on the boards, in totals, in streaks or on this phone's streak. Every board doc
+// is read through scoredDoc(): days before SCORE_FROM are dropped and total / played / last are recomputed from
+// the rest. Older docs keep those days in Firestore until that player posts again (postScore writes the filtered
+// days back).
+export const SCORE_FROM = 3;
+export function scoredDoc(p) {
+  const days = {};
+  Object.keys((p && p.days) || {}).forEach(k => { if (Number(k) >= SCORE_FROM && p.days[k]) days[k] = p.days[k]; });
+  const vals = Object.values(days), keys = Object.keys(days).map(Number);
+  return Object.assign({}, p, {days, total: vals.reduce((s, d) => s + (Number(d.p) || 0), 0), played: vals.length, last: keys.length ? Math.max(...keys) : 0});
+}
+
 let fbStarted = false;
 // The app, anonymous sign-in and Firestore come from the shared layer (fire.js); no config or a failed
 // import / sign-in turns the board off, exactly as before.
@@ -723,7 +736,7 @@ async function startFirebase() {
     if (canWrite()) LB.save = body => fs.setDoc(fs.doc(db, 'players', LB.uid), body);
     fs.onSnapshot(fs.collection(db, 'players'), snap => {
       const prev = LB.players;
-      LB.players = snap.docs.map(d => Object.assign({id: d.id}, d.data()));
+      LB.players = snap.docs.map(d => scoredDoc(Object.assign({id: d.id}, d.data())));
       LB.ready = true;
       const mine = LB.players.find(p => p.id === LB.uid);
       if (mine && mine.nick) LB.nick = mine.nick;
@@ -979,11 +992,12 @@ export function pointsFor(ds, pnum = PNUM) {
 
 // Streak from this phone's saved days (localStorage gg-daily-N). A day counts when every step of that
 // day's version is done (3, 5, 5 or the v4 day's 3); it is perfect when its points equal that day's maxPts (1,000,
-// 1,500, 1,000 or 600). On v3 and v4 days only progress stamped with the day's version counts.
+// 1,500, 1,000 or 600). On v3 and v4 days only progress stamped with the day's version counts. Days before
+// SCORE_FROM never count.
 export function streakLocal() {
   const done = new Set(), perfect = new Set();
   const consider = (n, ds) => {
-    if (!(n >= 1 && n <= PNUM)) return;
+    if (!(n >= SCORE_FROM && n <= PNUM)) return;
     const day = dayFor(n);
     if (!day || !allDone(ds, day)) return;
     done.add(n);
