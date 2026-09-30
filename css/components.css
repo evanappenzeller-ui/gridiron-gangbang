@@ -751,6 +751,9 @@ button.bug, a.bug { color: var(--ink-3); }
 .as-btn.is-pressed { background: var(--surface-3); transition: none; }
 .as-btn.is-destructive { color: var(--wrong); }
 .as-btn.is-cancel { font-weight: 600; }
+/* A primary action (the one the sheet is there for) takes the bold; the cancel beside it goes regular. */
+.as-btn.is-primary { font-weight: 600; }
+.as-btn.is-cancel.is-quiet { font-weight: 400; }
 .as-btn .ic { width: 20px; height: 20px; position: absolute; right: 18px; stroke-width: 2.2; }
 
 /* Manager picker (.sh-manager) */

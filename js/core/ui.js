@@ -1333,7 +1333,8 @@ export function openSheet(o = {}) {
   };
 }
 
-/** Confirm / action sheet. actions: [{label, value, role: 'destructive'|'cancel', checked}]. Resolves value or null.
+/** Confirm / action sheet. actions: [{label, value, role: 'destructive'|'primary'|'cancel', checked}]. Resolves value or null.
+ *  primary: the action the sheet is there for, in bold (the cancel then loses its bold: one emphasis per sheet).
  *  cls: an extra scope class (e.g. 'sh-sort') next to .sh-action; returnFocus: see openSheet. */
 export function actionSheet({title, message, actions = [], cancelLabel = 'Cancel', cls = '', returnFocus} = {}) {
   return new Promise(res => {
@@ -1341,7 +1342,8 @@ export function actionSheet({title, message, actions = [], cancelLabel = 'Cancel
     const main = actions.filter(a => a.role !== 'cancel');
     const cancel = actions.find(a => a.role === 'cancel') || {label: cancelLabel, value: null};
     const head = (title || message) ? `<div class="as-head">${title ? `<p class="as-title">${T(title)}</p>` : ''}${message ? `<p class="as-msg">${T(message)}</p>` : ''}</div>` : '';
-    const body = `<div class="as-group">${head}${main.map((a, i) => `<button type="button" class="as-btn${a.role === 'destructive' ? ' is-destructive' : ''}" data-as="${i}"${a.checked ? ' aria-current="true"' : ''}>${T(a.label)}${a.checked ? icon('check') : ''}</button>`).join('')}</div><div class="as-group"><button type="button" class="as-btn is-cancel" data-as="c">${T(cancel.label)}</button></div>`;
+    const quiet = main.some(a => a.role === 'primary');
+    const body = `<div class="as-group">${head}${main.map((a, i) => `<button type="button" class="as-btn${a.role === 'destructive' ? ' is-destructive' : a.role === 'primary' ? ' is-primary' : ''}" data-as="${i}"${a.checked ? ' aria-current="true"' : ''}>${T(a.label)}${a.checked ? icon('check') : ''}</button>`).join('')}</div><div class="as-group"><button type="button" class="as-btn is-cancel${quiet ? ' is-quiet' : ''}" data-as="c">${T(cancel.label)}</button></div>`;
     const s = openSheet({cls: 'sh-action' + (cls ? ' ' + cls : ''), detents: ['fit'], chrome: false, body, label: stripTags(T(title)) || 'Choose', returnFocus, onClose: () => res(chosen)});
     s.body.addEventListener('click', e => {
       const b = e.target.closest('[data-as]');

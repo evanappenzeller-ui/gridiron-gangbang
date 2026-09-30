@@ -6,6 +6,7 @@
 //   covers (/puzzles/play/<slug>, /puzzles/results) present over it, and Back from another tab's root lands on it.
 //   Every root view draws its own large title with youButtonHTML() (views/you.js) in the trailing slot; a tap on any
 //   [data-you] opens the You sheet (delegated here). Tab badges: see "Tab badges" below (root views export badge()).
+//   A root view may also export warm(), called once at idle after launch (start()).
 // Legacy routes (/today…, /rivals…, /standings, /hall…, /moves…, the bare #daily-style hashes) redirect to their new
 //   homes in parseRoute, so the canonical path is what lands in history.
 //
@@ -1333,8 +1334,9 @@ function updateTabBar(T, {animate = true} = {}) {
 }
 // ============================================================================ Tab badges
 // A 6 px tint dot on a tab icon: Puzzles while today's puzzles aren't finished, Pick'em while this week has open (not
-// kicked off) games you haven't submitted a pick for or drafts you haven't submitted (its label says which:
-// badgeText()), Matchup while MOTW voting is open and you haven't voted. Each of those tabs'
+// kicked off) games you haven't submitted a pick for or drafts you haven't submitted, unless you have locked in (its
+// label says which: badgeText(); on a cold open it goes by the week this phone last saw), Matchup while MOTW voting is
+// open and you haven't voted. Each of those tabs'
 // root view modules exports badge() → boolean: cheap, reading only what that module (or a subscription it already
 // runs) holds, never a request of its own. A module not imported yet counts as no dot, except Puzzles: until
 // puzzles.json is in (a cold open on another tab loads it at idle) its dot comes from the Daily itself, then from what
@@ -1718,7 +1720,12 @@ async function start() {
   if (ui.IOS_STANDALONE) enableSwipeBack();
   requestAnimationFrame(() => ui.onIdle(() => {
     daily.ensure().catch(() => {});
-    TABS.forEach(t => loadView(TAB_VIEW[t]).catch(() => {}));
+    // A tab root may export warm(): called once here, so its first visit has nothing to wait for (Pick'em finds the
+    // week's slate; importing it already brought back the week this phone last saw, for its screen and its dot).
+    TABS.forEach(t => loadView(TAB_VIEW[t]).then(() => {
+      const ns = modNS.get(TAB_VIEW[t]);
+      if (ns && typeof ns.warm === 'function') { try { Promise.resolve(ns.warm()).catch(() => {}); } catch (e) { console.error(e); } }
+    }).catch(() => {}));
     ui.onIdle(() => ['season', 'profile', 'review', 'wrap', 'run', 'results'].forEach(id => loadView(id).catch(() => {})));
     registerSW();
   }));

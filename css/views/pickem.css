@@ -79,6 +79,64 @@ html.rm .c-pk-dot::after { animation: none; }
 .v-pickem .pk-strip > i.is-draft { background: transparent; box-shadow: inset 0 0 0 1.5px var(--tint); }
 .v-pickem .pk-strip > i.is-clr { background: transparent; box-shadow: inset 0 0 0 1.5px var(--ink-3); }
 
+/* Lock-ins: one row under the strip. The league's ("5 of 12 locked in", who in the stack; the row opens who has and
+   who hasn't, never their picks) with yours at its end: a "Lock in" pill. Once you have, yours leads in tint, the color
+   of you and your actions ("Locked in · Wed 1:05 AM", Undo for its first minutes), the league's on the line below. */
+.v-pickem .pk-ll {
+  display: flex; align-items: center; width: calc(100% + 32px);
+  min-height: 56px; margin: 14px -16px 0;
+  border-top: .5px solid var(--separator);
+  --stack-ring: var(--surface-1);
+}
+.v-pickem .pk-ll + .pk-lead { margin-top: 0; }
+.v-pickem .pk-ll-b {
+  flex: 1 1 auto; align-self: stretch; min-width: 0;
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 12px 8px 16px;
+  color: var(--ink); text-align: left;
+  background-color: transparent; transition: background-color 250ms linear;
+}
+.v-pickem .pk-ll-b.is-pressed { background-color: var(--surface-2); transition: none; --stack-ring: var(--surface-2); }
+.v-pickem .pk-ll-b:focus-visible { outline-offset: -2px; }
+.v-pickem .pk-ll-av { flex: none; display: flex; min-width: 28px; }
+.v-pickem .pk-ll-av .stack > * + * { margin-left: -6px; }
+.v-pickem .pk-ll-av.is-ic, .v-pickem .pk-ll-av.is-me { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--surface-2); color: var(--ink-3); }
+.v-pickem .pk-ll-av.is-ic > .ic { width: 15px; height: 15px; stroke-width: 2.2; }
+.v-pickem .pk-ll-av.is-me { background: var(--tint-soft); color: var(--tint); }
+.v-pickem .pk-lk-ic { display: grid; place-items: center; width: 16px; height: 16px; }
+.v-pickem .pk-lk-ic > .ic { width: 15px; height: 15px; stroke-width: 2.4; }
+.v-pickem .pk-lk-ic > .spin { width: 14px; height: 14px; }
+.v-pickem .pk-ll-tx { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.v-pickem .pk-ll-t {
+  display: flex; align-items: center; gap: 6px; min-width: 0;
+  font: 600 var(--fs-sub)/var(--lh-sub) var(--font-text); font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.v-pickem .pk-ll-t > span:last-child, .v-pickem .pk-ll-mt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-pickem .pk-ll.is-in .pk-ll-t { font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2); }
+.v-pickem .pk-ll-mini { flex: none; display: flex; }
+.v-pickem .pk-ll-mini .stack > * + * { margin-left: -5px; }
+.v-pickem .pk-ll-mt { font: 600 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--tint); }
+.v-pickem .pk-lk-w { font-weight: 400; color: color-mix(in srgb, var(--tint) 75%, var(--ink-2)); }
+.v-pickem .pk-ll-b > .chev { flex: none; width: 18px; height: 18px; color: var(--ink-3); }
+/* "Lock in": a small pill at the row's end. */
+.v-pickem .pk-lk-go { flex: none; margin: 0 12px 0 0; }
+.v-pickem .pk-lk-go > .ic { color: var(--tint); stroke-width: 2.2; }
+/* Undo: a plain link with a 44 px hit area. */
+.v-pickem .pk-lk-undo {
+  flex: none; height: 44px; margin-right: 4px; padding: 0 12px;
+  font: 600 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink);
+  transition: opacity 200ms linear;
+}
+.v-pickem .pk-lk-undo.is-pressed { opacity: .5; transition: none; }
+.v-pickem .pk-lk-undo[aria-disabled="true"] { opacity: .4; pointer-events: none; }
+/* The picks still loading: the row's height, held (so the games don't move when it fills in). */
+.v-pickem .pk-ll.is-sk { gap: 12px; padding: 0 16px; }
+.v-pickem .pk-ll.is-sk .pk-sk-av { flex: none; width: 28px; height: 28px; border-radius: 50%; }
+.v-pickem .pk-sk-t { width: 46%; height: 14px; border-radius: 7px; }
+.v-pickem .pk-sk-n { align-self: center; width: 60px; height: 30px; border-radius: 8px; }
+.v-pickem .pk-lead-tx > .pk-sk-t { margin-top: 3px; }
+
 /* The week's leader; the whole row opens the leaderboard sheet. */
 .v-pickem .pk-lead {
   display: flex; align-items: center; gap: 12px; width: calc(100% + 32px);
@@ -254,6 +312,8 @@ html.rm .c-pk-dot::after { animation: none; }
 .v-pickem .pk-g.is-post .pk-s2 { font-size: var(--fs-cap); color: var(--ink-3); }
 .v-pickem .pk-lock { position: absolute; top: 8px; right: 8px; width: 12px; height: 12px; stroke-width: 2.2; color: var(--ink-3); }
 .v-pickem .pk-g.is-post .pk-lock { display: none; }
+/* Locked in (the game hasn't kicked off): your lock, in tint. */
+.v-pickem .pk-lock.is-in { color: var(--tint); }
 
 /* Footer: picks in (before kickoff), who picked whom (after). */
 .v-pickem .pk-foot {
@@ -320,6 +380,16 @@ html.rm .c-pk-dot::after { animation: none; }
 .v-pickem .pk-sb.is-urgent .pk-sb-card {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gold) 55%, transparent), inset 0 .5px 0 rgba(255,255,255,.12), 0 8px 24px rgba(0,0,0,.45);
 }
+/* The second step, a lock at Submit's end: submit, then lock the week in (the confirm sheet first). */
+.v-pickem .pk-sb-lk {
+  flex: none; display: grid; place-items: center; width: 48px; height: 48px;
+  border-radius: var(--r-group); background: var(--surface-3); color: var(--tint);
+  transition: transform var(--spring-snappy-dur) var(--spring-snappy), opacity 200ms linear;
+}
+.v-pickem .pk-sb-lk[hidden] { display: none; }
+.v-pickem .pk-sb-lk > .ic { width: 20px; height: 20px; stroke-width: 2.2; }
+.v-pickem .pk-sb-lk.is-pressed { transform: scale(.97); transition: none; }
+.v-pickem .pk-sb-lk[aria-disabled="true"] { opacity: .4; pointer-events: none; }
 /* Pick'em switched off: the drafts are kept, Submit steps back (it would be refused) and the note says why. */
 .v-pickem .pk-sb.is-off .pk-sb-msg { font-weight: 400; color: var(--ink-2); }
 .v-pickem .pk-sb.is-off .pk-sb-msg > .ic { color: var(--ink-3); }
@@ -339,6 +409,12 @@ html.rm .c-pk-dot::after { animation: none; }
   .v-pickem .pk-sc.n3 { font-size: 28px; line-height: 28px; }
   .v-pickem .pk-tv .n2 { font-size: 34px; line-height: 40px; }
   .v-pickem .pk-tile + .pk-tile { padding-left: 10px; }
+  .v-pickem .pk-lk-go { padding: 0 12px; }
+  .v-pickem .pk-lk-go > .ic { display: none; } /* room for "5 of 12 locked in" beside it */
+  /* The Submit bar with its lock: room for "Submit 16 changes". */
+  .v-pickem .pk-sb-undo { padding: 0 14px; }
+  .v-pickem .pk-sb-go { padding: 0 10px; }
+  .v-pickem .pk-sb-lk { width: 44px; }
 }
 
 /* ================================================================ Sheets */
@@ -373,3 +449,15 @@ html.rm .c-pk-dot::after { animation: none; }
 .sh-pk-board .pk-bs-warn > .ic { flex: none; width: 16px; height: 16px; color: var(--gold); }
 .sh-pk-board .pk-bs-warn > span:nth-child(2) { flex: 1 1 auto; min-width: 0; }
 .sh-pk-board .pk-bs-warn-a { flex: none; font-weight: 600; color: var(--tint); }
+/* This week: a lock after the name of whoever has locked in (the name gives way first). */
+.sh-pk-board .row-title { display: flex; align-items: center; gap: 6px; }
+.sh-pk-board .pk-bs-n { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.sh-pk-board .pk-bs-lk { flex: none; width: 14px; height: 14px; stroke-width: 2.2; color: var(--ink-3); }
+.sh-pk-board .row.is-me .pk-bs-lk { color: var(--tint); }
+
+/* Lock-ins: who has (and when), who hasn't. */
+.sh-pk-locks .group-wrap + .group-wrap { margin-top: 20px; }
+.sh-pk-locks .row-lead { display: flex; align-items: center; }
+.sh-pk-locks .pk-ls-lk { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--surface-3); color: var(--ink-2); }
+.sh-pk-locks .row.is-me .pk-ls-lk { background: var(--tint-soft); color: var(--tint); }
+.sh-pk-locks .pk-ls-lk > .ic { width: 14px; height: 14px; stroke-width: 2.2; }

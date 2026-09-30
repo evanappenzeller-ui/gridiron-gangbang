@@ -248,6 +248,13 @@ export async function scoreboard(year, week, opt = {}) {
   if (m && allPost(m.data.games)) return view(m.data);
   if (!m) { const l = lsWeek(year, week); if (l) { mem.set(id, {t: Date.now(), data: l}); return view(l); } }
   if (!opt.fresh && fresh(m)) return view(m.data);
+  // A currentWeek() request on its way brings ESPN's current week too (a cold open asks for both at once): wait for
+  // it rather than asking twice.
+  if (!opt.fresh && curP && !inflight.has(id)) {
+    try { await curP; } catch (_) {}
+    const m2 = mem.get(id);
+    if (fresh(m2)) return view(m2.data);
+  }
   if (inflight.has(id)) return inflight.get(id);
   const p = (async () => {
     try {

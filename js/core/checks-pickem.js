@@ -1,9 +1,11 @@
 // NFL pick'em checks for the dev gallery (#/_kit): js/core/nfl.js (ESPN client) and the NFL pick'em in
 // js/core/week.js, on a recorded ESPN payload, plus the Pick'em screen's drafts (js/views/pickem.js: pick, then
-// submit). checks.js (owner: CORE-DAILY) imports pickemChecks and calls it with its own check(name, fn) helper; every
-// fn returns true or {pass, detail}. Nothing here fetches or touches the league board. Two checks write, and remove
-// what they wrote: the draft store (a 1999 test week in localStorage) and submitPicks (a 2099 test week on the dev
-// stand-in only; skipped on a page that can write to the real database).
+// submit), locking in and the week kept on this phone. checks.js (owner: CORE-DAILY) imports pickemChecks and calls it
+// with its own check(name, fn) helper; every fn returns true or {pass, detail}. Nothing here fetches or touches the
+// league board. Four checks write, and remove what they wrote: the draft store (a 1999 test week in localStorage),
+// submitPicks (a 2099 test week on the dev stand-in only; skipped on a page that can write to the real database),
+// lockPicks / unlockPicks (another 2099 test week, the same way) and the last-known week (a test key in localStorage).
+// Async checks run side by side, so none of them moves the shared dev clock or identity: they pass `at` instead.
 // Owner: PICKEM-CORE.
 
 import * as data from './data.js';
@@ -81,6 +83,15 @@ function setGame(payload, id, kind, home, away) {
 }
 
 const needData = () => { if (!data.DATA || !data.M) throw new Error('league did not load'); };
+// Remove a test week from the dev stand-in, and whatever it created to hold it: the stand-in is left as it was.
+function dropTestWeek(key) {
+  try {
+    const o = JSON.parse(localStorage.getItem('gg-dev-week') || 'null');
+    if (!o) return;
+    ['nflpicks', 'nfllocks'].forEach(k => { if (o[k]) { delete o[k][key]; if (!Object.keys(o[k]).length) delete o[k]; } });
+    if (Object.keys(o).length) localStorage.setItem('gg-dev-week', JSON.stringify(o)); else localStorage.removeItem('gg-dev-week');
+  } catch (_) {}
+}
 const mgr = id => { if (!data.M[id]) throw new Error('no manager ' + id); return id; };
 
 // ---------------------------------------------------------------------------
@@ -402,8 +413,7 @@ export async function pickemChecks(check) {
       return {pass, detail: `1: ${res(r1)} (saved ${s1}); 2: ${res(r2)} (saved ${s2}); all kicked off: ${res(r3)}; bad: ${res(r4)}; denied: ${res(r5)}; failed: ${res(r6)}`};
     } finally {
       week.__dev.fail(null);
-      // Remove the test week from the stand-in.
-      try { const o = JSON.parse(localStorage.getItem('gg-dev-week') || '{}'); if (o.nflpicks && o.nflpicks[key]) { delete o.nflpicks[key]; localStorage.setItem('gg-dev-week', JSON.stringify(o)); } } catch (_) {}
+      dropTestWeek(key);
     }
   });
 
@@ -434,6 +444,164 @@ export async function pickemChecks(check) {
     const got = [c(2, 0, 0, 0), c(0, 2, 0, 0), c(1, 1, 0, 0), c(0, 0, 2, 2), c(1, 0, 1, 1), c(0, 0, 2, 1), c(0, 1, 1, 1), c(0, 0, 1, 0)];
     const want = ['ok', 'locked', 'ok', 'denied', 'failed', 'failed', 'denied', 'failed'];
     return {pass: J(got) === J(want), detail: got.join(' ')};
+  });
+
+  // Locking in
+  check('Lock in: a locked-in manager\'s picks made after the lock never count, from any phone; earlier ones do; a phone without a manager binds only its own uid', () => {
+    need();
+    const p = clone(W4);
+    setGame(p, '401872964', 'post', 20, 17); // Thursday is over (CLE won): its picks are revealed
+    const games = nfl.parse(p).games, [thu, lon, mon] = games;
+    const T = thu.kickoff.getTime(), L = T - 2 * HOUR; // everyone below locks two hours before Thursday's kickoff
+    const E = mgr('evan'), M = mgr('mitch'), S = mgr('mason');
+    const P = (uid, g, team, at, me, nick) => ({id: week.nflPickId(uid, g.id), uid, game: g.id, team, me: me || null, nick: nick || (me ? data.name(me) : uid), at});
+    const K = (uid, at, me, nick, n = 3, x = {}) => Object.assign({id: uid, uid, me: me || null, nick: nick || (me ? data.name(me) : uid), at, n}, x);
+    const docs = [
+      P('e1', thu, 'PIT', L - HOUR, E),          // Evan, before his lock: counts
+      P('e1', mon, 'ATL', L + 5 * MIN, E),       // the locked phone after its lock (the rules refuse it): never counts
+      P('e2', thu, 'CLE', L + 10 * MIN, E),      // Evan's second phone after the lock: never counts (PIT stands)
+      P('e2', lon, 'IND', L + 30 * MIN, E),      // the same: never counts
+      P('m1', thu, 'CLE', L + HOUR, M),          // Mitch never locked: counts
+      P('s2', lon, 'WSH', L - MIN, S),           // Mason's other phone before his lock: counts
+      P('s2', mon, 'NO', L + MIN, S),            // after it: never counts
+      P('f1', lon, 'IND', L + MIN, null, 'Fan'), // a phone without a manager, after its own lock: never counts
+      P('f2', lon, 'IND', L + MIN, null, 'Fan')  // another phone with the same nick, no lock: counts
+    ];
+    const locks = [K('e1', L, E), K('s1', L, S), K('f1', L, null, 'Fan'), K('zz', L - DAY, M, 'Mitch', 3, {id: 'not-zz'})]; // the last: its id isn't its uid
+    const fmt = r => `${r.me || r.uid}:${r.picked}${r.locked != null ? 'L' : ''}`;
+    const rows = week.nflRowsFrom(docs, games, 'e1', {me: E, locks}).map(fmt).sort().join(' ');
+    const open = week.nflRowsFrom(docs, games, 'e1', {me: E}).map(fmt).sort().join(' ');
+    // Evan's second phone: its own late London pick is gone; Thursday (revealed) shows the pick that counts for Evan.
+    const t2 = week.tallyNfl(docs, games, 'e2', {at: T + HOUR, me: E, locks});
+    const lk1 = week.nflLocks(locks, 'e1', {me: E}), lk2 = week.nflLocks(locks, 'e2', {me: E}), lk3 = week.nflLocks(locks, 'm1', {me: M});
+    const people = lk1.list.map(x => x.key).sort().join();
+    const pass = rows === 'evan:1L f2:1 mason:1L mitch:1' && open === 'evan:3 f1:1 f2:1 mason:2 mitch:1'
+      && J(t2.mine) === J({[thu.id]: 'PIT'}) && t2.byGame[lon.id].n === 2 && t2.byGame[thu.id].away === 1 && t2.byGame[thu.id].home === 1
+      && lk1.mine && lk1.mine.own && lk1.mine.at === L && lk2.mine && !lk2.mine.own && lk2.mine.uid === 'e1' && !lk3.mine
+      && lk1.count === 3 && people === 'm:evan,m:mason,u:f1' && lk1.list.find(x => x.me === E).you && !lk3.list.some(x => x.you);
+    return {pass, detail: `with locks: ${rows}; without: ${open}; Evan's 2nd phone sees ${J(t2.mine)}; locked: ${people}`};
+  });
+
+  check('Lock in: lockPicks / unlockPicks on the dev stand-in (undo only within 2 minutes; a locked phone submits nothing; "denied" when locks are off)', async () => {
+    if (!week.__dev || !week.__dev.standIn()) return {pass: true, detail: 'skipped: this page can write to the real database'};
+    const games = nfl.parse(clone(W4)).games, [, lon] = games;
+    const Y = 2099, W = 5, key = week.weekKey(Y, W); // a test week nobody plays
+    const t0 = games[0].kickoff.getTime() - DAY;       // a day before the first kickoff: every game is open
+    const mine = () => { const o = (week.__dev.store().nfllocks || {})[key] || {}; const d = o[week.myUid()]; return d ? `${d.n}@${(d.at - t0) / MIN}m` : 'none'; };
+    const picks = () => Object.values((week.__dev.store().nflpicks || {})[key] || {}).filter(d => d.uid === week.myUid()).map(d => d.team).join() || 'none';
+    // The submitPicks check above forces the stand-in's errors (__dev.fail) while it runs; it never waits on a timer,
+    // so one turn of the event loop lets it finish first.
+    await new Promise(r => setTimeout(r, 0));
+    try {
+      const l1 = await week.lockPicks(Y, W, {n: 3, at: t0});
+      const s1 = mine();
+      const l2 = await week.lockPicks(Y, W, {n: 9, at: t0 + MIN});          // already locked: nothing changes
+      const sub = await week.submitPicks(Y, W, {[lon.id]: 'IND'}, {games, at: t0 + MIN});
+      const u1 = await week.unlockPicks(Y, W, {at: t0 + week.LOCK_UNDO_MS}); // the window is over
+      const s2 = mine();
+      const u2 = await week.unlockPicks(Y, W, {at: t0 + MIN});               // within it
+      const s3 = mine();
+      const sub2 = await week.submitPicks(Y, W, {[lon.id]: 'IND'}, {games, at: t0 + 2 * MIN});
+      week.__dev.failLocks('denied');
+      const d1 = await week.lockPicks(Y, W, {n: 1, at: t0 + 3 * MIN});
+      week.__dev.failLocks('failed');
+      const f1 = await week.lockPicks(Y, W, {n: 1, at: t0 + 3 * MIN});
+      week.__dev.failLocks(null);
+      const s4 = mine();
+      const pass = l1 === 'dev' && s1 === '3@0m' && l2 === 'dev' && sub.code === 'lockedin' && J(sub.lockedIn) === J([lon.id]) && !sub.ok.length && !sub.locked.length
+        && u1 === 'locked' && s2 === '3@0m' && u2 === 'dev' && s3 === 'none' && sub2.code === 'dev' && J(sub2.ok) === J([lon.id]) && picks() === 'IND'
+        && d1 === 'denied' && f1 === 'failed' && s4 === 'none' && week.LOCK_UNDO_MS === 2 * MIN;
+      return {pass, detail: `lock ${l1} (${s1}); again ${l2}; submit while locked ${sub.code}; undo at 2 min ${u1} (${s2}); at 1 min ${u2} (${s3}); submit after ${sub2.code}; locks off: ${d1}, failing: ${f1}`};
+    } finally {
+      week.__dev.failLocks(null);
+      dropTestWeek(key);
+    }
+  });
+
+  check('Lock in: a lock the server hasn\'t confirmed (pending) binds nothing and counts for nobody, but shows as yours ("Locking in…"); a phone stays bound by the manager its own picks carry', () => {
+    need();
+    const games = nfl.parse(clone(W4)).games, [thu, lon] = games;
+    const L = thu.kickoff.getTime() - 2 * HOUR;
+    const E = mgr('evan'), M = mgr('mitch');
+    const P = (uid, g, team, at) => ({id: week.nflPickId(uid, g.id), uid, game: g.id, team, me: E, nick: 'Evan', at});
+    const docs = [P('e1', thu, 'PIT', L + MIN), P('e2', lon, 'IND', L - HOUR)];
+    const lock = x => [Object.assign({id: 'e1', uid: 'e1', me: E, nick: 'Evan', at: L, n: 1}, x)];
+    const pend = week.nflLocks(lock({pending: true}), 'e1', {me: E});
+    const fmt = r => `${r.me}:${r.picked}${r.locked != null ? 'L' : ''}`;
+    const rowsP = week.nflRowsFrom(docs, games, 'e1', {me: E, locks: lock({pending: true})}).map(fmt).join();
+    const rowsC = week.nflRowsFrom(docs, games, 'e1', {me: E, locks: lock()}).map(fmt).join();
+    // Evan's second phone (e2) now answers "Which one are you?" with Mitch, but its own pick carries Evan: still bound.
+    const b2 = week.nflLocks(lock(), 'e2', {me: M, mes: [E]}).mine, b3 = week.nflLocks(lock(), 'm1', {me: M, mes: [M]}).mine;
+    const pass = !!pend.mine && pend.mine.pending === true && pend.mine.own && !pend.list.length && pend.count === 0 && rowsP === 'evan:2' && rowsC === 'evan:1L'
+      && !!b2 && !b2.own && b2.uid === 'e1' && b3 === null;
+    return {pass, detail: `pending: mine ${J(pend.mine)}, ${pend.count} locked in, rows ${rowsP} (confirmed: ${rowsC}); a switched phone ${b2 ? 'bound' : 'free'}; Mitch's own phone ${b3 ? 'bound' : 'free'}`};
+  });
+
+  check('Lock-ins ("5 of 12 locked in"): the counting rule\'s people (a lock without a manager never marks the manager its nick names; the locking phone\'s own nick-only picks are covered)', () => {
+    needPk(); need();
+    const E = mgr('evan'), M = mgr('mason'), JB = mgr('jacob');
+    const snap = {
+      locks: [{key: 'u:x1', uid: 'x1', uids: ['x1'], me: null, nick: 'Mason', at: 5, n: 3}, {key: 'm:evan', uid: 'e1', uids: ['e1'], me: E, nick: 'Evan', at: 6, n: 16}],
+      rows: [
+        {uid: 'e1', me: null, nick: 'Evan', picked: 16, locked: 6},   // Evan's phone: its picks from before it had a manager; its lock covers them
+        {uid: 'e9', me: null, nick: 'Evan', picked: 2, locked: null}, // another phone called Evan, no manager: Evan's lock doesn't bind it
+        {uid: 'x1', me: null, nick: 'Mason', picked: 3, locked: 5},   // a phone without a manager that locked in (itself only)
+        {uid: 'm2', me: M, nick: 'Mason', picked: 7, locked: null},   // the real Mason: not locked in
+        {uid: 'j1', me: null, nick: 'Jacob', picked: 4, locked: null},// no manager, nick names Jacob (who hasn't locked in): counts as Jacob
+        {uid: 'f1', me: null, nick: 'Fan', picked: 2, locked: null}   // not in the league
+      ]};
+    const L = pk.lockIns(snap);
+    const not = new Map(L.not.map(x => [x.w.key, x.picked]));
+    const pass = L.count === 2 && L.list.map(x => x.w.key).join() === 'u:x1,m:evan' && !L.list.some(x => x.w.key === 'm:' + M)
+      && not.get('m:' + M) === 7 && not.get('m:' + JB) === 4 && !not.has('u:j1') && not.get('u:e9') === 2 && not.get('u:f1') === 2
+      && !not.has('m:' + E) && !not.has('u:e1') && !not.has('u:x1') && L.total === L.count + L.not.length;
+    return {pass, detail: `locked in: ${L.list.map(x => x.w.key).join(' ')}; not yet: ${L.not.map(x => `${x.w.key}:${x.picked}`).join(' ')}; ${L.count} of ${L.total}`};
+  });
+
+  check('Lock in: the tab dot is off once you are locked in (drafts and unpicked games too)', () => {
+    needPk();
+    const games = nfl.parse(clone(W4)).games, [thu, lon] = games;
+    const at = thu.kickoff.getTime() - HOUR;
+    const o = {games, saved: {[thu.id]: 'PIT'}, drafts: {[lon.id]: 'IND'}, at};
+    const open = pk.badgeFrom(o), locked = pk.badgeFrom(Object.assign({}, o, {locked: true}));
+    const pass = open.on && open.unsent === 1 && !locked.on && !locked.unsent && !locked.due.length;
+    return {pass, detail: `open: dot ${open.on} (${open.unsent} unsent, ${open.due.length} due); locked in: dot ${locked.on}`};
+  });
+
+  check('Last-known week: the games and your picks round-trip through localStorage (dates, locks); too old, over (or past its last kickoff) or junk is not read back', () => {
+    needPk();
+    const TK = 'gg-pk-last-check';
+    // The recorded week-4 games, moved to kick off tomorrow (the kept week is only read back before its games end).
+    const now = Date.now();
+    const games = nfl.parse(clone(W4)).games.map((g, i) => Object.assign({}, g, {over: false, kickoff: new Date(now + DAY + i * HOUR)}));
+    const snap = {key: '1999-w5', year: 1999, week: 5, mine: {[games[0].id]: 'PIT'}, saved: {[games[0].id]: 'PIT'}, byGame: {[games[0].id]: {n: 3, revealed: false}},
+      rows: [{uid: 'u', me: null, nick: 'Fan', picked: 1, right: 0, wrong: 0}], count: 1, locks: [{key: 'u:u', uid: 'u', at: 5, n: 1}], lockedMe: {at: 5, n: 1, uid: 'u', own: true},
+      lockedCount: 1, locksError: null, picks: [{big: true}], error: null, ready: true};
+    try {
+      const saved = pk.cacheSave({year: 1999, week: 5, board: {games}, snap}, TK);
+      const c = pk.cacheLoad(TK, now + HOUR);
+      const g0 = c && c.board.games[0];
+      const round = saved && c && c.year === 1999 && c.week === 5 && c.board.cached && c.board.games.length === 3 && g0.kickoff instanceof Date
+        && g0.kickoff.getTime() === games[0].kickoff.getTime() && g0.home.abbr === 'CLE' && c.snap.cached && c.snap.ready === false
+        && J(c.snap.saved) === J(snap.saved) && J(c.snap.lockedMe) === J(snap.lockedMe) && c.snap.rows.length === 1 && !c.snap.picks.length;
+      // The same week again is left alone (its saved time untouched); a lock still on its way isn't kept.
+      const raw = localStorage.getItem(TK).replace(/,"at":\d+\}$/, ',"at":12345}');
+      localStorage.setItem(TK, raw);
+      pk.cacheSave({year: 1999, week: 5, board: {games}, snap}, TK);
+      const same = localStorage.getItem(TK) === raw;
+      pk.cacheSave({year: 1999, week: 5, board: {games}, snap: Object.assign({}, snap, {lockedMe: {at: 9, n: 1, uid: 'u', own: true, pending: true}})}, TK);
+      const pend = pk.cacheLoad(TK, now + HOUR);
+      const noPend = !!pend && pend.snap.lockedMe === null && localStorage.getItem(TK) !== raw;
+      const old = pk.cacheLoad(TK, now + 9 * DAY) === null;
+      const late = pk.cacheLoad(TK, now + DAY + 2 * HOUR + 9 * HOUR) === null; // 9 hours after the last kickoff: surely over
+      pk.cacheSave({year: 1999, week: 5, board: {games: games.map(g => Object.assign({}, g, {over: true}))}, snap}, TK);
+      const over = pk.cacheLoad(TK, now) === null && late;
+      localStorage.setItem(TK, '{"v":1,"k":"1999-w5","year":1999,"week":5,"board":{"games":[{"id":7}]}}');
+      const junk = pk.cacheLoad(TK, now) === null;
+      localStorage.setItem(TK, 'not json');
+      const bad = pk.cacheLoad(TK, now) === null && pk.cacheLoad('gg-pk-last-none', now) === null;
+      return {pass: round && same && noPend && old && over && junk && bad, detail: `round trip ${round}; unchanged ${same ? 'not rewritten' : 'rewritten'}; pending lock ${noPend ? 'not kept' : 'kept'}; 9 days old ${old ? 'dropped' : 'kept'}; all over ${over ? 'dropped' : 'kept'}; junk ${junk && bad ? 'dropped' : 'kept'}`};
+    } finally { localStorage.removeItem(TK); }
   });
 
   check('Drafts: a game without a set time stops taking picks at its early lock (36 h before the placeholder), and its draft is kept', () => {

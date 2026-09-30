@@ -38,6 +38,9 @@ service cloud.firestore {
     // new pick at or after its `kick`, and no change or delete of a doc once its own `kick` has passed, so a pick
     // can't be erased after its game. The app drops docs whose `kick` is later than ESPN's kickoff (so a forged
     // future `kick` never counts) and docs whose `at` is at or after that game's kickoff.
+    // A phone that has locked in the week (its doc in locks, below) can't create, change or delete a pick of that
+    // week. The app also drops picks a locked-in manager makes after the lock from any other phone, and refuses
+    // changes from a phone whose picks carry that manager (the rules check only the phone that locked).
     function pickOk(pickId, d) {
       return pickId == request.auth.uid + '__' + d.game
         && d.keys().hasOnly(['uid', 'game', 'team', 'me', 'nick', 'at', 'kick'])
@@ -49,11 +52,28 @@ service cloud.firestore {
     }
     match /nflpicks/{week}/picks/{pickId} {
       allow read: if true;
-      allow create: if request.auth != null && weekOk(week) && pickOk(pickId, request.resource.data);
+      allow create: if request.auth != null && weekOk(week) && pickOk(pickId, request.resource.data)
+        && !exists(/databases/$(database)/documents/nflpicks/$(week)/locks/$(request.auth.uid));
       allow update: if request.auth != null && weekOk(week) && request.time < resource.data.kick
-        && pickOk(pickId, request.resource.data);
+        && pickOk(pickId, request.resource.data)
+        && !exists(/databases/$(database)/documents/nflpicks/$(week)/locks/$(request.auth.uid));
       allow delete: if request.auth != null && pickId.matches('^' + request.auth.uid + '__[0-9]{1,12}$')
-        && request.time < resource.data.kick;
+        && request.time < resource.data.kick
+        && !exists(/databases/$(database)/documents/nflpicks/$(week)/locks/$(request.auth.uid));
+    }
+    // Locking in: one doc per phone per week (nflpicks/2026-w4/locks/{uid}) = {uid, me, nick, at, n (how many picks
+    // it locked)}, never changed. It can be taken back only within 2 minutes of `at` (the app's Undo); after that
+    // the week's picks from this phone are final. Anyone can read who has locked in (never anyone's picks).
+    match /nflpicks/{week}/locks/{uid} {
+      allow read: if true;
+      allow create: if request.auth != null && request.auth.uid == uid && weekOk(week)
+        && request.resource.data.keys().hasOnly(['uid', 'me', 'nick', 'at', 'n'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.n is int && request.resource.data.n >= 0 && request.resource.data.n <= 32
+        && whoOk(request.resource.data);
+      allow update: if false;
+      allow delete: if request.auth != null && request.auth.uid == uid
+        && request.time < resource.data.at + duration.value(2, 'm');
     }
 
     // Press Room: the Matchup of the Week loser's postgame press conference, one per week (pressers/2026-w4).
