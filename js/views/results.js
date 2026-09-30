@@ -64,22 +64,21 @@ ${ui.button({label: 'Lock in my score as it is', kind: 'plain', attrs: {'data-lo
 </section>`;
 }
 
-function postNotes() {
+// The score posts itself (daily.maybeAutoPost; no name form, no Post button): this box only reports how that went.
+function pendingText() {
   const LB = daily.LB;
-  let h = '';
-  if (LB.status === 'posting') h += '<p class="c-post-note" role="status">Posting your score.</p>';
-  if (LB.status === 'failed') h += '<p class="c-post-bad" role="status">Posting failed. Check your connection and try again.</p>';
-  if (LB.dev) h += '<p class="c-post-note">Posting is off on this dev host.</p>';
-  return h;
+  if (LB.dev) return "Scores don't post from this dev host.";
+  if (LB.status === 'failed') return "Couldn't post your score yet. It'll try again automatically.";
+  return 'Posting your score to the league board.';
 }
-// Post box kinds: '' (hidden) | 'done' | 'denied' | 'full' | 'form'
+// Post box kinds: '' (hidden) | 'done' | 'denied' | 'full' | 'pending'
 function postKind() {
   const LB = daily.LB;
   if (LB.off || !LB.ready || !LB.uid) return '';
   if (daily.DS.posted || LB.status === 'posted') return 'done';
   if (LB.status === 'denied') return 'denied';
   if (LB.status === 'full') return 'full';
-  return 'form';
+  return 'pending';
 }
 function myRank() {
   if (!ready() || !daily.LB.ready) return null;
@@ -93,13 +92,9 @@ function postHTML(kind = postKind()) {
   }
   if (kind === 'denied') return `<p class="c-post-bad">The league board turned this score down. Your score is saved on this phone, and Share results still works.</p>`;
   if (kind === 'full') return `<p class="c-post-bad">The league board is over its daily limit. Try posting again tomorrow.</p>`;
-  if (kind !== 'form') return '';
-  const posting = LB.status === 'posting';
-  return `<form class="c-post-form" data-postform novalidate>
-<label class="c-post-lbl" for="nick-input">Name on the leaderboard</label>
-<div class="c-post-row"><span class="c-post-field"><input id="nick-input" class="c-post-in" type="text" maxlength="24" autocomplete="nickname" autocapitalize="words" autocorrect="off" spellcheck="false" enterkeyhint="send" value="${esc(LB.nick || '')}" placeholder="Your name"${posting ? ' readonly' : ''}></span>${ui.button({label: 'Post score', size: 's', type: 'submit', loading: posting, cls: 'c-post-btn'})}</div>
-<div class="c-post-notes">${postNotes()}</div>
-</form>`;
+  if (kind !== 'pending') return '';
+  const bad = LB.status === 'failed';
+  return `<p class="${bad ? 'c-post-bad' : 'c-post-note'}" role="status" data-posttext>${esc(pendingText())}</p>`;
 }
 
 function doneHTML() {
@@ -308,19 +303,13 @@ function rollStreak(st, animate) {
 function patchPost(st, {force = false} = {}) {
   const box = st.el.querySelector('[data-postbox]');
   if (!box) return;
-  const ae = document.activeElement;
-  if (ae && ae.id === 'nick-input' && box.contains(ae)) { st.postPending = true; return; }
-  st.postPending = false;
   const kind = postKind();
   const rk = String(myRank());
   if (!force && box.dataset.kind === kind && (kind !== 'done' || box.dataset.rank === rk)) {
-    if (kind === 'form') {
-      // Patch in place: keep what was typed while the post goes through.
-      const posting = daily.LB.status === 'posting';
-      const btn = box.querySelector('.c-post-btn'), inp = box.querySelector('#nick-input'), notes = box.querySelector('.c-post-notes');
-      if (btn) ui.setLoading(btn, posting);
-      if (inp) inp.readOnly = posting;
-      if (notes) { const h = postNotes(); if (notes.innerHTML !== h) notes.innerHTML = h; }
+    if (kind === 'pending') {
+      // Same box: swap the status line in place (posting ↔ will retry).
+      const p = box.querySelector('[data-posttext]'), bad = daily.LB.status === 'failed';
+      if (p && p.textContent !== pendingText()) { p.textContent = pendingText(); p.className = bad ? 'c-post-bad' : 'c-post-note'; }
     }
     return;
   }
@@ -430,20 +419,6 @@ async function lockIn(st) {
   ui.announce(`Locked in. ${gradeTitle(daily.gradeFor(total))}. ${nf(total)} points.`);
 }
 
-function onSubmit(st, e) {
-  const f = e.target.closest('[data-postform]');
-  if (!f) return;
-  e.preventDefault();
-  const LB = daily.LB;
-  if (LB.posting) return;
-  const inp = f.querySelector('#nick-input');
-  const v = (inp && inp.value) || '';
-  if (!v.trim() && !LB.names[LB.uid]) { ui.toast('Add a name for the leaderboard.'); if (inp) inp.focus(); return; }
-  if (inp) inp.blur();
-  if (!LB.save) { ui.toast('Posting is off on this dev host.'); return; }
-  daily.postScore(v);
-}
-
 function onDaily(st, type, d) {
   if (st.dead) return;
   if (type === 'ready' || type === 'error') { if (!st.retrying) swapBody(st); return; }
@@ -478,11 +453,9 @@ export default {
 
   mount(el, ctx) {
     ensureDefs();
-    const st = {el, ctx, board: null, phase: null, revealed: false, cancels: [], shareGen: 0, file: null, fileRank: null, postPending: false, dead: false, cancelImg: null, imgQueued: false, retrying: false};
+    const st = {el, ctx, board: null, phase: null, revealed: false, cancels: [], shareGen: 0, file: null, fileRank: null, dead: false, cancelImg: null, imgQueued: false, retrying: false};
     RES.set(ctx, st);
     el.addEventListener('click', e => onClick(st, e));
-    el.addEventListener('submit', e => onSubmit(st, e));
-    el.addEventListener('focusout', e => { if (e.target && e.target.id === 'nick-input' && st.postPending) setTimeout(() => patchPost(st), 0); });
     // Hairline under the bar once content scrolls beneath it.
     const bar = el.querySelector('.c-rbar'), sent = el.querySelector('.c-rsent');
     if (bar && sent && typeof IntersectionObserver === 'function') {

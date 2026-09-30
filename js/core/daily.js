@@ -12,7 +12,7 @@
 // behavior.
 // Owner: foundation (core).
 
-import {DATA, nf, norm, me as dataMe} from './data.js';
+import {DATA, nf, norm, me as dataMe, name as dataName} from './data.js';
 import {getFire, canWrite, isDevHost, devDayFrom, DEV_DAY as fireDevDay} from './fire.js';
 
 export {nf, norm};
@@ -786,9 +786,29 @@ export function boardEntry(ds = DS, day = DAY) {
   return e;
 }
 
+// Posting is automatic (there is no Post button): a finished day posts once the board has loaded (so the post keeps
+// the days already on your doc), under your leaderboard name: the nick, else the member picked on the welcome
+// screen. A failed post retries by itself when the phone comes back online, when the app is shown again, and on a
+// backoff timer (15 s, doubling to 5 min).
+let retryT = 0, retryMs = 0;
+function postName() {
+  if (LB.nick) return LB.nick;
+  const m = dataMe();
+  return m ? dataName(m) : '';
+}
+function scheduleRetry() {
+  clearTimeout(retryT);
+  retryMs = Math.min(retryMs ? retryMs * 2 : 15000, 300000);
+  retryT = setTimeout(maybeAutoPost, retryMs);
+}
+try {
+  addEventListener('online', () => maybeAutoPost());
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') maybeAutoPost(); });
+} catch (_) {}
+
 export function maybeAutoPost() {
-  if (!allDone() || DS.posted || !LB.save || LB.posting || LB.status === 'denied') return;
-  if (LB.nick) postScore(LB.nick);
+  if (!allDone() || DS.posted || !LB.save || !LB.ready || LB.posting || LB.status === 'denied' || LB.status === 'full') return;
+  postScore(postName());
 }
 
 export async function postScore(nick) {
@@ -803,8 +823,10 @@ export async function postScore(nick) {
     await LB.save(body);
     DS.posted = true; saveDS(); LB.status = 'posted'; LB.nick = body.nick;
     try { localStorage.setItem('gg-nick', body.nick); } catch (_) {}
+    clearTimeout(retryT); retryMs = 0;
   } catch (e) {
     LB.status = e && e.code === 'permission-denied' ? 'denied' : e && e.code === 'resource-exhausted' ? 'full' : 'failed';
+    if (LB.status === 'failed') scheduleRetry();
   }
   LB.posting = false; lbChanged('status');
 }
