@@ -225,7 +225,8 @@
 .v-rivals .rv-nobody { margin-top: 0; }
 
 /* ================================================================ Matchup of the Week */
-.v-rivals .rv-motw { padding: 0 var(--gutter); margin: 4px 0 28px; }
+/* On the page gutter like every other card (the old extra 16 px inset squeezed the names to "Jay…"). */
+.v-rivals .rv-motw { margin: 4px 0 28px; }
 .v-rivals .rv-motw-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .v-rivals .rv-motw-head .t-2 { margin: 0; }
 .v-rivals .rv-motw-wk { color: var(--tint); white-space: nowrap; }
@@ -281,9 +282,9 @@
   background: var(--fill); color: var(--ink-2);
   font: 500 var(--fs-cap)/var(--lh-cap) var(--font-text); white-space: nowrap;
 }
-/* The top pick gets the room: bigger avatars and score, a tint wash, gold first tag. */
-.v-rivals .rv-mc.is-top { padding-top: 16px; padding-bottom: 16px; background: linear-gradient(180deg, var(--tint-soft), transparent 70%); }
-.v-rivals .rv-mc.is-top .rv-mc-place { color: var(--tint); }
+/* The top pick gets the room: bigger avatars and score, a neutral wash (tint is only ever "you"), gold first tag. */
+.v-rivals .rv-mc.is-top { padding-top: 16px; padding-bottom: 16px; background: linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 70%, transparent), transparent 70%); }
+.v-rivals .rv-mc.is-top .rv-mc-place { color: var(--ink); }
 .v-rivals .rv-mc.is-top .rv-mc-n { font-size: var(--fs-headline); line-height: var(--lh-headline); }
 .v-rivals .rv-mc.is-top .rv-mc-tag:first-child { background: var(--gold-soft); color: var(--gold); }
 .v-rivals .rv-motw-foot {
@@ -294,3 +295,317 @@
   .v-rivals .rv-mc-side .av { display: none; }
   .v-rivals .rv-mc.is-top .rv-mc-side .av { display: grid; }
 }
+
+/* ================================================================ The vote (Matchup of the Week) */
+.v-rivals .rv-mc {
+  grid-template-areas: "place pair hype" ". tags tags" ". vote vote";
+}
+/* Your vote: the tint leading bar. The league's pick (after kickoff): a gold wash. */
+.v-rivals .rv-mc.is-voted::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; z-index: 1;
+  background: var(--tint); pointer-events: none;
+}
+.v-rivals .rv-mc.is-lead { background: linear-gradient(180deg, var(--gold-soft), transparent 85%); }
+.v-rivals .rv-vt-status {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  min-height: 44px; padding: 0 8px 0 14px;
+  border-bottom: .5px solid var(--separator);
+}
+.v-rivals .rv-vt-st {
+  display: flex; align-items: center; gap: 6px; min-width: 0;
+  font: 600 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2);
+}
+.v-rivals .rv-vt-st > .ic { flex: none; width: 16px; height: 16px; color: var(--tint); stroke-width: 2; }
+.v-rivals .rv-vt-status.is-closed .rv-vt-st > .ic { color: var(--ink-3); }
+.v-rivals .rv-vt-stt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-rivals .rv-vt-tot {
+  flex: none; display: inline-flex; align-items: center; gap: 2px;
+  min-height: 44px; padding: 0 6px;
+  font: 600 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); white-space: nowrap;
+}
+.v-rivals .rv-vt-tot.is-btn { color: var(--ink-2); border-radius: var(--r-cell); transition: opacity 250ms linear; }
+.v-rivals .rv-vt-tot.is-btn > .ic { width: 14px; height: 14px; color: var(--ink-3); stroke-width: 2.2; }
+.v-rivals .rv-vt-tot.is-btn.is-pressed { opacity: .5; transition: none; }
+
+/* The vote line is its own hit zone: a tap that misses the Vote button (on the bar or the percentage) does
+   nothing, instead of falling through to the row's head-to-head link below it. */
+.v-rivals .rv-mc > .rv-mc-vote { pointer-events: auto; cursor: default; }
+.v-rivals .rv-mc-vote { grid-area: vote; min-width: 0; margin-top: 10px; }
+/* Percentage, voters and the button on one line; the bar on its own full-width row under them, so every row's
+   bar has the same track and a bigger share always draws a longer bar. */
+.v-rivals .rv-vt {
+  display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto;
+  grid-template-areas: "pct who . act" "bar bar bar bar";
+  align-items: center; column-gap: 8px; row-gap: 6px;
+  min-height: 34px; min-width: 0;
+}
+.v-rivals .rv-vt-pct { grid-area: pct; }
+.v-rivals .rv-vt-who { grid-area: who; }
+.v-rivals .rv-vt-btn, .v-rivals .rv-vt-tag { grid-area: act; }
+.v-rivals .rv-vt-bar {
+  grid-area: bar;
+  position: relative; overflow: hidden;
+  width: 100%; min-width: 0; height: 4px; border-radius: 2px;
+  background: var(--surface-2);
+}
+.v-rivals .rv-vt.is-none .rv-vt-bar { display: none; }
+.v-rivals .rv-mc.is-top .rv-vt-bar { background: var(--surface-3); }
+.v-rivals .rv-vt-bar > i {
+  position: absolute; inset: 0; border-radius: 2px;
+  background: var(--ink-3);
+  transform-origin: left center;
+}
+.v-rivals .rv-vt.is-leading .rv-vt-bar > i { background: var(--ink); }
+.v-rivals .rv-vt.is-mine .rv-vt-bar > i { background: var(--tint); }
+.v-rivals .rv-vt.is-lead .rv-vt-bar > i { background: var(--gold); }
+.v-rivals .rv-vt-pct { min-width: 3.2ch; text-align: left; color: var(--ink-3); }
+.v-rivals .rv-vt.is-none .rv-vt-pct { min-width: 0; }
+.v-rivals .rv-vt.is-leading .rv-vt-pct { color: var(--ink); }
+.v-rivals .rv-vt.is-mine .rv-vt-pct { color: var(--tint); }
+.v-rivals .rv-vt.is-lead .rv-vt-pct { color: var(--gold); }
+/* After kickoff: the league's pick heads the card (under the status strip), whatever its hype place. */
+.v-rivals .rv-vt-res {
+  position: relative;
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  min-height: 60px; padding: 10px 12px 10px 14px;
+  border-bottom: .5px solid var(--separator);
+  background: linear-gradient(180deg, var(--gold-soft), transparent 90%);
+  text-align: left; color: var(--ink);
+  transition: opacity 250ms linear;
+}
+.v-rivals .rv-vt-res.is-pressed { opacity: .6; transition: none; }
+.v-rivals .rv-vt-res:focus-visible { outline-offset: -2px; }
+.v-rivals .rv-vt-res-av { flex: none; display: flex; }
+.v-rivals .rv-vt-res-av > .av + .av { margin-left: -8px; box-shadow: 0 0 0 2px var(--surface-1); }
+.v-rivals .rv-vt-res-t { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.v-rivals .rv-vt-res-o { display: flex; align-items: center; gap: 5px; color: var(--gold); white-space: nowrap; overflow: hidden; }
+.v-rivals .rv-vt-res-o > .ic { flex: none; width: 14px; height: 14px; fill: var(--gold); }
+.v-rivals .rv-vt-res-o > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.v-rivals .rv-vt-res-p { font: 600 var(--fs-headline)/var(--lh-headline) var(--font-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-rivals .rv-vt-res > .chev { flex: none; width: 18px; height: 18px; color: var(--ink-3); }
+.v-rivals .rv-vt-who {
+  position: relative; flex: none; pointer-events: auto;
+  display: inline-flex; align-items: center; height: 34px; padding: 0 2px;
+  border-radius: var(--r-pill);
+  transition: transform var(--spring-snappy-dur) var(--spring-snappy);
+}
+.v-rivals .rv-vt-who::before { content: ""; position: absolute; inset: -5px -4px; }
+.v-rivals .rv-vt-who.is-pressed { transform: scale(.92); transition: none; }
+.v-rivals .rv-vt-who .stack > * + * { margin-left: -5px; }
+.v-rivals .rv-vt-who .stack-more { font-size: 11px; padding: 0 5px; }
+.v-rivals .rv-vt-btn {
+  position: relative; flex: none; pointer-events: auto;
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  min-width: 72px; height: 32px; padding: 0 14px;
+  margin-left: auto;
+  border-radius: var(--r-pill);
+  background: var(--surface-2); color: var(--ink);
+  font: 600 var(--fs-foot)/1 var(--font-text);
+  transition: transform var(--spring-snappy-dur) var(--spring-snappy), background-color 200ms linear, color 200ms linear;
+}
+.v-rivals .rv-mc.is-top .rv-vt-btn:not(.is-on) { background: var(--surface-3); }
+.v-rivals .rv-vt-btn::before { content: ""; position: absolute; inset: -6px -4px; }
+.v-rivals .rv-vt-btn.is-pressed { transform: scale(.94); transition: none; }
+.v-rivals .rv-vt-btn.is-on { background: var(--tint); color: var(--on-tint); padding: 0 12px 0 10px; }
+.v-rivals .rv-vt-ck { display: none; width: 15px; height: 15px; stroke-width: 2.8; }
+.v-rivals .rv-vt-btn.is-on .rv-vt-ck { display: block; }
+.v-rivals .rv-vt-tag {
+  flex: none; margin-left: auto;
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 26px; padding: 0 10px 0 8px; border-radius: var(--r-pill);
+  font: 600 var(--fs-cap)/1 var(--font-text); white-space: nowrap;
+}
+.v-rivals .rv-vt-tag > .ic { width: 14px; height: 14px; stroke-width: 2.2; }
+.v-rivals .rv-vt-tag.is-lead { background: var(--gold-soft); color: var(--gold); }
+.v-rivals .rv-vt-tag.is-lead > .ic { fill: var(--gold); }
+.v-rivals .rv-vt-tag.is-mine { background: var(--tint-soft); color: var(--tint); }
+
+/* ================================================================ Pick'em */
+.v-rivals .rv-pk { margin: 0 0 28px; }
+.v-rivals .rv-pk-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 34px; }
+.v-rivals .rv-pk-head .t-2 { margin: 0; }
+.v-rivals .rv-pk-head .btn-plain { margin-right: -6px; font-size: var(--fs-sub); }
+.v-rivals .rv-pk-head .btn-plain > .ic { width: 18px; height: 18px; }
+.v-rivals .rv-pk-sub { margin: 0 0 12px; color: var(--ink-3); font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); }
+.v-rivals .rv-pk-card { padding: 0; overflow: hidden; }
+.v-rivals .rv-pk-status {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  min-height: 44px; padding: 0 8px 0 14px;
+  border-bottom: .5px solid var(--separator);
+  font: 600 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2);
+}
+.v-rivals .rv-pk-prog { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.v-rivals .rv-pk-dots { display: flex; gap: 4px; flex: none; }
+.v-rivals .rv-pk-dots > i {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--surface-3);
+  transition: background-color 200ms linear;
+}
+.v-rivals .rv-pk-dots > i.on { background: var(--tint); }
+.v-rivals .rv-pk-count { white-space: nowrap; }
+.v-rivals .rv-pk-prog.is-all .rv-pk-count { color: var(--tint); }
+.v-rivals .rv-pk-msg { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.v-rivals .rv-pk-msg > .ic { flex: none; width: 16px; height: 16px; color: var(--ink-3); }
+.v-rivals .rv-pk-msg > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-rivals .rv-pk-save {
+  flex: none; display: inline-flex; align-items: center; gap: 5px;
+  min-height: 44px; padding: 0 6px;
+  color: var(--ink-3); white-space: nowrap;
+}
+.v-rivals .rv-pk-save > .ic { width: 14px; height: 14px; stroke-width: 2.4; }
+.v-rivals .rv-pk-save.is-saved > .ic { color: var(--tint); }
+.v-rivals .rv-pk-save .spin { width: 13px; height: 13px; border-width: 1.75px; }
+.v-rivals .rv-pk-save.is-failed { color: var(--wrong); border-radius: var(--r-cell); transition: opacity 250ms linear; }
+.v-rivals .rv-pk-save.is-failed.is-pressed { opacity: .5; transition: none; }
+
+.v-rivals .rv-pk-list { list-style: none; margin: 0; padding: 4px 0; }
+.v-rivals .rv-pk-game { position: relative; padding: 8px 12px; }
+.v-rivals .rv-pk-game + .rv-pk-game::before {
+  content: ""; position: absolute; left: 12px; right: 12px; top: 0; height: .5px;
+  background: var(--separator); pointer-events: none;
+}
+.v-rivals .rv-pk-pair { display: grid; grid-template-columns: minmax(0, 1fr) 26px minmax(0, 1fr); align-items: center; }
+.v-rivals .rv-pk-vs { text-align: center; color: var(--ink-4); }
+.v-rivals .rv-pk-side {
+  position: relative;
+  display: flex; align-items: center; gap: 10px;
+  min-width: 0; min-height: 56px; padding: 8px 10px;
+  border-radius: var(--r-cell);
+  background: var(--surface-2); color: var(--ink);
+  text-align: left;
+  transition: transform var(--spring-snappy-dur) var(--spring-snappy), background-color 200ms linear, box-shadow 200ms linear;
+}
+.v-rivals .rv-pk-side.b { flex-direction: row-reverse; text-align: right; }
+.v-rivals button.rv-pk-side.is-pressed { transform: scale(.96); transition: none; }
+.v-rivals .rv-pk-side.is-on { background: var(--tint-soft); box-shadow: inset 0 0 0 1.5px var(--tint); }
+.v-rivals .rv-pk-av { transition: opacity 200ms linear; }
+.v-rivals .rv-pk-n { transition: color 200ms linear; }
+/* The side you didn't pick steps back by colour, not opacity: its name stays readable (ink-2) and it is still a
+   live control. Only the (decorative) avatar fades. */
+.v-rivals .rv-pk-side.is-dim .rv-pk-av { opacity: .55; }
+.v-rivals .rv-pk-side.is-dim .rv-pk-n { color: var(--ink-2); }
+/* The check sits on the side's outer corner (toward the "vs"), never over the avatar's monogram. */
+.v-rivals .rv-pk-av { flex: none; display: grid; }
+.v-rivals .rv-pk-ck {
+  position: absolute; top: -6px; right: -6px; z-index: 1;
+  display: none; place-items: center;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--tint); color: var(--on-tint);
+  box-shadow: 0 0 0 2px var(--surface-1);
+}
+.v-rivals .rv-pk-side.b .rv-pk-ck { right: auto; left: -6px; }
+.v-rivals .rv-pk-msg.is-wait .spin { flex: none; width: 13px; height: 13px; border-width: 1.75px; }
+.v-rivals .rv-pk-side.is-on .rv-pk-ck { display: grid; }
+.v-rivals .rv-pk-ck > .ic { width: 12px; height: 12px; stroke-width: 3; }
+.v-rivals .rv-pk-txt { display: flex; flex-direction: column; min-width: 0; }
+.v-rivals .rv-pk-n {
+  font: 600 var(--fs-sub)/var(--lh-sub) var(--font-text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.v-rivals .rv-pk-r {
+  font: 400 var(--fs-cap)/var(--lh-cap) var(--font-text); color: var(--ink-3);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.v-rivals .rv-pk-side.is-on .rv-pk-r { color: var(--ink-2); }
+/* After kickoff: who the league picked, under each game. */
+.v-rivals .rv-pk-crowd {
+  display: grid; grid-template-columns: 76px minmax(0, 1fr) 76px; align-items: center; gap: 8px;
+  margin-top: 8px; min-height: 28px;
+}
+.v-rivals .rv-pk-cs .stack > * + * { margin-left: -6px; }
+.v-rivals .rv-pk-crowd.is-none { display: block; text-align: center; }
+.v-rivals .rv-pk-nobody { font: 400 var(--fs-cap)/var(--lh-cap) var(--font-text); color: var(--ink-3); }
+.v-rivals .rv-pk-cs { display: flex; min-width: 0; }
+.v-rivals .rv-pk-cs.b { justify-content: flex-end; }
+.v-rivals .rv-pk-cs .stack-more { font-size: 11px; padding: 0 5px; }
+.v-rivals .rv-pk-split .split { gap: 6px; }
+.v-rivals .rv-pk-split .split-pct { font-size: var(--fs-cap); min-width: 3.5ch; }
+.v-rivals .rv-pk-split .split-bar, .v-rivals .rv-pk-split .split-bar > i { height: 6px; }
+.v-rivals .rv-pk-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  min-height: 44px; padding: 0 8px 0 14px;
+  border-top: .5px solid var(--separator);
+  font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3);
+}
+.v-rivals .rv-pk-fw:empty { display: none; }
+.v-rivals .rv-pk-fi { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.v-rivals .rv-pk-fi > .ic { flex: none; width: 15px; height: 15px; }
+.v-rivals .rv-pk-fi > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-rivals .rv-pk-in { flex: none; padding-right: 6px; white-space: nowrap; }
+.v-rivals .rv-pk-foot .btn-plain { flex: none; font-size: var(--fs-foot); }
+
+/* ================================================================ Past Matchups of the Week */
+.v-rivals .rv-past { margin: 0 0 28px; }
+.v-rivals .rv-past-h { margin: 0 0 8px; }
+.v-rivals .rv-past-it.is-more { display: none; }
+.v-rivals .rv-past.is-all .rv-past-it.is-more { display: block; }
+.v-rivals .rv-past-more { display: flex; justify-content: center; margin-top: 4px; }
+.v-rivals .rv-spot { margin-top: 14px; }
+.v-rivals .rv-spot-h { margin: 0 0 4px; color: var(--ink-3); }
+.v-rivals .rv-spot-rail {
+  display: flex; gap: 8px;
+  margin: 0 calc(-1 * var(--gutter)); padding: 4px var(--gutter);
+  overflow-x: auto; overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity; scroll-padding-inline: var(--gutter); scrollbar-width: none;
+}
+.v-rivals .rv-spot-rail::-webkit-scrollbar { display: none; }
+.v-rivals .rv-spot-c {
+  position: relative; flex: none; scroll-snap-align: start;
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 36px; padding: 0 12px 0 6px;
+  border-radius: var(--r-pill);
+  background: var(--surface-1); box-shadow: inset 0 0 0 1px var(--separator);
+  color: var(--ink);
+  transition: transform var(--spring-snappy-dur) var(--spring-snappy);
+}
+.v-rivals .rv-spot-c::before { content: ""; position: absolute; inset: -4px 0; }
+.v-rivals .rv-spot-c.is-pressed { transform: scale(.95); transition: none; }
+.v-rivals .rv-spot-n { font: 600 var(--fs-foot)/var(--lh-foot) var(--font-text); white-space: nowrap; }
+.v-rivals .rv-spot-r { color: var(--ink-2); }
+
+/* ================================================================ Head to head title (under the week) */
+.v-rivals .rv-h2h-t { margin: 0 0 2px; }
+
+/* ================================================================ Sheets (who voted, everyone's picks, standings) */
+.sh-rv .rv-sh-sub { margin: 0 4px 16px; font: 400 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink-2); text-wrap: pretty; }
+.sh-rv .rv-sh-note { margin: 16px 16px 0; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+.sh-rv .group-h { text-transform: none; letter-spacing: 0; font-weight: 600; }
+.sh-rv .empty { padding-top: 24px; }
+.sh-rv-picks .rv-sp-g { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+.sh-rv-picks .rv-sp-g + .rv-sp-g { margin-top: 12px; }
+.sh-rv-picks .rv-sp-col { min-width: 0; padding: 10px 12px 12px; border-radius: var(--r-group); background: var(--surface-2); --stack-ring: var(--surface-2); }
+.sh-rv-picks .rv-sp-h { display: flex; align-items: center; gap: 8px; min-height: 28px; }
+.sh-rv-picks .rv-sp-hn { flex: 1 1 auto; min-width: 0; font: 600 var(--fs-sub)/var(--lh-sub) var(--font-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sh-rv-picks .rv-sp-hc { flex: none; color: var(--ink-2); }
+.sh-rv-picks .rv-sp-l { list-style: none; margin: 8px 0 0; padding: 0; }
+.sh-rv-picks .rv-sp-l > li { display: flex; align-items: center; gap: 8px; min-height: 28px; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2); }
+.sh-rv-picks .rv-sp-l > li > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sh-rv-picks .rv-sp-none { margin: 8px 0 0; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+.sh-rv-stand .rv-st-rk { flex: none; width: 22px; margin-right: 8px; text-align: center; color: var(--ink-3); }
+.sh-rv-stand .rv-st-rk.gold { color: var(--gold); }
+.sh-rv-stand .rv-st-v { display: flex; flex-direction: column; align-items: flex-end; }
+.sh-rv-stand .rv-st-v .t-cap { margin-top: -2px; }
+
+@media (max-width: 374px) {
+  /* The top pick keeps its avatars, smaller, so "Jaymin vs Jayton" is not "Jay… vs Jay…". */
+  .v-rivals .rv-mc.is-top .rv-mc-side .av { --sz: 32px !important; }
+  .v-rivals .rv-mc.is-top .rv-mc-side, .v-rivals .rv-mc.is-top .rv-mc-pair { gap: 6px; }
+  .v-rivals .rv-pk-side { gap: 8px; padding: 8px; }
+  .v-rivals .rv-pk-side .av { --sz: 32px; }
+  .v-rivals .rv-vt-btn { min-width: 64px; padding: 0 12px; }
+}
+html.rm .v-rivals .rv-vt-btn, html.rm .v-rivals .rv-pk-side { transition: background-color 200ms linear, color 200ms linear, box-shadow 200ms linear; }
+/* A deep link's "here" pulse on the section's card (opacity only). */
+.v-rivals .rv-flash { position: absolute; inset: 0; z-index: 2; border-radius: inherit; background: var(--tint-soft); pointer-events: none; opacity: 0; }
+.v-rivals .rv-pk-last {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  min-height: 48px; padding: 10px 10px 10px 14px;
+  border-top: .5px solid var(--separator);
+  font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2); text-align: left;
+  background-color: transparent; transition: background-color 250ms linear;
+}
+.v-rivals .rv-pk-last.is-pressed { background-color: var(--surface-2); transition: none; }
+.v-rivals .rv-pk-last > .ic:first-child { flex: none; width: 16px; height: 16px; color: var(--gold); }
+.v-rivals .rv-pk-lt { flex: 1 1 auto; min-width: 0; }
+.v-rivals .rv-pk-last > .chev { flex: none; width: 16px; height: 16px; color: var(--ink-3); }
+.v-rivals .rv-pk-last:focus-visible { outline-offset: -2px; }

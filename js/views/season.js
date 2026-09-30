@@ -2,6 +2,7 @@
 // and Bracket. Owner: standings package. Spec 7.10.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
+import * as stats from '../core/stats.js';
 import {openMatchup, crownWinner, gameBadges, seedsOf, ROUND_NAME} from './matchup.js';
 
 const esc = data.esc;
@@ -148,6 +149,54 @@ function bugCard(s, g, weekGames, {hero = false, foot = true} = {}) {
   return html;
 }
 
+// "Read the Wrap" (the auto-written recap, route /standings/:year/wrap/:week) for every week core/stats.js can
+// write one for. Cached per derived season object, so a data reload starts over.
+const wrapMemo = new WeakMap(); // season → {weeks: Set, heads: Map(week → headline)}
+function wrapOf(s) {
+  let m = wrapMemo.get(s);
+  if (!m) {
+    let list = [];
+    try { list = stats.wrapWeeks(s.year) || []; } catch (e) { console.error(e); }
+    m = {weeks: new Set(list.map(x => Number(x && typeof x === 'object' ? x.week : x)).filter(Number.isFinite)), heads: new Map()};
+    wrapMemo.set(s, m);
+  }
+  return m;
+}
+function wrapHead(s, w) {
+  const m = wrapOf(s);
+  if (!m.weeks.has(w)) return null;
+  if (!m.heads.has(w)) {
+    let h = '';
+    try { const x = stats.wrap(s.year, w); h = (x && x.headline) || ''; } catch (e) { console.error(e); }
+    m.heads.set(w, h);
+  }
+  return m.heads.get(w);
+}
+// Write the season's other Wraps one per idle callback, so switching weeks never waits on one.
+function warmWraps(s) {
+  if (!s) return;
+  const m = wrapOf(s);
+  if (m.warming) return;
+  const todo = [...m.weeks].filter(w => !m.heads.has(w)).sort((a, b) => b - a);
+  if (!todo.length) return;
+  m.warming = true;
+  const next = () => {
+    const w = todo.shift();
+    if (w == null || wrapMemo.get(s) !== m) { m.warming = false; return; }
+    wrapHead(s, w);
+    ui.onIdle(next);
+  };
+  ui.onIdle(next);
+}
+function wrapLinkHtml(s, w) {
+  const head = wrapHead(s, w);
+  if (head == null) return '';
+  return `<a class="card sea-wrap" href="#/standings/${s.year}/wrap/${w}" aria-label="${esc(`Read the Wrap for week ${w}${head ? ': ' + head : ''}`)}">`
+    + `<span class="sea-wrap-ic" aria-hidden="true">${ui.icon('football', {size: 22})}</span>`
+    + `<span class="sea-wrap-t"><span class="sea-wrap-k">Read the Wrap</span>${head ? `<span class="sea-wrap-h">${esc(head)}</span>` : ''}</span>`
+    + `${ui.icon('chevron-right', {cls: 'chev'})}</a>`;
+}
+
 function weeksHtml(R) {
   const s = R.s, w = R.week;
   if (!R.weeks.length || w == null) return ui.empty({icon: 'calendar', title: 'No games yet.', body: 'Week 1 shows up here once it has been played.'});
@@ -161,6 +210,7 @@ function weeksHtml(R) {
     ? `<p class="sea-wk-sum"><span>High <b>${esc(data.name(hi.id))}</b> <span class="num">${ui.score(hi.v)}</span></span><span>Low <b>${esc(data.name(lo.id))}</b> <span class="num">${ui.score(lo.v)}</span></span></p>`
     : '';
   return `<div class="sea-wk-head"><h2 class="ovl">${esc(weekHead(s, w))}</h2>${sum}</div>`
+    + wrapLinkHtml(s, w)
     + `<div class="sea-cards">${main.map(g => bugCard(s, g, games)).join('')}</div>`
     + (cons.length ? `<h3 class="sea-subh">Consolation</h3><div class="sea-cards">${cons.map(g => bugCard(s, g, games)).join('')}</div>` : '');
 }
@@ -330,6 +380,7 @@ function patch(ctx, st, R) {
     ui.crossfade(content, () => { content.innerHTML = contentHtml(R); }, {duration: 120});
   });
   if (R.seg === 'table') playPodium(st);
+  if (R.seg === 'weeks') warmWraps(R.s);
 }
 
 function onChange(ctx, e) {
@@ -409,6 +460,7 @@ export default {
     }
     if (ctx.first) ui.stagger(el);
     if (R.seg === 'table') playPodium(st);
+    if (R.seg === 'weeks') warmWraps(R.s);
   },
   update(ctx) {
     const st = S.get(ctx);
@@ -422,6 +474,7 @@ export default {
     if (R.s) {
       centerChip(st.el.querySelector('.sea-years .chips'), R.year);
       centerChip(st.el.querySelector('.sea-scrub .chips'), R.week);
+      if (R.seg === 'weeks') warmWraps(R.s);
     }
     if (sc) sc.scrollTop = top;
   },

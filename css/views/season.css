@@ -139,6 +139,25 @@
 .v-season .sea-wk-sum b { font-weight: 600; color: var(--ink-2); }
 .v-season .sea-wk-sum .num { color: var(--ink-2); font-size: 15px; }
 .v-season .sea-wk-sum .num small { font-size: .7em; color: var(--ink-3); }
+/* "Read the Wrap": one tappable card between the week header and the scoreboard. */
+.v-season .sea-wrap {
+  display: flex; align-items: center; gap: 12px;
+  margin: 0 0 12px; padding: 12px 40px 12px 12px;
+}
+.v-season .sea-wrap-ic {
+  flex: none; display: grid; place-items: center;
+  width: 40px; height: 40px; border-radius: var(--r-cell);
+  background: var(--surface-2); color: var(--ink);
+}
+.v-season .sea-wrap-ic .ic { stroke-width: 1.9; }
+.v-season .sea-wrap-t { display: flex; flex-direction: column; min-width: 0; }
+.v-season .sea-wrap-k { font: 600 var(--fs-headline)/var(--lh-headline) var(--font-text); color: var(--ink); }
+.v-season .sea-wrap-h {
+  margin-top: 1px;
+  font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2);
+  overflow: hidden; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+}
 .v-season .sea-subh {
   margin: 24px 0 8px 16px;
   font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2);

@@ -1,0 +1,146 @@
+/* wrap.css: The Wrap, the weekly recap (#/standings/:year/wrap/:week). Owner: WRAP + SHAME UI.
+   Every selector is scoped under .v-wrap. Motion is transform/opacity only. */
+
+.v-wrap .wr-acc { margin-top: 4px; }
+.v-wrap .wr-main { min-width: 0; }
+.v-wrap .wr-main > .empty { margin-top: 24px; background: var(--surface-1); border-radius: var(--r-card); }
+
+/* ================================================================ Lede */
+.v-wrap .wr-lede {
+  position: relative; isolation: isolate; overflow: hidden;
+  margin-top: 16px;
+}
+.v-wrap .wr-lede::before {
+  content: ""; position: absolute; inset: 0; z-index: -1;
+  background: radial-gradient(120% 95% at 100% 0%, var(--mc, transparent) 0%, transparent 68%);
+  opacity: .2; pointer-events: none;
+}
+.v-wrap .wr-lede-ovl { color: var(--ink-3); }
+.v-wrap .wr-headline {
+  margin-top: 8px;
+  font: 700 var(--fs-2)/var(--lh-2) var(--font-text); color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.v-wrap .wr-dek {
+  margin-top: 6px;
+  font: 400 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+.v-wrap .wr-facts { margin-top: 12px; color: var(--ink-3); }
+
+/* ================================================================ Recap cards */
+.v-wrap .wr-list, .v-wrap .wr-extra { display: flex; flex-direction: column; gap: 10px; }
+.v-wrap .wr-list { margin-top: 12px; }
+.v-wrap .wr-extra:not(:empty) { margin-top: 10px; }
+.v-wrap .wr-extra > div { display: flex; flex-direction: column; }
+.v-wrap .wr-card {
+  position: relative;
+  display: flex; flex-direction: column;
+  min-width: 0;
+  padding: 14px 16px 14px 19px;
+  border-radius: var(--r-card);
+  background: var(--surface-1);
+  box-shadow: inset 3px 0 0 var(--mc, var(--ink-4));
+  --stack-ring: var(--surface-1);
+}
+.v-wrap .wr-ovl {
+  display: flex; align-items: center; gap: 6px; min-width: 0;
+  font: 800 13px/16px var(--font-num); font-stretch: condensed;
+  text-transform: uppercase; letter-spacing: .06em;
+  color: var(--ink-3);
+}
+.v-wrap .wr-ovl > .ic { width: 14px; height: 14px; flex: none; stroke-width: 2; color: var(--ink-2); }
+.v-wrap .wr-ovl > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-wrap .wr-ovl.is-wrong > .ic { color: var(--wrong); }
+.v-wrap .wr-ovl.is-flame > .ic { color: var(--flame-2); }
+.v-wrap .wr-ovl.is-gold > .ic { color: var(--gold); }
+.v-wrap .wr-story {
+  margin-top: 6px;
+  font: 400 var(--fs-body)/var(--lh-body) var(--font-text); color: var(--ink);
+  overflow-wrap: anywhere;
+}
+/* The score bug sits in a surface-2 well; the bug is the tap target (it opens the matchup sheet). */
+.v-wrap .wr-bugbox {
+  margin: 12px -4px 0 -7px;
+  border-radius: var(--r-group);
+  background: var(--surface-2);
+  overflow: hidden;
+  --stack-ring: var(--surface-2);
+}
+.v-wrap .wr-bug { padding: 6px 12px; transition: transform var(--spring-snappy-dur) var(--spring-snappy), background-color 250ms linear; }
+.v-wrap .wr-bug.is-pressed { transform: none; background-color: var(--surface-3); transition: none; }
+.v-wrap .wr-bug .bug-team { color: var(--ink-2); } /* ink-3 on surface-2 is under 4.5:1 */
+.v-wrap .wr-bug .bug-side.is-lose { color: var(--ink-2); }
+
+/* People named by an item that has no game (streaks, points leader, movers) */
+.v-wrap .wr-who { display: flex; flex-direction: column; margin: 8px 0 -6px; }
+.v-wrap .wr-who-a {
+  display: flex; align-items: center; gap: 10px;
+  min-height: 44px; min-width: 0;
+  margin: 0 -8px; padding: 0 8px;
+  border-radius: var(--r-cell);
+  transition: background-color 250ms linear;
+}
+.v-wrap .wr-who-a.is-pressed { background-color: var(--surface-2); transition: none; }
+.v-wrap .wr-who-a > .av { flex: none; }
+.v-wrap .wr-who-t { min-width: 0; display: flex; align-items: baseline; gap: 8px; overflow: hidden; }
+.v-wrap .wr-who-t > b { flex: none; font: 600 15px/20px var(--font-text); color: var(--ink); white-space: nowrap; }
+.v-wrap .wr-who-t > span { min-width: 0; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Pick'em winners */
+.v-wrap .wr-pks { list-style: none; margin: 10px 0 -4px; padding: 0; }
+.v-wrap .wr-pk {
+  position: relative;
+  display: flex; align-items: center; gap: 10px;
+  min-height: 44px; min-width: 0;
+}
+.v-wrap .wr-pk + .wr-pk::before {
+  content: ""; position: absolute; top: 0; left: 64px; right: 0; height: 1px;
+  background: var(--separator); transform: scaleY(.5); transform-origin: top;
+}
+.v-wrap .wr-pk-r { flex: none; width: 16px; text-align: center; color: var(--ink-3); }
+.v-wrap .wr-pk > .av { flex: none; }
+.v-wrap .wr-pk-n { flex: 1 1 auto; min-width: 0; font: 600 15px/20px var(--font-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-wrap .wr-pk-s { flex: none; }
+.v-wrap .wr-pk-s small { font-size: .62em; color: var(--ink-3); }
+.v-wrap .wr-pk.is-me .wr-pk-n { color: var(--tint); }
+
+/* ================================================================ Power rankings */
+.v-wrap .wr-sec > .sh { margin-top: 32px; }
+.v-wrap .wr-pr .row-lead { gap: 10px; }
+.v-wrap .wr-pr { padding-top: 8px; padding-bottom: 8px; }
+/* The reason line is the point of the row: two lines before it ellipsizes. */
+.v-wrap .wr-pr .row-sub {
+  white-space: normal; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+}
+.v-wrap .wr-rank { width: 20px; text-align: center; color: var(--ink-2); }
+.v-wrap .wr-rank.gold { color: var(--gold); }
+.v-wrap .wr-rank.wr-r2 { color: var(--silver); }  /* same podium colours as the Standings list */
+.v-wrap .wr-rank.wr-r3 { color: var(--bronze); }
+.v-wrap .wr-prs:not(.is-all) .wr-pr.is-more { display: none; }
+.v-wrap .wr-more { display: flex; justify-content: center; margin-top: 4px; }
+.v-wrap .wr-more .btn { font-weight: 600; }
+.v-wrap .wr-more + .note { margin-top: 2px; }
+.v-wrap .wr-rec { margin-left: 4px; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+.v-wrap .wr-mv {
+  min-width: 32px; text-align: right;
+  font: 800 15px/20px var(--font-num); font-stretch: condensed; font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+}
+.v-wrap .wr-mv.is-up { color: var(--tint); } /* same as the board's movement chip (spec 7.1) */
+.v-wrap .wr-mv.is-down { color: var(--wrong); }
+.v-wrap .wr-mv.is-new { font-size: 12px; letter-spacing: .06em; }
+
+/* ================================================================ Footer */
+.v-wrap .wr-foot { margin-top: 32px; }
+.v-wrap .wr-foot > .note { text-align: center; }
+.v-wrap .wr-pn { display: flex; justify-content: space-between; gap: 12px; margin-top: 20px; }
+.v-wrap .wr-pn > .btn { position: relative; }
+.v-wrap .wr-pn > .btn::before { content: ""; position: absolute; inset: -5px -4px; } /* 34 px pill, 44 px target */
+.v-wrap .wr-next { flex-direction: row-reverse; }
+
+@media (max-width: 370px) {
+  .v-wrap .wr-card { padding-right: 14px; }
+  .v-wrap .wr-headline { font-size: 20px; line-height: 25px; }
+}

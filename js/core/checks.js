@@ -5,6 +5,9 @@
 
 import * as data from './data.js';
 import * as daily from './daily.js';
+import * as fire from './fire.js';
+import * as motw from './motw.js';
+import * as week from './week.js';
 
 // ---------------------------------------------------------------------------
 // Old formulas, copied from the old index.html
@@ -314,14 +317,23 @@ function fakePlayers(PNUM) {
 
 export async function runChecks() {
   const out = [];
+  const pending = [];
+  // fn returns true or {pass, detail}; it may also return a Promise of that (awaited before runChecks resolves,
+  // the row keeps its place in the list).
   const check = (name, fn) => {
+    const row = {name, pass: false, detail: 'pending'};
+    out.push(row);
+    const done = r => {
+      const pass = r === true || (r && r.pass === true);
+      row.pass = pass;
+      row.detail = (r && r.detail) || (pass ? 'ok' : 'mismatch');
+    };
+    const fail = e => { row.pass = false; row.detail = 'threw: ' + (e && e.message || e); };
     try {
       const r = fn();
-      const pass = r === true || (r && r.pass === true);
-      out.push({name, pass, detail: (r && r.detail) || (pass ? 'ok' : 'mismatch')});
-    } catch (e) {
-      out.push({name, pass: false, detail: 'threw: ' + (e && e.message || e)});
-    }
+      if (r && typeof r.then === 'function') pending.push(Promise.resolve(r).then(done, fail));
+      else done(r);
+    } catch (e) { fail(e); }
   };
 
   let dataErr = null, dailyErr = null;
@@ -491,9 +503,13 @@ export async function runChecks() {
   });
 
   check('Dev guard: no league-board writes from dev hosts without ?post=1', () => {
-    // Dev hosts: loopback, *.localhost/.test/.local, private LAN IPs (a phone on the dev server). Exactly post=1 opts in.
+    // Dev hosts: loopback, bare machine names, *.localhost/.test/.local/.lan/.home.arpa/.internal/.ts.net, private LAN
+    // and CGNAT IPs, IPv6 link-local / unique-local. Exactly post=1 opts in.
     const samples = {'localhost': true, '127.0.0.1': true, '[::1]': true, 'gg.test': true, '192.168.1.20': true, '10.0.0.7': true, '172.20.1.1': true,
-      'evanappenzeller-ui.github.io': false, '172.32.0.1': false, '8.8.8.8': false, 'localhost.example.com': false};
+      '127.0.0.2': true, '0.0.0.0': true, 'evan-pc': true, 'devbox.lan': true, 'mypc.home.arpa': true, 'box.internal': true, '100.101.102.103': true,
+      'pc.tail1234.ts.net': true, '[fe80::1]': true, '[fd12:3456::1]': true, '[::ffff:7f00:1]': true,
+      'evanappenzeller-ui.github.io': false, 'gridirongangbang.com': false, '172.32.0.1': false, '8.8.8.8': false, '100.128.0.1': false,
+      'localhost.example.com': false, '[2606:4700::1111]': false};
     const bad = Object.entries(samples).filter(([h, want]) => daily.isDevHost(h) !== want).map(([h]) => h);
     let post = false;
     try { post = new URLSearchParams(location.search).get('post') === '1'; } catch (_) {}
@@ -734,5 +750,215 @@ export async function runChecks() {
     return {pass: !bad.length, detail: bad.length ? bad.slice(0, 6).join('; ') + (bad.length > 6 ? ` (+${bad.length - 6})` : '') : `${PZ.days.length} days, ${v2} v2`};
   });
 
+  // ---------------------------------------------------------------------------
+  // fire.js and week.js (Matchup of the Week votes, pick'em). Pure functions on crafted docs: nothing is read
+  // from or written to Firestore or the local stand-in.
+
+  check('fire.js: one shared Firebase app; the dev write guard is unchanged', async () => {
+    const same = fire.isDevHost === daily.isDevHost && daily.__dev.devDayFrom === fire.devDayFrom && daily.DEV_DAY === fire.DEV_DAY;
+    const guard = fire.canWrite() === !daily.DEV_NO_POST && week.__dev.standIn() === !fire.canWrite();
+    const st = ['idle', 'loading', 'ready', 'off'].includes(fire.status);
+    let apps = 'not started';
+    if (fire.status === 'loading' || fire.status === 'ready') {
+      const p = fire.getFire();
+      if (p !== fire.getFire()) return {pass: false, detail: 'getFire() made a second promise'};
+      const F = await p;
+      const {getApps} = await import('https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js');
+      apps = getApps().length === 1 && getApps()[0] === F.app && F.uid === fire.uid && (!daily.LB.uid || daily.LB.uid === F.uid) ? 'one app' : `apps ${getApps().length}`;
+    }
+    const pass = same && guard && st && (apps === 'one app' || apps === 'not started' || fire.status === 'off');
+    return {pass, detail: `status ${fire.status}, ${apps}, canWrite ${fire.canWrite()}, DEV_NO_POST ${daily.DEV_NO_POST}, stand-in ${week.__dev.standIn()}`};
+  });
+
+  check('weekKey(), parseKey() and game keys', () => {
+    const k = week.weekKey(2026, 4), p = week.parseKey(k);
+    const pass = k === '2026-w4' && week.weekKey(2027, 12) === '2027-w12' && p && p.year === 2026 && p.week === 4
+      && week.parseKey('2026-w0') === null && week.parseKey('2026-w123') === null && week.parseKey('w4') === null && week.parseKey(null) === null
+      && week.gameKey('jaymin', 'jayton') === 'jaymin|jayton' && week.samePair('a|b', 'b|a') && !week.samePair('a|b', 'a|c') && !week.samePair('a|a', 'a|a') && !week.samePair('a', 'a');
+    return {pass, detail: `${k} -> ${JSON.stringify(p)}`};
+  });
+
+  check('lockTime(): Thursday 8:15 PM Eastern (EDT, then EST after Nov 1 2026); Thanksgiving 12:30 PM', () => {
+    const iso = (y, w) => week.lockTime(y, w).toISOString();
+    const want = {'2026/1': '2026-09-11T00:15:00.000Z', '2026/4': '2026-10-02T00:15:00.000Z', '2026/8': '2026-10-30T00:15:00.000Z',
+      '2026/9': '2026-11-06T01:15:00.000Z', '2026/10': '2026-11-13T01:15:00.000Z', '2027/1': '2027-09-10T00:15:00.000Z',
+      '2026/11': '2026-11-20T01:15:00.000Z', '2026/12': '2026-11-26T17:30:00.000Z', '2026/13': '2026-12-04T01:15:00.000Z', '2027/12': '2027-11-25T17:30:00.000Z'};
+    const bad = Object.keys(want).filter(k => { const [y, w] = k.split('/').map(Number); return iso(y, w) !== want[k]; });
+    const lock4 = Date.parse('2026-10-02T00:15:00Z');
+    const edge = !week.isLocked(2026, 4, lock4 - 1) && week.isLocked(2026, 4, lock4) && week.isLocked(2026, 4, new Date(lock4 + 1));
+    // Fallback kickoff: the Thursday after the first Monday of September (2026 agrees with the table).
+    const fb = week.KICKOFF[2026] === '2026-09-10' && week.kickoff(2027) === '2027-09-09' && week.kickoff(2028) === '2028-09-07' && week.kickoff(2031) === '2031-09-04';
+    const near = week.lockText(2026, 4, lock4 - 2 * 864e5), far = week.lockText(2026, 4, lock4 - 10 * 864e5);
+    const text = /^(Sun|Mon|Tue|Wed|Thu|Fri|Sat) \d{1,2}:\d{2} (AM|PM)$/.test(near) && /^(Sun|Mon|Tue|Wed|Thu|Fri|Sat), (Sep|Oct) \d{1,2}, \d{1,2}:\d{2} (AM|PM)$/.test(far);
+    return {pass: !bad.length && edge && fb && text, detail: `${bad.length ? 'wrong: ' + bad.join(', ') + '; ' : ''}wk 4 ${iso(2026, 4)}, wk 10 ${iso(2026, 10)}; "${near}" / "${far}" local`};
+  });
+
+  // Three of the week-4 games, keys in schedule order.
+  const G3 = [{a: 'evan', b: 'mitch'}, {a: 'john', b: 'sayer'}, {a: 'jaymin', b: 'jayton'}].map(g => Object.assign(g, {key: g.a + '|' + g.b}));
+
+  check('tallyVotes() and leader(): counts, reversed keys, my vote, tie broken by hype order', () => {
+    const docs = [
+      {uid: 'u2', pick: 'mitch|evan', me: 'mason', nick: 'Mason', at: 2000},  // reversed key counts for evan|mitch
+      {uid: 'u1', pick: 'evan|mitch', me: 'evan', nick: 'Evan', at: 1000},
+      {uid: 'u3', pick: 'john|sayer', me: null, nick: 'Someone', at: {seconds: 3, nanoseconds: 0}},
+      {uid: 'u4', pick: 'john|sayer', me: 'constructor', nick: 'X', at: 4000}, // unknown manager id -> me null
+      {uid: 'u5', pick: 'ben|dresden', nick: 'Y', at: 5000},                    // not a game this week: dropped
+      {uid: 'u6', pick: 5, nick: 'Z', at: 6000},                                // not a string: dropped
+      {uid: 'u7', pick: 'jaymin|jayton', nick: 'W', at: 7000}
+    ];
+    const t = week.tallyVotes(docs, G3, 'u3');
+    const tally = JSON.stringify(t.tally);
+    const order = t.votes.map(v => v.uid).join();
+    const L = week.leader;
+    const lead = [
+      L(t.tally, ['jaymin|jayton', 'john|sayer', 'evan|mitch']) === 'john|sayer',
+      L(t.tally, ['mitch|evan', 'john|sayer']) === 'evan|mitch',                 // ranking keys in either order
+      L(t.tally, [{a: 'sayer', b: 'john'}, {a: 'evan', b: 'mitch'}]) === 'john|sayer', // motw candidates
+      L(t.tally, {list: [{a: 'evan', b: 'mitch'}]}) === 'evan|mitch',            // motw.candidates() result
+      L({'evan|mitch': 1, 'john|sayer': 3, 'jaymin|jayton': 3}, ['jaymin|jayton']) === 'jaymin|jayton',
+      L({'evan|mitch': 0, 'john|sayer': 0}, []) === null && L({}, []) === null,
+      L({'evan|mitch': 2, 'john|sayer': 1}, []) === 'evan|mitch'
+    ];
+    const pass = tally === '{"evan|mitch":2,"john|sayer":2,"jaymin|jayton":1}' && t.total === 5 && order === 'u1,u2,u3,u4,u7'
+      && t.mine && t.mine.pick === 'john|sayer' && t.mine.at === 3000 && t.votes[3].me === null && t.votes[0].me === 'evan'
+      && week.tallyVotes(docs, G3, 'nobody').mine === null && lead.every(Boolean);
+    return {pass, detail: `tally ${tally}, order ${order}, leader checks ${lead.map(x => x ? 'ok' : 'x').join(' ')}`};
+  });
+
+  check('tallyPicks(): normalized keys, invalid picks dropped, per-team counts', () => {
+    const docs = [
+      {uid: 'p1', picks: {'evan|mitch': 'evan', 'sayer|john': 'john', 'x|y': 'x', 'jaymin|jayton': 'mason'}, nick: 'A', at: 1},
+      {uid: 'p2', picks: {'mitch|evan': 'mitch'}, me: 'mitch', nick: 'Mitch', at: 2},
+      {uid: 'p3', picks: {}, nick: 'empty', at: 3},
+      {uid: 'p4', picks: 'bad', nick: 'bad', at: 4}
+    ];
+    const t = week.tallyPicks(docs, G3, 'p2');
+    const e = t.entries.map(x => x.uid + ':' + JSON.stringify(x.picks) + ':' + x.count).join(' ');
+    const pass = e === 'p1:{"evan|mitch":"evan","john|sayer":"john"}:2 p2:{"evan|mitch":"mitch"}:1'
+      && JSON.stringify(t.counts) === '{"evan|mitch":{"evan":1,"mitch":1},"john|sayer":{"john":1,"sayer":0},"jaymin|jayton":{"jaymin":0,"jayton":0}}'
+      && t.mine && t.mine.uid === 'p2' && t.mine.me === 'mitch';
+    return {pass, detail: e};
+  });
+
+  check('Tallies: server time after kickoff never counts; a manager on two phones counts once', () => {
+    const lock = 10000;
+    const votes = [
+      {uid: 'a1', pick: 'evan|mitch', me: 'evan', nick: 'Evan', at: 1000},     // Evan, Safari
+      {uid: 'a2', pick: 'john|sayer', me: 'evan', nick: 'Evan', at: 2000},     // Evan, home-screen app (latest wins)
+      {uid: 'b1', pick: 'john|sayer', me: null, nick: 'Fan', at: 3000},
+      {uid: 'c1', pick: 'evan|mitch', me: 'mason', nick: 'Mason', at: 10000},  // exactly at kickoff: too late
+      {uid: 'd1', pick: 'evan|mitch', me: 'jacob', nick: 'Jacob', at: 99999},  // wrong clock, days later
+      {uid: 'e1', pick: 'evan|mitch', me: 'ben', nick: 'Ben'}                  // no server time
+    ];
+    const t = week.tallyVotes(votes, G3, 'a1', {lock, me: 'evan'});
+    const v = JSON.stringify(t.tally) === '{"evan|mitch":0,"john|sayer":2,"jaymin|jayton":0}' && t.total === 2
+      && t.mine && t.mine.uid === 'a2' && week.tallyVotes(votes, G3, 'zz', {lock}).mine === null;
+    const picks = [
+      {uid: 'p1', picks: {'evan|mitch': 'evan'}, me: 'john', nick: 'John', at: 5000},
+      {uid: 'p2', picks: {'evan|mitch': 'mitch', 'john|sayer': 'john'}, me: 'john', nick: 'John', at: 6000},
+      {uid: 'p3', picks: {'evan|mitch': 'mitch'}, me: 'sayer', nick: 'Sayer', at: 20000}
+    ];
+    const p = week.tallyPicks(picks, G3, 'p1', {lock, me: 'john'});
+    const pk = p.entries.length === 1 && p.entries[0].uid === 'p2' && p.mine === p.entries[0] && p.counts['evan|mitch'].mitch === 1;
+    // Without a lock (crafted docs) nothing is filtered by time.
+    const open = week.tallyVotes(votes, G3, 'a1').total === 5;
+    return {pass: v && pk && open, detail: `votes ${JSON.stringify(t.tally)} (mine ${t.mine && t.mine.uid}), picks ${p.entries.map(e => e.uid).join()}, no lock ${week.tallyVotes(votes, G3, 'a1').total}`};
+  });
+
+  // Played, untied games of a 2026 week.
+  const playedIn = w => data.GAMES.filter(g => g.year === 2026 && g.week === w && !g.tie);
+
+  check('scoreWeek() on a crafted entry (2026 week 3 results)', () => {
+    needData();
+    const g = playedIn(3);
+    if (g.length < 5) throw new Error('2026 week 3 has ' + g.length + ' decided games');
+    const picks = {};
+    picks[g[0].a + '|' + g[0].b] = g[0].win;          // right
+    picks[g[0].b + '|' + g[0].a] = g[0].lose;         // same game again, reversed key: ignored
+    picks[g[1].a + '|' + g[1].b] = g[1].lose;         // wrong
+    picks[g[2].b + '|' + g[2].a] = g[2].win;          // right (reversed key)
+    picks[g[3].a + '|' + g[3].b] = 'nobody';          // not one of the two teams: ignored
+    picks[g[0].a + '|' + g[1].a] = g[0].a;            // not a game that week: ungraded
+    const s = week.scoreWeek({picks}, 2026, 3);
+    const none = week.scoreWeek(null, 2026, 3), future = week.scoreWeek({picks: {[g[0].a + '|' + g[0].b]: g[0].a}}, 2026, 30);
+    const pass = s.right === 2 && s.graded === 3 && none.right === 0 && none.graded === 0 && future.graded === 0;
+    return {pass, detail: `right ${s.right} of ${s.graded} graded (expected 2 of 3)`};
+  });
+
+  check('standingsFrom(): season pick\'em table, equal right shares a rank', () => {
+    needData();
+    const w1 = playedIn(1), w2 = playedIn(2);
+    const all = (gs, pick) => Object.fromEntries(gs.map(g => [g.a + '|' + g.b, pick(g)]));
+    const weeks = [
+      {year: 2026, week: 1, entries: [
+        {uid: 'A', picks: all(w1, g => g.win), me: 'evan', nick: 'Evan'},
+        {uid: 'B', picks: all(w1, g => g.win), me: null, nick: 'Bee'},
+        {uid: 'C', picks: all(w1, g => g.lose), me: 'mason', nick: 'Old name'}]},
+      {year: 2026, week: 2, entries: [
+        {uid: 'B', picks: all(w2, g => g.lose), me: null, nick: 'Bee'},
+        {uid: 'C', picks: all(w2.slice(0, 3), g => g.win), me: 'mason', nick: 'Mason'},
+        {uid: 'D', picks: all(w2.slice(0, 1), g => g.win), me: null, nick: 'Dee'},
+        {uid: 'E', picks: {}, nick: 'nothing graded'}]}
+    ];
+    const n1 = w1.length, n2 = w2.length;
+    const rows = week.standingsFrom(weeks, 'C');
+    const got = rows.map(r => `${r.uid}:${r.right}/${r.graded}:${r.weeks}:#${r.rank}`).join(' ');
+    const want = `A:${n1}/${n1}:1:#1 B:${n1}/${n1 + n2}:2:#1 C:3/${n1 + 3}:2:#3 D:1/1:1:#4`;
+    const c = rows.find(r => r.uid === 'C'), d = rows.find(r => r.uid === 'D');
+    // games: every decided game of the weeks entered (a skipped game is a miss): D picked 1 of week 2's games.
+    const games = c.games === n1 + n2 && d.games === n2 && Math.abs(d.pct - 1 / n2) < 1e-9;
+    const pass = got === want && games && c.you && c.nick === 'Mason' && c.me === 'mason' && rows.filter(r => r.you).length === 1;
+    return {pass, detail: got};
+  });
+
+  check('current(): the week from motw.upcoming(); hype replay equals motw.candidates()', () => {
+    needData();
+    const up = motw.upcoming(), cur = week.current();
+    if (!up) return {pass: cur === null, detail: 'no upcoming week'};
+    const lock = week.lockTime(up.year, up.week);
+    const shape = cur && cur.year === up.year && cur.week === up.week && cur.key === week.weekKey(up.year, up.week) && cur.played === up.played
+      && cur.games.map(g => g.key).join() === up.games.map(g => g.a + '|' + g.b).join() && cur.games.every(g => g.key === g.a + '|' + g.b)
+      && cur.lock.getTime() === lock.getTime() && cur.locked === week.isLocked(up.year, up.week)
+      && week.current(lock.getTime() - 1).locked === false && week.current(lock.getTime()).locked === true;
+    const c = motw.candidates('overall');
+    const rep = week.hypeReplay(cur.year, cur.week);
+    const same = c.list.length === rep.length && c.list.every((x, i) => x.a + '|' + x.b === rep[i].key && x.scores.overall === rep[i].overall);
+    const rank = week.ranking(cur.year, cur.week).join() === rep.map(x => x.key).join();
+    // A played week replays from the games before it (2026 week 3: six games, standings after week 2).
+    const past = week.hypeReplay(2026, 3);
+    const pass = shape && same && rank && past.length === 6 && past.every(x => isFinite(x.overall));
+    return {pass, detail: `${cur.key}, ${cur.games.length} games, locks ${lock.toISOString()} (${cur.locked ? 'locked' : 'open'}); replay ${same ? 'matches' : 'differs from'} motw: ${rep.map(x => x.key + ' ' + x.overall.toFixed(1)).join(', ')}`};
+  });
+
+  check('records() and resultOf(): Matchup of the Week results', () => {
+    needData();
+    const g = playedIn(3);
+    const k0 = g[0].b + '|' + g[0].a;                  // reversed: the result follows the key's order
+    const r = week.resultOf(2026, 3, k0);
+    const res = r && r.a === g[0].b && r.b === g[0].a && r.sa === g[0].sb && r.sb === g[0].sa && r.winner === g[0].win
+      && week.resultOf(2026, 30, k0) === null && week.resultOf(2026, 3, 'bad') === null;
+    const hist = [
+      {a: g[0].a, b: g[0].b, result: week.resultOf(2026, 3, g[0].a + '|' + g[0].b)},
+      {a: 'x1', b: 'x2', result: {a: 'x1', b: 'x2', sa: 100, sb: 100, winner: null}},
+      {a: g[1].a, b: g[1].b, result: null}
+    ];
+    const rec = week.records(hist);
+    const w = rec[g[0].win], l = rec[g[0].lose];
+    const pass = res && w.w === 1 && w.n >= 1 && l.l === 1 && rec.x1.t === 1 && rec.x2.t === 1 && rec[g[1].a].n === 1 && rec[g[1].a].w === 0;
+    return {pass, detail: `${k0}: ${r && r.sa}-${r && r.sb}, winner ${r && r.winner}`};
+  });
+
+  // ---------------------------------------------------------------------------
+  // Stats checks (js/core/checks-stats.js, owned by the stats module). Guarded: a missing or broken module
+  // shows up as one failing row instead of stopping the other checks.
+  let statsMod = null, statsErr = null;
+  try { statsMod = await import('./checks-stats.js'); } catch (e) { statsErr = e; }
+  if (statsMod && typeof statsMod.statsChecks === 'function') {
+    try { await statsMod.statsChecks(check); } catch (e) { check('Stats checks (checks-stats.js)', () => { throw e; }); }
+  } else {
+    check('Stats checks (checks-stats.js) loaded', () => ({pass: false, detail: statsErr ? 'did not load: ' + (statsErr.message || statsErr) : 'no statsChecks export'}));
+  }
+
+  await Promise.all(pending);
   return out;
 }

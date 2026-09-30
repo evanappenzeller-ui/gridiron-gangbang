@@ -5,6 +5,7 @@
 // Owner: foundation (core).
 
 import {DATA, nf, norm, me as dataMe} from './data.js';
+import {getFire, canWrite, isDevHost, devDayFrom, DEV_DAY as fireDevDay} from './fire.js';
 
 export {nf, norm};
 
@@ -27,28 +28,16 @@ export const PROMPTS = {
 export const AUDIENCE_YEAR = 2010;
 
 // Local development never writes to the real league board unless the URL has ?post=1 (exactly).
-// "Local" covers loopback, *.localhost / *.test / *.local names, and private LAN addresses
-// (a phone on the same Wi-Fi reaching the dev server by IP). Production (github.io) is unaffected.
-const LOCAL_HOSTS = ['localhost', '127.0.0.1', '[::1]', '::1'];
-export const isDevHost = h => LOCAL_HOSTS.includes(h)
-  || /\.(localhost|test|local)$/.test(h)
-  || /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.)/.test(h);
-let postParam = false;
-try { postParam = new URLSearchParams(location.search).get('post') === '1'; } catch (_) {}
-
+// The dev-host classifier, the ?day= preview parser and the write guard live in fire.js (the shared Firebase
+// layer); the values below are unchanged. "Local" covers loopback, *.localhost / *.test / *.local names, and
+// private LAN addresses. Production (github.io) is unaffected.
 // Dev preview: on a dev host, ?day=<PNUM> in location.search (before the #) plays that puzzle day instead of
 // today's, so v2 days can be tested early. Production hosts ignore it. null when not overridden.
-function devDayFrom(search, host) {
-  if (!isDevHost(host)) return null;
-  let v = null;
-  try { v = new URLSearchParams(search || '').get('day'); } catch (_) { v = null; }
-  return v && /^[1-9]\d{0,3}$/.test(v) ? +v : null;
-}
-let devDay = null;
-try { devDay = devDayFrom(location.search, location.hostname); } catch (_) { devDay = null; }
+const devDay = fireDevDay;
+export {isDevHost};
 export const DEV_DAY = devDay;
 // A previewed day never posts, even with ?post=1: its score would land on the real board under a future day.
-export const DEV_NO_POST = isDevHost(location.hostname) && (!postParam || devDay != null);
+export const DEV_NO_POST = !canWrite();
 
 const PUZZLES_URL = new URL('../../data/puzzles.json', import.meta.url).href;
 
@@ -567,21 +556,15 @@ try { LB.nick = localStorage.getItem('gg-nick') || ''; } catch (_) { LB.nick = '
 function lbChanged(why, prev) { emit('lb', {prev: prev || LB.players, why}); }
 
 let fbStarted = false;
+// The app, anonymous sign-in and Firestore come from the shared layer (fire.js); no config or a failed
+// import / sign-in turns the board off, exactly as before.
 async function startFirebase() {
   if (fbStarted) return;
   fbStarted = true;
-  let FB = {};
-  try { FB = JSON.parse(document.getElementById('firebase-config').textContent) || {}; } catch (_) { FB = {}; }
-  if (!FB.apiKey || !FB.projectId) { LB.off = true; LB.ready = true; lbChanged('off'); return; }
   try {
-    const V = 'https://www.gstatic.com/firebasejs/10.14.1/';
-    const [{initializeApp}, {getAuth, signInAnonymously}, fs] = await Promise.all([
-      import(V + 'firebase-app.js'), import(V + 'firebase-auth.js'), import(V + 'firebase-firestore.js')
-    ]);
-    const app = initializeApp(FB);
-    LB.uid = (await signInAnonymously(getAuth(app))).user.uid;
-    const db = fs.getFirestore(app);
-    if (!DEV_NO_POST && devDay == null) LB.save = body => fs.setDoc(fs.doc(db, 'players', LB.uid), body);
+    const {fs, db, uid} = await getFire();
+    LB.uid = uid;
+    if (canWrite()) LB.save = body => fs.setDoc(fs.doc(db, 'players', LB.uid), body);
     fs.onSnapshot(fs.collection(db, 'players'), snap => {
       const prev = LB.players;
       LB.players = snap.docs.map(d => Object.assign({id: d.id}, d.data()));

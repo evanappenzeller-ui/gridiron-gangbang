@@ -81,6 +81,51 @@
 /* ---------------------------------------------------------------- Board, countdown (see board.css) */
 .v-today .c-board-host { margin-top: 12px; }
 
+/* ---------------------------------------------------------------- This week (MOTW vote, pick'em) */
+.v-today .c-wk-host:empty, .v-today .c-wrap-host:empty { display: none; }
+.v-today .c-wk-host:not(:empty) + .c-board-host { margin-top: 24px; } /* the week card sits between the Daily and the board */
+.v-today .c-wk-host > .sh, .v-today .c-wrap-host > .sh { margin-top: 32px; }
+.v-today .c-wk { padding: 14px 16px 4px; overflow: hidden; }
+.v-today .c-wk-ovl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-today .c-wk-rows { margin: 6px -16px 0; }
+.v-today .c-wk-row { min-height: 64px; align-items: center; }
+.v-today .c-wk-row .row-main { padding: 10px 0; }
+.v-today .c-wk-row + .c-wk-row > .row-main::before {
+  content: ""; position: absolute; top: 0; left: 0; right: -200vw; height: 1px;
+  background: var(--separator); transform: scaleY(.5); transform-origin: top;
+}
+.v-today .c-wk-row.is-pressed { background-color: var(--surface-2); }
+.v-today .c-wk-tile {
+  width: 40px; height: 40px; border-radius: var(--r-cell);
+  display: grid; place-items: center;
+  background: var(--surface-2); color: var(--ink);
+  transition: background-color 250ms linear;
+}
+.v-today .c-wk-row.is-pressed .c-wk-tile { background: var(--surface-3); transition: none; }
+.v-today .c-wk-tile .ic { stroke-width: 1.9; }
+.v-today .c-wk-sub { color: var(--ink-2); }
+.v-today .c-wk-trail { gap: 6px; }
+.v-today .c-wk-trail:empty { display: none; }
+.v-today .c-wk-trail .pill { font-weight: 600; }
+.v-today .c-wk-trail .stack { --stack-ring: var(--surface-1); }
+.v-today .c-wk-row.is-pressed .c-wk-trail .stack { --stack-ring: var(--surface-2); }
+.v-today .c-wk-pips { display: inline-flex; gap: 4px; }
+.v-today .c-wk-pips > i { width: 7px; height: 7px; border-radius: 50%; background: var(--surface-3); }
+.v-today .c-wk-pips > i.is-on { background: var(--tint); }
+.v-today .c-wk-row .chev { margin-left: 8px; margin-right: -4px; }
+
+/* ---------------------------------------------------------------- The Wrap (latest completed week) */
+.v-today .c-wrapc { padding: 16px; }
+.v-today .c-wrapc-hl {
+  margin-top: 6px;
+  font: 600 var(--fs-3)/var(--lh-3) var(--font-text);
+  overflow: hidden; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3;
+}
+.v-today .c-wrapc-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; min-width: 0; }
+.v-today .c-wrapc-foot .stack { flex: none; }
+.v-today .c-wrapc-btn { flex: none; pointer-events: none; }
+
 /* ---------------------------------------------------------------- Record of the day */
 .v-today .c-rotd-host:empty { display: none; }
 .v-today .c-rotd-host > .sh { margin-top: 32px; }

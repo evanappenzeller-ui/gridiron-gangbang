@@ -1,13 +1,15 @@
-// Hall tab: Trophies | Records (spec 7.13, 7.14). Owner: hall package.
-// This module owns the large title and the segmented control; the two segments live in
-// hall-trophies.js and hall-records.js ({render, mount, unmount} plus optional show/params hooks).
+// Hall tab: Trophies | Records | Shame (spec 7.13, 7.14; Hall of Shame from the week-features contract).
+// This module owns the large title and the segmented control; the segments live in hall-trophies.js,
+// hall-records.js and hall-shame.js ({render, mount, unmount} plus optional show/params/me hooks).
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as trophies from './hall-trophies.js';
 import * as records from './hall-records.js';
+import * as shame from './hall-shame.js';
 
-const SEGS = {trophies, records};
-const segOf = ctx => (ctx && ctx.params && ctx.params.seg === 'records') ? 'records' : 'trophies';
+const SEGS = {trophies, records, shame};
+const SEG_IDS = ['trophies', 'records', 'shame'];
+const segOf = ctx => { const s = ctx && ctx.params && ctx.params.seg; return SEG_IDS.includes(s) ? s : 'trophies'; };
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 
 // Per-screen state, keyed by the screen's ctx (one Hall root exists, but a retry builds a new one).
@@ -21,7 +23,7 @@ function subtitle() {
 }
 
 function segHTML(value) {
-  return `<div class="hl-seg">${ui.seg({name: 'hall-seg', items: [{id: 'trophies', label: 'Trophies'}, {id: 'records', label: 'Records'}], value, label: 'Hall section'})}</div>`;
+  return `<div class="hl-seg">${ui.seg({name: 'hall-seg', items: [{id: 'trophies', label: 'Trophies'}, {id: 'records', label: 'Records'}, {id: 'shame', label: 'Shame'}], value, label: 'Hall section'})}</div>`;
 }
 
 // Keep the segmented control on screen after a segment change that came from outside the control
@@ -37,7 +39,7 @@ function clampScroll(st, ctx) {
 }
 
 // Horizontal rails keep their position across a quiet rebuild (a data reload).
-const RAILS = ['.ff-rail', '.sc-rail'];
+const RAILS = ['.ff-rail', '.sc-rail', '.sm-rail'];
 function railPos(st) {
   return RAILS.map(sel => { const r = st.body.querySelector(sel); return r ? r.scrollLeft : 0; });
 }
@@ -75,10 +77,12 @@ export default {
     ST.set(ctx, st);
     el.addEventListener('ui:change', e => {
       if (!e.detail || e.detail.name !== 'hall-seg') return;
-      ctx.replace(e.detail.value === 'records' ? '/hall/records' : '/hall/trophies');
+      ctx.replace('/hall/' + (SEG_IDS.includes(e.detail.value) ? e.detail.value : 'trophies'));
     });
     SEGS[seg].mount(st.body, ctx);
     if (ctx.first) ui.stagger(el);
+    // Shame's numbers live in stats.js, loaded on demand: warm it at idle so the segment opens filled in.
+    if (seg !== 'shame') ui.onIdle(() => { shame.prefetch().catch(() => {}); });
   },
 
   update(ctx) {

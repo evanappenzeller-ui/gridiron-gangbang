@@ -2,16 +2,17 @@
 // Network-first (2.5 s timeout, then cache) for navigations, HTML, JSON, JS and CSS, so weekly data and new
 // puzzles show up right away; cache-first for the font and icons. Other apps share this origin, so only
 // caches named gg-* or gridiron-* are ever deleted, and cross-origin requests (Firebase) are never touched.
-const CACHE = 'gg-v7';
+const CACHE = 'gg-v8';
+const CORE = ['ui', 'data', 'daily', 'fire', 'week', 'stats', 'motw', 'checks', 'checks-stats'];
 const VIEWS = ['welcome', 'today', 'board', 'you', 'sharecard', 'results', 'run', 'college', 'silhouette', 'mystery', 'journey', 'grid', 'picker',
-  'standings', 'season', 'review', 'matchup', 'rivals', 'hall', 'hall-trophies', 'hall-records', 'moves', 'profile', '_kit'];
+  'standings', 'season', 'review', 'wrap', 'matchup', 'rivals', 'hall', 'hall-trophies', 'hall-records', 'hall-shame', 'moves', 'profile', '_kit'];
 const VIEW_CSS = ['welcome', 'today', 'board', 'results', 'you', 'run', 'college', 'silhouette', 'mystery', 'journey', 'grid', 'picker',
-  'standings', 'season', 'review', 'matchup', 'rivals', 'hall', 'moves', 'profile', '_kit'];
+  'standings', 'season', 'review', 'wrap', 'matchup', 'rivals', 'hall', 'moves', 'profile', '_kit'];
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest',
   'css/tokens.css', 'css/base.css', 'css/components.css',
   ...VIEW_CSS.map(v => `css/views/${v}.css`),
-  'js/app.js', 'js/core/ui.js', 'js/core/data.js', 'js/core/daily.js', 'js/core/checks.js', 'js/core/motw.js',
+  'js/app.js', ...CORE.map(m => `js/core/${m}.js`),
   ...VIEWS.map(v => `js/views/${v}.js`),
   'fonts/barlow-condensed-800.woff2',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png',

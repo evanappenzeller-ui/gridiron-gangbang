@@ -1,9 +1,13 @@
 // Rivals: head to head for any two managers (spec 7.12, delight 8.12). Owner: rivals package.
 // Mounts once, then patches: series numbers roll (odometer), the split bar re-splits, the tape and the
 // meeting log cross-fade, and "{A} against everyone" reorders with FLIP.
+// Above the head to head sits the week (core/week.js): Matchup of the Week voting, Pick'em with its season
+// standings, and the past Matchups of the Week. They render at once from data.js and fill in when the
+// Firestore snapshots arrive; nothing here waits on Firebase.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as motw from '../core/motw.js';
+import * as week from '../core/week.js';
 
 const esc = s => data.esc(s);
 const nm = id => data.name(id);
@@ -220,9 +224,168 @@ function listSecHTML(m) {
   return `<div class="rv-sec rv-list" data-enter>${ui.sectionHeader({title: `${nm(m.a)} against everyone`})}<div class="rv-list-w">${listHTML(m)}</div><p class="group-f">${FOOTNOTE}</p></div>`;
 }
 
-// ============================================================================ Matchup of the Week
-// The next scheduled week's games, ranked (core/motw.js), so the league has a shortlist to vote on. Tapping a
-// game loads it into the head to head below. Shows the top 3 until "Show all".
+// ============================================================================ The week (core/week.js)
+// Firestore snapshots and local edits live in st.wk (created in mount). The models below read st.wk while
+// the screen is mounted; in render (st is null) they describe the week with no Firebase state yet.
+const VOTE_OFF = "Voting isn't switched on yet.";
+const PICK_OFF = "Pick'em isn't switched on yet.";
+const pairOf = key => String(key || '').split('|');
+const pairName = key => { const [a, b] = pairOf(key); return `${nm(a)} vs ${nm(b)}`; };
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+const andJoin = l => l.length < 2 ? (l[0] || '') : `${l.slice(0, -1).join(', ')} and ${l[l.length - 1]}`;
+const atMs = a => a == null ? 0 : typeof a === 'number' ? a : typeof a.toMillis === 'function' ? a.toMillis() : a.seconds ? a.seconds * 1000 : (+new Date(a) || 0);
+
+// week.current() reads data.js only. A throw in the week code must never take the head to head down with it.
+function curWeek() {
+  try { const c = week.current(); return c && c.games && c.games.length ? c : null; } catch (e) { console.error(e); return null; }
+}
+// Locked at kickoff (week.js's clock: a dev host can inject one with week.__dev.setNow).
+function lockedNow(cur) {
+  if (!cur) return false;
+  try { return !!week.isLocked(cur.year, cur.week); } catch (_) { return !!cur.locked; }
+}
+// "Thu 5:15 PM" in the viewer's own time zone (week.js adds the date when kickoff is more than 6 days away).
+function closeText(cur) {
+  try { return week.lockText(cur.year, cur.week); } catch (_) { return timeLabel(cur.lock); }
+}
+function timeLabel(d) {
+  const t = d instanceof Date ? d : new Date(d);
+  if (isNaN(t)) return '';
+  return `${t.toLocaleDateString('en-US', {weekday: 'short'})} ${t.toLocaleTimeString('en-US', {hour: 'numeric', minute: '2-digit'})}`;
+}
+// Snapshot / result errors: permission-denied means the rules aren't deployed yet (read-only, say so).
+function errKind(e) {
+  if (!e) return '';
+  const s = typeof e === 'string' ? e : `${e.code || ''} ${e.message || ''}`;
+  return /denied|permission/i.test(s) ? 'denied' : 'failed';
+}
+function liveRow(id) {
+  const s = data.SEASONS.find(x => x.live);
+  const r = s && s.table.find(x => x.id === id);
+  return r ? {rank: r.seed, w: r.w, l: r.l, t: r.t} : {rank: null, w: 0, l: 0, t: 0};
+}
+// A voter or picker as drawn: their manager when `me` is one, else their nick on a neutral initials disc.
+function who(v) {
+  const id = v && v.me && data.M[v.me] ? v.me : null;
+  const nick = v && typeof v.nick === 'string' ? v.nick.trim() : '';
+  return {id, name: id ? nm(id) : (nick || 'Someone'), you: !!(v && v.you)};
+}
+const stackItem = v => { const w = who(v); return w.id ? {id: w.id, you: w.you} : {nick: w.name, you: w.you}; };
+const whoAvatar = (v, size) => { const w = who(v); return w.id ? ui.avatar(w.id, {size, you: w.you}) : ui.nickAvatar(w.name, {size, you: w.you}); };
+const myNick = () => ui.lsGet('gg-nick') || '';
+// The snapshot's own doc: `mine` may be the doc (with uid) or just its value.
+function mineUid(snap) {
+  const m = snap && snap.mine;
+  if (m && typeof m === 'object' && m.uid) return m.uid;
+  try { return week.myUid() || null; } catch (_) { return null; }
+}
+const markYou = (list, uid) => (list || []).map(v => Object.assign({}, v, {you: v.you === true || (!!uid && v.uid === uid)}));
+// The week's game keys in hype order (motw's overall ranking): ties in the vote go to the earlier one.
+function hypeOrder(cur) {
+  const c = cur || (st && st.wk && st.wk.cur) || curWeek();
+  try { if (c) return week.ranking(c.year, c.week); } catch (_) {}
+  const res = motw.candidates('overall');
+  return res ? res.list.map(x => x.a + '|' + x.b) : [];
+}
+function leaderOf(tally, cur) {
+  const order = hypeOrder(cur);
+  let k = null;
+  try { k = week.leader(tally, order); } catch (_) { k = null; }
+  if (k && tally[k]) return k;
+  let best = null;
+  order.forEach(x => { if ((tally[x] || 0) > (best ? tally[best] : 0)) best = x; });
+  return best;
+}
+
+// ---------------------------------------------------------------- Matchup of the Week: the vote
+function voteModel() {
+  const w = st && st.wk;
+  const cur = w ? w.cur : curWeek();
+  if (!cur) return null;
+  const snap = w ? w.vsnap : null;
+  const locked = lockedNow(cur);
+  const uid = mineUid(snap);
+  let votes = markYou(snap && snap.votes, uid);
+  let mine = snap && snap.mine ? (typeof snap.mine === 'string' ? snap.mine : snap.mine.pick || null) : null;
+  if (!mine) { const y = votes.find(v => v.you); if (y) mine = y.pick || null; }
+  if (w && w.vpend !== undefined && !locked) {
+    // Optimistic: your tap shows at once; the snapshot confirms it (or the result code puts it back).
+    votes = votes.filter(v => !v.you);
+    mine = w.vpend;
+    if (mine) votes.push({uid: uid || '', pick: mine, me: data.me(), nick: myNick(), at: Date.now(), you: true});
+  }
+  const keys = new Set(cur.games.map(g => g.key));
+  const tally = {}, voters = {};
+  votes.forEach(v => {
+    if (!keys.has(v.pick)) return;
+    tally[v.pick] = (tally[v.pick] || 0) + 1;
+    (voters[v.pick] || (voters[v.pick] = [])).push(v);
+  });
+  Object.values(voters).forEach(l => l.sort((x, y) => (y.you - x.you) || atMs(x.at) - atMs(y.at)));
+  const total = Object.values(tally).reduce((s, n) => s + n, 0);
+  const off = !!(w && w.voff);
+  // The first payload comes from local state before Firestore answers (ready false): counts aren't known yet.
+  const loading = !snap || snap.ready === false;
+  const failed = !!(snap && snap.error && errKind(snap.error) !== 'denied');
+  return {cur, locked, off, open: !locked && !off, loading, failed, votes, tally, voters, total,
+    mine: keys.has(mine) ? mine : null, leader: total ? leaderOf(tally, cur) : null};
+}
+
+function vtWhoLabel(key, vm) {
+  const n = vm.tally[key] || 0;
+  const pct = vm.total ? Math.round(100 * n / vm.total) : 0;
+  const names = (vm.voters[key] || []).map(v => v.you ? 'you' : who(v).name);
+  const list = names.length > 4 ? `${names.slice(0, 3).join(', ')} and ${names.length - 3} more` : andJoin(names);
+  return `${plural(n, 'vote', 'votes')}, ${pct} percent: ${list}. See who voted`;
+}
+function vtLine(key, vm) {
+  const n = vm.tally[key] || 0;
+  const share = vm.total ? n / vm.total : 0;
+  const mine = vm.mine === key, lead = vm.locked && vm.leader === key;
+  // Before kickoff the current leader is marked neutrally (ink, not tint: tint is only ever your vote).
+  const leading = !vm.locked && vm.total > 0 && vm.leader === key;
+  const stack = n ? `<button type="button" class="rv-vt-who" data-vt-who="${esc(key)}" aria-label="${esc(vtWhoLabel(key, vm))}">${ui.avatarStack((vm.voters[key] || []).map(stackItem), {max: 3, size: 28})}</button>` : '';
+  let act = '';
+  if (vm.open) {
+    act = `<button type="button" class="rv-vt-btn${mine ? ' is-on' : ''}" data-vote="${esc(key)}" aria-pressed="${mine}" aria-label="${esc(`Vote for ${pairName(key)}`)}">`
+      + `${ui.icon('check', {cls: 'rv-vt-ck'})}<span class="rv-vt-bl">${mine ? 'Voted' : 'Vote'}</span></button>`;
+  } else if (lead) {
+    act = `<span class="rv-vt-tag is-lead">${ui.icon('crown')}<span>League's pick</span>${mine ? '<span class="sr-only">, your vote</span>' : ''}</span>`;
+  } else if (mine) {
+    act = `<span class="rv-vt-tag is-mine">${ui.icon('check')}<span>Your vote</span></span>`;
+  }
+  // Every row's bar spans the same full-width track (its own grid row), so a bigger share is always a longer bar.
+  return `<span class="rv-vt${mine ? ' is-mine' : ''}${lead ? ' is-lead' : ''}${leading ? ' is-leading' : ''}${vm.total ? '' : ' is-none'}">`
+    + `<span class="rv-vt-pct n5" aria-hidden="true">${vm.total ? Math.round(share * 100) + '%' : ''}</span>`
+    + stack + act + (leading ? '<span class="sr-only">Leading.</span>' : '') + (n || vm.loading ? '' : '<span class="sr-only">No votes.</span>')
+    + `<span class="rv-vt-bar" aria-hidden="true"><i data-share="${share}" style="transform:scaleX(${share})"></i></span>`
+    + `</span>`;
+}
+// After kickoff: the league's pick leads the card, whatever its hype place.
+function vtResultHTML(vm) {
+  if (!vm.locked || vm.off || !vm.leader || !vm.total) return '';
+  const [a, b] = pairOf(vm.leader);
+  const n = vm.tally[vm.leader] || 0;
+  const votes = `${n} of ${plural(vm.total, 'vote', 'votes')}`;
+  return `<button type="button" class="rv-vt-res" data-motw="${esc(vm.leader)}" aria-label="${esc(`League's pick, week ${vm.cur.week}: ${pairName(vm.leader)}, ${votes}${vm.mine === vm.leader ? ', your vote' : ''}. Show this rivalry`)}">`
+    + `<span class="rv-vt-res-av" aria-hidden="true">${ui.avatar(a, {size: 32, you: a === data.me()})}${ui.avatar(b, {size: 32, you: b === data.me()})}</span>`
+    + `<span class="rv-vt-res-t" aria-hidden="true"><span class="ovl rv-vt-res-o">${ui.icon('crown')}<span>League's pick · ${esc(votes)}</span></span>`
+    + `<span class="rv-vt-res-p">${esc(pairName(vm.leader))}</span></span>`
+    + ui.icon('chevron-right', {cls: 'chev'})
+    + `</button>`;
+}
+function vtStatusHTML(vm) {
+  let ic = 'clock', txt = `Closes ${closeText(vm.cur)}`;
+  if (vm.off) { ic = 'info'; txt = VOTE_OFF; } else if (vm.locked) { ic = 'lock'; txt = 'Voting closed'; }
+  const tot = plural(vm.total, 'vote', 'votes');
+  const right = vm.total
+    ? `<button type="button" class="rv-vt-tot is-btn" data-vt-who="" aria-label="${esc(`${tot}. See who voted`)}"><span>${esc(tot)}</span>${ui.icon('chevron-right')}</button>`
+    : `<span class="rv-vt-tot">${vm.loading ? '' : vm.failed ? "Votes didn't load" : vm.open ? 'No votes yet' : 'No votes'}</span>`;
+  return `<div class="rv-vt-status${vm.open ? '' : ' is-closed'}"><span class="rv-vt-st">${ui.icon(ic)}<span class="rv-vt-stt">${esc(txt)}</span></span>${right}</div>`
+    + vtResultHTML(vm);
+}
+
+// ---------------------------------------------------------------- Matchup of the Week: the card
 const LENS_KEY = 'gg-motw-lens';
 function readLens() {
   try { const v = localStorage.getItem(LENS_KEY); return motw.LENSES.some(l => l.id === v) ? v : 'overall'; } catch (_) { return 'overall'; }
@@ -237,50 +400,63 @@ function mcSide(id, x, side, size) {
   return `<span class="rv-mc-side ${side}">${ui.avatar(id, {size, you: id === data.me()})}`
     + `<span class="rv-mc-txt"><span class="rv-mc-n">${esc(nm(id))}</span><span class="rv-mc-r">${esc(recOf(x))}</span></span></span>`;
 }
-function mcRow(c) {
+// Your vote and the leader always show, even beyond the top 3.
+const keepRow = (key, vm) => !!vm && (vm.mine === key || (vm.total > 0 && vm.leader === key));
+function mcRow(c, vm) {
+  const key = c.a + '|' + c.b;
   const top = c.place === 1;
   const label = `${c.place}. ${nm(c.a)} versus ${nm(c.b)}. Hype ${c.hype}.${c.tags.length ? ' ' + c.tags.join('. ') + '.' : ''} Show this rivalry`;
-  return `<li class="rv-mc${top ? ' is-top' : ''}${c.place > SHOWN ? ' is-more' : ''}" data-key="${esc(c.a + '|' + c.b)}">`
-    + `<button type="button" class="rv-mc-hit" data-motw="${esc(c.a + '|' + c.b)}" aria-label="${esc(label)}"></button>`
+  const cls = `rv-mc${top ? ' is-top' : ''}${c.place > SHOWN && !keepRow(key, vm) ? ' is-more' : ''}${vm && vm.mine === key ? ' is-voted' : ''}${vm && vm.locked && vm.leader === key ? ' is-lead' : ''}`;
+  return `<li class="${cls}" data-key="${esc(key)}">`
+    + `<button type="button" class="rv-mc-hit" data-motw="${esc(key)}" aria-label="${esc(label)}"></button>`
     + `<span class="rv-mc-place n5" aria-hidden="true">${c.place}</span>`
     + `<span class="rv-mc-pair" aria-hidden="true">${mcSide(c.a, c.A, 'a', top ? 44 : 28)}<span class="rv-mc-vs ovl">vs</span>${mcSide(c.b, c.B, 'b', top ? 44 : 28)}</span>`
     + `<span class="rv-mc-hype" aria-hidden="true"><span class="${top ? 'n3' : 'n4'}">${c.hype}</span><span class="ovl">Hype</span><i style="transform:scaleX(${c.hype / 100})"></i></span>`
     + (c.tags.length ? `<span class="rv-mc-tags" aria-hidden="true">${c.tags.map(t => `<span class="rv-mc-tag">${esc(t)}</span>`).join('')}</span>` : '')
+    + (vm ? `<span class="rv-mc-vote">${vtLine(key, vm)}</span>` : '')
     + `</li>`;
 }
-function motwRows(res) { return res.list.map(mcRow).join(''); }
+function motwRows(res, vm) { return res.list.map(c => mcRow(c, vm)).join(''); }
+const shareLabel = vm => !vm || !vm.locked ? 'Share for the vote' : vm.leader ? 'Share the pick' : 'Share the shortlist';
 function motwHTML(lens) {
   const res = motw.candidates(lens);
   if (!res || !res.list.length) return '';
+  const vm = voteModel();
   const more = res.list.length > SHOWN;
-  return `<section class="rv-motw" data-enter aria-labelledby="rv-motw-h">`
+  return `<section class="rv-motw" id="rv-motw" data-enter aria-labelledby="rv-motw-h">`
     + `<div class="rv-motw-head"><h2 class="t-2" id="rv-motw-h">Matchup of the Week</h2><span class="ovl rv-motw-wk">Week ${res.week}</span></div>`
     + `<p class="rv-motw-sub">${esc(lensSub(res.lens))}</p>`
     + ui.seg({name: 'motw-lens', items: motw.LENSES, value: res.lens, small: true, label: 'Rank by', cls: 'rv-motw-seg'})
-    + `<div class="card rv-motw-card"><ol class="rv-motw-list" aria-label="${esc(`Week ${res.week} games, best first`)}">${motwRows(res)}</ol>`
+    + `<div class="card rv-motw-card">${vm ? `<div class="rv-vt-sw">${vtStatusHTML(vm)}</div>` : ''}`
+    + `<ol class="rv-motw-list" aria-label="${esc(`Week ${res.week} games, best first`)}">${motwRows(res, vm)}</ol>`
     + `<div class="rv-motw-foot">`
     + (more ? ui.button({label: `Show all ${res.list.length}`, kind: 'plain', size: 's', attrs: {'data-motw-more': '', 'aria-expanded': 'false'}}) : '<span></span>')
-    + ui.button({label: 'Share for the vote', kind: 'secondary', size: 's', icon: 'share', attrs: {'data-motw-share': ''}})
+    + ui.button({label: shareLabel(vm), kind: 'secondary', size: 's', icon: 'share', attrs: {'data-motw-share': ''}})
     + `</div></div></section>`;
 }
 // Re-rank in place (lens change, new data, new "me"). FLIP moves rows that change places.
 function patchMotw(animate) {
-  const sec = st && st.el.querySelector('.rv-motw');
-  const res = motw.candidates(st ? st.lens : readLens());
+  if (!st) return;
+  const sec = st.el.querySelector('.rv-motw');
+  const res = motw.candidates(st.lens);
   if (!sec) {
-    // A reload brought a schedule where there was none: add the section above the head to head.
-    if (res && res.list.length && st && st.r.hdr) {
-      st.r.hdr.insertAdjacentHTML('beforebegin', motwHTML(st.lens));
+    // A reload brought a schedule where there was none: add the section at the top of the week.
+    const wrap = st.el.querySelector('.rv-week');
+    if (res && res.list.length && wrap) {
+      wrap.insertAdjacentHTML('afterbegin', motwHTML(st.lens));
       if (st.all) toggleMore(true);
+      syncH2hTitle();
     }
     return;
   }
-  if (!res || !res.list.length) { sec.remove(); return; }
+  if (!res || !res.list.length) { sec.remove(); syncH2hTitle(); return; }
   const list = sec.querySelector('.rv-motw-list');
   const wk = sec.querySelector('.rv-motw-wk');
   if (wk) wk.textContent = `Week ${res.week}`;
-  const put = () => { list.innerHTML = motwRows(res); };
+  const vm = voteModel();
+  const put = () => { list.innerHTML = motwRows(res, vm); };
   if (animate) ui.flip(list, put); else put();
+  patchVotes({animate: false});
 }
 function toggleMore(on) {
   const sec = st && st.el.querySelector('.rv-motw');
@@ -292,9 +468,17 @@ function toggleMore(on) {
     const n = sec.querySelectorAll('.rv-mc').length;
     b.setAttribute('aria-expanded', String(on));
     const lab = b.querySelector('.btn-label');
-    if (lab) lab.textContent = on ? 'Show top 3' : `Show all ${n}`;
+    if (lab) lab.textContent = on ? 'Show fewer' : `Show all ${n}`;
   }
   if (on) sec.querySelectorAll('.rv-mc.is-more').forEach(li => ui.animate(li, [{opacity: 0, transform: 'translateY(-6px)'}, {opacity: 1, transform: 'none'}], {duration: 220, easing: 'ease-out'}));
+}
+// Scroll so el sits just under the nav bar.
+function scrollUnder(el, gap = 8, behavior) {
+  const scr = st.ctx.screen;
+  if (!el || !scr) return;
+  const nav = scr.querySelector(':scope > .nav');
+  const top = el.getBoundingClientRect().top - scr.getBoundingClientRect().top + scr.scrollTop - (nav ? nav.offsetHeight : 44) - gap;
+  scr.scrollTo({top: Math.max(0, top), behavior: behavior || (ui.RM ? 'auto' : 'smooth')});
 }
 function chooseMotw(key) {
   if (!st || st.swapping || !st.m) return;
@@ -304,23 +488,701 @@ function chooseMotw(key) {
   ui.haptic('selection');
   const same = (st.m.a === a && st.m.b === b) || (st.m.a === b && st.m.b === a);
   if (!same) go(a, b, 'list');
-  // Bring the head to head into view, just under the bar.
-  const scr = st.ctx.screen, hdr = st.r.hdr;
-  if (hdr) {
-    const nav = scr.querySelector(':scope > .nav');
-    const top = hdr.getBoundingClientRect().top - scr.getBoundingClientRect().top + scr.scrollTop - (nav ? nav.offsetHeight : 44) - 8;
-    scr.scrollTo({top: Math.max(0, top), behavior: ui.RM ? 'auto' : 'smooth'});
-  }
+  scrollUnder(st.r.hdr); // bring the head to head into view, just under the bar
   focusPicker('b');
 }
 function shareMotw() {
-  const res = motw.candidates(st ? st.lens : readLens());
-  if (!res) return;
-  const text = motw.shareText(res, ui.absLink('/rivals')); // ui.share runs inside the tap (iOS user activation)
+  const vm = voteModel();
+  const link = ui.absLink('/rivals');
+  let text;
+  if (vm && vm.locked && vm.leader) {
+    const n = vm.tally[vm.leader] || 0;
+    text = `Matchup of the Week, Week ${vm.cur.week}: ${pairName(vm.leader)}. ${n} of ${plural(vm.total, 'vote', 'votes')}.\n${link}`;
+  } else {
+    const res = motw.candidates(st ? st.lens : readLens());
+    if (!res) return;
+    // Voting is live in the app: send the chat to the vote (the link lands on it) instead of "vote by number".
+    // Before the rules are deployed (off) the chat still votes by number.
+    // After kickoff with no votes there is nothing left to vote on: the plain shortlist.
+    text = vm && vm.open
+      ? motw.shareText(res, ui.absLink('/rivals?s=motw')).replace(/ Vote by number:$/m, ' Vote in the app:')
+      : vm && vm.locked
+        ? motw.shareText(res, link).replace(/ Vote by number:$/m, '')
+        : motw.shareText(res, link);
+  }
+  // ui.share runs inside the tap (iOS user activation)
   return ui.share({text}).then(r => {
-    if (r === 'copied') ui.toast('Shortlist copied. Paste it in the league chat.', {icon: 'check-circle'});
+    if (r === 'copied') ui.toast(vm && vm.locked && vm.leader ? "The pick is copied. Paste it in the league chat." : 'Shortlist copied. Paste it in the league chat.', {icon: 'check-circle'});
     else if (r === 'unavailable') ui.toast("Couldn't copy the shortlist.");
   });
+}
+
+// Patch the vote parts in place: the status strip, each row's bar, share, voters and button.
+// Focus stays on the equivalent control (a keyboard user can vote twice in a row).
+function morphInto(el, html) {
+  if (!el || el._html === html) return false;
+  const f = document.activeElement;
+  let sel = null;
+  if (f && f !== el && el.contains(f)) {
+    for (const a of ['data-vote', 'data-vt-who', 'data-pk-retry', 'data-pk-all', 'data-pk-stand']) {
+      if (f.hasAttribute(a)) { sel = `[${a}="${CSS.escape(f.getAttribute(a))}"]`; break; }
+    }
+  }
+  el.innerHTML = html;
+  el._html = html;
+  if (sel) { const n = el.querySelector(sel); if (n) n.focus({preventScroll: true}); }
+  return true;
+}
+function patchVotes({animate = false, pop = null} = {}) {
+  const sec = st && st.el.querySelector('.rv-motw');
+  if (!sec) return;
+  const vm = voteModel();
+  if (!vm) return;
+  morphInto(sec.querySelector('.rv-vt-sw'), vtStatusHTML(vm));
+  sec.querySelectorAll('.rv-mc').forEach(li => {
+    const key = li.dataset.key;
+    const box = li.querySelector('.rv-mc-vote');
+    if (!box) return;
+    const oi = box.querySelector('.rv-vt-bar > i');
+    const old = oi ? parseFloat(oi.dataset.share) || 0 : 0;
+    morphInto(box, vtLine(key, vm));
+    li.classList.toggle('is-voted', vm.mine === key);
+    li.classList.toggle('is-lead', vm.locked && vm.leader === key);
+    if (li.classList.contains('is-more') && keepRow(key, vm)) {
+      li.classList.remove('is-more'); // never re-hidden here: a row you just tapped never vanishes under you
+      if (animate) ui.animate(li, [{opacity: 0, transform: 'translateY(-6px)'}, {opacity: 1, transform: 'none'}], {duration: 220, easing: 'ease-out'});
+    }
+    const ni = box.querySelector('.rv-vt-bar > i');
+    const now = ni ? parseFloat(ni.dataset.share) || 0 : 0;
+    if (animate && ni && Math.abs(now - old) > 1e-6) ui.animate(ni, [{transform: `scaleX(${old})`}, {transform: `scaleX(${now})`}], {spring: 'smooth'});
+    if (pop === key) {
+      const ck = box.querySelector('.rv-vt-ck');
+      if (ck) ui.stamp(ck, {from: .2});
+    }
+  });
+  const sb = sec.querySelector('[data-motw-share] .btn-label');
+  if (sb) sb.textContent = shareLabel(vm);
+  if (st.wk.sheet && st.wk.sheet.kind === 'votes') fillSheet();
+}
+
+function vote(key) {
+  const w = st && st.wk;
+  const vm = voteModel();
+  if (!w || !vm) return;
+  if (!vm.open) {
+    ui.toast(vm.off ? VOTE_OFF : 'Voting closed at kickoff.', {icon: vm.off ? 'info' : 'lock'});
+    return;
+  }
+  if (!vm.cur.games.some(g => g.key === key)) return;
+  const next = vm.mine === key ? null : key;
+  w.vpend = next;
+  const seq = ++w.vseq;
+  ui.haptic(next ? 'light' : 'selection');
+  patchVotes({animate: true, pop: next});
+  ui.announce(next ? `Voted for ${pairName(next)}.` : 'Vote removed.');
+  let p;
+  try { p = next ? week.castVote(next) : week.clearVote(); } catch (e) { console.error(e); p = 'failed'; }
+  Promise.resolve(p).then(r => r, () => 'failed').then(r => {
+    if (!st || st.wk !== w || seq !== w.vseq) return;
+    if (r === 'ok' || r === 'dev') {
+      // Held until the snapshot shows it (Firestore's local echo is immediate); a quiet fallback after 4 s.
+      clearTimeout(w.vT);
+      w.vT = setTimeout(() => { if (st && st.wk === w && seq === w.vseq && w.vpend !== undefined && w.vsnap) { w.vpend = undefined; patchVotes({animate: true}); } }, 4000);
+      return;
+    }
+    w.vpend = undefined;
+    if (r === 'locked') ui.toast('Voting closed at kickoff.', {icon: 'lock'});
+    else if (r === 'denied') { w.voff = true; ui.toast(VOTE_OFF, {icon: 'info'}); }
+    else ui.toast("Couldn't save your vote. Try again.");
+    patchVotes({animate: true});
+  });
+}
+
+// ---------------------------------------------------------------- Pick'em
+function pickModel() {
+  const w = st && st.wk;
+  const cur = w ? w.cur : curWeek();
+  if (!cur) return null;
+  const snap = w ? w.psnap : null;
+  const locked = lockedNow(cur);
+  const off = !!(w && w.poff);
+  const uid = mineUid(snap);
+  const entries = markYou(snap && snap.entries, uid);
+  const mineE = (snap && snap.mine && typeof snap.mine === 'object' ? snap.mine : null) || entries.find(e => e.you) || null;
+  const saved = (mineE && mineE.picks) || {};
+  const picks = (w && w.draft && !locked) ? w.draft : saved;
+  const count = cur.games.filter(g => picks[g.key] === g.a || picks[g.key] === g.b).length;
+  // Until the server has answered (week.js: ready), your saved picks aren't known: taps wait, so a pick can
+  // never be saved over an entry that hasn't loaded yet.
+  const loading = !snap || snap.ready === false;
+  return {cur, locked, off, open: !locked && !off && !loading, wait: !locked && !off && loading, loading, entries, mineE, picks, count, n: cur.games.length,
+    save: w ? w.save : '', dirty: !!(w && w.dirty)};
+}
+const pkMode = pm => pm.off ? 'off' : pm.locked ? 'locked' : pm.wait ? 'wait' : 'open';
+
+function pkSideHTML(g, id, side, pm) {
+  const other = side === 'a' ? g.b : g.a;
+  const pick = pm.picks[g.key];
+  const on = pick === id, dim = !!pick && !on;
+  const cls = `rv-pk-side ${side} ${data.color(id).cls}${on ? ' is-on' : ''}${dim ? ' is-dim' : ''}`;
+  const inner = `<span class="rv-pk-av">${ui.avatar(id, {size: 36, you: id === data.me()})}<span class="rv-pk-ck" aria-hidden="true">${ui.icon('check')}</span></span>`
+    + `<span class="rv-pk-txt"><span class="rv-pk-n">${esc(nm(id))}</span><span class="rv-pk-r">${esc(recOf(liveRow(id)))}</span></span>`;
+  if (pm.open || pm.wait) {
+    // While your saved picks load the sides look the same but wait (aria-disabled; a tap explains).
+    return `<button type="button" class="${cls}${pm.wait ? ' is-wait' : ''}" data-pk="${esc(g.key)}" data-id="${esc(id)}" aria-pressed="${on}"${pm.wait ? ' aria-disabled="true"' : ''} aria-label="${esc(`${nm(id)} to beat ${nm(other)}`)}">${inner}</button>`;
+  }
+  // data-id: patchPicks matches both variants by it.
+  return `<div class="${cls} is-static" data-id="${esc(id)}" role="img" aria-label="${esc(`${nm(id)}${on ? ', your pick' : ''}`)}">${inner}</div>`;
+}
+// After kickoff: who the league picked, per game.
+function pkCrowdHTML(g, pm) {
+  const A = [], B = [];
+  pm.entries.forEach(e => { const p = e.picks && e.picks[g.key]; if (p === g.a) A.push(e); else if (p === g.b) B.push(e); });
+  const n = A.length + B.length;
+  if (!n) return `<div class="rv-pk-crowd is-none"><span class="rv-pk-nobody">Nobody picked this one.</span></div>`;
+  const sort = l => l.sort((x, y) => (y.you - x.you) || atMs(x.at) - atMs(y.at));
+  const stack = (l, side) => `<span class="rv-pk-cs ${side}">${l.length ? ui.avatarStack(sort(l).map(stackItem), {max: 2, size: 28}) : ''}</span>`;
+  const label = `${nm(g.a)} ${A.length}, ${nm(g.b)} ${B.length}`;
+  return `<div class="rv-pk-crowd" role="img" aria-label="${esc(`Picks: ${label}`)}">${stack(A, 'a')}<span class="rv-pk-split" aria-hidden="true">${ui.splitBar(g.a, g.b, A.length / n, {label})}</span>${stack(B, 'b')}</div>`;
+}
+function pkGameHTML(g, pm) {
+  return `<li class="rv-pk-game" data-key="${esc(g.key)}"><div class="rv-pk-pair" role="group" aria-label="${esc(`${nm(g.a)} versus ${nm(g.b)}`)}">`
+    + pkSideHTML(g, g.a, 'a', pm) + `<span class="rv-pk-vs ovl" aria-hidden="true">vs</span>` + pkSideHTML(g, g.b, 'b', pm)
+    + `</div>${pm.locked && !pm.loading ? pkCrowdHTML(g, pm) : ''}</li>`;
+}
+function pkStatusHTML(pm) {
+  const dots = pm.cur.games.map(g => `<i class="${pm.picks[g.key] === g.a || pm.picks[g.key] === g.b ? 'on' : ''}" data-dot="${esc(g.key)}"></i>`).join('');
+  const all = pm.count === pm.n;
+  let left;
+  if (pm.off) left = `<span class="rv-pk-msg">${ui.icon('info')}<span>${esc(PICK_OFF)}</span></span>`;
+  else if (pm.wait) left = `<span class="rv-pk-msg is-wait"><span class="spin" aria-hidden="true"></span><span>Loading your picks</span></span>`;
+  else if (pm.locked && !pm.count) left = `<span class="rv-pk-msg">${ui.icon('lock')}<span>${pm.loading ? 'Picks closed' : 'You sat this week out'}</span></span>`;
+  else {
+    const txt = pm.locked ? `Your picks: ${pm.count} of ${pm.n}` : all ? `All ${pm.n} picked` : `${pm.count} of ${pm.n} picked`;
+    left = `<span class="rv-pk-prog${all ? ' is-all' : ''}"><span class="rv-pk-dots" aria-hidden="true">${dots}</span><span class="rv-pk-count">${esc(txt)}</span></span>`;
+  }
+  let right = '';
+  if (pm.locked && !pm.off) right = `<span class="rv-pk-save">${ui.icon('lock')}<span>Closed</span></span>`;
+  else if (pm.open) {
+    if (pm.save === 'failed') right = `<button type="button" class="rv-pk-save is-failed" data-pk-retry>${ui.icon('x-circle')}<span>Not saved. Retry</span></button>`;
+    else if (pm.save === 'saving' || pm.save === 'pending') right = `<span class="rv-pk-save is-saving"><span class="spin" aria-hidden="true"></span><span>Saving</span></span>`;
+    else if (pm.save === 'saved' || (pm.mineE && pm.count)) right = `<span class="rv-pk-save is-saved">${ui.icon('check')}<span>Saved</span></span>`;
+  }
+  return `<div class="rv-pk-status">${left}${right}</div>`;
+}
+function pkFootHTML(pm) {
+  const n = pm.entries.length;
+  const last = pkLastHTML();
+  if (pm.off) return last;
+  if (pm.locked) {
+    if (pm.loading) return last;
+    return `<div class="rv-pk-foot"><span class="rv-pk-fi">${ui.icon('person')}<span>${n ? `${plural(n, 'person', 'people')} made picks` : 'Nobody made picks this week'}</span></span>`
+      + (n ? ui.button({label: "Everyone's picks", kind: 'plain', size: 's', attrs: {'data-pk-all': '', 'aria-haspopup': 'dialog'}}) : '') + `</div>` + last;
+  }
+  const inSoFar = pm.loading ? '' : n ? `${n} in so far` : 'Nobody in yet';
+  return `<div class="rv-pk-foot"><span class="rv-pk-fi">${ui.icon('clock')}<span>Closes ${esc(closeText(pm.cur))}</span></span><span class="rv-pk-in">${esc(inSoFar)}</span></div>` + last;
+}
+// Last week's pick'em, once it is graded: your score and the week's best. Opens the season standings.
+function pkLastText(r) {
+  const you = r.rows.find(x => x.you);
+  const best = r.winners.map(x => x.you ? 'you' : who(x).name);
+  const bestStr = best.length > 2 ? `${best.slice(0, 2).join(', ')} and ${best.length - 2} more` : andJoin(best);
+  const top = r.winners[0];
+  // One denominator: the week's decided games (a game you didn't pick is a miss), same as the Wrap.
+  const n = r.graded;
+  if (you && top && you.rank === 1) return `Week ${r.week}: you went ${you.right} for ${n}, ${best.length > 1 ? 'tied for the best' : 'the best'} in the league.`;
+  if (you && top) return `Week ${r.week}: you went ${you.right} for ${n}. ${bestStr[0].toUpperCase() + bestStr.slice(1)} went ${top.right} for ${n}.`;
+  if (you) return `Week ${r.week}: you went ${you.right} for ${n}.`;
+  if (top) return `Week ${r.week}: ${bestStr} went ${top.right} for ${n}, the best in the league.`;
+  return '';
+}
+function pkLastHTML() {
+  const r = st && st.wk && st.wk.last;
+  const txt = r ? pkLastText(r) : '';
+  if (!txt) return '';
+  return `<button type="button" class="rv-pk-last" data-pk-stand aria-haspopup="dialog">${ui.icon('trophy')}<span class="rv-pk-lt">${esc(txt)}</span>${ui.icon('chevron-right', {cls: 'chev'})}</button>`;
+}
+function loadLast() {
+  const w = st && st.wk;
+  if (!w || !w.cur || w.cur.week < 2) { if (w) w.last = null; return; }
+  const key = week.weekKey(w.cur.year, w.cur.week - 1);
+  let p;
+  try { p = Promise.resolve(week.weekResults(key)); } catch (e) { p = Promise.reject(e); }
+  p.then(r => {
+    if (!st || st.wk !== w || !w.cur || week.weekKey(w.cur.year, w.cur.week - 1) !== key) return;
+    w.last = r && r.graded && r.rows && r.rows.length ? r : null;
+    ui.whenIdle(() => { if (st && st.wk === w) patchPicks({}); });
+  }, e => console.warn('pickem last week', e));
+}
+function pkSub(pm) {
+  if (pm.locked) return `Picks are locked. Here's how the league called week ${pm.cur.week}.`;
+  return `Pick the winner of all ${pm.n} week ${pm.cur.week} games. A point for every one you get right.`;
+}
+function pickemHTML() {
+  const pm = pickModel();
+  if (!pm) return '';
+  return `<section class="rv-pk" id="rv-pickem" data-enter data-mode="${pkMode(pm)}" aria-labelledby="rv-pk-h">`
+    + `<div class="rv-pk-head"><h2 class="t-2" id="rv-pk-h">Pick'em</h2>`
+    + ui.button({label: 'Leaderboard', kind: 'plain', size: 's', icon: 'medal', attrs: {'data-pk-stand': '', 'aria-haspopup': 'dialog'}}) + `</div>`
+    + `<p class="rv-pk-sub">${esc(pkSub(pm))}</p>`
+    + `<div class="card rv-pk-card"><div class="rv-pk-sw">${pkStatusHTML(pm)}</div>`
+    + `<ol class="rv-pk-list" aria-label="${esc(`Week ${pm.cur.week} games`)}">${pm.cur.games.map(g => pkGameHTML(g, pm)).join('')}</ol>`
+    + `<div class="rv-pk-fw">${pkFootHTML(pm)}</div></div></section>`;
+}
+// Patch in place (keeps focus and running pops); a mode change (open -> locked, denied) renders afresh.
+function patchPicks({pop = null, all = false} = {}) {
+  const sec = st && st.el.querySelector('.rv-pk');
+  const pm = pickModel();
+  if (!sec) return;
+  if (!pm) { sec.remove(); syncH2hTitle(); return; }
+  if (sec.dataset.mode !== pkMode(pm) || (pm.locked && sec._crowd !== crowdKey(pm))) {
+    const t = document.createElement('template');
+    t.innerHTML = pickemHTML();
+    const n = t.content.firstElementChild;
+    n._crowd = crowdKey(pm);
+    sec.replaceWith(n);
+    return;
+  }
+  morphInto(sec.querySelector('.rv-pk-sw'), pkStatusHTML(pm));
+  morphInto(sec.querySelector('.rv-pk-fw'), pkFootHTML(pm));
+  const sub = sec.querySelector('.rv-pk-sub');
+  if (sub && sub.textContent !== pkSub(pm)) sub.textContent = pkSub(pm);
+  sec.querySelectorAll('.rv-pk-game').forEach(li => {
+    const key = li.dataset.key;
+    const pick = pm.picks[key];
+    li.querySelectorAll('.rv-pk-side').forEach(b => {
+      const on = pick === b.dataset.id;
+      b.classList.toggle('is-on', on);
+      b.classList.toggle('is-dim', !!pick && !on);
+      if (b.tagName === 'BUTTON') b.setAttribute('aria-pressed', String(on));
+    });
+  });
+  if (pop) {
+    const b = sec.querySelector(`.rv-pk-side[data-pk="${CSS.escape(pop.key)}"][data-id="${CSS.escape(pop.id)}"]`);
+    if (b) {
+      ui.stamp(b.querySelector('.rv-pk-ck'), {from: .2});
+      ui.animate(b.querySelector('.rv-pk-av .av'), [{transform: 'scale(.86)'}, {transform: 'scale(1)'}], {spring: 'bouncy'});
+    }
+    const dot = sec.querySelector(`.rv-pk-dots > i[data-dot="${CSS.escape(pop.key)}"]`);
+    if (dot) ui.stamp(dot, {from: .3});
+  }
+  if (all) {
+    const c = sec.querySelector('.rv-pk-prog');
+    if (c) ui.stamp(c.querySelector('.rv-pk-count'), {from: 1.25});
+  }
+  if (st.wk.sheet && st.wk.sheet.kind === 'picks') fillSheet();
+}
+const crowdKey = pm => pm.locked && !pm.loading ? pm.entries.map(e => `${e.uid}:${JSON.stringify(e.picks || {})}`).sort().join(',') : '';
+
+function pickSide(key, id) {
+  const w = st && st.wk;
+  const pm = pickModel();
+  if (!w || !pm) return;
+  if (pm.wait) { ui.toast('Still loading your picks. One second.', {icon: 'clock'}); return; }
+  if (!pm.open) { ui.toast(pm.off ? PICK_OFF : "Pick'em closed at kickoff.", {icon: pm.off ? 'info' : 'lock'}); return; }
+  const g = pm.cur.games.find(x => x.key === key);
+  if (!g || (id !== g.a && id !== g.b)) return;
+  const picks = Object.assign({}, pm.picks);
+  const clear = picks[key] === id;
+  if (clear) delete picks[key]; else picks[key] = id;
+  w.draft = picks;
+  w.touched.set(key, clear ? null : id); // the draft is rebased onto the server's picks with these on top
+  w.dirty = true;
+  w.save = 'pending';
+  const count = pm.cur.games.filter(x => picks[x.key] === x.a || picks[x.key] === x.b).length;
+  const all = !clear && count === pm.n && pm.count < pm.n; // the tap that completes the card (not a switch after it)
+  ui.haptic(all ? 'success' : clear ? 'selection' : 'light');
+  patchPicks({pop: clear ? null : {key, id}, all});
+  ui.announce(clear ? `Pick cleared. ${count} of ${pm.n} picked.` : `${nm(id)} to win. ${all ? `All ${pm.n} picked.` : `${count} of ${pm.n} picked.`}`);
+  clearTimeout(w.saveT);
+  w.saveT = setTimeout(flushPicks, 700); // debounced: a run of taps is one write
+}
+function flushPicks() {
+  const w = st && st.wk;
+  if (!w) return;
+  clearTimeout(w.saveT);
+  w.saveT = 0;
+  if (!w.dirty || !w.draft) return;
+  sendPicks(w, w.draft);
+}
+function sendPicks(w, picks) {
+  w.dirty = false;
+  w.save = 'saving';
+  const seq = ++w.saveSeq;
+  let p;
+  try { p = week.savePicks(picks); } catch (e) { console.error(e); p = 'failed'; }
+  Promise.resolve(p).then(r => r, () => 'failed').then(r => {
+    if (seq !== w.saveSeq) return; // a newer save owns the status
+    if (r === 'ok' || r === 'dev') {
+      w.save = 'saved';
+      // The snapshot may have echoed the write before this resolved: hand the truth back to it.
+      const m = w.psnap && w.psnap.mine && typeof w.psnap.mine === 'object' ? w.psnap.mine.picks : null;
+      if (!w.dirty && w.draft && m && sameMap(m, w.draft)) { w.draft = null; w.touched.clear(); }
+    }
+    else if (r === 'locked') { w.save = ''; w.draft = null; w.touched.clear(); if (st && st.wk === w) ui.toast("Pick'em closed at kickoff.", {icon: 'lock'}); }
+    else if (r === 'denied') { w.save = ''; w.draft = null; w.touched.clear(); w.poff = true; if (st && st.wk === w) ui.toast(PICK_OFF, {icon: 'info'}); }
+    else { w.save = 'failed'; w.dirty = true; } // the draft stays; Retry (or the next pick) sends it again
+    if (st && st.wk === w) patchPicks({});
+  });
+  if (st && st.wk === w) patchPicks({});
+}
+
+// ---------------------------------------------------------------- Past Matchups of the Week
+function pastItems(hist) {
+  return (Array.isArray(hist) ? hist : []).filter(h => h && h.pick && data.M[pairOf(h.pick)[0]] && data.M[pairOf(h.pick)[1]])
+    .slice().sort((x, y) => (y.year - x.year) || (y.week - x.week));
+}
+// The played game for a past pick: from data.js, else the result week.js carried.
+function pastGame(h) {
+  const [a, b] = pairOf(h.pick);
+  const g = data.GAMES.find(x => x.year === h.year && x.week === h.week && ((x.a === a && x.b === b) || (x.a === b && x.b === a)));
+  if (g) return g;
+  const r = h.result;
+  if (!r || r.sa == null || r.sb == null) return null;
+  return {a: r.a || a, b: r.b || b, sa: +r.sa, sb: +r.sb, week: h.week, year: h.year, type: 'reg', reg: true};
+}
+const votesStr = h => h.total ? `${h.votes || 0} of ${plural(h.total, 'vote', 'votes')}` : plural(h.votes || 0, 'vote', 'votes');
+const votedFor = h => !!(h.mine && h.mine.pick && h.mine.pick === h.pick);
+function pastItemHTML(h, hidden) {
+  const g = pastGame(h);
+  const foot = `WK ${h.week} · ${votesStr(h)}`.toUpperCase();
+  const cls = `rv-past-it${hidden ? ' is-more' : ''}`;
+  if (g) return ui.scoreBug(g, {footer: foot, cls, key: h.key || `${h.year}-w${h.week}`, badges: votedFor(h) ? [['you', 'Your vote']] : null, attrs: {'data-motw': h.pick, 'data-press': 'row'}});
+  const [a, b] = pairOf(h.pick);
+  return `<button type="button" class="bug bug-row rv-past-np ${cls}" data-motw="${esc(h.pick)}" data-press="row" aria-label="${esc(`Week ${h.week}, ${nm(a)} versus ${nm(b)}, not played yet. ${votesStr(h)}`)}">`
+    + `<span class="bug-side is-tie">${ui.avatar(a, {size: 24})}<span class="bug-name"><b>${esc(nm(a))}</b></span></span>`
+    + `<span class="bug-side is-tie">${ui.avatar(b, {size: 24})}<span class="bug-name"><b>${esc(nm(b))}</b></span></span>`
+    + `<span class="bug-foot"><span class="ovl">${esc(foot)} · NOT PLAYED YET</span></span></button>`;
+}
+// Each manager's record when the league made their game the Matchup of the Week (played games only).
+function spotRecords(items) {
+  let r = null;
+  try { r = week.records(items); } catch (_) { r = null; }
+  if (r && typeof r === 'object') {
+    return Object.keys(r).filter(id => data.M[id] && (r[id].w + r[id].l + r[id].t) > 0).map(id => ({id, w: r[id].w, l: r[id].l, t: r[id].t}))
+      .sort((x, y) => (y.w - y.l) - (x.w - x.l) || y.w - x.w || nm(x.id).localeCompare(nm(y.id)));
+  }
+  const m = new Map();
+  const add = id => { if (!m.has(id)) m.set(id, {id, w: 0, l: 0, t: 0}); return m.get(id); };
+  items.forEach(h => {
+    const g = pastGame(h);
+    if (!g || !data.M[g.a] || !data.M[g.b]) return;
+    const A = add(g.a), B = add(g.b);
+    if (g.sa === g.sb) { A.t++; B.t++; } else if (g.sa > g.sb) { A.w++; B.l++; } else { B.w++; A.l++; }
+  });
+  return [...m.values()].sort((x, y) => (y.w - y.l) - (x.w - x.l) || y.w - x.w || nm(x.id).localeCompare(nm(y.id)));
+}
+function pastHTML(hist) {
+  const items = pastItems(hist);
+  if (!items.length) return '';
+  const all = !!(st && st.pastAll);
+  const more = items.length > 3;
+  const recs = spotRecords(items);
+  return `<section class="rv-past${all ? ' is-all' : ''}" aria-labelledby="rv-past-h">`
+    + `<h2 class="t-2 rv-past-h" id="rv-past-h">Past Matchups of the Week</h2>`
+    + ui.group(items.map((h, i) => pastItemHTML(h, i >= 3)).join(''), {cls: 'rv-past-list'})
+    + (more ? `<div class="rv-past-more">${ui.button({label: all ? 'Show fewer' : `Show all ${items.length}`, kind: 'plain', size: 's', attrs: {'data-past-more': '', 'aria-expanded': String(all)}})}</div>` : '')
+    + (recs.length ? `<div class="rv-spot"><p class="ovl rv-spot-h">MOTW records</p><div class="rv-spot-rail" data-hscroll role="list">`
+      + recs.map(r => `<a class="rv-spot-c" role="listitem" href="#/managers/${encodeURIComponent(r.id)}" aria-label="${esc(`${nm(r.id)}, ${data.recStr(r.w, r.l, r.t)} in Matchups of the Week`)}">${ui.avatar(r.id, {size: 24, you: r.id === data.me(), attrs: {'data-morph-from': true}})}<span class="rv-spot-n">${esc(nm(r.id))}</span><span class="n5 rv-spot-r">${esc(data.recStr(r.w, r.l, r.t))}</span></a>`).join('')
+      + `</div></div>` : '')
+    + `</section>`;
+}
+function patchPast(animate) {
+  const w = st && st.el.querySelector('.rv-past-w');
+  if (!w) return;
+  const html = pastHTML(st.wk.hist);
+  if (w._html === html) return;
+  const was = !!w._html;
+  w.innerHTML = html;
+  w._html = html;
+  syncH2hTitle();
+  if (animate && html && !was) ui.animate(w, [{opacity: 0, transform: 'translateY(8px)'}, {opacity: 1, transform: 'none'}], {duration: 320, easing: 'cubic-bezier(.22,1,.36,1)'});
+}
+function togglePast() {
+  const sec = st && st.el.querySelector('.rv-past');
+  if (!sec) return;
+  st.pastAll = !st.pastAll;
+  sec.classList.toggle('is-all', st.pastAll);
+  const b = sec.querySelector('[data-past-more]');
+  if (b) {
+    b.setAttribute('aria-expanded', String(st.pastAll));
+    b.querySelector('.btn-label').textContent = st.pastAll ? 'Show fewer' : `Show all ${sec.querySelectorAll('.rv-past-it').length}`;
+  }
+  const w = sec.closest('.rv-past-w');
+  if (w) w._html = pastHTML(st.wk.hist);
+  if (st.pastAll) sec.querySelectorAll('.rv-past-it.is-more').forEach(n => ui.animate(n, [{opacity: 0}, {opacity: 1}], {duration: 200, easing: 'ease-out'}));
+}
+
+// ---------------------------------------------------------------- Sheets: who voted, everyone's picks, standings
+function votesSheetBody() {
+  const vm = voteModel();
+  if (!vm) return ui.empty({icon: 'versus', title: 'No games this week.'});
+  const status = vm.off ? VOTE_OFF : vm.locked ? 'Voting closed.' : `Voting closes ${closeText(vm.cur)}.`;
+  const head = `<p class="rv-sh-sub">${esc(`${plural(vm.total, 'vote', 'votes')}. ${status}`)}</p>`;
+  const order = hypeOrder();
+  const keys = vm.cur.games.map(g => g.key).sort((x, y) => (vm.tally[y] || 0) - (vm.tally[x] || 0) || order.indexOf(x) - order.indexOf(y));
+  const withVotes = keys.filter(k => vm.tally[k]);
+  const none = keys.filter(k => !vm.tally[k]);
+  const groups = withVotes.map(k => {
+    const n = vm.tally[k];
+    const lead = vm.locked && vm.leader === k;
+    const rows = vm.voters[k].map(v => {
+      const w = who(v);
+      const t = atMs(v.at);
+      return ui.row({lead: whoAvatar(v, 32), title: w.you ? `${w.name} (you)` : w.name,
+        trail: t ? `<span class="t-foot ink3">${esc(timeLabel(new Date(t)))}</span>` : '', me: w.you});
+    }).join('');
+    const hdr = `${pairName(k)} · ${plural(n, 'vote', 'votes')}, ${Math.round(100 * n / vm.total)}%${lead ? " · League's pick" : ''}`;
+    return ui.group(rows, {header: hdr});
+  }).join('');
+  const rest = none.length ? `<p class="rv-sh-note">No votes: ${esc(andJoin(none.map(pairName)))}.</p>` : '';
+  if (!vm.total) return head + ui.empty({icon: 'versus', title: 'No votes yet.', body: vm.open ? 'Tap Vote on the game you most want to watch.' : ''});
+  return head + groups + rest;
+}
+function picksSheetBody() {
+  const pm = pickModel();
+  if (!pm) return ui.empty({icon: 'versus', title: 'No games this week.'});
+  if (!pm.entries.length) return ui.empty({icon: 'list-number', title: 'Nobody made picks.'});
+  const games = pm.cur.games.map(g => {
+    const col = id => {
+      const l = pm.entries.filter(e => e.picks && e.picks[g.key] === id).sort((x, y) => (y.you - x.you) || who(x).name.localeCompare(who(y).name));
+      return `<div class="rv-sp-col"><div class="rv-sp-h">${ui.avatar(id, {size: 24})}<span class="rv-sp-hn">${esc(nm(id))}</span><span class="n5 rv-sp-hc">${l.length}</span></div>`
+        + (l.length ? `<ul class="rv-sp-l">${l.map(e => `<li>${whoAvatar(e, 20)}<span>${esc(who(e).you ? 'You' : who(e).name)}</span></li>`).join('')}</ul>` : `<p class="rv-sp-none">Nobody</p>`)
+        + `</div>`;
+    };
+    return `<div class="rv-sp-g" role="group" aria-label="${esc(`${nm(g.a)} versus ${nm(g.b)}`)}">${col(g.a)}${col(g.b)}</div>`;
+  }).join('');
+  return `<p class="rv-sh-sub">${esc(`${plural(pm.entries.length, 'person', 'people')} made picks for week ${pm.cur.week}.`)}</p>${games}`;
+}
+function standBody(res) {
+  if (res === null) return ui.skeleton('rows', 5, {label: 'Loading standings.'});
+  if (res && res.error && !(Array.isArray(res) && res.some(r => r && r.graded > 0))) {
+    return errKind(res.error) === 'denied'
+      ? ui.empty({icon: 'info', title: PICK_OFF})
+      : ui.empty({icon: 'info', title: "Standings didn't load.", body: 'Check your connection and try again.', action: {label: 'Try again', attrs: {'data-pk-stand-retry': ''}}});
+  }
+  const rows = Array.isArray(res) ? res.filter(r => r && r.graded > 0) : [];
+  const cur = st && st.wk && st.wk.cur;
+  if (!rows.length) {
+    return ui.empty({icon: 'list-number', title: 'No standings yet.', body: cur ? `The table starts once week ${cur.week} is played.` : 'The table starts once a week with picks is played.'});
+  }
+  const uid = st && st.wk ? mineUid(st.wk.psnap) : null;
+  let rank = 0, prev = null;
+  const body = rows.map((r, i) => {
+    const rk = r.rank != null ? r.rank : (prev && prev.right === r.right && prev.graded === r.graded ? rank : i + 1);
+    rank = rk; prev = r;
+    const you = r.you === true || (!!uid && r.uid === uid);
+    const w = who(Object.assign({}, r, {you}));
+    const lead = `<span class="n5 rv-st-rk${rk === 1 ? ' gold' : ''}">${rk}</span>${w.id ? ui.avatar(w.id, {size: 32, you, crown: rk === 1}) : ui.nickAvatar(w.name, {size: 32, you, crown: rk === 1})}`;
+    const weeks = r.weeks != null ? plural(Array.isArray(r.weeks) ? r.weeks.length : +r.weeks || 0, 'week', 'weeks') : '';
+    // Out of every decided game in the weeks they played (week.js `games`; a skipped game is a miss).
+    const of = r.games || r.graded;
+    const pct = of ? `${Math.round(100 * r.right / of)}% right` : '';
+    return ui.row({lead, title: w.you ? `${w.name} (you)` : w.name, sub: [weeks, pct].filter(Boolean).join(' · '),
+      trail: `<span class="rv-st-v"><span class="n4">${r.right}</span><span class="t-cap ink3">of ${of}</span></span>`, me: you, key: r.uid});
+  }).join('');
+  return `<p class="rv-sh-sub">${esc(`${cur ? cur.year : ''} season. A point for every winner called; a game you skip is a miss.`.trim())}</p>` + ui.group(body, {cls: 'rv-st-list'});
+}
+function fillSheet() {
+  const w = st && st.wk;
+  const s = w && w.sheet;
+  if (!s || !s.s.el.isConnected) return;
+  const html = s.kind === 'votes' ? votesSheetBody() : s.kind === 'picks' ? picksSheetBody() : standBody(w.stand);
+  if (s.html === html) return;
+  s.html = html;
+  const b = s.s.body;
+  const top = b.scrollTop;
+  b.innerHTML = html;
+  b.scrollTop = top;
+  ui.hydrate(b);
+}
+function openWeekSheet(kind, focusKey) {
+  const w = st && st.wk;
+  if (!w) return;
+  const vm = kind === 'votes' ? voteModel() : null;
+  const cur = w.cur;
+  const title = kind === 'votes' ? `Week ${cur ? cur.week : ''} votes` : kind === 'picks' ? `Week ${cur ? cur.week : ''} picks` : "Pick'em leaderboard";
+  const body = kind === 'votes' ? votesSheetBody() : kind === 'picks' ? picksSheetBody() : standBody(w.stand);
+  const rec = {kind, html: body, s: null};
+  rec.s = ui.openSheet({title, body, cls: `sh-rv sh-rv-${kind}`, detents: ['medium', 'large'],
+    onClose: () => { if (st && st.wk === w && w.sheet === rec) w.sheet = null; }});
+  w.sheet = rec;
+  rec.s.el.addEventListener('click', e => {
+    if (!e.target.closest('[data-pk-stand-retry]') || !st || st.wk !== w) return;
+    w.stand = null;
+    fillSheet();
+    loadStandings(true);
+  });
+  if (kind === 'votes' && focusKey && vm && vm.tally[focusKey]) {
+    // Opened from a game's voters: that game's group first in view.
+    const b = rec.s.body;
+    const h = [...b.querySelectorAll('.group-h')].find(x => x.textContent.startsWith(pairName(focusKey)));
+    if (h && h !== b.querySelector('.group-h')) b.scrollTop = Math.max(0, h.getBoundingClientRect().top - b.getBoundingClientRect().top + b.scrollTop - 12);
+  }
+  if (kind === 'stand') loadStandings(true);
+}
+function loadStandings(force) {
+  const w = st && st.wk;
+  if (!w || (w.standP && !force)) return w && w.standP;
+  let p;
+  try { p = Promise.resolve(week.standings()); } catch (e) { p = Promise.reject(e); }
+  w.standP = p.then(rows => { w.stand = Array.isArray(rows) ? rows : []; }, e => { console.warn('standings', e); w.stand = {error: e}; w.standP = null; })
+    .then(() => { if (st && st.wk === w && w.sheet && w.sheet.kind === 'stand') { const b = w.sheet.s.body; ui.crossfade(b, () => fillSheet()); } });
+  return w.standP;
+}
+function loadHistory() {
+  const w = st && st.wk;
+  if (!w) return;
+  const seq = ++w.histSeq;
+  let p;
+  try { p = Promise.resolve(week.history()); } catch (e) { p = Promise.reject(e); }
+  p.then(h => {
+    if (!st || st.wk !== w || seq !== w.histSeq) return;
+    w.hist = Array.isArray(h) ? h : [];
+    ui.whenIdle(() => { if (st && st.wk === w) patchPast(true); });
+  }, e => console.warn('motw history', e));
+}
+
+// ---------------------------------------------------------------- Subscriptions and lifecycle
+function newWk() {
+  const cur = curWeek();
+  return {cur, vsnap: null, psnap: null, vpend: undefined, vseq: 0, vT: 0, voff: false, poff: false,
+    draft: null, touched: new Map(), dirty: false, save: '', saveT: 0, saveSeq: 0, hist: null, histSeq: 0, stand: null, standP: null,
+    unsub: [], idleV: null, idleP: null, sheet: null, lockedShown: lockedNow(cur), started: false, last: null};
+}
+function sameMap(x, y) {
+  const a = x || {}, b = y || {};
+  const ka = Object.keys(a).filter(k => a[k]), kb = Object.keys(b).filter(k => b[k]);
+  return ka.length === kb.length && ka.every(k => a[k] === b[k]);
+}
+function wkSubscribe() {
+  const w = st && st.wk;
+  if (!w) return;
+  wkUnsub();
+  const cur = w.cur;
+  if (!cur) return;
+  const key = cur.key;
+  const onVotes = s => {
+    if (!st || st.wk !== w || !w.cur || w.cur.key !== key || !s) return;
+    const e = errKind(s.error);
+    w.voff = e === 'denied'; // follows the rules: switched on while the screen is open, it opens up
+    if (e && !s.votes) { if (!w.vsnap) w.vsnap = {votes: [], mine: null, error: s.error}; }
+    else w.vsnap = s;
+    if (w.vpend !== undefined) {
+      const m = s.mine ? (typeof s.mine === 'string' ? s.mine : s.mine.pick || null) : null;
+      if (m === w.vpend || (w.vpend === null && !m)) { w.vpend = undefined; clearTimeout(w.vT); }
+    }
+    if (w.idleV) w.idleV();
+    w.idleV = ui.whenIdle(() => { w.idleV = null; if (st && st.wk === w) patchVotes({animate: true}); });
+  };
+  const onPicks = s => {
+    if (!st || st.wk !== w || !w.cur || w.cur.key !== key || !s) return;
+    const e = errKind(s.error);
+    w.poff = e === 'denied';
+    if (e && !s.entries) { if (!w.psnap) w.psnap = {entries: [], mine: null, error: s.error}; }
+    else w.psnap = s;
+    const m = s.mine && typeof s.mine === 'object' ? s.mine.picks : null;
+    if (w.draft && s.ready !== false && !e) {
+      // The server's picks are the base; only the games you tapped here sit on top of them. A pick made on
+      // another phone (or saved before this screen knew about it) is never dropped by a later save from here.
+      const next = Object.assign({}, m || {});
+      w.touched.forEach((v, k) => { if (v) next[k] = v; else delete next[k]; });
+      if (!sameMap(next, w.draft)) w.draft = next;
+    }
+    // Your own saved picks came back and match what's on screen: drop the draft (the server is the truth).
+    if (w.draft && !w.dirty && w.save !== 'saving' && m && sameMap(m, w.draft)) { w.draft = null; w.touched.clear(); }
+    if (w.idleP) w.idleP();
+    w.idleP = ui.whenIdle(() => { w.idleP = null; if (st && st.wk === w) patchPicks({}); });
+  };
+  try { w.unsub.push(week.subscribeVotes(key, onVotes)); } catch (e) { console.error(e); }
+  try { w.unsub.push(week.subscribePicks(key, onPicks)); } catch (e) { console.error(e); }
+}
+function wkUnsub() {
+  const w = st && st.wk;
+  if (!w) return;
+  w.unsub.splice(0).forEach(f => { try { if (typeof f === 'function') f(); } catch (_) {} });
+  if (w.idleV) { w.idleV(); w.idleV = null; }
+  if (w.idleP) { w.idleP(); w.idleP = null; }
+}
+function wkStart() {
+  const w = st && st.wk;
+  if (!w || w.started) return;
+  w.started = true;
+  wkSubscribe();
+  loadHistory();
+  loadLast();
+}
+// Kickoff passes while the screen is open: everything turns read-only in place.
+function wkTick() {
+  const w = st && st.wk;
+  if (!w || !w.cur) return;
+  const locked = lockedNow(w.cur);
+  if (locked === w.lockedShown) return;
+  w.lockedShown = locked;
+  if (locked) { clearTimeout(w.saveT); w.saveT = 0; w.dirty = false; w.vpend = undefined; }
+  patchVotes({animate: false});
+  patchPicks({});
+}
+// New data: the week may have moved on (subscribe to the new one), records and results changed.
+function wkData() {
+  const w = st && st.wk;
+  if (!w) return;
+  const cur = curWeek();
+  const moved = (cur && cur.key) !== (w.cur && w.cur.key);
+  if (moved) {
+    flushPicks();
+    wkUnsub();
+    Object.assign(w, {cur, vsnap: null, psnap: null, vpend: undefined, draft: null, touched: new Map(), dirty: false, save: '', stand: null, standP: null, lockedShown: lockedNow(cur)});
+    if (w.started) wkSubscribe();
+  } else w.cur = cur;
+  replacePickem();
+  if (w.started) { loadHistory(); loadLast(); }
+}
+// Render the Pick'em section afresh (records, you-rings, a new week), or add / remove it.
+function replacePickem() {
+  const sec = st.el.querySelector('.rv-pk');
+  const html = pickemHTML();
+  if (sec) {
+    if (html) { const t = document.createElement('template'); t.innerHTML = html; sec.replaceWith(t.content.firstElementChild); } else sec.remove();
+  } else if (html) {
+    const anchor = st.el.querySelector('.rv-past-w');
+    if (anchor) anchor.insertAdjacentHTML('beforebegin', html);
+  }
+  syncH2hTitle();
+}
+function syncH2hTitle() {
+  const t = st && st.el.querySelector('.rv-h2h-t');
+  if (!t) return;
+  const has = !!st.el.querySelector('.rv-week .rv-motw, .rv-week .rv-pk, .rv-week .rv-past');
+  t.hidden = !has;
+  syncChrome();
+}
+// Deep links from other screens: #/rivals?s=motw | vote | pickem | picks | past | h2h
+const SEC = {motw: 'rv-motw', vote: 'rv-motw', votes: 'rv-motw', pickem: 'rv-pickem', picks: 'rv-pickem', past: 'rv-past', h2h: 'rv-h2h'};
+function secOf(q) {
+  const v = q && (q.s || q.section || q.focus);
+  return v ? SEC[String(v).toLowerCase()] || null : null;
+}
+function revealSec() {
+  if (!st || !st.goSec || !st.ctx.visible) return;
+  const id = st.goSec;
+  st.goSec = null;
+  const t = setTimeout(() => {
+    const el = st && st.el.querySelector('#' + id);
+    if (!el || !el.getClientRects().length) return;
+    // Arriving from another screen: land on the section at once (no long scroll right after the tab switch),
+    // then a soft tint pulse on its card says "here".
+    scrollUnder(el, 8, 'auto');
+    const card = el.querySelector('.card, .group');
+    if (card && !ui.RM) {
+      const f = document.createElement('i');
+      f.className = 'rv-flash';
+      f.setAttribute('aria-hidden', 'true');
+      card.append(f);
+      ui.animate(f, [{opacity: 0}, {opacity: 1, offset: .25}, {opacity: 0}], {duration: 1100, easing: 'ease-out'}).finished.catch(() => {}).then(() => f.remove());
+    }
+  }, 60);
+  st.cleanups.push(() => clearTimeout(t));
 }
 
 function pageHTML(m) {
@@ -328,8 +1190,11 @@ function pageHTML(m) {
     return ui.largeTitle({title: 'Rivals'})
       + ui.empty({icon: 'versus', title: 'No rivals yet.', body: 'Rivals needs at least two managers in the league.'});
   }
+  const wk = motwHTML(st ? st.lens : readLens()) + pickemHTML();
+  const past = st && st.wk && st.wk.hist ? pastHTML(st.wk.hist) : '';
   return ui.largeTitle({title: 'Rivals'})
-    + motwHTML(st ? st.lens : readLens())
+    + `<div class="rv-week">${wk}<div class="rv-past-w" id="rv-past">${past}</div></div>`
+    + `<h2 class="t-2 rv-h2h-t" id="rv-h2h"${wk || past ? '' : ' hidden'}>Head to head</h2>`
     + headerHTML(m)
     + `<div class="rv-main">${mainHTML(m)}</div>`
     + listSecHTML(m);
@@ -343,6 +1208,8 @@ function grab(el) {
     listSec: el.querySelector('.rv-list'),
     listW: el.querySelector('.rv-list-w')
   };
+  const pw = el.querySelector('.rv-past-w');
+  if (pw) pw._html = pw.innerHTML ? pastHTML(st.wk && st.wk.hist) : '';
   markRendered(el);
   st.listA = st.m ? st.m.a : null;
   st.listMe = st.meKey;
@@ -565,8 +1432,32 @@ function patchList(m, {animate, meChanged}) {
 // (ctx.setBackTitle in mount), never "‹ Ben 8–0 Say…".
 function chrome(m) {
   st.title = titleOf(m);
-  st.ctx.setTitle(st.title);
-  st.ctx.setActions(m && m.b && m.n ? null : []);
+  st.hasShare = !!(m && m.b && m.n);
+  st.chromeKey = null;
+  syncChrome();
+}
+// While the week sections are what you're looking at (the "Head to head" title is still below the bar), the
+// compact bar names the week and drops the rivalry's share action: both would describe a matchup that isn't on
+// screen. Re-checked on scroll (once per frame) and whenever the week sections change.
+function weekInView() {
+  const t = st.el.querySelector('#rv-h2h');
+  if (!t || t.hidden || !t.isConnected) return false;
+  const scr = st.ctx.screen;
+  if (!scr) return false;
+  const nav = scr.querySelector(':scope > .nav');
+  const line = nav ? nav.getBoundingClientRect().bottom : scr.getBoundingClientRect().top + 44;
+  const top = t.getBoundingClientRect().top;
+  return !!top && top > line + 4;
+}
+function syncChrome() {
+  if (!st) return;
+  const cur = st.wk && st.wk.cur;
+  const inWeek = weekInView();
+  const key = `${inWeek}|${st.title}|${st.hasShare}|${cur ? cur.week : ''}`;
+  if (key === st.chromeKey) return;
+  st.chromeKey = key;
+  st.ctx.setTitle(inWeek ? (cur ? `Week ${cur.week}` : 'Rivals') : (st.title || 'Rivals'));
+  st.ctx.setActions(!inWeek && st.hasShare ? null : []);
 }
 
 // Apply a (possibly new) pair. Phase 1 (this frame): the matchup header, the scoreboard and the title, so a
@@ -720,9 +1611,17 @@ function chooseOpp(id) {
 }
 
 function onClick(e) {
-  const t = e.target.closest && e.target.closest('[data-swap], [data-pick], [data-opp], [data-motw], [data-motw-more], [data-motw-share]');
+  const t = e.target.closest && e.target.closest('[data-swap], [data-pick], [data-opp], [data-motw], [data-motw-more], [data-motw-share], '
+    + '[data-vote], [data-vt-who], [data-pk], [data-pk-stand], [data-pk-all], [data-pk-retry], [data-past-more]');
   if (!t || !st) return;
-  if (t.hasAttribute('data-motw')) chooseMotw(t.dataset.motw);
+  if (t.hasAttribute('data-vote')) vote(t.dataset.vote);
+  else if (t.hasAttribute('data-vt-who')) openWeekSheet('votes', t.dataset.vtWho);
+  else if (t.hasAttribute('data-pk')) pickSide(t.dataset.pk, t.dataset.id);
+  else if (t.hasAttribute('data-pk-stand')) openWeekSheet('stand');
+  else if (t.hasAttribute('data-pk-all')) openWeekSheet('picks');
+  else if (t.hasAttribute('data-pk-retry')) { const w = st.wk; if (w && w.draft) { ui.haptic('light'); sendPicks(w, w.draft); } }
+  else if (t.hasAttribute('data-past-more')) { ui.haptic('light'); togglePast(); }
+  else if (t.hasAttribute('data-motw')) chooseMotw(t.dataset.motw);
   else if (t.hasAttribute('data-motw-more')) { ui.haptic('light'); toggleMore(!st.all); }
   else if (t.hasAttribute('data-motw-share')) shareMotw();
   else if (t.hasAttribute('data-swap')) swap();
@@ -751,8 +1650,18 @@ export default {
     const p = resolvePair(ctx.params);
     st = {ctx, el, m: null, r: {}, isDefault: p.isDefault, expect: null, via: null, swapping: false, swapAnims: null,
       meKey: `${data.me()}|${reigning()}`, flameKey: null, secKey: null, listA: null, listMe: null, p2: null, seen: null, title: null,
-      cleanups: [], entrance: false, shown: false, lens: readLens(), all: false};
+      cleanups: [], entrance: false, shown: false, lens: readLens(), all: false, pastAll: false, wk: null, goSec: secOf(ctx.query)};
+    st.wk = newWk();
     el.addEventListener('click', onClick);
+    // The week: Firestore starts once the first paint is done (never blocks the screen); kickoff is checked
+    // every 20 s while the screen is visible; a pick still waiting for its debounce is sent when the page goes away.
+    const wk = st.wk;
+    ui.onIdle(() => { if (st && st.wk === wk) wkStart(); });
+    ctx.timer(wkTick, 20000);
+    const onGone = () => { if (st && st.wk === wk) flushPicks(); };
+    window.addEventListener('pagehide', onGone);
+    document.addEventListener('visibilitychange', onGone);
+    st.cleanups.push(() => { window.removeEventListener('pagehide', onGone); document.removeEventListener('visibilitychange', onGone); });
     const onLens = e => {
       if (!st || !e.detail || e.detail.name !== 'motw-lens') return;
       st.lens = e.detail.value;
@@ -781,6 +1690,7 @@ export default {
         }
         if (h.classList.contains('is-stuck') !== on) h.classList.toggle('is-stuck', on);
       });
+      syncChrome();
     };
     const onScroll = () => { if (!raf) raf = requestAnimationFrame(markStuck); };
     scr.addEventListener('scroll', onScroll, {passive: true});
@@ -802,6 +1712,9 @@ export default {
 
   onShow(ctx) {
     if (!st || st.ctx !== ctx) return;
+    syncChrome();
+    if (st.goSec) revealSec();
+    if (st.wk && !st.wk.started) wkStart();
     if (st.shown) return;
     st.shown = true;
     if (!st.entrance || !st.m || !st.m.n) return;
@@ -825,7 +1738,12 @@ export default {
     let via = own ? st.via : null;
     st.via = null;
     let p;
-    if (ctx.reason === 'params' || (!own && ctx.path !== shown)) {
+    const sec = own ? null : secOf(ctx.query);
+    if (sec) st.goSec = sec;
+    if (sec && !ctx.params.a && !ctx.params.b && st.m && st.m.b) {
+      // A link to a week section (Today's "This week" card): keep the matchup on screen, scroll to the section.
+      p = {a: st.m.a, b: st.m.b};
+    } else if (ctx.reason === 'params' || (!own && ctx.path !== shown)) {
       // The second case: app.js folds a pending 'params' into 'me'/'data' for a hidden screen.
       p = resolvePair(ctx.params);
       if (!own) {
@@ -860,8 +1778,15 @@ export default {
       const path = canon(p.a, p.b);
       if (ctx.path !== path) { st.expect = path; ctx.replace(path); }
     }
-    // New games or a new schedule re-rank the week; a new "me" moves the you-ring.
+    // New games or a new schedule re-rank the week (and may move it on); a new "me" moves the you-ring.
+    if (ctx.reason === 'data') wkData();
     if (ctx.reason === 'data' || ctx.reason === 'me') patchMotw(false);
+    if (ctx.reason === 'me') { replacePickem(); patchPast(false); }
+    if (st.goSec) revealSec();
+  },
+
+  onHide(ctx) {
+    if (st && st.ctx === ctx) flushPicks();
   },
 
   onAction(id, ctx) {
@@ -876,6 +1801,9 @@ export default {
   unmount(el, ctx) {
     if (!st || st.ctx !== ctx) return;
     el.removeEventListener('click', onClick);
+    flushPicks();
+    wkUnsub();
+    if (st.wk) { clearTimeout(st.wk.vT); st.wk.sheet = null; } // an open sheet goes with the navigation that unmounts us
     st.cleanups.splice(0).forEach(f => { try { f(); } catch (_) {} });
     if (st.p2) st.p2();
     if (st.seen) st.seen();

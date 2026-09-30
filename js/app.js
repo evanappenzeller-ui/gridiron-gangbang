@@ -35,6 +35,7 @@ export const REGISTRY = {
   standings: () => import('./views/standings.js'),
   season: () => import('./views/season.js'),
   review: () => import('./views/review.js'),
+  wrap: () => import('./views/wrap.js'),
   rivals: () => import('./views/rivals.js'),
   hall: () => import('./views/hall.js'),
   moves: () => import('./views/moves.js'),
@@ -67,6 +68,7 @@ function matchSegs(p) {
       if (n === 4 && c === 'weeks' && /^\d{1,2}$/.test(d)) return R('season', 'push', 'any', {year: y, seg: 'weeks', week: Number(d)});
       if (n === 3 && c === 'bracket') return R('season', 'push', 'any', {year: y, seg: 'bracket'});
       if (n === 3 && c === 'review') return R('review', 'push', 'any', {year: y});
+      if (n === 4 && c === 'wrap' && /^\d{1,2}$/.test(d)) return R('wrap', 'push', 'any', {year: y, week: Number(d)});
       return null;
     }
     case 'rivals':
@@ -80,6 +82,7 @@ function matchSegs(p) {
       if (n === 1) return {redirect: '/hall/trophies'};
       if (n === 2 && b === 'trophies') return R('hall', 'root', 'hall', {seg: 'trophies'});
       if (n === 2 && b === 'records') return R('hall', 'root', 'hall', {seg: 'records'});
+      if (n === 2 && b === 'shame') return R('hall', 'root', 'hall', {seg: 'shame'});
       if (n === 3 && b === 'records') return R('hall', 'root', 'hall', {seg: 'records', focus: c});
       return null;
     case 'moves':
@@ -194,6 +197,7 @@ function prevEntryOf(e) {
   return i > 0 ? st[i - 1] : null;
 }
 function viewTitle(view, ctxLike, tab) {
+  if (!view) return ''; // the module failed to import: the screen shows "This screen didn't load."
   try {
     const t = typeof view.title === 'function' ? view.title(ctxLike) : view.title;
     if (t != null && t !== '') return String(t);
@@ -248,7 +252,7 @@ function fitNavTitle(scr) {
 function renderActions(scr) {
   if (!scr.nav) return;
   let list = scr.actionsOverride;
-  if (!list) { try { list = (scr.view.actions && scr.view.actions(scr.ctx)) || []; } catch (e) { console.error(e); list = []; } }
+  if (!list) { try { list = (scr.view && scr.view.actions && scr.view.actions(scr.ctx)) || []; } catch (e) { console.error(e); list = []; } }
   const html = list.slice(0, 2).map(a => ui.iconButton({icon: a.icon, label: a.label, attrs: {'data-nav-action': a.id}})).join('');
   const trail = scr.nav.querySelector('.nav-trail');
   if (trail._html === html) return;
@@ -1606,7 +1610,7 @@ async function start() {
   requestAnimationFrame(() => ui.onIdle(() => {
     daily.ensure().catch(() => {});
     TABS.forEach(id => loadView(id).catch(() => {}));
-    ui.onIdle(() => ['season', 'profile', 'review', 'run', 'results'].forEach(id => loadView(id).catch(() => {})));
+    ui.onIdle(() => ['season', 'profile', 'review', 'wrap', 'run', 'results'].forEach(id => loadView(id).catch(() => {})));
     registerSW();
   }));
   document.addEventListener('visibilitychange', onVisibility);

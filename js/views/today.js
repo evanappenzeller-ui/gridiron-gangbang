@@ -168,6 +168,128 @@ function rotdHTML(r = rotdPick()) {
 }
 const rotdSig = r => r ? `${r.key}|${r.label}|${r.val}|${r.holders.join(';')}` : '';
 
+// ============================================================================ League week: "This week" and "The Wrap"
+// core/week.js (MOTW votes, pick'em, lock times) and core/stats.js (the Wrap) load lazily, so the Daily never
+// waits on them and a problem in either can only hide these two cards. Namespaces are kept once loaded, so
+// later renders include the cards at once.
+let WK = null, STATS = null, modsP = null;
+function loadMods() {
+  if (!modsP) {
+    modsP = Promise.allSettled([import('../core/week.js'), import('../core/stats.js')]).then(([w, s]) => {
+      if (w.status === 'fulfilled') WK = w.value; else console.error(w.reason);
+      if (s.status === 'fulfilled') STATS = s.value; else console.error(s.reason);
+    });
+  }
+  return modsP;
+}
+
+// The week the votes and picks are about, while it is still open; else null (card hidden).
+// (week.js's clock: a dev host can inject one with week.__dev.setNow.)
+const wkNow = () => (WK && typeof WK.now === 'function' ? WK.now() : Date.now());
+function openWeek() {
+  if (!WK) return null;
+  let c = null;
+  try { c = WK.current(); } catch (e) { console.error(e); return null; }
+  if (!c || c.locked || !c.lock || !Array.isArray(c.games) || !c.games.length) return null;
+  return c;
+}
+// "closes Thu 5:15 PM" in the viewer's local time; the last three hours count down ("closes in 2h 10m").
+function closesText(c) {
+  const ms = +c.lock - wkNow();
+  if (ms < 3 * 3600e3) return `closes in ${ui.untilText(ms)}`;
+  let t = '';
+  try { t = WK.lockText(c.year, c.week); } catch (_) { t = ''; }
+  if (!t) {
+    const d = new Date(+c.lock);
+    t = `${d.toLocaleDateString('en-US', {weekday: 'short'})} ${d.toLocaleTimeString('en-US', {hour: 'numeric', minute: '2-digit'})}`;
+  }
+  return `closes ${t.replace(/\s+/g, ' ')}`;
+}
+const gameKeyOf = g => g.key || `${g.a}|${g.b}`;
+function myVote(v) {
+  if (!v || !v.mine) return null;
+  return typeof v.mine === 'string' ? v.mine : v.mine.pick || null;
+}
+function myPicks(p) {
+  const m = p && p.mine;
+  if (!m || typeof m !== 'object') return {};
+  return m.picks && typeof m.picks === 'object' ? m.picks : m;
+}
+const errText = x => (x && x.error ? String(x.error.code || x.error.message || x.error) : '');
+const denied = x => /denied|permission/i.test(errText(x));
+// Counts are only worth showing once the league's votes are in (the first call comes from this phone alone).
+const settled = x => !!(x && x.ready !== false && !errText(x));
+const samePairKey = (k1, k2) => WK.samePair(k1, k2); // either order of the two ids
+
+function motwRowState(c, v) {
+  if (denied(v)) return {sub: "Voting isn't switched on yet.", trail: '', label: "Matchup of the Week. Voting isn't switched on yet."};
+  const pick = myVote(v);
+  const g = pick && c.games.find(x => samePairKey(gameKeyOf(x), pick));
+  if (g) {
+    const who = `${data.name(g.a)} vs ${data.name(g.b)}`;
+    return {sub: `You voted ${who}`, trail: ui.avatarStack([g.a, g.b], {size: 24, max: 2}), label: `Matchup of the Week. You voted ${who}. Change it in Rivals.`};
+  }
+  const n = settled(v) && Array.isArray(v.votes) ? v.votes.length : null;
+  const sub = n == null ? 'Pick the game everyone watches.' : !n ? 'No votes yet. Go first.' : `${n} vote${n === 1 ? '' : 's'} in. Yours isn't.`;
+  return {sub, trail: ui.pill('Vote', {tone: 'tint'}), label: `Matchup of the Week. ${sub} Vote in Rivals.`};
+}
+function pickRowState(c, p) {
+  if (denied(p)) return {sub: "Pick'em isn't switched on yet.", trail: '', label: "Pick'em. Pick'em isn't switched on yet."};
+  const picks = myPicks(p);
+  const keys = Object.keys(picks).filter(k => picks[k]);
+  const has = g => keys.some(k => samePairKey(k, gameKeyOf(g)));
+  const total = c.games.length;
+  const n = c.games.filter(has).length;
+  const known = n > 0 || settled(p); // before the league's entries arrive, "0 of 6" could be wrong
+  const sub = !known ? `${total} games. Pick the winners.` : n >= total ? `All ${total} picked` : `${n} of ${total} picked`;
+  const pips = `<span class="c-wk-pips" aria-hidden="true">${c.games.map(g => `<i${has(g) ? ' class="is-on"' : ''}></i>`).join('')}</span>`;
+  return {sub, trail: pips, label: `Pick'em. ${sub}. Pick in Rivals.`};
+}
+function wkRowHTML(kind, icon, title, x) {
+  return `<button type="button" class="row c-wk-row" data-wk-go="${kind}" aria-label="${esc(x.label)}">`
+    + `<span class="row-lead"><span class="c-wk-tile">${ui.icon(icon, {size: 22})}</span></span>`
+    + `<span class="row-main"><span class="row-title">${esc(title)}</span><span class="row-sub c-wk-sub">${esc(x.sub)}</span></span>`
+    + `<span class="row-trail c-wk-trail">${x.trail}</span>${CHEV}</button>`;
+}
+function weekCardHTML(c, v, p) {
+  if (!c) return '';
+  return ui.sectionHeader({title: 'This week'})
+    + `<section class="card c-wk" data-wk="${esc(c.key)}" aria-label="${esc(`Week ${c.week}, ${closesText(c)}`)}">`
+    + `<p class="card-ovl c-wk-ovl">Week ${c.week} · <span class="c-wk-close">${esc(closesText(c))}</span></p>`
+    + `<div class="c-wk-rows">${wkRowHTML('motw', 'versus', 'Matchup of the Week', motwRowState(c, v))}${wkRowHTML('pickem', 'check-circle', "Pick'em", pickRowState(c, p))}</div>`
+    + `</section>`;
+}
+
+// The latest completed week of the live season that has a Wrap.
+function latestWrap() {
+  if (!STATS) return null;
+  const s = data.SEASONS.find(x => x.live);
+  if (!s) return null;
+  try {
+    const weeks = (STATS.wrapWeeks(s.year) || []).map(x => Number(x && typeof x === 'object' ? x.week : x)).filter(Number.isFinite);
+    if (!weeks.length) return null;
+    const week = Math.max(...weeks);
+    const w = STATS.wrap(s.year, week);
+    return w && w.headline ? {year: s.year, week, w} : null;
+  } catch (e) { console.error(e); return null; }
+}
+const wrapSig = x => x ? `${x.year}|${x.week}|${x.w.headline}` : '';
+function wrapCardHTML(x) {
+  if (!x) return '';
+  // Faces: whoever the headline names first, then the rest of the recap's cast.
+  const ids = [];
+  (x.w.items || []).forEach(it => (it && it.ids || []).forEach(id => { if (data.M[id] && !ids.includes(id)) ids.push(id); }));
+  const hl = x.w.headline.toLowerCase();
+  const at = id => { const i = hl.indexOf(data.name(id).toLowerCase()); return i < 0 ? 1e6 : i; };
+  ids.sort((a, b) => at(a) - at(b));
+  return ui.sectionHeader({title: 'The Wrap'})
+    + `<a class="card c-wrapc" href="#/standings/${x.year}/wrap/${x.week}" aria-label="${esc(`Read the Wrap for week ${x.week}: ${x.w.headline}`)}">`
+    + `<p class="card-ovl">Week ${x.week} · ${x.year}</p>`
+    + `<p class="c-wrapc-hl">${esc(x.w.headline)}</p>`
+    + `<span class="c-wrapc-foot">${ids.length ? ui.avatarStack(ids.slice(0, 3), {size: 28, max: 3}) : '<span></span>'}`
+    + `<span class="btn btn-secondary btn-s c-wrapc-btn" aria-hidden="true"><span class="btn-label">Read the Wrap</span></span></span></a>`;
+}
+
 // ============================================================================ Patching
 function sameParts(a, b) {
   if (!a || !b || a.length !== b.length) return false;
@@ -278,6 +400,81 @@ function patchRotd(st, animate = true) {
   }
 }
 
+// ---- "This week": patch in place (keeps focus on a row), hide once the week locks.
+function refreshWeek(st, animate) {
+  const host = st.el.querySelector('.c-wk-host');
+  if (!host) return;
+  const c = openWeek();
+  const wk = st.wk;
+  if (!c) {
+    stopWeekSubs(st);
+    wk.key = null;
+    if (host.firstElementChild) {
+      const go = () => { host.innerHTML = ''; };
+      if (animate && !ui.RM && st.ctx.visible) ui.crossfade(host, go, {duration: 160}); else go();
+    }
+    return;
+  }
+  if (c.key !== wk.key) {
+    // A new week (data reload) or the first fill: start over with this week's subscriptions.
+    stopWeekSubs(st);
+    wk.key = c.key; wk.votes = null; wk.picks = null;
+    if (wk.live) startWeekSubs(st);
+  }
+  wk.cur = c;
+  const card = host.querySelector('.c-wk');
+  if (!card || card.dataset.wk !== c.key) {
+    const go = () => { host.innerHTML = weekCardHTML(c, wk.votes, wk.picks); };
+    if (animate && !ui.RM && st.ctx.visible && host.firstElementChild) ui.crossfade(host, go, {duration: 160}); else go();
+    return;
+  }
+  const close = card.querySelector('.c-wk-close');
+  const ct = closesText(c);
+  if (close && close.textContent !== ct) { close.textContent = ct; card.setAttribute('aria-label', `Week ${c.week}, ${ct}`); }
+  patchWkRow(card.querySelector('[data-wk-go="motw"]'), motwRowState(c, wk.votes));
+  patchWkRow(card.querySelector('[data-wk-go="pickem"]'), pickRowState(c, wk.picks));
+}
+function patchWkRow(row, x) {
+  if (!row) return;
+  const sub = row.querySelector('.c-wk-sub'), tr = row.querySelector('.c-wk-trail');
+  if (sub && sub.textContent !== x.sub) sub.textContent = x.sub;
+  if (tr && tr.dataset.html !== x.trail) { tr.dataset.html = x.trail; tr.innerHTML = x.trail; }
+  row.setAttribute('aria-label', x.label);
+}
+// Live votes and picks. Started once the puzzles are in and the page is idle (Firebase starts after the Daily).
+function startWeekSubs(st) {
+  const wk = st.wk;
+  wk.live = true;
+  if (!WK || !wk.key || wk.unsubV) return;
+  const key = wk.key;
+  const onV = v => { if (st.wk.key !== key) return; st.wk.votes = v || {}; refreshWeek(st, false); };
+  const onP = p => { if (st.wk.key !== key) return; st.wk.picks = p || {}; refreshWeek(st, false); };
+  try { wk.unsubV = WK.subscribeVotes(key, onV) || (() => {}); } catch (e) { console.error(e); wk.unsubV = () => {}; }
+  try { wk.unsubP = WK.subscribePicks(key, onP) || (() => {}); } catch (e) { console.error(e); wk.unsubP = () => {}; }
+}
+function stopWeekSubs(st) {
+  const wk = st.wk;
+  if (wk.unsubV) { try { wk.unsubV(); } catch (_) {} wk.unsubV = null; }
+  if (wk.unsubP) { try { wk.unsubP(); } catch (_) {} wk.unsubP = null; }
+}
+
+function patchWrap(st, animate) {
+  const host = st.el.querySelector('.c-wrap-host');
+  if (!host) return;
+  const x = latestWrap();
+  const sig = wrapSig(x);
+  if (host.dataset.sig === sig) return;
+  host.dataset.sig = sig;
+  const go = () => { host.innerHTML = wrapCardHTML(x); };
+  if (animate && !ui.RM && st.ctx.visible && host.firstElementChild) ui.crossfade(host, go, {duration: 160}); else go();
+}
+
+// Rivals holds the voting and pick'em sections. Its section deep link (#/rivals?s=motw|pickem) switches to the
+// tab, keeps the matchup it shows, brings the section in under the bar and pulses it (also on a cold start).
+function goRivals(ctx, kind) {
+  return ctx.nav(`/rivals?s=${kind === 'pickem' ? 'pickem' : 'motw'}`);
+}
+
 function swapDaily(st) {
   const wrap = st.el.querySelector('.c-dc-wrap');
   if (!wrap) return;
@@ -293,10 +490,11 @@ function swapDaily(st) {
 
 // ============================================================================ Events
 function onClick(st, e) {
-  const t = e.target.closest('[data-go], [data-you], [data-streak], [data-retry], [data-cd-load]');
+  const t = e.target.closest('[data-go], [data-you], [data-streak], [data-retry], [data-cd-load], [data-wk-go]');
   if (!t || !st.el.contains(t)) return;
   const {ctx} = st;
   if (t.hasAttribute('data-go')) { ctx.nav(t.dataset.go); return; }
+  if (t.hasAttribute('data-wk-go')) { goRivals(ctx, t.dataset.wkGo); return; }
   if (t.hasAttribute('data-you')) { openYouSheet(); return; }
   if (t.hasAttribute('data-streak')) { openStreakSheet(); return; }
   if (t.hasAttribute('data-retry')) { retry(st); return; }
@@ -342,16 +540,23 @@ export default {
 
   render() {
     const r = rotdPick();
+    const wc = openWeek();
+    const wr = latestWrap();
     return ui.largeTitle({eyebrow: ready() ? daily.TODAY_LABEL : localLabel(), title: 'Today', trailing: trailHTML()})
       + `<div class="c-dc-wrap" data-key="daily" data-enter>${dailyCardHTML()}</div>`
+      // "This week" is time-boxed (it closes at kickoff and disappears): it sits right under the Daily card,
+      // above the always-there leaderboard.
+      + `<div class="c-wk-host" data-key="wk" data-enter>${weekCardHTML(wc, null, null)}</div>`
       + `<div class="c-board-host" data-key="board" data-enter></div>`
       + `<div class="c-cd-host" data-key="cd" data-enter>${countdownHTML(false)}</div>`
+      + `<div class="c-wrap-host" data-key="wrap" data-enter data-sig="${esc(wrapSig(wr))}">${wrapCardHTML(wr)}</div>`
       + `<div class="c-rotd-host" data-key="rotd" data-enter data-sig="${esc(rotdSig(r))}">${rotdHTML(r)}</div>`;
   },
 
   mount(el, ctx) {
     ensureDefs();
-    const st = {el, ctx, board: null, pending: false, cancelRing: null, retrying: false};
+    const st = {el, ctx, board: null, pending: false, cancelRing: null, retrying: false,
+      wk: {key: null, cur: null, votes: null, picks: null, unsubV: null, unsubP: null, live: false}};
     HUB.set(ctx, st);
     const you = el.querySelector('.c-you');
     if (you) you.dataset.me = String(data.me());
@@ -361,6 +566,18 @@ export default {
     ctx.timer(() => tickCountdown(el.querySelector('.c-cd-host'), {animate: ctx.visible}), 20000);
     if (ready()) patchPill(st, false);
     else if (daily.status !== 'error') daily.ensure().catch(() => {});
+    // League week cards: fill once the modules are in; live votes and picks wait for the Daily and an idle moment.
+    const wc = el.querySelector('.c-wk');
+    if (wc) st.wk.key = wc.dataset.wk || null;
+    loadMods().then(() => {
+      if (HUB.get(ctx) !== st) return;
+      refreshWeek(st, false);
+      patchWrap(st, false);
+      const go = () => ui.onIdle(() => { if (HUB.get(ctx) === st) startWeekSubs(st); });
+      if (daily.status === 'ready' || daily.status === 'error') go(); else daily.ensure().then(go, go);
+    });
+    // The lock time passes while the app is open: keep "closes in" fresh and hide the card at kickoff.
+    ctx.timer(() => { if (WK) refreshWeek(st, ctx.visible); }, 30000);
     if (ctx.first) ui.stagger(el);
   },
 
@@ -375,13 +592,19 @@ export default {
     const st = HUB.get(ctx);
     if (!st) return;
     patchYou(st);
-    if (ctx.reason === 'data') patchRotd(st, ctx.visible);
+    if (ctx.reason === 'data') {
+      patchRotd(st, ctx.visible);
+      // A new week in the data moves "This week" on (or hides it) and brings a new Wrap.
+      if (WK) refreshWeek(st, ctx.visible);
+      if (STATS) patchWrap(st, ctx.visible);
+    }
     if (st.board) st.board.refresh({animate: false});
   },
 
   unmount(el, ctx) {
     const st = HUB.get(ctx);
     if (!st) return;
+    stopWeekSubs(st);
     if (st.cancelRing) st.cancelRing();
     if (st.board) st.board.destroy();
     HUB.delete(ctx);

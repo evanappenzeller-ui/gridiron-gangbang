@@ -10,5 +10,37 @@ service cloud.firestore {
         && request.resource.data.nick.size() <= 24
         && request.resource.data.total is number;
     }
+
+    // Shared by the week features: a week key like 2026-w4, the display fields every doc carries, and the
+    // server time. `at` must be the request time (the app writes serverTimestamp()), so it cannot be forged:
+    // the app drops votes and picks stamped after that week's kickoff.
+    function weekOk(week) {
+      return week.matches('^[0-9]{4}-w[1-9][0-9]?$');
+    }
+    function whoOk(d) {
+      return d.nick is string && d.nick.size() <= 24
+        && (!('me' in d) || d.me == null || (d.me is string && d.me.size() <= 24))
+        && d.at == request.time;
+    }
+
+    // Matchup of the Week votes: one per phone per week (motw/2026-w4/votes/{uid}). Lock times are enforced
+    // by the app (a friends' league); the rules enforce ownership and shape.
+    match /motw/{week}/votes/{uid} {
+      allow read: if true;
+      allow create, update: if request.auth != null && request.auth.uid == uid && weekOk(week)
+        && request.resource.data.keys().hasOnly(['pick', 'me', 'nick', 'at'])
+        && request.resource.data.pick is string && request.resource.data.pick.size() <= 40
+        && whoOk(request.resource.data);
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+    // Weekly pick'em entries: one per phone per week (pickem/2026-w4/entries/{uid}).
+    match /pickem/{week}/entries/{uid} {
+      allow read: if true;
+      allow create, update: if request.auth != null && request.auth.uid == uid && weekOk(week)
+        && request.resource.data.keys().hasOnly(['picks', 'me', 'nick', 'at'])
+        && request.resource.data.picks is map && request.resource.data.picks.size() <= 20
+        && whoOk(request.resource.data);
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
   }
 }

@@ -1,6 +1,133 @@
-/* standings.css: Standings root (spec 7.9). Owner: standings package. Scoped to .v-standings. */
+/* standings.css: Standings root (spec 7.9 + power rankings and playoff odds). Owner: standings package. Scoped to .v-standings. */
 
-.v-standings .std-seasons > .sh { margin-top: 20px; }
+/* The first section under the large title sits 20 px below it (power rankings, else odds, else the rail). */
+.v-standings .lt + .std-power > .sh,
+.v-standings .lt + .std-odds > .sh,
+.v-standings .lt + .std-seasons > .sh { margin-top: 20px; }
+
+/* ---------------------------------------------------------------- Live-season sections (shared) */
+.v-standings .std-xh { align-items: baseline; }
+.v-standings .std-xh-o { flex: none; color: var(--ink-3); white-space: nowrap; }
+.v-standings .std-more { display: flex; justify-content: center; margin-top: 4px; }
+.v-standings .std-more .btn { font-weight: 600; }
+.v-standings .std-foot { margin-top: 8px; }
+.v-standings .std-more + .std-foot, .v-standings .std-more + .std-od-worst { margin-top: 2px; }
+
+/* ---------------------------------------------------------------- Power rankings */
+.v-standings .std-pr { min-height: 76px; }
+.v-standings .std-pr .row-lead { margin-right: 12px; }
+.v-standings .std-pr-rk {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  width: 30px; margin: 0 8px 0 -6px;
+}
+.v-standings .std-pr-rk .n4 { color: var(--ink-2); }
+.v-standings .std-pr-rk .is-r1 { color: var(--gold); }
+.v-standings .std-pr-rk .is-r2 { color: var(--silver); }
+.v-standings .std-pr-rk .is-r3 { color: var(--bronze); }
+.v-standings .std-mv {
+  font: 800 12px/14px var(--font-num); font-stretch: condensed; letter-spacing: .02em;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+  color: var(--ink-3);
+}
+.v-standings .std-mv.is-up { color: var(--tint); }
+.v-standings .std-mv.is-down { color: var(--wrong); }
+.v-standings .std-pr .row-main { padding: 12px 0; }
+.v-standings .std-pr-t { display: flex; align-items: baseline; gap: 8px; }
+.v-standings .std-pr-rec {
+  flex: none;
+  font: 800 16px/20px var(--font-num); font-stretch: condensed; font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+}
+.v-standings .std-pr-why {
+  margin-top: 2px;
+  font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2);
+  overflow: hidden; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+}
+.v-standings .std-pr-sc { flex-direction: column; align-items: flex-end; gap: 6px; min-width: 48px; }
+.v-standings .std-pr-sc .n4 { color: var(--ink); }
+.v-standings .std-pr-bar {
+  position: relative; display: block;
+  width: 48px; height: 4px; border-radius: 2px;
+  background: var(--surface-3); overflow: hidden;
+}
+.v-standings .std-pr-bar > i {
+  position: absolute; inset: 0; border-radius: 2px;
+  background: var(--mc, var(--ink-2));
+  transform-origin: left center;
+}
+.v-standings .std-power:not(.is-all) .is-more,
+.v-standings .std-odds:not(.is-all) .is-more { display: none; }
+/* Your row below the cut stays in the collapsed list, after a gap (like Today's board). */
+.v-standings .std-power:not(.is-all) .row.is-pin,
+.v-standings .std-odds:not(.is-all) .row.is-pin { display: flex; }
+.v-standings .std-gap { display: none; }
+.v-standings .std-power:not(.is-all) .std-gap,
+.v-standings .std-odds:not(.is-all) .std-gap {
+  display: flex; align-items: center; justify-content: center;
+  height: 22px; border-top: .5px solid var(--separator);
+  color: var(--ink-4); font: 800 13px/1 var(--font-num); letter-spacing: .2em;
+}
+.v-standings .std-power.is-all .std-gap + .row > .row-main::before,
+.v-standings .std-odds.is-all .std-gap + .row > .row-main::before {
+  content: ""; position: absolute; top: 0; left: 0; right: -200vw; height: 1px;
+  background: var(--separator); transform: scaleY(.5); transform-origin: top;
+}
+
+/* ---------------------------------------------------------------- Playoff odds */
+.v-standings .std-od-colh { display: flex; justify-content: flex-end; padding: 0 16px; margin: 0 0 6px; }
+.v-standings .std-od-colh > span,
+.v-standings .std-od-c { flex: none; width: 54px; }
+.v-standings .std-od-colh > span {
+  text-align: right;
+  font: 600 11px/14px var(--font-text); letter-spacing: .03em; text-transform: uppercase;
+  color: var(--ink-3);
+}
+.v-standings .std-od { min-height: 60px; align-items: center; }
+.v-standings .std-od .row-lead { margin-right: 10px; }
+.v-standings .std-od .row-main { padding: 10px 0; }
+.v-standings .std-od .row-sub { font-variant-numeric: tabular-nums; }
+.v-standings .std-od-c { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.v-standings .std-od-c .n5 { color: var(--ink-2); white-space: nowrap; }
+.v-standings .std-od-c.is-po .n5 { color: var(--ink); }
+.v-standings .std-od-bar {
+  position: relative; display: block;
+  width: 36px; height: 3px; border-radius: 2px;
+  background: var(--surface-3); overflow: hidden;
+}
+.v-standings .std-od-bar > i {
+  position: absolute; inset: 0; border-radius: 2px;
+  background: var(--ink-2); transform-origin: left center;
+}
+.v-standings .std-od.is-me .std-od-bar { background: var(--ink-4); }
+.v-standings .std-od-line {
+  display: flex; align-items: center; gap: 10px;
+  height: 26px; padding: 0 16px;
+}
+.v-standings .std-od-line::before, .v-standings .std-od-line::after {
+  content: ""; flex: 1 1 0; min-width: 0; height: 0;
+  border-top: 1px dashed var(--ink-4);
+}
+.v-standings .std-od-line > span {
+  flex: none;
+  font: 800 11px/1 var(--font-num); font-stretch: condensed;
+  text-transform: uppercase; letter-spacing: .1em;
+  color: var(--ink-3);
+}
+.v-standings .std-od-worst {
+  display: flex; align-items: flex-start; gap: 6px;
+  margin: 8px 16px 0;
+  font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2);
+}
+.v-standings .std-od-worst .ic { flex: none; margin-top: 2px; color: var(--wrong); stroke-width: 2; }
+.v-standings .std-od-worst + .std-foot { margin-top: 4px; }
+/* Skeleton while the season is simulated (same row height as the real list, so nothing below jumps). */
+.v-standings .std-od-sk { margin-bottom: 72px; } /* room for "Show all" and the footnotes */
+.v-standings .std-od-sk .sk { background: var(--surface-2); }
+.v-standings .std-od-skr .row-main { gap: 6px; }
+.v-standings .std-sk-av { width: 28px; height: 28px; border-radius: 50%; }
+.v-standings .std-sk-sub { width: 30%; height: 10px; opacity: .7; }
+.v-standings .std-sk-c { width: 34px; height: 14px; border-radius: 7px; }
 
 /* ---------------------------------------------------------------- Seasons rail */
 .v-standings .std-rail {
