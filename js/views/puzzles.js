@@ -10,12 +10,11 @@ import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as daily from '../core/daily.js';
 import {mountBoard, streakPillHTML, stepParts, zeroParts, gradeGold, stepIcon, whenVisible, countdownHTML,
-  msToMidnight, ensureDefs, ringHTML, maxPts, countWord, dayLabel, itemCount} from './board.js';
+  msToMidnight, ensureDefs, ringHTML, maxPts, dayLabel, itemCount} from './board.js';
 import {youButtonHTML, openStreakSheet} from './you.js';
 
 const esc = data.esc;
 const nf = n => data.nf(n);
-const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 const COPIED = 'Results copied. Paste them in the league chat.';
 
 // Module memory for this page session: what the hero last showed, so its count-up and the streak roll start there.
@@ -72,7 +71,7 @@ function trailHTML() {
 }
 
 // ============================================================================ Markup: hero
-const lineText = () => `${cap(countWord())} puzzles · ${nf(maxPts())} points`;
+const lineText = () => 'Daily Puzzles';
 /** Progress of step i as a fraction (the run cover's rule): items answered for College, Silhouettes and Grid; 1 when
  *  done for Mystery and Journey. */
 function fracOf(i) {
@@ -125,7 +124,7 @@ function ctaInner(k) {
 }
 const ctaHTML = k => `<button type="button" class="btn btn-primary c-hero-cta${k === 'done' ? '' : ' is-big'}" data-cta>${ctaInner(k)}</button>`;
 const shareHTML = () => `<button type="button" class="btn btn-secondary c-hero-share" data-share>${ui.icon('share')}<span class="btn-label">Share</span></button>`;
-const ovlHTML = () => `<p class="card-ovl c-hero-o" id="c-hero-o">${esc(`Daily · ${dayLabel()}`)}</p>`;
+const ovlHTML = () => `<p class="card-ovl c-hero-o" id="c-hero-o">${esc(`${dayLabel()} · ${nf(maxPts())} points`)}</p>`;
 
 function readyCard(k) {
   return `<section class="card card-hero c-hero is-${k}" data-kind="${k}" aria-labelledby="c-hero-o">`
