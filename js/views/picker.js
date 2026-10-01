@@ -121,10 +121,14 @@ export function openPicker(o = {}) {
       const q = input.value;
       const tokens = daily.norm(q).split(' ').filter(Boolean);
       const res = tokens.length ? daily.searchPlayers(q, {audienceFirst: kind !== 'grid'}) : [];
+      // Rows show the position only: a player's years would give the answer away. Two listed players with the same
+      // name and position get the decade their careers began, just enough to tell them apart.
+      const twin = new Map();
+      res.forEach(i => { const k = daily.PP[i][0] + '|' + daily.PP[i][2]; twin.set(k, (twin.get(k) || 0) + 1); });
       list.innerHTML = res.map((i, n) => {
         const p = daily.PP[i];
         const dis = disabledOf(i) || '';
-        const sub = `${p[2]} · ${daily.yrs(i)}`;
+        const sub = twin.get(p[0] + '|' + p[2]) > 1 ? `${p[2]} · ${Math.floor(p[4] / 10) * 10}s` : p[2];
         return `<div class="pk-row" role="option" id="${uid}-o${n}" data-pk="${i}" data-press="row" aria-selected="false"${dis ? ' aria-disabled="true"' : ''}>`
           + `<span class="pk-main"><span class="pk-name">${highlight(p[0], tokens)}</span><span class="pk-sub">${esc(sub)}</span></span>`
           + (dis ? `<span class="pk-dis">${esc(dis)}</span>` : '')
