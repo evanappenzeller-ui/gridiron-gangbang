@@ -140,21 +140,32 @@ function freshDS(raw, day) {
 
 // Progress saved for a v2, v3 or v4 day is stamped with the day's version; progress with another stamp (or none) was
 // saved against an earlier version of that day and never counts for it.
-const stampOk = (raw, day) => { const v = dayVersion(day); return v < 2 || !!(raw && raw.v === v); };
+// A day swapped for a new puzzle after it went live (RERELEASED) also needs that release's stamp (r).
+const stampOk = (raw, day, pnum) => {
+  const v = dayVersion(day);
+  if (pnum != null && relOf(pnum) !== ((raw && raw.r) || 0)) return false;
+  return v < 2 || !!(raw && raw.v === v);
+};
+// Puzzle days replaced with a new puzzle after release: pnum -> release number. Progress and board entries carry that
+// number (r); anything from the old puzzle (no r, or another r) no longer counts for the day.
+// Day 4 (Thu Oct 1 2026) was swapped for a new puzzle when the league reset the board (see SCORE_FROM).
+export const RERELEASED = {4: 1};
+export const relOf = pnum => RERELEASED[pnum] || 0;
 
-function readDS(key, day) {
+function readDS(key, day, pnum) {
   let raw = {};
   try { raw = JSON.parse(localStorage.getItem(key)) || {}; } catch (_) { raw = {}; }
-  return loadDS(raw, day);
+  return loadDS(raw, day, pnum);
 }
 // Saved progress (parsed) -> DS for a day. A day re-released in another format (Sep 29 2026 went v1 -> v2 mid-day)
 // drops progress saved against its old version: v2 progress is stamped v: 2, v3 progress v: 3 and v4 progress v: 4;
 // anything else on such a day starts over.
-function loadDS(raw, day) {
+function loadDS(raw, day, pnum) {
   const v = dayVersion(day);
-  if (!stampOk(raw, day)) raw = {};
+  if (!stampOk(raw, day, pnum)) raw = {};
   const ds = freshDS(raw, day);
   if (v >= 2) ds.v = v;
+  if (pnum != null && relOf(pnum)) ds.r = relOf(pnum);
   return ds;
 }
 
@@ -172,7 +183,7 @@ function initDay(pz) {
   PROMPTS = promptsFor(DAY);
   TODAY_LABEL = devDay ? dayLabel(PNUM, {long: true}) : new Date().toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'});
   SKEY = 'gg-daily-' + PNUM;
-  DS = readDS(SKEY, DAY);
+  DS = readDS(SKEY, DAY, PNUM);
   seenIndex = dayIndex;
   deepCache.clear();
   NW = null; // the search index belongs to this PP
@@ -711,15 +722,19 @@ try { LB.nick = localStorage.getItem('gg-nick') || ''; } catch (_) { LB.nick = '
 
 function lbChanged(why, prev) { emit('lb', {prev: prev || LB.players, why}); }
 
-// Scoring starts on puzzle day 3 (Wed Sep 30 2026): the league reset the board there, so the launch days' scores
-// (Sep 28 v1, Sep 29 v2) never count on the boards, in totals, in streaks or on this phone's streak. Every board doc
-// is read through scoredDoc(): days before SCORE_FROM are dropped and total / played / last are recomputed from
-// the rest. Older docs keep those days in Firestore until that player posts again (postScore writes the filtered
-// days back).
-export const SCORE_FROM = 3;
+// Scoring starts on puzzle day 4 (Thu Oct 1 2026, re-released with a new puzzle): the league reset the board there
+// (it was day 3, Sep 30, before), so earlier days' scores and the old Oct 1 puzzle's never count on the boards, in
+// totals, in streaks or on this phone's streak. Every board doc is read through scoredDoc(): days before SCORE_FROM,
+// and entries of a re-released day without its release stamp, are dropped and total / played / last are recomputed
+// from the rest. Older docs keep those days in Firestore until that player posts again (postScore writes the
+// filtered days back).
+export const SCORE_FROM = 4;
 export function scoredDoc(p) {
   const days = {};
-  Object.keys((p && p.days) || {}).forEach(k => { if (Number(k) >= SCORE_FROM && p.days[k]) days[k] = p.days[k]; });
+  Object.keys((p && p.days) || {}).forEach(k => {
+    const e = p.days[k];
+    if (Number(k) >= SCORE_FROM && e && (e.r || 0) === relOf(Number(k))) days[k] = e;
+  });
   const vals = Object.values(days), keys = Object.keys(days).map(Number);
   return Object.assign({}, p, {days, total: vals.reduce((s, d) => s + (Number(d.p) || 0), 0), played: vals.length, last: keys.length ? Math.max(...keys) : 0});
 }
@@ -767,7 +782,7 @@ export const entryVersion = d => !d ? 0 : d.v === 4 ? 4 : d.v === 3 ? 3 : d.s !=
 // `day` (default: puzzle day pnum's entry) is the day the entry is judged against.
 export function entryFor(p, pnum = PNUM, day = PZ ? PZ.days[(pnum - 1) % PZ.days.length] : null) {
   const d = p && p.days && p.days[pnum];
-  if (!d) return null;
+  if (!d || (d.r || 0) !== relOf(pnum)) return null;
   const v = dayVersion(day);
   return v >= 2 && entryVersion(d) !== v ? null : d;
 }
@@ -823,7 +838,7 @@ export async function postScore(nick) {
   LB.posting = true; LB.status = 'posting'; lbChanged('status');
   const me = LB.players.find(p => p.id === LB.uid);
   const days = Object.assign({}, me && me.days);
-  if (!entryFor(me)) days[PNUM] = boardEntry();
+  if (!entryFor(me)) days[PNUM] = Object.assign(boardEntry(), relOf(PNUM) ? {r: relOf(PNUM)} : null);
   const vals = Object.values(days);
   const body = {nick: (nick || '').trim().slice(0, 24), days, total: vals.reduce((s, d) => s + (d.p || 0), 0), played: vals.length, last: PNUM};
   try {
@@ -1015,7 +1030,7 @@ export function social(players = LB.players, pnum = PNUM) {
 export function pointsFor(ds, pnum = PNUM) {
   if (!PZ) return null;
   const day = PZ.days[(pnum - 1) % PZ.days.length];
-  if (dayVersion(day) >= 3 && !stampOk(ds, day)) ds = {};
+  if ((dayVersion(day) >= 3 || relOf(pnum)) && !stampOk(ds, day, pnum)) ds = {};
   return totalPts(freshDS(ds, day), day);
 }
 
@@ -1041,7 +1056,7 @@ export function streakLocal() {
       try { raw = JSON.parse(localStorage.getItem(key)); } catch (_) { raw = null; }
       if (!raw || typeof raw !== 'object') continue;
       const day = PZ ? dayFor(+m[1]) : null;
-      if (dayVersion(day) >= 3 && !stampOk(raw, day)) continue;
+      if ((dayVersion(day) >= 3 || relOf(+m[1])) && !stampOk(raw, day, +m[1])) continue;
       consider(+m[1], freshDS(raw, day));
     }
   } catch (_) {}

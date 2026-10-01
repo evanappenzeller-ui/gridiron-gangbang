@@ -507,6 +507,8 @@ export async function runChecks() {
     // a v2 day, plus v: 3 on a v3 day; v: 4 on a v4 day.
     const tv = daily.dayVersion(daily.dayFor(S));
     if (tv >= 2) sp.forEach(p => { const d = p.days[S]; if (d) Object.assign(d, tv === 4 ? {v: 4} : tv === 3 ? {v: 3, s: 0, j: 0} : {s: 0, j: 0}); });
+    // A re-released day (daily.RERELEASED) takes only entries stamped with its release.
+    if (daily.relOf(S)) sp.forEach(p => { const d = p.days[S]; if (d) d.r = daily.relOf(S); });
     const s = daily.social(sp, S);
     const st = daily.streakOf(players[2]);
     const pass = s.played.length === 3 && s.regulars === 4 && s.leader === 'Someone'
@@ -1247,7 +1249,9 @@ export async function runChecks() {
     log.push(got.every((s, k) => s === `v4-a|${subs[k]}|1;v4-b|${zeroWant[k]}|2`));
     let real = 'no v4 day in the file';
     if (R4) {
-      const k = R4n - 4, e = daily.boardEntry(craftV4DS(R4), R4), {players} = rowsOn(R4, R4n, e);
+      const rel = daily.relOf(R4n), e = Object.assign(daily.boardEntry(craftV4DS(R4), R4), rel ? {r: rel} : null);
+      const k = R4n - 4, {players} = rowsOn(R4, R4n, e);
+      if (rel) players.forEach(p => { p.days[R4n].r = rel; }); // a re-released day takes only entries with its stamp
       const rows = daily.boardRows('today', players, R4n);
       real = rows.map(r => r.sub).join(' / ');
       log.push(R4n === 4 && k === 0 && rows.length === 2 && rows[0].sub === subs[0] && daily.social(players, R4n).played.length === 2
@@ -1301,7 +1305,8 @@ export async function runChecks() {
     // pointsFor on the file's first v4 day: stamped progress counts, unstamped or v3-stamped progress scores 0.
     if (R4) {
       const copy = (ds, o) => Object.assign(JSON.parse(JSON.stringify(ds)), o);
-      const craft = craftV4DS(R4), pf = perfectV4DS(R4);
+      const rel = daily.relOf(R4n) ? {r: daily.relOf(R4n)} : {}; // a re-released day needs its release stamp too
+      const craft = Object.assign(craftV4DS(R4), rel), pf = Object.assign(perfectV4DS(R4), rel);
       log.push(daily.pointsFor(copy(pf), R4n) === 600 && daily.pointsFor(copy(craft), R4n) === V4_TOTALS[(R4n - 4) % 5]
         && daily.pointsFor(copy(craft, {v: 3}), R4n) === 0 && daily.pointsFor(copy(pf, {v: undefined}), R4n) === 0);
     }
