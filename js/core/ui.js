@@ -71,7 +71,7 @@ export function attrs(a) {
 }
 
 export const ICON_NAMES = [
-  'list-number', 'versus', 'trophy', 'swap',
+  'list-number', 'versus', 'trophy', 'swap', 'ticket',
   'chevron-left', 'chevron-right', 'chevron-down', 'close', 'search', 'clear', 'share', 'copy', 'check', 'check-circle',
   'x', 'x-circle', 'sort', 'table', 'list', 'gear', 'person', 'info', 'plus', 'lock', 'clock', 'calendar', 'arrow-up', 'arrow-down',
   'crown', 'medal', 'flame', 'sparkle', 'bolt', 'pulse', 'anchor', 'football', 'mic', 'mic-fill', 'play-fill',
