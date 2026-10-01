@@ -724,6 +724,12 @@ export function scoredDoc(p) {
   return Object.assign({}, p, {days, total: vals.reduce((s, d) => s + (Number(d.p) || 0), 0), played: vals.length, last: keys.length ? Math.max(...keys) : 0});
 }
 
+// Board rows taken off the leaderboard (players/{uid} doc ids): duplicates from a second phone. The rules only let a
+// phone delete its own row, so the league hides them here; the doc can also be deleted in the Firebase console.
+const HIDDEN = new Set([
+  'xCgRRWXbr6gmvj8hXsZDSpPC2Ug1' // Mitch's second row (250, Sep 30): his 350 row stays
+]);
+
 let fbStarted = false;
 // The app, anonymous sign-in and Firestore come from the shared layer (fire.js); no config or a failed
 // import / sign-in turns the board off, exactly as before.
@@ -736,9 +742,10 @@ async function startFirebase() {
     if (canWrite()) LB.save = body => fs.setDoc(fs.doc(db, 'players', LB.uid), body);
     fs.onSnapshot(fs.collection(db, 'players'), snap => {
       const prev = LB.players;
-      LB.players = snap.docs.map(d => scoredDoc(Object.assign({id: d.id}, d.data())));
+      const all = snap.docs.map(d => scoredDoc(Object.assign({id: d.id}, d.data())));
+      LB.players = all.filter(p => !HIDDEN.has(p.id));
       LB.ready = true;
-      const mine = LB.players.find(p => p.id === LB.uid);
+      const mine = all.find(p => p.id === LB.uid);
       if (mine && mine.nick) LB.nick = mine.nick;
       if (entryFor(mine)) DS.posted = true;
       lbChanged('snapshot', prev);
