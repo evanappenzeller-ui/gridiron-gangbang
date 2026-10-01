@@ -1344,6 +1344,35 @@ function tabFades() {
   bar.classList.toggle('has-more-l', max > 1 && bar.scrollLeft > 1);
   bar.classList.toggle('has-more-r', max > 1 && bar.scrollLeft < max - 1);
 }
+// First visits: the bar glides over to its last tabs and back, once the app is free (not under the welcome picker, a
+// cover or a sheet), so a newcomer sees there is more past the edge. Shown on up to HINT_MAX launches, never again
+// once the bar has been swiped or a tab past the edge opened.
+const HINT_KEY = 'gg-tab-hint', HINT_MAX = 2;
+function hintDone() { ui.lsSet(HINT_KEY, String(HINT_MAX)); }
+function tabHint() {
+  const bar = $('tabbar');
+  const n = Number(ui.lsGet(HINT_KEY)) || 0;
+  if (n >= HINT_MAX) return;
+  let tries = 0, gone = false;
+  // A swipe of the bar (or a tab past the edge) means they have found it.
+  bar.addEventListener('touchstart', () => { gone = true; }, {once: true, passive: true});
+  const wait = () => {
+    if (gone || ++tries > 120) return;
+    const max = bar.scrollWidth - bar.clientWidth;
+    if (max <= 1 || bar.scrollLeft > 1) { if (bar.scrollLeft > 1) hintDone(); return; }
+    if (document.hidden || bar.inert || bar.closest('[inert]') || S.cover || S.sheets.length) { setTimeout(wait, 1000); return; }
+    ui.lsSet(HINT_KEY, String(n + 1));
+    if (ui.RM) return; // reduced motion: the half tab and the fade still say it
+    const snap = bar.style.scrollSnapType;
+    bar.style.scrollSnapType = 'none'; // snapping would cut the glide short
+    bar.scrollTo({left: max, behavior: 'smooth'});
+    setTimeout(() => {
+      if (!gone) bar.scrollTo({left: 0, behavior: 'smooth'});
+      setTimeout(() => { bar.style.scrollSnapType = snap; }, 600);
+    }, 1100);
+  };
+  setTimeout(wait, 1200);
+}
 function updateTabBar(T, {animate = true} = {}) {
   let target = null;
   $('tabbar').querySelectorAll('.tab').forEach(b => {
@@ -1351,6 +1380,7 @@ function updateTabBar(T, {animate = true} = {}) {
   });
   moveIndicator(target, animate);
   revealTab(target, animate);
+  if (target && target.offsetLeft + target.offsetWidth > $('tabbar').clientWidth) hintDone();
   if (animate && target) {
     ui.animate(target.querySelector('.tab-ic'), [{transform: 'scale(1)'}, {transform: 'scale(.86)', offset: .35}, {transform: 'scale(1)'}], {duration: 360, easing: 'ease-out'});
     ui.haptic('selection');
@@ -1367,7 +1397,7 @@ function updateTabBar(T, {animate = true} = {}) {
 // this phone showed today (gg-ring, same local date), so it never flashes a wrong state.
 // Polled after every navigation, on the Daily's events, on 'me' and 'data', every 30 s while the page is visible, when
 // a view module finishes loading, and whenever a view dispatches a 'gg:badge' event (on any node, or window).
-const BADGE_TABS = ['puzzles', 'pickem', 'matchup'];
+const BADGE_TABS = ['puzzles', 'pickem', 'matchup', 'lay'];
 const RING_KEY = 'gg-ring'; // {date, parts, left}: also read by the Puzzles screen for its loading state
 const ringDate = () => new Date().toDateString();
 function cachedRing() {
@@ -1419,6 +1449,7 @@ function badgeLabel(T, on) {
     try { why = ns && typeof ns.badgeText === 'function' ? ns.badgeText() : ''; } catch (e) { console.error(e); }
     return `${base}, ${why || 'games to pick'}`;
   }
+  if (T === 'lay') return `${base}, new`;
   return T === 'matchup' ? `${base}, vote open` : base;
 }
 let badgeQueued = false;
@@ -1489,6 +1520,7 @@ function setupTabBar() {
   });
   updateTabBar(S.tab, {animate: false});
   tabFades();
+  tabHint();
   bar.addEventListener('scroll', tabFades, {passive: true});
   // A mouse wheel (desktop) scrolls the bar sideways too.
   bar.addEventListener('wheel', e => {

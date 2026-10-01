@@ -209,6 +209,15 @@ function fetchAndFill(ctx, opts) {
 /** Prefetched at idle after launch (app.js), so the first visit opens filled in. */
 export function warm() { return loadLay(); }
 
+// Tab badge (app.js): a dot on the tab until this phone has opened it once, so newcomers find the tab past the edge.
+const SEEN_KEY = 'gg-lay-seen';
+export function badge() { return ui.lsGet(SEEN_KEY) !== '1'; }
+function markSeen() {
+  if (ui.lsGet(SEEN_KEY) === '1') return;
+  ui.lsSet(SEEN_KEY, '1');
+  dispatchEvent(new Event('gg:badge'));
+}
+
 export default {
   id: 'lay',
   title: 'The Lay',
@@ -228,7 +237,10 @@ export default {
     });
     if (!LAY) fetchAndFill(ctx);
     if (ctx.first) ui.stagger(el);
+    if (ctx.visible) markSeen();
   },
+
+  onShow() { markSeen(); },
 
   // 'data' (league.json reloaded: maybe a new week) refetches the slip too; 'me' redraws the highlights.
   update(ctx) {
