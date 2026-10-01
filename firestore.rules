@@ -90,5 +90,18 @@ service cloud.firestore {
         && whoOk(request.resource.data);
       allow delete: if request.auth != null && weekOk(week);
     }
+
+    // The Lay: each manager's leg of the week's 12-leg parlay (lay/2026-w4/legs/{managerId}). A friends' league, like
+    // the Press Room: any phone may enter, change or remove a leg (so one can be typed in for someone off the app);
+    // `me` / `nick` say who entered it. The close (Sunday 1 PM ET) is enforced by the app.
+    match /lay/{week}/legs/{who} {
+      allow read: if true;
+      allow create, update: if request.auth != null && weekOk(week) && who.matches('^[a-z]{1,24}$')
+        && request.resource.data.keys().hasOnly(['by', 'bet', 'me', 'nick', 'at'])
+        && request.resource.data.by == who
+        && request.resource.data.bet is string && request.resource.data.bet.size() > 0 && request.resource.data.bet.size() <= 80
+        && whoOk(request.resource.data);
+      allow delete: if request.auth != null && weekOk(week);
+    }
   }
 }

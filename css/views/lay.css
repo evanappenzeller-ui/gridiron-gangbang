@@ -44,3 +44,24 @@
 .v-lay .ly-week-h > h3 { font: 600 var(--fs-headline)/var(--lh-headline) var(--font-text); }
 .v-lay .ly-week .ly-placer { margin: 4px 0 8px; }
 .v-lay .ly-week .group-wrap, .v-lay .ly-week > .group { margin-top: 8px; }
+
+/* ================================================================ Your leg */
+.v-lay .ly-entry + .ly-hero { margin-top: 12px; }
+.v-lay .ly-entry .card-title { margin-top: 4px; }
+.v-lay .ly-form { margin-top: 10px; }
+.v-lay .ly-who { display: flex; align-items: center; gap: 8px; font: 600 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink-2); }
+.v-lay .ly-field { margin-top: 8px; }
+.v-lay .ly-in {
+  width: 100%; height: 48px; padding: 0 14px;
+  border: 0; outline: 0; border-radius: var(--r-cell);
+  background: var(--surface-2); color: var(--ink);
+  font: 400 17px/22px var(--font-text);
+  -webkit-appearance: none; appearance: none;
+}
+.v-lay .ly-in::placeholder { color: var(--ink-3); opacity: 1; }
+.v-lay .ly-in:focus { box-shadow: inset 0 0 0 1px var(--tint); }
+.v-lay .ly-acts { display: flex; align-items: center; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.v-lay .ly-entry > .group.ly-mine { margin: 10px 0 0; border-radius: var(--r-cell); background: var(--surface-2); }
+.v-lay .ly-entry .card-body { margin-top: 4px; }
+.v-lay .ly-for { display: block; height: 32px; margin-top: 8px; padding: 0; font: 400 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--tint); }
+.v-lay .ly-note { margin-top: 8px; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--wrong); }

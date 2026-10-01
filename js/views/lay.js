@@ -3,9 +3,12 @@
 // N-1, unless the week in data/lay.json names one). Sections: this week's slip (who places it, the legs in so far),
 // season tiles, each manager's leg record, then every week's slip with its hits and the legs that busted it.
 // Data: data/lay.json {stake, legs, weeks: [{year, week, placer?, legs: [{by, for?, bet, hit: true|false|null}]}]}.
-// A leg with `for` was submitted by `by` in another manager's slot: it counts on `by`'s record. Owner: LAY.
+// A leg with `for` was submitted by `by` in another manager's slot: it counts on `by`'s record.
+// Live legs: managers enter their leg for the week in the "Your leg" card (core/lay.js, Firestore); they show on the
+// slip as pending until data/lay.json carries that manager's leg with its result. Owner: LAY.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
+import * as live from '../core/lay.js';
 import {youButtonHTML} from './you.js';
 
 const esc = data.esc;
@@ -23,6 +26,32 @@ function loadLay({fresh} = {}) {
     return j;
   }).catch(e => { layP = null; layErr = true; throw e; });
   return layP;
+}
+
+// ---------------------------------------------------------------------------------------------- Live legs
+// weekKey -> legs entered in the app (core/lay.js), for the live week and the one before it (so a week's legs stay
+// on its slip after the league moves on, until data/lay.json has them with results).
+const LIVE = new Map();
+let liveErr = null;
+const wkey = (y, w) => `${y}-w${w}`;
+// data/lay.json's weeks with the live legs merged in (a manager's leg in the file wins), plus the live week itself
+// when the file doesn't have it yet. Rebuilt on every fill.
+let WEEKS = [];
+function buildWeeks() {
+  const ws = LAY.weeks.map(w => Object.assign({}, w, {legs: legsOf(w).slice()}));
+  const lw = live.liveWeek();
+  if (lw && !ws.some(w => w.year === lw.year && w.week === lw.week)) {
+    ws.push({year: lw.year, week: lw.week, legs: []});
+    ws.sort((a, b) => a.year - b.year || a.week - b.week);
+  }
+  ws.forEach(w => {
+    const L = LIVE.get(wkey(w.year, w.week));
+    if (!L) return;
+    const covered = new Set(w.legs.map(l => l.for || l.by));
+    L.filter(l => !covered.has(l.by)).forEach(l => w.legs.push({by: l.by, bet: l.bet, hit: null, live: true, me: l.me, nick: l.nick}));
+  });
+  WEEKS = ws;
+  return ws;
 }
 
 // ---------------------------------------------------------------------------------------------- Derivations
@@ -48,7 +77,7 @@ function placerOf(w) {
 // 'hit' (every leg hit), 'bust' (a leg missed), 'live' (legs pending, none missed), 'open' (no legs yet).
 function statusOf(w) {
   const L = legsOf(w);
-  if (!L.length) return 'open';
+  if (!L.length || (L.length < SIZE() && !L.some(settled))) return 'open'; // legs still coming in
   if (L.some(l => l.hit === false)) return 'bust';
   return L.length >= SIZE() && L.every(l => l.hit === true) ? 'hit' : 'live';
 }
@@ -59,7 +88,7 @@ function tally(w) {
 function records() {
   const R = {};
   data.ids.forEach(id => { R[id] = {id, w: 0, l: 0, streak: 0}; });
-  LAY.weeks.forEach(w => legsOf(w).forEach(l => {
+  WEEKS.forEach(w => legsOf(w).forEach(l => {
     const r = R[l.by] || (R[l.by] = {id: l.by, w: 0, l: 0, streak: 0});
     if (l.hit === true) r.w++;
     else if (l.hit === false) r.l++;
@@ -67,7 +96,7 @@ function records() {
   // Current streak: consecutive settled legs from the latest back, + for hits, - for misses.
   Object.values(R).forEach(r => {
     const mine = [];
-    LAY.weeks.forEach(w => legsOf(w).forEach(l => { if (l.by === r.id && settled(l)) mine.push(l.hit); }));
+    WEEKS.forEach(w => legsOf(w).forEach(l => { if (l.by === r.id && settled(l)) mine.push(l.hit); }));
     let s = 0;
     for (let i = mine.length - 1; i >= 0; i--) {
       if (!s) s = mine[i] ? 1 : -1;
@@ -88,7 +117,8 @@ function markOf(l) {
   return `<span class="ly-mark is-live">${ui.icon('clock', {label: 'Pending'})}</span>`;
 }
 function legRow(l, me) {
-  const who = data.name(l.by) + (l.for ? ` · for ${data.name(l.for)}` : '');
+  const by = l.live && l.me !== l.by ? (l.me ? data.name(l.me) : l.nick) : '';
+  const who = data.name(l.by) + (l.for ? ` · for ${data.name(l.for)}` : '') + (by ? ` · entered by ${by}` : '');
   return ui.row({lead: ui.avatar(l.by, {size: 32, you: l.by === me}), title: l.bet || '—', sub: who, trail: markOf(l), me: l.by === me,
     cls: 'ly-leg' + (l.hit === false ? ' ly-busted' : '')});
 }
@@ -111,9 +141,13 @@ function placerLine(w) {
   return `<p class="ly-placer">${ui.avatar(p.id, {size: 24})}<span><b>${esc(data.name(p.id))}</b> places it · ${esc(why)}</span></p>`;
 }
 
+// The slip the top card is about: the live week (legs being entered), else the file's last week.
 function currentWeek() {
-  return LAY.weeks.length ? LAY.weeks[LAY.weeks.length - 1] : null;
+  const lw = live.liveWeek();
+  const w = lw && WEEKS.find(x => x.year === lw.year && x.week === lw.week);
+  return w || (WEEKS.length ? WEEKS[WEEKS.length - 1] : null);
 }
+const legOf = (w, id) => w ? legsOf(w).find(l => (l.for || l.by) === id) || null : null;
 
 function heroHTML(me) {
   const w = currentWeek();
@@ -133,11 +167,45 @@ function heroHTML(me) {
     + placerLine(w) + body + `</section>`;
 }
 
+// "Your leg": enter, change or remove your leg for the live week (or someone else's: st.target).
+function entryHTML(st, me) {
+  const lw = live.liveWeek();
+  if (!lw) return '';
+  const w = WEEKS.find(x => x.year === lw.year && x.week === lw.week);
+  const closed = live.isClosed(lw.year, lw.week);
+  const target = st.target || me;
+  const leg = legOf(w, target);
+  const ovl = `<p class="card-ovl">Week ${lw.week} · ${closed ? 'Legs closed' : 'Closes ' + esc(live.closeText(lw.year, lw.week))}</p>`;
+  const forLink = closed ? '' : `<button type="button" class="btn btn-plain ly-for" data-ly-for>${st.target && st.target !== me ? 'Enter a different leg' : 'Entering for someone else?'}</button>`;
+  let inner;
+  if (!target) {
+    inner = `<h2 class="card-title">Add your leg</h2><p class="card-body">Pick who you are first, so your leg goes in your slot.</p>`
+      + `<div class="ly-acts">${ui.button({label: 'Pick who you are', kind: 'primary', size: 's', attrs: {'data-you': ''}})}</div>`;
+  } else if (leg && (!st.editing || closed || !leg.live)) {
+    const mine = target === me;
+    inner = `<h2 class="card-title">${mine ? 'Your leg' : esc(data.name(target)) + '\u2019s leg'}</h2>`
+      + ui.group(legRow(leg, me), {cls: 'ly-legs ly-mine'})
+      + (closed || !leg.live ? '' : `<div class="ly-acts">${ui.button({label: 'Change', kind: 'secondary', size: 's', attrs: {'data-ly-edit': ''}})}${ui.button({label: 'Remove', kind: 'plain', size: 's', attrs: {'data-ly-remove': ''}})}</div>`);
+  } else if (closed) {
+    inner = `<h2 class="card-title">${target === me ? 'No leg from you' : 'No leg from ' + esc(data.name(target))}</h2><p class="card-body">Legs for Week ${lw.week} closed ${esc(live.closeText(lw.year, lw.week))}.</p>`;
+  } else {
+    const val = st.draft != null ? st.draft : (leg ? leg.bet : '');
+    inner = `<h2 class="card-title">${target === me ? 'Your leg' : 'Leg for ' + esc(data.name(target))}</h2>`
+      + `<form class="ly-form" data-ly-form autocomplete="off">`
+      + `<label class="ly-who">${ui.avatar(target, {size: 24, you: target === me})}<span>${esc(data.name(target))}</span></label>`
+      + `<div class="ly-field"><input class="ly-in" name="bet" type="text" maxlength="${live.BET_MAX}" enterkeyhint="send" autocapitalize="words" autocorrect="off" spellcheck="false" placeholder="e.g. Jalen Hurts anytime TD" aria-label="Your leg" value="${esc(val)}"></div>`
+      + `<div class="ly-acts">${ui.button({label: leg ? 'Save change' : 'Submit leg', kind: 'primary', size: 's', type: 'submit', attrs: {'data-ly-submit': ''}})}${leg ? ui.button({label: 'Cancel', kind: 'plain', size: 's', attrs: {'data-ly-cancel': ''}}) : ''}</div>`
+      + `</form>`;
+  }
+  const off = liveErr === 'denied' ? `<p class="ly-note">Saving legs isn't switched on in the database yet.</p>` : '';
+  return `<section class="card ly-entry" aria-label="Your leg">${ovl}${inner}${off}${forLink}</section>`;
+}
+
 function tilesHTML() {
-  const done = LAY.weeks.filter(w => statusOf(w) === 'hit' || statusOf(w) === 'bust');
-  const placed = LAY.weeks.filter(w => legsOf(w).length >= SIZE()); // a slip is placed once all its legs are in
+  const done = WEEKS.filter(w => statusOf(w) === 'hit' || statusOf(w) === 'bust');
+  const placed = WEEKS.filter(w => legsOf(w).length >= SIZE()); // a slip is placed once all its legs are in
   let n = 0, h = 0;
-  LAY.weeks.forEach(w => legsOf(w).forEach(l => { if (settled(l)) { n++; if (l.hit) h++; } }));
+  WEEKS.forEach(w => legsOf(w).forEach(l => { if (settled(l)) { n++; if (l.hit) h++; } }));
   const cashed = done.filter(w => statusOf(w) === 'hit').length;
   const best = done.reduce((b, w) => { const t = tally(w); return !b || t.hit > b.hit ? {hit: t.hit, n: t.n, week: w.week} : b; }, null);
   return `<div class="tiles tiles-3 ly-tiles">`
@@ -158,7 +226,7 @@ function recordsHTML(me) {
 }
 
 function weeksHTML(me) {
-  const past = LAY.weeks.filter(w => w !== currentWeek() || statusOf(w) === 'hit' || statusOf(w) === 'bust').slice().reverse();
+  const past = WEEKS.filter(w => legsOf(w).length).filter(w => w !== currentWeek() || statusOf(w) === 'hit' || statusOf(w) === 'bust').slice().reverse();
   if (!past.length) return '';
   return ui.sectionHeader({title: 'Every slip'}) + past.map(w => {
     const t = tally(w);
@@ -172,13 +240,14 @@ function weeksHTML(me) {
   }).join('');
 }
 
-function bodyHTML() {
+function bodyHTML(st) {
   if (!LAY) {
     if (layErr) return ui.empty({icon: 'football', title: "Couldn't load the Lay.", body: 'Check your connection.', action: {label: 'Try again', attrs: {'data-ly-retry': ''}}});
     return ui.skeleton('rows', 4, {label: 'Loading the Lay.'});
   }
+  buildWeeks();
   const me = data.me();
-  return heroHTML(me) + tilesHTML() + recordsHTML(me) + weeksHTML(me);
+  return entryHTML(st || {}, me) + heroHTML(me) + tilesHTML() + recordsHTML(me) + weeksHTML(me);
 }
 
 function subtitle() {
@@ -186,7 +255,7 @@ function subtitle() {
 }
 
 function eyebrow() {
-  const w = LAY && currentWeek();
+  const w = LAY && (buildWeeks(), currentWeek());
   return w ? `${w.year} · Week ${w.week}` : 'Parlay';
 }
 
@@ -195,7 +264,12 @@ const ST = new WeakMap();
 function fill(ctx) {
   const st = ST.get(ctx);
   if (!st) return;
-  st.body.innerHTML = bodyHTML();
+  const inp = st.body.querySelector('.ly-in');
+  const focused = !!inp && document.activeElement === inp;
+  if (inp) st.draft = inp.value;
+  st.body.innerHTML = bodyHTML(st);
+  const inp2 = st.body.querySelector('.ly-in');
+  if (inp2 && focused) { inp2.focus(); try { inp2.setSelectionRange(inp2.value.length, inp2.value.length); } catch (_) {} }
   const sub = st.el.querySelector('.lt-sub');
   if (sub) sub.textContent = subtitle();
   const eb = st.el.querySelector('.lt-eyebrow');
@@ -204,6 +278,56 @@ function fill(ctx) {
 }
 function fetchAndFill(ctx, opts) {
   return loadLay(opts).then(() => fill(ctx), () => fill(ctx));
+}
+
+// Live legs for the live week and the one before (resubscribed when the league moves on to a new week).
+function watchLive(ctx, st) {
+  st.stops.forEach(f => f());
+  st.stops = [];
+  const lw = live.liveWeek();
+  if (!lw) return;
+  [lw.week, lw.week - 1].filter(w => w >= 1).forEach(wk => {
+    st.stops.push(live.subscribe(lw.year, wk, (legs, err) => {
+      LIVE.set(wkey(lw.year, wk), legs);
+      if (wk === lw.week) liveErr = err;
+      if (LAY) fill(ctx);
+    }));
+  });
+  st.liveKey = wkey(lw.year, lw.week);
+}
+function focusInput(st) {
+  const i = st.body.querySelector('.ly-in');
+  if (i) { i.focus(); try { i.setSelectionRange(i.value.length, i.value.length); } catch (_) {} }
+}
+const SAVE_MSG = {closed: 'Legs are closed for this week.', invalid: 'Type a leg first.', denied: 'Saving legs isn\u2019t switched on yet.', failed: 'Couldn\u2019t save. Check your connection.'};
+async function submitLeg(ctx, st) {
+  if (st.busy) return;
+  const inp = st.body.querySelector('.ly-in'), btn = st.body.querySelector('[data-ly-submit]');
+  const target = st.target || data.me();
+  const bet = inp ? inp.value.trim() : '';
+  if (!target) return;
+  if (!bet) { if (inp) { ui.shake(inp); inp.focus(); } return; }
+  st.busy = true;
+  ui.setLoading(btn, true);
+  const r = await live.setLeg(target, bet);
+  st.busy = false;
+  ui.setLoading(btn, false);
+  if (r === 'ok' || r === 'dev') {
+    st.editing = false; st.draft = null;
+    if (inp) inp.blur();
+    ui.haptic('success');
+    ui.toast(target === data.me() ? 'Your leg is in.' : `${data.name(target)}\u2019s leg is in.`, {icon: 'check'});
+    fill(ctx);
+  } else ui.toast(SAVE_MSG[r] || SAVE_MSG.failed, {icon: 'info'});
+}
+async function removeLeg(ctx, st) {
+  const target = st.target || data.me();
+  if (!target || st.busy) return;
+  st.busy = true;
+  const r = await live.setLeg(target, null);
+  st.busy = false;
+  if (r === 'ok' || r === 'dev') { st.editing = false; st.draft = null; ui.toast('Leg removed.'); fill(ctx); }
+  else ui.toast(SAVE_MSG[r] || SAVE_MSG.failed, {icon: 'info'});
 }
 
 /** Prefetched at idle after launch (app.js), so the first visit opens filled in. */
@@ -224,16 +348,34 @@ export default {
 
   render() {
     return ui.largeTitle({eyebrow: eyebrow(), title: 'The Lay', subtitle: subtitle(), trailing: youButtonHTML()})
-      + `<div class="ly-body">${bodyHTML()}</div>`;
+      + `<div class="ly-body">${bodyHTML({})}</div>`;
   },
 
   mount(el, ctx) {
-    const st = {el, body: el.querySelector('.ly-body')};
+    const st = {el, body: el.querySelector('.ly-body'), target: null, editing: false, draft: null, busy: false, stops: []};
     ST.set(ctx, st);
+    watchLive(ctx, st);
     el.addEventListener('click', e => {
-      if (!e.target.closest('[data-ly-retry]')) return;
-      st.body.innerHTML = bodyHTML();
-      fetchAndFill(ctx, {fresh: true});
+      const t = e.target;
+      if (t.closest('[data-ly-retry]')) { st.body.innerHTML = bodyHTML(st); fetchAndFill(ctx, {fresh: true}); return; }
+      if (t.closest('[data-ly-edit]')) { st.editing = true; st.draft = null; fill(ctx); focusInput(st); return; }
+      if (t.closest('[data-ly-cancel]')) { st.editing = false; st.draft = null; fill(ctx); return; }
+      if (t.closest('[data-ly-remove]')) { removeLeg(ctx, st); return; }
+      const f = t.closest('[data-ly-for]');
+      if (f) {
+        ui.pickManager({title: 'Whose leg?', selected: st.target || data.me(), note: 'Enter a leg for someone who isn\u2019t on the app.', returnFocus: f}).then(id => {
+          if (!id || id === 'none') return;
+          st.target = id === data.me() ? null : id;
+          st.editing = false; st.draft = null;
+          fill(ctx);
+          focusInput(st);
+        });
+      }
+    });
+    el.addEventListener('submit', e => {
+      if (!e.target.closest('[data-ly-form]')) return;
+      e.preventDefault();
+      submitLeg(ctx, st);
     });
     if (!LAY) fetchAndFill(ctx);
     if (ctx.first) ui.stagger(el);
@@ -244,9 +386,18 @@ export default {
 
   // 'data' (league.json reloaded: maybe a new week) refetches the slip too; 'me' redraws the highlights.
   update(ctx) {
-    if (ctx.reason === 'data') { fetchAndFill(ctx, {fresh: true}); return; }
+    if (ctx.reason === 'data') {
+      const st = ST.get(ctx), lw = live.liveWeek();
+      if (st && (!lw || wkey(lw.year, lw.week) !== st.liveKey)) watchLive(ctx, st);
+      fetchAndFill(ctx, {fresh: true});
+      return;
+    }
     fill(ctx);
   },
 
-  unmount(el, ctx) { ST.delete(ctx); }
+  unmount(el, ctx) {
+    const st = ST.get(ctx);
+    if (st) st.stops.forEach(f => f());
+    ST.delete(ctx);
+  }
 };
