@@ -2,7 +2,8 @@
 // Owner: foundation (shell). Spec 3.2-3.5, 5.2, 11, 12; the five tabs of the tabs-v4 contract.
 //
 // TABS (id → root route · root view): puzzles /puzzles · puzzles, pickem /pickem · pickem, matchup /matchup · rivals,
-//   league /league/standings · league, draft /draft · moves. The app opens on Puzzles (HOME): it is the history base,
+//   league /league/standings · league, draft /draft · moves, lay /lay · lay (the weekly parlay; the tab bar scrolls
+//   sideways past the fifth tab). The app opens on Puzzles (HOME): it is the history base,
 //   covers (/puzzles/play/<slug>, /puzzles/results) present over it, and Back from another tab's root lands on it.
 //   Every root view draws its own large title with youButtonHTML() (views/you.js) in the trailing slot; a tap on any
 //   [data-you] opens the You sheet (delegated here). Tab badges: see "Tab badges" below (root views export badge()).
@@ -51,13 +52,14 @@ export const REGISTRY = {
   wrap: () => import('./views/wrap.js'),
   press: () => import('./views/press.js'),
   profile: () => import('./views/profile.js'),
+  lay: () => import('./views/lay.js'),
   _kit: () => import('./views/_kit.js')
 };
-export const TABS = ['puzzles', 'pickem', 'matchup', 'league', 'draft'];
+export const TABS = ['puzzles', 'pickem', 'matchup', 'league', 'draft', 'lay'];
 const HOME = 'puzzles'; // the tab the app opens on: the history base, where covers present, where Back from a root lands
-const TAB_VIEW = {puzzles: 'puzzles', pickem: 'pickem', matchup: 'rivals', league: 'league', draft: 'moves'}; // root view ids
-const ROOTS = {puzzles: '/puzzles', pickem: '/pickem', matchup: '/matchup', league: '/league/standings', draft: '/draft'};
-const TAB_TITLES = {puzzles: 'Puzzles', pickem: "Pick'em", matchup: 'Matchup', league: 'League', draft: 'Draft'};
+const TAB_VIEW = {puzzles: 'puzzles', pickem: 'pickem', matchup: 'rivals', league: 'league', draft: 'moves', lay: 'lay'}; // root view ids
+const ROOTS = {puzzles: '/puzzles', pickem: '/pickem', matchup: '/matchup', league: '/league/standings', draft: '/draft', lay: '/lay'};
+const TAB_TITLES = {puzzles: 'Puzzles', pickem: "Pick'em", matchup: 'Matchup', league: 'League', draft: 'Draft', lay: 'The Lay'};
 // Old bare hashes (#daily, #records...) from the first app. Null prototype: '#constructor' is not a legacy hash.
 const LEGACY = Object.assign(Object.create(null), {daily: '/puzzles', records: '/league/records', trophies: '/league/trophies', standings: '/league/standings', rivals: '/matchup', moves: '/draft'});
 const PUZZLES = ['college', 'silhouette', 'mystery', 'journey', 'grid']; // every day's steps are some of these (daily.SLUGS)
@@ -103,6 +105,10 @@ function matchSegs(p, q) {
       const y = n === 2 ? yr(b) : null;
       return y != null ? R('moves', 'root', 'draft', {seg: 'drafts', year: y}) : null;
     }
+    case 'lay':
+      // The Lay: the weekly 12-leg parlay (data/lay.json).
+      if (n === 1) return R('lay', 'root', 'lay');
+      return null;
     // ---- Legacy routes (shared links, bookmarks, share texts, notifications): redirected to the new homes.
     case 'today':
       if (n === 1) return {redirect: '/puzzles'};
@@ -1321,12 +1327,30 @@ function moveIndicator(btn, animate) {
     a.finished.then(clear, clear);
   }
 }
+// The bar scrolls sideways when it holds more tabs than fit (five across): keep the current tab in view, and fade the
+// edge that has more tabs past it.
+function revealTab(btn, animate) {
+  const bar = $('tabbar');
+  if (!btn || bar.scrollWidth <= bar.clientWidth + 1) return;
+  const l = btn.offsetLeft, r = l + btn.offsetWidth;
+  let x = null;
+  if (l < bar.scrollLeft) x = l;
+  else if (r > bar.scrollLeft + bar.clientWidth) x = r - bar.clientWidth;
+  if (x != null) bar.scrollTo({left: x, behavior: animate && !ui.RM ? 'smooth' : 'auto'});
+}
+function tabFades() {
+  const bar = $('tabbar');
+  const max = bar.scrollWidth - bar.clientWidth;
+  bar.classList.toggle('has-more-l', max > 1 && bar.scrollLeft > 1);
+  bar.classList.toggle('has-more-r', max > 1 && bar.scrollLeft < max - 1);
+}
 function updateTabBar(T, {animate = true} = {}) {
   let target = null;
   $('tabbar').querySelectorAll('.tab').forEach(b => {
     if (b.dataset.tab === T) { b.setAttribute('aria-current', 'page'); target = b; } else b.removeAttribute('aria-current');
   });
   moveIndicator(target, animate);
+  revealTab(target, animate);
   if (animate && target) {
     ui.animate(target.querySelector('.tab-ic'), [{transform: 'scale(1)'}, {transform: 'scale(.86)', offset: .35}, {transform: 'scale(1)'}], {duration: 360, easing: 'ease-out'});
     ui.haptic('selection');
@@ -1464,6 +1488,14 @@ function setupTabBar() {
     });
   });
   updateTabBar(S.tab, {animate: false});
+  tabFades();
+  bar.addEventListener('scroll', tabFades, {passive: true});
+  // A mouse wheel (desktop) scrolls the bar sideways too.
+  bar.addEventListener('wheel', e => {
+    if (bar.scrollWidth <= bar.clientWidth + 1 || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+    e.preventDefault();
+    bar.scrollBy({left: e.deltaY});
+  }, {passive: false});
   updateBadges();
   daily.subscribe(t => { if (t === 'progress' || t === 'ready' || t === 'newday' || t === 'error') queueBadges(); });
   data.subscribe(t => { if (t === 'me' || t === 'data') queueBadges(); });
@@ -1471,7 +1503,8 @@ function setupTabBar() {
   setInterval(() => { if (!document.hidden) queueBadges(); }, 30e3);
   addEventListener('resize', () => {
     const cur = bar.querySelector('.tab[aria-current="page"]');
-    if (cur) moveIndicator(cur, false);
+    if (cur) { moveIndicator(cur, false); revealTab(cur, false); }
+    tabFades();
     const v = visibleScreen();
     if (v) { checkNavHeight(v); fitNavTitle(v); }
   }, {passive: true});

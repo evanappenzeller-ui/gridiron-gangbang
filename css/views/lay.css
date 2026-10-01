@@ -1,0 +1,46 @@
+/* lay.css: The Lay tab (the weekly 12-leg parlay). Owner: LAY. Every selector starts with .v-lay. Motion: none of its own. */
+
+.v-lay .ly-body { padding-top: 8px; }
+
+/* ================================================================ This week */
+.v-lay .ly-hero { overflow: hidden; }
+.v-lay .ly-hero.ly-hit { box-shadow: inset 0 0 0 1px var(--gold); }
+.v-lay .ly-hero-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.v-lay .ly-hero .card-title { margin-top: 6px; }
+.v-lay .ly-placer {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 8px;
+  font: 400 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink-2);
+}
+.v-lay .ly-placer > .av { flex: none; }
+.v-lay .ly-placer b { color: var(--ink); font-weight: 600; }
+
+.v-lay .ly-meter { margin-top: 16px; height: 8px; border-radius: 4px; background: var(--surface-3); overflow: hidden; }
+.v-lay .ly-meter > i { display: block; height: 100%; width: 100%; border-radius: inherit; background: var(--tint); transform-origin: left center; transform: scaleX(var(--f, 0)); }
+.v-lay .ly-meter-lb { margin-top: 6px; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2); }
+.v-lay .ly-meter-lb b { color: var(--ink); font-weight: 600; }
+.v-lay .ly-waiting { margin-top: 2px; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+.v-lay .ly-hero .ly-legs { margin-top: 12px; }
+.v-lay .card > .group.ly-legs { margin-left: -20px; margin-right: -20px; margin-bottom: -20px; }
+
+/* ================================================================ Tiles */
+.v-lay .ly-tiles { margin-top: 12px; }
+
+/* ================================================================ Leg rows and records */
+.v-lay .ly-mark { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 14px; }
+.v-lay .ly-mark > .ic { width: 16px; height: 16px; stroke-width: 2.6; }
+.v-lay .ly-mark.is-hit { background: var(--tint-soft); color: var(--tint); }
+.v-lay .ly-mark.is-miss { background: var(--wrong-soft); color: var(--wrong); }
+.v-lay .ly-mark.is-live { background: var(--fill); color: var(--ink-2); }
+.v-lay .ly-leg .row-title { white-space: normal; overflow-wrap: anywhere; }
+.v-lay .ly-busted .row-title { color: var(--ink-2); }
+
+.v-lay .ly-rank { width: 20px; margin-right: 8px; text-align: center; color: var(--ink-3); }
+.v-lay .ly-rec { color: var(--ink); }
+
+/* ================================================================ Every slip */
+.v-lay .ly-week + .ly-week { margin-top: 24px; }
+.v-lay .ly-week-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+.v-lay .ly-week-h > h3 { font: 600 var(--fs-headline)/var(--lh-headline) var(--font-text); }
+.v-lay .ly-week .ly-placer { margin: 4px 0 8px; }
+.v-lay .ly-week .group-wrap, .v-lay .ly-week > .group { margin-top: 8px; }

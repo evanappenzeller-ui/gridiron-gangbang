@@ -1,0 +1,62 @@
+{
+  "about": "The Lay: the weekly 12-leg parlay. Every manager submits one leg; the lowest scorer of the previous fantasy week places it for $5. Each week lists its legs: by (manager id), bet, hit (true, false, or null while pending). A leg submitted for someone else carries for (the manager whose slot it filled). placer overrides the computed placer (lowest score the week before).",
+  "stake": 5,
+  "legs": 12,
+  "weeks": [
+    {
+      "year": 2026, "week": 1,
+      "legs": [
+        {"by": "ben", "bet": "Jalen Hurts TD", "hit": false},
+        {"by": "jayton", "for": "corbin", "bet": "D'Andre Swift anytime TD", "hit": true},
+        {"by": "dresden", "bet": "Bills -1.5", "hit": true},
+        {"by": "evan", "bet": "Tre Tucker 3+ Rec", "hit": false},
+        {"by": "jackson", "bet": "Tucker Kraft 50+ Rec Yards", "hit": true},
+        {"by": "jacob", "bet": "Drake London 54+ Yards", "hit": false},
+        {"by": "jaymin", "bet": "Bijan Robinson TD", "hit": true},
+        {"by": "jayton", "bet": "Bears ML", "hit": true},
+        {"by": "john", "bet": "TJ Hockenson 25+ Yards", "hit": true},
+        {"by": "mason", "bet": "Ladd McConkey TD", "hit": true},
+        {"by": "mitch", "bet": "Ravens alt team total 23.5", "hit": true},
+        {"by": "sayer", "bet": "DJ Moore 3+ Rec", "hit": true}
+      ]
+    },
+    {
+      "year": 2026, "week": 2,
+      "legs": [
+        {"by": "ben", "bet": "Josh Allen TD", "hit": true},
+        {"by": "corbin", "bet": "James Cook TD", "hit": true},
+        {"by": "dresden", "bet": "Devaughn Vele over 4.5 Rec", "hit": true},
+        {"by": "evan", "bet": "Justin Jefferson 50+ Rec Yards", "hit": true},
+        {"by": "jackson", "bet": "Jordan Love 2+ Pass TD", "hit": true},
+        {"by": "jacob", "bet": "Cam Skattebo TD", "hit": false},
+        {"by": "jaymin", "bet": "Ja'Marr Chase TD", "hit": true},
+        {"by": "jayton", "bet": "Jaxson Dart 2+ Pass TD", "hit": false},
+        {"by": "john", "bet": "Tampa Bay spread", "hit": false},
+        {"by": "mason", "bet": "Christian McCaffrey TD", "hit": true},
+        {"by": "mitch", "bet": "Jaguars alt team total over 19.5", "hit": false},
+        {"by": "sayer", "bet": "Brock Purdy alt 2+ Pass TD", "hit": true}
+      ]
+    },
+    {
+      "year": 2026, "week": 3,
+      "legs": [
+        {"by": "ben", "bet": "Jalen Hurts TD", "hit": true},
+        {"by": "corbin", "bet": "Parker Washington over 5.5 Rec", "hit": false},
+        {"by": "dresden", "bet": "Saints -3.5", "hit": false},
+        {"by": "evan", "bet": "Josh Allen 35+ Rush Yards", "hit": false},
+        {"by": "jackson", "bet": "Lions ML", "hit": true},
+        {"by": "jacob", "bet": "Rashee Rice 50+ Rec Yards", "hit": true},
+        {"by": "jaymin", "bet": "Derrick Henry TD", "hit": true},
+        {"by": "jayton", "bet": "Dalton Schultz 8+ Rec", "hit": false},
+        {"by": "john", "bet": "David Montgomery 40+ Rush Yards", "hit": false},
+        {"by": "mason", "bet": "Christian McCaffrey TD", "hit": true},
+        {"by": "mitch", "bet": "Cowboys alt team total under 20.5", "hit": false},
+        {"by": "sayer", "bet": "Blake Corum over 46.5 Rush Yards", "hit": false}
+      ]
+    },
+    {
+      "year": 2026, "week": 4,
+      "legs": []
+    }
+  ]
+}
