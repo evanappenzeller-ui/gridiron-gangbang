@@ -63,12 +63,10 @@ html.rm .c-pk-dot::after { animation: none; }
   background: repeating-linear-gradient(90deg, rgba(255,255,255,.07) 0 2px, transparent 2px 22px), linear-gradient(180deg, #2A9A3E, #17672B);
   box-shadow: 0 4px 0 #0C3D18, inset 0 0 0 2px var(--tint), 0 0 22px rgba(124,240,88,.25);
 }
-.v-pickem .pk-lg-ic {
-  flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 10px;
-  background: var(--surface-2); color: var(--ink-3);
-}
-.v-pickem .pk-lg-ic > .ic { width: 24px; height: 24px; }
-.v-pickem .pk-lg-t[aria-selected="true"] .pk-lg-ic { background: rgba(0,0,0,.28); color: var(--gold); }
+.v-pickem .pk-lg-ic { flex: none; display: grid; place-items: center; width: 44px; height: 44px; }
+.v-pickem .pk-badge { width: 44px; height: 44px; image-rendering: pixelated; filter: drop-shadow(2px 2px 0 rgba(0,0,0,.55)); }
+/* The league not shown: its badge waits, dimmed. */
+.v-pickem .pk-lg-t[aria-selected="false"] .pk-badge { opacity: .55; filter: grayscale(.5) drop-shadow(2px 2px 0 rgba(0,0,0,.55)); }
 .v-pickem .pk-lg-tx { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .v-pickem .pk-lg-l { font: 400 15px/18px var(--font-pixel); text-transform: uppercase; letter-spacing: 0; white-space: nowrap; }
 .v-pickem .pk-lg-t[aria-selected="true"] .pk-lg-l { text-shadow: 2px 2px 0 #000; }

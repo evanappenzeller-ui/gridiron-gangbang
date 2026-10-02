@@ -41,7 +41,7 @@ import {youButtonHTML} from './you.js';
 export const SPORT = new URL(import.meta.url).searchParams.get('sport') === 'cfb' ? 'cfb' : 'nfl';
 const CFB = SPORT === 'cfb';
 const FEED = CFB ? nfl.cfb : nfl;
-const LEAGUE = CFB ? 'College' : 'NFL';
+const LEAGUE = CFB ? 'NCAA' : 'NFL';
 const SFX = CFB ? '-cfb' : ''; // localStorage keys of the college instance
 
 const esc = data.esc;
@@ -821,11 +821,36 @@ function titleHTML() {
 }
 // The league switch under the title, the screen's focal point: two big scoreboard buttons, NFL and College, the
 // active one lit up like the field. A tap switches the screen to the other league (League switch, at the bottom).
-const LEAGUES = [{id: 'nfl', label: 'NFL', sub: 'Every game', icon: 'football'}, {id: 'cfb', label: 'College', sub: 'Top 25', icon: 'grad-cap'}];
+// Each league's badge: original 16 x 16 pixel art in the title screen's retro style (not the leagues' own logos).
+// NFL: a shield, red band with white stars over navy, a football in it. NCAA: a round gold-rimmed badge with a red
+// pennant on its pole. One character per pixel ('.' = clear), colors from the palette.
+const BADGE_PAL = {W: '#FFFFFF', R: '#E0302B', B: '#173A8C', N: '#0E2258', O: '#9A4A1C', o: '#C76A2E', G: '#FFC531', g: '#B8860B', P: '#E9D7A8'};
+const BADGES = {
+  nfl: ['...WWWWWWWWWW...', '..WRRRRRRRRRRW..', '..WRWRRWRRWRRW..', '..WRRRRRRRRRRW..', '..WNNNNNNNNNNW..', '..WNNNooooNNNW..',
+    '..WNNoOOOOoNNW..', '..WNoOWOWOWONW..', '..WNoOOOOOOONW..', '..WNNoOOOOoNNW..', '..WNNNooooNNNW..', '...WNNNNNNNNW...',
+    '....WNNNNNNW....', '.....WNNNNW.....', '......WNNW......', '.......WW.......'],
+  cfb: ['.....GGGGGG.....', '...GGBBBBBBGG...', '..GBBBBBBBBBBG..', '.GBBBPBBBBBBBBG.', '.GBBBPRRBBBBBBG.', 'GBBBBPRRRRBBBBBG',
+    'GBBBBPRRRRRRBBBG', 'GBBBBPRRRRRRRRBG', 'GBBBBPRRRRRRBBBG', 'GBBBBPRRRRBBBBBG', '.GBBBPRRBBBBBBG.', '.GBBBPBBBBBBBBG.',
+    '..GBBPBBBBBBBG..', '...GGPBBBBBGG...', '.....GGGGGG.....', '................']
+};
+function badgeSVG(id, size = 40) {
+  let rects = '';
+  (BADGES[id] || []).forEach((row, y) => {
+    for (let x = 0; x < row.length;) {
+      const c = row[x];
+      let n = 1;
+      while (x + n < row.length && row[x + n] === c) n++;
+      if (BADGE_PAL[c]) rects += `<rect x="${x}" y="${y}" width="${n}" height="1" fill="${BADGE_PAL[c]}"/>`;
+      x += n;
+    }
+  });
+  return `<svg class="pk-badge" viewBox="0 0 16 16" width="${size}" height="${size}" shape-rendering="crispEdges" aria-hidden="true" focusable="false">${rects}</svg>`;
+}
+const LEAGUES = [{id: 'nfl', label: 'NFL', sub: 'Every game'}, {id: 'cfb', label: 'NCAA', sub: 'Top 25'}];
 function leagueTabsHTML() {
   return `<div class="pk-lg" role="tablist" aria-label="League">${LEAGUES.map(l => `<button type="button" role="tab" class="pk-lg-t" data-pk-sport="${l.id}"`
     + ` aria-selected="${l.id === SPORT}"${l.id === SPORT ? '' : ' tabindex="-1"'} aria-label="${l.label} pick'em, ${l.sub.toLowerCase()}">`
-    + `<span class="pk-lg-ic" aria-hidden="true">${ui.icon(l.icon)}</span>`
+    + `<span class="pk-lg-ic" aria-hidden="true">${badgeSVG(l.id)}</span>`
     + `<span class="pk-lg-tx" aria-hidden="true"><span class="pk-lg-l">${l.label}</span><span class="pk-lg-s">${l.sub}</span></span>`
     + `<span class="pk-lg-u" aria-hidden="true"></span></button>`).join('')}</div>`;
 }
@@ -1937,7 +1962,7 @@ function boardBody(mode, res, y, w) {
     return ui.empty({icon: 'info', title: "The leaderboard didn't load.", body: 'Check your connection and try again.', action: retry});
   }
   if (err === 'scores' && !rows.length) {
-    return ui.empty({icon: 'info', title: "The games didn't load.", body: `The table needs the ${CFB ? 'college' : 'NFL'} scores. Check your connection and try again.`, action: retry});
+    return ui.empty({icon: 'info', title: "The games didn't load.", body: `The table needs the ${CFB ? 'NCAA' : 'NFL'} scores. Check your connection and try again.`, action: retry});
   }
   const warn = err ? (mode === 'season' ? "Some weeks couldn't load, so this table may be incomplete." : "Some picks couldn't load, so this table may be incomplete.")
     : res && res.stale ? 'Scores may be out of date.' : '';
@@ -2220,7 +2245,7 @@ async function switchTo(sport) {
   ui.lsSet(SPORT_KEY, sport);
   host.sport = sport;
   if (sport === 'cfb') {
-    try { await loadCfb(); } catch (e) { console.error(e); ui.toast("College didn't load. Try again.", {icon: 'x-circle'}); host.sport = 'nfl'; ui.lsSet(SPORT_KEY, 'nfl'); return; }
+    try { await loadCfb(); } catch (e) { console.error(e); ui.toast("NCAA didn't load. Try again.", {icon: 'x-circle'}); host.sport = 'nfl'; ui.lsSet(SPORT_KEY, 'nfl'); return; }
   }
   swap(true);
 }
@@ -2241,7 +2266,7 @@ function swap(animate) {
   // The league just chosen lights up with a little bounce.
   const to = el.querySelector(`.pk-lg-t[data-pk-sport="${host.sport}"]`);
   if (animate && r0 && to && ctx.visible && !ui.RM) ui.animate(to, [{transform: 'scale(.94)'}, {transform: 'none'}], {spring: 'bouncy'});
-  if (animate) { ui.haptic('selection'); ui.announce(`${next === VIEW ? 'NFL' : 'College'} pick'em.`); }
+  if (animate) { ui.haptic('selection'); ui.announce(`${next === VIEW ? 'NFL' : 'NCAA'} pick'em.`); }
 }
 setSwitcher(switchTo);
 
