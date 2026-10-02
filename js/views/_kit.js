@@ -60,9 +60,9 @@ function routeChecks() {
   const out = [];
   const bad = (list, f) => list.map(f).filter(Boolean);
   // The six tab roots.
-  const roots = [['/puzzles', 'puzzles', 'puzzles'], ['/pickem', 'pickem', 'pickem'], ['/matchup', 'matchup', 'rivals'], ['/league/standings', 'league', null], ['/draft', 'draft', 'moves'], ['/lay', 'lay', 'lay'], ['/lab', 'lab', 'lab']];
+  const roots = [['/puzzles', 'puzzles', 'puzzles'], ['/pickem', 'pickem', 'pickem'], ['/matchup', 'matchup', 'rivals'], ['/league/standings', 'league', null], ['/draft', 'draft', 'moves'], ['/lay', 'lay', 'lay']];
   let miss = bad(roots, ([p, tab, view]) => { const r = parseRoute(p); return r && r.open === 'root' && r.tab === tab && (!view || r.view === view) && r.path === p ? null : p; });
-  out.push({name: 'Routes: the six tab roots', pass: !miss.length && TABS.join() === 'puzzles,pickem,matchup,league,draft,lay,lab', detail: miss.length ? 'wrong: ' + miss.join(', ') : TABS.join(' · ')});
+  out.push({name: 'Routes: the six tab roots', pass: !miss.length && TABS.join() === 'puzzles,pickem,matchup,league,draft,lay', detail: miss.length ? 'wrong: ' + miss.join(', ') : TABS.join(' · ')});
   // Every legacy link lands on its canonical new path.
   miss = bad(LEGACY_LINKS, ([p, to]) => { const r = parseRoute(p); return r && r.path === to ? null : `${p || '(empty)'} → ${r ? r.path : 'nothing'}`; });
   out.push({name: 'Routes: old links redirect', pass: !miss.length, detail: miss.length ? miss.join('; ') : `${LEGACY_LINKS.length} old links land on their new homes`});

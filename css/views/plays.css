@@ -1,0 +1,30 @@
+/* plays.css: Name the play (run cover module js/views/plays.js; diagrams from js/core/plays.js). */
+.v-run .c-play .cl-count { margin: 0 0 8px; color: var(--ink-3); }
+.v-run .pl-verdict { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 14px; }
+.v-run .pl-verdict[hidden] { display: none; }
+.v-run .pl-verdict .lb-next { margin-top: 0; }
+.v-run .lb-card { padding: 8px; background: #1F6B2E; }
+.v-run .lb-field { display: block; width: 100%; height: auto; background: repeating-linear-gradient(0deg, #217633 0 32px, #1D6A2D 32px 64px); border-radius: 8px; }
+.v-run .lb-yd { stroke: rgba(255,255,255,.35); stroke-width: 2; }
+.v-run .lb-los { stroke: #4CC9FF; stroke-width: 2.5; stroke-dasharray: 6 5; }
+.v-run .lb-ol { fill: #fff; stroke: #0A1430; stroke-width: 2; }
+.v-run .lb-man { fill: #fff; stroke: #0A1430; stroke-width: 2; }
+.v-run .lb-man.is-qb { fill: #FFC531; }
+.v-run .lb-rt { fill: none; stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; }
+.v-run .lb-rt.is-fake { stroke-dasharray: 5 5; }
+.v-run .lb-blk { fill: none; stroke: #fff; stroke-width: 3; stroke-linecap: round; opacity: .85; }
+.v-run .lb-chs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+.v-run .lb-ch {
+  min-height: 56px; padding: 8px 10px; border-radius: 10px;
+  background: var(--surface-1); box-shadow: var(--pixel-shadow), inset 0 0 0 2px var(--separator);
+  font: 400 12px/18px var(--font-pixel); text-transform: uppercase; color: var(--ink);
+}
+.v-run .lb-ch.is-pressed { transform: translateY(3px); }
+.v-run .lb-ch.is-right { background: var(--tint); color: var(--on-tint); box-shadow: 0 4px 0 #3E9A2B; }
+.v-run .lb-ch.is-wrong { background: var(--wrong); color: #fff; }
+.v-run .lb-ch.is-dim { opacity: .45; }
+.v-run .lb-next { margin-top: 14px; }
+.v-run .lb-side { margin: 10px 0 8px; font: 400 15px/18px var(--font-num); text-transform: uppercase; letter-spacing: .06em; color: var(--gold); }
+.v-run .lb-x path { stroke: #fff; stroke-width: 3.5; stroke-linecap: round; filter: drop-shadow(0 0 1px #000); }
+.v-run .lb-man-ln { stroke: #FF5A4A; stroke-width: 2.5; stroke-dasharray: 5 4; }
+.v-run .lb-field .is-dim { opacity: .35; }

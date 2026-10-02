@@ -8,6 +8,7 @@ import * as daily from './daily.js';
 import * as fire from './fire.js';
 import * as motw from './motw.js';
 import * as week from './week.js';
+import {playByName} from './plays.js';
 
 // ---------------------------------------------------------------------------
 // Old formulas, copied from the old index.html
@@ -1111,6 +1112,13 @@ export async function runChecks() {
   } catch (_) { V4S = null; }
   const needV4 = () => { needV3(); if (!V4S) throw new Error('could not craft v4 days'); };
   const ids4 = d => daily.stepsFor(d).map(s => s.id).join();
+  // A Name the play day's rounds: an offensive play then a defensive one, each with four different names of its own
+  // family (run, pass or coverage) and the answer among them.
+  const playRoundsOk = R => R.length === 2 && R.map(r => r.side).join() === 'off,def' && R.every(r => {
+    const p = playByName(r.name);
+    return p && p.side === r.side && Array.isArray(r.o) && r.o.length === 4 && new Set(r.o).size === 4 && r.o[r.a] === r.name
+      && r.o.every(n => { const q = playByName(n); return q && q.cat === p.cat; });
+  });
   const fails = log => log.map((x, i) => x ? null : i + 1).filter(Boolean);
 
   check('v4 days: dayVersion 4, steps and slugs from t in canonical order, v3 points and prompts, 600 max', () => {
@@ -1327,7 +1335,11 @@ export async function runChecks() {
       const keys = ['v', 't', ...['g', 'c', 's', 'w', 'j'].filter(f => t.some(y => V4_FIELD[y] === f))];
       if (!Array.isArray(d.t) || d.t.join() !== t.join()) bad.push(at + `types ${d.t} (want ${t})`);
       if (Object.keys(d).join() !== keys.join()) bad.push(at + `keys ${Object.keys(d)} (want ${keys})`);
-      if (ids4(d) !== t.join() || daily.slugsFor(d).length !== 3 || daily.maxPts(d) !== 600) bad.push(at + 'steps');
+      // Name the play days (every other day from PLAY_FROM) play it in place of the last puzzle.
+      const want = daily.playsOn(d) ? [...t.slice(0, -1), 'play'] : t;
+      if (daily.playsOn(d) !== (i + 1 >= daily.PLAY_FROM && (i + 1 - daily.PLAY_FROM) % 2 === 0)) bad.push(at + 'play day');
+      if (ids4(d) !== want.join() || daily.slugsFor(d).length !== 3 || daily.maxPts(d) !== 600) bad.push(at + 'steps');
+      if (daily.playsOn(d) && !playRoundsOk(daily.playRounds(d))) bad.push(at + 'play rounds');
       shortPartsBad(d, t).forEach(x => bad.push(at + x));
     });
     // The rotation over the whole file: each type 3 days in every 5, never more than 2 days missed in a row, and every

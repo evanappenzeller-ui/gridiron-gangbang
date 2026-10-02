@@ -198,6 +198,11 @@ export async function renderShareCard(o = {}) {
           c.fill();
         }
       }
+    } else if (id === 'play') {
+      // Name the play: one square per round
+      const a = (ds.play && ds.play.a) || [];
+      label('PLAYS', daily.ptsPlay(ds, day), y + 34);
+      squares(daily.playRounds(day).map((q, r) => a[r] == null ? null : a[r] === q.a), y);
     } else {
       // Grid: its squares in the day's shape (3 x 3, or 1 x 2 on a v3 or v4 day)
       label('GRID', daily.ptsGrid(ds, day), y + 34);

@@ -21,12 +21,13 @@ import silhouette from './silhouette.js';
 import mystery from './mystery.js';
 import journey from './journey.js';
 import grid from './grid.js';
+import plays from './plays.js';
 
 const esc = data.esc;
-const MODS = {college, silhouette, mystery, journey, grid};
-const SLUG_ID = {college: 'col', silhouette: 'sil', mystery: 'who', journey: 'jr', grid: 'grid'};
+const MODS = {college, silhouette, mystery, journey, grid, plays};
+const SLUG_ID = {college: 'col', silhouette: 'sil', mystery: 'who', journey: 'jr', grid: 'grid', plays: 'play'};
 // Labels before puzzles load (then daily.STEPS[i].label).
-const SLUG_LABEL = {college: 'College', silhouette: 'Silhouettes', mystery: 'Mystery player', journey: 'Journey', grid: 'Grid'};
+const SLUG_LABEL = {college: 'College', silhouette: 'Silhouettes', mystery: 'Mystery player', journey: 'Journey', grid: 'Grid', plays: 'Name the play'};
 const EASE_IN = 'cubic-bezier(.4,0,1,1)', EASE_OUT = 'cubic-bezier(.22,1,.36,1)';
 const PLAY = slug => '/puzzles/play/' + slug;
 

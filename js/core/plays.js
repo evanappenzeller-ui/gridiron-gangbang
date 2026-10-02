@@ -1,7 +1,9 @@
-// Lab tab root (#/lab): a tester tab for puzzle ideas, meant to be thrown away. Now: "Name that play", a
-// Madden-style play diagram (formation, routes, blocks) and four names to pick from; a streak counter. Owner: LAB.
-import * as ui from '../core/ui.js';
-import {youButtonHTML} from './you.js';
+// The play book for "Name the play" (the daily puzzle, slug 'plays'): Madden-style play art, offense (routes,
+// blocks, handoffs and fakes) and defense (zones, man coverage, blitzes), and the daily rounds. No DOM. Owner: PUZZLES.
+//
+// Each day that plays it has two rounds, both picked from the puzzle day number (the same on every phone): an
+// offensive play, then a defensive one. Four names to pick from, the wrong ones always of the same kind (a run play
+// gets only run plays, a pass play pass plays, a defense other defenses), and the diagram is mirrored on some days.
 
 // ---------------------------------------------------------------------------------------------- Plays
 // Field: x 0-100 across, y down the screen (line of scrimmage at y 62, downfield is up). A route is a list of
@@ -13,7 +15,7 @@ const P = (x, y, t = 'skill', lab = '') => ({x, y, t, lab});
 const QB_UC = P(50, LOS + 5, 'qb', 'QB'), QB_SG = P(50, LOS + 8, 'qb', 'QB');
 const blocks = (dx = 0, dy = -4) => OL.map(o => ({kind: 'block', pts: [[o.x, o.y], [o.x + dx, o.y + dy]]}));
 
-const PLAYS = [
+export const PLAYS = [
   {name: 'Four Verticals', players: [QB_SG, P(50, 77, 'skill', 'RB'), P(8, LOS), P(24, LOS + 2), P(76, LOS + 2), P(92, LOS)],
     routes: [{pts: [[8, LOS], [8, 8]]}, {pts: [[24, LOS + 2], [30, 8]]}, {pts: [[76, LOS + 2], [70, 8]]}, {pts: [[92, LOS], [92, 8]]}, {pts: [[50, 77], [62, 54]], c: 2}, ...blocks(0, -3)]},
   {name: 'Mesh', players: [QB_SG, P(50, 77, 'skill', 'RB'), P(8, LOS), P(26, LOS + 2), P(74, LOS + 2), P(92, LOS)],
@@ -47,7 +49,27 @@ const PLAYS = [
       ...[50, 55, 60].map(x => ({kind: 'block', pts: [[x, LOS + 1], [x + 10, LOS - 4]]})), ...[40, 45].map(x => ({kind: 'block', pts: [[x, LOS + 1], [x, LOS - 4]]}))]}
 ];
 
-PLAYS.forEach(p => { p.side = 'off'; });
+// More looks that are easy to mix up with the ones above (the puzzle's harder setting).
+PLAYS.push(
+  {name: 'Inside Zone', players: [QB_UC, P(50, 77, 'skill', 'RB'), P(8, LOS), P(92, LOS), P(66, LOS + 1, 'skill', 'TE')],
+    routes: [{kind: 'run', pts: [[50, 77], [53, 70], [55, 62], [52, 50]]}, ...blocks(3, -4), {kind: 'block', pts: [[66, LOS + 1], [69, LOS - 3]]}, {kind: 'block', pts: [[92, LOS], [90, LOS - 6]]}]},
+  {name: 'Counter', players: [QB_UC, P(50, 77, 'skill', 'RB'), P(8, LOS), P(92, LOS), P(66, LOS + 1, 'skill', 'TE')],
+    routes: [{kind: 'run', pts: [[50, 77], [45, 74], [52, 70], [60, 62], [61, 50]]}, {kind: 'block', pts: [[45, LOS + 1], [46, LOS + 5], [58, LOS + 5], [61, LOS - 3]]},
+      {kind: 'block', pts: [[66, LOS + 1], [66, LOS + 5], [62, LOS + 5], [64, LOS - 3]]}, ...OL.filter(o => o.x !== 45).map(o => ({kind: 'block', pts: [[o.x, o.y], [o.x - 4, o.y - 4]]})), {kind: 'block', pts: [[92, LOS], [88, LOS - 6]]}]},
+  {name: 'Toss', players: [QB_UC, P(50, 77, 'skill', 'RB'), P(8, LOS), P(92, LOS), P(66, LOS + 1, 'skill', 'TE')],
+    routes: [{kind: 'fake', pts: [[50, LOS + 5], [60, 74]]}, {kind: 'run', pts: [[50, 77], [70, 77], [86, 70], [90, 54]]}, ...blocks(6, -3), {kind: 'block', pts: [[66, LOS + 1], [74, LOS - 3]]}, {kind: 'block', pts: [[92, LOS], [94, LOS - 6]]}]},
+  {name: 'HB Draw', players: [QB_SG, P(56, 72, 'skill', 'RB'), P(8, LOS), P(24, LOS + 2), P(76, LOS + 2), P(92, LOS)],
+    routes: [{kind: 'qb', pts: [[50, LOS + 8], [50, 75]]}, {kind: 'run', pts: [[56, 72], [52, 66], [50, 58], [50, 48]]}, {pts: [[8, LOS], [8, 30]]}, {pts: [[92, LOS], [92, 30]]},
+      ...OL.map(o => ({kind: 'block', pts: [[o.x, o.y], [o.x + (o.x < 50 ? -3 : o.x > 50 ? 3 : 0), o.y + 3]]}))]},
+  {name: 'Levels', players: [QB_SG, P(50, 77, 'skill', 'RB'), P(8, LOS), P(24, LOS + 2), P(76, LOS + 2), P(92, LOS)],
+    routes: [{pts: [[8, LOS], [8, 40], [40, 40]]}, {pts: [[24, LOS + 2], [24, 54], [48, 54]], c: 1}, {pts: [[92, LOS], [92, 10]]}, {pts: [[76, LOS + 2], [76, 36], [86, 24]], c: 1}, ...blocks()]},
+  {name: 'Dagger', players: [QB_SG, P(50, 77, 'skill', 'RB'), P(8, LOS), P(24, LOS + 2), P(76, LOS + 2), P(92, LOS)],
+    routes: [{pts: [[24, LOS + 2], [26, 10]], c: 1}, {pts: [[8, LOS], [8, 38], [40, 36]]}, {pts: [[92, LOS], [92, 52], [89, 54]]}, {pts: [[76, LOS + 2], [76, 40], [90, 28]], c: 1}, ...blocks()]},
+  {name: 'Drive', players: [QB_SG, P(50, 77, 'skill', 'RB'), P(8, LOS), P(24, LOS + 2), P(76, LOS + 2), P(92, LOS)],
+    routes: [{pts: [[24, LOS + 2], [30, 58], [78, 57]], c: 1}, {pts: [[76, LOS + 2], [76, 44], [40, 44]], c: 1}, {pts: [[8, LOS], [8, 10]]}, {pts: [[92, LOS], [92, 30], [96, 34]]}, ...blocks()]}
+);
+const RUNS = new Set(['HB Dive', 'Outside Zone', 'Power', 'Inside Zone', 'Counter', 'Toss', 'HB Draw']);
+PLAYS.forEach(p => { p.side = 'off'; p.cat = RUNS.has(p.name) ? 'run' : 'pass'; });
 
 // ---------------------------------------------------------------------------------------------- Defense
 // Defensive play art the Madden way, against a 2x2 shotgun (drawn dim): defenders as X marks, each with its job:
@@ -59,7 +81,7 @@ const Z = (cx, cy, rx, ry, c) => ({zone: [cx, cy, rx, ry], c});
 const DL = (o = {}) => [{x: 37, y: 57, ...o.de1}, {x: 46, y: 57, ...o.dt1}, {x: 54, y: 57, ...o.dt2}, {x: 63, y: 57, ...o.de2}];
 const D = (x, y, job) => Object.assign({x, y}, job);
 const blitz = (...pts) => ({blitz: pts});
-const DEFENSE = [
+export const DEFENSE = [
   {name: 'Cover 2', d: [...DL(), D(8, 52, Z(10, 47, 9, 5, 'flat')), D(92, 52, Z(90, 47, 9, 5, 'flat')), D(24, 50, Z(28, 43, 9, 5, 'hook')),
     D(42, 47, Z(43, 41, 8, 5, 'hook')), D(58, 47, Z(60, 41, 8, 5, 'hook')), D(32, 26, Z(24, 18, 20, 9, 'deep')), D(68, 26, Z(76, 18, 20, 9, 'deep'))]},
   {name: 'Cover 3', d: [...DL(), D(8, 52, Z(14, 18, 13, 10, 'deep')), D(92, 52, Z(86, 18, 13, 10, 'deep')), D(50, 26, Z(50, 14, 15, 9, 'deep')),
@@ -82,18 +104,20 @@ const DEFENSE = [
   {name: 'Prevent', d: [DL()[0], DL()[1], DL()[3], D(8, 46, Z(10, 22, 9, 12, 'deep')), D(92, 46, Z(90, 22, 9, 12, 'deep')), D(30, 30, Z(30, 12, 10, 8, 'deep')),
     D(50, 28, Z(50, 10, 10, 8, 'deep')), D(70, 30, Z(70, 12, 10, 8, 'deep')), D(30, 46, Z(28, 40, 10, 5, 'hook')), D(50, 46, Z(50, 38, 9, 5, 'hook')), D(70, 46, Z(72, 40, 10, 5, 'hook'))]}
 ];
-DEFENSE.forEach(p => { p.side = 'def'; });
+DEFENSE.forEach(p => { p.side = 'def'; p.cat = 'def'; });
 const OFF_BACK = [P(8, LOS), P(24, LOS + 2), P(76, LOS + 2), P(92, LOS), P(50, 77, 'skill', 'RB'), QB_SG];
 
 // ---------------------------------------------------------------------------------------------- Drawing
 const SX = 3.6, SY = 3.2; // viewBox 360 x 256 (x 0-100 -> 0-360, y 0-80 -> 0-256)
-const pt = ([x, y]) => `${(x * SX).toFixed(1)},${(y * SY).toFixed(1)}`;
+let FLIP = false; // mirror the whole diagram left to right (a round's flip)
+const fx = x => (FLIP ? 100 - x : x);
+const pt = ([x, y]) => `${(fx(x) * SX).toFixed(1)},${(y * SY).toFixed(1)}`;
 const ROUTE_C = ['#FFE14D', '#FF5A4A', '#4CC9FF'];
 function routeSVG(r, i) {
   const d = 'M' + r.pts.map(pt).join(' L');
   if (r.kind === 'block') {
-    const [a, b] = r.pts.slice(-2), ang = Math.atan2((b[1] - a[1]) * SY, (b[0] - a[0]) * SX) + Math.PI / 2;
-    const bx = b[0] * SX, by = b[1] * SY, dx = Math.cos(ang) * 7, dy = Math.sin(ang) * 7;
+    const [a, b] = r.pts.slice(-2), ang = Math.atan2((b[1] - a[1]) * SY, (fx(b[0]) - fx(a[0])) * SX) + Math.PI / 2;
+    const bx = fx(b[0]) * SX, by = b[1] * SY, dx = Math.cos(ang) * 7, dy = Math.sin(ang) * 7;
     return `<path d="${d}" class="lb-blk"/><path d="M${(bx - dx).toFixed(1)},${(by - dy).toFixed(1)} L${(bx + dx).toFixed(1)},${(by + dy).toFixed(1)}" class="lb-blk"/>`;
   }
   const color = r.kind === 'blitz' ? '#FF3B30' : r.kind === 'run' ? '#FFC531' : r.kind === 'fake' ? '#B9C1DC' : r.kind === 'qb' ? '#7CF058' : ROUTE_C[r.c || 0];
@@ -103,88 +127,54 @@ function routeSVG(r, i) {
 function defenseSVG(play) {
   let zones = '', jobs = '', men = '';
   play.d.forEach((m, i) => {
-    const x = m.x * SX, y = m.y * SY;
+    const x = fx(m.x) * SX, y = m.y * SY;
     if (m.zone) {
       const [cx, cy, rx, ry] = m.zone, col = ZC[m.c] || ZC.hook;
-      zones += `<ellipse cx="${cx * SX}" cy="${cy * SY}" rx="${rx * SX}" ry="${ry * SY}" fill="${col}" fill-opacity=".38" stroke="${col}" stroke-width="2"/>`;
-      jobs += `<line x1="${x}" y1="${y}" x2="${cx * SX}" y2="${cy * SY}" stroke="${col}" stroke-width="2" opacity=".9"/>`;
-    } else if (m.man) jobs += `<line x1="${x}" y1="${y}" x2="${m.man[0] * SX}" y2="${m.man[1] * SY}" class="lb-man-ln"/>`;
+      zones += `<ellipse cx="${fx(cx) * SX}" cy="${cy * SY}" rx="${rx * SX}" ry="${ry * SY}" fill="${col}" fill-opacity=".38" stroke="${col}" stroke-width="2"/>`;
+      jobs += `<line x1="${x}" y1="${y}" x2="${fx(cx) * SX}" y2="${cy * SY}" stroke="${col}" stroke-width="2" opacity=".9"/>`;
+    } else if (m.man) jobs += `<line x1="${x}" y1="${y}" x2="${fx(m.man[0]) * SX}" y2="${m.man[1] * SY}" class="lb-man-ln"/>`;
     else if (m.blitz) jobs += routeSVG({kind: 'blitz', pts: [[m.x, m.y], ...m.blitz]}, 'b' + i);
     else jobs += routeSVG({kind: 'blitz', pts: [[m.x, m.y], [m.x, m.y + 4.5]]}, 'r' + i); // a down lineman's rush
     men += `<g class="lb-x" transform="translate(${x},${y})"><path d="M-6,-6 L6,6 M6,-6 L-6,6"/></g>`;
   });
-  const off = OL.map(o => `<rect x="${o.x * SX - 7}" y="${o.y * SY - 7}" width="14" height="14" class="lb-ol is-dim"/>`).join('')
-    + OFF_BACK.map(p => `<circle cx="${p.x * SX}" cy="${p.y * SY}" r="7.5" class="lb-man is-dim${p.t === 'qb' ? ' is-qb' : ''}"/>`).join('');
+  const off = OL.map(o => `<rect x="${fx(o.x) * SX - 7}" y="${o.y * SY - 7}" width="14" height="14" class="lb-ol is-dim"/>`).join('')
+    + OFF_BACK.map(p => `<circle cx="${fx(p.x) * SX}" cy="${p.y * SY}" r="7.5" class="lb-man is-dim${p.t === 'qb' ? ' is-qb' : ''}"/>`).join('');
   return zones + jobs + off + men;
 }
-function playSVG(play) {
+/** The play's diagram (SVG markup). flip: mirrored left to right. Marker ids are prefixed with `key`, so two
+ *  diagrams on a page never share one. */
+export function playSVG(play, {flip = false, key = 'p'} = {}) {
+  FLIP = !!flip;
+  try { return drawPlay(play).replace(/lb-arrow-/g, `lb-arrow-${key}-`); } finally { FLIP = false; }
+}
+function drawPlay(play) {
   const yards = [10, 22, 34, 46].map(y => `<line x1="0" x2="360" y1="${y * SY}" y2="${y * SY}" class="lb-yd"/>`).join('');
   const los = `<line x1="0" x2="360" y1="${LOS * SY - 6}" y2="${LOS * SY - 6}" class="lb-los"/>`;
   if (play.side === 'def') return `<svg class="lb-field" viewBox="0 0 360 256" role="img" aria-label="A defensive play diagram">${yards}${los}${defenseSVG(play)}</svg>`;
   const routes = play.routes.map((r, i) => routeSVG(r, i)).join('');
-  const men = OL.map(o => `<rect x="${o.x * SX - 7}" y="${o.y * SY - 7}" width="14" height="14" class="lb-ol"/>`).join('')
-    + play.players.map(p => `<circle cx="${p.x * SX}" cy="${p.y * SY}" r="7.5" class="lb-man${p.t === 'qb' ? ' is-qb' : ''}"/>`).join('');
+  const men = OL.map(o => `<rect x="${fx(o.x) * SX - 7}" y="${o.y * SY - 7}" width="14" height="14" class="lb-ol"/>`).join('')
+    + play.players.map(p => `<circle cx="${fx(p.x) * SX}" cy="${p.y * SY}" r="7.5" class="lb-man${p.t === 'qb' ? ' is-qb' : ''}"/>`).join('');
   return `<svg class="lb-field" viewBox="0 0 360 256" role="img" aria-label="A play diagram">${yards}${los}${routes}${men}</svg>`;
 }
 
-// ---------------------------------------------------------------------------------------------- Game
-const ST = new WeakMap();
-const shuffle = a => { const b = a.slice(); for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
-// Mode: 'all' | 'off' | 'def' (kept on this phone). Wrong answers come from the same side of the ball.
-const MODES = [{id: 'all', label: 'Both'}, {id: 'off', label: 'Offense'}, {id: 'def', label: 'Defense'}];
-const poolOf = mode => mode === 'off' ? PLAYS : mode === 'def' ? DEFENSE : PLAYS.concat(DEFENSE);
-function newRound(st) {
-  const pool = poolOf(st.mode);
-  let play;
-  do { play = pool[Math.floor(Math.random() * pool.length)]; } while (pool.length > 1 && play.name === st.last);
-  st.last = play.name;
-  const right = play.name, side = play.side === 'def' ? DEFENSE : PLAYS;
-  st.round = {play, right, choices: shuffle([right, ...shuffle(side.filter(p => p.name !== right).map(p => p.name)).slice(0, 3)]), picked: null};
-}
-function roundHTML(st) {
-  const r = st.round;
-  const btns = r.choices.map(c => {
-    const cls = !r.picked ? '' : c === r.right ? ' is-right' : c === r.picked ? ' is-wrong' : ' is-dim';
-    return `<button type="button" class="lb-ch${cls}" data-lb-pick="${c}"${r.picked ? ' aria-disabled="true"' : ''}>${c}</button>`;
-  }).join('');
-  const res = !r.picked ? '' : r.picked === r.right ? `<p class="lb-res is-right">${ui.icon('check-circle')} Nailed it. Streak ${st.streak}.</p>` : `<p class="lb-res is-wrong">${ui.icon('x-circle')} It's ${r.right}. Streak over.</p>`;
-  return `<p class="lb-side">${r.play.side === 'def' ? 'Defense: name the coverage' : 'Offense: name the play'}</p><div class="card lb-card">${playSVG(r.play)}</div>`
-    + `<div class="lb-chs">${btns}</div>${res}`
-    + (r.picked ? ui.button({label: 'Next play', kind: 'primary', attrs: {'data-lb-next': ''}, cls: 'lb-next'}) : '')
-    + `<p class="lb-meta">Streak ${st.streak} · Best ${st.best} · ${poolOf(st.mode).length} plays in the book</p>`;
-}
 
-const modeNow = () => { const m = ui.lsGet('gg-lab-mode'); return m === 'off' || m === 'def' ? m : 'all'; };
-export default {
-  id: 'lab',
-  title: 'Lab',
-  render() {
-    return ui.largeTitle({eyebrow: 'Tester · Not final', title: 'Lab', subtitle: 'Name that play: read the diagram, pick the play.', trailing: youButtonHTML()})
-      + `<div class="lb-mode">${ui.seg({name: 'lb-mode', items: MODES, value: modeNow(), label: 'Which plays'})}</div><div class="lb-body"></div>`;
-  },
-  mount(el, ctx) {
-    const st = {el, body: el.querySelector('.lb-body'), streak: 0, best: Number(ui.lsGet('gg-lab-best')) || 0, last: '', round: null, mode: modeNow()};
-    el.addEventListener('ui:change', e => {
-      if (!e.detail || e.detail.name !== 'lb-mode') return;
-      st.mode = e.detail.value; ui.lsSet('gg-lab-mode', st.mode);
-      newRound(st); ui.crossfade(st.body, () => { st.body.innerHTML = roundHTML(st); });
-    });
-    ST.set(ctx, st);
-    newRound(st);
-    st.body.innerHTML = roundHTML(st);
-    el.addEventListener('click', e => {
-      const pick = e.target.closest('[data-lb-pick]');
-      if (pick && !st.round.picked) {
-        st.round.picked = pick.dataset.lbPick;
-        const ok = st.round.picked === st.round.right;
-        st.streak = ok ? st.streak + 1 : 0;
-        if (st.streak > st.best) { st.best = st.streak; ui.lsSet('gg-lab-best', st.best); }
-        ui.haptic(ok ? 'success' : 'error');
-        st.body.innerHTML = roundHTML(st);
-        return;
-      }
-      if (e.target.closest('[data-lb-next]')) { newRound(st); ui.crossfade(st.body, () => { st.body.innerHTML = roundHTML(st); }); }
-    });
-  },
-  unmount(el, ctx) { ST.delete(ctx); }
-};
+// ---------------------------------------------------------------------------------------------- Daily rounds
+const BOOK = PLAYS.concat(DEFENSE);
+export const playByName = name => BOOK.find(p => p.name === name) || null;
+// A small seeded generator (mulberry32): the same rounds on every phone for a day.
+function rng(seed) {
+  let a = seed >>> 0;
+  return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+const pick = (r, list) => list[Math.floor(r() * list.length)];
+const shuffle = (r, a) => { const b = a.slice(); for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
+/** A day's rounds: [{name (the answer), side ('off' | 'def'), o: [four names], a (the answer's index in o), flip}]. */
+export function roundsFor(pnum) {
+  const r = rng(Number(pnum) * 2654435761 + 97);
+  return [PLAYS, DEFENSE].map(pool => {
+    const play = pick(r, pool);
+    const same = pool.filter(p => p.cat === play.cat && p.name !== play.name).map(p => p.name);
+    const o = shuffle(r, [play.name, ...shuffle(r, same).slice(0, 3)]);
+    return {name: play.name, side: play.side, o, a: o.indexOf(play.name), flip: r() < .5};
+  });
+}

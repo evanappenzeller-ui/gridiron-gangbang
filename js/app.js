@@ -53,17 +53,16 @@ export const REGISTRY = {
   press: () => import('./views/press.js'),
   profile: () => import('./views/profile.js'),
   lay: () => import('./views/lay.js'),
-  lab: () => import('./views/lab.js'), // tester tab (throwaway)
   _kit: () => import('./views/_kit.js')
 };
-export const TABS = ['puzzles', 'pickem', 'matchup', 'league', 'draft', 'lay', 'lab'];
+export const TABS = ['puzzles', 'pickem', 'matchup', 'league', 'draft', 'lay'];
 const HOME = 'puzzles'; // the tab the app opens on: the history base, where covers present, where Back from a root lands
-const TAB_VIEW = {puzzles: 'puzzles', pickem: 'pickem', matchup: 'rivals', league: 'league', draft: 'moves', lay: 'lay', lab: 'lab'}; // root view ids
-const ROOTS = {puzzles: '/puzzles', pickem: '/pickem', matchup: '/matchup', league: '/league/standings', draft: '/draft', lay: '/lay', lab: '/lab'};
-const TAB_TITLES = {puzzles: 'Puzzles', pickem: "Pick'em", matchup: 'Matchup', league: 'League', draft: 'Draft', lay: 'The Lay', lab: 'Lab'};
+const TAB_VIEW = {puzzles: 'puzzles', pickem: 'pickem', matchup: 'rivals', league: 'league', draft: 'moves', lay: 'lay'}; // root view ids
+const ROOTS = {puzzles: '/puzzles', pickem: '/pickem', matchup: '/matchup', league: '/league/standings', draft: '/draft', lay: '/lay'};
+const TAB_TITLES = {puzzles: 'Puzzles', pickem: "Pick'em", matchup: 'Matchup', league: 'League', draft: 'Draft', lay: 'The Lay'};
 // Old bare hashes (#daily, #records...) from the first app. Null prototype: '#constructor' is not a legacy hash.
 const LEGACY = Object.assign(Object.create(null), {daily: '/puzzles', records: '/league/records', trophies: '/league/trophies', standings: '/league/standings', rivals: '/matchup', moves: '/draft'});
-const PUZZLES = ['college', 'silhouette', 'mystery', 'journey', 'grid']; // every day's steps are some of these (daily.SLUGS)
+const PUZZLES = ['college', 'silhouette', 'mystery', 'journey', 'grid', 'plays']; // every day's steps are some of these (daily.SLUGS)
 const LEAGUE_SEGS = ['standings', 'trophies', 'records', 'shame'];
 const BAD_LINK = "That link didn't lead anywhere.";
 // "evan-vs-mason" → {a, b} (strings, not validated: the Matchup view checks them), else null.
@@ -106,10 +105,6 @@ function matchSegs(p, q) {
       const y = n === 2 ? yr(b) : null;
       return y != null ? R('moves', 'root', 'draft', {seg: 'drafts', year: y}) : null;
     }
-    case 'lab':
-      // Lab: a tester tab for puzzle ideas (throwaway).
-      if (n === 1) return R('lab', 'root', 'lab');
-      return null;
     case 'lay':
       // The Lay: the weekly 12-leg parlay (data/lay.json).
       if (n === 1) return R('lay', 'root', 'lay');

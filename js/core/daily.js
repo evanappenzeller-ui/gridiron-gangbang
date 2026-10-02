@@ -14,6 +14,7 @@
 
 import {DATA, nf, norm, me as dataMe, name as dataName} from './data.js';
 import {getFire, canWrite, isDevHost, devDayFrom, DEV_DAY as fireDevDay} from './fire.js';
+import {roundsFor as playRoundsFor} from './plays.js';
 
 export {nf, norm};
 
@@ -46,7 +47,8 @@ const PROMPTS_V3 = {
   who: PROMPTS_V2.who,
   grid: 'Name a player who fits the row and the column of each square. One guess per square, 100 points each. Franchise history counts, so a Houston Oilers season counts for the Titans.',
   sil: 'Name the player from his silhouette. Four choices and one pick per round, 100 points each.',
-  jr: 'Follow his path from college to the team he plays for now, then name him. Three guesses: 200, 120, then 60 points.'
+  jr: 'Follow his path from college to the team he plays for now, then name him. Three guesses: 200, 120, then 60 points.',
+  play: 'Name the play from its diagram: one offense, one defense. Four choices and one pick each, 100 points each.'
 };
 // Live binding: the prompt copy for the day being played (promptsFor(day) for any other day).
 export let PROMPTS = PROMPTS_V2;
@@ -135,6 +137,7 @@ function freshDS(raw, day) {
   // has and gets the missing arrays, so the actions never meet an undefined list.
   if (!obj(ds.jr) || !Array.isArray(ds.jr.g)) ds.jr = {g: [], done: !!(obj(ds.jr) && ds.jr.done), won: !!(obj(ds.jr) && ds.jr.won)};
   if (!obj(ds.sil) || !Array.isArray(ds.sil.a)) ds.sil = {a: []};
+  if (!obj(ds.play) || !Array.isArray(ds.play.a)) ds.play = {a: []};
   return ds;
 }
 
@@ -522,6 +525,28 @@ const V3_STEPS = [
   Object.assign({}, V2_STEPS[3], {max: 200}),
   Object.assign({}, V1_STEPS[2], {max: 200, result: (ds = DS, day = DAY) => `${gridScore(ds)} of ${gridShape(day).n}`})
 ];
+// Name the play (from Oct 3 2026, puzzle day PLAY_FROM): every other v4 day from then on plays it in place of the day's
+// last puzzle, still three puzzles and 600 points. Two rounds (an offensive play, then a defensive one; js/core/
+// plays.js picks them from the day number, so every phone gets the same), 100 points each. Progress: DS.play.a (the
+// picked option per round, -1 when locked in unanswered); board entries carry y (rounds right).
+export const PLAY_FROM = 6;
+const dayNum = day => (PZ && day ? PZ.days.indexOf(day) + 1 : 0);
+export const playsOn = (day = DAY) => dayVersion(day) === 4 && dayNum(day) >= PLAY_FROM && (dayNum(day) - PLAY_FROM) % 2 === 0;
+const PLAY_ROUNDS = new WeakMap();
+/** A day's Name the play rounds ([] on a day without it). */
+export function playRounds(day = DAY) {
+  if (!playsOn(day)) return [];
+  let r = PLAY_ROUNDS.get(day);
+  if (!r) { r = playRoundsFor(dayNum(day)); PLAY_ROUNDS.set(day, r); }
+  return r;
+}
+const playA = (ds = DS) => (ds && ds.play && Array.isArray(ds.play.a) ? ds.play.a : []);
+export const playDone = (ds = DS, day = DAY) => playA(ds).length >= playRounds(day).length && playRounds(day).length > 0;
+export const playScore = (ds = DS, day = DAY) => playA(ds).filter((a, r) => !!playRounds(day)[r] && a === playRounds(day)[r].a).length;
+export const ptsPlay = (ds = DS, day = DAY) => playScore(ds, day) * 100;
+const PLAY_STEP = {id: 'play', done: playDone, started: (ds = DS) => playA(ds).length > 0, pts: ptsPlay, max: 200, label: 'Name the play',
+  result: (ds = DS, day = DAY) => `${playScore(ds, day)} of ${playRounds(day).length || 2}`};
+
 const V1_SLUGS = ['college', 'mystery', 'grid'];
 const V2_SLUGS = ['college', 'silhouette', 'mystery', 'journey', 'grid'];
 // v4 (three puzzles): the v3 steps (same objects: formats, 200 points each, results) whose ids are in the day's `t`, in
@@ -533,7 +558,10 @@ function v4Set(day) {
   if (!s) {
     const t = Array.isArray(day.t) ? day.t : [];
     const steps = V3_STEPS.filter(x => t.includes(x.id));
-    s = {steps: Object.freeze(steps), slugs: Object.freeze(steps.map(x => V2_SLUGS[V3_STEPS.indexOf(x)]))};
+    const slugs = steps.map(x => V2_SLUGS[V3_STEPS.indexOf(x)]);
+    // Name the play days: it takes the last puzzle's place.
+    if (playsOn(day) && steps.length) { steps[steps.length - 1] = PLAY_STEP; slugs[slugs.length - 1] = 'plays'; }
+    s = {steps: Object.freeze(steps), slugs: Object.freeze(slugs)};
     V4_SETS.set(day, s);
   }
   return s;
@@ -638,6 +666,19 @@ export function gridGiveUp() {
 // DS.sil.a.length) with option position j (0-3). Returns {round, correct, ans, p} (ans = the right option position,
 // p = the answer's player index), or null on a day without Silhouettes (v1), when the round is out of order, already
 // answered or out of range, or j is not an option position.
+// Name the play: pick option j in round `round` (rounds in order). -> {round, correct, ans} or null.
+export function playPick(round, j) {
+  round = toInt(round); j = toInt(j);
+  const R = playRounds();
+  if (!hasStep('play') || !Number.isInteger(round) || !Number.isInteger(j)) return null;
+  const a = DS.play.a;
+  if (round !== a.length || round < 0 || round >= R.length || j < 0 || j >= R[round].o.length) return null;
+  a.push(j);
+  const out = {round, correct: j === R[round].a, ans: R[round].a};
+  changed('playPick', out);
+  return out;
+}
+
 export function silPick(round, j) {
   round = toInt(round); j = toInt(j);
   if (!hasStep('sil') || !Array.isArray(DAY.s) || !Number.isInteger(round) || !Number.isInteger(j)) return null;
@@ -712,6 +753,7 @@ export function lockIn() {
   if (hasStep('who') && !DS.who.done) { DS.who.done = true; DS.who.won = false; }
   if (hasStep('sil')) while (DS.sil.a.length < silRounds()) DS.sil.a.push(-1);
   if (hasStep('jr') && !DS.jr.done) { DS.jr.done = true; DS.jr.won = false; }
+  if (hasStep('play')) while (DS.play.a.length < playRounds().length) DS.play.a.push(-1);
   changed('lockIn');
 }
 
@@ -836,6 +878,7 @@ export function boardEntry(ds = DS, day = DAY) {
     if (has('who')) e.w = w;
     if (has('jr')) e.j = jrGuessNo(ds);
     if (has('grid')) e.g = gridScore(ds);
+    if (has('play')) e.y = playScore(ds, day);
     return e;
   }
   if (dayVersion(day) === 3) return {v: 3, p: totalPts(ds, day), c: colScore(ds, day), s: silScore(ds, day), w, j: jrGuessNo(ds), g: gridScore(ds)};
@@ -909,7 +952,8 @@ export function shareText(ds = DS, day = DAY) {
       sil: () => 'Faces ' + silA(ds).map((a, r) => day.s[r] && a === day.s[r].a ? '🟩' : '🟥').join(''),
       who: () => ds.who.won ? `Mystery player: clue ${ds.who.clues} of 7` : 'Mystery player: stumped',
       jr: () => jrGuessNo(ds) ? `Journey: guess ${jrGuessNo(ds)} of 3` : 'Journey: missed',
-      grid: () => 'Grid ' + ds.grid.cells.slice(0, gridShape(day).n).map(sq).join('')
+      grid: () => 'Grid ' + ds.grid.cells.slice(0, gridShape(day).n).map(sq).join(''),
+      play: () => 'Plays ' + playA(ds).map((a, r) => playRounds(day)[r] && a === playRounds(day)[r].a ? '🟩' : '🟥').join('')
     };
     stepsFor(day).forEach(s => { if (s.done(ds, day)) lines.push(line[s.id]()); });
     return lines.join('\n');
@@ -979,12 +1023,12 @@ function managerFor(p) {
 function daySub(d, day) {
   const id = d.w ? 'ID on clue ' + d.w : 'no ID';
   if (d.v === 4) {
-    const F = {col: 'c', sil: 's', who: 'w', jr: 'j', grid: 'g'};
-    const ids = dayVersion(day) === 4 ? stepsFor(day).map(s => s.id) : V3_STEPS.map(s => s.id).filter(k => d[F[k]] != null);
+    const F = {col: 'c', sil: 's', who: 'w', jr: 'j', grid: 'g', play: 'y'};
+    const ids = dayVersion(day) === 4 ? stepsFor(day).map(s => s.id) : V3_STEPS.map(s => s.id).concat('play').filter(k => d[F[k]] != null);
     const nc = day && Array.isArray(day.c) ? day.c.length : 2, ns = day && Array.isArray(day.s) ? day.s.length : 2;
     const ng = day && gridShape(day).n || 2;
     const part = {col: () => `College ${d.c || 0}/${nc}`, sil: () => `faces ${d.s || 0}/${ns}`, who: () => id,
-      jr: () => d.j ? 'path on guess ' + d.j : 'no path', grid: () => `grid ${d.g || 0}/${ng}`};
+      jr: () => d.j ? 'path on guess ' + d.j : 'no path', grid: () => `grid ${d.g || 0}/${ng}`, play: () => `plays ${d.y || 0}/2`};
     const s = ids.map(k => part[k]()).join(', ');
     return s.charAt(0).toUpperCase() + s.slice(1);
   }

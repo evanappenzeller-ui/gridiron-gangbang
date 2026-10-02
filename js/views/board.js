@@ -113,7 +113,7 @@ export const gradeTitle = g => String(g || '').toLowerCase().replace(/(^|[\s-])(
 export const gradeGold = g => g === 'ALL-PRO' || g === 'PERFECT DAY';
 
 /** Puzzle icon by step id; PUZZLE_ICON[i] is the v1 order. */
-export const STEP_ICON = {col: 'grad-cap', sil: 'silhouette', who: 'mystery', jr: 'route', grid: 'grid-3'};
+export const STEP_ICON = {col: 'grad-cap', sil: 'silhouette', who: 'mystery', jr: 'route', grid: 'grid-3', play: 'football'};
 export const PUZZLE_ICON = ['grad-cap', 'mystery', 'grid-3'];
 /** Icon of step i of the loaded day. */
 export const stepIcon = i => { const s = steps()[i]; return (s && STEP_ICON[s.id]) || PUZZLE_ICON[i] || 'football'; };
