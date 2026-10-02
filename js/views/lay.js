@@ -5,10 +5,14 @@
 // Data: data/lay.json {stake, legs, weeks: [{year, week, placer?, legs: [{by, for?, bet, hit: true|false|null}]}]}.
 // A leg with `for` was submitted by `by` in another manager's slot: it counts on `by`'s record.
 // Live legs: managers enter their leg for the week in the "Your leg" card (core/lay.js, Firestore); they show on the
-// slip as pending until data/lay.json carries that manager's leg with its result. Owner: LAY.
+// slip as pending until data/lay.json carries that manager's leg with its result.
+// Live tracking (core/laytrack.js): the live week's and the week before's pending legs are scored against ESPN's games
+// and box scores as they play: a note under each leg ("38 rec yds · 50+ · 3rd 4:12") and, once one is decided, a hit or
+// a miss (auto: true) until data/lay.json carries the result. Owner: LAY.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as live from '../core/lay.js';
+import * as track from '../core/laytrack.js';
 import {youButtonHTML} from './you.js';
 
 const esc = data.esc;
@@ -32,13 +36,14 @@ function loadLay({fresh} = {}) {
 // weekKey -> legs entered in the app (core/lay.js), for the live week and the one before it (so a week's legs stay
 // on its slip after the league moves on, until data/lay.json has them with results).
 const LIVE = new Map();
+const TRK = new Map(); // weekKey -> laytrack's tracked week {games, boxes, at}
 let liveErr = null;
 const wkey = (y, w) => `${y}-w${w}`;
 // data/lay.json's weeks with the live legs merged in (a manager's leg in the file wins), plus the live week itself
 // when the file doesn't have it yet. Rebuilt on every fill.
 let WEEKS = [];
 function buildWeeks() {
-  const ws = LAY.weeks.map(w => Object.assign({}, w, {legs: legsOf(w).slice()}));
+  const ws = LAY.weeks.map(w => Object.assign({}, w, {legs: legsOf(w).map(l => Object.assign({}, l))}));
   const lw = live.liveWeek();
   if (lw && !ws.some(w => w.year === lw.year && w.week === lw.week)) {
     ws.push({year: lw.year, week: lw.week, legs: []});
@@ -49,6 +54,17 @@ function buildWeeks() {
     if (!L) return;
     const covered = new Set(w.legs.map(l => l.for || l.by));
     L.filter(l => !covered.has(l.by)).forEach(l => w.legs.push({by: l.by, bet: l.bet, hit: null, live: true, me: l.me, nick: l.nick}));
+  });
+  // Pending legs of a tracked week: ESPN's live state, and a provisional hit / miss once decided.
+  ws.forEach(w => {
+    const T = TRK.get(wkey(w.year, w.week));
+    if (!T) return;
+    w.tracked = true;
+    w.legs.forEach(l => {
+      if (settled(l)) return;
+      l.trk = track.evaluate(l.bet, T);
+      if (l.trk.st === 'hit' || l.trk.st === 'miss') { l.hit = l.trk.st === 'hit'; l.auto = true; }
+    });
   });
   WEEKS = ws;
   return ws;
@@ -112,13 +128,15 @@ function records() {
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 const money = n => '$' + (Number.isInteger(n) ? n : n.toFixed(2));
 function markOf(l) {
+  if (l.trk && l.trk.st === 'live' && !settled(l)) return `<span class="ly-mark is-going" role="img" aria-label="In progress"><i></i></span>`;
   if (l.hit === true) return `<span class="ly-mark is-hit">${ui.icon('check', {label: 'Hit'})}</span>`;
   if (l.hit === false) return `<span class="ly-mark is-miss">${ui.icon('x', {label: 'Missed'})}</span>`;
   return `<span class="ly-mark is-live">${ui.icon('clock', {label: 'Pending'})}</span>`;
 }
 function legRow(l, me) {
   const by = l.live && l.me !== l.by ? (l.me ? data.name(l.me) : l.nick) : '';
-  const who = data.name(l.by) + (l.for ? ` · for ${data.name(l.for)}` : '') + (by ? ` · entered by ${by}` : '');
+  const who = data.name(l.by) + (l.for ? ` · for ${data.name(l.for)}` : '') + (by ? ` · entered by ${by}` : '')
+    + (l.trk && l.trk.note ? ` · ${l.trk.note}` : '');
   return ui.row({lead: ui.avatar(l.by, {size: 32, you: l.by === me}), title: l.bet || '—', sub: who, trail: markOf(l), me: l.by === me,
     cls: 'ly-leg' + (l.hit === false ? ' ly-busted' : '')});
 }
@@ -160,7 +178,8 @@ function heroHTML(me) {
       + `<p class="ly-meter-lb"><b>${t.n} of ${size}</b> legs in</p>`;
     if (miss.length) body += `<p class="ly-waiting">Waiting on ${esc(miss.map(data.name).join(', '))}</p>`;
   }
-  if (t.n) body += ui.group(legsOf(w).map(l => legRow(l, me)).join(''), {cls: 'ly-legs'});
+  if (t.n) body += ui.group(legsOf(w).map(l => legRow(l, me)).join(''), {cls: 'ly-legs',
+    footer: w.tracked ? 'Tracking live from ESPN. Results are final once the league confirms them.' : ''});
   return `<section class="card card-hero ly-hero ly-${st}" aria-label="This week">`
     + `<div class="ly-hero-top"><p class="card-ovl">This week · Week ${w.week}</p>${statusPill(w)}</div>`
     + `<h2 class="card-title">${st === 'open' ? 'Get your legs in' : st === 'hit' ? 'It hit.' : st === 'bust' ? 'Busted.' : 'Sweating it'}</h2>`
@@ -292,6 +311,7 @@ function watchLive(ctx, st) {
       if (wk === lw.week) liveErr = err;
       if (LAY) fill(ctx);
     }));
+    st.stops.push(track.track(lw.year, wk, T => { TRK.set(wkey(lw.year, wk), T); if (LAY) fill(ctx); }));
   });
   st.liveKey = wkey(lw.year, lw.week);
 }

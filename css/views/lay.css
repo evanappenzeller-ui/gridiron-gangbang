@@ -32,7 +32,11 @@
 .v-lay .ly-mark.is-hit { background: var(--tint-soft); color: var(--tint); }
 .v-lay .ly-mark.is-miss { background: var(--wrong-soft); color: var(--wrong); }
 .v-lay .ly-mark.is-live { background: var(--fill); color: var(--ink-2); }
-.v-lay .ly-leg .row-title { white-space: normal; overflow-wrap: anywhere; }
+.v-lay .ly-mark.is-going { background: var(--gold-soft, rgba(255,197,49,.16)); }
+.v-lay .ly-mark.is-going > i { width: 10px; height: 10px; border-radius: 5px; background: var(--gold); animation: ly-pulse 1.4s ease-in-out infinite; }
+@keyframes ly-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .35; transform: scale(.7); } }
+@media (prefers-reduced-motion: reduce) { .v-lay .ly-mark.is-going > i { animation: none; } }
+.v-lay .ly-leg .row-title, .v-lay .ly-leg .row-sub { white-space: normal; overflow-wrap: anywhere; }
 .v-lay .ly-busted .row-title { color: var(--ink-2); }
 
 .v-lay .ly-rank { width: 20px; margin-right: 8px; text-align: center; color: var(--ink-3); }
