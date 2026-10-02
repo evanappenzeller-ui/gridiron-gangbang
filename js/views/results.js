@@ -71,11 +71,12 @@ function pendingText() {
   if (LB.status === 'failed') return "Couldn't post your score yet. It'll try again automatically.";
   return 'Posting your score to the league board.';
 }
-// Post box kinds: '' (hidden) | 'done' | 'denied' | 'full' | 'pending'
+// Post box kinds: '' (hidden) | 'done' | 'dupe' (already on the board today from another phone) | 'denied' | 'full' | 'pending'
 function postKind() {
   const LB = daily.LB;
   if (LB.off || !LB.ready || !LB.uid) return '';
   if (daily.DS.posted || LB.status === 'posted') return 'done';
+  if (LB.status === 'dupe' || daily.dupeToday()) return 'dupe';
   if (LB.status === 'denied') return 'denied';
   if (LB.status === 'full') return 'full';
   return 'pending';
@@ -90,6 +91,7 @@ function postHTML(kind = postKind()) {
     const rk = myRank();
     return `<div class="c-post-done" role="status">${ui.icon('check-circle', {size: 22})}<p>Your score is on the league board.${rk ? esc(` You're #${rk} today.`) : ''}</p></div>`;
   }
+  if (kind === 'dupe') return `<p class="c-post-bad">You already have a score on the board today from another phone. Only your first score of the day counts, so this one stays on this phone.</p>`;
   if (kind === 'denied') return `<p class="c-post-bad">The league board turned this score down. Your score is saved on this phone, and Share results still works.</p>`;
   if (kind === 'full') return `<p class="c-post-bad">The league board is over its daily limit. Try posting again tomorrow.</p>`;
   if (kind !== 'pending') return '';

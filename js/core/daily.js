@@ -742,8 +742,43 @@ export function scoredDoc(p) {
 // Board rows taken off the leaderboard (players/{uid} doc ids): duplicates from a second phone. The rules only let a
 // phone delete its own row, so the league hides them here; the doc can also be deleted in the Firebase console.
 const HIDDEN = new Set([
-  'xCgRRWXbr6gmvj8hXsZDSpPC2Ug1' // Mitch's second row (250, Sep 30): his 350 row stays
+  'xCgRRWXbr6gmvj8hXsZDSpPC2Ug1', // Mitch's second row (250, Sep 30): his 350 row stays
+  'Hf23Et9J6rhZbYrHiMfWVJeLDI53'  // Mason's second phone (440, Oct 1, played after his 210): the 210 stands
 ]);
+
+// One score per member per day: a member who plays again on another phone (a second board row under their name)
+// gets nothing for it. Per member (managerFor) and day, the first entry posted counts (entries carry `t`, the
+// phone's clock when posted; older entries without one count as earliest) and later ones are dropped from their
+// rows (totals recomputed). This phone also never posts a day its member already has from another phone
+// (maybeAutoPost: LB.status 'dupe').
+export function onePerMember(players) {
+  const best = new Map(); // 'manager|day' -> {id, t}
+  players.forEach(p => {
+    const m = managerFor(p);
+    if (!m) return;
+    Object.keys(p.days || {}).forEach(k => {
+      const t = Number(p.days[k] && p.days[k].t) || 0, key = m + '|' + k, b = best.get(key);
+      if (!b || t < b.t || (t === b.t && String(p.id) < String(b.id))) best.set(key, {id: p.id, t});
+    });
+  });
+  return players.map(p => {
+    const m = managerFor(p);
+    if (!m) return p;
+    const drop = Object.keys(p.days || {}).filter(k => best.get(m + '|' + k).id !== p.id);
+    if (!drop.length) return p;
+    const days = Object.assign({}, p.days);
+    drop.forEach(k => { delete days[k]; });
+    return scoredDoc(Object.assign({}, p, {days}));
+  });
+}
+// Another phone's row already holds today's score for this phone's member (so this one never posts).
+function dupeAt(list) {
+  const me = list.find(p => p.id === LB.uid);
+  const m = me ? managerFor(me) : (dataMe() || managerOfNick(LB.nick));
+  if (!m) return false;
+  return list.some(p => p.id !== LB.uid && managerFor(p) === m && !!entryFor(p));
+}
+export const dupeToday = () => !!LB.ready && dupeAt(LB.raw || LB.players);
 
 let fbStarted = false;
 // The app, anonymous sign-in and Firestore come from the shared layer (fire.js); no config or a failed
@@ -758,7 +793,8 @@ async function startFirebase() {
     fs.onSnapshot(fs.collection(db, 'players'), snap => {
       const prev = LB.players;
       const all = snap.docs.map(d => scoredDoc(Object.assign({id: d.id}, d.data())));
-      LB.players = all.filter(p => !HIDDEN.has(p.id));
+      LB.raw = all.filter(p => !HIDDEN.has(p.id));
+      LB.players = onePerMember(LB.raw);
       LB.ready = true;
       const mine = all.find(p => p.id === LB.uid);
       if (mine && mine.nick) LB.nick = mine.nick;
@@ -830,6 +866,8 @@ try {
 
 export function maybeAutoPost() {
   if (!allDone() || DS.posted || !LB.save || !LB.ready || LB.posting || LB.status === 'denied' || LB.status === 'full') return;
+  // Already on the board today from another of this member's phones: the first score stands.
+  if (dupeAt(LB.raw || LB.players)) { if (LB.status !== 'dupe') { LB.status = 'dupe'; lbChanged('status'); } return; }
   postScore(postName());
 }
 
@@ -838,7 +876,7 @@ export async function postScore(nick) {
   LB.posting = true; LB.status = 'posting'; lbChanged('status');
   const me = LB.players.find(p => p.id === LB.uid);
   const days = Object.assign({}, me && me.days);
-  if (!entryFor(me)) days[PNUM] = Object.assign(boardEntry(), relOf(PNUM) ? {r: relOf(PNUM)} : null);
+  if (!entryFor(me)) days[PNUM] = Object.assign(boardEntry(), relOf(PNUM) ? {r: relOf(PNUM)} : null, {t: Date.now()});
   const vals = Object.values(days);
   const body = {nick: (nick || '').trim().slice(0, 24), days, total: vals.reduce((s, d) => s + (d.p || 0), 0), played: vals.length, last: PNUM};
   try {
