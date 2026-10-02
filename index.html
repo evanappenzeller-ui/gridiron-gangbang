@@ -179,6 +179,15 @@
 (function () {
   var t = document.getElementById('title'), app = document.getElementById('app');
   if (!t) { if (app) app.inert = false; return; }
+  // An update reload (the app swapping in a new version mid-session) skips the title screen.
+  try {
+    if (sessionStorage.getItem('gg-skip-title')) {
+      sessionStorage.removeItem('gg-skip-title');
+      t.remove();
+      if (app) { app.inert = false; app.removeAttribute('inert'); }
+      return;
+    }
+  } catch (_) {}
   var go = function () {
     if (t.getAttribute('data-out')) return;
     t.setAttribute('data-out', '1');

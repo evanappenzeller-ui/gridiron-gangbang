@@ -1085,6 +1085,7 @@ async function pushRoute(r, {morphRect, addEntry = true} = {}) {
 // a profile's "Nemesis" link to the pair Matchup shows) is still a navigation: the root starts at the top again
 // and its view gets update(ctx) with reason 'params' (same ctx.path), so it can re-run deep-link behavior.
 async function goRoot(r) {
+  if (swNew && !typing()) { updateReload(r.path); return; }
   await stripOverlays();
   const T = r.tab;
   const root = S.stacks[T][0];
@@ -1509,6 +1510,7 @@ function setupTabBar() {
     const b = e.target.closest('.tab');
     if (!b) return;
     const T = b.dataset.tab;
+    if (swNew && !typing()) { updateReload(topOf(T).route.path); return; } // a new version: swap it in here
     finishTransitions();
     if (T === S.tab) { retap(T); return; }
     run(async () => {
@@ -1739,16 +1741,30 @@ function registerSW() {
   if (!('serviceWorker' in navigator)) return;
   const local = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
   if (location.protocol !== 'https:' && !local) return;
-  const had = !!navigator.serviceWorker.controller; // a first install taking control is not an update
+  // A first install taking control is not an update; any later change of worker is.
+  let had = !!navigator.serviceWorker.controller;
   navigator.serviceWorker.register('sw.js').then(r => { swReg = r; swAsked = Date.now(); }).catch(() => {});
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (!had) return;
+    if (!had) { had = true; return; }
     swNew = true;
-    if (document.hidden) location.reload();
+    if (document.hidden) updateReload();
   });
+  setInterval(() => { if (!document.hidden) checkForUpdate(); }, 15 * 60e3);
 }
+// A new version swaps in at a safe moment: when the app is put away, or on the next tab switch (straight to that
+// tab, no title screen), unless something is being typed.
+function updateReload(path) {
+  try { sessionStorage.setItem('gg-skip-title', '1'); } catch (_) {}
+  if (path) { try { history.replaceState(history.state, '', '#' + path); } catch (_) {} }
+  location.reload();
+}
+function typing() {
+  const a = document.activeElement;
+  return !!a && (a.matches('input, textarea, select, [contenteditable="true"]'));
+}
+// Asked when the app comes back (at most once a minute) and every 15 minutes while it's open.
 function checkForUpdate() {
-  if (!swReg || Date.now() - swAsked < 10 * 60e3) return;
+  if (!swReg || Date.now() - swAsked < 60e3) return;
   swAsked = Date.now();
   try { swReg.update().catch(() => {}); } catch (_) {}
 }
@@ -1756,12 +1772,12 @@ let lastVisibleCheck = 0;
 function onVisibility() {
   const vis = !document.hidden;
   allMounted().forEach(s => { if (vis && s.visible) resumeTimers(s); else pauseTimers(s); });
-  if (!vis) { persistScroll(); if (swNew) location.reload(); return; }
+  if (!vis) { persistScroll(); if (swNew) updateReload(); return; }
   checkForUpdate();
   try { daily.checkDay(); } catch (_) {}
   queueBadges(); // kickoffs and vote locks passed while the page was away
   const now = Date.now();
-  if (now - (data.lastLoad || 0) > 30 * 60 * 1000 && now - lastVisibleCheck > 60 * 1000) {
+  if (now - (data.lastLoad || 0) > 5 * 60 * 1000 && now - lastVisibleCheck > 60 * 1000) {
     lastVisibleCheck = now;
     // Only a new week earns a toast; other edits (a score correction, a records line) apply quietly.
     data.reload().then(r => { if (r && r.newWeek && r.throughWeek) ui.toast(`Week ${r.throughWeek} is in.`); }).catch(() => {});

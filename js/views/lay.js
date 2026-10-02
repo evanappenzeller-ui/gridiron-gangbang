@@ -18,7 +18,7 @@ import {youButtonHTML} from './you.js';
 const esc = data.esc;
 const LAY_URL = new URL('../../data/lay.json', import.meta.url).href;
 
-let LAY = null, layP = null, layErr = false;
+let LAY = null, layP = null, layErr = false, layAt = Date.now();
 function loadLay({fresh} = {}) {
   if (layP && !fresh) return layP;
   layP = fetch(LAY_URL, fresh ? {cache: 'no-cache'} : {}).then(r => {
@@ -497,7 +497,11 @@ export default {
     if (ctx.visible) markSeen();
   },
 
-  onShow() { markSeen(); },
+  // Back on the tab: results in data/lay.json may have changed (refetched at most once every 2 minutes).
+  onShow(ctx) {
+    markSeen();
+    if (Date.now() - layAt > 2 * 60e3) { layAt = Date.now(); loadLay({fresh: true}).then(() => fill(ctx), () => {}); }
+  },
 
   // 'data' (league.json reloaded: maybe a new week) refetches the slip too; 'me' redraws the highlights.
   update(ctx) {
