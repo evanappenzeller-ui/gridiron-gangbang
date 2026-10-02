@@ -512,9 +512,12 @@ export async function runChecks() {
     // A re-released day (daily.RERELEASED) takes only entries stamped with its release.
     if (daily.relOf(S)) sp.forEach(p => { const d = p.days[S]; if (d) d.r = daily.relOf(S); });
     const s = daily.social(sp, S);
+    // Mason's older phone (a second row, no score today) doesn't make him "still to play": he played on the other.
+    const sp2 = sp.concat([{id: 'fake-6', nick: 'Mason', days: {[S - 1]: Object.assign({}, sp[2].days[S - 1])}, total: 900, played: 1, last: S - 1}]);
+    const s2 = daily.social(sp2, S);
     const st = daily.streakOf(players[2]);
     const pass = s.played.length === 3 && s.regulars === 4 && s.leader === 'Someone'
-      && s.stillToPlay.map(x => x.id).join() === 'fake-4'
+      && s.stillToPlay.map(x => x.id).join() === 'fake-4' && s2.stillToPlay.map(x => x.id).join() === 'fake-4' && s2.regulars === 4
       && (P < 3 || (st.current === 3 && st.best === 3))
       && daily.streakOf(players[3]).current === (P > 1 ? 1 : 0);
     return {pass, detail: `day ${S}: played ${s.played.length}, regulars ${s.regulars}, leader ${s.leader}, still ${s.stillToPlay.map(x => x.name).join(', ')}; Mason streak ${st.current}/${st.best}`};

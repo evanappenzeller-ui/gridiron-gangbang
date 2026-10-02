@@ -1126,8 +1126,21 @@ export function social(players = LB.players, pnum = PNUM) {
   // Without the played/last guard, docs that never posted count as regulars in the first week (PNUM <= 7).
   const recent = p => (p.played || 0) > 0 && (p.last || 0) >= 1 && p.last >= pnum - 7;
   const today = p => !!entryFor(p, pnum);
-  const regulars = players.filter(p => recent(p) || today(p)).length;
-  const stillToPlay = players.filter(p => recent(p) && !today(p)).map(p => ({id: p.id, name: displayName(p), managerId: managerFor(p), me: p.id === LB.uid}));
+  // One person per league member (a member can have rows from several phones): played today when any of their rows
+  // has today's score, still to play when none does. Rows with no member are one person each.
+  const who = p => managerFor(p) || 'row:' + p.id;
+  const people = new Map();
+  players.forEach(p => {
+    const k = who(p), e = people.get(k) || {rows: [], recent: false, today: false};
+    e.rows.push(p); e.recent = e.recent || recent(p); e.today = e.today || today(p);
+    people.set(k, e);
+  });
+  const regulars = [...people.values()].filter(e => e.recent || e.today).length;
+  const stillToPlay = [...people.values()].filter(e => e.recent && !e.today).map(e => {
+    // the member's most recent row stands for them (this phone's when it is one of them)
+    const p = e.rows.find(x => x.id === LB.uid) || e.rows.slice().sort((x, y) => (y.last || 0) - (x.last || 0))[0];
+    return {id: p.id, name: displayName(p), managerId: managerFor(p), me: e.rows.some(x => x.id === LB.uid)};
+  });
   const leaderRow = played[0] || null;
   return {played, regulars, stillToPlay, leader: leaderRow ? leaderRow.name : null, leaderRow};
 }
