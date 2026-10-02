@@ -68,8 +68,39 @@ PLAYS.push(
   {name: 'Drive', players: [QB_SG, P(50, 77, 'skill', 'RB'), P(8, LOS), P(24, LOS + 2), P(76, LOS + 2), P(92, LOS)],
     routes: [{pts: [[24, LOS + 2], [30, 58], [78, 57]], c: 1}, {pts: [[76, LOS + 2], [76, 44], [40, 44]], c: 1}, {pts: [[8, LOS], [8, 10]]}, {pts: [[92, LOS], [92, 30], [96, 34]]}, ...blocks()]}
 );
-const RUNS = new Set(['HB Dive', 'Outside Zone', 'Power', 'Inside Zone', 'Counter', 'Toss', 'HB Draw']);
-PLAYS.forEach(p => { p.side = 'off'; p.cat = RUNS.has(p.name) ? 'run' : 'pass'; });
+// The tougher book (puzzle days from HARD_FROM): concepts a fan who knows a little more can still tell apart.
+const QB_PISTOL = P(50, LOS + 7, 'qb', 'QB');
+const EXTRA_OFF = [
+  // Mills: post outside over a dig from the slot, same side.
+  {name: 'Mills', players: [QB_SG, P(50, 77, 'skill', 'RB'), P(8, LOS), P(24, LOS + 2), P(76, LOS + 2), P(92, LOS)],
+    routes: [{pts: [[8, LOS], [8, 38], [30, 16]], c: 1}, {pts: [[24, LOS + 2], [24, 40], [56, 40]], c: 1}, {pts: [[92, LOS], [92, 10]]}, {pts: [[76, LOS + 2], [78, 58], [94, 58]], c: 2},
+      {pts: [[50, 77], [36, 70], [30, 64]], c: 2}, ...blocks()]},
+  // Snag (trips right): corner, snag sit, flat; backside slant.
+  {name: 'Snag', players: [QB_SG, P(50, 77, 'skill', 'RB'), P(8, LOS), P(70, LOS + 2), P(81, LOS + 2), P(92, LOS)],
+    routes: [{pts: [[92, LOS], [92, 46], [98, 30]]}, {pts: [[81, LOS + 2], [80, 52], [74, 50]], c: 1}, {pts: [[70, LOS + 2], [72, 60], [90, 60]], c: 2}, {pts: [[8, LOS], [8, 56], [22, 46]]},
+      {pts: [[50, 77], [36, 70], [30, 64]], c: 2}, ...blocks()]},
+  // Trap: a guard pulls a short way to kick out the defensive tackle; the back hits straight up the middle.
+  {name: 'Trap', players: [QB_UC, P(50, 77, 'skill', 'RB'), P(8, LOS), P(92, LOS), P(66, LOS + 1, 'skill', 'TE')],
+    routes: [{kind: 'run', pts: [[50, 77], [49, 68], [46, 42]]}, {kind: 'fake', pts: [[50, LOS + 5], [56, 72]]}, {kind: 'block', pts: [[55, LOS + 1], [53, LOS + 5], [44, LOS + 5], [39, LOS - 3]]},
+      {kind: 'block', pts: [[40, LOS + 1], [44, LOS - 4]]}, {kind: 'block', pts: [[45, LOS + 1], [49, LOS - 5]]}, {kind: 'block', pts: [[50, LOS + 1], [54, LOS - 4]]}, {kind: 'block', pts: [[60, LOS + 1], [57, LOS - 4]]},
+      {kind: 'block', pts: [[66, LOS + 1], [64, LOS - 4]]}]},
+  // Duo: double teams up front, no pulls, the back downhill at the A gap (pistol).
+  {name: 'Duo', players: [QB_PISTOL, P(50, 78, 'skill', 'RB'), P(8, LOS), P(92, LOS), P(66, LOS + 1, 'skill', 'TE')],
+    routes: [{kind: 'run', pts: [[50, 78], [51, 68], [53, 42]]}, {kind: 'block', pts: [[40, LOS + 1], [42, LOS - 4]]}, {kind: 'block', pts: [[45, LOS + 1], [43, LOS - 4]]},
+      {kind: 'block', pts: [[50, LOS + 1], [52, LOS - 5]]}, {kind: 'block', pts: [[55, LOS + 1], [53, LOS - 5]]}, {kind: 'block', pts: [[60, LOS + 1], [62, LOS - 4]]}, {kind: 'block', pts: [[66, LOS + 1], [63, LOS - 4]]}]},
+  // Zone read: zone right, the end man left unblocked; the QB keeps or hands off.
+  {name: 'Zone Read', players: [P(50, LOS + 8, 'qb', 'QB'), P(41, LOS + 8, 'skill', 'RB'), P(8, LOS), P(24, LOS + 2), P(76, LOS + 2), P(92, LOS)],
+    routes: [{kind: 'run', pts: [[41, LOS + 8], [50, 66], [58, 44]]}, {kind: 'qb', pts: [[50, LOS + 8], [38, 67], [24, 50]]}, ...OL.filter(o => o.x !== 40).map(o => ({kind: 'block', pts: [[o.x, o.y], [o.x + 3, o.y - 4]]})),
+      {kind: 'block', pts: [[40, LOS + 1], [45, LOS - 3]]}, {pts: [[8, LOS], [8, 30]]}, {pts: [[92, LOS], [92, 30]]}]},
+  // Sweep (pin and pull): two linemen pull around the edge; the back runs wide behind them.
+  {name: 'Sweep', players: [QB_UC, P(50, 77, 'skill', 'RB'), P(8, LOS), P(92, LOS), P(66, LOS + 1, 'skill', 'TE')],
+    routes: [{kind: 'fake', pts: [[50, LOS + 5], [58, 72]]}, {kind: 'run', pts: [[50, 77], [66, 76], [82, 68], [86, 52]]},
+      {kind: 'block', pts: [[50, LOS + 1], [52, LOS + 5], [70, LOS + 4], [74, LOS - 3]]}, {kind: 'block', pts: [[55, LOS + 1], [57, LOS + 4], [78, LOS + 2], [82, LOS - 4]]},
+      {kind: 'block', pts: [[40, LOS + 1], [36, LOS - 4]]}, {kind: 'block', pts: [[45, LOS + 1], [41, LOS - 4]]}, {kind: 'block', pts: [[60, LOS + 1], [56, LOS - 4]]},
+      {kind: 'block', pts: [[66, LOS + 1], [62, LOS - 4]]}, {kind: 'block', pts: [[92, LOS], [88, LOS - 6]]}]}
+];
+const RUNS = new Set(['HB Dive', 'Outside Zone', 'Power', 'Inside Zone', 'Counter', 'Toss', 'HB Draw', 'Trap', 'Duo', 'Zone Read', 'Sweep']);
+PLAYS.concat(EXTRA_OFF).forEach(p => { p.side = 'off'; p.cat = RUNS.has(p.name) ? 'run' : 'pass'; });
 
 // ---------------------------------------------------------------------------------------------- Defense
 // Defensive play art the Madden way, against a 2x2 shotgun (drawn dim): defenders as X marks, each with its job:
@@ -104,7 +135,21 @@ export const DEFENSE = [
   {name: 'Prevent', d: [DL()[0], DL()[1], DL()[3], D(8, 46, Z(10, 22, 9, 12, 'deep')), D(92, 46, Z(90, 22, 9, 12, 'deep')), D(30, 30, Z(30, 12, 10, 8, 'deep')),
     D(50, 28, Z(50, 10, 10, 8, 'deep')), D(70, 30, Z(70, 12, 10, 8, 'deep')), D(30, 46, Z(28, 40, 10, 5, 'hook')), D(50, 46, Z(50, 38, 9, 5, 'hook')), D(70, 46, Z(72, 40, 10, 5, 'hook'))]}
 ];
-DEFENSE.forEach(p => { p.side = 'def'; p.cat = 'def'; });
+const EXTRA_DEF = [
+  // Cover 6: quarter-quarter-half. Cover 2 to one side (flat corner, half safety), quarters to the other.
+  {name: 'Cover 6', d: [...DL(), D(8, 52, Z(10, 47, 9, 5, 'flat')), D(32, 26, Z(24, 18, 20, 9, 'deep')), D(92, 52, Z(88, 20, 11, 10, 'deep')),
+    D(68, 30, Z(63, 18, 11, 10, 'deep')), D(76, 49, Z(84, 46, 9, 5, 'flat')), D(42, 47, Z(38, 41, 9, 5, 'hook')), D(58, 47, Z(58, 41, 8, 5, 'hook'))]},
+  // Cover 3 Buzz: three deep, a safety rotates down to the curl and the nickel takes the flat.
+  {name: 'Cover 3 Buzz', d: [...DL(), D(8, 52, Z(14, 18, 13, 10, 'deep')), D(92, 52, Z(86, 18, 13, 10, 'deep')), D(62, 28, Z(50, 14, 15, 9, 'deep')),
+    D(34, 30, Z(24, 43, 9, 5, 'curl')), D(24, 50, Z(10, 50, 8, 5, 'flat')), D(76, 48, Z(84, 45, 10, 5, 'curl')), D(46, 47, Z(46, 40, 8, 5, 'hook')), D(58, 47, blitz([57, 56], [55, 66]))]},
+  // Cover 1 Robber: man across, a deep middle safety, and a second safety robbing the middle at 10 yards.
+  {name: 'Cover 1 Robber', d: [...DL(), D(8, 52, {man: WR.x1}), D(92, 52, {man: WR.x2}), D(24, 50, {man: WR.s1}), D(76, 49, {man: WR.s2}),
+    D(42, 47, {man: WR.rb}), D(50, 34, Z(50, 36, 11, 5, 'hook')), D(50, 22, Z(50, 13, 18, 8, 'deep'))]},
+  // Double A-gap: two linebackers mugged in the A gaps, both coming; man behind with one deep safety.
+  {name: 'Double A-Gap', d: [...DL({dt1: {x: 41}, dt2: {x: 59}}), D(46, 53, blitz([47, 66])), D(54, 53, blitz([53, 66])), D(8, 52, {man: WR.x1}), D(92, 52, {man: WR.x2}),
+    D(24, 50, {man: WR.s1}), D(76, 49, {man: WR.s2}), D(50, 24, Z(50, 14, 18, 9, 'deep'))]}
+];
+DEFENSE.concat(EXTRA_DEF).forEach(p => { p.side = 'def'; p.cat = 'def'; });
 const OFF_BACK = [P(8, LOS), P(24, LOS + 2), P(76, LOS + 2), P(92, LOS), P(50, 77, 'skill', 'RB'), QB_SG];
 
 // ---------------------------------------------------------------------------------------------- Drawing
@@ -159,7 +204,7 @@ function drawPlay(play) {
 
 
 // ---------------------------------------------------------------------------------------------- Daily rounds
-const BOOK = PLAYS.concat(DEFENSE);
+const BOOK = PLAYS.concat(EXTRA_OFF, DEFENSE, EXTRA_DEF);
 export const playByName = name => BOOK.find(p => p.name === name) || null;
 // A small seeded generator (mulberry32): the same rounds on every phone for a day.
 function rng(seed) {
@@ -168,9 +213,37 @@ function rng(seed) {
 }
 const pick = (r, list) => list[Math.floor(r() * list.length)];
 const shuffle = (r, a) => { const b = a.slice(); for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
+// Harder from puzzle day HARD_FROM (Sun Oct 4 2026): the tougher book without the giveaways (Hail Mary, Prevent), and
+// wrong answers that look like the right one: two from its family (two-high shells together, gap runs together,
+// vertical concepts together, ...) and one more of the same kind, so it stays gettable. Days before keep the rounds
+// they were played with.
+export const HARD_FROM = 6;
+const EASY = new Set(['Hail Mary', 'Prevent']);
+const FAM = {
+  'Four Verticals': ['vert'], 'Dagger': ['vert', 'hilo'], 'Mills': ['vert', 'hilo'], 'Smash': ['hilo'], 'Flood': ['hilo', 'vert'], 'Levels': ['hilo', 'cross'],
+  'Mesh': ['cross'], 'Y-Cross': ['cross'], 'Drive': ['cross', 'hilo'], 'Curl Flat': ['quick', 'hilo'], 'Snag': ['quick', 'hilo'], 'Stick': ['quick'], 'Slants': ['quick'],
+  'PA Boot': ['shot', 'cross'], 'HB Screen': ['quick', 'shot'],
+  'HB Dive': ['inside'], 'Inside Zone': ['inside', 'zone'], 'Duo': ['inside', 'gap'], 'Trap': ['inside', 'gap'], 'Power': ['gap'], 'Counter': ['gap'],
+  'Outside Zone': ['zone', 'edge'], 'Toss': ['edge'], 'Sweep': ['edge', 'gap'], 'Zone Read': ['zone', 'inside'], 'HB Draw': ['inside'],
+  'Cover 2': ['two'], 'Tampa 2': ['two'], 'Cover 2 Man': ['two', 'man'], 'Cover 4': ['two'], 'Cover 6': ['two'],
+  'Cover 3': ['one'], 'Cover 3 Buzz': ['one'], 'Fire Zone': ['one', 'press'], 'Cover 1': ['one', 'man'], 'Cover 1 Robber': ['one', 'man'],
+  'Cover 0': ['man', 'press'], 'Corner Blitz': ['press', 'man'], 'Double A-Gap': ['press', 'man']
+};
+const famOf = n => FAM[n] || [];
+function hardRound(r, pool) {
+  const play = pick(r, pool);
+  const same = pool.filter(p => p.cat === play.cat && p.name !== play.name);
+  const near = shuffle(r, same.filter(p => famOf(p.name).some(f => famOf(play.name).includes(f)))).slice(0, 2);
+  const rest = shuffle(r, same.filter(p => !near.includes(p))).slice(0, 3 - near.length);
+  const o = shuffle(r, [play.name, ...near.map(p => p.name), ...rest.map(p => p.name)]);
+  return {name: play.name, side: play.side, o, a: o.indexOf(play.name), flip: r() < .5};
+}
 /** A day's rounds: [{name (the answer), side ('off' | 'def'), o: [four names], a (the answer's index in o), flip}]. */
 export function roundsFor(pnum) {
   const r = rng(Number(pnum) * 2654435761 + 97);
+  if (Number(pnum) >= HARD_FROM) {
+    return [PLAYS.concat(EXTRA_OFF), DEFENSE.concat(EXTRA_DEF)].map(pool => hardRound(r, pool.filter(p => !EASY.has(p.name))));
+  }
   return [PLAYS, DEFENSE].map(pool => {
     const play = pick(r, pool);
     const same = pool.filter(p => p.cat === play.cat && p.name !== play.name).map(p => p.name);
