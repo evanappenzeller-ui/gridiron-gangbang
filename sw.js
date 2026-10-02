@@ -7,7 +7,7 @@
 // A slow request falls back to whatever is cached under its path (from the previous worker too), so data whose
 // format changes gets a new file name rather than new content under the old one (data/puzzles-v4.json: see
 // js/core/daily.js).
-const CACHE = 'gg-v53';
+const CACHE = 'gg-v54';
 const CORE = ['ui', 'data', 'daily', 'fire', 'week', 'nfl', 'stats', 'motw', 'press', 'checks', 'checks-stats', 'checks-pickem', 'checks-press', 'lay', 'plays', 'laytrack'];
 // The six tab roots are puzzles, pickem, rivals (Matchup), league, moves (Draft) and lay (The Lay).
 const VIEWS = ['welcome', 'puzzles', 'board', 'you', 'sharecard', 'results', 'run', 'college', 'silhouette', 'mystery', 'journey', 'grid', 'picker',
@@ -53,7 +53,9 @@ function put(key, res) {
 async function networkFirst(req, url) {
   // Cache under the bare path (retry imports add ?retry=...).
   const key = url.search ? url.origin + url.pathname : req;
-  const net = fetch(req).then(res => { put(key, res.clone()); return res; });
+  // no-cache: always ask GitHub Pages (a cheap 304 when unchanged), never the browser's 10-minute HTTP cache, so a
+  // new version shows on the next open instead of up to 10 minutes later.
+  const net = fetch(req.url, {cache: 'no-cache', credentials: 'same-origin'}).then(res => { put(key, res.clone()); return res; });
   net.catch(() => {}); // a late network failure after a cache hit must not surface as an unhandled rejection
   const timer = new Promise(r => setTimeout(r, TIMEOUT, 'timeout'));
   let fallback = false;
