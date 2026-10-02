@@ -197,18 +197,22 @@ async function rosterOf(t) {
   ROSTERS.set(t.id, names);
   return names;
 }
-let ptBusy = null;
+let ptBusy = null, ptFailAt = 0;
 async function findTeams(names, games) {
   const need = new Set(names.filter(n => !ptFresh(PT[n])));
   if (!need.size || ptBusy) return ptBusy || null;
+  if (Date.now() - ptFailAt < 60e3) return null; // a roster failed to load: try again in a minute
   ptBusy = (async () => {
     const teams = [];
     games.forEach(g => [g.home, g.away].forEach(t => { if (t && t.id && !teams.some(x => x.id === t.id)) teams.push(t); }));
+    let failed = false;
     for (let i = 0; i < teams.length && need.size; i += 4) {
-      const got = await Promise.all(teams.slice(i, i + 4).map(t => rosterOf(t).then(n => [t, n], () => [t, null])));
+      const got = await Promise.all(teams.slice(i, i + 4).map(t => rosterOf(t).then(n => [t, n], () => { failed = true; return [t, null]; })));
       got.forEach(([t, list]) => (list || []).forEach(k => need.forEach(n => { if (sameMan(k, n)) { PT[n] = [t.abbr, Date.now()]; need.delete(n); } })));
     }
-    need.forEach(n => { PT[n] = [null, Date.now()]; });
+    // Not on any roster: remembered as a miss (retried in 6 h) only when every roster loaded; else retried soon.
+    if (failed) ptFailAt = Date.now();
+    else need.forEach(n => { PT[n] = [null, Date.now()]; });
     try { localStorage.setItem(PT_LS, JSON.stringify(PT)); } catch (_) {}
   })().finally(() => { ptBusy = null; });
   return ptBusy;
