@@ -495,3 +495,11 @@ html.rm .c-pk-dot::after { animation: none; }
 /* The spread under each team ('-3.5' on the favorite, in gold). */
 .v-pickem .pk-sp { color: var(--ink-3); letter-spacing: .02em; }
 .v-pickem .pk-sp.is-fav { color: var(--gold); }
+/* College: against the spread */
+.v-pickem .pk-ats { display: flex; flex-direction: column; gap: 4px; margin: -4px 0 14px; padding: 10px 12px; border-radius: 10px;
+  background: var(--gold-soft); box-shadow: inset 0 0 0 2px rgba(255,197,49,.45); }
+.v-pickem .pk-ats-t { font: 400 13px/16px var(--font-pixel); text-transform: uppercase; color: var(--gold); }
+.v-pickem .pk-ats-b { font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2); }
+.v-pickem .pk-cov { flex: none; padding: 1px 6px; border-radius: 6px; background: var(--tint-soft); color: var(--tint);
+  font: 400 11px/14px var(--font-num); text-transform: uppercase; letter-spacing: .04em; }
+.v-pickem .pk-cov.is-push { background: var(--fill); color: var(--ink-2); }

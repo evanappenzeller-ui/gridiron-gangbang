@@ -830,7 +830,9 @@ function leagueTabsHTML() {
     + ` aria-selected="${l.id === SPORT}"${l.id === SPORT ? '' : ' tabindex="-1"'} aria-label="${l.label} pick'em${l.sub ? ', ' + l.sub.toLowerCase() : ''}">`
     + `<span class="pk-lg-ic" aria-hidden="true">${badgeHTML(l.id)}</span>`
     + (l.sub ? `<span class="pk-lg-tx" aria-hidden="true"><span class="pk-lg-s">${l.sub}</span></span>` : '')
-    + `<span class="pk-lg-u" aria-hidden="true"></span></button>`).join('')}</div>`;
+    + `<span class="pk-lg-u" aria-hidden="true"></span></button>`).join('')}</div>`
+    + (CFB ? `<div class="pk-ats" role="note"><span class="pk-ats-t">Against the spread</span>`
+      + `<span class="pk-ats-b">Not the moneyline: you're picking who covers. The favorite has to win by more than the spread; the underdog covers by winning or losing by less. Graded on the spread at kickoff.</span></div>` : '');
 }
 // The week chips: from the season's first pick'em week (weeks before it never had picks) to the current week. Hidden
 // while there is only one week to show.
@@ -984,11 +986,11 @@ function bannerHTML(v) {
   return out.join('');
 }
 function noteHTML(v) {
-  if (!v.current || v.sum.done) return v.sum.n ? `<p class="pk-note">${v.current ? 'Every game is final.' : `Week ${st.week} is final.`} A point for every winner you called; a tie counts for nobody.</p>` : '';
+  if (!v.current || v.sum.done) return v.sum.n ? `<p class="pk-note">${v.current ? 'Every game is final.' : `Week ${st.week} is final.`} ${CFB ? 'A point for every team you had that covered the spread; a push counts for nobody.' : 'A point for every winner you called; a tie counts for nobody.'}</p>` : '';
   if (!v.sum.open || v.off) return '';
   if (v.lockPending) return `<p class="pk-note">Locking in your picks for week ${st.week}…</p>`;
   if (v.locked) return `<p class="pk-note">Your picks are locked in for week ${st.week}. Nothing changes now but the scores.</p>`;
-  return `<p class="pk-note">Tap a team to pick it, tap again to clear. Picks save as you tap and can change until each game kicks off.</p>`;
+  return `<p class="pk-note">Tap a team to pick it, tap again to clear. Picks save as you tap and can change until each game kicks off.${CFB ? ' Graded on the spread at kickoff.' : ''}</p>`;
 }
 
 // Status column: kickoff time, the live clock, or Final.
@@ -1004,7 +1006,7 @@ function statHTML(g, v) {
     if (!g.final) return `<span class="pk-s1 is-final">${esc(offWord(g))}</span>`;
     const ot = /OT/i.test(g.detail) || (g.period || 0) > 4;
     const tie = !g.winner;
-    return `<span class="pk-s1 is-final">Final</span>${tie || ot ? `<span class="pk-s2">${[tie ? 'Tie' : '', ot ? 'OT' : ''].filter(Boolean).join(' · ')}</span>` : ''}`;
+    return `<span class="pk-s1 is-final">Final</span>${tie || ot ? `<span class="pk-s2">${[tie ? (CFB ? 'Push' : 'Tie') : '', ot ? 'OT' : ''].filter(Boolean).join(' · ')}</span>` : ''}`;
   }
   if (locked) return `${lock}<span class="pk-s1">${/postpon|delay|suspend|cancel/i.test(g.detail) ? esc(offWord(g)) : 'Starting'}</span>`;
   if (g.tbd) return `${lock}<span class="pk-s1">Kickoff</span><span class="pk-s2">TBD</span>`;
@@ -1075,7 +1077,7 @@ function teamLabel(g, t, side, v) {
   const win = winnerOf(g);
   const d = draftOf(g, t, v);
   const bits = [`${t.rank ? `Number ${t.rank} ` : ''}${t.name}${t.record ? `, ${recText(t.record)}` : ''}`];
-  if (showScore(g) && t.score != null) bits.push(`${t.score} points${win === t.abbr ? ', won' : ''}`);
+  if (showScore(g) && t.score != null) bits.push(`${t.score} points${win === t.abbr ? (CFB ? ', covered the spread' : ', won') : ''}`);
   const sp = spreadOf(g, side);
   if (sp) bits.push(sp === 'PK' ? 'Spread: pick\'em' : `Spread ${sp.replace('−', 'minus ').replace('+', 'plus ')}`);
   if (mine === t.abbr) bits.push(win ? (win === t.abbr ? 'Your pick, right' : 'Your pick, wrong') : g.state === 'post' ? 'Your pick. No result, so it counts for nobody' : d ? 'Your pick, not saved yet' : 'Your pick');
@@ -1099,7 +1101,7 @@ function sideCls(g, t, v) {
 // current line; '' when there is none. Shown until the game is over.
 const spreadOf = (g, side) => {
   const l = g.line;
-  if (!l || g.state === 'post') return '';
+  if (!l || (g.state === 'post' && !CFB)) return ''; // college picks are on the spread: it stays up
   if (!l.fav || !l.pts) return 'PK';
   return l.fav === side ? '−' + String(l.pts) : '';
 };
@@ -1108,7 +1110,8 @@ function subHTML(g, t, v) {
   const ns = d === 'draft' ? 'Not saved' : d === 'cleared' ? 'Clear not saved' : d === 'was' ? 'Saved' : '';
   const sp = spreadOf(g, g.home === t ? 'home' : 'away');
   const fav = sp.startsWith('−');
-  return `<span class="pk-trec">${esc(recText(t.record))}</span>${sp ? `<span class="pk-sp n5${fav ? ' is-fav' : ''}">${esc(sp)}</span>` : ''}${ns ? `<span class="pk-ns">${ns}</span>` : ''}`;
+  const cov = CFB && g.state === 'post' && g.final ? (winnerOf(g) === t.abbr ? '<span class="pk-cov">Covered</span>' : !g.winner && t === g.home ? '<span class="pk-cov is-push">Push</span>' : '') : '';
+  return `<span class="pk-trec">${esc(recText(t.record))}</span>${sp ? `<span class="pk-sp n5${fav ? ' is-fav' : ''}">${esc(sp)}</span>` : ''}${cov}${ns ? `<span class="pk-ns">${ns}</span>` : ''}`;
 }
 function sideHTML(g, side, v) {
   const t = g[side];
@@ -1530,7 +1533,7 @@ function patchGame(li, g, v, pop) {
       const m = li.querySelector('.pk-mk.is-right, .pk-mk.is-wrong');
       if (m) ui.stamp(m, {from: 1.6});
       const mine = v.mine[g.id], win = winnerOf(g);
-      if (mine && win) ui.announce(`Final: ${g[g.winner].short} won. ${mine === win ? 'You got it right.' : 'You missed that one.'}`);
+      if (mine && win) ui.announce(`Final: ${g[g.winner].short} ${CFB ? 'covered' : 'won'}. ${mine === win ? 'You got it right.' : 'You missed that one.'}`);
     }
   }
   st.seen.set(g.id, {state: g.state, locked, revealed});
@@ -1978,7 +1981,7 @@ function boardBody(mode, res, y, w) {
     return ui.row({lead, title, sub,
       trail: `<span class="pk-bs-v"><span class="n4">${x.right}–${x.lost}</span></span>`, me: x.w.you, key: x.w.key});
   }).join('');
-  const sub = mode === 'week' ? `Week ${w}. A point for every winner called; ties count for nobody.` : `${y} season, every week with picks.`;
+  const sub = mode === 'week' ? (CFB ? `Week ${w}. Against the spread: a point for every cover called; pushes count for nobody.` : `Week ${w}. A point for every winner called; ties count for nobody.`) : `${y} season, every week with picks${CFB ? ', against the spread' : ''}.`;
   return `<p class="pk-sh-sub">${esc(sub)}</p>` + warnHTML + ui.group(html, {cls: 'pk-bs-list'});
 }
 

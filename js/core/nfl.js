@@ -124,7 +124,7 @@ function eventOf(e, o = {}) {
   const country = String(addr.country || '');
   const notes = (Array.isArray(c.notes) ? c.notes : []).map(n => n && n.headline).filter(x => typeof x === 'string' && x);
   const tv = [...new Set((Array.isArray(c.broadcasts) ? c.broadcasts : []).flatMap(b => (b && Array.isArray(b.names) ? b.names : [])).filter(x => typeof x === 'string' && x))];
-  return {
+  const game = {
     id, kickoff: new Date(t), tbd: c.timeValid === false, state, status,
     detail: String(ty.shortDetail || ty.detail || ty.description || ''),
     period: num(st.period), clock: typeof st.displayClock === 'string' ? st.displayClock : '',
@@ -137,6 +137,32 @@ function eventOf(e, o = {}) {
     note: notes[0] || '', tv: tv.join(' / '),
     line: lineOf(c, home, away)
   };
+  return o.cfb ? againstSpread(game) : game;
+}
+
+// The College pick'em is against the spread: a final college game's winner is the team that covered (its score
+// plus its side of the line beats the other's), tie when it lands on the number (a push). The line is ESPN's
+// (the closing line once the game starts), else the last one this phone saw before kickoff ('gg-cfb-line-<id>');
+// a final game with neither is a push. The straight-up result stays on su: {winner, tie}; ats: true marks the game.
+const LINE_LS = 'gg-cfb-line-';
+function againstSpread(g) {
+  let l = g.line;
+  try {
+    if (l && g.state === 'pre') localStorage.setItem(LINE_LS + g.id, JSON.stringify(l));
+    if (!l) { const v = JSON.parse(localStorage.getItem(LINE_LS + g.id) || 'null'); if (v && (v.fav === 'home' || v.fav === 'away' || v.fav === null) && isFinite(+v.pts)) l = v; }
+  } catch (_) {}
+  g.line = l || null;
+  g.ats = true;
+  g.su = {winner: g.winner, tie: g.tie};
+  if (!g.final) return g;
+  const hs = !l ? null : !l.fav ? 0 : l.fav === 'home' ? -l.pts : l.pts; // home's side of the line
+  const m = hs == null ? 0 : (g.home.score || 0) - (g.away.score || 0) + hs;
+  g.winner = m > 0 ? 'home' : m < 0 ? 'away' : null;
+  g.tie = !g.winner;
+  g.noLine = hs == null;
+  g.home.winner = g.winner === 'home';
+  g.away.winner = g.winner === 'away';
+  return g;
 }
 
 // The game's betting line from ESPN's odds (the scoreboard carries the current one, so it moves as the polls do):
