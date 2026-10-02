@@ -218,12 +218,12 @@ function trackCard({l, r}, me) {
 function trackerHTML(w, me, {preview} = {}) {
   const rows = trackRows(w), n = k => rows.filter(x => x.r.st === k).length;
   const hit = n('hit'), miss = n('miss'), going = n('live'), left = rows.length - hit - miss - going, st = statusOf(w);
-  const lw = live.liveWeek();
-  const head = st === 'bust' ? 'Busted' : st === 'hit' ? 'Cashed' : preview && !hit && !going ? `Goes live ${lw ? live.closeText(lw.year, lw.week).split(' ')[0] : 'Sunday'}` : 'Still alive';
+  // The section is the Live Tracker, before and after legs close; the slip's state rides on the overline.
+  const state = st === 'bust' ? 'Busted' : st === 'hit' ? 'Cashed' : hit || going ? 'Still alive' : `${rows.length} ${rows.length === 1 ? 'leg' : 'legs'} in`;
   const tile = (v, lb, cls = '') => `<div class="lv-tile ${cls}"><span class="n3">${v}</span><span class="lv-tl">${lb}</span></div>`;
   return `<section class="card card-hero lv-sum is-${st}" aria-label="Live tracker">`
-    + `<div class="ly-hero-top"><p class="card-ovl">${preview ? 'Live tracker preview' : 'Live tracker'} · Week ${w.week}</p>${preview ? '' : statusPill(w)}</div>`
-    + `<h2 class="lv-head">${head}</h2>` + (preview ? '' : placerLine(w))
+    + `<div class="ly-hero-top"><p class="card-ovl">Week ${w.week} · ${state}</p>${statusPill(w)}</div>`
+    + `<h2 class="lv-head">Live Tracker</h2>` + (preview ? '' : placerLine(w))
     + `<div class="lv-tiles">${tile(hit, 'Hit', 'is-hit')}${tile(going, 'Live', 'is-live')}${tile(left, 'To go')}${tile(miss, 'Missed', 'is-miss')}</div></section>`
     + `<div class="lv-cards">${rows.map(x => trackCard(x, me)).join('')}</div>`
     + `<p class="lv-foot-note">Live from ESPN, every 30 seconds while games are on. Results are final once the league confirms them.</p>`;

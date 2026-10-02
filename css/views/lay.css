@@ -147,3 +147,9 @@
 .v-lay .ly-yours > .group.ly-mine { margin: 8px 0 0; border-radius: var(--r-cell); background: var(--surface-2); }
 .v-lay .ly-yours .card-body { margin-top: 4px; }
 .v-lay .ly-yours .ly-acts { margin-top: 10px; }
+/* The Live Tracker is the tab's focal point: a lit border in the slip's state, the biggest heading on the tab */
+.v-lay .lv-sum { box-shadow: inset 0 0 0 2px var(--tint), 0 0 24px rgba(124,240,88,.18); }
+.v-lay .lv-sum.is-bust { box-shadow: inset 0 0 0 2px var(--wrong), 0 0 24px rgba(255,90,74,.18); }
+.v-lay .lv-sum.is-hit { box-shadow: inset 0 0 0 2px var(--gold), 0 0 24px rgba(255,197,49,.22); }
+.v-lay .lv-sum .lv-head { font-size: 26px; line-height: 30px; margin: 6px 0 14px; white-space: nowrap; }
+.v-lay .ly-week-card + .lv-sum { margin-top: 16px; }
