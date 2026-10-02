@@ -168,7 +168,8 @@ function currentWeek() {
 }
 const legOf = (w, id) => w ? legsOf(w).find(l => (l.for || l.by) === id) || null : null;
 
-function heroHTML(me) {
+// noLegs: the legs show in the tracker preview below instead.
+function heroHTML(me, {noLegs} = {}) {
   const w = currentWeek();
   if (!w) return '';
   const st = statusOf(w), t = tally(w), size = SIZE();
@@ -179,7 +180,7 @@ function heroHTML(me) {
       + `<p class="ly-meter-lb"><b>${t.n} of ${size}</b> legs in</p>`;
     if (miss.length) body += `<p class="ly-waiting">Waiting on ${esc(miss.map(data.name).join(', '))}</p>`;
   }
-  if (t.n) body += ui.group(legsOf(w).map(l => legRow(l, me)).join(''), {cls: 'ly-legs',
+  if (t.n && !noLegs) body += ui.group(legsOf(w).map(l => legRow(l, me)).join(''), {cls: 'ly-legs',
     footer: w.tracked ? 'Tracking live from ESPN. Results are final once the league confirms them.' : ''});
 
   return `<section class="card card-hero ly-hero ly-${st}" aria-label="This week">`
@@ -213,14 +214,16 @@ function trackCard({l, r}, me) {
     + `<p class="lv-note">${esc(r.note || '')}${game && !/–|@/.test(r.note || '') ? ` · ${esc(game)}` : ''}</p>`
     + `</article>`;
 }
-function trackerHTML(w, me) {
+// preview: before legs close, under "Get your legs in" (no placer line: the card above has it).
+function trackerHTML(w, me, {preview} = {}) {
   const rows = trackRows(w), n = k => rows.filter(x => x.r.st === k).length;
   const hit = n('hit'), miss = n('miss'), going = n('live'), left = rows.length - hit - miss - going, st = statusOf(w);
-  const head = st === 'bust' ? 'Busted' : st === 'hit' ? 'Cashed' : 'Still alive';
+  const lw = live.liveWeek();
+  const head = st === 'bust' ? 'Busted' : st === 'hit' ? 'Cashed' : preview && !hit && !going ? `Goes live ${lw ? live.closeText(lw.year, lw.week).split(' ')[0] : 'Sunday'}` : 'Still alive';
   const tile = (v, lb, cls = '') => `<div class="lv-tile ${cls}"><span class="n3">${v}</span><span class="lv-tl">${lb}</span></div>`;
   return `<section class="card card-hero lv-sum is-${st}" aria-label="Live tracker">`
-    + `<div class="ly-hero-top"><p class="card-ovl">Live tracker · Week ${w.week}</p>${statusPill(w)}</div>`
-    + `<h2 class="lv-head">${head}</h2>` + placerLine(w)
+    + `<div class="ly-hero-top"><p class="card-ovl">${preview ? 'Live tracker preview' : 'Live tracker'} · Week ${w.week}</p>${preview ? '' : statusPill(w)}</div>`
+    + `<h2 class="lv-head">${head}</h2>` + (preview ? '' : placerLine(w))
     + `<div class="lv-tiles">${tile(hit, 'Hit', 'is-hit')}${tile(going, 'Live', 'is-live')}${tile(left, 'To go')}${tile(miss, 'Missed', 'is-miss')}</div></section>`
     + `<div class="lv-cards">${rows.map(x => trackCard(x, me)).join('')}</div>`
     + `<p class="lv-foot-note">Live from ESPN, every 30 seconds while games are on. Results are final once the league confirms them.</p>`;
@@ -326,7 +329,10 @@ function bodyHTML(st) {
   const lw = live.liveWeek(), w = currentWeek();
   const tracking = lw && w && w.year === lw.year && w.week === lw.week && live.isClosed(lw.year, lw.week) && legsOf(w).length;
   if (tracking) return trackerHTML(w, me) + tilesHTML() + recordsHTML(me) + weeksHTML(me);
-  return entryHTML(st || {}, me) + heroHTML(me) + tilesHTML() + recordsHTML(me) + weeksHTML(me);
+  // Before: the entry box, "Get your legs in", then a preview of the tracker (the live week's legs, scored as they play).
+  const preview = lw && w && w.year === lw.year && w.week === lw.week && legsOf(w).length;
+  return entryHTML(st || {}, me) + heroHTML(me, {noLegs: !!preview}) + (preview ? trackerHTML(w, me, {preview: true}) : '')
+    + tilesHTML() + recordsHTML(me) + weeksHTML(me);
 }
 
 function subtitle() {
