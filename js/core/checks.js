@@ -10,7 +10,6 @@ import * as motw from './motw.js';
 import * as week from './week.js';
 import {playByName} from './plays.js';
 import * as laytrack from './laytrack.js';
-import * as nfl from './nfl.js';
 
 // ---------------------------------------------------------------------------
 // Old formulas, copied from the old index.html
@@ -1362,18 +1361,6 @@ export async function runChecks() {
     const ms = Math.round(performance.now() - t0);
     return {pass: !bad.length && n4 === PZ.days.length - 3, detail: bad.length ? bad.slice(0, 6).join('; ') + (bad.length > 6 ? ` (+${bad.length - 6})` : '')
       : `${n4} v4 days (days 4-${PZ.days.length}, from ${daily.dayLabel(4)}): ${[0, 1, 2, 3, 4].map(k => v4Rotation(k).join('+')).join(', ')}, repeating; each type 3 of every 5 days, at most ${gap} days missed in a row, ${lo}-${hi} times in every 7-day week; every square answerable (${ms} ms)`};
-  });
-
-  check('College pick\'em is graded against the spread (cover, push, no line), the NFL straight up', () => {
-    const ev = (id, hs, as, odds) => ({id, date: '2026-10-03T16:00Z', competitions: [{status: {type: {state: 'post', name: 'STATUS_FINAL', completed: true}},
-      competitors: [{homeAway: 'home', score: String(hs), winner: hs > as, team: {id: '1', abbreviation: 'TEX'}}, {homeAway: 'away', score: String(as), winner: as > hs, team: {id: '2', abbreviation: 'OSU'}}],
-      odds: odds ? [{details: odds}] : []}]});
-    const j = {season: {year: 2026, type: 2}, week: {number: 6}, events: [ev('9001', 31, 20, 'TEX -7.5'), ev('9002', 24, 20, 'TEX -7.5'), ev('9003', 27, 20, 'TEX -7'), ev('9004', 20, 24, 'OSU -3'), ev('9005', 30, 10, null)]};
-    const G = nfl.parse(j, {}, {cfb: true}).games, N = nfl.parse(j, {}, {}).games;
-    const got = G.map(g => g.winner || (g.noLine ? 'noline' : 'push')).join(), want = 'home,away,push,away,noline';
-    const su = N.map(g => g.winner).join() === 'home,home,home,away,home';
-    return {pass: got === want && su && week.gradeNfl(G[1], 'OSU') === 'right' && week.gradeNfl(N[1], 'OSU') === 'wrong',
-      detail: `college ${got} (want ${want}); NFL straight up ${su ? 'ok' : 'wrong'}`};
   });
 
   check('The Lay live tracking reads the league\'s kinds of legs and scores them against a game', () => {

@@ -495,18 +495,3 @@ html.rm .c-pk-dot::after { animation: none; }
 /* The spread under each team ('-3.5' on the favorite, in gold). */
 .v-pickem .pk-sp { color: var(--ink-3); letter-spacing: .02em; }
 .v-pickem .pk-sp.is-fav { color: var(--gold); }
-/* College: against the spread. A scoreboard-style strip: the ATS badge, the rule, and the two sides of a line. */
-.v-pickem .pk-ats { display: flex; align-items: center; gap: 12px; margin: -2px 0 14px; padding: 10px 12px;
-  border-radius: 12px; background: linear-gradient(90deg, rgba(255,197,49,.14), rgba(255,197,49,.03) 70%); border-left: 4px solid var(--gold); }
-.v-pickem .pk-ats-badge { flex: none; display: grid; place-items: center; width: 52px; height: 40px; border-radius: 8px;
-  background: var(--gold); color: #1A1300; font: 400 16px/1 var(--font-pixel); box-shadow: 0 3px 0 #9A7212; }
-.v-pickem .pk-ats-main { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.v-pickem .pk-ats-t { font: 600 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink); }
-.v-pickem .pk-ats-ex { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
-.v-pickem .pk-ats-chip { padding: 0 6px; border-radius: 6px; background: var(--fill); color: var(--ink); font: 400 13px/18px var(--font-num); }
-.v-pickem .pk-ats-chip.is-fav { color: var(--gold); }
-.v-pickem .pk-ats-u { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
-.v-pickem .pk-ats-ex { column-gap: 14px; }
-.v-pickem .pk-cov { flex: none; padding: 1px 6px; border-radius: 6px; background: var(--tint-soft); color: var(--tint);
-  font: 400 11px/14px var(--font-num); text-transform: uppercase; letter-spacing: .04em; }
-.v-pickem .pk-cov.is-push { background: var(--fill); color: var(--ink-2); }
