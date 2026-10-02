@@ -1729,17 +1729,35 @@ function showFatal() {
     catch (_) { ui.setLoading(btn, false); ui.toast("Still can't reach the league."); }
   });
 }
+// Updates: a home-screen app can stay open in the background for days, keeping the code it started with while
+// screens loaded later come from a newer version (the NCAA pick'em is imported on first use). So the app asks for a
+// new version whenever it comes back to the foreground (at most every 10 minutes), and once a new service worker
+// has taken over (sw.js: skipWaiting + clients.claim, its cache already filled) it reloads into it the next time it
+// is out of sight, never in front of you. The title screen shows again after that reload, as on any launch.
+let swReg = null, swNew = false, swAsked = 0;
 function registerSW() {
   if (!('serviceWorker' in navigator)) return;
   const local = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
   if (location.protocol !== 'https:' && !local) return;
-  navigator.serviceWorker.register('sw.js').catch(() => {});
+  const had = !!navigator.serviceWorker.controller; // a first install taking control is not an update
+  navigator.serviceWorker.register('sw.js').then(r => { swReg = r; swAsked = Date.now(); }).catch(() => {});
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!had) return;
+    swNew = true;
+    if (document.hidden) location.reload();
+  });
+}
+function checkForUpdate() {
+  if (!swReg || Date.now() - swAsked < 10 * 60e3) return;
+  swAsked = Date.now();
+  try { swReg.update().catch(() => {}); } catch (_) {}
 }
 let lastVisibleCheck = 0;
 function onVisibility() {
   const vis = !document.hidden;
   allMounted().forEach(s => { if (vis && s.visible) resumeTimers(s); else pauseTimers(s); });
-  if (!vis) { persistScroll(); return; }
+  if (!vis) { persistScroll(); if (swNew) location.reload(); return; }
+  checkForUpdate();
   try { daily.checkDay(); } catch (_) {}
   queueBadges(); // kickoffs and vote locks passed while the page was away
   const now = Date.now();
