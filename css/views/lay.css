@@ -73,3 +73,29 @@
 .v-lay .ly-read .ic { flex: none; margin-top: 2px; }
 .v-lay .ly-read b { color: var(--ink); font-weight: 600; }
 .v-lay .ly-read-hint { color: var(--ink-3); }
+
+/* Every slip: compact, one card per week; open for the legs */
+.v-lay .ly-slips { display: flex; flex-direction: column; gap: 8px; }
+.v-lay .ly-slip { padding: 0; overflow: hidden; }
+.v-lay .ly-slip-h { display: flex; align-items: center; gap: 12px; padding: 12px 14px; cursor: pointer; list-style: none; }
+.v-lay .ly-slip-h::-webkit-details-marker { display: none; }
+.v-lay .ly-slip-wk { flex: none; width: 40px; color: var(--ink); }
+.v-lay .ly-slip-mid { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.v-lay .ly-sq { display: flex; gap: 3px; }
+.v-lay .ly-sq > i { width: 12px; height: 12px; border-radius: 3px; background: var(--fill); }
+.v-lay .ly-sq > i.is-hit { background: var(--tint); }
+.v-lay .ly-sq > i.is-miss { background: var(--wrong); }
+.v-lay .ly-slip-sub { font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.v-lay .ly-slip-res { flex: none; color: var(--ink-2); }
+.v-lay .ly-slip-res.is-hit { color: var(--gold); }
+.v-lay .ly-slip-res.is-bust { color: var(--wrong); }
+.v-lay .ly-slip-chev { flex: none; width: 18px; height: 18px; color: var(--ink-3); transition: transform .2s ease; }
+.v-lay .ly-slip[open] .ly-slip-chev { transform: rotate(180deg); }
+.v-lay .ly-cls { list-style: none; margin: 0; padding: 0 14px 10px; border-top: 1px solid var(--separator); }
+.v-lay .ly-cl { display: flex; align-items: center; gap: 8px; padding: 6px 0; min-height: 34px; }
+.v-lay .ly-cl + .ly-cl { border-top: 1px solid var(--separator); }
+.v-lay .ly-cl-bet { flex: 1; min-width: 0; font: 400 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.v-lay .ly-cl.is-miss .ly-cl-bet { color: var(--ink-2); text-decoration: line-through; text-decoration-color: var(--wrong); }
+.v-lay .ly-cl-who { flex: none; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+.v-lay .ly-cl .ly-mark { width: 22px; height: 22px; }
+.v-lay .ly-cl .ly-mark > .ic { width: 13px; height: 13px; }

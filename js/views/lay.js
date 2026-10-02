@@ -270,19 +270,24 @@ function recordsHTML(me) {
   return ui.sectionHeader({title: 'Leg records'}) + ui.group(rows, {footer: 'Hits and misses on the legs each manager submitted.'});
 }
 
+// Past slips, compact and in week order: one card per week (week, placer, a square per leg, the result); tap to open
+// its legs as one-line rows.
 function weeksHTML(me) {
-  const past = WEEKS.filter(w => legsOf(w).length).filter(w => w !== currentWeek() || statusOf(w) === 'hit' || statusOf(w) === 'bust').slice().reverse();
+  const past = WEEKS.filter(w => legsOf(w).length).filter(w => w !== currentWeek() || statusOf(w) === 'hit' || statusOf(w) === 'bust');
   if (!past.length) return '';
-  return ui.sectionHeader({title: 'Every slip'}) + past.map(w => {
-    const t = tally(w);
-    const busted = legsOf(w).filter(l => l.hit === false).map(l => data.name(l.by));
-    const foot = statusOf(w) === 'bust' ? `Busted by ${busted.join(', ')}` : statusOf(w) === 'hit' ? `All ${t.n} hit` : '';
-    return `<section class="ly-week" aria-label="Week ${w.week}">`
-      + `<div class="ly-week-h"><h3>Week ${w.week}</h3>${statusPill(w)}</div>`
-      + placerLine(w)
-      + ui.group(legsOf(w).map(l => legRow(l, me)).join(''), {footer: foot})
-      + `</section>`;
-  }).join('');
+  return ui.sectionHeader({title: 'Every slip'}) + `<div class="ly-slips">` + past.map(w => {
+    const t = tally(w), st = statusOf(w), p = placerOf(w);
+    const squares = legsOf(w).map(l => `<i class="${l.hit === true ? 'is-hit' : l.hit === false ? 'is-miss' : ''}"></i>`).join('');
+    const res = st === 'hit' ? 'Cashed' : `${t.hit}/${t.n}`;
+    const legs = legsOf(w).map(l => `<li class="ly-cl${l.hit === false ? ' is-miss' : l.hit === true ? ' is-hit' : ''}">${ui.avatar(l.by, {size: 22, you: l.by === me})}`
+      + `<span class="ly-cl-bet">${esc(l.bet || '—')}</span><span class="ly-cl-who">${esc(data.name(l.by).split(' ')[0])}</span>${markOf(l)}</li>`).join('');
+    return `<details class="card ly-slip is-${st}"><summary class="ly-slip-h">`
+      + `<span class="ly-slip-wk n4">W${w.week}</span>`
+      + `<span class="ly-slip-mid"><span class="ly-sq" aria-hidden="true">${squares}</span>`
+      + `<span class="ly-slip-sub">${esc([p ? data.name(p.id).split(' ')[0] + ' placed' : '', t.miss ? `${t.miss} missed` : st === 'hit' ? 'Every leg hit' : ''].filter(Boolean).join(' · '))}</span></span>`
+      + `<span class="ly-slip-res n5 is-${st}">${res}</span>${ui.icon('chevron-down', {cls: 'ly-slip-chev'})}</summary>`
+      + `<ul class="ly-cls">${legs}</ul></details>`;
+  }).join('') + `</div>`;
 }
 
 function bodyHTML(st) {
