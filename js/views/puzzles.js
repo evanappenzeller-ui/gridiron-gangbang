@@ -29,6 +29,7 @@ function heroKind() {
   if (daily.status === 'error') return 'error';
   if (!ready()) return 'loading';
   if (daily.allDone()) return 'done';
+  if (daily.playedElsewhere()) return 'played';
   return daily.anyStarted() ? 'started' : 'new';
 }
 
@@ -158,8 +159,19 @@ function loadingCard() {
 function errorCard() {
   return `<section class="card card-hero c-hero is-error" data-kind="error">${ui.empty({icon: 'football', title: 'Puzzles need a connection the first time.', body: 'League history works offline.', action: {label: 'Try again', attrs: {'data-retry': ''}}})}</section>`;
 }
+// Today's score is already on the board under this member's name (another phone, or this one before its progress
+// was lost): one attempt a day, so no Play button, just the score that counts.
+function playedCard() {
+  const e = daily.playedElsewhere() || {};
+  return `<section class="card card-hero c-hero is-played" data-kind="played" aria-labelledby="c-hero-o">`
+    + ovlHTML()
+    + `<div class="c-hero-top"><p class="n2 c-hero-total">${esc(nf(Number(e.p) || 0))}</p><p class="c-hero-line">${esc("Already played today. One attempt a day, and this score is on the board.")}</p></div>`
+    + `<div class="c-cd-host" data-k="cd">${countdownHTML(false)}</div>`
+    + `</section>`;
+}
 function cardHTML(k = heroKind()) {
   if (k === 'error') return errorCard();
+  if (k === 'played') return playedCard();
   if (k === 'loading') return loadingCard();
   return readyCard(k);
 }
@@ -272,7 +284,7 @@ function newDay() { try { return ready() && daily.checkDay(); } catch (_) { retu
 function tickCd(st, animate) {
   const host = st.el.querySelector('.c-hero .c-cd-host');
   if (!host) return;
-  const k = newDay() ? 'new' : heroKind() === 'done' ? 'cd' : '';
+  const k = newDay() ? 'new' : (heroKind() === 'done' || heroKind() === 'played') ? 'cd' : '';
   if (host.dataset.k !== k) {
     host.dataset.k = k;
     host.innerHTML = k ? countdownHTML(k === 'new') : '';
@@ -366,7 +378,7 @@ function onDaily(st, type) {
     sync(st, st.ctx.visible);
     return;
   }
-  if (type === 'progress') { if (st.ctx.visible) sync(st, true); else st.pending = true; return; }
+  if (type === 'progress' || type === 'lb') { if (st.ctx.visible) sync(st, true); else st.pending = true; return; }
   if (type === 'newday') tickCd(st, st.ctx.visible);
 }
 

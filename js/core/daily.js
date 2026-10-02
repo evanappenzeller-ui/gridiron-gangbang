@@ -525,11 +525,11 @@ const V3_STEPS = [
   Object.assign({}, V2_STEPS[3], {max: 200}),
   Object.assign({}, V1_STEPS[2], {max: 200, result: (ds = DS, day = DAY) => `${gridScore(ds)} of ${gridShape(day).n}`})
 ];
-// Name the play (from Oct 3 2026, puzzle day PLAY_FROM): every other v4 day from then on plays it in place of the day's
+// Name the play (from Fri Oct 2 2026, puzzle day PLAY_FROM): every other v4 day from then on plays it in place of the day's
 // last puzzle, still three puzzles and 600 points. Two rounds (an offensive play, then a defensive one; js/core/
 // plays.js picks them from the day number, so every phone gets the same), 100 points each. Progress: DS.play.a (the
 // picked option per round, -1 when locked in unanswered); board entries carry y (rounds right).
-export const PLAY_FROM = 6;
+export const PLAY_FROM = 5;
 const dayNum = day => (PZ && day ? PZ.days.indexOf(day) + 1 : 0);
 export const playsOn = (day = DAY) => dayVersion(day) === 4 && dayNum(day) >= PLAY_FROM && (dayNum(day) - PLAY_FROM) % 2 === 0;
 const PLAY_ROUNDS = new WeakMap();
@@ -601,6 +601,7 @@ const toInt = x => (typeof x === 'number' ? x : (x === '' || x == null ? NaN : N
 // College: answer the next player with option j. Returns {row, correct, ans}, or null when all 5 are
 // answered, j is not a valid option index, or the day has no College (a v4 day without it).
 export function colPick(j) {
+  if (shut()) return null;
   j = toInt(j);
   const row = DS.col.a.length;
   if (!DAY || !hasStep('col') || row >= DAY.c.length) return null;
@@ -615,6 +616,7 @@ export function colPick(j) {
 // Mystery: show the next clue (only while unsolved and clues < 7, on a day with the Mystery). Returns true when a
 // clue was added.
 export function whoNextClue() {
+  if (shut()) return false;
   if (!hasStep('who') || DS.who.done || DS.who.clues >= 7) return false;
   DS.who.clues++;
   changed('whoNextClue', {clues: DS.who.clues});
@@ -624,6 +626,7 @@ export function whoNextClue() {
 // Mystery: guess player i. Returns 'win' | 'dup' | 'wrong' | 'stumped' (null when already finished,
 // i is not a player index, or the day has no Mystery).
 export function whoGuess(i) {
+  if (shut()) return null;
   i = toInt(i);
   if (!Number.isInteger(i) || !PP[i] || !hasStep('who')) return null;
   const st = DS.who;
@@ -642,6 +645,7 @@ export function whoGuess(i) {
 // day without the Grid). Returns 'dup' | 'ok' | 'no' ('dup' does not mutate; null when the square is taken, the grid
 // is over, or k/i are invalid).
 export function gridGuess(k, i) {
+  if (shut()) return null;
   k = toInt(k); i = toInt(i);
   if (!Number.isInteger(k) || !Number.isInteger(i) || !PP[i]) return null;
   const sq = gridSquare(k);
@@ -657,6 +661,7 @@ export function gridGuess(k, i) {
 
 // Ends the grid (nothing on a day without the Grid).
 export function gridGiveUp() {
+  if (shut()) return null;
   if (!hasStep('grid')) return;
   DS.grid.over = true;
   changed('gridGiveUp');
@@ -668,6 +673,7 @@ export function gridGiveUp() {
 // answered or out of range, or j is not an option position.
 // Name the play: pick option j in round `round` (rounds in order). -> {round, correct, ans} or null.
 export function playPick(round, j) {
+  if (shut()) return null;
   round = toInt(round); j = toInt(j);
   const R = playRounds();
   if (!hasStep('play') || !Number.isInteger(round) || !Number.isInteger(j)) return null;
@@ -680,6 +686,7 @@ export function playPick(round, j) {
 }
 
 export function silPick(round, j) {
+  if (shut()) return null;
   round = toInt(round); j = toInt(j);
   if (!hasStep('sil') || !Array.isArray(DAY.s) || !Number.isInteger(round) || !Number.isInteger(j)) return null;
   const a = DS.sil.a, S = DAY.s;
@@ -696,6 +703,7 @@ export function silPick(round, j) {
 // third wrong guess), or null on a day without a Journey (v1), when already finished, or i is not a player index.
 // Wrong guesses are kept in DS.jr.g (like DS.who.g); 'dup' (a player already guessed) does not mutate.
 export function journeyGuess(i) {
+  if (shut()) return null;
   i = toInt(i);
   if (!hasStep('jr') || !DAY.j || !Number.isInteger(i) || !PP[i]) return null;
   const st = DS.jr;
@@ -821,6 +829,23 @@ function dupeAt(list) {
   return list.some(p => p.id !== LB.uid && managerFor(p) === m && !!entryFor(p));
 }
 export const dupeToday = () => !!LB.ready && dupeAt(LB.raw || LB.players);
+
+// One attempt per member per day: once the board holds today's score for this phone's member (from another phone, or
+// from this phone's own row after its saved progress was lost: a cleared browser, the home-screen app vs. Safari) and
+// this phone hasn't finished the day itself, the day is closed here: the puzzles don't open and no action plays.
+// Returns that board entry ({p, ...}), or null. Unknown until the board loads (and never with the board off).
+export function playedElsewhere() {
+  if (!LB.ready || LB.off || !DS || !DAY || allDone()) return null;
+  const list = LB.raw || LB.players || [];
+  const mine = list.find(p => p.id === LB.uid);
+  const own = entryFor(mine);
+  if (own) return own;
+  const m = mine ? managerFor(mine) : (dataMe() || managerOfNick(LB.nick));
+  if (!m) return null;
+  const other = list.find(p => p.id !== LB.uid && managerFor(p) === m && !!entryFor(p));
+  return other ? entryFor(other) : null;
+}
+const shut = () => !!playedElsewhere();
 
 let fbStarted = false;
 // The app, anonymous sign-in and Firestore come from the shared layer (fire.js); no config or a failed

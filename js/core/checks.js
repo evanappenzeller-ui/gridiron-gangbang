@@ -1157,7 +1157,7 @@ export async function runChecks() {
         && daily.stepOf('mystery') === -1 && daily.slug(3) === null && daily.isV4()),
       daily.STEPS === daily.stepsFor(daily.DAY) && daily.SLUGS === daily.slugsFor(daily.DAY) && daily.PTS === daily.ptsTable(daily.DAY) && daily.PROMPTS === daily.promptsFor(daily.DAY),
       // A ?day= preview of a v4 day: today's bindings are that day's three steps.
-      daily.dayVersion() !== 4 || (daily.STEPS.length === 3 && daily.maxPts() === 600 && daily.SLUGS.join() === daily.DAY.t.map(y => ({col: 'college', sil: 'silhouette', who: 'mystery', jr: 'journey', grid: 'grid'})[y]).join())
+      daily.dayVersion() !== 4 || (daily.STEPS.length === 3 && daily.maxPts() === 600 && daily.SLUGS.join() === daily.DAY.t.map((y, i) => daily.playsOn() && i === 2 ? 'plays' : ({col: 'college', sil: 'silhouette', who: 'mystery', jr: 'journey', grid: 'grid'})[y]).join())
     ];
     const bad = fails(log);
     return {pass: !bad.length, detail: bad.length ? 'failed steps ' + bad.join(', ') : `${log.length} steps ok; rotation sets ${W.map(ids4).join(' / ')}; today v${daily.dayVersion()}, ${daily.STEPS.length} steps, ${daily.maxPts()} max`};

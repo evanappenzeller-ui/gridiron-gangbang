@@ -476,6 +476,15 @@ function onClick(st, e) {
   }
 }
 
+// One attempt a day: when the board shows today's score is already in under this member's name (and this phone
+// hasn't finished the day itself), the cover closes back to Puzzles, whose card says so.
+function kickIfPlayed(st) {
+  if (st.dead || st.kicked || !ready() || !daily.playedElsewhere()) return;
+  st.kicked = true;
+  ui.toast("You already played today's puzzles. One attempt a day.");
+  setTimeout(() => { if (!st.dead) st.ctx.back(); }, 0);
+}
+
 export default {
   id: 'run',
   chrome: 'none',
@@ -516,6 +525,8 @@ export default {
       load(st); // cold deep link: skeleton until daily.ensure() resolves (a failed earlier load retries here)
     }
     checkBars(st);
+    ctx.on('daily', type => { if (type === 'lb' || type === 'ready') kickIfPlayed(st); });
+    kickIfPlayed(st);
   },
 
   update(ctx) {
