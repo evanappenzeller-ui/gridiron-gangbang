@@ -165,7 +165,7 @@ function playedCard() {
   const e = daily.playedElsewhere() || {};
   return `<section class="card card-hero c-hero is-played" data-kind="played" aria-labelledby="c-hero-o">`
     + ovlHTML()
-    + `<div class="c-hero-top"><p class="n2 c-hero-total">${esc(nf(Number(e.p) || 0))}</p><p class="c-hero-line">${esc("Already played today. One attempt a day, and this score is on the board.")}</p></div>`
+    + `<div class="c-hero-top"><p class="n2 c-hero-total">${esc(nf(Number(e.p) || 0))}</p></div>`
     + `<div class="c-cd-host" data-k="cd">${countdownHTML(false)}</div>`
     + `</section>`;
 }

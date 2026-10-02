@@ -477,11 +477,10 @@ function onClick(st, e) {
 }
 
 // One attempt a day: when the board shows today's score is already in under this member's name (and this phone
-// hasn't finished the day itself), the cover closes back to Puzzles, whose card says so.
+// hasn't finished the day itself), the cover closes back to Puzzles, whose card shows that score.
 function kickIfPlayed(st) {
   if (st.dead || st.kicked || !ready() || !daily.playedElsewhere()) return;
   st.kicked = true;
-  ui.toast("You already played today's puzzles. One attempt a day.");
   setTimeout(() => { if (!st.dead) st.ctx.back(); }, 0);
 }
 
