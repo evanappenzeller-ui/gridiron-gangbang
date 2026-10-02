@@ -45,21 +45,36 @@ html.rm .c-pk-dot::after { animation: none; }
 
 /* ================================================================ Screen */
 .v-pickem .pk-acc { margin-top: 4px; }
-/* League tabs (NFL · College): the NFL app's heavy italic row; the active tab bright with a bar under it. */
-.v-pickem .pk-lg { display: flex; gap: 28px; margin: 6px 0 10px; }
+/* League switch (NFL · College): the screen's focal point, two big scoreboard buttons. The active one is lit like
+   the field (turf stripes, a neon edge, the arcade bevel); the other waits in navy. */
+.v-pickem .pk-lg { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0 14px; }
 .v-pickem .pk-lg-t {
-  position: relative; display: flex; flex-direction: column; align-items: stretch;
-  padding: 2px 0 0; min-height: 44px;
-  color: var(--ink-4);
-  font: 400 18px/28px var(--font-pixel); text-transform: uppercase; letter-spacing: 0;
-  transition: color 160ms linear;
+  position: relative; display: flex; align-items: center; gap: 10px;
+  min-height: 72px; padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--surface-1);
+  box-shadow: 0 4px 0 rgba(0,0,0,.45), inset 0 0 0 2px var(--separator);
+  color: var(--ink-3); text-align: left;
+  transition: transform var(--spring-snappy-dur) var(--spring-snappy), color 160ms linear;
 }
-.v-pickem .pk-lg-t[aria-selected="true"] { color: var(--ink); }
-.v-pickem .pk-lg-t.is-pressed { opacity: .6; }
-.v-pickem .pk-lg-l { padding-right: 2px; display: inline-block; transform: skewX(-8deg); }
-.v-pickem .pk-lg-t[aria-selected="true"] .pk-lg-l { text-shadow: 3px 3px 0 #000; }
-.v-pickem .pk-lg-u { display: block; height: 4px; margin-top: 4px; border-radius: 2px; background: var(--ink); transform-origin: left center; visibility: hidden; }
-.v-pickem .pk-lg-t[aria-selected="true"] .pk-lg-u { visibility: visible; }
+.v-pickem .pk-lg-t.is-pressed { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0,0,0,.45), inset 0 0 0 2px var(--separator); transition: none; }
+.v-pickem .pk-lg-t[aria-selected="true"] {
+  color: #fff;
+  background: repeating-linear-gradient(90deg, rgba(255,255,255,.07) 0 2px, transparent 2px 22px), linear-gradient(180deg, #2A9A3E, #17672B);
+  box-shadow: 0 4px 0 #0C3D18, inset 0 0 0 2px var(--tint), 0 0 22px rgba(124,240,88,.25);
+}
+.v-pickem .pk-lg-ic {
+  flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 10px;
+  background: var(--surface-2); color: var(--ink-3);
+}
+.v-pickem .pk-lg-ic > .ic { width: 24px; height: 24px; }
+.v-pickem .pk-lg-t[aria-selected="true"] .pk-lg-ic { background: rgba(0,0,0,.28); color: var(--gold); }
+.v-pickem .pk-lg-tx { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.v-pickem .pk-lg-l { font: 400 15px/18px var(--font-pixel); text-transform: uppercase; letter-spacing: 0; white-space: nowrap; }
+.v-pickem .pk-lg-t[aria-selected="true"] .pk-lg-l { text-shadow: 2px 2px 0 #000; }
+.v-pickem .pk-lg-s { font: 400 15px/14px var(--font-num); text-transform: uppercase; letter-spacing: .06em; color: var(--ink-4); }
+.v-pickem .pk-lg-t[aria-selected="true"] .pk-lg-s { color: rgba(255,255,255,.75); }
+.v-pickem .pk-lg-u { display: none; }
 /* College rank before the team name. */
 .v-pickem .pk-rk { margin-right: 5px; color: var(--ink-3); font-weight: 800; }
 .v-pickem .pk-main { min-width: 0; }

@@ -819,12 +819,15 @@ const eyebrowText = () => (st && st.week ? `${LEAGUE} · Week ${st.week}` : `${L
 function titleHTML() {
   return ui.largeTitle({eyebrow: eyebrowText(), title: "Pick'em", trailing: youButtonHTML()});
 }
-// The league tabs under the title (the NFL app's Home / Replays row): NFL · College, the active one bright with a bar
-// under it. A tap switches the screen to the other league (League switch, at the bottom).
-const LEAGUES = [{id: 'nfl', label: 'NFL'}, {id: 'cfb', label: 'College'}];
+// The league switch under the title, the screen's focal point: two big scoreboard buttons, NFL and College, the
+// active one lit up like the field. A tap switches the screen to the other league (League switch, at the bottom).
+const LEAGUES = [{id: 'nfl', label: 'NFL', sub: 'Every game', icon: 'football'}, {id: 'cfb', label: 'College', sub: 'Top 25', icon: 'grad-cap'}];
 function leagueTabsHTML() {
   return `<div class="pk-lg" role="tablist" aria-label="League">${LEAGUES.map(l => `<button type="button" role="tab" class="pk-lg-t" data-pk-sport="${l.id}"`
-    + ` aria-selected="${l.id === SPORT}"${l.id === SPORT ? '' : ' tabindex="-1"'}><span class="pk-lg-l">${l.label}</span><span class="pk-lg-u" aria-hidden="true"></span></button>`).join('')}</div>`;
+    + ` aria-selected="${l.id === SPORT}"${l.id === SPORT ? '' : ' tabindex="-1"'} aria-label="${l.label} pick'em, ${l.sub.toLowerCase()}">`
+    + `<span class="pk-lg-ic" aria-hidden="true">${ui.icon(l.icon)}</span>`
+    + `<span class="pk-lg-tx" aria-hidden="true"><span class="pk-lg-l">${l.label}</span><span class="pk-lg-s">${l.sub}</span></span>`
+    + `<span class="pk-lg-u" aria-hidden="true"></span></button>`).join('')}</div>`;
 }
 // The week chips: from the season's first pick'em week (weeks before it never had picks) to the current week. Hidden
 // while there is only one week to show.
@@ -2235,12 +2238,9 @@ function swap(animate) {
   if (ctx.query && ctx.query.week) ctx.replace('/pickem');
   ctx.refreshChrome();
   if (ctx.visible && next.onShow) next.onShow(ctx);
-  // The bar under the tabs slides from the league left to the new one.
-  const to = tab(host.sport);
-  if (animate && r0 && to && ctx.visible && !ui.RM) {
-    const r1 = to.getBoundingClientRect();
-    if (r1.width) ui.animate(to, [{transform: `translateX(${r0.left - r1.left}px) scaleX(${r0.width / r1.width})`}, {transform: 'none'}], {spring: 'snappy'});
-  }
+  // The league just chosen lights up with a little bounce.
+  const to = el.querySelector(`.pk-lg-t[data-pk-sport="${host.sport}"]`);
+  if (animate && r0 && to && ctx.visible && !ui.RM) ui.animate(to, [{transform: 'scale(.94)'}, {transform: 'none'}], {spring: 'bouncy'});
   if (animate) { ui.haptic('selection'); ui.announce(`${next === VIEW ? 'NFL' : 'College'} pick'em.`); }
 }
 setSwitcher(switchTo);
