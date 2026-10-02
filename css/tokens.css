@@ -1,5 +1,22 @@
 /* Design tokens (spec 4.1-4.5, 5.1). Owner: foundation. Dark only. */
 
+/* Retro theme (the Gridiron Hub logo): pixel faces for display text and numbers. Press Start 2P (OFL) for large titles,
+   section heads and the title screen; VT323 (OFL) for numbers and overlines, scaled up to sit where Barlow did. */
+@font-face {
+  font-family: "Press Start 2P";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(../fonts/press-start-2p.woff2) format("woff2");
+}
+@font-face {
+  font-family: "VT323";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  size-adjust: 128%;
+  src: url(../fonts/vt323.woff2) format("woff2");
+}
 @font-face {
   font-family: "Barlow Condensed";
   font-style: normal;
@@ -12,39 +29,41 @@
   color-scheme: dark;
 
   /* 4.1 Color */
-  --bg: #000000;
-  --surface-1: #1C1C1E;
-  --surface-2: #2C2C2E;
-  --surface-3: #3A3A3C;
-  --fill: rgba(118,118,128,.24);
-  --separator: #38383A;
-  --bar: rgba(22,22,24,.72);
-  --bar-solid: #161618;
+  --bg: #070E22;
+  --surface-1: #101B3A;
+  --surface-2: #1A2850;
+  --surface-3: #25366A;
+  --fill: rgba(120,140,210,.2);
+  --separator: #25345F;
+  --bar: rgba(8,15,36,.84);
+  --bar-solid: #0A1430;
   --bar-filter: saturate(180%) blur(20px);
   --scrim: rgba(0,0,0,.5);
   --ink: #FFFFFF;
-  --ink-2: #AEAEB2;
-  --ink-3: #8E8E93;
-  --ink-4: #636366;
+  --ink-2: #B9C1DC;
+  --ink-3: #8A94B8;
+  --ink-4: #5D6894;
   --tint: #7CF058;
   --tint-pressed: #68D646;
   --on-tint: #06210A;
   --tint-soft: rgba(124,240,88,.16);
-  --wrong: #FF453A;
-  --wrong-soft: rgba(255,69,58,.16);
-  --gold: #FFCC4D;
-  --gold-soft: rgba(255,204,77,.16);
+  --wrong: #FF5A4A;
+  --wrong-soft: rgba(255,90,74,.16);
+  --gold: #FFC531;
+  --gold-soft: rgba(255,197,49,.16);
   --silver: #D1D1D6;
   --bronze: #E0975A;
   --flame-1: #FFD24A;
   --flame-2: #FF7A2F;
   --link: #64D2FF;
-  --thumb: #636366;
-  --switch-off: #39393D;
-  --grabber: #5A5A5E;
+  --thumb: #5D6894;
+  --switch-off: #2A3866;
+  --grabber: #4A5786;
 
   /* 4.4 Type */
-  --font-num: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --font-num: "VT323", "Barlow Condensed", "Arial Narrow", "Roboto Condensed", monospace;
+  --font-pixel: "Press Start 2P", "VT323", monospace;
+  --pixel-shadow: 0 4px 0 rgba(0,0,0,.45);   /* the chunky drop under cards and buttons */
   --font-text: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --fs-n-hero: 96px; --lh-n-hero: 88px;
   --fs-n1: 64px; --lh-n1: 60px;
@@ -75,11 +94,11 @@
   --r-seg: 9px;
   --r-thumb: 7px;
   --r-field: 10px;
-  --r-cell: 12px;
-  --r-group: 14px;
-  --r-card: 18px;
-  --r-hero: 24px;
-  --r-sheet: 28px;
+  --r-cell: 8px;
+  --r-group: 10px;
+  --r-card: 12px;
+  --r-hero: 14px;
+  --r-sheet: 20px;
   --r-pill: 999px;
 
   /* Depth: floating layers only */
@@ -122,20 +141,20 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --bg: #000000; --surface-1: #1C1C1E; --surface-2: #2C2C2E; --surface-3: #3A3A3C;
-    --fill: rgba(118,118,128,.24); --separator: #38383A; --bar: rgba(22,22,24,.72); --bar-solid: #161618;
-    --ink: #FFFFFF; --ink-2: #AEAEB2; --ink-3: #8E8E93; --ink-4: #636366;
+    --bg: #070E22; --surface-1: #101B3A; --surface-2: #1A2850; --surface-3: #25366A;
+    --fill: rgba(120,140,210,.2); --separator: #25345F; --bar: rgba(8,15,36,.84); --bar-solid: #0A1430;
+    --ink: #FFFFFF; --ink-2: #B9C1DC; --ink-3: #8A94B8; --ink-4: #5D6894;
     --tint: #7CF058; --tint-pressed: #68D646; --on-tint: #06210A; --tint-soft: rgba(124,240,88,.16);
-    --wrong: #FF453A; --wrong-soft: rgba(255,69,58,.16); --gold: #FFCC4D; --gold-soft: rgba(255,204,77,.16);
+    --wrong: #FF5A4A; --wrong-soft: rgba(255,90,74,.16); --gold: #FFC531; --gold-soft: rgba(255,197,49,.16);
   }
 }
 :root[data-theme="dark"], :root[data-theme="light"] {
   color-scheme: dark;
-  --bg: #000000; --surface-1: #1C1C1E; --surface-2: #2C2C2E; --surface-3: #3A3A3C;
-  --fill: rgba(118,118,128,.24); --separator: #38383A; --bar: rgba(22,22,24,.72); --bar-solid: #161618;
-  --ink: #FFFFFF; --ink-2: #AEAEB2; --ink-3: #8E8E93; --ink-4: #636366;
+  --bg: #070E22; --surface-1: #101B3A; --surface-2: #1A2850; --surface-3: #25366A;
+  --fill: rgba(120,140,210,.2); --separator: #25345F; --bar: rgba(8,15,36,.84); --bar-solid: #0A1430;
+  --ink: #FFFFFF; --ink-2: #B9C1DC; --ink-3: #8A94B8; --ink-4: #5D6894;
   --tint: #7CF058; --tint-pressed: #68D646; --on-tint: #06210A; --tint-soft: rgba(124,240,88,.16);
-  --wrong: #FF453A; --wrong-soft: rgba(255,69,58,.16); --gold: #FFCC4D; --gold-soft: rgba(255,204,77,.16);
+  --wrong: #FF5A4A; --wrong-soft: rgba(255,90,74,.16); --gold: #FFC531; --gold-soft: rgba(255,197,49,.16);
 }
 
 body { background: var(--bg); color: var(--ink); }

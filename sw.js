@@ -7,7 +7,7 @@
 // A slow request falls back to whatever is cached under its path (from the previous worker too), so data whose
 // format changes gets a new file name rather than new content under the old one (data/puzzles-v4.json: see
 // js/core/daily.js).
-const CACHE = 'gg-v26';
+const CACHE = 'gg-v27';
 const CORE = ['ui', 'data', 'daily', 'fire', 'week', 'nfl', 'stats', 'motw', 'press', 'checks', 'checks-stats', 'checks-pickem', 'checks-press', 'lay'];
 // The six tab roots are puzzles, pickem, rivals (Matchup), league, moves (Draft) and lay (The Lay).
 const VIEWS = ['welcome', 'puzzles', 'board', 'you', 'sharecard', 'results', 'run', 'college', 'silhouette', 'mystery', 'journey', 'grid', 'picker',
@@ -21,7 +21,7 @@ const SHELL = [
   ...VIEW_CSS.map(v => `css/views/${v}.css`),
   'js/app.js', ...CORE.map(m => `js/core/${m}.js`),
   ...VIEWS.map(v => `js/views/${v}.js`),
-  'fonts/barlow-condensed-800.woff2',
+  'fonts/barlow-condensed-800.woff2', 'fonts/press-start-2p.woff2', 'fonts/vt323.woff2', 'img/logo.webp',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png',
   'data/league.json', 'data/pressers.json', 'data/lay.json', 'data/puzzles-v4.json'
 ];
@@ -42,7 +42,7 @@ self.addEventListener('activate', e => {
     .then(() => self.clients.claim()));
 });
 
-const isCacheFirst = url => /\.(woff2|png|ico)$/.test(url.pathname);
+const isCacheFirst = url => /\.(woff2|png|webp|ico)$/.test(url.pathname);
 const isNetworkFirst = (req, url) => req.mode === 'navigate' || url.pathname.endsWith('/') || /\.(html|json|js|css|webmanifest)$/.test(url.pathname);
 
 function put(key, res) {

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#000000">
+<meta name="theme-color" content="#070E22">
 <meta name="description" content="Gridiron Gangbang league history, records, rivalries, and daily football puzzles.">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -15,6 +15,9 @@
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <title>Gridiron Gangbang</title>
 <link rel="preload" href="fonts/barlow-condensed-800.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/press-start-2p.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/vt323.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="img/logo.webp" as="image" type="image/webp">
 <link rel="preload" href="data/league.json" as="fetch" crossorigin>
 <link rel="dns-prefetch" href="https://site.api.espn.com">
 <link rel="dns-prefetch" href="https://a.espncdn.com">
@@ -128,7 +131,16 @@
   <symbol id="i-letters" viewBox="0 0 24 24"><path d="m3 15 4-8 4 8"/><path d="M4 13h6"/><path d="M15 11h4.5a2 2 0 0 1 0 4H15V7h4a2 2 0 0 1 0 4"/></symbol>
 </svg>
 
-<div id="app">
+<!-- Title screen: shown on every launch over the app (which loads underneath, inert), gone on a tap. -->
+<div id="title" role="button" tabindex="0" aria-label="Gridiron Hub. Tap to start.">
+  <div class="ts-stars" aria-hidden="true"></div>
+  <div class="ts-lights" aria-hidden="true"><i></i><i></i></div>
+  <img class="ts-logo" src="img/logo.webp" alt="" width="720" height="720" decoding="async" draggable="false">
+  <p class="ts-press" aria-hidden="true">Tap to start</p>
+  <p class="ts-foot" aria-hidden="true">Gridiron Gangbang &middot; Est. 2021</p>
+  <div class="ts-flash" aria-hidden="true"></div>
+</div>
+<div id="app" inert>
   <div id="stage">
     <div class="tab-layer" data-tab="puzzles"></div>
     <div class="tab-layer" data-tab="pickem" hidden></div>
@@ -157,10 +169,28 @@
     <div class="bt-tab"></div>
   </div>
 </div>
-<noscript><p style="padding:24px 16px;font:17px/22px -apple-system,system-ui,sans-serif;color:#fff;background:#000">Gridiron Gangbang needs JavaScript to run.</p></noscript>
+<noscript><p style="padding:24px 16px;font:17px/22px -apple-system,system-ui,sans-serif;color:#fff;background:#070E22">Gridiron Gangbang needs JavaScript to run.</p></noscript>
 
 <!-- Firebase web config for the shared leaderboard. Leave {} to run without it. -->
 <script id="firebase-config" type="application/json">{"apiKey":"AIzaSyDWcOeYQcoz7T2oi0NqBsgbq9I-6Zrrm34","authDomain":"gridiron-gangbang.firebaseapp.com","projectId":"gridiron-gangbang","storageBucket":"gridiron-gangbang.firebasestorage.app","messagingSenderId":"996712077165","appId":"1:996712077165:web:05d0d7c1df7fa20c69ac64"}</script>
+<script>
+// The title screen: any tap (or Enter / Space) starts the app. Runs before the app's modules so the first tap works.
+(function () {
+  var t = document.getElementById('title'), app = document.getElementById('app');
+  if (!t) { if (app) app.inert = false; return; }
+  var go = function () {
+    if (t.getAttribute('data-out')) return;
+    t.setAttribute('data-out', '1');
+    try { if (navigator.vibrate) navigator.vibrate([8, 40, 12]); } catch (_) {}
+    if (app) { app.inert = false; app.removeAttribute('inert'); }
+    t.classList.add('is-out');
+    setTimeout(function () { t.remove(); }, 700);
+  };
+  t.addEventListener('click', go);
+  t.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+  try { t.focus({preventScroll: true}); } catch (_) {}
+})();
+</script>
 <script type="module" src="js/app.js"></script>
 </body>
 </html>
