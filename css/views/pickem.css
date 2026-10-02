@@ -478,3 +478,7 @@ html.rm .c-pk-dot::after { animation: none; }
 .sh-pk-locks .pk-ls-lk { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--surface-3); color: var(--ink-2); }
 .sh-pk-locks .row.is-me .pk-ls-lk { background: var(--tint-soft); color: var(--tint); }
 .sh-pk-locks .pk-ls-lk > .ic { width: 14px; height: 14px; stroke-width: 2.2; }
+
+/* The spread under each team ('-3.5' on the favorite, in gold). */
+.v-pickem .pk-sp { color: var(--ink-3); letter-spacing: .02em; }
+.v-pickem .pk-sp.is-fav { color: var(--gold); }

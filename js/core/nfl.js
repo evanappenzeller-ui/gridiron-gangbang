@@ -134,8 +134,34 @@ function eventOf(e, o = {}) {
     neutral: c.neutralSite === true,
     site: String((c.venue && c.venue.fullName) || ''), city: String(addr.city || ''), country,
     intl: country && !/^(USA|US|United States)$/i.test(country) ? country : '',
-    note: notes[0] || '', tv: tv.join(' / ')
+    note: notes[0] || '', tv: tv.join(' / '),
+    line: lineOf(c, home, away)
   };
+}
+
+// The game's betting line from ESPN's odds (the scoreboard carries the current one, so it moves as the polls do):
+// {fav: 'home' | 'away' | null (a pick'em), pts (the spread, positive: 3.5), ou (the total, or null), text ('KC -3.5',
+// 'EVEN')} or null when ESPN has none. Read from `details` ('KC -3.5'), else the favorite flags and `spread`.
+export function lineOf(c, home, away) {
+  const list = c && Array.isArray(c.odds) ? c.odds : [];
+  const o = list.find(x => x && (typeof x.details === 'string' || x.spread != null));
+  if (!o || !home || !away) return null;
+  const ou = num(o.overUnder);
+  const det = typeof o.details === 'string' ? o.details.trim() : '';
+  if (/^(even|pk|pick)/i.test(det)) return {fav: null, pts: 0, ou, text: 'EVEN'};
+  const m = /^([A-Z0-9&-]{2,6})\s+([+-]?\d+(?:\.\d+)?)$/i.exec(det);
+  if (m) {
+    const ab = m[1].toUpperCase(), pts = Math.abs(Number(m[2]));
+    const fav = ab === home.abbr ? 'home' : ab === away.abbr ? 'away' : null;
+    if (fav) return pts ? {fav, pts, ou, text: det} : {fav: null, pts: 0, ou, text: 'EVEN'};
+  }
+  const sp = num(o.spread);
+  const hf = o.homeTeamOdds && o.homeTeamOdds.favorite === true, af = o.awayTeamOdds && o.awayTeamOdds.favorite === true;
+  if (sp != null && (hf || af) && Math.abs(sp)) {
+    const fav = hf ? 'home' : 'away';
+    return {fav, pts: Math.abs(sp), ou, text: `${(fav === 'home' ? home : away).abbr} -${Math.abs(sp)}`};
+  }
+  return null;
 }
 
 function calendarOf(j) {
@@ -342,7 +368,7 @@ function makeFeed(cfg) {
   const watchers = new Map(); // weekId -> {year, week, fns, data, sig, timer, busy, last}
   const hidden = () => { try { return document.visibilityState === 'hidden'; } catch (_) { return false; } };
 
-  const sigOf = d => (d ? (d.stale ? 's' : '') + (d.error || '') + d.games.map(g => [g.id, g.state, g.detail, g.home.score, g.away.score, g.winner, toMs(g.kickoff)].join(',')).join(';') : '');
+  const sigOf = d => (d ? (d.stale ? 's' : '') + (d.error || '') + d.games.map(g => [g.id, g.state, g.detail, g.home.score, g.away.score, g.winner, toMs(g.kickoff), g.line ? g.line.text : ''].join(',')).join(';') : '');
 
   function emitW(w) {
     if (!w.data) return;

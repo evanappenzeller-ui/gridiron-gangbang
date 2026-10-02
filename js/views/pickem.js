@@ -146,6 +146,8 @@ function normGame(g) {
   return {id: String(g.id), kickoff: k, tbd: !!g.tbd, state, final, off, over, winner, detail: String(g.detail || ''),
     period: g.period != null && isFinite(+g.period) ? +g.period : null, clock: typeof g.clock === 'string' ? g.clock : '',
     // ESPN capitalizes connecting words in some venue cities ("Rio De Janeiro").
+    line: g.line && typeof g.line === 'object' && (g.line.fav === 'home' || g.line.fav === 'away' || g.line.fav === null) && isFinite(+g.line.pts)
+      ? {fav: g.line.fav, pts: +g.line.pts, text: String(g.line.text || '')} : null,
     home, away, where: g.intl ? String(g.city || g.intl).replace(/ (De|Da|Do|Del|La) /g, m => m.toLowerCase()) : '', tv: typeof g.tv === 'string' ? g.tv : ''};
 }
 function normBoard(b) {
@@ -1068,6 +1070,8 @@ function teamLabel(g, t, side, v) {
   const d = draftOf(g, t, v);
   const bits = [`${t.rank ? `Number ${t.rank} ` : ''}${t.name}${t.record ? `, ${recText(t.record)}` : ''}`];
   if (showScore(g) && t.score != null) bits.push(`${t.score} points${win === t.abbr ? ', won' : ''}`);
+  const sp = spreadOf(g, side);
+  if (sp) bits.push(sp === 'PK' ? 'Spread: pick\'em' : `Spread ${sp.replace('−', 'minus ').replace('+', 'plus ')}`);
   if (mine === t.abbr) bits.push(win ? (win === t.abbr ? 'Your pick, right' : 'Your pick, wrong') : g.state === 'post' ? 'Your pick. No result, so it counts for nobody' : d ? 'Your pick, not saved yet' : 'Your pick');
   else if (d === 'cleared') bits.push('Your saved pick, cleared but not saved yet');
   else if (d === 'was') bits.push(`Your saved pick, changing to the ${other.short} once it saves`);
@@ -1085,10 +1089,20 @@ function sideCls(g, t, v) {
 }
 // The line under the team name: its record, and a marker on a draft: NOT SUBMITTED on the drafted side, CLEAR NOT
 // SUBMITTED on a submitted pick drafted away, SUBMITTED (neutral) on a submitted pick a draft would swap.
+// The spread for a side ('-3.5' on the favorite, '+3.5' on the underdog, 'PK' both ways), from ESPN's current
+// line; '' when there is none. Shown until the game is over.
+const spreadOf = (g, side) => {
+  const l = g.line;
+  if (!l || g.state === 'post') return '';
+  if (!l.fav || !l.pts) return 'PK';
+  return (l.fav === side ? '−' : '+') + String(l.pts);
+};
 function subHTML(g, t, v) {
   const d = draftOf(g, t, v);
   const ns = d === 'draft' ? 'Not saved' : d === 'cleared' ? 'Clear not saved' : d === 'was' ? 'Saved' : '';
-  return `<span class="pk-trec">${esc(recText(t.record))}</span>${ns ? `<span class="pk-ns">${ns}</span>` : ''}`;
+  const sp = spreadOf(g, g.home === t ? 'home' : 'away');
+  const fav = sp.startsWith('−');
+  return `<span class="pk-trec">${esc(recText(t.record))}</span>${sp ? `<span class="pk-sp n5${fav ? ' is-fav' : ''}">${esc(sp)}</span>` : ''}${ns ? `<span class="pk-ns">${ns}</span>` : ''}`;
 }
 function sideHTML(g, side, v) {
   const t = g[side];
