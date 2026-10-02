@@ -42,17 +42,6 @@ const wkey = (y, w) => `${y}-w${w}`;
 // data/lay.json's weeks with the live legs merged in (a manager's leg in the file wins), plus the live week itself
 // when the file doesn't have it yet. Rebuilt on every fill.
 let WEEKS = [];
-/** A week's legs for the live tracker (laylive.js): data/lay.json's (copies) plus the live legs it doesn't cover.
- *  Call after loadLay() has resolved. */
-export function mergeLegs(year, wk, liveLegs) {
-  const w = LAY && LAY.weeks.find(x => x.year === year && x.week === wk);
-  const legs = (w ? legsOf(w) : []).map(l => Object.assign({}, l));
-  const covered = new Set(legs.map(l => l.for || l.by));
-  (liveLegs || []).filter(l => !covered.has(l.by)).forEach(l => legs.push({by: l.by, bet: l.bet, hit: null, live: true, me: l.me, nick: l.nick}));
-  return legs;
-}
-export {loadLay};
-
 function buildWeeks() {
   const ws = LAY.weeks.map(w => Object.assign({}, w, {legs: legsOf(w).map(l => Object.assign({}, l))}));
   const lw = live.liveWeek();
@@ -192,14 +181,49 @@ function heroHTML(me) {
   }
   if (t.n) body += ui.group(legsOf(w).map(l => legRow(l, me)).join(''), {cls: 'ly-legs',
     footer: w.tracked ? 'Tracking live from ESPN. Results are final once the league confirms them.' : ''});
-  const lw = live.liveWeek();
-  if (t.n && lw && w.year === lw.year && w.week === lw.week) {
-    body += `<div class="ly-acts ly-track">${ui.button({label: 'Open live tracker', kind: 'secondary', icon: 'chart', attrs: {'data-nav': '/lay/live'}})}</div>`;
-  }
+
   return `<section class="card card-hero ly-hero ly-${st}" aria-label="This week">`
     + `<div class="ly-hero-top"><p class="card-ovl">This week · Week ${w.week}</p>${statusPill(w)}</div>`
     + `<h2 class="card-title">${st === 'open' ? 'Get your legs in' : st === 'hit' ? 'It hit.' : st === 'bust' ? 'Busted.' : 'Sweating it'}</h2>`
     + placerLine(w) + body + `</section>`;
+}
+
+// The live tracker: once legs close (Sunday 1:00 PM ET, the main slate's kickoff) it leads the tab. Slip status (hit,
+// live, to go, missed), then a card per leg: who, the bet in standard wording, its state, a progress bar toward the
+// number it needs and the game's score and clock. Scored by core/laytrack.js; a result in data/lay.json wins.
+const ORDER = {live: 0, pre: 1, na: 2, hit: 3, miss: 4};
+const ST_TXT = {live: 'Live', pre: 'Not started', na: 'Not tracked', hit: 'Hit', miss: 'Missed'};
+function trackRows(w) {
+  return legsOf(w).map(l => ({l, r: settled(l) && !l.auto ? {st: l.hit ? 'hit' : 'miss', note: 'Settled by the league'} : (l.trk || {st: 'pre', note: 'Waiting on the games'})}))
+    .sort((a, b) => ORDER[a.r.st] - ORDER[b.r.st] || data.name(a.l.by).localeCompare(data.name(b.l.by)));
+}
+function barHTML(r) {
+  if (r.v == null || r.n == null || !(r.n > 0)) return '';
+  const f = Math.max(0, Math.min(1, r.v / r.n));
+  return `<div class="lv-bar${r.op === 'lt' && r.v >= r.n ? ' is-over' : ''}" role="img" aria-label="${esc(`${r.v} of ${r.n}`)}"><i style="--f:${f}"></i></div>`;
+}
+function trackCard({l, r}, me) {
+  const g = r.game;
+  const game = g ? `${g.away.abbr} ${g.state === 'pre' ? '@' : `${g.away.score || 0} – ${g.home.score || 0}`} ${g.home.abbr}` : '';
+  const bet = track.describe(l.bet, g ? [g] : weekGames()) || l.bet;
+  return `<article class="card lv-card is-${r.st}${l.by === me ? ' is-me' : ''}" aria-label="${esc(`${data.name(l.by)}: ${bet}. ${ST_TXT[r.st]}. ${r.note || ''}`)}">`
+    + `<div class="lv-top">${ui.avatar(l.by, {size: 36, you: l.by === me})}<div class="lv-mid"><p class="lv-who">${esc(data.name(l.by))}${l.for ? ` · for ${esc(data.name(l.for))}` : ''}</p>`
+    + `<p class="lv-bet">${esc(bet)}</p></div><span class="lv-st">${r.st === 'live' ? '<i></i>' : ''}${ST_TXT[r.st]}</span></div>`
+    + barHTML(r)
+    + `<p class="lv-note">${esc(r.note || '')}${game && !/–|@/.test(r.note || '') ? ` · ${esc(game)}` : ''}</p>`
+    + `</article>`;
+}
+function trackerHTML(w, me) {
+  const rows = trackRows(w), n = k => rows.filter(x => x.r.st === k).length;
+  const hit = n('hit'), miss = n('miss'), going = n('live'), left = rows.length - hit - miss - going, st = statusOf(w);
+  const head = st === 'bust' ? 'Busted' : st === 'hit' ? 'Cashed' : 'Still alive';
+  const tile = (v, lb, cls = '') => `<div class="lv-tile ${cls}"><span class="n3">${v}</span><span class="lv-tl">${lb}</span></div>`;
+  return `<section class="card card-hero lv-sum is-${st}" aria-label="Live tracker">`
+    + `<div class="ly-hero-top"><p class="card-ovl">Live tracker · Week ${w.week}</p>${statusPill(w)}</div>`
+    + `<h2 class="lv-head">${head}</h2>` + placerLine(w)
+    + `<div class="lv-tiles">${tile(hit, 'Hit', 'is-hit')}${tile(going, 'Live', 'is-live')}${tile(left, 'To go')}${tile(miss, 'Missed', 'is-miss')}</div></section>`
+    + `<div class="lv-cards">${rows.map(x => trackCard(x, me)).join('')}</div>`
+    + `<p class="lv-foot-note">Live from ESPN, every 30 seconds while games are on. Results are final once the league confirms them.</p>`;
 }
 
 // "Your leg": enter, change or remove your leg for the live week (or someone else's: st.target).
@@ -298,6 +322,10 @@ function bodyHTML(st) {
   }
   buildWeeks();
   const me = data.me();
+  // Before legs close the entry box leads; once they close (games under way) the live tracker does.
+  const lw = live.liveWeek(), w = currentWeek();
+  const tracking = lw && w && w.year === lw.year && w.week === lw.week && live.isClosed(lw.year, lw.week) && legsOf(w).length;
+  if (tracking) return trackerHTML(w, me) + tilesHTML() + recordsHTML(me) + weeksHTML(me);
   return entryHTML(st || {}, me) + heroHTML(me) + tilesHTML() + recordsHTML(me) + weeksHTML(me);
 }
 
