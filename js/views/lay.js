@@ -347,6 +347,12 @@ function fill(ctx) {
   const focused = !!inp && document.activeElement === inp;
   if (inp) st.draft = inp.value;
   st.body.innerHTML = bodyHTML(st);
+  // Props whose player has no box score yet: look up his team (rosters) so the leg shows its game; redraw when found.
+  WEEKS.forEach(w => {
+    const T = w.tracked && TRK.get(wkey(w.year, w.week));
+    const p = T && track.lookupPlayers(legsOf(w).filter(l => !settled(l)).map(l => l.bet), T);
+    if (p) p.then(() => { if (ST.get(ctx) === st) fill(ctx); }, () => {});
+  });
   const inp2 = st.body.querySelector('.ly-in');
   if (inp2 && focused) { inp2.focus(); try { inp2.setSelectionRange(inp2.value.length, inp2.value.length); } catch (_) {} }
   const sub = st.el.querySelector('.lt-sub');

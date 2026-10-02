@@ -175,11 +175,62 @@ async function getBox(g) {
   }
 }
 
+// A player's team before his game has a box score (so a prop shows its kickoff): ESPN's team rosters, read team by
+// team (the week's teams) until every wanted name is found. Kept per name for a week ('gg-pteam': {name: [abbr, at]}),
+// misses retried after 6 h.
+const ROSTER = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/';
+const PT_LS = 'gg-pteam', PT_TTL = 7 * 864e5, PT_MISS = 6 * 36e5;
+function ptLoad() { try { const o = JSON.parse(localStorage.getItem(PT_LS) || '{}'); return o && typeof o === 'object' ? o : {}; } catch (_) { return {}; } }
+const PT = ptLoad();
+const ptFresh = e => Array.isArray(e) && Date.now() - e[1] < (e[0] ? PT_TTL : PT_MISS);
+const sameMan = (key, want) => { const [f, ...l] = want.split(' '); return key === want || (key.endsWith(' ' + l.join(' ')) && key[0] === f[0]); };
+const ROSTERS = new Map(); // team id -> [normalized names]
+async function rosterOf(t) {
+  if (ROSTERS.has(t.id)) return ROSTERS.get(t.id);
+  const r = await fetch(ROSTER + encodeURIComponent(t.id) + '/roster');
+  if (!r.ok) throw new Error('roster ' + r.status);
+  const j = await r.json(), names = [];
+  (Array.isArray(j.athletes) ? j.athletes : []).forEach(g => (Array.isArray(g && g.items) ? g.items : [g]).forEach(a => {
+    const nm = a && (a.displayName || a.fullName);
+    if (nm) names.push(norm(nm));
+  }));
+  ROSTERS.set(t.id, names);
+  return names;
+}
+let ptBusy = null;
+async function findTeams(names, games) {
+  const need = new Set(names.filter(n => !ptFresh(PT[n])));
+  if (!need.size || ptBusy) return ptBusy || null;
+  ptBusy = (async () => {
+    const teams = [];
+    games.forEach(g => [g.home, g.away].forEach(t => { if (t && t.id && !teams.some(x => x.id === t.id)) teams.push(t); }));
+    for (let i = 0; i < teams.length && need.size; i += 4) {
+      const got = await Promise.all(teams.slice(i, i + 4).map(t => rosterOf(t).then(n => [t, n], () => [t, null])));
+      got.forEach(([t, list]) => (list || []).forEach(k => need.forEach(n => { if (sameMan(k, n)) { PT[n] = [t.abbr, Date.now()]; need.delete(n); } })));
+    }
+    need.forEach(n => { PT[n] = [null, Date.now()]; });
+    try { localStorage.setItem(PT_LS, JSON.stringify(PT)); } catch (_) {}
+  })().finally(() => { ptBusy = null; });
+  return ptBusy;
+}
+
 // Spreads typed without a number ("Tampa Bay spread") use ESPN's line, kept from before kickoff (ESPN can drop it).
 const LINE_LS = 'gg-line-';
 function lineFor(g) {
   if (g.line && (g.line.pts || g.line.fav === null)) { try { localStorage.setItem(LINE_LS + g.id, JSON.stringify(g.line)); } catch (_) {} return g.line; }
   try { return JSON.parse(localStorage.getItem(LINE_LS + g.id) || 'null'); } catch (_) { return null; }
+}
+
+/** Looks up the teams of the players in these legs' texts who have no box score yet in T (so a prop before kickoff
+ *  can show its game). A Promise that resolves once new teams are known, or null when there is nothing to look up. */
+export function lookupPlayers(bets, T) {
+  if (!T || !Array.isArray(T.games) || !T.games.length) return null;
+  const teams = teamsOf(T.games), want = [];
+  (bets || []).forEach(t => {
+    const b = parseLeg(t, teams);
+    if (b && b.kind === 'prop' && !ptFresh(PT[b.player]) && !findIn(T, b.player).length) want.push(b.player);
+  });
+  return want.length ? findTeams(want, T.games) : null;
 }
 
 /** Follows an NFL week for the Lay: fn({games, boxes: Map(gameId -> box), at}) on every scoreboard update, once the
@@ -200,6 +251,12 @@ export function track(year, wk, fn) {
 }
 
 // ---------------------------------------------------------------------------------------------- Scoring
+function findIn(T, player) {
+  const all = [];
+  T.boxes.forEach((box, id) => box.players.forEach(p => all.push({p, g: T.games.find(x => x.id === id)})));
+  const hit = all.filter(x => x.p.key === player);
+  return hit.length ? hit : all.filter(x => sameMan(x.p.key, player));
+}
 const OPS = {gte: (v, n) => v >= n, gt: (v, n) => v > n, lt: (v, n) => v < n};
 const lineTxt = b => b.n == null ? (b.op === 'lt' ? 'under' : 'over') : b.op === 'gte' ? `${b.n}+` : (b.op === 'gt' ? 'o' : 'u') + b.n;
 const STAT_TXT = {td: 'TD', passTd: 'pass TD', rec: 'rec', recYds: 'rec yds', rushYds: 'rush yds', passYds: 'pass yds', yds: 'yds'};
@@ -250,13 +307,17 @@ export function evaluate(text, T) {
     return {st, note: `${tag}${sc} · ${clockOf(g)}${over && st === 'na' ? ' · push' : ''}`, game: g, margin: m};
   }
   // A player: find him in the started games' box scores (full name, else first initial + last name).
-  const all = [];
-  T.boxes.forEach((box, id) => box.players.forEach(p => all.push({p, g: T.games.find(x => x.id === id)})));
-  const [first, ...last] = b.player.split(' '), ln = last.join(' ');
-  let hit = all.filter(x => x.p.key === b.player);
-  if (!hit.length) hit = all.filter(x => x.p.key.endsWith(' ' + ln) && x.p.key[0] === first[0]);
+  const hit = findIn(T, b.player);
   const lineT = `${lineTxt(b)} ${STAT_TXT[b.stat]}`;
   if (!hit.length) {
+    // Not in a box score yet: his game from the rosters (kickoff before it starts; 0 so far once it has).
+    const e = PT[b.player], g = e && e[0] ? gameOf(e[0]) : null;
+    if (g && g.state === 'pre') return {st: 'pre', note: kickTxt(g), game: g};
+    if (g && g.state === 'in') {
+      const u = STAT_TXT[b.stat];
+      return b.n == null ? {st: 'live', note: `0 ${u} · ${b.op === 'lt' ? 'under' : 'over'}, no line given · ${clockOf(g)}`, v: 0, game: g, unit: u}
+        : {st: settle(b, 0, false), note: `0 ${u} · needs ${lineTxt(b)} · ${clockOf(g)}`, v: 0, n: b.n, op: b.op, game: g, unit: u};
+    }
     const started = T.games.filter(g => g.state !== 'pre');
     if (started.length === T.games.length && T.games.every(g => g.state === 'post')) return {st: 'na', note: `Not in a box score · ${lineT}`};
     return {st: 'pre', note: 'Not started'};
