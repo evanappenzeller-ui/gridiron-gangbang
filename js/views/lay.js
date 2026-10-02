@@ -242,6 +242,7 @@ const weekGames = () => { const lw = live.liveWeek(), T = lw && TRK.get(wkey(lw.
 function readHTML(text) {
   if (!String(text || '').trim()) return `<span class="ly-read-hint">Type it the way you'd say it. We'll write it up as the real bet and track it live.</span>`;
   const d = track.describe(text, weekGames());
+  if (d && track.needsLine(text)) return `${ui.icon('check-circle', {size: 16})}<span>Saves as <b>${esc(d)}</b>. <span class="ly-read-hint">Add the book's number (like "Over 4.5") and it settles itself; without one we track it live and the league settles it.</span></span>`;
   if (d) return `${ui.icon('check-circle', {size: 16})}<span>Saves as <b>${esc(d)}</b></span>`;
   return `${ui.icon('info', {size: 16})}<span class="ly-read-hint">Can't read this one for live tracking, so it saves as typed. Try "Player 50+ Rec Yards", "Player anytime TD" or "Bills -3.5".</span>`;
 }

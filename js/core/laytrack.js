@@ -114,7 +114,10 @@ export function parseLeg(text, teams = []) {
   else if (/\b(rec|recs|receptions?|catches)\b/.test(rest)) stat = 'rec';
   else if (yds) stat = 'yds';
   if (!stat) return null;
-  const ln = lineIn(rest) || (stat === 'td' || stat === 'passTd' ? {op: 'gte', n: 1} : null);
+  // "Over Rec" with no number: the over (or under) on the sportsbook's line, which ESPN doesn't give. Tracked live,
+  // settled by hand (n: null).
+  const bare = /\bover\b/.test(rest) ? {op: 'gt', n: null} : /\bunder\b/.test(rest) ? {op: 'lt', n: null} : null;
+  const ln = lineIn(rest) || (stat === 'td' || stat === 'passTd' ? {op: 'gte', n: 1} : bare);
   return ln ? {kind: 'prop', player, raw, stat, ...ln} : null;
 }
 
@@ -198,7 +201,7 @@ export function track(year, wk, fn) {
 
 // ---------------------------------------------------------------------------------------------- Scoring
 const OPS = {gte: (v, n) => v >= n, gt: (v, n) => v > n, lt: (v, n) => v < n};
-const lineTxt = b => b.op === 'gte' ? `${b.n}+` : (b.op === 'gt' ? 'o' : 'u') + b.n;
+const lineTxt = b => b.n == null ? (b.op === 'lt' ? 'under' : 'over') : b.op === 'gte' ? `${b.n}+` : (b.op === 'gt' ? 'o' : 'u') + b.n;
 const STAT_TXT = {td: 'TD', passTd: 'pass TD', rec: 'rec', recYds: 'rec yds', rushYds: 'rush yds', passYds: 'pass yds', yds: 'yds'};
 const clockOf = g => g.state === 'post' ? 'Final' : /half/i.test(g.detail) ? 'Half' : g.period ? `Q${g.period > 4 ? 'OT' : g.period} ${g.clock}`.trim() : 'Live';
 const kickTxt = g => g.kickoff.toLocaleString('en-US', {weekday: 'short', hour: 'numeric', minute: '2-digit'});
@@ -260,12 +263,17 @@ export function evaluate(text, T) {
   }
   const {p, g} = hit[0], v = statOf(p, b.stat);
   const over = !!g && g.state === 'post';
+  if (b.n == null) {
+    const u = STAT_TXT[b.stat], side = b.op === 'lt' ? 'under' : 'over';
+    return over ? {st: 'na', note: `Final: ${v} ${u} · ${side} with no line, settled by the league`, v, game: g, unit: u}
+      : {st: 'live', note: `${v} ${u} · ${side}, no line given · ${clockOf(g)}`, v, game: g, unit: u};
+  }
   return {st: settle(b, v, over), note: `${v} ${STAT_TXT[b.stat]} · needs ${lineTxt(b)} · ${clockOf(g)}`, v, n: b.n, op: b.op, game: g, unit: STAT_TXT[b.stat]};
 }
 
 // ---------------------------------------------------------------------------------------------- Wording
 const STAT_WORDS = {passTd: 'Passing TDs', rec: 'Receptions', recYds: 'Receiving Yards', rushYds: 'Rushing Yards', passYds: 'Passing Yards', yds: 'Yards'};
-const lineWords = b => b.op === 'gte' ? `${b.n}+` : `${b.op === 'gt' ? 'Over' : 'Under'} ${b.n}`;
+const lineWords = b => b.op === 'gte' ? `${b.n}+` : `${b.op === 'gt' ? 'Over' : 'Under'}${b.n == null ? '' : ' ' + b.n}`;
 const teamWords = abbr => NFL_TEAMS[abbr] || abbr;
 const signed = n => (n > 0 ? '+' : n < 0 ? '-' : '+') + Math.abs(n);
 /** A leg in standard sportsbook wording, or null when it can't be read. games: the week's games (for game order and
@@ -292,5 +300,8 @@ export function describe(text, games) {
   }
   return pts == null ? `${teamWords(b.team)} Spread` : `${teamWords(b.team)} ${signed(pts)}`;
 }
+
+/** True for an over / under typed without its number ("Over Rec"): tracked, but settled by hand. */
+export const needsLine = text => { const b = parseLeg(text, teamsOf(null)); return !!b && b.kind === 'prop' && b.n == null; };
 
 export const __test = {teamsOf, norm};
