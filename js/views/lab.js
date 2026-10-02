@@ -47,6 +47,44 @@ const PLAYS = [
       ...[50, 55, 60].map(x => ({kind: 'block', pts: [[x, LOS + 1], [x + 10, LOS - 4]]})), ...[40, 45].map(x => ({kind: 'block', pts: [[x, LOS + 1], [x, LOS - 4]]}))]}
 ];
 
+PLAYS.forEach(p => { p.side = 'off'; });
+
+// ---------------------------------------------------------------------------------------------- Defense
+// Defensive play art the Madden way, against a 2x2 shotgun (drawn dim): defenders as X marks, each with its job:
+// zone (an oval: deep blue, hook yellow, curl-flat purple, flat cyan; a thin line from the man to it), man (a dashed
+// red line to his receiver), blitz (a red arrow into the backfield). The four down linemen rush unless told.
+const WR = {x1: [8, LOS], s1: [24, LOS + 2], s2: [76, LOS + 2], x2: [92, LOS], rb: [50, 77]};
+const ZC = {deep: '#3D8BFF', hook: '#FFE14D', curl: '#B57BFF', flat: '#4CC9FF'};
+const Z = (cx, cy, rx, ry, c) => ({zone: [cx, cy, rx, ry], c});
+const DL = (o = {}) => [{x: 37, y: 57, ...o.de1}, {x: 46, y: 57, ...o.dt1}, {x: 54, y: 57, ...o.dt2}, {x: 63, y: 57, ...o.de2}];
+const D = (x, y, job) => Object.assign({x, y}, job);
+const blitz = (...pts) => ({blitz: pts});
+const DEFENSE = [
+  {name: 'Cover 2', d: [...DL(), D(8, 52, Z(10, 47, 9, 5, 'flat')), D(92, 52, Z(90, 47, 9, 5, 'flat')), D(24, 50, Z(28, 43, 9, 5, 'hook')),
+    D(42, 47, Z(43, 41, 8, 5, 'hook')), D(58, 47, Z(60, 41, 8, 5, 'hook')), D(32, 26, Z(24, 18, 20, 9, 'deep')), D(68, 26, Z(76, 18, 20, 9, 'deep'))]},
+  {name: 'Cover 3', d: [...DL(), D(8, 52, Z(14, 18, 13, 10, 'deep')), D(92, 52, Z(86, 18, 13, 10, 'deep')), D(50, 26, Z(50, 14, 15, 9, 'deep')),
+    D(24, 50, Z(16, 45, 10, 5, 'curl')), D(76, 48, Z(84, 45, 10, 5, 'curl')), D(42, 47, Z(41, 40, 8, 5, 'hook')), D(58, 47, Z(59, 40, 8, 5, 'hook'))]},
+  {name: 'Cover 4', d: [...DL(), D(8, 52, Z(12, 20, 11, 10, 'deep')), D(92, 52, Z(88, 20, 11, 10, 'deep')), D(32, 30, Z(37, 18, 11, 10, 'deep')),
+    D(68, 30, Z(63, 18, 11, 10, 'deep')), D(24, 50, Z(14, 47, 9, 5, 'flat')), D(42, 47, Z(42, 41, 8, 5, 'hook')), D(58, 47, Z(62, 41, 9, 5, 'hook'))]},
+  {name: 'Cover 1', d: [...DL(), D(8, 52, {man: WR.x1}), D(92, 52, {man: WR.x2}), D(24, 50, {man: WR.s1}), D(76, 49, {man: WR.s2}),
+    D(42, 47, {man: WR.rb}), D(58, 47, Z(52, 40, 8, 5, 'hook')), D(50, 24, Z(50, 15, 18, 9, 'deep'))]},
+  {name: 'Cover 0', d: [...DL(), D(8, 52, {man: WR.x1}), D(92, 52, {man: WR.x2}), D(24, 50, {man: WR.s1}), D(76, 49, {man: WR.s2}),
+    D(42, 47, {man: WR.rb}), D(58, 47, blitz([56, 66])), D(50, 40, blitz([50, 54], [49, 66]))]},
+  {name: 'Tampa 2', d: [...DL(), D(8, 52, Z(10, 47, 9, 5, 'flat')), D(92, 52, Z(90, 47, 9, 5, 'flat')), D(30, 48, Z(30, 42, 9, 5, 'hook')),
+    D(70, 48, Z(70, 42, 9, 5, 'hook')), D(50, 46, Z(50, 30, 9, 7, 'deep')), D(30, 24, Z(22, 16, 19, 8, 'deep')), D(70, 24, Z(78, 16, 19, 8, 'deep'))]},
+  {name: 'Cover 2 Man', d: [...DL(), D(8, 52, {man: WR.x1}), D(92, 52, {man: WR.x2}), D(24, 50, {man: WR.s1}), D(76, 49, {man: WR.s2}),
+    D(46, 47, {man: WR.rb}), D(32, 26, Z(24, 18, 20, 9, 'deep')), D(68, 26, Z(76, 18, 20, 9, 'deep'))]},
+  {name: 'Fire Zone', d: [...DL({de2: Z(84, 49, 9, 5, 'flat')}), D(8, 52, Z(14, 18, 13, 10, 'deep')), D(92, 52, Z(86, 18, 13, 10, 'deep')),
+    D(50, 26, Z(50, 14, 15, 9, 'deep')), D(24, 50, Z(16, 45, 10, 5, 'curl')), D(66, 46, Z(56, 40, 9, 5, 'hook')),
+    D(42, 47, blitz([42, 56], [44, 66])), D(56, 47, blitz([57, 56], [55, 66]))]},
+  {name: 'Corner Blitz', d: [...DL(), D(8, 52, blitz([20, 58], [40, 68])), D(92, 52, Z(86, 18, 13, 10, 'deep')), D(30, 30, {man: WR.x1}),
+    D(60, 26, Z(48, 14, 18, 9, 'deep')), D(24, 50, {man: WR.s1}), D(76, 49, {man: WR.s2}), D(42, 47, {man: WR.rb}), D(58, 47, Z(54, 40, 8, 5, 'hook'))]},
+  {name: 'Prevent', d: [DL()[0], DL()[1], DL()[3], D(8, 46, Z(10, 22, 9, 12, 'deep')), D(92, 46, Z(90, 22, 9, 12, 'deep')), D(30, 30, Z(30, 12, 10, 8, 'deep')),
+    D(50, 28, Z(50, 10, 10, 8, 'deep')), D(70, 30, Z(70, 12, 10, 8, 'deep')), D(30, 46, Z(28, 40, 10, 5, 'hook')), D(50, 46, Z(50, 38, 9, 5, 'hook')), D(70, 46, Z(72, 40, 10, 5, 'hook'))]}
+];
+DEFENSE.forEach(p => { p.side = 'def'; });
+const OFF_BACK = [P(8, LOS), P(24, LOS + 2), P(76, LOS + 2), P(92, LOS), P(50, 77, 'skill', 'RB'), QB_SG];
+
 // ---------------------------------------------------------------------------------------------- Drawing
 const SX = 3.6, SY = 3.2; // viewBox 360 x 256 (x 0-100 -> 0-360, y 0-80 -> 0-256)
 const pt = ([x, y]) => `${(x * SX).toFixed(1)},${(y * SY).toFixed(1)}`;
@@ -58,13 +96,31 @@ function routeSVG(r, i) {
     const bx = b[0] * SX, by = b[1] * SY, dx = Math.cos(ang) * 7, dy = Math.sin(ang) * 7;
     return `<path d="${d}" class="lb-blk"/><path d="M${(bx - dx).toFixed(1)},${(by - dy).toFixed(1)} L${(bx + dx).toFixed(1)},${(by + dy).toFixed(1)}" class="lb-blk"/>`;
   }
-  const color = r.kind === 'run' ? '#FFC531' : r.kind === 'fake' ? '#B9C1DC' : r.kind === 'qb' ? '#7CF058' : ROUTE_C[r.c || 0];
+  const color = r.kind === 'blitz' ? '#FF3B30' : r.kind === 'run' ? '#FFC531' : r.kind === 'fake' ? '#B9C1DC' : r.kind === 'qb' ? '#7CF058' : ROUTE_C[r.c || 0];
   return `<path d="${d}" class="lb-rt${r.kind === 'fake' ? ' is-fake' : ''}" stroke="${color}" marker-end="url(#lb-arrow-${i})"/>`
     + `<marker id="lb-arrow-${i}" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="${color}"/></marker>`;
+}
+function defenseSVG(play) {
+  let zones = '', jobs = '', men = '';
+  play.d.forEach((m, i) => {
+    const x = m.x * SX, y = m.y * SY;
+    if (m.zone) {
+      const [cx, cy, rx, ry] = m.zone, col = ZC[m.c] || ZC.hook;
+      zones += `<ellipse cx="${cx * SX}" cy="${cy * SY}" rx="${rx * SX}" ry="${ry * SY}" fill="${col}" fill-opacity=".38" stroke="${col}" stroke-width="2"/>`;
+      jobs += `<line x1="${x}" y1="${y}" x2="${cx * SX}" y2="${cy * SY}" stroke="${col}" stroke-width="2" opacity=".9"/>`;
+    } else if (m.man) jobs += `<line x1="${x}" y1="${y}" x2="${m.man[0] * SX}" y2="${m.man[1] * SY}" class="lb-man-ln"/>`;
+    else if (m.blitz) jobs += routeSVG({kind: 'blitz', pts: [[m.x, m.y], ...m.blitz]}, 'b' + i);
+    else jobs += routeSVG({kind: 'blitz', pts: [[m.x, m.y], [m.x, m.y + 4.5]]}, 'r' + i); // a down lineman's rush
+    men += `<g class="lb-x" transform="translate(${x},${y})"><path d="M-6,-6 L6,6 M6,-6 L-6,6"/></g>`;
+  });
+  const off = OL.map(o => `<rect x="${o.x * SX - 7}" y="${o.y * SY - 7}" width="14" height="14" class="lb-ol is-dim"/>`).join('')
+    + OFF_BACK.map(p => `<circle cx="${p.x * SX}" cy="${p.y * SY}" r="7.5" class="lb-man is-dim${p.t === 'qb' ? ' is-qb' : ''}"/>`).join('');
+  return zones + jobs + off + men;
 }
 function playSVG(play) {
   const yards = [10, 22, 34, 46].map(y => `<line x1="0" x2="360" y1="${y * SY}" y2="${y * SY}" class="lb-yd"/>`).join('');
   const los = `<line x1="0" x2="360" y1="${LOS * SY - 6}" y2="${LOS * SY - 6}" class="lb-los"/>`;
+  if (play.side === 'def') return `<svg class="lb-field" viewBox="0 0 360 256" role="img" aria-label="A defensive play diagram">${yards}${los}${defenseSVG(play)}</svg>`;
   const routes = play.routes.map((r, i) => routeSVG(r, i)).join('');
   const men = OL.map(o => `<rect x="${o.x * SX - 7}" y="${o.y * SY - 7}" width="14" height="14" class="lb-ol"/>`).join('')
     + play.players.map(p => `<circle cx="${p.x * SX}" cy="${p.y * SY}" r="7.5" class="lb-man${p.t === 'qb' ? ' is-qb' : ''}"/>`).join('');
@@ -74,12 +130,16 @@ function playSVG(play) {
 // ---------------------------------------------------------------------------------------------- Game
 const ST = new WeakMap();
 const shuffle = a => { const b = a.slice(); for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
+// Mode: 'all' | 'off' | 'def' (kept on this phone). Wrong answers come from the same side of the ball.
+const MODES = [{id: 'all', label: 'Both'}, {id: 'off', label: 'Offense'}, {id: 'def', label: 'Defense'}];
+const poolOf = mode => mode === 'off' ? PLAYS : mode === 'def' ? DEFENSE : PLAYS.concat(DEFENSE);
 function newRound(st) {
-  let i;
-  do { i = Math.floor(Math.random() * PLAYS.length); } while (PLAYS.length > 1 && i === st.last);
-  st.last = i;
-  const right = PLAYS[i].name;
-  st.round = {play: PLAYS[i], right, choices: shuffle([right, ...shuffle(PLAYS.filter(p => p.name !== right).map(p => p.name)).slice(0, 3)]), picked: null};
+  const pool = poolOf(st.mode);
+  let play;
+  do { play = pool[Math.floor(Math.random() * pool.length)]; } while (pool.length > 1 && play.name === st.last);
+  st.last = play.name;
+  const right = play.name, side = play.side === 'def' ? DEFENSE : PLAYS;
+  st.round = {play, right, choices: shuffle([right, ...shuffle(side.filter(p => p.name !== right).map(p => p.name)).slice(0, 3)]), picked: null};
 }
 function roundHTML(st) {
   const r = st.round;
@@ -88,21 +148,27 @@ function roundHTML(st) {
     return `<button type="button" class="lb-ch${cls}" data-lb-pick="${c}"${r.picked ? ' aria-disabled="true"' : ''}>${c}</button>`;
   }).join('');
   const res = !r.picked ? '' : r.picked === r.right ? `<p class="lb-res is-right">${ui.icon('check-circle')} Nailed it. Streak ${st.streak}.</p>` : `<p class="lb-res is-wrong">${ui.icon('x-circle')} It's ${r.right}. Streak over.</p>`;
-  return `<div class="card lb-card">${playSVG(r.play)}</div>`
+  return `<p class="lb-side">${r.play.side === 'def' ? 'Defense: name the coverage' : 'Offense: name the play'}</p><div class="card lb-card">${playSVG(r.play)}</div>`
     + `<div class="lb-chs">${btns}</div>${res}`
     + (r.picked ? ui.button({label: 'Next play', kind: 'primary', attrs: {'data-lb-next': ''}, cls: 'lb-next'}) : '')
-    + `<p class="lb-meta">Streak ${st.streak} · Best ${st.best} · ${PLAYS.length} plays in the book</p>`;
+    + `<p class="lb-meta">Streak ${st.streak} · Best ${st.best} · ${poolOf(st.mode).length} plays in the book</p>`;
 }
 
+const modeNow = () => { const m = ui.lsGet('gg-lab-mode'); return m === 'off' || m === 'def' ? m : 'all'; };
 export default {
   id: 'lab',
   title: 'Lab',
   render() {
     return ui.largeTitle({eyebrow: 'Tester · Not final', title: 'Lab', subtitle: 'Name that play: read the diagram, pick the play.', trailing: youButtonHTML()})
-      + `<div class="lb-body"></div>`;
+      + `<div class="lb-mode">${ui.seg({name: 'lb-mode', items: MODES, value: modeNow(), label: 'Which plays'})}</div><div class="lb-body"></div>`;
   },
   mount(el, ctx) {
-    const st = {el, body: el.querySelector('.lb-body'), streak: 0, best: Number(ui.lsGet('gg-lab-best')) || 0, last: -1, round: null};
+    const st = {el, body: el.querySelector('.lb-body'), streak: 0, best: Number(ui.lsGet('gg-lab-best')) || 0, last: '', round: null, mode: modeNow()};
+    el.addEventListener('ui:change', e => {
+      if (!e.detail || e.detail.name !== 'lb-mode') return;
+      st.mode = e.detail.value; ui.lsSet('gg-lab-mode', st.mode);
+      newRound(st); ui.crossfade(st.body, () => { st.body.innerHTML = roundHTML(st); });
+    });
     ST.set(ctx, st);
     newRound(st);
     st.body.innerHTML = roundHTML(st);
