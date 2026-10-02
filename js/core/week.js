@@ -655,7 +655,7 @@ const docOf = kind => d => Object.assign({}, d.data({serverTimestamps: 'estimate
   d.metadata && d.metadata.hasPendingWrites ? {pending: true} : null);
 // College pick'em reset (Fri Oct 2 2026): its picks and lock-ins saved before then (made while it was briefly graded
 // on the spread) are gone; the docs that remain in Firestore are skipped when read.
-const CFB_RESET = Date.parse('2026-10-02T06:40:00Z');
+const CFB_RESET = Date.parse('2026-10-02T05:00:00Z'); // after the one pick from then (04:29), well before any made since
 const isCfb = kind => kind === 'cfbpicks' || kind === 'cfblocks';
 const kept = kind => d => !isCfb(kind) || !(toMs(d.at) < CFB_RESET);
 const docsOf = (snap, kind) => snap.docs.map(docOf(kind)).filter(kept(kind));
