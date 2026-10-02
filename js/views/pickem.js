@@ -1853,11 +1853,14 @@ function boardSheet() {
     if (!e.detail || e.detail.name !== 'pk-board') return;
     mode = e.detail.value === 'season' ? 'season' : 'week';
     ui.ssSet('gg-pk-board', mode);
-    fill(true);
+    // Still loading: swap straight to the placeholder (no fade), so the table's arrival is the only dissolve.
+    fill(res[mode] !== null);
     load(mode);
   });
   s.el.addEventListener('click', e => { if (e.target.closest && e.target.closest('[data-pk-board-retry]')) { ui.haptic('light'); load(mode, true); fill(false); } });
   load(mode);
+  // The other table loads alongside, so switching to it shows it at once (no placeholder flash).
+  load(mode === 'week' ? 'season' : 'week');
 }
 // Leaderboard rows: {who, right, decided, picked, weeks, rank}. `who` may be the person or the row itself.
 function boardBody(mode, res, y, w) {
@@ -1884,6 +1887,14 @@ function boardBody(mode, res, y, w) {
   const list = rows.map(r => {
     const right = +r.right || 0, dec = Math.max(+r.decided || 0, right);
     return {r, w: who(r), right, lost: dec - right, dec, picked: +r.picked || 0, weeks: r.weeks};
+  });
+  // A phone without a manager shows as the manager its nick names (their avatar, not a grey initial) while that
+  // manager has no row of their own, as on the lock-ins row; otherwise it stays itself.
+  const ids = new Set(list.filter(x => x.w.id).map(x => x.w.id));
+  list.forEach(x => {
+    if (x.w.id) return;
+    const id = nickManager(x.w.name);
+    if (id && !ids.has(id)) { ids.add(id); x.w = Object.assign(who({me: id}), {you: x.w.you || id === data.me(), key: x.w.key}); }
   });
   if (list.some(x => x.r.rank == null)) {
     list.sort((a, b) => b.right - a.right || a.lost - b.lost || a.w.name.localeCompare(b.w.name));
