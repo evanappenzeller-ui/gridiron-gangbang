@@ -821,7 +821,7 @@ function titleHTML() {
 }
 // The league switch under the title, the screen's focal point: two big scoreboard buttons, NFL and College, the
 // active one lit up like the field. A tap switches the screen to the other league (League switch, at the bottom).
-// Each league's badge: the retro pixel logos (img/nfl.webp, img/ncaa.webp).
+// Each league's badge: the retro pixel logos (img/nfl.webp, img/ncaa.webp), no name beside them; NCAA keeps "Top 25".
 const BADGE_SRC = {nfl: 'img/nfl.webp', cfb: 'img/ncaa.webp'};
 const badgeHTML = id => `<img class="pk-badge" src="${BADGE_SRC[id]}" alt="" width="44" height="44" decoding="async" draggable="false">`;
 const LEAGUES = [{id: 'nfl', label: 'NFL', sub: ''}, {id: 'cfb', label: 'NCAA', sub: 'Top 25'}];
@@ -829,7 +829,7 @@ function leagueTabsHTML() {
   return `<div class="pk-lg" role="tablist" aria-label="League">${LEAGUES.map(l => `<button type="button" role="tab" class="pk-lg-t" data-pk-sport="${l.id}"`
     + ` aria-selected="${l.id === SPORT}"${l.id === SPORT ? '' : ' tabindex="-1"'} aria-label="${l.label} pick'em${l.sub ? ', ' + l.sub.toLowerCase() : ''}">`
     + `<span class="pk-lg-ic" aria-hidden="true">${badgeHTML(l.id)}</span>`
-    + `<span class="pk-lg-tx" aria-hidden="true"><span class="pk-lg-l">${l.label}</span>${l.sub ? `<span class="pk-lg-s">${l.sub}</span>` : ''}</span>`
+    + (l.sub ? `<span class="pk-lg-tx" aria-hidden="true"><span class="pk-lg-s">${l.sub}</span></span>` : '')
     + `<span class="pk-lg-u" aria-hidden="true"></span></button>`).join('')}</div>`;
 }
 // The week chips: from the season's first pick'em week (weeks before it never had picks) to the current week. Hidden
