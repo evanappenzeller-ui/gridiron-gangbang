@@ -248,7 +248,7 @@ function entryHTML(st, me, {bare} = {}) {
     const mine = target === me;
     inner = `<h2 class="card-title">${mine ? 'Your leg' : esc(data.name(target)) + '\u2019s leg'}</h2>`
       + ui.group(legRow(leg, me), {cls: 'ly-legs ly-mine'})
-      + (closed || !leg.live ? '' : `<div class="ly-acts">${ui.button({label: 'Change', kind: 'secondary', size: 's', attrs: {'data-ly-edit': ''}})}${ui.button({label: 'Remove', kind: 'plain', size: 's', attrs: {'data-ly-remove': ''}})}</div>`);
+      + (closed || !leg.live ? '' : `<div class="ly-acts">${ui.button({label: 'Edit', kind: 'secondary', size: 's', attrs: {'data-ly-edit': ''}})}${ui.button({label: 'Remove', kind: 'plain', size: 's', attrs: {'data-ly-remove': ''}})}</div>`);
   } else if (closed) {
     inner = `<h2 class="card-title">${target === me ? 'No leg from you' : 'No leg from ' + esc(data.name(target))}</h2><p class="card-body">Legs for Week ${lw.week} closed ${esc(live.closeText(lw.year, lw.week))}.</p>`;
   } else {
@@ -262,23 +262,23 @@ function entryHTML(st, me, {bare} = {}) {
       + `</form>`;
   }
   const off = liveErr === 'denied' ? `<p class="ly-note">Saving legs isn't switched on in the database yet.</p>` : '';
-  if (bare) return `<div class="ly-yours ly-entry">${inner.replace(/<h2 class="card-title">(.*?)<\/h2>/, '<h3 class="ly-sub-t">$1</h3>')}${off}${forLink}</div>`;
+  if (bare) return `<div class="ly-yours ly-entry">${inner}${off}${forLink}</div>`;
   return `<section class="card ly-entry" aria-label="Your leg">${ovl}${inner}${off}${forLink}</section>`;
 }
 
-// Before legs close: one card for the week. When it closes and its status, who places it, how many legs are in and
-// who is missing, then your leg (or the box to enter it).
+// Before legs close: one card for the week. Your leg first (the box to enter it, or your leg with Edit and Remove),
+// then the league's progress: how many legs are in, who is missing, and who places it.
 function weekCardHTML(st, me) {
   const lw = live.liveWeek(), w = currentWeek();
   const t = tally(w), size = SIZE(), miss = missingOf(w);
   return `<section class="card card-hero ly-hero ly-week-card ly-${statusOf(w)}" aria-label="Week ${w.week}">`
     + `<div class="ly-hero-top"><p class="card-ovl">Week ${w.week} · Closes ${esc(live.closeText(lw.year, lw.week))}</p>${ui.pill(`${t.n}/${size} in`, {tone: t.n >= size ? 'tint' : 'neutral', icon: 'clock'})}</div>`
-    + `<h2 class="card-title">Get your legs in</h2>`
-    + placerLine(w)
+    + entryHTML(st, me, {bare: true})
+    + `<div class="ly-progress"><h3 class="ly-sub-t">League progress</h3>`
     + `<div class="ly-meter" role="img" aria-label="${t.n} of ${size} legs in"><i style="--f:${Math.min(1, t.n / size)}"></i></div>`
     + `<p class="ly-meter-lb"><b>${t.n} of ${size}</b> legs in${miss.length ? ` · <span class="ly-waiting-i">waiting on ${esc(miss.map(data.name).join(', '))}</span>` : ''}</p>`
-    + entryHTML(st, me, {bare: true})
-    + `</section>`;
+    + placerLine(w)
+    + `</div></section>`;
 }
 
 // The entry's preview: the leg in standard wording (what gets saved and tracked), or how to word it.
