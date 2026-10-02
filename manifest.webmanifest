@@ -10,13 +10,13 @@
   "background_color": "#070E22",
   "theme_color": "#070E22",
   "icons": [
-    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "icons/hub-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/hub-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/hub-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "shortcuts": [
-    { "name": "Puzzles", "short_name": "Puzzles", "description": "Today's puzzles", "url": "./#/puzzles", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] },
-    { "name": "Pick'em", "short_name": "Pick'em", "description": "This week's NFL picks", "url": "./#/pickem", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] },
-    { "name": "Matchup", "short_name": "Matchup", "description": "Matchup of the Week and head to head", "url": "./#/matchup", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] }
+    { "name": "Puzzles", "short_name": "Puzzles", "description": "Today's puzzles", "url": "./#/puzzles", "icons": [{ "src": "icons/hub-192.png", "sizes": "192x192", "type": "image/png" }] },
+    { "name": "Pick'em", "short_name": "Pick'em", "description": "This week's NFL picks", "url": "./#/pickem", "icons": [{ "src": "icons/hub-192.png", "sizes": "192x192", "type": "image/png" }] },
+    { "name": "Matchup", "short_name": "Matchup", "description": "Matchup of the Week and head to head", "url": "./#/matchup", "icons": [{ "src": "icons/hub-192.png", "sizes": "192x192", "type": "image/png" }] }
   ]
 }
