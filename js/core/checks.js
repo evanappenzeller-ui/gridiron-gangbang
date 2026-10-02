@@ -1366,10 +1366,10 @@ export async function runChecks() {
   check('The Lay live tracking reads the league\'s kinds of legs and scores them against a game', () => {
     const T = (abbr, short, name, score) => ({abbr, short, name, score});
     const g = {id: '1', state: 'post', final: true, period: 4, clock: '0:00', detail: 'Final', kickoff: new Date(), home: T('BUF', 'Bills', 'Buffalo Bills', 24), away: T('NE', 'Patriots', 'New England Patriots', 20), line: {fav: 'home', pts: 3.5}};
-    const box = {players: [{key: 'james cook', name: 'James Cook', team: 'BUF', s: {rushYds: 61, rushTd: 1, rec: 2, recYds: 12, recTd: 0}}]};
+    const box = {players: [{key: 'james cook', name: 'James Cook', team: 'BUF', s: {rushYds: 61, rushTd: 1, rec: 2, recYds: 12, recTd: 0}}, {key: 'amon-ra st brown', name: 'Amon-Ra St. Brown', team: 'BUF', s: {rec: 7, recYds: 104}}]};
     const W = {games: [g], boxes: new Map([['1', box]])};
     const want = [['Bills -3.5', 'hit'], ['Patriots ML', 'miss'], ['Bills alt team total over 23.5', 'hit'], ['Patriots Bills Over 44.5', 'miss'],
-      ['James Cook Anytime', 'hit'], ['James Cook 70+ Rush Yards', 'miss'], ['James Cook over 1.5 Rec', 'hit'], ['J Cook 60+ Yards', 'hit'], ['Buffalo spread', 'hit'], ['Parker Washington Over Rec', 'na'], ['James Cook Over Rush Yards', 'na']];
+      ['James Cook Anytime', 'hit'], ['James Cook 70+ Rush Yards', 'miss'], ['James Cook over 1.5 Rec', 'hit'], ['J Cook 60+ Yards', 'hit'], ['Buffalo spread', 'hit'], ['Parker Washington Over Rec', 'na'], ['James Cook Over Rush Yards', 'na'], ['Amon Ra St Brown 100+ Rec Yards', 'hit']];
     const bad = want.filter(([t, st]) => laytrack.evaluate(t, W).st !== st).map(([t, st]) => `${t}: ${laytrack.evaluate(t, W).st} (want ${st})`);
     // The standard wording a leg saves as reads back as the same bet (and scores the same).
     want.forEach(([t, st]) => { const d = laytrack.describe(t, [g]); if (d && laytrack.evaluate(d, W).st !== st) bad.push(`${t} → ${d}: ${laytrack.evaluate(d, W).st}`); });

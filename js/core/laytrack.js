@@ -179,11 +179,17 @@ async function getBox(g) {
 // team (the week's teams) until every wanted name is found. Kept per name for a week ('gg-pteam': {name: [abbr, at]}),
 // misses retried after 6 h.
 const ROSTER = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/';
-const PT_LS = 'gg-pteam', PT_TTL = 7 * 864e5, PT_MISS = 6 * 36e5;
+const PT_LS = 'gg-pteam2', PT_TTL = 7 * 864e5, PT_MISS = 6 * 36e5;
 function ptLoad() { try { const o = JSON.parse(localStorage.getItem(PT_LS) || '{}'); return o && typeof o === 'object' ? o : {}; } catch (_) { return {}; } }
 const PT = ptLoad();
 const ptFresh = e => Array.isArray(e) && Date.now() - e[1] < (e[0] ? PT_TTL : PT_MISS);
-const sameMan = (key, want) => { const [f, ...l] = want.split(' '); return key === want || (key.endsWith(' ' + l.join(' ')) && key[0] === f[0]); };
+// Names match with hyphens as spaces ("Jaxon Smith Njigba" is Jaxon Smith-Njigba): full name, else first initial + last.
+const unhyph = x => x.replace(/-/g, ' ').replace(/\s+/g, ' ').trim();
+const sameMan = (key, want) => {
+  key = unhyph(key); want = unhyph(want);
+  const [f, ...l] = want.split(' ');
+  return key === want || (key.endsWith(' ' + l.join(' ')) && key[0] === f[0]);
+};
 const ROSTERS = new Map(); // team id -> [normalized names]
 async function rosterOf(t) {
   if (ROSTERS.has(t.id)) return ROSTERS.get(t.id);
@@ -258,7 +264,7 @@ export function track(year, wk, fn) {
 function findIn(T, player) {
   const all = [];
   T.boxes.forEach((box, id) => box.players.forEach(p => all.push({p, g: T.games.find(x => x.id === id)})));
-  const hit = all.filter(x => x.p.key === player);
+  const hit = all.filter(x => unhyph(x.p.key) === unhyph(player));
   return hit.length ? hit : all.filter(x => sameMan(x.p.key, player));
 }
 const OPS = {gte: (v, n) => v >= n, gt: (v, n) => v > n, lt: (v, n) => v < n};
