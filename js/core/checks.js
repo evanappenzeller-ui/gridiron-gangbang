@@ -1371,6 +1371,9 @@ export async function runChecks() {
     const want = [['Bills -3.5', 'hit'], ['Patriots ML', 'miss'], ['Bills alt team total over 23.5', 'hit'], ['Patriots Bills Over 44.5', 'miss'],
       ['James Cook Anytime', 'hit'], ['James Cook 70+ Rush Yards', 'miss'], ['James Cook over 1.5 Rec', 'hit'], ['J Cook 60+ Yards', 'hit'], ['Buffalo spread', 'hit'], ['Parker Washington Over Rec', 'na']];
     const bad = want.filter(([t, st]) => laytrack.evaluate(t, W).st !== st).map(([t, st]) => `${t}: ${laytrack.evaluate(t, W).st} (want ${st})`);
+    // The standard wording a leg saves as reads back as the same bet (and scores the same).
+    want.forEach(([t, st]) => { const d = laytrack.describe(t, [g]); if (d && laytrack.evaluate(d, W).st !== st) bad.push(`${t} → ${d}: ${laytrack.evaluate(d, W).st}`); });
+    if (laytrack.describe('James Cook Anytime', [g]) !== 'James Cook Anytime TD Scorer' || laytrack.describe('Buffalo spread', [g]) !== 'Buffalo Bills -3.5') bad.push('wording');
     return {pass: !bad.length, detail: bad.length ? bad.join('; ') : `${want.length} legs scored right`};
   });
 

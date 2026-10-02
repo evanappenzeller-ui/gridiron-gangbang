@@ -42,6 +42,17 @@ const wkey = (y, w) => `${y}-w${w}`;
 // data/lay.json's weeks with the live legs merged in (a manager's leg in the file wins), plus the live week itself
 // when the file doesn't have it yet. Rebuilt on every fill.
 let WEEKS = [];
+/** A week's legs for the live tracker (laylive.js): data/lay.json's (copies) plus the live legs it doesn't cover.
+ *  Call after loadLay() has resolved. */
+export function mergeLegs(year, wk, liveLegs) {
+  const w = LAY && LAY.weeks.find(x => x.year === year && x.week === wk);
+  const legs = (w ? legsOf(w) : []).map(l => Object.assign({}, l));
+  const covered = new Set(legs.map(l => l.for || l.by));
+  (liveLegs || []).filter(l => !covered.has(l.by)).forEach(l => legs.push({by: l.by, bet: l.bet, hit: null, live: true, me: l.me, nick: l.nick}));
+  return legs;
+}
+export {loadLay};
+
 function buildWeeks() {
   const ws = LAY.weeks.map(w => Object.assign({}, w, {legs: legsOf(w).map(l => Object.assign({}, l))}));
   const lw = live.liveWeek();
@@ -137,7 +148,8 @@ function legRow(l, me) {
   const by = l.live && l.me !== l.by ? (l.me ? data.name(l.me) : l.nick) : '';
   const who = data.name(l.by) + (l.for ? ` · for ${data.name(l.for)}` : '') + (by ? ` · entered by ${by}` : '')
     + (l.trk && l.trk.note ? ` · ${l.trk.note}` : '');
-  return ui.row({lead: ui.avatar(l.by, {size: 32, you: l.by === me}), title: l.bet || '—', sub: who, trail: markOf(l), me: l.by === me,
+  const bet = (l.live && track.describe(l.bet, weekGames())) || l.bet;
+  return ui.row({lead: ui.avatar(l.by, {size: 32, you: l.by === me}), title: bet || '—', sub: who, trail: markOf(l), me: l.by === me,
     cls: 'ly-leg' + (l.hit === false ? ' ly-busted' : '')});
 }
 // Managers who haven't sent a leg yet this week (a leg in someone's slot covers that slot).
@@ -180,6 +192,10 @@ function heroHTML(me) {
   }
   if (t.n) body += ui.group(legsOf(w).map(l => legRow(l, me)).join(''), {cls: 'ly-legs',
     footer: w.tracked ? 'Tracking live from ESPN. Results are final once the league confirms them.' : ''});
+  const lw = live.liveWeek();
+  if (t.n && lw && w.year === lw.year && w.week === lw.week) {
+    body += `<div class="ly-acts ly-track">${ui.button({label: 'Open live tracker', kind: 'secondary', icon: 'chart', attrs: {'data-nav': '/lay/live'}})}</div>`;
+  }
   return `<section class="card card-hero ly-hero ly-${st}" aria-label="This week">`
     + `<div class="ly-hero-top"><p class="card-ovl">This week · Week ${w.week}</p>${statusPill(w)}</div>`
     + `<h2 class="card-title">${st === 'open' ? 'Get your legs in' : st === 'hit' ? 'It hit.' : st === 'bust' ? 'Busted.' : 'Sweating it'}</h2>`
@@ -212,12 +228,22 @@ function entryHTML(st, me) {
     inner = `<h2 class="card-title">${target === me ? 'Your leg' : 'Leg for ' + esc(data.name(target))}</h2>`
       + `<form class="ly-form" data-ly-form autocomplete="off">`
       + `<label class="ly-who">${ui.avatar(target, {size: 24, you: target === me})}<span>${esc(data.name(target))}</span></label>`
-      + `<div class="ly-field"><input class="ly-in" name="bet" type="text" maxlength="${live.BET_MAX}" enterkeyhint="send" autocapitalize="words" autocorrect="off" spellcheck="false" placeholder="e.g. Jalen Hurts anytime TD" aria-label="Your leg" value="${esc(val)}"></div>`
+      + `<div class="ly-field"><input class="ly-in" name="bet" type="text" maxlength="${live.BET_MAX}" enterkeyhint="send" autocapitalize="words" autocorrect="off" spellcheck="false" placeholder="e.g. Jalen Hurts anytime TD" aria-label="Your leg" aria-describedby="ly-read" value="${esc(val)}"></div>`
+      + `<p class="ly-read" id="ly-read" data-ly-read aria-live="polite">${readHTML(val)}</p>`
       + `<div class="ly-acts">${ui.button({label: leg ? 'Save change' : 'Submit leg', kind: 'primary', size: 's', type: 'submit', attrs: {'data-ly-submit': ''}})}${leg ? ui.button({label: 'Cancel', kind: 'plain', size: 's', attrs: {'data-ly-cancel': ''}}) : ''}</div>`
       + `</form>`;
   }
   const off = liveErr === 'denied' ? `<p class="ly-note">Saving legs isn't switched on in the database yet.</p>` : '';
   return `<section class="card ly-entry" aria-label="Your leg">${ovl}${inner}${off}${forLink}</section>`;
+}
+
+// The entry's preview: the leg in standard wording (what gets saved and tracked), or how to word it.
+const weekGames = () => { const lw = live.liveWeek(), T = lw && TRK.get(wkey(lw.year, lw.week)); return T ? T.games : null; };
+function readHTML(text) {
+  if (!String(text || '').trim()) return `<span class="ly-read-hint">Type it the way you'd say it. We'll write it up as the real bet and track it live.</span>`;
+  const d = track.describe(text, weekGames());
+  if (d) return `${ui.icon('check-circle', {size: 16})}<span>Saves as <b>${esc(d)}</b></span>`;
+  return `${ui.icon('info', {size: 16})}<span class="ly-read-hint">Can't read this one for live tracking, so it saves as typed. Try "Player 50+ Rec Yards", "Player anytime TD" or "Bills -3.5".</span>`;
 }
 
 function tilesHTML() {
@@ -324,7 +350,8 @@ async function submitLeg(ctx, st) {
   if (st.busy) return;
   const inp = st.body.querySelector('.ly-in'), btn = st.body.querySelector('[data-ly-submit]');
   const target = st.target || data.me();
-  const bet = inp ? inp.value.trim() : '';
+  const typed = inp ? inp.value.trim() : '';
+  const bet = (typed && track.describe(typed, weekGames())) || typed;
   if (!target) return;
   if (!bet) { if (inp) { ui.shake(inp); inp.focus(); } return; }
   st.busy = true;
@@ -391,6 +418,11 @@ export default {
           focusInput(st);
         });
       }
+    });
+    el.addEventListener('input', e => {
+      if (!e.target.closest('.ly-in')) return;
+      const r = st.body.querySelector('[data-ly-read]');
+      if (r) r.innerHTML = readHTML(e.target.value);
     });
     el.addEventListener('submit', e => {
       if (!e.target.closest('[data-ly-form]')) return;

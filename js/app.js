@@ -53,6 +53,7 @@ export const REGISTRY = {
   press: () => import('./views/press.js'),
   profile: () => import('./views/profile.js'),
   lay: () => import('./views/lay.js'),
+  laylive: () => import('./views/laylive.js'),
   _kit: () => import('./views/_kit.js')
 };
 export const TABS = ['puzzles', 'pickem', 'lay', 'matchup', 'league', 'draft'];
@@ -108,6 +109,7 @@ function matchSegs(p, q) {
     case 'lay':
       // The Lay: the weekly 12-leg parlay (data/lay.json).
       if (n === 1) return R('lay', 'root', 'lay');
+      if (n === 2 && b === 'live') return R('laylive', 'push', 'lay'); // the live tracker
       return null;
     // ---- Legacy routes (shared links, bookmarks, share texts, notifications): redirected to the new homes.
     case 'today':

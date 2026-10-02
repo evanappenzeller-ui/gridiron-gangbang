@@ -4,7 +4,9 @@
 //
 //   parseLeg(text, teams)        -> a bet {kind, ...} or null (can't read it; the slip shows it without tracking)
 //   track(year, week, fn)        -> unsubscribe; fn(T) now and on every update, T = {games, boxes, at}
-//   evaluate(text, T)            -> {st: 'pre'|'live'|'hit'|'miss'|'na', note}
+//   evaluate(text, T)            -> {st: 'pre'|'live'|'hit'|'miss'|'na', note, v, n, op, game}
+//   describe(text, games)        -> the leg in standard sportsbook wording ("James Cook Anytime TD Scorer",
+//                                   "Buffalo Bills -3.5"), which reads back as the same bet; null when unreadable
 //
 // Bets it reads: a player's anytime TD ("TD", "Anytime", "N+ TD"), passing TDs ("2+ Pass TD"), receptions ("3+ Rec",
 // "over 4.5 Rec"), receiving / rushing / passing yards ("50+ Rec Yards", "over 46.5 Rush Yards"; plain "Yards" is
@@ -19,7 +21,7 @@ const LIVE_TTL = 30e3;
 const LS = 'gg-box-';
 
 // ---------------------------------------------------------------------------------------------- Text
-const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+const norm = s => String(s || '').replace(/[−–—]/g, '-').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
   .replace(/[’'`]/g, '').replace(/\.(?!\d)/g, '').replace(/[^a-z0-9+\-. ]+/g, ' ').replace(/\b(jr|sr|ii|iii|iv|v)\b/g, '').replace(/\s+/g, ' ').trim();
 const ALIAS = {niners: '49ers', pats: 'patriots', jags: 'jaguars', bucs: 'buccaneers', fins: 'dolphins', hawks: 'seahawks'};
 const STOP = /^(\d|\+|-|over\b|under\b|o\d|u\d|alt\b|anytime\b|atd\b|td\b|tds\b|touchdown|to\b|rec\b|recs\b|reception|receiving|rush|rushing|pass|passing|yards?\b|yds\b|ml\b|moneyline|spread|team\b|total)/;
@@ -38,7 +40,9 @@ const NFL_TEAMS = {ARI: 'Arizona Cardinals', ATL: 'Atlanta Falcons', BAL: 'Balti
  *  week (New York, Los Angeles) names neither. */
 function teamsOf(games) {
   const out = new Map(), city = new Map();
-  (games || []).forEach(g => [g.home, g.away].forEach(t => {
+  // No games to hand (the week's scoreboard not loaded yet): every NFL team.
+  if (!games || !games.length) games = [{home: null, away: null}].concat(Object.keys(NFL_TEAMS).map(abbr => ({home: {abbr, name: NFL_TEAMS[abbr], short: NFL_TEAMS[abbr].split(' ').pop()}, away: null})));
+  games.forEach(g => [g.home, g.away].forEach(t => {
     if (!t || out.has(t.abbr)) return;
     const known = NFL_TEAMS[t.abbr] || '';
     const full = norm(known || t.name), short = known ? full.split(' ').pop() : norm(t.short);
@@ -98,6 +102,8 @@ export function parseLeg(text, teams = []) {
   if (name.length < 2) return null;
   const rest = ' ' + words.slice(name.length).join(' ') + ' ';
   const player = name.join(' ');
+  // The name as typed (capitalized when typed in lowercase), for the standard wording.
+  const raw = String(text).trim().split(/\s+/).slice(0, name.length).map(w => (w === w.toLowerCase() ? w.charAt(0).toUpperCase() + w.slice(1) : w)).join(' ');
   const yds = /\b(yards?|yds)\b/.test(rest);
   let stat = null;
   if (/\bpass(ing)?\b/.test(rest) && /\b(td|tds|touchdowns?)\b/.test(rest)) stat = 'passTd';
@@ -109,7 +115,7 @@ export function parseLeg(text, teams = []) {
   else if (yds) stat = 'yds';
   if (!stat) return null;
   const ln = lineIn(rest) || (stat === 'td' || stat === 'passTd' ? {op: 'gte', n: 1} : null);
-  return ln ? {kind: 'prop', player, stat, ...ln} : null;
+  return ln ? {kind: 'prop', player, raw, stat, ...ln} : null;
 }
 
 // ---------------------------------------------------------------------------------------------- Box scores
@@ -219,16 +225,16 @@ export function evaluate(text, T) {
   if (b.kind !== 'prop') {
     const g = gameOf(b.kind === 'gameTotal' ? b.teams[0] : b.team);
     if (!g || (b.kind === 'gameTotal' && g.home.abbr !== b.teams[1] && g.away.abbr !== b.teams[1])) return {st: 'na', note: 'No such game this week'};
-    if (g.state === 'pre') return {st: 'pre', note: kickTxt(g)};
+    if (g.state === 'pre') return {st: 'pre', note: kickTxt(g), game: g};
     const over = g.state === 'post';
     if (over && !g.final) return {st: 'na', note: g.detail || 'No result'};
     const me = b.team && (g.home.abbr === b.team ? g.home : g.away), opp = b.team && (me === g.home ? g.away : g.home);
     const sc = `${g.away.abbr} ${g.away.score || 0}–${g.home.score || 0} ${g.home.abbr}`;
     if (b.kind === 'gameTotal') {
       const v = (g.home.score || 0) + (g.away.score || 0);
-      return {st: settle(b, v, over), note: `${v} total pts · needs ${lineTxt(b)} · ${clockOf(g)}`};
+      return {st: settle(b, v, over), note: `${v} total pts · needs ${lineTxt(b)} · ${clockOf(g)}`, v, n: b.n, op: b.op, game: g};
     }
-    if (b.kind === 'teamTotal') return {st: settle(b, me.score || 0, over), note: `${me.abbr} has ${me.score || 0} · needs ${lineTxt(b)} · ${clockOf(g)}`};
+    if (b.kind === 'teamTotal') return {st: settle(b, me.score || 0, over), note: `${me.abbr} has ${me.score || 0} · needs ${lineTxt(b)} · ${clockOf(g)}`, v: me.score || 0, n: b.n, op: b.op, game: g};
     let pts = b.pts;
     if (b.kind === 'spread' && pts == null) {
       const l = lineFor(g);
@@ -238,7 +244,7 @@ export function evaluate(text, T) {
     const m = (me.score || 0) - (opp.score || 0) + (b.kind === 'spread' ? pts : 0);
     const st = !over ? 'live' : m > 0 ? 'hit' : m < 0 ? 'miss' : 'na';
     const tag = b.kind === 'spread' ? `${me.abbr} ${pts > 0 ? '+' : pts < 0 ? '−' : ''}${pts ? Math.abs(pts) : 'PK'} · ` : '';
-    return {st, note: `${tag}${sc} · ${clockOf(g)}${over && st === 'na' ? ' · push' : ''}`};
+    return {st, note: `${tag}${sc} · ${clockOf(g)}${over && st === 'na' ? ' · push' : ''}`, game: g, margin: m};
   }
   // A player: find him in the started games' box scores (full name, else first initial + last name).
   const all = [];
@@ -254,7 +260,37 @@ export function evaluate(text, T) {
   }
   const {p, g} = hit[0], v = statOf(p, b.stat);
   const over = !!g && g.state === 'post';
-  return {st: settle(b, v, over), note: `${v} ${STAT_TXT[b.stat]} · needs ${lineTxt(b)} · ${clockOf(g)}`};
+  return {st: settle(b, v, over), note: `${v} ${STAT_TXT[b.stat]} · needs ${lineTxt(b)} · ${clockOf(g)}`, v, n: b.n, op: b.op, game: g, unit: STAT_TXT[b.stat]};
+}
+
+// ---------------------------------------------------------------------------------------------- Wording
+const STAT_WORDS = {passTd: 'Passing TDs', rec: 'Receptions', recYds: 'Receiving Yards', rushYds: 'Rushing Yards', passYds: 'Passing Yards', yds: 'Yards'};
+const lineWords = b => b.op === 'gte' ? `${b.n}+` : `${b.op === 'gt' ? 'Over' : 'Under'} ${b.n}`;
+const teamWords = abbr => NFL_TEAMS[abbr] || abbr;
+const signed = n => (n > 0 ? '+' : n < 0 ? '-' : '+') + Math.abs(n);
+/** A leg in standard sportsbook wording, or null when it can't be read. games: the week's games (for game order and
+ *  ESPN's spread when the leg says just "spread"); optional. */
+export function describe(text, games) {
+  const b = parseLeg(text, teamsOf(games));
+  if (!b) return null;
+  const G = games || [];
+  if (b.kind === 'prop') {
+    if (b.stat === 'td') return `${b.raw} ${b.op === 'gte' && b.n === 1 ? 'Anytime TD Scorer' : lineWords(b) + ' Anytime TDs'}`;
+    return `${b.raw} ${lineWords(b)} ${STAT_WORDS[b.stat]}`;
+  }
+  if (b.kind === 'gameTotal') {
+    const g = G.find(x => [x.home.abbr, x.away.abbr].includes(b.teams[0]) && [x.home.abbr, x.away.abbr].includes(b.teams[1]));
+    const [a, h] = g ? [g.away.abbr, g.home.abbr] : b.teams;
+    return `${teamWords(a)} @ ${teamWords(h)} ${b.op === 'lt' ? 'Under' : 'Over'} ${b.n}`;
+  }
+  if (b.kind === 'teamTotal') return `${teamWords(b.team)} Team Total ${b.op === 'lt' ? 'Under' : 'Over'} ${b.n}`;
+  if (b.kind === 'ml') return `${teamWords(b.team)} Moneyline`;
+  let pts = b.pts;
+  if (pts == null) {
+    const g = G.find(x => x.home.abbr === b.team || x.away.abbr === b.team), l = g && lineFor(g);
+    if (l) pts = !l.fav ? 0 : l.fav === (g.home.abbr === b.team ? 'home' : 'away') ? -l.pts : l.pts;
+  }
+  return pts == null ? `${teamWords(b.team)} Spread` : `${teamWords(b.team)} ${signed(pts)}`;
 }
 
 export const __test = {teamsOf, norm};
