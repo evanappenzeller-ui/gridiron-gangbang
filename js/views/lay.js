@@ -204,6 +204,7 @@ function barHTML(r) {
   return `<div class="lv-bar${r.op === 'lt' && r.v >= r.n ? ' is-over' : ''}" role="img" aria-label="${esc(`${r.v} of ${r.n}`)}"><i style="--f:${f}"></i></div>`;
 }
 function trackCard({l, r}, me) {
+  const adminEdit = l.live && live.isAdmin(me) ? `<button type="button" class="btn btn-plain lv-edit" data-ly-admin-edit="${esc(l.by)}" aria-label="Edit ${esc(data.name(l.by))}\u2019s leg">Edit</button>` : '';
   const g = r.game;
   const game = g ? `${g.away.abbr} ${g.state === 'pre' ? '@' : `${g.away.score || 0} – ${g.home.score || 0}`} ${g.home.abbr}` : '';
   const bet = track.describe(l.bet, g ? [g] : weekGames()) || l.bet;
@@ -211,7 +212,7 @@ function trackCard({l, r}, me) {
     + `<div class="lv-top">${ui.avatar(l.by, {size: 36, you: l.by === me})}<div class="lv-mid"><p class="lv-who">${esc(data.name(l.by))}${l.for ? ` · for ${esc(data.name(l.for))}` : ''}</p>`
     + `<p class="lv-bet">${esc(bet)}</p></div><span class="lv-st">${r.st === 'live' ? '<i></i>' : ''}${ST_TXT[r.st]}</span></div>`
     + barHTML(r)
-    + `<p class="lv-note">${esc(r.note || '')}${game && !/–|@/.test(r.note || '') ? ` · ${esc(game)}` : ''}</p>`
+    + `<div class="lv-foot"><p class="lv-note">${esc(r.note || '')}${game && !/–|@/.test(r.note || '') ? ` · ${esc(game)}` : ''}</p>${adminEdit}</div>`
     + `</article>`;
 }
 // preview: before legs close, under "Get your legs in" (no placer line: the card above has it).
@@ -235,11 +236,15 @@ function entryHTML(st, me, {bare} = {}) {
   const lw = live.liveWeek();
   if (!lw) return '';
   const w = WEEKS.find(x => x.year === lw.year && x.week === lw.week);
-  const closed = live.isClosed(lw.year, lw.week);
+  const shut = live.isClosed(lw.year, lw.week), admin = live.isAdmin(me);
+  const closed = shut && !admin; // the admin can still change legs after they close
   const target = st.target || me;
   const leg = legOf(w, target);
-  const ovl = `<p class="card-ovl">Week ${lw.week} · ${closed ? 'Legs closed' : 'Closes ' + esc(live.closeText(lw.year, lw.week))}</p>`;
-  const forLink = closed ? '' : `<button type="button" class="btn btn-plain ly-for" data-ly-for>${st.target && st.target !== me ? 'Enter a different leg' : 'Entering for someone else?'}</button>`;
+  const ovl = `<p class="card-ovl">Week ${lw.week} · ${shut ? 'Legs closed' : 'Closes ' + esc(live.closeText(lw.year, lw.week))}${admin ? ' · Admin' : ''}</p>`;
+  // Only the admin enters or changes someone else's leg.
+  const forLink = !admin ? '' : st.target && st.target !== me
+    ? `<button type="button" class="btn btn-plain ly-for" data-ly-mine>Back to your leg</button>`
+    : `<button type="button" class="btn btn-plain ly-for" data-ly-for>Edit someone else\u2019s leg</button>`;
   let inner;
   if (!target) {
     inner = `<h2 class="card-title">Add your leg</h2><p class="card-body">Pick who you are first, so your leg goes in your slot.</p>`
@@ -345,7 +350,7 @@ function bodyHTML(st) {
   // Before legs close the entry box leads; once they close (games under way) the live tracker does.
   const lw = live.liveWeek(), w = currentWeek();
   const tracking = lw && w && w.year === lw.year && w.week === lw.week && live.isClosed(lw.year, lw.week) && legsOf(w).length;
-  if (tracking) return trackerHTML(w, me) + tilesHTML() + recordsHTML(me) + weeksHTML(me);
+  if (tracking) return (live.isAdmin(me) && (st || {}).editing ? entryHTML(st, me) : '') + trackerHTML(w, me) + tilesHTML() + recordsHTML(me) + weeksHTML(me);
   // Before: the entry box, "Get your legs in", then a preview of the tracker (the live week's legs, scored as they play).
   const thisWeek = lw && w && w.year === lw.year && w.week === lw.week;
   if (thisWeek) return weekCardHTML(st || {}, me) + (legsOf(w).length ? trackerHTML(w, me, {preview: true}) : '') + tilesHTML() + recordsHTML(me) + weeksHTML(me);
@@ -408,7 +413,7 @@ function focusInput(st) {
   const i = st.body.querySelector('.ly-in');
   if (i) { i.focus(); try { i.setSelectionRange(i.value.length, i.value.length); } catch (_) {} }
 }
-const SAVE_MSG = {closed: 'Legs are closed for this week.', invalid: 'Type a leg first.', denied: 'Saving legs isn\u2019t switched on yet.', failed: 'Couldn\u2019t save. Check your connection.'};
+const SAVE_MSG = {notyours: 'Only Evan can change someone else\u2019s leg.', closed: 'Legs are closed for this week.', invalid: 'Type a leg first.', denied: 'Saving legs isn\u2019t switched on yet.', failed: 'Couldn\u2019t save. Check your connection.'};
 async function submitLeg(ctx, st) {
   if (st.busy) return;
   const inp = st.body.querySelector('.ly-in'), btn = st.body.querySelector('[data-ly-submit]');
@@ -471,9 +476,21 @@ export default {
       if (t.closest('[data-ly-edit]')) { st.editing = true; st.draft = null; fill(ctx); focusInput(st); return; }
       if (t.closest('[data-ly-cancel]')) { st.editing = false; st.draft = null; fill(ctx); return; }
       if (t.closest('[data-ly-remove]')) { removeLeg(ctx, st); return; }
+      if (t.closest('[data-ly-mine]')) { st.target = null; st.editing = false; st.draft = null; fill(ctx); return; }
+      // Admin: Edit on a tracker card opens that leg in the entry card at the top.
+      const ae = t.closest('[data-ly-admin-edit]');
+      if (ae) {
+        const by = ae.dataset.lyAdminEdit;
+        st.target = by === data.me() ? null : by; st.editing = true; st.draft = null;
+        fill(ctx);
+        const card = st.body.querySelector('.ly-entry');
+        if (card) card.scrollIntoView({block: 'start', behavior: ui.RM ? 'auto' : 'smooth'});
+        focusInput(st);
+        return;
+      }
       const f = t.closest('[data-ly-for]');
       if (f) {
-        ui.pickManager({title: 'Whose leg?', selected: st.target || data.me(), note: 'Enter a leg for someone who isn\u2019t on the app.', returnFocus: f}).then(id => {
+        ui.pickManager({title: 'Whose leg?', selected: st.target || data.me(), note: 'Admin: enter, change or remove any league member\u2019s leg.', returnFocus: f}).then(id => {
           if (!id || id === 'none') return;
           st.target = id === data.me() ? null : id;
           st.editing = false; st.draft = null;

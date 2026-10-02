@@ -159,3 +159,7 @@
 .v-lay .ly-progress { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--separator); }
 .v-lay .ly-progress .ly-meter { margin-top: 10px; }
 .v-lay .ly-progress .ly-placer { margin: 10px 0 0; }
+/* Admin: Edit on each tracker card */
+.v-lay .lv-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
+.v-lay .lv-foot .lv-note { margin-top: 0; }
+.v-lay .lv-edit { flex: none; min-height: 32px; padding: 0 10px; color: var(--tint); font: 600 var(--fs-sub)/var(--lh-sub) var(--font-text); }

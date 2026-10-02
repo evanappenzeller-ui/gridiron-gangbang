@@ -11,6 +11,13 @@ import * as week from './week.js';
 import * as daily from './daily.js';
 
 export const BET_MAX = 80;
+
+// Who may change which leg. The Lay admin (Evan) may enter, change or remove anyone's leg, before or after legs
+// close; everyone else only their own, until legs close. An app rule: "Which one are you?" is a claim, so the
+// database rules can't tell who is who.
+export const ADMINS = ['evan'];
+export const isAdmin = (id = data.me()) => !!id && ADMINS.includes(id);
+export const canEdit = (by, id = data.me()) => !!id && (by === id || isAdmin(id));
 const STORE = 'gg-dev-lay';
 const standIn = () => !fire.canWrite();
 
@@ -99,7 +106,8 @@ function who() {
 export async function setLeg(by, bet) {
   const lw = liveWeek();
   if (!lw || !data.M[by]) return 'invalid';
-  if (isClosed(lw.year, lw.week)) return 'closed';
+  if (!canEdit(by)) return 'notyours';
+  if (isClosed(lw.year, lw.week) && !isAdmin()) return 'closed';
   const text = bet == null ? null : String(bet).replace(/\s+/g, ' ').trim().slice(0, BET_MAX);
   if (bet != null && !text) return 'invalid';
   const key = week.weekKey(lw.year, lw.week);
