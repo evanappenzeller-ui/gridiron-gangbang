@@ -1095,13 +1095,13 @@ function sideCls(g, t, v) {
 }
 // The line under the team name: its record, and a marker on a draft: NOT SUBMITTED on the drafted side, CLEAR NOT
 // SUBMITTED on a submitted pick drafted away, SUBMITTED (neutral) on a submitted pick a draft would swap.
-// The spread for a side ('-3.5' on the favorite, '+3.5' on the underdog, 'PK' both ways), from ESPN's current
-// line; '' when there is none. Shown until the game is over.
+// The spread for a side ('-3.5' on the favorite only, nothing on the underdog, 'PK' both ways), from ESPN's
+// current line; '' when there is none. Shown until the game is over.
 const spreadOf = (g, side) => {
   const l = g.line;
   if (!l || g.state === 'post') return '';
   if (!l.fav || !l.pts) return 'PK';
-  return (l.fav === side ? '−' : '+') + String(l.pts);
+  return l.fav === side ? '−' + String(l.pts) : '';
 };
 function subHTML(g, t, v) {
   const d = draftOf(g, t, v);
