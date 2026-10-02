@@ -377,6 +377,14 @@ export function gradeNfl(g, team) {
 // A raw doc -> {uid, game, team ('' = an empty pick: older builds wrote one to clear a pick; it counts as no
 // pick), me, nick, at (ms), kick (ms, the kickoff the doc was saved against; null when absent, NaN when
 // malformed)} or null (malformed, or its id does not match its uid and game).
+// A doc saved without `me` (older builds) whose nick is exactly a manager's name counts as that manager's, so the same
+// person on two phones (or Safari and the home-screen app, which keep separate identities) is one person.
+function meOfNick(nick) {
+  const n = String(nick || '').trim().toLowerCase();
+  if (!n) return null;
+  const hit = (data.ids || []).filter(id => String(data.name(id)).toLowerCase() === n);
+  return hit.length === 1 ? hit[0] : null;
+}
 function nflDoc(d) {
   if (!d || typeof d !== 'object') return null;
   const uid = typeof d.uid === 'string' ? d.uid : '';
@@ -384,7 +392,7 @@ function nflDoc(d) {
   if (!uid || !/^[0-9]{1,12}$/.test(game) || typeof d.team !== 'string' || d.team.length > 6) return null;
   if (d.id != null && d.id !== nflPickId(uid, game)) return null;
   const kick = d.kick == null ? null : toMs(d.kick);
-  return {uid, game, team: d.team.toUpperCase(), me: typeof d.me === 'string' && data.M[d.me] ? d.me : null,
+  return {uid, game, team: d.team.toUpperCase(), me: typeof d.me === 'string' && data.M[d.me] ? d.me : meOfNick(d.nick),
     nick: typeof d.nick === 'string' ? d.nick.slice(0, 24) : '', at: toMs(d.at), kick: d.kick == null ? null : kick == null ? NaN : kick};
 }
 
@@ -495,10 +503,9 @@ const pickOf = (g, v, you = false) => ({uid: v.uid, game: g.id, team: v.team, si
 // plus yours), mine: {gameId: team}, byGame: {gameId: {home, away, voters: {home: [pick], away: [pick]}, n,
 // revealed, locked, mine: 'home'|'away'|null}}, count (your picks)}. Before a game starts (gameRevealed) its
 // byGame entry only tells how many picks are in (n); home/away stay 0 and the voter lists empty.
-// Yours: before the reveal, only the pick saved under your uid. "Which one are you?" is a claim anyone can make,
-// so a doc under your manager from another uid could be someone else's pick and is never shown to you early.
-// Once the game has started every pick is public, and your manager's pick that counts (the latest of your phones)
-// is the one marked yours.
+// Yours: your manager's pick that counts (the latest of your phones, so picks made in Safari show in the home-screen
+// app and the other way round), else the pick saved under your uid (before "Which one are you?"). A friends'
+// league: whoever claims a manager sees that manager's picks early. Once the game has started every pick is public.
 // opt.at: the clock for the locks (default now()); opt.me: your manager id; opt.locks: the week's lock docs.
 export function tallyNfl(docs, games, uid, opt = {}) {
   const at = opt.at != null ? toMs(opt.at) : now();
@@ -515,9 +522,10 @@ export function tallyNfl(docs, games, uid, opt = {}) {
         b[p.side]++; b.voters[p.side].push(p);
         picks.push(p);
       });
-    } else if (own && own.team) {
-      m = pickOf(g, own, true);
-      picks.push(m);
+    } else {
+      const p = my && list.find(x => x.me === my);
+      m = p ? Object.assign({}, p, {you: true}) : own && own.team && !(my && own.me === my) ? pickOf(g, own, true) : null;
+      if (m) picks.push(m);
     }
     if (m) { mine[g.id] = m.team; b.mine = m.side; }
     byGame[g.id] = b;
@@ -1023,8 +1031,11 @@ async function firePick(F, key, g, team, kind = 'nflpicks') {
   const ref = F.fs.doc(F.db, kind, key, SUB[kind], id);
   let t = 0;
   try {
-    const w = team == null ? F.fs.deleteDoc(ref)
-      : F.fs.setDoc(ref, {uid: F.uid, game, team, me: myMe(), nick: myNick(), at: F.fs.serverTimestamp(), kick: new Date(kick)});
+    // Clearing saves an empty pick (team '') rather than deleting: it is the latest of your phones, so it also clears
+    // the pick your other phone made for this game. Without a manager there is no other phone: delete.
+    const clear = team == null;
+    const w = clear && !myMe() ? F.fs.deleteDoc(ref)
+      : F.fs.setDoc(ref, {uid: F.uid, game, team: clear ? '' : team, me: myMe(), nick: myNick(), at: F.fs.serverTimestamp(), kick: new Date(kick)});
     let wk = inflight.get(wkk);
     if (!wk) inflight.set(wkk, wk = new Map());
     let f = wk.get(id);

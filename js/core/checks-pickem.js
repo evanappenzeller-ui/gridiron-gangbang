@@ -208,6 +208,24 @@ export async function pickemChecks(check) {
     return {pass, detail: `counted ${who} (expected a,e,i,k1,k2); Thu ${t.byGame[thu.id].away} PIT / ${t.byGame[thu.id].home} CLE; London ${t.byGame[lon.id].n} in`};
   });
 
+  // 5b. One person across phones (Safari and the home-screen app keep separate identities)
+  check('Your picks follow you across phones: older docs with only a nick count as that manager, and clearing on one phone clears the other', () => {
+    need();
+    const p = clone(W4);
+    const games = nfl.parse(p).games, [, lon, mon] = games;
+    const L = lon.kickoff.getTime(), E = mgr('evan');
+    const at = L - 2 * HOUR;
+    // Phone A (an older build: no manager on the doc, nick "Evan") picked both; phone B (Evan) cleared Monday later.
+    const docs = [
+      {id: week.nflPickId('A', lon.id), uid: 'A', game: lon.id, team: 'IND', me: null, nick: data.name(E), at: at - 3 * HOUR},
+      {id: week.nflPickId('A', mon.id), uid: 'A', game: mon.id, team: mon.home.abbr, me: null, nick: data.name(E), at: at - 3 * HOUR},
+      {id: week.nflPickId('B', mon.id), uid: 'B', game: mon.id, team: '', me: E, nick: data.name(E), at: at - HOUR}
+    ];
+    const t = week.tallyNfl(docs, games, 'B', {at, me: E});
+    const pass = t.mine[lon.id] === 'IND' && t.mine[mon.id] === undefined && t.count === 1 && t.byGame[lon.id].n === 1 && t.byGame[mon.id].n === 0;
+    return {pass, detail: `phone B sees ${JSON.stringify(t.mine)} (London ${t.byGame[lon.id].n} in, Monday ${t.byGame[mon.id].n} in)`};
+  });
+
   // 6. Reveal
   check('Reveal: others\' picks show once ESPN has the game started (never on the phone\'s clock); before, only the count and your own', () => {
     need();
@@ -237,13 +255,13 @@ export async function pickemChecks(check) {
     // ESPN shows London live: its picks open up; Monday's stay hidden.
     const t2 = week.tallyNfl(docs, nfl.parse(setGame(clone(p), '401872965', 'in', 7, 3)).games, 'me', {at: L, me: E});
     const later = t2.byGame[lon.id].revealed && t2.byGame[lon.id].away === 2 && t2.byGame[lon.id].home === 1 && !t2.byGame[mon.id].revealed;
-    // Another phone claiming your manager ("Which one are you?" is only a claim): before kickoff it sees none of
-    // your picks, only the count; once a game has started, the pick that counts for your manager.
+    // Your other phone (or Safari vs the home-screen app: another uid, same manager): before kickoff it sees your
+    // picks (the one that counts for your manager) and only the count of everyone else's.
     const imp = week.tallyNfl(docs, games, 'someone-else', {at, me: E});
-    const impostor = imp.mine[lon.id] === undefined && !imp.picks.some(x => x.game === lon.id) && imp.byGame[lon.id].n === 3
-      && imp.byGame[lon.id].mine === null && imp.mine[thu.id] === 'PIT' && imp.count === 1;
+    const impostor = imp.mine[lon.id] === 'IND' && imp.byGame[lon.id].mine === 'away' && imp.byGame[lon.id].n === 3
+      && imp.picks.filter(x => x.game === lon.id).map(x => x.uid).join() === 'me' && imp.mine[thu.id] === 'PIT' && imp.count === 2;
     const pass = thuOk && hidden && mine && clock && later && impostor && picks === 'm1:64:CLE me:64:PIT me:65:IND';
-    return {pass, detail: `Saturday: ${picks}; London ${bl.n} in (hidden; still hidden on a clock past kickoff: ${clock}); ESPN live: ${t2.byGame[lon.id].away} IND / ${t2.byGame[lon.id].home} WSH; another phone claiming Evan sees ${JSON.stringify(imp.mine)}`};
+    return {pass, detail: `Saturday: ${picks}; London ${bl.n} in (hidden; still hidden on a clock past kickoff: ${clock}); ESPN live: ${t2.byGame[lon.id].away} IND / ${t2.byGame[lon.id].home} WSH; your other phone sees ${JSON.stringify(imp.mine)}`};
   });
 
   // 7. Grading
