@@ -140,3 +140,10 @@
 .v-lay .lv-sum .ly-placer { margin: 0 0 12px; }
 .v-lay .lv-sum.is-live .lv-head, .v-lay .lv-sum.is-open .lv-head { color: var(--tint); }
 .v-lay .lv-sum.is-hit .lv-head { color: var(--gold); }
+/* The combined week card (before legs close): your leg sits under the legs-in meter, split by a hairline */
+.v-lay .ly-week-card .ly-waiting-i { color: var(--ink-3); }
+.v-lay .ly-yours { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--separator); }
+.v-lay .ly-sub-t { margin: 0; font: 400 13px/16px var(--font-num); text-transform: uppercase; letter-spacing: .06em; color: var(--ink-3); }
+.v-lay .ly-yours > .group.ly-mine { margin: 8px 0 0; border-radius: var(--r-cell); background: var(--surface-2); }
+.v-lay .ly-yours .card-body { margin-top: 4px; }
+.v-lay .ly-yours .ly-acts { margin-top: 10px; }

@@ -230,7 +230,8 @@ function trackerHTML(w, me, {preview} = {}) {
 }
 
 // "Your leg": enter, change or remove your leg for the live week (or someone else's: st.target).
-function entryHTML(st, me) {
+// bare: the "Your leg" part only (sub-headed), for the combined week card (weekCardHTML).
+function entryHTML(st, me, {bare} = {}) {
   const lw = live.liveWeek();
   if (!lw) return '';
   const w = WEEKS.find(x => x.year === lw.year && x.week === lw.week);
@@ -261,7 +262,23 @@ function entryHTML(st, me) {
       + `</form>`;
   }
   const off = liveErr === 'denied' ? `<p class="ly-note">Saving legs isn't switched on in the database yet.</p>` : '';
+  if (bare) return `<div class="ly-yours ly-entry">${inner.replace(/<h2 class="card-title">(.*?)<\/h2>/, '<h3 class="ly-sub-t">$1</h3>')}${off}${forLink}</div>`;
   return `<section class="card ly-entry" aria-label="Your leg">${ovl}${inner}${off}${forLink}</section>`;
+}
+
+// Before legs close: one card for the week. When it closes and its status, who places it, how many legs are in and
+// who is missing, then your leg (or the box to enter it).
+function weekCardHTML(st, me) {
+  const lw = live.liveWeek(), w = currentWeek();
+  const t = tally(w), size = SIZE(), miss = missingOf(w);
+  return `<section class="card card-hero ly-hero ly-week-card ly-${statusOf(w)}" aria-label="Week ${w.week}">`
+    + `<div class="ly-hero-top"><p class="card-ovl">Week ${w.week} · Closes ${esc(live.closeText(lw.year, lw.week))}</p>${ui.pill(`${t.n}/${size} in`, {tone: t.n >= size ? 'tint' : 'neutral', icon: 'clock'})}</div>`
+    + `<h2 class="card-title">Get your legs in</h2>`
+    + placerLine(w)
+    + `<div class="ly-meter" role="img" aria-label="${t.n} of ${size} legs in"><i style="--f:${Math.min(1, t.n / size)}"></i></div>`
+    + `<p class="ly-meter-lb"><b>${t.n} of ${size}</b> legs in${miss.length ? ` · <span class="ly-waiting-i">waiting on ${esc(miss.map(data.name).join(', '))}</span>` : ''}</p>`
+    + entryHTML(st, me, {bare: true})
+    + `</section>`;
 }
 
 // The entry's preview: the leg in standard wording (what gets saved and tracked), or how to word it.
@@ -330,9 +347,9 @@ function bodyHTML(st) {
   const tracking = lw && w && w.year === lw.year && w.week === lw.week && live.isClosed(lw.year, lw.week) && legsOf(w).length;
   if (tracking) return trackerHTML(w, me) + tilesHTML() + recordsHTML(me) + weeksHTML(me);
   // Before: the entry box, "Get your legs in", then a preview of the tracker (the live week's legs, scored as they play).
-  const preview = lw && w && w.year === lw.year && w.week === lw.week && legsOf(w).length;
-  return entryHTML(st || {}, me) + heroHTML(me, {noLegs: !!preview}) + (preview ? trackerHTML(w, me, {preview: true}) : '')
-    + tilesHTML() + recordsHTML(me) + weeksHTML(me);
+  const thisWeek = lw && w && w.year === lw.year && w.week === lw.week;
+  if (thisWeek) return weekCardHTML(st || {}, me) + (legsOf(w).length ? trackerHTML(w, me, {preview: true}) : '') + tilesHTML() + recordsHTML(me) + weeksHTML(me);
+  return entryHTML(st || {}, me) + heroHTML(me) + tilesHTML() + recordsHTML(me) + weeksHTML(me);
 }
 
 function subtitle() {
