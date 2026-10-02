@@ -64,7 +64,7 @@ html.rm .c-pk-dot::after { animation: none; }
   box-shadow: 0 4px 0 #0C3D18, inset 0 0 0 2px var(--tint), 0 0 22px rgba(124,240,88,.25);
 }
 .v-pickem .pk-lg-ic { flex: none; display: grid; place-items: center; width: 44px; height: 44px; }
-.v-pickem .pk-badge { width: 44px; height: 44px; image-rendering: pixelated; filter: drop-shadow(2px 2px 0 rgba(0,0,0,.55)); }
+.v-pickem .pk-badge { width: 44px; height: 44px; object-fit: contain; filter: drop-shadow(2px 2px 0 rgba(0,0,0,.55)); }
 /* The league not shown: its badge waits, dimmed. */
 .v-pickem .pk-lg-t[aria-selected="false"] .pk-badge { opacity: .55; filter: grayscale(.5) drop-shadow(2px 2px 0 rgba(0,0,0,.55)); }
 .v-pickem .pk-lg-tx { display: flex; flex-direction: column; gap: 6px; min-width: 0; }

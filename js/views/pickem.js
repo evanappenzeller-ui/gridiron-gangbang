@@ -821,36 +821,14 @@ function titleHTML() {
 }
 // The league switch under the title, the screen's focal point: two big scoreboard buttons, NFL and College, the
 // active one lit up like the field. A tap switches the screen to the other league (League switch, at the bottom).
-// Each league's badge: original 16 x 16 pixel art in the title screen's retro style (not the leagues' own logos).
-// NFL: a shield, red band with white stars over navy, a football in it. NCAA: a round gold-rimmed badge with a red
-// pennant on its pole. One character per pixel ('.' = clear), colors from the palette.
-const BADGE_PAL = {W: '#FFFFFF', R: '#E0302B', B: '#173A8C', N: '#0E2258', O: '#9A4A1C', o: '#C76A2E', G: '#FFC531', g: '#B8860B', P: '#E9D7A8'};
-const BADGES = {
-  nfl: ['...WWWWWWWWWW...', '..WRRRRRRRRRRW..', '..WRWRRWRRWRRW..', '..WRRRRRRRRRRW..', '..WNNNNNNNNNNW..', '..WNNNooooNNNW..',
-    '..WNNoOOOOoNNW..', '..WNoOWOWOWONW..', '..WNoOOOOOOONW..', '..WNNoOOOOoNNW..', '..WNNNooooNNNW..', '...WNNNNNNNNW...',
-    '....WNNNNNNW....', '.....WNNNNW.....', '......WNNW......', '.......WW.......'],
-  cfb: ['.....GGGGGG.....', '...GGBBBBBBGG...', '..GBBBBBBBBBBG..', '.GBBBPBBBBBBBBG.', '.GBBBPRRBBBBBBG.', 'GBBBBPRRRRBBBBBG',
-    'GBBBBPRRRRRRBBBG', 'GBBBBPRRRRRRRRBG', 'GBBBBPRRRRRRBBBG', 'GBBBBPRRRRBBBBBG', '.GBBBPRRBBBBBBG.', '.GBBBPBBBBBBBBG.',
-    '..GBBPBBBBBBBG..', '...GGPBBBBBGG...', '.....GGGGGG.....', '................']
-};
-function badgeSVG(id, size = 40) {
-  let rects = '';
-  (BADGES[id] || []).forEach((row, y) => {
-    for (let x = 0; x < row.length;) {
-      const c = row[x];
-      let n = 1;
-      while (x + n < row.length && row[x + n] === c) n++;
-      if (BADGE_PAL[c]) rects += `<rect x="${x}" y="${y}" width="${n}" height="1" fill="${BADGE_PAL[c]}"/>`;
-      x += n;
-    }
-  });
-  return `<svg class="pk-badge" viewBox="0 0 16 16" width="${size}" height="${size}" shape-rendering="crispEdges" aria-hidden="true" focusable="false">${rects}</svg>`;
-}
+// Each league's badge: the retro pixel logos (img/nfl.webp, img/ncaa.webp).
+const BADGE_SRC = {nfl: 'img/nfl.webp', cfb: 'img/ncaa.webp'};
+const badgeHTML = id => `<img class="pk-badge" src="${BADGE_SRC[id]}" alt="" width="44" height="44" decoding="async" draggable="false">`;
 const LEAGUES = [{id: 'nfl', label: 'NFL', sub: 'Every game'}, {id: 'cfb', label: 'NCAA', sub: 'Top 25'}];
 function leagueTabsHTML() {
   return `<div class="pk-lg" role="tablist" aria-label="League">${LEAGUES.map(l => `<button type="button" role="tab" class="pk-lg-t" data-pk-sport="${l.id}"`
     + ` aria-selected="${l.id === SPORT}"${l.id === SPORT ? '' : ' tabindex="-1"'} aria-label="${l.label} pick'em, ${l.sub.toLowerCase()}">`
-    + `<span class="pk-lg-ic" aria-hidden="true">${badgeSVG(l.id)}</span>`
+    + `<span class="pk-lg-ic" aria-hidden="true">${badgeHTML(l.id)}</span>`
     + `<span class="pk-lg-tx" aria-hidden="true"><span class="pk-lg-l">${l.label}</span><span class="pk-lg-s">${l.sub}</span></span>`
     + `<span class="pk-lg-u" aria-hidden="true"></span></button>`).join('')}</div>`;
 }
