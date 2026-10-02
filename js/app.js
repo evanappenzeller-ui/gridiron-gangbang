@@ -55,7 +55,7 @@ export const REGISTRY = {
   lay: () => import('./views/lay.js'),
   _kit: () => import('./views/_kit.js')
 };
-export const TABS = ['puzzles', 'pickem', 'matchup', 'league', 'draft', 'lay'];
+export const TABS = ['puzzles', 'pickem', 'lay', 'matchup', 'league', 'draft'];
 const HOME = 'puzzles'; // the tab the app opens on: the history base, where covers present, where Back from a root lands
 const TAB_VIEW = {puzzles: 'puzzles', pickem: 'pickem', matchup: 'rivals', league: 'league', draft: 'moves', lay: 'lay'}; // root view ids
 const ROOTS = {puzzles: '/puzzles', pickem: '/pickem', matchup: '/matchup', league: '/league/standings', draft: '/draft', lay: '/lay'};
