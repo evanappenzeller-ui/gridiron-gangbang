@@ -831,8 +831,11 @@ function leagueTabsHTML() {
     + `<span class="pk-lg-ic" aria-hidden="true">${badgeHTML(l.id)}</span>`
     + (l.sub ? `<span class="pk-lg-tx" aria-hidden="true"><span class="pk-lg-s">${l.sub}</span></span>` : '')
     + `<span class="pk-lg-u" aria-hidden="true"></span></button>`).join('')}</div>`
-    + (CFB ? `<div class="pk-ats" role="note"><span class="pk-ats-t">Against the spread</span>`
-      + `<span class="pk-ats-b">Not the moneyline: you're picking who covers. The favorite has to win by more than the spread; the underdog covers by winning or losing by less. Graded on the spread at kickoff.</span></div>` : '');
+    + (CFB ? `<div class="pk-ats" role="note" aria-label="Against the spread. Pick who covers, not who wins. A favorite at minus 7.5 has to win by 8 or more; the underdog covers by winning, or losing by 7 or less.">`
+      + `<span class="pk-ats-badge" aria-hidden="true">ATS</span>`
+      + `<span class="pk-ats-main" aria-hidden="true"><span class="pk-ats-t">Pick who covers, not who wins</span>`
+      + `<span class="pk-ats-ex"><span class="pk-ats-u"><span class="pk-ats-chip is-fav">−7.5</span>must win by 8+</span>`
+      + `<span class="pk-ats-u"><span class="pk-ats-chip">+7.5</span>can lose by up to 7</span></span></span></div>` : '');
 }
 // The week chips: from the season's first pick'em week (weeks before it never had picks) to the current week. Hidden
 // while there is only one week to show.
