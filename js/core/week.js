@@ -653,6 +653,12 @@ function merge(remote, local, kind) {
 // pending: a write from this page the server hasn't confirmed yet (Firestore shows it at once: its local echo).
 const docOf = kind => d => Object.assign({}, d.data({serverTimestamps: 'estimate'}), {[idField(kind)]: d.id},
   d.metadata && d.metadata.hasPendingWrites ? {pending: true} : null);
+// College pick'em reset (Fri Oct 2 2026): its picks and lock-ins saved before then (made while it was briefly graded
+// on the spread) are gone; the docs that remain in Firestore are skipped when read.
+const CFB_RESET = Date.parse('2026-10-02T06:40:00Z');
+const isCfb = kind => kind === 'cfbpicks' || kind === 'cfblocks';
+const kept = kind => d => !isCfb(kind) || !(toMs(d.at) < CFB_RESET);
+const docsOf = (snap, kind) => snap.docs.map(docOf(kind)).filter(kept(kind));
 
 // Your own pick writes still on their way: weekKey -> Map(doc id -> {n (writes out), before (the doc as it was before
 // the first of them, as the server had it, or null)}). The snapshot shows such a write at once (a delete as the doc
@@ -746,7 +752,7 @@ async function startRemote(e) {
     // snapshots (going offline) keep the synced data.
     e.stop = F.fs.onSnapshot(F.fs.collection(F.db, e.kind, e.key, SUB[e.kind]), {includeMetadataChanges: true}, snap => {
       if (!(snap.metadata && snap.metadata.fromCache)) e.synced = true;
-      e.remote = snap.docs.map(docOf(e.kind));
+      e.remote = docsOf(snap, e.kind);
       e.remoteErr = null; e.ready = e.synced;
       cache.delete(e.id);
       emitEntry(e);
@@ -775,7 +781,7 @@ function startLocks(F, e) {
   try {
     e.stopL = F.fs.onSnapshot(F.fs.collection(F.db, e.kind, e.key, 'locks'), {includeMetadataChanges: true}, snap => {
       if (!(snap.metadata && snap.metadata.fromCache)) e.locksSynced = true;
-      e.locks = snap.docs.map(docOf(lockKind(e.kind)));
+      e.locks = docsOf(snap, lockKind(e.kind));
       e.locksErr = null;
       cache.delete(lockKind(e.kind) + ':' + e.key);
       emitEntry(e);
@@ -1283,7 +1289,7 @@ async function fetchDocs(kind, key) {
         try {
           const F = await fire.getFire();
           const snap = await F.fs.getDocs(F.fs.collection(F.db, kind, key, SUB[kind]));
-          return {remote: snap.docs.map(docOf(kind)), error: null};
+          return {remote: docsOf(snap, kind), error: null};
         } catch (err) { return {remote: [], error: fire.codeOf(err)}; }
       })();
       c = {t: Date.now(), p};
@@ -1307,7 +1313,7 @@ async function fetchLocks(key, kind = 'nflpicks') {
         try {
           const F = await fire.getFire();
           const snap = await F.fs.getDocs(F.fs.collection(F.db, kind, key, 'locks'));
-          return {remote: snap.docs.map(docOf(lk)), error: null};
+          return {remote: docsOf(snap, lk), error: null};
         } catch (err) { return {remote: [], error: fire.codeOf(err)}; }
       })();
       c = {t: Date.now(), p};
@@ -1346,6 +1352,7 @@ async function fetchPicks(y, w, past, kind = 'nflpicks') {
         try { localStorage.setItem(PK_LS + key, JSON.stringify({at, docs: saved, locks})); } catch (_) {}
       }
     }
+    if (saved) { saved = saved.filter(kept(kind)); locks = locks && locks.filter(kept(lockKind(kind))); }
     if (saved) return {docs: merge(saved, localDocs(kind, key), kind), remote: saved, error: errorOf(null), locks: merge(locks || [], localDocs(lockKind(kind), key), lockKind(kind))};
   }
   const [r, l] = await Promise.all([fetchDocs(kind, key), fetchLocks(key, kind)]);

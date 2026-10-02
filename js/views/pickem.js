@@ -43,6 +43,17 @@ const CFB = SPORT === 'cfb';
 const FEED = CFB ? nfl.cfb : nfl;
 const LEAGUE = CFB ? 'NCAA' : 'NFL';
 const SFX = CFB ? '-cfb' : ''; // localStorage keys of the college instance
+// College pick'em reset (Fri Oct 2 2026, with week.js's CFB_RESET): once per phone, its saved college picks, drafts and
+// cached weeks go.
+if (CFB) {
+  try {
+    if (localStorage.getItem('gg-cfb-reset') !== '1') {
+      Object.keys(localStorage).filter(k => k === 'gg-pk-last-cfb' || k === 'gg-pickem-due-cfb' || k.startsWith('gg-pk-draft-cfb-') || k.startsWith('gg-cfbpicks-'))
+        .forEach(k => localStorage.removeItem(k));
+      localStorage.setItem('gg-cfb-reset', '1');
+    }
+  } catch (_) {}
+}
 
 const esc = data.esc;
 const PICK_OFF = "Pick'em isn't switched on yet.";
