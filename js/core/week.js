@@ -35,7 +35,15 @@ import * as nfl from './nfl.js';
 // Seasons not listed fall back to the Thursday after the first Monday of September.
 export const KICKOFF = {2026: '2026-09-10'};
 
-const SUB = {motw: 'votes', nflpicks: 'picks'};
+const SUB = {motw: 'votes', nflpicks: 'picks', cfbpicks: 'picks'};
+// The pick'em runs for two leagues: the NFL (nflpicks/{week}/picks|locks, nfl.js) and college (cfbpicks/{week}/...,
+// nfl.cfb: ESPN's Top 25 games). Everything below takes the picks' kind; the exported calls take a sport ('nfl' by
+// default, or 'cfb').
+const kindOf = sport => (sport === 'cfb' ? 'cfbpicks' : 'nflpicks');
+const isPicks = kind => kind === 'nflpicks' || kind === 'cfbpicks';
+const feedOf = kind => (kind === 'cfbpicks' ? nfl.cfb : nfl);
+const lockKind = kind => (kind === 'cfbpicks' ? 'cfblocks' : 'nfllocks');
+const ik = (kind, key) => kind + ':' + key; // the in-flight writes' map key
 const DAY_MS = 864e5;
 
 // ---------------------------------------------------------------------------
@@ -373,7 +381,7 @@ function nflDoc(d) {
   if (!d || typeof d !== 'object') return null;
   const uid = typeof d.uid === 'string' ? d.uid : '';
   const game = typeof d.game === 'string' ? d.game : '';
-  if (!uid || !/^[0-9]{1,12}$/.test(game) || typeof d.team !== 'string' || d.team.length > 4) return null;
+  if (!uid || !/^[0-9]{1,12}$/.test(game) || typeof d.team !== 'string' || d.team.length > 6) return null;
   if (d.id != null && d.id !== nflPickId(uid, game)) return null;
   const kick = d.kick == null ? null : toMs(d.kick);
   return {uid, game, team: d.team.toUpperCase(), me: typeof d.me === 'string' && data.M[d.me] ? d.me : null,
@@ -699,7 +707,7 @@ function subscribe(kind, key, fn) {
   return () => {
     e.fns.delete(fn);
     if (e.fns.size || e.closed || e.linger) return;
-    if (kind === 'nflpicks') { lingerEntry(e); return; }
+    if (isPicks(kind)) { lingerEntry(e); return; }
     closeEntry(e);
   };
 }
@@ -714,7 +722,7 @@ function closeEntry(e) {
 // NFL entries: the week's scores (one poller per week, shared with whoever else watches it).
 function watchBoard(e) {
   if (e.unwatch) return;
-  e.unwatch = nfl.watch(e.P.year, e.P.week, b => { e.board = b; e.boardReady = true; armKickTimer(e); emitEntry(e); });
+  e.unwatch = feedOf(e.kind).watch(e.P.year, e.P.week, b => { e.board = b; e.boardReady = true; armKickTimer(e); emitEntry(e); });
 }
 function lingerEntry(e) {
   if (e.unwatch) { try { e.unwatch(); } catch (_) {} e.unwatch = null; }
@@ -727,7 +735,7 @@ async function startRemote(e) {
   try { F = await fire.getFire(); } catch (err) {
     if (e.closed) return;
     e.remoteErr = 'off'; e.ready = true;
-    if (e.kind === 'nflpicks') e.locksErr = 'off';
+    if (isPicks(e.kind)) e.locksErr = 'off';
     emitEntry(e);
     return;
   }
@@ -749,7 +757,7 @@ async function startRemote(e) {
   } catch (err) {
     e.remoteErr = fire.codeOf(err); e.ready = true; emitEntry(e);
   }
-  if (e.kind === 'nflpicks') startLocks(F, e);
+  if (isPicks(e.kind)) startLocks(F, e);
 }
 // NFL: the week's lock docs, beside its picks. Refused (the rules don't know locks yet) means nobody is locked in (no
 // lock could have been made either); tried again whenever the week is followed again or the app comes back to the
@@ -765,11 +773,11 @@ function startLocks(F, e) {
     emitEntry(e);
   };
   try {
-    e.stopL = F.fs.onSnapshot(F.fs.collection(F.db, 'nflpicks', e.key, 'locks'), {includeMetadataChanges: true}, snap => {
+    e.stopL = F.fs.onSnapshot(F.fs.collection(F.db, e.kind, e.key, 'locks'), {includeMetadataChanges: true}, snap => {
       if (!(snap.metadata && snap.metadata.fromCache)) e.locksSynced = true;
-      e.locks = snap.docs.map(docOf('nfllocks'));
+      e.locks = snap.docs.map(docOf(lockKind(e.kind)));
       e.locksErr = null;
-      cache.delete('nfllocks:' + e.key);
+      cache.delete(lockKind(e.kind) + ':' + e.key);
       emitEntry(e);
     }, failed);
   } catch (err) { failed(err); }
@@ -779,7 +787,7 @@ function startLocks(F, e) {
 function rearm(e) {
   if (e.closed) return;
   if (e.remoteErr && !e.stop) { startRemote(e); return; } // (it starts the locks' listener too)
-  if (e.kind === 'nflpicks' && e.locksErr && !e.stopL && !e.locksT) fire.getFire().then(F => startLocks(F, e), () => {});
+  if (isPicks(e.kind) && e.locksErr && !e.stopL && !e.locksT) fire.getFire().then(F => startLocks(F, e), () => {});
 }
 
 // Re-emit when the week locks while someone is watching (real clock only).
@@ -818,7 +826,7 @@ function emptyNfl() {
     locks: [], lockedMe: null, lockedCount: 0, locksError: null};
 }
 // The week's lock docs: the live listener's with the stand-in's on top.
-const locksOf = (e, key) => merge(e ? e.locks : [], localDocs('nfllocks', key), 'nfllocks');
+const locksOf = (e, key, kind = e ? e.kind : 'nflpicks') => merge(e ? e.locks : [], localDocs(lockKind(kind), key), lockKind(kind));
 // The locks' error a view should show (like errorOf): a forced dev one, else the listener's (hidden on the stand-in).
 const lockErrOf = err => devLockFail || (standIn() ? null : err);
 function nflPayload(e, docs) {
@@ -830,7 +838,7 @@ function nflPayload(e, docs) {
   const lk = nflLocks(locks, uid, {me, mes: mesOf(docs, uid)});
   const t = tallyNfl(docs, games, uid, {at, me, locks});
   const rows = nflRowsFrom(docs, games, uid, {me, locks});
-  const conf = confirmedDocs(docs, inflight.get(e.key));
+  const conf = confirmedDocs(docs, inflight.get(ik(e.kind, e.key)));
   const saved = conf === docs ? t.mine : tallyNfl(conf, games, uid, {at, me, locks}).mine;
   return Object.assign(emptyNfl(), t, {
     key: e.key, year, week, games, rows, you: rows.find(r => r.you) || null, saved,
@@ -869,7 +877,9 @@ export function subscribeVotes(key, fn) { return subscribe('motw', key, fn); }
 //   ready (picks and locks synced and scores loaded), dev (the local stand-in), key, year, week
 // }). Called once soon after subscribing, then on every change, at every kickoff, and on score changes. A week
 // nobody follows stays open for LINGER_MS, so following it again soon after answers at once.
-export function subscribeNflPicks(year, week, fn) { return subscribe('nflpicks', weekKey(Number(year), Number(week)), fn); }
+export function subscribeNflPicks(year, week, fn, sport) { return subscribe(kindOf(sport), weekKey(Number(year), Number(week)), fn); }
+/** The same for a sport: 'nfl' | 'cfb' (college: cfbpicks, ESPN's Top 25 games). */
+export const subscribePicks = (sport, year, week, fn) => subscribeNflPicks(year, week, fn, sport);
 
 // ---------------------------------------------------------------------------
 // Writes -> 'ok' | 'locked' | 'denied' | 'failed' | 'dev' (saved on the local stand-in)
@@ -914,9 +924,10 @@ export async function clearVote() {
 // The pick'em week: nfl.currentWeek() (ESPN's week, or the next one once every game in it is final) with its
 // games: Promise<{year, week, key, games, stale, espnWeek, weeks}>. Rejects (err.code 'offline') only when there
 // are no scores at all.
-export async function pickemWeek() {
-  const cw = await nfl.currentWeek();
-  const b = await nfl.scoreboard(cw.year, cw.week);
+export async function pickemWeek(sport) {
+  const feed = feedOf(kindOf(sport));
+  const cw = await feed.currentWeek();
+  const b = await feed.scoreboard(cw.year, cw.week);
   return Object.assign({}, b, {key: weekKey(b.year, b.week), espnWeek: cw.espnWeek, weeks: cw.weeks, stale: !!(b.stale || cw.stale)});
 }
 
@@ -946,11 +957,11 @@ function teamFor(g, team) {
 }
 
 // The pick doc saved under `uid` for a game, as the live subscription last saw it (null when not known).
-function ownDoc(key, uid, game) {
+function ownDoc(key, uid, game, kind = 'nflpicks') {
   if (!uid) return null;
   const id = nflPickId(uid, game);
-  const e = live.get('nflpicks:' + key);
-  const docs = merge(e ? e.remote : [], localDocs('nflpicks', key), 'nflpicks');
+  const e = live.get(kind + ':' + key);
+  const docs = merge(e ? e.remote : [], localDocs(kind, key), kind);
   return docs.find(d => d && d.id === id) || null;
 }
 // The rules lock a doc at the kickoff it was saved with (`kick`): once that has passed, no change or delete. (It only
@@ -959,10 +970,10 @@ const kickPassed = (d, t) => !!d && d.kick != null && t >= toMs(d.kick);
 // Your lock for a week as the live subscription (and the stand-in) last saw it, or null: nothing more goes in for
 // that week (the rules refuse this phone's writes; a pick from another of your phones would never count). A lock
 // still on its way counts too: the server takes the writes in order, so a pick sent after it would be refused.
-function myLockIn(key) {
-  const e = live.get('nflpicks:' + key), uid = myUid();
-  const docs = merge(e ? e.remote : [], localDocs('nflpicks', key), 'nflpicks');
-  return nflLocks(locksOf(e, key), uid, {me: myMe(), mes: mesOf(docs, uid)}).mine;
+function myLockIn(key, kind = 'nflpicks') {
+  const e = live.get(kind + ':' + key), uid = myUid();
+  const docs = merge(e ? e.remote : [], localDocs(kind, key), kind);
+  return nflLocks(locksOf(e, key, kind), uid, {me: myMe(), mes: mesOf(docs, uid)}).mine;
 }
 
 // The `kick` saved on a pick doc. It must never be later than the real kickoff (readers drop docs that claim a
@@ -998,18 +1009,18 @@ async function writePick(f, team) {
 // within WRITE_MS counts as failed (Firestore would keep retrying it in the background; if it lands later, the
 // snapshot shows it like any other saved pick). Until the server answers, the write is in `inflight`.
 const WRITE_MS = 15e3;
-async function firePick(F, key, g, team) {
-  const game = g.id, kick = kickOf(g);
-  const cur = ownDoc(key, F.uid, game);
+async function firePick(F, key, g, team, kind = 'nflpicks') {
+  const game = g.id, kick = kickOf(g), wkk = ik(kind, key);
+  const cur = ownDoc(key, F.uid, game, kind);
   if (kickPassed(cur, Date.now())) return 'locked';
   const id = nflPickId(F.uid, game);
-  const ref = F.fs.doc(F.db, 'nflpicks', key, SUB.nflpicks, id);
+  const ref = F.fs.doc(F.db, kind, key, SUB[kind], id);
   let t = 0;
   try {
     const w = team == null ? F.fs.deleteDoc(ref)
       : F.fs.setDoc(ref, {uid: F.uid, game, team, me: myMe(), nick: myNick(), at: F.fs.serverTimestamp(), kick: new Date(kick)});
-    let wk = inflight.get(key);
-    if (!wk) inflight.set(key, wk = new Map());
+    let wk = inflight.get(wkk);
+    if (!wk) inflight.set(wkk, wk = new Map());
     let f = wk.get(id);
     if (!f) wk.set(id, f = {n: 0, before: cur && !cur.pending ? cur : null});
     f.n++;
@@ -1017,12 +1028,12 @@ async function firePick(F, key, g, team) {
     const done = () => {
       if (--f.n > 0 || wk.get(id) !== f) return;
       wk.delete(id);
-      if (!wk.size && inflight.get(key) === wk) inflight.delete(key);
-      notify('nflpicks', key);
+      if (!wk.size && inflight.get(wkk) === wk) inflight.delete(wkk);
+      notify(kind, key);
     };
     w.then(done, done);
     await Promise.race([w, new Promise((_, no) => { t = setTimeout(() => no({code: 'timeout'}), WRITE_MS); })]);
-    cache.delete('nflpicks:' + key);
+    cache.delete(kind + ':' + key);
     return 'ok';
   } catch (err) {
     if (fire.codeOf(err) !== 'denied') return 'failed';
@@ -1098,14 +1109,14 @@ export const pickDeadline = g => kickOf(g);
 // opt.games: the week's games when the caller has them (the live subscription's scores come first either way).
 // opt.at: a clock for this call only, on the local stand-in (the checks use it; ignored on a page that can write).
 export async function submitPicks(year, week, changes, opt = {}) {
-  const y = Number(year), w = Number(week), key = weekKey(y, w);
+  const y = Number(year), w = Number(week), key = weekKey(y, w), kind = kindOf(opt.sport);
   const out = {ok: [], locked: [], lockedIn: [], failed: [], code: standIn() ? 'dev' : 'ok'};
   const ids = Object.keys(changes && typeof changes === 'object' ? changes : {});
   if (!ids.length) return out;
   if (!parseKey(key)) return Object.assign(out, {failed: ids, code: 'failed'});
-  const e = live.get('nflpicks:' + key);
+  const e = live.get(kind + ':' + key);
   let games = e && e.board && e.board.games.length ? e.board.games : Array.isArray(opt.games) && opt.games.length ? opt.games : null;
-  if (!games) { try { games = (await nfl.scoreboard(y, w)).games; } catch (_) { games = []; } }
+  if (!games) { try { games = (await feedOf(kind).scoreboard(y, w)).games; } catch (_) { games = []; } }
   const G = new Map(games.map(g => [String(g.id), g]));
   const t = opt.at != null && standIn() && toMs(opt.at) != null ? toMs(opt.at) : now(), plan = [];
   ids.forEach(id => {
@@ -1116,7 +1127,7 @@ export async function submitPicks(year, week, changes, opt = {}) {
     else if (gameLocked(g, t) || (!clear && t >= kickOf(g))) out.locked.push(id);
     else plan.push({id, g, team});
   });
-  if (plan.length && myLockIn(key)) plan.splice(0).forEach(p => out.lockedIn.push(p.id));
+  if (plan.length && myLockIn(key, kind)) plan.splice(0).forEach(p => out.lockedIn.push(p.id));
   const fail = code => { plan.forEach(p => out.failed.push(p.id)); out.code = code; return out; };
   if (!plan.length) {
     out.code = out.failed.length ? 'failed' : out.lockedIn.length ? 'lockedin' : out.locked.length ? 'locked' : out.code;
@@ -1127,11 +1138,11 @@ export async function submitPicks(year, week, changes, opt = {}) {
     // One pass over the stand-in, stamped with the (possibly injected) clock, then one emit.
     const uid = myUid(), me = myMe(), nick = myNick();
     const o = readStore();
-    const K = o.nflpicks && typeof o.nflpicks === 'object' ? o.nflpicks : (o.nflpicks = {});
+    const K = o[kind] && typeof o[kind] === 'object' ? o[kind] : (o[kind] = {});
     const W = K[key] && typeof K[key] === 'object' ? K[key] : (K[key] = {});
     const done = [];
     plan.forEach(({id, g, team}) => {
-      if (kickPassed(ownDoc(key, uid, g.id), t)) { out.locked.push(id); return; } // what the rules would say
+      if (kickPassed(ownDoc(key, uid, g.id, kind), t)) { out.locked.push(id); return; } // what the rules would say
       const pid = nflPickId(uid, g.id);
       if (team == null) delete W[pid]; else W[pid] = {uid, game: g.id, team, me, nick, at: t, kick: kickOf(g)};
       done.push(id);
@@ -1139,8 +1150,8 @@ export async function submitPicks(year, week, changes, opt = {}) {
     if (!Object.keys(W).length) delete K[key];
     if (done.length && !writeStore(o)) { done.forEach(id => out.failed.push(id)); out.code = 'failed'; return out; }
     done.forEach(id => out.ok.push(id));
-    cache.delete('nflpicks:' + key);
-    notify('nflpicks', key);
+    cache.delete(kind + ':' + key);
+    notify(kind, key);
     if (out.failed.length) out.code = 'failed';
     else if (!done.length) out.code = 'locked';
     return out;
@@ -1149,7 +1160,7 @@ export async function submitPicks(year, week, changes, opt = {}) {
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return fail('failed');
   let F;
   try { F = await fire.getFire(); } catch (_) { return fail('failed'); }
-  const res = await Promise.all(plan.map(({g, team}) => firePick(F, key, g, team).catch(() => 'failed')));
+  const res = await Promise.all(plan.map(({g, team}) => firePick(F, key, g, team, kind).catch(() => 'failed')));
   let denied = 0;
   res.forEach((r, i) => {
     const id = plan[i].id;
@@ -1159,7 +1170,7 @@ export async function submitPicks(year, week, changes, opt = {}) {
   });
   out.code = submitCode(out, denied);
   // Everything refused: pick'em switched off, or this phone is locked in and the listener hadn't shown it yet.
-  if (out.code === 'denied' && await lockOnServer(F, key) === true) { out.failed.splice(0).forEach(id => out.lockedIn.push(id)); out.code = 'lockedin'; }
+  if (out.code === 'denied' && await lockOnServer(F, key, kind) === true) { out.failed.splice(0).forEach(id => out.lockedIn.push(id)); out.code = 'lockedin'; }
   return out;
 }
 
@@ -1170,11 +1181,11 @@ export async function submitPicks(year, week, changes, opt = {}) {
 // went in.
 
 // The lock doc saved under `uid` for a week, as the live subscription (and the stand-in) last saw it, or null.
-const ownLock = (key, uid) => (uid ? locksOf(live.get('nflpicks:' + key), key).find(d => d && d.uid === uid) || null : null);
+const ownLock = (key, uid, kind = 'nflpicks') => (uid ? locksOf(live.get(kind + ':' + key), key, kind).find(d => d && d.uid === uid) || null : null);
 // Whether the server has this phone's lock for a week: true | false | null (unknown: refused, offline). Asked only to
 // explain a refusal (the listener may not have shown the lock yet).
-async function lockOnServer(F, key) {
-  try { return (await F.fs.getDocFromServer(F.fs.doc(F.db, 'nflpicks', key, 'locks', F.uid))).exists(); } catch (_) { return null; }
+async function lockOnServer(F, key, kind = 'nflpicks') {
+  try { return (await F.fs.getDocFromServer(F.fs.doc(F.db, kind, key, 'locks', F.uid))).exists(); } catch (_) { return null; }
 }
 
 // Lock in your picks for a week. opt.n: how many picks you are locking in (default: your submitted picks for the
@@ -1183,39 +1194,39 @@ async function lockOnServer(F, key) {
 // sends it once it can, and the lock shows as pending until then) | 'denied' (the rules don't know locks yet:
 // "Locking isn't switched on yet.") | 'failed'. Locking a phone that is already locked is 'ok' and writes nothing.
 export async function lockPicks(year, week, opt = {}) {
-  const y = Number(year), w = Number(week), key = weekKey(y, w);
+  const y = Number(year), w = Number(week), key = weekKey(y, w), kind = kindOf(opt.sport), lk = lockKind(kind);
   if (!parseKey(key)) return 'failed';
   if (devLockFail) return devLockFail;
   let n = Number.isInteger(opt.n) ? opt.n : null;
-  if (n == null) { const e = live.get('nflpicks:' + key); n = e ? Object.keys(payload(e).saved).length : 0; }
+  if (n == null) { const e = live.get(kind + ':' + key); n = e ? Object.keys(payload(e).saved).length : 0; }
   n = Math.max(0, Math.min(32, n));
   if (standIn()) {
     const uid = myUid();
-    if (ownLock(key, uid)) return 'dev';
+    if (ownLock(key, uid, kind)) return 'dev';
     const t = opt.at != null && toMs(opt.at) != null ? toMs(opt.at) : now();
-    if (!localPut('nfllocks', key, uid, {uid, me: myMe(), nick: myNick(), at: t, n})) return 'failed';
-    cache.delete('nfllocks:' + key);
-    notify('nflpicks', key);
+    if (!localPut(lk, key, uid, {uid, me: myMe(), nick: myNick(), at: t, n})) return 'failed';
+    cache.delete(lk + ':' + key);
+    notify(kind, key);
     return 'dev';
   }
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return 'failed';
   let F;
   try { F = await fire.getFire(); } catch (_) { return 'failed'; }
-  const had = ownLock(key, F.uid);
+  const had = ownLock(key, F.uid, kind);
   if (had) return had.pending ? 'queued' : 'ok';
-  const ref = F.fs.doc(F.db, 'nflpicks', key, 'locks', F.uid);
+  const ref = F.fs.doc(F.db, kind, key, 'locks', F.uid);
   let t = 0;
   try {
     await Promise.race([F.fs.setDoc(ref, {uid: F.uid, me: myMe(), nick: myNick(), at: F.fs.serverTimestamp(), n}),
       new Promise((_, no) => { t = setTimeout(() => no({code: 'timeout'}), WRITE_MS); })]);
-    cache.delete('nfllocks:' + key);
+    cache.delete(lk + ':' + key);
     return 'ok';
   } catch (err) {
     if (err && err.code === 'timeout') return 'queued';
     if (fire.codeOf(err) !== 'denied') return 'failed';
     // Refused: this phone is locked in already (a lock is never written twice; the listener hadn't shown it yet), or
     // the rules don't know locks yet.
-    return await lockOnServer(F, key) === true ? 'ok' : 'denied';
+    return await lockOnServer(F, key, kind) === true ? 'ok' : 'denied';
   } finally { clearTimeout(t); }
 }
 
@@ -1224,17 +1235,17 @@ export async function lockPicks(year, week, opt = {}) {
 // to take back is fine too) | 'queued' (not answered within WRITE_MS; it still goes if the server gets it in time) |
 // 'locked' (too late: the lock is permanent) | 'denied' | 'failed'.
 export async function unlockPicks(year, week, opt = {}) {
-  const y = Number(year), w = Number(week), key = weekKey(y, w);
+  const y = Number(year), w = Number(week), key = weekKey(y, w), kind = kindOf(opt.sport), lk = lockKind(kind);
   if (!parseKey(key)) return 'failed';
   if (devLockFail) return devLockFail;
   if (standIn()) {
-    const uid = myUid(), d = localDocs('nfllocks', key).find(x => x.uid === uid);
+    const uid = myUid(), d = localDocs(lk, key).find(x => x.uid === uid);
     if (!d) return 'dev';
     const t = opt.at != null && toMs(opt.at) != null ? toMs(opt.at) : now();
     if (t >= toMs(d.at) + LOCK_UNDO_MS) return 'locked'; // what the rules would say
-    if (!localPut('nfllocks', key, uid, null)) return 'failed';
-    cache.delete('nfllocks:' + key);
-    notify('nflpicks', key);
+    if (!localPut(lk, key, uid, null)) return 'failed';
+    cache.delete(lk + ':' + key);
+    notify(kind, key);
     return 'dev';
   }
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return 'failed';
@@ -1242,15 +1253,15 @@ export async function unlockPicks(year, week, opt = {}) {
   try { F = await fire.getFire(); } catch (_) { return 'failed'; }
   let t = 0;
   try {
-    await Promise.race([F.fs.deleteDoc(F.fs.doc(F.db, 'nflpicks', key, 'locks', F.uid)),
+    await Promise.race([F.fs.deleteDoc(F.fs.doc(F.db, kind, key, 'locks', F.uid)),
       new Promise((_, no) => { t = setTimeout(() => no({code: 'timeout'}), WRITE_MS); })]);
-    cache.delete('nfllocks:' + key);
+    cache.delete(lk + ':' + key);
     return 'ok';
   } catch (err) {
     if (err && err.code === 'timeout') return 'queued';
     if (fire.codeOf(err) !== 'denied') return 'failed';
     // Refused: past the window (the lock is still there), nothing to take back, or locks aren't switched on.
-    const has = await lockOnServer(F, key);
+    const has = await lockOnServer(F, key, kind);
     return has === true ? 'locked' : has === false ? 'ok' : 'denied';
   } finally { clearTimeout(t); }
 }
@@ -1284,9 +1295,9 @@ async function fetchDocs(kind, key) {
   return {docs: merge(r.remote, localDocs(kind, key), kind), remote: r.remote, error: errorOf(r.error), readError: r.error};
 }
 // An NFL week's lock docs -> {locks, remote, readError}. Refused (the rules don't know locks yet) is no locks.
-async function fetchLocks(key) {
-  const id = 'nfllocks:' + key;
-  const e = live.get('nflpicks:' + key);
+async function fetchLocks(key, kind = 'nflpicks') {
+  const lk = lockKind(kind), id = lk + ':' + key;
+  const e = live.get(kind + ':' + key);
   let r;
   if (e && e.locksSynced && !e.locksErr) r = {remote: e.locks, error: null};
   else {
@@ -1295,8 +1306,8 @@ async function fetchLocks(key) {
       const p = (async () => {
         try {
           const F = await fire.getFire();
-          const snap = await F.fs.getDocs(F.fs.collection(F.db, 'nflpicks', key, 'locks'));
-          return {remote: snap.docs.map(docOf('nfllocks')), error: null};
+          const snap = await F.fs.getDocs(F.fs.collection(F.db, kind, key, 'locks'));
+          return {remote: snap.docs.map(docOf(lk)), error: null};
         } catch (err) { return {remote: [], error: fire.codeOf(err)}; }
       })();
       c = {t: Date.now(), p};
@@ -1305,7 +1316,7 @@ async function fetchLocks(key) {
     r = await c.p;
     if (r.error && r.error !== 'denied' && cache.get(id) === c) cache.delete(id);
   }
-  return {locks: merge(r.remote, localDocs('nfllocks', key), 'nfllocks'), remote: r.remote, readError: r.error === 'denied' ? null : r.error};
+  return {locks: merge(r.remote, localDocs(lk, key), lk), remote: r.remote, readError: r.error === 'denied' ? null : r.error};
 }
 
 // NFL picks of a week the pick'em has moved past never change again: a game takes no picks after its kickoff, the
@@ -1315,12 +1326,13 @@ async function fetchLocks(key) {
 // docs are kept with it (`locks`). A copy without them (saved by a build before locking in, possibly after locks were
 // made from another phone) reads the week's locks once and is saved again with them.
 // -> {docs, remote, error, readError, locks}
-const PK_LS = 'gg-nflpicks-';
+const PK_LS = 'gg-nflpicks-'; // college: 'gg-cfbpicks-' (pkLs)
+const pkLs = kind => 'gg-' + kind + '-';
 const slimPick = d => ({id: d.id, uid: d.uid, game: d.game, team: d.team, me: d.me == null ? null : d.me, nick: d.nick,
   at: toMs(d.at), kick: d.kick == null ? null : (toMs(d.kick) != null ? toMs(d.kick) : 'bad')});
 const slimLock = d => ({id: d.id, uid: d.uid, me: d.me == null ? null : d.me, nick: d.nick, at: toMs(d.at), n: d.n});
-async function fetchPicks(y, w, past) {
-  const key = weekKey(y, w);
+async function fetchPicks(y, w, past, kind = 'nflpicks') {
+  const key = weekKey(y, w), PK_LS = pkLs(kind);
   if (past) {
     let saved = null, locks = null, at = 0;
     try {
@@ -1328,15 +1340,15 @@ async function fetchPicks(y, w, past) {
       if (o && Array.isArray(o.docs)) { saved = o.docs; locks = Array.isArray(o.locks) ? o.locks : null; at = o.at || 0; }
     } catch (_) { saved = null; }
     if (saved && !locks) {
-      const l = await fetchLocks(key);
+      const l = await fetchLocks(key, kind);
       if (!l.readError) {
         locks = l.remote.map(slimLock);
         try { localStorage.setItem(PK_LS + key, JSON.stringify({at, docs: saved, locks})); } catch (_) {}
       }
     }
-    if (saved) return {docs: merge(saved, localDocs('nflpicks', key), 'nflpicks'), remote: saved, error: errorOf(null), locks: merge(locks || [], localDocs('nfllocks', key), 'nfllocks')};
+    if (saved) return {docs: merge(saved, localDocs(kind, key), kind), remote: saved, error: errorOf(null), locks: merge(locks || [], localDocs(lockKind(kind), key), lockKind(kind))};
   }
-  const [r, l] = await Promise.all([fetchDocs('nflpicks', key), fetchLocks(key)]);
+  const [r, l] = await Promise.all([fetchDocs(kind, key), fetchLocks(key, kind)]);
   if (past && !r.readError && !l.readError) {
     try { localStorage.setItem(PK_LS + key, JSON.stringify({at: Date.now(), docs: r.remote.map(slimPick), locks: l.remote.map(slimLock)})); } catch (_) {}
   }
@@ -1396,12 +1408,12 @@ export function records(hist) {
 // are equal). "Mitch went 12–4" = right–wrong. Picks stamped after their person locked in never count. The array also carries
 // .games (games that week), .decidedGames (final with a winner), .stale, and .error ('denied' | 'off' | 'failed'
 // for the picks, 'scores' when the week's games could not be loaded: the array is then empty).
-export async function nflWeekResults(year, week) {
-  const y = Number(year), w = Number(week);
+export async function nflWeekResults(year, week, sport) {
+  const y = Number(year), w = Number(week), kind = kindOf(sport), feed = feedOf(kind);
   const out = [];
-  if (!Number.isInteger(y) || !Number.isInteger(w) || w < 1 || w > nfl.REG_WEEKS) { out.error = 'failed'; return out; }
-  const cw = await nfl.currentWeek().catch(() => null);
-  const [r, b] = await Promise.all([fetchPicks(y, w, pastWeek(cw, y, w)), nfl.scoreboard(y, w).catch(() => null)]);
+  if (!Number.isInteger(y) || !Number.isInteger(w) || w < 1 || w > feed.REG_WEEKS) { out.error = 'failed'; return out; }
+  const cw = await feed.currentWeek().catch(() => null);
+  const [r, b] = await Promise.all([fetchPicks(y, w, pastWeek(cw, y, w), kind), feed.scoreboard(y, w).catch(() => null)]);
   if (!b) { out.error = 'scores'; return out; }
   const rows = nflRowsFrom(r.docs, b.games, myUid(), {me: myMe(), locks: r.locks});
   rows.games = b.games.length;
@@ -1416,18 +1428,19 @@ export async function nflWeekResults(year, week) {
 // nflWeekResults(). Only weeks with picks fetch their scores (final weeks come from nfl.js's cache), and weeks the
 // pick'em has moved past read their picks once (fetchPicks). The array carries .error like nflWeekResults()
 // ('scores' when some week's games could not be loaded: those weeks are left out).
-export async function nflStandings(year) {
+export async function nflStandings(year, sport) {
+  const kind = kindOf(sport), feed = feedOf(kind);
   let cw = null;
-  try { cw = await nfl.currentWeek(); } catch (_) { cw = null; }
+  try { cw = await feed.currentWeek(); } catch (_) { cw = null; }
   const y = year != null ? Number(year) : cw ? cw.year : yearOr(null);
   if (!Number.isInteger(y)) return [];
   if (cw && cw.year < y) return [];
-  const last = cw && cw.year === y ? cw.week : nfl.REG_WEEKS;
+  const last = cw && cw.year === y ? cw.week : feed.REG_WEEKS;
   const weeks = [];
   for (let w = 1; w <= last; w++) weeks.push(w);
-  const res = await Promise.all(weeks.map(w => fetchPicks(y, w, pastWeek(cw, y, w))));
+  const res = await Promise.all(weeks.map(w => fetchPicks(y, w, pastWeek(cw, y, w), kind)));
   const need = weeks.filter((w, i) => res[i].docs.length);
-  const boards = await Promise.all(need.map(w => nfl.scoreboard(y, w).catch(() => null)));
+  const boards = await Promise.all(need.map(w => feed.scoreboard(y, w).catch(() => null)));
   const list = nflStandingsFrom(need.map((w, i) => (boards[i] ? {year: y, week: w, games: boards[i].games, docs: res[weeks.indexOf(w)].docs, locks: res[weeks.indexOf(w)].locks} : null)).filter(Boolean), myUid(), {me: myMe()});
   const err = res.find(r => r.error);
   if (err) list.error = err.error;

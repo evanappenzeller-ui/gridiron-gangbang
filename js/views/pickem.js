@@ -34,17 +34,27 @@ import * as week from '../core/week.js';
 import * as nfl from '../core/nfl.js';
 import {youButtonHTML} from './you.js';
 
+// Two leagues, one screen: this module is the NFL pick'em, and the same file loaded again as './pickem.js?sport=cfb'
+// is the College pick'em (ESPN's Top 25 games; nfl.cfb, week.js's 'cfb' sport): a second module instance with its
+// own state, caches and keys. The NFL instance's default export (the Pick'em tab's view) shows one of the two and
+// switches between them with the NFL / College tabs under the large title (see "League switch" at the bottom).
+export const SPORT = new URL(import.meta.url).searchParams.get('sport') === 'cfb' ? 'cfb' : 'nfl';
+const CFB = SPORT === 'cfb';
+const FEED = CFB ? nfl.cfb : nfl;
+const LEAGUE = CFB ? 'College' : 'NFL';
+const SFX = CFB ? '-cfb' : ''; // localStorage keys of the college instance
+
 const esc = data.esc;
 const PICK_OFF = "Pick'em isn't switched on yet.";
 const LOCKED_MSG = 'That game has kicked off. Picks are locked.';
 const TBD_MSG = "No kickoff time yet. This game takes picks again once it's set.";
-const SUBMIT_FAIL = "Couldn't submit. Try again.";
-const OFF_NOTE = "Kept on this phone. Submit once pick'em is switched on.";
+const SUBMIT_FAIL = "Couldn't save your pick. Try again.";
+const OFF_NOTE = "Kept on this phone. Saved once pick'em is switched on.";
 const LOCK_OFF = "Locking isn't switched on yet.";
 const LOCK_FAIL = "Couldn't lock in. Try again.";
 const lockedMsg = w => `Your picks are locked in for week ${w}.`;
 const URGENT_MS = 60 * 60e3; // the Submit bar turns urgent this long before a drafted game kicks off
-const WEEKS = 18; // regular season
+const WEEKS = FEED.REG_WEEKS; // regular season
 const plural = (n, one, many) => `${n} ${n === 1 ? one : (many || one + 's')}`;
 const andJoin = l => l.length < 2 ? (l[0] || '') : `${l.slice(0, -1).join(', ')} and ${l[l.length - 1]}`;
 const cap = s => s ? s[0].toUpperCase() + s.slice(1) : s;
@@ -88,6 +98,11 @@ const TBD_SLOT = {key: 'tbd', label: 'Time TBD'};
 function slotOf(g) {
   if (g.tbd) return TBD_SLOT;
   const {dow, h} = etParts(g.kickoff);
+  // College: Saturday's noon, afternoon and night windows (Eastern); other days by name.
+  if (CFB) {
+    if (dow === 'Sat') return h < 15 ? {key: 'sat-noon', label: 'Saturday early'} : h < 19 ? {key: 'sat-pm', label: 'Saturday afternoon'} : {key: 'sat-night', label: 'Saturday night'};
+    return {key: dow || 'x', label: `${DAY_NAME[dow] || 'Games'}${h >= 19 ? ' night' : ''}`};
+  }
   if (dow === 'Sun') {
     if (h < 12) return {key: 'sun-am', label: 'Sunday morning'};
     if (h < 16) return {key: 'sun-early', label: 'Sunday early'};
@@ -103,12 +118,13 @@ function slotOf(g) {
 const STATES = ['pre', 'in', 'post'];
 function normTeam(t) {
   if (!t) return null;
-  const abbr = String(t.abbr || t.abbreviation || '').toUpperCase().slice(0, 4);
+  const abbr = String(t.abbr || t.abbreviation || '').toUpperCase().slice(0, 6);
   const sc = t.score;
   return {
     abbr, name: String(t.name || t.displayName || abbr), short: String(t.short || t.shortName || t.shortDisplayName || t.name || abbr),
     logo: typeof t.logo === 'string' ? t.logo : '', score: sc == null || sc === '' || !isFinite(+sc) ? null : +sc,
-    winner: t.winner === true, record: typeof t.record === 'string' ? t.record : ''
+    winner: t.winner === true, record: typeof t.record === 'string' ? t.record : '',
+    rank: Number.isInteger(t.rank) && t.rank >= 1 && t.rank <= 25 ? t.rank : null
   };
 }
 // nfl.js games: {id, kickoff, tbd, state, status, detail, period, clock, final, tie, winner: 'home'|'away'|null,
@@ -158,6 +174,10 @@ export const recText = r => String(r || '').replace(/-/g, '–');
 // Team logos: ESPN's 500 px logos are 4096 px PNGs (300-500 KB each). The combiner resizes them on ESPN's side
 // (about 5 KB) and the 500-dark set reads on the app's dark surfaces (Cowboys, Giants, Jets, Titans...).
 export function logoURL(t, px = 64) {
+  // College logos are by ESPN team id ('/teamlogos/ncaa/500/251.png').
+  const nc = t && typeof t.logo === 'string' ? /\/teamlogos\/ncaa\/500(?:-dark)?\/(\d+)\.png/i.exec(t.logo) : null;
+  if (nc) return `https://a.espncdn.com/combiner/i?img=/i/teamlogos/ncaa/500/${nc[1]}.png&h=${Math.round(px)}&w=${Math.round(px)}`;
+  if (CFB) return '';
   const abbr = t && t.abbr ? String(t.abbr).toLowerCase().replace(/[^a-z]/g, '') : '';
   const m = t && typeof t.logo === 'string' ? /\/teamlogos\/nfl\/500(?:-dark)?\/(?:scoreboard\/)?([a-z]+)\.png/i.exec(t.logo) : null;
   const slug = (m && m[1].toLowerCase()) || abbr;
@@ -275,7 +295,7 @@ export function currentWeek(force) {
   // Asked at once, not a tick later: nfl.js then knows a current-week request is out before anything asks it for the
   // week's scores (the watch follow() starts from the last-known week), and serves both from that one request.
   let p;
-  try { p = Promise.resolve(typeof week.pickemWeek === 'function' ? week.pickemWeek() : nfl.currentWeek()); } catch (e) { p = Promise.reject(e); }
+  try { p = Promise.resolve(typeof week.pickemWeek === 'function' ? week.pickemWeek(SPORT) : FEED.currentWeek()); } catch (e) { p = Promise.reject(e); }
   curP = p.then(r => {
     if (!r || !isFinite(+r.week)) throw new Error('No pick\'em week');
     memo.cur = {year: +r.year, week: +r.week};
@@ -302,7 +322,7 @@ function seasonYear() {
 // already shows, the week's table, the locks). Read back as `cached`: a cached board's live dots rest, and a cached
 // snap is never taken for an answer about drafts (sweepDrafts waits for the server). Not read back once it is more
 // than 8 days old or its games are over (the pick'em has moved on to the next slate).
-const LAST_KEY = 'gg-pk-last', LAST_V = 1;
+const LAST_KEY = 'gg-pk-last' + SFX, LAST_V = 1;
 const SNAP_KEEP = ['key', 'year', 'week', 'mine', 'saved', 'byGame', 'rows', 'count', 'locks', 'lockedMe', 'lockedCount', 'locksError'];
 /** Keep a week ({year, week, board, snap}) on this phone. -> saved (false when storage refuses). */
 export function cacheSave({year, week: w, board, snap}, key = LAST_KEY) {
@@ -382,7 +402,7 @@ export function follow(target, fn) {
     const k = wkey(y, w);
     emit();
     try {
-      unW = nfl.watch(y, w, b => {
+      unW = FEED.watch(y, w, b => {
         if (dead) return;
         const nb = normBoard(Object.assign({year: y, week: w}, Array.isArray(b) ? {games: b} : b));
         const old = memo.boards.get(k);
@@ -405,7 +425,7 @@ export function follow(target, fn) {
           memo.snaps.set(k, s);
           keepLast(y, w);
           emit();
-        });
+        }, SPORT);
       }
     } catch (e) { console.error(e); }
   };
@@ -415,7 +435,7 @@ export function follow(target, fn) {
     if (rollT || dead) return;
     rollT = setTimeout(() => {
       rollT = 0;
-      Promise.resolve().then(() => nfl.currentWeek({fresh: true})).catch(() => null).then(() => currentWeek(true))
+      Promise.resolve().then(() => FEED.currentWeek({fresh: true})).catch(() => null).then(() => currentWeek(true))
         .then(c => { if (dead) return; if (c.year !== y || c.week !== w) start(c.year, c.week); else roll(10 * 60e3); }, () => { if (!dead) roll(10 * 60e3); });
     }, ms);
   };
@@ -456,6 +476,8 @@ export function follow(target, fn) {
  * and the tab dot knows which week it is. Picks come from the week kept on this phone until the screen follows it.
  */
 export function warm() {
+  // The College pick'em last chosen on this phone: its module and week too, so the tab opens on it at once.
+  if (!CFB && host.sport === 'cfb') loadCfb().then(m => m.warm(), () => {});
   return currentWeek().then(() => { keepLast(memo.cur.year, memo.cur.week); armDrafts(); signalBadge(); }, () => {});
 }
 
@@ -478,12 +500,12 @@ function on(s, fn) {
 // per week ('gg-pk-draft-2026-w4': {gameId: team | ''}, '' = clear the submitted pick), so leaving the screen or
 // reloading never loses them; weeks before the current one are swept. A draft equal to the submitted pick is no change
 // (week.pickChanges). A game that kicks off takes its draft with it: it never counts (sweepDrafts says which).
-const DRAFT_KEY = 'gg-pk-draft-';
+const DRAFT_KEY = 'gg-pk-draft-' + (CFB ? 'cfb-' : '');
 const draftMem = new Map(); // '2026-w4' -> {gameId: team | ''}
 function cleanDrafts(o) {
   const out = {};
   if (o && typeof o === 'object' && !Array.isArray(o)) {
-    Object.keys(o).forEach(id => { const t = o[id]; if (/^[0-9]{1,12}$/.test(id) && typeof t === 'string' && /^[A-Za-z]{0,4}$/.test(t)) out[id] = t.toUpperCase(); });
+    Object.keys(o).forEach(id => { const t = o[id]; if (/^[0-9]{1,12}$/.test(id) && typeof t === 'string' && /^[A-Za-z0-9&-]{0,6}$/.test(t)) out[id] = t.toUpperCase(); });
   }
   return out;
 }
@@ -628,7 +650,7 @@ function armDrafts() {
  * known (never opened on this phone, or a new week not seen yet) -> no dot. Picks made on another phone count once
  * this screen has loaded the week again.
  */
-const DUE_KEY = 'gg-pickem-due'; // {k: '2026-w4', due: [kickoff ms, ...], un: [kickoff ms of games with a draft]}
+const DUE_KEY = 'gg-pickem-due' + SFX; // {k: '2026-w4', due: [kickoff ms, ...], un: [kickoff ms of games with a draft]}
 let dueMem, unMem;               // undefined until read
 function readDue() {
   if (dueMem !== undefined) return;
@@ -673,7 +695,7 @@ export function badgeFrom({games, saved, drafts: dr, at = nowMs(), locked = fals
   const ms = l => l.map(g => g.kickoff.getTime()).filter(Number.isFinite);
   return {on: due.length > 0, due: ms(due), unsent: un.length, un: ms(un)};
 }
-const UNSENT = 'picks not submitted';
+const UNSENT = 'picks not saved';
 let why = null; // the words for what badge() last decided; null: it went by what this phone saw before (readDue)
 export function badge() {
   const c = memo.cur, at = nowMs();
@@ -791,13 +813,20 @@ function urgentOf(v) {
 
 // ============================================================================ Markup
 // The eyebrow: "NFL · Week 4" (the season before the week is known).
-const eyebrowText = () => (st && st.week ? `NFL · Week ${st.week}` : `NFL · ${st && st.year ? st.year : seasonYear()}`);
+const eyebrowText = () => (st && st.week ? `${LEAGUE} · Week ${st.week}` : `${LEAGUE} · ${st && st.year ? st.year : seasonYear()}`);
 function titleHTML() {
   return ui.largeTitle({eyebrow: eyebrowText(), title: "Pick'em", trailing: youButtonHTML()});
 }
+// The league tabs under the title (the NFL app's Home / Replays row): NFL · College, the active one bright with a bar
+// under it. A tap switches the screen to the other league (League switch, at the bottom).
+const LEAGUES = [{id: 'nfl', label: 'NFL'}, {id: 'cfb', label: 'College'}];
+function leagueTabsHTML() {
+  return `<div class="pk-lg" role="tablist" aria-label="League">${LEAGUES.map(l => `<button type="button" role="tab" class="pk-lg-t" data-pk-sport="${l.id}"`
+    + ` aria-selected="${l.id === SPORT}"${l.id === SPORT ? '' : ' tabindex="-1"'}><span class="pk-lg-l">${l.label}</span><span class="pk-lg-u" aria-hidden="true"></span></button>`).join('')}</div>`;
+}
 // The week chips: from the season's first pick'em week (weeks before it never had picks) to the current week. Hidden
 // while there is only one week to show.
-const FIRST_WEEK = {2026: 4};
+const FIRST_WEEK = CFB ? {2026: 6} : {2026: 4};
 function chipWeeks() {
   const c = memo.cur;
   if (!c || !st || !st.week) return [];
@@ -821,7 +850,7 @@ function stripHTML(v) {
     const t = v.mine[g.id], win = winnerOf(g);
     const picked = t === g.home.abbr || t === g.away.abbr;
     // A draft: outlined (a drafted pick) or hollow with a ring (a submitted pick drafted away).
-    const draft = g.id in v.changes ? (picked ? 'is-draft' : 'is-clr') : '';
+    const draft = draftShown(g, v) ? (picked ? 'is-draft' : 'is-clr') : '';
     const c = win && picked ? (t === win ? 'is-right' : 'is-wrong') : draft || (picked ? 'is-on' : g.state === 'in' ? 'is-live' : '');
     return `<i class="${c}" data-seg="${esc(g.id)}"></i>`;
   }).join('')}</span>`;
@@ -839,7 +868,7 @@ function sumHTML(v) {
   // and outlined in the strip). Tile 2: your record. Tile 3: what's next.
   const allIn = !past && s.allIn && !cw.n && !wait;
   const t1 = `<div class="pk-tile${allIn ? ' is-all' : ''}"><span class="pk-tv">${wait ? skN : `<span class="n2 pk-pc">${s.picked}</span><span class="pk-of">of ${s.n}</span>`}</span>`
-    + `<span class="pk-tl">${past ? 'Picked' : allIn ? `Submitted${ui.icon('check')}` : 'Submitted'}</span></div>`;
+    + `<span class="pk-tl">${allIn ? `Picked${ui.icon('check')}` : 'Picked'}</span></div>`;
   const t2 = `<div class="pk-tile"><span class="pk-tv">${wait ? skN : `<span class="n2${played ? '' : ' ink3'}">${played ? `${s.right}–${s.wrong}` : '0–0'}</span>`}</span>`
     + `<span class="pk-tl">${!past && !s.done && played ? 'So far' : 'Your record'}</span></div>`;
   let t3;
@@ -855,7 +884,7 @@ function sumHTML(v) {
     + (s.leaders.length ? `<span class="pk-lead-av">${ui.avatarStack(s.leaders.slice(0, 3).map(r => stackItem(r.w)), {max: 3, size: 28})}</span>` : `<span class="pk-lead-av is-ic">${ui.icon('medal')}</span>`)
     + `<span class="pk-lead-tx"><span class="ovl pk-lead-o">Leaderboard</span>${wait ? '<span class="sk sk-line pk-sk-t"></span>' : `<span class="pk-lead-t">${esc(leadTxt)}</span>`}</span>`
     + ui.icon('chevron-right', {cls: 'chev'}) + `</button>`;
-  const say = wait ? 'Loading your picks.' : `${s.picked} of ${s.n} ${past ? 'picked' : 'submitted'}.${cw.n ? ` ${cw.text} not submitted yet.` : ''}${v.locked ? (v.lockPending ? ' Locking in.' : ' Locked in.') : ''} ${played ? `Your record ${s.right} and ${s.wrong}.` : ''} ${s.live ? `${plural(s.live, 'game')} ${stale ? 'last seen live' : 'live'}.` : s.next && !past ? `Next kickoff ${kickText(s.next)}.` : s.open && !past ? 'Kickoff times to be decided.' : ''}`;
+  const say = wait ? 'Loading your picks.' : `${s.picked} of ${s.n} picked.${cw.n && st.retry ? ` ${cw.text} not saved yet.` : ''}${v.locked ? (v.lockPending ? ' Locking in.' : ' Locked in.') : ''} ${played ? `Your record ${s.right} and ${s.wrong}.` : ''} ${s.live ? `${plural(s.live, 'game')} ${stale ? 'last seen live' : 'live'}.` : s.next && !past ? `Next kickoff ${kickText(s.next)}.` : s.open && !past ? 'Kickoff times to be decided.' : ''}`;
   return `<div class="card pk-sum" data-enter><p class="sr-only">${esc(say)}</p><div class="pk-tiles" aria-hidden="true">${t1}${t2}${t3}</div>${stripHTML(v)}`
     + `${lockRowHTML(v)}${leadRow}</div>`;
 }
@@ -903,32 +932,30 @@ export function lockIns(snap) {
 // 1:05 AM", "Locking in…" until the server has it) with Undo for its first minutes. This week only, until every game
 // is over; hidden while the locks can't be read (unless you are locked in); a placeholder of its height while the
 // picks load.
+// Your lock-in row (this week only). Locking in is optional and private: the row says only where you stand (a Lock
+// in button, or "Locked in · Thu 7:40 PM" with Undo for its first minutes), never who else has or hasn't.
 function lockRowHTML(v) {
   if (!v.current || (v.sum.done && !v.locked)) return '';
   if (v.loadingPicks) return `<div class="pk-ll is-sk" aria-hidden="true"><span class="sk pk-sk-av"></span><span class="sk sk-line pk-sk-t"></span></div>`;
   if (!v.locked && v.snap && v.snap.locksError) return '';
-  const L = lockIns(v.snap);
-  const txt = `${L.count} of ${L.total} locked in`;
-  const stack = (size, max) => ui.avatarStack(L.list.slice().reverse().map(x => stackItem(x.w)), {max, size});
-  let lead, line, said = txt, trail = '';
+  let lead, line, said, trail = '';
   if (v.locked) {
-    // Yours leads (a tint lock, the color of you and your actions); the league's follows on the second line.
     const when = v.lockPending ? '' : kickText(new Date(v.lock.at), v.at);
     lead = `<span class="pk-ll-av is-me"><span class="pk-lk-ic">${v.lockPending ? '<span class="spin" aria-hidden="true"></span>' : ui.icon('lock')}</span></span>`;
     line = `<span class="pk-ll-mt">${v.lockPending ? 'Locking in…' : `Locked in<span class="pk-lk-w"> · ${esc(when)}</span>`}</span>`
-      + `<span class="pk-ll-t">${L.count ? `<span class="pk-ll-mini">${stack(18, 3)}</span>` : ''}<span>${esc(txt)}</span></span>`;
-    said = `${v.lockPending ? 'Locking in your picks' : `You're locked in, ${when}`}. ${txt}`;
+      + `<span class="pk-ll-t"><span>No changes this week, even before kickoff</span></span>`;
+    said = v.lockPending ? 'Locking in your picks' : `You're locked in, ${when}`;
     if (v.undo) trail = `<button type="button" class="pk-lk-undo" data-pk-unlock${st.unlocking ? ' aria-disabled="true"' : ''} aria-label="Undo lock in">Undo</button>`;
   } else {
-    lead = L.count ? `<span class="pk-ll-av">${stack(24, 2)}</span>` : `<span class="pk-ll-av is-ic">${ui.icon('lock')}</span>`;
-    line = `<span class="pk-ll-t"><span>${esc(txt)}</span></span>`;
-    if (canLock(v)) {
-      trail = ui.button({label: 'Lock in', kind: 'secondary', size: 's', icon: 'lock', loading: !!st.locking, cls: 'pk-lk-go',
-        attrs: {'data-pk-lock': '', 'aria-haspopup': 'dialog', 'aria-label': 'Lock in your picks'}});
-    }
+    if (!canLock(v)) return '';
+    lead = `<span class="pk-ll-av is-ic">${ui.icon('lock')}</span>`;
+    line = `<span class="pk-ll-t"><span>Make picks final early</span></span>`;
+    said = 'Locking in is optional';
+    trail = ui.button({label: 'Lock in', kind: 'secondary', size: 's', icon: 'lock', loading: !!st.locking, cls: 'pk-lk-go',
+      attrs: {'data-pk-lock': '', 'aria-haspopup': 'dialog', 'aria-label': 'Lock in your picks'}});
   }
-  return `<div class="pk-ll${v.locked ? ' is-in' : ''}"><button type="button" class="pk-ll-b" data-pk-locks aria-haspopup="dialog" aria-label="${esc(`${said}. See who`)}">`
-    + `${lead}<span class="pk-ll-tx">${line}</span>${trail ? '' : ui.icon('chevron-right', {cls: 'chev'})}</button>${trail}</div>`;
+  return `<div class="pk-ll${v.locked ? ' is-in' : ''}"><div class="pk-ll-b" role="group" aria-label="${esc(said)}">`
+    + `${lead}<span class="pk-ll-tx">${line}</span></div>${trail}</div>`;
 }
 function bannerHTML(v) {
   const out = [];
@@ -942,8 +969,8 @@ function bannerHTML(v) {
     const saved = savedFor(c.year, c.week);
     const s = b ? summarize(b.games, memo.snaps.get(wkey(c.year, c.week)) || null, {mine: saved}) : null;
     const un = b ? wordsOf(changesOf(b.games, drafts.get(c.year, c.week), saved, v.at), saved) : null;
-    const txt = un && un.n ? `Week ${c.week}: ${un.text} not submitted`
-      : s && s.open && !s.allIn ? (s.picked ? `Week ${c.week}: ${s.picked} of ${s.n} submitted` : `Week ${c.week} picks are open`) : `Back to week ${c.week}`;
+    const txt = un && un.n && st.retry ? `Week ${c.week}: ${un.text} not saved`
+      : s && s.open && !s.allIn ? (s.picked ? `Week ${c.week}: ${s.picked} of ${s.n} picked` : `Week ${c.week} picks are open`) : `Back to week ${c.week}`;
     out.push(`<button type="button" class="pk-banner is-go" data-pk-week="${c.week}">${ui.icon('football')}<span>${esc(txt)}</span>${ui.icon('chevron-right', {cls: 'chev'})}</button>`);
   }
   return out.join('');
@@ -953,7 +980,7 @@ function noteHTML(v) {
   if (!v.sum.open || v.off) return '';
   if (v.lockPending) return `<p class="pk-note">Locking in your picks for week ${st.week}…</p>`;
   if (v.locked) return `<p class="pk-note">Your picks are locked in for week ${st.week}. Nothing changes now but the scores.</p>`;
-  return `<p class="pk-note">Tap a team to pick it, tap again to clear, then submit. Only submitted picks count, and each game locks at kickoff.</p>`;
+  return `<p class="pk-note">Tap a team to pick it, tap again to clear. Picks save as you tap and can change until each game kicks off.</p>`;
 }
 
 // Status column: kickoff time, the live clock, or Final.
@@ -1018,15 +1045,18 @@ function markHTML(g, t, v) {
     // A tie (or a game that never finished) grades as no pick: a neutral mark.
     if (g.state === 'post') return `<span class="pk-mk is-push">${ui.icon('check')}</span>`;
     // Drafted, not submitted: an outlined mark (a submitted pick is the filled one).
-    if (g.id in v.changes) return `<span class="pk-mk is-draft">${ui.icon('check')}</span>`;
+    if (draftShown(g, v)) return `<span class="pk-mk is-draft">${ui.icon('check')}</span>`;
     return `<span class="pk-mk is-on">${ui.icon('check')}</span>`;
   }
   return canPick(g, v) ? `<span class="pk-mk is-open"></span>` : '';
 }
 // A side's draft state: 'draft' (drafted, not submitted), 'cleared' (your submitted pick, cleared by a draft), 'was'
 // (your submitted pick, swapped for the other side by a draft: it still counts until you submit) or ''.
+// Picks save as they are tapped: a pick on its way looks like any pick; only one a save failed on (st.retry) looks
+// drafted.
+const draftShown = (g, v) => !!(st && st.retry) && g.id in v.changes;
 function draftOf(g, t, v) {
-  if (!(g.id in v.changes)) return '';
+  if (!draftShown(g, v)) return '';
   if (v.mine[g.id] === t.abbr) return 'draft';
   if (v.saved[g.id] !== t.abbr) return '';
   return v.changes[g.id] === '' ? 'cleared' : 'was';
@@ -1036,11 +1066,11 @@ function teamLabel(g, t, side, v) {
   const mine = v.mine[g.id];
   const win = winnerOf(g);
   const d = draftOf(g, t, v);
-  const bits = [`${t.name}${t.record ? `, ${recText(t.record)}` : ''}`];
+  const bits = [`${t.rank ? `Number ${t.rank} ` : ''}${t.name}${t.record ? `, ${recText(t.record)}` : ''}`];
   if (showScore(g) && t.score != null) bits.push(`${t.score} points${win === t.abbr ? ', won' : ''}`);
-  if (mine === t.abbr) bits.push(win ? (win === t.abbr ? 'Your pick, right' : 'Your pick, wrong') : g.state === 'post' ? 'Your pick. No result, so it counts for nobody' : d ? 'Your pick, not submitted yet' : 'Your pick');
-  else if (d === 'cleared') bits.push('Your submitted pick, cleared but not submitted yet');
-  else if (d === 'was') bits.push(`Your submitted pick, changing to the ${other.short} when you submit`);
+  if (mine === t.abbr) bits.push(win ? (win === t.abbr ? 'Your pick, right' : 'Your pick, wrong') : g.state === 'post' ? 'Your pick. No result, so it counts for nobody' : d ? 'Your pick, not saved yet' : 'Your pick');
+  else if (d === 'cleared') bits.push('Your saved pick, cleared but not saved yet');
+  else if (d === 'was') bits.push(`Your saved pick, changing to the ${other.short} once it saves`);
   if (canPick(g, v)) bits.push(mine === t.abbr ? 'Tap to clear' : `Pick to beat the ${other.short}`);
   else if (v.locked && !lockedGame(g, v.at)) bits.push(v.lockPending ? 'Locking in' : 'Locked in');
   else if (v.current && !v.off && tbdShut(g, v.at)) bits.push('Picks open again once the kickoff time is set');
@@ -1057,7 +1087,7 @@ function sideCls(g, t, v) {
 // SUBMITTED on a submitted pick drafted away, SUBMITTED (neutral) on a submitted pick a draft would swap.
 function subHTML(g, t, v) {
   const d = draftOf(g, t, v);
-  const ns = d === 'draft' ? 'Not submitted' : d === 'cleared' ? 'Clear not submitted' : d === 'was' ? 'Submitted' : '';
+  const ns = d === 'draft' ? 'Not saved' : d === 'cleared' ? 'Clear not saved' : d === 'was' ? 'Saved' : '';
   return `<span class="pk-trec">${esc(recText(t.record))}</span>${ns ? `<span class="pk-ns">${ns}</span>` : ''}`;
 }
 function sideHTML(g, side, v) {
@@ -1066,7 +1096,7 @@ function sideHTML(g, side, v) {
   return `<button type="button" class="${sideCls(g, t, v)}" data-pick="${esc(g.id)}" data-team="${esc(t.abbr)}" data-side="${side}" aria-pressed="${v.mine[g.id] === t.abbr}"`
     + `${canPick(g, v) ? '' : ' aria-disabled="true"'} aria-label="${esc(teamLabel(g, t, side, v))}">`
     + logoHTML(t, 32)
-    + `<span class="pk-tn"><span class="pk-tnm">${esc(t.short)}</span><span class="pk-tsub">${subHTML(g, t, v)}</span></span>`
+    + `<span class="pk-tn"><span class="pk-tnm">${t.rank ? `<span class="pk-rk n5">${t.rank}</span>` : ''}${esc(t.short)}</span><span class="pk-tsub">${subHTML(g, t, v)}</span></span>`
     + `<span class="pk-mkw">${markHTML(g, t, v)}</span>`
     + `<span class="pk-sc n3">${esc(sc)}</span>`
     + `</button>`;
@@ -1175,7 +1205,7 @@ function bodyHTML() {
   const v = vm();
   if (!v.board) return st.err ? errHTML() : loadingHTML();
   if (!v.games.length) {
-    return (v.board.stale || v.board.error ? errHTML() : ui.empty({icon: 'calendar', title: 'No games this week.', body: `Week ${st.week} has no NFL games on the schedule.`}));
+    return (v.board.stale || v.board.error ? errHTML() : ui.empty({icon: 'calendar', title: 'No games this week.', body: CFB ? `Week ${st.week} has no Top 25 games on the schedule.` : `Week ${st.week} has no NFL games on the schedule.`}));
   }
   return sumHTML(v) + `<div class="pk-banners">${bannerHTML(v)}</div>` + noteHTML(v) + `<div class="pk-games">${gamesHTML(v)}</div>` + devNote();
 }
@@ -1196,13 +1226,16 @@ function submitState(v) {
   const cw = changeWords(v);
   if (!cw.n) return null;
   const u = v.off ? null : urgentOf(v);
-  const note = v.off ? OFF_NOTE : u ? `Submit before ${gameName(u)} kicks off at ${timeShort(u.kickoff)}` : '';
-  return {cw, label: `Submit ${cw.text}`, undo: `Discard ${cw.text}, not submitted`, note, kind: v.off ? 'off' : u ? 'urgent' : '',
+  const note = v.off ? OFF_NOTE : u ? `Save before ${gameName(u)} kicks off at ${timeShort(u.kickoff)}` : '';
+  return {cw, label: `Save ${cw.text}`, undo: `Discard ${cw.text}, not saved`, note, kind: v.off ? 'off' : u ? 'urgent' : '',
     urgent: u ? note : ''};
 }
 const NOTE_ICON = {urgent: 'clock', off: 'info'};
+// Picks save as they are tapped (autoSave), so the bar only shows when a save didn't go through (st.retry): Save tries
+// those picks again, Discard drops them.
+const barState = v => (st && st.retry ? submitState(v) : null);
 function submitBarHTML(v) {
-  const b = submitState(v);
+  const b = barState(v);
   const kind = b ? b.kind : '';
   return `<div class="pk-sb${kind ? ' is-' + kind : ''}" role="region" aria-label="Unsubmitted picks"${b ? '' : ' hidden'}><div class="pk-sb-card">`
     + `<p class="pk-sb-msg" id="pk-sb-msg" data-kind="${kind}"${kind ? '' : ' hidden'}>${ui.icon(NOTE_ICON[kind] || 'clock')}<span>${esc(b ? b.note : '')}</span></p>`
@@ -1219,7 +1252,7 @@ function submitBarHTML(v) {
 function syncSubmitBar(v) {
   const bar = st.el && st.el.querySelector('.pk-sb');
   if (!bar) return;
-  const b = st.busy && v && v.current ? st.busy.b : submitState(v);
+  const b = !st.retry ? null : st.busy && v && v.current ? st.busy.b : submitState(v);
   const show = !!b;
   const card = bar.querySelector('.pk-sb-card');
   if (show) {
@@ -1564,7 +1597,15 @@ function tapTeam(gid, team) {
   const tm = next ? teamOf(g, next) : null;
   // The tap's announcement carries the urgent line when this tap raised it (the bar's own would be cut off by it).
   const urgent = now2 && now2.urgent && (!was || was.urgent !== now2.urgent) ? ` ${now2.urgent}.` : '';
-  ui.announce(`${next ? `${tm.short} to win.` : 'Pick cleared.'} ${cw.n ? `Not submitted. ${cw.text} to submit.` : 'Nothing to submit.'}${urgent}`);
+  ui.announce(`${next ? `${tm.short} to win.` : 'Pick cleared.'}${st.retry && cw.n ? ` ${cw.text} not saved yet.` : ''}${urgent}`);
+  autoSave();
+}
+// Save what was just tapped at once (quietly: the card already shows it). A save already on its way takes the next
+// one when it answers (submit: busy.touched).
+function autoSave() {
+  if (!st || st.locking) return;
+  if (st.busy) return; // its answer saves what was tapped meanwhile
+  submit({quiet: true});
 }
 
 // Submit every change at once (week.submitPicks). The button spins meanwhile and can't be pressed again; taps on the
@@ -1584,7 +1625,7 @@ function submit({quiet = false, forLock = false} = {}) {
   ui.haptic('light');
   syncSubmitBar(v);
   let p;
-  try { p = week.submitPicks(y, w, sent, {games: v.games}); } catch (e) { p = Promise.reject(e); }
+  try { p = week.submitPicks(y, w, sent, {games: v.games, sport: SPORT}); } catch (e) { p = Promise.reject(e); }
   return Promise.resolve(p).then(r => r && Array.isArray(r.ok) ? r : Promise.reject(new Error('submitPicks: ' + r)))
     .catch(e => { console.error(e); return {ok: [], locked: [], lockedIn: [], failed: Object.keys(sent), code: 'failed'}; })
     .then(r => {
@@ -1601,6 +1642,8 @@ function submit({quiet = false, forLock = false} = {}) {
       putDrafts(y, w, dr);
       const hush = quiet && wentIn(r, sent);
       if (!on(s0, () => { settled(r, sent, wasAll, b.cw, hush); return true; }) && !hush) toastResult(r, b.cw, nav, w);
+      // Taps made while this save was out go now.
+      if (busy.touched.size && !r.failed.length) on(s0, () => { if (Object.keys(vm().changes).length) submit({quiet: true}); });
       return r;
     });
 }
@@ -1618,12 +1661,14 @@ function settled(r, sent, wasAll, cw, hush) {
     setTimeout(() => on(s0, () => { if (st.pending.get(id) === pd) { st.pending.delete(id); patch(); } }), 4000);
   });
   if (r.code === 'denied') st.off = true;
+  // A save that didn't go through leaves those picks unsaved on this phone: the Save bar offers them again.
+  st.retry = !!r.failed.length && r.code !== 'denied';
   if (r.ok.length) { dropLeaveToast(); leaveSig = ''; }
   const v = vm();
   const all = !!r.ok.length && v.sum.allIn && !wasAll && !Object.keys(v.changes).length;
   if (!hush) toastResult(r, cw, st.ctx.visible ? null : st.ctx.nav, st.week);
   patch({committed: r.ok, all});
-  if (r.ok.length && !r.failed.length && !hush) ui.announce(`${v.sum.picked} of ${v.sum.n} submitted.`);
+  if (r.ok.length && !r.failed.length && !hush) ui.announce(`${v.sum.picked} of ${v.sum.n} picked.`);
 }
 // The toast (and haptic) for a submit's result. cw: the submitted changes as words. review: a way back to the screen
 // (ctx.nav) when the answer lands while it isn't showing: anything left to submit gets a Review button. w: the week.
@@ -1647,15 +1692,15 @@ function toastResult(r, cw, review, w) {
     const bits = [];
     if (r.locked.length) {
       const them = r.locked.length === 1 ? (names[0] || 'That game') : names.length === r.locked.length ? andJoin(names) : plural(r.locked.length, 'game');
-      bits.push(`${r.ok.length ? `${r.ok.length === 1 ? cap(noun) : cap(noun) + 's'} submitted, but ${them}` : them} had already kicked off.`);
+      bits.push(`${r.ok.length ? `${r.ok.length === 1 ? cap(noun) : cap(noun) + 's'} saved, but ${them}` : them} had already kicked off.`);
       bits.push(`${r.locked.length === 1 ? "That pick didn't" : "Those picks didn't"} count.`);
-    } else bits.push(`${plural(r.ok.length, noun)} submitted.`);
+    } else bits.push(`${plural(r.ok.length, noun)} saved.`);
     if (r.failed.length) bits.push(`${plural(r.failed.length, noun)} didn't go through. Try again.`);
     ui.toast(bits.join(' '), Object.assign({icon: r.locked.length ? 'lock' : 'x-circle', duration: 4500}, r.failed.length ? act : {}));
     return;
   }
   ui.haptic('success');
-  const done = r.ok.length === 1 ? (noun === 'change' ? 'Change submitted.' : 'Pick submitted.') : 'Picks submitted.';
+  const done = r.ok.length === 1 ? (noun === 'change' ? 'Change saved.' : 'Pick saved.') : 'Picks saved.';
   ui.toast(r.code === 'dev' ? `${done} Saved on this device (dev).` : done, {icon: 'check-circle'});
 }
 // Discard: every draft of the week goes; the toast can bring them back (as long as nothing was drafted since).
@@ -1737,7 +1782,7 @@ async function lockIn(from) {
   }
   let res = null;
   const asked = nowMs();
-  if (ok) { try { res = await week.lockPicks(y, w, {n}); } catch (e) { console.error(e); res = 'failed'; } }
+  if (ok) { try { res = await week.lockPicks(y, w, {n, sport: SPORT}); } catch (e) { console.error(e); res = 'failed'; } }
   const pop = res === 'ok' || res === 'dev';
   if (pop) { lockAsked.set(wkey(y, w), asked); putDrafts(y, w, {}); } // nothing drafted can go in any more
   if (!on(s0, () => { st.locking = false; st.lockPop = pop ? Date.now() : 0; patch(); return true; })) screens.forEach(s => on(s, () => patch()));
@@ -1763,7 +1808,7 @@ async function unlock(y, w) {
   if (mine.some(s => s.unlocking)) return;
   mine.forEach(s => on(s, () => { st.unlocking = true; patch(); }));
   let r;
-  try { r = await week.unlockPicks(y, w); } catch (e) { console.error(e); r = 'failed'; }
+  try { r = await week.unlockPicks(y, w, {sport: SPORT}); } catch (e) { console.error(e); r = 'failed'; }
   if (r === 'ok' || r === 'dev') lockAsked.delete(wkey(y, w));
   mine.forEach(s => on(s, () => { st.unlocking = false; patch(); }));
   signalBadge();
@@ -1844,7 +1889,7 @@ function boardSheet() {
     if (res[m] && !force) return;
     res[m] = null;
     let p;
-    try { p = m === 'week' ? week.nflWeekResults(y, w) : week.nflStandings(y); } catch (e) { p = Promise.reject(e); }
+    try { p = m === 'week' ? week.nflWeekResults(y, w, SPORT) : week.nflStandings(y, SPORT); } catch (e) { p = Promise.reject(e); }
     Promise.resolve(p).then(r => { res[m] = Array.isArray(r) ? r : {error: (r && r.error) || 'failed'}; if (r && r.error && Array.isArray(r)) res[m].error = r.error; },
       e => { console.warn('pickem board', e); res[m] = {error: 'failed'}; })
       .then(() => { if (mode === m && s.el.isConnected) fill(true); });
@@ -1875,7 +1920,7 @@ function boardBody(mode, res, y, w) {
     return ui.empty({icon: 'info', title: "The leaderboard didn't load.", body: 'Check your connection and try again.', action: retry});
   }
   if (err === 'scores' && !rows.length) {
-    return ui.empty({icon: 'info', title: "The games didn't load.", body: 'The table needs the NFL scores. Check your connection and try again.', action: retry});
+    return ui.empty({icon: 'info', title: "The games didn't load.", body: `The table needs the ${CFB ? 'college' : 'NFL'} scores. Check your connection and try again.`, action: retry});
   }
   const warn = err ? (mode === 'season' ? "Some weeks couldn't load, so this table may be incomplete." : "Some picks couldn't load, so this table may be incomplete.")
     : res && res.stale ? 'Scores may be out of date.' : '';
@@ -1909,7 +1954,7 @@ function boardBody(mode, res, y, w) {
     const sub = mode === 'week' ? [x.picked ? `${x.picked} picked` : '', pct].filter(Boolean).join(' · ') : [wk != null ? plural(wk, 'week') : '', pct].filter(Boolean).join(' · ');
     // This week: a lock beside the name of whoever has locked in.
     const nm = x.w.you ? `${x.w.name} (you)` : x.w.name;
-    const title = mode === 'week' && x.r.locked != null ? ui.raw(`<span class="pk-bs-n">${esc(nm)}</span>${ui.icon('lock', {cls: 'pk-bs-lk', label: 'Locked in'})}`) : nm;
+    const title = nm; // who has locked in is nobody's business: no marks here
     return ui.row({lead, title, sub,
       trail: `<span class="pk-bs-v"><span class="n4">${x.right}–${x.lost}</span></span>`, me: x.w.you, key: x.w.key});
   }).join('');
@@ -1998,8 +2043,9 @@ function goWeek(n) {
 }
 
 function onClick(e) {
-  const t = e.target.closest && e.target.closest('[data-pick], [data-pk-who], [data-pk-board], [data-pk-retry], [data-pk-week], [data-pk-submit], [data-pk-undo], [data-pk-lock], [data-pk-sublock], [data-pk-unlock], [data-pk-locks]');
+  const t = e.target.closest && e.target.closest('[data-pk-sport], [data-pick], [data-pk-who], [data-pk-board], [data-pk-retry], [data-pk-week], [data-pk-submit], [data-pk-undo], [data-pk-lock], [data-pk-sublock], [data-pk-unlock], [data-pk-locks]');
   if (!t || !st) return;
+  if (t.hasAttribute('data-pk-sport')) { if (t.dataset.pkSport !== SPORT && switcher) switcher(t.dataset.pkSport, t); return; }
   if (t.hasAttribute('data-pick')) tapTeam(t.dataset.pick, t.dataset.team);
   else if (t.hasAttribute('data-pk-submit')) submit();
   else if (t.hasAttribute('data-pk-undo')) discard();
@@ -2020,7 +2066,8 @@ function onClick(e) {
 }
 
 // ============================================================================ View
-export default {
+// This league's screen. The tab's view is ROOT below, which shows this one or the other league's.
+const VIEW = {
   id: 'pickem',
   title: ctx => {
     const q = ctx && ctx.query && ctx.query.week;
@@ -2033,7 +2080,7 @@ export default {
     // The markup helpers read the screen state `st`: a throwaway one for this route (restored right after).
     const prev = st;
     st = newState(ctx, null);
-    try { return titleHTML() + chipsHTML() + `<div class="pk-main">${bodyHTML()}</div>` + submitBarHTML(st.week ? vm() : null); } finally { st = prev; }
+    try { return titleHTML() + leagueTabsHTML() + chipsHTML() + `<div class="pk-main">${bodyHTML()}</div>` + submitBarHTML(st.week ? vm() : null); } finally { st = prev; }
   },
 
   mount(el, ctx) {
@@ -2054,7 +2101,7 @@ export default {
     });
     if (ctx.first) ui.stagger(el);
     // Kickoffs lock games while you watch: re-check every 15 s (paused while hidden) and at each kickoff.
-    ctx.timer(() => on(s, () => patch()), 15000);
+    s.untick = ctx.timer(() => on(s, () => patch()), 15000);
     on(s, startFollow); // async: the first data lands through ui.whenIdle, after the push
   },
 
@@ -2074,14 +2121,14 @@ export default {
       // Leaving with drafts that aren't submitted: say so on the way out, once per set of changes (the tab's dot stays
       // on until they are). Not while a submit is out (its answer says what's left, with a way back) nor while
       // pick'em is switched off (nothing could be submitted).
-      const v = st.week && !st.busy ? vm() : null;
+      const v = st.week && !st.busy && st.retry ? vm() : null;
       const cw = v && !v.off ? changeWords(v) : null;
       if (!cw || !cw.n) return;
       const sig = wkey(st.year, st.week) + JSON.stringify(v.changes);
       if (sig === leaveSig) return;
       dropLeaveToast();
       leaveSig = sig;
-      leaveToast = ui.toast(`${cw.text} not submitted yet.`, {icon: 'clock', duration: 3500, action: {label: 'Review', fn: () => ctx.nav('/pickem')}});
+      leaveToast = ui.toast(`${cw.text} not saved yet.`, {icon: 'clock', duration: 3500, action: {label: 'Review', fn: () => ctx.nav('/pickem')}});
     });
   },
 
@@ -2101,6 +2148,7 @@ export default {
       stopFollow();
       clearTimeout(st.kickT);
       clearTimeout(st.undoT);
+      if (s.untick) s.untick();
     });
     s.dead = true;
     screens.delete(ctx);
@@ -2130,3 +2178,74 @@ function updateScreen(ctx) {
   // 'me' (your ring and "(you)") and 'data': render afresh in place.
   renderBody();
 }
+
+// ============================================================================ League switch
+// The Pick'em tab's view (the NFL instance's default export): the league last chosen on this phone ('gg-pk-sport'),
+// NFL unless it was College. A tap on the other league's tab unmounts this screen and mounts the other instance's in
+// the same screen body (a cross-fade; the tab bar slides over); ?week= belongs to the league left behind and goes.
+export const view = VIEW;
+let switcher = null;
+/** The league tabs' handler (the root sets it on both instances): fn(sport, tabButton). */
+export function setSwitcher(fn) { switcher = fn; }
+
+const SPORT_KEY = 'gg-pk-sport';
+const host = {sport: ui.lsGet(SPORT_KEY) === 'cfb' ? 'cfb' : 'nfl', cfb: null, cfbP: null, on: VIEW, el: null, ctx: null};
+function loadCfb() {
+  if (!host.cfbP) {
+    host.cfbP = import('./pickem.js?sport=cfb').then(m => { host.cfb = m; m.setSwitcher(switchTo); return m; });
+    host.cfbP.catch(() => { host.cfbP = null; });
+  }
+  return host.cfbP;
+}
+const shown = () => (host.sport === 'cfb' && host.cfb ? host.cfb.view : VIEW);
+async function switchTo(sport) {
+  sport = sport === 'cfb' ? 'cfb' : 'nfl';
+  ui.lsSet(SPORT_KEY, sport);
+  host.sport = sport;
+  if (sport === 'cfb') {
+    try { await loadCfb(); } catch (e) { console.error(e); ui.toast("College didn't load. Try again.", {icon: 'x-circle'}); host.sport = 'nfl'; ui.lsSet(SPORT_KEY, 'nfl'); return; }
+  }
+  swap(true);
+}
+function swap(animate) {
+  const el = host.el, ctx = host.ctx, next = shown();
+  if (!el || !ctx || !el.isConnected || next === host.on) return;
+  const tab = sp => el.querySelector(`.pk-lg-t[data-pk-sport="${sp}"] .pk-lg-u`);
+  const from = tab(next === VIEW ? 'cfb' : 'nfl');
+  const r0 = from && from.getBoundingClientRect();
+  const old = host.on;
+  try { if (old.onHide) old.onHide(ctx); old.unmount(el, ctx); } catch (e) { console.error(e); }
+  host.on = next;
+  const put = () => { el.innerHTML = next.render(ctx); ui.hydrate(el); next.mount(el, ctx); };
+  if (animate && ctx.visible && !ui.RM) ui.crossfade(el, put, {duration: 160}); else put();
+  if (ctx.query && ctx.query.week) ctx.replace('/pickem');
+  ctx.refreshChrome();
+  if (ctx.visible && next.onShow) next.onShow(ctx);
+  // The bar under the tabs slides from the league left to the new one.
+  const to = tab(host.sport);
+  if (animate && r0 && to && ctx.visible && !ui.RM) {
+    const r1 = to.getBoundingClientRect();
+    if (r1.width) ui.animate(to, [{transform: `translateX(${r0.left - r1.left}px) scaleX(${r0.width / r1.width})`}, {transform: 'none'}], {spring: 'snappy'});
+  }
+  if (animate) { ui.haptic('selection'); ui.announce(`${next === VIEW ? 'NFL' : 'College'} pick'em.`); }
+}
+setSwitcher(switchTo);
+
+const ROOT = {
+  id: 'pickem',
+  title: ctx => shown().title(ctx),
+  actions: ctx => VIEW.actions(ctx),
+  render(ctx) { host.on = shown(); return host.on.render(ctx); },
+  mount(el, ctx) {
+    host.el = el; host.ctx = ctx;
+    host.on.mount(el, ctx);
+    // College was last chosen but isn't loaded yet: NFL shows meanwhile, then College takes over.
+    if (host.sport === 'cfb' && !host.cfb) loadCfb().then(() => swap(false), () => { host.sport = 'nfl'; });
+  },
+  onShow(ctx) { if (host.on.onShow) host.on.onShow(ctx); },
+  onHide(ctx) { if (host.on.onHide) host.on.onHide(ctx); },
+  update(ctx) { if (host.on.update) host.on.update(ctx); },
+  onAction(id, ctx) { if (host.on.onAction) host.on.onAction(id, ctx); },
+  unmount(el, ctx) { host.on.unmount(el, ctx); if (host.el === el) { host.el = null; host.ctx = null; } }
+};
+export default CFB ? VIEW : ROOT;

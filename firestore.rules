@@ -42,11 +42,15 @@ service cloud.firestore {
     // week. The app also drops picks a locked-in manager makes after the lock from any other phone, and refuses
     // changes from a phone whose picks carry that manager (the rules check only the phone that locked).
     function pickOk(pickId, d) {
+      return pickOkMax(pickId, d, 4);
+    }
+    // College abbreviations run longer ('TA&M', 'M-OH'): up to 6.
+    function pickOkMax(pickId, d, max) {
       return pickId == request.auth.uid + '__' + d.game
         && d.keys().hasOnly(['uid', 'game', 'team', 'me', 'nick', 'at', 'kick'])
         && d.uid == request.auth.uid
         && d.game is string && d.game.matches('^[0-9]{1,12}$')
-        && d.team is string && d.team.size() <= 4
+        && d.team is string && d.team.size() <= max
         && d.kick is timestamp && request.time < d.kick
         && whoOk(d);
     }
@@ -70,6 +74,31 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['uid', 'me', 'nick', 'at', 'n'])
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.n is int && request.resource.data.n >= 0 && request.resource.data.n <= 32
+        && whoOk(request.resource.data);
+      allow update: if false;
+      allow delete: if request.auth != null && request.auth.uid == uid
+        && request.time < resource.data.at + duration.value(2, 'm');
+    }
+
+    // College pick'em: the same as the NFL's, for ESPN's Top 25 college games (cfbpicks/2026-w6/picks/{uid}__{gameId},
+    // cfbpicks/2026-w6/locks/{uid}).
+    match /cfbpicks/{week}/picks/{pickId} {
+      allow read: if true;
+      allow create: if request.auth != null && weekOk(week) && pickOkMax(pickId, request.resource.data, 6)
+        && !exists(/databases/$(database)/documents/cfbpicks/$(week)/locks/$(request.auth.uid));
+      allow update: if request.auth != null && weekOk(week) && request.time < resource.data.kick
+        && pickOkMax(pickId, request.resource.data, 6)
+        && !exists(/databases/$(database)/documents/cfbpicks/$(week)/locks/$(request.auth.uid));
+      allow delete: if request.auth != null && pickId.matches('^' + request.auth.uid + '__[0-9]{1,12}$')
+        && request.time < resource.data.kick
+        && !exists(/databases/$(database)/documents/cfbpicks/$(week)/locks/$(request.auth.uid));
+    }
+    match /cfbpicks/{week}/locks/{uid} {
+      allow read: if true;
+      allow create: if request.auth != null && request.auth.uid == uid && weekOk(week)
+        && request.resource.data.keys().hasOnly(['uid', 'me', 'nick', 'at', 'n'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.n is int && request.resource.data.n >= 0 && request.resource.data.n <= 64
         && whoOk(request.resource.data);
       allow update: if false;
       allow delete: if request.auth != null && request.auth.uid == uid
