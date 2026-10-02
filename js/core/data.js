@@ -315,20 +315,20 @@ export function finishOf(season, id) {
 }
 
 // ---------------------------------------------------------------------------
-// Manager colors (spec 4.2)
+// Manager colors (spec 4.2). mono: the avatar's letters, each member's first and last initials.
 export const PALETTE = [
-  {id:'ben',     mc:'#FF8A4C', deep:'#35231A', mono:'BE'},
-  {id:'corbin',  mc:'#4C8DFF', deep:'#182337', mono:'CO'},
-  {id:'dresden', mc:'#FFD84D', deep:'#352F1B', mono:'DR'},
-  {id:'evan',    mc:'#9D7BFF', deep:'#252037', mono:'EV'},
-  {id:'jackson', mc:'#FF6B9E', deep:'#351E28', mono:'JX'},
-  {id:'jacob',   mc:'#2ED3BE', deep:'#132E2D', mono:'JB'},
-  {id:'jaymin',  mc:'#D6B08A', deep:'#2E2924', mono:'JM'},
-  {id:'jayton',  mc:'#3CC0F5', deep:'#152B36', mono:'JT'},
-  {id:'john',    mc:'#EE6BDB', deep:'#321E31', mono:'JN'},
-  {id:'mason',   mc:'#8C9EFF', deep:'#222637', mono:'MA'},
-  {id:'mitch',   mc:'#C77DFF', deep:'#2C2137', mono:'MI'},
-  {id:'sayer',   mc:'#9EB1C8', deep:'#25292E', mono:'SA'}
+  {id:'ben',     mc:'#FF8A4C', deep:'#35231A', mono:'BW'},
+  {id:'corbin',  mc:'#4C8DFF', deep:'#182337', mono:'CW'},
+  {id:'dresden', mc:'#FFD84D', deep:'#352F1B', mono:'DW'},
+  {id:'evan',    mc:'#9D7BFF', deep:'#252037', mono:'EA'},
+  {id:'jackson', mc:'#FF6B9E', deep:'#351E28', mono:'JZ'},
+  {id:'jacob',   mc:'#2ED3BE', deep:'#132E2D', mono:'JC'},
+  {id:'jaymin',  mc:'#D6B08A', deep:'#2E2924', mono:'JS'},
+  {id:'jayton',  mc:'#3CC0F5', deep:'#152B36', mono:'JH'},
+  {id:'john',    mc:'#EE6BDB', deep:'#321E31', mono:'JI'},
+  {id:'mason',   mc:'#8C9EFF', deep:'#222637', mono:'MH'},
+  {id:'mitch',   mc:'#C77DFF', deep:'#2C2137', mono:'MM'},
+  {id:'sayer',   mc:'#9EB1C8', deep:'#25292E', mono:'SW'}
 ];
 const PAL = Object.assign(Object.create(null), Object.fromEntries(PALETTE.map(p => [p.id, p])));
 const colorCache = new Map();

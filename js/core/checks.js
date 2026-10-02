@@ -575,7 +575,7 @@ export async function runChecks() {
     const known = data.ids.every(id => data.color(id).cls === 'mc-' + id);
     const x = data.color('zz'); // 122 + 122 = 244, 244 % 12 = 4
     const flat = data.recordsFlat();
-    const pass = known && x.cls === 'mc-x4' && x.mono === 'ZZ' && data.color('jackson').mono === 'JX'
+    const pass = known && x.cls === 'mc-x4' && x.mono === 'ZZ' && data.color('jackson').mono === 'JZ'
       && data.hueClose('evan', 'mason') && !data.hueClose('ben', 'corbin')
       && flat.length > 0 && flat.every(r => r.key && r.label != null && Array.isArray(r.holders));
     return {pass, detail: `unknown id -> ${x.cls} ${x.mono}; ${flat.length} records, first key ${flat[0] && flat[0].key}, primary ${flat[0] && flat[0].primary}`};
