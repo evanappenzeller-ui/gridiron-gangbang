@@ -179,7 +179,7 @@ async function getBox(g) {
 // team (the week's teams) until every wanted name is found. Kept per name for a week ('gg-pteam': {name: [abbr, at]}),
 // misses retried after 6 h.
 const ROSTER = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/';
-const PT_LS = 'gg-pteam2', PT_TTL = 7 * 864e5, PT_MISS = 6 * 36e5;
+const PT_LS = 'gg-pteam3', PT_TTL = 7 * 864e5, PT_MISS = 6 * 36e5;
 function ptLoad() { try { const o = JSON.parse(localStorage.getItem(PT_LS) || '{}'); return o && typeof o === 'object' ? o : {}; } catch (_) { return {}; } }
 const PT = ptLoad();
 const ptFresh = e => Array.isArray(e) && Date.now() - e[1] < (e[0] ? PT_TTL : PT_MISS);
@@ -189,6 +189,24 @@ const sameMan = (key, want) => {
   key = unhyph(key); want = unhyph(want);
   const [f, ...l] = want.split(' ');
   return key === want || (key.endsWith(' ' + l.join(' ')) && key[0] === f[0]);
+};
+// A typo in the last name ("Christian McCafferey"): the same first name and a last name one or two letters off (one
+// for short names). Used only when no exact match exists, and only when it points at one player.
+function editDist(a, b) {
+  if (Math.abs(a.length - b.length) > 2) return 9;
+  let prev = Array.from({length: b.length + 1}, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= b.length; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    prev = cur;
+  }
+  return prev[b.length];
+}
+const nearMan = (key, want) => {
+  const [kf, ...kl] = unhyph(key).split(' '), [wf, ...wl] = unhyph(want).split(' ');
+  const a = kl.join(' '), b = wl.join(' ');
+  if (kf !== wf || !a || !b || a === b) return false;
+  return editDist(a, b) <= (b.length >= 7 ? 2 : b.length >= 4 ? 1 : 0);
 };
 const ROSTERS = new Map(); // team id -> [normalized names]
 async function rosterOf(t) {
@@ -212,10 +230,15 @@ async function findTeams(names, games) {
     const teams = [];
     games.forEach(g => [g.home, g.away].forEach(t => { if (t && t.id && !teams.some(x => x.id === t.id)) teams.push(t); }));
     let failed = false;
+    const near = new Map(); // name -> teams with a near match (a typo), used when no roster has it exactly
     for (let i = 0; i < teams.length && need.size; i += 4) {
       const got = await Promise.all(teams.slice(i, i + 4).map(t => rosterOf(t).then(n => [t, n], () => { failed = true; return [t, null]; })));
-      got.forEach(([t, list]) => (list || []).forEach(k => need.forEach(n => { if (sameMan(k, n)) { PT[n] = [t.abbr, Date.now()]; need.delete(n); } })));
+      got.forEach(([t, list]) => (list || []).forEach(k => need.forEach(n => {
+        if (sameMan(k, n)) { PT[n] = [t.abbr, Date.now()]; need.delete(n); }
+        else if (nearMan(k, n)) { if (!near.has(n)) near.set(n, new Set()); near.get(n).add(t.abbr); }
+      })));
     }
+    need.forEach(n => { const ts = near.get(n); if (ts && ts.size === 1) { PT[n] = [[...ts][0], Date.now()]; need.delete(n); } });
     // Not on any roster: remembered as a miss (retried in 6 h) only when every roster loaded; else retried soon.
     if (failed) ptFailAt = Date.now();
     else need.forEach(n => { PT[n] = [null, Date.now()]; });
@@ -265,7 +288,11 @@ function findIn(T, player) {
   const all = [];
   T.boxes.forEach((box, id) => box.players.forEach(p => all.push({p, g: T.games.find(x => x.id === id)})));
   const hit = all.filter(x => unhyph(x.p.key) === unhyph(player));
-  return hit.length ? hit : all.filter(x => sameMan(x.p.key, player));
+  if (hit.length) return hit;
+  const same = all.filter(x => sameMan(x.p.key, player));
+  if (same.length) return same;
+  const near = all.filter(x => nearMan(x.p.key, player));
+  return near.length === 1 ? near : [];
 }
 const OPS = {gte: (v, n) => v >= n, gt: (v, n) => v > n, lt: (v, n) => v < n};
 const lineTxt = b => b.n == null ? (b.op === 'lt' ? 'under' : 'over') : b.op === 'gte' ? `${b.n}+` : (b.op === 'gt' ? 'o' : 'u') + b.n;
