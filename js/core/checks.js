@@ -1381,6 +1381,24 @@ export async function runChecks() {
     return {pass: !bad.length, detail: bad.length ? bad.join('; ') : `${want.length} legs scored right`};
   });
 
+  check('The Lay leg box reads nicknames, short names and typos as the player, and autofills bets', async () => {
+    await laytrack.loadPlayers();
+    const want = [['CMC anytime td', 'Christian McCaffrey Anytime TD Scorer'], ['JSN 100+ rec yds', 'Jaxon Smith-Njigba 100+ Receiving Yards'],
+      ['Sun God 6+ receptions', 'Amon-Ra St. Brown 6+ Receptions'], ['Kittle 5+ rec', 'George Kittle 5+ Receptions'],
+      ['Christian McCafferey anytime td', 'Christian McCaffrey Anytime TD Scorer'], ['Joey B 2+ pass tds', 'Joe Burrow 2+ Passing TDs']];
+    const bad = want.filter(([t, d]) => laytrack.describe(t, null) !== d).map(([t, d]) => `${t}: ${laytrack.describe(t, null)} (want ${d})`);
+    if (laytrack.describe('Allen 250+ pass yds', null) != null) bad.push('"Allen" alone was read as one player');
+    const s80 = laytrack.suggest('cmc 80', null).map(x => x.text);
+    if (s80[0] !== 'Christian McCaffrey 80+ Rushing Yards') bad.push('autofill "cmc 80": ' + s80.join(' | '));
+    const sc = laytrack.suggest('chris', null);
+    if (!sc.length || sc[0].text !== 'Christian McCaffrey ' || sc.some(x => x.kind !== 'player')) bad.push('autofill "chris"');
+    // every bet the autofill offers reads back as itself
+    ['jsn', 'kelce over', 'bijan ', 'josh allen 2'].forEach(q => laytrack.suggest(q, null).filter(x => x.kind === 'bet').forEach(x => {
+      if (laytrack.describe(x.text, null) !== x.text) bad.push(`"${x.text}" saves as ${laytrack.describe(x.text, null)}`);
+    }));
+    return {pass: !bad.length, detail: bad.length ? bad.slice(0, 5).join('; ') : `${want.length} legs read as the real names; autofill offers players, then bets that save as offered`};
+  });
+
   check('puzzles-v4.json is puzzles-v3.json with days 4 onward cut to three puzzles (byte for byte)', async () => {
     needDaily();
     const get = async f => { const r = await fetch(new URL('../../data/' + f, import.meta.url).href, {cache: 'no-cache'}); if (!r.ok) throw new Error(f + ' HTTP ' + r.status); return r.text(); };

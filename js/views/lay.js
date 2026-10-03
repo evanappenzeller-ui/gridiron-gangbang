@@ -9,6 +9,8 @@
 // Live tracking (core/laytrack.js): the live week's and the week before's pending legs are scored against ESPN's games
 // and box scores as they play: a note under each leg ("38 rec yds · 50+ · 3rd 4:12") and, once one is decided, a hit or
 // a miss (auto: true) until data/lay.json carries the result. Owner: LAY.
+// The leg box reads nicknames and short names ("CMC", "JSN", "Bijan", "Joey B") as the player's real name, and
+// autofills like a search box: players and teams while a name is typed, then bets for that player or team.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as live from '../core/lay.js';
@@ -261,8 +263,9 @@ function entryHTML(st, me, {bare} = {}) {
     inner = `<h2 class="card-title">${target === me ? 'Your leg' : 'Leg for ' + esc(data.name(target))}</h2>`
       + `<form class="ly-form" data-ly-form autocomplete="off">`
       + `<label class="ly-who">${ui.avatar(target, {size: 24, you: target === me})}<span>${esc(data.name(target))}</span></label>`
-      + `<div class="ly-field"><input class="ly-in" name="bet" type="text" maxlength="${live.BET_MAX}" enterkeyhint="send" autocapitalize="words" autocorrect="off" spellcheck="false" placeholder="e.g. Jalen Hurts anytime TD" aria-label="Your leg" aria-describedby="ly-read" value="${esc(val)}"></div>`
-      + `<p class="ly-read" id="ly-read" data-ly-read aria-live="polite">${readHTML(val)}</p>`
+      + `<div class="ly-field" data-ly-field><input class="ly-in" name="bet" type="text" maxlength="${live.BET_MAX}" enterkeyhint="send" autocapitalize="words" autocorrect="off" spellcheck="false" placeholder="e.g. CMC anytime TD" aria-label="Your leg" aria-describedby="ly-read" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="ly-sug" value="${esc(val)}">`
+      + `<ul class="ly-sug" id="ly-sug" role="listbox" aria-label="Suggestions" data-ly-sug hidden></ul></div>`
+      + `<p class="ly-read${unread(val) ? ' is-unread' : ''}" id="ly-read" data-ly-read aria-live="polite">${readHTML(val)}</p>`
       + `<div class="ly-acts">${ui.button({label: leg ? 'Save change' : 'Submit leg', kind: 'primary', size: 's', type: 'submit', attrs: {'data-ly-submit': ''}})}${leg ? ui.button({label: 'Cancel', kind: 'plain', size: 's', attrs: {'data-ly-cancel': ''}}) : ''}</div>`
       + `</form>`;
   }
@@ -288,12 +291,119 @@ function weekCardHTML(st, me) {
 
 // The entry's preview: the leg in standard wording (what gets saved and tracked), or how to word it.
 const weekGames = () => { const lw = live.liveWeek(), T = lw && TRK.get(wkey(lw.year, lw.week)); return T ? T.games : null; };
+// Not readable (yet): the hint hides while the autofill list is open.
+const unread = text => !!String(text || '').trim() && !track.describe(text, weekGames());
+function setRead(st, text) {
+  const r = st.body.querySelector('[data-ly-read]');
+  if (!r) return;
+  r.innerHTML = readHTML(text);
+  r.classList.toggle('is-unread', unread(text));
+}
 function readHTML(text) {
   if (!String(text || '').trim()) return `<span class="ly-read-hint">Type it the way you'd say it. We'll write it up as the real bet and track it live.</span>`;
   const d = track.describe(text, weekGames());
   if (d && track.needsLine(text)) return `${ui.icon('check-circle', {size: 16})}<span>Saves as <b>${esc(d)}</b>. <span class="ly-read-hint">Add the book's number (like "Over 4.5") and it settles itself; without one we track it live and the league settles it.</span></span>`;
   if (d) return `${ui.icon('check-circle', {size: 16})}<span>Saves as <b>${esc(d)}</b></span>`;
-  return `${ui.icon('info', {size: 16})}<span class="ly-read-hint">Can't read this one for live tracking, so it saves as typed. Try "Player 50+ Rec Yards", "Player anytime TD" or "Bills -3.5".</span>`;
+  return `${ui.icon('info', {size: 16})}<span class="ly-read-hint">Can't read this one for live tracking, so it saves as typed. Try "Player 50+ Rec Yards", "CMC anytime TD" or "Bills -3.5".</span>`;
+}
+
+// ---------------------------------------------------------------------------------------------- Autofill
+// Suggestions under the leg box as it's typed, like a search box: players and teams while a name is typed (picking one
+// fills the name and shows bets for him), then whole bets. What you typed stays plain, the rest of each one is bold.
+const SUG_MAX = 5;
+const SUG_IC = {player: 'person', team: 'shield', bet: 'search'};
+function sugLabel(label, typed) {
+  const toks = String(typed).toLowerCase().split(/\s+/).map(t => t.replace(/\+$/, '')).filter(Boolean);
+  return label.split(' ').map(w => {
+    const i = toks.findIndex(t => w.toLowerCase().startsWith(t));
+    if (i < 0) return `<b>${esc(w)}</b>`;
+    const n = toks.splice(i, 1)[0].length;
+    return esc(w.slice(0, n)) + (n < w.length ? `<b>${esc(w.slice(n))}</b>` : '');
+  }).join(' ');
+}
+function sugHTML(list, typed) {
+  return list.map((s, i) => `<li class="ly-opt" role="option" id="ly-opt-${i}" aria-selected="false" data-ly-opt="${i}">`
+    + `<span class="ly-opt-ic">${ui.icon(SUG_IC[s.kind] || 'search')}</span>`
+    + `<span class="ly-opt-mid"><span class="ly-opt-t">${sugLabel(s.label, typed)}</span>${s.sub ? `<span class="ly-opt-s">${esc(s.sub)}</span>` : ''}</span>`
+    + (/\s$/.test(s.text) ? `<span class="ly-opt-go">${ui.icon('chevron-right')}</span>` : '') + `</li>`).join('');
+}
+// (Re)draws the list for the box's text; nothing to offer (or only what's already typed) closes it.
+function showSug(st) {
+  const inp = st.body.querySelector('.ly-in'), ul = st.body.querySelector('[data-ly-sug]');
+  if (!inp || !ul) return;
+  const typed = inp.value;
+  const norm = x => x.trim().toLowerCase().replace(/\s+/g, ' ');
+  // (not what's already typed, nor what it already saves as)
+  const d = typed.trim() && track.describe(typed, weekGames());
+  const list = typed.trim() ? track.suggest(typed, weekGames(), SUG_MAX).filter(s => norm(s.text) !== norm(typed) && (!d || norm(s.text) !== norm(d))) : [];
+  const was = !ul.hidden;
+  st.sug = list; st.sugAt = -1;
+  inp.removeAttribute('aria-activedescendant');
+  if (!list.length) { hideSug(st); return; }
+  ul.innerHTML = sugHTML(list, typed);
+  ul.hidden = false;
+  inp.setAttribute('aria-expanded', 'true');
+  inp.closest('[data-ly-field]').classList.add('is-open');
+  if (!was) keepInView(ul);
+}
+function hideSug(st) {
+  const inp = st.body.querySelector('.ly-in'), ul = st.body.querySelector('[data-ly-sug]');
+  st.sug = []; st.sugAt = -1;
+  if (ul) { ul.hidden = true; ul.innerHTML = ''; ul.closest('[data-ly-field]').classList.remove('is-open'); }
+  if (inp) { inp.setAttribute('aria-expanded', 'false'); inp.removeAttribute('aria-activedescendant'); }
+}
+const sugOpen = st => !!(st.sug && st.sug.length);
+function moveSug(st, d) {
+  const n = st.sug.length, inp = st.body.querySelector('.ly-in');
+  st.sugAt = st.sugAt < 0 ? (d > 0 ? 0 : n - 1) : (st.sugAt + d + n) % n;
+  st.body.querySelectorAll('[data-ly-opt]').forEach((li, i) => { li.classList.toggle('is-active', i === st.sugAt); li.setAttribute('aria-selected', String(i === st.sugAt)); });
+  inp.setAttribute('aria-activedescendant', 'ly-opt-' + st.sugAt);
+  const li = st.body.querySelector('#ly-opt-' + st.sugAt);
+  if (li) li.scrollIntoView({block: 'nearest'});
+}
+// A player or a team (or a bet still missing its number) fills the box and keeps going; a whole bet fills the box,
+// ready to submit.
+function pickSug(st, i) {
+  const s = st.sug[i], inp = st.body.querySelector('.ly-in');
+  if (!s || !inp) return;
+  inp.value = s.text;
+  inp.focus();
+  try { inp.setSelectionRange(s.text.length, s.text.length); } catch (_) {}
+  setRead(st, s.text);
+  ui.haptic('light');
+  if (/\s$/.test(s.text)) showSug(st); else hideSug(st);
+}
+// Opening under the keyboard: scroll the screen so the list shows, keeping the box on screen.
+function keepInView(ul) {
+  const sc = ul.closest('.screen'), field = ul.closest('[data-ly-field]');
+  if (!sc || !field) return;
+  const vv = window.visualViewport, top = vv ? vv.offsetTop : 0, bottom = top + (vv ? vv.height : innerHeight);
+  const over = ul.getBoundingClientRect().bottom - bottom + 12, room = field.getBoundingClientRect().top - top - 64;
+  if (over > 0 && room > 0) sc.scrollBy({top: Math.min(over, room), behavior: ui.RM ? 'auto' : 'smooth'});
+}
+
+// While the box is typed in, a redraw (live scores, someone else's leg) keeps the box itself (focus, keyboard,
+// cursor, the open list) and swaps in everything around it. False when the new markup has no box in the same place.
+function swapAround(root, html, keep) {
+  const tpl = document.createElement('template');
+  tpl.innerHTML = html;
+  const nu = tpl.content.querySelector('[data-ly-field]');
+  const path = (top, el) => { const p = []; for (let e = el; e && e !== top; e = e.parentNode) p.unshift(e); return p; };
+  const a = path(root, keep), b = nu ? path(tpl.content, nu) : [];
+  if (!nu || !a.length || a[0].parentNode !== root || a.length !== b.length || a.some((e, i) => e.tagName !== b[i].tagName)) return false;
+  let op = root, np = tpl.content;
+  a.forEach((o, i) => {
+    const n = b[i], kids = [...np.childNodes], at = kids.indexOf(n);
+    [...op.childNodes].forEach(c => { if (c !== o) c.remove(); });
+    kids.slice(0, at).forEach(c => op.insertBefore(c, o));
+    kids.slice(at + 1).forEach(c => op.appendChild(c));
+    if (o !== keep) {
+      [...o.attributes].forEach(x => { if (!n.hasAttribute(x.name)) o.removeAttribute(x.name); });
+      [...n.attributes].forEach(x => o.setAttribute(x.name, x.value));
+    }
+    op = o; np = n;
+  });
+  return true;
 }
 
 function tilesHTML() {
@@ -331,7 +441,7 @@ function weeksHTML(me) {
     const res = st === 'hit' ? 'Cashed' : `${t.hit}/${t.n}`;
     const legs = legsOf(w).map(l => `<li class="ly-cl${l.hit === false ? ' is-miss' : l.hit === true ? ' is-hit' : ''}">${ui.avatar(l.by, {size: 22, you: l.by === me})}`
       + `<span class="ly-cl-bet">${esc(l.bet || '—')}</span><span class="ly-cl-who">${esc(data.name(l.by).split(' ')[0])}</span>${markOf(l)}</li>`).join('');
-    return `<details class="card ly-slip is-${st}"><summary class="ly-slip-h">`
+    return `<details class="card ly-slip is-${st}" data-ly-slip="${w.year}-${w.week}"><summary class="ly-slip-h">`
       + `<span class="ly-slip-wk n4">W${w.week}</span>`
       + `<span class="ly-slip-mid"><span class="ly-sq" aria-hidden="true">${squares}</span>`
       + `<span class="ly-slip-sub">${esc([p ? data.name(p.id).split(' ')[0] + ' placed' : '', t.miss ? `${t.miss} missed` : st === 'hit' ? 'Every leg hit' : ''].filter(Boolean).join(' · '))}</span></span>`
@@ -374,7 +484,12 @@ function fill(ctx) {
   const inp = st.body.querySelector('.ly-in');
   const focused = !!inp && document.activeElement === inp;
   if (inp) st.draft = inp.value;
-  st.body.innerHTML = bodyHTML(st);
+  // Slips left open stay open through the redraws (every 30 seconds while games are on).
+  const open = [...st.body.querySelectorAll('[data-ly-slip][open]')].map(d => d.dataset.lySlip);
+  const html = bodyHTML(st);
+  const kept = focused && swapAround(st.body, html, inp.closest('[data-ly-field]'));
+  if (!kept) { st.body.innerHTML = html; st.sug = []; st.sugAt = -1; }
+  open.forEach(k => { const d = st.body.querySelector(`[data-ly-slip="${k}"]`); if (d) d.open = true; });
   // Props whose player has no box score yet: look up his team (rosters) so the leg shows its game; redraw when found.
   WEEKS.forEach(w => {
     const T = w.tracked && TRK.get(wkey(w.year, w.week));
@@ -382,7 +497,8 @@ function fill(ctx) {
     if (p) p.then(() => { if (ST.get(ctx) === st) fill(ctx); }, () => {});
   });
   const inp2 = st.body.querySelector('.ly-in');
-  if (inp2 && focused) { inp2.focus(); try { inp2.setSelectionRange(inp2.value.length, inp2.value.length); } catch (_) {} }
+  if (kept) { setRead(st, inp.value); if (sugOpen(st) && st.sugAt < 0) showSug(st); }
+  else if (inp2 && focused) { inp2.focus(); try { inp2.setSelectionRange(inp2.value.length, inp2.value.length); } catch (_) {} }
   const sub = st.el.querySelector('.lt-sub');
   if (sub) sub.textContent = subtitle();
   const eb = st.el.querySelector('.lt-eyebrow');
@@ -422,6 +538,7 @@ async function submitLeg(ctx, st) {
   const bet = (typed && track.describe(typed, weekGames())) || typed;
   if (!target) return;
   if (!bet) { if (inp) { ui.shake(inp); inp.focus(); } return; }
+  hideSug(st);
   st.busy = true;
   ui.setLoading(btn, true);
   const r = await live.setLeg(target, bet);
@@ -446,7 +563,7 @@ async function removeLeg(ctx, st) {
 }
 
 /** Prefetched at idle after launch (app.js), so the first visit opens filled in. */
-export function warm() { return loadLay(); }
+export function warm() { track.loadPlayers().catch(() => {}); return loadLay(); }
 
 // Tab badge (app.js): a dot on the tab until this phone has opened it once, so newcomers find the tab past the edge.
 const SEEN_KEY = 'gg-lay-seen';
@@ -467,11 +584,15 @@ export default {
   },
 
   mount(el, ctx) {
-    const st = {el, body: el.querySelector('.ly-body'), target: null, editing: false, draft: null, busy: false, stops: []};
+    const st = {el, body: el.querySelector('.ly-body'), target: null, editing: false, draft: null, busy: false, stops: [], sug: [], sugAt: -1};
     ST.set(ctx, st);
     watchLive(ctx, st);
+    // The player list (nicknames, short names, autofill): legs already in redraw with real names once it's here.
+    track.loadPlayers().then(() => { if (ST.get(ctx) === st && LAY) fill(ctx); }, () => {});
     el.addEventListener('click', e => {
       const t = e.target;
+      const opt = t.closest('[data-ly-opt]');
+      if (opt) { pickSug(st, +opt.dataset.lyOpt); return; }
       if (t.closest('[data-ly-retry]')) { st.body.innerHTML = bodyHTML(st); fetchAndFill(ctx, {fresh: true}); return; }
       if (t.closest('[data-ly-edit]')) { st.editing = true; st.draft = null; fill(ctx); focusInput(st); return; }
       if (t.closest('[data-ly-cancel]')) { st.editing = false; st.draft = null; fill(ctx); return; }
@@ -501,8 +622,26 @@ export default {
     });
     el.addEventListener('input', e => {
       if (!e.target.closest('.ly-in')) return;
-      const r = st.body.querySelector('[data-ly-read]');
-      if (r) r.innerHTML = readHTML(e.target.value);
+      setRead(st, e.target.value);
+      showSug(st);
+    });
+    // Autofill: arrows move through the list, Enter takes the highlighted one, Escape closes it. A tap on the list
+    // must not take focus from the box (the keyboard stays up).
+    el.addEventListener('keydown', e => {
+      if (!e.target.closest('.ly-in') || !sugOpen(st)) return;
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); moveSug(st, e.key === 'ArrowDown' ? 1 : -1); }
+      else if (e.key === 'Enter' && st.sugAt >= 0 && !e.isComposing) { e.preventDefault(); pickSug(st, st.sugAt); }
+      else if (e.key === 'Escape') { e.preventDefault(); hideSug(st); }
+    });
+    el.addEventListener('pointerdown', e => { if (e.target.closest('[data-ly-sug]')) e.preventDefault(); });
+    el.addEventListener('mousedown', e => { if (e.target.closest('[data-ly-sug]')) e.preventDefault(); });
+    el.addEventListener('focusin', e => {
+      // Back in a half-typed box: offer the list again (not for a leg that already reads as a full bet).
+      if (e.target.closest('.ly-in') && unread(e.target.value)) showSug(st);
+    });
+    el.addEventListener('focusout', e => {
+      if (!e.target.closest('.ly-in')) return;
+      setTimeout(() => { const i = st.body.querySelector('.ly-in'); if (!i || document.activeElement !== i) hideSug(st); }, 150);
     });
     el.addEventListener('submit', e => {
       if (!e.target.closest('[data-ly-form]')) return;

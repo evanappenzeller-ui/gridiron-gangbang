@@ -7,6 +7,12 @@
 //   evaluate(text, T)            -> {st: 'pre'|'live'|'hit'|'miss'|'na', note, v, n, op, game}
 //   describe(text, games)        -> the leg in standard sportsbook wording ("James Cook Anytime TD Scorer",
 //                                   "Buffalo Bills -3.5"), which reads back as the same bet; null when unreadable
+//   loadPlayers()                -> Promise: the current players (data/nfl-players.json) for names and suggestions
+//   suggest(text, games, max)    -> autofill: [{text, label, sub}] (players and teams while the name is typed, then
+//                                   bets for that player or team)
+//
+// Names: nicknames ("CMC", "JSN", "ARSB", "Sun God"), a lone first or last name that clearly means one current player
+// ("Bijan TD", "Kittle 5+ rec") and small typos ("McCafferey", "Smith Njigba") all read as the player's real name.
 //
 // Bets it reads: a player's anytime TD ("TD", "Anytime", "N+ TD"), passing TDs ("2+ Pass TD"), receptions ("3+ Rec",
 // "over 4.5 Rec"), receiving / rushing / passing yards ("50+ Rec Yards", "over 46.5 Rush Yards"; plain "Yards" is
@@ -76,8 +82,103 @@ function lineIn(s, dflt) {
   return null;
 }
 
+// ---------------------------------------------------------------------------------------------- Players and nicknames
+// The current skill players (QB, RB, WR, TE, K) from data/nfl-players.json: [name, ESPN team, position, relevance].
+const PLAYERS_URL = new URL('../../data/nfl-players.json', import.meta.url).href;
+let PL = null, plP = null;
+const nk = x => unhyph(norm(x)); // a name's matching form: normalized, hyphens as spaces
+export function loadPlayers() {
+  if (PL) return Promise.resolve(PL);
+  if (plP) return plP;
+  plP = fetch(PLAYERS_URL).then(r => { if (!r.ok) throw new Error('players ' + r.status); return r.json(); }).then(j => {
+    const list = (Array.isArray(j.p) ? j.p : []).map(([name, team, pos, score]) => {
+      const k = nk(name), w = k.split(' ');
+      return {name, team, pos, score: +score || 0, k, first: w[0], last: w.slice(1).join(' '), words: w};
+    });
+    const first = new Map(), last = new Map();
+    list.forEach(p => {
+      (first.get(p.first) || first.set(p.first, []).get(p.first)).push(p);
+      (last.get(p.last) || last.set(p.last, []).get(p.last)).push(p);
+      const lw = p.words[p.words.length - 1];
+      if (lw !== p.last) (last.get(lw) || last.set(lw, []).get(lw)).push(p);
+    });
+    PL = {list, first, last, byK: new Map(list.map(p => [p.k, p]))};
+    return PL;
+  }).catch(e => { plP = null; throw e; });
+  return plP;
+}
+export const playersReady = () => !!PL;
+// Nicknames people type for current players (a nickname whose player isn't on a roster now is skipped).
+const NICK = {
+  'cmc': 'Christian McCaffrey', 'jsn': 'Jaxon Smith-Njigba', 'ajb': 'A.J. Brown', 'arsb': 'Amon-Ra St. Brown', 'sun god': 'Amon-Ra St. Brown',
+  'mhj': 'Marvin Harrison Jr.', 'btj': 'Brian Thomas Jr.', 'scary terry': 'Terry McLaurin', 'tmac': 'Tetairoa McMillan', 't mac': 'Tetairoa McMillan', 'tet': 'Tetairoa McMillan',
+  'hock': 'T.J. Hockenson', 'dk': 'DK Metcalf', 'deebo': 'Deebo Samuel Sr.', 'jettas': 'Justin Jefferson', 'jjettas': 'Justin Jefferson', 'jj': 'Justin Jefferson',
+  'cheetah': 'Tyreek Hill', 'etn': 'Travis Etienne', 'jt': 'Jonathan Taylor', 'hollywood': 'Marquise Brown', 'zay': 'Zay Flowers',
+  'dhop': 'DeAndre Hopkins', 'd hop': 'DeAndre Hopkins', 'nuk': 'DeAndre Hopkins', 'obj': 'Odell Beckham Jr.', 'tlaw': 'Trevor Lawrence', 't law': 'Trevor Lawrence',
+  'jk': 'J.K. Dobbins', 'kw3': 'Kenneth Walker III', 'ken walker': 'Kenneth Walker III', 'tua': 'Tua Tagovailoa', 'mvs': 'Marquez Valdes-Scantling',
+  'joey b': 'Joe Burrow', 'joey burrow': 'Joe Burrow', 'bucky': 'Bucky Irving', 'saquads': 'Saquon Barkley', 'pat mahomes': 'Patrick Mahomes',
+  'jamo': 'Jameson Williams', 'jd5': 'Jayden Daniels', 'cj': 'C.J. Stroud', 'kyler': 'Kyler Murray', 'jaylen waddle': 'Jaylen Waddle', 'waddle': 'Jaylen Waddle',
+  'dj moore': 'DJ Moore', 'aj brown': 'A.J. Brown', 'tj hockenson': 'T.J. Hockenson', 'cj stroud': 'C.J. Stroud', 'jk dobbins': 'J.K. Dobbins'
+};
+function byName(name) {
+  if (!PL) return null;
+  const k = nk(name);
+  return PL.byK.get(k) || PL.list.find(p => p.k.replace(/ (jr|sr|ii|iii|iv|v)$/, '') === k.replace(/ (jr|sr|ii|iii|iv|v)$/, '')) || null;
+}
+const nickOf = key => { const t = NICK[key] || NICK[key.replace(/ /g, '')]; return t ? (byName(t) || (PL ? null : {name: t})) : null; };
+// One current player a lone name clearly means: the only one with it, or one far better known than the rest.
+function clearOne(list) {
+  if (!list || !list.length) return null;
+  const s = list.slice().sort((a, b) => b.score - a.score);
+  return s.length === 1 || (s[0].score >= 40 && s[0].score >= 2.5 * Math.max(1, s[1].score)) ? s[0] : null;
+}
+/** The leg with the player's real name in front, when it starts with a nickname, a lone first or last name, or a
+ *  slightly misspelled name. Team bets and unknown names come back as typed. */
+export function expandLeg(text) {
+  const raw = String(text || '').trim();
+  if (!raw) return raw;
+  const words = raw.split(/\s+/);
+  const s = nk(raw);
+  if (teamsIn(s, teamsOf(null)).length && teamsOf(null).some(t => t.words.some(w => w && s.startsWith(w + ' ') || s === w))) {
+    // starts with a team ("Bills -3.5", "Dallas Cowboys ML"); a player whose name starts with a city ("Dallas Goedert") is checked first
+    if (!PL || !PL.list.some(p => s === p.k || s.startsWith(p.k + ' '))) return raw;
+  }
+  const put = (k, name) => [name].concat(words.slice(k)).join(' ');
+  // Already a current player's full name: keep it (with the official spelling).
+  if (PL) {
+    const full = PL.list.filter(p => s === p.k || s.startsWith(p.k + ' ')).sort((a, b) => b.k.length - a.k.length)[0];
+    if (full) {
+      // how many typed words make up the name (hyphens may have been typed as spaces)
+      for (let k = 1; k <= Math.min(5, words.length); k++) if (nk(words.slice(0, k).join(' ')) === full.k) return put(k, full.name);
+    }
+  }
+  // A nickname (up to three words): "CMC", "Sun God", "Joey B".
+  for (let k = Math.min(3, words.length); k >= 1; k--) {
+    const p = nickOf(nk(words.slice(0, k).join(' ')));
+    if (p) return put(k, p.name);
+  }
+  if (!PL) return raw;
+  // A name of two or three words that is a near miss (missing hyphen, a typo): the one current player it matches.
+  const nameLen = (() => { let n = 0; for (const w of nk(raw).split(' ')) { if (STOP.test(w)) break; n++; } return n; })();
+  if (nameLen >= 2) {
+    const want = nk(words.slice(0, nameLen).join(' '));
+    const near = PL.list.filter(p => sameMan(p.k, want) && p.first === want.split(' ')[0]);
+    const one = near.length === 1 ? near[0] : clearOne(PL.list.filter(p => nearMan(p.k, want)));
+    if (one) for (let k = 1; k <= words.length; k++) if (nk(words.slice(0, k).join(' ')) === want) return put(k, one.name);
+    return raw;
+  }
+  // A lone first or last name ("Bijan", "Kittle").
+  const w0 = nk(words[0]);
+  if (w0.length >= 4 && !STOP.test(w0)) {
+    const one = clearOne([...new Set([...(PL.first.get(w0) || []), ...(PL.last.get(w0) || [])])]);
+    if (one) return put(1, one.name);
+  }
+  return raw;
+}
+
 /** Reads a leg's text. teams: teamsOf(the week's games) (team bets need them). */
 export function parseLeg(text, teams = []) {
+  text = expandLeg(text);
   const s = norm(text);
   if (!s) return null;
   const T = teamsIn(s, teams);
@@ -117,7 +218,10 @@ export function parseLeg(text, teams = []) {
   // "Over Rec" with no number: the over (or under) on the sportsbook's line, which ESPN doesn't give. Tracked live,
   // settled by hand (n: null).
   const bare = /\bover\b/.test(rest) ? {op: 'gt', n: null} : /\bunder\b/.test(rest) ? {op: 'lt', n: null} : null;
-  const ln = lineIn(rest) || (stat === 'td' || stat === 'passTd' ? {op: 'gte', n: 1} : bare);
+  // A plain number with no over / under: "JSN 100 rec yds" is 100+, "Kelce 4.5 rec" is over 4.5.
+  const num = bare ? null : /(?:^| )(\d+(?:\.\d+)?)(?= )/.exec(rest);
+  const plain = num ? {op: num[1].includes('.') ? 'gt' : 'gte', n: +num[1]} : null;
+  const ln = lineIn(rest) || plain || (stat === 'td' || stat === 'passTd' ? {op: 'gte', n: 1} : bare);
   return ln ? {kind: 'prop', player, raw, stat, ...ln} : null;
 }
 
@@ -157,18 +261,25 @@ export function parseBox(j) {
   return {players: [...P.values()]};
 }
 
+// A final game's box is kept for good only once it was fetched SETTLE after the game was first seen final (ESPN
+// finishes the last plays' stats a few minutes after the final whistle); until then it is refetched like a live one.
 const BOX = new Map(); // gameId -> {box, at, final}
+const FINAL_SEEN = new Map(); // gameId -> when this page first saw it final
+const SETTLE = 15 * 60e3;
 function lsBox(id) { try { const o = JSON.parse(localStorage.getItem(LS + id) || 'null'); return o && Array.isArray(o.players) ? o : null; } catch (_) { return null; } }
-async function getBox(g) {
+const boxDone = id => { const c = BOX.get(id); return !!c && c.final; };
+async function getBox(g, force) {
   const c = BOX.get(g.id);
-  if (c && (c.final || Date.now() - c.at < LIVE_TTL)) return c.box;
+  if (c && (c.final || (!force && Date.now() - c.at < LIVE_TTL))) return c.box;
   if (!c && g.final) { const b = lsBox(g.id); if (b) { BOX.set(g.id, {box: b, at: Date.now(), final: true}); return b; } }
+  if (g.final && !FINAL_SEEN.has(g.id)) FINAL_SEEN.set(g.id, Date.now());
   try {
-    const r = await fetch(SUMMARY + encodeURIComponent(g.id));
+    const r = await fetch(SUMMARY + encodeURIComponent(g.id), {cache: 'no-store'});
     if (!r.ok) throw new Error('summary ' + r.status);
     const box = parseBox(await r.json());
-    BOX.set(g.id, {box, at: Date.now(), final: !!g.final});
-    if (g.final) { try { localStorage.setItem(LS + g.id, JSON.stringify(box)); } catch (_) {} }
+    const settled = !!g.final && Date.now() - FINAL_SEEN.get(g.id) >= SETTLE;
+    BOX.set(g.id, {box, at: Date.now(), final: settled});
+    if (settled) { try { localStorage.setItem(LS + g.id, JSON.stringify(box)); } catch (_) {} }
     return box;
   } catch (_) {
     return c ? c.box : null;
@@ -267,20 +378,37 @@ export function lookupPlayers(bets, T) {
 }
 
 /** Follows an NFL week for the Lay: fn({games, boxes: Map(gameId -> box), at}) on every scoreboard update, once the
- *  box scores of the started games are in. */
+ *  box scores of the started games are in, and every 30 s on its own while a game is live (or just final): the
+ *  scoreboard only speaks when a score or the clock changes, and the box score can move without either (a timeout,
+ *  a review, stats ESPN fills in late). Paused while the page is hidden; refreshed at once when it is shown again. */
 export function track(year, wk, fn) {
-  let dead = false, seq = 0;
+  let dead = false, seq = 0, games = null, timer = 0;
+  const hidden = () => typeof document !== 'undefined' && document.visibilityState === 'hidden';
+  const busyGames = () => (games || []).filter(g => g.state === 'in' || (g.state === 'post' && !boxDone(g.id)));
+  const pull = force => {
+    if (dead || !games) return;
+    const my = ++seq, gs = games;
+    const go = gs.filter(g => g.state === 'in' || g.state === 'post');
+    Promise.all(go.map(g => getBox(g, force).then(b => [g.id, b]))).then(list => {
+      if (dead || my !== seq) return;
+      fn({games: gs, boxes: new Map(list.filter(x => x[1])), at: Date.now()});
+      arm();
+    });
+  };
+  const arm = () => {
+    clearTimeout(timer); timer = 0;
+    if (dead || hidden() || !busyGames().length) return;
+    timer = setTimeout(() => pull(true), LIVE_TTL);
+  };
   const stop = nfl.watch(year, wk, d => {
     if (dead || !d || !Array.isArray(d.games)) return;
-    const games = d.games, my = ++seq;
+    games = d.games;
     games.forEach(lineFor);
-    const go = games.filter(g => g.state === 'in' || g.state === 'post');
-    Promise.all(go.map(g => getBox(g).then(b => [g.id, b]))).then(list => {
-      if (dead || my !== seq) return;
-      fn({games, boxes: new Map(list.filter(x => x[1])), at: Date.now()});
-    });
+    pull(false);
   });
-  return () => { dead = true; stop(); };
+  const onVis = () => { if (hidden()) { clearTimeout(timer); timer = 0; } else if (busyGames().length) pull(true); };
+  try { document.addEventListener('visibilitychange', onVis); } catch (_) {}
+  return () => { dead = true; clearTimeout(timer); stop(); try { document.removeEventListener('visibilitychange', onVis); } catch (_) {} };
 }
 
 // ---------------------------------------------------------------------------------------------- Scoring
@@ -348,7 +476,9 @@ export function evaluate(text, T) {
   const lineT = `${lineTxt(b)} ${STAT_TXT[b.stat]}`;
   if (!hit.length) {
     // Not in a box score yet: his game from the rosters (kickoff before it starts; 0 so far once it has).
-    const e = PT[b.player], g = e && e[0] ? gameOf(e[0]) : null;
+    // his team: the roster lookup, else the current player list (fills in until the lookup answers)
+    const e = PT[b.player], known = byName(b.player), team = e && e[0] ? e[0] : known ? known.team : null;
+    const g = team ? gameOf(team) : null;
     if (g && g.state === 'pre') return {st: 'pre', note: kickTxt(g), game: g};
     if (g && g.state === 'in') {
       const u = STAT_TXT[b.stat];
@@ -397,6 +527,93 @@ export function describe(text, games) {
     if (l) pts = !l.fav ? 0 : l.fav === (g.home.abbr === b.team ? 'home' : 'away') ? -l.pts : l.pts;
   }
   return pts == null ? `${teamWords(b.team)} Spread` : `${teamWords(b.team)} ${signed(pts)}`;
+}
+
+// ---------------------------------------------------------------------------------------------- Autofill
+// Bet ideas per position (the tracker reads every one of them); a number typed after the name replaces the default.
+const IDEAS = {
+  QB: [['passYds', 250], ['passTd', 2], ['rushYds', 25], ['td', 1]],
+  RB: [['td', 1], ['rushYds', 60], ['rushYds', 80], ['rec', 3], ['recYds', 25], ['td', 2]],
+  WR: [['td', 1], ['recYds', 50], ['recYds', 75], ['recYds', 100], ['rec', 4], ['rec', 6]],
+  TE: [['td', 1], ['recYds', 40], ['recYds', 60], ['rec', 3], ['rec', 5]]
+};
+const SYN = {yds: 'yards', yd: 'yards', yard: 'yards', tds: 'td', touchdown: 'td', touchdowns: 'td', atd: 'anytime', rush: 'rushing', pass: 'passing',
+  rec: 'rec', recs: 'receptions', catches: 'receptions', ml: 'moneyline', money: 'moneyline', o: 'over', u: 'under', tt: 'team'};
+const propText = (name, stat, n, op = 'gte') => {
+  if (stat === 'td') return n === 1 && op === 'gte' ? `${name} Anytime TD Scorer` : `${name} ${op === 'gte' ? n + '+' : (op === 'gt' ? 'Over ' : 'Under ') + n} Anytime TDs`;
+  return `${name} ${op === 'gte' ? n + '+' : (op === 'gt' ? 'Over ' : 'Under ') + n} ${STAT_WORDS[stat]}`;
+};
+// Every typed word (after the name) must start a word of the suggestion (synonyms allowed: "yds" for yards, ...).
+function fits(sug, rest) {
+  const have = nk(sug).split(' ');
+  return rest.every(w => /^\d/.test(w) || have.some(h => h.startsWith(w) || h.startsWith(SYN[w] || '\u0000') || (w === 'rec' && /^rec/.test(h))));
+}
+const posName = {QB: 'QB', RB: 'RB', WR: 'WR', TE: 'TE', K: 'K'};
+// Numbers that make sense for each bet (so "CMC 80" offers 80+ rushing yards, not 80+ touchdowns).
+const OK_N = {td: [1, 4], passTd: [1, 6], rec: [1, 15], recYds: [10, 250], rushYds: [10, 250], passYds: [100, 500]};
+const okN = (st, n) => !OK_N[st] || (n >= OK_N[st][0] && n <= OK_N[st][1]);
+/** Autofill for the leg box: up to `max` suggestions [{text (what the box becomes), label, sub, kind: 'player' |
+ *  'team' | 'bet'}]. While a name is being typed: matching current players (best known first) and teams; once it
+ *  names a player or a team: bets for it, shaped by whatever was typed after the name (a number, "rec", "over", ...). */
+export function suggest(text, games, max = 6) {
+  const raw = String(text || '');
+  const q = nk(raw);
+  if (!q) return [];
+  const G = games || [];
+  const out = [], seen = new Set();
+  const push = (t, sub, kind = 'bet') => { const k = nk(t); if (!seen.has(k) && out.length < max) { seen.add(k); out.push({text: t, label: t.trim(), sub: sub || '', kind}); } };
+  const gameOf = abbr => G.find(g => g.home.abbr === abbr || g.away.abbr === abbr);
+  const when = g => g ? `${g.away.abbr} @ ${g.home.abbr} · ${g.state === 'pre' ? kickTxt(g) : clockOf(g)}` : '';
+  // 1. A player named in front (nicknames and near misses read as the real name)
+  const ex = expandLeg(raw);
+  const en = nk(ex);
+  let player = PL && PL.list.filter(p => en === p.k || en.startsWith(p.k + ' ')).sort((a, b) => b.k.length - a.k.length)[0];
+  // A single word still being typed ("chris") isn't a player yet, unless it is a nickname ("CMC") or a full name.
+  if (player && !/\s$/.test(raw) && q.split(' ').length === 1 && q !== player.k && !nickOf(q)) player = null;
+  if (player && IDEAS[player.pos]) {
+    const restW = en.slice(player.k.length).trim().split(' ').filter(Boolean).map(w => w.replace(/\+$/, ''));
+    const num = (en.slice(player.k.length).match(/(\d+(?:\.\d+)?)/) || [])[1];
+    const op = /\bunder\b|\bu\d/.test(en) ? 'lt' : /\bover\b|\bo\d/.test(en) ? 'gt' : 'gte';
+    const sub = `${posName[player.pos]} · ${player.team}${gameOf(player.team) ? ' · ' + when(gameOf(player.team)) : ''}`;
+    const ideas = IDEAS[player.pos];
+    const stats = [...new Set(ideas.map(i => i[0]))];
+    if (num != null) stats.forEach(st => { const t = propText(player.name, st, +num, op); if (okN(st, +num) && fits(t, restW)) push(t, sub); });
+    // "Kelce over": the over (or under) with no number yet, the way the league often enters it ("Over Rec")
+    else if (op !== 'gte') stats.filter(st => st !== 'td').forEach(st => { const t = `${player.name} ${op === 'gt' ? 'Over' : 'Under'} ${STAT_WORDS[st]}`; if (fits(t, restW)) push(t, sub); });
+    else ideas.forEach(([st, n]) => { const t = propText(player.name, st, n); if (fits(t, restW)) push(t, sub); });
+    return out;
+  }
+  // 2. A team named in front: moneyline, ESPN's spread, the game total, a team total
+  const T = teamsOf(G.length ? G : null);
+  const lead = T.map(t => ({t, w: t.words.filter(w => w && (q === w || q.startsWith(w + ' '))).sort((a, b) => b.length - a.length)[0]})).filter(x => x.w)
+    .sort((a, b) => b.w.length - a.w.length)[0];
+  if (lead && !(PL && PL.list.some(p => q.startsWith(p.k)))) {
+    const abbr = lead.t.abbr, name = teamWords(abbr), g = gameOf(abbr);
+    const restW = q.slice(lead.w.length).trim().split(' ').filter(Boolean);
+    const num = (q.slice(lead.w.length).match(/(\d+(?:\.\d+)?)/) || [])[1];
+    const sub = g ? when(g) : 'No game found this week';
+    const l = g && lineFor(g);
+    const base = [`${name} Moneyline`];
+    if (l && l.fav !== undefined) { const pts = !l.fav ? 0 : l.fav === (g.home.abbr === abbr ? 'home' : 'away') ? -l.pts : l.pts; base.push(`${name} ${signed(pts)}`); }
+    const n = num != null ? +num : null;
+    const spread = n != null && n <= 25 ? [`${name} -${num}`, `${name} +${num}`] : [];
+    const tt = n != null && n >= 7 && n <= 40 ? [`${name} Team Total Over ${num}`, `${name} Team Total Under ${num}`] : [];
+    const ou = !g ? null : n != null ? (n >= 25 && n <= 75 ? num : null) : g.line && g.line.ou;
+    const m = g && `${teamWords(g.away.abbr)} @ ${teamWords(g.home.abbr)}`, gt = ou != null ? [`${m} Over ${ou}`, `${m} Under ${ou}`] : [];
+    // A typed number leads with the bets it fits: a small one is a spread, a bigger one a team or game total.
+    const cands = n == null ? [...base, ...gt, `${name} Team Total Over `] : n < 10 ? [...spread, ...tt, ...gt, ...base] : [...tt, ...gt, ...spread, ...base];
+    cands.forEach(t => { if (fits(t, restW.filter(w => !/^[+-]?\d/.test(w)))) push(t, sub); });
+    return out;
+  }
+  // 3. Still typing a name: players whose name words start with every typed word (best known first), then teams
+  const toks = q.split(' ');
+  // (a nickname typed in full leads; one only begun ranks with the rest)
+  const exact = nickOf(q);
+  const nick = Object.keys(NICK).filter(k => k.startsWith(q) || k.replace(/ /g, '').startsWith(q.replace(/ /g, ''))).map(k => byName(NICK[k])).filter(Boolean);
+  const hits = PL ? PL.list.filter(p => toks.every(t => p.words.some(w => w.startsWith(t)))) : [];
+  [...(exact && exact.pos ? [exact] : []), ...[...new Set([...nick, ...hits])].sort((a, b) => b.score - a.score)].forEach(p => push(p.name + ' ', `${posName[p.pos] || p.pos} · ${p.team}${gameOf(p.team) ? ' · ' + when(gameOf(p.team)) : ''}`, 'player'));
+  T.filter(t => t.words.some(w => w && toks.every(x => w.split(' ').some(y => y.startsWith(x))))).forEach(t => push(teamWords(t.abbr) + ' ', gameOf(t.abbr) ? when(gameOf(t.abbr)) : 'Team', 'team'));
+  return out;
 }
 
 /** True for an over / under typed without its number ("Over Rec"): tracked, but settled by hand. */
