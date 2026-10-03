@@ -1,6 +1,7 @@
 // Draft tab (the Moves tab renamed, tabs-v4): Drafts, Trades and player search (spec 7.15). Owner: SHELL (was the
 // moves package). Large title "Draft" (eyebrow "6 drafts · 41 trades") with your avatar button trailing.
-// Routes: /draft (the latest draft), /draft/<year>, /draft/trades, optional ?m=<managerId> on each (the old
+// Routes: /draft (the latest draft), /draft/<year>, /draft/trades, /draft/repeats (players a manager drafted in more
+// than one season), optional ?m=<managerId> on each (the old
 // /moves/drafts[/<year>] and /moves/trades links redirect here in app.js).
 // Mount once, then patch: segment, year and filter changes arrive through update(ctx) (reason 'params')
 // and swap only the list below the controls with a 120 ms cross-fade.
@@ -28,8 +29,32 @@ function lists() {
   const drafts = ((D && D.drafts) || []).slice().sort((a, b) => b.year - a.year);
   // Old order: year descending, then week descending (stable, so same-week trades keep file order).
   const trades = ((D && D.trades) || []).map((t, i) => ({t, i})).sort((a, b) => b.t.year - a.t.year || b.t.week - a.t.week);
-  CACHE = {src: D, drafts, trades, idx: null};
+  CACHE = {src: D, drafts, trades, idx: null, repeats: null};
   return CACHE;
+}
+// Repeats: the same player drafted by the same manager in two or more seasons. Names are matched loosely (case,
+// punctuation, accents, Jr./Sr./II/III), so a name written two ways across years still counts once.
+// -> [{key, player (the latest spelling), manager, picks: [{year, round, pick}] oldest first}], most seasons first,
+// then the most recent pick, then the player's name.
+const SUFFIX = /\b(jr|sr|ii|iii|iv|v)\b/g;
+const playerKey = name => data.norm(String(name || '')).replace(SUFFIX, '').replace(/\s+/g, ' ').trim();
+function repeats() {
+  const L = lists();
+  if (L.repeats) return L.repeats;
+  const by = new Map();
+  L.drafts.forEach(d => (d.picks || []).forEach(p => {
+    const k = String(p.manager || '') + '|' + playerKey(p.player);
+    if (!playerKey(p.player)) return;
+    let e = by.get(k);
+    if (!e) by.set(k, e = {key: k, player: String(p.player || ''), manager: String(p.manager || ''), picks: [], latest: 0});
+    if (e.picks.some(x => x.year === d.year)) return; // one pick per season
+    e.picks.push({year: d.year, round: p.round, pick: p.pick});
+    if (d.year > e.latest) { e.latest = d.year; e.player = String(p.player || ''); }
+  }));
+  L.repeats = [...by.values()].filter(e => e.picks.length > 1)
+    .map(e => Object.assign(e, {picks: e.picks.sort((a, b) => a.year - b.year)}))
+    .sort((a, b) => b.picks.length - a.picks.length || b.latest - a.latest || a.player.localeCompare(b.player));
+  return L.repeats;
 }
 const latestYear = () => { const L = lists(); return L.drafts.length ? L.drafts[0].year : null; };
 
@@ -99,7 +124,7 @@ const highlight = (name, toks) => String(name).split(/(\s+)/).map(w => (!w || /^
 // ============================================================================ Routes and state
 function resolve(ctx) {
   const p = (ctx && ctx.params) || {}, q = (ctx && ctx.query) || {};
-  const seg = p.seg === 'trades' ? 'trades' : 'drafts';
+  const seg = p.seg === 'trades' || p.seg === 'repeats' ? p.seg : 'drafts';
   const latest = latestYear();
   const year = p.year != null && isFinite(p.year) ? Number(p.year) : latest;
   const m = q.m && data.M[q.m] ? String(q.m) : null;
@@ -108,6 +133,7 @@ function resolve(ctx) {
 const sameState = (a, b) => a.seg === b.seg && a.year === b.year && a.m === b.m && a.latest === b.latest;
 const draftsPath = (year, m) => (year == null || year === latestYear() ? '/draft' : '/draft/' + year) + qs(m);
 const tradesPath = m => '/draft/trades' + qs(m);
+const repeatsPath = m => '/draft/repeats' + qs(m);
 const hasDraft = y => lists().drafts.some(d => d.year === y);
 
 const ST = new WeakMap(); // ctx → per-screen state
@@ -127,14 +153,15 @@ function headHTML() {
     + `<button type="button" class="mv-cancel" data-mv-cancel tabindex="-1" aria-hidden="true">Cancel</button></div>`;
 }
 function segHTML(s) {
-  return `<div class="mv-segwrap">${ui.seg({name: 'mv-seg', label: 'Drafts or trades', value: s.seg,
-    items: [{id: 'drafts', label: 'Drafts'}, {id: 'trades', label: 'Trades'}]})}</div>`;
+  return `<div class="mv-segwrap">${ui.seg({name: 'mv-seg', label: 'Drafts, trades or repeat picks', value: s.seg,
+    items: [{id: 'drafts', label: 'Drafts'}, {id: 'trades', label: 'Trades'}, {id: 'repeats', label: 'Repeats'}]})}</div>`;
 }
-function contentHTML(s) { return s.seg === 'trades' ? tradesHTML(s) : draftsHTML(s); }
+function contentHTML(s) { return s.seg === 'trades' ? tradesHTML(s) : s.seg === 'repeats' ? repeatsHTML(s) : draftsHTML(s); }
+const listHTML = s => (s.seg === 'trades' ? tradeListHTML(s) : s.seg === 'repeats' ? repeatListHTML(s) : draftListHTML(s));
 
 function railHTML(kind, m) {
   const me = data.me();
-  const what = kind === 'trades' ? 'trades' : 'picks';
+  const what = kind === 'trades' ? 'trades' : kind === 'repeats' ? 'repeat picks' : 'picks';
   const all = `<button type="button" class="mv-all" data-mv-m="" aria-pressed="${!m}" aria-label="Show all ${what}">All</button>`;
   const avs = data.ids.map(id => `<button type="button" class="mv-av${id === me ? ' is-you' : ''}" data-mv-m="${esc(id)}" aria-pressed="${id === m}" aria-label="${esc(`Show ${data.name(id)}'s ${what}`)}">${ui.avatar(id, {size: 36})}</button>`).join('');
   return `<div class="mv-rail${m ? ' has-sel' : ''}" role="group" aria-label="Filter by manager" data-hscroll data-enter>${all}${avs}</div>`;
@@ -191,6 +218,47 @@ function pickHTML(year, p, me, enter) {
     `<span class="mv-main"><span class="mv-player"><span class="sr-only">Round ${esc(p.round)}, pick ${esc(p.pick)}: </span>${esc(p.player)}</span>` +
     `<span class="mv-by"><span class="sr-only">, drafted by </span>${ui.avatar(id, {size: 20, attrs: {'data-morph-from': true}})}<span class="mv-by-n">${esc(data.name(id))}</span></span></span>` +
     (p.pos ? `<span class="pill mv-pos"><span class="sr-only">, </span>${esc(p.pos)}</span>` : '') +
+    `</a></li>`;
+}
+
+// ---- Repeats
+function repeatsHTML(s) {
+  const L = lists();
+  if (!L.drafts.length) return ui.empty({icon: 'list-number', title: 'No draft history added yet.'});
+  return `${railHTML('repeats', s.m)}<div class="mv-list">${repeatListHTML(s)}</div>`;
+}
+function repeatListHTML(s) {
+  const all = repeats();
+  const rows = all.filter(e => !s.m || e.manager === s.m);
+  if (!rows.length) {
+    return ui.empty({icon: 'person', title: s.m ? `${data.name(s.m)} hasn't drafted anyone twice.` : 'No repeat picks yet.',
+      body: 'A player drafted by the same manager in two or more seasons shows up here.',
+      action: s.m ? {label: 'Show everyone', attrs: {'data-mv-go': repeatsPath(null)}} : null});
+  }
+  const groups = [];
+  rows.forEach(e => { const g = groups[groups.length - 1]; if (g && g.n === e.picks.length) g.rows.push(e); else groups.push({n: e.picks.length, rows: [e]}); });
+  const me = data.me();
+  let n = 0;
+  const E = () => (n++ < 3 ? ' data-enter' : '');
+  const secs = groups.map(g => {
+    const h = HEAD_H + 4 + g.rows.length * (ROW_H + 20);
+    return `<section class="mv-sec"${E()} style="contain-intrinsic-size:auto ${h}px"><h3 class="mv-sh"><span class="ovl">${g.n} seasons</span> <span class="mv-yn">· ${count(g.rows.length, 'player', 'players')}</span></h3>` +
+      `<ol class="group mv-picks">${g.rows.map(e => repeatHTML(e, me)).join('')}</ol></section>`;
+  }).join('');
+  const top = rows[0];
+  const sum = s.m ? `${who(s.m)} · ${count(rows.length, 'player', 'players')} drafted in more than one season`
+    : `${count(rows.length, 'repeat pick', 'repeat picks')} · most: <b>${esc(top.player)}</b> (${esc(data.name(top.manager))}), ${top.picks.length} seasons`;
+  return sumHTML(sum) + secs;
+}
+function repeatHTML(e, me) {
+  const id = e.manager;
+  const seasons = e.picks.map(p => `${p.year} R${p.round}`).join(' · ');
+  return `<li class="mv-pick mv-rep${me && id === me ? ' is-mine' : ''}" data-pk="${esc('r:' + e.key)}" data-m="${esc(id)}">` +
+    `<a class="mv-row" href="#/managers/${esc(encodeURIComponent(id))}">` +
+    `<span class="mv-tile n5" aria-hidden="true">${e.picks.length}×</span>` +
+    `<span class="mv-main"><span class="mv-player">${esc(e.player)}</span>` +
+    `<span class="mv-by"><span class="sr-only">, drafted by </span>${ui.avatar(id, {size: 20, attrs: {'data-morph-from': true}})}<span class="mv-by-n">${esc(data.name(id))}</span></span>` +
+    `<span class="mv-rep-yrs"><span class="sr-only">, in </span>${esc(seasons)}</span></span>` +
     `</a></li>`;
 }
 
@@ -459,7 +527,7 @@ function keepFocus(st, box, mutate) {
 function swapList(st, s) {
   const list = st.content.querySelector('.mv-list');
   if (!list) return swapContent(st, s);
-  const html = s.seg === 'trades' ? tradeListHTML(s) : draftListHTML(s);
+  const html = listHTML(s);
   keepFocus(st, list, () => ui.crossfade(list, () => { list.innerHTML = html; }));
 }
 function swapContent(st, s, {fade = true} = {}) {
@@ -592,6 +660,7 @@ function onChange(st, e) {
   const {name, value} = e.detail || {};
   if (name === 'mv-seg') {
     if (value === 'trades') go(st, tradesPath(st.s.m));
+    else if (value === 'repeats') go(st, repeatsPath(st.s.m));
     else go(st, draftsPath(st.lastDraftYear != null && hasDraft(st.lastDraftYear) ? st.lastDraftYear : latestYear(), st.s.m));
   } else if (name === 'mv-year') {
     go(st, draftsPath(Number(value), st.s.m));
@@ -609,7 +678,7 @@ function onClick(st, e) {
     ui.haptic('selection');
     patchRail(st, next); // instant feedback; the list follows through update()
     st.railTap = true; // the rail stays where the finger left it
-    go(st, st.s.seg === 'trades' ? tradesPath(next) : draftsPath(st.s.year, next)).finally(() => { st.railTap = false; });
+    go(st, st.s.seg === 'trades' ? tradesPath(next) : st.s.seg === 'repeats' ? repeatsPath(next) : draftsPath(st.s.year, next)).finally(() => { st.railTap = false; });
     return;
   }
   if (t.closest('[data-mv-cancel]')) { cancelSearch(st); return; }

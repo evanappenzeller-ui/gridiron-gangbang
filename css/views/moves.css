@@ -318,3 +318,7 @@ html.rm .v-moves .is-hit::after { animation: none; opacity: 1; }
   .v-moves .mv-av::before { transform: none; }
   .v-moves .mv-pick.is-hit::after, .v-moves .mv-trade.is-hit::after { animation: none; opacity: 1; }
 }
+/* Repeats: the seasons on their own line under the manager */
+.v-moves .mv-rep .mv-row { min-height: 76px; height: auto; }
+.v-moves .mv-rep-yrs { display: block; color: var(--ink-3); font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); white-space: normal; }
+.v-moves .mv-rep .mv-tile { color: var(--gold); }

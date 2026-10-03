@@ -102,6 +102,7 @@ function matchSegs(p, q) {
     case 'draft': {
       if (n === 1) return R('moves', 'root', 'draft', {seg: 'drafts'});
       if (n === 2 && b === 'trades') return R('moves', 'root', 'draft', {seg: 'trades'});
+      if (n === 2 && b === 'repeats') return R('moves', 'root', 'draft', {seg: 'repeats'});
       const y = n === 2 ? yr(b) : null;
       return y != null ? R('moves', 'root', 'draft', {seg: 'drafts', year: y}) : null;
     }
