@@ -191,45 +191,67 @@ function heroHTML(me, {noLegs} = {}) {
     + placerLine(w) + body + `</section>`;
 }
 
-// The live tracker: once legs close (Sunday 1:00 PM ET, the main slate's kickoff) it leads the tab. Slip status (hit,
-// live, to go, missed), then a card per leg: who, the bet in standard wording, its state, a progress bar toward the
-// number it needs and the game's score and clock. Scored by core/laytrack.js; a result in data/lay.json wins.
-const ORDER = {live: 0, pre: 1, na: 2, hit: 3, miss: 4};
+// The live tracker, laid out like a sportsbook slip: one card, the legs grouped under their game (the teams, the
+// score and the clock, or the kickoff), each leg a status ring, the pick in bold and its market, then who it's for and
+// where it stands ("38 rec yds · needs 50+") with a thin bar toward the number. Scored by core/laytrack.js; a result
+// in data/lay.json wins. Once legs close (Sunday 1:00 PM ET, the main slate) it leads the tab.
 const ST_TXT = {live: 'Live', pre: 'Not started', na: 'Not tracked', hit: 'Hit', miss: 'Missed'};
+const ORDER = {live: 0, pre: 1, na: 2, hit: 3, miss: 4};
 function trackRows(w) {
-  return legsOf(w).map(l => ({l, r: settled(l) && !l.auto ? {st: l.hit ? 'hit' : 'miss', note: 'Settled by the league'} : (l.trk || {st: 'pre', note: 'Waiting on the games'})}))
-    .sort((a, b) => ORDER[a.r.st] - ORDER[b.r.st] || data.name(a.l.by).localeCompare(data.name(b.l.by)));
+  return legsOf(w).map(l => ({l, r: settled(l) && !l.auto ? {st: l.hit ? 'hit' : 'miss', note: 'Settled by the league'} : (l.trk || {st: 'pre', note: 'Waiting on the games'})}));
 }
 function barHTML(r) {
-  if (r.v == null || r.n == null || !(r.n > 0)) return '';
+  if (r.v == null || r.n == null || !(r.n > 0) || r.st === 'hit' || r.st === 'miss') return '';
   const f = Math.max(0, Math.min(1, r.v / r.n));
   return `<div class="lv-bar${r.op === 'lt' && r.v >= r.n ? ' is-over' : ''}" role="img" aria-label="${esc(`${r.v} of ${r.n}`)}"><i style="--f:${f}"></i></div>`;
 }
-function trackCard({l, r}, me) {
-  const adminEdit = l.live && live.isAdmin(me) ? `<button type="button" class="btn btn-plain lv-edit" data-ly-admin-edit="${esc(l.by)}" aria-label="Edit ${esc(data.name(l.by))}\u2019s leg">Edit</button>` : '';
-  const g = r.game;
-  const game = g ? `${g.away.abbr} ${g.state === 'pre' ? '@' : `${g.away.score || 0} – ${g.home.score || 0}`} ${g.home.abbr}` : '';
-  const bet = track.describe(l.bet, g ? [g] : weekGames()) || l.bet;
-  return `<article class="card lv-card is-${r.st}${l.by === me ? ' is-me' : ''}" aria-label="${esc(`${data.name(l.by)}: ${bet}. ${ST_TXT[r.st]}. ${r.note || ''}`)}">`
-    + `<div class="lv-top">${ui.avatar(l.by, {size: 36, you: l.by === me})}<div class="lv-mid"><p class="lv-who">${esc(data.name(l.by))}${l.for ? ` · for ${esc(data.name(l.for))}` : ''}</p>`
-    + `<p class="lv-bet">${esc(bet)}</p></div><span class="lv-st">${r.st === 'live' ? '<i></i>' : ''}${ST_TXT[r.st]}</span></div>`
-    + barHTML(r)
-    + `<div class="lv-foot"><p class="lv-note">${esc(r.note || '')}${game && !/–|@/.test(r.note || '') ? ` · ${esc(game)}` : ''}</p>${adminEdit}</div>`
-    + `</article>`;
+const RING = {hit: 'check', miss: 'x'};
+// What's left of a leg's note once the game header has the score and the clock.
+function legNote(r) {
+  if (r.st === 'pre') return '';
+  return String(r.note || '').split(' · ').filter(x => x && !/^(Q\d|QOT|Half|Final|Live)\b/.test(x) && !/^[A-Z]{2,3} \d+–\d+ [A-Z]{2,3}$/.test(x) && !/^[A-Z]{2,3} ([+−]?[\d.]+|PK)$/.test(x)).join(' · ');
 }
-// preview: before legs close, under "Get your legs in" (no placer line: the card above has it).
+function slipLeg({l, r}, me) {
+  const g = r.game, games = g ? [g] : weekGames();
+  const parts = track.slipParts(l.bet, games);
+  const adminEdit = l.live && live.isAdmin(me) ? `<button type="button" class="lv-edit" data-ly-admin-edit="${esc(l.by)}" aria-label="Edit ${esc(data.name(l.by))}\u2019s leg">Edit</button>` : '';
+  const bet = parts ? `<b>${esc(parts.pick)}</b><span class="lv-sep" aria-hidden="true">|</span>${esc(parts.market)}` : `<b>${esc(l.bet || '—')}</b>`;
+  const note = legNote(r);
+  const ring = `<span class="lv-ring is-${r.st}" aria-hidden="true">${RING[r.st] ? ui.icon(RING[r.st]) : ''}</span>`;
+  const label = `${data.name(l.by)}: ${parts ? parts.pick + ' ' + parts.market : l.bet}. ${ST_TXT[r.st]}. ${r.note || ''}`;
+  return `<li class="lv-leg is-${r.st}${l.by === me ? ' is-me' : ''}" aria-label="${esc(label)}">${ring}`
+    + `<div class="lv-lm"><p class="lv-lt">${bet}</p>`
+    + `<p class="lv-ls"><span class="lv-who">${esc(data.name(l.by))}${l.for ? ` for ${esc(data.name(l.for))}` : ''}</span>${note ? ` · ${esc(note)}` : ''}</p>`
+    + barHTML(r) + `</div>${adminEdit}</li>`;
+}
+function gameHead(g) {
+  if (!g) return `<p class="lv-gh"><span class="lv-gt">Not matched to a game yet</span></p>`;
+  const side = t => `${esc(t.abbr)} ${esc(t.short || '')}${g.state === 'pre' ? '' : ` <span class="n5">${t.score || 0}</span>`}`;
+  const st = g.state === 'in' ? ' is-live' : g.state === 'post' ? ' is-final' : '';
+  return `<p class="lv-gh"><span class="lv-gt">${side(g.away)} @ ${side(g.home)}</span><span class="lv-gc${st}">${esc(track.gameClock(g))}</span></p>`;
+}
+// preview: before legs close, under the week card (no placer line: the card above has it).
 function trackerHTML(w, me, {preview} = {}) {
   const rows = trackRows(w), n = k => rows.filter(x => x.r.st === k).length;
   const hit = n('hit'), miss = n('miss'), going = n('live'), left = rows.length - hit - miss - going, st = statusOf(w);
-  // The section is the Live Tracker, before and after legs close; the slip's state rides on the overline.
-  const state = st === 'bust' ? 'Busted' : st === 'hit' ? 'Cashed' : hit || going ? 'Still alive' : `${rows.length} ${rows.length === 1 ? 'leg' : 'legs'} in`;
-  const tile = (v, lb, cls = '') => `<div class="lv-tile ${cls}"><span class="n3">${v}</span><span class="lv-tl">${lb}</span></div>`;
-  return `<section class="card card-hero lv-sum is-${st}" aria-label="Live tracker">`
-    + `<div class="ly-hero-top"><p class="card-ovl">Week ${w.week} · ${state}</p>${statusPill(w)}</div>`
-    + `<h2 class="lv-head">Live Tracker</h2>` + (preview ? '' : placerLine(w))
-    + `<div class="lv-tiles">${tile(hit, 'Hit', 'is-hit')}${tile(going, 'Live', 'is-live')}${tile(left, 'To go')}${tile(miss, 'Missed', 'is-miss')}</div></section>`
-    + `<div class="lv-cards">${rows.map(x => trackCard(x, me)).join('')}</div>`
-    + `<p class="lv-foot-note">Live from ESPN, every 30 seconds while games are on. Results are final once the league confirms them.</p>`;
+  // Games in kickoff order (live ones first); legs we can't place on a game last.
+  const groups = new Map();
+  rows.forEach(x => { const k = x.r.game ? x.r.game.id : ''; if (!groups.has(k)) groups.set(k, {g: x.r.game || null, rows: []}); groups.get(k).rows.push(x); });
+  const rank = g => !g ? 3 : g.state === 'in' ? 0 : g.state === 'pre' ? 1 : 2;
+  const list = [...groups.values()].sort((a, b) => rank(a.g) - rank(b.g) || (a.g && b.g ? a.g.kickoff - b.g.kickoff : 0));
+  const body = list.map(G => `<div class="lv-game">${gameHead(G.g)}<ul class="lv-legs">`
+    + G.rows.sort((a, b) => ORDER[a.r.st] - ORDER[b.r.st] || data.name(a.l.by).localeCompare(data.name(b.l.by))).map(x => slipLeg(x, me)).join('')
+    + `</ul></div>`).join('');
+  const p = placerOf(w);
+  const pill = st === 'bust' ? ['Busted', 'wrong'] : st === 'hit' ? ['Cashed', 'gold'] : going || hit ? ['Live', 'tint'] : ['Open', 'neutral'];
+  const counts = [hit && `${hit} hit`, going && `${going} live`, left && `${left} to go`, miss && `${miss} missed`].filter(Boolean).join(' · ');
+  return `<section class="card card-hero lv-slip is-${st}" aria-label="Live tracker">`
+    + `<div class="lv-sh"><span class="lv-tag">Week ${w.week}</span><h2 class="lv-head">Live Tracker</h2>${ui.pill(pill[0], {tone: pill[1]})}</div>`
+    + `<p class="lv-meta"><b>${rows.length} ${rows.length === 1 ? 'Leg' : 'Legs'}</b><span class="lv-sep" aria-hidden="true">|</span>Wager <b>${money(STAKE())}</b>`
+    + (p && !preview ? `<span class="lv-sep" aria-hidden="true">|</span>${esc(data.name(p.id).split(' ')[0])} places it` : '') + `</p>`
+    + (counts ? `<p class="lv-counts">${esc(counts)}</p>` : '')
+    + `<div class="lv-games">${body}</div>`
+    + `<p class="lv-foot-note">Live from ESPN every 30 seconds during games. Final once the league confirms.</p></section>`;
 }
 
 // "Your leg": enter, change or remove your leg for the live week (or someone else's: st.target).
@@ -494,7 +516,7 @@ function fill(ctx) {
   WEEKS.forEach(w => {
     const T = w.tracked && TRK.get(wkey(w.year, w.week));
     const p = T && track.lookupPlayers(legsOf(w).filter(l => !settled(l)).map(l => l.bet), T);
-    if (p) p.then(() => { if (ST.get(ctx) === st) fill(ctx); }, () => {});
+    if (p) p.then(found => { if (found && ST.get(ctx) === st) fill(ctx); }, () => {});
   });
   const inp2 = st.body.querySelector('.ly-in');
   if (kept) { setRead(st, inp.value); if (sugOpen(st) && st.sugAt < 0) showSug(st); }

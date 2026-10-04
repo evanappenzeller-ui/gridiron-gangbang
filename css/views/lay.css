@@ -117,46 +117,7 @@
 .v-lay .ly-cl .ly-mark { width: 22px; height: 22px; }
 .v-lay .ly-cl .ly-mark > .ic { width: 13px; height: 13px; }
 
-/* Live tracker (leads the tab once legs close) */
-.v-lay .lv-sum { padding: 16px; }
-.v-lay .lv-head { margin: 4px 0 12px; font: 400 26px/30px var(--font-pixel); text-transform: uppercase; }
-.v-lay .lv-sum.is-alive .lv-head { color: var(--tint); }
-.v-lay .lv-sum.is-bust .lv-head { color: var(--wrong); }
-.v-lay .lv-sum.is-cash .lv-head { color: var(--gold); }
-.v-lay .lv-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-.v-lay .lv-tile { display: flex; flex-direction: column; align-items: center; padding: 8px 4px; border-radius: 10px; background: var(--fill); }
-.v-lay .lv-tl { font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
-.v-lay .lv-tile.is-hit .n3 { color: var(--tint); }
-.v-lay .lv-tile.is-live .n3 { color: var(--gold); }
-.v-lay .lv-tile.is-miss .n3 { color: var(--wrong); }
 
-.v-lay .lv-card { padding: 12px 14px; border-left: 4px solid var(--separator); }
-.v-lay .lv-card.is-live { border-left-color: var(--gold); }
-.v-lay .lv-card.is-hit { border-left-color: var(--tint); }
-.v-lay .lv-card.is-miss { border-left-color: var(--wrong); }
-.v-lay .lv-top { display: flex; align-items: center; gap: 10px; }
-.v-lay .lv-mid { flex: 1; min-width: 0; }
-.v-lay .lv-who { margin: 0; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
-.v-lay .lv-bet { margin: 1px 0 0; font: 600 var(--fs-body)/var(--lh-body) var(--font-text); color: var(--ink); overflow-wrap: anywhere; }
-.v-lay .lv-st { flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: var(--fill);
-  font: 400 11px/14px var(--font-num); text-transform: uppercase; letter-spacing: .04em; color: var(--ink-2); }
-.v-lay .is-live .lv-st { background: var(--gold-soft); color: var(--gold); }
-.v-lay .is-hit .lv-st { background: var(--tint-soft); color: var(--tint); }
-.v-lay .is-miss .lv-st { background: var(--wrong-soft); color: var(--wrong); }
-.v-lay .lv-st > i { width: 8px; height: 8px; border-radius: 4px; background: currentColor; animation: lv-pulse 1.4s ease-in-out infinite; }
-@keyframes lv-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
-@media (prefers-reduced-motion: reduce) { .v-lay .lv-st > i { animation: none; } }
-.v-lay .lv-bar { height: 8px; margin: 12px 0 0; border-radius: 4px; background: var(--fill); overflow: hidden; }
-.v-lay .lv-bar > i { display: block; height: 100%; width: calc(var(--f) * 100%); background: var(--gold); border-radius: 4px; transition: width .6s ease; }
-.v-lay .is-hit .lv-bar > i { background: var(--tint); }
-.v-lay .is-miss .lv-bar > i, .v-lay .lv-bar.is-over > i { background: var(--wrong); }
-.v-lay .lv-note { margin: 0; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2); }
-.v-lay .lv-foot-note { margin: 4px 4px 0; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
-.v-lay .lv-cards { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
-.v-lay .lv-note { margin-top: 8px; }
-.v-lay .lv-sum .ly-placer { margin: 0 0 12px; }
-.v-lay .lv-sum.is-live .lv-head, .v-lay .lv-sum.is-open .lv-head { color: var(--tint); }
-.v-lay .lv-sum.is-hit .lv-head { color: var(--gold); }
 /* The combined week card (before legs close): your leg sits under the legs-in meter, split by a hairline */
 .v-lay .ly-week-card .ly-waiting-i { color: var(--ink-3); }
 .v-lay .ly-yours { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--separator); }
@@ -164,19 +125,54 @@
 .v-lay .ly-yours > .group.ly-mine { margin: 8px 0 0; border-radius: var(--r-cell); background: var(--surface-2); }
 .v-lay .ly-yours .card-body { margin-top: 4px; }
 .v-lay .ly-yours .ly-acts { margin-top: 10px; }
-/* The Live Tracker is the tab's focal point: a lit border in the slip's state, the biggest heading on the tab */
-.v-lay .lv-sum { box-shadow: inset 0 0 0 2px var(--tint), 0 0 24px rgba(124,240,88,.18); }
-.v-lay .lv-sum.is-bust { box-shadow: inset 0 0 0 2px var(--wrong), 0 0 24px rgba(255,90,74,.18); }
-.v-lay .lv-sum.is-hit { box-shadow: inset 0 0 0 2px var(--gold), 0 0 24px rgba(255,197,49,.22); }
-.v-lay .lv-sum .lv-head { font-size: 26px; line-height: 30px; margin: 6px 0 14px; white-space: nowrap; }
-.v-lay .ly-week-card + .lv-sum { margin-top: 16px; }
 /* Week card order: your leg on top, then the league's progress under a hairline */
 .v-lay .ly-week-card .ly-yours { margin-top: 6px; padding-top: 0; border-top: 0; }
 .v-lay .ly-week-card .ly-yours > .card-title { margin-top: 0; }
 .v-lay .ly-progress { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--separator); }
 .v-lay .ly-progress .ly-meter { margin-top: 10px; }
 .v-lay .ly-progress .ly-placer { margin: 10px 0 0; }
-/* Admin: Edit on each tracker card */
-.v-lay .lv-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
-.v-lay .lv-foot .lv-note { margin-top: 0; }
-.v-lay .lv-edit { flex: none; min-height: 32px; padding: 0 10px; color: var(--tint); font: 600 var(--fs-sub)/var(--lh-sub) var(--font-text); }
+
+/* Live tracker: one slip, like a sportsbook's. Legs grouped under their game; a ring per leg (open, live, hit, missed) */
+.v-lay .lv-slip { padding: 14px 16px 12px; box-shadow: inset 0 0 0 2px var(--tint), 0 0 24px rgba(124,240,88,.16); }
+.v-lay .lv-slip.is-bust { box-shadow: inset 0 0 0 2px var(--wrong), 0 0 24px rgba(255,90,74,.16); }
+.v-lay .lv-slip.is-hit { box-shadow: inset 0 0 0 2px var(--gold), 0 0 24px rgba(255,197,49,.2); }
+.v-lay .ly-week-card + .lv-slip { margin-top: 16px; }
+.v-lay .lv-sh { display: flex; align-items: center; gap: 10px; }
+.v-lay .lv-tag { flex: none; padding: 2px 7px; border: 1.5px solid var(--tint); border-radius: 6px; color: var(--tint); font: 400 12px/16px var(--font-num); text-transform: uppercase; letter-spacing: .04em; }
+.v-lay .lv-head { flex: 1; min-width: 0; margin: 0; font: 400 15px/22px var(--font-pixel); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
+.v-lay .lv-sh > .pill { flex: none; }
+.v-lay .lv-meta { margin: 8px 0 0; font: 400 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink-3); }
+.v-lay .lv-meta b { color: var(--ink); font-weight: 600; }
+.v-lay .lv-sep { margin: 0 8px; color: var(--separator); }
+.v-lay .lv-counts { margin: 2px 0 0; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2); }
+.v-lay .lv-games { margin-top: 6px; }
+.v-lay .lv-game { padding-top: 10px; }
+.v-lay .lv-gh { display: flex; align-items: baseline; gap: 8px; margin: 0 0 2px; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2); }
+.v-lay .lv-gt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-lay .lv-gt .n5 { color: var(--ink); }
+.v-lay .lv-gc { flex: none; padding-left: 8px; border-left: 1px solid var(--separator); color: var(--ink-3); }
+.v-lay .lv-gc.is-live { color: var(--gold); }
+.v-lay .lv-legs { list-style: none; margin: 0; padding: 0; }
+.v-lay .lv-leg { display: flex; align-items: flex-start; gap: 12px; padding: 7px 0; }
+.v-lay .lv-ring { flex: none; display: grid; place-items: center; width: 22px; height: 22px; margin-top: 1px; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--ink-3); color: #08122A; }
+.v-lay .lv-ring.is-pre { box-shadow: inset 0 0 0 2px var(--gold); opacity: .8; }
+.v-lay .lv-ring.is-live { box-shadow: inset 0 0 0 2px var(--gold); animation: lv-ring 1.4s ease-in-out infinite; }
+.v-lay .lv-ring.is-hit { background: var(--tint); box-shadow: none; }
+.v-lay .lv-ring.is-miss { background: var(--wrong); box-shadow: none; }
+.v-lay .lv-ring.is-na { box-shadow: inset 0 0 0 2px var(--ink-3); opacity: .6; }
+.v-lay .lv-ring > .ic { width: 13px; height: 13px; stroke-width: 3; }
+@keyframes lv-ring { 0%, 100% { box-shadow: inset 0 0 0 2px var(--gold), 0 0 0 0 rgba(255,197,49,.45); } 50% { box-shadow: inset 0 0 0 2px var(--gold), 0 0 0 5px rgba(255,197,49,0); } }
+@media (prefers-reduced-motion: reduce) { .v-lay .lv-ring.is-live { animation: none; } }
+.v-lay .lv-lm { flex: 1; min-width: 0; }
+.v-lay .lv-lt { margin: 0; font: 400 var(--fs-body)/var(--lh-body) var(--font-text); color: var(--ink); overflow-wrap: anywhere; }
+.v-lay .lv-lt b { font-weight: 700; }
+.v-lay .lv-lt .lv-sep { margin: 0 6px; }
+.v-lay .lv-leg.is-miss .lv-lt { color: var(--ink-2); }
+.v-lay .lv-leg.is-miss .lv-lt b { text-decoration: line-through; text-decoration-color: var(--wrong); }
+.v-lay .lv-ls { margin: 1px 0 0; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+.v-lay .lv-leg.is-me .lv-who { color: var(--tint); }
+.v-lay .lv-bar { height: 4px; margin: 6px 0 2px; border-radius: 2px; background: var(--fill); overflow: hidden; }
+.v-lay .lv-bar > i { display: block; height: 100%; width: calc(var(--f) * 100%); background: var(--gold); border-radius: 2px; transition: width .6s ease; }
+.v-lay .lv-bar.is-over > i { background: var(--wrong); }
+.v-lay .lv-edit { flex: none; min-height: 28px; padding: 0 0 0 8px; color: var(--ink-3); font: 600 var(--fs-foot)/var(--lh-foot) var(--font-text); }
+.v-lay .lv-foot-note { margin: 10px 0 0; padding-top: 10px; border-top: 1px solid var(--separator); font: 400 12px/16px var(--font-text); color: var(--ink-3); }

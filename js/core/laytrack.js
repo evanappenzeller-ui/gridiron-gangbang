@@ -333,7 +333,9 @@ async function rosterOf(t) {
   return names;
 }
 let ptBusy = null, ptFailAt = 0;
-async function findTeams(names, games) {
+// Not async: "nothing to look up" must be a plain null, not a promise (the Lay redraws when a promise settles, and a
+// redraw asks again: a promise here every time would redraw without end).
+function findTeams(names, games) {
   const need = new Set(names.filter(n => !ptFresh(PT[n])));
   if (!need.size || ptBusy) return ptBusy || null;
   if (Date.now() - ptFailAt < 60e3) return null; // a roster failed to load: try again in a minute
@@ -351,9 +353,11 @@ async function findTeams(names, games) {
     }
     need.forEach(n => { const ts = near.get(n); if (ts && ts.size === 1) { PT[n] = [[...ts][0], Date.now()]; need.delete(n); } });
     // Not on any roster: remembered as a miss (retried in 6 h) only when every roster loaded; else retried soon.
+    const found = names.some(n => PT[n] && PT[n][0]);
     if (failed) ptFailAt = Date.now();
     else need.forEach(n => { PT[n] = [null, Date.now()]; });
     try { localStorage.setItem(PT_LS, JSON.stringify(PT)); } catch (_) {}
+    return found;
   })().finally(() => { ptBusy = null; });
   return ptBusy;
 }
@@ -366,7 +370,7 @@ function lineFor(g) {
 }
 
 /** Looks up the teams of the players in these legs' texts who have no box score yet in T (so a prop before kickoff
- *  can show its game). A Promise that resolves once new teams are known, or null when there is nothing to look up. */
+ *  can show its game). A Promise of true once a team was found (false: none), or null when there is nothing to look up. */
 export function lookupPlayers(bets, T) {
   if (!T || !Array.isArray(T.games) || !T.games.length) return null;
   const teams = teamsOf(T.games), want = [];
@@ -442,6 +446,22 @@ function settle(b, v, over) {
 }
 
 /** Scores a leg's text against a tracked week. */
+/** A leg the way a sportsbook slip shows it: {pick (bold: "Over 5.5", "100+", "Chicago Bears"), market ("Parker
+ *  Washington Receptions", "Moneyline", "Total")}, or null when it can't be read. */
+export function slipParts(text, games) {
+  const b = parseLeg(text, teamsOf(games));
+  if (!b) return null;
+  const ou = b.op === 'lt' ? 'Under' : 'Over';
+  if (b.kind === 'prop') {
+    if (b.stat === 'td') return b.op === 'gte' && b.n === 1 ? {pick: b.raw, market: 'Anytime TD Scorer'} : {pick: lineWords(b), market: `${b.raw} Anytime TDs`};
+    return {pick: lineWords(b), market: `${b.raw} ${STAT_WORDS[b.stat]}`};
+  }
+  if (b.kind === 'gameTotal') return {pick: `${ou} ${b.n}`, market: 'Total'};
+  if (b.kind === 'teamTotal') return {pick: `${ou} ${b.n}`, market: `${teamWords(b.team)}: Team Total Points`};
+  if (b.kind === 'ml') return {pick: teamWords(b.team), market: 'Moneyline'};
+  const d = describe(text, games) || '';
+  return {pick: d.replace(/ Spread$/, ''), market: 'Spread'};
+}
 export function evaluate(text, T) {
   if (!T || !Array.isArray(T.games) || !T.games.length) return {st: 'na', note: ''};
   const teams = teamsOf(T.games), b = parseLeg(text, teams);
@@ -620,3 +640,5 @@ export function suggest(text, games, max = 6) {
 export const needsLine = text => { const b = parseLeg(text, teamsOf(null)); return !!b && b.kind === 'prop' && b.n == null; };
 
 export const __test = {teamsOf, norm};
+/** A game's time for a slip header: its kickoff ("Sun 1:25 PM") before it starts, else the clock ("Q3 4:12", "Half", "Final"). */
+export const gameClock = g => g.state === 'pre' ? kickTxt(g) : clockOf(g);
