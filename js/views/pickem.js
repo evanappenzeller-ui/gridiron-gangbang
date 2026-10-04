@@ -1238,7 +1238,24 @@ function bodyHTML() {
   if (!v.games.length) {
     return (v.board.stale || v.board.error ? errHTML() : ui.empty({icon: 'calendar', title: 'No games this week.', body: CFB ? `Week ${st.week} has no Top 25 games on the schedule.` : `Week ${st.week} has no NFL games on the schedule.`}));
   }
-  return sumHTML(v) + `<div class="pk-banners">${bannerHTML(v)}</div>` + noteHTML(v) + `<div class="pk-games">${gamesHTML(v)}</div>` + devNote();
+  // Every game settled: the league's final scoreboard leads, the games under it.
+  const top = v.sum.done ? finalHTML(v) : sumHTML(v);
+  return top + `<div class="pk-banners">${bannerHTML(v)}</div>` + noteHTML(v) + `<div class="pk-games">${gamesHTML(v)}</div>` + devNote();
+}
+// The week's final scoreboard (every game settled): each league member's record for the week, best first, from the
+// picks subscription's table (week.js grades it); the season table is a tap away.
+function finalHTML(v) {
+  const rows = v.snap && Array.isArray(v.snap.rows) ? v.snap.rows : null;
+  const any = rows && rows.some(r => r && (+r.picked > 0 || +r.right > 0));
+  const table = !rows ? ui.skeleton('rows', 4, {label: 'Loading the scoreboard.'})
+    : any ? boardBody('week', rows, st.year, st.week).replace(/^<p class="pk-sh-sub">[\s\S]*?<\/p>/, '')
+    : `<p class="pk-final-none">Nobody picked week ${st.week}.</p>`;
+  return `<section class="card card-hero pk-final" data-enter aria-label="Week ${st.week} final scoreboard">`
+    + `<div class="pk-final-top"><p class="card-ovl">Week ${st.week} · ${v.sum.n} ${v.sum.n === 1 ? 'game' : 'games'} final</p>${ui.pill('Final', {tone: 'gold', icon: 'crown'})}</div>`
+    + `<h2 class="pk-final-h">Final scoreboard</h2>`
+    + `<div class="pk-final-list">${table}</div>`
+    + `<button type="button" class="pk-final-more" data-pk-board aria-haspopup="dialog">${ui.icon('list-number')}<span>Season standings</span>${ui.icon('chevron-right', {cls: 'chev'})}</button>`
+    + `</section>`;
 }
 function loadingHTML() {
   return `<div class="card pk-sum is-sk" aria-hidden="true"><div class="pk-tiles"><span class="sk sk-line"></span><span class="sk sk-line"></span><span class="sk sk-line"></span></div></div>`
@@ -1387,7 +1404,7 @@ function shapeKey() {
   if (!st || !st.week) return 'none|' + (st && st.err ? 'err' : '');
   const v = vm();
   if (!v.board) return 'load|' + (st.err ? 'err' : '');
-  return `${st.year}-${st.week}|${v.games.map(g => g.id + ':' + slotOf(g).key).join(',')}|${v.current}`;
+  return `${st.year}-${st.week}|${v.games.map(g => g.id + ':' + slotOf(g).key).join(',')}|${v.current}|${v.sum.done}`;
 }
 function markShown(root) {
   if (!st) return;
@@ -1414,6 +1431,13 @@ function patch({pop = null, all = false, committed = null} = {}) {
     if (v.locked && !v.lockPending) { lockPop = true; st.lockPop = 0; } else if (Date.now() - st.lockPop > 10e3) st.lockPop = 0;
   }
   const el = st.el;
+  const fin = el.querySelector('.pk-final');
+  if (fin) {
+    const t = document.createElement('template');
+    t.innerHTML = finalHTML(v);
+    const html = t.content.firstElementChild.innerHTML;
+    if (fin._html !== html) { fin.innerHTML = html; fin._html = html; ui.hydrate(fin); }
+  }
   const sum = el.querySelector('.pk-sum');
   if (sum) {
     const t = document.createElement('template');
