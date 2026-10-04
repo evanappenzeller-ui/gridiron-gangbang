@@ -515,12 +515,15 @@ export async function runChecks() {
     // Mason's older phone (a second row, no score today) doesn't make him "still to play": he played on the other.
     const sp2 = sp.concat([{id: 'fake-6', nick: 'Mason', days: {[S - 1]: Object.assign({}, sp[2].days[S - 1])}, total: 900, played: 1, last: S - 1}]);
     const s2 = daily.social(sp2, S);
+    // ... and every board shows him once (both phones' days put together)
+    const once = ['today', 'season', 'streaks'].every(m => daily.boardRows(m, sp2, S).filter(r => r.managerId === 'mason').length <= 1)
+      && daily.boardRows('season', sp2, S).filter(r => r.managerId === 'mason').length === 1;
     const st = daily.streakOf(players[2]);
     const pass = s.played.length === 3 && s.regulars === 4 && s.leader === 'Someone'
-      && s.stillToPlay.map(x => x.id).join() === 'fake-4' && s2.stillToPlay.map(x => x.id).join() === 'fake-4' && s2.regulars === 4
+      && s.stillToPlay.map(x => x.id).join() === 'fake-4' && s2.stillToPlay.map(x => x.id).join() === 'fake-4' && s2.regulars === 4 && once
       && (P < 3 || (st.current === 3 && st.best === 3))
       && daily.streakOf(players[3]).current === (P > 1 ? 1 : 0);
-    return {pass, detail: `day ${S}: played ${s.played.length}, regulars ${s.regulars}, leader ${s.leader}, still ${s.stillToPlay.map(x => x.name).join(', ')}; Mason streak ${st.current}/${st.best}`};
+    return {pass, detail: `day ${S}: played ${s.played.length}, regulars ${s.regulars}, leader ${s.leader}, still ${s.stillToPlay.map(x => x.name).join(', ')}; one row a member ${once}; Mason streak ${st.current}/${st.best}`};
   });
 
   // 6. holders

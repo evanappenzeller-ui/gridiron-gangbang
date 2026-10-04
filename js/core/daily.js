@@ -1072,11 +1072,36 @@ function tieRanks(rows, key) {
   return rows;
 }
 
+// One board row per league member: a member who has played on more than one phone or browser (Safari and the
+// home-screen app are two) has a doc from each. Their days are put together (a day on both keeps the higher score),
+// so totals, streaks and today's score are the member's own; the row stands as this phone's doc when it is one of
+// them, else the most recent. Docs with no member stay as they are.
+function byMember(players) {
+  const groups = new Map(), out = [];
+  players.forEach(p => {
+    const m = managerFor(p);
+    if (!m) { out.push(p); return; }
+    if (!groups.has(m)) { groups.set(m, []); out.push(m); }
+    groups.get(m).push(p);
+  });
+  return out.map(x => {
+    if (typeof x !== 'string') return x;
+    const rows = groups.get(x);
+    if (rows.length === 1) return rows[0];
+    const rep = rows.find(r => r.id === LB.uid) || rows.slice().sort((a, b) => (b.last || 0) - (a.last || 0))[0];
+    const days = {};
+    rows.forEach(r => Object.entries(r.days || {}).forEach(([n, d]) => { if (d && (!days[n] || (Number(d.p) || 0) > (Number(days[n].p) || 0))) days[n] = d; }));
+    const keys = Object.keys(days).map(Number), vals = Object.values(days);
+    return Object.assign({}, rep, {days, total: vals.reduce((t, d) => t + (Number(d.p) || 0), 0), played: vals.length, last: keys.length ? Math.max(...keys) : 0});
+  });
+}
+
 // Board rows exactly as the old leaderboardHTML built them (same sub strings, sort and tie ranks),
 // plus {rank, me, managerId, move}. mode: 'today' | 'season' | 'streaks' (default LB.mode).
 // players defaults to LB.players (pass a list to compute rows for something else); pnum defaults to today; day (today's
 // mode only) defaults to puzzle day pnum's entry.
 export function boardRows(mode = LB.mode, players = LB.players, pnum = PNUM, day = dayFor(pnum)) {
+  players = byMember(players);
   if (mode === 'streaks') {
     const rows = players.map(p => {
       const s = streakOf(p);
