@@ -1644,11 +1644,12 @@ export function enableSwipeBack() {
 // ============================================================================ Global delegation
 document.addEventListener('click', e => {
   if (e.defaultPrevented) return;
-  const t = e.target && e.target.closest && e.target.closest('[data-you], [data-nav-back], [data-back], [data-nav-action], [data-screen-retry], a[href^="#/"], [data-nav]');
+  const t = e.target && e.target.closest && e.target.closest('[data-you], [data-settings], [data-nav-back], [data-back], [data-nav-action], [data-screen-retry], a[href^="#/"], [data-nav]');
   if (!t) return;
   // The avatar button in every tab root's large title (views/you.js youButtonHTML): the You sheet. you.js is already
   // loaded (the button's own view imported it), so this resolves in a microtask, still inside the tap.
   if (t.matches('[data-you]')) { e.preventDefault(); openYou(); return; }
+  if (t.matches('[data-settings]')) { e.preventDefault(); youMod().then(m => m.openSettingsSheet(), err => console.error(err)); return; }
   if (t.matches('[data-nav-back], [data-back]')) { e.preventDefault(); back(); return; }
   if (t.matches('[data-screen-retry]')) { const s = secMap.get(t.closest('section.screen')); if (s) retryScreen(s); return; }
   if (t.matches('[data-nav-action]')) {

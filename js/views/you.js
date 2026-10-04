@@ -28,6 +28,10 @@ export function youButtonHTML() {
   const me = data.me();
   return `<button type="button" class="c-you-btn" data-you data-me="${esc(String(me || ''))}" aria-label="You and settings">${youInner(me)}</button>`;
 }
+/** The gear beside the avatar (Puzzles): app.js opens the Settings sheet on [data-settings]. */
+export function settingsButtonHTML() {
+  return `<button type="button" class="c-gear-btn" data-settings aria-label="Settings">${ui.icon('gear', {size: 22})}</button>`;
+}
 /** Redraws the avatar buttons under root that show someone else (app.js calls it on 'me'); a visible one pops in. */
 export function patchYouButtons(root = document) {
   const me = data.me(), key = String(me || '');
@@ -126,15 +130,51 @@ function refreshInstall() {
 addEventListener('beforeinstallprompt', () => setTimeout(refreshInstall, 0));
 addEventListener('appinstalled', () => setTimeout(refreshInstall, 0));
 
+// Settings (the gear on Puzzles): the theme first, then feel, data and about. The same rows as the You sheet's.
+function settingsBody() {
+  const MOTION = "Motion follows your phone's Reduce Motion setting.";
+  const feel = ui.HAPTICS_SUPPORTED
+    ? sec('Feel', ui.group(ui.row({lead: `<span class="c-ys-ic">${ui.icon('pulse', {size: 20})}</span>`, title: 'Haptics', trail: ui.switchCtl({name: 'haptics', checked: ui.lsGet('gg-haptics') !== '0', label: 'Haptics'})})), MOTION)
+    : sec('Feel', ui.group(ui.row({lead: `<span class="c-ys-ic">${ui.icon('pulse', {size: 20})}</span>`, title: MOTION, cls: 'c-ys-wrap'})));
+  return sec('Look', ui.group(ui.row({lead: `<span class="c-ys-ic">${ui.icon('sparkle', {size: 20})}</span>`, title: 'Theme', sub: themeName(),
+      attrs: {'data-theme-pick': ''}, cls: 'c-ys-act', chevron: true})), 'Retro Arcade, creative looks and all 32 NFL teams.')
+    + sec('You', ui.group(ui.row({lead: `<span class="c-ys-ic">${ui.icon('person', {size: 20})}</span>`, title: 'Which one are you?', sub: data.me() ? data.name(data.me()) : 'Not picked yet',
+      attrs: {'data-open-you': ''}, cls: 'c-ys-act', chevron: true})))
+    + feel
+    + sec('Data', ui.group(
+      ui.row({lead: `<span class="c-ys-ic">${ui.icon('calendar', {size: 20})}</span>`, title: dataLine(), cls: 'c-ys-dataline'})
+      + ui.row({lead: `<span class="c-ys-ic">${ui.icon('arrow-down', {size: 20})}</span>`, title: 'Check for new week', attrs: {'data-reload': ''}, cls: 'c-ys-act'})))
+    + `<div class="c-ys-install">${installHTML()}</div>`
+    + sec('About', ui.group(ui.row({lead: `<span class="c-ys-ic">${ui.icon('gear', {size: 20})}</span>`, title: `Version ${APP_VERSION}`})));
+}
+let setSheet = null;
+export function openSettingsSheet() {
+  if (setSheet && setSheet.open) return setSheet;
+  const s = ui.openSheet({title: 'Settings', body: settingsBody(), cls: 'sh-you sh-settings', detents: ['medium', 'large'], onClose: () => { if (setSheet === s) setSheet = null; }});
+  setSheet = s;
+  wireSheet(s);
+  s.body.addEventListener('click', e => {
+    if (!e.target.closest('[data-open-you]')) return;
+    s.close();
+    setTimeout(openYouSheet, 260);
+  });
+  return s;
+}
+
 export function openYouSheet() {
   if (youSheet && youSheet.open) return youSheet;
   let unsub = () => {};
   const s = ui.openSheet({title: 'You', body: youBody(), cls: 'sh-you', detents: ['medium', 'large'], onClose: () => { unsub(); if (youSheet === s) youSheet = null; }});
   youSheet = s;
+  wireSheet(s);
   unsub = data.subscribe(type => {
     if (type === 'me') patchGrid(s);
     if (type === 'data') { const t = s.body.querySelector('.c-ys-dataline .row-title'); if (t) t.textContent = dataLine(); }
   });
+  return s;
+}
+// The rows both sheets share: pick who you are, theme, check for new week, install, haptics.
+function wireSheet(s) {
   s.body.addEventListener('click', async e => {
     const me = e.target.closest('[data-me]');
     if (me) {
@@ -183,7 +223,6 @@ export function openYouSheet() {
     ui.lsSet('gg-haptics', e.detail.value ? '1' : '0');
     if (e.detail.value) ui.haptic('light');
   });
-  return s;
 }
 
 // ============================================================================ Streak sheet

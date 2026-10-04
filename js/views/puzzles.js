@@ -11,7 +11,7 @@ import * as data from '../core/data.js';
 import * as daily from '../core/daily.js';
 import {mountBoard, streakPillHTML, stepParts, zeroParts, gradeGold, stepIcon, whenVisible, countdownHTML,
   msToMidnight, ensureDefs, ringHTML, maxPts, dayLabel, itemCount} from './board.js';
-import {youButtonHTML, openStreakSheet} from './you.js';
+import {youButtonHTML, settingsButtonHTML, openStreakSheet} from './you.js';
 
 const esc = data.esc;
 const nf = n => data.nf(n);
@@ -67,8 +67,8 @@ const pillSig = s => (s ? [s.current, s.best, s.atRisk].join('|') : '');
 function trailHTML() {
   const s = pillState();
   return `<span class="c-spill-slot" data-sig="${pillSig(s)}">${s ? streakPillHTML(s, {attrs: 'data-streak'}) : ''}</span>`
-    // Your avatar button: app.js opens the You sheet on [data-you] and redraws it after a 'me' change.
-    + youButtonHTML();
+    // The gear (Settings) and your avatar button: app.js opens the sheets on [data-settings] / [data-you].
+    + settingsButtonHTML() + youButtonHTML();
 }
 
 // ============================================================================ Markup: hero
