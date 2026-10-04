@@ -297,13 +297,14 @@ function rowSig(r, mode) {
 // the five parts, e.g. "College 2/2, faces 1/2, ID on clue 3") gets the same compact parts. The v1 line ("College 4/5,
 // grid 7/9, ID on clue 2") is shown as it is.
 const SUB_PARTS = [
-  [/^College (\d+\/\d+)$/, m => `College ${m[1]}`],
-  [/^faces (\d+\/\d+)$/, m => `Faces ${m[1]}`],
-  [/^ID on clue (\d+)$/, m => `Clue ${m[1]}`],
-  [/^no ID$/, () => 'No ID'],
-  [/^path on guess (\d+)$/, m => `Path ${m[1]}/3`],
-  [/^no path$/, () => 'No path'],
-  [/^grid (\d+\/\d+)$/, m => `Grid ${m[1]}`]
+  [/^College (\d+\/\d+)$/i, m => `College ${m[1]}`],
+  [/^faces (\d+\/\d+)$/i, m => `Faces ${m[1]}`],
+  [/^ID on clue (\d+)$/i, m => `Clue ${m[1]}`],
+  [/^no ID$/i, () => 'No ID'],
+  [/^path on guess (\d+)$/i, m => `Path ${m[1]}/3`],
+  [/^no path$/i, () => 'No path'],
+  [/^grid (\d+\/\d+)$/i, m => `Grid ${m[1]}`],
+  [/^plays (\d+\/\d+)$/i, m => `Plays ${m[1]}`]
 ];
 const V1_SUB = /^College \d+\/\d+, grid \d+\/\d+, (?:ID on clue \d+|no ID)$/;
 function shortSub(sub) {
