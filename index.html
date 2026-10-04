@@ -25,6 +25,7 @@
 <link rel="modulepreload" href="js/app.js">
 <link rel="modulepreload" href="js/core/ui.js">
 <link rel="modulepreload" href="js/core/data.js">
+<script src="js/themes.js"></script>
 <link rel="stylesheet" href="css/tokens.css">
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/components.css">
@@ -54,6 +55,7 @@
 <link rel="stylesheet" href="css/views/lay.css">
 <link rel="stylesheet" href="css/views/plays.css">
 <link rel="stylesheet" href="css/views/_kit.css">
+<link rel="stylesheet" href="css/themes.css">
 </head>
 <body>
 <!--
@@ -138,6 +140,7 @@
   <div class="ts-lights" aria-hidden="true"><i></i><i></i></div>
   <img class="ts-logo" src="img/logo.webp" alt="" width="720" height="720" decoding="async" draggable="false">
   <p class="ts-press" aria-hidden="true">Tap to start</p>
+  <button type="button" class="ts-theme" data-ts-theme><span class="ts-theme-sw" style="background:var(--tint)" aria-hidden="true"></span>Change theme</button>
   <p class="ts-foot" aria-hidden="true">Gridiron Gangbang &middot; Est. 2021</p>
   <div class="ts-flash" aria-hidden="true"></div>
 </div>
@@ -196,8 +199,11 @@
     t.classList.add('is-out');
     setTimeout(function () { t.remove(); }, 700);
   };
+  // "Change theme": the theme picker over the title screen (js/themes.js); the tap doesn't start the app.
+  var th = t.querySelector('[data-ts-theme]');
+  if (th) th.addEventListener('click', function (e) { e.stopPropagation(); if (window.GGTheme) window.GGTheme.picker(); });
   t.addEventListener('click', go);
-  t.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+  t.addEventListener('keydown', function (e) { if (e.target !== t) return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
   try { t.focus({preventScroll: true}); } catch (_) {}
 })();
 </script>

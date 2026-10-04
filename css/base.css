@@ -242,7 +242,7 @@ html { font-synthesis: none; } /* the pixel faces have one weight: never smear t
   position: fixed; inset: 0; z-index: 90;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   padding: env(safe-area-inset-top, 0px) 24px env(safe-area-inset-bottom, 0px);
-  background: radial-gradient(120% 70% at 50% 0%, #1B3F94 0%, #0D2152 38%, #070E22 72%) #070E22;
+  background: var(--title-bg, radial-gradient(120% 70% at 50% 0%, #1B3F94 0%, #0D2152 38%, #070E22 72%) #070E22);
   color: #fff; cursor: pointer; overflow: hidden; outline: none;
   -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
 }

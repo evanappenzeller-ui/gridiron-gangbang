@@ -1,0 +1,92 @@
+/* ---------------------------------------------------------------- Shared looks (hand-written: tools/themes-shared.css) */
+/* Every non-retro theme: Barlow Condensed in place of the pixel faces, sized up to sit where they did. */
+:root[data-skin] { --hard-shadow-s: var(--hard-shadow, 2px 2px 0 rgba(0,0,0,.6)); }
+:root[data-skin] .lt-title { font-size: 34px; line-height: 38px; letter-spacing: .01em; }
+:root[data-skin] .sh > h2, :root[data-skin] .sh > h3 { font-size: 21px; line-height: 26px; letter-spacing: .02em; }
+:root[data-skin] .nav-title { font-size: 18px; letter-spacing: .04em; }
+:root[data-skin] .tab-lb { font-size: 12px; letter-spacing: .06em; }
+:root[data-skin] .lv-head, :root[data-skin] .pk-final-h { font-size: 24px; }
+:root[data-skin] .lt-title, :root[data-skin] .sh > h2, :root[data-skin] .sh > h3 { text-shadow: var(--hard-shadow-s); }
+
+/* Star layers (data-stars) */
+:root[data-stars="none"] { --stars: linear-gradient(transparent, transparent); }
+:root[data-stars="more"] {
+  --stars: radial-gradient(1.5px 1.5px at 14% 6%, #fff 98%, transparent), radial-gradient(1px 1px at 22% 14%, rgba(255,255,255,.7) 98%, transparent),
+    radial-gradient(1.5px 1.5px at 72% 3%, #FFE07A 98%, transparent), radial-gradient(1px 1px at 63% 12%, rgba(255,255,255,.6) 98%, transparent),
+    radial-gradient(2px 2px at 88% 11%, rgba(182,156,255,.9) 98%, transparent), radial-gradient(1px 1px at 41% 9%, rgba(156,196,255,.8) 98%, transparent),
+    radial-gradient(1px 1px at 5% 19%, rgba(255,255,255,.6) 98%, transparent), radial-gradient(1.5px 1.5px at 94% 22%, rgba(255,255,255,.7) 98%, transparent),
+    radial-gradient(1px 1px at 33% 25%, rgba(255,255,255,.5) 98%, transparent), radial-gradient(1px 1px at 80% 30%, rgba(156,196,255,.6) 98%, transparent);
+}
+:root[data-stars="snow"] {
+  --stars: radial-gradient(2px 2px at 10% 5%, #fff 98%, transparent), radial-gradient(2.5px 2.5px at 27% 13%, rgba(255,255,255,.8) 98%, transparent),
+    radial-gradient(2px 2px at 48% 4%, rgba(255,255,255,.9) 98%, transparent), radial-gradient(3px 3px at 66% 16%, rgba(255,255,255,.7) 98%, transparent),
+    radial-gradient(2px 2px at 85% 8%, #fff 98%, transparent), radial-gradient(2.5px 2.5px at 93% 24%, rgba(255,255,255,.6) 98%, transparent),
+    radial-gradient(2px 2px at 38% 27%, rgba(255,255,255,.6) 98%, transparent), radial-gradient(2px 2px at 6% 30%, rgba(255,255,255,.5) 98%, transparent);
+}
+:root[data-stars="grid"] {
+  --stars: repeating-linear-gradient(0deg, rgba(0,240,255,.05) 0 1px, transparent 1px 32px), repeating-linear-gradient(90deg, rgba(0,240,255,.05) 0 1px, transparent 1px 32px);
+}
+
+/* Futuristic: hard edges and uppercase, wide-tracked display type */
+:root[data-radius="sharp"] { --r-badge: 2px; --r-seg: 3px; --r-thumb: 2px; --r-field: 2px; --r-cell: 2px; --r-group: 3px; --r-card: 3px; --r-hero: 4px; --r-sheet: 8px; }
+:root[data-font="future"] .lt-title, :root[data-font="future"] .sh > h2, :root[data-font="future"] .nav-title { letter-spacing: .12em; }
+:root[data-font="future"] .card-hero { box-shadow: var(--pixel-shadow), inset 0 0 0 1px rgba(0,240,255,.35); }
+
+/* Old School: italic serif headings in sentence case, like a printed program */
+:root[data-font="serif"] .lt-title { text-transform: none; font-style: italic; font-weight: 700; font-size: 34px; }
+:root[data-font="serif"] .sh > h2, :root[data-font="serif"] .sh > h3, :root[data-font="serif"] .nav-title { text-transform: none; font-style: italic; font-weight: 700; }
+:root[data-font="serif"] .tab-lb { text-transform: none; font-size: 11px; letter-spacing: .02em; }
+
+/* Light themes (Daytime, Old School): dark rings and selections, no star layer on the title screen */
+:root[data-light] { --you-ring: var(--ink); --clear-x: #fff; }
+:root[data-light] .chip[aria-pressed="true"], :root[data-light] .sheet .chip[aria-pressed="true"], :root[data-light] .v-moves .mv-all[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+:root[data-light] .card, :root[data-light] .group, :root[data-light] .tile { box-shadow: var(--pixel-shadow), inset 0 0 0 1px rgba(0,0,0,.05); }
+:root[data-light] #title .ts-stars, :root[data-light] #title .ts-lights { display: none; }
+:root[data-light] #title .ts-foot { color: var(--ink-3); }
+
+/* ---------------------------------------------------------------- Theme picker (js/themes.js) */
+.ts-theme {
+  position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 52px); transform: translateX(-50%);
+  display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px; border: 0; border-radius: 999px;
+  background: rgba(0,0,0,.42); color: #fff; box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.35);
+  font: 600 15px/20px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif; cursor: pointer;
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+}
+.ts-theme svg { width: 18px; height: 18px; }
+.ts-theme-sw { width: 16px; height: 16px; border-radius: 50%; box-shadow: 0 0 0 2px rgba(255,255,255,.8); }
+
+#theme-picker {
+  position: fixed; inset: 0; z-index: 100; display: flex; flex-direction: column;
+  background: var(--bg); color: var(--ink); font-family: var(--font-text);
+  padding-top: env(safe-area-inset-top, 0px);
+  animation: tp-in 220ms cubic-bezier(.22,1,.36,1);
+}
+@keyframes tp-in { from { transform: translateY(24px); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { #theme-picker { animation: none; } }
+.tp-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px 10px; border-bottom: 1px solid var(--separator); }
+.tp-head h2 { margin: 0; font: 700 22px/28px var(--font-text); }
+.tp-done { min-height: 40px; padding: 0 18px; border: 0; border-radius: 999px; background: var(--tint); color: var(--on-tint); font: 700 16px/20px var(--font-text); cursor: pointer; }
+.tp-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 4px 16px calc(env(safe-area-inset-bottom, 0px) + 24px); }
+.tp-sec { margin: 18px 0 8px; font: 600 13px/16px var(--font-text); text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); }
+.tp-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.tp-grid.is-nfl { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.tp-t {
+  position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 8px; min-width: 0; padding: 8px; border: 0; border-radius: 12px;
+  background: var(--surface-1); color: var(--ink); text-align: left; cursor: pointer;
+  box-shadow: inset 0 0 0 1px var(--separator);
+}
+.tp-t[aria-checked="true"] { box-shadow: inset 0 0 0 2.5px var(--tint); }
+.tp-prev { position: relative; height: 64px; border-radius: 8px; overflow: hidden; }
+.tp-prev > i { position: absolute; display: block; border-radius: 4px; }
+.tp-prev .p-card { left: 8px; right: 8px; top: 10px; height: 26px; }
+.tp-prev .p-bar { left: 14px; top: 17px; height: 6px; width: 44%; border-radius: 3px; }
+.tp-prev .p-dot { right: 16px; top: 16px; width: 14px; height: 14px; border-radius: 50%; }
+.tp-prev .p-btn { left: 8px; bottom: 8px; height: 12px; width: 40%; border-radius: 6px; }
+.tp-prev img { position: absolute; right: 6px; bottom: 4px; width: 30px; height: 30px; object-fit: contain; }
+.tp-nm { font: 600 14px/18px var(--font-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tp-note { margin-top: -6px; font: 400 12px/16px var(--font-text); color: var(--ink-3); }
+.is-nfl .tp-prev { height: 54px; }
+.is-nfl .tp-nm { font-size: 12px; line-height: 16px; white-space: normal; }
+.tp-check { position: absolute; top: 12px; left: 12px; display: none; width: 22px; height: 22px; border-radius: 50%; background: var(--tint); color: var(--on-tint); place-items: center; }
+.tp-check svg { width: 14px; height: 14px; stroke-width: 3; }
+.tp-t[aria-checked="true"] .tp-check { display: grid; }

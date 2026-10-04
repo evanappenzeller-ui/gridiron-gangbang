@@ -73,6 +73,12 @@ function installHTML() {
     : [['iPhone', 'Share, then Add to Home Screen.'], ['Android', '⋮ menu, then Install app.']];
   return sec('Install', ui.group(lines.map(([k, v]) => ui.row({lead: `<span class="c-ys-ic">${ui.icon(k === 'iPhone' ? 'share' : 'plus', {size: 20})}</span>`, title: v, sub: k})).join('')), '', 'data-install-sec');
 }
+// The theme in use (js/themes.js), for the Look row.
+function themeName() {
+  const T = window.GGTheme, id = T && T.get();
+  const t = T && T.list.find(x => x.id === id);
+  return t ? t.name : 'Retro Arcade';
+}
 function youBody() {
   const L = data.DATA && data.DATA.league ? data.DATA.league.name : 'Gridiron Gangbang';
   const sp = data.span;
@@ -84,6 +90,8 @@ function youBody() {
     : sec('Feel', ui.group(ui.row({lead: `<span class="c-ys-ic">${ui.icon('pulse', {size: 20})}</span>`, title: MOTION, cls: 'c-ys-wrap'})));
   return sec('Which one are you?', gridHTML(), 'Only saved on this phone. Used to highlight you.')
     + sec('Leaderboard', ui.group(nickRow(), {cls: 'c-ys-nickg'}))
+    + sec('Look', ui.group(ui.row({lead: `<span class="c-ys-ic">${ui.icon('sparkle', {size: 20})}</span>`, title: 'Theme', sub: themeName(),
+      attrs: {'data-theme-pick': ''}, cls: 'c-ys-act', chevron: true})), 'Also on the title screen when the app opens.')
     + feel
     + sec('Data', ui.group(
       ui.row({lead: `<span class="c-ys-ic">${ui.icon('calendar', {size: 20})}</span>`, title: dataLine(), cls: 'c-ys-dataline'})
@@ -133,6 +141,13 @@ export function openYouSheet() {
       if (me.dataset.me === data.meRaw()) return;
       ui.haptic('selection');
       data.setMe(me.dataset.me);
+      return;
+    }
+    const tp = e.target.closest('[data-theme-pick]');
+    if (tp && window.GGTheme) {
+      await window.GGTheme.picker();
+      const sub = tp.querySelector('.row-sub');
+      if (sub) sub.textContent = themeName();
       return;
     }
     const rl = e.target.closest('[data-reload]');

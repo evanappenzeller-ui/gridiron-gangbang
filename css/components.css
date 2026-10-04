@@ -523,7 +523,7 @@ button.card, a.card { width: 100%; text-align: left; color: inherit; }
   font-size: calc(var(--sz) * .38); letter-spacing: 0;
   --mc-ring: transparent;
 }
-.av-you   { box-shadow: inset 0 0 0 1.5px var(--mc-ring), 0 0 0 2px var(--bg), 0 0 0 4px #fff; }
+.av-you   { box-shadow: inset 0 0 0 1.5px var(--mc-ring), 0 0 0 2px var(--bg), 0 0 0 4px var(--you-ring, #fff); }
 .av-champ { box-shadow: inset 0 0 0 1.5px var(--mc-ring), 0 0 0 2px var(--bg), 0 0 0 4px var(--gold); }
 .av-crown {
   position: absolute;
@@ -535,7 +535,7 @@ button.card, a.card { width: 100%; text-align: left; color: inherit; }
 }
 .stack { display: inline-flex; align-items: center; --stack-ring: var(--bg); }
 .stack > .av, .stack > .stack-more { box-shadow: 0 0 0 2px var(--stack-ring); }
-.stack > .av.av-you { box-shadow: 0 0 0 2px var(--stack-ring), 0 0 0 3.5px #fff; }
+.stack > .av.av-you { box-shadow: 0 0 0 2px var(--stack-ring), 0 0 0 3.5px var(--you-ring, #fff); }
 .stack > * + * { margin-left: -8px; }
 .stack-more {
   --sz: 28px;
@@ -844,26 +844,27 @@ button.bug, a.bug { color: var(--ink-3); }
    the shapes and faces. */
 .screen {
   background-color: var(--bg);
+  /* (themes: --stars swaps the star layer, --sky the glow at the top; css/themes.css) */
   background-image:
-    radial-gradient(1.5px 1.5px at 14% 6%, rgba(255,255,255,.55) 98%, transparent),
+    var(--stars, radial-gradient(1.5px 1.5px at 14% 6%, rgba(255,255,255,.55) 98%, transparent),
     radial-gradient(1.5px 1.5px at 72% 3%, rgba(255,224,122,.5) 98%, transparent),
     radial-gradient(1.5px 1.5px at 88% 11%, rgba(255,255,255,.4) 98%, transparent),
-    radial-gradient(1.5px 1.5px at 41% 9%, rgba(156,196,255,.45) 98%, transparent),
-    linear-gradient(180deg, #0F2459 0, rgba(15,36,89,0) 320px);
+    radial-gradient(1.5px 1.5px at 41% 9%, rgba(156,196,255,.45) 98%, transparent)),
+    linear-gradient(180deg, var(--sky, #0F2459) 0, transparent 320px);
   background-repeat: no-repeat;
 }
 /* Large titles and section heads in the arcade face. */
-.lt-title { font: 400 22px/32px var(--font-pixel); text-transform: uppercase; letter-spacing: 0; text-shadow: 3px 3px 0 #000; padding-top: 2px; }
+.lt-title { font: 400 22px/32px var(--font-pixel); text-transform: uppercase; letter-spacing: 0; text-shadow: var(--hard-shadow, 3px 3px 0 #000); padding-top: 2px; }
 .lt-eyebrow { color: var(--gold); }
-.sh > h2, .sh > h3 { font: 400 14px/22px var(--font-pixel); text-transform: uppercase; letter-spacing: 0; text-shadow: 2px 2px 0 #000; }
+.sh > h2, .sh > h3 { font: 400 14px/22px var(--font-pixel); text-transform: uppercase; letter-spacing: 0; text-shadow: var(--hard-shadow-s, 2px 2px 0 #000); }
 .nav-title { font-family: var(--font-pixel); font-size: 11px; text-transform: uppercase; letter-spacing: 0; }
 .group-h, .card-ovl, .ovl { letter-spacing: .08em; }
 /* Cards, groups and tiles sit on a hard shadow with a faint pixel edge. */
 .card, .group, .tile { box-shadow: var(--pixel-shadow), inset 0 0 0 1px rgba(255,255,255,.05); }
 .card > .group, .sheet .group { box-shadow: none; }
 /* Arcade buttons: a bevel under the face that the press pushes into. */
-.btn-primary { box-shadow: 0 4px 0 #3E9A2B; }
-.btn-primary.is-pressed { transform: translateY(3px); box-shadow: 0 1px 0 #3E9A2B; }
+.btn-primary { box-shadow: 0 4px 0 var(--bevel, #3E9A2B); }
+.btn-primary.is-pressed { transform: translateY(3px); box-shadow: 0 1px 0 var(--bevel, #3E9A2B); }
 .btn-secondary { box-shadow: 0 3px 0 rgba(0,0,0,.4); }
 .btn-secondary.is-pressed { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,.4); }
 /* Tab bar labels in the pixel numerals' face, and a squarer active pill. */
