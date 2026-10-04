@@ -166,6 +166,19 @@ export async function pickemChecks(check) {
     return {pass, detail: `all final: week ${w.week}; MNF live: ${live.week}; MNF postponed: ${held.week}; MNF canceled: ${moved.week}; week 4 before kickoff: ${w4.week}; preseason ${pre.week}, postseason ${post.week}, week 18 over ${last.week}`};
   });
 
+  check('College pick\'em week: a finished Saturday stays up through Tuesday; the next week opens Wednesday 12:00 AM ET', () => {
+    const day = 864e5, start = Date.parse('2026-09-29T07:00Z'); // ESPN's college week 6: Tuesday to Monday
+    const cal = [6, 7].map((wk, i) => ({week: wk, start: start + i * 7 * day, end: start + (i + 1) * 7 * day - 1}));
+    const fin = [{state: 'post', final: true, kickoff: new Date('2026-10-03T23:30Z'), home: {}, away: {}}];
+    const b6 = {year: 2026, week: 6, seasontype: 2, weeks: 16, games: fin, cal};
+    const b7 = {year: 2026, week: 7, seasontype: 2, weeks: 16, games: [{state: 'pre', kickoff: new Date('2026-10-10T16:00Z'), home: {}, away: {}}], cal};
+    const at = t => ({cfb: true, at: Date.parse(t)});
+    const rows = [['2026-10-04T16:00Z', 6, 6], ['2026-10-06T23:00Z', 6, 6], ['2026-10-07T03:59Z', 6, 6], ['2026-10-07T04:00Z', 7, 7]];
+    const bad = rows.filter(([t, a, b]) => nfl.pickWeek(b6, 16, at(t)).week !== a || nfl.pickWeek(b7, 16, at(t)).week !== b).map(r => r[0]);
+    if (nfl.pickWeek(b6).week !== 7) bad.push('the NFL rule changed');
+    return {pass: !bad.length, detail: bad.length ? 'wrong week at ' + bad.join(', ') : 'Week 6 stays up Sunday through Tuesday (however ESPN moves), Week 7 from Wednesday 12:00 AM ET; the NFL still moves on when its week is over'};
+  });
+
   // 4. Locks
   check('Lock per game: at its own kickoff (or once ESPN shows it started), not the week\'s', () => {
     const [thu, lon] = nfl.parse(clone(W4)).games;

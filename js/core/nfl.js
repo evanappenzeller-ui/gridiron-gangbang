@@ -21,7 +21,8 @@
 //
 // "This week" for the pick'em (currentWeek): ESPN's current regular-season week, or the next one once every game
 // in it is over (the Tuesday after Monday night already shows next week; a postponed game waits for ESPN). Preseason -> week 1; postseason and
-// offseason -> the last regular-season week (the pick'em is regular season only for now).
+// offseason -> the last regular-season week (the pick'em is regular season only for now). College: a finished
+// week's scoreboard stays up through Tuesday and the next week opens Wednesday 12:00 AM ET (pickWeek).
 //
 // Caches: in memory per week (20 s while a game is live or due to start, 5 min otherwise, for good once every
 // game is over: final or canceled, never postponed or suspended), plus localStorage 'gg-nfl-<year>-w<week>' for
@@ -194,16 +195,39 @@ export function parse(j, want = {}, opts = {}) {
   return {year, week, seasontype, games, weeks: cal.length || opts.weeks || REG_WEEKS, cal};
 }
 
-// The pick'em week for a parsed default scoreboard (see the header).
-export function pickWeek(b, reg = REG_WEEKS) {
+// The pick'em week for a parsed default scoreboard (see the header). cfb: the College pick'em's week runs Wednesday
+// to Tuesday: a finished Saturday stays up (its final scoreboard) through Tuesday, and the next week's picks open
+// Wednesday 12:00 AM ET, whenever ESPN's own calendar moves on.
+export function pickWeek(b, reg = REG_WEEKS, {cfb, at = Date.now()} = {}) {
   const weeks = (b && b.weeks) || reg;
   const year = b && b.year;
   if (!b || !year) return null;
   if (b.seasontype === 1) return {year, week: 1, espnWeek: null, seasontype: 1, weeks, advanced: false};
   if (b.seasontype !== 2 || !b.week) return {year, week: weeks, espnWeek: null, seasontype: b.seasontype, weeks, advanced: false};
   const done = weekOver(b.games); // a postponed game holds the week until ESPN's own calendar moves on
-  const week = done && b.week < weeks ? b.week + 1 : b.week;
+  let week = done && b.week < weeks ? b.week + 1 : b.week;
+  if (cfb) {
+    const e = (b.cal || []).find(x => x.week === b.week);
+    const last = Math.max(0, ...(b.games || []).map(g => toMs(g.kickoff)).filter(isFinite));
+    if (e && b.week > 1 && toMs(at) < wedAfter(e.start - 864e5)) week = b.week - 1; // ESPN moved on before Wednesday
+    else week = done && b.week < weeks && toMs(at) >= wedAfter(last) ? b.week + 1 : b.week;
+  }
   return {year, week, espnWeek: b.week, seasontype: 2, weeks, advanced: week !== b.week};
+}
+// The first Wednesday 12:00 AM US Eastern after time t (ms).
+export function wedAfter(t) {
+  const et = new Intl.DateTimeFormat('en-US', {timeZone: 'America/New_York', year: 'numeric', month: 'numeric', day: 'numeric', weekday: 'short', hour: 'numeric', hourCycle: 'h23'});
+  const parts = x => Object.fromEntries(et.formatToParts(new Date(x)).map(p => [p.type, p.value]));
+  const p = parts(t);
+  for (let d = 0; d <= 8; d++) {
+    // midnight ET of the day d days on: 04:00Z in daylight time, 05:00Z in standard time
+    for (const h of [4, 5]) {
+      const m = Date.UTC(+p.year, +p.month - 1, +p.day + d, h);
+      const q = parts(m);
+      if (q.hour === '0' || q.hour === '00') { if (q.weekday === 'Wed' && m > t) return m; break; }
+    }
+  }
+  return t + 7 * 864e5;
 }
 
 // A game is locked (no picks, no changes) once it has kicked off: its kickoff time has come, or ESPN already
@@ -325,7 +349,7 @@ function makeFeed(cfg) {
       try {
         const b = parse(await getJSON(cfg.base), {}, cfg.opts);
         if (b.seasontype === 2 && okW(b.year, b.week)) putWeek(b.year, b.week, b.games);
-        const v = pickWeek(b, cfg.weeks);
+        const v = pickWeek(b, cfg.weeks, {cfb: !!cfg.opts.cfb});
         if (!v) throw new Error('ESPN sent no season');
         v.stale = false;
         cur = {t: Date.now(), v, games: b.games};
@@ -348,7 +372,7 @@ function makeFeed(cfg) {
     const e = (Array.isArray(saved.cal) ? saved.cal : []).find(x => t >= x.start && t <= x.end);
     if (!e || v.seasontype !== 2) return v;
     const done = lsWeek(v.year, e.week);
-    const week = done && e.week < (v.weeks || cfg.weeks) ? e.week + 1 : e.week;
+    const week = done && !cfg.opts.cfb && e.week < (v.weeks || cfg.weeks) ? e.week + 1 : e.week; // (college: see pickWeek)
     return week > v.week ? Object.assign(v, {week, espnWeek: e.week, advanced: week !== e.week}) : v;
   }
 

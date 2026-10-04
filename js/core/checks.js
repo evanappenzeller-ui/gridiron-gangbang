@@ -812,7 +812,8 @@ export async function runChecks() {
     const days = [daily.DAY, v2, v3, v4].filter((D, k, a) => D && a.indexOf(D) === k);
     for (const D of days) {
       const ex = daily.examplesFor(new Set(), D), n = daily.gridShape(D).n;
-      if (ex.length !== n || n !== (daily.dayVersion(D) >= 3 ? (daily.hasStep('grid', D) ? 2 : 0) : 9)) bad.push(`v${daily.dayVersion(D)} has ${ex.length} examples for ${n} squares`);
+      // (a day whose Grid is in the file has its squares even when Name the Play takes the Grid's turn that day)
+      if (ex.length !== n || n !== (daily.dayVersion(D) >= 3 ? (Array.isArray(D.g) && D.g.length ? 2 : 0) : 9)) bad.push(`v${daily.dayVersion(D)} has ${ex.length} examples for ${n} squares`);
       for (let k = 0; k < n; k++) {
         const {row: r, col: c} = daily.gridSquare(k, D);
         const fits = [];
@@ -932,7 +933,7 @@ export async function runChecks() {
     const log = [
       s1.rows.join() === V1.g.slice(0, 3).join() && s1.cols.join() === V1.g.slice(3, 6).join() && s1.n === 9,
       s3.rows.join() === g[0] && s3.cols.join() === g.slice(1).join() && s3.n === 2 && daily.gridShape(V3) === s3 && Object.isFrozen(s3.cols),
-      daily.gridShape(null).n === 0 && daily.gridShape().n === (daily.dayVersion() >= 3 ? (daily.hasStep('grid') ? 2 : 0) : 9),
+      daily.gridShape(null).n === 0 && daily.gridShape().n === (daily.dayVersion() >= 3 ? (Array.isArray(daily.DAY.g) && daily.DAY.g.length ? 2 : 0) : 9),
       !!sq1 && sq1.r === 0 && sq1.c === 1 && sq1.row === g[0] && sq1.col === g[2] && daily.gridSquare('1', V3).k === 1
         && daily.gridSquare(2, V3) === null && daily.gridSquare(-1, V3) === null && daily.gridSquare(1.5, V3) === null,
       !!sq5 && sq5.r === 1 && sq5.c === 2 && sq5.row === V1.g[1] && sq5.col === V1.g[5],
