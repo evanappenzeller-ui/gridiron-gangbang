@@ -856,35 +856,14 @@ export function morph(fromRect, toEl, {toRect} = {}) {
 
 // ============================================================================ Feedback
 const HAPTIC = {selection: 6, light: 10, medium: 16, success: [10, 50, 16], warning: [18, 40, 18], error: [24, 32, 24], celebrate: [12, 40, 12, 40, 30]};
-const VIBRATE = typeof navigator !== 'undefined' && 'vibrate' in navigator;
-// iPhone (Safari 17.4+): no navigator.vibrate, but toggling an iOS switch control (<input type="checkbox" switch>)
-// from a tap plays the system's Taptic tick. A hidden one, clicked through its label, stands in for vibrate.
-const IOS_SWITCH = !VIBRATE && typeof document !== 'undefined' && (() => { try { return 'switch' in document.createElement('input'); } catch (_) { return false; } })();
-let tick = null;
-function tickOnce() {
-  if (!tick) {
-    tick = document.createElement('label');
-    tick.setAttribute('aria-hidden', 'true');
-    tick.style.cssText = 'position:fixed;left:-100px;top:0;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden';
-    tick.innerHTML = '<input type="checkbox" switch tabindex="-1">';
-    document.body.appendChild(tick);
-  }
-  tick.click();
-}
-// Ticks per pattern on iPhone (a tick is one fixed tap): success and errors get two, a celebration three.
-const TICKS = {success: 2, warning: 2, error: 2, celebrate: 3};
-/** true when this phone can play haptics (vibrate, or the iPhone switch tick); the You sheet hides the switch otherwise. */
-export const HAPTICS_SUPPORTED = VIBRATE || IOS_SWITCH;
+/** true when navigator.vibrate exists (the You sheet hides the Haptics switch otherwise). */
+export const HAPTICS_SUPPORTED = typeof navigator !== 'undefined' && 'vibrate' in navigator;
 /** Haptic pattern (spec 5.7). Only inside user gestures, only when gg-haptics isn't '0'. */
 export function haptic(kind = 'light') {
   if (!HAPTICS_SUPPORTED) return;
   if (lsGet('gg-haptics') === '0') return;
   if (navigator.userActivation && !navigator.userActivation.isActive) return;
-  if (VIBRATE) { try { navigator.vibrate(HAPTIC[kind] || 10); } catch (_) {} return; }
-  try {
-    tickOnce();
-    for (let i = 1; i < (TICKS[kind] || 1); i++) setTimeout(() => { try { tickOnce(); } catch (_) {} }, 90 * i);
-  } catch (_) {}
+  try { navigator.vibrate(HAPTIC[kind] || 10); } catch (_) {}
 }
 
 function layer(id) {

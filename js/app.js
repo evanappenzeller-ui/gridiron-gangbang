@@ -2,8 +2,8 @@
 // Owner: foundation (shell). Spec 3.2-3.5, 5.2, 11, 12; the five tabs of the tabs-v4 contract.
 //
 // TABS (id → root route · root view): puzzles /puzzles · puzzles, pickem /pickem · pickem, matchup /matchup · rivals,
-//   league /league/standings · league (Standings, Trophies, Records, Shame and Draft: the old Draft tab's /draft links
-//   redirect to /league/draft), lay /lay · lay (the weekly parlay). The app opens on Puzzles (HOME): it is the history base,
+//   league /league/standings · league, draft /draft · moves, lay /lay · lay (the weekly parlay; the tab bar scrolls
+//   sideways past the fifth tab). The app opens on Puzzles (HOME): it is the history base,
 //   covers (/puzzles/play/<slug>, /puzzles/results) present over it, and Back from another tab's root lands on it.
 //   Every root view draws its own large title with youButtonHTML() (views/you.js) in the trailing slot; a tap on any
 //   [data-you] opens the You sheet (delegated here). Tab badges: see "Tab badges" below (root views export badge()).
@@ -34,7 +34,6 @@ import * as ui from './core/ui.js';
 import * as data from './core/data.js';
 import * as daily from './core/daily.js';
 import {needsWelcome, showWelcome} from './views/welcome.js';
-import {setupPullToRefresh} from './core/ptr.js';
 
 export const APP_VERSION = '1.0';
 
@@ -56,15 +55,15 @@ export const REGISTRY = {
   lay: () => import('./views/lay.js'),
   _kit: () => import('./views/_kit.js')
 };
-export const TABS = ['puzzles', 'pickem', 'lay', 'matchup', 'league'];
+export const TABS = ['puzzles', 'pickem', 'lay', 'matchup', 'league', 'draft'];
 const HOME = 'puzzles'; // the tab the app opens on: the history base, where covers present, where Back from a root lands
-const TAB_VIEW = {puzzles: 'puzzles', pickem: 'pickem', matchup: 'rivals', league: 'league', lay: 'lay'}; // root view ids
-const ROOTS = {puzzles: '/puzzles', pickem: '/pickem', matchup: '/matchup', league: '/league/standings', lay: '/lay'};
-const TAB_TITLES = {puzzles: 'Puzzles', pickem: "Pick'em", matchup: 'Matchup', league: 'League', lay: 'The Lay'};
+const TAB_VIEW = {puzzles: 'puzzles', pickem: 'pickem', matchup: 'rivals', league: 'league', draft: 'moves', lay: 'lay'}; // root view ids
+const ROOTS = {puzzles: '/puzzles', pickem: '/pickem', matchup: '/matchup', league: '/league/standings', draft: '/draft', lay: '/lay'};
+const TAB_TITLES = {puzzles: 'Puzzles', pickem: "Pick'em", matchup: 'Matchup', league: 'League', draft: 'Draft', lay: 'The Lay'};
 // Old bare hashes (#daily, #records...) from the first app. Null prototype: '#constructor' is not a legacy hash.
-const LEGACY = Object.assign(Object.create(null), {daily: '/puzzles', records: '/league/records', trophies: '/league/trophies', standings: '/league/standings', rivals: '/matchup', moves: '/league/draft'});
+const LEGACY = Object.assign(Object.create(null), {daily: '/puzzles', records: '/league/records', trophies: '/league/trophies', standings: '/league/standings', rivals: '/matchup', moves: '/draft'});
 const PUZZLES = ['college', 'silhouette', 'mystery', 'journey', 'grid', 'plays']; // every day's steps are some of these (daily.SLUGS)
-const LEAGUE_SEGS = ['standings', 'trophies', 'records', 'shame', 'draft'];
+const LEAGUE_SEGS = ['standings', 'trophies', 'records', 'shame'];
 const BAD_LINK = "That link didn't lead anywhere.";
 // "evan-vs-mason" → {a, b} (strings, not validated: the Matchup view checks them), else null.
 const pairOf = s => { const i = s.indexOf('-vs-'); return i > 0 && i + 4 < s.length ? {a: s.slice(0, i), b: s.slice(i + 4)} : null; };
@@ -99,15 +98,13 @@ function matchSegs(p, q) {
       if (n === 1) return {redirect: '/league/standings'};
       if (n === 2 && LEAGUE_SEGS.includes(b)) return R(TAB_VIEW.league, 'root', 'league', {seg: b});
       if (n === 3 && b === 'records') return R(TAB_VIEW.league, 'root', 'league', {seg: 'records', focus: c});
-      // Draft is League's fifth segment (views/league-draft.js): /league/draft[/trades|/repeats|/<year>], ?m=<manager>.
-      if (n === 3 && b === 'draft' && (c === 'trades' || c === 'repeats')) return R(TAB_VIEW.league, 'root', 'league', {seg: 'draft', sub: c});
-      if (n === 3 && b === 'draft' && yr(c) != null) return R(TAB_VIEW.league, 'root', 'league', {seg: 'draft', sub: 'drafts', year: yr(c)});
       return null;
     case 'draft': {
-      // The Draft tab became League's Draft segment: its links keep working.
-      if (n === 1) return {redirect: '/league/draft'};
-      if (n === 2 && (b === 'trades' || b === 'repeats')) return {redirect: '/league/draft/' + b};
-      return n === 2 && yr(b) != null ? {redirect: '/league/draft/' + b} : null;
+      if (n === 1) return R('moves', 'root', 'draft', {seg: 'drafts'});
+      if (n === 2 && b === 'trades') return R('moves', 'root', 'draft', {seg: 'trades'});
+      if (n === 2 && b === 'repeats') return R('moves', 'root', 'draft', {seg: 'repeats'});
+      const y = n === 2 ? yr(b) : null;
+      return y != null ? R('moves', 'root', 'draft', {seg: 'drafts', year: y}) : null;
     }
     case 'lay':
       // The Lay: the weekly 12-leg parlay (data/lay.json).
@@ -137,9 +134,9 @@ function matchSegs(p, q) {
       if (n === 3 && b === 'records') return {redirect: '/league/records/' + enc(c)};
       return null;
     case 'moves':
-      if (n === 1 || (n === 2 && b === 'drafts')) return {redirect: '/league/draft'};
-      if (n === 3 && b === 'drafts' && yr(c) != null) return {redirect: '/league/draft/' + c};
-      if (n === 2 && b === 'trades') return {redirect: '/league/draft/trades'};
+      if (n === 1 || (n === 2 && b === 'drafts')) return {redirect: '/draft'};
+      if (n === 3 && b === 'drafts' && yr(c) != null) return {redirect: '/draft/' + c};
+      if (n === 2 && b === 'trades') return {redirect: '/draft/trades'};
       return null;
     case 'standings': {
       // /standings itself moved to the League tab; the season pages keep their paths (pushed; cold links sit on League).
@@ -1477,17 +1474,6 @@ function updateBadges() {
     }
   });
   bar.dataset.badged = '1';
-  appBadge();
-}
-// The home-screen icon's badge (iOS 16.4+ home-screen apps, Chrome): how many things want you now, the lit tabs
-// (puzzles left today, games to pick, the vote) without The Lay's "new tab" dot. Cleared at zero.
-let appBadgeN = -1;
-function appBadge() {
-  if (typeof navigator === 'undefined' || !('setAppBadge' in navigator)) return;
-  const n = ['puzzles', 'pickem', 'matchup'].filter(T => { try { return badgeOf(T); } catch (_) { return false; } }).length;
-  if (n === appBadgeN) return;
-  appBadgeN = n;
-  try { (n ? navigator.setAppBadge(n) : navigator.clearAppBadge()).catch(() => {}); } catch (_) {}
 }
 /** Recompute the tab badges soon (coalesced: any number of calls in one task costs one pass). */
 function queueBadges() {
@@ -1516,7 +1502,7 @@ async function doRetap(T) {
   const ns = modNS.get(st[0].route.view);
   try {
     if (ns && typeof ns.focusSearch === 'function') ns.focusSearch(scr.ctx);
-    else if (T === 'league' && scr.view && scr.view.onAction) scr.view.onAction('focus-search', scr.ctx); // League's Draft segment
+    else if (T === 'draft' && scr.view && scr.view.onAction) scr.view.onAction('focus-search', scr.ctx);
   } catch (e) { console.error(e); }
 }
 function setupTabBar() {
@@ -1833,19 +1819,6 @@ async function start() {
   if (needsWelcome()) showWelcome();
   setupTabBar();
   if (ui.IOS_STANDALONE) enableSwipeBack();
-  // Pull to refresh on a tab root (core/ptr.js): the league data, and the tab's own live data (its view's refresh()).
-  setupPullToRefresh({
-    root: $('stage'),
-    screen: () => {
-      if (S.cover || S.sheets.length) return null;
-      const st = S.stacks[S.tab];
-      return st && st.length === 1 && st[0].scr ? st[0].scr.el : null;
-    },
-    refresh: () => {
-      const e = S.stacks[S.tab][0], ns = e && modNS.get(e.route.view);
-      return Promise.all([data.reload().catch(() => {}), ns && typeof ns.refresh === 'function' && e.scr ? Promise.resolve(ns.refresh(e.scr.ctx)).catch(() => {}) : null]);
-    }
-  });
   requestAnimationFrame(() => ui.onIdle(() => {
     daily.ensure().catch(() => {});
     // A tab root may export warm(): called once here, so its first visit has nothing to wait for (Pick'em finds the

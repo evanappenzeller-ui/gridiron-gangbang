@@ -238,7 +238,7 @@
 .v-rivals .rv-mc {
   position: relative;
   display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; column-gap: 10px;
-  grid-template-areas: "place pair hype" ". tags tags" ". vote vote";
+  grid-template-areas: "place pair hype" ". tags tags";
   align-items: center;
   padding: 12px 14px 12px 12px;
 }
@@ -332,8 +332,6 @@
    nothing, instead of falling through to the row's head-to-head link below it. */
 .v-rivals .rv-mc > .rv-mc-vote { pointer-events: auto; cursor: default; }
 .v-rivals .rv-mc-vote { grid-area: vote; min-width: 0; margin-top: 10px; }
-/* Voting closed and nobody voted: nothing to show, so the line takes no room */
-.v-rivals .rv-mc-vote:has(> .rv-vt.is-none):not(:has(.rv-vt-btn, .rv-vt-tag)) { display: none; }
 /* Percentage, voters and the button on one line; the bar on its own full-width row under them, so every row's
    bar has the same track and a bigger share always draws a longer bar. */
 .v-rivals .rv-vt {
@@ -546,6 +544,3 @@
 html.rm .v-rivals .rv-vt-btn { transition: background-color 200ms linear, color 200ms linear, box-shadow 200ms linear; }
 /* A deep link's "here" pulse on the section's card (opacity only). */
 .v-rivals .rv-flash { position: absolute; inset: 0; z-index: 2; border-radius: inherit; background: var(--tint-soft); pointer-events: none; opacity: 0; }
-/* The top pick's bigger avatars leave the names a little less room: a tighter gap keeps six-letter names whole */
-.v-rivals .rv-mc.is-top .rv-mc-side { gap: 6px; }
-.v-rivals .rv-mc.is-top .rv-mc-pair { gap: 6px; }

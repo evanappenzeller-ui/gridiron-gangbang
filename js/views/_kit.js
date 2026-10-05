@@ -36,7 +36,7 @@ function routeRows() {
     [`/standings/${y}`, 'push · season'], [`/standings/${y}/weeks`, 'push · season'], [`/standings/${y}/weeks/7`, 'push · season'], [`/standings/${y}/bracket`, 'push · season'], [`/standings/${y}/review`, 'push · review'],
     ...(live ? [[`/standings/${live}`, 'push · season in progress'], [`/standings/${live}/wrap/1`, 'push · wrap']] : []),
     [`/standings/${y}/wrap/16`, 'push · wrap (playoff week)'], [`/standings/${y}/wrap/99`, 'push · wrap (no such week)'],
-    ['/league/draft', 'root · League, Draft (latest draft)'], ['/league/draft/2024?m=evan', 'root · League, Draft 2024 filtered'], ['/league/draft/trades?m=ben', 'root · League, Draft trades filtered'],
+    ['/draft', 'root · Draft (latest draft)'], ['/draft/2024?m=evan', 'root · Draft, 2024 filtered'], ['/draft/trades?m=ben', 'root · Draft, trades filtered'],
     ['/managers/evan', 'push · profile'], ['/managers/nobody', 'push · unknown manager'], ['/_kit', 'push · this gallery'], ['/not-a-route', 'unknown → toast']
   ];
   const rows = list => ui.group(list.map(([p, s]) => ui.row({title: p, sub: s, chevron: true, attrs: {'data-nav': p}})).join(''));
@@ -51,19 +51,18 @@ const LEGACY_LINKS = [
   ['/rivals?s=pickem&week=4', '/pickem?week=4'], ['/rivals/evan-vs-mason?s=pickem', '/pickem'], ['/rivals/evan-vs-mason?s=motw', '/matchup/evan-vs-mason?s=motw'],
   ['/standings', '/league/standings'], ['/hall', '/league/trophies'], ['/hall/trophies', '/league/trophies'], ['/hall/records', '/league/records'],
   ['/hall/records/2.4', '/league/records/2.4'], ['/hall/shame', '/league/shame'], ['/hall/shame?y=2025', '/league/shame?y=2025'],
-  ['/moves', '/league/draft'], ['/moves/drafts', '/league/draft'], ['/moves/drafts/2024', '/league/draft/2024'], ['/moves/drafts/2024?m=evan', '/league/draft/2024?m=evan'],
-  ['/moves/trades', '/league/draft/trades'], ['/moves/trades?m=ben', '/league/draft/trades?m=ben'], ['/league', '/league/standings'],
-  ['/draft', '/league/draft'], ['/draft/2024?m=evan', '/league/draft/2024?m=evan'], ['/draft/trades', '/league/draft/trades'], ['/draft/repeats', '/league/draft/repeats'],
-  ['#daily', '/puzzles'], ['#records', '/league/records'], ['#trophies', '/league/trophies'], ['#standings', '/league/standings'], ['#rivals', '/matchup'], ['#moves', '/league/draft'],
+  ['/moves', '/draft'], ['/moves/drafts', '/draft'], ['/moves/drafts/2024', '/draft/2024'], ['/moves/drafts/2024?m=evan', '/draft/2024?m=evan'],
+  ['/moves/trades', '/draft/trades'], ['/moves/trades?m=ben', '/draft/trades?m=ben'], ['/league', '/league/standings'],
+  ['#daily', '/puzzles'], ['#records', '/league/records'], ['#trophies', '/league/trophies'], ['#standings', '/league/standings'], ['#rivals', '/matchup'], ['#moves', '/draft'],
   ['', '/puzzles']
 ];
 function routeChecks() {
   const out = [];
   const bad = (list, f) => list.map(f).filter(Boolean);
-  // The five tab roots (and League's Draft segment, the old Draft tab).
-  const roots = [['/puzzles', 'puzzles', 'puzzles'], ['/pickem', 'pickem', 'pickem'], ['/matchup', 'matchup', 'rivals'], ['/league/standings', 'league', null], ['/league/draft', 'league', null], ['/lay', 'lay', 'lay']];
+  // The six tab roots.
+  const roots = [['/puzzles', 'puzzles', 'puzzles'], ['/pickem', 'pickem', 'pickem'], ['/matchup', 'matchup', 'rivals'], ['/league/standings', 'league', null], ['/draft', 'draft', 'moves'], ['/lay', 'lay', 'lay']];
   let miss = bad(roots, ([p, tab, view]) => { const r = parseRoute(p); return r && r.open === 'root' && r.tab === tab && (!view || r.view === view) && r.path === p ? null : p; });
-  out.push({name: 'Routes: the five tab roots', pass: !miss.length && TABS.join() === 'puzzles,pickem,lay,matchup,league', detail: miss.length ? 'wrong: ' + miss.join(', ') : TABS.join(' · ')});
+  out.push({name: 'Routes: the six tab roots', pass: !miss.length && TABS.join() === 'puzzles,pickem,lay,matchup,league,draft', detail: miss.length ? 'wrong: ' + miss.join(', ') : TABS.join(' · ')});
   // Every legacy link lands on its canonical new path.
   miss = bad(LEGACY_LINKS, ([p, to]) => { const r = parseRoute(p); return r && r.path === to ? null : `${p || '(empty)'} → ${r ? r.path : 'nothing'}`; });
   out.push({name: 'Routes: old links redirect', pass: !miss.length, detail: miss.length ? miss.join('; ') : `${LEGACY_LINKS.length} old links land on their new homes`});
@@ -73,7 +72,7 @@ function routeChecks() {
   miss = bad(pushes, ([p, open, home]) => { const r = parseRoute(p); return r && r.open === open && r.home === home ? null : p; });
   out.push({name: 'Routes: pushes, covers and their home tabs', pass: !miss.length, detail: miss.length ? 'wrong: ' + miss.join(', ') : `${pushes.length} routes`});
   // Unknown and malformed links stay unknown (the app lands on Puzzles with a toast).
-  const unknown = ['/not-a-route', '/draft/20x4', '/league/draft/20x4', '/league/nope', '/matchup/evan', '/puzzles/play/chess', '/pickem/3', '/hall/records/2.4/x'];
+  const unknown = ['/not-a-route', '/draft/20x4', '/league/nope', '/matchup/evan', '/puzzles/play/chess', '/pickem/3', '/hall/records/2.4/x'];
   miss = unknown.filter(p => parseRoute(p));
   out.push({name: 'Routes: unknown links', pass: !miss.length, detail: miss.length ? 'matched: ' + miss.join(', ') : `${unknown.length} unknown`});
   return out;

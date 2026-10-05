@@ -1,7 +1,6 @@
-// League tab root (#/league/standings, #/league/trophies, #/league/records[/<focus>], #/league/shame[?y=<year>],
-// #/league/draft[/trades|/repeats|/<year>]: the Draft segment, league-draft.js):
+// League tab root (#/league/standings, #/league/trophies, #/league/records[/<focus>], #/league/shame[?y=<year>]):
 // the large title "League" (your avatar button trailing: app.js opens the You sheet on a [data-you] tap and redraws it
-// after a 'me' change) over a segmented control Standings · Trophies · Records · Shame · Draft. The segments live in standings.js,
+// after a 'me' change) over a segmented control Standings · Trophies · Records · Shame. The segments live in standings.js,
 // hall-trophies.js, hall-records.js (Record of the day on top) and hall-shame.js: {render, mount, unmount} plus
 // optional show/params/me hooks, and actions/onAction for the compact-bar buttons (Standings' Sort and table/list).
 // This module owns the title, the control, segment swaps (a quick cross-fade that keeps the control in view; a segment
@@ -17,11 +16,10 @@ import * as standings from './standings.js';
 import * as trophies from './hall-trophies.js';
 import * as records from './hall-records.js';
 import * as shame from './hall-shame.js';
-import * as draft from './league-draft.js';
 
-const SEGS = {standings, trophies, records, shame, draft};
-const SEG_IDS = ['standings', 'trophies', 'records', 'shame', 'draft'];
-const SEG_ITEMS = [{id: 'standings', label: 'Standings'}, {id: 'trophies', label: 'Trophies'}, {id: 'records', label: 'Records'}, {id: 'shame', label: 'Shame'}, {id: 'draft', label: 'Draft'}];
+const SEGS = {standings, trophies, records, shame};
+const SEG_IDS = ['standings', 'trophies', 'records', 'shame'];
+const SEG_ITEMS = [{id: 'standings', label: 'Standings'}, {id: 'trophies', label: 'Trophies'}, {id: 'records', label: 'Records'}, {id: 'shame', label: 'Shame'}];
 /** Canonical path of a segment's plain route. */
 export const segPath = seg => '/league/' + (SEG_IDS.includes(seg) ? seg : 'standings');
 

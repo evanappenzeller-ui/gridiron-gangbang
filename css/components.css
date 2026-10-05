@@ -19,8 +19,9 @@
   backdrop-filter: var(--bar-filter);
   border-top: 1px solid var(--separator);
   contain: layout;
-  /* Five tabs share the width equally (Apple's three-to-five). The sideways scroll, snap and edge fades stay for
-     very narrow screens and large text, where they can still overflow. */
+  /* Five and a half tabs fit across: the half tab at the edge shows there are more a swipe away (the bar scrolls
+     sideways and snaps to whole tabs). The indicator is a child, so it scrolls with its tab. A soft fade marks the
+     side with more tabs (.has-more-*), and app.js nudges the bar on a first visit (tabHint). */
   overflow-x: auto; overflow-y: hidden;
   scroll-snap-type: x mandatory;
   overscroll-behavior-x: contain;
@@ -35,7 +36,7 @@
 #tabbar.has-more-r { --fade-r: 16px; }
 .tab {
   position: relative; z-index: 1;
-  flex: 1 1 0; min-width: 0;
+  flex: 0 0 calc(100% / 5.5); min-width: 62px;
   scroll-snap-align: start;
   display: flex; flex-direction: column; align-items: center;
   padding-top: 5px; gap: 1px;
@@ -875,17 +876,3 @@ button.bug, a.bug { color: var(--ink-3); }
 .tab-lb { font: 400 13px/12px var(--font-num); text-transform: uppercase; letter-spacing: .04em; }
 .tab-ind { border-radius: 8px; }
 .seg-thumb { border-radius: 6px; }
-
-/* Pull to refresh (core/ptr.js): a ring that fills as you pull, then spins while the tab reloads */
-.ptr { position: fixed; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 6px); z-index: calc(var(--z-tab) + 1);
-  width: 34px; height: 34px; padding: 6px; border-radius: 50%; background: var(--surface-2); color: var(--tint);
-  box-shadow: 0 4px 14px rgba(0,0,0,.35); opacity: 0; pointer-events: none; transform: translate(-50%, 0);
-  transition: opacity .15s ease; --p: 0; }
-.ptr.is-on { opacity: 1; }
-.ptr-ring { display: block; width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round;
-  stroke-dasharray: 56.5; stroke-dashoffset: calc(56.5 * (1 - var(--p) * .85)); transform: rotate(-90deg); transform-origin: center; }
-.ptr.is-armed .ptr-ring { stroke-dashoffset: 8; }
-.ptr.is-spin { transition: transform .2s ease, opacity .15s ease; }
-.ptr.is-spin .ptr-ring { stroke-dashoffset: 40; animation: ptr-spin .8s linear infinite; }
-@keyframes ptr-spin { to { transform: rotate(270deg); } }
-@media (prefers-reduced-motion: reduce) { .ptr.is-spin .ptr-ring { animation-duration: 2s; } }

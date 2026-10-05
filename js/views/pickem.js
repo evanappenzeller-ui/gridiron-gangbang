@@ -483,11 +483,6 @@ export function follow(target, fn) {
   };
 }
 
-/** Pull to refresh (app.js): ask ESPN for the week again, fresh. */
-export function refresh() {
-  return Promise.resolve().then(() => FEED.currentWeek({fresh: true})).catch(() => {}).then(() => currentWeek(true)).catch(() => {});
-}
-
 /**
  * At idle after launch (app.js): find the pick'em week and its games ahead of a first visit, the request the screen
  * would make on arrival anyway (nfl.js keeps it for minutes), so the first switch to the tab has nothing to wait for
@@ -1530,12 +1525,7 @@ function patchGame(li, g, v, pop) {
     if (sc && sc.textContent !== s) {
       const bump = sc.textContent !== '' && s !== '' && st.ctx.visible;
       sc.textContent = s;
-      if (bump) {
-        ui.animate(sc, [{transform: 'translateY(-6px)', opacity: 0}, {transform: 'none', opacity: 1}], {spring: 'smooth'});
-        // a moment in gold, so a new score catches the eye
-        sc.classList.remove('is-flash'); void sc.offsetWidth; sc.classList.add('is-flash');
-        clearTimeout(sc._fl); sc._fl = setTimeout(() => sc.classList.remove('is-flash'), 1600);
-      }
+      if (bump) ui.animate(sc, [{transform: 'translateY(-6px)', opacity: 0}, {transform: 'none', opacity: 1}], {spring: 'smooth'});
     }
     if (pop && pop.team === t.abbr) {
       const m = b.querySelector('.pk-mk');

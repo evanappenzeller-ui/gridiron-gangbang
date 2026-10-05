@@ -111,7 +111,7 @@
 .v-lay .ly-cls { list-style: none; margin: 0; padding: 0 14px 10px; border-top: 1px solid var(--separator); }
 .v-lay .ly-cl { display: flex; align-items: center; gap: 8px; padding: 6px 0; min-height: 34px; }
 .v-lay .ly-cl + .ly-cl { border-top: 1px solid var(--separator); }
-.v-lay .ly-cl-bet { flex: 1; min-width: 0; font: 400 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink); overflow-wrap: anywhere; }
+.v-lay .ly-cl-bet { flex: 1; min-width: 0; font: 400 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .v-lay .ly-cl.is-miss .ly-cl-bet { color: var(--ink-2); text-decoration: line-through; text-decoration-color: var(--wrong); }
 .v-lay .ly-cl-who { flex: none; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
 .v-lay .ly-cl .ly-mark { width: 22px; height: 22px; }
@@ -176,11 +176,3 @@
 .v-lay .lv-bar.is-over > i { background: var(--wrong); }
 .v-lay .lv-edit { flex: none; min-height: 28px; padding: 0 0 0 8px; color: var(--ink-3); font: 600 var(--fs-foot)/var(--lh-foot) var(--font-text); }
 .v-lay .lv-foot-note { margin: 10px 0 0; padding-top: 10px; border-top: 1px solid var(--separator); font: 400 12px/16px var(--font-text); color: var(--ink-3); }
-/* Live moments: a stat that moved flashes gold; a leg that just hit glows green, one that busted red */
-.v-lay .lv-leg { border-radius: 8px; transition: background-color 1.2s ease; }
-.v-lay .lv-leg.is-bump { background-color: var(--gold-soft); transition: none; }
-.v-lay .lv-leg.is-justhit { background-color: var(--tint-soft); transition: none; }
-.v-lay .lv-leg.is-justmiss { background-color: var(--wrong-soft); transition: none; }
-.v-lay .lv-leg.is-justhit .lv-ring { animation: lv-pop .5s cubic-bezier(.34,1.56,.64,1); }
-@keyframes lv-pop { 0% { transform: scale(.4); } 100% { transform: scale(1); } }
-@media (prefers-reduced-motion: reduce) { .v-lay .lv-leg.is-justhit .lv-ring { animation: none; } }

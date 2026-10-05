@@ -219,7 +219,7 @@ function slipLeg({l, r}, me) {
   const note = legNote(r);
   const ring = `<span class="lv-ring is-${r.st}" aria-hidden="true">${RING[r.st] ? ui.icon(RING[r.st]) : ''}</span>`;
   const label = `${data.name(l.by)}: ${parts ? parts.pick + ' ' + parts.market : l.bet}. ${ST_TXT[r.st]}. ${r.note || ''}`;
-  return `<li class="lv-leg is-${r.st}${l.by === me ? ' is-me' : ''}" data-leg="${esc(l.by)}" data-st="${r.st}" data-v="${r.v == null ? '' : esc(String(r.v))}" aria-label="${esc(label)}">${ring}`
+  return `<li class="lv-leg is-${r.st}${l.by === me ? ' is-me' : ''}" aria-label="${esc(label)}">${ring}`
     + `<div class="lv-lm"><p class="lv-lt">${bet}</p>`
     + `<p class="lv-ls"><span class="lv-who">${esc(data.name(l.by))}${l.for ? ` for ${esc(data.name(l.for))}` : ''}</span>${note ? ` · ${esc(note)}` : ''}</p>`
     + barHTML(r) + `</div>${adminEdit}</li>`;
@@ -508,17 +508,10 @@ function fill(ctx) {
   if (inp) st.draft = inp.value;
   // Slips left open stay open through the redraws (every 30 seconds while games are on).
   const open = [...st.body.querySelectorAll('[data-ly-slip][open]')].map(d => d.dataset.lySlip);
-  // Each leg as it was, to show what this redraw changed (a stat moved, a leg hit or busted).
-  const before = new Map([...st.body.querySelectorAll('.lv-leg[data-leg]')].map(li => [li.dataset.leg, {st: li.dataset.st, v: li.dataset.v}]));
   const html = bodyHTML(st);
   const kept = focused && swapAround(st.body, html, inp.closest('[data-ly-field]'));
   if (!kept) { st.body.innerHTML = html; st.sug = []; st.sugAt = -1; }
   open.forEach(k => { const d = st.body.querySelector(`[data-ly-slip="${k}"]`); if (d) d.open = true; });
-  if (before.size && ctx.visible) showChanges(st, before);
-  // The whole slip cashing: the big one.
-  const cashed = !!st.body.querySelector('.lv-slip.is-hit');
-  if (cashed && st.cashed === false && ctx.visible && !ui.RM) ui.confetti({left: 0, top: 0, width: innerWidth, height: innerHeight / 3}, {count: 120});
-  if (st.body.querySelector('.lv-slip')) st.cashed = cashed;
   // Props whose player has no box score yet: look up his team (rosters) so the leg shows its game; redraw when found.
   WEEKS.forEach(w => {
     const T = w.tracked && TRK.get(wkey(w.year, w.week));
@@ -559,23 +552,6 @@ function focusInput(st) {
   if (i) { i.focus(); try { i.setSelectionRange(i.value.length, i.value.length); } catch (_) {} }
 }
 const SAVE_MSG = {notyours: 'Only Evan can change someone else\u2019s leg.', closed: 'Legs are closed for this week.', invalid: 'Type a leg first.', denied: 'Saving legs isn\u2019t switched on yet.', failed: 'Couldn\u2019t save. Check your connection.'};
-// Live moments on the tracker: a leg whose stat moved flashes; one that just hit gets a burst of confetti from its
-// ring; one that just busted shakes.
-function showChanges(st, before) {
-  st.body.querySelectorAll('.lv-leg[data-leg]').forEach(li => {
-    const b = before.get(li.dataset.leg);
-    if (!b) return;
-    const flash = cls => { li.classList.remove(cls); void li.offsetWidth; li.classList.add(cls); setTimeout(() => li.classList.remove(cls), 1600); };
-    if (b.st !== 'hit' && li.dataset.st === 'hit') {
-      flash('is-justhit');
-      const ring = li.querySelector('.lv-ring');
-      if (ring && !ui.RM) { const r = ring.getBoundingClientRect(); ui.confetti(r, {count: 28}); }
-    } else if (b.st !== 'miss' && li.dataset.st === 'miss') {
-      flash('is-justmiss');
-      ui.shake(li);
-    } else if (b.v !== li.dataset.v && li.dataset.v !== '') flash('is-bump');
-  });
-}
 async function submitLeg(ctx, st) {
   if (st.busy) return;
   const inp = st.body.querySelector('.ly-in'), btn = st.body.querySelector('[data-ly-submit]');
@@ -607,9 +583,6 @@ async function removeLeg(ctx, st) {
   if (r === 'ok' || r === 'dev') { st.editing = false; st.draft = null; ui.toast('Leg removed.'); fill(ctx); }
   else ui.toast(SAVE_MSG[r] || SAVE_MSG.failed, {icon: 'info'});
 }
-
-/** Pull to refresh (app.js): the results in data/lay.json, fresh. */
-export function refresh(ctx) { layAt = Date.now(); return loadLay({fresh: true}).then(() => fill(ctx), () => {}); }
 
 /** Prefetched at idle after launch (app.js), so the first visit opens filled in. */
 export function warm() { track.loadPlayers().catch(() => {}); return loadLay(); }
