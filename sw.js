@@ -1,13 +1,14 @@
 // Service worker (spec 11). Bump CACHE on every deploy.
-// Network-first (2.5 s timeout, then cache) for navigations, HTML, JSON, JS and CSS, so weekly data and new
-// puzzles show up right away; cache-first for the font and icons. Other apps share this origin, so only
+// The app shell (navigations, HTML, JS, CSS) opens from this version's own cache at once (shellFirst); data (JSON)
+// is network-first (2.5 s timeout, then cache), so weekly data and new puzzles show up right away; cache-first for
+// the font and icons. Other apps share this origin, so only
 // caches named gg-* or gridiron-* are ever deleted, and cross-origin requests (Firebase, the ESPN scoreboard and
 // team logos, the Press Room's YouTube player and thumbnails) are never touched: live scores must never come from a
 // cache here.
 // A slow request falls back to whatever is cached under its path (from the previous worker too), so data whose
 // format changes gets a new file name rather than new content under the old one (data/puzzles-v4.json: see
 // js/core/daily.js).
-const CACHE = 'gg-v84';
+const CACHE = 'gg-v85';
 const CORE = ['ui', 'data', 'daily', 'fire', 'week', 'nfl', 'stats', 'motw', 'press', 'checks', 'checks-stats', 'checks-pickem', 'checks-press', 'lay', 'plays', 'laytrack', 'ptr'];
 // The six tab roots are puzzles, pickem, rivals (Matchup), league, moves (Draft) and lay (The Lay).
 const VIEWS = ['welcome', 'puzzles', 'board', 'you', 'sharecard', 'results', 'run', 'college', 'silhouette', 'mystery', 'journey', 'grid', 'picker',
@@ -86,11 +87,27 @@ async function cacheFirst(req) {
   return res;
 }
 
+// The app itself (the page, scripts, styles) opens from this worker's own cache at once: every deploy bumps CACHE,
+// and a new worker fills its new cache fresh at install, so a cached file is always this version's (and never another
+// version's: only this worker's cache is read). The new version arrives the usual way (app.js reloads into it on the
+// next tab tap). Data (data/*.json) stays network-first: weekly results and new puzzles show up at once.
+const isShell = (req, url) => !url.pathname.includes('/data/') && (req.mode === 'navigate' || url.pathname.endsWith('/') || /\.(html|js|css|webmanifest)$/.test(url.pathname));
+async function shellFirst(req, url) {
+  try {
+    const c = await caches.open(CACHE);
+    const key = req.mode === 'navigate' || url.pathname.endsWith('/') ? null : url.origin + url.pathname;
+    const hit = key ? await c.match(key, {ignoreSearch: true}) : (await c.match('index.html')) || (await c.match('./'));
+    if (hit) return hit;
+  } catch (_) {}
+  return networkFirst(req, url);
+}
+
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
   if (isCacheFirst(url)) { e.respondWith(cacheFirst(req)); return; }
+  if (isShell(req, url)) { e.respondWith(shellFirst(req, url)); return; }
   if (isNetworkFirst(req, url)) e.respondWith(networkFirst(req, url));
 });
