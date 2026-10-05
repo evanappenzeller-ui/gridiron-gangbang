@@ -12,6 +12,7 @@ import * as daily from '../core/daily.js';
 import {mountBoard, streakPillHTML, stepParts, zeroParts, gradeGold, stepIcon, whenVisible, countdownHTML,
   msToMidnight, ensureDefs, ringHTML, maxPts, dayLabel, itemCount} from './board.js';
 import {youButtonHTML, settingsButtonHTML, openStreakSheet} from './you.js';
+import {mountThisWeek} from './thisweek.js';
 
 const esc = data.esc;
 const nf = n => data.nf(n);
@@ -391,6 +392,8 @@ export default {
   render() {
     return ui.largeTitle({eyebrow: ready() ? daily.TODAY_LABEL : localLabel(), title: 'Puzzles', trailing: trailHTML()})
       + `<div class="c-hero-wrap" data-key="hero" data-enter>${cardHTML()}</div>`
+      // This week (views/thisweek.js): your matchup, Pick'em, Lay leg and the vote, a tap from each tab.
+      + `<div class="c-tw-host" data-key="week" data-enter></div>`
       + `<div class="c-board-host" data-key="board" data-enter></div>`;
   },
 
@@ -399,6 +402,7 @@ export default {
     const st = {el, ctx, board: null, pending: false, cancelRing: null, retrying: false};
     HUB.set(ctx, st);
     st.board = mountBoard(el.querySelector('.c-board-host'), {mode: 'today', ctx});
+    st.week = mountThisWeek(el.querySelector('.c-tw-host'), ctx);
     el.addEventListener('click', e => onClick(st, e));
     ctx.on('daily', type => onDaily(st, type));
     ctx.timer(() => tickCd(st, ctx.visible), 20000);
@@ -426,6 +430,7 @@ export default {
     if (!st) return;
     if (st.cancelRing) st.cancelRing();
     if (st.board) st.board.destroy();
+    if (st.week) st.week.destroy();
     HUB.delete(ctx);
   }
 };

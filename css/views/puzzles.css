@@ -100,3 +100,31 @@ html.rm .v-puzzles .c-prog-f, html.rm .v-puzzles .c-prog-f::after, html.rm .v-pu
 @media (prefers-reduced-motion: reduce) {
   .v-puzzles .c-prog-f, .v-puzzles .c-prog-f::after, .v-puzzles .c-hero-ti { transition: none; }
 }
+
+/* This week (views/thisweek.js): four glanceable tiles; a lit one wants something from you */
+.v-puzzles .c-tw-host { margin-top: 16px; }
+.tw-h { display: flex; align-items: baseline; justify-content: space-between; margin: 0 4px 8px; }
+.tw-title { margin: 0; font: 400 14px/22px var(--font-pixel); text-transform: uppercase; text-shadow: var(--hard-shadow-s, 2px 2px 0 #000); color: var(--ink); }
+.tw-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.tw-t { position: relative; display: flex; flex-direction: column; gap: 4px; min-width: 0; min-height: 100px; padding: 12px 12px 11px;
+  border-radius: var(--r-card); background: var(--surface-1); color: var(--ink); text-decoration: none;
+  box-shadow: var(--pixel-shadow), inset 0 0 0 1px rgba(255,255,255,.05); -webkit-tap-highlight-color: transparent;
+  transition: transform var(--spring-snappy-dur) var(--spring-snappy); }
+.tw-t:active { transform: scale(.97); transition: none; }
+.tw-t.is-hot { box-shadow: var(--pixel-shadow), inset 0 0 0 1.5px var(--tint); }
+.tw-l { display: flex; align-items: center; gap: 5px; min-width: 0; font: 600 12px/16px var(--font-text); letter-spacing: .02em; color: var(--ink-3); }
+.tw-l > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tw-l > .ic { flex: none; }
+.tw-t.is-hot .tw-l { color: var(--tint); }
+.tw-dot { flex: none; width: 7px; height: 7px; margin-left: auto; border-radius: 50%; background: var(--tint); box-shadow: 0 0 0 3px var(--tint-soft); }
+.tw-b { display: flex; align-items: baseline; gap: 2px; min-height: 30px; margin-top: 2px; font: 700 21px/28px var(--font-text); color: var(--ink); }
+.tw-b .n4 { font-size: 30px; line-height: 30px; }
+.tw-of { font: 600 15px/20px var(--font-text); color: var(--ink-3); }
+.tw-t.is-done .tw-b { color: var(--ink-2); }
+.tw-t.is-live .tw-b { color: var(--gold); }
+.tw-s { font: 400 13px/17px var(--font-text); color: var(--ink-3); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.tw-vs { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.tw-vsx { font: 600 12px/16px var(--font-text); color: var(--ink-3); }
+.tw-vsn { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 18px; }
+.tw-pair { font-size: 17px; line-height: 24px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tw-sk { width: 70%; height: 22px; }

@@ -1476,6 +1476,17 @@ function updateBadges() {
     }
   });
   bar.dataset.badged = '1';
+  appBadge();
+}
+// The home-screen icon's badge (iOS 16.4+ home-screen apps, Chrome): how many things want you now, the lit tabs
+// (puzzles left today, games to pick, the vote) without The Lay's "new tab" dot. Cleared at zero.
+let appBadgeN = -1;
+function appBadge() {
+  if (typeof navigator === 'undefined' || !('setAppBadge' in navigator)) return;
+  const n = ['puzzles', 'pickem', 'matchup'].filter(T => { try { return badgeOf(T); } catch (_) { return false; } }).length;
+  if (n === appBadgeN) return;
+  appBadgeN = n;
+  try { (n ? navigator.setAppBadge(n) : navigator.clearAppBadge()).catch(() => {}); } catch (_) {}
 }
 /** Recompute the tab badges soon (coalesced: any number of calls in one task costs one pass). */
 function queueBadges() {
