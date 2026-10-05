@@ -111,7 +111,7 @@
 .v-lay .ly-cls { list-style: none; margin: 0; padding: 0 14px 10px; border-top: 1px solid var(--separator); }
 .v-lay .ly-cl { display: flex; align-items: center; gap: 8px; padding: 6px 0; min-height: 34px; }
 .v-lay .ly-cl + .ly-cl { border-top: 1px solid var(--separator); }
-.v-lay .ly-cl-bet { flex: 1; min-width: 0; font: 400 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.v-lay .ly-cl-bet { flex: 1; min-width: 0; font: 400 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink); overflow-wrap: anywhere; }
 .v-lay .ly-cl.is-miss .ly-cl-bet { color: var(--ink-2); text-decoration: line-through; text-decoration-color: var(--wrong); }
 .v-lay .ly-cl-who { flex: none; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
 .v-lay .ly-cl .ly-mark { width: 22px; height: 22px; }

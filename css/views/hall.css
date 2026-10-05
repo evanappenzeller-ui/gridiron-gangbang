@@ -181,7 +181,8 @@
 .v-league .rh-line { margin-top: 10px; color: var(--ink-2); overflow-wrap: anywhere; }
 
 /* Inline profile links in running text (record hero, fun facts) */
-.v-league .rl { color: var(--ink); font-weight: 600; transition: opacity 200ms linear; }
+.v-league .rl { color: var(--ink); font-weight: 600; transition: opacity 200ms linear;
+  padding: 10px 0; margin: -10px 0; } /* inline padding: a taller hit area without moving the text */
 .v-league .rl.is-pressed { opacity: .55; transition: none; }
 .v-league .rl-h { white-space: nowrap; }
 .v-league .rl .av { display: inline-grid; vertical-align: -4px; margin-right: 5px; }
