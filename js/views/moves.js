@@ -1,13 +1,12 @@
-// Draft tab (the Moves tab renamed, tabs-v4): Drafts, Trades and player search (spec 7.15). Owner: SHELL (was the
-// moves package). Large title "Draft" (eyebrow "6 drafts · 41 trades") with your avatar button trailing.
-// Routes: /draft (the latest draft), /draft/<year>, /draft/trades, /draft/repeats (players a manager drafted in more
-// than one season), optional ?m=<managerId> on each (the old
-// /moves/drafts[/<year>] and /moves/trades links redirect here in app.js).
+// Draft: Drafts, Trades, Repeats and player search (spec 7.15), shown as League's Draft segment (views/league-draft.js
+// wraps this view; it was a tab of its own). Owner: SHELL (was the moves package).
+// Routes: /league/draft (the latest draft), /league/draft/<year>, /league/draft/trades, /league/draft/repeats (players
+// a manager had in more than one season), optional ?m=<managerId> on each (the old /draft and /moves links redirect
+// here in app.js). Route params: {seg: 'draft', sub: 'drafts' | 'trades' | 'repeats', year?}.
 // Mount once, then patch: segment, year and filter changes arrive through update(ctx) (reason 'params')
 // and swap only the list below the controls with a 120 ms cross-fade.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
-import {youButtonHTML} from './you.js';
 
 const esc = s => data.esc(s == null ? '' : String(s));
 const pad2 = n => String(n).padStart(2, '0');
@@ -129,32 +128,25 @@ const highlight = (name, toks) => String(name).split(/(\s+)/).map(w => (!w || /^
 // ============================================================================ Routes and state
 function resolve(ctx) {
   const p = (ctx && ctx.params) || {}, q = (ctx && ctx.query) || {};
-  const seg = p.seg === 'trades' || p.seg === 'repeats' ? p.seg : 'drafts';
+  const sub = p.sub || p.seg;
+  const seg = sub === 'trades' || sub === 'repeats' ? sub : 'drafts';
   const latest = latestYear();
   const year = p.year != null && isFinite(p.year) ? Number(p.year) : latest;
   const m = q.m && data.M[q.m] ? String(q.m) : null;
   return {seg, year, latest, m};
 }
 const sameState = (a, b) => a.seg === b.seg && a.year === b.year && a.m === b.m && a.latest === b.latest;
-const draftsPath = (year, m) => (year == null || year === latestYear() ? '/draft' : '/draft/' + year) + qs(m);
-const tradesPath = m => '/draft/trades' + qs(m);
-const repeatsPath = m => '/draft/repeats' + qs(m);
+const draftsPath = (year, m) => (year == null || year === latestYear() ? '/league/draft' : '/league/draft/' + year) + qs(m);
+const tradesPath = m => '/league/draft/trades' + qs(m);
+const repeatsPath = m => '/league/draft/repeats' + qs(m);
 const hasDraft = y => lists().drafts.some(d => d.year === y);
 
 const ST = new WeakMap(); // ctx → per-screen state
 
 // ============================================================================ Markup
-// Eyebrow "6 drafts · 41 trades" (every tab root has one, so the title and the avatar sit at the same height on all
-// five). Patched on a data reload.
-function eyebrowText() {
-  const L = lists();
-  const p = [L.drafts.length && count(L.drafts.length, 'draft', 'drafts'), L.trades.length && count(L.trades.length, 'trade', 'trades')].filter(Boolean);
-  return p.length ? p.join(' · ') : 'Drafts and trades';
-}
 function headHTML() {
   // "Cancel" slides in beside the field while it is focused or holds text (the iOS search bar pattern).
-  return ui.largeTitle({eyebrow: eyebrowText(), title: 'Draft', trailing: youButtonHTML()}) +
-    `<div class="mv-q">${ui.searchField({name: 'q', placeholder: 'Search players', label: 'Search players'})}`
+  return `<div class="mv-q">${ui.searchField({name: 'q', placeholder: 'Search players', label: 'Search players'})}`
     + `<button type="button" class="mv-cancel" data-mv-cancel tabindex="-1" aria-hidden="true">Cancel</button></div>`;
 }
 function segHTML(s) {
@@ -761,8 +753,6 @@ export default {
       // New league.json: recompute everything below the search field in place (app.js waits for idle).
       // The first visible pick or card stays where it was on screen.
       const anchor = st.searching ? null : visibleAnchor(st);
-      const eb = ctx.screen && ctx.screen.querySelector('.lt-eyebrow');
-      if (eb) { const t = eyebrowText(); if (eb.textContent !== t) eb.textContent = t; }
       swapContent(st, s, {fade: false});
       ui.setSeg(st.segEl, s.seg, {animate: false});
       if (anchor) restoreAnchor(st, anchor);

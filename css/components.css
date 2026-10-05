@@ -19,9 +19,8 @@
   backdrop-filter: var(--bar-filter);
   border-top: 1px solid var(--separator);
   contain: layout;
-  /* Five and a half tabs fit across: the half tab at the edge shows there are more a swipe away (the bar scrolls
-     sideways and snaps to whole tabs). The indicator is a child, so it scrolls with its tab. A soft fade marks the
-     side with more tabs (.has-more-*), and app.js nudges the bar on a first visit (tabHint). */
+  /* Five tabs share the width equally (Apple's three-to-five). The sideways scroll, snap and edge fades stay for
+     very narrow screens and large text, where they can still overflow. */
   overflow-x: auto; overflow-y: hidden;
   scroll-snap-type: x mandatory;
   overscroll-behavior-x: contain;
@@ -36,7 +35,7 @@
 #tabbar.has-more-r { --fade-r: 16px; }
 .tab {
   position: relative; z-index: 1;
-  flex: 0 0 calc(100% / 5.5); min-width: 62px;
+  flex: 1 1 0; min-width: 0;
   scroll-snap-align: start;
   display: flex; flex-direction: column; align-items: center;
   padding-top: 5px; gap: 1px;

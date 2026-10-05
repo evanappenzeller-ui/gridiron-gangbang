@@ -421,3 +421,5 @@ html.rm .v-league .rc.is-focus::after { animation-name: hl-flash-rm; }
 .v-league .sm-line-team { font: 600 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink); overflow-wrap: anywhere; }
 .v-league .sm-line-d { font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); overflow-wrap: anywhere; }
 .v-league .sm-src { margin-top: 16px; }
+/* Five segments (Draft joined): a touch tighter so "Standings" fits beside the rest */
+.v-league .hl-seg .seg > button { padding-left: 2px; padding-right: 2px; letter-spacing: -.01em; }
