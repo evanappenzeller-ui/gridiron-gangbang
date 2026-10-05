@@ -1856,9 +1856,6 @@ async function start() {
     }).catch(() => {}));
     ui.onIdle(() => ['season', 'profile', 'review', 'wrap', 'run', 'results'].forEach(id => loadView(id).catch(() => {})));
     registerSW();
-    // A member picked but this phone not linked to their account: ask once the title screen is gone (views/you.js).
-    const nudge = () => { if (document.getElementById('title') || needsWelcome()) { setTimeout(nudge, 3000); return; } youMod().then(m => m.maybeNudgeLink()).catch(() => {}); };
-    setTimeout(nudge, 4000);
   }));
   document.addEventListener('visibilitychange', onVisibility);
   addEventListener('pagehide', persistScroll);

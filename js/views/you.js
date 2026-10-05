@@ -6,7 +6,6 @@
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as daily from '../core/daily.js';
-import * as fire from '../core/fire.js';
 import {APP_VERSION, installEvent, promptInstall} from '../app.js';
 import {flameIcon, streakPillHTML, ensureDefs, countWord} from './board.js';
 
@@ -54,86 +53,6 @@ function gridHTML() {
   return `<div class="pm-grid c-you-grid" role="group" aria-label="Which one are you?">${cells}</div>`
     + `<button type="button" class="btn btn-secondary c-you-none" data-me="none" aria-pressed="${me === 'none'}">${ui.icon('check', {size: 18, cls: 'c-you-nck'})}<span class="btn-label">Not in the league</span></button>`;
 }
-// ============================================================================ Account (one member, every phone)
-// A phone linked to a member's account (fire.linkMember: the member and a 4-digit PIN) shares that member's uid with
-// their other phones, so nothing of theirs ever shows twice. The row says which account this phone is on.
-function accountRow() {
-  if (fire.member) {
-    return ui.row({lead: `<span class="c-ys-ic">${ui.icon('lock', {size: 20})}</span>`, title: `Signed in as ${data.name(fire.member)}`,
-      sub: 'Your scores and picks count as one person on every phone.', cls: 'c-ys-wrap',
-      trail: `<button type="button" class="btn btn-plain c-ys-out" data-unlink>Sign out</button>`});
-  }
-  return ui.row({lead: `<span class="c-ys-ic">${ui.icon('lock', {size: 20})}</span>`, title: 'Link this phone',
-    sub: 'One PIN on all your phones, so you never show up twice.', attrs: {'data-link': ''}, cls: 'c-ys-act c-ys-wrap', chevron: true});
-}
-const LINK_MSG = {
-  badpin: "That PIN doesn't match. Try again.", slow: 'Too many tries. Wait a minute and try again.', offline: "You're offline. Try again when you're connected.",
-  off: "Linking isn't switched on yet. Evan needs to turn it on.", invalid: 'Enter 4 digits.', failed: "Couldn't link. Try again."
-};
-const SNOOZE = 'gg-link-later';
-/** The PIN sheet: link this phone to member `id` (their account; the first phone sets the PIN). nudge: the launch
- *  prompt (with "Not now"). */
-export function openLinkSheet(id, {nudge} = {}) {
-  if (!data.M[id]) return null;
-  const nm = data.name(id);
-  const body = `<div class="c-ln"><div class="c-ln-who">${ui.avatar(id, {size: 56})}<p class="c-ln-n">${esc(nm)}</p></div>`
-    + `<p class="c-ln-t">Enter your 4-digit PIN. <b>First time?</b> Pick one now; you'll use it to link your other phones and browsers.</p>`
-    + `<form class="c-ln-f" data-ln-form autocomplete="off"><input class="c-ln-pin" name="pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" aria-label="PIN" placeholder="• • • •">`
-    + `<p class="c-ln-err" role="alert" hidden></p>`
-    + ui.button({label: 'Link this phone', kind: 'primary', type: 'submit', cls: 'c-ln-go', attrs: {'data-ln-go': ''}})
-    + (nudge ? ui.button({label: 'Not now', kind: 'plain', cls: 'c-ln-later', attrs: {'data-ln-later': ''}}) : '')
-    + `</form><p class="c-ln-foot">Forgot it? Evan can reset your PIN.</p></div>`;
-  const s = ui.openSheet({title: nudge ? 'One account, every phone' : `Link to ${nm}`, body, cls: 'sh-link', detents: ['large']});
-  const inp = s.body.querySelector('.c-ln-pin'), err = s.body.querySelector('.c-ln-err'), go = s.body.querySelector('[data-ln-go]');
-  setTimeout(() => { try { inp.focus(); } catch (_) {} }, 350);
-  inp.addEventListener('input', () => { inp.value = inp.value.replace(/\D/g, '').slice(0, 4); err.hidden = true; });
-  s.body.addEventListener('click', e => {
-    if (e.target.closest('[data-ln-later]')) { ui.lsSet(SNOOZE, String(Date.now())); s.close(); }
-  });
-  let busy = false;
-  s.body.querySelector('[data-ln-form]').addEventListener('submit', async e => {
-    e.preventDefault();
-    if (busy) return;
-    if (!/^\d{4}$/.test(inp.value)) { err.textContent = LINK_MSG.invalid; err.hidden = false; ui.shake(inp); return; }
-    busy = true; ui.setLoading(go, true);
-    const r = await fire.linkMember(id, inp.value);
-    if (r.code === 'new' || r.code === 'same') {
-      data.setMe(id);
-      ui.haptic('success');
-      ui.toast(r.code === 'new' ? `You're set, ${nm}. Use this PIN on your other phones.` : `Already linked to ${nm}.`, {icon: 'check-circle'});
-      s.close();
-      refreshAccountRows();
-    } else if (r.code === 'joined') {
-      data.setMe(id);
-      ui.toast("Linked. Moving this phone's scores over…", {icon: 'check-circle'});
-      await daily.adoptDays(r.from);
-      // Every live feed (the board, picks, lock-ins) follows the new account after a fresh start.
-      try { sessionStorage.setItem('gg-skip-title', '1'); } catch (_) {}
-      location.reload();
-      return;
-    } else {
-      err.textContent = LINK_MSG[r.code] || LINK_MSG.failed; err.hidden = false;
-      ui.haptic('error'); ui.shake(inp); inp.value = '';
-    }
-    busy = false; ui.setLoading(go, false);
-  });
-  return s;
-}
-function refreshAccountRows() {
-  document.querySelectorAll('[data-acct]').forEach(g => { g.innerHTML = accountRow(); ui.hydrate && ui.hydrate(g); });
-}
-/** At launch (app.js): a phone with a member picked but not linked is asked once (then every 3 days if put off),
- *  once member sign-in is switched on. */
-export async function maybeNudgeLink() {
-  const me = data.me();
-  if (!me || fire.member || fire.status !== 'ready') return;
-  const later = +ui.lsGet(SNOOZE) || 0;
-  if (Date.now() - later < 3 * 864e5) return;
-  if (await fire.memberSignInOn() !== true) return;
-  if (fire.member || document.querySelector('.sheet')) return;
-  openLinkSheet(me, {nudge: true});
-}
-
 function nickRow() {
   const nick = daily.LB.nick;
   return ui.row({lead: `<span class="c-ys-ic">${ui.icon('list-number', {size: 20})}</span>`, title: nick ? `Posting as ${nick}` : 'Not posted yet', cls: 'c-ys-nick'});
@@ -173,8 +92,7 @@ function youBody() {
   const feel = ui.HAPTICS_SUPPORTED
     ? sec('Feel', ui.group(ui.row({lead: `<span class="c-ys-ic">${ui.icon('pulse', {size: 20})}</span>`, title: 'Haptics', trail: ui.switchCtl({name: 'haptics', checked: ui.lsGet('gg-haptics') !== '0', label: 'Haptics'})})), MOTION)
     : sec('Feel', ui.group(ui.row({lead: `<span class="c-ys-ic">${ui.icon('pulse', {size: 20})}</span>`, title: MOTION, cls: 'c-ys-wrap'})));
-  return sec('Which one are you?', gridHTML(), fire.member ? '' : 'Pick yourself, then link this phone with your PIN.')
-    + sec('Account', `<div class="group" data-acct>${accountRow()}</div>`)
+  return sec('Which one are you?', gridHTML(), 'Only saved on this phone. Used to highlight you.')
     + sec('Leaderboard', ui.group(nickRow(), {cls: 'c-ys-nickg'}))
     + sec('Look', ui.group(ui.row({lead: `<span class="c-ys-ic">${ui.icon('sparkle', {size: 20})}</span>`, title: 'Theme', sub: themeName(),
       attrs: {'data-theme-pick': ''}, cls: 'c-ys-act', chevron: true})), 'Also on the title screen when the app opens.')
@@ -220,7 +138,6 @@ function settingsBody() {
     : sec('Feel', ui.group(ui.row({lead: `<span class="c-ys-ic">${ui.icon('pulse', {size: 20})}</span>`, title: MOTION, cls: 'c-ys-wrap'})));
   return sec('Look', ui.group(ui.row({lead: `<span class="c-ys-ic">${ui.icon('sparkle', {size: 20})}</span>`, title: 'Theme', sub: themeName(),
       attrs: {'data-theme-pick': ''}, cls: 'c-ys-act', chevron: true})), 'Retro Arcade, creative looks and all 32 NFL teams.')
-    + sec('Account', `<div class="group" data-acct>${accountRow()}</div>`)
     + sec('You', ui.group(ui.row({lead: `<span class="c-ys-ic">${ui.icon('person', {size: 20})}</span>`, title: 'Which one are you?', sub: data.me() ? data.name(data.me()) : 'Not picked yet',
       attrs: {'data-open-you': ''}, cls: 'c-ys-act', chevron: true})))
     + feel
@@ -261,19 +178,9 @@ function wireSheet(s) {
   s.body.addEventListener('click', async e => {
     const me = e.target.closest('[data-me]');
     if (me) {
-      const id = me.dataset.me;
-      // Linked to an account: you are that member; picking someone else means signing in as them (their PIN).
-      if (fire.member) { if (id !== fire.member && data.M[id]) openLinkSheet(id); return; }
-      if (id === data.meRaw()) { if (data.M[id]) openLinkSheet(id); return; }
+      if (me.dataset.me === data.meRaw()) return;
       ui.haptic('selection');
-      data.setMe(id);
-      if (data.M[id]) setTimeout(() => openLinkSheet(id), 250);
-      return;
-    }
-    if (e.target.closest('[data-link]')) { const m = data.me(); if (m) openLinkSheet(m); else ui.toast('Pick who you are first.', {icon: 'info'}); return; }
-    if (e.target.closest('[data-unlink]')) {
-      if (await fire.unlinkMember()) { try { sessionStorage.setItem('gg-skip-title', '1'); } catch (_) {} location.reload(); }
-      else ui.toast("Couldn't sign out. Try again.");
+      data.setMe(me.dataset.me);
       return;
     }
     const tp = e.target.closest('[data-theme-pick]');

@@ -1,14 +1,8 @@
-// The one shared Firebase layer: a single default app, sign-in and Firestore, loaded from gstatic
+// The one shared Firebase layer: a single default app, anonymous sign-in and Firestore, loaded from gstatic
 // (10.14.1) on first use. Every Firebase user (the Daily's league board in daily.js, votes and pick'em in
 // week.js) goes through getFire(), because initializing a second default app throws.
 // Also owns the dev-host write guard: local development never writes to the real database unless the URL has
 // exactly ?post=1, and a dev ?day= preview never writes at all.
-// Member accounts: a phone starts signed in anonymously (its own uid). Linking it to a league member
-// (linkMember: the member's id and a 4-digit PIN) signs it in to that member's account instead, an email /
-// password account '<id>@members.gridiron-gangbang.app', so every phone of a member shares one uid and their
-// scores, picks and lock-ins are one person's. The first phone a member links keeps its uid (its anonymous account
-// becomes the member's); a later phone switches to the member's uid. Needs the Email/Password sign-in provider on
-// in the Firebase console (linkMember answers 'off' until it is).
 // No DOM rendering here. Owner: core.
 
 const V = 'https://www.gstatic.com/firebasejs/10.14.1/';
@@ -57,11 +51,7 @@ export function canWrite() { return WRITES; }
 // ---------------------------------------------------------------------------
 // State (live bindings)
 export let status = 'idle'; // 'idle' | 'loading' | 'ready' | 'off'
-export let uid = null;      // the signed-in uid (anonymous, or the member account's)
-export let member = null;   // the league member this phone is signed in as (their account), or null (anonymous)
-const MEMBER_DOMAIN = 'members.gridiron-gangbang.app';
-const memberOf = user => { const m = user && !user.isAnonymous && /^([a-z]{1,24})@members\./.exec(user.email || ''); return m ? m[1] : null; };
-const secret = (id, pin) => `gg:${id}:${pin}`; // Firebase wants 6+ characters
+export let uid = null;      // the anonymous uid once signed in
 export let error = null;    // the last init error (status 'off')
 
 // Firebase error -> the app's result codes.
@@ -103,17 +93,12 @@ export function getFire() {
     try { mods = await modsP; } catch (e) { modsP = null; throw e; }
     const [appMod, auth, fs] = mods;
     if (!app) app = (appMod.getApps && appMod.getApps()[0]) || appMod.initializeApp(c);
-    // The account this phone is already signed in to (a member's, kept across launches), else an anonymous one.
-    const A = auth.getAuth(app);
-    if (A.authStateReady) await A.authStateReady();
-    const user = A.currentUser || (await auth.signInAnonymously(A)).user;
+    const cred = await auth.signInAnonymously(auth.getAuth(app));
     if (!db) db = fs.getFirestore(app);
-    uid = user.uid;
-    member = memberOf(user);
+    uid = cred.user.uid;
     status = 'ready';
     error = null;
-    // uid reads live: linking a member account (linkMember) can change it after this resolves.
-    return {fs, db, app, auth, get uid() { return uid; }};
+    return {fs, db, uid, app, auth};
   })();
   fireP = p;
   p.catch(e => {
@@ -122,69 +107,4 @@ export function getFire() {
     if (fireP === p) fireP = null; // let a later call retry (offline at first use)
   });
   return p;
-}
-
-// ---------------------------------------------------------------------------
-// Member accounts (see the header)
-
-/**
- * Links this phone to league member `id` with their 4-digit PIN. Resolves {code, from, uid}:
- *   'new'     the member had no account: this phone's account became theirs, with this PIN (same uid)
- *   'joined'  signed in to the member's account (the uid changed from `from`: the caller moves this phone's data over)
- *   'same'    already linked to them
- *   'badpin'  wrong PIN · 'slow' too many tries, wait · 'off' member sign-in isn't switched on in Firebase ·
- *   'offline' / 'failed' / 'invalid'
- */
-export async function linkMember(id, pin) {
-  id = String(id || ''); pin = String(pin || '');
-  if (!/^[a-z]{1,24}$/.test(id) || !/^\d{4}$/.test(pin)) return {code: 'invalid'};
-  let F;
-  try { F = await getFire(); } catch (_) { return {code: 'failed'}; }
-  if (member === id) return {code: 'same'};
-  const A = F.auth.getAuth(F.app), cur = A.currentUser, from = cur ? cur.uid : null;
-  const email = `${id}@${MEMBER_DOMAIN}`, pw = secret(id, pin);
-  const ok = (code, user) => { uid = user.uid; member = memberOf(user); return {code, from, uid: user.uid}; };
-  const why = e => {
-    const c = String((e && e.code) || '');
-    return /operation-not-allowed|admin-restricted/.test(c) ? 'off' : /too-many-requests/.test(c) ? 'slow' : /network/.test(c) ? 'offline'
-      : /invalid-credential|wrong-password|user-not-found|invalid-login|invalid-password/.test(c) ? 'badpin' : 'failed';
-  };
-  // The member's first phone: this phone's anonymous account becomes theirs (its uid, and so its data, stays put).
-  if (cur && cur.isAnonymous) {
-    try { return ok('new', (await F.auth.linkWithCredential(cur, F.auth.EmailAuthProvider.credential(email, pw))).user); }
-    catch (e) { if (!/email-already-in-use|credential-already-in-use/.test(String((e && e.code) || ''))) return {code: why(e)}; }
-  }
-  try { return ok('joined', (await F.auth.signInWithEmailAndPassword(A, email, pw)).user); }
-  catch (e) {
-    const c = why(e);
-    // Signed in as another member, and this one has no account yet: make it.
-    if (c === 'badpin' && cur && !cur.isAnonymous) {
-      try { return ok('joined', (await F.auth.createUserWithEmailAndPassword(A, email, pw)).user); }
-      catch (e2) { return {code: /email-already-in-use/.test(String((e2 && e2.code) || '')) ? 'badpin' : why(e2)}; }
-    }
-    return {code: c};
-  }
-}
-
-/** Signs this phone out of its member account, back to a fresh anonymous one. Resolves true when done. */
-export async function unlinkMember() {
-  let F;
-  try { F = await getFire(); } catch (_) { return false; }
-  const A = F.auth.getAuth(F.app);
-  try { await F.auth.signOut(A); const u = (await F.auth.signInAnonymously(A)).user; uid = u.uid; member = null; return true; } catch (_) { return false; }
-}
-
-/** Whether member sign-in is switched on in the Firebase console (Email/Password provider): a sign-in try for an
- *  account that doesn't exist answers "not allowed" while it's off. Asked once a session. Resolves true | false |
- *  null (unknown: offline). */
-let onP = null;
-export function memberSignInOn() {
-  if (onP) return onP;
-  const c = config();
-  if (!c.apiKey) return Promise.resolve(false);
-  onP = fetch('https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=' + encodeURIComponent(c.apiKey), {
-    method: 'POST', headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({email: 'nobody@' + MEMBER_DOMAIN, password: 'gg:probe:0000', returnSecureToken: false})
-  }).then(r => r.json()).then(j => !/OPERATION_NOT_ALLOWED|ADMIN_ONLY/.test(String((j && j.error && j.error.message) || '')), () => { onP = null; return null; });
-  return onP;
 }
