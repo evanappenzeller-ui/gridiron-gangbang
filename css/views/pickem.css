@@ -315,7 +315,8 @@ html.rm .c-pk-dot::after { animation: none; }
 .v-pickem .pk-mk.is-wrong { background: var(--wrong); color: #fff; }
 .v-pickem .pk-mk.is-push { background: var(--surface-3); color: var(--ink-2); }
 .v-pickem .pk-g.is-post .pk-t.is-on:not(.is-win):not(.is-lose) { background-color: var(--surface-2); }
-.v-pickem .pk-sc { text-align: right; color: var(--ink); font-variant-numeric: tabular-nums; }
+.v-pickem .pk-sc { text-align: right; color: var(--ink); font-variant-numeric: tabular-nums; transition: color 1.2s ease; }
+.v-pickem .pk-sc.is-flash { color: var(--gold); transition: none; }
 
 /* Status column: kickoff, the live clock, Final. */
 .v-pickem .pk-stat {

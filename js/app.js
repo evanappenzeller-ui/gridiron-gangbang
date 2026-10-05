@@ -34,6 +34,7 @@ import * as ui from './core/ui.js';
 import * as data from './core/data.js';
 import * as daily from './core/daily.js';
 import {needsWelcome, showWelcome} from './views/welcome.js';
+import {setupPullToRefresh} from './core/ptr.js';
 
 export const APP_VERSION = '1.0';
 
@@ -1832,6 +1833,19 @@ async function start() {
   if (needsWelcome()) showWelcome();
   setupTabBar();
   if (ui.IOS_STANDALONE) enableSwipeBack();
+  // Pull to refresh on a tab root (core/ptr.js): the league data, and the tab's own live data (its view's refresh()).
+  setupPullToRefresh({
+    root: $('stage'),
+    screen: () => {
+      if (S.cover || S.sheets.length) return null;
+      const st = S.stacks[S.tab];
+      return st && st.length === 1 && st[0].scr ? st[0].scr.el : null;
+    },
+    refresh: () => {
+      const e = S.stacks[S.tab][0], ns = e && modNS.get(e.route.view);
+      return Promise.all([data.reload().catch(() => {}), ns && typeof ns.refresh === 'function' && e.scr ? Promise.resolve(ns.refresh(e.scr.ctx)).catch(() => {}) : null]);
+    }
+  });
   requestAnimationFrame(() => ui.onIdle(() => {
     daily.ensure().catch(() => {});
     // A tab root may export warm(): called once here, so its first visit has nothing to wait for (Pick'em finds the

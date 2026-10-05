@@ -875,3 +875,17 @@ button.bug, a.bug { color: var(--ink-3); }
 .tab-lb { font: 400 13px/12px var(--font-num); text-transform: uppercase; letter-spacing: .04em; }
 .tab-ind { border-radius: 8px; }
 .seg-thumb { border-radius: 6px; }
+
+/* Pull to refresh (core/ptr.js): a ring that fills as you pull, then spins while the tab reloads */
+.ptr { position: fixed; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 6px); z-index: calc(var(--z-tab) + 1);
+  width: 34px; height: 34px; padding: 6px; border-radius: 50%; background: var(--surface-2); color: var(--tint);
+  box-shadow: 0 4px 14px rgba(0,0,0,.35); opacity: 0; pointer-events: none; transform: translate(-50%, 0);
+  transition: opacity .15s ease; --p: 0; }
+.ptr.is-on { opacity: 1; }
+.ptr-ring { display: block; width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round;
+  stroke-dasharray: 56.5; stroke-dashoffset: calc(56.5 * (1 - var(--p) * .85)); transform: rotate(-90deg); transform-origin: center; }
+.ptr.is-armed .ptr-ring { stroke-dashoffset: 8; }
+.ptr.is-spin { transition: transform .2s ease, opacity .15s ease; }
+.ptr.is-spin .ptr-ring { stroke-dashoffset: 40; animation: ptr-spin .8s linear infinite; }
+@keyframes ptr-spin { to { transform: rotate(270deg); } }
+@media (prefers-reduced-motion: reduce) { .ptr.is-spin .ptr-ring { animation-duration: 2s; } }
