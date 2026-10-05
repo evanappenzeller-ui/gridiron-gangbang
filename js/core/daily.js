@@ -12,7 +12,8 @@
 // behavior.
 // Owner: foundation (core).
 
-import {DATA, nf, norm, me as dataMe, name as dataName} from './data.js';
+import {DATA, nf, norm, me as dataMe, name as dataName, setMe as dataSetMe, M as dataM} from './data.js';
+import * as fire from './fire.js';
 import {getFire, canWrite, isDevHost, devDayFrom, DEV_DAY as fireDevDay} from './fire.js';
 import {roundsFor as playRoundsFor} from './plays.js';
 
@@ -856,6 +857,8 @@ async function startFirebase() {
   try {
     const {fs, db, uid} = await getFire();
     LB.uid = uid;
+    // A phone linked to a member's account is that member here too (the highlight, "which one are you").
+    if (fire.member && dataM[fire.member] && dataMe() !== fire.member) dataSetMe(fire.member);
     if (canWrite()) LB.save = body => fs.setDoc(fs.doc(db, 'players', LB.uid), body);
     fs.onSnapshot(fs.collection(db, 'players'), snap => {
       const prev = LB.players;
@@ -870,6 +873,26 @@ async function startFirebase() {
       maybeAutoPost();
     }, err => { LB.err = err.code; LB.ready = true; lbChanged('error'); });
   } catch (_) { LB.off = true; LB.ready = true; lbChanged('off'); }
+}
+
+/** After a phone joins its member's account (fire.linkMember: 'joined'), the scores it posted under its old uid
+ *  move onto the member's doc (a day on both keeps the higher score). The old doc stays; the boards fold it in by
+ *  name until then. Resolves true when written. */
+export async function adoptDays(fromUid) {
+  let F;
+  try { F = await getFire(); } catch (_) { return false; }
+  if (!fromUid || fromUid === F.uid || !canWrite()) return false;
+  try {
+    const [a, b] = await Promise.all([F.fs.getDoc(F.fs.doc(F.db, 'players', fromUid)), F.fs.getDoc(F.fs.doc(F.db, 'players', F.uid))]);
+    if (!a.exists()) return true;
+    const old = a.data() || {}, cur = (b.exists() && b.data()) || {};
+    const days = Object.assign({}, cur.days);
+    Object.entries(old.days || {}).forEach(([n, d]) => { if (d && (!days[n] || (Number(d.p) || 0) > (Number(days[n].p) || 0))) days[n] = d; });
+    const vals = Object.values(days), keys = Object.keys(days).map(Number);
+    await F.fs.setDoc(F.fs.doc(F.db, 'players', F.uid), {nick: String(cur.nick || old.nick || '').slice(0, 24), days,
+      total: vals.reduce((t, d) => t + (Number(d.p) || 0), 0), played: vals.length, last: keys.length ? Math.max(...keys) : 0});
+    return true;
+  } catch (_) { return false; }
 }
 
 export const displayName = p => (p.nick || 'Someone');
@@ -1206,6 +1229,18 @@ export function streakLocal() {
     }
   } catch (_) {}
   if (PNUM) consider(PNUM, DS);
+  // Days this member posted from their other phones (their board row, every phone's days put together): finished there.
+  try {
+    const m = LB.uid && (managerFor({id: LB.uid, nick: LB.nick}) || dataMe());
+    const row = m && byMember(LB.players || []).find(p => managerFor(p) === m);
+    if (row) Object.entries(row.days || {}).forEach(([n, d]) => {
+      n = +n;
+      if (!(n >= SCORE_FROM && n <= PNUM) || done.has(n) || !entryFor(row, n)) return;
+      done.add(n);
+      const day = dayFor(n);
+      if (day && (Number(d.p) || 0) === maxPts(day)) perfect.add(n);
+    });
+  } catch (_) {}
   const todayDone = done.has(PNUM);
   let current = 0;
   for (let n = todayDone ? PNUM : PNUM - 1; n >= 1 && done.has(n); n--) current++;

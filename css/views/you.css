@@ -69,3 +69,18 @@
 .sh-player .c-pc-axis { display: flex; justify-content: space-between; margin-top: 8px; font: 500 var(--fs-cap)/var(--lh-cap) var(--font-text); color: var(--ink-3); }
 .sh-player .c-pc-foot { margin: 12px 4px 4px; text-align: center; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
 .sh-player .empty { padding-top: 16px; }
+
+/* Link this phone (the PIN sheet) */
+.sh-link .c-ln { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 8px 4px 12px; }
+.sh-link .c-ln-who { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.sh-link .c-ln-n { margin: 0; font: 700 var(--fs-2)/var(--lh-2) var(--font-text); color: var(--ink); }
+.sh-link .c-ln-t { margin: 12px 0 0; max-width: 320px; font: 400 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink-2); }
+.sh-link .c-ln-t b { color: var(--ink); }
+.sh-link .c-ln-f { display: flex; flex-direction: column; align-items: stretch; gap: 10px; width: 100%; max-width: 280px; margin-top: 18px; }
+.sh-link .c-ln-pin { height: 56px; border: 0; outline: 0; border-radius: var(--r-field); background: var(--surface-2); color: var(--ink);
+  text-align: center; font: 400 32px/40px var(--font-num); letter-spacing: .5em; padding-left: .5em; }
+.sh-link .c-ln-pin:focus { box-shadow: inset 0 0 0 1.5px var(--tint); }
+.sh-link .c-ln-pin::placeholder { color: var(--ink-4); letter-spacing: .3em; }
+.sh-link .c-ln-err { margin: 0; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--wrong); }
+.sh-link .c-ln-foot { margin: 16px 0 0; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+.c-ys-out { flex: none; min-height: 32px; padding: 0 4px; color: var(--wrong); font: 600 var(--fs-sub)/var(--lh-sub) var(--font-text); }
