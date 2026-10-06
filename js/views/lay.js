@@ -430,15 +430,12 @@ function swapAround(root, html, keep) {
 
 function tilesHTML() {
   const done = WEEKS.filter(w => statusOf(w) === 'hit' || statusOf(w) === 'bust');
-  const placed = WEEKS.filter(w => legsOf(w).length >= SIZE()); // a slip is placed once all its legs are in
   let n = 0, h = 0;
   WEEKS.forEach(w => legsOf(w).forEach(l => { if (settled(l)) { n++; if (l.hit) h++; } }));
-  const cashed = done.filter(w => statusOf(w) === 'hit').length;
   const best = done.reduce((b, w) => { const t = tally(w); return !b || t.hit > b.hit ? {hit: t.hit, n: t.n, week: w.week} : b; }, null);
-  return `<div class="tiles tiles-3 ly-tiles">`
-    + ui.statTile({label: 'Cashed', value: `${cashed} of ${done.length}`, sub: done.length ? (cashed ? 'paid out' : 'still chasing') : ''})
+  return `<div class="tiles ly-tiles">`
     + ui.statTile({label: 'Legs hit', value: n ? `${Math.round(h / n * 100)}%` : '—', sub: n ? `${h} of ${n}` : ''})
-    + ui.statTile({label: 'Paid in', value: money(placed.length * STAKE()), sub: best ? `best ${best.hit}/${best.n}` : ''})
+    + ui.statTile({label: 'Best slip', value: best ? `${best.hit}/${best.n}` : '—', sub: best ? `Week ${best.week}` : ''})
     + `</div>`;
 }
 
