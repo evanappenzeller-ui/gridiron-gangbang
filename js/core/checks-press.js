@@ -201,7 +201,7 @@ export async function pressChecks(check) {
     const expect = (label, got, want) => { out.push(`${label} ${got}`); if (got !== want) { pass = false; out.push(`(want ${want})`); } };
     press.__dev.sandbox(true);
     try {
-      const ok = {year: 2026, week: 3, vid: V, who: 'ben', title: '  Ben   faces the media ', tall: false};
+      const ok = {year: 2026, week: 9, vid: V, who: 'ben', title: '  Ben   faces the media ', tall: false};
       expect('null', await press.post(null), 'invalid');
       expect('week 0', await press.post(Object.assign({}, ok, {week: 0})), 'invalid');
       expect('week 18', await press.post(Object.assign({}, ok, {week: 18})), 'invalid');
@@ -212,15 +212,15 @@ export async function pressChecks(check) {
       expect('title 5', await press.post(Object.assign({}, ok, {title: 5})), 'invalid');
       expect('tall "yes"', await press.post(Object.assign({}, ok, {tall: 'yes'})), 'invalid');
       expect('post', await press.post(ok), 'dev');
-      let p = press.__dev.snapshot().byKey['2026-w3'];
+      let p = press.__dev.snapshot().byKey['2026-w9'];
       const saved = !!p && p.who === 'ben' && p.vid === V && p.title === 'Ben faces the media' && p.dev && !p.seed && typeof p.at === 'number' && typeof p.nick === 'string';
       if (!saved) { pass = false; out.push('(saved doc wrong)'); }
       expect('replace', await press.post(Object.assign({}, ok, {vid: J, title: 'y'.repeat(100), tall: true})), 'dev');
-      const list = press.__dev.snapshot().list.filter(x => x.key === '2026-w3');
+      const list = press.__dev.snapshot().list.filter(x => x.key === '2026-w9');
       p = list[0];
       if (!(list.length === 1 && p.vid === J && p.title.length === 80 && p.tall)) { pass = false; out.push('(replace wrong)'); }
-      expect('remove', await press.remove('2026-w3'), 'dev');
-      if (press.__dev.snapshot().byKey['2026-w3']) { pass = false; out.push('(still there)'); }
+      expect('remove', await press.remove('2026-w9'), 'dev');
+      if (press.__dev.snapshot().byKey['2026-w9']) { pass = false; out.push('(still there)'); }
       expect('remove bad key', await press.remove('week 3'), 'invalid');
       // A seeded week: Remove is refused; Replace works, and removing the replacement shows the seed again.
       const seeded = press.__dev.snapshot().list.find(x => x.seed);

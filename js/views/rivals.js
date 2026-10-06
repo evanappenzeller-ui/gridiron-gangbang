@@ -409,6 +409,12 @@ function mcSide(id, x, side, size) {
 }
 // Your vote and the leader always show, even beyond the top 3.
 const keepRow = (key, vm) => !!vm && (vm.mine === key || (vm.total > 0 && vm.leader === key));
+// The top game's banner: GAME OF THE WEEK in lights, arrows marching in from both sides and bouncing down at it.
+function gotwHTML() {
+  const run = dir => `<span class="rv-gotw-run is-${dir}">${[0, 1, 2].map(i => `<span style="--i:${i}">${ui.icon(dir === 'l' ? 'chevron-right' : 'chevron-left')}</span>`).join('')}</span>`;
+  const down = `<span class="rv-gotw-down">${ui.icon('chevron-down')}${ui.icon('chevron-down')}</span>`;
+  return `<span class="rv-gotw" aria-hidden="true">${run('l')}<span class="rv-gotw-mid">${down}<span class="rv-gotw-t">Game of the Week</span>${down}</span>${run('r')}</span>`;
+}
 function mcRow(c, vm) {
   const key = c.a + '|' + c.b;
   const top = c.place === 1;
@@ -416,6 +422,7 @@ function mcRow(c, vm) {
   const cls = `rv-mc${top ? ' is-top' : ''}${c.place > SHOWN && !keepRow(key, vm) ? ' is-more' : ''}${vm && vm.mine === key ? ' is-voted' : ''}${vm && vm.locked && vm.leader === key ? ' is-lead' : ''}`;
   return `<li class="${cls}" data-key="${esc(key)}">`
     + `<button type="button" class="rv-mc-hit" data-motw="${esc(key)}" aria-label="${esc(label)}"></button>`
+    + (top ? gotwHTML() : '')
     + `<span class="rv-mc-place n5" aria-hidden="true">${c.place}</span>`
     + `<span class="rv-mc-pair" aria-hidden="true">${mcSide(c.a, c.A, 'a', top ? 44 : 28)}<span class="rv-mc-vs ovl">vs</span>${mcSide(c.b, c.B, 'b', top ? 44 : 28)}</span>`
     + `<span class="rv-mc-hype" aria-hidden="true"><span class="${top ? 'n3' : 'n4'}">${c.hype}</span><span class="ovl">Hype</span><i style="transform:scaleX(${c.hype / 100})"></i></span>`
