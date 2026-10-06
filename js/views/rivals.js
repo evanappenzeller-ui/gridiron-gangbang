@@ -409,18 +409,28 @@ function mcSide(id, x, side, size) {
 }
 // Your vote and the leader always show, even beyond the top 3.
 const keepRow = (key, vm) => !!vm && (vm.mine === key || (vm.total > 0 && vm.leader === key));
-// The top game's banner: GAME OF THE WEEK in gold lights.
+// The decided game's banner: GAME OF THE WEEK in gold lights.
 function gotwHTML() {
   return `<span class="rv-gotw" aria-hidden="true"><span class="rv-gotw-mid"><span class="rv-gotw-t">Game of the Week</span></span></span>`;
 }
-function mcRow(c, vm) {
+// The Game of the Week, once it's decided: the vote's leader when every manager has voted or voting has locked
+// (Thursday's kickoff); locked with no votes at all, the top of the shortlist. Before that: null (no marquee).
+function gotwKey(vm, res) {
+  if (!vm || vm.off) return null;
+  const all = vm.total >= (data.ids || []).length;
+  if (vm.leader && (vm.locked || all)) return vm.leader;
+  if (vm.locked && !vm.total && res && res.list[0]) return res.list[0].a + '|' + res.list[0].b;
+  return null;
+}
+function mcRow(c, vm, res) {
   const key = c.a + '|' + c.b;
   const top = c.place === 1;
   const label = `${c.place}. ${nm(c.a)} versus ${nm(c.b)}. Hype ${c.hype}.${c.tags.length ? ' ' + c.tags.join('. ') + '.' : ''} Show this rivalry`;
-  const cls = `rv-mc${top ? ' is-top' : ''}${c.place > SHOWN && !keepRow(key, vm) ? ' is-more' : ''}${vm && vm.mine === key ? ' is-voted' : ''}${vm && vm.locked && vm.leader === key ? ' is-lead' : ''}`;
+  const gotw = !!vm && gotwKey(vm, res) === key;
+  const cls = `rv-mc${top ? ' is-top' : ''}${gotw ? ' is-gotw' : ''}${c.place > SHOWN && !keepRow(key, vm) ? ' is-more' : ''}${vm && vm.mine === key ? ' is-voted' : ''}${vm && vm.locked && vm.leader === key ? ' is-lead' : ''}`;
   return `<li class="${cls}" data-key="${esc(key)}">`
     + `<button type="button" class="rv-mc-hit" data-motw="${esc(key)}" aria-label="${esc(label)}"></button>`
-    + (top ? gotwHTML() : '')
+    + (gotw ? gotwHTML() : '')
     + `<span class="rv-mc-place n5" aria-hidden="true">${c.place}</span>`
     + `<span class="rv-mc-pair" aria-hidden="true">${mcSide(c.a, c.A, 'a', top ? 44 : 28)}<span class="rv-mc-vs ovl">vs</span>${mcSide(c.b, c.B, 'b', top ? 44 : 28)}</span>`
     + `<span class="rv-mc-hype" aria-hidden="true"><span class="${top ? 'n3' : 'n4'}">${c.hype}</span><span class="ovl">Hype</span><i style="transform:scaleX(${c.hype / 100})"></i></span>`
@@ -428,7 +438,7 @@ function mcRow(c, vm) {
     + (vm ? `<span class="rv-mc-vote">${vtLine(key, vm)}</span>` : '')
     + `</li>`;
 }
-function motwRows(res, vm) { return res.list.map(c => mcRow(c, vm)).join(''); }
+function motwRows(res, vm) { return res.list.map(c => mcRow(c, vm, res)).join(''); }
 const shareLabel = vm => !vm || !vm.locked ? 'Share for the vote' : vm.leader ? 'Share the pick' : 'Share the shortlist';
 function motwHTML(lens) {
   const res = motw.candidates(lens);
@@ -551,6 +561,15 @@ function patchVotes({animate = false, pop = null} = {}) {
   const vm = voteModel();
   if (!vm) return;
   morphInto(sec.querySelector('.rv-vt-sw'), vtStatusHTML(vm));
+  // The Game of the Week marquee comes in the moment it's decided (the last vote, or the lock).
+  const rows = [...sec.querySelectorAll('.rv-mc')];
+  const gk = gotwKey(vm, {list: rows.slice(0, 1).map(li => { const [a, b] = li.dataset.key.split('|'); return {a, b}; })});
+  rows.forEach(li => {
+    const on = li.dataset.key === gk, has = li.querySelector('.rv-gotw');
+    li.classList.toggle('is-gotw', on);
+    if (on && !has) { const hit = li.querySelector('.rv-mc-hit'); if (hit) hit.insertAdjacentHTML('afterend', gotwHTML()); }
+    else if (!on && has) has.remove();
+  });
   sec.querySelectorAll('.rv-mc').forEach(li => {
     const key = li.dataset.key;
     const box = li.querySelector('.rv-mc-vote');

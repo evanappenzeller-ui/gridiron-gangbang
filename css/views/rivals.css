@@ -546,9 +546,10 @@ html.rm .v-rivals .rv-vt-btn { transition: background-color 200ms linear, color 
 .v-rivals .rv-flash { position: absolute; inset: 0; z-index: 2; border-radius: inherit; background: var(--tint-soft); pointer-events: none; opacity: 0; }
 
 /* ================================================================ Game of the Week: over the top
-   The top game gets a marquee: GAME OF THE WEEK in shining gold with sparkles, a pulsing gold frame and a
-   spotlight. Reduced motion keeps it all, standing still. */
-.v-rivals .rv-mc.is-top {
+   Once it's decided (every manager has voted, or voting locked at Thursday's kickoff), the winning game gets a
+   marquee: GAME OF THE WEEK in shining gold with sparkles, a pulsing gold frame and a spotlight. Reduced motion
+   keeps it all, standing still. Until then the shortlist has no marquee. */
+.v-rivals .rv-mc.is-gotw {
   grid-template-areas: "gotw gotw gotw" "place pair hype" ". tags tags" ". vote vote";
   padding-top: 0; overflow: hidden; isolation: isolate;
   background:
@@ -573,31 +574,16 @@ html.rm .v-rivals .rv-vt-btn { transition: background-color 200ms linear, color 
   font: 400 12px/16px var(--font-pixel); text-transform: uppercase; letter-spacing: .02em; white-space: nowrap;
   color: #1A0F00; text-shadow: 1px 1px 0 rgba(255,255,255,.55);
 }
-.v-rivals .rv-gotw-run { display: flex; flex: none; }
-.v-rivals .rv-gotw-run > span { display: grid; margin: 0 -5px; color: #1A0F00; animation: gotw-march 0.9s steps(1, end) infinite; animation-delay: calc(var(--i) * .3s); }
-.v-rivals .rv-gotw-run.is-r > span { animation-delay: calc((2 - var(--i)) * .3s); }
-.v-rivals .rv-gotw-run .ic { width: 18px; height: 18px; stroke-width: 3.4; }
-@keyframes gotw-march { 0% { opacity: 1; } 33% { opacity: .25; } 66% { opacity: .25; } }
-.v-rivals .rv-gotw-run.is-l { animation: gotw-push-r .9s ease-in-out infinite; }
-.v-rivals .rv-gotw-run.is-r { animation: gotw-push-l .9s ease-in-out infinite; }
-@keyframes gotw-push-r { 50% { transform: translateX(4px); } }
-@keyframes gotw-push-l { 50% { transform: translateX(-4px); } }
-.v-rivals .rv-gotw-down { display: flex; flex-direction: column; color: #1A0F00; animation: gotw-bounce .7s ease-in-out infinite; }
-.v-rivals .rv-gotw-down .ic { width: 14px; height: 14px; margin: -5px 0; stroke-width: 3.4; }
-@keyframes gotw-bounce { 50% { transform: translateY(3px); } }
 /* The matchup itself, lit: names in gold, the hype number glowing */
-.v-rivals .rv-mc.is-top .rv-mc-n { color: var(--gold); }
-.v-rivals .rv-mc.is-top .rv-mc-hype .n3 { color: var(--gold); text-shadow: 0 0 12px color-mix(in srgb, var(--gold) 70%, transparent); }
-.v-rivals .rv-mc.is-top .rv-mc-place { color: var(--gold); }
+.v-rivals .rv-mc.is-gotw .rv-mc-n { color: var(--gold); }
+.v-rivals .rv-mc.is-gotw .rv-mc-hype .n3 { color: var(--gold); text-shadow: 0 0 12px color-mix(in srgb, var(--gold) 70%, transparent); }
+.v-rivals .rv-mc.is-gotw .rv-mc-place { color: var(--gold); }
 @media (prefers-reduced-motion: reduce) {
-  .v-rivals .rv-mc.is-top, .v-rivals .rv-gotw, .v-rivals .rv-gotw-run, .v-rivals .rv-gotw-run > span, .v-rivals .rv-gotw-down { animation: none; }
+  .v-rivals .rv-mc.is-gotw, .v-rivals .rv-gotw, .v-rivals .rv-gotw::before, .v-rivals .rv-gotw::after { animation: none; }
 }
 /* Bigger, louder */
 .v-rivals .rv-gotw { padding: 10px 10px; margin-bottom: 14px; }
 .v-rivals .rv-gotw-t { font-size: 13px; line-height: 18px; }
-.v-rivals .rv-gotw-run .ic { width: 22px; height: 22px; }
-.v-rivals .rv-gotw-run > span { margin: 0 -6px; }
-.v-rivals .rv-gotw-down .ic { width: 16px; height: 16px; }
 /* Sparkles twinkling around the marquee */
 .v-rivals .rv-gotw { position: relative; }
 .v-rivals .rv-gotw::before, .v-rivals .rv-gotw::after {
@@ -615,3 +601,4 @@ html.rm .v-rivals .rv-vt-btn { transition: background-color 200ms linear, color 
 .v-rivals .rv-gotw-t { font-size: 15px; line-height: 20px; }
 .v-rivals .rv-mc.is-top .rv-mc-n { font-size: 16px; line-height: 21px; letter-spacing: -.01em; }
 .v-rivals .rv-mc.is-top .rv-mc-vs { display: none; } /* the big avatars face off: the names get the room */
+.v-rivals .rv-mc.is-gotw .rv-mc-hype > span:first-child { color: var(--gold); text-shadow: 0 0 12px color-mix(in srgb, var(--gold) 70%, transparent); }
