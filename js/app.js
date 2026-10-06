@@ -1715,6 +1715,7 @@ export async function promptInstall() {
 
 // ============================================================================ Boot
 function removeBoot() {
+  window.__ggBooted = true; // index.html's watchdog: the app started
   const b = $('boot');
   if (!b) return;
   b.classList.add('is-out');
