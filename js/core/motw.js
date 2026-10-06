@@ -3,6 +3,7 @@
 //   standings: where both teams sit right now (weighted down early in the season, when ranks mean little)
 //   history:   how close and how storied the all-time series is (playoff and title-game meetings, streaks)
 import * as data from './data.js';
+import {resetAfter} from './nfl.js';
 
 export const LENSES = [
   {id: 'overall', label: 'Overall'},
@@ -12,14 +13,35 @@ export const LENSES = [
 
 const clamp = (x, lo = 0, hi = 1) => Math.max(lo, Math.min(hi, x));
 
-// The next week on the in-progress season's schedule that has not been played yet, or null.
-export function upcoming() {
+// The fantasy week the calendar is in at time `at`: week 1 from the Tuesday reset before the season's opening
+// Thursday, then a new week every Tuesday 3:00 AM ET (nfl.resetAfter). Cached per hour.
+const OPENER = {2026: '2026-09-10'};
+function openerOf(year) {
+  if (OPENER[year]) return OPENER[year];
+  const dow = new Date(Date.UTC(year, 8, 1)).getUTCDay();
+  return `${year}-09-${String(1 + (8 - dow) % 7 + 3).padStart(2, '0')}`; // the Thursday after Labor Day
+}
+const calMemo = new Map();
+export function calendarWeek(year, at = Date.now()) {
+  const k = year + ':' + Math.floor(at / 36e5);
+  if (calMemo.has(k)) return calMemo.get(k);
+  let s = resetAfter(Date.parse(openerOf(year) + 'T12:00:00Z') - 4 * 864e5), w = 0;
+  if (at >= s) { w = 1; for (let n = resetAfter(s); n <= at && w < 30; n = resetAfter(n)) w++; }
+  calMemo.set(k, w);
+  return w;
+}
+
+// The week the league is on: the next week on the in-progress season's schedule that has not been played yet, and
+// never one the calendar has moved past (every Tuesday is a new week, whether or not league.json has the last
+// week's results yet), or null.
+export function upcoming(at = Date.now()) {
   const live = data.SEASONS.find(s => s.live);
   if (!live) return null;
   const raw = data.DATA.seasons.find(s => s.year === live.year);
   const sched = (raw && raw.schedule) || [];
   const played = data.throughWeek(live) || 0;
-  const weeks = sched.map(g => g.week).filter(w => w > played);
+  const cal = calendarWeek(live.year, at);
+  const weeks = sched.map(g => g.week).filter(w => w > played && w >= cal);
   if (!weeks.length) return null;
   const week = Math.min(...weeks);
   const games = sched.filter(g => g.week === week && data.M[g.a] && data.M[g.b]);

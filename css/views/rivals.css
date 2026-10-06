@@ -546,8 +546,8 @@ html.rm .v-rivals .rv-vt-btn { transition: background-color 200ms linear, color 
 .v-rivals .rv-flash { position: absolute; inset: 0; z-index: 2; border-radius: inherit; background: var(--tint-soft); pointer-events: none; opacity: 0; }
 
 /* ================================================================ Game of the Week: over the top
-   The top game gets a marquee: GAME OF THE WEEK in gold lights, chevrons marching in from both sides, arrows
-   bouncing down at the matchup, a pulsing gold frame and a spotlight. Reduced motion keeps it all, standing still. */
+   The top game gets a marquee: GAME OF THE WEEK in shining gold with sparkles, a pulsing gold frame and a
+   spotlight. Reduced motion keeps it all, standing still. */
 .v-rivals .rv-mc.is-top {
   grid-template-areas: "gotw gotw gotw" "place pair hype" ". tags tags" ". vote vote";
   padding-top: 0; overflow: hidden; isolation: isolate;
@@ -561,7 +561,7 @@ html.rm .v-rivals .rv-vt-btn { transition: background-color 200ms linear, color 
   50% { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--gold) 55%, #fff), inset 0 0 34px color-mix(in srgb, var(--gold) 45%, transparent); }
 }
 .v-rivals .rv-gotw {
-  grid-area: gotw; display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  grid-area: gotw; display: flex; align-items: center; justify-content: center; gap: 6px;
   margin: 0 -14px 12px -12px; padding: 7px 10px;
   background: linear-gradient(90deg, #8A5A00, var(--gold) 30%, #FFF1B8 50%, var(--gold) 70%, #8A5A00);
   background-size: 200% 100%; animation: gotw-shine 2.4s linear infinite;
@@ -611,3 +611,7 @@ html.rm .v-rivals .rv-vt-btn { transition: background-color 200ms linear, color 
 /* No empty vote line (voting closed, nobody voted), and room for the names beside the bigger avatars */
 .v-rivals .rv-mc-vote:has(> .rv-vt.is-none):not(:has(.rv-vt-btn, .rv-vt-tag)) { display: none; }
 .v-rivals .rv-mc.is-top .rv-mc-side, .v-rivals .rv-mc.is-top .rv-mc-pair { gap: 6px; }
+
+.v-rivals .rv-gotw-t { font-size: 15px; line-height: 20px; }
+.v-rivals .rv-mc.is-top .rv-mc-n { font-size: 16px; line-height: 21px; letter-spacing: -.01em; }
+.v-rivals .rv-mc.is-top .rv-mc-vs { display: none; } /* the big avatars face off: the names get the room */

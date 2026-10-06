@@ -195,9 +195,9 @@ export function parse(j, want = {}, opts = {}) {
   return {year, week, seasontype, games, weeks: cal.length || opts.weeks || REG_WEEKS, cal};
 }
 
-// The pick'em week for a parsed default scoreboard (see the header). cfb: the College pick'em's week runs Wednesday
-// to Tuesday: a finished Saturday stays up (its final scoreboard) through Tuesday, and the next week's picks open
-// Wednesday 12:00 AM ET, whenever ESPN's own calendar moves on.
+// The pick'em week for a parsed default scoreboard (see the header). cfb: the College pick'em's week runs Tuesday to
+// Monday, like the rest of the app: a finished Saturday stays up (its final scoreboard) through Monday, and the next
+// week's picks open at the Tuesday reset (3:00 AM ET, resetAfter), whenever ESPN's own calendar moves on.
 export function pickWeek(b, reg = REG_WEEKS, {cfb, at = Date.now()} = {}) {
   const weeks = (b && b.weeks) || reg;
   const year = b && b.year;
@@ -209,26 +209,30 @@ export function pickWeek(b, reg = REG_WEEKS, {cfb, at = Date.now()} = {}) {
   if (cfb) {
     const e = (b.cal || []).find(x => x.week === b.week);
     const last = Math.max(0, ...(b.games || []).map(g => toMs(g.kickoff)).filter(isFinite));
-    if (e && b.week > 1 && toMs(at) < wedAfter(e.start - 864e5)) week = b.week - 1; // ESPN moved on before Wednesday
-    else week = done && b.week < weeks && toMs(at) >= wedAfter(last) ? b.week + 1 : b.week;
+    if (e && b.week > 1 && toMs(at) < resetAfter(e.start - 864e5)) week = b.week - 1; // ESPN moved on before the reset
+    else week = done && b.week < weeks && toMs(at) >= resetAfter(last) ? b.week + 1 : b.week;
   }
   return {year, week, espnWeek: b.week, seasontype: 2, weeks, advanced: week !== b.week};
 }
-// The first Wednesday 12:00 AM US Eastern after time t (ms).
-export function wedAfter(t) {
-  const et = new Intl.DateTimeFormat('en-US', {timeZone: 'America/New_York', year: 'numeric', month: 'numeric', day: 'numeric', weekday: 'short', hour: 'numeric', hourCycle: 'h23'});
-  const parts = x => Object.fromEntries(et.formatToParts(new Date(x)).map(p => [p.type, p.value]));
+// The first time after t (ms) that it is `hour`:00 on weekday `wd` ('Tue') in US Eastern time.
+let etFmt = null;
+export function etAfter(t, wd, hour) {
+  etFmt = etFmt || new Intl.DateTimeFormat('en-US', {timeZone: 'America/New_York', year: 'numeric', month: 'numeric', day: 'numeric', weekday: 'short', hour: 'numeric', hourCycle: 'h23'});
+  const parts = x => Object.fromEntries(etFmt.formatToParts(new Date(x)).map(p => [p.type, p.value]));
   const p = parts(t);
   for (let d = 0; d <= 8; d++) {
-    // midnight ET of the day d days on: 04:00Z in daylight time, 05:00Z in standard time
-    for (const h of [4, 5]) {
+    // that hour ET, d days on: hour + 4 in UTC in daylight time, hour + 5 in standard time
+    for (const h of [hour + 4, hour + 5]) {
       const m = Date.UTC(+p.year, +p.month - 1, +p.day + d, h);
       const q = parts(m);
-      if (q.hour === '0' || q.hour === '00') { if (q.weekday === 'Wed' && m > t) return m; break; }
+      if (+q.hour === hour) { if (q.weekday === wd && m > t) return m; break; }
     }
   }
   return t + 7 * 864e5;
 }
+/** The app's weekly reset after t: Tuesday 3:00 AM ET (Monday night's game is over). New Matchup of the Week vote,
+ *  new Lay week, new college pick'em. */
+export const resetAfter = t => etAfter(t, 'Tue', 3);
 
 // A game is locked (no picks, no changes) once it has kicked off: its kickoff time has come, or ESPN already
 // shows it started (or over).

@@ -409,11 +409,9 @@ function mcSide(id, x, side, size) {
 }
 // Your vote and the leader always show, even beyond the top 3.
 const keepRow = (key, vm) => !!vm && (vm.mine === key || (vm.total > 0 && vm.leader === key));
-// The top game's banner: GAME OF THE WEEK in lights, arrows marching in from both sides and bouncing down at it.
+// The top game's banner: GAME OF THE WEEK in gold lights.
 function gotwHTML() {
-  const run = dir => `<span class="rv-gotw-run is-${dir}">${[0, 1, 2].map(i => `<span style="--i:${i}">${ui.icon(dir === 'l' ? 'chevron-right' : 'chevron-left')}</span>`).join('')}</span>`;
-  const down = `<span class="rv-gotw-down">${ui.icon('chevron-down')}${ui.icon('chevron-down')}</span>`;
-  return `<span class="rv-gotw" aria-hidden="true">${run('l')}<span class="rv-gotw-mid">${down}<span class="rv-gotw-t">Game of the Week</span>${down}</span>${run('r')}</span>`;
+  return `<span class="rv-gotw" aria-hidden="true"><span class="rv-gotw-mid"><span class="rv-gotw-t">Game of the Week</span></span></span>`;
 }
 function mcRow(c, vm) {
   const key = c.a + '|' + c.b;
