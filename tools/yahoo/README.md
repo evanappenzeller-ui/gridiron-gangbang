@@ -23,6 +23,11 @@ odds and the Matchup tab all follow from it.
    the code with a Copy button. Run the workflow again with the code pasted in. It saves the login and
    syncs straight away. Yahoo's codes expire within minutes, so do this step promptly.
 
+Since mid-2026 Yahoo only serves the Fantasy API to apps it has approved. Until an app is approved, every
+request is refused with "This application is not authorized". Apply, or confirm the app's Client ID, at
+https://sports.yahoo.com/developer/access/. While approval is pending, the runs pass with a "Waiting on
+Yahoo" note and start syncing on their own once it comes through.
+
 If the Yahoo app's redirect URI is ever something else, add a repository **variable** (not a secret),
 `YAHOO_REDIRECT_URI`, with exactly the same value.
 

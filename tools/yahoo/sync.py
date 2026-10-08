@@ -49,6 +49,10 @@ class Stop(Exception):
     """A problem the person running the sync has to fix; printed without a traceback."""
 
 
+class Waiting(Exception):
+    """Nothing to fix here yet (Yahoo approval pending): reported as a warning, and the run still passes."""
+
+
 def env(name):
     v = (os.environ.get(name) or '').strip()
     if not v:
@@ -119,10 +123,13 @@ def get(tok, path):
     except urllib.error.HTTPError as e:
         body = e.read().decode('utf-8', 'replace')
         why = re.search(r'<description>(.*?)</description>', body, re.S)
-        why = why.group(1).strip() if why else body[:300]
-        hint = (' Tick "Fantasy Sports - Read" under API Permissions on the Yahoo app, tap Update App, then connect '
-                'again with a new code.') if e.code in (401, 403) and 'not authorized' in why.lower() else ''
-        raise Stop(f'Yahoo API {path} answered {e.code}: {why}.{hint}')
+        why = why.group(1).strip().rstrip('.') if why else body[:300]
+        if e.code in (401, 403) and 'not authorized' in why.lower():
+            # Since mid-2026 Yahoo only serves the Fantasy API to apps it has approved. Until then every call
+            # is refused; that's a wait, not a failure, so scheduled runs stay green instead of emailing twice a day.
+            raise Waiting('Yahoo has not approved this app for the Fantasy Sports API yet. Apply (or confirm the '
+                          'Client ID) at https://sports.yahoo.com/developer/access/ ; syncing starts once it is approved.')
+        raise Stop(f'Yahoo API {path} answered {e.code}: {why}.')
 
 
 def txt(el, path, default=None):
@@ -378,6 +385,12 @@ def main(argv):
 if __name__ == '__main__':
     try:
         main(sys.argv)
+    except Waiting as e:
+        print(f'::warning::{e}')
+        summary = os.environ.get('GITHUB_STEP_SUMMARY')
+        if summary:
+            with open(summary, 'a', encoding='utf-8') as f:
+                f.write(f'### Waiting on Yahoo\n{e}\n')
     except Stop as e:
         print(f'::error::{str(e).splitlines()[0]}')
         print(e, file=sys.stderr)
