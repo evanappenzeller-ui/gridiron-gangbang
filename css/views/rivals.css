@@ -602,3 +602,10 @@ html.rm .v-rivals .rv-vt-btn { transition: background-color 200ms linear, color 
 .v-rivals .rv-mc.is-top .rv-mc-n { font-size: 16px; line-height: 21px; letter-spacing: -.01em; }
 .v-rivals .rv-mc.is-top .rv-mc-vs { display: none; } /* the big avatars face off: the names get the room */
 .v-rivals .rv-mc.is-gotw .rv-mc-hype > span:first-child { color: var(--gold); text-shadow: 0 0 12px color-mix(in srgb, var(--gold) 70%, transparent); }
+/* Projections in This week's games: each side's win chance and projected points (core/stats.js projectGame) */
+.v-rivals .rv-gm-pct { flex: none; margin-right: 10px; padding: 1px 7px; border-radius: 999px; background: var(--fill); color: var(--ink-3); font: 600 12px/18px var(--font-text); }
+.v-rivals .rv-gm-pct.is-fav { background: var(--tint-soft); color: var(--tint); }
+.v-rivals .rv-gm-proj { color: var(--ink); }
+.v-rivals .is-dog .rv-gm-proj { color: var(--ink-3); }
+.sh-rv-pre .rv-pj-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.sh-rv-pre .rv-pj-s { display: flex; align-items: center; gap: 8px; }

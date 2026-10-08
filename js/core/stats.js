@@ -533,6 +533,35 @@ function oddsArgs(o) {
 const copyOdds = r => ({meta: Object.assign({}, r.meta), rows: r.rows.map(x => Object.assign({}, x))});
 const emptyOdds = (sims, seed) => ({meta: {year: null, sims, seed, throughWeek: 0, remaining: 0, games: 0, leagueAvg: 0, sd: 0}, rows: []});
 
+// ---------------------------------------------------------------------------------------------- Projections
+// A game's projection from the playoff-odds model (oddsPrep): each team's level is its season scoring average shrunk
+// toward the league's (a 3-game prior), the spread the league's pooled week-to-week SD plus how unsure each level
+// still is. -> {pa, pb (projected points), winA (0-1, a's chance)} or null (no live season).
+let projMemo = null;
+function projModel(year) {
+  const s = data.SEASONS.find(x => x.year === year) || data.SEASONS.find(x => x.live);
+  if (!s) return null;
+  if (projMemo && projMemo.src === data.DATA && projMemo.year === s.year) return projMemo;
+  const P = oddsPrep(s);
+  projMemo = {src: data.DATA, year: s.year, P};
+  return projMemo;
+}
+const erf = x => { // Abramowitz-Stegun 7.1.26
+  const t = 1 / (1 + .3275911 * Math.abs(x));
+  const y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - .284496736) * t + .254829592) * t * Math.exp(-x * x);
+  return x >= 0 ? y : -y;
+};
+export function projectGame(year, a, b) {
+  const m = projModel(year);
+  if (!m) return null;
+  const {ix, mu, muSd, sd, leagueAvg} = m.P;
+  const lvl = id => (id in ix ? [mu[ix[id]], muSd[ix[id]]] : [leagueAvg, sd / Math.sqrt(3)]);
+  const [ma, sa] = lvl(a), [mb, sb] = lvl(b);
+  const spread = Math.sqrt(2 * sd * sd + sa * sa + sb * sb);
+  const z = (ma - mb) / spread;
+  return {pa: Math.round(ma * 10) / 10, pb: Math.round(mb * 10) / 10, winA: .5 * (1 + erf(z / Math.SQRT2))};
+}
+
 export function playoffOdds(opts) {
   const {s, sims, seed, cache, key} = oddsArgs(opts);
   if (!s) return emptyOdds(sims, seed);

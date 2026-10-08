@@ -681,28 +681,48 @@ function tableRow(s, id) {
   const r = s && s.table ? s.table.find(x => x.id === id) : null;
   return r && (r.w + r.l + r.t) > 0 ? r : null;
 }
-function gmSide(s, id) {
+// pj: this side's projection {pts, win} (core/stats.js projectGame) once stats.js is in, else the record alone.
+function gmSide(s, id, pj) {
   const r = tableRow(s, id);
+  const rec = r ? data.recStr(r.w, r.l, r.t) : '0–0';
   const team = s ? data.teamIn(s, id) : data.team(id);
-  return `<span class="bug-side is-tie">${ui.avatar(id, {size: 24, you: id === data.me()})}`
-    + `<span class="bug-name"><b>${esc(nm(id))}</b>${team ? `<span class="bug-team">${esc(team)}</span>` : ''}</span>`
-    + `<span class="bug-score rv-gm-rec">${esc(r ? data.recStr(r.w, r.l, r.t) : '0–0')}</span></span>`;
+  if (!pj) {
+    return `<span class="bug-side is-tie">${ui.avatar(id, {size: 24, you: id === data.me()})}`
+      + `<span class="bug-name"><b>${esc(nm(id))}</b>${team ? `<span class="bug-team">${esc(team)}</span>` : ''}</span>`
+      + `<span class="bug-score rv-gm-rec">${esc(rec)}</span></span>`;
+  }
+  const fav = pj.win >= .5;
+  return `<span class="bug-side ${fav ? 'is-fav' : 'is-dog'}">${ui.avatar(id, {size: 24, you: id === data.me()})}`
+    + `<span class="bug-name"><b>${esc(nm(id))}</b><span class="bug-team">${esc(rec)}</span></span>`
+    + `<span class="rv-gm-pct${fav ? ' is-fav' : ''}">${Math.round(pj.win * 100)}%</span>`
+    + `<span class="bug-score rv-gm-proj n5">${esc(pj.pts.toFixed(1))}</span></span>`;
 }
-function gmLabel(s, x) {
+// Projected points and win chances for an unplayed game (null until core/stats.js has loaded).
+function projOf(cur, x) {
+  if (!STATS || typeof STATS.projectGame !== 'function') return null;
+  try { return STATS.projectGame(cur.year, x.a, x.b); } catch (_) { return null; }
+}
+function gmLabel(s, x, p) {
   const one = id => { const r = tableRow(s, id); return r ? `${nm(id)}, ${data.recStr(r.w, r.l, r.t)}, ${ui.ordinal(r.seed)}` : nm(id); };
-  return `${one(x.a)} versus ${one(x.b)}. Not played yet. Show the matchup`;
+  const proj = p ? ` Projected ${nm(x.a)} ${p.pa.toFixed(1)}, ${nm(x.b)} ${p.pb.toFixed(1)}; ${nm(p.winA >= .5 ? x.a : x.b)} ${Math.round(Math.max(p.winA, 1 - p.winA) * 100)}% to win.` : '';
+  return `${one(x.a)} versus ${one(x.b)}. Not played yet.${proj} Show the matchup`;
 }
 function gameItem(cur, s, x) {
   const g = gameOf(cur, x);
   if (g) return ui.scoreBug(g, {teams: true, cls: 'rv-gm', attrs: {'data-wg': x.key, 'data-press': 'row', 'aria-haspopup': 'dialog'}});
-  return `<button type="button" class="bug bug-row rv-gm is-open" data-wg="${esc(x.key)}" data-press="row" aria-haspopup="dialog" aria-label="${esc(gmLabel(s, x))}">`
-    + gmSide(s, x.a) + gmSide(s, x.b) + `</button>`;
+  const p = projOf(cur, x);
+  return `<button type="button" class="bug bug-row rv-gm is-open${p ? ' is-proj' : ''}" data-wg="${esc(x.key)}" data-press="row" aria-haspopup="dialog" aria-label="${esc(gmLabel(s, x, p))}">`
+    + gmSide(s, x.a, p && {pts: p.pa, win: p.winA}) + gmSide(s, x.b, p && {pts: p.pb, win: 1 - p.winA}) + `</button>`;
 }
 function gamesHTML(cur) {
   if (!cur || !cur.games || !cur.games.length) return '';
   const s = data.seasonByYear(cur.year);
   const played = cur.games.filter(x => gameOf(cur, x)).length;
+  // Projections come from core/stats.js (loaded at idle); this redraws once it's in.
+  if (!STATS && played < cur.games.length) loadStats().then(() => patchGames(), () => {});
+  const proj = !!STATS && played < cur.games.length;
   const note = played === cur.games.length ? 'Final scores. Tap a game for the matchup.'
+    : proj ? `Projected points and win chances from this season's scoring.${played ? ' Final where played.' : ''} Tap a game for the matchup.`
     : played ? 'Scores so far. Tap a game for the matchup.' : 'Season records. Tap a game for the matchup.';
   return `<section class="rv-games" data-enter aria-labelledby="rv-games-h">`
     + `<div class="rv-wk-head"><h2 class="t-2" id="rv-games-h">This week's games</h2><span class="ovl rv-wk-ovl">Week ${esc(cur.week)}</span></div>`
@@ -761,6 +781,7 @@ function openPreview(cur, x) {
   const ovl = `Week ${cur.week} · ${cur.year}`;
   const body = `<div class="mu">`
     + `<div class="mu-hero">${hero}</div>`
+    + projBlock(cur, x, a, b)
     + `<h3 class="mu-h">Records entering the game</h3><div class="mu-box">${tape}</div>`
     + `<h3 class="mu-h">All-time series</h3><div class="mu-box mu-pad">${seriesHTML(a, b)}</div>`
     + `<div class="mu-actions">${ui.button({label: 'Full rivalry', kind: 'secondary', icon: 'versus', attrs: {'data-mu': 'rivalry'}})}`
@@ -780,8 +801,19 @@ function openPreview(cur, x) {
     const av = sides[k === 'a' ? 0 : 1] && sides[k === 'a' ? 0 : 1].querySelector('.av');
     ctx.nav('/managers/' + encodeURIComponent(id), av ? {morphFrom: av} : undefined);
   });
-  ui.splitIn(sh.body.querySelector('.split'));
+  sh.body.querySelectorAll('.split').forEach(x => ui.splitIn(x));
   return sh;
+}
+// The sheet's projection: both projected scores and the win chances as a split bar.
+function projBlock(cur, x, a, b) {
+  const p = projOf(cur, x);
+  if (!p) return '';
+  const pa = Math.round(p.winA * 100), fav = p.winA >= .5 ? a : b;
+  return `<h3 class="mu-h">Projection</h3><div class="mu-box mu-pad"><div class="rv-pj" role="img" aria-label="${esc(`Projected ${nm(a)} ${p.pa.toFixed(1)}, ${nm(b)} ${p.pb.toFixed(1)}. ${nm(fav)} ${Math.max(pa, 100 - pa)}% to win.`)}">`
+    + `<div class="rv-pj-row" aria-hidden="true"><span class="rv-pj-s">${ui.avatar(a, {size: 28})}<span class="n3">${esc(p.pa.toFixed(1))}</span></span><span class="ovl">Proj</span>`
+    + `<span class="rv-pj-s is-b"><span class="n3">${esc(p.pb.toFixed(1))}</span>${ui.avatar(b, {size: 28})}</span></div>`
+    + `<div aria-hidden="true">${ui.splitBar(a, b, p.winA)}</div>`
+    + `<p class="mu-cap" aria-hidden="true"><b>${Math.abs(pa - 50) <= 2 ? 'Toss-up' : esc(`${nm(fav)} ${Math.max(pa, 100 - pa)}% to win`)}</b> · from this season's scoring</p></div></div>`;
 }
 function openGame(key) {
   const cur = curWeek();
