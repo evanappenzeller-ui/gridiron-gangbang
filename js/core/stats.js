@@ -536,7 +536,8 @@ const emptyOdds = (sims, seed) => ({meta: {year: null, sims, seed, throughWeek: 
 // ---------------------------------------------------------------------------------------------- Projections
 // A game's projection from the playoff-odds model (oddsPrep): each team's level is its season scoring average shrunk
 // toward the league's (a 3-game prior), the spread the league's pooled week-to-week SD plus how unsure each level
-// still is. -> {pa, pb (projected points), winA (0-1, a's chance)} or null (no live season).
+// still is. given {pa, pb}: projected points from elsewhere (Yahoo's); only the chance to win is computed.
+// -> {pa, pb (projected points), winA (0-1, a's chance)} or null (no live season).
 let projMemo = null;
 function projModel(year) {
   const s = data.SEASONS.find(x => x.year === year) || data.SEASONS.find(x => x.live);
@@ -551,10 +552,15 @@ const erf = x => { // Abramowitz-Stegun 7.1.26
   const y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - .284496736) * t + .254829592) * t * Math.exp(-x * x);
   return x >= 0 ? y : -y;
 };
-export function projectGame(year, a, b) {
+export function projectGame(year, a, b, given) {
   const m = projModel(year);
   if (!m) return null;
   const {ix, mu, muSd, sd, leagueAvg} = m.P;
+  // Projected points given (Yahoo's): the chance to win from them and the league's week-to-week spread.
+  if (given && isFinite(given.pa) && isFinite(given.pb)) {
+    const z = (given.pa - given.pb) / (Math.SQRT2 * sd);
+    return {pa: +given.pa, pb: +given.pb, winA: .5 * (1 + erf(z / Math.SQRT2))};
+  }
   const lvl = id => (id in ix ? [mu[ix[id]], muSd[ix[id]]] : [leagueAvg, sd / Math.sqrt(3)]);
   const [ma, sa] = lvl(a), [mb, sb] = lvl(b);
   const spread = Math.sqrt(2 * sd * sd + sa * sa + sb * sb);

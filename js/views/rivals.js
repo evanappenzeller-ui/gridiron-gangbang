@@ -698,9 +698,19 @@ function gmSide(s, id, pj) {
     + `<span class="bug-score rv-gm-proj n5">${esc(pj.pts.toFixed(1))}</span></span>`;
 }
 // Projected points and win chances for an unplayed game (null until core/stats.js has loaded).
+// Yahoo's projection for a game, from league.json's schedule ({week, a, b, pa, pb (Yahoo's projected points),
+// wa? (Yahoo's win chance for a, 0-100)}), turned to this game's sides. Without Yahoo's win chance it's worked out
+// from the projected points and the league's week-to-week spread (core/stats.js, loaded at idle). null: Yahoo's
+// numbers aren't in the data for this game (the game then shows records only).
 function projOf(cur, x) {
+  const raw = data.DATA && (data.DATA.seasons || []).find(z => z.year === cur.year);
+  const g = raw && (raw.schedule || []).find(z => z.week === cur.week && ((z.a === x.a && z.b === x.b) || (z.a === x.b && z.b === x.a)));
+  if (!g || !isFinite(g.pa) || !isFinite(g.pb)) return null;
+  const flip = g.a !== x.a;
+  const pa = +(flip ? g.pb : g.pa), pb = +(flip ? g.pa : g.pb);
+  if (isFinite(g.wa)) { const w = Math.max(0, Math.min(100, +g.wa)) / 100; return {pa, pb, winA: flip ? 1 - w : w, yahoo: true}; }
   if (!STATS || typeof STATS.projectGame !== 'function') return null;
-  try { return STATS.projectGame(cur.year, x.a, x.b); } catch (_) { return null; }
+  try { const p = STATS.projectGame(cur.year, x.a, x.b, {pa, pb}); return p && Object.assign(p, {yahoo: false}); } catch (_) { return null; }
 }
 function gmLabel(s, x, p) {
   const one = id => { const r = tableRow(s, id); return r ? `${nm(id)}, ${data.recStr(r.w, r.l, r.t)}, ${ui.ordinal(r.seed)}` : nm(id); };
@@ -720,9 +730,9 @@ function gamesHTML(cur) {
   const played = cur.games.filter(x => gameOf(cur, x)).length;
   // Projections come from core/stats.js (loaded at idle); this redraws once it's in.
   if (!STATS && played < cur.games.length) loadStats().then(() => patchGames(), () => {});
-  const proj = !!STATS && played < cur.games.length;
+  const proj = cur.games.some(x => !gameOf(cur, x) && projOf(cur, x));
   const note = played === cur.games.length ? 'Final scores. Tap a game for the matchup.'
-    : proj ? `Projected points and win chances from this season's scoring.${played ? ' Final where played.' : ''} Tap a game for the matchup.`
+    : proj ? `Yahoo's projected points and win chances.${played ? ' Final where played.' : ''} Tap a game for the matchup.`
     : played ? 'Scores so far. Tap a game for the matchup.' : 'Season records. Tap a game for the matchup.';
   return `<section class="rv-games" data-enter aria-labelledby="rv-games-h">`
     + `<div class="rv-wk-head"><h2 class="t-2" id="rv-games-h">This week's games</h2><span class="ovl rv-wk-ovl">Week ${esc(cur.week)}</span></div>`
@@ -809,11 +819,11 @@ function projBlock(cur, x, a, b) {
   const p = projOf(cur, x);
   if (!p) return '';
   const pa = Math.round(p.winA * 100), fav = p.winA >= .5 ? a : b;
-  return `<h3 class="mu-h">Projection</h3><div class="mu-box mu-pad"><div class="rv-pj" role="img" aria-label="${esc(`Projected ${nm(a)} ${p.pa.toFixed(1)}, ${nm(b)} ${p.pb.toFixed(1)}. ${nm(fav)} ${Math.max(pa, 100 - pa)}% to win.`)}">`
+  return `<h3 class="mu-h">Yahoo projection</h3><div class="mu-box mu-pad"><div class="rv-pj" role="img" aria-label="${esc(`Projected ${nm(a)} ${p.pa.toFixed(1)}, ${nm(b)} ${p.pb.toFixed(1)}. ${nm(fav)} ${Math.max(pa, 100 - pa)}% to win.`)}">`
     + `<div class="rv-pj-row" aria-hidden="true"><span class="rv-pj-s">${ui.avatar(a, {size: 28})}<span class="n3">${esc(p.pa.toFixed(1))}</span></span><span class="ovl">Proj</span>`
     + `<span class="rv-pj-s is-b"><span class="n3">${esc(p.pb.toFixed(1))}</span>${ui.avatar(b, {size: 28})}</span></div>`
     + `<div aria-hidden="true">${ui.splitBar(a, b, p.winA)}</div>`
-    + `<p class="mu-cap" aria-hidden="true"><b>${Math.abs(pa - 50) <= 2 ? 'Toss-up' : esc(`${nm(fav)} ${Math.max(pa, 100 - pa)}% to win`)}</b> · from this season's scoring</p></div></div>`;
+    + `<p class="mu-cap" aria-hidden="true"><b>${Math.abs(pa - 50) <= 2 ? 'Toss-up' : esc(`${nm(fav)} ${Math.max(pa, 100 - pa)}% to win`)}</b> · ${p.yahoo ? "Yahoo's projection" : "Yahoo's projected points"}</p></div></div>`;
 }
 function openGame(key) {
   const cur = curWeek();
