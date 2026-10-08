@@ -1,0 +1,82 @@
+# Keeps data/league.json in step with the Yahoo league: final scores once a week ends, next games and Yahoo's
+# projections for the week in play. Setup and how it works: tools/yahoo/README.md.
+name: Yahoo sync
+
+on:
+  schedule:
+    - cron: '23 10 * * *'  # 6:23 AM Eastern (5:23 in winter): picks up Tuesday's finals
+    - cron: '23 22 * * *'  # 6:23 PM Eastern: fresher projections before games
+  workflow_dispatch:
+    inputs:
+      code:
+        description: Yahoo sign-in code (only when connecting Yahoo; leave blank to just sync)
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+  pages: write
+
+concurrency:
+  group: yahoo-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      YAHOO_CLIENT_ID: ${{ secrets.YAHOO_CLIENT_ID }}
+      YAHOO_CLIENT_SECRET: ${{ secrets.YAHOO_CLIENT_SECRET }}
+      YAHOO_LEAGUE_ID: ${{ vars.YAHOO_LEAGUE_ID }}
+      YAHOO_REDIRECT_URI: ${{ vars.YAHOO_REDIRECT_URI }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Connect Yahoo
+        if: inputs.code != ''
+        env:
+          YAHOO_CODE: ${{ inputs.code }}
+        run: |
+          echo "::add-mask::$YAHOO_CODE"
+          python3 tools/yahoo/sync.py connect
+
+      - name: Check the Yahoo login
+        id: ready
+        run: |
+          if [ -f tools/yahoo/token.enc ]; then echo "ok=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          echo "ok=false" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Yahoo is not connected yet"
+            if [ -z "$YAHOO_CLIENT_ID" ] || [ -z "$YAHOO_CLIENT_SECRET" ]; then
+              echo "Add the YAHOO_CLIENT_ID and YAHOO_CLIENT_SECRET repository secrets first (tools/yahoo/README.md)."
+            else
+              echo "1. Open this link, sign in to Yahoo and tap **Agree**: $(python3 tools/yahoo/sync.py link)"
+              echo "2. Copy the code Yahoo shows, then run this workflow again with the code pasted in."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice::Yahoo is not connected yet; the run summary has the next step."
+
+      - name: Sync from Yahoo
+        id: sync
+        if: steps.ready.outputs.ok == 'true'
+        run: python3 tools/yahoo/sync.py sync
+
+      - name: Commit and publish
+        if: always() && steps.ready.outputs.ok == 'true'
+        env:
+          MSG: ${{ steps.sync.outputs.message }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git add -A data/league.json tools/yahoo
+          if git diff --cached --quiet; then echo "Nothing new from Yahoo."; exit 0; fi
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "${MSG:-Yahoo: keep the login fresh}"
+          for i in 1 2 3; do
+            git push -q origin HEAD:${{ github.ref_name }} && break
+            [ "$i" = 3 ] && exit 1
+            git pull -q --rebase origin ${{ github.ref_name }}
+          done
+          echo "Pushed: ${MSG:-login refresh}" >> "$GITHUB_STEP_SUMMARY"
+          # Pages may not rebuild on its own for a push made with the workflow's token; ask for a build.
+          gh api -X POST "repos/${{ github.repository }}/pages/builds" >/dev/null 2>&1 || true
