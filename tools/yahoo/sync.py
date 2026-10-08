@@ -117,8 +117,12 @@ def get(tok, path):
         with urllib.request.urlopen(req, timeout=30) as r:
             return strip_ns(ET.fromstring(r.read()))
     except urllib.error.HTTPError as e:
-        body = e.read().decode('utf-8', 'replace')[:300]
-        raise Stop(f'Yahoo API {path} answered {e.code}: {body}')
+        body = e.read().decode('utf-8', 'replace')
+        why = re.search(r'<description>(.*?)</description>', body, re.S)
+        why = why.group(1).strip() if why else body[:300]
+        hint = (' Tick "Fantasy Sports - Read" under API Permissions on the Yahoo app, tap Update App, then connect '
+                'again with a new code.') if e.code in (401, 403) and 'not authorized' in why.lower() else ''
+        raise Stop(f'Yahoo API {path} answered {e.code}: {why}.{hint}')
 
 
 def txt(el, path, default=None):
