@@ -9,7 +9,8 @@ Run by .github/workflows/yahoo-sync.yml. Standard library only.
 
 Environment: YAHOO_CLIENT_ID and YAHOO_CLIENT_SECRET (repo secrets), optional YAHOO_LEAGUE_ID (the
 number in the league's URL; otherwise the signed-in user's NFL league named like league.json's) and
-YAHOO_REDIRECT_URI (default "oob", which must match the Yahoo app's redirect URI).
+YAHOO_REDIRECT_URI (default: the app's yahoo.html page, which shows the code; it must match the Yahoo app's
+redirect URI exactly).
 
 The login is a Yahoo refresh token, kept in TOKEN_FILE encrypted with the client secret (AES-256 via
 openssl), so the workflow can save it, and save a rotated one, without write access to repo secrets.
@@ -41,7 +42,7 @@ TEAMS_FILE = os.path.join(ROOT, 'tools', 'yahoo', 'teams.json')
 TOKEN_FILE = os.path.join(ROOT, 'tools', 'yahoo', 'token.enc')
 AUTH = os.environ.get('YAHOO_AUTH_BASE', 'https://api.login.yahoo.com/oauth2')
 API = os.environ.get('YAHOO_API_BASE', 'https://fantasysports.yahooapis.com/fantasy/v2')
-REDIRECT = os.environ.get('YAHOO_REDIRECT_URI') or 'oob'
+REDIRECT = os.environ.get('YAHOO_REDIRECT_URI') or 'https://evanappenzeller-ui.github.io/gridiron-gangbang/yahoo.html'
 
 
 class Stop(Exception):

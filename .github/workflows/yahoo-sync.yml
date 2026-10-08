@@ -52,7 +52,7 @@ jobs:
               echo "Add the YAHOO_CLIENT_ID and YAHOO_CLIENT_SECRET repository secrets first (tools/yahoo/README.md)."
             else
               echo "1. Open this link, sign in to Yahoo and tap **Agree**: $(python3 tools/yahoo/sync.py link)"
-              echo "2. Copy the code Yahoo shows, then run this workflow again with the code pasted in."
+              echo "2. Yahoo sends you to a page with your code and a Copy button. Run this workflow again with the code pasted in."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
           echo "::notice::Yahoo is not connected yet; the run summary has the next step."

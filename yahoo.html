@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#070E22">
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<title>Connect Yahoo</title>
+<!-- Where Yahoo sends the commissioner after "Agree" when connecting the score sync (tools/yahoo/README.md).
+     Shows the one-time code from the address so it can be pasted into the Yahoo sync workflow. -->
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; min-height: 100vh; background: #070E22; color: #E8ECF8; font: 17px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+         display: flex; align-items: center; justify-content: center; padding: 24px 16px; box-sizing: border-box; }
+  main { width: 100%; max-width: 420px; }
+  h1 { font-size: 24px; margin: 0 0 8px; }
+  p { margin: 0 0 16px; color: #AEB7D3; }
+  code { display: block; padding: 14px; border-radius: 12px; background: #121B38; border: 1px solid #26335E; color: #FFD45A;
+         font: 15px/1.4 ui-monospace, Menlo, monospace; word-break: break-all; user-select: all; -webkit-user-select: all; margin-bottom: 12px; }
+  button { width: 100%; min-height: 48px; border: 0; border-radius: 12px; background: #FFD45A; color: #070E22; font-family: inherit; font-size: 17px; font-weight: 600; }
+  ol { padding-left: 20px; color: #AEB7D3; margin: 20px 0 0; }
+  li { margin-bottom: 6px; }
+  .err { color: #FF8A8A; }
+</style>
+</head>
+<body>
+<main id="m"></main>
+<script>
+  var q = new URLSearchParams(location.search), code = q.get('code'), m = document.getElementById('m');
+  function t(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+  if (code) {
+    m.innerHTML = '<h1>Yahoo said yes</h1><p>Copy this code. It works once and expires in a few minutes.</p>'
+      + '<code id="c">' + t(code) + '</code><button id="b" type="button">Copy code</button>'
+      + '<ol><li>On GitHub, open Actions, then Yahoo sync.</li><li>Tap Run workflow and paste the code.</li><li>Run it. Scores show up in the app a minute or two later.</li></ol>';
+    document.getElementById('b').onclick = function () {
+      var b = this;
+      navigator.clipboard.writeText(code).then(function () { b.textContent = 'Copied'; }, function () { b.textContent = 'Press and hold the code to copy it'; });
+    };
+  } else {
+    m.innerHTML = '<h1>No code here</h1><p class="err">' + t(q.get('error_description') || q.get('error') || 'Yahoo did not send a sign-in code.')
+      + '</p><p>Open the sign-in link from the Yahoo sync run summary again and tap Agree.</p>';
+  }
+</script>
+</body>
+</html>
