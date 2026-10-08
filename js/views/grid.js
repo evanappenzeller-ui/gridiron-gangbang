@@ -104,7 +104,7 @@ function headHTML(c, cls) {
 }
 function footHTML() {
   if (!daily.gridDone()) return ui.button({label: 'Give up the empty squares', kind: 'destructive', cls: 'gd-give', attrs: {'data-gd-give': ''}});
-  return `<p class="note gd-done">${daily.gridScore()} of ${N()} for ${daily.ptsGrid()} points. Each square you missed shows one player who would have worked.</p>`;
+  return `<p class="note gd-done">${daily.gridScore()} of ${N()} for ${daily.ptsGrid()} points.</p>`;
 }
 
 /** Classic layout (any shape with two or more rows; v1 and v2 days are 3 x 3): corner, column headers, then each row

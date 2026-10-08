@@ -83,19 +83,18 @@ function themeName() {
   const t = T && T.list.find(x => x.id === id);
   return t ? t.name : 'Retro Arcade';
 }
+// The Haptics switch, only where the phone can vibrate (no iPhone can): elsewhere there's no Feel section at all.
+const feelHTML = () => ui.HAPTICS_SUPPORTED
+  ? sec('Feel', ui.group(ui.row({lead: `<span class="c-ys-ic">${ui.icon('pulse', {size: 20})}</span>`, title: 'Haptics', trail: ui.switchCtl({name: 'haptics', checked: ui.lsGet('gg-haptics') !== '0', label: 'Haptics'})})))
+  : '';
 function youBody() {
   const L = data.DATA && data.DATA.league ? data.DATA.league.name : 'Gridiron Gangbang';
   const sp = data.span;
-  const MOTION = "Motion follows your phone's Reduce Motion setting.";
-  // No vibrate (every iPhone): no Haptics switch, so the motion note becomes the section's row instead of a
-  // footnote under an empty header.
-  const feel = ui.HAPTICS_SUPPORTED
-    ? sec('Feel', ui.group(ui.row({lead: `<span class="c-ys-ic">${ui.icon('pulse', {size: 20})}</span>`, title: 'Haptics', trail: ui.switchCtl({name: 'haptics', checked: ui.lsGet('gg-haptics') !== '0', label: 'Haptics'})})), MOTION)
-    : sec('Feel', ui.group(ui.row({lead: `<span class="c-ys-ic">${ui.icon('pulse', {size: 20})}</span>`, title: MOTION, cls: 'c-ys-wrap'})));
-  return sec('Which one are you?', gridHTML(), 'Only saved on this phone. Used to highlight you.')
+  const feel = feelHTML();
+  return sec('Which one are you?', gridHTML())
     + sec('Leaderboard', ui.group(nickRow(), {cls: 'c-ys-nickg'}))
     + sec('Look', ui.group(ui.row({lead: `<span class="c-ys-ic">${ui.icon('sparkle', {size: 20})}</span>`, title: 'Theme', sub: themeName(),
-      attrs: {'data-theme-pick': ''}, cls: 'c-ys-act', chevron: true})), 'Also on the title screen when the app opens.')
+      attrs: {'data-theme-pick': ''}, cls: 'c-ys-act', chevron: true})))
     + feel
     + sec('Data', ui.group(
       ui.row({lead: `<span class="c-ys-ic">${ui.icon('calendar', {size: 20})}</span>`, title: dataLine(), cls: 'c-ys-dataline'})
@@ -103,7 +102,6 @@ function youBody() {
     + `<div class="c-ys-install">${installHTML()}</div>`
     + sec('About', ui.group(
       ui.row({lead: `<span class="c-ys-ic">${ui.icon('football', {size: 20})}</span>`, title: L, sub: `${sp.first}–${sp.last} · ${sp.managers} managers`})
-      + ui.row({lead: `<span class="c-ys-ic">${ui.icon('info', {size: 20})}</span>`, title: 'League history from Yahoo, updated weekly.', cls: 'c-ys-wrap'})
       + ui.row({lead: `<span class="c-ys-ic">${ui.icon('gear', {size: 20})}</span>`, title: `Version ${APP_VERSION}`})));
 }
 
@@ -132,12 +130,9 @@ addEventListener('appinstalled', () => setTimeout(refreshInstall, 0));
 
 // Settings (the gear on Puzzles): the theme first, then feel, data and about. The same rows as the You sheet's.
 function settingsBody() {
-  const MOTION = "Motion follows your phone's Reduce Motion setting.";
-  const feel = ui.HAPTICS_SUPPORTED
-    ? sec('Feel', ui.group(ui.row({lead: `<span class="c-ys-ic">${ui.icon('pulse', {size: 20})}</span>`, title: 'Haptics', trail: ui.switchCtl({name: 'haptics', checked: ui.lsGet('gg-haptics') !== '0', label: 'Haptics'})})), MOTION)
-    : sec('Feel', ui.group(ui.row({lead: `<span class="c-ys-ic">${ui.icon('pulse', {size: 20})}</span>`, title: MOTION, cls: 'c-ys-wrap'})));
+  const feel = feelHTML();
   return sec('Look', ui.group(ui.row({lead: `<span class="c-ys-ic">${ui.icon('sparkle', {size: 20})}</span>`, title: 'Theme', sub: themeName(),
-      attrs: {'data-theme-pick': ''}, cls: 'c-ys-act', chevron: true})), 'Retro Arcade, creative looks and all 32 NFL teams.')
+      attrs: {'data-theme-pick': ''}, cls: 'c-ys-act', chevron: true})))
     + sec('You', ui.group(ui.row({lead: `<span class="c-ys-ic">${ui.icon('person', {size: 20})}</span>`, title: 'Which one are you?', sub: data.me() ? data.name(data.me()) : 'Not picked yet',
       attrs: {'data-open-you': ''}, cls: 'c-ys-act', chevron: true})))
     + feel
@@ -351,8 +346,7 @@ ${tiles}
 <h3 class="c-pc-h">Last 14 days</h3>
 <div class="c-pc-bars" role="img" aria-label="${esc(`Played ${n14} of the last 14 days. Best day ${nf(best)} points.`)}">${bars}</div>
 <div class="c-pc-axis" aria-hidden="true"><span>2 weeks ago</span><span>Today</span></div>
-</div>
-<p class="c-pc-foot">From this nickname's posted scores.</p>`;
+</div>`;
   const sh = ui.openSheet({title: '', label: nick, body, cls: 'sh-player', detents: ['fit']});
   if (!ui.RM) {
     [...sh.body.querySelectorAll('.c-pc-b:not(.is-none)')].forEach((b, i) => {

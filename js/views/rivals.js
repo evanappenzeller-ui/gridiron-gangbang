@@ -25,7 +25,6 @@ import {openMatchup, enteringRecord} from './matchup.js';
 const esc = s => data.esc(s);
 const nm = id => data.name(id);
 const SHARE = [{id: 'share', icon: 'share', label: 'Share this rivalry'}];
-const FOOTNOTE = 'Includes playoff and consolation games. Tap a name to see that matchup.';
 const USER_VIA = ['swap', 'pick', 'list', 'ext']; // pair changes the person asked for (announced)
 
 // One Matchup screen exists at a time (it is the Matchup tab root); its live state lives here and is reset
@@ -234,7 +233,7 @@ function listHTML(m) {
   return `<ul class="group rv-opps" aria-label="${esc(`${nm(m.a)} against everyone`)}">${rows.map(x => oppRow(m.a, x, m.b)).join('')}</ul>`;
 }
 function listSecHTML(m) {
-  return `<div class="rv-sec rv-list" data-enter>${ui.sectionHeader({title: `${nm(m.a)} against everyone`})}<div class="rv-list-w">${listHTML(m)}</div><p class="group-f">${FOOTNOTE}</p></div>`;
+  return `<div class="rv-sec rv-list" data-enter>${ui.sectionHeader({title: `${nm(m.a)} against everyone`})}<div class="rv-list-w">${listHTML(m)}</div></div>`;
 }
 
 // ============================================================================ The week (core/week.js)
@@ -399,8 +398,6 @@ function readLens() {
 }
 function saveLens(v) { try { localStorage.setItem(LENS_KEY, v); } catch (_) {} }
 const SHOWN = 3;
-const LENS_SUB = {overall: 'Standings and history, blended.', standings: 'Where both teams sit right now.', history: 'How close and storied each series is.'};
-const lensSub = lens => `${LENS_SUB[lens] || LENS_SUB.overall} Tap a game for the full history.`;
 const recOf = x => x.rank ? `#${x.rank} · ${data.recStr(x.w, x.l, x.t)}` : 'No games yet';
 
 function mcSide(id, x, side, size) {
@@ -447,7 +444,6 @@ function motwHTML(lens) {
   const more = res.list.length > SHOWN;
   return `<section class="rv-motw" id="rv-motw" data-enter aria-labelledby="rv-motw-h">`
     + `<div class="rv-motw-head"><h2 class="t-2" id="rv-motw-h">Matchup of the Week</h2><span class="ovl rv-motw-wk">Week ${res.week}</span></div>`
-    + `<p class="rv-motw-sub">${esc(lensSub(res.lens))}</p>`
     + ui.seg({name: 'motw-lens', items: motw.LENSES, value: res.lens, small: true, label: 'Rank by', cls: 'rv-motw-seg'})
     + `<div class="card rv-motw-card">${vm ? `<div class="rv-vt-sw">${vtStatusHTML(vm)}</div>` : ''}`
     + `<ol class="rv-motw-list" aria-label="${esc(`Week ${res.week} games, best first`)}">${motwRows(res, vm)}</ol>`
@@ -730,14 +726,10 @@ function gamesHTML(cur) {
   const played = cur.games.filter(x => gameOf(cur, x)).length;
   // Projections come from core/stats.js (loaded at idle); this redraws once it's in.
   if (!STATS && played < cur.games.length) loadStats().then(() => patchGames(), () => {});
-  const proj = cur.games.some(x => !gameOf(cur, x) && projOf(cur, x));
-  const note = played === cur.games.length ? 'Final scores. Tap a game for the matchup.'
-    : proj ? `Yahoo's projected points and win chances.${played ? ' Final where played.' : ''} Tap a game for the matchup.`
-    : played ? 'Scores so far. Tap a game for the matchup.' : 'Season records. Tap a game for the matchup.';
   return `<section class="rv-games" data-enter aria-labelledby="rv-games-h">`
     + `<div class="rv-wk-head"><h2 class="t-2" id="rv-games-h">This week's games</h2><span class="ovl rv-wk-ovl">Week ${esc(cur.week)}</span></div>`
     + ui.group(cur.games.map(x => gameItem(cur, s, x)).join(''), {cls: 'rv-gms'})
-    + `<p class="group-f rv-gms-f">${esc(note)}</p></section>`;
+    + `</section>`;
 }
 function patchGames() {
   const eb = st && st.el.querySelector('.lt-eyebrow');
@@ -1771,8 +1763,6 @@ export default {
       if (!st || !e.detail || e.detail.name !== 'motw-lens') return;
       st.lens = e.detail.value;
       saveLens(st.lens);
-      const sub = el.querySelector('.rv-motw-sub');
-      if (sub) sub.textContent = lensSub(st.lens);
       patchMotw(true);
     };
     el.addEventListener('ui:change', onLens);

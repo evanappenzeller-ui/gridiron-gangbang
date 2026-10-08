@@ -12,8 +12,7 @@
 .v-league .std-xh-o { flex: none; color: var(--ink-3); white-space: nowrap; }
 .v-league .std-more { display: flex; justify-content: center; margin-top: 4px; }
 .v-league .std-more .btn { font-weight: 600; }
-.v-league .std-foot { margin-top: 8px; }
-.v-league .std-more + .std-foot, .v-league .std-more + .std-od-worst { margin-top: 2px; }
+.v-league .std-more + .std-od-worst { margin-top: 2px; }
 
 /* ---------------------------------------------------------------- Power rankings */
 .v-league .std-pr { min-height: 76px; }
@@ -122,7 +121,6 @@
   font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2);
 }
 .v-league .std-od-worst .ic { flex: none; margin-top: 2px; color: var(--wrong); stroke-width: 2; }
-.v-league .std-od-worst + .std-foot { margin-top: 4px; }
 /* Skeleton while the season is simulated (same row height as the real list, so nothing below jumps). */
 .v-league .std-od-sk { margin-bottom: 72px; } /* room for "Show all" and the footnotes */
 .v-league .std-od-sk .sk { background: var(--surface-2); }

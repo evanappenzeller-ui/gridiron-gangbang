@@ -36,19 +36,19 @@ const WHO_V3 = [200, 170, 140, 110, 80, 50, 20]; // v3 Mystery points when solve
 export let PTS = PTS_V2;
 const PROMPTS_V2 = {
   col: 'Pick the college each player was drafted out of. 40 points each.',
-  who: 'Name the player. Each wrong guess or skipped clue shows another one. Fewer clues means more points.',
+  who: 'Name the player.',
   grid: 'Name a player who fits each row and column. One guess per square, 50 points each. Franchise history counts, so a Houston Oilers season counts for the Titans.',
-  sil: 'Name the player from his silhouette. Four choices and one pick per round, 50 points each.',
-  jr: 'Follow his path from college to the team he plays for now, then name him. Three guesses: 250, 150, then 75 points.'
+  sil: 'Name the player from his silhouette. One pick per round, 50 points each.',
+  jr: 'Follow his path from college to the team he plays for now, then name him.'
 };
 // v3 copy: the same prompts with the short daily's points (v4 days use it too).
 const PROMPTS_V3 = {
   col: 'Pick the college each player was drafted out of. 100 points each.',
   who: PROMPTS_V2.who,
   grid: 'Name a player who fits the row and the column of each square. One guess per square, 100 points each. Franchise history counts, so a Houston Oilers season counts for the Titans.',
-  sil: 'Name the player from his silhouette. Four choices and one pick per round, 100 points each.',
-  jr: 'Follow his path from college to the team he plays for now, then name him. Three guesses: 200, 120, then 60 points.',
-  play: 'Name the play from its diagram: one offense, one defense. Four choices and one pick each, 100 points each.'
+  sil: 'Name the player from his silhouette. One pick per round, 100 points each.',
+  jr: PROMPTS_V2.jr, // its points show in the guess note
+  play: 'Name the play from its diagram. One pick per play, 100 points each.'
 };
 // Live binding: the prompt copy for the day being played (promptsFor(day) for any other day).
 export let PROMPTS = PROMPTS_V2;

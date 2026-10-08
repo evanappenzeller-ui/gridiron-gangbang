@@ -886,9 +886,9 @@ export async function runChecks() {
         && JSON.stringify(daily.ptsTable(V2)) === '{"col":40,"grid":50,"who":50,"sil":50,"jr":[250,150,75]}' && daily.ptsTable(V1) === daily.ptsTable(V2),
       daily.PTS === daily.ptsTable(daily.DAY) && daily.PROMPTS === daily.promptsFor(daily.DAY) && daily.promptsFor(V1) === P2,
       // v1/v2 copy is unchanged; v3 copy names the v3 points and none of the v1/v2 counts.
-      P2.col === 'Pick the college each player was drafted out of. 40 points each.' && P2.jr.includes('250, 150, then 75')
+      P2.col === 'Pick the college each player was drafted out of. 40 points each.' && !/\d/.test(P2.jr + P2.who)
         && Object.values(P3).every(t => !/\b(40|50|75|150|250) points/.test(t) && !/250, 150/.test(t))
-        && ['col', 'sil', 'grid'].every(k => P3[k].includes('100 points each')) && P3.jr.includes('200, 120, then 60 points') && P3.who === P2.who,
+        && ['col', 'sil', 'grid'].every(k => P3[k].includes('100 points each')) && P3.jr === P2.jr && P3.who === P2.who,
       daily.__dev.scratch(V3, {}, () => daily.STEPS === daily.stepsFor(V3) && daily.STEPS.length === 5 && daily.maxPts() === 1000 && daily.PTS.col === 100
         && daily.PROMPTS === P3 && daily.slug(1) === 'silhouette' && daily.stepOf('grid') === 4 && daily.isV3()),
       daily.PTS === daily.ptsTable(daily.DAY) && daily.PROMPTS === daily.promptsFor(daily.DAY) && daily.STEPS === daily.stepsFor(daily.DAY)

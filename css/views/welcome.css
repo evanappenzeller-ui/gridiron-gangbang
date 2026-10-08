@@ -15,7 +15,6 @@
 .welcome .wl-head { max-width: 520px; margin: 0 auto 16px; text-align: center; }
 .welcome .wl-ovl { color: var(--tint); }
 .welcome .wl-title { margin: 6px 0 0; font: 700 var(--fs-large)/var(--lh-large) var(--font-text); outline: none; }
-.welcome .wl-sub { margin: 8px auto 0; max-width: 34ch; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font-text); }
 
 .welcome .wl-grid {
   display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px;

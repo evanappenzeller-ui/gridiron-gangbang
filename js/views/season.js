@@ -121,11 +121,10 @@ function tableHtml(R) {
     if (!last && !s.live && byes > 0 && r.seed === byes) rows += lineHtml('Bye line');
     if (!last && cut > 0 && r.seed === cut) rows += lineHtml('Playoff line');
   });
-  const tw = data.throughWeek(s);
   return (!s.live && s.champion ? podiumHtml(s) : '')
     + `<div data-enter><div class="sea-colh" aria-hidden="true"><span>${s.live ? 'Rank' : 'Seed'}</span><span>Record</span></div>`
     + ui.group(rows, {cls: 'sea-group'})
-    + (s.live ? `<p class="group-f">Season in progress, through week ${tw}.</p>` : '') + '</div>'
+    + '</div>'
     + (s.live
       ? ''
       : `<a class="card sea-review" href="#/standings/${s.year}/review"><span class="sea-rv-ic" aria-hidden="true">${ui.icon('sparkle', {size: 22})}</span><span class="sea-rv-t"><span class="card-ovl">Season in review</span><span class="card-title">${s.year}: the awards</span></span>${ui.icon('chevron-right', {cls: 'chev'})}</a>`);

@@ -182,8 +182,7 @@ function heroHTML(me, {noLegs} = {}) {
       + `<p class="ly-meter-lb"><b>${t.n} of ${size}</b> legs in</p>`;
     if (miss.length) body += `<p class="ly-waiting">Waiting on ${esc(miss.map(data.name).join(', '))}</p>`;
   }
-  if (t.n && !noLegs) body += ui.group(legsOf(w).map(l => legRow(l, me)).join(''), {cls: 'ly-legs',
-    footer: w.tracked ? 'Tracking live from ESPN. Results are final once the league confirms them.' : ''});
+  if (t.n && !noLegs) body += ui.group(legsOf(w).map(l => legRow(l, me)).join(''), {cls: 'ly-legs'});
 
   return `<section class="card card-hero ly-hero ly-${st}" aria-label="This week">`
     + `<div class="ly-hero-top"><p class="card-ovl">This week · Week ${w.week}</p>${statusPill(w)}</div>`
@@ -250,8 +249,7 @@ function trackerHTML(w, me, {preview} = {}) {
     + `<p class="lv-meta"><b>${rows.length} ${rows.length === 1 ? 'Leg' : 'Legs'}</b><span class="lv-sep" aria-hidden="true">|</span>Wager <b>${money(STAKE())}</b>`
     + (p && !preview ? `<span class="lv-sep" aria-hidden="true">|</span>${esc(data.name(p.id).split(' ')[0])} places it` : '') + `</p>`
     + (counts ? `<p class="lv-counts">${esc(counts)}</p>` : '')
-    + `<div class="lv-games">${body}</div>`
-    + `<p class="lv-foot-note">Live from ESPN every 30 seconds during games. Final once the league confirms.</p></section>`;
+    + `<div class="lv-games">${body}</div></section>`;
 }
 
 // "Your leg": enter, change or remove your leg for the live week (or someone else's: st.target).
@@ -271,7 +269,7 @@ function entryHTML(st, me, {bare} = {}) {
     : `<button type="button" class="btn btn-plain ly-for" data-ly-for>Edit someone else\u2019s leg</button>`;
   let inner;
   if (!target) {
-    inner = `<h2 class="card-title">Add your leg</h2><p class="card-body">Pick who you are first, so your leg goes in your slot.</p>`
+    inner = `<h2 class="card-title">Add your leg</h2>`
       + `<div class="ly-acts">${ui.button({label: 'Pick who you are', kind: 'primary', size: 's', attrs: {'data-you': ''}})}</div>`;
   } else if (leg && (!st.editing || closed || !leg.live)) {
     const mine = target === me;
@@ -322,11 +320,11 @@ function setRead(st, text) {
   r.classList.toggle('is-unread', unread(text));
 }
 function readHTML(text) {
-  if (!String(text || '').trim()) return `<span class="ly-read-hint">Type it the way you'd say it. We'll write it up as the real bet and track it live.</span>`;
+  if (!String(text || '').trim()) return '';
   const d = track.describe(text, weekGames());
-  if (d && track.needsLine(text)) return `${ui.icon('check-circle', {size: 16})}<span>Saves as <b>${esc(d)}</b>. <span class="ly-read-hint">Add the book's number (like "Over 4.5") and it settles itself; without one we track it live and the league settles it.</span></span>`;
+  if (d && track.needsLine(text)) return `${ui.icon('check-circle', {size: 16})}<span>Saves as <b>${esc(d)}</b>. <span class="ly-read-hint">Add the line (like "Over 4.5") to settle it automatically.</span></span>`;
   if (d) return `${ui.icon('check-circle', {size: 16})}<span>Saves as <b>${esc(d)}</b></span>`;
-  return `${ui.icon('info', {size: 16})}<span class="ly-read-hint">Can't read this one for live tracking, so it saves as typed. Try "Player 50+ Rec Yards", "CMC anytime TD" or "Bills -3.5".</span>`;
+  return `${ui.icon('info', {size: 16})}<span class="ly-read-hint">Saves as typed, without live tracking.</span>`;
 }
 
 // ---------------------------------------------------------------------------------------------- Autofill
@@ -446,7 +444,7 @@ function recordsHTML(me) {
     return ui.row({lead: `<span class="ly-rank n5">${i + 1}</span>${ui.avatar(r.id, {size: 32, you: r.id === me})}`, title: data.name(r.id), sub,
       trail: `<span class="ly-rec n4">${data.recStr(r.w, r.l)}</span>`, me: r.id === me, attrs: {href: '#/managers/' + encodeURIComponent(r.id)}, chevron: true});
   }).join('');
-  return ui.sectionHeader({title: 'Leg records'}) + ui.group(rows, {footer: 'Hits and misses on the legs each manager submitted.'});
+  return ui.sectionHeader({title: 'Leg records'}) + ui.group(rows);
 }
 
 // Past slips, compact and in week order: one card per week (week, placer, a square per leg, the result); tap to open

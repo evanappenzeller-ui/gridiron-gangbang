@@ -90,6 +90,7 @@
 .v-lay .ly-read .ic { flex: none; margin-top: 2px; }
 .v-lay .ly-read b { color: var(--ink); font-weight: 600; }
 .v-lay .ly-read-hint { color: var(--ink-3); }
+.v-lay .ly-read:empty { display: none; }
 
 /* Every slip: compact, one card per week; open for the legs */
 .v-lay .ly-slips { display: flex; flex-direction: column; gap: 8px; }
@@ -175,4 +176,3 @@
 .v-lay .lv-bar > i { display: block; height: 100%; width: calc(var(--f) * 100%); background: var(--gold); border-radius: 2px; transition: width .6s ease; }
 .v-lay .lv-bar.is-over > i { background: var(--wrong); }
 .v-lay .lv-edit { flex: none; min-height: 28px; padding: 0 0 0 8px; color: var(--ink-3); font: 600 var(--fs-foot)/var(--lh-foot) var(--font-text); }
-.v-lay .lv-foot-note { margin: 10px 0 0; padding-top: 10px; border-top: 1px solid var(--separator); font: 400 12px/16px var(--font-text); color: var(--ink-3); }

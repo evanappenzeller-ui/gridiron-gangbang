@@ -376,7 +376,7 @@ const EMPTY = {
 };
 // v1 days keep the existing copy word for word; a five-puzzle day (v2 or v3) says five.
 const emptyText = mode => (steps().length > 3 ? EMPTY[mode].replace('all three puzzles', `all ${countWord()} puzzles`) : EMPTY[mode]);
-const OFF = "The leaderboard isn't connected right now. Your score is saved on this phone, and Share results copies it for the group chat.";
+const OFF = "The leaderboard isn't connected right now.";
 
 function bodyHTML(st, key, rows) {
   if (key === 'wait') return '';

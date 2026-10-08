@@ -995,11 +995,8 @@ function bannerHTML(v) {
   return out.join('');
 }
 function noteHTML(v) {
-  if (!v.current || v.sum.done) return v.sum.n ? `<p class="pk-note">${v.current ? 'Every game is final.' : `Week ${st.week} is final.`} A point for every winner you called; a tie counts for nobody.</p>` : '';
-  if (!v.sum.open || v.off) return '';
-  if (v.lockPending) return `<p class="pk-note">Locking in your picks for week ${st.week}…</p>`;
-  if (v.locked) return `<p class="pk-note">Your picks are locked in for week ${st.week}. Nothing changes now but the scores.</p>`;
-  return `<p class="pk-note">Tap a team to pick it, tap again to clear. Picks save as you tap and can change until each game kicks off.</p>`;
+  if (!v.current || v.sum.done || !v.sum.open || v.off) return '';
+  return v.lockPending ? `<p class="pk-note">Locking in your picks for week ${st.week}…</p>` : '';
 }
 
 // Status column: kickoff time, the live clock, or Final.

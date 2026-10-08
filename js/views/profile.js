@@ -239,8 +239,7 @@ function teamNames(id, d) {
     title: ui.raw(`<span class="pf-reel"><span class="pf-reel-t">${esc(data.teamIn(s, id))}</span></span>`),
     cls: 'pf-name-row'
   })).join('');
-  const n = d.played.length;
-  return sec('Every team name', ui.group(rows, {cls: 'pf-names'}), {note: `${plural(d.names, 'name')} in ${plural(n, 'season')}.`});
+  return sec('Every team name', ui.group(rows, {cls: 'pf-names'}));
 }
 
 function seasons(id, d) {
@@ -375,7 +374,7 @@ function draftCapital(id, d) {
       attrs: {href: `#/draft/${p.year}?m=${encodeURIComponent(id)}`, 'aria-label': `${p.year} · ${pp} · ${p.player}`}
     });
   }).join('');
-  return sec('Draft capital', ui.group(rows, {cls: 'pf-drafts'}), {note: 'First-round picks.', est: 62 + 44 * d.picks.length});
+  return sec('Draft capital', ui.group(rows, {cls: 'pf-drafts'}), {est: 62 + 44 * d.picks.length});
 }
 
 const listAnd = a => a.length <= 1 ? (a[0] || '') : a.length === 2 ? `${a[0]} and ${a[1]}` : `${a.slice(0, -1).join(', ')} and ${a[a.length - 1]}`;

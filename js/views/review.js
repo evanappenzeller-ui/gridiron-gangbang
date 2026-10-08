@@ -184,8 +184,7 @@ function renderReview(y) {
   return ui.largeTitle({eyebrow: 'Season recap', title: `${y} in review`})
     + `<p class="rv-dek">${esc(dek(s))}</p>`
     + groups
-    + `<div class="rv-foot">${ui.button({label: 'Copy recap', kind: 'secondary', icon: 'copy', attrs: {'data-copy': ''}})}`
-    + `<p class="note">Four lines and a link, ready for the league chat.</p></div>`;
+    + `<div class="rv-foot">${ui.button({label: 'Copy recap', kind: 'secondary', icon: 'copy', attrs: {'data-copy': ''}})}</div>`;
 }
 
 export default {

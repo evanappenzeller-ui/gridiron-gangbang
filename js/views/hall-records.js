@@ -213,7 +213,6 @@ export function render() {
     h += `<div class="accessory rc-acc">${ui.chips({name: 'hall-sec', items: secs.map((s, i) => ({id: String(i), label: s.title})), value: '0', label: 'Record sections'})}</div>`;
   }
   h += `<div class="rc-list">${sections(secs)}</div>`;
-  if (R && R.source) h += `<p class="note rc-src">${esc(R.source)}</p>`;
   h += `<span class="rc-end" aria-hidden="true"></span>`;
   return `<div class="hl-rec">${h}</div>`;
 }

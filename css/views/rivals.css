@@ -231,8 +231,7 @@
 .v-rivals .rv-motw-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .v-rivals .rv-motw-head .t-2 { margin: 0; }
 .v-rivals .rv-motw-wk { color: var(--tint); white-space: nowrap; }
-.v-rivals .rv-motw-sub { margin: 2px 0 12px; color: var(--ink-3); font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); }
-.v-rivals .rv-motw-seg { margin-bottom: 12px; }
+.v-rivals .rv-motw-seg { margin: 10px 0 12px; }
 .v-rivals .rv-motw-card { padding: 0; overflow: hidden; }
 .v-rivals .rv-motw-list { list-style: none; margin: 0; padding: 0; }
 .v-rivals .rv-mc {
@@ -435,7 +434,6 @@
    in plain secondary text: never the Barlow score numerals, so a record before kickoff can't read as a result. */
 .v-rivals .rv-gm.is-open .bug-side { color: var(--ink); }
 .v-rivals .rv-gm-rec { font: 500 15px/20px var(--font-text); font-variant-numeric: tabular-nums; color: var(--ink-2); }
-.v-rivals .rv-gms-f { margin-top: 6px; }
 
 /* ================================================================ Last week: The Wrap */
 .v-rivals .rv-last { margin: 0 0 28px; }

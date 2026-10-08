@@ -179,7 +179,7 @@ function powerBlock(m) {
     + ui.sectionHeader({title: 'Power rankings', id: 'wr-pr-h'})
     + ui.group(rows, {cls: 'wr-prg', attrs: {id: 'wr-prg'}})
     + more
-    + `<p class="note">After week ${m.w}. Record, points, all-play and the last three weeks.</p></section>`;
+    + `</section>`;
 }
 function togglePower(el) {
   const sec = el.querySelector('.wr-prs');
@@ -204,7 +204,7 @@ function footer(m) {
       + `</div>`
     : '';
   return `<div class="wr-foot">${ui.button({label: 'Share the Wrap', kind: 'primary', icon: 'share', attrs: {'data-share': ''}})}`
-    + `<p class="note">Written by the app from the box scores. No feelings were considered.</p>${nav}</div>`;
+    + `${nav}</div>`;
 }
 
 function bodyHTML(m) {

@@ -49,7 +49,6 @@ function build(y) {
   const secs = (res.sections || []).map((s, si) => ({
     key: String(s.key || si),
     title: String(s.title || ''),
-    note: s.note ? String(s.note) : '',
     items: (s.items || []).map((it, ii) => ({
       key: `${si}.${ii}`,
       label: it.label == null ? '' : String(it.label),
@@ -152,8 +151,7 @@ function offenders(m) {
     + ui.avatar(id, {size: 40, you: id === me, attrs: {'data-morph-from': ''}})
     + `<span class="sm-it-n">${esc(data.name(id))}</span><span class="sm-it-c"><span class="n5">${c}</span></span></a></li>`).join('');
   return `<section class="sm-off" data-enter aria-labelledby="hl-sm-off">${ui.sectionHeader({title: 'Frequent offenders', id: 'hl-sm-off'})}`
-    + `<ul class="sm-rail" data-hscroll>${items}</ul>`
-    + `<p class="note sm-off-note">Times each manager shows up in the lists below.</p></section>`;
+    + `<ul class="sm-rail" data-hscroll>${items}</ul></section>`;
 }
 
 // Podium regulars: who has faced the media most (the Press Room: the Matchup of the Week loser's press conference).
@@ -176,8 +174,7 @@ function podiumHTML(y) {
     + ui.avatar(id, {size: 40, you: id === me, attrs: {'data-morph-from': ''}})
     + `<span class="sm-it-n">${esc(data.name(id))}</span><span class="sm-it-c sm-pod-c">${ui.icon('mic', {size: 12})}<span class="n5">${c}</span></span></a></li>`).join('');
   return `<section class="sm-pod" aria-labelledby="hl-sm-pod">${ui.sectionHeader({title: 'Podium regulars', id: 'hl-sm-pod', action: {label: 'Press Room', href: '#/press'}})}`
-    + `<ul class="sm-rail" data-hscroll>${items}</ul>`
-    + `<p class="note sm-off-note">Press conferences after losing the Matchup of the Week.</p></section>`;
+    + `<ul class="sm-rail" data-hscroll>${items}</ul></section>`;
 }
 const podiumHost = y => `<div class="sm-pod-host" data-sig="${esc(podiumSig(y))}">${podiumHTML(y)}</div>`;
 function patchPodium() {
@@ -242,7 +239,6 @@ function sections(m) {
   return m.secs.map((s, i) => `<section class="sm-sec" data-sec="${i}" aria-labelledby="hl-sm-${i}">`
     + ui.sectionHeader({title: s.title, id: 'hl-sm-' + i})
     + ui.group(s.items.map(it => (it.holders.length > 1 || s.key === 'last') ? multiRow(s, it) : oneRow(s, it)).join(''), {cls: 'sm-g'})
-    + (s.note ? `<p class="note sm-note">${esc(s.note)}</p>` : '')
     + `</section>`).join('');
 }
 
@@ -256,9 +252,6 @@ function contentHTML(y) {
     h += `<div class="accessory sm-acc">${ui.chips({name: 'hall-shame-sec', items: m.secs.map((s, i) => ({id: String(i), label: s.title})), value: '0', label: 'Shame sections'})}</div>`;
   }
   h += `<div class="sm-list">${sections(m)}</div>`;
-  // Which games count differs by list (lowest scores and blowouts include the consolation bracket), so each
-  // section's own note says it; this line only scopes the page.
-  h += `<p class="note sm-src">${y == null ? 'Every season.' : `${y} only.`} Each list notes which games it counts. Team names as they were that year.</p>`;
   return h;
 }
 

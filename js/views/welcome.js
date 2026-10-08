@@ -30,7 +30,6 @@ function pageHTML() {
     + `<header class="wl-head" data-enter>`
     + `<p class="ovl wl-ovl">${esc(data.DATA.league.name)}${first ? ` · ${first}–${last}` : ''}</p>`
     + `<h1 class="wl-title" id="wl-title">Who are you?</h1>`
-    + `<p class="wl-sub">Pick yourself. Your puzzle scores and picks post under your name. Saved on this phone.</p>`
     + `</header>`
     + `<div class="wl-grid" role="group" aria-label="League members">${data.ids.map(cardHTML).join('')}</div>`
     + `</div>`

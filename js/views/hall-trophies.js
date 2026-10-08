@@ -96,10 +96,8 @@ function stillChasing() {
   const items = none.map(x => `<a class="sc-it" href="${prof(x.id)}" data-id="${esc(x.id)}" aria-label="${esc(x.n ? `${data.name(x.id)}, ${plural(x.n, 'season')} without a title` : `${data.name(x.id)}, first season`)}">`
     + ui.avatar(x.id, {size: 40, you: x.id === me, attrs: MORPH})
     + `<span class="sc-n">${esc(data.name(x.id))}</span><span class="sc-s">${esc(cap(x.n))}</span></a>`).join('');
-  // (existing) footnote
-  const note = `Still chasing a first title: ${none.map(x => data.name(x.id)).join(', ')}.`;
   return `<section class="sc" data-enter aria-labelledby="hl-sc">${ui.sectionHeader({title: 'Still chasing', id: 'hl-sc'})}`
-    + `<div class="sc-rail" data-hscroll>${items}</div><p class="note">${esc(note)}</p></section>`;
+    + `<div class="sc-rail" data-hscroll>${items}</div></section>`;
 }
 
 // ------------------------------------------------------------------ Segment API

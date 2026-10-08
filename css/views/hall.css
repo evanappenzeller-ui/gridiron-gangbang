@@ -290,7 +290,6 @@ html.rm .v-league .rc.is-focus::after { animation-name: hl-flash-rm; }
 .v-league .rc-v > .t-cap { margin-top: 2px; max-width: 100%; color: var(--ink-2); line-height: 14px; overflow-wrap: anywhere; }
 /* On surface-2, ink-3 is 4.27:1: the unit and the small decimals use ink-2 (6.3:1) in the tile. */
 .v-league .rc-v small { color: var(--ink-2); }
-.v-league .rc-src { margin-top: 16px; }
 .v-league .rc-end { display: block; height: 1px; }
 
 /* ================================================================ Shame (hall-shame.js) */
@@ -361,7 +360,6 @@ html.rm .v-league .rc.is-focus::after { animation-name: hl-flash-rm; }
   color: var(--ink);
 }
 .v-league .sm-it-c > .n5 { font-size: 15px; line-height: 16px; }
-.v-league .sm-off-note { margin-top: 4px; }
 /* Podium regulars (the Press Room): the same rail, the tally tag carries a mic. */
 .v-league .sm-pod-host:empty { display: none; }
 .v-league .sm-pod-c { display: inline-flex; align-items: center; gap: 2px; padding: 0 6px 0 5px; }
@@ -373,7 +371,6 @@ html.rm .v-league .rc.is-focus::after { animation-name: hl-flash-rm; }
 .v-league .sm-sec > .sh { margin-top: 0; }
 .v-league .sm-list > .sm-sec:first-child { padding-top: 12px; }
 .v-league .sm-body > .sm-list:first-child > .sm-sec:first-child { padding-top: 20px; }
-.v-league .sm-note { margin-top: 8px; }
 .v-league .sm-row {
   position: relative;
   display: flex; align-items: flex-start; gap: 12px;
@@ -420,4 +417,3 @@ html.rm .v-league .rc.is-focus::after { animation-name: hl-flash-rm; }
 .v-league .sm-line-t { min-width: 0; display: flex; flex-direction: column; }
 .v-league .sm-line-team { font: 600 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink); overflow-wrap: anywhere; }
 .v-league .sm-line-d { font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); overflow-wrap: anywhere; }
-.v-league .sm-src { margin-top: 16px; }

@@ -94,7 +94,7 @@ function listHtml(sort) {
   const rows = sortedRows(sort);
   if (!rows.length) return noGames();
   const meId = data.me();
-  return `<div class="group-wrap" data-enter>${ui.group(rows.map((r, i) => rowHtml(r, i, sort.key, meId)).join(''), {cls: 'std-group'})}<p class="group-f">Regular season record.</p></div>`;
+  return `<div class="group-wrap" data-enter>${ui.group(rows.map((r, i) => rowHtml(r, i, sort.key, meId)).join(''), {cls: 'std-group'})}</div>`;
 }
 
 function thHtml(c, sort) {
@@ -118,8 +118,7 @@ function tableHtml(sort) {
   return `<div class="std-tcard"><div class="std-tscroll" data-hscroll tabindex="0" role="region" aria-label="All-time table, scrolls sideways"><table class="std-table">`
     + `<caption class="sr-only">All-time standings, regular season record</caption>`
     + `<thead><tr>${COLS.map(c => thHtml(c, sort)).join('')}</tr></thead>`
-    + `<tbody>${rows.map(r => trHtml(r, meId)).join('')}</tbody></table></div></div>`
-    + `<p class="group-f">Regular season record. Tap a column to sort.</p>`;
+    + `<tbody>${rows.map(r => trHtml(r, meId)).join('')}</tbody></table></div></div>`;
 }
 
 function seasonCard(s) {
@@ -207,7 +206,6 @@ function powerHtml(st) {
     + `<div class="sh std-xh"><h2 id="std-pr-h">Power rankings</h2><span class="ovl std-xh-o">After week ${P.week}</span></div>`
     + ui.group(P.rows.map((r, i) => { const p = pinMe(i, PR_TOP, r.id, meId); return p.gap + powerRow(r, i, P, meId).replace('class="row std-pr', `class="row std-pr${p.cls}`); }).join(''), {cls: 'std-pr-g', attrs: {id: 'std-pr-list'}})
     + (P.rows.length > PR_TOP ? moreBtn('pr', st.prAll, P.rows.length, PR_TOP, 'std-pr-list') : '')
-    + `<p class="group-f std-foot">All-play record, actual record, points per game and the last three weeks.</p>`
     + `</section>`;
 }
 
@@ -295,12 +293,10 @@ function oddsBody(res, O, st) {
   const worst = anchors.length
     ? `<p class="std-od-worst">${ui.icon('anchor', {size: 14})}<span>Worst record watch: ${anchors.map(r => `${esc(data.name(r.id))} ${pctTxt(r.last)}`).join(' · ')}</span></p>`
     : '';
-  const sims = res.meta && res.meta.sims ? data.nf(res.meta.sims) : '10,000';
   return colHead()
     + ui.group(html, {cls: 'std-od-g', attrs: {id: 'std-od-list'}})
     + (rows.length > ODDS_TOP ? moreBtn('odds', st.oddsAll, rows.length, ODDS_TOP, 'std-od-list') : '')
-    + worst
-    + `<p class="group-f std-foot">${sims} simulations of the ${O.weeksLeft} week${O.weeksLeft === 1 ? '' : 's'} left. Top six make it, top two get byes.</p>`;
+    + worst;
 }
 function oddsSkeleton() {
   const w = [44, 58, 38, 52, 47, 40];
