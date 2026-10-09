@@ -16,12 +16,14 @@
 //   best(b), rankOf(b, pick) the perfect lineup; {rank, of, pct} of a lineup among the legal ones
 //   dayState(n), keepPick(n, pick), lockIn(n, pick, season), totals()   localStorage 'gg-17'
 //   shareText(b, season)     no player names: everyone plays the same board
+//   autoPost(), boardRows(mode, n), boardState()   the league scoreboard (below)
 //
 // THE SEASON (the same rules as tools/seventeen/build.py; its docstring has the whole model): your defense is league
 // average. Against an opponent you score ppg + g.pa (how much worse than average its defense was that season) and it
 // scores g.pf (its points per game). A projected win is a win: ppg > g.need. Displayed scores are rounded; when
 // rounding would tie a game or flip it, the winner's score rounds up and the loser's down (28-27).
 import {lsGet, lsSet, absLink} from './ui.js';
+import * as daily from './daily.js';
 
 const URL_ = new URL('../../data/seventeen.json', import.meta.url).href;
 export let DOC = null;
@@ -131,7 +133,8 @@ export function rankOf(b, pick) {
 }
 
 // ---------------------------------------------------------------------------------------------- memory
-// 'gg-17': {days: {n: {pick, w?, l?, ppg?}} (the last KEEP days), played, perfect (all-time counts)}.
+// 'gg-17': {days: {n: {pick, w?, l?, ppg?, at? (when it was played)}} (the last KEEP days), played, perfect (all-time
+// counts).
 const KEY = 'gg-17', KEEP = 60;
 function read() {
   let v = null;
@@ -164,7 +167,7 @@ export function lockIn(n, pick, s) {
   const v = read();
   const d = v.days[n] || (v.days[n] = {});
   if (Number.isInteger(d.w)) return false;
-  Object.assign(d, {pick: pick.slice(), w: s.w, l: s.l, ppg: Math.round(s.ppg * 100) / 100});
+  Object.assign(d, {pick: pick.slice(), w: s.w, l: s.l, ppg: Math.round(s.ppg * 100) / 100, at: Date.now()});
   v.played += 1;
   if (s.w === 17) v.perfect += 1;
   write(v);
@@ -190,4 +193,113 @@ export function shareText(b, s, pick) {
     sq.slice(9).join(''),
     absLink('/puzzles/17-0')
   ].join('\n');
+}
+
+// ---------------------------------------------------------------------------------------------- scoreboard
+// The league's 17-0 results ride on each phone's Daily board doc (players/{uid}, daily.js), as s17: {n: {w, l,
+// p (points a game, to 0.1), r (rank among the day's lineups), t (when it was played, by the phone's clock)}}: the
+// rules already take any extra field, and daily.LB's live snapshot reads them. A played day posts by itself
+// (autoPost) once the board has loaded, and again when a post failed (the next snapshot, coming back online, the app
+// shown again). One result per member per day, like the Daily: across a member's phones the first played counts,
+// and this phone never posts a day its member already has. The scoreboard shows records only, never a lineup.
+const F = 's17', POST_BACK = 7;
+let posting = false;
+/** Board doc p's entry for day n, cleaned, or null. */
+export function entryOf(p, n) {
+  const e = p && p[F] && typeof p[F] === 'object' ? p[F][n] : null;
+  if (!e || !Number.isInteger(e.w) || !Number.isInteger(e.l) || e.w < 0 || e.l < 0 || e.w + e.l !== 17) return null;
+  return {w: e.w, l: e.l, p: Number.isFinite(Number(e.p)) ? Number(e.p) : 0, r: Number.isInteger(e.r) && e.r > 0 ? e.r : 0, t: Number(e.t) || 0};
+}
+const docs = () => daily.LB.raw || daily.LB.players || [];
+const meKey = () => daily.memberOf({id: daily.LB.uid, nick: daily.LB.nick});
+/** People on the board: member id (or 'row:' + doc id for a doc with no member) -> their docs. */
+function people(list) {
+  const m = new Map();
+  list.forEach(p => {
+    const k = daily.memberOf(p) || 'row:' + p.id;
+    if (!m.has(k)) m.set(k, []);
+    m.get(k).push(p);
+  });
+  return m;
+}
+/** A member's result for day n: the first posted on any of their docs ({e, doc}), or null. */
+function firstOf(list, n) {
+  let out = null;
+  list.forEach(p => {
+    const e = entryOf(p, n);
+    if (e && (!out || e.t < out.e.t || (e.t === out.e.t && String(p.id) < String(out.doc.id)))) out = {e, doc: p};
+  });
+  return out;
+}
+/** Days this phone played and the board lacks for its member: the last POST_BACK, oldest first. */
+function unposted() {
+  const list = docs(), mine = list.find(p => p.id === daily.LB.uid), k = meKey();
+  const theirs = list.filter(p => p === mine || (k && daily.memberOf(p) === k));
+  const v = read(), top = todayNumber();
+  return Object.keys(v.days).map(Number)
+    .filter(n => Number.isInteger(n) && n <= top && n > top - POST_BACK && Number.isInteger(v.days[n].w) && !theirs.some(p => entryOf(p, n)))
+    .sort((a, b) => a - b);
+}
+/** Posts this phone's played days the board doesn't have. Needs the board loaded (so a new doc is only made when
+ *  this phone has none) and a phone that may write (never a dev host without ?post=1). */
+export async function autoPost() {
+  const LB = daily.LB;
+  if (!DOC || posting || !LB.merge || !LB.ready || LB.off || !LB.uid) return false;
+  const todo = unposted();
+  if (!todo.length) return false;
+  const v = read(), s17 = {};
+  todo.forEach(n => {
+    const d = v.days[n], b = board(n), pick = cleanPick(d.pick);
+    s17[n] = {w: d.w, l: d.l, p: Math.round((Number(d.ppg) || 0) * 10) / 10, r: full(pick) ? rankOf(b, pick).rank : 0, t: Number(d.at) || Date.now()};
+  });
+  // A first doc needs the fields the rules ask for (nick, total); an existing one keeps its own.
+  const mine = docs().find(p => p.id === LB.uid);
+  const body = mine ? {[F]: s17} : {nick: (daily.postName() || '').trim().slice(0, 24), total: 0, [F]: s17};
+  posting = true;
+  try { await LB.merge(body); return true; } catch (_) { return false; } finally { posting = false; }
+}
+try {
+  daily.subscribe(type => { if (type === 'lb') autoPost(); });
+  addEventListener('online', () => autoPost());
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') autoPost(); });
+} catch (_) {}
+
+/** 'wait' (the Daily never loaded, so the board never started), 'off', 'loading' or 'ready'. */
+export function boardState() {
+  if (daily.status === 'error') return 'wait';
+  const LB = daily.LB;
+  if (LB.off || LB.err) return 'off';
+  if (daily.status !== 'ready' || !LB.ready) return 'loading';
+  return 'ready';
+}
+function ranked(rows, same) {
+  rows.forEach((r, i) => { r.rank = i && same(rows[i - 1], r) ? rows[i - 1].rank : i + 1; });
+  return rows;
+}
+/**
+ * Scoreboard rows, one per member, best first, tied rows sharing a rank.
+ *   'today': day n's results: {key, uid, name, managerId, me, w, l, p, r, rank}; most wins, then most points a game.
+ *   'all':   every day up to n: {key, uid, name, managerId, me, w, l, seasons, perfect, rank}; most wins, then the
+ *            fewest losses.
+ * list: board docs (default daily.LB's snapshot).
+ */
+export function boardRows(mode = 'today', n = todayNumber(), list = docs()) {
+  const mk = meKey(), uid = daily.LB.uid, rows = [];
+  people(list).forEach((ds, k) => {
+    const mine = ds.some(p => p.id === uid) || (!!mk && k === mk);
+    const rep = ds.find(p => p.id === uid) || ds.slice().sort((a, b) => (b.last || 0) - (a.last || 0))[0];
+    const base = {key: k, name: daily.displayName(rep), managerId: k.startsWith('row:') ? null : k, me: mine};
+    if (mode === 'today') {
+      const f = firstOf(ds, n);
+      if (f) rows.push(Object.assign(base, {uid: f.doc.id, w: f.e.w, l: f.e.l, p: f.e.p, r: f.e.r}));
+      return;
+    }
+    const days = new Set();
+    ds.forEach(p => Object.keys((p && p[F]) || {}).forEach(d => { if (+d >= 1 && +d <= n) days.add(+d); }));
+    let w = 0, l = 0, seasons = 0, perfect = 0;
+    days.forEach(d => { const f = firstOf(ds, d); if (f) { w += f.e.w; l += f.e.l; seasons++; if (f.e.w === 17) perfect++; } });
+    if (seasons) rows.push(Object.assign(base, {uid: rep.id, w, l, seasons, perfect}));
+  });
+  if (mode === 'today') return ranked(rows.sort((a, b) => b.w - a.w || b.p - a.p), (a, b) => a.w === b.w && a.p === b.p);
+  return ranked(rows.sort((a, b) => b.w - a.w || a.l - b.l), (a, b) => a.w === b.w && a.l === b.l);
 }

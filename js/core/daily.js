@@ -767,7 +767,7 @@ export function lockIn() {
 
 // ---------------------------------------------------------------------------
 // League leaderboard (Firebase Firestore, one document per player, anonymous sign-in)
-export const LB = {save: null, uid: null, players: [], names: {}, ready: false, off: false, status: '', posting: false, mode: 'today', dev: DEV_NO_POST};
+export const LB = {save: null, merge: null, uid: null, players: [], names: {}, ready: false, off: false, status: '', posting: false, mode: 'today', dev: DEV_NO_POST};
 try { LB.nick = localStorage.getItem('gg-nick') || ''; } catch (_) { LB.nick = ''; }
 
 function lbChanged(why, prev) { emit('lb', {prev: prev || LB.players, why}); }
@@ -847,6 +847,7 @@ export function playedElsewhere() {
 }
 const shut = () => !!playedElsewhere();
 
+const DAILY_FIELDS = ['nick', 'days', 'total', 'played', 'last']; // what postScore writes
 let fbStarted = false;
 // The app, anonymous sign-in and Firestore come from the shared layer (fire.js); no config or a failed
 // import / sign-in turns the board off, exactly as before.
@@ -856,7 +857,13 @@ async function startFirebase() {
   try {
     const {fs, db, uid} = await getFire();
     LB.uid = uid;
-    if (canWrite()) LB.save = body => fs.setDoc(fs.doc(db, 'players', LB.uid), body);
+    // The same doc carries 17-0's results ({s17: {n: entry}}, core/seventeen.js): the daily post replaces only its own
+    // fields (days whole, so filtered days still drop), and LB.merge adds fields without touching the daily ones.
+    if (canWrite()) {
+      const ref = () => fs.doc(db, 'players', LB.uid);
+      LB.save = body => fs.setDoc(ref(), body, {mergeFields: DAILY_FIELDS});
+      LB.merge = body => fs.setDoc(ref(), body, {merge: true});
+    }
     fs.onSnapshot(fs.collection(db, 'players'), snap => {
       const prev = LB.players;
       const all = snap.docs.map(d => scoredDoc(Object.assign({id: d.id}, d.data())));
@@ -917,7 +924,7 @@ export function boardEntry(ds = DS, day = DAY) {
 // screen. A failed post retries by itself when the phone comes back online, when the app is shown again, and on a
 // backoff timer (15 s, doubling to 5 min).
 let retryT = 0, retryMs = 0;
-function postName() {
+export function postName() {
   if (LB.nick) return LB.nick;
   const m = dataMe();
   return m ? dataName(m) : '';
@@ -1038,6 +1045,8 @@ function managerFor(p) {
   if (p.id === LB.uid && LB.uid) return dataMe() || managerOfNick(displayName(p));
   return managerOfNick(displayName(p));
 }
+/** The league member a board doc belongs to (manager id), or null: what the boards group rows by. */
+export const memberOf = p => (p ? managerFor(p) : null);
 
 // Today-mode sub line for a board day entry. v1 entries ({p, g, c, w}): the exact old text. v2 entries
 // (they carry s and/or j): the five parts in play order. v3 entries (v: 3): the same five parts out of the day's

@@ -1,8 +1,8 @@
 // 17-0 checks for the dev gallery (#/_kit): data/seventeen.json's daily boards, the day count, the season rules of
 // js/core/seventeen.js (wins, displayed scores, rank, the perfect lineup), the picks it accepts from storage and the
-// share text. checks.js (owner: core) imports seventeenChecks and calls it with its own check(name, fn) helper; every
-// fn returns true or {pass, detail}. Nothing here writes to storage; the only read is the repo's own
-// data/seventeen.json. Owner: 17-0.
+// share text, and the league scoreboard's rows (on crafted board docs). checks.js (owner: core) imports seventeenChecks
+// and calls it with its own check(name, fn) helper; every fn returns true or {pass, detail}. Nothing here writes to
+// storage or the database; the only read is the repo's own data/seventeen.json. Owner: 17-0.
 
 import * as sv from './seventeen.js';
 
@@ -119,5 +119,24 @@ export async function seventeenChecks(check) {
     const squares = (t.match(/🟩|🟥/g) || []).length;
     const share = t.includes('17–0 #1') && t.includes('17–0 🏆') && squares === 17 && t.includes('/puzzles/17-0') && !names.length;
     return {pass: prime && share, detail: `${chubb ? `${chubb.n} ${chubb.y}: ${chubb.line.join(' · ')}` : 'no Nick Chubb in the pool'}; share ${share}${names.length ? ' (names ' + names.map(p => p.n).join(', ') + ')' : ''}`};
+  });
+
+  // 7. The scoreboard
+  check('17-0: the scoreboard keeps one season per member per day (the first posted), drops bad entries, ranks by wins then PPG (ties share a rank), and All-time adds the days up', () => {
+    need();
+    const docs = [
+      {id: 'a', nick: 'Ben', s17: {1: {w: 17, l: 0, p: 33.4, r: 1, t: 10}}},
+      {id: 'b', nick: 'Mitch', s17: {1: {w: 12, l: 5, p: 27.1, r: 210, t: 20}, 2: {w: 10, l: 7, p: 26, r: 300, t: 5}}},
+      {id: 'c', nick: 'Mitch', s17: {1: {w: 16, l: 1, p: 31, r: 5, t: 30}}}, // his second phone, later: doesn't count
+      {id: 'd', nick: 'Jacob', s17: {1: {w: 12, l: 5, p: 27.1, r: 210, t: 15}}},
+      {id: 'e', nick: 'Nobody Special', s17: {1: {w: 20, l: 0}, 2: {w: '9', l: 8}}}, // not a season
+      {id: 'f', nick: 'Sayer', days: {}}
+    ];
+    const sig = rows => rows.map(r => `${r.rank}.${r.name} ${r.w}-${r.l}`).join(', ');
+    const t1 = sv.boardRows('today', 1, docs), a2 = sv.boardRows('all', 2, docs), a1 = sv.boardRows('all', 1, docs);
+    const today = sig(t1) === '1.Ben 17-0, 2.Mitch 12-5, 2.Jacob 12-5' && t1[1].uid === 'b' && t1[1].p === 27.1 && t1[0].r === 1;
+    const all = sig(a2) === '1.Mitch 22-12, 2.Ben 17-0, 3.Jacob 12-5' && a2[0].seasons === 2 && a2[1].perfect === 1 && sig(a1) === '1.Ben 17-0, 2.Mitch 12-5, 2.Jacob 12-5';
+    const clean = sv.entryOf(docs[4], 1) === null && sv.entryOf(docs[4], 2) === null && sv.entryOf(docs[5], 1) === null && sv.entryOf(docs[0], 1).w === 17;
+    return {pass: today && all && clean, detail: `today: ${sig(t1)}; all-time: ${sig(a2)}; bad entries dropped ${clean}`};
   });
 }

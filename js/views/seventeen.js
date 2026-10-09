@@ -12,11 +12,15 @@
 // lineup in; the season shows the record (counted up week by week right after Play), Share (no player names), the
 // time to the next board, each pick's points per game, the 17 games and the perfect team. At midnight the pane moves
 // to the new board. The model's own number for a player (imp) is never shown before the season: that is the answer.
+// Both phases end with the league's Scoreboard (Today: each member's record on today's board; All-time: every 17-0
+// season they've played), live from the Daily's board snapshot (core/seventeen.js boardRows); records only, never a
+// lineup, so it can show before you play.
 // Every control here is data-sv-*, so the Daily Puzzles handlers on the same screen never see these taps.
 // Owner: 17-0.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as sv from '../core/seventeen.js';
+import * as daily from '../core/daily.js';
 import {msToMidnight} from './board.js';
 
 const esc = data.esc;
@@ -148,9 +152,10 @@ function barHTML(b, pick) {
   return `<div class="sv-bar"><div class="sv-slots" role="group" aria-label="Your lineup">${slotsHTML(b, pick)}</div>`
     + `<button type="button" class="btn btn-primary sv-play" data-sv-play${ready ? '' : ' disabled'}>${ui.icon('play-fill')}<span class="btn-label">${esc(playLabel(b, pick))}</span></button></div>`;
 }
-function buildHTML(b, pick, foc) {
+function buildHTML(b, pick, foc, mode) {
   return headHTML(b) + totalsLine() + bankHTML(b, pick) + gridHTML(b, pick) + barHTML(b, pick)
-    + `<div data-sv-scout>${scoutHTML(b, pick, foc)}</div>`;
+    + `<div data-sv-scout>${scoutHTML(b, pick, foc)}</div>`
+    + boardHTML(b, mode);
 }
 
 // ============================================================================ Markup: season
@@ -196,7 +201,7 @@ function perfectHTML(b, pick) {
 function nextHTML() {
   return `<p class="sv-next">${ui.icon('clock', {size: 15})}<span>Next 17–0 in <span data-sv-next>${esc(nextIn())}</span></span></p>`;
 }
-function seasonHTML(b, pick) {
+function seasonHTML(b, pick, mode) {
   const s = sv.season(b, pick), r = sv.rankOf(b, pick), diff = s.pf - s.pa;
   return `<section class="sv-season" aria-labelledby="sv-rec">`
     + `<p class="sv-kick">${esc(`17–0 #${b.n} · ${sv.dayLabel(b.n)} · your ${money(sv.cost(b, pick))} team`)}</p>`
@@ -209,6 +214,7 @@ function seasonHTML(b, pick) {
     + `</div>`
     + `<div class="sv-actions"><button type="button" class="btn btn-primary" data-sv-share>${ui.icon('share')}<span class="btn-label">Share</span></button></div>`
     + nextHTML()
+    + boardHTML(b, mode)
     + ui.sectionHeader({title: 'Your lineup', level: 3})
     + lineupHTML(b, pick)
     + `<p class="sv-foot">What each prime season adds to the scoreboard every week, over a replacement-level player.</p>`
@@ -216,6 +222,51 @@ function seasonHTML(b, pick) {
     + `<ol class="sv-weeks">${s.games.map(weekHTML).join('')}</ol>`
     + perfectHTML(b, pick)
     + `</section>`;
+}
+
+// ============================================================================ Markup: scoreboard
+const SB_MODES = [{id: 'today', label: 'Today'}, {id: 'all', label: 'All-time'}];
+const SB_EMPTY = {
+  today: ['Be first on the board.', 'No seasons yet today. Play yours to take the top spot.'],
+  all: ['', 'No seasons yet.']
+};
+function sbRowHTML(b, r, mode) {
+  const today = mode === 'today', gold = today && r.w === 17;
+  const sub = today
+    ? `${r.p.toFixed(1)} PPG${r.r ? ` · #${nf(r.r)} of ${nf(sv.all(b).list.length)}` : ''}`
+    : `${plural(r.seasons, 'season')}${r.perfect ? ` · ${r.perfect}× 17–0` : ''}`;
+  const label = `${ui.ordinal(r.rank)}, ${r.name}${r.me ? ', you' : ''}, ${r.w} and ${r.l}${gold ? ', a perfect season' : ''}. ${today ? sub.replace('PPG', 'points a game') : `${plural(r.seasons, 'season')}${r.perfect ? `, ${r.perfect} went 17–0` : ''}`}`;
+  return `<div class="c-brow-w" role="listitem" aria-label="${esc(label)}"><div class="row c-brow sv-brow${r.me ? ' is-me' : ''}">`
+    + `<span class="c-brank n4${r.rank <= 3 ? ' is-r' + r.rank : ''}" aria-hidden="true">${r.rank}</span>`
+    + `<span class="row-lead" aria-hidden="true">${ui.nickAvatar(r.name, {size: 36, managerId: r.managerId, you: r.me, crown: r.rank === 1})}</span>`
+    + `<span class="row-main" aria-hidden="true"><span class="row-title"><span class="c-bnick">${esc(r.name)}</span>${r.me ? ui.badge('you') : ''}</span><span class="row-sub">${esc(sub)}</span></span>`
+    + `<span class="row-trail" aria-hidden="true">${gold ? ui.icon('trophy', {size: 16, cls: 'sv-brow-cup'}) : ''}<span class="n4 c-bval sv-bval${gold ? ' is-gold' : ''}">${r.w}–${r.l}</span></span>`
+    + `</div></div>`;
+}
+/** The card's body for a mode: rows, an empty note, the loading rows, or "not connected". */
+function sbBodyHTML(b, mode) {
+  const state = sv.boardState();
+  if (state === 'loading') return `<div class="c-board-sk">${ui.skeleton('rows', 3, {label: 'Loading the scoreboard.'})}</div>`;
+  if (state !== 'ready') return `<p class="c-board-note">The scoreboard isn't connected right now.</p>`;
+  let rows = [];
+  try { rows = sv.boardRows(mode, b.n); } catch (e) { console.error(e); }
+  if (!rows.length) {
+    const [t, body] = SB_EMPTY[mode];
+    return `<div class="c-board-empty">${t ? `<p class="c-board-et">${esc(t)}</p>` : ''}<p class="c-board-eb">${esc(body)}</p></div>`;
+  }
+  const n = rows.length;
+  // One season per member a day: when yours on the board came from another phone, say which one counts.
+  const mine = rows.find(r => r.me), elsewhere = mode === 'today' && mine && mine.uid !== daily.LB.uid;
+  const lead = mode === 'today' ? `<p class="sv-sb-sum">${esc(`${n} ${n === 1 ? 'has' : 'have'} played today.${elsewhere ? ` Your ${mine.w}–${mine.l} was played on another phone; your first season of the day is the one that counts.` : ''}`)}</p>` : '';
+  return lead + `<div class="c-brows" role="list" aria-label="${esc(mode === 'today' ? "Today's records" : 'All-time records')}">${rows.map(r => sbRowHTML(b, r, mode)).join('')}</div>`;
+}
+/** The Scoreboard card; hidden until the Daily has loaded once (the board starts after it). */
+function boardHTML(b, mode = 'today') {
+  const hide = sv.boardState() === 'wait';
+  return `<div class="sv-sb-host" data-sv-board${hide ? ' hidden' : ''}><section class="card c-board sv-board" aria-labelledby="sv-sb-t">`
+    + `<div class="c-board-head"><h2 class="c-board-t" id="sv-sb-t">Scoreboard</h2></div>`
+    + ui.seg({name: 'sv-sb', items: SB_MODES, value: mode, small: true, label: 'Scoreboard', cls: 'c-board-seg'})
+    + `<div class="c-board-body" data-sv-sbody>${sbBodyHTML(b, mode)}</div></section></div>`;
 }
 
 // ============================================================================ Markup: states
@@ -229,10 +280,10 @@ function bodyHTML(ctx) {
   if (!sv.DOC) return loadingHTML();
   const b = sv.today();
   const day = sv.dayState(b.n);
-  if (day.played) return seasonHTML(b, day.pick);
-  const st = ST.get(ctx);
+  const st = ST.get(ctx), mode = st ? st.sbMode : 'today';
+  if (day.played) return seasonHTML(b, day.pick, mode);
   const pick = st && st.b === b ? st.pick : day.pick;
-  return buildHTML(b, pick, st && st.b === b ? st.foc : null);
+  return buildHTML(b, pick, st && st.b === b ? st.foc : null, mode);
 }
 
 // ============================================================================ Patching
@@ -261,6 +312,34 @@ function patchBuild(st) {
   patchScout(st);
   ui.hydrate(el);
 }
+/** The scoreboard after a snapshot (or a mode switch): the body only, and only when it changed. */
+const norm = typeof document !== 'undefined' ? document.createElement('template') : null;
+function patchBoard(st, {fade = false} = {}) {
+  if (st.dead || !st.b) return;
+  const host = st.el.querySelector('[data-sv-board]');
+  if (!host) return;
+  host.hidden = sv.boardState() === 'wait';
+  const body = host.querySelector('[data-sv-sbody]');
+  if (!body) return;
+  const html = sbBodyHTML(st.b, st.sbMode);
+  norm.innerHTML = html; // compare browser-serialized markup, not our source string
+  if (body.innerHTML === norm.innerHTML) return;
+  const go = () => { body.innerHTML = html; ui.hydrate(body); };
+  if (fade && !ui.RM && st.ctx.visible) ui.crossfade(body, go, {duration: 160}); else go();
+}
+function scheduleBoard(st) {
+  if (st.dead) return;
+  if (st.cancelBoard) st.cancelBoard();
+  st.cancelBoard = ui.whenIdle(() => { st.cancelBoard = null; patchBoard(st); });
+}
+function setBoardMode(st, m) {
+  if (!SB_MODES.some(x => x.id === m) || m === st.sbMode) return;
+  st.sbMode = m;
+  const seg = st.el.querySelector('[data-sv-board] .c-board-seg');
+  if (seg) ui.setSeg(seg, m, {animate: true});
+  patchBoard(st, {fade: true});
+}
+
 function patchScout(st) {
   const host = st.el.querySelector('[data-sv-scout]');
   if (host) host.innerHTML = scoutHTML(st.b, st.pick, st.foc);
@@ -315,6 +394,7 @@ function play(st) {
   if (!sv.full(pick) || !sv.fits(b, pick)) return;
   const s = sv.season(b, pick);
   if (!sv.lockIn(b.n, pick, s)) { swapBody(st); return; } // already played today (another tab): show that season
+  sv.autoPost();
   ui.haptic('medium');
   swapBody(st, () => runSeason(st, s));
 }
@@ -415,6 +495,7 @@ function load(st) {
     setBoard(st);
     el.innerHTML = bodyHTML(ctx);
     ui.hydrate(el);
+    sv.autoPost();
   }, () => {
     if (st.dead) return;
     el.innerHTML = errorHTML();
@@ -460,15 +541,24 @@ export function render(ctx) {
 }
 
 export function mount(el, ctx, {anchor} = {}) {
-  const st = {el, ctx, anchor: anchor || null, b: null, pick: sv.empty(), foc: null, timers: [], playing: false, dead: false};
+  const st = {el, ctx, anchor: anchor || null, b: null, pick: sv.empty(), foc: null, timers: [], playing: false, dead: false, sbMode: 'today', cancelBoard: null};
   ST.set(ctx, st);
   st.onClick = e => onClick(st, e);
+  st.onChange = e => {
+    if (!e.detail || e.detail.name !== 'sv-sb') return;
+    e.stopPropagation();
+    setBoardMode(st, e.detail.value);
+  };
   el.addEventListener('click', st.onClick);
+  el.addEventListener('ui:change', st.onChange);
   el.addEventListener('error', onImgError, true);
   st.stopTick = ctx.timer(() => tick(st), 20000);
+  st.unsub = daily.subscribe(type => { if (type === 'lb' || type === 'ready' || type === 'error') scheduleBoard(st); });
   if (!sv.DOC) { load(st); return; }
   // render() ran before this state existed: it showed the stored picks, which is what setBoard reads too.
   setBoard(st);
+  sv.autoPost();
+  patchBoard(st);
 }
 
 /** Shown again (the picker, a link): catch up with the day. */
@@ -483,7 +573,10 @@ export function unmount(el, ctx) {
   st.dead = true;
   st.timers.forEach(clearTimeout);
   el.removeEventListener('click', st.onClick);
+  el.removeEventListener('ui:change', st.onChange);
   el.removeEventListener('error', onImgError, true);
   if (st.stopTick) st.stopTick();
+  if (st.unsub) st.unsub();
+  if (st.cancelBoard) st.cancelBoard();
   ST.delete(ctx);
 }

@@ -245,6 +245,14 @@
 
 .sv-pane .sv-loading { padding-top: 16px; }
 
+/* ---------------------------------------------------------------- Scoreboard (the league's card, board.css .c-board) */
+.sv-pane .sv-sb-host { margin-top: 16px; text-align: left; }
+.sv-pane .sv-season .sv-sb-host { margin-top: 24px; }
+.sv-pane .sv-sb-sum { margin: 12px 0 2px; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2); }
+.sv-pane .sv-bval { min-width: 52px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.sv-pane .sv-bval.is-gold { color: var(--gold); }
+.sv-pane .sv-brow-cup { flex: none; color: var(--gold); }
+
 /* ---------------------------------------------------------------- How it works */
 .sh-seventeen .sv-help { padding-bottom: 8px; }
 .sh-seventeen .sv-help p { margin: 0 0 12px; font: 400 var(--fs-callout)/var(--lh-callout) var(--font-text); color: var(--ink-2); }
