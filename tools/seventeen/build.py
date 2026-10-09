@@ -7,7 +7,9 @@ CACHE in sw.js). Standard library only. The same nflverse files give the same bo
   python3 tools/seventeen/build.py who NAME...  print every season of these players with the model's numbers
 
 The nflverse files (regular-season player stats 2006-2025, the players table, the schedules) are downloaded once
-into CACHE (env SEVENTEEN_CACHE, default ~/.cache/gridiron-seventeen).
+into CACHE (env SEVENTEEN_CACHE, default ~/.cache/gridiron-seventeen). Headshots: each card's 'h' is the `headshot`
+column of the players table, the file nflreadr::load_players() reads (nflverse-data release 'players', built by
+nflverse-players: NFL.com's own photos); 'e' (the ESPN id) is the app's backup when that photo doesn't load.
 
 THE MODEL (everything in points, from EPA: expected points added, play by play)
   Credit. A pass play's EPA counts for the passer and for the receiver, so it is split: the receiver keeps
@@ -542,6 +544,7 @@ def main():
     seasons, rep = load_seasons()
     rating, avg = load_games()
     model = fit(seasons, rating)
+    # The players table, as nflreadr::load_players() reads it: headshots and ESPN ids by gsis_id.
     players = fetch('players.csv', f'{REL}/players/players.csv')
     heads = {}
     for p in players:
