@@ -7,9 +7,16 @@ CACHE in sw.js). Standard library only. The same nflverse files give the same bo
   python3 tools/seventeen/build.py who NAME...  print every season of these players with the model's numbers
 
 The nflverse files (regular-season player stats 2006-2025, the players table, the schedules) are downloaded once
-into CACHE (env SEVENTEEN_CACHE, default ~/.cache/gridiron-seventeen). Headshots: each card's 'h' is the `headshot`
-column of the players table, the file nflreadr::load_players() reads (nflverse-data release 'players', built by
-nflverse-players: NFL.com's own photos); 'e' (the ESPN id) is the app's backup when that photo doesn't load.
+into CACHE (env SEVENTEEN_CACHE, default ~/.cache/gridiron-seventeen).
+
+HEADSHOTS ('h' on a card; NFL.com's own photos). The per-season rosters (nflreadr::load_rosters(), the headshot_url
+column) carry the photo the NFL used each season, but only from PHOTO_FROM on: earlier seasons repeat a later photo
+(every Tom Brady row 2006-2015 has his 2022 one). So a card's photo is
+  1. his roster photo from the prime season itself, for primes from PHOTO_FROM on (2022 Nick Chubb: his Browns photo);
+  2. else his earliest roster photo from PHOTO_FROM on, the closest to an older prime (2007 Brady: his 2016 one);
+  3. else the headshot column of the players table, the file nflreadr::load_players() reads (players retired
+     before PHOTO_FROM: the one photo the NFL kept).
+'e' (the ESPN id) is the app's backup when that photo doesn't load.
 
 THE MODEL (everything in points, from EPA: expected points added, play by play)
   Credit. A pass play's EPA counts for the passer and for the receiver, so it is split: the receiver keeps
@@ -65,6 +72,7 @@ START, DAYS = '2026-10-09', 365  # board 1's date, boards written
 POOL_PPR = {'QB': 280, 'RB': 225, 'WR': 225, 'TE': 160}  # prime fantasy points per 17 games to be in the pool
 POOL_USE = {'QB': ('attempts', 300), 'RB': ('carries', 120), 'WR': ('targets', 60), 'TE': ('targets', 40)}
 COOLDOWN = 7
+PHOTO_FROM = 2016  # the first season whose roster photos are that season's own
 MIN_SURPRISE, MAX_PERFECT, MAX_TRIES = 3, 3, 80
 BUDGET = 15
 TIERS = [5, 4, 3, 2, 1]
@@ -331,6 +339,30 @@ def adv_of(s):
     return out
 
 
+def photo_of(s, rosters, fallback):
+    """(headshot URL, where it came from): see HEADSHOTS in the docstring."""
+    mine = rosters.get(s['id'], {})
+    if s['season'] >= PHOTO_FROM and mine.get(s['season']):
+        return mine[s['season']], 'prime'
+    later = sorted(y for y in mine if y >= PHOTO_FROM and mine[y])
+    if later:
+        # Nearest season to the prime (the first one after it for older primes).
+        y = min(later, key=lambda y: (abs(y - s['season']), y))
+        return mine[y], 'nearest'
+    return fallback, 'players'
+
+
+def load_rosters():
+    """{gsis_id: {season: headshot_url}} from the per-season rosters, PHOTO_FROM-LAST (the seasons with their own photos)."""
+    out = {}
+    for y in range(PHOTO_FROM, LAST + 1):
+        for r in fetch(f'roster_{y}.csv', f'{REL}/rosters/roster_{y}.csv'):
+            u = r.get('headshot_url') or ''
+            if r.get('gsis_id') and u.startswith('https://'):
+                out.setdefault(r['gsis_id'], {}).setdefault(int(r['season']), u)
+    return out
+
+
 def card(s, w, heads):
     h = heads.get(s['id'], {})
     f = FRANCHISE.get(s['team'], s['team'])
@@ -567,14 +599,18 @@ def main():
           + f", R^2 {model['r2']:.3f} over {model['n']} team-seasons; replacement per play "
           + ', '.join(f'{k} {v:+.3f}' for k, v in rep.items()))
     pool = pool_of(prime, heads)
-    cards = []
+    rosters = load_rosters()
+    cards, photos = [], {}
     for x in pool:
         c = card(x, model['w'], heads)
+        c['h'], src = photo_of(x, rosters, c['h'])
+        photos[src] = photos.get(src, 0) + 1
         if x['id'] in SHOW_AS:
             c['n'] = SHOW_AS[x['id']]
         c['_fp'] = x['fantasy_points_ppr'] * 17 / team_games(x['season'])
         cards.append(c)
-    print('pool:', {p: sum(1 for c in cards if c['p'] == p) for p in ('QB', 'RB', 'WR', 'TE')})
+    print('pool:', {p: sum(1 for c in cards if c['p'] == p) for p in ('QB', 'RB', 'WR', 'TE')},
+          '· photos:', photos)
     teams = ladder(rating, avg, team_records())
     boards, last_used = [], {}
     for day in range(DAYS):

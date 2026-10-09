@@ -24,9 +24,9 @@ const nf = n => data.nf(n);
 const COPIED = 'Copied. Paste it in the league chat.';
 const POS = {QB: 'Quarterback', RB: 'Running back', WR: 'Wide receiver', TE: 'Tight end'};
 const eid = e => String(e || '').replace(/[^0-9]/g, '');
-// Headshots: the nflverse-players headshot (p.h, NFL.com's own photo, as nflreadr::load_players() publishes it) first,
-// then ESPN's (the image combiner serves the transparent cut-out resized, as in Silhouettes), then a plain player
-// silhouette (never initials). The two are framed differently (.is-nfl, .is-espn in seventeen.css). Team logos are a
+// Headshots: p.h, NFL.com's own photo from his prime season where nflverse's rosters have one (2016 on), else the
+// closest season's, else his load_players() photo (tools/seventeen/build.py, HEADSHOTS), first; then ESPN's (the image
+// combiner serves the transparent cut-out resized, as in Silhouettes), then a plain player silhouette (never initials). The two are framed differently (.is-nfl, .is-espn in seventeen.css). Team logos are a
 // background image, so a missing one just isn't there.
 const faceUrl = (e, w) => `https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/${eid(e)}.png&w=${w}&h=${Math.round(w * 436 / 600)}`;
 const logoUrl = (f, w) => `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/${String(f).toLowerCase().replace(/[^a-z]/g, '')}.png&w=${w}&h=${w}`;
@@ -49,7 +49,7 @@ function colorsOf(p) {
 
 // ============================================================================ Markup: build
 const ANON = () => `<span class="sv-anon" aria-hidden="true">${ui.icon('silhouette-fill')}</span>`;
-/** The headshot: nflverse's (NFL.com), then ESPN's (data-alt), then a silhouette (onImgError swaps them in). */
+/** The headshot: NFL.com's (his prime season's where it exists), then ESPN's (data-alt), then a silhouette. */
 function faceHTML(p, w) {
   const espn = p.e ? faceUrl(p.e, w) : '';
   if (!p.h && !espn) return ANON();
