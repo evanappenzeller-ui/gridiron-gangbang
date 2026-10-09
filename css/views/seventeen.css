@@ -102,10 +102,12 @@
 }
 .sv-pane .sv-cell.is-pressed { transform: scale(.94); transition: none; }
 .sv-pane .sv-cell .sv-ph { position: absolute; left: 0; right: 0; top: 0; bottom: 26px; overflow: hidden; z-index: 1; }
+/* The year and the pick's check sit in the bottom corners of the photo, over the jersey, just above the name: never
+   over the face (headshots put the head in the top half). */
 .sv-pane .sv-yr {
-  position: absolute; left: 3px; top: 3px; z-index: 2;
+  position: absolute; left: 3px; bottom: 29px; z-index: 2;
   padding: 0 3px; border-radius: 3px;
-  background: rgba(0,0,0,.6); color: #fff;
+  background: rgba(0,0,0,.66); color: #fff;
   font: 400 14px/14px var(--font-num);
 }
 /* First name over last name, both whole: long ones step down a size (.is-long, .is-xlong) rather than cut off. */
@@ -130,7 +132,7 @@
   .sv-pane .sv-ln, .sv-pane .sv-ln.is-long, .sv-pane .sv-ln.is-xlong { font-size: clamp(6.5px, calc((100cqi - 4px) / (var(--n, 6) * .52)), 11px); letter-spacing: 0; }
 }
 .sv-pane .sv-tick {
-  position: absolute; right: 3px; top: 3px; z-index: 3;
+  position: absolute; right: 3px; bottom: 27px; z-index: 3;
   display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%;
   background: var(--tint); color: var(--on-tint);
   opacity: 0; transform: scale(.4);
@@ -250,7 +252,9 @@
 
 /* ---------------------------------------------------------------- Narrow phones (320-360 px) */
 @media (max-width: 360px) {
-  .sv-pane .sv-yr { font-size: 12px; line-height: 12px; padding: 0 2px; }
+  .sv-pane .sv-yr { left: 2px; bottom: 28px; font-size: 11px; line-height: 11px; padding: 0 2px; }
+  .sv-pane .sv-tick { right: 2px; bottom: 26px; width: 14px; height: 14px; }
+  .sv-pane .sv-tick > .ic { width: 9px; height: 9px; }
   .sv-pane .sv-slots { gap: 3px; }
   .sv-pane .sv-slot { width: 28px; height: 28px; }
   .sv-pane .sv-slot-l { font-size: 11px; }
