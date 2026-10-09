@@ -48,6 +48,20 @@ function nameParts(n) {
 
 const ST = new WeakMap(); // ctx -> pane state
 
+// A home-screen app open across an update imports this module new under the stylesheet it started with (app.js,
+// Updates): when seventeen.css's mark (--sv-css on :root) isn't this module's, the current file is added.
+const CSS_V = '2';
+function ensureCss() {
+  try {
+    if (getComputedStyle(document.documentElement).getPropertyValue('--sv-css').trim() === CSS_V || document.querySelector('link[data-sv-css]')) return;
+    const l = document.createElement('link');
+    l.rel = 'stylesheet';
+    l.href = new URL(`../../css/views/seventeen.css?v=${CSS_V}`, import.meta.url).href;
+    l.setAttribute('data-sv-css', '');
+    document.head.appendChild(l);
+  } catch (_) {}
+}
+
 function colorsOf(p) {
   const c = (sv.DOC && sv.DOC.colors[p.f]) || ['#25366A', '#8A94B8'];
   return `--tc:${c[0]};--ta:${c[1]}`;
@@ -285,7 +299,7 @@ function teamSeasonHTML(row, s) {
   if (hidden) {
     body = `<p class="sv-tm-note">${ui.icon('lock', {size: 16})}<span>${esc(`Play today’s 17–0 to see ${row.name}’s team.`)}</span></p>`;
   } else if (!pick) {
-    body = `<p class="sv-tm-note">${ui.icon('info', {size: 16})}<span>This team isn’t on the scoreboard yet. It shows up the next time they open 17–0.</span></p>`;
+    body = `<p class="sv-tm-note">${ui.icon('info', {size: 16})}<span>${esc(row.me ? 'Your team goes up with your next visit to Daily Games.' : `${row.name} played before teams were kept. It shows up here after ${row.name} opens the app again.`)}</span></p>`;
   } else {
     const best = sv.samePick(sv.best(b).pick, pick);
     body = lineupHTML(b, pick) + (best ? `<p class="sv-tm-note is-gold">${ui.icon('trophy', {size: 16})}<span>The perfect team.</span></p>` : '');
@@ -595,6 +609,7 @@ export function render(ctx) {
 }
 
 export function mount(el, ctx, {anchor} = {}) {
+  ensureCss();
   const st = {el, ctx, anchor: anchor || null, b: null, pick: sv.empty(), foc: null, timers: [], playing: false, dead: false, sbMode: 'today', cancelBoard: null};
   ST.set(ctx, st);
   st.onClick = e => onClick(st, e);

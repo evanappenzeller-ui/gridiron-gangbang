@@ -190,6 +190,17 @@ const gamePath = g => (g === '17-0' ? '/puzzles/17-0' : '/puzzles');
 let SV = null; // views/seventeen.js, once imported
 const loadSV = () => (SV ? Promise.resolve(SV) : import('./seventeen.js').then(m => (SV = m)));
 const svLoading = () => `<div class="sv-loading" aria-busy="true">${ui.skeleton('rows', 4, {label: 'Loading 17\u20130.'})}</div>`;
+// A phone that has played 17-0 sends its seasons to the league scoreboard (and the lineups of the ones it sent before
+// lineups were kept) from any visit to this tab, not only once the 17-0 pane opens: core/seventeen.js posts on each
+// board snapshot once it is loaded.
+let svSynced = false;
+function syncSeventeen() {
+  if (svSynced) return;
+  svSynced = true;
+  import('../core/seventeen.js')
+    .then(sv => (sv.totals().played ? sv.load().then(() => sv.autoPost()) : null))
+    .catch(() => { svSynced = false; });
+}
 
 function pickerHTML(g) {
   return `<div class="c-games" data-key="games" data-enter role="tablist" aria-label="Pick a game">` + GAMES.map(x => `<button type="button" role="tab" class="c-game" data-game="${x.id}" aria-selected="${x.id === g}" aria-label="${esc(x.label)}">`
@@ -484,6 +495,7 @@ export default {
     st.board = mountBoard(el.querySelector('.c-board-host'), {mode: 'today', ctx});
     el.addEventListener('click', e => onClick(st, e));
     if (st.game === '17-0') showSV(st);
+    ui.whenIdle(syncSeventeen);
     ctx.on('daily', type => onDaily(st, type));
     ctx.timer(() => tickCd(st, ctx.visible), 20000);
     if (ready()) patchPill(st, false);

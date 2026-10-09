@@ -2,6 +2,9 @@
    Owner: 17-0. Scope: the pane .sv-pane, the sheets .sh-seventeen (help) and .sh-sv-team, .v-puzzles .c-games. Team colours come in
    per element as --tc (the team's hue) and --ta (its accent). */
 
+/* The version mark views/seventeen.js checks (CSS_V): bump both when the pane needs rules an older file lacks. */
+:root { --sv-css: 2; }
+
 /* ---------------------------------------------------------------- The game picker (puzzles.js) */
 /* Two big scoreboard buttons with pixel badges, like Pick'em's NFL / NCAA switch (pickem.css .pk-lg): the game showing
    is lit like the field (turf stripes, a neon edge, the arcade bevel); the other waits in navy, its badge dimmed. */
