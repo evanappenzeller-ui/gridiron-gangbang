@@ -33,9 +33,6 @@
 .sv-pane .sv-anon > .ic { width: 78%; height: 88%; }
 
 /* ---------------------------------------------------------------- Build: chips and header */
-.sv-pane .sv-chips { margin-top: 2px; }
-.sv-pane .sv-chip-ic { color: var(--gold); }
-.sv-pane .chip[aria-pressed="true"] .sv-chip-ic { color: #B07800; }
 .sv-pane .sv-head { position: relative; text-align: center; padding: 14px 32px 0; }
 .sv-pane .sv-kick {
   font: 400 16px/18px var(--font-num); text-transform: uppercase; letter-spacing: .06em; color: var(--tint);
@@ -211,10 +208,15 @@
 .sv-pane .sv-pf-t { display: flex; align-items: center; gap: 8px; font: 600 var(--fs-headline)/var(--lh-headline) var(--font-text); }
 .sv-pane .sv-pf-t > .ic { flex: none; color: var(--gold); }
 .sv-pane .sv-pf-s { margin-top: 4px; font: 400 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink-2); }
-.sv-pane .sv-perfect > .btn { margin-top: 14px; }
 .sv-pane .sv-perfect .sv-picks { margin-top: 12px; }
 .sv-pane .sv-perfect .sv-pk { background: var(--surface-2); }
-.sv-pane .sv-actions { display: flex; gap: 10px; margin-top: 20px; }
+.sv-pane .sv-actions { display: flex; gap: 10px; margin-top: 16px; }
+.sv-pane .sv-next {
+  display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 12px;
+  font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2);
+}
+.sv-pane .sv-next > .ic { flex: none; color: var(--ink-3); }
+.sv-pane .sv-next [data-sv-next] { font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 600; }
 
 .sv-pane .sv-loading { padding-top: 16px; }
 

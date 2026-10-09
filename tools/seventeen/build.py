@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Builds data/seventeen.json for 17-0 (js/views/seventeen.js, js/core/seventeen.js) from nflverse data.
-Run: python3 tools/seventeen/build.py   (then bump CACHE in sw.js). Standard library only.
+"""Builds data/seventeen.json for 17-0 (js/views/seventeen.js, js/core/seventeen.js) from nflverse data: one board a
+day for DAYS days from START (the app wraps around after the last). Run: python3 tools/seventeen/build.py (then bump
+CACHE in sw.js). Standard library only. The same nflverse files give the same boards: everything is seeded by day.
 
-  python3 tools/seventeen/build.py              write data/seventeen.json and print each board's best lineups
+  python3 tools/seventeen/build.py              write data/seventeen.json and print a summary and the first boards
   python3 tools/seventeen/build.py who NAME...  print every season of these players with the model's numbers
 
 The nflverse files (regular-season player stats 2006-2025, the players table, the schedules) are downloaded once
@@ -20,22 +21,30 @@ THE MODEL (everything in points, from EPA: expected points added, play by play)
     added over a replacement-level player on the same workload.
   Prime. A player's prime is the season people remember (2022 Nick Chubb, 1,525 rushing yards, not 2025's 506):
     the best of PPR fantasy points plus PRIME_EPA x value, each in standard deviations of that position's regular
-    seasons (16-game seasons scaled to 17). A board can pin a year ('Tom Brady|2007') or a team ('Steve Smith|CAR').
+    seasons (16-game seasons scaled to 17). PINS sets a few by hand (2007 Tom Brady).
+  Pool. Every player whose prime is notable: at least POOL_PPR fantasy points (per 17 games) on a starter's
+    workload, with an ESPN id and an nflverse headshot.
   Team. Team points per game = BASE + sum over QB, RB, WR, WR, TE of weight x value per team game, a least-squares
     fit over every team-season 2006-2025 (each team's busiest QB, RB, two WRs and TE). 'imp' on a card is that
     player's weighted value per game: what he adds to the scoreboard every week.
   Season. Your lineup's defense is league average. Against opponent o (a real team-season): you score ppg + (o's
     points allowed per game - that season's league average) and o scores its points per game. A projected win is a
     win: you go 17-0 by outscoring all seventeen.
-  Schedule. Each board plays 17 real team-seasons from its pool (2006-2025), picked so the records spread: the k-th
-    toughest game sits at the TARGET quantile of the board's sensible lineups (those spending $13-$15), and the
-    toughest, in week 17, is the best team the board's perfect lineup still beats. So only the top of the board
-    runs the table.
+  Board. Each day draws 5 QBs, 5 RBs, 10 WRs (two columns) and 5 TEs from the pool, none seen in the last
+    COOLDOWN days, no two with one name. Prices are fantasy reputation: within a column the biggest fantasy season
+    costs $5, the smallest $1. The season is decided by the model, so the bargains are the seasons worth more than
+    their fantasy points. A draw is kept when the price order and the model disagree somewhere (MIN_SURPRISE pairs)
+    and at most MAX_PERFECT lineups go 17-0; else the best of MAX_TRIES draws.
+  Schedule. Each board plays 17 real team-seasons (2006-2025), picked so the records spread: the k-th toughest game
+    sits at the TARGET quantile of the board's sensible lineups (those spending $13-$15), and the toughest, in week
+    17, is the best team the board's perfect lineup still beats. So only the top of the board runs the table.
 """
 import csv
+import datetime
 import json
 import math
 import os
+import random
 import statistics
 import sys
 import urllib.request
@@ -50,12 +59,19 @@ REP_PCT = 0.20
 PRIME_EPA = 0.4
 QUALIFY = {'QB': 300, 'RB': 150, 'WR': 60, 'TE': 40}  # plays (QB, RB) or targets (WR, TE) to count as a regular
 TARGET = (10.0, 3.0)  # wins of a sensible lineup: mean, spread
+START, DAYS = '2026-10-09', 365  # board 1's date, boards written
+POOL_PPR = {'QB': 280, 'RB': 225, 'WR': 225, 'TE': 160}  # prime fantasy points per 17 games to be in the pool
+POOL_USE = {'QB': ('attempts', 300), 'RB': ('carries', 120), 'WR': ('targets', 60), 'TE': ('targets', 40)}
+COOLDOWN = 7
+MIN_SURPRISE, MAX_PERFECT, MAX_TRIES = 3, 3, 80
 BUDGET = 15
 TIERS = [5, 4, 3, 2, 1]
 COLS = ['QB', 'RB', 'WR', 'WR', 'TE']
 LABELS = ['QB', 'RB', 'WR1', 'WR2', 'TE']
-# Names as fans know them, where nflverse's differ (by the board's spec).
-SHOW_AS = {'Steve Smith|CAR': 'Steve Smith Sr.'}
+# Primes set by hand (by nflverse player id), where the rule picks a different year than fans remember.
+PINS = {'00-0019596': 2007, '00-0026143': 2016}  # Tom Brady (50 TDs), Matt Ryan (MVP)
+# Names as fans know them, where nflverse's differ (by player id).
+SHOW_AS = {'00-0020337': 'Steve Smith Sr.'}
 
 # Franchise colours (tools/themes.py: the card's background hue and its accent), by ESPN abbreviation.
 COLORS = {
@@ -75,8 +91,6 @@ NAMES = {
     'NE': 'Patriots', 'NO': 'Saints', 'NYG': 'Giants', 'NYJ': 'Jets', 'PHI': 'Eagles', 'PIT': 'Steelers', 'SF': '49ers',
     'SEA': 'Seahawks', 'TB': 'Buccaneers', 'TEN': 'Titans', 'WSH': 'Commanders',
 }
-NFC = ['ARI', 'ATL', 'CAR', 'CHI', 'DAL', 'DET', 'GB', 'LAR', 'MIN', 'NO', 'NYG', 'PHI', 'SEA', 'SF', 'TB', 'WSH']
-AFC = ['BAL', 'BUF', 'CIN', 'CLE', 'DEN', 'HOU', 'IND', 'JAX', 'KC', 'LAC', 'LV', 'MIA', 'NE', 'NYJ', 'PIT', 'TEN']
 # nflverse franchise codes -> ESPN's (the player stats use today's code for every season; the schedules use the old ones).
 FRANCHISE = {'LA': 'LAR', 'WAS': 'WSH', 'OAK': 'LV', 'SD': 'LAC', 'STL': 'LAR'}
 
@@ -99,58 +113,6 @@ def era_name(code, season):
     if f == 'WSH':
         return 'Redskins' if season <= 2019 else 'Football Team' if season <= 2021 else 'Commanders'
     return NAMES[f]
-
-
-# ------------------------------------------------------------------ Boards
-# Each column lists its five players from $5 down to $1, by nflverse display name. Prices are the board's call
-# (what a player costs today, by reputation); every card shows him in his prime. pool: where the board's 17
-# opponents come from (NFC or AFC franchises, or ALL), any season 2006-2025.
-BOARDS = [
-    {
-        'id': 'nfc', 'name': 'NFC Only', 'sub': 'Players on NFC teams today, each in his prime.',
-        'cols': [
-            ['Jalen Hurts', 'Baker Mayfield', 'Matthew Stafford', 'Jordan Love', 'Caleb Williams'],
-            ['Christian McCaffrey', 'Saquon Barkley', 'Bijan Robinson', 'Bucky Irving', 'Kyren Williams'],
-            ['Puka Nacua', 'Amon-Ra St. Brown', 'Justin Jefferson', 'Jaxon Smith-Njigba', 'Drake London'],
-            ['Emeka Egbuka', 'George Pickens', 'Chris Olave', 'Rome Odunze', 'Tetairoa McMillan'],
-            ['Trey McBride', 'Sam LaPorta', 'Tucker Kraft', 'Dallas Goedert', 'Jake Ferguson'],
-        ],
-        'pool': 'NFC',
-    },
-    {
-        'id': 'afc', 'name': 'AFC Only', 'sub': 'Players on AFC teams today, each in his prime.',
-        'cols': [
-            ['Patrick Mahomes', 'Josh Allen', 'Lamar Jackson', 'Joe Burrow', 'Aaron Rodgers'],
-            ['Jonathan Taylor', 'Derrick Henry', "De'Von Achane", 'James Cook', 'Kenneth Walker III'],
-            ["Ja'Marr Chase", 'Nico Collins', 'Garrett Wilson', 'Courtland Sutton', 'Keenan Allen'],
-            ['Zay Flowers', 'Jaylen Waddle', 'Ladd McConkey', 'Tee Higgins', 'DK Metcalf'],
-            ['Brock Bowers', 'Travis Kelce', 'Tyler Warren', 'Mark Andrews', 'Dalton Kincaid'],
-        ],
-        'pool': 'AFC',
-    },
-    {
-        'id': 'legends', 'name': 'Legends', 'sub': 'The 2006\u20132025 greats, each in his prime.',
-        'cols': [
-            ['Tom Brady|2007', 'Peyton Manning', 'Drew Brees', 'Ben Roethlisberger', 'Philip Rivers'],
-            ['LaDainian Tomlinson', 'Adrian Peterson|MIN', 'Marshawn Lynch', "Le'Veon Bell", 'Jamaal Charles'],
-            ['Calvin Johnson', 'Randy Moss', 'Larry Fitzgerald', 'Andre Johnson', 'Wes Welker'],
-            ['Julio Jones', 'Antonio Brown', 'Odell Beckham Jr.', 'Steve Smith|CAR', 'Jordy Nelson'],
-            ['Rob Gronkowski', 'Tony Gonzalez', 'Antonio Gates', 'Jimmy Graham', 'Jason Witten'],
-        ],
-        'pool': 'ALL',
-    },
-    {
-        'id': 'faded', 'name': 'Fallen Stars', 'sub': 'Where are they now? Priced like today, played like their best year.',
-        'cols': [
-            ['Russell Wilson', 'Kirk Cousins', 'Kyler Murray', 'Matt Ryan|2016', 'Derek Carr'],
-            ['Ezekiel Elliott', 'Todd Gurley', 'Nick Chubb', 'Joe Mixon', 'Austin Ekeler'],
-            ['Tyreek Hill', 'Davante Adams', 'Michael Thomas', 'Cooper Kupp', 'Adam Thielen'],
-            ['Stefon Diggs', 'Mike Evans', 'DeAndre Hopkins', 'Jarvis Landry', 'Amari Cooper'],
-            ['George Kittle', 'Zach Ertz', 'Darren Waller', 'Evan Engram', 'Kyle Rudolph'],
-        ],
-        'pool': 'ALL',
-    },
-]
 
 
 # ------------------------------------------------------------------ Download and read
@@ -315,13 +277,6 @@ def norm(s):
     return ''.join(c for c in s.lower() if c.isalnum())
 
 
-def short(name):
-    parts = name.split(' ')
-    suf = parts[-1] if parts[-1] in ('Jr.', 'Sr.', 'II', 'III', 'IV') else ''
-    core = parts[:-1] if suf else parts
-    return f'{core[0][0]}. {" ".join(core[1:])}'
-
-
 def signed(x, dp=1):
     return ('+' if x >= 0 else '−') + f'{abs(x):.{dp}f}'
 
@@ -379,14 +334,14 @@ def card(s, w, heads):
     f = FRANCHISE.get(s['team'], s['team'])
     imp = w[s['pos']] * s['pg']
     return {
-        'n': s['name'], 's': short(s['name']), 'p': s['pos'], 'y': s['season'], 't': era_abbr(s['team'], s['season']), 'f': f,
+        'n': s['name'], 'p': s['pos'], 'y': s['season'], 't': era_abbr(s['team'], s['season']), 'f': f,
         'tn': era_name(s['team'], s['season']), 'e': h.get('espn', ''), 'h': h.get('url', ''), 'g': int(s['games']),
         'line': line_of(s), 'adv': adv_of(s), 'imp': round(imp, 2), 'v': round(s['value']),
     }
 
 
 def primes(seasons):
-    """prime(name_spec, pos) -> the season a card shows."""
+    """{player id: the season his card shows}, and score(season) (the prime rule's number)."""
     scale = {}
     for p, q in QUALIFY.items():
         reg = [x for x in seasons if x['pos'] == p and (x['targets'] if p in ('WR', 'TE') else x['plays']) >= q]
@@ -399,24 +354,30 @@ def primes(seasons):
         fs, vs = scale[x['pos']]
         return x['fantasy_points_ppr'] * k / fs + PRIME_EPA * x['value'] * k / vs
 
-    def prime(spec, pos):
-        name, _, pin = spec.partition('|')
-        mine = [x for x in seasons if norm(x['name']) == norm(name) and x['pos'] == pos]
-        if pin and not pin.isdigit():
-            ids = {x['id'] for x in mine if era_abbr(x['team'], x['season']) == pin or FRANCHISE.get(x['team'], x['team']) == pin}
-            mine = [x for x in mine if x['id'] in ids]
-        if not mine:
-            raise SystemExit(f'No {pos} {spec} in {FIRST}-{LAST}.')
-        if len({x['id'] for x in mine}) > 1:
-            raise SystemExit(f'Two {pos}s named {name}: add |TEAM to pick one.')
-        if pin.isdigit():
-            hit = [x for x in mine if x['season'] == int(pin)]
-            if not hit:
-                raise SystemExit(f'{name} has no {pin} season.')
-            return hit[0]
-        return max(mine, key=score)
-    prime.score = score
-    return prime
+    best = {}
+    for x in seasons:
+        k = x['id']
+        if k in PINS:
+            if x['season'] == PINS[k] and (k not in best or x['pos'] == best[k]['pos']):
+                best[k] = x
+            continue
+        if k not in best or score(x) > score(best[k]):
+            best[k] = x
+    return best, score
+
+
+def pool_of(prime, heads):
+    """The notable primes, as cards' source seasons."""
+    out = []
+    for k, x in prime.items():
+        stat, need = POOL_USE[x['pos']]
+        h = heads.get(k, {})
+        if x['fantasy_points_ppr'] * 17 / team_games(x['season']) < POOL_PPR[x['pos']] or x[stat] < need:
+            continue
+        if not h.get('espn') or not h.get('url'):
+            continue
+        out.append(x)
+    return sorted(out, key=lambda x: (x['pos'], -x['fantasy_points_ppr'], x['id']))
 
 
 # ------------------------------------------------------------------ Season (the same rules as js/core/seventeen.js)
@@ -436,36 +397,35 @@ def phi(x):
     return 0.5 * (1 + math.erf(x / math.sqrt(2)))
 
 
-def schedule(board, cells, base, rating, avg, recs):
-    """17 real team-seasons from the board's pool. need = the points per game a lineup must beat to win that game
-    (the opponent's points per game, minus how much better than average its defense was). The k-th easiest game sits
-    at the TARGET quantile of the board's sensible lineups ($13-$15); the hardest is the best team the perfect lineup
-    beats, and it comes last. The rest are dealt into weeks so the hard ones are spread out."""
-    pool = {'NFC': set(NFC), 'AFC': set(AFC), 'ALL': set(NFC + AFC)}[board['pool']]
+def ladder(rating, avg, recs):
+    """Every team-season 2006-2025 a board can play: need = the points per game a lineup must beat."""
     teams = []
-    for (y, f), r in rating.items():
-        if f in pool:
-            teams.append({'f': f, 'y': y, 'pf': r['pf'], 'pa': r['pa'] - avg[y], 'need': r['pf'] - (r['pa'] - avg[y])})
-    all_ppg = sorted(p for p, _, _ in lineups(cells, base))
-    sensible = sorted(p for p, c, _ in lineups(cells, base) if c >= BUDGET - 2)
-    top = all_ppg[-1]
+    for (y, f), r in sorted(rating.items()):
+        pa = r['pa'] - avg[y]
+        teams.append({'f': f, 'y': y, 'tn': era_name(f, y), 'pf': round(r['pf'], 2), 'pa': round(pa, 2),
+                      'need': round(r['pf'] - pa, 2), 'rec': recs.get((y, f), '')})
+    return teams
+
+
+def schedule(cells, base, teams):
+    """17 team indexes into teams, weeks 1-17 (home on odd weeks). The k-th easiest game sits at the TARGET quantile
+    of the board's sensible lineups ($13-$15); the hardest is the best team the perfect lineup beats, and it comes
+    last. The rest are dealt into weeks so the hard ones are spread out."""
+    ls = list(lineups(cells, base))
+    top = max(p for p, _, _ in ls)
+    sensible = sorted(p for p, c, _ in ls if c >= BUDGET - 2)
     mu, sd = TARGET
-    targets = []
-    for k in range(1, 17):
-        q = phi((k - 0.5 - mu) / sd)
-        targets.append(sensible[min(len(sensible) - 1, int(q * len(sensible)))])
-    chosen, used = [], set()
-    # The finale: the best team the perfect lineup still beats.
-    boss = max((t for t in teams if round(t['need'], 2) < top - 0.01), key=lambda t: t['need'])
-    used.add((boss['y'], boss['f']))
+    targets = [sensible[min(len(sensible) - 1, int(phi((k - 0.5 - mu) / sd) * len(sensible)))] for k in range(1, 17)]
+    boss = max((i for i, t in enumerate(teams) if t['need'] < top - 0.01), key=lambda i: teams[i]['need'])
+    used = {boss}
+    chosen = []
     for tg in targets:
-        t = min((t for t in teams if (t['y'], t['f']) not in used and t['need'] < boss['need']), key=lambda t: abs(t['need'] - tg))
-        used.add((t['y'], t['f']))
-        chosen.append(t)
-    chosen.append(boss)
-    by = sorted(chosen, key=lambda t: t['need'])
-    # Weave easiest, hardest, second easiest... (without the boss), rotated so the season opens mid-pack; boss last.
-    by.remove(boss)
+        i = min((i for i, t in enumerate(teams) if i not in used and t['need'] < teams[boss]['need']),
+                key=lambda i: abs(teams[i]['need'] - tg))
+        used.add(i)
+        chosen.append(i)
+    by = sorted(chosen, key=lambda i: teams[i]['need'])
+    # Weave easiest, hardest, second easiest... rotated so the season opens mid-pack; the boss last.
     order, lo, hi = [], 0, len(by) - 1
     while lo <= hi:
         order.append(by[lo])
@@ -473,13 +433,7 @@ def schedule(board, cells, base, rating, avg, recs):
         if lo <= hi:
             order.append(by[hi])
             hi -= 1
-    order = order[2:] + order[:2] + [boss]
-    out = []
-    for i, t in enumerate(order):
-        out.append({'f': t['f'], 'y': t['y'], 't': era_abbr(t['f'], t['y']), 'tn': era_name(t['f'], t['y']),
-                    'home': 1 if i % 2 == 0 else 0, 'pf': round(t['pf'], 2), 'pa': round(t['pa'], 2),
-                    'need': round(t['need'], 2), 'rec': recs.get((t['y'], t['f']), '')})
-    return out
+    return order[2:] + order[:2] + [boss]
 
 
 def team_records():
@@ -497,21 +451,91 @@ def team_records():
     return {k: (f'{v[0]}\u2013{v[1]}' + (f'\u2013{v[2]}' if v[2] else '')) for k, v in rec.items()}
 
 
-def report(board, base):
-    ls = sorted(lineups(board['cells'], base), key=lambda x: -x[0])
-    dist, sens = {}, {}
-    for p, c, _ in ls:
-        w = wins(p, board['sched'])
-        dist[w] = dist.get(w, 0) + 1
-        if c >= BUDGET - 2:
-            sens[w] = sens.get(w, 0) + 1
-    print(f"\n== {board['name']}: {len(ls)} legal lineups")
-    print('  wins, every lineup:   ', dict(sorted(dist.items(), reverse=True)))
-    print('  wins, $13-$15 lineups:', dict(sorted(sens.items(), reverse=True)))
-    for p, c, pick in ls[:5]:
-        names = ', '.join(f"{board['cells'][ci][r]['s']} {board['cells'][ci][r]['y']} (${TIERS[r]})" for ci, r in enumerate(pick))
-        print(f"  {p:5.2f} ppg  ${c}  {wins(p, board['sched'])}-{17 - wins(p, board['sched'])}  {names}")
-    print('  schedule:', ', '.join(f"{g['y']} {g['t']} {g['rec']} ({g['need']:.1f})" for g in board['sched']))
+# ------------------------------------------------------------------ Daily boards
+def price(cols):
+    """Columns of five seasons -> the same, $5 first: the biggest fantasy season costs the most."""
+    return [sorted(col, key=lambda x: (-x['fantasy_points_ppr'] * 17 / team_games(x['season']), x['id'])) for col in cols]
+
+
+def surprise(cells):
+    """Pairs in a column where the cheaper season is worth clearly more to the model (by 0.4 points a game)."""
+    n = 0
+    for col in cells:
+        for i in range(5):
+            for j in range(i + 1, 5):
+                n += col[j]['imp'] > col[i]['imp'] + 0.4
+    return n
+
+
+def draw(day, cards, last_used, base, teams):
+    """Board `day` (0-based): 25 card indexes (column by column, $5 first), its schedule and stats."""
+    rnd = random.Random(f'17-0 day {day}')
+    by_pos = {p: [i for i, c in enumerate(cards) if c['p'] == p] for p in ('QB', 'RB', 'WR', 'TE')}
+    fresh = {p: [i for i in ix if day - last_used.get(i, -99) >= COOLDOWN] for p, ix in by_pos.items()}
+    best = None
+    for _ in range(MAX_TRIES):
+        names, pick = set(), {}
+        ok = True
+        for p, k in (('QB', 5), ('RB', 5), ('WR', 10), ('TE', 5)):
+            opts = [i for i in fresh[p] if cards[i]['n'] not in names]
+            if len(opts) < k:
+                opts = [i for i in by_pos[p] if cards[i]['n'] not in names]
+            got = []
+            for i in rnd.sample(opts, len(opts)):
+                if cards[i]['n'] in names:
+                    continue
+                names.add(cards[i]['n'])
+                got.append(i)
+                if len(got) == k:
+                    break
+            ok = ok and len(got) == k
+            pick[p] = got
+        if not ok:
+            continue
+        cols = [pick['QB'], pick['RB'], pick['WR'][:5], pick['WR'][5:], pick['TE']]
+        priced = [sorted(col, key=lambda i: (-cards[i]['_fp'], cards[i]['n'])) for col in cols]
+        cells = [[cards[i] for i in col] for col in priced]
+        ls = sorted(lineups(cells, base), key=lambda x: -x[0])
+        sched = schedule(cells, base, teams)
+        perfect = sum(1 for p, _, _ in ls if wins(p, [teams[i] for i in sched]) == 17)
+        top_cost, sur = ls[0][1], surprise(cells)
+        score = min(sur, 8) + (top_cost >= BUDGET - 2) * 3 - 2 * max(0, perfect - MAX_PERFECT)
+        cand = {'cells': priced, 'sched': sched, 'surprise': sur, 'perfect': perfect, 'score': score}
+        if sur >= MIN_SURPRISE and top_cost >= BUDGET - 2 and perfect <= MAX_PERFECT:
+            return cand
+        if not best or score > best['score']:
+            best = cand
+    return best
+
+
+def report(boards, cards, teams, base):
+    perfect, tops, bosses, sens = [], [], {}, {}
+    for d in boards:
+        cells = [[cards[i] for i in col] for col in d['cells']]
+        sched = [teams[i] for i in d['sched']]
+        ls = list(lineups(cells, base))
+        perfect.append(sum(1 for p, _, _ in ls if wins(p, sched) == 17))
+        tops.append(max(p for p, _, _ in ls))
+        b = sched[-1]
+        bosses[f"{b['y']} {b['tn']}"] = bosses.get(f"{b['y']} {b['tn']}", 0) + 1
+        for p, c, _ in ls:
+            if c >= BUDGET - 2:
+                w = wins(p, sched)
+                sens[w] = sens.get(w, 0) + 1
+    tot = sum(sens.values())
+    print(f"{len(boards)} boards. Lineups going 17-0 per board: {dict(sorted({k: perfect.count(k) for k in set(perfect)}.items()))}")
+    print(f"perfect team ppg {min(tops):.1f}-{max(tops):.1f}; surprise pairs per board {min(d['surprise'] for d in boards)}-{max(d['surprise'] for d in boards)}")
+    print('wins of $13-$15 lineups (all boards, %):', {k: round(100 * v / tot, 1) for k, v in sorted(sens.items(), reverse=True)})
+    print('most common week-17 bosses:', sorted(bosses.items(), key=lambda kv: -kv[1])[:6])
+    for n, d in enumerate(boards[:3]):
+        cells = [[cards[i] for i in col] for col in d['cells']]
+        sched = [teams[i] for i in d['sched']]
+        print(f"\n== Board {n + 1}")
+        for r in range(5):
+            print(f'  ${TIERS[r]} ' + ' | '.join(f"{cells[c][r]['n'][:18]:<18} {cells[c][r]['y']} {cells[c][r]['imp']:5.2f}" for c in range(5)))
+        p, c, pick = max(lineups(cells, base), key=lambda x: x[0])
+        print(f"  perfect: {p:.2f} ppg, ${c}: " + ', '.join(f"{cells[ci][r]['n']} {cells[ci][r]['y']}" for ci, r in enumerate(pick)))
+        print('  schedule: ' + ', '.join(f"{t['y']} {t['tn']} ({t['need']:.1f})" for t in sched))
 
 
 def main():
@@ -525,59 +549,74 @@ def main():
         if e.endswith('.0'):
             e = e[:-2]
         heads[p['gsis_id']] = {'espn': e if e.isdigit() else '', 'url': p.get('headshot') or ''}
-    prime = primes(seasons)
+    prime, score = primes(seasons)
 
     if len(sys.argv) > 1 and sys.argv[1] == 'who':
         want = {norm(n) for n in sys.argv[2:]}
-        best = {}
-        for s in seasons:
-            if norm(s['name']) in want and (s['id'] not in best or prime.score(s) > prime.score(best[s['id']])):
-                best[s['id']] = s
         for s in sorted(seasons, key=lambda s: (s['name'], s['id'], s['season'])):
             if norm(s['name']) in want:
-                star = '*' if best[s['id']] is s else ' '
+                star = '*' if prime.get(s['id']) is s else ' '
                 print(f"{star} {s['name']:<22} {s['season']} {s['pos']} {s['team']:<4} g{int(s['games']):>2}  value {s['value']:6.1f}"
-                      f"  imp {model['w'][s['pos']] * s['pg']:5.2f}  {' · '.join(line_of(s))}")
+                      f"  imp {model['w'][s['pos']] * s['pg']:5.2f}  fp {s['fantasy_points_ppr']:5.1f}  {' · '.join(line_of(s))}")
         return
 
     print(f"model: base {model['base']:.2f}, weights " + ', '.join(f'{k} {v:.3f}' for k, v in model['w'].items())
           + f", R^2 {model['r2']:.3f} over {model['n']} team-seasons; replacement per play "
           + ', '.join(f'{k} {v:+.3f}' for k, v in rep.items()))
-    recs = team_records()
-    out_boards = []
-    for b in BOARDS:
-        cells = []
-        for ci, names in enumerate(b['cols']):
-            col = []
-            for n in names:
-                c = card(prime(n, COLS[ci]), model['w'], heads)
-                if n in SHOW_AS:
-                    c['n'], c['s'] = SHOW_AS[n], short(SHOW_AS[n])
-                col.append(c)
-            cells.append(col)
-        sched = schedule(b, cells, model['base'], rating, avg, recs)
-        ob = {'id': b['id'], 'name': b['name'], 'sub': b['sub'], 'budget': BUDGET, 'tiers': TIERS, 'cols': LABELS,
-              'cells': cells, 'sched': sched}
-        report(ob, model['base'])
-        out_boards.append(ob)
-    for ob in out_boards:
-        for col in ob['cells']:
-            for c in col:
-                if not c['e']:
-                    print('  no ESPN id:', c['n'], file=sys.stderr)
+    pool = pool_of(prime, heads)
+    cards = []
+    for x in pool:
+        c = card(x, model['w'], heads)
+        if x['id'] in SHOW_AS:
+            c['n'] = SHOW_AS[x['id']]
+        c['_fp'] = x['fantasy_points_ppr'] * 17 / team_games(x['season'])
+        cards.append(c)
+    print('pool:', {p: sum(1 for c in cards if c['p'] == p) for p in ('QB', 'RB', 'WR', 'TE')})
+    teams = ladder(rating, avg, team_records())
+    boards, last_used = [], {}
+    for day in range(DAYS):
+        d = draw(day, cards, last_used, model['base'], teams)
+        for col in d['cells']:
+            for i in col:
+                last_used[i] = day
+        boards.append(d)
+    report(boards, cards, teams, model['base'])
+
+    # Only what the boards use: cards and teams renumbered in order of first use.
+    cmap, tmap = {}, {}
+    for d in boards:
+        for col in d['cells']:
+            for i in col:
+                cmap.setdefault(i, len(cmap))
+        for i in d['sched']:
+            tmap.setdefault(i, len(tmap))
+    out_cards = [None] * len(cmap)
+    for i, j in cmap.items():
+        c = dict(cards[i])
+        for k in ('_fp', 'v'):
+            c.pop(k, None)
+        out_cards[j] = c
+    out_teams = [None] * len(tmap)
+    for i, j in tmap.items():
+        t = teams[i]
+        out_teams[j] = [t['f'], t['y'], t['tn'], t['pf'], t['pa'], t['need'], t['rec']]
     doc = {
-        'about': 'Boards and season model for 17-0. Generated by tools/seventeen/build.py from nflverse data '
-                 f'(regular seasons {FIRST}-{LAST}); edit the boards there, not here.',
+        'about': 'Daily boards and the season model for 17-0. Generated by tools/seventeen/build.py from nflverse data '
+                 f'(regular seasons {FIRST}-{LAST}); change the rules there, not here.',
         'asof': f'{LAST} season',
-        'model': {'base': model['base'], 'w': model['w'],
-                  'r2': round(model['r2'], 3), 'n': model['n'], 'share': RECV_SHARE, 'rep': REP_PCT},
+        'start': START,
+        'model': {'base': model['base'], 'w': model['w'], 'r2': round(model['r2'], 3), 'n': model['n'], 'share': RECV_SHARE, 'rep': REP_PCT},
+        'budget': BUDGET, 'tiers': TIERS, 'cols': LABELS,
         'colors': COLORS,
-        'boards': out_boards,
+        'cards': out_cards,
+        'teams': out_teams,
+        # A day: 25 card indexes (QB $5..$1, RB $5..$1, WR1, WR2, TE), then 17 team indexes (weeks 1-17).
+        'days': [[cmap[i] for col in d['cells'] for i in col] + [tmap[i] for i in d['sched']] for d in boards],
     }
     with open(OUT, 'w', encoding='utf-8') as f:
         json.dump(doc, f, ensure_ascii=False, separators=(',', ':'))
         f.write('\n')
-    print('\nwrote', os.path.relpath(OUT, ROOT), f'({os.path.getsize(OUT):,} bytes)')
+    print('\nwrote', os.path.relpath(OUT, ROOT), f'({os.path.getsize(OUT):,} bytes, {len(out_cards)} cards, {len(out_teams)} teams)')
 
 
 if __name__ == '__main__':

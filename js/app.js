@@ -83,10 +83,8 @@ function matchSegs(p, q) {
       if (n === 1) return R('puzzles', 'root', 'puzzles');
       if (n === 3 && b === 'play' && PUZZLES.includes(c)) return R('run', 'cover', 'puzzles', {puzzle: c});
       if (n === 2 && b === 'results') return R('results', 'cover', 'puzzles');
-      // The Daily Games root's other game, 17-0 (views/seventeen.js, a pane of puzzles.js): /puzzles/17-0 opens the
-      // last board played, /puzzles/17-0/<board> that board (the pane checks the id, falling back to the first board).
+      // The Daily Games root's other game, 17-0 (views/seventeen.js, a pane of puzzles.js): today's board.
       if (n === 2 && b === '17-0') return R('puzzles', 'root', 'puzzles', {game: '17-0'});
-      if (n === 3 && b === '17-0' && /^[a-z]{1,16}$/.test(c)) return R('puzzles', 'root', 'puzzles', {game: '17-0', board: c});
       return null;
     case 'pickem':
       // NFL Pick'em (optional ?week=N) is a tab root now: links to it switch to the tab.

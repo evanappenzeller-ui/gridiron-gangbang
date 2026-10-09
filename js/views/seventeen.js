@@ -1,27 +1,27 @@
-// 17-0, the second game of the Daily Games tab (puzzles.js: its picker shows this pane for /puzzles/17-0 and
-// /puzzles/17-0/<board>; imported on first use). Build the perfect team: a board is a grid of player-seasons, five
-// columns (QB, RB, WR1, WR2, TE) by five prices ($5 down to $1), every player in his prime, each square with his
-// headshot and his first and last name. Pick one per column within the $15 budget, then play the season:
-// js/core/seventeen.js turns the five seasons into points per game (an EPA model fit on every team-season
-// 2006-2025, tools/seventeen/build.py) and plays 17 real teams. Only the perfect lineup goes 17-0; after a season the
-// perfect team can be revealed.
+// 17-0, the second game of the Daily Games tab (puzzles.js: its picker shows this pane for /puzzles/17-0; imported on
+// first use). One board a day, the same for everyone (js/core/seventeen.js; tools/seventeen/build.py deals them): a
+// grid of player-seasons, five columns (QB, RB, WR1, WR2, TE) by five prices ($5 down to $1, by fantasy reputation),
+// every player in his prime, each square with his headshot and his first and last name. Pick one per column within
+// the $15 budget, then play the season: the model turns the five seasons into points per game (an EPA model fit on
+// every team-season 2006-2025) and plays 17 real teams. Only the perfect lineup goes 17-0.
 //
-// A pane module, like League's segments: render(ctx), mount(el, ctx, {anchor}), params(el, ctx) (another board in
-// the route), unmount(el, ctx). anchor: the element to keep in view when the pane swaps phases (the game picker).
-// Two phases per board (module memory, this page session): 'build' (board chips, the grid, the budget, the
-// scouting report of the last player tapped, the lineup bar with Play) and 'season' (the record counting up week by
-// week, the lineup's points per game, the perfect team behind a reveal). Picks are kept per board in localStorage.
-// The model's own number for a player (imp) is never shown before a season: that is the answer.
+// A pane module, like League's segments: render(ctx), mount(el, ctx, {anchor}), params(el, ctx), unmount(el, ctx).
+// anchor: the element to keep in view when the pane swaps phases (the game picker).
+// Two phases, from what this phone stored for today's board: 'build' (the grid, the budget, the scouting report of
+// the last player tapped, the lineup bar with Play) and 'season' once played. One season a day: Play locks the
+// lineup in; the season shows the record (counted up week by week right after Play), Share (no player names), the
+// time to the next board, each pick's points per game, the 17 games and the perfect team. At midnight the pane moves
+// to the new board. The model's own number for a player (imp) is never shown before the season: that is the answer.
 // Every control here is data-sv-*, so the Daily Puzzles handlers on the same screen never see these taps.
 // Owner: 17-0.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as sv from '../core/seventeen.js';
+import {msToMidnight} from './board.js';
 
 const esc = data.esc;
 const nf = n => data.nf(n);
 const COPIED = 'Copied. Paste it in the league chat.';
-const LAST_BOARD = 'gg-17-board';
 const POS = {QB: 'Quarterback', RB: 'Running back', WR: 'Wide receiver', TE: 'Tight end'};
 const eid = e => String(e || '').replace(/[^0-9]/g, '');
 // Headshots: the nflverse-players headshot (p.h, NFL.com's own photo, as nflreadr::load_players() publishes it) first,
@@ -33,27 +33,19 @@ const logoUrl = (f, w) => `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl
 const money = n => '$' + n;
 const signed = (x, dp = 1) => (x >= 0 ? '+' : '−') + Math.abs(x).toFixed(dp);
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+const nextIn = () => ui.untilText(msToMidnight());
 /** "Amon-Ra St. Brown" -> ["Amon-Ra", "St. Brown"]; "Kenneth Walker III" -> ["Kenneth", "Walker III"]. */
 function nameParts(n) {
   const i = String(n).indexOf(' ');
   return i < 0 ? ['', String(n)] : [n.slice(0, i), n.slice(i + 1)];
 }
 
-const PHASE = new Map(); // board id -> {season, pick, revealed} while its season is showing
 const ST = new WeakMap(); // ctx -> pane state
 
 function colorsOf(p) {
   const c = (sv.DOC && sv.DOC.colors[p.f]) || ['#25366A', '#8A94B8'];
   return `--tc:${c[0]};--ta:${c[1]}`;
 }
-function boardId(ctx) {
-  const want = ctx.params && ctx.params.board;
-  if (want && sv.board(want)) return want;
-  const last = ui.lsGet(LAST_BOARD);
-  if (last && sv.board(last)) return last;
-  return sv.boards()[0] ? sv.boards()[0].id : null;
-}
-const phaseOf = b => PHASE.get(b.id) || null;
 
 // ============================================================================ Markup: build
 const ANON = () => `<span class="sv-anon" aria-hidden="true">${ui.icon('silhouette-fill')}</span>`;
@@ -64,19 +56,18 @@ function faceHTML(p, w) {
   const alt = p.h && espn ? ` data-alt="${esc(espn)}"` : '';
   return `<img class="sv-face ${p.h ? 'is-nfl' : 'is-espn'}" src="${esc(p.h || espn)}"${alt} alt="" draggable="false" decoding="async" referrerpolicy="no-referrer">`;
 }
-function chipsHTML(b) {
-  return ui.chips({name: 'sv-board', label: 'Boards', value: b.id, cls: 'sv-chips', items: sv.boards().map(x => {
-    const s = sv.saved(x.id);
-    return {id: x.id, label: x.name, lead: s.perfect ? ui.icon('trophy', {size: 14, cls: 'sv-chip-ic'}) : ''};
-  })});
-}
 function headHTML(b) {
   return `<header class="sv-head">`
     + `<p class="sv-kick">Build the perfect team with ${money(b.budget)}</p>`
-    + `<h2 class="sv-title">${esc(b.name)}</h2>`
-    + `<p class="sv-sub">${esc(b.sub)}</p>`
-    + ui.iconButton({icon: 'info', label: 'How 17\u20130 works', cls: 'sv-howto', attrs: {'data-sv-help': ''}})
+    + `<h2 class="sv-title" aria-label="${esc(`17–0 number ${b.n}`)}">17-0 #${b.n}</h2>`
+    + `<p class="sv-sub">${esc(`${sv.dayLabel(b.n, {weekday: 'long', month: 'long', day: 'numeric'})}. One season a day, every player in his prime.`)}</p>`
+    + ui.iconButton({icon: 'info', label: 'How 17–0 works', cls: 'sv-howto', attrs: {'data-sv-help': ''}})
     + `</header>`;
+}
+function totalsLine() {
+  const t = sv.totals();
+  if (!t.played) return '';
+  return `<p class="sv-best">${t.perfect ? ui.icon('trophy', {size: 14}) : ''}<span>${esc(`${plural(t.played, 'season')} played${t.perfect ? ` · ${t.perfect} went 17–0` : ''}`)}</span></p>`;
 }
 function bankHTML(b, pick) {
   const spent = sv.cost(b, pick), left = b.budget - spent;
@@ -154,13 +145,8 @@ function barHTML(b, pick) {
   return `<div class="sv-bar"><div class="sv-slots" role="group" aria-label="Your lineup">${slotsHTML(b, pick)}</div>`
     + `<button type="button" class="btn btn-primary sv-play" data-sv-play${ready ? '' : ' disabled'}>${ui.icon('play-fill')}<span class="btn-label">${esc(playLabel(b, pick))}</span></button></div>`;
 }
-function bestLine(b) {
-  const s = sv.saved(b.id);
-  if (!s.played) return '';
-  return `<p class="sv-best">${s.perfect ? ui.icon('trophy', {size: 14}) : ''}<span>${esc(`Best: ${s.best.w}–${s.best.l} · ${plural(s.played, 'season')} played`)}</span></p>`;
-}
 function buildHTML(b, pick, foc) {
-  return chipsHTML(b) + headHTML(b) + bestLine(b) + bankHTML(b, pick) + gridHTML(b, pick)
+  return headHTML(b) + totalsLine() + bankHTML(b, pick) + gridHTML(b, pick)
     + `<div data-sv-scout>${scoutHTML(b, pick, foc)}</div>` + barHTML(b, pick);
 }
 
@@ -192,27 +178,25 @@ function weekHTML(gm) {
     + `<span class="sv-wk-opp"><b>${esc(`${gm.home ? 'vs' : '@'} ${g.y} ${g.tn}`)}</b><small>${esc(g.rec ? `went ${g.rec}` : '')}</small></span>`
     + `<span class="sv-wk-res"><b>${gm.win ? 'W' : 'L'}</b> ${gm.us}–${gm.them}</span></li>`;
 }
-function perfectHTML(b, ph) {
-  const best = sv.best(b), all = sv.all(b);
-  if (sv.samePick(best.pick, ph.pick)) {
+function perfectHTML(b, pick) {
+  const top = sv.best(b), all = sv.all(b);
+  if (sv.samePick(top.pick, pick)) {
     const others = all.perfect - 1;
-    return `<div class="card sv-perfect is-you"><p class="sv-pf-t">${ui.icon('trophy', {size: 18})}<span>This is the perfect team.</span></p>`
-      + `<p class="sv-pf-s">${esc(others > 0 ? `${plural(others, 'other lineup')} also ${others === 1 ? 'goes' : 'go'} 17–0, none score more.` : 'No other lineup under the cap goes 17–0.')}</p></div>`;
+    return `<div class="card sv-perfect is-you"><p class="sv-pf-t">${ui.icon('trophy', {size: 18})}<span>You found the perfect team.</span></p>`
+      + `<p class="sv-pf-s">${esc(others > 0 ? `${plural(others, 'other lineup')} also ${others === 1 ? 'goes' : 'go'} 17–0 today, none score more.` : 'No other lineup under the cap goes 17–0 today.')}</p></div>`;
   }
-  if (!ph.revealed) {
-    return `<div class="card sv-perfect"><p class="sv-pf-t">The perfect team</p>`
-      + `<p class="sv-pf-s">${esc(`${all.perfect === 1 ? 'One lineup' : plural(all.perfect, 'lineup')} under the cap ${all.perfect === 1 ? 'goes' : 'go'} 17–0. Keep hunting, or see the best one.`)}</p>`
-      + `<button type="button" class="btn btn-secondary" data-sv-reveal>${ui.icon('sparkle')}<span class="btn-label">Reveal the perfect team</span></button></div>`;
-  }
-  const s = sv.season(b, best.pick);
-  return `<div class="card sv-perfect is-open"><p class="sv-pf-t">${ui.icon('trophy', {size: 18})}<span>${esc(`The perfect team: ${sv.rec(s)}, ${s.ppg.toFixed(1)} points a game`)}</span></p>`
-    + lineupHTML(b, best.pick) + `</div>`;
+  const s = sv.season(b, top.pick);
+  return `<div class="card sv-perfect"><p class="sv-pf-t">${ui.icon('trophy', {size: 18})}<span>${esc(`The perfect team: ${sv.rec(s)}, ${s.ppg.toFixed(1)} points a game`)}</span></p>`
+    + `<p class="sv-pf-s">${esc(all.perfect > 1 ? `The best of the ${all.perfect} lineups that go 17–0 today.` : 'The only lineup under the cap that goes 17–0 today.')}</p>`
+    + lineupHTML(b, top.pick) + `</div>`;
 }
-function seasonHTML(b, ph) {
-  const s = ph.season, r = sv.rankOf(b, ph.pick), diff = s.pf - s.pa;
-  return chipsHTML(b)
-    + `<section class="sv-season" aria-labelledby="sv-rec">`
-    + `<p class="sv-kick">${esc(`${b.name} · your ${money(sv.cost(b, ph.pick))} team`)}</p>`
+function nextHTML() {
+  return `<p class="sv-next">${ui.icon('clock', {size: 15})}<span>Next 17–0 in <span data-sv-next>${esc(nextIn())}</span></span></p>`;
+}
+function seasonHTML(b, pick) {
+  const s = sv.season(b, pick), r = sv.rankOf(b, pick), diff = s.pf - s.pa;
+  return `<section class="sv-season" aria-labelledby="sv-rec">`
+    + `<p class="sv-kick">${esc(`17–0 #${b.n} · ${sv.dayLabel(b.n)} · your ${money(sv.cost(b, pick))} team`)}</p>`
     + `<h2 class="sv-rec${s.w === 17 ? ' is-gold' : ''}" id="sv-rec" aria-label="${esc(`Record: ${s.w} and ${s.l}`)}"><span data-sv-w>${s.w}</span>-<span data-sv-l>${s.l}</span></h2>`
     + `<p class="sv-verdict">${esc(verdict(s.w))}</p>`
     + `<div class="tiles tiles-3 sv-tiles">`
@@ -220,16 +204,15 @@ function seasonHTML(b, ph) {
     + ui.statTile({label: 'Point diff', value: (diff >= 0 ? '+' : '−') + nf(Math.abs(diff))})
     + ui.statTile({label: 'Rank', value: '#' + nf(r.rank), sub: `of ${nf(r.of)}`})
     + `</div>`
+    + `<div class="sv-actions"><button type="button" class="btn btn-primary" data-sv-share>${ui.icon('share')}<span class="btn-label">Share</span></button></div>`
+    + nextHTML()
     + ui.sectionHeader({title: 'Your lineup', level: 3})
-    + lineupHTML(b, ph.pick)
+    + lineupHTML(b, pick)
     + `<p class="sv-foot">What each prime season adds to the scoreboard every week, over a replacement-level player.</p>`
     + ui.sectionHeader({title: 'Week by week', level: 3})
     + `<ol class="sv-weeks">${s.games.map(weekHTML).join('')}</ol>`
-    + `<div data-sv-perfect>${perfectHTML(b, ph)}</div>`
-    + `<div class="sv-actions">`
-    + `<button type="button" class="btn btn-primary" data-sv-rebuild>${ui.icon('swap')}<span class="btn-label">Rebuild</span></button>`
-    + `<button type="button" class="btn btn-secondary" data-sv-share>${ui.icon('share')}<span class="btn-label">Share</span></button>`
-    + `</div></section>`;
+    + perfectHTML(b, pick)
+    + `</section>`;
 }
 
 // ============================================================================ Markup: states
@@ -241,12 +224,11 @@ function errorHTML() {
 }
 function bodyHTML(ctx) {
   if (!sv.DOC) return loadingHTML();
-  const b = sv.board(boardId(ctx));
-  if (!b) return errorHTML();
-  const ph = phaseOf(b);
-  if (ph) return seasonHTML(b, ph);
+  const b = sv.today();
+  const day = sv.dayState(b.n);
+  if (day.played) return seasonHTML(b, day.pick);
   const st = ST.get(ctx);
-  const pick = st && st.b === b ? st.pick : sv.saved(b.id).pick;
+  const pick = st && st.b === b ? st.pick : day.pick;
   return buildHTML(b, pick, st && st.b === b ? st.foc : null);
 }
 
@@ -317,25 +299,19 @@ function tapCell(st, btn) {
     ui.haptic('light');
     if (!ui.RM) ui.stamp(btn.querySelector('.sv-tick'), {from: .4});
   }
-  sv.keepPick(b.id, pick);
+  sv.keepPick(b.n, pick);
   patchBuild(st);
   if (sv.full(pick)) ui.announce(`Lineup set: ${money(sv.cost(b, pick))} of ${money(b.budget)}. Ready to play the season.`);
 }
 
+/** The day's one season: locks the lineup in, then plays it out. */
 function play(st) {
   const {b, pick} = st;
   if (!sv.full(pick) || !sv.fits(b, pick)) return;
   const s = sv.season(b, pick);
-  sv.remember(b.id, pick, s);
-  PHASE.set(b.id, {season: s, pick: pick.slice(), revealed: false});
+  if (!sv.lockIn(b.n, pick, s)) { swapBody(st); return; } // already played today (another tab): show that season
   ui.haptic('medium');
-  swapBody(st, () => runSeason(st));
-}
-
-function rebuild(st) {
-  PHASE.delete(st.b.id);
-  st.foc = null;
-  swapBody(st);
+  swapBody(st, () => runSeason(st, s));
 }
 
 /** Scrolls up so the game picker (opts.anchor, else the pane) sits just under the bar, if it is above the view. */
@@ -361,13 +337,11 @@ function swapBody(st, after) {
 }
 
 /** The season plays out: weeks stamp in one by one while the record counts. Reduced motion: all at once. */
-function runSeason(st) {
-  const ph = phaseOf(st.b);
-  if (!ph) return;
-  const s = ph.season;
+function runSeason(st, s) {
   const rows = [...st.el.querySelectorAll('.sv-wk')];
   const wEl = st.el.querySelector('[data-sv-w]'), lEl = st.el.querySelector('[data-sv-l]');
   const finish = () => {
+    st.playing = false;
     if (st.dead) return;
     if (wEl) wEl.textContent = s.w;
     if (lEl) lEl.textContent = s.l;
@@ -382,6 +356,7 @@ function runSeason(st) {
     ui.announce(`Your season: ${s.w} and ${s.l}. ${verdict(s.w)}`);
   };
   if (ui.RM || !st.ctx.visible) { finish(); return; }
+  st.playing = true;
   let w = 0, l = 0;
   if (wEl) wEl.textContent = '0';
   if (lEl) lEl.textContent = '0';
@@ -399,31 +374,17 @@ function runSeason(st) {
   });
 }
 
-function reveal(st) {
-  const ph = phaseOf(st.b);
-  if (!ph) return;
-  ph.revealed = true;
-  const host = st.el.querySelector('[data-sv-perfect]');
-  if (!host) return;
-  const go = () => { host.innerHTML = perfectHTML(st.b, ph); ui.hydrate(host); };
-  if (!ui.RM) ui.crossfade(host, go, {duration: 160}); else go();
-  ui.haptic('light');
-  const card = host.querySelector('.sv-perfect');
-  if (card) { card.setAttribute('tabindex', '-1'); try { card.focus({preventScroll: true}); } catch (_) {} }
-  ui.announce('The perfect team is showing.');
-}
-
 function share(st) {
-  const ph = phaseOf(st.b);
-  if (!ph) return;
-  ui.share({text: sv.shareText(st.b, ph.pick, ph.season)}).then(r => {
+  const day = sv.dayState(st.b.n);
+  if (!day.played) return;
+  ui.share({text: sv.shareText(st.b, sv.season(st.b, day.pick), day.pick)}).then(r => {
     if (r === 'copied') { ui.toast(COPIED, {icon: 'check-circle'}); ui.haptic('success'); }
     else if (r === 'unavailable') ui.toast("Couldn't copy your season.");
   });
 }
 
 function onClick(st, e) {
-  const t = e.target.closest('.sv-cell, [data-sv-slot], [data-sv-play], [data-sv-rebuild], [data-sv-share], [data-sv-reveal], [data-sv-retry], [data-sv-help]');
+  const t = e.target.closest('.sv-cell, [data-sv-slot], [data-sv-play], [data-sv-share], [data-sv-retry], [data-sv-help]');
   if (!t || !st.el.contains(t)) return;
   if (t.matches('.sv-cell')) { tapCell(st, t); return; }
   if (t.hasAttribute('data-sv-slot')) {
@@ -436,20 +397,9 @@ function onClick(st, e) {
     return;
   }
   if (t.hasAttribute('data-sv-play')) { play(st); return; }
-  if (t.hasAttribute('data-sv-rebuild')) { rebuild(st); return; }
   if (t.hasAttribute('data-sv-share')) { share(st); return; }
-  if (t.hasAttribute('data-sv-reveal')) { reveal(st); return; }
   if (t.hasAttribute('data-sv-help')) { openHelp(); return; }
   if (t.hasAttribute('data-sv-retry')) load(st);
-}
-
-function onChange(st, e) {
-  if (!e.detail || e.detail.name !== 'sv-board') return;
-  e.stopPropagation();
-  const id = e.detail.value;
-  if (!sv.board(id) || id === (st.b && st.b.id)) return;
-  ui.lsSet(LAST_BOARD, id);
-  st.ctx.replace('/puzzles/17-0/' + id);
 }
 
 function load(st) {
@@ -468,21 +418,33 @@ function load(st) {
 }
 
 function setBoard(st) {
-  const b = sv.board(boardId(st.ctx));
+  const b = sv.today();
   st.b = b;
-  st.pick = b ? sv.saved(b.id).pick : sv.empty();
+  st.pick = sv.dayState(b.n).pick;
   st.foc = null;
-  if (b) ui.lsSet(LAST_BOARD, b.id);
+}
+
+/** Each tick: the countdown, and after midnight the new board (not while a season is playing out). */
+function tick(st) {
+  if (st.dead || !sv.DOC || !st.b || st.playing) return;
+  if (sv.todayNumber() !== st.b.n) {
+    setBoard(st);
+    const go = () => { st.el.innerHTML = bodyHTML(st.ctx); ui.hydrate(st.el); };
+    if (!ui.RM && st.ctx.visible) ui.crossfade(st.el, go, {duration: 160}); else go();
+    return;
+  }
+  const v = st.el.querySelector('[data-sv-next]');
+  if (v) { const t = nextIn(); if (v.textContent !== t) v.textContent = t; }
 }
 
 // ============================================================================ How it works
 function openHelp() {
   const m = sv.DOC && sv.DOC.model;
   const body = `<div class="sv-help">`
-    + `<p><b>Pick one player per column</b> and spend no more than the cap. Every card is that player in his prime: the season people remember (2022 Nick Chubb and his 1,525 rushing yards, not 2025 Chubb).</p>`
-    + `<p><b>The data.</b> Each season is scored with EPA (expected points added, play by play, from nflverse) over what a replacement-level player would do with the same workload. A completed pass is split: half the credit to the passer, half to the receiver.</p>`
-    + `<p><b>The team.</b> A regression on every team-season from 2006 to 2025${m ? ` (${nf(m.n)} of them, R² ${m.r2.toFixed(2)})` : ''} weighs each position and turns your five seasons into points per game. Your defense is league average.</p>`
-    + `<p><b>The season.</b> 17 real teams from 2006–2025. Outscore a team and it's a win. Only the perfect lineup runs the table, and week 17 is the toughest team on the slate.</p>`
+    + `<p><b>One board a day.</b> Everyone gets the same 25 players and one season: pick one player per column, spend no more than the cap, and Play locks your lineup in. A new board comes at midnight.</p>`
+    + `<p><b>Every card is a prime.</b> The season people remember: 2022 Nick Chubb and his 1,525 rushing yards, not 2025 Chubb. Prices follow each season’s fantasy points, so the $5 player had the biggest fantasy year in his column.</p>`
+    + `<p><b>The data decides.</b> Each season is scored with EPA (expected points added, play by play, from nflverse) over what a replacement-level player would do with the same workload; a completed pass splits the credit between passer and receiver. A regression on every team-season from 2006 to 2025${m ? ` (${nf(m.n)} of them, R² ${m.r2.toFixed(2)})` : ''} turns your five seasons into points per game. Big fantasy numbers don’t always win games.</p>`
+    + `<p><b>The season.</b> Your defense is league average, against 17 real teams from 2006–2025. Outscore a team and it’s a win. Only the perfect lineup runs the table, and week 17 is the toughest team on the slate.</p>`
     + `</div>`;
   ui.openSheet({title: 'How 17–0 works', body, detents: ['fit'], cls: 'sh-seventeen'});
 }
@@ -493,29 +455,21 @@ export function render(ctx) {
 }
 
 export function mount(el, ctx, {anchor} = {}) {
-  const st = {el, ctx, anchor: anchor || null, b: null, pick: sv.empty(), foc: null, timers: [], dead: false};
+  const st = {el, ctx, anchor: anchor || null, b: null, pick: sv.empty(), foc: null, timers: [], playing: false, dead: false};
   ST.set(ctx, st);
   st.onClick = e => onClick(st, e);
-  st.onChange = e => onChange(st, e);
   el.addEventListener('click', st.onClick);
-  el.addEventListener('ui:change', st.onChange);
   el.addEventListener('error', onImgError, true);
+  st.stopTick = ctx.timer(() => tick(st), 20000);
   if (!sv.DOC) { load(st); return; }
-  // render() ran before this state existed: it showed the saved picks, which is what setBoard reads too.
+  // render() ran before this state existed: it showed the stored picks, which is what setBoard reads too.
   setBoard(st);
 }
 
-/** The route names another board (a chip, a link): that board's phase and picks. */
+/** Shown again (the picker, a link): catch up with the day. */
 export function params(el, ctx) {
   const st = ST.get(ctx);
-  if (!st || !sv.DOC) return;
-  const id = boardId(ctx);
-  if (st.b && st.b.id === id) return;
-  st.timers.forEach(clearTimeout);
-  st.timers = [];
-  setBoard(st);
-  const go = () => { el.innerHTML = bodyHTML(ctx); ui.hydrate(el); };
-  if (!ui.RM && ctx.visible) ui.crossfade(el, go, {duration: 120}); else go();
+  if (st) tick(st);
 }
 
 export function unmount(el, ctx) {
@@ -524,7 +478,7 @@ export function unmount(el, ctx) {
   st.dead = true;
   st.timers.forEach(clearTimeout);
   el.removeEventListener('click', st.onClick);
-  el.removeEventListener('ui:change', st.onChange);
   el.removeEventListener('error', onImgError, true);
+  if (st.stopTick) st.stopTick();
   ST.delete(ctx);
 }

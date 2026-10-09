@@ -1,4 +1,4 @@
-// Daily Games tab root (tab id 'puzzles'; routes /puzzles, /puzzles/17-0 and /puzzles/17-0/<board>; tabs-v4 contract
+// Daily Games tab root (tab id 'puzzles'; routes /puzzles and /puzzles/17-0; tabs-v4 contract
 // §3, replaces the Today hub): the large title (the date, "Daily Games", the streak pill and your avatar button from
 // you.js), then the game picker (Daily Puzzles · 17-0: route param game, the choice lands in the URL) over two panes.
 // Daily Puzzles: one hero card with one big Play button, then the league leaderboard. The hero has three states: not started ("Play"), started ("Continue", a thin progress bar with
@@ -486,7 +486,7 @@ export default {
   update(ctx) {
     const st = HUB.get(ctx);
     if (!st) return;
-    // The picker (a tap, or a link to /puzzles/17-0[/<board>]): show that game; within 17-0, maybe another board.
+    // The picker (a tap, or a link to /puzzles/17-0): show that game; 17-0 shown again catches up with the day.
     const g = gameOf(ctx);
     const seg = st.el.querySelector('.c-games > .seg');
     if (seg) ui.setSeg(seg, g, {animate: ctx.visible});
