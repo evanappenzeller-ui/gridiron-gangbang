@@ -1,7 +1,7 @@
 // Boot, router, history projection, tab bar (and its badges), transitions, swipe-back, scroll memory, view registry.
 // Owner: foundation (shell). Spec 3.2-3.5, 5.2, 11, 12; the five tabs of the tabs-v4 contract.
 //
-// TABS (id → root route · root view): puzzles /puzzles · puzzles, pickem /pickem · pickem, matchup /matchup · rivals,
+// TABS (id → root route · root view): puzzles /puzzles · puzzles (shown as Daily Games: Daily Puzzles and 17-0), pickem /pickem · pickem, matchup /matchup · rivals,
 //   league /league/standings · league, draft /draft · moves, lay /lay · lay (the weekly parlay; the tab bar scrolls
 //   sideways past the fifth tab). The app opens on Puzzles (HOME): it is the history base,
 //   covers (/puzzles/play/<slug>, /puzzles/results) present over it, and Back from another tab's root lands on it.
@@ -53,14 +53,13 @@ export const REGISTRY = {
   press: () => import('./views/press.js'),
   profile: () => import('./views/profile.js'),
   lay: () => import('./views/lay.js'),
-  seventeen: () => import('./views/seventeen.js'),
   _kit: () => import('./views/_kit.js')
 };
 export const TABS = ['puzzles', 'pickem', 'lay', 'matchup', 'league', 'draft'];
 const HOME = 'puzzles'; // the tab the app opens on: the history base, where covers present, where Back from a root lands
 const TAB_VIEW = {puzzles: 'puzzles', pickem: 'pickem', matchup: 'rivals', league: 'league', draft: 'moves', lay: 'lay'}; // root view ids
 const ROOTS = {puzzles: '/puzzles', pickem: '/pickem', matchup: '/matchup', league: '/league/standings', draft: '/draft', lay: '/lay'};
-const TAB_TITLES = {puzzles: 'Puzzles', pickem: "Pick'em", matchup: 'Matchup', league: 'League', draft: 'Draft', lay: 'The Lay'};
+const TAB_TITLES = {puzzles: 'Daily Games', pickem: "Pick'em", matchup: 'Matchup', league: 'League', draft: 'Draft', lay: 'The Lay'};
 // Old bare hashes (#daily, #records...) from the first app. Null prototype: '#constructor' is not a legacy hash.
 const LEGACY = Object.assign(Object.create(null), {daily: '/puzzles', records: '/league/records', trophies: '/league/trophies', standings: '/league/standings', rivals: '/matchup', moves: '/draft'});
 const PUZZLES = ['college', 'silhouette', 'mystery', 'journey', 'grid', 'plays']; // every day's steps are some of these (daily.SLUGS)
@@ -84,10 +83,10 @@ function matchSegs(p, q) {
       if (n === 1) return R('puzzles', 'root', 'puzzles');
       if (n === 3 && b === 'play' && PUZZLES.includes(c)) return R('run', 'cover', 'puzzles', {puzzle: c});
       if (n === 2 && b === 'results') return R('results', 'cover', 'puzzles');
-      // 17-0 (views/seventeen.js): /puzzles/17-0 opens the last board played, /puzzles/17-0/<board> that board (the
-      // view checks the id and falls back to the first board).
-      if (n === 2 && b === '17-0') return R('seventeen', 'cover', 'puzzles');
-      if (n === 3 && b === '17-0' && /^[a-z]{1,16}$/.test(c)) return R('seventeen', 'cover', 'puzzles', {board: c});
+      // The Daily Games root's other game, 17-0 (views/seventeen.js, a pane of puzzles.js): /puzzles/17-0 opens the
+      // last board played, /puzzles/17-0/<board> that board (the pane checks the id, falling back to the first board).
+      if (n === 2 && b === '17-0') return R('puzzles', 'root', 'puzzles', {game: '17-0'});
+      if (n === 3 && b === '17-0' && /^[a-z]{1,16}$/.test(c)) return R('puzzles', 'root', 'puzzles', {game: '17-0', board: c});
       return null;
     case 'pickem':
       // NFL Pick'em (optional ?week=N) is a tab root now: links to it switch to the tab.
