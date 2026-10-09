@@ -16,7 +16,7 @@
 //   best(b), rankOf(b, pick) the perfect lineup; {rank, of, pct} of a lineup among the legal ones
 //   dayState(n), keepPick(n, pick), lockIn(n, pick, season), totals()   localStorage 'gg-17'
 //   shareText(b, season)     no player names: everyone plays the same board
-//   autoPost(), boardRows(mode, n), boardState()   the league scoreboard (below)
+//   autoPost(), boardRows(mode, n), seasonsOf(key, n), boardState()   the league scoreboard (below)
 //
 // THE SEASON (the same rules as tools/seventeen/build.py; its docstring has the whole model): your defense is league
 // average. Against an opponent you score ppg + g.pa (how much worse than average its defense was that season) and it
@@ -197,19 +197,23 @@ export function shareText(b, s, pick) {
 
 // ---------------------------------------------------------------------------------------------- scoreboard
 // The league's 17-0 results ride on each phone's Daily board doc (players/{uid}, daily.js), as s17: {n: {w, l,
-// p (points a game, to 0.1), r (rank among the day's lineups), t (when it was played, by the phone's clock)}}: the
-// rules already take any extra field, and daily.LB's live snapshot reads them. A played day posts by itself
-// (autoPost) once the board has loaded, and again when a post failed (the next snapshot, coming back online, the app
-// shown again). One result per member per day, like the Daily: across a member's phones the first played counts,
-// and this phone never posts a day its member already has. The scoreboard shows records only, never a lineup.
+// p (points a game, to 0.1), r (rank among the day's lineups), k (the lineup: its five rows, '01234', $5 = 0),
+// t (when it was played, by the phone's clock)}}: the rules already take any extra field, and daily.LB's live
+// snapshot reads them. A played day posts by itself (autoPost) once the board has loaded, and again when a post
+// failed (the next snapshot, coming back online, the app shown again); a day this phone posted before lineups were
+// saved gets its k added. One result per member per day, like the Daily: across a member's phones the first played
+// counts, and this phone never posts a day its member already has. The scoreboard rows are records; a lineup shows
+// only when someone taps a row (views/seventeen.js keeps today's hidden until you've played).
 const F = 's17', POST_BACK = 7;
 let posting = false;
 /** Board doc p's entry for day n, cleaned, or null. */
 export function entryOf(p, n) {
   const e = p && p[F] && typeof p[F] === 'object' ? p[F][n] : null;
   if (!e || !Number.isInteger(e.w) || !Number.isInteger(e.l) || e.w < 0 || e.l < 0 || e.w + e.l !== 17) return null;
-  return {w: e.w, l: e.l, p: Number.isFinite(Number(e.p)) ? Number(e.p) : 0, r: Number.isInteger(e.r) && e.r > 0 ? e.r : 0, t: Number(e.t) || 0};
+  return {w: e.w, l: e.l, p: Number.isFinite(Number(e.p)) ? Number(e.p) : 0, r: Number.isInteger(e.r) && e.r > 0 ? e.r : 0, t: Number(e.t) || 0, pick: pickOf(e.k)};
 }
+/** A posted lineup ('01234') -> five rows, or null. */
+const pickOf = k => (typeof k === 'string' && /^[0-4]{5}$/.test(k) ? [...k].map(Number) : null);
 const docs = () => daily.LB.raw || daily.LB.players || [];
 const meKey = () => daily.memberOf({id: daily.LB.uid, nick: daily.LB.nick});
 /** People on the board: member id (or 'row:' + doc id for a doc with no member) -> their docs. */
@@ -231,27 +235,33 @@ function firstOf(list, n) {
   });
   return out;
 }
-/** Days this phone played and the board lacks for its member: the last POST_BACK, oldest first. */
+/** This phone's played days (the last POST_BACK, oldest first): {todo: days the board lacks for its member,
+ *  noTeam: days this phone's own doc has without the lineup}. */
 function unposted() {
   const list = docs(), mine = list.find(p => p.id === daily.LB.uid), k = meKey();
   const theirs = list.filter(p => p === mine || (k && daily.memberOf(p) === k));
   const v = read(), top = todayNumber();
-  return Object.keys(v.days).map(Number)
-    .filter(n => Number.isInteger(n) && n <= top && n > top - POST_BACK && Number.isInteger(v.days[n].w) && !theirs.some(p => entryOf(p, n)))
+  const played = Object.keys(v.days).map(Number)
+    .filter(n => Number.isInteger(n) && n <= top && n > top - POST_BACK && Number.isInteger(v.days[n].w) && full(cleanPick(v.days[n].pick)))
     .sort((a, b) => a - b);
+  return {
+    todo: played.filter(n => !theirs.some(p => entryOf(p, n))),
+    noTeam: played.filter(n => { const e = entryOf(mine, n); return !!e && !e.pick; })
+  };
 }
 /** Posts this phone's played days the board doesn't have. Needs the board loaded (so a new doc is only made when
  *  this phone has none) and a phone that may write (never a dev host without ?post=1). */
 export async function autoPost() {
   const LB = daily.LB;
   if (!DOC || posting || !LB.merge || !LB.ready || LB.off || !LB.uid) return false;
-  const todo = unposted();
-  if (!todo.length) return false;
+  const {todo, noTeam} = unposted();
+  if (!todo.length && !noTeam.length) return false;
   const v = read(), s17 = {};
   todo.forEach(n => {
-    const d = v.days[n], b = board(n), pick = cleanPick(d.pick);
-    s17[n] = {w: d.w, l: d.l, p: Math.round((Number(d.ppg) || 0) * 10) / 10, r: full(pick) ? rankOf(b, pick).rank : 0, t: Number(d.at) || Date.now()};
+    const d = v.days[n], pick = cleanPick(d.pick);
+    s17[n] = {w: d.w, l: d.l, p: Math.round((Number(d.ppg) || 0) * 10) / 10, r: rankOf(board(n), pick).rank, k: pick.join(''), t: Number(d.at) || Date.now()};
   });
+  noTeam.forEach(n => { s17[n] = {k: cleanPick(v.days[n].pick).join('')}; }); // merged into the posted entry
   // A first doc needs the fields the rules ask for (nick, total); an existing one keeps its own.
   const mine = docs().find(p => p.id === LB.uid);
   const body = mine ? {[F]: s17} : {nick: (daily.postName() || '').trim().slice(0, 24), total: 0, [F]: s17};
@@ -302,4 +312,15 @@ export function boardRows(mode = 'today', n = todayNumber(), list = docs()) {
   });
   if (mode === 'today') return ranked(rows.sort((a, b) => b.w - a.w || b.p - a.p), (a, b) => a.w === b.w && a.p === b.p);
   return ranked(rows.sort((a, b) => b.w - a.w || a.l - b.l), (a, b) => a.w === b.w && a.l === b.l);
+}
+/** One person's seasons (key: a scoreboard row's key), newest first, days up to n: [{n, w, l, p, r, pick (null when
+ *  it wasn't posted), uid}]. */
+export function seasonsOf(key, n = todayNumber(), list = docs()) {
+  const ds = people(list).get(key) || [];
+  const days = new Set();
+  ds.forEach(p => Object.keys((p && p[F]) || {}).forEach(d => { if (+d >= 1 && +d <= n) days.add(+d); }));
+  return [...days].sort((a, b) => b - a).map(d => {
+    const f = firstOf(ds, d);
+    return f ? Object.assign({n: d, uid: f.doc.id}, f.e) : null;
+  }).filter(Boolean);
 }

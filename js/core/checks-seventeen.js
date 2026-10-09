@@ -122,12 +122,12 @@ export async function seventeenChecks(check) {
   });
 
   // 7. The scoreboard
-  check('17-0: the scoreboard keeps one season per member per day (the first posted), drops bad entries, ranks by wins then PPG (ties share a rank), and All-time adds the days up', () => {
+  check('17-0: the scoreboard keeps one season per member per day (the first posted), drops bad entries, ranks by wins then PPG (ties share a rank), All-time adds the days up, and a row shows its posted teams', () => {
     need();
     const docs = [
-      {id: 'a', nick: 'Ben', s17: {1: {w: 17, l: 0, p: 33.4, r: 1, t: 10}}},
-      {id: 'b', nick: 'Mitch', s17: {1: {w: 12, l: 5, p: 27.1, r: 210, t: 20}, 2: {w: 10, l: 7, p: 26, r: 300, t: 5}}},
-      {id: 'c', nick: 'Mitch', s17: {1: {w: 16, l: 1, p: 31, r: 5, t: 30}}}, // his second phone, later: doesn't count
+      {id: 'a', nick: 'Ben', s17: {1: {w: 17, l: 0, p: 33.4, r: 1, k: '01234', t: 10}}},
+      {id: 'b', nick: 'Mitch', s17: {1: {w: 12, l: 5, p: 27.1, r: 210, t: 20}, 2: {w: 10, l: 7, p: 26, r: 300, k: '4444x', t: 5}}},
+      {id: 'c', nick: 'Mitch', s17: {1: {w: 16, l: 1, p: 31, r: 5, k: '00000', t: 30}}}, // his second phone, later: doesn't count
       {id: 'd', nick: 'Jacob', s17: {1: {w: 12, l: 5, p: 27.1, r: 210, t: 15}}},
       {id: 'e', nick: 'Nobody Special', s17: {1: {w: 20, l: 0}, 2: {w: '9', l: 8}}}, // not a season
       {id: 'f', nick: 'Sayer', days: {}}
@@ -137,6 +137,9 @@ export async function seventeenChecks(check) {
     const today = sig(t1) === '1.Ben 17-0, 2.Mitch 12-5, 2.Jacob 12-5' && t1[1].uid === 'b' && t1[1].p === 27.1 && t1[0].r === 1;
     const all = sig(a2) === '1.Mitch 22-12, 2.Ben 17-0, 3.Jacob 12-5' && a2[0].seasons === 2 && a2[1].perfect === 1 && sig(a1) === '1.Ben 17-0, 2.Mitch 12-5, 2.Jacob 12-5';
     const clean = sv.entryOf(docs[4], 1) === null && sv.entryOf(docs[4], 2) === null && sv.entryOf(docs[5], 1) === null && sv.entryOf(docs[0], 1).w === 17;
-    return {pass: today && all && clean, detail: `today: ${sig(t1)}; all-time: ${sig(a2)}; bad entries dropped ${clean}`};
+    const ms = sv.seasonsOf(t1[1].key, 2, docs), bs = sv.seasonsOf(t1[0].key, 2, docs);
+    const teams = bs.length === 1 && bs[0].pick.join() === '0,1,2,3,4' && ms.map(x => `${x.n}:${x.w}:${x.pick}`).join() === '2:10:null,1:12:null'
+      && sv.seasonsOf(t1[1].key, 1, docs).length === 1 && sv.seasonsOf('nobody', 2, docs).length === 0;
+    return {pass: today && all && clean && teams, detail: `today: ${sig(t1)}; all-time: ${sig(a2)}; bad entries dropped ${clean}; teams ${teams}`};
   });
 }

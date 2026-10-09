@@ -1,5 +1,5 @@
 /* seventeen.css: 17-0 (views/seventeen.js), the second game of the Daily Games tab, and that tab's game picker.
-   Owner: 17-0. Scope: the pane .sv-pane, the help sheet .sh-seventeen, .v-puzzles .c-games. Team colours come in
+   Owner: 17-0. Scope: the pane .sv-pane, the sheets .sh-seventeen (help) and .sh-sv-team, .v-puzzles .c-games. Team colours come in
    per element as --tc (the team's hue) and --ta (its accent). */
 
 /* ---------------------------------------------------------------- The game picker (puzzles.js) */
@@ -252,6 +252,23 @@
 .sv-pane .sv-bval { min-width: 52px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .sv-pane .sv-bval.is-gold { color: var(--gold); }
 .sv-pane .sv-brow-cup { flex: none; color: var(--gold); }
+
+/* ---------------------------------------------------------------- A person's team (the sheet .sh-sv-team) */
+.sh-sv-team .sv-team { padding-bottom: 8px; }
+.sh-sv-team .sv-tm-who { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+.sh-sv-team .sv-tm-who > p { font: 600 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink-2); }
+.sh-sv-team .sv-tm { margin-top: 14px; }
+.sh-sv-team .sv-tm + .sv-tm { padding-top: 14px; box-shadow: inset 0 1px 0 var(--separator); }
+.sh-sv-team .sv-tm-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.sh-sv-team .sv-tm-day { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font: 600 var(--fs-headline)/var(--lh-headline) var(--font-text); }
+.sh-sv-team .sv-tm-rec { flex: none; font: 400 24px/24px var(--font-pixel); font-variant-numeric: tabular-nums; }
+.sh-sv-team .sv-tm-rec.is-gold { color: var(--gold); }
+.sh-sv-team .sv-tm-meta { margin: 2px 0 10px; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+.sh-sv-team .sv-tm-note { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-radius: var(--r-card); background: var(--surface-1); font: 600 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink-2); }
+.sh-sv-team .sv-tm-note > .ic { flex: none; color: var(--ink-3); }
+.sh-sv-team .sv-picks + .sv-tm-note { margin-top: 8px; }
+.sh-sv-team .sv-tm-note.is-gold, .sh-sv-team .sv-tm-note.is-gold > .ic { color: var(--gold); }
+.sh-sv-team .sv-tm-more { margin-top: 14px; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
 
 /* ---------------------------------------------------------------- How it works */
 .sh-seventeen .sv-help { padding-bottom: 8px; }

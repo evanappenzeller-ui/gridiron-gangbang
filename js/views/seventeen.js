@@ -13,8 +13,9 @@
 // time to the next board, each pick's points per game, the 17 games and the perfect team. At midnight the pane moves
 // to the new board. The model's own number for a player (imp) is never shown before the season: that is the answer.
 // Both phases end with the league's Scoreboard (Today: each member's record on today's board; All-time: every 17-0
-// season they've played), live from the Daily's board snapshot (core/seventeen.js boardRows); records only, never a
-// lineup, so it can show before you play.
+// season they've played), live from the Daily's board snapshot (core/seventeen.js boardRows). Tap a row for that
+// person's team (a sheet: today's season, or every season from All-time); someone else's team today stays hidden
+// until you've played yours, so the board can show before you play without giving the answer away.
 // Every control here is data-sv-*, so the Daily Puzzles handlers on the same screen never see these taps.
 // Owner: 17-0.
 import * as ui from '../core/ui.js';
@@ -173,7 +174,7 @@ function lineupHTML(b, pick) {
   return `<ol class="sv-picks">` + pick.map((r, c) => {
     const p = sv.card(b, c, r);
     return `<li class="sv-pk"><span class="sv-pk-ph" style="${colorsOf(p)}" aria-hidden="true">${faceHTML(p, 96)}</span>`
-      + `<span class="sv-pk-id"><b>${esc(p.n)}</b><small>${esc(`${b.cols[c]} · ${p.y} ${p.tn} · ${money(b.tiers[r])}`)}</small></span>`
+      + `<span class="sv-pk-id"><b>${esc(p.n)}</b><small>${esc(`${b.cols[c]} · ${money(b.tiers[r])} · ${p.y} ${p.tn}`)}</small></span>`
       + `<span class="sv-pk-v${p.imp < 0 ? ' is-neg' : ''}"><b>${esc(signed(p.imp))}</b><small>pts/game</small></span></li>`;
   }).join('') + `</ol>`;
 }
@@ -236,12 +237,12 @@ function sbRowHTML(b, r, mode) {
     ? `${r.p.toFixed(1)} PPG${r.r ? ` · #${nf(r.r)} of ${nf(sv.all(b).list.length)}` : ''}`
     : `${plural(r.seasons, 'season')}${r.perfect ? ` · ${r.perfect}× 17–0` : ''}`;
   const label = `${ui.ordinal(r.rank)}, ${r.name}${r.me ? ', you' : ''}, ${r.w} and ${r.l}${gold ? ', a perfect season' : ''}. ${today ? sub.replace('PPG', 'points a game') : `${plural(r.seasons, 'season')}${r.perfect ? `, ${r.perfect} went 17–0` : ''}`}`;
-  return `<div class="c-brow-w" role="listitem" aria-label="${esc(label)}"><div class="row c-brow sv-brow${r.me ? ' is-me' : ''}">`
+  return `<div class="c-brow-w" role="listitem"><button type="button" class="row c-brow sv-brow${r.me ? ' is-me' : ''}" data-sv-who="${esc(r.key)}" aria-label="${esc(label + `. Show ${r.me ? 'your' : 'their'} team.`)}">`
     + `<span class="c-brank n4${r.rank <= 3 ? ' is-r' + r.rank : ''}" aria-hidden="true">${r.rank}</span>`
     + `<span class="row-lead" aria-hidden="true">${ui.nickAvatar(r.name, {size: 36, managerId: r.managerId, you: r.me, crown: r.rank === 1})}</span>`
     + `<span class="row-main" aria-hidden="true"><span class="row-title"><span class="c-bnick">${esc(r.name)}</span>${r.me ? ui.badge('you') : ''}</span><span class="row-sub">${esc(sub)}</span></span>`
     + `<span class="row-trail" aria-hidden="true">${gold ? ui.icon('trophy', {size: 16, cls: 'sv-brow-cup'}) : ''}<span class="n4 c-bval sv-bval${gold ? ' is-gold' : ''}">${r.w}–${r.l}</span></span>`
-    + `</div></div>`;
+    + `</button></div>`;
 }
 /** The card's body for a mode: rows, an empty note, the loading rows, or "not connected". */
 function sbBodyHTML(b, mode) {
@@ -267,6 +268,58 @@ function boardHTML(b, mode = 'today') {
     + `<div class="c-board-head"><h2 class="c-board-t" id="sv-sb-t">Scoreboard</h2></div>`
     + ui.seg({name: 'sv-sb', items: SB_MODES, value: mode, small: true, label: 'Scoreboard', cls: 'c-board-seg'})
     + `<div class="c-board-body" data-sv-sbody>${sbBodyHTML(b, mode)}</div></section></div>`;
+}
+
+// ============================================================================ Markup: a person's team (sheet)
+const TEAM_MAX = 10; // seasons listed from All-time
+/** Someone else's team on today's board stays hidden until this phone has played it. */
+const hiddenToday = (row, n) => !row.me && n === sv.todayNumber() && !sv.dayState(n).played;
+function teamSeasonHTML(row, s) {
+  const b = sv.board(s.n), gold = s.w === 17;
+  // Your own season: this phone remembers the lineup even if the board doesn't have it.
+  const local = row.me ? sv.dayState(s.n) : null;
+  const hidden = hiddenToday(row, s.n);
+  const pick = hidden ? null : s.pick || (local && local.played ? local.pick : null);
+  const meta = [`${s.p.toFixed(1)} PPG`, s.r ? `#${nf(s.r)} of ${nf(sv.all(b).list.length)}` : '', pick ? `${money(sv.cost(b, pick))} team` : ''].filter(Boolean).join(' · ');
+  let body;
+  if (hidden) {
+    body = `<p class="sv-tm-note">${ui.icon('lock', {size: 16})}<span>${esc(`Play today’s 17–0 to see ${row.name}’s team.`)}</span></p>`;
+  } else if (!pick) {
+    body = `<p class="sv-tm-note">${ui.icon('info', {size: 16})}<span>This team isn’t on the scoreboard yet. It shows up the next time they open 17–0.</span></p>`;
+  } else {
+    const best = sv.samePick(sv.best(b).pick, pick);
+    body = lineupHTML(b, pick) + (best ? `<p class="sv-tm-note is-gold">${ui.icon('trophy', {size: 16})}<span>The perfect team.</span></p>` : '');
+  }
+  return `<section class="sv-tm" aria-label="${esc(`17–0 number ${s.n}, ${sv.dayLabel(s.n)}: ${s.w} and ${s.l}`)}">`
+    + `<div class="sv-tm-head"><p class="sv-tm-day">${esc(`${sv.dayLabel(s.n)} · #${s.n}`)}</p><p class="sv-tm-rec${gold ? ' is-gold' : ''}">${s.w}–${s.l}</p></div>`
+    + `<p class="sv-tm-meta">${esc(meta)}</p>`
+    + body + `</section>`;
+}
+/** The team sheet for a scoreboard row: today's season (Today), or their seasons, newest first (All-time). */
+function openTeam(st, key) {
+  const mode = st.sbMode, n = st.b.n;
+  const row = sv.boardRows(mode, n).find(r => r.key === key);
+  if (!row) return;
+  let list = sv.seasonsOf(key, n);
+  if (mode === 'today') list = list.filter(s => s.n === n);
+  if (!list.length) return;
+  const shown = list.slice(0, TEAM_MAX);
+  const more = list.length - shown.length;
+  const body = `<div class="sv-pane sv-team">`
+    + `<div class="sv-tm-who">${ui.nickAvatar(row.name, {size: 40, managerId: row.managerId, you: row.me})}<p>${esc(mode === 'today' ? `${row.w}–${row.l} today` : `${row.w}–${row.l} in ${plural(row.seasons, 'season')}${row.perfect ? ` · ${row.perfect}× 17–0` : ''}`)}</p></div>`
+    + shown.map(s => teamSeasonHTML(row, s)).join('')
+    + (more > 0 ? `<p class="sv-tm-more">${esc(`And ${plural(more, 'earlier season')}.`)}</p>` : '')
+    + `</div>`;
+  ensureFaceFallback();
+  ui.haptic('light');
+  ui.openSheet({title: row.me ? 'Your team' : `${row.name}’s team`, body, detents: shown.length === 1 ? ['fit'] : ['medium', 'large'], cls: 'sh-seventeen sh-sv-team'});
+}
+// Faces in the team sheet (outside the pane): the same fallback as the pane's, caught at the document.
+let faceFallback = false;
+function ensureFaceFallback() {
+  if (faceFallback) return;
+  faceFallback = true;
+  document.addEventListener('error', e => { const t = e.target; if (t instanceof HTMLImageElement && t.closest('.sv-team')) onImgError(e); }, true);
 }
 
 // ============================================================================ Markup: states
@@ -469,7 +522,7 @@ function share(st) {
 }
 
 function onClick(st, e) {
-  const t = e.target.closest('.sv-cell, [data-sv-slot], [data-sv-play], [data-sv-share], [data-sv-retry], [data-sv-help]');
+  const t = e.target.closest('.sv-cell, [data-sv-slot], [data-sv-play], [data-sv-share], [data-sv-retry], [data-sv-help], [data-sv-who]');
   if (!t || !st.el.contains(t)) return;
   if (t.matches('.sv-cell')) { tapCell(st, t); return; }
   if (t.hasAttribute('data-sv-slot')) {
@@ -484,6 +537,7 @@ function onClick(st, e) {
   if (t.hasAttribute('data-sv-play')) { play(st); return; }
   if (t.hasAttribute('data-sv-share')) { share(st); return; }
   if (t.hasAttribute('data-sv-help')) { openHelp(); return; }
+  if (t.hasAttribute('data-sv-who')) { openTeam(st, t.dataset.svWho); return; }
   if (t.hasAttribute('data-sv-retry')) load(st);
 }
 
