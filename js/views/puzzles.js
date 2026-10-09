@@ -4,6 +4,7 @@
 // one segment per puzzle, "1 of 3 done") and finished (the score ring, the grade, "See results" and "Share", the
 // midnight countdown). Play opens the run cover at the first unfinished puzzle. Works for every day version (three
 // puzzles on v1 and v4 days, five on v2 and v3): everything is driven by daily.STEPS.
+// Under the hero, the way into 17-0 (views/seventeen.js, route /puzzles/17-0): a card with your best season there.
 // Also exports badge() for the tab bar: today's puzzles aren't finished (and a 'gg:badge' event when that changes).
 // Owner: PUZZLES (tabs-v4).
 import * as ui from '../core/ui.js';
@@ -174,6 +175,31 @@ function cardHTML(k = heroKind()) {
   if (k === 'played') return playedCard();
   if (k === 'loading') return loadingCard();
   return readyCard(k);
+}
+
+// ============================================================================ 17-0
+/** The 17-0 card. Never loads anything: the best record comes from 17-0's localStorage keys (gg-17-<board>). */
+function seventeenCard() {
+  let best = null;
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!/^gg-17-[a-z]+$/.test(k) || k === 'gg-17-board') continue;
+      const v = JSON.parse(localStorage.getItem(k) || 'null');
+      if (v && v.best && Number.isInteger(v.best.w) && Number.isInteger(v.best.l) && (!best || v.best.w > best.w)) best = v.best;
+    }
+  } catch (_) { best = null; }
+  const sub = best ? `Your best season: ${best.w}\u2013${best.l}` : 'Five players in their primes, $15 to spend. Can yours go 17\u20130?';
+  return `<a class="card sv-entry" href="#/puzzles/17-0" aria-label="${esc(`17\u20130. ${sub}`)}">`
+    + `<span class="sv-entry-badge" aria-hidden="true">17-0</span>`
+    + `<span class="sv-entry-t"><span class="card-ovl">New game</span><span class="sv-entry-h">Build the perfect team</span><span class="sv-entry-s">${esc(sub)}</span></span>`
+    + `${ui.icon('chevron-right', {cls: 'chev'})}</a>`;
+}
+function patchSeventeen(st) {
+  const host = st.el.querySelector('.c-17-host');
+  if (!host) return;
+  const html = seventeenCard();
+  if (host._html !== html) { host.innerHTML = html; host._html = html; ui.hydrate(host); }
 }
 
 // ============================================================================ Patching
@@ -391,6 +417,7 @@ export default {
   render() {
     return ui.largeTitle({eyebrow: ready() ? daily.TODAY_LABEL : localLabel(), title: 'Puzzles', trailing: trailHTML()})
       + `<div class="c-hero-wrap" data-key="hero" data-enter>${cardHTML()}</div>`
+      + `<div class="c-17-host" data-key="seventeen" data-enter>${seventeenCard()}</div>`
       + `<div class="c-board-host" data-key="board" data-enter></div>`;
   },
 
@@ -412,6 +439,7 @@ export default {
     const st = HUB.get(ctx);
     if (!st) return;
     st.pending = false;
+    patchSeventeen(st);
     if (ready()) sync(st, true);
   },
 

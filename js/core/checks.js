@@ -1602,6 +1602,16 @@ export async function runChecks() {
     check('Press Room checks (checks-press.js) loaded', () => ({pass: false, detail: pressErr ? 'did not load: ' + (pressErr.message || pressErr) : 'no pressChecks export'}));
   }
 
+  // 17-0 checks (js/core/checks-seventeen.js, owned by 17-0: the boards, the season rules, the perfect lineup).
+  // Guarded the same way.
+  let svMod = null, svErr = null;
+  try { svMod = await import('./checks-seventeen.js'); } catch (e) { svErr = e; }
+  if (svMod && typeof svMod.seventeenChecks === 'function') {
+    try { await svMod.seventeenChecks(check); } catch (e) { check('17-0 checks (checks-seventeen.js)', () => { throw e; }); }
+  } else {
+    check('17-0 checks (checks-seventeen.js) loaded', () => ({pass: false, detail: svErr ? 'did not load: ' + (svErr.message || svErr) : 'no seventeenChecks export'}));
+  }
+
   await Promise.all(pending);
   return out;
 }

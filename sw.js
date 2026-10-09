@@ -7,14 +7,14 @@
 // A slow request falls back to whatever is cached under its path (from the previous worker too), so data whose
 // format changes gets a new file name rather than new content under the old one (data/puzzles-v4.json: see
 // js/core/daily.js).
-const CACHE = 'gg-v97';
-const CORE = ['ui', 'data', 'daily', 'fire', 'week', 'nfl', 'stats', 'motw', 'press', 'checks', 'checks-stats', 'checks-pickem', 'checks-press', 'lay', 'plays', 'laytrack'];
+const CACHE = 'gg-v98';
+const CORE = ['ui', 'data', 'daily', 'fire', 'week', 'nfl', 'stats', 'motw', 'press', 'checks', 'checks-stats', 'checks-pickem', 'checks-press', 'checks-seventeen', 'lay', 'plays', 'laytrack', 'seventeen'];
 // The six tab roots are puzzles, pickem, rivals (Matchup), league, moves (Draft) and lay (The Lay).
 const VIEWS = ['welcome', 'puzzles', 'board', 'you', 'sharecard', 'results', 'run', 'college', 'silhouette', 'mystery', 'journey', 'grid', 'picker',
   'league', 'standings', 'season', 'review', 'wrap', 'matchup', 'rivals', 'pickem', 'press', 'hall', 'hall-trophies', 'hall-records', 'hall-shame',
-  'moves', 'profile', 'lay', 'plays', '_kit'];
+  'moves', 'profile', 'lay', 'plays', 'seventeen', '_kit'];
 const VIEW_CSS = ['welcome', 'puzzles', 'board', 'results', 'you', 'run', 'college', 'silhouette', 'mystery', 'journey', 'grid', 'picker',
-  'standings', 'season', 'review', 'wrap', 'matchup', 'rivals', 'pickem', 'press', 'hall', 'moves', 'profile', 'lay', 'plays', '_kit'];
+  'standings', 'season', 'review', 'wrap', 'matchup', 'rivals', 'pickem', 'press', 'hall', 'moves', 'profile', 'lay', 'plays', 'seventeen', '_kit'];
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest',
   'css/tokens.css', 'css/base.css', 'css/components.css', 'css/themes.css', 'js/themes.js',
@@ -23,7 +23,7 @@ const SHELL = [
   ...VIEWS.map(v => `js/views/${v}.js`),
   'fonts/barlow-condensed-800.woff2', 'fonts/press-start-2p.woff2', 'fonts/vt323.woff2', 'img/logo.webp', 'img/nfl.webp', 'img/ncaa.webp',
   'icons/hub-192.png', 'icons/hub-512.png', 'icons/hub-maskable-512.png', 'icons/hub-apple-180.png',
-  'data/league.json', 'data/pressers.json', 'data/lay.json', 'data/puzzles-v4.json', 'data/nfl-players.json'
+  'data/league.json', 'data/pressers.json', 'data/lay.json', 'data/puzzles-v4.json', 'data/nfl-players.json', 'data/seventeen.json'
 ];
 const TIMEOUT = 2500;
 

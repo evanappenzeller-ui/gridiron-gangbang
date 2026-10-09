@@ -53,6 +53,7 @@ export const REGISTRY = {
   press: () => import('./views/press.js'),
   profile: () => import('./views/profile.js'),
   lay: () => import('./views/lay.js'),
+  seventeen: () => import('./views/seventeen.js'),
   _kit: () => import('./views/_kit.js')
 };
 export const TABS = ['puzzles', 'pickem', 'lay', 'matchup', 'league', 'draft'];
@@ -83,6 +84,10 @@ function matchSegs(p, q) {
       if (n === 1) return R('puzzles', 'root', 'puzzles');
       if (n === 3 && b === 'play' && PUZZLES.includes(c)) return R('run', 'cover', 'puzzles', {puzzle: c});
       if (n === 2 && b === 'results') return R('results', 'cover', 'puzzles');
+      // 17-0 (views/seventeen.js): /puzzles/17-0 opens the last board played, /puzzles/17-0/<board> that board (the
+      // view checks the id and falls back to the first board).
+      if (n === 2 && b === '17-0') return R('seventeen', 'cover', 'puzzles');
+      if (n === 3 && b === '17-0' && /^[a-z]{1,16}$/.test(c)) return R('seventeen', 'cover', 'puzzles', {board: c});
       return null;
     case 'pickem':
       // NFL Pick'em (optional ?week=N) is a tab root now: links to it switch to the tab.

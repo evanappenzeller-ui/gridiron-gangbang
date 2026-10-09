@@ -28,7 +28,7 @@ function routeRows() {
   const y = (data.DONE[0] && data.DONE[0].year) || data.span.last || 2025;
   const live = (data.SEASONS.find(s => s.live) || {}).year;
   const R = [
-    ['/puzzles', 'root · Puzzles'], ['/puzzles/play/college', 'cover · run'], ['/puzzles/play/silhouette', 'cover · run (v2, v3 and some v4 days)'], ['/puzzles/play/mystery', 'cover · run'], ['/puzzles/play/journey', 'cover · run (v2, v3 and some v4 days)'], ['/puzzles/play/grid', 'cover · run'], ['/puzzles/results', 'cover · results'],
+    ['/puzzles', 'root · Puzzles'], ['/puzzles/play/college', 'cover · run'], ['/puzzles/play/silhouette', 'cover · run (v2, v3 and some v4 days)'], ['/puzzles/play/mystery', 'cover · run'], ['/puzzles/play/journey', 'cover · run (v2, v3 and some v4 days)'], ['/puzzles/play/grid', 'cover · run'], ['/puzzles/results', 'cover · results'], ['/puzzles/17-0', 'cover · 17-0 (last board played)'], ['/puzzles/17-0/legends', 'cover · 17-0 · Legends'],
     ['/pickem', "root · Pick'em (this week)"], ['/pickem?week=3', "root · Pick'em, week 3 (read-only)"], ['/pickem?week=18', "root · Pick'em, future week → this week"],
     ['/matchup', 'root · Matchup'], ['/matchup/evan-vs-mason', 'root · Matchup, head-to-head pair'],
     ['/press', 'push · Press Room'], ['/press/2026-w2', 'push · Press Room, one week (share link)'], ['/press/foo', 'push · Press Room, unknown week → archive + toast'],
@@ -68,11 +68,12 @@ function routeChecks() {
   out.push({name: 'Routes: old links redirect', pass: !miss.length, detail: miss.length ? miss.join('; ') : `${LEGACY_LINKS.length} old links land on their new homes`});
   // Pushed routes and covers: how they open and which tab a cold link sits on.
   const pushes = [['/standings/2024', 'push', 'league'], ['/standings/2024/wrap/3', 'push', 'league'], ['/managers/evan', 'push', 'league'], ['/press', 'push', 'matchup'],
-    ['/press/2026-w2', 'push', 'matchup'], ['/_kit', 'push', 'puzzles'], ['/puzzles/play/grid', 'cover', 'puzzles'], ['/puzzles/results', 'cover', 'puzzles']];
+    ['/press/2026-w2', 'push', 'matchup'], ['/_kit', 'push', 'puzzles'], ['/puzzles/play/grid', 'cover', 'puzzles'], ['/puzzles/results', 'cover', 'puzzles'],
+    ['/puzzles/17-0', 'cover', 'puzzles'], ['/puzzles/17-0/afc', 'cover', 'puzzles']];
   miss = bad(pushes, ([p, open, home]) => { const r = parseRoute(p); return r && r.open === open && r.home === home ? null : p; });
   out.push({name: 'Routes: pushes, covers and their home tabs', pass: !miss.length, detail: miss.length ? 'wrong: ' + miss.join(', ') : `${pushes.length} routes`});
   // Unknown and malformed links stay unknown (the app lands on Puzzles with a toast).
-  const unknown = ['/not-a-route', '/draft/20x4', '/league/nope', '/matchup/evan', '/puzzles/play/chess', '/pickem/3', '/hall/records/2.4/x'];
+  const unknown = ['/not-a-route', '/draft/20x4', '/league/nope', '/matchup/evan', '/puzzles/play/chess', '/pickem/3', '/hall/records/2.4/x', '/puzzles/17-0/AFC!', '/puzzles/17-0/afc/x'];
   miss = unknown.filter(p => parseRoute(p));
   out.push({name: 'Routes: unknown links', pass: !miss.length, detail: miss.length ? 'matched: ' + miss.join(', ') : `${unknown.length} unknown`});
   return out;

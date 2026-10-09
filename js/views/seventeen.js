@@ -1,0 +1,508 @@
+// 17-0 (route /puzzles/17-0 and /puzzles/17-0/<board>, a cover over Puzzles): build the perfect team. A board is a
+// grid of player-seasons, five columns (QB, RB, WR1, WR2, TE) by five prices ($5 down to $1), every player in his
+// prime. Pick one per column within the $15 budget, then play the season: js/core/seventeen.js turns the five
+// seasons into points per game (an EPA model fit on every team-season 2006-2025, tools/seventeen/build.py) and plays
+// 17 real teams. Only the perfect lineup goes 17-0; after a season the perfect team can be revealed.
+//
+// Two phases per board (module memory, this page session): 'build' (board chips, the grid, the budget, the
+// scouting report of the last player tapped, the lineup bar with Play) and 'season' (the record counting up week by
+// week, the lineup's points per game, the perfect team behind a reveal). Picks are kept per board in localStorage.
+// The model's own number for a player (imp) is never shown before a season: that is the answer.
+// The way in is a card on the Puzzles tab (puzzles.js, seventeenCard). Owner: 17-0.
+import * as ui from '../core/ui.js';
+import * as data from '../core/data.js';
+import * as sv from '../core/seventeen.js';
+
+const esc = data.esc;
+const nf = n => data.nf(n);
+const COPIED = 'Copied. Paste it in the league chat.';
+const LAST_BOARD = 'gg-17-board';
+const POS = {QB: 'Quarterback', RB: 'Running back', WR: 'Wide receiver', TE: 'Tight end'};
+const eid = e => String(e || '').replace(/[^0-9]/g, '');
+// ESPN's image combiner serves the transparent headshot resized (as in Silhouettes); the nflverse (NFL.com) headshot
+// is the fallback, then initials. Team logos are a background image, so a missing one just isn't there.
+const faceUrl = (e, w) => `https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/${eid(e)}.png&w=${w}&h=${Math.round(w * 436 / 600)}`;
+const logoUrl = (f, w) => `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/${String(f).toLowerCase().replace(/[^a-z]/g, '')}.png&w=${w}&h=${w}`;
+const lastName = s => String(s).replace(/^\S+\s+/, '');
+const money = n => '$' + n;
+const signed = (x, dp = 1) => (x >= 0 ? '+' : '−') + Math.abs(x).toFixed(dp);
+const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+
+const PHASE = new Map(); // board id -> {season, pick, revealed} while its season is showing
+const ST = new WeakMap(); // ctx -> view state
+
+function initials(name) {
+  const w = String(name).split(' ').filter(x => x && !/^(Jr\.?|Sr\.?|II|III|IV|V)$/.test(x));
+  const L = w.map(x => (x.match(/[\p{L}\p{N}]/u) || [''])[0]).filter(Boolean);
+  return (L.length > 2 ? L[0] + L[L.length - 1] : L.join('')).toUpperCase() || '?';
+}
+function colorsOf(p) {
+  const c = (sv.DOC && sv.DOC.colors[p.f]) || ['#25366A', '#8A94B8'];
+  return `--tc:${c[0]};--ta:${c[1]}`;
+}
+function boardId(ctx) {
+  const want = ctx.params && ctx.params.board;
+  if (want && sv.board(want)) return want;
+  const last = ui.lsGet(LAST_BOARD);
+  if (last && sv.board(last)) return last;
+  return sv.boards()[0] ? sv.boards()[0].id : null;
+}
+const phaseOf = b => PHASE.get(b.id) || null;
+
+// ============================================================================ Markup: build
+/** The headshot: ESPN's, then NFL.com's (data-alt), then his initials (onImgError swaps them in). */
+function faceHTML(p, w) {
+  const src = p.e ? faceUrl(p.e, w) : p.h;
+  const ini = esc(initials(p.n));
+  if (!src) return `<span class="sv-ini" aria-hidden="true">${ini}</span>`;
+  return `<img class="sv-face" src="${esc(src)}"${p.e && p.h ? ` data-alt="${esc(p.h)}"` : ''} data-ini="${ini}" alt="" draggable="false" decoding="async" referrerpolicy="no-referrer">`;
+}
+function chipsHTML(b) {
+  return ui.chips({name: 'sv-board', label: 'Boards', value: b.id, cls: 'sv-chips', items: sv.boards().map(x => {
+    const s = sv.saved(x.id);
+    return {id: x.id, label: x.name, lead: s.perfect ? ui.icon('trophy', {size: 14, cls: 'sv-chip-ic'}) : ''};
+  })});
+}
+function headHTML(b) {
+  return `<header class="sv-head">`
+    + `<p class="sv-kick">Build the perfect team with ${money(b.budget)}</p>`
+    + `<h1 class="sv-title">${esc(b.name)}</h1>`
+    + `<span class="lt-sentinel" data-collapse aria-hidden="true"></span>`
+    + `<p class="sv-sub">${esc(b.sub)}</p>`
+    + `</header>`;
+}
+function bankHTML(b, pick) {
+  const spent = sv.cost(b, pick), left = b.budget - spent;
+  const pips = Array.from({length: b.budget}, (_, i) => `<i class="sv-pip${i < spent ? ' is-on' : ''}"></i>`).join('');
+  return `<div class="sv-bank${spent === b.budget ? ' is-full' : ''}" data-bank>`
+    + `<p class="sv-bank-t"><span class="sv-bank-n" data-left>${money(left)}</span> <span class="sv-bank-l">left of ${money(b.budget)}</span></p>`
+    + `<span class="sv-pips" aria-hidden="true">${pips}</span></div>`;
+}
+/** Would picking (c, r) go over the budget (swapping out whoever is in column c)? */
+function overBy(b, pick, c, r) {
+  const next = pick.slice();
+  next[c] = r;
+  return Math.max(0, sv.cost(b, next) - b.budget);
+}
+function cellLabel(b, c, r, on, over) {
+  const p = sv.card(b, c, r);
+  return `${p.n}, ${p.y} ${p.tn}, ${b.cols[c]}, ${money(b.tiers[r])}${on ? ', in your lineup' : over ? `, ${money(over)} over budget` : ''}`;
+}
+function cellHTML(b, c, r, pick) {
+  const p = sv.card(b, c, r), on = pick[c] === r, over = on ? 0 : overBy(b, pick, c, r);
+  const nm = lastName(p.s);
+  return `<button type="button" class="sv-cell${on ? ' is-on' : ''}${over ? ' is-over' : ''}" data-c="${c}" data-r="${r}" style="${colorsOf(p)}" aria-pressed="${on}" aria-label="${esc(cellLabel(b, c, r, on, over))}">`
+    + `<span class="sv-logo" style="background-image:url(${esc(logoUrl(p.f, 80))})" aria-hidden="true"></span>`
+    + `<span class="sv-ph" aria-hidden="true">${faceHTML(p, 160)}</span>`
+    + `<span class="sv-yr" aria-hidden="true">${p.y}</span>`
+    + `<span class="sv-nm${nm.length > 10 ? ' is-long' : ''}" aria-hidden="true">${esc(nm)}</span>`
+    + `<span class="sv-tick" aria-hidden="true">${ui.icon('check', {size: 14})}</span>`
+    + `</button>`;
+}
+function gridHTML(b, pick) {
+  let h = `<div class="sv-grid" data-grid role="group" aria-label="Players by position and price"><span class="sv-corner" aria-hidden="true"></span>`;
+  h += b.cols.map(c => `<span class="sv-ch" aria-hidden="true">${esc(c)}</span>`).join('');
+  b.tiers.forEach((t, r) => {
+    h += `<span class="sv-price" aria-hidden="true">${money(t)}</span>`;
+    for (let c = 0; c < 5; c++) h += cellHTML(b, c, r, pick);
+  });
+  return h + `</div>`;
+}
+function scoutHTML(b, pick, foc) {
+  if (!foc) {
+    return `<section class="card sv-scout is-empty" data-scout><p class="sv-sc-hint">${ui.icon('info', {size: 18})}<span>Tap a player to scout his prime. Tap him again to take him out.</span></p></section>`;
+  }
+  const {c, r} = foc, p = sv.card(b, c, r), on = pick[c] === r, over = on ? 0 : overBy(b, pick, c, r);
+  const adv = (p.adv || []).map(([k, v]) => `<div class="sv-sc-a"><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('');
+  const note = on ? `<p class="sv-sc-note is-on">${ui.icon('check-circle', {size: 16})}<span>In your lineup at ${esc(b.cols[c])}.</span></p>`
+    : over ? `<p class="sv-sc-note is-over">${ui.icon('lock', {size: 16})}<span>${money(over)} over budget. Free up some money first.</span></p>` : '';
+  return `<section class="card sv-scout" data-scout aria-label="${esc(`Scouting report: ${p.n}, ${p.y}`)}">`
+    + `<div class="sv-sc-top">`
+    + `<span class="sv-sc-ph" style="${colorsOf(p)}" aria-hidden="true"><span class="sv-logo" style="background-image:url(${esc(logoUrl(p.f, 120))})"></span>${faceHTML(p, 240)}</span>`
+    + `<div class="sv-sc-id"><p class="sv-sc-ovl">${esc(POS[p.p] || p.p)} · ${money(b.tiers[r])}</p>`
+    + `<h2 class="sv-sc-n">${esc(p.n)}</h2>`
+    + `<p class="sv-sc-t">${esc(`${p.y} ${p.tn} · ${plural(p.g, 'game')}`)}</p></div></div>`
+    + `<p class="sv-sc-line">${p.line.map(esc).join(' · ')}</p>`
+    + (adv ? `<dl class="sv-sc-adv">${adv}</dl>` : '')
+    + note
+    + `</section>`;
+}
+function slotsHTML(b, pick) {
+  return b.cols.map((label, c) => {
+    const r = pick[c];
+    if (r == null) return `<span class="sv-slot is-open" data-slot="${c}"><span class="sv-slot-l">${esc(label)}</span></span>`;
+    const p = sv.card(b, c, r);
+    return `<button type="button" class="sv-slot" data-slot="${c}" style="${colorsOf(p)}" aria-label="${esc(`${label}: ${p.n} ${p.y}, ${money(b.tiers[r])}. Show him.`)}"><span class="sv-ph">${faceHTML(p, 96)}</span></button>`;
+  }).join('');
+}
+function playLabel(b, pick) {
+  const n = pick.filter(r => r == null).length;
+  return n ? `Pick ${n} more` : sv.fits(b, pick) ? 'Play the season' : 'Over budget';
+}
+function barHTML(b, pick) {
+  const ready = sv.full(pick) && sv.fits(b, pick);
+  return `<div class="sv-bar" data-bar><div class="sv-slots" role="group" aria-label="Your lineup">${slotsHTML(b, pick)}</div>`
+    + `<button type="button" class="btn btn-primary sv-play" data-play${ready ? '' : ' disabled'}>${ui.icon('play-fill')}<span class="btn-label">${esc(playLabel(b, pick))}</span></button></div>`;
+}
+function bestLine(b) {
+  const s = sv.saved(b.id);
+  if (!s.played) return '';
+  return `<p class="sv-best">${s.perfect ? ui.icon('trophy', {size: 14}) : ''}<span>${esc(`Best: ${s.best.w}–${s.best.l} · ${plural(s.played, 'season')} played`)}</span></p>`;
+}
+function buildHTML(b, pick, foc) {
+  return chipsHTML(b) + headHTML(b) + bestLine(b) + bankHTML(b, pick) + gridHTML(b, pick)
+    + `<div data-scout-host>${scoutHTML(b, pick, foc)}</div>` + barHTML(b, pick);
+}
+
+// ============================================================================ Markup: season
+const VERDICT = [
+  [17, 'Perfect season. You found the perfect team.'],
+  [16, 'One game from perfect.'],
+  [14, 'A juggernaut. One swap from history?'],
+  [11, 'Playoff team.'],
+  [8, 'On the bubble.'],
+  [5, 'Rebuilding year.'],
+  [0, 'Top-three pick incoming.']
+];
+const verdict = w => VERDICT.find(([n]) => w >= n)[1];
+function lineupHTML(b, pick, {perfect} = {}) {
+  return `<ol class="sv-picks${perfect ? ' is-perfect' : ''}">` + pick.map((r, c) => {
+    const p = sv.card(b, c, r);
+    return `<li class="sv-pk"><span class="sv-pk-ph" style="${colorsOf(p)}" aria-hidden="true">${faceHTML(p, 96)}</span>`
+      + `<span class="sv-pk-id"><b>${esc(p.n)}</b><small>${esc(`${b.cols[c]} · ${p.y} ${p.tn} · ${money(b.tiers[r])}`)}</small></span>`
+      + `<span class="sv-pk-v${p.imp < 0 ? ' is-neg' : ''}"><b>${esc(signed(p.imp))}</b><small>pts/game</small></span></li>`;
+  }).join('') + `</ol>`;
+}
+function weekHTML(gm) {
+  const g = gm.g;
+  const c = (sv.DOC.colors[g.f] || ['#25366A'])[0];
+  return `<li class="sv-wk ${gm.win ? 'is-w' : 'is-l'}" data-wk="${gm.wk}">`
+    + `<span class="sv-wk-n">${gm.wk}</span>`
+    + `<span class="sv-wk-dot" style="--tc:${esc(c)}" aria-hidden="true"></span>`
+    + `<span class="sv-wk-opp"><b>${esc(`${gm.home ? 'vs' : '@'} ${g.y} ${g.tn}`)}</b><small>${esc(g.rec ? `went ${g.rec}` : '')}</small></span>`
+    + `<span class="sv-wk-res"><b>${gm.win ? 'W' : 'L'}</b> ${gm.us}–${gm.them}</span></li>`;
+}
+function perfectHTML(b, ph) {
+  const best = sv.best(b), all = sv.all(b);
+  if (sv.samePick(best.pick, ph.pick)) {
+    const others = all.perfect - 1;
+    return `<div class="card sv-perfect is-you"><p class="sv-pf-t">${ui.icon('trophy', {size: 18})}<span>This is the perfect team.</span></p>`
+      + `<p class="sv-pf-s">${esc(others > 0 ? `${plural(others, 'other lineup')} also ${others === 1 ? 'goes' : 'go'} 17–0, none score more.` : 'No other lineup under the cap goes 17–0.')}</p></div>`;
+  }
+  if (!ph.revealed) {
+    return `<div class="card sv-perfect"><p class="sv-pf-t">The perfect team</p>`
+      + `<p class="sv-pf-s">${esc(`${all.perfect === 1 ? 'One lineup' : plural(all.perfect, 'lineup')} under the cap ${all.perfect === 1 ? 'goes' : 'go'} 17–0. Keep hunting, or see the best one.`)}</p>`
+      + `<button type="button" class="btn btn-secondary" data-reveal>${ui.icon('sparkle')}<span class="btn-label">Reveal the perfect team</span></button></div>`;
+  }
+  const s = sv.season(b, best.pick);
+  return `<div class="card sv-perfect is-open"><p class="sv-pf-t">${ui.icon('trophy', {size: 18})}<span>${esc(`The perfect team: ${sv.rec(s)}, ${s.ppg.toFixed(1)} points a game`)}</span></p>`
+    + lineupHTML(b, best.pick, {perfect: true}) + `</div>`;
+}
+function seasonHTML(b, ph) {
+  const s = ph.season, r = sv.rankOf(b, ph.pick), diff = s.pf - s.pa;
+  const gold = s.w === 17;
+  return chipsHTML(b)
+    + `<section class="sv-season" data-season aria-labelledby="sv-rec">`
+    + `<p class="sv-kick">${esc(`${b.name} · your ${money(sv.cost(b, ph.pick))} team`)}</p>`
+    + `<h1 class="sv-rec${gold ? ' is-gold' : ''}" id="sv-rec" aria-label="${esc(`Record: ${s.w} and ${s.l}`)}"><span data-w>${s.w}</span>-<span data-l>${s.l}</span></h1>`
+    + `<span class="lt-sentinel" data-collapse aria-hidden="true"></span>`
+    + `<p class="sv-verdict">${esc(verdict(s.w))}</p>`
+    + `<div class="tiles tiles-3 sv-tiles">`
+    + ui.statTile({label: 'PPG', value: s.ppg.toFixed(1)})
+    + ui.statTile({label: 'Point diff', value: (diff >= 0 ? '+' : '−') + nf(Math.abs(diff))})
+    + ui.statTile({label: 'Rank', value: '#' + nf(r.rank), sub: `of ${nf(r.of)}`})
+    + `</div>`
+    + ui.sectionHeader({title: 'Your lineup'})
+    + lineupHTML(b, ph.pick)
+    + `<p class="sv-foot">What each prime season adds to the scoreboard every week, over a replacement-level player.</p>`
+    + ui.sectionHeader({title: 'Week by week'})
+    + `<ol class="sv-weeks" data-weeks>${s.games.map(weekHTML).join('')}</ol>`
+    + `<div data-perfect-host>${perfectHTML(b, ph)}</div>`
+    + `<div class="sv-actions">`
+    + `<button type="button" class="btn btn-primary" data-rebuild>${ui.icon('swap')}<span class="btn-label">Rebuild</span></button>`
+    + `<button type="button" class="btn btn-secondary" data-share>${ui.icon('share')}<span class="btn-label">Share</span></button>`
+    + `</div></section>`;
+}
+
+// ============================================================================ Markup: states
+function loadingHTML() {
+  return `<div class="sv-loading" aria-busy="true">${ui.skeleton('rows', 4, {label: 'Loading 17–0.'})}</div>`;
+}
+function errorHTML() {
+  return ui.empty({icon: 'football', title: '17–0 needs a connection the first time.', action: {label: 'Try again', attrs: {'data-retry': ''}}});
+}
+function bodyHTML(ctx) {
+  if (!sv.DOC) return loadingHTML();
+  const b = sv.board(boardId(ctx));
+  if (!b) return errorHTML();
+  const ph = phaseOf(b);
+  if (ph) return seasonHTML(b, ph);
+  const st = ST.get(ctx);
+  const pick = st && st.b === b ? st.pick : sv.saved(b.id).pick;
+  return buildHTML(b, pick, st && st.b === b ? st.foc : null);
+}
+
+// ============================================================================ Patching
+function patchBuild(st) {
+  const {el, b, pick} = st;
+  el.querySelectorAll('.sv-cell').forEach(btn => {
+    const c = +btn.dataset.c, r = +btn.dataset.r, on = pick[c] === r, over = on ? 0 : overBy(b, pick, c, r);
+    btn.classList.toggle('is-on', on);
+    btn.classList.toggle('is-over', !!over);
+    btn.setAttribute('aria-pressed', String(on));
+    btn.setAttribute('aria-label', cellLabel(b, c, r, on, over));
+  });
+  const spent = sv.cost(b, pick);
+  const left = el.querySelector('[data-left]');
+  if (left) left.textContent = money(b.budget - spent);
+  el.querySelectorAll('.sv-pip').forEach((p, i) => p.classList.toggle('is-on', i < spent));
+  const bank = el.querySelector('[data-bank]');
+  if (bank) bank.classList.toggle('is-full', spent === b.budget);
+  const slots = el.querySelector('.sv-slots');
+  if (slots) slots.innerHTML = slotsHTML(b, pick);
+  const play = el.querySelector('[data-play]');
+  if (play) {
+    play.disabled = !(sv.full(pick) && sv.fits(b, pick));
+    play.querySelector('.btn-label').textContent = playLabel(b, pick);
+  }
+  patchScout(st);
+  ui.hydrate(el);
+}
+function patchScout(st) {
+  const host = st.el.querySelector('[data-scout-host]');
+  if (host) host.innerHTML = scoutHTML(st.b, st.pick, st.foc);
+}
+
+/** A face that failed: the NFL.com headshot, then initials. Error events don't bubble: caught in the capture phase. */
+function onImgError(e) {
+  const img = e.target;
+  if (!(img instanceof HTMLImageElement) || !img.matches('.sv-face')) return;
+  const alt = img.dataset.alt;
+  if (alt && img.getAttribute('src') !== alt) { img.src = alt; return; }
+  const ini = document.createElement('span');
+  ini.className = 'sv-ini';
+  ini.setAttribute('aria-hidden', 'true');
+  ini.textContent = img.dataset.ini || '?';
+  img.replaceWith(ini);
+}
+
+// ============================================================================ Events
+function tapCell(st, btn) {
+  const {b, pick} = st;
+  const c = +btn.dataset.c, r = +btn.dataset.r;
+  st.foc = {c, r};
+  if (pick[c] === r) {
+    pick[c] = null;
+    ui.haptic('selection');
+  } else {
+    const over = overBy(b, pick, c, r);
+    if (over) {
+      patchScout(st);
+      ui.shake(btn);
+      ui.haptic('error');
+      ui.announce(`${money(over)} over budget.`);
+      return;
+    }
+    pick[c] = r;
+    ui.haptic('light');
+    if (!ui.RM) ui.stamp(btn.querySelector('.sv-tick'), {from: .4});
+  }
+  sv.keepPick(b.id, pick);
+  patchBuild(st);
+  if (sv.full(pick)) ui.announce(`Lineup set: ${money(sv.cost(b, pick))} of ${money(b.budget)}. Ready to play the season.`);
+}
+
+function play(st) {
+  const {b, pick} = st;
+  if (!sv.full(pick) || !sv.fits(b, pick)) return;
+  const s = sv.season(b, pick);
+  sv.remember(b.id, pick, s);
+  PHASE.set(b.id, {season: s, pick: pick.slice(), revealed: false});
+  ui.haptic('medium');
+  swapBody(st, () => runSeason(st));
+}
+
+function rebuild(st) {
+  PHASE.delete(st.b.id);
+  st.foc = null;
+  swapBody(st);
+}
+
+/** Re-renders the body for the current phase (crossfade), back at the top. */
+function swapBody(st, after) {
+  const {el, ctx} = st;
+  const go = () => {
+    el.innerHTML = bodyHTML(ctx);
+    ui.hydrate(el);
+    ctx.refreshChrome();
+    ctx.screen.scrollTop = 0;
+    if (after) after();
+  };
+  if (!ui.RM && ctx.visible) ui.crossfade(el, go, {duration: 160}); else go();
+}
+
+/** The season plays out: weeks stamp in one by one while the record counts. Reduced motion: all at once. */
+function runSeason(st) {
+  const ph = phaseOf(st.b);
+  if (!ph) return;
+  const s = ph.season;
+  const rows = [...st.el.querySelectorAll('.sv-wk')];
+  const wEl = st.el.querySelector('[data-w]'), lEl = st.el.querySelector('[data-l]');
+  const finish = () => {
+    if (st.dead) return;
+    if (wEl) wEl.textContent = s.w;
+    if (lEl) lEl.textContent = s.l;
+    const rec = st.el.querySelector('.sv-rec');
+    if (s.w === 17) {
+      ui.haptic('celebrate');
+      if (rec) {
+        ui.stamp(rec, {from: 1.4});
+        ui.confetti(rec.getBoundingClientRect(), {colors: ['#FFC531', '#7CF058', '#FFFFFF'], count: 90});
+      }
+    }
+    ui.announce(`Your season: ${s.w} and ${s.l}. ${verdict(s.w)}`);
+  };
+  if (ui.RM || !st.ctx.visible) { finish(); return; }
+  let w = 0, l = 0;
+  if (wEl) wEl.textContent = '0';
+  if (lEl) lEl.textContent = '0';
+  rows.forEach(row => { row.style.opacity = '0'; });
+  const STEP = 110;
+  rows.forEach((row, i) => {
+    const t = setTimeout(() => {
+      if (st.dead) return;
+      row.style.opacity = '';
+      ui.animate(row, [{opacity: 0, transform: 'translateX(-12px)'}, {opacity: 1, transform: 'none'}], {duration: 220, easing: 'cubic-bezier(.22,1,.36,1)'});
+      if (s.games[i].win) { w++; if (wEl) wEl.textContent = w; } else { l++; if (lEl) lEl.textContent = l; }
+      if (i === rows.length - 1) finish();
+    }, 260 + i * STEP);
+    st.timers.push(t);
+  });
+}
+
+function reveal(st, btn) {
+  const ph = phaseOf(st.b);
+  if (!ph) return;
+  ph.revealed = true;
+  const host = st.el.querySelector('[data-perfect-host]');
+  if (!host) return;
+  const go = () => { host.innerHTML = perfectHTML(st.b, ph); ui.hydrate(host); };
+  if (!ui.RM) ui.crossfade(host, go, {duration: 160}); else go();
+  ui.haptic('light');
+  const card = host.querySelector('.sv-perfect');
+  if (card) { card.setAttribute('tabindex', '-1'); try { card.focus({preventScroll: true}); } catch (_) {} }
+  if (btn) ui.announce('The perfect team is showing.');
+}
+
+function share(st) {
+  const ph = phaseOf(st.b);
+  if (!ph) return;
+  ui.share({text: sv.shareText(st.b, ph.pick, ph.season)}).then(r => {
+    if (r === 'copied') { ui.toast(COPIED, {icon: 'check-circle'}); ui.haptic('success'); }
+    else if (r === 'unavailable') ui.toast("Couldn't copy your season.");
+  });
+}
+
+function onClick(st, e) {
+  const t = e.target.closest('.sv-cell, [data-slot], [data-play], [data-rebuild], [data-share], [data-reveal], [data-retry]');
+  if (!t || !st.el.contains(t)) return;
+  if (t.matches('.sv-cell')) { tapCell(st, t); return; }
+  if (t.hasAttribute('data-slot')) {
+    const c = +t.dataset.slot, r = st.pick[c];
+    if (r == null) return;
+    st.foc = {c, r};
+    patchScout(st);
+    const cell = st.el.querySelector(`.sv-cell[data-c="${c}"][data-r="${r}"]`);
+    if (cell) { try { cell.focus({preventScroll: true}); } catch (_) {} cell.scrollIntoView({block: 'center', behavior: ui.RM ? 'auto' : 'smooth'}); }
+    return;
+  }
+  if (t.hasAttribute('data-play')) { play(st); return; }
+  if (t.hasAttribute('data-rebuild')) { rebuild(st); return; }
+  if (t.hasAttribute('data-share')) { share(st); return; }
+  if (t.hasAttribute('data-reveal')) { reveal(st, t); return; }
+  if (t.hasAttribute('data-retry')) load(st);
+}
+
+function onChange(st, e) {
+  if (!e.detail || e.detail.name !== 'sv-board') return;
+  const id = e.detail.value;
+  if (!sv.board(id) || id === (st.b && st.b.id)) return;
+  ui.lsSet(LAST_BOARD, id);
+  st.ctx.replace('/puzzles/17-0/' + id);
+}
+
+function load(st) {
+  const {el, ctx} = st;
+  el.innerHTML = loadingHTML();
+  sv.load().then(() => {
+    if (st.dead) return;
+    setBoard(st);
+    el.innerHTML = bodyHTML(ctx);
+    ui.hydrate(el);
+    ctx.refreshChrome();
+    ctx.setTitle(null);
+  }, () => {
+    if (st.dead) return;
+    el.innerHTML = errorHTML();
+    ui.hydrate(el);
+  });
+}
+
+function setBoard(st) {
+  const b = sv.board(boardId(st.ctx));
+  st.b = b;
+  st.pick = b ? sv.saved(b.id).pick : sv.empty();
+  st.foc = null;
+  if (b) ui.lsSet(LAST_BOARD, b.id);
+}
+
+// ============================================================================ How it works
+function openHelp() {
+  const m = sv.DOC && sv.DOC.model;
+  const body = `<div class="sv-help">`
+    + `<p><b>Pick one player per column</b> and spend no more than the cap. Every card is that player in his prime: the season people remember (2022 Nick Chubb and his 1,525 rushing yards, not 2025 Chubb).</p>`
+    + `<p><b>The data.</b> Each season is scored with EPA (expected points added, play by play, from nflverse) over what a replacement-level player would do with the same workload. A completed pass is split: half the credit to the passer, half to the receiver.</p>`
+    + `<p><b>The team.</b> A regression on every team-season from 2006 to 2025${m ? ` (${nf(m.n)} of them, R² ${m.r2.toFixed(2)})` : ''} weighs each position and turns your five seasons into points per game. Your defense is league average.</p>`
+    + `<p><b>The season.</b> 17 real teams from 2006–2025. Outscore a team and it's a win. Only the perfect lineup runs the table, and week 17 is the toughest team on the slate.</p>`
+    + `</div>`;
+  ui.openSheet({title: 'How 17–0 works', body, detents: ['fit'], cls: 'sh-seventeen'});
+}
+
+// ============================================================================ View
+export default {
+  id: 'seventeen',
+  chrome: 'nav',
+  title: ctx => {
+    const b = sv.DOC && sv.board(boardId(ctx));
+    return b ? `17–0 · ${b.name}` : '17–0';
+  },
+  actions: () => [{id: 'help', icon: 'info', label: 'How it works'}],
+
+  render(ctx) {
+    return bodyHTML(ctx);
+  },
+
+  mount(el, ctx) {
+    const st = {el, ctx, b: null, pick: sv.empty(), foc: null, timers: [], dead: false};
+    ST.set(ctx, st);
+    el.addEventListener('click', e => onClick(st, e));
+    el.addEventListener('ui:change', e => onChange(st, e));
+    el.addEventListener('error', onImgError, true);
+    if (!sv.DOC) { load(st); return; }
+    // render() ran before this state existed: it showed the saved picks, which is what setBoard reads too.
+    setBoard(st);
+    if (ctx.first) ui.stagger(el);
+  },
+
+  onAction(id) {
+    if (id === 'help') openHelp();
+  },
+
+  unmount(el, ctx) {
+    const st = ST.get(ctx);
+    if (!st) return;
+    st.dead = true;
+    st.timers.forEach(clearTimeout);
+    ST.delete(ctx);
+  }
+};
