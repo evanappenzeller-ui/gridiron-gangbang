@@ -27,7 +27,8 @@ export async function seventeenChecks(check) {
       const names = new Set();
       b.cells.forEach((col, c) => col.forEach((p, r) => {
         if (col.length !== 5 || p.p !== POS[c] || !p.n || !p.s || !(p.y >= 2006 && p.y <= 2025) || !p.t || !p.f || !isFinite(p.imp) || !Array.isArray(p.line) || !p.line.length) bad.push(`${b.id} ${c},${r}`);
-        if (!/^\d+$/.test(p.e || '')) bad.push(`${b.id}: ${p.n} has no ESPN id`);
+        if (!/^https:\/\/static\.www\.nfl\.com\/image\/(upload|private)\/f_auto,q_auto\/league\/[a-z0-9]+$/.test(p.h || '')) bad.push(`${b.id}: ${p.n} has no nflverse headshot`);
+        if (!/^\d+$/.test(p.e || '')) bad.push(`${b.id}: ${p.n} has no ESPN id (the backup headshot)`);
         if (!sv.DOC.colors[p.f]) bad.push(`${b.id}: no colours for ${p.f}`);
         if (names.has(p.n)) bad.push(`${b.id}: ${p.n} twice`);
         names.add(p.n);

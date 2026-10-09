@@ -17,12 +17,14 @@
   opacity: .3; z-index: 0; pointer-events: none;
 }
 .sv-pane .sv-face {
-  position: absolute; left: 50%; bottom: 0; z-index: 1;
-  width: 132%; max-width: none; height: auto;
-  transform: translateX(-50%);
+  position: absolute; z-index: 1; max-width: none;
   -webkit-user-drag: none; user-select: none; -webkit-user-select: none;
 }
-/* No photo at all (ESPN and NFL.com both failed): a plain player silhouette, never initials. */
+/* nflverse (NFL.com) headshots: head and shoulders, filling the box, the face near the top. */
+.sv-pane .sv-face.is-nfl { inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 12%; }
+/* ESPN's wide transparent cut-outs: shoulders on the bottom edge, a little wider than the box. */
+.sv-pane .sv-face.is-espn { left: 50%; bottom: 0; width: 132%; height: auto; transform: translateX(-50%); }
+/* No photo at all (NFL.com and ESPN both failed): a plain player silhouette, never initials. */
 .sv-pane .sv-anon {
   position: absolute; left: 0; right: 0; bottom: 0; top: 12%; z-index: 1;
   display: flex; align-items: flex-end; justify-content: center;
@@ -156,7 +158,7 @@
   width: 34px; height: 34px; border-radius: 50%; overflow: hidden;
 }
 .sv-pane .sv-slot .sv-ph { position: absolute; inset: 0; }
-.sv-pane .sv-slot .sv-face { width: 150%; }
+.sv-pane .sv-slot .sv-face.is-espn { width: 150%; }
 .sv-pane .sv-slot.is-open {
   display: grid; place-items: center;
   background: none; box-shadow: inset 0 0 0 1.5px var(--ink-4);

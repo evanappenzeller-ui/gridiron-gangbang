@@ -24,9 +24,10 @@ const COPIED = 'Copied. Paste it in the league chat.';
 const LAST_BOARD = 'gg-17-board';
 const POS = {QB: 'Quarterback', RB: 'Running back', WR: 'Wide receiver', TE: 'Tight end'};
 const eid = e => String(e || '').replace(/[^0-9]/g, '');
-// ESPN's image combiner serves the transparent headshot resized (as in Silhouettes); the nflverse (NFL.com) headshot
-// is the fallback, then a plain player silhouette (never initials). Team logos are a background image, so a missing
-// one just isn't there.
+// Headshots: the nflverse-players headshot (p.h, NFL.com's own photo, as nflreadr::load_players() publishes it) first,
+// then ESPN's (the image combiner serves the transparent cut-out resized, as in Silhouettes), then a plain player
+// silhouette (never initials). The two are framed differently (.is-nfl, .is-espn in seventeen.css). Team logos are a
+// background image, so a missing one just isn't there.
 const faceUrl = (e, w) => `https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/${eid(e)}.png&w=${w}&h=${Math.round(w * 436 / 600)}`;
 const logoUrl = (f, w) => `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/${String(f).toLowerCase().replace(/[^a-z]/g, '')}.png&w=${w}&h=${w}`;
 const money = n => '$' + n;
@@ -56,11 +57,12 @@ const phaseOf = b => PHASE.get(b.id) || null;
 
 // ============================================================================ Markup: build
 const ANON = () => `<span class="sv-anon" aria-hidden="true">${ui.icon('silhouette-fill')}</span>`;
-/** The headshot: ESPN's, then NFL.com's (data-alt), then a silhouette (onImgError swaps it in). */
+/** The headshot: nflverse's (NFL.com), then ESPN's (data-alt), then a silhouette (onImgError swaps them in). */
 function faceHTML(p, w) {
-  const src = p.e ? faceUrl(p.e, w) : p.h;
-  if (!src) return ANON();
-  return `<img class="sv-face" src="${esc(src)}"${p.e && p.h ? ` data-alt="${esc(p.h)}"` : ''} alt="" draggable="false" decoding="async" referrerpolicy="no-referrer">`;
+  const espn = p.e ? faceUrl(p.e, w) : '';
+  if (!p.h && !espn) return ANON();
+  const alt = p.h && espn ? ` data-alt="${esc(espn)}"` : '';
+  return `<img class="sv-face ${p.h ? 'is-nfl' : 'is-espn'}" src="${esc(p.h || espn)}"${alt} alt="" draggable="false" decoding="async" referrerpolicy="no-referrer">`;
 }
 function chipsHTML(b) {
   return ui.chips({name: 'sv-board', label: 'Boards', value: b.id, cls: 'sv-chips', items: sv.boards().map(x => {
@@ -279,12 +281,17 @@ function patchScout(st) {
   if (host) host.innerHTML = scoutHTML(st.b, st.pick, st.foc);
 }
 
-/** A face that failed: the NFL.com headshot, then the silhouette. Error events don't bubble: caught in the capture phase. */
+/** A face that failed: ESPN's headshot, then the silhouette. Error events don't bubble: caught in the capture phase. */
 function onImgError(e) {
   const img = e.target;
   if (!(img instanceof HTMLImageElement) || !img.matches('.sv-face')) return;
   const alt = img.dataset.alt;
-  if (alt && img.getAttribute('src') !== alt) { img.src = alt; return; }
+  if (alt) {
+    img.removeAttribute('data-alt');
+    img.classList.replace('is-nfl', 'is-espn');
+    img.src = alt;
+    return;
+  }
   img.insertAdjacentHTML('afterend', ANON());
   img.remove();
 }
