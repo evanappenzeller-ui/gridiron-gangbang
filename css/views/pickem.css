@@ -319,21 +319,24 @@ html.rm .c-pk-dot::after { animation: none; }
 
 /* Status column: kickoff, the live clock, Final. */
 .v-pickem .pk-stat {
-  position: relative;
+  position: relative; container-type: inline-size;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
   min-width: 0; padding: 8px 6px;
   box-shadow: inset .5px 0 0 var(--separator);
   text-align: center;
 }
+/* Sized to the column (cqi) so a wide theme font (Georgia in Old School) never spills past the card. */
 .v-pickem .pk-s1 {
-  display: inline-flex; align-items: center; gap: 5px;
-  font: 600 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3);
-  white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 5px; max-width: 100%;
+  font: 600 min(var(--fs-foot), 19cqi)/var(--lh-foot) var(--font-text); color: var(--ink-3);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .v-pickem .pk-s2 {
-  font: 800 var(--fs-n5)/var(--lh-n5) var(--font-num); font-stretch: condensed; font-variant-numeric: tabular-nums;
+  max-width: 100%;
+  font: 800 min(var(--fs-n5), 26cqi)/var(--lh-n5) var(--font-num); font-stretch: condensed; font-variant-numeric: tabular-nums;
   color: var(--ink); white-space: nowrap;
 }
+.v-pickem .pk-ap { margin-left: .15em; font-size: .62em; letter-spacing: .02em; }
 .v-pickem .pk-s1.is-live { color: var(--ink); }
 .v-pickem .pk-s1.is-final {
   font: 800 var(--fs-ovl)/var(--lh-ovl) var(--font-num); font-stretch: condensed;

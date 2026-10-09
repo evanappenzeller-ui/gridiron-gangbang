@@ -84,6 +84,8 @@ function fmt(o) {
 }
 const dayShort = d => clean(fmt({weekday: 'short'}).format(d));
 const timeShort = d => clean(fmt({hour: 'numeric', minute: '2-digit'}).format(d));
+// The status column's time: "12:30" with a small "PM", so it fits the narrow column in every theme's font.
+const timeHTML = d => esc(timeShort(d)).replace(/\s?([AP]M)$/i, '<small class="pk-ap">$1</small>');
 const dateShort = d => clean(fmt({month: 'short', day: 'numeric'}).format(d));
 /** "Thu 5:15 PM" (with the date when it is more than 6 days away). */
 export function kickText(d, at = nowMs()) {
@@ -1016,13 +1018,13 @@ function statHTML(g, v) {
   }
   if (locked) return `${lock}<span class="pk-s1">${/postpon|delay|suspend|cancel/i.test(g.detail) ? esc(offWord(g)) : 'Starting'}</span>`;
   if (g.tbd) return `${lock}<span class="pk-s1">Kickoff</span><span class="pk-s2">TBD</span>`;
-  if (g.kickoff.getTime() - v.at > 6 * 864e5) return `${lock}<span class="pk-s1">${esc(dateShort(g.kickoff))}</span><span class="pk-s2">${esc(timeShort(g.kickoff))}</span>`;
+  if (g.kickoff.getTime() - v.at > 6 * 864e5) return `${lock}<span class="pk-s1">${esc(dateShort(g.kickoff))}</span><span class="pk-s2">${timeHTML(g.kickoff)}</span>`;
   // The slot header already names the day (and the time when every game in the slot shares it): the card shows the
   // TV network in the day's place, and drops a time that is the same for the whole slot.
   const sl = slotInfo(g, v), tv = tvShort(g.tv);
   const s1 = sl.oneDay ? tv : dayShort(g.kickoff);
-  const s2 = sl.oneDay && sl.oneTime && s1 ? '' : timeShort(g.kickoff);
-  return lock + (s1 ? `<span class="pk-s1">${esc(s1)}</span>` : '') + (s2 ? `<span class="pk-s2">${esc(s2)}</span>` : '');
+  const s2 = sl.oneDay && sl.oneTime && s1 ? '' : timeHTML(g.kickoff);
+  return lock + (s1 ? `<span class="pk-s1">${esc(s1)}</span>` : '') + (s2 ? `<span class="pk-s2">${s2}</span>` : '');
 }
 // Per slot of the view model: {oneDay (every game on the same local day), oneTime (the same kickoff)}.
 function slotInfo(g, v) {
@@ -1035,8 +1037,10 @@ function slotInfo(g, v) {
   }
   return v.slots.get(slotOf(g).key) || {oneDay: false, oneTime: false};
 }
-// 'CBS', 'FOX', 'Prime', 'ESPN' (the first network of 'ESPN / ABC').
-const tvShort = tv => String(tv || '').split(' / ')[0].trim().replace(/^Prime Video$/i, 'Prime').replace(/^NFL Network$/i, 'NFL Net');
+// 'CBS', 'FOX', 'Prime', 'ESPN' (the first network of 'ESPN / ABC'); the long college networks by their short names.
+const TV_SHORT = {'prime video': 'Prime', 'nfl network': 'NFL Net', 'sec network': 'SECN', 'acc network': 'ACCN', 'big ten network': 'BTN',
+  'cbs sports network': 'CBSSN', 'fox sports 1': 'FS1', 'fox sports 2': 'FS2', 'pac-12 network': 'P12N', 'espn+': 'ESPN+', 'the cw': 'CW'};
+const tvShort = tv => { const t = String(tv || '').split(' / ')[0].trim(); return TV_SHORT[t.toLowerCase()] || t; };
 const offWord = g => (/cancel/i.test(g.detail) ? 'Canceled' : /suspend/i.test(g.detail) ? 'Suspended' : /delay/i.test(g.detail) ? 'Delayed' : 'Postponed');
 // The live clock as two short lines: ['Q3', '4:12'], ['Half', ''], ['End', 'Q3'], ['OT', '2:01'].
 function clockOf(g) {
