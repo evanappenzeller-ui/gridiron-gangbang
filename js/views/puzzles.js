@@ -183,7 +183,7 @@ function cardHTML(k = heroKind()) {
 // tools/seventeen/badges.py); the game showing is lit like the field.
 const GAMES = [
   {id: 'puzzles', label: 'Daily Puzzles', badge: 'img/puzzles.webp', sub: ['Daily', 'Puzzles']},
-  {id: '17-0', label: '17\u20130, build a $15 team', badge: 'img/seventeen.webp', sub: ['$15', 'Team']}
+  {id: '17-0', label: '17\u20130, build a $15 team', badge: 'img/seventeen.webp', sub: []}
 ];
 const gameOf = ctx => (ctx && ctx.params && ctx.params.game === '17-0' ? '17-0' : 'puzzles');
 const gamePath = g => (g === '17-0' ? '/puzzles/17-0' : '/puzzles');
@@ -194,7 +194,7 @@ const svLoading = () => `<div class="sv-loading" aria-busy="true">${ui.skeleton(
 function pickerHTML(g) {
   return `<div class="c-games" data-key="games" data-enter role="tablist" aria-label="Pick a game">` + GAMES.map(x => `<button type="button" role="tab" class="c-game" data-game="${x.id}" aria-selected="${x.id === g}" aria-label="${esc(x.label)}">`
     + `<img class="c-game-badge" src="${x.badge}" alt="" width="56" height="56" decoding="async" draggable="false">`
-    + `<span class="c-game-tx" aria-hidden="true">${x.sub.map(t => `<span>${esc(t)}</span>`).join('')}</span></button>`).join('') + `</div>`;
+    + (x.sub.length ? `<span class="c-game-tx" aria-hidden="true">${x.sub.map(t => `<span>${esc(t)}</span>`).join('')}</span>` : '') + `</button>`).join('') + `</div>`;
 }
 function patchPicker(st, g, animate) {
   st.el.querySelectorAll('.c-game').forEach(b => {
