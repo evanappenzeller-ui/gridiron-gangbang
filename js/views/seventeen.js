@@ -7,8 +7,8 @@
 //
 // A pane module, like League's segments: render(ctx), mount(el, ctx, {anchor}), params(el, ctx), unmount(el, ctx).
 // anchor: the element to keep in view when the pane swaps phases (the game picker).
-// Two phases, from what this phone stored for today's board: 'build' (the grid, the budget, the scouting report of
-// the last player tapped, the lineup bar with Play) and 'season' once played. One season a day: Play locks the
+// Two phases, from what this phone stored for today's board: 'build' (the budget, the grid, the lineup bar with Play
+// right under it, the scouting report of the last player tapped) and 'season' once played. One season a day: Play locks the
 // lineup in; the season shows the record (counted up week by week right after Play), Share (no player names), the
 // time to the next board, each pick's points per game, the 17 games and the perfect team. At midnight the pane moves
 // to the new board. The model's own number for a player (imp) is never shown before the season: that is the answer.
@@ -26,7 +26,8 @@ const POS = {QB: 'Quarterback', RB: 'Running back', WR: 'Wide receiver', TE: 'Ti
 const eid = e => String(e || '').replace(/[^0-9]/g, '');
 // Headshots: p.h, NFL.com's own photo from his prime season where nflverse's rosters have one (2016 on), else the
 // closest season's, else his load_players() photo (tools/seventeen/build.py, HEADSHOTS), first; then ESPN's (the image
-// combiner serves the transparent cut-out resized, as in Silhouettes), then a plain player silhouette (never initials). The two are framed differently (.is-nfl, .is-espn in seventeen.css). Team logos are a
+// combiner serves the transparent cut-out resized, as in Silhouettes), then a plain player silhouette (never initials).
+// Careers that ended by 2016 (p.eh) try ESPN's first: NFL.com's "photo" for them is its generic black helmet. The two are framed differently (.is-nfl, .is-espn in seventeen.css). Team logos are a
 // background image, so a missing one just isn't there.
 const faceUrl = (e, w) => `https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/${eid(e)}.png&w=${w}&h=${Math.round(w * 436 / 600)}`;
 const logoUrl = (f, w) => `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/${String(f).toLowerCase().replace(/[^a-z]/g, '')}.png&w=${w}&h=${w}`;
@@ -49,12 +50,14 @@ function colorsOf(p) {
 
 // ============================================================================ Markup: build
 const ANON = () => `<span class="sv-anon" aria-hidden="true">${ui.icon('silhouette-fill')}</span>`;
-/** The headshot: NFL.com's (his prime season's where it exists), then ESPN's (data-alt), then a silhouette. */
+/** The headshot: NFL.com's (his prime season's where it exists), then ESPN's, then a silhouette; ESPN's first for
+ *  careers that ended by 2016 (p.eh: NFL.com only has its black helmet for them). onImgError walks the list. */
 function faceHTML(p, w) {
-  const espn = p.e ? faceUrl(p.e, w) : '';
-  if (!p.h && !espn) return ANON();
-  const alt = p.h && espn ? ` data-alt="${esc(espn)}"` : '';
-  return `<img class="sv-face ${p.h ? 'is-nfl' : 'is-espn'}" src="${esc(p.h || espn)}"${alt} alt="" draggable="false" decoding="async" referrerpolicy="no-referrer">`;
+  const espn = p.e ? ['espn', faceUrl(p.e, w)] : null, nfl = p.h ? ['nfl', p.h] : null;
+  const [first, second] = (p.eh ? [espn, nfl] : [nfl, espn]).filter(Boolean);
+  if (!first) return ANON();
+  const alt = second ? ` data-alt="${esc(second[1])}" data-alt-kind="${second[0]}"` : '';
+  return `<img class="sv-face is-${first[0]}" src="${esc(first[1])}"${alt} alt="" draggable="false" decoding="async" referrerpolicy="no-referrer">`;
 }
 function headHTML(b) {
   return `<header class="sv-head">`
@@ -138,7 +141,7 @@ function slotsHTML(b, pick) {
 }
 function playLabel(b, pick) {
   const n = pick.filter(r => r == null).length;
-  return n ? `Pick ${n} more` : sv.fits(b, pick) ? 'Play the season' : 'Over budget';
+  return n ? `Pick ${n} more` : sv.fits(b, pick) ? 'Play season' : 'Over budget';
 }
 function barHTML(b, pick) {
   const ready = sv.full(pick) && sv.fits(b, pick);
@@ -146,8 +149,8 @@ function barHTML(b, pick) {
     + `<button type="button" class="btn btn-primary sv-play" data-sv-play${ready ? '' : ' disabled'}>${ui.icon('play-fill')}<span class="btn-label">${esc(playLabel(b, pick))}</span></button></div>`;
 }
 function buildHTML(b, pick, foc) {
-  return headHTML(b) + totalsLine() + bankHTML(b, pick) + gridHTML(b, pick)
-    + `<div data-sv-scout>${scoutHTML(b, pick, foc)}</div>` + barHTML(b, pick);
+  return headHTML(b) + totalsLine() + bankHTML(b, pick) + gridHTML(b, pick) + barHTML(b, pick)
+    + `<div data-sv-scout>${scoutHTML(b, pick, foc)}</div>`;
 }
 
 // ============================================================================ Markup: season
@@ -263,14 +266,16 @@ function patchScout(st) {
   if (host) host.innerHTML = scoutHTML(st.b, st.pick, st.foc);
 }
 
-/** A face that failed: ESPN's headshot, then the silhouette. Error events don't bubble: caught in the capture phase. */
+/** A face that failed: the other source (data-alt), then the silhouette. Error events don't bubble: caught in the
+ *  capture phase. */
 function onImgError(e) {
   const img = e.target;
   if (!(img instanceof HTMLImageElement) || !img.matches('.sv-face')) return;
   const alt = img.dataset.alt;
   if (alt) {
+    img.className = 'sv-face is-' + (img.dataset.altKind === 'espn' ? 'espn' : 'nfl');
     img.removeAttribute('data-alt');
-    img.classList.replace('is-nfl', 'is-espn');
+    img.removeAttribute('data-alt-kind');
     img.src = alt;
     return;
   }

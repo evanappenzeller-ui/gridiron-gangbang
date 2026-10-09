@@ -16,7 +16,9 @@ column) carry the photo the NFL used each season, but only from PHOTO_FROM on: e
   2. else his earliest roster photo from PHOTO_FROM on, the closest to an older prime (2007 Brady: his 2016 one);
   3. else the headshot column of the players table, the file nflreadr::load_players() reads (players retired
      before PHOTO_FROM: the one photo the NFL kept).
-'e' (the ESPN id) is the app's backup when that photo doesn't load.
+'e' (the ESPN id) is the app's backup when that photo doesn't load. For careers that ended by ESPN_FIRST_TO the NFL
+"photo" is its generic black helmet (a real image under the player's own link, so it never fails over): those cards
+carry 'eh': 1 and the app tries ESPN's headshot first.
 
 THE MODEL (everything in points, from EPA: expected points added, play by play)
   Credit. A pass play's EPA counts for the passer and for the receiver, so it is split: the receiver keeps
@@ -73,6 +75,7 @@ POOL_PPR = {'QB': 280, 'RB': 225, 'WR': 225, 'TE': 160}  # prime fantasy points 
 POOL_USE = {'QB': ('attempts', 300), 'RB': ('carries', 120), 'WR': ('targets', 60), 'TE': ('targets', 40)}
 COOLDOWN = 7
 PHOTO_FROM = 2016  # the first season whose roster photos are that season's own
+ESPN_FIRST_TO = 2016  # careers that ended by this season: NFL.com shows a helmet, so ESPN's photo goes first
 MIN_SURPRISE, MAX_PERFECT, MAX_TRIES = 3, 3, 80
 BUDGET = 15
 TIERS = [5, 4, 3, 2, 1]
@@ -583,7 +586,9 @@ def main():
         e = p.get('espn_id') or ''
         if e.endswith('.0'):
             e = e[:-2]
-        heads[p['gsis_id']] = {'espn': e if e.isdigit() else '', 'url': p.get('headshot') or ''}
+        last = p.get('last_season') or ''
+        heads[p['gsis_id']] = {'espn': e if e.isdigit() else '', 'url': p.get('headshot') or '',
+                               'last': int(float(last)) if last.replace('.', '', 1).isdigit() else 0}
     prime, score = primes(seasons)
 
     if len(sys.argv) > 1 and sys.argv[1] == 'who':
@@ -605,6 +610,9 @@ def main():
         c = card(x, model['w'], heads)
         c['h'], src = photo_of(x, rosters, c['h'])
         photos[src] = photos.get(src, 0) + 1
+        if heads.get(x['id'], {}).get('last', 9999) <= ESPN_FIRST_TO:
+            c['eh'] = 1
+            photos['espn first'] = photos.get('espn first', 0) + 1
         if x['id'] in SHOW_AS:
             c['n'] = SHOW_AS[x['id']]
         c['_fp'] = x['fantasy_points_ppr'] * 17 / team_games(x['season'])

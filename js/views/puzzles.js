@@ -179,7 +179,12 @@ function cardHTML(k = heroKind()) {
 }
 
 // ============================================================================ The game picker
-const GAMES = [{id: 'puzzles', label: 'Daily Puzzles'}, {id: '17-0', label: '17\u20130'}];
+// Two big scoreboard buttons with pixel badges, like Pick'em's NFL / NCAA switch (img/puzzles.webp, img/seventeen.webp:
+// tools/seventeen/badges.py); the game showing is lit like the field.
+const GAMES = [
+  {id: 'puzzles', label: 'Daily Puzzles', badge: 'img/puzzles.webp', sub: ['Daily', 'Puzzles']},
+  {id: '17-0', label: '17\u20130, build a $15 team', badge: 'img/seventeen.webp', sub: ['$15', 'Team']}
+];
 const gameOf = ctx => (ctx && ctx.params && ctx.params.game === '17-0' ? '17-0' : 'puzzles');
 const gamePath = g => (g === '17-0' ? '/puzzles/17-0' : '/puzzles');
 let SV = null; // views/seventeen.js, once imported
@@ -187,7 +192,17 @@ const loadSV = () => (SV ? Promise.resolve(SV) : import('./seventeen.js').then(m
 const svLoading = () => `<div class="sv-loading" aria-busy="true">${ui.skeleton('rows', 4, {label: 'Loading 17\u20130.'})}</div>`;
 
 function pickerHTML(g) {
-  return `<div class="c-games" data-key="games" data-enter>${ui.seg({name: 'games', items: GAMES, value: g, label: 'Pick a game'})}</div>`;
+  return `<div class="c-games" data-key="games" data-enter role="tablist" aria-label="Pick a game">` + GAMES.map(x => `<button type="button" role="tab" class="c-game" data-game="${x.id}" aria-selected="${x.id === g}" aria-label="${esc(x.label)}">`
+    + `<img class="c-game-badge" src="${x.badge}" alt="" width="56" height="56" decoding="async" draggable="false">`
+    + `<span class="c-game-tx" aria-hidden="true">${x.sub.map(t => `<span>${esc(t)}</span>`).join('')}</span></button>`).join('') + `</div>`;
+}
+function patchPicker(st, g, animate) {
+  st.el.querySelectorAll('.c-game').forEach(b => {
+    const on = b.dataset.game === g;
+    if ((b.getAttribute('aria-selected') === 'true') === on) return;
+    b.setAttribute('aria-selected', String(on));
+    if (on && animate && !ui.RM) ui.animate(b, [{transform: 'scale(.94)'}, {transform: 'none'}], {spring: 'bouncy'});
+  });
 }
 /** The 17-0 pane: imported and mounted the first time it shows; later shows only sync its board to the route. */
 function showSV(st) {
@@ -382,6 +397,11 @@ function patchEyebrow(st) {
 
 // ============================================================================ Events
 function onClick(st, e) {
+  const game = e.target.closest('.c-game');
+  if (game) {
+    if (game.dataset.game !== st.game) { ui.haptic('selection'); st.ctx.replace(gamePath(game.dataset.game)); }
+    return;
+  }
   // The 17-0 pane handles its own taps (views/seventeen.js), all but "Try again" after its import failed.
   const load = e.target.closest('[data-sv-load]');
   if (load) { showSV(st); return; }
@@ -463,10 +483,6 @@ export default {
     HUB.set(ctx, st);
     st.board = mountBoard(el.querySelector('.c-board-host'), {mode: 'today', ctx});
     el.addEventListener('click', e => onClick(st, e));
-    el.addEventListener('ui:change', e => {
-      if (!e.detail || e.detail.name !== 'games') return;
-      ctx.replace(gamePath(e.detail.value));
-    });
     if (st.game === '17-0') showSV(st);
     ctx.on('daily', type => onDaily(st, type));
     ctx.timer(() => tickCd(st, ctx.visible), 20000);
@@ -488,8 +504,7 @@ export default {
     if (!st) return;
     // The picker (a tap, or a link to /puzzles/17-0): show that game; 17-0 shown again catches up with the day.
     const g = gameOf(ctx);
-    const seg = st.el.querySelector('.c-games > .seg');
-    if (seg) ui.setSeg(seg, g, {animate: ctx.visible});
+    patchPicker(st, g, ctx.visible);
     if (g !== st.game) switchGame(st, g);
     else if (g === '17-0') showSV(st);
     if (ctx.reason !== 'params' && st.board) st.board.refresh({animate: false});

@@ -7,7 +7,7 @@
 // A slow request falls back to whatever is cached under its path (from the previous worker too), so data whose
 // format changes gets a new file name rather than new content under the old one (data/puzzles-v4.json: see
 // js/core/daily.js).
-const CACHE = 'gg-v98';
+const CACHE = 'gg-v99';
 const CORE = ['ui', 'data', 'daily', 'fire', 'week', 'nfl', 'stats', 'motw', 'press', 'checks', 'checks-stats', 'checks-pickem', 'checks-press', 'checks-seventeen', 'lay', 'plays', 'laytrack', 'seventeen'];
 // The six tab roots are puzzles, pickem, rivals (Matchup), league, moves (Draft) and lay (The Lay).
 const VIEWS = ['welcome', 'puzzles', 'board', 'you', 'sharecard', 'results', 'run', 'college', 'silhouette', 'mystery', 'journey', 'grid', 'picker',
@@ -21,7 +21,7 @@ const SHELL = [
   ...VIEW_CSS.map(v => `css/views/${v}.css`),
   'js/app.js', ...CORE.map(m => `js/core/${m}.js`),
   ...VIEWS.map(v => `js/views/${v}.js`),
-  'fonts/barlow-condensed-800.woff2', 'fonts/press-start-2p.woff2', 'fonts/vt323.woff2', 'img/logo.webp', 'img/nfl.webp', 'img/ncaa.webp',
+  'fonts/barlow-condensed-800.woff2', 'fonts/press-start-2p.woff2', 'fonts/vt323.woff2', 'img/logo.webp', 'img/nfl.webp', 'img/ncaa.webp', 'img/puzzles.webp', 'img/seventeen.webp',
   'icons/hub-192.png', 'icons/hub-512.png', 'icons/hub-maskable-512.png', 'icons/hub-apple-180.png',
   'data/league.json', 'data/pressers.json', 'data/lay.json', 'data/puzzles-v4.json', 'data/nfl-players.json', 'data/seventeen.json'
 ];

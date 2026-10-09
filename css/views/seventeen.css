@@ -3,7 +3,30 @@
    per element as --tc (the team's hue) and --ta (its accent). */
 
 /* ---------------------------------------------------------------- The game picker (puzzles.js) */
-.v-puzzles .c-games { margin-top: 12px; }
+/* Two big scoreboard buttons with pixel badges, like Pick'em's NFL / NCAA switch (pickem.css .pk-lg): the game showing
+   is lit like the field (turf stripes, a neon edge, the arcade bevel); the other waits in navy, its badge dimmed. */
+.v-puzzles .c-games { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 12px 0 2px; }
+.v-puzzles .c-game {
+  position: relative; display: flex; align-items: center; justify-content: center; gap: 10px;
+  min-height: 72px; padding: 10px 12px; min-width: 0;
+  border-radius: 12px;
+  background: var(--surface-1);
+  box-shadow: 0 4px 0 rgba(0,0,0,.45), inset 0 0 0 2px var(--separator);
+  color: var(--ink-4); text-align: left;
+  transition: transform var(--spring-snappy-dur) var(--spring-snappy), color 160ms linear;
+}
+.v-puzzles .c-game.is-pressed { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0,0,0,.45), inset 0 0 0 2px var(--separator); transition: none; }
+.v-puzzles .c-game[aria-selected="true"] {
+  color: rgba(255,255,255,.85);
+  background: repeating-linear-gradient(90deg, rgba(255,255,255,.07) 0 2px, transparent 2px 22px), linear-gradient(180deg, #2A9A3E, #17672B);
+  box-shadow: 0 4px 0 #0C3D18, inset 0 0 0 2px var(--tint), 0 0 22px rgba(124,240,88,.25);
+}
+.v-puzzles .c-game-badge {
+  flex: none; width: 56px; height: 56px; object-fit: contain;
+  image-rendering: pixelated; filter: drop-shadow(2px 2px 0 rgba(0,0,0,.55));
+}
+.v-puzzles .c-game[aria-selected="false"] .c-game-badge { opacity: .55; filter: grayscale(.5) drop-shadow(2px 2px 0 rgba(0,0,0,.55)); }
+.v-puzzles .c-game-tx { display: flex; flex-direction: column; gap: 4px; min-width: 0; font: 400 15px/14px var(--font-num); text-transform: uppercase; letter-spacing: .06em; white-space: nowrap; }
 .v-puzzles .c-sv-pane { margin-top: 4px; }
 
 /* ---------------------------------------------------------------- Shared: team-coloured photo boxes */
@@ -141,18 +164,17 @@
 .sv-pane .sv-sc-note.is-over { color: var(--wrong); }
 
 /* ---------------------------------------------------------------- Build: the lineup bar */
+/* Right under the grid, in the page (it scrolls with the board, never over it). */
 .sv-pane .sv-bar {
-  position: sticky; bottom: var(--tab-h); z-index: 5;
   display: flex; align-items: center; gap: 10px;
-  margin: 14px calc(-1 * var(--gutter)) 0;
-  padding: 10px var(--gutter);
-  background: var(--bar); -webkit-backdrop-filter: var(--bar-filter); backdrop-filter: var(--bar-filter);
-  border-top: 1px solid var(--separator);
+  margin-top: 12px; padding: 10px;
+  border-radius: var(--r-card);
+  background: var(--surface-1);
 }
 .sv-pane .sv-slots { display: flex; gap: 4px; flex: none; }
 .sv-pane .sv-slot {
   position: relative; isolation: isolate; flex: none;
-  width: 34px; height: 34px; border-radius: 50%; overflow: hidden;
+  width: 32px; height: 32px; border-radius: 50%; overflow: hidden;
 }
 .sv-pane .sv-slot .sv-ph { position: absolute; inset: 0; }
 .sv-pane .sv-slot .sv-face.is-espn { width: 150%; }
@@ -161,9 +183,10 @@
   background: none; box-shadow: inset 0 0 0 1.5px var(--ink-4);
 }
 .sv-pane .sv-slot-l { font: 400 13px/1 var(--font-num); color: var(--ink-3); }
-.sv-pane .sv-play { flex: 1; width: auto; min-width: 0; padding: 0 12px; }
+.sv-pane .sv-play { flex: 1; width: auto; min-width: 0; padding: 0 10px; }
 /* Not ready yet ("Pick 3 more"): solid and neutral, not a see-through green over the grid. */
 .sv-pane .sv-play:disabled { opacity: 1; background: var(--surface-2); color: var(--ink-3); box-shadow: none; }
+.sv-pane .sv-play:disabled > .ic { display: none; }
 
 /* ---------------------------------------------------------------- Season */
 .sv-pane .sv-season { padding-top: 14px; text-align: center; }
@@ -240,4 +263,11 @@
   .sv-pane .sv-tiles .tile { padding: 10px; }
   .sv-pane .sv-tiles .tile-label { font-size: 12px; }
   .sv-pane .sv-tiles .tile-value { font-size: 20px; }
+}
+@media (max-width: 360px) {
+  .v-puzzles .c-game { gap: 8px; padding: 8px; }
+  .v-puzzles .c-game-badge { width: 44px; height: 44px; }
+}
+@media (max-width: 380px) {
+  .sv-pane .sv-play > .ic { display: none; }
 }
