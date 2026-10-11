@@ -787,7 +787,7 @@ function archHTML(v) {
   const groups = years.map((g, i) => {
     const rows = g.items.map(p => {
       const nq = press.questionsFor(p.key).length;
-      const sub = [capOf(p) || cap1(contextText(p, {week: false})) || '', nq ? `${nq} question${nq === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ');
+      const sub = [capOf(p) || cap1(contextText(p, {week: false})) || '', nq ? `${nq}\u00a0question${nq === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ');
       const on = p.key === fk;
       return ui.row({lead: thumbHTML(p, 'pr-row-th'), title: `Week ${p.week} · ${nm(p.who)}`, sub,
         trail: ui.avatar(p.who, {size: 28, you: p.who === me}), selected: on, key: p.key, cls: 'pr-row',
