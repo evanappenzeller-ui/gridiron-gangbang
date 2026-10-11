@@ -268,14 +268,14 @@ export async function pressChecks(check) {
   });
 
   // 9. Seed file
-  check('Press Room: the seed file (data/pressers.json) parses and every entry is valid', async () => {
+  check('Press Room: the seed file (data/pressers.json) parses and every entry (pressers, chat MOTW picks, chat questions) is valid', async () => {
     need();
     const res = await fetch(new URL('../../data/pressers.json', import.meta.url).href, {cache: 'no-cache'});
     if (!res.ok) return {pass: false, detail: 'HTTP ' + res.status};
     const j = await res.json();
     const list = j && j.pressers;
     if (!Array.isArray(list)) return {pass: false, detail: 'no "pressers" list'};
-    if (Object.keys(j).some(k => k !== 'pressers' && k !== 'motw')) return {pass: false, detail: 'unknown top-level key'};
+    if (Object.keys(j).some(k => !['pressers', 'motw', 'questions'].includes(k))) return {pass: false, detail: 'unknown top-level key'};
     const allowed = new Set(['key', 'vid', 'who', 'title', 'tall']);
     const bad = [], seen = new Set();
     // Matchups of the Week picked in the chat: two different managers who played each other that week (once the
@@ -293,6 +293,23 @@ export async function pressChecks(check) {
       if (P) mseen.add(m.key);
       if (why) bad.push(`motw #${i} ${why}`);
     });
+    // The chat's questions: {weekKey: [{by, q}]}, every entry kept as written (a manager asking, one clean paragraph).
+    const qs = j.questions == null ? {} : j.questions;
+    let nq = 0;
+    if (!qs || typeof qs !== 'object' || Array.isArray(qs)) bad.push('"questions" is not an object');
+    else {
+      const kept = press.seedQuestions(qs);
+      Object.keys(qs).forEach(k => {
+        const P = week.parseKey(k), arr = qs[k];
+        if (!P || week.weekKey(P.year, P.week) !== k) { bad.push(`questions ${k}: bad week key`); return; }
+        if (!Array.isArray(arr) || !arr.length) { bad.push(`questions ${k}: not a list`); return; }
+        arr.forEach((x, i) => {
+          const ok = x && typeof x === 'object' && Object.keys(x).every(f => f === 'by' || f === 'q') && kept[k] && kept[k].length === arr.length && kept[k][i].q === x.q;
+          if (!ok) bad.push(`questions ${k} #${i}: unknown field, unknown asker or not one clean paragraph (<= ${press.Q_MAX})`);
+        });
+        nq += arr.length;
+      });
+    }
     list.forEach((d, i) => {
       const p = press.normalize(d, d && d.key, 'seed');
       const why = !d || typeof d !== 'object' ? 'not an object'
@@ -305,7 +322,7 @@ export async function pressChecks(check) {
       if (p) seen.add(p.key);
       if (why) bad.push(`#${i} ${why}`);
     });
-    return {pass: !bad.length, detail: bad.length ? bad.join('; ') : `${list.length} presser${list.length === 1 ? '' : 's'}: ${list.map(d => `${d.key} ${d.who}`).join(', ')}; ${motw.length} chat MOTW: ${motw.map(m => `${m.key} ${m.a}|${m.b}`).join(', ')}`};
+    return {pass: !bad.length, detail: bad.length ? bad.join('; ') : `${list.length} presser${list.length === 1 ? '' : 's'}: ${list.map(d => `${d.key} ${d.who}`).join(', ')}; ${motw.length} chat MOTW: ${motw.map(m => `${m.key} ${m.a}|${m.b}`).join(', ')}; ${nq} chat question${nq === 1 ? '' : 's'}`};
   });
 
   // 10. Rules

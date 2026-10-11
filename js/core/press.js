@@ -3,7 +3,7 @@
 // YouTube links (parseYouTube), the oEmbed check (lookup), player/thumbnail URLs, the seeded archive
 // (data/pressers.json) merged under the Firestore docs, one shared live listener (subscribePressers), the
 // week's result and its Matchup of the Week (context, motwLoser), the post sheet's weeks (defaultWeek,
-// weekOptions), writes (post, remove) and counts (stats).
+// weekOptions), writes (post, remove), counts (stats) and the league chat's questions for a week (questionsFor).
 // Pure logic + subscriptions, no DOM. Owner: PRESS-CORE.
 //
 // Firestore:  pressers/{weekKey}   {vid: 'dQw4w9WgXcQ', who: 'mitch', title: '' (<= 80), tall: false, me, nick, at}
@@ -413,10 +413,31 @@ const localMap = () => (standIn() ? readStore() : {});
 // Seed file (data/pressers.json). Loaded once (network-first through sw.js), again when a new week of data
 // arrives. A failed or missing file is simply empty.
 //   {"pressers": [{key, vid, who, title, tall}],        the seeded archive
-//    "motw": [{key: '2026-w3', a: 'jaymin', b: 'ben'}]}  Matchups of the Week picked in the league chat before the
+//    "motw": [{key: '2026-w3', a: 'jaymin', b: 'ben'}],  Matchups of the Week picked in the league chat before the
 //                                                         app had voting (motwLoser falls back to them)
+//    "questions": {"2026-w2": [{by: 'mason', q: '…'}]}} the questions the league chat asked that week's loser, by
+//                                                         week, so they stay with the week whichever video it shows
 
-const SEED = {docs: [], motw: Object.create(null), settled: false, p: null, error: null};
+const SEED = {docs: [], motw: Object.create(null), qs: Object.create(null), settled: false, p: null, error: null};
+export const Q_MAX = 500;
+// The seed's questions -> {weekKey: [{by, q}]} (a bad week, an unknown asker or an empty question is skipped; a
+// question is one paragraph, at most Q_MAX characters).
+export function seedQuestions(o) {
+  const out = Object.create(null);
+  if (!o || typeof o !== 'object' || Array.isArray(o)) return out;
+  Object.keys(o).forEach(k => {
+    const P = week.parseKey(k);
+    if (!P || P.week > MAX_WEEK || !Array.isArray(o[k])) return;
+    const list = o[k].map(x => {
+      const q = x && typeof x.q === 'string' ? x.q.replace(/\s+/g, ' ').trim().slice(0, Q_MAX).trim() : '';
+      return q && typeof x.by === 'string' && data.M[x.by] ? {by: x.by, q} : null;
+    }).filter(Boolean);
+    if (list.length) out[week.weekKey(P.year, P.week)] = list;
+  });
+  return out;
+}
+/** The league chat's questions for a week's loser ('2026-w2'), in the order they were asked: [{by, q}]. */
+export const questionsFor = key => (noSeed ? [] : (SEED.qs[key] || []).map(x => Object.assign({}, x)));
 // The seed's motw list -> {weekKey: 'a|b'} (entries with a bad key or unknown managers are skipped).
 export function seedMotw(list) {
   const out = Object.create(null);
@@ -440,10 +461,11 @@ export function loadSeed(force = false) {
       if (!j || !Array.isArray(j.pressers)) throw new Error('pressers.json has no "pressers" list');
       SEED.docs = j.pressers.filter(d => d && typeof d === 'object');
       SEED.motw = seedMotw(j.motw);
+      SEED.qs = seedQuestions(j.questions);
       SEED.error = null;
     } catch (e) {
       SEED.error = e;
-      if (!SEED.settled) { SEED.docs = []; SEED.motw = Object.create(null); }
+      if (!SEED.settled) { SEED.docs = []; SEED.motw = Object.create(null); SEED.qs = Object.create(null); }
     }
     SEED.settled = true;
     if (SEED.p === p) { invalidate(); emitAll(); }

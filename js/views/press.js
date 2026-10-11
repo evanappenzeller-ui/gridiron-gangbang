@@ -1,7 +1,8 @@
 // Press Room (#/press, #/press/2026-w4): the Matchup of the Week loser's postgame press conference, week by week,
 // rewatchable inside the app. Pushed on any tab (a cold link sits on Matchup). Owner: PRESS-SCREEN.
 //   Large title (eyebrow "Matchup of the Week", "Press Room", "The loser faces the media.") · the featured presser as
-//   a big player card (the latest, or the route's week: the share link) with Share / Replace / Remove · a prompt when
+//   a big player card (the latest, or the route's week: the share link) with Share / Replace / Remove · the league
+//   chat's questions for that week's loser (press.questionsFor, from data/pressers.json), when it has some · a prompt when
 //   the latest Matchup of the Week loser hasn't posted yet · the archive by season (a row features that presser and
 //   plays it) · "How to post". The + in the bar opens the post sheet. Until the rules are pasted ('denied') the +,
 //   Replace and Remove are gone and the sheet's Post stays off with that reason.
@@ -719,6 +720,18 @@ function featHTML(p, off) {
     + `<div class="pr-acts">${act('share', 'Share', 'data-pr-share')}${off ? '' : act('swap', 'Replace', 'data-pr-replace')}${p.seed || off ? '' : act('x-circle', 'Remove', 'data-pr-remove', ' is-destructive')}</div>`
     + `</section>`;
 }
+// "Questions from the press": what the league chat asked the featured week's loser, asker by asker.
+function qsHTML(p) {
+  const qs = p ? press.questionsFor(p.key) : [];
+  if (!qs.length) return '';
+  const me = data.me();
+  const items = qs.map(x => `<li class="pr-q">`
+    + `<span class="pr-q-lead">${ui.avatar(x.by, {size: 32, you: x.by === me})}</span>`
+    + `<span class="pr-q-main"><span class="pr-q-by">${esc(nm(x.by))}</span><span class="pr-q-t">${esc(x.q)}</span></span></li>`).join('');
+  return `<section class="pr-qs" aria-labelledby="pr-qs-h"><h2 class="t-2 pr-h" id="pr-qs-h">Questions from the press</h2>`
+    + `<p class="pr-qs-sub">${esc(`For ${nm(p.who)}, ${weekLabel(p).toLowerCase()}, from the league chat.`)}</p>`
+    + `<ol class="card pr-qs-list">${items}</ol></section>`;
+}
 function featSkHTML() {
   return `<div class="card pr-card pr-sk" aria-hidden="true"><span class="sk pr-sk-media"></span><div class="pr-sk-body"><span class="sk sk-circle"></span><span class="pr-sk-lines"><span class="sk sk-line"></span><span class="sk sk-line"></span></span></div></div>`;
 }
@@ -773,7 +786,8 @@ function archHTML(v) {
   const me = data.me();
   const groups = years.map((g, i) => {
     const rows = g.items.map(p => {
-      const sub = capOf(p) || cap1(contextText(p, {week: false})) || '';
+      const nq = press.questionsFor(p.key).length;
+      const sub = [capOf(p) || cap1(contextText(p, {week: false})) || '', nq ? `${nq} question${nq === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ');
       const on = p.key === fk;
       return ui.row({lead: thumbHTML(p, 'pr-row-th'), title: `Week ${p.week} · ${nm(p.who)}`, sub,
         trail: ui.avatar(p.who, {size: 28, you: p.who === me}), selected: on, key: p.key, cls: 'pr-row',
@@ -808,6 +822,7 @@ function sections(s) {
   return [
     ['banner', bannerHTML(v)],
     ['feat', v.feat ? featHTML(v.feat, v.err === 'denied') : featSkHTML()],
+    ['qs', qsHTML(v.feat)],
     ['prompt', promptHTML(s, v)],
     ['arch', archHTML(v)],
     ['help', helpHTML()],
