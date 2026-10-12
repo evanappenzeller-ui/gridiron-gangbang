@@ -8,71 +8,66 @@
 }
 
 /* ================================================================ Tab bar */
+/* A floating capsule (after Instagram's): inset from the screen's edges, above the home indicator, the content
+   scrolling on behind and around it. Icons only (each button's aria-label names it); the current tab sits on a soft
+   pill (.tab-ind, sized to its tab and slid between tabs by app.js) and shows its filled icon. All six tabs fit, so
+   the bar no longer scrolls (app.js's edge fades and first-visit hint find nothing to do). --tab-h (tokens.css) is
+   the capsule plus the gap under it: screens pad their content by it. */
 #tabbar {
-  position: absolute; left: 0; right: 0; bottom: 0;
-  z-index: var(--z-tab);
-  height: var(--tab-h);
-  padding: 0 env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+  position: absolute; z-index: var(--z-tab);
+  left: calc(12px + env(safe-area-inset-left, 0px)); right: calc(12px + env(safe-area-inset-right, 0px));
+  bottom: var(--tb-gap);
+  height: var(--tb-h);
+  padding: 5px;
   display: flex;
+  border-radius: calc(var(--tb-h) / 2);
   background: var(--bar);
   -webkit-backdrop-filter: var(--bar-filter);
   backdrop-filter: var(--bar-filter);
-  border-top: 1px solid var(--separator);
+  box-shadow: 0 10px 30px rgba(0,0,0,.42), 0 2px 6px rgba(0,0,0,.25),
+    inset 0 0 0 1px var(--rim, rgba(255,255,255,.07)), inset 0 1px 0 var(--edge-hi, rgba(255,255,255,.08));
   contain: layout;
-  /* Five and a half tabs fit across: the half tab at the edge shows there are more a swipe away (the bar scrolls
-     sideways and snaps to whole tabs). The indicator is a child, so it scrolls with its tab. A soft fade marks the
-     side with more tabs (.has-more-*), and app.js nudges the bar on a first visit (tabHint). */
-  overflow-x: auto; overflow-y: hidden;
-  scroll-snap-type: x mandatory;
-  overscroll-behavior-x: contain;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
-  --fade-l: 0px; --fade-r: 0px;
-  -webkit-mask-image: linear-gradient(to right, transparent, #000 var(--fade-l), #000 calc(100% - var(--fade-r)), transparent);
-  mask-image: linear-gradient(to right, transparent, #000 var(--fade-l), #000 calc(100% - var(--fade-r)), transparent);
+  overflow: hidden;
 }
-#tabbar::-webkit-scrollbar { display: none; }
-#tabbar.has-more-l { --fade-l: 16px; }
-#tabbar.has-more-r { --fade-r: 16px; }
 .tab {
   position: relative; z-index: 1;
-  flex: 0 0 calc(100% / 5.5); min-width: 62px;
-  scroll-snap-align: start;
-  display: flex; flex-direction: column; align-items: center;
-  padding-top: 5px; gap: 1px;
-  color: var(--ink-3);
-  font: 600 var(--fs-tab)/var(--lh-tab) var(--font-text);
-  letter-spacing: .01em;
+  flex: 1 1 0; min-width: 0;
+  display: grid; place-items: center;
+  border-radius: calc((var(--tb-h) - 10px) / 2);
+  color: var(--ink-2);
 }
 .tab-ic {
-  position: relative; width: 56px; height: 30px;
+  position: relative; width: 44px; height: 44px;
   display: grid; place-items: center;
   transition: transform var(--spring-snappy-dur) var(--spring-snappy);
 }
-.tab.is-pressed .tab-ic { transform: scale(.88); transition: none; }
-.tab-ic > .ic { width: 24px; height: 24px; grid-area: 1 / 1; }
+.tab.is-pressed .tab-ic { transform: scale(.86); transition: none; }
+.tab-ic > .ic { width: 26px; height: 26px; grid-area: 1 / 1; }
 .tab-ic .ic-on { display: none; }
 .tab[aria-current="page"] { color: var(--ink); }
-.tab[aria-current="page"] .tab-ic { color: var(--tint); }
 .tab[aria-current="page"] .ic-on { display: block; }
 .tab[aria-current="page"] .ic-off { display: none; }
-.tab-lb { white-space: nowrap; }
-/* Daily Games: the one two-word label, so its tab is a little wider than the rest. */
-.tab[data-tab="puzzles"] { flex-basis: calc(100% / 5.5 * 1.3); min-width: 80px; }
+/* The names stay in the markup for older code, never on screen (the buttons' aria-labels are what is read). */
+.tab-lb { display: none; }
 .tab-ind {
   position: absolute; left: 0; top: 5px;
-  width: 56px; height: 30px; border-radius: 15px;
-  background: var(--tint-soft);
+  width: 56px; height: calc(var(--tb-h) - 10px);
+  border-radius: calc((var(--tb-h) - 10px) / 2);
+  background: rgba(255,255,255,.13);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.07);
   pointer-events: none;
   opacity: 0;
 }
+@supports (color: color-mix(in srgb, red 50%, blue)) {
+  .tab-ind { background: color-mix(in srgb, var(--ink) 14%, transparent); }
+}
 .tab-ind.is-ready { opacity: 1; }
-/* Badge dot (Puzzles unfinished, Pick'em games to pick, Matchup vote open): top right of the 24 px icon. */
+/* Badge dot (Puzzles unfinished, Pick'em games to pick, Matchup vote open): top right of the 26 px icon. */
 .tab-dot {
-  position: absolute; top: 1px; left: calc(50% + 12px);
-  width: 6px; height: 6px; border-radius: 3px;
+  position: absolute; top: 7px; left: calc(50% + 10px);
+  width: 7px; height: 7px; border-radius: 4px;
   background: var(--tint);
-  box-shadow: 0 0 0 1.5px var(--bar-solid);
+  box-shadow: 0 0 0 2px var(--bar-solid);
 }
 .tab-dot[hidden] { display: none; }
 
@@ -874,8 +869,4 @@ button.bug, a.bug { color: var(--ink-3); }
 .btn-primary.is-pressed { transform: translateY(3px); box-shadow: 0 1px 0 var(--bevel, #3E9A2B); }
 .btn-secondary { box-shadow: 0 3px 0 rgba(0,0,0,.4); }
 .btn-secondary.is-pressed { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,.4); }
-/* Tab bar labels in the pixel numerals' face, and a squarer active pill. */
-.tab-lb { font: 400 13px/12px var(--font-num); text-transform: uppercase; letter-spacing: .04em; }
-.tab[data-tab="puzzles"] .tab-lb { letter-spacing: 0; }
-.tab-ind { border-radius: 8px; }
 .seg-thumb { border-radius: 6px; }

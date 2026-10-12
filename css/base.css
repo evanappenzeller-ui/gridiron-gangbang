@@ -215,7 +215,7 @@ small { font-size: inherit; }
 #boot .bt-h { width: 46%; height: 22px; }
 #boot .bt-seg { height: 32px; margin-top: 16px; border-radius: 9px; }
 #boot .bt-row { height: 48px; margin-top: 12px; border-radius: 12px; }
-#boot .bt-tab { position: absolute; left: 0; right: 0; bottom: 0; height: var(--tab-h); background: var(--bar-solid); border-top: 1px solid var(--separator); }
+#boot .bt-tab { position: absolute; left: 12px; right: 12px; bottom: var(--tb-gap); height: var(--tb-h); border-radius: calc(var(--tb-h) / 2); background: var(--bar-solid); box-shadow: inset 0 0 0 1px var(--separator); }
 #boot i, #boot .bt-card { animation: sk-pulse 1.2s ease-in-out infinite alternate; }
 
 @keyframes sk-pulse { from { opacity: 1; } to { opacity: .5; } }

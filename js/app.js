@@ -1313,7 +1313,9 @@ let indX = null, indAnim = null;
 function moveIndicator(btn, animate) {
   const ind = $('tabbar').querySelector('.tab-ind');
   if (!btn || !ind) return;
-  const x = btn.offsetLeft + (btn.offsetWidth - 56) / 2;
+  // The pill covers its tab (components.css: the floating bar's tabs share its width evenly).
+  const x = btn.offsetLeft;
+  ind.style.width = btn.offsetWidth + 'px';
   // Start from where the pill is on screen (mid-animation on quick successive taps), not from the last target.
   let from = indX;
   if (indAnim) {
