@@ -1422,7 +1422,111 @@ export function setChips(chipsEl, value, {emit = false, scroll = true} = {}) {
   if (emit && changed && hit) emitChange(chipsEl, chipsEl.dataset.chips, hit.dataset.value);
 }
 
-let pressEl = null, pressX = 0, pressY = 0, pressT = 0, pressOn = false, pressDelay = 0;
+// ---- The tap highlight and the pop (css/finish.css: #ink, .ink)
+// A press lights a soft glow where the finger landed, in the control's own text colour (--ink-c instead when it sets
+// one: filled buttons glow with light), drawn in a layer of its own above the app (#ink) so no control's markup
+// changes; it is clipped to the control's shape and to the part of it on screen (the scroll area it sits in, the tab
+// bar, a collapsed nav bar). A tap blooms it out as it fades; a scroll or
+// a slide away fades it at once, and so does anything that covers the spot while it fades (a sheet, a pushed screen,
+// the control re-rendered). A finished tap on a button, card, chip or icon button also pops: a quick overshoot of
+// its `scale`, a property of its own, so it never fights the transform the press uses. Reduced motion: neither.
+const INK_ON = '.row, .card, .btn:not(.btn-plain):not(.btn-destructive), .tile, .bug, .chip, .c-game, .pk-lg-t, .sv-cell, .tp-t, [data-press]:not([data-press="none"])';
+const POP_ON = '.btn:not(.btn-plain):not(.btn-destructive), button.card, a.card, .chip, .c-game, .pk-lg-t, .sv-cell, .icon-btn, .tp-t, [data-press]:not([data-press="row"]):not([data-press="none"])';
+const CLIPS = '.screen, .sheet, .sheet-body, .cover, [data-hscroll], .chips, #app';
+let inkHost = null;
+function inkLayer() {
+  if (inkHost && inkHost.isConnected) return inkHost;
+  inkHost = document.createElement('div');
+  inkHost.id = 'ink';
+  inkHost.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(inkHost);
+  return inkHost;
+}
+// The part of rect r of el that is on screen, or null.
+function onScreen(el, r) {
+  let top = r.top, left = r.left, right = r.right, bottom = r.bottom;
+  for (let a = el.parentElement; a && a !== document.body; a = a.parentElement) {
+    if (!a.matches(CLIPS)) continue;
+    const q = a.getBoundingClientRect();
+    top = Math.max(top, q.top); left = Math.max(left, q.left); right = Math.min(right, q.right); bottom = Math.min(bottom, q.bottom);
+  }
+  const scr = el.closest('.screen');
+  if (scr && !el.closest('.cover, .sheet, #overlays')) {
+    const tb = document.getElementById('tabbar');
+    if (tb && tb.getClientRects().length) bottom = Math.min(bottom, tb.getBoundingClientRect().top);
+  }
+  if (scr && scr.classList.contains('is-collapsed')) {
+    const nav = scr.querySelector(':scope > .nav');
+    if (nav && !el.closest('.nav')) top = Math.max(top, nav.getBoundingClientRect().bottom);
+  }
+  return right - left > 2 && bottom - top > 2 ? {top, left, right, bottom} : null;
+}
+function inkStart(el, x, y) {
+  if (RM || !el || !el.isConnected || !el.matches(INK_ON)) return null;
+  try {
+    const r = el.getBoundingClientRect();
+    if (r.width < 12 || r.height < 12) return null;
+    const v = onScreen(el, r);
+    if (!v) return null;
+    const cs = getComputedStyle(el);
+    const box = document.createElement('div');
+    box.className = 'ink';
+    const st = box.style;
+    st.left = r.left + 'px'; st.top = r.top + 'px'; st.width = r.width + 'px'; st.height = r.height + 'px';
+    st.borderRadius = cs.borderRadius;
+    st.color = cs.getPropertyValue('--ink-c').trim() || cs.color; // filled controls glow with light (finish.css)
+    const k = parseFloat(cs.getPropertyValue('--ink-a'));
+    if (k > 0 && k <= 1) st.opacity = String(k);
+    st.clipPath = `inset(${v.top - r.top}px ${r.right - v.right}px ${r.bottom - v.bottom}px ${v.left - r.left}px)`;
+    const px = Math.min(Math.max(x - r.left, 0), r.width), py = Math.min(Math.max(y - r.top, 0), r.height);
+    const R = Math.hypot(Math.max(px, r.width - px), Math.max(py, r.height - py));
+    const dot = document.createElement('i');
+    dot.style.cssText = `left:${px - R}px;top:${py - R}px;width:${2 * R}px;height:${2 * R}px`;
+    box.appendChild(dot);
+    inkLayer().appendChild(box);
+    const a = dot.animate([{transform: 'scale(.2)', opacity: 0}, {transform: 'scale(.62)', opacity: 1}], {duration: 240, easing: 'cubic-bezier(.22,1,.36,1)', fill: 'forwards'});
+    return {el, box, dot, a, x: Math.min(Math.max(x, v.left + 1), v.right - 1), y: Math.min(Math.max(y, v.top + 1), v.bottom - 1)};
+  } catch (_) { return null; }
+}
+function inkEnd(ink, tapped) {
+  if (!ink) return;
+  const {el, box, dot, a, x, y} = ink;
+  const done = () => box.remove();
+  try {
+    const cur = a && a.effect && a.effect.getComputedTiming ? Math.min(1, a.effect.getComputedTiming().progress || 0) : 1;
+    if (a) a.cancel();
+    const from = {transform: `scale(${(.2 + .42 * cur).toFixed(3)})`, opacity: cur};
+    // A fade from wherever the glow is now (mid-bloom: its animated size and opacity).
+    const fade = (now = from) => dot.animate([now, {transform: now.transform, opacity: 0}], {duration: 120, easing: 'linear', fill: 'forwards'});
+    let out = tapped ? dot.animate([from, {transform: 'scale(1)', opacity: 0}], {duration: 460, easing: 'cubic-bezier(.22,1,.36,1)', fill: 'forwards'}) : fade();
+    out.onfinish = done;
+    setTimeout(done, 700); // a page put away mid-animation never finishes it
+    if (!tapped) return;
+    // Still the control under the finger? Else (a sheet over it, a screen pushed, the control re-rendered) fade now.
+    const watch = () => {
+      if (!box.isConnected || out.playState === 'finished') return;
+      const top = el.isConnected ? document.elementFromPoint(x, y) : null;
+      if (!top || !(el === top || el.contains(top))) {
+        const cs = getComputedStyle(dot), now = {transform: cs.transform === 'none' ? from.transform : cs.transform, opacity: cs.opacity};
+        out.onfinish = null; out.cancel();
+        out = fade(now); out.onfinish = done;
+        return;
+      }
+      requestAnimationFrame(watch);
+    };
+    requestAnimationFrame(watch);
+  } catch (_) { done(); }
+}
+function pop(el) {
+  if (RM || !el || !el.isConnected || !el.matches(POP_ON) || !el.animate) return;
+  try {
+    const r = el.getBoundingClientRect();
+    const amp = Math.min(.06, 7 / Math.max(r.width, r.height, 1));
+    el.animate([{scale: '1'}, {scale: String(1 + amp)}, {scale: '1'}], {duration: 380, easing: 'cubic-bezier(.3,.7,.4,1)'});
+  } catch (_) {}
+}
+
+let pressEl = null, pressX = 0, pressY = 0, pressT = 0, pressOn = false, pressDelay = 0, pressInk = null;
 let lastPress = null; // {el, at}: the control tapped last (a sheet opened from it returns focus there; iOS never focuses it)
 let lastKeyAt = -1;
 const PRESSABLE = 'button, a[href], [data-press], [role="button"], summary';
@@ -1453,10 +1557,12 @@ function pressDown(e) {
       if (pressEl !== t) return;
       pressOn = true; pressT = performance.now();
       t.classList.add('is-pressed');
+      pressInk = inkStart(t, pressX, pressY);
     }, PRESS_DELAY);
   } else {
     pressOn = true;
     t.classList.add('is-pressed');
+    pressInk = inkStart(t, pressX, pressY);
   }
 }
 function pressMove(e) {
@@ -1468,14 +1574,20 @@ function releasePress(now) {
   if (!el) return;
   pressEl = null;
   clearTimeout(pressDelay);
+  const ink = pressInk;
+  pressInk = null;
   if (!pressOn) {
     // Moved, scrolled or cancelled before the delayed highlight showed: nothing was pressed.
     if (now === true) return;
     // A quick tap that ended before the delay: show the feedback now, briefly.
     el.classList.add('is-pressed');
     pressOffLater(el, PRESS_DELAY);
+    inkEnd(inkStart(el, pressX, pressY), true);
+    pop(el);
     return;
   }
+  inkEnd(ink, now !== true);
+  if (now !== true) pop(el);
   const held = performance.now() - pressT;
   if (now === true || held >= 70) pressOff(el);
   else pressOffLater(el, 70 - held);

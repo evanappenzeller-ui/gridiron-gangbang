@@ -1,0 +1,106 @@
+/* finish.css: the finish layer, loaded after every other stylesheet. Owner: foundation.
+   Light and depth on the shared surfaces (a lit top edge, a hairline rim, a faint sheen), device-pixel hairlines on
+   sharp screens, crisp pixel art, the press feedback's release (a spring with a little overshoot; the tap highlight and
+   the pop are js/core/ui.js: .ink, #ink), desktop hover, and balanced headings. Every colour is a theme token or a
+   neutral white/black, with a light-theme variant where it matters, so all of css/themes.css follows. Views keep the
+   last word: their own, more specific rules win over these. */
+
+/* ================================================================ Tokens */
+:root {
+  --edge-hi: rgba(255,255,255,.09);    /* the lit top edge of a surface */
+  --rim: rgba(255,255,255,.055);       /* its hairline outline */
+  --sheen: linear-gradient(180deg, rgba(255,255,255,.04) 0, rgba(255,255,255,0) 72px);
+  --ink-a: .42;                        /* the tap highlight's strength (ui.js; the layer blends in overlay) */
+}
+:root[data-light] {
+  --edge-hi: rgba(255,255,255,.8);
+  --rim: rgba(0,0,0,.075);
+  --sheen: linear-gradient(180deg, rgba(255,255,255,.5) 0, rgba(255,255,255,0) 72px);
+  --ink-a: .3;
+}
+
+/* ================================================================ Surfaces */
+/* Cards, inset groups and stat tiles: the theme's drop, a top edge that catches the light and a hairline rim. */
+.card, .group, .tile {
+  box-shadow: var(--pixel-shadow), inset 0 1px 0 var(--edge-hi), inset 0 0 0 1px var(--rim);
+  background-image: var(--sheen);
+}
+:root[data-light] .card, :root[data-light] .group, :root[data-light] .tile {
+  box-shadow: var(--pixel-shadow), inset 0 1px 0 var(--edge-hi), inset 0 0 0 1px var(--rim);
+}
+:root[data-font="future"] .card-hero { box-shadow: var(--pixel-shadow), inset 0 1px 0 var(--edge-hi), inset 0 0 0 1px rgba(0,240,255,.35); }
+.sheet { background-image: var(--sheen); }
+
+/* Segmented controls: the track sits a little into the surface, the thumb a little above it. */
+.seg { box-shadow: inset 0 1px 1.5px rgba(0,0,0,.2); }
+.seg-thumb { box-shadow: 0 1px 2px rgba(0,0,0,.24), 0 4px 10px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.14); }
+:root[data-light] .seg { box-shadow: inset 0 1px 1.5px rgba(0,0,0,.08); }
+:root[data-light] .seg-thumb { box-shadow: 0 1px 2px rgba(0,0,0,.12), 0 3px 8px rgba(0,0,0,.08), inset 0 1px 0 rgba(255,255,255,.9); }
+
+/* Chips: the separator rim plus the lit edge (a picked chip keeps its solid face). */
+.chip { box-shadow: inset 0 0 0 1px var(--separator), inset 0 1px 0 var(--edge-hi); }
+
+/* The tab bar's active pill glows faintly in the theme's tint. */
+@supports (color: color-mix(in srgb, red 50%, blue)) {
+  .tab-ind {
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tint) 20%, transparent),
+      0 0 18px -6px color-mix(in srgb, var(--tint) 55%, transparent);
+  }
+}
+
+/* Device-pixel hairlines on 2x and 3x screens: the bars' rules are one physical pixel, not two or three. */
+@media (min-resolution: 2dppx) {
+  #tabbar { border-top-width: .5px; }
+  .nav-bg { box-shadow: inset 0 -.5px 0 var(--separator); }
+}
+
+/* Pixel art (the league, game and puzzle badges) stays pixel-sharp when it is scaled. */
+.pk-badge, .c-game-badge, img[src$="nfl.webp"], img[src$="ncaa.webp"], img[src$="puzzles.webp"], img[src$="seventeen.webp"] {
+  image-rendering: pixelated;
+}
+
+/* ================================================================ Press: the release */
+/* The press is instant (components.css: is-pressed, no transition); the release springs back with a small overshoot,
+   so a tap lands with a pop. ui.js adds the tap highlight and, on buttons, cards and chips, a quick scale pop. */
+.btn { transition: transform var(--spring-bouncy-dur) var(--spring-bouncy), background-color 200ms, opacity 200ms, box-shadow 160ms; }
+.card { transition: transform var(--spring-bouncy-dur) var(--spring-bouncy); }
+.chip { transition: transform var(--spring-bouncy-dur) var(--spring-bouncy), background-color 150ms, color 150ms; }
+.tab-ic { transition: transform var(--spring-bouncy-dur) var(--spring-bouncy); }
+.btn-plain.is-pressed, .btn-destructive.is-pressed { transition: none; }
+
+/* The tap highlight (ui.js): a soft glow in the control's own text colour, blooming from the finger. Its own layer
+   above the app, so no view's markup changes; clipped to the control's shape and to what is on screen. Filled
+   controls (dark text on a bright face) glow with light instead: --ink-c. */
+.btn-primary, .btn-destructive-fill, .c-game[aria-selected="true"], .pk-lg-t[aria-selected="true"] { --ink-c: #fff; --ink-a: .55; }
+/* The layer blends in overlay: light lifts a dark surface and brightens a bright face, while dark text stays dark and
+   light text stays light, so a label never washes out under the glow. */
+#ink { position: fixed; inset: 0; z-index: 120; pointer-events: none; overflow: hidden; mix-blend-mode: overlay; }
+#ink:empty { display: none; }
+.ink { position: absolute; overflow: hidden; pointer-events: none; opacity: var(--ink-a); }
+.ink > i {
+  position: absolute; display: block; border-radius: 50%;
+  background: radial-gradient(closest-side, currentColor 0%, currentColor 45%, transparent 100%);
+  opacity: 0;
+}
+
+/* ================================================================ Desktop: hover and scrollbars */
+@media (hover: hover) and (pointer: fine) {
+  :where(.row):hover { background-color: rgba(255,255,255,.035); }
+  :root[data-light] :where(.row):hover { background-color: rgba(0,0,0,.03); }
+  :where(button.card, a.card, .btn-primary, .btn-secondary, .chip, .c-game, .pk-lg-t, .tp-t):hover { filter: brightness(1.07); }
+  :root[data-light] :where(button.card, a.card, .btn-secondary, .chip, .tp-t):hover { filter: brightness(.97); }
+  .screen, .sheet-body, .tp-body { scrollbar-width: thin; scrollbar-color: var(--surface-3) transparent; }
+}
+
+/* ================================================================ Type */
+/* Headings break into even lines; paragraphs avoid a lone last word (the longhand, so nowrap text stays nowrap). */
+.lt-title, .card-title, .sh > h2, .sh > h3, .t-1, .t-2, .t-3, .empty-title, .sheet-title { text-wrap-style: balance; }
+p { text-wrap-style: pretty; }
+::selection { background: rgba(124,240,88,.32); color: inherit; }
+@supports (color: color-mix(in srgb, red 50%, blue)) {
+  ::selection { background: color-mix(in srgb, var(--tint) 34%, transparent); }
+}
+
+/* ================================================================ Reduced motion */
+html.rm .btn, html.rm .card, html.rm .chip, html.rm .tab-ic { transition-timing-function: linear; transition-duration: 1ms; }
+html.rm #ink { display: none; }
