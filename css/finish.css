@@ -45,13 +45,6 @@
   box-shadow: 0 8px 24px rgba(0,0,0,.12), 0 1px 3px rgba(0,0,0,.08), inset 0 0 0 1px var(--rim), inset 0 1px 0 var(--edge-hi);
 }
 :root[data-light] .tab-ind { box-shadow: none; }
-/* Tab names fit their tabs on every phone: each theme's size (Retro 13 px, the others 12, Old School 11) down to what
-   a tab's width holds, about 1/4.6 of it (the longest name, Matchup, is ~4.4 em wide in the widest face). The tab
-   width is the bar's (the app column, less its 12 px insets and 5 px padding) over its 6.4 shares (Daily Games 1.4). */
-:root { --tl-fit: calc((min(100vw, var(--col-w)) - 34px) / 6.4 / 4.6); }
-.tab-lb { font-size: min(13px, var(--tl-fit)); }
-:root[data-skin] .tab-lb { font-size: min(12px, var(--tl-fit)); }
-:root[data-font="serif"] .tab-lb { font-size: min(11px, var(--tl-fit)); }
 /* Hard-edged themes (Futuristic): a squared bar and pill. */
 :root[data-radius="sharp"] #tabbar { border-radius: 6px; }
 :root[data-radius="sharp"] .tab, :root[data-radius="sharp"] .tab-ind { border-radius: 3px; }

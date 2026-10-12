@@ -9,11 +9,10 @@
 
 /* ================================================================ Tab bar */
 /* A floating capsule (after Instagram's and Yahoo Fantasy's): inset from the screen's edges, above the home
-   indicator, the content scrolling on behind and around it. Each tab is its icon over its name; the current tab sits
-   on a soft pill (.tab-ind, sized to its tab and slid between tabs by app.js) with its filled icon and its name in
-   the theme's tint. Daily Games, the one two-word name, gets a wider tab. All six fit, so the bar no longer scrolls
-   (app.js's edge fades and first-visit hint find nothing to do). --tab-h (tokens.css) is the capsule plus the gap
-   under it: screens pad their content by it. */
+   indicator, the content scrolling on behind and around it. Icons only (each button's aria-label names it); the
+   current tab sits on a soft pill (.tab-ind, sized to its tab and slid between tabs by app.js) with its filled icon
+   in the theme's tint. All six fit, so the bar no longer scrolls (app.js's edge fades and first-visit hint find
+   nothing to do). --tab-h (tokens.css) is the capsule plus the gap under it: screens pad their content by it. */
 #tabbar {
   position: absolute; z-index: var(--z-tab);
   left: calc(12px + env(safe-area-inset-left, 0px)); right: calc(12px + env(safe-area-inset-right, 0px));
@@ -37,24 +36,23 @@
 .tab {
   position: relative; z-index: 1;
   flex: 1 1 0; min-width: 0;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  display: grid; place-items: center;
   border-radius: calc((var(--tb-h) - 10px) / 2);
   color: var(--ink-2);
-  font: 600 var(--fs-tab)/var(--lh-tab) var(--font-text);
 }
-.tab[data-tab="puzzles"] { flex-grow: 1.4; }
 .tab-ic {
-  position: relative; width: 40px; height: 26px;
+  position: relative; width: 44px; height: 44px;
   display: grid; place-items: center;
   transition: transform var(--spring-snappy-dur) var(--spring-snappy);
 }
 .tab.is-pressed .tab-ic { transform: scale(.86); transition: none; }
-.tab-ic > .ic { width: 24px; height: 24px; grid-area: 1 / 1; }
+.tab-ic > .ic { width: 26px; height: 26px; grid-area: 1 / 1; }
 .tab-ic .ic-on { display: none; }
 .tab[aria-current="page"] { color: var(--tint); }
 .tab[aria-current="page"] .ic-on { display: block; }
 .tab[aria-current="page"] .ic-off { display: none; }
-.tab-lb { max-width: 100%; padding: 0 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; letter-spacing: .01em; }
+/* The names stay in the markup, never on screen (the buttons' aria-labels are what is read). */
+.tab-lb { display: none; }
 .tab-ind {
   position: absolute; left: 0; top: 5px;
   width: 56px; height: calc(var(--tb-h) - 10px);
@@ -68,9 +66,9 @@
   .tab-ind { background: color-mix(in srgb, var(--ink) 14%, transparent); }
 }
 .tab-ind.is-ready { opacity: 1; }
-/* Badge dot (Puzzles unfinished, Pick'em games to pick, Matchup vote open): top right of the 24 px icon. */
+/* Badge dot (Puzzles unfinished, Pick'em games to pick, Matchup vote open): top right of the 26 px icon. */
 .tab-dot {
-  position: absolute; top: 0; left: calc(50% + 9px);
+  position: absolute; top: 7px; left: calc(50% + 10px);
   width: 7px; height: 7px; border-radius: 4px;
   background: var(--tint);
   box-shadow: 0 0 0 2px var(--bar-solid);
@@ -867,9 +865,6 @@ button.bug, a.bug { color: var(--ink-3); }
 .sh > h2, .sh > h3 { font: 400 14px/22px var(--font-pixel); text-transform: uppercase; letter-spacing: 0; text-shadow: var(--hard-shadow-s, 2px 2px 0 #000); }
 .nav-title { font-family: var(--font-pixel); font-size: 11px; text-transform: uppercase; letter-spacing: 0; }
 .group-h, .card-ovl, .ovl { letter-spacing: .08em; }
-/* Tab names in the pixel numerals' face. */
-.tab-lb { font: 400 13px/12px var(--font-num); text-transform: uppercase; letter-spacing: .03em; }
-.tab[data-tab="puzzles"] .tab-lb { letter-spacing: 0; }
 /* Cards, groups and tiles sit on a hard shadow with a faint pixel edge. */
 .card, .group, .tile { box-shadow: var(--pixel-shadow), inset 0 0 0 1px rgba(255,255,255,.05); }
 .card > .group, .sheet .group { box-shadow: none; }
