@@ -293,7 +293,8 @@ export async function pressChecks(check) {
       if (P) mseen.add(m.key);
       if (why) bad.push(`motw #${i} ${why}`);
     });
-    // The chat's questions: {weekKey: [{by, q}]}, every entry kept as written (a manager asking, one clean paragraph).
+    // The chat's questions: {weekKey: [{by, q, note?}]}, every entry kept as written (a manager asking, one clean
+    // paragraph, an optional one-line note).
     const qs = j.questions == null ? {} : j.questions;
     let nq = 0;
     if (!qs || typeof qs !== 'object' || Array.isArray(qs)) bad.push('"questions" is not an object');
@@ -304,8 +305,9 @@ export async function pressChecks(check) {
         if (!P || week.weekKey(P.year, P.week) !== k) { bad.push(`questions ${k}: bad week key`); return; }
         if (!Array.isArray(arr) || !arr.length) { bad.push(`questions ${k}: not a list`); return; }
         arr.forEach((x, i) => {
-          const ok = x && typeof x === 'object' && Object.keys(x).every(f => f === 'by' || f === 'q') && kept[k] && kept[k].length === arr.length && kept[k][i].q === x.q;
-          if (!ok) bad.push(`questions ${k} #${i}: unknown field, unknown asker or not one clean paragraph (<= ${press.Q_MAX})`);
+          const ok = x && typeof x === 'object' && Object.keys(x).every(f => ['by', 'q', 'note'].includes(f)) && kept[k] && kept[k].length === arr.length
+            && kept[k][i].q === x.q && (x.note == null ? !kept[k][i].note : kept[k][i].note === x.note);
+          if (!ok) bad.push(`questions ${k} #${i}: unknown field, unknown asker, not one clean paragraph (<= ${press.Q_MAX}) or a note that isn't one clean line (<= ${press.NOTE_MAX})`);
         });
         nq += arr.length;
       });

@@ -416,12 +416,14 @@ const localMap = () => (standIn() ? readStore() : {});
 //    "motw": [{key: '2026-w3', a: 'jaymin', b: 'ben'}],  Matchups of the Week picked in the league chat before the
 //                                                         app had voting (motwLoser falls back to them)
 //    "questions": {"2026-w2": [{by: 'mason', q: '…'}]}} the questions the league chat asked that week's loser, by
-//                                                         week, so they stay with the week whichever video it shows
+//                                                         week, so they stay with the week whichever video it shows;
+//                                                         an optional note (<= NOTE_MAX) goes under a question
 
 const SEED = {docs: [], motw: Object.create(null), qs: Object.create(null), settled: false, p: null, error: null};
-export const Q_MAX = 500;
-// The seed's questions -> {weekKey: [{by, q}]} (a bad week, an unknown asker or an empty question is skipped; a
-// question is one paragraph, at most Q_MAX characters).
+export const Q_MAX = 500, NOTE_MAX = 80;
+const oneLine = (s, max) => (typeof s === 'string' ? s.replace(/\s+/g, ' ').trim().slice(0, max).trim() : '');
+// The seed's questions -> {weekKey: [{by, q, note?}]} (a bad week, an unknown asker or an empty question is skipped;
+// a question is one paragraph, at most Q_MAX characters; a note one line, at most NOTE_MAX).
 export function seedQuestions(o) {
   const out = Object.create(null);
   if (!o || typeof o !== 'object' || Array.isArray(o)) return out;
@@ -429,14 +431,15 @@ export function seedQuestions(o) {
     const P = week.parseKey(k);
     if (!P || P.week > MAX_WEEK || !Array.isArray(o[k])) return;
     const list = o[k].map(x => {
-      const q = x && typeof x.q === 'string' ? x.q.replace(/\s+/g, ' ').trim().slice(0, Q_MAX).trim() : '';
-      return q && typeof x.by === 'string' && data.M[x.by] ? {by: x.by, q} : null;
+      const q = x ? oneLine(x.q, Q_MAX) : '', note = x ? oneLine(x.note, NOTE_MAX) : '';
+      if (!q || typeof x.by !== 'string' || !data.M[x.by]) return null;
+      return note ? {by: x.by, q, note} : {by: x.by, q};
     }).filter(Boolean);
     if (list.length) out[week.weekKey(P.year, P.week)] = list;
   });
   return out;
 }
-/** The league chat's questions for a week's loser ('2026-w2'), in the order they were asked: [{by, q}]. */
+/** The league chat's questions for a week's loser ('2026-w2'), in the order they were asked: [{by, q, note?}]. */
 export const questionsFor = key => (noSeed ? [] : (SEED.qs[key] || []).map(x => Object.assign({}, x)));
 // The seed's motw list -> {weekKey: 'a|b'} (entries with a bad key or unknown managers are skipped).
 export function seedMotw(list) {

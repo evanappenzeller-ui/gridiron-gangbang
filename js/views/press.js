@@ -727,7 +727,9 @@ function qsHTML(p) {
   const me = data.me();
   const items = qs.map(x => `<li class="pr-q">`
     + `<span class="pr-q-lead">${ui.avatar(x.by, {size: 32, you: x.by === me})}</span>`
-    + `<span class="pr-q-main"><span class="pr-q-by">${esc(nm(x.by))}</span><span class="pr-q-t">${esc(x.q)}</span></span></li>`).join('');
+    + `<span class="pr-q-main"><span class="pr-q-by">${esc(nm(x.by))}</span><span class="pr-q-t">${esc(x.q)}</span>`
+    + (x.note ? `<span class="pr-q-note">${ui.icon('info', {size: 14})}<span>${esc(x.note)}</span></span>` : '')
+    + `</span></li>`).join('');
   return `<section class="pr-qs" aria-labelledby="pr-qs-h"><h2 class="t-2 pr-h" id="pr-qs-h">Questions from the press</h2>`
     + `<p class="pr-qs-sub">${esc(`For ${nm(p.who)}, ${weekLabel(p).toLowerCase()}, from the league chat.`)}</p>`
     + `<ol class="card pr-qs-list">${items}</ol></section>`;

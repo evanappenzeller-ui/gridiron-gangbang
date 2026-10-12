@@ -271,6 +271,8 @@ html.rm .c-press-ifr, html.rm .c-press-btn { transition: none; }
 .v-press .pr-q-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .v-press .pr-q-by { font: 600 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2); }
 .v-press .pr-q-t { font: 400 var(--fs-callout)/var(--lh-callout) var(--font-text); color: var(--ink); overflow-wrap: anywhere; }
+.v-press .pr-q-note { display: flex; align-items: center; gap: 6px; margin-top: 4px; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+.v-press .pr-q-note > .ic { flex: none; }
 .v-press .pr-sec-arch .group-wrap + .group-wrap { margin-top: 24px; }
 .v-press .pr-row { min-height: 76px; padding-left: 12px; }
 .v-press .pr-row .row-lead { margin-right: 12px; }
