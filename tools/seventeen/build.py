@@ -45,10 +45,15 @@ THE MODEL (everything in points, from EPA: expected points added, play by play)
     COOLDOWN days, no two with one name. Prices are fantasy reputation: within a column the biggest fantasy season
     costs $5, the smallest $1. The season is decided by the model, so the bargains are the seasons worth more than
     their fantasy points. A draw is kept when the price order and the model disagree somewhere (MIN_SURPRISE pairs)
-    and at most MAX_PERFECT lineups go 17-0; else the best of MAX_TRIES draws.
+    and at most MAX_PERFECT lineups go 17-0 on its first schedule (below); else the best of MAX_TRIES draws.
   Schedule. Each board plays 17 real team-seasons (2006-2025), picked so the records spread: the k-th toughest game
-    sits at the TARGET quantile of the board's sensible lineups (those spending $13-$15), and the toughest, in week
-    17, is the best team the board's perfect lineup still beats. So only the top of the board runs the table.
+    sits at the TARGET quantile of the board's sensible lineups (those spending $13-$15), and the toughest comes in
+    week 17. From board TOP_FROM on, that week-17 team is the one every lineup but the board's best TOP_N loses to
+    (more only when #TOP_N ties the next): the real team-season whose margin is closest, its defense nudged by the
+    difference (BOSS_NUDGE at most) so the line falls between #TOP_N and #TOP_N+1. So the top TOP_N run the table.
+    Boards before TOP_FROM (already played when the rule came in) keep their first schedule: its week-17 team is the
+    best one the board's perfect lineup still beats, so only 1-3 lineups go 17-0. The draws themselves (the 25
+    players of every day) are the same either way.
 """
 import csv
 import datetime
@@ -77,6 +82,7 @@ COOLDOWN = 7
 PHOTO_FROM = 2016  # the first season whose roster photos are that season's own
 ESPN_FIRST_TO = 2016  # careers that ended by this season: NFL.com shows a helmet, so ESPN's photo goes first
 MIN_SURPRISE, MAX_PERFECT, MAX_TRIES = 3, 3, 80
+TOP_FROM, TOP_N, BOSS_NUDGE = 5, 25, 1.5  # from board 5 (Oct 13 2026) the best 25 lineups go 17-0
 BUDGET = 15
 TIERS = [5, 4, 3, 2, 1]
 COLS = ['QB', 'RB', 'WR', 'WR', 'TE']
@@ -473,6 +479,43 @@ def schedule(cells, base, teams):
     return order[2:] + order[:2] + [boss]
 
 
+def schedule_top(cells, base, teams):
+    """schedule() for boards from TOP_FROM: exactly the best TOP_N lineups go 17-0 (ties at #TOP_N all do). Returns
+    (16 team indexes into teams, the week-17 team: a dict like teams' rows, its pa nudged so its need sits between
+    lineup #TOP_N and #TOP_N + 1)."""
+    ls = sorted((p for p, _, _ in lineups(cells, base)), reverse=True)
+    k = TOP_N
+    while k < len(ls) and ls[k - 1] - ls[k] < 1e-9:
+        k += 1
+    lo, hi = ls[k], ls[k - 1]
+    # The line on the 2-decimal grid strictly between them (the lineups' values are base + whole cents, so one exists).
+    need = next((round(x, 2) for x in (math.floor(hi * 100) / 100, math.ceil(lo * 100) / 100, (lo + hi) / 2)
+                 if lo + 1e-6 < round(x, 2) < hi - 1e-6), None)
+    assert need is not None, (lo, hi)
+    real = min(range(len(teams)), key=lambda i: (abs(teams[i]['need'] - need), -teams[i]['y']))
+    t = teams[real]
+    boss = dict(t, pa=round(t['pf'] - need, 2), need=need, _from=real)
+    assert abs(boss['need'] - t['need']) <= BOSS_NUDGE, (t, need)
+    sensible = sorted(p for p, c, _ in lineups(cells, base) if c >= BUDGET - 2)
+    mu, sd = TARGET
+    targets = [sensible[min(len(sensible) - 1, int(phi((k - 0.5 - mu) / sd) * len(sensible)))] for k in range(1, 17)]
+    used, chosen = {real}, []
+    for tg in targets:
+        i = min((i for i, x in enumerate(teams) if i not in used and x['need'] < need - 0.05),
+                key=lambda i: abs(teams[i]['need'] - tg))
+        used.add(i)
+        chosen.append(i)
+    by = sorted(chosen, key=lambda i: teams[i]['need'])
+    order, a, b = [], 0, len(by) - 1
+    while a <= b:
+        order.append(by[a])
+        a += 1
+        if a <= b:
+            order.append(by[b])
+            b -= 1
+    return order[2:] + order[:2], boss
+
+
 def team_records():
     rows = fetch('games.csv', f'{REL}/schedules/games.csv')
     rec = {}
@@ -564,6 +607,9 @@ def report(boards, cards, teams, base):
     print(f"perfect team ppg {min(tops):.1f}-{max(tops):.1f}; surprise pairs per board {min(d['surprise'] for d in boards)}-{max(d['surprise'] for d in boards)}")
     print('wins of $13-$15 lineups (all boards, %):', {k: round(100 * v / tot, 1) for k, v in sorted(sens.items(), reverse=True)})
     print('most common week-17 bosses:', sorted(bosses.items(), key=lambda kv: -kv[1])[:6])
+    nudges = [abs(teams[i]['need'] - teams[i]['_real']) for i in {d['sched'][-1] for d in boards} if '_real' in teams[i]]
+    if nudges:
+        print(f"week-17 teams nudged: {len(nudges)}, by {statistics.mean(nudges):.2f} points a game on average, at most {max(nudges):.2f}")
     for n, d in enumerate(boards[:3]):
         cells = [[cards[i] for i in col] for col in d['cells']]
         sched = [teams[i] for i in d['sched']]
@@ -627,6 +673,21 @@ def main():
             for i in col:
                 last_used[i] = day
         boards.append(d)
+    # From board TOP_FROM: the schedule where the best TOP_N lineups go 17-0 (the draws above are untouched; their
+    # first schedules only decided which draw was kept). Each nudged week-17 team is a team row of its own.
+    out = list(teams)
+    nudged = {}
+    for day, d in enumerate(boards):
+        if day + 1 < TOP_FROM:
+            continue
+        cells = [[cards[i] for i in col] for col in d['cells']]
+        rest, boss = schedule_top(cells, model['base'], teams)
+        key = (boss['f'], boss['y'], boss['pa'])
+        if key not in nudged:
+            nudged[key] = len(out)
+            out.append(dict(boss, _real=teams[boss['_from']]['need']))
+        d['sched'] = rest + [nudged[key]]
+    teams = out
     report(boards, cards, teams, model['base'])
 
     # Only what the boards use: cards and teams renumbered in order of first use.
@@ -653,6 +714,8 @@ def main():
         'asof': f'{LAST} season',
         'start': START,
         'model': {'base': model['base'], 'w': model['w'], 'r2': round(model['r2'], 3), 'n': model['n'], 'share': RECV_SHARE, 'rep': REP_PCT},
+        # From board `from` on, the best `n` lineups go 17-0 (more only on a tie at #n); earlier boards 1-3.
+        'perfect': {'from': TOP_FROM, 'n': TOP_N},
         'budget': BUDGET, 'tiers': TIERS, 'cols': LABELS,
         'colors': COLORS,
         'cards': out_cards,

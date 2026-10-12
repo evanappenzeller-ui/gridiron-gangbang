@@ -3,14 +3,15 @@
 // grid of player-seasons, five columns (QB, RB, WR1, WR2, TE) by five prices ($5 down to $1, by fantasy reputation),
 // every player in his prime, each square with his headshot and his first and last name. Pick one per column within
 // the $15 budget, then play the season: the model turns the five seasons into points per game (an EPA model fit on
-// every team-season 2006-2025) and plays 17 real teams. Only the perfect lineup goes 17-0.
+// every team-season 2006-2025) and plays 17 real teams. Only the board's best 25 lineups go 17-0 (sv.topN; the first
+// boards sent just one to three).
 //
 // A pane module, like League's segments: render(ctx), mount(el, ctx, {anchor}), params(el, ctx), unmount(el, ctx).
 // anchor: the element to keep in view when the pane swaps phases (the game picker).
 // Two phases, from what this phone stored for today's board: 'build' (the budget, the grid, the lineup bar with Play
 // right under it, the scouting report of the last player tapped) and 'season' once played. One season a day: Play locks the
 // lineup in; the season shows the record (counted up week by week right after Play), Share (no player names), the
-// time to the next board, each pick's points per game, the 17 games and the perfect team. At midnight the pane moves
+// time to the next board, each pick's points per game, the 17 games and the best team. At midnight the pane moves
 // to the new board. The model's own number for a player (imp) is never shown before the season: that is the answer.
 // Both phases end with the league's Scoreboard (Today: each member's record on today's board; All-time: every 17-0
 // season they've played), live from the Daily's board snapshot (core/seventeen.js boardRows). Tap a row for that
@@ -175,7 +176,7 @@ function buildHTML(b, pick, foc, mode) {
 
 // ============================================================================ Markup: season
 const VERDICT = [
-  [17, 'Perfect season. You found the perfect team.'],
+  [17, 'Perfect season. You ran the table.'],
   [16, 'One game from perfect.'],
   [14, 'A juggernaut. One swap from history?'],
   [11, 'Playoff team.'],
@@ -201,16 +202,20 @@ function weekHTML(gm) {
     + `<span class="sv-wk-opp"><b>${esc(`${gm.home ? 'vs' : '@'} ${g.y} ${g.tn}`)}</b><small>${esc(g.rec ? `went ${g.rec}` : '')}</small></span>`
     + `<span class="sv-wk-res"><b>${gm.win ? 'W' : 'L'}</b> ${gm.us}–${gm.them}</span></li>`;
 }
+/** The board's best team: yours (and how many others go 17-0), or what it was, with a word for a 17-0 that isn't it. */
 function perfectHTML(b, pick) {
-  const top = sv.best(b), all = sv.all(b);
+  const top = sv.best(b), all = sv.all(b), mine = sv.season(b, pick);
   if (sv.samePick(top.pick, pick)) {
     const others = all.perfect - 1;
-    return `<div class="card sv-perfect is-you"><p class="sv-pf-t">${ui.icon('trophy', {size: 18})}<span>You found the perfect team.</span></p>`
+    return `<div class="card sv-perfect is-you"><p class="sv-pf-t">${ui.icon('trophy', {size: 18})}<span>You found the best team.</span></p>`
       + `<p class="sv-pf-s">${esc(others > 0 ? `${plural(others, 'other lineup')} also ${others === 1 ? 'goes' : 'go'} 17–0 today, none score more.` : 'No other lineup under the cap goes 17–0 today.')}</p></div>`;
   }
   const s = sv.season(b, top.pick);
-  return `<div class="card sv-perfect"><p class="sv-pf-t">${ui.icon('trophy', {size: 18})}<span>${esc(`The perfect team: ${sv.rec(s)}, ${s.ppg.toFixed(1)} points a game`)}</span></p>`
-    + `<p class="sv-pf-s">${esc(all.perfect > 1 ? `The best of the ${all.perfect} lineups that go 17–0 today.` : 'The only lineup under the cap that goes 17–0 today.')}</p>`
+  const sub = mine.w === 17
+    ? `You’re one of the ${nf(all.perfect)} lineups that go 17–0 today. This one scores the most.`
+    : all.perfect > 1 ? `The best of the ${nf(all.perfect)} lineups that go 17–0 today.` : 'The only lineup under the cap that goes 17–0 today.';
+  return `<div class="card sv-perfect${mine.w === 17 ? ' is-you' : ''}"><p class="sv-pf-t">${ui.icon('trophy', {size: 18})}<span>${esc(`The best team: ${sv.rec(s)}, ${s.ppg.toFixed(1)} points a game`)}</span></p>`
+    + `<p class="sv-pf-s">${esc(sub)}</p>`
     + lineupHTML(b, top.pick) + `</div>`;
 }
 function nextHTML() {
@@ -302,7 +307,7 @@ function teamSeasonHTML(row, s) {
     body = `<p class="sv-tm-note">${ui.icon('info', {size: 16})}<span>${esc(row.me ? 'Your team goes up with your next visit to Daily Games.' : `${row.name} played before teams were kept. It shows up here after ${row.name} opens the app again.`)}</span></p>`;
   } else {
     const best = sv.samePick(sv.best(b).pick, pick);
-    body = lineupHTML(b, pick) + (best ? `<p class="sv-tm-note is-gold">${ui.icon('trophy', {size: 16})}<span>The perfect team.</span></p>` : '');
+    body = lineupHTML(b, pick) + (best ? `<p class="sv-tm-note is-gold">${ui.icon('trophy', {size: 16})}<span>The best team.</span></p>` : '');
   }
   return `<section class="sv-tm" aria-label="${esc(`17–0 number ${s.n}, ${sv.dayLabel(s.n)}: ${s.w} and ${s.l}`)}">`
     + `<div class="sv-tm-head"><p class="sv-tm-day">${esc(`${sv.dayLabel(s.n)} · #${s.n}`)}</p><p class="sv-tm-rec${gold ? ' is-gold' : ''}">${s.w}–${s.l}</p></div>`
@@ -594,11 +599,13 @@ function tick(st) {
 // ============================================================================ How it works
 function openHelp() {
   const m = sv.DOC && sv.DOC.model;
+  const b = sv.DOC ? sv.today() : null, n = sv.topN(b);
+  const table = n ? `The best ${n} lineups on the board run the table` : 'Only the very top of the board runs the table';
   const body = `<div class="sv-help">`
     + `<p><b>One board a day.</b> Everyone gets the same 25 players and one season: pick one player per column, spend no more than the cap, and Play locks your lineup in. A new board comes at midnight.</p>`
     + `<p><b>Every card is a prime.</b> The season people remember: 2022 Nick Chubb and his 1,525 rushing yards, not 2025 Chubb. Prices follow each season’s fantasy points, so the $5 player had the biggest fantasy year in his column.</p>`
     + `<p><b>The data decides.</b> Each season is scored with EPA (expected points added, play by play, from nflverse) over what a replacement-level player would do with the same workload; a completed pass splits the credit between passer and receiver. A regression on every team-season from 2006 to 2025${m ? ` (${nf(m.n)} of them, R² ${m.r2.toFixed(2)})` : ''} turns your five seasons into points per game. Big fantasy numbers don’t always win games.</p>`
-    + `<p><b>The season.</b> Your defense is league average, against 17 real teams from 2006–2025. Outscore a team and it’s a win. Only the perfect lineup runs the table, and week 17 is the toughest team on the slate.</p>`
+    + `<p><b>The season.</b> Your defense is league average, against 17 real teams from 2006–2025. Outscore a team and it’s a win. ${table}, and week 17 is the toughest team on the slate.</p>`
     + `</div>`;
   ui.openSheet({title: 'How 17–0 works', body, detents: ['fit'], cls: 'sh-seventeen'});
 }

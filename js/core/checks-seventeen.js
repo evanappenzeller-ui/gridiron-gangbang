@@ -39,16 +39,21 @@ export async function seventeenChecks(check) {
     return {pass: !bad.length, detail: bad.length ? bad.slice(0, 8).join('; ') : `${days()} boards from ${D.start}, ${D.cards.length} prime seasons, ${D.teams.length} opponents`};
   });
 
-  // 2. The perfect lineup
-  check('17-0: on every board the best lineup under the cap goes 17-0 (at most 3 do), the all-$1 lineup does not, and week 17 is the hardest game', () => {
+  // 2. The perfect lineups
+  check('17-0: from board 5 exactly the best 25 lineups go 17-0 (more only on a tie at #25), before it 1-3; the all-$1 lineup never does, and week 17 is the hardest game', () => {
     need();
-    const bad = [], counts = {};
+    const bad = [], counts = {}, P = sv.DOC.perfect;
     let lo = Infinity, hi = -Infinity;
+    if (!P || P.from !== 5 || P.n !== 25) bad.push('DOC.perfect');
     for (let n = 1; n <= days(); n++) {
-      const b = sv.board(n), a = sv.all(b), top = a.list[0];
+      const b = sv.board(n), a = sv.all(b), top = a.list[0], N = sv.topN(b);
       const s = sv.season(b, top.pick), cheap = sv.season(b, [4, 4, 4, 4, 4]);
       const hardest = Math.max(...b.sched.map(g => g.need));
-      if (!(top.cost <= b.budget && s.w === 17 && a.perfect >= 1 && a.perfect <= 3 && cheap.w < 17 && b.sched[16].need === hardest && a.list.length === 1753)) bad.push(n);
+      // The 17-0 lineups are the top of the list: #N (and anything tied with it) wins all 17, the next one doesn't.
+      const go = x => sv.season(b, x.pick).w === 17;
+      const count = N ? a.perfect >= N && a.list.slice(N, a.perfect).every(x => Math.abs(x.ppg - a.list[N - 1].ppg) < 1e-9)
+        && go(a.list[a.perfect - 1]) && !go(a.list[a.perfect]) : a.perfect >= 1 && a.perfect <= 3;
+      if (!(top.cost <= b.budget && s.w === 17 && count && cheap.w < 17 && b.sched[16].need === hardest && a.list.length === 1753 && sv.topN(b) === (n >= 5 ? 25 : 0))) bad.push(n);
       counts[a.perfect] = (counts[a.perfect] || 0) + 1;
       lo = Math.min(lo, top.ppg); hi = Math.max(hi, top.ppg);
     }

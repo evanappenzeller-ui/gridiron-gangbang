@@ -13,7 +13,9 @@
 //   ppg(b, pick)             team points per game: model.base + each pick's imp (his weighted value per game)
 //   season(b, pick)          {w, l, ppg, pf, pa, games: [{wk, g (the opponent), home, us, them, win}]}
 //   all(b)                   every legal lineup, best first: {list: [{ppg, cost, pick}], perfect (how many go 17-0)}
-//   best(b), rankOf(b, pick) the perfect lineup; {rank, of, pct} of a lineup among the legal ones
+//   best(b), rankOf(b, pick) the best lineup; {rank, of, pct} of a lineup among the legal ones
+//   topN(b)                  how many lineups the board is built to send 17-0 (DOC.perfect: 25 from board 5 on), or 0
+//                            on the first boards (only the best one to three did)
 //   dayState(n), keepPick(n, pick), lockIn(n, pick, season), totals()   localStorage 'gg-17'
 //   shareText(b, season)     no player names: everyone plays the same board
 //   autoPost(), boardRows(mode, n), seasonsOf(key, n), boardState()   the league scoreboard (below)
@@ -126,6 +128,10 @@ export function all(b) {
   return a;
 }
 export const best = b => all(b).list[0];
+export function topN(b) {
+  const P = DOC && DOC.perfect, day = b ? ((b.n - 1) % DOC.days.length) + 1 : 0;
+  return P && day >= P.from ? P.n : 0;
+}
 export function rankOf(b, pick) {
   const {list} = all(b), p = ppg(b, pick);
   const above = list.filter(x => x.ppg > p + 1e-9).length;
