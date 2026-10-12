@@ -134,7 +134,7 @@
   --nav-h: calc(44px + env(safe-area-inset-top, 0px));
   /* The tab bar floats: a --tb-h capsule --tb-gap above the bottom (over the home indicator on iPhones). --tab-h is
      the room it takes, which screens leave free under their content. */
-  --tb-h: 58px;
+  --tb-h: 62px;
   --tb-gap: max(12px, calc(env(safe-area-inset-bottom, 0px) - 10px));
   --tab-h: calc(var(--tb-h) + var(--tb-gap));
   --acc-h: 44px;
