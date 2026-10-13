@@ -1,5 +1,5 @@
 {
-  "about": "The Lay: the weekly 12-leg parlay. Every manager submits one leg; the lowest scorer of the previous fantasy week places it for $5. Each week lists its legs: by (manager id), bet, hit (true, false, or null while pending). A leg submitted for someone else carries for (the manager whose slot it filled). placer overrides the computed placer (lowest score the week before).",
+  "about": "The Lay: the weekly 12-leg parlay. Every manager submits one leg; the lowest scorer of the previous fantasy week places it for $5. Each week lists its legs: by (manager id), bet, hit (true, false, or null while pending). A leg submitted for someone else carries for (the manager whose slot it filled). placer overrides the computed placer (lowest score the week before). stat (optional) is what the leg came to, shown under it (\"1 catch for 7 yds\", \"Bears won 23–12\").",
   "stake": 5,
   "legs": 12,
   "weeks": [
@@ -56,7 +56,20 @@
     },
     {
       "year": 2026, "week": 4,
-      "legs": []
+      "legs": [
+        {"by": "ben", "bet": "Josh Allen Anytime TD Scorer", "hit": true, "stat": "1 rush TD"},
+        {"by": "corbin", "bet": "Parker Washington Over 4 Receptions", "hit": false, "stat": "1 catch for 7 yds"},
+        {"by": "dresden", "bet": "Lions Panthers Over 51.5", "hit": true, "stat": "Panthers 32, Lions 26: 58 points"},
+        {"by": "evan", "bet": "Puka Nacua Anytime TD Scorer", "hit": true, "stat": "1 rush TD, 9 catches for 125 yds"},
+        {"by": "jackson", "bet": "San Francisco 49ers -3", "hit": true, "stat": "49ers won 24–14"},
+        {"by": "jacob", "bet": "Buffalo Bills Moneyline", "hit": false, "stat": "Patriots won 29–26"},
+        {"by": "jaymin", "bet": "Christian McCaffrey Anytime TD Scorer", "hit": true, "stat": "1 rush TD"},
+        {"by": "jayton", "bet": "Jaxon Smith-Njigba 100+ Receiving Yards", "hit": false, "stat": "5 catches for 76 yds"},
+        {"by": "john", "bet": "Chicago Bears Moneyline", "hit": true, "stat": "Bears won 23–12"},
+        {"by": "mason", "bet": "Texans ML", "hit": false, "stat": "Cowboys won 34–30"},
+        {"by": "mitch", "bet": "Kansas City Chiefs Team Total Over 23.5", "hit": true, "stat": "Chiefs scored 30"},
+        {"by": "sayer", "bet": "James Cook Anytime", "hit": true, "stat": "1 rush TD"}
+      ]
     }
   ]
 }

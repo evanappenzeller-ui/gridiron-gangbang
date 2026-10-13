@@ -2,7 +2,8 @@
 // previous fantasy week places it for $5 (the placer comes from league.json: the lowest regular-season score of week
 // N-1, unless the week in data/lay.json names one). Sections: this week's slip (who places it, the legs in so far),
 // season tiles, each manager's leg record, then every week's slip with its hits and the legs that busted it.
-// Data: data/lay.json {stake, legs, weeks: [{year, week, placer?, legs: [{by, for?, bet, hit: true|false|null}]}]}.
+// Data: data/lay.json {stake, legs, weeks: [{year, week, placer?, legs: [{by, for?, bet, hit: true|false|null, stat?}]}]}.
+// stat: what a settled leg came to ("1 catch for 7 yds", "Bears won 23–12"), shown under it like the tracker's note.
 // A leg with `for` was submitted by `by` in another manager's slot: it counts on `by`'s record.
 // Live legs: managers enter their leg for the week in the "Your leg" card (core/lay.js, Firestore); they show on the
 // slip as pending until data/lay.json carries that manager's leg with its result.
@@ -138,7 +139,7 @@ function markOf(l) {
 function legRow(l, me) {
   const by = l.live && l.me !== l.by ? (l.me ? data.name(l.me) : l.nick) : '';
   const who = data.name(l.by) + (l.for ? ` · for ${data.name(l.for)}` : '') + (by ? ` · entered by ${by}` : '')
-    + (l.trk && l.trk.note ? ` · ${l.trk.note}` : '');
+    + (l.trk && l.trk.note ? ` · ${l.trk.note}` : l.stat ? ` · ${l.stat}` : '');
   const bet = (l.live && track.describe(l.bet, weekGames())) || l.bet;
   return ui.row({lead: ui.avatar(l.by, {size: 32, you: l.by === me}), title: bet || '—', sub: who, trail: markOf(l), me: l.by === me,
     cls: 'ly-leg' + (l.hit === false ? ' ly-busted' : '')});
@@ -197,7 +198,7 @@ function heroHTML(me, {noLegs} = {}) {
 const ST_TXT = {live: 'Live', pre: 'Not started', na: 'Not tracked', hit: 'Hit', miss: 'Missed'};
 const ORDER = {live: 0, pre: 1, na: 2, hit: 3, miss: 4};
 function trackRows(w) {
-  return legsOf(w).map(l => ({l, r: settled(l) && !l.auto ? {st: l.hit ? 'hit' : 'miss', note: 'Settled by the league'} : (l.trk || {st: 'pre', note: 'Waiting on the games'})}));
+  return legsOf(w).map(l => ({l, r: settled(l) && !l.auto ? {st: l.hit ? 'hit' : 'miss', note: l.stat || 'Settled by the league'} : (l.trk || {st: 'pre', note: 'Waiting on the games'})}));
 }
 function barHTML(r) {
   if (r.v == null || r.n == null || !(r.n > 0) || r.st === 'hit' || r.st === 'miss') return '';
@@ -448,7 +449,7 @@ function recordsHTML(me) {
 }
 
 // Past slips, compact and in week order: one card per week (week, placer, a square per leg, the result); tap to open
-// its legs as one-line rows.
+// its legs as one-line rows (with what a settled leg came to, its stat, in small type under it).
 function weeksHTML(me) {
   const past = WEEKS.filter(w => legsOf(w).length).filter(w => w !== currentWeek() || statusOf(w) === 'hit' || statusOf(w) === 'bust');
   if (!past.length) return '';
@@ -457,7 +458,9 @@ function weeksHTML(me) {
     const squares = legsOf(w).map(l => `<i class="${l.hit === true ? 'is-hit' : l.hit === false ? 'is-miss' : ''}"></i>`).join('');
     const res = st === 'hit' ? 'Cashed' : `${t.hit}/${t.n}`;
     const legs = legsOf(w).map(l => `<li class="ly-cl${l.hit === false ? ' is-miss' : l.hit === true ? ' is-hit' : ''}">${ui.avatar(l.by, {size: 22, you: l.by === me})}`
-      + `<span class="ly-cl-bet">${esc(l.bet || '—')}</span><span class="ly-cl-who">${esc(data.name(l.by).split(' ')[0])}</span>${markOf(l)}</li>`).join('');
+      + (l.stat ? `<span class="ly-cl-main"><span class="ly-cl-bet">${esc(l.bet || '—')}</span><span class="ly-cl-stat">${esc(l.stat)}</span></span>`
+        : `<span class="ly-cl-bet">${esc(l.bet || '—')}</span>`)
+      + `<span class="ly-cl-who">${esc(data.name(l.by).split(' ')[0])}</span>${markOf(l)}</li>`).join('');
     return `<details class="card ly-slip is-${st}" data-ly-slip="${w.year}-${w.week}"><summary class="ly-slip-h">`
       + `<span class="ly-slip-wk n4">W${w.week}</span>`
       + `<span class="ly-slip-mid"><span class="ly-sq" aria-hidden="true">${squares}</span>`

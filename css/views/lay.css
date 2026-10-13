@@ -115,6 +115,11 @@
 .v-lay .ly-cl-bet { flex: 1; min-width: 0; font: 400 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .v-lay .ly-cl.is-miss .ly-cl-bet { color: var(--ink-2); text-decoration: line-through; text-decoration-color: var(--wrong); }
 .v-lay .ly-cl-who { flex: none; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+/* A settled leg's stat ("1 catch for 7 yds") in small type under its bet. */
+.v-lay .ly-cl-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.v-lay .ly-cl-main > .ly-cl-bet { flex: none; }
+.v-lay .ly-cl-stat { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 400 var(--fs-cap)/var(--lh-cap) var(--font-text); color: var(--ink-3); }
+.v-lay .ly-cl.is-miss .ly-cl-stat { color: var(--wrong); }
 .v-lay .ly-cl .ly-mark { width: 22px; height: 22px; }
 .v-lay .ly-cl .ly-mark > .ic { width: 13px; height: 13px; }
 
