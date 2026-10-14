@@ -357,6 +357,9 @@ function shortPartsBad(d, ids) {
     || d.c.some(c => !PP[c[0]] || !Array.isArray(c[1]) || c[1].length !== 4 || c[1].some(x => PZ.CL[x] == null) || !(c[2] >= 0 && c[2] < 4)))) bad.push('c');
   if (has('sil') && (!Array.isArray(d.s) || d.s.length !== 2 || !d.s.every(silOk) || d.s[0].p === d.s[1].p)) bad.push('s');
   if (has('who') && (!PP[d.w] || !PZ.N[d.w])) bad.push('w');
+  // A day's own Mystery player (wx, tools/puzzles/mystery.py): seven non-empty [label, text] clues.
+  if (d.wx && (!has('who') || !Array.isArray(d.wx.clues) || d.wx.clues.length !== 7
+    || d.wx.clues.some(c => !Array.isArray(c) || c.length !== 2 || !String(c[0]).trim() || !String(c[1]).trim()))) bad.push('wx');
   if (has('jr') && (!d.j || !PP[d.j.p] || !Array.isArray(d.j.col) || !d.j.t || [...d.j.t].some(ch => daily.TA.indexOf(ch) < 0 || daily.TA.indexOf(ch) >= PZ.teams.length))) bad.push('j');
   if (has('grid')) {
     const sh = daily.gridShape(d);
@@ -1337,10 +1340,16 @@ export async function runChecks() {
     const t0 = performance.now();
     PZ.days.forEach((d, i) => {
       if (i < 3) return;
-      const at = `day ${i + 1}: `, t = v4Rotation(i - 3);
+      const at = `day ${i + 1}: `, r = v4Rotation(i - 3);
       if (daily.dayVersion(d) !== 4) { bad.push(at + 'not v4'); return; }
       n4++;
-      const keys = ['v', 't', ...['g', 'c', 's', 'w', 'j'].filter(f => t.some(y => V4_FIELD[y] === f))];
+      // A day with its own Mystery player (wx: tools/puzzles/mystery.py) plays it in place of one of the rotation's
+      // puzzles: the same three types in the same order, at most one of them swapped for 'who'.
+      const swapOk = Array.isArray(d.t) && d.t.length === 3 && d.t.includes('who') && d.t.every((y, k) => y === r[k] || y === 'who')
+        && d.t.filter((y, k) => y !== r[k]).length <= 1;
+      if (d.wx && !swapOk) bad.push(at + `own Mystery player: types ${d.t} (want ${r}, one swapped for who)`);
+      const t = d.wx && swapOk ? d.t : r;
+      const keys = ['v', 't', ...['g', 'c', 's', 'w', 'j'].filter(f => t.some(y => V4_FIELD[y] === f)), ...(d.wx ? ['wx'] : [])];
       if (!Array.isArray(d.t) || d.t.join() !== t.join()) bad.push(at + `types ${d.t} (want ${t})`);
       if (Object.keys(d).join() !== keys.join()) bad.push(at + `keys ${Object.keys(d)} (want ${keys})`);
       // Name the play days (every other day from PLAY_FROM) play it in place of the last puzzle.
@@ -1352,7 +1361,7 @@ export async function runChecks() {
     });
     // The rotation over the whole file: each type 3 days in every 5, never more than 2 days missed in a row, and every
     // 7 consecutive days have all five types (3 to 5 times each).
-    const T = PZ.days.slice(3).map(d => Array.isArray(d.t) ? d.t : []);
+    const T = PZ.days.slice(3).map((d, i) => d.wx ? v4Rotation(i) : Array.isArray(d.t) ? d.t : []); // own-Mystery days: as planned
     let gap = 0, lo = 9, hi = 0;
     const run = Object.fromEntries(V4_TYPES.map(y => [y, 0]));
     T.forEach((t, i) => {
@@ -1423,13 +1432,20 @@ export async function runChecks() {
     const prefix = JSON.stringify(Object.assign({}, p3, {days: []})).slice(0, -2);
     const head = prefix + p3.days.slice(0, 3).map(d => JSON.stringify(d)).join(',') + ',';
     if (JSON.stringify(p3) !== t3 || JSON.stringify(p4) !== t4) bad.push('not canonical JSON');
-    if (!t3.startsWith(head) || !t4.startsWith(head)) bad.push('the top level or days 1-3 differ');
+    // Players outside the NFL data (a day's own Mystery player, tools/puzzles/mystery.py: draft 'X') are appended to P
+    // with an N row: the rest of the file is compared without them.
+    const n3 = p3.P.length, extra = p4.P.slice(n3);
+    if (extra.some(p => !Array.isArray(p) || p[3] !== 'X')) bad.push('P grew by more than own Mystery players');
+    const t4core = JSON.stringify(Object.assign({}, p4, {P: p4.P.slice(0, n3), N: Object.fromEntries(Object.entries(p4.N).filter(([k]) => +k < n3))}));
+    if (!t3.startsWith(head) || !t4core.startsWith(head)) bad.push('the top level or days 1-3 differ');
     if (Object.keys(p3).join() !== Object.keys(p4).join() || p3.days.length !== p4.days.length) bad.push('keys or day count differ');
     // Each v4 day is the v3 day at the same index with only its three puzzles' fields: putting the rest back gives the v3 day.
+    // A day with its own Mystery player compares without its w (an appended player) and wx.
     for (let i = 3; i < p3.days.length; i++) {
-      const d3 = p3.days[i], d4 = p4.days[i], back = {v: 3};
-      for (const f of ['g', 'c', 's', 'w', 'j', 'h']) back[f] = f in d4 ? d4[f] : d3[f];
-      if (JSON.stringify(back) !== JSON.stringify(d3) || Object.keys(d4).some(f => !['v', 't', 'g', 'c', 's', 'w', 'j'].includes(f))) { bad.push(`day ${i + 1}`); if (bad.length > 5) break; }
+      const d3 = p3.days[i], d4 = p4.days[i], back = {v: 3}, own = !!d4.wx;
+      for (const f of ['g', 'c', 's', 'w', 'j', 'h']) back[f] = f in d4 && !(own && f === 'w') ? d4[f] : d3[f];
+      const ownBad = own && !(p4.P[d4.w] && p4.P[d4.w][3] === 'X');
+      if (ownBad || JSON.stringify(back) !== JSON.stringify(d3) || Object.keys(d4).some(f => !['v', 't', 'g', 'c', 's', 'w', 'j', ...(own ? ['wx'] : [])].includes(f))) { bad.push(`day ${i + 1}`); if (bad.length > 5) break; }
     }
     // The app plays this file (daily.js loads data/puzzles-v4.json).
     const live = JSON.stringify(daily.PZ) === t4;

@@ -387,7 +387,12 @@ export function examplesFor(exclude = new Set(), day = DAY) {
   return best;
 }
 
+// A day may name its own Mystery player (day.wx: someone outside the NFL data, a league friend; added to P and N by
+// tools/puzzles/mystery.py so the picker finds him): {clues: seven [label, text] pairs} replaces the clues built from
+// the NFL numbers for that day's answer.
 export function whoClues(i) {
+  const wx = DAY && DAY.wx;
+  if (wx && i === DAY.w && Array.isArray(wx.clues) && wx.clues.length === 7) return wx.clues.map(c => [String(c[0]), String(c[1])]);
   const n = PZ.N[i], p = PP[i], pos = p[2], S = k => stat(i, k);
   let line;
   if (pos === 'QB') line = `${nf(S('pass_yards'))} passing yards, ${S('pass_tds')} touchdown passes, ${S('pass_ints')} interceptions`;
