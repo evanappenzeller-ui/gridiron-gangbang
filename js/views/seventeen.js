@@ -309,9 +309,11 @@ function teamSeasonHTML(row, s) {
     const best = sv.samePick(sv.best(b).pick, pick);
     body = lineupHTML(b, pick) + (best ? `<p class="sv-tm-note is-gold">${ui.icon('trophy', {size: 16})}<span>The best team.</span></p>` : '');
   }
+  // A board from before the top-25 rule: what the season was played to, and why it counts as 17-0 now.
+  const was = s.was ? `<p class="sv-tm-note is-gold">${ui.icon('trophy', {size: 16})}<span>${esc(`Played to ${s.was.w}–${s.was.l}. A top-25 lineup, so it counts as 17–0 under the rule that came in Oct 13.`)}</span></p>` : '';
   return `<section class="sv-tm" aria-label="${esc(`17–0 number ${s.n}, ${sv.dayLabel(s.n)}: ${s.w} and ${s.l}`)}">`
     + `<div class="sv-tm-head"><p class="sv-tm-day">${esc(`${sv.dayLabel(s.n)} · #${s.n}`)}</p><p class="sv-tm-rec${gold ? ' is-gold' : ''}">${s.w}–${s.l}</p></div>`
-    + `<p class="sv-tm-meta">${esc(meta)}</p>`
+    + `<p class="sv-tm-meta">${esc(meta)}</p>` + was
     + body + `</section>`;
 }
 /** The team sheet for a scoreboard row: today's season (Today), or their seasons, newest first (All-time). */

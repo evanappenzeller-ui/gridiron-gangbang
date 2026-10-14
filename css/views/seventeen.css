@@ -271,6 +271,7 @@
 .sh-sv-team .sv-tm-note > .ic { flex: none; color: var(--ink-3); }
 .sh-sv-team .sv-picks + .sv-tm-note { margin-top: 8px; }
 .sh-sv-team .sv-tm-note.is-gold, .sh-sv-team .sv-tm-note.is-gold > .ic { color: var(--gold); }
+.sh-sv-team .sv-tm-meta + .sv-tm-note { margin-bottom: 8px; }
 .sh-sv-team .sv-tm-more { margin-top: 14px; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
 
 /* ---------------------------------------------------------------- How it works */

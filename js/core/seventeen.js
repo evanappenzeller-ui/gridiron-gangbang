@@ -132,6 +132,16 @@ export function topN(b) {
   const P = DOC && DOC.perfect, day = b ? ((b.n - 1) % DOC.days.length) + 1 : 0;
   return P && day >= P.from ? P.n : 0;
 }
+/** The top-N rule, back-dated: on a board from before it (DOC.perfect.from), does a season count as 17-0? Yes when
+ *  its lineup ranks in the board's best DOC.perfect.n (ties included): ranked again from the lineup when there is one,
+ *  else by the rank r that was posted. Boards from the rule on need nothing: their schedule already does it. */
+export function retroPerfect(n, pick, r = 0) {
+  const P = DOC && DOC.perfect;
+  n = Number(n);
+  if (!P || !Number.isInteger(n) || n < 1 || ((n - 1) % DOC.days.length) + 1 >= P.from) return false;
+  const rank = full(pick) ? rankOf(board(n), pick).rank : r;
+  return Number.isInteger(rank) && rank > 0 && rank <= P.n;
+}
 export function rankOf(b, pick) {
   const {list} = all(b), p = ppg(b, pick);
   const above = list.filter(x => x.ppg > p + 1e-9).length;
@@ -179,10 +189,13 @@ export function lockIn(n, pick, s) {
   write(v);
   return true;
 }
-/** All-time: seasons played and how many went 17-0. */
+/** All-time: seasons played and how many went 17-0 (with the stored days the top-25 rule makes 17-0 after the fact:
+ *  retroPerfect). */
 export function totals() {
   const v = read();
-  return {played: v.played, perfect: v.perfect};
+  let perfect = v.perfect;
+  if (DOC) Object.keys(v.days).forEach(k => { const d = v.days[k]; if (Number.isInteger(d.w) && d.w < 17 && retroPerfect(k, cleanPick(d.pick))) perfect++; });
+  return {played: v.played, perfect};
 }
 
 // ---------------------------------------------------------------------------------------------- text
@@ -209,14 +222,18 @@ export function shareText(b, s, pick) {
 // failed (the next snapshot, coming back online, the app shown again); a day this phone posted before lineups were
 // saved gets its k added. One result per member per day, like the Daily: across a member's phones the first played
 // counts, and this phone never posts a day its member already has. The scoreboard rows are records; a lineup shows
-// only when someone taps a row (views/seventeen.js keeps today's hidden until you've played).
+// only when someone taps a row (views/seventeen.js keeps today's hidden until you've played). A season on a board from
+// before the top-25 rule whose lineup ranks in the top 25 counts as 17-0 (retroPerfect); `was` keeps what it was
+// played to.
 const F = 's17', POST_BACK = 7;
 let posting = false;
 /** Board doc p's entry for day n, cleaned, or null. */
 export function entryOf(p, n) {
   const e = p && p[F] && typeof p[F] === 'object' ? p[F][n] : null;
   if (!e || !Number.isInteger(e.w) || !Number.isInteger(e.l) || e.w < 0 || e.l < 0 || e.w + e.l !== 17) return null;
-  return {w: e.w, l: e.l, p: Number.isFinite(Number(e.p)) ? Number(e.p) : 0, r: Number.isInteger(e.r) && e.r > 0 ? e.r : 0, t: Number(e.t) || 0, pick: pickOf(e.k)};
+  const out = {w: e.w, l: e.l, p: Number.isFinite(Number(e.p)) ? Number(e.p) : 0, r: Number.isInteger(e.r) && e.r > 0 ? e.r : 0, t: Number(e.t) || 0, pick: pickOf(e.k)};
+  if (out.w < 17 && retroPerfect(n, out.pick, out.r)) return Object.assign(out, {w: 17, l: 0, was: {w: e.w, l: e.l}});
+  return out;
 }
 /** A posted lineup ('01234') -> five rows, or null. */
 const pickOf = k => (typeof k === 'string' && /^[0-4]{5}$/.test(k) ? [...k].map(Number) : null);

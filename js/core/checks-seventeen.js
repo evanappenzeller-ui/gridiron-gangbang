@@ -147,4 +147,23 @@ export async function seventeenChecks(check) {
       && sv.seasonsOf(t1[1].key, 1, docs).length === 1 && sv.seasonsOf('nobody', 2, docs).length === 0;
     return {pass: today && all && clean && teams, detail: `today: ${sig(t1)}; all-time: ${sig(a2)}; bad entries dropped ${clean}; teams ${teams}`};
   });
+
+  // 8. The top-25 rule, back-dated
+  check('17-0: on a board from before the top-25 rule a top-25 lineup counts as 17-0 (ranked from its lineup, else its posted rank; the record it was played to kept), others and later boards as played', () => {
+    need();
+    const list = sv.all(sv.board(3)).list, k = x => x.pick.join('');
+    const docs = [
+      {id: 'a', nick: 'Evan', s17: {3: {w: 16, l: 1, p: 32, r: 8, k: k(list[7]), t: 1}}},
+      {id: 'b', nick: 'Mitch', s17: {3: {w: 13, l: 4, p: 29, r: 301, k: k(list[300]), t: 2}}},
+      {id: 'c', nick: 'John', s17: {3: {w: 16, l: 1, p: 31, r: 9, t: 3}}}, // no lineup: its posted rank decides
+      {id: 'd', nick: 'Jacob', s17: {3: {w: 16, l: 1, p: 31, r: 3, k: k(list[40]), t: 4}}} // the lineup outranks the posted rank
+    ];
+    const e = docs.map(p => sv.entryOf(p, 3)), later = sv.entryOf({s17: {6: {w: 16, l: 1, r: 8, k: k(list[7])}}}, 6);
+    const back = e[0].w === 17 && e[0].l === 0 && e[0].was.w === 16 && e[2].w === 17 && e[2].was.l === 1;
+    const left = e[1].w === 13 && !e[1].was && e[3].w === 16 && !e[3].was && later.w === 16 && !later.was;
+    const all = sv.boardRows('all', 3, docs).filter(r => r.perfect).map(r => r.name).sort().join();
+    const best = n => sv.all(sv.board(n)).list[0].pick; // a board's own best lineup
+    const rule = sv.retroPerfect(4, best(4)) && !sv.retroPerfect(5, best(5)) && sv.retroPerfect(3, null, 25) && !sv.retroPerfect(3, null, 26);
+    return {pass: back && left && all === 'Evan,John' && rule, detail: `back-dated ${back}; others as played ${left}; all-time 17-0s: ${all}; rule ${rule}`};
+  });
 }
