@@ -525,7 +525,7 @@ export async function autoPost() {
 // A member's game cleared once so they can play the day again, at the league's ask: on that member's phones (once on
 // each), on that day only, the saved game goes, and so does the result that phone posted before the reset (so the
 // replay's posts in its place; a result posted after the reset stays). 'gg-drill-resets': {id: when it ran here}.
-const RESETS = [{id: 'evan-d1', who: 'evan', n: 1}];
+const RESETS = [{id: 'evan-d1', who: 'evan', n: 1}, {id: 'evan-d1-2', who: 'evan', n: 1}];
 const RKEY = 'gg-drill-resets';
 function resetsDone() {
   let v = null;
