@@ -846,14 +846,12 @@ function usage(s, match) {
   const yds = list.reduce((t, p) => t + (['catch', 'run', 'sack'].includes(p.kind) || p.two ? (p.gain || 0) : 0), 0);
   return {calls: list.length, yds: list.length ? yds / list.length : 0};
 }
-const GLYPHS = ['sq', 'x', 'tri'];
 /** A play card. go: the action it calls; else pick: the pass play it selects. */
 function cardHTML(st, {i, art, name, tag, key, use, go, pick, on, label}) {
   const s = st.s, p = s.mine.by[key];
   const at = go ? `data-dr-go="${go}"` : `data-dr-card="${pick}" aria-pressed="${!!on}"`;
   return `<button type="button" class="dr-card${on ? ' is-on' : ''}" ${at} aria-label="${esc(label || name)}">`
-    + `<span class="dr-card-h"><span class="dr-card-g is-${GLYPHS[i]}" aria-hidden="true"></span>`
-    + `<span class="dr-card-tt"><small><span class="dr-card-tag is-${tag.toLowerCase()}">${esc(tag)}</span>${esc(FORMATION)}</small><b>${esc(name)}</b></span>`
+    + `<span class="dr-card-h"><span class="dr-card-tt"><small><span class="dr-card-tag is-${tag.toLowerCase()}">${esc(tag)}</span>${esc(FORMATION)}</small><b>${esc(name)}</b></span>`
     + `<span class="dr-card-p">${faceHTML(p, s.sc.o)}<small>${esc(dr.short(p.n))}</small></span></span>`
     + `<span class="dr-card-art">${art}</span>`
     + `<span class="dr-card-f">${esc(`${use.calls} ${use.calls === 1 ? 'call' : 'calls'} | ${use.yds.toFixed(1)} avg yds`)}</span></button>`;
