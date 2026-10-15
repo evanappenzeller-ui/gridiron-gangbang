@@ -7,8 +7,23 @@ data/drill.json, then runs tools/drill/tune.mjs (node), which sets each day's si
 (js/core/drill-sim.js).
 
 THE STARTERS. ESPN's depth charts as nflverse saved them last (depth_charts/depth_charts_2026.csv, the newest
-snapshot per team), so injuries and benchings are in: on offense the 3WR 1TE set (QB, RB, the top three WRs, TE and
-the five linemen), on defense the base front plus the nickel back. Jersey numbers come from the weekly rosters.
+snapshot per team): on offense the 3WR 1TE set (QB, RB, the top three WRs, TE and the five linemen), on defense the
+base front plus the nickel back, and the kicker. Jersey numbers come from the weekly rosters. A depth chart's id can be
+another man's of the same name (a retired Blake Miller for the rookie): one with no roster row on his team is found on
+its roster by name. A depth chart can still list a man who won't play this week (Who: the weekly rosters, the injury
+reports, and the snap counts matched by pro-football-reference id from nflverse's players file):
+  - his latest weekly roster has him on injured reserve, released, suspended or the like, or on another team;
+  - this week's injury report has him out or doubtful;
+  - he missed his team's last game or left it early (under 40% of its snaps) and is sitting out this week's practice
+    hurt (not a veteran's rest day; unless he's listed questionable), or he missed it (under 5%) and, with no report
+    from his team yet this week, was ruled out last week;
+  - or it hasn't caught up with a benching: it already listed him as the starter before the last game, and he sat out
+    that one and the one before (under 5% of the snaps in each, wherever he played them: a man traded since counts
+    his old team's games) without being on an injury report this week or last. (A man it has moved up since the last
+    game is its own news, an injury ahead of him, so he starts.)
+The man who starts instead: the next at the spot who played in the last game (30% of its snaps or more), else whoever
+played the spot's positions most in it (and isn't starting elsewhere), else the next at the spot, else a backup at the
+spots beside it (FALLBACK), else their starter. The build prints who was passed over and why.
 
 THE RATINGS (55-99). Each player's number is where he ranks among the league's starters at his spot, from 2025's
 regular season and 2026 so far (2026 counts 1.5x), shrunk toward a below-average prior by how much he has played,
@@ -91,6 +106,84 @@ def fnum(v):
         return 0.0
 
 
+# ------------------------------------------------------------------ Who can play
+OUT_STATUS = {'RES': 'on injured reserve', 'CUT': 'released', 'RET': 'retired', 'DEV': 'on the practice squad',
+              'EXE': 'exempt', 'SUS': 'suspended', 'PUP': 'on the PUP list', 'NFI': 'on the NFI list', 'NON': 'on the non-football list'}
+
+
+def norm(n):
+    n = n.lower()
+    for sfx in (' jr.', ' sr.', ' iii', ' ii', ' iv'):
+        n = n.replace(sfx, '')
+    return ''.join(ch for ch in n if ch.isalpha())
+
+
+class Who:
+    """Who can play this week, from the weekly rosters, the injury reports and the snap counts (pro-football-
+    reference's, matched by its id from nflverse's players file, else by name: a lineman's "DJ" is its "Delmar").
+      out[g]          why gsis id g won't play this week (absent: nothing says so; see THE STARTERS)
+      played(g, w)    his share of his team's snaps in week w (a man traded since: his old team's that week)
+      last[t], prev[t]  team t's last game week and the one before
+      reported        the ids on an injury report this week or last
+      snaps[t]        [(gsis id, share)] in team t's last game
+      ros[g], info[g] his latest weekly roster row; his players-file row"""
+
+    def __init__(self):
+        self.ros = roster()
+        self.info = {r['gsis_id']: r for r in fetch('players.csv', f'{REL}/players/players.csv')}
+        g_of = {r['pfr_id']: g for g, r in self.info.items() if r['pfr_id']}
+        inj = {}
+        rows = [r for r in fetch('injuries_%d.csv' % SEASON, f'{REL}/injuries/injuries_{SEASON}.csv') if r['season_type'] == 'REG']
+        for r in rows:
+            inj.setdefault(r['gsis_id'], {})[int(r['week'])] = r
+        week = max(int(r['week']) for r in rows)
+        self.reported = {g for g, rep in inj.items() if week in rep or week - 1 in rep}
+        self.share, weeks, self.snaps = {}, {}, {}
+        snap_rows = [r for r in fetch('snap_counts_%d.csv' % SEASON, f'{REL}/snap_counts/snap_counts_{SEASON}.csv') if r['game_type'] == 'REG']
+        for r in snap_rows:
+            t, w = code(r['team']), int(r['week'])
+            weeks.setdefault(t, set()).add(w)
+            pct = max(fnum(r['offense_pct']), fnum(r['defense_pct']), fnum(r['st_pct']) if r['position'] in ('K', 'P') else 0)
+            self.share[(t, w, 'id', r['pfr_player_id'])] = pct
+            self.share[(t, w, 'n', norm(r['player']))] = pct
+            self.share[(w, 'id', r['pfr_player_id'])] = max(pct, self.share.get((w, 'id', r['pfr_player_id']), 0))
+        self.last = {t: max(ws) for t, ws in weeks.items()}
+        self.prev = {t: max([w for w in ws if w < self.last[t]], default=None) for t, ws in weeks.items()}
+        for r in snap_rows:
+            t = code(r['team'])
+            if int(r['week']) == self.last[t] and g_of.get(r['pfr_player_id']):
+                self.snaps.setdefault(t, []).append((g_of[r['pfr_player_id']], self.share[(t, self.last[t], 'id', r['pfr_player_id'])]))
+        self.out = {}
+        for g, r in self.ros.items():
+            t, lw = code(r['team']), self.last.get(code(r['team']))
+            if r['status'] in OUT_STATUS:
+                self.out[g] = f"{OUT_STATUS[r['status']]} (week {r['week']})"
+                continue
+            rep = inj.get(g, {})
+            now, before = rep.get(week), rep.get(week - 1)
+            if now and now['report_status'] in ('Out', 'Doubtful'):
+                self.out[g] = f"{now['report_status'].lower()} this week ({now['report_primary_injury'] or 'injury'})"
+                continue
+            got = self.played(g, lw)
+            if not lw or got >= 0.4:
+                continue
+            hurt = 'Not injury related' not in (now['practice_primary_injury'] or '') + (now['report_primary_injury'] or '') if now else False
+            early = f"missed week {lw}" if got < 0.05 else f"left week {lw} early"
+            if hurt and 'Did Not' in (now['practice_status'] or '') and now['report_status'] != 'Questionable':
+                self.out[g] = f"{early}, not practising ({now['practice_primary_injury'] or now['report_primary_injury'] or 'injury'})"
+            elif not now and got < 0.05 and before and before['report_status'] in ('Out', 'Doubtful'):
+                self.out[g] = f"{early}, ruled out then ({before['report_primary_injury'] or 'injury'})"
+
+    def played(self, g, w):
+        r, i = self.ros.get(g), self.info.get(g, {})
+        if not r or not w:
+            return 0.0
+        t, pid = code(r['team']), r['pfr_id'] or i.get('pfr_id')
+        names = {norm(r['full_name'])} | {norm(f"{x} {i.get('last_name', '')}") for x in (i.get('first_name'), i.get('football_name')) if x}
+        by_id = [self.share.get((t, w, 'id', pid), 0), self.share.get((w, 'id', pid), 0)] if pid else []
+        return max(by_id + [self.share.get((t, w, 'n', n), 0) for n in names] + [0])
+
+
 # ------------------------------------------------------------------ Starters
 # When a spot's own depth is empty (a blank name) or its man already starts elsewhere (a safety listed at nickel too),
 # the next man at these spots, in order.
@@ -101,16 +194,51 @@ FALLBACK = {
     'LILB': ['RILB', 'WLB', 'SLB'], 'RILB': ['LILB', 'WLB', 'SLB'],
     'LCB': ['RCB', 'NB'], 'RCB': ['LCB', 'NB'], 'NB': ['LCB', 'RCB', 'SS', 'FS'], 'SS': ['FS', 'NB'], 'FS': ['SS', 'NB'],
     'LT': ['RT', 'LG'], 'RT': ['LT', 'RG'], 'LG': ['RG', 'C'], 'RG': ['LG', 'C'], 'C': ['LG', 'RG'],
-    'QB': [], 'RB': [], 'TE': [],
+    'QB': [], 'RB': [], 'TE': [], 'PK': [],
+}
+# The roster positions (depth_chart_position; ngs_position EDGE: a pass rusher) that can fill a spot: a man who played
+# there last game, when the depth chart's next man didn't play at all. Inside linebackers aren't edge rushers; a 3-4's
+# outside linebackers are, and a 4-3's aren't.
+OT, IOL, ILB = {'T', 'OT', 'LT', 'RT'}, {'G', 'OG', 'LG', 'RG', 'C'}, {'ILB', 'MLB', 'LB'}
+GROUP = {
+    'QB': {'QB'}, 'RB': {'RB', 'HB', 'FB'}, 'WR': {'WR'}, 'TE': {'TE'},
+    'LT': OT, 'RT': OT, 'LG': IOL, 'RG': IOL, 'C': IOL,
+    'LDE': {'DE', 'EDGE'}, 'RDE': {'DE', 'EDGE'}, 'LDT': {'DT', 'NT', 'DL'}, 'RDT': {'DT', 'NT', 'DL'}, 'NT': {'NT', 'DT'},
+    'MLB': ILB, 'LILB': ILB, 'RILB': ILB, ('34', 'WLB'): {'OLB', 'DE', 'EDGE'}, ('34', 'SLB'): {'OLB', 'DE', 'EDGE'},
+    ('43', 'WLB'): ILB | {'OLB', 'WLB', 'SLB'}, ('43', 'SLB'): ILB | {'OLB', 'WLB', 'SLB'},
+    'LCB': {'CB', 'DB'}, 'RCB': {'CB', 'DB'}, 'NB': {'CB', 'DB'}, 'SS': {'SS', 'FS', 'S', 'DB'}, 'FS': {'SS', 'FS', 'S', 'DB'}, 'PK': {'K'},
 }
 
 
 def starters():
+    W = Who()
+    ros, last = W.ros, W.last
+    skipped, fixed = [], []
+    # The depth charts' ids can be another man's of the same name (a retired Blake Miller for the rookie): a man with no
+    # roster row on his team is found on its roster by name.
+    on_team = {}
+    for g, r in ros.items():
+        for n in (r['full_name'], f"{r['football_name']} {r['last_name']}", f"{r['first_name']} {r['last_name']}"):
+            on_team.setdefault((code(r['team']), norm(n)), g)
     rows = fetch('depth_charts_%d.csv' % SEASON, f'{REL}/depth_charts/depth_charts_{SEASON}.csv')
     latest = {}
     for r in rows:
         latest[r['team']] = max(latest.get(r['team'], ''), r['dt'])
     asof = max(latest.values())[:10]
+    # Each team's depth chart as it stood before its last game: a starter it already listed then who didn't play is a
+    # benching it hasn't caught up with; one it has moved up since is its own news (an injury ahead of him).
+    day = {}
+    for gm in schedule():
+        for side in ('home_team', 'away_team'):
+            day[(code(gm[side]), int(gm['week']))] = gm['gameday']
+    then = {}
+    for r in rows:
+        t = code(r['team'])
+        d = day.get((t, last.get(t)))
+        if d and r['dt'][:10] < d and r['dt'] > then.get(t, ''):
+            then[t] = r['dt']
+    was = {(code(r['team']), r['pos_abb'], norm(r['player_name'])): int(r['pos_rank'] or 99)
+           for r in rows if r['dt'] == then.get(code(r['team'])) and r['player_name'].strip()}
     depth = {}  # team -> {'off': {pos: [(rank, p)]}, 'def': {...}, 'wr': [...], 'k': [...], 'scheme'}
     for r in rows:
         if r['dt'] != latest[r['team']] or (r['pos_grp'] == 'Special Teams' and r['pos_abb'] != 'PK'):
@@ -119,7 +247,13 @@ def starters():
             continue
         t = depth.setdefault(code(r['team']), {'off': {}, 'def': {}, 'wr': [], 'k': [], 'scheme': None})
         rank = int(r['pos_rank'] or 99)
-        p = {'n': r['player_name'].strip(), 'g': r['gsis_id'], 'e': r['espn_id']}
+        p = {'n': r['player_name'].strip(), 'g': r['gsis_id'], 'e': r['espn_id'], 'pos': r['pos_abb']}
+        mine = ros.get(p['g'])
+        if not mine or code(mine['team']) != code(r['team']):
+            g = on_team.get((code(r['team']), norm(p['n'])))
+            if g and g != p['g']:
+                fixed.append(f"{code(r['team'])} {p['n']}")
+                p['g'], p['e'] = g, W.info.get(g, {}).get('espn_id') or ros[g]['espn_id'] or None
         if r['pos_grp'] == 'Special Teams':
             t['k'].append((rank, p))
         elif r['pos_grp'] == '3WR 1TE':
@@ -133,29 +267,106 @@ def starters():
     teams = {}
     for k, t in depth.items():
         slots, used = {}, set()
+        # Every man the depth chart starts somewhere (the top three receivers): a spot's stand-in isn't taken from them.
+        listed = {p['g'] for side in ('off', 'def') for ps in t[side].values() for r, p in ps if r == 1}
+        listed |= {p['g'] for r, p in t['wr'] if r <= 3} | {p['g'] for r, p in t['k'] if r == 1}
+        played = lambda g: W.played(g, last.get(k))
+
+        def out(p, pos, note=True):
+            """Why p won't play (noted the first time, if note), or None."""
+            r = ros.get(p['g'])
+            why = W.out.get(p['g']) or (f"now with {code(r['team'])}" if r and code(r['team']) != k else None)
+            if why and note and p['g'] not in used:
+                used.add(p['g'])
+                skipped.append(f'{k} {pos}: {p["n"]}, {why}')
+            return why
+
+        def free(p, pos, note=True):
+            return p['g'] not in used and not out(p, pos, note)
+
+        def benched(p, pos):
+            """A starter the depth chart already listed before the last game who sat out that one and the one before,
+            not coming back from an injury: noted, and True."""
+            g, top = p['g'], 3 if pos == 'WR' else 1
+            if g in used or g in W.reported or g not in ros or not last.get(k) or was.get((k, p['pos'], norm(p['n'])), 99) > top:
+                return False
+            if played(g) >= 0.05 or (W.prev.get(k) and W.played(g, W.prev[k]) >= 0.05):
+                return False
+            used.add(g)
+            skipped.append(f'{k} {pos}: {p["n"]}, sat out the last two games, not hurt (the job went to someone else)')
+            return True
+
+        def stand_in(pos):
+            """The man who played the spot last game: the most snaps among those at its positions who aren't hurt,
+            aren't starting elsewhere and aren't in yet."""
+            fits = GROUP.get((t['scheme'], pos)) or GROUP[pos]
+            edge_ok = 'EDGE' in fits
+            best = None
+            for g, pct in W.snaps.get(k, []):
+                r = ros.get(g)
+                if not r or code(r['team']) != k or pct < 0.3 or g in used or g in listed or g in W.out:
+                    continue
+                at, rush = r['depth_chart_position'], r['ngs_position'] == 'EDGE'
+                if (at in fits or (rush and edge_ok)) and not (rush and not edge_ok and at not in ('DT', 'NT')):
+                    if not best or pct > best[1]:
+                        best = (g, pct)
+            if not best:
+                return None
+            g = best[0]
+            i, r = W.info.get(g, {}), ros[g]
+            return {'n': i.get('display_name') or r['full_name'], 'g': g, 'e': i.get('espn_id') or r['espn_id'] or None, 'pos': pos}
 
         def take(side, pos):
-            for cand in [pos] + FALLBACK.get(pos, []):
-                for _, p in sorted(t[side].get(cand, []), key=lambda x: x[0]):
-                    if p['g'] not in used:
-                        used.add(p['g'])
-                        return p
-            return None
-        for i, (_, p) in enumerate(sorted(t['wr'], key=lambda x: x[0])[:3]):
+            own = [p for _, p in sorted(t[side].get(pos, []), key=lambda x: x[0])]
+            if own and free(own[0], pos) and not benched(own[0], pos):
+                pick = own[0]
+            else:
+                subs = [p for p in own[1:] if free(p, pos)]
+                pick = next((p for p in subs if played(p['g']) >= 0.3), None)
+                pick = pick or stand_in(pos) or (subs[0] if subs else None)
+                if not pick:
+                    near = [(r, p) for cand in FALLBACK.get(pos, []) for r, p in sorted(t[side].get(cand, []), key=lambda x: x[0])]
+                    pick = next((p for r, p in near if r > 1 and free(p, pos)), None) or next((p for r, p in near if free(p, pos)), None)
+            if pick:
+                used.add(pick['g'])
+            return pick
+        # Receivers: the depth chart's top three who'll play, any gap filled the same way as a spot's.
+        ranked = [p for _, p in sorted(t['wr'], key=lambda x: x[0])]
+        wrs = [p for p in ranked[:3] if free(p, 'WR') and not benched(p, 'WR')]
+        used.update(p['g'] for p in wrs)
+        rest = [p for p in ranked[3:] if free(p, 'WR', note=False)]
+        while len(wrs) < 3:
+            pick = next((p for p in rest if p['g'] not in used and played(p['g']) >= 0.3), None) or stand_in('WR') \
+                or next((p for p in rest if p['g'] not in used), None)
+            if not pick:
+                break
+            wrs.append(pick)
+            used.add(pick['g'])
+        wrs.sort(key=lambda p: ranked.index(p) if p in ranked else len(ranked))
+        for i, p in enumerate(wrs):
             slots['WR%d' % (i + 1)] = p
-            used.add(p['g'])
         for pos in OFF:
             if pos not in slots:
                 slots[pos] = take('off', pos)
         for pos in DEF[t['scheme']]:
             slots[pos] = take('def', pos)
+        # The kicker: the depth chart's, or whoever kicked last game when he's out or didn't kick it.
+        ks = [p for _, p in sorted(t['k'], key=lambda x: x[0])]
+        if ks and free(ks[0], 'K') and not benched(ks[0], 'K'):
+            kick = ks[0]
+        else:
+            kick = next((p for p in ks[1:] if free(p, 'K') and played(p['g']) >= 0.3), None) or stand_in('PK') \
+                or next((p for p in ks[1:] if free(p, 'K')), None)
         miss = [s for s in OFF + DEF[t['scheme']] if not slots.get(s)]
-        kick = sorted(t['k'], key=lambda x: x[0])
         if miss or not kick:
             sys.exit(f'{k}: no starter at {miss or "PK"}')
-        teams[k] = {'slots': slots, 'scheme': t['scheme'], 'k': kick[0][1]}
+        teams[k] = {'slots': slots, 'scheme': t['scheme'], 'k': kick}
     if len(teams) != 32:
         sys.exit(f'{len(teams)} teams in the depth charts')
+    print(f'{len(set(fixed))} depth chart ids fixed by name: ' + ', '.join(sorted(set(fixed))), file=sys.stderr)
+    print(f"{len(skipped)} on the depth charts won't play this week; the next man starts:", file=sys.stderr)
+    for line in sorted(skipped):
+        print('  ' + line, file=sys.stderr)
     return teams, asof
 
 
