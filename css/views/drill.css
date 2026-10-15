@@ -6,7 +6,7 @@
    Team colours come in per element as --tc; a player's rating colour as --rc. */
 
 /* The version mark views/drill.js checks (CSS_V): bump both when the pane needs rules an older file lacks. */
-:root { --dr-css: 10; }
+:root { --dr-css: 11; }
 
 .dr-pane, .sh-drill {
   --dr-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -388,6 +388,8 @@
 .dr-face > span { position: absolute; inset: 0; background: center 20% / cover no-repeat; }
 .dr-pane .dr-card-art { position: relative; display: block; background: linear-gradient(180deg, #121418, #0E1013); }
 .dr-pane .dr-art { display: block; width: 100%; height: auto; aspect-ratio: 53.33 / 24.15; }
+/* Their defense on your play cards, as it lines up now: muted, under the routes. */
+.dr-art .dr-art-d { fill: rgba(203,213,225,.78); stroke: #0E1013; stroke-width: .25px; stroke-linejoin: round; }
 /* Who runs what: each receiver's name under him on the card, in his route's colour, edged dark over the lines. */
 .dr-art .dr-art-l {
   font: 800 1.7px var(--dr-display); letter-spacing: .04px;
@@ -405,7 +407,12 @@
 .dr-pane .dr-card-tag.is-blitz { background: #DC2626; }
 /* A defense card's line under its name: what the call is. */
 .dr-pane .dr-card-d { display: block; padding: 0 13px 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 11.5px/14px var(--dr-font); color: #A3AAB8; background: #1C1F25; }
-.dr-pane .dr-card-f { padding: 6px 11px 8px; text-align: right; font: 700 10px/12px var(--dr-font); letter-spacing: .07em; text-transform: uppercase; color: #8E95A3; background: #17191E; }
+.dr-pane .dr-card-f {
+  display: flex; justify-content: flex-end; gap: 10px; padding: 6px 11px 8px; text-align: right;
+  font: 700 10px/12px var(--dr-font); letter-spacing: .07em; text-transform: uppercase; color: #8E95A3; background: #17191E;
+}
+/* The look their defense is showing, drawn on the card (the grey triangles). */
+.dr-pane .dr-card-vs { margin-right: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; color: #CBD5E1; }
 .dr-pane .dr-sides { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 12px; padding: 3px; border-radius: 999px; background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--dr-line); }
 .dr-pane .dr-side { height: 32px; padding: 0 10px; border-radius: 999px; color: var(--ink-2); font: 600 13.5px/1 var(--dr-font); transition: background-color 160ms, color 160ms; }
 .dr-pane .dr-side[aria-pressed="true"] { background: var(--tint); color: var(--on-tint); box-shadow: 0 1px 2px rgba(0,0,0,.2), 0 2px 8px rgba(0,0,0,.12); }
