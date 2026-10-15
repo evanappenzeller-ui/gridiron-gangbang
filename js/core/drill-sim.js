@@ -157,7 +157,8 @@ const TRICK_ODDS = {
 /** How often a trick play (TRICKS) works against a call. */
 export const trickOdds = (play, call) => (play === 'f' ? FX[call].trick : TRICK_ODDS[play][call]);
 
-export const HURRY = 15;     // seconds between snaps while the clock runs (no huddle)
+export const HURRY = 15;     // seconds between snaps while the clock runs (a quick huddle)
+export const NO_HUDDLE = 7;  // ... with no huddle at all: lined up and snapped, a little less set (+h)
 export const MILK = 38;      // ... when the team ahead lets it run
 export const KNEEL = 40;     // a kneel and the play clock after it
 export const SPIKE_SET = 6;  // getting everyone set to spike it
@@ -244,18 +245,20 @@ const behind = s => (s.poss === 'us' ? s.them - s.us : s.us - s.them);
 
 // ---------------------------------------------------------------------------------------------- tokens
 // Your actions, one each, joined with commas in a game's action string:
-//   p{target 0-4}{route}[+a play action][+r roll out][+o out of bounds][+1|+2 the second or third pass play offered]
-//     a pass (p1dig, p0go+a, p4flat+o, p2slant+1)
-//   r{s|w}[t|d][+o]   a run to the strong (tight end) or weak side: Inside Zone, or the HB Toss or Draw (rs, rwt+o)
-//   o{s|w}[b|g][+o]   an RPO: the slant, or the bubble or seam (os, owb)
+//   p{target 0-4}{route}[+a play action][+r roll out][+o out of bounds][+h no huddle][+1|+2 the second or third pass
+//     play offered]   a pass (p1dig, p0go+a, p4flat+o, p2slant+h+1)
+//   r{s|w}[t|d][+o][+h]   a run to the strong (tight end) or weak side: Inside Zone, or the HB Toss or Draw (rs, rwt+o)
+//   o{s|w}[b|g][+o][+h]   an RPO: the slant, or the bubble or seam (os, owb)
+//   (+h, no huddle: from a running clock the snap comes NO_HUDDLE seconds later instead of HURRY, a little less set)
 //   x[h|r]  a trick play: the flea flicker, or the HB pass or double reverse
 //   k  spike   t  timeout   f  field goal   n  kneel   e  the extra point (after a touchdown, down 1-2)
 //   d{call}   on defense: the call (dc2, dc1, drb, dpv, ...)
 export function parse(tok) {
   const [head, ...fl] = String(tok).split('+');
   const card = fl.length && (fl[fl.length - 1] === '1' || fl[fl.length - 1] === '2') ? Number(fl.pop()) : 0;
-  const flags = {a: fl.includes('a'), r: fl.includes('r'), o: fl.includes('o')};
-  if (fl.some(f => !['a', 'r', 'o'].includes(f))) return null;
+  const flags = {a: fl.includes('a'), r: fl.includes('r'), o: fl.includes('o'), h: fl.includes('h')};
+  if (fl.some(f => !['a', 'r', 'o', 'h'].includes(f))) return null;
+  if (flags.h && !['p', 'r', 'o'].includes(head[0])) return null; // only a pass, a run or an RPO goes without a huddle
   const k = head[0];
   if (k === 'p') {
     const i = Number(head[1]), route = head.slice(2), slot = TARGETS[i];
@@ -276,9 +279,9 @@ export function parse(tok) {
   return one && head.length === 1 && !fl.length ? {kind: one, flags} : null;
 }
 export const tok = {
-  pass: (slot, route, f = {}) => `p${TARGETS.indexOf(slot)}${route}${f.a ? '+a' : ''}${f.r ? '+r' : ''}${f.o ? '+o' : ''}${f.c ? '+' + f.c : ''}`,
-  run: (dir, oob, play = 'z') => `r${dir}${play === 'z' ? '' : play}${oob ? '+o' : ''}`,
-  rpo: (dir, oob, play = 's') => `o${dir}${play === 's' ? '' : play}${oob ? '+o' : ''}`,
+  pass: (slot, route, f = {}) => `p${TARGETS.indexOf(slot)}${route}${f.a ? '+a' : ''}${f.r ? '+r' : ''}${f.o ? '+o' : ''}${f.h ? '+h' : ''}${f.c ? '+' + f.c : ''}`,
+  run: (dir, oob, play = 'z', h = false) => `r${dir}${play === 'z' ? '' : play}${oob ? '+o' : ''}${h ? '+h' : ''}`,
+  rpo: (dir, oob, play = 's', h = false) => `o${dir}${play === 's' ? '' : play}${oob ? '+o' : ''}${h ? '+h' : ''}`,
   tricks: play => (play === 'f' ? 'x' : 'x' + play),
   def: call => `d${call}`,
   trick: 'x', spike: 'k', timeout: 't', fg: 'f', kick: 'e', kneel: 'n'
@@ -345,13 +348,14 @@ function passModel(s, slot, route, f, call) {
   const fooled = F.pa || s.look === 'box';
   const time = R.time + (f.a ? 0.4 : 0);
   const slow = time > 2.0;
-  let pSack = (0.02 + 0.035 * Math.max(0, time - 1.5)) * (slow ? F.sack : F.qs) * (1 + 0.9 * rushEdge(s)) * (f.r ? 0.55 : 1);
+  let pSack = (0.02 + 0.035 * Math.max(0, time - 1.5)) * (slow ? F.sack : F.qs) * (1 + 0.9 * rushEdge(s)) * (f.r ? 0.55 : 1) * (f.h ? 1.3 : 1);
   pSack = clamp(pSack, 0.003, 0.45);
   const e = passEdge(s, slot, F.duel);
   let comp = R.comp - 0.04 + cd + 0.22 * e; // the defense sits on the sticks late: every window a bit tighter
   let yac = 0.6 * (R.yac + yd + 2 * e);
   if (f.a) { comp += fooled ? 0.06 : -0.02; if (fooled) yac += 1.5; }
   if (f.r) comp += ['out', 'sdeep', 'quick'].includes(R.cat) ? 0.03 : -0.03;
+  if (f.h) comp -= 0.05; // no huddle: snapped before everyone's quite set
   if (s.ball >= 80 && (R.cat === 'deep' || R.cat === 'seam')) comp -= 0.06;
   if (goalLine(s)) { comp -= 0.3; yac *= 0.3; } // no room: every window is tight, a tackler right there
   let oob = R.oob * (F.oob || 1);
@@ -405,7 +409,7 @@ function passPlay(r, s, slot, route, f, call) {
 function runMean(s, dir, f, call, play = 'z') {
   const K = RUNS[play];
   return 2.8 + FX[call].run + K.mean + (play === 'd' ? DRAW[call] : 0) + (dir === s.shade ? -1.2 : 1.0) * K.lean
-    + 2.2 * runEdge(s) + (f.o ? -0.8 : 0) - (goalLine(s) ? 3 : 0);
+    + 2.2 * runEdge(s) + (f.o ? -0.8 : 0) + (f.h ? -0.8 : 0) - (goalLine(s) ? 3 : 0);
 }
 function runPlay(r, s, dir, f, call, bonus = 0, play = 'z') {
   const F = FX[call], K = RUNS[play];
@@ -424,7 +428,7 @@ function runPlay(r, s, dir, f, call, bonus = 0, play = 'z') {
 function rpoPlay(r, s, dir, f, call, play = 's') {
   if (FX[call].rpo === 'pass') {
     const R = RPOS[play];
-    const p = passPlay(r, s, R.slot, R.route, {o: f.o}, call === 'c0' ? 'c0' : 'rb');
+    const p = passPlay(r, s, R.slot, R.route, {o: f.o, h: f.h}, call === 'c0' ? 'c0' : 'rb');
     return Object.assign(p, {read: 'pass', dir, rpo: play});
   }
   return Object.assign(runPlay(r, s, dir, f, call, 0.6), {read: 'run', rpo: play});
@@ -610,7 +614,7 @@ export function act(s, token) {
     return push(s, play);
   }
   if (!o.plays.includes(a.kind)) return null;
-  if (!preSnap(s, behind(s) < 0 ? MILK : HURRY)) { play.kind = 'expired'; return push(s, play); }
+  if (!preSnap(s, behind(s) < 0 ? MILK : a.flags.h ? NO_HUDDLE : HURRY)) { play.kind = 'expired'; return push(s, play); }
   play.clock = s.clock; // at the snap
   const r = dice(s.sc.s, s.snap, hashStr(token));
   const call = callAt(s);
@@ -862,19 +866,20 @@ function spotValue(s, ball, down, togo, clock, running, tos) {
 function playValue(s, a, mix) {
   let v = 0;
   const tos = s.poss === 'us' ? s.tos : s.dtos;
+  const setup = s.running ? (a.flags && a.flags.h ? NO_HUDDLE : HURRY) : 0;
   const after = (gain, secs, run, downUsed = true) => {
     const ball = Math.min(100, s.ball + gain);
     if (s.phase === 'pat') return ball >= 100 ? 1 : 0;
     const conv = gain >= s.togo;
     const down = ball >= 100 ? 1 : conv ? 1 : s.down + (downUsed ? 1 : 0);
     const togo = conv ? Math.min(10, 100 - ball) : s.togo - gain;
-    return spotValue(s, ball, down, togo, s.clock - (s.running ? HURRY : 0) - secs, run, tos);
+    return spotValue(s, ball, down, togo, s.clock - setup - secs, run, tos);
   };
-  if (s.running && s.clock <= HURRY) return 0;
+  if (s.running && s.clock <= setup) return 0;
   mix.forEach(([call, w]) => {
     if (a.kind === 'pass' || (a.kind === 'rpo' && FX[call].rpo === 'pass')) {
       const slot = a.kind === 'pass' ? a.slot : RPOS[a.play].slot, route = a.kind === 'pass' ? a.route : RPOS[a.play].route;
-      const m = passModel(s, slot, route, a.kind === 'pass' ? a.flags : {o: a.flags.o}, call);
+      const m = passModel(s, slot, route, a.kind === 'pass' ? a.flags : {o: a.flags.o, h: a.flags.h}, call);
       const ok = 1 - m.pSack, gain = Math.round(m.depth + m.yac);
       const catchSecs = 1.8 + m.time + gain / 7;
       const pc = ok * m.pComp, pi = ok * m.pInt, pinc = Math.max(0, ok - pc - pi);

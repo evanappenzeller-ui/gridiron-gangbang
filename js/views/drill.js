@@ -35,7 +35,7 @@ const ST = new WeakMap(); // ctx -> pane state
 
 // A home-screen app open across an update imports this module new under the stylesheet it started with: when
 // drill.css's mark (--dr-css on :root) isn't this module's, the current file is added (as in views/seventeen.js).
-const CSS_V = '6';
+const CSS_V = '7';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--dr-css').trim() === CSS_V || document.querySelector('link[data-dr-css]')) return;
@@ -670,6 +670,21 @@ function headRow(title, s, back) {
     + (back ? `<button type="button" class="dr-back" data-dr-back aria-label="Back">${ui.icon('chevron-left', {size: 18})}</button>` : '')
     + `<h3 class="dr-call-t" id="dr-call-t">${esc(title)}</h3><p class="dr-call-s">${esc(where)}</p></div>`;
 }
+// No huddle: from a running clock, the snap comes E.NO_HUDDLE seconds later instead of E.HURRY, a little less set. A
+// switch on every snap of yours that stays on until you turn it off; it only goes into a call while the clock runs
+// (with the clock stopped there's no time to save), and trick plays need a huddle.
+const hurryOn = st => !!st.hurry && !!st.s && st.s.running && st.s.poss === 'us' && st.s.phase === 'play';
+function hurryHTML(st, cls = 'dr-pill') {
+  if (!(st.s && st.s.poss === 'us' && st.s.phase === 'play' && !st.s.result)) return '';
+  return `<button type="button" class="${cls} dr-hurry" data-dr-hurry aria-pressed="${!!st.hurry}" aria-label="${esc(`No huddle: while the clock runs, snap in ${E.NO_HUDDLE} seconds instead of ${E.HURRY}`)}">${ui.icon('bolt', {size: 14})}<span>No huddle</span></button>`;
+}
+function warnHTML(st) {
+  const s = st.s, o = E.options(s), setup = hurryOn(st) ? E.NO_HUDDLE : E.HURRY;
+  if (!s.running || s.clock > E.HURRY || s.phase !== 'play') return '';
+  const fix = s.clock > setup ? `${st.hurry ? 'No huddle gets the snap off in time' : `No huddle gets it off in ${E.NO_HUDDLE}`}${o.timeout || o.spike ? `, or ${o.timeout ? 'call a timeout' : 'spike it'}` : ''}`
+    : o.timeout ? 'Call a timeout' : s.down < 4 ? 'Spike it' : 'Nothing left to stop it';
+  return `<p class="dr-warn" data-dr-warn>${ui.icon('clock', {size: 15})}<span>${esc(`The clock is running and the next snap takes ${setup} seconds to get off. ${fix}${o.fg ? (o.timeout ? ', then kick' : '') : ''}.`)}</span></p>`;
+}
 /** The four play types, each with its three plays (a pass's are the snap's s.book). */
 const CALL_TILES = [['run', 'Run'], ['pass', 'Pass'], ['rpo', 'RPO'], ['trick', 'Trick play']];
 function mainHTML(st) {
@@ -692,9 +707,8 @@ function mainHTML(st) {
   if (o.timeout || (s.running && !pat)) tools.push(`<button type="button" class="dr-pill" data-dr-go="${E.tok.timeout}"${o.timeout ? '' : ' disabled'}>${ui.icon('clock', {size: 14})}<span>Timeout · ${s.tos} left</span></button>`);
   if (o.spike) tools.push(`<button type="button" class="dr-pill" data-dr-go="${E.tok.spike}">${ui.icon('bolt', {size: 14})}<span>Spike</span></button>`);
   if (o.kneel) tools.push(`<button type="button" class="dr-pill is-accent" data-dr-go="${E.tok.kneel}">${ui.icon('check-circle', {size: 14})}<span>Kneel</span></button>`);
-  const warn = s.running && s.clock <= E.HURRY
-    ? `<p class="dr-warn">${ui.icon('clock', {size: 15})}<span>${esc(`The clock is running and the next snap takes ${E.HURRY} seconds to get off. ${o.timeout ? 'Call a timeout' : s.down < 4 ? 'Spike it' : 'Nothing left to stop it'}${o.fg ? (o.timeout ? ', then kick' : '') : ''}.`)}</span></p>`
-    : '';
+  if (!pat && s.us <= s.them) tools.push(hurryHTML(st));
+  const warn = warnHTML(st);
   const lead = s.us > s.them && !pat ? `<p class="dr-goal">${esc(`You lead by ${s.us - s.them}. Keep the ball and run out the clock: a kneel takes ${E.KNEEL} seconds off when it's running.`)}</p>` : '';
   return `<section class="dr-call" aria-labelledby="dr-call-t">${headRow(pat ? 'Kick or go for two?' : 'Your call', s)}`
     + kick + lead + lookHTML(s) + `<div class="dr-tiles">${calls}</div>` + fg
@@ -869,7 +883,7 @@ function runCardsHTML(st) {
   const side = st.side === 'w' ? 'weak' : 'strong';
   return Object.keys(book).map((k, i) => cardHTML(st, {i, art: rpo ? rpoArt(s.ball, k, st.side) : runArt(s.ball, k, st.side), name: book[k].name,
     tag: rpo ? 'RPO' : 'Run', key: rpo ? RPO_KEY(k) : 'RB', use: usage(s, p => p.a.kind === kind && p.a.play === k),
-    go: mk(st.side, st.runOob, k), label: `${book[k].name} to the ${side} side: ${book[k].what}`})).join('');
+    go: mk(st.side, st.runOob, k, hurryOn(st)), label: `${book[k].name} to the ${side} side: ${book[k].what}`})).join('');
 }
 function trickCardsHTML(st) {
   const s = st.s;
@@ -885,7 +899,7 @@ function receiverRowHTML(st, slot) {
   const od = E.odds(s, slot, route, st.flags);
   const stat = `${pct(od.caught)} caught · ${od.ypt.toFixed(1)} yds a throw${od.picked >= 0.03 ? ` · ${pct(od.picked)} picked` : ''}`;
   const lead = key ? faceHTML(p, s.sc.o) : `<span class="dr-rcv-pos" style="--rc:${ratingColor(p.r)}">${esc(dr.posOf(slot))}</span>`;
-  return `<li class="dr-rcv${key ? ' is-key' : ''}" data-dr-rcvrow="${slot}"><button type="button" class="dr-rcv-go" data-dr-go="${E.tok.pass(slot, route, Object.assign({}, st.flags, {c: st.card}))}" aria-label="${esc(`${key ? 'The target. ' : ''}Throw to ${p.n}, ${E.ROUTES[route].name}: ${stat}`)}">`
+  return `<li class="dr-rcv${key ? ' is-key' : ''}" data-dr-rcvrow="${slot}"><button type="button" class="dr-rcv-go" data-dr-go="${E.tok.pass(slot, route, Object.assign({}, st.flags, {c: st.card, h: hurryOn(st)}))}" aria-label="${esc(`${key ? 'The target. ' : ''}Throw to ${p.n}, ${E.ROUTES[route].name}: ${stat}`)}">`
     + `${lead}<span class="dr-rcv-id">${key ? '<span class="dr-rcv-tag">Target</span>' : ''}<b>${esc(dr.short(p.n))}</b></span>`
     + `<span class="dr-rcv-st">${esc(stat)}</span></button>`
     + `<button type="button" class="dr-rcv-rt" data-dr-route="${slot}" aria-label="${esc(`${p.n}'s route: ${E.ROUTES[route].name}. Change it.`)}">${esc(E.ROUTES[route].name)}${ui.icon('chevron-down', {size: 12})}</button></li>`;
@@ -894,7 +908,7 @@ function receiverRowHTML(st, slot) {
 const rowsHTML = st => { const key = keyOf(st); return (key ? [key] : []).concat(E.TARGETS.filter(k => k !== key)).map(k => receiverRowHTML(st, k)).join(''); };
 function passHTML(st) {
   const s = st.s;
-  const chips = FLAG_INFO.map(([k, l]) => `<button type="button" class="dr-toggle" data-dr-flag="${k}" aria-pressed="${!!st.flags[k]}">${esc(l)}</button>`).join('');
+  const chips = FLAG_INFO.map(([k, l]) => `<button type="button" class="dr-toggle" data-dr-flag="${k}" aria-pressed="${!!st.flags[k]}">${esc(l)}</button>`).join('') + hurryHTML(st, 'dr-toggle');
   return `<section class="dr-call" aria-labelledby="dr-call-t">${headRow(s.phase === 'pat' ? 'Two-point pass' : 'Pass', s, true)}${lookHTML(s)}`
     + `<div class="dr-cards" role="group" aria-label="Pass plays" data-dr-cards>${passCardsHTML(st)}</div>`
     + `<ol class="dr-rcvs" data-dr-rcvs>${rowsHTML(st)}</ol>`
@@ -908,6 +922,7 @@ function runHTML(st, kind) {
   const hint = `Their front leans to the ${s.shade === 's' ? 'strong' : 'weak'} side.${kind === 'rpo' ? ' Your QB reads the box: crowded, he throws it; light, he hands it off.' : ''}`;
   return `<section class="dr-call" aria-labelledby="dr-call-t">${headRow(title.charAt(0).toUpperCase() + title.slice(1), s, true)}${lookHTML(s)}`
     + `<div class="dr-sides" role="group" aria-label="Which side">${sides}</div><p class="dr-hint">${esc(hint)}</p>`
+    + (hurryHTML(st) ? `<div class="dr-flags">${hurryHTML(st, 'dr-toggle')}</div>` : '')
     + `<div class="dr-cards" role="group" aria-label="${kind === 'run' ? 'Runs' : 'RPOs'}" data-dr-cards>${runCardsHTML(st)}</div>`
     + `<div class="dr-oob"><span class="dr-oob-tx"><b>Get out of bounds</b><small>The ball carrier tries to stop the clock. No guarantee.</small></span>${ui.switchCtl({name: 'dr-oob', checked: st.runOob, label: 'Get out of bounds'})}</div>`
     + `</section>`;
@@ -1147,7 +1162,7 @@ function openHelp() {
     + `<p><b>Passing.</b> Each snap offers three pass plays; pick one and its routes go up on the field (tap a receiver there to change his route), then pick who gets the ball. The numbers next to each name are what a throw to him tends to do against this look: how often it’s caught, the yards a throw, and how often it’s picked. Play action fools an aggressive defense and costs time against a patient one; a roll out beats the rush but cuts off the middle; out of bounds stops the clock and gives up the yards after the catch.</p>`
     + `<p><b>On defense</b> you see their formation (a heavy set usually runs, an empty backfield almost always throws) and pick a call. Zones keep the ball in front of you, man and blitzes gamble for a sack or a stop, and prevent gives up the short stuff to save the end zone. Their clock is theirs to manage: ahead, they let it run; behind, they hurry.</p>`
     + `<p><b>The players matter.</b> Every dot is a real starter, coloured by his rating; yours are ringed in white. Man coverage is one-on-one, so a great receiver against a weak corner wins; the lines decide the sacks. Tap Player ratings to scout.</p>`
-    + `<p><b>The clock.</b> A run, a sack or a catch in bounds keeps it running, and the next snap takes ${E.HURRY} seconds to get off (${E.MILK} when the team ahead lets it run). Incompletions, going out of bounds, timeouts, spikes and changes of possession stop it. Down one or two after a touchdown, you choose: kick, or go for two.</p>`
+    + `<p><b>The clock.</b> A run, a sack or a catch in bounds keeps it running, and the next snap takes ${E.HURRY} seconds to get off (${E.MILK} when the team ahead lets it run). Go <b>no huddle</b> and it takes ${E.NO_HUDDLE}, but nobody’s quite set: passes are caught a little less, sacks come a little more and runs gain a little less (trick plays need a huddle). Incompletions, going out of bounds, timeouts, spikes and changes of possession stop it. Down one or two after a touchdown, you choose: kick, or go for two.</p>`
     + `<p><b>Who you called it like.</b> At the final whistle, your calls are matched to the NFL head coach whose late-game play-calling (the last two minutes of either half, ${esc(dr.DOC && dr.DOC.coaches ? dr.DOC.coaches.seasons : '2025–2026')}) fits them best: how often he throws, goes deep or keeps it short, attacks the middle, gets out of bounds, spikes it, goes for two and goes for it on fourth down.</p>`
     + `<p><b>After each snap</b> the breakdown shows what the defense was really in, how your win chance moved, and how every option would have done, each played out many times from the same spot to the end of the game.</p>`
     + `</div>`;
@@ -1332,6 +1347,7 @@ function setDaily(st) {
   st.pick = null;
   st.flags = {};
   st.runOob = false;
+  st.hurry = false;
   st.card = 0;
   st.side = 's';
   st.routes = st.s && st.s.routes ? Object.assign({}, st.s.routes) : {};
@@ -1359,6 +1375,18 @@ function openMenu(st, k) {
   if (f) { f.classList.toggle('is-routes', routesOn(st)); f.setAttribute('role', routesOn(st) ? 'group' : 'img'); f.setAttribute('aria-label', fieldLabel(st)); }
   const first = st.el.querySelector(k === 'main' ? '[data-dr-panel] .dr-tiles button' : '[data-dr-panel] [data-dr-back]');
   if (first) { try { first.focus({preventScroll: true}); } catch (_) {} }
+}
+/** No huddle on or off: the switches, the calls that carry it and the clock warning follow. */
+function toggleHurry(st) {
+  st.hurry = !st.hurry;
+  ui.haptic('selection');
+  st.el.querySelectorAll('[data-dr-hurry]').forEach(b => b.setAttribute('aria-pressed', String(st.hurry)));
+  const rows = st.el.querySelector('[data-dr-rcvs]');
+  if (rows) { rows.innerHTML = rowsHTML(st); ui.hydrate(rows); }
+  if (st.panel === 'run' || st.panel === 'rpo') refreshCards(st);
+  const w = st.el.querySelector('[data-dr-warn]');
+  if (w) w.outerHTML = warnHTML(st);
+  ui.announce(st.hurry ? `No huddle: the snap comes in ${E.NO_HUDDLE} seconds while the clock runs.` : 'No huddle off.');
 }
 /** Redraws the open menu's play cards (a side flipped, the sideline switch, a pass play picked). */
 function refreshCards(st) {
@@ -1402,7 +1430,7 @@ function onClick(st, e) {
   if (st.busy && st.anim && e.target.closest('[data-dr-field]')) return; // the field's own skip handler
   const rcv = routesOn(st) && e.target.closest('[data-dr-rcv]');
   if (rcv && st.el.contains(rcv)) { cycleRoute(st, rcv.dataset.drRcv); return; }
-  const t = e.target.closest('[data-dr-go], [data-dr-menu], [data-dr-back], [data-dr-card], [data-dr-side], [data-dr-flag], [data-dr-route], [data-dr-replay], [data-dr-ratings], [data-dr-help], [data-dr-share], [data-dr-retry], [data-dr-who]');
+  const t = e.target.closest('[data-dr-go], [data-dr-menu], [data-dr-back], [data-dr-card], [data-dr-side], [data-dr-hurry], [data-dr-flag], [data-dr-route], [data-dr-replay], [data-dr-ratings], [data-dr-help], [data-dr-share], [data-dr-retry], [data-dr-who]');
   if (!t || !st.el.contains(t) || t.disabled) return;
   if (t.hasAttribute('data-dr-go')) { go(st, t.dataset.drGo); return; }
   if (t.hasAttribute('data-dr-menu')) { openMenu(st, t.dataset.drMenu); return; }
@@ -1415,6 +1443,7 @@ function onClick(st, e) {
     refreshCards(st);
     return;
   }
+  if (t.hasAttribute('data-dr-hurry')) { toggleHurry(st); return; }
   if (t.hasAttribute('data-dr-flag')) {
     const k = t.dataset.drFlag;
     st.flags = Object.assign({}, st.flags, {[k]: !st.flags[k]});
@@ -1472,7 +1501,7 @@ export function render(ctx) {
 
 export function mount(el, ctx, {anchor} = {}) {
   ensureCss();
-  const st = {el, ctx, anchor: anchor || null, n: 0, s: null, panel: 'main', flags: {}, runOob: false, routes: {}, pick: null, card: 0, side: 's',
+  const st = {el, ctx, anchor: anchor || null, n: 0, s: null, panel: 'main', flags: {}, runOob: false, routes: {}, pick: null, card: 0, side: 's', hurry: false,
     last: null, busy: false, dead: false, timers: [], cancelBoard: null, anim: null, wp: new Map(), rp: new Map(), pbpOpen: false};
   ST.set(ctx, st);
   st.onClick = e => onClick(st, e);

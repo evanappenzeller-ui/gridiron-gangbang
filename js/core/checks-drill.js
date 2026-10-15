@@ -130,7 +130,7 @@ export async function drillChecks(check) {
   });
 
   // 5. The clock rules
-  check('Drill: an incompletion and a timeout stop the clock, a catch in bounds keeps it running (the next snap takes 15 seconds), a spike costs a down, and a snap the clock runs out on loses', () => {
+  check('Drill: an incompletion and a timeout stop the clock, a catch in bounds keeps it running (the next snap takes 15 seconds, 7 with no huddle), a spike costs a down, and a snap the clock runs out on loses', () => {
     need();
     const T = dr.DOC.teams, base = {o: 'KC', d: 'LV', us: 20, them: 24, t: 100, b: 40, to: 1, s: 7};
     const bad = [];
@@ -159,6 +159,13 @@ export async function drillChecks(check) {
       E.act(s, 'k');
       if (s.running || s.down !== d0 + 1 || c0 - s.clock !== E.SPIKE_SET + 1) bad.push(`spike: ${c0} -> ${s.clock}, down ${d0} -> ${s.down}`);
     }
+    // No huddle: the same snap from a running clock comes HURRY - NO_HUDDLE seconds sooner; a trick play can't go without a huddle.
+    if (run) {
+      const a = E.replay(Object.assign({}, base, {s: run.s.sc.s}), T, 'rs'), b = E.replay(Object.assign({}, base, {s: run.s.sc.s}), T, 'rs');
+      const pa = E.act(a, 'p0go'), pb = E.act(b, E.tok.pass('WR1', 'go', {h: true}));
+      if (!pa || !pb || pb.clock - pa.clock !== E.HURRY - E.NO_HUDDLE) bad.push(`no huddle: snapped at ${pb && pb.clock} vs ${pa && pa.clock}`);
+    }
+    if (E.parse('x+h') || E.parse('k+h') || E.parse('dc2+h') || !E.parse(E.tok.run('w', true, 'd', true)).flags.h) bad.push('no-huddle tokens');
     // A running clock with 10 seconds left and no timeouts: a play can't be snapped in time.
     const s = E.start(Object.assign({}, base, {t: 10, to: 0}), T);
     s.running = true;

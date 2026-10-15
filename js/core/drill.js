@@ -137,7 +137,7 @@ export function tokenLabel(s, t, p = null) {
   const a = E.parse(t);
   if (!a) return '';
   const fl = a.flags || {};
-  const extra = [fl.a ? 'play action' : '', fl.r ? 'roll out' : '', fl.o ? 'get out of bounds' : ''].filter(Boolean);
+  const extra = [fl.a ? 'play action' : '', fl.r ? 'roll out' : '', fl.o ? 'get out of bounds' : '', fl.h ? 'no huddle' : ''].filter(Boolean);
   let base;
   if (a.kind === 'pass') base = `${p && E.PASS_PLAYS[p.pp] ? `${E.PASS_PLAYS[p.pp].name}: pass` : 'Pass'} to ${lastName(s.mine.by[a.slot].n)}, ${routeName(a.route)}`;
   else if (a.kind === 'run') base = `${E.RUNS[a.play].name}, ${SIDE[a.dir]}`;
@@ -152,7 +152,7 @@ export function tokenShort(s, t) {
   const a = E.parse(t);
   if (!a) return '';
   const fl = a.flags || {};
-  const extra = [fl.a ? 'PA' : '', fl.r ? 'roll' : '', fl.o ? 'OOB' : ''].filter(Boolean).join(', ');
+  const extra = [fl.a ? 'PA' : '', fl.r ? 'roll' : '', fl.o ? 'OOB' : '', fl.h ? 'no huddle' : ''].filter(Boolean).join(', ');
   const tail = extra ? ` (${extra})` : '';
   if (a.kind === 'pass') return `${lastName(s.mine.by[a.slot].n)} ${routeName(a.route)}${tail}`;
   if (a.kind === 'run' || a.kind === 'rpo') return `${(a.kind === 'run' ? E.RUNS : E.RPOS)[a.play].name} ${a.dir === 's' ? 'strong' : 'weak'}${tail}`;
