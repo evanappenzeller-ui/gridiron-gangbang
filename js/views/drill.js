@@ -35,7 +35,7 @@ const ST = new WeakMap(); // ctx -> pane state
 
 // A home-screen app open across an update imports this module new under the stylesheet it started with: when
 // drill.css's mark (--dr-css on :root) isn't this module's, the current file is added (as in views/seventeen.js).
-const CSS_V = '5';
+const CSS_V = '6';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--dr-css').trim() === CSS_V || document.querySelector('link[data-dr-css]')) return;
@@ -878,23 +878,28 @@ function trickCardsHTML(st) {
 }
 
 const FLAG_INFO = [['a', 'Play action'], ['r', 'Roll out'], ['o', 'Out of bounds']];
+/** The pass play's target (its card's player), or null. */
+const keyOf = st => (st.s.book && st.s.book[st.card] ? PASS_KEY[st.s.book[st.card]] : null);
 function receiverRowHTML(st, slot) {
-  const s = st.s, p = s.mine.by[slot], route = st.routes[slot];
+  const s = st.s, p = s.mine.by[slot], route = st.routes[slot], key = slot === keyOf(st);
   const od = E.odds(s, slot, route, st.flags);
   const stat = `${pct(od.caught)} caught · ${od.ypt.toFixed(1)} yds a throw${od.picked >= 0.03 ? ` · ${pct(od.picked)} picked` : ''}`;
-  return `<li class="dr-rcv"><button type="button" class="dr-rcv-go" data-dr-go="${E.tok.pass(slot, route, Object.assign({}, st.flags, {c: st.card}))}" aria-label="${esc(`Throw to ${p.n}, ${E.ROUTES[route].name}: ${stat}`)}">`
-    + `<span class="dr-rcv-pos" style="--rc:${ratingColor(p.r)}">${esc(dr.posOf(slot))}</span><span class="dr-rcv-id"><b>${esc(dr.short(p.n))}</b></span>`
+  const lead = key ? faceHTML(p, s.sc.o) : `<span class="dr-rcv-pos" style="--rc:${ratingColor(p.r)}">${esc(dr.posOf(slot))}</span>`;
+  return `<li class="dr-rcv${key ? ' is-key' : ''}" data-dr-rcvrow="${slot}"><button type="button" class="dr-rcv-go" data-dr-go="${E.tok.pass(slot, route, Object.assign({}, st.flags, {c: st.card}))}" aria-label="${esc(`${key ? 'The target. ' : ''}Throw to ${p.n}, ${E.ROUTES[route].name}: ${stat}`)}">`
+    + `${lead}<span class="dr-rcv-id">${key ? '<span class="dr-rcv-tag">Target</span>' : ''}<b>${esc(dr.short(p.n))}</b></span>`
     + `<span class="dr-rcv-st">${esc(stat)}</span></button>`
     + `<button type="button" class="dr-rcv-rt" data-dr-route="${slot}" aria-label="${esc(`${p.n}'s route: ${E.ROUTES[route].name}. Change it.`)}">${esc(E.ROUTES[route].name)}${ui.icon('chevron-down', {size: 12})}</button></li>`;
 }
+/** The receivers to throw to, the play's target first. */
+const rowsHTML = st => { const key = keyOf(st); return (key ? [key] : []).concat(E.TARGETS.filter(k => k !== key)).map(k => receiverRowHTML(st, k)).join(''); };
 function passHTML(st) {
   const s = st.s;
   const chips = FLAG_INFO.map(([k, l]) => `<button type="button" class="dr-toggle" data-dr-flag="${k}" aria-pressed="${!!st.flags[k]}">${esc(l)}</button>`).join('');
   return `<section class="dr-call" aria-labelledby="dr-call-t">${headRow(s.phase === 'pat' ? 'Two-point pass' : 'Pass', s, true)}${lookHTML(s)}`
     + `<div class="dr-cards" role="group" aria-label="Pass plays" data-dr-cards>${passCardsHTML(st)}</div>`
-    + `<p class="dr-hint">Pick a play, then a receiver to throw to. Tap a receiver on the field (or his route) to change his route.</p>`
+    + `<ol class="dr-rcvs" data-dr-rcvs>${rowsHTML(st)}</ol>`
     + `<div class="dr-flags" role="group" aria-label="Options">${chips}</div>`
-    + `<ol class="dr-rcvs" data-dr-rcvs>${E.TARGETS.map(slot => receiverRowHTML(st, slot)).join('')}</ol></section>`;
+    + `<p class="dr-hint">Pick a play and it goes to its target; throw to him or anyone else. Tap a receiver on the field (or his route) to change his route.</p></section>`;
 }
 function runHTML(st, kind) {
   const s = st.s;
@@ -1375,8 +1380,11 @@ function pickCard(st, i) {
   refreshCards(st);
   patchRoutes(st);
   const rows = st.el.querySelector('[data-dr-rcvs]');
-  if (rows) { rows.innerHTML = E.TARGETS.map(k => receiverRowHTML(st, k)).join(''); ui.hydrate(rows); }
-  ui.announce(`${E.PASS_PLAYS[s.book[i]].name}.`);
+  if (rows) { rows.innerHTML = rowsHTML(st); ui.hydrate(rows); }
+  // Straight to the play's target: his row, ready to throw.
+  const row = st.el.querySelector('.dr-rcv.is-key');
+  if (row) row.scrollIntoView({block: 'center', behavior: ui.RM ? 'auto' : 'smooth'});
+  ui.announce(`${E.PASS_PLAYS[s.book[i]].name}, for ${s.mine.by[keyOf(st)].n}.`);
 }
 function cycleRoute(st, slot) {
   const list = E.ROUTES_FOR[slot];
@@ -1386,7 +1394,7 @@ function cycleRoute(st, slot) {
   ui.haptic('selection');
   patchRoutes(st);
   const rows = st.el.querySelector('[data-dr-rcvs]');
-  if (rows) { rows.innerHTML = E.TARGETS.map(k => receiverRowHTML(st, k)).join(''); ui.hydrate(rows); }
+  if (rows) { rows.innerHTML = rowsHTML(st); ui.hydrate(rows); }
   ui.announce(`${st.s.mine.by[slot].n}: ${E.ROUTES[st.routes[slot]].name}.`);
 }
 
@@ -1413,7 +1421,7 @@ function onClick(st, e) {
     t.setAttribute('aria-pressed', String(!!st.flags[k]));
     ui.haptic('selection');
     const rows = st.el.querySelector('[data-dr-rcvs]');
-    if (rows) { rows.innerHTML = E.TARGETS.map(x => receiverRowHTML(st, x)).join(''); ui.hydrate(rows); }
+    if (rows) { rows.innerHTML = rowsHTML(st); ui.hydrate(rows); }
     return;
   }
   if (t.hasAttribute('data-dr-route')) { cycleRoute(st, t.dataset.drRoute); return; }

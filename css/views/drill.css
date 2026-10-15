@@ -5,7 +5,7 @@
    Team colours come in per element as --tc; a player's rating colour as --rc. */
 
 /* The version mark views/drill.js checks (CSS_V): bump both when the pane needs rules an older file lacks. */
-:root { --dr-css: 5; }
+:root { --dr-css: 6; }
 
 .dr-pane, .sh-drill {
   --dr-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -330,6 +330,14 @@
   font: 600 13px/1 var(--dr-font);
 }
 .dr-pane .dr-rcv-rt > .ic { color: var(--ink-3); }
+/* The pass play's target: first, with his headshot, flagged in the red of his route on the card. */
+.dr-pane .dr-rcv.is-key { background: linear-gradient(90deg, rgba(255,77,94,.14), rgba(255,77,94,0) 70%); box-shadow: inset 3px 0 0 #FF4D5E; }
+.dr-pane .dr-rcv.is-key .dr-face { grid-row: 1 / 3; width: 44px; height: 32px; border-radius: 8px; }
+.dr-pane .dr-rcv.is-key .dr-rcv-go { grid-template-columns: 44px minmax(0, 1fr); }
+.dr-pane .dr-rcv-tag {
+  display: inline-block; margin-right: 6px; padding: 1px 5px; border-radius: 4px; vertical-align: 1.5px;
+  font: 800 9px/12px var(--dr-font); letter-spacing: .06em; text-transform: uppercase; color: #fff; background: #FF4D5E;
+}
 
 /* Play cards, like a Madden play-call screen: a dark card with the formation, the play's name and the target player's
    headshot, the play art on a dark field, and how the play has gone this game. They swipe across. */
