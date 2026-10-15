@@ -1,6 +1,7 @@
 // Two-Minute Drill checks for the dev gallery (#/_kit): data/drill.json (the teams' starters and ratings, the days'
-// situations), the engine's rules (js/core/drill-sim.js: the clock, the chains, the score, determinism), Survivor's
-// spots, the words, and the league scoreboard's rows (on crafted board docs). checks.js (owner: core) imports
+// situations), the engine's rules (js/core/drill-sim.js: the clock, the chains, the score, determinism, the action
+// tokens, the pass menu's odds, the bot and win chances), Survivor's spots, the words, and the league scoreboard's rows
+// (on crafted board docs). checks.js (owner: core) imports
 // drillChecks and calls it with its own check(name, fn) helper; every fn returns true or {pass, detail}. Nothing here
 // writes to storage or the database; the only read is the repo's own data/drill.json. Owner: Drill.
 
@@ -12,16 +13,17 @@ const DEF = {
   '43': ['LDE', 'LDT', 'RDT', 'RDE', 'WLB', 'MLB', 'SLB', 'LCB', 'RCB', 'SS', 'FS', 'NB'],
   '34': ['LDE', 'NT', 'RDE', 'WLB', 'LILB', 'RILB', 'SLB', 'LCB', 'RCB', 'SS', 'FS', 'NB']
 };
-const ALL = Object.values(E.ACT);
+const TOOLS = [E.tok.spike, E.tok.timeout, E.tok.fg, E.tok.kick, E.tok.trick, 'zz', 'p9go', 'rq'];
 
-/** A drive played with seeded random actions (any action, allowed or not, like a careless thumb). */
+/** A drive played with seeded random actions (any play, and the tools whether allowed or not, like a careless thumb). */
 function randomDrive(sc, seed) {
   const s = E.start(sc, dr.DOC.teams);
   const r = E.dice(seed, 4242);
   const trail = [];
   for (let i = 0; i < 400 && !s.result; i++) {
     const before = {clock: s.clock, tos: s.tos, us: s.us, them: s.them};
-    const p = E.act(s, ALL[Math.floor(r() * ALL.length)]);
+    const pool = r() < 0.25 ? TOOLS : E.candidates(s, true).map(c => c.token);
+    const p = E.act(s, pool[Math.floor(r() * pool.length)]);
     if (p) trail.push({before, p, after: {clock: s.clock, tos: s.tos, down: s.down, ball: s.ball, us: s.us, them: s.them}});
   }
   return {s, trail};
@@ -98,21 +100,25 @@ export async function drillChecks(check) {
   });
 
   // 4. Determinism
-  check('Drill: a drive replays exactly from its action string (what phones store and post), a refused action stops the replay, and the same call in the same spot always gets the same result', () => {
+  check('Drill: a drive replays exactly from its action string (what phones store and post), a refused action stops the replay, the same call in the same spot always gets the same result, and every token reads back as written', () => {
     need();
     const bad = [];
     for (let d = 1; d <= 20; d++) {
       const {s} = randomDrive(dr.scenario(d), d);
       const r = E.replay(dr.scenario(d), dr.DOC.teams, E.actsOf(s));
-      const sig = x => [x.result, x.us, x.them, x.clock, x.ball, x.plays.length, x.plays.map(p => p.kind + (p.gain || 0)).join()].join('|');
+      const sig = x => [x.result, x.us, x.them, x.clock, x.ball, x.plays.length, x.plays.map(p => p.kind + (p.gain || 0) + p.dcall).join()].join('|');
       if (sig(r) !== sig(s)) bad.push(`day ${d}`);
     }
-    // 'p' (the extra point) isn't allowed before a touchdown: the replay stops there.
-    const cut = E.replay(dr.scenario(1), dr.DOC.teams, 'sps');
+    // The extra point isn't allowed before a touchdown: the replay stops there.
+    const cut = E.replay(dr.scenario(1), dr.DOC.teams, 'rs,e,rs');
     if (cut.plays.length !== 1) bad.push(`replay past a refused action: ${cut.plays.length} plays`);
-    const a = E.replay(dr.scenario(3), dr.DOC.teams, 'ld'), b = E.replay(dr.scenario(3), dr.DOC.teams, 'ld');
-    if (a.plays[1].kind !== b.plays[1].kind || a.plays[1].gain !== b.plays[1].gain || a.look !== b.look) bad.push('same calls, different results');
-    return {pass: !bad.length, detail: bad.length ? bad.join('; ') : '20 drives replayed exactly'};
+    const a = E.replay(dr.scenario(3), dr.DOC.teams, 'p0go,rw+o'), b = E.replay(dr.scenario(3), dr.DOC.teams, 'p0go,rw+o');
+    if (a.plays.length !== 2 || a.plays[1].kind !== b.plays[1].kind || a.plays[1].gain !== b.plays[1].gain || a.look !== b.look) bad.push('same calls, different results');
+    const toks = [E.tok.pass('WR2', 'dig', {a: true, o: true}), E.tok.pass('RB', 'wheel'), E.tok.run('w', true), E.tok.rpo('s'), 'x', 'k', 't', 'f', 'e'];
+    const back = toks.map(t => E.parse(t));
+    if (back.some(x => !x) || back[0].slot !== 'WR2' || back[0].route !== 'dig' || !back[0].flags.a || !back[0].flags.o || back[0].flags.r || back[2].dir !== 'w' || !back[2].flags.o) bad.push('tokens');
+    if (E.parse('p4go') || E.parse('p9dig') || E.parse('rx') || E.parse('x+q')) bad.push('bad tokens accepted');
+    return {pass: !bad.length, detail: bad.length ? bad.join('; ') : '20 drives replayed exactly; tokens read back'};
   });
 
   // 5. The clock rules
@@ -124,10 +130,10 @@ export async function drillChecks(check) {
     let inc = null, run = null;
     for (let seed = 1; seed < 400 && !(inc && run); seed++) {
       const s = E.start(Object.assign({}, base, {s: seed}), T);
-      const p = E.act(s, 'd');
+      const p = E.act(s, 'p0go');
       if (!inc && p.kind === 'inc') inc = {s, p};
       const s2 = E.start(Object.assign({}, base, {s: seed}), T);
-      const q = E.act(s2, 'r');
+      const q = E.act(s2, 'rs');
       if (!run && q.kind === 'run' && !q.oob && !s2.result && q.gain > 0) run = {s: s2, p: q};
     }
     if (!inc || inc.s.running || inc.s.down !== 2) bad.push('incompletion');
@@ -140,7 +146,7 @@ export async function drillChecks(check) {
     }
     // A spike from a running clock: a down gone, the clock stopped, about 7 seconds off.
     if (run) {
-      const s = E.replay(Object.assign({}, base, {s: run.s.sc.s}), T, 'r');
+      const s = E.replay(Object.assign({}, base, {s: run.s.sc.s}), T, 'rs');
       const c0 = s.clock, d0 = s.down;
       E.act(s, 'k');
       if (s.running || s.down !== d0 + 1 || c0 - s.clock !== E.SPIKE_SET + 1) bad.push(`spike: ${c0} -> ${s.clock}, down ${d0} -> ${s.down}`);
@@ -148,7 +154,7 @@ export async function drillChecks(check) {
     // A running clock with 10 seconds left and no timeouts: a play can't be snapped in time.
     const s = E.start(Object.assign({}, base, {t: 10, to: 0}), T);
     s.running = true;
-    const p = E.act(s, 's');
+    const p = E.act(s, 'p2slant');
     if (!p || p.kind !== 'expired' || s.result !== 'L' || s.why !== 'clock') bad.push('the clock running out before the snap');
     return {pass: !bad.length, detail: bad.length ? bad.join('; ') : 'stops, runs, timeout, spike and expiry as the rules say'};
   });
@@ -161,16 +167,16 @@ export async function drillChecks(check) {
     let td = null;
     for (let seed = 1; seed < 300 && !td; seed++) {
       const s = E.start(Object.assign({}, sc, {s: seed}), T);
-      const p = E.act(s, 'r');
+      const p = E.act(s, 'rw');
       if (p && p.td) td = s;
     }
     if (!td || td.phase !== 'pat' || td.us !== 23 || td.result) bad.push('touchdown down 7');
     if (td) {
       const o = E.options(td);
-      if (!o.pat || o.fg || o.timeout || o.plays.join() !== E.TWO_PT.join()) bad.push('the choice');
-      const k = E.replay(Object.assign({}, sc, {s: td.sc.s}), T, 'rp');
+      if (!o.pat || o.fg || o.timeout || !['pass', 'run', 'rpo'].every(k => o.plays.includes(k))) bad.push('the choice');
+      const k = E.replay(Object.assign({}, sc, {s: td.sc.s}), T, 'rw,e');
       if (k.result !== 'T' || k.us !== 24) bad.push(`kick: ${k.result} ${k.us}`);
-      const two = E.replay(Object.assign({}, sc, {s: td.sc.s}), T, 'rR');
+      const two = E.replay(Object.assign({}, sc, {s: td.sc.s}), T, 'rw,p3drag');
       if (!two.result || (two.result === 'W') !== (two.us === 25)) bad.push('two-point try');
     }
     const fgDown4 = E.options(E.start({o: 'BUF', d: 'MIA', us: 20, them: 24, t: 60, b: 75, to: 2, s: 1}, T)).fg;
@@ -178,6 +184,25 @@ export async function drillChecks(check) {
     const far = E.options(E.start({o: 'BUF', d: 'MIA', us: 21, them: 24, t: 60, b: 25, to: 2, s: 1}, T)).fg;
     if (fgDown4 || !fgDown3 || fgDown3.dist !== 42 || !(fgDown3.p > 0.75 && fgDown3.p < 0.95) || far) bad.push('field goal offers');
     return {pass: !bad.length, detail: bad.length ? bad.join('; ') : `kick ties, two wins; a 42-yarder at ${Math.round(fgDown3.p * 100)}%`};
+  });
+
+  // 6b. The pass menu's odds and the win chances
+  check('Drill: the pass menu\'s odds are sane (caught, yards a throw, picked), the bot finishes drives, and win chances and option scores land between 0 and 1, best first', () => {
+    need();
+    const bad = [];
+    const s = E.start(dr.scenario(2), dr.DOC.teams);
+    E.TARGETS.forEach(slot => E.ROUTES_FOR[slot].forEach(route => {
+      const o = E.odds(s, slot, route);
+      if (!(o.caught > 0.05 && o.caught < 0.95 && o.picked >= 0 && o.picked < 0.2 && o.ypt > -3 && o.ypt < 25)) bad.push(`${slot} ${route}`);
+    }));
+    const deep = E.odds(s, 'WR1', 'go'), quick = E.odds(s, 'WR1', 'slant');
+    if (!(deep.caught < quick.caught && deep.picked > quick.picked)) bad.push('a go route should be caught less and picked more than a slant');
+    const f = E.finish(E.start(dr.scenario(4), dr.DOC.teams), E.dice(1, 2), 0.8, true);
+    if (!f.result) bad.push('bot drive never ended');
+    const wp = E.winChance(s, 20), sc = E.scoreOptions(s, null, 6);
+    if (!(wp >= 0 && wp <= 1)) bad.push(`win chance ${wp}`);
+    if (!sc.length || sc.some((x, i) => x.wp < 0 || x.wp > 1 || (i && x.wp > sc[i - 1].wp))) bad.push('option scores');
+    return {pass: !bad.length, detail: bad.length ? bad.slice(0, 6).join('; ') : `win chance ${Math.round(wp * 100)}% at the start of day 2; ${sc.length} options scored`};
   });
 
   // 7. Survivor
@@ -204,7 +229,10 @@ export async function drillChecks(check) {
     const bad = [];
     for (let d = 1; d <= 15; d++) {
       const {s} = randomDrive(dr.scenario(d), 900 + d);
-      s.plays.forEach(p => { const t = dr.playText(s, p); if (!t || !t.head || /undefined|NaN/.test(t.head + t.sub)) bad.push(`day ${d} ${p.kind}`); });
+      s.plays.forEach(p => {
+        const t = dr.playText(s, p), c = dr.callText(s, p);
+        if (!t || !t.line || /undefined|NaN/.test(t.head + t.line + (c ? c.text : '') + dr.tokenLabel(s, p.act) + dr.tokenShort(s, p.act))) bad.push(`day ${d} ${p.kind}`);
+      });
       const txt = dr.shareText(d, s);
       const names = dr.DOC.teams[s.sc.o].o.concat(dr.DOC.teams[s.sc.d].d).map(p => p[1].split(' ').pop()).filter(x => x.length > 3);
       if (!txt.includes(`#${d}`) || !txt.includes(`${s.us}–${s.them}`) || names.some(nm => txt.includes(nm))) bad.push(`share ${d}`);
@@ -220,12 +248,12 @@ export async function drillChecks(check) {
   check('Drill: the scoreboard keeps one drive per member per day (the first posted), drops bad entries, ranks wins (more time left first), then ties, then losses (furthest first), and Survivor by best run', () => {
     need();
     const docs = [
-      {id: 'a', nick: 'Ben', d2m: {1: {r: 'L', c: 0, p: 9, y: 88, k: '', t: 10}}, d2s: {b: 4, t: 1}},
-      {id: 'b', nick: 'Mitch', d2m: {1: {r: 'W', c: 12, p: 8, y: 100, k: '', t: 20}}, d2s: {b: 2, t: 1}},
-      {id: 'c', nick: 'Mitch', d2m: {1: {r: 'L', c: 0, p: 3, y: 30, t: 5}}, d2s: {b: 7, t: 1}}, // his other phone, earlier: this one counts
-      {id: 'd', nick: 'Jacob', d2m: {1: {r: 'W', c: 40, p: 6, y: 100, t: 15}}},
-      {id: 'e', nick: 'Nobody Special', d2m: {1: {r: 'X'}, 2: {c: 3}}},
-      {id: 'f', nick: 'Sayer', d2m: {1: {r: 'T', c: 2, p: 12, y: 75, t: 9}}}
+      {id: 'a', nick: 'Ben', dr2: {1: {r: 'L', c: 0, p: 9, y: 88, k: '', t: 10}}, drb2: {b: 4, t: 1}},
+      {id: 'b', nick: 'Mitch', dr2: {1: {r: 'W', c: 12, p: 8, y: 100, k: '', t: 20}}, drb2: {b: 2, t: 1}},
+      {id: 'c', nick: 'Mitch', dr2: {1: {r: 'L', c: 0, p: 3, y: 30, t: 5}}, drb2: {b: 7, t: 1}}, // his other phone, earlier: this one counts
+      {id: 'd', nick: 'Jacob', dr2: {1: {r: 'W', c: 40, p: 6, y: 100, t: 15}}},
+      {id: 'e', nick: 'Nobody Special', dr2: {1: {r: 'X'}, 2: {c: 3}}},
+      {id: 'f', nick: 'Sayer', dr2: {1: {r: 'T', c: 2, p: 12, y: 75, t: 9}}}
     ];
     const sig = rows => rows.map(r => `${r.rank}.${r.name} ${r.r}`).join(', ');
     const t1 = dr.boardRows('today', 1, docs);

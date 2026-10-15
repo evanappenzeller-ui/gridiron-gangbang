@@ -3,7 +3,7 @@
    team's hue) and --ta (its accent); a player's rating colour as --rc. The field is turf in every theme. */
 
 /* The version mark views/drill.js checks (CSS_V): bump both when the pane needs rules an older file lacks. */
-:root { --dr-css: 1; }
+:root { --dr-css: 2; }
 
 .v-puzzles .c-dr-pane { margin-top: 4px; }
 .dr-pane .dr-loading { padding-top: 16px; }
@@ -127,17 +127,34 @@
   transition: top 620ms cubic-bezier(.3,.7,.2,1), left 620ms cubic-bezier(.3,.7,.2,1), opacity 200ms;
 }
 .dr-pane .dr-ball.is-loose { opacity: .55; }
-.dr-pane .dr-flash {
-  position: absolute; left: 50%; top: 14%; z-index: 4; transform: translateX(-50%);
-  padding: 6px 14px; border-radius: 10px;
-  background: rgba(5,10,25,.84); box-shadow: 0 3px 0 rgba(0,0,0,.4);
-  font: 400 32px/1 var(--font-num); letter-spacing: .03em; text-transform: uppercase; white-space: nowrap; color: #fff;
-  opacity: 0; transition: opacity 200ms; pointer-events: none;
+/* The ball in the air (a pass, a kick): bigger, with its shadow left on the grass. */
+.dr-pane .dr-ball.is-air { transform: scale(1.45); box-shadow: 0 0 0 1px rgba(0,0,0,.55), 3px 9px 4px rgba(0,0,0,.35); }
+/* A snap in motion: the frames move everything, so no transitions. */
+.dr-pane .dr-field.is-anim .dr-track, .dr-pane .dr-field.is-anim .dr-pl, .dr-pane .dr-field.is-anim .dr-ball,
+.dr-pane .dr-field.is-anim .dr-los, .dr-pane .dr-field.is-anim .dr-fd { transition: none; }
+.dr-pane .dr-field.is-anim { cursor: pointer; }
+/* Callouts: "Broken up", "Touchdown!", where it happened. */
+.dr-pane .dr-callouts { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
+.dr-pane .dr-co {
+  position: absolute; transform: translate(-50%, -50%); white-space: nowrap;
+  padding: 3px 8px 2px; border-radius: 6px; background: #0A1124; color: #fff;
+  box-shadow: 0 0 0 1.5px rgba(255,255,255,.85), 0 3px 0 rgba(0,0,0,.4);
+  font: 800 13px/1.1 "Barlow Condensed", "Arial Narrow", var(--font-text); letter-spacing: .04em; text-transform: uppercase;
+  animation: dr-co 260ms cubic-bezier(.3,1.5,.5,1) both;
 }
-.dr-pane .dr-flash.is-on { opacity: 1; }
-.dr-pane .dr-flash.is-good { color: var(--tint); }
-.dr-pane .dr-flash.is-bad { color: #FF6B5E; }
-.dr-pane .dr-flash.is-score { color: var(--gold); }
+.dr-pane .dr-co.is-good { color: var(--tint); }
+.dr-pane .dr-co.is-bad { color: #FF7A6E; }
+.dr-pane .dr-co.is-score { background: var(--gold); color: #1B1300; box-shadow: 0 0 0 1.5px #fff, 0 3px 0 rgba(0,0,0,.4); }
+@keyframes dr-co { from { transform: translate(-50%, -50%) scale(.4); opacity: 0; } to { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
+/* Routes (the pass menu): dashed, drawn from each receiver; the one just changed in gold. Receivers can be tapped. */
+.dr-pane .dr-rlayer { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+.dr-pane .dr-routes { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.dr-pane .dr-route { fill: none; stroke: rgba(255,255,255,.78); stroke-width: 1.6; stroke-dasharray: 5 4; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+.dr-pane .dr-route.is-on { stroke: var(--gold); stroke-width: 2.2; }
+.dr-pane .dr-route-end { position: absolute; width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; border-radius: 50%; background: rgba(255,255,255,.85); }
+.dr-pane .dr-route-end.is-on { background: var(--gold); }
+.dr-pane .dr-field.is-routes [data-dr-rcv] { cursor: pointer; box-shadow: 0 0 0 2px #fff, 0 0 0 4px rgba(6,12,30,.5), 0 2px 3px rgba(0,0,0,.45); }
+.dr-pane .dr-field.is-routes [data-dr-rcv]:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
 
 .dr-pane .dr-legend { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; }
 .dr-pane .dr-scale { display: flex; align-items: center; gap: 8px; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
@@ -157,7 +174,6 @@
 .dr-pane .dr-look > b { font: 700 var(--fs-headline, 17px)/1.2 var(--font-text); color: var(--ink); }
 .dr-pane .dr-look-s { font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2); }
 .dr-pane .dr-calls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
-.dr-pane .dr-calls.is-pass { grid-template-columns: repeat(3, minmax(0, 1fr)) 44px; }
 .dr-pane .dr-cb {
   position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
   min-width: 0; height: 66px; padding: 0 4px; border-radius: 12px;
@@ -169,8 +185,6 @@
 .dr-pane .dr-cb.is-pressed { transform: translateY(3px); box-shadow: 0 1px 0 #6E7A9E, 0 2px 4px rgba(0,0,0,.3); transition: none; }
 .dr-pane .dr-cb:disabled { opacity: .38; }
 .dr-pane .dr-cb > small { font: 600 11px/1.1 var(--font-text); text-transform: none; letter-spacing: 0; color: #46506F; }
-.dr-pane .dr-cb.is-sub > span { font-size: 23px; }
-.dr-pane .dr-cb.is-back { background: var(--surface-2); color: var(--ink); box-shadow: 0 4px 0 rgba(0,0,0,.45); }
 .dr-pane .dr-cb.is-used { background: var(--surface-2); color: var(--ink-3); box-shadow: 0 4px 0 rgba(0,0,0,.35); }
 .dr-pane .dr-cb.is-used > small { color: var(--ink-3); }
 .dr-pane .dr-tools { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
@@ -180,8 +194,120 @@
   font: 600 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--wrong);
 }
 .dr-pane .dr-warn > .ic { flex: none; margin-top: 2px; }
-.dr-pane .dr-kick { margin-top: 12px; }
-.dr-pane .dr-or { margin: 12px 0 0; text-align: center; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+.dr-pane .dr-or { margin: 8px 0 0; text-align: center; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+.dr-pane .dr-back { flex: none; }
+.dr-pane .dr-hint { margin-top: 8px; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2); }
+
+/* The field goal (and the extra point): a goalpost yellow bar. */
+.dr-pane .dr-fg {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  width: 100%; min-height: 54px; margin-top: 10px; border-radius: 12px;
+  background: linear-gradient(180deg, #FFCE2E, #F0B400); color: #1B1300;
+  box-shadow: 0 4px 0 #8A6400, 0 6px 10px rgba(0,0,0,.3);
+  transition: transform var(--spring-snappy-dur) var(--spring-snappy), box-shadow 120ms;
+}
+.dr-pane .dr-fg.is-pressed { transform: translateY(3px); box-shadow: 0 1px 0 #8A6400; transition: none; }
+.dr-pane .dr-fg > b { font: 800 20px/1 "Barlow Condensed", "Arial Narrow", var(--font-text); text-transform: uppercase; letter-spacing: .04em; }
+.dr-pane .dr-fg > small { font: 600 12px/1.2 var(--font-text); color: #4A3A00; }
+
+/* Pass: the options and the receivers. */
+.dr-pane .dr-flags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.dr-pane .dr-flag[aria-pressed="true"] { background: var(--tint); color: var(--on-tint); box-shadow: none; }
+.dr-pane .dr-rcvs { margin: 10px 0 0; padding: 0; list-style: none; border-radius: var(--r-card); background: var(--surface-1); overflow: hidden; }
+.dr-pane .dr-rcv { display: flex; align-items: stretch; }
+.dr-pane .dr-rcv + .dr-rcv { border-top: 1px solid var(--separator); }
+.dr-pane .dr-rcv-go {
+  flex: 1; min-width: 0; display: grid; grid-template-columns: 26px minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 8px; row-gap: 1px;
+  align-items: center; padding: 9px 4px 9px 12px; text-align: left;
+}
+.dr-pane .dr-rcv-go.is-pressed { background: var(--fill); }
+.dr-pane .dr-rcv-pos { grid-row: 1 / 3; font: 400 17px/1 var(--font-num); color: var(--ink-3); }
+.dr-pane .dr-rcv-id { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink); }
+.dr-pane .dr-rcv-st { font: 400 var(--fs-cap)/var(--lh-cap) var(--font-text); color: var(--ink-2); }
+.dr-pane .dr-rcv-rt {
+  flex: none; display: flex; align-items: center; gap: 3px; align-self: center; margin-right: 10px;
+  padding: 5px 9px; border-radius: var(--r-pill); background: var(--surface-2); color: var(--ink);
+  font: 600 13px/1 var(--font-text);
+}
+.dr-pane .dr-rcv-rt > .ic { color: var(--ink-3); }
+
+/* Run and RPO: the side, and the sideline switch. */
+.dr-pane .dr-dirs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.dr-pane .dr-cb.is-dir { font-size: 24px; height: 60px; }
+.dr-pane .dr-oob {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px;
+  padding: 12px 14px; border-radius: var(--r-card); background: var(--surface-1);
+}
+.dr-pane .dr-oob-tx { display: flex; flex-direction: column; min-width: 0; }
+.dr-pane .dr-oob-tx > b { font: 600 var(--fs-sub)/var(--lh-sub) var(--font-text); }
+.dr-pane .dr-oob-tx > small { font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2); }
+
+/* The snap in progress. */
+.dr-pane .dr-snap { margin-top: 18px; min-height: 120px; }
+.dr-pane .dr-snap-t { display: flex; align-items: center; gap: 10px; font: 600 var(--fs-callout)/var(--lh-callout) var(--font-text); color: var(--ink-2); }
+.dr-pane .dr-snap-t > .spin { width: 18px; height: 18px; color: var(--ink-3); }
+.dr-pane .dr-snap-s { margin-top: 14px; font: 700 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink); }
+
+/* The breakdown of the last snap. */
+.dr-pane .dr-bd { margin-top: 18px; padding: 14px; border-radius: var(--r-card); background: var(--surface-1); box-shadow: inset 0 0 0 1px var(--separator); }
+.dr-pane .dr-bd.is-mini { padding: 10px 14px; }
+.dr-pane .dr-bd-top { display: flex; gap: 12px; align-items: flex-start; }
+.dr-pane .dr-bd-d {
+  flex: none; display: grid; place-items: center; min-width: 42px; height: 42px; padding: 0 6px; border-radius: 10px;
+  font: 400 24px/1 var(--font-num); color: #fff; background: var(--surface-3);
+}
+.dr-pane .dr-bd-d.is-up { background: #2F9E44; }
+.dr-pane .dr-bd-d.is-down { background: #E8590C; }
+.dr-pane .dr-bd-d.is-wait > .spin { width: 16px; height: 16px; }
+.dr-pane .dr-bd-main { min-width: 0; }
+.dr-pane .dr-bd-h { font: 800 22px/1.05 "Barlow Condensed", "Arial Narrow", var(--font-text); text-transform: uppercase; letter-spacing: .02em; }
+.dr-pane .dr-bd.is-good .dr-bd-h { color: var(--tint); }
+.dr-pane .dr-bd.is-bad .dr-bd-h { color: #FF7A6E; }
+.dr-pane .dr-bd.is-score .dr-bd-h { color: var(--gold); }
+.dr-pane .dr-bd-line { margin-top: 3px; font: 400 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink); }
+.dr-pane .dr-bd-wp { margin-top: 3px; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.dr-pane .dr-bd-call {
+  margin-top: 10px; padding: 2px 0 2px 10px; border-left: 3px solid var(--ink-4);
+  font: 600 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink);
+}
+.dr-pane .dr-bd-call.is-good { border-left-color: var(--tint); }
+.dr-pane .dr-bd-call.is-bad { border-left-color: #FF5A4A; }
+.dr-pane .dr-bd-grade { display: flex; align-items: center; gap: 6px; margin-top: 8px; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2); }
+.dr-pane .dr-bd-grade > .ic, .dr-pane .dr-bd-grade > .spin { flex: none; width: 16px; height: 16px; color: var(--ink-3); }
+.dr-pane .dr-bd-grade.is-best > .ic { color: var(--tint); }
+.dr-pane .dr-bd-grade b { color: var(--ink); }
+.dr-pane .dr-bd-act { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; margin-top: 10px; }
+.dr-pane .dr-bd-opts { flex: 1; min-width: 180px; }
+.dr-pane .dr-bd-opts[open] { flex-basis: 100%; }
+.dr-pane .dr-bd-opts > summary {
+  display: flex; align-items: center; justify-content: space-between; height: 34px; padding: 0 12px;
+  border-radius: var(--r-pill); background: var(--surface-2); cursor: pointer; list-style: none;
+  font: 600 14px/20px var(--font-text); color: var(--ink);
+}
+.dr-pane .dr-bd-opts > summary::-webkit-details-marker { display: none; }
+.dr-pane .dr-bd-opts > summary::after { content: "+"; font-size: 18px; color: var(--ink-3); }
+.dr-pane .dr-bd-opts[open] > summary::after { content: "–"; }
+.dr-pane .dr-bd-opts ol { margin: 8px 0 0; padding: 0; list-style: none; }
+.dr-pane .dr-bd-opts li {
+  display: grid; grid-template-columns: minmax(0, 1fr) 64px 38px; align-items: center; gap: 8px; padding: 5px 0;
+  font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2);
+}
+.dr-pane .dr-bd-opts li > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dr-pane .dr-bd-opts li > i { height: 6px; border-radius: 3px; background: linear-gradient(90deg, var(--ink-3) var(--w), var(--surface-3) var(--w)); }
+.dr-pane .dr-bd-opts li > b { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 600; }
+.dr-pane .dr-bd-opts li.is-mine { color: var(--ink); font-weight: 600; }
+.dr-pane .dr-bd-opts li.is-mine > i { background: linear-gradient(90deg, var(--tint) var(--w), var(--surface-3) var(--w)); }
+.dr-pane .dr-bd-note { margin-top: 6px; font: 400 var(--fs-cap)/var(--lh-cap) var(--font-text); color: var(--ink-3); }
+
+/* Play-by-play, folded. */
+.dr-pane .dr-pbp { margin-top: 18px; }
+.dr-pane .dr-pbp > summary {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 0; cursor: pointer; list-style: none;
+  font: 400 16px/1 var(--font-num); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-2);
+}
+.dr-pane .dr-pbp > summary::-webkit-details-marker { display: none; }
+.dr-pane .dr-pbp > summary::before { content: "▸"; transition: transform 160ms; }
+.dr-pane .dr-pbp[open] > summary::before { transform: rotate(90deg); }
 
 /* ---------------------------------------------------------------- The drive so far (and the drive sheet) */
 .dr-log { margin: 0; padding: 0; list-style: none; }
@@ -271,7 +397,8 @@
   .dr-pane .dr-bug-ab { font-size: 24px; }
   .dr-pane .dr-bug-sc { font-size: 34px; }
   .dr-pane .dr-cb { font-size: 23px; height: 60px; }
-  .dr-pane .dr-cb.is-sub > span { font-size: 20px; }
+  .dr-pane .dr-rcv-go { padding-left: 10px; column-gap: 6px; }
+  .dr-pane .dr-rcv-rt { margin-right: 8px; padding: 5px 7px; }
   .dr-pane .dr-pl { width: 22px; height: 22px; margin: -11px 0 0 -11px; }
   .dr-pane .dr-pl-j { font-size: 15px; }
   .dr-pane .dr-pl-n { font-size: 8.5px; }

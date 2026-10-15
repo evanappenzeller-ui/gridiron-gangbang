@@ -53,9 +53,10 @@ export function scenario(n) {
 export const team = id => DOC.teams[id];
 
 // ---------------------------------------------------------------------------------------------- memory
-// 'gg-2m': {days: {n: {a (actions), r ('W'|'T'|'L' once over), at}} (the last KEEP days), played, wins,
-//           surv: {run: {seed, i (its drive number, 0 first), a (this drive's actions), streak, over}, best, runs}}
-const KEY = 'gg-2m', KEEP = 60;
+// 'gg-drill2': {days: {n: {a (actions), r ('W'|'T'|'L' once over), at}} (the last KEEP days), played, wins,
+//              surv: {run: {seed, i (its drive number, 0 first), a (this drive's actions), streak, over}, best, runs}}
+// (The first version's single-letter actions lived under 'gg-2m'; they don't replay in this engine, so it's left be.)
+const KEY = 'gg-drill2', KEEP = 60;
 function read() {
   let v = null;
   try { v = JSON.parse(lsGet(KEY) || 'null'); } catch (_) { v = null; }
@@ -70,7 +71,7 @@ function write(v) {
   keys.slice(KEEP).forEach(k => { delete v.days[k]; });
   lsSet(KEY, JSON.stringify(v));
 }
-const cleanActs = a => (typeof a === 'string' && /^[a-zA-Z]{0,200}$/.test(a) ? a : '');
+const cleanActs = a => (typeof a === 'string' && /^[a-z0-9+,]{0,1200}$/.test(a) ? a : '');
 /** Day n on this phone: {acts, result (null until it's over), at}. */
 export function dayState(n) {
   const d = read().days[n] || {};
@@ -153,7 +154,7 @@ export const short = n => {
   const i = String(n).indexOf(' ');
   return i < 0 ? String(n) : `${n[0]}. ${n.slice(i + 1)}`;
 };
-const lastName = n => { const i = String(n).indexOf(' '); return i < 0 ? n : n.slice(i + 1); };
+export const lastName = n => { const i = String(n).indexOf(' '); return i < 0 ? n : n.slice(i + 1); };
 /** Where the ball is: "DEN 35", "midfield", "SEA 12". */
 export function spot(s, ball = s.ball) {
   if (ball === 50) return 'midfield';
@@ -168,45 +169,118 @@ export const clockText = sec => `${Math.floor(Math.max(0, sec) / 60)}:${String(M
 const yds = g => `${Math.abs(g)} yard${Math.abs(g) === 1 ? '' : 's'}`;
 const offName = (s, slot) => s.U.o.by[slot].n;
 const defName = (s, slot) => (s.U.d.by[slot] ? s.U.d.by[slot].n : '');
-export const CALL_LABEL = {
-  run: 'Run', short: 'Pass short', side: 'Pass to the sideline', deep: 'Deep shot', rpo: 'RPO', trick: 'Trick play',
-  spike: 'Spike', timeout: 'Timeout', fg: 'Field goal', kick: 'Kick the extra point',
-  run2: 'Two-point run', pass2: 'Two-point pass', rpo2: 'Two-point RPO', trick2: 'Two-point trick play'
-};
-/** One play in words: {head ("Complete to Odunze for 14"), sub (the details), tone ('good'|'bad'|'flat'|'score')}. */
+const SIDE = {s: 'strong side', w: 'weak side'};
+const routeName = r => (E.ROUTES[r] ? E.ROUTES[r].name.toLowerCase() : 'route');
+const article = w => (/^[aeiou]/i.test(w) ? 'an' : 'a');
+/** A token in words: "Pass to Moore, dig, play action", "Run, weak side, get out of bounds". s: the drive (for names). */
+export function tokenLabel(s, t) {
+  const a = E.parse(t);
+  if (!a) return '';
+  const fl = a.flags || {};
+  const extra = [fl.a ? 'play action' : '', fl.r ? 'roll out' : '', fl.o ? 'get out of bounds' : ''].filter(Boolean);
+  let base;
+  if (a.kind === 'pass') base = `Pass to ${lastName(offName(s, a.slot))}, ${routeName(a.route)}`;
+  else if (a.kind === 'run') base = `Run, ${SIDE[a.dir]}`;
+  else if (a.kind === 'rpo') base = `RPO, ${SIDE[a.dir]}`;
+  else base = {trick: 'Trick play', spike: 'Spike', timeout: 'Timeout', fg: 'Field goal', kick: 'Kick the extra point'}[a.kind];
+  return [base].concat(extra).join(', ');
+}
+/** A token in few words, for the list of every option: "Moore dig (PA)", "Run weak", "RPO strong (OOB)". */
+export function tokenShort(s, t) {
+  const a = E.parse(t);
+  if (!a) return '';
+  const fl = a.flags || {};
+  const extra = [fl.a ? 'PA' : '', fl.r ? 'roll' : '', fl.o ? 'OOB' : ''].filter(Boolean).join(', ');
+  const tail = extra ? ` (${extra})` : '';
+  if (a.kind === 'pass') return `${lastName(offName(s, a.slot))} ${routeName(a.route)}${tail}`;
+  if (a.kind === 'run' || a.kind === 'rpo') return `${a.kind === 'run' ? 'Run' : 'RPO'} ${a.dir === 's' ? 'strong' : 'weak'}${tail}`;
+  return {trick: 'Trick play', spike: 'Spike', timeout: 'Timeout', fg: 'Field goal', kick: 'Extra point'}[a.kind];
+}
+const tailOf = p => [p.first ? 'first down' : '', p.oob ? 'out of bounds' : '', p.warn ? 'two-minute warning' : '',
+  p.kind === 'timeout' ? '' : p.after.running ? 'clock running' : 'clock stopped'].filter(Boolean).join(', ');
+/** One play in words: {head ("Incomplete", "+14", "Touchdown"), line (what happened, broadcast style), tone ('good' |
+ *  'bad' | 'flat' | 'score')}. */
 export function playText(s, p) {
-  const after = p.after;
-  const clockBit = p.kind === 'timeout' ? '' : after.running ? 'clock running' : 'clock stopped';
-  const tail = [p.first ? 'first down' : '', p.oob ? 'out of bounds' : '', p.warn ? 'two-minute warning' : '', clockBit].filter(Boolean).join(' · ');
+  const qb = lastName(offName(s, 'QB'));
+  const tail = tailOf(p);
+  const route = p.route ? routeName(p.route) : '';
+  const to = p.who ? `${short(offName(s, p.who))}` : '';
+  const on = route ? ` on ${article(route)} ${route}` : '';
+  const two = p.two ? 'Two-point try: ' : '';
   switch (p.kind) {
-    case 'timeout': return {head: `Timeout. ${after.tos} left`, sub: `Clock stopped at ${clockText(after.clock)}`, tone: 'flat'};
-    case 'spike': return {head: 'Spiked to stop the clock', sub: `${downText(after.down, after.togo, after.ball)} · ${clockText(after.clock)} left`, tone: 'flat'};
-    case 'expired': return {head: 'The clock ran out before the snap', sub: 'Should have used a timeout or spiked it', tone: 'bad'};
-    case 'fg': return {head: `${p.dist}-yard field goal is good`, sub: s.result === 'W' ? 'That wins it' : 'All tied up', tone: 'score'};
-    case 'fgx': return {head: `${p.dist}-yard field goal is no good`, sub: `${s.U.o.k.n} missed`, tone: 'bad'};
-    case 'xp': return {head: 'Extra point is good', sub: 'Tied. Overtime', tone: 'score'};
-    case '2good': return {head: 'Two-point try is good', sub: CALL_LABEL[p.call] + '. That wins it', tone: 'score'};
-    case '2fail': return {head: 'Two-point try fails', sub: CALL_LABEL[p.call], tone: 'bad'};
-    case 'int': return {head: `Intercepted by ${defName(s, p.by)}`, sub: `${p.trick ? 'The trick play' : 'Intended for ' + offName(s, p.who)}. Game over`, tone: 'bad'};
-    case 'fum': return {head: p.who === 'RB' ? `${lastName(offName(s, 'RB'))} fumbles. ${defName(s, p.by)} recovers` : `Strip sack by ${defName(s, p.by)}`, sub: 'Turnover. Game over', tone: 'bad'};
-    case 'sack': return {head: `Sacked by ${defName(s, p.by)} for a loss of ${Math.abs(p.gain)}`, sub: tail, tone: 'bad'};
-    case 'inc': return {head: p.trick ? 'The trick play falls incomplete' : `Incomplete, intended for ${lastName(offName(s, p.who))}`, sub: `${defName(s, p.by)} in coverage · clock stopped`, tone: 'flat'};
+    case 'timeout': return {head: 'Timeout', line: `Clock stopped at ${clockText(p.after.clock)}. ${p.after.tos} left.`, tone: 'flat'};
+    case 'spike': return {head: 'Spiked', line: `${qb} spikes it to stop the clock: ${downText(p.after.down, p.after.togo, p.after.ball)}, ${clockText(p.after.clock)} left.`, tone: 'flat'};
+    case 'expired': return {head: 'Time', line: 'The clock ran out before the snap. A timeout or a spike would have stopped it.', tone: 'bad'};
+    case 'fg': return {head: 'It’s good', line: `${p.dist}-yard field goal by ${lastName(s.U.o.k.n)}. ${s.result === 'W' ? 'That wins it.' : 'All tied up.'}`, tone: 'score'};
+    case 'fgx': return {head: 'No good', line: `${p.dist}-yard field goal by ${lastName(s.U.o.k.n)} misses.`, tone: 'bad'};
+    case 'xp': return {head: 'Tied', line: 'The extra point is good. Overtime.', tone: 'score'};
+    case '2good': return {head: 'Two!', line: `${two}${twoLine(s, p)} That wins it.`, tone: 'score'};
+    case '2fail': return {head: 'Stopped', line: `${two}${twoLine(s, p)}`, tone: 'bad'};
+    case 'int': return {head: 'Intercepted', line: p.trick ? `The trick play: ${qb} heaves it deep and ${defName(s, p.by)} picks it off.` : `${qb} looks for ${to}${on}: picked off by ${defName(s, p.by)}.`, tone: 'bad'};
+    case 'fum': return {head: 'Fumble', line: p.who === 'RB' ? `${lastName(offName(s, 'RB'))} fumbles and ${defName(s, p.by)} recovers.` : `Strip sack by ${defName(s, p.by)}. Their ball.`, tone: 'bad'};
+    case 'sack': return {head: `Sack ${p.gain}`, line: `${defName(s, p.by)} sacks ${qb} for a loss of ${Math.abs(p.gain)}: ${tail}.`, tone: 'bad'};
+    case 'inc': return {head: 'Incomplete', line: p.trick ? `The trick play falls incomplete: ${tail}.` : `${qb} looks for ${to}${on}: incomplete, ${tail}.`, tone: 'flat'};
     case 'catch': {
       const who = lastName(offName(s, p.who));
-      if (p.td) return {head: `Touchdown! ${p.trick ? 'Trick play, ' : ''}${who} from ${p.gain} out`, sub: s.phase === 'pat' ? 'Down one. Kick to tie, or go for two to win' : s.result === 'W' ? 'That wins it' : '', tone: 'score'};
-      const head = `${p.trick ? 'Trick play! ' : ''}${p.read === 'pass' ? 'RPO, ' : ''}${who} for ${p.gain >= 0 ? yds(p.gain) : 'a loss of ' + Math.abs(p.gain)}`;
-      return {head, sub: tail, tone: p.first || p.gain >= 10 ? 'good' : p.gain <= 2 ? 'flat' : 'good'};
+      if (p.td) return {head: 'Touchdown', line: `${p.trick ? 'The trick play! ' : ''}${qb} finds ${to}${p.trick ? '' : on} for a ${p.gain}-yard touchdown.${s.phase === 'pat' ? ' Down one: kick to tie, or go for two to win.' : ''}`, tone: 'score'};
+      const g = p.gain >= 0 ? `+${p.gain}` : `${p.gain}`;
+      const what = p.read === 'pass' ? `RPO: ${qb} pulls it and fires to ${to} on a slant` : p.trick ? `The trick play! ${qb} hits ${to} deep` : `${qb} hits ${to}${on}`;
+      return {head: g, line: `${what} for ${p.gain >= 0 ? yds(p.gain) : 'a loss of ' + Math.abs(p.gain)}${p.broke ? ', breaking a tackle' : ''}: ${tail}.`, tone: p.first || p.gain >= 10 ? 'good' : p.gain <= 2 ? 'flat' : 'good'};
     }
     case 'run': {
       const who = lastName(offName(s, 'RB'));
-      if (p.td) return {head: `Touchdown! ${who} ${p.read === 'run' ? 'on the RPO keeper ' : ''}from ${p.gain} out`, sub: s.phase === 'pat' ? 'Down one. Kick to tie, or go for two to win' : s.result === 'W' ? 'That wins it' : '', tone: 'score'};
-      const head = p.gain > 0 ? `${p.read === 'run' ? 'RPO, ' : ''}${who} runs for ${yds(p.gain)}` : p.gain === 0 ? `${who} is stopped for no gain` : `${who} is dropped for a loss of ${Math.abs(p.gain)}`;
-      return {head, sub: [p.gain <= 0 ? `${defName(s, p.by)} on the tackle` : '', tail].filter(Boolean).join(' · '), tone: p.gain <= 0 ? 'bad' : p.first || p.gain >= 8 ? 'good' : 'flat'};
+      const keep = p.read === 'run' ? 'RPO, handed off: ' : '';
+      if (p.td) return {head: 'Touchdown', line: `${keep}${who} runs it in from ${p.gain} out on the ${SIDE[p.dir]}.${s.phase === 'pat' ? ' Down one: kick to tie, or go for two to win.' : ''}`, tone: 'score'};
+      const head = p.gain > 0 ? `+${p.gain}` : p.gain === 0 ? 'No gain' : `${p.gain}`;
+      const line = p.gain > 0 ? `${keep}${who} runs ${SIDE[p.dir]} for ${yds(p.gain)}${p.broke ? ', breaking a tackle' : ''}: ${tail}.`
+        : `${keep}${who} is ${p.gain === 0 ? 'stopped for no gain' : `dropped for a loss of ${Math.abs(p.gain)}`} by ${defName(s, p.by)}: ${tail}.`;
+      return {head, line, tone: p.gain <= 0 ? 'bad' : p.first || p.gain >= 8 ? 'good' : 'flat'};
     }
-    default: return {head: CALL_LABEL[p.call] || '', sub: '', tone: 'flat'};
+    default: return {head: '', line: tokenLabel(s, p.act), tone: 'flat'};
   }
 }
-/** The drive's end in words: {head, score, sub}. you: false for someone else's drive (no "You win"). */
+function twoLine(s, p) {
+  const qb = lastName(offName(s, 'QB'));
+  if (p.res === 'catch') return `${qb} finds ${short(offName(s, p.who))} in the end zone.`;
+  if (p.res === 'run') return p.gain >= 2 ? `${lastName(offName(s, 'RB'))} punches it in.` : `${lastName(offName(s, 'RB'))} is stopped short.`;
+  if (p.res === 'inc') return `${qb}’s pass for ${short(offName(s, p.who))} falls incomplete.`;
+  if (p.res === 'sack') return `${qb} is sacked.`;
+  if (p.res === 'int') return `${qb} is picked off.`;
+  return 'No good.';
+}
+/** What the defense was really in and how it met your play: {text, good (it played into your hands)}, or null. */
+export function callText(s, p) {
+  const C = E.CALLS[p.dcall];
+  if (!C || !p.look) return null;
+  const look = E.LOOKS[p.look].name.toLowerCase();
+  const is = `The ${look} was ${C.name} (${C.what})`;
+  const a = E.parse(p.act) || {};
+  if (p.kind === 'sack' || (p.kind === 'fum' && p.who !== 'RB')) {
+    const pa = a.flags && a.flags.a && !(E.FX[p.dcall].pa || p.look === 'box');
+    return {text: `${is}. The rush got home${pa ? ': play action held the ball too long' : a.flags && a.flags.r ? ' even on the roll out' : ''}.`, good: false};
+  }
+  if (a.kind === 'pass' || (a.kind === 'rpo' && p.read === 'pass')) {
+    const route = a.kind === 'pass' ? a.route : 'slant', slot = a.kind === 'pass' ? a.slot : 'WR3';
+    const cat = E.ROUTES[route].cat, fx = E.FX[p.dcall].cat[cat][0];
+    const the = `the ${routeName(route)} to ${short(offName(s, slot))}`;
+    if (a.kind === 'rpo') return {text: `${is}: the QB read it and threw. ${fx >= 0 ? 'Right read.' : 'It was waiting for the quick throw.'}`, good: fx >= 0};
+    return fx >= 0.03 ? {text: `${is}, and ${the} was the answer to it.`, good: true}
+      : fx <= -0.03 ? {text: `${is}, set up to stop ${the}.`, good: false}
+      : {text: `${is}. Nothing special against ${the}.`, good: true};
+  }
+  if (a.kind === 'run' || a.kind === 'rpo') {
+    const into = a.dir === p.shade;
+    const fxr = E.FX[p.dcall].run + (into ? -1.2 : 1.6);
+    const lean = into ? 'and you ran right at the side it leaned to' : 'and you ran away from its lean';
+    return {text: `${is}, ${lean}.`, good: fxr >= 0};
+  }
+  if (a.kind === 'trick') {
+    const t = E.FX[p.dcall].trick;
+    return {text: `${is}. ${t >= 0.45 ? 'Aggressive: the kind a trick play fools.' : 'Patient: the kind a trick play doesn’t fool.'}`, good: t >= 0.45};
+  }
+  return null;
+}
+export const CALL_LABEL = {pass: 'Pass', run: 'Run', rpo: 'RPO', trick: 'Trick play', spike: 'Spike', timeout: 'Timeout', fg: 'Field goal', kick: 'Extra point'};
 export function resultText(s, {you = true} = {}) {
   const score = `${s.us}–${s.them}`;
   const won = you ? 'You win' : 'Won it';
@@ -246,11 +320,12 @@ export function shareText(n, s) {
 }
 
 // ---------------------------------------------------------------------------------------------- scoreboard
-// The league's drives ride on each phone's Daily board doc (players/{uid}, daily.js), like 17-0's: d2m: {n: {r ('W'|
+// The league's drives ride on each phone's Daily board doc (players/{uid}, daily.js), like 17-0's: dr2: {n: {r ('W'|
 // 'T'|'L'), c (seconds left), p (plays), y (furthest the ball got, yards from your own goal), k (the actions), t
-// (when)}} and d2s: {b (best Survivor run), t}. A finished day posts by itself (autoPost) once the board has loaded,
+// (when)}} and drb2: {b (best Survivor run), t}. A finished day posts by itself (autoPost) once the board has loaded,
 // and again after a failed post. One drive per member per day: across a member's phones the first finished counts.
-const F = 'd2m', FS = 'd2s', POST_BACK = 7;
+// (These are the second engine's fields; the first one's d2m and d2s don't replay in it.)
+const F = 'dr2', FS = 'drb2', POST_BACK = 7;
 let posting = false;
 export function entryOf(p, n) {
   const e = p && p[F] && typeof p[F] === 'object' ? p[F][n] : null;
