@@ -327,15 +327,15 @@ export async function drillChecks(check) {
     need();
     const g = (r, u, h, p, t) => ({r, u, h, p, k: '', t});
     const docs = [
-      {id: 'a', nick: 'Ben', dr4: {1: g('L', 21, 24, 9, 10)}},
-      {id: 'b', nick: 'Mitch', dr4: {1: g('W', 27, 24, 8, 20)}},
-      {id: 'c', nick: 'Mitch', dr4: {1: g('L', 17, 24, 3, 5)}}, // his other phone, earlier: this one counts
-      {id: 'd', nick: 'Jacob', dr4: {1: g('W', 31, 24, 6, 15)}},
-      {id: 'e', nick: 'Nobody Special', dr4: {1: g('W', 10, 20, 4, 1), 2: {u: 3}}},
-      {id: 'f', nick: 'Sayer', dr4: {1: g('T', 24, 24, 12, 9)}},
-      {id: 'g', nick: 'Kyle Example', dr4: {1: g('W', 28, 24, 10, 9)}},
-      {id: 'h', nick: 'Evan Example', dr4: {1: g('W', 28, 24, 7, 9)}},
-      {id: 'i', nick: 'Zed Example', dr4: {1: g('W', 28, 24, 7, 12)}}
+      {id: 'a', nick: 'Ben', dr5: {1: g('L', 21, 24, 9, 10)}},
+      {id: 'b', nick: 'Mitch', dr5: {1: g('W', 27, 24, 8, 20)}},
+      {id: 'c', nick: 'Mitch', dr5: {1: g('L', 17, 24, 3, 5)}}, // his other phone, earlier: this one counts
+      {id: 'd', nick: 'Jacob', dr5: {1: g('W', 31, 24, 6, 15)}},
+      {id: 'e', nick: 'Nobody Special', dr5: {1: g('W', 10, 20, 4, 1), 2: {u: 3}}},
+      {id: 'f', nick: 'Sayer', dr5: {1: g('T', 24, 24, 12, 9)}},
+      {id: 'g', nick: 'Kyle Example', dr5: {1: g('W', 28, 24, 10, 9)}},
+      {id: 'h', nick: 'Evan Example', dr5: {1: g('W', 28, 24, 7, 9)}},
+      {id: 'i', nick: 'Zed Example', dr5: {1: g('W', 28, 24, 7, 12)}}
     ];
     const t1 = dr.boardRows(1, docs);
     const sig = t1.map(r => `${r.rank}.${r.name.split(' ')[0]} ${r.r}`).join(', ');

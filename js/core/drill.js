@@ -53,10 +53,10 @@ export function scenario(n) {
 export const team = id => DOC.teams[id];
 
 // ---------------------------------------------------------------------------------------------- memory
-// 'gg-drill4': {days: {n: {a (actions), r ('W'|'T'|'L' once over), at}} (the last KEEP days), played, wins}
-// (Earlier games, under 'gg-2m', 'gg-drill2' and 'gg-drill3', were played on other engines or other days' situations
+// 'gg-drill5': {days: {n: {a (actions), r ('W'|'T'|'L' once over), at}} (the last KEEP days), played, wins}
+// (Earlier games, under 'gg-2m' and 'gg-drill2' to 'gg-drill4', were played on other engines or other days' situations
 // and don't replay in this one, so they're left be.)
-const KEY = 'gg-drill4', KEEP = 60;
+const KEY = 'gg-drill5', KEEP = 60;
 function read() {
   let v = null;
   try { v = JSON.parse(lsGet(KEY) || 'null'); } catch (_) { v = null; }
@@ -379,11 +379,11 @@ export function shareText(n, s) {
 }
 
 // ---------------------------------------------------------------------------------------------- scoreboard
-// The league's games ride on each phone's Daily board doc (players/{uid}, daily.js), like 17-0's: dr4: {n: {r ('W'|'T'|
+// The league's games ride on each phone's Daily board doc (players/{uid}, daily.js), like 17-0's: dr5: {n: {r ('W'|'T'|
 // 'L'), u (your points), h (theirs), p (plays), k (the actions), t (when)}}. A finished day posts by itself (autoPost)
 // once the board has loaded, and again after a failed post. One game per member per day: across a member's phones the
-// first finished counts. (dr4 is these days'; the earlier dr3, dr2 and d2m games don't replay in them.)
-const F = 'dr4', POST_BACK = 7;
+// first finished counts. (dr5 is these days'; the earlier dr4, dr3, dr2 and d2m games don't replay in them.)
+const F = 'dr5', POST_BACK = 7;
 let posting = false;
 export function entryOf(p, n) {
   const e = p && p[F] && typeof p[F] === 'object' ? p[F][n] : null;
