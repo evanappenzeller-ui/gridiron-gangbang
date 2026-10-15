@@ -35,7 +35,7 @@ const ST = new WeakMap(); // ctx -> pane state
 
 // A home-screen app open across an update imports this module new under the stylesheet it started with: when
 // drill.css's mark (--dr-css on :root) isn't this module's, the current file is added (as in views/seventeen.js).
-const CSS_V = '4';
+const CSS_V = '5';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--dr-css').trim() === CSS_V || document.querySelector('link[data-dr-css]')) return;
@@ -725,69 +725,159 @@ function defenseHTML(st) {
     + `<div class="dr-dcs">${cards}</div>` + tools + warn + `</section>`;
 }
 // ---------------------------------------------------------------------------- Play cards
-// Three plays of each type, each drawn like a playbook page: the line, the skill players and every route in its own
-// colour, in field yards across (0-53.3) and from the line of scrimmage (9 behind to 24 past it).
-const ART_TOP = 24, ART_H = 33;
-const RCOL = {WR1: '#FFD60A', WR2: '#FF6B6B', WR3: '#5AC8FA', TE: '#34C759', RB: '#C084FC'};
-const ax = x => x.toFixed(1), ay = y => (ART_TOP - y).toFixed(1);
-function artLine(path, col, {dash = false, end = true} = {}) {
-  const [x, y] = path[path.length - 1];
-  return `<polyline points="${path.map(([px, py]) => `${ax(px)},${ay(py)}`).join(' ')}" fill="none" stroke="${col}" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"${dash ? ' stroke-dasharray="1.5 1.8"' : ''}/>`
-    + (end ? `<circle cx="${ax(x)}" cy="${ay(y)}" r="1.2" fill="${col}"/>` : '');
+// Three plays of each type, drawn like a Madden play-call screen: the formation and the play's name, the target
+// player's headshot, the play art on a dark field (the real yard lines around the ball, the line of scrimmage dashed
+// gold, the line as blocks, every route with its arrow: the target's red, the back's blue, the rest yellow; blockers'
+// lines end in a bar) and how the play has gone for you this game (calls, average yards). Field yards across (0-53.3)
+// and from the line of scrimmage (ART.lo behind to ART.hi past it, squeezed by ART.k); a deep route runs off the top,
+// its arrow at the edge.
+const ART = {lo: -8, hi: 24, k: 0.7};
+const ART_H = (ART.hi - ART.lo) * ART.k;
+const ARTY = y => (ART.hi - y) * ART.k;
+const f2 = v => v.toFixed(2);
+const RC = {key: '#FF4D5E', back: '#4C8DFF', other: '#F5C518', white: 'rgba(255,255,255,.88)'};
+const FORMATION = 'Gun Doubles';
+/** The play's target: the player on its card (pass plays: the read the play is built for). */
+const PASS_KEY = {verts: 'WR1', postdig: 'WR2', smash: 'WR3', slantwheel: 'RB', levels: 'WR2', dagger: 'WR3', outs: 'WR1', mesh: 'TE', corners: 'TE', hail: 'WR2'};
+const RPO_KEY = k => E.RPOS[k].slot;
+const TRICK_KEY = {f: 'WR1', h: 'WR2', r: 'WR1'};
+/** A line along a path (field yards), ending in an arrow, a block bar or nothing. */
+/** A path cut where it leaves the top of the art. */
+function artClip(path) {
+  const top = ART.hi - 1.2, out = [path[0]];
+  for (let i = 1; i < path.length; i++) {
+    const [x0, y0] = path[i - 1], [x1, y1] = path[i];
+    if (y1 <= top) { out.push(path[i]); continue; }
+    const k = (top - y0) / (y1 - y0);
+    out.push([x0 + (x1 - x0) * k, top]);
+    break;
+  }
+  return out;
 }
-function artSVG(inner) {
-  let h = `<line x1="0" y1="${ay(0)}" x2="${WIDTH}" y2="${ay(0)}" stroke="rgba(255,255,255,.3)" stroke-width=".6"/>`;
+function artPath(path, col, {dash = false, end = 'arrow'} = {}) {
+  const P = artClip(path).map(([x, y]) => [x, ARTY(y)]);
+  let h = `<polyline points="${P.map(([x, y]) => `${f2(x)},${f2(y)}`).join(' ')}" fill="none" stroke="${col}" stroke-width=".8" stroke-linecap="round" stroke-linejoin="round"${dash ? ' stroke-dasharray=".2 1.3"' : ''}/>`;
+  if (end === 'none' || P.length < 2) return h;
+  const [x1, y1] = P[P.length - 1], [x0, y0] = P[P.length - 2];
+  const len = Math.hypot(x1 - x0, y1 - y0) || 1, ux = (x1 - x0) / len, uy = (y1 - y0) / len;
+  if (end === 'block') return h + `<line x1="${f2(x1 - uy * 1.3)}" y1="${f2(y1 + ux * 1.3)}" x2="${f2(x1 + uy * 1.3)}" y2="${f2(y1 - ux * 1.3)}" stroke="${col}" stroke-width=".8" stroke-linecap="round"/>`;
+  const a = 1.7, bx = x1 - ux * a, by = y1 - uy * a, px = -uy * a * 0.62, py = ux * a * 0.62;
+  return h + `<polygon points="${f2(x1 + ux * 0.3)},${f2(y1 + uy * 0.3)} ${f2(bx + px)},${f2(by + py)} ${f2(bx - px)},${f2(by - py)}" fill="${col}"/>`;
+}
+/** The field under the art: the real yard lines around the ball, numbers, hash marks, the end zone, the line. */
+function artField(ball) {
+  let h = '';
+  if (ball + ART.hi > 100) h += `<rect x="0" y="0" width="${WIDTH}" height="${f2(ARTY(100 - ball))}" fill="rgba(255,255,255,.05)"/>`;
+  for (let yd = Math.ceil((ball + ART.lo) / 5) * 5; yd <= ball + ART.hi; yd += 5) {
+    if (yd < 0 || yd > 100) continue;
+    const y = f2(ARTY(yd - ball)), goal = yd === 0 || yd === 100, ten = yd % 10 === 0;
+    h += `<line x1="0" x2="${WIDTH}" y1="${y}" y2="${y}" stroke="rgba(255,255,255,${goal ? 0.55 : ten ? 0.2 : 0.09})" stroke-width="${goal ? 0.5 : 0.22}"/>`;
+    if (ten && !goal) {
+      const n = yd <= 50 ? yd : 100 - yd;
+      h += `<text x="4.6" y="${y}" transform="rotate(90 4.6 ${y})" class="dr-art-n">${n}</text><text x="${f2(WIDTH - 4.6)}" y="${y}" transform="rotate(-90 ${f2(WIDTH - 4.6)} ${y})" class="dr-art-n">${n}</text>`;
+    }
+  }
+  for (let yd = Math.ceil(ball + ART.lo); yd <= Math.min(100, ball + ART.hi); yd++) {
+    if (yd % 5 === 0 || yd < 0) continue;
+    const y = f2(ARTY(yd - ball));
+    h += `<path d="M21.4 ${y}h1M31 ${y}h1" stroke="rgba(255,255,255,.16)" stroke-width=".22"/>`;
+  }
+  return h + `<line x1="0" x2="${WIDTH}" y1="${f2(ARTY(0))}" y2="${f2(ARTY(0))}" stroke="#E2B93B" stroke-width=".42" stroke-dasharray="1 .8"/>`;
+}
+/** The eleven: the line as blocks (the center square), everyone else a dot; on a run the line drives forward. */
+function artPlayers(run) {
+  let h = '';
   Object.keys(OFF_POS).forEach(k => {
-    const [x, y] = OFF_POS[k], ol = OL.includes(k);
-    h += `<circle cx="${ax(x)}" cy="${ay(y)}" r="${ol ? 1.35 : 1.75}" fill="${ol ? 'rgba(255,255,255,.42)' : '#fff'}"/>`;
+    const [x, y] = OFF_POS[k], Y = ARTY(y);
+    if (!OL.includes(k)) { h += `<circle cx="${f2(x)}" cy="${f2(Y)}" r="1.05" fill="#fff"/>`; return; }
+    if (run) h += artPath([[x, y], [x, y + 1.8]], RC.white, {end: 'block'});
+    h += `<rect x="${f2(x - 0.9)}" y="${f2(Y - 0.9)}" width="1.8" height="1.8" rx="${k === 'C' ? 0.2 : 0.9}" fill="#fff"/>`;
   });
-  return `<svg class="dr-art" viewBox="0 0 ${WIDTH} ${ART_H}" preserveAspectRatio="xMidYMid meet" aria-hidden="true">${h}${inner}</svg>`;
+  return h;
 }
-const routeLine = (slot, route) => artLine(routePath(route, OFF_POS[slot][0], OFF_POS[slot][1]), RCOL[slot]);
-const passArt = routes => artSVG(E.TARGETS.map(k => routeLine(k, routes[k])).join(''));
+const artSVG = (ball, inner, run = false) => `<svg class="dr-art" viewBox="0 0 ${WIDTH} ${f2(ART_H)}" aria-hidden="true">${artField(ball)}${inner}${artPlayers(run)}</svg>`;
+const artRoute = (slot, route) => routePath(route, OFF_POS[slot][0], OFF_POS[slot][1]);
+const colOf = (slot, key) => (slot === key ? RC.key : slot === 'RB' ? RC.back : RC.other);
+/** The receivers' blocks on a run: a few yards up, a bar at the end. */
+const artBlocks = skip => E.TARGETS.filter(k => k !== 'RB' && !skip.includes(k)).map(k => {
+  const [x, y] = OFF_POS[k];
+  return artPath([[x, y], [x + (MID - x) * 0.06, y + 4]], RC.white, {end: 'block'});
+}).join('');
+function passArt(ball, routes, key) {
+  return artSVG(ball, E.TARGETS.map(k => artPath(artRoute(k, routes[k]), colOf(k, key))).join(''));
+}
 /** The back's path on a run (RUNS) to a side. */
 function runPath(play, dir) {
   const sg = dirSign(dir), rb = OFF_POS.RB;
-  if (play === 't') return [rb, [MID + sg * 9, -5], [MID + sg * 16, -1.5], [MID + sg * 18, 10]];
-  if (play === 'd') return [rb, [MID + 1.5, -6.8], [MID + sg * 1.2, 0], [MID + sg * 1.5, 12]];
-  return [rb, [MID + sg * 2, -2], [MID + sg * 4, 3], [MID + sg * 5, 12]];
+  if (play === 't') return [rb, [MID + sg * 9, -5], [MID + sg * 16, -1.5], [MID + sg * 18, 9]];
+  if (play === 'd') return [rb, [MID + 1.5, -6.8], [MID + sg * 1.2, 0], [MID + sg * 1.5, 11]];
+  return [rb, [MID + sg * 2, -2], [MID + sg * 4, 3], [MID + sg * 5, 11]];
 }
-function runArt(play, dir) {
-  let h = '';
-  if (play === 't') h += artLine([OFF_POS.QB, [MID + dirSign(dir) * 9, -5]], 'rgba(255,255,255,.75)', {dash: true, end: false});
-  if (play === 'd') h += artLine([OFF_POS.QB, [MID, -8.4]], 'rgba(255,255,255,.75)', {dash: true, end: false});
-  return artSVG(h + artLine(runPath(play, dir), RCOL.WR1));
+function runArt(ball, play, dir) {
+  let h = artBlocks([]);
+  if (play === 't') h += artPath([OFF_POS.QB, [MID + dirSign(dir) * 9, -5]], RC.white, {dash: true, end: 'none'});
+  if (play === 'd') h += artPath([OFF_POS.QB, [MID, -8.4]], RC.white, {dash: true, end: 'none'});
+  return artSVG(ball, h + artPath(runPath(play, dir), RC.key), true);
 }
-const rpoArt = (play, dir) => artSVG(artLine(runPath('z', dir), RCOL.WR1) + routeLine(E.RPOS[play].slot, E.RPOS[play].route).replace('stroke-width="1.4"', 'stroke-width="1.4" stroke-dasharray="1.5 1.8"'));
-function trickArt(play) {
+function rpoArt(ball, play, dir) {
+  const R = E.RPOS[play];
+  return artSVG(ball, artBlocks([R.slot]) + artPath(runPath('z', dir), RC.back) + artPath(artRoute(R.slot, R.route), RC.key), true);
+}
+function trickArt(ball, play) {
   const W1 = OFF_POS.WR1, rb = OFF_POS.RB;
-  if (play === 'r') return artSVG(artLine([rb, [MID + 5, -4.8], [MID + 9, -5.6]], RCOL.RB, {end: false})
-    + artLine([W1, [MID + 4, -2.6], [MID + 9.5, -6], [MID - 6, -7.4], [MID - 14, -2.5], [MID - 17, 12]], RCOL.WR1));
-  if (play === 'h') return artSVG(artLine([OFF_POS.QB, [MID + 9, -5]], 'rgba(255,255,255,.75)', {dash: true, end: false})
-    + artLine([rb, [MID + 9, -5], [MID + 12, -3.5]], RCOL.RB, {end: false}) + routeLine('WR2', 'go') + routeLine('WR1', 'go') + routeLine('TE', 'seam'));
-  return artSVG(artLine([rb, [MID + 2, -2]], RCOL.RB, {end: false}) + artLine([[MID + 2, -2], [MID - 0.5, -7.5]], 'rgba(255,255,255,.75)', {dash: true, end: false})
-    + routeLine('WR1', 'go') + routeLine('WR2', 'go') + routeLine('WR3', 'seam'));
+  if (play === 'r') return artSVG(ball, artBlocks(['WR1']) + artPath([rb, [MID + 5, -4.8], [MID + 9, -5.6]], RC.back, {end: 'none'})
+    + artPath([W1, [MID + 4, -2.6], [MID + 9.5, -6], [MID - 6, -7.4], [MID - 14, -2.5], [MID - 17, 12]], RC.key), true);
+  if (play === 'h') return artSVG(ball, artPath([OFF_POS.QB, [MID + 9, -5]], RC.white, {dash: true, end: 'none'})
+    + artPath([rb, [MID + 9, -5], [MID + 12, -3.5]], RC.back) + artPath(artRoute('WR2', 'go'), RC.key) + artPath(artRoute('WR1', 'go'), RC.other)
+    + artPath(artRoute('TE', 'seam'), RC.other) + artPath(artRoute('WR3', 'out'), RC.other));
+  return artSVG(ball, artPath([rb, [MID + 2, -2]], RC.back, {end: 'none'}) + artPath([[MID + 2, -2], [MID - 0.5, -7.5]], RC.white, {dash: true, end: 'none'})
+    + artPath(artRoute('WR1', 'go'), RC.key) + artPath(artRoute('WR2', 'go'), RC.other) + artPath(artRoute('WR3', 'seam'), RC.other) + artPath(artRoute('TE', 'out'), RC.other));
 }
-/** A play card: its art, its name and what it does. go: the action it calls; else pick: the pass play it selects. */
-function cardHTML({art, name, what, go, pick, on, label}) {
+const headUrl = (e, w) => `https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/${String(e || '').replace(/[^0-9]/g, '')}.png&w=${w}&h=${Math.round(w * 436 / 600)}`;
+/** A player's headshot over his number on his team's colour (the number shows when the photo can't load). */
+function faceHTML(p, team) {
+  const [c, acc] = tcol(team);
+  return `<span class="dr-face" style="--tc:${esc(c)};--ta:${esc(acc)}" aria-hidden="true"><i>${p.j == null ? '' : p.j}</i>`
+    + (p.e ? `<span style="background-image:url(${esc(headUrl(p.e, 160))})"></span>` : '') + `</span>`;
+}
+/** How a play has gone for you this game: {calls, yds}. match: the plays it counts. */
+function usage(s, match) {
+  const list = s.plays.filter(p => p.poss === 'us' && p.a && match(p));
+  const yds = list.reduce((t, p) => t + (['catch', 'run', 'sack'].includes(p.kind) || p.two ? (p.gain || 0) : 0), 0);
+  return {calls: list.length, yds: list.length ? yds / list.length : 0};
+}
+const GLYPHS = ['sq', 'x', 'tri'];
+/** A play card. go: the action it calls; else pick: the pass play it selects. */
+function cardHTML(st, {i, art, name, tag, key, use, go, pick, on, label}) {
+  const s = st.s, p = s.mine.by[key];
   const at = go ? `data-dr-go="${go}"` : `data-dr-card="${pick}" aria-pressed="${!!on}"`;
-  return `<button type="button" class="dr-card${on ? ' is-on' : ''}" ${at} aria-label="${esc(label || name)}">${art}<b>${esc(name)}</b>${what ? `<small>${esc(what)}</small>` : ''}</button>`;
+  return `<button type="button" class="dr-card${on ? ' is-on' : ''}" ${at} aria-label="${esc(label || name)}">`
+    + `<span class="dr-card-h"><span class="dr-card-g is-${GLYPHS[i]}" aria-hidden="true"></span>`
+    + `<span class="dr-card-tt"><small><span class="dr-card-tag is-${tag.toLowerCase()}">${esc(tag)}</span>${esc(FORMATION)}</small><b>${esc(name)}</b></span>`
+    + `<span class="dr-card-p">${faceHTML(p, s.sc.o)}<small>${esc(dr.short(p.n))}</small></span></span>`
+    + `<span class="dr-card-art">${art}</span>`
+    + `<span class="dr-card-f">${esc(`${use.calls} ${use.calls === 1 ? 'call' : 'calls'} | ${use.yds.toFixed(1)} avg yds`)}</span></button>`;
 }
 function passCardsHTML(st) {
   const s = st.s;
   return (s.book || []).map((k, i) => {
-    const P = E.PASS_PLAYS[k];
-    const label = `${P.name}: ${E.TARGETS.map(slot => `${dr.lastName(s.mine.by[slot].n)} ${E.ROUTES[P.routes[slot]].name.toLowerCase()}`).join(', ')}`;
-    return cardHTML({art: passArt(P.routes), name: P.name, pick: i, on: st.card === i, label});
+    const P = E.PASS_PLAYS[k], key = PASS_KEY[k];
+    const label = `${P.name}, for ${s.mine.by[key].n}: ${E.TARGETS.map(slot => `${dr.lastName(s.mine.by[slot].n)} ${E.ROUTES[P.routes[slot]].name.toLowerCase()}`).join(', ')}`;
+    return cardHTML(st, {i, art: passArt(s.ball, P.routes, key), name: P.name, tag: 'Pass', key, use: usage(s, p => p.pp === k), pick: i, on: st.card === i, label});
   }).join('');
 }
 function runCardsHTML(st) {
-  const kind = st.panel, book = kind === 'rpo' ? E.RPOS : E.RUNS, mk = kind === 'rpo' ? E.tok.rpo : E.tok.run;
+  const s = st.s, kind = st.panel, rpo = kind === 'rpo', book = rpo ? E.RPOS : E.RUNS, mk = rpo ? E.tok.rpo : E.tok.run;
   const side = st.side === 'w' ? 'weak' : 'strong';
-  return Object.keys(book).map(k => cardHTML({art: kind === 'rpo' ? rpoArt(k, st.side) : runArt(k, st.side), name: book[k].name, what: book[k].what,
+  return Object.keys(book).map((k, i) => cardHTML(st, {i, art: rpo ? rpoArt(s.ball, k, st.side) : runArt(s.ball, k, st.side), name: book[k].name,
+    tag: rpo ? 'RPO' : 'Run', key: rpo ? RPO_KEY(k) : 'RB', use: usage(s, p => p.a.kind === kind && p.a.play === k),
     go: mk(st.side, st.runOob, k), label: `${book[k].name} to the ${side} side: ${book[k].what}`})).join('');
 }
-const trickCardsHTML = () => Object.keys(E.TRICKS).map(k => cardHTML({art: trickArt(k), name: E.TRICKS[k].name, what: E.TRICKS[k].what, go: E.tok.tricks(k)})).join('');
+function trickCardsHTML(st) {
+  const s = st.s;
+  return Object.keys(E.TRICKS).map((k, i) => cardHTML(st, {i, art: trickArt(s.ball, k), name: E.TRICKS[k].name, tag: 'Trick', key: TRICK_KEY[k],
+    use: usage(s, p => p.a.kind === 'trick' && p.a.play === k), go: E.tok.tricks(k), label: `${E.TRICKS[k].name}: ${E.TRICKS[k].what}`})).join('');
+}
 
 const FLAG_INFO = [['a', 'Play action'], ['r', 'Roll out'], ['o', 'Out of bounds']];
 function receiverRowHTML(st, slot) {
@@ -823,7 +913,7 @@ function trickHTML(st) {
   const s = st.s;
   return `<section class="dr-call" aria-labelledby="dr-call-t">${headRow(s.phase === 'pat' ? 'Two-point trick' : 'Trick play', s, true)}${lookHTML(s)}`
     + `<p class="dr-hint">One a game. Each fools a different defense: the aggressive ones bite.</p>`
-    + `<div class="dr-cards" role="group" aria-label="Trick plays" data-dr-cards>${trickCardsHTML()}</div></section>`;
+    + `<div class="dr-cards" role="group" aria-label="Trick plays" data-dr-cards>${trickCardsHTML(st)}</div></section>`;
 }
 function snapHTML() {
   return `<section class="dr-snap" aria-live="polite"><p class="dr-snap-t"><i class="dr-dot"></i>Live</p><p class="dr-snap-s">Tap the field to skip</p></section>`;
@@ -1271,7 +1361,9 @@ function openMenu(st, k) {
 function refreshCards(st) {
   const host = st.el.querySelector('[data-dr-cards]');
   if (!host) return;
-  host.innerHTML = st.panel === 'pass' ? passCardsHTML(st) : st.panel === 'trick' ? trickCardsHTML() : runCardsHTML(st);
+  const x = host.scrollLeft;
+  host.innerHTML = st.panel === 'pass' ? passCardsHTML(st) : st.panel === 'trick' ? trickCardsHTML(st) : runCardsHTML(st);
+  host.scrollLeft = x;
   ui.hydrate(host);
 }
 /** Picks one of the snap's three pass plays: its routes go up on the field (any route changes start over). */
