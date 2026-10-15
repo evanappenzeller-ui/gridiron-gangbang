@@ -246,13 +246,13 @@ function showSV(st) {
 let DR = null; // views/drill.js, once imported
 const loadDR = () => (DR ? Promise.resolve(DR) : import('./drill.js').then(m => (DR = m)));
 const drLoading = () => `<div class="dr-loading" aria-busy="true">${ui.skeleton('rows', 4, {label: 'Loading the Two-Minute Drill.'})}</div>`;
-// Like 17-0: a phone with a finished drive (or a Survivor best) posts it from any visit to this tab.
+// Like 17-0: a phone with a finished game posts it from any visit to this tab.
 let drSynced = false;
 function syncDrill() {
   if (drSynced) return;
   drSynced = true;
   import('../core/drill.js')
-    .then(m => (m.totals().played || m.totals().best ? m.load().then(() => m.autoPost()) : null))
+    .then(m => (m.totals().played ? m.load().then(() => m.autoPost()) : null))
     .catch(() => { drSynced = false; });
 }
 /** The Two-Minute Drill pane: like showSV. */

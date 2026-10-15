@@ -1,7 +1,7 @@
 // Two-Minute Drill checks for the dev gallery (#/_kit): data/drill.json (the teams' starters and ratings, the days'
-// situations), the engine's rules (js/core/drill-sim.js: the clock, the chains, the score, determinism, the action
-// tokens, the pass menu's odds, the bot and win chances), Survivor's spots, the words, and the league scoreboard's rows
-// (on crafted board docs). checks.js (owner: core) imports
+// situations), the engine's rules (js/core/drill-sim.js: the clock, the chains, the score, the other team's ball and
+// your defense, determinism, the action tokens, the pass menu's odds, the bots and win chances), the words, and the
+// league scoreboard's rows (on crafted board docs). checks.js (owner: core) imports
 // drillChecks and calls it with its own check(name, fn) helper; every fn returns true or {pass, detail}. Nothing here
 // writes to storage or the database; the only read is the repo's own data/drill.json. Owner: Drill.
 
@@ -13,18 +13,20 @@ const DEF = {
   '43': ['LDE', 'LDT', 'RDT', 'RDE', 'WLB', 'MLB', 'SLB', 'LCB', 'RCB', 'SS', 'FS', 'NB'],
   '34': ['LDE', 'NT', 'RDE', 'WLB', 'LILB', 'RILB', 'SLB', 'LCB', 'RCB', 'SS', 'FS', 'NB']
 };
-const TOOLS = [E.tok.spike, E.tok.timeout, E.tok.fg, E.tok.kick, E.tok.trick, 'zz', 'p9go', 'rq'];
+const TOOLS = [E.tok.spike, E.tok.timeout, E.tok.fg, E.tok.kick, E.tok.trick, E.tok.kneel, E.tok.def('c2'), 'zz', 'p9go', 'rq', 'dzz'];
+const DEFS = E.DEF_CALLS.map(E.tok.def);
 
-/** A drive played with seeded random actions (any play, and the tools whether allowed or not, like a careless thumb). */
-function randomDrive(sc, seed) {
+/** A game played to the end with seeded random actions (any play or defense, and the tools whether allowed or not, like
+ *  a careless thumb). */
+function randomGame(sc, seed) {
   const s = E.start(sc, dr.DOC.teams);
   const r = E.dice(seed, 4242);
   const trail = [];
   for (let i = 0; i < 400 && !s.result; i++) {
-    const before = {clock: s.clock, tos: s.tos, us: s.us, them: s.them};
-    const pool = r() < 0.25 ? TOOLS : E.candidates(s, true).map(c => c.token);
+    const before = {clock: s.clock, tos: s.tos, dtos: s.dtos, us: s.us, them: s.them};
+    const pool = r() < 0.25 ? TOOLS : s.poss === 'them' && s.phase !== 'pat' ? DEFS : E.candidates(s, true).map(c => c.token);
     const p = E.act(s, pool[Math.floor(r() * pool.length)]);
-    if (p) trail.push({before, p, after: {clock: s.clock, tos: s.tos, down: s.down, ball: s.ball, us: s.us, them: s.them}});
+    if (p) trail.push({before, p, after: {clock: s.clock, tos: s.tos, dtos: s.dtos, down: s.down, ball: s.ball, us: s.us, them: s.them}});
   }
   return {s, trail};
 }
@@ -75,38 +77,41 @@ export async function drillChecks(check) {
   });
 
   // 3. The rules, on many random drives
-  check('Drill: random drives always end (win, tie or loss, matching the score), the clock only runs down, timeouts never go below zero, the down never passes 4, and the ball stays on the field', () => {
+  check('Drill: random games always end (win, tie or loss, matching the score), the clock only runs down, timeouts never go below zero, the down never passes 4, the ball stays on the field, and scores only go up', () => {
     need();
     const bad = [];
-    let n = 0;
+    let n = 0, def = 0;
     const res = {W: 0, T: 0, L: 0};
     for (let d = 1; d <= 30; d++) {
       for (let k = 0; k < 8; k++) {
-        const {s, trail} = randomDrive(dr.scenario(d), d * 100 + k);
+        const {s, trail} = randomGame(dr.scenario(d), d * 100 + k);
         n++;
         if (!s.result) { bad.push(`day ${d}/${k}: never ended`); continue; }
         res[s.result]++;
+        if (s.plays.some(p => p.poss === 'them')) def++;
         const want = s.us > s.them ? 'W' : s.us === s.them ? 'T' : 'L';
         if (want !== s.result) bad.push(`day ${d}/${k}: ${s.result} at ${s.us}-${s.them}`);
         trail.forEach(({before, after}) => {
           if (after.clock > before.clock || after.clock < 0) bad.push(`day ${d}/${k}: clock ${before.clock} -> ${after.clock}`);
-          if (after.tos < 0 || after.tos > before.tos) bad.push(`day ${d}/${k}: timeouts`);
+          if (after.tos < 0 || after.tos > before.tos || after.dtos < 0 || after.dtos > before.dtos) bad.push(`day ${d}/${k}: timeouts`);
+          if (after.us < before.us || after.them < before.them) bad.push(`day ${d}/${k}: a score went down`);
           if (after.down > 4 && !s.result) bad.push(`day ${d}/${k}: down ${after.down}`);
           if (after.ball < 0 || after.ball > 100) bad.push(`day ${d}/${k}: ball ${after.ball}`);
         });
       }
     }
-    return {pass: !bad.length, detail: bad.length ? bad.slice(0, 6).join('; ') : `${n} drives: ${res.W} won, ${res.T} tied, ${res.L} lost`};
+    if (!def) bad.push('no game ever reached your defense');
+    return {pass: !bad.length, detail: bad.length ? bad.slice(0, 6).join('; ') : `${n} games: ${res.W} won, ${res.T} tied, ${res.L} lost; ${def} with you on defense`};
   });
 
   // 4. Determinism
-  check('Drill: a drive replays exactly from its action string (what phones store and post), a refused action stops the replay, the same call in the same spot always gets the same result, and every token reads back as written', () => {
+  check('Drill: a game replays exactly from its action string (what phones store and post), a refused action stops the replay, the same call in the same spot always gets the same result, and every token reads back as written', () => {
     need();
     const bad = [];
     for (let d = 1; d <= 20; d++) {
-      const {s} = randomDrive(dr.scenario(d), d);
+      const {s} = randomGame(dr.scenario(d), d);
       const r = E.replay(dr.scenario(d), dr.DOC.teams, E.actsOf(s));
-      const sig = x => [x.result, x.us, x.them, x.clock, x.ball, x.plays.length, x.plays.map(p => p.kind + (p.gain || 0) + p.dcall).join()].join('|');
+      const sig = x => [x.result, x.us, x.them, x.clock, x.ball, x.poss, x.plays.length, x.plays.map(p => p.kind + (p.gain || 0) + p.dcall + (p.tact || '')).join()].join('|');
       if (sig(r) !== sig(s)) bad.push(`day ${d}`);
     }
     // The extra point isn't allowed before a touchdown: the replay stops there.
@@ -114,11 +119,11 @@ export async function drillChecks(check) {
     if (cut.plays.length !== 1) bad.push(`replay past a refused action: ${cut.plays.length} plays`);
     const a = E.replay(dr.scenario(3), dr.DOC.teams, 'p0go,rw+o'), b = E.replay(dr.scenario(3), dr.DOC.teams, 'p0go,rw+o');
     if (a.plays.length !== 2 || a.plays[1].kind !== b.plays[1].kind || a.plays[1].gain !== b.plays[1].gain || a.look !== b.look) bad.push('same calls, different results');
-    const toks = [E.tok.pass('WR2', 'dig', {a: true, o: true}), E.tok.pass('RB', 'wheel'), E.tok.run('w', true), E.tok.rpo('s'), 'x', 'k', 't', 'f', 'e'];
+    const toks = [E.tok.pass('WR2', 'dig', {a: true, o: true}), E.tok.pass('RB', 'wheel'), E.tok.run('w', true), E.tok.rpo('s'), E.tok.def('fire'), 'x', 'k', 't', 'f', 'e', 'n'];
     const back = toks.map(t => E.parse(t));
-    if (back.some(x => !x) || back[0].slot !== 'WR2' || back[0].route !== 'dig' || !back[0].flags.a || !back[0].flags.o || back[0].flags.r || back[2].dir !== 'w' || !back[2].flags.o) bad.push('tokens');
-    if (E.parse('p4go') || E.parse('p9dig') || E.parse('rx') || E.parse('x+q')) bad.push('bad tokens accepted');
-    return {pass: !bad.length, detail: bad.length ? bad.join('; ') : '20 drives replayed exactly; tokens read back'};
+    if (back.some(x => !x) || back[0].slot !== 'WR2' || back[0].route !== 'dig' || !back[0].flags.a || !back[0].flags.o || back[0].flags.r || back[2].dir !== 'w' || !back[2].flags.o || back[4].call !== 'fire' || back[10].kind !== 'kneel') bad.push('tokens');
+    if (E.parse('p4go') || E.parse('p9dig') || E.parse('rx') || E.parse('x+q') || E.parse('dzz') || E.parse('dc2+o')) bad.push('bad tokens accepted');
+    return {pass: !bad.length, detail: bad.length ? bad.join('; ') : '20 games replayed exactly; tokens read back'};
   });
 
   // 5. The clock rules
@@ -160,7 +165,7 @@ export async function drillChecks(check) {
   });
 
   // 6. Scoring
-  check('Drill: down 7, a touchdown brings the choice (the kick ties it, two points win it); a field goal is offered only down 3 or less, in range', () => {
+  check('Drill: down 7, a touchdown brings the choice (kick to tie, or go for two), then they get the ball at their 25; a touchdown on the last snap still gets its try; a field goal is offered only down 3 or less, in range', () => {
     need();
     const T = dr.DOC.teams, bad = [];
     const sc = {o: 'BUF', d: 'MIA', us: 17, them: 24, t: 60, b: 99, to: 2, s: 11};
@@ -175,9 +180,21 @@ export async function drillChecks(check) {
       const o = E.options(td);
       if (!o.pat || o.fg || o.timeout || !['pass', 'run', 'rpo'].every(k => o.plays.includes(k))) bad.push('the choice');
       const k = E.replay(Object.assign({}, sc, {s: td.sc.s}), T, 'rw,e');
-      if (k.result !== 'T' || k.us !== 24) bad.push(`kick: ${k.result} ${k.us}`);
+      if (k.result || k.us !== 24 || k.poss !== 'them' || k.ball !== 25 || k.phase !== 'play' || k.running) bad.push(`kick: ${k.result} ${k.us}, ${k.poss} ball on ${k.ball}`);
       const two = E.replay(Object.assign({}, sc, {s: td.sc.s}), T, 'rw,p3drag');
-      if (!two.result || (two.result === 'W') !== (two.us === 25)) bad.push('two-point try');
+      if (![23, 25].includes(two.us) || two.poss !== 'them' || two.plays[1].kind !== (two.us === 25 ? '2good' : '2fail')) bad.push('two-point try');
+    }
+    // No time left: the try still happens, and then it's over.
+    let last = null;
+    for (let seed = 1; seed < 300 && !last; seed++) {
+      const s = E.start(Object.assign({}, sc, {t: 3, s: seed}), T);
+      const p = E.act(s, 'rw');
+      if (p && p.td) last = s;
+    }
+    if (!last || last.clock !== 0 || last.phase !== 'pat' || last.result) bad.push('a touchdown as time runs out');
+    else {
+      E.act(last, 'e');
+      if (last.result !== 'T' || last.us !== 24) bad.push(`the kick at 0:00: ${last.result}`);
     }
     const fgDown4 = E.options(E.start({o: 'BUF', d: 'MIA', us: 20, them: 24, t: 60, b: 75, to: 2, s: 1}, T)).fg;
     const fgDown3 = E.options(E.start({o: 'BUF', d: 'MIA', us: 21, them: 24, t: 60, b: 75, to: 2, s: 1}, T)).fg;
@@ -187,7 +204,7 @@ export async function drillChecks(check) {
   });
 
   // 6b. The pass menu's odds and the win chances
-  check('Drill: the pass menu\'s odds are sane (caught, yards a throw, picked), the bot finishes drives, and win chances and option scores land between 0 and 1, best first', () => {
+  check('Drill: the pass menu\'s odds are sane (caught, yards a throw, picked), the bots finish games, and win chances and option scores (on offense and on defense) land between 0 and 1, best first', () => {
     need();
     const bad = [];
     const s = E.start(dr.scenario(2), dr.DOC.teams);
@@ -198,69 +215,103 @@ export async function drillChecks(check) {
     const deep = E.odds(s, 'WR1', 'go'), quick = E.odds(s, 'WR1', 'slant');
     if (!(deep.caught < quick.caught && deep.picked > quick.picked)) bad.push('a go route should be caught less and picked more than a slant');
     const f = E.finish(E.start(dr.scenario(4), dr.DOC.teams), E.dice(1, 2), 0.8, true);
-    if (!f.result) bad.push('bot drive never ended');
+    if (!f.result) bad.push('bot game never ended');
     const wp = E.winChance(s, 20), sc = E.scoreOptions(s, null, 6);
     if (!(wp >= 0 && wp <= 1)) bad.push(`win chance ${wp}`);
-    if (!sc.length || sc.some((x, i) => x.wp < 0 || x.wp > 1 || (i && x.wp > sc[i - 1].wp))) bad.push('option scores');
-    return {pass: !bad.length, detail: bad.length ? bad.slice(0, 6).join('; ') : `win chance ${Math.round(wp * 100)}% at the start of day 2; ${sc.length} options scored`};
+    const sorted = list => list.length && !list.some((x, i) => x.wp < 0 || x.wp > 1 || (i && x.wp > list[i - 1].wp));
+    if (!sorted(sc)) bad.push('option scores');
+    // On defense: every call scored.
+    let dsc = [];
+    for (let d = 1; d <= 40 && !dsc.length; d++) {
+      const g = E.finish(E.start(dr.scenario(d), dr.DOC.teams), E.dice(d, 3), 0.8, true);
+      const i = g.plays.findIndex(p => p.poss === 'them' && p.act);
+      if (i < 0) continue;
+      const at = E.replay(g.sc, dr.DOC.teams, g.plays.slice(0, i).filter(p => p.act).map(p => p.act).join(','));
+      if (at.poss === 'them') dsc = E.scoreOptions(at, null, 4);
+    }
+    if (dsc.length !== E.DEF_CALLS.length || !sorted(dsc) || dsc.some(x => E.parse(x.token).kind !== 'def')) bad.push(`defense scores: ${dsc.length}`);
+    return {pass: !bad.length, detail: bad.length ? bad.slice(0, 6).join('; ') : `win chance ${Math.round(wp * 100)}% at the start of day 2; ${sc.length} options scored on offense, ${dsc.length} on defense`};
   });
 
-  // 7. Survivor
-  check('Drill: Survivor drives are valid spots that get harder (less time, fewer timeouts) as a run goes on', () => {
+  // 7. Their ball: your defense, their clock, the kneel
+  check('Drill: after your score with time left they get the ball at their 25 and you can only call a defense (or a timeout on their running clock); their play is set by the snap, not your call; a team ahead with the ball late kneels it out', () => {
     need();
-    const ids = Object.keys(dr.DOC.teams).sort(), bad = [];
-    let early = 0, late = 0, earlyTo = 0, lateTo = 0;
-    for (let seed = 1; seed <= 40; seed++) {
-      for (let i = 0; i <= 14; i++) {
-        const sc = E.survivorScenario(seed, i, ids);
-        const deficit = sc.them - sc.us;
-        if (!dr.DOC.teams[sc.o] || !dr.DOC.teams[sc.d] || sc.o === sc.d || deficit < 1 || deficit > 7 || sc.t < 30 || sc.b < 10 || sc.to < 0 || sc.to > 3) bad.push(`${seed}/${i}`);
-        if (i <= 1) { early += sc.t; earlyTo += sc.to; }
-        if (i >= 12) { late += sc.t; lateTo += sc.to; }
-      }
+    const T = dr.DOC.teams, bad = [];
+    const sc = {o: 'BUF', d: 'MIA', us: 21, them: 24, t: 100, b: 75, to: 2, dto: 2};
+    let s = null;
+    for (let seed = 1; seed < 200 && !s; seed++) {
+      const x = E.start(Object.assign({}, sc, {s: seed}), T);
+      const p = E.act(x, 'f');
+      if (p && p.kind === 'fg') s = x;
     }
-    if (!(early / 80 > late / 120 + 30) || !(earlyTo / 80 > lateTo / 120)) bad.push(`ramp: ${Math.round(early / 80)}s -> ${Math.round(late / 120)}s`);
-    return {pass: !bad.length, detail: bad.length ? bad.slice(0, 6).join('; ') : `early drives ${Math.round(early / 80)}s with ${(earlyTo / 80).toFixed(1)} timeouts, late ${Math.round(late / 120)}s with ${(lateTo / 120).toFixed(1)}`};
+    if (!s || s.poss !== 'them' || s.ball !== 25 || s.us !== 24 || s.result || s.phase !== 'play' || s.running || !E.FORMS[s.form]) bad.push('the kickoff after a field goal');
+    else {
+      const o = E.options(s);
+      if (o.def.length !== E.DEF_CALLS.length || o.plays.length || o.fg || o.spike || o.kneel || o.timeout) bad.push('defense options');
+      if (E.act(s, 'rs') || E.act(s, 'p0go') || E.act(s, 'f') || E.act(s, 'n')) bad.push('an offensive call on defense');
+      const acts = E.actsOf(s);
+      const a = E.replay(s.sc, T, acts + ',dc2'), b = E.replay(s.sc, T, acts + ',dc0');
+      const pa = a.plays[1], pb = b.plays[1];
+      if (!pa || pa.poss !== 'them' || pa.dcall !== 'c2' || !pa.their || !pb || pa.tact !== pb.tact) bad.push('their play, whatever your call');
+    }
+    // You lead with the ball and little time: a kneel ends it.
+    const k = E.start({o: 'BUF', d: 'MIA', us: 28, them: 24, t: 30, b: 50, to: 0, dto: 0, s: 3}, T);
+    if (!E.options(k).kneel) bad.push('no kneel when you lead');
+    E.act(k, 'n');
+    if (k.result !== 'W' || k.why !== 'kneel') bad.push(`your kneel: ${k.result} ${k.why}`);
+    // They pick it off while ahead with time short: they kneel it out.
+    let them = null;
+    for (let seed = 1; seed < 600 && !them; seed++) {
+      const x = E.start({o: 'BUF', d: 'MIA', us: 20, them: 24, t: 40, b: 30, to: 0, dto: 2, s: seed}, T);
+      const p = E.act(x, 'p0go');
+      if (p && p.kind === 'int') them = x;
+    }
+    if (!them || them.result !== 'L' || them.why !== 'their-kneel' || them.plays[them.plays.length - 1].kind !== 'kneelout') bad.push('their kneel');
+    return {pass: !bad.length, detail: bad.length ? bad.join('; ') : 'kickoff to their 25, eight calls, their play fixed at the snap, kneels both ways'};
   });
 
   // 8. Words and sharing
-  check('Drill: every play has words, the spot reads like a broadcast (DEN 35, midfield, SEA 12), and the share text has the result and a square per snap but no player names', () => {
+  check('Drill: every play has words (yours and theirs), the spot reads like a broadcast from the side with the ball (DEN 35, midfield, SEA 12), and the share text has the final score and a square per snap but no player names', () => {
     need();
     const bad = [];
     for (let d = 1; d <= 15; d++) {
-      const {s} = randomDrive(dr.scenario(d), 900 + d);
+      const {s} = randomGame(dr.scenario(d), 900 + d);
       s.plays.forEach(p => {
         const t = dr.playText(s, p), c = dr.callText(s, p);
         if (!t || !t.line || /undefined|NaN/.test(t.head + t.line + (c ? c.text : '') + dr.tokenLabel(s, p.act) + dr.tokenShort(s, p.act))) bad.push(`day ${d} ${p.kind}`);
       });
       const txt = dr.shareText(d, s);
-      const names = dr.DOC.teams[s.sc.o].o.concat(dr.DOC.teams[s.sc.d].d).map(p => p[1].split(' ').pop()).filter(x => x.length > 3);
-      if (!txt.includes(`#${d}`) || !txt.includes(`${s.us}–${s.them}`) || names.some(nm => txt.includes(nm))) bad.push(`share ${d}`);
+      const both = [dr.DOC.teams[s.sc.o], dr.DOC.teams[s.sc.d]];
+      const names = both.flatMap(t => t.o.concat(t.d)).map(p => p[1].split(' ').pop()).filter(x => x.length > 3);
+      if (!txt.includes(`#${d}`) || !txt.includes(`${s.sc.o} ${s.us}, ${s.sc.d} ${s.them} (${s.result})`) || names.some(nm => txt.includes(nm))) bad.push(`share ${d}`);
     }
     const s = E.start(dr.scenario(1), dr.DOC.teams);
     const spots = [dr.spot(s, 35), dr.spot(s, 50), dr.spot(s, 88)].join(', ');
     if (spots !== `${s.sc.o} 35, midfield, ${s.sc.d} 12`) bad.push(spots);
+    if (dr.spot(s, 35, 'them') !== `${s.sc.d} 35`) bad.push('their side');
     if (dr.downText(1, 10, 40) !== '1st & 10' || dr.downText(3, 7, 93) !== '3rd & goal' || dr.clockText(65) !== '1:05') bad.push('down/clock text');
     return {pass: !bad.length, detail: bad.length ? bad.slice(0, 6).join('; ') : `words for 15 drives; ${spots}`};
   });
 
   // 9. The scoreboard
-  check('Drill: the scoreboard keeps one drive per member per day (the first posted), drops bad entries, ranks wins (more time left first), then ties, then losses (furthest first), and Survivor by best run', () => {
+  check('Drill: the scoreboard keeps one game per member per day (the first posted), drops bad entries (a result that doesn\'t match the score), and ranks wins (the biggest margin first, then fewer plays), then ties, then losses (the closest first), tied rows sharing a rank', () => {
     need();
+    const g = (r, u, h, p, t) => ({r, u, h, p, k: '', t});
     const docs = [
-      {id: 'a', nick: 'Ben', dr2: {1: {r: 'L', c: 0, p: 9, y: 88, k: '', t: 10}}, drb2: {b: 4, t: 1}},
-      {id: 'b', nick: 'Mitch', dr2: {1: {r: 'W', c: 12, p: 8, y: 100, k: '', t: 20}}, drb2: {b: 2, t: 1}},
-      {id: 'c', nick: 'Mitch', dr2: {1: {r: 'L', c: 0, p: 3, y: 30, t: 5}}, drb2: {b: 7, t: 1}}, // his other phone, earlier: this one counts
-      {id: 'd', nick: 'Jacob', dr2: {1: {r: 'W', c: 40, p: 6, y: 100, t: 15}}},
-      {id: 'e', nick: 'Nobody Special', dr2: {1: {r: 'X'}, 2: {c: 3}}},
-      {id: 'f', nick: 'Sayer', dr2: {1: {r: 'T', c: 2, p: 12, y: 75, t: 9}}}
+      {id: 'a', nick: 'Ben', dr3: {1: g('L', 21, 24, 9, 10)}},
+      {id: 'b', nick: 'Mitch', dr3: {1: g('W', 27, 24, 8, 20)}},
+      {id: 'c', nick: 'Mitch', dr3: {1: g('L', 17, 24, 3, 5)}}, // his other phone, earlier: this one counts
+      {id: 'd', nick: 'Jacob', dr3: {1: g('W', 31, 24, 6, 15)}},
+      {id: 'e', nick: 'Nobody Special', dr3: {1: g('W', 10, 20, 4, 1), 2: {u: 3}}},
+      {id: 'f', nick: 'Sayer', dr3: {1: g('T', 24, 24, 12, 9)}},
+      {id: 'g', nick: 'Kyle Example', dr3: {1: g('W', 28, 24, 10, 9)}},
+      {id: 'h', nick: 'Evan Example', dr3: {1: g('W', 28, 24, 7, 9)}},
+      {id: 'i', nick: 'Zed Example', dr3: {1: g('W', 28, 24, 7, 12)}}
     ];
-    const sig = rows => rows.map(r => `${r.rank}.${r.name} ${r.r}`).join(', ');
-    const t1 = dr.boardRows('today', 1, docs);
-    const sv = dr.boardRows('survivor', 1, docs).map(r => `${r.rank}.${r.name} ${r.b}`).join(', ');
-    const today = sig(t1) === '1.Jacob W, 2.Sayer T, 3.Ben L, 4.Mitch L' && t1.find(r => r.name === 'Mitch').y === 30;
-    const clean = dr.entryOf(docs[4], 1) === null && dr.entryOf(docs[4], 2) === null && dr.entryOf(docs[0], 1).r === 'L';
-    const surv = sv === '1.Mitch 7, 2.Ben 4';
-    return {pass: today && clean && surv, detail: `today: ${sig(t1)}; survivor: ${sv}; bad entries dropped ${clean}`};
+    const t1 = dr.boardRows(1, docs);
+    const sig = t1.map(r => `${r.rank}.${r.name.split(' ')[0]} ${r.r}`).join(', ');
+    const order = sig === '1.Jacob W, 2.Evan W, 2.Zed W, 4.Kyle W, 5.Sayer T, 6.Ben L, 7.Mitch L' && t1.find(r => r.name === 'Mitch').u === 17;
+    const clean = dr.entryOf(docs[4], 1) === null && dr.entryOf(docs[4], 2) === null && dr.entryOf(docs[0], 1).m === -3;
+    return {pass: order && clean, detail: `${sig}; bad entries dropped ${clean}`};
   });
 }

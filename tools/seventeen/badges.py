@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Draws the Daily Games switch badges, img/puzzles.webp, img/seventeen.webp and img/drill.webp (puzzles.js): pixel art on a 32x32
-grid scaled x4 (nearest) to 128x128, like img/nfl.webp. Run: python3 tools/seventeen/badges.py (needs Pillow; then bump
+grid scaled x4 (nearest) to 128x128, like img/nfl.webp (the Two-Minute Drill's is smooth). Run: python3 tools/seventeen/badges.py (needs Pillow; then bump
 CACHE in sw.js)."""
 import os
 from PIL import Image, ImageDraw
@@ -50,22 +50,47 @@ for ch in '17-0':
 d.rectangle((13, 1, 16, 4), fill=INK); d.rectangle((14, 2, 15, 4), fill=TRIM)                  # top light
 finish(im, 'seventeen')
 
-# ---- Two-Minute Drill: a stopwatch, its last two minutes lit red, the hand on them, a button on top.
-im = Image.new('RGBA', (N, N), (0, 0, 0, 0)); d = ImageDraw.Draw(im)
-FACE, FACE_D, RED, RED_D, METAL = (240, 244, 255, 255), (178, 190, 222, 255), (255, 77, 77, 255), (170, 30, 40, 255), (150, 162, 192, 255)
-d.ellipse((4, 7, 31, 34), fill=(0, 0, 0, 140))                                                 # shadow
-d.rectangle((13, 1, 18, 4), fill=INK); d.rectangle((14, 2, 17, 4), fill=METAL)                 # crown
-d.rectangle((15, 4, 16, 6), fill=INK)
-d.rectangle((24, 5, 27, 8), fill=INK); d.rectangle((25, 6, 26, 7), fill=METAL)                 # side button
-d.ellipse((2, 5, 29, 32), fill=INK)                                                            # case
-d.ellipse((3, 6, 28, 31), fill=(255, 197, 49, 255))                                            # gold rim
-d.ellipse((5, 8, 26, 29), fill=FACE)                                                           # face
-d.pieslice((5, 8, 26, 29), -90, -30, fill=RED)                                                 # the last two minutes
-d.arc((5, 8, 26, 29), 120, 300, fill=FACE_D)                                                   # shading
-for a, (x, y) in enumerate([(15, 9), (24, 18), (15, 27), (6, 18)]):                            # ticks
-    d.point((x, y), fill=INK); d.point((x + 1, y), fill=INK)
-d.line((15, 18, 21, 11), fill=INK, width=2)                                                    # hand
-d.rectangle((14, 17, 16, 19), fill=RED_D)                                                      # hub
-d.point((9, 12), fill=(255, 255, 255, 255)); d.point((10, 11), fill=(255, 255, 255, 255))      # glint
-finish(im, 'drill')
+# ---- Two-Minute Drill: not pixel art (its game has a modern look). A stopwatch drawn smooth at 4x and scaled down: a
+# dark face, its last two minutes lit red, the hand on them, a silver case and buttons, a soft shadow.
+from PIL import ImageFilter
+import math
+S = 512
+im = Image.new('RGBA', (S, S), (0, 0, 0, 0))
+sh = Image.new('RGBA', (S, S), (0, 0, 0, 0)); ImageDraw.Draw(sh).ellipse((70, 132, 450, 512), fill=(0, 0, 0, 150))
+im.alpha_composite(sh.filter(ImageFilter.GaussianBlur(18)))                                   # shadow
+d = ImageDraw.Draw(im)
+cx, cy, R = 256, 300, 196
+d.rounded_rectangle((216, 38, 296, 84), 14, fill=(206, 212, 224, 255))                        # crown
+d.rounded_rectangle((216, 38, 296, 56), 14, fill=(236, 240, 247, 255))
+d.rectangle((240, 80, 272, 112), fill=(160, 168, 184, 255))                                   # stem
+bx, by = cx + int((R + 18) * math.cos(math.radians(-45))), cy + int((R + 18) * math.sin(math.radians(-45)))
+btn = Image.new('RGBA', (S, S), (0, 0, 0, 0)); ImageDraw.Draw(btn).rounded_rectangle((bx - 24, by - 16, bx + 24, by + 16), 10, fill=(196, 202, 216, 255))
+im.alpha_composite(btn.rotate(-45, center=(bx, by)))                                          # side button
+for k in range(R, R - 22, -1):                                                                 # silver case, lit on top
+    t = (R - k) / 22
+    c = tuple(int(a + (b - a) * t) for a, b in zip((244, 247, 252), (138, 148, 166))) + (255,)
+    d.ellipse((cx - k, cy - k, cx + k, cy + k), fill=c)
+r = R - 22
+for k in range(r, 0, -2):                                                                      # the face: navy, lighter at the top
+    t = k / r
+    c = tuple(int(a + (b - a) * t) for a, b in zip((30, 41, 64), (12, 17, 28))) + (255,)
+    d.ellipse((cx - k, cy - k - (r - k) * 0.25, cx + k, cy + k - (r - k) * 0.25), fill=c)
+glow = Image.new('RGBA', (S, S), (0, 0, 0, 0)); g = ImageDraw.Draw(glow)
+box = (cx - r + 26, cy - r + 26, cx + r - 26, cy + r - 26)
+g.arc(box, -90 - 60, -90, fill=(255, 69, 58, 255), width=34)                                   # the last two minutes
+im.alpha_composite(glow.filter(ImageFilter.GaussianBlur(14)))
+im.alpha_composite(glow)
+for a in range(0, 360, 30):                                                                    # ticks
+    rad = math.radians(a - 90)
+    r0, r1 = r - 18, r - (40 if a % 90 == 0 else 32)
+    d.line((cx + r0 * math.cos(rad), cy + r0 * math.sin(rad), cx + r1 * math.cos(rad), cy + r1 * math.sin(rad)),
+           fill=(255, 255, 255, 230 if a % 90 == 0 else 150), width=10 if a % 90 == 0 else 7)
+ha = math.radians(-90 - 38)                                                                    # the hand, in the red
+d.line((cx - 26 * math.cos(ha), cy - 26 * math.sin(ha), cx + (r - 52) * math.cos(ha), cy + (r - 52) * math.sin(ha)), fill=(255, 255, 255, 255), width=14)
+d.ellipse((cx - 22, cy - 22, cx + 22, cy + 22), fill=(255, 69, 58, 255))
+d.ellipse((cx - 9, cy - 9, cx + 9, cy + 9), fill=(255, 255, 255, 255))
+hl = Image.new('RGBA', (S, S), (0, 0, 0, 0))                                                   # a soft glass highlight
+ImageDraw.Draw(hl).ellipse((cx - r + 30, cy - r + 14, cx + r - 30, cy + 10), fill=(255, 255, 255, 26))
+im.alpha_composite(hl.filter(ImageFilter.GaussianBlur(6)))
+im.resize((128, 128), Image.LANCZOS).save(f'{OUT}/drill.webp', 'WEBP', lossless=True)
 print('wrote img/puzzles.webp, img/seventeen.webp, img/drill.webp')

@@ -85,7 +85,7 @@ function matchSegs(p, q) {
       if (n === 2 && b === 'results') return R('results', 'cover', 'puzzles');
       // The Daily Games root's other game, 17-0 (views/seventeen.js, a pane of puzzles.js): today's board.
       if (n === 2 && b === '17-0') return R('puzzles', 'root', 'puzzles', {game: '17-0'});
-      // ... and its third, the Two-Minute Drill (views/drill.js): today's drive (and Survivor).
+      // ... and its third, the Two-Minute Drill (views/drill.js): today's game.
       if (n === 2 && b === 'drill') return R('puzzles', 'root', 'puzzles', {game: 'drill'});
       return null;
     case 'pickem':

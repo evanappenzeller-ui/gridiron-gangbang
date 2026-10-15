@@ -1,23 +1,23 @@
 // Two-Minute Drill, the third game of the Daily Games tab (puzzles.js: its picker shows this pane for /puzzles/drill;
 // imported on first use). After nfl2mindrill.com: you're down late with the ball, real NFL starters on both sides, and
-// you call every snap against the look the defense shows (core/drill-sim.js is the engine, core/drill.js the days,
-// memory, words and scoreboard).
+// the game runs to 0:00 (core/drill-sim.js is the engine, core/drill.js the days, memory, words and scoreboard).
 //
 // A pane module, like 17-0's: render(ctx), mount(el, ctx, {anchor}), params(el, ctx), unmount(el, ctx).
-// Two modes (the segmented control): Daily, one drive a day, the same for everyone (each snap is saved as it's called,
-// so there are no do-overs), and Survivor, drive after drive with random teams until one is lost.
-// The screen: the scorebug (their score, the quarter and clock, yours, your timeouts), the down and distance, the field
-// (top-down, your offense going up, every player a dot coloured by his rating, the line of scrimmage blue and the
-// first-down line yellow), then the call. Your call: the defense's look, then Run · Pass · RPO · Trick, a field goal
-// when it's on, and the clock tools. Pass opens the receivers: each on his route (drawn on the field; tap a receiver
-// there, or his route below, to change it) with the look's odds for a throw to him, and play action, roll out and out
-// of bounds to toggle; tap a name to throw it. Run and RPO pick a side (strong is the tight end's) and whether to head
-// for the sideline. The snap plays out on the field (every player moves, the clock runs; tap the field to skip), then
-// the breakdown: what happened, the win chance before and after, what the defense was really in, how your call ranked
-// and how every option scored (each played out many times: drill-sim.js scoreOptions), and Replay. When the drive
-// ends: the result, Share, and the league's Scoreboard (Today: everyone's drive, tap one to read it once you've played
-// yours; Survivor: best runs). Every control here is data-dr-*, so the Daily Puzzles handlers on the same screen never
-// see these taps.
+// One game a day, the same for everyone; each call is saved as it's made, so there are no do-overs.
+// The screen: the scorebug (both teams, their scores and timeouts, the clock, who has the ball), the situation, the
+// field (top-down, the team with the ball going up, every player a dot coloured by his rating, yours ringed in white,
+// the line of scrimmage blue and the first-down line yellow), then the call.
+// On offense: the defense's look, then Run · Pass · RPO · Trick, a field goal when it's on, and the clock tools (and the
+// kneel when you lead). Pass opens the receivers: each on his route (drawn on the field; tap a receiver there, or his
+// route below, to change it) with the look's odds for a throw to him, and play action, roll out and out of bounds to
+// toggle; tap a name to throw it. Run and RPO pick a side (strong is the tight end's) and whether to head for the
+// sideline. After a touchdown that leaves you down one or two: kick, or go for two.
+// On defense (you scored with time left, or turned it over): their formation, and your call from eight.
+// Each snap plays out on the field (every player moves, the clock runs; tap the field to skip), then the breakdown:
+// what happened, the win chance before and after, what the defense was really in, how your call ranked and how every
+// option scored (each played out many times: drill-sim.js scoreOptions), and Replay. At 0:00: the final, Share, and
+// the league's finals for the day (tap one to read it once you've played yours). Every control here is data-dr-*, so
+// the Daily Puzzles handlers on the same screen never see these taps.
 // Owner: Drill.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
@@ -27,7 +27,6 @@ import {msToMidnight} from './board.js';
 
 const E = dr.E;
 const esc = data.esc;
-const nf = n => data.nf(n);
 const COPIED = 'Copied. Paste it in the league chat.';
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 const nextIn = () => ui.untilText(msToMidnight());
@@ -36,7 +35,7 @@ const ST = new WeakMap(); // ctx -> pane state
 
 // A home-screen app open across an update imports this module new under the stylesheet it started with: when
 // drill.css's mark (--dr-css on :root) isn't this module's, the current file is added (as in views/seventeen.js).
-const CSS_V = '2';
+const CSS_V = '3';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--dr-css').trim() === CSS_V || document.querySelector('link[data-dr-css]')) return;
@@ -48,10 +47,19 @@ function ensureCss() {
   } catch (_) {}
 }
 
+// ============================================================================ Teams
+const tcol = id => (dr.team(id) ? dr.team(id).c : ['#25366A', '#8A94B8']);
+const logoUrl = (id, w) => `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/${String(id).toLowerCase()}.png&w=${w}&h=${w}`;
+/** A team's logo on a soft disc of its colour (the disc alone if the logo can't load). */
+function logoHTML(id, size = 32) {
+  return `<span class="dr-logo" style="--tc:${esc(tcol(id)[0])};--sz:${size}px" aria-hidden="true"><i style="background-image:url(${esc(logoUrl(id, size > 40 ? 160 : 96))})"></i></span>`;
+}
+
 // ============================================================================ The field
-// Field coordinates in yards: x across (0-53.3, the middle 26.67), y from your own goal line (0) to theirs (100), the
-// end zones out to -10 and 110. The track is the whole field; it slides so the line of scrimmage sits BEHIND yards
-// from the bottom of the window (which shows WIN yards; CSS: .dr-field height = WIN x --yd).
+// Field coordinates in yards: x across (0-53.3, the middle 26.67), y from the goal line of the team with the ball (0)
+// to the one it's going for (100), the end zones out to -10 and 110. The team with the ball always goes up. The track is
+// the whole field; it slides so the line of scrimmage sits BEHIND yards from the bottom of the window (which shows WIN
+// yards; CSS: .dr-field height = WIN x --yd).
 const WIDTH = 53.33, MID = 26.67, WIN = 36, BEHIND = 11;
 // Spread out past real spacing so every dot (24px, about 4 yards across and 2.7 deep) and name has room. The tight
 // end is on the right: that's the strong side.
@@ -59,10 +67,22 @@ const OFF_POS = {
   QB: [MID, -5.6], RB: [MID + 4.4, -5.8], WR1: [3.6, -1.2], WR2: [49.6, -1.2], WR3: [11.5, -2.8], TE: [MID + 12, -1.8],
   LT: [MID - 8, -1.4], LG: [MID - 4, -1.3], C: [MID, -1.2], RG: [MID + 4, -1.3], RT: [MID + 8, -1.4]
 };
+/** Their formations when you're on defense (FORMS): the backfield and the slot move. */
+function offPos(form) {
+  const P = Object.assign({}, OFF_POS);
+  if (form === 'pistol') { P.QB = [MID, -4.4]; P.RB = [MID, -7.6]; }
+  else if (form === 'empty') P.RB = [MID + 15.5, -3.2];
+  else if (form === 'heavy') { P.QB = [MID, -3.6]; P.RB = [MID, -7.6]; P.WR3 = [MID - 12, -1.8]; }
+  return P;
+}
+/** Where a name sits beside its dot instead of under it (players level with each other). */
+const labSide = (slot, form) => (form === 'pistol' || form === 'heavy' ? {QB: 'l', RB: 'r'} : form === 'empty' ? {} : {RB: 'r'})[slot];
 const OL = ['LT', 'LG', 'C', 'RG', 'RT'];
 const LABELLED = new Set(['QB', 'RB', 'WR1', 'WR2', 'WR3', 'TE', 'LCB', 'RCB', 'SS', 'FS']);
-const LABEL_SIDE = {RB: 'r'}; // beside the dot, not under it (he sits level with the QB)
 const dirSign = d => (d === 's' ? 1 : -1); // strong side is to the right
+/** Your defense lines up in the look its call usually shows; before you call one, a two-high shell. */
+const CALL_LOOK = {c2: 'two', c4: 'two', c3: 'light', pv: 'prevent', c1: 'box', rb: 'box', c0: 'blitz', fire: 'blitz'};
+const PRE_LOOK = 'two';
 /** The defense's eleven for a look: slot -> [x, depth] (null: off the field). Base personnel against the loaded box,
  *  the nickel back in for everything else. shade: the side the front leans to (its extra man and the rotated safety). */
 function defPos(T, look, shade = 's') {
@@ -92,60 +112,67 @@ function defPos(T, look, shade = 's') {
 }
 const top = y => `calc(var(--yd) * ${(110 - y).toFixed(2)})`;
 const left = x => `${(x / WIDTH * 100).toFixed(2)}%`;
-/** Where the track sits for a line of scrimmage: the window's top yard (never past the back of their end zone). */
+/** Where the track sits for a line of scrimmage: the window's top yard (never past the back of the end zone). */
 const winTop = los => Math.min(110, los - BEHIND + WIN);
 const trackY = wt => `translateY(calc(var(--yd) * ${-(110 - wt).toFixed(2)}))`;
 /** A rating's colour: red (55) through orange and yellow to green (99). */
 function ratingColor(r) {
   const t = Math.max(0, Math.min(1, ((Number(r) || 55) - 55) / 44));
-  return `hsl(${Math.round(4 + 124 * t)} 74% ${Math.round(54 - 6 * t)}%)`;
+  return `hsl(${Math.round(4 + 124 * t)} 72% ${Math.round(56 - 8 * t)}%)`;
 }
-const tcol = id => (dr.team(id) ? dr.team(id).c : ['#25366A', '#8A94B8']);
 const clampX = x => Math.max(1.4, Math.min(WIDTH - 1.4, x));
 
-function linesHTML(s) {
+/** What the field shows: {poss, ball, look, shade, form, fd (the first-down line, or null)}. Now, or at a snap. */
+const fdLine = s => (s.phase === 'play' && !s.result && s.ball + s.togo < 100 ? s.ball + s.togo : null);
+const viewNow = s => ({poss: s.poss, ball: s.ball, look: s.poss === 'us' ? s.look || PRE_LOOK : PRE_LOOK, shade: s.shade, form: s.poss === 'them' ? s.form : null, fd: fdLine(s)});
+const viewOf = p => ({poss: p.poss, ball: p.ball, look: p.poss === 'us' ? p.look || PRE_LOOK : CALL_LOOK[p.dcall] || PRE_LOOK, shade: p.shade, form: p.poss === 'them' ? p.form : null,
+  fd: p.two || p.ball + p.togo >= 100 ? null : p.ball + p.togo});
+
+function linesHTML(s, poss) {
   let h = '';
   for (let y = 0; y <= 100; y += 5) h += `<i class="dr-yl${y % 10 ? '' : ' is-ten'}${y === 0 || y === 100 ? ' is-goal' : ''}" style="top:${top(y)}"></i>`;
   for (let y = 10; y <= 90; y += 10) {
     const n = y <= 50 ? y : 100 - y;
     h += `<b class="dr-num is-l" style="top:${top(y)}">${n}</b><b class="dr-num is-r" style="top:${top(y)}">${n}</b>`;
   }
-  const [oc] = tcol(s.sc.o), [dc] = tcol(s.sc.d);
-  h += `<span class="dr-ez is-them" style="top:${top(110)};--tc:${esc(dc)}"><b>${esc(dr.team(s.sc.d).n)}</b></span>`;
-  h += `<span class="dr-ez is-us" style="top:${top(0)};--tc:${esc(oc)}"><b>${esc(dr.team(s.sc.o).n)}</b></span>`;
+  const ids = E.idsFor(s, poss);
+  h += `<span class="dr-ez is-top" style="top:${top(110)};--tc:${esc(tcol(ids.d)[0])}"><b>${esc(dr.team(ids.d).n)}</b></span>`;
+  h += `<span class="dr-ez is-bot" style="top:${top(0)};--tc:${esc(tcol(ids.o)[0])}"><b>${esc(dr.team(ids.o).n)}</b></span>`;
   return h;
 }
 /** Names on the outside players hang inward, so they never run off the field. */
 const edgeCls = x => (x < 8 ? ' is-edge-l' : x > WIDTH - 8 ? ' is-edge-r' : '');
-function dotHTML(side, p, x, y, hidden) {
-  const lab = LABELLED.has(p.slot) ? `<em class="dr-pl-n">${esc(dr.short(p.n))}</em>` : '';
-  const at = side === 'o' && LABEL_SIDE[p.slot] ? ' is-lab-' + LABEL_SIDE[p.slot] : '';
-  const tgt = side === 'o' && E.TARGETS.includes(p.slot) ? ` data-dr-rcv="${p.slot}"` : '';
-  return `<span class="dr-pl is-${side}${at}${edgeCls(x)}${hidden ? ' is-off' : ''}" data-dr-p="${side}-${p.slot}"${tgt} style="left:${left(x)};top:${top(y)};--rc:${ratingColor(p.r)}">`
+function dotHTML(d, view) {
+  const {side, p, x, y, off, slot} = d;
+  const lab = LABELLED.has(slot) ? `<em class="dr-pl-n">${esc(dr.short(p.n))}</em>` : '';
+  const ls = side === 'o' ? labSide(slot, view.form) : null;
+  const mine = (side === 'o') === (view.poss === 'us');
+  const tgt = side === 'o' && view.poss === 'us' && E.TARGETS.includes(slot) ? ` data-dr-rcv="${slot}"` : '';
+  return `<span class="dr-pl is-${side}${mine ? ' is-mine' : ''}${ls ? ' is-lab-' + ls : ''}${edgeCls(x)}${off ? ' is-off' : ''}" data-dr-p="${side}-${slot}"${tgt} style="left:${left(x)};top:${top(y)};--rc:${ratingColor(p.r)}">`
     + `<b class="dr-pl-j">${p.j == null ? '' : p.j}</b>${lab}</span>`;
 }
-/** Every player's spot before a snap: [{key, side, slot, p, x, y, off}]. snap: {ball, look, shade} (default: now). */
-function spots(s, snap = s) {
-  const los = snap.ball, out = [];
-  const O = s.U.o, D = s.U.d;
-  Object.keys(OFF_POS).forEach(slot => {
-    const [x, dy] = OFF_POS[slot];
-    out.push({key: 'o-' + slot, side: 'o', slot, p: O.by[slot], x, y: los + dy});
+/** Every player's spot before a snap: [{key, side, slot, p, x, y, off}]. */
+function spots(s, view) {
+  const los = view.ball, out = [];
+  const U = E.unitsFor(s, view.poss), P0 = offPos(view.form);
+  Object.keys(P0).forEach(slot => {
+    const [x, dy] = P0[slot];
+    out.push({key: 'o-' + slot, side: 'o', slot, p: U.o.by[slot], x, y: los + dy});
   });
-  const P = defPos(dr.team(s.sc.d), snap.look || 'two', snap.shade);
-  // Near their goal line the deep players squeeze in (never past the back of the end zone).
+  const P = defPos(U.d.T, view.look || PRE_LOOK, view.shade);
+  // Near the goal line the deep players squeeze in (never past the back of the end zone).
   const k = Math.max(0.35, Math.min(1, (108 - los) / 21));
-  dr.team(s.sc.d).d.forEach(([slot]) => {
+  U.d.T.d.forEach(([slot]) => {
     const at = P[slot] || [slot === 'NB' ? 11.5 : MID + 7, 8];
     const dy = at[1] > 2.5 ? 2.5 + (at[1] - 2.5) * k : at[1];
-    out.push({key: 'd-' + slot, side: 'd', slot, p: D.by[slot], x: at[0], y: los + dy, off: !P[slot]});
+    out.push({key: 'd-' + slot, side: 'd', slot, p: U.d.by[slot], x: at[0], y: los + dy, off: !P[slot]});
   });
   return out;
 }
 
 // ---------------------------------------------------------------------------- Routes
 /** A receiver's route from where he lines up: points in field yards, the stem first. */
-function routePath(slot, route, x0, y0) {
+function routePath(route, x0, y0) {
   const side = x0 < MID ? -1 : 1, inn = -side;
   const P = {
     slant: [[x0, y0 + 2], [x0 + inn * 6, y0 + 7.5]],
@@ -174,56 +201,79 @@ function pointAt(path, los, air) {
   return [x, Math.max(y, want)];
 }
 function routesSVG(s, routes, pick) {
-  const lines = E.TARGETS.map(slot => {
+  const paths = E.TARGETS.map(slot => {
     const [x0, dy] = OFF_POS[slot];
-    const pts = routePath(slot, routes[slot], x0, s.ball + dy);
-    return `<polyline class="dr-route${pick === slot ? ' is-on' : ''}" points="${pts.map(([x, y]) => `${x.toFixed(2)},${(110 - y).toFixed(2)}`).join(' ')}"/>`;
-  }).join('');
-  const ends = E.TARGETS.map(slot => {
-    const [x0, dy] = OFF_POS[slot];
-    const pts = routePath(slot, routes[slot], x0, s.ball + dy), [x, y] = pts[pts.length - 1];
+    return [slot, routePath(routes[slot], x0, s.ball + dy)];
+  });
+  const lines = paths.map(([slot, pts]) => `<polyline class="dr-route${pick === slot ? ' is-on' : ''}" points="${pts.map(([x, y]) => `${x.toFixed(2)},${(110 - y).toFixed(2)}`).join(' ')}"/>`).join('');
+  const ends = paths.map(([slot, pts]) => {
+    const [x, y] = pts[pts.length - 1];
     return `<span class="dr-route-end${pick === slot ? ' is-on' : ''}" style="left:${left(x)};top:${top(y)}"></span>`;
   }).join('');
   return `<svg class="dr-routes" viewBox="0 0 ${WIDTH} 120" preserveAspectRatio="none" aria-hidden="true">${lines}</svg>${ends}`;
 }
+const routesOn = st => st.panel === 'pass' && !st.busy && !!st.s && !st.s.result && st.s.poss === 'us';
 
-function fieldHTML(st) {
-  const s = st.s, los = s.ball;
-  const fd = fdLine(s);
-  const dots = spots(s).map(d => dotHTML(d.side, d.p, d.x, d.y, d.off)).join('');
-  return `<div class="dr-field${st.panel === 'pass' ? ' is-routes' : ''}" role="${st.panel === 'pass' ? 'group' : 'img'}" aria-label="${esc(fieldLabel(st))}" data-dr-field>`
+function fieldHTML(st, view = viewNow(st.s)) {
+  const s = st.s, los = view.ball;
+  const routes = routesOn(st) && view.poss === 'us';
+  return `<div class="dr-field${routes ? ' is-routes' : ''}${view.poss === 'them' ? ' is-def' : ''}" data-poss="${view.poss}" role="${routes ? 'group' : 'img'}" aria-label="${esc(fieldLabel(st))}" data-dr-field>`
     + `<div class="dr-track" style="transform:${trackY(winTop(los))}">`
-    + linesHTML(s)
+    + linesHTML(s, view.poss)
     + `<i class="dr-los" data-dr-los style="top:${top(los)}"></i>`
-    + `<i class="dr-fd" data-dr-fd style="top:${top(fd == null ? los : fd)}"${fd == null ? ' hidden' : ''}></i>`
-    + `<div class="dr-rlayer" data-dr-routes>${st.panel === 'pass' && !s.result ? routesSVG(s, st.routes, st.pick) : ''}</div>`
-    + dots
+    + `<i class="dr-fd" data-dr-fd style="top:${top(view.fd == null ? los : view.fd)}"${view.fd == null ? ' hidden' : ''}></i>`
+    + `<div class="dr-rlayer" data-dr-routes>${routes ? routesSVG(s, st.routes, st.pick) : ''}</div>`
+    + spots(s, view).map(d => dotHTML(d, view)).join('')
     + `<span class="dr-ball" data-dr-ball style="left:${left(MID)};top:${top(los)}"></span>`
     + `<div class="dr-callouts" data-dr-callouts></div>`
     + `</div></div>`;
 }
-const fdLine = s => (s.phase === 'play' && !s.result && s.ball + s.togo < 100 ? s.ball + s.togo : null);
 function fieldLabel(st) {
   const s = st.s;
+  if (s.result) return `Final: ${s.sc.o} ${s.us}, ${s.sc.d} ${s.them}.`;
+  if (s.poss === 'them') {
+    const F = E.FORMS[s.form];
+    return `${E.idsFor(s, 'them').o} ball on the ${dr.spot(s)}.${F ? ` Their offense: ${F.name.toLowerCase()}, ${F.sub.toLowerCase()}.` : ''}`;
+  }
   const look = s.look && E.LOOKS[s.look];
-  const base = `Ball on the ${dr.spot(s)}.${look && !s.result ? ` ${dr.team(s.sc.d).n} defense: ${look.name.toLowerCase()}, ${look.sub.toLowerCase()}, leaning to the ${s.shade === 's' ? 'strong' : 'weak'} side.` : ''}`;
-  return st.panel === 'pass' ? base + ' Tap a receiver to change his route.' : base;
+  const base = `Ball on the ${dr.spot(s)}.${look ? ` ${s.sc.d} defense: ${look.name.toLowerCase()}, ${look.sub.toLowerCase()}, leaning to the ${s.shade === 's' ? 'strong' : 'weak'} side.` : ''}`;
+  return routesOn(st) ? base + ' Tap a receiver to change his route.' : base;
 }
-/** Moves the field to the drive's current snap: the camera, the lines, the players (CSS transitions animate it). */
-function patchField(st) {
+/** Swaps in a new field (a change of possession, or a replay of a snap from before it). */
+function swapField(st, view, {fade = true} = {}) {
   const f = st.el.querySelector('[data-dr-field]');
+  if (!f) return null;
+  const tmp = document.createElement('template');
+  tmp.innerHTML = fieldHTML(st, view);
+  const nf = tmp.content.firstElementChild;
+  if (fade && !ui.RM) nf.classList.add('is-in');
+  f.replaceWith(nf);
+  return nf;
+}
+/** Moves the field to the game's current snap: the camera, the lines, the players (CSS transitions animate it). */
+function patchField(st) {
+  let f = st.el.querySelector('[data-dr-field]');
   if (!f) return;
-  const s = st.s, los = s.ball;
-  const fd = fdLine(s);
-  f.classList.toggle('is-routes', st.panel === 'pass' && !s.result);
-  f.setAttribute('role', st.panel === 'pass' ? 'group' : 'img');
+  const s = st.s, view = viewNow(s);
+  if (f.dataset.poss !== view.poss) { swapField(st, view); patchRoutes(st); return; }
+  f.classList.toggle('is-routes', routesOn(st));
+  f.setAttribute('role', routesOn(st) ? 'group' : 'img');
   f.setAttribute('aria-label', fieldLabel(st));
-  f.querySelector('.dr-track').style.transform = trackY(winTop(los));
-  f.querySelector('[data-dr-los]').style.top = top(los);
+  moveTo(st, f, view);
   const fdEl = f.querySelector('[data-dr-fd]');
-  fdEl.hidden = fd == null;
-  if (fd != null) fdEl.style.top = top(fd);
-  spots(s).forEach(d => {
+  fdEl.hidden = view.fd == null;
+  if (view.fd != null) fdEl.style.top = top(view.fd);
+  const ball = f.querySelector('[data-dr-ball]');
+  ball.style.left = left(MID);
+  ball.style.top = top(view.ball);
+  ball.classList.remove('is-air');
+  const cl = f.querySelector('[data-dr-callouts]');
+  if (cl) cl.innerHTML = '';
+  patchRoutes(st);
+}
+/** The players to their spots for a view, and the camera and the line of scrimmage with them. */
+function moveTo(st, f, view) {
+  spots(st.s, view).forEach(d => {
     const e = f.querySelector(`[data-dr-p="${d.key}"]`);
     if (!e) return;
     e.style.left = left(d.x);
@@ -232,24 +282,19 @@ function patchField(st) {
     e.classList.toggle('is-edge-l', d.x < 8);
     e.classList.toggle('is-edge-r', d.x > WIDTH - 8);
   });
-  const ball = f.querySelector('[data-dr-ball]');
-  ball.style.left = left(MID);
-  ball.style.top = top(los);
-  ball.classList.remove('is-loose', 'is-air');
-  const cl = f.querySelector('[data-dr-callouts]');
-  if (cl) cl.innerHTML = '';
-  patchRoutes(st);
+  f.querySelector('.dr-track').style.transform = trackY(winTop(view.ball));
+  f.querySelector('[data-dr-los]').style.top = top(view.ball);
 }
 function patchRoutes(st) {
   const host = st.el.querySelector('[data-dr-routes]');
   if (!host) return;
-  const on = st.panel === 'pass' && !st.busy && st.s && !st.s.result;
+  const on = routesOn(st);
   host.innerHTML = on ? routesSVG(st.s, st.routes, st.pick) : '';
   st.el.querySelectorAll('[data-dr-rcv]').forEach(e => {
     if (on) {
       e.setAttribute('role', 'button');
       e.setAttribute('tabindex', '0');
-      e.setAttribute('aria-label', `${st.s.U.o.by[e.dataset.drRcv].n}: ${E.ROUTES[st.routes[e.dataset.drRcv]].name}. Change his route.`);
+      e.setAttribute('aria-label', `${st.s.mine.by[e.dataset.drRcv].n}: ${E.ROUTES[st.routes[e.dataset.drRcv]].name}. Change his route.`);
     } else { e.removeAttribute('role'); e.removeAttribute('tabindex'); e.removeAttribute('aria-label'); }
   });
 }
@@ -280,12 +325,17 @@ function timed(path, t0, t1) {
   return path.map(([x, y], i) => [t0 + (t1 - t0) * d[i] / tot, x, y]);
 }
 function choreo(s, p) {
+  const view = viewOf(p);
   const L = p.ball, tr = {}, calls = [], start = {};
-  spots(s, {ball: L, look: p.look, shade: p.shade}).forEach(d => { start[d.key] = [d.x, d.y, d.off]; tr[d.key] = [[0, d.x, d.y]]; });
+  spots(s, view).forEach(d => { start[d.key] = [d.x, d.y, d.off]; tr[d.key] = [[0, d.x, d.y]]; });
   const add = (key, ...kf) => { if (tr[key]) tr[key].push(...kf); };
-  const a = E.parse(p.act) || {};
-  const D = s.U.d, cover = D.cover;
-  const kind = p.kind === '2good' || p.kind === '2fail' ? p.res : p.kind;
+  const ours = p.poss === 'us';
+  // Callout colours are yours: good for you is green, whoever has the ball.
+  const forO = good => (ours ? (good ? 'is-good' : 'is-bad') : (good ? 'is-bad' : 'is-good'));
+  const a = (ours ? E.parse(p.act) : p.their) || {};
+  const flags = a.flags || {};
+  const D = E.unitsFor(s, p.poss).d, cover = D.cover;
+  const kind = p.two ? p.res : p.kind;
   const end = Math.max(-8, Math.min(108, L + (p.gain || 0)));
   const ballTr = [[0, MID, L]];
   const isRun = kind === 'run' || (kind === 'fum' && p.who === 'RB');
@@ -296,28 +346,30 @@ function choreo(s, p) {
     if (!s0 || s0[2]) return;
     add('d-' + k, [0.22, s0[0] * 0.85 + MID * 0.15, isRun ? L + 0.6 : L - 1.2]);
   });
-  if (kind === 'spike') {
+  const qb0 = start['o-QB'];
+  if (kind === 'spike' || kind === 'kneel') {
     add('o-QB', [0.35, MID, L - 1.5]);
-    ballTr.push([0.15, MID, L - 1.5], [0.5, MID, L - 1.5]);
-    calls.push({t: 0.45, text: 'Spike', x: MID, y: L + 3});
+    ballTr.push([0.15, MID, qb0[1]], [0.5, MID, L - 1.5]);
+    calls.push({t: 0.45, text: kind === 'spike' ? 'Spike' : 'Kneel', x: MID, y: L + 3});
     return {tr, ball: ballTr, calls, dur: 1000};
   }
-  if (kind === 'fg' || kind === 'fgx') {
+  if (kind === 'fg' || kind === 'fgx' || kind === 'xp') {
+    const good = kind !== 'fgx';
     add('o-QB', [0.2, MID, L - 7]);
-    ballTr.push([0.2, MID, L - 7], [0.85, kind === 'fg' ? MID : MID + 6, 110]);
-    calls.push({t: 0.86, text: kind === 'fg' ? 'It’s good!' : 'No good', x: MID, y: 104, cls: kind === 'fg' ? 'is-score' : 'is-bad'});
+    ballTr.push([0.2, MID, L - 7], [0.85, good ? MID : MID + 6, 110]);
+    calls.push({t: 0.86, text: good ? 'It’s good!' : 'No good', x: MID, y: 104, cls: good ? 'is-score' : 'is-bad'});
     return {tr, ball: ballTr, calls, dur: 2000, kick: true};
   }
   if (isRun) {
     const sg = dirSign(p.dir || 's');
     const holeX = MID + sg * 5;
     const fx = p.oob ? (sg > 0 ? WIDTH - 0.6 : 0.6) : clampX(holeX + sg * Math.min(12, Math.max(0, p.gain) * 0.35));
-    add('o-QB', [0.14, MID + sg * 0.8, L - 5], [0.45, MID - sg * 2.5, L - 6.5]);
+    add('o-QB', [0.14, MID + sg * 0.8, qb0[1] + 0.6], [0.45, MID - sg * 2.5, qb0[1] - 1]);
     add('o-RB', [0.14, MID + sg * 1.2, L - 4.8], [0.38, holeX, L + 0.8], [0.9, fx, end]);
-    ballTr.push([0.08, MID, L - 5.2], [0.14, MID + sg * 1.2, L - 4.8]);
+    ballTr.push([0.08, MID, qb0[1]], [0.14, MID + sg * 1.2, L - 4.8]);
     tr['o-RB'].slice(2).forEach(k => ballTr.push(k));
-    if (p.broke) calls.push({t: 0.6, text: 'Broken tackle!', key: 'o-RB'});
-    if (kind === 'fum') calls.push({t: 0.86, text: 'Fumble!', x: fx, y: end + 3, cls: 'is-bad'});
+    if (p.broke) calls.push({t: 0.6, text: 'Broken tackle!', key: 'o-RB', cls: forO(true)});
+    if (kind === 'fum') calls.push({t: 0.86, text: 'Fumble!', x: fx, y: end + 3, cls: forO(false)});
     // Linebackers and safeties flow to the ball; the tackler meets it.
     D.lbs.concat(['SS', 'FS', 'NB', 'LCB', 'RCB']).forEach(k => {
       const s0 = start['d-' + k];
@@ -328,7 +380,7 @@ function choreo(s, p) {
     if (p.by && D.front.includes(p.by)) add('d-' + p.by, [0.9, fx - 0.6, end + 0.8]);
     // Receivers block downfield a little.
     E.TARGETS.filter(k => k !== 'RB').forEach(k => { const [x, y] = start['o-' + k]; add('o-' + k, [0.6, x + (MID - x) * 0.1, y + 5]); });
-    finishCalls(p, kind, calls, fx, end);
+    finishCalls(p, kind, calls, fx, end, forO);
     return {tr, ball: ballTr, calls, dur: 2300 + Math.min(900, Math.max(0, p.gain) * 25)};
   }
   // Passes (and sacks, and the trick play).
@@ -336,7 +388,7 @@ function choreo(s, p) {
   if (a.kind === 'pass') routes[a.slot] = a.route;
   const target = p.who || (a.kind === 'pass' ? a.slot : 'WR1');
   const routeOf = k => (p.trick && k === target ? 'go' : (p.read === 'pass' && k === 'WR3') ? 'slant' : routes[k] || 'go');
-  const roll = a.flags && a.flags.r ? (OFF_POS[target][0] >= MID ? 1 : -1) : 0;
+  const roll = flags.r ? (start['o-' + target][0] >= MID ? 1 : -1) : 0;
   const qbSpot = [MID + roll * 8, L - 7.2];
   const R = E.ROUTES[routeOf(target)] || E.ROUTES.go;
   const tThrow = p.trick ? 0.48 : Math.min(0.55, Math.max(0.3, 0.22 + R.time * 0.09));
@@ -349,14 +401,14 @@ function choreo(s, p) {
     ballTr.push([0.1, MID, L - 5.4], [0.16, MID + 1, L - 4.8], [0.3, MID - 0.5, L - 7]);
   } else {
     add('o-QB', [0.22, qbSpot[0], qbSpot[1]]);
-    ballTr.push([0.1, MID, L - 5.5], [0.22, qbSpot[0], qbSpot[1]]);
+    ballTr.push([0.1, MID, qb0[1]], [0.22, qbSpot[0], qbSpot[1]]);
   }
   // Every receiver runs his route; the target's ends where the ball got to him.
   const recv = {};
   E.TARGETS.forEach(k => {
     if (p.trick && k === 'RB') return;
     const [x0, y0] = start['o-' + k];
-    const path = routePath(k, routeOf(k), x0, y0);
+    const path = routePath(routeOf(k), x0, y0);
     if (k === target && ['catch', 'inc', 'int'].includes(kind)) {
       const cp = pointAt(path, L, air);
       const cut = path.filter(pt => pt[1] < cp[1] - 0.01);
@@ -371,11 +423,11 @@ function choreo(s, p) {
     add('o-QB', [tSack, sx, qbSpot[1]], [tSack + 0.12, sx, sy]);
     ballTr.push([tSack, sx, qbSpot[1]], [tSack + 0.12, sx, sy]);
     if (p.by) add('d-' + p.by, [tSack, sx + 0.8, qbSpot[1] + 0.6], [tSack + 0.12, sx + 0.6, sy + 0.4]);
-    calls.push({t: tSack + 0.04, text: kind === 'fum' ? 'Fumble!' : 'Sack!', x: sx, y: qbSpot[1] + 2.5, cls: 'is-bad'});
+    calls.push({t: tSack + 0.04, text: kind === 'fum' ? 'Fumble!' : 'Sack!', x: sx, y: qbSpot[1] + 2.5, cls: forO(false)});
     coverage(tr, start, D, cover, p, L, null, 0.9);
     return {tr, ball: ballTr, calls, dur: 2300};
   }
-  const cp = recv[target] || [OFF_POS[target][0], L + air];
+  const cp = recv[target] || [start['o-' + target][0], L + air];
   ballTr.push([tThrow, qbSpot[0], qbSpot[1]], [tCatch, cp[0], cp[1]]);
   const air2 = {t0: tThrow, t1: tCatch};
   let dur = 2500;
@@ -384,20 +436,21 @@ function choreo(s, p) {
     const tEnd = Math.min(0.95, tCatch + 0.12 + Math.min(0.3, Math.max(0, end - cp[1]) / 60));
     tr['o-' + target].push([tEnd, fx, end]);
     ballTr.push([tEnd, fx, end]);
-    if (p.broke) calls.push({t: (tCatch + tEnd) / 2, text: 'Broken tackle!', key: 'o-' + target});
+    if (p.broke) calls.push({t: (tCatch + tEnd) / 2, text: 'Broken tackle!', key: 'o-' + target, cls: forO(true)});
     coverage(tr, start, D, cover, p, L, {at: tCatch, x: fx, y: end, t: tEnd}, tEnd);
-    finishCalls(p, kind, calls, fx, end, tEnd);
+    finishCalls(p, kind, calls, fx, end, forO, tEnd);
     dur = 2500 + (tEnd - tCatch) * 2400;
   } else if (kind === 'inc') {
     ballTr.push([Math.min(0.95, tCatch + 0.1), cp[0] + 1.2, cp[1] - 1.5]);
     coverage(tr, start, D, cover, p, L, {at: tCatch, x: cp[0], y: cp[1], miss: true}, tCatch);
     calls.push({t: tCatch, text: p.by && !p.trick ? 'Broken up' : 'Incomplete', x: cp[0], y: cp[1] + 2.8});
-    if (p.kind === '2fail') calls.push({t: 0.9, text: 'Stopped', x: MID, y: L + 6, cls: 'is-bad'});
+    if (p.kind === '2fail') calls.push({t: 0.9, text: 'No good', x: MID, y: L + 6, cls: 'is-bad'});
+    else if (p.downs) calls.push({t: 0.9, text: 'Turnover on downs', x: MID, y: L + 6, cls: forO(false)});
   } else if (kind === 'int') {
     const back = Math.max(L + 2, cp[1] - 8);
     ballTr.push([0.95, cp[0] + (MID - cp[0]) * 0.3, back]);
     coverage(tr, start, D, cover, p, L, {at: tCatch, x: cp[0], y: cp[1], pick: true, back}, tCatch);
-    calls.push({t: tCatch + 0.02, text: 'Picked off!', x: cp[0], y: cp[1] + 2.8, cls: 'is-bad'});
+    calls.push({t: tCatch + 0.02, text: 'Picked off!', x: cp[0], y: cp[1] + 2.8, cls: forO(false)});
     dur = 2600;
   }
   return {tr, ball: ballTr, calls, dur, air: air2};
@@ -443,11 +496,15 @@ function coverage(tr, start, D, cover, p, L, ballAt, tEnd) {
     else tr[k].push([t, last[1] * 0.5 + ballAt.x * 0.5, Math.max(ballAt.y + 2, (last[2] + ballAt.y) / 2)]);
   });
 }
-function finishCalls(p, kind, calls, x, y, t = 0.92) {
-  if (p.td || p.kind === '2good') calls.push({t, text: p.kind === '2good' ? 'It’s good!' : 'Touchdown!', x, y: Math.min(106, y + 3), cls: 'is-score'});
-  else if (p.kind === '2fail') calls.push({t, text: 'Stopped', x, y: y + 3, cls: 'is-bad'});
-  else if (p.first) calls.push({t, text: 'First down', x, y: y + 3, cls: 'is-good'});
-  else if (p.oob) calls.push({t, text: 'Out of bounds', x: Math.max(8, Math.min(WIDTH - 8, x)), y: y + 3});
+function finishCalls(p, kind, calls, x, y, forO, t = 0.92) {
+  const at2 = (text, cls, dy = 3) => calls.push({t, text, x: Math.max(8, Math.min(WIDTH - 8, x)), y: Math.min(106, y + dy), cls});
+  if (p.kind === '2good') at2('It’s good!', 'is-score');
+  else if (p.kind === '2fail') at2('No good', 'is-bad');
+  else if (p.td) at2('Touchdown!', p.poss === 'us' ? 'is-score' : 'is-bad');
+  else if (p.safety) at2('Safety!', forO(false));
+  else if (p.downs) at2('Turnover on downs', forO(false));
+  else if (p.first) at2('First down', forO(true));
+  else if (p.oob) at2('Out of bounds');
 }
 
 /** Plays a choreography on the field. Resolves when it's done (or skipped: a tap on the field). */
@@ -528,73 +585,123 @@ function runOff(st, from, to) {
     requestAnimationFrame(step);
   });
 }
+const pause = (st, ms) => new Promise(res => { if (ui.RM || !st.ctx.visible) res(); else st.timers.push(setTimeout(res, ms)); });
 
 // ============================================================================ Markup: the game
+function bugTeam(s, side) {
+  const us = side === 'us', id = us ? s.sc.o : s.sc.d;
+  const tos = us ? s.tos : s.dtos;
+  const ball = !s.result && s.poss === side;
+  const bars = [0, 1, 2].map(i => `<i${i < tos ? ' class="is-on"' : ''}></i>`).join('');
+  return `<div class="dr-bt is-${side}${ball ? ' has-ball' : ''}">${logoHTML(id, 30)}`
+    + `<span class="dr-bt-id"><small class="dr-bt-you">${us ? 'You' : ''}</small><b class="dr-bt-ab">${esc(id)}</b><span class="dr-bt-to">${bars}</span></span>`
+    + `<span class="dr-bt-sc">${us ? s.us : s.them}</span></div>`;
+}
 function bugHTML(s) {
-  const [oc, oa] = tcol(s.sc.o), [dc, da] = tcol(s.sc.d);
-  const tos = Array.from({length: 3}, (_, i) => `<i class="${i < s.tos ? 'is-on' : ''}"></i>`).join('');
-  return `<div class="dr-bug" data-dr-bug>`
-    + `<span class="dr-bug-t is-them" style="--tc:${esc(dc)};--ta:${esc(da)}"><span class="dr-bug-ab">${esc(s.sc.d)}</span></span>`
-    + `<span class="dr-bug-sc" data-dr-them>${s.them}</span>`
-    + `<span class="dr-bug-mid"><span class="dr-bug-q">Q4</span><span class="dr-bug-clk${s.running ? ' is-run' : ''}" data-dr-clock>${dr.clockText(s.clock)}</span></span>`
-    + `<span class="dr-bug-sc" data-dr-us>${s.us}</span>`
-    + `<span class="dr-bug-t is-us" style="--tc:${esc(oc)};--ta:${esc(oa)}"><span class="dr-bug-poss" aria-hidden="true"></span><span class="dr-bug-ab">${esc(s.sc.o)}</span><span class="dr-bug-you">You</span>`
-    + `<span class="dr-bug-to" data-dr-tos aria-label="${esc(plural(s.tos, 'timeout') + ' left')}">${tos}</span></span>`
-    + `</div>`;
+  const has = s.result ? '' : s.poss === 'us' ? ' You have the ball.' : ` ${s.sc.d} has the ball.`;
+  const label = `${s.sc.o} ${s.us}, ${s.sc.d} ${s.them}. ${s.result ? 'Final.' : `${dr.clockText(s.clock)} left in the fourth.`}${has} Timeouts: you ${s.tos}, ${s.sc.d} ${s.dtos}.`;
+  return `<div class="dr-bug" data-dr-bug role="group" aria-label="${esc(label)}"><div class="dr-bug-in" aria-hidden="true">`
+    + bugTeam(s, 'us')
+    + `<span class="dr-bug-mid"><span class="dr-bug-q">${s.result ? 'Final' : '4th'}</span><span class="dr-bug-clk${s.running ? ' is-run' : ''}" data-dr-clock>${dr.clockText(s.clock)}</span></span>`
+    + bugTeam(s, 'them')
+    + `</div></div>`;
 }
 function sitHTML(s) {
-  if (s.result) return `<p class="dr-sit" data-dr-sit><b>Final</b> · ${esc(dr.resultText(s).head)}</p>`;
-  if (s.phase === 'pat') return `<p class="dr-sit" data-dr-sit><b>Touchdown</b> · down one · clock stopped</p>`;
-  const where = s.ball === 50 ? 'ball at midfield' : `ball on the ${dr.spot(s)}`;
-  return `<p class="dr-sit" data-dr-sit><b>${esc(dr.downText(s.down, s.togo, s.ball))}</b> · ${esc(where)} · `
-    + `<span class="${s.running ? 'is-run' : ''}">${s.running ? 'clock running' : 'clock stopped'}</span></p>`;
+  const chip = (t, cls = '') => `<span class="dr-chip${cls ? ' ' + cls : ''}">${t}</span>`;
+  let h;
+  if (s.result) h = chip('Final', 'is-strong') + chip(esc(dr.resultText(s).sub));
+  else if (s.phase === 'pat') h = chip('Try', 'is-strong') + chip('From the 2') + chip('Clock stopped');
+  else {
+    const side = s.poss === 'us' ? chip(`${ui.icon('football', {size: 13})}Offense`, 'is-o') : chip(`${ui.icon('shield', {size: 13})}Defense`, 'is-d');
+    h = side + chip(`<b>${esc(dr.downText(s.down, s.togo, s.ball))}</b>${esc(` · ${s.ball === 50 ? 'midfield' : dr.spot(s)}`)}`, 'is-strong')
+      + chip(s.running ? '<i class="dr-dot"></i>Clock runs' : `${ui.icon('clock', {size: 13})}Stopped`, s.running ? 'is-run' : 'is-stop');
+  }
+  return `<div class="dr-sit" data-dr-sit>${h}</div>`;
 }
 function legendHTML() {
-  return `<div class="dr-legend"><span class="dr-scale" aria-hidden="true"><span>worse</span><i></i><span>better</span></span>`
-    + `<button type="button" class="btn btn-secondary btn-s dr-ratings" data-dr-ratings>${ui.icon('search', {size: 16})}<span class="btn-label">Player ratings</span></button></div>`;
+  return `<div class="dr-legend"><span class="dr-scale" aria-hidden="true"><span>Rating</span><i></i></span>`
+    + `<span class="dr-key" aria-hidden="true"><i class="is-mine"></i>Yours</span>`
+    + `<button type="button" class="dr-pill" data-dr-ratings>${ui.icon('search', {size: 14})}<span>Player ratings</span></button></div>`;
 }
 function lookHTML(s) {
+  if (s.poss === 'them') {
+    const F = E.FORMS[s.form];
+    return `<div class="dr-look"><span class="dr-look-ic">${ui.icon('football', {size: 18})}</span><span class="dr-look-tx"><small>${esc(E.idsFor(s, 'them').o)} offense</small><b>${esc(F.name)}</b><span>${esc(F.sub)}</span></span></div>`;
+  }
   const look = E.LOOKS[s.look];
-  return `<p class="dr-look"><span class="dr-look-k">Defense</span><b>${esc(look.name)}</b><span class="dr-look-s">${esc(look.sub)}</span></p>`;
+  return `<div class="dr-look"><span class="dr-look-ic">${ui.icon('shield', {size: 18})}</span><span class="dr-look-tx"><small>${esc(s.sc.d)} defense shows</small><b>${esc(look.name)}</b><span>${esc(look.sub)}</span></span></div>`;
 }
 function headRow(title, s, back) {
-  const where = s.phase === 'pat' ? 'Two-point try' : `${dr.downText(s.down, s.togo, s.ball)} · ${s.ball === 50 ? 'midfield' : dr.spot(s)}`;
-  return `<div class="dr-call-h"><h3 class="dr-call-t" id="dr-call-t">${esc(title)}</h3>`
-    + (back ? `<button type="button" class="btn btn-secondary btn-s dr-back" data-dr-back>${ui.icon('chevron-left', {size: 16})}<span class="btn-label">Back</span></button>` : `<p class="dr-call-s">${esc(where)}</p>`)
-    + `</div>`;
+  const where = s.phase === 'pat' ? 'Try from the 2' : `${dr.downText(s.down, s.togo, s.ball)} · ${s.ball === 50 ? 'midfield' : dr.spot(s)}`;
+  return `<div class="dr-call-h">`
+    + (back ? `<button type="button" class="dr-back" data-dr-back aria-label="Back">${ui.icon('chevron-left', {size: 18})}</button>` : '')
+    + `<h3 class="dr-call-t" id="dr-call-t">${esc(title)}</h3><p class="dr-call-s">${esc(where)}</p></div>`;
 }
+const CALL_TILES = [['run', 'Run', 'Pick a side'], ['pass', 'Pass', 'Pick a receiver'], ['rpo', 'RPO', 'The QB reads the box'], ['trick', 'Trick play', 'Flea flicker, once a game']];
 function mainHTML(st) {
   const s = st.s, o = E.options(s);
   const pat = s.phase === 'pat';
-  const calls = [['run', 'Run'], ['pass', 'Pass'], ['rpo', 'RPO'], ['trick', 'Trick']].map(([k, l]) => {
+  const calls = CALL_TILES.map(([k, l, sub]) => {
     const off = k === 'trick' && !s.trick;
-    return `<button type="button" class="dr-cb${off ? ' is-used' : ''}" ${k === 'trick' ? `data-dr-go="${E.tok.trick}"` : `data-dr-menu="${k}"`}${off ? ' disabled aria-label="Trick play, already used this drive"' : ''}>${esc(l)}${off ? '<small>Used</small>' : ''}</button>`;
+    return `<button type="button" class="dr-tile" ${k === 'trick' ? `data-dr-go="${E.tok.trick}"` : `data-dr-menu="${k}"`}${off ? ' disabled' : ''}>`
+      + `<b>${esc(l)}</b><small>${esc(off ? 'Used' : sub)}</small></button>`;
   }).join('');
-  const fg = o.fg ? `<button type="button" class="dr-fg" data-dr-go="${E.tok.fg}"><b>Field goal</b><small>${esc(`${o.fg.dist} yards · ${pct(o.fg.p)} to make`)}</small></button>` : '';
-  const kick = pat ? `<button type="button" class="dr-fg" data-dr-go="${E.tok.kick}"><b>Kick it</b><small>The extra point ties it. Overtime.</small></button><p class="dr-or">or go for two from the 2, to win it</p>` : '';
+  const fg = o.fg ? `<button type="button" class="dr-fg" data-dr-go="${E.tok.fg}"><span class="dr-fg-tx"><b>Field goal</b><small>${esc(`${o.fg.dist} yards`)}</small></span><span class="dr-fg-p">${pct(o.fg.p)}<small>to make</small></span></button>` : '';
+  let kick = '';
+  if (pat) {
+    const d = s.them - s.us;
+    kick = `<button type="button" class="dr-fg" data-dr-go="${E.tok.kick}"><span class="dr-fg-tx"><b>Kick the extra point</b><small>${d === 1 ? 'Ties the game' : 'Gets you within one'}</small></span></button>`
+      + `<p class="dr-or">or run a play from the 2 for two points, ${d === 1 ? 'to take the lead' : 'to tie it'}</p>`;
+  }
   const tools = [];
-  if (o.timeout || (s.running && !pat)) tools.push(`<button type="button" class="btn btn-secondary btn-s dr-tool" data-dr-go="${E.tok.timeout}"${o.timeout ? '' : ' disabled'}>${ui.icon('clock', {size: 16})}<span class="btn-label">Timeout · ${s.tos} left</span></button>`);
-  if (o.spike) tools.push(`<button type="button" class="btn btn-secondary btn-s dr-tool" data-dr-go="${E.tok.spike}">${ui.icon('bolt', {size: 16})}<span class="btn-label">Spike</span></button>`);
+  if (o.timeout || (s.running && !pat)) tools.push(`<button type="button" class="dr-pill" data-dr-go="${E.tok.timeout}"${o.timeout ? '' : ' disabled'}>${ui.icon('clock', {size: 14})}<span>Timeout · ${s.tos} left</span></button>`);
+  if (o.spike) tools.push(`<button type="button" class="dr-pill" data-dr-go="${E.tok.spike}">${ui.icon('bolt', {size: 14})}<span>Spike</span></button>`);
+  if (o.kneel) tools.push(`<button type="button" class="dr-pill is-accent" data-dr-go="${E.tok.kneel}">${ui.icon('check-circle', {size: 14})}<span>Kneel</span></button>`);
   const warn = s.running && s.clock <= E.HURRY
     ? `<p class="dr-warn">${ui.icon('clock', {size: 15})}<span>${esc(`The clock is running and the next snap takes ${E.HURRY} seconds to get off. ${o.timeout ? 'Call a timeout' : s.down < 4 ? 'Spike it' : 'Nothing left to stop it'}${o.fg ? (o.timeout ? ', then kick' : '') : ''}.`)}</span></p>`
     : '';
+  const lead = s.us > s.them && !pat ? `<p class="dr-goal">${esc(`You lead by ${s.us - s.them}. Keep the ball and run out the clock: a kneel takes ${E.KNEEL} seconds off when it's running.`)}</p>` : '';
   return `<section class="dr-call" aria-labelledby="dr-call-t">${headRow(pat ? 'Kick or go for two?' : 'Your call', s)}`
-    + kick + lookHTML(s) + `<div class="dr-calls">${calls}</div>` + fg
+    + kick + lead + lookHTML(s) + `<div class="dr-tiles">${calls}</div>` + fg
     + (tools.length ? `<div class="dr-tools">${tools.join('')}</div>` : '') + warn + `</section>`;
+}
+/** What your defense has to do, from the score. */
+function goalText(s) {
+  const lead = s.us - s.them;
+  if (lead >= 9) return `Up ${lead}: keep everything in front of you.`;
+  if (lead >= 7) return `Up ${lead}: a touchdown${lead === 8 ? ' and a two-point try' : ''} ties it.`;
+  if (lead >= 4) return `Up ${lead}: a touchdown beats you.`;
+  if (lead === 3) return 'Up 3: a field goal ties it, a touchdown beats you.';
+  if (lead > 0) return `Up ${lead}: a field goal beats you.`;
+  if (lead === 0) return 'Tied: any score beats you.';
+  return `Down ${-lead}: get a stop and get the ball back with time left.`;
+}
+function defenseHTML(st) {
+  const s = st.s, o = E.options(s);
+  const cards = E.DEF_CALLS.map(k => {
+    const C = E.CALLS[k];
+    return `<button type="button" class="dr-dc" data-dr-go="${E.tok.def(k)}"><b>${esc(C.name)}</b><small>${esc(C.short)}</small></button>`;
+  }).join('');
+  const tools = o.timeout ? `<div class="dr-tools"><button type="button" class="dr-pill" data-dr-go="${E.tok.timeout}">${ui.icon('clock', {size: 14})}<span>Timeout · ${s.tos} left</span></button></div>` : '';
+  const warn = o.timeout && s.them > s.us ? `<p class="dr-warn">${ui.icon('clock', {size: 15})}<span>${esc(`Their clock is running. Each snap takes ${E.MILK} seconds off unless you stop it.`)}</span></p>` : '';
+  return `<section class="dr-call is-def" aria-labelledby="dr-call-t">${headRow('Your defense', s)}`
+    + `<p class="dr-goal">${esc(goalText(s))}</p>` + lookHTML(s)
+    + `<p class="dr-hint">Call a coverage. Their play is set at the snap from the formation and the situation, whatever you call.</p>`
+    + `<div class="dr-dcs">${cards}</div>` + tools + warn + `</section>`;
 }
 const FLAG_INFO = [['a', 'Play action'], ['r', 'Roll out'], ['o', 'Out of bounds']];
 function receiverRowHTML(st, slot) {
-  const s = st.s, p = s.U.o.by[slot], route = st.routes[slot];
+  const s = st.s, p = s.mine.by[slot], route = st.routes[slot];
   const od = E.odds(s, slot, route, st.flags);
   const stat = `${pct(od.caught)} caught · ${od.ypt.toFixed(1)} yds a throw${od.picked >= 0.03 ? ` · ${pct(od.picked)} picked` : ''}`;
   return `<li class="dr-rcv"><button type="button" class="dr-rcv-go" data-dr-go="${E.tok.pass(slot, route, st.flags)}" aria-label="${esc(`Throw to ${p.n}, ${E.ROUTES[route].name}: ${stat}`)}">`
-    + `<span class="dr-rcv-pos">${esc(dr.posOf(slot))}</span><span class="dr-rcv-id"><b>${esc(dr.short(p.n))}</b></span>`
+    + `<span class="dr-rcv-pos" style="--rc:${ratingColor(p.r)}">${esc(dr.posOf(slot))}</span><span class="dr-rcv-id"><b>${esc(dr.short(p.n))}</b></span>`
     + `<span class="dr-rcv-st">${esc(stat)}</span></button>`
     + `<button type="button" class="dr-rcv-rt" data-dr-route="${slot}" aria-label="${esc(`${p.n}'s route: ${E.ROUTES[route].name}. Change it.`)}">${esc(E.ROUTES[route].name)}${ui.icon('chevron-down', {size: 12})}</button></li>`;
 }
 function passHTML(st) {
   const s = st.s;
-  const chips = FLAG_INFO.map(([k, l]) => `<button type="button" class="chip dr-flag" data-dr-flag="${k}" aria-pressed="${!!st.flags[k]}">${esc(l)}</button>`).join('');
+  const chips = FLAG_INFO.map(([k, l]) => `<button type="button" class="dr-toggle" data-dr-flag="${k}" aria-pressed="${!!st.flags[k]}">${esc(l)}</button>`).join('');
   return `<section class="dr-call" aria-labelledby="dr-call-t">${headRow(s.phase === 'pat' ? 'Two-point pass' : 'Pass', s, true)}${lookHTML(s)}`
     + `<p class="dr-hint">Tap a receiver on the field (or his route) to change it. Tap a name to throw it to him.</p>`
     + `<div class="dr-flags" role="group" aria-label="Options">${chips}</div>`
@@ -605,18 +712,20 @@ function runHTML(st, kind) {
   const title = (s.phase === 'pat' ? 'Two-point ' : '') + (kind === 'run' ? 'run' : 'RPO');
   const sub = kind === 'rpo' ? '<p class="dr-hint">Your QB reads the box: against a crowd he throws a quick slant, against a light box he hands it off.</p>' : '';
   return `<section class="dr-call" aria-labelledby="dr-call-t">${headRow(title.charAt(0).toUpperCase() + title.slice(1), s, true)}${lookHTML(s)}${sub}`
-    + `<div class="dr-dirs"><button type="button" class="dr-cb is-dir" data-dr-go="${mk('w', st.runOob)}">← Weak</button><button type="button" class="dr-cb is-dir" data-dr-go="${mk('s', st.runOob)}">Strong →</button></div>`
+    + `<div class="dr-dirs"><button type="button" class="dr-tile is-dir" data-dr-go="${mk('w', st.runOob)}"><b>← Weak</b><small>Away from the tight end</small></button>`
+    + `<button type="button" class="dr-tile is-dir" data-dr-go="${mk('s', st.runOob)}"><b>Strong →</b><small>Behind the tight end</small></button></div>`
     + `<div class="dr-oob"><span class="dr-oob-tx"><b>Get out of bounds</b><small>The ball carrier tries to stop the clock. No guarantee.</small></span>${ui.switchCtl({name: 'dr-oob', checked: st.runOob, label: 'Get out of bounds'})}</div>`
     + `</section>`;
 }
 function snapHTML() {
-  return `<section class="dr-snap" aria-live="polite"><p class="dr-snap-t"><span class="spin" aria-hidden="true"></span>Snap…</p><p class="dr-snap-s">Tap the field to skip</p></section>`;
+  return `<section class="dr-snap" aria-live="polite"><p class="dr-snap-t"><i class="dr-dot"></i>Live</p><p class="dr-snap-s">Tap the field to skip</p></section>`;
 }
 function panelHTML(st) {
   const s = st.s;
   if (st.busy) return snapHTML();
   const bd = st.last ? breakdownHTML(st) : '';
   if (s.result) return bd + resultHTML(st);
+  if (s.poss === 'them' && s.phase !== 'pat') return bd + defenseHTML(st);
   if (st.panel === 'pass') return bd + passHTML(st);
   if (st.panel === 'run' || st.panel === 'rpo') return bd + runHTML(st, st.panel);
   return bd + mainHTML(st);
@@ -625,13 +734,14 @@ function panelHTML(st) {
 // ---------------------------------------------------------------------------- The breakdown of the last snap
 function breakdownHTML(st) {
   const L = st.last, s = st.s, p = L.p;
-  if (p.kind === 'timeout') return `<section class="dr-bd is-flat is-mini" data-dr-bd><p class="dr-bd-line">${esc(dr.playText(s, p).line)}</p></section>`;
+  const autos = L.autos.length ? `<ul class="dr-bd-auto">${L.autos.map(x => `<li>${esc(dr.playText(s, x).line)}</li>`).join('')}</ul>` : '';
+  if (p.kind === 'timeout') return `<section class="dr-bd is-mini" data-dr-bd><p class="dr-bd-line">${esc(dr.playText(s, p).line)}</p>${autos}</section>`;
   const t = dr.playText(s, p);
   const ready = L.wpA != null && L.wpB != null;
   const delta = ready ? Math.round((L.wpA - L.wpB) * 100) : null;
   const badge = delta == null ? `<span class="dr-bd-d is-wait"><span class="spin" aria-hidden="true"></span></span>`
     : `<span class="dr-bd-d ${delta > 0 ? 'is-up' : delta < 0 ? 'is-down' : 'is-even'}" aria-label="${esc(`Win chance ${delta >= 0 ? 'up' : 'down'} ${Math.abs(delta)} points`)}">${delta > 0 ? '+' : delta < 0 ? '−' : '±'}${Math.abs(delta)}</span>`;
-  const wp = ready ? `<p class="dr-bd-wp">Win chance ${pct(L.wpB)} → ${pct(L.wpA)}</p>` : `<p class="dr-bd-wp">Working out the win chance…</p>`;
+  const wp = ready ? `<p class="dr-bd-wp">Win chance <b>${pct(L.wpB)}</b> → <b>${pct(L.wpA)}</b></p>` : `<p class="dr-bd-wp">Working out the win chance…</p>`;
   const ct = dr.callText(s, p);
   const call = ct ? `<p class="dr-bd-call ${ct.good ? 'is-good' : 'is-bad'}">${esc(ct.text)}</p>` : '';
   let grade = '', opts = '';
@@ -644,137 +754,109 @@ function breakdownHTML(st) {
       ? `<p class="dr-bd-grade is-best">${ui.icon('check-circle', {size: 16})}<span>Your call: <b>the best one.</b></span></p>`
       : mine ? `<p class="dr-bd-grade">${ui.icon('info', {size: 16})}<span>${esc(`Your call: ${ui.ordinal(rank)} of ${L.scores.length}. Best: ${dr.tokenShort(s, best.token)} (${pct(best.wp)}).`)}</span></p>` : '';
     opts = `<details class="dr-bd-opts"><summary>How every option scored</summary><ol>${L.scores.map(x => `<li class="${x.token === p.act ? 'is-mine' : ''}"><span>${esc(dr.tokenShort(s, x.token))}${x.token === p.act ? ' · yours' : ''}</span><i style="--w:${Math.round(x.wp * 100)}%"></i><b>${pct(x.wp)}</b></li>`).join('')}</ol>`
-      + `<p class="dr-bd-note">Each option played out ${L.n} times from that snap by a good play-caller. Win chance counts a tie as half.</p></details>`;
+      + `<p class="dr-bd-note">Each option played out ${L.n} times from that snap to the end of the game by a good play-caller on both sides. Win chance counts a tie as half.</p></details>`;
   } else if (L.scoring) grade = `<p class="dr-bd-grade is-wait"><span class="spin" aria-hidden="true"></span><span>Scoring every option…</span></p>`;
-  const replay = L.canReplay ? `<button type="button" class="btn btn-secondary btn-s dr-replay" data-dr-replay>${ui.icon('play-fill', {size: 14})}<span class="btn-label">Replay</span></button>` : '';
+  const replay = L.canReplay ? `<button type="button" class="dr-pill" data-dr-replay>${ui.icon('play-fill', {size: 12})}<span>Replay</span></button>` : '';
   return `<section class="dr-bd is-${t.tone}" data-dr-bd aria-label="Last play">`
     + `<div class="dr-bd-top">${badge}<div class="dr-bd-main"><h3 class="dr-bd-h">${esc(t.head)}</h3><p class="dr-bd-line">${esc(t.line)}</p>${wp}</div></div>`
-    + call + grade + `<div class="dr-bd-act">${replay}${opts}</div></section>`;
+    + autos + call + grade + `<div class="dr-bd-act">${replay}${opts}</div></section>`;
 }
 
 const TONE_IC = {good: 'arrow-up', bad: 'arrow-down', score: 'trophy', flat: 'chevron-right'};
 function logItemHTML(s, p) {
   const t = dr.playText(s, p);
-  const pre = p.kind === 'timeout' ? dr.clockText(p.clock) : p.kind === 'xp' ? 'After the touchdown' : p.two ? 'Two-point try' : `${dr.downText(p.down, p.togo, p.ball)} · ${dr.spot(s, p.ball)} · ${dr.clockText(p.clock)}`;
-  const what = p.kind === 'timeout' ? '' : dr.tokenLabel(s, p.act) + (p.look && !['timeout', 'kick', 'spike', 'fg'].includes(p.call) ? ` vs ${E.LOOKS[p.look].name.toLowerCase()}` : '');
-  return `<li class="dr-lg is-${t.tone}"><span class="dr-lg-ic" aria-hidden="true">${ui.icon(TONE_IC[t.tone] || 'chevron-right', {size: 14})}</span>`
+  const team = E.idsFor(s, p.poss || 'us').o;
+  const pre = p.kind === 'timeout' ? `Timeout · ${dr.clockText(p.clock)}` : p.kind === 'xp' ? 'After the touchdown' : p.two ? 'Two-point try'
+    : p.auto ? `${team} · ${dr.clockText(p.clock)}` : `${team} · ${dr.downText(p.down, p.togo, p.ball)} · ${dr.spot(s, p.ball, p.poss)} · ${dr.clockText(p.clock)}`;
+  let what = '';
+  if (p.poss === 'them' && p.dcall) what = `Your call: ${E.CALLS[p.dcall].name}${E.FORMS[p.form] ? ` vs ${E.FORMS[p.form].name.toLowerCase()}` : ''}`;
+  else if (p.act && p.kind !== 'timeout') what = dr.tokenLabel(s, p.act) + (p.look && !['timeout', 'kick', 'spike', 'fg', 'kneel'].includes(p.call) ? ` vs ${E.LOOKS[p.look].name.toLowerCase()}` : '');
+  return `<li class="dr-lg is-${t.tone}${p.poss === 'them' ? ' is-them' : ''}"><span class="dr-lg-ic" aria-hidden="true">${ui.icon(TONE_IC[t.tone] || 'chevron-right', {size: 14})}</span>`
     + `<span class="dr-lg-b"><small class="dr-lg-pre">${esc(pre)}</small><b class="dr-lg-h">${esc(t.line)}</b>`
     + (what ? `<small class="dr-lg-sub">${esc(what)}</small>` : '') + `</span></li>`;
 }
 function pbpHTML(st) {
   const s = st.s;
   if (!s || !s.plays.length) return '';
-  return `<details class="dr-pbp"${st.pbpOpen ? ' open' : ''} data-dr-pbp><summary>Play-by-play</summary><ol class="dr-log">${s.plays.slice().reverse().map(p => logItemHTML(s, p)).join('')}</ol></details>`;
+  return `<details class="dr-pbp"${st.pbpOpen ? ' open' : ''} data-dr-pbp><summary>Play-by-play<span>${plural(s.plays.length, 'play')}</span></summary><ol class="dr-log">${s.plays.slice().reverse().map(p => logItemHTML(s, p)).join('')}</ol></details>`;
+}
+/** The final score, both teams side by side. you: the label under your team (someone else's game: their name). */
+function finalSBHTML(s, you = 'You') {
+  const side = us => {
+    const id = us ? s.sc.o : s.sc.d, pts = us ? s.us : s.them, other = us ? s.them : s.us;
+    return `<span class="dr-fsb-t${pts > other ? ' is-win' : pts < other ? ' is-lose' : ''}">${logoHTML(id, 46)}<b>${esc(id)}</b><small>${us ? esc(you) : '&nbsp;'}</small></span>`;
+  };
+  const sc = (pts, other) => `<span class="dr-fsb-sc${pts < other ? ' is-lose' : ''}">${pts}</span>`;
+  return `<div class="dr-fsb" role="img" aria-label="${esc(`Final: ${s.sc.o} ${s.us}, ${s.sc.d} ${s.them}`)}">${side(true)}${sc(s.us, s.them)}<span class="dr-fsb-x">Final</span>${sc(s.them, s.us)}${side(false)}</div>`;
 }
 function resultHTML(st) {
   const s = st.s;
   if (!s.result) return '';
   const r = dr.resultText(s);
-  const surv = st.mode === 'surv';
-  const sv = surv ? dr.survivor() : null;
-  let actions, foot = '';
-  if (!surv) {
-    actions = `<button type="button" class="btn btn-primary" data-dr-share>${ui.icon('share')}<span class="btn-label">Share</span></button>`;
-    foot = `<p class="dr-next">${ui.icon('clock', {size: 15})}<span>Next drill in <span data-dr-next>${esc(nextIn())}</span></span></p>`;
-  } else if (s.result === 'L') {
-    actions = `<button type="button" class="btn btn-primary" data-dr-newrun>${ui.icon('play-fill')}<span class="btn-label">New run</span></button>`;
-    foot = `<p class="dr-next">${esc(`Run over: ${plural(sv.run ? sv.run.streak : 0, 'drive')} survived. Best ${sv.best}.`)}</p>`;
-  } else {
-    actions = `<button type="button" class="btn btn-primary" data-dr-nextdrive>${ui.icon('play-fill')}<span class="btn-label">Next drive</span></button>`;
-    foot = `<p class="dr-next">${esc(`${plural(sv.run ? sv.run.streak : 0, 'drive')} survived. Best ${sv.best}.`)}</p>`;
-  }
-  return `<section class="card dr-result is-${s.result}" aria-labelledby="dr-res-h">`
-    + `<p class="dr-res-k">${esc(surv ? `Survivor · drive ${(sv.run ? sv.run.i : 0) + 1}` : `Two-Minute Drill #${st.n} · ${dr.dayLabel(st.n)}`)}</p>`
-    + `<h2 class="dr-res-h" id="dr-res-h">${esc(r.head)}</h2>`
-    + `<p class="dr-res-sc">${esc(`${s.sc.o} ${s.us} – ${s.sc.d} ${s.them}`)}</p>`
-    + `<p class="dr-res-sub">${esc(r.sub)}</p>`
+  return `<section class="dr-final is-${s.result}" aria-labelledby="dr-res-h">`
+    + `<p class="dr-final-k">${esc(`Two-Minute Drill #${st.n} · ${dr.dayLabel(st.n)}`)}</p>`
+    + finalSBHTML(s)
+    + `<h2 class="dr-final-h" id="dr-res-h">${esc(r.head)}</h2>`
+    + `<p class="dr-final-sub">${esc(r.sub)}</p>`
     + `<p class="dr-res-sq" aria-hidden="true">${esc(dr.squares(s))}</p>`
-    + `<div class="dr-res-act">${actions}</div>${foot}</section>`;
+    + `<div class="dr-res-act"><button type="button" class="btn btn-primary dr-share" data-dr-share>${ui.icon('share')}<span class="btn-label">Share</span></button></div>`
+    + `<p class="dr-next">${ui.icon('clock', {size: 15})}<span>Next drill in <span data-dr-next>${esc(nextIn())}</span></span></p></section>`;
 }
 function headHTML(st) {
-  const s = st.s, n = st.n;
-  const sc = s.sc, deficit = sc.them - sc.us;
-  const g = sc.g;
-  const kick = `Down ${deficit} · ${dr.clockText(sc.t)} left · ${dr.spot(s, sc.b)}`;
-  const title = st.mode === 'surv' ? 'Survivor' : `Drill #${n}`;
-  const sub = st.mode === 'surv'
-    ? (() => { const v = dr.survivor(); return `Drive ${(v.run ? v.run.i : 0) + 1}${v.run && v.run.streak ? ` · ${plural(v.run.streak, 'drive')} survived` : ''} · best ${v.best}`; })()
-    : `${dr.dayLabel(n, {weekday: 'long', month: 'long', day: 'numeric'})}${g ? ` · Week ${g.wk}: ${g.a} at ${g.h}` : ''}`;
+  const s = st.s, sc = s.sc, n = st.n, g = sc.g;
+  const where = sc.b === 50 ? 'midfield' : sc.b < 50 ? `your ${sc.b}` : `their ${100 - sc.b}`;
   return `<header class="dr-head">`
-    + `<p class="dr-kick">${esc(kick)}</p>`
-    + `<h2 class="dr-title">${esc(title)}</h2>`
-    + `<p class="dr-sub">${esc(sub)}</p>`
+    + `<p class="dr-kick">${esc(`Daily drill #${n} · ${dr.dayLabel(n)}`)}</p>`
+    + `<h2 class="dr-title">${esc(`Down ${sc.them - sc.us}, ${dr.clockText(sc.t)} to go`)}</h2>`
+    + `<p class="dr-sub">${esc(`${g ? `Week ${g.wk}: ${g.a} at ${g.h}. ` : ''}Ball on ${where}, ${plural(sc.to, 'timeout')}. Play to 0:00.`)}</p>`
     + ui.iconButton({icon: 'info', label: 'How the Two-Minute Drill works', cls: 'dr-howto', attrs: {'data-dr-help': ''}})
     + `</header>`;
 }
-const MODES = [{id: 'daily', label: 'Daily'}, {id: 'surv', label: 'Survivor'}];
 function gameHTML(st) {
   const s = st.s;
   return headHTML(st)
-    + `<div class="dr-game">${bugHTML(s)}${sitHTML(s)}${fieldHTML(st)}${legendHTML()}`
-    + `<div class="dr-panel" data-dr-panel>${panelHTML(st)}</div></div>`
+    + `<div class="dr-stage">${bugHTML(s)}${sitHTML(s)}${fieldHTML(st)}${legendHTML()}</div>`
+    + `<div class="dr-panel" data-dr-panel>${panelHTML(st)}</div>`
     + `<div data-dr-pbph>${pbpHTML(st)}</div>`;
-}
-function survIntroHTML() {
-  const v = dr.survivor();
-  return `<header class="dr-head"><p class="dr-kick">Drive after drive</p><h2 class="dr-title">Survivor</h2>`
-    + `<p class="dr-sub">Random teams, a tougher spot every time. Win or tie to keep going; one loss ends the run.</p>`
-    + ui.iconButton({icon: 'info', label: 'How the Two-Minute Drill works', cls: 'dr-howto', attrs: {'data-dr-help': ''}}) + `</header>`
-    + `<section class="card dr-intro"><div class="tiles tiles-2">`
-    + ui.statTile({label: 'Best run', value: nf(v.best)}) + ui.statTile({label: 'Runs', value: nf(v.runs)})
-    + `</div><button type="button" class="btn btn-primary dr-start" data-dr-newrun>${ui.icon('play-fill')}<span class="btn-label">Start a run</span></button></section>`;
 }
 function bodyHTML(st) {
   if (!dr.DOC) return loadingHTML();
-  const seg = ui.seg({name: 'dr-mode', items: MODES, value: st.mode, small: true, label: 'Mode', cls: 'dr-mode'});
-  const main = st.mode === 'surv' && !st.s ? survIntroHTML() : gameHTML(st);
-  return seg + main + boardHTML(st);
+  return gameHTML(st) + boardHTML(st);
 }
 
-// ============================================================================ Markup: scoreboard
-const SB_MODES = [{id: 'today', label: 'Today'}, {id: 'survivor', label: 'Survivor'}];
-const SB_EMPTY = {today: ['Be first on the board.', 'No drives yet today. Run yours to take the top spot.'], survivor: ['', 'No Survivor runs yet.']};
-function sbRowHTML(st, r, mode) {
-  let sub, trail, label;
-  if (mode === 'today') {
-    const rp = r.k ? E.replay(dr.scenario(st.n), dr.DOC.teams, r.k) : null;
-    const score = rp && rp.result ? `${rp.us}–${rp.them}` : '';
-    sub = r.r === 'L' ? `Got to the ${rp ? dr.spot(rp, r.y) : r.y} · ${plural(r.p, 'play')}` : `${dr.clockText(r.c)} left · ${plural(r.p, 'play')}`;
-    trail = `<span class="n4 c-bval dr-bval is-${r.r}">${r.r} ${esc(score)}</span>`;
-    label = `${ui.ordinal(r.rank)}, ${r.name}${r.me ? ', you' : ''}: ${{W: 'won', T: 'tied', L: 'lost'}[r.r]} ${score}. ${sub}. Show the drive.`;
-  } else {
-    sub = 'Best Survivor run';
-    trail = `<span class="n4 c-bval dr-bval">${nf(r.b)}</span>`;
-    label = `${ui.ordinal(r.rank)}, ${r.name}${r.me ? ', you' : ''}: best run ${plural(r.b, 'drive')}.`;
-  }
-  const tag = mode === 'today' ? 'button type="button"' : 'div';
-  const close = mode === 'today' ? 'button' : 'div';
-  return `<div class="c-brow-w" role="listitem"><${tag} class="row c-brow dr-brow${r.me ? ' is-me' : ''}"${mode === 'today' ? ` data-dr-who="${esc(r.key)}"` : ''} aria-label="${esc(label)}">`
-    + `<span class="c-brank n4${r.rank <= 3 ? ' is-r' + r.rank : ''}" aria-hidden="true">${r.rank}</span>`
-    + `<span class="row-lead" aria-hidden="true">${ui.nickAvatar(r.name, {size: 36, managerId: r.managerId, you: r.me, crown: r.rank === 1})}</span>`
-    + `<span class="row-main" aria-hidden="true"><span class="row-title"><span class="c-bnick">${esc(r.name)}</span>${r.me ? ui.badge('you') : ''}</span><span class="row-sub">${esc(sub)}</span></span>`
-    + `<span class="row-trail" aria-hidden="true">${trail}</span></${close}></div>`;
+// ============================================================================ Markup: the league's finals
+function rowGame(st, r) {
+  const k = `${st.n}|${r.k}`;
+  if (!st.rp.has(k)) st.rp.set(k, r.k ? E.replay(dr.scenario(st.n), dr.DOC.teams, r.k) : null);
+  return st.rp.get(k);
 }
-function sbBodyHTML(st, mode) {
+function sbRowHTML(st, r) {
+  const g = rowGame(st, r);
+  const how = g && g.result ? dr.resultText(g, {you: r.me}).sub : '';
+  const sub = [how, plural(r.p, 'play')].filter(Boolean).join(' · ');
+  const label = `${ui.ordinal(r.rank)}, ${r.name}${r.me ? ', you' : ''}: ${{W: 'won', T: 'tied', L: 'lost'}[r.r]} ${r.u} to ${r.h}. ${sub}. Show the game.`;
+  return `<button type="button" class="dr-sb-row${r.me ? ' is-me' : ''}" role="listitem" data-dr-who="${esc(r.key)}" aria-label="${esc(label)}">`
+    + `<span class="dr-sb-rank" aria-hidden="true">${r.rank}</span>`
+    + `<span class="dr-sb-av" aria-hidden="true">${ui.nickAvatar(r.name, {size: 36, managerId: r.managerId, you: r.me, crown: r.rank === 1 && r.r === 'W'})}</span>`
+    + `<span class="dr-sb-main" aria-hidden="true"><span class="dr-sb-name">${esc(r.name)}${r.me ? ui.badge('you') : ''}</span><span class="dr-sb-sub">${esc(sub)}</span></span>`
+    + `<span class="dr-sb-res is-${r.r}" aria-hidden="true"><b>${r.r}</b><span>${r.u}–${r.h}</span></span></button>`;
+}
+function sbBodyHTML(st) {
   const state = dr.boardState();
-  if (state === 'loading') return `<div class="c-board-sk">${ui.skeleton('rows', 3, {label: 'Loading the scoreboard.'})}</div>`;
-  if (state !== 'ready') return `<p class="c-board-note">The scoreboard isn't connected right now.</p>`;
+  if (state === 'loading') return `<div class="dr-sb-sk">${ui.skeleton('rows', 3, {label: 'Loading the finals.'})}</div>`;
+  if (state !== 'ready') return `<p class="dr-sb-note">The scoreboard isn't connected right now.</p>`;
   let rows = [];
-  try { rows = dr.boardRows(mode, st.n || dr.todayNumber()); } catch (e) { console.error(e); }
-  if (!rows.length) {
-    const [t, body] = SB_EMPTY[mode];
-    return `<div class="c-board-empty">${t ? `<p class="c-board-et">${esc(t)}</p>` : ''}<p class="c-board-eb">${esc(body)}</p></div>`;
-  }
-  const n = rows.length;
-  const lead = mode === 'today' ? `<p class="dr-sb-sum">${esc(`${n} ${n === 1 ? 'has' : 'have'} run today’s drill.`)}</p>` : '';
-  return lead + `<div class="c-brows" role="list" aria-label="${esc(mode === 'today' ? "Today's drives" : 'Best Survivor runs')}">${rows.map(r => sbRowHTML(st, r, mode)).join('')}</div>`;
+  try { rows = dr.boardRows(st.n || dr.todayNumber()); } catch (e) { console.error(e); }
+  if (!rows.length) return `<div class="dr-sb-empty"><p class="dr-sb-et">No finals yet today.</p><p class="dr-sb-eb">Play yours to put the first score on the board.</p></div>`;
+  const w = rows.filter(r => r.r === 'W').length;
+  const sum = `${plural(rows.length, 'game')} final · ${w} won`;
+  return `<p class="dr-sb-sum">${esc(sum)}</p><div class="dr-sb-list" role="list" aria-label="Today's finals">${rows.map(r => sbRowHTML(st, r)).join('')}</div>`;
 }
 function boardHTML(st) {
   const hide = dr.boardState() === 'wait';
-  return `<div class="dr-sb-host" data-dr-board${hide ? ' hidden' : ''}><section class="card c-board dr-board" aria-labelledby="dr-sb-t">`
-    + `<div class="c-board-head"><h2 class="c-board-t" id="dr-sb-t">Scoreboard</h2></div>`
-    + ui.seg({name: 'dr-sb', items: SB_MODES, value: st.sbMode, small: true, label: 'Scoreboard', cls: 'c-board-seg'})
-    + `<div class="c-board-body" data-dr-sbody>${sbBodyHTML(st, st.sbMode)}</div></section></div>`;
+  return `<div class="dr-sb-host" data-dr-board${hide ? ' hidden' : ''}><section class="dr-board" aria-labelledby="dr-sb-t">`
+    + `<div class="dr-board-h"><h2 class="dr-board-t" id="dr-sb-t">Today’s finals</h2><p class="dr-board-s">Wins first, the biggest margin on top</p></div>`
+    + `<div class="dr-board-body" data-dr-sbody>${sbBodyHTML(st)}</div></section></div>`;
 }
 const norm = typeof document !== 'undefined' ? document.createElement('template') : null;
 function patchBoard(st, {fade = false} = {}) {
@@ -784,7 +866,7 @@ function patchBoard(st, {fade = false} = {}) {
   host.hidden = dr.boardState() === 'wait';
   const body = host.querySelector('[data-dr-sbody]');
   if (!body) return;
-  const html = sbBodyHTML(st, st.sbMode);
+  const html = sbBodyHTML(st);
   norm.innerHTML = html;
   if (body.innerHTML === norm.innerHTML) return;
   const go2 = () => { body.innerHTML = html; ui.hydrate(body); };
@@ -797,25 +879,25 @@ function scheduleBoard(st) {
 }
 
 // ============================================================================ Sheets
-/** Someone's drive today: hidden until this phone has finished its own. */
-function openDrive(st, key) {
-  const row = dr.boardRows('today', st.n).find(r => r.key === key);
+/** Someone's game today: hidden until this phone has finished its own. */
+function openGame(st, key) {
+  const row = dr.boardRows(st.n).find(r => r.key === key);
   if (!row) return;
   const mine = dr.dayState(st.n);
   let body;
   if (!row.me && !mine.result) {
-    body = `<p class="dr-sh-note">${ui.icon('lock', {size: 16})}<span>${esc(`Run today’s drill to watch ${row.name}’s drive.`)}</span></p>`;
+    body = `<p class="dr-sh-note">${ui.icon('lock', {size: 16})}<span>${esc(`Finish today’s drill to watch ${row.name}’s game.`)}</span></p>`;
   } else {
-    const d = dr.driveOf(key, st.n);
-    if (!d || !d.s) body = `<p class="dr-sh-note">${ui.icon('info', {size: 16})}<span>That drive didn’t come with its plays.</span></p>`;
+    const g = dr.gameOf(key, st.n);
+    if (!g || !g.s) body = `<p class="dr-sh-note">${ui.icon('info', {size: 16})}<span>That game didn’t come with its plays.</span></p>`;
     else {
-      const r = dr.resultText(d.s, {you: row.me});
-      body = `<p class="dr-sh-res is-${d.s.result}"><b>${esc(r.head)}</b><span>${esc(`${d.s.sc.o} ${d.s.us} – ${d.s.sc.d} ${d.s.them} · ${r.sub}`)}</span></p>`
-        + `<ol class="dr-log">${d.s.plays.map(p => logItemHTML(d.s, p)).join('')}</ol>`;
+      const r = dr.resultText(g.s, {you: row.me});
+      body = `<div class="dr-sh-final is-${g.s.result}">${finalSBHTML(g.s, row.me ? 'You' : row.name)}<p class="dr-sh-h"><b>${esc(r.head)}</b><span>${esc(r.sub)}</span></p></div>`
+        + `<ol class="dr-log">${g.s.plays.map(p => logItemHTML(g.s, p)).join('')}</ol>`;
     }
   }
   ui.haptic('light');
-  ui.openSheet({title: row.me ? 'Your drive' : `${row.name}’s drive`, body: `<div class="dr-sheet">${body}</div>`, detents: ['medium', 'large'], cls: 'sh-drill'});
+  ui.openSheet({title: row.me ? 'Your game' : `${row.name}’s game`, body: `<div class="dr-sheet">${body}</div>`, detents: ['medium', 'large'], cls: 'sh-drill'});
 }
 function ratingRowHTML(p, pos) {
   return `<li class="dr-rt"><span class="dr-rt-j">${p.j == null ? '' : '#' + p.j}</span><span class="dr-rt-n"><b>${esc(p.n)}</b><small>${esc(pos)}</small></span>`
@@ -829,27 +911,30 @@ const asofText = () => {
 function openRatings(st) {
   const s = st.s;
   if (!s) return;
-  const O = dr.team(s.sc.o), D = dr.team(s.sc.d);
-  const off = O.o.map(r => s.U.o.by[r[0]]);
-  const def = D.d.map(r => s.U.d.by[r[0]]);
+  const U = E.unitsFor(s, s.poss), ids = E.idsFor(s, s.poss);
+  const O = dr.team(ids.o), D = dr.team(ids.d);
+  const off = O.o.map(r => U.o.by[r[0]]);
+  const def = D.d.map(r => U.d.by[r[0]]);
   const edge = D.s === '34' ? {WLB: 'OLB', SLB: 'OLB'} : {};
+  const whose = side => ((side === 'o') === (s.poss === 'us') ? 'Your' : 'Their');
   const body = `<div class="dr-sheet dr-rts">`
     + `<p class="dr-rt-intro">${esc(`Each starter’s rank at his spot across the league, from his 2025 season and 2026 so far (55 to 99). Depth charts as of ${asofText()}.`)}</p>`
-    + `<h3 class="dr-rt-h">${esc(`Your offense · ${O.city} ${O.n}`)}</h3><ol class="dr-rt-l">${off.map(p => ratingRowHTML(p, dr.posOf(p.slot) === p.slot ? p.slot : dr.posOf(p.slot))).join('')}${ratingRowHTML(s.U.o.k, 'K')}</ol>`
-    + `<h3 class="dr-rt-h">${esc(`Their defense · ${D.city} ${D.n}`)}</h3><ol class="dr-rt-l">${def.map(p => ratingRowHTML(p, edge[p.slot] || DEF_POS[p.slot] || p.slot)).join('')}</ol>`
+    + `<h3 class="dr-rt-h">${esc(`${whose('o')} offense · ${O.city} ${O.n}`)}</h3><ol class="dr-rt-l">${off.map(p => ratingRowHTML(p, dr.posOf(p.slot))).join('')}${ratingRowHTML(U.o.k, 'K')}</ol>`
+    + `<h3 class="dr-rt-h">${esc(`${whose('d')} defense · ${D.city} ${D.n}`)}</h3><ol class="dr-rt-l">${def.map(p => ratingRowHTML(p, edge[p.slot] || DEF_POS[p.slot] || p.slot)).join('')}</ol>`
     + `</div>`;
   ui.haptic('light');
   ui.openSheet({title: 'Player ratings', body, detents: ['large'], cls: 'sh-drill'});
 }
 function openHelp() {
   const body = `<div class="dr-help">`
-    + `<p><b>You’re down late, and you have the ball.</b> Every day brings one drive, the same for everyone, from a real game on this week’s NFL slate with each team’s current starters. Score enough before the clock hits 0:00. Every snap counts as soon as you call it: there are no do-overs.</p>`
+    + `<p><b>You’re down late, and you have the ball.</b> One game a day, the same for everyone, from a real matchup on this week’s NFL slate with each team’s current starters. The game runs to 0:00 and the final score is the result: a win, a tie (overtime) or a loss. Every call counts as soon as you make it: there are no do-overs.</p>`
+    + `<p><b>Score too early and they get it back.</b> After your score they get the ball at their 25 and you call the defense. They can answer, and if there’s time you get it back. Lead with the ball late and you can take a knee to end it.</p>`
     + `<p><b>Read the defense.</b> Before each snap the defense shows a look, and at the snap it plays a real call that look usually hides. A <b>light box</b> is mostly two- and four-deep zones: deep shots and outs get eaten, the middle opens up. A <b>loaded box</b> is a run blitz or man to man: don’t run into it, and play action fools it. A <b>blitz look</b> means pressure: get it out quick. A <b>two-high shell</b> takes away the deep ball and the sideline. <b>Prevent</b> gives up the short stuff and keeps the clock running. The line on the field leans to one side: run away from it.</p>`
     + `<p><b>Passing.</b> Each receiver runs a route, drawn on the field; tap one there to change it. The numbers next to each name are what a throw to him tends to do against this look: how often it’s caught, the yards a throw, and how often it’s picked. Play action fools an aggressive defense and costs time against a patient one; a roll out beats the rush but cuts off the middle; out of bounds stops the clock and gives up the yards after the catch.</p>`
-    + `<p><b>The players matter.</b> Every dot is a real starter, coloured by his rating. Man coverage is one-on-one, so a great receiver against a weak corner wins; your line against their rush decides the sacks. Tap Player ratings to scout.</p>`
-    + `<p><b>The clock.</b> A run, a sack or a catch in bounds keeps it running, and the next snap takes ${E.HURRY} seconds to get off. Incompletions, going out of bounds, timeouts and spikes stop it. Down three or less, a field goal is there when you’re in range; down seven, a touchdown brings the choice: kick to tie, or go for two to win.</p>`
-    + `<p><b>After each snap</b> the breakdown shows what the defense was really in, how your win chance moved, and how every option would have done, each played out many times from the same spot.</p>`
-    + `<p><b>Survivor.</b> Drive after drive with random teams, each spot a little tougher. Win or tie to keep going; your best run goes on the scoreboard.</p>`
+    + `<p><b>On defense</b> you see their formation (a heavy set usually runs, an empty backfield almost always throws) and pick a call. Zones keep the ball in front of you, man and blitzes gamble for a sack or a stop, and prevent gives up the short stuff to save the end zone. Their clock is theirs to manage: ahead, they let it run; behind, they hurry.</p>`
+    + `<p><b>The players matter.</b> Every dot is a real starter, coloured by his rating; yours are ringed in white. Man coverage is one-on-one, so a great receiver against a weak corner wins; the lines decide the sacks. Tap Player ratings to scout.</p>`
+    + `<p><b>The clock.</b> A run, a sack or a catch in bounds keeps it running, and the next snap takes ${E.HURRY} seconds to get off (${E.MILK} when the team ahead lets it run). Incompletions, going out of bounds, timeouts, spikes and changes of possession stop it. Down one or two after a touchdown, you choose: kick, or go for two.</p>`
+    + `<p><b>After each snap</b> the breakdown shows what the defense was really in, how your win chance moved, and how every option would have done, each played out many times from the same spot to the end of the game.</p>`
     + `</div>`;
   ui.openSheet({title: 'How it works', body, detents: ['large'], cls: 'sh-drill'});
 }
@@ -865,17 +950,27 @@ function errorHTML() {
 // ============================================================================ Win chances
 // Worked out in small slices off the main beat (setTimeout 0 between them), so the snap's animation never stutters:
 // the chance now (for the next breakdown's "before"), and after a snap the chance after it and every option's score.
-const WP_N = 90, OPT_N = 40;
+// Each slice plays a few games out to 0:00; slices with different salts are different futures, so they average.
+const WP_SALTS = [7, 8, 9, 10], WP_CHUNK = 20;
+const OPT_SALTS = [11, 12, 13], OPT_CHUNK = 12;
 const stateKey = s => `${s.sc.s}|${E.actsOf(s)}`;
 function slice(st, fn) {
   return new Promise(res => { st.timers.push(setTimeout(() => { if (st.dead) { res(null); return; } res(fn()); }, 0)); });
 }
-async function wpNow(st, s) {
+function wpNow(st, s) {
   const k = stateKey(s);
-  if (st.wp.has(k)) return st.wp.get(k);
-  const v = await slice(st, () => E.winChance(s, WP_N));
-  if (v != null) st.wp.set(k, v);
-  return v;
+  if (!st.wp.has(k)) {
+    st.wp.set(k, (async () => {
+      let v = 0;
+      for (const salt of WP_SALTS) {
+        const x = await slice(st, () => E.winChance(s, WP_CHUNK, salt));
+        if (x == null) return null;
+        v += x;
+      }
+      return v / WP_SALTS.length;
+    })());
+  }
+  return st.wp.get(k);
 }
 /** After a snap: the chance before (cached, or worked out from the spot before), after, and every option's score. */
 async function scoreLast(st, sBefore, p) {
@@ -894,13 +989,17 @@ async function scoreLast(st, sBefore, p) {
   if (!list.includes(p.act)) list.push(p.act);
   const scores = [];
   for (const t of list) {
-    const r = await slice(st, () => E.scoreOptions(sBefore, [t], OPT_N));
-    if (st.last !== L || st.dead) return;
-    if (r && r[0]) scores.push(r[0]);
+    let v = 0, n = 0;
+    for (const salt of OPT_SALTS) {
+      const r = await slice(st, () => E.scoreOptions(sBefore, [t], OPT_CHUNK, salt));
+      if (st.last !== L || st.dead) return;
+      if (r && r[0]) { v += r[0].wp; n++; }
+    }
+    if (n) scores.push({token: t, wp: v / n});
   }
   scores.sort((a, b) => b.wp - a.wp);
   L.scores = scores;
-  L.n = OPT_N;
+  L.n = OPT_SALTS.length * OPT_CHUNK;
   L.scoring = false;
   patchBreakdown(st);
 }
@@ -918,32 +1017,36 @@ function patchBreakdown(st) {
 }
 
 // ============================================================================ Playing a snap
-function persist(st) {
-  if (st.mode === 'surv') dr.saveSurvivor(st.s); else dr.record(st.n, st.s);
-}
-const replayState = (st, acts) => E.replay(st.s.sc, dr.DOC.teams, acts);
 async function go(st, token) {
   const s = st.s;
   if (st.busy || !s || s.result) return;
-  const actsBefore = E.actsOf(s);
-  const sBefore = replayState(st, actsBefore);
-  const runningBefore = s.running, c0 = s.clock;
+  const sBefore = E.replay(s.sc, dr.DOC.teams, E.actsOf(s));
+  const i0 = s.plays.length;
   const p = E.act(s, token);
   if (!p) return;
-  persist(st);
-  if (s.result) dr.autoPost(); // the day's drive, or a new Survivor best
+  dr.record(st.n, s);
+  if (s.result) dr.autoPost();
   ui.haptic(p.kind === 'timeout' ? 'light' : 'medium');
   st.panel = 'main';
   st.pick = null;
-  st.last = {p, wpB: null, wpA: null, scores: null, canReplay: !['timeout', 'expired', 'xp'].includes(p.kind), before: actsBefore};
+  st.last = {p, autos: s.plays.slice(i0 + 1), wpB: null, wpA: null, scores: null, canReplay: !['timeout', 'expired'].includes(p.kind)};
   scoreLast(st, sBefore, p);
   if (p.kind === 'timeout') { finishPlay(st, p); return; }
   st.busy = true;
   setPanel(st);
   patchRoutes(st);
-  if (runningBefore && p.clock !== c0) await runOff(st, c0, p.clock);
+  const c1 = p.kind === 'expired' ? p.after.clock : p.clock;
+  if (p.c0 !== c1) await runOff(st, p.c0, c1);
   if (st.dead) return;
-  await runAnim(st, choreo(s, p), p);
+  if (p.kind !== 'expired') {
+    if (p.poss === 'them') {
+      // Your defense shifts into its call before the snap.
+      const f = st.el.querySelector('[data-dr-field]');
+      if (f) { moveTo(st, f, viewOf(p)); await pause(st, 520); }
+      if (st.dead) return;
+    }
+    await runAnim(st, choreo(s, p), p);
+  }
   if (st.dead) return;
   finishPlay(st, p);
 }
@@ -967,63 +1070,45 @@ function finishPlay(st, p) {
   const ph = st.el.querySelector('[data-dr-pbph]');
   if (ph) { ph.innerHTML = pbpHTML(st); ui.hydrate(ph); }
   const t = dr.playText(s, p);
+  const extra = st.last && st.last.p === p ? st.last.autos.map(x => dr.playText(s, x).line).join(' ') : '';
   if (s.result) {
-    const res = st.el.querySelector('.dr-result');
+    const res = st.el.querySelector('.dr-final');
     if (s.result === 'W' && res && !ui.RM) {
       ui.haptic('celebrate');
-      ui.stamp(res.querySelector('.dr-res-h'), {from: 1.4});
-      ui.confetti(res.getBoundingClientRect(), {colors: ['#FFC531', '#7CF058', '#FFFFFF'], count: 90});
+      ui.stamp(res.querySelector('.dr-final-h'), {from: 1.4});
+      ui.confetti(res.getBoundingClientRect(), {colors: ['#FFC531', '#34D399', '#FFFFFF'], count: 90});
     } else if (s.result === 'L') ui.haptic('error');
-    if (st.mode !== 'surv') scheduleBoard(st);
-    else patchHead(st);
-    ui.announce(`${t.line} ${dr.resultText(s).head}, ${s.us} to ${s.them}.`);
+    scheduleBoard(st);
+    ui.announce(`${t.line} ${extra} Final: ${dr.resultText(s).head}, ${s.us} to ${s.them}.`);
   } else {
-    ui.announce(`${t.line} ${dr.downText(s.down, s.togo, s.ball)} on the ${dr.spot(s)}, ${dr.clockText(s.clock)} left.`);
+    const who = s.poss === 'us' ? '' : `${E.idsFor(s, 'them').o} ball, `;
+    ui.announce(`${t.line} ${extra} ${who}${dr.downText(s.down, s.togo, s.ball)} on the ${dr.spot(s)}, ${dr.clockText(s.clock)} left.`);
     wpNow(st, s); // ready for the next breakdown
   }
 }
-function patchHead(st) {
-  const h = st.el.querySelector('.dr-head');
-  if (h && st.s) { h.outerHTML = headHTML(st); ui.hydrate(st.el); }
-}
-/** Replays the last snap on the field, then puts it back where the drive is now. */
+/** Replays the last snap on the field (from that side of the ball), then puts it back where the game is now. */
 async function replayLast(st) {
   const L = st.last;
   if (!L || st.busy || !L.canReplay) return;
   const p = L.p;
-  const f = st.el.querySelector('[data-dr-field]');
-  if (!f) return;
   st.busy = true;
-  f.classList.add('is-anim');
-  // Back to the snap's spot, at once.
-  spots(st.s, {ball: p.ball, look: p.look, shade: p.shade}).forEach(d => {
-    const e = f.querySelector(`[data-dr-p="${d.key}"]`);
-    if (e) { e.style.left = left(d.x); e.style.top = top(d.y); e.classList.toggle('is-off', !!d.off); }
-  });
-  f.querySelector('.dr-track').style.transform = trackY(winTop(p.ball));
-  f.querySelector('[data-dr-los]').style.top = top(p.ball);
+  setPanel(st);
+  const f = swapField(st, viewOf(p), {fade: false});
+  if (!f) { st.busy = false; return; }
   const clock = st.el.querySelector('[data-dr-clock]');
   if (clock) clock.textContent = dr.clockText(p.clock);
-  setPanel(st);
-  patchRoutes(st);
   void f.offsetWidth;
   await runAnim(st, choreo(st.s, p), p);
   if (st.dead) return;
+  // Back to now: a new field when the ball changed hands, else the players walk back.
+  if (f.dataset.poss !== st.s.poss) swapField(st, viewNow(st.s));
   finishPlay(st, p);
 }
 
-// ============================================================================ Modes and days
+// ============================================================================ The day
 function setDaily(st) {
   st.n = dr.todayNumber();
-  st.s = dr.drive(st.n);
-  resetSnap(st);
-}
-function setSurvivor(st) {
-  const v = dr.survivor();
-  st.s = v.run ? dr.survivorDrive(v.run) : null;
-  resetSnap(st);
-}
-function resetSnap(st) {
+  st.s = dr.game(st.n);
   st.panel = 'main';
   st.last = null;
   st.pick = null;
@@ -1036,18 +1121,12 @@ function rerender(st, {fade = true} = {}) {
   const go2 = () => { st.el.innerHTML = bodyHTML(st); ui.hydrate(st.el); };
   if (fade && !ui.RM && st.ctx.visible) ui.crossfade(st.el, go2, {duration: 160}); else go2();
 }
-function setMode(st, m) {
-  if (!MODES.some(x => x.id === m) || m === st.mode || st.busy) return;
-  st.mode = m;
-  if (m === 'surv') setSurvivor(st); else setDaily(st);
-  rerender(st);
-}
 function share(st) {
   const s = st.s;
-  if (!s || !s.result || st.mode === 'surv') return;
+  if (!s || !s.result) return;
   ui.share({text: dr.shareText(st.n, s)}).then(r => {
     if (r === 'copied') { ui.toast(COPIED, {icon: 'check-circle'}); ui.haptic('success'); }
-    else if (r === 'unavailable') ui.toast("Couldn't copy your drive.");
+    else if (r === 'unavailable') ui.toast("Couldn't copy your game.");
   });
 }
 function openMenu(st, k) {
@@ -1057,8 +1136,8 @@ function openMenu(st, k) {
   setPanel(st);
   patchRoutes(st);
   const f = st.el.querySelector('[data-dr-field]');
-  if (f) { f.classList.toggle('is-routes', k === 'pass'); f.setAttribute('role', k === 'pass' ? 'group' : 'img'); f.setAttribute('aria-label', fieldLabel(st)); }
-  const first = st.el.querySelector(k === 'main' ? '[data-dr-panel] .dr-calls button' : '[data-dr-panel] [data-dr-back]');
+  if (f) { f.classList.toggle('is-routes', routesOn(st)); f.setAttribute('role', routesOn(st) ? 'group' : 'img'); f.setAttribute('aria-label', fieldLabel(st)); }
+  const first = st.el.querySelector(k === 'main' ? '[data-dr-panel] .dr-tiles button' : '[data-dr-panel] [data-dr-back]');
   if (first) { try { first.focus({preventScroll: true}); } catch (_) {} }
 }
 function cycleRoute(st, slot) {
@@ -1070,14 +1149,14 @@ function cycleRoute(st, slot) {
   patchRoutes(st);
   const rows = st.el.querySelector('[data-dr-rcvs]');
   if (rows) { rows.innerHTML = E.TARGETS.map(k => receiverRowHTML(st, k)).join(''); ui.hydrate(rows); }
-  ui.announce(`${st.s.U.o.by[slot].n}: ${E.ROUTES[st.routes[slot]].name}.`);
+  ui.announce(`${st.s.mine.by[slot].n}: ${E.ROUTES[st.routes[slot]].name}.`);
 }
 
 function onClick(st, e) {
   if (st.busy && st.anim && e.target.closest('[data-dr-field]')) return; // the field's own skip handler
-  const rcv = st.panel === 'pass' && !st.busy && e.target.closest('[data-dr-rcv]');
+  const rcv = routesOn(st) && e.target.closest('[data-dr-rcv]');
   if (rcv && st.el.contains(rcv)) { cycleRoute(st, rcv.dataset.drRcv); return; }
-  const t = e.target.closest('[data-dr-go], [data-dr-menu], [data-dr-back], [data-dr-flag], [data-dr-route], [data-dr-replay], [data-dr-ratings], [data-dr-help], [data-dr-share], [data-dr-retry], [data-dr-who], [data-dr-newrun], [data-dr-nextdrive]');
+  const t = e.target.closest('[data-dr-go], [data-dr-menu], [data-dr-back], [data-dr-flag], [data-dr-route], [data-dr-replay], [data-dr-ratings], [data-dr-help], [data-dr-share], [data-dr-retry], [data-dr-who]');
   if (!t || !st.el.contains(t) || t.disabled) return;
   if (t.hasAttribute('data-dr-go')) { go(st, t.dataset.drGo); return; }
   if (t.hasAttribute('data-dr-menu')) { openMenu(st, t.dataset.drMenu); return; }
@@ -1096,9 +1175,7 @@ function onClick(st, e) {
   if (t.hasAttribute('data-dr-ratings')) { openRatings(st); return; }
   if (t.hasAttribute('data-dr-help')) { openHelp(); return; }
   if (t.hasAttribute('data-dr-share')) { share(st); return; }
-  if (t.hasAttribute('data-dr-who')) { openDrive(st, t.dataset.drWho); return; }
-  if (t.hasAttribute('data-dr-newrun')) { dr.newRun(); setSurvivor(st); ui.haptic('medium'); rerender(st); toTop(st); return; }
-  if (t.hasAttribute('data-dr-nextdrive')) { dr.nextDrive(); setSurvivor(st); ui.haptic('medium'); rerender(st); toTop(st); return; }
+  if (t.hasAttribute('data-dr-who')) { openGame(st, t.dataset.drWho); return; }
   if (t.hasAttribute('data-dr-retry')) load(st);
 }
 function onKey(st, e) {
@@ -1107,20 +1184,11 @@ function onKey(st, e) {
     cycleRoute(st, e.target.dataset.drRcv);
   }
 }
-/** Scrolls up so the game picker (opts.anchor, else the pane) sits just under the bar, if it is above the view. */
-function toTop(st) {
-  const scr = st.ctx.screen, a = st.anchor || st.el;
-  if (!scr || !a.isConnected) return;
-  const nav = scr.querySelector(':scope > .nav');
-  const navH = nav ? nav.offsetHeight : 44;
-  const y = a.getBoundingClientRect().top - scr.getBoundingClientRect().top + scr.scrollTop - navH - 8;
-  if (scr.scrollTop > y) scr.scrollTop = Math.max(0, y);
-}
 function load(st) {
   st.el.innerHTML = loadingHTML();
   dr.load().then(() => {
     if (st.dead) return;
-    if (st.mode === 'surv') setSurvivor(st); else setDaily(st);
+    setDaily(st);
     rerender(st, {fade: false});
     dr.autoPost();
   }, () => {
@@ -1129,10 +1197,10 @@ function load(st) {
     ui.hydrate(st.el);
   });
 }
-/** Each tick: the countdown, and after midnight the new drive (not mid-snap). */
+/** Each tick: the countdown, and after midnight the new game (not mid-snap). */
 function tick(st) {
   if (st.dead || !dr.DOC || st.busy) return;
-  if (st.mode === 'daily' && dr.todayNumber() !== st.n) { setDaily(st); rerender(st); return; }
+  if (dr.todayNumber() !== st.n) { setDaily(st); rerender(st); return; }
   const v = st.el.querySelector('[data-dr-next]');
   if (v) { const t = nextIn(); if (v.textContent !== t) v.textContent = t; }
 }
@@ -1142,34 +1210,26 @@ export function render(ctx) {
   const st = ST.get(ctx);
   if (st) return bodyHTML(st);
   if (!dr.DOC) return loadingHTML();
-  const tmp = {mode: 'daily', sbMode: 'today', panel: 'main', flags: {}, routes: {}, timers: []};
+  const tmp = {panel: 'main', flags: {}, routes: {}, timers: [], rp: new Map()};
   setDaily(tmp);
   return bodyHTML(tmp);
 }
 
 export function mount(el, ctx, {anchor} = {}) {
   ensureCss();
-  const st = {el, ctx, anchor: anchor || null, mode: 'daily', sbMode: 'today', n: 0, s: null, panel: 'main', flags: {}, runOob: false, routes: {}, pick: null,
-    last: null, busy: false, dead: false, timers: [], cancelBoard: null, anim: null, wp: new Map(), pbpOpen: false};
+  const st = {el, ctx, anchor: anchor || null, n: 0, s: null, panel: 'main', flags: {}, runOob: false, routes: {}, pick: null,
+    last: null, busy: false, dead: false, timers: [], cancelBoard: null, anim: null, wp: new Map(), rp: new Map(), pbpOpen: false};
   ST.set(ctx, st);
   st.onClick = e => onClick(st, e);
   st.onKey = e => onKey(st, e);
   st.onToggle = e => { if (e.target.matches && e.target.matches('[data-dr-pbp]')) st.pbpOpen = e.target.open; };
   st.onChange = e => {
-    if (!e.detail) return;
-    if (e.detail.name === 'dr-sb') {
-      e.stopPropagation();
-      if (e.detail.value !== st.sbMode && SB_MODES.some(x => x.id === e.detail.value)) { st.sbMode = e.detail.value; patchBoard(st, {fade: true}); }
-    } else if (e.detail.name === 'dr-mode') {
-      e.stopPropagation();
-      setMode(st, e.detail.value);
-    } else if (e.detail.name === 'dr-oob') {
-      e.stopPropagation();
-      st.runOob = !!e.detail.value;
-      const panel = st.el.querySelector('[data-dr-panel]');
-      const k = st.panel === 'rpo' ? E.tok.rpo : E.tok.run;
-      if (panel) panel.querySelectorAll('.dr-dirs [data-dr-go]').forEach((b, i) => { b.dataset.drGo = k(i ? 's' : 'w', st.runOob); });
-    }
+    if (!e.detail || e.detail.name !== 'dr-oob') return;
+    e.stopPropagation();
+    st.runOob = !!e.detail.value;
+    const panel = st.el.querySelector('[data-dr-panel]');
+    const k = st.panel === 'rpo' ? E.tok.rpo : E.tok.run;
+    if (panel) panel.querySelectorAll('.dr-dirs [data-dr-go]').forEach((b, i) => { b.dataset.drGo = k(i ? 's' : 'w', st.runOob); });
   };
   el.addEventListener('click', st.onClick);
   el.addEventListener('keydown', st.onKey);

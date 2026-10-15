@@ -55,10 +55,9 @@
 }
 
 /* Pixel art (the league, game and puzzle badges) stays pixel-sharp when it is scaled. */
-.pk-badge, .c-game-badge, img[src$="nfl.webp"], img[src$="ncaa.webp"], img[src$="puzzles.webp"], img[src$="seventeen.webp"], img[src$="drill.webp"] {
+.pk-badge, .c-game-badge, img[src$="nfl.webp"], img[src$="ncaa.webp"], img[src$="puzzles.webp"], img[src$="seventeen.webp"] {
   image-rendering: pixelated;
 }
-
 /* ================================================================ Press: the release */
 /* The press is instant (components.css: is-pressed, no transition); the release springs back with a small overshoot,
    so a tap lands with a pop. ui.js adds the tap highlight and, on buttons, cards and chips, a quick scale pop. */
