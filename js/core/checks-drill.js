@@ -270,16 +270,21 @@ export async function drillChecks(check) {
   });
 
   // 6d. The coach comp
-  check('Drill: the coach comp: every NFL head coach\'s late-game tendencies as sane counts, a comp with words for finished games, and calls that lean one way match a coach who leans that way too', () => {
+  check('Drill: the coach comp: every NFL head coach\'s late-game tendencies since 2018 as sane counts (no-huddle and timeouts too), with this game\'s own baseline and each tendency\'s weight, a comp with words for finished games, and calls that lean one way match a coach who leans that way too', () => {
     need();
     const C = dr.DOC.coaches, bad = [];
     if (!C || !Array.isArray(C.list) || C.list.length < 30) return {pass: false, detail: 'no coaches in drill.json'};
-    const F = ['pass', 'deep', 'short', 'middle', 'oob', 'spike', 'two', 'fourth'];
+    const F = dr.TENDENCIES;
+    if (F.length !== 10 || !F.includes('hurry') || !F.includes('timeout')) bad.push('tendencies');
     C.list.forEach(c => {
-      if (!c.n || !dr.DOC.teams[c.t] || !(c.s >= 30)) bad.push(`${c.n}: name/team/snaps`);
+      if (!c.n || !dr.DOC.teams[c.t] || !(c.s >= 30) || !(Array.isArray(c.y) && c.y[0] >= 2018 && c.y[0] <= c.y[1])) bad.push(`${c.n}: name/team/snaps/years`);
       F.forEach(f => { const [k, n] = c.f[f] || []; if (!(Number.isInteger(k) && Number.isInteger(n) && k >= 0 && k <= n)) bad.push(`${c.n} ${f}`); });
     });
-    F.forEach(f => { if (!(C.league[f] > 0 && C.league[f] < 1)) bad.push(`league ${f}`); });
+    F.forEach(f => {
+      if (!(C.league[f] > 0 && C.league[f] < 1)) bad.push(`league ${f}`);
+      if (!(C.base && C.base[f] > 0 && C.base[f] < 1)) bad.push(`this game's baseline ${f}`);
+      if (!(C.prior && Number.isInteger(C.prior[f]) && C.prior[f] >= 20)) bad.push(`prior ${f}`);
+    });
     let comps = 0;
     for (let d = 1; d <= 15; d++) {
       const {s} = randomGame(dr.scenario(d), 700 + d);
@@ -287,14 +292,16 @@ export async function drillChecks(check) {
       if (t.spike[1] >= 3 && !c) bad.push(`day ${d}: no comp`);
       if (c) { comps++; if (!c.name || /undefined|NaN/.test(c.text + c.teamName)) bad.push(`day ${d}: words`); }
     }
-    const z = () => ({pass: [0, 0], deep: [0, 0], short: [0, 0], middle: [0, 0], oob: [0, 0], spike: [0, 0], two: [0, 0], fourth: [0, 0]});
+    const z = () => Object.fromEntries(F.map(k => [k, [0, 0]]));
     const deep = Object.assign(z(), {pass: [10, 10], deep: [7, 10], short: [1, 10], spike: [0, 10]});
     const short = Object.assign(z(), {pass: [10, 10], deep: [0, 10], short: [10, 10], spike: [0, 10]});
-    const md = dr.matchCoach(deep), ms = dr.matchCoach(short);
+    const fast = Object.assign(z(), {pass: [8, 10], spike: [0, 10], hurry: [10, 10], timeout: [5, 5]});
+    const md = dr.matchCoach(deep), ms = dr.matchCoach(short), mf = dr.matchCoach(fast);
     const r = (c, f) => c.f[f][0] / c.f[f][1];
     if (!md || r(md.coach, 'deep') <= C.league.deep || !/deep shot/.test(md.lines.join())) bad.push(`deep thrower matched ${md && md.coach.n}`);
     if (!ms || r(ms.coach, 'short') <= C.league.short || !/short|underneath/.test(ms.lines.join())) bad.push(`short thrower matched ${ms && ms.coach.n}`);
-    return {pass: !bad.length, detail: bad.length ? bad.slice(0, 6).join('; ') : `${C.list.length} coaches (${C.seasons}); ${comps} of 15 random games comped; deep thrower → ${md.coach.n}, short thrower → ${ms.coach.n}`};
+    if (!mf || r(mf.coach, 'hurry') <= C.league.hurry || !/no-huddle|timeout/.test(mf.lines.join())) bad.push(`hurry-up caller matched ${mf && mf.coach.n}`);
+    return {pass: !bad.length, detail: bad.length ? bad.slice(0, 6).join('; ') : `${C.list.length} coaches (${C.seasons}); ${comps} of 15 random games comped; deep thrower → ${md.coach.n}, short thrower → ${ms.coach.n}, hurry-up caller → ${mf.coach.n}`};
   });
 
   // 7. Their ball: your defense, their clock, the kneel

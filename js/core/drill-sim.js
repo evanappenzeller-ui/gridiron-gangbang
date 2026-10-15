@@ -835,6 +835,43 @@ export function replay(sc, teams, acts = '') {
 /** Your actions in a game, as one string (what a phone stores and posts). */
 export const actsOf = s => s.plays.filter(p => p.act).map(p => p.act).join(',');
 
+// ---------------------------------------------------------------------------------------------- tendencies
+const DEEP = 18, SHORT = 8;
+const MIDDLE = new Set(['slant', 'dig', 'drag', 'post', 'seam', 'angle']);
+export const TENDENCIES = ['pass', 'deep', 'short', 'middle', 'oob', 'spike', 'hurry', 'timeout', 'two', 'fourth'];
+/** A play-caller's tendencies in a game, counted like the NFL coaches' (tools/drill/coaches.py; core/drill.js
+ *  matchCoach): {pass, deep, short, middle, oob, spike, hurry, timeout, two, fourth: [k, n]}. hurry: no huddle, of your snaps from a running clock; timeout: timeouts, of your chances to stop a
+ *  running clock with one (each call made with it running and a timeout left); both when you're behind or tied. */
+export function tendencies(s) {
+  const f = {};
+  TENDENCIES.forEach(k => { f[k] = [0, 0]; });
+  const add = (k, hit) => { f[k][1] += 1; if (hit) f[k][0] += 1; };
+  s.plays.forEach(p => {
+    const a = p.poss === 'us' && p.act ? parse(p.act) : null;
+    if (!a) return;
+    if (p.two || p.kind === 'xp') { add('two', !!p.two); return; } // the try after a touchdown: kick it or go for two
+    const clock = p.running && p.us <= p.them;
+    if (clock && p.tos > 0 && ['pass', 'run', 'rpo', 'trick', 'spike', 'fg', 'timeout'].includes(a.kind)) add('timeout', a.kind === 'timeout');
+    if (clock && ['pass', 'run', 'rpo'].includes(a.kind)) add('hurry', !!a.flags.h);
+    if (a.kind === 'spike') { if (p.kind === 'spike') add('spike', true); return; }
+    if (!['pass', 'run', 'rpo', 'trick', 'fg'].includes(a.kind) || p.kind === 'expired') return;
+    // Fourth down with a field goal on: kick it or go for it.
+    if (p.down === 4 && p.them - p.us <= 3 && fgOdds(s, p.ball, s.mine.kick).p > 0) add('fourth', a.kind !== 'fg');
+    if (a.kind === 'fg') return;
+    add('spike', false);
+    const route = a.kind === 'pass' ? a.route : a.kind === 'rpo' && p.read === 'pass' ? p.route : a.kind === 'trick' && a.play !== 'r' ? 'go' : null;
+    add('pass', !!route);
+    if (route) {
+      const depth = ROUTES[route].depth;
+      add('deep', depth >= DEEP);
+      add('short', depth < SHORT);
+      add('middle', MIDDLE.has(route));
+    }
+    if (p.kind === 'catch' || p.kind === 'run') add('oob', !!p.oob);
+  });
+  return f;
+}
+
 // ---------------------------------------------------------------------------------------------- the bots
 // A good play-caller on offense: reads the look's odds for every throw and run, minds the clock, kicks when it should.
 // skill 1 takes the best option it sees; lower, it sometimes takes the second or third. On defense (defBot): the call
