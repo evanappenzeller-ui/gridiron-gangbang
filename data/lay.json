@@ -70,6 +70,23 @@
         {"by": "mitch", "bet": "Kansas City Chiefs Team Total Over 23.5", "hit": true, "stat": "Chiefs scored 30"},
         {"by": "sayer", "bet": "James Cook Anytime", "hit": true, "stat": "1 rush TD"}
       ]
+    },
+    {
+      "year": 2026, "week": 5,
+      "legs": [
+        {"by": "ben", "bet": "Josh Allen Anytime TD Scorer", "hit": true, "stat": "1 rush TD"},
+        {"by": "corbin", "bet": "Emanuel Wilson Anytime TD Scorer", "hit": true, "stat": "1 rush TD"},
+        {"by": "dresden", "bet": "San Francisco 49ers +3.5", "hit": true, "stat": "49ers won 32–29"},
+        {"by": "evan", "bet": "Jacksonville Jaguars Moneyline", "hit": true, "stat": "Jaguars won 19–17"},
+        {"by": "jackson", "bet": "Christian Watson Anytime TD Scorer", "hit": true, "stat": "2 TD catches, 6 catches for 143 yds"},
+        {"by": "jacob", "bet": "Chase Brown Anytime TD Scorer", "hit": false, "stat": "No TD: 13 carries for 39 yds, 3 catches for 21"},
+        {"by": "jaymin", "bet": "Jonathan Taylor Anytime TD Scorer", "hit": false, "stat": "No TD: 15 carries for 45 yds, 3 catches for 37"},
+        {"by": "jayton", "bet": "Detroit Lions @ Arizona Cardinals Over 54.5", "hit": true, "stat": "Lions 45, Cardinals 21: 66 points"},
+        {"by": "john", "bet": "Chicago Bears Moneyline", "hit": false, "stat": "Packers won 31–7"},
+        {"by": "mason", "bet": "Christian McCaffrey Anytime TD Scorer", "hit": true, "stat": "1 rush TD"},
+        {"by": "mitch", "bet": "Houston Texans Team Total Over 19.5", "hit": true, "stat": "Texans scored 26"},
+        {"by": "sayer", "bet": "Puka Nacua Anytime TD Scorer", "hit": true, "stat": "1 TD catch, 17 catches for 138 yds"}
+      ]
     }
   ]
 }
