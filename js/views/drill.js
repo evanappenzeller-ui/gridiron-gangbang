@@ -38,7 +38,7 @@ const ST = new WeakMap(); // ctx -> pane state
 
 // A home-screen app open across an update imports this module new under the stylesheet it started with: when
 // drill.css's mark (--dr-css on :root) isn't this module's, the current file is added (as in views/seventeen.js).
-const CSS_V = '15';
+const CSS_V = '16';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--dr-css').trim() === CSS_V || document.querySelector('link[data-dr-css]')) return;
@@ -1168,19 +1168,22 @@ const FLAG_INFO = [['a', 'Play action'], ['r', 'Roll out'], ['o', 'Out of bounds
 const keyOf = st => (st.s.book && st.s.book[st.card] ? PASS_KEY[st.s.book[st.card]] : null);
 /** The route the picked pass play gives a receiver (his audible changes it), or null. */
 const calledRoute = (st, slot) => (st.s.book && st.s.book[st.card] ? E.PASS_PLAYS[st.s.book[st.card]].routes[slot] : null);
-/** A receiver's route as a drop-down of the routes he can run (how deep each goes, the play's own marked): the menu is
- *  the phone's own, laid invisibly over the route's pill. Changed from the play's call, the pill turns to the tint. */
+/** A receiver's route as a drop-down: his pill (the route he runs, its colour on the card), and when open
+ *  (st.rtOpen) the other routes he can run straight down from it, how deep each goes, the play's own marked. A route
+ *  changed from the play's call turns the pill to the tint. */
 function routeMenuHTML(st, slot) {
-  const p = st.s.mine.by[slot], route = st.routes[slot], call = calledRoute(st, slot), aud = !!call && route !== call;
-  const opts = E.ROUTES_FOR[slot].map(r => `<option value="${r}"${r === route ? ' selected' : ''}>${esc(`${E.ROUTES[r].name} · ${E.ROUTES[r].depth} yds${r === call ? ' · the call' : ''}`)}</option>`).join('');
-  return `<span class="dr-rcv-rt${aud ? ' is-aud' : ''}" data-dr-rt="${slot}"><i class="dr-rcv-c" style="--c:${colOf(slot, keyOf(st))}" aria-hidden="true"></i>`
-    + `<span class="dr-rcv-rn" aria-hidden="true">${esc(E.ROUTES[route].name)}</span>${ui.icon('chevron-down', {size: 12})}`
-    + `<select class="dr-rcv-sel" data-dr-routesel="${slot}" aria-label="${esc(`${p.n}'s route${aud ? ' (an audible)' : ''}`)}">${opts}</select></span>`;
+  const p = st.s.mine.by[slot], route = st.routes[slot], call = calledRoute(st, slot), aud = !!call && route !== call, open = st.rtOpen === slot;
+  const opt = r => `<li class="dr-ropt" role="option" tabindex="-1" aria-selected="false" data-dr-ropt="${r}"><span>${esc(E.ROUTES[r].name)}${r === call ? '<em>Call</em>' : ''}</span><small>${E.ROUTES[r].depth} yds</small></li>`;
+  return `<span class="dr-rt${open ? ' is-open' : ''}" data-dr-rt="${slot}">`
+    + `<button type="button" class="dr-rcv-rt${aud ? ' is-aud' : ''}" data-dr-rtbtn="${slot}" aria-haspopup="listbox" aria-expanded="${open}" aria-label="${esc(`${p.n}'s route: ${E.ROUTES[route].name}${aud ? ' (an audible)' : ''}. Change it.`)}">`
+    + `<i class="dr-rcv-c" style="--c:${colOf(slot, keyOf(st))}" aria-hidden="true"></i><span class="dr-rcv-rn">${esc(E.ROUTES[route].name)}</span>${ui.icon('chevron-down', {size: 12})}</button>`
+    + (open ? `<ul class="dr-rlist" role="listbox" aria-label="${esc(`${p.n}'s other routes`)}">${E.ROUTES_FOR[slot].filter(r => r !== route).map(opt).join('')}</ul>` : '')
+    + `</span>`;
 }
 /** A receiver to throw to, on one line: his position (coloured by his rating), his name, his route's menu. */
 function receiverRowHTML(st, slot) {
   const s = st.s, p = s.mine.by[slot], route = st.routes[slot], key = slot === keyOf(st);
-  return `<li class="dr-rcv${key ? ' is-key' : ''}" data-dr-rcvrow="${slot}"><button type="button" class="dr-rcv-go" data-dr-go="${E.tok.pass(slot, route, Object.assign({}, st.flags, {c: st.card, h: hurryOn(st)}))}" aria-label="${esc(`${key ? 'The target. ' : ''}Throw to ${p.n}, ${E.ROUTES[route].name}`)}">`
+  return `<li class="dr-rcv${key ? ' is-key' : ''}${st.rtOpen === slot ? ' is-open' : ''}" data-dr-rcvrow="${slot}"><button type="button" class="dr-rcv-go" data-dr-go="${E.tok.pass(slot, route, Object.assign({}, st.flags, {c: st.card, h: hurryOn(st)}))}" aria-label="${esc(`${key ? 'The target. ' : ''}Throw to ${p.n}, ${E.ROUTES[route].name}`)}">`
     + `<span class="dr-rcv-pos" style="--rc:${ratingColor(p.r)}">${esc(dr.posOf(slot))}</span>`
     + `<span class="dr-rcv-id">${key ? '<span class="dr-rcv-tag">Target</span>' : ''}<b>${esc(dr.short(p.n))}</b></span></button>`
     + routeMenuHTML(st, slot) + `</li>`;
@@ -1619,6 +1622,7 @@ async function go(st, token) {
   ui.haptic(p.kind === 'timeout' ? 'light' : 'medium');
   st.panel = 'main';
   st.pick = null;
+  st.rtOpen = null;
   st.last = {p, autos: s.plays.slice(i0 + 1), wpB: null, wpA: null, scores: null, canReplay: !['timeout', 'expired'].includes(p.kind), call: callNow(sBefore, p.act)};
   scoreLast(st, sBefore, p);
   if (p.kind === 'timeout') { finishPlay(st, p); return; }
@@ -1706,6 +1710,7 @@ function setDaily(st) {
   st.panel = 'main';
   st.last = null;
   st.pick = null;
+  st.rtOpen = null;
   st.flags = {};
   st.runOob = false;
   st.hurry = false;
@@ -1730,6 +1735,7 @@ function openMenu(st, k) {
   if (st.busy) return;
   const was = st.panel;
   st.panel = k;
+  st.rtOpen = null;
   ui.haptic('selection');
   setPanel(st);
   patchRoutes(st);
@@ -1766,6 +1772,7 @@ function pickCard(st, i) {
   st.card = i;
   st.routes = Object.assign({}, E.PASS_PLAYS[s.book[i]].routes);
   st.pick = null;
+  st.rtOpen = null;
   ui.haptic('selection');
   refreshCards(st);
   patchRoutes(st);
@@ -1776,27 +1783,46 @@ function pickCard(st, i) {
   if (row) row.scrollIntoView({block: 'center', behavior: ui.RM ? 'auto' : 'smooth'});
   ui.announce(`${E.PASS_PLAYS[s.book[i]].name}, for ${s.mine.by[keyOf(st)].n}.`);
 }
-/** An audible: a receiver's new route, on the field, on the picked play's card and in his row (its throw, its pill;
- *  the menu stays, with its focus, so it isn't redrawn under the thumb). */
+/** Redraws a receiver's row (his throw and his route's menu). */
+function patchRow(st, slot) {
+  const li = st.el.querySelector(`[data-dr-rcvrow="${slot}"]`);
+  if (!li) return null;
+  norm.innerHTML = receiverRowHTML(st, slot);
+  const row = norm.content.firstElementChild;
+  li.replaceWith(row);
+  ui.hydrate(row);
+  return row;
+}
+/** Opens a receiver's route menu (slot) or closes the open one (null); a keyboard opening goes to its first route. */
+function openRoutes(st, slot, {keys = false} = {}) {
+  const was = st.rtOpen;
+  if (was === slot) return;
+  st.rtOpen = slot;
+  if (was) patchRow(st, was);
+  if (!slot) {
+    const b = st.el.querySelector(`[data-dr-rtbtn="${was}"]`);
+    if (b && keys) { try { b.focus({preventScroll: true}); } catch (_) {} }
+    return;
+  }
+  ui.haptic('selection');
+  const row = patchRow(st, slot), list = row && row.querySelector('.dr-rlist');
+  if (!list) return;
+  list.scrollIntoView({block: 'nearest', behavior: ui.RM ? 'auto' : 'smooth'});
+  if (keys) { const f = list.querySelector('[data-dr-ropt]'); if (f) { try { f.focus({preventScroll: true}); } catch (_) {} } }
+}
+/** An audible: a receiver's new route, on the field, on the picked play's card and in his row; his menu closes. */
 function setRoute(st, slot, route) {
   if (st.busy || !E.ROUTES_FOR[slot] || !E.ROUTES_FOR[slot].includes(route)) return;
+  const was = st.rtOpen;
   st.routes[slot] = route;
   st.pick = slot;
+  st.rtOpen = null;
+  if (was && was !== slot) patchRow(st, was);
   ui.haptic('selection');
   patchRoutes(st);
   refreshCards(st);
-  const li = st.el.querySelector(`[data-dr-rcvrow="${slot}"]`);
-  if (li) {
-    norm.innerHTML = receiverRowHTML(st, slot);
-    const row = norm.content.firstElementChild, pill = li.querySelector('[data-dr-rt]'), now = row.querySelector('[data-dr-rt]');
-    li.querySelector('.dr-rcv-go').replaceWith(row.querySelector('.dr-rcv-go'));
-    pill.className = now.className;
-    pill.querySelector('.dr-rcv-rn').textContent = E.ROUTES[route].name;
-    const sel = pill.querySelector('select');
-    sel.value = route;
-    sel.setAttribute('aria-label', now.querySelector('select').getAttribute('aria-label'));
-    ui.hydrate(li);
-  }
+  const row = patchRow(st, slot), b = row && row.querySelector('[data-dr-rtbtn]');
+  if (b) { try { b.focus({preventScroll: true}); } catch (_) {} }
   ui.announce(`${st.s.mine.by[slot].n}: ${E.ROUTES[route].name}.`);
 }
 /** A tap on a receiver on the field: his next route. */
@@ -1807,6 +1833,11 @@ function cycleRoute(st, slot) {
 
 function onClick(st, e) {
   if (st.busy && st.anim && e.target.closest('[data-dr-field]')) return; // the field's own skip handler
+  // A route's menu: its pill opens and closes it, a route in it is the audible, a tap anywhere else only closes it.
+  const ro = e.target.closest('[data-dr-ropt]'), rb = e.target.closest('[data-dr-rtbtn]');
+  if (ro && st.rtOpen) { setRoute(st, st.rtOpen, ro.dataset.drRopt); return; }
+  if (rb && st.el.contains(rb)) { openRoutes(st, st.rtOpen === rb.dataset.drRtbtn ? null : rb.dataset.drRtbtn, {keys: e.detail === 0}); return; }
+  if (st.rtOpen) { openRoutes(st, null); return; }
   const rcv = routesOn(st) && e.target.closest('[data-dr-rcv]');
   if (rcv && st.el.contains(rcv)) { cycleRoute(st, rcv.dataset.drRcv); return; }
   const t = e.target.closest('[data-dr-go], [data-dr-menu], [data-dr-card], [data-dr-side], [data-dr-hurry], [data-dr-flag], [data-dr-replay], [data-dr-ratings], [data-dr-help], [data-dr-share], [data-dr-retry], [data-dr-who], [data-dr-sbtab]');
@@ -1846,6 +1877,18 @@ function onClick(st, e) {
   if (t.hasAttribute('data-dr-retry')) load(st);
 }
 function onKey(st, e) {
+  // In an open route menu: up and down move through it, Enter or Space picks, Escape and Tab close it.
+  if (st.rtOpen && e.target.closest && e.target.closest('[data-dr-rt]')) {
+    const opts = [...st.el.querySelectorAll('.dr-rlist [data-dr-ropt]')], i = opts.indexOf(e.target);
+    if (e.key === 'Escape' || e.key === 'Tab') { if (e.key === 'Escape') e.preventDefault(); openRoutes(st, null, {keys: e.key === 'Escape'}); return; }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      const n = opts[i < 0 ? (e.key === 'ArrowDown' ? 0 : opts.length - 1) : (i + (e.key === 'ArrowDown' ? 1 : -1) + opts.length) % opts.length];
+      if (n) n.focus();
+      return;
+    }
+    if ((e.key === 'Enter' || e.key === ' ') && i >= 0) { e.preventDefault(); setRoute(st, st.rtOpen, opts[i].dataset.drRopt); return; }
+  }
   if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('[data-dr-rcv][role="button"]')) {
     e.preventDefault();
     cycleRoute(st, e.target.dataset.drRcv);
@@ -1885,7 +1928,7 @@ export function render(ctx) {
 
 export function mount(el, ctx, {anchor} = {}) {
   ensureCss();
-  const st = {el, ctx, anchor: anchor || null, n: 0, s: null, panel: 'main', flags: {}, runOob: false, routes: {}, pick: null, card: 0, side: 's', hurry: false,
+  const st = {el, ctx, anchor: anchor || null, n: 0, s: null, panel: 'main', flags: {}, runOob: false, routes: {}, pick: null, rtOpen: null, card: 0, side: 's', hurry: false,
     last: null, busy: false, dead: false, timers: [], cancelBoard: null, anim: null, wp: new Map(), rp: new Map(), pbpOpen: false};
   ST.set(ctx, st);
   st.onClick = e => onClick(st, e);
@@ -1901,8 +1944,8 @@ export function mount(el, ctx, {anchor} = {}) {
   el.addEventListener('keydown', st.onKey);
   el.addEventListener('toggle', st.onToggle, true);
   el.addEventListener('ui:change', st.onChange);
-  st.onRoute = e => { const sel = e.target.closest && e.target.closest('[data-dr-routesel]'); if (sel) setRoute(st, sel.dataset.drRoutesel, sel.value); };
-  el.addEventListener('change', st.onRoute);
+  st.onOut = e => { if (st.rtOpen && !el.contains(e.target)) openRoutes(st, null); };
+  document.addEventListener('pointerdown', st.onOut, true);
   st.stopTick = ctx.timer(() => tick(st), 20000);
   st.unsub = daily.subscribe(type => {
     // A reset for this phone's member (dr.applyResets) or another tab: the saved game isn't the one showing.
@@ -1931,7 +1974,7 @@ export function unmount(el, ctx) {
   el.removeEventListener('keydown', st.onKey);
   el.removeEventListener('toggle', st.onToggle, true);
   el.removeEventListener('ui:change', st.onChange);
-  el.removeEventListener('change', st.onRoute);
+  document.removeEventListener('pointerdown', st.onOut, true);
   if (st.stopTick) st.stopTick();
   if (st.unsub) st.unsub();
   if (st.cancelBoard) st.cancelBoard();

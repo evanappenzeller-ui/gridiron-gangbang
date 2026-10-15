@@ -6,7 +6,7 @@
    Team colours come in per element as --tc; a player's rating colour as --rc. */
 
 /* The version mark views/drill.js checks (CSS_V): bump both when the pane needs rules an older file lacks. */
-:root { --dr-css: 15; }
+:root { --dr-css: 16; }
 
 .dr-pane, .sh-drill {
   --dr-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -315,9 +315,15 @@
 .dr-pane .dr-toggle.dr-hurry > .ic { width: 14px; height: 14px; }
 .dr-pane .dr-pill.dr-hurry[aria-pressed="true"] { background: var(--tint); color: var(--on-tint); box-shadow: none; }
 .dr-pane .dr-rcvs {
-  margin: 10px 0 0; padding: 0; list-style: none; border-radius: 20px; background: var(--surface-1); overflow: hidden;
+  margin: 10px 0 0; padding: 0; list-style: none; border-radius: 20px; background: var(--surface-1);
   box-shadow: var(--dr-shadow), inset 0 0 0 1px var(--dr-line);
 }
+/* Not clipped (a route's menu hangs out of the list): the end rows round themselves. */
+.dr-pane .dr-rcv:first-child, .dr-pane .dr-rcv:first-child .dr-rcv-go { border-top-left-radius: 20px; }
+.dr-pane .dr-rcv:first-child { border-top-right-radius: 20px; }
+.dr-pane .dr-rcv:last-child, .dr-pane .dr-rcv:last-child .dr-rcv-go { border-bottom-left-radius: 20px; }
+.dr-pane .dr-rcv:last-child { border-bottom-right-radius: 20px; }
+.dr-pane .dr-rcv.is-open { position: relative; z-index: 4; }
 .dr-pane .dr-rcv { display: flex; align-items: stretch; }
 .dr-pane .dr-rcv + .dr-rcv { border-top: 1px solid var(--dr-line); }
 .dr-pane .dr-rcv-go {
@@ -329,19 +335,33 @@
   background: var(--rc); color: #0A0F1A; font: 800 11px/1 var(--dr-font); letter-spacing: .02em;
 }
 .dr-pane .dr-rcv-id { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 15px/19px var(--dr-font); }
+/* A route's drop-down: the pill, and when open the other routes straight down from it, one piece with it. */
+.dr-pane .dr-rt { position: relative; flex: none; align-self: center; width: 104px; margin-right: 10px; }
 .dr-pane .dr-rcv-rt {
-  flex: none; display: flex; align-items: center; gap: 3px; align-self: center; margin-right: 10px;
-  padding: 5px 10px; border-radius: 999px; background: var(--surface-2); color: var(--ink);
-  font: 600 13px/1 var(--dr-font);
+  display: flex; align-items: center; gap: 4px; width: 100%; height: 30px; padding: 0 9px 0 10px; border-radius: 12px;
+  background: var(--surface-2); color: var(--ink); font: 600 13px/1 var(--dr-font); text-align: left;
+  transition: background-color 160ms, color 160ms, border-radius 120ms;
 }
-.dr-pane .dr-rcv-rt > .ic { color: var(--ink-3); }
-/* The route's drop-down: the phone's own menu, invisible over the pill (16px so iOS doesn't zoom in on it). */
-.dr-pane .dr-rcv-rt { position: relative; }
-.dr-pane .dr-rcv-sel {
-  position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; border: 0; opacity: 0;
-  font-size: 16px; cursor: pointer; -webkit-appearance: none; appearance: none;
+.dr-pane .dr-rcv-rn { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dr-pane .dr-rcv-rt > .ic { flex: none; margin-left: auto; color: var(--ink-3); transition: transform 180ms; }
+.dr-pane .dr-rt.is-open .dr-rcv-rt { border-radius: 12px 12px 0 0; background: var(--surface-3); }
+.dr-pane .dr-rt.is-open .dr-rcv-rt > .ic { transform: rotate(180deg); }
+.dr-pane .dr-rlist {
+  position: absolute; top: 100%; left: 0; right: 0; z-index: 30; margin: 0; padding: 2px 0 4px; list-style: none;
+  border-radius: 0 0 12px 12px; background: var(--surface-3);
+  box-shadow: 0 14px 28px rgba(0,0,0,.38), 0 2px 6px rgba(0,0,0,.2); scroll-margin-bottom: calc(var(--tab-h) + 12px);
+  animation: dr-rlist 140ms ease-out;
 }
-.dr-pane .dr-rcv-rt:has(.dr-rcv-sel:focus-visible) { outline: 2px solid var(--tint); outline-offset: 2px; }
+@keyframes dr-rlist { from { opacity: 0; transform: translateY(-4px); } }
+.dr-pane .dr-ropt {
+  display: flex; align-items: center; justify-content: space-between; gap: 6px; min-height: 36px; padding: 0 9px 0 10px;
+  border-top: 1px solid var(--dr-line); color: var(--ink); font: 600 13px/1 var(--dr-font); cursor: pointer; outline: none;
+}
+.dr-pane .dr-ropt:hover, .dr-pane .dr-ropt:focus-visible, .dr-pane .dr-ropt.is-pressed { background: var(--fill); }
+.dr-pane .dr-ropt:last-child { border-radius: 0 0 12px 12px; }
+.dr-pane .dr-ropt > span { display: flex; align-items: baseline; gap: 5px; min-width: 0; white-space: nowrap; }
+.dr-pane .dr-ropt em { font: 800 8.5px/1 var(--dr-font); font-style: normal; letter-spacing: .06em; text-transform: uppercase; color: var(--tint); }
+.dr-pane .dr-ropt > small { flex: none; font: 500 11px/1 var(--dr-font); color: var(--ink-3); font-variant-numeric: tabular-nums; }
 /* An audible: a route changed from the play's call. */
 .dr-pane .dr-rcv-rt.is-aud { background: var(--tint-soft); color: var(--tint); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tint) 45%, transparent); }
 .dr-pane .dr-rcv-rt.is-aud > .ic { color: inherit; }
@@ -672,7 +692,10 @@
   .dr-pane .dr-card { flex-basis: 88%; }
   .dr-pane .dr-card-tt > b { font-size: 16px; }
   .dr-pane .dr-rcv-go { padding-left: 10px; gap: 8px; }
-  .dr-pane .dr-rcv-rt { margin-right: 8px; padding: 6px 8px; }
+  .dr-pane .dr-rt { width: 98px; margin-right: 8px; }
+  .dr-pane .dr-ropt { gap: 4px; padding: 0 7px 0 8px; }
+  .dr-pane .dr-rcv-rt { padding: 0 7px 0 8px; }
+  .dr-pane .dr-rcv-tag { margin-right: 4px; padding: 1px 4px; letter-spacing: .03em; }
   .dr-pane .dr-pl { width: 22px; height: 22px; margin: -11px 0 0 -11px; }
   .dr-pane .dr-pl-j { font-size: 10px; }
   .dr-pane .dr-pl-n { font-size: 8.5px; }
