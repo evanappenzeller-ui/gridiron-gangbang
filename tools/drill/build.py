@@ -409,6 +409,7 @@ def main():
     print('wrote', OUT, os.path.getsize(OUT), 'bytes;', len(doc['days']), 'days; depth charts as of', asof)
     if '--no-tune' not in sys.argv:
         subprocess.run(['node', os.path.join(ROOT, 'tools', 'drill', 'tune.mjs'), OUT], check=True)
+    subprocess.run([sys.executable, os.path.join(ROOT, 'tools', 'drill', 'coaches.py'), OUT], check=True)
 
 
 if __name__ == '__main__':

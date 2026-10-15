@@ -896,6 +896,15 @@ function finalSBHTML(s, you = 'You') {
   const sc = (pts, other) => `<span class="dr-fsb-sc${pts < other ? ' is-lose' : ''}">${pts}</span>`;
   return `<div class="dr-fsb" role="img" aria-label="${esc(`Final: ${s.sc.o} ${s.us}, ${s.sc.d} ${s.them}`)}">${side(true)}${sc(s.us, s.them)}<span class="dr-fsb-x">Final</span>${sc(s.them, s.us)}${side(false)}</div>`;
 }
+/** Who the game was called like: the NFL head coach whose late-game play-calling fits it best (dr.coachComp). */
+function compHTML(s, who = 'you') {
+  const c = dr.coachComp(s, who);
+  if (!c) return '';
+  return `<section class="dr-comp" aria-labelledby="dr-comp-n"><p class="dr-comp-k">${esc(who === 'you' ? 'You called this one like' : `${who} called it like`)}</p>`
+    + `<h3 class="dr-comp-n" id="dr-comp-n">${logoHTML(c.team, 34)}<span>${esc(c.name)}</span></h3>`
+    + `<p class="dr-comp-t">${esc(c.text)}</p>`
+    + `<p class="dr-comp-f">${esc(`${c.teamName} · ${c.seasons} · from ${c.snaps} late-game snaps`)}</p></section>`;
+}
 function resultHTML(st) {
   const s = st.s;
   if (!s.result) return '';
@@ -907,7 +916,8 @@ function resultHTML(st) {
     + `<p class="dr-final-sub">${esc(r.sub)}</p>`
     + `<p class="dr-res-sq" aria-hidden="true">${esc(dr.squares(s))}</p>`
     + `<div class="dr-res-act"><button type="button" class="btn btn-primary dr-share" data-dr-share>${ui.icon('share')}<span class="btn-label">Share</span></button></div>`
-    + `<p class="dr-next">${ui.icon('clock', {size: 15})}<span>Next drill in <span data-dr-next>${esc(nextIn())}</span></span></p></section>`;
+    + `<p class="dr-next">${ui.icon('clock', {size: 15})}<span>Next drill in <span data-dr-next>${esc(nextIn())}</span></span></p></section>`
+    + compHTML(s);
 }
 function headHTML(st) {
   const s = st.s, sc = s.sc, n = st.n, g = sc.g;
@@ -1000,6 +1010,7 @@ function openGame(st, key) {
     else {
       const r = dr.resultText(g.s, {you: row.me});
       body = `<div class="dr-sh-final is-${g.s.result}">${finalSBHTML(g.s, row.me ? 'You' : row.name)}<p class="dr-sh-h"><b>${esc(r.head)}</b><span>${esc(r.sub)}</span></p></div>`
+        + compHTML(g.s, row.me ? 'you' : row.name)
         + `<ol class="dr-log">${g.s.plays.map(p => logItemHTML(g.s, p)).join('')}</ol>`;
     }
   }
@@ -1042,6 +1053,7 @@ function openHelp() {
     + `<p><b>On defense</b> you see their formation (a heavy set usually runs, an empty backfield almost always throws) and pick a call. Zones keep the ball in front of you, man and blitzes gamble for a sack or a stop, and prevent gives up the short stuff to save the end zone. Their clock is theirs to manage: ahead, they let it run; behind, they hurry.</p>`
     + `<p><b>The players matter.</b> Every dot is a real starter, coloured by his rating; yours are ringed in white. Man coverage is one-on-one, so a great receiver against a weak corner wins; the lines decide the sacks. Tap Player ratings to scout.</p>`
     + `<p><b>The clock.</b> A run, a sack or a catch in bounds keeps it running, and the next snap takes ${E.HURRY} seconds to get off (${E.MILK} when the team ahead lets it run). Incompletions, going out of bounds, timeouts, spikes and changes of possession stop it. Down one or two after a touchdown, you choose: kick, or go for two.</p>`
+    + `<p><b>Who you called it like.</b> At the final whistle, your calls are matched to the NFL head coach whose late-game play-calling (the last two minutes of either half, ${esc(dr.DOC && dr.DOC.coaches ? dr.DOC.coaches.seasons : '2025–2026')}) fits them best: how often he throws, goes deep or keeps it short, attacks the middle, gets out of bounds, spikes it, goes for two and goes for it on fourth down.</p>`
     + `<p><b>After each snap</b> the breakdown shows what the defense was really in, how your win chance moved, and how every option would have done, each played out many times from the same spot to the end of the game.</p>`
     + `</div>`;
   ui.openSheet({title: 'How it works', body, detents: ['large'], cls: 'sh-drill'});

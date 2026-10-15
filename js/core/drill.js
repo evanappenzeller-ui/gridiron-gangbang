@@ -8,6 +8,7 @@
 //   record(n, s)                saves the game's actions after each one; the result once it's over (once a day)
 //   Text: spot(s, ball, poss), downText(down, togo), clockText(sec), playText(s, play), callText(s, play),
 //     tokenLabel(s, t), tokenShort(s, t), resultText(s), squares(s), shareText(n, s)
+//   Coach comp: tendencies(s), coachComp(s) (the NFL head coach whose late-game play-calling your calls fit best)
 //   Scoreboard: autoPost(), boardState(), boardRows(n), gameOf(key, n)
 import {lsGet, lsSet, absLink} from './ui.js';
 import * as daily from './daily.js';
@@ -376,6 +377,86 @@ export function shareText(n, s) {
     squares(s),
     absLink('/puzzles/drill')
   ].join('\n');
+}
+
+// ---------------------------------------------------------------------------------------------- coach comp
+// Who you called it like: DOC.coaches (tools/drill/coaches.py) has each NFL head coach's late-game play-calling as
+// counts [k, n] of the same things counted here from your calls. The comp is the coach under whose tendencies your
+// calls were likeliest (each coach's rates pulled a little toward the league's, so a short sample doesn't swing it),
+// and the words name the two calls that point to him most.
+const DEEP = 18, SHORT = 8, PRIOR = 12;
+const MIDDLE = new Set(['slant', 'dig', 'drag', 'post', 'seam', 'angle']);
+/** Your play-calling in a game, counted like the coaches': {pass, deep, short, middle, oob, spike, two, fourth: [k, n]}. */
+export function tendencies(s) {
+  const f = {pass: [0, 0], deep: [0, 0], short: [0, 0], middle: [0, 0], oob: [0, 0], spike: [0, 0], two: [0, 0], fourth: [0, 0]};
+  const add = (k, hit) => { f[k][1] += 1; if (hit) f[k][0] += 1; };
+  s.plays.forEach(p => {
+    const a = p.poss === 'us' && p.act ? E.parse(p.act) : null;
+    if (!a) return;
+    if (p.two || p.kind === 'xp') { add('two', !!p.two); return; } // the try after a touchdown: kick it or go for two
+    if (a.kind === 'spike') { if (p.kind === 'spike') add('spike', true); return; }
+    if (!['pass', 'run', 'rpo', 'trick', 'fg'].includes(a.kind) || p.kind === 'expired') return;
+    // Fourth down with a field goal on: kick it or go for it.
+    if (p.down === 4 && p.them - p.us <= 3 && E.fgOdds(s, p.ball, s.mine.kick).p > 0) add('fourth', a.kind !== 'fg');
+    if (a.kind === 'fg') return;
+    add('spike', false);
+    const route = a.kind === 'pass' ? a.route : a.kind === 'rpo' && p.read === 'pass' ? p.route : a.kind === 'trick' && a.play !== 'r' ? 'go' : null;
+    add('pass', !!route);
+    if (route) {
+      const depth = E.ROUTES[route].depth;
+      add('deep', depth >= DEEP);
+      add('short', depth < SHORT);
+      add('middle', MIDDLE.has(route));
+    }
+    if (p.kind === 'catch' || p.kind === 'run') add('oob', !!p.oob);
+  });
+  return f;
+}
+const plays = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+/** How each tendency reads: [when you did it more than most, when less]. k of n, t: what's typical in n. */
+const COMP_WORDS = {
+  pass: [(k, n, t) => `threw it on ${k} of ${n} snaps (typical: ${t})`, (k, n, t) => `ran it on ${k} of ${n} snaps (typical: ${t})`],
+  deep: [(k, n, t) => `took ${plays(k, 'deep shot')} in ${plays(n, 'throw')} (typical: ${t})`, (k, n, t) => `stayed underneath on ${k} of ${n} throws (typical: ${t})`],
+  short: [(k, n, t) => `kept it short on ${k} of ${n} throws (typical: ${t})`, (k, n, t) => `pushed it downfield on ${k} of ${n} throws (typical: ${t})`],
+  middle: [(k, n, t) => `attacked the middle on ${k} of ${n} throws (typical: ${t})`, (k, n, t) => `worked the outside on ${k} of ${n} throws (typical: ${t})`],
+  oob: [(k, n, t) => `got out of bounds on ${k} of ${n} plays (typical: ${t})`, (k, n, t) => `stayed in bounds on ${k} of ${n} plays (typical: ${t})`],
+  spike: [(k, n, t) => `spiked it ${k} of ${n} snaps (typical: ${t})`, (k, n, t) => `never spiked it in ${plays(n, 'snap')} (typical: ${n - t})`],
+  two: [(k, n, t) => `went for two ${k} of ${n} times (typical: ${t})`, (k, n, t) => `kicked the extra point ${k} of ${n} times (typical: ${t})`],
+  fourth: [(k, n, t) => `went for it on fourth down ${k} of ${n} times (typical: ${t})`, (k, n, t) => `kicked the field goal on fourth down ${k} of ${n} times (typical: ${t})`]
+};
+const clampP = p => Math.min(0.995, Math.max(0.005, p));
+const loglik = (p, [k, n]) => k * Math.log(clampP(p)) + (n - k) * Math.log(1 - clampP(p));
+/** The coach whose tendencies fit these counts best: {coach (DOC.coaches.list's), lines (the two calls that point to
+ *  him most, in words)}, or null (no coaches, or too few snaps to say). */
+export function matchCoach(f) {
+  const C = DOC && DOC.coaches;
+  if (!C || !Array.isArray(C.list) || !C.list.length || f.spike[1] < 3) return null;
+  const L = C.league;
+  const used = Object.keys(f).filter(k => f[k][1] > 0 && L[k] > 0 && L[k] < 1);
+  const rate = (c, k) => (c.f[k][0] + PRIOR * L[k]) / (c.f[k][1] + PRIOR);
+  let best = null;
+  C.list.forEach(c => {
+    let v = 0;
+    used.forEach(k => { v += loglik(rate(c, k), f[k]); });
+    if (!best || v > best.v) best = {c, v};
+  });
+  const lines = used.map(k => ({k, e: loglik(rate(best.c, k), f[k]) - loglik(L[k], f[k])}))
+    .filter(x => x.e > 0.01).sort((a, b) => b.e - a.e).slice(0, 2)
+    .map(({k}) => {
+      const [hit, n] = f[k], more = hit / n >= L[k];
+      return more ? COMP_WORDS[k][0](hit, n, Math.round(n * L[k])) : COMP_WORDS[k][1](n - hit, n, Math.round(n * (1 - L[k])));
+    });
+  return {coach: best.c, lines};
+}
+/** The comp for a finished game: {name, team (id), teamName, snaps, seasons, text ("Like him, you ...")}, or null.
+ *  who: 'you', or someone else's name (the words then say "they"). */
+export function coachComp(s, who = 'you') {
+  const m = matchCoach(tendencies(s));
+  if (!m) return null;
+  const c = m.coach, T = DOC.teams[c.t];
+  const subj = who === 'you' ? 'you' : 'they';
+  const text = m.lines.length ? `Like him, ${subj} ${m.lines.join(', and ')}.` : `${who === 'you' ? 'Your' : 'Their'} calls fit his late-game tendencies best.`;
+  return {name: c.n, team: c.t, teamName: T ? T.n : c.t, snaps: c.s, seasons: DOC.coaches.seasons, text};
 }
 
 // ---------------------------------------------------------------------------------------------- scoreboard
