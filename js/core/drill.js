@@ -529,7 +529,8 @@ export async function autoPost() {
 // who '*': the whole league's games that day, as of at (ms): every phone clears a game finished before then, and the
 // board drops every result finished before then, whether or not that member's phone has opened since (resetCut).
 const RESETS = [{id: 'evan-d1', who: 'evan', n: 1}, {id: 'evan-d1-2', who: 'evan', n: 1}, {id: 'all-d1', who: '*', n: 1, at: 1792099293223},
-  {id: 'all-d1-2', who: '*', n: 1, at: 1792101213382}]; // again: the rosters updated for injuries
+  {id: 'all-d1-2', who: '*', n: 1, at: 1792101213382}, // again: the rosters updated for injuries
+  {id: 'all-d1-3', who: '*', n: 1, at: 1792101841034}]; // and again, at the league's ask
 /** When the league's games on day n were last reset (0: never): results finished before it don't count. */
 export const resetCut = n => RESETS.reduce((m, r) => (r.who === '*' && r.n === Number(n) && r.at > m ? r.at : m), 0);
 const RKEY = 'gg-drill-resets';
