@@ -1015,6 +1015,57 @@ function theirMix(s) {
   return out;
 }
 /** Your defense's sense of each call: how much it holds their likely plays to (lower is better for you). */
+/** How every call at this snap rates by the play-caller's numbers (playValue: the bots' own read of the odds against
+ *  the other side's likely calls, on the 0-1 scale of the chance to get what you need): on offense every play on the
+ *  menu (each receiver on each of his routes, with and without the extras; runs, RPOs, the trick when it's there; and
+ *  each without a huddle when the clock runs), on defense the eight calls (lower is better there). {ours (your ball),
+ *  best (its value), bestToken, all (every call's value), value(token) (any call's)}. Clock tools and the try after a
+ *  touchdown aren't rated. */
+export function callValues(s) {
+  const ours = s.poss === 'us';
+  if (!ours) {
+    const list = defValues(s), by = Object.fromEntries(list.map(x => [x.token, x.v]));
+    return {ours, best: list[0].v, bestToken: list[0].token, all: list.map(x => x.v), value: t => (t in by ? by[t] : list[list.length - 1].v)};
+  }
+  const mix = mixOf(s), list = candidates(s);
+  if (s.running) {
+    list.slice().forEach(x => {
+      const a = parse(x.token), f = Object.assign({}, a.flags, {h: true});
+      const t = a.kind === 'pass' ? tok.pass(a.slot, a.route, f) : a.kind === 'run' ? tok.run(a.dir, f.o, a.play, true) : a.kind === 'rpo' ? tok.rpo(a.dir, f.o, a.play, true) : null;
+      if (t) list.push({token: t, v: playValue(s, parse(t), mix)});
+    });
+  }
+  const top = list.reduce((m, x) => (x.v > m.v ? x : m), list[0]);
+  return {ours, best: top.v, bestToken: top.token, all: list.map(x => x.v), value: t => { const a = parse(t); return a ? playValue(s, a, mix) : 0; }};
+}
+const RATED = ['pass', 'run', 'rpo', 'trick', 'def'];
+/** A call's score at a snap, 0-1, by the play-caller's numbers (callValues): 1 the best call there, 0.5 one as far
+ *  below it as the menu's middle call, 0 one twice that far or more. null: a call that isn't rated (a clock tool, a
+ *  kick, the try after a touchdown) or not a call at this snap. */
+export function callScore(s, token) {
+  const a = parse(token);
+  if (s.result || s.phase !== 'play' || !a || !RATED.includes(a.kind) || (a.kind === 'def') !== (s.poss === 'them')) return null;
+  const ev = callValues(s), sign = ev.ours ? 1 : -1;
+  const vals = ev.all.map(v => sign * v).sort((x, y) => x - y);
+  const best = sign * ev.best, mid = vals[vals.length >> 1], mine = sign * ev.value(token);
+  return clamp(1 - 0.5 * (best - mine) / Math.max(0.02, best - mid), 0, 1);
+}
+/** A game's call grade, from its actions: {grade (0-100: its rated calls' mean score, one decimal; null with none),
+ *  n (how many were rated), lead (on a win, the clock when you went ahead for good: the time you left them; else
+ *  null)}. Deterministic: anyone's phone gets the same grade from the same calls. */
+export function gradeGame(sc, teams, acts) {
+  const s = start(sc, teams);
+  let sum = 0, n = 0, lead = null;
+  for (const t of String(acts || '').split(',').filter(Boolean)) {
+    const v = callScore(s, t);
+    if (v != null) { sum += v; n++; }
+    const ahead = s.us > s.them;
+    if (!act(s, t)) break;
+    if (s.us > s.them && !ahead) lead = s.clock;
+    else if (s.us <= s.them) lead = null;
+  }
+  return {grade: n ? Math.round(1000 * sum / n) / 10 : null, n, lead: s.result === 'W' ? lead : null};
+}
 export function defValues(s) {
   const mix = theirMix(s);
   return DEF_CALLS.map(call => {

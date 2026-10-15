@@ -38,7 +38,7 @@ const ST = new WeakMap(); // ctx -> pane state
 
 // A home-screen app open across an update imports this module new under the stylesheet it started with: when
 // drill.css's mark (--dr-css on :root) isn't this module's, the current file is added (as in views/seventeen.js).
-const CSS_V = '11';
+const CSS_V = '12';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--dr-css').trim() === CSS_V || document.querySelector('link[data-dr-css]')) return;
@@ -1234,17 +1234,22 @@ function breakdownHTML(st) {
   const ct = dr.callText(s, p);
   const call = ct ? `<p class="dr-bd-call ${ct.good ? 'is-good' : 'is-bad'}">${esc(ct.text)}</p>` : '';
   let grade = '', opts = '';
+  if (L.call) {
+    grade = L.call.score >= 98
+      ? `<p class="dr-bd-grade is-best">${ui.icon('check-circle', {size: 16})}<span>Call score <b>${L.call.score}</b>: the best call there.</span></p>`
+      : `<p class="dr-bd-grade">${ui.icon('info', {size: 16})}<span>${esc(`Call score ${L.call.score}. The best call there: ${dr.tokenShort(s, L.call.best)}.`)}</span></p>`;
+  }
   if (L.scores) {
     const i = L.scores.findIndex(x => x.token === p.act), best = L.scores[0];
     const mine = i >= 0 ? L.scores[i] : null;
     const isBest = mine && best && mine.wp >= best.wp - 0.015;
     const rank = mine ? 1 + L.scores.filter(x => x.wp > mine.wp + 0.015).length : 0;
-    grade = isBest
+    if (!L.call) grade = isBest
       ? `<p class="dr-bd-grade is-best">${ui.icon('check-circle', {size: 16})}<span>Your call: <b>the best one.</b></span></p>`
       : mine ? `<p class="dr-bd-grade">${ui.icon('info', {size: 16})}<span>${esc(`Your call: ${ui.ordinal(rank)} of ${L.scores.length}. Best: ${dr.tokenShort(s, best.token)} (${pct(best.wp)}).`)}</span></p>` : '';
-    opts = `<details class="dr-bd-opts"><summary>How every option scored</summary><ol>${L.scores.map(x => `<li class="${x.token === p.act ? 'is-mine' : ''}"><span>${esc(dr.tokenShort(s, x.token))}${x.token === p.act ? ' · yours' : ''}</span><i style="--w:${Math.round(x.wp * 100)}%"></i><b>${pct(x.wp)}</b></li>`).join('')}</ol>`
+    opts = `<details class="dr-bd-opts"><summary>How the options played out</summary><ol>${L.scores.map(x => `<li class="${x.token === p.act ? 'is-mine' : ''}"><span>${esc(dr.tokenShort(s, x.token))}${x.token === p.act ? ' · yours' : ''}</span><i style="--w:${Math.round(x.wp * 100)}%"></i><b>${pct(x.wp)}</b></li>`).join('')}</ol>`
       + `<p class="dr-bd-note">Each option played out ${L.n} times from that snap to the end of the game by a good play-caller on both sides. Win chance counts a tie as half.</p></details>`;
-  } else if (L.scoring) grade = `<p class="dr-bd-grade is-wait"><span class="spin" aria-hidden="true"></span><span>Scoring every option…</span></p>`;
+  } else if (L.scoring && !L.call) grade = `<p class="dr-bd-grade is-wait"><span class="spin" aria-hidden="true"></span><span>Scoring every option…</span></p>`;
   const replay = L.canReplay ? `<button type="button" class="dr-pill" data-dr-replay>${ui.icon('play-fill', {size: 12})}<span>Replay</span></button>` : '';
   return `<section class="dr-bd is-${t.tone}" data-dr-bd aria-label="Last play">`
     + `<div class="dr-bd-top">${badge}<div class="dr-bd-main"><h3 class="dr-bd-h">${esc(t.head)}</h3><p class="dr-bd-line">${esc(t.line)}</p>${wp}</div></div>`
@@ -1287,6 +1292,12 @@ function compHTML(s, who = 'you') {
     + `<p class="dr-comp-t">${esc(c.text)}</p>`
     + `<p class="dr-comp-f">${esc(`${c.teamName} · ${c.seasons} · from ${c.snaps} late-game snaps`)}</p></section>`;
 }
+/** A finished game's call grade, as the scoreboard ranks it. */
+function finalGradeHTML(n, s, who = 'Your') {
+  const g = dr.gradeOf(n, E.actsOf(s));
+  if (g.grade == null) return '';
+  return `<p class="dr-final-grade">${gradeChip(g.grade, 'dr-fg-chip')}<span>${esc(`${who} call grade, from ${plural(g.n, 'call')}: how close each was to the best one at its snap.`)}</span></p>`;
+}
 function resultHTML(st) {
   const s = st.s;
   if (!s.result) return '';
@@ -1296,6 +1307,7 @@ function resultHTML(st) {
     + finalSBHTML(s)
     + `<h2 class="dr-final-h" id="dr-res-h">${esc(r.head)}</h2>`
     + `<p class="dr-final-sub">${esc(r.sub)}</p>`
+    + finalGradeHTML(st.n, s)
     + `<p class="dr-res-sq" aria-hidden="true">${esc(dr.squares(s))}</p>`
     + `<div class="dr-res-act"><button type="button" class="btn btn-primary dr-share" data-dr-share>${ui.icon('share')}<span class="btn-label">Share</span></button></div>`
     + `<p class="dr-next">${ui.icon('clock', {size: 15})}<span>Next drill in <span data-dr-next>${esc(nextIn())}</span></span></p></section>`
@@ -1329,32 +1341,69 @@ function rowGame(st, r) {
   if (!st.rp.has(k)) st.rp.set(k, r.k ? E.replay(dr.scenario(st.n), dr.DOC.teams, r.k) : null);
   return st.rp.get(k);
 }
+/** A grade as its letter and number: "A− · 91". */
+const gradeText = g => (g == null ? '' : `${dr.gradeLetter(g)} · ${Math.round(g)}`);
+function gradeChip(g, cls = 'dr-sb-gr') {
+  return g == null ? `<span class="${cls} is-none" aria-hidden="true"><b>–</b></span>`
+    : `<span class="${cls} is-${dr.gradeLetter(g)[0]}" aria-hidden="true"><b>${esc(dr.gradeLetter(g))}</b><small>${Math.round(g)}</small></span>`;
+}
 function sbRowHTML(st, r) {
   const g = rowGame(st, r);
   const how = g && g.result ? dr.resultText(g, {you: r.me}).sub : '';
   const sub = [how, plural(r.p, 'play')].filter(Boolean).join(' · ');
-  const label = `${ui.ordinal(r.rank)}, ${r.name}${r.me ? ', you' : ''}: ${{W: 'won', T: 'tied', L: 'lost'}[r.r]} ${r.u} to ${r.h}. ${sub}. Show the game.`;
+  const graded = r.grade == null ? '' : ` Call grade ${gradeText(r.grade)}.`;
+  const label = `${ui.ordinal(r.rank)}, ${r.name}${r.me ? ', you' : ''}: ${{W: 'won', T: 'tied', L: 'lost'}[r.r]} ${r.u} to ${r.h}.${graded} ${sub}. Show the game.`;
   return `<button type="button" class="dr-sb-row${r.me ? ' is-me' : ''}" role="listitem" data-dr-who="${esc(r.key)}" aria-label="${esc(label)}">`
     + `<span class="dr-sb-rank" aria-hidden="true">${r.rank}</span>`
     + `<span class="dr-sb-av" aria-hidden="true">${ui.nickAvatar(r.name, {size: 36, managerId: r.managerId, you: r.me, crown: r.rank === 1 && r.r === 'W'})}</span>`
     + `<span class="dr-sb-main" aria-hidden="true"><span class="dr-sb-name">${esc(r.name)}${r.me ? ui.badge('you') : ''}</span><span class="dr-sb-sub">${esc(sub)}</span></span>`
+    + gradeChip(r.grade)
     + `<span class="dr-sb-res is-${r.r}" aria-hidden="true"><b>${r.r}</b><span>${r.u}–${r.h}</span></span></button>`;
 }
-function sbBodyHTML(st) {
-  const state = dr.boardState();
-  if (state === 'loading') return `<div class="dr-sb-sk">${ui.skeleton('rows', 3, {label: 'Loading the finals.'})}</div>`;
-  if (state !== 'ready') return `<p class="dr-sb-note">The scoreboard isn't connected right now.</p>`;
+/** The week's standings: points, the record, the average grade, a run of wins; the week's best-called game below. */
+function weekBodyHTML(st) {
+  const n = st.n || dr.todayNumber();
   let rows = [];
-  try { rows = dr.boardRows(st.n || dr.todayNumber()); } catch (e) { console.error(e); }
-  if (!rows.length) return `<div class="dr-sb-empty"><p class="dr-sb-et">No finals yet today.</p><p class="dr-sb-eb">Play yours to put the first score on the board.</p></div>`;
+  try { rows = dr.weekRows(n); } catch (e) { console.error(e); }
+  if (!rows.length) return `<div class="dr-sb-empty"><p class="dr-sb-et">No games yet this week.</p><p class="dr-sb-eb">Every final this week counts toward the standings.</p></div>`;
+  const days = dr.weekDays(n).length;
+  const list = rows.map(r => {
+    const rec = `${r.w}-${r.l}${r.t ? `-${r.t}` : ''}`;
+    const sub = [rec, r.avg == null ? '' : `avg ${gradeText(r.avg)}`, r.streak >= 2 ? `${r.streak} wins in a row` : ''].filter(Boolean).join(' · ');
+    const label = `${ui.ordinal(r.rank)}, ${r.name}${r.me ? ', you' : ''}: ${plural(r.pts, 'point')}, ${r.w} won, ${r.l} lost${r.t ? `, ${r.t} tied` : ''}${r.avg == null ? '' : `, average call grade ${gradeText(r.avg)}`}${r.streak >= 2 ? `, ${r.streak} wins in a row` : ''}.`;
+    return `<div class="dr-sb-row dr-wk-row${r.me ? ' is-me' : ''}" role="listitem" aria-label="${esc(label)}">`
+      + `<span class="dr-sb-rank" aria-hidden="true">${r.rank}</span>`
+      + `<span class="dr-sb-av" aria-hidden="true">${ui.nickAvatar(r.name, {size: 36, managerId: r.managerId, you: r.me, crown: r.rank === 1 && r.pts > 0})}</span>`
+      + `<span class="dr-sb-main" aria-hidden="true"><span class="dr-sb-name">${esc(r.name)}${r.me ? ui.badge('you') : ''}</span><span class="dr-sb-sub">${esc(sub)}</span></span>`
+      + `<span class="dr-wk-pts" aria-hidden="true"><b>${r.pts}</b><small>${r.pts === 1 ? 'pt' : 'pts'}</small></span></div>`;
+  }).join('');
+  const t = rows.top;
+  const top = t ? `<p class="dr-wk-top">${ui.icon('trophy', {size: 15})}<span>${esc(`Best-called game: ${t.me ? 'your' : `${t.name}’s`} ${t.u}–${t.h} ${{W: 'win', T: 'tie', L: 'loss'}[t.r]} on ${dr.dayLabel(t.day, {weekday: 'short'})}, ${gradeText(t.grade)}`)}</span></p>` : '';
+  return `<p class="dr-sb-sum">${esc(`${plural(days, 'day')} played · 3 points a win, 1 a tie`)}</p>`
+    + `<div class="dr-sb-list" role="list" aria-label="${esc(`${dr.weekLabel(n)} standings`)}">${list}</div>${top}`;
+}
+/** The board: today's finals or the week's standings (st.sbTab), the switch between them on top. */
+function sbBodyHTML(st) {
+  const week = st.sbTab === 'week', n = st.n || dr.todayNumber();
+  const tab = (k, label) => `<button type="button" class="dr-sb-tab" role="tab" aria-selected="${st.sbTab === k || (!st.sbTab && k === 'day')}" data-dr-sbtab="${k}">${esc(label)}</button>`;
+  const head = `<div class="dr-board-h"><div class="dr-board-row"><h2 class="dr-board-t" id="dr-sb-t">${esc(week ? `${dr.weekLabel(n)} standings` : 'Today’s finals')}</h2>`
+    + `<div class="dr-sb-tabs" role="tablist" aria-label="Scoreboard">${tab('day', 'Today')}${tab('week', 'Week')}</div></div>`
+    + `<p class="dr-board-s">${esc(week ? 'Most points first; the average call grade breaks a tie' : 'Wins first, then the best-called games')}</p></div>`;
+  const state = dr.boardState();
+  if (state === 'loading') return head + `<div class="dr-sb-sk">${ui.skeleton('rows', 3, {label: 'Loading the finals.'})}</div>`;
+  if (state !== 'ready') return head + `<p class="dr-sb-note">The scoreboard isn't connected right now.</p>`;
+  if (week) return head + weekBodyHTML(st);
+  let rows = [];
+  try { rows = dr.boardRows(n); } catch (e) { console.error(e); }
+  if (!rows.length) return head + `<div class="dr-sb-empty"><p class="dr-sb-et">No finals yet today.</p><p class="dr-sb-eb">Play yours to put the first score on the board.</p></div>`;
   const w = rows.filter(r => r.r === 'W').length;
   const sum = `${plural(rows.length, 'game')} final · ${w} won`;
-  return `<p class="dr-sb-sum">${esc(sum)}</p><div class="dr-sb-list" role="list" aria-label="Today's finals">${rows.map(r => sbRowHTML(st, r)).join('')}</div>`;
+  return head + `<p class="dr-sb-sum">${esc(sum)}</p><div class="dr-sb-list" role="list" aria-label="Today's finals">${rows.map(r => sbRowHTML(st, r)).join('')}</div>`
+    + `<p class="dr-sb-foot">Call grade: how close each pass, run and defensive call was to the best one at that snap, out of 100.</p>`;
 }
 function boardHTML(st) {
   const hide = dr.boardState() === 'wait';
   return `<div class="dr-sb-host" data-dr-board${hide ? ' hidden' : ''}><section class="dr-board" aria-labelledby="dr-sb-t">`
-    + `<div class="dr-board-h"><h2 class="dr-board-t" id="dr-sb-t">Today’s finals</h2><p class="dr-board-s">Wins first, the biggest margin on top</p></div>`
     + `<div class="dr-board-body" data-dr-sbody>${sbBodyHTML(st)}</div></section></div>`;
 }
 const norm = typeof document !== 'undefined' ? document.createElement('template') : null;
@@ -1374,7 +1423,19 @@ function patchBoard(st, {fade = false} = {}) {
 function scheduleBoard(st) {
   if (st.dead) return;
   if (st.cancelBoard) st.cancelBoard();
-  st.cancelBoard = ui.whenIdle(() => { st.cancelBoard = null; patchBoard(st); });
+  st.cancelBoard = ui.whenIdle(() => { st.cancelBoard = null; patchBoard(st); warmWeek(st); });
+}
+/** Grades the week's games (about 6 ms each) a slice at a time while nothing moves, so the Week tab opens at once. */
+function warmWeek(st) {
+  if (st.dead || st.cancelBoard || !dr.DOC || dr.boardState() !== 'ready') return;
+  const todo = dr.ungraded(st.n || dr.todayNumber());
+  if (!todo.length) return;
+  st.cancelBoard = ui.whenIdle(() => {
+    st.cancelBoard = null;
+    const t0 = performance.now();
+    while (todo.length && performance.now() - t0 < 12) dr.gradeOf(...todo.shift());
+    warmWeek(st);
+  });
 }
 
 // ============================================================================ Sheets
@@ -1391,7 +1452,7 @@ function openGame(st, key) {
     if (!g || !g.s) body = `<p class="dr-sh-note">${ui.icon('info', {size: 16})}<span>That game didn’t come with its plays.</span></p>`;
     else {
       const r = dr.resultText(g.s, {you: row.me});
-      body = `<div class="dr-sh-final is-${g.s.result}">${finalSBHTML(g.s, row.me ? 'You' : row.name)}<p class="dr-sh-h"><b>${esc(r.head)}</b><span>${esc(r.sub)}</span></p></div>`
+      body = `<div class="dr-sh-final is-${g.s.result}">${finalSBHTML(g.s, row.me ? 'You' : row.name)}<p class="dr-sh-h"><b>${esc(r.head)}</b><span>${esc(r.sub)}</span></p>${finalGradeHTML(st.n, g.s, row.me ? 'Your' : `${row.name}’s`)}</div>`
         + compHTML(g.s, row.me ? 'you' : row.name)
         + `<ol class="dr-log">${g.s.plays.map(p => logItemHTML(g.s, p)).join('')}</ol>`;
     }
@@ -1519,6 +1580,14 @@ function patchBreakdown(st) {
   ui.hydrate(st.el.querySelector('[data-dr-panel]'));
 }
 
+/** A call's score by the play-caller's numbers, as the scoreboard grades it: {score (0-100), best (the best call's
+ *  token)}, or null for a call that isn't graded (a clock tool, a kick). */
+function callNow(s, token) {
+  try {
+    const v = E.callScore(s, token);
+    return v == null ? null : {score: Math.round(100 * v), best: E.callValues(s).bestToken};
+  } catch (_) { return null; }
+}
 // ============================================================================ Playing a snap
 /** Brings the field into view for a snap: the calls sit below it, so the call that was just tapped usually has the
  *  field scrolled up out of sight. The stage goes just under the nav bar; when it can't all fit above the tab bar, the
@@ -1550,7 +1619,7 @@ async function go(st, token) {
   ui.haptic(p.kind === 'timeout' ? 'light' : 'medium');
   st.panel = 'main';
   st.pick = null;
-  st.last = {p, autos: s.plays.slice(i0 + 1), wpB: null, wpA: null, scores: null, canReplay: !['timeout', 'expired'].includes(p.kind)};
+  st.last = {p, autos: s.plays.slice(i0 + 1), wpB: null, wpA: null, scores: null, canReplay: !['timeout', 'expired'].includes(p.kind), call: callNow(sBefore, p.act)};
   scoreLast(st, sBefore, p);
   if (p.kind === 'timeout') { finishPlay(st, p); return; }
   st.busy = true;
@@ -1722,7 +1791,7 @@ function onClick(st, e) {
   if (st.busy && st.anim && e.target.closest('[data-dr-field]')) return; // the field's own skip handler
   const rcv = routesOn(st) && e.target.closest('[data-dr-rcv]');
   if (rcv && st.el.contains(rcv)) { cycleRoute(st, rcv.dataset.drRcv); return; }
-  const t = e.target.closest('[data-dr-go], [data-dr-menu], [data-dr-back], [data-dr-card], [data-dr-side], [data-dr-hurry], [data-dr-flag], [data-dr-route], [data-dr-replay], [data-dr-ratings], [data-dr-help], [data-dr-share], [data-dr-retry], [data-dr-who]');
+  const t = e.target.closest('[data-dr-go], [data-dr-menu], [data-dr-back], [data-dr-card], [data-dr-side], [data-dr-hurry], [data-dr-flag], [data-dr-route], [data-dr-replay], [data-dr-ratings], [data-dr-help], [data-dr-share], [data-dr-retry], [data-dr-who], [data-dr-sbtab]');
   if (!t || !st.el.contains(t) || t.disabled) return;
   if (t.hasAttribute('data-dr-go')) { go(st, t.dataset.drGo); return; }
   if (t.hasAttribute('data-dr-menu')) { openMenu(st, t.dataset.drMenu); return; }
@@ -1751,6 +1820,13 @@ function onClick(st, e) {
   if (t.hasAttribute('data-dr-help')) { openHelp(); return; }
   if (t.hasAttribute('data-dr-share')) { share(st); return; }
   if (t.hasAttribute('data-dr-who')) { openGame(st, t.dataset.drWho); return; }
+  if (t.hasAttribute('data-dr-sbtab')) {
+    if ((st.sbTab || 'day') === t.dataset.drSbtab) return;
+    st.sbTab = t.dataset.drSbtab;
+    ui.haptic('selection');
+    patchBoard(st, {fade: true});
+    return;
+  }
   if (t.hasAttribute('data-dr-retry')) load(st);
 }
 function onKey(st, e) {

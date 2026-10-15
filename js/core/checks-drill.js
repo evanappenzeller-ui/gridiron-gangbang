@@ -390,7 +390,7 @@ export async function drillChecks(check) {
   });
 
   // 9. The scoreboard
-  check('Drill: the scoreboard keeps one game per member per day (the first posted), drops bad entries (a result that doesn\'t match the score) and results finished before a league-wide reset of that day, and ranks wins (the biggest margin first, then fewer plays), then ties, then losses (the closest first), tied rows sharing a rank', () => {
+  check('Drill: the scoreboard keeps one game per member per day (the first posted), drops bad entries (a result that doesn\'t match the score) and results finished before a league-wide reset of that day, and ranks wins, then ties, then losses; with no call grades (no plays posted) a win by fewer plays then the bigger margin, a loss by the closest score, tied rows sharing a rank', () => {
     need();
     const T0 = Date.now();
     const g = (r, u, h, p, t) => ({r, u, h, p, k: '', t: T0 + t});
@@ -414,4 +414,72 @@ export async function drillChecks(check) {
     const reset = cut > 0 && dr.entryOf(old, 1) === null && !!dr.entryOf({id: 'y', dr5: {1: Object.assign({}, old.dr5[1], {t: cut + 1})}}, 1) && dr.resetCut(2) === 0;
     return {pass: order && clean && reset, detail: `${sig}; bad entries dropped ${clean}; reset day 1 ${reset}`};
   });
+
+  check('Drill: call grades: a snap\'s best call scores 1 and the menu\'s middle one at least 0.5 (clock tools and the wrong side\'s calls aren\'t rated), a game\'s grade is the same on every replay, well-called games grade above random ones, the letters run A+ to F, and on the board the grade comes right after the result (before plays and margin)', () => {
+    need();
+    const s0 = E.start(dr.scenario(1), dr.DOC.teams), ev = E.callValues(s0);
+    const sc = E.candidates(s0).map(c => E.callScore(s0, c.token)).sort((a, b) => a - b);
+    const snap = E.callScore(s0, ev.bestToken) === 1 && sc[sc.length >> 1] >= 0.5 - 1e-9 && sc[0] < 0.5 && sc.every(v => v >= 0 && v <= 1)
+      && E.callScore(s0, E.tok.timeout) === null && E.callScore(s0, E.tok.spike) === null && E.callScore(s0, E.tok.def('c2')) === null;
+    const hi = [], lo = [];
+    for (let n = 1; n <= 4; n++) { hi.push(callGame(n, true, n)); lo.push(callGame(n, false, n)); }
+    const G = k => E.gradeGame(dr.scenario(1), dr.DOC.teams, k).grade;
+    const avg = xs => xs.reduce((a, k, i) => a + E.gradeGame(dr.scenario(i + 1), dr.DOC.teams, k).grade, 0) / xs.length;
+    const same = G(hi[0]) === G(hi[0]) && G(lo[0]) === dr.gradeOf(1, lo[0]).grade && dr.gradeOf(1, '').grade === null;
+    const ah = avg(hi), al = avg(lo), better = ah >= al + 15;
+    const letters = [[97, 'A+'], [92.6, 'A'], [89.5, 'A−'], [80, 'B−'], [60, 'D'], [59.4, 'F'], [null, '']].every(([g, l]) => dr.gradeLetter(g) === l);
+    // Day 1's board: wins first whatever the grade, then the better-called win over the bigger, quicker one; the same
+    // game twice shares a rank; a game with no plays posted has no grade and goes last among its result.
+    const T0 = Date.now(), hk = G(hi[0]) >= G(lo[0]) + 5 ? [hi[0], lo[0]] : null;
+    const e = (r, u, h, p, k, t) => ({r, u, h, p, k, t: T0 + t});
+    const docs = hk ? [
+      {id: 'a', nick: 'Ben', dr5: {1: e('W', 31, 24, 5, hk[1], 1)}},
+      {id: 'b', nick: 'Mitch', dr5: {1: e('W', 28, 24, 12, hk[0], 2)}},
+      {id: 'c', nick: 'Jacob', dr5: {1: e('L', 24, 27, 4, hk[0], 3)}},
+      {id: 'd', nick: 'Sayer', dr5: {1: e('W', 35, 24, 3, '', 4)}},
+      {id: 'e', nick: 'Kyle Example', dr5: {1: e('W', 28, 24, 12, hk[0], 5)}}
+    ] : [];
+    const rows = dr.boardRows(1, docs), sig = rows.map(r => `${r.rank}.${r.name.split(' ')[0]} ${r.r}${r.letter ? ' ' + r.letter : ''}`).join(', ');
+    const order = !!hk && rows.map(r => `${r.rank}${r.name.split(' ')[0]}`).join(' ') === '1Mitch 1Kyle 3Ben 4Sayer 5Jacob' && rows[0].grade === G(hk[0]);
+    return {pass: snap && same && better && letters && order, detail: `snap ${snap}; replays ${same}; well-called ${ah.toFixed(1)} vs random ${al.toFixed(1)}; letters ${letters}; board ${sig}`};
+  });
+
+  check('Drill: the week\'s standings count the days of one NFL week up to today: 3 points a win and 1 a tie, the average call grade breaking a tie on points, a run of wins up to the latest day, and the week\'s best-called game; days after today and outside the week don\'t count', () => {
+    need();
+    let d = 1;
+    while (d < dr.DOC.days.length - 2 && !(dr.weekDays(d, d + 1).includes(d) && dr.weekDays(d, d + 1).includes(d + 1))) d++;
+    const days = dr.weekDays(d, d + 1), d2 = d + 1;
+    const hk = callGame(d, true, 7), lk = callGame(d, false, 7), hk2 = callGame(d2, true, 7), lk2 = callGame(d2, false, 7);
+    const T0 = Date.now(), e = (r, u, h, k, t) => ({r, u, h, p: 8, k, t: T0 + t});
+    const docs = [
+      {id: 'a', nick: 'Ben', dr5: {[d]: e('W', 28, 24, hk, 1), [d2]: e('W', 27, 24, hk2, 2)}},
+      {id: 'b', nick: 'Mitch', dr5: {[d]: e('W', 28, 24, lk, 3), [d2]: e('L', 20, 24, lk2, 4), [d2 + 1]: e('W', 30, 24, '', 5)}},
+      {id: 'c', nick: 'Jacob', dr5: {[d]: e('W', 28, 24, hk, 6)}},
+      {id: 'd', nick: 'Sayer', dr5: {[d]: e('T', 24, 24, lk, 7), [d2]: e('T', 21, 21, lk2, 8)}}
+    ];
+    const rows = dr.weekRows(d2, docs, d2), by = nick => rows.find(r => r.name.startsWith(nick)) || {};
+    const sig = rows.map(r => `${r.rank}.${r.name.split(' ')[0]} ${r.pts}pts ${r.w}-${r.l}-${r.t} avg ${r.avg} streak ${r.streak}`).join(', ');
+    const grades = [dr.gradeOf(d, hk).grade, dr.gradeOf(d2, hk2).grade];
+    const pass = days.length >= 2 && !!dr.weekLabel(d2)
+      && rows.map(r => r.name.split(' ')[0]).join(' ') === 'Ben Jacob Mitch Sayer'
+      && by('Ben').pts === 6 && by('Ben').streak === 2 && by('Jacob').pts === 3 && by('Jacob').streak === 1
+      && by('Mitch').pts === 3 && by('Mitch').played === 2 && by('Mitch').streak === 0 && by('Sayer').pts === 2
+      && !!rows.top && rows.top.grade === Math.max(...grades);
+    return {pass, detail: `days ${days.join(',')} (${dr.weekLabel(d2)}): ${sig}; best-called ${rows.top ? `${rows.top.name} ${rows.top.grade}` : 'none'}`};
+  });
+}
+
+/** Day n's game called by the bots (well) or at random (any play, any defense), seeded: its action string. */
+function callGame(n, well, seed) {
+  const s = E.start(dr.scenario(n), dr.DOC.teams), r = E.dice(n, seed, 77), acts = [];
+  for (let i = 0; i < 250 && !s.result; i++) {
+    const def = s.poss === 'them' && s.phase !== 'pat';
+    let t;
+    if (well || s.phase === 'pat' || (s.running && s.clock <= 20)) t = def ? E.defBot(s, r, 1) : E.bot(s, r, 1);
+    else if (def) t = E.tok.def(E.DEF_CALLS[Math.floor(r() * E.DEF_CALLS.length)]);
+    else { const c = E.candidates(s); t = c[Math.floor(r() * c.length)].token; }
+    if (!E.act(s, t)) { t = E.bot(s, r, 1); E.act(s, t); }
+    acts.push(t);
+  }
+  return acts.join(',');
 }
