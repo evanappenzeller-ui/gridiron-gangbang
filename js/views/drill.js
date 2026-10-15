@@ -1014,12 +1014,16 @@ function cardHTML(st, {i, art, name, tag, key, use, go, pick, on, label, form = 
     + `<span class="dr-card-art">${art}</span>`
     + `<span class="dr-card-f">${vs ? `<span class="dr-card-vs">${esc(vs)}</span>` : ''}<span>${esc(foot || `${use.calls} ${use.calls === 1 ? 'call' : 'calls'} | ${use.yds.toFixed(1)} avg yds`)}</span></span></button>`;
 }
+/** The snap's three pass plays; the picked one drawn with its routes as they stand (audibles and all), marked so. */
 function passCardsHTML(st) {
   const s = st.s, field = artOn(s);
   return (s.book || []).map((k, i) => {
     const P = E.PASS_PLAYS[k], key = PASS_KEY[k];
-    const label = `${P.name}, for ${s.mine.by[key].n}: ${E.TARGETS.map(slot => `${dr.lastName(s.mine.by[slot].n)} ${E.ROUTES[P.routes[slot]].name.toLowerCase()}`).join(', ')}`;
-    return cardHTML(st, {i, art: passArt(s.ball, P.routes, key, field), name: P.name, tag: 'Pass', key, use: usage(s, p => p.pp === k), pick: i, on: st.card === i, label, vs: field.vs});
+    const rs = st.card === i ? Object.assign({}, P.routes, st.routes) : P.routes;
+    const aud = E.TARGETS.some(slot => rs[slot] !== P.routes[slot]);
+    const label = `${P.name}${aud ? ' (audibled)' : ''}, for ${s.mine.by[key].n}: ${E.TARGETS.map(slot => `${dr.lastName(s.mine.by[slot].n)} ${E.ROUTES[rs[slot]].name.toLowerCase()}`).join(', ')}`;
+    return cardHTML(st, {i, art: passArt(s.ball, rs, key, field), name: P.name, tag: 'Pass', key, use: usage(s, p => p.pp === k), pick: i, on: st.card === i, label, vs: field.vs,
+      form: aud ? `${FORMATION} · Audible` : FORMATION});
   }).join('');
 }
 function runCardsHTML(st) {
@@ -1772,14 +1776,15 @@ function pickCard(st, i) {
   if (row) row.scrollIntoView({block: 'center', behavior: ui.RM ? 'auto' : 'smooth'});
   ui.announce(`${E.PASS_PLAYS[s.book[i]].name}, for ${s.mine.by[keyOf(st)].n}.`);
 }
-/** An audible: a receiver's new route, on the field and in his row (its throw, its pill; the menu stays, with its
- *  focus, so it isn't redrawn under the thumb). */
+/** An audible: a receiver's new route, on the field, on the picked play's card and in his row (its throw, its pill;
+ *  the menu stays, with its focus, so it isn't redrawn under the thumb). */
 function setRoute(st, slot, route) {
   if (st.busy || !E.ROUTES_FOR[slot] || !E.ROUTES_FOR[slot].includes(route)) return;
   st.routes[slot] = route;
   st.pick = slot;
   ui.haptic('selection');
   patchRoutes(st);
+  refreshCards(st);
   const li = st.el.querySelector(`[data-dr-rcvrow="${slot}"]`);
   if (li) {
     norm.innerHTML = receiverRowHTML(st, slot);
