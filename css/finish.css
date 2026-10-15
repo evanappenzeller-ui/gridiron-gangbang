@@ -55,7 +55,7 @@
 }
 
 /* Pixel art (the league, game and puzzle badges) stays pixel-sharp when it is scaled. */
-.pk-badge, .c-game-badge, img[src$="nfl.webp"], img[src$="ncaa.webp"], img[src$="puzzles.webp"], img[src$="seventeen.webp"] {
+.pk-badge, .c-game-badge, img[src$="nfl.webp"], img[src$="ncaa.webp"], img[src$="puzzles.webp"], img[src$="seventeen.webp"], img[src$="drill.webp"] {
   image-rendering: pixelated;
 }
 

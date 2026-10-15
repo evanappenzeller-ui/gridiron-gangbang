@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Draws the Daily Games switch badges, img/puzzles.webp and img/seventeen.webp (puzzles.js): pixel art on a 32x32
+"""Draws the Daily Games switch badges, img/puzzles.webp, img/seventeen.webp and img/drill.webp (puzzles.js): pixel art on a 32x32
 grid scaled x4 (nearest) to 128x128, like img/nfl.webp. Run: python3 tools/seventeen/badges.py (needs Pillow; then bump
 CACHE in sw.js)."""
 import os
@@ -49,4 +49,23 @@ for ch in '17-0':
     x0 += len(F[ch][0]) * 2 + 1
 d.rectangle((13, 1, 16, 4), fill=INK); d.rectangle((14, 2, 15, 4), fill=TRIM)                  # top light
 finish(im, 'seventeen')
-print('wrote img/puzzles.webp, img/seventeen.webp')
+
+# ---- Two-Minute Drill: a stopwatch, its last two minutes lit red, the hand on them, a button on top.
+im = Image.new('RGBA', (N, N), (0, 0, 0, 0)); d = ImageDraw.Draw(im)
+FACE, FACE_D, RED, RED_D, METAL = (240, 244, 255, 255), (178, 190, 222, 255), (255, 77, 77, 255), (170, 30, 40, 255), (150, 162, 192, 255)
+d.ellipse((4, 7, 31, 34), fill=(0, 0, 0, 140))                                                 # shadow
+d.rectangle((13, 1, 18, 4), fill=INK); d.rectangle((14, 2, 17, 4), fill=METAL)                 # crown
+d.rectangle((15, 4, 16, 6), fill=INK)
+d.rectangle((24, 5, 27, 8), fill=INK); d.rectangle((25, 6, 26, 7), fill=METAL)                 # side button
+d.ellipse((2, 5, 29, 32), fill=INK)                                                            # case
+d.ellipse((3, 6, 28, 31), fill=(255, 197, 49, 255))                                            # gold rim
+d.ellipse((5, 8, 26, 29), fill=FACE)                                                           # face
+d.pieslice((5, 8, 26, 29), -90, -30, fill=RED)                                                 # the last two minutes
+d.arc((5, 8, 26, 29), 120, 300, fill=FACE_D)                                                   # shading
+for a, (x, y) in enumerate([(15, 9), (24, 18), (15, 27), (6, 18)]):                            # ticks
+    d.point((x, y), fill=INK); d.point((x + 1, y), fill=INK)
+d.line((15, 18, 21, 11), fill=INK, width=2)                                                    # hand
+d.rectangle((14, 17, 16, 19), fill=RED_D)                                                      # hub
+d.point((9, 12), fill=(255, 255, 255, 255)); d.point((10, 11), fill=(255, 255, 255, 255))      # glint
+finish(im, 'drill')
+print('wrote img/puzzles.webp, img/seventeen.webp, img/drill.webp')

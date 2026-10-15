@@ -1628,6 +1628,16 @@ export async function runChecks() {
     check('17-0 checks (checks-seventeen.js) loaded', () => ({pass: false, detail: svErr ? 'did not load: ' + (svErr.message || svErr) : 'no seventeenChecks export'}));
   }
 
+  // Two-Minute Drill checks (js/core/checks-drill.js, owned by Drill: the teams, the days, the engine's rules, the
+  // scoreboard). Guarded the same way.
+  let drMod = null, drErr = null;
+  try { drMod = await import('./checks-drill.js'); } catch (e) { drErr = e; }
+  if (drMod && typeof drMod.drillChecks === 'function') {
+    try { await drMod.drillChecks(check); } catch (e) { check('Drill checks (checks-drill.js)', () => { throw e; }); }
+  } else {
+    check('Drill checks (checks-drill.js) loaded', () => ({pass: false, detail: drErr ? 'did not load: ' + (drErr.message || drErr) : 'no drillChecks export'}));
+  }
+
   await Promise.all(pending);
   return out;
 }

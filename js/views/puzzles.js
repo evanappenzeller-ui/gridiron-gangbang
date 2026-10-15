@@ -1,11 +1,13 @@
-// Daily Games tab root (tab id 'puzzles'; routes /puzzles and /puzzles/17-0; tabs-v4 contract
+// Daily Games tab root (tab id 'puzzles'; routes /puzzles, /puzzles/17-0 and /puzzles/drill; tabs-v4 contract
 // §3, replaces the Today hub): the large title (the date, "Daily Games", the streak pill and your avatar button from
-// you.js), then the game picker (Daily Puzzles · 17-0: route param game, the choice lands in the URL) over two panes.
+// you.js), then the game picker (Daily Puzzles · 17-0 · Two-Minute Drill: route param game, the choice lands in the
+// URL) over three panes.
 // Daily Puzzles: one hero card with one big Play button, then the league leaderboard. The hero has three states: not started ("Play"), started ("Continue", a thin progress bar with
 // one segment per puzzle, "1 of 3 done") and finished (the score ring, the grade, "See results" and "Share", the
 // midnight countdown). Play opens the run cover at the first unfinished puzzle. Works for every day version (three
 // puzzles on v1 and v4 days, five on v2 and v3): everything is driven by daily.STEPS.
-// 17-0: the pane module views/seventeen.js, imported the first time the picker (or a link) opens it.
+// 17-0 and the Two-Minute Drill: the pane modules views/seventeen.js and views/drill.js, each imported the first time
+// the picker (or a link) opens it.
 // Also exports badge() for the tab bar: today's puzzles aren't finished (and a 'gg:badge' event when that changes).
 // Owner: PUZZLES (tabs-v4).
 import * as ui from '../core/ui.js';
@@ -179,14 +181,18 @@ function cardHTML(k = heroKind()) {
 }
 
 // ============================================================================ The game picker
-// Two big scoreboard buttons with pixel badges, like Pick'em's NFL / NCAA switch (img/puzzles.webp, img/seventeen.webp:
-// tools/seventeen/badges.py); the game showing is lit like the field.
+// Big scoreboard buttons with pixel badges, like Pick'em's NFL / NCAA switch (img/puzzles.webp, img/seventeen.webp,
+// img/drill.webp: tools/seventeen/badges.py); the game showing is lit like the field.
 const GAMES = [
   {id: 'puzzles', label: 'Daily Puzzles', badge: 'img/puzzles.webp', sub: ['Daily', 'Puzzles']},
-  {id: '17-0', label: '17\u20130, build a $15 team', badge: 'img/seventeen.webp', sub: []}
+  {id: '17-0', label: '17\u20130, build a $15 team', badge: 'img/seventeen.webp', sub: []},
+  {id: 'drill', label: 'Two-Minute Drill', badge: 'img/drill.webp', sub: []}
 ];
-const gameOf = ctx => (ctx && ctx.params && ctx.params.game === '17-0' ? '17-0' : 'puzzles');
-const gamePath = g => (g === '17-0' ? '/puzzles/17-0' : '/puzzles');
+const gameOf = ctx => {
+  const g = ctx && ctx.params && ctx.params.game;
+  return g === '17-0' || g === 'drill' ? g : 'puzzles';
+};
+const gamePath = g => (g === '17-0' ? '/puzzles/17-0' : g === 'drill' ? '/puzzles/drill' : '/puzzles');
 let SV = null; // views/seventeen.js, once imported
 const loadSV = () => (SV ? Promise.resolve(SV) : import('./seventeen.js').then(m => (SV = m)));
 const svLoading = () => `<div class="sv-loading" aria-busy="true">${ui.skeleton('rows', 4, {label: 'Loading 17\u20130.'})}</div>`;
@@ -237,6 +243,40 @@ function showSV(st) {
     ui.hydrate(pane);
   });
 }
+let DR = null; // views/drill.js, once imported
+const loadDR = () => (DR ? Promise.resolve(DR) : import('./drill.js').then(m => (DR = m)));
+const drLoading = () => `<div class="dr-loading" aria-busy="true">${ui.skeleton('rows', 4, {label: 'Loading the Two-Minute Drill.'})}</div>`;
+// Like 17-0: a phone with a finished drive (or a Survivor best) posts it from any visit to this tab.
+let drSynced = false;
+function syncDrill() {
+  if (drSynced) return;
+  drSynced = true;
+  import('../core/drill.js')
+    .then(m => (m.totals().played || m.totals().best ? m.load().then(() => m.autoPost()) : null))
+    .catch(() => { drSynced = false; });
+}
+/** The Two-Minute Drill pane: like showSV. */
+function showDR(st) {
+  const pane = st.el.querySelector('.c-dr-pane');
+  if (!pane) return;
+  if (st.dr === 'on') { DR.params(pane, st.ctx); return; }
+  if (st.dr === 'loading') return;
+  st.dr = 'loading';
+  if (!pane.firstElementChild) pane.innerHTML = drLoading();
+  loadDR().then(() => {
+    if (HUB.get(st.ctx) !== st) return;
+    pane.innerHTML = DR.render(st.ctx);
+    DR.mount(pane, st.ctx, {anchor: st.el.querySelector('.c-games')});
+    ui.hydrate(pane);
+    st.dr = 'on';
+  }, err => {
+    console.error(err);
+    if (HUB.get(st.ctx) !== st) return;
+    st.dr = null;
+    pane.innerHTML = ui.empty({icon: 'football', title: 'The Two-Minute Drill didn\u2019t load.', action: {label: 'Try again', attrs: {'data-dr-load': ''}}});
+    ui.hydrate(pane);
+  });
+}
 /** Keep the picker on screen when the game changes while the page is scrolled far down. */
 function clampToPicker(st) {
   const scr = st.ctx.screen, pk = st.el.querySelector('.c-games');
@@ -246,14 +286,16 @@ function clampToPicker(st) {
   if (scr.scrollTop > max) scr.scrollTop = max;
 }
 function switchGame(st, g) {
-  const pz = st.el.querySelector('.c-pz-pane'), svp = st.el.querySelector('.c-sv-pane');
+  const pz = st.el.querySelector('.c-pz-pane'), svp = st.el.querySelector('.c-sv-pane'), drp = st.el.querySelector('.c-dr-pane');
   st.game = g;
   if (pz) pz.hidden = g !== 'puzzles';
   if (svp) svp.hidden = g !== '17-0';
+  if (drp) drp.hidden = g !== 'drill';
   clampToPicker(st);
-  const shown = g === '17-0' ? svp : pz;
+  const shown = g === '17-0' ? svp : g === 'drill' ? drp : pz;
   if (shown && st.ctx.visible && !ui.RM) ui.animate(shown, [{opacity: 0, transform: 'translateY(6px)'}, {opacity: 1, transform: 'none'}], {duration: 200, easing: 'cubic-bezier(.22,1,.36,1)'});
   if (g === '17-0') showSV(st);
+  else if (g === 'drill') showDR(st);
   else if (ready()) sync(st, false);
 }
 
@@ -416,7 +458,8 @@ function onClick(st, e) {
   // The 17-0 pane handles its own taps (views/seventeen.js), all but "Try again" after its import failed.
   const load = e.target.closest('[data-sv-load]');
   if (load) { showSV(st); return; }
-  if (e.target.closest('.c-sv-pane')) return;
+  if (e.target.closest('[data-dr-load]')) { showDR(st); return; }
+  if (e.target.closest('.c-sv-pane, .c-dr-pane')) return;
   const t = e.target.closest('[data-cta], [data-share], [data-streak], [data-retry], [data-cd-load]');
   if (!t || !st.el.contains(t)) return;
   const {ctx} = st;
@@ -485,17 +528,20 @@ export default {
       + `<div class="c-pz-pane"${g === 'puzzles' ? '' : ' hidden'}>`
       + `<div class="c-hero-wrap" data-key="hero" data-enter>${cardHTML()}</div>`
       + `<div class="c-board-host" data-key="board" data-enter></div></div>`
-      + `<div class="c-sv-pane sv-pane"${g === '17-0' ? '' : ' hidden'}>${g === '17-0' ? (SV ? SV.render(ctx) : svLoading()) : ''}</div>`;
+      + `<div class="c-sv-pane sv-pane"${g === '17-0' ? '' : ' hidden'}>${g === '17-0' ? (SV ? SV.render(ctx) : svLoading()) : ''}</div>`
+      + `<div class="c-dr-pane dr-pane"${g === 'drill' ? '' : ' hidden'}>${g === 'drill' ? (DR ? DR.render(ctx) : drLoading()) : ''}</div>`;
   },
 
   mount(el, ctx) {
     ensureDefs();
-    const st = {el, ctx, board: null, pending: false, cancelRing: null, retrying: false, game: gameOf(ctx), sv: null};
+    const st = {el, ctx, board: null, pending: false, cancelRing: null, retrying: false, game: gameOf(ctx), sv: null, dr: null};
     HUB.set(ctx, st);
     st.board = mountBoard(el.querySelector('.c-board-host'), {mode: 'today', ctx});
     el.addEventListener('click', e => onClick(st, e));
     if (st.game === '17-0') showSV(st);
+    if (st.game === 'drill') showDR(st);
     ui.whenIdle(syncSeventeen);
+    ui.whenIdle(syncDrill);
     ctx.on('daily', type => onDaily(st, type));
     ctx.timer(() => tickCd(st, ctx.visible), 20000);
     if (ready()) patchPill(st, false);
@@ -514,11 +560,13 @@ export default {
   update(ctx) {
     const st = HUB.get(ctx);
     if (!st) return;
-    // The picker (a tap, or a link to /puzzles/17-0): show that game; 17-0 shown again catches up with the day.
+    // The picker (a tap, or a link to /puzzles/17-0 or /puzzles/drill): show that game; shown again, it catches up
+    // with the day.
     const g = gameOf(ctx);
     patchPicker(st, g, ctx.visible);
     if (g !== st.game) switchGame(st, g);
     else if (g === '17-0') showSV(st);
+    else if (g === 'drill') showDR(st);
     if (ctx.reason !== 'params' && st.board) st.board.refresh({animate: false});
   },
 
@@ -528,6 +576,7 @@ export default {
     if (st.cancelRing) st.cancelRing();
     if (st.board) st.board.destroy();
     if (st.sv === 'on' && SV) SV.unmount(el.querySelector('.c-sv-pane'), ctx);
+    if (st.dr === 'on' && DR) DR.unmount(el.querySelector('.c-dr-pane'), ctx);
     HUB.delete(ctx);
   }
 };
