@@ -121,10 +121,11 @@ export async function drillChecks(check) {
     if (cut.plays.length !== 1) bad.push(`replay past a refused action: ${cut.plays.length} plays`);
     const a = E.replay(dr.scenario(3), dr.DOC.teams, 'p0go,rw+o'), b = E.replay(dr.scenario(3), dr.DOC.teams, 'p0go,rw+o');
     if (a.plays.length !== 2 || a.plays[1].kind !== b.plays[1].kind || a.plays[1].gain !== b.plays[1].gain || a.look !== b.look) bad.push('same calls, different results');
-    const toks = [E.tok.pass('WR2', 'dig', {a: true, o: true}), E.tok.pass('RB', 'wheel'), E.tok.run('w', true), E.tok.rpo('s'), E.tok.def('fire'), 'x', 'k', 't', 'f', 'e', 'n'];
+    const toks = [E.tok.pass('WR2', 'dig', {a: true, o: true, c: 2}), E.tok.pass('RB', 'wheel'), E.tok.run('w', true, 't'), E.tok.rpo('s', false, 'b'), E.tok.def('fire'), 'x', 'k', 't', 'f', 'e', 'n', E.tok.tricks('r'), E.tok.run('s')];
     const back = toks.map(t => E.parse(t));
-    if (back.some(x => !x) || back[0].slot !== 'WR2' || back[0].route !== 'dig' || !back[0].flags.a || !back[0].flags.o || back[0].flags.r || back[2].dir !== 'w' || !back[2].flags.o || back[4].call !== 'fire' || back[10].kind !== 'kneel') bad.push('tokens');
-    if (E.parse('p4go') || E.parse('p9dig') || E.parse('rx') || E.parse('x+q') || E.parse('dzz') || E.parse('dc2+o')) bad.push('bad tokens accepted');
+    if (back.some(x => !x) || back[0].slot !== 'WR2' || back[0].route !== 'dig' || !back[0].flags.a || !back[0].flags.o || back[0].flags.r || back[0].card !== 2 || back[1].card !== 0
+      || back[2].dir !== 'w' || !back[2].flags.o || back[2].play !== 't' || back[3].play !== 'b' || back[4].call !== 'fire' || back[5].play !== 'f' || back[10].kind !== 'kneel' || back[11].play !== 'r' || back[12].play !== 'z' || toks[12] !== 'rs') bad.push('tokens');
+    if (['p4go', 'p9dig', 'rx', 'x+q', 'dzz', 'dc2+o', 'rsz', 'oss', 'xf', 'xq', 'rsq', 'p0go+3', 'rs+1', 'xh+o'].some(t => E.parse(t))) bad.push('bad tokens accepted');
     return {pass: !bad.length, detail: bad.length ? bad.join('; ') : '20 games replayed exactly; tokens read back'};
   });
 
@@ -233,6 +234,32 @@ export async function drillChecks(check) {
     }
     if (dsc.length !== E.DEF_CALLS.length || !sorted(dsc) || dsc.some(x => E.parse(x.token).kind !== 'def')) bad.push(`defense scores: ${dsc.length}`);
     return {pass: !bad.length, detail: bad.length ? bad.slice(0, 6).join('; ') : `win chance ${Math.round(wp * 100)}% at the start of day 2; ${sc.length} options scored on offense, ${dsc.length} on defense`};
+  });
+
+  // 6c. The playbook
+  check('Drill: every play type offers three plays (three pass plays a snap from the playbook, every route one the receiver runs; three runs, RPOs and trick plays), each one callable, and a pass names its play', () => {
+    need();
+    const bad = [];
+    if ([E.RUNS, E.RPOS, E.TRICKS].some(b => Object.keys(b).length !== 3)) bad.push('three of each');
+    Object.entries(E.PASS_PLAYS).forEach(([k, P]) => { if (!P.name || E.TARGETS.some(slot => !E.ROUTES_FOR[slot].includes(P.routes[slot]))) bad.push(`play ${k}`); });
+    let snaps = 0, hail = 0;
+    for (let d = 1; d <= 20; d++) {
+      const g = E.start(dr.scenario(d), dr.DOC.teams);
+      for (let i = 0; i < 6 && !g.result && g.poss === 'us'; i++) {
+        snaps++;
+        if (!Array.isArray(g.book) || g.book.length !== 3 || new Set(g.book).size !== 3 || g.book.some(k => !E.PASS_PLAYS[k])) { bad.push(`day ${d}: the book`); break; }
+        if (g.book.includes('hail')) hail++;
+        const want = g.book[2], routes = E.PASS_PLAYS[want].routes;
+        if (JSON.stringify(g.routes) !== JSON.stringify(E.PASS_PLAYS[g.book[0]].routes)) bad.push(`day ${d}: routes drawn up`);
+        const plays = ['run', 'rpo'].flatMap(k => Object.keys(k === 'run' ? E.RUNS : E.RPOS).map(x => E.tok[k]('w', false, x))).concat(Object.keys(E.TRICKS).map(E.tok.tricks));
+        plays.forEach(t => { const f = E.replay(g.sc, dr.DOC.teams, E.actsOf(g)); if (!E.act(f, t)) bad.push(`day ${d}: ${t} refused`); });
+        const p = E.act(g, E.tok.pass('WR1', routes.WR1, {c: 2}));
+        if (!p || p.pp !== want || p.routes.TE !== routes.TE) { bad.push(`day ${d}: the pass play`); break; }
+      }
+    }
+    const late = E.start(Object.assign({}, dr.scenario(1), {t: 8, b: 40}), dr.DOC.teams);
+    if (!late.book.includes('hail')) bad.push('no Hail Mary with 0:08 left from your 40');
+    return {pass: !bad.length, detail: bad.length ? bad.slice(0, 6).join('; ') : `${Object.keys(E.PASS_PLAYS).length} pass plays; ${snaps} snaps each offered three; every run, RPO and trick callable`};
   });
 
   // 7. Their ball: your defense, their clock, the kneel

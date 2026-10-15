@@ -35,7 +35,7 @@ const ST = new WeakMap(); // ctx -> pane state
 
 // A home-screen app open across an update imports this module new under the stylesheet it started with: when
 // drill.css's mark (--dr-css on :root) isn't this module's, the current file is added (as in views/seventeen.js).
-const CSS_V = '3';
+const CSS_V = '4';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--dr-css').trim() === CSS_V || document.querySelector('link[data-dr-css]')) return;
@@ -338,7 +338,7 @@ function choreo(s, p) {
   const kind = p.two ? p.res : p.kind;
   const end = Math.max(-8, Math.min(108, L + (p.gain || 0)));
   const ballTr = [[0, MID, L]];
-  const isRun = kind === 'run' || (kind === 'fum' && p.who === 'RB');
+  const isRun = kind === 'run' || (kind === 'fum' && !!p.who);
   // The line: pass sets back, run drives forward; the front engages.
   OL.forEach(k => { const [x, y] = start['o-' + k]; add('o-' + k, isRun ? [0.25, x + 0.8 * dirSign(p.dir || 's'), y + 1.4] : [0.2, x, y - 1.1]); });
   D.front.forEach(k => {
@@ -361,14 +361,38 @@ function choreo(s, p) {
     return {tr, ball: ballTr, calls, dur: 2000, kick: true};
   }
   if (isRun) {
-    const sg = dirSign(p.dir || 's');
-    const holeX = MID + sg * 5;
+    const rk = p.trick === 'r' ? 'r' : p.rk || 'z';
+    const sg = rk === 'r' ? -1 : dirSign(p.dir || 's'); // the reverse always ends up weak
+    const carrier = 'o-' + (p.who || 'RB');
+    const holeX = rk === 't' ? MID + sg * 15 : rk === 'r' ? MID - 13 : MID + sg * 5;
     const fx = p.oob ? (sg > 0 ? WIDTH - 0.6 : 0.6) : clampX(holeX + sg * Math.min(12, Math.max(0, p.gain) * 0.35));
-    add('o-QB', [0.14, MID + sg * 0.8, qb0[1] + 0.6], [0.45, MID - sg * 2.5, qb0[1] - 1]);
-    add('o-RB', [0.14, MID + sg * 1.2, L - 4.8], [0.38, holeX, L + 0.8], [0.9, fx, end]);
-    ballTr.push([0.08, MID, qb0[1]], [0.14, MID + sg * 1.2, L - 4.8]);
-    tr['o-RB'].slice(2).forEach(k => ballTr.push(k));
-    if (p.broke) calls.push({t: 0.6, text: 'Broken tackle!', key: 'o-RB', cls: forO(true)});
+    if (rk === 't') {
+      // The toss: the QB pitches it wide and the back runs for the edge.
+      add('o-QB', [0.12, MID + sg, qb0[1] + 0.4], [0.45, MID - sg, qb0[1] - 0.5]);
+      add('o-RB', [0.17, MID + sg * 8, L - 5.2], [0.42, holeX, L + 0.5], [0.9, fx, end]);
+      ballTr.push([0.06, MID, qb0[1]], [0.17, MID + sg * 8, L - 5.2]);
+      tr['o-RB'].slice(2).forEach(k => ballTr.push(k));
+    } else if (rk === 'd') {
+      // The draw: the QB drops back like it's a pass, then hands it off late.
+      add('o-QB', [0.24, MID, L - 7.5], [0.34, MID - 0.6, L - 7.4], [0.6, MID - 2, L - 8]);
+      add('o-RB', [0.22, MID + 1.2, L - 6.6], [0.32, MID + 0.8, L - 6.8], [0.55, MID + sg * 1.5, L + 0.6], [0.92, fx, end]);
+      ballTr.push([0.1, MID, qb0[1]], [0.24, MID, L - 7.5], [0.32, MID + 0.8, L - 6.8]);
+      tr['o-RB'].slice(3).forEach(k => ballTr.push(k));
+    } else if (rk === 'r') {
+      // The double reverse: the back takes it one way and hands it to the receiver coming back the other.
+      const [wx, wy] = start[carrier];
+      add('o-RB', [0.16, MID + 5, L - 4.8], [0.32, MID + 9, L - 4.2], [0.55, MID + 11, L - 2.5]);
+      tr[carrier] = [[0, wx, wy], [0.3, MID + 8.6, L - 4.6], [0.35, MID + 8, L - 4.8], [0.62, holeX, L - 1], [0.92, fx, end]];
+      ballTr.push([0.08, MID, qb0[1]], [0.16, MID + 5, L - 4.8], [0.32, MID + 8.6, L - 4.6]);
+      tr[carrier].slice(2).forEach(k => ballTr.push(k));
+      calls.push({t: 0.36, text: 'Reverse!', x: MID + 8, y: L - 1.5});
+    } else {
+      add('o-QB', [0.14, MID + sg * 0.8, qb0[1] + 0.6], [0.45, MID - sg * 2.5, qb0[1] - 1]);
+      add('o-RB', [0.14, MID + sg * 1.2, L - 4.8], [0.38, holeX, L + 0.8], [0.9, fx, end]);
+      ballTr.push([0.08, MID, qb0[1]], [0.14, MID + sg * 1.2, L - 4.8]);
+      tr['o-RB'].slice(2).forEach(k => ballTr.push(k));
+    }
+    if (p.broke) calls.push({t: 0.6, text: 'Broken tackle!', key: carrier, cls: forO(true)});
     if (kind === 'fum') calls.push({t: 0.86, text: 'Fumble!', x: fx, y: end + 3, cls: forO(false)});
     // Linebackers and safeties flow to the ball; the tackler meets it.
     D.lbs.concat(['SS', 'FS', 'NB', 'LCB', 'RCB']).forEach(k => {
@@ -379,22 +403,29 @@ function choreo(s, p) {
     });
     if (p.by && D.front.includes(p.by)) add('d-' + p.by, [0.9, fx - 0.6, end + 0.8]);
     // Receivers block downfield a little.
-    E.TARGETS.filter(k => k !== 'RB').forEach(k => { const [x, y] = start['o-' + k]; add('o-' + k, [0.6, x + (MID - x) * 0.1, y + 5]); });
+    E.TARGETS.filter(k => k !== 'RB' && 'o-' + k !== carrier).forEach(k => { const [x, y] = start['o-' + k]; add('o-' + k, [0.6, x + (MID - x) * 0.1, y + 5]); });
     finishCalls(p, kind, calls, fx, end, forO);
     return {tr, ball: ballTr, calls, dur: 2300 + Math.min(900, Math.max(0, p.gain) * 25)};
   }
-  // Passes (and sacks, and the trick play).
+  // Passes (and sacks, the RPO's throw, the flea flicker and the halfback pass).
   const routes = Object.assign({}, p.routes || {});
   if (a.kind === 'pass') routes[a.slot] = a.route;
   const target = p.who || (a.kind === 'pass' ? a.slot : 'WR1');
-  const routeOf = k => (p.trick && k === target ? 'go' : (p.read === 'pass' && k === 'WR3') ? 'slant' : routes[k] || 'go');
+  const routeOf = k => (p.trick && k === target ? 'go' : (p.read === 'pass' && k === target) ? p.route : routes[k] || 'go');
   const roll = flags.r ? (start['o-' + target][0] >= MID ? 1 : -1) : 0;
-  const qbSpot = [MID + roll * 8, L - 7.2];
+  const hb = p.trick === 'h';
+  const passer = hb ? 'o-RB' : 'o-QB';
+  const qbSpot = hb ? [MID + 12, L - 3.5] : [MID + roll * 8, L - 7.2];
   const R = E.ROUTES[routeOf(target)] || E.ROUTES.go;
-  const tThrow = p.trick ? 0.48 : Math.min(0.55, Math.max(0.3, 0.22 + R.time * 0.09));
+  const tThrow = p.trick ? 0.5 : Math.min(0.55, Math.max(0.3, 0.22 + R.time * 0.09));
   const air = p.air != null ? p.air : R.depth;
   const tCatch = Math.min(0.82, tThrow + Math.min(0.3, Math.max(0.08, Math.abs(air) / 70)));
-  if (p.trick) {
+  if (hb) {
+    // The halfback pass: the pitch, the back heads for the edge like a sweep, then pulls up and throws.
+    add('o-RB', [0.16, MID + 9, L - 5], [0.42, qbSpot[0], qbSpot[1]]);
+    add('o-QB', [0.12, MID + 1, qb0[1] + 0.4], [0.5, MID + 3, qb0[1] + 1.5]);
+    ballTr.push([0.06, MID, qb0[1]], [0.16, MID + 9, L - 5], [0.42, qbSpot[0], qbSpot[1]]);
+  } else if (p.trick) {
     // The flea flicker: a handoff, the pitch back, then deep.
     add('o-RB', [0.14, MID + 1, L - 4.8], [0.3, MID + 1.5, L - 2.5], [0.6, MID + 3, L + 2]);
     add('o-QB', [0.12, MID, L - 5.5], [0.3, MID - 0.5, L - 7]);
@@ -420,7 +451,7 @@ function choreo(s, p) {
   if (kind === 'sack' || kind === 'fum') {
     const tSack = 0.46;
     const sx = qbSpot[0], sy = Math.max(-8, L + (p.gain || -6));
-    add('o-QB', [tSack, sx, qbSpot[1]], [tSack + 0.12, sx, sy]);
+    add(passer, [tSack, sx, qbSpot[1]], [tSack + 0.12, sx, sy]);
     ballTr.push([tSack, sx, qbSpot[1]], [tSack + 0.12, sx, sy]);
     if (p.by) add('d-' + p.by, [tSack, sx + 0.8, qbSpot[1] + 0.6], [tSack + 0.12, sx + 0.6, sy + 0.4]);
     calls.push({t: tSack + 0.04, text: kind === 'fum' ? 'Fumble!' : 'Sack!', x: sx, y: qbSpot[1] + 2.5, cls: forO(false)});
@@ -637,14 +668,16 @@ function headRow(title, s, back) {
     + (back ? `<button type="button" class="dr-back" data-dr-back aria-label="Back">${ui.icon('chevron-left', {size: 18})}</button>` : '')
     + `<h3 class="dr-call-t" id="dr-call-t">${esc(title)}</h3><p class="dr-call-s">${esc(where)}</p></div>`;
 }
-const CALL_TILES = [['run', 'Run', 'Pick a side'], ['pass', 'Pass', 'Pick a receiver'], ['rpo', 'RPO', 'The QB reads the box'], ['trick', 'Trick play', 'Flea flicker, once a game']];
+/** The four play types, each with its three plays (a pass's are the snap's s.book). */
+const CALL_TILES = [['run', 'Run'], ['pass', 'Pass'], ['rpo', 'RPO'], ['trick', 'Trick play']];
 function mainHTML(st) {
   const s = st.s, o = E.options(s);
   const pat = s.phase === 'pat';
-  const calls = CALL_TILES.map(([k, l, sub]) => {
+  const subs = {run: 'Zone · Toss · Draw', pass: (s.book || []).map(k => E.PASS_PLAYS[k].name).join(' · '), rpo: 'Slant · Bubble · Seam', trick: 'Flea Flicker · HB Pass · Reverse'};
+  const calls = CALL_TILES.map(([k, l]) => {
     const off = k === 'trick' && !s.trick;
-    return `<button type="button" class="dr-tile" ${k === 'trick' ? `data-dr-go="${E.tok.trick}"` : `data-dr-menu="${k}"`}${off ? ' disabled' : ''}>`
-      + `<b>${esc(l)}</b><small>${esc(off ? 'Used' : sub)}</small></button>`;
+    return `<button type="button" class="dr-tile" data-dr-menu="${k}"${off ? ' disabled' : ''}>`
+      + `<b>${esc(l)}</b><small>${esc(off ? 'Used: one a game' : subs[k])}</small></button>`;
   }).join('');
   const fg = o.fg ? `<button type="button" class="dr-fg" data-dr-go="${E.tok.fg}"><span class="dr-fg-tx"><b>Field goal</b><small>${esc(`${o.fg.dist} yards`)}</small></span><span class="dr-fg-p">${pct(o.fg.p)}<small>to make</small></span></button>` : '';
   let kick = '';
@@ -689,12 +722,77 @@ function defenseHTML(st) {
     + `<p class="dr-hint">Call a coverage. Their play is set at the snap from the formation and the situation, whatever you call.</p>`
     + `<div class="dr-dcs">${cards}</div>` + tools + warn + `</section>`;
 }
+// ---------------------------------------------------------------------------- Play cards
+// Three plays of each type, each drawn like a playbook page: the line, the skill players and every route in its own
+// colour, in field yards across (0-53.3) and from the line of scrimmage (9 behind to 24 past it).
+const ART_TOP = 24, ART_H = 33;
+const RCOL = {WR1: '#FFD60A', WR2: '#FF6B6B', WR3: '#5AC8FA', TE: '#34C759', RB: '#C084FC'};
+const ax = x => x.toFixed(1), ay = y => (ART_TOP - y).toFixed(1);
+function artLine(path, col, {dash = false, end = true} = {}) {
+  const [x, y] = path[path.length - 1];
+  return `<polyline points="${path.map(([px, py]) => `${ax(px)},${ay(py)}`).join(' ')}" fill="none" stroke="${col}" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"${dash ? ' stroke-dasharray="1.5 1.8"' : ''}/>`
+    + (end ? `<circle cx="${ax(x)}" cy="${ay(y)}" r="1.2" fill="${col}"/>` : '');
+}
+function artSVG(inner) {
+  let h = `<line x1="0" y1="${ay(0)}" x2="${WIDTH}" y2="${ay(0)}" stroke="rgba(255,255,255,.3)" stroke-width=".6"/>`;
+  Object.keys(OFF_POS).forEach(k => {
+    const [x, y] = OFF_POS[k], ol = OL.includes(k);
+    h += `<circle cx="${ax(x)}" cy="${ay(y)}" r="${ol ? 1.35 : 1.75}" fill="${ol ? 'rgba(255,255,255,.42)' : '#fff'}"/>`;
+  });
+  return `<svg class="dr-art" viewBox="0 0 ${WIDTH} ${ART_H}" preserveAspectRatio="xMidYMid meet" aria-hidden="true">${h}${inner}</svg>`;
+}
+const routeLine = (slot, route) => artLine(routePath(route, OFF_POS[slot][0], OFF_POS[slot][1]), RCOL[slot]);
+const passArt = routes => artSVG(E.TARGETS.map(k => routeLine(k, routes[k])).join(''));
+/** The back's path on a run (RUNS) to a side. */
+function runPath(play, dir) {
+  const sg = dirSign(dir), rb = OFF_POS.RB;
+  if (play === 't') return [rb, [MID + sg * 9, -5], [MID + sg * 16, -1.5], [MID + sg * 18, 10]];
+  if (play === 'd') return [rb, [MID + 1.5, -6.8], [MID + sg * 1.2, 0], [MID + sg * 1.5, 12]];
+  return [rb, [MID + sg * 2, -2], [MID + sg * 4, 3], [MID + sg * 5, 12]];
+}
+function runArt(play, dir) {
+  let h = '';
+  if (play === 't') h += artLine([OFF_POS.QB, [MID + dirSign(dir) * 9, -5]], 'rgba(255,255,255,.75)', {dash: true, end: false});
+  if (play === 'd') h += artLine([OFF_POS.QB, [MID, -8.4]], 'rgba(255,255,255,.75)', {dash: true, end: false});
+  return artSVG(h + artLine(runPath(play, dir), RCOL.WR1));
+}
+const rpoArt = (play, dir) => artSVG(artLine(runPath('z', dir), RCOL.WR1) + routeLine(E.RPOS[play].slot, E.RPOS[play].route).replace('stroke-width="1.4"', 'stroke-width="1.4" stroke-dasharray="1.5 1.8"'));
+function trickArt(play) {
+  const W1 = OFF_POS.WR1, rb = OFF_POS.RB;
+  if (play === 'r') return artSVG(artLine([rb, [MID + 5, -4.8], [MID + 9, -5.6]], RCOL.RB, {end: false})
+    + artLine([W1, [MID + 4, -2.6], [MID + 9.5, -6], [MID - 6, -7.4], [MID - 14, -2.5], [MID - 17, 12]], RCOL.WR1));
+  if (play === 'h') return artSVG(artLine([OFF_POS.QB, [MID + 9, -5]], 'rgba(255,255,255,.75)', {dash: true, end: false})
+    + artLine([rb, [MID + 9, -5], [MID + 12, -3.5]], RCOL.RB, {end: false}) + routeLine('WR2', 'go') + routeLine('WR1', 'go') + routeLine('TE', 'seam'));
+  return artSVG(artLine([rb, [MID + 2, -2]], RCOL.RB, {end: false}) + artLine([[MID + 2, -2], [MID - 0.5, -7.5]], 'rgba(255,255,255,.75)', {dash: true, end: false})
+    + routeLine('WR1', 'go') + routeLine('WR2', 'go') + routeLine('WR3', 'seam'));
+}
+/** A play card: its art, its name and what it does. go: the action it calls; else pick: the pass play it selects. */
+function cardHTML({art, name, what, go, pick, on, label}) {
+  const at = go ? `data-dr-go="${go}"` : `data-dr-card="${pick}" aria-pressed="${!!on}"`;
+  return `<button type="button" class="dr-card${on ? ' is-on' : ''}" ${at} aria-label="${esc(label || name)}">${art}<b>${esc(name)}</b>${what ? `<small>${esc(what)}</small>` : ''}</button>`;
+}
+function passCardsHTML(st) {
+  const s = st.s;
+  return (s.book || []).map((k, i) => {
+    const P = E.PASS_PLAYS[k];
+    const label = `${P.name}: ${E.TARGETS.map(slot => `${dr.lastName(s.mine.by[slot].n)} ${E.ROUTES[P.routes[slot]].name.toLowerCase()}`).join(', ')}`;
+    return cardHTML({art: passArt(P.routes), name: P.name, pick: i, on: st.card === i, label});
+  }).join('');
+}
+function runCardsHTML(st) {
+  const kind = st.panel, book = kind === 'rpo' ? E.RPOS : E.RUNS, mk = kind === 'rpo' ? E.tok.rpo : E.tok.run;
+  const side = st.side === 'w' ? 'weak' : 'strong';
+  return Object.keys(book).map(k => cardHTML({art: kind === 'rpo' ? rpoArt(k, st.side) : runArt(k, st.side), name: book[k].name, what: book[k].what,
+    go: mk(st.side, st.runOob, k), label: `${book[k].name} to the ${side} side: ${book[k].what}`})).join('');
+}
+const trickCardsHTML = () => Object.keys(E.TRICKS).map(k => cardHTML({art: trickArt(k), name: E.TRICKS[k].name, what: E.TRICKS[k].what, go: E.tok.tricks(k)})).join('');
+
 const FLAG_INFO = [['a', 'Play action'], ['r', 'Roll out'], ['o', 'Out of bounds']];
 function receiverRowHTML(st, slot) {
   const s = st.s, p = s.mine.by[slot], route = st.routes[slot];
   const od = E.odds(s, slot, route, st.flags);
   const stat = `${pct(od.caught)} caught · ${od.ypt.toFixed(1)} yds a throw${od.picked >= 0.03 ? ` · ${pct(od.picked)} picked` : ''}`;
-  return `<li class="dr-rcv"><button type="button" class="dr-rcv-go" data-dr-go="${E.tok.pass(slot, route, st.flags)}" aria-label="${esc(`Throw to ${p.n}, ${E.ROUTES[route].name}: ${stat}`)}">`
+  return `<li class="dr-rcv"><button type="button" class="dr-rcv-go" data-dr-go="${E.tok.pass(slot, route, Object.assign({}, st.flags, {c: st.card}))}" aria-label="${esc(`Throw to ${p.n}, ${E.ROUTES[route].name}: ${stat}`)}">`
     + `<span class="dr-rcv-pos" style="--rc:${ratingColor(p.r)}">${esc(dr.posOf(slot))}</span><span class="dr-rcv-id"><b>${esc(dr.short(p.n))}</b></span>`
     + `<span class="dr-rcv-st">${esc(stat)}</span></button>`
     + `<button type="button" class="dr-rcv-rt" data-dr-route="${slot}" aria-label="${esc(`${p.n}'s route: ${E.ROUTES[route].name}. Change it.`)}">${esc(E.ROUTES[route].name)}${ui.icon('chevron-down', {size: 12})}</button></li>`;
@@ -703,19 +801,27 @@ function passHTML(st) {
   const s = st.s;
   const chips = FLAG_INFO.map(([k, l]) => `<button type="button" class="dr-toggle" data-dr-flag="${k}" aria-pressed="${!!st.flags[k]}">${esc(l)}</button>`).join('');
   return `<section class="dr-call" aria-labelledby="dr-call-t">${headRow(s.phase === 'pat' ? 'Two-point pass' : 'Pass', s, true)}${lookHTML(s)}`
-    + `<p class="dr-hint">Tap a receiver on the field (or his route) to change it. Tap a name to throw it to him.</p>`
+    + `<div class="dr-cards" role="group" aria-label="Pass plays" data-dr-cards>${passCardsHTML(st)}</div>`
+    + `<p class="dr-hint">Pick a play, then a receiver to throw to. Tap a receiver on the field (or his route) to change his route.</p>`
     + `<div class="dr-flags" role="group" aria-label="Options">${chips}</div>`
     + `<ol class="dr-rcvs" data-dr-rcvs>${E.TARGETS.map(slot => receiverRowHTML(st, slot)).join('')}</ol></section>`;
 }
 function runHTML(st, kind) {
-  const s = st.s, mk = kind === 'run' ? E.tok.run : E.tok.rpo;
+  const s = st.s;
   const title = (s.phase === 'pat' ? 'Two-point ' : '') + (kind === 'run' ? 'run' : 'RPO');
-  const sub = kind === 'rpo' ? '<p class="dr-hint">Your QB reads the box: against a crowd he throws a quick slant, against a light box he hands it off.</p>' : '';
-  return `<section class="dr-call" aria-labelledby="dr-call-t">${headRow(title.charAt(0).toUpperCase() + title.slice(1), s, true)}${lookHTML(s)}${sub}`
-    + `<div class="dr-dirs"><button type="button" class="dr-tile is-dir" data-dr-go="${mk('w', st.runOob)}"><b>← Weak</b><small>Away from the tight end</small></button>`
-    + `<button type="button" class="dr-tile is-dir" data-dr-go="${mk('s', st.runOob)}"><b>Strong →</b><small>Behind the tight end</small></button></div>`
+  const sides = [['w', '◀ Weak side'], ['s', 'Strong side ▶']].map(([d, l]) => `<button type="button" class="dr-side" data-dr-side="${d}" aria-pressed="${st.side === d}">${l}</button>`).join('');
+  const hint = `Their front leans to the ${s.shade === 's' ? 'strong' : 'weak'} side.${kind === 'rpo' ? ' Your QB reads the box: crowded, he throws it; light, he hands it off.' : ''}`;
+  return `<section class="dr-call" aria-labelledby="dr-call-t">${headRow(title.charAt(0).toUpperCase() + title.slice(1), s, true)}${lookHTML(s)}`
+    + `<div class="dr-sides" role="group" aria-label="Which side">${sides}</div><p class="dr-hint">${esc(hint)}</p>`
+    + `<div class="dr-cards" role="group" aria-label="${kind === 'run' ? 'Runs' : 'RPOs'}" data-dr-cards>${runCardsHTML(st)}</div>`
     + `<div class="dr-oob"><span class="dr-oob-tx"><b>Get out of bounds</b><small>The ball carrier tries to stop the clock. No guarantee.</small></span>${ui.switchCtl({name: 'dr-oob', checked: st.runOob, label: 'Get out of bounds'})}</div>`
     + `</section>`;
+}
+function trickHTML(st) {
+  const s = st.s;
+  return `<section class="dr-call" aria-labelledby="dr-call-t">${headRow(s.phase === 'pat' ? 'Two-point trick' : 'Trick play', s, true)}${lookHTML(s)}`
+    + `<p class="dr-hint">One a game. Each fools a different defense: the aggressive ones bite.</p>`
+    + `<div class="dr-cards" role="group" aria-label="Trick plays" data-dr-cards>${trickCardsHTML()}</div></section>`;
 }
 function snapHTML() {
   return `<section class="dr-snap" aria-live="polite"><p class="dr-snap-t"><i class="dr-dot"></i>Live</p><p class="dr-snap-s">Tap the field to skip</p></section>`;
@@ -728,6 +834,7 @@ function panelHTML(st) {
   if (s.poss === 'them' && s.phase !== 'pat') return bd + defenseHTML(st);
   if (st.panel === 'pass') return bd + passHTML(st);
   if (st.panel === 'run' || st.panel === 'rpo') return bd + runHTML(st, st.panel);
+  if (st.panel === 'trick' && s.trick) return bd + trickHTML(st);
   return bd + mainHTML(st);
 }
 
@@ -770,7 +877,7 @@ function logItemHTML(s, p) {
     : p.auto ? `${team} · ${dr.clockText(p.clock)}` : `${team} · ${dr.downText(p.down, p.togo, p.ball)} · ${dr.spot(s, p.ball, p.poss)} · ${dr.clockText(p.clock)}`;
   let what = '';
   if (p.poss === 'them' && p.dcall) what = `Your call: ${E.CALLS[p.dcall].name}${E.FORMS[p.form] ? ` vs ${E.FORMS[p.form].name.toLowerCase()}` : ''}`;
-  else if (p.act && p.kind !== 'timeout') what = dr.tokenLabel(s, p.act) + (p.look && !['timeout', 'kick', 'spike', 'fg', 'kneel'].includes(p.call) ? ` vs ${E.LOOKS[p.look].name.toLowerCase()}` : '');
+  else if (p.act && p.kind !== 'timeout') what = dr.tokenLabel(s, p.act, p) + (p.look && !['timeout', 'kick', 'spike', 'fg', 'kneel'].includes(p.call) ? ` vs ${E.LOOKS[p.look].name.toLowerCase()}` : '');
   return `<li class="dr-lg is-${t.tone}${p.poss === 'them' ? ' is-them' : ''}"><span class="dr-lg-ic" aria-hidden="true">${ui.icon(TONE_IC[t.tone] || 'chevron-right', {size: 14})}</span>`
     + `<span class="dr-lg-b"><small class="dr-lg-pre">${esc(pre)}</small><b class="dr-lg-h">${esc(t.line)}</b>`
     + (what ? `<small class="dr-lg-sub">${esc(what)}</small>` : '') + `</span></li>`;
@@ -930,7 +1037,8 @@ function openHelp() {
     + `<p><b>You’re down late, and you have the ball.</b> One game a day, the same for everyone, from a real matchup on this week’s NFL slate with each team’s current starters. The game runs to 0:00 and the final score is the result: a win, a tie (overtime) or a loss. Every call counts as soon as you make it: there are no do-overs.</p>`
     + `<p><b>Score too early and they get it back.</b> After your score they get the ball at their 25 and you call the defense. They can answer, and if there’s time you get it back. Lead with the ball late and you can take a knee to end it.</p>`
     + `<p><b>Read the defense.</b> Before each snap the defense shows a look, and at the snap it plays a real call that look usually hides. A <b>light box</b> is mostly two- and four-deep zones: deep shots and outs get eaten, the middle opens up. A <b>loaded box</b> is a run blitz or man to man: don’t run into it, and play action fools it. A <b>blitz look</b> means pressure: get it out quick. A <b>two-high shell</b> takes away the deep ball and the sideline. <b>Prevent</b> gives up the short stuff and keeps the clock running. The line on the field leans to one side: run away from it.</p>`
-    + `<p><b>Passing.</b> Each receiver runs a route, drawn on the field; tap one there to change it. The numbers next to each name are what a throw to him tends to do against this look: how often it’s caught, the yards a throw, and how often it’s picked. Play action fools an aggressive defense and costs time against a patient one; a roll out beats the rush but cuts off the middle; out of bounds stops the clock and gives up the yards after the catch.</p>`
+    + `<p><b>Call a play.</b> Like a playbook: pick Run, Pass, RPO or Trick play, then one of its three plays. Runs: <b>Inside Zone</b> (steady), <b>HB Toss</b> (outside: boom or bust, and the best way to the sideline) and <b>HB Draw</b> (eats up a blitz or a soft prevent, dies against a run blitz), to the strong or weak side. RPOs hand it off against a light box and throw it against a crowded one: a slant, a bubble or a seam. Trick plays (one a game): the <b>Flea Flicker</b> and the <b>HB Pass</b> go deep, the <b>Double Reverse</b> is a run the other way, with no interception risk.</p>`
+    + `<p><b>Passing.</b> Each snap offers three pass plays; pick one and its routes go up on the field (tap a receiver there to change his route), then pick who gets the ball. The numbers next to each name are what a throw to him tends to do against this look: how often it’s caught, the yards a throw, and how often it’s picked. Play action fools an aggressive defense and costs time against a patient one; a roll out beats the rush but cuts off the middle; out of bounds stops the clock and gives up the yards after the catch.</p>`
     + `<p><b>On defense</b> you see their formation (a heavy set usually runs, an empty backfield almost always throws) and pick a call. Zones keep the ball in front of you, man and blitzes gamble for a sack or a stop, and prevent gives up the short stuff to save the end zone. Their clock is theirs to manage: ahead, they let it run; behind, they hurry.</p>`
     + `<p><b>The players matter.</b> Every dot is a real starter, coloured by his rating; yours are ringed in white. Man coverage is one-on-one, so a great receiver against a weak corner wins; the lines decide the sacks. Tap Player ratings to scout.</p>`
     + `<p><b>The clock.</b> A run, a sack or a catch in bounds keeps it running, and the next snap takes ${E.HURRY} seconds to get off (${E.MILK} when the team ahead lets it run). Incompletions, going out of bounds, timeouts, spikes and changes of possession stop it. Down one or two after a touchdown, you choose: kick, or go for two.</p>`
@@ -985,7 +1093,8 @@ async function scoreLast(st, sBefore, p) {
   if (['timeout', 'expired'].includes(p.kind)) return;
   L.scoring = true;
   patchBreakdown(st);
-  const list = E.defaultOptions(sBefore, p.routes || sBefore.routes);
+  const card = p.pp && sBefore.book ? Math.max(0, sBefore.book.indexOf(p.pp)) : 0;
+  const list = E.defaultOptions(sBefore, p.pp ? p.routes : null, card);
   if (!list.includes(p.act)) list.push(p.act);
   const scores = [];
   for (const t of list) {
@@ -1061,6 +1170,8 @@ function finishPlay(st, p) {
   if (st.dead) return;
   const s = st.s;
   st.routes = Object.assign({}, s.routes || {});
+  st.card = 0;
+  st.side = 's';
   patchField(st);
   const bug = st.el.querySelector('[data-dr-bug]');
   if (bug) bug.outerHTML = bugHTML(s);
@@ -1114,6 +1225,8 @@ function setDaily(st) {
   st.pick = null;
   st.flags = {};
   st.runOob = false;
+  st.card = 0;
+  st.side = 's';
   st.routes = st.s && st.s.routes ? Object.assign({}, st.s.routes) : {};
   if (st.s && !st.s.result && st.el && st.wp) st.timers.push(setTimeout(() => wpNow(st, st.s), 400));
 }
@@ -1140,6 +1253,27 @@ function openMenu(st, k) {
   const first = st.el.querySelector(k === 'main' ? '[data-dr-panel] .dr-tiles button' : '[data-dr-panel] [data-dr-back]');
   if (first) { try { first.focus({preventScroll: true}); } catch (_) {} }
 }
+/** Redraws the open menu's play cards (a side flipped, the sideline switch, a pass play picked). */
+function refreshCards(st) {
+  const host = st.el.querySelector('[data-dr-cards]');
+  if (!host) return;
+  host.innerHTML = st.panel === 'pass' ? passCardsHTML(st) : st.panel === 'trick' ? trickCardsHTML() : runCardsHTML(st);
+  ui.hydrate(host);
+}
+/** Picks one of the snap's three pass plays: its routes go up on the field (any route changes start over). */
+function pickCard(st, i) {
+  const s = st.s;
+  if (!s.book || !s.book[i] || st.busy) return;
+  st.card = i;
+  st.routes = Object.assign({}, E.PASS_PLAYS[s.book[i]].routes);
+  st.pick = null;
+  ui.haptic('selection');
+  refreshCards(st);
+  patchRoutes(st);
+  const rows = st.el.querySelector('[data-dr-rcvs]');
+  if (rows) { rows.innerHTML = E.TARGETS.map(k => receiverRowHTML(st, k)).join(''); ui.hydrate(rows); }
+  ui.announce(`${E.PASS_PLAYS[s.book[i]].name}.`);
+}
 function cycleRoute(st, slot) {
   const list = E.ROUTES_FOR[slot];
   const i = list.indexOf(st.routes[slot]);
@@ -1156,11 +1290,19 @@ function onClick(st, e) {
   if (st.busy && st.anim && e.target.closest('[data-dr-field]')) return; // the field's own skip handler
   const rcv = routesOn(st) && e.target.closest('[data-dr-rcv]');
   if (rcv && st.el.contains(rcv)) { cycleRoute(st, rcv.dataset.drRcv); return; }
-  const t = e.target.closest('[data-dr-go], [data-dr-menu], [data-dr-back], [data-dr-flag], [data-dr-route], [data-dr-replay], [data-dr-ratings], [data-dr-help], [data-dr-share], [data-dr-retry], [data-dr-who]');
+  const t = e.target.closest('[data-dr-go], [data-dr-menu], [data-dr-back], [data-dr-card], [data-dr-side], [data-dr-flag], [data-dr-route], [data-dr-replay], [data-dr-ratings], [data-dr-help], [data-dr-share], [data-dr-retry], [data-dr-who]');
   if (!t || !st.el.contains(t) || t.disabled) return;
   if (t.hasAttribute('data-dr-go')) { go(st, t.dataset.drGo); return; }
   if (t.hasAttribute('data-dr-menu')) { openMenu(st, t.dataset.drMenu); return; }
   if (t.hasAttribute('data-dr-back')) { openMenu(st, 'main'); return; }
+  if (t.hasAttribute('data-dr-card')) { pickCard(st, Number(t.dataset.drCard)); return; }
+  if (t.hasAttribute('data-dr-side')) {
+    st.side = t.dataset.drSide === 'w' ? 'w' : 's';
+    ui.haptic('selection');
+    st.el.querySelectorAll('[data-dr-side]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.drSide === st.side)));
+    refreshCards(st);
+    return;
+  }
   if (t.hasAttribute('data-dr-flag')) {
     const k = t.dataset.drFlag;
     st.flags = Object.assign({}, st.flags, {[k]: !st.flags[k]});
@@ -1210,14 +1352,14 @@ export function render(ctx) {
   const st = ST.get(ctx);
   if (st) return bodyHTML(st);
   if (!dr.DOC) return loadingHTML();
-  const tmp = {panel: 'main', flags: {}, routes: {}, timers: [], rp: new Map()};
+  const tmp = {panel: 'main', flags: {}, routes: {}, card: 0, side: 's', timers: [], rp: new Map()};
   setDaily(tmp);
   return bodyHTML(tmp);
 }
 
 export function mount(el, ctx, {anchor} = {}) {
   ensureCss();
-  const st = {el, ctx, anchor: anchor || null, n: 0, s: null, panel: 'main', flags: {}, runOob: false, routes: {}, pick: null,
+  const st = {el, ctx, anchor: anchor || null, n: 0, s: null, panel: 'main', flags: {}, runOob: false, routes: {}, pick: null, card: 0, side: 's',
     last: null, busy: false, dead: false, timers: [], cancelBoard: null, anim: null, wp: new Map(), rp: new Map(), pbpOpen: false};
   ST.set(ctx, st);
   st.onClick = e => onClick(st, e);
@@ -1227,9 +1369,7 @@ export function mount(el, ctx, {anchor} = {}) {
     if (!e.detail || e.detail.name !== 'dr-oob') return;
     e.stopPropagation();
     st.runOob = !!e.detail.value;
-    const panel = st.el.querySelector('[data-dr-panel]');
-    const k = st.panel === 'rpo' ? E.tok.rpo : E.tok.run;
-    if (panel) panel.querySelectorAll('.dr-dirs [data-dr-go]').forEach((b, i) => { b.dataset.drGo = k(i ? 's' : 'w', st.runOob); });
+    refreshCards(st);
   };
   el.addEventListener('click', st.onClick);
   el.addEventListener('keydown', st.onKey);
