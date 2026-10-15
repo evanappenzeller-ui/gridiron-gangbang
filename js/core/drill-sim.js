@@ -381,18 +381,33 @@ export function odds(s, slot, route, f = {}) {
   return {caught, ypt, picked};
 }
 
-function whoDef(r, s, pool) {
-  const d = s.U.d;
-  return pickW(r, pool.map(slot => [slot, 0.6 + Math.max(0, c(d.by[slot].r) + 1)]));
+/** The look a defense lines up in for a call (yours, on their snaps; on yours, the look it showed you). */
+export const CALL_LOOK = {c2: 'two', c4: 'two', c3: 'light', pv: 'prevent', c1: 'box', rb: 'box', c0: 'blitz', fire: 'blitz'};
+/** The man a look leaves off the field: base personnel against the loaded box (no nickel back), nickel otherwise (the
+ *  4-3's strong-side linebacker or the 3-4's second inside linebacker comes off). */
+export const sitsOut = (T, look) => (look === 'box' ? 'NB' : T.s === '34' ? 'RILB' : 'SLB');
+/** A defender on the field for a look: the man himself, or the one who came on for him (the nickel back and the extra
+ *  linebacker trade places), so a tackle or a coverage is always someone who's out there. */
+export function fielded(T, look, slot) {
+  const off = sitsOut(T, look);
+  return slot !== off ? slot : off === 'NB' ? (T.s === '34' ? 'RILB' : 'SLB') : 'NB';
+}
+/** The look on the field at this snap: the one shown you on yours, your call's on theirs. */
+const lookNow = (s, call) => (s.poss === 'us' ? s.look || 'two' : CALL_LOOK[call] || 'two');
+/** Who makes the play from a pool of defenders, by their ratings: only men on the field for this snap (one draw of the
+ *  dice whatever the pool, so who it is never changes what happens). */
+function whoDef(r, s, pool, call) {
+  const d = s.U.d, off = sitsOut(d.T, lookNow(s, call));
+  return pickW(r, pool.filter(slot => slot !== off).map(slot => [slot, 0.6 + Math.max(0, c(d.by[slot].r) + 1)]));
 }
 function passPlay(r, s, slot, route, f, call) {
   const m = passModel(s, slot, route, f, call), R = ROUTES[route];
   if (r() < m.pSack) {
     const loss = 4 + Math.floor(5 * r()) + (r() < 0.12 ? 3 : 0);
-    const by = whoDef(r, s, s.U.d.front.concat(call === 'c0' || call === 'fire' ? s.U.d.lbs.concat('NB') : []));
+    const by = whoDef(r, s, s.U.d.front.concat(call === 'c0' || call === 'fire' ? s.U.d.lbs.concat('NB') : []), call);
     return {kind: r() < 0.06 ? 'fum' : 'sack', gain: -loss, by, t: Math.round(m.time + 2.5)};
   }
-  const by = s.U.d.cover[slot];
+  const by = fielded(s.U.d.T, lookNow(s, call), s.U.d.cover[slot]);
   const u = r();
   // A pick in a deep zone is often the safety's; in man, it's his man's.
   const deepZone = (call === 'c2' || call === 'c3' || call === 'c4' || call === 'pv') && R.cat !== 'quick';
@@ -419,7 +434,7 @@ function runPlay(r, s, dir, f, call, bonus = 0, play = 'z') {
   else g = runMean(s, dir, f, call, play) + bonus + K.sd * gauss(r);
   let broke = false;
   if (r() < 0.03 * F.big * K.big * (1 + e)) { g += 8 + 22 * r(); broke = true; }
-  const by = whoDef(r, s, s.U.d.lbs.concat(s.U.d.front, ['SS']));
+  const by = whoDef(r, s, s.U.d.lbs.concat(s.U.d.front, ['SS']), call);
   g = Math.round(g);
   if (r() < 0.012) return {kind: 'fum', gain: g, who: 'RB', dir, rk: play, by, t: 6 + K.t};
   const oob = g > 0 && r() < Math.min(0.9, (f.o ? 0.55 : 0.08) * (F.oob || 1) * K.oob);
@@ -437,7 +452,7 @@ function trickPlay(r, s, call, play = 'f') {
   const p = clamp(trickOdds(play, call) + 0.12 * passEdge(s, 'WR1'), 0.05, 0.8);
   if (play === 'r') {
     // The double reverse: the receiver comes back the other way. A run, so no pick, and the clock keeps going.
-    const by = whoDef(r, s, s.U.d.lbs.concat(['SS', 'RCB']));
+    const by = whoDef(r, s, s.U.d.lbs.concat(['SS', 'RCB']), call);
     if (r() < p) return {kind: 'run', gain: Math.round(10 + 20 * r()), who: 'WR1', dir: 'w', rk: 'r', by, oob: r() < 0.3, broke: false, t: 8, trick: 'r'};
     const u = r();
     if (u < 0.05) return {kind: 'fum', gain: -3, who: 'WR1', dir: 'w', by, t: 7, trick: 'r'};
@@ -446,17 +461,17 @@ function trickPlay(r, s, call, play = 'f') {
   if (r() < p) {
     const slot = r() < 0.6 ? 'WR1' : 'WR2';
     const gain = play === 'h' ? Math.round(16 + 20 * r()) : Math.round(22 + 23 * r());
-    return {kind: 'catch', gain, who: slot, route: 'go', by: s.U.d.cover[slot], oob: r() < 0.3, t: 8, trick: play};
+    return {kind: 'catch', gain, who: slot, route: 'go', by: fielded(s.U.d.T, lookNow(s, call), s.U.d.cover[slot]), oob: r() < 0.3, t: 8, trick: play};
   }
   const u = r();
   if (play === 'h') {
     // The back throwing: more of them picked, or he's run down.
     if (u < 0.55) return {kind: 'inc', gain: 0, who: 'WR2', route: 'go', by: 'RCB', t: 7, trick: 'h'};
-    if (u < 0.86) return {kind: 'sack', gain: -(4 + Math.floor(6 * r())), by: whoDef(r, s, s.U.d.front.concat(s.U.d.lbs)), t: 7, trick: 'h'};
+    if (u < 0.86) return {kind: 'sack', gain: -(4 + Math.floor(6 * r())), by: whoDef(r, s, s.U.d.front.concat(s.U.d.lbs), call), t: 7, trick: 'h'};
     return {kind: 'int', gain: 0, who: 'WR2', route: 'go', air: 28, by: r() < 0.5 ? 'FS' : 'SS', ret: Math.floor(12 * r()), t: 7, trick: 'h'};
   }
   if (u < 0.5) return {kind: 'inc', gain: 0, who: 'WR1', route: 'go', by: 'LCB', t: 7, trick: 'f'};
-  if (u < 0.82) return {kind: r() < 0.08 ? 'fum' : 'sack', gain: -(7 + Math.floor(6 * r())), by: whoDef(r, s, s.U.d.front), t: 7, trick: 'f'};
+  if (u < 0.82) return {kind: r() < 0.08 ? 'fum' : 'sack', gain: -(7 + Math.floor(6 * r())), by: whoDef(r, s, s.U.d.front, call), t: 7, trick: 'f'};
   return {kind: 'int', gain: 0, who: 'WR1', route: 'go', air: 30, by: r() < 0.5 ? 'FS' : 'SS', ret: Math.floor(12 * r()), t: 7, trick: 'f'};
 }
 /** Their play at a snap of theirs: from the formation and the situation, whatever you call. */

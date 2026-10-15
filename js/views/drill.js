@@ -84,7 +84,7 @@ const OL = ['LT', 'LG', 'C', 'RG', 'RT'];
 const LABELLED = new Set(['QB', 'RB', 'WR1', 'WR2', 'WR3', 'TE', 'LCB', 'RCB', 'SS', 'FS']);
 const dirSign = d => (d === 's' ? 1 : -1); // strong side is to the right
 /** Your defense lines up in the look its call usually shows; before you call one, a two-high shell. */
-const CALL_LOOK = {c2: 'two', c4: 'two', c3: 'light', pv: 'prevent', c1: 'box', rb: 'box', c0: 'blitz', fire: 'blitz'};
+const CALL_LOOK = E.CALL_LOOK;
 const PRE_LOOK = 'two';
 /** The defense's eleven for a look: slot -> [x, depth] (null: off the field). Base personnel against the loaded box,
  *  the nickel back in for everything else. shade: the side the front leans to (its extra man and the rotated safety). */
@@ -495,14 +495,17 @@ function choreo(s, p) {
 }
 /** The ball carrier goes down at the end of his run unless he scored or got out of bounds. */
 const tackled = p => !p.td && !p.oob && p.kind !== '2good';
+/** A snap's choreography (choreo) and where a track is at a moment (at), for the kit's checks (checks-drill.js). */
+export const planOf = (s, p) => choreo(s, p), trackAt = (track, t) => at(track, t);
 /** Coverage: man calls trail their receivers; zones drop, then everyone converges on the ball. */
 function coverage(tr, start, D, cover, p, L, ballAt, tEnd) {
   const man = p.dcall === 'c0' || p.dcall === 'c1';
   const deep = {c2: [[MID - 12, 14], [MID + 12, 14]], c3: [[8, 13], [MID, 15], [WIDTH - 8, 13]], c4: [[8, 13], [MID - 6, 15], [MID + 6, 15], [WIDTH - 8, 13]],
     pv: [[10, 22], [MID - 6, 24], [MID + 6, 24], [WIDTH - 10, 22]], fire: [[8, 12], [MID, 15], [WIDTH - 8, 12]], rb: [[MID, 14]], c0: [], c1: [[MID, 15]]}[p.dcall] || [[MID, 14]];
   const used = new Set();
+  const look = viewOf(p).look;
   Object.keys(cover).forEach(rk => {
-    const dk = cover[rk], s0 = start['d-' + dk];
+    const dk = E.fielded(D.T, look, cover[rk]), s0 = start['d-' + dk];
     if (!s0 || s0[2] || !tr['o-' + rk] || !tr['d-' + dk]) return;
     used.add(dk);
     const r = tr['o-' + rk];

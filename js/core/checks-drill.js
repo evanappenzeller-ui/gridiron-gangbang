@@ -304,6 +304,31 @@ export async function drillChecks(check) {
     return {pass: !bad.length, detail: bad.length ? bad.slice(0, 6).join('; ') : `${C.list.length} coaches (${C.seasons}); ${comps} of 15 random games comped; deep thrower → ${md.coach.n}, short thrower → ${ms.coach.n}, hurry-up caller → ${mf.coach.n}`};
   });
 
+  // 6e. The snap on the field: a tackle is made by a man on the field, and he's at the ball carrier when he goes down
+  let V = null;
+  try { V = await import('../views/drill.js'); } catch (_) { V = null; }
+  check('Drill: on the field, every ball carrier who goes down is brought down by the tackler the play names, a man in the defense\'s personnel for that look, there with him (within 1.6 yards)', () => {
+    need();
+    if (!V || typeof V.planOf !== 'function') return {pass: false, detail: 'views/drill.js planOf did not load'};
+    const bad = [];
+    let downs = 0;
+    for (let d = 1; d <= 16; d++) for (let i = 0; i < 4; i++) {
+      const {s} = randomGame(dr.scenario(d), 900 + d * 7 + i);
+      s.plays.forEach(p => {
+        if (!p.act || !['run', 'catch', 'sack', 'fum'].includes(p.kind)) return;
+        const plan = V.planOf(s, p);
+        (plan.down || []).forEach(dn => {
+          downs++;
+          const c = V.trackAt(plan.tr[dn.key], dn.t), tk = plan.tr['d-' + p.by];
+          const gap = tk ? Math.hypot(...[0, 1].map(j => V.trackAt(tk, dn.t)[j] - c[j])) : Infinity;
+          const off = E.sitsOut(E.unitsFor(s, p.poss).d.T, p.poss === 'us' ? p.look || 'two' : E.CALL_LOOK[p.dcall]);
+          if (!(gap <= 1.6) || p.by === off) bad.push(`day ${d} ${p.kind}${p.rk ? '/' + p.rk : ''} ${p.by}: ${gap.toFixed ? gap.toFixed(1) : gap} yds`);
+        });
+      });
+    }
+    return {pass: downs > 50 && !bad.length, detail: bad.length ? bad.slice(0, 5).join('; ') : `${downs} tackles, every one with its tackler there`};
+  });
+
   // 7. Their ball: your defense, their clock, the kneel
   check('Drill: after your score with time left they get the ball at their 25 and you can only call a defense (or a timeout on their running clock); their play is set by the snap, not your call; a team ahead with the ball late kneels it out', () => {
     need();
