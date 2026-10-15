@@ -1347,6 +1347,24 @@ function patchBreakdown(st) {
 }
 
 // ============================================================================ Playing a snap
+/** Brings the field into view for a snap: the calls sit below it, so the call that was just tapped usually has the
+ *  field scrolled up out of sight. The stage goes just under the nav bar; when it can't all fit above the tab bar, the
+ *  field's bottom stays in view. Nothing moves when the field is already in full view. */
+function showField(st) {
+  const stage = st.el.querySelector('.dr-stage'), f = st.el.querySelector('[data-dr-field]');
+  const scr = stage && stage.closest('.screen');
+  if (!scr || !f || !st.ctx.visible) return;
+  const nav = scr.querySelector(':scope > .nav'), bar = document.getElementById('tabbar');
+  const sr = scr.getBoundingClientRect();
+  const under = (nav ? nav.getBoundingClientRect().bottom : sr.top) + 8;
+  const br = bar && bar.offsetHeight ? bar.getBoundingClientRect() : null;
+  const above = Math.min(sr.bottom, br ? br.top : Infinity) - 8;
+  const fr = f.getBoundingClientRect();
+  if (fr.top >= under && fr.bottom <= above) return;
+  let d = stage.getBoundingClientRect().top - under;
+  if (fr.bottom - d > above) d = fr.bottom - above;
+  scr.scrollTo({top: Math.max(0, scr.scrollTop + d), behavior: ui.RM ? 'auto' : 'smooth'});
+}
 async function go(st, token) {
   const s = st.s;
   if (st.busy || !s || s.result) return;
@@ -1365,6 +1383,7 @@ async function go(st, token) {
   st.busy = true;
   setPanel(st);
   patchRoutes(st);
+  showField(st);
   const c1 = p.kind === 'expired' ? p.after.clock : p.clock;
   if (p.c0 !== c1) await runOff(st, p.c0, c1);
   if (st.dead) return;
@@ -1425,6 +1444,7 @@ async function replayLast(st) {
   const p = L.p;
   st.busy = true;
   setPanel(st);
+  showField(st);
   const f = swapField(st, viewOf(p), {fade: false});
   if (!f) { st.busy = false; return; }
   const clock = st.el.querySelector('[data-dr-clock]');
