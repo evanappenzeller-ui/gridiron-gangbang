@@ -38,7 +38,7 @@ const ST = new WeakMap(); // ctx -> pane state
 
 // A home-screen app open across an update imports this module new under the stylesheet it started with: when
 // drill.css's mark (--dr-css on :root) isn't this module's, the current file is added (as in views/seventeen.js).
-const CSS_V = '9';
+const CSS_V = '10';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--dr-css').trim() === CSS_V || document.querySelector('link[data-dr-css]')) return;
@@ -840,11 +840,14 @@ function defenseHTML(st) {
 // lines end in a bar) and how the play has gone for you this game (calls, average yards). Field yards across (0-53.3)
 // and from the line of scrimmage (ART.lo behind to ART.hi past it, squeezed by ART.k); a deep route runs off the top,
 // its arrow at the edge.
-const ART = {lo: -8, hi: 24, k: 0.7};
+const ART = {lo: -10.5, hi: 24, k: 0.7};
 const ART_H = (ART.hi - ART.lo) * ART.k;
 const ARTY = y => (ART.hi - y) * ART.k;
 const f2 = v => v.toFixed(2);
-const RC = {key: '#FF4D5E', back: '#4C8DFF', other: '#F5C518', white: 'rgba(255,255,255,.88)'};
+const RC = {key: '#FF4D5E', white: 'rgba(255,255,255,.88)'};
+/** Each receiver's own colour on the cards (his route, his name, the mark on his route in the list); the play's
+ *  target is red instead. */
+const SLOT_C = {WR1: '#F5C518', WR2: '#38BDF8', WR3: '#4ADE80', TE: '#FB923C', RB: '#C084FC'};
 const FORMATION = 'Gun Doubles';
 /** The play's target: the player on its card (pass plays: the read the play is built for). */
 const PASS_KEY = {verts: 'WR1', postdig: 'WR2', smash: 'WR3', slantwheel: 'RB', levels: 'WR2', dagger: 'WR3', outs: 'WR1', mesh: 'TE', corners: 'TE', hail: 'WR2'};
@@ -904,16 +907,44 @@ function artPlayers(run) {
   });
   return h;
 }
-const artSVG = (ball, inner, run = false) => `<svg class="dr-art" viewBox="0 0 ${WIDTH} ${f2(ART_H)}" aria-hidden="true">${artField(ball)}${inner}${artPlayers(run)}</svg>`;
+/** Who runs what: each receiver's last name under his dot in his colour (the target's first; each placed where it
+ *  overlaps no other name and no player: under him, then lower, then beside him). who: slot -> name. */
+const LBL = {fs: 1.7, cw: 1.12};
+function artLabels(who, slots, key) {
+  const boxes = Object.keys(OFF_POS).map(k => { const [x, y] = OFF_POS[k], Y = ARTY(y); return [x - 1.15, Y - 1.15, x + 1.15, Y + 1.15, k]; });
+  const hit = (b, own) => boxes.some(c => c[4] !== own && b[0] < c[2] && b[2] > c[0] && b[1] < c[3] && b[3] > c[1]);
+  const order = slots.filter(k => k === key).concat(slots.filter(k => k !== key));
+  return order.map(slot => {
+    const text = String(who[slot] || '').toUpperCase();
+    if (!text) return '';
+    const [x, y] = OFF_POS[slot], Y = ARTY(y), w = text.length * LBL.cw, h = LBL.fs * 0.78;
+    const tries = [];
+    [2.45, 4.05].forEach(dy => [x - w / 2, x - 1, x + 1 - w].forEach(x0 => tries.push([x0, Y + dy])));
+    tries.push([x + 1.6, Y + h / 2], [x - 1.6 - w, Y + h / 2]);
+    for (const [x0r, base] of tries) {
+      const x0 = Math.max(0.5, Math.min(WIDTH - 0.5 - w, x0r));
+      const b = [x0 - 0.25, base - h - 0.1, x0 + w + 0.25, base + 0.3];
+      if (b[3] > ART_H || hit(b, slot)) continue;
+      boxes.push(b.slice(0, 4));
+      return `<text class="dr-art-l" x="${f2(x0)}" y="${f2(base)}" fill="${colOf(slot, key)}">${esc(text)}</text>`;
+    }
+    return '';
+  }).join('');
+}
+const artSVG = (ball, inner, run = false, labels = '') => `<svg class="dr-art" viewBox="0 0 ${WIDTH} ${f2(ART_H)}" aria-hidden="true">${artField(ball)}${inner}${artPlayers(run)}${labels}</svg>`;
 const artRoute = (slot, route) => routePath(route, OFF_POS[slot][0], OFF_POS[slot][1]);
-const colOf = (slot, key) => (slot === key ? RC.key : slot === 'RB' ? RC.back : RC.other);
+const colOf = (slot, key) => (slot === key ? RC.key : SLOT_C[slot] || RC.white);
+/** Your receivers' last names, by slot (for the cards' labels). */
+const namesOf = s => Object.fromEntries(E.TARGETS.map(k => [k, dr.lastName(s.mine.by[k].n)]));
 /** The receivers' blocks on a run: a few yards up, a bar at the end. */
 const artBlocks = skip => E.TARGETS.filter(k => k !== 'RB' && !skip.includes(k)).map(k => {
   const [x, y] = OFF_POS[k];
   return artPath([[x, y], [x + (MID - x) * 0.06, y + 4]], RC.white, {end: 'block'});
 }).join('');
-function passArt(ball, routes, key) {
-  return artSVG(ball, E.TARGETS.map(k => artPath(artRoute(k, routes[k]), colOf(k, key))).join(''));
+function passArt(ball, routes, key, who) {
+  // The target's route last, over the others.
+  const order = E.TARGETS.filter(k => k !== key).concat(key ? [key] : []);
+  return artSVG(ball, order.map(k => artPath(artRoute(k, routes[k]), colOf(k, key))).join(''), false, artLabels(who, E.TARGETS, key));
 }
 /** The back's path on a run (RUNS) to a side. */
 function runPath(play, dir) {
@@ -922,25 +953,28 @@ function runPath(play, dir) {
   if (play === 'd') return [rb, [MID + 1.5, -6.8], [MID + sg * 1.2, 0], [MID + sg * 1.5, 11]];
   return [rb, [MID + sg * 2, -2], [MID + sg * 4, 3], [MID + sg * 5, 11]];
 }
-function runArt(ball, play, dir) {
+function runArt(ball, play, dir, who) {
   let h = artBlocks([]);
   if (play === 't') h += artPath([OFF_POS.QB, [MID + dirSign(dir) * 9, -5]], RC.white, {dash: true, end: 'none'});
   if (play === 'd') h += artPath([OFF_POS.QB, [MID, -8.4]], RC.white, {dash: true, end: 'none'});
-  return artSVG(ball, h + artPath(runPath(play, dir), RC.key), true);
+  return artSVG(ball, h + artPath(runPath(play, dir), RC.key), true, artLabels(who, ['RB'], 'RB'));
 }
-function rpoArt(ball, play, dir) {
+function rpoArt(ball, play, dir, who) {
   const R = E.RPOS[play];
-  return artSVG(ball, artBlocks([R.slot]) + artPath(runPath('z', dir), RC.back) + artPath(artRoute(R.slot, R.route), RC.key), true);
+  return artSVG(ball, artBlocks([R.slot]) + artPath(runPath('z', dir), colOf('RB', R.slot)) + artPath(artRoute(R.slot, R.route), RC.key), true,
+    artLabels(who, [R.slot, 'RB'], R.slot));
 }
-function trickArt(ball, play) {
-  const W1 = OFF_POS.WR1, rb = OFF_POS.RB;
-  if (play === 'r') return artSVG(ball, artBlocks(['WR1']) + artPath([rb, [MID + 5, -4.8], [MID + 9, -5.6]], RC.back, {end: 'none'})
-    + artPath([W1, [MID + 4, -2.6], [MID + 9.5, -6], [MID - 6, -7.4], [MID - 14, -2.5], [MID - 17, 12]], RC.key), true);
+function trickArt(ball, play, who) {
+  const W1 = OFF_POS.WR1, rb = OFF_POS.RB, key = TRICK_KEY[play], c = slot => colOf(slot, key);
+  if (play === 'r') return artSVG(ball, artBlocks(['WR1']) + artPath([rb, [MID + 5, -4.8], [MID + 9, -5.6]], c('RB'), {end: 'none'})
+    + artPath([W1, [MID + 4, -2.6], [MID + 9.5, -6], [MID - 6, -7.4], [MID - 14, -2.5], [MID - 17, 12]], c('WR1')), true, artLabels(who, ['WR1', 'RB'], key));
   if (play === 'h') return artSVG(ball, artPath([OFF_POS.QB, [MID + 9, -5]], RC.white, {dash: true, end: 'none'})
-    + artPath([rb, [MID + 9, -5], [MID + 12, -3.5]], RC.back) + artPath(artRoute('WR2', 'go'), RC.key) + artPath(artRoute('WR1', 'go'), RC.other)
-    + artPath(artRoute('TE', 'seam'), RC.other) + artPath(artRoute('WR3', 'out'), RC.other));
-  return artSVG(ball, artPath([rb, [MID + 2, -2]], RC.back, {end: 'none'}) + artPath([[MID + 2, -2], [MID - 0.5, -7.5]], RC.white, {dash: true, end: 'none'})
-    + artPath(artRoute('WR1', 'go'), RC.key) + artPath(artRoute('WR2', 'go'), RC.other) + artPath(artRoute('WR3', 'seam'), RC.other) + artPath(artRoute('TE', 'out'), RC.other));
+    + artPath([rb, [MID + 9, -5], [MID + 12, -3.5]], c('RB')) + artPath(artRoute('WR1', 'go'), c('WR1'))
+    + artPath(artRoute('TE', 'seam'), c('TE')) + artPath(artRoute('WR3', 'out'), c('WR3')) + artPath(artRoute('WR2', 'go'), c('WR2')), false,
+    artLabels(who, E.TARGETS, key));
+  return artSVG(ball, artPath([rb, [MID + 2, -2]], c('RB'), {end: 'none'}) + artPath([[MID + 2, -2], [MID - 0.5, -7.5]], RC.white, {dash: true, end: 'none'})
+    + artPath(artRoute('WR2', 'go'), c('WR2')) + artPath(artRoute('WR3', 'seam'), c('WR3')) + artPath(artRoute('TE', 'out'), c('TE'))
+    + artPath(artRoute('WR1', 'go'), c('WR1')), false, artLabels(who, E.TARGETS, key));
 }
 const headUrl = (e, w) => `https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/${String(e || '').replace(/[^0-9]/g, '')}.png&w=${w}&h=${Math.round(w * 436 / 600)}`;
 /** A player's headshot over his number on his team's colour (the number shows when the photo can't load). */
@@ -973,19 +1007,19 @@ function passCardsHTML(st) {
   return (s.book || []).map((k, i) => {
     const P = E.PASS_PLAYS[k], key = PASS_KEY[k];
     const label = `${P.name}, for ${s.mine.by[key].n}: ${E.TARGETS.map(slot => `${dr.lastName(s.mine.by[slot].n)} ${E.ROUTES[P.routes[slot]].name.toLowerCase()}`).join(', ')}`;
-    return cardHTML(st, {i, art: passArt(s.ball, P.routes, key), name: P.name, tag: 'Pass', key, use: usage(s, p => p.pp === k), pick: i, on: st.card === i, label});
+    return cardHTML(st, {i, art: passArt(s.ball, P.routes, key, namesOf(s)), name: P.name, tag: 'Pass', key, use: usage(s, p => p.pp === k), pick: i, on: st.card === i, label});
   }).join('');
 }
 function runCardsHTML(st) {
   const s = st.s, kind = st.panel, rpo = kind === 'rpo', book = rpo ? E.RPOS : E.RUNS, mk = rpo ? E.tok.rpo : E.tok.run;
   const side = st.side === 'w' ? 'weak' : 'strong';
-  return Object.keys(book).map((k, i) => cardHTML(st, {i, art: rpo ? rpoArt(s.ball, k, st.side) : runArt(s.ball, k, st.side), name: book[k].name,
+  return Object.keys(book).map((k, i) => cardHTML(st, {i, art: rpo ? rpoArt(s.ball, k, st.side, namesOf(s)) : runArt(s.ball, k, st.side, namesOf(s)), name: book[k].name,
     tag: rpo ? 'RPO' : 'Run', key: rpo ? RPO_KEY(k) : 'RB', use: usage(s, p => p.a.kind === kind && p.a.play === k),
     go: mk(st.side, st.runOob, k, hurryOn(st)), label: `${book[k].name} to the ${side} side: ${book[k].what}`})).join('');
 }
 function trickCardsHTML(st) {
   const s = st.s;
-  return Object.keys(E.TRICKS).map((k, i) => cardHTML(st, {i, art: trickArt(s.ball, k), name: E.TRICKS[k].name, tag: 'Trick', key: TRICK_KEY[k],
+  return Object.keys(E.TRICKS).map((k, i) => cardHTML(st, {i, art: trickArt(s.ball, k, namesOf(s)), name: E.TRICKS[k].name, tag: 'Trick', key: TRICK_KEY[k],
     use: usage(s, p => p.a.kind === 'trick' && p.a.play === k), go: E.tok.tricks(k), label: `${E.TRICKS[k].name}: ${E.TRICKS[k].what}`})).join('');
 }
 
@@ -1122,7 +1156,7 @@ function receiverRowHTML(st, slot) {
   return `<li class="dr-rcv${key ? ' is-key' : ''}" data-dr-rcvrow="${slot}"><button type="button" class="dr-rcv-go" data-dr-go="${E.tok.pass(slot, route, Object.assign({}, st.flags, {c: st.card, h: hurryOn(st)}))}" aria-label="${esc(`${key ? 'The target. ' : ''}Throw to ${p.n}, ${E.ROUTES[route].name}: ${stat}`)}">`
     + `${lead}<span class="dr-rcv-id">${key ? '<span class="dr-rcv-tag">Target</span>' : ''}<b>${esc(dr.short(p.n))}</b></span>`
     + `<span class="dr-rcv-st">${esc(stat)}</span></button>`
-    + `<button type="button" class="dr-rcv-rt" data-dr-route="${slot}" aria-label="${esc(`${p.n}'s route: ${E.ROUTES[route].name}. Change it.`)}">${esc(E.ROUTES[route].name)}${ui.icon('chevron-down', {size: 12})}</button></li>`;
+    + `<button type="button" class="dr-rcv-rt" data-dr-route="${slot}" aria-label="${esc(`${p.n}'s route: ${E.ROUTES[route].name}. Change it.`)}"><i class="dr-rcv-c" style="--c:${colOf(slot, keyOf(st))}" aria-hidden="true"></i>${esc(E.ROUTES[route].name)}${ui.icon('chevron-down', {size: 12})}</button></li>`;
 }
 /** The receivers to throw to, the play's target first. */
 const rowsHTML = st => { const key = keyOf(st); return (key ? [key] : []).concat(E.TARGETS.filter(k => k !== key)).map(k => receiverRowHTML(st, k)).join(''); };
