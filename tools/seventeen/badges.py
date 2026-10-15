@@ -50,47 +50,58 @@ for ch in '17-0':
 d.rectangle((13, 1, 16, 4), fill=INK); d.rectangle((14, 2, 15, 4), fill=TRIM)                  # top light
 finish(im, 'seventeen')
 
-# ---- Two-Minute Drill: not pixel art (its game has a modern look). A stopwatch drawn smooth at 4x and scaled down: a
-# dark face, its last two minutes lit red, the hand on them, a silver case and buttons, a soft shadow.
+# ---- Two-Minute Drill: not pixel art (its game has a modern look). A stadium scoreboard drawn smooth at 4x and scaled
+# down: a dark board in a silver frame on two posts, the teams' lights across the top, and the clock at 2:00 in glowing
+# seven-segment digits.
 from PIL import ImageFilter
-import math
 S = 512
+L, T, R, B = 16, 84, 496, 400                                                                  # the board's frame
+def layer():
+    im = Image.new('RGBA', (S, S), (0, 0, 0, 0)); return im, ImageDraw.Draw(im)
+def vgrad(box, top, bottom, radius):
+    """A rounded box filled top to bottom from one colour to another."""
+    x0, y0, x1, y1 = box
+    g = Image.new('RGBA', (S, S), (0, 0, 0, 0)); gd = ImageDraw.Draw(g)
+    for y in range(y0, y1 + 1):
+        t = (y - y0) / max(1, y1 - y0)
+        gd.line((x0, y, x1, y), fill=tuple(int(a + (b - a) * t) for a, b in zip(top, bottom)) + (255,))
+    m = Image.new('L', (S, S), 0); ImageDraw.Draw(m).rounded_rectangle(box, radius, fill=255)
+    out = Image.new('RGBA', (S, S), (0, 0, 0, 0)); out.paste(g, (0, 0), m)
+    return out
 im = Image.new('RGBA', (S, S), (0, 0, 0, 0))
-sh = Image.new('RGBA', (S, S), (0, 0, 0, 0)); ImageDraw.Draw(sh).ellipse((70, 132, 450, 512), fill=(0, 0, 0, 150))
-im.alpha_composite(sh.filter(ImageFilter.GaussianBlur(18)))                                   # shadow
-d = ImageDraw.Draw(im)
-cx, cy, R = 256, 300, 196
-d.rounded_rectangle((216, 38, 296, 84), 14, fill=(206, 212, 224, 255))                        # crown
-d.rounded_rectangle((216, 38, 296, 56), 14, fill=(236, 240, 247, 255))
-d.rectangle((240, 80, 272, 112), fill=(160, 168, 184, 255))                                   # stem
-bx, by = cx + int((R + 18) * math.cos(math.radians(-45))), cy + int((R + 18) * math.sin(math.radians(-45)))
-btn = Image.new('RGBA', (S, S), (0, 0, 0, 0)); ImageDraw.Draw(btn).rounded_rectangle((bx - 24, by - 16, bx + 24, by + 16), 10, fill=(196, 202, 216, 255))
-im.alpha_composite(btn.rotate(-45, center=(bx, by)))                                          # side button
-for k in range(R, R - 22, -1):                                                                 # silver case, lit on top
-    t = (R - k) / 22
-    c = tuple(int(a + (b - a) * t) for a, b in zip((244, 247, 252), (138, 148, 166))) + (255,)
-    d.ellipse((cx - k, cy - k, cx + k, cy + k), fill=c)
-r = R - 22
-for k in range(r, 0, -2):                                                                      # the face: navy, lighter at the top
-    t = k / r
-    c = tuple(int(a + (b - a) * t) for a, b in zip((30, 41, 64), (12, 17, 28))) + (255,)
-    d.ellipse((cx - k, cy - k - (r - k) * 0.25, cx + k, cy + k - (r - k) * 0.25), fill=c)
-glow = Image.new('RGBA', (S, S), (0, 0, 0, 0)); g = ImageDraw.Draw(glow)
-box = (cx - r + 26, cy - r + 26, cx + r - 26, cy + r - 26)
-g.arc(box, -90 - 60, -90, fill=(255, 69, 58, 255), width=34)                                   # the last two minutes
+sh, d = layer(); d.rounded_rectangle((36, 120, 476, 480), 48, fill=(0, 0, 0, 150))
+im.alpha_composite(sh.filter(ImageFilter.GaussianBlur(20)))                                   # shadow
+for x in (152, 332):                                                                           # posts
+    im.alpha_composite(vgrad((x, 360, x + 28, 504), (176, 185, 200), (104, 113, 130), 8))
+im.alpha_composite(vgrad((L, T, R, B), (238, 242, 248), (122, 132, 150), 50))                  # silver frame, lit on top
+im.alpha_composite(vgrad((L + 13, T + 13, R - 13, B - 13), (30, 40, 62), (8, 12, 20), 38))     # the board
+glow, g = layer()
+off, o = layer()
+for (x0, x1), col in (((64, 214), (10, 132, 255)), ((298, 448), (255, 107, 44))):             # the teams' lights
+    g.rounded_rectangle((x0, 122, x1, 144), 11, fill=col + (255,))
+AMBER, DIM = (255, 196, 46, 255), (255, 255, 255, 20)
+def seg(x0, y0, x1, y1, t):
+    """A segment from (x0, y0) to (x1, y1), horizontal or vertical, pointed at both ends."""
+    h = t / 2
+    if y0 == y1:
+        return [(x0, y0), (x0 + h, y0 - h), (x1 - h, y0 - h), (x1, y0), (x1 - h, y0 + h), (x0 + h, y0 + h)]
+    return [(x0, y0), (x0 + h, y0 + h), (x0 + h, y1 - h), (x0, y1), (x0 - h, y1 - h), (x0 - h, y0 + h)]
+def digit(x, y, n, w=82, hgt=176, t=24, gap=6):
+    m = y + hgt / 2
+    segs = {
+        'a': (x + gap, y, x + w - gap, y), 'd': (x + gap, y + hgt, x + w - gap, y + hgt), 'g': (x + gap, m, x + w - gap, m),
+        'f': (x, y + gap, x, m - gap), 'b': (x + w, y + gap, x + w, m - gap),
+        'e': (x, m + gap, x, y + hgt - gap), 'c': (x + w, m + gap, x + w, y + hgt - gap)}
+    for k, box in segs.items():
+        (g if k in {'2': 'abged', '0': 'abcdef'}[n] else o).polygon(seg(*box, t), fill=AMBER if k in {'2': 'abged', '0': 'abcdef'}[n] else DIM)
+y = 182                                                                                        # 2 : 0 0, centred
+digit(68, y, '2'); digit(250, y, '0'); digit(368, y, '0')
+for cy in (y + 54, y + 122):                                                                   # the colon
+    g.ellipse((200 - 13, cy - 13, 200 + 13, cy + 13), fill=AMBER)
+im.alpha_composite(off)
 im.alpha_composite(glow.filter(ImageFilter.GaussianBlur(14)))
 im.alpha_composite(glow)
-for a in range(0, 360, 30):                                                                    # ticks
-    rad = math.radians(a - 90)
-    r0, r1 = r - 18, r - (40 if a % 90 == 0 else 32)
-    d.line((cx + r0 * math.cos(rad), cy + r0 * math.sin(rad), cx + r1 * math.cos(rad), cy + r1 * math.sin(rad)),
-           fill=(255, 255, 255, 230 if a % 90 == 0 else 150), width=10 if a % 90 == 0 else 7)
-ha = math.radians(-90 - 38)                                                                    # the hand, in the red
-d.line((cx - 26 * math.cos(ha), cy - 26 * math.sin(ha), cx + (r - 52) * math.cos(ha), cy + (r - 52) * math.sin(ha)), fill=(255, 255, 255, 255), width=14)
-d.ellipse((cx - 22, cy - 22, cx + 22, cy + 22), fill=(255, 69, 58, 255))
-d.ellipse((cx - 9, cy - 9, cx + 9, cy + 9), fill=(255, 255, 255, 255))
-hl = Image.new('RGBA', (S, S), (0, 0, 0, 0))                                                   # a soft glass highlight
-ImageDraw.Draw(hl).ellipse((cx - r + 30, cy - r + 14, cx + r - 30, cy + 10), fill=(255, 255, 255, 26))
-im.alpha_composite(hl.filter(ImageFilter.GaussianBlur(6)))
+hl, d = layer(); d.rounded_rectangle((L + 34, T + 20, R - 34, T + 96), 28, fill=(255, 255, 255, 16))
+im.alpha_composite(hl.filter(ImageFilter.GaussianBlur(8)))                                     # a soft glass highlight
 im.resize((128, 128), Image.LANCZOS).save(f'{OUT}/drill.webp', 'WEBP', lossless=True)
 print('wrote img/puzzles.webp, img/seventeen.webp, img/drill.webp')
