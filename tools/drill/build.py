@@ -26,8 +26,8 @@ so a rookie or a backup starts near the bottom until he has a body of work:
 
 THE DAYS. Day 1 is START. Each day takes a real game from that NFL week's schedule (Thursday, Sunday night and
 Monday night take their own night's game, the other days the week's closest spreads), and you play the team that
-needs the drive: the underdog most days. After week 18, random pairs. The situation (score, clock, ball, timeouts)
-is tune.mjs's.
+needs the drive: the underdog most days. After week 18, random pairs. Every game starts with your ball and 2:00
+left; the rest of the situation (score, ball, timeouts) is tune.mjs's.
 """
 import csv, json, os, random, subprocess, sys, urllib.request
 from datetime import date, timedelta

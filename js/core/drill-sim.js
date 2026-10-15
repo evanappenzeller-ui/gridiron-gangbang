@@ -192,7 +192,7 @@ export const unitsFor = (s, poss) => (poss === 'us' ? {o: s.mine, d: s.theirs} :
 /** The team ids for a possession: {o (with the ball), d}. */
 export const idsFor = (s, poss) => (poss === 'us' ? {o: s.sc.o, d: s.sc.d} : {o: s.sc.d, d: s.sc.o});
 // The players: how much better the offense is on this snap (about -1..1; EDGE scales how much it moves the dice).
-const EDGE = 0.75;
+const EDGE = 0.6;
 function passEdge(s, slot, duel = 1) {
   const {o, d} = s.U;
   const rec = c(o.by[slot].r), man = c(d.by[d.cover[slot]].r);
@@ -288,11 +288,11 @@ function passModel(s, slot, route, f, call) {
   const fooled = F.pa || s.look === 'box';
   const time = R.time + (f.a ? 0.4 : 0);
   const slow = time > 2.0;
-  let pSack = (0.012 + 0.03 * Math.max(0, time - 1.5)) * (slow ? F.sack : F.qs) * (1 + 0.9 * rushEdge(s)) * (f.r ? 0.55 : 1);
+  let pSack = (0.02 + 0.035 * Math.max(0, time - 1.5)) * (slow ? F.sack : F.qs) * (1 + 0.9 * rushEdge(s)) * (f.r ? 0.55 : 1);
   pSack = clamp(pSack, 0.003, 0.45);
   const e = passEdge(s, slot, F.duel);
-  let comp = R.comp + cd + 0.22 * e;
-  let yac = R.yac + yd + 2 * e;
+  let comp = R.comp - 0.04 + cd + 0.22 * e; // the defense sits on the sticks late: every window a bit tighter
+  let yac = 0.6 * (R.yac + yd + 2 * e);
   if (f.a) { comp += fooled ? 0.06 : -0.02; if (fooled) yac += 1.5; }
   if (f.r) comp += ['out', 'sdeep', 'quick'].includes(R.cat) ? 0.03 : -0.03;
   if (s.ball >= 80 && (R.cat === 'deep' || R.cat === 'seam')) comp -= 0.06;
@@ -301,7 +301,7 @@ function passModel(s, slot, route, f, call) {
   if (f.o) { oob = Math.min(0.92, R.oob * 2 + 0.35); yac *= 0.45; }
   return {
     pSack, pComp: clamp(comp, 0.05, 0.95), pInt: clamp(R.int * im * (1 - 1.2 * e), 0.003, 0.2),
-    depth: R.depth + 2 * e, yac: Math.max(0, yac), oob, big: R.big * (F.big || 1) * (1 + e), time
+    depth: R.depth + 2 * e, yac: Math.max(0, yac), oob, big: 0.5 * R.big * (F.big || 1) * (1 + e), time
   };
 }
 /** The calls a play might meet: on your offense the look's mix; for theirs, any of yours alike. */
@@ -340,7 +340,7 @@ function passPlay(r, s, slot, route, f, call) {
   const air = Math.max(R.cat === 'deep' ? 14 : R.cat === 'quick' ? -1 : 3, m.depth + 1.5 * gauss(r));
   let yac = Math.max(0, m.yac + 1.8 * gauss(r));
   let broke = false;
-  if (r() < m.big) { yac += 10 + 30 * r(); broke = true; }
+  if (r() < m.big) { yac += 8 + 22 * r(); broke = true; }
   const gain = Math.round(air + yac);
   return {kind: 'catch', gain, air: Math.round(air), who: slot, route, by, oob: r() < m.oob, broke, t: Math.round(1.8 + m.time + (air + yac) / 7)};
 }
@@ -348,11 +348,11 @@ function runPlay(r, s, dir, f, call, bonus = 0) {
   const F = FX[call];
   const e = runEdge(s);
   let g;
-  const lean = dir === s.shade ? -1.2 : 1.6;
+  const lean = dir === s.shade ? -1.2 : 1.0;
   if (r() < 0.08 * F.stuff * (1 - 0.5 * e) * (dir === s.shade ? 1.3 : 0.8)) g = -1 - Math.floor(3 * r());
-  else g = 4.0 + F.run + lean + bonus + 2.2 * e + (f.o ? -0.8 : 0) - (goalLine(s) ? 3 : 0) + 3 * gauss(r);
+  else g = 2.8 + F.run + lean + bonus + 2.2 * e + (f.o ? -0.8 : 0) - (goalLine(s) ? 3 : 0) + 3 * gauss(r);
   let broke = false;
-  if (r() < 0.045 * F.big * (1 + e)) { g += 10 + 30 * r(); broke = true; }
+  if (r() < 0.03 * F.big * (1 + e)) { g += 8 + 22 * r(); broke = true; }
   const by = whoDef(r, s, s.U.d.lbs.concat(s.U.d.front, ['SS']));
   g = Math.round(g);
   if (r() < 0.012) return {kind: 'fum', gain: g, who: 'RB', dir, by, t: 6};
@@ -753,7 +753,7 @@ export const actsOf = s => s.plays.filter(p => p.act).map(p => p.act).join(',');
 // that holds their likely plays to the least. Used to set each day's situation (tools/drill/tune.mjs), to pick their
 // plays, and to estimate win chances.
 function runMean(s, dir, f, call) {
-  return 4.0 + FX[call].run + (dir === s.shade ? -1.2 : 1.6) + 2.2 * runEdge(s) + (f.o ? -0.8 : 0) - (goalLine(s) ? 3 : 0);
+  return 2.8 + FX[call].run + (dir === s.shade ? -1.2 : 1.0) + 2.2 * runEdge(s) + (f.o ? -0.8 : 0) - (goalLine(s) ? 3 : 0);
 }
 /** About the normal curve's area below z (for the bots' sense of a spot; never part of a play's dice). */
 const Phi = z => 1 / (1 + Math.exp(-1.7 * z));

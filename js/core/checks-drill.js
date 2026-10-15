@@ -58,17 +58,19 @@ export async function drillChecks(check) {
   });
 
   // 2. The days
-  check('Drill: every day is two different teams and a comeback spot (down 1-7, 0:45-3:00 left, the ball between your 10 and their 40, 0-3 timeouts), day 1 on the start date', () => {
+  check('Drill: every day is two different teams and a comeback spot (down 1-7 with 2:00 left, the ball between your 10 and their 40, 0-3 timeouts) that starts with your ball, the clock stopped, 1st & 10; day 1 on the start date', () => {
     need();
     const D = dr.DOC, bad = [];
     D.days.forEach((d, i) => {
       const deficit = d.them - d.us;
       if (!D.teams[d.o] || !D.teams[d.d] || d.o === d.d) bad.push(`day ${i + 1}: teams`);
       if (!(Number.isInteger(d.us) && deficit >= 1 && deficit <= 7 && d.us >= 0)) bad.push(`day ${i + 1}: score ${d.us}-${d.them}`);
-      if (!(Number.isInteger(d.t) && d.t >= 45 && d.t <= 180)) bad.push(`day ${i + 1}: ${d.t}s`);
+      if (d.t !== 120) bad.push(`day ${i + 1}: ${d.t}s`);
       if (!(Number.isInteger(d.b) && d.b >= 10 && d.b <= 60)) bad.push(`day ${i + 1}: ball ${d.b}`);
       if (!(Number.isInteger(d.to) && d.to >= 0 && d.to <= 3)) bad.push(`day ${i + 1}: ${d.to} timeouts`);
       if (!Number.isInteger(d.s) || d.s <= 0) bad.push(`day ${i + 1}: seed`);
+      const s = E.start(dr.scenario(i + 1), D.teams), o = E.options(s);
+      if (s.poss !== 'us' || s.clock !== 120 || s.running || s.down !== 1 || s.phase !== 'play' || s.result || !o.plays.length || o.def.length) bad.push(`day ${i + 1}: the start`);
     });
     const one = dr.dateOf(1), [y, m, dd] = D.start.split('-').map(Number);
     const startOk = one.getFullYear() === y && one.getMonth() === m - 1 && one.getDate() === dd && dr.todayNumber(new Date(y, m - 1, dd, 23, 59)) === 1 && dr.todayNumber(new Date(y, m - 1, dd + 1, 0, 1)) === 2;
@@ -298,15 +300,15 @@ export async function drillChecks(check) {
     need();
     const g = (r, u, h, p, t) => ({r, u, h, p, k: '', t});
     const docs = [
-      {id: 'a', nick: 'Ben', dr3: {1: g('L', 21, 24, 9, 10)}},
-      {id: 'b', nick: 'Mitch', dr3: {1: g('W', 27, 24, 8, 20)}},
-      {id: 'c', nick: 'Mitch', dr3: {1: g('L', 17, 24, 3, 5)}}, // his other phone, earlier: this one counts
-      {id: 'd', nick: 'Jacob', dr3: {1: g('W', 31, 24, 6, 15)}},
-      {id: 'e', nick: 'Nobody Special', dr3: {1: g('W', 10, 20, 4, 1), 2: {u: 3}}},
-      {id: 'f', nick: 'Sayer', dr3: {1: g('T', 24, 24, 12, 9)}},
-      {id: 'g', nick: 'Kyle Example', dr3: {1: g('W', 28, 24, 10, 9)}},
-      {id: 'h', nick: 'Evan Example', dr3: {1: g('W', 28, 24, 7, 9)}},
-      {id: 'i', nick: 'Zed Example', dr3: {1: g('W', 28, 24, 7, 12)}}
+      {id: 'a', nick: 'Ben', dr4: {1: g('L', 21, 24, 9, 10)}},
+      {id: 'b', nick: 'Mitch', dr4: {1: g('W', 27, 24, 8, 20)}},
+      {id: 'c', nick: 'Mitch', dr4: {1: g('L', 17, 24, 3, 5)}}, // his other phone, earlier: this one counts
+      {id: 'd', nick: 'Jacob', dr4: {1: g('W', 31, 24, 6, 15)}},
+      {id: 'e', nick: 'Nobody Special', dr4: {1: g('W', 10, 20, 4, 1), 2: {u: 3}}},
+      {id: 'f', nick: 'Sayer', dr4: {1: g('T', 24, 24, 12, 9)}},
+      {id: 'g', nick: 'Kyle Example', dr4: {1: g('W', 28, 24, 10, 9)}},
+      {id: 'h', nick: 'Evan Example', dr4: {1: g('W', 28, 24, 7, 9)}},
+      {id: 'i', nick: 'Zed Example', dr4: {1: g('W', 28, 24, 7, 12)}}
     ];
     const t1 = dr.boardRows(1, docs);
     const sig = t1.map(r => `${r.rank}.${r.name.split(' ')[0]} ${r.r}`).join(', ');

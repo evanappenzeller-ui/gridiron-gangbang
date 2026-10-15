@@ -44,7 +44,8 @@ export function dateOf(n) {
   return new Date(y, m - 1, d + n - 1);
 }
 export const dayLabel = (n, o = {month: 'short', day: 'numeric', weekday: 'short'}) => dateOf(n).toLocaleDateString('en-US', o);
-/** Day n's scenario: {n, o, d, us, them, t, b, to, dto, s, g? (the real game: {wk, h, a, day})}. */
+/** Day n's scenario: {n, o, d, us, them, t (always 120: 2:00 left), b, to, dto, s, g? (the real game: {wk, h, a, day})}.
+ *  Every game starts with your ball. */
 export function scenario(n) {
   const d = DOC.days[(n - 1) % DOC.days.length];
   return Object.assign({n}, d);
@@ -52,9 +53,10 @@ export function scenario(n) {
 export const team = id => DOC.teams[id];
 
 // ---------------------------------------------------------------------------------------------- memory
-// 'gg-drill3': {days: {n: {a (actions), r ('W'|'T'|'L' once over), at}} (the last KEEP days), played, wins}
-// (Earlier engines' games, under 'gg-2m' and 'gg-drill2', don't replay in this one, so they're left be.)
-const KEY = 'gg-drill3', KEEP = 60;
+// 'gg-drill4': {days: {n: {a (actions), r ('W'|'T'|'L' once over), at}} (the last KEEP days), played, wins}
+// (Earlier games, under 'gg-2m', 'gg-drill2' and 'gg-drill3', were played on other engines or other days' situations
+// and don't replay in this one, so they're left be.)
+const KEY = 'gg-drill4', KEEP = 60;
 function read() {
   let v = null;
   try { v = JSON.parse(lsGet(KEY) || 'null'); } catch (_) { v = null; }
@@ -361,11 +363,11 @@ export function shareText(n, s) {
 }
 
 // ---------------------------------------------------------------------------------------------- scoreboard
-// The league's games ride on each phone's Daily board doc (players/{uid}, daily.js), like 17-0's: dr3: {n: {r ('W'|'T'|
+// The league's games ride on each phone's Daily board doc (players/{uid}, daily.js), like 17-0's: dr4: {n: {r ('W'|'T'|
 // 'L'), u (your points), h (theirs), p (plays), k (the actions), t (when)}}. A finished day posts by itself (autoPost)
 // once the board has loaded, and again after a failed post. One game per member per day: across a member's phones the
-// first finished counts. (dr3 is this engine's; the earlier dr2 and d2m games don't replay in it.)
-const F = 'dr3', POST_BACK = 7;
+// first finished counts. (dr4 is these days'; the earlier dr3, dr2 and d2m games don't replay in them.)
+const F = 'dr4', POST_BACK = 7;
 let posting = false;
 export function entryOf(p, n) {
   const e = p && p[F] && typeof p[F] === 'object' ? p[F][n] : null;
@@ -407,14 +409,14 @@ export async function autoPost() {
   if (!DOC || posting || !LB.merge || !LB.ready || LB.off || !LB.uid) return false;
   const days = unposted();
   if (!days.length) return false;
-  const v = read(), dr3 = {};
+  const v = read(), out = {};
   days.forEach(n => {
     const s = E.replay(scenario(n), DOC.teams, v.days[n].a);
     if (!s.result) return;
-    dr3[n] = {r: s.result, u: s.us, h: s.them, p: playCount(s), k: E.actsOf(s), t: Number(v.days[n].at) || Date.now()};
+    out[n] = {r: s.result, u: s.us, h: s.them, p: playCount(s), k: E.actsOf(s), t: Number(v.days[n].at) || Date.now()};
   });
-  if (!Object.keys(dr3).length) return false;
-  const body = {[F]: dr3};
+  if (!Object.keys(out).length) return false;
+  const body = {[F]: out};
   const mine = docs().find(p => p.id === LB.uid);
   if (!mine) Object.assign(body, {nick: (daily.postName() || '').trim().slice(0, 24), total: 0});
   posting = true;
