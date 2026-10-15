@@ -6,7 +6,7 @@
    Team colours come in per element as --tc; a player's rating colour as --rc. */
 
 /* The version mark views/drill.js checks (CSS_V): bump both when the pane needs rules an older file lacks. */
-:root { --dr-css: 14; }
+:root { --dr-css: 15; }
 
 .dr-pane, .sh-drill {
   --dr-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -335,6 +335,16 @@
   font: 600 13px/1 var(--dr-font);
 }
 .dr-pane .dr-rcv-rt > .ic { color: var(--ink-3); }
+/* The route's drop-down: the phone's own menu, invisible over the pill (16px so iOS doesn't zoom in on it). */
+.dr-pane .dr-rcv-rt { position: relative; }
+.dr-pane .dr-rcv-sel {
+  position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; border: 0; opacity: 0;
+  font-size: 16px; cursor: pointer; -webkit-appearance: none; appearance: none;
+}
+.dr-pane .dr-rcv-rt:has(.dr-rcv-sel:focus-visible) { outline: 2px solid var(--tint); outline-offset: 2px; }
+/* An audible: a route changed from the play's call. */
+.dr-pane .dr-rcv-rt.is-aud { background: var(--tint-soft); color: var(--tint); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tint) 45%, transparent); }
+.dr-pane .dr-rcv-rt.is-aud > .ic { color: inherit; }
 /* His route's colour on the card, so the list and the play art match up. */
 .dr-pane .dr-rcv-c { flex: none; width: 12px; height: 3px; margin-right: 4px; border-radius: 2px; background: var(--c); }
 /* The pass play's target: first, flagged in the red of his route on the card. */
