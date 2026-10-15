@@ -38,7 +38,7 @@ const ST = new WeakMap(); // ctx -> pane state
 
 // A home-screen app open across an update imports this module new under the stylesheet it started with: when
 // drill.css's mark (--dr-css on :root) isn't this module's, the current file is added (as in views/seventeen.js).
-const CSS_V = '13';
+const CSS_V = '14';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--dr-css').trim() === CSS_V || document.querySelector('link[data-dr-css]')) return;
@@ -941,23 +941,12 @@ function artLabels(who, slots, key) {
     return '';
   }).join('');
 }
-/** Their defense as it lines up now (the look and the lean the field shows): a muted triangle for each man, under the
- *  routes, so a card shows how its play attacks it. */
-function artDefense(s) {
-  if (!s || s.poss !== 'us') return '';
-  const view = viewNow(s), U = E.unitsFor(s, 'us'), P = defPos(U.d.T, view.look || PRE_LOOK, view.shade);
-  const sq = Math.max(0.35, Math.min(1, (108 - s.ball) / 21)); // near the goal line the deep men squeeze in (spots)
-  return U.d.T.d.map(([slot]) => P[slot]).filter(Boolean).map(([x, y]) => {
-    const Y = ARTY(y > 2.5 ? 2.5 + (y - 2.5) * sq : y);
-    return `<polygon class="dr-art-d" points="${f2(x - 1.2)},${f2(Y - 0.9)} ${f2(x + 1.2)},${f2(Y - 0.9)} ${f2(x)},${f2(Y + 1.15)}"/>`;
-  }).join('');
-}
-/** A card's art: the field, their defense, the play (inner), your eleven, the names. on: {who, def} (artOn). */
-const artSVG = (on, ball, inner, run = false, labels = '') => `<svg class="dr-art" viewBox="0 0 ${WIDTH} ${f2(ART_H)}" aria-hidden="true">${artField(ball)}${on.def || ''}${inner}${artPlayers(run)}${labels}</svg>`;
+/** A card's art: the field, the play (inner), your eleven, the names. on: {who} (artOn). */
+const artSVG = (on, ball, inner, run = false, labels = '') => `<svg class="dr-art" viewBox="0 0 ${WIDTH} ${f2(ART_H)}" aria-hidden="true">${artField(ball)}${inner}${artPlayers(run)}${labels}</svg>`;
 const artRoute = (slot, route) => routePath(route, OFF_POS[slot][0], OFF_POS[slot][1]);
 const colOf = (slot, key) => (slot === key ? RC.key : SLOT_C[slot] || RC.white);
-/** What every card shares: your receivers' last names by slot (their labels) and their defense as it lines up. */
-const artOn = s => ({who: Object.fromEntries(E.TARGETS.map(k => [k, dr.lastName(s.mine.by[k].n)])), def: artDefense(s),
+/** What every card shares: your receivers' last names by slot (their labels) and the look their defense shows. */
+const artOn = s => ({who: Object.fromEntries(E.TARGETS.map(k => [k, dr.lastName(s.mine.by[k].n)])),
   vs: s.poss === 'us' ? `vs ${E.LOOKS[s.look || PRE_LOOK].name}` : ''});
 /** The receivers' blocks on a run: a few yards up, a bar at the end. */
 const artBlocks = skip => E.TARGETS.filter(k => k !== 'RB' && !skip.includes(k)).map(k => {
@@ -1173,14 +1162,12 @@ const legendDefHTML = () => `<p class="dr-dlegend" aria-hidden="true">${Object.v
 const FLAG_INFO = [['a', 'Play action'], ['r', 'Roll out'], ['o', 'Out of bounds']];
 /** The pass play's target (its card's player), or null. */
 const keyOf = st => (st.s.book && st.s.book[st.card] ? PASS_KEY[st.s.book[st.card]] : null);
+/** A receiver to throw to, on one line: his position (coloured by his rating), his name, his route to change. */
 function receiverRowHTML(st, slot) {
   const s = st.s, p = s.mine.by[slot], route = st.routes[slot], key = slot === keyOf(st);
-  const od = E.odds(s, slot, route, st.flags);
-  const stat = `${pct(od.caught)} caught · ${od.ypt.toFixed(1)} yds a throw${od.picked >= 0.03 ? ` · ${pct(od.picked)} picked` : ''}`;
-  const lead = key ? faceHTML(p, s.sc.o) : `<span class="dr-rcv-pos" style="--rc:${ratingColor(p.r)}">${esc(dr.posOf(slot))}</span>`;
-  return `<li class="dr-rcv${key ? ' is-key' : ''}" data-dr-rcvrow="${slot}"><button type="button" class="dr-rcv-go" data-dr-go="${E.tok.pass(slot, route, Object.assign({}, st.flags, {c: st.card, h: hurryOn(st)}))}" aria-label="${esc(`${key ? 'The target. ' : ''}Throw to ${p.n}, ${E.ROUTES[route].name}: ${stat}`)}">`
-    + `${lead}<span class="dr-rcv-id">${key ? '<span class="dr-rcv-tag">Target</span>' : ''}<b>${esc(dr.short(p.n))}</b></span>`
-    + `<span class="dr-rcv-st">${esc(stat)}</span></button>`
+  return `<li class="dr-rcv${key ? ' is-key' : ''}" data-dr-rcvrow="${slot}"><button type="button" class="dr-rcv-go" data-dr-go="${E.tok.pass(slot, route, Object.assign({}, st.flags, {c: st.card, h: hurryOn(st)}))}" aria-label="${esc(`${key ? 'The target. ' : ''}Throw to ${p.n}, ${E.ROUTES[route].name}`)}">`
+    + `<span class="dr-rcv-pos" style="--rc:${ratingColor(p.r)}">${esc(dr.posOf(slot))}</span>`
+    + `<span class="dr-rcv-id">${key ? '<span class="dr-rcv-tag">Target</span>' : ''}<b>${esc(dr.short(p.n))}</b></span></button>`
     + `<button type="button" class="dr-rcv-rt" data-dr-route="${slot}" aria-label="${esc(`${p.n}'s route: ${E.ROUTES[route].name}. Change it.`)}"><i class="dr-rcv-c" style="--c:${colOf(slot, keyOf(st))}" aria-hidden="true"></i>${esc(E.ROUTES[route].name)}${ui.icon('chevron-down', {size: 12})}</button></li>`;
 }
 /** The receivers to throw to, the play's target first. */

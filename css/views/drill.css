@@ -6,7 +6,7 @@
    Team colours come in per element as --tc; a player's rating colour as --rc. */
 
 /* The version mark views/drill.js checks (CSS_V): bump both when the pane needs rules an older file lacks. */
-:root { --dr-css: 13; }
+:root { --dr-css: 14; }
 
 .dr-pane, .sh-drill {
   --dr-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -321,28 +321,24 @@
 .dr-pane .dr-rcv { display: flex; align-items: stretch; }
 .dr-pane .dr-rcv + .dr-rcv { border-top: 1px solid var(--dr-line); }
 .dr-pane .dr-rcv-go {
-  flex: 1; min-width: 0; display: grid; grid-template-columns: 32px minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 10px; row-gap: 2px;
-  align-items: center; padding: 10px 4px 10px 12px; text-align: left; color: var(--ink);
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 8px 4px 8px 12px; text-align: left; color: var(--ink);
 }
 .dr-pane .dr-rcv-go.is-pressed { background: var(--fill); }
 .dr-pane .dr-rcv-pos {
-  grid-row: 1 / 3; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px;
+  flex: none; display: grid; place-items: center; width: 30px; height: 26px; border-radius: 8px;
   background: var(--rc); color: #0A0F1A; font: 800 11px/1 var(--dr-font); letter-spacing: .02em;
 }
 .dr-pane .dr-rcv-id { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 15px/19px var(--dr-font); }
-.dr-pane .dr-rcv-st { font: 400 12.5px/16px var(--dr-font); color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .dr-pane .dr-rcv-rt {
   flex: none; display: flex; align-items: center; gap: 3px; align-self: center; margin-right: 10px;
-  padding: 6px 10px; border-radius: 999px; background: var(--surface-2); color: var(--ink);
+  padding: 5px 10px; border-radius: 999px; background: var(--surface-2); color: var(--ink);
   font: 600 13px/1 var(--dr-font);
 }
 .dr-pane .dr-rcv-rt > .ic { color: var(--ink-3); }
 /* His route's colour on the card, so the list and the play art match up. */
 .dr-pane .dr-rcv-c { flex: none; width: 12px; height: 3px; margin-right: 4px; border-radius: 2px; background: var(--c); }
-/* The pass play's target: first, with his headshot, flagged in the red of his route on the card. */
+/* The pass play's target: first, flagged in the red of his route on the card. */
 .dr-pane .dr-rcv.is-key { background: linear-gradient(90deg, rgba(255,77,94,.14), rgba(255,77,94,0) 70%); box-shadow: inset 3px 0 0 #FF4D5E; }
-.dr-pane .dr-rcv.is-key .dr-face { grid-row: 1 / 3; width: 44px; height: 32px; border-radius: 8px; }
-.dr-pane .dr-rcv.is-key .dr-rcv-go { grid-template-columns: 44px minmax(0, 1fr); }
 .dr-pane .dr-rcv-tag {
   display: inline-block; margin-right: 6px; padding: 1px 5px; border-radius: 4px; vertical-align: 1.5px;
   font: 800 9px/12px var(--dr-font); letter-spacing: .06em; text-transform: uppercase; color: #fff; background: #FF4D5E;
@@ -386,7 +382,6 @@
 .dr-pane .dr-card-art { position: relative; display: block; background: linear-gradient(180deg, #121418, #0E1013); }
 .dr-pane .dr-art { display: block; width: 100%; height: auto; aspect-ratio: 53.33 / 24.15; }
 /* Their defense on your play cards, as it lines up now: muted, under the routes. */
-.dr-art .dr-art-d { fill: rgba(203,213,225,.78); stroke: #0E1013; stroke-width: .25px; stroke-linejoin: round; }
 /* Who runs what: each receiver's name under him on the card, in his route's colour, edged dark over the lines. */
 .dr-art .dr-art-l {
   font: 800 1.7px var(--dr-display); letter-spacing: .04px;
@@ -666,7 +661,7 @@
   .dr-pane .dr-type { font-size: 14px; }
   .dr-pane .dr-card { flex-basis: 88%; }
   .dr-pane .dr-card-tt > b { font-size: 16px; }
-  .dr-pane .dr-rcv-go { padding-left: 10px; column-gap: 8px; }
+  .dr-pane .dr-rcv-go { padding-left: 10px; gap: 8px; }
   .dr-pane .dr-rcv-rt { margin-right: 8px; padding: 6px 8px; }
   .dr-pane .dr-pl { width: 22px; height: 22px; margin: -11px 0 0 -11px; }
   .dr-pane .dr-pl-j { font-size: 10px; }
