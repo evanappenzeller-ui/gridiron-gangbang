@@ -806,7 +806,7 @@ function headHTML(st) {
   const s = st.s, sc = s.sc, n = st.n, g = sc.g;
   const where = sc.b === 50 ? 'midfield' : sc.b < 50 ? `your ${sc.b}` : `their ${100 - sc.b}`;
   return `<header class="dr-head">`
-    + `<p class="dr-kick">${esc(`Daily drill #${n} · ${dr.dayLabel(n)}`)}</p>`
+    + `<p class="dr-kick">${esc(`Two-Minute Drill #${n} · ${dr.dayLabel(n)}`)}</p>`
     + `<h2 class="dr-title">${esc(`Down ${sc.them - sc.us}, ${dr.clockText(sc.t)} to go`)}</h2>`
     + `<p class="dr-sub">${esc(`${g ? `Week ${g.wk}: ${g.a} at ${g.h}. ` : ''}Ball on ${where}, ${plural(sc.to, 'timeout')}. Play to 0:00.`)}</p>`
     + ui.iconButton({icon: 'info', label: 'How the Two-Minute Drill works', cls: 'dr-howto', attrs: {'data-dr-help': ''}})
