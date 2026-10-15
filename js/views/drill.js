@@ -38,7 +38,7 @@ const ST = new WeakMap(); // ctx -> pane state
 
 // A home-screen app open across an update imports this module new under the stylesheet it started with: when
 // drill.css's mark (--dr-css on :root) isn't this module's, the current file is added (as in views/seventeen.js).
-const CSS_V = '12';
+const CSS_V = '13';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--dr-css').trim() === CSS_V || document.querySelector('link[data-dr-css]')) return;
@@ -766,11 +766,9 @@ function lookHTML(s) {
   const look = E.LOOKS[s.look];
   return `<div class="dr-look"><span class="dr-look-ic">${ui.icon('shield', {size: 18})}</span><span class="dr-look-tx"><small>${esc(s.sc.d)} defense shows</small><b>${esc(look.name)}</b><span>${esc(look.sub)}</span></span></div>`;
 }
-function headRow(title, s, back) {
+function headRow(title, s) {
   const where = s.phase === 'pat' ? 'Try from the 2' : `${dr.downText(s.down, s.togo, s.ball)} · ${s.ball === 50 ? 'midfield' : dr.spot(s)}`;
-  return `<div class="dr-call-h">`
-    + (back ? `<button type="button" class="dr-back" data-dr-back aria-label="Back">${ui.icon('chevron-left', {size: 18})}</button>` : '')
-    + `<h3 class="dr-call-t" id="dr-call-t">${esc(title)}</h3><p class="dr-call-s">${esc(where)}</p></div>`;
+  return `<div class="dr-call-h"><h3 class="dr-call-t" id="dr-call-t">${esc(title)}</h3><p class="dr-call-s">${esc(where)}</p></div>`;
 }
 // No huddle: from a running clock, the snap comes E.NO_HUDDLE seconds later instead of E.HURRY, a little less set. A
 // switch on every snap of yours that stays on until you turn it off; it only goes into a call while the clock runs
@@ -788,16 +786,24 @@ function warnHTML(st) {
   return `<p class="dr-warn" data-dr-warn>${ui.icon('clock', {size: 15})}<span>${esc(`The clock is running and the next snap takes ${setup} seconds to get off. ${fix}${o.fg ? (o.timeout ? ', then kick' : '') : ''}.`)}</span></p>`;
 }
 /** The four play types, each with its three plays (a pass's are the snap's s.book). */
-const CALL_TILES = [['run', 'Run'], ['pass', 'Pass'], ['rpo', 'RPO'], ['trick', 'Trick play']];
-function mainHTML(st) {
-  const s = st.s, o = E.options(s);
-  const pat = s.phase === 'pat';
-  const subs = {run: 'Zone · Toss · Draw', pass: (s.book || []).map(k => E.PASS_PLAYS[k].name).join(' · '), rpo: 'Slant · Bubble · Seam', trick: 'Flea Flicker · HB Pass · Reverse'};
-  const calls = CALL_TILES.map(([k, l]) => {
+const CALL_TYPES = [['run', 'Run'], ['pass', 'Pass'], ['rpo', 'RPO'], ['trick', 'Trick']];
+/** The open play type (st.panel): 'main' with none open, or with the trick play used. */
+const typeOf = st => (st.panel === 'trick' && !st.s.trick ? 'main' : ['pass', 'run', 'rpo', 'trick'].includes(st.panel) ? st.panel : 'main');
+/** The play types as one switch that stays above the open type's plays: tap another to change, the open one to close. */
+function typesHTML(st, open) {
+  const s = st.s;
+  const subs = {run: 'Zone, Toss, Draw', pass: (s.book || []).map(k => E.PASS_PLAYS[k].name).join(', '), rpo: 'Slant, Bubble, Seam', trick: 'Flea Flicker, HB Pass, Reverse'};
+  return `<div class="dr-types" role="group" aria-label="Play type">` + CALL_TYPES.map(([k, l]) => {
     const off = k === 'trick' && !s.trick;
-    return `<button type="button" class="dr-tile" data-dr-menu="${k}"${off ? ' disabled' : ''}>`
-      + `<b>${esc(l)}</b><small>${esc(off ? 'Used: one a game' : subs[k])}</small></button>`;
-  }).join('');
+    return `<button type="button" class="dr-type" data-dr-menu="${k}" aria-pressed="${open === k}"${off ? ' disabled' : ''}`
+      + ` aria-label="${esc(`${k === 'trick' ? 'Trick play' : l}: ${off ? 'used, one a game' : subs[k]}`)}">${esc(l)}</button>`;
+  }).join('') + `</div>`;
+}
+function callHTML(st) {
+  const s = st.s, o = E.options(s), open = typeOf(st);
+  const pat = s.phase === 'pat';
+  const body = open === 'pass' ? passBody(st) : open === 'run' || open === 'rpo' ? runBody(st, open) : open === 'trick' ? trickBody(st)
+    : `<p class="dr-hint">Pick a play type to see its three plays.</p>`;
   const fg = o.fg ? `<button type="button" class="dr-fg" data-dr-go="${E.tok.fg}"><span class="dr-fg-tx"><b>Field goal</b><small>${esc(`${o.fg.dist} yards`)}</small></span><span class="dr-fg-p">${pct(o.fg.p)}<small>to make</small></span></button>` : '';
   let kick = '';
   if (pat) {
@@ -809,12 +815,13 @@ function mainHTML(st) {
   if (o.timeout || (s.running && !pat)) tools.push(`<button type="button" class="dr-pill" data-dr-go="${E.tok.timeout}"${o.timeout ? '' : ' disabled'}>${ui.icon('clock', {size: 14})}<span>Timeout · ${s.tos} left</span></button>`);
   if (o.spike) tools.push(`<button type="button" class="dr-pill" data-dr-go="${E.tok.spike}">${ui.icon('bolt', {size: 14})}<span>Spike</span></button>`);
   if (o.kneel) tools.push(`<button type="button" class="dr-pill is-accent" data-dr-go="${E.tok.kneel}">${ui.icon('check-circle', {size: 14})}<span>Kneel</span></button>`);
-  if (!pat && s.us <= s.them) tools.push(hurryHTML(st));
+  // No huddle sits with the options of a pass, a run and an RPO; a trick play needs a huddle.
+  if (!pat && s.us <= s.them && open === 'main') tools.push(hurryHTML(st));
   const warn = warnHTML(st);
   const lead = s.us > s.them && !pat ? `<p class="dr-goal">${esc(`You lead by ${s.us - s.them}. Keep the ball and run out the clock: a kneel takes ${E.KNEEL} seconds off when it's running.`)}</p>` : '';
   return `<section class="dr-call" aria-labelledby="dr-call-t">${headRow(pat ? 'Kick or go for two?' : 'Your call', s)}`
-    + kick + lead + lookHTML(s) + `<div class="dr-tiles">${calls}</div>` + fg
-    + (tools.length ? `<div class="dr-tools">${tools.join('')}</div>` : '') + warn + `</section>`;
+    + kick + lead + lookHTML(s) + typesHTML(st, open) + body + fg
+    + (tools.filter(Boolean).length ? `<div class="dr-tools">${tools.join('')}</div>` : '') + warn + `</section>`;
 }
 /** What your defense has to do, from the score. */
 function goalText(s) {
@@ -1178,32 +1185,26 @@ function receiverRowHTML(st, slot) {
 }
 /** The receivers to throw to, the play's target first. */
 const rowsHTML = st => { const key = keyOf(st); return (key ? [key] : []).concat(E.TARGETS.filter(k => k !== key)).map(k => receiverRowHTML(st, k)).join(''); };
-function passHTML(st) {
-  const s = st.s;
+// What each play type opens under the switch.
+function passBody(st) {
   const chips = FLAG_INFO.map(([k, l]) => `<button type="button" class="dr-toggle" data-dr-flag="${k}" aria-pressed="${!!st.flags[k]}">${esc(l)}</button>`).join('') + hurryHTML(st, 'dr-toggle');
-  return `<section class="dr-call" aria-labelledby="dr-call-t">${headRow(s.phase === 'pat' ? 'Two-point pass' : 'Pass', s, true)}${lookHTML(s)}`
-    + `<div class="dr-cards" role="group" aria-label="Pass plays" data-dr-cards>${passCardsHTML(st)}</div>`
+  return `<div class="dr-cards" role="group" aria-label="Pass plays" data-dr-cards>${passCardsHTML(st)}</div>`
     + `<ol class="dr-rcvs" data-dr-rcvs>${rowsHTML(st)}</ol>`
     + `<div class="dr-flags" role="group" aria-label="Options">${chips}</div>`
-    + `<p class="dr-hint">Pick a play and it goes to its target; throw to him or anyone else. Tap a receiver on the field (or his route) to change his route.</p></section>`;
+    + `<p class="dr-hint">Pick a play and it goes to its target; throw to him or anyone else. Tap a receiver on the field (or his route) to change his route.</p>`;
 }
-function runHTML(st, kind) {
+function runBody(st, kind) {
   const s = st.s;
-  const title = (s.phase === 'pat' ? 'Two-point ' : '') + (kind === 'run' ? 'run' : 'RPO');
   const sides = [['w', '◀ Weak side'], ['s', 'Strong side ▶']].map(([d, l]) => `<button type="button" class="dr-side" data-dr-side="${d}" aria-pressed="${st.side === d}">${l}</button>`).join('');
   const hint = `Their front leans to the ${s.shade === 's' ? 'strong' : 'weak'} side.${kind === 'rpo' ? ' Your QB reads the box: crowded, he throws it; light, he hands it off.' : ''}`;
-  return `<section class="dr-call" aria-labelledby="dr-call-t">${headRow(title.charAt(0).toUpperCase() + title.slice(1), s, true)}${lookHTML(s)}`
-    + `<div class="dr-sides" role="group" aria-label="Which side">${sides}</div><p class="dr-hint">${esc(hint)}</p>`
+  return `<div class="dr-sides" role="group" aria-label="Which side">${sides}</div><p class="dr-hint">${esc(hint)}</p>`
     + (hurryHTML(st) ? `<div class="dr-flags">${hurryHTML(st, 'dr-toggle')}</div>` : '')
     + `<div class="dr-cards" role="group" aria-label="${kind === 'run' ? 'Runs' : 'RPOs'}" data-dr-cards>${runCardsHTML(st)}</div>`
-    + `<div class="dr-oob"><span class="dr-oob-tx"><b>Get out of bounds</b><small>The ball carrier tries to stop the clock. No guarantee.</small></span>${ui.switchCtl({name: 'dr-oob', checked: st.runOob, label: 'Get out of bounds'})}</div>`
-    + `</section>`;
+    + `<div class="dr-oob"><span class="dr-oob-tx"><b>Get out of bounds</b><small>The ball carrier tries to stop the clock. No guarantee.</small></span>${ui.switchCtl({name: 'dr-oob', checked: st.runOob, label: 'Get out of bounds'})}</div>`;
 }
-function trickHTML(st) {
-  const s = st.s;
-  return `<section class="dr-call" aria-labelledby="dr-call-t">${headRow(s.phase === 'pat' ? 'Two-point trick' : 'Trick play', s, true)}${lookHTML(s)}`
-    + `<p class="dr-hint">One a game. Each fools a different defense: the aggressive ones bite.</p>`
-    + `<div class="dr-cards" role="group" aria-label="Trick plays" data-dr-cards>${trickCardsHTML(st)}</div></section>`;
+function trickBody(st) {
+  return `<p class="dr-hint">One a game. Each fools a different defense: the aggressive ones bite.</p>`
+    + `<div class="dr-cards" role="group" aria-label="Trick plays" data-dr-cards>${trickCardsHTML(st)}</div>`;
 }
 function snapHTML() {
   return `<section class="dr-snap" aria-live="polite"><p class="dr-snap-t"><i class="dr-dot"></i>Live</p><p class="dr-snap-s">Tap the field to skip</p></section>`;
@@ -1214,10 +1215,7 @@ function panelHTML(st) {
   const bd = st.last ? breakdownHTML(st) : '';
   if (s.result) return bd + resultHTML(st);
   if (s.poss === 'them' && s.phase !== 'pat') return bd + defenseHTML(st);
-  if (st.panel === 'pass') return bd + passHTML(st);
-  if (st.panel === 'run' || st.panel === 'rpo') return bd + runHTML(st, st.panel);
-  if (st.panel === 'trick' && s.trick) return bd + trickHTML(st);
-  return bd + mainHTML(st);
+  return bd + callHTML(st);
 }
 
 // ---------------------------------------------------------------------------- The breakdown of the last snap
@@ -1728,13 +1726,14 @@ function share(st) {
 }
 function openMenu(st, k) {
   if (st.busy) return;
+  const was = st.panel;
   st.panel = k;
   ui.haptic('selection');
   setPanel(st);
   patchRoutes(st);
   const f = st.el.querySelector('[data-dr-field]');
   if (f) { f.classList.toggle('is-routes', routesOn(st)); f.setAttribute('role', routesOn(st) ? 'group' : 'img'); f.setAttribute('aria-label', fieldLabel(st)); }
-  const first = st.el.querySelector(k === 'main' ? '[data-dr-panel] .dr-tiles button' : '[data-dr-panel] [data-dr-back]');
+  const first = st.el.querySelector(`[data-dr-panel] [data-dr-menu="${k === 'main' ? was : k}"]`);
   if (first) { try { first.focus({preventScroll: true}); } catch (_) {} }
 }
 /** No huddle on or off: the switches, the calls that carry it and the clock warning follow. */
@@ -1791,11 +1790,10 @@ function onClick(st, e) {
   if (st.busy && st.anim && e.target.closest('[data-dr-field]')) return; // the field's own skip handler
   const rcv = routesOn(st) && e.target.closest('[data-dr-rcv]');
   if (rcv && st.el.contains(rcv)) { cycleRoute(st, rcv.dataset.drRcv); return; }
-  const t = e.target.closest('[data-dr-go], [data-dr-menu], [data-dr-back], [data-dr-card], [data-dr-side], [data-dr-hurry], [data-dr-flag], [data-dr-route], [data-dr-replay], [data-dr-ratings], [data-dr-help], [data-dr-share], [data-dr-retry], [data-dr-who], [data-dr-sbtab]');
+  const t = e.target.closest('[data-dr-go], [data-dr-menu], [data-dr-card], [data-dr-side], [data-dr-hurry], [data-dr-flag], [data-dr-route], [data-dr-replay], [data-dr-ratings], [data-dr-help], [data-dr-share], [data-dr-retry], [data-dr-who], [data-dr-sbtab]');
   if (!t || !st.el.contains(t) || t.disabled) return;
   if (t.hasAttribute('data-dr-go')) { go(st, t.dataset.drGo); return; }
-  if (t.hasAttribute('data-dr-menu')) { openMenu(st, t.dataset.drMenu); return; }
-  if (t.hasAttribute('data-dr-back')) { openMenu(st, 'main'); return; }
+  if (t.hasAttribute('data-dr-menu')) { openMenu(st, st.panel === t.dataset.drMenu ? 'main' : t.dataset.drMenu); return; }
   if (t.hasAttribute('data-dr-card')) { pickCard(st, Number(t.dataset.drCard)); return; }
   if (t.hasAttribute('data-dr-side')) {
     st.side = t.dataset.drSide === 'w' ? 'w' : 's';
