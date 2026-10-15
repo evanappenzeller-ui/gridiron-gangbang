@@ -955,14 +955,15 @@ function usage(s, match) {
   const yds = list.reduce((t, p) => t + (['catch', 'run', 'sack'].includes(p.kind) || p.two ? (p.gain || 0) : 0), 0);
   return {calls: list.length, yds: list.length ? yds / list.length : 0};
 }
-/** A play card. go: the action it calls; else pick: the pass play it selects. form: the formation over its name;
- *  sub: a line under the header; foot: the footer (else how the play has gone: use). */
+/** A play card. go: the action it calls; else pick: the pass play it selects. key: the player on it (none: no
+ *  player). form: the formation over its name; sub: a line under the header; foot: the footer (else how the play has
+ *  gone: use). */
 function cardHTML(st, {i, art, name, tag, key, use, go, pick, on, label, form = FORMATION, sub = '', foot = null}) {
-  const s = st.s, p = s.mine.by[key];
+  const s = st.s, p = key ? s.mine.by[key] : null;
   const at = go ? `data-dr-go="${go}"` : `data-dr-card="${pick}" aria-pressed="${!!on}"`;
   return `<button type="button" class="dr-card${on ? ' is-on' : ''}" ${at} aria-label="${esc(label || name)}">`
     + `<span class="dr-card-h"><span class="dr-card-tt"><small><span class="dr-card-tag is-${tag.toLowerCase()}">${esc(tag)}</span>${esc(form)}</small><b>${esc(name)}</b></span>`
-    + `<span class="dr-card-p">${faceHTML(p, s.sc.o)}<small>${esc(dr.short(p.n))}</small></span></span>`
+    + (p ? `<span class="dr-card-p">${faceHTML(p, s.sc.o)}<small>${esc(dr.short(p.n))}</small></span>` : '') + `</span>`
     + (sub ? `<span class="dr-card-d">${esc(sub)}</span>` : '')
     + `<span class="dr-card-art">${art}</span>`
     + `<span class="dr-card-f">${esc(foot || `${use.calls} ${use.calls === 1 ? 'call' : 'calls'} | ${use.yds.toFixed(1)} avg yds`)}</span></button>`;
@@ -1095,10 +1096,6 @@ function defArt(st, call) {
   }).join('');
   return `<svg class="dr-art" viewBox="0 0 ${WIDTH} ${f2(ART_H)}" aria-hidden="true">${artField(s.ball)}${zones}${lines}${them}${you}</svg>`;
 }
-/** The defender each call is built around (his headshot on its card). */
-function defKey(U, call) {
-  return {c2: 'SS', c3: 'FS', c4: 'RCB', c1: 'LCB', c0: U.lbs[0], fire: U.front[0], rb: U.front[1], pv: 'FS'}[call];
-}
 /** Your personnel for a call: base against the loaded box, nickel otherwise. */
 const defForm = (T, call) => (CALL_LOOK[call] === 'box' ? `${T.s === '34' ? '3-4' : '4-3'} Base` : `Nickel ${T.s === '34' ? '3-3-5' : '4-2-5'}`);
 function defCardsHTML(st) {
@@ -1107,7 +1104,7 @@ function defCardsHTML(st) {
     const C = E.CALLS[k], list = s.plays.filter(p => p.poss === 'them' && p.dcall === k && p.act);
     const yds = list.reduce((t, p) => t + (['catch', 'run', 'sack'].includes(p.kind) ? (p.gain || 0) : 0), 0);
     const foot = `${list.length} ${list.length === 1 ? 'call' : 'calls'} | ${(list.length ? yds / list.length : 0).toFixed(1)} avg yds allowed`;
-    return cardHTML(st, {i, art: defArt(st, k), name: C.name, tag: DEF_TAG[k], key: defKey(U, k), form: defForm(U.T, k), sub: C.short, foot,
+    return cardHTML(st, {i, art: defArt(st, k), name: C.name, tag: DEF_TAG[k], key: null, form: defForm(U.T, k), sub: C.short, foot,
       go: E.tok.def(k), label: `${C.name}: ${C.what}. ${foot}.`});
   }).join('');
 }
