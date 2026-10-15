@@ -538,6 +538,8 @@ function finishCalls(p, kind, calls, x, y, forO, t = 0.92) {
   else if (p.oob) at2('Out of bounds');
 }
 
+/** How fast a snap plays out: each plan's own length times PACE (above 1: slower, so the play can be followed). */
+const PACE = 1.35;
 /** Plays a choreography on the field. Resolves when it's done (or skipped: a tap on the field). */
 function runAnim(st, plan, p) {
   return new Promise(resolve => {
@@ -590,9 +592,9 @@ function runAnim(st, plan, p) {
     };
     const frame = now => {
       if (done || st.dead) { stop(); return; }
-      const t = Math.min(1, (now - t0) / plan.dur);
+      const t = Math.min(1, (now - t0) / (plan.dur * PACE));
       draw(t);
-      if (t >= 1) { st.timers.push(setTimeout(stop, 420)); return; }
+      if (t >= 1) { st.timers.push(setTimeout(stop, 420 * PACE)); return; }
       requestAnimationFrame(frame);
     };
     const skip = () => { if (!done) { draw(1); stop(); } };
@@ -606,7 +608,7 @@ function runOff(st, from, to) {
   return new Promise(resolve => {
     const el = st.el.querySelector('[data-dr-clock]');
     if (!el || from === to || ui.RM || !st.ctx.visible) { if (el) el.textContent = dr.clockText(to); resolve(); return; }
-    const t0 = performance.now(), ms = 420;
+    const t0 = performance.now(), ms = 420 * PACE;
     const step = now => {
       if (st.dead) { resolve(); return; }
       const k = Math.min(1, (now - t0) / ms);
@@ -1163,7 +1165,7 @@ async function go(st, token) {
     if (p.poss === 'them') {
       // Your defense shifts into its call before the snap.
       const f = st.el.querySelector('[data-dr-field]');
-      if (f) { moveTo(st, f, viewOf(p)); await pause(st, 520); }
+      if (f) { moveTo(st, f, viewOf(p)); await pause(st, 520 * PACE); }
       if (st.dead) return;
     }
     await runAnim(st, choreo(s, p), p);
@@ -1342,6 +1344,7 @@ function load(st) {
   st.el.innerHTML = loadingHTML();
   dr.load().then(() => {
     if (st.dead) return;
+    dr.applyResets();
     setDaily(st);
     rerender(st, {fade: false});
     dr.autoPost();
@@ -1388,8 +1391,13 @@ export function mount(el, ctx, {anchor} = {}) {
   el.addEventListener('toggle', st.onToggle, true);
   el.addEventListener('ui:change', st.onChange);
   st.stopTick = ctx.timer(() => tick(st), 20000);
-  st.unsub = daily.subscribe(type => { if (type === 'lb' || type === 'ready' || type === 'error') scheduleBoard(st); });
+  st.unsub = daily.subscribe(type => {
+    // A reset for this phone's member (dr.applyResets) or another tab: the saved game isn't the one showing.
+    if (type === 'lb' && !st.busy && st.s && dr.DOC) { dr.applyResets(); if (dr.dayState(st.n).acts !== E.actsOf(st.s)) { setDaily(st); rerender(st); } }
+    if (type === 'lb' || type === 'ready' || type === 'error') scheduleBoard(st);
+  });
   if (!dr.DOC) { load(st); return; }
+  dr.applyResets();
   setDaily(st);
   rerender(st, {fade: false});
   dr.autoPost();

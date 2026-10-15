@@ -10,8 +10,10 @@
 //     tokenLabel(s, t), tokenShort(s, t), resultText(s), squares(s), shareText(n, s)
 //   Coach comp: tendencies(s), coachComp(s) (the NFL head coach whose late-game play-calling your calls fit best)
 //   Scoreboard: autoPost(), boardState(), boardRows(n), gameOf(key, n)
+//   applyResets()               a member's game cleared once, at the league's ask (RESETS)
 import {lsGet, lsSet, absLink} from './ui.js';
 import * as daily from './daily.js';
+import {me as dataMe} from './data.js';
 import * as E from './drill-sim.js';
 
 export {E};
@@ -519,8 +521,51 @@ export async function autoPost() {
   posting = true;
   try { await LB.merge(body); return true; } catch (_) { return false; } finally { posting = false; }
 }
+// ---------------------------------------------------------------------------------------------- resets
+// A member's game cleared once so they can play the day again, at the league's ask: on that member's phones (once on
+// each), on that day only, the saved game goes, and so does the result that phone posted before the reset (so the
+// replay's posts in its place; a result posted after the reset stays). 'gg-drill-resets': {id: when it ran here}.
+const RESETS = [{id: 'evan-d1', who: 'evan', n: 1}];
+const RKEY = 'gg-drill-resets';
+function resetsDone() {
+  let v = null;
+  try { v = JSON.parse(lsGet(RKEY) || 'null'); } catch (_) { v = null; }
+  return v && typeof v === 'object' ? v : {};
+}
+/** Applies a reset meant for this phone's member today. Returns true when it cleared this phone's game (redraw). */
+export function applyResets() {
+  if (!DOC) return false;
+  const LB = daily.LB, n0 = todayNumber();
+  let cleared = false;
+  RESETS.forEach(r => {
+    if (r.n !== n0) return;
+    const who = dataMe() || (LB.ready && LB.uid ? meKey() : null);
+    if (who !== r.who) return;
+    const done = resetsDone();
+    if (!done[r.id]) {
+      const v = read(), d = v.days[r.n];
+      if (d) {
+        if (d.r) { v.played = Math.max(0, v.played - 1); if (d.r === 'W') v.wins = Math.max(0, v.wins - 1); }
+        delete v.days[r.n];
+        write(v);
+        cleared = true;
+      }
+      done[r.id] = Date.now();
+      lsSet(RKEY, JSON.stringify(done));
+    }
+    const board = r.id + ':board';
+    if (done[board] || !LB.ready || !LB.merge || !LB.uid || LB.off) return;
+    const mine = docs().find(p => p.id === LB.uid);
+    const e = mine && mine[F] && typeof mine[F] === 'object' ? mine[F][r.n] : null;
+    const mark = () => { const d2 = resetsDone(); d2[board] = Date.now(); lsSet(RKEY, JSON.stringify(d2)); };
+    if (!e || !(Number(e.t) < done[r.id])) { mark(); return; }
+    LB.merge({[F]: {[r.n]: null}}).then(mark, () => {});
+  });
+  return cleared;
+}
+
 try {
-  daily.subscribe(type => { if (type === 'lb') autoPost(); });
+  daily.subscribe(type => { if (type === 'lb') { applyResets(); autoPost(); } });
   addEventListener('online', () => autoPost());
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') autoPost(); });
 } catch (_) {}
