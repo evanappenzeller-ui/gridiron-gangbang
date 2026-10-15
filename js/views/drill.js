@@ -13,7 +13,9 @@
 // toggle; tap a name to throw it. Run and RPO pick a side (strong is the tight end's) and whether to head for the
 // sideline. After a touchdown that leaves you down one or two: kick, or go for two.
 // On defense (you scored with time left, or turned it over): their formation, and your call from eight.
-// Each snap plays out on the field (every player moves, the clock runs; tap the field to skip), then the breakdown:
+// Each snap plays out from behind the offense, like a 16-bit football game (views/drill-cam.js: the camera swings down
+// from the dots, every player a pixel sprite in his uniform, then swings back up; the clock runs; tap the field to
+// skip), then the breakdown:
 // what happened, the win chance before and after, what the defense was really in, how your call ranked and how every
 // option scored (each played out many times: drill-sim.js scoreOptions), and Replay. At 0:00: the final, Share, and
 // the league's finals for the day (tap one to read it once you've played yours). Every control here is data-dr-*, so
@@ -23,6 +25,7 @@ import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as dr from '../core/drill.js';
 import * as daily from '../core/daily.js';
+import * as camLib from './drill-cam.js';
 import {msToMidnight} from './board.js';
 
 const E = dr.E;
@@ -35,7 +38,7 @@ const ST = new WeakMap(); // ctx -> pane state
 
 // A home-screen app open across an update imports this module new under the stylesheet it started with: when
 // drill.css's mark (--dr-css on :root) isn't this module's, the current file is added (as in views/seventeen.js).
-const CSS_V = '7';
+const CSS_V = '8';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--dr-css').trim() === CSS_V || document.querySelector('link[data-dr-css]')) return;
@@ -405,7 +408,9 @@ function choreo(s, p) {
     // Receivers block downfield a little.
     E.TARGETS.filter(k => k !== 'RB' && 'o-' + k !== carrier).forEach(k => { const [x, y] = start['o-' + k]; add('o-' + k, [0.6, x + (MID - x) * 0.1, y + 5]); });
     finishCalls(p, kind, calls, fx, end, forO);
-    return {tr, ball: ballTr, calls, dur: 2300 + Math.min(900, Math.max(0, p.gain) * 25)};
+    const ct = tr[carrier] || [];
+    const down = tackled(p) && ct.length ? [{key: carrier, t: ct[ct.length - 1][0]}] : [];
+    return {tr, ball: ballTr, calls, dur: 2300 + Math.min(900, Math.max(0, p.gain) * 25), down};
   }
   // Passes (and sacks, the RPO's throw, the flea flicker and the halfback pass).
   const routes = Object.assign({}, p.routes || {});
@@ -456,12 +461,12 @@ function choreo(s, p) {
     if (p.by) add('d-' + p.by, [tSack, sx + 0.8, qbSpot[1] + 0.6], [tSack + 0.12, sx + 0.6, sy + 0.4]);
     calls.push({t: tSack + 0.04, text: kind === 'fum' ? 'Fumble!' : 'Sack!', x: sx, y: qbSpot[1] + 2.5, cls: forO(false)});
     coverage(tr, start, D, cover, p, L, null, 0.9);
-    return {tr, ball: ballTr, calls, dur: 2300};
+    return {tr, ball: ballTr, calls, dur: 2300, down: [{key: passer, t: tSack + 0.12}]};
   }
   const cp = recv[target] || [start['o-' + target][0], L + air];
   ballTr.push([tThrow, qbSpot[0], qbSpot[1]], [tCatch, cp[0], cp[1]]);
   const air2 = {t0: tThrow, t1: tCatch};
-  let dur = 2500;
+  let dur = 2500, down = [], loose = null;
   if (kind === 'catch') {
     const fx = p.oob ? (cp[0] >= MID ? WIDTH - 0.6 : 0.6) : clampX(cp[0] + (MID - cp[0]) * 0.15);
     const tEnd = Math.min(0.95, tCatch + 0.12 + Math.min(0.3, Math.max(0, end - cp[1]) / 60));
@@ -471,8 +476,10 @@ function choreo(s, p) {
     coverage(tr, start, D, cover, p, L, {at: tCatch, x: fx, y: end, t: tEnd}, tEnd);
     finishCalls(p, kind, calls, fx, end, forO, tEnd);
     dur = 2500 + (tEnd - tCatch) * 2400;
+    if (tackled(p)) down = [{key: 'o-' + target, t: tEnd}];
   } else if (kind === 'inc') {
     ballTr.push([Math.min(0.95, tCatch + 0.1), cp[0] + 1.2, cp[1] - 1.5]);
+    loose = tCatch;
     coverage(tr, start, D, cover, p, L, {at: tCatch, x: cp[0], y: cp[1], miss: true}, tCatch);
     calls.push({t: tCatch, text: p.by && !p.trick ? 'Broken up' : 'Incomplete', x: cp[0], y: cp[1] + 2.8});
     if (p.kind === '2fail') calls.push({t: 0.9, text: 'No good', x: MID, y: L + 6, cls: 'is-bad'});
@@ -484,8 +491,10 @@ function choreo(s, p) {
     calls.push({t: tCatch + 0.02, text: 'Picked off!', x: cp[0], y: cp[1] + 2.8, cls: forO(false)});
     dur = 2600;
   }
-  return {tr, ball: ballTr, calls, dur, air: air2};
+  return {tr, ball: ballTr, calls, dur, air: air2, down, loose};
 }
+/** The ball carrier goes down at the end of his run unless he scored or got out of bounds. */
+const tackled = p => !p.td && !p.oob && p.kind !== '2good';
 /** Coverage: man calls trail their receivers; zones drop, then everyone converges on the ball. */
 function coverage(tr, start, D, cover, p, L, ballAt, tEnd) {
   const man = p.dcall === 'c0' || p.dcall === 'c1';
@@ -540,7 +549,24 @@ function finishCalls(p, kind, calls, x, y, forO, t = 0.92) {
 
 /** How fast a snap plays out: each plan's own length times PACE (above 1: slower, so the play can be followed). */
 const PACE = 1.35;
-/** Plays a choreography on the field. Resolves when it's done (or skipped: a tap on the field). */
+// The camera behind the offense (views/drill-cam.js): how long it takes to swing down before the snap and back up
+// after the play, and how long the end of the play holds first.
+const PAN_IN = 760, PAN_OUT = 640, HOLD = 420 * PACE;
+/** What the camera draws for a snap: the players on the field (their numbers, rating colours and uniforms; yours in
+ *  your team's colours, theirs in white), the end zones and the crowd. */
+function camScene(st, p) {
+  const s = st.s, ids = E.idsFor(s, p.poss);
+  const players = spots(s, viewOf(p)).filter(d => !d.off).map(d => {
+    const id = d.side === 'o' ? ids.o : ids.d;
+    return {key: d.key, side: d.side, j: d.p.j, n: d.p.n, rc: ratingColor(d.p.r), team: tcol(id), colored: id === s.sc.o, mine: (d.side === 'o') === (p.poss === 'us')};
+  });
+  const end = id => ({name: dr.team(id).n, c: tcol(id)[0]});
+  const [o0, o1] = tcol(ids.o), [d0, d1] = tcol(ids.d);
+  return {players, ends: {near: end(ids.o), far: end(ids.d)}, crowd: [o0, o1, d0, d1, '#D9D3C4', '#8D93A1', '#4F5668', '#B8A98A', '#2E3445', '#C6CBD6']};
+}
+/** Plays a choreography: the camera swings down behind the offense, the play runs, the camera swings back up to the
+ *  dots, now where the play left them. Resolves when it's done (or skipped: a tap on the field). Without a canvas,
+ *  the dots play it out top-down. */
 function runAnim(st, plan, p) {
   return new Promise(resolve => {
     const f = st.el.querySelector('[data-dr-field]');
@@ -550,21 +576,50 @@ function runAnim(st, plan, p) {
     Object.keys(plan.tr).forEach(k => { els[k] = f.querySelector(`[data-dr-p="${k}"]`); });
     f.classList.add('is-anim');
     cl.innerHTML = '';
-    const shown = new Set();
     const clock = st.el.querySelector('[data-dr-clock]');
     const c0 = p.clock, c1 = p.t1 != null ? p.t1 : p.after.clock;
-    const wt0 = winTop(p.ball);
-    const t0 = performance.now();
-    let done = false;
-    const stop = () => {
-      if (done) return;
-      done = true;
-      f.classList.remove('is-anim');
-      f.removeEventListener('click', skip);
-      st.anim = null;
-      resolve();
+    const wt0 = winTop(p.ball), fd = viewOf(p).fd;
+    // The window follows the ball when it heads off the top.
+    const winAt = b => (b ? Math.min(110, Math.max(wt0, b[1] + 9)) : wt0);
+    const wt1 = winAt(at(plan.ball, 1));
+    let cam = null;
+    try { cam = camLib.open(f, camScene(st, p)); } catch (_) { cam = null; }
+    // The ball's height: a pass on its arc, a kick up and over the bar.
+    const air = plan.air, a0 = air && at(plan.ball, air.t0), a1 = air && at(plan.ball, air.t1);
+    const arc = air ? Math.min(9, Math.hypot(a1[0] - a0[0], a1[1] - a0[1]) / 3.2) : 0;
+    const ballZ = t => {
+      if (air && t > air.t0 && t < air.t1) { const u = (t - air.t0) / (air.t1 - air.t0); return 4 * arc * u * (1 - u); }
+      if (plan.kick && t > 0.2) {
+        const u = Math.min(1, (t - 0.2) / 0.65);
+        return t <= 0.85 ? 36 * u * (1 - u) + 3.8 * u : 3.8 * Math.max(0, 1 - (t - 0.85) / 0.15);
+      }
+      return 0;
     };
-    const draw = t => {
+    const ms = plan.dur * PACE, still = ms * 0.015 / 1000 * 1.4; // under 1.4 yards a second, he's standing
+    const frameAt = (u, t, now, wt) => {
+      const pos = {}, run = {}, down = {};
+      Object.keys(plan.tr).forEach((k, i) => {
+        const q = at(plan.tr[k], t);
+        if (!q) return;
+        pos[k] = q;
+        if (t <= 0 || t >= 1) return;
+        const q0 = at(plan.tr[k], Math.max(0, t - 0.015));
+        if (Math.hypot(q[0] - q0[0], q[1] - q0[1]) > still) run[k] = 1 + (Math.floor(now / 115) + i) % 2;
+      });
+      (plan.down || []).forEach(d => { if (t >= d.t && pos[d.key]) down[d.key] = pos[d.key][0] < MID ? 'r' : 'l'; });
+      const b = at(plan.ball, t), z = ballZ(t);
+      const loose = plan.loose != null && t > plan.loose;
+      let hold = null;
+      if (t > 0.06 && z < 0.3 && !loose) {
+        let best = 1.8;
+        Object.keys(pos).forEach(k => { const d = Math.hypot(pos[k][0] - b[0], pos[k][1] - b[1]); if (d < best) { best = d; hold = k; } });
+      }
+      const carry = plan.kick ? 2 : loose ? 10 * Math.max(0, 1 - (t - plan.loose) / 0.06) : hold && down[hold] ? 4 : 10;
+      return {u, top: [MID, wt - WIN / 2], follow: [MID + (b[0] - MID) * 0.45, Math.min(104, Math.max(p.ball + 9, b[1] + 6))],
+        pos, run, down, ball: [b[0], b[1], z], carry, hold, los: p.ball, fd, now};
+    };
+    // The dots underneath: where the play leaves them (every frame when there's no camera).
+    const dom = t => {
       Object.keys(plan.tr).forEach(k => {
         const e = els[k], q = at(plan.tr[k], t);
         if (!e || !q) return;
@@ -574,33 +629,77 @@ function runAnim(st, plan, p) {
       const b = at(plan.ball, t);
       if (b) { ball.style.left = left(b[0]); ball.style.top = top(b[1]); }
       ball.classList.toggle('is-air', !!(plan.air && t > plan.air.t0 && t < plan.air.t1) || !!(plan.kick && t > 0.2 && t < 0.85));
-      // The camera follows the ball when it heads off the top of the window.
-      const want = b ? Math.min(110, Math.max(wt0, b[1] + 9)) : wt0;
-      track.style.transform = trackY(want);
-      plan.calls.forEach((c, i) => {
-        if (t < c.t || shown.has(i)) return;
-        shown.add(i);
-        const pos = c.key ? at(plan.tr[c.key], c.t) : [c.x, c.y];
-        const el = document.createElement('span');
-        el.className = 'dr-co' + (c.cls ? ' ' + c.cls : '');
-        el.textContent = c.text;
+      track.style.transform = trackY(winAt(b));
+    };
+    const seen = new Set(), shown = [];
+    const calls = t => plan.calls.forEach((c, i) => {
+      if (t < c.t || seen.has(i)) return;
+      seen.add(i);
+      const pos = c.key ? at(plan.tr[c.key], c.t) : [c.x, c.y];
+      const el = document.createElement('span');
+      el.className = 'dr-co' + (c.cls ? ' ' + c.cls : '');
+      el.textContent = c.text;
+      if (cam) { cam.overlay.appendChild(el); shown.push({el, x: pos[0], y: pos[1], lift: c.key ? 32 : 0}); }
+      else {
         el.style.left = left(Math.max(9, Math.min(WIDTH - 9, pos[0])));
         el.style.top = top(pos[1] + (c.key ? 2.8 : 0));
         cl.appendChild(el);
+      }
+    });
+    // Callouts on the camera's view stay over their spot as it moves (and on the field).
+    const place = () => {
+      const w = f.clientWidth, h = f.clientHeight;
+      shown.forEach(c => {
+        const q = cam.css(c.x, c.y, c.lift);
+        if (!q) return;
+        c.el.style.left = `${Math.max(64, Math.min(w - 64, q[0])).toFixed(1)}px`;
+        c.el.style.top = `${Math.max(18, Math.min(h - 18, q[1])).toFixed(1)}px`;
       });
-      if (clock) clock.textContent = dr.clockText(Math.round(c0 + (c1 - c0) * Math.min(1, Math.max(0, (t - 0.08) / 0.85))));
     };
-    const frame = now => {
-      if (done || st.dead) { stop(); return; }
-      const t = Math.min(1, (now - t0) / (plan.dur * PACE));
-      draw(t);
-      if (t >= 1) { st.timers.push(setTimeout(stop, 420 * PACE)); return; }
-      requestAnimationFrame(frame);
+    const clockAt = t => { if (clock) clock.textContent = dr.clockText(Math.round(c0 + (c1 - c0) * Math.min(1, Math.max(0, (t - 0.08) / 0.85)))); };
+    let done = false, phase = cam ? 'in' : 'play', p0 = performance.now();
+    const stop = quick => {
+      if (done) return;
+      done = true;
+      if (cam) { if (quick) cam.remove(); else cam.close(); }
+      f.classList.remove('is-anim');
+      f.removeEventListener('click', skip);
+      st.anim = null;
+      resolve();
     };
-    const skip = () => { if (!done) { draw(1); stop(); } };
+    const tick = now => {
+      if (done) return;
+      if (st.dead) { stop(true); return; }
+      const el = now - p0;
+      if (phase === 'in') {
+        if (el < PAN_IN) cam.render(frameAt(el / PAN_IN, 0, now, wt0));
+        else { phase = 'play'; p0 = now; }
+      }
+      if (phase === 'play') {
+        const t = Math.min(1, (now - p0) / ms);
+        if (cam) { cam.render(frameAt(1, t, now, wt0)); place(); } else dom(t);
+        calls(t);
+        clockAt(t);
+        if (t >= 1) { dom(1); phase = 'hold'; p0 = now; }
+      } else if (phase === 'hold') {
+        if (cam) { cam.render(frameAt(1, 1, now, wt0)); place(); }
+        if (now - p0 >= HOLD) {
+          if (!cam) { stop(); return; }
+          phase = 'out'; p0 = now;
+        }
+      } else if (phase === 'out') {
+        const u = 1 - (now - p0) / PAN_OUT;
+        if (u <= 0) { stop(); return; }
+        cam.render(frameAt(u, 1, now, wt1));
+        place();
+      }
+      requestAnimationFrame(tick);
+    };
+    const skip = () => { if (done) return; dom(1); calls(1); clockAt(1); stop(); };
     st.anim = {skip};
     f.addEventListener('click', skip);
-    requestAnimationFrame(frame);
+    if (cam) cam.render(frameAt(0, 0, p0, wt0));
+    requestAnimationFrame(tick);
   });
 }
 /** The runoff before a snap from a running clock: the scorebug counts it down quickly. */

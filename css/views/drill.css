@@ -1,11 +1,12 @@
 /* drill.css: the Two-Minute Drill (views/drill.js), the third game of the Daily Games tab.
    Owner: Drill. Scope: the pane .dr-pane and its sheets .sh-drill. Its own look in every theme: a clean, current sports
-   app (the system's type, soft depth, pills and cards), never the app's retro pixel style. The game itself sits on a
-   dark stage (the scorebug, the situation and the field), the calls below it on the theme's surfaces.
+   app (the system's type, soft depth, pills and cards), never the app's retro pixel style, but for the snap itself:
+   seen from behind the offense like a 16-bit football game (views/drill-cam.js). The game sits on a dark stage (the
+   scorebug, the situation and the field), the calls below it on the theme's surfaces.
    Team colours come in per element as --tc; a player's rating colour as --rc. */
 
 /* The version mark views/drill.js checks (CSS_V): bump both when the pane needs rules an older file lacks. */
-:root { --dr-css: 7; }
+:root { --dr-css: 8; }
 
 .dr-pane, .sh-drill {
   --dr-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -196,6 +197,18 @@
 .dr-pane .dr-co.is-bad { background: #E0352B; }
 .dr-pane .dr-co.is-score { background: #FFD60A; color: #1A1400; }
 @keyframes dr-co { from { transform: translate(-50%, -50%) scale(.5); opacity: 0; } to { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
+/* The snap from behind the offense (views/drill-cam.js): a small canvas scaled up with hard pixels, laid over the
+   dots and faded in and out over them. Its callouts are in the pixel face. */
+.dr-pane .dr-cam { position: absolute; inset: 0; z-index: 5; opacity: 0; transition: opacity 200ms ease; border-radius: inherit; overflow: hidden; }
+.dr-pane .dr-cam.is-on { opacity: 1; }
+.dr-pane .dr-cam > canvas { display: block; width: 100%; height: 100%; image-rendering: crisp-edges; image-rendering: pixelated; }
+.dr-pane .dr-cam-co { position: absolute; inset: 0; pointer-events: none; }
+.dr-pane .dr-cam-co .dr-co {
+  padding: 7px 9px 6px; border-radius: 2px; font: 10px/1 var(--font-pixel, monospace); letter-spacing: .02em; text-transform: uppercase;
+  box-shadow: 0 3px 0 rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,255,255,.18);
+  animation: dr-co-px 260ms steps(3, end) both;
+}
+@keyframes dr-co-px { from { transform: translate(-50%, -50%) scale(.4); opacity: 0; } to { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
 /* Routes (the pass menu): dashed, drawn from each receiver; the one just changed in yellow. Receivers can be tapped. */
 .dr-pane .dr-rlayer { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
 .dr-pane .dr-routes { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
