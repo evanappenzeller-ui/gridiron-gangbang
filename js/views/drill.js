@@ -1399,7 +1399,7 @@ function sbBodyHTML(st) {
   const w = rows.filter(r => r.r === 'W').length;
   const sum = `${plural(rows.length, 'game')} final · ${w} won`;
   return head + `<p class="dr-sb-sum">${esc(sum)}</p><div class="dr-sb-list" role="list" aria-label="Today's finals">${rows.map(r => sbRowHTML(st, r)).join('')}</div>`
-    + `<p class="dr-sb-foot">Call grade: how close each pass, run and defensive call was to the best one at that snap, out of 100.</p>`;
+    + `<p class="dr-sb-foot">Call grade: how close each pass, run and defensive call was to the best one at that snap, out of 100. A win never grades below a C−.</p>`;
 }
 function boardHTML(st) {
   const hide = dr.boardState() === 'wait';

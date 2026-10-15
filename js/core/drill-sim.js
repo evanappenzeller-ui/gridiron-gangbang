@@ -1039,8 +1039,8 @@ export function callValues(s) {
   return {ours, best: top.v, bestToken: top.token, all: list.map(x => x.v), value: t => { const a = parse(t); return a ? playValue(s, a, mix) : 0; }};
 }
 const RATED = ['pass', 'run', 'rpo', 'trick', 'def'];
-/** A call's score at a snap, 0-1, by the play-caller's numbers (callValues): 1 the best call there, 0.5 one as far
- *  below it as the menu's middle call, 0 one twice that far or more. null: a call that isn't rated (a clock tool, a
+/** A call's score at a snap, 0.5-1, by the play-caller's numbers (callValues): 1 the best call there, 0.75 one as far
+ *  below it as the menu's middle call, 0.5 one twice that far or more. null: a call that isn't rated (a clock tool, a
  *  kick, the try after a touchdown) or not a call at this snap. */
 export function callScore(s, token) {
   const a = parse(token);
@@ -1048,10 +1048,12 @@ export function callScore(s, token) {
   const ev = callValues(s), sign = ev.ours ? 1 : -1;
   const vals = ev.all.map(v => sign * v).sort((x, y) => x - y);
   const best = sign * ev.best, mid = vals[vals.length >> 1], mine = sign * ev.value(token);
-  return clamp(1 - 0.5 * (best - mine) / Math.max(0.02, best - mid), 0, 1);
+  return clamp(1 - 0.25 * (best - mine) / Math.max(0.02, best - mid), 0.5, 1);
 }
-/** A game's call grade, from its actions: {grade (0-100: its rated calls' mean score, one decimal; null with none),
- *  n (how many were rated), lead (on a win, the clock when you went ahead for good: the time you left them; else
+/** The lowest grade a win gets (a C−): winning is the point, however it was called. */
+export const WIN_FLOOR = 70;
+/** A game's call grade, from its actions: {grade (0-100: its rated calls' mean score, one decimal, a win at least
+ *  WIN_FLOOR; null with none), calls (the mean alone), n (how many were rated), lead (on a win, the clock when you went ahead for good: the time you left them; else
  *  null)}. Deterministic: anyone's phone gets the same grade from the same calls. */
 export function gradeGame(sc, teams, acts) {
   const s = start(sc, teams);
@@ -1064,7 +1066,9 @@ export function gradeGame(sc, teams, acts) {
     if (s.us > s.them && !ahead) lead = s.clock;
     else if (s.us <= s.them) lead = null;
   }
-  return {grade: n ? Math.round(1000 * sum / n) / 10 : null, n, lead: s.result === 'W' ? lead : null};
+  const calls = n ? Math.round(1000 * sum / n) / 10 : null;
+  const grade = calls != null && s.result === 'W' ? Math.max(calls, WIN_FLOOR) : calls;
+  return {grade, calls, n, lead: s.result === 'W' ? lead : null};
 }
 export function defValues(s) {
   const mix = theirMix(s);

@@ -576,14 +576,15 @@ export function boardState() {
 const RANK = {W: 2, T: 1, L: 0};
 // ---------------------------------------------------------------------------------------------- call grades
 // How well a game was called (drill-sim.js gradeGame): each pass, run, RPO, trick and defensive call scored against
-// the best one at that snap by the play-caller's numbers, the mean out of 100. Worked out from a game's actions, so
+// the best one at that snap by the play-caller's numbers (100 the best call, 75 the menu's middle one, 50 a poor one),
+// the mean out of 100; a win never below a C− (70). Worked out from a game's actions, so
 // every phone grades every posted game the same way (nothing extra is posted, and a grade can't be made up).
 const GRADES = new Map();
-/** Day n's game from actions k: {grade (0-100 or null), n (calls rated), lead (a win's go-ahead clock)}. Memoized. */
+/** Day n's game from actions k: {grade (0-100 or null), calls, n (calls rated), lead (a win's go-ahead clock)}. Memoized. */
 export function gradeOf(n, k) {
   const key = `${n}|${k}`;
   if (!GRADES.has(key)) {
-    let g = {grade: null, n: 0, lead: null};
+    let g = {grade: null, calls: null, n: 0, lead: null};
     try { if (DOC && k) g = E.gradeGame(scenario(n), DOC.teams, k); } catch (_) { /* a game that won't replay: no grade */ }
     GRADES.set(key, g);
   }

@@ -415,18 +415,25 @@ export async function drillChecks(check) {
     return {pass: order && clean && reset, detail: `${sig}; bad entries dropped ${clean}; reset day 1 ${reset}`};
   });
 
-  check('Drill: call grades: a snap\'s best call scores 1 and the menu\'s middle one at least 0.5 (clock tools and the wrong side\'s calls aren\'t rated), a game\'s grade is the same on every replay, well-called games grade above random ones, the letters run A+ to F, and on the board the grade comes right after the result (before plays and margin)', () => {
+  check('Drill: call grades: a snap\'s best call scores 1, the menu\'s middle one at least 0.75 and the worst 0.5 (clock tools and the wrong side\'s calls aren\'t rated), a game\'s grade is the same on every replay, well-called games grade above random ones, a win never grades below a C− (70), the letters run A+ to F, and on the board the grade comes right after the result (before plays and margin)', () => {
     need();
     const s0 = E.start(dr.scenario(1), dr.DOC.teams), ev = E.callValues(s0);
     const sc = E.candidates(s0).map(c => E.callScore(s0, c.token)).sort((a, b) => a - b);
-    const snap = E.callScore(s0, ev.bestToken) === 1 && sc[sc.length >> 1] >= 0.5 - 1e-9 && sc[0] < 0.5 && sc.every(v => v >= 0 && v <= 1)
+    const snap = E.callScore(s0, ev.bestToken) === 1 && sc[sc.length >> 1] >= 0.75 - 1e-9 && sc[0] < 0.75 && sc.every(v => v >= 0.5 && v <= 1)
       && E.callScore(s0, E.tok.timeout) === null && E.callScore(s0, E.tok.spike) === null && E.callScore(s0, E.tok.def('c2')) === null;
     const hi = [], lo = [];
     for (let n = 1; n <= 4; n++) { hi.push(callGame(n, true, n)); lo.push(callGame(n, false, n)); }
     const G = k => E.gradeGame(dr.scenario(1), dr.DOC.teams, k).grade;
     const avg = xs => xs.reduce((a, k, i) => a + E.gradeGame(dr.scenario(i + 1), dr.DOC.teams, k).grade, 0) / xs.length;
     const same = G(hi[0]) === G(hi[0]) && G(lo[0]) === dr.gradeOf(1, lo[0]).grade && dr.gradeOf(1, '').grade === null;
-    const ah = avg(hi), al = avg(lo), better = ah >= al + 15;
+    const ah = avg(hi), al = avg(lo), better = ah >= al + 10;
+    // Random-called games: a win's grade is its calls' mean, raised to the floor; any other result's is the mean.
+    let wins = 0, lifted = 0, floor = true;
+    for (let n = 1; n <= 6; n++) for (let i = 0; i < 4; i++) {
+      const g = E.gradeGame(dr.scenario(n), dr.DOC.teams, callGame(n, false, 50 + i)), w = E.replay(dr.scenario(n), dr.DOC.teams, callGame(n, false, 50 + i)).result === 'W';
+      if (w) { wins++; if (g.calls < E.WIN_FLOOR) lifted++; }
+      floor = floor && g.grade === (w ? Math.max(g.calls, E.WIN_FLOOR) : g.calls) && (!w || g.grade >= 70);
+    }
     const letters = [[97, 'A+'], [92.6, 'A'], [89.5, 'A−'], [80, 'B−'], [60, 'D'], [59.4, 'F'], [null, '']].every(([g, l]) => dr.gradeLetter(g) === l);
     // Day 1's board: wins first whatever the grade, then the better-called win over the bigger, quicker one; the same
     // game twice shares a rank; a game with no plays posted has no grade and goes last among its result.
@@ -441,7 +448,7 @@ export async function drillChecks(check) {
     ] : [];
     const rows = dr.boardRows(1, docs), sig = rows.map(r => `${r.rank}.${r.name.split(' ')[0]} ${r.r}${r.letter ? ' ' + r.letter : ''}`).join(', ');
     const order = !!hk && rows.map(r => `${r.rank}${r.name.split(' ')[0]}`).join(' ') === '1Mitch 1Kyle 3Ben 4Sayer 5Jacob' && rows[0].grade === G(hk[0]);
-    return {pass: snap && same && better && letters && order, detail: `snap ${snap}; replays ${same}; well-called ${ah.toFixed(1)} vs random ${al.toFixed(1)}; letters ${letters}; board ${sig}`};
+    return {pass: snap && same && better && floor && letters && order, detail: `snap ${snap}; replays ${same}; well-called ${ah.toFixed(1)} vs random ${al.toFixed(1)}; win floor ${floor} (${wins} random wins, ${lifted} lifted); letters ${letters}; board ${sig}`};
   });
 
   check('Drill: the week\'s standings count the days of one NFL week up to today: 3 points a win and 1 a tie, the average call grade breaking a tie on points, a run of wins up to the latest day, and the week\'s best-called game; days after today and outside the week don\'t count', () => {
