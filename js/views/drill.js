@@ -38,7 +38,7 @@ const ST = new WeakMap(); // ctx -> pane state
 
 // A home-screen app open across an update imports this module new under the stylesheet it started with: when
 // drill.css's mark (--dr-css on :root) isn't this module's, the current file is added (as in views/seventeen.js).
-const CSS_V = '8';
+const CSS_V = '9';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--dr-css').trim() === CSS_V || document.querySelector('link[data-dr-css]')) return;
@@ -826,16 +826,12 @@ function goalText(s) {
 }
 function defenseHTML(st) {
   const s = st.s, o = E.options(s);
-  const cards = E.DEF_CALLS.map(k => {
-    const C = E.CALLS[k];
-    return `<button type="button" class="dr-dc" data-dr-go="${E.tok.def(k)}"><b>${esc(C.name)}</b><small>${esc(C.short)}</small></button>`;
-  }).join('');
   const tools = o.timeout ? `<div class="dr-tools"><button type="button" class="dr-pill" data-dr-go="${E.tok.timeout}">${ui.icon('clock', {size: 14})}<span>Timeout · ${s.tos} left</span></button></div>` : '';
   const warn = o.timeout && s.them > s.us ? `<p class="dr-warn">${ui.icon('clock', {size: 15})}<span>${esc(`Their clock is running. Each snap takes ${E.MILK} seconds off unless you stop it.`)}</span></p>` : '';
   return `<section class="dr-call is-def" aria-labelledby="dr-call-t">${headRow('Your defense', s)}`
     + `<p class="dr-goal">${esc(goalText(s))}</p>` + lookHTML(s)
-    + `<p class="dr-hint">Call a coverage. Their play is set at the snap from the formation and the situation, whatever you call.</p>`
-    + `<div class="dr-dcs">${cards}</div>` + tools + warn + `</section>`;
+    + `<p class="dr-hint">Swipe through your playbook and tap a call. Their play is set at the snap from the formation and the situation, whatever you call.</p>`
+    + `<div class="dr-cards" data-dr-cards>${defCardsHTML(st)}</div>` + legendDefHTML() + tools + warn + `</section>`;
 }
 // ---------------------------------------------------------------------------- Play cards
 // Three plays of each type, drawn like a Madden play-call screen: the formation and the play's name, the target
@@ -959,15 +955,17 @@ function usage(s, match) {
   const yds = list.reduce((t, p) => t + (['catch', 'run', 'sack'].includes(p.kind) || p.two ? (p.gain || 0) : 0), 0);
   return {calls: list.length, yds: list.length ? yds / list.length : 0};
 }
-/** A play card. go: the action it calls; else pick: the pass play it selects. */
-function cardHTML(st, {i, art, name, tag, key, use, go, pick, on, label}) {
+/** A play card. go: the action it calls; else pick: the pass play it selects. form: the formation over its name;
+ *  sub: a line under the header; foot: the footer (else how the play has gone: use). */
+function cardHTML(st, {i, art, name, tag, key, use, go, pick, on, label, form = FORMATION, sub = '', foot = null}) {
   const s = st.s, p = s.mine.by[key];
   const at = go ? `data-dr-go="${go}"` : `data-dr-card="${pick}" aria-pressed="${!!on}"`;
   return `<button type="button" class="dr-card${on ? ' is-on' : ''}" ${at} aria-label="${esc(label || name)}">`
-    + `<span class="dr-card-h"><span class="dr-card-tt"><small><span class="dr-card-tag is-${tag.toLowerCase()}">${esc(tag)}</span>${esc(FORMATION)}</small><b>${esc(name)}</b></span>`
+    + `<span class="dr-card-h"><span class="dr-card-tt"><small><span class="dr-card-tag is-${tag.toLowerCase()}">${esc(tag)}</span>${esc(form)}</small><b>${esc(name)}</b></span>`
     + `<span class="dr-card-p">${faceHTML(p, s.sc.o)}<small>${esc(dr.short(p.n))}</small></span></span>`
+    + (sub ? `<span class="dr-card-d">${esc(sub)}</span>` : '')
     + `<span class="dr-card-art">${art}</span>`
-    + `<span class="dr-card-f">${esc(`${use.calls} ${use.calls === 1 ? 'call' : 'calls'} | ${use.yds.toFixed(1)} avg yds`)}</span></button>`;
+    + `<span class="dr-card-f">${esc(foot || `${use.calls} ${use.calls === 1 ? 'call' : 'calls'} | ${use.yds.toFixed(1)} avg yds`)}</span></button>`;
 }
 function passCardsHTML(st) {
   const s = st.s;
@@ -989,6 +987,132 @@ function trickCardsHTML(st) {
   return Object.keys(E.TRICKS).map((k, i) => cardHTML(st, {i, art: trickArt(s.ball, k), name: E.TRICKS[k].name, tag: 'Trick', key: TRICK_KEY[k],
     use: usage(s, p => p.a.kind === 'trick' && p.a.play === k), go: E.tok.tricks(k), label: `${E.TRICKS[k].name}: ${E.TRICKS[k].what}`})).join('');
 }
+
+// ---------------------------------------------------------------------------- Defense cards
+// Madden's defensive play art: their formation as rings (the line as squares), your eleven as triangles where the call
+// lines them up, and what each one does: a zone (a bubble: deep blue, hook yellow, flat light blue, curl-flat
+// purple), a man (an orange line to him), a rush (a white arrow) or a blitz (a red one).
+const ZONE = {deep: ['#3B82F6', 'Deep zone'], hook: ['#FACC15', 'Hook zone'], flat: ['#22D3EE', 'Flat zone'], cf: ['#A855F7', 'Curl-flat zone']};
+const MAN_C = '#FB923C', BLITZ_C = '#FF4D5E';
+const DEF_TAG = {c2: 'Zone', c3: 'Zone', c4: 'Zone', pv: 'Zone', c1: 'Man', c0: 'Blitz', fire: 'Blitz', rb: 'Blitz'};
+/** What each of your defenders does on a call: {slot: {zone: [kind, x, depth]} | {man: slot} | {rush: true, blitz}}.
+ *  P: where the call lines them up (defPos); U: your units (who's on the front, who the linebackers are). */
+function defRoles(U, P, O, call) {
+  const on = k => !!P[k], R = {}, W = WIDTH;
+  const front = U.front.filter(on), lbs = U.lbs.filter(on);
+  const byX = list => list.filter(on).sort((a, b) => P[a][0] - P[b][0]);
+  const rush = (list, blitz = false) => list.forEach(k => { if (on(k)) R[k] = {rush: true, blitz}; });
+  const zone = (k, kind, x, y) => { if (on(k)) R[k] = {zone: [kind, x, y]}; };
+  const man = (k, who) => { if (on(k)) R[k] = {man: who}; };
+  const spread = (list, kind, x0, x1, y) => byX(list).forEach((k, i, a) => zone(k, kind, a.length === 1 ? (x0 + x1) / 2 : x0 + (x1 - x0) * i / (a.length - 1), y));
+  /** The two curl-flats: the one lined up further left takes the left. Both on one side: the outside one takes that
+   *  side's, the inside one a hook toward the other. */
+  const curlFlats = (a, b, y) => {
+    const [l, r] = byX([a, b]);
+    if (!l || !r) { [l, r].filter(Boolean).forEach(k => zone(k, 'cf', P[k][0] < MID ? 12 : W - 12, y)); return; }
+    if (P[r][0] < MID) { zone(l, 'cf', 12, y); zone(r, 'hook', MID + 5, y + 1); }
+    else if (P[l][0] > MID) { zone(r, 'cf', W - 12, y); zone(l, 'hook', MID - 5, y + 1); }
+    else { zone(l, 'cf', 12, y); zone(r, 'cf', W - 12, y); }
+  };
+  /** Man across: corners on the outside receivers, the nickel on the slot, the strong safety on the tight end, and
+   *  the nearest linebackers on the back (and on the slot when there's no nickel). */
+  const manUp = () => {
+    man('LCB', 'WR1'); man('RCB', 'WR2'); man('SS', 'TE');
+    if (on('NB')) man('NB', 'WR3');
+    const free = lbs.slice();
+    (on('NB') ? ['RB'] : ['WR3', 'RB']).sort((a, b) => O[a][0] - O[b][0]).forEach(t => {
+      if (!free.length) return;
+      free.sort((a, b) => Math.abs(P[a][0] - O[t][0]) - Math.abs(P[b][0] - O[t][0]));
+      man(free.shift(), t);
+    });
+  };
+  if (call === 'c2') {
+    rush(front); zone('FS', 'deep', MID - 12, 16); zone('SS', 'deep', MID + 12, 16);
+    zone('LCB', 'flat', 6, 4); zone('RCB', 'flat', W - 6, 4); spread(lbs.concat('NB'), 'hook', 15, W - 15, 8);
+  } else if (call === 'c3') {
+    rush(front); zone('LCB', 'deep', 8, 15); zone('FS', 'deep', MID, 17); zone('RCB', 'deep', W - 8, 15);
+    curlFlats('NB', 'SS', 7); spread(lbs, 'hook', MID - 6, MID + 6, 8);
+  } else if (call === 'c4') {
+    rush(front); zone('LCB', 'deep', 7, 14); zone('FS', 'deep', MID - 7, 16); zone('SS', 'deep', MID + 7, 16); zone('RCB', 'deep', W - 7, 14);
+    zone('NB', 'cf', 11, 6); spread(lbs, 'hook', MID - 7, MID + 7, 7);
+  } else if (call === 'c1') {
+    rush(front); zone('FS', 'deep', MID, 17); manUp();
+    spread(lbs.filter(k => !R[k]), 'hook', MID - 3, MID + 3, 6);
+  } else if (call === 'c0') {
+    rush(front); manUp(); rush(lbs.filter(k => !R[k]).concat('FS'), true);
+  } else if (call === 'fire') {
+    // The zone blitz: an end drops into a hook, the linebackers come, three deep behind them.
+    rush(front.slice(1)); rush(lbs, true); zone(front[0], 'hook', MID - 8, 6);
+    zone('LCB', 'deep', 8, 13); zone('FS', 'deep', MID, 15); zone('RCB', 'deep', W - 8, 13); curlFlats('NB', 'SS', 6);
+  } else if (call === 'rb') {
+    rush(front); rush(lbs, true); rush(['SS'], true); zone('FS', 'deep', MID, 15); man('LCB', 'WR1'); man('RCB', 'WR2');
+  } else {
+    // Prevent: three rush (anyone the call stands up off the line drops), four deep, the rest underneath.
+    const line = front.filter(k => P[k][1] <= 3);
+    rush(line);
+    zone('LCB', 'deep', 9, 19); zone('FS', 'deep', MID - 6, 21); zone('SS', 'deep', MID + 6, 21); zone('RCB', 'deep', W - 9, 19);
+    spread(front.filter(k => !line.includes(k)).concat(lbs, 'NB'), 'hook', 9, W - 9, 11);
+  }
+  return R;
+}
+/** The play art for a defensive call, against their formation as it lines up now. */
+function defArt(st, call) {
+  const s = st.s, U = s.mine, look = CALL_LOOK[call];
+  const P = defPos(U.T, look, s.shade), O = offPos(s.form), R = defRoles(U, P, O, call);
+  // Near the goal line the deep players squeeze in (as on the field: spots), and so do the zones.
+  const room = 110 - s.ball, sq = Math.max(0.35, Math.min(1, (108 - s.ball) / 21));
+  const depth = y => (y > 2.5 ? 2.5 + (y - 2.5) * sq : y);
+  const at = k => [P[k][0], depth(P[k][1])];
+  const deeps = Object.values(R).filter(r => r.zone && r.zone[0] === 'deep').length;
+  const size = {deep: [deeps <= 1 ? 13 : deeps === 2 ? 11.5 : deeps === 3 ? 8.2 : 6.4, 3.4], hook: [4.2, 2.4], flat: [4.6, 2.2], cf: [5, 2.5]};
+  let zones = '', lines = '';
+  Object.keys(R).forEach(k => {
+    const r = R[k], [x, y] = at(k);
+    if (r.zone) {
+      const [kind, zx, zy0] = r.zone, [rx, ry] = size[kind], col = ZONE[kind][0];
+      const zy = Math.max(ry + 0.5, Math.min(depth(zy0), Math.min(ART.hi, room) - ry - 0.8));
+      zones += `<ellipse cx="${f2(zx)}" cy="${f2(ARTY(zy))}" rx="${f2(rx)}" ry="${f2(ry * ART.k)}" fill="${col}" fill-opacity=".42" stroke="${col}" stroke-width=".35"/>`;
+      lines += artPath([[x, y], [zx, zy]], col, {end: 'none'});
+    } else if (r.man) {
+      const [mx, my] = O[r.man];
+      lines += artPath([[x, y], [mx + (x - mx) * 0.12, my + 1.2]], MAN_C, {end: 'none'}) + `<circle cx="${f2(mx)}" cy="${f2(ARTY(my + 1.2))}" r=".55" fill="${MAN_C}"/>`;
+    } else if (r.rush) {
+      // A blitz shoots its gap: in toward the ball, then straight into the backfield.
+      lines += r.blitz ? artPath([[x, y], [x + (MID - x) * 0.25, 0.3], [x + (MID - x) * 0.32, -3.4]], BLITZ_C) : artPath([[x, y], [x + (MID - x) * 0.12, -0.9]], RC.white);
+    }
+  });
+  // Them: rings, the line as squares.
+  let them = '';
+  Object.keys(O).forEach(k => {
+    const [x, y] = O[k], Y = ARTY(Math.max(ART.lo + 1.3, y));
+    them += OL.includes(k) ? `<rect x="${f2(x - 0.85)}" y="${f2(Y - 0.85)}" width="1.7" height="1.7" rx="${k === 'C' ? 0.15 : 0.85}" fill="none" stroke="rgba(255,255,255,.62)" stroke-width=".38"/>`
+      : `<circle cx="${f2(x)}" cy="${f2(Y)}" r=".95" fill="none" stroke="rgba(255,255,255,.62)" stroke-width=".38"/>`;
+  });
+  // You: a triangle each, pointing at the ball.
+  const you = Object.keys(P).filter(k => P[k]).map(k => {
+    const [x, y] = at(k), Y = ARTY(y);
+    return `<polygon points="${f2(x - 1.05)},${f2(Y - 0.75)} ${f2(x + 1.05)},${f2(Y - 0.75)} ${f2(x)},${f2(Y + 1)}" fill="#fff"/>`;
+  }).join('');
+  return `<svg class="dr-art" viewBox="0 0 ${WIDTH} ${f2(ART_H)}" aria-hidden="true">${artField(s.ball)}${zones}${lines}${them}${you}</svg>`;
+}
+/** The defender each call is built around (his headshot on its card). */
+function defKey(U, call) {
+  return {c2: 'SS', c3: 'FS', c4: 'RCB', c1: 'LCB', c0: U.lbs[0], fire: U.front[0], rb: U.front[1], pv: 'FS'}[call];
+}
+/** Your personnel for a call: base against the loaded box, nickel otherwise. */
+const defForm = (T, call) => (CALL_LOOK[call] === 'box' ? `${T.s === '34' ? '3-4' : '4-3'} Base` : `Nickel ${T.s === '34' ? '3-3-5' : '4-2-5'}`);
+function defCardsHTML(st) {
+  const s = st.s, U = s.mine;
+  return E.DEF_CALLS.map((k, i) => {
+    const C = E.CALLS[k], list = s.plays.filter(p => p.poss === 'them' && p.dcall === k && p.act);
+    const yds = list.reduce((t, p) => t + (['catch', 'run', 'sack'].includes(p.kind) ? (p.gain || 0) : 0), 0);
+    const foot = `${list.length} ${list.length === 1 ? 'call' : 'calls'} | ${(list.length ? yds / list.length : 0).toFixed(1)} avg yds allowed`;
+    return cardHTML(st, {i, art: defArt(st, k), name: C.name, tag: DEF_TAG[k], key: defKey(U, k), form: defForm(U.T, k), sub: C.short, foot,
+      go: E.tok.def(k), label: `${C.name}: ${C.what}. ${foot}.`});
+  }).join('');
+}
+const legendDefHTML = () => `<p class="dr-dlegend" aria-hidden="true">${Object.values(ZONE).map(([c, t]) => `<span><i style="--c:${c}"></i>${t}</span>`).join('')}`
+  + `<span><i class="is-line" style="--c:${MAN_C}"></i>Man</span><span><i class="is-line" style="--c:${BLITZ_C}"></i>Blitz</span></p>`;
 
 const FLAG_INFO = [['a', 'Play action'], ['r', 'Roll out'], ['o', 'Out of bounds']];
 /** The pass play's target (its card's player), or null. */

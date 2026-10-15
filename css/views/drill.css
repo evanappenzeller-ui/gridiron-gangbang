@@ -6,7 +6,7 @@
    Team colours come in per element as --tc; a player's rating colour as --rc. */
 
 /* The version mark views/drill.js checks (CSS_V): bump both when the pane needs rules an older file lacks. */
-:root { --dr-css: 8; }
+:root { --dr-css: 9; }
 
 .dr-pane, .sh-drill {
   --dr-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -239,7 +239,7 @@
 .dr-pane .dr-pill > .ic { flex: none; color: inherit; opacity: .8; }
 .dr-pane .dr-pill.is-accent { background: var(--tint); color: var(--on-tint); box-shadow: none; }
 .dr-pane .dr-pill:disabled { opacity: .4; }
-.dr-pane .dr-pill.is-pressed, .dr-pane .dr-tile.is-pressed, .dr-pane .dr-dc.is-pressed, .dr-pane .dr-fg.is-pressed,
+.dr-pane .dr-pill.is-pressed, .dr-pane .dr-tile.is-pressed, .dr-pane .dr-fg.is-pressed,
 .dr-pane .dr-toggle.is-pressed, .dr-pane .dr-sb-row.is-pressed { transform: scale(.97); transition: none; }
 
 /* ---------------------------------------------------------------- The call */
@@ -299,17 +299,11 @@
 .dr-pane .dr-fg-p { display: flex; flex-direction: column; align-items: flex-end; font: 800 24px/1 var(--dr-display); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
 .dr-pane .dr-fg-p > small { margin-top: 2px; font: 600 10px/1 var(--dr-font); letter-spacing: .06em; text-transform: uppercase; color: rgba(28,20,0,.6); }
 
-/* Defense: eight calls. */
-.dr-pane .dr-dcs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
-.dr-pane .dr-dc {
-  display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; min-height: 68px;
-  padding: 11px 12px; border-radius: 18px; text-align: left;
-  background: linear-gradient(150deg, rgba(10,132,255,.1), var(--surface-1) 70%), var(--surface-1);
-  color: var(--ink); box-shadow: var(--dr-shadow), inset 0 0 0 1px var(--dr-line);
-  transition: transform 220ms cubic-bezier(.3,1.4,.5,1);
-}
-.dr-pane .dr-dc > b { font: 700 16px/1.15 var(--dr-display); letter-spacing: -.01em; }
-.dr-pane .dr-dc > small { font: 500 12px/1.3 var(--dr-font); color: var(--ink-3); }
+/* Defense: the eight calls as play cards (below), and a key to their art: the zones' colours, man and blitz lines. */
+.dr-pane .dr-dlegend { display: flex; flex-wrap: wrap; gap: 5px 12px; margin: 2px 2px 0; font: 600 11px/14px var(--dr-font); color: var(--ink-3); }
+.dr-pane .dr-dlegend > span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.dr-pane .dr-dlegend i { flex: none; width: 13px; height: 8px; border-radius: 50%; background: color-mix(in srgb, var(--c) 45%, transparent); box-shadow: inset 0 0 0 1px var(--c); }
+.dr-pane .dr-dlegend i.is-line { height: 2.5px; border-radius: 2px; background: var(--c); box-shadow: none; }
 .dr-pane .dr-call.is-def .dr-look-ic { background: rgba(10,132,255,.14); color: var(--dr-blue); }
 
 /* Pass: the options and the receivers. */
@@ -400,6 +394,10 @@
 .dr-pane .dr-card-tag.is-run { background: #DC2626; }
 .dr-pane .dr-card-tag.is-rpo { background: #7C3AED; }
 .dr-pane .dr-card-tag.is-trick { background: #EA580C; }
+.dr-pane .dr-card-tag.is-man { background: #C2410C; }
+.dr-pane .dr-card-tag.is-blitz { background: #DC2626; }
+/* A defense card's line under its name: what the call is. */
+.dr-pane .dr-card-d { display: block; padding: 0 13px 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 11.5px/14px var(--dr-font); color: #A3AAB8; background: #1C1F25; }
 .dr-pane .dr-card-f { padding: 6px 11px 8px; text-align: right; font: 700 10px/12px var(--dr-font); letter-spacing: .07em; text-transform: uppercase; color: #8E95A3; background: #17191E; }
 .dr-pane .dr-sides { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 12px; padding: 3px; border-radius: 999px; background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--dr-line); }
 .dr-pane .dr-side { height: 32px; padding: 0 10px; border-radius: 999px; color: var(--ink-2); font: 600 13.5px/1 var(--dr-font); transition: background-color 160ms, color 160ms; }
