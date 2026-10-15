@@ -358,9 +358,10 @@ export async function drillChecks(check) {
   });
 
   // 9. The scoreboard
-  check('Drill: the scoreboard keeps one game per member per day (the first posted), drops bad entries (a result that doesn\'t match the score), and ranks wins (the biggest margin first, then fewer plays), then ties, then losses (the closest first), tied rows sharing a rank', () => {
+  check('Drill: the scoreboard keeps one game per member per day (the first posted), drops bad entries (a result that doesn\'t match the score) and results finished before a league-wide reset of that day, and ranks wins (the biggest margin first, then fewer plays), then ties, then losses (the closest first), tied rows sharing a rank', () => {
     need();
-    const g = (r, u, h, p, t) => ({r, u, h, p, k: '', t});
+    const T0 = Date.now();
+    const g = (r, u, h, p, t) => ({r, u, h, p, k: '', t: T0 + t});
     const docs = [
       {id: 'a', nick: 'Ben', dr5: {1: g('L', 21, 24, 9, 10)}},
       {id: 'b', nick: 'Mitch', dr5: {1: g('W', 27, 24, 8, 20)}},
@@ -376,6 +377,9 @@ export async function drillChecks(check) {
     const sig = t1.map(r => `${r.rank}.${r.name.split(' ')[0]} ${r.r}`).join(', ');
     const order = sig === '1.Jacob W, 2.Evan W, 2.Zed W, 4.Kyle W, 5.Sayer T, 6.Ben L, 7.Mitch L' && t1.find(r => r.name === 'Mitch').u === 17;
     const clean = dr.entryOf(docs[4], 1) === null && dr.entryOf(docs[4], 2) === null && dr.entryOf(docs[0], 1).m === -3;
-    return {pass: order && clean, detail: `${sig}; bad entries dropped ${clean}`};
+    // Day 1 was reset for everyone: a result finished before that is gone, one after it stays.
+    const cut = dr.resetCut(1), old = {id: 'x', dr5: {1: {r: 'W', u: 28, h: 24, p: 6, k: '', t: cut - 1}}};
+    const reset = cut > 0 && dr.entryOf(old, 1) === null && !!dr.entryOf({id: 'y', dr5: {1: Object.assign({}, old.dr5[1], {t: cut + 1})}}, 1) && dr.resetCut(2) === 0;
+    return {pass: order && clean && reset, detail: `${sig}; bad entries dropped ${clean}; reset day 1 ${reset}`};
   });
 }

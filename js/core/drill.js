@@ -10,7 +10,7 @@
 //     tokenLabel(s, t), tokenShort(s, t), resultText(s), squares(s), shareText(n, s)
 //   Coach comp: tendencies(s), coachComp(s) (the NFL head coach whose late-game play-calling your calls fit best)
 //   Scoreboard: autoPost(), boardState(), boardRows(n), gameOf(key, n)
-//   applyResets()               a member's game cleared once, at the league's ask (RESETS)
+//   applyResets()               a member's game (or everyone's) cleared once, at the league's ask (RESETS, resetCut)
 import {lsGet, lsSet, absLink} from './ui.js';
 import * as daily from './daily.js';
 import {me as dataMe} from './data.js';
@@ -472,7 +472,7 @@ export function entryOf(p, n) {
   const e = p && p[F] && typeof p[F] === 'object' ? p[F][n] : null;
   if (!e || !['W', 'T', 'L'].includes(e.r) || !Number.isInteger(e.u) || !Number.isInteger(e.h)) return null;
   const want = e.u > e.h ? 'W' : e.u === e.h ? 'T' : 'L';
-  if (want !== e.r) return null;
+  if (want !== e.r || (Number(e.t) || 0) < resetCut(n)) return null;
   return {r: e.r, u: e.u, h: e.h, m: e.u - e.h, p: Math.max(0, e.p | 0), k: cleanActs(e.k), t: Number(e.t) || 0};
 }
 const docs = () => daily.LB.raw || daily.LB.players || [];
@@ -525,7 +525,12 @@ export async function autoPost() {
 // A member's game cleared once so they can play the day again, at the league's ask: on that member's phones (once on
 // each), on that day only, the saved game goes, and so does the result that phone posted before the reset (so the
 // replay's posts in its place; a result posted after the reset stays). 'gg-drill-resets': {id: when it ran here}.
-const RESETS = [{id: 'evan-d1', who: 'evan', n: 1}, {id: 'evan-d1-2', who: 'evan', n: 1}];
+// Or everyone's (who '*', below).
+// who '*': the whole league's games that day, as of at (ms): every phone clears a game finished before then, and the
+// board drops every result finished before then, whether or not that member's phone has opened since (resetCut).
+const RESETS = [{id: 'evan-d1', who: 'evan', n: 1}, {id: 'evan-d1-2', who: 'evan', n: 1}, {id: 'all-d1', who: '*', n: 1, at: 1792099293223}];
+/** When the league's games on day n were last reset (0: never): results finished before it don't count. */
+export const resetCut = n => RESETS.reduce((m, r) => (r.who === '*' && r.n === Number(n) && r.at > m ? r.at : m), 0);
 const RKEY = 'gg-drill-resets';
 function resetsDone() {
   let v = null;
@@ -540,11 +545,12 @@ export function applyResets() {
   RESETS.forEach(r => {
     if (r.n !== n0) return;
     const who = dataMe() || (LB.ready && LB.uid ? meKey() : null);
-    if (who !== r.who) return;
+    if (r.who !== '*' && who !== r.who) return;
     const done = resetsDone();
     if (!done[r.id]) {
       const v = read(), d = v.days[r.n];
-      if (d) {
+      // A league-wide reset keeps a game finished after it.
+      if (d && !(r.at && d.r && Number(d.at) >= r.at)) {
         if (d.r) { v.played = Math.max(0, v.played - 1); if (d.r === 'W') v.wins = Math.max(0, v.wins - 1); }
         delete v.days[r.n];
         write(v);
@@ -558,7 +564,7 @@ export function applyResets() {
     const mine = docs().find(p => p.id === LB.uid);
     const e = mine && mine[F] && typeof mine[F] === 'object' ? mine[F][r.n] : null;
     const mark = () => { const d2 = resetsDone(); d2[board] = Date.now(); lsSet(RKEY, JSON.stringify(d2)); };
-    if (!e || !(Number(e.t) < done[r.id])) { mark(); return; }
+    if (!e || !(Number(e.t) < (r.at || done[r.id]))) { mark(); return; }
     LB.merge({[F]: {[r.n]: null}}).then(mark, () => {});
   });
   return cleared;
