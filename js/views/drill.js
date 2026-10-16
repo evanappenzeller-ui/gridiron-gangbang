@@ -38,7 +38,7 @@ const ST = new WeakMap(); // ctx -> pane state
 
 // A home-screen app open across an update imports this module new under the stylesheet it started with: when
 // drill.css's mark (--dr-css on :root) isn't this module's, the current file is added (as in views/seventeen.js).
-const CSS_V = '22';
+const CSS_V = '23';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--dr-css').trim() === CSS_V || document.querySelector('link[data-dr-css]')) return;
@@ -232,7 +232,6 @@ function fieldHTML(st, view = viewNow(st.s, flipNow(st))) {
   const s = st.s, los = view.ball;
   const routes = routesOn(st) && view.poss === 'us';
   return `<div class="dr-field${routes ? ' is-routes' : ''}${view.poss === 'them' ? ' is-def' : ''}" data-poss="${view.poss}" role="${routes ? 'group' : 'img'}" aria-label="${esc(fieldLabel(st))}" data-dr-field>`
-    + bugHTML(s)
     + `<div class="dr-track" style="transform:${trackY(winTop(los))}">`
     + linesHTML(s, view.poss)
     + `<i class="dr-los" data-dr-los style="top:${top(los)}"></i>`
@@ -263,7 +262,6 @@ function swapField(st, view, {fade = true} = {}) {
   const nf = tmp.content.firstElementChild;
   if (fade && !ui.RM) nf.classList.add('is-in');
   f.replaceWith(nf);
-  camLib.sbarLogos(nf);
   return nf;
 }
 /** Moves the field to the game's current snap: the camera, the lines, the players (CSS transitions animate it). */
@@ -603,25 +601,35 @@ function camScene(st, p) {
   });
   const end = id => ({name: dr.team(id).n, c: tcol(id)[0]});
   const home = s.sc.g && s.sc.g.h && dr.team(s.sc.g.h) ? s.sc.g.h : s.sc.d;
-  return {players, ends: {near: end(ids.o), far: end(ids.d)}, crowd: tcol(home), logo: logoUrl(home, 320), board: camBoard(st, p, false)};
+  return {players, ends: {near: end(ids.o), far: end(ids.d)}, crowd: tcol(home), logo: logoUrl(home, 320)};
 }
-/** The scoreboard bar's content (drill-cam.js sbarHTML) from a game as it stands: yours first. */
+/** The header's scoreboard from a game as it stands: {teams: [{id, c, logo, score, tos, ball, you}] (yours first), q,
+ *  clock, run (the clock is running), side ('us' | 'them' | 'try' | null at the final), dd (the down and distance, or
+ *  how it ended), spot (where the ball is), need (what it takes from here, or how it ended)}. */
 function boardOf(s) {
-  const poss = s.result ? null : s.poss;
-  const team = (id, side, score, tos) => ({id, c: tcol(id), logo: logoUrl(id, 96), score, tos, ball: poss === side});
-  return {teams: [team(s.sc.o, 'us', s.us, s.tos), team(s.sc.d, 'them', s.them, s.dtos)], q: s.result ? 'Final' : '4th',
-    clock: dr.clockText(s.clock), run: !s.result && s.running, dd: s.result ? '' : s.phase === 'pat' ? 'Try' : dr.downText(s.down, s.togo, s.ball)};
+  const fin = !!s.result, pat = !fin && s.phase === 'pat', poss = fin ? null : s.poss;
+  const team = (id, side, score, tos) => ({id, c: tcol(id), logo: logoUrl(id, 96), score, tos, ball: poss === side, you: side === 'us'});
+  const r = fin ? dr.resultText(s) : null;
+  return {teams: [team(s.sc.o, 'us', s.us, s.tos), team(s.sc.d, 'them', s.them, s.dtos)], q: fin ? 'Final' : '4th',
+    clock: dr.clockText(fin ? 0 : s.clock), run: !fin && s.running, side: fin ? null : pat ? 'try' : s.poss,
+    dd: fin ? r.head : pat ? 'Try' : dr.downText(s.down, s.togo, s.ball), spot: fin ? '' : pat ? 'From the 2' : spotText(s, s.ball, s.poss),
+    need: fin ? `${r.sub}.` : pat ? tryText(s.them - s.us) : needText(s.us - s.them, s.poss)};
 }
-/** The camera's scoreboard: as the snap starts (from the play), or after it (the game as it now stands). */
+/** The scoreboard during a snap: as it starts (from the play; the clock runs through it), or after it (the game as it
+ *  now stands). */
 function camBoard(st, p, after) {
   if (after) return boardOf(st.s);
-  const s = st.s, b = boardOf(s);
+  const s = st.s, b = boardOf(s), two = ['xp', '2good', '2fail'].includes(p.kind);
   b.teams[0].score = p.us; b.teams[1].score = p.them; b.teams[0].tos = p.tos;
   b.teams[0].ball = p.poss === 'us'; b.teams[1].ball = p.poss === 'them';
-  b.q = '4th'; b.clock = dr.clockText(p.clock); b.run = false;
-  b.dd = ['xp', '2good', '2fail'].includes(p.kind) ? 'Try' : dr.downText(p.down, p.togo, p.ball);
+  b.q = '4th'; b.clock = dr.clockText(p.clock); b.run = !two;
+  b.side = two ? 'try' : p.poss;
+  b.dd = two ? 'Try' : dr.downText(p.down, p.togo, p.ball);
+  b.spot = two ? 'From the 2' : spotText(s, p.ball, p.poss);
+  b.need = two ? tryText(p.them - p.us) : needText(p.us - p.them, p.poss);
   return b;
 }
+const spotText = (s, ball, poss) => (ball === 50 ? 'Midfield' : dr.spot(s, ball, poss));
 /** Plays a choreography: the camera swings down behind the offense, the play runs, the camera swings back up to the
  *  dots, now where the play left them. Resolves when it's done (or skipped: a tap on the field). Without a canvas,
  *  the dots play it out top-down. */
@@ -634,7 +642,6 @@ function runAnim(st, plan, p) {
     Object.keys(plan.tr).forEach(k => { els[k] = f.querySelector(`[data-dr-p="${k}"]`); });
     f.classList.add('is-anim');
     cl.innerHTML = '';
-    const clock = st.el.querySelector('[data-dr-clock]');
     const c0 = p.clock, c1 = p.t1 != null ? p.t1 : p.after.clock;
     const wt0 = winTop(p.ball), fd = viewOf(p).fd;
     // The window follows the ball when it heads off the top.
@@ -642,6 +649,7 @@ function runAnim(st, plan, p) {
     const wt1 = winAt(at(plan.ball, 1));
     let cam = null;
     try { cam = camLib.open(f, Object.assign(camScene(st, p), {acts: plan.acts || []})); } catch (_) { cam = null; }
+    setBoard(st, camBoard(st, p, false));
     // The ball's height: a pass on its arc, a kick up and over the bar.
     const air = plan.air, a0 = air && at(plan.ball, air.t0), a1 = air && at(plan.ball, air.t1);
     const arc = air ? Math.min(9, Math.hypot(a1[0] - a0[0], a1[1] - a0[1]) / 3.2) : 0;
@@ -720,8 +728,8 @@ function runAnim(st, plan, p) {
     };
     const clockAt = t => {
       const text = dr.clockText(Math.round(c0 + (c1 - c0) * Math.min(1, Math.max(0, (t - 0.08) / 0.85))));
-      if (clock) clock.textContent = text;
-      if (cam) cam.clock(text);
+      const clock = st.el.querySelector('[data-dr-clock]');
+      if (clock && clock.textContent !== text) clock.textContent = text;
     };
     let done = false, phase = cam ? 'in' : 'play', p0 = performance.now();
     const stop = quick => {
@@ -751,7 +759,7 @@ function runAnim(st, plan, p) {
         if (cam) { cam.render(frameAt(1, t, now, wt0)); place(); } else dom(t);
         calls(t);
         clockAt(t);
-        if (t >= 1) { dom(1); phase = 'hold'; p0 = now; if (cam) cam.board(camBoard(st, p, true)); }
+        if (t >= 1) { dom(1); phase = 'hold'; p0 = now; setBoard(st, camBoard(st, p, true)); }
       } else if (phase === 'hold') {
         if (cam) { cam.render(frameAt(1, 1, now, wt0)); place(); }
         if (now - p0 >= HOLD) {
@@ -791,23 +799,73 @@ function runOff(st, from, to) {
 const pause = (st, ms) => new Promise(res => { if (ui.RM || !st.ctx.visible) res(); else st.timers.push(setTimeout(res, ms)); });
 
 // ============================================================================ Markup: the game
-/** The scoreboard bar on the field (drill-cam.js sbarHTML, the same as the camera's): the game as it stands. */
-function bugHTML(s) {
-  const has = s.result ? '' : s.poss === 'us' ? ' You have the ball.' : ` ${s.sc.d} has the ball.`;
-  const label = `${s.sc.o} ${s.us}, ${s.sc.d} ${s.them}. ${s.result ? 'Final.' : `${dr.clockText(s.clock)} left in the fourth.`}${has} Timeouts: you ${s.tos}, ${s.sc.d} ${s.dtos}.`;
-  return camLib.sbarHTML(boardOf(s), {attrs: ` data-dr-bug role="group" aria-label="${esc(label)}"`, clock: 'data-dr-clock'});
+// The game screen's header is its scoreboard: the drill and the day (and the help), both teams in their colours (yours
+// marked, the ball by the side that has it, the timeouts left, the score), the quarter and the clock (running or
+// stopped), whether you're on offense or defense, the down and distance and where the ball is, and what it takes from
+// here. During a snap it shows the game as the snap started, its clock running; after it, the game as it now stands.
+/** What it takes from here on offense (lead: your margin), or on defense what you have to stop. */
+function needText(lead, poss) {
+  if (poss === 'them') return goalText(lead);
+  if (lead > 0) return `Up ${lead}: keep the ball and run out the clock.`;
+  if (lead === 0) return 'Tied: any score wins it.';
+  const d = -lead;
+  if (d <= 2) return `Down ${d}: a field goal wins it.`;
+  if (d === 3) return 'Down 3: a field goal ties it, a touchdown wins it.';
+  if (d <= 6) return `Down ${d}: a touchdown wins it.`;
+  if (d === 7) return 'Down 7: a touchdown and the kick tie it; go for two to win it.';
+  if (d === 8) return 'Down 8: a touchdown and a two-point try tie it.';
+  return `Down ${d}: you need two scores.`;
 }
-function sitHTML(s) {
-  const chip = (t, cls = '') => `<span class="dr-chip${cls ? ' ' + cls : ''}">${t}</span>`;
-  let h;
-  if (s.result) h = chip('Final', 'is-strong') + chip(esc(dr.resultText(s).sub));
-  else if (s.phase === 'pat') h = chip('Try', 'is-strong') + chip('From the 2') + chip('Clock stopped');
-  else {
-    const side = s.poss === 'us' ? chip(`${ui.icon('football', {size: 13})}Offense`, 'is-o') : chip(`${ui.icon('shield', {size: 13})}Defense`, 'is-d');
-    h = side + chip(`<b>${esc(dr.downText(s.down, s.togo, s.ball))}</b>${esc(` · ${s.ball === 50 ? 'midfield' : dr.spot(s)}`)}`, 'is-strong')
-      + chip(s.running ? '<i class="dr-dot"></i>Clock runs' : `${ui.icon('clock', {size: 13})}Stopped`, s.running ? 'is-run' : 'is-stop');
-  }
-  return `<div class="dr-sit" data-dr-sit>${h}</div>`;
+/** The try after your touchdown (down: how far behind it leaves you). */
+const tryText = down => (down === 1 ? 'Kick to tie it, or go for two to win it.' : 'Kick to get within one, or go for two to tie it.');
+const SIDES = {us: ['is-o', 'football', 'Offense'], them: ['is-d', 'shield', 'Defense'], try: ['is-try', 'football', 'Try']};
+function boardTeamHTML(t) {
+  return `<div class="dr-hd-t${t.ball ? ' has-ball' : ''}" style="--tc:${esc(t.c[0])}">`
+    + `<i class="dr-hd-logo"${t.logo ? ` data-logo="${esc(t.logo)}"` : ''}></i>`
+    + `<b class="dr-hd-ab">${esc(t.id)}</b>${t.you ? '<span class="dr-hd-you">You</span>' : ''}${t.ball ? '<span class="dr-hd-ball"></span>' : ''}`
+    + `<span class="dr-hd-to">${[0, 1, 2].map(i => `<s${i < t.tos ? ' class="is-on"' : ''}></s>`).join('')}</span>`
+    + `<em class="dr-hd-sc">${esc(t.score)}</em></div>`;
+}
+/** The scoreboard's moving parts (b: boardOf / camBoard). */
+function boardInner(b) {
+  const fin = b.q === 'Final', sd = SIDES[b.side];
+  const state = fin ? '' : b.run ? '<i class="dr-dot"></i>Running' : 'Stopped';
+  return `<div class="dr-hd-b" aria-hidden="true"><div class="dr-hd-ts">${b.teams.map(boardTeamHTML).join('')}</div>`
+    + `<div class="dr-hd-g${fin ? ' is-final' : ''}"><span>${esc(b.q)}</span><b data-dr-clock${b.run ? ' class="is-run"' : ''}>${esc(b.clock)}</b>${state ? `<small${b.run ? ' class="is-run"' : ''}>${state}</small>` : ''}</div></div>`
+    + `<div class="dr-hd-sit" aria-hidden="true">${sd ? `<span class="dr-hd-side ${sd[0]}">${ui.icon(sd[1], {size: 13})}${sd[2]}</span>` : '<span class="dr-hd-side is-fin">Final</span>'}`
+    + `<b>${esc(b.dd)}</b>${b.spot ? `<span class="dr-hd-spot">${esc(b.spot)}</span>` : ''}</div>`
+    + (b.need ? `<p class="dr-hd-need" aria-hidden="true">${esc(b.need)}</p>` : '');
+}
+function boardLabel(b) {
+  const [u, t] = b.teams, has = u.ball ? ' You have the ball.' : t.ball ? ` ${t.id} has the ball.` : '';
+  const clock = b.q === 'Final' ? 'Final.' : `${b.clock} left in the fourth, the clock ${b.run ? 'running' : 'stopped'}.`;
+  const at = !b.spot ? '' : b.spot === 'Midfield' ? ', at midfield' : b.spot === 'From the 2' ? ', from the 2' : `, ball on the ${b.spot}`;
+  const need = b.need ? ` ${b.need}${/[.!?]$/.test(b.need) ? '' : '.'}` : '';
+  return `${u.id} ${u.score}, ${t.id} ${t.score}. ${clock}${has} ${b.dd}${at}.${need} Timeouts: you ${u.tos}, ${t.id} ${t.tos}.`;
+}
+/** The header: the drill and the day, the help, and the scoreboard. */
+function scoreHTML(st, b = boardOf(st.s)) {
+  const n = st.n;
+  return `<header class="dr-hd"><div class="dr-hd-k"><p>${esc(`Two-Minute Drill #${n} · ${dr.dayLabel(n)}${dr.dayState(n).practice ? ' · Practice' : ''}`)}</p>`
+    + ui.iconButton({icon: 'info', label: 'How the Two-Minute Drill works', cls: 'dr-howto', attrs: {'data-dr-help': ''}}) + `</div>`
+    + `<div class="dr-hd-in" data-dr-bug role="group" aria-label="${esc(boardLabel(b))}">${boardInner(b)}</div></header>`;
+}
+/** The scoreboard to b (the rest of the header stays). */
+function setBoard(st, b) {
+  const el = st.el.querySelector('[data-dr-bug]');
+  if (!el) return;
+  el.innerHTML = boardInner(b);
+  el.setAttribute('aria-label', boardLabel(b));
+  loadLogos(el);
+}
+/** Shows each team logo under root once it has loaded (most often already in the cache). */
+function loadLogos(root) {
+  if (!root) return;
+  root.querySelectorAll('i[data-logo]:not(.is-in)').forEach(i => {
+    const im = new Image();
+    im.onload = () => { i.style.backgroundImage = `url("${im.src}")`; i.classList.add('is-in'); };
+    im.src = i.dataset.logo;
+  });
 }
 function legendHTML() {
   return `<div class="dr-legend"><span class="dr-scale" aria-hidden="true"><span>Rating</span><i></i></span>`
@@ -873,14 +931,13 @@ function callHTML(st) {
   // No huddle sits with the options of a pass, a run and an RPO; a trick play needs a huddle.
   if (!pat && s.us <= s.them && open === 'main') tools.push(hurryHTML(st));
   const warn = warnHTML(st);
-  const lead = s.us > s.them && !pat ? `<p class="dr-goal">${esc(`You lead by ${s.us - s.them}. Keep the ball and run out the clock: a kneel takes ${E.KNEEL} seconds off when it's running.`)}</p>` : '';
+  const lead = s.us > s.them && !pat ? `<p class="dr-goal">${esc(`Kneel to run out the clock: each one takes ${E.KNEEL} seconds off when it's running.`)}</p>` : '';
   return `<section class="dr-call" aria-labelledby="dr-call-t">${headRow(pat ? 'Kick or go for two?' : 'Your call', s)}<div class="dr-call-box">`
     + kick + lead + lookHTML(s) + typesHTML(st, open) + body + fg
     + (tools.filter(Boolean).length ? `<div class="dr-tools">${tools.join('')}</div>` : '') + warn + `</div></section>`;
 }
 /** What your defense has to do, from the score. */
-function goalText(s) {
-  const lead = s.us - s.them;
+function goalText(lead) {
   if (lead >= 9) return `Up ${lead}: keep everything in front of you.`;
   if (lead >= 7) return `Up ${lead}: a touchdown${lead === 8 ? ' and a two-point try' : ''} ties it.`;
   if (lead >= 4) return `Up ${lead}: a touchdown beats you.`;
@@ -905,7 +962,7 @@ function defenseHTML(st) {
   const body = open ? `<div class="dr-cards" data-dr-cards>${defCardsHTML(st, DEF_TYPES.find(([k]) => k === open)[2])}</div>` + legendDefHTML()
     : `<p class="dr-hint">Pick a type of call to see its plays. Their play is set at the snap from the formation and the situation, whatever you call.</p>`;
   return `<section class="dr-call is-def" aria-labelledby="dr-call-t">${headRow('Your defense', s)}<div class="dr-call-box">`
-    + `<p class="dr-goal">${esc(goalText(s))}</p>` + lookHTML(s) + defTypesHTML(open) + body + tools + warn + `</div></section>`;
+    + lookHTML(s) + defTypesHTML(open) + body + tools + warn + `</div></section>`;
 }
 // ---------------------------------------------------------------------------- Play cards
 // Three plays of each type, drawn like a Madden play-call screen: the formation and the play's name, the target
@@ -1387,20 +1444,8 @@ function resultHTML(st) {
     + `<p class="dr-next">${ui.icon('clock', {size: 15})}<span>Next drill in <span data-dr-next>${esc(nextIn())}</span></span></p></section>`
     + compHTML(s);
 }
-function headHTML(st) {
-  const s = st.s, sc = s.sc, n = st.n, g = sc.g;
-  const where = sc.b === 50 ? 'midfield' : sc.b < 50 ? `your ${sc.b}` : `their ${100 - sc.b}`;
-  return `<header class="dr-head">`
-    + `<p class="dr-kick">${esc(`Two-Minute Drill #${n} · ${dr.dayLabel(n)}${dr.dayState(n).practice ? ' · Practice' : ''}`)}</p>`
-    + `<h2 class="dr-title">${esc(`Down ${sc.them - sc.us}, ${dr.clockText(sc.t)} to go`)}</h2>`
-    + `<p class="dr-sub">${esc(`${g ? `Week ${g.wk}: ${g.a} at ${g.h}. ` : ''}Ball on ${where}, ${plural(sc.to, 'timeout')}. Play to 0:00.`)}</p>`
-    + ui.iconButton({icon: 'info', label: 'How the Two-Minute Drill works', cls: 'dr-howto', attrs: {'data-dr-help': ''}})
-    + `</header>`;
-}
 function gameHTML(st) {
-  const s = st.s;
-  return headHTML(st)
-    + `<div class="dr-stage">${sitHTML(s)}${fieldHTML(st)}${legendHTML()}</div>`
+  return `<div class="dr-stage">${scoreHTML(st)}${fieldHTML(st)}${legendHTML()}</div>`
     + `<div class="dr-panel" data-dr-panel>${panelHTML(st)}</div>`
     + `<div data-dr-pbph>${pbpHTML(st)}</div>`;
 }
@@ -1731,10 +1776,7 @@ function finishPlay(st, p) {
   st.card = 0;
   st.side = 's';
   patchField(st);
-  const bug = st.el.querySelector('[data-dr-bug]');
-  if (bug) { bug.outerHTML = bugHTML(s); camLib.sbarLogos(st.el); }
-  const sit = st.el.querySelector('[data-dr-sit]');
-  if (sit) sit.outerHTML = sitHTML(s);
+  setBoard(st, boardOf(s));
   setPanel(st);
   const ph = st.el.querySelector('[data-dr-pbph]');
   if (ph) { ph.innerHTML = pbpHTML(st); ui.hydrate(ph); }
@@ -1804,7 +1846,7 @@ function playAgain(st) {
   ui.announce('Practice run: a fresh start on today’s drill.');
 }
 function rerender(st, {fade = true} = {}) {
-  const go2 = () => { st.el.innerHTML = bodyHTML(st); ui.hydrate(st.el); camLib.sbarLogos(st.el); };
+  const go2 = () => { st.el.innerHTML = bodyHTML(st); ui.hydrate(st.el); loadLogos(st.el); };
   if (fade && !ui.RM && st.ctx.visible) ui.crossfade(st.el, go2, {duration: 160}); else go2();
 }
 function share(st) {

@@ -5,11 +5,11 @@
 // midfield, the line of scrimmage and the line to gain), every player a jointed figure in his team's uniform (seen from
 // behind, in front or from either side by the way he's going; his arms and legs swinging through every stride, linemen
 // down in their stance before the snap, the play's moments posed, a tackled man on the ground) on his shadow, the
-// ball, the goalposts; the scoreboard across the top.
+// ball, the goalposts. (The scoreboard is the game screen's header, just above it: views/drill.js.)
 // The camera starts straight down over the dots (the top-down field under it, matched yard for yard), swings down
 // behind the offense for the play and follows the ball, then swings back up; the canvas fades into the dots.
 // open(field, scene) -> cam (or null with no 2D canvas): cam.render(frame), cam.css(x, y, lift), cam.overlay,
-// cam.board(b), cam.clock(text), cam.close() (fades out, then removes itself), cam.remove().
+// cam.close() (fades out, then removes itself), cam.remove().
 // Owner: Drill.
 
 const WIDTH = 53.33, MID = 26.67;
@@ -37,7 +37,6 @@ const clamp01 = u => clamp(u, 0, 1);
 const hash = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
 const rng = seed => { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; };
 const canvasOf = (w, h) => { const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h)); return c; };
-const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[ch]));
 const rgbOf = h => { const m = /^#?([0-9a-f]{6})$/i.exec(String(h || '')); const n = m ? parseInt(m[1], 16) : 0x808080; return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
 const mix = (h, to, k) => { const a = rgbOf(h), b = rgbOf(to); return `rgb(${a.map((v, i) => Math.round(v + (b[i] - v) * k)).join(',')})`; };
 const lite = (h, k) => mix(h, '#FFFFFF', k), dark = (h, k) => mix(h, '#000000', k);
@@ -413,30 +412,6 @@ function cameraAt(V, u, tx, ty, dist) {
 }
 const toCam = (c, x, y, z) => { const dy = y - c.cy, dz = z - c.cz; return [x - c.cx, dy * c.sn + dz * c.cs, dy * c.cs - dz * c.sn]; };
 
-// ---------------------------------------------------------------------------- The scoreboard
-/** The scoreboard bar (the field shows it too, views/drill.js, under the camera's own in the same place): both teams
- *  in their colours (yours first: its logo, name, timeouts, score; the ball by the side that has it), the quarter and
- *  the clock, the down and distance. b: {teams: [{id, c: [c0, c1], logo, score, tos, ball}], q, clock, run (the clock
- *  is running), dd ('' for none)}; o: {attrs (more of the bar's own), clock (the clock's own attribute)}. */
-export function sbarHTML(b, o = {}) {
-  const team = t => `<div class="dr-sbar-t${t.ball ? ' has-ball' : ''}" style="--tc:${esc(t.c[0])}" aria-hidden="true">`
-    + `${t.logo ? `<i data-logo="${esc(t.logo)}"></i>` : ''}<b>${esc(t.id)}</b>`
-    + `<span class="dr-sbar-to">${[0, 1, 2].map(i => `<s${i < t.tos ? ' class="is-on"' : ''}></s>`).join('')}</span>`
-    + `<em>${esc(t.score)}</em></div>`;
-  return `<div class="dr-sbar"${o.attrs || ''}>` + b.teams.map(team).join('')
-    + `<div class="dr-sbar-g" aria-hidden="true"><span>${esc(b.q)}</span><b${b.run ? ' class="is-run"' : ''}${o.clock ? ' ' + o.clock : ''}>${esc(b.clock)}</b></div>`
-    + (b.dd ? `<div class="dr-sbar-d" aria-hidden="true">${esc(b.dd)}</div>` : '') + `</div>`;
-}
-/** Shows each team logo in a scoreboard bar under root once it has loaded (most often already in the cache). */
-export function sbarLogos(root) {
-  if (!root) return;
-  root.querySelectorAll('.dr-sbar i[data-logo]:not(.is-in)').forEach(i => {
-    const im = new Image();
-    im.onload = () => { i.style.backgroundImage = `url("${im.src}")`; i.classList.add('is-in'); };
-    im.src = i.dataset.logo;
-  });
-}
-
 export function open(field, scene) {
   const cssW = field.clientWidth, cssH = field.clientHeight;
   if (!cssW || !cssH) return null;
@@ -448,10 +423,9 @@ export function open(field, scene) {
   const cv = canvasOf(W, H);
   const g = cv.getContext('2d');
   if (!g) return null;
-  const sb = document.createElement('div');
   const overlay = document.createElement('div');
   overlay.className = 'dr-cam-co';
-  wrap.append(cv, sb, overlay);
+  wrap.append(cv, overlay);
   field.appendChild(wrap);
   g.imageSmoothingEnabled = true;
   g.imageSmoothingQuality = 'high';
@@ -846,17 +820,6 @@ export function open(field, scene) {
     if (!p) return null;
     return [p[0] / S, p[1] / S];
   }
-  /** The scoreboard across the top: b {teams: [{id, c: [c0, c1], logo, score, tos, ball}] (yours first), q, clock,
-   *  dd (down and distance)}. */
-  function board(b) {
-    if (!b) return;
-    sb.innerHTML = sbarHTML(b, {clock: 'data-cam-clock'});
-    sbarLogos(sb);
-  }
-  function clock(text) {
-    const c = sb.querySelector('[data-cam-clock]');
-    if (c && c.textContent !== text) c.textContent = text;
-  }
   function remove() { closed = true; wrap.remove(); }
   function close() {
     if (closed) return;
@@ -864,8 +827,7 @@ export function open(field, scene) {
     wrap.classList.remove('is-on');
     setTimeout(() => wrap.remove(), 220);
   }
-  board(scene.board);
   // On next frame, so the fade in runs.
   requestAnimationFrame(() => { if (!closed) wrap.classList.add('is-on'); });
-  return {render, css, overlay, board, clock, close, remove, S};
+  return {render, css, overlay, close, remove, S};
 }
