@@ -2,9 +2,10 @@
 // runAnim runs it). A canvas over the field at the screen's own resolution: the stadium (the stands full of fans, the
 // suites, the padded wall round the field), the field in true perspective (mowed stripes over grass, the white
 // border, the yard lines, hash marks and numbers with their arrows, the end zones with the teams' names, the logo at
-// midfield, the line of scrimmage and the line to gain), every player a shaded figure in his team's uniform (seen from
-// behind or in front by the way he's going, running and leaning into it, linemen down in their stance before the
-// snap, a tackled man on the ground) on his shadow, the ball, the goalposts; the scoreboard across the top.
+// midfield, the line of scrimmage and the line to gain), every player a jointed figure in his team's uniform (seen from
+// behind, in front or from either side by the way he's going; his arms and legs swinging through every stride, linemen
+// down in their stance before the snap, the play's moments posed, a tackled man on the ground) on his shadow, the
+// ball, the goalposts; the scoreboard across the top.
 // The camera starts straight down over the dots (the top-down field under it, matched yard for yard), swings down
 // behind the offense for the play and follows the ball, then swings back up; the canvas fades into the dots.
 // open(field, scene) -> cam (or null with no 2D canvas): cam.render(frame), cam.css(x, y, lift), cam.overlay,
@@ -23,10 +24,8 @@ const DPR_MAX = 2;
 // The stadium: the faces of the wall round the field (and its height), the stands behind it (how far back they go and
 // how high they rise).
 const WX0 = -9, WX1 = WIDTH + 9, WY0 = -22, WY1 = 122, WALL = 1.2, BACK = 40, RISE = 30;
-// A player stands a touch taller than life (yards), so he reads on a phone; his sprite is drawn 100 units tall at U
-// canvas pixels a unit.
-const TALL = 2.2, U = 1.1;
-const SW = 74, SH = 124, AX = 37, AY = 119;
+// A player stands a touch taller than life (yards), so he reads on a phone.
+const TALL = 2.2;
 const OL = new Set(['LT', 'LG', 'C', 'RG', 'RT']), DL = new Set(['LDE', 'LDT', 'RDT', 'RDE', 'NT']);
 const SKINS = ['#F1C9A5', '#E2B084', '#C68A5C', '#A0673F', '#7B4B2A', '#5A3520'];
 const FANS = ['#E8E4DA', '#B9BDC8', '#5B6272', '#2A2F3B', '#C9B48E', '#8C2F2F', '#2F4F8C', '#D8D2C2', '#41464F', '#9AA3B5'];
@@ -161,8 +160,11 @@ function crowdTex(cols) {
 }
 
 // ---------------------------------------------------------------------------- Players
-// A player in local units: 100 tall, his feet at the origin, up is negative y. Drawn once for each look (his team's
-// uniform, his number, from behind or in front, standing, set, or one of eight steps of a stride) and kept.
+// A player is a jointed figure: hips, knees, ankles and toes, shoulders, elbows and hands, his neck and head, placed in
+// 3D in units (100 tall; x to his right, y the way he faces, z up, his feet on the ground) for a pose (standing, set,
+// a lineman's stance, any point of his stride, or one of a play's moments), then seen from one of four sides (from
+// behind, in front, his right side or his left side to the camera) and drawn limb by limb, far ones first. Drawn
+// fresh every frame, so a stride is smooth and arms and legs swing through it.
 function kitOf(team, colored) {
   const [c0, c1] = team;
   const trim = luma(c1) > 0.85 && luma(c0) > 0.85 ? '#333333' : c1;
@@ -170,68 +172,28 @@ function kitOf(team, colored) {
     ? {jersey: c0, num: '#FFFFFF', edge: trim, helmet: c0, stripe: '#FFFFFF', pants: luma(c0) < 0.25 ? '#E9E6DE' : '#F2F0EA', pstripe: c0, sock: c0, glove: '#FFFFFF', mask: '#D8DADF'}
     : {jersey: '#F5F5F2', num: c0, edge: trim, helmet: c0, stripe: trim, pants: c0, pstripe: '#FFFFFF', sock: c0, glove: luma(c0) < 0.3 ? '#F2F2F2' : '#202020', mask: '#C9CCD3'};
 }
-const SPRITES = new Map();
-// The poses: standing, set before the snap, eight steps of a stride, and the moments of a play: the passer's windup
-// (tw, the ball cocked by his ear) and release (tr), a blocker's punch (bk), a receiver's hands up for the ball (ct), a
-// defender's swat at it (sw), a ball carrier's lowered shoulder (tk) and a tackler's lunge (tl).
-const POSES = {
-  stand: {hip: -50, sh: -78, head: -90, feet: 8},
-  set: {hip: -45, sh: -73, head: -85, feet: 10, knees: true},
-  tw: {hip: -50, sh: -78, head: -90, feet: 10, lift: [0, 0.18]},
-  tr: {hip: -50, sh: -77, head: -89, feet: 10, lift: [0.22, 0]},
-  bk: {hip: -45, sh: -72, head: -84, feet: 12, knees: true},
-  ct: {hip: -51, sh: -80, head: -92, feet: 7, lift: [0.3, 0]},
-  sw: {hip: -49, sh: -77, head: -89, feet: 9, lift: [0, 0.45]},
-  tk: {hip: -46, sh: -67, head: -69, feet: 10, knees: true, low: true},
-  tl: {hip: -47, sh: -69, head: -72, feet: 9, lift: [0.55, 0], low: true}
-};
-/** A pose's body and arms. Arms are [left, right] as the player has them ({e: elbow, h: hand, ball}); his right is +x
- *  from behind, -x from in front. */
-function poseOf(pose, ws, Wd, front) {
-  let P, swing = null;
-  if (pose && pose[0] === 'r') {
-    const ph = Number(pose.slice(1)) / 8 * Math.PI * 2, s = Math.sin(ph), bob = -2 * Math.abs(Math.cos(ph));
-    P = {hip: -49 + bob, sh: -78 + bob, head: -90 + bob, lift: [Math.max(0, s), Math.max(0, -s)], feet: 6.5};
-    swing = [-s, s];
-  } else P = Object.assign({lift: [0, 0]}, POSES[pose] || POSES.stand);
-  const side = (x, y) => [front ? -x : x, y];
-  const both = (ex, ey, hx, hy) => [{e: side(-ex, ey), h: side(-hx, hy)}, {e: side(ex, ey), h: side(hx, hy)}];
-  if (pose === 'tw') P.arms = [{e: side(-(ws - 1), P.sh + 12), h: side(-7, P.sh + 9)}, {e: side(ws + 5, P.sh - 4), h: side(ws + 2, P.sh - 17), ball: true}];
-  else if (pose === 'tr') P.arms = [{e: side(-(ws + 1), P.sh + 10), h: side(-(ws - 3), P.hip + 2)}, {e: side(ws + 3, P.sh - 16), h: side(ws - 4, P.sh - 30)}];
-  else if (pose === 'sw') P.arms = [{e: side(-(ws + 2), P.sh + 10), h: side(-(ws + 1), P.hip)}, {e: side(ws + 7, P.sh - 12), h: side(ws + 13, P.head - 14)}];
-  else if (pose === 'bk') P.arms = both(ws + 4, P.sh + 9, 8, P.sh + 7);
-  else if (pose === 'ct') P.arms = front ? both(ws - 1, P.sh + 2, 6, P.head + 3) : both(ws - 1, P.sh - 12, 6, P.head - 15);
-  else if (pose === 'tk') P.arms = both(ws + 1, P.sh + 10, 7, P.sh + 15);
-  else if (pose === 'tl') P.arms = both(ws + 6, P.sh + 4, ws - 1, P.sh + 15);
-  else {
-    // At his sides, or pumping against his legs as he runs; set, hands on his thighs.
-    const a = swing || [0, 0];
-    P.arms = [-1, 1].map((sg, i) => {
-      const fwd = Math.max(0, a[i]), back = Math.max(0, -a[i]);
-      const hx = P.knees ? sg * 9 * Wd : sg * (ws - 2 - 7 * fwd + 2 * back), hy = P.knees ? P.hip + 6 : P.hip - 2 - 13 * fwd + 5 * back;
-      return {e: [sg * (ws + 1.5 - 2 * fwd), (P.sh + 5 + hy) / 2 - 2 * fwd], h: [hx, hy]};
-    });
-  }
-  return P;
-}
 function strokeFill(g, fill) { g.fillStyle = fill; g.fill(); g.strokeStyle = STROKE; g.lineWidth = 1.3; g.stroke(); }
 function limb(g, ax, ay, bx, by, w, col) {
   g.lineCap = 'round';
   g.strokeStyle = STROKE; g.lineWidth = w + 2.4; g.beginPath(); g.moveTo(ax, ay); g.lineTo(bx, by); g.stroke();
   g.strokeStyle = col; g.lineWidth = w; g.beginPath(); g.moveTo(ax, ay); g.lineTo(bx, by); g.stroke();
 }
-function numberOn(g, K, j, x, y, h, sy = 1) {
-  if (j == null || j === '') return;
-  g.save();
-  g.translate(x, y);
-  g.scale(String(j).length > 1 ? 0.8 : 0.9, sy);
-  g.font = `800 ${h}px ${FONT}`;
+const NUMS = new Map();
+/** A jersey number, drawn once (96 x 64 pixels: the digits in the kit's colour, outlined in its trim). */
+function numImg(K, j) {
+  const key = `${K.num}|${K.edge}|${j}`;
+  if (NUMS.has(key)) return NUMS.get(key);
+  const c = canvasOf(96, 64), g = c.getContext('2d');
+  g.translate(48, 34);
+  g.scale(String(j).length > 1 ? 0.8 : 0.9, 1);
+  g.font = `800 58px ${FONT}`;
   g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.lineJoin = 'round'; g.lineWidth = 2.6; g.strokeStyle = K.edge;
-  g.strokeText(String(j), 0, 1);
-  g.fillStyle = K.num; g.fillText(String(j), 0, 1);
-  g.restore();
+  g.lineJoin = 'round'; g.lineWidth = 8; g.strokeStyle = K.edge; g.strokeText(String(j), 0, 2);
+  g.fillStyle = K.num; g.fillText(String(j), 0, 2);
+  NUMS.set(key, c);
+  return c;
 }
+/** The helmet from behind or in front (shell, stripe or facemask, the shine), units round (x, y). */
 function helmet(g, K, x, y, front, r = 1) {
   const rx = 10 * r, ry = 11 * r;
   const gr = g.createRadialGradient(x - 4 * r, y - 5 * r, 1, x, y, 13 * r);
@@ -240,7 +202,6 @@ function helmet(g, K, x, y, front, r = 1) {
   g.save();
   g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); g.clip();
   if (front) {
-    // The face in the shade of the helmet, the facemask over it.
     g.fillStyle = 'rgba(18,12,8,.92)';
     g.beginPath(); g.roundRect(x - 6.6 * r, y - 3.2 * r, 13.2 * r, 13 * r, 3 * r); g.fill();
     g.fillStyle = K.skin; g.globalAlpha = 0.55; g.fillRect(x - 4.6 * r, y + 1 * r, 9.2 * r, 6 * r); g.globalAlpha = 1;
@@ -263,137 +224,182 @@ function helmet(g, K, x, y, front, r = 1) {
   g.fillStyle = 'rgba(255,255,255,.6)';
   g.beginPath(); g.ellipse(x - 4.2 * r, y - 6.2 * r, 2.8 * r, 1.6 * r, -0.5, 0, Math.PI * 2); g.fill();
 }
-function cleat(g, x, y, lifted) {
-  g.beginPath(); g.ellipse(x, y, 4.6, lifted ? 3.4 : 2.8, 0, 0, Math.PI * 2); strokeFill(g, '#17181C');
-  if (lifted) { g.fillStyle = '#E9E9E9'; g.beginPath(); g.ellipse(x, y + 0.4, 3.2, 1.8, 0, 0, Math.PI * 2); g.fill(); }
-  else { g.fillStyle = 'rgba(255,255,255,.75)'; g.fillRect(x - 3, y - 1.2, 6, 1); }
-}
-/** Upright: standing, set (knees bent, hands on his thighs), running, or one of a play's moments (POSES). */
-function paintUpright(g, K, j, front, pose, wide) {
-  const Wd = wide ? 1.13 : 1, ws = 20 * Wd, ww = 12 * Wd;
-  const P = poseOf(pose, ws, Wd, front);
-  // Legs: each from the hip through the knee to the cleat; a lifted leg kicks its heel up.
-  const legs = [-1, 1].map((sg, i) => {
-    const l = P.lift[i];
-    const hipX = sg * 6.5 * Wd, kneeX = sg * (8 + (P.knees ? 3 : 0)) * Wd, kneeY = -24 + l * 5 + (P.knees ? -2 : 0);
-    const ankX = sg * (P.feet + (P.knees ? 2 : 0)) * (1 - 0.25 * l), ankY = -6 - l * 21;
-    return {sg, l, hipX, kneeX, kneeY, ankX, ankY};
-  });
-  // The lifted leg behind the planted one from the back, in front of it from the front.
-  const order = legs.slice().sort((a, b) => (front ? a.l - b.l : b.l - a.l));
-  order.forEach(L => {
-    limb(g, L.kneeX, L.kneeY, L.ankX, L.ankY, 7, K.sock);
-    g.strokeStyle = '#F1F1F1'; g.lineWidth = 7; g.beginPath(); g.moveTo(L.ankX, L.ankY - 3); g.lineTo(L.ankX, L.ankY); g.stroke();
-    cleat(g, L.ankX, L.ankY + 2.5, L.l > 0.35 && !front);
-  });
-  // The pants: both thighs to just below the knees, a stripe down each side, the belt.
-  const [A, B] = legs;
+/** The helmet in profile, facing dir (1: right, -1: left): the shell, the stripe over the crown, the decal, the ear
+ *  hole, the face in its shade and the facemask out front. */
+function helmetSide(g, K, x, y, dir) {
+  const gr = g.createRadialGradient(x - 3 * dir, y - 5, 1, x, y, 13);
+  gr.addColorStop(0, lite(K.helmet, 0.5)); gr.addColorStop(0.42, K.helmet); gr.addColorStop(1, dark(K.helmet, 0.4));
+  g.beginPath(); g.ellipse(x - 1 * dir, y, 10.6, 10.4, 0, 0, Math.PI * 2); strokeFill(g, gr);
+  g.save();
+  g.beginPath(); g.ellipse(x - 1 * dir, y, 10.6, 10.4, 0, 0, Math.PI * 2); g.clip();
+  g.fillStyle = 'rgba(18,12,8,.9)';
+  g.beginPath(); g.moveTo(x + 9.8 * dir, y - 3); g.lineTo(x + 3.5 * dir, y - 2); g.lineTo(x + 3 * dir, y + 7); g.lineTo(x + 9.8 * dir, y + 10); g.closePath(); g.fill();
+  g.fillStyle = K.skin; g.globalAlpha = 0.6; g.fillRect(dir > 0 ? x + 5 : x - 9, y, 4, 6); g.globalAlpha = 1;
+  g.restore();
+  g.strokeStyle = K.stripe; g.lineWidth = 3; g.lineCap = 'butt';
+  g.beginPath(); g.ellipse(x - 1 * dir, y, 9.2, 9, 0, dir > 0 ? Math.PI * 1.08 : Math.PI * 1.52, dir > 0 ? Math.PI * 1.48 : Math.PI * 1.92); g.stroke();
+  g.fillStyle = K.stripe; g.globalAlpha = 0.9; g.beginPath(); g.arc(x - 3 * dir, y - 1.5, 3.2, 0, Math.PI * 2); g.fill(); g.globalAlpha = 1;
+  g.fillStyle = 'rgba(0,0,0,.55)'; g.beginPath(); g.arc(x - 1.5 * dir, y + 3.5, 1.4, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = K.mask; g.lineWidth = 1.5; g.lineCap = 'round';
   g.beginPath();
-  g.moveTo(-ww - 0.5, P.hip); g.lineTo(ww + 0.5, P.hip);
-  g.lineTo(B.kneeX + 5, B.kneeY + 1.5); g.lineTo(B.kneeX - 4, B.kneeY + 1.5);
-  g.lineTo(0, P.hip + 13);
-  g.lineTo(A.kneeX + 4, A.kneeY + 1.5); g.lineTo(A.kneeX - 5, A.kneeY + 1.5);
-  g.closePath();
-  const pg = g.createLinearGradient(-ww, 0, ww, 0);
-  pg.addColorStop(0, lite(K.pants, 0.12)); pg.addColorStop(0.6, K.pants); pg.addColorStop(1, dark(K.pants, 0.22));
-  strokeFill(g, pg);
-  g.strokeStyle = K.pstripe; g.lineWidth = 1.8; g.lineCap = 'butt';
-  g.beginPath(); g.moveTo(-ww + 0.4, P.hip + 2); g.lineTo(A.kneeX - 4.3, A.kneeY); g.moveTo(ww - 0.4, P.hip + 2); g.lineTo(B.kneeX + 4.3, B.kneeY); g.stroke();
-  // The arms: a sleeve over the shoulder pad, the forearm, the glove (and the ball, cocked to throw). From behind they
-  // go on before the jersey (what's in front of him hides behind it), from in front after it.
-  const arms = () => P.arms.forEach(({e, h, ball}) => {
-    const shx = (e[0] < 0 ? -1 : 1) * (ws - 4), shy = P.sh + 5;
-    limb(g, shx, shy, e[0], e[1], 7.2, K.skin);
-    limb(g, e[0], e[1], h[0], h[1], 6.2, K.skin);
-    limb(g, shx, shy - 1, shx + (e[0] - shx) * 0.45, shy + (e[1] - shy) * 0.45, 8.6, K.jersey);
-    g.beginPath(); g.arc(h[0], h[1], 3.6, 0, Math.PI * 2); strokeFill(g, K.glove);
-    if (ball) {
-      g.save(); g.translate(h[0], h[1] - 3.5); g.rotate(-0.5);
-      g.beginPath(); g.ellipse(0, 0, 5.4, 3.3, 0, 0, Math.PI * 2); strokeFill(g, '#8A4318');
-      g.strokeStyle = '#F4F1EA'; g.lineWidth = 0.9; g.beginPath(); g.moveTo(-2, -1); g.lineTo(2, -1); g.stroke();
-      g.restore();
+  g.moveTo(x + 7 * dir, y - 1); g.quadraticCurveTo(x + 13 * dir, y + 1, x + 11 * dir, y + 9);
+  g.moveTo(x + 7 * dir, y + 3.5); g.lineTo(x + 12.4 * dir, y + 3.5);
+  g.moveTo(x + 6 * dir, y + 8); g.lineTo(x + 11 * dir, y + 8);
+  g.stroke();
+  g.fillStyle = 'rgba(255,255,255,.55)';
+  g.beginPath(); g.ellipse(x - 2 * dir, y - 6, 3, 1.6, -0.4 * dir, 0, Math.PI * 2); g.fill();
+}
+
+const RUN = 2.3; // yards a full stride (two steps) covers
+const v3 = (a, b, k = 1) => [a[0] + b[0] * k, a[1] + b[1] * k, a[2] + b[2] * k];
+/** A leg from the hip: the thigh swung forward by thigh (radians), the knee bent by bend, the foot out by spread. */
+function legOf(hip, thigh, bend, spread) {
+  const k = [hip[0] + spread * 0.4, hip[1] + 25 * Math.sin(thigh), hip[2] - 25 * Math.cos(thigh)];
+  const sa = thigh - bend;
+  const a = [hip[0] + spread, k[1] + 21 * Math.sin(sa), k[2] - 21 * Math.cos(sa)];
+  return {h: hip, k, a, t: [a[0], a[1] + 9 * Math.cos(sa), a[2] + 9 * Math.sin(sa) - 1]};
+}
+/** An arm from the shoulder: swung forward by fwd (radians from hanging), out to the side by out, the elbow bent by
+ *  bend (a bent arm's hand comes in toward the middle). side: -1 left, 1 right. */
+function armOf(sh, side, fwd, out, bend) {
+  const e = [sh[0] + side * 14.5 * Math.sin(out), sh[1] + 14.5 * Math.sin(fwd) * Math.cos(out), sh[2] - 14.5 * Math.cos(fwd) * Math.cos(out)];
+  const fa = fwd + bend;
+  return {s: sh, e, h: [e[0] + side * 3 * Math.sin(out) - side * 3.5 * Math.sin(Math.min(bend, 1.6)), e[1] + 13.5 * Math.sin(fa), e[2] - 13.5 * Math.cos(fa)]};
+}
+/** A pose's body in 3D. pose: stand, set, line (a lineman's three-point stance), run, or a play's moment (tw, tr, bk,
+ *  ct, sw, tk, tl); ph: where he is in his stride (radians); Wd: how broad he is. */
+function bodyOf(pose, ph, Wd) {
+  let lean = 0.04, legs, arms;
+  const hipZ = 50, P = [0, 0, hipZ], hip = [[-6.5 * Wd, 0, hipZ], [6.5 * Wd, 0, hipZ]];
+  const stride = (i, amp = 1) => { const q = ph + (i ? Math.PI : 0); return legOf(hip[i], 0.55 * amp * Math.sin(q), 0.3 + 1.35 * amp * Math.pow(Math.max(0, Math.cos(q)), 1.3), i ? 1.2 : -1.2); };
+  const runLegs = (amp = 1) => [stride(0, amp), stride(1, amp)];
+  if (pose === 'run' || pose === 'ct' || pose === 'sw' || pose === 'tk') { lean = pose === 'tk' ? 0.8 : pose === 'ct' ? 0.1 : 0.22; legs = runLegs(pose === 'tk' ? 0.8 : 1); }
+  else if (pose === 'set') { lean = 0.4; legs = [legOf(hip[0], 0.45, 0.95, -3.5), legOf(hip[1], 0.45, 0.95, 3.5)]; }
+  else if (pose === 'line') { lean = 1.25; legs = [legOf(hip[0], 1.0, 1.8, -6), legOf(hip[1], 0.85, 1.6, 6)]; }
+  else if (pose === 'bk') { lean = 0.5; legs = [legOf(hip[0], 0.5, 1.05, -5.5), legOf(hip[1], 0.35, 0.85, 5.5)]; }
+  else if (pose === 'tw') { lean = -0.06; legs = [legOf(hip[0], 0.34, 0.15, -2.5), legOf(hip[1], -0.3, 0.35, 2.5)]; }
+  else if (pose === 'tr') { lean = 0.26; legs = [legOf(hip[0], 0.3, 0.2, -2), legOf(hip[1], -0.6, 1.05, 2)]; }
+  else if (pose === 'tl') { lean = 1.2; legs = [legOf(hip[0], -0.7, 0.35, -2), legOf(hip[1], 0.25, 1.35, 2)]; }
+  else legs = [legOf(hip[0], 0.02, 0.06, -1.2), legOf(hip[1], -0.02, 0.06, 1.2)];
+  const N = [0, 28 * Math.sin(lean), hipZ + 28 * Math.cos(lean)];
+  const sh = [[-17 * Wd, N[1], N[2] - 3], [17 * Wd, N[1], N[2] - 3]];
+  const head = [0, N[1] + 11 * Math.sin(lean * 0.55), N[2] + 11 * Math.cos(lean * 0.55)];
+  let ball = -1;
+  if (pose === 'run') {
+    // Arms pump against the legs: the left arm comes through with the right leg.
+    arms = [0, 1].map(i => { const q = ph + (i ? 0 : Math.PI); return armOf(sh[i], i ? 1 : -1, 0.8 * Math.sin(q) - 0.1, 0.22, 1.3 + 0.3 * Math.cos(q)); });
+  } else if (pose === 'set') arms = [armOf(sh[0], -1, 0.8, 0.15, 0.05), armOf(sh[1], 1, 0.8, 0.15, 0.05)];
+  else if (pose === 'line') arms = [armOf(sh[0], -1, 0.9, 0.15, 0.6), armOf(sh[1], 1, 1.32, 0.05, -0.05)];
+  else if (pose === 'bk') arms = [armOf(sh[0], -1, 1.4, 0.25, 0.25), armOf(sh[1], 1, 1.4, 0.25, 0.25)];
+  else if (pose === 'tw') {
+    // The ball cocked by his ear, the front arm out toward the target.
+    const e = v3(sh[1], [3, -7, 9]);
+    arms = [armOf(sh[0], -1, 1.25, 0.3, 0.4), {s: sh[1], e, h: v3(e, [-1, -5, 12])}];
+    ball = 1;
+  } else if (pose === 'tr') {
+    const e = v3(sh[1], [-3, 11, 8]);
+    arms = [armOf(sh[0], -1, -0.35, 0.25, 1.0), {s: sh[1], e, h: v3(e, [-4, 11, -1])}];
+  } else if (pose === 'ct') arms = [armOf(sh[0], -1, 2.55, 0.25, 0.45), armOf(sh[1], 1, 2.55, 0.25, 0.45)];
+  else if (pose === 'sw') arms = [armOf(sh[0], -1, -0.4, 0.2, 0.9), armOf(sh[1], 1, 2.95, 0.45, 0.05)];
+  else if (pose === 'tk') arms = [armOf(sh[0], -1, 1.0, 0.3, 0.2), armOf(sh[1], 1, 0.25, 0.05, 2.1)];
+  else if (pose === 'tl') arms = [armOf(sh[0], -1, 1.55, 0.55, 0.25), armOf(sh[1], 1, 1.55, 0.55, 0.25)];
+  else arms = [armOf(sh[0], -1, 0.08, 0.2, 0.3), armOf(sh[1], 1, 0.08, 0.2, 0.3)];
+  // On the ground: the lowest foot (or the hand on the turf) touches it.
+  let low = Infinity;
+  legs.forEach(L => { low = Math.min(low, L.a[2] - 5, L.t[2] - 1.5); });
+  if (pose === 'line') low = Math.min(low, arms[1].h[2] - 2);
+  const dz = -low, up = q => [q[0], q[1], q[2] + dz];
+  return {P: up(P), N: up(N), head: up(head), sh: sh.map(up), lean,
+    legs: legs.map(L => ({h: up(L.h), k: up(L.k), a: up(L.a), t: up(L.t)})),
+    arms: arms.map(A => ({s: up(A.s), e: up(A.e), h: up(A.h)})), ball};
+}
+/** A body point seen from a side: [x, y on screen (units, up negative), how near the camera]. From an elevated camera,
+ *  what's nearer sits a little lower. view: b (from behind), f (in front), r (his right side to us, facing right), l. */
+function seen(view, q) {
+  const [x, y, z] = q;
+  if (view === 'b') return [x, -z - y * 0.22, -y];
+  if (view === 'f') return [-x, -z + y * 0.22, y];
+  if (view === 'r') return [y, -z + x * 0.18, x];
+  return [-y, -z - x * 0.18, -x];
+}
+/** One player, drawn in units round his feet (the caller sets the transform). */
+function drawFigure(g, pl, view, pose, ph) {
+  const K = pl.kitS || (pl.kitS = Object.assign({skin: pl.skin}, pl.kit)), Wd = pl.line ? 1.13 : 1;
+  const B = bodyOf(pose, ph, Wd), see = q => seen(view, q), side = view === 'r' || view === 'l', dir = view === 'l' ? -1 : 1;
+  const parts = [];
+  B.legs.forEach(L => {
+    const h = see(L.h), k = see(L.k), a = see(L.a), t = see(L.t);
+    parts.push({d: (h[2] + k[2] + a[2]) / 3 + (side ? 0 : -0.5), draw: () => {
+      limb(g, k[0], k[1], a[0], a[1], 7.4, K.sock);
+      g.strokeStyle = '#F1F1F1'; g.lineWidth = 7.4; g.lineCap = 'butt';
+      g.beginPath(); g.moveTo(a[0] + (k[0] - a[0]) * 0.18, a[1] + (k[1] - a[1]) * 0.18); g.lineTo(a[0], a[1]); g.stroke();
+      limb(g, a[0], a[1], t[0], t[1], 5.2, '#18191D');
+      limb(g, h[0], h[1], k[0] + (k[0] - h[0]) * 0.08, k[1] + (k[1] - h[1]) * 0.08, 11.5, K.pants);
+      g.strokeStyle = K.pstripe; g.lineWidth = 1.7; g.lineCap = 'butt';
+      const o = side ? 0 : (h[0] < 0 ? -4.6 : 4.6);
+      g.beginPath(); g.moveTo(h[0] + o, h[1] + 2); g.lineTo(k[0] + o * 0.8, k[1] - 2); g.stroke();
+    }});
+  });
+  B.arms.forEach((A, i) => {
+    const s = see(A.s), e = see(A.e), h = see(A.h);
+    parts.push({d: (s[2] + e[2] + h[2]) / 3, draw: () => {
+      limb(g, s[0], s[1], e[0], e[1], 7.2, K.skin);
+      limb(g, e[0], e[1], h[0], h[1], 6.2, K.skin);
+      limb(g, s[0], s[1] - 1, s[0] + (e[0] - s[0]) * 0.42, s[1] + (e[1] - s[1]) * 0.42, 9, K.jersey);
+      g.beginPath(); g.arc(h[0], h[1], 3.6, 0, Math.PI * 2); strokeFill(g, K.glove);
+      if (B.ball === i) {
+        g.save(); g.translate(h[0], h[1] - 3.5); g.rotate(-0.5);
+        g.beginPath(); g.ellipse(0, 0, 5.4, 3.3, 0, 0, Math.PI * 2); strokeFill(g, '#8A4318');
+        g.strokeStyle = '#F4F1EA'; g.lineWidth = 0.9; g.beginPath(); g.moveTo(-2, -1); g.lineTo(2, -1); g.stroke();
+        g.restore();
+      }
+    }});
+  });
+  // The torso: the jersey over the pads from behind or in front (his number on it), or in profile; the seat of his
+  // pants under it.
+  const P = see(B.P), N = see(B.N), L = see(B.sh[0]), R = see(B.sh[1]), HL = see(B.legs[0].h), HR = see(B.legs[1].h);
+  parts.push({d: 0, draw: () => {
+    if (!side) {
+      g.beginPath(); g.ellipse((HL[0] + HR[0]) / 2, (HL[1] + HR[1]) / 2 + 2, Math.abs(HR[0] - HL[0]) / 2 + 6, 8, 0, 0, Math.PI * 2); strokeFill(g, K.pants);
+      const [a, b] = L[0] < R[0] ? [L, R] : [R, L], [ha, hb] = HL[0] < HR[0] ? [HL, HR] : [HR, HL];
+      g.beginPath();
+      g.moveTo(a[0] - 3, a[1] + 8); g.quadraticCurveTo(a[0] - 3, a[1] - 1, a[0] + 6, a[1] - 2);
+      g.lineTo(b[0] - 6, b[1] - 2); g.quadraticCurveTo(b[0] + 3, b[1] - 1, b[0] + 3, b[1] + 8);
+      g.lineTo(hb[0] + 5.5, hb[1] - 1); g.lineTo(ha[0] - 5.5, ha[1] - 1); g.closePath();
+      const jg = g.createLinearGradient(a[0], a[1], b[0], hb[1]);
+      jg.addColorStop(0, lite(K.jersey, 0.16)); jg.addColorStop(0.55, K.jersey); jg.addColorStop(1, dark(K.jersey, 0.26));
+      strokeFill(g, jg);
+      g.fillStyle = dark(K.pants, 0.5); g.fillRect(ha[0] - 5, (ha[1] + hb[1]) / 2 - 2.5, hb[0] - ha[0] + 10, 2.5);
+      if (pl.j != null && pl.j !== '') {
+        const top = (a[1] + b[1]) / 2, bot = (ha[1] + hb[1]) / 2, ht = clamp((bot - top) * (view === 'b' ? 0.62 : 0.42), 5, 19);
+        const cx = (a[0] + b[0]) / 2, cy = top + (bot - top) * (view === 'b' ? 0.42 : 0.36);
+        g.drawImage(numImg(K, pl.j), cx - ht * 0.75, cy - ht * 0.5, ht * 1.5, ht);
+      }
+    } else {
+      g.beginPath(); g.ellipse(P[0] - dir * 1.5, P[1] + 1, 11, 9.5, 0, 0, Math.PI * 2); strokeFill(g, K.pants);
+      const vx = N[0] - P[0], vy = N[1] - P[1], len = Math.hypot(vx, vy) || 1, ux = vx / len, uy = vy / len;
+      let nx = -uy, ny = ux;
+      if (nx * dir < 0) { nx = -nx; ny = -ny; }
+      const pt = (base, u, n) => [base[0] + ux * u + nx * n, base[1] + uy * u + ny * n];
+      // In profile he's deep through the chest and the pads, the pads riding up over the shoulders.
+      const A = pt(P, 1, 9), Bp = pt(N, -9, 12.5), C = pt(N, 2.5, 7.5), D = pt(N, 3.5, -6.5), E = pt(N, -7, -12.5), F = pt(P, 1, -10.5);
+      g.beginPath();
+      g.moveTo(A[0], A[1]); g.lineTo(Bp[0], Bp[1]); g.quadraticCurveTo(...pt(N, 1, 13), C[0], C[1]);
+      g.lineTo(D[0], D[1]); g.quadraticCurveTo(...pt(N, 1, -13.5), E[0], E[1]); g.lineTo(F[0], F[1]); g.closePath();
+      const jg = g.createLinearGradient(...pt(N, 0, -13), ...pt(P, 0, 10));
+      jg.addColorStop(0, dark(K.jersey, 0.2)); jg.addColorStop(0.5, K.jersey); jg.addColorStop(1, lite(K.jersey, 0.1));
+      strokeFill(g, jg);
+      g.fillStyle = dark(K.pants, 0.5);
+      const w0 = pt(P, 2.5, 9), w1 = pt(P, 2.5, -10.5);
+      g.strokeStyle = dark(K.pants, 0.5); g.lineWidth = 2.5; g.beginPath(); g.moveTo(w0[0], w0[1]); g.lineTo(w1[0], w1[1]); g.stroke();
+      if (pl.j != null && pl.j !== '') { const c = pt(N, -9, -1); g.drawImage(numImg(K, pl.j), c[0] - 6, c[1] - 4, 12, 8); }
     }
-  });
-  if (!front) arms();
-  // A lowered head goes in under the shoulder pads from behind.
-  if (P.low && !front) helmet(g, K, 0, P.head, false);
-  // The jersey over the shoulder pads.
-  g.beginPath();
-  g.moveTo(-ws, P.sh + 7);
-  g.quadraticCurveTo(-ws, P.sh - 2, -ws + 8, P.sh - 3);
-  g.lineTo(ws - 8, P.sh - 3);
-  g.quadraticCurveTo(ws, P.sh - 2, ws, P.sh + 7);
-  g.lineTo(ww + 1, P.hip + 1); g.lineTo(-ww - 1, P.hip + 1);
-  g.closePath();
-  const jg = g.createLinearGradient(-ws, P.sh, ws, P.hip);
-  jg.addColorStop(0, lite(K.jersey, 0.16)); jg.addColorStop(0.55, K.jersey); jg.addColorStop(1, dark(K.jersey, 0.26));
-  strokeFill(g, jg);
-  g.fillStyle = K.edge; g.globalAlpha = 0.9;
-  g.fillRect(-ws + 1, P.sh + 3, 6, 2); g.fillRect(ws - 7, P.sh + 3, 6, 2);
-  g.globalAlpha = 1;
-  g.fillStyle = dark(K.pants, 0.5); g.fillRect(-ww, P.hip - 1.5, ww * 2, 2.5);
-  numberOn(g, K, j, 0, front ? P.sh + 13 : P.sh + 15, front ? 13 : Math.min(19, (P.hip - P.sh) * 0.62));
-  if (front) arms();
-  // The neck, then the helmet.
-  if (P.low) { if (front) helmet(g, K, 0, P.head + 2, true); return; }
-  g.fillStyle = dark(K.skin, 0.2); g.fillRect(-4, P.sh - 7, 8, 7);
-  helmet(g, K, 0, P.head, front);
-}
-/** A lineman in his three-point stance: feet wide, back flat, a hand on the turf. */
-function paintStance(g, K, j, front) {
-  const ws = 21, legs = [-1, 1];
-  legs.forEach(sg => {
-    limb(g, sg * 7, -38, sg * 12, -22, 9, K.pants);
-    limb(g, sg * 12, -22, sg * 13.5, -6, 6.6, K.sock);
-    cleat(g, sg * 13.5, -3.5, false);
-  });
-  g.beginPath(); g.ellipse(0, -40, 13.5, 8.5, 0, 0, Math.PI * 2);
-  const pg = g.createLinearGradient(-13, 0, 13, 0); pg.addColorStop(0, lite(K.pants, 0.12)); pg.addColorStop(1, dark(K.pants, 0.2));
-  strokeFill(g, pg);
-  const hand = front ? [7, -3] : [17, -3];
-  if (!front) {
-    limb(g, -16, -58, -11, -27, 6.4, K.skin); g.beginPath(); g.arc(-11, -27, 3.5, 0, Math.PI * 2); strokeFill(g, K.glove);
-    limb(g, 17, -58, hand[0], hand[1], 6.6, K.skin); g.beginPath(); g.arc(hand[0], hand[1], 3.6, 0, Math.PI * 2); strokeFill(g, K.glove);
-  }
-  // The back, seen from above and behind (the number squashed on it), or the chest and pads from the front.
-  g.beginPath();
-  g.moveTo(-12, -42); g.lineTo(-ws, -58); g.quadraticCurveTo(-ws, -66, -ws + 7, -66);
-  g.lineTo(ws - 7, -66); g.quadraticCurveTo(ws, -66, ws, -58); g.lineTo(12, -42); g.closePath();
-  const jg = g.createLinearGradient(0, -66, 0, -42); jg.addColorStop(0, lite(K.jersey, 0.14)); jg.addColorStop(1, dark(K.jersey, 0.22));
-  strokeFill(g, jg);
-  if (!front) {
-    numberOn(g, K, j, 0, -54, 16, 0.66);
-    helmet(g, K, 0, -71, false, 0.95);
-  } else {
-    limb(g, -15, -60, -10, -28, 6.2, K.skin); g.beginPath(); g.arc(-10, -28, 3.4, 0, Math.PI * 2); strokeFill(g, K.glove);
-    limb(g, 15, -60, hand[0], hand[1], 6.4, K.skin); g.beginPath(); g.arc(hand[0], hand[1], 3.5, 0, Math.PI * 2); strokeFill(g, K.glove);
-    helmet(g, K, 0, -58, true, 0.95);
-  }
-}
-function spriteOf(pl, view, pose, down) {
-  const key = `${pl.kitKey}|${pl.j}|${pl.skin}|${view}|${pose}|${down || ''}|${pl.line ? 1 : 0}`;
-  let c = SPRITES.get(key);
-  if (c) return c;
-  if (SPRITES.size > 900) SPRITES.clear();
-  if (down) {
-    // On the ground: the standing figure laid on its side and seen from above, its middle where he went down.
-    const st = spriteOf(pl, view, 'stand', null);
-    c = canvasOf(SH, 64);
-    const g = c.getContext('2d');
-    g.translate(SH / 2, 40); g.scale(1, 0.55); g.rotate(down === 'l' ? -Math.PI / 2 : Math.PI / 2);
-    g.drawImage(st, -AX, -(AY - 50 * U));
-    c.ax = SH / 2; c.ay = 46;
-  } else {
-    c = canvasOf(SW, SH);
-    const g = c.getContext('2d');
-    g.translate(AX, AY); g.scale(U, U);
-    const K = Object.assign({skin: pl.skin}, pl.kit);
-    if (pose === 'set' && pl.line) paintStance(g, K, pl.j, view === 'f');
-    else paintUpright(g, K, pl.j, view === 'f', pose, pl.line);
-    c.ax = AX; c.ay = AY;
-  }
-  SPRITES.set(key, c);
-  return c;
+    g.fillStyle = dark(K.skin, 0.2);
+    g.beginPath(); g.arc(N[0], N[1], 3.6, 0, Math.PI * 2); g.fill();
+  }});
+  const Hd = see(B.head);
+  parts.push({d: Hd[2] + 0.1, draw: () => (side ? helmetSide(g, K, Hd[0], Hd[1], dir) : helmet(g, K, Hd[0], Hd[1], view === 'f'))});
+  parts.sort((x, y) => x.d - y.d).forEach(x => x.draw());
 }
 
 // ---------------------------------------------------------------------------- The camera
@@ -669,26 +675,35 @@ export function open(field, scene) {
   /** Each player's pace and stride from where he was a frame ago, and which way he faces (offense from behind,
    *  defense in front, unless he's running hard the other way; a backpedal doesn't turn him). */
   function stepMotion(pl, q, dt) {
+    const home = pl.side === 'o' ? 'b' : 'f';
     let m = motion.get(pl.key);
-    if (!m) { m = {x: q[0], y: q[1], vx: 0, vy: 0, ph: hash(pl.key) % 8 / 8 * Math.PI * 2, face: pl.side === 'o' ? 'b' : 'f'}; motion.set(pl.key, m); }
+    if (!m) { m = {x: q[0], y: q[1], vx: 0, vy: 0, ph: hash(pl.key) % 12 / 12 * Math.PI * 2, face: home, cand: null, candT: 0}; motion.set(pl.key, m); }
     if (dt > 0) {
       const sec = dt / 1000, vx = (q[0] - m.x) / sec, vy = (q[1] - m.y) / sec, a = 1 - Math.exp(-dt / 90);
       m.vx += (vx - m.vx) * a; m.vy += (vy - m.vy) * a;
-      m.ph += Math.hypot(q[0] - m.x, q[1] - m.y) / 2.3 * Math.PI * 2;
+      m.ph += Math.hypot(q[0] - m.x, q[1] - m.y) / RUN * Math.PI * 2;
     }
     m.x = q[0]; m.y = q[1];
-    // A backpedal (the passer's drop, a corner bailing) keeps him facing the way he was; a real run turns him.
-    const sp = Math.hypot(m.vx, m.vy);
-    if (sp > 4) {
-      if (m.vy > 0.7 * sp) m.face = 'b';
-      else if (m.vy < -0.7 * sp) m.face = 'f';
+    // Which side of him we see: the way he's running (away: his back; at us: his front; across: his side). A
+    // backpedal (the passer's drop, a corner bailing) or a shuffle along the line doesn't turn him; a turn has to
+    // hold a moment before it shows.
+    const sp = Math.hypot(m.vx, m.vy), ax = Math.abs(m.vx), ay = Math.abs(m.vy);
+    let want = m.face;
+    if (ax > ay * 1.2 && sp > 3) want = m.vx > 0 ? 'r' : 'l';
+    else if (ay > ax * 1.2 && sp > 2.2) {
+      want = m.vy > 0 ? 'b' : 'f';
+      if (want !== home && sp < 4.2) want = m.face === 'r' || m.face === 'l' ? m.face : home;
     }
+    if (want === m.face) m.cand = null;
+    else if (m.cand === want) { m.candT += dt; if (m.candT > 90) { m.face = want; m.cand = null; } }
+    else { m.cand = want; m.candT = dt; }
     return m;
   }
-  function drawBall(f, m) {
+  /** The ball (side: how far to the side of the man carrying it, yards), its shadow when it's up. */
+  function drawBall(f, m, side = 0) {
     const [bx, by, bz] = f.ball;
     const lift = (f.carry == null ? 10 : f.carry) / 10 * 1.15 * m;
-    const ground = proj(bx, by, 0), p = proj(bx + (f.hold ? 0.3 : 0), by, bz + lift);
+    const ground = proj(bx, by, 0), p = proj(bx + side, by, bz + lift);
     if (!p) return;
     if (ground && bz > 0.3) {
       g.fillStyle = 'rgba(0,0,0,.28)';
@@ -758,33 +773,43 @@ export function open(field, scene) {
         g.beginPath(); g.ellipse(p[0] + 0.1 * k, p[1], 0.4 * k, 0.4 * k * 0.34, 0, 0, Math.PI * 2); g.fill();
       });
       const pre = !f.t;
-      const at = f.hold ? list.find(o => o.pl.key === f.hold) : null, ballAt = f.ball ? proj(f.ball[0], f.ball[1], 0) : null;
+      const carrier = f.hold ? list.find(o => o.pl.key === f.hold) : null;
       let ballDone = false;
       list.forEach(({pl, q, p, mo}) => {
         const down = f.down[pl.key];
-        const sp = Math.hypot(mo.vx, mo.vy);
+        const sp = Math.hypot(mo.vx, mo.vy), home = pl.side === 'o' ? 'b' : 'f';
         // The play's moment for him now (a block only while he's holding his ground), else his stride or his stance.
         const act = pre || down ? null : (acts.get(pl.key) || []).find(x => f.t >= x.t0 && f.t <= x.t1 && !(x.a === 'bk' && sp > 3.5));
-        const pose = pre ? 'set' : act ? act.a : sp > 1.6 ? `r${Math.floor(((mo.ph / (Math.PI * 2)) % 1 + 1) % 1 * 8)}` : 'stand';
-        const img = spriteOf(pl, mo.face, pose, down ? (down === 'l' ? 'l' : 'r') : null);
+        const pose = pre ? (pl.line ? 'line' : pl.slot === 'QB' ? 'stand' : 'set') : act ? act.a : sp > 1.6 ? 'run' : 'stand';
+        // Set, blocking, or winding up from the pocket, he squares up the way his side faces; a tackler dives at the
+        // man with the ball.
+        let face = mo.face;
+        if (pre || pose === 'bk' || ((pose === 'tw' || pose === 'tr') && sp < 3)) face = home;
+        else if (pose === 'tl' && carrier && carrier.pl !== pl) {
+          const dx = carrier.q[0] - q[0], dy = carrier.q[1] - q[1];
+          face = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'r' : 'l') : dy > 0 ? 'b' : 'f';
+        }
         const head = proj(q[0], q[1], TALL);
         if (!head) return;
-        const s = (p[1] - head[1]) / (100 * U);
+        const s = (p[1] - head[1]) / 100;
         if (!(s > 0)) return;
-        const hpx = 100 * U * s;
-        if (pose === 'tl' && at && at.pl !== pl) {
-          // The tackler lunges: tipped toward the man with the ball.
-          const r = clamp((at.p[0] - p[0]) / hpx * 1.4, -0.75, 0.75);
-          g.setTransform(s * Math.cos(r), s * Math.sin(r), -s * Math.sin(r), s * Math.cos(r), p[0], p[1]);
+        if (down) {
+          // On the ground: laid on his side, seen from above.
+          g.setTransform(s, 0, 0, s * 0.5, p[0], p[1] + 2 * s);
+          g.rotate(down === 'l' ? -Math.PI / 2 : Math.PI / 2);
+          g.translate(0, 50);
+          drawFigure(g, pl, face, 'stand', 0);
         } else {
-          // Leaning into a run; a swat leans out toward the ball.
-          const lean = down ? 0 : pose === 'sw' && ballAt ? clamp((ballAt[0] - p[0]) / hpx, -0.4, 0.4) : clamp(mo.vx / 14, -0.28, 0.28);
-          g.setTransform(s, 0, -lean * s, s, p[0], p[1] + (down ? 2 * s : 0));
+          g.setTransform(s, 0, 0, s, p[0], p[1]);
+          drawFigure(g, pl, face, pose, mo.ph);
         }
-        g.drawImage(img, -img.ax, -img.ay);
         g.setTransform(1, 0, 0, 1, 0, 0);
-        // The ball with the man who has it (in the passer's hand as he winds up, it's in the drawing).
-        if (f.ball && pl.key === f.hold) { if (pose !== 'tw') drawBall(f, m); ballDone = true; }
+        // The ball with the man who has it, tucked on the side we see (in the passer's hand as he winds up, it's in
+        // the drawing).
+        if (f.ball && pl.key === f.hold) {
+          if (pose !== 'tw') drawBall(f, m, {r: 0.4, l: -0.4, b: 0.3, f: 0.12}[face]);
+          ballDone = true;
+        }
       });
       if (f.ball && !ballDone) drawBall(f, m);
       g.globalAlpha = 1;
