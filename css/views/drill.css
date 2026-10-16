@@ -6,7 +6,7 @@
    Team colours come in per element as --tc; a player's rating colour as --rc. */
 
 /* The version mark views/drill.js checks (CSS_V): bump both when the pane needs rules an older file lacks. */
-:root { --dr-css: 16; }
+:root { --dr-css: 17; }
 
 .dr-pane, .sh-drill {
   --dr-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -247,24 +247,32 @@
 .dr-pane .dr-call-h { display: flex; align-items: center; gap: 10px; min-height: 34px; }
 .dr-pane .dr-call-t { font: 800 21px/1.15 var(--dr-display); letter-spacing: -.02em; color: var(--ink); white-space: nowrap; }
 .dr-pane .dr-call-s { margin-left: auto; font: 600 13px/1 var(--dr-font); color: var(--ink-3); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.dr-pane .dr-look {
-  display: flex; align-items: center; gap: 12px; margin-top: 12px; padding: 12px 14px; border-radius: 18px;
-  background: var(--surface-1); box-shadow: var(--dr-shadow), inset 0 0 0 1px var(--dr-line);
+/* Everything for the call in one box: what they show, the play types and the open plays, the kick, the clock. */
+.dr-pane .dr-call-box {
+  margin-top: 10px; padding: 12px; border-radius: 24px; background: var(--surface-1);
+  box-shadow: var(--dr-shadow), inset 0 0 0 1px var(--dr-line);
 }
-.dr-pane .dr-look-ic { flex: none; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px; background: var(--tint-soft); color: var(--tint); }
+.dr-pane .dr-call-box > :first-child { margin-top: 0; }
+.dr-pane .dr-call-box .dr-cards { margin: 12px -12px 0; padding: 2px 12px 10px; scroll-padding: 0 12px; }
+/* What they show: a slim strip. */
+.dr-pane .dr-look {
+  display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 7px 12px 7px 8px; border-radius: 14px;
+  background: var(--surface-2);
+}
+.dr-pane .dr-look-ic { flex: none; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: var(--tint-soft); color: var(--tint); }
 .dr-pane .dr-look-tx { display: flex; flex-direction: column; min-width: 0; }
-.dr-pane .dr-look-tx > small { font: 600 11px/14px var(--dr-font); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
-.dr-pane .dr-look-tx > b { margin-top: 1px; font: 700 17px/22px var(--dr-display); letter-spacing: -.01em; color: var(--ink); }
-.dr-pane .dr-look-tx > span { font: 400 13px/18px var(--dr-font); color: var(--ink-2); }
+.dr-pane .dr-look-tx > small { font: 600 10px/13px var(--dr-font); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+.dr-pane .dr-look-tx > span { font: 400 12.5px/17px var(--dr-font); color: var(--ink-2); }
+.dr-pane .dr-look-tx > span > b { font: 700 14.5px/17px var(--dr-display); letter-spacing: -.01em; color: var(--ink); }
 /* The play types: one switch above the open type's plays, so another type is a tap away. */
 .dr-pane .dr-types {
   display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; margin-top: 12px; padding: 4px;
   border-radius: 16px; background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--dr-line);
 }
 .dr-pane .dr-type {
-  display: grid; place-items: center; min-width: 0; height: 40px; padding: 0 4px; border-radius: 12px; text-align: center;
+  display: grid; place-items: center; min-width: 0; height: 46px; padding: 0 4px; border-radius: 13px; text-align: center;
   background: var(--surface-1); color: var(--ink);
-  font: 700 15px/1 var(--dr-display); letter-spacing: -.01em; white-space: nowrap; box-shadow: inset 0 0 0 1px var(--dr-line);
+  font: 700 17px/1 var(--dr-display); letter-spacing: -.01em; white-space: nowrap; box-shadow: inset 0 0 0 1px var(--dr-line);
   transition: transform 220ms cubic-bezier(.3,1.4,.5,1), background-color 160ms, color 160ms, opacity 160ms;
 }
 .dr-pane .dr-type[aria-pressed="true"] { background: var(--tint); color: var(--on-tint); box-shadow: 0 1px 2px rgba(0,0,0,.2), 0 2px 8px rgba(0,0,0,.12); }
@@ -315,14 +323,14 @@
 .dr-pane .dr-toggle.dr-hurry > .ic { width: 14px; height: 14px; }
 .dr-pane .dr-pill.dr-hurry[aria-pressed="true"] { background: var(--tint); color: var(--on-tint); box-shadow: none; }
 .dr-pane .dr-rcvs {
-  margin: 10px 0 0; padding: 0; list-style: none; border-radius: 20px; background: var(--surface-1);
-  box-shadow: var(--dr-shadow), inset 0 0 0 1px var(--dr-line);
+  margin: 10px 0 0; padding: 0; list-style: none; border-radius: 16px; background: var(--surface-1);
+  box-shadow: inset 0 0 0 1px var(--dr-line);
 }
 /* Not clipped (a route's menu hangs out of the list): the end rows round themselves. */
-.dr-pane .dr-rcv:first-child, .dr-pane .dr-rcv:first-child .dr-rcv-go { border-top-left-radius: 20px; }
-.dr-pane .dr-rcv:first-child { border-top-right-radius: 20px; }
-.dr-pane .dr-rcv:last-child, .dr-pane .dr-rcv:last-child .dr-rcv-go { border-bottom-left-radius: 20px; }
-.dr-pane .dr-rcv:last-child { border-bottom-right-radius: 20px; }
+.dr-pane .dr-rcv:first-child, .dr-pane .dr-rcv:first-child .dr-rcv-go { border-top-left-radius: 16px; }
+.dr-pane .dr-rcv:first-child { border-top-right-radius: 16px; }
+.dr-pane .dr-rcv:last-child, .dr-pane .dr-rcv:last-child .dr-rcv-go { border-bottom-left-radius: 16px; }
+.dr-pane .dr-rcv:last-child { border-bottom-right-radius: 16px; }
 .dr-pane .dr-rcv.is-open { position: relative; z-index: 4; }
 .dr-pane .dr-rcv { display: flex; align-items: stretch; }
 .dr-pane .dr-rcv + .dr-rcv { border-top: 1px solid var(--dr-line); }
@@ -435,6 +443,7 @@
 }
 /* The look their defense is showing, drawn on the card (the grey triangles). */
 .dr-pane .dr-card-vs { margin-right: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; color: #CBD5E1; }
+.dr-pane .dr-card-f > span:last-child { flex: none; white-space: nowrap; }
 .dr-pane .dr-sides { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 12px; padding: 3px; border-radius: 999px; background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--dr-line); }
 .dr-pane .dr-side { height: 32px; padding: 0 10px; border-radius: 999px; color: var(--ink-2); font: 600 13.5px/1 var(--dr-font); transition: background-color 160ms, color 160ms; }
 /* Softer than the play-type switch above it: a choice within the play. */
@@ -688,14 +697,19 @@
   .dr-pane .dr-bug-clk { font-size: 19px; }
   .dr-pane .dr-chip { height: 24px; padding: 0 8px; font-size: 12px; }
   .dr-pane .dr-call-t { font-size: 19px; }
-  .dr-pane .dr-type { font-size: 14px; }
-  .dr-pane .dr-card { flex-basis: 88%; }
+  .dr-pane .dr-type { height: 44px; font-size: 16px; }
+  .dr-pane .dr-call-box { padding: 10px; border-radius: 22px; }
+  .dr-pane .dr-call-box .dr-cards { margin: 12px -10px 0; padding: 2px 10px 10px; scroll-padding: 0 10px; }
+  .dr-pane .dr-card { flex-basis: 90%; }
+  .dr-pane .dr-card-f { gap: 8px; padding: 6px 9px 8px; letter-spacing: .04em; }
+  /* The target's row: its red bar and red name are enough here, no tag. */
+  .dr-pane .dr-rcv-tag { display: none; }
+  .dr-pane .dr-rcv.is-key .dr-rcv-id b { color: #FF6B78; }
   .dr-pane .dr-card-tt > b { font-size: 16px; }
   .dr-pane .dr-rcv-go { padding-left: 10px; gap: 8px; }
   .dr-pane .dr-rt { width: 98px; margin-right: 8px; }
   .dr-pane .dr-ropt { gap: 4px; padding: 0 7px 0 8px; }
   .dr-pane .dr-rcv-rt { padding: 0 7px 0 8px; }
-  .dr-pane .dr-rcv-tag { margin-right: 4px; padding: 1px 4px; letter-spacing: .03em; }
   .dr-pane .dr-pl { width: 22px; height: 22px; margin: -11px 0 0 -11px; }
   .dr-pane .dr-pl-j { font-size: 10px; }
   .dr-pane .dr-pl-n { font-size: 8.5px; }

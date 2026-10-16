@@ -38,7 +38,7 @@ const ST = new WeakMap(); // ctx -> pane state
 
 // A home-screen app open across an update imports this module new under the stylesheet it started with: when
 // drill.css's mark (--dr-css on :root) isn't this module's, the current file is added (as in views/seventeen.js).
-const CSS_V = '16';
+const CSS_V = '17';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--dr-css').trim() === CSS_V || document.querySelector('link[data-dr-css]')) return;
@@ -758,13 +758,12 @@ function legendHTML() {
     + `<span class="dr-key" aria-hidden="true"><i class="is-mine"></i>Yours</span>`
     + `<button type="button" class="dr-pill" data-dr-ratings>${ui.icon('search', {size: 14})}<span>Player ratings</span></button></div>`;
 }
+/** What the other side shows, as a slim strip: who, and the look (or formation) with what it means. */
 function lookHTML(s) {
-  if (s.poss === 'them') {
-    const F = E.FORMS[s.form];
-    return `<div class="dr-look"><span class="dr-look-ic">${ui.icon('football', {size: 18})}</span><span class="dr-look-tx"><small>${esc(E.idsFor(s, 'them').o)} offense</small><b>${esc(F.name)}</b><span>${esc(F.sub)}</span></span></div>`;
-  }
-  const look = E.LOOKS[s.look];
-  return `<div class="dr-look"><span class="dr-look-ic">${ui.icon('shield', {size: 18})}</span><span class="dr-look-tx"><small>${esc(s.sc.d)} defense shows</small><b>${esc(look.name)}</b><span>${esc(look.sub)}</span></span></div>`;
+  const them = s.poss === 'them', L = them ? E.FORMS[s.form] : E.LOOKS[s.look];
+  return `<div class="dr-look"><span class="dr-look-ic">${ui.icon(them ? 'football' : 'shield', {size: 15})}</span><span class="dr-look-tx">`
+    + `<small>${esc(them ? `${E.idsFor(s, 'them').o} offense` : `${s.sc.d} defense shows`)}</small>`
+    + `<span><b>${esc(L.name)}</b> · ${esc(L.sub)}</span></span></div>`;
 }
 function headRow(title, s) {
   const where = s.phase === 'pat' ? 'Try from the 2' : `${dr.downText(s.down, s.togo, s.ball)} · ${s.ball === 50 ? 'midfield' : dr.spot(s)}`;
@@ -819,9 +818,9 @@ function callHTML(st) {
   if (!pat && s.us <= s.them && open === 'main') tools.push(hurryHTML(st));
   const warn = warnHTML(st);
   const lead = s.us > s.them && !pat ? `<p class="dr-goal">${esc(`You lead by ${s.us - s.them}. Keep the ball and run out the clock: a kneel takes ${E.KNEEL} seconds off when it's running.`)}</p>` : '';
-  return `<section class="dr-call" aria-labelledby="dr-call-t">${headRow(pat ? 'Kick or go for two?' : 'Your call', s)}`
+  return `<section class="dr-call" aria-labelledby="dr-call-t">${headRow(pat ? 'Kick or go for two?' : 'Your call', s)}<div class="dr-call-box">`
     + kick + lead + lookHTML(s) + typesHTML(st, open) + body + fg
-    + (tools.filter(Boolean).length ? `<div class="dr-tools">${tools.join('')}</div>` : '') + warn + `</section>`;
+    + (tools.filter(Boolean).length ? `<div class="dr-tools">${tools.join('')}</div>` : '') + warn + `</div></section>`;
 }
 /** What your defense has to do, from the score. */
 function goalText(s) {
@@ -838,10 +837,10 @@ function defenseHTML(st) {
   const s = st.s, o = E.options(s);
   const tools = o.timeout ? `<div class="dr-tools"><button type="button" class="dr-pill" data-dr-go="${E.tok.timeout}">${ui.icon('clock', {size: 14})}<span>Timeout · ${s.tos} left</span></button></div>` : '';
   const warn = o.timeout && s.them > s.us ? `<p class="dr-warn">${ui.icon('clock', {size: 15})}<span>${esc(`Their clock is running. Each snap takes ${E.MILK} seconds off unless you stop it.`)}</span></p>` : '';
-  return `<section class="dr-call is-def" aria-labelledby="dr-call-t">${headRow('Your defense', s)}`
+  return `<section class="dr-call is-def" aria-labelledby="dr-call-t">${headRow('Your defense', s)}<div class="dr-call-box">`
     + `<p class="dr-goal">${esc(goalText(s))}</p>` + lookHTML(s)
     + `<p class="dr-hint">Swipe through your playbook and tap a call. Their play is set at the snap from the formation and the situation, whatever you call.</p>`
-    + `<div class="dr-cards" data-dr-cards>${defCardsHTML(st)}</div>` + legendDefHTML() + tools + warn + `</section>`;
+    + `<div class="dr-cards" data-dr-cards>${defCardsHTML(st)}</div>` + legendDefHTML() + tools + warn + `</div></section>`;
 }
 // ---------------------------------------------------------------------------- Play cards
 // Three plays of each type, drawn like a Madden play-call screen: the formation and the play's name, the target
