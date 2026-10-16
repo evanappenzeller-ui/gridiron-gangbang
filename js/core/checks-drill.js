@@ -532,7 +532,7 @@ export async function drillChecks(check) {
     const clean = dr.entryOf(docs[4], 1) === null && dr.entryOf(docs[4], 2) === null && dr.entryOf(docs[0], 1).m === -3;
     // Day 1 was reset for everyone: a result finished before that is gone, one after it stays.
     const cut = dr.resetCut(1), old = {id: 'x', dr5: {1: {r: 'W', u: 28, h: 24, p: 6, k: '', t: cut - 1}}};
-    const reset = cut > 0 && dr.entryOf(old, 1) === null && !!dr.entryOf({id: 'y', dr5: {1: Object.assign({}, old.dr5[1], {t: cut + 1})}}, 1) && dr.resetCut(2) === 0;
+    const reset = cut > 0 && dr.entryOf(old, 1) === null && !!dr.entryOf({id: 'y', dr5: {1: Object.assign({}, old.dr5[1], {t: cut + 1})}}, 1) && dr.resetCut(dr.DOC.days.length) === 0;
     return {pass: order && clean && reset, detail: `${sig}; bad entries dropped ${clean}; reset day 1 ${reset}`};
   });
 

@@ -513,7 +513,8 @@ export async function autoPost() {
 const RESETS = [{id: 'evan-d1', who: 'evan', n: 1}, {id: 'evan-d1-2', who: 'evan', n: 1}, {id: 'all-d1', who: '*', n: 1, at: 1792099293223},
   {id: 'all-d1-2', who: '*', n: 1, at: 1792101213382}, // again: the rosters updated for injuries
   {id: 'all-d1-3', who: '*', n: 1, at: 1792101841034}, // and again, at the league's ask
-  {id: 'all-d1-4', who: '*', n: 1, at: 1792105808704}]; // and once more, with the call grades in
+  {id: 'all-d1-4', who: '*', n: 1, at: 1792105808704}, // and once more, with the call grades in
+  {id: 'all-d2', who: '*', n: 2, at: 1792181061704}]; // day 2 cleared, at the league's ask (the grades put the result first)
 /** When the league's games on day n were last reset (0: never): results finished before it don't count. */
 export const resetCut = n => RESETS.reduce((m, r) => (r.who === '*' && r.n === Number(n) && r.at > m ? r.at : m), 0);
 const RKEY = 'gg-drill-resets';
