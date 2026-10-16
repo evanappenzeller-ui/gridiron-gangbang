@@ -342,26 +342,37 @@ function choreo(s, p) {
   const end = Math.max(-8, Math.min(108, L + (p.gain || 0)));
   const ballTr = [[0, MID, L]];
   const isRun = kind === 'run' || (kind === 'fum' && !!p.who);
-  // The line: pass sets back, run drives forward; the front engages.
-  OL.forEach(k => { const [x, y] = start['o-' + k]; add('o-' + k, isRun ? [0.25, x + 0.8 * dirSign(p.dir || 's'), y + 1.4] : [0.2, x, y - 1.1]); });
+  // The play's moments, for the camera to pose: {key, a, t0, t1} (drill-cam.js POSES).
+  const acts = [];
+  const act = (key, a, t0, t1) => { if (tr[key] && t1 > t0) acts.push({key, a, t0: Math.max(0.01, t0), t1: Math.min(1, t1)}); };
+  // The line: pass sets back, run drives forward; the front engages; they block.
+  OL.forEach(k => { const [x, y] = start['o-' + k]; add('o-' + k, isRun ? [0.25, x + 0.8 * dirSign(p.dir || 's'), y + 1.4] : [0.2, x, y - 1.1]); act('o-' + k, 'bk', 0.05, isRun ? 0.62 : 0.8); });
   D.front.forEach(k => {
     const s0 = start['d-' + k];
     if (!s0 || s0[2]) return;
-    add('d-' + k, [0.22, s0[0] * 0.85 + MID * 0.15, isRun ? L + 0.6 : L - 1.2]);
+    add('d-' + k, [0.22, s0[0] * 0.85 + MID * 0.15, isRun ? L + 0.6 : L - 1.75]);
+    act('d-' + k, 'bk', 0.08, 0.6);
   });
+  /** The carrier lowers his shoulder as he's brought down; the tackler lunges into him and goes down with him. */
+  const tackle = (carrier, tD, down) => {
+    act(carrier, 'tk', tD - 0.07, tD);
+    if (!p.by || !tr['d-' + p.by]) return;
+    act('d-' + p.by, 'tl', tD - 0.06, tD + 0.02);
+    down.push({key: 'd-' + p.by, t: Math.min(0.99, tD + 0.03), tackler: true});
+  };
   const qb0 = start['o-QB'];
   if (kind === 'spike' || kind === 'kneel') {
     add('o-QB', [0.35, MID, L - 1.5]);
     ballTr.push([0.15, MID, qb0[1]], [0.5, MID, L - 1.5]);
     calls.push({t: 0.45, text: kind === 'spike' ? 'Spike' : 'Kneel', x: MID, y: L + 3});
-    return {tr, ball: ballTr, calls, dur: 1000};
+    return {tr, ball: ballTr, calls, dur: 1000, acts};
   }
   if (kind === 'fg' || kind === 'fgx' || kind === 'xp') {
     const good = kind !== 'fgx';
     add('o-QB', [0.2, MID, L - 7]);
     ballTr.push([0.2, MID, L - 7], [0.85, good ? MID : MID + 6, 110]);
     calls.push({t: 0.86, text: good ? 'It’s good!' : 'No good', x: MID, y: 104, cls: good ? 'is-score' : 'is-bad'});
-    return {tr, ball: ballTr, calls, dur: 2000, kick: true};
+    return {tr, ball: ballTr, calls, dur: 2000, kick: true, acts};
   }
   if (isRun) {
     const rk = p.trick === 'r' ? 'r' : p.rk || 'z';
@@ -395,7 +406,7 @@ function choreo(s, p) {
       ballTr.push([0.08, MID, qb0[1]], [0.14, MID + sg * 1.2, L - 4.8]);
       tr['o-RB'].slice(2).forEach(k => ballTr.push(k));
     }
-    if (p.broke) calls.push({t: 0.6, text: 'Broken tackle!', key: carrier, cls: forO(true)});
+    if (p.broke) { calls.push({t: 0.6, text: 'Broken tackle!', key: carrier, cls: forO(true)}); act(carrier, 'tk', 0.56, 0.63); }
     if (kind === 'fum') calls.push({t: 0.86, text: 'Fumble!', x: fx, y: end + 3, cls: forO(false)});
     // Linebackers and safeties flow to the ball; the tackler meets it.
     D.lbs.concat(['SS', 'FS', 'NB', 'LCB', 'RCB']).forEach(k => {
@@ -410,7 +421,8 @@ function choreo(s, p) {
     finishCalls(p, kind, calls, fx, end, forO);
     const ct = tr[carrier] || [];
     const down = tackled(p) && ct.length ? [{key: carrier, t: ct[ct.length - 1][0]}] : [];
-    return {tr, ball: ballTr, calls, dur: 2300 + Math.min(900, Math.max(0, p.gain) * 25), down};
+    if (down.length) tackle(carrier, down[0].t, down);
+    return {tr, ball: ballTr, calls, dur: 2300 + Math.min(900, Math.max(0, p.gain) * 25), down, acts};
   }
   // Passes (and sacks, the RPO's throw, the flea flicker and the halfback pass).
   const routes = Object.assign({}, p.routes || {});
@@ -461,27 +473,37 @@ function choreo(s, p) {
     if (p.by) add('d-' + p.by, [tSack, sx + 0.8, qbSpot[1] + 0.6], [tSack + 0.12, sx + 0.6, sy + 0.4]);
     calls.push({t: tSack + 0.04, text: kind === 'fum' ? 'Fumble!' : 'Sack!', x: sx, y: qbSpot[1] + 2.5, cls: forO(false)});
     coverage(tr, start, D, cover, p, L, null, 0.9);
-    return {tr, ball: ballTr, calls, dur: 2300, down: [{key: passer, t: tSack + 0.12}]};
+    // He looks to throw; the rusher gets to him first.
+    act(passer, 'tw', tSack - 0.12, tSack - 0.01);
+    const down = [{key: passer, t: tSack + 0.12}];
+    if (p.by && tr['d-' + p.by]) { act('d-' + p.by, 'tl', tSack - 0.05, tSack + 0.1); down.push({key: 'd-' + p.by, t: tSack + 0.14, tackler: true}); }
+    return {tr, ball: ballTr, calls, dur: 2300, down, acts};
   }
   const cp = recv[target] || [start['o-' + target][0], L + air];
   ballTr.push([tThrow, qbSpot[0], qbSpot[1]], [tCatch, cp[0], cp[1]]);
   const air2 = {t0: tThrow, t1: tCatch};
+  // The passer winds up and lets it go; his target reaches for it.
+  act(passer, 'tw', tThrow - 0.07, tThrow);
+  act(passer, 'tr', tThrow, tThrow + 0.07);
+  act('o-' + target, 'ct', tCatch - 0.05, tCatch + 0.03);
   let dur = 2500, down = [], loose = null;
   if (kind === 'catch') {
     const fx = p.oob ? (cp[0] >= MID ? WIDTH - 0.6 : 0.6) : clampX(cp[0] + (MID - cp[0]) * 0.15);
     const tEnd = Math.min(0.95, tCatch + 0.12 + Math.min(0.3, Math.max(0, end - cp[1]) / 60));
     tr['o-' + target].push([tEnd, fx, end]);
     ballTr.push([tEnd, fx, end]);
-    if (p.broke) calls.push({t: (tCatch + tEnd) / 2, text: 'Broken tackle!', key: 'o-' + target, cls: forO(true)});
+    if (p.broke) { calls.push({t: (tCatch + tEnd) / 2, text: 'Broken tackle!', key: 'o-' + target, cls: forO(true)}); act('o-' + target, 'tk', (tCatch + tEnd) / 2 - 0.04, (tCatch + tEnd) / 2 + 0.03); }
     coverage(tr, start, D, cover, p, L, {at: tCatch, x: fx, y: end, t: tEnd}, tEnd);
     finishCalls(p, kind, calls, fx, end, forO, tEnd);
     dur = 2500 + (tEnd - tCatch) * 2400;
-    if (tackled(p)) down = [{key: 'o-' + target, t: tEnd}];
+    if (tackled(p)) { down = [{key: 'o-' + target, t: tEnd}]; tackle('o-' + target, tEnd, down); }
   } else if (kind === 'inc') {
     ballTr.push([Math.min(0.95, tCatch + 0.1), cp[0] + 1.2, cp[1] - 1.5]);
     loose = tCatch;
     coverage(tr, start, D, cover, p, L, {at: tCatch, x: cp[0], y: cp[1], miss: true}, tCatch);
     calls.push({t: tCatch, text: p.by && !p.trick ? 'Broken up' : 'Incomplete', x: cp[0], y: cp[1] + 2.8});
+    // The man in coverage gets a hand on it.
+    if (p.by && !p.trick) act('d-' + p.by, 'sw', tCatch - 0.05, tCatch + 0.05);
     if (p.kind === '2fail') calls.push({t: 0.9, text: 'No good', x: MID, y: L + 6, cls: 'is-bad'});
     else if (p.downs) calls.push({t: 0.9, text: 'Turnover on downs', x: MID, y: L + 6, cls: forO(false)});
   } else if (kind === 'int') {
@@ -489,9 +511,10 @@ function choreo(s, p) {
     ballTr.push([0.95, cp[0] + (MID - cp[0]) * 0.3, back]);
     coverage(tr, start, D, cover, p, L, {at: tCatch, x: cp[0], y: cp[1], pick: true, back}, tCatch);
     calls.push({t: tCatch + 0.02, text: 'Picked off!', x: cp[0], y: cp[1] + 2.8, cls: forO(false)});
+    if (p.by) act('d-' + p.by, 'ct', tCatch - 0.05, tCatch + 0.03);
     dur = 2600;
   }
-  return {tr, ball: ballTr, calls, dur, air: air2, down, loose};
+  return {tr, ball: ballTr, calls, dur, air: air2, down, loose, acts};
 }
 /** The ball carrier goes down at the end of his run unless he scored or got out of bounds. */
 const tackled = p => !p.td && !p.oob && p.kind !== '2good';
@@ -596,7 +619,7 @@ function runAnim(st, plan, p) {
     const winAt = b => (b ? Math.min(110, Math.max(wt0, b[1] + 9)) : wt0);
     const wt1 = winAt(at(plan.ball, 1));
     let cam = null;
-    try { cam = camLib.open(f, camScene(st, p)); } catch (_) { cam = null; }
+    try { cam = camLib.open(f, Object.assign(camScene(st, p), {acts: plan.acts || []})); } catch (_) { cam = null; }
     // The ball's height: a pass on its arc, a kick up and over the bar.
     const air = plan.air, a0 = air && at(plan.ball, air.t0), a1 = air && at(plan.ball, air.t1);
     const arc = air ? Math.min(9, Math.hypot(a1[0] - a0[0], a1[1] - a0[1]) / 3.2) : 0;
@@ -628,7 +651,9 @@ function runAnim(st, plan, p) {
         Object.keys(pos).forEach(k => { const d = Math.hypot(pos[k][0] - b[0], pos[k][1] - b[1]); if (d < best) { best = d; hold = k; } });
       }
       const carry = plan.kick ? 2 : loose ? 10 * Math.max(0, 1 - (t - plan.loose) / 0.06) : hold && down[hold] ? 4 : 10;
-      return {u, t, top: [MID, wt - WIN / 2], follow: [MID + (b[0] - MID) * 0.45, Math.min(104, Math.max(p.ball + 9, b[1] + 6))],
+      // The camera follows the ball; a pass in the air, it heads for where it's going.
+      const fb = air && t > air.t0 && t < air.t1 ? a1 : b;
+      return {u, t, top: [MID, wt - WIN / 2], follow: [MID + (fb[0] - MID) * 0.45, Math.min(104, Math.max(p.ball + 9, fb[1] + 6))],
         pos, run, down, ball: [b[0], b[1], z], carry, hold, los: p.ball, fd, now};
     };
     // The dots underneath: where the play leaves them (every frame when there's no camera).
@@ -652,7 +677,8 @@ function runAnim(st, plan, p) {
       const el = document.createElement('span');
       el.className = 'dr-co' + (c.cls ? ' ' + c.cls : '');
       el.textContent = c.text;
-      if (cam) { cam.overlay.appendChild(el); shown.push({el, x: pos[0], y: pos[1], lift: c.key ? 32 : 0}); }
+      // On the camera, over the players' heads (a player's own over his), so it doesn't hide what's happening.
+      if (cam) { cam.overlay.appendChild(el); shown.push({el, x: pos[0], y: pos[1] - (c.key ? 0 : 2.8), lift: 1}); }
       else {
         el.style.left = left(Math.max(9, Math.min(WIDTH - 9, pos[0])));
         el.style.top = top(pos[1] + (c.key ? 2.8 : 0));

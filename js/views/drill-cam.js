@@ -12,8 +12,8 @@
 // Owner: Drill.
 
 const WIDTH = 53.33, MID = 26.67;
-// The game camera: its pitch (degrees down), its distance to what it looks at (yards: wide at the snap for the whole
-// formation, pushed in as the play goes), its lens (the focal length as a share of the canvas width), and how much
+// The game camera: its pitch (degrees down), its distance to what it looks at (yards: wide while the passer has the
+// ball behind the line, pushed in once it's thrown, past the line or with a back), its lens (the focal length as a share of the canvas width), and how much
 // further than views/drill.js asks it leans toward the ball's side. The top-down camera's distance is whatever
 // matches the dots' field.
 const CAMS = {pitch: 19, snap: 29, play: 19, lens: 0.6, followX: 1.35};
@@ -171,13 +171,48 @@ function kitOf(team, colored) {
     : {jersey: '#F5F5F2', num: c0, edge: trim, helmet: c0, stripe: trim, pants: c0, pstripe: '#FFFFFF', sock: c0, glove: luma(c0) < 0.3 ? '#F2F2F2' : '#202020', mask: '#C9CCD3'};
 }
 const SPRITES = new Map();
-function poseOf(pose) {
-  if (pose === 'set') return {hip: -45, sh: -73, head: -85, lift: [0, 0], arm: [0, 0], feet: 10, knees: true};
+// The poses: standing, set before the snap, eight steps of a stride, and the moments of a play: the passer's windup
+// (tw, the ball cocked by his ear) and release (tr), a blocker's punch (bk), a receiver's hands up for the ball (ct), a
+// defender's swat at it (sw), a ball carrier's lowered shoulder (tk) and a tackler's lunge (tl).
+const POSES = {
+  stand: {hip: -50, sh: -78, head: -90, feet: 8},
+  set: {hip: -45, sh: -73, head: -85, feet: 10, knees: true},
+  tw: {hip: -50, sh: -78, head: -90, feet: 10, lift: [0, 0.18]},
+  tr: {hip: -50, sh: -77, head: -89, feet: 10, lift: [0.22, 0]},
+  bk: {hip: -45, sh: -72, head: -84, feet: 12, knees: true},
+  ct: {hip: -51, sh: -80, head: -92, feet: 7, lift: [0.3, 0]},
+  sw: {hip: -49, sh: -77, head: -89, feet: 9, lift: [0, 0.45]},
+  tk: {hip: -46, sh: -67, head: -69, feet: 10, knees: true, low: true},
+  tl: {hip: -47, sh: -69, head: -72, feet: 9, lift: [0.55, 0], low: true}
+};
+/** A pose's body and arms. Arms are [left, right] as the player has them ({e: elbow, h: hand, ball}); his right is +x
+ *  from behind, -x from in front. */
+function poseOf(pose, ws, Wd, front) {
+  let P, swing = null;
   if (pose && pose[0] === 'r') {
     const ph = Number(pose.slice(1)) / 8 * Math.PI * 2, s = Math.sin(ph), bob = -2 * Math.abs(Math.cos(ph));
-    return {hip: -49 + bob, sh: -78 + bob, head: -90 + bob, lift: [Math.max(0, s), Math.max(0, -s)], arm: [-s, s], feet: 6.5};
+    P = {hip: -49 + bob, sh: -78 + bob, head: -90 + bob, lift: [Math.max(0, s), Math.max(0, -s)], feet: 6.5};
+    swing = [-s, s];
+  } else P = Object.assign({lift: [0, 0]}, POSES[pose] || POSES.stand);
+  const side = (x, y) => [front ? -x : x, y];
+  const both = (ex, ey, hx, hy) => [{e: side(-ex, ey), h: side(-hx, hy)}, {e: side(ex, ey), h: side(hx, hy)}];
+  if (pose === 'tw') P.arms = [{e: side(-(ws - 1), P.sh + 12), h: side(-7, P.sh + 9)}, {e: side(ws + 5, P.sh - 4), h: side(ws + 2, P.sh - 17), ball: true}];
+  else if (pose === 'tr') P.arms = [{e: side(-(ws + 1), P.sh + 10), h: side(-(ws - 3), P.hip + 2)}, {e: side(ws + 3, P.sh - 16), h: side(ws - 4, P.sh - 30)}];
+  else if (pose === 'sw') P.arms = [{e: side(-(ws + 2), P.sh + 10), h: side(-(ws + 1), P.hip)}, {e: side(ws + 7, P.sh - 12), h: side(ws + 13, P.head - 14)}];
+  else if (pose === 'bk') P.arms = both(ws + 4, P.sh + 9, 8, P.sh + 7);
+  else if (pose === 'ct') P.arms = front ? both(ws - 1, P.sh + 2, 6, P.head + 3) : both(ws - 1, P.sh - 12, 6, P.head - 15);
+  else if (pose === 'tk') P.arms = both(ws + 1, P.sh + 10, 7, P.sh + 15);
+  else if (pose === 'tl') P.arms = both(ws + 6, P.sh + 4, ws - 1, P.sh + 15);
+  else {
+    // At his sides, or pumping against his legs as he runs; set, hands on his thighs.
+    const a = swing || [0, 0];
+    P.arms = [-1, 1].map((sg, i) => {
+      const fwd = Math.max(0, a[i]), back = Math.max(0, -a[i]);
+      const hx = P.knees ? sg * 9 * Wd : sg * (ws - 2 - 7 * fwd + 2 * back), hy = P.knees ? P.hip + 6 : P.hip - 2 - 13 * fwd + 5 * back;
+      return {e: [sg * (ws + 1.5 - 2 * fwd), (P.sh + 5 + hy) / 2 - 2 * fwd], h: [hx, hy]};
+    });
   }
-  return {hip: -50, sh: -78, head: -90, lift: [0, 0], arm: [0, 0], feet: 8};
+  return P;
 }
 function strokeFill(g, fill) { g.fillStyle = fill; g.fill(); g.strokeStyle = STROKE; g.lineWidth = 1.3; g.stroke(); }
 function limb(g, ax, ay, bx, by, w, col) {
@@ -233,10 +268,10 @@ function cleat(g, x, y, lifted) {
   if (lifted) { g.fillStyle = '#E9E9E9'; g.beginPath(); g.ellipse(x, y + 0.4, 3.2, 1.8, 0, 0, Math.PI * 2); g.fill(); }
   else { g.fillStyle = 'rgba(255,255,255,.75)'; g.fillRect(x - 3, y - 1.2, 6, 1); }
 }
-/** Upright: standing, set (knees bent, hands on his thighs) or running. */
+/** Upright: standing, set (knees bent, hands on his thighs), running, or one of a play's moments (POSES). */
 function paintUpright(g, K, j, front, pose, wide) {
-  const P = poseOf(pose), Wd = wide ? 1.13 : 1;
-  const ws = 20 * Wd, ww = 12 * Wd;
+  const Wd = wide ? 1.13 : 1, ws = 20 * Wd, ww = 12 * Wd;
+  const P = poseOf(pose, ws, Wd, front);
   // Legs: each from the hip through the knee to the cleat; a lifted leg kicks its heel up.
   const legs = [-1, 1].map((sg, i) => {
     const l = P.lift[i];
@@ -264,19 +299,24 @@ function paintUpright(g, K, j, front, pose, wide) {
   strokeFill(g, pg);
   g.strokeStyle = K.pstripe; g.lineWidth = 1.8; g.lineCap = 'butt';
   g.beginPath(); g.moveTo(-ww + 0.4, P.hip + 2); g.lineTo(A.kneeX - 4.3, A.kneeY); g.moveTo(ww - 0.4, P.hip + 2); g.lineTo(B.kneeX + 4.3, B.kneeY); g.stroke();
-  // The arms: a sleeve over the shoulder pad, the forearm, the glove. Running, they pump against the legs.
-  const arm = (sg, a) => {
-    const shx = sg * (ws - 4), shy = P.sh + 5;
-    const fwd = Math.max(0, a), back = Math.max(0, -a);
-    const hx = P.knees ? sg * 9 * Wd : sg * (ws - 2 - 7 * fwd + 2 * back), hy = P.knees ? P.hip + 6 : P.hip - 2 - 13 * fwd + 5 * back;
-    const ex = sg * (ws + 1.5 - 2 * fwd), ey = (shy + hy) / 2 - 2 * fwd;
-    limb(g, shx, shy, ex, ey, 7.2, K.skin);
-    limb(g, ex, ey, hx, hy, 6.2, K.skin);
-    limb(g, shx, shy - 1, shx + (ex - shx) * 0.45, shy + (ey - shy) * 0.45, 8.6, K.jersey);
-    g.beginPath(); g.arc(hx, hy, 3.6, 0, Math.PI * 2); strokeFill(g, K.glove);
-  };
-  const arms = () => { arm(-1, P.arm[0]); arm(1, P.arm[1]); };
+  // The arms: a sleeve over the shoulder pad, the forearm, the glove (and the ball, cocked to throw). From behind they
+  // go on before the jersey (what's in front of him hides behind it), from in front after it.
+  const arms = () => P.arms.forEach(({e, h, ball}) => {
+    const shx = (e[0] < 0 ? -1 : 1) * (ws - 4), shy = P.sh + 5;
+    limb(g, shx, shy, e[0], e[1], 7.2, K.skin);
+    limb(g, e[0], e[1], h[0], h[1], 6.2, K.skin);
+    limb(g, shx, shy - 1, shx + (e[0] - shx) * 0.45, shy + (e[1] - shy) * 0.45, 8.6, K.jersey);
+    g.beginPath(); g.arc(h[0], h[1], 3.6, 0, Math.PI * 2); strokeFill(g, K.glove);
+    if (ball) {
+      g.save(); g.translate(h[0], h[1] - 3.5); g.rotate(-0.5);
+      g.beginPath(); g.ellipse(0, 0, 5.4, 3.3, 0, 0, Math.PI * 2); strokeFill(g, '#8A4318');
+      g.strokeStyle = '#F4F1EA'; g.lineWidth = 0.9; g.beginPath(); g.moveTo(-2, -1); g.lineTo(2, -1); g.stroke();
+      g.restore();
+    }
+  });
   if (!front) arms();
+  // A lowered head goes in under the shoulder pads from behind.
+  if (P.low && !front) helmet(g, K, 0, P.head, false);
   // The jersey over the shoulder pads.
   g.beginPath();
   g.moveTo(-ws, P.sh + 7);
@@ -292,9 +332,10 @@ function paintUpright(g, K, j, front, pose, wide) {
   g.fillRect(-ws + 1, P.sh + 3, 6, 2); g.fillRect(ws - 7, P.sh + 3, 6, 2);
   g.globalAlpha = 1;
   g.fillStyle = dark(K.pants, 0.5); g.fillRect(-ww, P.hip - 1.5, ww * 2, 2.5);
-  numberOn(g, K, j, 0, front ? P.sh + 13 : P.sh + 15, front ? 13 : 19);
+  numberOn(g, K, j, 0, front ? P.sh + 13 : P.sh + 15, front ? 13 : Math.min(19, (P.hip - P.sh) * 0.62));
   if (front) arms();
   // The neck, then the helmet.
+  if (P.low) { if (front) helmet(g, K, 0, P.head + 2, true); return; }
   g.fillStyle = dark(K.skin, 0.2); g.fillRect(-4, P.sh - 7, 8, 7);
   helmet(g, K, 0, P.head, front);
 }
@@ -405,7 +446,10 @@ export function open(field, scene) {
     im.src = scene.logo;
   }
   const motion = new Map(); // key -> {x, y, vx, vy, ph, face}
-  let cam = null, fx = null, fy = null, last = 0, closed = false, prevBall = null;
+  // The play's moments by player: key -> [{a (a pose), t0, t1}].
+  const acts = new Map();
+  (scene.acts || []).forEach(x => { if (!acts.has(x.key)) acts.set(x.key, []); acts.get(x.key).push(x); });
+  let cam = null, fx = null, fy = null, last = 0, closed = false, prevBall = null, pushK = null;
 
   const proj = (x, y, z) => {
     const [xc, yc, zc] = toCam(cam, x, y, z);
@@ -623,7 +667,7 @@ export function open(field, scene) {
     g.globalAlpha = 1;
   }
   /** Each player's pace and stride from where he was a frame ago, and which way he faces (offense from behind,
-   *  defense in front, unless he's running hard the other way). */
+   *  defense in front, unless he's running hard the other way; a backpedal doesn't turn him). */
   function stepMotion(pl, q, dt) {
     let m = motion.get(pl.key);
     if (!m) { m = {x: q[0], y: q[1], vx: 0, vy: 0, ph: hash(pl.key) % 8 / 8 * Math.PI * 2, face: pl.side === 'o' ? 'b' : 'f'}; motion.set(pl.key, m); }
@@ -633,10 +677,11 @@ export function open(field, scene) {
       m.ph += Math.hypot(q[0] - m.x, q[1] - m.y) / 2.3 * Math.PI * 2;
     }
     m.x = q[0]; m.y = q[1];
+    // A backpedal (the passer's drop, a corner bailing) keeps him facing the way he was; a real run turns him.
     const sp = Math.hypot(m.vx, m.vy);
-    if (sp > 2.5) {
-      if (m.vy > 0.6 * sp) m.face = 'b';
-      else if (m.vy < -0.6 * sp) m.face = 'f';
+    if (sp > 4) {
+      if (m.vy > 0.7 * sp) m.face = 'b';
+      else if (m.vy < -0.7 * sp) m.face = 'f';
     }
     return m;
   }
@@ -677,8 +722,13 @@ export function open(field, scene) {
       fx += (f.follow[0] - fx) * a; fy += (f.follow[1] - fy) * a;
     }
     const e = smooth(f.u);
-    // Wide for the snap (the whole formation in), in closer as the play goes.
-    const dist = C.snap + (C.play - C.snap) * smooth(clamp01((f.t || 0) / 0.35));
+    // Wide while the ball is behind the line (the formation, the passer's throw, a sack all in), pushed in once it's
+    // past it. Eased, so the push follows the ball rather than jumping with it.
+    let push = f.ball && f.los != null ? (f.ball[2] > 0.3 ? 1 : smooth(clamp01((f.ball[1] - f.los + 1) / 7))) : 0;
+    // Handed off, the back has it: in most of the way, so a run stopped at the line is still seen up close.
+    if (f.hold && f.hold !== 'o-QB' && f.t > 0.05) push = Math.max(push, 0.75);
+    pushK = pushK == null ? push : pushK + (push - pushK) * (1 - Math.exp(-dt / 170));
+    const dist = C.snap + (C.play - C.snap) * pushK;
     const tx = clamp(MID + (fx - MID) * C.followX, 4, WIDTH - 4);
     cam = cameraAt(V, f.u, f.top[0] + (tx - f.top[0]) * e, f.top[1] + (fy - f.top[1]) * e, dist);
     g.setTransform(1, 0, 0, 1, 0, 0);
@@ -708,21 +758,33 @@ export function open(field, scene) {
         g.beginPath(); g.ellipse(p[0] + 0.1 * k, p[1], 0.4 * k, 0.4 * k * 0.34, 0, 0, Math.PI * 2); g.fill();
       });
       const pre = !f.t;
+      const at = f.hold ? list.find(o => o.pl.key === f.hold) : null, ballAt = f.ball ? proj(f.ball[0], f.ball[1], 0) : null;
       let ballDone = false;
       list.forEach(({pl, q, p, mo}) => {
         const down = f.down[pl.key];
         const sp = Math.hypot(mo.vx, mo.vy);
-        const pose = pre ? 'set' : sp > 1.6 ? `r${Math.floor(((mo.ph / (Math.PI * 2)) % 1 + 1) % 1 * 8)}` : 'stand';
+        // The play's moment for him now (a block only while he's holding his ground), else his stride or his stance.
+        const act = pre || down ? null : (acts.get(pl.key) || []).find(x => f.t >= x.t0 && f.t <= x.t1 && !(x.a === 'bk' && sp > 3.5));
+        const pose = pre ? 'set' : act ? act.a : sp > 1.6 ? `r${Math.floor(((mo.ph / (Math.PI * 2)) % 1 + 1) % 1 * 8)}` : 'stand';
         const img = spriteOf(pl, mo.face, pose, down ? (down === 'l' ? 'l' : 'r') : null);
         const head = proj(q[0], q[1], TALL);
         if (!head) return;
         const s = (p[1] - head[1]) / (100 * U);
         if (!(s > 0)) return;
-        const lean = down ? 0 : clamp(mo.vx / 14, -0.28, 0.28);
-        g.setTransform(s, 0, -lean * s, s * (down ? 1 : 1), p[0], p[1] + (down ? 0.2 * s * 10 : 0));
+        const hpx = 100 * U * s;
+        if (pose === 'tl' && at && at.pl !== pl) {
+          // The tackler lunges: tipped toward the man with the ball.
+          const r = clamp((at.p[0] - p[0]) / hpx * 1.4, -0.75, 0.75);
+          g.setTransform(s * Math.cos(r), s * Math.sin(r), -s * Math.sin(r), s * Math.cos(r), p[0], p[1]);
+        } else {
+          // Leaning into a run; a swat leans out toward the ball.
+          const lean = down ? 0 : pose === 'sw' && ballAt ? clamp((ballAt[0] - p[0]) / hpx, -0.4, 0.4) : clamp(mo.vx / 14, -0.28, 0.28);
+          g.setTransform(s, 0, -lean * s, s, p[0], p[1] + (down ? 2 * s : 0));
+        }
         g.drawImage(img, -img.ax, -img.ay);
         g.setTransform(1, 0, 0, 1, 0, 0);
-        if (f.ball && pl.key === f.hold) { drawBall(f, m); ballDone = true; }
+        // The ball with the man who has it (in the passer's hand as he winds up, it's in the drawing).
+        if (f.ball && pl.key === f.hold) { if (pose !== 'tw') drawBall(f, m); ballDone = true; }
       });
       if (f.ball && !ballDone) drawBall(f, m);
       g.globalAlpha = 1;
@@ -732,7 +794,7 @@ export function open(field, scene) {
   /** Where a field point is on screen, in CSS pixels from the field's top left (lift: above a player's head). */
   function css(x, y, lift = 0) {
     if (!cam) return null;
-    const p = proj(x, y, lift ? TALL + 0.5 : 0);
+    const p = proj(x, y, lift ? TALL + 1.1 : 0);
     if (!p) return null;
     return [p[0] / S, p[1] / S];
   }

@@ -317,7 +317,7 @@ export async function drillChecks(check) {
       s.plays.forEach(p => {
         if (!p.act || !['run', 'catch', 'sack', 'fum'].includes(p.kind)) return;
         const plan = V.planOf(s, p);
-        (plan.down || []).forEach(dn => {
+        (plan.down || []).filter(dn => !dn.tackler).forEach(dn => {
           downs++;
           const c = V.trackAt(plan.tr[dn.key], dn.t), tk = plan.tr['d-' + p.by];
           const gap = tk ? Math.hypot(...[0, 1].map(j => V.trackAt(tk, dn.t)[j] - c[j])) : Infinity;
@@ -327,6 +327,36 @@ export async function drillChecks(check) {
       });
     }
     return {pass: downs > 50 && !bad.length, detail: bad.length ? bad.slice(0, 5).join('; ') : `${downs} tackles, every one with its tackler there`};
+  });
+
+  check('Drill: on the field, every play has its moments for the camera: the line blocks, the passer winds up and lets it go as the ball leaves him and his target reaches for it as it arrives, a breakup is a swat by the man in coverage, and a tackle is the carrier lowering his shoulder and the tackler lunging in as he goes down, then going down with him', () => {
+    need();
+    if (!V || typeof V.planOf !== 'function') return {pass: false, detail: 'views/drill.js planOf did not load'};
+    const bad = [], seen = {};
+    const has = (plan, key, a, t) => (plan.acts || []).some(x => x.key === key && x.a === a && t >= x.t0 - 1e-9 && t <= x.t1 + 1e-9);
+    for (let d = 1; d <= 16; d++) for (let i = 0; i < 4; i++) {
+      const {s} = randomGame(dr.scenario(d), 1900 + d * 7 + i);
+      s.plays.forEach(p => {
+        if (!p.act || !['run', 'catch', 'inc', 'int', 'sack'].includes(p.kind) || p.two) return;
+        const plan = V.planOf(s, p), why = [];
+        if (!(plan.acts || []).some(x => x.key === 'o-C' && x.a === 'bk')) why.push('no block');
+        if (plan.air && !p.trick) {
+          const a = (p.poss === 'us' ? E.parse(p.act) : p.their) || {};
+          const passer = 'o-QB', target = 'o-' + (p.who || (a.kind === 'pass' ? a.slot : 'WR1'));
+          if (!has(plan, passer, 'tw', plan.air.t0 - 0.01) || !has(plan, passer, 'tr', plan.air.t0 + 0.01)) why.push('no throw');
+          if (!has(plan, target, 'ct', plan.air.t1)) why.push('no catch try');
+          if (p.kind === 'inc' && p.by && !has(plan, 'd-' + p.by, 'sw', plan.air.t1)) why.push('no swat');
+          seen.throws = (seen.throws || 0) + 1;
+        }
+        (plan.down || []).filter(dn => !dn.tackler && dn.key !== 'o-QB').forEach(dn => {
+          if (!has(plan, dn.key, 'tk', dn.t - 0.01)) why.push('no lowered shoulder');
+          if (p.by && (!has(plan, 'd-' + p.by, 'tl', dn.t - 0.01) || !plan.down.some(x => x.tackler && x.key === 'd-' + p.by && x.t >= dn.t))) why.push('no tackle');
+          seen.tackles = (seen.tackles || 0) + 1;
+        });
+        if (why.length) bad.push(`day ${d} ${p.kind}: ${why.join(', ')}`);
+      });
+    }
+    return {pass: !bad.length && seen.throws > 20 && seen.tackles > 20, detail: bad.length ? bad.slice(0, 4).join('; ') : `${seen.throws} throws, ${seen.tackles} tackles, every one posed`};
   });
 
   // 7. Their ball: your defense, their clock, the kneel
