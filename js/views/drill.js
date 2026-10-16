@@ -13,9 +13,9 @@
 // toggle; tap a name to throw it. Run and RPO pick a side (strong is the tight end's) and whether to head for the
 // sideline. After a touchdown that leaves you down one or two: kick, or go for two.
 // On defense (you scored with time left, or turned it over): their formation, and your call from eight.
-// Each snap plays out from behind the offense, like a 16-bit football game (views/drill-cam.js: the camera swings down
-// from the dots, every player a pixel sprite in his uniform, then swings back up; the clock runs; tap the field to
-// skip), then the breakdown:
+// Each snap plays out from behind the offense like a console football game (views/drill-cam.js: the camera swings down
+// from the dots into the stadium, every player a shaded figure in his uniform, the scoreboard across the top, then
+// swings back up; the clock runs; tap the field to skip), then the breakdown:
 // what happened, the win chance before and after, what the defense was really in, how your call ranked and how every
 // option scored (each played out many times: drill-sim.js scoreOptions), and Replay. At 0:00: the final, Share, and
 // the league's finals for the day (tap one to read it once you've played yours). Every control here is data-dr-*, so
@@ -38,7 +38,7 @@ const ST = new WeakMap(); // ctx -> pane state
 
 // A home-screen app open across an update imports this module new under the stylesheet it started with: when
 // drill.css's mark (--dr-css on :root) isn't this module's, the current file is added (as in views/seventeen.js).
-const CSS_V = '19';
+const CSS_V = '20';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--dr-css').trim() === CSS_V || document.querySelector('link[data-dr-css]')) return;
@@ -553,19 +553,29 @@ function finishCalls(p, kind, calls, x, y, forO, t = 0.92) {
 /** How fast a snap plays out: each plan's own length times PACE (above 1: slower, so the play can be followed). */
 const PACE = 1.35;
 // The camera behind the offense (views/drill-cam.js): how long it takes to swing down before the snap and back up
-// after the play, and how long the end of the play holds first.
-const PAN_IN = 760, PAN_OUT = 640, HOLD = 420 * PACE;
+// after the play, how long the end of the play holds first, and the beat set before the snap.
+const PAN_IN = 760, PAN_OUT = 640, HOLD = 420 * PACE, SET = 420;
 /** What the camera draws for a snap: the players on the field (their numbers, rating colours and uniforms; yours in
- *  your team's colours, theirs in white), the end zones and the crowd. */
+ *  your team's colours, theirs in white), the end zones, the home team's stands and its logo at midfield, and the
+ *  scoreboard as the snap starts. */
 function camScene(st, p) {
   const s = st.s, ids = E.idsFor(s, p.poss);
   const players = spots(s, viewOf(p)).filter(d => !d.off).map(d => {
     const id = d.side === 'o' ? ids.o : ids.d;
-    return {key: d.key, side: d.side, j: d.p.j, n: d.p.n, rc: ratingColor(d.p.r), team: tcol(id), colored: id === s.sc.o, mine: (d.side === 'o') === (p.poss === 'us')};
+    return {key: d.key, slot: d.slot, side: d.side, j: d.p.j, n: d.p.n, rc: ratingColor(d.p.r), team: tcol(id), colored: id === s.sc.o, mine: (d.side === 'o') === (p.poss === 'us')};
   });
   const end = id => ({name: dr.team(id).n, c: tcol(id)[0]});
-  const [o0, o1] = tcol(ids.o), [d0, d1] = tcol(ids.d);
-  return {players, ends: {near: end(ids.o), far: end(ids.d)}, crowd: [o0, o1, d0, d1, '#D9D3C4', '#8D93A1', '#4F5668', '#B8A98A', '#2E3445', '#C6CBD6']};
+  const home = s.sc.g && s.sc.g.h && dr.team(s.sc.g.h) ? s.sc.g.h : s.sc.d;
+  return {players, ends: {near: end(ids.o), far: end(ids.d)}, crowd: tcol(home), logo: logoUrl(home, 320), board: camBoard(st, p, false)};
+}
+/** The camera's scoreboard: as the snap starts (from the play), or after it (from the game as it now stands). */
+function camBoard(st, p, after) {
+  const s = st.s, poss = after ? (s.result ? null : s.poss) : p.poss;
+  const team = (id, side, score, tos) => ({id, c: tcol(id), logo: logoUrl(id, 96), score, tos, ball: poss === side});
+  const tryNow = after ? s.phase === 'pat' : ['xp', '2good', '2fail'].includes(p.kind);
+  const dd = after && s.result ? 'Final' : tryNow ? 'Try' : after ? dr.downText(s.down, s.togo, s.ball) : dr.downText(p.down, p.togo, p.ball);
+  return {teams: [team(s.sc.o, 'us', after ? s.us : p.us, after ? s.tos : p.tos), team(s.sc.d, 'them', after ? s.them : p.them, s.dtos)],
+    q: after && s.result ? 'Final' : '4th', clock: dr.clockText(after ? s.clock : p.clock), dd};
 }
 /** Plays a choreography: the camera swings down behind the offense, the play runs, the camera swings back up to the
  *  dots, now where the play left them. Resolves when it's done (or skipped: a tap on the field). Without a canvas,
@@ -618,7 +628,7 @@ function runAnim(st, plan, p) {
         Object.keys(pos).forEach(k => { const d = Math.hypot(pos[k][0] - b[0], pos[k][1] - b[1]); if (d < best) { best = d; hold = k; } });
       }
       const carry = plan.kick ? 2 : loose ? 10 * Math.max(0, 1 - (t - plan.loose) / 0.06) : hold && down[hold] ? 4 : 10;
-      return {u, top: [MID, wt - WIN / 2], follow: [MID + (b[0] - MID) * 0.45, Math.min(104, Math.max(p.ball + 9, b[1] + 6))],
+      return {u, t, top: [MID, wt - WIN / 2], follow: [MID + (b[0] - MID) * 0.45, Math.min(104, Math.max(p.ball + 9, b[1] + 6))],
         pos, run, down, ball: [b[0], b[1], z], carry, hold, los: p.ball, fd, now};
     };
     // The dots underneath: where the play leaves them (every frame when there's no camera).
@@ -659,7 +669,11 @@ function runAnim(st, plan, p) {
         c.el.style.top = `${Math.max(18, Math.min(h - 18, q[1])).toFixed(1)}px`;
       });
     };
-    const clockAt = t => { if (clock) clock.textContent = dr.clockText(Math.round(c0 + (c1 - c0) * Math.min(1, Math.max(0, (t - 0.08) / 0.85)))); };
+    const clockAt = t => {
+      const text = dr.clockText(Math.round(c0 + (c1 - c0) * Math.min(1, Math.max(0, (t - 0.08) / 0.85))));
+      if (clock) clock.textContent = text;
+      if (cam) cam.clock(text);
+    };
     let done = false, phase = cam ? 'in' : 'play', p0 = performance.now();
     const stop = quick => {
       if (done) return;
@@ -676,6 +690,11 @@ function runAnim(st, plan, p) {
       const el = now - p0;
       if (phase === 'in') {
         if (el < PAN_IN) cam.render(frameAt(el / PAN_IN, 0, now, wt0));
+        else { phase = 'set'; p0 = now; }
+      }
+      // Set, a beat before the snap: linemen down in their stance.
+      if (phase === 'set') {
+        if (now - p0 < SET) cam.render(frameAt(1, 0, now, wt0));
         else { phase = 'play'; p0 = now; }
       }
       if (phase === 'play') {
@@ -683,7 +702,7 @@ function runAnim(st, plan, p) {
         if (cam) { cam.render(frameAt(1, t, now, wt0)); place(); } else dom(t);
         calls(t);
         clockAt(t);
-        if (t >= 1) { dom(1); phase = 'hold'; p0 = now; }
+        if (t >= 1) { dom(1); phase = 'hold'; p0 = now; if (cam) cam.board(camBoard(st, p, true)); }
       } else if (phase === 'hold') {
         if (cam) { cam.render(frameAt(1, 1, now, wt0)); place(); }
         if (now - p0 >= HOLD) {
