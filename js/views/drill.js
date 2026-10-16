@@ -2132,13 +2132,15 @@ function compHTML(s, who = 'you') {
     + `<p class="dr-comp-f">${esc(`${c.teamName} · ${c.seasons} · from ${c.snaps} late-game snaps`)}</p>`
     + (c.also.length ? `<p class="dr-comp-a"><span>Also close</span>${c.also.map(x => `<span class="dr-comp-x">${logoHTML(x.team, 18)}${esc(x.name)}</span>`).join('')}</p>` : '') + `</section>`;
 }
-/** A finished game's call grade, as the scoreboard ranks it, and what made it: the best call, the costliest one (with
+/** Each result's grade band (drill-sim.js BANDS), in letters. */
+const BAND_TEXT = {W: 'C− to A+', T: 'D to C−', L: 'F to D'};
+/** A finished game's grade, as the scoreboard ranks it, and what made it: the best call, the costliest one (with
  *  what was better there) and every call's score. */
 function finalGradeHTML(n, s, who = 'Your') {
   const g = dr.gradeOf(n, E.actsOf(s));
   if (g.grade == null) return '';
-  const floor = s.result === 'W' && g.calls < E.WIN_FLOOR ? ` A win is never below a C−: the calls alone made it ${Math.round(g.calls)}.` : '';
-  return `<p class="dr-final-grade">${gradeChip(g.grade, 'dr-fg-chip')}<span>${esc(`${who} call grade, from ${plural(g.n, 'call')}: how close each was to the best one at its snap.${floor}`)}</span></p>`
+  const band = s.result ? `a ${{W: 'win', T: 'tie', L: 'loss'}[s.result]}, so ${BAND_TEXT[s.result]}, placed by` : 'by';
+  return `<p class="dr-final-grade">${gradeChip(g.grade, 'dr-fg-chip')}<span>${esc(`${who} grade: ${band} how close the ${plural(g.n, 'call')} came to the best one at each snap (${Math.round(g.calls)} out of 100).`)}</span></p>`
     + gradeReportHTML(s, g);
 }
 /** A call's spot in words: "3rd & 4 · 0:48" (theirs: "Their 3rd & 4 · 0:48"). */
@@ -2202,7 +2204,7 @@ function sbRowHTML(st, r) {
   const g = rowGame(st, r);
   const how = g && g.result ? dr.resultText(g, {you: r.me}).sub : '';
   const sub = [how, plural(r.p, 'play')].filter(Boolean).join(' · ');
-  const graded = r.grade == null ? '' : ` Call grade ${gradeText(r.grade)}.`;
+  const graded = r.grade == null ? '' : ` Grade ${gradeText(r.grade)}.`;
   const label = `${ui.ordinal(r.rank)}, ${r.name}${r.me ? ', you' : ''}${r.guest ? ', guest' : ''}: ${{W: 'won', T: 'tied', L: 'lost'}[r.r]} ${r.u} to ${r.h}.${graded} ${sub}. Show the game.`;
   return `<button type="button" class="dr-sb-row${r.me ? ' is-me' : ''}" role="listitem" data-dr-who="${esc(r.key)}" aria-label="${esc(label)}">`
     + `<span class="dr-sb-rank" aria-hidden="true">${r.rank}</span>`
@@ -2211,7 +2213,7 @@ function sbRowHTML(st, r) {
     + gradeChip(r.grade)
     + `<span class="dr-sb-res is-${r.r}" aria-hidden="true"><b>${r.r}</b><span>${r.u}–${r.h}</span></span></button>`;
 }
-/** The week's standings: points, the record, the average grade, a run of wins; the week's best-called game below. */
+/** The week's standings: points, the record, the average grade, a run of wins; the week's top-graded game below. */
 function weekBodyHTML(st) {
   const n = st.n || dr.todayNumber();
   let rows = [];
@@ -2221,7 +2223,7 @@ function weekBodyHTML(st) {
   const list = rows.map(r => {
     const rec = `${r.w}-${r.l}${r.t ? `-${r.t}` : ''}`;
     const sub = [rec, r.avg == null ? '' : `avg ${gradeText(r.avg)}`, r.streak >= 2 ? `${r.streak} wins in a row` : ''].filter(Boolean).join(' · ');
-    const label = `${ui.ordinal(r.rank)}, ${r.name}${r.me ? ', you' : ''}${r.guest ? ', guest' : ''}: ${plural(r.pts, 'point')}, ${r.w} won, ${r.l} lost${r.t ? `, ${r.t} tied` : ''}${r.avg == null ? '' : `, average call grade ${gradeText(r.avg)}`}${r.streak >= 2 ? `, ${r.streak} wins in a row` : ''}.`;
+    const label = `${ui.ordinal(r.rank)}, ${r.name}${r.me ? ', you' : ''}${r.guest ? ', guest' : ''}: ${plural(r.pts, 'point')}, ${r.w} won, ${r.l} lost${r.t ? `, ${r.t} tied` : ''}${r.avg == null ? '' : `, average grade ${gradeText(r.avg)}`}${r.streak >= 2 ? `, ${r.streak} wins in a row` : ''}.`;
     return `<div class="dr-sb-row dr-wk-row${r.me ? ' is-me' : ''}" role="listitem" aria-label="${esc(label)}">`
       + `<span class="dr-sb-rank" aria-hidden="true">${r.rank}</span>`
       + `<span class="dr-sb-av" aria-hidden="true">${ui.nickAvatar(r.name, {size: 36, managerId: r.managerId, you: r.me, crown: r.rank === 1 && r.pts > 0})}</span>`
@@ -2229,7 +2231,7 @@ function weekBodyHTML(st) {
       + `<span class="dr-wk-pts" aria-hidden="true"><b>${r.pts}</b><small>${r.pts === 1 ? 'pt' : 'pts'}</small></span></div>`;
   }).join('');
   const t = rows.top;
-  const top = t ? `<p class="dr-wk-top">${ui.icon('trophy', {size: 15})}<span>${esc(`Best-called game: ${t.me ? 'your' : `${t.name}’s`} ${t.u}–${t.h} ${{W: 'win', T: 'tie', L: 'loss'}[t.r]} on ${dr.dayLabel(t.day, {weekday: 'short'})}, ${gradeText(t.grade)}`)}</span></p>` : '';
+  const top = t ? `<p class="dr-wk-top">${ui.icon('trophy', {size: 15})}<span>${esc(`Top grade: ${t.me ? 'your' : `${t.name}’s`} ${t.u}–${t.h} ${{W: 'win', T: 'tie', L: 'loss'}[t.r]} on ${dr.dayLabel(t.day, {weekday: 'short'})}, ${gradeText(t.grade)}`)}</span></p>` : '';
   return `<p class="dr-sb-sum">${esc(`${plural(days, 'day')} played · 3 points a win, 1 a tie`)}</p>`
     + `<div class="dr-sb-list" role="list" aria-label="${esc(`${dr.weekLabel(n)} standings`)}">${list}</div>${top}`;
 }
@@ -2239,7 +2241,7 @@ function sbBodyHTML(st) {
   const tab = (k, label) => `<button type="button" class="dr-sb-tab" role="tab" aria-selected="${st.sbTab === k || (!st.sbTab && k === 'day')}" data-dr-sbtab="${k}">${esc(label)}</button>`;
   const head = `<div class="dr-board-h"><div class="dr-board-row"><h2 class="dr-board-t" id="dr-sb-t">${esc(week ? `${dr.weekLabel(n)} standings` : 'Today’s finals')}</h2>`
     + `<div class="dr-sb-tabs" role="tablist" aria-label="Scoreboard">${tab('day', 'Today')}${tab('week', 'Week')}</div></div>`
-    + `<p class="dr-board-s">${esc(week ? 'Most points first; the average call grade breaks a tie' : 'Wins first, then the best-called games')}</p></div>`;
+    + `<p class="dr-board-s">${esc(week ? 'Most points first; the average grade breaks a tie' : 'Wins first, then the best-called games')}</p></div>`;
   const state = dr.boardState();
   if (state === 'loading') return head + `<div class="dr-sb-sk">${ui.skeleton('rows', 3, {label: 'Loading the finals.'})}</div>`;
   if (state !== 'ready') return head + `<p class="dr-sb-note">The scoreboard isn't connected right now.</p>`;
@@ -2250,7 +2252,7 @@ function sbBodyHTML(st) {
   const w = rows.filter(r => r.r === 'W').length;
   const sum = `${plural(rows.length, 'game')} final · ${w} won`;
   return head + `<p class="dr-sb-sum">${esc(sum)}</p><div class="dr-sb-list" role="list" aria-label="Today's finals">${rows.map(r => sbRowHTML(st, r)).join('')}</div>`
-    + `<p class="dr-sb-foot">Call grade: how close each pass, run and defensive call was to the best one at that snap, out of 100. A win never grades below a C−.</p>`;
+    + `<p class="dr-sb-foot">Grade: a win C− to A+, a tie D to C−, a loss F to D, placed in that band by how close each pass, run and defensive call came to the best one at its snap.</p>`;
 }
 function boardHTML(st) {
   const hide = dr.boardState() === 'wait';

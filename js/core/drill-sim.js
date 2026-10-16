@@ -1227,10 +1227,17 @@ export function rateCall(s, token) {
   const [MID, FLOOR] = grown(s) ? [0.7, 0.35] : [0.75, 0.5];
   return {score: clamp(1 - (1 - MID) * (best - mine) / Math.max(0.02, best - mid), FLOOR, 1), best: ev.bestToken, stakes: best - mid};
 }
-/** The lowest grade a win gets (a C−): winning is the point, however it was called. */
-export const WIN_FLOOR = 70;
-/** A game's call grade, from its actions: {grade (0-100: its rated calls' mean score, one decimal, a win at least
- *  WIN_FLOOR; null with none), calls (the mean alone), n (how many were rated), lead (on a win, the clock when you went
+/** A game's grade by its result: a win C− to A+, a tie D to C−, a loss F to D, each placed in its band by its calls
+ *  (their mean score: 60 or under the bottom, 100 the top). So no win grades below a tie or a loss, however called. */
+export const BANDS = {W: [70, 100], T: [65, 70], L: [40, 65]};
+export const WIN_FLOOR = BANDS.W[0];
+export function bandGrade(result, calls) {
+  const b = BANDS[result];
+  if (calls == null || !b) return calls;
+  return Math.round(10 * (b[0] + (b[1] - b[0]) * clamp((calls - 60) / 40, 0, 1))) / 10;
+}
+/** A game's grade, from its actions: {grade (bandGrade of its result and calls; an unfinished game's, its calls; null
+ *  with none rated), calls (the rated calls' mean score, 0-100, one decimal), n (how many were rated), lead (on a win, the clock when you went
  *  ahead for good: the time you left them; else null), list (each rated call: {i (its place in the actions), token,
  *  score (0-100), best (the best call there), stakes (rateCall's), poss, down, togo, ball, clock})}. Deterministic: anyone's phone gets the
  *  same grade from the same calls. */
@@ -1250,8 +1257,7 @@ export function gradeGame(sc, teams, acts) {
     else if (s.us <= s.them) lead = null;
   }
   const calls = n ? Math.round(1000 * sum / n) / 10 : null;
-  const grade = calls != null && s.result === 'W' ? Math.max(calls, WIN_FLOOR) : calls;
-  return {grade, calls, n, lead: s.result === 'W' ? lead : null, list};
+  return {grade: bandGrade(s.result, calls), calls, n, lead: s.result === 'W' ? lead : null, list};
 }
 export function defValues(s, calls = callsAt(s)) {
   const mix = theirMix(s);

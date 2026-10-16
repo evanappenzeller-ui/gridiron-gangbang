@@ -10,7 +10,7 @@
 //     tokenLabel(s, t), tokenShort(s, t), resultText(s)
 //   Coach comp: tendencies(s), coachComp(s) (the NFL head coach since 2018 whose late-game play-calling your calls fit
 //     best)
-//   Scoreboard: autoPost(), boardState(), boardRows(n) (by result, then call grade: gradeOf, gradeLetter),
+//   Scoreboard: autoPost(), boardState(), boardRows(n) (by result, then grade: gradeOf, gradeLetter),
 //     weekRows(n), weekDays(n), weekLabel(n) (the week's standings), gameOf(key, n)
 //   applyResets()               a member's game (or everyone's) cleared once, at the league's ask (RESETS, resetCut)
 import {lsGet, lsSet} from './ui.js';
@@ -572,7 +572,8 @@ const RANK = {W: 2, T: 1, L: 0};
 // ---------------------------------------------------------------------------------------------- call grades
 // How well a game was called (drill-sim.js gradeGame): each pass, run, RPO, trick and defensive call scored against
 // the best one at that snap by the play-caller's numbers (100 the best call; from game 3, 70 the menu's middle one and
-// no lower than 35; before, 75 and 50, as those games were graded), the mean out of 100; a win never below a C− (70).
+// no lower than 35; before, 75 and 50, as those games were graded), the mean out of 100. The grade puts the result
+// first: a win C− to A+, a tie D to C−, a loss F to D, the calls placing it in that band (drill-sim.js bandGrade).
 // Worked out from a game's actions, so every phone grades every posted game the same way (nothing extra is posted,
 // and a grade can't be made up). Each rated call comes with it (list: its score and the best call there).
 const GRADES = new Map();
@@ -587,6 +588,9 @@ export function gradeOf(n, k) {
   }
   return GRADES.get(key);
 }
+/** A posted game's grade, in the band of the result it posted (its calls from gradeOf): so on the board and in the
+ *  standings no win's grade is ever below a loss's, even one whose actions don't replay to what it posted. */
+export const postedGrade = (n, e) => E.bandGrade(e.r, gradeOf(n, e.k).calls);
 const LETTERS = [[97, 'A+'], [93, 'A'], [90, 'A−'], [87, 'B+'], [83, 'B'], [80, 'B−'], [77, 'C+'], [73, 'C'], [70, 'C−'], [67, 'D+'], [60, 'D']];
 /** A grade's letter: A+ (97 and up) down to F (under 60). */
 export const gradeLetter = g => (g == null ? '' : (LETTERS.find(([min]) => Math.round(g) >= min) || [0, 'F'])[1]);
@@ -597,7 +601,7 @@ const rowWho = (ds, k) => {
 };
 /**
  * Day n's scoreboard: one row per member, by the game's final result (wins, then ties, then losses), then within
- * each by the call grade (rounded, best first); then a win by the time left them after the go-ahead score (least
+ * each by the grade (rounded, best first: within a result, the best-called first); then a win by the time left them after the go-ahead score (least
  * first: a walk-off beats leaving them a minute), fewer plays and the bigger margin; a tie by fewer plays; a loss by
  * the closer score and fewer plays. Rows that match on all of them share a rank.
  * Rows: {key, uid, name, managerId, me, r, u, h, m, p, k, grade, letter, lead, rank}. list: board docs (default
@@ -608,8 +612,8 @@ export function boardRows(n = todayNumber(), list = docs()) {
   people(list).forEach((ds, k) => {
     const f = firstOf(ds, n);
     if (!f) return;
-    const g = gradeOf(n, f.e.k);
-    rows.push(Object.assign(rowWho(ds, k), {uid: f.doc.id}, f.e, {grade: g.grade, letter: gradeLetter(g.grade), lead: g.lead}));
+    const g = gradeOf(n, f.e.k), grade = postedGrade(n, f.e);
+    rows.push(Object.assign(rowWho(ds, k), {uid: f.doc.id}, f.e, {grade, letter: gradeLetter(grade), lead: g.lead}));
   });
   const gi = r => (r.grade == null ? -1 : Math.round(r.grade)), li = r => (r.lead == null ? 1e9 : r.lead);
   const cmp = (a, b) => RANK[b.r] - RANK[a.r] || gi(b) - gi(a)
@@ -620,7 +624,7 @@ export function boardRows(n = todayNumber(), list = docs()) {
 }
 // ---------------------------------------------------------------------------------------------- the week
 // The week's standings: the NFL week a day's game comes from (its days run Tuesday to Monday; past the season, blocks
-// of seven), 3 points a win and 1 a tie, the average call grade breaking ties, and each member's current run of wins.
+// of seven), 3 points a win and 1 a tie, the average grade breaking ties, and each member's current run of wins.
 const weekKey = n => { const d = DOC.days[n - 1]; return d && d.g ? `w${d.g.wk}` : `b${Math.floor((n - 1) / 7)}`; };
 /** The days of day n's week played so far (up to today). */
 export function weekDays(n = todayNumber(), today = todayNumber()) {
@@ -637,9 +641,9 @@ export function weekLabel(n = todayNumber()) {
 }
 /**
  * Day n's week's standings: one row per member who has played in it, by points (3 a win, 1 a tie), then the average
- * call grade (rounded, best first), then wins. Rows: {key, name, managerId, me, w, t, l, played, pts, avg, best ({day,
- * grade, r, u, h}: the best-called game), streak (wins in a row up to the latest day played), rank}. Also rows.top: the
- * week's best-called game {name, me, day, grade, r, u, h}, or null.
+ * grade (rounded, best first), then wins. Rows: {key, name, managerId, me, w, t, l, played, pts, avg, best ({day,
+ * grade, r, u, h}: the top-graded game), streak (wins in a row up to the latest day played), rank}. Also rows.top: the
+ * week's top-graded game {name, me, day, grade, r, u, h}, or null.
  */
 export function weekRows(n = todayNumber(), list = docs(), today = todayNumber()) {
   const days = weekDays(n, today), rows = [];
@@ -650,7 +654,7 @@ export function weekRows(n = todayNumber(), list = docs(), today = todayNumber()
     days.forEach(d => {
       const f = firstOf(ds, d);
       if (!f) return;
-      const e = f.e, g = gradeOf(d, e.k).grade;
+      const e = f.e, g = postedGrade(d, e);
       row.played++;
       if (e.r === 'W') row.w++; else if (e.r === 'T') row.t++; else row.l++;
       if (g != null) {

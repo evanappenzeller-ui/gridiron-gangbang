@@ -536,7 +536,7 @@ export async function drillChecks(check) {
     return {pass: order && clean && reset, detail: `${sig}; bad entries dropped ${clean}; reset day 1 ${reset}`};
   });
 
-  check('Drill: call grades: a snap\'s best call scores 1, the menu\'s middle one at least 0.75 and the worst 0.5 (clock tools and the wrong side\'s calls aren\'t rated), a game\'s grade is the same on every replay, well-called games grade above random ones, a win never grades below a C− (70), the letters run A+ to F, and on the board the grade comes right after the result (before plays and margin)', () => {
+  check('Drill: call grades: a snap\'s best call scores 1, the menu\'s middle one at least 0.75 and the worst 0.5 (clock tools and the wrong side\'s calls aren\'t rated), a game\'s grade is the same on every replay, well-called games grade above random ones, a game grades by its result first (a win C− to A+, a tie D to C−, a loss F to D, its calls placing it in that band, so no win grades below a tie or a loss), the letters run A+ to F, and on the board the grade comes right after the result (before plays and margin)', () => {
     need();
     const s0 = E.start(dr.scenario(1), dr.DOC.teams), ev = E.callValues(s0);
     const sc = E.candidates(s0).map(c => E.callScore(s0, c.token)).sort((a, b) => a - b);
@@ -548,17 +548,25 @@ export async function drillChecks(check) {
     const avg = xs => xs.reduce((a, k, i) => a + E.gradeGame(dr.scenario(i + 1), dr.DOC.teams, k).grade, 0) / xs.length;
     const same = G(hi[0]) === G(hi[0]) && G(lo[0]) === dr.gradeOf(1, lo[0]).grade && dr.gradeOf(1, '').grade === null;
     const ah = avg(hi), al = avg(lo), better = ah >= al + 10;
-    // Random-called games: a win's grade is its calls' mean, raised to the floor; any other result's is the mean.
-    let wins = 0, lifted = 0, floor = true;
-    for (let n = 1; n <= 6; n++) for (let i = 0; i < 4; i++) {
-      const g = E.gradeGame(dr.scenario(n), dr.DOC.teams, callGame(n, false, 50 + i)), w = E.replay(dr.scenario(n), dr.DOC.teams, callGame(n, false, 50 + i)).result === 'W';
-      if (w) { wins++; if (g.calls < E.WIN_FLOOR) lifted++; }
-      floor = floor && g.grade === (w ? Math.max(g.calls, E.WIN_FLOOR) : g.calls) && (!w || g.grade >= 70);
+    // Games called well and at random: each grade is its result's band placed by its calls, every win at or above every
+    // tie and every tie at or above every loss (the bands themselves meet: a loss's best is a tie's worst, and so on).
+    const by = {W: [], T: [], L: []};
+    let floor = true;
+    for (let n = 1; n <= 6; n++) for (let i = 0; i < 8; i++) {
+      const k = callGame(n, i % 2 === 0, 50 + i), g = E.gradeGame(dr.scenario(n), dr.DOC.teams, k), r = E.replay(dr.scenario(n), dr.DOC.teams, k).result;
+      by[r].push(g.grade);
+      const [lo0, hi0] = E.BANDS[r];
+      floor = floor && g.grade === E.bandGrade(r, g.calls) && g.grade >= lo0 && g.grade <= hi0;
     }
+    const B = (r, c) => E.bandGrade(r, c), mn = xs => Math.min(Infinity, ...xs), mx = xs => Math.max(-Infinity, ...xs);
+    floor = floor && B('W', 30) === 70 && B('W', 100) === 100 && B('L', 100) <= B('T', 0) && B('T', 100) <= B('W', 0) && B('L', 80) > B('L', 70) && B('W', null) === null
+      && by.W.length > 0 && by.L.length > 0 && mn(by.W) >= mx(by.T.concat(by.L)) && mn(by.T) >= mx(by.L);
+    const wins = by.W.length, lifted = by.L.length;
     const letters = [[97, 'A+'], [92.6, 'A'], [89.5, 'A−'], [80, 'B−'], [60, 'D'], [59.4, 'F'], [null, '']].every(([g, l]) => dr.gradeLetter(g) === l);
     // Day 1's board: wins first whatever the grade, then the better-called win over the bigger, quicker one; the same
     // game twice shares a rank; a game with no plays posted has no grade and goes last among its result.
-    const T0 = Date.now(), hk = G(hi[0]) >= G(lo[0]) + 5 ? [hi[0], lo[0]] : null;
+    const C = k => E.gradeGame(dr.scenario(1), dr.DOC.teams, k).calls;
+    const T0 = Date.now(), hk = C(hi[0]) >= C(lo[0]) + 5 ? [hi[0], lo[0]] : null;
     const e = (r, u, h, p, k, t) => ({r, u, h, p, k, t: T0 + t});
     const docs = hk ? [
       {id: 'a', nick: 'Ben', dr5: {1: e('W', 31, 24, 5, hk[1], 1)}},
@@ -568,8 +576,9 @@ export async function drillChecks(check) {
       {id: 'e', nick: 'Kyle Example', dr5: {1: e('W', 28, 24, 12, hk[0], 5)}}
     ] : [];
     const rows = dr.boardRows(1, docs), sig = rows.map(r => `${r.rank}.${r.name.split(' ')[0]} ${r.r}${r.letter ? ' ' + r.letter : ''}`).join(', ');
-    const order = !!hk && rows.map(r => `${r.rank}${r.name.split(' ')[0]}`).join(' ') === '1Mitch 1Kyle 3Ben 4Sayer 5Jacob' && rows[0].grade === G(hk[0]);
-    return {pass: snap && same && better && floor && letters && order, detail: `snap ${snap}; replays ${same}; well-called ${ah.toFixed(1)} vs random ${al.toFixed(1)}; win floor ${floor} (${wins} random wins, ${lifted} lifted); letters ${letters}; board ${sig}`};
+    const order = !!hk && rows.map(r => `${r.rank}${r.name.split(' ')[0]}`).join(' ') === '1Mitch 1Kyle 3Ben 4Sayer 5Jacob' && rows[0].grade === E.bandGrade('W', C(hk[0]))
+      && rows[4].grade === E.bandGrade('L', C(hk[0])) && rows[2].grade >= rows[4].grade;
+    return {pass: snap && same && better && floor && letters && order, detail: `snap ${snap}; replays ${same}; well-called ${ah.toFixed(1)} vs random ${al.toFixed(1)}; bands ${floor} (${wins} wins ${mn(by.W)}-${mx(by.W)}, ${by.T.length} ties, ${lifted} losses ${mn(by.L)}-${mx(by.L)}); letters ${letters}; board ${sig}`};
   });
 
   check('Drill: from game 3 the play-caller reads each play the way it really goes (a run with its stuffs and breakaways, a catch with its spread and broken tackles), so its best call is mostly a throw in a comeback, not a run', () => {
@@ -630,7 +639,7 @@ export async function drillChecks(check) {
     return {pass: !bad.length, detail: bad.length ? bad.join('; ') : `60 typical games: ${top.length} coaches, the most often ${top[0][0]} (${top[0][1]}); every comp with two more close`};
   });
 
-  check('Drill: the week\'s standings count the days of one NFL week up to today: 3 points a win and 1 a tie, the average call grade breaking a tie on points, a run of wins up to the latest day, and the week\'s best-called game; days after today and outside the week don\'t count', () => {
+  check('Drill: the week\'s standings count the days of one NFL week up to today: 3 points a win and 1 a tie, the average grade breaking a tie on points, a run of wins up to the latest day, and the week\'s top-graded game; days after today and outside the week don\'t count', () => {
     need();
     let d = 1;
     while (d < dr.DOC.days.length - 2 && !(dr.weekDays(d, d + 1).includes(d) && dr.weekDays(d, d + 1).includes(d + 1))) d++;
@@ -645,13 +654,13 @@ export async function drillChecks(check) {
     ];
     const rows = dr.weekRows(d2, docs, d2), by = nick => rows.find(r => r.name.startsWith(nick)) || {};
     const sig = rows.map(r => `${r.rank}.${r.name.split(' ')[0]} ${r.pts}pts ${r.w}-${r.l}-${r.t} avg ${r.avg} streak ${r.streak}`).join(', ');
-    const grades = [dr.gradeOf(d, hk).grade, dr.gradeOf(d2, hk2).grade];
+    const grades = docs.flatMap(p => Object.entries(p.dr5).filter(([n, x]) => x.k && +n <= d2).map(([n, x]) => dr.postedGrade(+n, x)));
     const pass = days.length >= 2 && !!dr.weekLabel(d2)
       && rows.map(r => r.name.split(' ')[0]).join(' ') === 'Ben Jacob Mitch Sayer'
       && by('Ben').pts === 6 && by('Ben').streak === 2 && by('Jacob').pts === 3 && by('Jacob').streak === 1
       && by('Mitch').pts === 3 && by('Mitch').played === 2 && by('Mitch').streak === 0 && by('Sayer').pts === 2
       && !!rows.top && rows.top.grade === Math.max(...grades);
-    return {pass, detail: `days ${days.join(',')} (${dr.weekLabel(d2)}): ${sig}; best-called ${rows.top ? `${rows.top.name} ${rows.top.grade}` : 'none'}`};
+    return {pass, detail: `days ${days.join(',')} (${dr.weekLabel(d2)}): ${sig}; top grade ${rows.top ? `${rows.top.name} ${rows.top.grade}` : 'none'}`};
   });
 }
 
