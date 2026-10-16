@@ -711,7 +711,9 @@ function stage(s, p, late) {
     // Where across he goes down (the result says how far, not where): toward the side of the man who brings him down.
     const fx0 = clampX(holeX + sg * Math.min(rk === 'q' ? 1 : 12, Math.max(0, p.gain) * 0.35));
     const tx = tacklerKey && start[tacklerKey] && tackled(p) ? start[tacklerKey][0] : fx0;
-    const fx = p.oob ? (sg > 0 ? WIDTH - 0.6 : 0.6) : clampX(fx0 + Math.max(-5, Math.min(5, (tx - fx0) * 0.35)));
+    // (Stopped at or behind the line, he's met where he was headed: only a step toward the man who gets him.)
+    const lean = (p.gain || 0) <= 0 ? 1.5 : 5;
+    const fx = p.oob ? (sg > 0 ? WIDTH - 0.6 : 0.6) : clampX(fx0 + Math.max(-lean, Math.min(lean, (tx - fx0) * 0.35)));
     secs = 2300 * PACE / 1000;
     let hands = [SNAP];
     // Power and the counter pull the back-side guard: he leaves his man (who comes free on the back side) to lead
@@ -771,6 +773,9 @@ function stage(s, p, late) {
       hands = [SNAP, [0.12, 0.14, 'o-RB']];
       tHand = 0.14;
     }
+    // Once he has it he never gets further downfield than where he's brought down: a run stopped behind the line is
+    // met in the backfield, not past the line and back.
+    tr[carrier].forEach((f, i, c) => { if (i < c.length - 1 && f[0] > tHand + 1e-9 && f[2] > end) f[2] = end; });
     // A carrier lined up far off (split out in an empty set, the receiver on the reverse) takes a back's time to get to
     // the handoff: the backfield waits for him.
     {

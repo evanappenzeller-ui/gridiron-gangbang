@@ -431,6 +431,29 @@ export async function drillChecks(check) {
     return {pass: plays > 100 && pairs > 200 && men > 20 && !bad.length, detail: bad.length ? bad.slice(0, 5).join('; ') : `${plays} snaps: ${pairs} blocks, widest ${worstPair.toFixed(1)} yds; ${close} of ${men} men in man coverage within 3.5 yds (corners and nickels within ${worstDB.toFixed(1)}); fastest ${top.toFixed(1)} yds/s (${topAny.toFixed(1)} with the ball carrier, the passer and the play's man)`};
   });
 
+  check('Drill: on the field, a run that loses yards is stopped behind the line of scrimmage (the ball carrier never crosses it), and no ball carrier who reaches the line runs back more than a yard to where he goes down', () => {
+    need();
+    if (!V || typeof V.planOf !== 'function') return {pass: false, detail: 'views/drill.js planOf did not load'};
+    const bad = [];
+    let runs = 0, losses = 0;
+    for (let d = 1; d <= 16; d++) for (let i = 0; i < 4; i++) {
+      const {s} = randomGame(dr.scenario(d), 4100 + d * 7 + i);
+      s.plays.forEach(p => {
+        if (!p.act || !(p.kind === 'run' || (p.kind === 'fum' && p.who)) || p.two || p.td) return;
+        const plan = V.planOf(s, p), T = plan.tr['o-' + (p.who || 'RB')];
+        if (!T) return;
+        let top = -99;
+        for (let t = 0; t <= 1; t += 0.01) top = Math.max(top, V.trackAt(T, t)[1]);
+        const endY = V.trackAt(T, 1)[1];
+        runs++;
+        if (p.gain < 0) { losses++; if (top > p.ball + 0.3) bad.push(`day ${d} ${p.rk || p.trick} ${p.gain}: crossed the line by ${(top - p.ball).toFixed(1)}`); }
+        // (A big loss behind where he took it is him giving ground; past the line and back is the bug.)
+        if (top > p.ball - 0.5 && top - endY > 1) bad.push(`day ${d} ${p.rk || p.trick} ${p.gain}: ran back ${(top - endY).toFixed(1)} yds`);
+      });
+    }
+    return {pass: !bad.length && losses >= 5, detail: bad.length ? bad.slice(0, 5).join('; ') : `${runs} runs (${losses} for a loss): every loss stopped behind the line, nobody running back to be tackled`};
+  });
+
   // 7. Their ball: your defense, their clock, the kneel
   check('Drill: after your score with time left they get the ball at their 25 and you can only call a defense (or a timeout on their running clock); their play is set by the snap, not your call; a team ahead with the ball late kneels it out', () => {
     need();

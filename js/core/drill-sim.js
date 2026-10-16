@@ -510,7 +510,12 @@ function runPlay(r, s, dir, f, call, bonus = 0, play = 'z') {
   else g = runMean(s, dir, f, call, play) + bonus + K.sd * gauss(r);
   let broke = false;
   if (r() < 0.03 * F.big * K.big * (1 + e)) { g += 8 + 22 * r(); broke = true; }
-  const by = whoDef(r, s, s.U.d.lbs.concat(s.U.d.front, ['SS']), call);
+  // Who brings him down (one draw whatever the pool): once the playbook grew, a run stopped behind the line is a
+  // backer's or a front man's on the side it went (strong: the defense's right), not a safety's from deep or the far
+  // end's; before, any of them, as it was.
+  const side = k => (/^(R|S)/.test(k) ? 's' : /^(L|W)/.test(k) ? 'w' : '');
+  const tfl = s.U.d.front.filter(k => !side(k) || side(k) === dir).concat(s.U.d.lbs);
+  const by = whoDef(r, s, grown(s) && Math.round(g) < 0 ? tfl : s.U.d.lbs.concat(s.U.d.front, ['SS']), call);
   g = Math.round(g);
   const who = K.who || 'RB';
   if (r() < 0.012) return {kind: 'fum', gain: g, who, dir, rk: play, by, t: 6 + K.t};
