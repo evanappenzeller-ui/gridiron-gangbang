@@ -413,6 +413,30 @@ function cameraAt(V, u, tx, ty, dist) {
 }
 const toCam = (c, x, y, z) => { const dy = y - c.cy, dz = z - c.cz; return [x - c.cx, dy * c.sn + dz * c.cs, dy * c.cs - dz * c.sn]; };
 
+// ---------------------------------------------------------------------------- The scoreboard
+/** The scoreboard bar (the field shows it too, views/drill.js, under the camera's own in the same place): both teams
+ *  in their colours (yours first: its logo, name, timeouts, score; the ball by the side that has it), the quarter and
+ *  the clock, the down and distance. b: {teams: [{id, c: [c0, c1], logo, score, tos, ball}], q, clock, run (the clock
+ *  is running), dd ('' for none)}; o: {attrs (more of the bar's own), clock (the clock's own attribute)}. */
+export function sbarHTML(b, o = {}) {
+  const team = t => `<div class="dr-sbar-t${t.ball ? ' has-ball' : ''}" style="--tc:${esc(t.c[0])}" aria-hidden="true">`
+    + `${t.logo ? `<i data-logo="${esc(t.logo)}"></i>` : ''}<b>${esc(t.id)}</b>`
+    + `<span class="dr-sbar-to">${[0, 1, 2].map(i => `<s${i < t.tos ? ' class="is-on"' : ''}></s>`).join('')}</span>`
+    + `<em>${esc(t.score)}</em></div>`;
+  return `<div class="dr-sbar"${o.attrs || ''}>` + b.teams.map(team).join('')
+    + `<div class="dr-sbar-g" aria-hidden="true"><span>${esc(b.q)}</span><b${b.run ? ' class="is-run"' : ''}${o.clock ? ' ' + o.clock : ''}>${esc(b.clock)}</b></div>`
+    + (b.dd ? `<div class="dr-sbar-d" aria-hidden="true">${esc(b.dd)}</div>` : '') + `</div>`;
+}
+/** Shows each team logo in a scoreboard bar under root once it has loaded (most often already in the cache). */
+export function sbarLogos(root) {
+  if (!root) return;
+  root.querySelectorAll('.dr-sbar i[data-logo]:not(.is-in)').forEach(i => {
+    const im = new Image();
+    im.onload = () => { i.style.backgroundImage = `url("${im.src}")`; i.classList.add('is-in'); };
+    im.src = i.dataset.logo;
+  });
+}
+
 export function open(field, scene) {
   const cssW = field.clientWidth, cssH = field.clientHeight;
   if (!cssW || !cssH) return null;
@@ -425,7 +449,6 @@ export function open(field, scene) {
   const g = cv.getContext('2d');
   if (!g) return null;
   const sb = document.createElement('div');
-  sb.className = 'dr-cam-sb';
   const overlay = document.createElement('div');
   overlay.className = 'dr-cam-co';
   wrap.append(cv, sb, overlay);
@@ -827,19 +850,8 @@ export function open(field, scene) {
    *  dd (down and distance)}. */
   function board(b) {
     if (!b) return;
-    const team = t => `<div class="dr-cam-sb-t${t.ball ? ' has-ball' : ''}" style="--tc:${esc(t.c[0])}">`
-      + `${t.logo ? `<i data-logo="${esc(t.logo)}"></i>` : ''}<b>${esc(t.id)}</b>`
-      + `<span class="dr-cam-sb-to">${[0, 1, 2].map(i => `<s${i < t.tos ? ' class="is-on"' : ''}></s>`).join('')}</span>`
-      + `<em>${esc(t.score)}</em></div>`;
-    sb.innerHTML = b.teams.map(team).join('')
-      + `<div class="dr-cam-sb-g"><span>${esc(b.q)}</span><b data-cam-clock>${esc(b.clock)}</b></div>`
-      + `<div class="dr-cam-sb-d">${esc(b.dd)}</div>`;
-    // A logo shows once it has loaded (most often from the page's own scorebug, already in the cache).
-    sb.querySelectorAll('i[data-logo]').forEach(i => {
-      const im = new Image();
-      im.onload = () => { i.style.backgroundImage = `url("${im.src}")`; i.classList.add('is-in'); };
-      im.src = i.dataset.logo;
-    });
+    sb.innerHTML = sbarHTML(b, {clock: 'data-cam-clock'});
+    sbarLogos(sb);
   }
   function clock(text) {
     const c = sb.querySelector('[data-cam-clock]');

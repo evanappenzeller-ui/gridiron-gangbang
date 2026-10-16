@@ -6,7 +6,7 @@
    Team colours come in per element as --tc; a player's rating colour as --rc. */
 
 /* The version mark views/drill.js checks (CSS_V): bump both when the pane needs rules an older file lacks. */
-:root { --dr-css: 20; }
+:root { --dr-css: 21; }
 
 .dr-pane, .sh-drill {
   --dr-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -38,38 +38,19 @@
 .dr-pane .dr-sub { margin-top: 4px; font: 400 14px/20px var(--dr-font); color: var(--ink-2); }
 .dr-pane .dr-howto { position: absolute; right: -8px; top: 14px; color: var(--ink-3); }
 
-/* ---------------------------------------------------------------- The stage: scorebug, situation, field */
+/* ---------------------------------------------------------------- The stage: situation, field (the scoreboard on it) */
 .dr-pane .dr-stage {
   margin-top: 14px; padding: 8px; border-radius: 26px; color: #fff;
   background: linear-gradient(180deg, var(--dr-stage-2), var(--dr-stage) 140px);
   box-shadow: 0 2px 4px rgba(0,0,0,.18), 0 16px 40px rgba(0,0,0,.22), inset 0 0 0 1px rgba(255,255,255,.06), inset 0 1px 0 rgba(255,255,255,.08);
 }
-.dr-pane .dr-bug-in { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 6px; }
-.dr-pane .dr-bt {
   display: flex; align-items: center; gap: 8px; min-width: 0; padding: 8px 10px; border-radius: 18px;
   background: rgba(255,255,255,.035); transition: background-color 300ms, box-shadow 300ms;
 }
-.dr-pane .dr-bt.is-them { flex-direction: row-reverse; }
-.dr-pane .dr-bt.has-ball { background: rgba(255,255,255,.085); box-shadow: inset 0 0 0 1px rgba(255,255,255,.1); }
-.dr-pane .dr-bt-id { display: flex; flex-direction: column; min-width: 0; }
-.dr-pane .dr-bt.is-them .dr-bt-id { align-items: flex-end; }
-.dr-pane .dr-bt-you { min-height: 11px; font: 700 9px/11px var(--dr-font); letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.5); }
-.dr-pane .dr-bt-ab { display: flex; align-items: center; gap: 4px; font: 700 15px/18px var(--dr-display); letter-spacing: .01em; }
 /* Possession: a small football by the abbreviation. */
-.dr-pane .dr-bt.has-ball .dr-bt-ab::after {
   content: ""; width: 8px; height: 5px; border-radius: 50%; background: #C8753A;
   box-shadow: 0 0 0 1px rgba(0,0,0,.35), 0 0 8px rgba(200,117,58,.8);
 }
-.dr-pane .dr-bt.is-them .dr-bt-ab { flex-direction: row-reverse; }
-.dr-pane .dr-bt-to { display: flex; gap: 3px; margin-top: 3px; }
-.dr-pane .dr-bt-to > i { width: 9px; height: 3px; border-radius: 2px; background: rgba(255,255,255,.16); }
-.dr-pane .dr-bt-to > i.is-on { background: var(--dr-gold); }
-.dr-pane .dr-bt-sc { margin-left: auto; font: 800 30px/1 var(--dr-display); letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
-.dr-pane .dr-bt.is-them .dr-bt-sc { margin-left: 0; margin-right: auto; }
-.dr-pane .dr-bug-mid { display: flex; flex-direction: column; align-items: center; min-width: 54px; }
-.dr-pane .dr-bug-q { font: 700 10px/12px var(--dr-font); letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.5); }
-.dr-pane .dr-bug-clk { margin-top: 2px; font: 700 21px/1 var(--dr-display); letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
-.dr-pane .dr-bug-clk.is-run { color: #FF6961; }
 
 /* Team logos: on a soft disc of the team's colour. */
 .dr-logo {
@@ -216,38 +197,39 @@
 @keyframes dr-co-cam { from { transform: translate(-50%, -50%) skewX(-8deg) scale(.6); opacity: 0; } to { transform: translate(-50%, -50%) skewX(-8deg) scale(1); opacity: 1; } }
 /* The scoreboard: both teams in their colours (timeouts under the name, the ball by the side that has it), the
    quarter and the clock, the down and distance. */
-.dr-pane .dr-cam-sb {
-  position: absolute; left: 8px; right: 8px; top: 8px; z-index: 2; display: flex; align-items: stretch; height: 30px;
+.dr-pane .dr-sbar {
+  position: absolute; left: 8px; right: 8px; top: 8px; z-index: 4; display: flex; align-items: stretch; height: 30px;
   border-radius: 6px; overflow: hidden; background: linear-gradient(#262B36, #12151C); color: #fff;
   box-shadow: 0 4px 14px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.1);
   font: 800 12px/1 var(--dr-display); letter-spacing: .01em; pointer-events: none;
 }
-.dr-pane .dr-cam-sb-t {
+.dr-pane .dr-sbar-t {
   position: relative; display: flex; align-items: center; gap: 5px; min-width: 0; padding: 0 7px 0 5px;
   background: linear-gradient(180deg, color-mix(in srgb, var(--tc) 82%, #fff 18%), var(--tc) 55%, color-mix(in srgb, var(--tc) 80%, #000 20%));
   text-shadow: 0 1px 1px rgba(0,0,0,.5);
 }
-.dr-pane .dr-cam-sb-t + .dr-cam-sb-t { box-shadow: inset 1px 0 0 rgba(0,0,0,.35); }
-.dr-pane .dr-cam-sb-t > i { display: none; flex: none; width: 20px; height: 20px; border-radius: 50%; background: center / 86% no-repeat rgba(255,255,255,.92); }
-.dr-pane .dr-cam-sb-t > i.is-in { display: block; }
-.dr-pane .dr-cam-sb-t > b { font-size: 12.5px; }
-.dr-pane .dr-cam-sb-t > em { font-style: normal; font-size: 16px; font-variant-numeric: tabular-nums; margin-left: 2px; }
-.dr-pane .dr-cam-sb-to { position: absolute; left: 6px; bottom: 3px; display: flex; gap: 2px; }
-.dr-pane .dr-cam-sb-t > i.is-in ~ .dr-cam-sb-to { left: 30px; }
-.dr-pane .dr-cam-sb-to > s { width: 7px; height: 2px; border-radius: 1px; background: rgba(255,255,255,.28); }
-.dr-pane .dr-cam-sb-to > s.is-on { background: #FFD60A; }
-.dr-pane .dr-cam-sb-t > b { margin-bottom: 4px; }
-.dr-pane .dr-cam-sb-t.has-ball > em::after { content: ""; display: inline-block; width: 0; height: 0; margin-left: 4px; vertical-align: 2px; border: 4px solid transparent; border-left: 5px solid #FFD60A; border-right: 0; }
-.dr-pane .dr-cam-sb-g { display: flex; align-items: center; gap: 6px; margin-left: auto; padding: 0 8px; font-variant-numeric: tabular-nums; }
-.dr-pane .dr-cam-sb-g > span { font-size: 10.5px; color: rgba(255,255,255,.7); text-transform: uppercase; }
-.dr-pane .dr-cam-sb-g > b { font-size: 14px; min-width: 34px; text-align: right; }
-.dr-pane .dr-cam-sb-d { display: flex; align-items: center; padding: 0 8px; background: rgba(255,255,255,.08); color: #FFD60A; font-size: 11px; text-transform: uppercase; white-space: nowrap; }
+.dr-pane .dr-sbar-t + .dr-sbar-t { box-shadow: inset 1px 0 0 rgba(0,0,0,.35); }
+.dr-pane .dr-sbar-t > i { display: none; flex: none; width: 20px; height: 20px; border-radius: 50%; background: center / 86% no-repeat rgba(255,255,255,.92); }
+.dr-pane .dr-sbar-t > i.is-in { display: block; }
+.dr-pane .dr-sbar-t > b { font-size: 12.5px; }
+.dr-pane .dr-sbar-t > em { font-style: normal; font-size: 16px; font-variant-numeric: tabular-nums; margin-left: 2px; }
+.dr-pane .dr-sbar-to { position: absolute; left: 6px; bottom: 3px; display: flex; gap: 2px; }
+.dr-pane .dr-sbar-t > i.is-in ~ .dr-sbar-to { left: 30px; }
+.dr-pane .dr-sbar-to > s { width: 7px; height: 2px; border-radius: 1px; background: rgba(255,255,255,.28); }
+.dr-pane .dr-sbar-to > s.is-on { background: #FFD60A; }
+.dr-pane .dr-sbar-t > b { margin-bottom: 4px; }
+.dr-pane .dr-sbar-t.has-ball > em::after { content: ""; display: inline-block; width: 0; height: 0; margin-left: 4px; vertical-align: 2px; border: 4px solid transparent; border-left: 5px solid #FFD60A; border-right: 0; }
+.dr-pane .dr-sbar-g { display: flex; align-items: center; gap: 6px; margin-left: auto; padding: 0 8px; font-variant-numeric: tabular-nums; }
+.dr-pane .dr-sbar-g > span { font-size: 10.5px; color: rgba(255,255,255,.7); text-transform: uppercase; }
+.dr-pane .dr-sbar-g > b { font-size: 14px; min-width: 34px; text-align: right; }
+.dr-pane .dr-sbar-g > b.is-run { color: #FF8A80; }
+.dr-pane .dr-sbar-d { display: flex; align-items: center; padding: 0 8px; background: rgba(255,255,255,.08); color: #FFD60A; font-size: 11px; text-transform: uppercase; white-space: nowrap; }
 @media (max-width: 360px) {
-  .dr-pane .dr-cam-sb { left: 6px; right: 6px; top: 6px; height: 28px; }
-  .dr-pane .dr-cam-sb-t > i.is-in { display: none; }
-  .dr-pane .dr-cam-sb-t > i.is-in ~ .dr-cam-sb-to, .dr-pane .dr-cam-sb-to { left: 5px; }
-  .dr-pane .dr-cam-sb-g { padding: 0 6px; gap: 4px; }
-  .dr-pane .dr-cam-sb-d { padding: 0 6px; font-size: 10px; }
+  .dr-pane .dr-sbar { left: 6px; right: 6px; top: 6px; height: 28px; }
+  .dr-pane .dr-sbar-t > i.is-in { display: none; }
+  .dr-pane .dr-sbar-t > i.is-in ~ .dr-sbar-to, .dr-pane .dr-sbar-to { left: 5px; }
+  .dr-pane .dr-sbar-g { padding: 0 6px; gap: 4px; }
+  .dr-pane .dr-sbar-d { padding: 0 6px; font-size: 10px; }
 }
 /* Routes (the pass menu): dashed, drawn from each receiver; the one just changed in yellow. Receivers can be tapped. */
 .dr-pane .dr-rlayer { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
@@ -732,13 +714,6 @@
 @media (max-width: 360px) {
   .dr-pane .dr-title { font-size: 23px; }
   .dr-pane .dr-stage { padding: 6px; border-radius: 22px; }
-  .dr-pane .dr-bug-in { gap: 4px; }
-  .dr-pane .dr-bt { gap: 6px; padding: 7px 8px; }
-  .dr-pane .dr-bt .dr-logo { --sz: 24px !important; }
-  .dr-pane .dr-bt-ab { font-size: 14px; }
-  .dr-pane .dr-bt-sc { font-size: 26px; }
-  .dr-pane .dr-bug-mid { min-width: 46px; }
-  .dr-pane .dr-bug-clk { font-size: 19px; }
   .dr-pane .dr-chip { height: 24px; padding: 0 8px; font-size: 12px; }
   .dr-pane .dr-call-t { font-size: 19px; }
   .dr-pane .dr-type { height: 44px; font-size: 16px; }

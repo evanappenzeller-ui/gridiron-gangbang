@@ -38,7 +38,7 @@ const ST = new WeakMap(); // ctx -> pane state
 
 // A home-screen app open across an update imports this module new under the stylesheet it started with: when
 // drill.css's mark (--dr-css on :root) isn't this module's, the current file is added (as in views/seventeen.js).
-const CSS_V = '20';
+const CSS_V = '21';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--dr-css').trim() === CSS_V || document.querySelector('link[data-dr-css]')) return;
@@ -221,6 +221,7 @@ function fieldHTML(st, view = viewNow(st.s)) {
   const s = st.s, los = view.ball;
   const routes = routesOn(st) && view.poss === 'us';
   return `<div class="dr-field${routes ? ' is-routes' : ''}${view.poss === 'them' ? ' is-def' : ''}" data-poss="${view.poss}" role="${routes ? 'group' : 'img'}" aria-label="${esc(fieldLabel(st))}" data-dr-field>`
+    + bugHTML(s)
     + `<div class="dr-track" style="transform:${trackY(winTop(los))}">`
     + linesHTML(s, view.poss)
     + `<i class="dr-los" data-dr-los style="top:${top(los)}"></i>`
@@ -251,6 +252,7 @@ function swapField(st, view, {fade = true} = {}) {
   const nf = tmp.content.firstElementChild;
   if (fade && !ui.RM) nf.classList.add('is-in');
   f.replaceWith(nf);
+  camLib.sbarLogos(nf);
   return nf;
 }
 /** Moves the field to the game's current snap: the camera, the lines, the players (CSS transitions animate it). */
@@ -591,14 +593,22 @@ function camScene(st, p) {
   const home = s.sc.g && s.sc.g.h && dr.team(s.sc.g.h) ? s.sc.g.h : s.sc.d;
   return {players, ends: {near: end(ids.o), far: end(ids.d)}, crowd: tcol(home), logo: logoUrl(home, 320), board: camBoard(st, p, false)};
 }
-/** The camera's scoreboard: as the snap starts (from the play), or after it (from the game as it now stands). */
-function camBoard(st, p, after) {
-  const s = st.s, poss = after ? (s.result ? null : s.poss) : p.poss;
+/** The scoreboard bar's content (drill-cam.js sbarHTML) from a game as it stands: yours first. */
+function boardOf(s) {
+  const poss = s.result ? null : s.poss;
   const team = (id, side, score, tos) => ({id, c: tcol(id), logo: logoUrl(id, 96), score, tos, ball: poss === side});
-  const tryNow = after ? s.phase === 'pat' : ['xp', '2good', '2fail'].includes(p.kind);
-  const dd = after && s.result ? 'Final' : tryNow ? 'Try' : after ? dr.downText(s.down, s.togo, s.ball) : dr.downText(p.down, p.togo, p.ball);
-  return {teams: [team(s.sc.o, 'us', after ? s.us : p.us, after ? s.tos : p.tos), team(s.sc.d, 'them', after ? s.them : p.them, s.dtos)],
-    q: after && s.result ? 'Final' : '4th', clock: dr.clockText(after ? s.clock : p.clock), dd};
+  return {teams: [team(s.sc.o, 'us', s.us, s.tos), team(s.sc.d, 'them', s.them, s.dtos)], q: s.result ? 'Final' : '4th',
+    clock: dr.clockText(s.clock), run: !s.result && s.running, dd: s.result ? '' : s.phase === 'pat' ? 'Try' : dr.downText(s.down, s.togo, s.ball)};
+}
+/** The camera's scoreboard: as the snap starts (from the play), or after it (the game as it now stands). */
+function camBoard(st, p, after) {
+  if (after) return boardOf(st.s);
+  const s = st.s, b = boardOf(s);
+  b.teams[0].score = p.us; b.teams[1].score = p.them; b.teams[0].tos = p.tos;
+  b.teams[0].ball = p.poss === 'us'; b.teams[1].ball = p.poss === 'them';
+  b.q = '4th'; b.clock = dr.clockText(p.clock); b.run = false;
+  b.dd = ['xp', '2good', '2fail'].includes(p.kind) ? 'Try' : dr.downText(p.down, p.togo, p.ball);
+  return b;
 }
 /** Plays a choreography: the camera swings down behind the offense, the play runs, the camera swings back up to the
  *  dots, now where the play left them. Resolves when it's done (or skipped: a tap on the field). Without a canvas,
@@ -769,23 +779,11 @@ function runOff(st, from, to) {
 const pause = (st, ms) => new Promise(res => { if (ui.RM || !st.ctx.visible) res(); else st.timers.push(setTimeout(res, ms)); });
 
 // ============================================================================ Markup: the game
-function bugTeam(s, side) {
-  const us = side === 'us', id = us ? s.sc.o : s.sc.d;
-  const tos = us ? s.tos : s.dtos;
-  const ball = !s.result && s.poss === side;
-  const bars = [0, 1, 2].map(i => `<i${i < tos ? ' class="is-on"' : ''}></i>`).join('');
-  return `<div class="dr-bt is-${side}${ball ? ' has-ball' : ''}">${logoHTML(id, 30)}`
-    + `<span class="dr-bt-id"><small class="dr-bt-you">${us ? 'You' : ''}</small><b class="dr-bt-ab">${esc(id)}</b><span class="dr-bt-to">${bars}</span></span>`
-    + `<span class="dr-bt-sc">${us ? s.us : s.them}</span></div>`;
-}
+/** The scoreboard bar on the field (drill-cam.js sbarHTML, the same as the camera's): the game as it stands. */
 function bugHTML(s) {
   const has = s.result ? '' : s.poss === 'us' ? ' You have the ball.' : ` ${s.sc.d} has the ball.`;
   const label = `${s.sc.o} ${s.us}, ${s.sc.d} ${s.them}. ${s.result ? 'Final.' : `${dr.clockText(s.clock)} left in the fourth.`}${has} Timeouts: you ${s.tos}, ${s.sc.d} ${s.dtos}.`;
-  return `<div class="dr-bug" data-dr-bug role="group" aria-label="${esc(label)}"><div class="dr-bug-in" aria-hidden="true">`
-    + bugTeam(s, 'us')
-    + `<span class="dr-bug-mid"><span class="dr-bug-q">${s.result ? 'Final' : '4th'}</span><span class="dr-bug-clk${s.running ? ' is-run' : ''}" data-dr-clock>${dr.clockText(s.clock)}</span></span>`
-    + bugTeam(s, 'them')
-    + `</div></div>`;
+  return camLib.sbarHTML(boardOf(s), {attrs: ` data-dr-bug role="group" aria-label="${esc(label)}"`, clock: 'data-dr-clock'});
 }
 function sitHTML(s) {
   const chip = (t, cls = '') => `<span class="dr-chip${cls ? ' ' + cls : ''}">${t}</span>`;
@@ -1377,7 +1375,7 @@ function headHTML(st) {
 function gameHTML(st) {
   const s = st.s;
   return headHTML(st)
-    + `<div class="dr-stage">${bugHTML(s)}${sitHTML(s)}${fieldHTML(st)}${legendHTML()}</div>`
+    + `<div class="dr-stage">${sitHTML(s)}${fieldHTML(st)}${legendHTML()}</div>`
     + `<div class="dr-panel" data-dr-panel>${panelHTML(st)}</div>`
     + `<div data-dr-pbph>${pbpHTML(st)}</div>`;
 }
@@ -1708,7 +1706,7 @@ function finishPlay(st, p) {
   st.side = 's';
   patchField(st);
   const bug = st.el.querySelector('[data-dr-bug]');
-  if (bug) bug.outerHTML = bugHTML(s);
+  if (bug) { bug.outerHTML = bugHTML(s); camLib.sbarLogos(st.el); }
   const sit = st.el.querySelector('[data-dr-sit]');
   if (sit) sit.outerHTML = sitHTML(s);
   setPanel(st);
@@ -1779,7 +1777,7 @@ function playAgain(st) {
   ui.announce('Practice run: a fresh start on today’s drill.');
 }
 function rerender(st, {fade = true} = {}) {
-  const go2 = () => { st.el.innerHTML = bodyHTML(st); ui.hydrate(st.el); };
+  const go2 = () => { st.el.innerHTML = bodyHTML(st); ui.hydrate(st.el); camLib.sbarLogos(st.el); };
   if (fade && !ui.RM && st.ctx.visible) ui.crossfade(st.el, go2, {duration: 160}); else go2();
 }
 function share(st) {
