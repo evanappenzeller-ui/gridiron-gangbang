@@ -7,13 +7,13 @@
 //   game(n)                     today's game so far, replayed from this phone's actions
 //   record(n, s)                saves the game's actions after each one; the result once it's over (once a day)
 //   Text: spot(s, ball, poss), downText(down, togo), clockText(sec), playText(s, play), callText(s, play),
-//     tokenLabel(s, t), tokenShort(s, t), resultText(s), squares(s), shareText(n, s)
+//     tokenLabel(s, t), tokenShort(s, t), resultText(s)
 //   Coach comp: tendencies(s), coachComp(s) (the NFL head coach since 2018 whose late-game play-calling your calls fit
 //     best)
 //   Scoreboard: autoPost(), boardState(), boardRows(n) (by result, then call grade: gradeOf, gradeLetter),
 //     weekRows(n), weekDays(n), weekLabel(n) (the week's standings), gameOf(key, n)
 //   applyResets()               a member's game (or everyone's) cleared once, at the league's ask (RESETS, resetCut)
-import {lsGet, lsSet, absLink} from './ui.js';
+import {lsGet, lsSet} from './ui.js';
 import * as daily from './daily.js';
 import {me as dataMe} from './data.js';
 import * as E from './drill-sim.js';
@@ -378,44 +378,6 @@ export function resultText(s, {you = true} = {}) {
   if (s.result === 'T') return {head: 'Tied. Overtime', score, sub: how};
   return {head: you ? 'You lose' : 'Lost', score, sub: how};
 }
-/** A square per snap: yours (big gain 🟩, gain 🟨, nothing ⬜, loss 🟥, turnover ❌, score 🏈 or 🥅), then theirs after a
- *  space (stop 🟦, gain 🟧, first down 🟥, takeaway ⭐, their score ❌). */
-export function squares(s) {
-  let out = '', poss = 'us';
-  s.plays.forEach(p => {
-    if (p.poss !== poss) { out += ' '; poss = p.poss; }
-    if (['timeout', 'xp', 'kneel', 'kneelout', 'their-spike'].includes(p.kind)) return;
-    if (p.poss === 'them') {
-      if (p.kind === 'int' || p.kind === 'fum' || p.kind === 'their-fgx' || p.downs) out += '⭐';
-      else if (p.td || p.kind === 'their-fg') out += '❌';
-      else if (p.kind === 'punt') out += '🟦';
-      else if (p.kind === 'inc' || p.kind === 'sack' || (p.gain || 0) <= 1) out += '🟦';
-      else out += p.first ? '🟥' : '🟧';
-      return;
-    }
-    if (p.kind === 'spike') out += '⏱️';
-    else if (p.td || p.kind === '2good') out += '🏈';
-    else if (p.kind === 'fg') out += '🥅';
-    else if (p.kind === 'int' || p.kind === 'fum' || p.kind === 'fgx' || p.kind === '2fail' || p.kind === 'expired' || p.downs) out += '❌';
-    else if (p.kind === 'inc') out += '⬜';
-    else if (p.gain < 0) out += '🟥';
-    else out += p.first || p.gain >= 10 ? '🟩' : p.gain > 0 ? '🟨' : '⬜';
-  });
-  return out.trim();
-}
-/** The final score and a square per snap. No player names. */
-export function shareText(n, s) {
-  const r = resultText(s), ids = E.idsFor(s, 'us');
-  const mark = {W: 'W', T: 'T', L: 'L'}[s.result];
-  return [
-    `Two-Minute Drill #${n} · ${dayLabel(n)}`,
-    `${ids.o} down ${s.sc.them - s.sc.us} with ${clockText(s.sc.t)} left`,
-    `Final: ${ids.o} ${s.us}, ${ids.d} ${s.them} (${mark}) · ${r.sub}`,
-    squares(s),
-    absLink('/puzzles/drill')
-  ].join('\n');
-}
-
 // ---------------------------------------------------------------------------------------------- coach comp
 // Who you called it like: DOC.coaches (tools/drill/coaches.py) has each NFL head coach's late-game play-calling since
 // 2018 as counts [k, n] of the same things counted from your calls (drill-sim.js tendencies). His leans are from the

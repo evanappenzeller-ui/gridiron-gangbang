@@ -18,7 +18,7 @@
 // from the chalkboard into the stadium, every player a shaded figure in his uniform, then swings back up; the clock
 // in the header runs; tap the field to skip), then the breakdown:
 // what happened, the win chance before and after, what the defense was really in, how your call ranked and how every
-// option scored (each played out many times: drill-sim.js scoreOptions), and Replay. At 0:00: the final, Share, and
+// option scored (each played out many times: drill-sim.js scoreOptions), and Replay. At 0:00: the final and
 // the league's finals for the day (tap one to read it once you've played yours). Every control here is data-dr-*, so
 // the Daily Puzzles handlers on the same screen never see these taps.
 // Owner: Drill.
@@ -31,7 +31,6 @@ import {msToMidnight} from './board.js';
 
 const E = dr.E;
 const esc = data.esc;
-const COPIED = 'Copied. Paste it in the league chat.';
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 const nextIn = () => ui.untilText(msToMidnight());
 const pct = x => `${Math.round(x * 100)}%`;
@@ -39,7 +38,7 @@ const ST = new WeakMap(); // ctx -> pane state
 
 // A home-screen app open across an update imports this module new under the stylesheet it started with: when
 // drill.css's mark (--dr-css on :root) isn't this module's, the current file is added (as in views/seventeen.js).
-const CSS_V = '29';
+const CSS_V = '30';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--dr-css').trim() === CSS_V || document.querySelector('link[data-dr-css]')) return;
@@ -2173,8 +2172,7 @@ function resultHTML(st) {
     + `<p class="dr-final-sub">${esc(r.sub)}</p>`
     + finalGradeHTML(st.n, s)
     + (practice ? `<p class="dr-practice">${esc(`Practice run ${practice}: your first game today is the one on the scoreboard.`)}</p>` : '')
-    + `<div class="dr-res-act"><button type="button" class="btn btn-primary dr-share" data-dr-share>${ui.icon('share')}<span class="btn-label">Share</span></button>`
-    + (dr.canReplay() ? `<button type="button" class="btn btn-secondary dr-again" data-dr-again>${ui.icon('play-fill')}<span class="btn-label">Play again</span></button>` : '') + `</div>`
+    + (dr.canReplay() ? `<div class="dr-res-act"><button type="button" class="btn btn-secondary dr-again" data-dr-again>${ui.icon('play-fill')}<span class="btn-label">Play again</span></button></div>` : '')
     + `<p class="dr-next">${ui.icon('clock', {size: 15})}<span>Next drill in <span data-dr-next>${esc(nextIn())}</span></span></p></section>`
     + compHTML(s);
 }
@@ -2583,14 +2581,6 @@ function rerender(st, {fade = true} = {}) {
   const go2 = () => { st.el.innerHTML = bodyHTML(st); ui.hydrate(st.el); loadLogos(st.el); aimRoutes(st.el); };
   if (fade && !ui.RM && st.ctx.visible) ui.crossfade(st.el, go2, {duration: 160}); else go2();
 }
-function share(st) {
-  const s = st.s;
-  if (!s || !s.result) return;
-  ui.share({text: dr.shareText(st.n, s)}).then(r => {
-    if (r === 'copied') { ui.toast(COPIED, {icon: 'check-circle'}); ui.haptic('success'); }
-    else if (r === 'unavailable') ui.toast("Couldn't copy your game.");
-  });
-}
 function openMenu(st, k) {
   if (st.busy) return;
   const was = st.panel;
@@ -2729,7 +2719,7 @@ function onClick(st, e) {
   if (st.rtOpen) { openRoutes(st, null); return; }
   const rcv = routesOn(st) && e.target.closest('[data-dr-rcv]');
   if (rcv && st.el.contains(rcv)) { cycleRoute(st, rcv.dataset.drRcv); return; }
-  const t = e.target.closest('[data-dr-go], [data-dr-menu], [data-dr-dmenu], [data-dr-card], [data-dr-side], [data-dr-hurry], [data-dr-flag], [data-dr-replay], [data-dr-ratings], [data-dr-help], [data-dr-share], [data-dr-again], [data-dr-retry], [data-dr-who], [data-dr-sbtab]');
+  const t = e.target.closest('[data-dr-go], [data-dr-menu], [data-dr-dmenu], [data-dr-card], [data-dr-side], [data-dr-hurry], [data-dr-flag], [data-dr-replay], [data-dr-ratings], [data-dr-help], [data-dr-again], [data-dr-retry], [data-dr-who], [data-dr-sbtab]');
   if (!t || !st.el.contains(t) || t.disabled) return;
   if (t.hasAttribute('data-dr-go')) { go(st, t.dataset.drGo); return; }
   if (t.hasAttribute('data-dr-menu')) { openMenu(st, st.panel === t.dataset.drMenu ? 'main' : t.dataset.drMenu); return; }
@@ -2756,7 +2746,6 @@ function onClick(st, e) {
   if (t.hasAttribute('data-dr-replay')) { replayLast(st); return; }
   if (t.hasAttribute('data-dr-ratings')) { openRatings(st); return; }
   if (t.hasAttribute('data-dr-help')) { openHelp(); return; }
-  if (t.hasAttribute('data-dr-share')) { share(st); return; }
   if (t.hasAttribute('data-dr-again')) { playAgain(st); return; }
   if (t.hasAttribute('data-dr-who')) { openGame(st, t.dataset.drWho); return; }
   if (t.hasAttribute('data-dr-sbtab')) {

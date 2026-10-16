@@ -492,7 +492,7 @@ export async function drillChecks(check) {
   });
 
   // 8. Words and sharing
-  check('Drill: every play has words (yours and theirs), the spot reads like a broadcast from the side with the ball (DEN 35, midfield, SEA 12), and the share text has the final score and a square per snap but no player names', () => {
+  check('Drill: every play has words (yours and theirs), and the spot reads like a broadcast from the side with the ball (DEN 35, midfield, SEA 12)', () => {
     need();
     const bad = [];
     for (let d = 1; d <= 15; d++) {
@@ -501,10 +501,6 @@ export async function drillChecks(check) {
         const t = dr.playText(s, p), c = dr.callText(s, p);
         if (!t || !t.line || /undefined|NaN/.test(t.head + t.line + (c ? c.text : '') + dr.tokenLabel(s, p.act) + dr.tokenShort(s, p.act))) bad.push(`day ${d} ${p.kind}`);
       });
-      const txt = dr.shareText(d, s);
-      const both = [dr.DOC.teams[s.sc.o], dr.DOC.teams[s.sc.d]];
-      const names = both.flatMap(t => t.o.concat(t.d)).map(p => p[1].split(' ').pop()).filter(x => x.length > 3);
-      if (!txt.includes(`#${d}`) || !txt.includes(`${s.sc.o} ${s.us}, ${s.sc.d} ${s.them} (${s.result})`) || names.some(nm => txt.includes(nm))) bad.push(`share ${d}`);
     }
     const s = E.start(dr.scenario(1), dr.DOC.teams);
     const spots = [dr.spot(s, 35), dr.spot(s, 50), dr.spot(s, 88)].join(', ');
