@@ -6,7 +6,7 @@
    Team colours come in per element as --tc; a player's rating colour as --rc. */
 
 /* The version mark views/drill.js checks (CSS_V): bump both when the pane needs rules an older file lacks. */
-:root { --dr-css: 21; }
+:root { --dr-css: 22; }
 
 .dr-pane, .sh-drill {
   --dr-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -457,6 +457,7 @@
 .dr-pane .dr-card-tag.is-trick { background: #EA580C; }
 .dr-pane .dr-card-tag.is-man { background: #C2410C; }
 .dr-pane .dr-card-tag.is-blitz { background: #DC2626; }
+.dr-pane .dr-card-tag.is-prevent { background: #475569; }
 /* A defense card's line under its name: what the call is. */
 .dr-pane .dr-card-d { display: block; padding: 0 13px 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 11.5px/14px var(--dr-font); color: #A3AAB8; background: #1C1F25; }
 .dr-pane .dr-card-f {
@@ -717,6 +718,7 @@
   .dr-pane .dr-chip { height: 24px; padding: 0 8px; font-size: 12px; }
   .dr-pane .dr-call-t { font-size: 19px; }
   .dr-pane .dr-type { height: 44px; font-size: 16px; }
+  .dr-pane .dr-type.is-long { padding: 0 2px; font-size: 15px; letter-spacing: -.025em; }
   .dr-pane .dr-call-box { padding: 10px; border-radius: 22px; }
   .dr-pane .dr-call-box .dr-cards { margin: 12px -10px 0; padding: 2px 10px 10px; scroll-padding: 0 10px; }
   .dr-pane .dr-card { flex-basis: 90%; }

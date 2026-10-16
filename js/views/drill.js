@@ -12,7 +12,7 @@
 // route below, to change it) with the look's odds for a throw to him, and play action, roll out and out of bounds to
 // toggle; tap a name to throw it. Run and RPO pick a side (strong is the tight end's) and whether to head for the
 // sideline. After a touchdown that leaves you down one or two: kick, or go for two.
-// On defense (you scored with time left, or turned it over): their formation, and your call from eight.
+// On defense (you scored with time left, or turned it over): their formation, and your call from eight in four types.
 // Each snap plays out from behind the offense like a console football game (views/drill-cam.js: the camera swings down
 // from the dots into the stadium, every player a shaded figure in his uniform, the scoreboard across the top, then
 // swings back up; the clock runs; tap the field to skip), then the breakdown:
@@ -38,7 +38,7 @@ const ST = new WeakMap(); // ctx -> pane state
 
 // A home-screen app open across an update imports this module new under the stylesheet it started with: when
 // drill.css's mark (--dr-css on :root) isn't this module's, the current file is added (as in views/seventeen.js).
-const CSS_V = '21';
+const CSS_V = '22';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--dr-css').trim() === CSS_V || document.querySelector('link[data-dr-css]')) return;
@@ -877,14 +877,23 @@ function goalText(s) {
   if (lead === 0) return 'Tied: any score beats you.';
   return `Down ${-lead}: get a stop and get the ball back with time left.`;
 }
+/** The defense's play types, like the offense's: each with its calls. */
+const DEF_TYPES = [['zone', 'Zone', ['c2', 'c3', 'c4']], ['man', 'Man', ['c1', 'c0']], ['blitz', 'Blitz', ['fire', 'rb']], ['prevent', 'Prevent', ['pv']]];
+/** The open defensive type (st.dpanel), or null with none open. */
+const dtypeOf = st => (DEF_TYPES.some(([k]) => k === st.dpanel) ? st.dpanel : null);
+/** The defense's types as the same switch as the offense's: tap another to change, the open one to close. */
+function defTypesHTML(open) {
+  return `<div class="dr-types" role="group" aria-label="Type of call">` + DEF_TYPES.map(([k, l, calls]) =>
+    `<button type="button" class="dr-type${l.length > 6 ? ' is-long' : ''}" data-dr-dmenu="${k}" aria-pressed="${open === k}" aria-label="${esc(`${l}: ${calls.map(c => E.CALLS[c].name).join(', ')}`)}">${esc(l)}</button>`).join('') + `</div>`;
+}
 function defenseHTML(st) {
-  const s = st.s, o = E.options(s);
+  const s = st.s, o = E.options(s), open = dtypeOf(st);
   const tools = o.timeout ? `<div class="dr-tools"><button type="button" class="dr-pill" data-dr-go="${E.tok.timeout}">${ui.icon('clock', {size: 14})}<span>Timeout · ${s.tos} left</span></button></div>` : '';
   const warn = o.timeout && s.them > s.us ? `<p class="dr-warn">${ui.icon('clock', {size: 15})}<span>${esc(`Their clock is running. Each snap takes ${E.MILK} seconds off unless you stop it.`)}</span></p>` : '';
+  const body = open ? `<div class="dr-cards" data-dr-cards>${defCardsHTML(st, DEF_TYPES.find(([k]) => k === open)[2])}</div>` + legendDefHTML()
+    : `<p class="dr-hint">Pick a type of call to see its plays. Their play is set at the snap from the formation and the situation, whatever you call.</p>`;
   return `<section class="dr-call is-def" aria-labelledby="dr-call-t">${headRow('Your defense', s)}<div class="dr-call-box">`
-    + `<p class="dr-goal">${esc(goalText(s))}</p>` + lookHTML(s)
-    + `<p class="dr-hint">Swipe through your playbook and tap a call. Their play is set at the snap from the formation and the situation, whatever you call.</p>`
-    + `<div class="dr-cards" data-dr-cards>${defCardsHTML(st)}</div>` + legendDefHTML() + tools + warn + `</div></section>`;
+    + `<p class="dr-goal">${esc(goalText(s))}</p>` + lookHTML(s) + defTypesHTML(open) + body + tools + warn + `</div></section>`;
 }
 // ---------------------------------------------------------------------------- Play cards
 // Three plays of each type, drawn like a Madden play-call screen: the formation and the play's name, the target
@@ -1090,7 +1099,8 @@ function trickCardsHTML(st) {
 // purple), a man (an orange line to him), a rush (a white arrow) or a blitz (a red one).
 const ZONE = {deep: ['#3B82F6', 'Deep zone'], hook: ['#FACC15', 'Hook zone'], flat: ['#22D3EE', 'Flat zone'], cf: ['#A855F7', 'Curl-flat zone']};
 const MAN_C = '#FB923C', BLITZ_C = '#FF4D5E';
-const DEF_TAG = {c2: 'Zone', c3: 'Zone', c4: 'Zone', pv: 'Zone', c1: 'Man', c0: 'Blitz', fire: 'Blitz', rb: 'Blitz'};
+/** Each call's tag on its card: its type on the switch. */
+const DEF_TAG = Object.fromEntries(DEF_TYPES.flatMap(([, l, calls]) => calls.map(k => [k, l])));
 /** What each of your defenders does on a call: {slot: {zone: [kind, x, depth]} | {man: slot} | {rush: true, blitz}}.
  *  P: where the call lines them up (defPos); U: your units (who's on the front, who the linebackers are). */
 function defRoles(U, P, O, call) {
@@ -1193,9 +1203,9 @@ function defArt(st, call) {
 }
 /** Your personnel for a call: base against the loaded box, nickel otherwise. */
 const defForm = (T, call) => (CALL_LOOK[call] === 'box' ? `${T.s === '34' ? '3-4' : '4-3'} Base` : `Nickel ${T.s === '34' ? '3-3-5' : '4-2-5'}`);
-function defCardsHTML(st) {
+function defCardsHTML(st, calls) {
   const s = st.s, U = s.mine;
-  return E.DEF_CALLS.map((k, i) => {
+  return calls.map((k, i) => {
     const C = E.CALLS[k], list = s.plays.filter(p => p.poss === 'them' && p.dcall === k && p.act);
     const yds = list.reduce((t, p) => t + (['catch', 'run', 'sack'].includes(p.kind) ? (p.gain || 0) : 0), 0);
     const foot = `${list.length} ${list.length === 1 ? 'call' : 'calls'} | ${(list.length ? yds / list.length : 0).toFixed(1)} avg yds allowed`;
@@ -1542,7 +1552,7 @@ function openHelp() {
     + `<p><b>Read the defense.</b> Before each snap the defense shows a look, and at the snap it plays a real call that look usually hides. A <b>light box</b> is mostly two- and four-deep zones: deep shots and outs get eaten, the middle opens up. A <b>loaded box</b> is a run blitz or man to man: don’t run into it, and play action fools it. A <b>blitz look</b> means pressure: get it out quick. A <b>two-high shell</b> takes away the deep ball and the sideline. <b>Prevent</b> gives up the short stuff and keeps the clock running. The line on the field leans to one side: run away from it.</p>`
     + `<p><b>Call a play.</b> Like a playbook: pick Run, Pass, RPO or Trick play, then one of its three plays. Runs: <b>Inside Zone</b> (steady), <b>HB Toss</b> (outside: boom or bust, and the best way to the sideline) and <b>HB Draw</b> (eats up a blitz or a soft prevent, dies against a run blitz), to the strong or weak side. RPOs hand it off against a light box and throw it against a crowded one: a slant, a bubble or a seam. Trick plays (one a game): the <b>Flea Flicker</b> and the <b>HB Pass</b> go deep, the <b>Double Reverse</b> is a run the other way, with no interception risk.</p>`
     + `<p><b>Passing.</b> Each snap offers three pass plays; pick one and its routes go up on the field (tap a receiver there to change his route), then pick who gets the ball. The numbers next to each name are what a throw to him tends to do against this look: how often it’s caught, the yards a throw, and how often it’s picked. Play action fools an aggressive defense and costs time against a patient one; a roll out beats the rush but cuts off the middle; out of bounds stops the clock and gives up the yards after the catch.</p>`
-    + `<p><b>On defense</b> you see their formation (a heavy set usually runs, an empty backfield almost always throws) and pick a call. Zones keep the ball in front of you, man and blitzes gamble for a sack or a stop, and prevent gives up the short stuff to save the end zone. Their clock is theirs to manage: ahead, they let it run; behind, they hurry.</p>`
+    + `<p><b>On defense</b> you see their formation (a heavy set usually runs, an empty backfield almost always throws) and pick a call: Zone, Man, Blitz or Prevent, then one of its plays. Zones keep the ball in front of you, man and blitzes gamble for a sack or a stop, and prevent gives up the short stuff to save the end zone. Their clock is theirs to manage: ahead, they let it run; behind, they hurry.</p>`
     + `<p><b>The players matter.</b> Every dot is a real starter, coloured by his rating; yours are ringed in white. Man coverage is one-on-one, so a great receiver against a weak corner wins; the lines decide the sacks. Tap Player ratings to scout.</p>`
     + `<p><b>The clock.</b> A run, a sack or a catch in bounds keeps it running, and the next snap takes ${E.HURRY} seconds to get off (${E.MILK} when the team ahead lets it run). Go <b>no huddle</b> and it takes ${E.NO_HUDDLE}, but nobody’s quite set: passes are caught a little less, sacks come a little more and runs gain a little less (trick plays need a huddle). Incompletions, going out of bounds, timeouts, spikes and changes of possession stop it. Down one or two after a touchdown, you choose: kick, or go for two.</p>`
     + `<p><b>Who you called it like.</b> At the final whistle, your calls are matched to the NFL head coach whose late-game play-calling (the last two minutes of either half, ${esc(dr.DOC && dr.DOC.coaches ? dr.DOC.coaches.seasons : '2025–2026')}) fits them best: how often he throws, goes deep or keeps it short, attacks the middle, gets out of bounds, spikes it, goes no-huddle, burns a timeout to stop the clock, goes for two and goes for it on fourth down.</p>`
@@ -1667,6 +1677,7 @@ async function go(st, token) {
   if (s.result) dr.autoPost();
   ui.haptic(p.kind === 'timeout' ? 'light' : 'medium');
   st.panel = 'main';
+  st.dpanel = null;
   st.pick = null;
   st.rtOpen = null;
   st.last = {p, autos: s.plays.slice(i0 + 1), wpB: null, wpA: null, scores: null, canReplay: !['timeout', 'expired'].includes(p.kind), call: callNow(sBefore, p.act)};
@@ -1754,6 +1765,7 @@ function setDaily(st) {
   st.n = dr.todayNumber();
   st.s = dr.game(st.n);
   st.panel = 'main';
+  st.dpanel = null;
   st.last = null;
   st.pick = null;
   st.rtOpen = null;
@@ -1800,6 +1812,16 @@ function openMenu(st, k) {
   if (f) { f.classList.toggle('is-routes', routesOn(st)); f.setAttribute('role', routesOn(st) ? 'group' : 'img'); f.setAttribute('aria-label', fieldLabel(st)); }
   const first = st.el.querySelector(`[data-dr-panel] [data-dr-menu="${k === 'main' ? was : k}"]`);
   if (first) { try { first.focus({preventScroll: true}); } catch (_) {} }
+}
+/** Opens a defensive type (null closes it): its calls under the switch. */
+function openDefMenu(st, k) {
+  if (st.busy) return;
+  const was = st.dpanel;
+  st.dpanel = k;
+  ui.haptic('selection');
+  setPanel(st);
+  const b = st.el.querySelector(`[data-dr-panel] [data-dr-dmenu="${k || was}"]`);
+  if (b) { try { b.focus({preventScroll: true}); } catch (_) {} }
 }
 /** No huddle on or off: the switches, the calls that carry it and the clock warning follow. */
 function toggleHurry(st) {
@@ -1897,10 +1919,11 @@ function onClick(st, e) {
   if (st.rtOpen) { openRoutes(st, null); return; }
   const rcv = routesOn(st) && e.target.closest('[data-dr-rcv]');
   if (rcv && st.el.contains(rcv)) { cycleRoute(st, rcv.dataset.drRcv); return; }
-  const t = e.target.closest('[data-dr-go], [data-dr-menu], [data-dr-card], [data-dr-side], [data-dr-hurry], [data-dr-flag], [data-dr-replay], [data-dr-ratings], [data-dr-help], [data-dr-share], [data-dr-again], [data-dr-retry], [data-dr-who], [data-dr-sbtab]');
+  const t = e.target.closest('[data-dr-go], [data-dr-menu], [data-dr-dmenu], [data-dr-card], [data-dr-side], [data-dr-hurry], [data-dr-flag], [data-dr-replay], [data-dr-ratings], [data-dr-help], [data-dr-share], [data-dr-again], [data-dr-retry], [data-dr-who], [data-dr-sbtab]');
   if (!t || !st.el.contains(t) || t.disabled) return;
   if (t.hasAttribute('data-dr-go')) { go(st, t.dataset.drGo); return; }
   if (t.hasAttribute('data-dr-menu')) { openMenu(st, st.panel === t.dataset.drMenu ? 'main' : t.dataset.drMenu); return; }
+  if (t.hasAttribute('data-dr-dmenu')) { openDefMenu(st, st.dpanel === t.dataset.drDmenu ? null : t.dataset.drDmenu); return; }
   if (t.hasAttribute('data-dr-card')) { pickCard(st, Number(t.dataset.drCard)); return; }
   if (t.hasAttribute('data-dr-side')) {
     st.side = t.dataset.drSide === 'w' ? 'w' : 's';
