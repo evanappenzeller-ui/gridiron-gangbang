@@ -79,10 +79,19 @@ function offPos(form) {
   return P;
 }
 /** Where a name sits beside its dot instead of under it (players level with each other). */
-const labSide = (slot, form) => (form === 'pistol' || form === 'heavy' ? {QB: 'l', RB: 'r'} : form === 'empty' ? {} : {RB: 'r'})[slot];
+const labSide = (slot, form, flip = false) => {
+  const l = (form === 'pistol' || form === 'heavy' ? {QB: 'l', RB: 'r'} : form === 'empty' ? {} : {RB: 'r'})[slot];
+  return flip && slot === 'RB' && form !== 'pistol' && form !== 'heavy' && l ? 'l' : l;
+};
 const OL = ['LT', 'LG', 'C', 'RG', 'RT'];
 const LABELLED = new Set(['QB', 'RB', 'WR1', 'WR2', 'WR3', 'TE', 'LCB', 'RCB', 'SS', 'FS']);
 const dirSign = d => (d === 's' ? 1 : -1); // strong side is to the right
+/** A run or an RPO to the weak side flips the backfield: the back lines up on the weak side of the QB, and the play is
+ *  the mirror image of the strong side's. Where he lines up with it (an offset back; one behind the QB or split out
+ *  stays put). */
+const flipX = x => (Math.abs(x - MID) < 6 ? 2 * MID - x : x);
+/** The formation with the back flipped. */
+const flipPos = P => Object.assign({}, P, {RB: [flipX(P.RB[0]), P.RB[1]]});
 /** Your defense lines up in the look its call usually shows; before you call one, a two-high shell. */
 const CALL_LOOK = E.CALL_LOOK;
 const PRE_LOOK = 'two';
@@ -127,9 +136,11 @@ const clampX = x => Math.max(1.4, Math.min(WIDTH - 1.4, x));
 
 /** What the field shows: {poss, ball, look, shade, form, fd (the first-down line, or null)}. Now, or at a snap. */
 const fdLine = s => (s.phase === 'play' && !s.result && s.ball + s.togo < 100 ? s.ball + s.togo : null);
-const viewNow = s => ({poss: s.poss, ball: s.ball, look: s.poss === 'us' ? s.look || PRE_LOOK : PRE_LOOK, shade: s.shade, form: s.poss === 'them' ? s.form : null, fd: fdLine(s)});
+const viewNow = (s, flip = false) => ({poss: s.poss, ball: s.ball, look: s.poss === 'us' ? s.look || PRE_LOOK : PRE_LOOK, shade: s.shade, form: s.poss === 'them' ? s.form : null, fd: fdLine(s), flip});
 const viewOf = p => ({poss: p.poss, ball: p.ball, look: p.poss === 'us' ? p.look || PRE_LOOK : CALL_LOOK[p.dcall] || PRE_LOOK, shade: p.shade, form: p.poss === 'them' ? p.form : null,
-  fd: p.two || p.ball + p.togo >= 100 ? null : p.ball + p.togo});
+  fd: p.two || p.ball + p.togo >= 100 ? null : p.ball + p.togo, flip: p.dir === 'w' && !p.trick});
+/** The field before your call: a run or an RPO to the weak side open, your back already lined up for it. */
+const flipNow = st => !!st.s && st.s.poss === 'us' && !st.s.result && (st.panel === 'run' || st.panel === 'rpo') && st.side === 'w';
 
 function linesHTML(s, poss) {
   let h = '';
@@ -148,7 +159,7 @@ const edgeCls = x => (x < 8 ? ' is-edge-l' : x > WIDTH - 8 ? ' is-edge-r' : '');
 function dotHTML(d, view) {
   const {side, p, x, y, off, slot} = d;
   const lab = LABELLED.has(slot) ? `<em class="dr-pl-n">${esc(dr.short(p.n))}</em>` : '';
-  const ls = side === 'o' ? labSide(slot, view.form) : null;
+  const ls = side === 'o' ? labSide(slot, view.form, view.flip) : null;
   const mine = (side === 'o') === (view.poss === 'us');
   const tgt = side === 'o' && view.poss === 'us' && E.TARGETS.includes(slot) ? ` data-dr-rcv="${slot}"` : '';
   return `<span class="dr-pl is-${side}${mine ? ' is-mine' : ''}${ls ? ' is-lab-' + ls : ''}${edgeCls(x)}${off ? ' is-off' : ''}" data-dr-p="${side}-${slot}"${tgt} style="left:${left(x)};top:${top(y)};--rc:${ratingColor(p.r)}">`
@@ -157,7 +168,7 @@ function dotHTML(d, view) {
 /** Every player's spot before a snap: [{key, side, slot, p, x, y, off}]. */
 function spots(s, view) {
   const los = view.ball, out = [];
-  const U = E.unitsFor(s, view.poss), P0 = offPos(view.form);
+  const U = E.unitsFor(s, view.poss), P0 = view.flip ? flipPos(offPos(view.form)) : offPos(view.form);
   Object.keys(P0).forEach(slot => {
     const [x, dy] = P0[slot];
     out.push({key: 'o-' + slot, side: 'o', slot, p: U.o.by[slot], x, y: los + dy});
@@ -217,7 +228,7 @@ function routesSVG(s, routes, pick) {
 }
 const routesOn = st => st.panel === 'pass' && !st.busy && !!st.s && !st.s.result && st.s.poss === 'us';
 
-function fieldHTML(st, view = viewNow(st.s)) {
+function fieldHTML(st, view = viewNow(st.s, flipNow(st))) {
   const s = st.s, los = view.ball;
   const routes = routesOn(st) && view.poss === 'us';
   return `<div class="dr-field${routes ? ' is-routes' : ''}${view.poss === 'them' ? ' is-def' : ''}" data-poss="${view.poss}" role="${routes ? 'group' : 'img'}" aria-label="${esc(fieldLabel(st))}" data-dr-field>`
@@ -259,7 +270,7 @@ function swapField(st, view, {fade = true} = {}) {
 function patchField(st) {
   let f = st.el.querySelector('[data-dr-field]');
   if (!f) return;
-  const s = st.s, view = viewNow(s);
+  const s = st.s, view = viewNow(s, flipNow(st));
   if (f.dataset.poss !== view.poss) { swapField(st, view); patchRoutes(st); return; }
   f.classList.toggle('is-routes', routesOn(st));
   f.setAttribute('role', routesOn(st) ? 'group' : 'img');
@@ -286,6 +297,7 @@ function moveTo(st, f, view) {
     e.classList.toggle('is-off', !!d.off);
     e.classList.toggle('is-edge-l', d.x < 8);
     e.classList.toggle('is-edge-r', d.x > WIDTH - 8);
+    if (d.side === 'o') { const ls = labSide(d.slot, view.form, view.flip); e.classList.toggle('is-lab-l', ls === 'l'); e.classList.toggle('is-lab-r', ls === 'r'); }
   });
   f.querySelector('.dr-track').style.transform = trackY(winTop(view.ball));
   f.querySelector('[data-dr-los]').style.top = top(view.ball);
@@ -390,9 +402,9 @@ function choreo(s, p) {
       tr['o-RB'].slice(2).forEach(k => ballTr.push(k));
     } else if (rk === 'd') {
       // The draw: the QB drops back like it's a pass, then hands it off late.
-      add('o-QB', [0.24, MID, L - 7.5], [0.34, MID - 0.6, L - 7.4], [0.6, MID - 2, L - 8]);
-      add('o-RB', [0.22, MID + 1.2, L - 6.6], [0.32, MID + 0.8, L - 6.8], [0.55, MID + sg * 1.5, L + 0.6], [0.92, fx, end]);
-      ballTr.push([0.1, MID, qb0[1]], [0.24, MID, L - 7.5], [0.32, MID + 0.8, L - 6.8]);
+      add('o-QB', [0.24, MID, L - 7.5], [0.34, MID - sg * 0.6, L - 7.4], [0.6, MID - sg * 2, L - 8]);
+      add('o-RB', [0.22, MID + sg * 1.2, L - 6.6], [0.32, MID + sg * 0.8, L - 6.8], [0.55, MID + sg * 1.5, L + 0.6], [0.92, fx, end]);
+      ballTr.push([0.1, MID, qb0[1]], [0.24, MID, L - 7.5], [0.32, MID + sg * 0.8, L - 6.8]);
       tr['o-RB'].slice(3).forEach(k => ballTr.push(k));
     } else if (rk === 'r') {
       // The double reverse: the back takes it one way and hands it to the receiver coming back the other.
@@ -959,10 +971,10 @@ function artField(ball) {
   return h + `<line x1="0" x2="${WIDTH}" y1="${f2(ARTY(0))}" y2="${f2(ARTY(0))}" stroke="#E2B93B" stroke-width=".42" stroke-dasharray="1 .8"/>`;
 }
 /** The eleven: the line as blocks (the center square), everyone else a dot; on a run the line drives forward. */
-function artPlayers(run) {
+function artPlayers(run, P = OFF_POS) {
   let h = '';
-  Object.keys(OFF_POS).forEach(k => {
-    const [x, y] = OFF_POS[k], Y = ARTY(y);
+  Object.keys(P).forEach(k => {
+    const [x, y] = P[k], Y = ARTY(y);
     if (!OL.includes(k)) { h += `<circle cx="${f2(x)}" cy="${f2(Y)}" r="1.05" fill="#fff"/>`; return; }
     if (run) h += artPath([[x, y], [x, y + 1.8]], RC.white, {end: 'block'});
     h += `<rect x="${f2(x - 0.9)}" y="${f2(Y - 0.9)}" width="1.8" height="1.8" rx="${k === 'C' ? 0.2 : 0.9}" fill="#fff"/>`;
@@ -972,14 +984,14 @@ function artPlayers(run) {
 /** Who runs what: each receiver's last name under his dot in his colour (the target's first; each placed where it
  *  overlaps no other name and no player: under him, then lower, then beside him). who: slot -> name. */
 const LBL = {fs: 1.7, cw: 1.12};
-function artLabels(who, slots, key) {
-  const boxes = Object.keys(OFF_POS).map(k => { const [x, y] = OFF_POS[k], Y = ARTY(y); return [x - 1.15, Y - 1.15, x + 1.15, Y + 1.15, k]; });
+function artLabels(who, slots, key, P = OFF_POS) {
+  const boxes = Object.keys(P).map(k => { const [x, y] = P[k], Y = ARTY(y); return [x - 1.15, Y - 1.15, x + 1.15, Y + 1.15, k]; });
   const hit = (b, own) => boxes.some(c => c[4] !== own && b[0] < c[2] && b[2] > c[0] && b[1] < c[3] && b[3] > c[1]);
   const order = slots.filter(k => k === key).concat(slots.filter(k => k !== key));
   return order.map(slot => {
     const text = String(who[slot] || '').toUpperCase();
     if (!text) return '';
-    const [x, y] = OFF_POS[slot], Y = ARTY(y), w = text.length * LBL.cw, h = LBL.fs * 0.78;
+    const [x, y] = P[slot], Y = ARTY(y), w = text.length * LBL.cw, h = LBL.fs * 0.78;
     const tries = [];
     [2.45, 4.05].forEach(dy => [x - w / 2, x - 1, x + 1 - w].forEach(x0 => tries.push([x0, Y + dy])));
     tries.push([x + 1.6, Y + h / 2], [x - 1.6 - w, Y + h / 2]);
@@ -993,8 +1005,10 @@ function artLabels(who, slots, key) {
     return '';
   }).join('');
 }
-/** A card's art: the field, the play (inner), your eleven, the names. on: {who} (artOn). */
-const artSVG = (on, ball, inner, run = false, labels = '') => `<svg class="dr-art" viewBox="0 0 ${WIDTH} ${f2(ART_H)}" aria-hidden="true">${artField(ball)}${inner}${artPlayers(run)}${labels}</svg>`;
+/** A card's art: the field, the play (inner), your eleven (P: where they line up), the names. on: {who} (artOn). */
+const artSVG = (on, ball, inner, run = false, labels = '', P = OFF_POS) => `<svg class="dr-art" viewBox="0 0 ${WIDTH} ${f2(ART_H)}" aria-hidden="true">${artField(ball)}${inner}${artPlayers(run, P)}${labels}</svg>`;
+/** Your eleven for a run or an RPO to a side: to the weak side, the back flipped. */
+const runPos = dir => (dir === 'w' ? flipPos(OFF_POS) : OFF_POS);
 const artRoute = (slot, route) => routePath(route, OFF_POS[slot][0], OFF_POS[slot][1]);
 const colOf = (slot, key) => (slot === key ? RC.key : SLOT_C[slot] || RC.white);
 /** What every card shares: your receivers' last names by slot (their labels) and the look their defense shows. */
@@ -1010,23 +1024,24 @@ function passArt(ball, routes, key, on) {
   const order = E.TARGETS.filter(k => k !== key).concat(key ? [key] : []);
   return artSVG(on, ball, order.map(k => artPath(artRoute(k, routes[k]), colOf(k, key))).join(''), false, artLabels(on.who, E.TARGETS, key));
 }
-/** The back's path on a run (RUNS) to a side. */
+/** The back's path on a run (RUNS) to a side, from where he lines up for it: one side's the other's mirror image. */
 function runPath(play, dir) {
-  const sg = dirSign(dir), rb = OFF_POS.RB;
+  const sg = dirSign(dir), rb = runPos(dir).RB;
   if (play === 't') return [rb, [MID + sg * 9, -5], [MID + sg * 16, -1.5], [MID + sg * 18, 9]];
-  if (play === 'd') return [rb, [MID + 1.5, -6.8], [MID + sg * 1.2, 0], [MID + sg * 1.5, 11]];
+  if (play === 'd') return [rb, [MID + sg * 1.5, -6.8], [MID + sg * 1.2, 0], [MID + sg * 1.5, 11]];
   return [rb, [MID + sg * 2, -2], [MID + sg * 4, 3], [MID + sg * 5, 11]];
 }
 function runArt(ball, play, dir, on) {
   let h = artBlocks([]);
   if (play === 't') h += artPath([OFF_POS.QB, [MID + dirSign(dir) * 9, -5]], RC.white, {dash: true, end: 'none'});
   if (play === 'd') h += artPath([OFF_POS.QB, [MID, -8.4]], RC.white, {dash: true, end: 'none'});
-  return artSVG(on, ball, h + artPath(runPath(play, dir), RC.key), true, artLabels(on.who, ['RB'], 'RB'));
+  const P = runPos(dir);
+  return artSVG(on, ball, h + artPath(runPath(play, dir), RC.key), true, artLabels(on.who, ['RB'], 'RB', P), P);
 }
 function rpoArt(ball, play, dir, on) {
-  const R = E.RPOS[play];
+  const R = E.RPOS[play], P = runPos(dir);
   return artSVG(on, ball, artBlocks([R.slot]) + artPath(runPath('z', dir), colOf('RB', R.slot)) + artPath(artRoute(R.slot, R.route), RC.key), true,
-    artLabels(on.who, [R.slot, 'RB'], R.slot));
+    artLabels(on.who, [R.slot, 'RB'], R.slot, P), P);
 }
 function trickArt(ball, play, on) {
   const W1 = OFF_POS.WR1, rb = OFF_POS.RB, key = TRICK_KEY[play], c = slot => colOf(slot, key);
@@ -1756,7 +1771,7 @@ async function replayLast(st) {
   await runAnim(st, choreo(st.s, p), p);
   if (st.dead) return;
   // Back to now: a new field when the ball changed hands, else the players walk back.
-  if (f.dataset.poss !== st.s.poss) swapField(st, viewNow(st.s));
+  if (f.dataset.poss !== st.s.poss) swapField(st, viewNow(st.s, flipNow(st)));
   finishPlay(st, p);
 }
 
@@ -1810,8 +1825,14 @@ function openMenu(st, k) {
   patchRoutes(st);
   const f = st.el.querySelector('[data-dr-field]');
   if (f) { f.classList.toggle('is-routes', routesOn(st)); f.setAttribute('role', routesOn(st) ? 'group' : 'img'); f.setAttribute('aria-label', fieldLabel(st)); }
+  flipField(st);
   const first = st.el.querySelector(`[data-dr-panel] [data-dr-menu="${k === 'main' ? was : k}"]`);
   if (first) { try { first.focus({preventScroll: true}); } catch (_) {} }
+}
+/** Your back to where the open call lines him up (the weak side flips him), on the dots. */
+function flipField(st) {
+  const f = st.el.querySelector('[data-dr-field]');
+  if (f && !st.busy && st.s && f.dataset.poss === st.s.poss) moveTo(st, f, viewNow(st.s, flipNow(st)));
 }
 /** Opens a defensive type (null closes it): its calls under the switch. */
 function openDefMenu(st, k) {
@@ -1930,6 +1951,7 @@ function onClick(st, e) {
     ui.haptic('selection');
     st.el.querySelectorAll('[data-dr-side]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.drSide === st.side)));
     refreshCards(st);
+    flipField(st);
     return;
   }
   if (t.hasAttribute('data-dr-hurry')) { toggleHurry(st); return; }
