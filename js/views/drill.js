@@ -97,8 +97,9 @@ const flipPos = P => Object.assign({}, P, {RB: [flipX(P.RB[0]), P.RB[1]]});
 const CALL_LOOK = E.CALL_LOOK;
 const PRE_LOOK = 'two';
 /** The defense's eleven for a look: slot -> [x, depth] (null: off the field). Base personnel against the loaded box,
- *  the nickel back in for everything else. shade: the side the front leans to (its extra man and the rotated safety). */
-function defPos(T, look, shade = 's') {
+ *  the nickel back in for everything else. shade: the side the front leans to (its extra man and the rotated safety);
+ *  rbX: where their back lines up across. */
+function defPos(T, look, shade = 's', rbX = OFF_POS.RB[0]) {
   const three = T.s === '34', P = {};
   const lean = dirSign(shade);
   const cbD = {box: 5, blitz: 2.6, two: 7, prevent: 12, light: 6.5}[look];
@@ -121,6 +122,14 @@ function defPos(T, look, shade = 's') {
     P.MLB = [look === 'blitz' ? MID + 1 : nickel ? MID + 4 + 1.5 * lean : MID, lbD];
     P.SLB = nickel ? null : [MID + 7, lbD];
   }
+  // The backers' spots go by who they have in coverage: the one standing in for the nickel (on the slot, always on the
+  // left) takes the left one, the one with the back (the first of them) the one nearest him, the rest the others.
+  const lbs = (three ? ['LILB', 'RILB'] : ['WLB', 'MLB', 'SLB']).filter(k => P[k]), free = lbs.map(k => P[k][0]).sort((a, b) => a - b), put = {};
+  const take = x => free.splice(free.indexOf(x), 1)[0];
+  const sub = E.fielded(T, look, 'NB');
+  if (P[sub] && lbs.includes(sub)) put[sub] = take(free[0]);
+  if (P[lbs[0]] && !(lbs[0] in put)) put[lbs[0]] = take(free.reduce((b, x) => (Math.abs(x - rbX) < Math.abs(b - rbX) ? x : b)));
+  lbs.forEach(k => { if (!(k in put)) put[k] = take(free[0]); P[k] = [put[k], P[k][1]]; });
   return P;
 }
 const top = y => `calc(var(--yd) * ${(110 - y).toFixed(2)})`;
@@ -184,7 +193,7 @@ function spots(s, view) {
     const [x, dy] = P0[slot];
     out.push({key: 'o-' + slot, side: 'o', slot, p: U.o.by[slot], x, y: los + dy});
   });
-  const P = defPos(U.d.T, view.look || PRE_LOOK, view.shade);
+  const P = defPos(U.d.T, view.look || PRE_LOOK, view.shade, P0.RB[0]);
   // Near the goal line the deep players squeeze in (never past the back of the end zone).
   const k = Math.max(0.35, Math.min(1, (108 - los) / 21));
   U.d.T.d.forEach(([slot]) => {
@@ -215,15 +224,22 @@ function routePath(route, x0, y0) {
   }[route] || [[x0, y0 + 10]];
   return [[x0, y0]].concat(P.map(([x, y]) => [clampX(x), y]));
 }
-/** The point along a path at a distance downfield (air yards past the line). */
-function pointAt(path, los, air) {
+/** A route up to where the ball's caught (the first time it gets air yards past the line; the end of it, that deep,
+ *  when it never does), then on extra yards further along it (as far as it goes). */
+function routeTo(path, los, air, extra = 0) {
   const want = los + air;
-  for (let i = 1; i < path.length; i++) {
+  let i = 1, cut = null;
+  for (; i < path.length && !cut; i++) {
     const [x0, y0] = path[i - 1], [x1, y1] = path[i];
-    if ((y1 - want) * (y0 - want) <= 0 && y1 !== y0) { const k = (want - y0) / (y1 - y0); return [x0 + (x1 - x0) * k, want]; }
+    if ((y1 - want) * (y0 - want) <= 0 && y1 !== y0) { const k = (want - y0) / (y1 - y0); cut = [x0 + (x1 - x0) * k, want]; }
   }
-  const [x, y] = path[path.length - 1];
-  return [x, Math.max(y, want)];
+  const [xe, ye] = path[path.length - 1];
+  const out = cut ? path.slice(0, i - 1).concat([cut]) : path.concat([[xe, Math.max(ye, want)]]);
+  for (let j = cut ? i - 1 : path.length, left = extra; j < path.length && left > 0; j++) {
+    const a = out[out.length - 1], b = path[j], seg = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (seg > left) { out.push([lerp(a[0], b[0], left / seg), lerp(a[1], b[1], left / seg)]); left = 0; } else { out.push(b); left -= seg; }
+  }
+  return out;
 }
 /** The routes in chalk, each from the edge of his O to an arrowhead (aimRoutes points them). */
 function routesSVG(s, routes, pick) {
@@ -353,117 +369,456 @@ function at(track, t) {
     const [t1, x1, y1] = track[i];
     if (t <= t1) {
       const [t0, x0, y0] = track[i - 1];
-      const k = t1 === t0 ? 1 : ease((t - t0) / (t1 - t0));
+      const k = t1 === t0 ? 1 : track.lin ? (t - t0) / (t1 - t0) : ease((t - t0) / (t1 - t0));
       return [x0 + (x1 - x0) * k, y0 + (y1 - y0) * k];
     }
   }
   const l = track[track.length - 1];
   return [l[1], l[2]];
 }
-/** Spread a path's points over [t0, t1] by their length. */
+/** Spread a path's points over [t0, t1] by their length, at an even pace (a route's cuts are sharp, not slowed). */
 function timed(path, t0, t1) {
   const d = [0];
   for (let i = 1; i < path.length; i++) d.push(d[i - 1] + Math.hypot(path[i][0] - path[i - 1][0], path[i][1] - path[i - 1][1]));
   const tot = d[d.length - 1] || 1;
-  return path.map(([x, y], i) => [t0 + (t1 - t0) * d[i] / tot, x, y]);
+  const out = path.map(([x, y], i) => [t0 + (t1 - t0) * d[i] / tot, x, y]);
+  out.lin = true;
+  return out;
 }
+
+// Every man has a job for the whole snap, and his track keeps him at it. The line: each front man on the ball is
+// matched with an offensive lineman (lineMatch); on a pass the blocker sets and gives ground slowly as his man pushes,
+// the two locked together, on a run he drives his man (back when the run got somewhere, into the backfield when it was
+// stuffed) and the play's tackler sheds to make it; a lineman left over helps, picks up a blitzer or climbs to a
+// linebacker. Coverage stays on its receiver: man a step behind and inside, zone with a cushion (over the top for the
+// deep ones, underneath for the rest); the safeties shade the deepest receivers; on a run the receivers block their
+// men. Once someone has the ball the defense pursues at angles, the tackler arriving as he goes down.
+// A defender runs to where his job wants him (follow) no faster than a man can and picking up speed over a few
+// steps, so he never jumps and trails a quick receiver the way he would; tracks are sampled (linear between samples,
+// so the pace is even).
+const lerp = (a, b, k) => a + (b - a) * k;
+const smooth = k => (k <= 0 ? 0 : k >= 1 ? 1 : k * k * (3 - 2 * k));
+const STEP = 0.02;
+/** A track sampled from fn(t) over [t0, t1]. */
+function sampled(fn, t0 = 0, t1 = 1) {
+  const out = [], n = Math.max(1, Math.ceil((t1 - t0) / STEP - 1e-9));
+  for (let i = 0; i <= n; i++) { const t = Math.min(t1, t0 + i * STEP), q = fn(t); out.push([t, q[0], q[1]]); }
+  out.lin = true;
+  return out;
+}
+/** A steady phase for a man's hand-fighting, from who he is. */
+const phaseOf = k => { let h = 7; for (let i = 0; i < k.length; i++) h = (h * 31 + k.charCodeAt(i)) % 9973; return h / 9973 * 6.283; };
+/** Blends points by weights (each [x, y, w]): a target that slides from one man to the next instead of jumping. */
+const blend = list => { const w = list.reduce((s, q) => s + q[2], 0) || 1; return [list.reduce((s, q) => s + q[0] * q[2], 0) / w, list.reduce((s, q) => s + q[1] * q[2], 0) / w]; };
+/** A carrier's run from the moment he has the ball (tHand): his path from there (the hole, the cut, the open field) at a
+ *  back's pace (RUN_YPU yards a unit), picking it up over his first steps, then steady; before, his keyframes as they
+ *  are (the mesh, the pitch). The track ends when he gets there. */
+function openField(track, tHand) {
+  const pts = [at(track, tHand)].concat(track.filter(f => f[0] > tHand + 1e-9).map(f => [f[1], f[2]]));
+  const seg = pts.slice(1).map((q, i) => Math.hypot(q[0] - pts[i][0], q[1] - pts[i][1])), S = seg.reduce((a, b) => a + b, 0);
+  if (!S) return track;
+  const A = 0.15, Dt = S / RUN_YPU / (1 - A / 2), V = 1 / (1 - A / 2);
+  const f = u => (u <= A ? V * u * u / (2 * A) : V * (A / 2 + u - A));
+  const along = d => { for (let i = 0; i < seg.length; i++) { if (d <= seg[i] || i === seg.length - 1) { const k = seg[i] ? Math.min(1, d / seg[i]) : 1; return [lerp(pts[i][0], pts[i + 1][0], k), lerp(pts[i][1], pts[i + 1][1], k)]; } d -= seg[i]; } return pts[pts.length - 1]; };
+  return sampled(t => (t <= tHand ? at(track, t) : along(S * f(Math.min(1, (t - tHand) / Dt)))), 0, tHand + Dt);
+}
+/** Who blocks whom: the front men on the ball (within 4 yards of it) and the five linemen, each side left to right, pair
+ *  off in order, leaving out whichever men of the bigger side keep the pairs closest across.
+ *  {pairs: [[o, d]], free: [o] (linemen with no one), loose: [d] (front men no one has)}. */
+function lineMatch(start, front, L) {
+  const byX = ks => ks.sort((a, b) => start[a][0] - start[b][0]);
+  const ol = byX(OL.map(k => 'o-' + k).filter(k => start[k]));
+  const dl = byX(front.map(k => 'd-' + k).filter(k => start[k] && !start[k][2] && start[k][1] - L < 4));
+  const olFew = ol.length <= dl.length, few = olFew ? ol : dl, many = olFew ? dl : ol;
+  let best = null;
+  const pick = (from, acc) => {
+    if (acc.length === few.length) {
+      const c = acc.reduce((sum, m, i) => sum + Math.abs(start[few[i]][0] - start[many[m]][0]), 0);
+      if (!best || c < best.c) best = {c, idx: acc.slice()};
+      return;
+    }
+    for (let m = from; m <= many.length - (few.length - acc.length); m++) { acc.push(m); pick(m + 1, acc); acc.pop(); }
+  };
+  pick(0, []);
+  const idx = best ? best.idx : [], used = new Set(idx);
+  const pairs = idx.map((m, i) => (olFew ? [few[i], many[m]] : [many[m], few[i]]));
+  const rest = many.filter((_, m) => !used.has(m));
+  return {pairs, free: olFew ? [] : rest, loose: olFew ? rest : []};
+}
+/** A snap is built on a base clock (base: its ms, before PACE, for t from 0 to 1) and runs past 1 when it needs to (a
+ *  deep route, a long run): then every time in it is scaled back into 0-1 and it lasts that much longer, so nobody
+ *  has to run faster than a man can for the play to fit. */
+function remap(plan, T1) {
+  if (T1 > 1) {
+    const f = x => x / T1;
+    const rt = track => { const out = track.map(([t, x, y]) => [f(t), x, y]); out.lin = track.lin; return out; };
+    Object.keys(plan.tr).forEach(k => { plan.tr[k] = rt(plan.tr[k]); });
+    plan.ball = rt(plan.ball);
+    (plan.acts || []).forEach(x => { x.t0 = f(x.t0); x.t1 = f(x.t1); });
+    plan.calls.forEach(c => { c.t = f(c.t); });
+    (plan.down || []).forEach(d => { d.t = f(d.t); });
+    if (plan.air) plan.air = {t0: f(plan.air.t0), t1: f(plan.air.t1)};
+    if (plan.loose != null) plan.loose = f(plan.loose);
+    plan.dur *= T1;
+  }
+  (plan.acts || []).forEach(x => { x.t1 = Math.min(1, x.t1); });
+  return plan;
+}
+// A man's pace on the base clock: yards in one unit of t, at about 8 yards a second (a receiver on his route, a back in
+// the open), for a pass's 4 seconds (2.5 s x PACE) and a run's 3.7.
+const PASS_YPU = 32, RUN_YPU = 31;
+
+/** A snap's choreography: staged, then (when the man who makes the play can't get to the ball carrier in time) staged
+ *  again with the takedown held back until he can, a second or so at most. */
 function choreo(s, p) {
+  let late = 0, plan = stage(s, p, 0);
+  for (let i = 0; i < 4 && plan.miss > 1 && late < 0.32; i++) { late += plan.miss / (8 * plan.secs); plan = stage(s, p, late); }
+  return plan;
+}
+/** One staging of a snap, with the takedown (a tackle, a sack) held back late units of t for the man who makes it. */
+function stage(s, p, late) {
   const view = viewOf(p);
   const L = p.ball, tr = {}, calls = [], start = {};
   spots(s, view).forEach(d => { start[d.key] = [d.x, d.y, d.off]; tr[d.key] = [[0, d.x, d.y]]; });
   const add = (key, ...kf) => { if (tr[key]) tr[key].push(...kf); };
+  const on = k => !!(tr[k] && start[k] && !start[k][2]);
+  // The end of the play on the base clock (past 1 for a long one).
+  let T1 = 1;
+  const set = (k, fn, t0 = 0, t1 = T1) => { if (on(k)) tr[k] = sampled(fn, t0, t1); };
   const ours = p.poss === 'us';
   // Callout colours are yours: good for you is green, whoever has the ball.
   const forO = good => (ours ? (good ? 'is-good' : 'is-bad') : (good ? 'is-bad' : 'is-good'));
   const a = (ours ? E.parse(p.act) : p.their) || {};
   const flags = a.flags || {};
   const D = E.unitsFor(s, p.poss).d, cover = D.cover;
+  const look = view.look;
   const kind = p.two ? p.res : p.kind;
   const end = Math.max(-8, Math.min(108, L + (p.gain || 0)));
-  const ballTr = [[0, MID, L]];
+  let ballTr = [[0, MID, L]];
   const isRun = kind === 'run' || (kind === 'fum' && !!p.who);
   // The play's moments, for the camera to pose: {key, a, t0, t1} (drill-cam.js POSES).
   const acts = [];
-  const act = (key, a, t0, t1) => { if (tr[key] && t1 > t0) acts.push({key, a, t0: Math.max(0.01, t0), t1: Math.min(1, t1)}); };
-  // The line: pass sets back, run drives forward; the front engages; they block.
-  OL.forEach(k => { const [x, y] = start['o-' + k]; add('o-' + k, isRun ? [0.25, x + 0.8 * dirSign(p.dir || 's'), y + 1.4] : [0.2, x, y - 1.1]); act('o-' + k, 'bk', 0.05, isRun ? 0.62 : 0.8); });
-  D.front.forEach(k => {
-    const s0 = start['d-' + k];
-    if (!s0 || s0[2]) return;
-    add('d-' + k, [0.22, s0[0] * 0.85 + MID * 0.15, isRun ? L + 0.6 : L - 1.75]);
-    act('d-' + k, 'bk', 0.08, 0.6);
-  });
+  const act = (key, a, t0, t1) => { if (tr[key] && t1 > t0) acts.push({key, a, t0: Math.max(0.01, t0), t1}); };
   /** The carrier lowers his shoulder as he's brought down; the tackler lunges into him and goes down with him. */
   const tackle = (carrier, tD, down) => {
     act(carrier, 'tk', tD - 0.07, tD);
     if (!p.by || !tr['d-' + p.by]) return;
     act('d-' + p.by, 'tl', tD - 0.06, tD + 0.02);
-    down.push({key: 'd-' + p.by, t: Math.min(0.99, tD + 0.03), tackler: true});
+    down.push({key: 'd-' + p.by, t: Math.min(T1 - 0.01, tD + 0.03), tackler: true});
   };
   const qb0 = start['o-QB'];
-  if (kind === 'spike' || kind === 'kneel') {
-    add('o-QB', [0.35, MID, L - 1.5]);
-    ballTr.push([0.15, MID, qb0[1]], [0.5, MID, L - 1.5]);
-    calls.push({t: 0.45, text: kind === 'spike' ? 'Spike' : 'Kneel', x: MID, y: L + 3});
-    return {tr, ball: ballTr, calls, dur: 1000, acts};
-  }
-  if (kind === 'fg' || kind === 'fgx' || kind === 'xp') {
+  const line = lineMatch(start, D.front, L);
+  const engaged = new Set();
+  line.pairs.forEach(([o, d]) => { engaged.add(o); engaged.add(d); });
+  // The second level: the linebackers, and front men off the ball (a 3-4's outside backers dropped in prevent).
+  const second = D.lbs.concat(D.front.filter(k => on('d-' + k) && !engaged.has('d-' + k) && !line.loose.includes('d-' + k))).map(k => 'd-' + k).filter(on);
+  const tacklerKey = p.by ? 'd-' + p.by : null;
+  // The snap's length in seconds as played, so a man's top speed is a real one (set by each kind of play below).
+  let secs = 4;
+  // How far short of the ball carrier the man who brings him down is when he's to go down (yards), before he's landed.
+  let miss = 0;
+  const short = (k, t, goal, dist) => { const q = at(tr[k], t), g = goal(t); miss = Math.max(miss, Math.hypot(q[0] - g[0], q[1] - g[1]) - dist); };
+  const done = plan => { plan.miss = miss; plan.secs = secs; return remap(plan, T1); };
+
+  /** He runs to where want(t) puts him from t0 to t1, from wherever he is then and as fast as he's going: no faster than
+   *  vmax yards a second, picking up speed (and cutting) at a man's rate, the way he's headed ahead of the spot. */
+  const follow = (k, want, t0 = 0, t1 = 1, vmax = 9) => {
+    if (!on(k)) return;
+    const n = Math.max(1, Math.ceil((t1 - t0) / STEP - 1e-9)), h = (t1 - t0) / n, dt = h * secs, amax = 22 * dt;
+    const p0 = at(tr[k], t0), pm = t0 >= STEP ? at(tr[k], t0 - STEP) : p0;
+    let x = p0[0], y = p0[1], vx = (p0[0] - pm[0]) / (STEP * secs), vy = (p0[1] - pm[1]) / (STEP * secs);
+    const out = [[t0, x, y]];
+    let prev = want(t0);
+    for (let i = 1; i <= n; i++) {
+      const t = i === n ? t1 : t0 + i * h, g = want(t);
+      const gvx = (g[0] - prev[0]) / dt, gvy = (g[1] - prev[1]) / dt;
+      prev = g;
+      // His spot's own pace, plus making up what's left over the next couple of steps, no faster than he can go.
+      let tvx = gvx + (g[0] - x) / (dt * 2), tvy = gvy + (g[1] - y) / (dt * 2);
+      const sp = Math.hypot(tvx, tvy);
+      if (sp > vmax) { tvx *= vmax / sp; tvy *= vmax / sp; }
+      const ax = tvx - vx, ay = tvy - vy, an = Math.hypot(ax, ay);
+      if (an > amax) { vx += ax / an * amax; vy += ay / an * amax; } else { vx = tvx; vy = tvy; }
+      x += vx * dt; y += vy * dt;
+      out.push([t, x, y]);
+    }
+    tr[k] = tr[k].filter(f => f[0] < t0 - 1e-9).concat(out);
+    tr[k].lin = true;
+  };
+  /** The last steps of his track bend to land him exactly where goal(t) is at t1 (a tackle, a swat, a pick). */
+  const land = (k, t1, goal, over = 0.12) => {
+    if (!on(k)) return;
+    const t0 = Math.max(0, t1 - over), keep = tr[k].slice();
+    keep.lin = tr[k].lin;
+    const head = tr[k].filter(f => f[0] < t0 - 1e-9);
+    tr[k] = head.concat(sampled(t => { const q = at(keep, t), g = goal(t), kk = smooth((t - t0) / (t1 - t0)); return [lerp(q[0], g[0], kk), lerp(q[1], g[1], kk)]; }, t0, t1))
+      .concat(keep.filter(f => f[0] > t1 + 1e-9));
+    tr[k].lin = true;
+  };
+  /** Pursuit: he closes on the ball carrier (cpos) from t0 to t1, aiming to be dist yards off him on his own side. */
+  const pursue = (k, cpos, t0, t1, dist, vmax = 8.6) => {
+    if (!on(k) || t1 <= t0 + 1e-6) return;
+    const p0 = at(tr[k], t0), cEnd = cpos(t1);
+    let ux = p0[0] - cEnd[0], uy = p0[1] - cEnd[1];
+    const n = Math.hypot(ux, uy) || 1;
+    ux /= n; uy /= n;
+    follow(k, t => { const c = cpos(t); return [c[0] + ux * dist, c[1] + uy * dist]; }, t0, t1, vmax);
+  };
+  /** The tackler: on the carrier from t0, arriving at arm's length as he goes down (or chasing him as he gets out of
+   *  bounds). */
+  const tackler = (cpos, t0, t1) => {
+    if (!tacklerKey || !on(tacklerKey)) return;
+    pursue(tacklerKey, cpos, t0, t1, 0.9, 10.5);
+    if (!tackled(p)) return;
+    short(tacklerKey, t1, cpos, 0.9);
+    landOn(tacklerKey, t1, cpos, 0.9);
+  };
+  /** He ends up dist off the man at goal(t) at t1, on the side he comes from: his last steps bend toward him, starting
+   *  early enough that the bend adds no more than a few yards a second to his own pace. */
+  const landOn = (k, t1, goal, dist) => {
+    const c = goal(t1);
+    const aim = over => {
+      const q = at(tr[k], t1 - over), n = Math.hypot(q[0] - c[0], q[1] - c[1]) || 1, ux = (q[0] - c[0]) / n, uy = (q[1] - c[1]) / n;
+      return t => { const cc = goal(t); return [cc[0] + ux * dist, cc[1] + uy * dist]; };
+    };
+    // The bend's own speed at its steepest (the middle of it): 1.5 x how far off he is there, over its length.
+    const extra = over => { const g = aim(over), tm = t1 - over / 2, q = at(tr[k], tm), w = g(tm); return 1.5 * Math.hypot(w[0] - q[0], w[1] - q[1]) / (over * secs); };
+    let over = 0.1;
+    while (over < 0.4 && extra(over) > 5) over += 0.02;
+    land(k, t1, aim(over), over);
+  };
+  /** Who covers whom (and, on a run, who each receiver blocks): the defense's cover men on the field and off the ball,
+   *  matched to the receivers by where they line up (nearest across first; the back, from the middle of the backfield,
+   *  by where his route takes him), a backer free of the ball standing in for a man lined up a long way off (a safety
+   *  rotated to the other side), with the men in fixed ({receiver: man}) kept: the play's own man on the ball's target
+   *  (a breakup or a pick has to be his). */
+  const assignCover = (fixed = {}) => {
+    const rec = Object.keys(cover).map(rk => 'o-' + rk).filter(r => on(r) && !fixed[r]);
+    const spot = r => (r === 'o-RB' && tr[r].length > 1 ? at(tr[r], 0.3) : start[r]);
+    const taken = new Set(Object.values(fixed));
+    const own = new Set(Object.values(cover).map(c => 'd-' + E.fielded(D.T, look, c)));
+    const pool = [...own, ...second].filter((k, i, a) => a.indexOf(k) === i && on(k) && !engaged.has(k) && !taken.has(k));
+    let best = null;
+    const go = (i, used, acc, cost) => {
+      if (best && cost >= best.cost) return;
+      if (i === rec.length) { best = {cost, acc: acc.slice()}; return; }
+      pool.forEach(d => {
+        if (used.has(d)) return;
+        used.add(d); acc.push(d);
+        go(i + 1, used, acc, cost + Math.abs(start[d][0] - spot(rec[i])[0]) + 0.4 * Math.abs(start[d][1] - spot(rec[i])[1]) + (own.has(d) ? 0 : 6));
+        acc.pop(); used.delete(d);
+      });
+      if (rec.length - i > pool.length - used.size) { acc.push(null); go(i + 1, used, acc, cost + 25); acc.pop(); }
+    };
+    go(0, new Set(), [], 0);
+    const out = Object.assign({}, fixed);
+    if (best) rec.forEach((r, i) => { if (best.acc[i]) out[r] = best.acc[i]; });
+    return out;
+  };
+  /** The carrier is held up where he's brought down, legs still driving, until the man who tackles him (from where he
+   *  lines up, setting off at `from`) can get there, or for late more: the time he goes down, later than tD when the
+   *  tackler needs it. */
+  const holdUp = (key, tD, from) => {
+    if (!tacklerKey || !on(tacklerKey) || !tackled(p)) return tD;
+    const T0 = start[tacklerKey], E2 = at(tr[key], tD);
+    const need = Math.max(Math.max(0.1, from) + Math.hypot(T0[0] - E2[0], T0[1] - E2[1]) / (9 * secs), tD + late);
+    if (need <= tD + 0.02) return tD;
+    const keep = tr[key].slice();
+    keep.lin = tr[key].lin;
+    tr[key] = sampled(t => {
+      if (t <= tD) return at(keep, t);
+      const u = (t - tD) / (need - tD), w = Math.sin(u * Math.PI);
+      return [E2[0] + Math.sin((t - tD) * 40) * 0.3 * w, E2[1] - 0.45 * w];
+    }, 0, need);
+    return need;
+  };
+  /** Everyone on defense not already set closes on the carrier from t0 to t1: the tackler to arm's length, the rest
+   *  spread a few yards off (the nearest closest). */
+  const converge = (cpos, t0, t1, skip = new Set()) => {
+    const c1 = cpos(t1);
+    Object.keys(tr).filter(k => k.startsWith('d-') && on(k) && !skip.has(k) && k !== tacklerKey)
+      .map(k => ({k, d: Math.hypot(...[0, 1].map(j => at(tr[k], t0)[j] - c1[j]))})).sort((x, y) => x.d - y.d)
+      .forEach((x, i) => pursue(x.k, cpos, t0, t1, 1.9 + Math.min(5, i * 0.7)));
+    if (!skip.has(tacklerKey)) tackler(cpos, t0, t1);
+  };
+  /** After the whistle: from t0 he slows to a stop over a few steps, carrying on the way he was going. */
+  const coast = (k, t0) => {
+    if (!on(k) || tr[k].length < 2) return;
+    const p0 = at(tr[k], t0), pm = at(tr[k], Math.max(0, t0 - STEP)), dt = STEP * secs;
+    const vx = (p0[0] - pm[0]) / dt, vy = (p0[1] - pm[1]) / dt, tau = 0.35;
+    tr[k] = tr[k].filter(f => f[0] < t0 - 1e-9).concat(sampled(t => { const e = tau * (1 - Math.exp(-(t - t0) * secs / tau)); return [p0[0] + vx * e, p0[1] + vy * e]; }, t0, t0 + 0.3));
+    tr[k].lin = true;
+  };
+  const coastAll = (t0, keep) => Object.keys(tr).forEach(k => { if (!keep.includes(k)) coast(k, t0); });
+  /** Pass protection: the blocker kicks back to his set (the tackles out wide) and gives ground slowly (give yards by
+   *  the end); his man meets him and stays on him, the two hand-fighting. */
+  const protect = (o, d, give = 0.9) => {
+    const O0 = start[o], ph = phaseOf(o), out = Math.sign(O0[0] - MID), wide = Math.abs(O0[0] - MID) > 6;
+    const sx = O0[0] + out * (wide ? 1.3 : 0.35), sy = L - 2.3;
+    const of = t => {
+      const k = smooth(t / 0.16), j = Math.sin(t * 19 + ph) * 0.3 * smooth((t - 0.12) / 0.12);
+      return [lerp(O0[0], sx, k) + j * 0.5, lerp(O0[1], sy, k) - give * smooth((t - 0.12) / 0.6)];
+    };
+    set(o, of);
+    follow(d, t => { const q = of(t); return [q[0] + Math.sin(t * 19 + ph) * 0.14, q[1] + 0.95]; }, 0, T1, 8);
+    return of;
+  };
+  /** When the two meet (a man lined up wide takes a few steps to get to his blocker). */
+  const meet = (o, d) => { for (let t = 0.08; t < 0.6; t += 0.02) if (Math.hypot(...[0, 1].map(j => at(tr[o], t)[j] - at(tr[d], t)[j])) <= 1.5) return t; return 0.6; };
+
+  if (kind === 'spike' || kind === 'kneel' || kind === 'fg' || kind === 'fgx' || kind === 'xp') {
+    // The line sets and holds: a snap that's over at once.
+    secs = (kind === 'spike' || kind === 'kneel' ? 1000 : 2000) * PACE / 1000;
+    line.pairs.forEach(([o, d]) => { protect(o, d, 0.2); act(o, 'bk', 0.05, 0.9); act(d, 'bk', 0.08, 0.9); });
+    if (kind === 'spike' || kind === 'kneel') {
+      add('o-QB', [0.35, MID, L - 1.5]);
+      ballTr.push([0.15, MID, qb0[1]], [0.5, MID, L - 1.5]);
+      calls.push({t: 0.45, text: kind === 'spike' ? 'Spike' : 'Kneel', x: MID, y: L + 3});
+      return {tr, ball: ballTr, calls, dur: 1000, acts};
+    }
     const good = kind !== 'fgx';
     add('o-QB', [0.2, MID, L - 7]);
     ballTr.push([0.2, MID, L - 7], [0.85, good ? MID : MID + 6, 110]);
     calls.push({t: 0.86, text: good ? 'It’s good!' : 'No good', x: MID, y: 104, cls: good ? 'is-score' : 'is-bad'});
     return {tr, ball: ballTr, calls, dur: 2000, kick: true, acts};
   }
+
   if (isRun) {
     const rk = p.trick === 'r' ? 'r' : p.rk || 'z';
     const sg = rk === 'r' ? -1 : dirSign(p.dir || 's'); // the reverse always ends up weak
     const carrier = 'o-' + (p.who || 'RB');
     const holeX = rk === 't' ? MID + sg * 15 : rk === 'r' ? MID - 13 : MID + sg * 5;
-    const fx = p.oob ? (sg > 0 ? WIDTH - 0.6 : 0.6) : clampX(holeX + sg * Math.min(12, Math.max(0, p.gain) * 0.35));
+    // Where across he goes down (the result says how far, not where): toward the side of the man who brings him down.
+    const fx0 = clampX(holeX + sg * Math.min(12, Math.max(0, p.gain) * 0.35));
+    const tx = tacklerKey && start[tacklerKey] && tackled(p) ? start[tacklerKey][0] : fx0;
+    const fx = p.oob ? (sg > 0 ? WIDTH - 0.6 : 0.6) : clampX(fx0 + Math.max(-5, Math.min(5, (tx - fx0) * 0.35)));
+    secs = 2300 * PACE / 1000;
+    let tHand;
     if (rk === 't') {
       // The toss: the QB pitches it wide and the back runs for the edge.
       add('o-QB', [0.12, MID + sg, qb0[1] + 0.4], [0.45, MID - sg, qb0[1] - 0.5]);
       add('o-RB', [0.17, MID + sg * 8, L - 5.2], [0.42, holeX, L + 0.5], [0.9, fx, end]);
       ballTr.push([0.06, MID, qb0[1]], [0.17, MID + sg * 8, L - 5.2]);
-      tr['o-RB'].slice(2).forEach(k => ballTr.push(k));
+      tHand = 0.17;
     } else if (rk === 'd') {
       // The draw: the QB drops back like it's a pass, then hands it off late.
       add('o-QB', [0.24, MID, L - 7.5], [0.34, MID - sg * 0.6, L - 7.4], [0.6, MID - sg * 2, L - 8]);
       add('o-RB', [0.22, MID + sg * 1.2, L - 6.6], [0.32, MID + sg * 0.8, L - 6.8], [0.55, MID + sg * 1.5, L + 0.6], [0.92, fx, end]);
       ballTr.push([0.1, MID, qb0[1]], [0.24, MID, L - 7.5], [0.32, MID + sg * 0.8, L - 6.8]);
-      tr['o-RB'].slice(3).forEach(k => ballTr.push(k));
+      tHand = 0.32;
     } else if (rk === 'r') {
       // The double reverse: the back takes it one way and hands it to the receiver coming back the other.
       const [wx, wy] = start[carrier];
       add('o-RB', [0.16, MID + 5, L - 4.8], [0.32, MID + 9, L - 4.2], [0.55, MID + 11, L - 2.5]);
       tr[carrier] = [[0, wx, wy], [0.3, MID + 8.6, L - 4.6], [0.35, MID + 8, L - 4.8], [0.62, holeX, L - 1], [0.92, fx, end]];
-      ballTr.push([0.08, MID, qb0[1]], [0.16, MID + 5, L - 4.8], [0.32, MID + 8.6, L - 4.6]);
-      tr[carrier].slice(2).forEach(k => ballTr.push(k));
+      ballTr.push([0.08, MID, qb0[1]], [0.16, MID + 5, L - 4.8], [0.3, MID + 8.6, L - 4.6]);
+      tHand = 0.3;
       calls.push({t: 0.36, text: 'Reverse!', x: MID + 8, y: L - 1.5});
     } else {
       add('o-QB', [0.14, MID + sg * 0.8, qb0[1] + 0.6], [0.45, MID - sg * 2.5, qb0[1] - 1]);
       add('o-RB', [0.14, MID + sg * 1.2, L - 4.8], [0.38, holeX, L + 0.8], [0.9, fx, end]);
       ballTr.push([0.08, MID, qb0[1]], [0.14, MID + sg * 1.2, L - 4.8]);
-      tr['o-RB'].slice(2).forEach(k => ballTr.push(k));
+      tHand = 0.14;
     }
+    // From the handoff (or the pitch) he runs at a back's pace, as long as that takes; the ball's in his hands; where
+    // he's brought down, he's held up until his tackler gets there.
+    tr[carrier] = openField(tr[carrier], tHand);
+    {
+      // His tackler sets off at the snap, or (a man in a block, his own or a receiver's) when he sheds it, as the back
+      // reaches the line.
+      const c0 = tr[carrier], tl = (c0.find(f => f[2] >= L - 0.5) || c0[c0.length - 1])[0];
+      const blocked = engaged.has(tacklerKey) || Object.values(assignCover()).includes(tacklerKey);
+      holdUp(carrier, c0[c0.length - 1][0], blocked ? Math.max(0.3, tl) : 0.1);
+    }
+    T1 = Math.max(1, tr[carrier][tr[carrier].length - 1][0] + 0.08);
+    const ct = tr[carrier], tD = ct[ct.length - 1][0], cpos = t => at(ct, t);
+    const pre = ballTr.slice();
+    ballTr = sampled(t => (t < tHand ? at(pre, t) : cpos(t)), 0, T1);
     if (p.broke) { calls.push({t: 0.6, text: 'Broken tackle!', key: carrier, cls: forO(true)}); act(carrier, 'tk', 0.56, 0.63); }
     if (kind === 'fum') calls.push({t: 0.86, text: 'Fumble!', x: fx, y: end + 3, cls: forO(false)});
-    // Linebackers and safeties flow to the ball; the tackler meets it.
-    D.lbs.concat(['SS', 'FS', 'NB', 'LCB', 'RCB']).forEach(k => {
-      const s0 = start['d-' + k];
-      if (!s0 || s0[2]) return;
-      const near = k === p.by;
-      add('d-' + k, [0.45, (s0[0] + holeX) / 2, Math.max(L + 1.5, s0[1] - 2)], [0.92, near ? fx + 0.6 : (s0[0] * 0.4 + fx * 0.6), near ? end + 0.9 : Math.max(end + 2.5, (s0[1] + end) / 2)]);
+    // When the carrier gets to the line: the backers and the secondary come up to meet him then.
+    const tLine = (ct.find(f => f[2] >= L - 0.5) || ct[ct.length - 1])[0];
+
+    // The line: each blocker fires out into his man and drives him (laterally too on a zone or a toss), back as far as
+    // the run went, or he's driven back into the backfield when it was stuffed. Whoever makes the tackle sheds his man.
+    const gain = p.gain || 0;
+    const push = gain <= 0 ? -1.1 : gain < 3 ? 0.4 : Math.min(3, 0.8 + gain * 0.18);
+    const lat = rk === 'd' ? 0 : sg * 0.9;
+    line.pairs.forEach(([o, d], i) => {
+      const O0 = start[o], D0 = start[d], ph = phaseOf(o), cx = lerp(O0[0], D0[0], 0.3), cy = L + 0.3, pi = push + (i % 2 ? 0.25 : -0.2);
+      const of = t => {
+        const k = smooth(t / 0.13), m = smooth((t - 0.12) / 0.55), j = Math.sin(t * 17 + ph) * 0.18 * smooth((t - 0.12) / 0.1);
+        return [lerp(O0[0], cx, k) + lat * m + j, lerp(O0[1], cy - 0.45, k) + pi * m];
+      };
+      set(o, of);
+      follow(d, t => { const q = of(t); return [q[0] + Math.sin(t * 17 + ph + 1) * 0.12, q[1] + 0.9]; }, 0, T1, 8);
+      act(o, 'bk', 0.05, Math.min(0.85, tD));
+      // The tackler gets off his block as the carrier comes; the others hold theirs until he's by them.
+      const shed = d === tacklerKey ? Math.max(0.24, Math.min(tLine, tD - 0.3)) : Math.max(tLine + 0.12, tD - 0.12);
+      act(d, 'bk', 0.08, shed);
+      if (d !== tacklerKey) pursue(d, cpos, shed, tD, 2.4 + (i % 3) * 0.6, 7);
     });
-    if (p.by && D.front.includes(p.by)) add('d-' + p.by, [0.9, fx - 0.6, end + 0.8]);
-    // Receivers block downfield a little.
-    E.TARGETS.filter(k => k !== 'RB' && 'o-' + k !== carrier).forEach(k => { const [x, y] = start['o-' + k]; add('o-' + k, [0.6, x + (MID - x) * 0.1, y + 5]); });
+    // A lineman with no one across climbs to the second level and walls off the backer nearest the hole.
+    const freeBackers = second.filter(k => k !== tacklerKey).sort((x, y) => Math.abs(start[x][0] - holeX) - Math.abs(start[y][0] - holeX));
+    const climbed = new Set();
+    line.free.forEach((o, i) => {
+      const lb = freeBackers[i];
+      const O0 = start[o];
+      if (!lb) { set(o, t => [O0[0] + lat * smooth(t / 0.6), O0[1] + 1.5 * smooth(t / 0.4)]); act(o, 'bk', 0.05, 0.6); return; }
+      climbed.add(lb);
+      const B0 = start[lb], M = [lerp(B0[0], holeX, 0.5), lerp(B0[1], L + 2.2, 0.6)];
+      follow(o, t => [M[0], M[1] - 0.9 + Math.max(-0.5, push * 0.6) * smooth((t - 0.32) / 0.45)], 0, T1, 7);
+      follow(lb, t => { const q = at(tr[o], t); return t < 0.1 ? [B0[0] + lat * 0.4, B0[1] - 0.3] : [q[0], q[1] + 0.9]; }, 0, T1, 8);
+      act(o, 'bk', 0.3, Math.min(0.85, tD));
+      act(lb, 'bk', 0.32, Math.max(0.33, tD - 0.12));
+      pursue(lb, cpos, Math.max(0.34, tD - 0.12), tD, 2.6, 7);
+    });
+    // Unblocked front men chase from the back side.
+    line.loose.forEach((d, i) => { if (d !== tacklerKey) pursue(d, cpos, 0, tD, 2 + i * 0.8); });
+    // The backers read, step to the run's side, fill their gaps as the carrier reaches the line, then pursue.
+    second.filter(k => !climbed.has(k) && k !== tacklerKey).forEach((k, i) => {
+      const B0 = start[k], fill = [lerp(B0[0], holeX, 0.65) + (i - 1) * 1.4, Math.max(L + 1.4, Math.min(B0[1], L + 3))];
+      const tf = Math.max(0.3, Math.min(tLine, tD - 0.2));
+      follow(k, t => (t < 0.12 ? [B0[0] + sg * 0.6, B0[1] - 0.3] : fill), 0, tf, 8);
+      pursue(k, cpos, tf, tD, 2.2 + i * 0.9);
+    });
+    // The receivers block the men lined up on them: up a few yards, meet him, ride him; he gets off late and chases.
+    const onWho = assignCover();
+    E.TARGETS.filter(k => k !== 'RB' && 'o-' + k !== carrier).forEach((rk2, i) => {
+      const w = 'o-' + rk2, dk = onWho[w] || 'd-none';
+      if (!on(w)) return;
+      const W0 = start[w], W1 = [W0[0] + (MID - W0[0]) * 0.07, W0[1] + 3.2];
+      const wf = t => { const k = smooth(t / 0.3), m = smooth((t - 0.3) / 0.4); return [lerp(W0[0], W1[0], k) + sg * 0.6 * m, lerp(W0[1], W1[1], k) + 0.5 * m]; };
+      tr[w] = sampled(wf);
+      if (!on(dk) || engaged.has(dk) || climbed.has(dk)) return;
+      engaged.add(dk);
+      follow(dk, t => { const q = wf(t); return [q[0], q[1] + 0.95]; }, 0, 1, 9);
+      act(w, 'bk', 0.3, Math.min(0.85, tD));
+      const shed = dk === tacklerKey ? Math.max(0.3, Math.min(tLine, tD - 0.3)) : Math.max(0.5, tD - 0.14);
+      act(dk, 'bk', 0.32, shed);
+      if (dk !== tacklerKey) pursue(dk, cpos, shed, tD, 2.8 + i * 0.7);
+    });
+    // The rest of the secondary comes downhill into the alley, then closes.
+    ['d-FS', 'd-SS', 'd-NB', 'd-LCB', 'd-RCB'].filter(k => on(k) && !engaged.has(k) && k !== tacklerKey).forEach((k, i) => {
+      const S0 = start[k], alley = [lerp(S0[0], holeX, 0.55), Math.max(L + 4, S0[1] - 5)];
+      const tf = Math.max(0.3, Math.min(tLine + 0.05, tD - 0.15));
+      follow(k, () => alley, 0, tf, 8);
+      pursue(k, cpos, tf, tD, 3.2 + i);
+    });
+    // The tackler: from his job to the carrier, getting there as he goes down.
+    if (tacklerKey && on(tacklerKey)) {
+      const t0 = engaged.has(tacklerKey) ? Math.max(0.24, Math.min(tLine, tD - 0.3)) : Math.max(0.1, Math.min(tLine - 0.15, tD - 0.35));
+      if (tr[tacklerKey].length === 1) { const T0 = start[tacklerKey]; follow(tacklerKey, () => [lerp(T0[0], holeX, 0.3), Math.max(L + 1.5, T0[1] - 2)], 0, t0, 8); }
+      tackler(cpos, t0, tD);
+    }
     finishCalls(p, kind, calls, fx, end, forO);
-    const ct = tr[carrier] || [];
-    const down = tackled(p) && ct.length ? [{key: carrier, t: ct[ct.length - 1][0]}] : [];
+    // The play's over: everyone else pulls up.
+    coastAll(tD, [carrier, tacklerKey, 'o-QB', 'o-RB']);
+    const down = tackled(p) && ct.length ? [{key: carrier, t: tD}] : [];
     if (down.length) tackle(carrier, down[0].t, down);
-    return {tr, ball: ballTr, calls, dur: 2300 + Math.min(900, Math.max(0, p.gain) * 25), down, acts};
+    return done({tr, ball: ballTr, calls, dur: 2300, down, acts}, T1);
   }
+
   // Passes (and sacks, the RPO's throw, the flea flicker and the halfback pass).
   const routes = Object.assign({}, p.routes || {});
   if (a.kind === 'pass') routes[a.slot] = a.route;
@@ -474,9 +829,20 @@ function choreo(s, p) {
   const passer = hb ? 'o-RB' : 'o-QB';
   const qbSpot = hb ? [MID + 12, L - 3.5] : [MID + roll * 8, L - 7.2];
   const R = E.ROUTES[routeOf(target)] || E.ROUTES.go;
-  const tThrow = p.trick ? 0.5 : Math.min(0.55, Math.max(0.3, 0.22 + R.time * 0.09));
   const air = p.air != null ? p.air : R.depth;
-  const tCatch = Math.min(0.82, tThrow + Math.min(0.3, Math.max(0.08, Math.abs(air) / 70)));
+  const sack = kind === 'sack' || kind === 'fum';
+  secs = (sack ? 2300 : 2500) * PACE / 1000;
+  const pathLen = path => path.reduce((sum, q, i) => (i ? sum + Math.hypot(q[0] - path[i - 1][0], q[1] - path[i - 1][1]) : 0), 0);
+  // The target's route to where he catches it, at his pace, sets when the ball gets there (and so when it's thrown).
+  const tPath = routePath(routeOf(target), start['o-' + target][0], start['o-' + target][1]);
+  // A pass broken up or picked off is held a beat longer when the man who gets to it needs that (late), the receiver
+  // carrying on along his route meanwhile.
+  const hold = (kind === 'inc' || kind === 'int') && !p.trick ? late : 0;
+  const tCut = routeTo(tPath, L, air, hold * PASS_YPU), cp0 = tCut[tCut.length - 1];
+  const flight = Math.min(0.4, Math.max(0.08, Math.abs(air) / 60));
+  const base = p.trick ? 0.5 : Math.min(0.55, Math.max(0.3, 0.22 + R.time * 0.09));
+  const tCatch = ['catch', 'inc', 'int'].includes(kind) ? Math.max(base + flight + hold, 0.04 + pathLen(tCut) / PASS_YPU) : base + flight;
+  const tThrow = p.trick ? base : tCatch - flight;
   if (hb) {
     // The halfback pass: the pitch, the back heads for the edge like a sweep, then pulls up and throws.
     add('o-RB', [0.16, MID + 9, L - 5], [0.42, qbSpot[0], qbSpot[1]]);
@@ -498,110 +864,246 @@ function choreo(s, p) {
     const [x0, y0] = start['o-' + k];
     const path = routePath(routeOf(k), x0, y0);
     if (k === target && ['catch', 'inc', 'int'].includes(kind)) {
-      const cp = pointAt(path, L, air);
-      const cut = path.filter(pt => pt[1] < cp[1] - 0.01);
-      cut.push(cp);
-      tr['o-' + k] = timed(cut, 0.04, tCatch);
-      recv[k] = cp;
-    } else tr['o-' + k] = timed(path, 0.04, 0.8);
+      tr['o-' + k] = timed(tCut, 0.04, tCatch);
+      recv[k] = cp0;
+    } else tr['o-' + k] = timed(path, 0.04, 0.04 + pathLen(path) / PASS_YPU);
   });
-  if (kind === 'sack' || kind === 'fum') {
-    const tSack = 0.46;
-    const sx = qbSpot[0], sy = Math.max(-8, L + (p.gain || -6));
-    add(passer, [tSack, sx, qbSpot[1]], [tSack + 0.12, sx, sy]);
-    ballTr.push([tSack, sx, qbSpot[1]], [tSack + 0.12, sx, sy]);
-    if (p.by) add('d-' + p.by, [tSack, sx + 0.8, qbSpot[1] + 0.6], [tSack + 0.12, sx + 0.6, sy + 0.4]);
+  const cp = recv[target] || [start['o-' + target][0], L + air];
+  // How the play ends, which sets its length: the catch and the run after it.
+  const fx0 = clampX(cp[0] + (MID - cp[0]) * 0.15), tx = kind === 'catch' && tacklerKey && start[tacklerKey] && tackled(p) ? start[tacklerKey][0] : fx0;
+  const fx = p.oob ? (cp[0] >= MID ? WIDTH - 0.6 : 0.6) : clampX(fx0 + Math.max(-4, Math.min(4, (tx - fx0) * 0.25)));
+  let tEnd = tCatch + 0.1 + Math.hypot(fx - cp[0], end - cp[1]) / PASS_YPU;
+  if (kind === 'catch') {
+    tr['o-' + target].push([tEnd, fx, end]);
+    tEnd = holdUp('o-' + target, tEnd, tThrow);
+  }
+  const dur = sack ? 2300 : kind === 'int' ? 2600 : 2500;
+  if (!sack) T1 = Math.max(1, (kind === 'catch' ? tEnd : kind === 'int' ? tCatch + 0.4 : tCatch + 0.15) + 0.06);
+  // The sack comes when the man who makes it can get there (a blitzer from depth takes longer).
+  const sacker = sack && tacklerKey && on(tacklerKey) ? tacklerKey : null;
+  const tSack = sacker ? Math.max(0.46, 0.1 + (Math.hypot(start[sacker][0] - qbSpot[0], start[sacker][1] - qbSpot[1]) + 3) / (9.5 * secs)) + late : 0.46;
+  if (sack) T1 = Math.max(1, tSack + 0.3);
+  // When the play's over for the line and the coverage: the ball's caught (or not), or the passer's down.
+  const tOver = sack ? tSack + 0.12 : tCatch;
+  const sx = qbSpot[0], sy = Math.max(-8, L + (p.gain || -6));
+  // A long loss: he gives ground escaping the rush first, and goes down a yard or so further back.
+  if (sack) add(passer, [tSack, sx, Math.min(qbSpot[1], sy + 1.2)], [tSack + 0.12, sx, sy]);
+  const qbAt = t => at(tr[passer], t);
+
+  // The line: protection, each pair locked together until the ball is out (or the sack).
+  line.pairs.forEach(([o, d]) => {
+    const of = protect(o, d), tm = meet(o, d);
+    act(o, 'bk', tm - 0.03, tOver); act(d, 'bk', tm, tOver);
+    if (d === sacker) {
+      // He beats his man round the outside and gets to the passer; his man turns and chases.
+      const tB = 0.27, B = at(tr[d], tB), out = Math.sign(start[o][0] - MID) || 1, A = [B[0] + out * 1.3, B[1] - 1.1];
+      follow(d, t => (t < 0.35 ? A : (q => [q[0] + 0.8, q[1] + 0.6])(qbAt(Math.min(t, tSack)))), tB, tSack, 10);
+      const O1 = of(tB);
+      set(o, t => (t < tB ? of(t) : (q => { const k = smooth((t - tB) / (tSack - tB)) * 0.7; return [lerp(O1[0], q[0] + out * 1.4, k), lerp(O1[1], q[1] + 1.5, k)]; })(qbAt(Math.min(t, tSack)))));
+      acts.forEach(x => { if ((x.key === o || x.key === d) && x.a === 'bk') x.t1 = tB; });
+    }
+  });
+  // Blitzers come through the gaps: a lineman left over picks up the first; the rest close on the passer as he lets
+  // it go (or take him down, on a sack).
+  const blitz = ['c0', 'fire', 'rb'].includes(p.dcall);
+  const coverKeys = new Set(Object.values(cover).map(c => 'd-' + E.fielded(D.T, look, c)));
+  const rushers = line.loose.slice();
+  if (blitz) second.filter(k => !coverKeys.has(k)).forEach(k => rushers.push(k));
+  if (p.dcall === 'c0' && on('d-FS')) rushers.push('d-FS');
+  if (sacker && !engaged.has(sacker) && !rushers.includes(sacker)) rushers.push(sacker);
+  const freeOL = line.free.slice();
+  rushers.forEach(k => {
+    const S0 = start[k], gap = [MID + (S0[0] - MID) * 0.3, L - 0.6];
+    if (k !== sacker && freeOL.length) {
+      // Picked up: the free lineman steps into the gap and meets him there.
+      const o = freeOL.shift(), O0 = start[o], ph = phaseOf(o);
+      const of = t => { const k2 = smooth(t / 0.2), j = Math.sin(t * 19 + ph) * 0.25 * smooth((t - 0.2) / 0.1); return [lerp(O0[0], gap[0], k2) + j * 0.4, lerp(O0[1], L - 2.2, k2) - 0.6 * smooth((t - 0.2) / 0.5)]; };
+      set(o, of);
+      follow(k, t => { const q = of(t); return [q[0], q[1] + 0.95]; }, 0, T1, 8.5);
+      act(o, 'bk', 0.2, tOver); act(k, 'bk', 0.26, tOver);
+      engaged.add(k);
+      return;
+    }
+    const tGet = k === sacker ? tSack : tThrow;
+    follow(k, t => {
+      if (t < 0.22) return gap;
+      const q = qbAt(Math.min(t, tGet));
+      if (k === sacker) return [q[0] + 0.8, q[1] + 0.6];
+      const ux = gap[0] - q[0], uy = gap[1] - q[1], n = Math.hypot(ux, uy) || 1;
+      return [q[0] + ux / n * 1.8, q[1] + uy / n * 1.8];
+    }, 0, tOver + 0.06, k === sacker ? 10 : 8.6);
+    engaged.add(k);
+  });
+  // A lineman with no one to block helps the man next to him.
+  freeOL.forEach(o => {
+    const O0 = start[o], mate = line.pairs.slice().sort((x, y) => Math.abs(start[x[0]][0] - O0[0]) - Math.abs(start[y[0]][0] - O0[0]))[0];
+    if (!mate) return;
+    const side = Math.sign(O0[0] - start[mate[0]][0]) || 1;
+    set(o, t => { const q = at(tr[mate[0]], t), k = smooth(t / 0.15); return [lerp(O0[0], q[0] + side * 0.95, k), lerp(O0[1], q[1] + 0.15, k)]; });
+    act(o, 'bk', 0.12, tOver);
+  });
+  // The sacker lands on the passer and takes him down.
+  if (sacker) {
+    short(sacker, tSack, qbAt, 0.9);
+    landOn(sacker, tSack, t => qbAt(t), 0.9);
+    set(sacker, (() => {
+      const keep = tr[sacker].slice(), q = at(keep, tSack);
+      keep.lin = true;
+      return t => (t <= tSack ? at(keep, t) : (k => [lerp(q[0], sx + 0.6, k), lerp(q[1], sy + 0.4, k)])(smooth((t - tSack) / 0.12)));
+    })());
+  }
+
+  // Coverage. Man: a step behind his receiver and half a yard inside, from where he lines up (his cushion closing over
+  // the first part of the route). Zone: from his drop to his landmark, matching the receiver who comes into it with a
+  // cushion, over the top (deep) or underneath (the rest, who hand a deep route on to the safeties).
+  const man = ['c0', 'c1', 'rb'].includes(p.dcall);
+  const deepCB = ['c3', 'c4', 'pv', 'fire'].includes(p.dcall);
+  const deepS = ['c2', 'c4', 'pv'].includes(p.dcall);
+  const ins = x => (x < MID ? 1 : -1);
+  const covering = {};
+  // The play's man (who breaks it up, picks it, or makes the tackle after the catch) is the one on its target.
+  const byMan = ['inc', 'int', 'catch'].includes(kind) && tacklerKey && on(tacklerKey) && !engaged.has(tacklerKey) ? {['o-' + target]: tacklerKey} : {};
+  Object.entries(assignCover(byMan)).forEach(([r, k]) => {
+    if (!on(k) || !on(r) || engaged.has(k) || tr[r].length < 2) return;
+    covering[k] = r;
+    const D0 = start[k], Rt = tr[r], cb = k === 'd-LCB' || k === 'd-RCB', saf = k === 'd-SS' || k === 'd-FS';
+    const deep = !man && ((cb && deepCB) || (saf && deepS));
+    const lm = deep ? [D0[0] + (MID - D0[0]) * (cb ? 0.15 : 0.1), L + (p.dcall === 'pv' ? 18 : 13)] : [D0[0] + (MID - D0[0]) * 0.1, L + (cb ? 4 : 5.5)];
+    const want = man
+      ? t => { const q = at(Rt, t); return [q[0] + ins(q[0]) * 0.6, q[1] + 0.5]; }
+      : t => {
+        const q = at(Rt, t), lk = smooth(t / 0.3), home = [lerp(D0[0], lm[0], lk), lerp(D0[1], lm[1], lk)];
+        // Underneath men carry a deep route as far as the safeties' depth, then hand him on.
+        const shadow = deep ? [q[0] + ins(q[0]) * 0.5, q[1] + 2.6] : [q[0] + ins(q[0]) * 1.1, Math.min(q[1] + 0.5, L + (cb ? 16 : 11))];
+        const m = 0.88 * smooth((t - 0.06) / 0.28), y = lerp(home[1], shadow[1], m);
+        return [lerp(home[0], shadow[0], m), deep ? Math.max(y, q[1] + 1.5) : y];
+      };
+    follow(k, want, 0, tOver, cb || saf ? 9.8 : 9.2);
+  });
+  // The free safety (and the strong one when he's free): his deep middle or half, shading toward the deepest receivers
+  // there (a blend, so he slides from one to the next).
+  const recvKeys = E.TARGETS.map(k => 'o-' + k).filter(k => on(k) && tr[k].length > 1);
+  ['d-FS', 'd-SS'].filter(k => on(k) && !covering[k] && !engaged.has(k)).forEach(k => {
+    const S0 = start[k], half = !man && (p.dcall === 'c2' || p.dcall === 'c4');
+    const lm = [half ? (S0[0] < MID ? MID - 11 : MID + 11) : MID, L + (p.dcall === 'pv' ? 22 : 15)];
+    follow(k, t => {
+      const lk = smooth(t / 0.32), home = [lerp(S0[0], lm[0], lk), lerp(S0[1], lm[1], lk)];
+      const qs = recvKeys.map(r => at(tr[r], t)).filter(q => !half || Math.abs(q[0] - lm[0]) < 16);
+      if (!qs.length) return home;
+      const top = Math.max(...qs.map(q => q[1]));
+      const d = blend(qs.map(q => [q[0], q[1], Math.exp((q[1] - top) / 3)]));
+      const m = 0.55 * smooth((t - 0.1) / 0.3);
+      return [lerp(home[0], d[0], m), lerp(home[1], Math.max(lm[1] - 2, top + 4.5), m)];
+    }, 0, tOver, 9.4);
+  });
+  // The rest of the backers: their hook zones, sliding toward the receivers underneath near them.
+  second.filter(k => !covering[k] && !engaged.has(k)).forEach(k => {
+    const B0 = start[k], lm = [lerp(B0[0], MID, 0.2), L + 5.5];
+    follow(k, t => {
+      const lk = smooth(t / 0.28), home = [lerp(B0[0], lm[0], lk), lerp(B0[1], lm[1], lk)];
+      const qs = recvKeys.map(r => at(tr[r], t)).filter(q => q[1] < L + 12);
+      const w = qs.map(q => [q[0] + ins(q[0]) * 1.2, Math.max(L + 3, Math.min(L + 9, q[1] - 0.5)), Math.exp(-Math.hypot(q[0] - home[0], q[1] - home[1]) / 3)]);
+      const tot = w.reduce((s2, q) => s2 + q[2], 0);
+      if (tot < 0.05) return home;
+      const n = blend(w), m = 0.5 * smooth((t - 0.1) / 0.3) * Math.min(1, tot);
+      return [lerp(home[0], n[0], m), lerp(home[1], n[1], m)];
+    }, 0, tOver, 8.6);
+  });
+
+  if (sack) {
+    ballTr = (pre => sampled(t => (t <= tSack ? at(pre, t) : qbAt(t))))(ballTr.concat([[tSack, sx, qbSpot[1]]]));
     calls.push({t: tSack + 0.04, text: kind === 'fum' ? 'Fumble!' : 'Sack!', x: sx, y: qbSpot[1] + 2.5, cls: forO(false)});
-    coverage(tr, start, D, cover, p, L, null, 0.9);
+    coastAll(tSack + 0.12, [passer, sacker]);
     // He looks to throw; the rusher gets to him first.
     act(passer, 'tw', tSack - 0.12, tSack - 0.01);
     const down = [{key: passer, t: tSack + 0.12}];
-    if (p.by && tr['d-' + p.by]) { act('d-' + p.by, 'tl', tSack - 0.05, tSack + 0.1); down.push({key: 'd-' + p.by, t: tSack + 0.14, tackler: true}); }
-    return {tr, ball: ballTr, calls, dur: 2300, down, acts};
+    if (sacker) { act(sacker, 'tl', tSack - 0.05, tSack + 0.1); down.push({key: sacker, t: tSack + 0.14, tackler: true}); }
+    return done({tr, ball: ballTr, calls, dur, down, acts, covers: Object.entries(covering).map(([k, r]) => [r, k])}, T1);
   }
-  const cp = recv[target] || [start['o-' + target][0], L + air];
-  ballTr.push([tThrow, qbSpot[0], qbSpot[1]], [tCatch, cp[0], cp[1]]);
+  const preBall = ballTr.concat([[tThrow, qbSpot[0], qbSpot[1]]]);
   const air2 = {t0: tThrow, t1: tCatch};
   // The passer winds up and lets it go; his target reaches for it.
   act(passer, 'tw', tThrow - 0.07, tThrow);
   act(passer, 'tr', tThrow, tThrow + 0.07);
   act('o-' + target, 'ct', tCatch - 0.05, tCatch + 0.03);
-  let dur = 2500, down = [], loose = null;
+  /** The man in coverage gets to the ball as it arrives (to swat it, pick it, or be on the receiver as he catches it):
+   *  when he's there by then (or has to be: must); false when he's still a step or two behind. */
+  const toBall = (k, dist, must = true) => {
+    if (!on(k)) return false;
+    const q = at(tr[k], tCatch);
+    if (!must && Math.hypot(q[0] - cp[0], q[1] - cp[1]) > dist + 1) return false;
+    if (must && !p.trick) short(k, tCatch, () => cp, dist);
+    landOn(k, tCatch, () => cp, dist);
+    return true;
+  };
+  const coverMan = Object.keys(covering).find(k => covering[k] === 'o-' + target) || null;
+  // The play's own man (on the target) breaks on the ball as it's thrown, to be there as it comes down.
+  if (coverMan && coverMan === byMan['o-' + target]) follow(coverMan, () => [cp[0] + ins(cp[0]) * 0.8, cp[1] + 0.6], tThrow, tCatch, 10);
+  // The ball: in the passer's hands, then on a straight line to the catch (its arc is the camera's), then wherever it
+  // goes from there.
+  let after = null;
+  let down = [], loose = null;
   if (kind === 'catch') {
-    const fx = p.oob ? (cp[0] >= MID ? WIDTH - 0.6 : 0.6) : clampX(cp[0] + (MID - cp[0]) * 0.15);
-    const tEnd = Math.min(0.95, tCatch + 0.12 + Math.min(0.3, Math.max(0, end - cp[1]) / 60));
-    tr['o-' + target].push([tEnd, fx, end]);
-    ballTr.push([tEnd, fx, end]);
     if (p.broke) { calls.push({t: (tCatch + tEnd) / 2, text: 'Broken tackle!', key: 'o-' + target, cls: forO(true)}); act('o-' + target, 'tk', (tCatch + tEnd) / 2 - 0.04, (tCatch + tEnd) / 2 + 0.03); }
-    coverage(tr, start, D, cover, p, L, {at: tCatch, x: fx, y: end, t: tEnd}, tEnd);
+    const cpos = t => at(tr['o-' + target], t);
+    after = cpos;
+    // The defense breaks on the ball as it's thrown (the line too, off their blocks) and closes on the man catching it;
+    // his own man (broken on the ball already) gets to him as it arrives if he can, and takes him down or stays on him.
+    const tBreak = Math.min(tCatch - 0.04, tThrow + 0.05);
+    converge(cpos, tBreak, tEnd, new Set(coverMan ? [coverMan] : []));
+    acts.forEach(x => { if (x.a === 'bk' && x.t1 > tBreak) x.t1 = Math.max(x.t0 + 0.01, tBreak); });
+    if (coverMan) {
+      if (coverMan === tacklerKey) tackler(cpos, tCatch, tEnd);
+      else { toBall(coverMan, 1.4, false); pursue(coverMan, cpos, tCatch, tEnd, 1.6); }
+    }
+    // His teammates turn to block for him, escorting him upfield; the line follows the play.
+    recvKeys.filter(k => k !== 'o-' + target).forEach((k, i) => {
+      const side = (i % 2 ? 1 : -1) * (2.5 + i * 0.6);
+      follow(k, t => { const c = cpos(t); return [clampX(c[0] + side), c[1] + 2.5]; }, tCatch, tEnd, 8);
+    });
+    line.pairs.concat(line.free.map(o => [o])).forEach(([o]) => { const p0 = at(tr[o], tCatch); follow(o, () => [p0[0], p0[1] + 3], tCatch, tEnd, 4.5); });
     finishCalls(p, kind, calls, fx, end, forO, tEnd);
-    dur = 2500 + (tEnd - tCatch) * 2400;
+    coastAll(tEnd, ['o-' + target, tacklerKey, passer]);
     if (tackled(p)) { down = [{key: 'o-' + target, t: tEnd}]; tackle('o-' + target, tEnd, down); }
   } else if (kind === 'inc') {
-    ballTr.push([Math.min(0.95, tCatch + 0.1), cp[0] + 1.2, cp[1] - 1.5]);
     loose = tCatch;
-    coverage(tr, start, D, cover, p, L, {at: tCatch, x: cp[0], y: cp[1], miss: true}, tCatch);
+    const lie = [cp[0] + 1.2, cp[1] - 1.5], tLie = tCatch + 0.1;
+    after = t => (k => [lerp(cp[0], lie[0], k), lerp(cp[1], lie[1], k)])(Math.min(1, (t - tCatch) / (tLie - tCatch)));
     calls.push({t: tCatch, text: p.by && !p.trick ? 'Broken up' : 'Incomplete', x: cp[0], y: cp[1] + 2.8});
     // The man in coverage gets a hand on it.
-    if (p.by && !p.trick) act('d-' + p.by, 'sw', tCatch - 0.05, tCatch + 0.05);
+    if (p.by && !p.trick) { toBall(tacklerKey, 0.7); act(tacklerKey, 'sw', tCatch - 0.05, tCatch + 0.05); }
+    else if (coverMan) toBall(coverMan, 1.3, false);
     if (p.kind === '2fail') calls.push({t: 0.9, text: 'No good', x: MID, y: L + 6, cls: 'is-bad'});
     else if (p.downs) calls.push({t: 0.9, text: 'Turnover on downs', x: MID, y: L + 6, cls: forO(false)});
+    coastAll(tCatch, [passer]);
   } else if (kind === 'int') {
-    const back = Math.max(L + 2, cp[1] - 8);
-    ballTr.push([0.95, cp[0] + (MID - cp[0]) * 0.3, back]);
-    coverage(tr, start, D, cover, p, L, {at: tCatch, x: cp[0], y: cp[1], pick: true, back}, tCatch);
+    const back = Math.max(L + 2, cp[1] - 8), bx = cp[0] + (MID - cp[0]) * 0.3, tBack = tCatch + 0.35;
     calls.push({t: tCatch + 0.02, text: 'Picked off!', x: cp[0], y: cp[1] + 2.8, cls: forO(false)});
-    if (p.by) act('d-' + p.by, 'ct', tCatch - 0.05, tCatch + 0.03);
-    dur = 2600;
+    if (tacklerKey && on(tacklerKey)) {
+      toBall(tacklerKey, 0.3);
+      set(tacklerKey, (() => {
+        const keep = tr[tacklerKey].slice(), q = at(keep, tCatch);
+        keep.lin = true;
+        return t => (t <= tCatch ? at(keep, t) : (k => [lerp(q[0], bx, k), lerp(q[1], back, k)])(smooth((t - tCatch) / (tBack - tCatch))));
+      })());
+      act(tacklerKey, 'ct', tCatch - 0.05, tCatch + 0.03);
+      after = t => at(tr[tacklerKey], t);
+      // The intended receiver turns and chases him.
+      follow('o-' + target, t => (q => [q[0] + 1.6, q[1] + 1.8])(at(tr[tacklerKey], t)), tCatch, tBack, 8.6);
+    } else after = t => (k => [lerp(cp[0], bx, k), lerp(cp[1], back, k)])(smooth((t - tCatch) / (tBack - tCatch)));
+    coastAll(tCatch, [passer, tacklerKey, 'o-' + target]);
   }
-  return {tr, ball: ballTr, calls, dur, air: air2, down, loose, acts};
+  ballTr = sampled(t => (t <= tThrow ? at(preBall, t) : t <= tCatch ? [lerp(qbSpot[0], cp[0], (t - tThrow) / (tCatch - tThrow)), lerp(qbSpot[1], cp[1], (t - tThrow) / (tCatch - tThrow))] : after ? after(t) : cp), 0, T1);
+  return done({tr, ball: ballTr, calls, dur, air: air2, down, loose, acts, covers: Object.entries(covering).map(([k, r]) => [r, k])}, T1);
 }
 /** The ball carrier goes down at the end of his run unless he scored or got out of bounds. */
 const tackled = p => !p.td && !p.oob && p.kind !== '2good';
 /** A snap's choreography (choreo) and where a track is at a moment (at), for the kit's checks (checks-drill.js). */
 export const planOf = (s, p) => choreo(s, p), trackAt = (track, t) => at(track, t);
-/** Coverage: man calls trail their receivers; zones drop, then everyone converges on the ball. */
-function coverage(tr, start, D, cover, p, L, ballAt, tEnd) {
-  const man = p.dcall === 'c0' || p.dcall === 'c1';
-  const deep = {c2: [[MID - 12, 14], [MID + 12, 14]], c3: [[8, 13], [MID, 15], [WIDTH - 8, 13]], c4: [[8, 13], [MID - 6, 15], [MID + 6, 15], [WIDTH - 8, 13]],
-    pv: [[10, 22], [MID - 6, 24], [MID + 6, 24], [WIDTH - 10, 22]], fire: [[8, 12], [MID, 15], [WIDTH - 8, 12]], rb: [[MID, 14]], c0: [], c1: [[MID, 15]]}[p.dcall] || [[MID, 14]];
-  const used = new Set();
-  const look = viewOf(p).look;
-  Object.keys(cover).forEach(rk => {
-    const dk = E.fielded(D.T, look, cover[rk]), s0 = start['d-' + dk];
-    if (!s0 || s0[2] || !tr['o-' + rk] || !tr['d-' + dk]) return;
-    used.add(dk);
-    const r = tr['o-' + rk];
-    const t1 = ballAt ? ballAt.at : 0.8;
-    if (man) {
-      [0.2, 0.4, 0.6, t1].forEach(t => { const q = at(r, Math.max(0, t - 0.05)); if (q) tr['d-' + dk].push([t, q[0] + (MID - q[0]) * 0.05, q[1] + 0.8]); });
-    } else {
-      const z = deep.length && (dk === 'LCB' || dk === 'RCB') && ['c3', 'c4', 'pv', 'fire'].includes(p.dcall) ? deep[dk === 'LCB' ? 0 : deep.length - 1] : null;
-      const q = at(r, 0.4);
-      tr['d-' + dk].push([0.4, z ? z[0] : (s0[0] + q[0]) / 2, z ? L + z[1] : Math.max(L + 3, (s0[1] + q[1]) / 2 + 2)]);
-    }
-  });
-  // Safeties (unless in man on someone) drop to the deep zones; linebackers to their hooks (or blitz).
-  ['FS', 'SS'].concat(D.lbs).forEach((dk, i) => {
-    const s0 = start['d-' + dk];
-    if (!s0 || s0[2] || used.has(dk) || !tr['d-' + dk]) return;
-    const z = dk === 'FS' || dk === 'SS' ? deep[i % Math.max(1, deep.length)] || [MID, 15] : [s0[0], 7];
-    if ((p.dcall === 'c0' || p.dcall === 'fire' || p.dcall === 'rb') && dk !== 'FS') tr['d-' + dk].push([0.35, MID + (s0[0] - MID) * 0.3, L - 2]);
-    else tr['d-' + dk].push([0.4, z[0], L + z[1]]);
-  });
-  if (!ballAt) return;
-  // After the catch (or the miss), the nearest close in; the man in coverage or the tackler arrives.
-  Object.keys(tr).filter(k => k.startsWith('d-') && !D.front.includes(k.slice(2))).forEach(k => {
-    const last = tr[k][tr[k].length - 1];
-    if (!last || start[k][2]) return;
-    const slot = k.slice(2), hero = slot === p.by;
-    if (ballAt.pick && hero) { tr[k].push([ballAt.at, ballAt.x, ballAt.y + 0.3], [0.95, ballAt.x + (MID - ballAt.x) * 0.3, ballAt.back]); return; }
-    if (ballAt.miss) { if (hero) tr[k].push([ballAt.at, ballAt.x + 0.9, ballAt.y + 0.6]); return; }
-    const t = Math.max(last[0] + 0.05, ballAt.t || tEnd);
-    if (hero) tr[k].push([t, ballAt.x + 0.7, ballAt.y + 0.8]);
-    else tr[k].push([t, last[1] * 0.5 + ballAt.x * 0.5, Math.max(ballAt.y + 2, (last[2] + ballAt.y) / 2)]);
-  });
-}
+/** How long a snap's plan plays out, in seconds (its length times PACE), for the kit's speed checks. */
+export const planSecs = plan => plan.dur * PACE / 1000;
+/** The line's pairs for a snap (lineMatch), for the kit's checks. */
+export const lineOf = (s, p) => { const start = {}; spots(s, viewOf(p)).forEach(d => { start[d.key] = [d.x, d.y, d.off]; }); return lineMatch(start, E.unitsFor(s, p.poss).d.front, p.ball); };
 function finishCalls(p, kind, calls, x, y, forO, t = 0.92) {
   const at2 = (text, cls, dy = 3) => calls.push({t, text, x: Math.max(8, Math.min(WIDTH - 8, x)), y: Math.min(106, y + dy), cls});
   if (p.kind === '2good') at2('It’s good!', 'is-score');
@@ -1275,7 +1777,7 @@ function defRoles(U, P, O, call) {
 /** The play art for a defensive call, against their formation as it lines up now. */
 function defArt(st, call) {
   const s = st.s, U = s.mine, look = CALL_LOOK[call];
-  const P = defPos(U.T, look, s.shade), O = offPos(s.form), R = defRoles(U, P, O, call);
+  const O = offPos(s.form), P = defPos(U.T, look, s.shade, O.RB[0]), R = defRoles(U, P, O, call);
   // Near the goal line the deep players squeeze in (as on the field: spots), and so do the zones.
   const room = 110 - s.ball, sq = Math.max(0.35, Math.min(1, (108 - s.ball) / 21));
   const depth = y => (y > 2.5 ? 2.5 + (y - 2.5) * sq : y);

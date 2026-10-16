@@ -359,6 +359,44 @@ export async function drillChecks(check) {
     return {pass: !bad.length && seen.throws > 20 && seen.tackles > 20, detail: bad.length ? bad.slice(0, 4).join('; ') : `${seen.throws} throws, ${seen.tackles} tackles, every one posed`};
   });
 
+  check('Drill: on the field, every man stays at his job: each lineman and the man across from him are locked together (within 2 yards) while they block, a man-to-man defender is on his receiver as the ball is thrown (a corner or the nickel within 4 yards, nine in ten of them all within 3.5), and nobody runs faster than a man can (12.5 yards a second, 20 for the ball carrier, the passer and the man who makes the play)', () => {
+    need();
+    if (!V || typeof V.planOf !== 'function' || typeof V.lineOf !== 'function' || typeof V.planSecs !== 'function') return {pass: false, detail: 'views/drill.js planOf/lineOf/planSecs did not load'};
+    const bad = [], d2 = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+    let pairs = 0, worstPair = 0, men = 0, close = 0, worstDB = 0, top = 0, topAny = 0, plays = 0;
+    const blocking = (plan, k, t) => (plan.acts || []).some(x => x.key === k && x.a === 'bk' && t >= x.t0 && t <= x.t1);
+    for (let d = 1; d <= 16; d++) for (let i = 0; i < 4; i++) {
+      const {s} = randomGame(dr.scenario(d), 2900 + d * 7 + i);
+      s.plays.forEach(p => {
+        if (!p.act || !['run', 'catch', 'inc', 'int', 'sack'].includes(p.kind) || p.two) return;
+        const plan = V.planOf(s, p), T = plan.tr, secs = V.planSecs(plan);
+        plays++;
+        V.lineOf(s, p).pairs.forEach(([o, dk]) => {
+          let mx = -1;
+          for (let t = 0.16; t <= 0.9; t += 0.02) if (blocking(plan, dk, t) && blocking(plan, o, t)) mx = Math.max(mx, d2(V.trackAt(T[o], t), V.trackAt(T[dk], t)));
+          if (mx < 0) return;
+          pairs++; worstPair = Math.max(worstPair, mx);
+          if (mx > 2) bad.push(`day ${d} ${p.kind} ${o.slice(2)}/${dk.slice(2)} ${mx.toFixed(1)} yds apart`);
+        });
+        if (plan.air && p.kind !== 'sack' && ['c0', 'c1', 'rb'].includes(p.dcall)) (plan.covers || []).forEach(([r, k]) => {
+          const g = d2(V.trackAt(T[r], plan.air.t0), V.trackAt(T[k], plan.air.t0));
+          men++; if (g <= 3.5) close++;
+          if (/CB|NB/.test(k) && /WR/.test(r)) { worstDB = Math.max(worstDB, g); if (g > 4) bad.push(`day ${d} ${p.dcall} ${k.slice(2)} ${g.toFixed(1)} yds off ${r.slice(2)}`); }
+        });
+        const own = new Set(['o-QB', 'o-' + (p.who || 'RB'), 'd-' + p.by].concat((plan.down || []).map(x => x.key)));
+        Object.keys(T).forEach(k => {
+          let v = 0;
+          for (let t = 0.01; t <= 1; t += 0.01) v = Math.max(v, d2(V.trackAt(T[k], t), V.trackAt(T[k], t - 0.01)) / (0.01 * secs));
+          topAny = Math.max(topAny, v);
+          if (!own.has(k)) top = Math.max(top, v);
+          if (v > (own.has(k) ? 20 : 12.5)) bad.push(`day ${d} ${p.kind}${p.rk ? '/' + p.rk : ''} ${k.slice(2)} at ${v.toFixed(0)} yds/s`);
+        });
+      });
+    }
+    if (men && close < 0.9 * men) bad.push(`man coverage: only ${close} of ${men} within 3.5 yds`);
+    return {pass: plays > 100 && pairs > 200 && men > 20 && !bad.length, detail: bad.length ? bad.slice(0, 5).join('; ') : `${plays} snaps: ${pairs} blocks, widest ${worstPair.toFixed(1)} yds; ${close} of ${men} men in man coverage within 3.5 yds (corners and nickels within ${worstDB.toFixed(1)}); fastest ${top.toFixed(1)} yds/s (${topAny.toFixed(1)} with the ball carrier, the passer and the play's man)`};
+  });
+
   // 7. Their ball: your defense, their clock, the kneel
   check('Drill: after your score with time left they get the ball at their 25 and you can only call a defense (or a timeout on their running clock); their play is set by the snap, not your call; a team ahead with the ball late kneels it out', () => {
     need();
