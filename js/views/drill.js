@@ -2132,14 +2132,14 @@ function compHTML(s, who = 'you') {
     + `<p class="dr-comp-f">${esc(`${c.teamName} · ${c.seasons} · from ${c.snaps} late-game snaps`)}</p>`
     + (c.also.length ? `<p class="dr-comp-a"><span>Also close</span>${c.also.map(x => `<span class="dr-comp-x">${logoHTML(x.team, 18)}${esc(x.name)}</span>`).join('')}</p>` : '') + `</section>`;
 }
-/** Each result's grade band (drill-sim.js BANDS), in letters. */
-const BAND_TEXT = {W: 'C− to A+', T: 'D to C−', L: 'F to D'};
+/** A result's grade band (drill-sim.js BANDS), in letters: "C+ to A+". */
+const bandText = r => `${dr.gradeLetter(E.BANDS[r][0])} to ${dr.gradeLetter(E.BANDS[r][1])}`;
 /** A finished game's grade, as the scoreboard ranks it, and what made it: the best call, the costliest one (with
  *  what was better there) and every call's score. */
 function finalGradeHTML(n, s, who = 'Your') {
   const g = dr.gradeOf(n, E.actsOf(s));
   if (g.grade == null) return '';
-  const band = s.result ? `a ${{W: 'win', T: 'tie', L: 'loss'}[s.result]}, so ${BAND_TEXT[s.result]}, placed by` : 'by';
+  const band = s.result ? `a ${{W: 'win', T: 'tie', L: 'loss'}[s.result]}, so ${bandText(s.result)}, placed by` : 'by';
   return `<p class="dr-final-grade">${gradeChip(g.grade, 'dr-fg-chip')}<span>${esc(`${who} grade: ${band} how close the ${plural(g.n, 'call')} came to the best one at each snap (${Math.round(g.calls)} out of 100).`)}</span></p>`
     + gradeReportHTML(s, g);
 }
@@ -2252,7 +2252,7 @@ function sbBodyHTML(st) {
   const w = rows.filter(r => r.r === 'W').length;
   const sum = `${plural(rows.length, 'game')} final · ${w} won`;
   return head + `<p class="dr-sb-sum">${esc(sum)}</p><div class="dr-sb-list" role="list" aria-label="Today's finals">${rows.map(r => sbRowHTML(st, r)).join('')}</div>`
-    + `<p class="dr-sb-foot">Grade: a win C− to A+, a tie D to C−, a loss F to D, placed in that band by how close each pass, run and defensive call came to the best one at its snap.</p>`;
+    + `<p class="dr-sb-foot">${esc(`Grade: a win ${bandText('W')}, a tie ${bandText('T')}, a loss ${bandText('L')}`)}, placed in that band by how close each pass, run and defensive call came to the best one at its snap.</p>`;
 }
 function boardHTML(st) {
   const hide = dr.boardState() === 'wait';

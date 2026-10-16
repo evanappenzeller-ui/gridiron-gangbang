@@ -536,7 +536,7 @@ export async function drillChecks(check) {
     return {pass: order && clean && reset, detail: `${sig}; bad entries dropped ${clean}; reset day 1 ${reset}`};
   });
 
-  check('Drill: call grades: a snap\'s best call scores 1, the menu\'s middle one at least 0.75 and the worst 0.5 (clock tools and the wrong side\'s calls aren\'t rated), a game\'s grade is the same on every replay, well-called games grade above random ones, a game grades by its result first (a win C− to A+, a tie D to C−, a loss F to D, its calls placing it in that band, so no win grades below a tie or a loss), the letters run A+ to F, and on the board the grade comes right after the result (before plays and margin)', () => {
+  check('Drill: call grades: a snap\'s best call scores 1, the menu\'s middle one at least 0.75 and the worst 0.5 (clock tools and the wrong side\'s calls aren\'t rated), a game\'s grade is the same on every replay, well-called games grade above random ones, a game grades by its result first (a win C+ to A+, a tie C to C+, a loss F to C: a well-called loss a C, a middling one a D, its calls placing it in that band; so no win grades below a tie or a loss), the letters run A+ to F, and on the board the grade comes right after the result (before plays and margin)', () => {
     need();
     const s0 = E.start(dr.scenario(1), dr.DOC.teams), ev = E.callValues(s0);
     const sc = E.candidates(s0).map(c => E.callScore(s0, c.token)).sort((a, b) => a - b);
@@ -559,7 +559,9 @@ export async function drillChecks(check) {
       floor = floor && g.grade === E.bandGrade(r, g.calls) && g.grade >= lo0 && g.grade <= hi0;
     }
     const B = (r, c) => E.bandGrade(r, c), mn = xs => Math.min(Infinity, ...xs), mx = xs => Math.max(-Infinity, ...xs);
-    floor = floor && B('W', 30) === 70 && B('W', 100) === 100 && B('L', 100) <= B('T', 0) && B('T', 100) <= B('W', 0) && B('L', 80) > B('L', 70) && B('W', null) === null
+    const L = (r, c) => dr.gradeLetter(B(r, c));
+    floor = floor && L('W', 30) === 'C+' && L('W', 100) === 'A+' && L('T', 0) === 'C' && L('L', 35) === 'F' && L('L', 70) === 'D' && L('L', 90) === 'C−' && L('L', 100) === 'C'
+      && B('W', 100) === 100 && B('L', 100) <= B('T', 0) && B('T', 100) <= B('W', 0) && B('L', 80) > B('L', 70) && B('W', null) === null
       && by.W.length > 0 && by.L.length > 0 && mn(by.W) >= mx(by.T.concat(by.L)) && mn(by.T) >= mx(by.L);
     const wins = by.W.length, lifted = by.L.length;
     const letters = [[97, 'A+'], [92.6, 'A'], [89.5, 'A−'], [80, 'B−'], [60, 'D'], [59.4, 'F'], [null, '']].every(([g, l]) => dr.gradeLetter(g) === l);

@@ -573,7 +573,7 @@ const RANK = {W: 2, T: 1, L: 0};
 // How well a game was called (drill-sim.js gradeGame): each pass, run, RPO, trick and defensive call scored against
 // the best one at that snap by the play-caller's numbers (100 the best call; from game 3, 70 the menu's middle one and
 // no lower than 35; before, 75 and 50, as those games were graded), the mean out of 100. The grade puts the result
-// first: a win C− to A+, a tie D to C−, a loss F to D, the calls placing it in that band (drill-sim.js bandGrade).
+// first: a win C+ to A+, a tie C to C+, a loss F to C, the calls placing it in that band (drill-sim.js bandGrade).
 // Worked out from a game's actions, so every phone grades every posted game the same way (nothing extra is posted,
 // and a grade can't be made up). Each rated call comes with it (list: its score and the best call there).
 const GRADES = new Map();

@@ -1227,14 +1227,15 @@ export function rateCall(s, token) {
   const [MID, FLOOR] = grown(s) ? [0.7, 0.35] : [0.75, 0.5];
   return {score: clamp(1 - (1 - MID) * (best - mine) / Math.max(0.02, best - mid), FLOOR, 1), best: ev.bestToken, stakes: best - mid};
 }
-/** A game's grade by its result: a win C− to A+, a tie D to C−, a loss F to D, each placed in its band by its calls
- *  (their mean score: 60 or under the bottom, 100 the top). So no win grades below a tie or a loss, however called. */
-export const BANDS = {W: [70, 100], T: [65, 70], L: [40, 65]};
-export const WIN_FLOOR = BANDS.W[0];
+/** A game's grade by its result: a win C+ to A+, a tie C to C+, a loss F to C, each placed in its band by its calls.
+ *  Each band: [its bottom, its top (calls of 100), the calls' mean at its bottom (and below)]; a loss's grade is 26 plus
+ *  half its calls, so a well-called loss is a C, a middling one a D and only a badly called one an F. No win grades
+ *  below a tie or a loss, however either was called. */
+export const BANDS = {W: [77, 100, 60], T: [76, 77, 60], L: [40, 76, 28]};
 export function bandGrade(result, calls) {
   const b = BANDS[result];
   if (calls == null || !b) return calls;
-  return Math.round(10 * (b[0] + (b[1] - b[0]) * clamp((calls - 60) / 40, 0, 1))) / 10;
+  return Math.round(10 * (b[0] + (b[1] - b[0]) * clamp((calls - b[2]) / (100 - b[2]), 0, 1))) / 10;
 }
 /** A game's grade, from its actions: {grade (bandGrade of its result and calls; an unfinished game's, its calls; null
  *  with none rated), calls (the rated calls' mean score, 0-100, one decimal), n (how many were rated), lead (on a win, the clock when you went
