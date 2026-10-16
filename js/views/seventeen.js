@@ -16,7 +16,8 @@
 // Both phases end with the league's Scoreboard (Today: each member's record on today's board; All-time: every 17-0
 // season they've played), live from the Daily's board snapshot (core/seventeen.js boardRows). Tap a row for that
 // person's team (a sheet: today's season, or every season from All-time); someone else's team today stays hidden
-// until you've played yours, so the board can show before you play without giving the answer away.
+// until you've played yours (on any of your phones), so the board can show before you play without giving the answer
+// away.
 // Every control here is data-sv-*, so the Daily Puzzles handlers on the same screen never see these taps.
 // Owner: 17-0.
 import * as ui from '../core/ui.js';
@@ -291,8 +292,10 @@ function boardHTML(b, mode = 'today') {
 
 // ============================================================================ Markup: a person's team (sheet)
 const TEAM_MAX = 10; // seasons listed from All-time
-/** Someone else's team on today's board stays hidden until this phone has played it. */
-const hiddenToday = (row, n) => !row.me && n === sv.todayNumber() && !sv.dayState(n).played;
+/** Someone else's team on today's board stays hidden until you've played it: on this phone, or on another phone of
+ *  yours (your season is on today's board). */
+const playedToday = n => !!sv.dayState(n).played || sv.boardRows('today', n).some(r => r.me);
+const hiddenToday = (row, n) => !row.me && n === sv.todayNumber() && !playedToday(n);
 function teamSeasonHTML(row, s) {
   const b = sv.board(s.n), gold = s.w === 17;
   // Your own season: this phone remembers the lineup even if the board doesn't have it.
