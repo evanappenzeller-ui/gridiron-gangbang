@@ -6,7 +6,7 @@
    Team colours come in per element as --tc; a player's rating colour as --rc. */
 
 /* The version mark views/drill.js checks (CSS_V): bump both when the pane needs rules an older file lacks. */
-:root { --dr-css: 28; }
+:root { --dr-css: 29; }
 
 .dr-pane, .sh-drill {
   --dr-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -632,7 +632,6 @@
 .dr-fsb-x { font: 700 10px/1 var(--dr-font); letter-spacing: .12em; text-transform: uppercase; color: rgba(255,255,255,.45); }
 .dr-final-h { margin-top: 14px; font: 800 28px/1.1 var(--dr-display); letter-spacing: -.03em; color: var(--res, #fff); }
 .dr-final-sub { margin-top: 4px; font: 500 14px/20px var(--dr-font); color: rgba(255,255,255,.72); }
-.dr-pane .dr-res-sq { margin-top: 12px; font-size: 17px; line-height: 1.35; letter-spacing: 2px; overflow-wrap: anywhere; }
 .dr-pane .dr-res-act { display: flex; gap: 10px; margin-top: 16px; }
 .dr-pane .dr-share { height: 48px; border-radius: 999px; font: 700 16px/1 var(--dr-font); box-shadow: 0 8px 22px color-mix(in srgb, var(--tint) 32%, transparent), inset 0 1px 0 rgba(255,255,255,.3); }
 .dr-pane .dr-share.is-pressed { transform: scale(.97); }

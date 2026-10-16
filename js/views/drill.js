@@ -39,7 +39,7 @@ const ST = new WeakMap(); // ctx -> pane state
 
 // A home-screen app open across an update imports this module new under the stylesheet it started with: when
 // drill.css's mark (--dr-css on :root) isn't this module's, the current file is added (as in views/seventeen.js).
-const CSS_V = '28';
+const CSS_V = '29';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--dr-css').trim() === CSS_V || document.querySelector('link[data-dr-css]')) return;
@@ -2172,7 +2172,6 @@ function resultHTML(st) {
     + `<h2 class="dr-final-h" id="dr-res-h">${esc(r.head)}</h2>`
     + `<p class="dr-final-sub">${esc(r.sub)}</p>`
     + finalGradeHTML(st.n, s)
-    + `<p class="dr-res-sq" aria-hidden="true">${esc(dr.squares(s))}</p>`
     + (practice ? `<p class="dr-practice">${esc(`Practice run ${practice}: your first game today is the one on the scoreboard.`)}</p>` : '')
     + `<div class="dr-res-act"><button type="button" class="btn btn-primary dr-share" data-dr-share>${ui.icon('share')}<span class="btn-label">Share</span></button>`
     + (dr.canReplay() ? `<button type="button" class="btn btn-secondary dr-again" data-dr-again>${ui.icon('play-fill')}<span class="btn-label">Play again</span></button>` : '') + `</div>`
