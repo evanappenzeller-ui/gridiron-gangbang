@@ -508,13 +508,15 @@ export async function autoPost() {
 // each), on that day only, the saved game goes, and so does the result that phone posted before the reset (so the
 // replay's posts in its place; a result posted after the reset stays). 'gg-drill-resets': {id: when it ran here}.
 // Or everyone's (who '*', below).
-// who '*': the whole league's games that day, as of at (ms): every phone clears a game finished before then, and the
-// board drops every result finished before then, whether or not that member's phone has opened since (resetCut).
+// who '*': the whole league's games that day, as of at (ms): every phone clears a game finished before then (on that
+// day or any day after, so an old game isn't posted again), and the board drops every result finished before then,
+// whether or not that member's phone has opened since (resetCut).
 const RESETS = [{id: 'evan-d1', who: 'evan', n: 1}, {id: 'evan-d1-2', who: 'evan', n: 1}, {id: 'all-d1', who: '*', n: 1, at: 1792099293223},
   {id: 'all-d1-2', who: '*', n: 1, at: 1792101213382}, // again: the rosters updated for injuries
   {id: 'all-d1-3', who: '*', n: 1, at: 1792101841034}, // and again, at the league's ask
   {id: 'all-d1-4', who: '*', n: 1, at: 1792105808704}, // and once more, with the call grades in
-  {id: 'all-d2', who: '*', n: 2, at: 1792181061704}]; // day 2 cleared, at the league's ask (the grades put the result first)
+  {id: 'all-d2', who: '*', n: 2, at: 1792181061704}, // day 2 cleared, at the league's ask (the grades put the result first)
+  {id: 'all-d1-5', who: '*', n: 1, at: 1792181197727}]; // and day 1 again: a fresh start for the game
 /** When the league's games on day n were last reset (0: never): results finished before it don't count. */
 export const resetCut = n => RESETS.reduce((m, r) => (r.who === '*' && r.n === Number(n) && r.at > m ? r.at : m), 0);
 const RKEY = 'gg-drill-resets';
@@ -523,13 +525,14 @@ function resetsDone() {
   try { v = JSON.parse(lsGet(RKEY) || 'null'); } catch (_) { v = null; }
   return v && typeof v === 'object' ? v : {};
 }
-/** Applies a reset meant for this phone's member today. Returns true when it cleared this phone's game (redraw). */
+/** Applies a reset meant for this phone's member today (or the league's, of today or a day before). Returns true when
+ *  it cleared this phone's game today (redraw). */
 export function applyResets() {
   if (!DOC) return false;
   const LB = daily.LB, n0 = todayNumber();
   let cleared = false;
   RESETS.forEach(r => {
-    if (r.n !== n0) return;
+    if (r.who === '*' && r.at ? r.n > n0 : r.n !== n0) return;
     const who = dataMe() || (LB.ready && LB.uid ? meKey() : null);
     if (r.who !== '*' && who !== r.who) return;
     const done = resetsDone();
@@ -540,7 +543,7 @@ export function applyResets() {
         if (d.r && !d.p) { v.played = Math.max(0, v.played - 1); if (d.r === 'W') v.wins = Math.max(0, v.wins - 1); }
         delete v.days[r.n];
         write(v);
-        cleared = true;
+        if (r.n === n0) cleared = true;
       }
       done[r.id] = Date.now();
       lsSet(RKEY, JSON.stringify(done));
