@@ -6,7 +6,7 @@
    Team colours come in per element as --tc; a player's rating colour as --rc. */
 
 /* The version mark views/drill.js checks (CSS_V): bump both when the pane needs rules an older file lacks. */
-:root { --dr-css: 31; }
+:root { --dr-css: 32; }
 
 .dr-pane, .sh-drill {
   --dr-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -309,11 +309,11 @@
 }
 .dr-pane .dr-call-box > :first-child { margin-top: 0; }
 .dr-pane .dr-call-box .dr-cards { margin: 12px -12px 0; padding: 2px 12px 10px; scroll-padding: 0 12px; }
-/* What they show: the read before every snap, a card in the look's colour (--lk) with what usually works against it.
-   It flashes once when a new snap's look comes up (is-new). */
+/* What they show: the read before every snap, a card in the look's colour (--lk). It flashes once when a new snap's
+   look comes up (is-new). */
 .dr-pane .dr-look {
   --lk: var(--dr-blue);
-  display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 0 12px; margin-top: 12px;
+  display: flex; align-items: center; gap: 12px; margin-top: 12px;
   padding: 12px 14px 12px 12px; border-radius: 18px;
   background: linear-gradient(135deg, color-mix(in srgb, var(--lk) 26%, var(--surface-2)), color-mix(in srgb, var(--lk) 9%, var(--surface-2)));
   box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--lk) 60%, transparent);
@@ -336,12 +336,6 @@
 .dr-pane .dr-look-tx > small { font: 700 11px/14px var(--dr-font); letter-spacing: .08em; text-transform: uppercase; color: color-mix(in srgb, var(--lk) 72%, var(--ink)); }
 .dr-pane .dr-look-tx > b { margin-top: 1px; font: 800 20px/24px var(--dr-display); letter-spacing: -.015em; color: var(--ink); }
 .dr-pane .dr-look-tx > span { font: 500 13px/17px var(--dr-font); color: var(--ink-2); }
-.dr-pane .dr-look-tip {
-  grid-column: 1 / -1; display: flex; align-items: flex-start; gap: 8px; margin: 10px 0 0; padding-top: 10px;
-  border-top: 1px solid color-mix(in srgb, var(--lk) 32%, transparent); font: 500 13.5px/18px var(--dr-font); color: var(--ink);
-}
-.dr-pane .dr-look-tip > svg { flex: none; margin-top: 1px; color: var(--lk); }
-.dr-pane .dr-look-tip b { font-weight: 700; color: color-mix(in srgb, var(--lk) 72%, var(--ink)); }
 .dr-pane .dr-look.is-new { animation: dr-look-in 1.1s cubic-bezier(.2, .8, .2, 1) both; }
 @keyframes dr-look-in {
   0% { transform: scale(.96); box-shadow: inset 0 0 0 1.5px var(--lk), 0 0 0 0 color-mix(in srgb, var(--lk) 60%, transparent); }
