@@ -38,7 +38,7 @@ const ST = new WeakMap(); // ctx -> pane state
 
 // A home-screen app open across an update imports this module new under the stylesheet it started with: when
 // drill.css's mark (--dr-css on :root) isn't this module's, the current file is added (as in views/seventeen.js).
-const CSS_V = '17';
+const CSS_V = '18';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--dr-css').trim() === CSS_V || document.querySelector('link[data-dr-css]')) return;
@@ -1217,16 +1217,17 @@ function panelHTML(st) {
   const s = st.s;
   if (st.busy) return snapHTML();
   const bd = st.last ? breakdownHTML(st) : '';
-  if (s.result) return bd + resultHTML(st);
-  if (s.poss === 'them' && s.phase !== 'pat') return bd + defenseHTML(st);
-  return bd + callHTML(st);
+  // What's next first (the final, your defense, your call), the last play's breakdown under it.
+  if (s.result) return resultHTML(st) + bd;
+  if (s.poss === 'them' && s.phase !== 'pat') return defenseHTML(st) + bd;
+  return callHTML(st) + bd;
 }
 
 // ---------------------------------------------------------------------------- The breakdown of the last snap
 function breakdownHTML(st) {
   const L = st.last, s = st.s, p = L.p;
   const autos = L.autos.length ? `<ul class="dr-bd-auto">${L.autos.map(x => `<li>${esc(dr.playText(s, x).line)}</li>`).join('')}</ul>` : '';
-  if (p.kind === 'timeout') return `<section class="dr-bd is-mini" data-dr-bd><p class="dr-bd-line">${esc(dr.playText(s, p).line)}</p>${autos}</section>`;
+  if (p.kind === 'timeout') return `<section class="dr-bd is-mini" data-dr-bd aria-label="Last play"><p class="dr-bd-k">Last play</p><p class="dr-bd-line">${esc(dr.playText(s, p).line)}</p>${autos}</section>`;
   const t = dr.playText(s, p);
   const ready = L.wpA != null && L.wpB != null;
   const delta = ready ? Math.round((L.wpA - L.wpB) * 100) : null;
@@ -1253,7 +1254,7 @@ function breakdownHTML(st) {
       + `<p class="dr-bd-note">Each option played out ${L.n} times from that snap to the end of the game by a good play-caller on both sides. Win chance counts a tie as half.</p></details>`;
   } else if (L.scoring && !L.call) grade = `<p class="dr-bd-grade is-wait"><span class="spin" aria-hidden="true"></span><span>Scoring every option…</span></p>`;
   const replay = L.canReplay ? `<button type="button" class="dr-pill" data-dr-replay>${ui.icon('play-fill', {size: 12})}<span>Replay</span></button>` : '';
-  return `<section class="dr-bd is-${t.tone}" data-dr-bd aria-label="Last play">`
+  return `<section class="dr-bd is-${t.tone}" data-dr-bd aria-label="Last play"><p class="dr-bd-k">Last play</p>`
     + `<div class="dr-bd-top">${badge}<div class="dr-bd-main"><h3 class="dr-bd-h">${esc(t.head)}</h3><p class="dr-bd-line">${esc(t.line)}</p>${wp}</div></div>`
     + autos + call + grade + `<div class="dr-bd-act">${replay}${opts}</div></section>`;
 }
