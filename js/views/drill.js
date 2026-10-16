@@ -38,7 +38,7 @@ const ST = new WeakMap(); // ctx -> pane state
 
 // A home-screen app open across an update imports this module new under the stylesheet it started with: when
 // drill.css's mark (--dr-css on :root) isn't this module's, the current file is added (as in views/seventeen.js).
-const CSS_V = '23';
+const CSS_V = '24';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--dr-css').trim() === CSS_V || document.querySelector('link[data-dr-css]')) return;
@@ -603,16 +603,17 @@ function camScene(st, p) {
   const home = s.sc.g && s.sc.g.h && dr.team(s.sc.g.h) ? s.sc.g.h : s.sc.d;
   return {players, ends: {near: end(ids.o), far: end(ids.d)}, crowd: tcol(home), logo: logoUrl(home, 320)};
 }
-/** The header's scoreboard from a game as it stands: {teams: [{id, c, logo, score, tos, ball, you}] (yours first), q,
- *  clock, run (the clock is running), side ('us' | 'them' | 'try' | null at the final), dd (the down and distance, or
- *  how it ended), spot (where the ball is), need (what it takes from here, or how it ended)}. */
+/** The header's scoreboard from a game as it stands: {teams: [{id, name, c, logo, score, tos, ball, you}] (yours first),
+ *  q, clock, run (the clock is running), side ('us' | 'them' | 'try' | null at the final), dd (the down and distance,
+ *  'Try' or 'Final'), spot (where the ball is), head (at the final, who won), need (what it takes from here, or how it
+ *  ended)}. */
 function boardOf(s) {
   const fin = !!s.result, pat = !fin && s.phase === 'pat', poss = fin ? null : s.poss;
-  const team = (id, side, score, tos) => ({id, c: tcol(id), logo: logoUrl(id, 96), score, tos, ball: poss === side, you: side === 'us'});
+  const team = (id, side, score, tos) => ({id, name: dr.team(id) ? dr.team(id).n : id, c: tcol(id), logo: logoUrl(id, 96), score, tos, ball: poss === side, you: side === 'us'});
   const r = fin ? dr.resultText(s) : null;
-  return {teams: [team(s.sc.o, 'us', s.us, s.tos), team(s.sc.d, 'them', s.them, s.dtos)], q: fin ? 'Final' : '4th',
+  return {teams: [team(s.sc.o, 'us', s.us, s.tos), team(s.sc.d, 'them', s.them, s.dtos)], q: '4th',
     clock: dr.clockText(fin ? 0 : s.clock), run: !fin && s.running, side: fin ? null : pat ? 'try' : s.poss,
-    dd: fin ? r.head : pat ? 'Try' : dr.downText(s.down, s.togo, s.ball), spot: fin ? '' : pat ? 'From the 2' : spotText(s, s.ball, s.poss),
+    dd: fin ? 'Final' : pat ? 'Try' : dr.downText(s.down, s.togo, s.ball), spot: fin ? '' : spotText(s, s.ball, s.poss), head: fin ? r.head : '',
     need: fin ? `${r.sub}.` : pat ? tryText(s.them - s.us) : needText(s.us - s.them, s.poss)};
 }
 /** The scoreboard during a snap: as it starts (from the play; the clock runs through it), or after it (the game as it
@@ -625,7 +626,8 @@ function camBoard(st, p, after) {
   b.q = '4th'; b.clock = dr.clockText(p.clock); b.run = !two;
   b.side = two ? 'try' : p.poss;
   b.dd = two ? 'Try' : dr.downText(p.down, p.togo, p.ball);
-  b.spot = two ? 'From the 2' : spotText(s, p.ball, p.poss);
+  b.spot = spotText(s, p.ball, p.poss);
+  b.head = '';
   b.need = two ? tryText(p.them - p.us) : needText(p.us - p.them, p.poss);
   return b;
 }
@@ -819,29 +821,38 @@ function needText(lead, poss) {
 /** The try after your touchdown (down: how far behind it leaves you). */
 const tryText = down => (down === 1 ? 'Kick to tie it, or go for two to win it.' : 'Kick to get within one, or go for two to tie it.');
 const SIDES = {us: ['is-o', 'football', 'Offense'], them: ['is-d', 'shield', 'Defense'], try: ['is-try', 'football', 'Try']};
-function boardTeamHTML(t) {
-  return `<div class="dr-hd-t${t.ball ? ' has-ball' : ''}" style="--tc:${esc(t.c[0])}">`
-    + `<i class="dr-hd-logo"${t.logo ? ` data-logo="${esc(t.logo)}"` : ''}></i>`
-    + `<b class="dr-hd-ab">${esc(t.id)}</b>${t.you ? '<span class="dr-hd-you">You</span>' : ''}${t.ball ? '<span class="dr-hd-ball"></span>' : ''}`
-    + `<span class="dr-hd-to">${[0, 1, 2].map(i => `<s${i < t.tos ? ' class="is-on"' : ''}></s>`).join('')}</span>`
-    + `<em class="dr-hd-sc">${esc(t.score)}</em></div>`;
+/** A side of the score bug, like a broadcast's: the name strip (yours marked) over the logo, the timeouts left (stacked
+ *  bars) and the score (the ball by it for the side that has it), mirrored on the right so both scores sit by the
+ *  clock. */
+function boardTeamHTML(t, i) {
+  return `<div class="dr-hd-t${i ? ' is-r' : ''}${t.ball ? ' has-ball' : ''}" style="--tc:${esc(t.c[0])}">`
+    + `<div class="dr-hd-nm">${t.you ? '<span class="dr-hd-you">You</span>' : ''}<b class="dr-hd-n">${esc(t.name)}</b><b class="dr-hd-ab">${esc(t.id)}</b></div>`
+    + `<div class="dr-hd-mn"><i class="dr-hd-logo"${t.logo ? ` data-logo="${esc(t.logo)}"` : ''}></i>`
+    + `<span class="dr-hd-to">${[0, 1, 2].map(k => `<s${k < t.tos ? ' class="is-on"' : ''}></s>`).join('')}</span>`
+    + `${t.ball ? '<span class="dr-hd-ball"></span>' : ''}<em class="dr-hd-sc">${esc(t.score)}</em></div></div>`;
 }
-/** The scoreboard's moving parts (b: boardOf / camBoard). */
+/** The scoreboard's moving parts (b: boardOf / camBoard): the bug (your side, the down and distance over the clock
+ *  over the quarter and the spot, theirs), then whose ball and the clock's state, then what it takes. */
 function boardInner(b) {
-  const fin = b.q === 'Final', sd = SIDES[b.side];
-  const state = fin ? '' : b.run ? '<i class="dr-dot"></i>Running' : 'Stopped';
-  return `<div class="dr-hd-b" aria-hidden="true"><div class="dr-hd-ts">${b.teams.map(boardTeamHTML).join('')}</div>`
-    + `<div class="dr-hd-g${fin ? ' is-final' : ''}"><span>${esc(b.q)}</span><b data-dr-clock${b.run ? ' class="is-run"' : ''}>${esc(b.clock)}</b>${state ? `<small${b.run ? ' class="is-run"' : ''}>${state}</small>` : ''}</div></div>`
-    + `<div class="dr-hd-sit" aria-hidden="true">${sd ? `<span class="dr-hd-side ${sd[0]}">${ui.icon(sd[1], {size: 13})}${sd[2]}</span>` : '<span class="dr-hd-side is-fin">Final</span>'}`
-    + `<b>${esc(b.dd)}</b>${b.spot ? `<span class="dr-hd-spot">${esc(b.spot)}</span>` : ''}</div>`
+  const fin = b.dd === 'Final', sd = SIDES[b.side];
+  const mid = `<div class="dr-hd-g${fin ? ' is-final' : ''}"><span class="dr-hd-dd">${esc(b.dd)}</span>`
+    + `<span class="dr-hd-clk${b.run ? ' is-run' : ''}">${b.run ? '<i class="dr-dot"></i>' : ''}<b data-dr-clock>${esc(b.clock)}</b></span>`
+    + `<span class="dr-hd-q"><i>${esc(b.q)}</i>${b.spot ? `<i>${esc(b.spot)}</i>` : ''}</span></div>`;
+  const tag = sd ? `<span class="dr-hd-side ${sd[0]}">${ui.icon(sd[1], {size: 13})}${sd[2]}</span>` : '<span class="dr-hd-side is-fin">Final</span>';
+  const state = fin ? `<b class="dr-hd-res">${esc(b.head)}</b>`
+    : `<span class="dr-hd-st${b.run ? ' is-run' : ''}">${b.run ? '<i class="dr-dot"></i>Clock running' : `${ui.icon('clock', {size: 13})}Clock stopped`}</span>`;
+  return `<div class="dr-hd-b" aria-hidden="true">${boardTeamHTML(b.teams[0], 0)}${mid}${boardTeamHTML(b.teams[1], 1)}</div>`
+    + `<div class="dr-hd-sit" aria-hidden="true">${tag}${state}</div>`
     + (b.need ? `<p class="dr-hd-need" aria-hidden="true">${esc(b.need)}</p>` : '');
 }
 function boardLabel(b) {
-  const [u, t] = b.teams, has = u.ball ? ' You have the ball.' : t.ball ? ` ${t.id} has the ball.` : '';
-  const clock = b.q === 'Final' ? 'Final.' : `${b.clock} left in the fourth, the clock ${b.run ? 'running' : 'stopped'}.`;
-  const at = !b.spot ? '' : b.spot === 'Midfield' ? ', at midfield' : b.spot === 'From the 2' ? ', from the 2' : `, ball on the ${b.spot}`;
+  const [u, t] = b.teams, has = u.ball ? ' You have the ball.' : t.ball ? ` The ${t.name} have the ball.` : '';
+  const fin = b.dd === 'Final';
+  const clock = fin ? `Final: ${b.head}.` : `${b.clock} left in the fourth, the clock ${b.run ? 'running' : 'stopped'}.`;
+  const at = fin || !b.spot ? '' : b.spot === 'Midfield' ? ' at midfield' : ` on the ${b.spot}`;
+  const down = fin ? '' : ` ${b.dd === 'Try' ? 'The try' : b.dd}${at}.`;
   const need = b.need ? ` ${b.need}${/[.!?]$/.test(b.need) ? '' : '.'}` : '';
-  return `${u.id} ${u.score}, ${t.id} ${t.score}. ${clock}${has} ${b.dd}${at}.${need} Timeouts: you ${u.tos}, ${t.id} ${t.tos}.`;
+  return `${u.name} ${u.score}, ${t.name} ${t.score}. ${clock}${has}${down}${need} Timeouts: you ${u.tos}, ${t.name} ${t.tos}.`;
 }
 /** The header: the drill and the day, the help, and the scoreboard. */
 function scoreHTML(st, b = boardOf(st.s)) {
