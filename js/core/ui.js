@@ -223,6 +223,7 @@ const BADGES = {
   nail: ['b-nail', 'NAIL-BITER', 'pulse'],
   high: ['b-high', 'WEEK HIGH', 'flame'],
   you: ['b-you', 'YOU'],
+  guest: ['b-guest', 'GUEST'],
   deep: ['b-deep', 'DEEP CUT']
 };
 export const BADGE_KINDS = Object.keys(BADGES);

@@ -462,7 +462,7 @@ export function recordsFlat() {
 }
 
 // ---------------------------------------------------------------------------
-// "Me" (gg-me): which manager this phone belongs to
+// "Me" (gg-me): which manager this phone belongs to (or a guest's own player, below)
 let meMem;
 function meRead() {
   if (meMem !== undefined) return meMem;
@@ -483,12 +483,37 @@ export function setMe(idOrNone) {
     if (v == null) localStorage.removeItem('gg-me');
     else localStorage.setItem('gg-me', v);
   } catch (_) {}
-  emit('me', {id: me(), raw: v});
+  // Picking a league member drops the guest player.
+  if (me()) writeGuest(null);
+  emit('me', {id: me(), raw: v, guest: guest()});
+}
+
+// A guest (gg-guest): someone not in the league who made their own player, the name their daily games post under.
+// A guest is 'none' in gg-me.
+let guestMem;
+function guestRead() {
+  if (guestMem !== undefined) return guestMem;
+  try { guestMem = (localStorage.getItem('gg-guest') || '').trim() || null; } catch (_) { guestMem = null; }
+  return guestMem;
+}
+function writeGuest(v) {
+  guestMem = v;
+  try { if (v) localStorage.setItem('gg-guest', v); else localStorage.removeItem('gg-guest'); } catch (_) {}
+}
+/** The guest player's name on this phone, or null (none made, or a league member is picked). */
+export function guest() { return me() ? null : guestRead(); }
+/** Makes (or renames) this phone's guest player; null drops it. */
+export function setGuest(name) {
+  const v = name == null ? null : String(name).trim().slice(0, 24) || null;
+  writeGuest(v);
+  if (v && meRead() !== 'none') { setMe('none'); return; }
+  emit('me', {id: me(), raw: meRead(), guest: guest()});
 }
 try {
   addEventListener('storage', e => {
-    if (e.key !== 'gg-me') return;
-    meMem = e.newValue;
-    emit('me', {id: me(), raw: e.newValue});
+    if (e.key === 'gg-me') meMem = e.newValue;
+    else if (e.key === 'gg-guest') guestMem = (e.newValue || '').trim() || null;
+    else return;
+    emit('me', {id: me(), raw: meRead(), guest: guest()});
   });
 } catch (_) {}

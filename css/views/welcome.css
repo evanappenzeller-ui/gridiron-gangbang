@@ -71,3 +71,9 @@
 @media (prefers-reduced-motion: reduce) {
   .welcome .wl-card, .welcome .wl-check { transition: none; }
 }
+
+/* Play as a guest: the guest form (views/guest.js, styled in you.css) in place of the members. */
+.welcome .wl-guest { max-width: 440px; margin: 0 auto; }
+.welcome .wl-guest .c-gs-lead { text-align: center; margin-bottom: 4px; }
+.welcome .wl-back { margin-top: 6px; color: var(--ink-2); font-weight: 600; }
+.welcome .wl-guest-btn { margin-top: 2px; }

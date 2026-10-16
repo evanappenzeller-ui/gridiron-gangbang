@@ -1,18 +1,20 @@
 // Launch welcome: "Who are you?" (a full-screen picker, not a route). Shown once per phone when the app opens
 // (over Puzzles, or whatever screen a link opened) and no league member has been picked. Tap yourself, then
-// "Continue as {name}"; "Just visiting" skips. Owner: SHELL.
+// "Continue as {name}"; "Play as a guest" makes your own player (views/guest.js: a name your daily games post under);
+// "Just visiting" skips. Owner: SHELL.
 // The pick is gg-me (data.setMe); gg-welcome = '1' records that the question was answered, so it never
 // comes back (the avatar button's You sheet still changes the pick). A member with no leaderboard name yet gets
 // theirs as the nickname, so their scores post under it. Focus returns to the screen underneath when it closes.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as daily from '../core/daily.js';
+import {guestFormHTML, wireGuestForm} from './guest.js';
 
 const esc = s => data.esc(s);
 const SEEN = 'gg-welcome';
 
 export function needsWelcome() {
-  if (data.me() || !data.ids.length) return false;
+  if (data.me() || data.guest() || !data.ids.length) return false;
   try { return localStorage.getItem(SEEN) !== '1'; } catch (_) { return true; }
 }
 
@@ -26,22 +28,29 @@ function cardHTML(id) {
 
 function pageHTML() {
   const {first, last} = data.span;
+  const ovl = `<p class="ovl wl-ovl">${esc(data.DATA.league.name)}${first ? ` · ${first}–${last}` : ''}</p>`;
   return `<div class="wl-body">`
-    + `<header class="wl-head" data-enter>`
-    + `<p class="ovl wl-ovl">${esc(data.DATA.league.name)}${first ? ` · ${first}–${last}` : ''}</p>`
-    + `<h1 class="wl-title" id="wl-title">Who are you?</h1>`
-    + `</header>`
+    + `<div class="wl-pick">`
+    + `<header class="wl-head" data-enter>${ovl}<h1 class="wl-title" id="wl-title">Who are you?</h1></header>`
     + `<div class="wl-grid" role="group" aria-label="League members">${data.ids.map(cardHTML).join('')}</div>`
+    + `</div>`
+    // Play as a guest: the guest form in place of the members (Back returns to them).
+    + `<div class="wl-guest" hidden>`
+    + `<header class="wl-head">${ovl}<h1 class="wl-title" id="wl-gtitle" tabindex="-1">Play as a guest</h1></header>`
+    + guestFormHTML(null)
+    + ui.button({label: 'Back', kind: 'plain', block: true, attrs: {'data-wl-back': ''}, cls: 'wl-back'})
+    + `</div>`
     + `</div>`
     + `<footer class="wl-foot">`
     + ui.button({label: 'Pick yourself', kind: 'primary', block: true, attrs: {'data-wl-go': '', 'aria-disabled': 'true'}, cls: 'wl-go'})
+    + ui.button({label: 'Play as a guest', kind: 'secondary', block: true, icon: 'plus', attrs: {'data-wl-guest': ''}, cls: 'wl-guest-btn'})
     + ui.button({label: 'Just visiting', kind: 'plain', block: true, attrs: {'data-wl-skip': ''}, cls: 'wl-skip'})
     + `</footer>`;
 }
 
 let open = null;
 
-/** Show the welcome over the app. Resolves with the picked id, or 'none' for "Just visiting". */
+/** Show the welcome over the app. Resolves with the picked id, or 'none' for "Just visiting" or a guest. */
 export function showWelcome() {
   if (open) return open.done;
   const el = document.createElement('div');
@@ -100,9 +109,21 @@ export function showWelcome() {
       const scr = document.querySelector('#covers .cover > .screen') || document.querySelector('#stage > .tab-layer:not([hidden]) > .screen:not([data-under])');
       if (scr) { try { scr.focus({preventScroll: true}); } catch (_) {} }
     }
-    if (value !== 'none') ui.toast(`Welcome, ${data.name(value)}.`, {icon: 'check-circle'});
+    if (value !== 'none') ui.toast(`Welcome, ${data.name(value)}.`, {icon: 'check-circle'}); // (a guest's welcome is the guest sheet's)
     resolve(value);
   };
+
+  // The guest form in place of the members, or back.
+  const showGuest = on => {
+    el.querySelector('.wl-pick').hidden = on;
+    el.querySelector('.wl-guest').hidden = !on;
+    el.querySelector('.wl-foot').hidden = on;
+    el.setAttribute('aria-labelledby', on ? 'wl-gtitle' : 'wl-title');
+    ui.haptic('selection');
+    const f = el.querySelector(on ? '.c-gs-in' : '[data-wl-guest]');
+    try { f.focus({preventScroll: true}); } catch (_) {}
+  };
+  wireGuestForm(el.querySelector('.wl-guest form'), {onSaved: () => finish('none')});
 
   el.addEventListener('click', e => {
     const card = e.target.closest('[data-wl]');
@@ -112,6 +133,8 @@ export function showWelcome() {
       finish(picked);
       return;
     }
+    if (e.target.closest('[data-wl-guest]')) { showGuest(true); return; }
+    if (e.target.closest('[data-wl-back]')) { showGuest(false); return; }
     if (e.target.closest('[data-wl-skip]')) finish('none');
   });
 

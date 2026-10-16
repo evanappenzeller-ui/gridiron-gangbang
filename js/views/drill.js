@@ -39,7 +39,7 @@ const ST = new WeakMap(); // ctx -> pane state
 
 // A home-screen app open across an update imports this module new under the stylesheet it started with: when
 // drill.css's mark (--dr-css on :root) isn't this module's, the current file is added (as in views/seventeen.js).
-const CSS_V = '25';
+const CSS_V = '26';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--dr-css').trim() === CSS_V || document.querySelector('link[data-dr-css]')) return;
@@ -1510,11 +1510,11 @@ function sbRowHTML(st, r) {
   const how = g && g.result ? dr.resultText(g, {you: r.me}).sub : '';
   const sub = [how, plural(r.p, 'play')].filter(Boolean).join(' · ');
   const graded = r.grade == null ? '' : ` Call grade ${gradeText(r.grade)}.`;
-  const label = `${ui.ordinal(r.rank)}, ${r.name}${r.me ? ', you' : ''}: ${{W: 'won', T: 'tied', L: 'lost'}[r.r]} ${r.u} to ${r.h}.${graded} ${sub}. Show the game.`;
+  const label = `${ui.ordinal(r.rank)}, ${r.name}${r.me ? ', you' : ''}${r.guest ? ', guest' : ''}: ${{W: 'won', T: 'tied', L: 'lost'}[r.r]} ${r.u} to ${r.h}.${graded} ${sub}. Show the game.`;
   return `<button type="button" class="dr-sb-row${r.me ? ' is-me' : ''}" role="listitem" data-dr-who="${esc(r.key)}" aria-label="${esc(label)}">`
     + `<span class="dr-sb-rank" aria-hidden="true">${r.rank}</span>`
     + `<span class="dr-sb-av" aria-hidden="true">${ui.nickAvatar(r.name, {size: 36, managerId: r.managerId, you: r.me, crown: r.rank === 1 && r.r === 'W'})}</span>`
-    + `<span class="dr-sb-main" aria-hidden="true"><span class="dr-sb-name">${esc(r.name)}${r.me ? ui.badge('you') : ''}</span><span class="dr-sb-sub">${esc(sub)}</span></span>`
+    + `<span class="dr-sb-main" aria-hidden="true"><span class="dr-sb-name"><span class="dr-sb-nm">${esc(r.name)}</span>${r.me ? ui.badge('you') : r.guest ? ui.badge('guest') : ''}</span><span class="dr-sb-sub">${esc(sub)}</span></span>`
     + gradeChip(r.grade)
     + `<span class="dr-sb-res is-${r.r}" aria-hidden="true"><b>${r.r}</b><span>${r.u}–${r.h}</span></span></button>`;
 }
@@ -1528,11 +1528,11 @@ function weekBodyHTML(st) {
   const list = rows.map(r => {
     const rec = `${r.w}-${r.l}${r.t ? `-${r.t}` : ''}`;
     const sub = [rec, r.avg == null ? '' : `avg ${gradeText(r.avg)}`, r.streak >= 2 ? `${r.streak} wins in a row` : ''].filter(Boolean).join(' · ');
-    const label = `${ui.ordinal(r.rank)}, ${r.name}${r.me ? ', you' : ''}: ${plural(r.pts, 'point')}, ${r.w} won, ${r.l} lost${r.t ? `, ${r.t} tied` : ''}${r.avg == null ? '' : `, average call grade ${gradeText(r.avg)}`}${r.streak >= 2 ? `, ${r.streak} wins in a row` : ''}.`;
+    const label = `${ui.ordinal(r.rank)}, ${r.name}${r.me ? ', you' : ''}${r.guest ? ', guest' : ''}: ${plural(r.pts, 'point')}, ${r.w} won, ${r.l} lost${r.t ? `, ${r.t} tied` : ''}${r.avg == null ? '' : `, average call grade ${gradeText(r.avg)}`}${r.streak >= 2 ? `, ${r.streak} wins in a row` : ''}.`;
     return `<div class="dr-sb-row dr-wk-row${r.me ? ' is-me' : ''}" role="listitem" aria-label="${esc(label)}">`
       + `<span class="dr-sb-rank" aria-hidden="true">${r.rank}</span>`
       + `<span class="dr-sb-av" aria-hidden="true">${ui.nickAvatar(r.name, {size: 36, managerId: r.managerId, you: r.me, crown: r.rank === 1 && r.pts > 0})}</span>`
-      + `<span class="dr-sb-main" aria-hidden="true"><span class="dr-sb-name">${esc(r.name)}${r.me ? ui.badge('you') : ''}</span><span class="dr-sb-sub">${esc(sub)}</span></span>`
+      + `<span class="dr-sb-main" aria-hidden="true"><span class="dr-sb-name"><span class="dr-sb-nm">${esc(r.name)}</span>${r.me ? ui.badge('you') : r.guest ? ui.badge('guest') : ''}</span><span class="dr-sb-sub">${esc(sub)}</span></span>`
       + `<span class="dr-wk-pts" aria-hidden="true"><b>${r.pts}</b><small>${r.pts === 1 ? 'pt' : 'pts'}</small></span></div>`;
   }).join('');
   const t = rows.top;

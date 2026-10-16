@@ -67,3 +67,23 @@
 .sh-player .c-pc-b.is-none { height: 0; background: transparent; }
 .sh-player .c-pc-axis { display: flex; justify-content: space-between; margin-top: 8px; font: 500 var(--fs-cap)/var(--lh-cap) var(--font-text); color: var(--ink-3); }
 .sh-player .empty { padding-top: 16px; }
+
+/* ================================================================ Guest player (views/guest.js)
+   The form the welcome screen and the guest sheet share: what it's for, the name field, the reason a name won't do,
+   the button. */
+.c-gs { display: flex; flex-direction: column; gap: 12px; }
+.c-gs-lead { font: 400 var(--fs-body)/var(--lh-body) var(--font-text); color: var(--ink-2); }
+.c-gs-field { display: flex; flex-direction: column; gap: 6px; }
+.c-gs-lab { margin-left: 4px; font: 600 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2); }
+.c-gs-in {
+  width: 100%; height: 50px; padding: 0 16px; border: 0; border-radius: var(--r-field); outline: none;
+  background: var(--surface-2); color: var(--ink); box-shadow: inset 0 0 0 1px var(--separator);
+  font: 500 17px/1 var(--font-text); -webkit-appearance: none; appearance: none;
+  transition: box-shadow 160ms;
+}
+.c-gs-in::placeholder { color: var(--ink-3); }
+.c-gs-in:focus { box-shadow: inset 0 0 0 2px var(--tint); }
+.c-gs-in[aria-invalid="true"] { box-shadow: inset 0 0 0 2px var(--wrong); }
+.c-gs-err { min-height: 18px; margin: -6px 4px 0; font: 500 var(--fs-foot)/18px var(--font-text); color: var(--wrong); }
+.sh-guest .sheet-body { padding-bottom: calc(env(safe-area-inset-bottom) + 20px); }
+.sh-you .c-ys-guest .row-lead .av { margin: 0; }

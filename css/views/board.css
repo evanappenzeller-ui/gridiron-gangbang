@@ -113,3 +113,5 @@
   font: 600 var(--fs-sub)/var(--lh-sub) var(--font-text);
 }
 .v-puzzles .c-cd-nt, .v-results .c-cd-nt { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+/* A row's tag (YOU, or GUEST on another guest's row) keeps its size; the name gives way. */
+.c-brow .row-title > .badge { flex: none; }

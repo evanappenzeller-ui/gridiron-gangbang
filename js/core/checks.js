@@ -529,6 +529,25 @@ export async function runChecks() {
     return {pass, detail: `day ${S}: played ${s.played.length}, regulars ${s.regulars}, leader ${s.leader}, still ${s.stillToPlay.map(x => x.name).join(', ')}; one row a member ${once}; Mason streak ${st.current}/${st.best}`};
   });
 
+  check("a guest's row is never a member's, and a guest can't take a member's or another player's name", () => {
+    needDaily();
+    // On a three-puzzle day, as the board checks above (today, else day 1), so the fake entries count.
+    const P = daily.dayVersion() === 1 ? daily.PNUM : 1, players = fakePlayers(P), mason = players.find(p => p.id === 'fake-3');
+    // A guest called "Mason J" (g) beside the real Mason: two rows, the guest's tagged and belonging to no member (by
+    // the first name alone it would be Mason's, and only one of them would show).
+    const g = {id: 'fake-g', nick: 'Mason J', g: true, days: {[P]: Object.assign({}, mason.days[P])}, total: 620, played: 1, last: P};
+    const rows = daily.boardRows('today', players.concat([g]), P);
+    const gr = rows.find(r => r.id === 'fake-g'), mr = rows.find(r => r.managerId === 'mason');
+    const untagged = rows.filter(r => r.id !== 'fake-g').every(r => !r.guest);
+    const raw = daily.LB.raw;
+    daily.LB.raw = players.concat([{id: 'fake-z', nick: 'Zed Q', g: true}]);
+    const names = ['', 'Ben', 'mason smith', 'zed q', '42', 'Someone', 'Tommy T'].map(n => (daily.guestNameProblem(n) ? 'no' : 'ok')).join(' ');
+    daily.LB.raw = raw;
+    const pass = !!gr && gr.guest && gr.managerId === null && !!mr && mr.id === 'fake-3' && untagged
+      && daily.memberOf(g) === null && daily.memberOf({id: 'x', nick: 'Mason J'}) === 'mason' && names === 'no no no no no no ok';
+    return {pass, detail: `guest row ${gr ? `${gr.guest}/${gr.managerId}` : 'missing'}; Mason's row ${mr ? mr.id : 'missing'}; names ${names}`};
+  });
+
   // 6. holders
   check("holders(\"Diesel vs Carswell's Ls, week 16, 2021\") returns Corbin first", () => {
     needData();

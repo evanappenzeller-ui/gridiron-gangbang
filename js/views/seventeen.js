@@ -255,11 +255,11 @@ function sbRowHTML(b, r, mode) {
   const sub = today
     ? `${r.p.toFixed(1)} PPG${r.r ? ` · #${nf(r.r)} of ${nf(sv.all(b).list.length)}` : ''}`
     : `${plural(r.seasons, 'season')}${r.perfect ? ` · ${r.perfect}× 17–0` : ''}`;
-  const label = `${ui.ordinal(r.rank)}, ${r.name}${r.me ? ', you' : ''}, ${r.w} and ${r.l}${gold ? ', a perfect season' : ''}. ${today ? sub.replace('PPG', 'points a game') : `${plural(r.seasons, 'season')}${r.perfect ? `, ${r.perfect} went 17–0` : ''}`}`;
+  const label = `${ui.ordinal(r.rank)}, ${r.name}${r.me ? ', you' : ''}${r.guest ? ', guest' : ''}, ${r.w} and ${r.l}${gold ? ', a perfect season' : ''}. ${today ? sub.replace('PPG', 'points a game') : `${plural(r.seasons, 'season')}${r.perfect ? `, ${r.perfect} went 17–0` : ''}`}`;
   return `<div class="c-brow-w" role="listitem"><button type="button" class="row c-brow sv-brow${r.me ? ' is-me' : ''}" data-sv-who="${esc(r.key)}" aria-label="${esc(label + `. Show ${r.me ? 'your' : 'their'} team.`)}">`
     + `<span class="c-brank n4${r.rank <= 3 ? ' is-r' + r.rank : ''}" aria-hidden="true">${r.rank}</span>`
     + `<span class="row-lead" aria-hidden="true">${ui.nickAvatar(r.name, {size: 36, managerId: r.managerId, you: r.me, crown: r.rank === 1})}</span>`
-    + `<span class="row-main" aria-hidden="true"><span class="row-title"><span class="c-bnick">${esc(r.name)}</span>${r.me ? ui.badge('you') : ''}</span><span class="row-sub">${esc(sub)}</span></span>`
+    + `<span class="row-main" aria-hidden="true"><span class="row-title"><span class="c-bnick">${esc(r.name)}</span>${r.me ? ui.badge('you') : r.guest ? ui.badge('guest') : ''}</span><span class="row-sub">${esc(sub)}</span></span>`
     + `<span class="row-trail" aria-hidden="true">${gold ? ui.icon('trophy', {size: 16, cls: 'sv-brow-cup'}) : ''}<span class="n4 c-bval sv-bval${gold ? ' is-gold' : ''}">${r.w}–${r.l}</span></span>`
     + `</button></div>`;
 }

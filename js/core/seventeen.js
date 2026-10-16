@@ -287,7 +287,7 @@ export async function autoPost() {
   noTeam.forEach(n => { s17[n] = {k: cleanPick(v.days[n].pick).join('')}; }); // merged into the posted entry
   // A first doc needs the fields the rules ask for (nick, total); an existing one keeps its own.
   const mine = docs().find(p => p.id === LB.uid);
-  const body = mine ? {[F]: s17} : {nick: (daily.postName() || '').trim().slice(0, 24), total: 0, [F]: s17};
+  const body = mine ? {[F]: s17} : {nick: (daily.postName() || '').trim().slice(0, 24), g: daily.asGuest(), total: 0, [F]: s17};
   posting = true;
   try { await LB.merge(body); return true; } catch (_) { return false; } finally { posting = false; }
 }
@@ -321,7 +321,7 @@ export function boardRows(mode = 'today', n = todayNumber(), list = docs()) {
   people(list).forEach((ds, k) => {
     const mine = ds.some(p => p.id === uid) || (!!mk && k === mk);
     const rep = ds.find(p => p.id === uid) || ds.slice().sort((a, b) => (b.last || 0) - (a.last || 0))[0];
-    const base = {key: k, name: daily.displayName(rep), managerId: k.startsWith('row:') ? null : k, me: mine};
+    const base = {key: k, name: daily.displayName(rep), managerId: k.startsWith('row:') ? null : k, guest: daily.guestOf(rep), me: mine};
     if (mode === 'today') {
       const f = firstOf(ds, n);
       if (f) rows.push(Object.assign(base, {uid: f.doc.id, w: f.e.w, l: f.e.l, p: f.e.p, r: f.e.r}));

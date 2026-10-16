@@ -8,6 +8,7 @@ import * as data from '../core/data.js';
 import * as daily from '../core/daily.js';
 import {APP_VERSION, installEvent, promptInstall} from '../app.js';
 import {flameIcon, streakPillHTML, ensureDefs, countWord} from './board.js';
+import {openGuestSheet} from './guest.js';
 
 const esc = data.esc;
 const nf = n => data.nf(n);
@@ -18,15 +19,16 @@ function sec(title, inner, foot, attrs = '') {
 
 // ============================================================================ Avatar button
 // The trailing slot of every tab root's large title (Puzzles, Pick'em, Matchup, League, Draft): your monogram with
-// the white "you" ring, or a person glyph before you've picked. Views only render it: app.js opens the You sheet on
-// any [data-you] tap (one delegated handler) and redraws every button after a 'me' change (patchYouButtons below).
-function youInner(me) {
-  return me ? ui.avatar(me, {size: 32, you: true}) : `<span class="c-you-empty">${ui.icon('person', {size: 18})}</span>`;
+// the white "you" ring (a guest's initials), or a person glyph before you've picked. Views only render it: app.js opens
+// the You sheet on any [data-you] tap (one delegated handler) and redraws every button after a 'me' change
+// (patchYouButtons below).
+function youInner(me, g = data.guest()) {
+  return me ? ui.avatar(me, {size: 32, you: true}) : g ? ui.nickAvatar(g, {size: 32, you: true}) : `<span class="c-you-empty">${ui.icon('person', {size: 18})}</span>`;
 }
+const youKey = () => { const me = data.me(), g = data.guest(); return me || (g ? 'guest:' + g : ''); };
 /** The avatar button, for a large title's `trailing` slot. */
 export function youButtonHTML() {
-  const me = data.me();
-  return `<button type="button" class="c-you-btn" data-you data-me="${esc(String(me || ''))}" aria-label="You and settings">${youInner(me)}</button>`;
+  return `<button type="button" class="c-you-btn" data-you data-me="${esc(youKey())}" aria-label="You and settings">${youInner(data.me())}</button>`;
 }
 /** The gear beside the avatar (Puzzles): app.js opens the Settings sheet on [data-settings]. */
 export function settingsButtonHTML() {
@@ -34,7 +36,7 @@ export function settingsButtonHTML() {
 }
 /** Redraws the avatar buttons under root that show someone else (app.js calls it on 'me'); a visible one pops in. */
 export function patchYouButtons(root = document) {
-  const me = data.me(), key = String(me || '');
+  const me = data.me(), key = youKey();
   root.querySelectorAll('[data-you]').forEach(b => {
     if (b.dataset.me === key) return;
     b.dataset.me = key;
@@ -52,6 +54,18 @@ function gridHTML() {
   const cells = data.ids.map(id => `<button type="button" class="pm-cell c-you-cell" data-me="${esc(id)}" aria-pressed="${id === me}">${ui.avatar(id, {size: 56, you: id === me})}<span>${esc(data.name(id))}</span></button>`).join('');
   return `<div class="pm-grid c-you-grid" role="group" aria-label="Which one are you?">${cells}</div>`
     + `<button type="button" class="btn btn-secondary c-you-none" data-me="none" aria-pressed="${me === 'none'}">${ui.icon('check', {size: 18, cls: 'c-you-nck'})}<span class="btn-label">Not in the league</span></button>`;
+}
+// The guest's player: make one (not in the league), or rename it.
+function guestRow() {
+  const g = data.guest();
+  return g
+    ? ui.row({lead: ui.nickAvatar(g, {size: 30}), title: g, sub: 'Guest player · Rename', attrs: {'data-guest': ''}, cls: 'c-ys-guest', chevron: true})
+    : ui.row({lead: `<span class="c-ys-ic">${ui.icon('plus', {size: 20})}</span>`, title: 'Play as a guest', attrs: {'data-guest': ''}, cls: 'c-ys-act c-ys-guest'});
+}
+function guestSec() {
+  return sec('Guest player', ui.group(guestRow(), {cls: 'c-ys-guestg'}), data.guest()
+    ? 'Your Daily Puzzles, 17–0 and Two-Minute Drill scores post to the boards under this name, tagged Guest.'
+    : 'Not in the league? Make your own player to track your scores on the daily boards.', 'data-guest-sec');
 }
 function nickRow() {
   const nick = daily.LB.nick;
@@ -92,6 +106,7 @@ function youBody() {
   const sp = data.span;
   const feel = feelHTML();
   return sec('Which one are you?', gridHTML())
+    + guestSec()
     + sec('Leaderboard', ui.group(nickRow(), {cls: 'c-ys-nickg'}))
     + sec('Look', ui.group(ui.row({lead: `<span class="c-ys-ic">${ui.icon('sparkle', {size: 20})}</span>`, title: 'Theme', sub: themeName(),
       attrs: {'data-theme-pick': ''}, cls: 'c-ys-act', chevron: true})))
@@ -133,7 +148,7 @@ function settingsBody() {
   const feel = feelHTML();
   return sec('Look', ui.group(ui.row({lead: `<span class="c-ys-ic">${ui.icon('sparkle', {size: 20})}</span>`, title: 'Theme', sub: themeName(),
       attrs: {'data-theme-pick': ''}, cls: 'c-ys-act', chevron: true})))
-    + sec('You', ui.group(ui.row({lead: `<span class="c-ys-ic">${ui.icon('person', {size: 20})}</span>`, title: 'Which one are you?', sub: data.me() ? data.name(data.me()) : 'Not picked yet',
+    + sec('You', ui.group(ui.row({lead: `<span class="c-ys-ic">${ui.icon('person', {size: 20})}</span>`, title: 'Which one are you?', sub: data.me() ? data.name(data.me()) : data.guest() ? `${data.guest()} · Guest` : 'Not picked yet',
       attrs: {'data-open-you': ''}, cls: 'c-ys-act', chevron: true})))
     + feel
     + sec('Data', ui.group(
@@ -163,7 +178,14 @@ export function openYouSheet() {
   youSheet = s;
   wireSheet(s);
   unsub = data.subscribe(type => {
-    if (type === 'me') patchGrid(s);
+    if (type === 'me') {
+      patchGrid(s);
+      // The guest section and the posting name follow.
+      const gs = s.body.querySelector('[data-guest-sec]');
+      if (gs) { gs.outerHTML = guestSec(); ui.hydrate(s.body); }
+      const nk = s.body.querySelector('.c-ys-nickg');
+      if (nk) nk.innerHTML = nickRow();
+    }
     if (type === 'data') { const t = s.body.querySelector('.c-ys-dataline .row-title'); if (t) t.textContent = dataLine(); }
   });
   return s;
@@ -171,6 +193,7 @@ export function openYouSheet() {
 // The rows both sheets share: pick who you are, theme, check for new week, install, haptics.
 function wireSheet(s) {
   s.body.addEventListener('click', async e => {
+    if (e.target.closest('[data-guest]')) { openGuestSheet(); return; }
     const me = e.target.closest('[data-me]');
     if (me) {
       if (me.dataset.me === data.meRaw()) return;

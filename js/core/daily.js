@@ -12,7 +12,7 @@
 // behavior.
 // Owner: foundation (core).
 
-import {DATA, nf, norm, me as dataMe, name as dataName} from './data.js';
+import {DATA, nf, norm, me as dataMe, name as dataName, guest as dataGuest, subscribe as dataSub} from './data.js';
 import {getFire, canWrite, isDevHost, devDayFrom, DEV_DAY as fireDevDay} from './fire.js';
 import {roundsFor as playRoundsFor} from './plays.js';
 
@@ -852,7 +852,7 @@ export function playedElsewhere() {
 }
 const shut = () => !!playedElsewhere();
 
-const DAILY_FIELDS = ['nick', 'days', 'total', 'played', 'last']; // what postScore writes
+const DAILY_FIELDS = ['nick', 'g', 'days', 'total', 'played', 'last']; // what postScore writes
 let fbStarted = false;
 // The app, anonymous sign-in and Firestore come from the shared layer (fire.js); no config or a failed
 // import / sign-in turns the board off, exactly as before.
@@ -876,7 +876,8 @@ async function startFirebase() {
       LB.players = onePerMember(LB.raw);
       LB.ready = true;
       const mine = all.find(p => p.id === LB.uid);
-      if (mine && mine.nick) LB.nick = mine.nick;
+      if (dataGuest()) fixGuestRow(mine);
+      else if (mine && mine.nick) LB.nick = mine.nick;
       if (entryFor(mine)) DS.posted = true;
       lbChanged('snapshot', prev);
       maybeAutoPost();
@@ -932,7 +933,7 @@ let retryT = 0, retryMs = 0;
 export function postName() {
   if (LB.nick) return LB.nick;
   const m = dataMe();
-  return m ? dataName(m) : '';
+  return m ? dataName(m) : dataGuest() || '';
 }
 function scheduleRetry() {
   clearTimeout(retryT);
@@ -958,7 +959,7 @@ export async function postScore(nick) {
   const days = Object.assign({}, me && me.days);
   if (!entryFor(me)) days[PNUM] = Object.assign(boardEntry(), relOf(PNUM) ? {r: relOf(PNUM)} : null, {t: Date.now()});
   const vals = Object.values(days);
-  const body = {nick: (nick || '').trim().slice(0, 24), days, total: vals.reduce((s, d) => s + (d.p || 0), 0), played: vals.length, last: PNUM};
+  const body = {nick: (nick || '').trim().slice(0, 24), g: asGuest(), days, total: vals.reduce((s, d) => s + (d.p || 0), 0), played: vals.length, last: PNUM};
   try {
     await LB.save(body);
     DS.posted = true; saveDS(); LB.status = 'posted'; LB.nick = body.nick;
@@ -1047,11 +1048,56 @@ function managerOfNick(nick) {
   return m ? m.id : null;
 }
 function managerFor(p) {
-  if (p.id === LB.uid && LB.uid) return dataMe() || managerOfNick(displayName(p));
-  return managerOfNick(displayName(p));
+  if (p.id === LB.uid && LB.uid) return dataMe() || (dataGuest() ? null : managerOfNick(displayName(p)));
+  // A guest's row (g) is never a league member's, whatever its name.
+  return p.g ? null : managerOfNick(displayName(p));
 }
 /** The league member a board doc belongs to (manager id), or null: what the boards group rows by. */
 export const memberOf = p => (p ? managerFor(p) : null);
+
+// ---------------------------------------------------------------------------
+// Guests: someone not in the league makes their own player (data.setGuest), a name their games post under. Their
+// board doc carries g: true, so it never counts as a league member's (managerOfNick goes by the first name), and the
+// boards tag it.
+/** Whether this phone posts as a guest. */
+export const asGuest = () => !!dataGuest();
+/** Whether a board doc is a guest's (this phone's own row, as soon as it's made a guest). */
+export const guestOf = p => !!(p && (p.g || (LB.uid && p.id === LB.uid && dataGuest())));
+/** Why a guest can't play under a name, or '' when they can: blank, no letters, a league member's first name, or
+ *  another player's name on the boards. */
+export function guestNameProblem(name) {
+  const n = String(name || '').trim();
+  if (!n) return 'Enter a name.';
+  if (n.length > 24) return 'Keep it to 24 characters.';
+  if (!/\p{L}/u.test(n)) return 'Use at least one letter.';
+  if (n.toLowerCase() === 'someone') return 'Pick a name of your own.';
+  const m = managerOfNick(n);
+  if (m) return `${dataName(m)} is a league member. Pick another name.`;
+  const low = n.toLowerCase();
+  if ((LB.raw || []).some(p => p.id !== LB.uid && String(p.nick || '').trim().toLowerCase() === low)) return 'Someone already plays under that name.';
+  return '';
+}
+// The posting name and this phone's board row follow who you are: a guest's name and flag go up at once (a row
+// already on the board is renamed), and a member who was a guest loses the flag.
+// A guest who picks a league member posts under the member's name from then on.
+function setNick(n) { LB.nick = n; try { localStorage.setItem('gg-nick', n); } catch (_) {} }
+function fixGuestRow(mine) {
+  const g = dataGuest(), m = dataMe();
+  if (g && LB.nick !== g) setNick(g);
+  const want = !mine ? null : g ? (mine.nick !== g || !mine.g ? {nick: g, g: true} : null)
+    : mine.g ? Object.assign({g: false}, m ? {nick: dataName(m).slice(0, 24)} : null) : null;
+  if (want && LB.merge) LB.merge(want).catch(() => {});
+}
+let wasGuest = null;
+dataSub(type => {
+  if (type !== 'me') return;
+  const m = dataMe();
+  if (wasGuest && m && LB.nick === wasGuest) setNick(dataName(m).slice(0, 24));
+  wasGuest = dataGuest();
+  fixGuestRow(LB.uid && (LB.raw || []).find(p => p.id === LB.uid));
+  lbChanged('status');
+});
+try { wasGuest = dataGuest(); } catch (_) {}
 
 // Today-mode sub line for a board day entry. v1 entries ({p, g, c, w}): the exact old text. v2 entries
 // (they carry s and/or j): the five parts in play order. v3 entries (v: 3): the same five parts out of the day's
@@ -1120,7 +1166,7 @@ export function boardRows(mode = LB.mode, players = LB.players, pnum = PNUM, day
     const rows = players.map(p => {
       const s = streakOf(p);
       if (!s.best) return null;
-      return {id: p.id, name: displayName(p), current: s.current, best: s.best, me: p.id === LB.uid, managerId: managerFor(p)};
+      return {id: p.id, name: displayName(p), current: s.current, best: s.best, me: p.id === LB.uid, managerId: managerFor(p), guest: guestOf(p)};
     }).filter(Boolean).sort((a, b) => b.current - a.current || b.best - a.best);
     let rank = 0, pc = null, pb = null;
     rows.forEach((r, i) => { if (r.current !== pc || r.best !== pb) { rank = i + 1; pc = r.current; pb = r.best; } r.rank = rank; });
@@ -1152,6 +1198,7 @@ export function boardRows(mode = LB.mode, players = LB.players, pnum = PNUM, day
     const p = byId.get(r.id);
     r.me = r.id === LB.uid;
     r.managerId = managerFor(p);
+    r.guest = guestOf(p);
     r.move = mode === 'season' ? (before.has(r.id) ? before.get(r.id) - r.rank : 'new') : null;
   });
   return rows;

@@ -477,6 +477,7 @@ button.card, a.card { width: 100%; text-align: left; color: inherit; }
 .b-blowout, .b-nail, .b-high { color: var(--ink-2); background: var(--surface-2); }
 .b-high > .ic { color: var(--flame-2); }
 .b-you      { color: var(--on-tint); background: var(--tint); }
+.b-guest    { color: var(--ink-2); background: var(--surface-3); }
 .b-deep     { color: #1A1300; background: var(--gold); rotate: -8deg; box-shadow: 0 2px 6px rgba(0,0,0,.35); }
 .card .badge:not(.b-champ):not(.b-2nd):not(.b-3rd):not(.b-last):not(.b-you):not(.b-deep):not(.b-final):not(.b-playoffs) { background: var(--surface-2); }
 

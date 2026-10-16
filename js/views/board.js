@@ -328,13 +328,13 @@ function rowInner(r, mode) {
   const trail = streaks
     ? `<span class="c-bstreak">${flameIcon({size: 18, cold: !r.current})}<span class="n4 c-bval">${esc(r.current)}</span></span>`
     : `${moveChip(r.move)}<span class="n4 c-bval">${esc(nf(r.pts))}</span>`;
-  const label = `${ui.ordinal(r.rank)}, ${r.name}${r.me ? ', you' : ''}, ${streaks ? `${r.current}-day streak, best ${r.best}` : `${nf(r.pts)} points${moveWords(r.move)}, ${sub}`}`;
+  const label = `${ui.ordinal(r.rank)}, ${r.name}${r.me ? ', you' : ''}${r.guest ? ', guest' : ''}, ${streaks ? `${r.current}-day streak, best ${r.best}` : `${nf(r.pts)} points${moveWords(r.move)}, ${sub}`}`;
   return {
     label,
     val,
     html: `<span class="c-brank n4${rankCls(r.rank)}" aria-hidden="true">${esc(r.rank)}</span>`
       + `<span class="row-lead">${ui.nickAvatar(r.name, {size: 36, managerId: r.managerId || null, you: r.me, crown: r.rank === 1})}</span>`
-      + `<span class="row-main"><span class="row-title"><span class="c-bnick">${esc(r.name)}</span>${r.me ? ui.badge('you') : ''}</span><span class="row-sub${short ? ' is-two' : ''}">${esc(short || sub)}</span></span>`
+      + `<span class="row-main"><span class="row-title"><span class="c-bnick">${esc(r.name)}</span>${r.me ? ui.badge('you') : r.guest ? ui.badge('guest') : ''}</span><span class="row-sub${short ? ' is-two' : ''}">${esc(short || sub)}</span></span>`
       + `<span class="row-trail">${trail}</span>`
   };
 }

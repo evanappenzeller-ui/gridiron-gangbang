@@ -523,7 +523,7 @@ export async function autoPost() {
   if (!Object.keys(out).length) return false;
   const body = {[F]: out};
   const mine = docs().find(p => p.id === LB.uid);
-  if (!mine) Object.assign(body, {nick: (daily.postName() || '').trim().slice(0, 24), total: 0});
+  if (!mine) Object.assign(body, {nick: (daily.postName() || '').trim().slice(0, 24), g: daily.asGuest(), total: 0});
   posting = true;
   try { await LB.merge(body); return true; } catch (_) { return false; } finally { posting = false; }
 }
@@ -615,7 +615,7 @@ export const gradeLetter = g => (g == null ? '' : (LETTERS.find(([min]) => Math.
 const rowWho = (ds, k) => {
   const mk = meKey(), uid = daily.LB.uid;
   const rep = ds.find(p => p.id === uid) || ds.slice().sort((a, b) => (b.last || 0) - (a.last || 0))[0];
-  return {key: k, name: daily.displayName(rep), managerId: k.startsWith('row:') ? null : k, me: ds.some(p => p.id === uid) || (!!mk && k === mk)};
+  return {key: k, name: daily.displayName(rep), managerId: k.startsWith('row:') ? null : k, guest: daily.guestOf(rep), me: ds.some(p => p.id === uid) || (!!mk && k === mk)};
 };
 /**
  * Day n's scoreboard: one row per member, by the game's final result (wins, then ties, then losses), then within
