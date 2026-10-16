@@ -58,7 +58,8 @@ export function scenario(n) {
 export const team = id => DOC.teams[id];
 
 // ---------------------------------------------------------------------------------------------- memory
-// 'gg-drill5': {days: {n: {a (actions), r ('W'|'T'|'L' once over), at}} (the last KEEP days), played, wins}
+// 'gg-drill5': {days: {n: {a (actions), r ('W'|'T'|'L' once over), at, p (practice: the times replayed)}} (the last
+// KEEP days), played, wins}
 // (Earlier games, under 'gg-2m' and 'gg-drill2' to 'gg-drill4', were played on other engines or other days' situations
 // and don't replay in this one, so they're left be.)
 const KEY = 'gg-drill5', KEEP = 60;
@@ -76,16 +77,16 @@ function write(v) {
   lsSet(KEY, JSON.stringify(v));
 }
 const cleanActs = a => (typeof a === 'string' && /^[a-z0-9+,]{0,1600}$/.test(a) ? a : '');
-/** Day n on this phone: {acts, result (null until it's over), at}. */
+/** Day n on this phone: {acts, result (null until it's over), at, practice (0, or which replay this is)}. */
 export function dayState(n) {
   const d = read().days[n] || {};
-  return {acts: cleanActs(d.a), result: ['W', 'T', 'L'].includes(d.r) ? d.r : null, at: Number(d.at) || 0};
+  return {acts: cleanActs(d.a), result: ['W', 'T', 'L'].includes(d.r) ? d.r : null, at: Number(d.at) || 0, practice: Math.max(0, d.p | 0)};
 }
 /** Day n's game, replayed. */
 export function game(n) {
   return E.replay(scenario(n), DOC.teams, dayState(n).acts);
 }
-/** Saves day n's game after an action. A finished day changes no more. */
+/** Saves day n's game after an action. A finished day changes no more; a practice run's finish isn't counted. */
 export function record(n, s) {
   const v = read();
   const d = v.days[n] || (v.days[n] = {});
@@ -94,9 +95,27 @@ export function record(n, s) {
   if (s.result) {
     d.r = s.result;
     d.at = Date.now();
-    v.played += 1;
-    if (s.result === 'W') v.wins += 1;
+    if (!d.p) {
+      v.played += 1;
+      if (s.result === 'W') v.wins += 1;
+    }
   }
+  write(v);
+  return true;
+}
+// Testers: members who can play a day again as often as they like, to try the game out. The day's first finished game
+// is the one that counts (the board, the record); every game after it is practice, on this phone only: never posted,
+// not added to the record.
+const TESTERS = ['evan'];
+const whoAmI = () => dataMe() || (daily.LB.ready && daily.LB.uid ? meKey() : null);
+/** Whether this phone's member can replay a finished day. */
+export const canReplay = () => TESTERS.includes(whoAmI());
+/** A tester's finished day n, cleared for a practice run (its first game stays posted). True when it cleared. */
+export function replayDay(n) {
+  if (!canReplay()) return false;
+  const v = read(), d = v.days[n];
+  if (!d || !d.r) return false;
+  v.days[n] = {p: Math.max(0, d.p | 0) + 1};
   write(v);
   return true;
 }
@@ -486,7 +505,7 @@ function unposted() {
   const theirs = list.filter(p => p === mine || (k && daily.memberOf(p) === k));
   const v = read(), top = todayNumber();
   return Object.keys(v.days).map(Number)
-    .filter(n => Number.isInteger(n) && n <= top && n > top - POST_BACK && v.days[n].r)
+    .filter(n => Number.isInteger(n) && n <= top && n > top - POST_BACK && v.days[n].r && !v.days[n].p)
     .filter(n => !theirs.some(p => entryOf(p, n)))
     .sort((a, b) => a - b);
 }
@@ -541,7 +560,7 @@ export function applyResets() {
       const v = read(), d = v.days[r.n];
       // A league-wide reset keeps a game finished after it.
       if (d && !(r.at && d.r && Number(d.at) >= r.at)) {
-        if (d.r) { v.played = Math.max(0, v.played - 1); if (d.r === 'W') v.wins = Math.max(0, v.wins - 1); }
+        if (d.r && !d.p) { v.played = Math.max(0, v.played - 1); if (d.r === 'W') v.wins = Math.max(0, v.wins - 1); }
         delete v.days[r.n];
         write(v);
         cleared = true;

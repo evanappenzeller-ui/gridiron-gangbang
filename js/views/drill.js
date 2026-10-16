@@ -38,7 +38,7 @@ const ST = new WeakMap(); // ctx -> pane state
 
 // A home-screen app open across an update imports this module new under the stylesheet it started with: when
 // drill.css's mark (--dr-css on :root) isn't this module's, the current file is added (as in views/seventeen.js).
-const CSS_V = '18';
+const CSS_V = '19';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--dr-css').trim() === CSS_V || document.querySelector('link[data-dr-css]')) return;
@@ -1304,7 +1304,7 @@ function finalGradeHTML(n, s, who = 'Your') {
 function resultHTML(st) {
   const s = st.s;
   if (!s.result) return '';
-  const r = dr.resultText(s);
+  const r = dr.resultText(s), practice = dr.dayState(st.n).practice;
   return `<section class="dr-final is-${s.result}" aria-labelledby="dr-res-h">`
     + `<p class="dr-final-k">${esc(`Two-Minute Drill #${st.n} · ${dr.dayLabel(st.n)}`)}</p>`
     + finalSBHTML(s)
@@ -1312,7 +1312,9 @@ function resultHTML(st) {
     + `<p class="dr-final-sub">${esc(r.sub)}</p>`
     + finalGradeHTML(st.n, s)
     + `<p class="dr-res-sq" aria-hidden="true">${esc(dr.squares(s))}</p>`
-    + `<div class="dr-res-act"><button type="button" class="btn btn-primary dr-share" data-dr-share>${ui.icon('share')}<span class="btn-label">Share</span></button></div>`
+    + (practice ? `<p class="dr-practice">${esc(`Practice run ${practice}: your first game today is the one on the scoreboard.`)}</p>` : '')
+    + `<div class="dr-res-act"><button type="button" class="btn btn-primary dr-share" data-dr-share>${ui.icon('share')}<span class="btn-label">Share</span></button>`
+    + (dr.canReplay() ? `<button type="button" class="btn btn-secondary dr-again" data-dr-again>${ui.icon('play-fill')}<span class="btn-label">Play again</span></button>` : '') + `</div>`
     + `<p class="dr-next">${ui.icon('clock', {size: 15})}<span>Next drill in <span data-dr-next>${esc(nextIn())}</span></span></p></section>`
     + compHTML(s);
 }
@@ -1320,7 +1322,7 @@ function headHTML(st) {
   const s = st.s, sc = s.sc, n = st.n, g = sc.g;
   const where = sc.b === 50 ? 'midfield' : sc.b < 50 ? `your ${sc.b}` : `their ${100 - sc.b}`;
   return `<header class="dr-head">`
-    + `<p class="dr-kick">${esc(`Two-Minute Drill #${n} · ${dr.dayLabel(n)}`)}</p>`
+    + `<p class="dr-kick">${esc(`Two-Minute Drill #${n} · ${dr.dayLabel(n)}${dr.dayState(n).practice ? ' · Practice' : ''}`)}</p>`
     + `<h2 class="dr-title">${esc(`Down ${sc.them - sc.us}, ${dr.clockText(sc.t)} to go`)}</h2>`
     + `<p class="dr-sub">${esc(`${g ? `Week ${g.wk}: ${g.a} at ${g.h}. ` : ''}Ball on ${where}, ${plural(sc.to, 'timeout')}. Play to 0:00.`)}</p>`
     + ui.iconButton({icon: 'info', label: 'How the Two-Minute Drill works', cls: 'dr-howto', attrs: {'data-dr-help': ''}})
@@ -1719,6 +1721,17 @@ function setDaily(st) {
   st.routes = st.s && st.s.routes ? Object.assign({}, st.s.routes) : {};
   if (st.s && !st.s.result && st.el && st.wp) st.timers.push(setTimeout(() => wpNow(st, st.s), 400));
 }
+/** A tester's practice run of today's drill: the first game is posted (if it wasn't yet) and stays on the board. */
+function playAgain(st) {
+  if (st.busy) return;
+  dr.autoPost();
+  if (!dr.replayDay(st.n)) return;
+  ui.haptic('medium');
+  setDaily(st);
+  rerender(st);
+  setTimeout(() => { if (!st.dead) showField(st); }, 200);
+  ui.announce('Practice run: a fresh start on today’s drill.');
+}
 function rerender(st, {fade = true} = {}) {
   const go2 = () => { st.el.innerHTML = bodyHTML(st); ui.hydrate(st.el); };
   if (fade && !ui.RM && st.ctx.visible) ui.crossfade(st.el, go2, {duration: 160}); else go2();
@@ -1840,7 +1853,7 @@ function onClick(st, e) {
   if (st.rtOpen) { openRoutes(st, null); return; }
   const rcv = routesOn(st) && e.target.closest('[data-dr-rcv]');
   if (rcv && st.el.contains(rcv)) { cycleRoute(st, rcv.dataset.drRcv); return; }
-  const t = e.target.closest('[data-dr-go], [data-dr-menu], [data-dr-card], [data-dr-side], [data-dr-hurry], [data-dr-flag], [data-dr-replay], [data-dr-ratings], [data-dr-help], [data-dr-share], [data-dr-retry], [data-dr-who], [data-dr-sbtab]');
+  const t = e.target.closest('[data-dr-go], [data-dr-menu], [data-dr-card], [data-dr-side], [data-dr-hurry], [data-dr-flag], [data-dr-replay], [data-dr-ratings], [data-dr-help], [data-dr-share], [data-dr-again], [data-dr-retry], [data-dr-who], [data-dr-sbtab]');
   if (!t || !st.el.contains(t) || t.disabled) return;
   if (t.hasAttribute('data-dr-go')) { go(st, t.dataset.drGo); return; }
   if (t.hasAttribute('data-dr-menu')) { openMenu(st, st.panel === t.dataset.drMenu ? 'main' : t.dataset.drMenu); return; }
@@ -1866,6 +1879,7 @@ function onClick(st, e) {
   if (t.hasAttribute('data-dr-ratings')) { openRatings(st); return; }
   if (t.hasAttribute('data-dr-help')) { openHelp(); return; }
   if (t.hasAttribute('data-dr-share')) { share(st); return; }
+  if (t.hasAttribute('data-dr-again')) { playAgain(st); return; }
   if (t.hasAttribute('data-dr-who')) { openGame(st, t.dataset.drWho); return; }
   if (t.hasAttribute('data-dr-sbtab')) {
     if ((st.sbTab || 'day') === t.dataset.drSbtab) return;
