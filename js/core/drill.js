@@ -199,9 +199,11 @@ export function playText(s, p) {
   t.line += changeText(s, p);
   return t;
 }
-const TRICK_LINE = {f: 'The flea flicker', h: 'The halfback pass', r: 'The double reverse'};
-const RPO_ROUTE = {s: 'slant', b: 'bubble', g: 'seam'};
-const RUN_HOW = {z: 'runs', t: 'takes the toss', d: 'runs the draw'};
+const TRICK_LINE = {f: 'The flea flicker', h: 'The halfback pass', r: 'The double reverse', s: 'The fake spike', l: 'The hook and lateral'};
+const RPO_ROUTE = {s: 'slant', b: 'bubble', g: 'seam', h: 'hitch', k: 'hitch'};
+const RUN_HOW = {z: 'runs', t: 'takes the toss', d: 'runs the draw', p: 'follows the pulling guard', c: 'runs the counter', q: 'sneaks it'};
+/** A run that scores, in words (the sneak and the power punch it in). */
+const RUN_IN = {z: 'runs it in', t: 'takes the toss in', d: 'runs the draw in', p: 'powers it in', c: 'runs the counter in', q: 'sneaks it in'};
 function ourText(s, p) {
   const qb = lastName(offName(s, p, 'QB'));
   const trick = TRICK_LINE[p.trick] || 'The trick play';
@@ -222,22 +224,25 @@ function ourText(s, p) {
     case 'xp': return {head: 'Extra point', line: 'The extra point is good.', tone: 'score'};
     case '2good': return {head: 'Two!', line: `Two-point try: ${twoLine(s, p)}`, tone: 'score'};
     case '2fail': return {head: 'Stopped', line: `Two-point try: ${twoLine(s, p)}`, tone: 'bad'};
-    case 'int': return {head: 'Intercepted', line: p.trick ? `${trick}: ${thrower} heaves it deep and ${defName(s, p, p.by)} picks it off.` : `${qb} looks for ${to}${on}: picked off by ${defName(s, p, p.by)}.`, tone: 'bad'};
+    case 'int': return {head: 'Intercepted', line: p.trick === 'l' ? `${trick}: ${qb}’s throw to ${to} is picked off by ${defName(s, p, p.by)}.` : p.trick ? `${trick}: ${thrower} heaves it deep and ${defName(s, p, p.by)} picks it off.` : `${qb} looks for ${to}${on}: picked off by ${defName(s, p, p.by)}.`, tone: 'bad'};
     case 'fum': return {head: 'Fumble', line: p.who ? `${p.trick ? `${trick}: ` : ''}${lastName(offName(s, p, p.who))} fumbles and ${defName(s, p, p.by)} recovers.` : `Strip sack by ${defName(s, p, p.by)}.`, tone: 'bad'};
     case 'sack': return {head: `Sack ${p.gain}`, line: p.trick === 'h' ? `${trick}: ${defName(s, p, p.by)} runs down ${thrower} for a loss of ${Math.abs(p.gain)}: ${tail}.` : `${defName(s, p, p.by)} sacks ${qb} for a loss of ${Math.abs(p.gain)}: ${tail}.`, tone: 'bad'};
     case 'inc': return {head: 'Incomplete', line: p.trick ? `${trick} falls incomplete: ${tail}.` : `${qb} looks for ${to}${on}: incomplete, ${tail}.`, tone: 'flat'};
     case 'catch': {
-      if (p.td) return {head: 'Touchdown', line: `${p.trick ? `${trick}! ` : ''}${thrower} finds ${to}${p.trick ? '' : on} for a ${p.gain}-yard touchdown.${xp}${s.phase === 'pat' && p === s.plays[s.plays.length - 1] ? ' Now the try: kick it, or go for two.' : ''}`, tone: 'score'};
-      const what = p.read === 'pass' ? `RPO: ${qb} pulls it and fires to ${to} on ${article(RPO_ROUTE[p.rpo] || 'slant')} ${RPO_ROUTE[p.rpo] || 'slant'}` : p.trick ? `${trick}! ${thrower} hits ${to} deep` : `${qb} hits ${to}${on}`;
+      const pitch = p.lat ? `, who pitches to ${short(offName(s, p, p.lat))}` : '';
+      if (p.td) return {head: 'Touchdown', line: `${p.trick ? `${trick}! ` : ''}${thrower} finds ${to}${p.trick ? '' : on}${pitch} for a ${p.gain}-yard touchdown.${xp}${s.phase === 'pat' && p === s.plays[s.plays.length - 1] ? ' Now the try: kick it, or go for two.' : ''}`, tone: 'score'};
+      const what = p.read === 'pass' ? `RPO: ${qb} pulls it and fires to ${to} on ${article(RPO_ROUTE[p.rpo] || 'slant')} ${RPO_ROUTE[p.rpo] || 'slant'}`
+        : p.trick === 'l' ? (p.lat ? `${trick}! ${to} hooks it and pitches to ${short(offName(s, p, p.lat))}, who takes it` : `${trick}: ${to} makes the catch, but the pitch isn’t there; he keeps it`)
+        : p.trick ? `${trick}! ${thrower} hits ${to} deep` : `${qb} hits ${to}${on}`;
       return {head: p.gain >= 0 ? `+${p.gain}` : `${p.gain}`, line: `${what} for ${p.gain >= 0 ? yds(p.gain) : 'a loss of ' + Math.abs(p.gain)}${p.broke ? ', breaking a tackle' : ''}${p.downs ? ': short, turnover on downs.' : `: ${tail}.`}`, tone: p.downs ? 'bad' : p.first || p.gain >= 10 ? 'good' : p.gain <= 2 ? 'flat' : 'good'};
     }
     case 'run': {
       const who = lastName(offName(s, p, p.who || 'RB'));
       const rev = p.trick === 'r';
       const keep = p.read === 'run' ? 'RPO, handed off: ' : rev ? `${trick}${p.gain > 0 ? '!' : ':'} ` : '';
-      const how = rev ? 'comes back the other way' : `${RUN_HOW[p.rk] || 'runs'} ${SIDE[p.dir]}`;
+      const how = rev ? 'comes back the other way' : p.rk === 'q' ? 'sneaks it' : `${RUN_HOW[p.rk] || 'runs'} ${SIDE[p.dir]}`;
       const pat = s.phase === 'pat' && p === s.plays[s.plays.length - 1] ? ' Now the try: kick it, or go for two.' : '';
-      if (p.td) return {head: 'Touchdown', line: `${keep}${who} ${rev ? 'takes it all the way' : `${RUN_HOW[p.rk] || 'runs'} it in`} from ${p.gain} out${rev ? '' : ` on the ${SIDE[p.dir]}`}.${xp}${pat}`, tone: 'score'};
+      if (p.td) return {head: 'Touchdown', line: `${keep}${who} ${rev ? 'takes it all the way' : RUN_IN[p.rk] || 'runs it in'} from ${p.gain} out${rev || p.rk === 'q' ? '' : ` on the ${SIDE[p.dir]}`}.${xp}${pat}`, tone: 'score'};
       const head = p.gain > 0 ? `+${p.gain}` : p.gain === 0 ? 'No gain' : `${p.gain}`;
       const end = p.downs ? ': short, turnover on downs.' : `: ${tail}.`;
       const line = p.gain > 0 ? `${keep}${who} ${how} for ${yds(p.gain)}${p.broke ? ', breaking a tackle' : ''}${end}`
@@ -274,7 +279,7 @@ function theirText(s, p) {
     }
     case 'run': {
       const who = lastName(offName(s, p, 'RB'));
-      if (p.td) return {head: 'Touchdown', line: `${pre}${who} runs it in from ${p.gain} out.${after}`, tone: 'bad'};
+      if (p.td) return {head: 'Touchdown', line: `${pre}${who} ${RUN_IN[p.rk] || 'runs it in'} from ${p.gain} out.${after}`, tone: 'bad'};
       const end = p.downs ? ': stopped short, turnover on downs.' : `: ${tail}.`;
       return {head: p.downs ? 'Stopped!' : p.gain > 0 ? `+${p.gain}` : 'Stuffed', line: p.gain > 0 ? `${pre}${who} ${RUN_HOW[p.rk] || 'runs'} for ${yds(p.gain)}${p.broke ? ', breaking a tackle' : ''}${end}` : `${pre}${who} is stopped by ${defName(s, p, p.by)}${p.gain < 0 ? ` for a loss of ${-p.gain}` : ''}${end}`, tone: p.gain <= 1 || p.downs ? 'good' : p.first ? 'bad' : 'flat'};
     }
@@ -331,6 +336,15 @@ export function callText(s, p) {
       : fx <= -0.03 ? {text: `${is}, set up to stop ${the}.`, good: false}
       : {text: `${is}. Nothing special against ${the}.`, good: true};
   }
+  if (a.kind === 'run' && a.play === 'q') {
+    const r = E.FX[p.dcall].run;
+    return {text: `${is}. A sneak is a push up the middle${r <= -1 ? ', and it was waiting there' : ': it didn’t much matter'}.`, good: r > -1};
+  }
+  if (a.kind === 'run' && a.play === 'c') {
+    const k = E.COUNTER[p.dcall];
+    if (k >= 1) return {text: `${is}: flying to the ball, what a counter cuts back on.`, good: true};
+    if (k <= -0.3) return {text: `${is}: patient, sitting on the cutback.`, good: false};
+  }
   if (a.kind === 'run' || a.kind === 'rpo') {
     const into = a.dir === p.shade;
     const draw = a.kind === 'run' && a.play === 'd' ? E.DRAW[p.dcall] : 0;
@@ -341,7 +355,7 @@ export function callText(s, p) {
     return {text: `${is}, and ${side}.`, good: fxr >= 0};
   }
   if (a.kind === 'trick') {
-    const t = E.trickOdds(a.play, p.dcall), name = {f: 'flea flicker', h: 'halfback pass', r: 'double reverse'}[a.play];
+    const t = E.trickOdds(a.play, p.dcall), name = {f: 'flea flicker', h: 'halfback pass', r: 'double reverse', s: 'fake spike', l: 'hook and lateral'}[a.play];
     return {text: `${is}. ${t >= 0.45 ? `Aggressive: the kind a ${name} fools.` : `Patient: the kind a ${name} doesn’t fool.`}`, good: t >= 0.45};
   }
   return null;

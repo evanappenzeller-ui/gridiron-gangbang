@@ -15,14 +15,17 @@
 // defense. They can answer, and you get it back. A turnover gives them the ball where it happened; a team ahead with
 // the ball and few enough seconds left takes a knee and the game is over.
 // ON OFFENSE you see the defense's look (LOOKS) and which side its front leans to (shade), and pick a play, like a
-// playbook: three of each type. Pass: three pass plays a snap (PASS_PLAYS, offered in s.book: every receiver's route;
-// you can change any), then the receiver to throw to (with play action, a roll out, or the receiver getting out of
-// bounds). Run: Inside Zone, HB Toss or HB Draw (RUNS), to the strong or weak side. RPO: the zone run with a slant, a
-// bubble or a seam to throw when the box is loaded (RPOS). Trick: the flea flicker, the halfback pass or the double
-// reverse (TRICKS), one a game. At the snap the defense's real call is drawn from what that look usually means
+// playbook. Pass: six pass plays a snap (PASS_PLAYS, offered in s.book: every receiver's route; you can change any),
+// then the receiver to throw to (with play action, a roll out, or the receiver getting out of bounds). Run: Inside
+// Zone, HB Toss, HB Draw, Power, Counter or the QB sneak (RUNS), to the strong or weak side. RPO: the zone run with a
+// throw when the box is loaded: a slant, a bubble, a seam, a hitch or a stick (RPOS). Trick: the flea flicker, the
+// halfback pass, the double reverse, the fake spike (with the clock running) or the hook and lateral (TRICKS), one a
+// game. At the snap the defense's real call is drawn from what that look usually means
 // (CALLS_FOR); each call takes some things away and gives others up (FX), so the odds shown before a throw (odds()) are
 // the look's average, and the breakdown says what they were really in. And the clock tools: timeout, spike, field
 // goal, kneel (when you lead). Down 1 or 2 after a touchdown: kick, or go for two from the 2 (any play).
+// THE PLAYBOOK GREW on day FULL_DAY (grown): the new plays are new action tokens, so every game before still replays
+// exactly; on the days before it, the defense you face, their offense and the call grades keep to the old book.
 // ON DEFENSE you see their formation (FORMS: how likely a pass is) and pick a call (DEF_CALLS); their play is drawn at
 // the snap from the formation and the situation, whatever you call, and plays out against your call. They manage
 // their own clock (hurry or milk it, timeouts, spikes), kick field goals, punt when ahead, and kneel when they can.
@@ -51,15 +54,30 @@ export const CALLS = {
   c0: {name: 'Cover 0', short: 'Everybody blitzes, nobody deep', what: 'everybody blitzing, nobody deep'},
   fire: {name: 'Zone blitz', short: 'Five rush, three deep', what: 'five rushing, three deep'},
   rb: {name: 'Run blitz', short: 'Eight crash the line', what: 'eight crashing the line'},
-  pv: {name: 'Prevent', short: 'Everyone deep, rush three', what: 'everybody deep, three rushing'}
+  pv: {name: 'Prevent', short: 'Everyone deep, rush three', what: 'everybody deep, three rushing'},
+  t2: {name: 'Tampa 2', short: 'Cover 2, the middle backer runs deep', what: 'two deep, the middle linebacker running the deep middle'},
+  rob: {name: 'Cover 1 Robber', short: 'Man to man, a safety robbing the middle', what: 'man to man, the free safety robbing the middle'},
+  a2: {name: 'Double A-Gap', short: 'Backers up the middle, man behind', what: 'the linebackers up the middle, man to man behind'},
+  dm: {name: 'Dime', short: 'Six DBs: four rush, all in front', what: 'six defensive backs, four rushing, everything kept in front'}
 };
-export const DEF_CALLS = ['c2', 'c3', 'c4', 'c1', 'c0', 'fire', 'rb', 'pv'];
+/** The calls before the playbook grew (OLD_CALLS), and all of them. */
+const OLD_CALLS = ['c2', 'c3', 'c4', 'c1', 'c0', 'fire', 'rb', 'pv'];
+export const DEF_CALLS = OLD_CALLS.concat(['t2', 'rob', 'a2', 'dm']);
 export const CALLS_FOR = {
   box: [['rb', 0.35], ['c1', 0.35], ['c0', 0.15], ['c3', 0.15]],
   light: [['c2', 0.3], ['c4', 0.35], ['c3', 0.25], ['pv', 0.1]],
   two: [['c2', 0.45], ['c4', 0.35], ['c1', 0.1], ['fire', 0.1]],
   blitz: [['c0', 0.35], ['fire', 0.35], ['c1', 0.2], ['c2', 0.1]],
   prevent: [['pv', 0.75], ['c4', 0.25]]
+};
+/** ... and once the playbook grew: the old calls in the same proportions, the new ones mixed in (a share of each look). */
+const grow = (old, add) => { const k = 1 - add.reduce((t, [, w]) => t + w, 0); return old.map(([c, w]) => [c, w * k]).concat(add); };
+const CALLS_FOR_FULL = {
+  box: grow(CALLS_FOR.box, [['rob', 0.08], ['a2', 0.07]]),
+  light: grow(CALLS_FOR.light, [['t2', 0.1], ['dm', 0.06]]),
+  two: grow(CALLS_FOR.two, [['t2', 0.18]]),
+  blitz: grow(CALLS_FOR.blitz, [['a2', 0.15]]),
+  prevent: grow(CALLS_FOR.prevent, [['dm', 0.2]])
 };
 /** Their formations on your defense: name, sub (what it tells you), pass (how often it's a pass). */
 export const FORMS = {
@@ -70,25 +88,33 @@ export const FORMS = {
 };
 // What each call does. run: yards added to a run; stuff/big/oob: multiply a run's stuffs, breakaways, sideline exits;
 // sack: multiplies sacks on a slow throw (qs: on a quick one, 2 seconds or less); duel: how much the receiver-vs-man
-// matchup counts; pa: play action fools it; rpo: the RPO's read ('pass': the QB throws it quick); trick: the trick
-// play's chance; cat: by route family, [completion added, interceptions multiplied, yards after catch added].
+// matchup counts; pa: play action fools it; rpo: the RPO's read ('pass': the QB throws it quick); trick: the flea
+// flicker's chance; cat: by route family, [completion added, interceptions multiplied, yards after catch added].
 export const FX = {
   c0: {run: -1.0, stuff: 1.4, big: 1.8, sack: 2.6, qs: 0.9, duel: 1.6, pa: true, rpo: 'pass', trick: 0.55,
-    cat: {quick: [0.10, 1, 2], out: [0.04, 1, 0], mid: [-0.03, 1.1, 1], seam: [0.05, 1, 3], deep: [0.08, 0.9, 4], sdeep: [0.04, 1, 2]}},
+    cat: {quick: [0.10, 1, 2], out: [0.04, 1, 0], mid: [-0.03, 1.1, 1], seam: [0.05, 1, 3], deep: [0.08, 0.9, 4], sdeep: [0.04, 1, 2], screen: [0.06, 1, 4]}},
   c1: {run: -1.5, stuff: 1.5, big: 1.0, sack: 1.2, qs: 1, duel: 2.0, pa: true, rpo: 'pass', trick: 0.5,
-    cat: {quick: [0.02, 1.1, 1], out: [0, 1.1, 0], mid: [0.06, 1, 1.5], seam: [0.02, 1, 0], deep: [0.02, 1.1, 1], sdeep: [0, 1, 0]}},
+    cat: {quick: [0.02, 1.1, 1], out: [0, 1.1, 0], mid: [0.06, 1, 1.5], seam: [0.02, 1, 0], deep: [0.02, 1.1, 1], sdeep: [0, 1, 0], screen: [0.02, 1, 1]}},
   c2: {run: 1.5, stuff: 0.7, big: 1.1, sack: 0.9, qs: 1, duel: 1, rpo: 'run', trick: 0.3,
-    cat: {quick: [0.03, 1, 0], out: [-0.20, 2.0, -1], mid: [0.08, 0.9, 1], seam: [0.10, 1, 2], deep: [-0.14, 1.8, 0], sdeep: [0.10, 1, 0]}},
+    cat: {quick: [0.03, 1, 0], out: [-0.20, 2.0, -1], mid: [0.08, 0.9, 1], seam: [0.10, 1, 2], deep: [-0.14, 1.8, 0], sdeep: [0.10, 1, 0], screen: [-0.02, 1, -0.5]}},
   c3: {run: 0, stuff: 1, big: 1, sack: 1, qs: 1, duel: 1, rpo: 'run', trick: 0.35,
-    cat: {quick: [0.06, 1, 1], out: [0.04, 1, 0], mid: [-0.08, 1.3, 0], seam: [0.10, 0.9, 1], deep: [-0.12, 1.5, 0], sdeep: [-0.06, 1.2, 0]}},
+    cat: {quick: [0.06, 1, 1], out: [0.04, 1, 0], mid: [-0.08, 1.3, 0], seam: [0.10, 0.9, 1], deep: [-0.12, 1.5, 0], sdeep: [-0.06, 1.2, 0], screen: [0, 1, 0]}},
   c4: {run: 2.0, stuff: 0.6, big: 0.8, sack: 0.9, qs: 1, duel: 1, rpo: 'run', trick: 0.2,
-    cat: {quick: [0.10, 0.8, 1.5], out: [0.06, 0.9, 0.5], mid: [0.02, 1, 0], seam: [-0.14, 1.6, 0], deep: [-0.22, 2.0, 0], sdeep: [-0.10, 1.4, 0]}},
+    cat: {quick: [0.10, 0.8, 1.5], out: [0.06, 0.9, 0.5], mid: [0.02, 1, 0], seam: [-0.14, 1.6, 0], deep: [-0.22, 2.0, 0], sdeep: [-0.10, 1.4, 0], screen: [-0.02, 1, -0.5]}},
   rb: {run: -3.5, stuff: 2.4, big: 0.6, sack: 1.3, qs: 1, duel: 1.2, pa: true, rpo: 'pass', trick: 0.62,
-    cat: {quick: [0.06, 0.9, 1], out: [0.03, 1, 0], mid: [0.05, 0.9, 1], seam: [0.06, 0.9, 2], deep: [0.10, 0.8, 2], sdeep: [0.06, 0.9, 1]}},
+    cat: {quick: [0.06, 0.9, 1], out: [0.03, 1, 0], mid: [0.05, 0.9, 1], seam: [0.06, 0.9, 2], deep: [0.10, 0.8, 2], sdeep: [0.06, 0.9, 1], screen: [0.04, 1, 3]}},
   fire: {run: -0.5, stuff: 1.3, big: 1, sack: 2.0, qs: 0.8, duel: 1, rpo: 'pass', trick: 0.5,
-    cat: {quick: [0.06, 1.3, 1.5], out: [-0.04, 1.2, 0], mid: [-0.06, 1.2, 0], seam: [0.02, 1, 0], deep: [-0.04, 1.1, 0], sdeep: [-0.04, 1, 0]}},
+    cat: {quick: [0.06, 1.3, 1.5], out: [-0.04, 1.2, 0], mid: [-0.06, 1.2, 0], seam: [0.02, 1, 0], deep: [-0.04, 1.1, 0], sdeep: [-0.04, 1, 0], screen: [0.04, 1.2, 3]}},
   pv: {run: 2.5, stuff: 0.4, big: 0.5, oob: 0.4, sack: 0.5, qs: 0.5, duel: 1, rpo: 'run', trick: 0.12,
-    cat: {quick: [0.14, 0.6, 2], out: [0.06, 0.8, -0.5], mid: [0.08, 0.8, 1], seam: [-0.10, 1.6, 0], deep: [-0.30, 2.6, 0], sdeep: [-0.20, 2.0, 0]}}
+    cat: {quick: [0.14, 0.6, 2], out: [0.06, 0.8, -0.5], mid: [0.08, 0.8, 1], seam: [-0.10, 1.6, 0], deep: [-0.30, 2.6, 0], sdeep: [-0.20, 2.0, 0], screen: [0.04, 0.8, 1]}},
+  t2: {run: 1.6, stuff: 0.7, big: 1.0, sack: 0.95, qs: 1, duel: 1, rpo: 'run', trick: 0.28,
+    cat: {quick: [0.03, 1, 0.5], out: [-0.18, 1.8, -1], mid: [-0.08, 1.4, 0], seam: [-0.14, 1.7, 0], deep: [-0.12, 1.7, 0], sdeep: [0.08, 1, 0.5], screen: [-0.04, 1, -1]}},
+  rob: {run: -1.5, stuff: 1.4, big: 0.9, sack: 1.15, qs: 1, duel: 2.0, pa: true, rpo: 'pass', trick: 0.45,
+    cat: {quick: [0, 1.15, 0.5], out: [0, 1.1, 0], mid: [-0.12, 1.7, 0], seam: [-0.08, 1.5, 0], deep: [0.04, 1, 2], sdeep: [0.02, 1, 0.5], screen: [0.02, 1, 1.5]}},
+  a2: {run: -2.6, stuff: 2.0, big: 0.9, sack: 2.3, qs: 0.95, duel: 1.6, pa: true, rpo: 'pass', trick: 0.55,
+    cat: {quick: [0.05, 1, 1], out: [0.02, 1, 0], mid: [0.02, 1, 1.5], seam: [0.02, 1, 1], deep: [-0.02, 1.1, 1], sdeep: [0, 1, 0.5], screen: [0.06, 1, 3.5]}},
+  dm: {run: 2.2, stuff: 0.5, big: 0.55, oob: 0.6, sack: 0.9, qs: 0.8, duel: 1, rpo: 'run', trick: 0.15,
+    cat: {quick: [0.06, 0.9, 0.5], out: [-0.04, 1, -0.5], mid: [-0.02, 1, 0], seam: [-0.12, 1.5, 0], deep: [-0.26, 2.3, 0], sdeep: [-0.16, 1.7, 0], screen: [0.02, 1, 1]}}
 };
 // Routes on an even matchup against no call in particular. depth: air yards at the catch; comp, int; yac: yards after
 // the catch; time: seconds before the ball is out (sacks grow with it); oob: out of bounds after the catch; big: a
@@ -105,16 +131,21 @@ export const ROUTES = {
   post: {name: 'Post', cat: 'deep', depth: 22, comp: 0.38, int: 0.05, yac: 5, time: 3.0, oob: 0.05, big: 0.12},
   go: {name: 'Go', cat: 'deep', depth: 30, comp: 0.30, int: 0.05, yac: 6, time: 3.2, oob: 0.35, big: 0.1},
   corner: {name: 'Corner', cat: 'sdeep', depth: 18, comp: 0.40, int: 0.035, yac: 2, time: 2.9, oob: 0.55, big: 0.05},
-  wheel: {name: 'Wheel', cat: 'sdeep', depth: 16, comp: 0.40, int: 0.03, yac: 5, time: 2.9, oob: 0.45, big: 0.08}
+  wheel: {name: 'Wheel', cat: 'sdeep', depth: 16, comp: 0.40, int: 0.03, yac: 5, time: 2.9, oob: 0.45, big: 0.08},
+  hitch: {name: 'Hitch', cat: 'quick', depth: 5, comp: 0.72, int: 0.02, yac: 2, time: 1.6, oob: 0.1, big: 0.03},
+  comeback: {name: 'Comeback', cat: 'out', depth: 12, comp: 0.5, int: 0.036, yac: 0.5, time: 2.8, oob: 0.75, big: 0.01},
+  screen: {name: 'Screen', cat: 'screen', depth: -2, comp: 0.82, int: 0.01, yac: 12, time: 1.9, oob: 0.12, big: 0.1}
 };
+/** The routes the playbook grew. */
+const NEW_ROUTES = new Set(['hitch', 'comeback', 'screen']);
 /** The receivers, in token order, and the routes each can run. */
 export const TARGETS = ['WR1', 'WR2', 'WR3', 'TE', 'RB'];
 export const ROUTES_FOR = {
-  WR1: ['go', 'post', 'dig', 'out', 'slant', 'curl'], WR2: ['go', 'post', 'dig', 'out', 'slant', 'curl'],
-  WR3: ['seam', 'dig', 'out', 'slant', 'corner'], TE: ['seam', 'dig', 'out', 'drag', 'corner'], RB: ['angle', 'flat', 'wheel']
+  WR1: ['go', 'post', 'dig', 'out', 'slant', 'curl', 'hitch', 'comeback'], WR2: ['go', 'post', 'dig', 'out', 'slant', 'curl', 'hitch', 'comeback'],
+  WR3: ['seam', 'dig', 'out', 'slant', 'corner', 'hitch'], TE: ['seam', 'dig', 'out', 'drag', 'corner', 'hitch'], RB: ['angle', 'flat', 'wheel', 'screen']
 };
-// THE PLAYBOOK: three plays of each type to pick from, like a play-call screen.
-/** Pass plays: every receiver's route. Three are offered at each of your snaps (s.book); a throw names its card. */
+// THE PLAYBOOK: the plays of each type to pick from, like a play-call screen.
+/** Pass plays: every receiver's route. Six are offered at each of your snaps (s.book); a throw names its card. */
 export const PASS_PLAYS = {
   verts: {name: 'Four Verticals', routes: {WR1: 'go', WR2: 'go', WR3: 'seam', TE: 'seam', RB: 'angle'}},
   postdig: {name: 'Post Dig', routes: {WR1: 'dig', WR2: 'post', WR3: 'slant', TE: 'drag', RB: 'flat'}},
@@ -125,37 +156,70 @@ export const PASS_PLAYS = {
   outs: {name: 'Quick Outs', routes: {WR1: 'out', WR2: 'out', WR3: 'out', TE: 'drag', RB: 'flat'}},
   mesh: {name: 'Mesh', routes: {WR1: 'dig', WR2: 'curl', WR3: 'slant', TE: 'drag', RB: 'wheel'}},
   corners: {name: 'Double Corner', routes: {WR1: 'post', WR2: 'go', WR3: 'corner', TE: 'corner', RB: 'angle'}},
-  hail: {name: 'Hail Mary', routes: {WR1: 'go', WR2: 'go', WR3: 'seam', TE: 'seam', RB: 'wheel'}}
+  hail: {name: 'Hail Mary', routes: {WR1: 'go', WR2: 'go', WR3: 'seam', TE: 'seam', RB: 'wheel'}},
+  curlflat: {name: 'Curl Flat', routes: {WR1: 'curl', WR2: 'curl', WR3: 'out', TE: 'seam', RB: 'flat'}},
+  stick: {name: 'Stick', routes: {WR1: 'go', WR2: 'out', WR3: 'hitch', TE: 'hitch', RB: 'flat'}},
+  comebacks: {name: 'Comebacks', routes: {WR1: 'comeback', WR2: 'comeback', WR3: 'seam', TE: 'drag', RB: 'flat'}},
+  flood: {name: 'Flood', routes: {WR1: 'dig', WR2: 'go', WR3: 'slant', TE: 'corner', RB: 'flat'}},
+  screen: {name: 'HB Screen', routes: {WR1: 'go', WR2: 'go', WR3: 'slant', TE: 'drag', RB: 'screen'}},
+  hitchseam: {name: 'Hitch Seam', routes: {WR1: 'hitch', WR2: 'hitch', WR3: 'seam', TE: 'seam', RB: 'angle'}}
 };
+/** The pass plays drawn for a snap: the first three from the old book (BOOK, as before the playbook grew), the rest
+ *  from all of them (FULL_BOOK). */
 const BOOK = ['verts', 'postdig', 'smash', 'slantwheel', 'levels', 'dagger', 'outs', 'mesh', 'corners'];
+const FULL_BOOK = BOOK.concat(['curlflat', 'stick', 'comebacks', 'flood', 'screen', 'hitchseam']);
+/** How many pass plays a snap offers. */
+export const CARDS = 6;
 /** Runs. mean, sd: yards added and the spread; lean: how much the front's lean counts; stuff, big, oob: multiply
- *  stuffs, breakaways and sideline exits; t: seconds added (the draw waits). */
+ *  stuffs, breakaways and sideline exits; t: seconds added (the draw waits; the sneak is over at once); short: yards
+ *  added on 3rd or 4th and 2 or less; who: the ball carrier (the back unless it says). */
 export const RUNS = {
   z: {name: 'Inside Zone', what: 'Downhill between the tackles', mean: 0, sd: 3, lean: 1, stuff: 1, big: 1, oob: 1, t: 0},
   t: {name: 'HB Toss', what: 'Pitch it outside: boom or bust', mean: -0.4, sd: 4.4, lean: 1.6, stuff: 1.3, big: 1.8, oob: 1.8, t: 0},
-  d: {name: 'HB Draw', what: 'Show pass, then hand it off', mean: 0, sd: 3.2, lean: 0.4, stuff: 1, big: 1.2, oob: 0.5, t: 1}
+  d: {name: 'HB Draw', what: 'Show pass, then hand it off', mean: 0, sd: 3.2, lean: 0.4, stuff: 1, big: 1.2, oob: 0.5, t: 1},
+  p: {name: 'Power', what: 'A guard pulls and leads through the hole', mean: 0.4, sd: 2.6, lean: 1.2, stuff: 0.85, big: 0.7, oob: 0.5, t: 0, short: 1},
+  c: {name: 'Counter', what: 'A step one way, then back the other', mean: -0.2, sd: 3.8, lean: 0.3, stuff: 1.15, big: 1.5, oob: 0.6, t: 0.5},
+  q: {name: 'QB Sneak', what: 'Under center, a push for a yard or two', mean: 0, sd: 1.1, lean: 0, stuff: 0.5, big: 0.1, oob: 0, t: -1, short: 0.8, who: 'QB'}
 };
+const OLD_RUNS = ['z', 't', 'd'];
 /** The draw against each call: it eats up a rush and soft coverage, and dies against a run blitz. */
-export const DRAW = {c0: 2.5, fire: 2, pv: 1.8, c2: 1, c4: 0.6, c3: 0, c1: -0.6, rb: -3};
+export const DRAW = {c0: 2.5, fire: 2, pv: 1.8, c2: 1, c4: 0.6, c3: 0, c1: -0.6, rb: -3, t2: 0.8, rob: -0.2, a2: 1.5, dm: 1.6};
+/** The counter against each call: a defense flying to the ball gets cut back on; a patient one waits for it. */
+export const COUNTER = {c0: 1.5, fire: 1.2, rb: 0.6, c1: 0.4, c3: 0, c2: -0.3, c4: -0.6, pv: 0.4, t2: -0.3, rob: 0.3, a2: 1.4, dm: 0.2};
 /** RPOs: the zone run, or the throw when the read says the box is loaded. */
 export const RPOS = {
   s: {name: 'RPO Slant', what: 'Run it, or the slot on a slant', slot: 'WR3', route: 'slant'},
   b: {name: 'RPO Bubble', what: 'Run it, or the slot on a bubble', slot: 'WR3', route: 'flat'},
-  g: {name: 'RPO Seam', what: 'Run it, or the tight end up the seam', slot: 'TE', route: 'seam'}
+  g: {name: 'RPO Seam', what: 'Run it, or the tight end up the seam', slot: 'TE', route: 'seam'},
+  h: {name: 'RPO Hitch', what: 'Run it, or the outside man on a hitch', slot: 'WR1', route: 'hitch'},
+  k: {name: 'RPO Stick', what: 'Run it, or the tight end sitting down at 6', slot: 'TE', route: 'hitch'}
 };
+const OLD_RPOS = ['s', 'b', 'g'];
 /** Trick plays (one a game). */
 export const TRICKS = {
   f: {name: 'Flea Flicker', what: 'Handoff, pitch back, then deep'},
   h: {name: 'HB Pass', what: 'The back pulls up and throws'},
-  r: {name: 'Double Reverse', what: 'The receiver comes back the other way'}
+  r: {name: 'Double Reverse', what: 'The receiver comes back the other way'},
+  s: {name: 'Fake Spike', what: 'Act like you’re stopping the clock, then throw'},
+  l: {name: 'Hook & Lateral', what: 'The tight end hooks, then pitches to the back'}
 };
+const OLD_TRICKS = ['f', 'h', 'r'];
 /** How often each trick works against each call (the flea flicker's is FX's trick). */
 const TRICK_ODDS = {
-  h: {rb: 0.6, c0: 0.5, c1: 0.45, fire: 0.4, c3: 0.3, c2: 0.25, c4: 0.2, pv: 0.1},
-  r: {rb: 0.55, c0: 0.55, fire: 0.5, c1: 0.4, c3: 0.3, c2: 0.35, c4: 0.3, pv: 0.25}
+  h: {rb: 0.6, c0: 0.5, c1: 0.45, fire: 0.4, c3: 0.3, c2: 0.25, c4: 0.2, pv: 0.1, t2: 0.25, rob: 0.4, a2: 0.45, dm: 0.15},
+  r: {rb: 0.55, c0: 0.55, fire: 0.5, c1: 0.4, c3: 0.3, c2: 0.35, c4: 0.3, pv: 0.25, t2: 0.35, rob: 0.4, a2: 0.5, dm: 0.3},
+  s: {pv: 0.5, dm: 0.48, c4: 0.45, c2: 0.42, t2: 0.4, c3: 0.4, rb: 0.35, rob: 0.32, c1: 0.3, fire: 0.3, a2: 0.3, c0: 0.25},
+  l: {pv: 0.4, dm: 0.38, c3: 0.36, c4: 0.34, c2: 0.33, rb: 0.32, a2: 0.32, t2: 0.3, fire: 0.3, c0: 0.3, c1: 0.24, rob: 0.2}
 };
+/** A trick play callable now: the fake spike only with the clock running and a down to spare. */
+export const trickOk = (s, play) => play !== 's' || (s.running && s.down < 4 && s.phase === 'play');
 /** How often a trick play (TRICKS) works against a call. */
 export const trickOdds = (play, call) => (play === 'f' ? FX[call].trick : TRICK_ODDS[play][call]);
+
+/** The day the playbook grew (a scenario's n; one without n, a made-up spot, has it all). Before it: the defense you
+ *  face, their offense and the call grades keep to the old book, so games posted then replay and grade as they did. */
+export const FULL_DAY = 3;
+const grown = s => !(s.sc.n < FULL_DAY);
 
 export const HURRY = 15;     // seconds between snaps while the clock runs (a quick huddle)
 export const NO_HUDDLE = 7;  // ... with no huddle at all: lined up and snapped, a little less set (+h)
@@ -245,17 +309,18 @@ const behind = s => (s.poss === 'us' ? s.them - s.us : s.us - s.them);
 
 // ---------------------------------------------------------------------------------------------- tokens
 // Your actions, one each, joined with commas in a game's action string:
-//   p{target 0-4}{route}[+a play action][+r roll out][+o out of bounds][+h no huddle][+1|+2 the second or third pass
-//     play offered]   a pass (p1dig, p0go+a, p4flat+o, p2slant+h+1)
-//   r{s|w}[t|d][+o][+h]   a run to the strong (tight end) or weak side: Inside Zone, or the HB Toss or Draw (rs, rwt+o)
-//   o{s|w}[b|g][+o][+h]   an RPO: the slant, or the bubble or seam (os, owb)
+//   p{target 0-4}{route}[+a play action][+r roll out][+o out of bounds][+h no huddle][+1 to +5 the second to sixth
+//     pass play offered]   a pass (p1dig, p0go+a, p4flat+o, p2slant+h+1)
+//   r{s|w}[t|d|p|c|q][+o][+h]   a run to the strong (tight end) or weak side: Inside Zone, or the HB Toss, Draw, Power,
+//     Counter or QB sneak (rs, rwt+o)
+//   o{s|w}[b|g|h|k][+o][+h]   an RPO: the slant, or the bubble, seam, hitch or stick (os, owb)
 //   (+h, no huddle: from a running clock the snap comes NO_HUDDLE seconds later instead of HURRY, a little less set)
-//   x[h|r]  a trick play: the flea flicker, or the HB pass or double reverse
+//   x[h|r|s|l]  a trick play: the flea flicker, or the HB pass, double reverse, fake spike or hook and lateral
 //   k  spike   t  timeout   f  field goal   n  kneel   e  the extra point (after a touchdown, down 1-2)
 //   d{call}   on defense: the call (dc2, dc1, drb, dpv, ...)
 export function parse(tok) {
   const [head, ...fl] = String(tok).split('+');
-  const card = fl.length && (fl[fl.length - 1] === '1' || fl[fl.length - 1] === '2') ? Number(fl.pop()) : 0;
+  const card = fl.length && /^[1-5]$/.test(fl[fl.length - 1]) ? Number(fl.pop()) : 0;
   const flags = {a: fl.includes('a'), r: fl.includes('r'), o: fl.includes('o'), h: fl.includes('h')};
   if (fl.some(f => !['a', 'r', 'o', 'h'].includes(f))) return null;
   if (flags.h && !['p', 'r', 'o'].includes(head[0])) return null; // only a pass, a run or an RPO goes without a huddle
@@ -302,7 +367,8 @@ function setSnap(s) {
     s.look = null;
     s.shade = r() < 0.5 ? 's' : 'w';
     s.book = null;
-    s.routes = Object.assign({}, PASS_PLAYS[BOOK[Math.floor(r() * BOOK.length)]].routes);
+    const theirs = grown(s) ? FULL_BOOK : BOOK;
+    s.routes = Object.assign({}, PASS_PLAYS[theirs[Math.floor(r() * theirs.length)]].routes);
     return;
   }
   const w = {box: 0.16, light: 0.30, two: 0.24, blitz: 0.15, prevent: 0.15};
@@ -319,16 +385,20 @@ function setSnap(s) {
   s.form = null;
   s.look = pickW(r, LOOK_IDS.map(k => [k, w[k]]));
   s.shade = r() < 0.5 ? 's' : 'w';
-  // Three pass plays to pick from: no Four Verticals in the red zone, and a Hail Mary when it's down to one shot.
-  const pool = BOOK.filter(k => !(k === 'verts' && s.ball >= 80));
+  // Six pass plays to pick from: no Four Verticals in the red zone, and a Hail Mary third when it's down to one shot.
+  // The first three are drawn from the old book as they always were; the rest from the whole book.
+  const deep = k => !(k === 'verts' && s.ball >= 80);
+  const pool = BOOK.filter(deep), full = FULL_BOOK.filter(deep);
   const book = [];
   while (book.length < 3) { const k = pool[Math.floor(r() * pool.length)]; if (!book.includes(k)) book.push(k); }
   if (s.phase === 'play' && s.clock <= 12 && s.ball <= 65) book[2] = 'hail';
+  while (book.length < CARDS) { const k = full[Math.floor(r() * full.length)]; if (!book.includes(k)) book.push(k); }
   s.book = book;
   s.routes = Object.assign({}, PASS_PLAYS[book[0]].routes);
 }
 /** The defense's real call at this snap when you have the ball (the same whatever you call). */
-const callAt = s => pickW(dice(s.sc.s, s.snap, 0x300), CALLS_FOR[s.look]);
+const callsFor = s => (grown(s) ? CALLS_FOR_FULL : CALLS_FOR);
+const callAt = s => pickW(dice(s.sc.s, s.snap, 0x300), callsFor(s)[s.look]);
 
 /** A field goal from the ball's spot for the team with it: {dist, p} (p 0 when it's out of range). */
 export function fgOdds(s, ball = s.ball, kick = s.U.o.kick) {
@@ -366,8 +436,10 @@ function passModel(s, slot, route, f, call) {
   };
 }
 /** The calls a play might meet: on your offense the look's mix; for theirs, any of yours alike. */
-const DEF_MIX = DEF_CALLS.map(k => [k, 1 / DEF_CALLS.length]);
-const mixOf = s => (s.poss === 'us' ? CALLS_FOR[s.look] : DEF_MIX);
+const DEF_MIX = OLD_CALLS.map(k => [k, 1 / OLD_CALLS.length]), DEF_MIX_FULL = DEF_CALLS.map(k => [k, 1 / DEF_CALLS.length]);
+const mixOf = s => (s.poss === 'us' ? callsFor(s)[s.look] : grown(s) ? DEF_MIX_FULL : DEF_MIX);
+/** The calls the bots and the grades weigh at a snap. */
+const callsAt = s => (grown(s) ? DEF_CALLS : OLD_CALLS);
 /** The pass menu's numbers for a receiver on a route against this look: {caught, ypt (yards a throw), picked}, each
  *  averaged over what the look usually is. */
 export function odds(s, slot, route, f = {}) {
@@ -382,7 +454,7 @@ export function odds(s, slot, route, f = {}) {
 }
 
 /** The look a defense lines up in for a call (yours, on their snaps; on yours, the look it showed you). */
-export const CALL_LOOK = {c2: 'two', c4: 'two', c3: 'light', pv: 'prevent', c1: 'box', rb: 'box', c0: 'blitz', fire: 'blitz'};
+export const CALL_LOOK = {c2: 'two', c4: 'two', c3: 'light', pv: 'prevent', c1: 'box', rb: 'box', c0: 'blitz', fire: 'blitz', t2: 'two', rob: 'box', a2: 'blitz', dm: 'light'};
 /** The man a look leaves off the field: base personnel against the loaded box (no nickel back), nickel otherwise (the
  *  4-3's strong-side linebacker or the 3-4's second inside linebacker comes off). */
 export const sitsOut = (T, look) => (look === 'box' ? 'NB' : T.s === '34' ? 'RILB' : 'SLB');
@@ -404,16 +476,17 @@ function passPlay(r, s, slot, route, f, call) {
   const m = passModel(s, slot, route, f, call), R = ROUTES[route];
   if (r() < m.pSack) {
     const loss = 4 + Math.floor(5 * r()) + (r() < 0.12 ? 3 : 0);
-    const by = whoDef(r, s, s.U.d.front.concat(call === 'c0' || call === 'fire' ? s.U.d.lbs.concat('NB') : []), call);
+    const by = whoDef(r, s, s.U.d.front.concat(call === 'c0' || call === 'fire' ? s.U.d.lbs.concat('NB') : call === 'a2' ? s.U.d.lbs : []), call);
     return {kind: r() < 0.06 ? 'fum' : 'sack', gain: -loss, by, t: Math.round(m.time + 2.5)};
   }
   const by = fielded(s.U.d.T, lookNow(s, call), s.U.d.cover[slot]);
   const u = r();
   // A pick in a deep zone is often the safety's; in man, it's his man's.
-  const deepZone = (call === 'c2' || call === 'c3' || call === 'c4' || call === 'pv') && R.cat !== 'quick';
+  const deepZone = (call === 'c2' || call === 'c3' || call === 'c4' || call === 'pv' || call === 't2' || call === 'dm') && R.cat !== 'quick' && R.cat !== 'screen';
   if (u < m.pInt) return {kind: 'int', gain: 0, who: slot, route, air: Math.round(m.depth), by: deepZone && r() < 0.5 ? (r() < 0.5 ? 'FS' : 'SS') : by, ret: Math.floor(16 * r() * r()), t: Math.round(m.time + 3)};
   if (u >= m.pInt + m.pComp) return {kind: 'inc', gain: 0, who: slot, route, by, air: Math.round(m.depth), t: Math.round(m.time + 2)};
-  const air = Math.max(R.cat === 'deep' ? 14 : R.cat === 'quick' ? -1 : 3, m.depth + 1.5 * gauss(r));
+  // A screen is caught behind the line, then it's all run after the catch.
+  const air = R.cat === 'screen' ? Math.min(-1, m.depth + 0.6 * gauss(r)) : Math.max(R.cat === 'deep' ? 14 : R.cat === 'quick' ? -1 : 3, m.depth + 1.5 * gauss(r));
   let yac = Math.max(0, m.yac + 1.8 * gauss(r));
   let broke = false;
   if (r() < m.big) { yac += 8 + 22 * r(); broke = true; }
@@ -423,8 +496,11 @@ function passPlay(r, s, slot, route, f, call) {
 /** The mean gain of a run (RUNS[play]) against a call, before the dice. */
 function runMean(s, dir, f, call, play = 'z') {
   const K = RUNS[play];
-  return 2.8 + FX[call].run + K.mean + (play === 'd' ? DRAW[call] : 0) + (dir === s.shade ? -1.2 : 1.0) * K.lean
-    + 2.2 * runEdge(s) + (f.o ? -0.8 : 0) + (f.h ? -0.8 : 0) - (goalLine(s) ? 3 : 0);
+  const short = K.short && s.togo <= 2 && (s.down >= 3 || s.phase === 'pat') ? K.short : 0;
+  // The sneak: a yard or two whatever the call (a run blitz takes some of it), the best at the goal line.
+  if (play === 'q') return 1.5 + 0.25 * FX[call].run + 1.2 * runEdge(s) + short + (f.h ? -0.3 : 0) - (goalLine(s) ? 0.4 : 0);
+  return 2.8 + FX[call].run + K.mean + (play === 'd' ? DRAW[call] : 0) + (play === 'c' ? COUNTER[call] : 0) + (dir === s.shade ? -1.2 : 1.0) * K.lean
+    + 2.2 * runEdge(s) + (f.o ? -0.8 : 0) + (f.h ? -0.8 : 0) + short - (goalLine(s) ? (play === 'p' ? 2.2 : 3) : 0);
 }
 function runPlay(r, s, dir, f, call, bonus = 0, play = 'z') {
   const F = FX[call], K = RUNS[play];
@@ -436,9 +512,10 @@ function runPlay(r, s, dir, f, call, bonus = 0, play = 'z') {
   if (r() < 0.03 * F.big * K.big * (1 + e)) { g += 8 + 22 * r(); broke = true; }
   const by = whoDef(r, s, s.U.d.lbs.concat(s.U.d.front, ['SS']), call);
   g = Math.round(g);
-  if (r() < 0.012) return {kind: 'fum', gain: g, who: 'RB', dir, rk: play, by, t: 6 + K.t};
+  const who = K.who || 'RB';
+  if (r() < 0.012) return {kind: 'fum', gain: g, who, dir, rk: play, by, t: 6 + K.t};
   const oob = g > 0 && r() < Math.min(0.9, (f.o ? 0.55 : 0.08) * (F.oob || 1) * K.oob);
-  return {kind: 'run', gain: g, who: 'RB', dir, rk: play, by, oob, broke, t: Math.round(5 + K.t + Math.max(0, g) / 8)};
+  return {kind: 'run', gain: g, who, dir, rk: play, by, oob, broke, t: Math.round(5 + K.t + Math.max(0, g) / 8)};
 }
 function rpoPlay(r, s, dir, f, call, play = 's') {
   if (FX[call].rpo === 'pass') {
@@ -451,17 +528,43 @@ function rpoPlay(r, s, dir, f, call, play = 's') {
 function trickPlay(r, s, call, play = 'f') {
   const p = clamp(trickOdds(play, call) + 0.12 * passEdge(s, 'WR1'), 0.05, 0.8);
   if (play === 'r') {
-    // The double reverse: the receiver comes back the other way. A run, so no pick, and the clock keeps going.
-    const by = whoDef(r, s, s.U.d.lbs.concat(['SS', 'RCB']), call);
-    if (r() < p) return {kind: 'run', gain: Math.round(10 + 20 * r()), who: 'WR1', dir: 'w', rk: 'r', by, oob: r() < 0.3, broke: false, t: 8, trick: 'r'};
+    // The double reverse: the receiver comes back the other way. A run, so no pick, and the clock keeps going. Who
+    // brings him down: once the playbook grew, by how it went (a backer or a safety downfield, or the corner on the side
+    // it goes to; in the backfield, the front or a backer who stayed home); before, a backer, the strong safety or the
+    // right corner, drawn first as it was.
+    const g = grown(s), D = s.U.d;
+    const old = g ? null : whoDef(r, s, D.lbs.concat(['SS', 'RCB']), call);
+    const by = far => old || whoDef(r, s, far ? D.lbs.concat(['SS', 'FS', 'LCB']) : D.front.concat(D.lbs), call);
+    if (r() < p) { const tk = by(true); return {kind: 'run', gain: Math.round(10 + 20 * r()), who: 'WR1', dir: 'w', rk: 'r', by: tk, oob: r() < 0.3, broke: false, t: 8, trick: 'r'}; }
     const u = r();
-    if (u < 0.05) return {kind: 'fum', gain: -3, who: 'WR1', dir: 'w', by, t: 7, trick: 'r'};
-    return {kind: 'run', gain: u < 0.6 ? -(2 + Math.floor(7 * r())) : Math.floor(5 * r()), who: 'WR1', dir: 'w', rk: 'r', by, oob: false, broke: false, t: 7, trick: 'r'};
+    if (u < 0.05) return {kind: 'fum', gain: -3, who: 'WR1', dir: 'w', by: by(false), t: 7, trick: 'r'};
+    const tk = by(u >= 0.6);
+    return {kind: 'run', gain: u < 0.6 ? -(2 + Math.floor(7 * r())) : Math.floor(5 * r()), who: 'WR1', dir: 'w', rk: 'r', by: tk, oob: false, broke: false, t: 7, trick: 'r'};
+  }
+  const man = slot => fielded(s.U.d.T, lookNow(s, call), s.U.d.cover[slot]);
+  if (play === 's') {
+    // The fake spike: the defense eases up for the spike and the outside man runs past it. Missed, it's at least an
+    // incompletion: the clock stops all the same.
+    if (r() < p) { const slot = r() < 0.6 ? 'WR1' : 'WR2'; return {kind: 'catch', gain: Math.round(12 + 18 * r()), who: slot, route: 'go', by: man(slot), oob: r() < 0.4, t: 6, trick: 's'}; }
+    const u = r();
+    if (u < 0.66) return {kind: 'inc', gain: 0, who: 'WR1', route: 'go', by: man('WR1'), t: 5, trick: 's'};
+    if (u < 0.9) return {kind: 'sack', gain: -(5 + Math.floor(4 * r())), by: whoDef(r, s, s.U.d.front, call), t: 6, trick: 's'};
+    return {kind: 'int', gain: 0, who: 'WR1', route: 'go', air: 22, by: r() < 0.5 ? man('WR1') : 'FS', ret: Math.floor(10 * r()), t: 6, trick: 's'};
+  }
+  if (play === 'l') {
+    // The hook and lateral: the tight end turns at ten and pitches to the back trailing him. Covered, he keeps it.
+    const by = whoDef(r, s, s.U.d.lbs.concat(['SS', 'FS']), call);
+    if (r() < p) return {kind: 'catch', gain: Math.round(16 + 24 * r()), who: 'TE', lat: 'RB', route: 'curl', air: 9, by, oob: r() < 0.25, broke: false, t: 9, trick: 'l'};
+    const u = r();
+    if (u < 0.5) return {kind: 'catch', gain: 5 + Math.floor(5 * r()), who: 'TE', route: 'curl', air: 9, by: man('TE'), oob: false, broke: false, t: 7, trick: 'l'};
+    if (u < 0.82) return {kind: 'inc', gain: 0, who: 'TE', route: 'curl', by: man('TE'), t: 6, trick: 'l'};
+    if (u < 0.95) return {kind: 'sack', gain: -(4 + Math.floor(5 * r())), by: whoDef(r, s, s.U.d.front, call), t: 7, trick: 'l'};
+    return {kind: 'int', gain: 0, who: 'TE', route: 'curl', air: 9, by: man('TE'), ret: Math.floor(12 * r()), t: 7, trick: 'l'};
   }
   if (r() < p) {
     const slot = r() < 0.6 ? 'WR1' : 'WR2';
     const gain = play === 'h' ? Math.round(16 + 20 * r()) : Math.round(22 + 23 * r());
-    return {kind: 'catch', gain, who: slot, route: 'go', by: fielded(s.U.d.T, lookNow(s, call), s.U.d.cover[slot]), oob: r() < 0.3, t: 8, trick: play};
+    return {kind: 'catch', gain, who: slot, route: 'go', by: man(slot), oob: r() < 0.3, t: 8, trick: play};
   }
   const u = r();
   if (play === 'h') {
@@ -484,7 +587,8 @@ function theirPlay(s) {
     const i = u < 0.45 ? 0 : u < 0.7 ? 1 : u < 0.85 ? 2 : 3 + Math.floor(r() * Math.min(4, list.length - 3));
     return parse(list[Math.min(i, list.length - 1)].token);
   }
-  return parse(tok.run(r() < 0.5 ? 's' : 'w', late && r() < 0.6, ['z', 'z', 't', 'd'][Math.floor(r() * 4)]));
+  const runs = grown(s) ? ['z', 'z', 't', 'd', 'p', 'c'] : ['z', 'z', 't', 'd'];
+  return parse(tok.run(r() < 0.5 ? 's' : 'w', late && r() < 0.6, runs[Math.floor(r() * runs.length)]));
 }
 
 // ---------------------------------------------------------------------------------------------- the game
@@ -628,8 +732,10 @@ export function act(s, token) {
     else { play.kind = 'fgx'; if (s.clock <= 0) end(s, 'clock'); else turnOver(s, Math.max(20, 100 - (s.ball - 7))); }
     return push(s, play);
   }
-  if (!o.plays.includes(a.kind)) return null;
-  if (!preSnap(s, behind(s) < 0 ? MILK : a.flags.h ? NO_HUDDLE : HURRY)) { play.kind = 'expired'; return push(s, play); }
+  if (!o.plays.includes(a.kind) || (a.kind === 'trick' && !trickOk(s, a.play))) return null;
+  // The fake spike comes as quick as a spike.
+  const setup = a.kind === 'trick' && a.play === 's' ? SPIKE_SET : behind(s) < 0 ? MILK : a.flags.h ? NO_HUDDLE : HURRY;
+  if (!preSnap(s, setup)) { play.kind = 'expired'; return push(s, play); }
   play.clock = s.clock; // at the snap
   const r = dice(s.sc.s, s.snap, hashStr(token));
   const call = callAt(s);
@@ -754,7 +860,7 @@ function patAct(s, a, token, play, o) {
     kickoff(s);
     return push(s, play);
   }
-  if (!o.plays.includes(a.kind)) return null;
+  if (!o.plays.includes(a.kind) || (a.kind === 'trick' && !trickOk(s, a.play))) return null;
   const r = dice(s.sc.s, s.snap, hashStr(token));
   const call = callAt(s);
   const res = a.kind === 'pass' ? passPlay(r, s, a.slot, a.route, a.flags, call)
@@ -874,7 +980,7 @@ export function tendencies(s) {
     if (p.down === 4 && p.them - p.us <= 3 && fgOdds(s, p.ball, s.mine.kick).p > 0) add('fourth', a.kind !== 'fg');
     if (a.kind === 'fg') return;
     add('spike', false);
-    const route = a.kind === 'pass' ? a.route : a.kind === 'rpo' && p.read === 'pass' ? p.route : a.kind === 'trick' && a.play !== 'r' ? 'go' : null;
+    const route = a.kind === 'pass' ? a.route : a.kind === 'rpo' && p.read === 'pass' ? p.route : a.kind === 'trick' && a.play !== 'r' ? (a.play === 'l' ? 'curl' : 'go') : null;
     add('pass', !!route);
     if (route) {
       const depth = ROUTES[route].depth;
@@ -918,7 +1024,7 @@ function spotValue(s, ball, down, togo, clock, running, tos) {
 function playValue(s, a, mix) {
   let v = 0;
   const tos = s.poss === 'us' ? s.tos : s.dtos;
-  const setup = s.running ? (a.flags && a.flags.h ? NO_HUDDLE : HURRY) : 0;
+  const setup = s.running ? (a.kind === 'trick' && a.play === 's' ? SPIKE_SET : a.flags && a.flags.h ? NO_HUDDLE : HURRY) : 0;
   const after = (gain, secs, run, downUsed = true) => {
     const ball = Math.min(100, s.ball + gain);
     if (s.phase === 'pat') return ball >= 100 ? 1 : 0;
@@ -950,6 +1056,8 @@ function playValue(s, a, mix) {
     } else if (a.kind === 'trick') {
       const p = trickOdds(a.play, call);
       if (a.play === 'r') v += w * (p * after(20, 8, true) + (1 - p) * (0.55 * after(-5, 7, true) + 0.4 * after(2, 7, true)));
+      else if (a.play === 's') v += w * (p * (0.6 * after(21, 6, true) + 0.4 * after(21, 6, false)) + (1 - p) * (0.66 * after(0, 5, false) + 0.24 * after(-7, 6, true)));
+      else if (a.play === 'l') v += w * (p * after(28, 9, true) + (1 - p) * (0.5 * after(7, 7, true) + 0.32 * after(0, 6, false) + 0.13 * after(-6, 7, true)));
       else if (a.play === 'h') v += w * (p * after(26, 8, true) + (1 - p) * (0.5 * after(0, 7, false) + 0.25 * after(-7, 7, true)));
       else v += w * (p * after(32, 8, true) + (1 - p) * (0.5 * after(0, 7, false) + 0.32 * after(-9, 7, true)));
     }
@@ -958,14 +1066,16 @@ function playValue(s, a, mix) {
 }
 /** Every play the team with the ball could call now, valued: [{token, v}], best first. fast: only the routes drawn
  *  up for the snap, the runs away from the lean, the plain RPO and the flea flicker (for playing many games out
- *  quickly). Their offense runs only the inside zone here (theirPlay picks the run itself). */
+ *  quickly). Their offense runs only the inside zone here (theirPlay picks the run itself). Before the playbook grew
+ *  (FULL_DAY), the old book's plays only. */
 export function candidates(s, fast = false) {
   const out = [];
   const late = s.clock <= 75;
   const fooled = s.look === 'box' || s.look === 'blitz';
   const ours = s.poss === 'us';
+  const full = grown(s);
   TARGETS.forEach(slot => {
-    (fast ? [s.routes[slot]] : ROUTES_FOR[slot]).forEach(route => {
+    (fast ? [s.routes[slot]] : ROUTES_FOR[slot].filter(r => full || !NEW_ROUTES.has(r))).forEach(route => {
       const fs = [{}];
       if (late && ['out', 'corner', 'wheel', 'flat', 'go', 'curl'].includes(route)) fs.push({o: true});
       if (ours && fooled) fs.push({a: true});
@@ -974,10 +1084,10 @@ export function candidates(s, fast = false) {
     });
   });
   (fast && ours ? [s.shade === 's' ? 'w' : 's'] : ['s', 'w']).forEach(dir => [false, true].forEach(oob => {
-    (ours ? Object.keys(RUNS) : ['z']).forEach(k => out.push(tok.run(dir, oob, k)));
-    if (ours) (fast ? ['s'] : Object.keys(RPOS)).forEach(k => out.push(tok.rpo(dir, oob, k)));
+    (ours ? (full ? Object.keys(RUNS) : OLD_RUNS) : ['z']).forEach(k => out.push(tok.run(dir, oob, k)));
+    if (ours) (fast ? ['s'] : full ? Object.keys(RPOS) : OLD_RPOS).forEach(k => out.push(tok.rpo(dir, oob, k)));
   }));
-  if (ours && s.trick) (fast ? ['f'] : Object.keys(TRICKS)).forEach(k => out.push(tok.tricks(k)));
+  if (ours && s.trick) (fast ? ['f'] : full ? Object.keys(TRICKS).filter(k => trickOk(s, k)) : OLD_TRICKS).forEach(k => out.push(tok.tricks(k)));
   const mix = mixOf(s);
   return out.map(t => ({token: t, v: playValue(s, parse(t), mix)})).sort((a, b) => b.v - a.v);
 }
@@ -1025,7 +1135,8 @@ export function callValues(s) {
   const ours = s.poss === 'us';
   if (!ours) {
     const list = defValues(s), by = Object.fromEntries(list.map(x => [x.token, x.v]));
-    return {ours, best: list[0].v, bestToken: list[0].token, all: list.map(x => x.v), value: t => (t in by ? by[t] : list[list.length - 1].v)};
+    const any = t => { const a = parse(t); return a && a.kind === 'def' ? defValues(s, [a.call])[0].v : list[list.length - 1].v; };
+    return {ours, best: list[0].v, bestToken: list[0].token, all: list.map(x => x.v), value: t => (t in by ? by[t] : any(t))};
   }
   const mix = mixOf(s), list = candidates(s);
   if (s.running) {
@@ -1070,9 +1181,9 @@ export function gradeGame(sc, teams, acts) {
   const grade = calls != null && s.result === 'W' ? Math.max(calls, WIN_FLOOR) : calls;
   return {grade, calls, n, lead: s.result === 'W' ? lead : null};
 }
-export function defValues(s) {
+export function defValues(s, calls = callsAt(s)) {
   const mix = theirMix(s);
-  return DEF_CALLS.map(call => {
+  return calls.map(call => {
     let v = 0;
     mix.forEach(([a, w]) => { v += w * playValue(s, a, [[call, 1]]); });
     return {token: tok.def(call), v};
@@ -1120,9 +1231,9 @@ export function scoreOptions(s, tokens, n = 60, salt = 11) {
     return {token: t, wp: v < 0 ? null : v / n};
   }).filter(x => x.wp != null).sort((a, b) => b.wp - a.wp);
 }
-/** The options worth scoring at a snap: on defense every call; on offense the three runs both ways, the three RPOs
- *  away from the lean, a throw to each receiver on his route in a pass play (card: which of s.book; routes: the routes,
- *  default that card's), the three trick plays, the field goal and the kneel (and the extra point on a try). */
+/** The options worth scoring at a snap: on defense every call; on offense every run both ways, every RPO away from
+ *  the lean, a throw to each receiver on his route in a pass play (card: which of s.book; routes: the routes, default
+ *  that card's), the trick plays callable now, the field goal and the kneel (and the extra point on a try). */
 export function defaultOptions(s, routes, card = 0) {
   if (s.poss === 'them' && s.phase !== 'pat') return DEF_CALLS.map(tok.def);
   const o = options(s);
@@ -1132,7 +1243,7 @@ export function defaultOptions(s, routes, card = 0) {
   ['s', 'w'].forEach(d => Object.keys(RUNS).forEach(k => out.push(tok.run(d, false, k))));
   Object.keys(RPOS).forEach(k => out.push(tok.rpo(away, false, k)));
   TARGETS.forEach(slot => out.push(tok.pass(slot, rs[slot], {c: card})));
-  if (s.trick) Object.keys(TRICKS).forEach(k => out.push(tok.tricks(k)));
+  if (s.trick) Object.keys(TRICKS).filter(k => trickOk(s, k)).forEach(k => out.push(tok.tricks(k)));
   if (o.fg) out.push(tok.fg);
   if (o.kneel) out.push(tok.kneel);
   if (s.phase === 'pat') out.push(tok.kick);

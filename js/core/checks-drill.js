@@ -121,11 +121,13 @@ export async function drillChecks(check) {
     if (cut.plays.length !== 1) bad.push(`replay past a refused action: ${cut.plays.length} plays`);
     const a = E.replay(dr.scenario(3), dr.DOC.teams, 'p0go,rw+o'), b = E.replay(dr.scenario(3), dr.DOC.teams, 'p0go,rw+o');
     if (a.plays.length !== 2 || a.plays[1].kind !== b.plays[1].kind || a.plays[1].gain !== b.plays[1].gain || a.look !== b.look) bad.push('same calls, different results');
-    const toks = [E.tok.pass('WR2', 'dig', {a: true, o: true, c: 2}), E.tok.pass('RB', 'wheel'), E.tok.run('w', true, 't'), E.tok.rpo('s', false, 'b'), E.tok.def('fire'), 'x', 'k', 't', 'f', 'e', 'n', E.tok.tricks('r'), E.tok.run('s')];
+    const toks = [E.tok.pass('WR2', 'dig', {a: true, o: true, c: 2}), E.tok.pass('RB', 'wheel'), E.tok.run('w', true, 't'), E.tok.rpo('s', false, 'b'), E.tok.def('fire'), 'x', 'k', 't', 'f', 'e', 'n', E.tok.tricks('r'), E.tok.run('s'),
+      E.tok.pass('RB', 'screen', {c: 5}), E.tok.run('s', false, 'q'), E.tok.rpo('w', true, 'k'), E.tok.tricks('l'), E.tok.def('t2')];
     const back = toks.map(t => E.parse(t));
     if (back.some(x => !x) || back[0].slot !== 'WR2' || back[0].route !== 'dig' || !back[0].flags.a || !back[0].flags.o || back[0].flags.r || back[0].card !== 2 || back[1].card !== 0
-      || back[2].dir !== 'w' || !back[2].flags.o || back[2].play !== 't' || back[3].play !== 'b' || back[4].call !== 'fire' || back[5].play !== 'f' || back[10].kind !== 'kneel' || back[11].play !== 'r' || back[12].play !== 'z' || toks[12] !== 'rs') bad.push('tokens');
-    if (['p4go', 'p9dig', 'rx', 'x+q', 'dzz', 'dc2+o', 'rsz', 'oss', 'xf', 'xq', 'rsq', 'p0go+3', 'rs+1', 'xh+o'].some(t => E.parse(t))) bad.push('bad tokens accepted');
+      || back[2].dir !== 'w' || !back[2].flags.o || back[2].play !== 't' || back[3].play !== 'b' || back[4].call !== 'fire' || back[5].play !== 'f' || back[10].kind !== 'kneel' || back[11].play !== 'r' || back[12].play !== 'z' || toks[12] !== 'rs'
+      || back[13].route !== 'screen' || back[13].card !== 5 || back[14].play !== 'q' || toks[14] !== 'rsq' || back[15].play !== 'k' || back[16].play !== 'l' || back[17].call !== 't2') bad.push('tokens');
+    if (['p4go', 'p9dig', 'rx', 'x+q', 'dzz', 'dc2+o', 'rsz', 'oss', 'xf', 'xq', 'rsy', 'p0go+6', 'p0screen', 'p4hitch', 'rs+1', 'xh+o', 'xs+h'].some(t => E.parse(t))) bad.push('bad tokens accepted');
     return {pass: !bad.length, detail: bad.length ? bad.join('; ') : '20 games replayed exactly; tokens read back'};
   });
 
@@ -244,29 +246,61 @@ export async function drillChecks(check) {
   });
 
   // 6c. The playbook
-  check('Drill: every play type offers three plays (three pass plays a snap from the playbook, every route one the receiver runs; three runs, RPOs and trick plays), each one callable, and a pass names its play', () => {
+  check('Drill: the playbook: six pass plays a snap from the book (every route one the receiver runs; the Hail Mary third when it\'s down to one shot), six runs, five RPOs, five trick plays (the fake spike only with the clock running and a down to spare) and twelve defensive calls in four types; each one callable, and a pass names its play', () => {
     need();
     const bad = [];
-    if ([E.RUNS, E.RPOS, E.TRICKS].some(b => Object.keys(b).length !== 3)) bad.push('three of each');
+    const n = b => Object.keys(b).length;
+    if (n(E.RUNS) !== 6 || n(E.RPOS) !== 5 || n(E.TRICKS) !== 5 || E.DEF_CALLS.length !== 12 || E.CARDS !== 6) bad.push(`counts ${n(E.RUNS)}/${n(E.RPOS)}/${n(E.TRICKS)}/${E.DEF_CALLS.length}/${E.CARDS}`);
     Object.entries(E.PASS_PLAYS).forEach(([k, P]) => { if (!P.name || E.TARGETS.some(slot => !E.ROUTES_FOR[slot].includes(P.routes[slot]))) bad.push(`play ${k}`); });
-    let snaps = 0, hail = 0;
+    E.DEF_CALLS.forEach(c => { if (!E.CALLS[c] || !E.FX[c] || E.DRAW[c] == null || E.COUNTER[c] == null || !E.CALL_LOOK[c] || Object.keys(E.ROUTES).some(r => !E.FX[c].cat[E.ROUTES[r].cat]) || Object.keys(E.TRICKS).some(t => !(E.trickOdds(t, c) > 0))) bad.push(`call ${c}`); });
+    let snaps = 0, spikes = 0;
     for (let d = 1; d <= 20; d++) {
       const g = E.start(dr.scenario(d), dr.DOC.teams);
       for (let i = 0; i < 6 && !g.result && g.poss === 'us'; i++) {
         snaps++;
-        if (!Array.isArray(g.book) || g.book.length !== 3 || new Set(g.book).size !== 3 || g.book.some(k => !E.PASS_PLAYS[k])) { bad.push(`day ${d}: the book`); break; }
-        if (g.book.includes('hail')) hail++;
-        const want = g.book[2], routes = E.PASS_PLAYS[want].routes;
+        if (!Array.isArray(g.book) || g.book.length !== E.CARDS || new Set(g.book).size !== E.CARDS || g.book.some(k => !E.PASS_PLAYS[k])) { bad.push(`day ${d}: the book`); break; }
+        const card = 2 + (i % 4), want = g.book[card], routes = E.PASS_PLAYS[want].routes;
         if (JSON.stringify(g.routes) !== JSON.stringify(E.PASS_PLAYS[g.book[0]].routes)) bad.push(`day ${d}: routes drawn up`);
         const plays = ['run', 'rpo'].flatMap(k => Object.keys(k === 'run' ? E.RUNS : E.RPOS).map(x => E.tok[k]('w', false, x))).concat(Object.keys(E.TRICKS).map(E.tok.tricks));
-        plays.forEach(t => { const f = E.replay(g.sc, dr.DOC.teams, E.actsOf(g)); if (!E.act(f, t)) bad.push(`day ${d}: ${t} refused`); });
-        const p = E.act(g, E.tok.pass('WR1', routes.WR1, {c: 2}));
+        plays.forEach(t => {
+          const f = E.replay(g.sc, dr.DOC.teams, E.actsOf(g)), a = E.parse(t), ok = a.kind !== 'trick' || E.trickOk(f, a.play);
+          if (!!E.act(f, t) !== ok) bad.push(`day ${d}: ${t} ${ok ? 'refused' : 'allowed'}`);
+          if (a.kind === 'trick' && a.play === 's' && ok) spikes++;
+        });
+        const p = E.act(g, E.tok.pass('WR1', routes.WR1, {c: card}));
         if (!p || p.pp !== want || p.routes.TE !== routes.TE) { bad.push(`day ${d}: the pass play`); break; }
       }
     }
     const late = E.start(Object.assign({}, dr.scenario(1), {t: 8, b: 40}), dr.DOC.teams);
-    if (!late.book.includes('hail')) bad.push('no Hail Mary with 0:08 left from your 40');
-    return {pass: !bad.length, detail: bad.length ? bad.slice(0, 6).join('; ') : `${Object.keys(E.PASS_PLAYS).length} pass plays; ${snaps} snaps each offered three; every run, RPO and trick callable`};
+    if (late.book[2] !== 'hail') bad.push('no Hail Mary with 0:08 left from your 40');
+    return {pass: !bad.length && spikes > 0, detail: bad.length ? bad.slice(0, 6).join('; ') : `${n(E.PASS_PLAYS)} pass plays; ${snaps} snaps each offered six; every run, RPO, trick (${spikes} fake spikes with the clock running) and call callable`};
+  });
+
+  check('Drill: the playbook grew on day 3 without changing a game played before it: on days 1 and 2 the defense you face, their plays and the call grades keep to the old book (the new plays still callable, rated against it), and from day 3 they use it all', () => {
+    need();
+    const bad = [];
+    const OLD = ['c2', 'c3', 'c4', 'c1', 'c0', 'fire', 'rb', 'pv'], NEW_ROUTES = ['hitch', 'comeback', 'screen'];
+    const isNew = t => { const a = E.parse(t); return a && ((a.kind === 'pass' && NEW_ROUTES.includes(a.route)) || (a.kind === 'run' && !'ztd'.includes(a.play)) || (a.kind === 'rpo' && !'sbg'.includes(a.play)) || (a.kind === 'trick' && !'fhr'.includes(a.play)) || (a.kind === 'def' && !OLD.includes(a.call))); };
+    const seen = {oldNew: 0, newCalls: 0, newTheirs: 0, newCands: 0};
+    for (let d = 1; d <= 8; d++) for (let i = 0; i < 3; i++) {
+      const {s} = randomGame(dr.scenario(d), 3100 + d * 5 + i), before = d < E.FULL_DAY;
+      s.plays.forEach(p => {
+        if (!p.act) return;
+        const newCall = p.dcall && !OLD.includes(p.dcall) && p.poss === 'us', t = p.their || null;
+        const newTheirs = t && ((t.kind === 'pass' && NEW_ROUTES.includes(t.route)) || (t.kind === 'run' && !'ztd'.includes(t.play)));
+        if (before && (newCall || newTheirs)) { seen.oldNew++; bad.push(`day ${d}: ${newCall ? p.dcall : t.kind + ' ' + (t.route || t.play)}`); }
+        if (!before && newCall) seen.newCalls++;
+        if (!before && newTheirs) seen.newTheirs++;
+      });
+      const g = E.start(dr.scenario(d), dr.DOC.teams), cands = E.candidates(g).map(c => c.token);
+      if (before && cands.some(isNew)) bad.push(`day ${d}: new plays rated`);
+      if (!before && cands.some(isNew)) seen.newCands++;
+    }
+    // The new plays are callable on day 2, rated against the old book's best.
+    const g2 = E.start(dr.scenario(2), dr.DOC.teams), v = E.callScore(g2, E.tok.run('s', false, 'q'));
+    if (!(v >= 0.5 && v <= 1) || !E.act(g2, E.tok.run('s', false, 'q'))) bad.push('the sneak on day 2');
+    const ok = !bad.length && seen.newCalls > 0 && seen.newTheirs > 0 && seen.newCands > 0;
+    return {pass: ok, detail: bad.length ? bad.slice(0, 5).join('; ') : `days 1-2 on the old book; from day 3, ${seen.newCalls} new calls faced, ${seen.newTheirs} new plays of theirs, new plays rated on ${seen.newCands} days`};
   });
 
   // 6d. The coach comp
