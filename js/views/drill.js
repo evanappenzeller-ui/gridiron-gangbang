@@ -1909,6 +1909,18 @@ function openMenu(st, k) {
   flipField(st);
   const first = st.el.querySelector(`[data-dr-panel] [data-dr-menu="${k === 'main' ? was : k}"]`);
   if (first) { try { first.focus({preventScroll: true}); } catch (_) {} }
+  if (k !== 'main') centerCards(st);
+}
+/** The open type's plays to the middle of what's on screen (under the top bar, over the tab bar). */
+function centerCards(st) {
+  const cards = st.el.querySelector('[data-dr-panel] [data-dr-cards]');
+  const scr = cards && cards.closest('.screen');
+  if (!scr || !st.ctx.visible) return;
+  const nav = scr.querySelector(':scope > .nav'), bar = document.getElementById('tabbar');
+  const sr = scr.getBoundingClientRect(), br = bar && bar.offsetHeight ? bar.getBoundingClientRect() : null;
+  const under = nav ? nav.getBoundingClientRect().bottom : sr.top, above = Math.min(sr.bottom, br ? br.top : Infinity);
+  const r = cards.getBoundingClientRect(), d = (r.top + r.bottom) / 2 - (under + above) / 2;
+  if (Math.abs(d) > 4) scr.scrollTo({top: Math.max(0, scr.scrollTop + d), behavior: ui.RM ? 'auto' : 'smooth'});
 }
 /** Your back to where the open call lines him up (the weak side flips him), on the dots. */
 function flipField(st) {
@@ -1924,6 +1936,7 @@ function openDefMenu(st, k) {
   setPanel(st);
   const b = st.el.querySelector(`[data-dr-panel] [data-dr-dmenu="${k || was}"]`);
   if (b) { try { b.focus({preventScroll: true}); } catch (_) {} }
+  if (k) centerCards(st);
 }
 /** No huddle on or off: the switches, the calls that carry it and the clock warning follow. */
 function toggleHurry(st) {
