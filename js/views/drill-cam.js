@@ -9,7 +9,8 @@
 // The camera starts straight down over the dots (the top-down field under it, matched yard for yard), swings down
 // behind the offense for the play and follows the ball, then swings back up; the canvas fades into the dots.
 // open(field, scene) -> cam (or null with no 2D canvas): cam.render(frame), cam.css(x, y, lift), cam.overlay,
-// cam.close() (fades out, then removes itself), cam.remove().
+// cam.close() (fades out, then removes itself), cam.remove(). chalkMark(side, key): a player's chalk mark on the
+// chalkboard (the dots' field, views/drill.js), which the camera starts from.
 // Owner: Drill.
 
 const WIDTH = 53.33, MID = 26.67;
@@ -42,6 +43,28 @@ const mix = (h, to, k) => { const a = rgbOf(h), b = rgbOf(to); return `rgb(${a.m
 const lite = (h, k) => mix(h, '#FFFFFF', k), dark = (h, k) => mix(h, '#000000', k);
 const luma = h => { const [r, g, b] = rgbOf(h); return (0.299 * r + 0.587 * g + 0.114 * b) / 255; };
 const FONT = '"Helvetica Neue", Helvetica, Arial, sans-serif';
+
+// ---------------------------------------------------------------------------- The chalkboard's marks
+// Before the snap the field is a coach's chalkboard (views/drill.js): an O for each man on offense, an X for each on
+// defense (its middle left open for his number), drawn by hand: a few takes on each, turned a little, so no two look
+// stamped. In a 24-unit box round the player's spot.
+const CHALK_O = [
+  'M13.2 2.9C18.4 3.1 21.4 7.2 21.2 12.3C21 17.5 17.1 21.2 12 21.1C6.8 21 2.9 17.1 3 11.9C3.1 6.9 6.8 3 11.6 2.8C12.9 2.8 14.3 3.1 15.4 3.7',
+  'M11 3C16.3 2.5 20.9 5.9 21.3 11.4C21.7 17 17.6 21.1 12.2 21.3C6.9 21.5 2.8 17.6 2.7 12.4C2.6 7.6 5.6 3.9 10.2 3.1L12.6 2.9',
+  'M14.4 3.3C19.3 4.4 21.8 8.6 21 13.4C20.2 18.2 15.9 21.6 11.1 21.1C6 20.6 2.6 16.5 3 11.5C3.4 6.6 7.3 2.9 12.2 2.9C13.3 2.9 14.2 3 15 3.3'
+];
+const CHALK_X = [
+  'M2.6 2.9L7.4 7.6M16.6 16.4L21.3 21.2M21.2 2.7L16.5 7.4M7.5 16.6L2.8 21.4',
+  'M2.4 3.4L7.2 7.9M16.8 16.1L21 20.8M20.7 2.3L16.3 7.2M7.8 16.9L3.3 21.6',
+  'M3.1 2.3L7.7 7.3M16.2 16.7L20.9 21.6M21.5 3.2L16.7 7.6M7.2 16.3L2.5 20.8'
+];
+/** A player's chalk mark: {d (the path), rot (degrees)}. side: 'o' | 'd'; key: who he is (the same mark every time). */
+export function chalkMark(side, key) {
+  const h = hash(String(key));
+  return side === 'o' ? {d: CHALK_O[h % 3], rot: (h >>> 4) % 360} : {d: CHALK_X[h % 3], rot: (h >>> 4) % 15 - 7};
+}
+const marks = new Map();
+const markPath = d => { if (!marks.has(d)) marks.set(d, new Path2D(d)); return marks.get(d); };
 
 // ---------------------------------------------------------------------------- Textures (made once)
 let NOISE = null;
@@ -653,18 +676,23 @@ export function open(field, scene) {
     }
     // (The corners' shade is drill.css's, over the canvas.)
   }
-  /** The dots (the top-down field's players) fading into the figures as the camera tips down. */
+  /** The chalkboard's marks (the top-down field's players: an O or an X in his rating's chalk, his number in white)
+   *  fading into the figures as the camera tips down. */
   function drawDots(list, alpha) {
     if (alpha <= 0) return;
     g.globalAlpha = alpha;
-    const r = 12 * S;
     g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.font = `800 ${Math.round(11 * S)}px ${FONT}`;
+    g.font = `700 ${Math.round(10.5 * S)}px ${FONT}`;
+    g.lineCap = 'round'; g.lineJoin = 'round';
     list.forEach(({pl, p}) => {
-      g.beginPath(); g.arc(p[0], p[1], r + 1.5 * S, 0, Math.PI * 2); g.fillStyle = 'rgba(8,12,20,.85)'; g.fill();
-      g.beginPath(); g.arc(p[0], p[1], r, 0, Math.PI * 2); g.fillStyle = pl.rc; g.fill();
-      if (pl.mine) { g.lineWidth = 1.5 * S; g.strokeStyle = '#FFFFFF'; g.stroke(); }
-      g.fillStyle = '#0A0F1A';
+      const mk = chalkMark(pl.side, pl.key);
+      g.setTransform(S * 26 / 24, 0, 0, S * 26 / 24, p[0], p[1]);
+      g.rotate(mk.rot * Math.PI / 180);
+      g.translate(-12, -12);
+      g.lineWidth = 2.3; g.strokeStyle = pl.rc;
+      g.stroke(markPath(mk.d));
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      g.fillStyle = '#F3F0E6';
       g.fillText(String(pl.j == null ? '' : pl.j), p[0], p[1] + 0.5 * S);
     });
     g.globalAlpha = 1;

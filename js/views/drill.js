@@ -4,9 +4,10 @@
 //
 // A pane module, like 17-0's: render(ctx), mount(el, ctx, {anchor}), params(el, ctx), unmount(el, ctx).
 // One game a day, the same for everyone; each call is saved as it's made, so there are no do-overs.
-// The screen: the scorebug (both teams, their scores and timeouts, the clock, who has the ball), the situation, the
-// field (top-down, the team with the ball going up, every player a dot coloured by his rating, yours ringed in white,
-// the line of scrimmage blue and the first-down line yellow), then the call.
+// The screen: the header's score bug (both teams, their scores and timeouts, the clock, who has the ball, the down and
+// distance), the situation, the field as a coach's chalkboard (top-down, the team with the ball going up, every player
+// an O on offense or an X on defense in his rating's chalk, the line of scrimmage blue and the first-down line yellow,
+// routes as chalk arrows), then the call.
 // On offense: the defense's look, then Run · Pass · RPO · Trick, a field goal when it's on, and the clock tools (and the
 // kneel when you lead). Pass opens the receivers: each on his route (drawn on the field; tap a receiver there, or his
 // route below, to change it) with the look's odds for a throw to him, and play action, roll out and out of bounds to
@@ -14,8 +15,8 @@
 // sideline. After a touchdown that leaves you down one or two: kick, or go for two.
 // On defense (you scored with time left, or turned it over): their formation, and your call from eight in four types.
 // Each snap plays out from behind the offense like a console football game (views/drill-cam.js: the camera swings down
-// from the dots into the stadium, every player a shaded figure in his uniform, the scoreboard across the top, then
-// swings back up; the clock runs; tap the field to skip), then the breakdown:
+// from the chalkboard into the stadium, every player a shaded figure in his uniform, then swings back up; the clock
+// in the header runs; tap the field to skip), then the breakdown:
 // what happened, the win chance before and after, what the defense was really in, how your call ranked and how every
 // option scored (each played out many times: drill-sim.js scoreOptions), and Replay. At 0:00: the final, Share, and
 // the league's finals for the day (tap one to read it once you've played yours). Every control here is data-dr-*, so
@@ -38,7 +39,7 @@ const ST = new WeakMap(); // ctx -> pane state
 
 // A home-screen app open across an update imports this module new under the stylesheet it started with: when
 // drill.css's mark (--dr-css on :root) isn't this module's, the current file is added (as in views/seventeen.js).
-const CSS_V = '24';
+const CSS_V = '25';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--dr-css').trim() === CSS_V || document.querySelector('link[data-dr-css]')) return;
@@ -132,6 +133,16 @@ function ratingColor(r) {
   const t = Math.max(0, Math.min(1, ((Number(r) || 55) - 55) / 44));
   return `hsl(${Math.round(4 + 124 * t)} 72% ${Math.round(56 - 8 * t)}%)`;
 }
+/** The same in chalk, for the chalkboard (the dots' field): pastel, so it reads on the green. */
+function chalkColor(r) {
+  const t = Math.max(0, Math.min(1, ((Number(r) || 55) - 55) / 44));
+  return `hsl(${Math.round(4 + 124 * t)} 86% ${Math.round(74 - 4 * t)}%)`;
+}
+/** A player's chalk mark on the board: his O (offense) or X (defense), drawn by hand (drill-cam.js chalkMark). */
+function markSVG(side, key) {
+  const m = camLib.chalkMark(side, key);
+  return `<svg class="dr-pl-g" viewBox="0 0 24 24" aria-hidden="true" style="transform:rotate(${m.rot}deg)"><path d="${m.d}"/></svg>`;
+}
 const clampX = x => Math.max(1.4, Math.min(WIDTH - 1.4, x));
 
 /** What the field shows: {poss, ball, look, shade, form, fd (the first-down line, or null)}. Now, or at a snap. */
@@ -162,8 +173,8 @@ function dotHTML(d, view) {
   const ls = side === 'o' ? labSide(slot, view.form, view.flip) : null;
   const mine = (side === 'o') === (view.poss === 'us');
   const tgt = side === 'o' && view.poss === 'us' && E.TARGETS.includes(slot) ? ` data-dr-rcv="${slot}"` : '';
-  return `<span class="dr-pl is-${side}${mine ? ' is-mine' : ''}${ls ? ' is-lab-' + ls : ''}${edgeCls(x)}${off ? ' is-off' : ''}" data-dr-p="${side}-${slot}"${tgt} style="left:${left(x)};top:${top(y)};--rc:${ratingColor(p.r)}">`
-    + `<b class="dr-pl-j">${p.j == null ? '' : p.j}</b>${lab}</span>`;
+  return `<span class="dr-pl is-${side}${mine ? ' is-mine' : ''}${ls ? ' is-lab-' + ls : ''}${edgeCls(x)}${off ? ' is-off' : ''}" data-dr-p="${side}-${slot}"${tgt} style="left:${left(x)};top:${top(y)};--rc:${chalkColor(p.r)}">`
+    + `${markSVG(side, `${side}-${slot}`)}<b class="dr-pl-j">${p.j == null ? '' : p.j}</b>${lab}</span>`;
 }
 /** Every player's spot before a snap: [{key, side, slot, p, x, y, off}]. */
 function spots(s, view) {
@@ -214,17 +225,32 @@ function pointAt(path, los, air) {
   const [x, y] = path[path.length - 1];
   return [x, Math.max(y, want)];
 }
+/** The routes in chalk, each from the edge of his O to an arrowhead (aimRoutes points them). */
 function routesSVG(s, routes, pick) {
   const paths = E.TARGETS.map(slot => {
     const [x0, dy] = OFF_POS[slot];
-    return [slot, routePath(routes[slot], x0, s.ball + dy)];
+    const pts = routePath(routes[slot], x0, s.ball + dy);
+    // Out from his O (about 2.3 yards across, 1.55 up and down, on the board), not through it.
+    const [a, b] = pts, ex = b[0] - a[0], ey = b[1] - a[1], k = 1 / Math.hypot(ex / 2.3, ey / 1.55);
+    if (k < 0.8) pts[0] = [a[0] + ex * k, a[1] + ey * k];
+    return [slot, pts];
   });
   const lines = paths.map(([slot, pts]) => `<polyline class="dr-route${pick === slot ? ' is-on' : ''}" points="${pts.map(([x, y]) => `${x.toFixed(2)},${(110 - y).toFixed(2)}`).join(' ')}"/>`).join('');
   const ends = paths.map(([slot, pts]) => {
-    const [x, y] = pts[pts.length - 1];
-    return `<span class="dr-route-end${pick === slot ? ' is-on' : ''}" style="left:${left(x)};top:${top(y)}"></span>`;
+    const [x, y] = pts[pts.length - 1], [px, py] = pts[pts.length - 2];
+    return `<span class="dr-route-end${pick === slot ? ' is-on' : ''}" data-dx="${(x - px).toFixed(2)}" data-dy="${(y - py).toFixed(2)}" style="left:${left(x)};top:${top(y)}"></span>`;
   }).join('');
   return `<svg class="dr-routes" viewBox="0 0 ${WIDTH} 120" preserveAspectRatio="none" aria-hidden="true">${lines}</svg>${ends}`;
+}
+/** Each route's arrowhead turned along its last leg, as the field draws it (yards across and up aren't the same size
+ *  on screen). */
+function aimRoutes(root) {
+  const track = root && root.querySelector('.dr-track');
+  if (!track || !track.clientWidth) return;
+  const ax = track.clientWidth / WIDTH, ay = track.clientHeight / 120;
+  track.querySelectorAll('.dr-route-end[data-dx]').forEach(e => {
+    e.style.transform = `rotate(${Math.atan2(-Number(e.dataset.dy) * ay, Number(e.dataset.dx) * ax).toFixed(3)}rad)`;
+  });
 }
 const routesOn = st => st.panel === 'pass' && !st.busy && !!st.s && !st.s.result && st.s.poss === 'us';
 
@@ -262,6 +288,7 @@ function swapField(st, view, {fade = true} = {}) {
   const nf = tmp.content.firstElementChild;
   if (fade && !ui.RM) nf.classList.add('is-in');
   f.replaceWith(nf);
+  aimRoutes(nf);
   return nf;
 }
 /** Moves the field to the game's current snap: the camera, the lines, the players (CSS transitions animate it). */
@@ -305,6 +332,7 @@ function patchRoutes(st) {
   if (!host) return;
   const on = routesOn(st);
   host.innerHTML = on ? routesSVG(st.s, st.routes, st.pick) : '';
+  aimRoutes(st.el);
   st.el.querySelectorAll('[data-dr-rcv]').forEach(e => {
     if (on) {
       e.setAttribute('role', 'button');
@@ -597,7 +625,7 @@ function camScene(st, p) {
   const s = st.s, ids = E.idsFor(s, p.poss);
   const players = spots(s, viewOf(p)).filter(d => !d.off).map(d => {
     const id = d.side === 'o' ? ids.o : ids.d;
-    return {key: d.key, slot: d.slot, side: d.side, j: d.p.j, n: d.p.n, rc: ratingColor(d.p.r), team: tcol(id), colored: id === s.sc.o, mine: (d.side === 'o') === (p.poss === 'us')};
+    return {key: d.key, slot: d.slot, side: d.side, j: d.p.j, n: d.p.n, rc: chalkColor(d.p.r), team: tcol(id), colored: id === s.sc.o, mine: (d.side === 'o') === (p.poss === 'us')};
   });
   const end = id => ({name: dr.team(id).n, c: tcol(id)[0]});
   const home = s.sc.g && s.sc.g.h && dr.team(s.sc.g.h) ? s.sc.g.h : s.sc.d;
@@ -880,7 +908,7 @@ function loadLogos(root) {
 }
 function legendHTML() {
   return `<div class="dr-legend"><span class="dr-scale" aria-hidden="true"><span>Rating</span><i></i></span>`
-    + `<span class="dr-key" aria-hidden="true"><i class="is-mine"></i>Yours</span>`
+    + `<span class="dr-key" aria-hidden="true">${markSVG('o', 'key-o')}Offense</span><span class="dr-key" aria-hidden="true">${markSVG('d', 'key-d')}Defense</span>`
     + `<button type="button" class="dr-pill" data-dr-ratings>${ui.icon('search', {size: 14})}<span>Player ratings</span></button></div>`;
 }
 /** What the other side shows, as a slim strip: who, and the look (or formation) with what it means. */
@@ -1857,7 +1885,7 @@ function playAgain(st) {
   ui.announce('Practice run: a fresh start on today’s drill.');
 }
 function rerender(st, {fade = true} = {}) {
-  const go2 = () => { st.el.innerHTML = bodyHTML(st); ui.hydrate(st.el); loadLogos(st.el); };
+  const go2 = () => { st.el.innerHTML = bodyHTML(st); ui.hydrate(st.el); loadLogos(st.el); aimRoutes(st.el); };
   if (fade && !ui.RM && st.ctx.visible) ui.crossfade(st.el, go2, {duration: 160}); else go2();
 }
 function share(st) {
