@@ -553,6 +553,64 @@ export async function drillChecks(check) {
     return {pass: snap && same && better && floor && letters && order, detail: `snap ${snap}; replays ${same}; well-called ${ah.toFixed(1)} vs random ${al.toFixed(1)}; win floor ${floor} (${wins} random wins, ${lifted} lifted); letters ${letters}; board ${sig}`};
   });
 
+  check('Drill: from game 3 the play-caller reads each play the way it really goes (a run with its stuffs and breakaways, a catch with its spread and broken tackles), so its best call is mostly a throw in a comeback, not a run', () => {
+    need();
+    let snaps = 0, runs = 0, passes = 0;
+    for (let d = E.FULL_DAY; d < E.FULL_DAY + 8; d++) {
+      const s = E.start(dr.scenario(d), dr.DOC.teams), r = E.dice(d, 41);
+      for (let i = 0; i < 60 && !s.result; i++) {
+        if (s.poss === 'us' && s.phase === 'play') {
+          const a = E.parse(E.callValues(s).bestToken);
+          snaps++; if (a.kind === 'run') runs++; if (a.kind === 'pass' || a.kind === 'rpo') passes++;
+        }
+        const t = s.poss === 'them' && s.phase !== 'pat' ? E.defBot(s, r, 0.8) : E.bot(s, r, 0.8, true);
+        if (!E.act(s, t)) E.act(s, s.poss === 'them' ? 'dc3' : 'rs') || E.act(s, 'e');
+      }
+    }
+    const ok = snaps > 40 && runs / snaps < 0.25 && passes / snaps > 0.6;
+    return {pass: ok, detail: `${snaps} snaps: the best call a run on ${runs}, a throw on ${passes}`};
+  });
+
+  check('Drill: from game 3 the call grades spread with how a game is called (a call at random is a C− on average, so random-called games come out in the Cs and Ds and well-called ones in the As), and a game\'s grade comes with every rated call scored, the best call at its snap and what was at stake', () => {
+    need();
+    const bad = [], hi = [], lo = [];
+    for (let n = E.FULL_DAY; n < E.FULL_DAY + 4; n++) for (let i = 0; i < 2; i++) {
+      hi.push(E.gradeGame(dr.scenario(n), dr.DOC.teams, callGame(n, true, 300 + i)));
+      lo.push(E.gradeGame(dr.scenario(n), dr.DOC.teams, callGame(n, false, 300 + i)));
+    }
+    const avg = gs => gs.reduce((t, g) => t + g.calls, 0) / gs.length, ah = avg(hi), al = avg(lo);
+    if (!(ah >= 93)) bad.push(`well-called ${ah.toFixed(1)}`);
+    if (!(al >= 55 && al <= 76)) bad.push(`random-called ${al.toFixed(1)}`);
+    hi.concat(lo).forEach(g => {
+      const m = g.list.reduce((t, c) => t + c.score, 0) / g.list.length;
+      if (g.list.length !== g.n || Math.abs(m - g.calls) > 0.15 || g.list.some(c => !E.parse(c.best) || !(c.score >= 35 && c.score <= 100) || !(c.stakes >= 0))) bad.push('the calls listed');
+    });
+    // A day-3 snap: the best call scores 1, the menu's middle one 0.7, nothing below 0.35.
+    const s3 = E.start(dr.scenario(E.FULL_DAY), dr.DOC.teams), ev = E.callValues(s3);
+    const sc = E.candidates(s3).map(c => E.callScore(s3, c.token)).sort((a, b) => a - b);
+    if (E.callScore(s3, ev.bestToken) !== 1 || !(sc[sc.length >> 1] >= 0.7 - 1e-9) || sc[0] < 0.35) bad.push('a snap\'s scores');
+    return {pass: !bad.length, detail: bad.length ? bad.join('; ') : `well-called ${ah.toFixed(1)} vs random ${al.toFixed(1)} over ${hi.length} games each; every call listed with its score and the best there`};
+  });
+
+  check('Drill: the coach comp reads the choices that mean the same as in the NFL (throw or run, out of bounds, spike, no huddle, timeouts) against the league, so a caller who throws as often as NFL coaches do late isn\'t matched to the same pass-happy coach every time: sixty such games spread over many coaches, and each comp names two more who are close', () => {
+    need();
+    const C = dr.DOC.coaches, bad = [];
+    ['pass', 'oob', 'spike', 'hurry', 'timeout'].forEach(k => { if (Math.abs(C.base[k] - C.league[k]) > 1e-9) bad.push(`baseline ${k} ${C.base[k]} vs the league's ${C.league[k]}`); });
+    const N = {pass: 12, deep: 9, short: 9, middle: 9, oob: 7, spike: 14, hurry: 5, timeout: 4, two: 1, fourth: 1}, cnt = {}, r = E.dice(1, 2, 3);
+    let also = 0;
+    for (let i = 0; i < 60; i++) {
+      const f = {};
+      dr.TENDENCIES.forEach(k => { let h = 0; for (let j = 0; j < N[k]; j++) if (r() < C.base[k]) h++; f[k] = [h, N[k]]; });
+      const m = dr.matchCoach(f);
+      cnt[m.coach.n] = (cnt[m.coach.n] || 0) + 1;
+      if (m.also.length === 2 && m.also.every(c => c && c.n !== m.coach.n)) also++;
+    }
+    const top = Object.entries(cnt).sort((a, b) => b[1] - a[1]);
+    if (top.length < 20 || top[0][1] > 12) bad.push(`${top.length} coaches, ${top[0][0]} ${top[0][1]} of 60`);
+    if (also !== 60) bad.push('runner-ups');
+    return {pass: !bad.length, detail: bad.length ? bad.join('; ') : `60 typical games: ${top.length} coaches, the most often ${top[0][0]} (${top[0][1]}); every comp with two more close`};
+  });
+
   check('Drill: the week\'s standings count the days of one NFL week up to today: 3 points a win and 1 a tie, the average call grade breaking a tie on points, a run of wins up to the latest day, and the week\'s best-called game; days after today and outside the week don\'t count', () => {
     need();
     let d = 1;

@@ -442,7 +442,7 @@ const COMP_WORDS = {
   fourth: [(k, n, t) => `went for it on fourth down ${k} of ${n} times (typical: ${t})`, (k, n, t) => `kicked the field goal on fourth down ${k} of ${n} times (typical: ${t})`]
 };
 /** The coach whose tendencies fit these counts best: {coach (DOC.coaches.list's), lines (the two calls that point to
- *  him most, in words)}, or null (no coaches, or too few snaps to say). */
+ *  him most, in words), also (the next two closest)}, or null (no coaches, or too few snaps to say). */
 export function matchCoach(f) {
   const C = DOC && DOC.coaches;
   if (!C || !Array.isArray(C.list) || !C.list.length || f.spike[1] < 3) return null;
@@ -454,22 +454,22 @@ export function matchCoach(f) {
   const rate = (c, k) => pull(c.f[k], k, L[k]);
   const spread = k => Math.sqrt(L[k] * (1 - L[k]) / (K(k) + 1));
   const you = used.map(k => (pull(f[k], k, B(k)) - B(k)) / spread(k));
-  let best = null;
-  C.list.forEach(c => {
+  const ranked = C.list.map(c => {
     const his = used.map(k => (rate(c, k) - L[k]) / spread(k));
     const dot = you.reduce((t, x, i) => t + x * his[i], 0), norm = Math.hypot(...his) || 1;
-    const v = dot / norm;
-    if (!best || v > best.v) best = {c, v};
-  });
+    return {c, v: dot / norm};
+  }).sort((a, b) => b.v - a.v);
+  const best = ranked[0];
   const lines = used.map((k, i) => ({k, e: you[i] * (rate(best.c, k) - L[k]) / spread(k)}))
     .filter(x => x.e > 0.01).sort((a, b) => b.e - a.e).slice(0, 2)
     .map(({k}) => {
       const [hit, n] = f[k], more = hit / n >= B(k);
       return more ? COMP_WORDS[k][0](hit, n, Math.round(n * B(k))) : COMP_WORDS[k][1](n - hit, n, Math.round(n * (1 - B(k))));
     });
-  return {coach: best.c, lines};
+  return {coach: best.c, lines, also: ranked.slice(1, 3).map(x => x.c)};
 }
-/** The comp for a finished game: {name, team (id), teamName, snaps, seasons, text ("Like him, you ...")}, or null.
+/** The comp for a finished game: {name, team (id), teamName, snaps, seasons, text ("Like him, you ..."), also (the next
+ *  two closest: [{name, team}])}, or null.
  *  who: 'you', or someone else's name (the words then say "they"). */
 export function coachComp(s, who = 'you') {
   const m = matchCoach(tendencies(s));
@@ -478,7 +478,7 @@ export function coachComp(s, who = 'you') {
   const subj = who === 'you' ? 'you' : 'they';
   const text = m.lines.length ? `Like him, ${subj} ${m.lines.join(', and ')}.` : `${who === 'you' ? 'Your' : 'Their'} calls fit his late-game tendencies best.`;
   const seasons = Array.isArray(c.y) ? (c.y[0] === c.y[1] ? `${c.y[0]}` : `${c.y[0]}–${c.y[1]}`) : DOC.coaches.seasons;
-  return {name: c.n, team: c.t, teamName: T ? T.n : c.t, snaps: c.s, seasons, text};
+  return {name: c.n, team: c.t, teamName: T ? T.n : c.t, snaps: c.s, seasons, text, also: m.also.map(x => ({name: x.n, team: x.t}))};
 }
 
 // ---------------------------------------------------------------------------------------------- scoreboard
@@ -609,15 +609,17 @@ export function boardState() {
 const RANK = {W: 2, T: 1, L: 0};
 // ---------------------------------------------------------------------------------------------- call grades
 // How well a game was called (drill-sim.js gradeGame): each pass, run, RPO, trick and defensive call scored against
-// the best one at that snap by the play-caller's numbers (100 the best call, 75 the menu's middle one, 50 a poor one),
-// the mean out of 100; a win never below a C− (70). Worked out from a game's actions, so
-// every phone grades every posted game the same way (nothing extra is posted, and a grade can't be made up).
+// the best one at that snap by the play-caller's numbers (100 the best call; from game 3, 70 the menu's middle one and
+// no lower than 35; before, 75 and 50, as those games were graded), the mean out of 100; a win never below a C− (70).
+// Worked out from a game's actions, so every phone grades every posted game the same way (nothing extra is posted,
+// and a grade can't be made up). Each rated call comes with it (list: its score and the best call there).
 const GRADES = new Map();
-/** Day n's game from actions k: {grade (0-100 or null), calls, n (calls rated), lead (a win's go-ahead clock)}. Memoized. */
+/** Day n's game from actions k: {grade (0-100 or null), calls, n (calls rated), lead (a win's go-ahead clock), list (each
+ *  rated call scored: drill-sim.js gradeGame)}. Memoized. */
 export function gradeOf(n, k) {
   const key = `${n}|${k}`;
   if (!GRADES.has(key)) {
-    let g = {grade: null, calls: null, n: 0, lead: null};
+    let g = {grade: null, calls: null, n: 0, lead: null, list: []};
     try { if (DOC && k) g = E.gradeGame(scenario(n), DOC.teams, k); } catch (_) { /* a game that won't replay: no grade */ }
     GRADES.set(key, g);
   }

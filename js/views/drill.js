@@ -39,7 +39,7 @@ const ST = new WeakMap(); // ctx -> pane state
 
 // A home-screen app open across an update imports this module new under the stylesheet it started with: when
 // drill.css's mark (--dr-css on :root) isn't this module's, the current file is added (as in views/seventeen.js).
-const CSS_V = '27';
+const CSS_V = '28';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--dr-css').trim() === CSS_V || document.querySelector('link[data-dr-css]')) return;
@@ -2125,13 +2125,37 @@ function compHTML(s, who = 'you') {
   return `<section class="dr-comp" aria-labelledby="dr-comp-n"><p class="dr-comp-k">${esc(who === 'you' ? 'You called this one like' : `${who} called it like`)}</p>`
     + `<h3 class="dr-comp-n" id="dr-comp-n">${logoHTML(c.team, 34)}<span>${esc(c.name)}</span></h3>`
     + `<p class="dr-comp-t">${esc(c.text)}</p>`
-    + `<p class="dr-comp-f">${esc(`${c.teamName} · ${c.seasons} · from ${c.snaps} late-game snaps`)}</p></section>`;
+    + `<p class="dr-comp-f">${esc(`${c.teamName} · ${c.seasons} · from ${c.snaps} late-game snaps`)}</p>`
+    + (c.also.length ? `<p class="dr-comp-a"><span>Also close</span>${c.also.map(x => `<span class="dr-comp-x">${logoHTML(x.team, 18)}${esc(x.name)}</span>`).join('')}</p>` : '') + `</section>`;
 }
-/** A finished game's call grade, as the scoreboard ranks it. */
+/** A finished game's call grade, as the scoreboard ranks it, and what made it: the best call, the costliest one (with
+ *  what was better there) and every call's score. */
 function finalGradeHTML(n, s, who = 'Your') {
   const g = dr.gradeOf(n, E.actsOf(s));
   if (g.grade == null) return '';
-  return `<p class="dr-final-grade">${gradeChip(g.grade, 'dr-fg-chip')}<span>${esc(`${who} call grade, from ${plural(g.n, 'call')}: how close each was to the best one at its snap.`)}</span></p>`;
+  const floor = s.result === 'W' && g.calls < E.WIN_FLOOR ? ` A win is never below a C−: the calls alone made it ${Math.round(g.calls)}.` : '';
+  return `<p class="dr-final-grade">${gradeChip(g.grade, 'dr-fg-chip')}<span>${esc(`${who} call grade, from ${plural(g.n, 'call')}: how close each was to the best one at its snap.${floor}`)}</span></p>`
+    + gradeReportHTML(s, g);
+}
+/** A call's spot in words: "3rd & 4 · 0:48" (theirs: "Their 3rd & 4 · 0:48"). */
+const callWhere = c => `${c.poss === 'them' ? 'Their ' : ''}${dr.downText(c.down, c.togo, c.ball)} · ${dr.clockText(c.clock)}`;
+/** A call's score, coloured like the grade it would be. */
+const callChip = v => `<b class="dr-gr-s is-${dr.gradeLetter(v)[0]}">${Math.round(v)}</b>`;
+function gradeReportHTML(s, g) {
+  const list = g.list || [];
+  if (list.length < 2) return '';
+  // The best: the highest score, the one that mattered most among equals; the costliest: the lowest, likewise.
+  const top = list.slice().sort((a, b) => b.score - a.score || b.stakes - a.stakes)[0];
+  const low = list.slice().sort((a, b) => a.score - b.score || b.stakes - a.stakes)[0];
+  const name = t => dr.tokenShort(s, t);
+  const item = (k, c, sub) => `<li class="dr-gr-it"><span class="dr-gr-k">${esc(k)}</span><span class="dr-gr-c"><b>${esc(name(c.token))}</b><small>${esc(sub)}</small></span>${callChip(c.score)}</li>`;
+  const close = low.score >= 95;
+  const rows = list.map(c => `<li class="dr-gr-row"><span class="dr-gr-c"><b>${esc(name(c.token))}</b><small>${esc(callWhere(c) + (c.score < 95 ? ` · best: ${name(c.best)}` : ''))}</small></span>${callChip(c.score)}</li>`).join('');
+  return `<ul class="dr-gr-rep" aria-label="The calls behind the grade">`
+    + item('Best call', top, callWhere(top))
+    + (close ? `<li class="dr-gr-it is-clean"><span class="dr-gr-k">Misses</span><span class="dr-gr-c"><b>None</b><small>Every call within 5 of the best one there</small></span></li>`
+      : item('Costliest', low, `${callWhere(low)} · better: ${name(low.best)}`))
+    + `</ul><details class="dr-gr-all"><summary>${esc(`Every call, scored (${list.length})`)}</summary><ol>${rows}</ol></details>`;
 }
 function resultHTML(st) {
   const s = st.s;
@@ -2409,8 +2433,8 @@ function patchBreakdown(st) {
  *  token)}, or null for a call that isn't graded (a clock tool, a kick). */
 function callNow(s, token) {
   try {
-    const v = E.callScore(s, token);
-    return v == null ? null : {score: Math.round(100 * v), best: E.callValues(s).bestToken};
+    const r = E.rateCall(s, token);
+    return r ? {score: Math.round(100 * r.score), best: r.best} : null;
   } catch (_) { return null; }
 }
 // ============================================================================ Playing a snap

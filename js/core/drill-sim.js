@@ -1020,7 +1020,8 @@ function spotValue(s, ball, down, togo, clock, running, tos) {
   }
   return clamp(v, 0, 1);
 }
-/** The offense's sense of a play: the spot value after it, averaged over the calls it might meet and how it goes. */
+/** The offense's sense of a play: the spot value after it, averaged over the calls it might meet and how it goes (as
+ *  the play-caller saw it before the playbook grew: playValue2 is the one since). */
 function playValue(s, a, mix) {
   let v = 0;
   const tos = s.poss === 'us' ? s.tos : s.dtos;
@@ -1064,6 +1065,57 @@ function playValue(s, a, mix) {
   });
   return v;
 }
+/** The play-caller's sense of a play once the playbook grew (game FULL_DAY on; playValue above is the one before,
+ *  kept as it was so the games then still grade and play out the same): each kind of play the way it really goes. A
+ *  run with its stuffs, breakaways and fumbles and the full spread of its gain (passModel and runPlay's numbers); a
+ *  catch with its spread and its broken tackles at their real rate; an RPO's throw against the crashing front it's
+ *  read off (rpoPlay). */
+function playValue2(s, a, mix) {
+  let v = 0;
+  const tos = s.poss === 'us' ? s.tos : s.dtos;
+  const setup = s.running ? (a.kind === 'trick' && a.play === 's' ? SPIKE_SET : a.flags && a.flags.h ? NO_HUDDLE : HURRY) : 0;
+  const after = (gain, secs, run, downUsed = true) => {
+    const ball = Math.min(100, s.ball + gain);
+    if (s.phase === 'pat') return ball >= 100 ? 1 : 0;
+    const conv = gain >= s.togo;
+    const down = ball >= 100 ? 1 : conv ? 1 : s.down + (downUsed ? 1 : 0);
+    const togo = conv ? Math.min(10, 100 - ball) : s.togo - gain;
+    return spotValue(s, ball, down, togo, s.clock - setup - secs, run, tos);
+  };
+  if (s.running && s.clock <= setup) return 0;
+  // Three points standing in for a normal spread of yards (weights 1/6, 2/3, 1/6 at -√3, 0 and +√3 sd: the same mean
+  // and spread).
+  const spread = (m, sd, f) => f(m - SQ3 * sd) / 6 + (2 / 3) * f(m) + f(m + SQ3 * sd) / 6;
+  mix.forEach(([call, w]) => {
+    const rpoThrow = a.kind === 'rpo' && FX[call].rpo === 'pass';
+    if (a.kind === 'pass' || rpoThrow) {
+      const slot = a.kind === 'pass' ? a.slot : RPOS[a.play].slot, route = a.kind === 'pass' ? a.route : RPOS[a.play].route, R = ROUTES[route];
+      const m = passModel(s, slot, route, a.kind === 'pass' ? a.flags : {o: a.flags.o, h: a.flags.h}, rpoThrow ? (call === 'c0' ? 'c0' : 'rb') : call);
+      const ok = 1 - m.pSack, pc = ok * m.pComp, pi = ok * m.pInt, pinc = Math.max(0, ok - pc - pi);
+      const air = R.cat === 'screen' ? Math.min(-1, m.depth) : Math.max(R.cat === 'deep' ? 14 : R.cat === 'quick' ? -1 : 3, m.depth);
+      const caught = g => { g = Math.round(g); const secs = 1.8 + m.time + g / 7; return m.oob * after(g, secs, false) + (1 - m.oob) * after(g, secs, true); };
+      v += w * (m.pSack * after(-6, m.time + 2.5, true) + pinc * after(0, m.time + 2, false)
+        + pc * ((1 - m.big) * spread(air + m.yac, 2.3, caught) + m.big * caught(air + m.yac + 19)));
+    } else if (a.kind === 'run' || a.kind === 'rpo') {
+      const play = a.kind === 'run' ? a.play : 'z', K = RUNS[play], F = FX[call], e = runEdge(s);
+      const mean = runMean(s, a.dir, a.flags, call, play) + (a.kind === 'rpo' ? 0.6 : 0);
+      const pStuff = Math.min(0.9, 0.08 * F.stuff * K.stuff * (1 - 0.5 * e) * (a.dir === s.shade ? 1.3 : 0.8));
+      const pBig = 0.03 * F.big * K.big * (1 + e);
+      const ran = g => {
+        g = Math.round(g);
+        const secs = 5 + K.t + Math.max(0, g) / 8, po = g > 0 ? Math.min(0.9, (a.flags.o ? 0.55 : 0.08) * (F.oob || 1) * K.oob) : 0;
+        return po * after(g, secs, false) + (1 - po) * after(g, secs, true);
+      };
+      const plain = pStuff * ran(-2) + (1 - pStuff) * spread(mean, K.sd, ran);
+      const broke = pStuff * ran(17) + (1 - pStuff) * ran(mean + 19);
+      // A fumble (one in eighty) and the ball's gone.
+      v += w * 0.988 * ((1 - pBig) * plain + pBig * broke);
+    } else if (a.kind === 'trick') v += w * playValue(s, a, [[call, 1]]);
+  });
+  return v;
+}
+/** A play's value by the play-caller's sense of it for this game's day. */
+const valueOf = (s, a, mix) => (grown(s) ? playValue2 : playValue)(s, a, mix);
 /** Every play the team with the ball could call now, valued: [{token, v}], best first. fast: only the routes drawn
  *  up for the snap, the runs away from the lean, the plain RPO and the flea flicker (for playing many games out
  *  quickly). Their offense runs only the inside zone here (theirPlay picks the run itself). Before the playbook grew
@@ -1089,7 +1141,7 @@ export function candidates(s, fast = false) {
   }));
   if (ours && s.trick) (fast ? ['f'] : full ? Object.keys(TRICKS).filter(k => trickOk(s, k)) : OLD_TRICKS).forEach(k => out.push(tok.tricks(k)));
   const mix = mixOf(s);
-  return out.map(t => ({token: t, v: playValue(s, parse(t), mix)})).sort((a, b) => b.v - a.v);
+  return out.map(t => ({token: t, v: valueOf(s, parse(t), mix)})).sort((a, b) => b.v - a.v);
 }
 export function bot(s, r = Math.random, skill = 1, fast = false) {
   const o = options(s);
@@ -1143,35 +1195,50 @@ export function callValues(s) {
     list.slice().forEach(x => {
       const a = parse(x.token), f = Object.assign({}, a.flags, {h: true});
       const t = a.kind === 'pass' ? tok.pass(a.slot, a.route, f) : a.kind === 'run' ? tok.run(a.dir, f.o, a.play, true) : a.kind === 'rpo' ? tok.rpo(a.dir, f.o, a.play, true) : null;
-      if (t) list.push({token: t, v: playValue(s, parse(t), mix)});
+      if (t) list.push({token: t, v: valueOf(s, parse(t), mix)});
     });
   }
   const top = list.reduce((m, x) => (x.v > m.v ? x : m), list[0]);
-  return {ours, best: top.v, bestToken: top.token, all: list.map(x => x.v), value: t => { const a = parse(t); return a ? playValue(s, a, mix) : 0; }};
+  return {ours, best: top.v, bestToken: top.token, all: list.map(x => x.v), value: t => { const a = parse(t); return a ? valueOf(s, a, mix) : 0; }};
 }
 const RATED = ['pass', 'run', 'rpo', 'trick', 'def'];
-/** A call's score at a snap, 0.5-1, by the play-caller's numbers (callValues): 1 the best call there, 0.75 one as far
- *  below it as the menu's middle call, 0.5 one twice that far or more. null: a call that isn't rated (a clock tool, a
- *  kick, the try after a touchdown) or not a call at this snap. */
+/** A call's score at a snap, by the play-caller's numbers (callValues): 1 the best call there, MID one as far below it
+ *  as the menu's middle call, falling on as far again (no lower than FLOOR). Before the playbook grew (FULL_DAY), 0.75
+ *  and 0.5, as those games were graded; since, 0.7 and 0.35, so a pick at random (a menu's middle call, on average) is
+ *  a C− and a poor one a D or worse, while a call close to the best keeps its A. null: a call that isn't rated (a
+ *  clock tool, a kick, the try after a touchdown) or not a call at this snap. */
 export function callScore(s, token) {
+  const r = rateCall(s, token);
+  return r ? r.score : null;
+}
+/** callScore with what it's measured against: {score, best (the best call's token), stakes (how far the menu's middle
+ *  call fell below the best: how much the call mattered)}, or null. */
+export function rateCall(s, token) {
   const a = parse(token);
   if (s.result || s.phase !== 'play' || !a || !RATED.includes(a.kind) || (a.kind === 'def') !== (s.poss === 'them')) return null;
   const ev = callValues(s), sign = ev.ours ? 1 : -1;
   const vals = ev.all.map(v => sign * v).sort((x, y) => x - y);
   const best = sign * ev.best, mid = vals[vals.length >> 1], mine = sign * ev.value(token);
-  return clamp(1 - 0.25 * (best - mine) / Math.max(0.02, best - mid), 0.5, 1);
+  const [MID, FLOOR] = grown(s) ? [0.7, 0.35] : [0.75, 0.5];
+  return {score: clamp(1 - (1 - MID) * (best - mine) / Math.max(0.02, best - mid), FLOOR, 1), best: ev.bestToken, stakes: best - mid};
 }
 /** The lowest grade a win gets (a C−): winning is the point, however it was called. */
 export const WIN_FLOOR = 70;
 /** A game's call grade, from its actions: {grade (0-100: its rated calls' mean score, one decimal, a win at least
- *  WIN_FLOOR; null with none), calls (the mean alone), n (how many were rated), lead (on a win, the clock when you went ahead for good: the time you left them; else
- *  null)}. Deterministic: anyone's phone gets the same grade from the same calls. */
+ *  WIN_FLOOR; null with none), calls (the mean alone), n (how many were rated), lead (on a win, the clock when you went
+ *  ahead for good: the time you left them; else null), list (each rated call: {i (its place in the actions), token,
+ *  score (0-100), best (the best call there), stakes (rateCall's), poss, down, togo, ball, clock})}. Deterministic: anyone's phone gets the
+ *  same grade from the same calls. */
 export function gradeGame(sc, teams, acts) {
   const s = start(sc, teams);
   let sum = 0, n = 0, lead = null;
-  for (const t of String(acts || '').split(',').filter(Boolean)) {
-    const v = callScore(s, t);
-    if (v != null) { sum += v; n++; }
+  const list = [];
+  for (const [i, t] of String(acts || '').split(',').filter(Boolean).entries()) {
+    const r = rateCall(s, t);
+    if (r) {
+      sum += r.score; n++;
+      list.push({i, token: t, score: Math.round(1000 * r.score) / 10, best: r.best, stakes: r.stakes, poss: s.poss, down: s.down, togo: s.togo, ball: s.ball, clock: s.clock});
+    }
     const ahead = s.us > s.them;
     if (!act(s, t)) break;
     if (s.us > s.them && !ahead) lead = s.clock;
@@ -1179,13 +1246,13 @@ export function gradeGame(sc, teams, acts) {
   }
   const calls = n ? Math.round(1000 * sum / n) / 10 : null;
   const grade = calls != null && s.result === 'W' ? Math.max(calls, WIN_FLOOR) : calls;
-  return {grade, calls, n, lead: s.result === 'W' ? lead : null};
+  return {grade, calls, n, lead: s.result === 'W' ? lead : null, list};
 }
 export function defValues(s, calls = callsAt(s)) {
   const mix = theirMix(s);
   return calls.map(call => {
     let v = 0;
-    mix.forEach(([a, w]) => { v += w * playValue(s, a, [[call, 1]]); });
+    mix.forEach(([a, w]) => { v += w * valueOf(s, a, [[call, 1]]); });
     return {token: tok.def(call), v};
   }).sort((a, b) => a.v - b.v);
 }
