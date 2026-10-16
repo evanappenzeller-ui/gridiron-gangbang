@@ -12,10 +12,10 @@
 // Owner: Drill.
 
 const WIDTH = 53.33, MID = 26.67;
-// The game camera: its pitch (degrees down), its distance to what it looks at (yards: wide while the passer has the
-// ball behind the line, pushed in once it's thrown, past the line or with a back), its lens (the focal length as a share of the canvas width), and how much
-// further than views/drill.js asks it leans toward the ball's side. The top-down camera's distance is whatever
-// matches the dots' field.
+// The game camera: its pitch (degrees down), its distance to what it looks at (yards: wide while the ball is behind the
+// line, so the passer's drop and throw stay in; pushed in once it's past it or a back has it), its lens (the focal
+// length as a share of the canvas width), and how much further than views/drill.js asks it leans toward the ball's
+// side. The top-down camera's distance is whatever matches the dots' field.
 const CAMS = {pitch: 19, snap: 29, play: 19, lens: 0.6, followX: 1.35};
 const NEAR = 0.5;
 // Drawn at the screen's resolution, up to this many canvas pixels to a CSS pixel.
@@ -724,7 +724,7 @@ export function open(field, scene) {
     const e = smooth(f.u);
     // Wide while the ball is behind the line (the formation, the passer's throw, a sack all in), pushed in once it's
     // past it. Eased, so the push follows the ball rather than jumping with it.
-    let push = f.ball && f.los != null ? (f.ball[2] > 0.3 ? 1 : smooth(clamp01((f.ball[1] - f.los + 1) / 7))) : 0;
+    let push = f.ball && f.los != null ? smooth(clamp01((f.ball[1] - f.los + 1) / 7)) : 0;
     // Handed off, the back has it: in most of the way, so a run stopped at the line is still seen up close.
     if (f.hold && f.hold !== 'o-QB' && f.t > 0.05) push = Math.max(push, 0.75);
     pushK = pushK == null ? push : pushK + (push - pushK) * (1 - Math.exp(-dt / 170));

@@ -574,7 +574,7 @@ function finishCalls(p, kind, calls, x, y, forO, t = 0.92) {
 }
 
 /** How fast a snap plays out: each plan's own length times PACE (above 1: slower, so the play can be followed). */
-const PACE = 1.35;
+const PACE = 1.6;
 // The camera behind the offense (views/drill-cam.js): how long it takes to swing down before the snap and back up
 // after the play, how long the end of the play holds first, and the beat set before the snap.
 const PAN_IN = 760, PAN_OUT = 640, HOLD = 420 * PACE, SET = 420;
@@ -651,9 +651,10 @@ function runAnim(st, plan, p) {
         Object.keys(pos).forEach(k => { const d = Math.hypot(pos[k][0] - b[0], pos[k][1] - b[1]); if (d < best) { best = d; hold = k; } });
       }
       const carry = plan.kick ? 2 : loose ? 10 * Math.max(0, 1 - (t - plan.loose) / 0.06) : hold && down[hold] ? 4 : 10;
-      // The camera follows the ball; a pass in the air, it heads for where it's going.
-      const fb = air && t > air.t0 && t < air.t1 ? a1 : b;
-      return {u, t, top: [MID, wt - WIN / 2], follow: [MID + (fb[0] - MID) * 0.45, Math.min(104, Math.max(p.ball + 9, fb[1] + 6))],
+      // The camera follows the ball; a pass in the air, it heads for where it's going, once the passer's follow-through
+      // has been seen.
+      const fb = air && t > air.t0 + 0.08 && t < air.t1 ? a1 : b;
+      return {u, t, top: [MID, wt - WIN / 2], follow: [MID + (fb[0] - MID) * 0.45, Math.min(104, Math.max(p.ball + 8, fb[1] + 6))],
         pos, run, down, ball: [b[0], b[1], z], carry, hold, los: p.ball, fd, now};
     };
     // The dots underneath: where the play leaves them (every frame when there's no camera).
