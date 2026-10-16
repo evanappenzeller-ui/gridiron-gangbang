@@ -38,7 +38,7 @@ const ST = new WeakMap(); // ctx -> pane state
 
 // A home-screen app open across an update imports this module new under the stylesheet it started with: when
 // drill.css's mark (--dr-css on :root) isn't this module's, the current file is added (as in views/seventeen.js).
-const CSS_V = '30';
+const CSS_V = '31';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--dr-css').trim() === CSS_V || document.querySelector('link[data-dr-css]')) return;
@@ -1532,12 +1532,25 @@ function legendHTML() {
     + `<span class="dr-key" aria-hidden="true">${markSVG('o', 'key-o')}Offense</span><span class="dr-key" aria-hidden="true">${markSVG('d', 'key-d')}Defense</span>`
     + `<button type="button" class="dr-pill" data-dr-ratings>${ui.icon('search', {size: 14})}<span>Player ratings</span></button></div>`;
 }
-/** What the other side shows, as a slim strip: who, and the look (or formation) with what it means. */
+/** What each look usually means for your call (the calls it usually hides: drill-sim.js CALL_LOOK and FX). */
+const LOOK_TIP = {
+  two: 'Run it or throw short. Deep shots and outs get eaten.',
+  light: 'Run it or throw quick. Deep shots get eaten.',
+  box: 'Don’t run into it. Play action and deep shots work.',
+  blitz: 'Pressure is coming. Get it out quick; screens work.',
+  prevent: 'Run it or throw short. Nothing deep is open.'
+};
+let lookSeen = '';
+/** What the other side shows before the snap, as a card in the look's colour: who, the look (or their formation), what
+ *  it means and, for a defense's look, what usually works against it. It flashes once when a new snap's look comes up. */
 function lookHTML(s) {
-  const them = s.poss === 'them', L = them ? E.FORMS[s.form] : E.LOOKS[s.look];
-  return `<div class="dr-look"><span class="dr-look-ic">${ui.icon(them ? 'football' : 'shield', {size: 15})}</span><span class="dr-look-tx">`
-    + `<small>${esc(them ? `${E.idsFor(s, 'them').o} offense` : `${s.sc.d} defense shows`)}</small>`
-    + `<span><b>${esc(L.name)}</b> · ${esc(L.sub)}</span></span></div>`;
+  const them = s.poss === 'them', id = them ? s.form : s.look, L = them ? E.FORMS[id] : E.LOOKS[id];
+  const key = [s.sc.n, s.poss, s.clock, s.down, s.togo, s.ball, s.us, s.them, id].join('|'), fresh = key !== lookSeen;
+  lookSeen = key;
+  const tip = !them && LOOK_TIP[id] ? `<p class="dr-look-tip">${ui.icon('bulb', {size: 15})}<span><b>Usually:</b> ${esc(LOOK_TIP[id])}</span></p>` : '';
+  return `<div class="dr-look ${them ? 'is-form' : `is-${id}`}${fresh ? ' is-new' : ''}" role="note"><span class="dr-look-ic">${ui.icon(them ? 'football' : id === 'blitz' ? 'bolt' : 'shield', {size: 21})}</span>`
+    + `<span class="dr-look-tx"><small>${esc(them ? `${E.idsFor(s, 'them').o} offense lines up in` : `${s.sc.d} defense shows`)}</small>`
+    + `<b>${esc(L.name)}</b><span>${esc(L.sub)}</span></span>${tip}</div>`;
 }
 function headRow(title, s) {
   const where = s.phase === 'pat' ? 'Try from the 2' : `${dr.downText(s.down, s.togo, s.ball)} · ${s.ball === 50 ? 'midfield' : dr.spot(s)}`;
