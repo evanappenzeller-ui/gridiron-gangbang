@@ -885,7 +885,7 @@ async function startFirebase() {
   } catch (_) { LB.off = true; LB.ready = true; lbChanged('off'); }
 }
 
-export const displayName = p => (p.nick || 'Someone');
+export const displayName = p => { const u = userNamed(p.nick); return u ? u.board || u.name : (p.nick || 'Someone'); }; // an app user by their board name
 
 /** Format of a board day entry: 4 (carries v: 4), 3 (carries v: 3), 2 (carries s, no v), 1 (neither: {p, g, c, w});
  *  0 for none. */
@@ -1055,7 +1055,7 @@ function managerFor(p) {
 /** The league member a board doc belongs to (manager id), or null: what the boards group rows by. */
 export const memberOf = p => (p ? managerFor(p) : null);
 /** The app user a board doc belongs to (data.USERS: {id, name}), or null. */
-export const userOf = p => (p && !managerFor(p) ? userNamed(displayName(p)) : null);
+export const userOf = p => (p && !managerFor(p) ? userNamed(p.nick) : null);
 /** Whose scores a board doc's are: its league member (manager id), an app user ('user:' + id), or the doc alone
  *  ('row:' + doc id). A member's or user's rows from several phones go together. */
 export function boardKey(p) {

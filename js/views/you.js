@@ -73,7 +73,7 @@ function guestSec() {
     : 'Not in the league? Make your own player to track your scores on the daily boards.', 'data-guest-sec');
 }
 function nickRow() {
-  const nick = daily.LB.nick;
+  const nick = daily.LB.nick ? daily.displayName({nick: daily.LB.nick}) : ''; // as the boards show it (an app user's board name)
   return ui.row({lead: `<span class="c-ys-ic">${ui.icon('list-number', {size: 20})}</span>`, title: nick ? `Posting as ${nick}` : 'Not posted yet', cls: 'c-ys-nick'});
 }
 function dataLine() {
