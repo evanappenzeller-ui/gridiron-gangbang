@@ -1435,14 +1435,14 @@ export async function runChecks() {
     return {pass: !bad.length, detail: bad.length ? bad.join('; ') : `${want.length} legs scored right`};
   });
 
-  check('Themes: Retro by default, every theme in the picker has its colour block, all 32 NFL teams', () => {
+  check('Themes: Prime Time by default with Retro beside it, every theme in the picker has its colour block, all 32 NFL teams', () => {
     const T = window.GGTheme;
     if (!T) return {pass: false, detail: 'js/themes.js not loaded'};
     const rules = new Set();
     for (const sh of document.styleSheets) { let rs; try { rs = sh.cssRules; } catch (_) { continue; } for (const r of rs) { const m = /data-skin="([a-z]+)"\]$/.exec(r.selectorText || ''); if (m) rules.add(m[1]); } }
     const missing = T.list.filter(t => t.id !== 'retro' && !rules.has(t.id)).map(t => t.id);
     const nfl = T.list.filter(t => t.group === 'NFL').length, ids = new Set(T.list.map(t => t.id));
-    const pass = T.list[0].id === 'retro' && !missing.length && nfl === 32 && ids.size === T.list.length && ['space', 'future', 'tundra', 'neon', 'oldschool', 'day'].every(x => ids.has(x));
+    const pass = T.list[0].id === 'prime' && T.list[1].id === 'retro' && T.list[0].group === 'Classic' && T.list[1].group === 'Classic' && !missing.length && nfl === 32 && ids.size === T.list.length && ['space', 'future', 'tundra', 'neon', 'oldschool', 'day'].every(x => ids.has(x));
     return {pass, detail: missing.length ? 'no colours for ' + missing.join(', ') : `${T.list.length} themes (${nfl} NFL), in use: ${T.get()}`};
   });
 

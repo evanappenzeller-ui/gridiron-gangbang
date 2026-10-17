@@ -100,7 +100,7 @@ function installHTML() {
 function themeName() {
   const T = window.GGTheme, id = T && T.get();
   const t = T && T.list.find(x => x.id === id);
-  return t ? t.name : 'Retro Arcade';
+  return t ? t.name : 'Prime Time';
 }
 // The Haptics switch, only where the phone can vibrate (no iPhone can): elsewhere there's no Feel section at all.
 const feelHTML = () => ui.HAPTICS_SUPPORTED
