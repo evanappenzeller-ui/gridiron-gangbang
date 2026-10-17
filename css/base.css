@@ -301,3 +301,20 @@ html { font-synthesis: none; } /* the pixel faces have one weight: never smear t
   @keyframes ts-fade { to { opacity: 0; } }
 }
 @media (min-width: 720px) { #title { left: 0; right: 0; } }
+
+/* ================================================================ Portrait only
+   A phone turned sideways gets a cover asking for it upright instead of a squashed app (the manifest locks an
+   installed app to portrait on Android; iOS ignores it). Tablets and computers (taller, or with a mouse) never see it. */
+#rotate { display: none; }
+@media (orientation: landscape) and (max-height: 540px) and (hover: none) and (pointer: coarse) {
+  #rotate {
+    position: fixed; inset: 0; z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 6px; padding: 24px max(24px, env(safe-area-inset-right, 0px)) 24px max(24px, env(safe-area-inset-left, 0px));
+    background: var(--bg); color: var(--ink); text-align: center; touch-action: none;
+  }
+}
+#rotate .rot-ph { width: 64px; height: 64px; margin-bottom: 10px; animation: rot-turn 2.4s cubic-bezier(.6, 0, .3, 1) infinite; }
+#rotate .rot-t { margin: 0; font: 700 20px/26px var(--font-text); }
+#rotate .rot-s { margin: 0; font: 400 15px/20px var(--font-text); color: var(--ink-2); }
+@keyframes rot-turn { 0%, 15% { transform: rotate(-90deg); } 50%, 100% { transform: none; } }
+@media (prefers-reduced-motion: reduce) { #rotate .rot-ph { animation: none; } }
