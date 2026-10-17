@@ -52,7 +52,7 @@ const ST = new WeakMap(); // ctx -> pane state
 
 // A home-screen app open across an update imports this module new under the stylesheet it started with (app.js,
 // Updates): when seventeen.css's mark (--sv-css on :root) isn't this module's, the current file is added.
-const CSS_V = '2';
+const CSS_V = '3';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--sv-css').trim() === CSS_V || document.querySelector('link[data-sv-css]')) return;
@@ -80,25 +80,16 @@ function faceHTML(p, w) {
   const alt = second ? ` data-alt="${esc(second[1])}" data-alt-kind="${second[0]}"` : '';
   return `<img class="sv-face is-${first[0]}" src="${esc(first[1])}"${alt} alt="" draggable="false" decoding="async" referrerpolicy="no-referrer">`;
 }
-function headHTML(b) {
-  return `<header class="sv-head">`
-    + `<p class="sv-kick">Build the perfect team with ${money(b.budget)}</p>`
-    + `<h2 class="sv-title" aria-label="${esc(`17–0 number ${b.n}`)}">17-0 #${b.n}</h2>`
-    + `<p class="sv-sub">${esc(`${sv.dayLabel(b.n, {weekday: 'long', month: 'long', day: 'numeric'})}. One season a day, every player in his prime.`)}</p>`
-    + ui.iconButton({icon: 'info', label: 'How 17–0 works', cls: 'sv-howto', attrs: {'data-sv-help': ''}})
-    + `</header>`;
-}
-function totalsLine() {
-  const t = sv.totals();
-  if (!t.played) return '';
-  return `<p class="sv-best">${t.perfect ? ui.icon('trophy', {size: 14}) : ''}<span>${esc(`${plural(t.played, 'season')} played${t.perfect ? ` · ${t.perfect} went 17–0` : ''}`)}</span></p>`;
-}
+// The pane opens on the budget: what's left, a slim meter of what's spent, and How it works. (The game picker above
+// already says which game this is.)
+const spentPct = (b, spent) => `${Math.round(1000 * spent / b.budget) / 10}%`;
 function bankHTML(b, pick) {
   const spent = sv.cost(b, pick), left = b.budget - spent;
-  const pips = Array.from({length: b.budget}, (_, i) => `<i class="sv-pip${i < spent ? ' is-on' : ''}"></i>`).join('');
   return `<div class="sv-bank${spent === b.budget ? ' is-full' : ''}" data-sv-bank>`
     + `<p class="sv-bank-t"><span class="sv-bank-n" data-sv-left>${money(left)}</span> <span class="sv-bank-l">left of ${money(b.budget)}</span></p>`
-    + `<span class="sv-pips" aria-hidden="true">${pips}</span></div>`;
+    + `<span class="sv-meter" aria-hidden="true"><i data-sv-meter style="width:${spentPct(b, spent)}"></i></span>`
+    + ui.iconButton({icon: 'info', label: 'How 17–0 works', cls: 'sv-howto', attrs: {'data-sv-help': ''}})
+    + `</div>`;
 }
 /** Would picking (c, r) go over the budget (swapping out whoever is in column c)? */
 function overBy(b, pick, c, r) {
@@ -170,7 +161,7 @@ function barHTML(b, pick) {
     + `<button type="button" class="btn btn-primary sv-play" data-sv-play${ready ? '' : ' disabled'}>${ui.icon('play-fill')}<span class="btn-label">${esc(playLabel(b, pick))}</span></button></div>`;
 }
 function buildHTML(b, pick, foc, mode) {
-  return headHTML(b) + totalsLine() + bankHTML(b, pick) + gridHTML(b, pick) + barHTML(b, pick)
+  return bankHTML(b, pick) + gridHTML(b, pick) + barHTML(b, pick)
     + `<div data-sv-scout>${scoutHTML(b, pick, foc)}</div>`
     + boardHTML(b, mode);
 }
@@ -376,7 +367,8 @@ function patchBuild(st) {
   const spent = sv.cost(b, pick);
   const left = el.querySelector('[data-sv-left]');
   if (left) left.textContent = money(b.budget - spent);
-  el.querySelectorAll('.sv-pip').forEach((p, i) => p.classList.toggle('is-on', i < spent));
+  const meter = el.querySelector('[data-sv-meter]');
+  if (meter) meter.style.width = spentPct(b, spent);
   const bank = el.querySelector('[data-sv-bank]');
   if (bank) bank.classList.toggle('is-full', spent === b.budget);
   const slots = el.querySelector('.sv-slots');

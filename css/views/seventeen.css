@@ -3,7 +3,7 @@
    per element as --tc (the team's hue) and --ta (its accent). */
 
 /* The version mark views/seventeen.js checks (CSS_V): bump both when the pane needs rules an older file lacks. */
-:root { --sv-css: 2; }
+:root { --sv-css: 3; }
 
 /* ---------------------------------------------------------------- The game picker (puzzles.js) */
 /* Big scoreboard buttons with pixel badges, like Pick'em's NFL / NCAA switch (pickem.css .pk-lg): the game showing
@@ -62,71 +62,61 @@
 }
 .sv-pane .sv-anon > .ic { width: 78%; height: 88%; }
 
-/* ---------------------------------------------------------------- Build: chips and header */
-.sv-pane .sv-head { position: relative; text-align: center; padding: 14px 32px 0; }
+/* The season's kicker line. */
 .sv-pane .sv-kick {
   font: 400 16px/18px var(--font-num); text-transform: uppercase; letter-spacing: .06em; color: var(--tint);
 }
-.sv-pane .sv-title {
-  margin-top: 8px;
-  font: 400 clamp(18px, 7vw, 26px)/1.3 var(--font-pixel); text-transform: uppercase;
-  text-shadow: var(--hard-shadow, 3px 3px 0 #000);
-  overflow-wrap: anywhere;
-}
-.sv-pane .sv-sub { max-width: 330px; margin: 8px auto 0; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2); }
-.sv-pane .sv-howto { position: absolute; right: -10px; top: 32px; color: var(--ink-3); }
-.sv-pane .sv-best {
-  display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 8px;
-  font: 600 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--gold);
-}
 
 /* ---------------------------------------------------------------- Build: the budget */
-.sv-pane .sv-bank { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 12px 0 8px; }
-.sv-pane .sv-bank-t { white-space: nowrap; font: 400 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink-2); }
-.sv-pane .sv-bank-n { font: 400 30px/24px var(--font-num); color: var(--gold); vertical-align: -3px; }
-.sv-pane .sv-pips { display: flex; gap: 3px; min-width: 0; }
-.sv-pane .sv-pip {
-  flex: none; width: 7px; height: 14px; border-radius: 2px;
-  background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--separator);
-  transition: background-color 160ms, box-shadow 160ms;
-}
-.sv-pane .sv-pip.is-on { background: var(--gold); box-shadow: none; }
-.sv-pane .sv-bank.is-full .sv-bank-n { color: var(--ink-3); }
+/* One slim row on top: what's left, a meter of what's spent, How it works. */
+.sv-pane .sv-bank { display: flex; align-items: center; gap: 12px; margin: 10px 0 12px; }
+.sv-pane .sv-bank-t { flex: none; white-space: nowrap; font: 500 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink-3); }
+.sv-pane .sv-bank-n { margin-right: 2px; font: 700 22px/24px var(--font-text); letter-spacing: -.02em; font-variant-numeric: tabular-nums; color: var(--ink); }
+.sv-pane .sv-meter { position: relative; flex: 1 1 auto; min-width: 40px; height: 6px; border-radius: 3px; overflow: hidden; background: var(--surface-2); }
+.sv-pane .sv-meter > i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--gold); transition: width 260ms cubic-bezier(.2, .8, .2, 1); }
+.sv-pane .sv-bank.is-full .sv-meter > i { background: var(--tint); }
+.sv-pane .sv-howto { flex: none; margin: -8px -10px -8px -4px; color: var(--ink-3); }
 
 /* ---------------------------------------------------------------- Build: the grid */
-.sv-pane .sv-grid { display: grid; grid-template-columns: 26px repeat(5, minmax(0, 1fr)); gap: 5px 4px; }
+/* Quiet labels (positions over the columns, prices beside the rows) and soft, rounded cards: the team's colour as a
+   deep wash behind the headshot, the name on a fade at the foot, the year a small tag in the top corner. */
+.sv-pane .sv-grid { display: grid; grid-template-columns: 22px repeat(5, minmax(0, 1fr)); gap: 6px 5px; }
 .sv-pane .sv-ch {
-  padding-bottom: 1px; text-align: center;
-  font: 400 16px/18px var(--font-num); letter-spacing: .04em; color: var(--tint);
+  padding-bottom: 2px; text-align: center;
+  font: 600 11px/14px var(--font-text); letter-spacing: .08em; color: var(--ink-3);
 }
-.sv-pane .sv-price { display: grid; place-items: center; font: 400 22px/1 var(--font-num); color: var(--ink); }
+.sv-pane .sv-price { display: grid; place-items: center; font: 600 13px/1 var(--font-text); font-variant-numeric: tabular-nums; color: var(--ink-2); }
 .sv-pane .sv-cell {
   position: relative; isolation: isolate; display: block;
   min-width: 0; aspect-ratio: 5 / 7;
-  border-radius: 8px; overflow: hidden;
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.1);
-  transition: transform var(--spring-snappy-dur) var(--spring-snappy), opacity 160ms, filter 160ms;
+  border-radius: 12px; overflow: hidden;
+  background: linear-gradient(165deg, color-mix(in srgb, var(--tc) 62%, #0A0F1E) 0%, color-mix(in srgb, var(--tc) 30%, #070A14) 100%);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.07);
+  transition: transform var(--spring-snappy-dur) var(--spring-snappy), opacity 160ms, filter 160ms, box-shadow 160ms;
 }
-.sv-pane .sv-cell.is-pressed { transform: scale(.94); transition: none; }
-.sv-pane .sv-cell .sv-ph { position: absolute; left: 0; right: 0; top: 0; bottom: 26px; overflow: hidden; z-index: 1; }
-/* The year and the pick's check sit in the bottom corners of the photo, over the jersey, just above the name: never
-   over the face (headshots put the head in the top half). */
+.sv-pane .sv-cell .sv-logo { inset: 8% 10% 30%; opacity: .16; }
+.sv-pane .sv-cell.is-pressed { transform: scale(.95); transition: none; }
+/* The photo starts a little below the top edge, so the year tag and the pick's check sit over the team colour, not
+   the face. */
+.sv-pane .sv-cell .sv-ph { position: absolute; inset: 9px 0 0; overflow: hidden; z-index: 1; }
 .sv-pane .sv-yr {
-  position: absolute; left: 3px; bottom: 29px; z-index: 2;
-  padding: 0 3px; border-radius: 3px;
-  background: rgba(0,0,0,.66); color: #fff;
-  font: 400 14px/14px var(--font-num);
+  position: absolute; left: 4px; top: 4px; z-index: 2;
+  padding: 1px 4px; border-radius: 6px;
+  background: rgba(0,0,0,.42); color: rgba(255,255,255,.92);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  font: 600 9.5px/12px var(--font-text); font-variant-numeric: tabular-nums; letter-spacing: .01em;
 }
-/* First name over last name, both whole: long ones step down a size (.is-long, .is-xlong) rather than cut off. */
+/* First name over last name, both whole, on a fade at the card's foot: long ones step down a size (.is-long,
+   .is-xlong) rather than cut off. */
 .sv-pane .sv-nm {
   position: absolute; left: 0; right: 0; bottom: 0; z-index: 2;
-  display: flex; flex-direction: column; justify-content: center;
-  height: 26px; padding: 1px 1px 2px;
-  background: rgba(4,8,22,.88); color: #fff; text-align: center;
+  display: flex; flex-direction: column; justify-content: flex-end;
+  padding: 16px 2px 4px;
+  background: linear-gradient(to bottom, rgba(5,8,18,0) 0%, rgba(5,8,18,.72) 45%, rgba(5,8,18,.92) 100%); color: #fff; text-align: center;
   font-family: "Barlow Condensed", "Arial Narrow", var(--font-text); font-weight: 800; text-transform: uppercase;
 }
 .sv-pane .sv-fn, .sv-pane .sv-ln { display: block; white-space: nowrap; overflow: hidden; text-overflow: clip; }
-.sv-pane .sv-fn { font-size: 9px; line-height: 10px; letter-spacing: .02em; color: rgba(255,255,255,.75); }
+.sv-pane .sv-fn { font-size: 9px; line-height: 10px; letter-spacing: .02em; color: rgba(255,255,255,.62); }
 .sv-pane .sv-ln { font-size: 11px; line-height: 12px; letter-spacing: .01em; }
 .sv-pane .sv-fn.is-long { font-size: 8px; letter-spacing: 0; }
 .sv-pane .sv-fn.is-xlong { font-size: 7px; letter-spacing: 0; }
@@ -139,16 +129,16 @@
   .sv-pane .sv-ln, .sv-pane .sv-ln.is-long, .sv-pane .sv-ln.is-xlong { font-size: clamp(6.5px, calc((100cqi - 4px) / (var(--n, 6) * .52)), 11px); letter-spacing: 0; }
 }
 .sv-pane .sv-tick {
-  position: absolute; right: 3px; bottom: 27px; z-index: 3;
+  position: absolute; right: 4px; top: 4px; z-index: 3;
   display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%;
   background: var(--tint); color: var(--on-tint);
   opacity: 0; transform: scale(.4);
   transition: opacity 160ms, transform var(--spring-bouncy-dur) var(--spring-bouncy);
 }
 .sv-pane .sv-tick > .ic { width: 12px; height: 12px; stroke-width: 3.2; }
-.sv-pane .sv-cell.is-on { z-index: 1; box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--tint); }
+.sv-pane .sv-cell.is-on { z-index: 1; box-shadow: inset 0 0 0 2px var(--tint), 0 0 0 1px var(--tint), 0 6px 18px -6px color-mix(in srgb, var(--tint) 70%, transparent); }
 .sv-pane .sv-cell.is-on .sv-tick { opacity: 1; transform: none; }
-.sv-pane .sv-cell.is-over { opacity: .32; filter: grayscale(.7); }
+.sv-pane .sv-cell.is-over { opacity: .28; filter: grayscale(.8); }
 .sv-pane .sv-cell:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 
 /* ---------------------------------------------------------------- Build: the scouting report */
@@ -191,7 +181,7 @@
   display: grid; place-items: center;
   background: none; box-shadow: inset 0 0 0 1.5px var(--ink-4);
 }
-.sv-pane .sv-slot-l { font: 400 13px/1 var(--font-num); color: var(--ink-3); }
+.sv-pane .sv-slot-l { font: 600 10px/1 var(--font-text); letter-spacing: .04em; color: var(--ink-3); }
 .sv-pane .sv-play { flex: 1; width: auto; min-width: 0; padding: 0 10px; }
 /* Not ready yet ("Pick 3 more"): solid and neutral, not a see-through green over the grid. */
 .sv-pane .sv-play:disabled { opacity: 1; background: var(--surface-2); color: var(--ink-3); box-shadow: none; }
@@ -285,16 +275,15 @@
 
 /* ---------------------------------------------------------------- Narrow phones (320-360 px) */
 @media (max-width: 360px) {
-  .sv-pane .sv-yr { left: 2px; bottom: 28px; font-size: 11px; line-height: 11px; padding: 0 2px; }
-  .sv-pane .sv-tick { right: 2px; bottom: 26px; width: 14px; height: 14px; }
+  .sv-pane .sv-yr { left: 3px; top: 3px; font-size: 8.5px; line-height: 11px; padding: 0 3px; border-radius: 5px; }
+  .sv-pane .sv-tick { right: 3px; top: 3px; width: 14px; height: 14px; }
+  .sv-pane .sv-grid { gap: 5px 4px; }
   .sv-pane .sv-tick > .ic { width: 9px; height: 9px; }
   .sv-pane .sv-slots { gap: 3px; }
   .sv-pane .sv-slot { width: 28px; height: 28px; }
-  .sv-pane .sv-slot-l { font-size: 11px; }
+  .sv-pane .sv-slot-l { font-size: 9px; letter-spacing: 0; }
   .sv-pane .sv-play { padding: 0 8px; font-size: 15px; }
   .sv-pane .sv-play > .ic { display: none; }
-  .sv-pane .sv-pips { gap: 2px; }
-  .sv-pane .sv-pip { width: 6px; }
 }
 @media (max-width: 360px) {
   .sv-pane .sv-tiles .tile { padding: 10px; }
