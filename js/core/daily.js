@@ -12,7 +12,7 @@
 // behavior.
 // Owner: foundation (core).
 
-import {DATA, nf, norm, me as dataMe, name as dataName, guest as dataGuest, userNamed, subscribe as dataSub} from './data.js';
+import {DATA, nf, norm, me as dataMe, name as dataName, guest as dataGuest, userNamed, userReserving, subscribe as dataSub} from './data.js';
 import {getFire, canWrite, isDevHost, devDayFrom, DEV_DAY as fireDevDay} from './fire.js';
 import {roundsFor as playRoundsFor} from './plays.js';
 
@@ -1083,7 +1083,7 @@ export function guestNameProblem(name) {
   if (n.toLowerCase() === 'someone') return 'Pick a name of your own.';
   const m = managerOfNick(n);
   if (m) return `${dataName(m)} is a league member. Pick another name.`;
-  const u = userNamed(n);
+  const u = userReserving(n);
   if (u) return `${u.name} has a login: pick yourself on Who are you?, or another name.`;
   const low = n.toLowerCase();
   if ((LB.raw || []).some(p => p.id !== LB.uid && String(p.nick || '').trim().toLowerCase() === low)) return 'Someone already plays under that name.';

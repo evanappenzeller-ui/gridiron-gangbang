@@ -506,9 +506,13 @@ export function guest() { return me() ? null : guestRead(); }
 // player under a name kept for them: "Who are you?" and the You sheet list them with the members, the boards show them
 // by their board name (board) without a Guest tag and keep their phones together, and no one else can take the name
 // (daily.guestNameProblem).
-export const USERS = [{id: 'ryan-dow', name: 'Ryan Dow', board: 'Ryan'}];
+// aka: names they already played under (a guest row called that is theirs: its scores count, under their board name).
+export const USERS = [{id: 'ryan-dow', name: 'Ryan Dow', board: 'Ryan'}, {id: 'ryan-stewart', name: 'Ryan Stewart', board: 'Ryan S', aka: ['RyStew']}];
+const userKey = nm => String(nm || '').trim().replace(/\s+/g, ' ').toLowerCase();
 /** The app user a name belongs to (any case and spacing), or null. */
-export const userNamed = nm => { const k = String(nm || '').trim().replace(/\s+/g, ' ').toLowerCase(); return USERS.find(u => u.name.toLowerCase() === k) || null; };
+export const userNamed = nm => { const k = userKey(nm); return k ? USERS.find(u => userKey(u.name) === k || (u.aka || []).some(a => userKey(a) === k)) || null : null; };
+/** The app user whose name, board name or old name this is (names no guest can take), or null. */
+export const userReserving = nm => { const k = userKey(nm); return userNamed(nm) || (k ? USERS.find(u => u.board && userKey(u.board) === k) || null : null); };
 /** The app user this phone is ({id, name}), or null. */
 export function user() { return userNamed(guest()); }
 /** Makes (or renames) this phone's guest player; null drops it. */

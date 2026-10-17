@@ -23,7 +23,8 @@ function sec(title, inner, foot, attrs = '') {
 // the You sheet on any [data-you] tap (one delegated handler) and redraws every button after a 'me' change
 // (patchYouButtons below).
 function youInner(me, g = data.guest()) {
-  return me ? ui.avatar(me, {size: 32, you: true}) : g ? ui.nickAvatar(g, {size: 32, you: true}) : `<span class="c-you-empty">${ui.icon('person', {size: 18})}</span>`;
+  const u = data.user(); // an app user by their own name's initials (whatever name the phone plays under)
+  return me ? ui.avatar(me, {size: 32, you: true}) : g ? ui.nickAvatar(u ? u.name : g, {size: 32, you: true}) : `<span class="c-you-empty">${ui.icon('person', {size: 18})}</span>`;
 }
 const youKey = () => { const me = data.me(), g = data.guest(); return me || (g ? 'guest:' + g : ''); };
 /** The avatar button, for a large title's `trailing` slot. */

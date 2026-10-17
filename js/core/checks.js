@@ -548,7 +548,7 @@ export async function runChecks() {
     return {pass, detail: `guest row ${gr ? `${gr.guest}/${gr.managerId}` : 'missing'}; Mason's row ${mr ? mr.id : 'missing'}; names ${names}`};
   });
 
-  check("an app user (Ryan Dow) has a login: one row on the boards from any number of phones, by his board name (Ryan), no Guest tag, no member's, and no guest can take the name", () => {
+  check("an app user (Ryan Dow) has a login: one row on the boards from any number of phones, by his board name (Ryan), no Guest tag, no member's, and no guest can take the name; Ryan Stewart's old guest row (RyStew) is his, as Ryan S", () => {
     needDaily();
     const P = daily.dayVersion() === 1 ? daily.PNUM : 1, players = fakePlayers(P), mason = players.find(p => p.id === 'fake-3');
     // Ryan on two phones (both rows guest-flagged, as a user's are), the names in any case and spacing.
@@ -565,9 +565,18 @@ export async function runChecks() {
     const names = ['Ryan Dow', ' ryan  DOW ', 'Ryan', 'Ryan D'].map(n => (daily.guestNameProblem(n) ? 'no' : 'ok')).join(' ');
     daily.LB.raw = raw;
     const u = data.userNamed(' RYAN dow ');
+    // Ryan Stewart, who played as the guest RyStew before his login: that row is his, shown as Ryan S, one row with a
+    // row under his new name; and no guest can take Ryan Stewart, Ryan S or RyStew.
+    const s1 = {id: 'fake-s1', nick: 'RyStew', g: true, days: {[P]: Object.assign({}, mason.days[P])}, total: 620, played: 1, last: P};
+    const s2 = {id: 'fake-s2', nick: 'Ryan Stewart', g: true, days: {}, total: 0, played: 0, last: 0};
+    const srows = daily.boardRows('today', players.concat([s1, s2]), P).filter(r => r.name === 'Ryan S');
+    const stew = daily.boardKey(s1) === 'user:ryan-stewart' && daily.boardKey(s2) === 'user:ryan-stewart' && srows.length === 1 && !srows[0].guest;
+    daily.LB.raw = all;
+    const snames = ['Ryan Stewart', 'ryan s', 'RYSTEW'].map(n => (daily.guestNameProblem(n) ? 'no' : 'ok')).join(' ');
+    daily.LB.raw = raw;
     const pass = once.every(x => x.length === 1) && !!row && !row.guest && row.managerId === null && keys
-      && daily.memberOf(r1) === null && !daily.guestOf(r1) && !!u && u.id === 'ryan-dow' && names === 'no no ok ok';
-    return {pass, detail: `rows today ${once[0].length}, season ${once[1].length}; tag ${row ? row.guest : '-'}; keys ${keys}; names ${names}`};
+      && daily.memberOf(r1) === null && !daily.guestOf(r1) && !!u && u.id === 'ryan-dow' && names === 'no no no ok' && stew && snames === 'no no no';
+    return {pass, detail: `rows today ${once[0].length}, season ${once[1].length}; tag ${row ? row.guest : '-'}; keys ${keys}; names ${names}; Ryan S (RyStew) ${stew}, names ${snames}`};
   });
 
   // 6. holders
