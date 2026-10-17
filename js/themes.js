@@ -33,6 +33,9 @@
     try { window.dispatchEvent(new CustomEvent('gg:theme', {detail: {id: t.id}})); } catch (_) {}
     return t;
   }
+  // Once on every phone: Prime Time, whatever was picked before (a pick made after this stays).
+  var ONCE = 'gg-skin-prime';
+  try { if (localStorage.getItem(ONCE) !== '1') { localStorage.setItem(KEY, 'prime'); localStorage.setItem(ONCE, '1'); } } catch (_) {}
   apply(get());
 
   var esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]; }); };

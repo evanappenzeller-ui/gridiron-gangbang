@@ -548,14 +548,14 @@ export async function runChecks() {
     return {pass, detail: `guest row ${gr ? `${gr.guest}/${gr.managerId}` : 'missing'}; Mason's row ${mr ? mr.id : 'missing'}; names ${names}`};
   });
 
-  check("an app user (Ryan Dow) has a login: one row on the boards from any number of phones, by his board name (Ryan), no Guest tag, no member's, and no guest can take the name; Ryan Stewart's old guest row (RyStew) is his, as Ryan S", () => {
+  check("an app user (Ryan Dow) has a login: one row on the boards from any number of phones, by his board name (Ryan D), no Guest tag, no member's, and no guest can take the name; Ryan Stewart's old guest row (RyStew) is his, as Ryan S", () => {
     needDaily();
     const P = daily.dayVersion() === 1 ? daily.PNUM : 1, players = fakePlayers(P), mason = players.find(p => p.id === 'fake-3');
     // Ryan on two phones (both rows guest-flagged, as a user's are), the names in any case and spacing.
     const r1 = {id: 'fake-r1', nick: 'Ryan Dow', g: true, days: {[P]: Object.assign({}, mason.days[P])}, total: 620, played: 1, last: P};
     const r2 = {id: 'fake-r2', nick: 'ryan  dow', g: true, days: {}, total: 0, played: 0, last: 0};
     const all = players.concat([r1, r2]);
-    const mine = rows => rows.filter(r => r.name === 'Ryan');
+    const mine = rows => rows.filter(r => r.name === 'Ryan D');
     const once = ['today', 'season'].map(m => mine(daily.boardRows(m, all, P)));
     const row = once[0][0];
     const keys = daily.boardKey(r1) === 'user:ryan-dow' && daily.boardKey(r2) === 'user:ryan-dow' && daily.keyManager('user:ryan-dow') === null
@@ -575,7 +575,7 @@ export async function runChecks() {
     const snames = ['Ryan Stewart', 'ryan s', 'RYSTEW'].map(n => (daily.guestNameProblem(n) ? 'no' : 'ok')).join(' ');
     daily.LB.raw = raw;
     const pass = once.every(x => x.length === 1) && !!row && !row.guest && row.managerId === null && keys
-      && daily.memberOf(r1) === null && !daily.guestOf(r1) && !!u && u.id === 'ryan-dow' && names === 'no no no ok' && stew && snames === 'no no no';
+      && daily.memberOf(r1) === null && !daily.guestOf(r1) && !!u && u.id === 'ryan-dow' && names === 'no no ok no' && stew && snames === 'no no no';
     return {pass, detail: `rows today ${once[0].length}, season ${once[1].length}; tag ${row ? row.guest : '-'}; keys ${keys}; names ${names}; Ryan S (RyStew) ${stew}, names ${snames}`};
   });
 
