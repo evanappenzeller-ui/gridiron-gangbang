@@ -1,7 +1,8 @@
 // Launch welcome: "Who are you?" (a full-screen picker, not a route). Shown once per phone when the app opens
 // (over Puzzles, or whatever screen a link opened) and no league member has been picked. Tap yourself, then
 // "Continue as {name}"; "Play as a guest" makes your own player (views/guest.js: a name your daily games post under);
-// "Just visiting" skips. Owner: SHELL.
+// "Just visiting" skips. App users (data.USERS: people with their own login who aren't in the league) are listed under
+// the members; picking one makes this phone their player (data.setGuest with their name). Owner: SHELL.
 // The pick is gg-me (data.setMe); gg-welcome = '1' records that the question was answered, so it never
 // comes back (the avatar button's You sheet still changes the pick). A member with no leaderboard name yet gets
 // theirs as the nickname, so their scores post under it. Focus returns to the screen underneath when it closes.
@@ -26,6 +27,17 @@ function cardHTML(id) {
     + `</button>`;
 }
 
+// An app user's card: their initials, their name, "App user". Its pick is 'user:' + id.
+function userCardHTML(u) {
+  return `<button type="button" class="wl-card wl-user" data-wl="user:${esc(u.id)}" aria-pressed="false" data-enter>`
+    + `<span class="wl-av">${ui.nickAvatar(u.name, {size: 56})}<span class="wl-check" aria-hidden="true">${ui.icon('check', {size: 14})}</span></span>`
+    + `<span class="wl-n">${esc(u.name)}</span>`
+    + `<span class="wl-t">App user</span>`
+    + `</button>`;
+}
+const userOfPick = id => (String(id).startsWith('user:') ? data.USERS.find(u => 'user:' + u.id === id) || null : null);
+const pickName = id => { const u = userOfPick(id); return u ? u.name : data.name(id); };
+
 function pageHTML() {
   const {first, last} = data.span;
   const ovl = `<p class="ovl wl-ovl">${esc(data.DATA.league.name)}${first ? ` · ${first}–${last}` : ''}</p>`;
@@ -33,6 +45,7 @@ function pageHTML() {
     + `<div class="wl-pick">`
     + `<header class="wl-head" data-enter>${ovl}<h1 class="wl-title" id="wl-title">Who are you?</h1></header>`
     + `<div class="wl-grid" role="group" aria-label="League members">${data.ids.map(cardHTML).join('')}</div>`
+    + (data.USERS.length ? `<p class="ovl wl-sub" data-enter>App users</p><div class="wl-grid wl-users" role="group" aria-label="App users">${data.USERS.map(userCardHTML).join('')}</div>` : '')
     + `</div>`
     // Play as a guest: the guest form in place of the members (Back returns to them).
     + `<div class="wl-guest" hidden>`
@@ -77,12 +90,12 @@ export function showWelcome() {
       if (on) ui.animate(b.querySelector('.av'), [{transform: 'scale(.82)'}, {transform: 'none'}], {spring: 'bouncy'});
     });
     go.removeAttribute('aria-disabled');
-    go.querySelector('.btn-label').textContent = `Continue as ${data.name(id)}`;
+    go.querySelector('.btn-label').textContent = `Continue as ${pickName(id)}`;
     el.classList.add('has-pick');
     ui.haptic('selection');
   };
 
-  const finish = value => {
+  const finish = (value, userName) => {
     if (!open || open.el !== el) return;
     open = null;
     try { localStorage.setItem(SEEN, '1'); } catch (_) {}
@@ -109,7 +122,7 @@ export function showWelcome() {
       const scr = document.querySelector('#covers .cover > .screen') || document.querySelector('#stage > .tab-layer:not([hidden]) > .screen:not([data-under])');
       if (scr) { try { scr.focus({preventScroll: true}); } catch (_) {} }
     }
-    if (value !== 'none') ui.toast(`Welcome, ${data.name(value)}.`, {icon: 'check-circle'}); // (a guest's welcome is the guest sheet's)
+    if (value !== 'none' || userName) ui.toast(`Welcome, ${userName || data.name(value)}.`, {icon: 'check-circle'}); // (a guest's welcome is the guest form's)
     resolve(value);
   };
 
@@ -130,6 +143,8 @@ export function showWelcome() {
     if (card) { select(card.dataset.wl); return; }
     if (e.target.closest('[data-wl-go]')) {
       if (!picked) { ui.shake(el.querySelector('.wl-grid')); ui.haptic('error'); return; }
+      const u = userOfPick(picked);
+      if (u) { data.setGuest(u.name); finish('none', u.name); return; }
       finish(picked);
       return;
     }

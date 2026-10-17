@@ -458,11 +458,11 @@ export function entryOf(p, n) {
   return {r: e.r, u: e.u, h: e.h, m: e.u - e.h, p: Math.max(0, e.p | 0), k: cleanActs(e.k), t: Number(e.t) || 0};
 }
 const docs = () => daily.LB.raw || daily.LB.players || [];
-const meKey = () => daily.memberOf({id: daily.LB.uid, nick: daily.LB.nick});
+const meKey = () => (daily.LB.uid ? daily.boardKey({id: daily.LB.uid, nick: daily.LB.nick}) : null);
 function people(list) {
   const m = new Map();
   list.forEach(p => {
-    const k = daily.memberOf(p) || 'row:' + p.id;
+    const k = daily.boardKey(p);
     if (!m.has(k)) m.set(k, []);
     m.get(k).push(p);
   });
@@ -478,7 +478,7 @@ function firstOf(list, n) {
 }
 function unposted() {
   const list = docs(), mine = list.find(p => p.id === daily.LB.uid), k = meKey();
-  const theirs = list.filter(p => p === mine || (k && daily.memberOf(p) === k));
+  const theirs = list.filter(p => p === mine || (k && daily.boardKey(p) === k));
   const v = read(), top = todayNumber();
   return Object.keys(v.days).map(Number)
     .filter(n => Number.isInteger(n) && n <= top && n > top - POST_BACK && v.days[n].r && !v.days[n].p)
@@ -601,7 +601,7 @@ export const gradeLetter = g => (g == null ? '' : (LETTERS.find(([min]) => Math.
 const rowWho = (ds, k) => {
   const mk = meKey(), uid = daily.LB.uid;
   const rep = ds.find(p => p.id === uid) || ds.slice().sort((a, b) => (b.last || 0) - (a.last || 0))[0];
-  return {key: k, name: daily.displayName(rep), managerId: k.startsWith('row:') ? null : k, guest: daily.guestOf(rep), me: ds.some(p => p.id === uid) || (!!mk && k === mk)};
+  return {key: k, name: daily.displayName(rep), managerId: daily.keyManager(k), guest: daily.guestOf(rep), me: ds.some(p => p.id === uid) || (!!mk && k === mk)};
 };
 /**
  * Day n's scoreboard: one row per member, by the game's final result (wins, then ties, then losses), then within

@@ -49,9 +49,13 @@ export function patchYouButtons(root = document) {
 // ============================================================================ You sheet
 let youSheet = null;
 
+// Who this phone is, as the grid's keys: a manager id, 'user:' + an app user's id, 'none' or null.
+const pickKey = () => { const u = data.user(); return u ? 'user:' + u.id : data.meRaw(); };
 function gridHTML() {
-  const me = data.meRaw();
-  const cells = data.ids.map(id => `<button type="button" class="pm-cell c-you-cell" data-me="${esc(id)}" aria-pressed="${id === me}">${ui.avatar(id, {size: 56, you: id === me})}<span>${esc(data.name(id))}</span></button>`).join('');
+  const me = pickKey();
+  const cells = data.ids.map(id => `<button type="button" class="pm-cell c-you-cell" data-me="${esc(id)}" aria-pressed="${id === me}">${ui.avatar(id, {size: 56, you: id === me})}<span>${esc(data.name(id))}</span></button>`).join('')
+    // App users (data.USERS) after the members: their initials and name.
+    + data.USERS.map(u => { const k = 'user:' + u.id; return `<button type="button" class="pm-cell c-you-cell" data-me="${esc(k)}" aria-pressed="${k === me}">${ui.nickAvatar(u.name, {size: 56, you: k === me})}<span>${esc(u.name)}</span></button>`; }).join('');
   return `<div class="pm-grid c-you-grid" role="group" aria-label="Which one are you?">${cells}</div>`
     + `<button type="button" class="btn btn-secondary c-you-none" data-me="none" aria-pressed="${me === 'none'}">${ui.icon('check', {size: 18, cls: 'c-you-nck'})}<span class="btn-label">Not in the league</span></button>`;
 }
@@ -63,6 +67,7 @@ function guestRow() {
     : ui.row({lead: `<span class="c-ys-ic">${ui.icon('plus', {size: 20})}</span>`, title: 'Play as a guest', attrs: {'data-guest': ''}, cls: 'c-ys-act c-ys-guest'});
 }
 function guestSec() {
+  if (data.user()) return '<div data-guest-sec hidden></div>'; // an app user has a player of their own
   return sec('Guest player', ui.group(guestRow(), {cls: 'c-ys-guestg'}), data.guest()
     ? 'Your Daily Puzzles, 17–0 and Two-Minute Drill scores post to the boards under this name, tagged Guest.'
     : 'Not in the league? Make your own player to track your scores on the daily boards.', 'data-guest-sec');
@@ -121,7 +126,7 @@ function youBody() {
 }
 
 function patchGrid(s, animate = true) {
-  const me = data.meRaw();
+  const me = pickKey();
   s.body.querySelectorAll('[data-me]').forEach(b => {
     const on = b.dataset.me === me;
     const was = b.getAttribute('aria-pressed') === 'true';
@@ -148,7 +153,7 @@ function settingsBody() {
   const feel = feelHTML();
   return sec('Look', ui.group(ui.row({lead: `<span class="c-ys-ic">${ui.icon('sparkle', {size: 20})}</span>`, title: 'Theme', sub: themeName(),
       attrs: {'data-theme-pick': ''}, cls: 'c-ys-act', chevron: true})))
-    + sec('You', ui.group(ui.row({lead: `<span class="c-ys-ic">${ui.icon('person', {size: 20})}</span>`, title: 'Which one are you?', sub: data.me() ? data.name(data.me()) : data.guest() ? `${data.guest()} · Guest` : 'Not picked yet',
+    + sec('You', ui.group(ui.row({lead: `<span class="c-ys-ic">${ui.icon('person', {size: 20})}</span>`, title: 'Which one are you?', sub: data.me() ? data.name(data.me()) : data.user() ? data.user().name : data.guest() ? `${data.guest()} · Guest` : 'Not picked yet',
       attrs: {'data-open-you': ''}, cls: 'c-ys-act', chevron: true})))
     + feel
     + sec('Data', ui.group(
@@ -196,9 +201,13 @@ function wireSheet(s) {
     if (e.target.closest('[data-guest]')) { openGuestSheet(); return; }
     const me = e.target.closest('[data-me]');
     if (me) {
-      if (me.dataset.me === data.meRaw()) return;
+      const k = me.dataset.me;
+      if (k === pickKey()) return;
       ui.haptic('selection');
-      data.setMe(me.dataset.me);
+      const u = data.USERS.find(x => 'user:' + x.id === k);
+      if (u) { data.setGuest(u.name); return; }
+      if (k === 'none' && data.user()) data.setGuest(null); // an app user who isn't one on this phone any more
+      data.setMe(k);
       return;
     }
     const tp = e.target.closest('[data-theme-pick]');

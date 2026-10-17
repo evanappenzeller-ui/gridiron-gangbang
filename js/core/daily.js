@@ -12,7 +12,7 @@
 // behavior.
 // Owner: foundation (core).
 
-import {DATA, nf, norm, me as dataMe, name as dataName, guest as dataGuest, subscribe as dataSub} from './data.js';
+import {DATA, nf, norm, me as dataMe, name as dataName, guest as dataGuest, userNamed, subscribe as dataSub} from './data.js';
 import {getFire, canWrite, isDevHost, devDayFrom, DEV_DAY as fireDevDay} from './fire.js';
 import {roundsFor as playRoundsFor} from './plays.js';
 
@@ -1054,6 +1054,16 @@ function managerFor(p) {
 }
 /** The league member a board doc belongs to (manager id), or null: what the boards group rows by. */
 export const memberOf = p => (p ? managerFor(p) : null);
+/** The app user a board doc belongs to (data.USERS: {id, name}), or null. */
+export const userOf = p => (p && !managerFor(p) ? userNamed(displayName(p)) : null);
+/** Whose scores a board doc's are: its league member (manager id), an app user ('user:' + id), or the doc alone
+ *  ('row:' + doc id). A member's or user's rows from several phones go together. */
+export function boardKey(p) {
+  const m = memberOf(p), u = m ? null : userOf(p);
+  return m || (u ? 'user:' + u.id : 'row:' + (p && p.id));
+}
+/** The manager id behind a board key, or null (an app user or a lone row). */
+export const keyManager = k => (/^(row|user):/.test(String(k)) ? null : k);
 
 // ---------------------------------------------------------------------------
 // Guests: someone not in the league makes their own player (data.setGuest), a name their games post under. Their
@@ -1061,8 +1071,8 @@ export const memberOf = p => (p ? managerFor(p) : null);
 // boards tag it.
 /** Whether this phone posts as a guest. */
 export const asGuest = () => !!dataGuest();
-/** Whether a board doc is a guest's (this phone's own row, as soon as it's made a guest). */
-export const guestOf = p => !!(p && (p.g || (LB.uid && p.id === LB.uid && dataGuest())));
+/** Whether a board doc is a guest's (this phone's own row, as soon as it's made a guest); an app user's isn't. */
+export const guestOf = p => !!(p && (p.g || (LB.uid && p.id === LB.uid && dataGuest()))) && !userOf(p);
 /** Why a guest can't play under a name, or '' when they can: blank, no letters, a league member's first name, or
  *  another player's name on the boards. */
 export function guestNameProblem(name) {
@@ -1073,6 +1083,8 @@ export function guestNameProblem(name) {
   if (n.toLowerCase() === 'someone') return 'Pick a name of your own.';
   const m = managerOfNick(n);
   if (m) return `${dataName(m)} is a league member. Pick another name.`;
+  const u = userNamed(n);
+  if (u) return `${u.name} has a login: pick yourself on Who are you?, or another name.`;
   const low = n.toLowerCase();
   if ((LB.raw || []).some(p => p.id !== LB.uid && String(p.nick || '').trim().toLowerCase() === low)) return 'Someone already plays under that name.';
   return '';
@@ -1139,7 +1151,7 @@ function tieRanks(rows, key) {
 function byMember(players) {
   const groups = new Map(), out = [];
   players.forEach(p => {
-    const m = managerFor(p);
+    const k = boardKey(p), m = keyManager(k) || (k.startsWith('user:') ? k : null);
     if (!m) { out.push(p); return; }
     if (!groups.has(m)) { groups.set(m, []); out.push(m); }
     groups.get(m).push(p);
@@ -1214,7 +1226,7 @@ export function social(players = LB.players, pnum = PNUM) {
   const today = p => !!entryFor(p, pnum);
   // One person per league member (a member can have rows from several phones): played today when any of their rows
   // has today's score, still to play when none does. Rows with no member are one person each.
-  const who = p => managerFor(p) || 'row:' + p.id;
+  const who = boardKey;
   const people = new Map();
   players.forEach(p => {
     const k = who(p), e = people.get(k) || {rows: [], recent: false, today: false};

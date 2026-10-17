@@ -548,6 +548,28 @@ export async function runChecks() {
     return {pass, detail: `guest row ${gr ? `${gr.guest}/${gr.managerId}` : 'missing'}; Mason's row ${mr ? mr.id : 'missing'}; names ${names}`};
   });
 
+  check("an app user (Ryan Dow) has a login: one row on the boards from any number of phones, no Guest tag, no member's, and no guest can take the name", () => {
+    needDaily();
+    const P = daily.dayVersion() === 1 ? daily.PNUM : 1, players = fakePlayers(P), mason = players.find(p => p.id === 'fake-3');
+    // Ryan on two phones (both rows guest-flagged, as a user's are), the names in any case and spacing.
+    const r1 = {id: 'fake-r1', nick: 'Ryan Dow', g: true, days: {[P]: Object.assign({}, mason.days[P])}, total: 620, played: 1, last: P};
+    const r2 = {id: 'fake-r2', nick: 'ryan  dow', g: true, days: {}, total: 0, played: 0, last: 0};
+    const all = players.concat([r1, r2]);
+    const mine = rows => rows.filter(r => /^ryan\s+dow$/i.test(r.name));
+    const once = ['today', 'season'].map(m => mine(daily.boardRows(m, all, P)));
+    const row = once[0][0];
+    const keys = daily.boardKey(r1) === 'user:ryan-dow' && daily.boardKey(r2) === 'user:ryan-dow' && daily.keyManager('user:ryan-dow') === null
+      && daily.boardKey({id: 'z', nick: 'Zed Q', g: true}) === 'row:z' && daily.boardKey({id: 'm', nick: 'Mason J'}) === 'mason';
+    const raw = daily.LB.raw;
+    daily.LB.raw = all;
+    const names = ['Ryan Dow', ' ryan  DOW ', 'Ryan', 'Ryan D'].map(n => (daily.guestNameProblem(n) ? 'no' : 'ok')).join(' ');
+    daily.LB.raw = raw;
+    const u = data.userNamed(' RYAN dow ');
+    const pass = once.every(x => x.length === 1) && !!row && !row.guest && row.managerId === null && keys
+      && daily.memberOf(r1) === null && !daily.guestOf(r1) && !!u && u.id === 'ryan-dow' && names === 'no no ok ok';
+    return {pass, detail: `rows today ${once[0].length}, season ${once[1].length}; tag ${row ? row.guest : '-'}; keys ${keys}; names ${names}`};
+  });
+
   // 6. holders
   check("holders(\"Diesel vs Carswell's Ls, week 16, 2021\") returns Corbin first", () => {
     needData();

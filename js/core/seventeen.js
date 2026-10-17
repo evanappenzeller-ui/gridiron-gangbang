@@ -238,12 +238,12 @@ export function entryOf(p, n) {
 /** A posted lineup ('01234') -> five rows, or null. */
 const pickOf = k => (typeof k === 'string' && /^[0-4]{5}$/.test(k) ? [...k].map(Number) : null);
 const docs = () => daily.LB.raw || daily.LB.players || [];
-const meKey = () => daily.memberOf({id: daily.LB.uid, nick: daily.LB.nick});
-/** People on the board: member id (or 'row:' + doc id for a doc with no member) -> their docs. */
+const meKey = () => (daily.LB.uid ? daily.boardKey({id: daily.LB.uid, nick: daily.LB.nick}) : null);
+/** People on the board: member id (an app user's 'user:' + id, or 'row:' + doc id for a doc of no one's) -> their docs. */
 function people(list) {
   const m = new Map();
   list.forEach(p => {
-    const k = daily.memberOf(p) || 'row:' + p.id;
+    const k = daily.boardKey(p);
     if (!m.has(k)) m.set(k, []);
     m.get(k).push(p);
   });
@@ -262,7 +262,7 @@ function firstOf(list, n) {
  *  noTeam: days this phone's own doc has without the lineup}. */
 function unposted() {
   const list = docs(), mine = list.find(p => p.id === daily.LB.uid), k = meKey();
-  const theirs = list.filter(p => p === mine || (k && daily.memberOf(p) === k));
+  const theirs = list.filter(p => p === mine || (k && daily.boardKey(p) === k));
   const v = read(), top = todayNumber();
   const played = Object.keys(v.days).map(Number)
     .filter(n => Number.isInteger(n) && n <= top && n > top - POST_BACK && Number.isInteger(v.days[n].w) && full(cleanPick(v.days[n].pick)))
@@ -321,7 +321,7 @@ export function boardRows(mode = 'today', n = todayNumber(), list = docs()) {
   people(list).forEach((ds, k) => {
     const mine = ds.some(p => p.id === uid) || (!!mk && k === mk);
     const rep = ds.find(p => p.id === uid) || ds.slice().sort((a, b) => (b.last || 0) - (a.last || 0))[0];
-    const base = {key: k, name: daily.displayName(rep), managerId: k.startsWith('row:') ? null : k, guest: daily.guestOf(rep), me: mine};
+    const base = {key: k, name: daily.displayName(rep), managerId: daily.keyManager(k), guest: daily.guestOf(rep), me: mine};
     if (mode === 'today') {
       const f = firstOf(ds, n);
       if (f) rows.push(Object.assign(base, {uid: f.doc.id, w: f.e.w, l: f.e.l, p: f.e.p, r: f.e.r}));

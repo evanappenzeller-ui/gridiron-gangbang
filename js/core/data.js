@@ -502,6 +502,14 @@ function writeGuest(v) {
 }
 /** The guest player's name on this phone, or null (none made, or a league member is picked). */
 export function guest() { return me() ? null : guestRead(); }
+// App users: people with their own login who aren't in the league (no team, no league history). One is a guest
+// player under a name kept for them: "Who are you?" and the You sheet list them with the members, the boards show them
+// without a Guest tag and keep their phones together, and no one else can take the name (daily.guestNameProblem).
+export const USERS = [{id: 'ryan-dow', name: 'Ryan Dow'}];
+/** The app user a name belongs to (any case and spacing), or null. */
+export const userNamed = nm => { const k = String(nm || '').trim().replace(/\s+/g, ' ').toLowerCase(); return USERS.find(u => u.name.toLowerCase() === k) || null; };
+/** The app user this phone is ({id, name}), or null. */
+export function user() { return userNamed(guest()); }
 /** Makes (or renames) this phone's guest player; null drops it. */
 export function setGuest(name) {
   const v = name == null ? null : String(name).trim().slice(0, 24) || null;
