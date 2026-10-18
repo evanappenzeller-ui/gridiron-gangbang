@@ -1706,8 +1706,10 @@ function setupScrub(bar) {
 // the one before (right): the next tab's screen rides in beside the current one under the finger and the tab bar's
 // pill slides along; let go past a third of the way (or with a flick) and it lands, else both slide back. Never from
 // something that scrolls or swipes sideways itself (overflow-x, or touch-action pan-y / none: a view's own swipe), a
-// field or control, the Two-Minute Drill's field, or the screen's edges (the browser's own back and forward).
-const NO_SWIPE = 'input, textarea, select, [contenteditable="true"], [role="slider"], [data-no-swipe], [data-hscroll], .dr-stage, [data-dr-field], #tabbar';
+// field or control, the Two-Minute Drill's field while a play runs on it (its camera, or the dots moving), or the
+// screen's edges (the browser's own back and forward). The rest of the Drill (its card, scoreboard and field between
+// plays) swipes like any screen: nothing there drags.
+const NO_SWIPE = 'input, textarea, select, [contenteditable="true"], [role="slider"], [data-no-swipe], [data-hscroll], .dr-field.is-anim, .dr-cam, #tabbar';
 function ownsSideways(el, stop) {
   for (let n = el; n && n !== stop; n = n.parentElement) {
     const cs = getComputedStyle(n);
