@@ -1,13 +1,13 @@
-// Daily Games tab root (tab id 'puzzles'; routes /puzzles, /puzzles/17-0 and /puzzles/drill; tabs-v4 contract
-// §3, replaces the Today hub): the large title (the date, "Daily Games", the streak pill and your avatar button from
-// you.js), then the game picker (Daily Puzzles · 17-0 · Two-Minute Drill: route param game, the choice lands in the
-// URL) over three panes.
+// Daily Games tab root (tab id 'puzzles'; routes /puzzles, /puzzles/17-0, /puzzles/drill and /puzzles/kick;
+// tabs-v4 contract §3, replaces the Today hub): the large title (the date, "Daily Games", the streak pill and your
+// avatar button from you.js), then the game picker (Daily Puzzles · 17-0 · Two-Minute Drill · Kick It: route param
+// game, the choice lands in the URL) over four panes.
 // Daily Puzzles: one hero card with one big Play button, then the league leaderboard. The hero has three states: not started ("Play"), started ("Continue", a thin progress bar with
 // one segment per puzzle, "1 of 3 done") and finished (the score ring, the grade, "See results" and "Share", the
 // midnight countdown). Play opens the run cover at the first unfinished puzzle. Works for every day version (three
 // puzzles on v1 and v4 days, five on v2 and v3): everything is driven by daily.STEPS.
-// 17-0 and the Two-Minute Drill: the pane modules views/seventeen.js and views/drill.js, each imported the first time
-// the picker (or a link) opens it.
+// 17-0, the Two-Minute Drill and Kick It: the pane modules views/seventeen.js, views/drill.js and views/kick.js, each
+// imported the first time the picker (or a link) opens it.
 // Also exports badge() for the tab bar: today's puzzles aren't finished (and a 'gg:badge' event when that changes).
 // Owner: PUZZLES (tabs-v4).
 import * as ui from '../core/ui.js';
@@ -182,17 +182,18 @@ function cardHTML(k = heroKind()) {
 
 // ============================================================================ The game picker
 // Big scoreboard buttons with pixel badges, like Pick'em's NFL / NCAA switch (img/puzzles.webp, img/seventeen.webp,
-// img/drill.webp: tools/seventeen/badges.py); the game showing is lit like the field.
+// img/drill.webp, img/kick.webp: tools/seventeen/badges.py); the game showing is lit like the field.
 const GAMES = [
   {id: 'puzzles', label: 'Daily Puzzles', badge: 'img/puzzles.webp', sub: ['Daily', 'Puzzles']},
   {id: '17-0', label: '17\u20130, build a $15 team', badge: 'img/seventeen.webp', sub: []},
-  {id: 'drill', label: 'Two-Minute Drill', badge: 'img/drill.webp', sub: []}
+  {id: 'drill', label: 'Two-Minute Drill', badge: 'img/drill.webp', sub: []},
+  {id: 'kick', label: 'Kick It, field goals', badge: 'img/kick.webp', sub: []}
 ];
 const gameOf = ctx => {
   const g = ctx && ctx.params && ctx.params.game;
-  return g === '17-0' || g === 'drill' ? g : 'puzzles';
+  return g === '17-0' || g === 'drill' || g === 'kick' ? g : 'puzzles';
 };
-const gamePath = g => (g === '17-0' ? '/puzzles/17-0' : g === 'drill' ? '/puzzles/drill' : '/puzzles');
+const gamePath = g => (g === 'puzzles' ? '/puzzles' : `/puzzles/${g}`);
 let SV = null; // views/seventeen.js, once imported
 const loadSV = () => (SV ? Promise.resolve(SV) : import('./seventeen.js').then(m => (SV = m)));
 const svLoading = () => `<div class="sv-loading" aria-busy="true">${ui.skeleton('rows', 4, {label: 'Loading 17\u20130.'})}</div>`;
@@ -277,6 +278,40 @@ function showDR(st) {
     ui.hydrate(pane);
   });
 }
+let KK = null; // views/kick.js, once imported
+const loadKK = () => (KK ? Promise.resolve(KK) : import('./kick.js').then(m => (KK = m)));
+const kkLoading = () => `<div class="kk-loading" aria-busy="true">${ui.skeleton('rows', 4, {label: 'Loading Kick It.'})}</div>`;
+// Like the others: a phone with a finished run posts it from any visit to this tab.
+let kkSynced = false;
+function syncKick() {
+  if (kkSynced) return;
+  kkSynced = true;
+  import('../core/kick.js')
+    .then(m => (m.totals().played ? m.autoPost() : null))
+    .catch(() => { kkSynced = false; });
+}
+/** The Kick It pane: like showSV. */
+function showKK(st) {
+  const pane = st.el.querySelector('.c-kk-pane');
+  if (!pane) return;
+  if (st.kk === 'on') { KK.params(pane, st.ctx); return; }
+  if (st.kk === 'loading') return;
+  st.kk = 'loading';
+  if (!pane.firstElementChild) pane.innerHTML = kkLoading();
+  loadKK().then(() => {
+    if (HUB.get(st.ctx) !== st) return;
+    pane.innerHTML = KK.render(st.ctx);
+    KK.mount(pane, st.ctx, {anchor: st.el.querySelector('.c-games')});
+    ui.hydrate(pane);
+    st.kk = 'on';
+  }, err => {
+    console.error(err);
+    if (HUB.get(st.ctx) !== st) return;
+    st.kk = null;
+    pane.innerHTML = ui.empty({icon: 'football', title: 'Kick It didn\u2019t load.', action: {label: 'Try again', attrs: {'data-kk-load': ''}}});
+    ui.hydrate(pane);
+  });
+}
 /** Keep the picker on screen when the game changes while the page is scrolled far down. */
 function clampToPicker(st) {
   const scr = st.ctx.screen, pk = st.el.querySelector('.c-games');
@@ -286,16 +321,18 @@ function clampToPicker(st) {
   if (scr.scrollTop > max) scr.scrollTop = max;
 }
 function switchGame(st, g) {
-  const pz = st.el.querySelector('.c-pz-pane'), svp = st.el.querySelector('.c-sv-pane'), drp = st.el.querySelector('.c-dr-pane');
+  const pz = st.el.querySelector('.c-pz-pane'), svp = st.el.querySelector('.c-sv-pane'), drp = st.el.querySelector('.c-dr-pane'), kkp = st.el.querySelector('.c-kk-pane');
   st.game = g;
   if (pz) pz.hidden = g !== 'puzzles';
   if (svp) svp.hidden = g !== '17-0';
   if (drp) drp.hidden = g !== 'drill';
+  if (kkp) kkp.hidden = g !== 'kick';
   clampToPicker(st);
-  const shown = g === '17-0' ? svp : g === 'drill' ? drp : pz;
+  const shown = g === '17-0' ? svp : g === 'drill' ? drp : g === 'kick' ? kkp : pz;
   if (shown && st.ctx.visible && !ui.RM) ui.animate(shown, [{opacity: 0, transform: 'translateY(6px)'}, {opacity: 1, transform: 'none'}], {duration: 200, easing: 'cubic-bezier(.22,1,.36,1)'});
   if (g === '17-0') showSV(st);
   else if (g === 'drill') showDR(st);
+  else if (g === 'kick') showKK(st);
   else if (ready()) sync(st, false);
 }
 
@@ -459,7 +496,8 @@ function onClick(st, e) {
   const load = e.target.closest('[data-sv-load]');
   if (load) { showSV(st); return; }
   if (e.target.closest('[data-dr-load]')) { showDR(st); return; }
-  if (e.target.closest('.c-sv-pane, .c-dr-pane')) return;
+  if (e.target.closest('[data-kk-load]')) { showKK(st); return; }
+  if (e.target.closest('.c-sv-pane, .c-dr-pane, .c-kk-pane')) return;
   const t = e.target.closest('[data-cta], [data-share], [data-streak], [data-retry], [data-cd-load]');
   if (!t || !st.el.contains(t)) return;
   const {ctx} = st;
@@ -529,19 +567,22 @@ export default {
       + `<div class="c-hero-wrap" data-key="hero" data-enter>${cardHTML()}</div>`
       + `<div class="c-board-host" data-key="board" data-enter></div></div>`
       + `<div class="c-sv-pane sv-pane"${g === '17-0' ? '' : ' hidden'}>${g === '17-0' ? (SV ? SV.render(ctx) : svLoading()) : ''}</div>`
-      + `<div class="c-dr-pane dr-pane"${g === 'drill' ? '' : ' hidden'}>${g === 'drill' ? (DR ? DR.render(ctx) : drLoading()) : ''}</div>`;
+      + `<div class="c-dr-pane dr-pane"${g === 'drill' ? '' : ' hidden'}>${g === 'drill' ? (DR ? DR.render(ctx) : drLoading()) : ''}</div>`
+      + `<div class="c-kk-pane kk-pane"${g === 'kick' ? '' : ' hidden'}>${g === 'kick' ? (KK ? KK.render(ctx) : kkLoading()) : ''}</div>`;
   },
 
   mount(el, ctx) {
     ensureDefs();
-    const st = {el, ctx, board: null, pending: false, cancelRing: null, retrying: false, game: gameOf(ctx), sv: null, dr: null};
+    const st = {el, ctx, board: null, pending: false, cancelRing: null, retrying: false, game: gameOf(ctx), sv: null, dr: null, kk: null};
     HUB.set(ctx, st);
     st.board = mountBoard(el.querySelector('.c-board-host'), {mode: 'today', ctx});
     el.addEventListener('click', e => onClick(st, e));
     if (st.game === '17-0') showSV(st);
     if (st.game === 'drill') showDR(st);
+    if (st.game === 'kick') showKK(st);
     ui.whenIdle(syncSeventeen);
     ui.whenIdle(syncDrill);
+    ui.whenIdle(syncKick);
     ctx.on('daily', type => onDaily(st, type));
     ctx.timer(() => tickCd(st, ctx.visible), 20000);
     if (ready()) patchPill(st, false);
@@ -560,13 +601,14 @@ export default {
   update(ctx) {
     const st = HUB.get(ctx);
     if (!st) return;
-    // The picker (a tap, or a link to /puzzles/17-0 or /puzzles/drill): show that game; shown again, it catches up
-    // with the day.
+    // The picker (a tap, or a link to /puzzles/17-0, /puzzles/drill or /puzzles/kick): show that game; shown again,
+    // it catches up with the day.
     const g = gameOf(ctx);
     patchPicker(st, g, ctx.visible);
     if (g !== st.game) switchGame(st, g);
     else if (g === '17-0') showSV(st);
     else if (g === 'drill') showDR(st);
+    else if (g === 'kick') showKK(st);
     if (ctx.reason !== 'params' && st.board) st.board.refresh({animate: false});
   },
 
@@ -577,6 +619,7 @@ export default {
     if (st.board) st.board.destroy();
     if (st.sv === 'on' && SV) SV.unmount(el.querySelector('.c-sv-pane'), ctx);
     if (st.dr === 'on' && DR) DR.unmount(el.querySelector('.c-dr-pane'), ctx);
+    if (st.kk === 'on' && KK) KK.unmount(el.querySelector('.c-kk-pane'), ctx);
     HUB.delete(ctx);
   }
 };

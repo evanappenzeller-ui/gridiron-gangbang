@@ -1697,6 +1697,16 @@ export async function runChecks() {
     check('Drill checks (checks-drill.js) loaded', () => ({pass: false, detail: drErr ? 'did not load: ' + (drErr.message || drErr) : 'no drillChecks export'}));
   }
 
+  // Kick It checks (js/core/checks-kick.js, owned by KICK: the day's kicks, the kick and the wind, the flick, the
+  // scoreboard and the league's rule). Guarded the same way.
+  let kkMod = null, kkErr = null;
+  try { kkMod = await import('./checks-kick.js'); } catch (e) { kkErr = e; }
+  if (kkMod && typeof kkMod.kickChecks === 'function') {
+    try { await kkMod.kickChecks(check); } catch (e) { check('Kick It checks (checks-kick.js)', () => { throw e; }); }
+  } else {
+    check('Kick It checks (checks-kick.js) loaded', () => ({pass: false, detail: kkErr ? 'did not load: ' + (kkErr.message || kkErr) : 'no kickChecks export'}));
+  }
+
   await Promise.all(pending);
   return out;
 }

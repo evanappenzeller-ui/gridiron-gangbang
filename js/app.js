@@ -87,6 +87,8 @@ function matchSegs(p, q) {
       if (n === 2 && b === '17-0') return R('puzzles', 'root', 'puzzles', {game: '17-0'});
       // ... and its third, the Two-Minute Drill (views/drill.js): today's game.
       if (n === 2 && b === 'drill') return R('puzzles', 'root', 'puzzles', {game: 'drill'});
+      // ... and its fourth, Kick It (views/kick.js): today's kicks.
+      if (n === 2 && b === 'kick') return R('puzzles', 'root', 'puzzles', {game: 'kick'});
       return null;
     case 'pickem':
       // NFL Pick'em (optional ?week=N) is a tab root now: links to it switch to the tab.

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Draws the Daily Games switch badges, img/puzzles.webp, img/seventeen.webp and img/drill.webp (puzzles.js): pixel art on a 32x32
-grid scaled x4 (nearest) to 128x128, like img/nfl.webp (the Two-Minute Drill's is smooth). Run: python3 tools/seventeen/badges.py (needs Pillow; then bump
+"""Draws the Daily Games switch badges, img/puzzles.webp, img/seventeen.webp, img/drill.webp and img/kick.webp (puzzles.js): pixel
+art on a 32x32 grid scaled x4 (nearest) to 128x128, like img/nfl.webp (the Two-Minute Drill's and Kick It's are smooth). Run: python3 tools/seventeen/badges.py (needs Pillow; then bump
 CACHE in sw.js)."""
 import os
 from PIL import Image, ImageDraw
@@ -104,4 +104,49 @@ im.alpha_composite(glow)
 hl, d = layer(); d.rounded_rectangle((L + 34, T + 20, R - 34, T + 96), 28, fill=(255, 255, 255, 16))
 im.alpha_composite(hl.filter(ImageFilter.GaussianBlur(8)))                                     # a soft glass highlight
 im.resize((128, 128), Image.LANCZOS).save(f'{OUT}/drill.webp', 'WEBP', lossless=True)
-print('wrote img/puzzles.webp, img/seventeen.webp, img/drill.webp')
+
+# ---- Kick It: smooth, like the Drill's. The goalposts in gold with the orange ribbons on top, and the ball tumbling
+# through them over the bar, a white streak behind it.
+im = Image.new('RGBA', (S, S), (0, 0, 0, 0))
+GOLD_T, GOLD_B = (255, 226, 92), (214, 150, 18)
+def pole(box):
+    """A post: gold, lit on its left edge."""
+    x0, y0, x1, y1 = box
+    g = Image.new('RGBA', (S, S), (0, 0, 0, 0)); gd = ImageDraw.Draw(g)
+    for x in range(x0, x1 + 1):
+        t = (x - x0) / max(1, x1 - x0)
+        gd.line((x, y0, x, y1), fill=tuple(int(a + (b - a) * t) for a, b in zip(GOLD_T, GOLD_B)) + (255,))
+    m = Image.new('L', (S, S), 0); ImageDraw.Draw(m).rounded_rectangle(box, min(x1 - x0, y1 - y0) // 2, fill=255)
+    out = Image.new('RGBA', (S, S), (0, 0, 0, 0)); out.paste(g, (0, 0), m)
+    return out
+sh, d = layer()
+for box in ((92, 40, 126, 352), (386, 40, 420, 352), (92, 318, 420, 352), (239, 330, 273, 500)):
+    d.rounded_rectangle((box[0] + 10, box[1] + 14, box[2] + 10, box[3] + 14), 16, fill=(0, 0, 0, 150))
+im.alpha_composite(sh.filter(ImageFilter.GaussianBlur(12)))                                    # shadow
+im.alpha_composite(vgrad((222, 430, 290, 504), (40, 76, 160), (22, 42, 104), 12))              # the padding at the base
+for box in ((239, 330, 273, 440), (92, 40, 126, 352), (386, 40, 420, 352)):                    # the uprights, the stem
+    im.alpha_composite(pole(box))
+im.alpha_composite(vgrad((92, 318, 420, 352), GOLD_T, GOLD_B, 17))                             # the crossbar
+rb, d = layer()
+for x in (109, 403):                                                                           # the ribbons, blown right
+    d.polygon([(x, 44), (x + 70, 58), (x + 62, 74), (x, 70)], fill=(255, 106, 43, 255))
+im.alpha_composite(rb)
+tr, d = layer()
+for i, (w, a) in enumerate(((26, 70), (18, 46), (12, 28))):                                    # the streak behind the ball
+    d.line([(150 - i * 34, 330 - i * 18), (238, 238)], fill=(255, 255, 255, a), width=w)
+im.alpha_composite(tr.filter(ImageFilter.GaussianBlur(5)))
+ball, d = layer()
+d.ellipse((256 - 104, 196 - 62, 256 + 104, 196 + 62), fill=(122, 52, 21, 255))                # the ball
+d.ellipse((256 - 92, 196 - 54, 256 + 70, 196 + 30), fill=(164, 80, 38, 255))                   # its lit top
+d.ellipse((256 - 104, 196 - 62, 256 + 104, 196 + 62), outline=(64, 26, 8, 255), width=6)
+for sx in (-1, 1):                                                                             # the stripes near the tips
+    d.arc((256 + sx * 68 - 16, 196 - 50, 256 + sx * 68 + 16, 196 + 50), 0, 360, fill=(255, 255, 255, 220), width=7)
+d.line((206, 182, 306, 182), fill=(255, 255, 255, 255), width=9)                               # the laces
+for x in range(214, 304, 18):
+    d.line((x, 168, x, 196), fill=(255, 255, 255, 255), width=7)
+ball = ball.rotate(28, resample=Image.BICUBIC, center=(256, 196))
+im.alpha_composite(ball)
+hl, d = layer(); d.ellipse((170, 146, 300, 178), fill=(255, 255, 255, 40))
+im.alpha_composite(hl.rotate(28, resample=Image.BICUBIC, center=(256, 196)).filter(ImageFilter.GaussianBlur(6)))
+im.resize((128, 128), Image.LANCZOS).save(f'{OUT}/kick.webp', 'WEBP', lossless=True)
+print('wrote img/puzzles.webp, img/seventeen.webp, img/drill.webp, img/kick.webp')

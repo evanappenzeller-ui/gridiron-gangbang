@@ -52,7 +52,7 @@ const ST = new WeakMap(); // ctx -> pane state
 
 // A home-screen app open across an update imports this module new under the stylesheet it started with (app.js,
 // Updates): when seventeen.css's mark (--sv-css on :root) isn't this module's, the current file is added.
-const CSS_V = '3';
+const CSS_V = '4';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--sv-css').trim() === CSS_V || document.querySelector('link[data-sv-css]')) return;
