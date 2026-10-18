@@ -3,7 +3,7 @@
    stage, the HUD, the call and the run's final card laid over it; the scoreboard below on the theme's surfaces. */
 
 /* The version mark views/kick.js checks (CSS_V): bump both when the pane needs rules an older file lacks. */
-:root { --kk-css: 3; }
+:root { --kk-css: 4; }
 
 .kk-pane {
   --kk-good: #3EF08F; --kk-bad: #FF5A4E; --kk-gold: #FFD23F; --kk-ribbon: #FF6A2B;
@@ -120,45 +120,59 @@
 }
 
 /* ---------------------------------------------------------------- The guide: how to kick, on the field */
-/* A finger slides up from the ball toward the posts (views/kick.js sets where: --x0/--y0 the ball, --dx/--dy the
-   slide, --len its length, --ang its heading), a streak behind it; the words in the corner, clear of its path. */
+/* A finger traces the swipe to make, from the ball toward the posts: a straight line, or an even arc around what's in
+   the way (views/kick.js draws the path and sets --pl, its length); the finger rides it (offset-path), the line drawing
+   in behind. The words sit in the corner, clear of it. */
 .kk-pane .kk-guide { position: absolute; z-index: 2; inset: 0; pointer-events: none; }
 .kk-pane .kk-guide[hidden] { display: none; }
+.kk-pane .kk-guide-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .kk-pane .kk-guide-trail {
-  position: absolute; left: var(--x0); top: var(--y0); width: 10px; height: var(--len); margin-left: -5px; border-radius: 5px;
-  transform-origin: 50% 0; transform: rotate(calc(var(--ang) + 180deg)) scaleY(1);
-  background: linear-gradient(180deg, rgba(255,255,255,0), rgba(255,255,255,.55));
-  box-shadow: 0 0 14px rgba(62,240,143,.35);
+  fill: none; stroke: rgba(255,255,255,.7); stroke-width: 7; stroke-linecap: round;
+  stroke-dasharray: var(--pl, 300) var(--pl, 300); stroke-dashoffset: 0;
+  filter: drop-shadow(0 0 6px rgba(62,240,143,.6));
 }
 .kk-pane .kk-guide-hand {
-  position: absolute; left: calc(var(--x0) - 17px); top: calc(var(--y0) - 7px); width: 44px; height: 56px;
-  transform: translate(var(--dx), var(--dy));
+  position: absolute; left: 0; top: 0; width: 44px; height: 56px;
+  offset-anchor: 17px 7px; offset-rotate: 0deg; offset-distance: 100%;
   filter: drop-shadow(0 4px 8px rgba(0,0,0,.55));
 }
 .kk-pane .kk-guide-hand svg { display: block; width: 100%; height: 100%; overflow: visible; }
 .kk-pane .kk-guide-fing { fill: #fff; stroke: rgba(10,16,34,.35); stroke-width: 1.5; }
 .kk-pane .kk-guide-ring { fill: rgba(62,240,143,.35); stroke: var(--kk-good); stroke-width: 2.5; transform-origin: 17px 7px; }
-.kk-pane .kk-guide.is-on .kk-guide-hand { animation: kk-swipe 2s cubic-bezier(.45,0,.25,1) infinite; }
-.kk-pane .kk-guide.is-on .kk-guide-trail { animation: kk-streak 2s cubic-bezier(.45,0,.25,1) infinite; }
-.kk-pane .kk-guide.is-on .kk-guide-ring { animation: kk-press 2s ease-out infinite; }
+.kk-pane .kk-guide.is-on .kk-guide-hand { animation: kk-swipe 2.2s cubic-bezier(.45,0,.25,1) infinite; }
+.kk-pane .kk-guide.is-on.no-path .kk-guide-hand { animation: kk-tap 2.2s ease-out infinite; }
+.kk-pane .kk-guide.is-on .kk-guide-trail { animation: kk-draw 2.2s cubic-bezier(.45,0,.25,1) infinite; }
+.kk-pane .kk-guide.is-on .kk-guide-ring { animation: kk-press 2.2s ease-out infinite; }
 @keyframes kk-swipe {
-  0% { opacity: 0; transform: translate(0, 18px); }
-  14% { opacity: 1; transform: translate(0, 0); }
-  26% { transform: translate(0, 0); }
-  66% { opacity: 1; transform: translate(var(--dx), var(--dy)); }
-  80%, 100% { opacity: 0; transform: translate(var(--dx), var(--dy)); }
+  0% { opacity: 0; offset-distance: 0%; transform: translateY(18px); }
+  14% { opacity: 1; transform: none; }
+  26% { offset-distance: 0%; }
+  68% { opacity: 1; offset-distance: 100%; }
+  82%, 100% { opacity: 0; offset-distance: 100%; }
 }
-@keyframes kk-streak {
-  0%, 26% { opacity: 1; transform: rotate(calc(var(--ang) + 180deg)) scaleY(0); }
-  66% { opacity: 1; transform: rotate(calc(var(--ang) + 180deg)) scaleY(1); }
-  80%, 100% { opacity: 0; transform: rotate(calc(var(--ang) + 180deg)) scaleY(1); }
+@keyframes kk-tap { 0% { opacity: 0; transform: translateY(18px); } 14%, 70% { opacity: 1; transform: none; } 85%, 100% { opacity: 0; } }
+@keyframes kk-draw {
+  0%, 26% { opacity: 1; stroke-dashoffset: var(--pl, 300); }
+  68% { opacity: 1; stroke-dashoffset: 0; }
+  82%, 100% { opacity: 0; stroke-dashoffset: 0; }
 }
 @keyframes kk-press {
   0%, 12% { opacity: 0; transform: scale(1.8); }
   22% { opacity: 1; transform: scale(1); }
-  66% { opacity: 1; transform: scale(1); }
-  80%, 100% { opacity: 0; transform: scale(1); }
+  68% { opacity: 1; transform: scale(1); }
+  82%, 100% { opacity: 0; transform: scale(1); }
 }
+/* "Look out!": the first kick with something in the way */
+.kk-pane .kk-alert {
+  position: absolute; z-index: 3; left: 50%; top: 84px; margin: 0; width: min(88%, 300px); transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 14px; border-radius: 16px; text-align: center;
+  background: rgba(255,197,61,.94); color: #2A1C00; box-shadow: 0 12px 28px -10px rgba(0,0,0,.8), 0 0 24px -6px rgba(255,197,61,.8);
+  font: 600 14px/19px var(--font-text); pointer-events: none;
+  animation: kk-alert .45s cubic-bezier(.34,1.56,.64,1) both;
+}
+.kk-pane .kk-alert[hidden] { display: none; }
+.kk-pane .kk-alert b { font: 800 22px/24px var(--kk-display); letter-spacing: .04em; text-transform: uppercase; }
+@keyframes kk-alert { from { opacity: 0; transform: translate(-50%, -12px) scale(.9); } to { opacity: 1; transform: translateX(-50%); } }
 .kk-pane .kk-hint {
   position: absolute; z-index: 2; left: 10px; bottom: 10px; margin: 0; max-width: calc(50% - 28px);
   display: flex; align-items: center; gap: 8px; padding: 8px 12px 8px 10px; border-radius: 14px;
@@ -218,7 +232,7 @@
   .kk-pane .kk-hud-l, .kk-pane .kk-hud-r, .kk-pane .kk-wind { padding: 5px 8px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .kk-pane .kk-guide.is-on .kk-guide-hand, .kk-pane .kk-guide.is-on .kk-guide-trail, .kk-pane .kk-guide.is-on .kk-guide-ring { animation: none; }
+  .kk-pane .kk-guide.is-on .kk-guide-hand, .kk-pane .kk-guide.is-on .kk-guide-trail, .kk-pane .kk-guide.is-on .kk-guide-ring, .kk-pane .kk-alert { animation: none; }
   .kk-pane .kk-call.is-in { animation: none; opacity: 1; transform: none; }
   .kk-pane .kk-wind svg { transition: none; }
   .kk-pane .kk-gusts { display: none; }

@@ -1,17 +1,23 @@
 // Kick It core: the Daily Games' field-goal game, after Paper Toss. Each day everyone gets the same run of kicks: the
 // posts stand somewhere new for every kick (a different distance and angle), the wind changes, the kicks get longer
-// and windier as the run goes on, and the third miss ends it. A kick is a flick of the ball: its direction aims, its
-// speed is the leg; the wind carries the ball in the air. No DOM. Owner: KICK.
+// and windier as the run goes on, and the third miss ends it. From the fifth kick, giant silly things stand in the way
+// (a brick wall, a T-rex, a rubber duck, a tube man, a cactus), too tall to kick over. A kick is a swipe of the ball:
+// its line aims, its speed is the leg, and its shape bends the flight (an even arc curves the ball around and back to
+// the posts; a lopsided one doesn't come back true); the wind carries the ball in the air. No DOM. Owner: KICK.
 //
 //   todayNumber(), dateOf(n), dayLabel(n)       day 1 on START, a new run at local midnight
 //   kicks(n)                                    day n's kicks: [{i, d (yards to the posts), gx (the posts' offset,
 //                                               yards, + right), w (wind, mph, 1-25), dir (wind's heading, degrees: 0
-//                                               toward the posts, 90 to the right)}]
+//                                               toward the posts, 90 to the right), obs (in the way, from the fifth:
+//                                               [{t (OBSTACLES' key), x, z (its middle, yards), half (half its width),
+//                                               h (its height), face (+1 or -1, which way it looks)}])}]
+//   curveOf(points)                             a swipe's shape -> {bend, tilt} (below)
 //   windCall(kick, launch, call)                what the wind did: 'took' (it would have been good in calm air),
 //                                               'carried' (it went in only because of the wind), or null
-//   launchOf({dx, dy, speed, aim})              a flick on screen (px, px, px/ms; aim: where it points at the posts)
-//                                               -> {theta, v}, or null (not a kick)
-//   fly(kick, launch)                           the flight and the call: {made, why, d, tCross, at, pos(t), tEnd}
+//   launchOf({dx, dy, speed, aim, curve})       a swipe on screen (px, px, px/ms; aim: where it points at the posts;
+//                                               curve: curveOf's) -> {theta, v, bend, tilt}, or null (not a kick)
+//   fly(kick, launch)                           the flight and the call: {made, why, d, tCross, at, pos(t), tEnd, hit
+//                                               (the obstacle it hit, or null)}
 //   dayState(n), record(n, kick, call), score(list), totals()   localStorage 'gg-kick1'
 //   autoPost(), boardRows(n), weekRows(n), weekDays(n), boardState()   the league scoreboard (below)
 //
@@ -51,19 +57,49 @@ function rng(seed) {
 }
 export const MAX_KICKS = 40, STRIKES = 3;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+// The things in the way: giant and silly, all too tall to kick over (the ball never climbs past about 8 yards). half:
+// half its width; h: its height (yards). Each has a word for when it stops a kick.
+export const OBSTACLES = {
+  wall: {name: 'brick wall', half: 3.6, h: 8.8, says: 'Bricked off the wall'},
+  dino: {name: 'T-rex', half: 3.4, h: 9, says: 'The T-rex ate it'},
+  duck: {name: 'rubber duck', half: 3.2, h: 8.6, says: 'Bounced off the rubber duck'},
+  tube: {name: 'tube man', half: 1.4, h: 9.6, says: 'The tube man swatted it'},
+  cactus: {name: 'cactus', half: 2.4, h: 9.2, says: 'Stuck in the cactus'}
+};
+const OB_TYPES = Object.keys(OBSTACLES);
+export const OBS_FROM = 4; // the fifth kick on
 /** Day n's kicks, the same on every phone. The first few are chip shots near the middle; then the posts wander
  *  further off to the side, the kicks get longer (a yard and a third a kick, 62 the longest, about kick 30 on) and the
- *  wind stronger: a breeze from the first kick (1-4 mph), 3-9 by kick 6, 5-15 by kick 11, up to 25 from kick 21. */
+ *  wind stronger: a breeze from the first kick (1-4 mph), 3-9 by kick 6, 5-15 by kick 11, up to 25 from kick 21. From
+ *  the fifth kick something stands in the way, from the tenth one or two things, from the twentieth two or three: on
+ *  the line to the posts (the first squarely; the others off to a side, closing one way around), between two fifths and
+ *  three quarters of the way there. */
 export function kicks(n) {
-  const r = rng(hashStr(`kick-it-${n}`)), out = [];
+  const r = rng(hashStr(`kick-it-${n}`)), ro = rng(hashStr(`kick-it-obs-${n}`)), out = [];
   for (let i = 0; i < MAX_KICKS; i++) {
     const d = Math.round(clamp(19 + i * 1.35 + (r() * 8 - 3), 18, 62));
     const span = Math.min(17, 3 + i * .9);
     const gx = Math.round((r() * 2 - 1) * span * 10) / 10;
     const w = Math.round(clamp(1 + i * .45 + r() * (3 + i * .6), 0, 25));
     const dir = Math.round(r() * 360);
-    out.push({i, d, gx, w, dir});
+    out.push({i, d, gx, w, dir, obs: i < OBS_FROM ? [] : obstaclesFor(ro, i, d, gx)});
   }
+  return out;
+}
+const round1 = v => Math.round(v * 10) / 10;
+function obstaclesFor(r, i, d, gx) {
+  const n = i < 9 ? 1 : i < 19 ? 1 + (r() < .45 ? 1 : 0) : 2 + (r() < .3 ? 1 : 0);
+  const out = [], side = r() < .5 ? -1 : 1;
+  // where along the way: spread out, two fifths to three quarters of the way there
+  const slots = [.42, .57, .71].sort(() => r() - .5).slice(0, n).sort((a, b) => a - b);
+  slots.forEach((s0, j) => {
+    const t = OB_TYPES[Math.floor(r() * OB_TYPES.length)], o = OBSTACLES[t];
+    // short kicks get slimmer things, so there's room to bend around them
+    const half = round1(Math.min(o.half, .1 + d * .17)), z = round1(d * (s0 + (r() * .08 - .04)));
+    const line = gx * z / d;
+    const x = j === 0 ? line + (r() * 2 - 1) * half * .5 : line + side * (half + 1 + r() * 2.5);
+    out.push({t, x: round1(x), z, half, h: o.h, face: r() < .5 ? -1 : 1});
+  });
   return out;
 }
 
@@ -74,42 +110,100 @@ export function kicks(n) {
 export const POST = {half: 3.083, bar: 3.333, top: 10.333};
 export const CAM = {h: 2, back: 4};
 export const GRAV = 10.72;                 // yards a second, a second
-const ELEV = 37 * Math.PI / 180;           // the ball's climb off the tee
+const ELEV = 21 * Math.PI / 180;           // the ball's climb off the tee: a low arc, never above about 8 yards
+const V_MIN = 19, V_MAX = 36;              // the leg, yards a second
+// The swipe's shape (curveOf): bend is how far it bows out (as a share of its length, + to the right), tilt how far
+// it's lopsided. The flight bows the same way, as far as BEND times the kick's distance times 4 bend s (1 - s) (s: how
+// far along to the posts), back on its line at the posts; a lopsided swipe ends TILT times the distance times tilt off
+// it. A swipe that's nearly straight is straight.
+const BEND = .6, TILT = .3, BEND_DEAD = .03, TILT_DEAD = .04;
 // The wind. Across the field the ball goes with it at once and more the longer it's up (yards per mph: WIND_ACROSS.v a
 // second plus WIND_ACROSS.a a second squared), so even a chip shot moves: at full leg 10 mph across moves a 20-yarder
 // over a yard, 20 mph a 40-yarder about 6 (the posts are 6 wide), 25 mph a 62-yarder about 12. Along the field it
 // pushes (WIND_ALONG, yards a second a second per mph): a headwind costs carry without making the long kicks impossible.
-const WIND_ACROSS = {v: .15, a: .025}, WIND_ALONG = .18;
+const WIND_ACROSS = {v: .18, a: .03}, WIND_ALONG = .12;
+/** A swipe's shape: points [{x, y}] on screen, from the ball to where it let go -> {bend, tilt}: an even arc is all
+ *  bend (+ bowed to the right); a lopsided one has tilt too. Fitted on the path spaced out evenly along its length. */
+export function curveOf(points) {
+  const pts = (points || []).filter(p => Number.isFinite(p.x) && Number.isFinite(p.y));
+  if (pts.length < 3) return {bend: 0, tilt: 0};
+  const a = pts[0], b = pts[pts.length - 1], L = Math.hypot(b.x - a.x, b.y - a.y);
+  if (L < 20) return {bend: 0, tilt: 0};
+  const cx = (b.x - a.x) / L, cy = (b.y - a.y) / L, nx = -cy, ny = cx; // along the swipe; its right
+  // even spacing along the path
+  let total = 0;
+  const seg = pts.slice(1).map((p, k) => { const s = Math.hypot(p.x - pts[k].x, p.y - pts[k].y); total += s; return s; });
+  if (!(total > 0)) return {bend: 0, tilt: 0};
+  const even = [];
+  for (let j = 1, k = 0, run = 0; j < 24; j++) {
+    const at = total * j / 24;
+    while (k < seg.length - 1 && run + seg[k] < at) { run += seg[k]; k++; }
+    const f = seg[k] ? (at - run) / seg[k] : 0, p = pts[k], q = pts[k + 1];
+    even.push({x: p.x + (q.x - p.x) * f, y: p.y + (q.y - p.y) * f});
+  }
+  // Each point: how far along (u, 0-1) and how far off to the right (e), as shares of the swipe's length. bend: the
+  // arc 4 bend u (1 - u) that fits it best; tilt: how much more it bows out in its second half than its first (an even
+  // arc, none).
+  let eq = 0, qq = 0, late = 0, early = 0;
+  even.forEach(p => {
+    const u = ((p.x - a.x) * cx + (p.y - a.y) * cy) / L, e = ((p.x - a.x) * nx + (p.y - a.y) * ny) / L, q = 4 * u * (1 - u);
+    eq += e * q; qq += q * q;
+    if (u > .5 + 1e-6) late += e; else if (u < .5 - 1e-6) early += e;
+  });
+  return {bend: clamp(qq > 0 ? eq / qq : 0, -.5, .5), tilt: clamp((late - early) * 2 / even.length, -.5, .5)};
+}
 /** A flick (dx, dy: its travel on screen in px, up negative; speed: px a millisecond near its end) as a kick: theta, the
  *  aim (radians off straight downfield, + right), so that a flick at the posts on screen goes at the posts; v, the
  *  leg (yards a second), from the flick's speed. aim, from the screen (views/kick.js): the tangent of the line from the
  *  tee to where the flick's line crosses the crossbar's height on screen, at the posts' distance; without it, the
  *  flick's angle on screen read through the camera. Null for a flick that doesn't go up the screen. */
-export function launchOf({dx, dy, speed, aim}) {
+export function launchOf({dx, dy, speed, aim, curve}) {
   if (!(dy < -24)) return null;
   const alpha = clamp(Math.atan2(dx, -dy), -1.3, 1.3);
   const theta = clamp(Number.isFinite(aim) ? Math.atan(aim) : Math.atan(Math.tan(alpha) * CAM.h / CAM.back), -1.1, 1.1);
-  const v = clamp(13 + speed * 9.5, 14, 33);
-  return {theta, v};
+  const v = clamp(19.9 + speed * 9.3, V_MIN, V_MAX);
+  const c = curve || {}, bend = Number.isFinite(c.bend) && Math.abs(c.bend) >= BEND_DEAD ? c.bend : 0;
+  const tilt = Number.isFinite(c.tilt) && Math.abs(c.tilt) >= TILT_DEAD ? c.tilt : 0;
+  return {theta, v, bend, tilt};
 }
 /** A kick's flight and its call. made; why: 'good', 'wide-l', 'wide-r', 'post' (off an upright), 'bar' (off the
- *  crossbar), 'short'; d (the kick's distance); tCross (when it reaches the posts' plane, or null); at ({x, y} there,
- *  x from the posts' middle); pos(t) -> {x, y, z} (the world); tEnd (when to stop drawing it). */
+ *  crossbar), 'short', 'blocked' (it hit something in the way: hit); d (the kick's distance); tCross (when it reaches
+ *  the posts' plane, or null); at ({x, y} there, x from the posts' middle); pos(t) -> {x, y, z} (the world); tEnd
+ *  (when to stop drawing it). */
 export function fly(kick, launch) {
-  const {d, gx, w, dir} = kick, {theta, v} = launch;
+  const {d, gx, w, dir} = kick, {theta, v} = launch, bend = launch.bend || 0, tilt = launch.tilt || 0;
   const a = dir * Math.PI / 180, wx = w * Math.sin(a), az = WIND_ALONG * w * Math.cos(a);
   const vh = v * Math.cos(ELEV), vx = vh * Math.sin(theta), vz = vh * Math.cos(theta), vy = v * Math.sin(ELEV);
-  const pos = t => ({x: vx * t + wx * (WIND_ACROSS.v * t + WIND_ACROSS.a * t * t), y: Math.max(0, vy * t - .5 * GRAV * t * t), z: vz * t + .5 * az * t * t});
+  const zAt = t => vz * t + .5 * az * t * t;
+  // the swipe's shape, laid along the way to the posts
+  const curveX = z => { const s = z / d; return d * (BEND * 4 * bend * s * (1 - s) + TILT * tilt * s); };
+  const free = t => { const z = zAt(t); return {x: vx * t + wx * (WIND_ACROSS.v * t + WIND_ACROSS.a * t * t) + curveX(z), y: Math.max(0, vy * t - .5 * GRAV * t * t), z}; };
   const tLand = 2 * vy / GRAV;
-  // When it reaches the posts' plane (z = d), if it does before it lands.
-  let tCross = null;
-  if (Math.abs(az) < 1e-6) tCross = d / vz;
-  else {
-    const disc = vz * vz + 2 * az * d;
-    if (disc >= 0) tCross = (-vz + Math.sqrt(disc)) / az;
-  }
-  if (tCross != null && (!(tCross > 0) || tCross > tLand)) tCross = null;
-  let why = 'short', at = null;
+  // When it reaches the plane z = Z (going forward), if it does before it lands.
+  const tAt = Z => {
+    let t = null;
+    if (Math.abs(az) < 1e-6) t = Z / vz;
+    else { const disc = vz * vz + 2 * az * Z; if (disc >= 0) t = (-vz + Math.sqrt(disc)) / az; }
+    return t != null && t > 0 && t <= tLand ? t : null;
+  };
+  // Something in the way: the first thing it reaches, if it's there and low enough (it always is) when it gets there.
+  let hit = null, tHit = null;
+  (kick.obs || []).slice().sort((p, q) => p.z - q.z).forEach(o => {
+    if (hit) return;
+    const t = tAt(o.z);
+    if (t == null) return;
+    const p = free(t);
+    if (Math.abs(p.x - o.x) < o.half + .15 && p.y < o.h) { hit = o; tHit = t; }
+  });
+  let tCross = tAt(d);
+  if (hit) tCross = null;
+  // Blocked: it smacks into it, pops back a little and drops.
+  const pos = hit ? t => {
+    if (t <= tHit) return free(t);
+    const p = free(tHit), u = t - tHit;
+    return {x: p.x + (p.x > hit.x ? 1 : -1) * u * 1.5, y: Math.max(0, p.y + 2 * u - .5 * GRAV * u * u), z: p.z - .4 - u * 3};
+  } : free;
+  let why = hit ? 'blocked' : 'short', at = null;
   if (tCross != null) {
     const p = pos(tCross), rel = p.x - gx, ar = Math.abs(rel);
     at = {x: rel, y: p.y};
@@ -119,10 +213,10 @@ export function fly(kick, launch) {
     else if (p.y >= POST.bar - .25) why = 'bar';
     else why = 'short';
   }
-  const tEnd = Math.min(tLand, tCross != null ? tCross + .9 : tLand);
-  return {made: why === 'good', why, d, tCross, at, pos, tEnd, tLand};
+  const tEnd = hit ? tHit + .9 : Math.min(tLand, tCross != null ? tCross + .9 : tLand);
+  return {made: why === 'good', why, d, tCross, at, pos, tEnd, tLand, hit, tHit};
 }
-export const CALLS = {good: 'It’s good!', 'wide-l': 'Wide left', 'wide-r': 'Wide right', post: 'Off the upright', bar: 'Off the crossbar', short: 'Short'};
+export const CALLS = {good: 'It’s good!', 'wide-l': 'Wide left', 'wide-r': 'Wide right', post: 'Off the upright', bar: 'Off the crossbar', short: 'Short', blocked: 'Blocked!'};
 /** What the wind did to a kick: 'took' (a miss that would have been good in calm air), 'carried' (good only because of
  *  the wind), or null (it made no difference, or there was none). */
 export function windCall(kick, launch, call) {

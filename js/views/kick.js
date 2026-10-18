@@ -18,7 +18,7 @@ const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 const ST = new WeakMap(); // ctx -> pane state
 
 // The stylesheet's mark (--kk-css on :root): a home-screen app open across an update adds the current file.
-const CSS_V = '3';
+const CSS_V = '4';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--kk-css').trim() === CSS_V || document.querySelector('link[data-kk-css]')) return;
@@ -82,11 +82,12 @@ function overHTML(st) {
     + `<p class="kk-over-s">${esc(d.longest ? `Longest ${d.longest} yds · ${d.yards} yds in all · ${plural(d.list.length, 'kick')}` : `${plural(d.list.length, 'kick')}, none through`)}</p>`
     + `<p class="kk-over-t">${ui.icon('clock', {size: 14})}<span>${esc(`New kicks in ${ui.untilText(msToMidnight())}`)}</span></p></div>`;
 }
-// How to kick, under the stage: always there, three short steps.
+// How to kick, under the stage: always there, four short steps.
 const HOW = `<section class="kk-steps" aria-labelledby="kk-steps-t"><h2 class="kk-steps-t" id="kk-steps-t">How to kick</h2><ol>`
   + `<li><span><b>Touch the ball</b> on the tee.</span></li>`
   + `<li><span><b>Slide up</b> toward the posts and let go. The faster you flick, the farther it flies.</span></li>`
   + `<li><span><b>Play the wind.</b> It pushes the ball sideways, more the farther the kick. The arrow up top, the flags on the posts and the streaks show which way it blows and how hard, so aim into it.</span></li>`
+  + `<li><span><b>Bend it around things.</b> From the fifth kick, giant things get in the way, too tall to kick over. Swipe in an arc and the ball curves the same way. Keep the arc even and it comes back to the posts; a lopsided swipe won’t come back true.</span></li>`
   + `</ol></section>`;
 // The guide's finger (a hand, index finger up; the ring at its tip is where it touches).
 const HAND = `<svg viewBox="0 0 44 56"><circle class="kk-guide-ring" cx="17" cy="7" r="7"/>`
@@ -124,8 +125,9 @@ function bodyHTML(st) {
     + `<div class="kk-gusts" data-kk-gusts aria-hidden="true"></div>`
     + `<div class="kk-hud" data-kk-hud>${hudHTML(st)}</div>`
     + `<p class="kk-call" data-kk-call aria-live="polite"></p>`
-    + `<div class="kk-guide" data-kk-guide hidden aria-hidden="true"><i class="kk-guide-trail"></i><span class="kk-guide-hand">${HAND}</span></div>`
-    + `<p class="kk-hint" data-kk-hint hidden>${ui.icon('arrow-up', {size: 16})}<span>Slide up from the ball to kick</span></p>`
+    + `<div class="kk-guide" data-kk-guide hidden aria-hidden="true"><svg class="kk-guide-svg"><path class="kk-guide-trail" d="M0 0"/></svg><span class="kk-guide-hand">${HAND}</span></div>`
+    + `<p class="kk-hint" data-kk-hint hidden>${ui.icon('arrow-up', {size: 16})}<span data-kk-hint-t>Slide up from the ball to kick</span></p>`
+    + `<p class="kk-alert" data-kk-alert hidden role="status"><b>Look out!</b><span>Something’s in the way. Swipe in an even arc to bend the ball around it.</span></p>`
     + `<div class="kk-over" data-kk-over${st.day.done ? '' : ' hidden'}>${st.day.done ? overHTML(st) : ''}</div></div>`
     + HOW
     + `<p class="kk-how">${esc(`Three misses ends your run. New kicks every day, the same for everyone.`)}</p>`
@@ -259,6 +261,126 @@ function drawPosts(st, c, sc, t) {
     c.beginPath(); c.moveTo(at.x, at.y); c.quadraticCurveTo((at.x + ex) / 2 + flap * len, (at.y + ey) / 2 - flap * len * .3, ex, ey); c.stroke();
   });
 }
+// ---------------------------------------------------------------- The things in the way
+// Each drawn standing on the turf, facing us, in yards from its foot (x across, y up: the canvas is flipped so y runs
+// up), scaled by how far off it is; pop (0-1) grows it in when the posts move to a new kick.
+const OB_DRAW = {
+  wall(c, o) {
+    const hw = o.half, h = o.h, row = h / 20;
+    const g = c.createLinearGradient(-hw, 0, hw, 0);
+    g.addColorStop(0, '#C0503A'); g.addColorStop(.6, '#A63D2A'); g.addColorStop(1, '#7E2C1D');
+    c.fillStyle = g; c.fillRect(-hw, 0, hw * 2, h);
+    // mortar: the courses and the joints, every other course offset by half a brick
+    c.strokeStyle = 'rgba(236,214,186,.6)'; c.lineWidth = row * .14;
+    c.beginPath();
+    for (let j = 1; j < 20; j++) { c.moveTo(-hw, j * row); c.lineTo(hw, j * row); }
+    for (let j = 0; j < 20; j++) for (let x = -hw + (j % 2 ? .55 : 0) + 1.1; x < hw - .05; x += 1.1) { c.moveTo(x, j * row); c.lineTo(x, (j + 1) * row); }
+    c.stroke();
+    // the coping on top, and a sign
+    c.fillStyle = '#D9C9B0'; c.fillRect(-hw - .15, h - .35, hw * 2 + .3, .45);
+    c.fillStyle = '#F4F1EA'; c.fillRect(-1.6, h * .55, 3.2, 1.3);
+    c.save(); c.scale(.05, -.05); c.fillStyle = '#C8102E'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.font = `800 12.4px "Barlow Condensed", "Arial Narrow", sans-serif`; c.fillText('NO KICKING', 0, -(h * .55 + .65) * 20); c.restore();
+  },
+  dino(c, o, t) {
+    // a T-rex side on, in a 100 x 100 box (y down), facing o.face
+    const s = o.h / 100, w = o.half * 2 / 100;
+    c.save(); c.scale(o.face * w, -s); c.translate(-50, -100);
+    const P = [[98, 12], [99, 19], [93, 21], [80, 21], [80, 25], [95, 28], [93, 34], [74, 35], [70, 41], [73, 46], [81, 50], [80, 54], [70, 51],
+      [66, 59], [62, 67], [60, 80], [63, 95], [72, 100], [51, 100], [51, 91], [47, 79], [44, 92], [47, 100], [30, 100], [33, 87], [35, 73],
+      [29, 67], [0, 74], [3, 65], [27, 50], [39, 33], [54, 22], [60, 8], [75, 2], [91, 4]];
+    c.beginPath(); P.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y))); c.closePath();
+    const g = c.createLinearGradient(0, 0, 0, 100);
+    g.addColorStop(0, '#5BC160'); g.addColorStop(1, '#2F8A3C');
+    c.fillStyle = g; c.fill();
+    c.strokeStyle = '#1E5E28'; c.lineWidth = 1.6; c.stroke();
+    // the belly, the teeth, the eye (blinking now and then)
+    c.fillStyle = 'rgba(214,240,170,.55)'; c.beginPath(); c.ellipse(60, 52, 9, 13, -.4, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#fff';
+    for (let x = 82; x < 94; x += 4) { c.beginPath(); c.moveTo(x, 21); c.lineTo(x + 2, 24); c.lineTo(x + 4, 21); c.fill(); }
+    const blink = (t % 3.2) < .12;
+    c.fillStyle = '#fff'; c.beginPath(); c.ellipse(83, 10, 3.4, blink ? .6 : 3, 0, 0, Math.PI * 2); c.fill();
+    if (!blink) { c.fillStyle = '#111'; c.beginPath(); c.arc(84.2, 10.4, 1.6, 0, Math.PI * 2); c.fill(); }
+    c.restore();
+  },
+  duck(c, o) {
+    const f = o.face, hw = o.half;
+    c.save(); c.scale(1, o.h / 10.3); // drawn 10.3 tall
+    const yel = c.createLinearGradient(0, 0, 0, 10.3);
+    yel.addColorStop(0, '#E8A900'); yel.addColorStop(.5, '#FFD21F'); yel.addColorStop(1, '#FFE873');
+    c.fillStyle = yel;
+    // body and tail, then the head
+    c.beginPath(); c.ellipse(0, 3.2, hw, 3.1, 0, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.moveTo(-f * hw * .7, 4.6); c.quadraticCurveTo(-f * hw * 1.15, 7.2, -f * hw * .95, 7.4); c.quadraticCurveTo(-f * hw * .6, 6, -f * hw * .3, 5.6); c.fill();
+    c.beginPath(); c.arc(f * hw * .32, 7.8, hw * .78, 0, Math.PI * 2); c.fill();
+    c.fillStyle = 'rgba(200,140,0,.45)'; c.beginPath(); c.ellipse(-f * hw * .15, 3.5, hw * .5, 1.2, f * .25, 0, Math.PI * 2); c.fill();
+    // the beak, the eye, a shine
+    c.fillStyle = '#FF7A1A'; c.beginPath(); c.ellipse(f * hw * 1.05, 7.4, hw * .42, .55, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#111'; c.beginPath(); c.arc(f * hw * .62, 8.4, .36, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#fff'; c.beginPath(); c.arc(f * hw * .66, 8.55, .12, 0, Math.PI * 2); c.fill();
+    c.fillStyle = 'rgba(255,255,255,.45)'; c.beginPath(); c.ellipse(-f * hw * .05, 9.4, hw * .3, .45, 0, 0, Math.PI * 2); c.fill();
+    c.restore();
+  },
+  tube(c, o, t) {
+    // an inflatable tube man, flailing: the blower at its foot, the tube waving, arms everywhere
+    c.fillStyle = '#5B6474'; c.fillRect(-1.1, 0, 2.2, 1.1);
+    const wave = y => Math.sin(y * .55 - t * 6) * .55 * (y / o.h);
+    c.lineCap = 'round'; c.lineJoin = 'round';
+    const tube = (col, wdt) => { c.strokeStyle = col; c.lineWidth = wdt; c.beginPath(); for (let y = 1; y <= o.h - .6; y += .4) (y === 1 ? c.moveTo(wave(y), y) : c.lineTo(wave(y), y)); c.stroke(); };
+    tube('#C81E14', 1.25); tube('#FF3B30', .95);
+    const sy = o.h * .72, sx = wave(sy);
+    [-1, 1].forEach(k => {
+      const ang = Math.sin(t * 7 + k * 1.7) * .9;
+      const mx = sx + k * 1.1, my = sy + .6 + Math.cos(t * 5 + k) * .4, ex = mx + k * Math.cos(ang) * 1.1, ey = my + Math.sin(ang) * 1.3 + .4;
+      c.strokeStyle = '#FF3B30'; c.lineWidth = .55; c.beginPath(); c.moveTo(sx, sy); c.quadraticCurveTo(mx, my, ex, ey); c.stroke();
+    });
+    // the face, the hair
+    const hx = wave(o.h - .9), hy = o.h - 1.1;
+    c.fillStyle = '#fff'; [-1, 1].forEach(k => { c.beginPath(); c.arc(hx + k * .22, hy + .15, .2, 0, Math.PI * 2); c.fill(); });
+    c.fillStyle = '#111'; [-1, 1].forEach(k => { c.beginPath(); c.arc(hx + k * .22, hy + .12, .09, 0, Math.PI * 2); c.fill(); });
+    c.strokeStyle = '#111'; c.lineWidth = .08; c.beginPath(); c.arc(hx, hy - .2, .28, Math.PI * 1.15, Math.PI * 1.85, true); c.stroke();
+    c.strokeStyle = '#FFD21F'; c.lineWidth = .18;
+    c.beginPath(); for (let k = -3; k <= 3; k++) { c.moveTo(hx + k * .12, o.h - .5); c.lineTo(hx + k * .2 + Math.sin(t * 9 + k) * .12, o.h + .25); } c.stroke();
+  },
+  cactus(c, o) {
+    const g = c.createLinearGradient(-1, 0, 1, 0);
+    g.addColorStop(0, '#3DB86A'); g.addColorStop(1, '#22803F');
+    c.lineCap = 'round'; c.lineJoin = 'round';
+    const limb = (pts, wdt) => {
+      c.strokeStyle = '#1C6B35'; c.lineWidth = wdt + .2; c.beginPath(); pts.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y))); c.stroke();
+      c.strokeStyle = g; c.lineWidth = wdt; c.stroke();
+    };
+    const hw = o.half;
+    limb([[0, .5], [0, o.h - .8]], 1.6);
+    limb([[0, o.h * .39], [-hw + .55, o.h * .39], [-hw + .55, o.h * .66]], 1.05);
+    limb([[0, o.h * .54], [hw - .55, o.h * .54], [hw - .55, o.h * .8]], 1.05);
+    // the ribs, and a flower on top
+    c.strokeStyle = 'rgba(200,255,210,.35)'; c.lineWidth = .08;
+    c.beginPath(); [-.35, 0, .35].forEach(x => { c.moveTo(x, .6); c.lineTo(x, o.h - .9); }); c.stroke();
+    c.fillStyle = '#FF5FA2'; c.beginPath(); c.arc(0, o.h - .1, .45, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#FFE14D'; c.beginPath(); c.arc(0, o.h - .1, .17, 0, Math.PI * 2); c.fill();
+  }
+};
+function drawObstacle(st, c, o, t, pop, shake) {
+  const b = proj(st, o.x, 0, o.z);
+  if (b.s <= 0 || pop <= 0) return;
+  // its shadow on the turf
+  c.fillStyle = 'rgba(0,0,0,.28)'; c.beginPath(); c.ellipse(b.x, b.y, o.half * b.s * 1.05, Math.max(2, o.half * b.s * .16), 0, 0, Math.PI * 2); c.fill();
+  c.save();
+  c.translate(b.x + (shake ? Math.sin(t * 60) * shake * b.s * .25 : 0), b.y);
+  c.scale(b.s * pop, -b.s * pop); // yards, y up
+  try { (OB_DRAW[o.t] || OB_DRAW.wall)(c, o, t); } finally { c.restore(); }
+}
+// A bonk: a star where the ball hit, for a moment.
+function drawBonk(st, c, f) {
+  const u = f.t - f.call.tHit;
+  if (!(u >= 0 && u < .45)) return;
+  const q = f.call.pos(f.call.tHit), p = proj(st, q.x, q.y, q.z), r = Math.max(10, .9 * p.s) * (.6 + u * 2), a = 1 - u / .45;
+  c.save(); c.translate(p.x, p.y); c.rotate(u * 3);
+  c.fillStyle = `rgba(255,236,120,${a})`; c.beginPath();
+  for (let k = 0; k < 16; k++) { const rr = k % 2 ? r * .45 : r; c.lineTo(Math.cos(k * Math.PI / 8) * rr, Math.sin(k * Math.PI / 8) * rr); }
+  c.closePath(); c.fill(); c.restore();
+}
 const BALL = {len: .36, wid: .22};
 function drawBall(st, c, b, spin, onTee) {
   const p = proj(st, b.x, b.y, b.z), sh = proj(st, b.x, 0, b.z);
@@ -309,11 +431,20 @@ function draw(st, now = performance.now()) {
   // the ball behind the posts is drawn before them, in front after
   const f = st.flight, ball = f ? f.call.pos(f.t) : {x: 0, y: .15, z: 0};
   const spin = f ? f.t * 12 : 0;
-  const behind = f && ball.z > sc.d;
   if (f) drawTrail(st, c, f);
-  if (st.ballOn !== false && behind) drawBall(st, c, ball, spin, false);
-  drawPosts(st, c, sc, t);
-  if (st.ballOn !== false && !behind) drawBall(st, c, ball, spin, !f);
+  // far to near: the posts, the things in the way, the ball where it is among them; then a ghost of the posts over
+  // anything hiding them, so the target always shows
+  const obs = sc.obs || [], hitOb = f && f.call.hit && f.t >= f.call.tHit ? f.call.hit : null;
+  const items = [{z: sc.d + .01, draw: () => drawPosts(st, c, sc, t)}]
+    .concat(obs.map(o => ({z: o.z, ob: true, draw: () => drawObstacle(st, c, o, t, sc.pop == null ? 1 : sc.pop, o === hitOb ? Math.max(0, 1 - (f.t - f.call.tHit) * 2.5) : 0)})));
+  if (st.ballOn !== false) items.push({z: ball.z, draw: () => drawBall(st, c, ball, spin, !f)});
+  items.sort((p, q) => q.z - p.z);
+  const lastOb = items.map(x => !!x.ob).lastIndexOf(true);
+  items.forEach((x, i) => {
+    x.draw();
+    if (i === lastOb) { c.save(); c.globalAlpha = .4; drawPosts(st, c, sc, t); c.restore(); }
+  });
+  if (f && f.call.hit) drawBonk(st, c, f);
   // the flick's trail while the finger is down
   if (st.drag && st.drag.pts.length > 1) {
     c.strokeStyle = 'rgba(255,255,255,.35)'; c.lineWidth = 3; c.lineCap = 'round';
@@ -327,14 +458,46 @@ function draw(st, now = performance.now()) {
 // others after a few idle seconds; and at once after a touch that wasn't a kick. Gone the moment a finger is down.
 const GUIDE_IDLE = 5000;
 const canKick = st => !st.dead && !st.busy && !st.day.done && !st.flight && !st.move && !st.drag;
+let PATH_OK = null; // the finger rides the path (CSS offset-path); without it, it waits at the ball
+/** Which way to bend around what's in the way: away from the first thing's side of the line to the posts (or from
+ *  the second thing's, when the first stands square on it). -1 left, +1 right; 0 with nothing in the way. */
+function bendSide(k) {
+  const obs = (k.obs || []).slice().sort((a, b) => a.z - b.z);
+  if (!obs.length) return 0;
+  const off = o => o.x - k.gx * o.z / k.d;
+  if (Math.abs(off(obs[0])) > .3) return off(obs[0]) > 0 ? -1 : 1;
+  return obs[1] ? (off(obs[1]) > 0 ? -1 : 1) : -1;
+}
 function placeGuide(st) {
-  const g = st.el.querySelector('[data-kk-guide]');
-  if (!g || !st.scene) return;
+  const g = st.el.querySelector('[data-kk-guide]'), k = st.kicks[st.i];
+  if (!g || !st.scene || !k) return;
   const ball = proj(st, 0, .15, 0), cb = proj(st, st.scene.gx, K.POST.bar, st.scene.d);
   let dx = cb.x - ball.x, dy = cb.y - ball.y;
   const len = Math.hypot(dx, dy) || 1, go = Math.min(len * .8, st.H * .42);
   dx *= go / len; dy *= go / len;
-  g.style.cssText = `--x0:${ball.x.toFixed(1)}px;--y0:${ball.y.toFixed(1)}px;--dx:${dx.toFixed(1)}px;--dy:${dy.toFixed(1)}px;--len:${go.toFixed(1)}px;--ang:${Math.atan2(dx, -dy).toFixed(4)}rad`;
+  // an even arc, bowed a third of its length to the free side (a quadratic's control point sits twice as far out)
+  const side = bendSide(k), nx = -dy / go, ny = dx / go, out = side * go * .3 * 2;
+  const ex = ball.x + dx, ey = ball.y + dy, qx = ball.x + dx / 2 + nx * out, qy = ball.y + dy / 2 + ny * out;
+  const d = side ? `M${ball.x.toFixed(1)} ${ball.y.toFixed(1)} Q${qx.toFixed(1)} ${qy.toFixed(1)} ${ex.toFixed(1)} ${ey.toFixed(1)}` : `M${ball.x.toFixed(1)} ${ball.y.toFixed(1)} L${ex.toFixed(1)} ${ey.toFixed(1)}`;
+  const path = g.querySelector('.kk-guide-trail'), hand = g.querySelector('.kk-guide-hand');
+  path.setAttribute('d', d);
+  let pl = go;
+  try { pl = path.getTotalLength() || go; } catch (_) {}
+  g.style.setProperty('--pl', pl.toFixed(1));
+  if (PATH_OK == null) { try { PATH_OK = CSS.supports('offset-path', "path('M0 0 L1 1')"); } catch (_) { PATH_OK = false; } }
+  if (PATH_OK) { hand.style.offsetPath = `path('${d}')`; hand.style.left = hand.style.top = '0px'; }
+  else { hand.style.left = `${(ball.x - 17).toFixed(1)}px`; hand.style.top = `${(ball.y - 7).toFixed(1)}px`; }
+  g.classList.toggle('no-path', !PATH_OK);
+  const t = st.el.querySelector('[data-kk-hint-t]');
+  if (t) t.textContent = side ? 'Swipe in an arc to bend it around' : 'Slide up from the ball to kick';
+}
+/** "Look out!": the first kick with something in the way, once a run, for a few seconds (or till a finger's down). */
+function alertFor(st, on) {
+  const a = st.el.querySelector('[data-kk-alert]');
+  if (!a) return;
+  clearTimeout(st.alertT);
+  a.hidden = !on;
+  if (on) st.alertT = setTimeout(() => { a.hidden = true; }, 4500);
 }
 function guide(st, on) {
   const g = st.el.querySelector('[data-kk-guide]'), h = st.el.querySelector('[data-kk-hint]');
@@ -352,19 +515,22 @@ function guide(st, on) {
 function armGuide(st) {
   clearTimeout(st.guideT);
   if (!canKick(st)) return;
-  if (!st.day.list.length || !K.totals().played) guide(st, true);
+  const first = st.i === K.OBS_FROM;
+  if (first) alertFor(st, true);
+  if (!st.day.list.length || !K.totals().played || first) guide(st, true);
   else st.guideT = setTimeout(() => guide(st, true), GUIDE_IDLE);
 }
 
 // ============================================================================ Play
 const callWords = call => (call.made ? K.CALLS.good : call.why === 'short' ? 'Short' : K.CALLS[call.why]);
-function setScene(st, k) { st.scene = {d: k.d, gx: k.gx, w: k.w, dir: k.dir}; }
+function setScene(st, k) { st.scene = {d: k.d, gx: k.gx, w: k.w, dir: k.dir, obs: k.obs || [], pop: 1}; }
 function patchHud(st) {
   const h = st.el.querySelector('[data-kk-hud]');
   if (h) h.innerHTML = hudHTML(st);
   patchGusts(st);
   const cv = st.cv, k = st.kicks[st.i];
-  if (cv && k) cv.setAttribute('aria-label', `Kick ${st.i + 1}: ${k.d} yards, the posts ${k.gx > 1 ? `${Math.round(k.gx)} yards to the right` : k.gx < -1 ? `${Math.round(-k.gx)} yards to the left` : 'straight ahead'}. ${windWords(k)}.`);
+  const inWay = k && k.obs && k.obs.length ? ` In the way: ${k.obs.map(o => `a ${(K.OBSTACLES[o.t] || {}).name}`).join(', ')}.` : '';
+  if (cv && k) cv.setAttribute('aria-label', `Kick ${st.i + 1}: ${k.d} yards, the posts ${k.gx > 1 ? `${Math.round(k.gx)} yards to the right` : k.gx < -1 ? `${Math.round(-k.gx)} yards to the left` : 'straight ahead'}. ${windWords(k)}.${inWay}`);
 }
 function loop(st) {
   if (st.raf) return;
@@ -375,14 +541,17 @@ function loop(st) {
     if (st.flight) {
       const f = st.flight;
       f.t = Math.min(f.call.tEnd, (now - f.t0) / 1000);
-      if (!f.called && f.call.tCross != null && f.t >= f.call.tCross) { f.called = true; showCall(st, f.call, f.wind); }
+      const callAt = f.call.tCross != null ? f.call.tCross : f.call.tHit;
+      if (!f.called && callAt != null && f.t >= callAt) { f.called = true; showCall(st, f.call, f.wind); }
       // down: the ball's gone until the next one's on the tee
       if (f.t >= f.call.tEnd) { if (!f.called) { f.called = true; showCall(st, f.call, f.wind); } st.flight = null; st.ballOn = false; settle(st, f.call); }
       else more = true;
     }
     if (st.move) {
       const m = st.move, p = Math.min(1, (now - m.t0) / m.ms), e = 1 - Math.pow(1 - p, 3);
-      st.scene = {d: m.a.d + (m.b.d - m.a.d) * e, gx: m.a.gx + (m.b.gx - m.a.gx) * e, w: m.b.w, dir: m.b.dir};
+      // the new kick's things pop up once the posts have nearly arrived
+      const pp = Math.max(0, Math.min(1, (p - .45) / .55)), pop = pp >= 1 ? 1 : 1 + 2.2 * Math.pow(pp - 1, 3) + 1.2 * Math.pow(pp - 1, 2);
+      st.scene = {d: m.a.d + (m.b.d - m.a.d) * e, gx: m.a.gx + (m.b.gx - m.a.gx) * e, w: m.b.w, dir: m.b.dir, obs: m.b.obs, pop: Math.max(0, pop)};
       if (p >= 1) { st.move = null; armGuide(st); } else more = true;
     }
     if (st.drag) more = true;
@@ -395,8 +564,10 @@ const WIND_SAYS = {took: 'The wind took it', carried: 'The wind carried it throu
 function showCall(st, call, wind) {
   const el = st.el.querySelector('[data-kk-call]');
   if (!el) return;
-  el.innerHTML = `<span>${esc(callWords(call))}</span>${wind ? `<span class="kk-call-w">${esc(WIND_SAYS[wind])}</span>` : ''}`;
-  el.className = `kk-call is-in ${call.made ? 'is-good' : 'is-miss'}${wind ? ' has-w' : ''}`;
+  // the line under it: what stopped it, or what the wind did
+  const note = call.hit ? (K.OBSTACLES[call.hit.t] || {}).says : wind ? WIND_SAYS[wind] : '';
+  el.innerHTML = `<span>${esc(callWords(call))}</span>${note ? `<span class="kk-call-w">${esc(note)}</span>` : ''}`;
+  el.className = `kk-call is-in ${call.made ? 'is-good' : 'is-miss'}${note ? ' has-w' : ''}`;
   ui.haptic(call.made ? 'success' : 'error');
 }
 function settle(st, call) {
@@ -411,7 +582,7 @@ function settle(st, call) {
     const from = st.scene;
     st.i = st.day.next;
     const k = st.kicks[st.i];
-    st.move = {a: from, b: {d: k.d, gx: k.gx, w: k.w, dir: k.dir}, t0: performance.now(), ms: ui.RM ? 1 : 650};
+    st.move = {a: from, b: {d: k.d, gx: k.gx, w: k.w, dir: k.dir, obs: k.obs || []}, t0: performance.now(), ms: ui.RM ? 1 : (k.obs && k.obs.length ? 900 : 650)};
     st.ballOn = true;
     st.busy = false;
     patchHud(st);
@@ -432,13 +603,15 @@ function finish(st) {
   K.autoPost();
   patchBoard(st);
 }
-/** A flick: from the ball, up the screen. Its direction aims; its speed over the last few frames is the leg. */
+/** A swipe: from the ball, up the screen. Its line aims; its speed over the last few frames is the leg; its shape bends
+ *  the kick (an even arc curves the ball around and back to the posts; a lopsided one doesn't come back true). */
 function onDown(st, e) {
   if (st.busy || st.day.done || st.flight || st.move || !e.isPrimary) return;
   const r = st.cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
   st.drag = {id: e.pointerId, x0: x, y0: y, pts: [{x, y, t: performance.now()}]};
   try { st.pad.setPointerCapture(e.pointerId); } catch (_) {}
   guide(st, false);
+  alertFor(st, false);
   loop(st);
 }
 function onMove(st, e) {
@@ -446,7 +619,7 @@ function onMove(st, e) {
   if (!g || e.pointerId !== g.id) return;
   const r = st.cv.getBoundingClientRect();
   g.pts.push({x: e.clientX - r.left, y: e.clientY - r.top, t: performance.now()});
-  if (g.pts.length > 24) g.pts.shift();
+  if (g.pts.length > 400) g.pts.splice(1, 1); // the whole swipe: its shape bends the kick
 }
 function onUp(st, e) {
   const g = st.drag;
@@ -462,7 +635,7 @@ function onUp(st, e) {
   let aim;
   const ball = proj(st, 0, .15, 0), cb = proj(st, k.gx, K.POST.bar, k.d);
   if (dy < 0 && cb.y < ball.y) aim = ((ball.x + dx * (cb.y - ball.y) / dy - st.W / 2) * (k.d + K.CAM.back) / st.f) / k.d;
-  const launch = e.type === 'pointercancel' ? null : K.launchOf({dx, dy, speed, aim});
+  const launch = e.type === 'pointercancel' ? null : K.launchOf({dx, dy, speed, aim, curve: K.curveOf(g.pts)});
   if (!launch) { draw(st); guide(st, true); return; }
   const call = K.fly(k, launch);
   // saved the moment it's kicked, so leaving (or reloading) with the ball in the air doesn't take it back
@@ -564,6 +737,7 @@ export function unmount(el, ctx) {
   st.dead = true;
   st.timers.forEach(clearTimeout);
   clearTimeout(st.guideT);
+  clearTimeout(st.alertT);
   if (st.raf) cancelAnimationFrame(st.raf);
   if (st.pad) {
     st.pad.removeEventListener('pointerdown', st.onDown);
