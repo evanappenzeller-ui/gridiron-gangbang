@@ -1531,7 +1531,7 @@ function setupTabBar() {
     if (performance.now() - scrubEnd < 450) return; // the click a scrub's release makes
     const T = b.dataset.tab;
     if (T === S.tab && !(swNew && !typing())) { finishTransitions(); retap(T); return; }
-    goTab(T);
+    slideTo(T);
   });
   setupScrub(bar);
   updateTabBar(S.tab, {animate: false});
@@ -1641,6 +1641,42 @@ const pager = {
 function warmNeighbours(T) {
   const i = TABS.indexOf(T);
   [TABS[i - 1], TABS[i + 1]].forEach(t => { if (t && S.stacks[t]) loadView(topOf(t).route.view).catch(() => {}); });
+}
+
+// ============================================================================ Tap: slide to the tab
+// A tapped tab slides in from the side its icon is on (from the right for a tab further along the bar), the open one
+// sliding out the other way: quick, so it reads as moving across, not as waiting. A tab further than the next one
+// slides straight in (the ones between are skipped). With reduced motion, a cover or a sheet open, or a new version
+// waiting, it opens as before.
+let sliding = null;
+function slideTo(T) {
+  if (sliding) { finishTransitions(); return sliding.then(() => slideTo(T)); }
+  if (ui.RM || pager.on || S.cover || S.sheets.length || (swNew && !typing()) || T === S.tab) return goTab(T);
+  sliding = (async () => {
+    finishTransitions();
+    const ci = TABS.indexOf(S.tab), dir = TABS.indexOf(T) > ci ? 1 : -1, e = topOf(T);
+    moveIndicator($('tabbar').querySelector(`.tab[data-tab="${T}"]`), true);
+    if (!e.scr) await loadViewSafe(e.route.view);
+    if (!e.scr) ensureScreenSync(e, {z: S.stacks[T].length, restore: true, transition: 'none'});
+    if (!e.scr) { await goTab(T); return; } // its view didn't load: the plain switch shows its error
+    e.scr.el.removeAttribute('data-under');
+    const cur = layerOf(S.tab), nxt = layerOf(T), w = $('stage').clientWidth;
+    cur.style.willChange = nxt.style.willChange = 'transform';
+    nxt.style.transform = `translateX(${dir * w}px)`;
+    setLayerHidden(nxt, false);
+    restoreLayerScroll(T);
+    const o = {duration: 260, easing: 'cubic-bezier(.22,1,.36,1)', fill: 'forwards'};
+    const list = [ui.animate(cur, [{transform: 'none'}, {transform: `translateX(${-dir * w}px)`}], o),
+      ui.animate(nxt, [{transform: `translateX(${dir * w}px)`}, {transform: 'none'}], o)];
+    nxt.style.transform = '';
+    await track(list);
+    try { await goTab(T, {motion: false}); } finally {
+      list.forEach(a => a.cancel());
+      cur.style.transform = cur.style.willChange = nxt.style.willChange = '';
+      if (S.tab !== T) setLayerHidden(nxt, true);
+    }
+  })().finally(() => { sliding = null; warmNeighbours(S.tab); });
+  return sliding;
 }
 
 // ============================================================================ Scrub: drag along the tab bar
