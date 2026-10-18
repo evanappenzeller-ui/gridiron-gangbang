@@ -14,7 +14,7 @@ const calm = (d, gx = 0) => ({i: 0, d, gx, w: 0, dir: 0});
 const straight = (k, v = 30) => K.fly(k, {theta: Math.atan(k.gx / k.d), v});
 /** The leg (yards a second) that puts the ball at height y over the bar's plane (bisection; the kick straight). */
 function legFor(k, y) {
-  let lo = 19, hi = 36;
+  let lo = 13, hi = 30;
   for (let i = 0; i < 60; i++) {
     const mid = (lo + hi) / 2, c = straight(k, mid);
     if (c.at && c.at.y >= y) hi = mid; else lo = mid;
@@ -79,7 +79,7 @@ export async function kickChecks(check) {
     let worst = 9, where = '', none = [];
     for (let n = 1; n <= 8; n++) K.kicks(n).forEach(k => {
       let best = 0;
-      [36, 32].forEach(v => [0, -.15, .15, -.3, .3, -.45, .45].forEach(bend => {
+      [30, 27].forEach(v => [0, -.15, .15, -.3, .3, -.45, .45].forEach(bend => {
         if (best >= .06) return; // plenty already
         let lo = null;
         for (let th = -1.1; th <= 1.1; th += .006) {
@@ -92,32 +92,38 @@ export async function kickChecks(check) {
     const deg = worst * 180 / Math.PI;
     return {pass: !none.length && deg >= 2, detail: none.length ? `can't be made: ${none.slice(0, 4).join(', ')}` : `the tightest: ${deg.toFixed(1)} degrees, ${where}`};
   });
-  check('Kick It: from the fifth kick, giant silly things stand in the way (one through the ninth, one or two through the nineteenth, two or three after), squarely on the line to the posts, two fifths to three quarters of the way there, and every one taller than the ball ever flies', () => {
-    let peak = 0;
-    const top = K.fly({d: 99, gx: 0, w: 0, dir: 0}, {theta: 0, v: 36});
-    for (let t = 0; t < top.tLand; t += .01) peak = Math.max(peak, top.pos(t).y);
+  check('Kick It: from the fifth kick, silly things get in the way: out in front of the kicker (a fifth of the way, the 30-yard line on a 50-yarder; taller than any kick is there), or a brick wall in the goal, flush with an upright, closing a quarter or half of the opening, as tall as the uprights; one thing through the ninth kick, the wall every kick from the twentieth', () => {
+    const top = K.fly({d: 99, gx: 0, w: 0, dir: 0, obs: []}, {theta: 0, v: 30});
+    const heightAt = z => { let t = 0; while (top.pos(t).z < z) t += .005; return top.pos(t).y; };
     let ok = true;
-    const bad = [];
+    const bad = [], seen = new Set();
     for (let n = 1; n <= 20; n++) K.kicks(n).forEach(k => {
-      const c = k.obs.length, want = k.i < K.OBS_FROM ? [0] : k.i < 9 ? [1] : k.i < 19 ? [1, 2] : [2, 3];
-      const first = k.obs.slice().sort((a, b) => a.z - b.z)[0];
-      const fine = want.includes(c) && k.obs.every(o => K.OBSTACLES[o.t] && o.z >= k.d * .37 && o.z <= k.d * .76 && o.h > peak + .5 && o.half > 0)
-        && (!first || Math.abs(first.x - k.gx * first.z / k.d) <= first.half * .5 + .05 || k.obs.some(o => Math.abs(o.x - k.gx * o.z / k.d) <= o.half * .5 + .05));
+      const walls = k.obs.filter(o => o.t === 'wall'), front = k.obs.filter(o => o.t !== 'wall');
+      let fine = k.i < K.OBS_FROM ? !k.obs.length : k.obs.length >= 1 && walls.length <= 1 && front.length <= 2;
+      if (k.i >= K.OBS_FROM && k.i < 9) fine = fine && k.obs.length === 1;
+      if (k.i >= 19) fine = fine && walls.length === 1 && front.length >= 1;
+      front.forEach(o => { seen.add(o.t); fine = fine && o.z >= 4.9 && o.z <= 11.1 && o.h > heightAt(o.z) + .3 && o.half > 0; });
+      walls.forEach(w => {
+        seen.add('wall');
+        const inner = w.x - w.face * w.half, upright = k.gx + w.face * K.POST.half, outer = w.x + w.face * w.half;
+        const closes = Math.abs(upright - inner) / (K.POST.half * 2);
+        fine = fine && Math.abs(w.z - (k.d - .6)) < .06 && (Math.abs(closes - .25) < .03 || Math.abs(closes - .5) < .03) && Math.abs(Math.abs(outer - upright) - K.WALL_OUT) < .06 && w.h >= K.POST.top;
+      });
       if (!fine && bad.length < 3) bad.push(`day ${n} kick ${k.i + 1}: ${JSON.stringify(k.obs)}`);
       ok = ok && fine;
     });
-    const kinds = new Set();
-    for (let n = 1; n <= 10; n++) K.kicks(n).forEach(k => k.obs.forEach(o => kinds.add(o.t)));
-    const pass = ok && kinds.size === Object.keys(K.OBSTACLES).length && K.OBS_FROM === 4;
-    return {pass, detail: `the ball's highest ${peak.toFixed(2)} yds; the shortest thing ${Math.min(...Object.values(K.OBSTACLES).map(o => o.h))} yds; kinds seen ${[...kinds].join(', ')}${bad.length ? '; ' + bad.join('; ') : ''}`};
+    const pass = ok && seen.size === Object.keys(K.OBSTACLES).length && K.OBS_FROM === 4;
+    return {pass, detail: `kinds seen ${[...seen].join(', ')}${bad.length ? '; ' + bad.join('; ') : ''}`};
   });
-  check('Kick It: the swipe\'s shape bends the kick: a straight kick into something in the way is blocked (called when it hits, with what stopped it), an even arc either way gets around it to the posts; an even arc comes back to the line at the posts, a lopsided swipe doesn\'t', () => {
-    const k5 = K.kicks(1)[4], th = Math.atan(k5.gx / k5.d);
-    const into = K.fly(k5, {theta: th, v: 32, bend: 0, tilt: 0}), left = K.fly(k5, {theta: th, v: 32, bend: -.3, tilt: 0}), right = K.fly(k5, {theta: th, v: 32, bend: .3, tilt: 0});
+  check('Kick It: the swipe\'s shape bends the kick: a straight kick into a cactus out in front is blocked (called when it hits, with what stopped it), an even arc either way gets around it to the posts; a wall across half the goal stops a kick at that half, the open half goes; an even arc comes back to the line at the posts, a lopsided swipe doesn\'t', () => {
+    const cactus = {i: 9, d: 40, gx: 0, w: 0, dir: 0, obs: [{t: 'cactus', x: 0, z: 8, half: 1.8, h: 6.5, face: 1}]};
+    const into = K.fly(cactus, {theta: 0, v: 26, bend: 0, tilt: 0}), left = K.fly(cactus, {theta: 0, v: 26, bend: -.3, tilt: 0}), right = K.fly(cactus, {theta: 0, v: 26, bend: .3, tilt: 0});
     const blocked = into.why === 'blocked' && !!into.hit && into.tHit > 0 && into.tCross == null && into.tEnd > into.tHit && !!K.OBSTACLES[into.hit.t].says && K.CALLS.blocked;
+    const wall = {i: 9, d: 40, gx: 0, w: 0, dir: 0, obs: [{t: 'wall', x: -(K.POST.half + K.WALL_OUT) / 2, z: 39.4, half: (K.POST.half + K.WALL_OUT) / 2, h: 10.4, face: -1, share: .5}]};
+    const wallL = K.fly(wall, {theta: Math.atan(-1.5 / 40), v: 24, bend: 0, tilt: 0}), wallR = K.fly(wall, {theta: Math.atan(1.5 / 40), v: 24, bend: 0, tilt: 0});
     // on an open field: an even bend lands where a straight kick does; a lopsided one doesn't
-    const open = calm(40), at = l => K.fly(open, Object.assign({theta: 0, v: 32}, l)).at.x;
-    const even = Math.abs(at({bend: .35, tilt: 0}) - at({bend: 0, tilt: 0})) < .01, mid = Math.abs(K.fly(open, {theta: 0, v: 32, bend: .35, tilt: 0}).pos(.6).x) > 2;
+    const open = calm(40), at = l => K.fly(open, Object.assign({theta: 0, v: 26}, l)).at.x;
+    const even = Math.abs(at({bend: .35, tilt: 0}) - at({bend: 0, tilt: 0})) < .01, mid = Math.abs(K.fly(open, {theta: 0, v: 26, bend: .35, tilt: 0}).pos(.8).x) > 2;
     const lop = Math.abs(at({bend: .2, tilt: .12}) - at({bend: 0, tilt: 0}));
     // the shapes read off a swipe
     const swipe = f => Array.from({length: 40}, (_, j) => { const u = j / 39; return {x: 200 + f(u) * 220, y: 600 - u * 220}; });
@@ -126,16 +132,16 @@ export async function kickChecks(check) {
     const wobL = K.launchOf({dx: 0, dy: -220, speed: 1, curve: wob});
     const shapes = st.bend === 0 && st.tilt === 0 && Math.abs(arc.bend - .25) < .01 && Math.abs(arc.tilt) < 1e-9 && semi.bend <= -.45 && Math.abs(semi.tilt) < 1e-9
       && skew.tilt > .08 && wobL.bend === 0 && wobL.tilt === 0;
-    const pass = blocked && left.made && right.made && even && mid && lop > .5 && shapes;
-    return {pass, detail: `into the ${into.hit ? into.hit.t : '-'}: ${into.why}; bent left ${left.why}, right ${right.why}; even arc back on the line ${even} (out ${mid}); lopsided ends ${lop.toFixed(2)} yds off; shapes: arc ${arc.bend.toFixed(2)}/${arc.tilt.toFixed(2)}, half circle ${semi.bend.toFixed(2)}/${semi.tilt.toFixed(2)}, lopsided tilt ${skew.tilt.toFixed(2)}, a wobble reads straight ${wobL.bend === 0 && wobL.tilt === 0}`};
+    const pass = blocked && left.made && right.made && wallL.why === 'blocked' && wallR.made && even && mid && lop > .5 && shapes;
+    return {pass, detail: `into the ${into.hit ? into.hit.t : '-'}: ${into.why}; bent left ${left.why}, right ${right.why}; at the walled half ${wallL.why}, the open half ${wallR.why}; even arc back on the line ${even} (out ${mid}); lopsided ends ${lop.toFixed(2)} yds off; shapes: arc ${arc.bend.toFixed(2)}/${arc.tilt.toFixed(2)}, half circle ${semi.bend.toFixed(2)}/${semi.tilt.toFixed(2)}, lopsided tilt ${skew.tilt.toFixed(2)}, a wobble reads straight ${wobL.bend === 0 && wobL.tilt === 0}`};
   });
-  check('Kick It: a flick reads as a kick: one that doesn\'t go up the screen isn\'t one; straight up goes straight, to the right goes right; a faster flick is a stronger leg (about 20-36 yards a second); the screen\'s aim through the crossbar is used when given', () => {
+  check('Kick It: a flick reads as a kick: one that doesn\'t go up the screen isn\'t one; straight up goes straight, to the right goes right; a faster flick is a stronger leg (about 14-30 yards a second); the screen\'s aim through the crossbar is used when given', () => {
     const none = K.launchOf({dx: 0, dy: 30, speed: 2}) === null && K.launchOf({dx: 40, dy: -10, speed: 2}) === null;
     const up = K.launchOf({dx: 0, dy: -200, speed: 1}), right = K.launchOf({dx: 60, dy: -200, speed: 1}), left = K.launchOf({dx: -60, dy: -200, speed: 1});
     const slow = K.launchOf({dx: 0, dy: -200, speed: .05}), fast = K.launchOf({dx: 0, dy: -200, speed: 9}), mid = K.launchOf({dx: 0, dy: -200, speed: 1.2});
     const aimed = K.launchOf({dx: 999, dy: -200, speed: 1, aim: .1});
     const pass = none && up.theta === 0 && right.theta > 0 && left.theta < 0 && Math.abs(right.theta + left.theta) < 1e-9
-      && slow.v < 21 && fast.v === 36 && mid.v > slow.v && mid.v < fast.v && Math.abs(aimed.theta - Math.atan(.1)) < 1e-9;
+      && slow.v < 15 && fast.v === 30 && mid.v > slow.v && mid.v < fast.v && Math.abs(aimed.theta - Math.atan(.1)) < 1e-9;
     return {pass, detail: `not a kick ${none}; straight ${up.theta}, right ${right.theta.toFixed(3)}, left ${left.theta.toFixed(3)}; legs ${slow.v}/${mid.v.toFixed(1)}/${fast.v}; aim ${aimed.theta.toFixed(3)}`};
   });
 

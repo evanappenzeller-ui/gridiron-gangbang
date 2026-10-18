@@ -127,7 +127,7 @@ function bodyHTML(st) {
     + `<p class="kk-call" data-kk-call aria-live="polite"></p>`
     + `<div class="kk-guide" data-kk-guide hidden aria-hidden="true"><svg class="kk-guide-svg"><path class="kk-guide-trail" d="M0 0"/></svg><span class="kk-guide-hand">${HAND}</span></div>`
     + `<p class="kk-hint" data-kk-hint hidden>${ui.icon('arrow-up', {size: 16})}<span data-kk-hint-t>Slide up from the ball to kick</span></p>`
-    + `<p class="kk-alert" data-kk-alert hidden role="status"><b>Look out!</b><span>Something’s in the way. Swipe in an even arc to bend the ball around it.</span></p>`
+    + `<p class="kk-alert" data-kk-alert hidden role="status"><b>Look out!</b><span data-kk-alert-t></span></p>`
     + `<span data-kk-redo>${redoHTML(st)}</span>`
     + `<div class="kk-over" data-kk-over${st.day.done ? '' : ' hidden'}>${st.day.done ? overHTML(st) : ''}</div></div>`
     + `<div class="kk-fill" data-kk-fill aria-hidden="true"></div>`
@@ -291,9 +291,10 @@ const OB_DRAW = {
     c.stroke();
     // the coping on top, and a sign
     c.fillStyle = '#D9C9B0'; c.fillRect(-hw - .15, h - .35, hw * 2 + .3, .45);
-    c.fillStyle = '#F4F1EA'; c.fillRect(-1.6, h * .55, 3.2, 1.3);
-    c.save(); c.scale(.05, -.05); c.fillStyle = '#C8102E'; c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.font = `800 12.4px "Barlow Condensed", "Arial Narrow", sans-serif`; c.fillText('NO KICKING', 0, -(h * .55 + .65) * 20); c.restore();
+    const sw = Math.min(3.2, hw * 1.7), sk = sw / 3.2;
+    c.fillStyle = '#F4F1EA'; c.fillRect(-sw / 2, h * .55, sw, 1.3 * sk);
+    c.save(); c.scale(.05 * sk, -.05 * sk); c.fillStyle = '#C8102E'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.font = `800 12.4px "Barlow Condensed", "Arial Narrow", sans-serif`; c.fillText('NO KICKING', 0, -(h * .55 + .65 * sk) * 20 / sk); c.restore();
   },
   dino(c, o, t) {
     // a T-rex side on, in a 100 x 100 box (y down), facing o.face
@@ -331,7 +332,7 @@ const OB_DRAW = {
     c.fillStyle = '#FF7A1A'; c.beginPath(); c.ellipse(f * hw * 1.05, 7.4, hw * .42, .55, 0, 0, Math.PI * 2); c.fill();
     c.fillStyle = '#111'; c.beginPath(); c.arc(f * hw * .62, 8.4, .36, 0, Math.PI * 2); c.fill();
     c.fillStyle = '#fff'; c.beginPath(); c.arc(f * hw * .66, 8.55, .12, 0, Math.PI * 2); c.fill();
-    c.fillStyle = 'rgba(255,255,255,.45)'; c.beginPath(); c.ellipse(-f * hw * .05, 9.4, hw * .3, .45, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = 'rgba(255,255,255,.45)'; c.beginPath(); c.ellipse(f * hw * .12, 7.8 + hw * .42, hw * .28, hw * .12, 0, 0, Math.PI * 2); c.fill();
     c.restore();
   },
   tube(c, o, t) {
@@ -474,8 +475,16 @@ const canKick = st => !st.dead && !st.busy && !st.day.done && !st.flight && !st.
 let PATH_OK = null; // the finger rides the path (CSS offset-path); without it, it waits at the ball
 /** Which way to bend around what's in the way: away from the first thing's side of the line to the posts (or from
  *  the second thing's, when the first stands square on it). -1 left, +1 right; 0 with nothing in the way. */
+const inGoal = o => (K.OBSTACLES[o.t] || {}).at === 'goal';
+/** Where to aim in the goal: its middle, or the middle of what the wall leaves open (world x). */
+function openX(k) {
+  const w = (k.obs || []).find(inGoal);
+  if (!w) return k.gx;
+  const inner = w.x - w.face * w.half; // the wall's edge in the opening (it's flush with the upright on side face)
+  return (inner + k.gx - w.face * K.POST.half) / 2;
+}
 function bendSide(k) {
-  const obs = (k.obs || []).slice().sort((a, b) => a.z - b.z);
+  const obs = (k.obs || []).filter(o => !inGoal(o)).sort((a, b) => a.z - b.z);
   if (!obs.length) return 0;
   const off = o => o.x - k.gx * o.z / k.d;
   if (Math.abs(off(obs[0])) > .3) return off(obs[0]) > 0 ? -1 : 1;
@@ -484,7 +493,7 @@ function bendSide(k) {
 function placeGuide(st) {
   const g = st.el.querySelector('[data-kk-guide]'), k = st.kicks[st.i];
   if (!g || !st.scene || !k) return;
-  const ball = proj(st, 0, .15, 0), cb = proj(st, st.scene.gx, K.POST.bar, st.scene.d);
+  const ball = proj(st, 0, .15, 0), cb = proj(st, openX(k) + st.scene.gx - k.gx, K.POST.bar, st.scene.d);
   let dx = cb.x - ball.x, dy = cb.y - ball.y;
   const len = Math.hypot(dx, dy) || 1, go = Math.min(len * .8, st.H * .42);
   dx *= go / len; dy *= go / len;
@@ -502,13 +511,19 @@ function placeGuide(st) {
   else { hand.style.left = `${(ball.x - 17).toFixed(1)}px`; hand.style.top = `${(ball.y - 7).toFixed(1)}px`; }
   g.classList.toggle('no-path', !PATH_OK);
   const t = st.el.querySelector('[data-kk-hint-t]');
-  if (t) t.textContent = side ? 'Swipe in an arc to bend it around' : 'Slide up from the ball to kick';
+  if (t) t.textContent = side ? 'Swipe in an arc to bend it around' : (k.obs || []).some(inGoal) ? 'Aim for the open side of the goal' : 'Slide up from the ball to kick';
 }
 /** "Look out!": the first kick with something in the way, once a run, for a few seconds (or till a finger's down). */
 function alertFor(st, on) {
   const a = st.el.querySelector('[data-kk-alert]');
   if (!a) return;
   clearTimeout(st.alertT);
+  const k = st.kicks[st.i], t = a.querySelector('[data-kk-alert-t]');
+  if (on && t && k) {
+    const front = (k.obs || []).some(o => !inGoal(o)), wall = (k.obs || []).some(inGoal);
+    t.textContent = front && wall ? 'Bend the ball around what’s in front, and aim for the open side of the goal.'
+      : wall ? 'A wall’s blocking part of the goal. Aim for the open side.' : 'Something’s in the way. Swipe in an even arc to bend the ball around it.';
+  }
   a.hidden = !on;
   if (on) st.alertT = setTimeout(() => { a.hidden = true; }, 4500);
 }
@@ -542,7 +557,7 @@ function patchHud(st) {
   if (h) h.innerHTML = hudHTML(st);
   patchGusts(st);
   const cv = st.cv, k = st.kicks[st.i];
-  const inWay = k && k.obs && k.obs.length ? ` In the way: ${k.obs.map(o => `a ${(K.OBSTACLES[o.t] || {}).name}`).join(', ')}.` : '';
+  const inWay = k && k.obs && k.obs.length ? ` In the way: ${k.obs.map(o => (inGoal(o) ? `a brick wall across ${o.share === .5 ? 'half' : 'a quarter'} of the goal, on the ${o.face < 0 ? 'left' : 'right'}` : `a ${(K.OBSTACLES[o.t] || {}).name} out in front`)).join('; ')}.` : '';
   if (cv && k) cv.setAttribute('aria-label', `Kick ${st.i + 1}: ${k.d} yards, the posts ${k.gx > 1 ? `${Math.round(k.gx)} yards to the right` : k.gx < -1 ? `${Math.round(-k.gx)} yards to the left` : 'straight ahead'}. ${windWords(k)}.${inWay}`);
 }
 function loop(st) {

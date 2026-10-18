@@ -62,21 +62,26 @@ export const MAX_KICKS = 40, STRIKES = 3;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 // The things in the way: giant and silly, all too tall to kick over (the ball never climbs past about 8 yards). half:
 // half its width; h: its height (yards). Each has a word for when it stops a kick.
+// Two kinds of place: out in front of the kicker (a fifth of the way there: the 30-yard line on a 50-yarder), where the
+// ball's still low (each is a yard and more taller than the hardest kick is where it stands; h below is the most); and
+// the brick wall, standing in the goal itself, flush with one upright, closing off a quarter or half of the opening, as
+// tall as the uprights (a big enough kick clears it).
 export const OBSTACLES = {
-  wall: {name: 'brick wall', half: 3.6, h: 8.8, says: 'Bricked off the wall'},
-  dino: {name: 'T-rex', half: 3.4, h: 9, says: 'The T-rex ate it'},
-  duck: {name: 'rubber duck', half: 3.2, h: 8.6, says: 'Bounced off the rubber duck'},
-  tube: {name: 'tube man', half: 1.4, h: 9.6, says: 'The tube man swatted it'},
-  cactus: {name: 'cactus', half: 2.4, h: 9.2, says: 'Stuck in the cactus'}
+  wall: {name: 'brick wall', half: 0, h: 10.4, says: 'Bricked off the wall', at: 'goal'},
+  dino: {name: 'T-rex', half: 2.2, h: 7, says: 'The T-rex ate it'},
+  duck: {name: 'rubber duck', half: 2, h: 6.8, says: 'Bounced off the rubber duck'},
+  tube: {name: 'tube man', half: 1.1, h: 7.4, says: 'The tube man swatted it'},
+  cactus: {name: 'cactus', half: 1.8, h: 7, says: 'Stuck in the cactus'}
 };
-const OB_TYPES = Object.keys(OBSTACLES);
+const NEAR = Object.keys(OBSTACLES).filter(t => OBSTACLES[t].at !== 'goal');
+export const WALL_OUT = 1.5; // how far the wall runs on past its upright
 export const OBS_FROM = 4; // the fifth kick on
 /** Day n's kicks, the same on every phone. The first few are chip shots near the middle; then the posts wander
  *  further off to the side, the kicks get longer (a yard and a third a kick, 62 the longest, about kick 30 on) and the
  *  wind stronger: a breeze from the first kick (1-4 mph), 3-9 by kick 6, 5-15 by kick 11, up to 25 from kick 21. From
- *  the fifth kick something stands in the way, from the tenth one or two things, from the twentieth two or three: on
- *  the line to the posts (the first squarely; the others off to a side, closing one way around), between two fifths and
- *  three quarters of the way there. */
+ *  the fifth kick something's in the way: one thing through the ninth (out in front, or the wall in the goal), then
+ *  something out in front and often the wall too, and from the twentieth the wall always (half the opening, mostly),
+ *  sometimes a second thing out in front, off to a side. */
 export function kicks(n) {
   const r = rng(hashStr(`kick-it-${n}`)), ro = rng(hashStr(`kick-it-obs-${n}`)), out = [];
   for (let i = 0; i < MAX_KICKS; i++) {
@@ -91,18 +96,23 @@ export function kicks(n) {
 }
 const round1 = v => Math.round(v * 10) / 10;
 function obstaclesFor(r, i, d, gx) {
-  const n = i < 9 ? 1 : i < 19 ? 1 + (r() < .45 ? 1 : 0) : 2 + (r() < .3 ? 1 : 0);
+  const roll = r(), early = i < 9, late = i >= 19;
+  const front = !early || roll < .6, wall = late || (early ? roll >= .6 : r() < .45), second = late && r() < .3;
   const out = [], side = r() < .5 ? -1 : 1;
-  // where along the way: spread out, two fifths to three quarters of the way there
-  const slots = [.42, .57, .71].sort(() => r() - .5).slice(0, n).sort((a, b) => a - b);
-  slots.forEach((s0, j) => {
-    const t = OB_TYPES[Math.floor(r() * OB_TYPES.length)], o = OBSTACLES[t];
-    // short kicks get slimmer things, so there's room to bend around them
-    const half = round1(Math.min(o.half, .1 + d * .17)), z = round1(d * (s0 + (r() * .08 - .04)));
-    const line = gx * z / d;
-    const x = j === 0 ? line + (r() * 2 - 1) * half * .5 : line + side * (half + 1 + r() * 2.5);
-    out.push({t, x: round1(x), z, half, h: o.h, face: r() < .5 ? -1 : 1});
-  });
+  const near = (s0, off) => {
+    const t = NEAR[Math.floor(r() * NEAR.length)], o = OBSTACLES[t];
+    const z = round1(clamp(d * s0 + (r() * 2 - 1), 5, 11)), line = gx * z / d;
+    const x = off == null ? line + (r() * 2 - 1) * o.half * .5 : line + off * (o.half + 1 + r() * 2);
+    out.push({t, x: round1(x), z, half: o.half, h: round1(Math.min(o.h, Math.max(3.8, topAt(z) + 1.2))), face: r() < .5 ? -1 : 1});
+  };
+  if (front) near(.2);
+  if (second) near(.28, side);
+  if (wall) {
+    // in the goal, flush with one upright: a quarter of the opening early on, half (mostly) later
+    const share = early ? .25 : late ? (r() < .65 ? .5 : .25) : (r() < .35 ? .5 : .25), k = r() < .5 ? -1 : 1;
+    const inner = gx + k * (POST.half - share * POST.half * 2), outer = gx + k * (POST.half + WALL_OUT);
+    out.push({t: 'wall', x: round1((inner + outer) / 2), z: round1(d - .6), half: round1(Math.abs(outer - inner) / 2), h: OBSTACLES.wall.h, face: k, share});
+  }
   return out;
 }
 
@@ -112,9 +122,11 @@ function obstaclesFor(r, i, d, gx) {
 // behind the tee and CAM.h up, looking downfield (views/kick.js draws with the same numbers).
 export const POST = {half: 3.083, bar: 3.333, top: 10.333};
 export const CAM = {h: 2, back: 4};
-export const GRAV = 10.72;                 // yards a second, a second
-const ELEV = 21 * Math.PI / 180;           // the ball's climb off the tee: a low arc, never above about 8 yards
-const V_MIN = 19, V_MAX = 36;              // the leg, yards a second
+export const GRAV = 9.2;                   // yards a second, a second (a touch floaty: slower, higher arcs)
+const ELEV = 30 * Math.PI / 180;           // the ball's climb off the tee
+const V_MIN = 13, V_MAX = 30;              // the leg, yards a second
+/** The highest any kick is when it's z yards out (the hardest leg, straight, calm air). */
+const topAt = z => { const t = z / (V_MAX * Math.cos(ELEV)); return V_MAX * Math.sin(ELEV) * t - .5 * GRAV * t * t; };
 // The swipe's shape (curveOf): bend is how far it bows out (as a share of its length, + to the right), tilt how far
 // it's lopsided. The flight bows the same way, as far as BEND times the kick's distance times 4 bend s (1 - s) (s: how
 // far along to the posts), back on its line at the posts; a lopsided swipe ends TILT times the distance times tilt off
@@ -124,7 +136,7 @@ const BEND = .6, TILT = .3, BEND_DEAD = .03, TILT_DEAD = .04;
 // second plus WIND_ACROSS.a a second squared), so even a chip shot moves: at full leg 10 mph across moves a 20-yarder
 // over a yard, 20 mph a 40-yarder about 6 (the posts are 6 wide), 25 mph a 62-yarder about 12. Along the field it
 // pushes (WIND_ALONG, yards a second a second per mph): a headwind costs carry without making the long kicks impossible.
-const WIND_ACROSS = {v: .18, a: .03}, WIND_ALONG = .12;
+const WIND_ACROSS = {v: .15, a: .025}, WIND_ALONG = .12;
 /** A swipe's shape: points [{x, y}] on screen, from the ball to where it let go -> {bend, tilt}: an even arc is all
  *  bend (+ bowed to the right); a lopsided one has tilt too. Fitted on the path spaced out evenly along its length. */
 export function curveOf(points) {
@@ -164,7 +176,7 @@ export function launchOf({dx, dy, speed, aim, curve}) {
   if (!(dy < -24)) return null;
   const alpha = clamp(Math.atan2(dx, -dy), -1.3, 1.3);
   const theta = clamp(Number.isFinite(aim) ? Math.atan(aim) : Math.atan(Math.tan(alpha) * CAM.h / CAM.back), -1.1, 1.1);
-  const v = clamp(19.9 + speed * 9.3, V_MIN, V_MAX);
+  const v = clamp(13.6 + speed * 8.7, V_MIN, V_MAX);
   const c = curve || {}, bend = Number.isFinite(c.bend) && Math.abs(c.bend) >= BEND_DEAD ? c.bend : 0;
   const tilt = Number.isFinite(c.tilt) && Math.abs(c.tilt) >= TILT_DEAD ? c.tilt : 0;
   return {theta, v, bend, tilt};
