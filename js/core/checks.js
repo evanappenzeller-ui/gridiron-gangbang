@@ -548,7 +548,7 @@ export async function runChecks() {
     return {pass, detail: `guest row ${gr ? `${gr.guest}/${gr.managerId}` : 'missing'}; Mason's row ${mr ? mr.id : 'missing'}; names ${names}`};
   });
 
-  check("an app user (Ryan Dow) has a login: one row on the boards from any number of phones, by his board name (Ryan D), no Guest tag, no member's, and no guest can take the name; Ryan Stewart's old guest row (RyStew) is his, as Ryan S", () => {
+  check("an app user (Ryan Dow) has a login: one row on the boards from any number of phones, by his board name (Ryan D), no Guest tag, no member's, and no guest can take the name; Ryan Stewart's old guest row (RyStew) is his, as Ryan S, shown only on his own phones", () => {
     needDaily();
     const P = daily.dayVersion() === 1 ? daily.PNUM : 1, players = fakePlayers(P), mason = players.find(p => p.id === 'fake-3');
     // Ryan on two phones (both rows guest-flagged, as a user's are), the names in any case and spacing.
@@ -573,10 +573,14 @@ export async function runChecks() {
     const stew = daily.boardKey(s1) === 'user:ryan-stewart' && daily.boardKey(s2) === 'user:ryan-stewart' && srows.length === 1 && !srows[0].guest;
     daily.LB.raw = all;
     const snames = ['Ryan Stewart', 'ryan s', 'RYSTEW'].map(n => (daily.guestNameProblem(n) ? 'no' : 'ok')).join(' ');
+    // Ryan S is solo: his rows show only on his own phones (Ryan D's show to everyone).
+    const isRyanS = (data.user() || {}).id === 'ryan-stewart';
+    const solo = daily.boardShows(s1) === isRyanS && daily.boardShows(s2) === isRyanS && daily.boardShows(r1) && daily.boardShows(r2);
     daily.LB.raw = raw;
     const pass = once.every(x => x.length === 1) && !!row && !row.guest && row.managerId === null && keys
-      && daily.memberOf(r1) === null && !daily.guestOf(r1) && !!u && u.id === 'ryan-dow' && names === 'no no ok no' && stew && snames === 'no no no';
-    return {pass, detail: `rows today ${once[0].length}, season ${once[1].length}; tag ${row ? row.guest : '-'}; keys ${keys}; names ${names}; Ryan S (RyStew) ${stew}, names ${snames}`};
+      && daily.memberOf(r1) === null && !daily.guestOf(r1) && !!u && u.id === 'ryan-dow' && names === 'no no ok no' && stew && snames === 'no no no'
+      && solo;
+    return {pass, detail: `rows today ${once[0].length}, season ${once[1].length}; tag ${row ? row.guest : '-'}; keys ${keys}; names ${names}; Ryan S (RyStew) ${stew}, names ${snames}; Ryan S shown here ${daily.boardShows(s1)} (this phone is him: ${isRyanS})`};
   });
 
   // 6. holders

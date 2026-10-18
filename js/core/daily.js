@@ -12,7 +12,7 @@
 // behavior.
 // Owner: foundation (core).
 
-import {DATA, nf, norm, me as dataMe, name as dataName, guest as dataGuest, userNamed, userReserving, subscribe as dataSub} from './data.js';
+import {DATA, nf, norm, me as dataMe, name as dataName, guest as dataGuest, user as dataUser, userNamed, userReserving, subscribe as dataSub} from './data.js';
 import {getFire, canWrite, isDevHost, devDayFrom, DEV_DAY as fireDevDay} from './fire.js';
 import {roundsFor as playRoundsFor} from './plays.js';
 
@@ -872,8 +872,8 @@ async function startFirebase() {
     fs.onSnapshot(fs.collection(db, 'players'), snap => {
       const prev = LB.players;
       const all = snap.docs.map(d => scoredDoc(Object.assign({id: d.id}, d.data())));
-      LB.raw = all.filter(p => !HIDDEN.has(p.id));
-      LB.players = onePerMember(LB.raw);
+      LB.all = all;
+      boardFilter();
       LB.ready = true;
       const mine = all.find(p => p.id === LB.uid);
       if (dataGuest()) fixGuestRow(mine);
@@ -885,6 +885,19 @@ async function startFirebase() {
   } catch (_) { LB.off = true; LB.ready = true; lbChanged('off'); }
 }
 
+/** Whether a board doc's scores show on this phone: a solo app user's (data.USERS) only on their own phones (this
+ *  phone's own doc, or any of theirs when this phone is them). */
+export function boardShows(p) {
+  const u = userOf(p);
+  if (!u || !u.solo || p.id === LB.uid) return true;
+  const me = dataUser();
+  return !!me && me.id === u.id;
+}
+/** The board as this phone sees it (LB.raw, LB.players) from every doc (LB.all). */
+function boardFilter() {
+  LB.raw = (LB.all || []).filter(p => !HIDDEN.has(p.id) && boardShows(p));
+  LB.players = onePerMember(LB.raw);
+}
 export const displayName = p => { const u = userNamed(p.nick); return u ? u.board || u.name : (p.nick || 'Someone'); }; // an app user by their board name
 
 /** Format of a board day entry: 4 (carries v: 4), 3 (carries v: 3), 2 (carries s, no v), 1 (neither: {p, g, c, w});
@@ -1103,6 +1116,7 @@ function fixGuestRow(mine) {
 let wasGuest = null;
 dataSub(type => {
   if (type !== 'me') return;
+  if (LB.all) boardFilter(); // a solo app user's rows show or hide with who this phone is
   const m = dataMe();
   if (wasGuest && m && LB.nick === wasGuest) setNick(dataName(m).slice(0, 24));
   wasGuest = dataGuest();
