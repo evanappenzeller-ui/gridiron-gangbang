@@ -507,10 +507,10 @@ export function guest() { return me() ? null : guestRead(); }
 // by their board name (board) without a Guest tag and keep their phones together, and no one else can take the name
 // (daily.guestNameProblem).
 // aka: names they already played under (a guest row called that is theirs: its scores count, under their board name).
-// solo: their scores show on the boards on their own phones only; the league never sees them (daily.js boardShows),
-// as with a guest's. Without it (Ryan D) they're on everyone's boards, like a member.
-export const USERS = [{id: 'ryan-dow', name: 'Ryan Dow', board: 'Ryan D'},
-  {id: 'ryan-stewart', name: 'Ryan Stewart', board: 'Ryan S', aka: ['RyStew'], solo: true}];
+// THE RULE (CLAUDE.md): no one outside the league is on the league's boards. A guest's scores, and an app user's,
+// show only on their own phones (daily.js boardShows) unless the user is marked league: true, and only Ryan Dow is.
+export const USERS = [{id: 'ryan-dow', name: 'Ryan Dow', board: 'Ryan D', league: true},
+  {id: 'ryan-stewart', name: 'Ryan Stewart', board: 'Ryan S', aka: ['RyStew']}];
 const userKey = nm => String(nm || '').trim().replace(/\s+/g, ' ').toLowerCase();
 /** The app user a name belongs to (any case and spacing), or null. */
 export const userNamed = nm => { const k = userKey(nm); return k ? USERS.find(u => userKey(u.name) === k || (u.aka || []).some(a => userKey(a) === k)) || null : null; };

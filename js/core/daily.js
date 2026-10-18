@@ -885,15 +885,16 @@ async function startFirebase() {
   } catch (_) { LB.off = true; LB.ready = true; lbChanged('off'); }
 }
 
-/** Whether a board doc's scores show on this phone. The league's boards are the league's: a member's rows show to
- *  everyone, and so do an app user's (data.USERS, Ryan D) unless they're solo (Ryan S: on his own phones only). A
- *  guest's, or a row that is no one's, shows only on the phone that posted it. */
+/** Whether a board doc's scores show on this phone. THE RULE (CLAUDE.md): the league's boards are the league's. A
+ *  member's rows show to everyone, and so do an app user's marked league: true (data.USERS: Ryan D only). Anyone else
+ *  (a guest, any other app user like Ryan S, a row that is no one's) shows only on their own phones: the phone that
+ *  posted it, or any of an app user's phones. Every board reads LB.raw / LB.players, which this filters. */
 export function boardShows(p) {
   if (!p || p.id === LB.uid) return true;
   if (memberOf(p)) return true;
   const u = userOf(p);
   if (!u) return false;
-  if (!u.solo) return true;
+  if (u.league) return true;
   const me = dataUser();
   return !!me && me.id === u.id;
 }

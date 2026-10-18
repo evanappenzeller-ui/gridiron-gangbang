@@ -578,7 +578,9 @@ export async function runChecks() {
     const solo = daily.boardShows(s1) === isRyanS && daily.boardShows(s2) === isRyanS && daily.boardShows(r1) && daily.boardShows(r2)
       // and a guest's row, or a row that is no one's, is on the phone that posted it only; a member's on every phone
       && !daily.boardShows({id: 'fake-g2', nick: 'Tommy T', g: true}) && !daily.boardShows({id: 'fake-x', nick: 'Setup test'})
-      && daily.boardShows({id: 'fake-m', nick: 'Mason'}) && (!daily.LB.uid || daily.boardShows({id: daily.LB.uid, nick: 'Tommy T', g: true}));
+      && daily.boardShows({id: 'fake-m', nick: 'Mason'}) && (!daily.LB.uid || daily.boardShows({id: daily.LB.uid, nick: 'Tommy T', g: true}))
+      // THE RULE (CLAUDE.md): Ryan D is the only one outside the league on the league's boards.
+      && data.USERS.filter(x => x.league).map(x => x.id).join() === 'ryan-dow';
     daily.LB.raw = raw;
     const pass = once.every(x => x.length === 1) && !!row && !row.guest && row.managerId === null && keys
       && daily.memberOf(r1) === null && !daily.guestOf(r1) && !!u && u.id === 'ryan-dow' && names === 'no no ok no' && stew && snames === 'no no no'
