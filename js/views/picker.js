@@ -1,9 +1,11 @@
-// Player picker (spec 7.6): a large sheet with a search field and up to 8 player rows.
-// Used by the Mystery player and the Grid inside the run cover. Owner: puzzle-run package.
+// Player picker (spec 7.6): a large sheet with a search field and up to 8 player rows (the Grid, inside the run
+// cover); and the name box, the same search inline (the Mystery player and Journey: type straight in, the best matches
+// show just above the box). Owner: puzzle-run package.
 //
 //   openPicker({kind: 'mystery'|'journey'|'grid', title, worth, criteria: [r, c], disabled: i => '' | 'Guessed' | 'On your grid'})
 //   ('journey' looks and behaves like 'mystery': a title with the "Worth n" caption and "Guessed" rows.)
 //     → Promise<playerIndex | null>
+//   nameBox(host, {label, disabled, onPick: i => void}) → {input, clear(), shake(), destroy()}
 //
 // Call it synchronously inside the tap handler: the sheet and its search field are created and focused inside
 // the gesture, so iOS raises the keyboard on the first tap. The promise resolves as soon as the sheet starts
@@ -64,6 +66,22 @@ function highlight(name, tokens) {
   }).join('');
 }
 
+/** The rows for a search's results (positions only: a player's years would give the answer away; two listed players
+ *  with the same name and position get the decade their careers began, just enough to tell them apart). */
+function rowsHTML(res, tokens, disabledOf, uid) {
+  const twin = new Map();
+  res.forEach(i => { const k = daily.PP[i][0] + '|' + daily.PP[i][2]; twin.set(k, (twin.get(k) || 0) + 1); });
+  return res.map((i, n) => {
+    const p = daily.PP[i];
+    const dis = disabledOf(i) || '';
+    const sub = twin.get(p[0] + '|' + p[2]) > 1 ? `${p[2]} · ${Math.floor(p[4] / 10) * 10}s` : p[2];
+    return `<div class="pk-row" role="option" id="${uid}-o${n}" data-pk="${i}" data-press="row" aria-selected="false"${dis ? ' aria-disabled="true"' : ''}>`
+      + `<span class="pk-main"><span class="pk-name">${highlight(p[0], tokens)}</span><span class="pk-sub">${esc(sub)}</span></span>`
+      + (dis ? `<span class="pk-dis">${esc(dis)}</span>` : '')
+      + `</div>`;
+  }).join('');
+}
+
 function headerHTML({kind, title, worth, criteria}) {
   if (kind === 'grid' && criteria && criteria.length === 2) {
     const chip = c => `<span class="pk-chip">${ui.icon(critIcon(c))}<span class="pk-cl">${esc(daily.critLabel(c))}</span></span>`;
@@ -121,19 +139,7 @@ export function openPicker(o = {}) {
       const q = input.value;
       const tokens = daily.norm(q).split(' ').filter(Boolean);
       const res = tokens.length ? daily.searchPlayers(q, {audienceFirst: kind !== 'grid'}) : [];
-      // Rows show the position only: a player's years would give the answer away. Two listed players with the same
-      // name and position get the decade their careers began, just enough to tell them apart.
-      const twin = new Map();
-      res.forEach(i => { const k = daily.PP[i][0] + '|' + daily.PP[i][2]; twin.set(k, (twin.get(k) || 0) + 1); });
-      list.innerHTML = res.map((i, n) => {
-        const p = daily.PP[i];
-        const dis = disabledOf(i) || '';
-        const sub = twin.get(p[0] + '|' + p[2]) > 1 ? `${p[2]} · ${Math.floor(p[4] / 10) * 10}s` : p[2];
-        return `<div class="pk-row" role="option" id="${uid}-o${n}" data-pk="${i}" data-press="row" aria-selected="false"${dis ? ' aria-disabled="true"' : ''}>`
-          + `<span class="pk-main"><span class="pk-name">${highlight(p[0], tokens)}</span><span class="pk-sub">${esc(sub)}</span></span>`
-          + (dis ? `<span class="pk-dis">${esc(dis)}</span>` : '')
-          + `</div>`;
-      }).join('');
+      list.innerHTML = rowsHTML(res, tokens, disabledOf, uid);
       rows = [...list.children].map(el => ({el, i: +el.dataset.pk, dis: el.getAttribute('aria-disabled') === 'true'}));
       input.setAttribute('aria-expanded', String(rows.length > 0));
       const t = q.trim();
@@ -194,4 +200,96 @@ export function openPicker(o = {}) {
     // Warm the search index while the sheet slides up (a no-op once it exists).
     ui.onIdle(() => { if (!closing) daily.searchPlayers('a'); }, 300);
   });
+}
+
+// ---------------------------------------------------------------------------------------------- the name box
+const BOX_ROWS = 5;
+/**
+ * The name box, in place of a "Guess the player" button: a text box the player types straight into. The best matches
+ * (best-known players first) show just above it, clear of the keyboard; a tap on one, or Enter, guesses. A name
+ * already guessed says so and stays put. After a guess the box empties and lets the keyboard go, so the result shows.
+ */
+export function nameBox(host, o = {}) {
+  const disabledOf = typeof o.disabled === 'function' ? o.disabled : () => '';
+  const uid = 'pk' + (++seq);
+  host.innerHTML = `<div class="pk-box">`
+    + `<div class="pk-drop" id="${uid}-list" role="listbox" aria-label="Players" hidden></div>`
+    + ui.searchField({name: 'q', placeholder: "Type the player's name", label: o.label || 'Guess the player',
+      attrs: {role: 'combobox', 'aria-expanded': 'false', 'aria-controls': uid + '-list', 'aria-autocomplete': 'list'}})
+    + `</div>`;
+  const box = host.firstElementChild, drop = box.querySelector('.pk-drop'), input = box.querySelector('input');
+  let hl = -1, rows = [], dead = false;
+  const setHl = k => {
+    hl = k;
+    rows.forEach((r, j) => { r.el.classList.toggle('is-hl', j === k); r.el.setAttribute('aria-selected', String(j === k)); });
+    if (k >= 0 && rows[k]) { input.setAttribute('aria-activedescendant', rows[k].el.id); rows[k].el.scrollIntoView({block: 'nearest'}); }
+    else input.removeAttribute('aria-activedescendant');
+  };
+  const firstEnabled = () => rows.findIndex(r => !r.dis);
+  const close = () => { drop.hidden = true; drop.innerHTML = ''; rows = []; hl = -1; input.setAttribute('aria-expanded', 'false'); input.removeAttribute('aria-activedescendant'); };
+  const search = () => {
+    const q = input.value, tokens = daily.norm(q).split(' ').filter(Boolean);
+    if (!tokens.length) { close(); return; }
+    const res = daily.searchPlayers(q, {audienceFirst: true}).slice(0, BOX_ROWS);
+    drop.innerHTML = res.length ? rowsHTML(res, tokens, disabledOf, uid) : (q.trim().length > 1 ? `<p class="pk-msg">${esc(MSG_NONE)}</p>` : '');
+    rows = [...drop.querySelectorAll('.pk-row')].map(el => ({el, i: +el.dataset.pk, dis: el.getAttribute('aria-disabled') === 'true'}));
+    drop.hidden = !drop.innerHTML;
+    input.setAttribute('aria-expanded', String(rows.length > 0));
+    setHl(firstEnabled());
+  };
+  const clear = () => { input.value = ''; input.parentElement.classList.remove('is-filled'); close(); };
+  const pick = row => {
+    if (dead || !row) return;
+    if (row.dis) {
+      ui.toast(`You already guessed ${daily.PP[row.i] ? daily.PP[row.i][0] : 'that player'}.`);
+      ui.haptic('warning');
+      return;
+    }
+    row.el.classList.add('is-picked');
+    ui.haptic('light');
+    const i = row.i;
+    clear();
+    try { input.blur(); } catch (_) {}
+    if (typeof o.onPick === 'function') o.onPick(i);
+  };
+  input.addEventListener('input', search);
+  input.addEventListener('focus', () => { if (input.value) search(); });
+  input.addEventListener('keydown', e => {
+    if (e.isComposing) return;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      if (!rows.length) return;
+      e.preventDefault();
+      const step = e.key === 'ArrowDown' ? 1 : -1;
+      let k = hl;
+      for (let n = 0; n < rows.length; n++) {
+        k = k < 0 ? (step > 0 ? 0 : rows.length - 1) : (k + step + rows.length) % rows.length;
+        if (!rows[k].dis) break;
+      }
+      if (rows[k] && !rows[k].dis) setHl(k);
+      return;
+    }
+    if (e.key === 'Escape') { if (input.value) { e.preventDefault(); clear(); } return; }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const k = hl >= 0 && rows[hl] && !rows[hl].dis ? hl : firstEnabled();
+      if (k >= 0) pick(rows[k]);
+      else if (rows.length) pick(rows[0]); // every match is already guessed: say so
+    }
+  });
+  // A finger on a row keeps the keyboard (and the list) up till the tap lands.
+  drop.addEventListener('pointerdown', e => { if (e.target.closest('.pk-row')) e.preventDefault(); });
+  drop.addEventListener('click', e => { const el = e.target.closest('.pk-row'); if (el) pick(rows.find(r => r.el === el)); });
+  drop.addEventListener('pointermove', e => {
+    if (e.pointerType !== 'mouse') return;
+    const el = e.target.closest('.pk-row'), k = el ? rows.findIndex(r => r.el === el) : -1;
+    if (k >= 0 && k !== hl && !rows[k].dis) setHl(k);
+  });
+  // Warm the search index (a no-op once it exists).
+  ui.onIdle(() => { if (!dead) daily.searchPlayers('a'); }, 300);
+  return {
+    input,
+    clear,
+    shake() { if (!ui.RM) ui.shake(box); },
+    destroy() { dead = true; close(); }
+  };
 }

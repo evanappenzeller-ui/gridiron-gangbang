@@ -1,4 +1,5 @@
-/* picker.css: player picker sheet (spec 7.6). Owner: puzzle-run package. Scope: .sh-picker */
+/* picker.css: player picker sheet (spec 7.6) and the name box (the same search inline). Owner: puzzle-run package.
+   Scope: .sh-picker, .pk-box */
 
 /* Header: "Name the player" + "Worth 300", or two criteria chips. Two lines need a taller head than the 52 px
    default, so the title clears the grabber by 9 px instead of touching it. */
@@ -62,3 +63,38 @@
 
 .sh-picker .pk-msg { padding: 28px 24px; text-align: center; color: var(--ink-3); font: 400 var(--fs-sub)/var(--lh-sub) var(--font-text); }
 .sh-picker .pk-msg[hidden] { display: none; }
+
+/* ---------------------------------------------------------------- The name box (Mystery player, Journey) */
+/* A text box in place of "Guess the player": type straight in; the best matches show just above it (clear of the
+   keyboard), the same rows as the sheet's. */
+.pk-box { position: relative; }
+.pk-box .search { height: 52px; padding-left: 14px; border-radius: 14px; background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--separator); }
+.pk-box .search > .ic { width: 20px; height: 20px; }
+.pk-box .search input { font-size: 17px; }
+.pk-box .pk-drop {
+  position: absolute; z-index: 20; left: 0; right: 0; bottom: calc(100% + 8px);
+  max-height: min(296px, 46vh); overflow-y: auto; overscroll-behavior: contain;
+  border-radius: 14px; background: var(--surface-2);
+  box-shadow: 0 -12px 32px -8px rgba(0,0,0,.6), inset 0 0 0 1px var(--separator);
+  --separator: rgba(84,84,88,.65);
+}
+.pk-box .pk-drop[hidden] { display: none; }
+.pk-box .pk-row {
+  position: relative; display: flex; align-items: center; gap: 12px;
+  min-height: 56px; padding: 0 16px; cursor: pointer;
+  transition: background-color 250ms linear; user-select: none; -webkit-user-select: none;
+}
+.pk-box .pk-row + .pk-row > .pk-main::before {
+  content: ""; position: absolute; top: 0; left: 0; right: -200vw; height: 1px;
+  background: var(--separator); transform: scaleY(.5); transform-origin: top;
+}
+.pk-box .pk-row.is-hl::after { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--tint); }
+.pk-box .pk-row.is-pressed { background-color: var(--surface-3); transition: none; }
+.pk-box .pk-row.is-picked { background-color: var(--tint-soft); transition: none; }
+.pk-box .pk-row[aria-disabled="true"] { opacity: .45; cursor: default; }
+.pk-box .pk-main { position: relative; flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; justify-content: center; padding: 8px 0; align-self: stretch; overflow: hidden; }
+.pk-box .pk-name { font: 600 var(--fs-headline)/var(--lh-headline) var(--font-text); color: var(--ink-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pk-box .pk-name > b { color: var(--ink); font-weight: 600; }
+.pk-box .pk-sub { font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); margin-top: 1px; }
+.pk-box .pk-dis { flex: none; font: 500 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2); }
+.pk-box .pk-msg { margin: 0; padding: 16px; text-align: center; color: var(--ink-3); font: 400 var(--fs-sub)/var(--lh-sub) var(--font-text); }

@@ -9,7 +9,7 @@
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as daily from '../core/daily.js';
-import {openPicker, sheetsGone} from './picker.js';
+import {nameBox} from './picker.js';
 
 const esc = data.esc;
 const EASE_OUT = 'cubic-bezier(.22,1,.36,1)';
@@ -30,7 +30,7 @@ const drawn = new Set();
 // ---------------------------------------------------------------------------------------------- markup
 /** Stops in order: colleges (earliest first), then NFL teams in career order; the last team is "Now". A journeyman's
  *  middle teams (four or more teams in all) fold into one wrapped stop ("2nd to 5th teams: Bills · Browns · ..."), so
- *  the path, both hints and "Guess the player" fit above the bottom bar on a 360 x 740 phone. */
+ *  the path, both hints and the name box fit above the bottom bar on a 360 x 740 phone. */
 function stopsOf() {
   const P = daily.journeyPath() || {colleges: [], teams: [], current: null};
   const out = [];
@@ -103,7 +103,8 @@ function revealHTML(st, {count0 = false, stampHidden = false} = {}) {
 
 const chipHTML = i => ui.pill('✕ ' + nameOf(i), {tone: 'wrong', cls: 'my-chip', attrs: {role: 'listitem', 'aria-label': `Not ${nameOf(i)}`}});
 const noteText = st => `Guess ${st.g.length + 1} of ${GUESSES}. Solving now is worth ${worthOf(st.g.length)} points.`;
-const actionsHTML = st => ui.button({label: 'Guess the player', kind: 'primary', attrs: {'data-jr-guess': ''}})
+// The name box (picker.js nameBox: type the name, the best matches show above it) goes in data-jr-box on mount.
+const actionsHTML = st => `<div class="jr-box" data-jr-box></div>`
   + `<p class="note jr-note" data-jr-note>${esc(noteText(st))}</p>`;
 
 function render() {
@@ -301,21 +302,15 @@ async function finish(I, won, pre = '') {
   }
 }
 
-function guess(I, kb) {
-  if (I.locked || J().done) return;
-  ui.haptic('light');
-  const g0 = I.actions.querySelector('[data-jr-guess]');
-  if (g0) g0.classList.toggle('no-ring', !kb);
-  const p = openPicker({kind: 'journey', title: 'Name the player', worth: worthOf(J().g.length), disabled: i => (J().g.includes(i) ? 'Guessed' : '')});
-  p.then(async i => {
-    if (i == null) return;
+/** A name picked in the box: the guess. */
+function guess(I, i) {
+  if (I.locked || J().done || I.dead) return;
+  {
     const name = nameOf(i);
     const from = J().g.length;
     const r = daily.journeyGuess(i);
     if (r === 'dup') { ui.toast(`You already guessed ${name}.`); return; }
     if (r == null) return;
-    await sheetsGone();
-    if (I.dead) return;
     if (r === 'win') { finish(I, true); return; }
     addChip(I, i);
     ui.haptic('error');
@@ -328,26 +323,21 @@ function guess(I, kb) {
     const [lab, val] = I.clues[J().g.length - 1] || ['', ''];
     ui.announce(`Not ${name}.${lab ? ` Hint: ${lab}, ${val}.` : ''}`);
     I.api.refreshChrome();
-    const g = I.actions.querySelector('[data-jr-guess]');
-    if (g && g.isConnected) ui.shake(g);
+    if (I.box) I.box.shake();
     setTimeout(() => {
       if (I.dead) return;
       I.api.reveal([I.hints.querySelector(`[data-j="${J().g.length - 1}"]`), I.actions]);
     }, 60);
-  });
+  }
 }
 
 function mount(el, ctx, api) {
   const I = {el, ctx, api, dead: false, locked: false, clues: daily.journeyClues()};
   refs(I);
   drawIn(I);
-  el.addEventListener('click', e => {
-    if (e.target.closest('[data-jr-guess]')) guess(I, e.detail === 0);
-  });
-  el.addEventListener('keydown', e => {
-    if (e.key === 'Tab') el.querySelectorAll('.no-ring').forEach(b => b.classList.remove('no-ring'));
-  });
-  return {unmount() { I.dead = true; }};
+  const host = el.querySelector('[data-jr-box]');
+  if (host) I.box = nameBox(host, {label: 'Name the player', disabled: i => (J().g.includes(i) ? 'Guessed' : ''), onPick: i => guess(I, i)});
+  return {unmount() { I.dead = true; if (I.box) I.box.destroy(); }};
 }
 
 export default {render, mount};

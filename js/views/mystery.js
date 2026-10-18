@@ -4,7 +4,7 @@
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as daily from '../core/daily.js';
-import {openPicker, sheetsGone} from './picker.js';
+import {nameBox} from './picker.js';
 
 const esc = data.esc;
 const CLUE_ICONS = ['figure', 'chart', 'star', 'number', 'grad-cap', 'shield', 'letters'];
@@ -95,8 +95,9 @@ function render() {
     + `</div>`;
 }
 
+// The name box (picker.js nameBox: type the name, the best matches show above it) goes in data-my-box on mount.
 function actionsHTML(st) {
-  return ui.button({label: 'Guess the player', kind: 'primary', attrs: {'data-my-guess': ''}})
+  return `<div class="my-box" data-my-box></div>`
     + ui.button({label: ui.raw(`Next clue <span class="my-minus">· −${clueCost()}</span>`), kind: 'secondary', cls: 'my-next', attrs: {'data-my-clue': '', 'aria-label': `Next clue, costs ${clueCost()} points`, hidden: st.clues >= 7}})
     + `<p class="note my-note" data-my-note>${esc(noteText(st))}</p>`;
 }
@@ -193,7 +194,7 @@ function patchActions(I) {
   if (note) note.textContent = noteText(st);
   const nb = I.actions.querySelector('[data-my-clue]');
   if (nb && st.clues >= 7 && !nb.hidden) {
-    if (nb.contains(document.activeElement)) { const g = I.actions.querySelector('[data-my-guess]'); if (g) g.focus({preventScroll: true}); }
+    if (nb.contains(document.activeElement) && I.box) I.box.input.focus({preventScroll: true});
     nb.hidden = true;
   }
 }
@@ -300,24 +301,15 @@ async function finish(I, won, pre = '') {
   }
 }
 
-function guess(I, kb) {
-  if (I.locked || W().done) return;
-  ui.haptic('light');
-  // The sheet hands focus back to "Guess the player" (ui.openSheet treats the tapped button as its trigger, iOS
-  // included), under the new clue. Pointer users get no ring there.
-  const g0 = I.actions.querySelector('[data-my-guess]');
-  if (g0) g0.classList.toggle('no-ring', !kb);
-  const st = W();
-  const p = openPicker({kind: 'mystery', title: 'Name the player', worth: worthOf(st.clues), disabled: i => (W().g.includes(i) ? 'Guessed' : '')});
-  p.then(async i => {
-    if (i == null) return;
+/** A name picked in the box: the guess. */
+function guess(I, i) {
+  if (I.locked || W().done || I.dead) return;
+  {
     const name = nameOf(i);
     const from = W().clues;
     const r = daily.whoGuess(i);
     if (r === 'dup') { ui.toast(`You already guessed ${name}.`); return; }
     if (r == null) return;
-    await sheetsGone();
-    if (I.dead) return;
     if (r === 'win') { finish(I, true); return; }
     addChip(I, i);
     ui.haptic('error');
@@ -331,23 +323,20 @@ function guess(I, kb) {
     const n = W().clues, [lab, val] = I.clues[n - 1];
     ui.announce(`Not ${name}. Clue ${n}. ${lab}: ${val}.`);
     I.api.refreshChrome();
-    const g = I.actions.querySelector('[data-my-guess]');
-    if (g && g.isConnected) ui.shake(g);
+    if (I.box) I.box.shake();
     revealLatest(I);
-  });
+  }
 }
 
 function mount(el, ctx, api) {
   const I = {el, ctx, api, dead: false, locked: false, clues: daily.whoClues(daily.DAY.w)};
   refs(I);
+  const host = el.querySelector('[data-my-box]');
+  if (host) I.box = nameBox(host, {label: 'Name the mystery player', disabled: i => (W().g.includes(i) ? 'Guessed' : ''), onPick: i => guess(I, i)});
   el.addEventListener('click', e => {
-    if (e.target.closest('[data-my-guess]')) { guess(I, e.detail === 0); return; }
     if (e.target.closest('[data-my-clue]')) nextClue(I);
   });
-  el.addEventListener('keydown', e => {
-    if (e.key === 'Tab') el.querySelectorAll('.no-ring').forEach(b => b.classList.remove('no-ring'));
-  });
-  return {unmount() { I.dead = true; }};
+  return {unmount() { I.dead = true; if (I.box) I.box.destroy(); }};
 }
 
 export default {render, mount};

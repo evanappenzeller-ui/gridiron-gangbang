@@ -91,12 +91,11 @@
 .v-run .my-chips[hidden] { display: none; }
 .v-run .my-chip { max-width: 100%; height: 30px; font-size: 14px; }
 
-/* Actions: Guess (primary) and Next clue side by side; Guess spans the row once Next clue is gone */
-.v-run .my-actions { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 10px; margin-top: 16px; scroll-margin-bottom: 96px; }
+/* Actions: the name box (picker.css .pk-box: type the name, the matches show above it), then Next clue */
+.v-run .my-actions { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; margin-top: 16px; scroll-margin-bottom: 96px; }
 .v-run .my-actions[hidden] { display: none; }
 .v-run .my-actions .btn { padding: 0 10px; }
 .v-run .my-actions .btn[hidden] { display: none; }
-.v-run .my-actions:has(.my-next[hidden]) > [data-my-guess] { grid-column: 1 / -1; }
 .v-run .my-minus { color: var(--ink-2); font-weight: 500; font-size: 14px; } /* ink-3 is only 4.3:1 on surface-2 */
 .v-run .my-note { grid-column: 1 / -1; margin-top: 2px; text-align: center; }
 
