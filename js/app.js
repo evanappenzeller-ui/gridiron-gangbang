@@ -1558,20 +1558,110 @@ function setupTabBar() {
   }, {passive: true});
 }
 
+// ============================================================================ Pager: the tabs side by side
+// Both tab gestures (a swipe across a screen, a drag along the tab bar) pan the tabs as pages in a row: at position
+// pos (a tab's index, fractional between two), each tab's layer sits (index - pos) screen widths across, so the tabs
+// either side of pos show and the rest stay hidden. A tab coming into view is shown and its screen built (its view
+// loaded first if need be). settle() glides to a tab, switches to it and puts every layer back.
+const pager = {
+  on: null,
+  begin() {
+    if (this.on) return this.on;
+    const ci = TABS.indexOf(S.tab), cur = layerOf(S.tab);
+    cur.style.willChange = 'transform';
+    if (indAnim) { indAnim.cancel(); indAnim = null; }
+    this.on = {ci, pos: ci, w: $('stage').clientWidth, shown: new Set([ci]), raf: 0};
+    ui.busy.inc();
+    return this.on;
+  },
+  reveal(k) {
+    const T = TABS[k], layer = layerOf(T), e = topOf(T), P = this.on;
+    const build = () => {
+      if (!e.scr) ensureScreenSync(e, {z: S.stacks[T].length, restore: true, transition: 'none'});
+      if (e.scr) e.scr.el.removeAttribute('data-under');
+      restoreLayerScroll(T);
+    };
+    layer.style.willChange = 'transform';
+    layer.style.transform = `translateX(${(k - P.pos) * P.w}px)`;
+    setLayerHidden(layer, false);
+    if (e.scr || mods.has(e.route.view)) build();
+    else loadView(e.route.view).then(() => { if (this.on === P && P.shown.has(k)) build(); }, () => {});
+  },
+  hide(k) {
+    const layer = layerOf(TABS[k]);
+    layer.style.transform = ''; layer.style.willChange = '';
+    if (TABS[k] !== S.tab) setLayerHidden(layer, true);
+  },
+  show(pos) {
+    const P = this.on;
+    if (!P) return;
+    P.pos = pos;
+    const want = new Set([Math.floor(pos), Math.ceil(pos)].filter(k => k >= 0 && k < TABS.length));
+    P.shown.forEach(k => { if (!want.has(k) && k !== P.ci) { this.hide(k); P.shown.delete(k); } });
+    want.forEach(k => { if (!P.shown.has(k)) { P.shown.add(k); this.reveal(k); } });
+    P.shown.forEach(k => { layerOf(TABS[k]).style.transform = `translateX(${(k - pos) * P.w}px)`; });
+  },
+  /** The pill under pos (the swipe; the bar's drag moves it under the finger itself). */
+  pill(pos) {
+    const bar = $('tabbar'), ind = bar.querySelector('.tab-ind'), btns = [...bar.querySelectorAll('.tab')];
+    if (!ind || !btns.length) return;
+    const p = Math.max(0, Math.min(btns.length - 1, pos)), a = Math.floor(p), b = Math.ceil(p);
+    indX = btns[a].offsetLeft + (btns[b].offsetLeft - btns[a].offsetLeft) * (p - a);
+    ind.style.transform = `translateX(${indX}px)`;
+  },
+  /** Glides to tab index k, opens it and puts every layer back. */
+  async settle(k) {
+    const P = this.on;
+    if (!P) return;
+    cancelAnimationFrame(P.raf);
+    const from = P.pos, to = k, ms = ui.RM ? 1 : Math.min(420, 220 + 180 * Math.abs(to - from));
+    moveIndicator($('tabbar').querySelector(`.tab[data-tab="${TABS[k]}"]`), true);
+    await new Promise(res => {
+      const t0 = performance.now();
+      const step = now => {
+        const t = Math.min(1, (now - t0) / ms), e = 1 - Math.pow(1 - t, 3);
+        this.show(from + (to - from) * e);
+        if (t < 1 && !document.hidden) P.raf = requestAnimationFrame(step); else res();
+      };
+      P.raf = requestAnimationFrame(step);
+    });
+    this.show(to);
+    try { if (TABS[k] !== S.tab) await goTab(TABS[k], {motion: false}); } finally {
+      P.shown.forEach(i => this.hide(i));
+      const cur = layerOf(S.tab);
+      cur.style.transform = ''; cur.style.willChange = '';
+      setLayerHidden(cur, false);
+      this.on = null;
+      ui.busy.dec();
+      warmNeighbours(S.tab);
+    }
+  }
+};
+/** Loads the views of the tabs either side of T (so a swipe has a page to show). */
+function warmNeighbours(T) {
+  const i = TABS.indexOf(T);
+  [TABS[i - 1], TABS[i + 1]].forEach(t => { if (t && S.stacks[t]) loadView(topOf(t).route.view).catch(() => {}); });
+}
+
 // ============================================================================ Scrub: drag along the tab bar
-// A finger that slides along the floating bar drags the pill with it; the tab under it lights up (a tick as each one
-// is reached) and opens on release. A tap is still a tap (the bar's click).
+// A finger that slides along the floating bar drags the pill with it, and the pages pan along under it: the tab under
+// the finger slides into view (a tick as each one is reached), and is the one that opens on release. A tap is still a
+// tap (the bar's click).
 let scrubEnd = 0;
 function setupScrub(bar) {
   let g = null;
   const tabs = () => [...bar.querySelectorAll('.tab')];
-  const tabAt = x => tabs().find(t => { const r = t.getBoundingClientRect(); return x >= r.left && x < r.right; })
-    || (x < bar.getBoundingClientRect().left + bar.clientWidth / 2 ? tabs()[0] : tabs()[tabs().length - 1]);
   const mark = btn => tabs().forEach(t => t.classList.toggle('is-scrub', t === btn));
-  const stop = () => { bar.classList.remove('is-scrubbing'); mark(null); g = null; };
+  // The finger's place along the bar as a tab position: tab k's centre is k, fractional between centres.
+  const posAt = x => {
+    const cs = tabs().map(t => { const r = t.getBoundingClientRect(); return r.left + r.width / 2; });
+    if (x <= cs[0]) return 0;
+    for (let k = 0; k < cs.length - 1; k++) if (x <= cs[k + 1]) return k + (x - cs[k]) / (cs[k + 1] - cs[k]);
+    return cs.length - 1;
+  };
   bar.addEventListener('pointerdown', e => {
-    if (e.button > 0 || !e.isPrimary || S.cover || S.sheets.length) return;
-    g = {id: e.pointerId, x0: e.clientX, on: false, btn: null};
+    if (e.button > 0 || !e.isPrimary || S.cover || S.sheets.length || pager.on || running.size || qBusy) return;
+    g = {id: e.pointerId, x0: e.clientX, on: false, k: -1, pages: S.stacks[S.tab].length === 1};
   });
   bar.addEventListener('pointermove', e => {
     if (!g || e.pointerId !== g.id) return;
@@ -1581,30 +1671,31 @@ function setupScrub(bar) {
       try { bar.setPointerCapture(e.pointerId); } catch (_) {}
       bar.classList.add('is-scrubbing');
       if (indAnim) { indAnim.cancel(); indAnim = null; }
+      TABS.forEach(t => loadView(topOf(t).route.view).catch(() => {}));
+      if (g.pages) pager.begin();
     }
     const ind = bar.querySelector('.tab-ind'), br = bar.getBoundingClientRect();
     if (ind) {
       const w = ind.offsetWidth, pad = 5;
-      const x = Math.max(pad, Math.min(bar.clientWidth - pad - w, e.clientX - br.left - w / 2));
-      indX = x;
-      ind.style.transform = `translateX(${x}px)`;
+      indX = Math.max(pad, Math.min(bar.clientWidth - pad - w, e.clientX - br.left - w / 2));
+      ind.style.transform = `translateX(${indX}px)`;
     }
-    const btn = tabAt(e.clientX);
-    if (btn && btn !== g.btn) { g.btn = btn; mark(btn); ui.haptic('selection'); }
+    const pos = posAt(e.clientX), k = Math.round(pos);
+    if (g.pages) pager.show(pos);
+    if (k !== g.k) { g.k = k; mark(tabs()[k]); ui.haptic('selection'); }
   });
   const end = e => {
     if (!g || e.pointerId !== g.id) return;
     const G = g;
-    stop();
+    g = null;
+    bar.classList.remove('is-scrubbing'); mark(null);
     if (!G.on) return;
     scrubEnd = performance.now();
-    const btn = G.btn || bar.querySelector('.tab[aria-current="page"]');
-    const T = btn && btn.dataset.tab;
-    // Back to its tab (the same one, or before the switch moves it on).
-    const cur = bar.querySelector('.tab[aria-current="page"]');
-    if (!T || T === S.tab || e.type === 'pointercancel') { moveIndicator(cur, true); return; }
-    moveIndicator(btn, true);
-    goTab(T);
+    const k = e.type === 'pointercancel' || G.k < 0 ? TABS.indexOf(S.tab) : G.k;
+    if (G.pages && pager.on) { pager.settle(k); return; }
+    // A pushed screen (or a cover): no pages to pan; the tab opens as a tap would.
+    moveIndicator(tabs()[k], true);
+    if (TABS[k] !== S.tab) goTab(TABS[k]);
   };
   bar.addEventListener('pointerup', end);
   bar.addEventListener('pointercancel', end);
@@ -1612,11 +1703,10 @@ function setupScrub(bar) {
 
 // ============================================================================ Swipe between tabs
 // On a tab's first screen (nothing pushed, no cover or sheet), a sideways swipe pages to the next tab (swipe left) or
-// the one before (right), like turning a page: the next tab's screen rides in beside the current one under the finger
-// and the tab bar's pill slides along; let go past a third of the way (or with a flick) and it lands, else both slide
-// back. Neighbouring tabs' views load ahead, so the page beside is there to see. Never from something that scrolls or
-// swipes sideways itself (overflow-x, or touch-action pan-y / none: a view's own swipe), a field or control, the
-// Two-Minute Drill's field, or the screen's edges (the browser's own back and forward).
+// the one before (right): the next tab's screen rides in beside the current one under the finger and the tab bar's
+// pill slides along; let go past a third of the way (or with a flick) and it lands, else both slide back. Never from
+// something that scrolls or swipes sideways itself (overflow-x, or touch-action pan-y / none: a view's own swipe), a
+// field or control, the Two-Minute Drill's field, or the screen's edges (the browser's own back and forward).
 const NO_SWIPE = 'input, textarea, select, [contenteditable="true"], [role="slider"], [data-no-swipe], [data-hscroll], .dr-stage, [data-dr-field], #tabbar';
 function ownsSideways(el, stop) {
   for (let n = el; n && n !== stop; n = n.parentElement) {
@@ -1625,11 +1715,6 @@ function ownsSideways(el, stop) {
     if (n.scrollWidth > n.clientWidth + 2 && (cs.overflowX === 'auto' || cs.overflowX === 'scroll')) return true;
   }
   return false;
-}
-/** Loads the views of the tabs either side of T (so a swipe has a page to show). */
-function warmNeighbours(T) {
-  const i = TABS.indexOf(T);
-  [TABS[i - 1], TABS[i + 1]].forEach(t => { if (t && S.stacks[t]) loadView(topOf(t).route.view).catch(() => {}); });
 }
 function setupTabSwipe() {
   const stage = $('stage');
@@ -1642,53 +1727,17 @@ function setupTabSwipe() {
   };
   const blocker = e => { if (g && g.locked && e.cancelable) e.preventDefault(); };
   const release = () => stage.removeEventListener('touchmove', blocker, {passive: false});
-  const tabBtn = T => $('tabbar').querySelector(`.tab[data-tab="${T}"]`);
-  // The page beside, in the swipe's direction (dir +1: the next tab, -1: the one before): its layer shown off to that
-  // side, its screen built (once its view has loaded).
-  const hidePeek = P => { P.layer.style.transform = ''; P.layer.style.willChange = ''; if (P.T !== S.tab) setLayerHidden(P.layer, true); };
-  const peekFor = (G, dir) => {
-    const T = TABS[G.i + dir] || null;
-    if (G.peek && G.peek.T === T) return;
-    if (G.peek) hidePeek(G.peek);
-    G.peek = null;
-    if (!T) return;
-    const layer = layerOf(T), e = topOf(T), P = {T, dir, layer};
-    const build = () => {
-      if (!e.scr) ensureScreenSync(e, {z: S.stacks[T].length, restore: true, transition: 'none'});
-      if (e.scr) e.scr.el.removeAttribute('data-under');
-      restoreLayerScroll(T);
-    };
-    layer.style.willChange = 'transform';
-    layer.style.transform = `translateX(${dir * G.w + G.x}px)`;
-    setLayerHidden(layer, false);
-    if (e.scr || mods.has(e.route.view)) build();
-    else loadView(e.route.view).then(() => { if (g === G && G.peek === P) build(); }, () => {});
-    G.peek = P;
-  };
-  const place = G => {
-    G.cur.style.transform = `translateX(${G.x}px)`;
-    if (G.peek) G.peek.layer.style.transform = `translateX(${G.peek.dir * G.w + G.x}px)`;
-    // The pill slides toward the tab coming in.
-    const ind = $('tabbar').querySelector('.tab-ind'), a = tabBtn(S.tab), b = G.peek && tabBtn(G.peek.T);
-    if (ind && a) {
-      const p = b ? Math.min(1, Math.abs(G.x) / G.w) : 0;
-      indX = a.offsetLeft + ((b ? b.offsetLeft : a.offsetLeft) - a.offsetLeft) * p;
-      ind.style.transform = `translateX(${indX}px)`;
-    }
-  };
   stage.addEventListener('touchstart', e => {
     g = null;
     release();
-    if (e.touches.length !== 1 || S.cover || S.sheets.length || running.size || qBusy) return;
+    if (e.touches.length !== 1 || S.cover || S.sheets.length || running.size || qBusy || pager.on) return;
     if (S.stacks[S.tab].length !== 1) return; // a pushed screen: its edge swipes back instead
     const t = e.touches[0], r = stage.getBoundingClientRect();
     if (t.clientX - r.left < 24 || r.right - t.clientX < 24) return;
     const el = e.target;
     if (!el || !el.closest || el.closest(NO_SWIPE) || ownsSideways(el, stage)) return;
-    const cur = layerOf(S.tab);
-    if (!cur) return;
     warmNeighbours(S.tab);
-    g = {x0: t.clientX, y0: t.clientY, locked: false, cur, i: TABS.indexOf(S.tab), w: stage.clientWidth, x: 0, peek: null, s: [[performance.now(), t.clientX]]};
+    g = {x0: t.clientX, y0: t.clientY, locked: false, x: 0, s: [[performance.now(), t.clientX]]};
     stage.addEventListener('touchmove', blocker, {passive: false});
   }, {passive: true});
   stage.addEventListener('touchmove', e => {
@@ -1697,54 +1746,32 @@ function setupTabSwipe() {
     const dx = t.clientX - g.x0, dy = t.clientY - g.y0;
     if (!g.locked) {
       if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
-      if (Math.abs(dx) < Math.abs(dy) * 1.4) { g = null; release(); return; } // a scroll
+      if (Math.abs(dx) < Math.abs(dy) * 1.4 || pager.on) { g = null; release(); return; } // a scroll
       g.locked = true;
-      g.cur.style.willChange = 'transform';
-      if (indAnim) { indAnim.cancel(); indAnim = null; }
-      ui.busy.inc();
+      g.P = pager.begin();
     }
-    const dir = dx < 0 ? 1 : -1;
-    g.x = dx; // (set before the peek, which is placed from it)
-    peekFor(g, dir);
-    if (!g.peek) g.x = dx * .25; // past the first or last tab it only gives a little
-    place(g);
+    // The pages follow the finger; past the first or last tab they only give a little.
+    const ci = g.P.ci, last = TABS.length - 1;
+    let pos = ci - dx / g.P.w;
+    if (pos < 0) pos *= .25; else if (pos > last) pos = last + (pos - last) * .25;
+    g.x = dx;
+    pager.show(pos);
+    pager.pill(pos);
     const now = performance.now();
     g.s.push([now, t.clientX]);
     while (g.s.length > 2 && now - g.s[0][0] > 100) g.s.shift();
   }, {passive: true});
-  const end = async () => {
+  const end = () => {
     release();
     if (!g) return;
     const G = g;
     g = null;
-    if (!G.locked) { if (G.peek) hidePeek(G.peek); return; }
-    ui.busy.dec();
-    const v = vel(G.s), P = G.peek;
-    const commit = !!P && (Math.abs(G.x) > G.w / 3 || (Math.abs(G.x) > 30 && Math.abs(v) > .4 && Math.sign(v) === Math.sign(G.x)));
-    const toX = commit ? -P.dir * G.w : 0;
-    const dist = toX - G.x, v0 = dist ? (v * 1000) / dist : 0;
-    const list = [ui.animate(G.cur, [{transform: `translateX(${G.x}px)`}, {transform: `translateX(${toX}px)`}], {spring: 'smooth', v0, fill: 'forwards'})];
-    if (P) list.push(ui.animate(P.layer, [{transform: `translateX(${P.dir * G.w + G.x}px)`}, {transform: `translateX(${P.dir * G.w + toX}px)`}], {spring: 'smooth', v0, fill: 'forwards'}));
-    G.cur.style.transform = `translateX(${toX}px)`;
-    if (P) P.layer.style.transform = `translateX(${P.dir * G.w + toX}px)`;
-    if (commit) {
-      ui.haptic('selection');
-      moveIndicator(tabBtn(P.T), true);
-    } else moveIndicator(tabBtn(S.tab), true);
-    await track(list);
-    if (commit) {
-      try { await goTab(P.T, {motion: false}); } finally {
-        list.forEach(a => a.cancel());
-        G.cur.style.transform = ''; G.cur.style.willChange = '';
-        P.layer.style.transform = ''; P.layer.style.willChange = '';
-        if (S.tab !== P.T) setLayerHidden(P.layer, true);
-      }
-      warmNeighbours(S.tab);
-    } else {
-      list.forEach(a => a.cancel());
-      G.cur.style.transform = ''; G.cur.style.willChange = '';
-      if (P) hidePeek(P);
-    }
+    if (!G.locked || !pager.on) return;
+    const v = vel(G.s), P = pager.on, dir = G.x < 0 ? 1 : -1, to = P.ci + dir;
+    const ok = to >= 0 && to < TABS.length;
+    const commit = ok && (Math.abs(G.x) > P.w / 3 || (Math.abs(G.x) > 30 && Math.abs(v) > .4 && Math.sign(v) === Math.sign(G.x)));
+    if (commit) ui.haptic('selection');
+    pager.settle(commit ? to : P.ci);
   };
   stage.addEventListener('touchend', end, {passive: true});
   stage.addEventListener('touchcancel', end, {passive: true});
