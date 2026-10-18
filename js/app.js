@@ -1611,10 +1611,12 @@ function setupScrub(bar) {
 }
 
 // ============================================================================ Swipe between tabs
-// On a tab's first screen (nothing pushed, no cover or sheet), a sideways swipe goes to the next tab (swipe left) or
-// the one before (right): the screen follows the finger, then slides off as the next one slides in. Never from
-// something that scrolls or swipes sideways itself (overflow-x, or touch-action pan-y / none: a view's own swipe), a
-// field or control, the Two-Minute Drill's field, or the screen's edges (the browser's own back and forward).
+// On a tab's first screen (nothing pushed, no cover or sheet), a sideways swipe pages to the next tab (swipe left) or
+// the one before (right), like turning a page: the next tab's screen rides in beside the current one under the finger
+// and the tab bar's pill slides along; let go past a third of the way (or with a flick) and it lands, else both slide
+// back. Neighbouring tabs' views load ahead, so the page beside is there to see. Never from something that scrolls or
+// swipes sideways itself (overflow-x, or touch-action pan-y / none: a view's own swipe), a field or control, the
+// Two-Minute Drill's field, or the screen's edges (the browser's own back and forward).
 const NO_SWIPE = 'input, textarea, select, [contenteditable="true"], [role="slider"], [data-no-swipe], [data-hscroll], .dr-stage, [data-dr-field], #tabbar';
 function ownsSideways(el, stop) {
   for (let n = el; n && n !== stop; n = n.parentElement) {
@@ -1623,6 +1625,11 @@ function ownsSideways(el, stop) {
     if (n.scrollWidth > n.clientWidth + 2 && (cs.overflowX === 'auto' || cs.overflowX === 'scroll')) return true;
   }
   return false;
+}
+/** Loads the views of the tabs either side of T (so a swipe has a page to show). */
+function warmNeighbours(T) {
+  const i = TABS.indexOf(T);
+  [TABS[i - 1], TABS[i + 1]].forEach(t => { if (t && S.stacks[t]) loadView(topOf(t).route.view).catch(() => {}); });
 }
 function setupTabSwipe() {
   const stage = $('stage');
@@ -1635,6 +1642,40 @@ function setupTabSwipe() {
   };
   const blocker = e => { if (g && g.locked && e.cancelable) e.preventDefault(); };
   const release = () => stage.removeEventListener('touchmove', blocker, {passive: false});
+  const tabBtn = T => $('tabbar').querySelector(`.tab[data-tab="${T}"]`);
+  // The page beside, in the swipe's direction (dir +1: the next tab, -1: the one before): its layer shown off to that
+  // side, its screen built (once its view has loaded).
+  const hidePeek = P => { P.layer.style.transform = ''; P.layer.style.willChange = ''; if (P.T !== S.tab) setLayerHidden(P.layer, true); };
+  const peekFor = (G, dir) => {
+    const T = TABS[G.i + dir] || null;
+    if (G.peek && G.peek.T === T) return;
+    if (G.peek) hidePeek(G.peek);
+    G.peek = null;
+    if (!T) return;
+    const layer = layerOf(T), e = topOf(T), P = {T, dir, layer};
+    const build = () => {
+      if (!e.scr) ensureScreenSync(e, {z: S.stacks[T].length, restore: true, transition: 'none'});
+      if (e.scr) e.scr.el.removeAttribute('data-under');
+      restoreLayerScroll(T);
+    };
+    layer.style.willChange = 'transform';
+    layer.style.transform = `translateX(${dir * G.w + G.x}px)`;
+    setLayerHidden(layer, false);
+    if (e.scr || mods.has(e.route.view)) build();
+    else loadView(e.route.view).then(() => { if (g === G && G.peek === P) build(); }, () => {});
+    G.peek = P;
+  };
+  const place = G => {
+    G.cur.style.transform = `translateX(${G.x}px)`;
+    if (G.peek) G.peek.layer.style.transform = `translateX(${G.peek.dir * G.w + G.x}px)`;
+    // The pill slides toward the tab coming in.
+    const ind = $('tabbar').querySelector('.tab-ind'), a = tabBtn(S.tab), b = G.peek && tabBtn(G.peek.T);
+    if (ind && a) {
+      const p = b ? Math.min(1, Math.abs(G.x) / G.w) : 0;
+      indX = a.offsetLeft + ((b ? b.offsetLeft : a.offsetLeft) - a.offsetLeft) * p;
+      ind.style.transform = `translateX(${indX}px)`;
+    }
+  };
   stage.addEventListener('touchstart', e => {
     g = null;
     release();
@@ -1644,9 +1685,10 @@ function setupTabSwipe() {
     if (t.clientX - r.left < 24 || r.right - t.clientX < 24) return;
     const el = e.target;
     if (!el || !el.closest || el.closest(NO_SWIPE) || ownsSideways(el, stage)) return;
-    const scr = topOf(S.tab).scr;
-    if (!scr) return;
-    g = {x0: t.clientX, y0: t.clientY, locked: false, scr, i: TABS.indexOf(S.tab), w: stage.clientWidth, x: 0, s: [[performance.now(), t.clientX]]};
+    const cur = layerOf(S.tab);
+    if (!cur) return;
+    warmNeighbours(S.tab);
+    g = {x0: t.clientX, y0: t.clientY, locked: false, cur, i: TABS.indexOf(S.tab), w: stage.clientWidth, x: 0, peek: null, s: [[performance.now(), t.clientX]]};
     stage.addEventListener('touchmove', blocker, {passive: false});
   }, {passive: true});
   stage.addEventListener('touchmove', e => {
@@ -1657,14 +1699,15 @@ function setupTabSwipe() {
       if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
       if (Math.abs(dx) < Math.abs(dy) * 1.4) { g = null; release(); return; } // a scroll
       g.locked = true;
+      g.cur.style.willChange = 'transform';
+      if (indAnim) { indAnim.cancel(); indAnim = null; }
       ui.busy.inc();
     }
-    // The screen follows the finger; past the first or last tab it only gives a little.
-    const to = TABS[g.i + (dx < 0 ? 1 : -1)];
-    g.to = to || null;
-    g.x = to ? dx : dx * .25;
-    g.scr.el.style.transform = `translateX(${g.x}px)`;
-    g.scr.el.style.opacity = String(1 - Math.min(.35, Math.abs(g.x) / g.w * .5));
+    const dir = dx < 0 ? 1 : -1;
+    g.x = dx; // (set before the peek, which is placed from it)
+    peekFor(g, dir);
+    if (!g.peek) g.x = dx * .25; // past the first or last tab it only gives a little
+    place(g);
     const now = performance.now();
     g.s.push([now, t.clientX]);
     while (g.s.length > 2 && now - g.s[0][0] > 100) g.s.shift();
@@ -1674,31 +1717,38 @@ function setupTabSwipe() {
     if (!g) return;
     const G = g;
     g = null;
-    if (!G.locked) return;
+    if (!G.locked) { if (G.peek) hidePeek(G.peek); return; }
     ui.busy.dec();
-    const v = vel(G.s), dir = G.x < 0 ? 1 : -1;
-    const commit = !!G.to && (Math.abs(G.x) > G.w * .28 || (Math.abs(G.x) > 40 && Math.abs(v) > .45 && Math.sign(v) === Math.sign(G.x)));
-    const el = G.scr.el, op = el.style.opacity || '1';
-    const clear = () => { el.style.transform = ''; el.style.opacity = ''; };
-    if (!commit) {
-      const a = ui.animate(el, [{transform: `translateX(${G.x}px)`, opacity: op}, {transform: 'none', opacity: 1}], {spring: 'snappy'});
-      clear();
-      await track([a]);
-      return;
-    }
-    ui.haptic('selection');
-    // Off it goes, the way the finger was going; then the next tab slides in from the other side.
-    const out = ui.animate(el, [{transform: `translateX(${G.x}px)`, opacity: op}, {transform: `translateX(${-dir * G.w * .45}px)`, opacity: 0}],
-      {duration: ui.RM ? 1 : 140, easing: 'cubic-bezier(.4,0,1,1)', fill: 'forwards'});
-    await track([out]);
-    try { await goTab(G.to, {motion: false}); } finally { out.cancel(); clear(); }
-    const now = topOf(S.tab).scr;
-    if (now && S.tab === G.to && !ui.RM) {
-      track([ui.animate(now.el, [{transform: `translateX(${dir * G.w * .3}px)`, opacity: .3}, {transform: 'none', opacity: 1}], {spring: 'smooth'})]);
+    const v = vel(G.s), P = G.peek;
+    const commit = !!P && (Math.abs(G.x) > G.w / 3 || (Math.abs(G.x) > 30 && Math.abs(v) > .4 && Math.sign(v) === Math.sign(G.x)));
+    const toX = commit ? -P.dir * G.w : 0;
+    const dist = toX - G.x, v0 = dist ? (v * 1000) / dist : 0;
+    const list = [ui.animate(G.cur, [{transform: `translateX(${G.x}px)`}, {transform: `translateX(${toX}px)`}], {spring: 'smooth', v0, fill: 'forwards'})];
+    if (P) list.push(ui.animate(P.layer, [{transform: `translateX(${P.dir * G.w + G.x}px)`}, {transform: `translateX(${P.dir * G.w + toX}px)`}], {spring: 'smooth', v0, fill: 'forwards'}));
+    G.cur.style.transform = `translateX(${toX}px)`;
+    if (P) P.layer.style.transform = `translateX(${P.dir * G.w + toX}px)`;
+    if (commit) {
+      ui.haptic('selection');
+      moveIndicator(tabBtn(P.T), true);
+    } else moveIndicator(tabBtn(S.tab), true);
+    await track(list);
+    if (commit) {
+      try { await goTab(P.T, {motion: false}); } finally {
+        list.forEach(a => a.cancel());
+        G.cur.style.transform = ''; G.cur.style.willChange = '';
+        P.layer.style.transform = ''; P.layer.style.willChange = '';
+        if (S.tab !== P.T) setLayerHidden(P.layer, true);
+      }
+      warmNeighbours(S.tab);
+    } else {
+      list.forEach(a => a.cancel());
+      G.cur.style.transform = ''; G.cur.style.willChange = '';
+      if (P) hidePeek(P);
     }
   };
   stage.addEventListener('touchend', end, {passive: true});
   stage.addEventListener('touchcancel', end, {passive: true});
+  ui.onIdle(() => warmNeighbours(S.tab));
 }
 
 // ============================================================================ Swipe-back (3.4; iOS standalone only)
