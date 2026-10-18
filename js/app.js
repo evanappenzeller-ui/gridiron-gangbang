@@ -1559,10 +1559,26 @@ function setupTabBar() {
 }
 
 // ============================================================================ Pager: the tabs side by side
-// Both tab gestures (a swipe across a screen, a drag along the tab bar) pan the tabs as pages in a row: at position
-// pos (a tab's index, fractional between two), each tab's layer sits (index - pos) screen widths across, so the tabs
-// either side of pos show and the rest stay hidden. A tab coming into view is shown and its screen built (its view
-// loaded first if need be). settle() glides to a tab, switches to it and puts every layer back.
+// Tabs change like switching apps on an iPhone: the screens become cards (a little smaller, round-cornered, a gap and
+// a shadow between them, a dim backdrop behind), slide across, and the one that lands grows back to the full screen.
+// Both tab gestures (a swipe across a screen, a drag along the tab bar) pan the cards: at position pos (a tab's index,
+// fractional between two) and card scale s, tab k's layer sits (k - pos) card-widths across, so the tabs either side
+// of pos show and the rest stay hidden. A tab coming into view is shown and its screen built (its view loaded first if
+// need be). settle() glides to a tab as it grows back, switches to it and puts every layer back.
+const CARD = {dip: .1, gap: 18, radius: 44};
+/** A tab's layer as a card: x across (px) at scale s (1: the whole screen, square-cornered, no shadow). */
+function cardAt(layer, x, s) {
+  const k = Math.min(1, (1 - s) / .05); // the corners and shadow come in over the first bit of shrinking
+  layer.style.transform = `translateX(${x}px) scale(${s})`;
+  layer.style.borderRadius = k ? `${CARD.radius * k}px` : '';
+  layer.style.overflow = k ? 'hidden' : '';
+  layer.style.boxShadow = k ? `0 0 0 1px rgba(255,255,255,${.07 * k}), 0 ${24 * k}px ${64 * k}px rgba(0,0,0,${.55 * k})` : '';
+}
+function uncard(layer) {
+  layer.style.transform = layer.style.borderRadius = layer.style.overflow = layer.style.boxShadow = layer.style.willChange = '';
+}
+/** The distance between two cards' centres at scale s on a stage w wide. */
+const cardStep = (w, s) => w * s + CARD.gap * Math.min(1, (1 - s) / .05);
 const pager = {
   on: null,
   begin() {
@@ -1570,7 +1586,8 @@ const pager = {
     const ci = TABS.indexOf(S.tab), cur = layerOf(S.tab);
     cur.style.willChange = 'transform';
     if (indAnim) { indAnim.cancel(); indAnim = null; }
-    this.on = {ci, pos: ci, w: $('stage').clientWidth, shown: new Set([ci]), raf: 0};
+    $('stage').classList.add('is-cards');
+    this.on = {ci, pos: ci, s: 1, w: $('stage').clientWidth, shown: new Set([ci]), raf: 0};
     ui.busy.inc();
     return this.on;
   },
@@ -1582,24 +1599,25 @@ const pager = {
       restoreLayerScroll(T);
     };
     layer.style.willChange = 'transform';
-    layer.style.transform = `translateX(${(k - P.pos) * P.w}px)`;
+    cardAt(layer, (k - P.pos) * cardStep(P.w, P.s), P.s);
     setLayerHidden(layer, false);
     if (e.scr || mods.has(e.route.view)) build();
     else loadView(e.route.view).then(() => { if (this.on === P && P.shown.has(k)) build(); }, () => {});
   },
   hide(k) {
     const layer = layerOf(TABS[k]);
-    layer.style.transform = ''; layer.style.willChange = '';
+    uncard(layer);
     if (TABS[k] !== S.tab) setLayerHidden(layer, true);
   },
-  show(pos) {
+  show(pos, s = this.on && this.on.s) {
     const P = this.on;
     if (!P) return;
-    P.pos = pos;
+    P.pos = pos; P.s = s;
     const want = new Set([Math.floor(pos), Math.ceil(pos)].filter(k => k >= 0 && k < TABS.length));
     P.shown.forEach(k => { if (!want.has(k) && k !== P.ci) { this.hide(k); P.shown.delete(k); } });
     want.forEach(k => { if (!P.shown.has(k)) { P.shown.add(k); this.reveal(k); } });
-    P.shown.forEach(k => { layerOf(TABS[k]).style.transform = `translateX(${(k - pos) * P.w}px)`; });
+    const step = cardStep(P.w, s);
+    P.shown.forEach(k => cardAt(layerOf(TABS[k]), (k - pos) * step, s));
   },
   /** The pill under pos (the swipe; the bar's drag moves it under the finger itself). */
   pill(pos) {
@@ -1609,28 +1627,30 @@ const pager = {
     indX = btns[a].offsetLeft + (btns[b].offsetLeft - btns[a].offsetLeft) * (p - a);
     ind.style.transform = `translateX(${indX}px)`;
   },
-  /** Glides to tab index k, opens it and puts every layer back. */
+  /** Glides to tab index k as the cards grow back to the full screen, opens it and puts every layer back. */
   async settle(k) {
     const P = this.on;
     if (!P) return;
     cancelAnimationFrame(P.raf);
-    const from = P.pos, to = k, ms = ui.RM ? 1 : Math.min(420, 220 + 180 * Math.abs(to - from));
+    const from = P.pos, s0 = P.s, to = k, ms = ui.RM ? 1 : Math.min(460, 300 + 160 * Math.abs(to - from));
     moveIndicator($('tabbar').querySelector(`.tab[data-tab="${TABS[k]}"]`), true);
     await new Promise(res => {
       const t0 = performance.now();
       const step = now => {
         const t = Math.min(1, (now - t0) / ms), e = 1 - Math.pow(1 - t, 3);
-        this.show(from + (to - from) * e);
+        // The card lands, then fills the screen (the growing back trails the slide a little).
+        this.show(from + (to - from) * e, s0 + (1 - s0) * Math.pow(t, 1.6));
         if (t < 1 && !document.hidden) P.raf = requestAnimationFrame(step); else res();
       };
       P.raf = requestAnimationFrame(step);
     });
-    this.show(to);
+    this.show(to, 1);
     try { if (TABS[k] !== S.tab) await goTab(TABS[k], {motion: false}); } finally {
       P.shown.forEach(i => this.hide(i));
       const cur = layerOf(S.tab);
-      cur.style.transform = ''; cur.style.willChange = '';
+      uncard(cur);
       setLayerHidden(cur, false);
+      $('stage').classList.remove('is-cards');
       this.on = null;
       ui.busy.dec();
       warmNeighbours(S.tab);
@@ -1643,11 +1663,11 @@ function warmNeighbours(T) {
   [TABS[i - 1], TABS[i + 1]].forEach(t => { if (t && S.stacks[t]) loadView(topOf(t).route.view).catch(() => {}); });
 }
 
-// ============================================================================ Tap: slide to the tab
-// A tapped tab slides in from the side its icon is on (from the right for a tab further along the bar), the open one
-// sliding out the other way: quick, so it reads as moving across, not as waiting. A tab further than the next one
-// slides straight in (the ones between are skipped). With reduced motion, a cover or a sheet open, or a new version
-// waiting, it opens as before.
+// ============================================================================ Tap: switch to the tab
+// A tapped tab comes in like the next app: the open screen shrinks to a card and slides off to the side away from the
+// tapped icon as the tab's card slides in from that side, then grows back to fill the screen. A tab further than the
+// next one comes straight in (the ones between are skipped). With reduced motion, a cover or a sheet open, or a new
+// version waiting, it opens as before.
 let sliding = null;
 function slideTo(T) {
   if (sliding) { finishTransitions(); return sliding.then(() => slideTo(T)); }
@@ -1660,20 +1680,33 @@ function slideTo(T) {
     if (!e.scr) ensureScreenSync(e, {z: S.stacks[T].length, restore: true, transition: 'none'});
     if (!e.scr) { await goTab(T); return; } // its view didn't load: the plain switch shows its error
     e.scr.el.removeAttribute('data-under');
-    const cur = layerOf(S.tab), nxt = layerOf(T), w = $('stage').clientWidth;
+    const stage = $('stage'), cur = layerOf(S.tab), nxt = layerOf(T), w = stage.clientWidth;
     cur.style.willChange = nxt.style.willChange = 'transform';
-    nxt.style.transform = `translateX(${dir * w}px)`;
+    cardAt(nxt, dir * w + CARD.gap, 1);
     setLayerHidden(nxt, false);
     restoreLayerScroll(T);
-    const o = {duration: 260, easing: 'cubic-bezier(.22,1,.36,1)', fill: 'forwards'};
-    const list = [ui.animate(cur, [{transform: 'none'}, {transform: `translateX(${-dir * w}px)`}], o),
-      ui.animate(nxt, [{transform: `translateX(${dir * w}px)`}, {transform: 'none'}], o)];
-    nxt.style.transform = '';
-    await track(list);
+    stage.classList.add('is-cards');
+    ui.busy.inc();
+    // Shrink, slide, grow: the cards dip to their smallest about a third of the way across.
+    await new Promise(res => {
+      const ms = 420, t0 = performance.now();
+      const frame = now => {
+        const t = Math.min(1, (now - t0) / ms);
+        const p = t * t * t * (t * (t * 6 - 15) + 10); // smootherstep: off gently, across, in gently
+        const sc = 1 - CARD.dip * Math.pow(Math.sin(Math.PI * Math.min(1, t * 1.08)), .7);
+        const step = cardStep(w, sc);
+        cardAt(cur, -dir * p * step, sc);
+        cardAt(nxt, dir * (1 - p) * step, sc);
+        if (t < 1 && !document.hidden) requestAnimationFrame(frame); else res();
+      };
+      requestAnimationFrame(frame);
+    });
+    cardAt(cur, -dir * w, 1); cardAt(nxt, 0, 1);
     try { await goTab(T, {motion: false}); } finally {
-      list.forEach(a => a.cancel());
-      cur.style.transform = cur.style.willChange = nxt.style.willChange = '';
+      uncard(cur); uncard(nxt);
+      stage.classList.remove('is-cards');
       if (S.tab !== T) setLayerHidden(nxt, true);
+      ui.busy.dec();
     }
   })().finally(() => { sliding = null; warmNeighbours(S.tab); });
   return sliding;
@@ -1717,7 +1750,7 @@ function setupScrub(bar) {
       ind.style.transform = `translateX(${indX}px)`;
     }
     const pos = posAt(e.clientX), k = Math.round(pos);
-    if (g.pages) pager.show(pos);
+    if (g.pages) pager.show(pos, 1 - CARD.dip * Math.min(1, Math.abs(e.clientX - g.x0) / 40)); // cards while the finger is down
     if (k !== g.k) { g.k = k; mark(tabs()[k]); ui.haptic('selection'); }
   });
   const end = e => {
@@ -1793,7 +1826,7 @@ function setupTabSwipe() {
     let pos = ci - dx / g.P.w;
     if (pos < 0) pos *= .25; else if (pos > last) pos = last + (pos - last) * .25;
     g.x = dx;
-    pager.show(pos);
+    pager.show(pos, 1 - CARD.dip * Math.min(1, Math.abs(dx) / 90)); // the screen shrinks to a card as it moves off
     pager.pill(pos);
     const now = performance.now();
     g.s.push([now, t.clientX]);

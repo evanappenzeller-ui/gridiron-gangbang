@@ -120,6 +120,14 @@ small { font-size: inherit; }
   isolation: isolate;
 }
 #stage { position: absolute; inset: 0; z-index: 1; overflow: hidden; }
+/* A tab change (app.js: the pager and the tap): the screens shrink to cards like apps being switched; this is what
+   shows behind and between them. */
+#stage.is-cards { background: #03050C; }
+@supports (color: color-mix(in srgb, red 50%, blue)) {
+  #stage.is-cards {
+    background: radial-gradient(120% 70% at 50% 38%, color-mix(in srgb, var(--surface-3) 55%, var(--bg)) 0%, color-mix(in srgb, var(--bg) 55%, #000) 78%);
+  }
+}
 .tab-layer { position: absolute; inset: 0; }
 /* A hidden tab layer stays in the render tree but is skipped: content-visibility keeps its style and layout cached,
    so a tab switch never re-runs layout for the whole target screen. Skipped content is unfocusable and out of the
