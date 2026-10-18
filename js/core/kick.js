@@ -19,11 +19,14 @@
 //   fly(kick, launch)                           the flight and the call: {made, why, d, tCross, at, pos(t), tEnd, hit
 //                                               (the obstacle it hit, or null)}
 //   dayState(n), record(n, kick, call), score(list), totals()   localStorage 'gg-kick1'
+//   canReplay(), restart(n)                     unlimited tries for the owner, to test it: a new run of the day's
+//                                               kicks; his first finished run stays the one on the scoreboard
 //   autoPost(), boardRows(n), weekRows(n), weekDays(n), boardState()   the league scoreboard (below)
 //
 // THE RULE (CLAUDE.md): the scoreboard reads daily.LB.raw, the board as this phone may see it: league members and
 // Ryan D for everyone; a guest (or Ryan S) only on their own phones.
 import {lsGet, lsSet} from './ui.js';
+import * as data from './data.js';
 import * as daily from './daily.js';
 
 // ---------------------------------------------------------------------------------------------- days
@@ -226,7 +229,8 @@ export function windCall(kick, launch, call) {
 }
 
 // ---------------------------------------------------------------------------------------------- memory
-// 'gg-kick1': {days: {n: {r: [[why, d], ...] (each kick taken), done, at}}, played}
+// 'gg-kick1': {days: {n: {r: [[why, d], ...] (each kick taken), done, at, first: {r, at} (the first finished run, kept
+// when a run's started over), tries}}, played}
 const KEY = 'gg-kick1', KEEP = 60;
 const WHYS = Object.keys(CALLS);
 function read() {
@@ -247,11 +251,40 @@ export function score(list) {
   list.forEach(([why, d]) => { if (why === 'good') { made++; longest = Math.max(longest, d); yards += d; } else missed++; });
   return {made, missed, longest, yards};
 }
-/** Day n on this phone: {list ([why, d] per kick taken), done, at, next (the next kick's index)} plus score(list). */
+const finished = d => { const list = cleanList(d && d.r); return !!(d && d.done) || score(list).missed >= STRIKES || list.length >= MAX_KICKS; };
+/** Day n on this phone: {list ([why, d] per kick taken), done, at, next (the next kick's index), practice (a run started
+ *  over: the first finished one is the official), tries, official (the run that counts: {list, at} plus score(list),
+ *  or null till one's finished)} plus score(list). */
 export function dayState(n) {
   const d = read().days[n] || {}, list = cleanList(d.r);
-  const done = !!d.done || score(list).missed >= STRIKES || list.length >= MAX_KICKS;
-  return Object.assign({list, done, at: Number(d.at) || 0, next: list.length}, score(list));
+  return Object.assign({list, done: finished(d), at: Number(d.at) || 0, next: list.length, practice: !!d.first || (d.tries || 1) > 1,
+    tries: Number.isInteger(d.tries) ? d.tries : 1, official: officialOf(d)}, score(list));
+}
+/** The run of a day's record that counts: the first finished ({list, at} plus score(list)), or null. */
+export function officialOf(d) {
+  if (!d) return null;
+  if (d.first) { const list = cleanList(d.first.r); return Object.assign({list, at: Number(d.first.at) || 0}, score(list)); }
+  if (!finished(d)) return null;
+  const list = cleanList(d.r);
+  return Object.assign({list, at: Number(d.at) || 0}, score(list));
+}
+/** A day's record started over: no kicks taken, the first finished run kept (if there was one). */
+export function restartDay(d) {
+  d = d || {};
+  const first = d.first || (finished(d) ? {r: cleanList(d.r), at: Number(d.at) || Date.now()} : null);
+  return Object.assign({r: [], tries: (Number.isInteger(d.tries) ? d.tries : 1) + 1}, first ? {first} : {});
+}
+// Unlimited tries, for testing: the owner may start the day's run over as often as he likes (his ask, Oct 2026). The
+// first run he finishes is the one on the scoreboard; the rest are practice.
+export const TESTERS = ['evan'];
+export const canReplay = (id = data.me()) => !!id && TESTERS.includes(id);
+/** Starts day n's run over (a tester only). Returns the day's state, or null. */
+export function restart(n) {
+  if (!canReplay()) return null;
+  const v = read();
+  v.days[n] = restartDay(v.days[n]);
+  write(v);
+  return dayState(n);
 }
 /** Saves a kick of day n's run (kick: its index, which must be the next). Returns the day's state, or null (a finished
  *  run, or a kick out of turn). */
@@ -308,7 +341,7 @@ function unposted() {
   const theirs = list.filter(p => p === mine || (k && daily.boardKey(p) === k));
   const v = read(), top = todayNumber();
   return Object.keys(v.days).map(Number)
-    .filter(n => Number.isInteger(n) && n <= top && n > top - POST_BACK && dayState(n).done)
+    .filter(n => Number.isInteger(n) && n <= top && n > top - POST_BACK && dayState(n).official)
     .filter(n => !theirs.some(p => entryOf(p, n)))
     .sort((a, b) => a - b);
 }
@@ -318,7 +351,8 @@ export async function autoPost() {
   const days = unposted();
   if (!days.length) return false;
   const out = {};
-  days.forEach(n => { const s = dayState(n); out[n] = {m: s.made, l: s.longest, y: s.yards, k: s.list.length, t: s.at || Date.now()}; });
+  // the run that counts: the first finished (a tester's later tries are practice)
+  days.forEach(n => { const s = dayState(n).official; out[n] = {m: s.made, l: s.longest, y: s.yards, k: s.list.length, t: s.at || Date.now()}; });
   const body = {[F]: out};
   const mine = docs().find(p => p.id === LB.uid);
   if (!mine) Object.assign(body, {nick: (daily.postName() || '').trim().slice(0, 24), g: daily.asGuest(), total: 0});

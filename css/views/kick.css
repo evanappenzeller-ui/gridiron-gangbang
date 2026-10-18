@@ -3,7 +3,7 @@
    stage, the HUD, the call and the run's final card laid over it; the scoreboard below on the theme's surfaces. */
 
 /* The version mark views/kick.js checks (CSS_V): bump both when the pane needs rules an older file lacks. */
-:root { --kk-css: 4; }
+:root { --kk-css: 5; }
 
 .kk-pane {
   --kk-good: #3EF08F; --kk-bad: #FF5A4E; --kk-gold: #FFD23F; --kk-ribbon: #FF6A2B;
@@ -205,6 +205,17 @@
   display: inline-flex; align-items: center; gap: 6px; margin-top: 14px !important; padding: 5px 12px; border-radius: 99px;
   background: rgba(255,255,255,.08); font: 600 13px/18px var(--font-text); color: rgba(255,255,255,.8);
 }
+
+/* ---------------------------------------------------------------- Unlimited tries (the owner, testing) */
+.kk-pane .kk-over-p { margin-top: 8px !important; font: 400 13px/18px var(--font-text); color: rgba(255,255,255,.7); }
+.kk-pane .kk-again { margin-top: 14px; min-width: 160px; }
+.kk-pane .kk-test {
+  display: flex; align-items: center; gap: 12px; margin: 12px 2px 0; padding: 10px 12px; border-radius: 14px;
+  background: rgba(255,197,61,.1); box-shadow: inset 0 0 0 1px rgba(255,197,61,.35);
+  font: 400 13px/18px var(--font-text); color: var(--ink-2);
+}
+.kk-pane .kk-test > span { flex: 1; min-width: 0; }
+.kk-pane .kk-test-b { flex: none; }
 
 /* ---------------------------------------------------------------- Below the stage: how to kick, the rules */
 .kk-pane .kk-steps { margin: 16px 4px 0; }

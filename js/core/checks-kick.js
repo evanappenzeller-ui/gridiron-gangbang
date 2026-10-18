@@ -200,6 +200,17 @@ export async function kickChecks(check) {
     const pass = evan === 'puzzles,17-0,drill,kick' && mason === 'puzzles,17-0,drill' && none === mason && routes === 'kick,puzzles,puzzles,drill,17-0,puzzles';
     return {pass, detail: `Evan ${evan}; Mason ${mason}; no one ${none}; routes ${routes}`};
   });
+  check('Kick It: unlimited tries for the owner only (to test it): he can start the day\'s run over as often as he likes, and his first finished run stays the one that counts (and posts); a run started over before any finished keeps nothing', () => {
+    const who = [K.canReplay('evan'), K.canReplay('mason'), K.canReplay(null)].join();
+    const run1 = {r: [['good', 20], ['short', 24], ['blocked', 24], ['wide-l', 22]], done: true, at: 111};
+    const again = K.restartDay(run1), twice = K.restartDay(Object.assign({}, again, {r: [['good', 20], ['good', 24], ['good', 24]]}));
+    const off1 = K.officialOf(run1), off2 = K.officialOf(again), off3 = K.officialOf(twice);
+    const mid = K.restartDay({r: [['good', 20]]});
+    const pass = who === 'true,false,false' && again.r.length === 0 && again.tries === 2 && twice.tries === 3
+      && off1.made === 1 && off1.missed === 3 && off2.made === 1 && off2.at === 111 && off3.made === 1 && off3.at === 111
+      && !mid.first && K.officialOf(mid) === null && K.officialOf({r: [['good', 20]]}) === null;
+    return {pass, detail: `can replay (Evan, Mason, no one): ${who}; the first run counts after one and two restarts: ${off2 && off2.made}/${off3 && off3.made} made; started over mid-run keeps ${mid.first ? 'a run' : 'nothing'}`};
+  });
   check('Kick It: its stylesheet (css/views/kick.css) is linked: the version mark is on :root', () => {
     const v = getComputedStyle(document.documentElement).getPropertyValue('--kk-css').trim();
     return {pass: v !== '', detail: `--kk-css ${v || 'missing'}`};

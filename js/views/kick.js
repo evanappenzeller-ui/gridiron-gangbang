@@ -18,7 +18,7 @@ const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 const ST = new WeakMap(); // ctx -> pane state
 
 // The stylesheet's mark (--kk-css on :root): a home-screen app open across an update adds the current file.
-const CSS_V = '4';
+const CSS_V = '5';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--kk-css').trim() === CSS_V || document.querySelector('link[data-kk-css]')) return;
@@ -80,7 +80,16 @@ function overHTML(st) {
     + `<p class="kk-over-n"><b>${d.made}</b><span>${d.made === 1 ? 'field goal' : 'field goals'}</span></p>`
     + `<p class="kk-over-h">${esc(head)}</p>`
     + `<p class="kk-over-s">${esc(d.longest ? `Longest ${d.longest} yds · ${d.yards} yds in all · ${plural(d.list.length, 'kick')}` : `${plural(d.list.length, 'kick')}, none through`)}</p>`
+    + (d.practice && d.official ? `<p class="kk-over-p">${esc(`Practice run. Your first run today (${plural(d.official.made, 'field goal')}) is the one on the scoreboard.`)}</p>` : '')
+    + (K.canReplay() ? ui.button({label: 'Play again', kind: 'primary', icon: 'play-fill', cls: 'kk-again', attrs: {'data-kk-again': ''}}) : '')
     + `<p class="kk-over-t">${ui.icon('clock', {size: 14})}<span>${esc(`New kicks in ${ui.untilText(msToMidnight())}`)}</span></p></div>`;
+}
+// Unlimited tries (core/kick.js canReplay: the owner, to test it): a line under the field with "Start over".
+function testHTML(st) {
+  if (!K.canReplay()) return '';
+  const tries = st.day.tries > 1 ? ` · try ${st.day.tries}` : '';
+  return `<div class="kk-test" data-kk-test><span>${esc(`Unlimited tries are on for you${tries}. Your first finished run is the one on the scoreboard.`)}</span>`
+    + `<button type="button" class="btn btn-secondary btn-s kk-test-b" data-kk-again><span class="btn-label">Start over</span></button></div>`;
 }
 // How to kick, under the stage: always there, four short steps.
 const HOW = `<section class="kk-steps" aria-labelledby="kk-steps-t"><h2 class="kk-steps-t" id="kk-steps-t">How to kick</h2><ol>`
@@ -129,6 +138,7 @@ function bodyHTML(st) {
     + `<p class="kk-hint" data-kk-hint hidden>${ui.icon('arrow-up', {size: 16})}<span data-kk-hint-t>Slide up from the ball to kick</span></p>`
     + `<p class="kk-alert" data-kk-alert hidden role="status"><b>Look out!</b><span>Something’s in the way. Swipe in an even arc to bend the ball around it.</span></p>`
     + `<div class="kk-over" data-kk-over${st.day.done ? '' : ' hidden'}>${st.day.done ? overHTML(st) : ''}</div></div>`
+    + `<div data-kk-testbar>${testHTML(st)}</div>`
     + HOW
     + `<p class="kk-how">${esc(`Three misses ends your run. New kicks every day, the same for everyone.`)}</p>`
     + `<div data-kk-board>${boardHTML(st)}</div></div>`;
@@ -593,6 +603,8 @@ function settle(st, call) {
 function finish(st) {
   st.busy = true;
   guide(st, false);
+  const bar = st.el.querySelector('[data-kk-testbar]');
+  if (bar) bar.innerHTML = testHTML(st);
   patchHud(st);
   const over = st.el.querySelector('[data-kk-over]');
   if (over) {
@@ -643,6 +655,27 @@ function onUp(st, e) {
   st.busy = true;
   st.flight = {call, t0: now, t: 0, called: false, wind: K.windCall(k, launch, call)};
   loop(st);
+}
+
+/** Start the day's run over (a tester): today's kicks from the first, three misses again; the first finished run stays
+ *  the one on the scoreboard. Not while a kick is in the air. */
+function startOver(st) {
+  if (st.flight || st.drag || !K.canReplay()) return;
+  const day = K.restart(st.n);
+  if (!day) return;
+  st.timers.forEach(clearTimeout); st.timers = [];
+  st.move = null; st.after = null; st.busy = false;
+  setDay(st, st.n);
+  const over = st.el.querySelector('[data-kk-over]'), call = st.el.querySelector('[data-kk-call]'), bar = st.el.querySelector('[data-kk-testbar]');
+  if (over) { over.hidden = true; over.innerHTML = ''; }
+  if (call) call.className = 'kk-call';
+  if (bar) bar.innerHTML = testHTML(st);
+  patchHud(st);
+  draw(st);
+  armGuide(st);
+  ui.haptic('light');
+  const stage = st.el.querySelector('[data-kk-stage]');
+  if (stage && stage.getBoundingClientRect().top < 0) stage.scrollIntoView({block: 'center', behavior: ui.RM ? 'auto' : 'smooth'});
 }
 
 // ============================================================================ Board
@@ -700,6 +733,8 @@ export function mount(el, ctx) {
     patchBoard(st);
   };
   el.addEventListener('ui:change', st.onChange);
+  st.onClick = e => { if (e.target.closest('[data-kk-again]')) startOver(st); };
+  el.addEventListener('click', st.onClick);
   st.onResize = () => { if (!st.dead) { size(st); draw(st); placeGuide(st); } };
   addEventListener('resize', st.onResize, {passive: true});
   st.unsub = daily.subscribe(type => { if (type === 'lb' || type === 'ready' || type === 'error') patchBoard(st); });
@@ -718,6 +753,8 @@ function tick(st) {
   setDay(st, n);
   st.busy = st.day.done;
   armGuide(st);
+  const bar = st.el.querySelector('[data-kk-testbar]');
+  if (bar) bar.innerHTML = testHTML(st);
   st.el.querySelector('[data-kk-over]').hidden = !st.day.done;
   patchHud(st);
   patchBoard(st);
@@ -746,6 +783,7 @@ export function unmount(el, ctx) {
     st.pad.removeEventListener('pointercancel', st.onUp);
   }
   el.removeEventListener('ui:change', st.onChange);
+  el.removeEventListener('click', st.onClick);
   removeEventListener('resize', st.onResize);
   if (st.unsub) st.unsub();
   if (st.stopTick) st.stopTick();
