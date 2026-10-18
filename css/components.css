@@ -66,6 +66,12 @@
   .tab-ind { background: color-mix(in srgb, var(--ink) 14%, transparent); }
 }
 .tab-ind.is-ready { opacity: 1; }
+/* Scrubbing (app.js setupScrub): a finger sliding along the bar drags the pill; the tab under it lights and lifts. The
+   bar keeps every touch to itself (nothing on it scrolls). */
+#tabbar { touch-action: none; }
+#tabbar.is-scrubbing .tab { color: var(--ink-2); }
+#tabbar.is-scrubbing .tab.is-scrub { color: var(--tint); }
+.tab.is-scrub .tab-ic { transform: scale(1.12); }
 /* Badge dot (Puzzles unfinished, Pick'em games to pick, Matchup vote open): top right of the 26 px icon. */
 .tab-dot {
   position: absolute; top: 7px; left: calc(50% + 10px);

@@ -1511,22 +1511,29 @@ async function doRetap(T) {
     else if (T === 'draft' && scr.view && scr.view.onAction) scr.view.onAction('focus-search', scr.ctx);
   } catch (e) { console.error(e); }
 }
+/** Opens tab T (a tap, a scrub along the bar or a swipe across a screen); resolves once it shows. motion: the tab's
+ *  own arrival fade (a swipe brings its own slide). */
+function goTab(T, {motion = true} = {}) {
+  if (swNew && !typing()) { updateReload(topOf(T).route.path); return Promise.resolve(); } // a new version: swap it in here
+  finishTransitions();
+  return run(async () => {
+    if (T === S.tab) return;
+    await stripOverlays();
+    await switchTabUI(T, {motion});
+    await rebuildHistory();
+  });
+}
 function setupTabBar() {
   const bar = $('tabbar');
   bar.addEventListener('click', e => {
     const b = e.target.closest('.tab');
     if (!b) return;
+    if (performance.now() - scrubEnd < 450) return; // the click a scrub's release makes
     const T = b.dataset.tab;
-    if (swNew && !typing()) { updateReload(topOf(T).route.path); return; } // a new version: swap it in here
-    finishTransitions();
-    if (T === S.tab) { retap(T); return; }
-    run(async () => {
-      if (T === S.tab) return;
-      await stripOverlays();
-      await switchTabUI(T, {motion: true});
-      await rebuildHistory();
-    });
+    if (T === S.tab && !(swNew && !typing())) { finishTransitions(); retap(T); return; }
+    goTab(T);
   });
+  setupScrub(bar);
   updateTabBar(S.tab, {animate: false});
   tabFades();
   tabHint();
@@ -1549,6 +1556,149 @@ function setupTabBar() {
     const v = visibleScreen();
     if (v) { checkNavHeight(v); fitNavTitle(v); }
   }, {passive: true});
+}
+
+// ============================================================================ Scrub: drag along the tab bar
+// A finger that slides along the floating bar drags the pill with it; the tab under it lights up (a tick as each one
+// is reached) and opens on release. A tap is still a tap (the bar's click).
+let scrubEnd = 0;
+function setupScrub(bar) {
+  let g = null;
+  const tabs = () => [...bar.querySelectorAll('.tab')];
+  const tabAt = x => tabs().find(t => { const r = t.getBoundingClientRect(); return x >= r.left && x < r.right; })
+    || (x < bar.getBoundingClientRect().left + bar.clientWidth / 2 ? tabs()[0] : tabs()[tabs().length - 1]);
+  const mark = btn => tabs().forEach(t => t.classList.toggle('is-scrub', t === btn));
+  const stop = () => { bar.classList.remove('is-scrubbing'); mark(null); g = null; };
+  bar.addEventListener('pointerdown', e => {
+    if (e.button > 0 || !e.isPrimary || S.cover || S.sheets.length) return;
+    g = {id: e.pointerId, x0: e.clientX, on: false, btn: null};
+  });
+  bar.addEventListener('pointermove', e => {
+    if (!g || e.pointerId !== g.id) return;
+    if (!g.on) {
+      if (Math.abs(e.clientX - g.x0) < 8) return;
+      g.on = true;
+      try { bar.setPointerCapture(e.pointerId); } catch (_) {}
+      bar.classList.add('is-scrubbing');
+      if (indAnim) { indAnim.cancel(); indAnim = null; }
+    }
+    const ind = bar.querySelector('.tab-ind'), br = bar.getBoundingClientRect();
+    if (ind) {
+      const w = ind.offsetWidth, pad = 5;
+      const x = Math.max(pad, Math.min(bar.clientWidth - pad - w, e.clientX - br.left - w / 2));
+      indX = x;
+      ind.style.transform = `translateX(${x}px)`;
+    }
+    const btn = tabAt(e.clientX);
+    if (btn && btn !== g.btn) { g.btn = btn; mark(btn); ui.haptic('selection'); }
+  });
+  const end = e => {
+    if (!g || e.pointerId !== g.id) return;
+    const G = g;
+    stop();
+    if (!G.on) return;
+    scrubEnd = performance.now();
+    const btn = G.btn || bar.querySelector('.tab[aria-current="page"]');
+    const T = btn && btn.dataset.tab;
+    // Back to its tab (the same one, or before the switch moves it on).
+    const cur = bar.querySelector('.tab[aria-current="page"]');
+    if (!T || T === S.tab || e.type === 'pointercancel') { moveIndicator(cur, true); return; }
+    moveIndicator(btn, true);
+    goTab(T);
+  };
+  bar.addEventListener('pointerup', end);
+  bar.addEventListener('pointercancel', end);
+}
+
+// ============================================================================ Swipe between tabs
+// On a tab's first screen (nothing pushed, no cover or sheet), a sideways swipe goes to the next tab (swipe left) or
+// the one before (right): the screen follows the finger, then slides off as the next one slides in. Never from
+// something that scrolls or swipes sideways itself (overflow-x, or touch-action pan-y / none: a view's own swipe), a
+// field or control, the Two-Minute Drill's field, or the screen's edges (the browser's own back and forward).
+const NO_SWIPE = 'input, textarea, select, [contenteditable="true"], [role="slider"], [data-no-swipe], [data-hscroll], .dr-stage, [data-dr-field], #tabbar';
+function ownsSideways(el, stop) {
+  for (let n = el; n && n !== stop; n = n.parentElement) {
+    const cs = getComputedStyle(n);
+    if (cs.touchAction === 'pan-y' || cs.touchAction === 'none') return true;
+    if (n.scrollWidth > n.clientWidth + 2 && (cs.overflowX === 'auto' || cs.overflowX === 'scroll')) return true;
+  }
+  return false;
+}
+function setupTabSwipe() {
+  const stage = $('stage');
+  let g = null;
+  const vel = s => {
+    if (s.length < 2) return 0;
+    const a = s[0], b = s[s.length - 1];
+    if (performance.now() - b[0] > 100) return 0;
+    return b[0] > a[0] ? (b[1] - a[1]) / (b[0] - a[0]) : 0;
+  };
+  const blocker = e => { if (g && g.locked && e.cancelable) e.preventDefault(); };
+  const release = () => stage.removeEventListener('touchmove', blocker, {passive: false});
+  stage.addEventListener('touchstart', e => {
+    g = null;
+    release();
+    if (e.touches.length !== 1 || S.cover || S.sheets.length || running.size || qBusy) return;
+    if (S.stacks[S.tab].length !== 1) return; // a pushed screen: its edge swipes back instead
+    const t = e.touches[0], r = stage.getBoundingClientRect();
+    if (t.clientX - r.left < 24 || r.right - t.clientX < 24) return;
+    const el = e.target;
+    if (!el || !el.closest || el.closest(NO_SWIPE) || ownsSideways(el, stage)) return;
+    const scr = topOf(S.tab).scr;
+    if (!scr) return;
+    g = {x0: t.clientX, y0: t.clientY, locked: false, scr, i: TABS.indexOf(S.tab), w: stage.clientWidth, x: 0, s: [[performance.now(), t.clientX]]};
+    stage.addEventListener('touchmove', blocker, {passive: false});
+  }, {passive: true});
+  stage.addEventListener('touchmove', e => {
+    if (!g) return;
+    const t = e.touches[0];
+    const dx = t.clientX - g.x0, dy = t.clientY - g.y0;
+    if (!g.locked) {
+      if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+      if (Math.abs(dx) < Math.abs(dy) * 1.4) { g = null; release(); return; } // a scroll
+      g.locked = true;
+      ui.busy.inc();
+    }
+    // The screen follows the finger; past the first or last tab it only gives a little.
+    const to = TABS[g.i + (dx < 0 ? 1 : -1)];
+    g.to = to || null;
+    g.x = to ? dx : dx * .25;
+    g.scr.el.style.transform = `translateX(${g.x}px)`;
+    g.scr.el.style.opacity = String(1 - Math.min(.35, Math.abs(g.x) / g.w * .5));
+    const now = performance.now();
+    g.s.push([now, t.clientX]);
+    while (g.s.length > 2 && now - g.s[0][0] > 100) g.s.shift();
+  }, {passive: true});
+  const end = async () => {
+    release();
+    if (!g) return;
+    const G = g;
+    g = null;
+    if (!G.locked) return;
+    ui.busy.dec();
+    const v = vel(G.s), dir = G.x < 0 ? 1 : -1;
+    const commit = !!G.to && (Math.abs(G.x) > G.w * .28 || (Math.abs(G.x) > 40 && Math.abs(v) > .45 && Math.sign(v) === Math.sign(G.x)));
+    const el = G.scr.el, op = el.style.opacity || '1';
+    const clear = () => { el.style.transform = ''; el.style.opacity = ''; };
+    if (!commit) {
+      const a = ui.animate(el, [{transform: `translateX(${G.x}px)`, opacity: op}, {transform: 'none', opacity: 1}], {spring: 'snappy'});
+      clear();
+      await track([a]);
+      return;
+    }
+    ui.haptic('selection');
+    // Off it goes, the way the finger was going; then the next tab slides in from the other side.
+    const out = ui.animate(el, [{transform: `translateX(${G.x}px)`, opacity: op}, {transform: `translateX(${-dir * G.w * .45}px)`, opacity: 0}],
+      {duration: ui.RM ? 1 : 140, easing: 'cubic-bezier(.4,0,1,1)', fill: 'forwards'});
+    await track([out]);
+    try { await goTab(G.to, {motion: false}); } finally { out.cancel(); clear(); }
+    const now = topOf(S.tab).scr;
+    if (now && S.tab === G.to && !ui.RM) {
+      track([ui.animate(now.el, [{transform: `translateX(${dir * G.w * .3}px)`, opacity: .3}, {transform: 'none', opacity: 1}], {spring: 'smooth'})]);
+    }
+  };
+  stage.addEventListener('touchend', end, {passive: true});
+  stage.addEventListener('touchcancel', end, {passive: true});
 }
 
 // ============================================================================ Swipe-back (3.4; iOS standalone only)
@@ -1825,6 +1975,7 @@ async function start() {
   // First open on this phone: ask who they are (a full-screen picker over whatever screen the link opened).
   if (needsWelcome()) showWelcome();
   setupTabBar();
+  setupTabSwipe();
   if (ui.IOS_STANDALONE) enableSwipeBack();
   requestAnimationFrame(() => ui.onIdle(() => {
     daily.ensure().catch(() => {});
