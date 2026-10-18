@@ -4,6 +4,8 @@
 // its speed is the leg; the wind carries the ball in the air. "It's good!", or wide, short, off the bar or off an
 // upright; the third miss ends the day's run. Then the run's numbers and the league's scoreboard (Today / Week).
 // The physics, the day's kicks, memory and the board are core/kick.js; this draws (one canvas) and takes the flick.
+// For now only on the owner's phones (puzzles.js gamesFor). A finger on the field shows how to kick (the guide), and
+// three steps under it say it.
 // Exports: render(ctx), mount(el, ctx, {anchor}), params(el, ctx), unmount(el, ctx). Owner: KICK.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
@@ -16,7 +18,7 @@ const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 const ST = new WeakMap(); // ctx -> pane state
 
 // The stylesheet's mark (--kk-css on :root): a home-screen app open across an update adds the current file.
-const CSS_V = '1';
+const CSS_V = '2';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--kk-css').trim() === CSS_V || document.querySelector('link[data-kk-css]')) return;
@@ -53,6 +55,15 @@ function overHTML(st) {
     + `<p class="kk-over-s">${esc(d.longest ? `Longest ${d.longest} yds · ${d.yards} yds in all · ${plural(d.list.length, 'kick')}` : `${plural(d.list.length, 'kick')}, none through`)}</p>`
     + `<p class="kk-over-t">${ui.icon('clock', {size: 14})}<span>${esc(`New kicks in ${ui.untilText(msToMidnight())}`)}</span></p></div>`;
 }
+// How to kick, under the stage: always there, three short steps.
+const HOW = `<section class="kk-steps" aria-labelledby="kk-steps-t"><h2 class="kk-steps-t" id="kk-steps-t">How to kick</h2><ol>`
+  + `<li><span><b>Touch the ball</b> on the tee.</span></li>`
+  + `<li><span><b>Slide up</b> toward the posts and let go. The faster you flick, the farther it flies.</span></li>`
+  + `<li><span><b>Mind the wind.</b> The arrow up top and the flags on the posts show which way it blows, so aim into it.</span></li>`
+  + `</ol></section>`;
+// The guide's finger (a hand, index finger up; the ring at its tip is where it touches).
+const HAND = `<svg viewBox="0 0 44 56"><circle class="kk-guide-ring" cx="17" cy="7" r="7"/>`
+  + `<path class="kk-guide-fing" d="M12 10a5 5 0 0 1 10 0v15h2v-4a4.5 4.5 0 0 1 9 0v3a4.5 4.5 0 0 1 8 2.8V38c0 9.4-6.6 16-15.5 16h-1.6c-5.2 0-9.5-2.8-12-7.3L4.6 36.4a4.3 4.3 0 0 1 7.2-4.6l.2.3z"/></svg>`;
 const SB_MODES = [{id: 'today', label: 'Today'}, {id: 'week', label: 'Week'}];
 function rowHTML(r, mode) {
   const sub = mode === 'today' ? (r.l ? `Longest ${r.l} yds · ${plural(r.k || 0, 'kick')}` : plural(r.k || 0, 'kick')) : `${plural(r.played, 'day')} · longest ${r.l} yds`;
@@ -85,9 +96,11 @@ function bodyHTML(st) {
     + `<div class="kk-pad" data-kk-pad aria-hidden="true"></div>`
     + `<div class="kk-hud" data-kk-hud>${hudHTML(st)}</div>`
     + `<p class="kk-call" data-kk-call aria-live="polite"></p>`
-    + `<p class="kk-hint" data-kk-hint${st.day.done || st.day.list.length ? ' hidden' : ''}>${ui.icon('arrow-up', {size: 16})}<span>Flick the ball at the posts. Mind the wind.</span></p>`
+    + `<div class="kk-guide" data-kk-guide hidden aria-hidden="true"><i class="kk-guide-trail"></i><span class="kk-guide-hand">${HAND}</span></div>`
+    + `<p class="kk-hint" data-kk-hint hidden>${ui.icon('arrow-up', {size: 16})}<span>Slide up from the ball to kick</span></p>`
     + `<div class="kk-over" data-kk-over${st.day.done ? '' : ' hidden'}>${st.day.done ? overHTML(st) : ''}</div></div>`
-    + `<p class="kk-how">${esc(`New kicks every day, the same for everyone. Three misses ends your run.`)}</p>`
+    + HOW
+    + `<p class="kk-how">${esc(`Three misses ends your run. New kicks every day, the same for everyone.`)}</p>`
     + `<div data-kk-board>${boardHTML(st)}</div></div>`;
 }
 
@@ -279,6 +292,41 @@ function draw(st, now = performance.now()) {
   }
 }
 
+// ============================================================================ The guide
+// A finger slides up from the ball toward the posts, with "Slide up from the ball to kick": on every kick of a first run
+// (nothing finished on this phone yet) and on the first kick of every run, as soon as the ball is on the tee; on the
+// others after a few idle seconds; and at once after a touch that wasn't a kick. Gone the moment a finger is down.
+const GUIDE_IDLE = 5000;
+const canKick = st => !st.dead && !st.busy && !st.day.done && !st.flight && !st.move && !st.drag;
+function placeGuide(st) {
+  const g = st.el.querySelector('[data-kk-guide]');
+  if (!g || !st.scene) return;
+  const ball = proj(st, 0, .15, 0), cb = proj(st, st.scene.gx, K.POST.bar, st.scene.d);
+  let dx = cb.x - ball.x, dy = cb.y - ball.y;
+  const len = Math.hypot(dx, dy) || 1, go = Math.min(len * .8, st.H * .42);
+  dx *= go / len; dy *= go / len;
+  g.style.cssText = `--x0:${ball.x.toFixed(1)}px;--y0:${ball.y.toFixed(1)}px;--dx:${dx.toFixed(1)}px;--dy:${dy.toFixed(1)}px;--len:${go.toFixed(1)}px;--ang:${Math.atan2(dx, -dy).toFixed(4)}rad`;
+}
+function guide(st, on) {
+  const g = st.el.querySelector('[data-kk-guide]'), h = st.el.querySelector('[data-kk-hint]');
+  clearTimeout(st.guideT);
+  if (!g || !h) return;
+  on = on && canKick(st);
+  if (on) {
+    placeGuide(st);
+    // restart the loop from the ball
+    g.classList.remove('is-on'); void g.offsetWidth; g.classList.add('is-on');
+  }
+  g.hidden = !on; h.hidden = !on;
+}
+/** The ball's on the tee: the guide now, or after a few idle seconds. */
+function armGuide(st) {
+  clearTimeout(st.guideT);
+  if (!canKick(st)) return;
+  if (!st.day.list.length || !K.totals().played) guide(st, true);
+  else st.guideT = setTimeout(() => guide(st, true), GUIDE_IDLE);
+}
+
 // ============================================================================ Play
 const callWords = call => (call.made ? K.CALLS.good : call.why === 'short' ? 'Short' : K.CALLS[call.why]);
 function setScene(st, k) { st.scene = {d: k.d, gx: k.gx, w: k.w, dir: k.dir}; }
@@ -305,7 +353,7 @@ function loop(st) {
     if (st.move) {
       const m = st.move, p = Math.min(1, (now - m.t0) / m.ms), e = 1 - Math.pow(1 - p, 3);
       st.scene = {d: m.a.d + (m.b.d - m.a.d) * e, gx: m.a.gx + (m.b.gx - m.a.gx) * e, w: m.b.w, dir: m.b.dir};
-      if (p >= 1) st.move = null; else more = true;
+      if (p >= 1) { st.move = null; armGuide(st); } else more = true;
     }
     if (st.drag) more = true;
     draw(st, now);
@@ -342,6 +390,7 @@ function settle(st, call) {
 }
 function finish(st) {
   st.busy = true;
+  guide(st, false);
   patchHud(st);
   const over = st.el.querySelector('[data-kk-over]');
   if (over) {
@@ -358,8 +407,7 @@ function onDown(st, e) {
   const r = st.cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
   st.drag = {id: e.pointerId, x0: x, y0: y, pts: [{x, y, t: performance.now()}]};
   try { st.pad.setPointerCapture(e.pointerId); } catch (_) {}
-  const hint = st.el.querySelector('[data-kk-hint]');
-  if (hint) hint.hidden = true;
+  guide(st, false);
   loop(st);
 }
 function onMove(st, e) {
@@ -384,7 +432,7 @@ function onUp(st, e) {
   const ball = proj(st, 0, .15, 0), cb = proj(st, k.gx, K.POST.bar, k.d);
   if (dy < 0 && cb.y < ball.y) aim = ((ball.x + dx * (cb.y - ball.y) / dy - st.W / 2) * (k.d + K.CAM.back) / st.f) / k.d;
   const launch = e.type === 'pointercancel' ? null : K.launchOf({dx, dy, speed, aim});
-  if (!launch) { draw(st); return; }
+  if (!launch) { draw(st); guide(st, true); return; }
   const call = K.fly(k, launch);
   // saved the moment it's kicked, so leaving (or reloading) with the ball in the air doesn't take it back
   st.after = K.record(st.n, st.i, call) || K.dayState(st.n);
@@ -448,11 +496,12 @@ export function mount(el, ctx) {
     patchBoard(st);
   };
   el.addEventListener('ui:change', st.onChange);
-  st.onResize = () => { if (!st.dead) { size(st); draw(st); } };
+  st.onResize = () => { if (!st.dead) { size(st); draw(st); placeGuide(st); } };
   addEventListener('resize', st.onResize, {passive: true});
   st.unsub = daily.subscribe(type => { if (type === 'lb' || type === 'ready' || type === 'error') patchBoard(st); });
   st.stopTick = ctx.timer(() => tick(st), 20000);
   K.autoPost();
+  armGuide(st);
 }
 /** Midnight: the new day's kicks (unless a kick is in the air). */
 function tick(st) {
@@ -464,6 +513,7 @@ function tick(st) {
   }
   setDay(st, n);
   st.busy = st.day.done;
+  armGuide(st);
   st.el.querySelector('[data-kk-over]').hidden = !st.day.done;
   patchHud(st);
   patchBoard(st);
@@ -473,7 +523,7 @@ export function params(el, ctx) {
   const st = ST.get(ctx);
   if (!st) return;
   // shown again: its size may have changed while hidden
-  requestAnimationFrame(() => { if (!st.dead) { size(st); draw(st); } });
+  requestAnimationFrame(() => { if (!st.dead) { size(st); draw(st); placeGuide(st); } });
   tick(st);
   patchBoard(st);
 }
@@ -482,6 +532,7 @@ export function unmount(el, ctx) {
   if (!st) return;
   st.dead = true;
   st.timers.forEach(clearTimeout);
+  clearTimeout(st.guideT);
   if (st.raf) cancelAnimationFrame(st.raf);
   if (st.pad) {
     st.pad.removeEventListener('pointerdown', st.onDown);

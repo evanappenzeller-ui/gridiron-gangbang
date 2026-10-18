@@ -1,5 +1,5 @@
 /* seventeen.css: 17-0 (views/seventeen.js), the second game of the Daily Games tab, and that tab's game picker.
-   Owner: 17-0. Scope: the pane .sv-pane, the sheets .sh-seventeen (help) and .sh-sv-team, .v-puzzles .c-games (all four games' picker). Team colours come in
+   Owner: 17-0. Scope: the pane .sv-pane, the sheets .sh-seventeen (help) and .sh-sv-team, .v-puzzles .c-games (the games' picker). Team colours come in
    per element as --tc (the team's hue) and --ta (its accent). */
 
 /* The version mark views/seventeen.js checks (CSS_V): bump both when the pane needs rules an older file lacks. */
@@ -8,12 +8,12 @@
 /* ---------------------------------------------------------------- The game picker (puzzles.js) */
 /* Big scoreboard buttons with pixel badges, like Pick'em's NFL / NCAA switch (pickem.css .pk-lg): the game showing
    is lit like the field (turf stripes, a neon edge, the arcade bevel); the others wait in navy, their badges dimmed.
-   Four games (Daily Puzzles, 17-0, the Two-Minute Drill, Kick It): the first is wider, for its words; on a narrow
-   phone they go, and the four share the row evenly. */
-.v-puzzles .c-games { display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr; gap: 6px; margin: 12px 0 2px; }
+   Three games (Daily Puzzles, 17-0, the Two-Minute Drill): the first is wider, for its words. Four with Kick It (.is-4,
+   only on the owner's phones for now: puzzles.js), below. */
+.v-puzzles .c-games { display: grid; grid-template-columns: 1.35fr 1fr 1fr; gap: 8px; margin: 12px 0 2px; }
 .v-puzzles .c-game {
-  position: relative; display: flex; align-items: center; justify-content: center; gap: 6px;
-  min-height: 64px; padding: 8px 6px; min-width: 0;
+  position: relative; display: flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 70px; padding: 8px 10px; min-width: 0;
   border-radius: 12px;
   background: var(--surface-1);
   box-shadow: 0 4px 0 rgba(0,0,0,.45), inset 0 0 0 2px var(--separator);
@@ -27,19 +27,24 @@
   box-shadow: 0 4px 0 #0C3D18, inset 0 0 0 2px var(--tint), 0 0 22px rgba(124,240,88,.25);
 }
 .v-puzzles .c-game-badge {
-  flex: none; width: 42px; height: 42px; object-fit: contain;
+  flex: none; width: 50px; height: 50px; object-fit: contain;
   image-rendering: pixelated; filter: drop-shadow(2px 2px 0 rgba(0,0,0,.55));
 }
 .v-puzzles .c-game[aria-selected="false"] .c-game-badge { opacity: .55; filter: grayscale(.5) drop-shadow(2px 2px 0 rgba(0,0,0,.55)); }
 /* The Two-Minute Drill's and Kick It's badges are smooth, not pixel art: scaled smooth, with a soft shadow. */
 .v-puzzles .c-game-badge:is([src$="drill.webp"], [src$="kick.webp"]) { image-rendering: auto; filter: drop-shadow(0 2px 4px rgba(0,0,0,.4)); }
 .v-puzzles .c-game[aria-selected="false"] .c-game-badge:is([src$="drill.webp"], [src$="kick.webp"]) { filter: grayscale(.5) drop-shadow(0 2px 4px rgba(0,0,0,.4)); }
-.v-puzzles .c-game-tx { display: flex; flex-direction: column; gap: 3px; min-width: 0; font: 400 13px/13px var(--font-num); text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; }
+.v-puzzles .c-game-tx { display: flex; flex-direction: column; gap: 4px; min-width: 0; font: 400 15px/14px var(--font-num); text-transform: uppercase; letter-spacing: .06em; white-space: nowrap; }
+/* Four games: the first still wider for its words; on a narrow phone they go, and the four share the row evenly. */
+.v-puzzles .c-games.is-4 { grid-template-columns: 1.5fr 1fr 1fr 1fr; gap: 6px; }
+.v-puzzles .c-games.is-4 .c-game { min-height: 64px; gap: 6px; padding: 8px 6px; }
+.v-puzzles .c-games.is-4 .c-game-badge { width: 42px; height: 42px; }
+.v-puzzles .c-games.is-4 .c-game-tx { gap: 3px; font-size: 13px; line-height: 13px; letter-spacing: .04em; }
 @media (min-width: 410px) {
-  .v-puzzles .c-games { gap: 8px; }
-  .v-puzzles .c-game { min-height: 70px; gap: 8px; }
-  .v-puzzles .c-game-badge { width: 48px; height: 48px; }
-  .v-puzzles .c-game-tx { font-size: 14px; line-height: 14px; letter-spacing: .05em; }
+  .v-puzzles .c-games.is-4 { gap: 8px; }
+  .v-puzzles .c-games.is-4 .c-game { min-height: 70px; gap: 8px; }
+  .v-puzzles .c-games.is-4 .c-game-badge { width: 48px; height: 48px; }
+  .v-puzzles .c-games.is-4 .c-game-tx { font-size: 14px; line-height: 14px; letter-spacing: .05em; }
 }
 .v-puzzles .c-sv-pane { margin-top: 4px; }
 
@@ -297,9 +302,14 @@
   .sv-pane .sv-tiles .tile-label { font-size: 12px; }
   .sv-pane .sv-tiles .tile-value { font-size: 20px; }
 }
+@media (max-width: 360px) {
+  .v-puzzles .c-game { gap: 5px; padding: 8px 6px; }
+  .v-puzzles .c-game-badge { width: 38px; height: 38px; }
+  .v-puzzles .c-game-tx { font-size: 13px; line-height: 13px; letter-spacing: .04em; }
+}
 @media (max-width: 369px) {
-  .v-puzzles .c-games { grid-template-columns: repeat(4, 1fr); }
-  .v-puzzles .c-game-tx { display: none; }
+  .v-puzzles .c-games.is-4 { grid-template-columns: repeat(4, 1fr); }
+  .v-puzzles .c-games.is-4 .c-game-tx { display: none; }
 }
 @media (max-width: 380px) {
   .sv-pane .sv-play > .ic { display: none; }

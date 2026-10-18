@@ -7,6 +7,7 @@
 
 import * as K from './kick.js';
 import * as daily from './daily.js';
+import {gamesFor, gameFor} from '../views/puzzles.js';
 
 const calm = (d, gx = 0) => ({i: 0, d, gx, w: 0, dir: 0});
 const straight = (k, v = 30) => K.fly(k, {theta: Math.atan(k.gx / k.d), v});
@@ -134,6 +135,12 @@ export async function kickChecks(check) {
     const reads = srcs.map((s, i) => (s && !s.split('\n').some(l => /LB\.all\b/.test(l.replace(/\/\/.*$/, '').replace(/\/\*.*?\*\//g, ''))) ? '' : files[i])).filter(Boolean);
     const pass = !out.shown && !/Zed/.test(out.rows) && !/Zed/.test(out.week) && out.ryan && /Mason/.test(out.rows) && !reads.length;
     return {pass, detail: `rows ${out.rows}; week ${out.week}; guest shown ${out.shown}; ${reads.length ? 'reads LB.all: ' + reads.join() : 'no LB.all reads'}`};
+  });
+  check('Kick It is the owner\'s alone for now ("Build this for me only"): the picker shows it only on Evan\'s phones, and /puzzles/kick opens it only there (Daily Puzzles for anyone else, a guest or an app user); the other three games for everyone', () => {
+    const evan = gamesFor('evan').join(), mason = gamesFor('mason').join(), none = gamesFor(null).join();
+    const routes = [gameFor('kick', 'evan'), gameFor('kick', 'mason'), gameFor('kick', null), gameFor('drill', 'mason'), gameFor('17-0', null), gameFor('nope', 'evan')].join();
+    const pass = evan === 'puzzles,17-0,drill,kick' && mason === 'puzzles,17-0,drill' && none === mason && routes === 'kick,puzzles,puzzles,drill,17-0,puzzles';
+    return {pass, detail: `Evan ${evan}; Mason ${mason}; no one ${none}; routes ${routes}`};
   });
   check('Kick It: its stylesheet (css/views/kick.css) is linked: the version mark is on :root', () => {
     const v = getComputedStyle(document.documentElement).getPropertyValue('--kk-css').trim();
