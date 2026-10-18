@@ -3,7 +3,7 @@
    stage, the HUD, the call and the run's final card laid over it; the scoreboard below on the theme's surfaces. */
 
 /* The version mark views/kick.js checks (CSS_V): bump both when the pane needs rules an older file lacks. */
-:root { --kk-css: 2; }
+:root { --kk-css: 3; }
 
 .kk-pane {
   --kk-good: #3EF08F; --kk-bad: #FF5A4E; --kk-gold: #FFD23F; --kk-ribbon: #FF6A2B;
@@ -52,16 +52,33 @@
 .kk-pane .kk-dist { font: 800 30px/30px var(--kk-display); letter-spacing: .01em; font-variant-numeric: tabular-nums; }
 .kk-pane .kk-dist small { font-size: 15px; font-weight: 700; margin-left: 2px; color: rgba(255,255,255,.7); }
 .kk-pane .kk-wind {
-  display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 64px;
-  font: 800 14px/16px var(--kk-display); letter-spacing: .04em; text-transform: uppercase;
+  --kk-wc: var(--kk-ribbon); --kk-wg: rgba(255,106,43,.55);
+  display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 70px;
+  font: 800 16px/18px var(--kk-display); letter-spacing: .04em; text-transform: uppercase;
 }
 .kk-pane .kk-wind svg {
-  width: 26px; height: 26px; color: var(--kk-ribbon);
+  width: 30px; height: 30px; color: var(--kk-wc);
   transform: rotate(var(--wd, 0deg));
-  filter: drop-shadow(0 0 6px rgba(255,106,43,.55));
+  filter: drop-shadow(0 0 6px var(--kk-wg));
   transition: transform 500ms cubic-bezier(.22,1,.36,1);
 }
+/* 10 mph and up amber, 18 and up red: the stronger, the louder */
+.kk-pane .kk-wind.is-breezy { --kk-wc: #FFC53D; --kk-wg: rgba(255,197,61,.6); color: #FFE08A; box-shadow: inset 0 0 0 1px rgba(255,197,61,.45), 0 6px 16px -8px rgba(0,0,0,.8); }
+.kk-pane .kk-wind.is-strong { --kk-wc: var(--kk-bad); --kk-wg: rgba(255,90,78,.7); color: #FFB3AC; box-shadow: inset 0 0 0 1.5px rgba(255,90,78,.6), 0 0 18px -4px rgba(255,90,78,.55); }
 .kk-pane .kk-wind.is-calm { justify-content: center; min-height: 48px; color: rgba(255,255,255,.7); }
+
+/* ---------------------------------------------------------------- Gusts: the wind blowing across the field */
+/* A box turned to the wind's heading (views/kick.js sizes it to the stage's diagonal: --gd), streaks running up it:
+   more, faster and brighter the stronger the wind (--gs the time across, --go how bright). */
+.kk-pane .kk-gusts { position: absolute; z-index: 1; pointer-events: none; transform: rotate(var(--wd, 0deg)); opacity: var(--go, .3); }
+.kk-pane .kk-gusts i {
+  position: absolute; top: 0; width: 2.5px; height: var(--gl, 32px); border-radius: 2px;
+  background: linear-gradient(180deg, #fff, rgba(255,255,255,0));
+  box-shadow: 0 0 6px rgba(255,255,255,.35);
+  animation: kk-gust var(--gs, 2s) linear infinite; animation-delay: calc(var(--gs, 2s) * var(--gk, 0));
+  will-change: transform;
+}
+@keyframes kk-gust { from { transform: translateY(var(--gd, 600px)); } to { transform: translateY(-50px); } }
 .kk-pane .kk-hud-r { justify-self: end; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 .kk-pane .kk-made { font: 700 11px/14px var(--font-text); letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,.62); }
 .kk-pane .kk-made b { font: 800 22px/20px var(--kk-display); letter-spacing: 0; color: var(--kk-good); margin-right: 4px; text-shadow: 0 0 12px rgba(62,240,143,.45); }
@@ -86,6 +103,12 @@
   opacity: 0; transform: scale(.7);
 }
 .kk-pane .kk-call.is-in { animation: kk-call 1.2s cubic-bezier(.22,1,.36,1) both; }
+.kk-pane .kk-call.is-in.has-w { animation-duration: 2s; } /* longer, to read what the wind did */
+.kk-pane .kk-call > span { display: block; }
+.kk-pane .kk-call .kk-call-w {
+  margin-top: 8px; font: 700 16px/20px var(--font-text); letter-spacing: 0; text-transform: none; color: #fff;
+  text-shadow: 0 2px 6px rgba(0,0,0,.7);
+}
 .kk-pane .kk-call.is-good { color: var(--kk-good); text-shadow: 0 0 22px rgba(62,240,143,.7), 0 3px 0 rgba(0,0,0,.5); }
 .kk-pane .kk-call.is-miss { color: var(--kk-bad); text-shadow: 0 0 20px rgba(255,90,78,.6), 0 3px 0 rgba(0,0,0,.5); }
 @keyframes kk-call {
@@ -198,4 +221,5 @@
   .kk-pane .kk-guide.is-on .kk-guide-hand, .kk-pane .kk-guide.is-on .kk-guide-trail, .kk-pane .kk-guide.is-on .kk-guide-ring { animation: none; }
   .kk-pane .kk-call.is-in { animation: none; opacity: 1; transform: none; }
   .kk-pane .kk-wind svg { transition: none; }
+  .kk-pane .kk-gusts { display: none; }
 }

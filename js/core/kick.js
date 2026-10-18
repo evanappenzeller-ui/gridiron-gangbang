@@ -5,8 +5,10 @@
 //
 //   todayNumber(), dateOf(n), dayLabel(n)       day 1 on START, a new run at local midnight
 //   kicks(n)                                    day n's kicks: [{i, d (yards to the posts), gx (the posts' offset,
-//                                               yards, + right), w (wind, mph), dir (wind's heading, degrees: 0 toward
-//                                               the posts, 90 to the right)}]
+//                                               yards, + right), w (wind, mph, 1-25), dir (wind's heading, degrees: 0
+//                                               toward the posts, 90 to the right)}]
+//   windCall(kick, launch, call)                what the wind did: 'took' (it would have been good in calm air),
+//                                               'carried' (it went in only because of the wind), or null
 //   launchOf({dx, dy, speed, aim})              a flick on screen (px, px, px/ms; aim: where it points at the posts)
 //                                               -> {theta, v}, or null (not a kick)
 //   fly(kick, launch)                           the flight and the call: {made, why, d, tCross, at, pos(t), tEnd}
@@ -51,14 +53,14 @@ export const MAX_KICKS = 40, STRIKES = 3;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 /** Day n's kicks, the same on every phone. The first few are chip shots near the middle; then the posts wander
  *  further off to the side, the kicks get longer (a yard and a third a kick, 62 the longest, about kick 30 on) and the
- *  wind stronger (up to 24 mph). */
+ *  wind stronger: a breeze from the first kick (1-4 mph), 3-9 by kick 6, 5-15 by kick 11, up to 25 from kick 21. */
 export function kicks(n) {
   const r = rng(hashStr(`kick-it-${n}`)), out = [];
   for (let i = 0; i < MAX_KICKS; i++) {
     const d = Math.round(clamp(19 + i * 1.35 + (r() * 8 - 3), 18, 62));
     const span = Math.min(17, 3 + i * .9);
     const gx = Math.round((r() * 2 - 1) * span * 10) / 10;
-    const w = Math.round(clamp(r() * (2 + i * .85), 0, 24));
+    const w = Math.round(clamp(1 + i * .45 + r() * (3 + i * .6), 0, 25));
     const dir = Math.round(r() * 360);
     out.push({i, d, gx, w, dir});
   }
@@ -73,7 +75,11 @@ export const POST = {half: 3.083, bar: 3.333, top: 10.333};
 export const CAM = {h: 2, back: 4};
 export const GRAV = 10.72;                 // yards a second, a second
 const ELEV = 37 * Math.PI / 180;           // the ball's climb off the tee
-const WIND_K = .16;                        // yards a second, a second, per mph of wind
+// The wind. Across the field the ball goes with it at once and more the longer it's up (yards per mph: WIND_ACROSS.v a
+// second plus WIND_ACROSS.a a second squared), so even a chip shot moves: at full leg 10 mph across moves a 20-yarder
+// over a yard, 20 mph a 40-yarder about 6 (the posts are 6 wide), 25 mph a 62-yarder about 12. Along the field it
+// pushes (WIND_ALONG, yards a second a second per mph): a headwind costs carry without making the long kicks impossible.
+const WIND_ACROSS = {v: .15, a: .025}, WIND_ALONG = .18;
 /** A flick (dx, dy: its travel on screen in px, up negative; speed: px a millisecond near its end) as a kick: theta, the
  *  aim (radians off straight downfield, + right), so that a flick at the posts on screen goes at the posts; v, the
  *  leg (yards a second), from the flick's speed. aim, from the screen (views/kick.js): the tangent of the line from the
@@ -91,9 +97,9 @@ export function launchOf({dx, dy, speed, aim}) {
  *  x from the posts' middle); pos(t) -> {x, y, z} (the world); tEnd (when to stop drawing it). */
 export function fly(kick, launch) {
   const {d, gx, w, dir} = kick, {theta, v} = launch;
-  const a = dir * Math.PI / 180, ax = WIND_K * w * Math.sin(a), az = WIND_K * w * Math.cos(a);
+  const a = dir * Math.PI / 180, wx = w * Math.sin(a), az = WIND_ALONG * w * Math.cos(a);
   const vh = v * Math.cos(ELEV), vx = vh * Math.sin(theta), vz = vh * Math.cos(theta), vy = v * Math.sin(ELEV);
-  const pos = t => ({x: vx * t + .5 * ax * t * t, y: Math.max(0, vy * t - .5 * GRAV * t * t), z: vz * t + .5 * az * t * t});
+  const pos = t => ({x: vx * t + wx * (WIND_ACROSS.v * t + WIND_ACROSS.a * t * t), y: Math.max(0, vy * t - .5 * GRAV * t * t), z: vz * t + .5 * az * t * t});
   const tLand = 2 * vy / GRAV;
   // When it reaches the posts' plane (z = d), if it does before it lands.
   let tCross = null;
@@ -117,6 +123,13 @@ export function fly(kick, launch) {
   return {made: why === 'good', why, d, tCross, at, pos, tEnd, tLand};
 }
 export const CALLS = {good: 'It’s good!', 'wide-l': 'Wide left', 'wide-r': 'Wide right', post: 'Off the upright', bar: 'Off the crossbar', short: 'Short'};
+/** What the wind did to a kick: 'took' (a miss that would have been good in calm air), 'carried' (good only because of
+ *  the wind), or null (it made no difference, or there was none). */
+export function windCall(kick, launch, call) {
+  if (!kick.w) return null;
+  const calm = fly(Object.assign({}, kick, {w: 0}), launch);
+  return calm.made === call.made ? null : call.made ? 'carried' : 'took';
+}
 
 // ---------------------------------------------------------------------------------------------- memory
 // 'gg-kick1': {days: {n: {r: [[why, d], ...] (each kick taken), done, at}}, played}

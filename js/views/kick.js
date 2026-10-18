@@ -18,7 +18,7 @@ const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 const ST = new WeakMap(); // ctx -> pane state
 
 // The stylesheet's mark (--kk-css on :root): a home-screen app open across an update adds the current file.
-const CSS_V = '2';
+const CSS_V = '3';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--kk-css').trim() === CSS_V || document.querySelector('link[data-kk-css]')) return;
@@ -40,10 +40,37 @@ const windWords = k => {
   const along = a <= 45 || a >= 315 ? 'behind you' : a >= 135 && a <= 225 ? 'in your face' : '';
   return `${k.w} mph wind${along ? `, ${along}` : ''}${side ? `${along ? ' and' : ','} blowing ${side}` : ''}`;
 };
+// The wind's strength on the HUD: a breeze (orange), 10 mph and up (amber), 18 and up (red).
+const windTier = k => (!k.w ? ' is-calm' : k.w >= 18 ? ' is-strong' : k.w >= 10 ? ' is-breezy' : '');
+// Gusts: streaks blowing across the field the wind's way, more and faster the stronger it is (CSS animates them; the
+// box is turned to the wind's heading, like the arrow: 0 toward the posts, up the screen).
+function gustsHTML(k) {
+  if (!k || !k.w) return '';
+  const n = Math.min(24, Math.max(4, Math.round(k.w * .95)));
+  return Array.from({length: n}, (_, j) => `<i style="left:${((j * 61.8 + 7) % 100).toFixed(1)}%;--gl:${28 + (j * 17) % 40}px;--gk:${(-((j * .377) % 1)).toFixed(3)}"></i>`).join('');
+}
+function patchGusts(st) {
+  const g = st.el.querySelector('[data-kk-gusts]'), k = st.kicks[st.i];
+  if (!g || !k) return;
+  const sig = `${k.w}@${k.dir}`;
+  if (g.dataset.sig === sig) return;
+  g.dataset.sig = sig;
+  g.style.setProperty('--wd', `${k.dir}deg`);
+  g.style.setProperty('--gs', `${Math.max(.55, 3 - k.w * .1).toFixed(2)}s`);
+  g.style.setProperty('--go', Math.min(.7, .24 + k.w * .02).toFixed(3));
+  g.innerHTML = gustsHTML(k);
+}
+function placeGusts(st) {
+  const g = st.el.querySelector('[data-kk-gusts]');
+  if (!g) return;
+  const D = Math.ceil(Math.hypot(st.W, st.H));
+  Object.assign(g.style, {width: D + 'px', height: D + 'px', left: Math.round((st.W - D) / 2) + 'px', top: Math.round((st.H - D) / 2) + 'px'});
+  g.style.setProperty('--gd', D + 'px');
+}
 function hudHTML(st) {
   const k = st.kicks[st.i] || st.kicks[st.kicks.length - 1], day = st.day;
   return `<div class="kk-hud-l"><span class="kk-kno">${esc(`Kick ${Math.min(st.i + 1, K.MAX_KICKS)}`)}</span><b class="kk-dist">${k.d}<small> yds</small></b></div>`
-    + `<div class="kk-wind${k.w ? '' : ' is-calm'}" style="--wd:${k.dir}deg" aria-label="${esc(windWords(k))}">${k.w ? windArrow : ''}<span>${k.w ? `${k.w} mph` : 'Calm'}</span></div>`
+    + `<div class="kk-wind${windTier(k)}" style="--wd:${k.dir}deg" aria-label="${esc(windWords(k))}">${k.w ? windArrow : ''}<span>${k.w ? `${k.w} mph` : 'Calm'}</span></div>`
     + `<div class="kk-hud-r"><span class="kk-made"><b>${day.made}</b> made</span><span class="kk-xs" aria-label="${esc(`${day.missed} ${day.missed === 1 ? 'miss' : 'misses'} of ${K.STRIKES}`)}">${strikesHTML(day.missed)}</span></div>`;
 }
 function overHTML(st) {
@@ -59,7 +86,7 @@ function overHTML(st) {
 const HOW = `<section class="kk-steps" aria-labelledby="kk-steps-t"><h2 class="kk-steps-t" id="kk-steps-t">How to kick</h2><ol>`
   + `<li><span><b>Touch the ball</b> on the tee.</span></li>`
   + `<li><span><b>Slide up</b> toward the posts and let go. The faster you flick, the farther it flies.</span></li>`
-  + `<li><span><b>Mind the wind.</b> The arrow up top and the flags on the posts show which way it blows, so aim into it.</span></li>`
+  + `<li><span><b>Play the wind.</b> It pushes the ball sideways, more the farther the kick. The arrow up top, the flags on the posts and the streaks show which way it blows and how hard, so aim into it.</span></li>`
   + `</ol></section>`;
 // The guide's finger (a hand, index finger up; the ring at its tip is where it touches).
 const HAND = `<svg viewBox="0 0 44 56"><circle class="kk-guide-ring" cx="17" cy="7" r="7"/>`
@@ -94,6 +121,7 @@ function bodyHTML(st) {
     + `<div class="kk-stage" data-kk-stage><canvas class="kk-cv" data-kk-cv role="img" aria-label="The field from behind the tee, the posts down the field."></canvas>`
     // the kicking pad: the stage's lower part, around the ball, takes the flick; the rest scrolls the page as usual
     + `<div class="kk-pad" data-kk-pad aria-hidden="true"></div>`
+    + `<div class="kk-gusts" data-kk-gusts aria-hidden="true"></div>`
     + `<div class="kk-hud" data-kk-hud>${hudHTML(st)}</div>`
     + `<p class="kk-call" data-kk-call aria-live="polite"></p>`
     + `<div class="kk-guide" data-kk-guide hidden aria-hidden="true"><i class="kk-guide-trail"></i><span class="kk-guide-hand">${HAND}</span></div>`
@@ -116,6 +144,7 @@ function size(st) {
   cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
   cv.style.height = H + 'px';
   st.W = W; st.H = H; st.dpr = dpr;
+  placeGusts(st);
   st.f = W * 1.05;
   st.y0 = H - 64 - st.f * (K.CAM.h - .15) / K.CAM.back; // the horizon: the tee's ball sits 64 px off the bottom
 }
@@ -224,9 +253,9 @@ function drawPosts(st, c, sc, t) {
   const a = dir * Math.PI / 180, s = Math.min(1, w / 18);
   [-1, 1].forEach(k => {
     const at = P(gx + k * half, top, d);
-    const len = Math.max(10, 1.6 * at.s), flap = Math.sin(t * 9 + k) * .25 * s;
+    const len = Math.max(13, 2.4 * at.s) * (.55 + .75 * s), flap = Math.sin(t * 9 + k) * .25 * s;
     const ex = at.x + Math.sin(a) * len * (.25 + s), ey = at.y + len * (1 - s * .85) * .9 + flap * len - Math.cos(a) * s * len * .25;
-    c.strokeStyle = '#FF6A2B'; c.lineWidth = Math.max(2, .09 * at.s);
+    c.strokeStyle = '#FF6A2B'; c.lineWidth = Math.max(2.5, .12 * at.s);
     c.beginPath(); c.moveTo(at.x, at.y); c.quadraticCurveTo((at.x + ex) / 2 + flap * len, (at.y + ey) / 2 - flap * len * .3, ex, ey); c.stroke();
   });
 }
@@ -333,6 +362,7 @@ function setScene(st, k) { st.scene = {d: k.d, gx: k.gx, w: k.w, dir: k.dir}; }
 function patchHud(st) {
   const h = st.el.querySelector('[data-kk-hud]');
   if (h) h.innerHTML = hudHTML(st);
+  patchGusts(st);
   const cv = st.cv, k = st.kicks[st.i];
   if (cv && k) cv.setAttribute('aria-label', `Kick ${st.i + 1}: ${k.d} yards, the posts ${k.gx > 1 ? `${Math.round(k.gx)} yards to the right` : k.gx < -1 ? `${Math.round(-k.gx)} yards to the left` : 'straight ahead'}. ${windWords(k)}.`);
 }
@@ -345,9 +375,9 @@ function loop(st) {
     if (st.flight) {
       const f = st.flight;
       f.t = Math.min(f.call.tEnd, (now - f.t0) / 1000);
-      if (!f.called && f.call.tCross != null && f.t >= f.call.tCross) { f.called = true; showCall(st, f.call); }
+      if (!f.called && f.call.tCross != null && f.t >= f.call.tCross) { f.called = true; showCall(st, f.call, f.wind); }
       // down: the ball's gone until the next one's on the tee
-      if (f.t >= f.call.tEnd) { if (!f.called) { f.called = true; showCall(st, f.call); } st.flight = null; st.ballOn = false; settle(st, f.call); }
+      if (f.t >= f.call.tEnd) { if (!f.called) { f.called = true; showCall(st, f.call, f.wind); } st.flight = null; st.ballOn = false; settle(st, f.call); }
       else more = true;
     }
     if (st.move) {
@@ -361,11 +391,12 @@ function loop(st) {
   };
   st.raf = requestAnimationFrame(step);
 }
-function showCall(st, call) {
+const WIND_SAYS = {took: 'The wind took it', carried: 'The wind carried it through'};
+function showCall(st, call, wind) {
   const el = st.el.querySelector('[data-kk-call]');
   if (!el) return;
-  el.textContent = callWords(call);
-  el.className = `kk-call is-in ${call.made ? 'is-good' : 'is-miss'}`;
+  el.innerHTML = `<span>${esc(callWords(call))}</span>${wind ? `<span class="kk-call-w">${esc(WIND_SAYS[wind])}</span>` : ''}`;
+  el.className = `kk-call is-in ${call.made ? 'is-good' : 'is-miss'}${wind ? ' has-w' : ''}`;
   ui.haptic(call.made ? 'success' : 'error');
 }
 function settle(st, call) {
@@ -437,7 +468,7 @@ function onUp(st, e) {
   // saved the moment it's kicked, so leaving (or reloading) with the ball in the air doesn't take it back
   st.after = K.record(st.n, st.i, call) || K.dayState(st.n);
   st.busy = true;
-  st.flight = {call, t0: now, t: 0, called: false};
+  st.flight = {call, t0: now, t: 0, called: false, wind: K.windCall(k, launch, call)};
   loop(st);
 }
 
