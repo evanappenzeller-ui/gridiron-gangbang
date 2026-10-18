@@ -18,7 +18,7 @@ const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 const ST = new WeakMap(); // ctx -> pane state
 
 // The stylesheet's mark (--kk-css on :root): a home-screen app open across an update adds the current file.
-const CSS_V = '5';
+const CSS_V = '6';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--kk-css').trim() === CSS_V || document.querySelector('link[data-kk-css]')) return;
@@ -82,22 +82,11 @@ function overHTML(st) {
     + `<p class="kk-over-s">${esc(d.longest ? `Longest ${d.longest} yds · ${d.yards} yds in all · ${plural(d.list.length, 'kick')}` : `${plural(d.list.length, 'kick')}, none through`)}</p>`
     + (d.practice && d.official ? `<p class="kk-over-p">${esc(`Practice run. Your first run today (${plural(d.official.made, 'field goal')}) is the one on the scoreboard.`)}</p>` : '')
     + (K.canReplay() ? ui.button({label: 'Play again', kind: 'primary', icon: 'play-fill', cls: 'kk-again', attrs: {'data-kk-again': ''}}) : '')
+    + ui.button({label: 'See the scoreboard', kind: K.canReplay() ? 'secondary' : 'primary', icon: 'trophy', cls: 'kk-sb-go', attrs: {'data-kk-sb': ''}})
     + `<p class="kk-over-t">${ui.icon('clock', {size: 14})}<span>${esc(`New kicks in ${ui.untilText(msToMidnight())}`)}</span></p></div>`;
 }
-// Unlimited tries (core/kick.js canReplay: the owner, to test it): a line under the field with "Start over".
-function testHTML(st) {
-  if (!K.canReplay()) return '';
-  const tries = st.day.tries > 1 ? ` · try ${st.day.tries}` : '';
-  return `<div class="kk-test" data-kk-test><span>${esc(`Unlimited tries are on for you${tries}. Your first finished run is the one on the scoreboard.`)}</span>`
-    + `<button type="button" class="btn btn-secondary btn-s kk-test-b" data-kk-again><span class="btn-label">Start over</span></button></div>`;
-}
-// How to kick, under the stage: always there, four short steps.
-const HOW = `<section class="kk-steps" aria-labelledby="kk-steps-t"><h2 class="kk-steps-t" id="kk-steps-t">How to kick</h2><ol>`
-  + `<li><span><b>Touch the ball</b> on the tee.</span></li>`
-  + `<li><span><b>Slide up</b> toward the posts and let go. The faster you flick, the farther it flies.</span></li>`
-  + `<li><span><b>Play the wind.</b> It pushes the ball sideways, more the farther the kick. The arrow up top, the flags on the posts and the streaks show which way it blows and how hard, so aim into it.</span></li>`
-  + `<li><span><b>Bend it around things.</b> From the fifth kick, giant things get in the way, too tall to kick over. Swipe in an arc and the ball curves the same way. Keep the arc even and it comes back to the posts; a lopsided swipe won’t come back true.</span></li>`
-  + `</ol></section>`;
+// Unlimited tries (core/kick.js canReplay: the owner, to test it): "Start over" on the field while a run is on.
+const redoHTML = st => (K.canReplay() && !st.day.done ? `<button type="button" class="kk-redo" data-kk-again>Start over</button>` : '');
 // The guide's finger (a hand, index finger up; the ring at its tip is where it touches).
 const HAND = `<svg viewBox="0 0 44 56"><circle class="kk-guide-ring" cx="17" cy="7" r="7"/>`
   + `<path class="kk-guide-fing" d="M12 10a5 5 0 0 1 10 0v15h2v-4a4.5 4.5 0 0 1 9 0v3a4.5 4.5 0 0 1 8 2.8V38c0 9.4-6.6 16-15.5 16h-1.6c-5.2 0-9.5-2.8-12-7.3L4.6 36.4a4.3 4.3 0 0 1 7.2-4.6l.2.3z"/></svg>`;
@@ -126,8 +115,10 @@ function boardHTML(st) {
     + ui.seg({name: 'kk-sb', items: SB_MODES, value: st.sbMode, small: true, label: 'Scoreboard', cls: 'c-board-seg'})
     + `<div class="c-board-body" data-kk-sbody>${boardBodyHTML(st)}</div></section>`;
 }
+// While a run is on the field is the whole screen (between the nav bar and the tab bar) and nothing sits under it;
+// once it's finished, the scoreboard shows below.
 function bodyHTML(st) {
-  return `<div class="kk">`
+  return `<div class="kk${st.day.done ? '' : ' is-playing'}" data-kk>`
     + `<div class="kk-stage" data-kk-stage><canvas class="kk-cv" data-kk-cv role="img" aria-label="The field from behind the tee, the posts down the field."></canvas>`
     // the kicking pad: the stage's lower part, around the ball, takes the flick; the rest scrolls the page as usual
     + `<div class="kk-pad" data-kk-pad aria-hidden="true"></div>`
@@ -137,32 +128,44 @@ function bodyHTML(st) {
     + `<div class="kk-guide" data-kk-guide hidden aria-hidden="true"><svg class="kk-guide-svg"><path class="kk-guide-trail" d="M0 0"/></svg><span class="kk-guide-hand">${HAND}</span></div>`
     + `<p class="kk-hint" data-kk-hint hidden>${ui.icon('arrow-up', {size: 16})}<span data-kk-hint-t>Slide up from the ball to kick</span></p>`
     + `<p class="kk-alert" data-kk-alert hidden role="status"><b>Look out!</b><span>Something’s in the way. Swipe in an even arc to bend the ball around it.</span></p>`
+    + `<span data-kk-redo>${redoHTML(st)}</span>`
     + `<div class="kk-over" data-kk-over${st.day.done ? '' : ' hidden'}>${st.day.done ? overHTML(st) : ''}</div></div>`
-    + `<div data-kk-testbar>${testHTML(st)}</div>`
-    + HOW
-    + `<p class="kk-how">${esc(`Three misses ends your run. New kicks every day, the same for everyone.`)}</p>`
-    + `<div data-kk-board>${boardHTML(st)}</div></div>`;
+    + `<div class="kk-fill" data-kk-fill aria-hidden="true"></div>`
+    + `<div class="kk-board-w" data-kk-board>${boardHTML(st)}</div></div>`;
 }
 
 // ============================================================================ The scene
 // The world in yards (core/kick.js): x across, y up, z downfield from the tee; the camera K.CAM.back behind the tee
-// and K.CAM.h up. The posts stand at the middle of the field: a kick from off to the side has the field off to the side.
+// and st.camH up (K.CAM.h, higher on a tall stage). The posts stand at the middle of the field: a kick from off to the
+// side has the field off to the side.
 const FIELD = {half: 26.67, hash: 3.083};
+/** The height between the screen's nav bar and the tab bar (0 when it can't be measured). */
+function screenRoom(st) {
+  const scr = st.ctx && st.ctx.screen, tb = document.getElementById('tabbar');
+  if (!scr) return 0;
+  const nav = scr.querySelector(':scope > .nav'), top = nav ? nav.getBoundingClientRect().bottom : scr.getBoundingClientRect().top;
+  const bottom = tb && tb.offsetHeight ? tb.getBoundingClientRect().top : (innerHeight || 0);
+  return Math.round(bottom - top - 16);
+}
 function size(st) {
   const cv = st.cv, W = cv.parentElement.clientWidth || 360;
-  // as tall as fits between the nav bar and the tab bar (a small phone scrolls a little), within limits
-  const H = Math.round(Math.max(380, Math.min(620, W * 1.3, (innerHeight || 800) - 170)));
+  // the whole screen between the nav bar and the tab bar (8 px clear of each), within limits
+  const room = screenRoom(st);
+  const H = Math.round(room > 300 ? Math.max(360, Math.min(860, room)) : Math.max(380, Math.min(620, W * 1.3, (innerHeight || 800) - 170)));
   const dpr = Math.min(3, devicePixelRatio || 1);
   cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
   cv.style.height = H + 'px';
   st.W = W; st.H = H; st.dpr = dpr;
   placeGusts(st);
   st.f = W * 1.05;
-  st.y0 = H - 64 - st.f * (K.CAM.h - .15) / K.CAM.back; // the horizon: the tee's ball sits 64 px off the bottom
+  // The horizon about 38% of the way down, the tee's ball 64 px off the bottom: on a taller stage the camera rises a
+  // little (looking down on more of the field) rather than showing more sky.
+  st.camH = Math.max(K.CAM.h, Math.min(4.6, (H * .62 - 64) * K.CAM.back / st.f + .15));
+  st.y0 = H - 64 - st.f * (st.camH - .15) / K.CAM.back;
 }
 function proj(st, x, y, z) {
   const Z = Math.max(.25, z + K.CAM.back);
-  return {x: st.W / 2 + st.f * x / Z, y: st.y0 + st.f * (K.CAM.h - y) / Z, s: st.f / Z};
+  return {x: st.W / 2 + st.f * x / Z, y: st.y0 + st.f * (st.camH - y) / Z, s: st.f / Z};
 }
 function quad(c, a, b, d, e) { c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.lineTo(d.x, d.y); c.lineTo(e.x, e.y); c.closePath(); }
 // The sky and the stands don't move: drawn once per size into their own canvas, then copied in each frame.
@@ -603,8 +606,8 @@ function settle(st, call) {
 function finish(st) {
   st.busy = true;
   guide(st, false);
-  const bar = st.el.querySelector('[data-kk-testbar]');
-  if (bar) bar.innerHTML = testHTML(st);
+  setMode(st);
+  fitScreen(st);
   patchHud(st);
   const over = st.el.querySelector('[data-kk-over]');
   if (over) {
@@ -657,6 +660,25 @@ function onUp(st, e) {
   loop(st);
 }
 
+/** Playing (the field is the screen, nothing under it) or finished (the scoreboard below). */
+function setMode(st) {
+  const box = st.el.querySelector('[data-kk]'), redo = st.el.querySelector('[data-kk-redo]');
+  if (box) box.classList.toggle('is-playing', !st.day.done);
+  if (redo) redo.innerHTML = redoHTML(st);
+}
+/** While a run is on: scroll so the field sits just under the nav bar and fills the screen to the tab bar (a spacer under
+ *  it makes the room to scroll that far). */
+function fitScreen(st, smooth) {
+  const scr = st.ctx && st.ctx.screen, stage = st.el.querySelector('[data-kk-stage]'), fill = st.el.querySelector('[data-kk-fill]');
+  if (!scr || !stage || !fill || st.dead) return;
+  fill.style.height = '0px';
+  if (st.day.done || !st.ctx.visible || !stage.offsetHeight) return;
+  const nav = scr.querySelector(':scope > .nav'), navB = nav ? nav.getBoundingClientRect().bottom : scr.getBoundingClientRect().top;
+  const target = Math.max(0, Math.round(scr.scrollTop + stage.getBoundingClientRect().top - navB - 8));
+  const max = scr.scrollHeight - scr.clientHeight;
+  if (target > max) fill.style.height = `${Math.ceil(target - max)}px`;
+  if (Math.abs(scr.scrollTop - target) > 2) scr.scrollTo({top: target, behavior: smooth && !ui.RM ? 'smooth' : 'auto'});
+}
 /** Start the day's run over (a tester): today's kicks from the first, three misses again; the first finished run stays
  *  the one on the scoreboard. Not while a kick is in the air. */
 function startOver(st) {
@@ -666,16 +688,15 @@ function startOver(st) {
   st.timers.forEach(clearTimeout); st.timers = [];
   st.move = null; st.after = null; st.busy = false;
   setDay(st, st.n);
-  const over = st.el.querySelector('[data-kk-over]'), call = st.el.querySelector('[data-kk-call]'), bar = st.el.querySelector('[data-kk-testbar]');
+  const over = st.el.querySelector('[data-kk-over]'), call = st.el.querySelector('[data-kk-call]');
   if (over) { over.hidden = true; over.innerHTML = ''; }
   if (call) call.className = 'kk-call';
-  if (bar) bar.innerHTML = testHTML(st);
+  setMode(st);
   patchHud(st);
   draw(st);
   armGuide(st);
   ui.haptic('light');
-  const stage = st.el.querySelector('[data-kk-stage]');
-  if (stage && stage.getBoundingClientRect().top < 0) stage.scrollIntoView({block: 'center', behavior: ui.RM ? 'auto' : 'smooth'});
+  fitScreen(st, true);
 }
 
 // ============================================================================ Board
@@ -733,14 +754,19 @@ export function mount(el, ctx) {
     patchBoard(st);
   };
   el.addEventListener('ui:change', st.onChange);
-  st.onClick = e => { if (e.target.closest('[data-kk-again]')) startOver(st); };
+  st.onClick = e => {
+    if (e.target.closest('[data-kk-again]')) { startOver(st); return; }
+    if (e.target.closest('[data-kk-sb]')) { const b = st.el.querySelector('[data-kk-board]'); if (b) b.scrollIntoView({block: 'start', behavior: ui.RM ? 'auto' : 'smooth'}); }
+  };
   el.addEventListener('click', st.onClick);
-  st.onResize = () => { if (!st.dead) { size(st); draw(st); placeGuide(st); } };
+  st.onResize = () => { if (!st.dead) { size(st); draw(st); placeGuide(st); fitScreen(st); } };
   addEventListener('resize', st.onResize, {passive: true});
   st.unsub = daily.subscribe(type => { if (type === 'lb' || type === 'ready' || type === 'error') patchBoard(st); });
   st.stopTick = ctx.timer(() => tick(st), 20000);
   K.autoPost();
   armGuide(st);
+  // laid out: the field fills the screen while a run is on
+  requestAnimationFrame(() => { if (!st.dead) { size(st); draw(st); placeGuide(st); fitScreen(st, true); } });
 }
 /** Midnight: the new day's kicks (unless a kick is in the air). */
 function tick(st) {
@@ -753,8 +779,8 @@ function tick(st) {
   setDay(st, n);
   st.busy = st.day.done;
   armGuide(st);
-  const bar = st.el.querySelector('[data-kk-testbar]');
-  if (bar) bar.innerHTML = testHTML(st);
+  setMode(st);
+  fitScreen(st);
   st.el.querySelector('[data-kk-over]').hidden = !st.day.done;
   patchHud(st);
   patchBoard(st);
@@ -764,7 +790,7 @@ export function params(el, ctx) {
   const st = ST.get(ctx);
   if (!st) return;
   // shown again: its size may have changed while hidden
-  requestAnimationFrame(() => { if (!st.dead) { size(st); draw(st); placeGuide(st); } });
+  requestAnimationFrame(() => { if (!st.dead) { size(st); draw(st); placeGuide(st); fitScreen(st, true); } });
   tick(st);
   patchBoard(st);
 }
