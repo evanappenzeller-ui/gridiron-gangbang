@@ -40,13 +40,13 @@ const windWords = k => {
   const along = a <= 45 || a >= 315 ? 'behind you' : a >= 135 && a <= 225 ? 'in your face' : '';
   return `${k.w} mph wind${along ? `, ${along}` : ''}${side ? `${along ? ' and' : ','} blowing ${side}` : ''}`;
 };
-// The wind's strength on the HUD: a breeze (orange), 10 mph and up (amber), 18 and up (red).
-const windTier = k => (!k.w ? ' is-calm' : k.w >= 18 ? ' is-strong' : k.w >= 10 ? ' is-breezy' : '');
+// The wind's strength on the HUD: a breeze (orange), 5 mph and up (amber), 9 and up (red).
+const windTier = k => (!k.w ? ' is-calm' : k.w >= 9 ? ' is-strong' : k.w >= 5 ? ' is-breezy' : '');
 // Gusts: streaks blowing across the field the wind's way, more and faster the stronger it is (CSS animates them; the
 // box is turned to the wind's heading, like the arrow: 0 toward the posts, up the screen).
 function gustsHTML(k) {
   if (!k || !k.w) return '';
-  const n = Math.min(24, Math.max(4, Math.round(k.w * .95)));
+  const n = Math.min(24, Math.max(5, Math.round(k.w * 1.8)));
   return Array.from({length: n}, (_, j) => `<i style="left:${((j * 61.8 + 7) % 100).toFixed(1)}%;--gl:${28 + (j * 17) % 40}px;--gk:${(-((j * .377) % 1)).toFixed(3)}"></i>`).join('');
 }
 function patchGusts(st) {
@@ -56,8 +56,8 @@ function patchGusts(st) {
   if (g.dataset.sig === sig) return;
   g.dataset.sig = sig;
   g.style.setProperty('--wd', `${k.dir}deg`);
-  g.style.setProperty('--gs', `${Math.max(.55, 3 - k.w * .1).toFixed(2)}s`);
-  g.style.setProperty('--go', Math.min(.7, .24 + k.w * .02).toFixed(3));
+  g.style.setProperty('--gs', `${Math.max(.55, 2.8 - k.w * .18).toFixed(2)}s`);
+  g.style.setProperty('--go', Math.min(.7, .26 + k.w * .035).toFixed(3));
   g.innerHTML = gustsHTML(k);
 }
 function placeGusts(st) {
@@ -265,7 +265,7 @@ function drawPosts(st, c, sc, t) {
   pole(P(gx - half, bar, d), P(gx - half, top, d));
   pole(P(gx + half, bar, d), P(gx + half, top, d));
   // the ribbons on top: blown with the wind (sideways and toward or away), flapping a little
-  const a = dir * Math.PI / 180, s = Math.min(1, w / 18);
+  const a = dir * Math.PI / 180, s = Math.min(1, w / 10);
   [-1, 1].forEach(k => {
     const at = P(gx + k * half, top, d);
     const len = Math.max(13, 2.4 * at.s) * (.55 + .75 * s), flap = Math.sin(t * 9 + k) * .25 * s;

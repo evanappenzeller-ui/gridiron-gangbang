@@ -62,7 +62,7 @@
   filter: drop-shadow(0 0 6px var(--kk-wg));
   transition: transform 500ms cubic-bezier(.22,1,.36,1);
 }
-/* 10 mph and up amber, 18 and up red: the stronger, the louder */
+/* 5 mph and up amber, 9 and up red: the stronger, the louder */
 .kk-pane .kk-wind.is-breezy { --kk-wc: #FFC53D; --kk-wg: rgba(255,197,61,.6); color: #FFE08A; box-shadow: inset 0 0 0 1px rgba(255,197,61,.45), 0 6px 16px -8px rgba(0,0,0,.8); }
 .kk-pane .kk-wind.is-strong { --kk-wc: var(--kk-bad); --kk-wg: rgba(255,90,78,.7); color: #FFB3AC; box-shadow: inset 0 0 0 1.5px rgba(255,90,78,.6), 0 0 18px -4px rgba(255,90,78,.55); }
 .kk-pane .kk-wind.is-calm { justify-content: center; min-height: 48px; color: rgba(255,255,255,.7); }

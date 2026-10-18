@@ -78,21 +78,39 @@ export const WALL_OUT = 1.5; // how far the wall runs on past its upright
 export const OBS_FROM = 4; // the fifth kick on
 /** Day n's kicks, the same on every phone. The first few are chip shots near the middle; then the posts wander
  *  further off to the side, the kicks get longer (a yard and a third a kick, 62 the longest, about kick 30 on) and the
- *  wind stronger: a breeze from the first kick (1-4 mph), 3-9 by kick 6, 5-15 by kick 11, up to 25 from kick 21. From
+ *  wind stronger: a breeze from the first kick (1-3 mph), up to 4 by kick 6, 6 by kick 11, 10 by kick 21, 14 at most;
+ *  never more than leaves the kick makeable (fair(): the wind comes down a mph at a time till it is). From
  *  the fifth kick something's in the way: one thing through the ninth (out in front, or the wall in the goal), then
  *  something out in front and often the wall too, and from the twentieth the wall always (half the opening, mostly),
  *  sometimes a second thing out in front, off to a side. */
+const DAYS = new Map(); // day n -> its kicks (worked out once)
 export function kicks(n) {
+  if (DAYS.has(n)) return DAYS.get(n);
   const r = rng(hashStr(`kick-it-${n}`)), ro = rng(hashStr(`kick-it-obs-${n}`)), out = [];
   for (let i = 0; i < MAX_KICKS; i++) {
     const d = Math.round(clamp(19 + i * 1.35 + (r() * 8 - 3), 18, 62));
     const span = Math.min(17, 3 + i * .9);
     const gx = Math.round((r() * 2 - 1) * span * 10) / 10;
-    const w = Math.round(clamp(1 + i * .45 + r() * (3 + i * .6), 0, 25));
+    const w = Math.round(clamp(.5 + i * .17 + r() * (2 + i * .2), 0, 14));
     const dir = Math.round(r() * 360);
-    out.push({i, d, gx, w, dir, obs: i < OBS_FROM ? [] : obstaclesFor(ro, i, d, gx)});
+    const k = {i, d, gx, w, dir, obs: i < OBS_FROM ? [] : obstaclesFor(ro, i, d, gx)};
+    while (k.w > 0 && !fair(k)) k.w--;
+    out.push(k);
   }
+  if (DAYS.size > 40) DAYS.clear();
+  DAYS.set(n, out);
   return out;
+}
+/** A kick is fair when a good leg can put it through: some bend (none, or a third either way) and an unbroken run of
+ *  aims at least 2 degrees wide that go through, whatever's in the way and wherever the wind blows. */
+function fair(k) {
+  for (const v of [V_MAX * .95, V_MAX * .85]) for (const bend of [0, .3, -.3]) {
+    let run = 0;
+    for (let th = -1.05; th <= 1.05; th += .01) {
+      if (fly(k, {theta: th, v, bend, tilt: 0}).made) { if (++run >= 5) return true; } else run = 0;
+    }
+  }
+  return false;
 }
 const round1 = v => Math.round(v * 10) / 10;
 function obstaclesFor(r, i, d, gx) {
@@ -132,11 +150,13 @@ const topAt = z => { const t = z / (V_MAX * Math.cos(ELEV)); return V_MAX * Math
 // far along to the posts), back on its line at the posts; a lopsided swipe ends TILT times the distance times tilt off
 // it. A swipe that's nearly straight is straight.
 const BEND = .6, TILT = .3, BEND_DEAD = .03, TILT_DEAD = .04;
-// The wind. Across the field the ball goes with it at once and more the longer it's up (yards per mph: WIND_ACROSS.v a
-// second plus WIND_ACROSS.a a second squared), so even a chip shot moves: at full leg 10 mph across moves a 20-yarder
-// over a yard, 20 mph a 40-yarder about 6 (the posts are 6 wide), 25 mph a 62-yarder about 12. Along the field it
-// pushes (WIND_ALONG, yards a second a second per mph): a headwind costs carry without making the long kicks impossible.
-const WIND_ACROSS = {v: .15, a: .025}, WIND_ALONG = .12;
+// The wind is the big factor. Across the field it carries the ball, more the longer it's up (yards per mph:
+// WIND_ACROSS.v a second plus WIND_ACROSS.a a second squared): 7 mph across moves a 40-yarder about 5 yards (the posts
+// are 6 wide). A kick aimed into it hangs up: its sideways run dies away (at HANG per mph, a second), so it goes out,
+// stalls and drifts back. A bend into the wind is blown out of it (none left at BEND_HOLD mph; 7 mph leaves an eighth);
+// a bend with the wind keeps all of it. Along the field it pushes (WIND_ALONG, yards a second a second per mph): a
+// headwind costs carry, a tailwind adds it.
+const WIND_ACROSS = {v: .3, a: .05}, WIND_ALONG = .25, HANG = .15, BEND_HOLD = 8;
 /** A swipe's shape: points [{x, y}] on screen, from the ball to where it let go -> {bend, tilt}: an even arc is all
  *  bend (+ bowed to the right); a lopsided one has tilt too. Fitted on the path spaced out evenly along its length. */
 export function curveOf(points) {
@@ -190,9 +210,13 @@ export function fly(kick, launch) {
   const a = dir * Math.PI / 180, wx = w * Math.sin(a), az = WIND_ALONG * w * Math.cos(a);
   const vh = v * Math.cos(ELEV), vx = vh * Math.sin(theta), vz = vh * Math.cos(theta), vy = v * Math.sin(ELEV);
   const zAt = t => vz * t + .5 * az * t * t;
-  // the swipe's shape, laid along the way to the posts
-  const curveX = z => { const s = z / d; return d * (BEND * 4 * bend * s * (1 - s) + TILT * tilt * s); };
-  const free = t => { const z = zAt(t); return {x: vx * t + wx * (WIND_ACROSS.v * t + WIND_ACROSS.a * t * t) + curveX(z), y: Math.max(0, vy * t - .5 * GRAV * t * t), z}; };
+  // aimed into the wind, the sideways run dies away; with it (or in calm air), it holds
+  const hang = vx * wx < 0 ? HANG * Math.abs(wx) : 0;
+  const aimX = t => (hang ? vx * (1 - Math.exp(-hang * t)) / hang : vx * t);
+  // the swipe's shape, laid along the way to the posts; a bend into the wind is blown out of it
+  const bendW = bend * wx < 0 ? bend * Math.max(0, 1 - Math.abs(wx) / BEND_HOLD) : bend;
+  const curveX = z => { const s = z / d; return d * (BEND * 4 * bendW * s * (1 - s) + TILT * tilt * s); };
+  const free = t => { const z = zAt(t); return {x: aimX(t) + wx * (WIND_ACROSS.v * t + WIND_ACROSS.a * t * t) + curveX(z), y: Math.max(0, vy * t - .5 * GRAV * t * t), z}; };
   const tLand = 2 * vy / GRAV;
   // When it reaches the plane z = Z (going forward), if it does before it lands.
   const tAt = Z => {
