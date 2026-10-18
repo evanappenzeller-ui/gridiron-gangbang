@@ -507,7 +507,8 @@ export function guest() { return me() ? null : guestRead(); }
 // by their board name (board) without a Guest tag and keep their phones together, and no one else can take the name
 // (daily.guestNameProblem).
 // aka: names they already played under (a guest row called that is theirs: its scores count, under their board name).
-// solo: their scores show on the boards on their own phones only; the league never sees them (daily.js boardShows).
+// solo: their scores show on the boards on their own phones only; the league never sees them (daily.js boardShows),
+// as with a guest's. Without it (Ryan D) they're on everyone's boards, like a member.
 export const USERS = [{id: 'ryan-dow', name: 'Ryan Dow', board: 'Ryan D'},
   {id: 'ryan-stewart', name: 'Ryan Stewart', board: 'Ryan S', aka: ['RyStew'], solo: true}];
 const userKey = nm => String(nm || '').trim().replace(/\s+/g, ' ').toLowerCase();

@@ -70,8 +70,8 @@ function guestRow() {
 function guestSec() {
   if (data.user()) return '<div data-guest-sec hidden></div>'; // an app user has a player of their own
   return sec('Guest player', ui.group(guestRow(), {cls: 'c-ys-guestg'}), data.guest()
-    ? 'Your Daily Puzzles, 17–0 and Two-Minute Drill scores post to the boards under this name, tagged Guest.'
-    : 'Not in the league? Make your own player to track your scores on the daily boards.', 'data-guest-sec');
+    ? 'Your Daily Puzzles, 17–0 and Two-Minute Drill scores show under this name on your own boards, tagged Guest; the league doesn’t see them.'
+    : 'Not in the league? Make your own player to keep your scores on your own boards.', 'data-guest-sec');
 }
 function nickRow() {
   const nick = daily.LB.nick ? daily.displayName({nick: daily.LB.nick}) : ''; // as the boards show it (an app user's board name)

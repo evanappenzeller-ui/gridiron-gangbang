@@ -885,11 +885,15 @@ async function startFirebase() {
   } catch (_) { LB.off = true; LB.ready = true; lbChanged('off'); }
 }
 
-/** Whether a board doc's scores show on this phone: a solo app user's (data.USERS) only on their own phones (this
- *  phone's own doc, or any of theirs when this phone is them). */
+/** Whether a board doc's scores show on this phone. The league's boards are the league's: a member's rows show to
+ *  everyone, and so do an app user's (data.USERS, Ryan D) unless they're solo (Ryan S: on his own phones only). A
+ *  guest's, or a row that is no one's, shows only on the phone that posted it. */
 export function boardShows(p) {
+  if (!p || p.id === LB.uid) return true;
+  if (memberOf(p)) return true;
   const u = userOf(p);
-  if (!u || !u.solo || p.id === LB.uid) return true;
+  if (!u) return false;
+  if (!u.solo) return true;
   const me = dataUser();
   return !!me && me.id === u.id;
 }

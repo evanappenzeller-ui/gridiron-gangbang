@@ -548,7 +548,7 @@ export async function runChecks() {
     return {pass, detail: `guest row ${gr ? `${gr.guest}/${gr.managerId}` : 'missing'}; Mason's row ${mr ? mr.id : 'missing'}; names ${names}`};
   });
 
-  check("an app user (Ryan Dow) has a login: one row on the boards from any number of phones, by his board name (Ryan D), no Guest tag, no member's, and no guest can take the name; Ryan Stewart's old guest row (RyStew) is his, as Ryan S, shown only on his own phones", () => {
+  check("an app user (Ryan Dow) has a login: one row on the boards from any number of phones, by his board name (Ryan D), no Guest tag, no member's, and no guest can take the name; Ryan Stewart's old guest row (RyStew) is his, as Ryan S, shown only on his own phones, as a guest's is", () => {
     needDaily();
     const P = daily.dayVersion() === 1 ? daily.PNUM : 1, players = fakePlayers(P), mason = players.find(p => p.id === 'fake-3');
     // Ryan on two phones (both rows guest-flagged, as a user's are), the names in any case and spacing.
@@ -575,7 +575,10 @@ export async function runChecks() {
     const snames = ['Ryan Stewart', 'ryan s', 'RYSTEW'].map(n => (daily.guestNameProblem(n) ? 'no' : 'ok')).join(' ');
     // Ryan S is solo: his rows show only on his own phones (Ryan D's show to everyone).
     const isRyanS = (data.user() || {}).id === 'ryan-stewart';
-    const solo = daily.boardShows(s1) === isRyanS && daily.boardShows(s2) === isRyanS && daily.boardShows(r1) && daily.boardShows(r2);
+    const solo = daily.boardShows(s1) === isRyanS && daily.boardShows(s2) === isRyanS && daily.boardShows(r1) && daily.boardShows(r2)
+      // and a guest's row, or a row that is no one's, is on the phone that posted it only; a member's on every phone
+      && !daily.boardShows({id: 'fake-g2', nick: 'Tommy T', g: true}) && !daily.boardShows({id: 'fake-x', nick: 'Setup test'})
+      && daily.boardShows({id: 'fake-m', nick: 'Mason'}) && (!daily.LB.uid || daily.boardShows({id: daily.LB.uid, nick: 'Tommy T', g: true}));
     daily.LB.raw = raw;
     const pass = once.every(x => x.length === 1) && !!row && !row.guest && row.managerId === null && keys
       && daily.memberOf(r1) === null && !daily.guestOf(r1) && !!u && u.id === 'ryan-dow' && names === 'no no ok no' && stew && snames === 'no no no'
