@@ -1,9 +1,9 @@
 // Kick It core: the Daily Games' field-goal game, after Paper Toss. Each day everyone gets the same run of kicks: the
 // posts stand somewhere new for every kick (a different distance and angle), the wind changes, the kicks get longer
-// and windier as the run goes on, and the third miss ends it. From the fifth kick, giant silly things stand in the way
-// (a brick wall, a T-rex, a rubber duck, a tube man, a cactus), too tall to kick over. A kick is a swipe of the ball:
-// its line aims, its speed is the leg, and its shape bends the flight (an even arc curves the ball around and back to
-// the posts; a lopsided one doesn't come back true); the wind carries the ball in the air. No DOM. Owner: KICK.
+// and windier as the run goes on, and the third miss ends it. From the fifth kick a brick wall stands in the goal,
+// closing off part of it. The line of scrimmage is 7 yards out, a holder at the spot. A kick is a swipe of the ball:
+// its line aims, its speed is the leg, and its shape bends the flight (an even arc curves the ball out and back to the
+// posts; a lopsided one doesn't come back true); the wind carries the ball in the air. No DOM. Owner: KICK.
 //
 //   todayNumber(), dateOf(n), dayLabel(n)       day 1 on START, a new run at local midnight
 //   kicks(n)                                    day n's kicks: [{i, d (yards to the posts), gx (the posts' offset,
@@ -60,29 +60,24 @@ function rng(seed) {
 }
 export const MAX_KICKS = 40, STRIKES = 3;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-// The things in the way: giant and silly, all too tall to kick over (the ball never climbs past about 8 yards). half:
-// half its width; h: its height (yards). Each has a word for when it stops a kick.
-// Two kinds of place: out in front of the kicker (a fifth of the way there: the 30-yard line on a 50-yarder), where the
-// ball's still low (each is a yard and more taller than the hardest kick is where it stands; h below is the most); and
-// the brick wall, standing in the goal itself, flush with one upright, closing off a quarter or half of the opening, as
-// tall as the uprights (a big enough kick clears it).
+// The one thing in the way: a brick wall standing in the goal itself, flush with one upright, closing off a quarter or
+// half of the opening, as tall as the uprights (a big enough kick clears it). half: half its width (set per kick); h:
+// its height (yards); says: the word for when it stops a kick.
 export const OBSTACLES = {
-  wall: {name: 'brick wall', half: 0, h: 10.4, says: 'Bricked off the wall', at: 'goal'},
-  dino: {name: 'T-rex', half: 2.2, h: 7, says: 'The T-rex ate it'},
-  duck: {name: 'rubber duck', half: 2, h: 6.8, says: 'Bounced off the rubber duck'},
-  tube: {name: 'tube man', half: 1.1, h: 7.4, says: 'The tube man swatted it'},
-  cactus: {name: 'cactus', half: 1.8, h: 7, says: 'Stuck in the cactus'}
+  wall: {name: 'brick wall', half: 0, h: 10.4, says: 'Bricked off the wall', at: 'goal'}
 };
-const NEAR = Object.keys(OBSTACLES).filter(t => OBSTACLES[t].at !== 'goal');
+// The line of scrimmage, 7 yards in front of the hold (a field goal's distance is that and 10 more to the posts): the
+// blockers and the rush meet there, arms up. Only a kick far too soft to reach the posts anyway is low enough there to
+// be blocked.
+export const LINE = {z: 7, reach: 7.4, half: 6.5, h: 2.6, says: 'Blocked at the line'};
 export const WALL_OUT = 1.5; // how far the wall runs on past its upright
 export const OBS_FROM = 4; // the fifth kick on
 /** Day n's kicks, the same on every phone. The first few are chip shots near the middle; then the posts wander
  *  further off to the side, the kicks get longer (a yard and a third a kick, 62 the longest, about kick 30 on) and the
  *  wind stronger: a breeze from the first kick (1-3 mph), up to 4 by kick 6, 6 by kick 11, 10 by kick 21, 14 at most;
  *  never more than leaves the kick makeable (fair(): the wind comes down a mph at a time till it is). From
- *  the fifth kick something's in the way: one thing through the ninth (out in front, or the wall in the goal), then
- *  something out in front and often the wall too, and from the twentieth the wall always (half the opening, mostly),
- *  sometimes a second thing out in front, off to a side. */
+ *  the fifth kick a brick wall stands in the goal: closing a quarter of the opening through the ninth kick, a quarter
+ *  or (a third of the time) half through the nineteenth, and half (mostly) from the twentieth. */
 const DAYS = new Map(); // day n -> its kicks (worked out once)
 export function kicks(n) {
   if (DAYS.has(n)) return DAYS.get(n);
@@ -114,24 +109,11 @@ function fair(k) {
 }
 const round1 = v => Math.round(v * 10) / 10;
 function obstaclesFor(r, i, d, gx) {
-  const roll = r(), early = i < 9, late = i >= 19;
-  const front = !early || roll < .6, wall = late || (early ? roll >= .6 : r() < .45), second = late && r() < .3;
-  const out = [], side = r() < .5 ? -1 : 1;
-  const near = (s0, off) => {
-    const t = NEAR[Math.floor(r() * NEAR.length)], o = OBSTACLES[t];
-    const z = round1(clamp(d * s0 + (r() * 2 - 1), 5, 11)), line = gx * z / d;
-    const x = off == null ? line + (r() * 2 - 1) * o.half * .5 : line + off * (o.half + 1 + r() * 2);
-    out.push({t, x: round1(x), z, half: o.half, h: round1(Math.min(o.h, Math.max(3.8, topAt(z) + 1.2))), face: r() < .5 ? -1 : 1});
-  };
-  if (front) near(.2);
-  if (second) near(.28, side);
-  if (wall) {
-    // in the goal, flush with one upright: a quarter of the opening early on, half (mostly) later
-    const share = early ? .25 : late ? (r() < .65 ? .5 : .25) : (r() < .35 ? .5 : .25), k = r() < .5 ? -1 : 1;
-    const inner = gx + k * (POST.half - share * POST.half * 2), outer = gx + k * (POST.half + WALL_OUT);
-    out.push({t: 'wall', x: round1((inner + outer) / 2), z: round1(d - .6), half: round1(Math.abs(outer - inner) / 2), h: OBSTACLES.wall.h, face: k, share});
-  }
-  return out;
+  // in the goal, flush with one upright: a quarter of the opening early on, half (mostly) later
+  const early = i < 9, late = i >= 19;
+  const share = early ? .25 : late ? (r() < .65 ? .5 : .25) : (r() < .35 ? .5 : .25), k = r() < .5 ? -1 : 1;
+  const inner = gx + k * (POST.half - share * POST.half * 2), outer = gx + k * (POST.half + WALL_OUT);
+  return [{t: 'wall', x: round1((inner + outer) / 2), z: round1(d - .6), half: round1(Math.abs(outer - inner) / 2), h: OBSTACLES.wall.h, face: k, share}];
 }
 
 // ---------------------------------------------------------------------------------------------- the kick
@@ -143,8 +125,6 @@ export const CAM = {h: 2, back: 4};
 export const GRAV = 9.2;                   // yards a second, a second (a touch floaty: slower, higher arcs)
 const ELEV = 30 * Math.PI / 180;           // the ball's climb off the tee
 const V_MIN = 13, V_MAX = 30;              // the leg, yards a second
-/** The highest any kick is when it's z yards out (the hardest leg, straight, calm air). */
-const topAt = z => { const t = z / (V_MAX * Math.cos(ELEV)); return V_MAX * Math.sin(ELEV) * t - .5 * GRAV * t * t; };
 // The swipe's shape (curveOf): bend is how far it bows out (as a share of its length, + to the right), tilt how far
 // it's lopsided. The flight bows the same way, as far as BEND times the kick's distance times 4 bend s (1 - s) (s: how
 // far along to the posts), back on its line at the posts; a lopsided swipe ends TILT times the distance times tilt off
@@ -227,7 +207,8 @@ export function fly(kick, launch) {
   };
   // Something in the way: the first thing it reaches, if it's there and low enough (it always is) when it gets there.
   let hit = null, tHit = null;
-  (kick.obs || []).slice().sort((p, q) => p.z - q.z).forEach(o => {
+  const line = {t: 'line', x: 0, z: LINE.reach, half: LINE.half, h: LINE.h, says: LINE.says};
+  (kick.obs || []).concat([line]).sort((p, q) => p.z - q.z).forEach(o => {
     if (hit) return;
     const t = tAt(o.z);
     if (t == null) return;
