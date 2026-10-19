@@ -53,7 +53,7 @@ const ST = new WeakMap(); // ctx -> pane state
 
 // A home-screen app open across an update imports this module new under the stylesheet it started with (app.js,
 // Updates): when seventeen.css's mark (--sv-css on :root) isn't this module's, the current file is added.
-const CSS_V = '5';
+const CSS_V = '6';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--sv-css').trim() === CSS_V || document.querySelector('link[data-sv-css]')) return;
@@ -79,7 +79,7 @@ function faceHTML(p, w) {
   const [first, second] = (p.eh ? [espn, nfl] : [nfl, espn]).filter(Boolean);
   if (!first) return ANON();
   const alt = second ? ` data-alt="${esc(second[1])}" data-alt-kind="${second[0]}"` : '';
-  return `<img class="sv-face is-${first[0]}" src="${esc(first[1])}"${alt} alt="" draggable="false" decoding="async" referrerpolicy="no-referrer">`;
+  return `<img class="sv-face is-${first[0]}" src="${esc(first[1])}"${alt}${p.eh ? ' data-blank' : ''} alt="" draggable="false" decoding="async" referrerpolicy="no-referrer">`;
 }
 // The pane opens on the budget: what's left, a slim meter of what's spent, and How it works. (The game picker above
 // already says which game this is.)
@@ -336,6 +336,7 @@ function ensureFaceFallback() {
   if (faceFallback) return;
   faceFallback = true;
   document.addEventListener('error', e => { const t = e.target; if (t instanceof HTMLImageElement && t.closest('.sv-team')) onImgError(e); }, true);
+  document.addEventListener('load', e => { const t = e.target; if (t instanceof HTMLImageElement && t.closest('.sv-team')) onImgLoad(e); }, true);
 }
 
 // ============================================================================ Markup: states
@@ -417,6 +418,31 @@ function patchScout(st) {
   if (host) host.innerHTML = scoutHTML(st.b, st.pick, st.foc);
 }
 
+/** A face that loaded with nothing in it: a source's blank stand-in for a photo it hasn't got (ESPN's, for some of
+ *  the older players, p.eh: data-blank). Failed over like an error. A tiny image is one; otherwise a copy is read
+ *  (where the source allows it: CORS) and one with nothing showing is. Load events don't bubble: caught in the
+ *  capture phase. */
+function onImgLoad(e) {
+  const img = e.target;
+  if (!(img instanceof HTMLImageElement) || !img.matches('.sv-face')) return;
+  if (img.naturalWidth < 4 || img.naturalHeight < 4) { onImgError({target: img}); return; }
+  if (!img.hasAttribute('data-blank')) return;
+  const src = img.currentSrc || img.src, q = new Image();
+  q.crossOrigin = 'anonymous';
+  q.onload = () => {
+    if (!img.isConnected || (img.currentSrc || img.src) !== src) return;
+    try {
+      const c = document.createElement('canvas');
+      c.width = c.height = 12;
+      const g = c.getContext('2d');
+      g.drawImage(q, 0, 0, 12, 12);
+      const a = g.getImageData(0, 0, 12, 12).data;
+      for (let i = 3; i < a.length; i += 4) if (a[i] > 8) return;
+      onImgError({target: img});
+    } catch (_) { /* (not readable after all) */ }
+  };
+  q.src = src;
+}
 /** A face that failed: the other source (data-alt), then the silhouette. Error events don't bubble: caught in the
  *  capture phase. */
 function onImgError(e) {
@@ -638,6 +664,9 @@ export function mount(el, ctx, {anchor} = {}) {
   el.addEventListener('click', st.onClick);
   el.addEventListener('ui:change', st.onChange);
   el.addEventListener('error', onImgError, true);
+  el.addEventListener('load', onImgLoad, true);
+  // (any face that loaded before this)
+  el.querySelectorAll('img.sv-face').forEach(img => { if (img.complete && img.naturalWidth) onImgLoad({target: img}); });
   st.stopTick = ctx.timer(() => tick(st), 20000);
   st.unsub = daily.subscribe(type => { if (type === 'lb' || type === 'ready' || type === 'error') scheduleBoard(st); });
   if (!sv.DOC) { load(st); return; }
@@ -661,6 +690,7 @@ export function unmount(el, ctx) {
   el.removeEventListener('click', st.onClick);
   el.removeEventListener('ui:change', st.onChange);
   el.removeEventListener('error', onImgError, true);
+  el.removeEventListener('load', onImgLoad, true);
   if (st.stopTick) st.stopTick();
   if (st.unsub) st.unsub();
   if (st.cancelBoard) st.cancelBoard();

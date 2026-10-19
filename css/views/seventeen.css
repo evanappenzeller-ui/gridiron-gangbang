@@ -3,7 +3,7 @@
    per element as --tc (the team's hue) and --ta (its accent). */
 
 /* The version mark views/seventeen.js checks (CSS_V): bump both when the pane needs rules an older file lacks. */
-:root { --sv-css: 5; }
+:root { --sv-css: 6; }
 
 /* ---------------------------------------------------------------- The game picker (puzzles.js) */
 /* Big scoreboard buttons with pixel badges, like Pick'em's NFL / NCAA switch (pickem.css .pk-lg): the game showing
@@ -106,6 +106,10 @@
 /* The photo starts a little below the top edge, so the year tag and the pick's check sit over the team colour, not
    the face. */
 .sv-pane .sv-cell .sv-ph { position: absolute; inset: 9px 0 0; overflow: hidden; z-index: 1; }
+/* ESPN's cut-outs show more of the man than NFL.com's photos, so in a square his head came out a third smaller than
+   the NFL.com faces beside him: drawn larger, from the top, his head is the same size and height as theirs (a little
+   over half the square's width, its top just under the year tag). */
+.sv-pane .sv-cell .sv-face.is-espn { top: -1%; bottom: auto; width: 184%; }
 .sv-pane .sv-yr {
   position: absolute; left: 4px; top: 4px; z-index: 2;
   padding: 1px 4px; border-radius: 6px;
