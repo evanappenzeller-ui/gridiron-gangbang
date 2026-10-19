@@ -42,7 +42,7 @@ const ST = new WeakMap(); // ctx -> pane state
 
 // A home-screen app open across an update imports this module new under the stylesheet it started with: when
 // drill.css's mark (--dr-css on :root) isn't this module's, the current file is added (as in views/seventeen.js).
-const CSS_V = '36';
+const CSS_V = '37';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--dr-css').trim() === CSS_V || document.querySelector('link[data-dr-css]')) return;
@@ -150,9 +150,12 @@ function chalkColor(r) {
   const t = Math.max(0, Math.min(1, ((Number(r) || 55) - 55) / 44));
   return `hsl(${Math.round(4 + 124 * t)} 86% ${Math.round(74 - 4 * t)}%)`;
 }
-/** A player's chalk mark on the board: his O (offense) or X (defense), drawn by hand (drill-cam.js chalkMark). */
-function markSVG(side, key) {
-  const m = camLib.chalkMark(side, key);
+// A star player: rated STAR and up (the best three or four at his spot in the league). His mark is a star, either side.
+const STAR = 95;
+/** A player's chalk mark on the board: his O (offense) or X (defense), or a star player's star, drawn by hand
+ *  (drill-cam.js chalkMark). */
+function markSVG(side, key, star = false) {
+  const m = camLib.chalkMark(side, key, star);
   return `<svg class="dr-pl-g" viewBox="0 0 24 24" aria-hidden="true" style="transform:rotate(${m.rot}deg)"><path d="${m.d}"/></svg>`;
 }
 const clampX = x => Math.max(1.4, Math.min(WIDTH - 1.4, x));
@@ -186,7 +189,7 @@ function dotHTML(d, view) {
   const mine = (side === 'o') === (view.poss === 'us');
   const tgt = side === 'o' && view.poss === 'us' && E.TARGETS.includes(slot) ? ` data-dr-rcv="${slot}"` : '';
   return `<span class="dr-pl is-${side}${mine ? ' is-mine' : ''}${ls ? ' is-lab-' + ls : ''}${edgeCls(x)}${off ? ' is-off' : ''}" data-dr-p="${side}-${slot}"${tgt} style="left:${left(x)};top:${top(y)};--rc:${chalkColor(p.r)}">`
-    + `${markSVG(side, `${side}-${slot}`)}<b class="dr-pl-j">${p.j == null ? '' : p.j}</b>${lab}</span>`;
+    + `${markSVG(side, `${side}-${slot}`, p.r >= STAR)}<b class="dr-pl-j">${p.j == null ? '' : p.j}</b>${lab}</span>`;
 }
 /** Every player's spot before a snap: [{key, side, slot, p, x, y, off}] (view.center: the QB under center, for the sneak
  *  and the fake spike; view.motion: the receiver on the double reverse, motioned across before the snap). */
@@ -249,8 +252,9 @@ function routeTo(path, los, air, extra = 0) {
   }
   return out;
 }
-/** The routes in chalk, each from the edge of his O to an arrowhead (aimRoutes points them). */
-function routesSVG(s, routes, pick) {
+/** The routes in chalk, each from the edge of his O to an arrowhead (aimRoutes points them), in his colour as on the
+ *  play cards and in the receivers' list (colOf: the play's target, key, in red). pick: the one just changed. */
+function routesSVG(s, routes, pick, key) {
   const paths = E.TARGETS.map(slot => {
     const [x0, dy] = OFF_POS[slot];
     const pts = routePath(routes[slot], x0, s.ball + dy);
@@ -259,10 +263,10 @@ function routesSVG(s, routes, pick) {
     if (k < 0.8) pts[0] = [a[0] + ex * k, a[1] + ey * k];
     return [slot, pts];
   });
-  const lines = paths.map(([slot, pts]) => `<polyline class="dr-route${pick === slot ? ' is-on' : ''}" points="${pts.map(([x, y]) => `${x.toFixed(2)},${(110 - y).toFixed(2)}`).join(' ')}"/>`).join('');
+  const lines = paths.map(([slot, pts]) => `<polyline class="dr-route${pick === slot ? ' is-on' : ''}" style="--c:${colOf(slot, key)}" points="${pts.map(([x, y]) => `${x.toFixed(2)},${(110 - y).toFixed(2)}`).join(' ')}"/>`).join('');
   const ends = paths.map(([slot, pts]) => {
     const [x, y] = pts[pts.length - 1], [px, py] = pts[pts.length - 2];
-    return `<span class="dr-route-end${pick === slot ? ' is-on' : ''}" data-dx="${(x - px).toFixed(2)}" data-dy="${(y - py).toFixed(2)}" style="left:${left(x)};top:${top(y)}"></span>`;
+    return `<span class="dr-route-end${pick === slot ? ' is-on' : ''}" data-dx="${(x - px).toFixed(2)}" data-dy="${(y - py).toFixed(2)}" style="left:${left(x)};top:${top(y)};--c:${colOf(slot, key)}"></span>`;
   }).join('');
   return `<svg class="dr-routes" viewBox="0 0 ${WIDTH} 120" preserveAspectRatio="none" aria-hidden="true">${lines}</svg>${ends}`;
 }
@@ -286,7 +290,7 @@ function fieldHTML(st, view = viewNow(st.s, flipNow(st))) {
     + linesHTML(s, view.poss)
     + `<i class="dr-los" data-dr-los style="top:${top(los)}"></i>`
     + `<i class="dr-fd" data-dr-fd style="top:${top(view.fd == null ? los : view.fd)}"${view.fd == null ? ' hidden' : ''}></i>`
-    + `<div class="dr-rlayer" data-dr-routes>${routes ? routesSVG(s, st.routes, st.pick) : ''}</div>`
+    + `<div class="dr-rlayer" data-dr-routes>${routes ? routesSVG(s, st.routes, st.pick, keyOf(st)) : ''}</div>`
     + spots(s, view).map(d => dotHTML(d, view)).join('')
     + `<span class="dr-ball" data-dr-ball style="left:${left(MID)};top:${top(los)}"></span>`
     + `<div class="dr-callouts" data-dr-callouts></div>`
@@ -355,7 +359,7 @@ function patchRoutes(st) {
   const host = st.el.querySelector('[data-dr-routes]');
   if (!host) return;
   const on = routesOn(st);
-  host.innerHTML = on ? routesSVG(st.s, st.routes, st.pick) : '';
+  host.innerHTML = on ? routesSVG(st.s, st.routes, st.pick, keyOf(st)) : '';
   aimRoutes(st.el);
   st.el.querySelectorAll('[data-dr-rcv]').forEach(e => {
     if (on) {
@@ -1338,7 +1342,7 @@ function camScene(st, p) {
   const s = st.s, ids = E.idsFor(s, p.poss);
   const players = spots(s, viewOf(p)).filter(d => !d.off).map(d => {
     const id = d.side === 'o' ? ids.o : ids.d;
-    return {key: d.key, slot: d.slot, side: d.side, j: d.p.j, n: d.p.n, rc: chalkColor(d.p.r), team: tcol(id), colored: id === s.sc.o, mine: (d.side === 'o') === (p.poss === 'us')};
+    return {key: d.key, slot: d.slot, side: d.side, j: d.p.j, n: d.p.n, rc: chalkColor(d.p.r), star: d.p.r >= STAR, team: tcol(id), colored: id === s.sc.o, mine: (d.side === 'o') === (p.poss === 'us')};
   });
   const end = id => ({name: dr.team(id).n, c: tcol(id)[0]});
   const home = s.sc.g && s.sc.g.h && dr.team(s.sc.g.h) ? s.sc.g.h : s.sc.d;
@@ -1656,7 +1660,8 @@ function loadLogos(root) {
 /** The key to the dots (their rating's colour, O and X), at the top of the ratings sheet. */
 function legendHTML() {
   return `<div class="dr-legend" aria-hidden="true"><span class="dr-scale"><span>Rating</span><i></i></span>`
-    + `<span class="dr-key">${markSVG('o', 'key-o')}Offense</span><span class="dr-key">${markSVG('d', 'key-d')}Defense</span></div>`;
+    + `<span class="dr-key">${markSVG('o', 'key-o')}Offense</span><span class="dr-key">${markSVG('d', 'key-d')}Defense</span>`
+    + `<span class="dr-key">${markSVG('d', 'key-s', true)}Star (${STAR}+)</span></div>`;
 }
 /** Under the field: what the other side shows before the snap (none once it's final), and the player ratings. */
 function lookRowHTML(st) {
@@ -2484,7 +2489,7 @@ function openHelp() {
     + `<p><b>Call a play.</b> Like a playbook: pick Run, Pass, RPO or Trick play, then one of its three plays. Runs: <b>Inside Zone</b> (steady), <b>HB Toss</b> (outside: boom or bust, and the best way to the sideline) and <b>HB Draw</b> (eats up a blitz or a soft prevent, dies against a run blitz), to the strong or weak side. RPOs hand it off against a light box and throw it against a crowded one: a slant, a bubble or a seam. Trick plays (one a game): the <b>Flea Flicker</b> and the <b>HB Pass</b> go deep, the <b>Double Reverse</b> is a run the other way, with no interception risk.</p>`
     + `<p><b>Passing.</b> Each snap offers three pass plays; pick one and its routes go up on the field (tap a receiver there to change his route), then pick who gets the ball. The numbers next to each name are what a throw to him tends to do against this look: how often it’s caught, the yards a throw, and how often it’s picked. Play action fools an aggressive defense and costs time against a patient one; a roll out beats the rush but cuts off the middle; out of bounds stops the clock and gives up the yards after the catch.</p>`
     + `<p><b>On defense</b> you see their formation (a heavy set usually runs, an empty backfield almost always throws) and pick a call: Zone, Man, Blitz or Prevent, then one of its plays. Zones keep the ball in front of you, man and blitzes gamble for a sack or a stop, and prevent gives up the short stuff to save the end zone. Their clock is theirs to manage: ahead, they let it run; behind, they hurry.</p>`
-    + `<p><b>The players matter.</b> Every dot is a real starter, coloured by his rating; yours are ringed in white. Man coverage is one-on-one, so a great receiver against a weak corner wins; the lines decide the sacks. Tap Player ratings to scout.</p>`
+    + `<p><b>The players matter.</b> Every dot is a real starter, coloured by his rating; yours are ringed in white, and a star is a star player (${STAR} and up: the best three or four at his spot). Man coverage is one-on-one, so a great receiver against a weak corner wins; the lines decide the sacks. Tap Player ratings to scout.</p>`
     + `<p><b>The clock.</b> A run, a sack or a catch in bounds keeps it running, and the next snap takes ${E.HURRY} seconds to get off (${E.MILK} when the team ahead lets it run). Go <b>no huddle</b> and it takes ${E.NO_HUDDLE}, but nobody’s quite set: passes are caught a little less, sacks come a little more and runs gain a little less (trick plays need a huddle). Incompletions, going out of bounds, timeouts, spikes and changes of possession stop it. Down one or two after a touchdown, you choose: kick, or go for two.</p>`
     + `<p><b>Who you called it like.</b> At the final whistle, your calls are matched to the NFL head coach whose late-game play-calling (the last two minutes of either half, ${esc(dr.DOC && dr.DOC.coaches ? dr.DOC.coaches.seasons : '2025–2026')}) fits them best: how often he throws, goes deep or keeps it short, attacks the middle, gets out of bounds, spikes it, goes no-huddle, burns a timeout to stop the clock, goes for two and goes for it on fourth down.</p>`
     + `<p><b>After each snap</b> the breakdown shows what the defense was really in, how your win chance moved, and how every option would have done, each played out many times from the same spot to the end of the game.</p>`

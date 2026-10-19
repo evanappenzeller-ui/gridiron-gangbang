@@ -11,8 +11,8 @@
 // open(field, scene, big) -> cam (or null with no 2D canvas): cam.render(frame), cam.css(x, y, lift), cam.overlay,
 // cam.fit(k) (how far the field has grown toward big), cam.close() (fades out, then removes itself), cam.remove().
 // big {w, h, pad}: the size the field grows to for the play (views/drill.js), pad wider each side: the canvas is that
-// size from the start, clipped by the field as it grows, its picture centred on what shows. chalkMark(side, key): a
-// player's chalk mark on the chalkboard (the dots' field, views/drill.js), which the camera starts from.
+// size from the start, clipped by the field as it grows, its picture centred on what shows. chalkMark(side, key, star):
+// a player's chalk mark on the chalkboard (the dots' field, views/drill.js), which the camera starts from.
 // The players are pictures (views/drill-sprites.js: five sprite sheets, in each team's colours) once they've loaded;
 // till then (or if they can't load) the jointed figures below.
 // Owner: Drill.
@@ -73,8 +73,9 @@ const FONT = '"Helvetica Neue", Helvetica, Arial, sans-serif';
 
 // ---------------------------------------------------------------------------- The chalkboard's marks
 // Before the snap the field is a coach's chalkboard (views/drill.js): an O for each man on offense, an X for each on
-// defense (its middle left open for his number), drawn by hand: a few takes on each, turned a little, so no two look
-// stamped. In a 24-unit box round the player's spot.
+// defense (its middle left open for his number), and a star for a star player on either side (views/drill.js STAR),
+// drawn by hand: a few takes on each, turned a little, so no two look stamped. In a 24-unit box round the player's
+// spot.
 const CHALK_O = [
   'M13.2 2.9C18.4 3.1 21.4 7.2 21.2 12.3C21 17.5 17.1 21.2 12 21.1C6.8 21 2.9 17.1 3 11.9C3.1 6.9 6.8 3 11.6 2.8C12.9 2.8 14.3 3.1 15.4 3.7',
   'M11 3C16.3 2.5 20.9 5.9 21.3 11.4C21.7 17 17.6 21.1 12.2 21.3C6.9 21.5 2.8 17.6 2.7 12.4C2.6 7.6 5.6 3.9 10.2 3.1L12.6 2.9',
@@ -85,9 +86,17 @@ const CHALK_X = [
   'M2.4 3.4L7.2 7.9M16.8 16.1L21 20.8M20.7 2.3L16.3 7.2M7.8 16.9L3.3 21.6',
   'M3.1 2.3L7.7 7.3M16.2 16.7L20.9 21.6M21.5 3.2L16.7 7.6M7.2 16.3L2.5 20.8'
 ];
-/** A player's chalk mark: {d (the path), rot (degrees)}. side: 'o' | 'd'; key: who he is (the same mark every time). */
-export function chalkMark(side, key) {
+// Five points round a middle wide enough for his number, the stroke running on a touch past where it started.
+const CHALK_STAR = [
+  'M11.6 0.8L15.6 7.7L23.1 9.3L18.1 14.6L18.7 22.2L11.9 19.1L5.1 21.8L5.9 14.7L1.4 9.1L8.4 7.6L11.6 0.8L12.5 2.3',
+  'M12.4 0.9L15.6 7.5L23.3 9.4L18.0 14.7L18.7 22.6L12.1 18.9L5.0 21.8L6.1 14.8L1.1 9.2L8.4 7.5L12.4 0.9L13.1 2.3',
+  'M12.2 0.8L15.5 7.6L23.1 9.2L17.9 14.6L18.3 22.0L12.1 18.9L4.9 22.3L6.1 14.6L1.1 9.2L8.3 7.7L12.2 0.8L12.9 2.3'
+];
+/** A player's chalk mark: {d (the path), rot (degrees)}. side: 'o' | 'd'; key: who he is (the same mark every time);
+ *  star: a star player's star (turned a little, like an X, so it stands up). */
+export function chalkMark(side, key, star = false) {
   const h = hash(String(key));
+  if (star) return {d: CHALK_STAR[h % 3], rot: (h >>> 4) % 15 - 7};
   return side === 'o' ? {d: CHALK_O[h % 3], rot: (h >>> 4) % 360} : {d: CHALK_X[h % 3], rot: (h >>> 4) % 15 - 7};
 }
 const marks = new Map();
@@ -717,7 +726,7 @@ export function open(field, scene, big = null) {
     g.font = `700 ${Math.round(10.5 * S)}px ${FONT}`;
     g.lineCap = 'round'; g.lineJoin = 'round';
     list.forEach(({pl, p}) => {
-      const mk = chalkMark(pl.side, pl.key);
+      const mk = chalkMark(pl.side, pl.key, pl.star);
       g.setTransform(S * 26 / 24, 0, 0, S * 26 / 24, p[0], p[1]);
       g.rotate(mk.rot * Math.PI / 180);
       g.translate(-12, -12);
