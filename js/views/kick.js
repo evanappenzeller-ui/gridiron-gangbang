@@ -148,7 +148,7 @@ function bodyHTML(st) {
 // (K.CAM.back) behind the ball and st.camH up (about K.CAM.h, set so the stage fits), looking down on the kicker, the
 // holder, the line and the posts. The posts stand at the middle of the field: a kick from off to the side has the
 // field off to the side.
-const FIELD = {half: 26.67, hash: 3.083};
+const FIELD = {half: 26.67, hash: K.HASH}; // (the hashes: core/kick.js, the ball on or between them)
 /** The height between the screen's nav bar and the tab bar (0 when it can't be measured). */
 function screenRoom(st) {
   const scr = st.ctx && st.ctx.screen, tb = document.getElementById('tabbar');

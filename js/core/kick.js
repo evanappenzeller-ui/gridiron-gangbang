@@ -78,18 +78,25 @@ export const LINE = {z: 7, reach: 7.4, half: 6.5, h: 2.6, says: 'Blocked at the 
 // The weather by makes: calm air till WIND_FROM made, then a breeze (4 to 8 mph); from WIND_GROWS made it picks up with
 // every make (a mph and a half or so each, to WIND_MAX); from WALL_FROM made, the wall.
 export const WIND_FROM = 3, WIND_GROWS = 5, WALL_FROM = 7, WIND_MAX = 26;
-/** Day n's kicks, the same on every phone, in calm air. The first few are chip shots near the middle; then the posts
- *  wander further off to the side and the kicks get longer (a yard and a third a kick, 62 the longest, about kick 30
- *  on). The wind and the wall for a kick come from how many you've made: kickFor(). */
+// The hash marks (yards from the middle of the field): high school's, 53 feet 4 inches apart (a third of the field),
+// wider than the NFL's 18 feet 6 inches. The ball is spotted on a hash or between them, never outside (the owner's ask,
+// Oct 2026).
+export const HASH = 8.89;
+/** Day n's kicks, the same on every phone, in calm air. The first few are chip shots near the middle; then the spot
+ *  wanders out toward the hashes (out to them by kick 15, and from then a third of the kicks are right on one) and the
+ *  kicks get longer (a yard and a third a kick, 62 the longest, about kick 30 on). gx: where the posts are from the
+ *  ball, so the ball is gx from the middle of the field the other way, never more than HASH. The wind and the wall for
+ *  a kick come from how many you've made: kickFor(). */
 const DAYS = new Map(); // day n -> its kicks (worked out once)
 export function kicks(n) {
   if (DAYS.has(n)) return DAYS.get(n);
   const r = rng(hashStr(`kick-it-${n}`)), out = [];
   for (let i = 0; i < MAX_KICKS; i++) {
     const d = Math.round(clamp(19 + i * 1.35 + (r() * 8 - 3), 18, 62));
-    const span = Math.min(17, 3 + i * .9);
-    const gx = Math.round((r() * 2 - 1) * span * 10) / 10;
-    r(); r(); // (what was each kick's own wind: kept, so a day's posts stand where they always did)
+    const span = Math.min(HASH, 2 + i * .5), u = r() * 2 - 1, onHash = i >= 14 && r() < 1 / 3;
+    const gx = onHash ? (u < 0 ? -HASH : HASH) : Math.round(u * span * 100) / 100;
+    if (i < 14) r();
+    r(); // (what was each kick's own wind: kept, so a day's distances stay as they were)
     out.push({i, d, gx, w: 0, dir: 0, obs: []});
   }
   if (DAYS.size > 40) DAYS.clear();
