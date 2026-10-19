@@ -1492,6 +1492,19 @@ export async function runChecks() {
     return {pass: !bad.length, detail: bad.length ? bad.join('; ') : `${want.length} legs scored right`};
   });
 
+  check('The Lay\'s hit rate by bet type: every leg on file reads as a kind of bet (an anytime TD, a player prop, a spread, a moneyline, a total)', async () => {
+    const L = await (await fetch(new URL('../../data/lay.json', import.meta.url).href)).json();
+    const legs = (L.weeks || []).flatMap(w => w.legs || []), none = legs.filter(l => !laytrack.betKind(l.bet)).map(l => l.bet);
+    const want = [['Bijan TD', 'td'], ['CMC anytime', 'td'], ['Josh Allen Anytime TD Scorer', 'td'], ['Jordan Love 2+ Pass TD', 'passTd'], ['DJ Moore 3+ Rec', 'rec'],
+      ['Parker Washington Over 4 Receptions', 'rec'], ['Tucker Kraft 50+ Rec Yards', 'recYds'], ['Josh Allen 35+ Rush Yards', 'rushYds'], ['TJ Hockenson 25+ Yards', 'yds'],
+      ['Bills -1.5', 'spread'], ['Tampa Bay spread', 'spread'], ['San Francisco 49ers +3.5', 'spread'], ['Bears ML', 'ml'], ['Buffalo Bills Moneyline', 'ml'],
+      ['Ravens alt team total 23.5', 'teamTotal'], ['Cowboys alt team total under 20.5', 'teamTotal'], ['Lions Panthers Over 51.5', 'gameTotal']];
+    const bad = want.filter(([t, k]) => laytrack.betKind(t) !== k).map(([t, k]) => `${t}: ${laytrack.betKind(t)} (want ${k})`);
+    const kinds = {};
+    legs.forEach(l => { const k = laytrack.betKind(l.bet); kinds[k] = (kinds[k] || 0) + 1; });
+    return {pass: legs.length > 0 && !none.length && !bad.length, detail: none.length ? 'unread: ' + none.join('; ') : bad.length ? bad.join('; ') : `${legs.length} legs: ${Object.entries(kinds).map(([k, n]) => `${k} ${n}`).join(', ')}`};
+  });
+
   check('Themes: Prime Time by default with Retro beside it, every theme in the picker has its colour block, all 32 NFL teams', () => {
     const T = window.GGTheme;
     if (!T) return {pass: false, detail: 'js/themes.js not loaded'};

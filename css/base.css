@@ -7,6 +7,13 @@ html {
   text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
 }
+/* iOS 26 home-screen apps (WebKit bug 301108): with the black-translucent status bar the viewport comes up short of
+   the screen by the status bar's height, leaving a bare band under the app. A page at least the screen's height gets
+   the whole of it; lvh caps it (an opaque status bar has no inset, and lvh is the screen). The screen's own inset, so
+   env() itself here, not --sa-t. Nothing changes in a browser tab, on Android, or where iOS gets it right. */
+@media (display-mode: standalone) {
+  html { min-height: min(100lvh, calc(100% + env(safe-area-inset-top, 0px))); }
+}
 body {
   color: var(--ink);
   font-family: var(--font-text);

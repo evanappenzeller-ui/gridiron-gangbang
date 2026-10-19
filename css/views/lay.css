@@ -39,8 +39,70 @@
 .v-lay .ly-leg .row-title, .v-lay .ly-leg .row-sub { white-space: normal; overflow-wrap: anywhere; }
 .v-lay .ly-busted .row-title { color: var(--ink-2); }
 
-.v-lay .ly-rank { width: 20px; margin-right: 8px; text-align: center; color: var(--ink-3); }
-.v-lay .ly-rec { color: var(--ink); }
+/* Leg records, compact: a line a manager (rank, avatar, name, record, hit rate, run) under a header row. */
+.v-lay .ly-board { padding-bottom: 2px; }
+.v-lay .ly-bh, .v-lay .ly-br {
+  display: grid; grid-template-columns: 18px 24px minmax(0, 1fr) 44px 40px 30px; column-gap: 10px; align-items: center;
+  padding: 0 16px;
+}
+.v-lay .ly-bh {
+  height: 30px; font: 600 11px/1 var(--font-text); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3);
+}
+.v-lay .ly-bh > span:nth-child(2) { grid-column: span 2; }
+.v-lay .ly-bh > span:nth-child(n+3) { text-align: right; }
+.v-lay .ly-br { position: relative; min-height: 40px; color: inherit; -webkit-tap-highlight-color: transparent; }
+.v-lay .ly-br::before { content: ""; position: absolute; left: 50px; right: 0; top: 0; height: 1px; background: var(--separator); transform: scaleY(.5); transform-origin: top; }
+.v-lay .ly-br.is-me { background: var(--surface-2); }
+.v-lay .ly-br.is-me::after { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--tint); }
+.v-lay .ly-br.is-me::before, .v-lay .ly-br.is-me + .ly-br::before { display: none; }
+.v-lay .ly-br:active { background: var(--surface-2); }
+.v-lay .ly-br-rk { text-align: center; color: var(--ink-3); }
+.v-lay .ly-br-nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 var(--fs-body)/20px var(--font-text); }
+.v-lay .ly-br-rec { text-align: right; color: var(--ink); }
+.v-lay .ly-br-pct { text-align: right; font: 500 var(--fs-sub)/1 var(--font-text); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.v-lay .ly-br-run { justify-self: end; min-width: 28px; padding: 3px 0; border-radius: 6px; text-align: center; font: 700 11px/1 var(--font-text); letter-spacing: .02em; color: var(--ink-4, var(--ink-3)); }
+.v-lay .ly-br-run.is-w { background: var(--tint-soft); color: var(--tint); }
+.v-lay .ly-br-run.is-l { background: var(--wrong-soft); color: var(--wrong); }
+.v-lay .ly-br-pct.is-none, .v-lay .ly-board .is-none { color: var(--ink-4, var(--ink-3)); }
+
+/* ================================================================ By bet type */
+.v-lay .ly-types { padding: 14px 16px 6px; }
+.v-lay .ly-bt-lead { font: 400 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink-2); }
+.v-lay .ly-bt-lead b { color: var(--ink); font-weight: 600; }
+.v-lay .ly-bt-key {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px;
+  font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3);
+}
+.v-lay .ly-bt-avg { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.v-lay .ly-bt-avg > b { width: 2px; height: 12px; border-radius: 1px; background: var(--ink-2); }
+.v-lay .ly-bts { list-style: none; margin: 4px 0 0; padding: 0; }
+.v-lay .ly-bt { display: flex; gap: 12px; padding: 12px 0; }
+.v-lay .ly-bt + .ly-bt { box-shadow: inset 0 1px 0 var(--separator); }
+.v-lay .ly-bt-ic {
+  flex: none; display: grid; place-items: center; width: 32px; height: 32px; margin-top: 1px; border-radius: 10px;
+  background: var(--fill); color: var(--ink-2);
+}
+.v-lay .ly-bt-ic > .ic { width: 18px; height: 18px; }
+.v-lay .ly-bt-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.v-lay .ly-bt-top { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.v-lay .ly-bt-nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 var(--fs-headline)/var(--lh-headline) var(--font-text); }
+.v-lay .ly-bt-rec { color: var(--ink-3); }
+.v-lay .ly-bt-pct { min-width: 46px; text-align: right; color: var(--ink); }
+.v-lay .ly-bt.is-up .ly-bt-pct { color: var(--tint); }
+.v-lay .ly-bt.is-down .ly-bt-pct { color: var(--wrong); }
+/* the hit rate as a bar, the league's average a tick on it */
+.v-lay .ly-bt-bar { position: relative; display: block; height: 6px; margin-top: 7px; border-radius: 3px; background: var(--surface-3); }
+.v-lay .ly-bt-bar > i { position: absolute; left: 0; top: 0; bottom: 0; width: calc(var(--f) * 100%); border-radius: inherit; background: var(--gold); }
+.v-lay .ly-bt.is-up .ly-bt-bar > i { background: var(--tint); }
+.v-lay .ly-bt.is-down .ly-bt-bar > i { background: var(--wrong); }
+.v-lay .ly-bt-bar > b { position: absolute; top: -3px; bottom: -3px; left: calc(var(--a) * 100% - 1px); width: 2px; border-radius: 1px; background: var(--ink-2); }
+.v-lay .ly-bt-sub { margin-top: 6px; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+.v-lay .ly-bt-parts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.v-lay .ly-bt-part {
+  display: inline-flex; align-items: baseline; gap: 4px; padding: 3px 8px; border-radius: 8px; background: var(--fill);
+  font: 500 var(--fs-foot)/16px var(--font-text); color: var(--ink-2); white-space: nowrap;
+}
+.v-lay .ly-bt-part > b { font-size: 13px; line-height: 16px; color: var(--ink); }
 
 /* ================================================================ Every slip */
 .v-lay .ly-week + .ly-week { margin-top: 24px; }

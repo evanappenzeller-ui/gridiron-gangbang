@@ -10,6 +10,8 @@
 //   loadPlayers()                -> Promise: the current players (data/nfl-players.json) for names and suggestions
 //   suggest(text, games, max)    -> autofill: [{text, label, sub}] (players and teams while the name is typed, then
 //                                   bets for that player or team)
+//   betKind(text)                -> the kind of bet ('td', 'rec', 'recYds', 'spread', 'ml', 'teamTotal', ...), for
+//                                   the hit rates by bet type
 //
 // Names: nicknames ("CMC", "JSN", "ARSB", "Sun God"), a lone first or last name that clearly means one current player
 // ("Bijan TD", "Kittle 5+ rec") and small typos ("McCafferey", "Smith Njigba") all read as the player's real name.
@@ -634,6 +636,28 @@ export function suggest(text, games, max = 6) {
   [...(exact && exact.pos ? [exact] : []), ...[...new Set([...nick, ...hits])].sort((a, b) => b.score - a.score)].forEach(p => push(p.name + ' ', `${posName[p.pos] || p.pos} · ${p.team}${gameOf(p.team) ? ' · ' + when(gameOf(p.team)) : ''}`, 'player'));
   T.filter(t => t.words.some(w => w && toks.every(x => w.split(' ').some(y => y.startsWith(x))))).forEach(t => push(teamWords(t.abbr) + ' ', gameOf(t.abbr) ? when(gameOf(t.abbr)) : 'Team', 'team'));
   return out;
+}
+
+/** What kind of bet a leg is, for the Lay's hit rates by bet type: a player's 'td' (anytime TD), 'passTd', 'rec',
+ *  'recYds', 'rushYds', 'passYds' or 'yds' (rushing + receiving); a team's 'spread', 'ml' or 'teamTotal'; a
+ *  'gameTotal'. Read as the tracker reads it, else (a name the players list would have read) by its bet words; null
+ *  when it can't be told. */
+export function betKind(text) {
+  const b = parseLeg(text, teamsOf(null));
+  if (b) return b.kind === 'prop' ? b.stat : b.kind;
+  const s = ' ' + norm(text) + ' ', yds = /\b(yards?|yds)\b/.test(s);
+  if (/\bpass(ing)?\b/.test(s) && /\b(td|tds|touchdowns?)\b/.test(s)) return 'passTd';
+  if (/\b(td|tds|touchdowns?|anytime|atd)\b/.test(s)) return 'td';
+  if (/\brec(eiving)?\b/.test(s) && yds) return 'recYds';
+  if (/\brush(ing)?\b/.test(s) && yds) return 'rushYds';
+  if (/\bpass(ing)?\b/.test(s) && yds) return 'passYds';
+  if (/\b(rec|recs|receptions?|catches)\b/.test(s)) return 'rec';
+  if (yds) return 'yds';
+  if (/\bteam total\b/.test(s)) return 'teamTotal';
+  if (/\b(ml|moneyline)\b/.test(s)) return 'ml';
+  if (/\bspread\b/.test(s) || /(^| )[+-]\d+(\.\d+)?( |$)/.test(s)) return 'spread';
+  if (/\b(over|under)\b/.test(s)) return 'gameTotal';
+  return null;
 }
 
 /** True for an over / under typed without its number ("Over Rec"): tracked, but settled by hand. */

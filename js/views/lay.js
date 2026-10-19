@@ -1,7 +1,8 @@
 // The Lay tab root (#/lay): the league's weekly 12-leg parlay. Every manager submits one leg; the lowest scorer of the
 // previous fantasy week places it for $5 (the placer comes from league.json: the lowest regular-season score of week
 // N-1, unless the week in data/lay.json names one). Sections: this week's slip (who places it, the legs in so far),
-// season tiles, each manager's leg record, then every week's slip with its hits and the legs that busted it.
+// season tiles, each manager's leg record (compact), how often each kind of bet hits (anytime TDs, player props,
+// spreads, moneylines, totals), then every week's slip with its hits and the legs that busted it.
 // Data: data/lay.json {stake, legs, weeks: [{year, week, placer?, legs: [{by, for?, bet, hit: true|false|null, stat?}]}]}.
 // stat: what a settled leg came to ("1 catch for 7 yds", "Bears won 23–12"), shown under it like the tracker's note.
 // A leg with `for` was submitted by `by` in another manager's slot: it counts on `by`'s record.
@@ -438,14 +439,76 @@ function tilesHTML() {
     + `</div>`;
 }
 
+// Each manager's leg record, compact: one line each (rank, name, record, how often they hit, their run of hits or
+// misses: W3 / L2), under a header row. Tap one for the manager.
 function recordsHTML(me) {
   const rows = records().map((r, i) => {
-    const n = r.w + r.l;
-    const sub = n ? `${Math.round(r.w / n * 100)}% hit` + (Math.abs(r.streak) >= 2 ? ` · ${r.streak > 0 ? 'hit' : 'missed'} last ${Math.abs(r.streak)}` : '') : 'No legs yet';
-    return ui.row({lead: `<span class="ly-rank n5">${i + 1}</span>${ui.avatar(r.id, {size: 32, you: r.id === me})}`, title: data.name(r.id), sub,
-      trail: `<span class="ly-rec n4">${data.recStr(r.w, r.l)}</span>`, me: r.id === me, attrs: {href: '#/managers/' + encodeURIComponent(r.id)}, chevron: true});
+    const n = r.w + r.l, pct = n ? Math.round(r.w / n * 100) : null, run = Math.abs(r.streak) >= 2 ? r.streak : 0;
+    const label = `${i + 1}. ${data.name(r.id)}${r.id === me ? ' (you)' : ''}: ${n ? `${data.recStr(r.w, r.l)}, ${pct}% hit` : 'no legs yet'}${run ? `, ${run > 0 ? 'hit' : 'missed'} the last ${Math.abs(run)}` : ''}.`;
+    return `<a class="ly-br${r.id === me ? ' is-me' : ''}" href="#/managers/${encodeURIComponent(r.id)}" aria-label="${esc(label)}">`
+      + `<span class="ly-br-rk n5">${i + 1}</span>${ui.avatar(r.id, {size: 24, you: r.id === me})}`
+      + `<span class="ly-br-nm">${esc(data.name(r.id))}</span>`
+      + `<span class="ly-br-rec n4">${n ? data.recStr(r.w, r.l) : '—'}</span>`
+      + `<span class="ly-br-pct${pct == null ? ' is-none' : ''}">${pct == null ? '—' : pct + '%'}</span>`
+      + `<span class="ly-br-run${run > 0 ? ' is-w' : run < 0 ? ' is-l' : ''}">${run ? (run > 0 ? 'W' : 'L') + Math.abs(run) : '—'}</span></a>`;
   }).join('');
-  return ui.sectionHeader({title: 'Leg records'}) + ui.group(rows);
+  const head = `<div class="ly-bh" aria-hidden="true"><span></span><span>Manager</span><span>W-L</span><span>Hit</span><span>Run</span></div>`;
+  return ui.sectionHeader({title: 'Leg records'}) + `<div class="group ly-board">${head}${rows}</div>`;
+}
+
+// ---------------------------------------------------------------------------------------------- By bet type
+// Every settled leg by what kind of bet it was (core/laytrack.js betKind): how often each kind hits, its record, the
+// manager best at it (two legs or more, more hit than missed), and for player props and totals which ones. Biggest
+// hit rate first.
+const BET_GROUPS = [
+  {key: 'td', label: 'Anytime TD', icon: 'football', kinds: ['td']},
+  {key: 'prop', label: 'Player props', icon: 'person', kinds: ['rec', 'recYds', 'rushYds', 'yds', 'passYds', 'passTd'], what: 'Yards, catches, passing TDs'},
+  {key: 'spread', label: 'Spread', icon: 'swap', kinds: ['spread']},
+  {key: 'ml', label: 'Moneyline', icon: 'versus', kinds: ['ml']},
+  {key: 'total', label: 'Totals', icon: 'sort', kinds: ['teamTotal', 'gameTotal'], what: 'Team and game totals'},
+  {key: 'other', label: 'Other', icon: 'mystery', kinds: [null]}
+];
+const KIND_LABEL = {rec: 'Catches', recYds: 'Rec yds', rushYds: 'Rush yds', yds: 'Yards', passYds: 'Pass yds', passTd: 'Pass TDs', teamTotal: 'Team', gameTotal: 'Game'};
+function betTypes() {
+  const G = BET_GROUPS.map(g => ({g, w: 0, l: 0, kinds: new Map(), by: new Map()}));
+  WEEKS.forEach(w => legsOf(w).forEach(l => {
+    if (!settled(l)) return;
+    const k = track.betKind(l.bet), x = G.find(y => y.g.kinds.includes(k)) || G[G.length - 1];
+    x[l.hit ? 'w' : 'l']++;
+    const kr = x.kinds.get(k) || {w: 0, l: 0}, br = x.by.get(l.by) || {w: 0, l: 0};
+    kr[l.hit ? 'w' : 'l']++; br[l.hit ? 'w' : 'l']++;
+    x.kinds.set(k, kr); x.by.set(l.by, br);
+  }));
+  return G.filter(x => x.w + x.l).map(x => Object.assign(x, {n: x.w + x.l, rate: x.w / (x.w + x.l)}))
+    .sort((a, b) => b.rate - a.rate || b.n - a.n);
+}
+function betTypesHTML() {
+  const T = betTypes();
+  if (!T.length) return '';
+  const all = T.reduce((t, x) => t + x.n, 0), hits = T.reduce((t, x) => t + x.w, 0), avg = hits / all;
+  const pct = r => Math.round(r * 100) + '%';
+  const rows = T.map(x => {
+    // the one best at it: the most hits, the fewest misses, two legs or more and more hit than missed
+    const best = [...x.by].filter(([, r]) => r.w + r.l >= 2 && r.w > r.l).sort((a, b) => b[1].w - a[1].w || a[1].l - b[1].l)[0];
+    const parts = x.g.kinds.length > 1 ? x.g.kinds.filter(k => x.kinds.has(k)).map(k => ({k, r: x.kinds.get(k)})) : [];
+    const subs = [`${plural(x.n, 'leg')}`, x.l ? `${x.l} missed` : 'never missed', best ? `best: ${data.name(best[0]).split(' ')[0]} ${data.recStr(best[1].w, best[1].l)}` : ''].filter(Boolean);
+    const tone = x.rate >= Math.max(.6, avg) ? 'is-up' : x.rate < .5 ? 'is-down' : 'is-mid';
+    return `<li class="ly-bt ${tone}" aria-label="${esc(`${x.g.label}: ${pct(x.rate)} hit, ${data.recStr(x.w, x.l)} in ${plural(x.n, 'leg')}.${best ? ` Best: ${data.name(best[0])}, ${data.recStr(best[1].w, best[1].l)}.` : ''}`)}">`
+      + `<span class="ly-bt-ic">${ui.icon(x.g.icon)}</span>`
+      + `<span class="ly-bt-main"><span class="ly-bt-top"><span class="ly-bt-nm">${esc(x.g.label)}</span><span class="ly-bt-rec n4">${data.recStr(x.w, x.l)}</span><span class="ly-bt-pct n5">${pct(x.rate)}</span></span>`
+      + `<span class="ly-bt-bar"><i style="--f:${x.rate.toFixed(3)}"></i><b style="--a:${avg.toFixed(3)}"></b></span>`
+      + `<span class="ly-bt-sub">${esc(subs.join(' · '))}</span>`
+      + (parts.length ? `<span class="ly-bt-parts">${parts.map(({k, r}) => `<span class="ly-bt-part"><span>${esc(KIND_LABEL[k] || k)}</span> <b class="n4">${data.recStr(r.w, r.l)}</b></span>`).join('')}</span>` : '')
+      + `</span></li>`;
+  }).join('');
+  // The headline: the surest kind of leg and the shakiest (three legs or more each).
+  const big = T.filter(x => x.n >= 3), top = big[0], low = big[big.length - 1];
+  const lead = top && low && top !== low && top.rate > low.rate
+    ? `<p class="ly-bt-lead"><b>${esc(top.g.label)}</b> legs hit ${pct(top.rate)} of the time; <b>${esc(low.g.label.toLowerCase())}</b> only ${pct(low.rate)}.</p>` : '';
+  return ui.sectionHeader({title: 'By bet type'})
+    + `<section class="card ly-types" aria-label="Hit rate by bet type">${lead}`
+    + `<p class="ly-bt-key"><span>${plural(all, 'settled leg')} · ${pct(avg)} hit overall</span><span class="ly-bt-avg" aria-hidden="true"><b></b>League average</span></p>`
+    + `<ul class="ly-bts">${rows}</ul></section>`;
 }
 
 // Past slips, compact and in week order: one card per week (week, placer, a square per leg, the result); tap to open
@@ -480,11 +543,11 @@ function bodyHTML(st) {
   // Before legs close the entry box leads; once they close (games under way) the live tracker does.
   const lw = live.liveWeek(), w = currentWeek();
   const tracking = lw && w && w.year === lw.year && w.week === lw.week && live.isClosed(lw.year, lw.week) && legsOf(w).length;
-  if (tracking) return (live.isAdmin(me) && (st || {}).editing ? entryHTML(st, me) : '') + trackerHTML(w, me) + tilesHTML() + recordsHTML(me) + weeksHTML(me);
+  if (tracking) return (live.isAdmin(me) && (st || {}).editing ? entryHTML(st, me) : '') + trackerHTML(w, me) + tilesHTML() + recordsHTML(me) + betTypesHTML() + weeksHTML(me);
   // Before: the entry box, "Get your legs in", then a preview of the tracker (the live week's legs, scored as they play).
   const thisWeek = lw && w && w.year === lw.year && w.week === lw.week;
-  if (thisWeek) return weekCardHTML(st || {}, me) + (legsOf(w).length ? trackerHTML(w, me, {preview: true}) : '') + tilesHTML() + recordsHTML(me) + weeksHTML(me);
-  return entryHTML(st || {}, me) + heroHTML(me) + tilesHTML() + recordsHTML(me) + weeksHTML(me);
+  if (thisWeek) return weekCardHTML(st || {}, me) + (legsOf(w).length ? trackerHTML(w, me, {preview: true}) : '') + tilesHTML() + recordsHTML(me) + betTypesHTML() + weeksHTML(me);
+  return entryHTML(st || {}, me) + heroHTML(me) + tilesHTML() + recordsHTML(me) + betTypesHTML() + weeksHTML(me);
 }
 
 function subtitle() {
