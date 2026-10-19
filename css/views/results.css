@@ -4,8 +4,8 @@
 .v-results .c-rbar {
   position: sticky; top: 0; z-index: 10;
   margin: 0 calc(-1 * var(--gutter));
-  height: calc(56px + env(safe-area-inset-top, 0px));
-  padding: env(safe-area-inset-top, 0px) 8px 0 4px;
+  height: calc(56px + var(--sa-t));
+  padding: var(--sa-t) 8px 0 4px;
   display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center;
 }
 .v-results .c-rbar::after {

@@ -118,6 +118,9 @@ small { font-size: inherit; }
   overflow: hidden;
   background: var(--bg);
   isolation: isolate;
+  /* The views' size rules (@container app) and units (cqw, cqh) go by the app's frame, not the browser's window:
+     the same upright or with the phone on its side (js/lock.js). */
+  container: app / size;
 }
 #stage { position: absolute; inset: 0; z-index: 1; overflow: hidden; }
 /* A tab change (app.js: the pager and the tap): the screens shrink to cards like apps being switched; this is what
@@ -142,10 +145,10 @@ small { font-size: inherit; }
 #overlays:empty { display: none; }
 #toasts { z-index: var(--z-toast); }
 
-/* Desktop: everything lives in a centered column with 1px side rules */
+/* Desktop: everything lives in a centered column with 1px side rules (not a phone on its side: lock.js) */
 @media (min-width: 720px) {
-  html, body { background: #040916; }
-  #app {
+  :root:not(.is-rot), :root:not(.is-rot) body { background: #040916; }
+  :root:not(.is-rot) #app {
     left: 0; right: 0;
     width: min(100%, var(--col-w));
     margin: 0 auto;
@@ -164,8 +167,8 @@ small { font-size: inherit; }
   contain: layout paint;
   background: var(--bg);
   padding-bottom: calc(var(--tab-h) + 24px);
-  padding-left: env(safe-area-inset-left, 0px);
-  padding-right: env(safe-area-inset-right, 0px);
+  padding-left: var(--sa-l);
+  padding-right: var(--sa-r);
   z-index: var(--z-screen);
   outline: none;
 }
@@ -178,7 +181,7 @@ small { font-size: inherit; }
    scroll the whole app). clip never makes a scroll container; app.js also resets any such scroll. */
 @supports (overflow: clip) { #app, #stage, .cover { overflow: clip; } }
 .cover-scrim { position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: auto; z-index: 1; }
-.cover .screen { padding-bottom: max(16px, env(safe-area-inset-bottom, 0px)); }
+.cover .screen { padding-bottom: max(16px, var(--sa-b)); }
 /* Dim and edge layers used by push/pop; app.js pins them to the visible area at transition start. */
 .screen-dim {
   position: absolute; left: 0; right: 0; top: 0; height: 100%;
@@ -196,7 +199,7 @@ small { font-size: inherit; }
   position: absolute; inset: 0; z-index: var(--z-boot);
   display: flex; align-items: center; justify-content: center;
   background: var(--bg);
-  padding: env(safe-area-inset-top, 0px) 16px env(safe-area-inset-bottom, 0px);
+  padding: var(--sa-t) 16px var(--sa-b);
 }
 
 /* ---------------------------------------------------------------- Boot splash (CSS-only Puzzles skeleton) */
@@ -249,7 +252,7 @@ html { font-synthesis: none; } /* the pixel faces have one weight: never smear t
 #title {
   position: fixed; inset: 0; z-index: 90;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  padding: env(safe-area-inset-top, 0px) 24px env(safe-area-inset-bottom, 0px);
+  padding: var(--sa-t) 24px var(--sa-b);
   background: var(--title-bg, radial-gradient(120% 70% at 50% 0%, #1B3F94 0%, #0D2152 38%, #070E22 72%) #070E22);
   color: #fff; cursor: pointer; overflow: hidden; outline: none;
   -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
@@ -268,7 +271,7 @@ html { font-synthesis: none; } /* the pixel faces have one weight: never smear t
 @keyframes ts-twinkle { 50% { opacity: .35; } }
 /* Two stadium light banks in the top corners. */
 #title .ts-lights i {
-  position: absolute; top: calc(env(safe-area-inset-top, 0px) + 18px); width: 54px; height: 30px;
+  position: absolute; top: calc(var(--sa-t) + 18px); width: 54px; height: 30px;
   background:
     radial-gradient(circle, #FFF6C8 0 4px, transparent 5px) 0 0 / 18px 15px;
   filter: drop-shadow(0 0 10px rgba(255,236,160,.75));
@@ -291,7 +294,7 @@ html { font-synthesis: none; } /* the pixel faces have one weight: never smear t
 }
 @keyframes ts-blink { 0% { opacity: 1; } 50% { opacity: 0; } }
 #title .ts-foot {
-  position: absolute; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom, 0px) + 22px); margin: 0;
+  position: absolute; left: 0; right: 0; bottom: calc(var(--sa-b) + 22px); margin: 0;
   text-align: center; font: 8px/12px "Press Start 2P", monospace; letter-spacing: .06em; text-transform: uppercase;
   color: rgba(255,255,255,.5);
 }
@@ -308,21 +311,16 @@ html { font-synthesis: none; } /* the pixel faces have one weight: never smear t
   #title.is-out .ts-flash { animation: none; }
   @keyframes ts-fade { to { opacity: 0; } }
 }
-@media (min-width: 720px) { #title { left: 0; right: 0; } }
+@media (min-width: 720px) { :root:not(.is-rot) #title { left: 0; right: 0; } }
 
 /* ================================================================ Portrait only
-   A phone turned sideways gets a cover asking for it upright instead of a squashed app (the manifest locks an
-   installed app to portrait on Android; iOS ignores it). Tablets and computers (taller, or with a mouse) never see it. */
-#rotate { display: none; }
-@media (orientation: landscape) and (max-height: 540px) and (hover: none) and (pointer: coarse) {
-  #rotate {
-    position: fixed; inset: 0; z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 6px; padding: 24px max(24px, env(safe-area-inset-right, 0px)) 24px max(24px, env(safe-area-inset-left, 0px));
-    background: var(--bg); color: var(--ink); text-align: center; touch-action: none;
-  }
+   A phone on its side has the whole app turned back a quarter turn (js/lock.js sets is-rot-l / is-rot-r and the
+   screen's size, --lock-w by --lock-h), so it stays the way the phone holds it, as if the phone were locked upright:
+   the body is the phone's portrait screen, turned to fit the wide one. Everything fixed in the app is fixed to it. */
+:root.is-rot body {
+  position: fixed; top: 0; left: 0; width: var(--lock-h); height: var(--lock-w);
+  transform-origin: 0 0;
 }
-#rotate .rot-ph { width: 64px; height: 64px; margin-bottom: 10px; animation: rot-turn 2.4s cubic-bezier(.6, 0, .3, 1) infinite; }
-#rotate .rot-t { margin: 0; font: 700 20px/26px var(--font-text); }
-#rotate .rot-s { margin: 0; font: 400 15px/20px var(--font-text); color: var(--ink-2); }
-@keyframes rot-turn { 0%, 15% { transform: rotate(-90deg); } 50%, 100% { transform: none; } }
-@media (prefers-reduced-motion: reduce) { #rotate .rot-ph { animation: none; } }
+:root.is-rot-l body { transform: translateY(var(--lock-h)) rotate(-90deg); }
+:root.is-rot-r body { transform: translateX(var(--lock-w)) rotate(90deg); }
+:root.is-rot #title .ts-logo { width: min(78vh, 360px); }

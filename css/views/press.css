@@ -9,11 +9,11 @@
   position: relative; display: block; min-width: 0;
   color: var(--ink);
   --press-r: var(--r-card);
-  --press-max-h: 70vh;
+  --press-max-h: 70cqh;
 }
-/* A card on another screen (Matchup, the Wrap): a vertical video stays card-sized (at most 52vh, 420 px tall). */
-.c-press.is-m { --press-r: var(--r-cell); --press-max-h: min(52vh, 420px); }
-.c-press.is-s { --press-r: 10px; --press-max-h: 60vh; display: flex; align-items: center; gap: 12px; }
+/* A card on another screen (Matchup, the Wrap): a vertical video stays card-sized (at most 52cqh, 420 px tall). */
+.c-press.is-m { --press-r: var(--r-cell); --press-max-h: min(52cqh, 420px); }
+.c-press.is-s { --press-r: 10px; --press-max-h: 60cqh; display: flex; align-items: center; gap: 12px; }
 
 /* Media: the frame is 16:9; a vertical video's frame is 9:16 (at most --press-max-h tall), centered on a blurred copy
    of its own thumbnail. The box has an explicit aspect ratio, so nothing shifts when the image or the player loads. */
@@ -396,9 +396,9 @@ html.rm .c-press-ifr, html.rm .c-press-btn { transition: none; }
 /* The Post button stays in reach at the bottom of the sheet. */
 .sh-press .shp-foot {
   position: sticky; z-index: 2;
-  bottom: calc(-1 * max(16px, env(safe-area-inset-bottom, 0px)));
-  margin: -8px -16px calc(-1 * max(16px, env(safe-area-inset-bottom, 0px)));
-  padding: 12px 16px max(16px, env(safe-area-inset-bottom, 0px));
+  bottom: calc(-1 * max(16px, var(--sa-b)));
+  margin: -8px -16px calc(-1 * max(16px, var(--sa-b)));
+  padding: 12px 16px max(16px, var(--sa-b));
   background: var(--surface-1);
   box-shadow: inset 0 .5px 0 var(--separator);
 }

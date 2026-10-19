@@ -433,7 +433,7 @@ html.rm .c-pk-dot::after { animation: none; }
 .v-pickem .pk-sum.is-sk .sk { height: 58px; border-radius: var(--r-cell); }
 
 /* Narrow phones (360 px): tighter card columns, smaller logos. */
-@media (max-width: 374px) {
+@container app (max-width: 374px) {
   .v-pickem .pk-g-main { grid-template-columns: minmax(0, 1fr) 68px; }
   .v-pickem .pk-t { column-gap: 10px; padding-left: 12px; grid-template-columns: 30px minmax(0, 1fr) 22px 32px; }
   .v-pickem .pk-g.is-pre .pk-t, .v-pickem .pk-g.is-off .pk-t { grid-template-columns: 30px minmax(0, 1fr) 22px; }

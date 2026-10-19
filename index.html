@@ -26,6 +26,7 @@
 <link rel="modulepreload" href="js/core/ui.js">
 <link rel="modulepreload" href="js/core/data.js">
 <script src="js/themes.js"></script>
+<script src="js/lock.js"></script>
 <link rel="stylesheet" href="css/tokens.css">
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/components.css">
@@ -180,13 +181,6 @@
 <noscript><p style="padding:24px 16px;font:17px/22px -apple-system,system-ui,sans-serif;color:#fff;background:#070E22">Gridiron Gangbang needs JavaScript to run.</p></noscript>
 
 <!-- Firebase web config for the shared leaderboard. Leave {} to run without it. -->
-<!-- Portrait only: a phone turned sideways gets this cover (css/base.css #rotate). The manifest keeps an installed app
-     upright on Android; iOS ignores that. -->
-<div id="rotate">
-  <svg class="rot-ph" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><rect x="14" y="5" width="20" height="38" rx="4.5" fill="none" stroke="currentColor" stroke-width="2.6"/><path d="M21 9.5h6" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>
-  <p class="rot-t">Turn your phone upright</p>
-  <p class="rot-s">The app only works in portrait.</p>
-</div>
 <script id="firebase-config" type="application/json">{"apiKey":"AIzaSyDWcOeYQcoz7T2oi0NqBsgbq9I-6Zrrm34","authDomain":"gridiron-gangbang.firebaseapp.com","projectId":"gridiron-gangbang","storageBucket":"gridiron-gangbang.firebasestorage.app","messagingSenderId":"996712077165","appId":"1:996712077165:web:05d0d7c1df7fa20c69ac64"}</script>
 <script>
 // The title screen: any tap (or Enter / Space) starts the app. Runs before the app's modules so the first tap works.

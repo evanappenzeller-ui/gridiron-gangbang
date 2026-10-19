@@ -20,7 +20,7 @@
 .sh-picker .pk-chip > .ic { width: 15px; height: 15px; flex: none; color: var(--ink-2); stroke-width: 2; }
 .sh-picker .pk-cl { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sh-picker .pk-x { flex: none; color: var(--ink-3); font: 600 15px/1 var(--font-text); }
-@media (max-width: 374px) {
+@container app (max-width: 374px) {
   .sh-picker .pk-crit { gap: 4px; }
   .sh-picker .pk-chip { padding: 0 8px 0 6px; gap: 4px; font-size: 13px; }
 }
@@ -73,7 +73,7 @@
 .pk-box .search input { font-size: 17px; }
 .pk-box .pk-drop {
   position: absolute; z-index: 20; left: 0; right: 0; bottom: calc(100% + 8px);
-  max-height: min(296px, 46vh); overflow-y: auto; overscroll-behavior: contain;
+  max-height: min(296px, 46cqh); overflow-y: auto; overscroll-behavior: contain;
   border-radius: 14px; background: var(--surface-2);
   box-shadow: 0 -12px 32px -8px rgba(0,0,0,.6), inset 0 0 0 1px var(--separator);
   --separator: rgba(84,84,88,.65);

@@ -150,7 +150,7 @@
 .v-run .gd-one .gc.is-open.is-pressed { transform: scale(.97); }
 
 /* Narrow phones: 360 px and below */
-@media (max-width: 374px) {
+@container app (max-width: 374px) {
   .v-run .gc { padding: 6px 5px; }
   .v-run .gc-badge { top: 4px; right: 4px; width: 14px; height: 14px; }
   .v-run .gc-badge > svg { width: 9px; height: 9px; }

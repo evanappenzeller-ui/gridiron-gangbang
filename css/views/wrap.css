@@ -155,7 +155,7 @@
 .v-wrap .wr-pn > .btn::before { content: ""; position: absolute; inset: -5px -4px; } /* 34 px pill, 44 px target */
 .v-wrap .wr-next { flex-direction: row-reverse; }
 
-@media (max-width: 370px) {
+@container app (max-width: 370px) {
   .v-wrap .wr-card { padding-right: 14px; }
   .v-wrap .wr-headline { font-size: 20px; line-height: 25px; }
 }

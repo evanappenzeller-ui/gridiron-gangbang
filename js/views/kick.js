@@ -19,7 +19,7 @@ const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 const ST = new WeakMap(); // ctx -> pane state
 
 // The stylesheet's mark (--kk-css on :root): a home-screen app open across an update adds the current file.
-const CSS_V = '6';
+const CSS_V = '7';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--kk-css').trim() === CSS_V || document.querySelector('link[data-kk-css]')) return;

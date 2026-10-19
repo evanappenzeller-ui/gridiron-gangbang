@@ -291,7 +291,7 @@
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
   padding: 8px 12px 12px; border-top: .5px solid var(--separator);
 }
-@media (max-width: 374px) {
+@container app (max-width: 374px) {
   .v-rivals .rv-mc-side .av { display: none; }
   .v-rivals .rv-mc.is-top .rv-mc-side .av { display: grid; }
 }
@@ -533,7 +533,7 @@
 .sh-rv-pre .rv-pre-bug .bug-side { color: var(--ink); }
 .sh-rv-pre .rv-pre-place { color: var(--ink-3); }
 
-@media (max-width: 374px) {
+@container app (max-width: 374px) {
   /* The top pick keeps its avatars, smaller, so "Jaymin vs Jayton" is not "Jay… vs Jay…". */
   .v-rivals .rv-mc.is-top .rv-mc-side .av { --sz: 32px !important; }
   .v-rivals .rv-mc.is-top .rv-mc-side, .v-rivals .rv-mc.is-top .rv-mc-pair { gap: 6px; }

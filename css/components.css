@@ -15,7 +15,7 @@
    nothing to do). --tab-h (tokens.css) is the capsule plus the gap under it: screens pad their content by it. */
 #tabbar {
   position: absolute; z-index: var(--z-tab);
-  left: calc(12px + env(safe-area-inset-left, 0px)); right: calc(12px + env(safe-area-inset-right, 0px));
+  left: calc(12px + var(--sa-l)); right: calc(12px + var(--sa-r));
   bottom: var(--tb-gap);
   height: var(--tb-h);
   padding: 5px;
@@ -85,8 +85,8 @@
 .nav {
   position: sticky; top: 0; z-index: 30;
   height: var(--nav-h);
-  padding-top: env(safe-area-inset-top, 0px);
-  margin: 0 calc(-1 * env(safe-area-inset-right, 0px)) 0 calc(-1 * env(safe-area-inset-left, 0px));
+  padding-top: var(--sa-t);
+  margin: 0 calc(-1 * var(--sa-r)) 0 calc(-1 * var(--sa-l));
   display: flex; align-items: center; justify-content: space-between;
   pointer-events: none;
 }
@@ -749,7 +749,7 @@ button.bug, a.bug { color: var(--ink-3); }
   overflow-y: auto; overflow-x: hidden;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  padding: 4px 16px max(16px, env(safe-area-inset-bottom, 0px));
+  padding: 4px 16px max(16px, var(--sa-b));
 }
 .sheet.is-fit .sheet-body { flex: 0 1 auto; }
 .sheet.is-dragging, .sheet.is-dragging * { user-select: none; -webkit-user-select: none; }
@@ -763,7 +763,7 @@ button.bug, a.bug { color: var(--ink-3); }
 /* Confirm / action sheet (.sh-action) */
 .sheet.sh-action {
   background: transparent; box-shadow: none; border-radius: 0;
-  padding: 0 8px max(8px, env(safe-area-inset-bottom, 0px));
+  padding: 0 8px max(8px, var(--sa-b));
 }
 .sh-action .sheet-body { padding: 0; overflow: visible; }
 .sh-action .sheet-grab { display: none; }
@@ -805,7 +805,7 @@ button.bug, a.bug { color: var(--ink-3); }
 /* ================================================================ Toasts */
 #toasts {
   position: absolute; left: 0; right: 0;
-  top: calc(env(safe-area-inset-top, 0px) + 8px);
+  top: calc(var(--sa-t) + 8px);
   display: flex; justify-content: center;
   padding: 0 16px;
   pointer-events: none;
@@ -844,7 +844,7 @@ button.bug, a.bug { color: var(--ink-3); }
 .odo-col { display: flex; flex-direction: column; }
 .odo-col > span { display: block; height: 1em; line-height: 1em; text-align: center; }
 .morph-clone { position: fixed; z-index: var(--z-confetti); margin: 0 !important; pointer-events: none; transform-origin: 0 0; }
-.confetti-canvas { position: fixed; inset: 0; z-index: var(--z-confetti); pointer-events: none; width: 100vw; height: 100vh; }
+.confetti-canvas { position: fixed; inset: 0; z-index: var(--z-confetti); pointer-events: none; width: 100%; height: 100%; }
 .flash-wrong { position: fixed; z-index: var(--z-confetti); pointer-events: none; background: rgba(255,69,58,.3); } /* ui.shake under reduced motion */
 .is-flash { animation: flash-tint 1200ms var(--ease-out); }
 @keyframes flash-tint { 0%, 30% { background-color: var(--tint-soft); } 100% { background-color: transparent; } }

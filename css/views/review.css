@@ -74,6 +74,6 @@
 .v-review .rv-foot { margin-top: 32px; }
 .v-review .rv-foot > .note { text-align: center; }
 
-@media (max-width: 370px) {
+@container app (max-width: 370px) {
   .v-review .rv-card .n3 { font-size: 28px; line-height: 30px; }
 }

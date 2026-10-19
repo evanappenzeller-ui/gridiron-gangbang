@@ -1011,7 +1011,7 @@ let safeTopPx = null;
 function safeTop() {
   if (safeTopPx != null) return safeTopPx;
   const p = document.createElement('div');
-  p.style.cssText = 'position:fixed;top:0;left:0;width:0;height:env(safe-area-inset-top,0px);visibility:hidden;pointer-events:none';
+  p.style.cssText = 'position:fixed;top:0;left:0;width:0;height:var(--sa-t);visibility:hidden;pointer-events:none';
   document.body.appendChild(p);
   safeTopPx = p.offsetHeight || 0;
   p.remove();

@@ -3,7 +3,7 @@
    stage, the HUD, the call and the run's final card laid over it; the scoreboard below on the theme's surfaces. */
 
 /* The version mark views/kick.js checks (CSS_V): bump both when the pane needs rules an older file lacks. */
-:root { --kk-css: 6; }
+:root { --kk-css: 7; }
 
 .kk-pane {
   --kk-good: #3EF08F; --kk-bad: #FF5A4E; --kk-gold: #FFD23F; --kk-ribbon: #FF6A2B;
@@ -226,7 +226,7 @@
 .kk-pane .kk-sb-sum { margin: 12px 0 2px; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2); }
 .kk-pane .kk-bval { font-variant-numeric: tabular-nums; }
 
-@media (max-width: 360px) {
+@container app (max-width: 360px) {
   .kk-pane .kk-dist { font-size: 26px; line-height: 26px; }
   .kk-pane .kk-call { font-size: 38px; }
   .kk-pane .kk-hud-l, .kk-pane .kk-hud-r, .kk-pane .kk-wind { padding: 5px 8px; }

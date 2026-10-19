@@ -10,7 +10,7 @@
 .welcome .wl-body {
   flex: 1 1 auto; min-height: 0;
   overflow-y: auto; overscroll-behavior: contain;
-  padding: calc(env(safe-area-inset-top) + 28px) var(--gutter) 16px;
+  padding: calc(var(--sa-t) + 28px) var(--gutter) 16px;
 }
 .welcome .wl-head { max-width: 520px; margin: 0 auto 16px; text-align: center; }
 .welcome .wl-ovl { color: var(--tint); }
@@ -59,14 +59,14 @@
   flex: none;
   display: flex; flex-direction: column; gap: 4px;
   width: 100%; max-width: 552px; margin: 0 auto;
-  padding: 12px var(--gutter) calc(env(safe-area-inset-bottom) + 12px);
+  padding: 12px var(--gutter) calc(var(--sa-b) + 12px);
   background: linear-gradient(to top, var(--bg) 70%, transparent);
 }
 .welcome .wl-go[aria-disabled="true"] { opacity: .45; }
 .welcome .wl-skip { color: var(--ink-2); font-weight: 600; }
 
-@media (max-height: 700px) {
-  .welcome .wl-body { padding-top: calc(env(safe-area-inset-top) + 16px); }
+@container app (max-height: 700px) {
+  .welcome .wl-body { padding-top: calc(var(--sa-t) + 16px); }
   .welcome .wl-head { margin-bottom: 14px; }
   .welcome .wl-card { padding: 10px 4px 10px; }
 }

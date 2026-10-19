@@ -28,8 +28,8 @@
 .v-season .sea-step:disabled { opacity: .3; }
 
 /* Tall enough that switching segment, week or year never yanks the pinned bar down (short weeks included). */
-.v-season .sea-content { min-height: calc(100vh - var(--nav-h) - 96px - var(--tab-h) - 24px); overflow-anchor: none; }
-@supports (height: 100dvh) {
+.v-season .sea-content { min-height: calc(100cqh - var(--nav-h) - 96px - var(--tab-h) - 24px); overflow-anchor: none; }
+@supports not (height: 100cqh) {
   .v-season .sea-content { min-height: calc(100dvh - var(--nav-h) - 96px - var(--tab-h) - 24px); }
 }
 

@@ -8,7 +8,7 @@
    the bottom bar (244px at 360 x 740, 281px at 390 x 844). */
 .v-run .sl-stage {
   position: relative; z-index: 2;
-  height: clamp(200px, min(72vw, 100svh - 496px), 330px); /* 496px: header, options, verdict and the bottom bar */
+  height: clamp(200px, min(72cqw, 100cqh - 496px), 330px); /* 496px: header, options, verdict and the bottom bar */
   border-radius: var(--r-card);
   background: var(--surface-1);
   overflow: hidden;

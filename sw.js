@@ -7,7 +7,7 @@
 // A slow request falls back to whatever is cached under its path (from the previous worker too), so data whose
 // format changes gets a new file name rather than new content under the old one (data/puzzles-v4.json: see
 // js/core/daily.js).
-const CACHE = 'gg-v221';
+const CACHE = 'gg-v222';
 const CORE = ['ui', 'data', 'daily', 'fire', 'week', 'nfl', 'stats', 'motw', 'press', 'checks', 'checks-stats', 'checks-pickem', 'checks-press', 'checks-seventeen', 'checks-drill', 'checks-kick', 'lay', 'plays', 'laytrack', 'seventeen', 'drill-sim', 'drill', 'kick', 'avatars'];
 // The six tab roots are puzzles, pickem, rivals (Matchup), league, moves (Draft) and lay (The Lay).
 const VIEWS = ['welcome', 'guest', 'puzzles', 'board', 'you', 'sharecard', 'results', 'run', 'college', 'silhouette', 'mystery', 'journey', 'grid', 'picker',
@@ -17,7 +17,7 @@ const VIEW_CSS = ['welcome', 'puzzles', 'board', 'results', 'you', 'run', 'colle
   'standings', 'season', 'review', 'wrap', 'matchup', 'rivals', 'pickem', 'press', 'hall', 'moves', 'profile', 'lay', 'plays', 'seventeen', 'drill', 'kick', '_kit'];
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest',
-  'css/tokens.css', 'css/base.css', 'css/components.css', 'css/themes.css', 'css/finish.css', 'js/themes.js',
+  'css/tokens.css', 'css/base.css', 'css/components.css', 'css/themes.css', 'css/finish.css', 'js/themes.js', 'js/lock.js',
   ...VIEW_CSS.map(v => `css/views/${v}.css`),
   'js/app.js', ...CORE.map(m => `js/core/${m}.js`),
   ...VIEWS.map(v => `js/views/${v}.js`),

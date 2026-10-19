@@ -3,7 +3,7 @@
    per element as --tc (the team's hue) and --ta (its accent). */
 
 /* The version mark views/seventeen.js checks (CSS_V): bump both when the pane needs rules an older file lacks. */
-:root { --sv-css: 4; }
+:root { --sv-css: 5; }
 
 /* ---------------------------------------------------------------- The game picker (puzzles.js) */
 /* Big scoreboard buttons with pixel badges, like Pick'em's NFL / NCAA switch (pickem.css .pk-lg): the game showing
@@ -40,7 +40,7 @@
 .v-puzzles .c-games.is-4 .c-game { min-height: 64px; gap: 6px; padding: 8px 6px; }
 .v-puzzles .c-games.is-4 .c-game-badge { width: 42px; height: 42px; }
 .v-puzzles .c-games.is-4 .c-game-tx { gap: 3px; font-size: 13px; line-height: 13px; letter-spacing: .04em; }
-@media (min-width: 410px) {
+@container app (min-width: 410px) {
   .v-puzzles .c-games.is-4 { gap: 8px; }
   .v-puzzles .c-games.is-4 .c-game { min-height: 70px; gap: 8px; }
   .v-puzzles .c-games.is-4 .c-game-badge { width: 48px; height: 48px; }
@@ -286,7 +286,7 @@
 .sh-seventeen .sv-help b { color: var(--ink); font-weight: 600; }
 
 /* ---------------------------------------------------------------- Narrow phones (320-360 px) */
-@media (max-width: 360px) {
+@container app (max-width: 360px) {
   .sv-pane .sv-yr { left: 3px; top: 3px; font-size: 8.5px; line-height: 11px; padding: 0 3px; border-radius: 5px; }
   .sv-pane .sv-tick { right: 3px; top: 3px; width: 14px; height: 14px; }
   .sv-pane .sv-grid { gap: 5px 4px; }
@@ -297,20 +297,20 @@
   .sv-pane .sv-play { padding: 0 8px; font-size: 15px; }
   .sv-pane .sv-play > .ic { display: none; }
 }
-@media (max-width: 360px) {
+@container app (max-width: 360px) {
   .sv-pane .sv-tiles .tile { padding: 10px; }
   .sv-pane .sv-tiles .tile-label { font-size: 12px; }
   .sv-pane .sv-tiles .tile-value { font-size: 20px; }
 }
-@media (max-width: 360px) {
+@container app (max-width: 360px) {
   .v-puzzles .c-game { gap: 5px; padding: 8px 6px; }
   .v-puzzles .c-game-badge { width: 38px; height: 38px; }
   .v-puzzles .c-game-tx { font-size: 13px; line-height: 13px; letter-spacing: .04em; }
 }
-@media (max-width: 369px) {
+@container app (max-width: 369px) {
   .v-puzzles .c-games.is-4 { grid-template-columns: repeat(4, 1fr); }
   .v-puzzles .c-games.is-4 .c-game-tx { display: none; }
 }
-@media (max-width: 380px) {
+@container app (max-width: 380px) {
   .sv-pane .sv-play > .ic { display: none; }
 }

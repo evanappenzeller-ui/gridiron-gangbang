@@ -569,7 +569,7 @@
 
 /* ---------------------------------------------------------------- Theme picker (js/themes.js) */
 .ts-theme {
-  position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 52px); transform: translateX(-50%);
+  position: absolute; left: 50%; bottom: calc(var(--sa-b) + 52px); transform: translateX(-50%);
   display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px; border: 0; border-radius: 999px;
   background: rgba(0,0,0,.42); color: #fff; box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.35);
   font: 600 15px/20px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif; cursor: pointer;
@@ -581,7 +581,7 @@
 #theme-picker {
   position: fixed; inset: 0; z-index: 100; display: flex; flex-direction: column;
   background: var(--bg); color: var(--ink); font-family: var(--font-text);
-  padding-top: env(safe-area-inset-top, 0px);
+  padding-top: var(--sa-t);
   animation: tp-in 220ms cubic-bezier(.22,1,.36,1);
 }
 @keyframes tp-in { from { transform: translateY(24px); opacity: 0; } }
@@ -589,7 +589,7 @@
 .tp-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px 10px; border-bottom: 1px solid var(--separator); }
 .tp-head h2 { margin: 0; font: 700 22px/28px var(--font-text); }
 .tp-done { min-height: 40px; padding: 0 18px; border: 0; border-radius: 999px; background: var(--tint); color: var(--on-tint); font: 700 16px/20px var(--font-text); cursor: pointer; }
-.tp-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 4px 16px calc(env(safe-area-inset-bottom, 0px) + 24px); }
+.tp-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 4px 16px calc(var(--sa-b) + 24px); }
 .tp-sec { margin: 18px 0 8px; font: 600 13px/16px var(--font-text); text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); }
 .tp-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .tp-grid.is-nfl { grid-template-columns: repeat(3, minmax(0, 1fr)); }
