@@ -168,113 +168,384 @@ function proj(st, x, y, z) {
   return {x: st.W / 2 + st.f * x / Z, y: st.y0 + st.f * (st.camH - y) / Z, s: st.f / Z};
 }
 function quad(c, a, b, d, e) { c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.lineTo(d.x, d.y); c.lineTo(e.x, e.y); c.closePath(); }
-// The sky and the stands don't move: drawn once per size into their own canvas, then copied in each frame.
+// ---------------------------------------------------------------- The stadium and the sky
+// Drawn once per size into their own canvas (st.bg), then copied in each frame: the night sky and its stars; the bowl
+// of stands, its rim curving up toward us at the sides, with the upper deck, the suites, a ribbon board, the lower deck
+// and the wall at field level; the fans in rows; four banks of lights on the rim. Over it each frame (drawSky): a few
+// stars twinkling and phones flashing in the crowd (a burst after a good kick); after the field, the lights' beams.
+const CROWD = ['#1B2A5C', '#1F2C5A', '#2A3A6E', '#34467E', '#C3CAD9', '#9AA3B8', '#8E1C1C', '#24262E', '#C9A640', '#5D6A92', '#1B2A5C', '#C3CAD9'];
+const SKIN = ['#8A5A36', '#C68C5E', '#5E3B22', '#E2B48A', '#A46B40', '#7A4A2B'];
+/** A fan in the stands at (x, y), sz px: shoulders in a shirt, a head (or a cap), now and then both arms up. */
+function fan(c, x, y, sz, rnd) {
+  c.fillStyle = CROWD[Math.floor(rnd() * CROWD.length)];
+  c.fillRect(x - sz * .37, y - sz * .14, sz * .74, sz * .48);
+  if (rnd() < .05) { c.fillRect(x - sz * .4, y - sz * .8, sz * .13, sz * .62); c.fillRect(x + sz * .27, y - sz * .8, sz * .13, sz * .62); }
+  c.fillStyle = rnd() < .18 ? CROWD[Math.floor(rnd() * 4)] : SKIN[Math.floor(rnd() * SKIN.length)];
+  c.beginPath(); c.arc(x, y - sz * .32, sz * .2, 0, Math.PI * 2); c.fill();
+}
+function seeded(s) {
+  s = Math.abs(Math.round(s * 2654435761) % 2147483647) || 1;
+  return () => ((s = (s * 16807) % 2147483647) / 2147483647);
+}
+/** The stands' shape on this stage: each line across them (y at screen x) and where the lights stand. */
+function bowl(st) {
+  const {W, y0} = st, Sh = Math.max(46, Math.min(150, (y0 - 80) * .62));
+  const line = (at, bow) => x => { const u = (x - W / 2) / (W / 2); return y0 - Sh * at - Sh * bow * u * u; };
+  const rim = line(1, .34);
+  const lights = [-.8, -.36, .36, .8].map(u => {
+    const x = W / 2 + u * W / 2, big = Math.abs(u) > .5;
+    return {x, y: rim(x) - Sh * (big ? .3 : .18), r: big ? 1 : .7};
+  });
+  return {Sh, rim, fascia: line(.93, .31), suites: line(.52, .17), suitesEnd: line(.45, .15), ribbonEnd: line(.4, .13),
+    wall: () => y0, lights};
+}
 function backdrop(st) {
-  const {W, H, y0, dpr} = st;
+  const {W, y0, dpr} = st, B = bowl(st), r = seeded(7);
   const cv = document.createElement('canvas');
   cv.width = Math.round(W * dpr); cv.height = Math.round((y0 + 2) * dpr);
   const c = cv.getContext('2d');
   c.setTransform(dpr, 0, 0, dpr, 0, 0);
-  const g = c.createLinearGradient(0, 0, 0, y0);
-  g.addColorStop(0, '#03060F'); g.addColorStop(.55, '#0A1430'); g.addColorStop(1, '#16275A');
-  c.fillStyle = g; c.fillRect(0, 0, W, y0 + 2);
-  // the stands: an upper and a lower deck, the crowd a speckle of shirts and phone lights
-  const sTop = y0 - Math.max(40, H * .12), mid = sTop + (y0 - sTop) * .45;
-  const sg = c.createLinearGradient(0, sTop, 0, y0);
-  sg.addColorStop(0, '#0B1330'); sg.addColorStop(1, '#070C1C');
-  c.fillStyle = sg; c.fillRect(0, sTop, W, y0 - sTop + 1);
-  c.fillStyle = 'rgba(150,180,255,.32)'; c.fillRect(0, sTop, W, 1.5);
-  c.fillStyle = 'rgba(0,0,0,.45)'; c.fillRect(0, mid - 2, W, 4);
-  c.fillStyle = 'rgba(150,180,255,.16)'; c.fillRect(0, mid + 2, W, 1);
-  let s = 7;
-  const r = () => ((s = (s * 16807) % 2147483647) / 2147483647);
-  const COLS = ['rgba(200,210,235,.20)', 'rgba(200,210,235,.14)', 'rgba(255,90,78,.30)', 'rgba(62,240,143,.22)', 'rgba(120,200,255,.28)', 'rgba(255,214,120,.30)'];
-  for (let i = 0, n = Math.round(W * (y0 - sTop) / 22); i < n; i++) {
-    const py = sTop + 3 + r() * (y0 - sTop - 10);
-    c.fillStyle = COLS[Math.floor(r() * COLS.length)];
-    c.fillRect(r() * W, py, 1.6, 1.6);
+  const xs = [];
+  for (let x = 0; x < W; x += 6) xs.push(x);
+  xs.push(W);
+  const trace = (yAt, back) => (back ? xs.slice().reverse() : xs).forEach((x, i) => (i || back ? c.lineTo(x, yAt(x)) : c.moveTo(x, yAt(x))));
+  const band = (top, bot, fill) => { c.fillStyle = fill; c.beginPath(); trace(top); trace(bot, true); c.closePath(); c.fill(); };
+  const along = (top, bot, u) => x => top(x) + (bot(x) - top(x)) * u;
+  // the sky: deep navy, lighter down toward the rim where the lights glow; stars
+  const sky = c.createLinearGradient(0, 0, 0, y0);
+  sky.addColorStop(0, '#02040C'); sky.addColorStop(.45, '#06102C'); sky.addColorStop(1, '#162A63');
+  c.fillStyle = sky; c.fillRect(0, 0, W, y0 + 2);
+  const glow = c.createRadialGradient(W / 2, B.rim(W / 2), 10, W / 2, B.rim(W / 2), W * .95);
+  glow.addColorStop(0, 'rgba(110,150,255,.24)'); glow.addColorStop(1, 'rgba(110,150,255,0)');
+  c.fillStyle = glow; c.fillRect(0, 0, W, y0);
+  for (let i = 0, n = Math.round(W * .3); i < n; i++) {
+    const x = r() * W, y = r() * (B.rim(x) - 6), big = r() < .12;
+    c.fillStyle = `rgba(235,240,255,${(.2 + r() * .6).toFixed(2)})`; c.fillRect(x, y, big ? 1.6 : 1, big ? 1.6 : 1);
   }
-  for (let i = 0; i < 26; i++) { c.fillStyle = 'rgba(255,255,255,.75)'; c.fillRect(r() * W, sTop + 3 + r() * (y0 - sTop - 10), 1.2, 1.2); }
-  // the ribbon boards along the front of the lower deck
-  const rb = c.createLinearGradient(0, 0, W, 0);
-  rb.addColorStop(0, '#0B3D2A'); rb.addColorStop(.5, '#0E5A3A'); rb.addColorStop(1, '#0B3D2A');
-  c.fillStyle = rb; c.fillRect(0, y0 - 7, W, 6);
-  c.fillStyle = 'rgba(62,240,143,.55)'; c.fillRect(0, y0 - 7, W, 1);
-  // the lights: two banks on their towers, glowing over the rim
-  [.14, .86].forEach(fx => {
-    const lx = W * fx, ly = sTop - Math.max(34, H * .09);
-    c.fillStyle = 'rgba(20,30,60,.9)'; c.fillRect(lx - 1.5, ly, 3, sTop - ly);
-    const halo = c.createRadialGradient(lx, ly, 2, lx, ly, W * .42);
-    halo.addColorStop(0, 'rgba(220,232,255,.55)'); halo.addColorStop(.1, 'rgba(160,190,255,.2)'); halo.addColorStop(1, 'rgba(120,150,255,0)');
-    c.fillStyle = halo; c.fillRect(0, 0, W, y0);
-    c.fillStyle = 'rgba(28,36,64,1)'; c.fillRect(lx - 19, ly - 9, 38, 14);
-    c.fillStyle = 'rgba(240,246,255,.97)';
-    for (let i = 0; i < 5; i++) for (let j = 0; j < 2; j++) c.fillRect(lx - 17 + i * 7.2, ly - 7 + j * 6, 5.4, 4);
+  // a deck of fans, row on row, back to front; aisles of steps every so often
+  const deck = (top, bot, pitch, aisles) => {
+    band(top, bot, '#0A1129');
+    const rows = Math.max(2, Math.round((bot(W / 2) - top(W / 2)) / pitch)), steps = Array.from({length: aisles}, (_, j) => W * (j + 1) / (aisles + 1));
+    for (let j = 0; j < rows; j++) {
+      const yAt = along(top, bot, (j + .7) / rows), p = (bot(W / 2) - top(W / 2)) / rows;
+      c.strokeStyle = 'rgba(120,150,230,.12)'; c.lineWidth = 1; c.beginPath(); trace(x => yAt(x) + p * .3); c.stroke();
+      for (let x = r() * p; x < W; x += p * (.9 + r() * .45)) {
+        if (steps.some(a => Math.abs(x - a) < p * .8) || r() < .07) continue;
+        fan(c, x, yAt(x), p * (1 + .3 * Math.abs((x - W / 2) / (W / 2))), r);
+      }
+    }
+    steps.forEach(a => { c.fillStyle = 'rgba(160,180,230,.10)'; c.beginPath(); c.moveTo(a - pitch * .5, top(a)); c.lineTo(a + pitch * .5, top(a)); c.lineTo(a + pitch * .6, bot(a)); c.lineTo(a - pitch * .6, bot(a)); c.fill(); });
+  };
+  const pu = Math.max(2.2, B.Sh * .027), pl = Math.max(2.6, B.Sh * .033);
+  deck(B.fascia, B.suites, pu, 6);
+  deck(B.ribbonEnd, B.wall, pl, 5);
+  // the light falls on the lower deck; the top of the upper deck is in the dark
+  const dim = c.createLinearGradient(0, B.rim(W / 2), 0, B.suites(W / 2));
+  dim.addColorStop(0, 'rgba(2,4,14,.5)'); dim.addColorStop(1, 'rgba(2,4,14,0)');
+  band(B.fascia, B.suites, dim);
+  band(B.ribbonEnd, B.wall, 'rgba(255,240,215,.04)');
+  // and the crowd stays back, so the posts stand out against it
+  band(B.fascia, B.suites, 'rgba(3,6,18,.3)'); band(B.ribbonEnd, B.wall, 'rgba(3,6,18,.24)');
+  // the rim: a pale band with lights along it
+  const fa = c.createLinearGradient(0, B.rim(W / 2) - B.Sh * .34, 0, B.fascia(W / 2));
+  fa.addColorStop(0, '#46558A'); fa.addColorStop(1, '#232D55');
+  band(B.rim, B.fascia, fa);
+  c.strokeStyle = 'rgba(200,215,255,.6)'; c.lineWidth = 1.2; c.beginPath(); trace(B.rim); c.stroke();
+  for (let x = 7; x < W; x += 13) { c.fillStyle = 'rgba(255,248,225,.75)'; c.fillRect(x, along(B.rim, B.fascia, .5)(x) - .6, 1.4, 1.2); }
+  // the suites: a row of lit windows
+  band(B.suites, B.suitesEnd, '#0D152E');
+  for (let x = 2; x < W - 4; x += 9) {
+    const t = B.suites(x + 3.5), h = B.suitesEnd(x + 3.5) - t;
+    c.fillStyle = r() < .2 ? 'rgba(40,52,90,.8)' : `rgba(255,${200 + Math.floor(r() * 30)},140,${(.35 + r() * .45).toFixed(2)})`;
+    c.fillRect(x, t + h * .2, 7, h * .6);
+  }
+  // the ribbon board: lit letters going round
+  band(B.suitesEnd, B.ribbonEnd, '#061024');
+  const rh = B.ribbonEnd(W / 2) - B.suitesEnd(W / 2);
+  if (rh >= 3.5) {
+    c.font = `800 ${(rh * .82).toFixed(1)}px "Barlow Condensed", "Arial Narrow", sans-serif`; c.textBaseline = 'middle'; c.textAlign = 'left';
+    const words = ['KICK IT', '★', 'GRIDIRON', '★', 'FIELD GOAL', '★'];
+    for (let x = 4, i = 0; x < W; i++) {
+      const w = words[i % words.length], ww = c.measureText(w).width, mid = along(B.suitesEnd, B.ribbonEnd, .55)(x + ww / 2);
+      c.fillStyle = w === '★' ? '#F2C94C' : i % 4 === 0 ? '#3EF08F' : '#EAF1FF';
+      c.fillText(w, x, mid);
+      x += ww + rh * .9;
+    }
+  }
+  c.strokeStyle = 'rgba(62,240,143,.35)'; c.lineWidth = 1; c.beginPath(); trace(B.ribbonEnd); c.stroke();
+  // (the wall round the field and the stands' first rows are the field's: paintField, behind the end zone)
+  // the lights: banks of lamps on masts over the rim, each with its glow
+  const k = Math.max(.75, Math.min(1.35, W / 390));
+  B.lights.forEach(L => {
+    const bw = 40 * k * L.r, bh = 17 * k * L.r;
+    c.fillStyle = 'rgba(16,22,44,.95)'; c.fillRect(L.x - 1.5, L.y, 3, B.rim(L.x) - L.y + 2);
+    const halo = c.createRadialGradient(L.x, L.y, 2, L.x, L.y, W * .42 * L.r);
+    halo.addColorStop(0, 'rgba(225,235,255,.6)'); halo.addColorStop(.08, 'rgba(170,195,255,.28)'); halo.addColorStop(1, 'rgba(120,150,255,0)');
+    c.save(); c.globalCompositeOperation = 'lighter'; c.fillStyle = halo; c.fillRect(0, 0, W, y0); c.restore();
+    c.fillStyle = '#1A2340'; c.fillRect(L.x - bw / 2, L.y - bh / 2, bw, bh);
+    c.strokeStyle = 'rgba(170,190,240,.45)'; c.lineWidth = 1; c.strokeRect(L.x - bw / 2 + .5, L.y - bh / 2 + .5, bw - 1, bh - 1);
+    const cols = 5, rws = 2, gx = bw / cols, gy = bh / rws;
+    for (let i = 0; i < cols; i++) for (let j = 0; j < rws; j++) {
+      const x = L.x - bw / 2 + gx * (i + .5), y = L.y - bh / 2 + gy * (j + .5), rr = Math.min(gx, gy) * .36;
+      c.fillStyle = 'rgba(200,220,255,.35)'; c.beginPath(); c.arc(x, y, rr * 1.5, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#FBFDFF'; c.beginPath(); c.arc(x, y, rr, 0, Math.PI * 2); c.fill();
+    }
+    // a flare across it
+    const fl = c.createLinearGradient(L.x - W * .16, 0, L.x + W * .16, 0);
+    fl.addColorStop(0, 'rgba(200,220,255,0)'); fl.addColorStop(.5, 'rgba(225,235,255,.45)'); fl.addColorStop(1, 'rgba(200,220,255,0)');
+    c.fillStyle = fl; c.fillRect(L.x - W * .16, L.y - .6, W * .32, 1.2);
   });
   return cv;
 }
-function drawSky(st, c) {
-  if (!st.bg || st.bg.w !== st.W || st.bg.h !== st.H) st.bg = {w: st.W, h: st.H, cv: backdrop(st)};
+/** A four-pointed twinkle. */
+function sparkle(c, x, y, s, a) {
+  c.fillStyle = `rgba(255,252,235,${a.toFixed(2)})`;
+  c.beginPath(); c.moveTo(x, y - s);
+  c.quadraticCurveTo(x + s * .12, y - s * .12, x + s, y); c.quadraticCurveTo(x + s * .12, y + s * .12, x, y + s);
+  c.quadraticCurveTo(x - s * .12, y + s * .12, x - s, y); c.quadraticCurveTo(x - s * .12, y - s * .12, x, y - s);
+  c.fill();
+}
+function drawSky(st, c, t) {
+  if (!st.bg || st.bg.w !== st.W || st.bg.h !== st.H || st.bg.dpr !== st.dpr) {
+    const B = bowl(st), r = seeded(23);
+    const sparks = Array.from({length: 7}, () => { const x = r() * st.W; return {x, y: 6 + r() * Math.max(8, B.rim(x) - 18), s: 3 + r() * 3.5, v: 1 + r() * 1.8, ph: r() * 6.3}; });
+    st.bg = {w: st.W, h: st.H, dpr: st.dpr, cv: backdrop(st), bowl: B, sparks};
+  }
   c.drawImage(st.bg.cv, 0, 0, st.W, st.y0 + 2);
+  st.bg.sparks.forEach(s => { const a = Math.max(0, Math.sin(t * s.v + s.ph)); if (a > .05) sparkle(c, s.x, s.y, s.s * (.6 + .4 * a), a * .9); });
+  // phones and cameras going off in the stands, a lot of them after a good kick
+  const B = st.bg.bowl, cheer = st.cheer > performance.now(), r = seeded(1 + Math.floor(t * (cheer ? 14 : 5)));
+  for (let i = 0, n = cheer ? 18 : 3; i < n; i++) {
+    const x = r() * st.W, top = B.rim(x) + B.Sh * .1, y = top + r() * (B.wall(x) - 2 - top), a = .55 + r() * .45;
+    c.fillStyle = `rgba(255,255,255,${(a * .28).toFixed(2)})`; c.beginPath(); c.arc(x, y, 3.4, 0, Math.PI * 2); c.fill();
+    c.fillStyle = `rgba(255,255,255,${a.toFixed(2)})`; c.fillRect(x - .9, y - .9, 1.8, 1.8);
+  }
+}
+/** The lights' beams, down across the stands and the field. */
+function drawBeams(st, c) {
+  st.bg.bowl.lights.forEach(L => {
+    if (L.r < 1) return;
+    const tx = st.W / 2 + (L.x - st.W / 2) * .2, spread = st.W * .24;
+    const g = c.createLinearGradient(0, L.y, 0, st.H);
+    g.addColorStop(0, 'rgba(215,228,255,.14)'); g.addColorStop(.55, 'rgba(215,228,255,.05)'); g.addColorStop(1, 'rgba(215,228,255,0)');
+    c.fillStyle = g; c.beginPath(); c.moveTo(L.x - 7, L.y); c.lineTo(L.x + 7, L.y); c.lineTo(tx + spread, st.H); c.lineTo(tx - spread, st.H); c.closePath(); c.fill();
+  });
+}
+
+// ---------------------------------------------------------------- The field
+// Drawn into its own canvas (st.fl) for the posts' spot and redrawn only when that moves: the turf in mowed stripes;
+// the white border round it; the end zone in navy with the name across it, its letters laid flat on the turf, and a
+// pylon at each corner; the lines and hashes; the line of scrimmage in blue, as on TV; behind the end zone, the wall
+// and the stands. Over it, a texture of blades (drawTurf: finer toward the far end), the same whatever the spot.
+let GRASS = null;
+function grass() {
+  if (GRASS) return GRASS;
+  const n = 128, cv = document.createElement('canvas'), r = seeded(11);
+  cv.width = cv.height = n;
+  const c = cv.getContext('2d');
+  c.lineCap = 'round';
+  for (let i = 0; i < 1500; i++) {
+    const x = r() * n, y = r() * n, l = 2 + r() * 4, a = (r() - .5) * .6;
+    c.strokeStyle = r() < .55 ? `rgba(0,30,0,${(.12 + r() * .16).toFixed(2)})` : `rgba(190,255,170,${(.06 + r() * .1).toFixed(2)})`;
+    c.lineWidth = 1 + r() * .7; c.beginPath(); c.moveTo(x, y); c.lineTo(x + Math.sin(a) * l, y - Math.cos(a) * l); c.stroke();
+  }
+  return (GRASS = cv);
+}
+/** The blades over the turf: a layer drawn once per size, laid over the field up to the wall behind the end zone. */
+function drawTurf(st, c, sc) {
+  const top = Math.floor(st.y0);
+  if (!st.tex || st.tex.w !== st.W || st.tex.h !== st.H || st.tex.dpr !== st.dpr) {
+    const cv = document.createElement('canvas'), H = st.H - top;
+    cv.width = Math.round(st.W * st.dpr); cv.height = Math.round(H * st.dpr);
+    const tc = cv.getContext('2d'), pat = tc.createPattern(grass(), 'repeat');
+    tc.setTransform(st.dpr, 0, 0, st.dpr, 0, 0);
+    for (let i = 0, n = 6; i < n && pat; i++) {
+      const ya = H * Math.pow(i / n, 1.5), yb = H * Math.pow((i + 1) / n, 1.5), k = .14 + .8 * (i + .5) / n;
+      try { pat.setTransform(new DOMMatrix([k, 0, 0, k, 0, 0])); } catch (_) {}
+      tc.globalAlpha = .38 + .3 * i / n; tc.fillStyle = pat; tc.fillRect(0, ya, st.W, yb - ya + .5);
+    }
+    st.tex = {w: st.W, h: st.H, dpr: st.dpr, cv};
+  }
+  const from = Math.min(st.H - 1, Math.max(top, Math.ceil(proj(st, sc.gx, 0, sc.d + 10).y)));
+  c.drawImage(st.tex.cv, 0, (from - top) * st.dpr, st.tex.cv.width, (st.H - from) * st.dpr, 0, from, st.W, st.H - from);
 }
 function drawField(st, c, sc) {
-  const {d, gx} = sc, zFar = d + 60, zNear = -2.8, gl = d - 10;
-  // beyond the sidelines, out to the stands
-  c.fillStyle = '#0E3A22'; c.fillRect(0, st.y0, st.W, st.H - st.y0);
-  // the field in 5-yard stripes back from the goal line; the end zone; past the end line, the turf beyond
-  const F = (z0, z1, col) => { c.fillStyle = col; quad(c, proj(st, gx - FIELD.half, 0, z0), proj(st, gx + FIELD.half, 0, z0), proj(st, gx + FIELD.half, 0, z1), proj(st, gx - FIELD.half, 0, z1)); c.fill(); };
-  for (let j = 0; gl - j * 5 > zNear - 5; j++) F(Math.max(zNear, gl - (j + 1) * 5), gl - j * 5, j % 2 ? '#1E7A3E' : '#228645');
-  F(gl, d, '#17633A');
-  F(d, zFar, '#145A33');
-  // a soft light pool down the middle
+  const fonts = (document.fonts && document.fonts.status) || '';
+  const key = `${st.W}x${st.H}@${st.dpr}:${sc.d.toFixed(2)},${sc.gx.toFixed(2)}:${fonts}`;
+  if (!st.fl || st.fl.key !== key) {
+    const top = Math.floor(st.y0), h = st.H - top;
+    const cv = st.fl ? st.fl.cv : document.createElement('canvas'), cw = Math.round(st.W * st.dpr), ch = Math.round(h * st.dpr);
+    if (cv.width !== cw || cv.height !== ch) { cv.width = cw; cv.height = ch; }
+    const fc = cv.getContext('2d');
+    fc.setTransform(1, 0, 0, 1, 0, 0); fc.clearRect(0, 0, cw, ch);
+    fc.setTransform(st.dpr, 0, 0, st.dpr, 0, -top * st.dpr);
+    paintField(st, fc, sc, top);
+    st.fl = {key, cv, top, h};
+  }
+  c.drawImage(st.fl.cv, 0, st.fl.top, st.W, st.fl.h);
+}
+function paintField(st, c, sc, top) {
+  const {d, gx} = sc, {W, H, y0} = st, zFar = d + 60, zNear = -2.8, gl = d - 10, hw = FIELD.half;
+  const F = (z0, z1, col, x0 = gx - hw, x1 = gx + hw) => { c.fillStyle = col; quad(c, proj(st, x0, 0, z0), proj(st, x1, 0, z0), proj(st, x1, 0, z1), proj(st, x0, 0, z1)); c.fill(); };
+  // beyond the sidelines; the white border round the field
+  c.fillStyle = '#0C3420'; c.fillRect(0, y0, W, H - y0);
+  F(zNear - 6, d + 2, '#E6EBE6', gx - hw - 2, gx + hw + 2);
+  // the field in 5-yard stripes back from the goal line, cut across in lighter lanes; the end zone; past the end line
+  for (let j = 0; gl - j * 5 > zNear - 5; j++) F(Math.max(zNear - 6, gl - (j + 1) * 5), gl - j * 5, j % 2 ? '#1D7A3D' : '#238847');
+  for (let j = -5; j < 5; j += 2) F(zNear - 6, gl, 'rgba(255,255,255,.035)', gx + j * hw / 5, gx + (j + 1) * hw / 5);
+  F(gl, d, '#17295E');
+  F(d + 2, zFar, '#0F4429', gx - hw - 2, gx + hw + 2);
+  endZoneName(st, c, sc, top);
+  // a soft pool of light down the middle, darker toward the edges
   const lp = proj(st, gx, 0, d * .6);
-  const rg = c.createRadialGradient(lp.x, lp.y, 4, lp.x, lp.y, st.W * .8);
-  rg.addColorStop(0, 'rgba(255,255,255,.08)'); rg.addColorStop(1, 'rgba(255,255,255,0)');
-  c.fillStyle = rg; c.fillRect(0, st.y0, st.W, st.H - st.y0);
+  const rg = c.createRadialGradient(lp.x, lp.y, 4, lp.x, lp.y, W * .8);
+  rg.addColorStop(0, 'rgba(255,255,255,.09)'); rg.addColorStop(1, 'rgba(255,255,255,0)');
+  c.fillStyle = rg; c.fillRect(0, y0, W, H - y0);
+  endStands(st, c, sc);
   // lines: the yard lines, goal line, end line, sidelines; the hashes
-  c.strokeStyle = 'rgba(255,255,255,.82)';
-  const across = (z, w = .12, x0 = gx - FIELD.half, x1 = gx + FIELD.half) => {
+  c.strokeStyle = 'rgba(255,255,255,.85)';
+  const across = (z, w = .12, x0 = gx - hw, x1 = gx + hw) => {
     if (z < zNear) return;
     const a = proj(st, x0, 0, z), b = proj(st, x1, 0, z);
     c.lineWidth = Math.max(1, w * a.s * .55); c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.stroke();
   };
   for (let j = 5; gl - j > zNear; j += 5) across(gl - j);
-  across(gl, .2); across(d, .2);
+  across(gl, .22); across(d, .22);
   // the line of scrimmage, as on TV
-  c.strokeStyle = 'rgba(70,160,255,.8)'; across(K.LINE.z, .16);
-  c.strokeStyle = 'rgba(255,255,255,.82)';
+  c.strokeStyle = 'rgba(70,160,255,.85)'; across(K.LINE.z, .16);
+  c.strokeStyle = 'rgba(255,255,255,.85)';
   c.lineWidth = 1.5;
-  [-1, 1].forEach(s => { const a = proj(st, gx + s * FIELD.half, 0, zNear), b = proj(st, gx + s * FIELD.half, 0, d); c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.stroke(); });
-  c.strokeStyle = 'rgba(255,255,255,.55)';
+  [-1, 1].forEach(s => { const a = proj(st, gx + s * hw, 0, zNear), b = proj(st, gx + s * hw, 0, d); c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.stroke(); });
+  c.strokeStyle = 'rgba(255,255,255,.6)';
   for (let j = 1; gl - j > zNear; j++) {
     if (j % 5 === 0) continue;
     [-1, 1].forEach(s => across(gl - j, .08, gx + s * FIELD.hash - .35, gx + s * FIELD.hash + .35));
   }
+  // the pylons at the end zone's corners
+  [gl, d].forEach(z => [-1, 1].forEach(s => {
+    const x = gx + s * (hw + .06), p = proj(st, x, 0, z), q = proj(st, x, .5, z), w = Math.max(1.6, .14 * p.s);
+    if (p.x < -10 || p.x > W + 10) return;
+    c.fillStyle = '#FF6A1A'; c.fillRect(p.x - w / 2, q.y, w, p.y - q.y);
+    c.fillStyle = 'rgba(255,255,255,.75)'; c.fillRect(p.x - w / 2, q.y + (p.y - q.y) * .4, w, Math.max(.7, (p.y - q.y) * .12));
+  }));
+}
+// The fans behind the end zone, drawn once: rows of them on a strip STRIP.half yards either side of the middle, k px a
+// yard (each row's shoulders .8 of the way down its band).
+const STRIP = {k: 28, half: 80, rows: 8, cv: null};
+function crowdStrip() {
+  if (STRIP.cv) return STRIP.cv;
+  const cv = document.createElement('canvas'), K2 = STRIP.k, r = seeded(31);
+  cv.width = STRIP.half * 2 * K2; cv.height = STRIP.rows * K2;
+  const c = cv.getContext('2d');
+  for (let j = 0; j < STRIP.rows; j++) {
+    const base = (j + .8) * K2;
+    c.fillStyle = 'rgba(120,150,230,.12)'; c.fillRect(0, base + K2 * .2, cv.width, 1.5);
+    for (let x = r() * 10; x < cv.width; x += K2 * .62 * (.9 + r() * .25)) { if (r() >= .07) fan(c, x, base, K2 * .58, r); }
+  }
+  return (STRIP.cv = cv);
+}
+/** Ten yards behind the end line: the wall round the field (padded, a ribbon board along it) and the first rows of the
+ *  stands rising back from it, up to the horizon (where the backdrop's stands carry on). The fans stay put as the
+ *  field moves (each seat is a spot in the world). */
+function endStands(st, c, sc) {
+  const {d, gx} = sc, {W, y0, f} = st, zw = d + 10, back = K.CAM.back;
+  const w0 = proj(st, gx, 0, zw), w1 = proj(st, gx, 1.3, zw);
+  if (w1.y <= y0 + 1) return;
+  c.fillStyle = '#0A1129'; c.fillRect(0, y0, W, w1.y - y0 + .5);
+  // the rows, back to front: each a strip of fans (crowdStrip) scaled to its distance
+  const strip = crowdStrip(), rows = [];
+  for (let j = 0; j < 60; j++) {
+    const z = zw + .8 + j * .85, y = 1.8 + j * .48;
+    if (proj(st, gx, y, z).y < y0 - 3) break;
+    rows.push({j, z, y});
+  }
+  rows.reverse().forEach(({j, z, y}) => {
+    const p = proj(st, -STRIP.half, y, z), k = p.s / STRIP.k, h = STRIP.k * k;
+    c.drawImage(strip, 0, (j % STRIP.rows) * STRIP.k, strip.width, STRIP.k, p.x, p.y - .8 * h, strip.width * k, h);
+  });
+  // the light reaches the front rows more than the back
+  const lg = c.createLinearGradient(0, y0, 0, w1.y);
+  lg.addColorStop(0, 'rgba(3,6,18,.42)'); lg.addColorStop(1, 'rgba(3,6,18,.16)');
+  c.fillStyle = lg; c.fillRect(0, y0, W, w1.y - y0);
+  // the wall: navy padding, a ribbon board lit along its top, words going round
+  const wh = w0.y - w1.y;
+  c.fillStyle = '#14214F'; c.fillRect(0, w1.y, W, wh);
+  const rbH = wh * .45;
+  c.fillStyle = '#062016'; c.fillRect(0, w1.y + wh * .12, W, rbH);
+  c.fillStyle = 'rgba(62,240,143,.65)'; c.fillRect(0, w1.y + wh * .12, W, Math.max(.6, wh * .03));
+  c.fillStyle = 'rgba(170,190,255,.45)'; c.fillRect(0, w1.y, W, Math.max(.6, wh * .04));
+  if (rbH >= 4) {
+    c.font = `800 ${(rbH * .8).toFixed(1)}px "Barlow Condensed", "Arial Narrow", sans-serif`; c.textBaseline = 'middle'; c.textAlign = 'center';
+    const words = ['KICK IT', '★', 'GRIDIRON', '★'], every = 7, Z = zw + back, k0 = Math.floor(-W / 2 * Z / f / every) - 1, k1 = Math.ceil(W / 2 * Z / f / every) + 1;
+    for (let k = k0; k <= k1; k++) {
+      const w = words[((k % 4) + 4) % 4], p = proj(st, k * every, 0, zw);
+      c.fillStyle = w === '★' ? '#F2C94C' : '#3EF08F'; c.fillText(w, p.x, w1.y + wh * .12 + rbH * .55);
+    }
+  }
+  c.fillStyle = 'rgba(0,0,0,.3)'; c.fillRect(0, w0.y, W, Math.max(1, wh * .12));
+}
+/** The name across the end zone, white with a navy edge, each letter laid flat on the turf where it lies (faint when
+ *  the end zone is close, just behind the line, where it would only show in bits between the players). */
+function endZoneName(st, c, sc, top) {
+  const {d, gx} = sc, gl = d - 10, word = 'GRIDIRON', S = 100, za = gl + 2.8, zb = gl + 7.2, span = 26;
+  const a = Math.max(0, Math.min(1, (za - 12) / 8)) * .85;
+  if (a < .04) return;
+  c.save();
+  c.globalAlpha = a;
+  c.font = `800 ${S}px "Barlow Condensed", "Arial Narrow", sans-serif`;
+  c.textAlign = 'center'; c.textBaseline = 'alphabetic'; c.lineJoin = 'round';
+  const ws = [...word].map(ch => c.measureText(ch).width + S * .1), tot = ws.reduce((a, b) => a + b, 0), kx = span / tot, kz = (zb - za) / (S * .72);
+  let left = gx - span / 2;
+  [...word].forEach((ch, i) => {
+    const cx = left + ws[i] * kx / 2;
+    left += ws[i] * kx;
+    const p0 = proj(st, cx, 0, za), zm = (za + zb) / 2, pm = proj(st, cx, 0, zm), p1 = proj(st, cx + 1, 0, zm), pz = proj(st, cx, 0, zb);
+    if (p0.x < -60 || p0.x > st.W + 60) return;
+    const ax = (p1.x - pm.x) * kx, ay = (p1.y - pm.y) * kx, bx = (pz.x - p0.x) / (zb - za) * kz, by = (pz.y - p0.y) / (zb - za) * kz;
+    c.setTransform(st.dpr * ax, st.dpr * ay, -st.dpr * bx, -st.dpr * by, st.dpr * p0.x, st.dpr * (p0.y - top));
+    c.lineWidth = S * .12; c.strokeStyle = '#0A1435'; c.strokeText(ch, 0, 0);
+    c.fillStyle = '#F2F5FB'; c.fillText(ch, 0, 0);
+  });
+  c.restore();
 }
 function drawPosts(st, c, sc, t) {
   const {d, gx, w, dir} = sc, {half, bar, top} = K.POST;
   const P = (x, y, z) => proj(st, x, y, z);
-  const base = P(gx, 0, d + 2), neck = P(gx, bar, d + 2), mid = P(gx, bar, d);
   const lw = s => Math.max(2, .16 * s);
-  c.lineCap = 'round';
-  const pole = (a, b) => {
-    c.strokeStyle = '#B8901A'; c.lineWidth = lw(a.s) + 1.5; c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.stroke();
-    c.strokeStyle = '#FFD23F'; c.lineWidth = lw(a.s); c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.stroke();
+  c.lineCap = 'round'; c.lineJoin = 'round';
+  // a pole: its dark edge, the gold, a shine down its left side (the top of the crossbar)
+  const pole = (path, w0, flat) => {
+    c.strokeStyle = '#8A680A'; c.lineWidth = w0 + 1.8; path(0, 0); c.stroke();
+    c.strokeStyle = '#F6C624'; c.lineWidth = w0; path(0, 0); c.stroke();
+    c.strokeStyle = 'rgba(255,248,205,.9)'; c.lineWidth = Math.max(.8, w0 * .28); path(flat ? 0 : -w0 * .22, flat ? -w0 * .22 : 0); c.stroke();
   };
-  // the padding at the base
-  c.fillStyle = '#1F3F8A'; const pb = P(gx, 2, d + 2); c.fillRect(base.x - lw(base.s) * 1.3, pb.y, lw(base.s) * 2.6, base.y - pb.y);
-  pole(base, neck); pole(neck, mid);
-  pole(P(gx - half, bar, d), P(gx + half, bar, d));
-  pole(P(gx - half, bar, d), P(gx - half, top, d));
-  pole(P(gx + half, bar, d), P(gx + half, top, d));
+  const seg = (a, b) => (ox, oy) => { c.beginPath(); c.moveTo(a.x + ox, a.y + oy); c.lineTo(b.x + ox, b.y + oy); };
+  // the gooseneck: up from behind the end line, curving forward to the middle of the crossbar
+  const base = P(gx, 0, d + 2), knee = P(gx, bar - 1.2, d + 2), bend = P(gx, bar, d + 2), mid = P(gx, bar, d);
+  pole((ox, oy) => { c.beginPath(); c.moveTo(base.x + ox, base.y + oy); c.lineTo(knee.x + ox, knee.y + oy); c.quadraticCurveTo(bend.x + ox, bend.y + oy, mid.x + ox, mid.y + oy); }, lw(base.s) * 1.2);
+  // the padding round its foot: navy, rounded by the light, two white bands
+  const pt = P(gx, 2.1, d + 2), pw = Math.max(3, lw(base.s) * 1.7), ph = base.y - pt.y;
+  const pg = c.createLinearGradient(base.x - pw, 0, base.x + pw, 0);
+  pg.addColorStop(0, '#2A4185'); pg.addColorStop(.3, '#3D5AAE'); pg.addColorStop(1, '#121D47');
+  c.fillStyle = pg; c.fillRect(base.x - pw, pt.y, pw * 2, ph);
+  c.fillStyle = 'rgba(255,255,255,.85)';
+  c.fillRect(base.x - pw, pt.y + ph * .1, pw * 2, Math.max(.8, ph * .05)); c.fillRect(base.x - pw, pt.y + ph * .82, pw * 2, Math.max(.8, ph * .05));
+  // the crossbar and the uprights
+  const L = P(gx - half, bar, d), R = P(gx + half, bar, d);
+  pole(seg(L, R), lw(L.s), true);
+  pole(seg(L, P(gx - half, top, d)), lw(L.s));
+  pole(seg(R, P(gx + half, top, d)), lw(R.s));
   // the ribbons on top: blown with the wind (sideways and toward or away), flapping a little
   const a = dir * Math.PI / 180, s = Math.min(1, w / 10);
   [-1, 1].forEach(k => {
     const at = P(gx + k * half, top, d);
     const len = Math.max(13, 2.4 * at.s) * (.55 + .75 * s), flap = Math.sin(t * 9 + k) * .25 * s;
     const ex = at.x + Math.sin(a) * len * (.25 + s), ey = at.y + len * (1 - s * .85) * .9 + flap * len - Math.cos(a) * s * len * .25;
-    c.strokeStyle = '#FF6A2B'; c.lineWidth = Math.max(2.5, .12 * at.s);
-    c.beginPath(); c.moveTo(at.x, at.y); c.quadraticCurveTo((at.x + ex) / 2 + flap * len, (at.y + ey) / 2 - flap * len * .3, ex, ey); c.stroke();
+    const cx = (at.x + ex) / 2 + flap * len, cy = (at.y + ey) / 2 - flap * len * .3;
+    c.strokeStyle = '#E2531C'; c.lineWidth = Math.max(3, .14 * at.s);
+    c.beginPath(); c.moveTo(at.x, at.y); c.quadraticCurveTo(cx, cy, ex, ey); c.stroke();
+    c.strokeStyle = '#FF9A4A'; c.lineWidth = Math.max(1, .05 * at.s);
+    c.beginPath(); c.moveTo(at.x - .8, at.y); c.quadraticCurveTo(cx - .8, cy, ex - .8, ey); c.stroke();
   });
 }
 // ---------------------------------------------------------------- The wall in the goal
@@ -310,99 +581,171 @@ function drawObstacle(st, c, o, t, pop, shake) {
   c.scale(b.s * pop, -b.s * pop); // yards, y up
   try { (OB_DRAW[o.t] || OB_DRAW.wall)(c, o, t); } finally { c.restore(); }
 }
-// ---------------------------------------------------------------- The line of scrimmage and the holder
-// Seven yards out (core/kick.js LINE): your blockers in navy, their backs to us, a wing at each end; the rush in red
-// across from them, crouched till the kick, then up with their arms high. The holder kneels at the spot, left of the
-// ball, a finger on its tip. All in yards from a player's feet, y up.
+// ---------------------------------------------------------------- The players
+// Flat, shaded figures after a field-goal illustration: ours in navy jerseys with white sleeve caps and numbers, gray
+// pants with a navy stripe, white socks, black cleats, navy helmets with a white stripe; the rush in red and white. The
+// light comes from the upper left. Seven yards out (core/kick.js LINE): our line, backs to us (the snapper, guards,
+// tackles, ends, and a wing set back at each end), the rush across from them; crouched till the kick, then the
+// blockers rise and the rush leaps with arms up. All in yards from a player's feet, y up (the canvas is flipped).
 const KIT = {
-  us: {jersey: '#1F3B8F', dark: '#132559', pants: '#D9DDE6', helmet: '#1F3B8F', mark: '#FFFFFF', num: '#FFFFFF'},
-  them: {jersey: '#C62828', dark: '#7E1717', pants: '#F1F1F1', helmet: '#F4F4F4', mark: '#C62828', num: '#FFFFFF'}
+  us: {jersey: '#1B2A5C', shade: '#111B3F', hem: '#0C1430', cap: '#E8EBF2', capShade: '#B9C0CF', num: '#FFFFFF', numEdge: '#6E7FB3',
+    pants: '#CDD2DC', pantsShade: '#A8AFBD', stripe: '#1B2A5C', sock: '#F3F4F7', cleat: '#14161B',
+    helmet: '#1B2A5C', helmetStripe: '#F4F6FA', mask: '#C4CAD4', glove: '#151C36'},
+  them: {jersey: '#B3201F', shade: '#851618', hem: '#5E0F11', cap: '#FFFFFF', capShade: '#D7D8DE', num: '#FFFFFF', numEdge: '#6E0E10',
+    pants: '#F3F3F5', pantsShade: '#D0D2D9', stripe: '#B3201F', sock: '#B3201F', cleat: '#14161B',
+    helmet: '#F2F3F5', helmetStripe: '#B3201F', mask: '#4E535C', glove: '#F4F4F6'}
 };
-const US = [[-4.6, 77], [-3.45, 64], [-2.3, 71], [-1.15, 66], [0, 52], [1.15, 68], [2.3, 75], [3.45, 62], [4.6, 87], [-5.7, 85], [5.7, 84]];
-const THEM = [[-5.2, 91], [-3.9, 55], [-2.6, 97], [-1.3, 94], [0, 99], [1.3, 93], [2.6, 98], [3.9, 54], [5.2, 90]];
-function drawPlayer(c, kit, num, {front = false, crouch = 1, jump = 0, arms = 0} = {}) {
-  const hip = .95 - .3 * crouch, sh = hip + .72 - .22 * crouch, head = sh + .22, spread = .2 + .12 * crouch;
-  c.save(); c.translate(0, jump * .55);
-  // shoes, legs, pants
-  c.fillStyle = '#16181D';
-  [-1, 1].forEach(k => c.fillRect(k * spread - .12, 0, .24, .12));
-  c.fillStyle = kit.pants;
-  [-1, 1].forEach(k => c.fillRect(k * spread - .1, .1, .2, hip - .1));
-  c.fillRect(-.36, hip - .3, .72, .36);
-  // the arms: down at the sides, or up high (the rush)
-  c.strokeStyle = kit.jersey; c.lineCap = 'round'; c.lineWidth = .17;
-  [-1, 1].forEach(k => {
-    const ex = k * (.52 + .1 * (1 - arms)), ey = arms > .05 ? sh + .78 * arms : hip - .05;
-    c.beginPath(); c.moveTo(k * .4, sh - .06); c.lineTo(ex, ey); c.stroke();
-    c.fillStyle = '#ECECEC'; c.beginPath(); c.arc(ex, ey + (arms > .05 ? .06 : -.04), .08, 0, Math.PI * 2); c.fill();
-  });
-  // the jersey, the pads, the number
-  c.fillStyle = kit.jersey;
-  c.beginPath(); c.moveTo(-.36, hip); c.lineTo(.36, hip); c.lineTo(.46, sh); c.lineTo(-.46, sh); c.closePath(); c.fill();
-  c.beginPath(); c.ellipse(0, sh, .52, .12, 0, 0, Math.PI * 2); c.fill();
-  c.fillStyle = kit.dark; c.fillRect(-.36, hip, .72, .05);
-  c.save(); c.scale(.02, -.02); c.fillStyle = kit.num; c.textAlign = 'center'; c.textBaseline = 'middle';
-  c.font = `800 ${Math.round(Math.max(8, (sh - hip) * 30))}px "Barlow Condensed", "Arial Narrow", sans-serif`;
-  c.fillText(String(num), 0, -((hip + sh) / 2) * 50); c.restore();
-  // the helmet: a stripe down the back, or a face mask in front
-  c.fillStyle = kit.helmet; c.beginPath(); c.arc(0, head, .21, 0, Math.PI * 2); c.fill();
-  if (front) {
-    c.strokeStyle = '#8A8F99'; c.lineWidth = .045;
-    c.beginPath(); c.moveTo(-.15, head - .02); c.lineTo(.15, head - .02); c.moveTo(-.13, head - .1); c.lineTo(.13, head - .1); c.moveTo(0, head - .02); c.lineTo(0, head - .18); c.stroke();
-  } else {
-    c.strokeStyle = kit.mark; c.lineWidth = .06; c.beginPath(); c.moveTo(0, head - .2); c.lineTo(0, head + .2); c.stroke();
-  }
+const US = [[-4.05, 85, .7], [-3.15, 87], [-2.1, 77], [-1.05, 64], [0, 48], [1.05, 66], [2.1, 71], [3.15, 82], [4.05, 89, .7]]; // x, number, set back
+const THEM = [[-4.75, 56], [-3.7, 91], [-2.65, 97], [-1.6, 93], [-.55, 99], [.55, 95], [1.6, 98], [2.65, 94], [3.7, 90], [4.75, 54]];
+const skinOf = n => SKIN[(n * 7) % SKIN.length];
+const mixP = (a, b, u) => [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u];
+function limb(c, a, b, w, col) { c.strokeStyle = col; c.lineWidth = w; c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(b[0], b[1]); c.stroke(); }
+function oval(c, x, y, rx, ry, col) { c.fillStyle = col; c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); c.fill(); }
+/** A jersey number, white with an edge, centered at (x, y), h yards tall. */
+function numberAt(c, k, num, x, y, h) {
+  if (h < .07) return;
+  c.save(); c.translate(x, y); c.scale(h / 72 * .85, -h / 72);
+  c.font = '800 100px "Barlow Condensed", "Arial Narrow", sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.lineJoin = 'round'; c.lineWidth = 16; c.strokeStyle = k.numEdge; c.strokeText(String(num), 0, 5);
+  c.fillStyle = k.num; c.fillText(String(num), 0, 5);
   c.restore();
 }
+/** The jersey's body, waist to shoulders, shaded down its right side; the pads across the top; the sleeve caps. */
+function jersey(c, k, waist, sh, lean = 0) {
+  c.fillStyle = k.jersey;
+  c.beginPath(); c.moveTo(-.31, waist); c.lineTo(.31, waist); c.lineTo(.45 + lean, sh - .03); c.quadraticCurveTo(lean, sh + .1, -.45 + lean, sh - .03); c.closePath(); c.fill();
+  c.fillStyle = k.shade;
+  c.beginPath(); c.moveTo(.13, waist); c.lineTo(.31, waist); c.lineTo(.45 + lean, sh - .03); c.quadraticCurveTo(.32 + lean, sh + .03, .2 + lean, sh + .05); c.closePath(); c.fill();
+  c.fillStyle = k.hem; c.fillRect(-.31, waist, .62, .045);
+  [-1, 1].forEach(s => oval(c, s * .41 + lean, sh - .05, .13, .1, s < 0 ? k.cap : k.capShade));
+}
+function pantsSeat(c, k, waist, low) {
+  c.fillStyle = k.pants;
+  c.beginPath(); c.moveTo(-.32, waist + .02); c.lineTo(.32, waist + .02); c.quadraticCurveTo(.37, low + .04, .19, low); c.lineTo(-.19, low); c.quadraticCurveTo(-.37, low + .04, -.32, waist + .02); c.fill();
+  c.fillStyle = 'rgba(0,0,0,.1)';
+  c.beginPath(); c.moveTo(.06, waist + .02); c.lineTo(.32, waist + .02); c.quadraticCurveTo(.37, low + .04, .19, low); c.lineTo(.06, low); c.fill();
+}
+/** An arm: the white sleeve, the bare arm, the glove. */
+function arm(c, k, skin, s, sp, el, hd) {
+  limb(c, sp, el, .19, skin); limb(c, el, hd, .16, skin);
+  limb(c, sp, mixP(sp, el, .42), .22, s < 0 ? k.cap : k.capShade);
+  oval(c, hd[0], hd[1], .09, .085, k.glove);
+}
+/** Legs: thighs in the pants down past the knee, socks to the cleats, a stripe down the outside. */
+function legs(c, k, hip, kx, ky, fx) {
+  [-1, 1].forEach(s => {
+    const hj = [s * .16, hip - .04], kn = [s * kx, ky], an = [s * fx, .13];
+    limb(c, kn, an, .18, k.sock);
+    oval(c, s * fx, .06, .12, .072, k.cleat);
+    limb(c, hj, kn, .27, s < 0 ? k.pants : k.pantsShade);
+    limb(c, kn, mixP(kn, an, .22), .22, s < 0 ? k.pants : k.pantsShade);
+    limb(c, [s * .28, hip - .02], [s * (kx + .1), ky + .08], .035, k.stripe);
+  });
+}
+function helmetBack(c, k, x, y) {
+  oval(c, x, y, .2, .205, k.helmet);
+  c.save(); c.beginPath(); c.ellipse(x, y, .2, .205, 0, 0, Math.PI * 2); c.clip();
+  c.fillStyle = 'rgba(0,0,0,.22)'; c.fillRect(x + .07, y - .25, .2, .5);
+  c.fillStyle = k.helmetStripe; c.fillRect(x - .045, y - .25, .09, .5);
+  c.fillStyle = 'rgba(0,0,0,.3)'; c.fillRect(x - .25, y - .22, .5, .06);
+  c.restore();
+  oval(c, x - .09, y + .08, .045, .07, 'rgba(255,255,255,.3)');
+}
+function helmetFront(c, k, skin, x, y) {
+  oval(c, x, y, .2, .205, k.helmet);
+  c.save(); c.beginPath(); c.ellipse(x, y, .2, .205, 0, 0, Math.PI * 2); c.clip();
+  c.fillStyle = 'rgba(0,0,0,.14)'; c.fillRect(x + .08, y - .25, .2, .5);
+  c.fillStyle = k.helmetStripe; c.fillRect(x - .035, y + .07, .07, .2);
+  c.restore();
+  // the face in the helmet's shadow, behind the mask
+  oval(c, x, y - .06, .12, .1, skin);
+  c.fillStyle = 'rgba(0,0,0,.38)'; c.fillRect(x - .12, y - .02, .24, .05);
+  c.strokeStyle = k.mask; c.lineWidth = .032;
+  c.beginPath();
+  c.moveTo(x - .15, y - .02); c.lineTo(x + .15, y - .02);
+  c.moveTo(x - .13, y - .1); c.lineTo(x + .13, y - .1);
+  c.moveTo(x, y - .02); c.lineTo(x, y - .18);
+  c.moveTo(x - .15, y - .02); c.quadraticCurveTo(x - .14, y - .16, x - .05, y - .19);
+  c.moveTo(x + .15, y - .02); c.quadraticCurveTo(x + .14, y - .16, x + .05, y - .19);
+  c.stroke();
+  oval(c, x - .09, y + .09, .045, .06, 'rgba(255,255,255,.4)');
+}
+/** One of ours on the line, from behind: crouch 1 is set in the stance, less as the player rises to block. */
+function drawBack(c, k, skin, num, crouch) {
+  const hip = .98 - .36 * crouch, sh = hip + .74 - .4 * crouch, head = sh + .19 + .07 * (1 - crouch), waist = hip + .1;
+  c.lineCap = 'round'; c.lineJoin = 'round';
+  // the arms reach ahead: behind the body, but for the elbows out at the sides
+  [-1, 1].forEach(s => arm(c, k, skin, s, [s * .38, sh - .06], [s * (.58 - .05 * crouch), sh - .3 + .12 * (1 - crouch)], [s * .3, sh - .42 + .2 * (1 - crouch)]));
+  legs(c, k, hip, .31 + .07 * crouch, .5 - .12 * crouch, .3 + .05 * crouch);
+  pantsSeat(c, k, waist, hip - .2);
+  jersey(c, k, waist - .02, sh);
+  numberAt(c, k, num, 0, (waist + sh) / 2, Math.min(.4, (sh - waist) * .6));
+  if (head - sh > .21) limb(c, [0, sh], [0, head - .1], .14, skin);
+  helmetBack(c, k, 0, head);
+}
+/** One of the rush, from the front: crouched in the stance, hands down; up with arms high (arms 0-1) as it's kicked. */
+function drawFront(c, k, skin, num, crouch, arms) {
+  const hip = .98 - .36 * crouch, sh = hip + .72 - .38 * crouch, head = sh + .19 + .07 * (1 - crouch), waist = hip + .1;
+  c.lineCap = 'round'; c.lineJoin = 'round';
+  legs(c, k, hip, .3 + .08 * crouch, .5 - .1 * crouch, .28 + .05 * crouch);
+  pantsSeat(c, k, waist, hip - .18);
+  jersey(c, k, waist - .02, sh);
+  numberAt(c, k, num, 0, (waist + sh) / 2 + .02, Math.min(.4, (sh - waist) * .6));
+  if (head - sh > .21) limb(c, [0, sh], [0, head - .1], .14, skin);
+  helmetFront(c, k, skin, 0, head);
+  [-1, 1].forEach(s => arm(c, k, skin, s, [s * .4, sh - .06], mixP([s * .5, sh - .32], [s * .56, sh + .32], arms), mixP([s * .3, Math.max(.1, sh - .68)], [s * .44, sh + .74], arms)));
+}
 function drawLine(st, c, side, f) {
-  const us = side === 'us', z = K.LINE.z + (us ? -.5 : .6), kit = KIT[side];
-  // the rush leaps as the ball's kicked and comes back down; the blockers rise out of their stance
-  const t = f ? f.t : 0, arms = f && !us ? Math.min(1, t / .15) : 0, jump = f && !us ? Math.max(0, Math.sin(Math.min(1, t / .8) * Math.PI)) : 0;
-  const crouch = us ? (f ? Math.max(.45, 1 - t * 2) : 1) : 1 - arms * .8;
-  (us ? US : THEM).forEach(([x, num]) => {
-    const wing = us && Math.abs(x) > 5;
-    const b = proj(st, x, 0, z - (wing ? .6 : 0));
-    if (b.s <= 0) return;
-    c.fillStyle = 'rgba(0,0,0,.25)'; c.beginPath(); c.ellipse(b.x, b.y, .5 * b.s, .12 * b.s, 0, 0, Math.PI * 2); c.fill();
-    c.save(); c.translate(b.x, b.y); c.scale(b.s, -b.s);
-    drawPlayer(c, kit, num, {front: !us, crouch, jump, arms});
+  const us = side === 'us', k = KIT[side], t = f ? f.t : 0;
+  // the rush leaps as the ball's kicked, pushing in a little, and comes back down; the blockers rise out of their stance
+  const arms = f && !us ? Math.min(1, t / .15) : 0, jump = f && !us ? Math.max(0, Math.sin(Math.min(1, t / .8) * Math.PI)) : 0;
+  const crouch = us ? (f ? Math.max(.45, 1 - t * 2) : 1) : 1 - arms * .8, surge = f && !us ? Math.min(1, t / .5) * .35 : 0;
+  (us ? US : THEM).map(([x, num, back = 0]) => ({x, num, z: K.LINE.z + (us ? -.5 - back : .6 - surge)})).sort((a, b) => b.z - a.z).forEach(p => {
+    const b = proj(st, p.x, 0, p.z);
+    if (b.s <= 0 || b.x < -b.s || b.x > st.W + b.s) return;
+    c.fillStyle = 'rgba(0,0,0,.28)'; c.beginPath(); c.ellipse(b.x, b.y, .55 * b.s, .13 * b.s, 0, 0, Math.PI * 2); c.fill();
+    c.save(); c.translate(b.x, b.y - jump * .5 * b.s); c.scale(b.s, -b.s);
+    if (us) drawBack(c, k, skinOf(p.num), p.num, crouch); else drawFront(c, k, skinOf(p.num), p.num, crouch, arms);
     c.restore();
   });
 }
 // The holder kneels at the ball's right (a right-footed kicker comes in from the left), back to us, facing the line: the
-// right knee down, its shin flat on the turf toward us; the left knee up; the left hand reaching over to the ball's tip,
-// the right on the thigh. hand: true draws just the fingers on the tip, over the ball.
-const HOLD = {x: .78, z: .02};
-function drawHolder(st, c, hand) {
-  const b = proj(st, HOLD.x, 0, HOLD.z), kit = KIT.us;
+// right knee down, its shin flat on the turf toward us (the cleat's sole showing); the left knee up; the left hand on
+// the ball's tip, the right on the thigh; the head turned to the ball. As it's kicked the hand comes away. hand: true
+// draws just the glove on the tip, over the ball.
+const HOLD = {x: .78, z: .02, num: 4};
+function drawHolder(st, c, hand, f) {
+  const b = proj(st, HOLD.x, 0, HOLD.z), k = KIT.us, skin = SKIN[3];
   c.save(); c.translate(b.x, b.y); c.scale(b.s, -b.s);
-  const bx = -HOLD.x, top = BALL.len; // the ball's tip, from the knee
+  c.lineCap = 'round'; c.lineJoin = 'round';
+  const bx = -HOLD.x, top = BALL.len, off = f ? Math.min(1, f.t / .12) : 0;
+  const tip = mixP([bx + .05, top + .05], [bx + .3, top + .42], off);
   if (hand) {
-    c.fillStyle = '#ECECEC'; c.beginPath(); c.ellipse(bx + .03, top + .02, .065, .045, 0, 0, Math.PI * 2); c.fill();
+    limb(c, [tip[0] - .02, tip[1] - .02], [bx + .005, top - .005], .035, k.glove);
+    oval(c, tip[0], tip[1], .075, .052, k.glove);
     c.restore();
     return;
   }
-  c.fillStyle = 'rgba(0,0,0,.25)'; c.beginPath(); c.ellipse(-.02, -.02, .5, .1, 0, 0, Math.PI * 2); c.fill();
-  // the left leg, knee up, foot out ahead; the right knee down, its shin and cleat toward us
-  c.fillStyle = kit.pants; c.fillRect(-.27, .06, .2, .4);
-  c.fillStyle = '#16181D'; c.beginPath(); c.ellipse(.15, -.06, .11, .06, 0, 0, Math.PI * 2); c.fill();
-  c.fillStyle = kit.pants; c.fillRect(.04, -.05, .21, .62);
-  // the hips, the body leaning in a little, the pads, the number
-  c.beginPath(); c.moveTo(-.3, .4); c.lineTo(.3, .4); c.lineTo(.31, .66); c.lineTo(-.31, .66); c.closePath(); c.fill();
-  c.fillStyle = kit.jersey;
-  c.beginPath(); c.moveTo(-.3, .62); c.lineTo(.3, .62); c.lineTo(.4, 1.06); c.lineTo(-.4, 1.06); c.closePath(); c.fill();
-  c.beginPath(); c.ellipse(0, 1.06, .43, .1, 0, 0, Math.PI * 2); c.fill();
-  c.fillStyle = kit.dark; c.fillRect(-.3, .62, .6, .04);
-  c.save(); c.scale(.02, -.02); c.fillStyle = kit.num; c.textAlign = 'center'; c.textBaseline = 'middle';
-  c.font = '800 17px "Barlow Condensed", "Arial Narrow", sans-serif'; c.fillText('4', 0, -42); c.restore();
-  // the arms: the right down to the thigh, the left out and down to the ball
-  c.strokeStyle = kit.jersey; c.lineCap = 'round'; c.lineJoin = 'round'; c.lineWidth = .13;
-  c.beginPath(); c.moveTo(.33, 1.0); c.lineTo(.36, .74); c.lineTo(.24, .6); c.stroke();
-  c.beginPath(); c.moveTo(-.33, 1.0); c.lineTo(-.56, .7); c.lineTo(bx + .1, top + .08); c.stroke();
-  c.fillStyle = '#ECECEC'; c.beginPath(); c.arc(.22, .58, .06, 0, Math.PI * 2); c.fill();
-  // the helmet, from behind: a stripe down the middle
-  c.fillStyle = kit.helmet; c.beginPath(); c.arc(0, 1.24, .17, 0, Math.PI * 2); c.fill();
-  c.strokeStyle = kit.mark; c.lineWidth = .05; c.beginPath(); c.moveTo(0, 1.08); c.lineTo(0, 1.4); c.stroke();
+  oval(c, -.02, -.03, .52, .1, 'rgba(0,0,0,.28)');
+  // the left leg, knee up and out ahead, seen past the body's left side
+  limb(c, [-.27, .55], [-.3, .15], .17, k.sock);
+  limb(c, [-.15, .5], [-.27, .58], .25, k.pantsShade);
+  // the right leg: the thigh straight down to the knee on the turf, the shin flat toward us, the sole and its studs
+  limb(c, [.15, .48], [.15, .1], .27, k.pants);
+  limb(c, [.15, .08], [.16, -.06], .2, k.sock);
+  oval(c, .165, -.12, .1, .07, k.cleat);
+  c.fillStyle = '#6A707C';
+  [[-.05, -.03], [.045, -.02], [-.035, .03], [.04, .035], [0, 0]].forEach(([dx, dy]) => { c.beginPath(); c.arc(.165 + dx, -.12 + dy, .016, 0, Math.PI * 2); c.fill(); });
+  pantsSeat(c, k, .62, .4);
+  jersey(c, k, .6, 1.0, -.05);
+  numberAt(c, k, HOLD.num, -.02, .8, .26);
+  // the right arm down to the thigh; the left out to the ball
+  arm(c, k, skin, 1, [.36, .95], [.44, .72], [.27, .57]);
+  arm(c, k, skin, -1, [-.47, .93], mixP([-.68, .66], [-.64, .84], off), tip);
+  // the head turned to the ball: a sliver of the face mask shows on the left
+  helmetBack(c, k, -.1, 1.19);
+  c.strokeStyle = k.mask; c.lineWidth = .032;
+  c.beginPath(); c.moveTo(-.29, 1.24); c.quadraticCurveTo(-.34, 1.13, -.26, 1.05); c.stroke();
   c.restore();
 }
 // A bonk: a star where the ball hit, for a moment.
@@ -424,18 +767,29 @@ function drawBall(st, c, b, spin, onTee) {
   c.fillStyle = `rgba(0,0,0,${.38 * Math.max(0, 1 - b.y / 9)})`;
   c.beginPath(); c.ellipse(sh.x, sh.y, Wd * .7, Wd * .22, 0, 0, Math.PI * 2); c.fill();
   // tumbling end over end, seen from behind: as wide as the ball always, as tall as it shows its length (held: on its
-  // tip on the turf, under the holder's finger)
-  const tall = Math.max(Wd, L * Math.abs(Math.cos(spin)));
+  // tip on the turf, under the holder's finger). The leather lit from the upper left, darker to its ends; the seams
+  // down its length; the laces when they're on the side toward us.
+  const tall = Math.max(Wd, L * Math.abs(Math.cos(spin))), long = tall > Wd * 1.25;
   c.save(); c.translate(p.x, onTee ? sh.y - L / 2 : p.y);
-  const g = c.createLinearGradient(-Wd / 2, -tall / 2, Wd / 2, tall / 2);
-  g.addColorStop(0, '#B45A2A'); g.addColorStop(.55, '#7A3415'); g.addColorStop(1, '#4E200C');
+  const g = c.createRadialGradient(-Wd * .18, -tall * .2, Wd * .04, 0, 0, Math.max(Wd, tall) * .6);
+  g.addColorStop(0, '#D2874D'); g.addColorStop(.5, '#96471D'); g.addColorStop(1, '#4C1F0A');
   c.fillStyle = g; c.beginPath(); c.ellipse(0, 0, Wd / 2, tall / 2, 0, 0, Math.PI * 2); c.fill();
-  c.strokeStyle = 'rgba(0,0,0,.35)'; c.lineWidth = 1; c.stroke();
-  if (tall > Wd * 1.25) { // the laces, when it shows its side
-    c.strokeStyle = 'rgba(255,255,255,.9)'; c.lineWidth = Math.max(1, Wd * .07);
-    c.beginPath(); c.moveTo(0, -tall * .22); c.lineTo(0, tall * .22); c.stroke();
-    for (let i = -2; i <= 2; i++) { c.beginPath(); c.moveTo(-Wd * .1, i * tall * .08); c.lineTo(Wd * .1, i * tall * .08); c.stroke(); }
+  c.strokeStyle = 'rgba(30,10,2,.55)'; c.lineWidth = 1; c.stroke();
+  const fine = L >= 13;
+  if (fine) {
+    c.strokeStyle = 'rgba(35,12,3,.5)'; c.lineWidth = Math.max(.7, Wd * .03);
+    if (long) { c.beginPath(); c.ellipse(0, 0, Wd * .22, tall * .47, 0, 0, Math.PI * 2); c.stroke(); }
+    else { c.beginPath(); c.moveTo(-Wd * .32, 0); c.lineTo(Wd * .32, 0); c.moveTo(0, -tall * .32); c.lineTo(0, tall * .32); c.stroke(); }
   }
+  if (long && (onTee || Math.sin(spin) >= 0)) {
+    c.strokeStyle = 'rgba(255,255,255,.92)'; c.lineWidth = Math.max(1, Wd * .07); c.lineCap = 'butt';
+    c.beginPath(); c.moveTo(0, -tall * .24); c.lineTo(0, tall * .24); c.stroke();
+    const n = fine ? 7 : 5;
+    c.lineWidth = Math.max(.8, Wd * .05);
+    for (let i = 0; i < n; i++) { const y = -tall * .2 + tall * .4 * i / (n - 1); c.beginPath(); c.moveTo(-Wd * .11, y); c.lineTo(Wd * .11, y); c.stroke(); }
+  }
+  // a shine
+  c.fillStyle = 'rgba(255,228,196,.32)'; c.beginPath(); c.ellipse(-Wd * .17, -tall * .17, Wd * .1, tall * .15, 0, 0, Math.PI * 2); c.fill();
   c.restore();
 }
 // The ball's streak: where it was over the last third of a second, fading out behind it.
@@ -460,8 +814,10 @@ function draw(st, now = performance.now()) {
   c.setTransform(st.dpr, 0, 0, st.dpr, 0, 0);
   c.clearRect(0, 0, st.W, st.H);
   const sc = st.scene, t = now / 1000;
-  drawSky(st, c);
+  drawSky(st, c, t);
   drawField(st, c, sc);
+  drawTurf(st, c, sc);
+  drawBeams(st, c);
   // the ball behind the posts is drawn before them, in front after
   const f = st.flight, ball = f ? f.call.pos(f.t) : {x: 0, y: .15, z: 0};
   const spin = f ? f.t * 12 : 0;
@@ -471,9 +827,11 @@ function draw(st, now = performance.now()) {
   const obs = sc.obs || [], hitOb = f && f.call.hit && f.t >= f.call.tHit ? f.call.hit : null;
   const items = [{z: sc.d + .01, draw: () => drawPosts(st, c, sc, t)}]
     .concat(obs.map(o => ({z: o.z, ob: true, draw: () => drawObstacle(st, c, o, t, sc.pop == null ? 1 : sc.pop, o === hitOb ? Math.max(0, 1 - (f.t - f.call.tHit) * 2.5) : 0)})));
-  items.push({z: K.LINE.z + .6, ob: true, draw: () => drawLine(st, c, 'them', f)}, {z: K.LINE.z - .5, draw: () => drawLine(st, c, 'us', f)}, {z: HOLD.z, draw: () => drawHolder(st, c, false)});
+  // the players as the kick left them, till the next one's set up
+  const pose = f || st.spent || null;
+  items.push({z: K.LINE.z + .6, ob: true, draw: () => drawLine(st, c, 'them', pose)}, {z: K.LINE.z - .5, draw: () => drawLine(st, c, 'us', pose)}, {z: HOLD.z, draw: () => drawHolder(st, c, false, pose)});
   if (st.ballOn !== false) items.push({z: ball.z, draw: () => drawBall(st, c, ball, spin, !f)});
-  if (st.ballOn !== false && !f) items.push({z: -.01, draw: () => drawHolder(st, c, true)});
+  if (st.ballOn !== false && !f) items.push({z: -.01, draw: () => drawHolder(st, c, true, null)});
   items.sort((p, q) => q.z - p.z);
   const lastOb = items.map(x => !!x.ob).lastIndexOf(true);
   items.forEach((x, i) => {
@@ -481,6 +839,13 @@ function draw(st, now = performance.now()) {
     if (i === lastOb) { c.save(); c.globalAlpha = .4; drawPosts(st, c, sc, t); c.restore(); }
   });
   if (f && f.call.hit) drawBonk(st, c, f);
+  // the corners in shadow
+  if (!st.vig || st.vig.w !== st.W || st.vig.h !== st.H) {
+    const R = Math.hypot(st.W, st.H) / 2, g = c.createRadialGradient(st.W / 2, st.H * .52, R * .45, st.W / 2, st.H * .52, R * 1.05);
+    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.38)');
+    st.vig = {w: st.W, h: st.H, g};
+  }
+  c.fillStyle = st.vig.g; c.fillRect(0, 0, st.W, st.H);
   // the flick's trail while the finger is down
   if (st.drag && st.drag.pts.length > 1) {
     c.strokeStyle = 'rgba(255,255,255,.35)'; c.lineWidth = 3; c.lineCap = 'round';
@@ -578,7 +943,7 @@ function loop(st) {
       const callAt = f.call.tCross != null ? f.call.tCross : f.call.tHit;
       if (!f.called && callAt != null && f.t >= callAt) { f.called = true; showCall(st, f.call, f.wind); }
       // down: the ball's gone until the next one's on the tee
-      if (f.t >= f.call.tEnd) { if (!f.called) { f.called = true; showCall(st, f.call, f.wind); } st.flight = null; st.ballOn = false; settle(st, f.call); }
+      if (f.t >= f.call.tEnd) { if (!f.called) { f.called = true; showCall(st, f.call, f.wind); } st.flight = null; st.spent = f; st.ballOn = false; settle(st, f.call); }
       else more = true;
     }
     if (st.move) {
@@ -594,6 +959,14 @@ function loop(st) {
   };
   st.raf = requestAnimationFrame(step);
 }
+/** Between kicks, a frame now and then (about 14 a second) so the flags flap, the stars twinkle and the crowd's phones
+ *  flash; not while the field is off the screen, and not at all with reduced motion. */
+function idle(st) {
+  if (st.dead || st.raf || ui.RM || !st.cv) return;
+  const r = st.cv.getBoundingClientRect();
+  if (!r.width || r.bottom < 0 || r.top > innerHeight || r.right < 0 || r.left > innerWidth) return;
+  draw(st);
+}
 const WIND_SAYS = {took: 'The wind took it', carried: 'The wind carried it through'};
 function showCall(st, call, wind) {
   const el = st.el.querySelector('[data-kk-call]');
@@ -602,6 +975,7 @@ function showCall(st, call, wind) {
   const note = call.hit ? call.hit.says || (K.OBSTACLES[call.hit.t] || {}).says : wind ? WIND_SAYS[wind] : '';
   el.innerHTML = `<span>${esc(callWords(call))}</span>${note ? `<span class="kk-call-w">${esc(note)}</span>` : ''}`;
   el.className = `kk-call is-in ${call.made ? 'is-good' : 'is-miss'}${note ? ' has-w' : ''}`;
+  if (call.made) st.cheer = performance.now() + 2600; // the crowd's phones go off
   ui.haptic(call.made ? 'success' : 'error');
 }
 function settle(st, call) {
@@ -618,6 +992,7 @@ function settle(st, call) {
     const k = st.kicks[st.i];
     st.move = {a: from, b: {d: k.d, gx: k.gx, w: k.w, dir: k.dir, obs: k.obs || []}, t0: performance.now(), ms: ui.RM ? 1 : (k.obs && k.obs.length ? 900 : 650)};
     st.ballOn = true;
+    st.spent = null;
     st.busy = false;
     patchHud(st);
     loop(st);
@@ -733,6 +1108,7 @@ function setDay(st, n) {
   // a finished run shows the last kick's spot; one under way, the next
   setScene(st, st.kicks[st.day.done ? Math.max(0, st.day.list.length - 1) : st.i]);
   st.ballOn = !st.day.done;
+  st.spent = null;
 }
 
 // ============================================================================ Lifecycle
@@ -784,6 +1160,7 @@ export function mount(el, ctx) {
   addEventListener('resize', st.onResize, {passive: true});
   st.unsub = daily.subscribe(type => { if (type === 'lb' || type === 'ready' || type === 'error') patchBoard(st); });
   st.stopTick = ctx.timer(() => tick(st), 20000);
+  st.stopLife = ctx.timer(() => idle(st), 70);
   K.autoPost();
   armGuide(st);
   // laid out: the field fills the screen while a run is on
@@ -834,5 +1211,6 @@ export function unmount(el, ctx) {
   removeEventListener('resize', st.onResize);
   if (st.unsub) st.unsub();
   if (st.stopTick) st.stopTick();
+  if (st.stopLife) st.stopLife();
   ST.delete(ctx);
 }
