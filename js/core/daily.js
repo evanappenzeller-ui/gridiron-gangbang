@@ -174,6 +174,21 @@ function loadDS(raw, day, pnum) {
 
 export function saveDS() { try { localStorage.setItem(SKEY, JSON.stringify(DS)); } catch (_) {} }
 
+// Test play (the owner's: views/testplay.js): today's puzzles again in a sandbox, whenever he needs to test them.
+// Progress goes under a key of its own ('gg-daily-N-test', started fresh each time), is never posted and never counts
+// toward the streak; ending it brings the real day's progress back as it was. A new day ends it.
+export let TEST = false;
+/** Turns test play on (a fresh sandbox of today's puzzles) or off (back to the real day). False before the puzzles. */
+export function setTest(on) {
+  if (!PZ) return false;
+  TEST = !!on;
+  SKEY = 'gg-daily-' + PNUM + (TEST ? '-test' : '');
+  if (TEST) { try { localStorage.removeItem(SKEY); } catch (_) {} }
+  DS = readDS(SKEY, DAY, PNUM);
+  emit('progress', {action: 'test'});
+  return true;
+}
+
 function initDay(pz) {
   PZ = pz;
   PP = PZ.P;
@@ -186,6 +201,7 @@ function initDay(pz) {
   PROMPTS = promptsFor(DAY);
   TODAY_LABEL = devDay ? dayLabel(PNUM, {long: true}) : new Date().toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'});
   SKEY = 'gg-daily-' + PNUM;
+  TEST = false;
   DS = readDS(SKEY, DAY, PNUM);
   seenIndex = dayIndex;
   deepCache.clear();
@@ -840,7 +856,7 @@ export const dupeToday = () => !!LB.ready && dupeAt(LB.raw || LB.players);
 // this phone hasn't finished the day itself, the day is closed here: the puzzles don't open and no action plays.
 // Returns that board entry ({p, ...}), or null. Unknown until the board loads (and never with the board off).
 export function playedElsewhere() {
-  if (!LB.ready || LB.off || !DS || !DAY || allDone()) return null;
+  if (TEST || !LB.ready || LB.off || !DS || !DAY || allDone()) return null; // (test play is never shut)
   const list = LB.raw || LB.players || [];
   const mine = list.find(p => p.id === LB.uid);
   const own = entryFor(mine);
@@ -964,14 +980,14 @@ try {
 } catch (_) {}
 
 export function maybeAutoPost() {
-  if (!allDone() || DS.posted || !LB.save || !LB.ready || LB.posting || LB.status === 'denied' || LB.status === 'full') return;
+  if (TEST || !allDone() || DS.posted || !LB.save || !LB.ready || LB.posting || LB.status === 'denied' || LB.status === 'full') return;
   // Already on the board today from another of this member's phones: the first score stands.
   if (dupeAt(LB.raw || LB.players)) { if (LB.status !== 'dupe') { LB.status = 'dupe'; lbChanged('status'); } return; }
   postScore(postName());
 }
 
 export async function postScore(nick) {
-  if (!LB.save || LB.posting) return;
+  if (TEST || !LB.save || LB.posting) return; // test play never posts
   LB.posting = true; LB.status = 'posting'; lbChanged('status');
   const me = LB.players.find(p => p.id === LB.uid);
   const days = Object.assign({}, me && me.days);
@@ -1297,7 +1313,7 @@ export function streakLocal() {
       consider(+m[1], freshDS(raw, day));
     }
   } catch (_) {}
-  if (PNUM) consider(PNUM, DS);
+  if (PNUM) consider(PNUM, TEST ? readDS('gg-daily-' + PNUM, DAY, PNUM) : DS); // (the real day, not test play)
   const todayDone = done.has(PNUM);
   let current = 0;
   for (let n = todayDone ? PNUM : PNUM - 1; n >= 1 && done.has(n); n--) current++;

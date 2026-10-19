@@ -1,7 +1,7 @@
-// Kick It checks for the dev gallery (#/_kit): the day's kicks (core/kick.js: the same on every phone, longer, wider
-// and windier as the run goes, things in the way from the fifth), the kick's physics and its calls (good, wide, off an
-// upright or the bar, short, blocked; the wind's push; the swipe's shape bending it), the swipe read as a kick, every
-// kick makeable, a run's numbers, and the league scoreboard's rows (on crafted board docs),
+// Kick It checks for the dev gallery (#/_kit): the day's kicks (core/kick.js: the same on every phone, longer and
+// wider as the run goes; the wind and the wall by makes), the kick's physics and its calls (good, wide, off an upright
+// or the bar, short, blocked; the wind's push, the ball riding it, no curve), the swipe read as a kick, every kick
+// makeable, a run's numbers, and the league scoreboard's rows (on crafted board docs),
 // which read the board as this phone may see it (THE RULE, CLAUDE.md). checks.js (owner: core) imports kickChecks and
 // calls it with its own check(name, fn) helper; every fn returns true or {pass, detail}. Nothing here writes to storage
 // or the database. Owner: KICK.
@@ -23,8 +23,8 @@ function legFor(k, y) {
 }
 
 export async function kickChecks(check) {
-  // 1. The day's kicks
-  check('Kick It: day 1 is Oct 18 2026; a day\'s 40 kicks are the same every time (the same on every phone) and differ day to day; distances 18-62 yards, the first three chip shots near the middle, the posts wandering further off and the kicks getting longer and windier as the run goes; wind 0-14 mph, any heading: a breeze from the first kick, about 3 mph on average by kicks 4-10, twice that late in a run', () => {
+  // 1. The day's kicks, and the weather by makes
+  check('Kick It: day 1 is Oct 18 2026; a day\'s 40 kicks are the same every time (the same on every phone) and differ day to day; distances 18-62 yards, the first three chip shots near the middle, the posts wandering further off and the kicks getting longer as the run goes; the kicks themselves are in calm air (the wind and the wall go by makes)', () => {
     const one = K.todayNumber(new Date(2026, 9, 18, 9)) === 1 && K.todayNumber(new Date(2026, 9, 19, 23, 59)) === 2 && K.todayNumber(new Date(2026, 9, 1)) === 1
       && K.dateOf(3).getDate() === 20;
     const a = K.kicks(5), b = K.kicks(5), c = K.kicks(6);
@@ -34,19 +34,32 @@ export async function kickChecks(check) {
     for (let n = 1; n <= 40; n++) {
       const ks = K.kicks(n);
       ks.forEach((k, i) => {
-        const ok = k.i === i && Number.isInteger(k.d) && k.d >= 18 && k.d <= 62 && Math.abs(k.gx) <= Math.min(17, 3 + i * .9) + 1e-9
-          && Number.isInteger(k.w) && k.w >= 0 && k.w <= 14 && k.dir >= 0 && k.dir <= 360;
+        const ok = k.i === i && Number.isInteger(k.d) && k.d >= 18 && k.d <= 62 && Math.abs(k.gx) <= Math.min(17, 3 + i * .9) + 1e-9 && k.w === 0 && !k.obs.length;
         if (!ok && bad.length < 3) bad.push(`day ${n} kick ${i}: ${JSON.stringify(k)}`);
         shape = shape && ok;
       });
       shape = shape && ks.slice(0, 3).every(k => k.d <= 29 && Math.abs(k.gx) <= 5);
     }
     const avg = (n, from, to, f) => { let s = 0, m = 0; for (let d = 1; d <= n; d++) K.kicks(d).slice(from, to).forEach(k => { s += f(k); m++; }); return s / m; };
-    const grows = avg(30, 25, 40, k => k.d) > avg(30, 0, 10, k => k.d) + 20 && avg(30, 25, 40, k => k.w) > avg(30, 0, 10, k => k.w) * 2
-      && avg(30, 25, 40, k => Math.abs(k.gx)) > avg(30, 0, 10, k => Math.abs(k.gx)) * 2;
-    const early = avg(30, 3, 10, k => k.w);
-    const pass = one && same && shape && grows && early >= 2.5;
-    return {pass, detail: `days ${one}; same ${same}; in range ${shape}${bad.length ? ' (' + bad.join('; ') + ')' : ''}; harder later ${grows}; wind on kicks 4-10 ${early.toFixed(1)} mph`};
+    const grows = avg(30, 25, 40, k => k.d) > avg(30, 0, 10, k => k.d) + 20 && avg(30, 25, 40, k => Math.abs(k.gx)) > avg(30, 0, 10, k => Math.abs(k.gx)) * 2;
+    const pass = one && same && shape && grows;
+    return {pass, detail: `days ${one}; same ${same}; in range and calm ${shape}${bad.length ? ' (' + bad.join('; ') + ')' : ''}; longer and wider later ${grows}`};
+  });
+  check('Kick It: the weather goes by makes: calm air for the first three makes; then wind (4-8 mph) till the fifth make; from the fifth it picks up with every make (to 26 mph at most, never more than leaves the kick makeable); from the seventh make the wall; the same kick with the same makes is the same on every phone', () => {
+    const avg = (made, f) => { let s = 0, m = 0; for (let n = 1; n <= 20; n++) for (let i = made; i < Math.min(K.MAX_KICKS, made + 4); i++) { s += f(K.kickFor(n, i, made)); m++; } return s / m; };
+    const wind = m => avg(m, k => k.w), walls = m => avg(m, k => k.obs.length);
+    let calm = true, breeze = true, cap = true;
+    for (let n = 1; n <= 20; n++) for (let i = 0; i < K.MAX_KICKS; i += 3) {
+      [0, 1, 2].forEach(m => { const k = K.kickFor(n, i, m); calm = calm && k.w === 0 && !k.obs.length; });
+      [3, 4].forEach(m => { const k = K.kickFor(n, i, m); breeze = breeze && k.w <= 8 && !k.obs.length; });
+      [5, 9, 14, 20].forEach(m => { const k = K.kickFor(n, i, m); cap = cap && k.w <= K.WIND_MAX && k.dir >= 0 && k.dir <= 360 && Number.isInteger(k.w); });
+    }
+    const rising = wind(3) >= 4 && wind(5) > wind(4) + 2 && wind(7) > wind(5) + 2 && wind(10) > wind(7) + 3 && wind(12) > 18;
+    const wall = walls(6) === 0 && walls(7) === 1 && walls(12) === 1;
+    const same = JSON.stringify(K.kickFor(4, 9, 6)) === JSON.stringify(K.kickFor(4, 9, 6)) && K.nextKick(4, [['good', 20], ['good', 22], ['short', 25], ['good', 30]]).w === K.kickFor(4, 4, 3).w;
+    const consts = K.WIND_FROM === 3 && K.WIND_GROWS === 5 && K.WALL_FROM === 7;
+    const pass = calm && breeze && cap && rising && wall && same && consts;
+    return {pass, detail: `calm till 3 made ${calm}; a breeze at 3-4 ${breeze} (${wind(3).toFixed(1)}, ${wind(4).toFixed(1)} mph); then ${[5, 7, 10, 12].map(m => `${m} made ${wind(m).toFixed(1)}`).join(', ')} mph; capped ${cap}; walls at 6 / 7 / 12 made ${walls(6)} / ${walls(7)} / ${walls(12)}; the same ${same}`};
   });
 
   // 2. The kick
@@ -62,85 +75,81 @@ export async function kickChecks(check) {
       && Math.abs(good.pos(good.tCross).z - 30) < 1e-6 && good.pos(0).y === 0;
     return {pass, detail: `good ${good.why} (${good.at && good.at.y.toFixed(1)} yds up), weak ${weak.why}, right ${off.why}, left ${offL.why}, upright ${post.why}, bar ${bar.why}, just over ${justOver.why}, 45 from the left hash ${angled.why}`};
   });
-  check('Kick It: the wind is the big factor: 7 mph across blows a straight 40-yarder 4 or 5 yards its way; a kick aimed into it hangs up (in a 7 mph wind to the left a 40-yarder can\'t get far to the right, though in calm air it could go 20 yards that way), a bend into it is blown out (it barely gets right at all) while a bend with it keeps its arc; aiming into it just enough makes it good, and the call says what the wind did; even a chip shot moves; a tailwind carries a kick short in calm air over the bar, a headwind knocks a good one down', () => {
+  check('Kick It: the ball rides the wind, and it\'s the big factor: 7 mph across blows a straight 40-yarder 6 to 8 yards its way, 15 mph twice that; aiming into it just enough makes it good, and the call says what the wind did; even a chip shot moves; a tailwind carries a kick short in calm air over the bar, a headwind knocks a good one down; the swipe\'s shape doesn\'t bend it', () => {
     const k = (w, dir, d = 40) => ({i: 0, d, gx: 0, w, dir, obs: []});
-    const toR = straight(k(7, 90)), toL = straight(k(7, 270)), drift = toR.at ? toR.at.x : 0;
-    const furthest = kk => { let far = -99; for (let th = 0; th <= 1.05; th += .01) { const c = K.fly(kk, {theta: th, v: 28, bend: 0, tilt: 0}); if (c.at) far = Math.max(far, c.at.x); } return far; };
-    const hungRight = furthest(k(7, 270)), calmRight = furthest(calm(40));
-    const most = (c, f) => { let m = 0; for (let t = 0; t < c.tEnd; t += .02) m = f(m, c.pos(t).x); return m; };
-    const bendIn = most(K.fly(k(7, 270), {theta: 0, v: 28, bend: .4, tilt: 0}), Math.max), bendWith = most(K.fly(k(7, 270), {theta: 0, v: 28, bend: -.4, tilt: 0}), Math.min);
+    const toR = straight(k(7, 90), 28), toL = straight(k(7, 270), 28), drift = toR.at ? toR.at.x : 0;
+    const strong = straight(k(15, 90), 28), drift15 = strong.at ? strong.at.x : 0;
     // aim into it just enough: the aim where it crosses the middle
     let lo = 0, hi = 1;
-    for (let j = 0; j < 40; j++) { const m = (lo + hi) / 2, c = K.fly(k(7, 90), {theta: -m, v: 28, bend: 0, tilt: 0}); if (c.at && c.at.x > 0) lo = m; else hi = m; }
-    const intoL = {theta: -(lo + hi) / 2, v: 28, bend: 0, tilt: 0}, into = K.fly(k(7, 90), intoL);
+    for (let j = 0; j < 40; j++) { const m = (lo + hi) / 2, c = K.fly(k(7, 90), {theta: -m, v: 28}); if (c.at && c.at.x > 0) lo = m; else hi = m; }
+    const intoL = {theta: -(lo + hi) / 2, v: 28}, into = K.fly(k(7, 90), intoL);
     const says = [K.windCall(k(7, 90), {theta: 0, v: 28}, toR), K.windCall(k(7, 90), intoL, into), K.windCall(calm(40), {theta: 0, v: 28}, straight(calm(40), 28))].join();
     const chip = straight(k(4, 90, 20), 28), chipDrift = chip.at ? chip.at.x : 0;
     const vShort = legFor(calm(40), K.POST.bar) - .6, calmShort = straight(calm(40), vShort);
     const tail = straight(k(10, 0), vShort), head = straight(k(10, 180), vShort + 1.2), calmOk = straight(calm(40), vShort + 1.2);
-    const pass = toR.why === 'wide-r' && toL.why === 'wide-l' && drift > 3.5 && drift < 5.5 && hungRight < 11 && calmRight > 20
-      && bendIn < .5 && bendWith < -4 && into.made && says === 'took,carried,' && chipDrift > .8
-      && calmShort.why === 'short' && tail.made && calmOk.made && !head.made;
-    return {pass, detail: `7 mph across: ${toR.why} (${drift.toFixed(2)} yds), the other way ${toL.why}; into a 7 mph wind to the left it gets ${hungRight.toFixed(1)} yds right at most (calm ${calmRight.toFixed(1)}); a bend into it ${bendIn.toFixed(2)} yds right, with it ${bendWith.toFixed(1)}; aimed into it ${(intoL.theta * 57.3).toFixed(0)} deg: ${into.why}; the call: ${says}; a 20-yarder in 4 mph moves ${chipDrift.toFixed(2)} yds; leg ${vShort.toFixed(1)}: calm ${calmShort.why}, tailwind ${tail.why}; a little more: calm ${calmOk.why}, headwind ${head.why}`};
+    // no curving it: a launch is its aim and its leg; a bend passed in does nothing
+    const L = K.launchOf({dx: 0, dy: -220, speed: 1, curve: {bend: .4, tilt: .2}});
+    const noBend = Object.keys(L).sort().join() === 'theta,v' && K.fly(calm(40), {theta: 0, v: 26, bend: .4, tilt: .2}).at.x === K.fly(calm(40), {theta: 0, v: 26}).at.x && !('curveOf' in K);
+    const pass = toR.why === 'wide-r' && toL.why === 'wide-l' && drift > 6 && drift < 8 && drift15 > drift * 1.9 && into.made && says === 'took,carried,' && chipDrift > 1.2
+      && calmShort.why === 'short' && tail.made && calmOk.made && !head.made && noBend;
+    return {pass, detail: `7 mph across: ${toR.why} (${drift.toFixed(2)} yds), the other way ${toL.why}; 15 mph ${drift15.toFixed(1)} yds; aimed into it ${(intoL.theta * 57.3).toFixed(0)} deg: ${into.why}; the call: ${says}; a 20-yarder in 4 mph moves ${chipDrift.toFixed(2)} yds; leg ${vShort.toFixed(1)}: calm ${calmShort.why}, tailwind ${tail.why}; a little more: calm ${calmOk.why}, headwind ${head.why}; no bend ${noBend}`};
   });
-  check('Kick It: however strong the wind and wherever the wall is, every kick can be made: on days 1-8, each one has a leg, a bend and an aim that go through, with room to spare (at least 2 degrees of aim in one unbroken run)', () => {
+  check('Kick It: however strong the wind and wherever the wall is, every kick can be made: on days 1-6, every kick with any number of makes before it has a leg and an aim that go through, with room to spare (at least 2 degrees of aim in one unbroken run)', () => {
     let worst = 9, where = '', none = [];
-    for (let n = 1; n <= 8; n++) K.kicks(n).forEach(k => {
+    for (let n = 1; n <= 6; n++) for (let i = 0; i < K.MAX_KICKS; i++) for (const made of [0, 3, 5, 7, 10, 14, 20].filter(m => m <= i)) {
+      const k = K.kickFor(n, i, made);
       let best = 0;
-      [30, 28.5, 27, 25.5].forEach(v => [0, -.15, .15, -.3, .3, -.45, .45].forEach(bend => {
+      [30, 28.5, 27, 25.5, 24, 22.5].forEach(v => {
         if (best >= .06) return; // plenty already
         let lo = null;
         for (let th = -1.1; th <= 1.1; th += .006) {
-          if (K.fly(k, {theta: th, v, bend, tilt: 0}).made) { if (lo == null) lo = th; best = Math.max(best, th - lo); } else lo = null;
+          if (K.fly(k, {theta: th, v}).made) { if (lo == null) lo = th; best = Math.max(best, th - lo); } else lo = null;
         }
-      }));
-      if (!best) none.push(`day ${n} kick ${k.i + 1}`);
-      else if (best < worst) { worst = best; where = `day ${n} kick ${k.i + 1} (${k.d} yds, ${k.w} mph, ${k.obs.map(o => o.t).join('+') || 'nothing in the way'})`; }
-    });
+      });
+      if (!best) none.push(`day ${n} kick ${i + 1} (${made} made)`);
+      else if (best < worst) { worst = best; where = `day ${n} kick ${i + 1} (${made} made: ${k.d} yds, ${k.w} mph, ${k.obs.map(o => o.t).join('+') || 'nothing in the way'})`; }
+    }
     const deg = worst * 180 / Math.PI;
     return {pass: !none.length && deg >= 2, detail: none.length ? `can't be made: ${none.slice(0, 4).join(', ')}` : `the tightest: ${deg.toFixed(1)} degrees, ${where}`};
   });
-  check('Kick It: from the fifth kick a brick wall stands in the goal, flush with an upright, closing a quarter or half of the opening, as tall as the uprights: a quarter through the ninth kick, half most of the time from the twentieth; nothing else on the field', () => {
+  check('Kick It: from the seventh make a brick wall stands in the goal\'s opening, on the crossbar and up to the uprights\' tops against one upright, closing a quarter or half of the opening: a quarter for the first three makes with it, half most of the time from six more; nothing else on the field', () => {
     let ok = true, halves = 0, lates = 0;
     const bad = [], seen = new Set();
-    for (let n = 1; n <= 20; n++) K.kicks(n).forEach(k => {
-      let fine = k.i < K.OBS_FROM ? !k.obs.length : k.obs.length === 1 && k.obs[0].t === 'wall';
+    for (let n = 1; n <= 20; n++) for (let i = 0; i < K.MAX_KICKS; i++) [6, 7, 9, 13, 16].forEach(made => {
+      if (made > i) return;
+      const k = K.kickFor(n, i, made);
+      let fine = made < K.WALL_FROM ? !k.obs.length : k.obs.length === 1 && k.obs[0].t === 'wall';
       k.obs.forEach(w => {
         seen.add(w.t);
         const inner = w.x - w.face * w.half, upright = k.gx + w.face * K.POST.half, outer = w.x + w.face * w.half;
         const closes = Math.abs(upright - inner) / (K.POST.half * 2), half = Math.abs(closes - .5) < .03;
-        fine = fine && Math.abs(w.z - (k.d - .6)) < .06 && (Math.abs(closes - .25) < .03 || half) && Math.abs(Math.abs(outer - upright) - K.WALL_OUT) < .06 && w.h >= K.POST.top;
-        if (k.i < 9) fine = fine && !half;
-        if (k.i >= 19) { lates++; if (half) halves++; }
+        fine = fine && Math.abs(w.z - (k.d - .05)) < .06 && (Math.abs(closes - .25) < .03 || half) && Math.abs(outer - upright) < .01
+          && w.y0 === K.POST.bar && w.h === K.POST.top;
+        if (made < K.WALL_FROM + 3) fine = fine && !half;
+        if (made >= K.WALL_FROM + 6) { lates++; if (half) halves++; }
       });
-      if (!fine && bad.length < 3) bad.push(`day ${n} kick ${k.i + 1}: ${JSON.stringify(k.obs)}`);
+      if (!fine && bad.length < 3) bad.push(`day ${n} kick ${i + 1} (${made} made): ${JSON.stringify(k.obs)}`);
       ok = ok && fine;
     });
-    const pass = ok && [...seen].join() === 'wall' && Object.keys(K.OBSTACLES).join() === 'wall' && K.OBS_FROM === 4 && halves > lates * .45;
-    return {pass, detail: `kinds seen ${[...seen].join(', ')}; from kick 20 half the opening ${halves} of ${lates}${bad.length ? '; ' + bad.join('; ') : ''}`};
+    const pass = ok && [...seen].join() === 'wall' && Object.keys(K.OBSTACLES).join() === 'wall' && halves > lates * .45;
+    return {pass, detail: `kinds seen ${[...seen].join(', ')}; from 13 made half the opening ${halves} of ${lates}${bad.length ? '; ' + bad.join('; ') : ''}`};
   });
-  check('Kick It: the line of scrimmage is 7 yards out: a kick too soft to reach any posts is blocked there (called when it hits, with what stopped it), a real kick clears it; a wall across half the goal stops a kick at that half, the open half goes; the swipe\'s shape bends the kick: an even arc comes back to the line at the posts, a lopsided swipe doesn\'t', () => {
-    const open = calm(40), soft = K.fly(open, {theta: 0, v: 13, bend: 0, tilt: 0}), chip = straight(calm(18), 20);
+  check('Kick It: the line of scrimmage is 7 yards out: a kick too soft to reach any posts is blocked there (called when it hits, with what stopped it), a real kick clears it; a wall across half the opening stops a kick at that half, the open half goes, a kick under the bar is short (the wall is above it) and one high enough clears the wall', () => {
+    const open = calm(40), soft = K.fly(open, {theta: 0, v: 13}), chip = straight(calm(18), 20);
     const blocked = soft.why === 'blocked' && !!soft.hit && soft.hit.t === 'line' && soft.tHit > 0 && soft.tCross == null && soft.tEnd > soft.tHit && soft.hit.says === K.LINE.says && !!K.CALLS.blocked;
     // the softest leg that gets over the bar from the closest posts there are still clears the line with room
-    const least = legFor(calm(18), K.POST.bar), over = K.fly(calm(18), {theta: 0, v: least, bend: 0, tilt: 0});
+    const least = legFor(calm(18), K.POST.bar), over = K.fly(calm(18), {theta: 0, v: least});
     // and so does it in the strongest tailwind (which brings the ball to the line sooner, lower)
-    const tail = {i: 0, d: 18, gx: 0, w: 14, dir: 0}, tailOver = K.fly(tail, {theta: 0, v: legFor(tail, K.POST.bar), bend: 0, tilt: 0});
+    const tail = {i: 0, d: 18, gx: 0, w: K.WIND_MAX, dir: 0}, tailOver = K.fly(tail, {theta: 0, v: legFor(tail, K.POST.bar)});
     const clears = !over.hit && over.pos(over.tCross * K.LINE.reach / 18).y > K.LINE.h + .3 && !tailOver.hit && tailOver.made && K.LINE.z === 7;
-    const wall = {i: 9, d: 40, gx: 0, w: 0, dir: 0, obs: [{t: 'wall', x: -(K.POST.half + K.WALL_OUT) / 2, z: 39.4, half: (K.POST.half + K.WALL_OUT) / 2, h: 10.4, face: -1, share: .5}]};
-    const wallL = K.fly(wall, {theta: Math.atan(-1.5 / 40), v: 24, bend: 0, tilt: 0}), wallR = K.fly(wall, {theta: Math.atan(1.5 / 40), v: 24, bend: 0, tilt: 0});
-    // on an open field: an even bend lands where a straight kick does; a lopsided one doesn't
-    const at = l => K.fly(open, Object.assign({theta: 0, v: 26}, l)).at.x;
-    const even = Math.abs(at({bend: .35, tilt: 0}) - at({bend: 0, tilt: 0})) < .01, mid = Math.abs(K.fly(open, {theta: 0, v: 26, bend: .35, tilt: 0}).pos(.8).x) > 2;
-    const lop = Math.abs(at({bend: .2, tilt: .12}) - at({bend: 0, tilt: 0}));
-    // the shapes read off a swipe
-    const swipe = f => Array.from({length: 40}, (_, j) => { const u = j / 39; return {x: 200 + f(u) * 220, y: 600 - u * 220}; });
-    const st = K.curveOf(swipe(() => 0)), arc = K.curveOf(swipe(u => .25 * 4 * u * (1 - u))), semi = K.curveOf(swipe(u => -Math.sqrt(u * (1 - u))));
-    const skew = K.curveOf(swipe(u => 1.8 * Math.pow(u, 3) * (1 - u))), wob = K.curveOf(swipe(u => .02 * Math.sin(u * 19)));
-    const wobL = K.launchOf({dx: 0, dy: -220, speed: 1, curve: wob});
-    const shapes = st.bend === 0 && st.tilt === 0 && Math.abs(arc.bend - .25) < .01 && Math.abs(arc.tilt) < 1e-9 && semi.bend <= -.45 && Math.abs(semi.tilt) < 1e-9
-      && skew.tilt > .08 && wobL.bend === 0 && wobL.tilt === 0;
-    const pass = blocked && clears && chip.made && wallL.why === 'blocked' && wallR.made && even && mid && lop > .5 && shapes;
-    return {pass, detail: `the softest leg: ${soft.why}${soft.hit ? ' (' + soft.hit.says + ')' : ''}; just enough for an 18-yarder (${least.toFixed(1)}): ${over.why}, over the line by ${(over.pos(over.tCross * K.LINE.reach / 18).y - K.LINE.h).toFixed(1)} yds (in a 14 mph tailwind ${tailOver.why}); a chip shot ${chip.why}; at the walled half ${wallL.why}, the open half ${wallR.why}; even arc back on the line ${even} (out ${mid}); lopsided ends ${lop.toFixed(2)} yds off; shapes: arc ${arc.bend.toFixed(2)}/${arc.tilt.toFixed(2)}, half circle ${semi.bend.toFixed(2)}/${semi.tilt.toFixed(2)}, lopsided tilt ${skew.tilt.toFixed(2)}, a wobble reads straight ${wobL.bend === 0 && wobL.tilt === 0}`};
+    const W = d => ({i: 9, d, gx: 0, w: 0, dir: 0, obs: [{t: 'wall', x: -K.POST.half / 2, z: d - .05, half: K.POST.half / 2, y0: K.POST.bar, h: K.POST.top, face: -1, share: .5}]});
+    const wallL = K.fly(W(40), {theta: Math.atan(-1.5 / 40), v: 24}), wallR = K.fly(W(40), {theta: Math.atan(-1.5 / 40) * -1, v: 24});
+    const under = K.fly(W(40), {theta: Math.atan(-1.5 / 40), v: legFor(calm(40), K.POST.bar - .5)});
+    // a 30-yarder hit as hard as a leg can is still high at the posts: over the wall's top
+    const high = K.fly(W(30), {theta: Math.atan(-1.5 / 30), v: 30});
+    const pass = blocked && clears && chip.made && wallL.why === 'blocked' && wallL.hit && wallL.hit.t === 'wall' && wallR.made && under.why !== 'blocked' && !under.made
+      && !!high.at && high.at.y > K.POST.top && high.made;
+    return {pass, detail: `the softest leg: ${soft.why}${soft.hit ? ' (' + soft.hit.says + ')' : ''}; just enough for an 18-yarder (${least.toFixed(1)}): ${over.why}, over the line by ${(over.pos(over.tCross * K.LINE.reach / 18).y - K.LINE.h).toFixed(1)} yds (in a ${K.WIND_MAX} mph tailwind ${tailOver.why}); a chip shot ${chip.why}; at the walled half ${wallL.why}, the open half ${wallR.why}; under the bar at the wall ${under.why}; a 30-yarder at full leg crosses ${high.at ? high.at.y.toFixed(1) : '?'} yds up: ${high.why}`};
   });
   check('Kick It: a flick reads as a kick: one that doesn\'t go up the screen isn\'t one; straight up goes straight, to the right goes right; a faster flick is a stronger leg (about 14-30 yards a second); the screen\'s aim through the crossbar is used when given', () => {
     const none = K.launchOf({dx: 0, dy: 30, speed: 2}) === null && K.launchOf({dx: 40, dy: -10, speed: 2}) === null;

@@ -884,3 +884,14 @@ button.bug, a.bug { color: var(--ink-3); }
 .btn-secondary { box-shadow: 0 3px 0 rgba(0,0,0,.4); }
 .btn-secondary.is-pressed { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,.4); }
 .seg-thumb { border-radius: 6px; }
+
+/* ================================================================ Test play (views/testplay.js)
+   The owner's row at the bottom of each daily game: Test play, or (on) what's going on and End test play. */
+.tp-row {
+  display: flex; align-items: center; gap: 12px; margin: 20px 0 8px; padding: 12px 14px;
+  border-radius: var(--r-card); background: var(--surface-1); box-shadow: inset 0 0 0 1px var(--separator);
+}
+.tp-row.is-on { background: var(--gold-soft, rgba(255,197,49,.16)); box-shadow: inset 0 0 0 1px var(--gold); }
+.tp-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2); }
+.tp-t b { font: 700 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--gold); letter-spacing: .02em; text-transform: uppercase; }
+.tp-row .btn { flex: none; }

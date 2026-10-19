@@ -1,24 +1,29 @@
 // Kick It core: the Daily Games' field-goal game, after Paper Toss. Each day everyone gets the same run of kicks: the
-// posts stand somewhere new for every kick (a different distance and angle), the wind changes, the kicks get longer
-// and windier as the run goes on, and the third miss ends it. From the fifth kick a brick wall stands in the goal,
-// closing off part of it. The line of scrimmage is 7 yards out, a holder at the spot. A kick is a swipe of the ball:
-// its line aims, its speed is the leg, and its shape bends the flight (an even arc curves the ball out and back to the
-// posts; a lopsided one doesn't come back true); the wind carries the ball in the air. No DOM. Owner: KICK.
+// posts stand somewhere new for every kick (a different distance and angle), the kicks get longer as the run goes on,
+// and the third miss ends it. The weather goes by how many you've made (the owner's ask, Oct 2026): calm air for the
+// first three makes, then wind (a breeze till the fifth make, stronger with every make after it), and from the seventh
+// make a brick wall in the goal's opening, standing on the crossbar against an upright. The line of scrimmage is 7
+// yards out, a holder at the spot. A kick is a swipe of the ball: its line aims and its speed is the leg; it flies
+// straight and rides the wind (no curving it: the swipe's shape doesn't matter). No DOM. Owner: KICK.
 //
 //   todayNumber(), dateOf(n), dayLabel(n)       day 1 on START, a new run at local midnight
-//   kicks(n)                                    day n's kicks: [{i, d (yards to the posts), gx (the posts' offset,
-//                                               yards, + right), w (wind, mph, 1-25), dir (wind's heading, degrees: 0
-//                                               toward the posts, 90 to the right), obs (in the way, from the fifth:
-//                                               [{t (OBSTACLES' key), x, z (its middle, yards), half (half its width),
-//                                               h (its height), face (+1 or -1, which way it looks)}])}]
-//   curveOf(points)                             a swipe's shape -> {bend, tilt} (below)
+//   kicks(n)                                    day n's kicks in calm air: [{i, d (yards to the posts), gx (the posts'
+//                                               offset, yards, + right), w: 0, dir, obs: []}]
+//   kickFor(n, i, made)                         day n's kick i with made kicks made before it: the same plus w (wind,
+//                                               mph), dir (its heading, degrees: 0 toward the posts, 90 to the right)
+//                                               and obs (the wall, from the seventh make: [{t (OBSTACLES' key), x, z
+//                                               (its middle, yards), half (half its width), y0 (its foot: the crossbar),
+//                                               h (its top), face (+1 or -1: the upright it stands against)}])
+//   nextKick(n, list)                           the kick after a run's kicks so far (list: dayState's)
+//   WIND_FROM, WIND_GROWS, WALL_FROM            the makes the wind starts at, starts growing at, and the wall at
 //   windCall(kick, launch, call)                what the wind did: 'took' (it would have been good in calm air),
 //                                               'carried' (it went in only because of the wind), or null
-//   launchOf({dx, dy, speed, aim, curve})       a swipe on screen (px, px, px/ms; aim: where it points at the posts;
-//                                               curve: curveOf's) -> {theta, v, bend, tilt}, or null (not a kick)
+//   launchOf({dx, dy, speed, aim})              a swipe on screen (px, px, px/ms; aim: where it points at the posts)
+//                                               -> {theta, v}, or null (not a kick)
 //   fly(kick, launch)                           the flight and the call: {made, why, d, tCross, at, pos(t), tEnd, hit
 //                                               (the obstacle it hit, or null)}
-//   dayState(n), record(n, kick, call), score(list), totals()   localStorage 'gg-kick1'
+//   dayState(n, real), record(n, kick, call), score(list), totals()   localStorage 'gg-kick1'
+//   setTest(on, n), testing()                   test play (the owner's sandbox, below)
 //   canReplay(), restart(n)                     unlimited tries for the owner, to test it: a new run of the day's
 //                                               kicks; his first finished run stays the one on the scoreboard
 //   autoPost(), boardRows(n), weekRows(n), weekDays(n), boardState()   the league scoreboard (below)
@@ -60,60 +65,80 @@ function rng(seed) {
 }
 export const MAX_KICKS = 40, STRIKES = 3;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-// The one thing in the way: a brick wall standing in the goal itself, flush with one upright, closing off a quarter or
-// half of the opening, as tall as the uprights (a big enough kick clears it). half: half its width (set per kick); h:
-// its height (yards); says: the word for when it stops a kick.
+// The one thing in the way: a brick wall in the goal's opening, standing on the crossbar against one upright and up
+// to the uprights' tops, closing off a quarter or half of the opening (a kick high enough clears it). half: half its
+// width (set per kick); y0, h: its foot and its top (yards); says: the word for when it stops a kick.
 export const OBSTACLES = {
-  wall: {name: 'brick wall', half: 0, h: 10.4, says: 'Bricked off the wall', at: 'goal'}
+  wall: {name: 'brick wall', half: 0, y0: 3.333, h: 10.333, says: 'Bricked off the wall', at: 'goal'}
 };
 // The line of scrimmage, 7 yards in front of the hold (a field goal's distance is that and 10 more to the posts): the
 // blockers and the rush meet there, arms up. Only a kick far too soft to reach the posts anyway is low enough there to
 // be blocked.
 export const LINE = {z: 7, reach: 7.4, half: 6.5, h: 2.6, says: 'Blocked at the line'};
-export const WALL_OUT = 1.5; // how far the wall runs on past its upright
-export const OBS_FROM = 4; // the fifth kick on
-/** Day n's kicks, the same on every phone. The first few are chip shots near the middle; then the posts wander
- *  further off to the side, the kicks get longer (a yard and a third a kick, 62 the longest, about kick 30 on) and the
- *  wind stronger: a breeze from the first kick (1-3 mph), up to 4 by kick 6, 6 by kick 11, 10 by kick 21, 14 at most;
- *  never more than leaves the kick makeable (fair(): the wind comes down a mph at a time till it is). From
- *  the fifth kick a brick wall stands in the goal: closing a quarter of the opening through the ninth kick, a quarter
- *  or (a third of the time) half through the nineteenth, and half (mostly) from the twentieth. */
+// The weather by makes: calm air till WIND_FROM made, then a breeze (4 to 8 mph); from WIND_GROWS made it picks up with
+// every make (a mph and a half or so each, to WIND_MAX); from WALL_FROM made, the wall.
+export const WIND_FROM = 3, WIND_GROWS = 5, WALL_FROM = 7, WIND_MAX = 26;
+/** Day n's kicks, the same on every phone, in calm air. The first few are chip shots near the middle; then the posts
+ *  wander further off to the side and the kicks get longer (a yard and a third a kick, 62 the longest, about kick 30
+ *  on). The wind and the wall for a kick come from how many you've made: kickFor(). */
 const DAYS = new Map(); // day n -> its kicks (worked out once)
 export function kicks(n) {
   if (DAYS.has(n)) return DAYS.get(n);
-  const r = rng(hashStr(`kick-it-${n}`)), ro = rng(hashStr(`kick-it-obs-${n}`)), out = [];
+  const r = rng(hashStr(`kick-it-${n}`)), out = [];
   for (let i = 0; i < MAX_KICKS; i++) {
     const d = Math.round(clamp(19 + i * 1.35 + (r() * 8 - 3), 18, 62));
     const span = Math.min(17, 3 + i * .9);
     const gx = Math.round((r() * 2 - 1) * span * 10) / 10;
-    const w = Math.round(clamp(.5 + i * .17 + r() * (2 + i * .2), 0, 14));
-    const dir = Math.round(r() * 360);
-    const k = {i, d, gx, w, dir, obs: i < OBS_FROM ? [] : obstaclesFor(ro, i, d, gx)};
-    while (k.w > 0 && !fair(k)) k.w--;
-    out.push(k);
+    r(); r(); // (what was each kick's own wind: kept, so a day's posts stand where they always did)
+    out.push({i, d, gx, w: 0, dir: 0, obs: []});
   }
   if (DAYS.size > 40) DAYS.clear();
   DAYS.set(n, out);
   return out;
 }
-/** A kick is fair when a good leg can put it through: some bend (none, or a third either way) and an unbroken run of
- *  aims at least 2 degrees wide that go through, whatever's in the way and wherever the wind blows. */
+/** How strong the wind is with made kicks made: 0 till WIND_FROM; a breeze (4 to 8 mph, by f: 0-1) till WIND_GROWS;
+ *  then 8 to 11 and about a mph and a half more a make, to WIND_MAX. */
+export function windFor(made, f = .5) {
+  if (made < WIND_FROM) return 0;
+  if (made < WIND_GROWS) return Math.round(4 + 4 * f);
+  return Math.round(Math.min(WIND_MAX, 8 + (made - WIND_GROWS) * 1.6 + 3 * f));
+}
+/** Day n's kick i with made kicks made before it: its wind (heading and strength: the same on every phone for the
+ *  same kick and makes) and, from WALL_FROM made, the wall; never more wind than leaves it makeable (fair(): it comes
+ *  down a mph at a time till it is). */
+const FOR = new Map();
+export function kickFor(n, i, made) {
+  const base = kicks(n)[Math.max(0, Math.min(MAX_KICKS - 1, i))], key = `${n}|${base.i}|${made}`;
+  if (FOR.has(key)) return FOR.get(key);
+  const r = rng(hashStr(`kick-it-wind-${n}-${base.i}`)), ro = rng(hashStr(`kick-it-obs-${n}-${base.i}-${made >= WALL_FROM + 6 ? 2 : made >= WALL_FROM + 3 ? 1 : 0}`));
+  const f = r(), dir = Math.round(r() * 360);
+  const k = Object.assign({}, base, {w: windFor(made, f), dir, made, obs: made >= WALL_FROM ? obstaclesFor(ro, made, base.d, base.gx) : []});
+  while (k.w > 0 && !fair(k)) k.w--;
+  if (FOR.size > 400) FOR.clear();
+  FOR.set(key, k);
+  return k;
+}
+/** The kick after a run's kicks so far (list: [[why, d], ...], dayState's). */
+export const nextKick = (n, list) => kickFor(n, list.length, score(list).made);
+/** A kick is fair when a good leg can put it through: an unbroken run of aims at least 2 degrees wide that go
+ *  through, whatever's in the way and wherever the wind blows. */
 function fair(k) {
-  for (const v of [V_MAX * .95, V_MAX * .85]) for (const bend of [0, .3, -.3]) {
+  for (const v of [V_MAX * .95, V_MAX * .85, V_MAX * .75]) {
     let run = 0;
     for (let th = -1.05; th <= 1.05; th += .01) {
-      if (fly(k, {theta: th, v, bend, tilt: 0}).made) { if (++run >= 5) return true; } else run = 0;
+      if (fly(k, {theta: th, v}).made) { if (++run >= 5) return true; } else run = 0;
     }
   }
   return false;
 }
-const round1 = v => Math.round(v * 10) / 10;
-function obstaclesFor(r, i, d, gx) {
-  // in the goal, flush with one upright: a quarter of the opening early on, half (mostly) later
-  const early = i < 9, late = i >= 19;
-  const share = early ? .25 : late ? (r() < .65 ? .5 : .25) : (r() < .35 ? .5 : .25), k = r() < .5 ? -1 : 1;
-  const inner = gx + k * (POST.half - share * POST.half * 2), outer = gx + k * (POST.half + WALL_OUT);
-  return [{t: 'wall', x: round1((inner + outer) / 2), z: round1(d - .6), half: round1(Math.abs(outer - inner) / 2), h: OBSTACLES.wall.h, face: k, share}];
+function obstaclesFor(r, made, d, gx) {
+  // in the opening, on the crossbar against one upright: a quarter of it at first, a quarter or half (a third of the
+  // time) from three makes on, half (mostly) from six more
+  const step = made - WALL_FROM;
+  const share = step < 3 ? .25 : step >= 6 ? (r() < .65 ? .5 : .25) : (r() < .35 ? .5 : .25), k = r() < .5 ? -1 : 1;
+  const inner = gx + k * (POST.half - share * POST.half * 2), outer = gx + k * POST.half;
+  const r3 = v => Math.round(v * 1000) / 1000;
+  return [{t: 'wall', x: r3((inner + outer) / 2), z: r3(d - .05), half: r3(Math.abs(outer - inner) / 2), y0: OBSTACLES.wall.y0, h: OBSTACLES.wall.h, face: k, share}];
 }
 
 // ---------------------------------------------------------------------------------------------- the kick
@@ -126,78 +151,34 @@ export const CAM = {h: 6.5, back: 7.5};
 export const GRAV = 9.2;                   // yards a second, a second (a touch floaty: slower, higher arcs)
 const ELEV = 30 * Math.PI / 180;           // the ball's climb off the tee
 const V_MIN = 13, V_MAX = 30;              // the leg, yards a second
-// The swipe's shape (curveOf): bend is how far it bows out (as a share of its length, + to the right), tilt how far
-// it's lopsided. The flight bows the same way, as far as BEND times the kick's distance times 4 bend s (1 - s) (s: how
-// far along to the posts), back on its line at the posts; a lopsided swipe ends TILT times the distance times tilt off
-// it. A swipe that's nearly straight is straight.
-const BEND = .6, TILT = .3, BEND_DEAD = .03, TILT_DEAD = .04;
-// The wind is the big factor. Across the field it carries the ball, more the longer it's up (yards per mph:
-// WIND_ACROSS.v a second plus WIND_ACROSS.a a second squared): 7 mph across moves a 40-yarder about 5 yards (the posts
-// are 6 wide). A kick aimed into it hangs up: its sideways run dies away (at HANG per mph, a second), so it goes out,
-// stalls and drifts back. A bend into the wind is blown out of it (none left at BEND_HOLD mph; 7 mph leaves an eighth);
-// a bend with the wind keeps all of it. Along the field it pushes (WIND_ALONG, yards a second a second per mph): a
-// headwind costs carry, a tailwind adds it.
-const WIND_ACROSS = {v: .3, a: .05}, WIND_ALONG = .25, HANG = .15, BEND_HOLD = 8;
-/** A swipe's shape: points [{x, y}] on screen, from the ball to where it let go -> {bend, tilt}: an even arc is all
- *  bend (+ bowed to the right); a lopsided one has tilt too. Fitted on the path spaced out evenly along its length. */
-export function curveOf(points) {
-  const pts = (points || []).filter(p => Number.isFinite(p.x) && Number.isFinite(p.y));
-  if (pts.length < 3) return {bend: 0, tilt: 0};
-  const a = pts[0], b = pts[pts.length - 1], L = Math.hypot(b.x - a.x, b.y - a.y);
-  if (L < 20) return {bend: 0, tilt: 0};
-  const cx = (b.x - a.x) / L, cy = (b.y - a.y) / L, nx = -cy, ny = cx; // along the swipe; its right
-  // even spacing along the path
-  let total = 0;
-  const seg = pts.slice(1).map((p, k) => { const s = Math.hypot(p.x - pts[k].x, p.y - pts[k].y); total += s; return s; });
-  if (!(total > 0)) return {bend: 0, tilt: 0};
-  const even = [];
-  for (let j = 1, k = 0, run = 0; j < 24; j++) {
-    const at = total * j / 24;
-    while (k < seg.length - 1 && run + seg[k] < at) { run += seg[k]; k++; }
-    const f = seg[k] ? (at - run) / seg[k] : 0, p = pts[k], q = pts[k + 1];
-    even.push({x: p.x + (q.x - p.x) * f, y: p.y + (q.y - p.y) * f});
-  }
-  // Each point: how far along (u, 0-1) and how far off to the right (e), as shares of the swipe's length. bend: the
-  // arc 4 bend u (1 - u) that fits it best; tilt: how much more it bows out in its second half than its first (an even
-  // arc, none).
-  let eq = 0, qq = 0, late = 0, early = 0;
-  even.forEach(p => {
-    const u = ((p.x - a.x) * cx + (p.y - a.y) * cy) / L, e = ((p.x - a.x) * nx + (p.y - a.y) * ny) / L, q = 4 * u * (1 - u);
-    eq += e * q; qq += q * q;
-    if (u > .5 + 1e-6) late += e; else if (u < .5 - 1e-6) early += e;
-  });
-  return {bend: clamp(qq > 0 ? eq / qq : 0, -.5, .5), tilt: clamp((late - early) * 2 / even.length, -.5, .5)};
-}
+// The wind is the big factor, and the ball rides it. Across the field it carries the ball, more the longer it's up
+// (yards per mph: WIND_ACROSS.v a second plus WIND_ACROSS.a a second squared): 7 mph across moves a 40-yarder about 7
+// yards (the posts are 6 wide), 15 mph about 15. Along the field it pushes (WIND_ALONG, yards a second a second per
+// mph): a headwind costs carry, a tailwind adds it.
+const WIND_ACROSS = {v: .42, a: .09}, WIND_ALONG = .36;
 /** A flick (dx, dy: its travel on screen in px, up negative; speed: px a millisecond near its end) as a kick: theta, the
  *  aim (radians off straight downfield, + right), so that a flick at the posts on screen goes at the posts; v, the
  *  leg (yards a second), from the flick's speed. aim, from the screen (views/kick.js): the tangent of the line from the
  *  tee to where the flick's line crosses the crossbar's height on screen, at the posts' distance; without it, the
  *  flick's angle on screen read through the camera. Null for a flick that doesn't go up the screen. */
-export function launchOf({dx, dy, speed, aim, curve}) {
+export function launchOf({dx, dy, speed, aim}) {
   if (!(dy < -24)) return null;
   const alpha = clamp(Math.atan2(dx, -dy), -1.3, 1.3);
   const theta = clamp(Number.isFinite(aim) ? Math.atan(aim) : Math.atan(Math.tan(alpha) * CAM.h / CAM.back), -1.1, 1.1);
   const v = clamp(13.6 + speed * 8.7, V_MIN, V_MAX);
-  const c = curve || {}, bend = Number.isFinite(c.bend) && Math.abs(c.bend) >= BEND_DEAD ? c.bend : 0;
-  const tilt = Number.isFinite(c.tilt) && Math.abs(c.tilt) >= TILT_DEAD ? c.tilt : 0;
-  return {theta, v, bend, tilt};
+  return {theta, v};
 }
 /** A kick's flight and its call. made; why: 'good', 'wide-l', 'wide-r', 'post' (off an upright), 'bar' (off the
  *  crossbar), 'short', 'blocked' (it hit something in the way: hit); d (the kick's distance); tCross (when it reaches
  *  the posts' plane, or null); at ({x, y} there, x from the posts' middle); pos(t) -> {x, y, z} (the world); tEnd
  *  (when to stop drawing it). */
 export function fly(kick, launch) {
-  const {d, gx, w, dir} = kick, {theta, v} = launch, bend = launch.bend || 0, tilt = launch.tilt || 0;
+  const {d, gx, w, dir} = kick, {theta, v} = launch;
   const a = dir * Math.PI / 180, wx = w * Math.sin(a), az = WIND_ALONG * w * Math.cos(a);
   const vh = v * Math.cos(ELEV), vx = vh * Math.sin(theta), vz = vh * Math.cos(theta), vy = v * Math.sin(ELEV);
   const zAt = t => vz * t + .5 * az * t * t;
-  // aimed into the wind, the sideways run dies away; with it (or in calm air), it holds
-  const hang = vx * wx < 0 ? HANG * Math.abs(wx) : 0;
-  const aimX = t => (hang ? vx * (1 - Math.exp(-hang * t)) / hang : vx * t);
-  // the swipe's shape, laid along the way to the posts; a bend into the wind is blown out of it
-  const bendW = bend * wx < 0 ? bend * Math.max(0, 1 - Math.abs(wx) / BEND_HOLD) : bend;
-  const curveX = z => { const s = z / d; return d * (BEND * 4 * bendW * s * (1 - s) + TILT * tilt * s); };
-  const free = t => { const z = zAt(t); return {x: aimX(t) + wx * (WIND_ACROSS.v * t + WIND_ACROSS.a * t * t) + curveX(z), y: Math.max(0, vy * t - .5 * GRAV * t * t), z}; };
+  // straight off the foot, and the wind's drift on top
+  const free = t => ({x: vx * t + wx * (WIND_ACROSS.v * t + WIND_ACROSS.a * t * t), y: Math.max(0, vy * t - .5 * GRAV * t * t), z: zAt(t)});
   const tLand = 2 * vy / GRAV;
   // When it reaches the plane z = Z (going forward), if it does before it lands.
   const tAt = Z => {
@@ -214,7 +195,7 @@ export function fly(kick, launch) {
     const t = tAt(o.z);
     if (t == null) return;
     const p = free(t);
-    if (Math.abs(p.x - o.x) < o.half + .15 && p.y < o.h) { hit = o; tHit = t; }
+    if (Math.abs(p.x - o.x) < o.half + .15 && p.y >= (o.y0 || 0) && p.y < o.h) { hit = o; tHit = t; }
   });
   let tCross = tAt(d);
   if (hit) tCross = null;
@@ -251,16 +232,28 @@ export function windCall(kick, launch, call) {
 // when a run's started over), tries}}, played}
 const KEY = 'gg-kick1', KEEP = 60;
 const WHYS = Object.keys(CALLS);
-function read() {
+// Test play (the owner's: views/testplay.js): the day's game again in a sandbox, whenever he needs to test it. While
+// it's on, play reads and writes a store of its own (KEY + '-test', the day started fresh each time), never posted and
+// never counted; the posts, the resets and the all-time totals read the real one (real), and ending it brings the
+// real day back as it was.
+let TEST = false;
+export const testing = () => TEST;
+/** Turns test play on (day n started fresh in the sandbox) or off. */
+export function setTest(on, n = todayNumber()) {
+  TEST = !!on;
+  if (TEST) { const v = read(); delete v.days[n]; write(v); }
+}
+const keyOf = real => (TEST && !real ? KEY + '-test' : KEY);
+function read(real) {
   let v = null;
-  try { v = JSON.parse(lsGet(KEY) || 'null'); } catch (_) { v = null; }
+  try { v = JSON.parse(lsGet(keyOf(real)) || 'null'); } catch (_) { v = null; }
   if (!v || typeof v !== 'object' || !v.days || typeof v.days !== 'object') v = {days: {}};
   if (!Number.isInteger(v.played)) v.played = 0;
   return v;
 }
-function write(v) {
+function write(v, real) {
   Object.keys(v.days).map(Number).filter(Number.isInteger).sort((a, b) => b - a).slice(KEEP).forEach(k => { delete v.days[k]; });
-  lsSet(KEY, JSON.stringify(v));
+  lsSet(keyOf(real), JSON.stringify(v));
 }
 const cleanList = r => (Array.isArray(r) ? r.filter(x => Array.isArray(x) && WHYS.includes(x[0]) && Number.isFinite(x[1])).slice(0, MAX_KICKS) : []);
 /** A run's numbers: made, missed, longest (yards, 0 with none), yards (all the made kicks'). */
@@ -273,8 +266,8 @@ const finished = d => { const list = cleanList(d && d.r); return !!(d && d.done)
 /** Day n on this phone: {list ([why, d] per kick taken), done, at, next (the next kick's index), practice (a run started
  *  over: the first finished one is the official), tries, official (the run that counts: {list, at} plus score(list),
  *  or null till one's finished)} plus score(list). */
-export function dayState(n) {
-  const d = read().days[n] || {}, list = cleanList(d.r);
+export function dayState(n, real) {
+  const d = read(real).days[n] || {}, list = cleanList(d.r);
   return Object.assign({list, done: finished(d), at: Number(d.at) || 0, next: list.length, practice: !!d.first || (d.tries || 1) > 1,
     tries: Number.isInteger(d.tries) ? d.tries : 1, official: officialOf(d)}, score(list));
 }
@@ -322,7 +315,7 @@ export function record(n, i, call) {
   return dayState(n);
 }
 export function totals() {
-  const v = read();
+  const v = read(true);
   return {played: v.played};
 }
 
@@ -357,9 +350,9 @@ function firstOf(list, n) {
 function unposted() {
   const list = docs(), mine = list.find(p => p.id === daily.LB.uid), k = meKey();
   const theirs = list.filter(p => p === mine || (k && daily.boardKey(p) === k));
-  const v = read(), top = todayNumber();
+  const v = read(true), top = todayNumber();
   return Object.keys(v.days).map(Number)
-    .filter(n => Number.isInteger(n) && n <= top && n > top - POST_BACK && dayState(n).official)
+    .filter(n => Number.isInteger(n) && n <= top && n > top - POST_BACK && dayState(n, true).official)
     .filter(n => !theirs.some(p => entryOf(p, n)))
     .sort((a, b) => a - b);
 }
@@ -370,7 +363,7 @@ export async function autoPost() {
   if (!days.length) return false;
   const out = {};
   // the run that counts: the first finished (a tester's later tries are practice)
-  days.forEach(n => { const s = dayState(n).official; out[n] = {m: s.made, l: s.longest, y: s.yards, k: s.list.length, t: s.at || Date.now()}; });
+  days.forEach(n => { const s = dayState(n, true).official; out[n] = {m: s.made, l: s.longest, y: s.yards, k: s.list.length, t: s.at || Date.now()}; });
   const body = {[F]: out};
   const mine = docs().find(p => p.id === LB.uid);
   if (!mine) Object.assign(body, {nick: (daily.postName() || '').trim().slice(0, 24), g: daily.asGuest(), total: 0});

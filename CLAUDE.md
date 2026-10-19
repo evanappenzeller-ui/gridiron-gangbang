@@ -21,6 +21,9 @@ How it's enforced, and what to keep doing:
   marked `league: true` shows to everyone, and only Ryan Dow has it. Don't add it to anyone else unless the owner
   says so.
 - The kit check "an app user (Ryan Dow) has a login…" (`js/core/checks.js`) fails if this changes.
+- The Pick'em standings (week and season tables, and the leader line built from them) follow the same rule:
+  `js/core/week.js` `finishRows()` drops any row that isn't a member's, Ryan D's or this phone's own. The kit check
+  "Standings show league members and Ryan D to everyone…" (`js/core/checks-pickem.js`) covers it.
 - Profile pictures follow the same rule (`js/core/avatars.js` `pictureShows()`): a member's picture, and Ryan D's, shows
   to everyone; a guest's or any other app user's only on their own phones. The kit check "pictures: …" covers it.
 

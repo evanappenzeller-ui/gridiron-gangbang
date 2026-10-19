@@ -17,6 +17,7 @@
 //   topN(b)                  how many lineups the board is built to send 17-0 (DOC.perfect: 25 from board 5 on), or 0
 //                            on the first boards (only the best one to three did)
 //   dayState(n), keepPick(n, pick), lockIn(n, pick, season), totals()   localStorage 'gg-17'
+//   setTest(on, n), testing()   test play (the owner's sandbox: below)
 //   shareText(b, season)     no player names: everyone plays the same board
 //   autoPost(), boardRows(mode, n), seasonsOf(key, n), boardState()   the league scoreboard (below)
 //
@@ -152,18 +153,30 @@ export function rankOf(b, pick) {
 // 'gg-17': {days: {n: {pick, w?, l?, ppg?, at? (when it was played)}} (the last KEEP days), played, perfect (all-time
 // counts).
 const KEY = 'gg-17', KEEP = 60;
-function read() {
+// Test play (the owner's: views/testplay.js): the day's game again in a sandbox, whenever he needs to test it. While
+// it's on, play reads and writes a store of its own (KEY + '-test', the day started fresh each time), never posted and
+// never counted; the posts and the all-time totals read the real one (real), and ending it brings the real day back as
+// it was.
+let TEST = false;
+export const testing = () => TEST;
+/** Turns test play on (day n started fresh in the sandbox) or off. */
+export function setTest(on, n = todayNumber()) {
+  TEST = !!on;
+  if (TEST) { const v = read(); delete v.days[n]; write(v); }
+}
+const keyOf = real => (TEST && !real ? KEY + '-test' : KEY);
+function read(real) {
   let v = null;
-  try { v = JSON.parse(lsGet(KEY) || 'null'); } catch (_) { v = null; }
+  try { v = JSON.parse(lsGet(keyOf(real)) || 'null'); } catch (_) { v = null; }
   if (!v || typeof v !== 'object' || !v.days || typeof v.days !== 'object') v = {days: {}, played: 0, perfect: 0};
   if (!Number.isInteger(v.played)) v.played = 0;
   if (!Number.isInteger(v.perfect)) v.perfect = 0;
   return v;
 }
-function write(v) {
+function write(v, real) {
   const keys = Object.keys(v.days).map(Number).filter(Number.isInteger).sort((a, b) => b - a);
   keys.slice(KEEP).forEach(k => { delete v.days[k]; });
-  lsSet(KEY, JSON.stringify(v));
+  lsSet(keyOf(real), JSON.stringify(v));
 }
 /** Board n on this phone: the picks so far, and the season once it was played (locked in). */
 export function dayState(n) {
@@ -192,7 +205,7 @@ export function lockIn(n, pick, s) {
 /** All-time: seasons played and how many went 17-0 (with the stored days the top-25 rule makes 17-0 after the fact:
  *  retroPerfect). */
 export function totals() {
-  const v = read();
+  const v = read(true);
   let perfect = v.perfect;
   if (DOC) Object.keys(v.days).forEach(k => { const d = v.days[k]; if (Number.isInteger(d.w) && d.w < 17 && retroPerfect(k, cleanPick(d.pick))) perfect++; });
   return {played: v.played, perfect};
@@ -263,7 +276,7 @@ function firstOf(list, n) {
 function unposted() {
   const list = docs(), mine = list.find(p => p.id === daily.LB.uid), k = meKey();
   const theirs = list.filter(p => p === mine || (k && daily.boardKey(p) === k));
-  const v = read(), top = todayNumber();
+  const v = read(true), top = todayNumber();
   const played = Object.keys(v.days).map(Number)
     .filter(n => Number.isInteger(n) && n <= top && n > top - POST_BACK && Number.isInteger(v.days[n].w) && full(cleanPick(v.days[n].pick)))
     .sort((a, b) => a - b);
@@ -279,7 +292,7 @@ export async function autoPost() {
   if (!DOC || posting || !LB.merge || !LB.ready || LB.off || !LB.uid) return false;
   const {todo, noTeam} = unposted();
   if (!todo.length && !noTeam.length) return false;
-  const v = read(), s17 = {};
+  const v = read(true), s17 = {};
   todo.forEach(n => {
     const d = v.days[n], pick = cleanPick(d.pick);
     s17[n] = {w: d.w, l: d.l, p: Math.round((Number(d.ppg) || 0) * 10) / 10, r: rankOf(board(n), pick).rank, k: pick.join(''), t: Number(d.at) || Date.now()};

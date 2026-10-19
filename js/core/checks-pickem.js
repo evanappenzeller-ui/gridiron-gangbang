@@ -214,7 +214,7 @@ export async function pickemChecks(check) {
       P('k3', lon, 'WSH', T, null, {kick: L + HOUR}),                            // claims a later kickoff (still editable after the game): never counts
       P('k4', lon, 'WSH', T, null, {kick: 'soon'})                               // malformed
     ];
-    const rows = week.nflRowsFrom(docs, games, null);
+    const rows = week.nflRowsFrom(docs, games, null, {all: true});
     const who = rows.map(r => r.uid).sort().join();
     const t = week.tallyNfl(docs, games, 'a', {at: L - MIN});
     const pass = who === 'a,e,i,k1,k2' && t.byGame[thu.id].n === 2 && t.byGame[lon.id].n === 3 && t.byGame[thu.id].away === 2 && t.byGame[thu.id].home === 0;
@@ -321,14 +321,14 @@ export async function pickemChecks(check) {
     const D4 = [P('e2', thu, 'CLE', -HOUR, E), P('e1', lon, 'IND', -HOUR, E), P('e2', mon, 'ATL', -HOUR, E),
       P('m1', thu, 'PIT', -HOUR, M), P('m1', lon, 'WSH', -HOUR, M)];
     const fmt = r => `${r.me || r.nick}:${r.right}-${r.wrong}:#${r.rank}`;
-    const wk = week.nflRowsFrom(D3, g3, 'e1', {me: E});
+    const wk = week.nflRowsFrom(D3, g3, 'e1', {me: E, all: true});
     const wkGot = wk.map(fmt).join(' ');
     const wkWant = `mitch:14-1:#1 john:3-0:#2 evan:2-1:#3 Fan:1-0:#4 Fan:0-1:#5`;
     const ev = wk.find(r => r.me === E);
     const evOk = ev && ev.you && ev.uid === 'e2' && ev.picked === 3 && ev.decided === 3 && wk.filter(r => r.you).length === 1 && ev.who.name === data.name(E) && ev.name === data.name(E) && ev.who.me === E;
     const mt = wk.find(r => r.me === M);
     const mtOk = mt && mt.picked === 15 && mt.decided === 15 && !mt.you;
-    const season = week.nflStandingsFrom([{year: 2026, week: 3, games: g3, docs: D3}, {year: 2026, week: 4, games: g4, docs: D4}], 'e1', {me: E});
+    const season = week.nflStandingsFrom([{year: 2026, week: 3, games: g3, docs: D3}, {year: 2026, week: 4, games: g4, docs: D4}], 'e1', {me: E, all: true});
     const sGot = season.map(r => `${fmt(r)}:${r.weeks}w`).join(' ');
     const sWant = `mitch:14-2:#1:2w john:3-0:#2:1w evan:3-1:#3:2w Fan:1-0:#4:1w Fan:0-1:#5:1w`;
     const se = season.find(r => r.me === E);
@@ -337,10 +337,26 @@ export async function pickemChecks(check) {
     // Your row is found by your manager even from a third phone that never picked.
     const third = week.nflStandingsFrom([{year: 2026, week: 3, games: g3, docs: D3}], 'e3', {me: E}).find(r => r.you);
     // A rank is shared only when right and wrong are both equal.
-    const tie = week.nflRowsFrom([P('x1', g3[0], win(g3[0]), -HOUR, null, 'X'), P('x2', g3[1], win(g3[1]), -HOUR, null, 'Y'), P('x3', g3[2], lose(g3[2]), -HOUR, null, 'Z')], g3, null);
+    const tie = week.nflRowsFrom([P('x1', g3[0], win(g3[0]), -HOUR, null, 'X'), P('x2', g3[1], win(g3[1]), -HOUR, null, 'Y'), P('x3', g3[2], lose(g3[2]), -HOUR, null, 'Z')], g3, null, {all: true});
     const shared = tie.map(r => r.rank).join() === '1,1,3';
     const pass = wkGot === wkWant && evOk && mtOk && sGot === sWant && seOk && !!third && third.me === E && shared;
     return {pass, detail: `week 3: ${wkGot}; season: ${sGot}`};
+  });
+
+  // 8b. Who shows (THE RULE, CLAUDE.md)
+  check('Standings show league members and Ryan D to everyone; Ryan S, a guest or a row that is no one\'s only on their own phone', () => {
+    need();
+    const E = mgr('evan'), M = mgr('mitch');
+    const g3 = nfl.parse(clone(W3)).games, k = g => g.kickoff.getTime();
+    const win = g => g[g.winner].abbr;
+    const P = (uid, g, me, nick) => ({id: week.nflPickId(uid, g.id), uid, game: g.id, team: win(g), me: me || null, nick: nick || data.name(me), at: k(g) - HOUR});
+    const docs = [P('e1', g3[0], E), P('m1', g3[1], M), P('rd', g3[2], null, 'Ryan D'), P('rs', g3[3], null, 'Ryan S'), P('rs2', g3[4], null, 'RyStew'), P('f1', g3[5], null, 'Fan')];
+    const names = rows => rows.map(r => r.name).sort().join(', ');
+    const onEvan = names(week.nflRowsFrom(docs, g3, 'e1', {me: E})), onRyanS = names(week.nflRowsFrom(docs, g3, 'rs', {me: null}));
+    const seasonEvan = names(week.nflStandingsFrom([{year: 2026, week: 3, games: g3, docs}], 'e1', {me: E}));
+    const want = [data.name(E), data.name(M), 'Ryan D'].sort().join(', '), wantS = [data.name(E), data.name(M), 'Ryan D', 'Ryan S'].sort().join(', ');
+    const pass = onEvan === want && seasonEvan === want && onRyanS === wantS;
+    return {pass, detail: `Evan's phone: ${onEvan}; season: ${seasonEvan}; Ryan S's phone: ${onRyanS}`};
   });
 
   // 9. Doc ids match the rules
@@ -500,8 +516,8 @@ export async function pickemChecks(check) {
     ];
     const locks = [K('e1', L, E), K('s1', L, S), K('f1', L, null, 'Fan'), K('zz', L - DAY, M, 'Mitch', 3, {id: 'not-zz'})]; // the last: its id isn't its uid
     const fmt = r => `${r.me || r.uid}:${r.picked}${r.locked != null ? 'L' : ''}`;
-    const rows = week.nflRowsFrom(docs, games, 'e1', {me: E, locks}).map(fmt).sort().join(' ');
-    const open = week.nflRowsFrom(docs, games, 'e1', {me: E}).map(fmt).sort().join(' ');
+    const rows = week.nflRowsFrom(docs, games, 'e1', {me: E, locks, all: true}).map(fmt).sort().join(' ');
+    const open = week.nflRowsFrom(docs, games, 'e1', {me: E, all: true}).map(fmt).sort().join(' ');
     // Evan's second phone: its own late London pick is gone; Thursday (revealed) shows the pick that counts for Evan.
     const t2 = week.tallyNfl(docs, games, 'e2', {at: T + HOUR, me: E, locks});
     const lk1 = week.nflLocks(locks, 'e1', {me: E}), lk2 = week.nflLocks(locks, 'e2', {me: E}), lk3 = week.nflLocks(locks, 'm1', {me: M});

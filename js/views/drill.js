@@ -29,6 +29,7 @@ import * as dr from '../core/drill.js';
 import * as daily from '../core/daily.js';
 import * as camLib from './drill-cam.js';
 import {msToMidnight} from './board.js';
+import {canTest, testRowHTML} from './testplay.js';
 
 const E = dr.E;
 const esc = data.esc;
@@ -1633,7 +1634,7 @@ function boardLabel(b) {
 /** The header: the drill and the day, the help, and the scoreboard. */
 function scoreHTML(st, b = boardOf(st.s)) {
   const n = st.n;
-  return `<header class="dr-hd"><div class="dr-hd-k"><p>${esc(`Two-Minute Drill #${n} · ${dr.dayLabel(n)}${dr.dayState(n).practice ? ' · Practice' : ''}`)}</p>`
+  return `<header class="dr-hd"><div class="dr-hd-k"><p>${esc(`Two-Minute Drill #${n} · ${dr.dayLabel(n)}${dr.testing() ? ' · Test play' : dr.dayState(n).practice ? ' · Practice' : ''}`)}</p>`
     + ui.iconButton({icon: 'info', label: 'How the Two-Minute Drill works', cls: 'dr-howto', attrs: {'data-dr-help': ''}}) + `</div>`
     + `<div class="dr-hd-in" data-dr-bug role="group" aria-label="${esc(boardLabel(b))}">${boardInner(b)}</div></header>`;
 }
@@ -2322,7 +2323,8 @@ function gameHTML(st) {
 }
 function bodyHTML(st) {
   if (!dr.DOC) return loadingHTML();
-  return gameHTML(st) + boardHTML(st);
+  // the owner's Test play row at the bottom (views/testplay.js)
+  return gameHTML(st) + boardHTML(st) + testRowHTML(dr.testing(), 'data-dr-test');
 }
 
 // ============================================================================ Markup: the league's finals
@@ -2719,6 +2721,17 @@ function setDaily(st) {
   st.routes = st.s && st.s.routes ? Object.assign({}, st.s.routes) : {};
   if (st.s && !st.s.result && st.el && st.wp) st.timers.push(setTimeout(() => wpNow(st, st.s), 400));
 }
+/** The owner's Test play (views/testplay.js): today's drill fresh in the sandbox (never posted, never counted), or
+ *  back to the real game as it was. Not while a snap plays. */
+function testPlay(st, on) {
+  if (st.busy || !dr.DOC || !canTest()) return;
+  dr.setTest(on, st.n);
+  ui.haptic('medium');
+  setDaily(st);
+  rerender(st);
+  setTimeout(() => { if (!st.dead) showField(st); }, 200);
+  ui.announce(on ? 'Test play: a fresh start on today’s drill. It won’t count.' : 'Test play over: back to your real game.');
+}
 /** A tester's practice run of today's drill: the first game is posted (if it wasn't yet) and stays on the board. */
 function playAgain(st) {
   if (st.busy) return;
@@ -2872,7 +2885,7 @@ function onClick(st, e) {
   if (st.rtOpen) { openRoutes(st, null); return; }
   const rcv = routesOn(st) && e.target.closest('[data-dr-rcv]');
   if (rcv && st.el.contains(rcv)) { cycleRoute(st, rcv.dataset.drRcv); return; }
-  const t = e.target.closest('[data-dr-go], [data-dr-menu], [data-dr-dmenu], [data-dr-card], [data-dr-side], [data-dr-hurry], [data-dr-flag], [data-dr-replay], [data-dr-ratings], [data-dr-help], [data-dr-again], [data-dr-retry], [data-dr-who], [data-dr-sbtab]');
+  const t = e.target.closest('[data-dr-go], [data-dr-menu], [data-dr-dmenu], [data-dr-card], [data-dr-side], [data-dr-hurry], [data-dr-flag], [data-dr-replay], [data-dr-ratings], [data-dr-help], [data-dr-again], [data-dr-retry], [data-dr-who], [data-dr-sbtab], [data-dr-test]');
   if (!t || !st.el.contains(t) || t.disabled) return;
   if (t.hasAttribute('data-dr-go')) { go(st, t.dataset.drGo); return; }
   if (t.hasAttribute('data-dr-menu')) { openMenu(st, st.panel === t.dataset.drMenu ? 'main' : t.dataset.drMenu); return; }
@@ -2900,6 +2913,7 @@ function onClick(st, e) {
   if (t.hasAttribute('data-dr-ratings')) { openRatings(st); return; }
   if (t.hasAttribute('data-dr-help')) { openHelp(); return; }
   if (t.hasAttribute('data-dr-again')) { playAgain(st); return; }
+  if (t.hasAttribute('data-dr-test')) { testPlay(st, t.dataset.drTest === 'on'); return; }
   if (t.hasAttribute('data-dr-who')) { openGame(st, t.dataset.drWho); return; }
   if (t.hasAttribute('data-dr-sbtab')) {
     if ((st.sbTab || 'day') === t.dataset.drSbtab) return;

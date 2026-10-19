@@ -63,18 +63,30 @@ export const team = id => DOC.teams[id];
 // (Earlier games, under 'gg-2m' and 'gg-drill2' to 'gg-drill4', were played on other engines or other days' situations
 // and don't replay in this one, so they're left be.)
 const KEY = 'gg-drill5', KEEP = 60;
-function read() {
+// Test play (the owner's: views/testplay.js): the day's game again in a sandbox, whenever he needs to test it. While
+// it's on, play reads and writes a store of its own (KEY + '-test', the day started fresh each time), never posted and
+// never counted; the posts, the resets and the all-time totals read the real one (real), and ending it brings the
+// real day back as it was.
+let TEST = false;
+export const testing = () => TEST;
+/** Turns test play on (day n started fresh in the sandbox) or off. */
+export function setTest(on, n = todayNumber()) {
+  TEST = !!on;
+  if (TEST) { const v = read(); delete v.days[n]; write(v); }
+}
+const keyOf = real => (TEST && !real ? KEY + '-test' : KEY);
+function read(real) {
   let v = null;
-  try { v = JSON.parse(lsGet(KEY) || 'null'); } catch (_) { v = null; }
+  try { v = JSON.parse(lsGet(keyOf(real)) || 'null'); } catch (_) { v = null; }
   if (!v || typeof v !== 'object' || !v.days || typeof v.days !== 'object') v = {days: {}};
   if (!Number.isInteger(v.played)) v.played = 0;
   if (!Number.isInteger(v.wins)) v.wins = 0;
   return v;
 }
-function write(v) {
+function write(v, real) {
   const keys = Object.keys(v.days).map(Number).filter(Number.isInteger).sort((a, b) => b - a);
   keys.slice(KEEP).forEach(k => { delete v.days[k]; });
-  lsSet(KEY, JSON.stringify(v));
+  lsSet(keyOf(real), JSON.stringify(v));
 }
 const cleanActs = a => (typeof a === 'string' && /^[a-z0-9+,]{0,1600}$/.test(a) ? a : '');
 /** Day n on this phone: {acts, result (null until it's over), at, practice (0, or which replay this is)}. */
@@ -120,7 +132,7 @@ export function replayDay(n) {
   return true;
 }
 export function totals() {
-  const v = read();
+  const v = read(true);
   return {played: v.played, wins: v.wins};
 }
 
@@ -479,7 +491,7 @@ function firstOf(list, n) {
 function unposted() {
   const list = docs(), mine = list.find(p => p.id === daily.LB.uid), k = meKey();
   const theirs = list.filter(p => p === mine || (k && daily.boardKey(p) === k));
-  const v = read(), top = todayNumber();
+  const v = read(true), top = todayNumber();
   return Object.keys(v.days).map(Number)
     .filter(n => Number.isInteger(n) && n <= top && n > top - POST_BACK && v.days[n].r && !v.days[n].p)
     .filter(n => !theirs.some(p => entryOf(p, n)))
@@ -490,7 +502,7 @@ export async function autoPost() {
   if (!DOC || posting || !LB.merge || !LB.ready || LB.off || !LB.uid) return false;
   const days = unposted();
   if (!days.length) return false;
-  const v = read(), out = {};
+  const v = read(true), out = {};
   days.forEach(n => {
     const s = E.replay(scenario(n), DOC.teams, v.days[n].a);
     if (!s.result) return;
@@ -537,12 +549,12 @@ export function applyResets() {
     if (r.who !== '*' && who !== r.who) return;
     const done = resetsDone();
     if (!done[r.id]) {
-      const v = read(), d = v.days[r.n];
+      const v = read(true), d = v.days[r.n];
       // A league-wide reset keeps a game finished after it.
       if (d && !(r.at && d.r && Number(d.at) >= r.at)) {
         if (d.r && !d.p) { v.played = Math.max(0, v.played - 1); if (d.r === 'W') v.wins = Math.max(0, v.wins - 1); }
         delete v.days[r.n];
-        write(v);
+        write(v, true);
         if (r.n === n0) cleared = true;
       }
       done[r.id] = Date.now();

@@ -25,6 +25,7 @@ import * as data from '../core/data.js';
 import * as sv from '../core/seventeen.js';
 import * as daily from '../core/daily.js';
 import {msToMidnight} from './board.js';
+import {canTest, testRowHTML} from './testplay.js';
 
 const esc = data.esc;
 const nf = n => data.nf(n);
@@ -349,9 +350,11 @@ function bodyHTML(ctx) {
   const b = sv.today();
   const day = sv.dayState(b.n);
   const st = ST.get(ctx), mode = st ? st.sbMode : 'today';
-  if (day.played) return seasonHTML(b, day.pick, mode);
+  // the owner's Test play row at the bottom (views/testplay.js)
+  const tp = testRowHTML(sv.testing(), 'data-sv-test');
+  if (day.played) return seasonHTML(b, day.pick, mode) + tp;
   const pick = st && st.b === b ? st.pick : day.pick;
-  return buildHTML(b, pick, st && st.b === b ? st.foc : null, mode);
+  return buildHTML(b, pick, st && st.b === b ? st.foc : null, mode) + tp;
 }
 
 // ============================================================================ Patching
@@ -538,7 +541,7 @@ function share(st) {
 }
 
 function onClick(st, e) {
-  const t = e.target.closest('.sv-cell, [data-sv-slot], [data-sv-play], [data-sv-share], [data-sv-retry], [data-sv-help], [data-sv-who]');
+  const t = e.target.closest('.sv-cell, [data-sv-slot], [data-sv-play], [data-sv-share], [data-sv-retry], [data-sv-help], [data-sv-who], [data-sv-test]');
   if (!t || !st.el.contains(t)) return;
   if (t.matches('.sv-cell')) { tapCell(st, t); return; }
   if (t.hasAttribute('data-sv-slot')) {
@@ -554,7 +557,17 @@ function onClick(st, e) {
   if (t.hasAttribute('data-sv-share')) { share(st); return; }
   if (t.hasAttribute('data-sv-help')) { openHelp(); return; }
   if (t.hasAttribute('data-sv-who')) { openTeam(st, t.dataset.svWho); return; }
+  if (t.hasAttribute('data-sv-test')) { testPlay(st, t.dataset.svTest === 'on'); return; }
   if (t.hasAttribute('data-sv-retry')) load(st);
+}
+/** The owner's Test play (views/testplay.js): today's board fresh in the sandbox, or back to the real day. */
+function testPlay(st, on) {
+  if (st.playing || !sv.DOC || !canTest()) return;
+  sv.setTest(on, sv.todayNumber());
+  setBoard(st);
+  ui.haptic('medium');
+  swapBody(st);
+  ui.announce(on ? 'Test play: today’s board, fresh. It won’t count.' : 'Test play over: back to your real game.');
 }
 
 function load(st) {

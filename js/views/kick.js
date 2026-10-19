@@ -1,9 +1,10 @@
 // Kick It: the Daily Games' fourth game (a pane of views/puzzles.js; route /puzzles/kick), after Paper Toss. The field
 // from behind and above the kicker and the holder (third person), at night under the lights; the posts stand somewhere
 // new for every kick (distance and angle), the flags on the uprights and the wind arrow show the wind. Flick the ball
-// at the posts: the flick's direction aims and its speed is the leg; the wind carries the ball in the air. "It's
-// good!", or wide, short, off the bar or off an upright; the third miss ends the day's run. Then the run's numbers and
-// the league's scoreboard (Today / Week).
+// at the posts: the flick's direction aims and its speed is the leg; the ball flies straight and rides the wind (calm
+// for the first three makes, then wind, stronger with every make from the fifth; from the seventh make a brick wall
+// in the goal's opening). "It's good!", or wide, short, off the bar or off an upright; the third miss ends the day's
+// run. Then the run's numbers and the league's scoreboard (Today / Week).
 // The physics, the day's kicks, memory and the board are core/kick.js; this draws (one canvas) and takes the flick.
 // For now only on the owner's phones (puzzles.js gamesFor). A finger on the field shows how to kick (the guide), and
 // three steps under it say it.
@@ -13,6 +14,7 @@ import * as data from '../core/data.js';
 import * as daily from '../core/daily.js';
 import * as K from '../core/kick.js';
 import {msToMidnight} from './board.js';
+import {canTest, testRowHTML} from './testplay.js';
 
 const esc = data.esc;
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
@@ -41,8 +43,12 @@ const windWords = k => {
   const along = a <= 45 || a >= 315 ? 'behind you' : a >= 135 && a <= 225 ? 'in your face' : '';
   return `${k.w} mph wind${along ? `, ${along}` : ''}${side ? `${along ? ' and' : ','} blowing ${side}` : ''}`;
 };
-// The wind's strength on the HUD: a breeze (orange), 5 mph and up (amber), 9 and up (red).
-const windTier = k => (!k.w ? ' is-calm' : k.w >= 9 ? ' is-strong' : k.w >= 5 ? ' is-breezy' : '');
+// The wind's strength on the HUD: a breeze (orange), 9 mph and up (amber), 15 and up (red).
+const windTier = k => (!k.w ? ' is-calm' : k.w >= 15 ? ' is-strong' : k.w >= 9 ? ' is-breezy' : '');
+/** Kick i of the day's run as it's played: its wind and its wall go by the kicks made before it (core/kick.js
+ *  kickFor); kickNow, the one on the tee. */
+const kickAt = (st, i) => K.kickFor(st.n, Math.min(i, K.MAX_KICKS - 1), K.score(st.day.list.slice(0, i)).made);
+const kickNow = st => kickAt(st, st.i);
 // Gusts: streaks blowing across the field the wind's way, more and faster the stronger it is (CSS animates them; the
 // box is turned to the wind's heading, like the arrow: 0 toward the posts, up the screen).
 function gustsHTML(k) {
@@ -51,7 +57,7 @@ function gustsHTML(k) {
   return Array.from({length: n}, (_, j) => `<i style="left:${((j * 61.8 + 7) % 100).toFixed(1)}%;--gl:${28 + (j * 17) % 40}px;--gk:${(-((j * .377) % 1)).toFixed(3)}"></i>`).join('');
 }
 function patchGusts(st) {
-  const g = st.el.querySelector('[data-kk-gusts]'), k = st.kicks[st.i];
+  const g = st.el.querySelector('[data-kk-gusts]'), k = kickNow(st);
   if (!g || !k) return;
   const sig = `${k.w}@${k.dir}`;
   if (g.dataset.sig === sig) return;
@@ -69,8 +75,8 @@ function placeGusts(st) {
   g.style.setProperty('--gd', D + 'px');
 }
 function hudHTML(st) {
-  const k = st.kicks[st.i] || st.kicks[st.kicks.length - 1], day = st.day;
-  return `<div class="kk-hud-l"><span class="kk-kno">${esc(`Kick ${Math.min(st.i + 1, K.MAX_KICKS)}`)}</span><b class="kk-dist">${k.d}<small> yds</small></b></div>`
+  const k = kickNow(st), day = st.day;
+  return `<div class="kk-hud-l"><span class="kk-kno">${esc(`${K.testing() ? 'Test · ' : ''}Kick ${Math.min(st.i + 1, K.MAX_KICKS)}`)}</span><b class="kk-dist">${k.d}<small> yds</small></b></div>`
     + `<div class="kk-wind${windTier(k)}" style="--wd:${k.dir}deg" aria-label="${esc(windWords(k))}">${k.w ? windArrow : ''}<span>${k.w ? `${k.w} mph` : 'Calm'}</span></div>`
     + `<div class="kk-hud-r"><span class="kk-made"><b>${day.made}</b> made</span><span class="kk-xs" aria-label="${esc(`${day.missed} ${day.missed === 1 ? 'miss' : 'misses'} of ${K.STRIKES}`)}">${strikesHTML(day.missed)}</span></div>`;
 }
@@ -132,7 +138,9 @@ function bodyHTML(st) {
     + `<span data-kk-redo>${redoHTML(st)}</span>`
     + `<div class="kk-over" data-kk-over${st.day.done ? '' : ' hidden'}>${st.day.done ? overHTML(st) : ''}</div></div>`
     + `<div class="kk-fill" data-kk-fill aria-hidden="true"></div>`
-    + `<div class="kk-board-w" data-kk-board>${boardHTML(st)}</div></div>`;
+    + `<div class="kk-board-w" data-kk-board>${boardHTML(st)}</div>`
+    // the owner's Test play row at the bottom (views/testplay.js): under the field while a run is on
+    + `<div data-kk-tp>${testRowHTML(K.testing(), 'data-kk-test')}</div></div>`;
 }
 
 // ============================================================================ The scene
@@ -553,17 +561,18 @@ function drawPosts(st, c, sc, t) {
 // ---------------------------------------------------------------- The wall in the goal
 // Drawn standing on the turf, facing us, in yards from its foot (x across, y up: the canvas is flipped so y runs up),
 // scaled by how far off it is; pop (0-1) grows it in when the posts move to a new kick.
+// Drawn from its foot up (y0: the wall's on the crossbar, in the goal's opening).
 const OB_DRAW = {
   wall(c, o) {
-    const hw = o.half, h = o.h, row = h / 20;
+    const hw = o.half, h = o.h - (o.y0 || 0), row = h / 14;
     const g = c.createLinearGradient(-hw, 0, hw, 0);
     g.addColorStop(0, '#C0503A'); g.addColorStop(.6, '#A63D2A'); g.addColorStop(1, '#7E2C1D');
     c.fillStyle = g; c.fillRect(-hw, 0, hw * 2, h);
     // mortar: the courses and the joints, every other course offset by half a brick
     c.strokeStyle = 'rgba(236,214,186,.6)'; c.lineWidth = row * .14;
     c.beginPath();
-    for (let j = 1; j < 20; j++) { c.moveTo(-hw, j * row); c.lineTo(hw, j * row); }
-    for (let j = 0; j < 20; j++) for (let x = -hw + (j % 2 ? .55 : 0) + 1.1; x < hw - .05; x += 1.1) { c.moveTo(x, j * row); c.lineTo(x, (j + 1) * row); }
+    for (let j = 1; j < 14; j++) { c.moveTo(-hw, j * row); c.lineTo(hw, j * row); }
+    for (let j = 0; j < 14; j++) for (let x = -hw + (j % 2 ? .55 : 0) + 1.1; x < hw - .05; x += 1.1) { c.moveTo(x, j * row); c.lineTo(x, (j + 1) * row); }
     c.stroke();
     // the coping on top, and a sign
     c.fillStyle = '#D9C9B0'; c.fillRect(-hw - .15, h - .35, hw * 2 + .3, .45);
@@ -574,10 +583,10 @@ const OB_DRAW = {
   },
 };
 function drawObstacle(st, c, o, t, pop, shake) {
-  const b = proj(st, o.x, 0, o.z);
+  const b = proj(st, o.x, o.y0 || 0, o.z);
   if (b.s <= 0 || pop <= 0) return;
-  // its shadow on the turf
-  c.fillStyle = 'rgba(0,0,0,.28)'; c.beginPath(); c.ellipse(b.x, b.y, o.half * b.s * 1.05, Math.max(2, o.half * b.s * .16), 0, 0, Math.PI * 2); c.fill();
+  // its shadow on the turf (one standing on the ground)
+  if (!o.y0) { c.fillStyle = 'rgba(0,0,0,.28)'; c.beginPath(); c.ellipse(b.x, b.y, o.half * b.s * 1.05, Math.max(2, o.half * b.s * .16), 0, 0, Math.PI * 2); c.fill(); }
   c.save();
   c.translate(b.x + (shake ? Math.sin(t * 60) * shake * b.s * .25 : 0), b.y);
   c.scale(b.s * pop, -b.s * pop); // yards, y up
@@ -938,7 +947,7 @@ function openX(k) {
   return (inner + k.gx - w.face * K.POST.half) / 2;
 }
 function placeGuide(st) {
-  const g = st.el.querySelector('[data-kk-guide]'), k = st.kicks[st.i];
+  const g = st.el.querySelector('[data-kk-guide]'), k = kickNow(st);
   if (!g || !st.scene || !k) return;
   const ball = proj(st, 0, .15, 0), cb = proj(st, openX(k) + st.scene.gx - k.gx, K.POST.bar, st.scene.d);
   let dx = cb.x - ball.x, dy = cb.y - ball.y;
@@ -957,15 +966,17 @@ function placeGuide(st) {
   const t = st.el.querySelector('[data-kk-hint-t]');
   if (t) t.textContent = wallOf(k) ? 'Aim for the open side of the goal' : 'Slide up from the ball to kick';
 }
-/** "Look out!": the first kick with the wall in the goal, once a run, for a few seconds (or till a finger's down). */
-function alertFor(st, on) {
+/** "Look out!": the first kick with wind, and the first with the wall in the goal, once a run each, for a few seconds
+ *  (or till a finger's down). what: 'wind' | 'wall' (falsy: hide it). */
+const ALERTS = {wind: ['Wind’s up!', 'The ball rides it now. Aim into the wind.'], wall: ['Look out!', 'A wall’s blocking part of the goal. Aim for the open side.']};
+function alertFor(st, what) {
   const a = st.el.querySelector('[data-kk-alert]');
   if (!a) return;
   clearTimeout(st.alertT);
-  const k = st.kicks[st.i], t = a.querySelector('[data-kk-alert-t]');
-  if (on && t && k) t.textContent = 'A wall’s blocking part of the goal. Aim for the open side.';
-  a.hidden = !on;
-  if (on) st.alertT = setTimeout(() => { a.hidden = true; }, 4500);
+  const t = a.querySelector('[data-kk-alert-t]'), h = a.querySelector('b');
+  if (what && t && h) { h.textContent = ALERTS[what][0]; t.textContent = ALERTS[what][1]; }
+  a.hidden = !what;
+  if (what) st.alertT = setTimeout(() => { a.hidden = true; }, 4500);
 }
 function guide(st, on) {
   const g = st.el.querySelector('[data-kk-guide]'), h = st.el.querySelector('[data-kk-hint]');
@@ -983,8 +994,10 @@ function guide(st, on) {
 function armGuide(st) {
   clearTimeout(st.guideT);
   if (!canKick(st)) return;
-  const first = st.i === K.OBS_FROM;
-  if (first) alertFor(st, true);
+  // the first kick of the run with wind, or with the wall
+  const k = kickNow(st), was = st.i ? kickAt(st, st.i - 1) : null;
+  const first = k.obs.length && !(was && was.obs.length) ? 'wall' : k.w && was && !was.w ? 'wind' : null;
+  if (first) alertFor(st, first);
   if (!st.day.list.length || !K.totals().played || first) guide(st, true);
   else st.guideT = setTimeout(() => guide(st, true), GUIDE_IDLE);
 }
@@ -996,7 +1009,7 @@ function patchHud(st) {
   const h = st.el.querySelector('[data-kk-hud]');
   if (h) h.innerHTML = hudHTML(st);
   patchGusts(st);
-  const cv = st.cv, k = st.kicks[st.i];
+  const cv = st.cv, k = kickNow(st);
   const w = k && wallOf(k), inWay = w ? ` A brick wall across ${w.share === .5 ? 'half' : 'a quarter'} of the goal, on the ${w.face < 0 ? 'left' : 'right'}.` : '';
   if (cv && k) cv.setAttribute('aria-label', `Kick ${st.i + 1}: ${k.d} yards, the posts ${k.gx > 1 ? `${Math.round(k.gx)} yards to the right` : k.gx < -1 ? `${Math.round(-k.gx)} yards to the left` : 'straight ahead'}. ${windWords(k)}.${inWay}`);
 }
@@ -1058,7 +1071,7 @@ function settle(st, call) {
     // the next kick: the posts move to their new spot, the ball back on the tee
     const from = st.scene;
     st.i = st.day.next;
-    const k = st.kicks[st.i];
+    const k = kickNow(st);
     st.move = {a: from, b: {d: k.d, gx: k.gx, w: k.w, dir: k.dir, obs: k.obs || []}, t0: performance.now(), ms: ui.RM ? 1 : (k.obs && k.obs.length ? 900 : 650)};
     st.ballOn = true;
     st.spent = null;
@@ -1083,15 +1096,15 @@ function finish(st) {
   K.autoPost();
   patchBoard(st);
 }
-/** A swipe: from the ball, up the screen. Its line aims; its speed over the last few frames is the leg; its shape bends
- *  the kick (an even arc curves the ball out and back to the posts; a lopsided one doesn't come back true). */
+/** A swipe: from the ball, up the screen. Its line aims; its speed over the last few frames is the leg. Its shape
+ *  doesn't matter: the ball flies straight and rides the wind. */
 function onDown(st, e) {
   if (st.busy || st.day.done || st.flight || st.move || !e.isPrimary) return;
   const r = st.cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
   st.drag = {id: e.pointerId, x0: x, y0: y, pts: [{x, y, t: performance.now()}]};
   try { st.pad.setPointerCapture(e.pointerId); } catch (_) {}
   guide(st, false);
-  alertFor(st, false);
+  alertFor(st, null);
   loop(st);
 }
 function onMove(st, e) {
@@ -1099,7 +1112,7 @@ function onMove(st, e) {
   if (!g || e.pointerId !== g.id) return;
   const r = st.cv.getBoundingClientRect();
   g.pts.push({x: e.clientX - r.left, y: e.clientY - r.top, t: performance.now()});
-  if (g.pts.length > 400) g.pts.splice(1, 1); // the whole swipe: its shape bends the kick
+  if (g.pts.length > 400) g.pts.splice(1, 1); // (the swipe as drawn while the finger's down)
 }
 function onUp(st, e) {
   const g = st.drag;
@@ -1110,12 +1123,12 @@ function onUp(st, e) {
   g.pts.push(end);
   const recent = g.pts.filter(q => now - q.t < 90), a = recent.length > 1 ? recent[0] : g.pts[0];
   const dt = Math.max(8, end.t - a.t), speed = Math.hypot(end.x - a.x, end.y - a.y) / dt;
-  const k = st.kicks[st.i], dx = end.x - g.x0, dy = end.y - g.y0;
+  const k = kickNow(st), dx = end.x - g.x0, dy = end.y - g.y0;
   // where the flick points at the posts: its line from the ball, at the crossbar's height on screen
   let aim;
   const ball = proj(st, 0, .15, 0), cb = proj(st, k.gx, K.POST.bar, k.d);
   if (dy < 0 && cb.y < ball.y) aim = ((ball.x + dx * (cb.y - ball.y) / dy - st.W / 2) * (k.d + st.back) / st.f) / k.d;
-  const launch = e.type === 'pointercancel' ? null : K.launchOf({dx, dy, speed, aim, curve: K.curveOf(g.pts)});
+  const launch = e.type === 'pointercancel' ? null : K.launchOf({dx, dy, speed, aim});
   if (!launch) { draw(st); guide(st, true); return; }
   const call = K.fly(k, launch);
   // saved the moment it's kicked, so leaving (or reloading) with the ball in the air doesn't take it back
@@ -1164,6 +1177,29 @@ function startOver(st) {
   fitScreen(st, true);
 }
 
+/** The owner's Test play (views/testplay.js): today's kicks fresh in the sandbox (never posted, never counted), or back
+ *  to the real run as it was. Not while a kick is in the air. */
+function testPlay(st, on) {
+  if (st.flight || st.drag || !canTest()) return;
+  K.setTest(on, st.n);
+  st.timers.forEach(clearTimeout); st.timers = [];
+  st.move = null; st.after = null;
+  setDay(st, st.n);
+  st.busy = st.day.done;
+  const over = st.el.querySelector('[data-kk-over]'), call = st.el.querySelector('[data-kk-call]'), tp = st.el.querySelector('[data-kk-tp]');
+  if (over) { over.hidden = !st.day.done; over.innerHTML = st.day.done ? overHTML(st) : ''; }
+  if (call) call.className = 'kk-call';
+  if (tp) { tp.innerHTML = testRowHTML(K.testing(), 'data-kk-test'); ui.hydrate(tp); }
+  setMode(st);
+  patchHud(st);
+  patchBoard(st);
+  draw(st);
+  armGuide(st);
+  ui.haptic('medium');
+  fitScreen(st, true);
+  ui.announce(on ? 'Test play: today’s kicks, fresh. It won’t count.' : 'Test play over: back to your real run.');
+}
+
 // ============================================================================ Board
 function patchBoard(st) {
   const body = st.el.querySelector('[data-kk-sbody]');
@@ -1171,11 +1207,10 @@ function patchBoard(st) {
 }
 function setDay(st, n) {
   st.n = n;
-  st.kicks = K.kicks(n);
   st.day = K.dayState(n);
   st.i = Math.min(st.day.next, K.MAX_KICKS - 1);
   // a finished run shows the last kick's spot; one under way, the next
-  setScene(st, st.kicks[st.day.done ? Math.max(0, st.day.list.length - 1) : st.i]);
+  setScene(st, kickAt(st, st.day.done ? Math.max(0, st.day.list.length - 1) : st.i));
   st.ballOn = !st.day.done;
   st.spent = null;
 }
@@ -1221,6 +1256,8 @@ export function mount(el, ctx) {
   };
   el.addEventListener('ui:change', st.onChange);
   st.onClick = e => {
+    const tp = e.target.closest('[data-kk-test]');
+    if (tp) { testPlay(st, tp.dataset.kkTest === 'on'); return; }
     if (e.target.closest('[data-kk-again]')) { startOver(st); return; }
     if (e.target.closest('[data-kk-sb]')) { const b = st.el.querySelector('[data-kk-board]'); if (b) b.scrollIntoView({block: 'start', behavior: ui.RM ? 'auto' : 'smooth'}); }
   };

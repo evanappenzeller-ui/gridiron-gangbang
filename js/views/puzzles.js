@@ -16,6 +16,7 @@ import * as daily from '../core/daily.js';
 import {mountBoard, streakPillHTML, stepParts, zeroParts, gradeGold, stepIcon, whenVisible, countdownHTML,
   msToMidnight, ensureDefs, ringHTML, maxPts, dayLabel, itemCount} from './board.js';
 import {youButtonHTML, settingsButtonHTML, openStreakSheet} from './you.js';
+import {canTest, testRowHTML} from './testplay.js';
 
 const esc = data.esc;
 const nf = n => data.nf(n);
@@ -129,7 +130,8 @@ function ctaInner(k) {
 }
 const ctaHTML = k => `<button type="button" class="btn btn-primary c-hero-cta${k === 'done' ? '' : ' is-big'}" data-cta>${ctaInner(k)}</button>`;
 const shareHTML = () => `<button type="button" class="btn btn-secondary c-hero-share" data-share>${ui.icon('share')}<span class="btn-label">Share</span></button>`;
-const ovlHTML = () => `<p class="card-ovl c-hero-o" id="c-hero-o">${esc(`${dayLabel()} · ${nf(maxPts())} points`)}</p>`;
+const ovlText = () => `${daily.TEST ? 'Test play · ' : ''}${dayLabel()} · ${nf(maxPts())} points`;
+const ovlHTML = () => `<p class="card-ovl c-hero-o" id="c-hero-o">${esc(ovlText())}</p>`;
 
 function readyCard(k) {
   return `<section class="card card-hero c-hero is-${k}" data-kind="${k}" aria-labelledby="c-hero-o">`
@@ -507,7 +509,7 @@ function onClick(st, e) {
   if (e.target.closest('[data-dr-load]')) { showDR(st); return; }
   if (e.target.closest('[data-kk-load]')) { showKK(st); return; }
   if (e.target.closest('.c-sv-pane, .c-dr-pane, .c-kk-pane')) return;
-  const t = e.target.closest('[data-cta], [data-share], [data-streak], [data-retry], [data-cd-load]');
+  const t = e.target.closest('[data-cta], [data-share], [data-streak], [data-retry], [data-cd-load], [data-pz-test]');
   if (!t || !st.el.contains(t)) return;
   const {ctx} = st;
   if (t.hasAttribute('data-cta')) {
@@ -526,8 +528,29 @@ function onClick(st, e) {
     return;
   }
   if (t.hasAttribute('data-streak')) { openStreakSheet(); return; }
+  if (t.hasAttribute('data-pz-test')) { testPlay(st, t.dataset.pzTest === 'on'); return; }
   if (t.hasAttribute('data-retry')) { retry(st); return; }
   if (t.hasAttribute('data-cd-load')) location.reload();
+}
+
+/** The owner's Test play (views/testplay.js): today's puzzles fresh in the sandbox (never posted, never counted toward
+ *  the streak), or back to the real day's progress as it was. */
+function testPlay(st, on) {
+  if (!ready() || !canTest()) return;
+  daily.setTest(on);
+  patchTest(st);
+  ui.haptic('medium');
+  ui.announce(on ? 'Test play: today’s puzzles, fresh. It won’t count.' : 'Test play over: back to your real puzzles.');
+}
+function patchTest(st) {
+  const h = st.el.querySelector('[data-pz-tp]'), o = st.el.querySelector('#c-hero-o');
+  if (o && ready() && o.textContent !== ovlText()) o.textContent = ovlText();
+  if (!h) return;
+  const html = ready() ? testRowHTML(daily.TEST, 'data-pz-test') : '';
+  if (h.dataset.sig === html) return;
+  h.dataset.sig = html;
+  h.innerHTML = html;
+  ui.hydrate(h);
 }
 
 // "Try again": the loading card stays up at least RETRY_HOLD so the tap visibly does something (offline, the
@@ -556,6 +579,7 @@ function onDaily(st, type) {
     if (st.retrying) return;
     patchEyebrow(st);
     sync(st, st.ctx.visible);
+    patchTest(st);
     return;
   }
   if (type === 'progress' || type === 'lb') { if (st.ctx.visible) sync(st, true); else st.pending = true; return; }
@@ -574,7 +598,9 @@ export default {
       + pickerHTML(g)
       + `<div class="c-pz-pane"${g === 'puzzles' ? '' : ' hidden'}>`
       + `<div class="c-hero-wrap" data-key="hero" data-enter>${cardHTML()}</div>`
-      + `<div class="c-board-host" data-key="board" data-enter></div></div>`
+      + `<div class="c-board-host" data-key="board" data-enter></div>`
+      // the owner's Test play row at the bottom (views/testplay.js)
+      + `<div class="c-tp-host" data-pz-tp>${ready() ? testRowHTML(daily.TEST, 'data-pz-test') : ''}</div></div>`
       + `<div class="c-sv-pane sv-pane"${g === '17-0' ? '' : ' hidden'}>${g === '17-0' ? (SV ? SV.render(ctx) : svLoading()) : ''}</div>`
       + `<div class="c-dr-pane dr-pane"${g === 'drill' ? '' : ' hidden'}>${g === 'drill' ? (DR ? DR.render(ctx) : drLoading()) : ''}</div>`
       + `<div class="c-kk-pane kk-pane"${g === 'kick' ? '' : ' hidden'}>${g === 'kick' ? (KK ? KK.render(ctx) : kkLoading()) : ''}</div>`;

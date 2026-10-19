@@ -551,9 +551,14 @@ function rowsOf(counted) {
 
 const nameOf = (me, nick) => (me ? data.name(me) : String(nick || '').trim() || 'Someone');
 
+// THE RULE (CLAUDE.md), for the pick'em tables as for the daily boards: a league member's row shows to everyone, and
+// so does an app user's marked league: true (Ryan D); anyone else's (Ryan S, a guest, a row that belongs to no one)
+// only on their own phones, ranked among the league there. all: every row (the kit's counting checks).
+const rowShows = o => !!(o.me && data.M[o.me]) || o.you || !!(data.userReserving(o.nick) || {}).league;
+
 // Rows -> ranked output rows. Ranked by right (desc), then fewer wrong; a rank is shared only when both are equal
 // (the rule the Pick'em summary and the Wrap use for the leader). Then by name.
-function finishRows(rows, uid, me, extra) {
+function finishRows(rows, uid, me, extra, all) {
   const my = me && data.M[me] ? me : null;
   const list = [...rows.values()].map(r => {
     const name = nameOf(r.me, r.nick);
@@ -562,7 +567,7 @@ function finishRows(rows, uid, me, extra) {
       you: (!!uid && r.uids.has(uid)) || (!!my && r.me === my),
       right: r.right, wrong: r.wrong, decided, pushes: r.push, pending: r.pending, picked: r.picked, pct: decided ? r.right / decided : 0};
     return Object.assign(o, extra ? extra(r) : null);
-  });
+  }).filter(o => all || rowShows(o));
   list.sort((x, y) => y.right - x.right || x.wrong - y.wrong || x.name.localeCompare(y.name) || byUid(x, y));
   let rank = 0;
   list.forEach((r, i) => { if (!i || r.right !== list[i - 1].right || r.wrong !== list[i - 1].wrong) rank = i + 1; r.rank = rank; });
@@ -571,14 +576,15 @@ function finishRows(rows, uid, me, extra) {
 
 // One week's table: [{who: {uid, me, nick, name}, uid, me, nick, name, you, right, wrong, decided (right +
 // wrong), pushes (ties: no pick), pending (not over yet), picked (picks that count), pct, rank, locked (when they
-// locked in, ms, or null)}], ranked. opt.me: your manager id; opt.locks: the week's lock docs.
+// locked in, ms, or null)}], ranked. opt.me: your manager id; opt.locks: the week's lock docs; opt.all: every row,
+// not just the ones this phone shows (THE RULE, above).
 export function nflRowsFrom(docs, games, uid, opt = {}) {
   const L = lockIndex(opt.locks);
   return finishRows(rowsOf(countNfl(docs, games, uid, opt.locks)), uid, opt.me, r => {
     let t = r.me ? L.byMe.get(r.me) : undefined;
     r.uids.forEach(u => { const x = L.byUid.get(u); if (x != null && (t == null || x < t)) t = x; });
     return {locked: t == null ? null : t};
-  });
+  }, opt.all);
 }
 
 // Season table from weeks = [{year, week, games, docs, locks}]: the same rows summed over the weeks, plus weeks
@@ -596,7 +602,7 @@ export function nflStandingsFrom(weeks, uid, opt = {}) {
       if (o >= r._o) { r._o = o; r.uid = w.uid; r.nick = w.nick; }
     });
   });
-  return finishRows(rows, uid, opt.me, r => ({weeks: r.weeks}));
+  return finishRows(rows, uid, opt.me, r => ({weeks: r.weeks}), opt.all);
 }
 
 // ---------------------------------------------------------------------------
