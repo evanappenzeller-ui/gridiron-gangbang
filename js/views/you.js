@@ -72,7 +72,7 @@ function guestRow() {
 function guestSec() {
   if (data.user()) return '<div data-guest-sec hidden></div>'; // an app user has a player of their own
   return sec('Guest player', ui.group(guestRow(), {cls: 'c-ys-guestg'}), data.guest()
-    ? 'Your Daily Puzzles, 17–0 and Two-Minute Drill scores show under this name on your own boards, tagged Guest; the league doesn’t see them.'
+    ? 'Your Daily Puzzles, 17–0 and Two-Minute Drill scores show under this name on your own boards, tagged Guest; only Evan, who runs the league, sees them too.'
     : 'Not in the league? Make your own player to keep your scores on your own boards.', 'data-guest-sec');
 }
 // Your picture, in place of your initials (views/photo.js crops it, core/avatars.js shares it): once you're someone.
@@ -87,7 +87,7 @@ function picSec() {
     attrs: {'data-pic': ''}, cls: 'c-ys-act c-ys-pic', chevron: true})
     + (m.url ? ui.row({lead: `<span class="c-ys-ic">${ui.icon('x', {size: 20})}</span>`, title: 'Remove picture', attrs: {'data-pic-rm': ''}, cls: 'c-ys-act c-ys-pic-rm'}) : '');
   return sec('Your picture', ui.group(rows, {cls: 'c-ys-picg'}), avatars.pictureForAll(m.key)
-    ? 'Everyone in the league sees it, wherever your initials were.' : 'It shows on your own phones, like your scores.', 'data-pic-sec');
+    ? 'Everyone in the league sees it, wherever your initials were.' : 'It shows on your own phones and Evan’s, like your scores.', 'data-pic-sec');
 }
 function patchPicSec(s) {
   const el = s.body.querySelector('[data-pic-sec]');

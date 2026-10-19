@@ -344,7 +344,7 @@ export async function pickemChecks(check) {
   });
 
   // 8b. Who shows (THE RULE, CLAUDE.md)
-  check('Standings show league members and Ryan D to everyone; Ryan S, a guest or a row that is no one\'s only on their own phone', () => {
+  check('Standings show league members and Ryan D to everyone; Ryan S, a guest or a row that is no one\'s only on their own phone and the league owner\'s (Evan sees every row)', () => {
     need();
     const E = mgr('evan'), M = mgr('mitch');
     const g3 = nfl.parse(clone(W3)).games, k = g => g.kickoff.getTime();
@@ -352,11 +352,13 @@ export async function pickemChecks(check) {
     const P = (uid, g, me, nick) => ({id: week.nflPickId(uid, g.id), uid, game: g.id, team: win(g), me: me || null, nick: nick || data.name(me), at: k(g) - HOUR});
     const docs = [P('e1', g3[0], E), P('m1', g3[1], M), P('rd', g3[2], null, 'Ryan D'), P('rs', g3[3], null, 'Ryan S'), P('rs2', g3[4], null, 'RyStew'), P('f1', g3[5], null, 'Fan')];
     const names = rows => rows.map(r => r.name).sort().join(', ');
-    const onEvan = names(week.nflRowsFrom(docs, g3, 'e1', {me: E})), onRyanS = names(week.nflRowsFrom(docs, g3, 'rs', {me: null}));
-    const seasonEvan = names(week.nflStandingsFrom([{year: 2026, week: 3, games: g3, docs}], 'e1', {me: E}));
+    const onMitch = names(week.nflRowsFrom(docs, g3, 'm1', {me: M})), onRyanS = names(week.nflRowsFrom(docs, g3, 'rs', {me: null}));
+    const seasonMitch = names(week.nflStandingsFrom([{year: 2026, week: 3, games: g3, docs}], 'm1', {me: M}));
+    const onEvan = names(week.nflRowsFrom(docs, g3, 'e1', {me: E})), seasonEvan = names(week.nflStandingsFrom([{year: 2026, week: 3, games: g3, docs}], 'e1', {me: E}));
     const want = [data.name(E), data.name(M), 'Ryan D'].sort().join(', '), wantS = [data.name(E), data.name(M), 'Ryan D', 'Ryan S'].sort().join(', ');
-    const pass = onEvan === want && seasonEvan === want && onRyanS === wantS;
-    return {pass, detail: `Evan's phone: ${onEvan}; season: ${seasonEvan}; Ryan S's phone: ${onRyanS}`};
+    const wantE = [data.name(E), data.name(M), 'Ryan D', 'Ryan S', 'RyStew', 'Fan'].sort().join(', ');
+    const pass = E === data.OWNER && onMitch === want && seasonMitch === want && onRyanS === wantS && onEvan === wantE && seasonEvan === wantE;
+    return {pass, detail: `Mitch's phone: ${onMitch}; season: ${seasonMitch}; Ryan S's phone: ${onRyanS}; Evan's (the owner's): ${onEvan}; season: ${seasonEvan}`};
   });
 
   // 9. Doc ids match the rules

@@ -553,13 +553,15 @@ const nameOf = (me, nick) => (me ? data.name(me) : String(nick || '').trim() || 
 
 // THE RULE (CLAUDE.md), for the pick'em tables as for the daily boards: a league member's row shows to everyone, and
 // so does an app user's marked league: true (Ryan D); anyone else's (Ryan S, a guest, a row that belongs to no one)
-// only on their own phones, ranked among the league there. all: every row (the kit's counting checks).
+// only on their own phones, ranked among the league there, and on the league owner's (data.OWNER), who sees every row.
+// all: every row (the kit's counting checks).
 const rowShows = o => !!(o.me && data.M[o.me]) || o.you || !!(data.userReserving(o.nick) || {}).league;
 
 // Rows -> ranked output rows. Ranked by right (desc), then fewer wrong; a rank is shared only when both are equal
 // (the rule the Pick'em summary and the Wrap use for the leader). Then by name.
 function finishRows(rows, uid, me, extra, all) {
   const my = me && data.M[me] ? me : null;
+  if (my === data.OWNER) all = true;
   const list = [...rows.values()].map(r => {
     const name = nameOf(r.me, r.nick);
     const decided = r.right + r.wrong;

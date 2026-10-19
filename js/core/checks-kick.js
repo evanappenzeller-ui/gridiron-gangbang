@@ -208,25 +208,25 @@ export async function kickChecks(check) {
     const pass = wd && sig === '1.Jacob 10/50/1, 2.Mason 9/41/2';
     return {pass, detail: `days ${wd}; ${sig}`};
   });
-  check('Kick It: THE RULE (CLAUDE.md): the scoreboard reads the board as this phone may see it (daily.LB.raw), never every doc: a guest or Ryan S on the board only on their own phones; Ryan D for everyone', async () => {
+  check('Kick It: THE RULE (CLAUDE.md): the scoreboard reads the board as this phone may see it (daily.LB.raw), never every doc: a guest or Ryan S on the board only on their own phones and the league owner\'s; Ryan D for everyone', async () => {
     const LB = daily.LB, raw = LB.raw, all = LB.all, players = LB.players;
     const member = doc('kr-m', 'Mason', {1: e(4, 30, 100, 1)}), guest = doc('kr-g', 'Zed Q', {1: e(20, 60, 900, 1)}, {g: true});
     const ryanD = doc('kr-d', 'Ryan Dow', {1: e(6, 40, 200, 1)});
     let out;
     try {
       LB.all = [member, guest, ryanD];
-      LB.raw = LB.all.filter(p => daily.boardShows(p));
+      LB.raw = LB.all.filter(p => daily.boardShows(p, false)); // a league phone's board
       LB.players = LB.raw;
       const rows = K.boardRows(1), week = K.weekRows(1, undefined, 1);
       const names = rows.map(r => r.name).join();
-      out = {rows: names, week: week.map(r => r.name).join(), shown: daily.boardShows(guest), ryan: rows.some(r => r.name === 'Ryan D')};
+      out = {rows: names, week: week.map(r => r.name).join(), shown: daily.boardShows(guest, false), owner: daily.boardShows(guest, true), ryan: rows.some(r => r.name === 'Ryan D')};
     } finally { LB.raw = raw; LB.all = all; LB.players = players; }
     // and the code: the game's files never read LB.all (comments aside)
     const files = ['./kick.js', '../views/kick.js'];
     const srcs = await Promise.all(files.map(f => fetch(new URL(f, import.meta.url)).then(r => r.text()).catch(() => '')));
     const reads = srcs.map((s, i) => (s && !s.split('\n').some(l => /LB\.all\b/.test(l.replace(/\/\/.*$/, '').replace(/\/\*.*?\*\//g, ''))) ? '' : files[i])).filter(Boolean);
-    const pass = !out.shown && !/Zed/.test(out.rows) && !/Zed/.test(out.week) && out.ryan && /Mason/.test(out.rows) && !reads.length;
-    return {pass, detail: `rows ${out.rows}; week ${out.week}; guest shown ${out.shown}; ${reads.length ? 'reads LB.all: ' + reads.join() : 'no LB.all reads'}`};
+    const pass = !out.shown && out.owner && !/Zed/.test(out.rows) && !/Zed/.test(out.week) && out.ryan && /Mason/.test(out.rows) && !reads.length;
+    return {pass, detail: `rows ${out.rows}; week ${out.week}; guest shown ${out.shown} (on the owner's phone ${out.owner}); ${reads.length ? 'reads LB.all: ' + reads.join() : 'no LB.all reads'}`};
   });
   check('Kick It is open to everyone (Oct 2026): /puzzles/kick opens it on any phone (gameFor no longer asks who this phone is), like the other three games; an unknown game opens Daily Puzzles', () => {
     const routes = ['kick', 'drill', '17-0', 'puzzles', 'nope', undefined].map(g => gameFor(g)).join();

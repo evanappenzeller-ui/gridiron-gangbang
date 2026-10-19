@@ -511,6 +511,11 @@ export function guest() { return me() ? null : guestRead(); }
 // show only on their own phones (daily.js boardShows) unless the user is marked league: true, and only Ryan Dow is.
 export const USERS = [{id: 'ryan-dow', name: 'Ryan Dow', board: 'Ryan D', league: true},
   {id: 'ryan-stewart', name: 'Ryan Stewart', board: 'Ryan S', aka: ['RyStew']}];
+// The league's owner (Evan, Oct 2026): his phones see every player on the boards, the Pick'em tables and their
+// pictures (guests, Ryan S, any app user); the rest of the league still sees only members and Ryan D (THE RULE).
+export const OWNER = 'evan';
+/** Whether this phone is the league owner's. */
+export const isOwner = () => me() === OWNER;
 const userKey = nm => String(nm || '').trim().replace(/\s+/g, ' ').toLowerCase();
 /** The app user a name belongs to (any case and spacing), or null. */
 export const userNamed = nm => { const k = userKey(nm); return k ? USERS.find(u => userKey(u.name) === k || (u.aka || []).some(a => userKey(a) === k)) || null : null; };

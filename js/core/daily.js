@@ -12,7 +12,7 @@
 // behavior.
 // Owner: foundation (core).
 
-import {DATA, nf, norm, me as dataMe, name as dataName, guest as dataGuest, user as dataUser, userNamed, userReserving, subscribe as dataSub} from './data.js';
+import {DATA, nf, norm, me as dataMe, name as dataName, guest as dataGuest, user as dataUser, isOwner as dataOwner, userNamed, userReserving, subscribe as dataSub} from './data.js';
 import {getFire, canWrite, isDevHost, devDayFrom, DEV_DAY as fireDevDay} from './fire.js';
 import {roundsFor as playRoundsFor} from './plays.js';
 
@@ -904,11 +904,14 @@ async function startFirebase() {
 /** Whether a board doc's scores show on this phone. THE RULE (CLAUDE.md): the league's boards are the league's. A
  *  member's rows show to everyone, and so do an app user's marked league: true (data.USERS: Ryan D only). Anyone else
  *  (a guest, any other app user like Ryan S, a row that is no one's) shows only on their own phones: the phone that
- *  posted it, or any of an app user's phones. Every board reads LB.raw / LB.players, which this filters. */
-export function boardShows(p) {
+ *  posted it, or any of an app user's phones. The league owner's phones (data.OWNER) also show every guest's and
+ *  app user's rows; a row that is no one's stays hidden there too. owner: judge as the owner's phone or not (default:
+ *  this phone). Every board reads LB.raw / LB.players, which this filters. */
+export function boardShows(p, owner = dataOwner()) {
   if (!p || p.id === LB.uid) return true;
   if (memberOf(p)) return true;
   const u = userOf(p);
+  if (owner && (u || p.g)) return true;
   if (!u) return false;
   if (u.league) return true;
   const me = dataUser();
@@ -1137,7 +1140,7 @@ function fixGuestRow(mine) {
 let wasGuest = null;
 dataSub(type => {
   if (type !== 'me') return;
-  if (LB.all) boardFilter(); // a solo app user's rows show or hide with who this phone is
+  if (LB.all) boardFilter(); // a solo app user's rows (and on the owner's phone, everyone's) show or hide with who this phone is
   const m = dataMe();
   if (wasGuest && m && LB.nick === wasGuest) setNick(dataName(m).slice(0, 24));
   wasGuest = dataGuest();

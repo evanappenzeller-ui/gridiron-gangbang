@@ -6,7 +6,8 @@
 // on all their phones and everyone else's: per person the newest one counts, and only from a doc that is that
 // person's (a doc's av for anyone else is ignored). i '' takes a picture away (initials again).
 // THE RULE (CLAUDE.md), for pictures as for scores: a member's picture shows to everyone, and so does an app user's
-// marked league: true (Ryan D); a guest's or any other app user's only on their own phones (pictureShows).
+// marked league: true (Ryan D); a guest's or any other app user's only on their own phones, and the league owner's
+// (data.OWNER), who sees everyone's (pictureShows).
 // A picture set on this phone shows at once and waits (gg-pic-mine) until the board has it: no connection, or a failed
 // write, just means it goes up later. The pictures last seen are kept (gg-pics) so they're there before the board loads.
 // Exports: myKey(), keyOfNick(nick), pictureShows(key), pictureForAll(key), pictureUrl(key), mine(), setMine(dataUrl),
@@ -37,11 +38,13 @@ export function keyOfNick(nick) {
   const n = norm(nick);
   return n ? 'guest:' + n : '';
 }
-/** Whether this phone shows a person's picture (THE RULE, above). */
-export function pictureShows(key) {
+/** Whether this phone shows a person's picture (THE RULE, above). owner: judge as the owner's phone or not (default:
+ *  this phone). */
+export function pictureShows(key, owner = data.isOwner()) {
   if (!key) return false;
   if (key === myKey()) return true;
   if (data.ids.includes(key)) return true;
+  if (owner && /^(user|guest):/.test(key)) return true;
   const u = /^user:/.test(key) ? data.USERS.find(x => 'user:' + x.id === key) : null;
   return !!(u && u.league);
 }
