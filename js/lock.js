@@ -183,11 +183,28 @@
   window.addEventListener('touchend', endDrag, {passive: true});
   window.addEventListener('touchcancel', function () { drag = null; }, {passive: true});
 
+  // An iPhone settles a turn late: its resize can come at the old size (or before the media query flips), and nothing
+  // comes once the new size is in, so whatever measured then (Kick It's field, the tab bar's highlight) keeps the
+  // sizes from halfway round. So after a turn, the app gets a resize of its own a third of a second and a second on,
+  // to measure again as it's settled (ours: not a turn itself).
+  var later = [], ours = false;
+  function settle() {
+    if (ours) return;
+    later.forEach(clearTimeout);
+    later = [350, 1000].map(function (ms) {
+      return setTimeout(function () { apply(); ours = true; try { window.dispatchEvent(new Event('resize')); } finally { ours = false; } }, ms);
+    });
+  }
+  var shape = function () { return rot + (VW > VH ? 'w' : 't'); };
+  function turned() { apply(); settle(); }
+  // A resize is a turn when the screen's gone from tall to wide or back, or the app's turn changed.
+  function resized() { var was = shape(); apply(); if (shape() !== was) settle(); }
+
   apply();
   // Before the app's own resize handlers (this runs first), so they measure the app turned or not.
-  window.addEventListener('resize', apply);
-  window.addEventListener('orientationchange', apply);
-  if (window.screen && window.screen.orientation && window.screen.orientation.addEventListener) window.screen.orientation.addEventListener('change', apply);
-  if (mq) { if (mq.addEventListener) mq.addEventListener('change', apply); else if (mq.addListener) mq.addListener(apply); }
+  window.addEventListener('resize', resized);
+  window.addEventListener('orientationchange', turned);
+  if (window.screen && window.screen.orientation && window.screen.orientation.addEventListener) window.screen.orientation.addEventListener('change', turned);
+  if (mq) { if (mq.addEventListener) mq.addEventListener('change', turned); else if (mq.addListener) mq.addListener(turned); }
   window.GGLock = {turn: function () { return rot; }};
 })();
