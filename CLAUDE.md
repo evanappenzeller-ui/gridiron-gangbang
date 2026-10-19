@@ -21,6 +21,8 @@ How it's enforced, and what to keep doing:
   marked `league: true` shows to everyone, and only Ryan Dow has it. Don't add it to anyone else unless the owner
   says so.
 - The kit check "an app user (Ryan Dow) has a login…" (`js/core/checks.js`) fails if this changes.
+- Profile pictures follow the same rule (`js/core/avatars.js` `pictureShows()`): a member's picture, and Ryan D's, shows
+  to everyone; a guest's or any other app user's only on their own phones. The kit check "pictures: …" covers it.
 
 ## Deploying
 

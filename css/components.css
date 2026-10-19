@@ -536,6 +536,9 @@ button.card, a.card { width: 100%; text-align: left; color: inherit; }
   font-size: calc(var(--sz) * .38); letter-spacing: 0;
   --mc-ring: transparent;
 }
+/* A picture in place of the initials (core/avatars.js): the photo fills the circle, the ring stays on top. */
+.av.av-pic { background: var(--av-pic) center / cover no-repeat, var(--surface-3); }
+.av.av-pic > .av-mono { visibility: hidden; }
 .av-you   { box-shadow: inset 0 0 0 1.5px var(--mc-ring), 0 0 0 2px var(--bg), 0 0 0 4px var(--you-ring, #fff); }
 .av-champ { box-shadow: inset 0 0 0 1.5px var(--mc-ring), 0 0 0 2px var(--bg), 0 0 0 4px var(--gold); }
 .av-crown {

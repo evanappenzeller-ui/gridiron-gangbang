@@ -92,13 +92,32 @@ const crownSvg = () => `<svg class="av-crown" aria-hidden="true" focusable="fals
 const avA11y = (label, fallback) => label === true ? ` role="img" aria-label="${esc(fallback)}"`
   : (typeof label === 'string' && label) ? ` role="img" aria-label="${esc(label)}"` : ' aria-hidden="true"';
 
+// Pictures in place of the initials: core/avatars.js registers where they come from (setPictures). Every avatar
+// carries its picture key (data-avk: a manager id, 'user:' + an app user's id, 'guest:' + a guest's name), so
+// patchPictures() can put a new picture in, or take one out, wherever avatars are already drawn.
+let PIC = {url: () => '', keyOfNick: () => ''};
+export function setPictures(src) { PIC = Object.assign({}, PIC, src); }
+/** The picture's class and style for a key ('' when there's none). */
+function picOf(key, sizeCss) {
+  const u = key ? PIC.url(key) : '';
+  return {cls: u ? ' av-pic' : '', style: [sizeCss, u ? `--av-pic:url(&quot;${esc(u)}&quot;)` : ''].filter(Boolean).join(';')};
+}
+/** Puts each avatar's picture in (or takes it out) under root, after the pictures change. */
+export function patchPictures(root = document) {
+  root.querySelectorAll('.av[data-avk]').forEach(el => {
+    const u = PIC.url(el.dataset.avk);
+    el.classList.toggle('av-pic', !!u);
+    if (u) el.style.setProperty('--av-pic', `url("${u}")`); else el.style.removeProperty('--av-pic');
+  });
+}
+
 /** Manager avatar. label: undefined/false = decorative (aria-hidden), true = manager name, string = custom. */
 export function avatar(id, {size = 40, hero, you, champ, crown, label, cls = '', attrs: at} = {}) {
   const c = color(id);
-  const sz = avSize(size);
-  const k = `av ${sz} ${c.cls}${hero ? ' av-hero' : ''}${you ? ' av-you' : ''}${champ && !you ? ' av-champ' : ''}${cls ? ' ' + cls : ''}`;
-  const st = sz ? '' : ` style="--sz:${+size || 40}px"`;
-  return `<span class="${k}"${st}${avA11y(label, name(id))}${attrs(at)}><span class="av-mono">${esc(c.mono)}</span>${crown ? crownSvg() : ''}</span>`;
+  const sz = avSize(size), pic = picOf(id == null ? '' : String(id), sz ? '' : `--sz:${+size || 40}px`);
+  const k = `av ${sz} ${c.cls}${hero ? ' av-hero' : ''}${you ? ' av-you' : ''}${champ && !you ? ' av-champ' : ''}${pic.cls}${cls ? ' ' + cls : ''}`;
+  const st = pic.style ? ` style="${pic.style}"` : '';
+  return `<span class="${k}"${st} data-avk="${esc(id)}"${avA11y(label, name(id))}${attrs(at)}><span class="av-mono">${esc(c.mono)}</span>${crown ? crownSvg() : ''}</span>`;
 }
 
 function initials(nick) {
@@ -109,9 +128,9 @@ function initials(nick) {
 /** Leaderboard nick: the mapped manager's avatar, or a neutral initials disc. */
 export function nickAvatar(nick, {size = 36, managerId, you, crown, label, cls = ''} = {}) {
   if (managerId) return avatar(managerId, {size, you, crown, label, cls});
-  const sz = avSize(size);
-  const st = sz ? '' : ` style="--sz:${+size || 36}px"`;
-  return `<span class="av ${sz} av-neutral${you ? ' av-you' : ''}${cls ? ' ' + cls : ''}"${st}${avA11y(label, nick)}><span class="av-mono">${esc(initials(nick))}</span>${crown ? crownSvg() : ''}</span>`;
+  const sz = avSize(size), key = PIC.keyOfNick(nick) || '', pic = picOf(key, sz ? '' : `--sz:${+size || 36}px`);
+  const st = pic.style ? ` style="${pic.style}"` : '';
+  return `<span class="av ${sz} av-neutral${you ? ' av-you' : ''}${pic.cls}${cls ? ' ' + cls : ''}"${st}${key ? ` data-avk="${esc(key)}"` : ''}${avA11y(label, nick)}><span class="av-mono">${esc(initials(nick))}</span>${crown ? crownSvg() : ''}</span>`;
 }
 
 /** Overlapping avatars. list items: manager id strings, or {id|managerId, nick, you}. */

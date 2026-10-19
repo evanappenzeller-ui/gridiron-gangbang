@@ -33,6 +33,7 @@
 import * as ui from './core/ui.js';
 import * as data from './core/data.js';
 import * as daily from './core/daily.js';
+import './core/avatars.js'; // pictures in place of initials, before anything draws an avatar
 import {needsWelcome, showWelcome} from './views/welcome.js';
 
 export const APP_VERSION = '1.0';

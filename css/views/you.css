@@ -87,3 +87,27 @@
 .c-gs-err { min-height: 18px; margin: -6px 4px 0; font: 500 var(--fs-foot)/18px var(--font-text); color: var(--wrong); }
 .sh-guest .sheet-body { padding-bottom: calc(env(safe-area-inset-bottom) + 20px); }
 .sh-you .c-ys-guest .row-lead .av { margin: 0; }
+
+/* ================================================================ Your picture (views/photo.js)
+   The You sheet's rows (your avatar, Change / Remove), and the crop: the photo in a square, dimmed outside the circle
+   it's cut to, a zoom slider, Cancel / Use picture. */
+.sh-you .c-ys-pic .row-lead .av { margin: 0; }
+.sh-you .c-ys-pic-rm .row-title { color: var(--wrong); font-weight: 400; }
+.sh-photo .sheet-body { padding-bottom: calc(env(safe-area-inset-bottom) + 20px); }
+.ph-wrap { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.ph-stage {
+  position: relative; width: min(100%, 300px); aspect-ratio: 1; border-radius: 18px; overflow: hidden;
+  background: var(--surface-2); touch-action: none; cursor: grab; outline: none;
+  user-select: none; -webkit-user-select: none;
+}
+.ph-stage:active { cursor: grabbing; }
+.ph-stage:focus-visible { box-shadow: 0 0 0 3px var(--tint); }
+.ph-cv { display: block; }
+.ph-ring { position: absolute; inset: 0; border-radius: 50%; box-shadow: 0 0 0 999px rgba(0,0,0,.55), inset 0 0 0 2px rgba(255,255,255,.85); pointer-events: none; }
+.ph-spin { position: absolute; left: 50%; top: 50%; width: 28px; height: 28px; margin: -14px 0 0 -14px; color: var(--ink-3); }
+.ph-stage.is-ready .ph-spin { display: none; }
+.ph-zoom { display: flex; align-items: center; gap: 12px; width: min(100%, 300px); }
+.ph-zoom input { flex: 1; accent-color: var(--tint); }
+.ph-zi { width: 18px; text-align: center; font: 600 20px/1 var(--font-text); color: var(--ink-2); }
+.ph-hint { margin: -4px 0 0; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); text-align: center; }
+.ph-acts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }

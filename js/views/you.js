@@ -9,6 +9,8 @@ import * as daily from '../core/daily.js';
 import {APP_VERSION, installEvent, promptInstall} from '../app.js';
 import {flameIcon, streakPillHTML, ensureDefs, countWord} from './board.js';
 import {openGuestSheet} from './guest.js';
+import * as avatars from '../core/avatars.js';
+import {choosePicture, removePicture} from './photo.js';
 
 const esc = data.esc;
 const nf = n => data.nf(n);
@@ -73,6 +75,24 @@ function guestSec() {
     ? 'Your Daily Puzzles, 17–0 and Two-Minute Drill scores show under this name on your own boards, tagged Guest; the league doesn’t see them.'
     : 'Not in the league? Make your own player to keep your scores on your own boards.', 'data-guest-sec');
 }
+// Your picture, in place of your initials (views/photo.js crops it, core/avatars.js shares it): once you're someone.
+function meAvatar(size) {
+  const m = data.me(), u = data.user(), g = data.guest();
+  return m ? ui.avatar(m, {size}) : ui.nickAvatar(u ? u.name : g, {size});
+}
+function picSec() {
+  const m = avatars.mine();
+  if (!m) return '<div data-pic-sec hidden></div>';
+  const rows = ui.row({lead: meAvatar(40), title: m.url ? 'Change picture' : 'Add a picture', sub: m.url ? 'Shows in place of your initials' : 'From your photos, in place of your initials',
+    attrs: {'data-pic': ''}, cls: 'c-ys-act c-ys-pic', chevron: true})
+    + (m.url ? ui.row({lead: `<span class="c-ys-ic">${ui.icon('x', {size: 20})}</span>`, title: 'Remove picture', attrs: {'data-pic-rm': ''}, cls: 'c-ys-act c-ys-pic-rm'}) : '');
+  return sec('Your picture', ui.group(rows, {cls: 'c-ys-picg'}), avatars.pictureForAll(m.key)
+    ? 'Everyone in the league sees it, wherever your initials were.' : 'It shows on your own phones, like your scores.', 'data-pic-sec');
+}
+function patchPicSec(s) {
+  const el = s.body.querySelector('[data-pic-sec]');
+  if (el) { el.outerHTML = picSec(); ui.hydrate(s.body); }
+}
 function nickRow() {
   const nick = daily.LB.nick ? daily.displayName({nick: daily.LB.nick}) : ''; // as the boards show it (an app user's board name)
   return ui.row({lead: `<span class="c-ys-ic">${ui.icon('list-number', {size: 20})}</span>`, title: nick ? `Posting as ${nick}` : 'Not posted yet', cls: 'c-ys-nick'});
@@ -111,7 +131,8 @@ function youBody() {
   const L = data.DATA && data.DATA.league ? data.DATA.league.name : 'Gridiron Gangbang';
   const sp = data.span;
   const feel = feelHTML();
-  return sec('Which one are you?', gridHTML())
+  return picSec()
+    + sec('Which one are you?', gridHTML())
     + guestSec()
     + sec('Leaderboard', ui.group(nickRow(), {cls: 'c-ys-nickg'}))
     + sec('Look', ui.group(ui.row({lead: `<span class="c-ys-ic">${ui.icon('sparkle', {size: 20})}</span>`, title: 'Theme', sub: themeName(),
@@ -179,13 +200,15 @@ export function openSettingsSheet() {
 
 export function openYouSheet() {
   if (youSheet && youSheet.open) return youSheet;
-  let unsub = () => {};
-  const s = ui.openSheet({title: 'You', body: youBody(), cls: 'sh-you', detents: ['medium', 'large'], onClose: () => { unsub(); if (youSheet === s) youSheet = null; }});
+  let unsub = () => {}, unsubPics = () => {};
+  const s = ui.openSheet({title: 'You', body: youBody(), cls: 'sh-you', detents: ['medium', 'large'], onClose: () => { unsub(); unsubPics(); if (youSheet === s) youSheet = null; }});
   youSheet = s;
   wireSheet(s);
+  unsubPics = avatars.onPictures(() => patchPicSec(s));
   unsub = data.subscribe(type => {
     if (type === 'me') {
       patchGrid(s);
+      patchPicSec(s);
       // The guest section and the posting name follow.
       const gs = s.body.querySelector('[data-guest-sec]');
       if (gs) { gs.outerHTML = guestSec(); ui.hydrate(s.body); }
@@ -200,6 +223,8 @@ export function openYouSheet() {
 function wireSheet(s) {
   s.body.addEventListener('click', async e => {
     if (e.target.closest('[data-guest]')) { openGuestSheet(); return; }
+    if (e.target.closest('[data-pic]')) { choosePicture(); return; }
+    if (e.target.closest('[data-pic-rm]')) { removePicture(); return; }
     const me = e.target.closest('[data-me]');
     if (me) {
       const k = me.dataset.me;

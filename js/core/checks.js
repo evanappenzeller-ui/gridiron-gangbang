@@ -10,6 +10,8 @@ import * as motw from './motw.js';
 import * as week from './week.js';
 import {playByName} from './plays.js';
 import * as laytrack from './laytrack.js';
+import * as avatars from './avatars.js';
+import * as ui from './ui.js';
 
 // ---------------------------------------------------------------------------
 // Old formulas, copied from the old index.html
@@ -586,6 +588,43 @@ export async function runChecks() {
       && daily.memberOf(r1) === null && !daily.guestOf(r1) && !!u && u.id === 'ryan-dow' && names === 'no no ok no' && stew && snames === 'no no no'
       && solo;
     return {pass, detail: `rows today ${once[0].length}, season ${once[1].length}; tag ${row ? row.guest : '-'}; keys ${keys}; names ${names}; Ryan S (RyStew) ${stew}, names ${snames}; Ryan S shown here ${daily.boardShows(s1)} (this phone is him: ${isRyanS})`};
+  });
+
+  check('pictures: your own picture in place of your initials, for a person on all their phones (the newest counts), and only from a doc that is that person\'s; a member\'s and Ryan D\'s show to everyone, a guest\'s or Ryan S\'s only on their own phones (THE RULE, CLAUDE.md); taking it away brings the initials back; an avatar with a picture draws it, and gets it (or loses it) in place', () => {
+    needDaily();
+    const px = c => 'data:image/jpeg;base64,' + c.repeat(8);
+    const on = avatars.picturesOnBoard([
+      {id: 'p1', nick: 'Jacob', av: {k: 'jacob', i: px('AAAA'), t: 5}},
+      {id: 'p2', nick: 'Jacob C', av: {k: 'jacob', i: px('BBBB'), t: 7}},          // his other phone, newer: it counts
+      {id: 'p3', nick: 'Mason', av: {k: 'jacob', i: px('CCCC'), t: 9}},            // Mason's doc can't set Jacob's
+      {id: 'p4', nick: 'Mason H', av: {k: 'mason', i: 'javascript:alert(1)', t: 3}}, // not a picture
+      {id: 'p5', nick: 'Zed Q', g: true, av: {k: 'guest:zed q', i: px('DDDD'), t: 4}},
+      {id: 'p6', nick: 'Corbin', av: {k: 'corbin', i: px('EEEE'), t: 2}},
+      {id: 'p7', nick: 'Corbin W', av: {k: 'corbin', i: '', t: 6}},                 // taken away later: initials
+      {id: 'p8', nick: 'Ryan Dow', g: true, av: {k: 'user:ryan-dow', i: px('FFFF'), t: 1}}
+    ]);
+    const board = on.jacob && on.jacob.i === px('BBBB') && !on.mason && on['guest:zed q'] && on.corbin && on.corbin.i === '' && on['user:ryan-dow'];
+    const me = avatars.myKey();
+    const shows = avatars.pictureShows('jacob') && avatars.pictureShows('user:ryan-dow') && avatars.pictureShows('guest:zed q') === (me === 'guest:zed q')
+      && avatars.pictureShows('user:ryan-stewart') === (me === 'user:ryan-stewart') && avatars.pictureForAll('mason') && !avatars.pictureForAll('guest:zed q')
+      && !avatars.pictureForAll('user:ryan-stewart') && avatars.keyOfNick('Ryan D') === 'user:ryan-dow' && avatars.keyOfNick(' Zed  Q ') === 'guest:zed q';
+    // drawing: with a picture the avatar carries it; patchPictures puts one in and takes it out in place
+    let url = '';
+    ui.setPictures({url: k => (k === 'jacob' ? url : '')});
+    let drawn, after, gone;
+    try {
+      url = 'blob:test-1';
+      drawn = ui.avatar('jacob', {size: 40});
+      const host = document.createElement('div');
+      url = '';
+      host.innerHTML = ui.avatar('jacob', {size: 40}) + ui.nickAvatar('Jacob', {managerId: 'jacob'});
+      url = 'blob:test-2'; ui.patchPictures(host);
+      after = [...host.querySelectorAll('.av')].every(el => el.classList.contains('av-pic') && /test-2/.test(el.style.getPropertyValue('--av-pic')));
+      url = ''; ui.patchPictures(host);
+      gone = [...host.querySelectorAll('.av')].every(el => !el.classList.contains('av-pic') && !el.style.getPropertyValue('--av-pic'));
+    } finally { ui.setPictures({url: avatars.pictureUrl, keyOfNick: avatars.keyOfNick}); }
+    const draws = /av-pic/.test(drawn) && /blob:test-1/.test(drawn) && /data-avk="jacob"/.test(drawn) && after && gone;
+    return {pass: !!board && shows && draws, detail: `board: Jacob ${on.jacob ? on.jacob.t : '-'}, Mason ${on.mason ? 'set' : 'none'}, Corbin ${on.corbin && !on.corbin.i ? 'taken away' : '?'}, guest ${on['guest:zed q'] ? 'kept' : '-'}; shown here (as ${me}): ${shows}; drawn ${draws}`};
   });
 
   // 6. holders
