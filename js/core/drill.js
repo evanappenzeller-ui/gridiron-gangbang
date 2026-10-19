@@ -115,22 +115,8 @@ export function record(n, s) {
   write(v);
   return true;
 }
-// Testers: members who can play a day again as often as they like, to try the game out. The day's first finished game
-// is the one that counts (the board, the record); every game after it is practice, on this phone only: never posted,
-// not added to the record. Only the owner (Evan, who asked for it); everyone else plays each day once.
-export const TESTERS = ['evan'];
-const whoAmI = () => dataMe() || (daily.LB.ready && daily.LB.uid ? meKey() : null);
-/** Whether this phone's member can replay a finished day. */
-export const canReplay = () => TESTERS.includes(whoAmI());
-/** A tester's finished day n, cleared for a practice run (its first game stays posted). True when it cleared. */
-export function replayDay(n) {
-  if (!canReplay()) return false;
-  const v = read(), d = v.days[n];
-  if (!d || !d.r) return false;
-  v.days[n] = {p: Math.max(0, d.p | 0) + 1};
-  write(v);
-  return true;
-}
+// Practice runs (p): the owner's replays of a finished day, while he had them (Test play does it now: the owner's ask,
+// Oct 2026). A day still holding one stays practice: its finish isn't counted or posted, and it says so.
 export function totals() {
   const v = read(true);
   return {played: v.played, wins: v.wins};

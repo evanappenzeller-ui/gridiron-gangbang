@@ -2306,7 +2306,6 @@ function resultHTML(st) {
     + `<p class="dr-final-sub">${esc(r.sub)}</p>`
     + finalGradeHTML(st.n, s)
     + (practice ? `<p class="dr-practice">${esc(`Practice run ${practice}: your first game today is the one on the scoreboard.`)}</p>` : '')
-    + (dr.canReplay() ? `<div class="dr-res-act"><button type="button" class="btn btn-secondary dr-again" data-dr-again>${ui.icon('play-fill')}<span class="btn-label">Play again</span></button></div>` : '')
     + `<p class="dr-next">${ui.icon('clock', {size: 15})}<span>Next drill in <span data-dr-next>${esc(nextIn())}</span></span></p></section>`
     + compHTML(s);
 }
@@ -2778,17 +2777,6 @@ function testPlay(st, on) {
   setTimeout(() => { if (!st.dead) showField(st); }, 200);
   ui.announce(on ? 'Test play: a fresh start on today’s drill. It won’t count.' : 'Test play over: back to your real game.');
 }
-/** A tester's practice run of today's drill: the first game is posted (if it wasn't yet) and stays on the board. */
-function playAgain(st) {
-  if (st.busy) return;
-  dr.autoPost();
-  if (!dr.replayDay(st.n)) return;
-  ui.haptic('medium');
-  setDaily(st);
-  rerender(st);
-  setTimeout(() => { if (!st.dead) showField(st); }, 200);
-  ui.announce('Practice run: a fresh start on today’s drill.');
-}
 function rerender(st, {fade = true} = {}) {
   const go2 = () => { st.el.innerHTML = bodyHTML(st); ui.hydrate(st.el); loadLogos(st.el); aimRoutes(st.el); fitField(st); };
   if (fade && !ui.RM && st.ctx.visible) ui.crossfade(st.el, go2, {duration: 160}); else go2();
@@ -2959,7 +2947,7 @@ function onClick(st, e) {
   if (st.rtOpen) { openRoutes(st, null); return; }
   const rcv = routesOn(st) && e.target.closest('[data-dr-rcv]');
   if (rcv && st.el.contains(rcv)) { cycleRoute(st, rcv.dataset.drRcv); return; }
-  const t = e.target.closest('[data-dr-go], [data-dr-menu], [data-dr-dmenu], [data-dr-card], [data-dr-side], [data-dr-hurry], [data-dr-flag], [data-dr-replay], [data-dr-ratings], [data-dr-help], [data-dr-again], [data-dr-retry], [data-dr-who], [data-dr-sbtab], [data-dr-test]');
+  const t = e.target.closest('[data-dr-go], [data-dr-menu], [data-dr-dmenu], [data-dr-card], [data-dr-side], [data-dr-hurry], [data-dr-flag], [data-dr-replay], [data-dr-ratings], [data-dr-help], [data-dr-retry], [data-dr-who], [data-dr-sbtab], [data-dr-test]');
   if (!t || !st.el.contains(t) || t.disabled) return;
   if (t.hasAttribute('data-dr-go')) { go(st, t.dataset.drGo); return; }
   if (t.hasAttribute('data-dr-menu')) { openMenu(st, st.panel === t.dataset.drMenu ? 'main' : t.dataset.drMenu); return; }
@@ -2986,7 +2974,6 @@ function onClick(st, e) {
   if (t.hasAttribute('data-dr-replay')) { replayLast(st); return; }
   if (t.hasAttribute('data-dr-ratings')) { openRatings(st); return; }
   if (t.hasAttribute('data-dr-help')) { openHelp(); return; }
-  if (t.hasAttribute('data-dr-again')) { playAgain(st); return; }
   if (t.hasAttribute('data-dr-test')) { testPlay(st, t.dataset.drTest === 'on'); return; }
   if (t.hasAttribute('data-dr-who')) { openGame(st, t.dataset.drWho); return; }
   if (t.hasAttribute('data-dr-sbtab')) {

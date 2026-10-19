@@ -712,10 +712,9 @@ export async function drillChecks(check) {
     }))))))));
     return {pass: !missing.size && SP.TALL > 0, detail: missing.size ? `no picture for ${[...missing].join(', ')}` : `${n} moments, each with a picture`};
   });
-  check('Drill: replays for the owner only (to try the game out): Evan\'s phones can play a finished day again as often as wanted, a practice run each time (the day\'s first game is the one on the board and in the record); no one else can', () => {
-    const me = data.me(), can = dr.canReplay();
-    const pass = dr.TESTERS.join() === 'evan' && can === (me === 'evan');
-    return {pass, detail: `testers ${dr.TESTERS.join(', ')}; this phone (${me || 'no one'}) can replay: ${can}`};
+  check('Drill: no Play again (the owner tests with Test play): a finished day stays finished on every phone, no replay to start one over', () => {
+    const pass = !('replayDay' in dr) && !('canReplay' in dr) && !('TESTERS' in dr);
+    return {pass, detail: `replayDay ${'replayDay' in dr}, canReplay ${'canReplay' in dr}`};
   });
   check('Drill: the week\'s standings count the days of one NFL week up to today: 3 points a win and 1 a tie, the average grade breaking a tie on points, a run of wins up to the latest day, and the week\'s top-graded game; days after today and outside the week don\'t count', () => {
     need();

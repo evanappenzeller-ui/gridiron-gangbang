@@ -665,9 +665,6 @@
 .dr-fsb-x { font: 700 10px/1 var(--dr-font); letter-spacing: .12em; text-transform: uppercase; color: rgba(255,255,255,.45); }
 .dr-final-h { margin-top: 14px; font: 800 28px/1.1 var(--dr-display); letter-spacing: -.03em; color: var(--res, #fff); }
 .dr-final-sub { margin-top: 4px; font: 500 14px/20px var(--dr-font); color: rgba(255,255,255,.72); }
-.dr-pane .dr-res-act { display: flex; gap: 10px; margin-top: 16px; }
-.dr-pane .dr-again { flex: 1; height: 48px; border-radius: 999px; font: 700 16px/1 var(--dr-font); }
-.dr-pane .dr-again.is-pressed { transform: scale(.97); }
 .dr-pane .dr-practice { margin-top: 10px; font: 500 13px/18px var(--dr-font); color: var(--ink-2); text-align: center; }
 .dr-pane .dr-next { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 12px; font: 400 13px/18px var(--dr-font); color: rgba(255,255,255,.6); }
 .dr-pane .dr-next > .ic { flex: none; }
