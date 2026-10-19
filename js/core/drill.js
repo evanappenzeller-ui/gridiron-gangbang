@@ -105,8 +105,8 @@ export function record(n, s) {
 }
 // Testers: members who can play a day again as often as they like, to try the game out. The day's first finished game
 // is the one that counts (the board, the record); every game after it is practice, on this phone only: never posted,
-// not added to the record. None now: everyone plays each day once.
-const TESTERS = [];
+// not added to the record. Only the owner (Evan, who asked for it); everyone else plays each day once.
+export const TESTERS = ['evan'];
 const whoAmI = () => dataMe() || (daily.LB.ready && daily.LB.uid ? meKey() : null);
 /** Whether this phone's member can replay a finished day. */
 export const canReplay = () => TESTERS.includes(whoAmI());

@@ -6,6 +6,7 @@
 // writes to storage or the database; the only read is the repo's own data/drill.json. Owner: Drill.
 
 import * as dr from './drill.js';
+import * as data from './data.js';
 
 const E = dr.E;
 const OFF = ['QB', 'RB', 'WR1', 'WR2', 'WR3', 'TE', 'LT', 'LG', 'C', 'RG', 'RT'];
@@ -641,6 +642,11 @@ export async function drillChecks(check) {
     return {pass: !bad.length, detail: bad.length ? bad.join('; ') : `60 typical games: ${top.length} coaches, the most often ${top[0][0]} (${top[0][1]}); every comp with two more close`};
   });
 
+  check('Drill: replays for the owner only (to try the game out): Evan\'s phones can play a finished day again as often as wanted, a practice run each time (the day\'s first game is the one on the board and in the record); no one else can', () => {
+    const me = data.me(), can = dr.canReplay();
+    const pass = dr.TESTERS.join() === 'evan' && can === (me === 'evan');
+    return {pass, detail: `testers ${dr.TESTERS.join(', ')}; this phone (${me || 'no one'}) can replay: ${can}`};
+  });
   check('Drill: the week\'s standings count the days of one NFL week up to today: 3 points a win and 1 a tie, the average grade breaking a tie on points, a run of wins up to the latest day, and the week\'s top-graded game; days after today and outside the week don\'t count', () => {
     need();
     let d = 1;
