@@ -5,7 +5,7 @@
 // A pane module, like 17-0's: render(ctx), mount(el, ctx, {anchor}), params(el, ctx), unmount(el, ctx).
 // One game a day, the same for everyone; each call is saved as it's made, so there are no do-overs.
 // The screen: the header's score bug (both teams, their scores and timeouts, the clock, who has the ball, the down and
-// distance), the situation, the field as a coach's chalkboard (top-down, the team with the ball going up, every player
+// distance), the field as a coach's chalkboard (top-down, the team with the ball going up, every player
 // an O on offense or an X on defense in his rating's chalk, the line of scrimmage blue and the first-down line yellow,
 // routes as chalk arrows), the other side's look under it with the player ratings, then the call. It all fits on one
 // screen, the open type's plays and all: the field gives up height for them (fitField), and opening a type or ending
@@ -1353,7 +1353,7 @@ function boardOf(s) {
   const team = (id, side, score, tos) => ({id, name: dr.team(id) ? dr.team(id).n : id, c: tcol(id), logo: logoUrl(id, 96), score, tos, ball: poss === side, you: side === 'us'});
   const r = fin ? dr.resultText(s) : null;
   return {teams: [team(s.sc.o, 'us', s.us, s.tos), team(s.sc.d, 'them', s.them, s.dtos)], q: '4th',
-    clock: dr.clockText(fin ? 0 : s.clock), run: !fin && s.running, side: fin ? null : pat ? 'try' : s.poss,
+    clock: dr.clockText(fin ? 0 : s.clock), run: !fin && s.running,
     dd: fin ? 'Final' : pat ? 'Try' : dr.downText(s.down, s.togo, s.ball), spot: fin ? '' : spotText(s, s.ball, s.poss), head: fin ? r.head : '',
     need: fin ? `${r.sub}.` : pat ? tryText(s.them - s.us) : needText(s.us - s.them, s.poss)};
 }
@@ -1365,7 +1365,6 @@ function camBoard(st, p, after) {
   b.teams[0].score = p.us; b.teams[1].score = p.them; b.teams[0].tos = p.tos;
   b.teams[0].ball = p.poss === 'us'; b.teams[1].ball = p.poss === 'them';
   b.q = '4th'; b.clock = dr.clockText(p.clock); b.run = !two;
-  b.side = two ? 'try' : p.poss;
   b.dd = two ? 'Try' : dr.downText(p.down, p.togo, p.ball);
   b.spot = spotText(s, p.ball, p.poss);
   b.head = '';
@@ -1599,7 +1598,6 @@ function needText(lead, poss) {
 }
 /** The try after your touchdown (down: how far behind it leaves you). */
 const tryText = down => (down === 1 ? 'Kick to tie it, or go for two to win it.' : 'Kick to get within one, or go for two to tie it.');
-const SIDES = {us: ['is-o', 'football', 'Offense'], them: ['is-d', 'shield', 'Defense'], try: ['is-try', 'football', 'Try']};
 /** A side of the score bug, like a broadcast's: the name strip (yours marked) over the logo, the timeouts left (stacked
  *  bars) and the score (the ball by it for the side that has it), mirrored on the right so both scores sit by the
  *  clock. */
@@ -1611,17 +1609,13 @@ function boardTeamHTML(t, i) {
     + `${t.ball ? '<span class="dr-hd-ball"></span>' : ''}<em class="dr-hd-sc">${esc(t.score)}</em></div></div>`;
 }
 /** The scoreboard's moving parts (b: boardOf / camBoard): the bug (your side, the down and distance over the clock
- *  over the quarter and the spot, theirs), then whose ball and the clock's state, then what it takes. */
+ *  over the quarter and the spot, theirs). What it takes from here is in its label (boardLabel), for a screen reader. */
 function boardInner(b) {
-  const fin = b.dd === 'Final', sd = SIDES[b.side];
+  const fin = b.dd === 'Final';
   const mid = `<div class="dr-hd-g${fin ? ' is-final' : ''}"><span class="dr-hd-dd">${esc(b.dd)}</span>`
     + `<span class="dr-hd-clk${b.run ? ' is-run' : ''}">${b.run ? '<i class="dr-dot"></i>' : ''}<b data-dr-clock>${esc(b.clock)}</b></span>`
     + `<span class="dr-hd-q"><i>${esc(b.q)}</i>${b.spot ? `<i>${esc(b.spot)}</i>` : ''}</span></div>`;
-  const tag = sd ? `<span class="dr-hd-side ${sd[0]}">${ui.icon(sd[1], {size: 13})}${sd[2]}</span>` : '<span class="dr-hd-side is-fin">Final</span>';
-  const state = fin ? `<b class="dr-hd-res">${esc(b.head)}</b>`
-    : `<span class="dr-hd-st${b.run ? ' is-run' : ''}">${b.run ? '<i class="dr-dot"></i>Running' : `${ui.icon('clock', {size: 13})}Stopped`}</span>`;
-  return `<div class="dr-hd-b" aria-hidden="true">${boardTeamHTML(b.teams[0], 0)}${mid}${boardTeamHTML(b.teams[1], 1)}</div>`
-    + `<div class="dr-hd-sit" aria-hidden="true">${tag}${state}${b.need ? `<p class="dr-hd-need">${esc(b.need)}</p>` : ''}</div>`;
+  return `<div class="dr-hd-b" aria-hidden="true">${boardTeamHTML(b.teams[0], 0)}${mid}${boardTeamHTML(b.teams[1], 1)}</div>`;
 }
 function boardLabel(b) {
   const [u, t] = b.teams, has = u.ball ? ' You have the ball.' : t.ball ? ` The ${t.name} have the ball.` : '';
@@ -2839,15 +2833,16 @@ function fitField(st) {
   if (g) { const r = screenRoom(g.scr); yd = Math.max(YD.min, Math.min(YD.max, Math.floor((r.above - r.under - g.rest) / 36 * 4) / 4)); }
   st.el.style.setProperty('--dr-yd', `${yd}px`);
 }
-/** Brings the whole game into view: the scoreboard just under the top bar, or, when it can't all show, the end of the
- *  call just over the tab bar. Nothing moves when it's all in view already. */
+/** Brings the whole game into view, in the same place every time: the scoreboard just under the top bar, or, when it
+ *  can't all show, the end of the call just over the tab bar. */
 function frameGame(st) {
+  stopGlide(st); // (the snap's, still watching for the field: this place wins)
   fitField(st);
   const g = gameBlock(st);
   if (!g || !st.ctx.visible) return;
   const r = screenRoom(g.scr), top = g.stage.getBoundingClientRect().top, bottom = g.box.getBoundingClientRect().bottom;
-  if (top >= r.under - 1 && bottom <= r.above + 1) return;
   const d = bottom - top <= r.above - r.under ? top - r.under : bottom - r.above;
+  if (Math.abs(d) <= 1) return;
   glide(st, g.scr, st.el.querySelector('[data-dr-field]').getBoundingClientRect().top - d);
 }
 /** Your back to where the open call lines him up (the weak side flips him), on the dots. */
