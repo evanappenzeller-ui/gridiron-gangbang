@@ -6,7 +6,7 @@
    Team colours come in per element as --tc; a player's rating colour as --rc. */
 
 /* The version mark views/drill.js checks (CSS_V): bump both when the pane needs rules an older file lacks. */
-:root { --dr-css: 33; }
+:root { --dr-css: 34; }
 
 .dr-pane, .sh-drill {
   --dr-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -274,6 +274,20 @@
 .dr-pane .dr-field.is-routes [data-dr-rcv]::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 1.5px dashed rgba(243,240,230,.5); }
 .dr-pane .dr-field.is-routes [data-dr-rcv]:focus-visible { outline: 2px solid #FFE27A; outline-offset: 6px; border-radius: 50%; }
 
+/* While a snap plays the field fills the screen (views/drill.js runAnim sizes it) and Tap to skip sits under it in
+   place of the legend. */
+.dr-pane .dr-stage.is-snap .dr-legend { display: none; }
+.dr-pane .dr-skipbar { padding-top: 8px; }
+.dr-pane .dr-skipbar[hidden] { display: none; }
+.dr-pane .dr-skip {
+  display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 44px; padding: 0 16px;
+  border: 0; border-radius: 16px; background: rgba(255,255,255,.1); color: #fff; font: 600 15px/1 var(--dr-font);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.06); cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: background-color 120ms ease, transform 120ms ease;
+}
+.dr-pane .dr-skip > .ic { width: 18px; height: 18px; opacity: .85; }
+.dr-pane .dr-skip:active { background: rgba(255,255,255,.17); transform: scale(.985); }
+.dr-pane .dr-skip:focus-visible { outline: 2px solid var(--dr-blue); outline-offset: 2px; }
 .dr-pane .dr-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 4px 2px; }
 .dr-pane .dr-scale, .dr-pane .dr-key { display: flex; align-items: center; gap: 6px; font: 500 12px/1 var(--dr-font); color: rgba(255,255,255,.6); }
 .dr-pane .dr-scale > i {

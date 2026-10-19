@@ -8,9 +8,11 @@
 // ball, the goalposts. (The scoreboard is the game screen's header, just above it: views/drill.js.)
 // The camera starts straight down over the dots (the top-down field under it, matched yard for yard), swings down
 // behind the offense for the play and follows the ball, then swings back up; the canvas fades into the dots.
-// open(field, scene) -> cam (or null with no 2D canvas): cam.render(frame), cam.css(x, y, lift), cam.overlay,
-// cam.close() (fades out, then removes itself), cam.remove(). chalkMark(side, key): a player's chalk mark on the
-// chalkboard (the dots' field, views/drill.js), which the camera starts from.
+// open(field, scene, big) -> cam (or null with no 2D canvas): cam.render(frame), cam.css(x, y, lift), cam.overlay,
+// cam.fit(k) (how far the field has grown toward big), cam.close() (fades out, then removes itself), cam.remove().
+// big {w, h, pad}: the size the field grows to for the play (views/drill.js), pad wider each side: the canvas is that
+// size from the start, clipped by the field as it grows, its picture centred on what shows. chalkMark(side, key): a
+// player's chalk mark on the chalkboard (the dots' field, views/drill.js), which the camera starts from.
 // The players are pictures (views/drill-sprites.js: five sprite sheets, in each team's colours) once they've loaded;
 // till then (or if they can't load) the jointed figures below.
 // Owner: Drill.
@@ -29,6 +31,10 @@ const FIGURE_POSE = {jk: 'tk', jd: 'tl', dc: 'ct'};
 // much further than views/drill.js asks it leans toward the ball's side. The top-down camera's distance is whatever
 // matches the dots' field.
 const CAMS = {pitch: 19, snap: 29, play: 19, lens: 0.6, followX: 1.35, close: 13.5, wide: 31};
+// The same for a tall field (the play filling a phone's screen, a little under twice as tall as wide): higher and
+// steeper behind the offense and zoomed in, so the field fills the frame rather than the sky, and following the ball
+// across more closely (it sees less of the field's width). In between, a blend.
+const CAMS_TALL = {pitch: 30, snap: 30, play: 20, lens: 1, followX: 1.8, close: 14, wide: 32};
 const NEAR = 0.5;
 // Drawn at the screen's resolution, up to this many canvas pixels to a CSS pixel.
 const DPR_MAX = 2;
@@ -445,13 +451,15 @@ function cameraAt(V, u, tx, ty, dist) {
 }
 const toCam = (c, x, y, z) => { const dy = y - c.cy, dz = z - c.cz; return [x - c.cx, dy * c.sn + dz * c.cs, dy * c.cs - dz * c.sn]; };
 
-export function open(field, scene) {
-  const cssW = field.clientWidth, cssH = field.clientHeight;
-  if (!cssW || !cssH) return null;
+export function open(field, scene, big = null) {
+  const w0 = field.clientWidth, h0 = field.clientHeight;
+  if (!w0 || !h0) return null;
+  const cssW = big ? big.w : w0, cssH = big ? big.h : h0, pad = big ? big.pad : 0;
   const S = Math.min(DPR_MAX, window.devicePixelRatio || 1); // canvas pixels per CSS pixel
   const W = Math.round(cssW * S), H = Math.round(cssH * S);
   const wrap = document.createElement('div');
   wrap.className = 'dr-cam';
+  if (big) Object.assign(wrap.style, {right: 'auto', bottom: 'auto', width: cssW + 'px', height: cssH + 'px'});
   wrap.setAttribute('aria-hidden', 'true');
   const cv = canvasOf(W, H);
   const g = cv.getContext('2d');
@@ -462,9 +470,12 @@ export function open(field, scene) {
   field.appendChild(wrap);
   g.imageSmoothingEnabled = true;
   g.imageSmoothingQuality = 'high';
-  // The dots' field: 53.3 yards across 92% of the width, 36 yards top to bottom (stretched: vs0 squares it up).
-  const C = Object.assign({}, CAMS, window.__DR_CAM || {});
-  const F = C.lens * W, hppy = 0.92 * W / WIDTH, vppy = H / 36;
+  // The dots' field: 53.3 yards across 92% of the width, 36 yards top to bottom (stretched: vs0 squares it up), at
+  // the field's size before it grows. CY: the row the camera's aim is drawn on, the middle of what shows.
+  const tall = clamp01((cssH / cssW - 1.05) / 0.55);
+  const C = Object.assign({}, ...Object.keys(CAMS).map(k => ({[k]: CAMS[k] + (CAMS_TALL[k] - CAMS[k]) * tall})), window.__DR_CAM || {});
+  const F = C.lens * W, hppy = 0.92 * w0 * S / WIDTH, vppy = h0 * S / 36;
+  let CY = h0 * S / 2;
   const V = {D0: F / hppy, vs0: vppy / hppy, pitch: C.pitch};
   const players = scene.players.map(pl => {
     const kit = kitOf(pl.team, pl.colored), line = (pl.side === 'o' ? OL : DL).has(pl.slot);
@@ -491,7 +502,7 @@ export function open(field, scene) {
     const [xc, yc, zc] = toCam(cam, x, y, z);
     if (zc < NEAR) return null;
     const k = F / zc;
-    return [W / 2 + xc * k, H / 2 - yc * k * cam.vs, k];
+    return [W / 2 + xc * k, CY - yc * k * cam.vs, k];
   };
   /** A polygon of world points, clipped at the near plane, onto the current path. */
   const poly = pts => {
@@ -502,7 +513,7 @@ export function open(field, scene) {
       if (ain !== bin) { const k = (NEAR - a[2]) / (b[2] - a[2]); out.push([a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, NEAR]); }
     }
     if (out.length < 3) return false;
-    out.forEach(([xc, yc, zc], i) => { const k = F / zc, sx = W / 2 + xc * k, sy = H / 2 - yc * k * cam.vs; if (i) g.lineTo(sx, sy); else g.moveTo(sx, sy); });
+    out.forEach(([xc, yc, zc], i) => { const k = F / zc, sx = W / 2 + xc * k, sy = CY - yc * k * cam.vs; if (i) g.lineTo(sx, sy); else g.moveTo(sx, sy); });
     g.closePath();
     return true;
   };
@@ -888,6 +899,13 @@ export function open(field, scene) {
     if (!p) return null;
     return [p[0] / S, p[1] / S];
   }
+  /** The field has grown k of the way to big: what shows is its top, from pad (1 - k) in. */
+  function fit(k) {
+    if (!big) return;
+    wrap.style.left = `${(-pad * (1 - k)).toFixed(2)}px`;
+    CY = (h0 + (cssH - h0) * k) * S / 2;
+  }
+  fit(0);
   function remove() { closed = true; wrap.remove(); }
   function close() {
     if (closed) return;
@@ -897,5 +915,5 @@ export function open(field, scene) {
   }
   // On next frame, so the fade in runs.
   requestAnimationFrame(() => { if (!closed) wrap.classList.add('is-on'); });
-  return {render, css, overlay, close, remove, S};
+  return {render, css, overlay, fit, close, remove, S};
 }

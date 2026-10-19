@@ -15,8 +15,9 @@
 // sideline. After a touchdown that leaves you down one or two: kick, or go for two.
 // On defense (you scored with time left, or turned it over): their formation, and your call from eight in four types.
 // Each snap plays out from behind the offense like a console football game (views/drill-cam.js: the camera swings down
-// from the chalkboard into the stadium, every player a shaded figure in his uniform, then swings back up; the clock
-// in the header runs; tap the field to skip), then the breakdown:
+// from the chalkboard into the stadium as the field grows to fill the screen, like Kick It's, every player a shaded
+// figure in his uniform, then swings back up as it goes back to its size; the clock in the header runs; Tap to skip
+// under it, or a tap on the field), then the breakdown:
 // what happened, the win chance before and after, what the defense was really in, how your call ranked and how every
 // option scored (each played out many times: drill-sim.js scoreOptions), and Replay. At 0:00: the final and
 // the league's finals for the day (tap one to read it once you've played yours). Every control here is data-dr-*, so
@@ -38,7 +39,7 @@ const ST = new WeakMap(); // ctx -> pane state
 
 // A home-screen app open across an update imports this module new under the stylesheet it started with: when
 // drill.css's mark (--dr-css on :root) isn't this module's, the current file is added (as in views/seventeen.js).
-const CSS_V = '33';
+const CSS_V = '34';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--dr-css').trim() === CSS_V || document.querySelector('link[data-dr-css]')) return;
@@ -1369,17 +1370,39 @@ function camBoard(st, p, after) {
   return b;
 }
 const spotText = (s, ball, poss) => (ball === 50 ? 'Midfield' : dr.spot(s, ball, poss));
-/** Plays a choreography: the camera swings down behind the offense, the play runs, the camera swings back up to the
- *  dots, now where the play left them. Resolves when it's done (or skipped: a tap on the field). Without a canvas,
- *  the dots play it out top-down. */
+/** The field's size for the play, like Kick It's: out to the stage's edges (pad wider each side) and from just under
+ *  the nav bar (where showField puts it) down to the skip button over the tab bar. {w, h, pad, h0}, or null when it
+ *  can't be measured or the screen has no more room. (The stage has its is-snap look on: the skip button under the
+ *  field in place of the legend.) */
+// The room Tap to skip takes under the field, with the stage's padding under it (drill.css .dr-skipbar).
+const SKIP_ROOM = 60;
+function bigField(st, f) {
+  const stage = f.closest('.dr-stage'), scr = stage && stage.closest('.screen');
+  if (!scr) return null;
+  const nav = scr.querySelector(':scope > .nav'), bar = document.getElementById('tabbar'), sr = scr.getBoundingClientRect();
+  const under = (nav ? nav.getBoundingClientRect().bottom : sr.top) + 8;
+  const above = Math.min(sr.bottom, bar && bar.offsetHeight ? bar.getBoundingClientRect().top : Infinity) - 8;
+  const below = stage.getBoundingClientRect().bottom - f.getBoundingClientRect().bottom;
+  const pad = parseFloat(getComputedStyle(stage).paddingLeft) || 0;
+  const h0 = f.clientHeight, h = Math.round(Math.min(900, above - below - under));
+  if (!h0 || h < h0 + 24) return pad ? {w: f.clientWidth + 2 * pad, h: h0, pad, h0} : null;
+  return {w: f.clientWidth + 2 * pad, h, pad, h0};
+}
+/** Plays a choreography: the camera swings down behind the offense as the field grows to fill the screen, the play
+ *  runs, the camera swings back up to the dots (now where the play left them) as the field goes back to its size.
+ *  Resolves when it's done (or skipped: Tap to skip under it, or a tap on the field). Without a canvas, the dots play
+ *  it out top-down. */
 function runAnim(st, plan, p) {
   return new Promise(resolve => {
     const f = st.el.querySelector('[data-dr-field]');
     if (!f || ui.RM || !st.ctx.visible) { resolve(); return; }
     const track = f.querySelector('.dr-track'), ball = f.querySelector('[data-dr-ball]'), cl = f.querySelector('[data-dr-callouts]');
+    const stage = f.closest('.dr-stage'), skipBtn = stage && stage.querySelector('[data-dr-skip]');
     const els = {};
     Object.keys(plan.tr).forEach(k => { els[k] = f.querySelector(`[data-dr-p="${k}"]`); });
     f.classList.add('is-anim');
+    if (stage) stage.classList.add('is-snap');
+    if (skipBtn) skipBtn.parentElement.hidden = false;
     cl.innerHTML = '';
     const c0 = p.clock, c1 = p.t1 != null ? p.t1 : p.after.clock;
     const wt0 = winTop(p.ball), fd = viewOf(p).fd;
@@ -1387,7 +1410,17 @@ function runAnim(st, plan, p) {
     const winAt = b => (b ? Math.min(110, Math.max(wt0, b[1] + 9)) : wt0);
     const wt1 = winAt(at(plan.ball, 1));
     let cam = null;
-    try { cam = camLib.open(f, Object.assign(camScene(st, p), {acts: plan.acts || []})); } catch (_) { cam = null; }
+    const big = bigField(st, f);
+    try { cam = camLib.open(f, Object.assign(camScene(st, p), {acts: plan.acts || []}), big); } catch (_) { cam = null; }
+    // The field's growth for the play: none while the camera's still over the dots (it fades in, and out, at their
+    // size), all of it by the time it's behind the offense.
+    const grow = u => {
+      if (!cam || !big) return;
+      const k = smooth((u - 0.25) / 0.75);
+      f.style.height = `${(big.h0 + (big.h - big.h0) * k).toFixed(1)}px`;
+      f.style.marginLeft = f.style.marginRight = `${(-big.pad * k).toFixed(2)}px`;
+      cam.fit(k);
+    };
     setBoard(st, camBoard(st, p, false));
     // The ball's height: a pass on its arc, a kick up and over the bar.
     const air = plan.air, a0 = air && at(plan.ball, air.t0), a1 = air && at(plan.ball, air.t1);
@@ -1475,7 +1508,10 @@ function runAnim(st, plan, p) {
       if (done) return;
       done = true;
       if (cam) { if (quick) cam.remove(); else cam.close(); }
+      f.style.height = f.style.marginLeft = f.style.marginRight = '';
       f.classList.remove('is-anim');
+      if (stage) stage.classList.remove('is-snap');
+      if (skipBtn) { skipBtn.parentElement.hidden = true; skipBtn.removeEventListener('click', skip); }
       f.removeEventListener('click', skip);
       st.anim = null;
       resolve();
@@ -1485,8 +1521,8 @@ function runAnim(st, plan, p) {
       if (st.dead) { stop(true); return; }
       const el = now - p0;
       if (phase === 'in') {
-        if (el < PAN_IN) cam.render(frameAt(el / PAN_IN, 0, now, wt0));
-        else { phase = 'set'; p0 = now; }
+        if (el < PAN_IN) { grow(el / PAN_IN); cam.render(frameAt(el / PAN_IN, 0, now, wt0)); }
+        else { grow(1); phase = 'set'; p0 = now; }
       }
       // Set, a beat before the snap: linemen down in their stance.
       if (phase === 'set') {
@@ -1508,14 +1544,17 @@ function runAnim(st, plan, p) {
       } else if (phase === 'out') {
         const u = 1 - (now - p0) / PAN_OUT;
         if (u <= 0) { stop(); return; }
+        grow(u);
         cam.render(frameAt(u, 1, now, wt1));
         place();
       }
       requestAnimationFrame(tick);
     };
-    const skip = () => { if (done) return; dom(1); calls(1); clockAt(1); stop(); };
+    // (Skipped, it's back to the dots at once.)
+    const skip = () => { if (done) return; dom(1); calls(1); clockAt(1); stop(true); };
     st.anim = {skip};
     f.addEventListener('click', skip);
+    if (skipBtn) skipBtn.addEventListener('click', skip);
     if (cam) cam.render(frameAt(0, 0, p0, wt0));
     requestAnimationFrame(tick);
   });
@@ -2139,7 +2178,7 @@ function trickBody(st) {
     + `<div class="dr-cards" role="group" aria-label="Trick plays" data-dr-cards>${trickCardsHTML(st)}</div>`;
 }
 function snapHTML() {
-  return `<section class="dr-snap" aria-live="polite"><p class="dr-snap-t"><i class="dr-dot"></i>Live</p><p class="dr-snap-s">Tap the field to skip</p></section>`;
+  return `<section class="dr-snap" aria-live="polite"><p class="dr-snap-t"><i class="dr-dot"></i>Live</p></section>`;
 }
 function panelHTML(st) {
   const s = st.s;
@@ -2270,8 +2309,14 @@ function resultHTML(st) {
     + `<p class="dr-next">${ui.icon('clock', {size: 15})}<span>Next drill in <span data-dr-next>${esc(nextIn())}</span></span></p></section>`
     + compHTML(s);
 }
+/** Under the field while a snap plays (in place of the legend): skip to the end of it. */
+function skipHTML() {
+  return `<div class="dr-skipbar" hidden><button type="button" class="dr-skip" data-dr-skip>`
+    + `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 6.5v11l8-5.5zM12 6.5v11l8-5.5z" fill="currentColor"/><rect x="19.5" y="6" width="2" height="12" rx="1" fill="currentColor"/></svg>`
+    + `<span>Tap to skip</span></button></div>`;
+}
 function gameHTML(st) {
-  return `<div class="dr-stage">${scoreHTML(st)}${fieldHTML(st)}${legendHTML()}</div>`
+  return `<div class="dr-stage">${scoreHTML(st)}${fieldHTML(st)}${legendHTML()}${skipHTML()}</div>`
     + `<div class="dr-panel" data-dr-panel>${panelHTML(st)}</div>`
     + `<div data-dr-pbph>${pbpHTML(st)}</div>`;
 }
@@ -2535,15 +2580,29 @@ function callNow(s, token) {
 }
 // ============================================================================ Playing a snap
 /** Brings the field into view for a snap: the calls sit below it, so the call that was just tapped usually has the
- *  field scrolled up out of sight. The stage goes just under the nav bar; when it can't all fit above the tab bar, the
- *  field's bottom stays in view. Nothing moves when the field is already in full view. */
-function showField(st) {
+ *  field scrolled up out of sight. For a snap played on the camera (snap) the field goes just under the nav bar, to
+ *  grow down from there (runAnim), the pane made tall enough to scroll that far. Otherwise the stage goes just
+ *  under the nav bar; when it can't all fit above the tab bar, the field's bottom stays in view; nothing moves when the
+ *  field is already in full view. */
+function showField(st, snap = false) {
   const stage = st.el.querySelector('.dr-stage'), f = st.el.querySelector('[data-dr-field]');
   const scr = stage && stage.closest('.screen');
   if (!scr || !f || !st.ctx.visible) return;
   const nav = scr.querySelector(':scope > .nav'), bar = document.getElementById('tabbar');
   const sr = scr.getBoundingClientRect();
   const under = (nav ? nav.getBoundingClientRect().bottom : sr.top) + 8;
+  if (snap && !ui.RM) {
+    // (On a screen too short for the field and the skip button under it, the button and the field's bottom stay in view.)
+    const br = bar && bar.offsetHeight ? bar.getBoundingClientRect() : null, above = Math.min(sr.bottom, br ? br.top : Infinity) - 8;
+    const fr = f.getBoundingClientRect(), d = fr.top - under, low = fr.bottom + SKIP_ROOM - above;
+    const target = Math.max(0, Math.round(scr.scrollTop + (fr.height + SKIP_ROOM > above - under ? low : d)));
+    // The pane at least tall enough to stay scrolled there whatever goes on under it (the board loading, the field
+    // going back to its size): kept till the next snap.
+    const paneTop = scr.scrollTop + st.el.getBoundingClientRect().top - sr.top;
+    st.el.style.minHeight = `${Math.ceil(target + scr.clientHeight - paneTop)}px`;
+    if (Math.abs(scr.scrollTop - target) > 1) scr.scrollTo({top: target, behavior: 'smooth'});
+    return;
+  }
   const br = bar && bar.offsetHeight ? bar.getBoundingClientRect() : null;
   const above = Math.min(sr.bottom, br ? br.top : Infinity) - 8;
   const fr = f.getBoundingClientRect();
@@ -2572,7 +2631,7 @@ async function go(st, token) {
   st.busy = true;
   setPanel(st);
   patchRoutes(st);
-  showField(st);
+  showField(st, p.kind !== 'expired');
   const c1 = p.kind === 'expired' ? p.after.clock : p.clock;
   if (p.c0 !== c1) await runOff(st, p.c0, c1);
   if (st.dead) return;
@@ -2630,7 +2689,7 @@ async function replayLast(st) {
   const p = L.p;
   st.busy = true;
   setPanel(st);
-  showField(st);
+  showField(st, true);
   const f = swapField(st, viewOf(p), {fade: false});
   if (!f) { st.busy = false; return; }
   const clock = st.el.querySelector('[data-dr-clock]');
@@ -2945,6 +3004,7 @@ export function unmount(el, ctx) {
   if (!st) return;
   st.dead = true;
   st.timers.forEach(clearTimeout);
+  el.style.minHeight = '';
   el.removeEventListener('click', st.onClick);
   el.removeEventListener('keydown', st.onKey);
   el.removeEventListener('toggle', st.onToggle, true);
