@@ -868,9 +868,9 @@ function drawBall(st, c, b, spin, onTee) {
   c.fillStyle = 'rgba(255,228,196,.32)'; c.beginPath(); c.ellipse(-Wd * .17, -tall * .17, Wd * .1, tall * .15, 0, 0, Math.PI * 2); c.fill();
   c.restore();
 }
-// The ball's streak: where it was over the last third of a second, fading out behind it.
+// The ball's tracer: its whole flight so far, fading back toward the foot, so the bend in the wind shows as it flies.
 function drawTrail(st, c, f) {
-  const n = 14, span = Math.min(f.t, .35);
+  const n = 40, span = f.t;
   if (span <= .02) return;
   c.lineCap = 'round';
   let prev = null;

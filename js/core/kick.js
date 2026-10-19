@@ -158,11 +158,13 @@ export const CAM = {h: 6.5, back: 7.5};
 export const GRAV = 9.2;                   // yards a second, a second (a touch floaty: slower, higher arcs)
 const ELEV = 30 * Math.PI / 180;           // the ball's climb off the tee
 const V_MIN = 13, V_MAX = 30;              // the leg, yards a second
-// The wind is the big factor, and the ball rides it. Across the field it carries the ball, more the longer it's up
-// (yards per mph: WIND_ACROSS.v a second plus WIND_ACROSS.a a second squared): 7 mph across moves a 40-yarder about 7
-// yards (the posts are 6 wide), 15 mph about 15. Along the field it pushes (WIND_ALONG, yards a second a second per
-// mph): a headwind costs carry, a tailwind adds it.
-const WIND_ACROSS = {v: .42, a: .09}, WIND_ALONG = .36;
+// The wind is the big factor, and the ball rides it. Across the field it carries the ball, more and more the longer
+// it's up (yards per mph: WIND_ACROSS.v a second plus WIND_ACROSS.a a second squared): it leaves the foot on its line
+// and bends with the wind, so the flight curves (a kick aimed into the wind goes out and bends back). 7 mph across
+// moves a 40-yarder about 7 yards (the posts are 6 wide), 15 mph about 14; halfway there it's moved under a third of
+// that. Along the field it pushes (WIND_ALONG, yards a second a second per mph): a headwind costs carry, a tailwind
+// adds it.
+const WIND_ACROSS = {v: .08, a: .3}, WIND_ALONG = .36;
 /** A flick (dx, dy: its travel on screen in px, up negative; speed: px a millisecond near its end) as a kick: theta, the
  *  aim (radians off straight downfield, + right), so that a flick at the posts on screen goes at the posts; v, the
  *  leg (yards a second), from the flick's speed. aim, from the screen (views/kick.js): the tangent of the line from the

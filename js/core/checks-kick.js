@@ -76,10 +76,12 @@ export async function kickChecks(check) {
       && Math.abs(good.pos(good.tCross).z - 30) < 1e-6 && good.pos(0).y === 0;
     return {pass, detail: `good ${good.why} (${good.at && good.at.y.toFixed(1)} yds up), weak ${weak.why}, right ${off.why}, left ${offL.why}, upright ${post.why}, bar ${bar.why}, just over ${justOver.why}, 45 from the left hash ${angled.why}`};
   });
-  check('Kick It: the ball rides the wind, and it\'s the big factor: 7 mph across blows a straight 40-yarder 6 to 8 yards its way, 15 mph twice that; aiming into it just enough makes it good, and the call says what the wind did; even a chip shot moves; a tailwind carries a kick short in calm air over the bar, a headwind knocks a good one down; the swipe\'s shape doesn\'t bend it', () => {
+  check('Kick It: the ball rides the wind, and it\'s the big factor: 7 mph across blows a straight 40-yarder 6 to 8 yards its way, 15 mph twice that; the flight curves (off the foot on its line, bending more and more: halfway there under a third of the drift); aiming into it just enough makes it good, and the call says what the wind did; even a chip shot moves; a tailwind carries a kick short in calm air over the bar, a headwind knocks a good one down; the swipe\'s shape doesn\'t bend it', () => {
     const k = (w, dir, d = 40) => ({i: 0, d, gx: 0, w, dir, obs: []});
     const toR = straight(k(7, 90), 28), toL = straight(k(7, 270), 28), drift = toR.at ? toR.at.x : 0;
     const strong = straight(k(15, 90), 28), drift15 = strong.at ? strong.at.x : 0;
+    // curved, not a straight line at an angle: halfway to the posts (in time) it's drifted under a third of the way
+    const half = toR.tCross ? toR.pos(toR.tCross / 2).x / drift : 1;
     // aim into it just enough: the aim where it crosses the middle
     let lo = 0, hi = 1;
     for (let j = 0; j < 40; j++) { const m = (lo + hi) / 2, c = K.fly(k(7, 90), {theta: -m, v: 28}); if (c.at && c.at.x > 0) lo = m; else hi = m; }
@@ -91,9 +93,9 @@ export async function kickChecks(check) {
     // no curving it: a launch is its aim and its leg; a bend passed in does nothing
     const L = K.launchOf({dx: 0, dy: -220, speed: 1, curve: {bend: .4, tilt: .2}});
     const noBend = Object.keys(L).sort().join() === 'theta,v' && K.fly(calm(40), {theta: 0, v: 26, bend: .4, tilt: .2}).at.x === K.fly(calm(40), {theta: 0, v: 26}).at.x && !('curveOf' in K);
-    const pass = toR.why === 'wide-r' && toL.why === 'wide-l' && drift > 6 && drift < 8 && drift15 > drift * 1.9 && into.made && says === 'took,carried,' && chipDrift > 1.2
+    const pass = toR.why === 'wide-r' && toL.why === 'wide-l' && drift > 6 && drift < 8 && drift15 > drift * 1.9 && half > .1 && half < 1 / 3 && into.made && says === 'took,carried,' && chipDrift > .8
       && calmShort.why === 'short' && tail.made && calmOk.made && !head.made && noBend;
-    return {pass, detail: `7 mph across: ${toR.why} (${drift.toFixed(2)} yds), the other way ${toL.why}; 15 mph ${drift15.toFixed(1)} yds; aimed into it ${(intoL.theta * 57.3).toFixed(0)} deg: ${into.why}; the call: ${says}; a 20-yarder in 4 mph moves ${chipDrift.toFixed(2)} yds; leg ${vShort.toFixed(1)}: calm ${calmShort.why}, tailwind ${tail.why}; a little more: calm ${calmOk.why}, headwind ${head.why}; no bend ${noBend}`};
+    return {pass, detail: `7 mph across: ${toR.why} (${drift.toFixed(2)} yds), the other way ${toL.why}; 15 mph ${drift15.toFixed(1)} yds; halfway ${(half * 100).toFixed(0)}% of the drift; aimed into it ${(intoL.theta * 57.3).toFixed(0)} deg: ${into.why}; the call: ${says}; a 20-yarder in 4 mph moves ${chipDrift.toFixed(2)} yds; leg ${vShort.toFixed(1)}: calm ${calmShort.why}, tailwind ${tail.why}; a little more: calm ${calmOk.why}, headwind ${head.why}; no bend ${noBend}`};
   });
   check('Kick It: however strong the wind and wherever the wall is, every kick can be made: on days 1-6, every kick with any number of makes before it has a leg and an aim that go through, with room to spare (at least 2 degrees of aim in one unbroken run)', () => {
     let worst = 9, where = '', none = [];
