@@ -1,6 +1,8 @@
 // Name the play (run cover module, slug 'plays'; v4 days from PLAY_FROM, every other day): two rounds, an offensive
 // play then a defensive one, each a play diagram (js/core/plays.js) and four names from the same family (run plays
-// with run plays, pass with pass, coverages with coverages). One pick per round, 100 points each; then a recap.
+// with run plays, pass with pass, coverages with coverages). One pick per round, 100 points each. The last round's
+// verdict has no button (the run's bottom bar is the next step; the score waits for the results); a finished puzzle
+// opened again shows its recap.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as daily from '../core/daily.js';
@@ -28,7 +30,7 @@ function roundHTML(r, shown) {
     + `<div class="card lb-card">${play ? playSVG(play, {flip: rd.flip, key: 'r' + r}) : ''}</div>`
     + `<div class="lb-chs">${btns}</div>`
     + `<div class="pl-verdict"${shown ? '' : ' hidden'} data-pl-verdict><p class="cl-vt ${ok ? 'is-right' : 'is-wrong'}">${esc(vt)}</p>`
-    + ui.button({label: last ? 'See how you did' : 'Next play', kind: 'primary', attrs: {'data-pl-next': ''}, cls: 'lb-next'}) + `</div>`;
+    + (last ? '' : ui.button({label: 'Next play', kind: 'primary', attrs: {'data-pl-next': ''}, cls: 'lb-next'})) + `</div>`;
 }
 
 function recapHTML() {
@@ -73,15 +75,14 @@ function mount(el, ctx, api) {
       setTimeout(() => { if (!I.dead && v) api.reveal(v); }, 30);
       return;
     }
-    if (e.target.closest('[data-pl-next]')) {
+    if (e.target.closest('[data-pl-next]') && answered() < total()) {
       I.showR = null;
       const n = answered();
-      ui.crossfade(main, () => paint(n >= total() ? recapHTML() : roundHTML(n, false)));
+      ui.crossfade(main, () => paint(roundHTML(n, false)));
       api.refreshChrome();
     }
   });
   return {
-    holdCta: () => I.showR != null,
     unmount() { I.dead = true; I.timers.forEach(clearTimeout); }
   };
 }

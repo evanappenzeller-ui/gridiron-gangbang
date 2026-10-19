@@ -12,7 +12,8 @@
 //
 // Puzzle modules (college.js, silhouette.js, mystery.js, journey.js, grid.js) export {render(ctx), mount(el, ctx, api)
 // → instance}. render is pure (reads daily state only); mount wires one instance and returns {unmount()}.
-// api = {refreshChrome(), busy(promise?), reveal(el), screen, ctx}.
+// api = {refreshChrome(), busy(promise?), reveal(el), focusNext() (the bottom button, for a keyboard pick that finishes
+// the puzzle), screen, ctx}.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as daily from '../core/daily.js';
@@ -230,7 +231,7 @@ function refreshChrome(st, {swap = false, animate = true} = {}) {
   patchArrows(st);
   if (r) setPts(st, animate && !swap);
   const btn = st.next;
-  const done = r && daily.STEPS[i].done() && !(st.inst && st.inst.holdCta && st.inst.holdCta());
+  const done = r && daily.STEPS[i].done();
   const wasPrimary = btn.classList.contains('btn-primary');
   btn.classList.toggle('btn-primary', done);
   btn.classList.toggle('btn-secondary', !done);
@@ -248,6 +249,7 @@ function makeApi(st) {
     refreshChrome: o => refreshChrome(st, o),
     busy: p => st.ctx.busy(p),
     reveal: (el, o) => reveal(st, el, o),
+    focusNext: () => { if (!st.dead) try { st.next.focus({preventScroll: true}); } catch (_) {} },
     get screen() { return st.ctx.screen; },
     get ctx() { return st.ctx; }
   };

@@ -2,8 +2,9 @@
 // days: every count, dot and points label comes from the day. Sub-module of the run cover. Owner: puzzle-run package.
 //
 // View-local state mirrors the old dstate.colShow: after a pick the card stays on that player (verdict plus
-// "Next player"); "Next player" clears it and shows the next unanswered player, or the recap after the last one.
-// Rendered once; every interaction patches individual nodes.
+// "Next player"); "Next player" clears it and shows the next unanswered player. The last player's verdict has no
+// button: the run's bottom bar is the next step, and the score waits for the results. A finished College opened
+// again shows its recap. Rendered once; every interaction patches individual nodes.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as daily from '../core/daily.js';
@@ -71,7 +72,7 @@ function playHTML(r) {
     + `<div class="cl-verdict" data-cl-verdict hidden><p class="cl-vt" data-cl-vt></p>${ui.button({label: 'Next player', kind: 'primary', size: 's', attrs: {'data-cl-next': ''}})}</div>`;
 }
 
-function recapHTML(stampHidden) {
+function recapHTML() {
   const ds = daily.DS, score = daily.colScore(), pts = daily.ptsCol();
   const rows = daily.DAY.c.map((q, r) => {
     const a = ds.col.a[r], ok = a === q[2];
@@ -81,7 +82,7 @@ function recapHTML(stampHidden) {
     const lead = ui.icon(ok ? 'check-circle' : 'x-circle', {cls: 'cl-ri ' + (ok ? 'tint' : miss ? 'ink3' : 'wrong'), label: ok ? 'Right' : miss ? 'Not answered' : 'Wrong'});
     return ui.row({lead, title: daily.PP[q[0]][0], sub});
   }).join('');
-  const stamp = score === total() ? `<span class="rn-stamp cl-stamp" data-cl-stamp${stampHidden ? ' style="opacity:0"' : ''}>${sweep()}</span>` : '';
+  const stamp = score === total() ? `<span class="rn-stamp cl-stamp">${sweep()}</span>` : '';
   return `<div class="cl-recap card" data-cl-recap tabindex="-1" aria-label="${esc(`College recap: ${score} of ${total()}, ${pts} points`)}" role="group">`
     + `<div class="cl-rh"><p class="cl-rs"><span class="n2">${score} of ${total()}</span><span class="n4 cl-rp ${pts ? 'tint' : 'ink3'}">+${esc(data.nf(pts))} pts</span></p>${stamp}</div>`
     + ui.group(rows, {cls: 'cl-rlist'})
@@ -94,7 +95,7 @@ function render() {
   return `<div class="c-college">`
     + `<div class="cl-prog"><span class="cl-count t-foot" data-cl-count>${esc(countText(showR))}</span>`
     + `<span class="cl-dots" role="img" aria-label="${esc(dotsLabel())}" data-cl-dots>${dotsHTML(showR == null && perfect())}</span></div>`
-    + `<div class="cl-main" data-cl-main>${showR == null ? recapHTML(false) : playHTML(showR)}</div>`
+    + `<div class="cl-main" data-cl-main>${showR == null ? recapHTML() : playHTML(showR)}</div>`
     + `</div>`;
 }
 
@@ -134,7 +135,7 @@ function paintOptions(I, r, picked) {
 }
 
 function pick(I, j, btn, kb) {
-  if (I.locked || I.colShow != null) return;
+  if (I.colShow != null) return;
   const r = answered();
   if (r >= total()) return;
   ui.haptic('light');
@@ -149,7 +150,8 @@ function pick(I, j, btn, kb) {
   const vtEl = v.querySelector('[data-cl-vt]');
   vtEl.textContent = vt;
   vtEl.className = 'cl-vt ' + (res.correct ? 'is-right' : 'is-wrong');
-  v.querySelector('.btn-label').textContent = res.row >= total() - 1 ? 'See how you did' : 'Next player';
+  const nb = v.querySelector('[data-cl-next]'), last = res.row >= total() - 1;
+  nb.hidden = last;
   v.hidden = false;
   ui.animate(v, [{opacity: 0, transform: 'translateY(8px)'}, {opacity: 1, transform: 'none'}], {spring: 'smooth'});
   ui.announce(vt);
@@ -161,7 +163,7 @@ function pick(I, j, btn, kb) {
     ui.haptic('error');
   }
   I.timers.push(setTimeout(() => { if (!I.dead) I.api.refreshChrome(); }, 220));
-  if (kb) { const nb = v.querySelector('[data-cl-next]'); try { nb.focus({preventScroll: true}); } catch (_) {} }
+  if (kb) { if (last) I.api.focusNext(); else try { nb.focus({preventScroll: true}); } catch (_) {} }
   setTimeout(() => { if (!I.dead) I.api.reveal(v); }, 30);
 }
 
@@ -222,57 +224,15 @@ function advance(I, r, kb) {
   if (kb) { const f = opts.querySelector('.cl-opt'); if (f) try { f.focus({preventScroll: true}); } catch (_) {} }
 }
 
-function celebrate(I) {
-  const dots = [...I.dots.children];
-  dots.forEach((d, r) => {
-    d.classList.add('is-gold');
-    ui.animate(d.querySelector('b'), [{opacity: 0, transform: 'scale(.2)'}, {opacity: 1, transform: 'none'}], {spring: 'bouncy', delay: r * 80, fill: 'backwards'});
-  });
-  I.dots.setAttribute('aria-label', dotsLabel() + ', ' + sweep());
-  const stamp = I.main.querySelector('[data-cl-stamp]');
-  I.timers.push(setTimeout(() => {
-    if (I.dead || !stamp) return;
-    stamp.style.opacity = '';
-    ui.stamp(stamp);
-    ui.haptic('celebrate');
-    ui.announce(sweep() + '.');
-    I.timers.push(setTimeout(() => {
-      if (!I.dead && stamp.isConnected) ui.confetti(stamp.getBoundingClientRect(), {count: 24, colors: ['#7CF058', '#FFFFFF']});
-    }, 140));
-  }, dots.length * 80 + 160));
-}
-
-async function toRecap(I, kb) {
-  I.locked = true;
-  const release = I.api.busy();
-  const fade = ui.animate(I.main, [{opacity: 1}, {opacity: 0}], {duration: 140, easing: 'linear', fill: 'forwards'});
-  await settle(fade, 260);
-  if (I.dead) { release(); return; }
-  const gold = perfect();
-  I.main.innerHTML = recapHTML(gold && !ui.RM);
-  fade.cancel();
-  I.count.textContent = countText(null);
-  paintDots(I, false);
-  const s = I.api.screen;
-  if (s.scrollTop > 0) s.scrollTo({top: 0, behavior: ui.RM ? 'auto' : 'smooth'});
-  const a = ui.animate(I.main, [{opacity: 0, transform: 'translateY(10px)'}, {opacity: 1, transform: 'none'}], {spring: 'smooth'});
-  I.api.refreshChrome();
-  if (kb) { const rc = I.main.querySelector('[data-cl-recap]'); if (rc) try { rc.focus({preventScroll: true}); } catch (_) {} }
-  if (gold) celebrate(I);
-  else ui.haptic('medium');
-  settle(a, 700).then(() => { I.locked = false; release(); });
-}
-
 function next(I, kb) {
-  if (I.locked || I.colShow == null) return;
-  I.colShow = null;
   const n = answered();
-  if (n >= total()) toRecap(I, kb);
-  else advance(I, n, kb);
+  if (I.colShow == null || n >= total()) return;
+  I.colShow = null;
+  advance(I, n, kb);
 }
 
 function mount(el, ctx, api) {
-  const I = {el, ctx, api, dead: false, locked: false, colShow: null, timers: []};
+  const I = {el, ctx, api, dead: false, colShow: null, timers: []};
   refs(I);
   el.addEventListener('click', e => {
     const opt = e.target.closest('.cl-opt');
@@ -280,9 +240,6 @@ function mount(el, ctx, api) {
     if (e.target.closest('[data-cl-next]')) next(I, e.detail === 0);
   });
   return {
-    // While a verdict is showing, its in-card "Next player" / "See how you did" is the next step: the run's bottom
-    // button stays secondary until then, so the screen never shows two primary actions at once.
-    holdCta: () => I.colShow != null,
     unmount() {
       I.dead = true;
       I.timers.forEach(clearTimeout);

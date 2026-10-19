@@ -12,6 +12,9 @@ import {playByName} from './plays.js';
 import * as laytrack from './laytrack.js';
 import * as avatars from './avatars.js';
 import * as ui from './ui.js';
+import college from '../views/college.js';
+import silhouette from '../views/silhouette.js';
+import plays from '../views/plays.js';
 
 // ---------------------------------------------------------------------------
 // Old formulas, copied from the old index.html
@@ -1475,6 +1478,43 @@ export async function runChecks() {
     const ms = Math.round(performance.now() - t0);
     return {pass: !bad.length && n4 === PZ.days.length - 3, detail: bad.length ? bad.slice(0, 6).join('; ') + (bad.length > 6 ? ` (+${bad.length - 6})` : '')
       : `${n4} v4 days (days 4-${PZ.days.length}, from ${daily.dayLabel(4)}): ${[0, 1, 2, 3, 4].map(k => v4Rotation(k).join('+')).join(', ')}, repeating; each type 3 of every 5 days, at most ${gap} days missed in a row, ${lo}-${hi} times in every 7-day week; every square answerable (${ms} ms)`};
+  });
+
+  // No "See how you did" (Oct 2026): a puzzle's last player, face or play shows its verdict with no button; the run's
+  // bottom bar is the next step and the score waits for the results. Each module is mounted off screen on a file day
+  // with all three, on a scratch DS (nothing saved or emitted).
+  check('Daily Puzzles: no "See how you did" step: "Next player", "Next face" and "Next play" after every round but the last; the last shows its verdict alone, finishes the puzzle and leaves the next step to the run\'s bottom bar', () => {
+    needV4();
+    const D = daily.PZ.days.find(d => daily.playsOn(d) && ['col', 'sil'].every(id => daily.stepsFor(d).some(st => st.id === id)));
+    if (!D) return {pass: false, detail: 'no file day with College, Silhouettes and Name the play'};
+    const api = {refreshChrome() {}, busy: () => () => {}, reveal() {}, focusNext() {}, screen: document.scrollingElement, ctx: {}};
+    const MODS = [['col', college, '.cl-opt', '[data-cl-next]', () => daily.colPick(0)], ['sil', silhouette, '.sl-opt', '[data-sl-next]', () => daily.silPick(0, 0)],
+      ['play', plays, '.lb-ch', '[data-pl-next]', () => daily.playPick(0, 0)]];
+    const host = document.createElement('div');
+    host.className = 'v-run';
+    host.style.cssText = 'position:fixed;left:-9999px;top:0;width:390px';
+    document.body.appendChild(host);
+    const out = [], bad = [];
+    try {
+      MODS.forEach(([id, mod, opt, next, first]) => [false, true].forEach(last => daily.__dev.scratch(D, {}, () => {
+        if (last) first();
+        host.innerHTML = mod.render(api.ctx);
+        const inst = mod.mount(host, api.ctx, api) || {};
+        const stage = host.querySelector('[data-sl-stage]');
+        if (stage) stage.classList.remove('is-loading');
+        const b = host.querySelector(opt);
+        if (b) b.click();
+        const nb = host.querySelector(next), shown = !!nb && !nb.hidden;
+        const vt = [...host.querySelectorAll('.cl-vt')].map(e => e.textContent).join('');
+        const step = daily.STEPS.find(st => st.id === id);
+        const ok = !!vt && shown === !last && step.done() === last && !('holdCta' in inst) && !/how you did/i.test(host.textContent)
+          && !host.querySelector('[data-cl-recap], [data-sl-recap], [data-pl-recap]');
+        out.push(`${id} ${last ? 'last' : 'first'}: "${vt}"${shown ? ' + next' : ''}`);
+        if (!ok) bad.push(`${id} ${last ? 'last' : 'first'} (verdict "${vt}", next ${shown}, done ${step.done()})`);
+        if (inst.unmount) inst.unmount();
+      })));
+    } finally { host.remove(); }
+    return {pass: !bad.length && out.length === 6, detail: bad.length ? bad.join('; ') : out.join('; ')};
   });
 
   check('The Lay live tracking reads the league\'s kinds of legs and scores them against a game', () => {

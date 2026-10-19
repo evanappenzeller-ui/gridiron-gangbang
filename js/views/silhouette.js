@@ -9,7 +9,9 @@
 // current team as a clue; the round stays answerable.
 //
 // View-local state mirrors College's colShow: after a pick the stage stays on that player (verdict plus "Next face");
-// "Next face" moves to the next unanswered round, or to the recap after the last. Rendered once; interactions patch nodes.
+// "Next face" moves to the next unanswered round. The last round's verdict has no button: the run's bottom bar is the
+// next step, and the score waits for the results. Finished Silhouettes opened again show the recap. Rendered once;
+// interactions patch nodes.
 // The option buttons, marks, dots, verdict and recap reuse the College styles (college.css), so both puzzles answer
 // the same way.
 import * as ui from '../core/ui.js';
@@ -133,7 +135,7 @@ function thumbHTML(i, e) {
   const img = failed.has(String(e)) ? '' : `<img src="${esc(thumbUrl(e))}" alt="" draggable="false" decoding="async" loading="lazy" referrerpolicy="no-referrer">`;
   return `<span class="sl-thumb">${init}${img}</span>`;
 }
-function recapHTML(stampHidden) {
+function recapHTML() {
   const a = picks(), score = daily.silScore(), pts = daily.ptsSil();
   const rows = rounds().map((q, r) => {
     const x = a[r], ok = x === q.a, miss = !ok && skipped(x);
@@ -141,7 +143,7 @@ function recapHTML(stampHidden) {
     const mark = ui.icon(ok ? 'check-circle' : 'x-circle', {cls: 'cl-ri ' + (ok ? 'tint' : miss ? 'ink3' : 'wrong'), label: ok ? 'Right' : miss ? 'Not answered' : 'Wrong'});
     return ui.row({lead: thumbHTML(q.p, q.e), title: nameOf(q.p), sub, trail: mark, cls: 'sl-rrow'});
   }).join('');
-  const stamp = score === total() ? `<span class="rn-stamp cl-stamp sl-stamp" data-sl-stamp${stampHidden ? ' style="opacity:0"' : ''}>Sharp eye</span>` : '';
+  const stamp = score === total() ? `<span class="rn-stamp cl-stamp sl-stamp">Sharp eye</span>` : '';
   return `<div class="cl-recap card sl-recap" data-sl-recap tabindex="-1" aria-label="${esc(`Silhouettes recap: ${score} of ${total()}, ${pts} points`)}" role="group">`
     + `<div class="cl-rh"><p class="cl-rs"><span class="n2">${score} of ${total()}</span><span class="n4 cl-rp ${pts ? 'tint' : 'ink3'}">+${esc(data.nf(pts))} pts</span></p>${stamp}</div>`
     + ui.group(rows, {cls: 'cl-rlist sl-rlist'})
@@ -154,7 +156,7 @@ function render() {
   return `<div class="c-sil">`
     + `<div class="cl-prog"><span class="cl-count t-foot" data-sl-count>${esc(countText(showR))}</span>`
     + `<span class="cl-dots" role="img" aria-label="${esc(dotsLabel())}" data-sl-dots>${dotsHTML(showR == null && perfect())}</span></div>`
-    + `<div class="sl-main" data-sl-main>${showR == null ? recapHTML(false) : playHTML(showR)}</div>`
+    + `<div class="sl-main" data-sl-main>${showR == null ? recapHTML() : playHTML(showR)}</div>`
     + `</div>`;
 }
 
@@ -291,7 +293,7 @@ function revealStage(I, r, correct) {
 }
 
 function pick(I, j, btn, kb) {
-  if (I.locked || I.showR != null) return;
+  if (I.showR != null) return;
   const r = answered();
   if (r >= total()) return;
   // Nothing to look at yet (the photo is loading): the pick waits; the options say so (aria-disabled).
@@ -310,7 +312,8 @@ function pick(I, j, btn, kb) {
   const vtEl = v.querySelector('[data-sl-vt]');
   vtEl.textContent = vt;
   vtEl.className = 'cl-vt ' + (res.correct ? 'is-right' : 'is-wrong');
-  v.querySelector('.btn-label').textContent = res.round >= total() - 1 ? 'See how you did' : 'Next face';
+  const nb = v.querySelector('[data-sl-next]'), last = res.round >= total() - 1;
+  nb.hidden = last;
   v.hidden = false;
   ui.animate(v, [{opacity: 0, transform: 'translateY(8px)'}, {opacity: 1, transform: 'none'}], {spring: 'smooth'});
   ui.announce(res.correct ? `Correct. ${name}. +${pts}` : vt);
@@ -322,7 +325,7 @@ function pick(I, j, btn, kb) {
     ui.haptic('error');
   }
   I.timers.push(setTimeout(() => { if (!I.dead) I.api.refreshChrome(); }, 220));
-  if (kb) { const nb = v.querySelector('[data-sl-next]'); try { nb.focus({preventScroll: true}); } catch (_) {} }
+  if (kb) { if (last) I.api.focusNext(); else try { nb.focus({preventScroll: true}); } catch (_) {} }
   setTimeout(() => { if (!I.dead) I.api.reveal(v); }, 30);
 }
 
@@ -368,49 +371,6 @@ function advance(I, r, kb) {
   if (kb) { const f = opts.querySelector('.sl-opt'); if (f) try { f.focus({preventScroll: true}); } catch (_) {} }
 }
 
-function celebrate(I) {
-  const dots = [...I.dots.children];
-  dots.forEach((d, r) => {
-    d.classList.add('is-gold');
-    ui.animate(d.querySelector('b'), [{opacity: 0, transform: 'scale(.2)'}, {opacity: 1, transform: 'none'}], {spring: 'bouncy', delay: r * 80, fill: 'backwards'});
-  });
-  const sweep = `${total()} for ${total()}`;
-  I.dots.setAttribute('aria-label', dotsLabel() + ', ' + sweep);
-  const stamp = I.main.querySelector('[data-sl-stamp]');
-  I.timers.push(setTimeout(() => {
-    if (I.dead || !stamp) return;
-    stamp.style.opacity = '';
-    ui.stamp(stamp);
-    ui.haptic('celebrate');
-    ui.announce(`Sharp eye. ${sweep}.`);
-    I.timers.push(setTimeout(() => {
-      if (!I.dead && stamp.isConnected) ui.confetti(stamp.getBoundingClientRect(), {count: 24, colors: ['#7CF058', '#FFFFFF']});
-    }, 140));
-  }, dots.length * 80 + 160));
-}
-
-async function toRecap(I, kb) {
-  I.locked = true;
-  const release = I.api.busy();
-  const fade = ui.animate(I.main, [{opacity: 1}, {opacity: 0}], {duration: 140, easing: 'linear', fill: 'forwards'});
-  await settle(fade, 260);
-  if (I.dead) { release(); return; }
-  const gold = perfect();
-  I.main.innerHTML = recapHTML(gold && !ui.RM);
-  fade.cancel();
-  wireThumbs(I);
-  I.count.textContent = countText(null);
-  paintDots(I, false);
-  const s = I.api.screen;
-  if (s.scrollTop > 0) s.scrollTo({top: 0, behavior: ui.RM ? 'auto' : 'smooth'});
-  const a = ui.animate(I.main, [{opacity: 0, transform: 'translateY(10px)'}, {opacity: 1, transform: 'none'}], {spring: 'smooth'});
-  I.api.refreshChrome();
-  if (kb) { const rc = I.main.querySelector('[data-sl-recap]'); if (rc) try { rc.focus({preventScroll: true}); } catch (_) {} }
-  if (gold) celebrate(I);
-  else ui.haptic('medium');
-  settle(a, 700).then(() => { I.locked = false; release(); });
-}
-
 /** Recap thumbnails: a photo that fails falls back to the initials underneath. */
 function wireThumbs(I) {
   I.main.querySelectorAll('.sl-thumb > img').forEach(img => {
@@ -421,15 +381,14 @@ function wireThumbs(I) {
 }
 
 function next(I, kb) {
-  if (I.locked || I.showR == null) return;
-  I.showR = null;
   const n = answered();
-  if (n >= total()) toRecap(I, kb);
-  else advance(I, n, kb);
+  if (I.showR == null || n >= total()) return;
+  I.showR = null;
+  advance(I, n, kb);
 }
 
 function mount(el, ctx, api) {
-  const I = {el, ctx, api, dead: false, locked: false, showR: null, timers: [], pre: [], preloaded: false};
+  const I = {el, ctx, api, dead: false, showR: null, timers: [], pre: [], preloaded: false};
   refs(I);
   watchStage(I, el.querySelector('[data-sl-stage]'));
   wireThumbs(I);
@@ -441,8 +400,6 @@ function mount(el, ctx, api) {
   // Long-press on iOS would preview the unfiltered photo: the stage is not a context-menu target.
   el.addEventListener('contextmenu', e => { if (e.target.closest('.sl-stage')) e.preventDefault(); });
   return {
-    // While a verdict shows, its "Next face" / "See how you did" is the next step (one primary action at a time).
-    holdCta: () => I.showR != null,
     unmount() {
       I.dead = true;
       I.timers.forEach(clearTimeout);
