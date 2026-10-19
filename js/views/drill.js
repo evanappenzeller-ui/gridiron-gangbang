@@ -2602,7 +2602,7 @@ function showField(st, snap = false) {
     // going back to its size): kept till the next snap.
     const paneTop = scr.scrollTop + st.el.getBoundingClientRect().top - sr.top;
     st.el.style.minHeight = `${Math.ceil(target + scr.clientHeight - paneTop)}px`;
-    if (Math.abs(scr.scrollTop - target) > 1) scr.scrollTo({top: target, behavior: 'smooth'});
+    if (Math.abs(scr.scrollTop - target) > 1) glide(st, scr, fr.top - (target - scr.scrollTop));
     return;
   }
   const br = bar && bar.offsetHeight ? bar.getBoundingClientRect() : null;
@@ -2611,7 +2611,49 @@ function showField(st, snap = false) {
   if (fr.top >= under && fr.bottom <= above) return;
   let d = stage.getBoundingClientRect().top - under;
   if (fr.bottom - d > above) d = fr.bottom - above;
-  scr.scrollTo({top: Math.max(0, scr.scrollTop + d), behavior: ui.RM ? 'auto' : 'smooth'});
+  glide(st, scr, fr.top - (Math.max(0, scr.scrollTop + d) - scr.scrollTop));
+}
+/** Scrolls the pane till the field's top is at y on screen, and sees that it gets there: the browser's smooth scroll,
+ *  watched for a second and a half. An iPhone's can stop short when the page changes under it, as it does here (the
+ *  calls close, the field grows), so whenever the pane's stopped away from the spot (where the field is then), it's
+ *  eased the rest of the way by hand. A finger or a wheel on the pane ends the watch; with reduced motion it jumps. */
+const GLIDE = {watch: 1500, hand: 300};
+function glide(st, scr, y) {
+  stopGlide(st);
+  const field = () => st.el.querySelector('[data-dr-field]');
+  const want = f => Math.max(0, Math.min(scr.scrollHeight - scr.clientHeight, Math.round(scr.scrollTop + f.getBoundingClientRect().top - y)));
+  const f0 = field();
+  if (!f0) return;
+  if (ui.RM) { scr.scrollTop = want(f0); return; }
+  scr.scrollTo({top: want(f0), behavior: 'smooth'});
+  const g = st.glide = {scr, stop: () => stopGlide(st)}, t0 = performance.now();
+  scr.addEventListener('touchmove', g.stop, {passive: true});
+  scr.addEventListener('wheel', g.stop, {passive: true});
+  let last = scr.scrollTop, still = 0, hand = null;
+  const step = now => {
+    const f = field();
+    if (st.dead || st.glide !== g || !f) { stopGlide(st); return; }
+    const to = want(f), at = scr.scrollTop;
+    if (hand) {
+      const u = Math.min(1, (now - hand.t0) / GLIDE.hand);
+      scr.scrollTop = hand.from + (to - hand.from) * (1 - Math.pow(1 - u, 3));
+      if (u >= 1) { hand = null; last = scr.scrollTop; still = 0; }
+    } else {
+      still = Math.abs(at - last) < .5 ? still + 1 : 0;
+      last = at;
+      if (still >= 3 && Math.abs(to - at) > 1) hand = {from: at, t0: now};
+    }
+    if (hand || now - t0 < GLIDE.watch) g.raf = requestAnimationFrame(step); else stopGlide(st);
+  };
+  g.raf = requestAnimationFrame(step);
+}
+function stopGlide(st) {
+  const g = st.glide;
+  if (!g) return;
+  st.glide = null;
+  cancelAnimationFrame(g.raf);
+  g.scr.removeEventListener('touchmove', g.stop);
+  g.scr.removeEventListener('wheel', g.stop);
 }
 async function go(st, token) {
   const s = st.s;
@@ -3018,6 +3060,7 @@ export function unmount(el, ctx) {
   if (!st) return;
   st.dead = true;
   st.timers.forEach(clearTimeout);
+  stopGlide(st);
   el.style.minHeight = '';
   el.removeEventListener('click', st.onClick);
   el.removeEventListener('keydown', st.onKey);
