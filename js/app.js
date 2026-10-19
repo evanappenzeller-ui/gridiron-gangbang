@@ -1635,7 +1635,7 @@ const pager = {
     const P = this.on;
     if (!P) return;
     cancelAnimationFrame(P.raf);
-    const from = P.pos, s0 = P.s, to = k, ms = ui.RM ? 1 : Math.min(460, 300 + 160 * Math.abs(to - from));
+    const from = P.pos, s0 = P.s, to = k, ms = ui.RM ? 1 : Math.min(300, 190 + 100 * Math.abs(to - from));
     moveIndicator($('tabbar').querySelector(`.tab[data-tab="${TABS[k]}"]`), true);
     await new Promise(res => {
       const t0 = performance.now();
@@ -1672,6 +1672,7 @@ function warmNeighbours(T) {
 // next one comes straight in (the ones between are skipped). With reduced motion, a cover or a sheet open, or a new
 // version waiting, it opens as before.
 let sliding = null;
+const TAB_MS = 250;
 function slideTo(T) {
   if (sliding) { finishTransitions(); return sliding.then(() => slideTo(T)); }
   if (ui.RM || pager.on || S.cover || S.sheets.length || (swNew && !typing()) || T === S.tab) return goTab(T);
@@ -1690,9 +1691,10 @@ function slideTo(T) {
     restoreLayerScroll(T);
     stage.classList.add('is-cards');
     ui.busy.inc();
-    // Shrink, slide, grow: the cards dip to their smallest about a third of the way across.
+    // Shrink, slide, grow: the cards dip to their smallest about a third of the way across. Quick (TAB_MS), so a tab
+    // tap feels instant.
     await new Promise(res => {
-      const ms = 420, t0 = performance.now();
+      const ms = TAB_MS, t0 = performance.now();
       const frame = now => {
         const t = Math.min(1, (now - t0) / ms);
         const p = t * t * t * (t * (t * 6 - 15) + 10); // smootherstep: off gently, across, in gently

@@ -6,7 +6,7 @@
    Team colours come in per element as --tc; a player's rating colour as --rc. */
 
 /* The version mark views/drill.js checks (CSS_V): bump both when the pane needs rules an older file lacks. */
-:root { --dr-css: 32; }
+:root { --dr-css: 33; }
 
 .dr-pane, .sh-drill {
   --dr-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -242,6 +242,46 @@
 .dr-pane .dr-co.is-bad { background: #E0352B; }
 .dr-pane .dr-co.is-score { background: #FFD60A; color: #1A1400; }
 @keyframes dr-co { from { transform: translate(-50%, -50%) scale(.5); opacity: 0; } to { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
+/* The big moments as comic book popups (views/drill.js powHTML): a starburst with a drop shadow and a halftone, the
+   word in heavy outlined letters, a caption box with what happened. Yellow and red for you, red and yellow against
+   you. They burst in (overshooting, a little turned); a moment mid-play (a juke, a catch, a swat) goes again after a
+   beat, a play's end stays. */
+.dr-pane .dr-pow {
+  --pow-f: #FFD23F; --pow-dot: rgba(214,110,0,.42); --pow-w: #E52521; --pow-ink: #111216;
+  position: absolute; z-index: 3; width: 156px; height: 116px; transform: translate(-50%, -50%);
+  display: grid; place-items: center; pointer-events: none;
+  animation: dr-pow-in 460ms cubic-bezier(.2,1.5,.35,1) both;
+}
+.dr-pane .dr-pow.is-bad { --pow-f: #E52521; --pow-dot: rgba(120,0,0,.4); --pow-w: #FFD23F; }
+.dr-pane .dr-pow.is-score { --pow-f: #FFD23F; --pow-dot: rgba(214,110,0,.42); --pow-w: #1F5BE0; }
+.dr-pane .dr-pow:not(.is-good):not(.is-bad):not(.is-score) { --pow-f: #F4F4F0; --pow-dot: rgba(0,0,0,.18); --pow-w: #111216; }
+.dr-pane .dr-pow.is-brief { animation: dr-pow-in 460ms cubic-bezier(.2,1.5,.35,1) both, dr-pow-out 260ms 1500ms ease-in forwards; }
+.dr-pow-b { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.dr-pow-sh { fill: var(--pow-ink); }
+.dr-pow-f { fill: var(--pow-f); stroke: var(--pow-ink); stroke-width: 3.5; stroke-linejoin: round; }
+.dr-pow-ht { stroke: none; }
+.dr-pow-b pattern circle { fill: var(--pow-dot); }
+.dr-pow-w {
+  position: relative; margin-top: -10px; transform: rotate(var(--rot, -6deg)) skewX(-8deg);
+  font: 800 calc(min(36px, 236px / var(--len, 5))) / 1 "Barlow Condensed", "Arial Narrow", sans-serif; letter-spacing: .01em;
+  color: var(--pow-w); -webkit-text-stroke: 2.4px var(--pow-ink); paint-order: stroke fill;
+  text-shadow: 3px 3px 0 var(--pow-ink);
+}
+.dr-pow-c {
+  position: absolute; left: 50%; bottom: 2px; transform: translateX(-50%) rotate(2deg); white-space: nowrap;
+  padding: 3px 8px 2px; background: #FFFDF2; color: var(--pow-ink); border: 2px solid var(--pow-ink);
+  box-shadow: 2px 2px 0 var(--pow-ink);
+  font: 800 12px/1.1 "Barlow Condensed", "Arial Narrow", sans-serif; font-style: normal; letter-spacing: .04em; text-transform: uppercase;
+}
+@keyframes dr-pow-in {
+  0% { transform: translate(-50%, -50%) scale(.15) rotate(-24deg); opacity: 0; }
+  55% { transform: translate(-50%, -50%) scale(1.18) rotate(4deg); opacity: 1; }
+  78% { transform: translate(-50%, -50%) scale(.95) rotate(-1deg); }
+  100% { transform: translate(-50%, -50%) scale(1) rotate(0); opacity: 1; }
+}
+@keyframes dr-pow-out { to { transform: translate(-50%, -50%) scale(1.15); opacity: 0; } }
+html.rm .dr-pane .dr-pow { animation: none; }
+html.rm .dr-pane .dr-pow.is-brief { animation: dr-pow-out 1ms 1700ms forwards; }
 /* The snap from behind the offense (views/drill-cam.js): a canvas at the screen's resolution laid over the dots and
    faded in and out over them, the scoreboard across its top, its callouts like a broadcast's. */
 .dr-pane .dr-cam {

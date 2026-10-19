@@ -20,6 +20,9 @@ SP.load();
 const WIDTH = 53.33, MID = 26.67;
 // How tall a runner's picture stands against TALL (a running man leans, so a little under it).
 const SPRITE_TALL = 0.95;
+// The pictures' own moments, as the drawn figures pose them (a juke and a juked man as a stiff arm and a lunge, a
+// diving catch as a catch).
+const FIGURE_POSE = {jk: 'tk', jd: 'tl', dc: 'ct'};
 // The game camera: its pitch (degrees down), its distance to what it looks at (yards: wide while the ball is behind the
 // line, so the passer's drop and throw stay in; pushed in once it's past it or a back has it), its lens (the focal
 // length as a share of the canvas width), and how much further than views/drill.js asks it leans toward the ball's
@@ -816,7 +819,7 @@ export function open(field, scene) {
         // man with the ball.
         let face = mo.face;
         if (pre || pose === 'bk' || ((pose === 'tw' || pose === 'tr') && sp < 3)) face = home;
-        else if (pose === 'tl' && carrier && carrier.pl !== pl) {
+        else if ((pose === 'tl' || pose === 'jd') && carrier && carrier.pl !== pl) {
           const dx = carrier.q[0] - q[0], dy = carrier.q[1] - q[1];
           face = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'r' : 'l') : dy > 0 ? 'b' : 'f';
         }
@@ -841,7 +844,7 @@ export function open(field, scene) {
           drawFigure(g, pl, face, 'stand', 0);
         } else {
           g.setTransform(s, 0, 0, s, p[0], p[1]);
-          drawFigure(g, pl, face, pose, mo.ph);
+          drawFigure(g, pl, face, FIGURE_POSE[pose] || pose, mo.ph);
         }
         g.setTransform(1, 0, 0, 1, 0, 0);
         // The ball with the man who has it, tucked on the side we see (in the passer's hand as he winds up, it's in

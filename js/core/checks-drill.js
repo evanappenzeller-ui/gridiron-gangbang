@@ -380,7 +380,7 @@ export async function drillChecks(check) {
           const a = (p.poss === 'us' ? E.parse(p.act) : p.their) || {};
           const passer = 'o-QB', target = 'o-' + (p.who || (a.kind === 'pass' ? a.slot : 'WR1'));
           if (!has(plan, passer, 'tw', plan.air.t0 - 0.01) || !has(plan, passer, 'tr', plan.air.t0 + 0.01)) why.push('no throw');
-          if (!has(plan, target, 'ct', plan.air.t1)) why.push('no catch try');
+          if (!has(plan, target, 'ct', plan.air.t1) && !has(plan, target, 'dc', plan.air.t1)) why.push('no catch try'); // (dc: a diving catch of a deep ball)
           if (p.kind === 'inc' && p.by && !has(plan, 'd-' + p.by, 'sw', plan.air.t1)) why.push('no swat');
           seen.throws = (seen.throws || 0) + 1;
         }
@@ -395,6 +395,36 @@ export async function drillChecks(check) {
     return {pass: !bad.length && seen.throws > 20 && seen.tackles > 20, detail: bad.length ? bad.slice(0, 4).join('; ') : `${seen.throws} throws, ${seen.tackles} tackles, every one posed`};
   });
 
+  check('Drill: the big moments come as comic book popups: a broken tackle is a juke or a stiff arm (the carrier makes his move, a man after him is left grasping), a deep catch (18 yards and more in the air) a diving grab with WOW! or SNAG!, a touchdown BOOM!, a big gain ZOOM!, a sack CRUNCH!, a breakup SWAT!, a pick SNATCH!, a run stuffed for a loss SMACK!; routine ones (a first down, an incompletion) stay plain', () => {
+    need();
+    if (!V || typeof V.planOf !== 'function') return {pass: false, detail: 'views/drill.js planOf did not load'};
+    const has = (plan, key, a) => (plan.acts || []).some(x => x.key === key && x.a === a);
+    const pows = plan => (plan.calls || []).filter(c => c.pow).map(c => c.pow);
+    const seen = {}, bad = [];
+    for (let d = 1; d <= 16; d++) for (let i = 0; i < 3; i++) {
+      const {s} = randomGame(dr.scenario(d), 2300 + d * 11 + i);
+      s.plays.forEach(p => {
+        if (!p.act || p.two || !['run', 'catch', 'inc', 'int', 'sack'].includes(p.kind)) return;
+        const plan = V.planOf(s, p), w = pows(plan);
+        w.forEach(x => { seen[x] = (seen[x] || 0) + 1; });
+        if (p.td && !w.includes('BOOM!')) bad.push(`day ${d} touchdown without BOOM!`);
+        if (p.kind === 'sack' && !w.includes('CRUNCH!')) bad.push(`day ${d} sack without CRUNCH!`);
+        if (p.kind === 'int' && !w.includes('SNATCH!')) bad.push(`day ${d} pick without SNATCH!`);
+        if (p.kind === 'catch' && (p.air || 0) >= 18 && !(w.includes('WOW!') || w.includes('SNAG!'))) bad.push(`day ${d} deep catch without a popup`);
+        if (!p.td && p.first && (p.gain || 0) < 20 && (plan.calls || []).some(c => c.text === 'First down' && c.pow)) bad.push('a first down as a popup');
+        // the same play broken: its move, the man left grasping, its popup
+        if (p.kind === 'run' || p.kind === 'catch') {
+          const q = Object.assign({}, p, {broke: true}), pl2 = V.planOf(s, q), w2 = pows(pl2);
+          const carrierMove = (pl2.acts || []).some(x => x.key[0] === 'o' && (x.a === 'jk' || x.a === 'tk'));
+          if (!(w2.includes('SHAKE!') || w2.includes('WHAM!')) || !carrierMove) bad.push(`day ${d} ${p.kind} broken without its move`);
+          if ((pl2.acts || []).some(x => x.a === 'jd')) seen.grasping = (seen.grasping || 0) + 1;
+          if (w2.includes('SHAKE!') && !(pl2.acts || []).some(x => x.a === 'jk')) bad.push('a juke without the juke');
+        }
+      });
+    }
+    const pass = !bad.length && ['CRUNCH!', 'SWAT!'].every(x => seen[x]) && (seen.grasping || 0) > 5;
+    return {pass, detail: bad.length ? bad.slice(0, 4).join('; ') : Object.entries(seen).map(([k, v]) => `${k} ${v}`).join(', ')};
+  });
   check('Drill: on the field, every man stays at his job: each lineman and the man across from him are locked together (within 2 yards) while they block, a man-to-man defender is on his receiver as the ball is thrown (a corner or the nickel within 4 yards, nine in ten of them all within 3.5), and nobody runs faster than a man can (12.5 yards a second, 20 for the ball carrier, the passer and the man who makes the play)', () => {
     need();
     if (!V || typeof V.planOf !== 'function' || typeof V.lineOf !== 'function' || typeof V.planSecs !== 'function') return {pass: false, detail: 'views/drill.js planOf/lineOf/planSecs did not load'};
@@ -643,9 +673,9 @@ export async function drillChecks(check) {
     return {pass: !bad.length, detail: bad.length ? bad.join('; ') : `60 typical games: ${top.length} coaches, the most often ${top[0][0]} (${top[0][1]}); every comp with two more close`};
   });
 
-  check('Drill: the players are pictures (five sprite sheets, js/views/drill-sprites.js): every player in every moment the camera can show (each position, before the snap, running each way, a block, the throw, a catch, a stiff arm, a tackle, a swat, a pick, on the ground, with the ball or without) has one', () => {
+  check('Drill: the players are pictures (five sprite sheets, js/views/drill-sprites.js): every player in every moment the camera can show (each position, before the snap, running each way, a block, the throw, a catch, a diving catch, a juke, a stiff arm, a tackle, a juked man, a swat, a pick, on the ground, with the ball or without) has one', () => {
     const slots = {o: ['QB', 'RB', 'WR1', 'TE', 'LT', 'C'], d: ['LDE', 'NT', 'MLB', 'CB1', 'FS']};
-    const poses = ['stand', 'set', 'line', 'run', 'bk', 'tw', 'tr', 'ct', 'sw', 'tk', 'tl'], missing = new Set();
+    const poses = ['stand', 'set', 'line', 'run', 'bk', 'tw', 'tr', 'ct', 'dc', 'jk', 'sw', 'tk', 'tl', 'jd'], missing = new Set();
     let n = 0;
     Object.entries(slots).forEach(([side, list]) => list.forEach(slot => poses.forEach(pose => ['b', 'f', 'l', 'r'].forEach(face => [false, true].forEach(ball => [null, 'l', 'r'].forEach(down => [false, true].forEach(pre => [false, true].forEach(moving => {
       const pk = SP.pick({side, slot, key: side + '-' + slot}, {pose, face, ph: moving ? 4 : 0, ball, down, pre, moving});

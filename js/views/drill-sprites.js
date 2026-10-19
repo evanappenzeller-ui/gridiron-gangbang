@@ -178,7 +178,7 @@ const OL = new Set(['LT', 'LG', 'C', 'RG', 'RT']), DL = new Set(['LDE', 'LDT', '
 const RUN = {b: 'r_b', f: 'r_f', l: 'r_l', r: 'r_r'};
 const hashOf = s => { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return h >>> 0; };
 /** A player's picture now: {f: frame name ('sheet.pose'), flip}. o: {pose (as drill-cam.js poses him: stand, set,
- *  line, run, bk, tw, tr, ct, sw, tk, tl), face (b, f, l, r), ph (his stride), ball (he has it), down ('l' | 'r' on
+ *  line, run, bk, tw, tr, ct, dc (a diving, leaping catch), jk (a juke), sw, tk, tl, jd (juked, grasping)), face (b, f, l, r), ph (his stride), ball (he has it), down ('l' | 'r' on
  *  the ground), pre (before the snap), moving}. */
 export function pick(pl, o) {
   const off = pl.side === 'o', ol = off && OL.has(pl.slot), dl = !off && DL.has(pl.slot), qb = pl.slot === 'QB';
@@ -196,6 +196,8 @@ export function pick(pl, o) {
       case 'tw': return {f: 'qb.windup', flip: false};
       case 'tr': return {f: 'qb.release', flip: false};
       case 'ct': return o.face === 'l' || o.face === 'r' ? side('wr.onehand', o.face) : {f: h & 1 ? 'wr.high' : 'wr.catch', flip: false};
+      case 'dc': return o.face === 'l' || o.face === 'r' ? side(h & 1 ? 'wr.onehand' : 'wr.layout', o.face) : {f: 'wr.high', flip: false};
+      case 'jk': return {f: h & 1 ? 'rb.juke' : 'rb.spin', flip: o.face === 'r'};
       case 'tk':
         if (qb && o.ball) return {f: 'qb.falling', flip: o.face === 'r'};
         if (o.face === 'b') return {f: 'rb.stiff_b', flip: false};
@@ -215,7 +217,7 @@ export function pick(pl, o) {
     case 'tl': return o.face === 'l' || o.face === 'r' ? side('def.lunge', o.face) : {f: 'def.reach', flip: !!(h & 1)};
     case 'sw': return {f: 'def.leap', flip: !!(h & 1)};
     case 'ct': return {f: 'def.pick', flip: false};
-    case 'tk': return {f: 'def.juked', flip: false};
+    case 'tk': case 'jd': return {f: 'def.juked', flip: !!(h & 1)};
     default: return run('def', o.face, !o.moving);
   }
 }
