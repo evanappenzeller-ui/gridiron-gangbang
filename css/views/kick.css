@@ -210,12 +210,6 @@
 .kk-pane .kk-over-p { margin-top: 8px !important; font: 400 13px/18px var(--font-text); color: rgba(255,255,255,.7); }
 .kk-pane .kk-again { margin-top: 14px; min-width: 190px; }
 .kk-pane .kk-sb-go { margin-top: 10px; min-width: 190px; }
-.kk-pane .kk-redo {
-  position: absolute; z-index: 3; right: 10px; bottom: 10px; padding: 8px 12px; border: 0; border-radius: 14px;
-  background: var(--kk-glass); box-shadow: inset 0 0 0 1px var(--kk-glass-rim);
-  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
-  font: 700 13px/18px var(--font-text); color: rgba(255,255,255,.85);
-}
 
 /* ---------------------------------------------------------------- Playing: the field is the screen */
 /* Nothing under the field till the run's finished: no scoreboard; a spacer (views/kick.js) lets the field scroll up to

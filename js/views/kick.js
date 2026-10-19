@@ -91,8 +91,6 @@ function overHTML(st) {
     + ui.button({label: 'See the scoreboard', kind: K.canReplay() ? 'secondary' : 'primary', icon: 'trophy', cls: 'kk-sb-go', attrs: {'data-kk-sb': ''}})
     + `<p class="kk-over-t">${ui.icon('clock', {size: 14})}<span>${esc(`New kicks in ${ui.untilText(msToMidnight())}`)}</span></p></div>`;
 }
-// Unlimited tries (core/kick.js canReplay: the owner, to test it): "Start over" on the field while a run is on.
-const redoHTML = st => (K.canReplay() && !st.day.done ? `<button type="button" class="kk-redo" data-kk-again>Start over</button>` : '');
 // The guide's finger (a hand, index finger up; the ring at its tip is where it touches).
 const HAND = `<svg viewBox="0 0 44 56"><circle class="kk-guide-ring" cx="17" cy="7" r="7"/>`
   + `<path class="kk-guide-fing" d="M12 10a5 5 0 0 1 10 0v15h2v-4a4.5 4.5 0 0 1 9 0v3a4.5 4.5 0 0 1 8 2.8V38c0 9.4-6.6 16-15.5 16h-1.6c-5.2 0-9.5-2.8-12-7.3L4.6 36.4a4.3 4.3 0 0 1 7.2-4.6l.2.3z"/></svg>`;
@@ -134,7 +132,6 @@ function bodyHTML(st) {
     + `<div class="kk-guide" data-kk-guide hidden aria-hidden="true"><svg class="kk-guide-svg"><path class="kk-guide-trail" d="M0 0"/></svg><span class="kk-guide-hand">${HAND}</span></div>`
     + `<p class="kk-hint" data-kk-hint hidden>${ui.icon('arrow-up', {size: 16})}<span data-kk-hint-t>Slide up from the ball to kick</span></p>`
     + `<p class="kk-alert" data-kk-alert hidden role="status"><b>Look out!</b><span data-kk-alert-t></span></p>`
-    + `<span data-kk-redo>${redoHTML(st)}</span>`
     + `<div class="kk-over" data-kk-over${st.day.done ? '' : ' hidden'}>${st.day.done ? overHTML(st) : ''}</div></div>`
     + `<div class="kk-fill" data-kk-fill aria-hidden="true"></div>`
     + `<div class="kk-board-w" data-kk-board>${boardHTML(st)}</div>`
@@ -1139,9 +1136,8 @@ function onUp(st, e) {
 
 /** Playing (the field is the screen, nothing under it) or finished (the scoreboard below). */
 function setMode(st) {
-  const box = st.el.querySelector('[data-kk]'), redo = st.el.querySelector('[data-kk-redo]');
+  const box = st.el.querySelector('[data-kk]');
   if (box) box.classList.toggle('is-playing', !st.day.done);
-  if (redo) redo.innerHTML = redoHTML(st);
 }
 /** While a run is on: scroll so the field sits just under the nav bar and fills the screen to the tab bar (a spacer under
  *  it makes the room to scroll that far). */
@@ -1156,8 +1152,8 @@ function fitScreen(st, smooth) {
   if (target > max) fill.style.height = `${Math.ceil(target - max)}px`;
   if (Math.abs(scr.scrollTop - target) > 2) scr.scrollTo({top: target, behavior: smooth && !ui.RM ? 'smooth' : 'auto'});
 }
-/** Start the day's run over (a tester): today's kicks from the first, three misses again; the first finished run stays
- *  the one on the scoreboard. Not while a kick is in the air. */
+/** Play again (a tester, once a run's finished: core/kick.js canReplay): today's kicks from the first, three misses
+ *  again; the first finished run stays the one on the scoreboard. Not while a kick is in the air. */
 function startOver(st) {
   if (st.flight || st.drag || !K.canReplay()) return;
   const day = K.restart(st.n);
