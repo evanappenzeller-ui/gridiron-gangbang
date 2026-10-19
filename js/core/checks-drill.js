@@ -395,34 +395,27 @@ export async function drillChecks(check) {
     return {pass: !bad.length && seen.throws > 20 && seen.tackles > 20, detail: bad.length ? bad.slice(0, 4).join('; ') : `${seen.throws} throws, ${seen.tackles} tackles, every one posed`};
   });
 
-  check('Drill: the big moments come as comic book popups: a broken tackle is a juke or a stiff arm (the carrier makes his move, a man after him is left grasping), a deep catch (18 yards and more in the air) a diving grab with WOW! or SNAG!, a touchdown BOOM!, a big gain ZOOM!, a sack CRUNCH!, a breakup SWAT!, a pick SNATCH!, a run stuffed for a loss SMACK!; routine ones (a first down, an incompletion) stay plain', () => {
+  check('Drill: a broken tackle on the field is a juke or a stiff arm (the carrier makes his move, called "Broken tackle!", and a man after him is left grasping), and a deep catch (18 yards and more in the air) a leaping, diving grab', () => {
     need();
     if (!V || typeof V.planOf !== 'function') return {pass: false, detail: 'views/drill.js planOf did not load'};
-    const has = (plan, key, a) => (plan.acts || []).some(x => x.key === key && x.a === a);
-    const pows = plan => (plan.calls || []).filter(c => c.pow).map(c => c.pow);
     const seen = {}, bad = [];
     for (let d = 1; d <= 16; d++) for (let i = 0; i < 3; i++) {
       const {s} = randomGame(dr.scenario(d), 2300 + d * 11 + i);
       s.plays.forEach(p => {
-        if (!p.act || p.two || !['run', 'catch', 'inc', 'int', 'sack'].includes(p.kind)) return;
-        const plan = V.planOf(s, p), w = pows(plan);
-        w.forEach(x => { seen[x] = (seen[x] || 0) + 1; });
-        if (p.td && !w.includes('BOOM!')) bad.push(`day ${d} touchdown without BOOM!`);
-        if (p.kind === 'sack' && !w.includes('CRUNCH!')) bad.push(`day ${d} sack without CRUNCH!`);
-        if (p.kind === 'int' && !w.includes('SNATCH!')) bad.push(`day ${d} pick without SNATCH!`);
-        if (p.kind === 'catch' && (p.air || 0) >= 18 && !(w.includes('WOW!') || w.includes('SNAG!'))) bad.push(`day ${d} deep catch without a popup`);
-        if (!p.td && p.first && (p.gain || 0) < 20 && (plan.calls || []).some(c => c.text === 'First down' && c.pow)) bad.push('a first down as a popup');
-        // the same play broken: its move, the man left grasping, its popup
-        if (p.kind === 'run' || p.kind === 'catch') {
-          const q = Object.assign({}, p, {broke: true}), pl2 = V.planOf(s, q), w2 = pows(pl2);
-          const carrierMove = (pl2.acts || []).some(x => x.key[0] === 'o' && (x.a === 'jk' || x.a === 'tk'));
-          if (!(w2.includes('SHAKE!') || w2.includes('WHAM!')) || !carrierMove) bad.push(`day ${d} ${p.kind} broken without its move`);
-          if ((pl2.acts || []).some(x => x.a === 'jd')) seen.grasping = (seen.grasping || 0) + 1;
-          if (w2.includes('SHAKE!') && !(pl2.acts || []).some(x => x.a === 'jk')) bad.push('a juke without the juke');
+        if (!p.act || p.two || !['run', 'catch'].includes(p.kind)) return;
+        if (p.kind === 'catch' && (p.air || 0) >= 18) {
+          const plan = V.planOf(s, p);
+          if ((plan.acts || []).some(x => x.a === 'dc')) seen.dives = (seen.dives || 0) + 1; else bad.push(`day ${d} deep catch without the dive`);
         }
+        // the same play broken: its move, its call, the man left grasping
+        const pl2 = V.planOf(s, Object.assign({}, p, {broke: true}));
+        const move = (pl2.acts || []).find(x => x.key[0] === 'o' && (x.a === 'jk' || x.a === 'tk'));
+        if (!move || !(pl2.calls || []).some(c => c.text === 'Broken tackle!')) bad.push(`day ${d} ${p.kind} broken without its move`);
+        else seen[move.a === 'jk' ? 'jukes' : 'stiff arms'] = (seen[move.a === 'jk' ? 'jukes' : 'stiff arms'] || 0) + 1;
+        if ((pl2.acts || []).some(x => x.a === 'jd')) seen.grasping = (seen.grasping || 0) + 1;
       });
     }
-    const pass = !bad.length && ['CRUNCH!', 'SWAT!'].every(x => seen[x]) && (seen.grasping || 0) > 5;
+    const pass = !bad.length && seen.jukes > 5 && seen['stiff arms'] > 5 && (seen.grasping || 0) > 5;
     return {pass, detail: bad.length ? bad.slice(0, 4).join('; ') : Object.entries(seen).map(([k, v]) => `${k} ${v}`).join(', ')};
   });
   check('Drill: on the field, every man stays at his job: each lineman and the man across from him are locked together (within 2 yards) while they block, a man-to-man defender is on his receiver as the ball is thrown (a corner or the nickel within 4 yards, nine in ten of them all within 3.5), and nobody runs faster than a man can (12.5 yards a second, 20 for the ball carrier, the passer and the man who makes the play)', () => {

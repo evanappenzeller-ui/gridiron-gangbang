@@ -511,7 +511,7 @@ function stage(s, p, late) {
     down.push({key: 'd-' + p.by, t: Math.min(T1 - 0.01, tD + 0.03), tackler: true});
   };
   /** A broken tackle (p.broke) at t: a juke or a stiff arm, the nearest man after him (not the one who brings him down
-   *  later) brought onto him and left grasping, with its comic popup. Called once the defense's pursuit is laid out. */
+   *  later) brought onto him and left grasping. Called once the defense's pursuit is laid out. */
   const breakTackle = (key, cposF, t, tEnd) => {
     const juke = (Math.round(p.gain || 0) + Math.round(L)) % 2 === 0, c = cposF(t);
     let gone = null, best = 4.5;
@@ -541,7 +541,7 @@ function stage(s, p, late) {
       else act(gone, 'jd', t - 0.02, t + 0.12);
     }
     act(key, juke ? 'jk' : 'tk', t - 0.04, t + 0.05);
-    calls.push({t, text: juke ? 'Juke!' : 'Stiff arm!', key, cls: forO(true), pow: juke ? 'SHAKE!' : 'WHAM!', brief: true});
+    calls.push({t, text: 'Broken tackle!', key, cls: forO(true)});
   };
   const qb0 = start['o-QB'];
   const line = lineMatch(start, D.front, L);
@@ -838,7 +838,7 @@ function stage(s, p, late) {
     const ct = tr[carrier], tD = ct[ct.length - 1][0], cpos = t => at(ct, t);
     const held = inHands(hands);
     ballTr = sampled(t => (t < tHand ? held(t) : cpos(t)), 0, T1);
-    if (kind === 'fum') calls.push({t: 0.86, text: 'Fumble!', x: fx, y: end + 3, cls: forO(false), pow: 'POP!'});
+    if (kind === 'fum') calls.push({t: 0.86, text: 'Fumble!', x: fx, y: end + 3, cls: forO(false)});
     // When the carrier gets to the line: the backers and the secondary come up to meet him then.
     const tLine = (ct.find(f => f[2] >= L - 0.5) || ct[ct.length - 1])[0];
 
@@ -1155,7 +1155,7 @@ function stage(s, p, late) {
 
   if (sack) {
     ballTr = (held => sampled(t => (t <= tSack ? held(t) : qbAt(t)), 0, T1))(inHands(hands));
-    calls.push({t: tSack + 0.04, text: kind === 'fum' ? 'Fumble!' : 'Sack!', x: sx, y: qbSpot[1] + 2.5, cls: forO(false), pow: kind === 'fum' ? 'POP!' : 'CRUNCH!'});
+    calls.push({t: tSack + 0.04, text: kind === 'fum' ? 'Fumble!' : 'Sack!', x: sx, y: qbSpot[1] + 2.5, cls: forO(false)});
     coastAll(tSack + 0.12, [passer, sacker]);
     // He looks to throw; the rusher gets to him first.
     act(passer, 'tw', tSack - 0.12, tSack - 0.01);
@@ -1168,10 +1168,9 @@ function stage(s, p, late) {
   // The passer winds up and lets it go; his target reaches for it.
   act(passer, 'tw', tThrow - 0.07, tThrow);
   act(passer, 'tr', tThrow, tThrow + 0.07);
-  // A deep ball caught (18 yards and more in the air): a leaping, diving grab, and its popup.
+  // A deep ball caught (18 yards and more in the air): a leaping, diving grab.
   const great = kind === 'catch' && (p.air || 0) >= 18;
   act('o-' + target, great ? 'dc' : 'ct', tCatch - 0.05, tCatch + (great ? 0.06 : 0.03));
-  if (great) calls.push({t: tCatch + 0.01, text: 'What a catch!', key: 'o-' + target, cls: forO(true), pow: p.air >= 28 ? 'WOW!' : 'SNAG!', brief: true});
   /** The man in coverage gets to the ball as it arrives (to swat it, pick it, or be on the receiver as he catches it):
    *  when he's there by then (or has to be: must); false when he's still a step or two behind. */
   const toBall = (k, dist, must = true) => {
@@ -1224,7 +1223,7 @@ function stage(s, p, late) {
     loose = tCatch;
     const lie = [cp[0] + 1.2, cp[1] - 1.5], tLie = tCatch + 0.1;
     after = t => (k => [lerp(cp[0], lie[0], k), lerp(cp[1], lie[1], k)])(Math.min(1, (t - tCatch) / (tLie - tCatch)));
-    calls.push(p.by && !p.trick ? {t: tCatch, text: 'Broken up', x: cp[0], y: cp[1] + 2.8, cls: forO(false), pow: 'SWAT!', brief: true} : {t: tCatch, text: 'Incomplete', x: cp[0], y: cp[1] + 2.8});
+    calls.push({t: tCatch, text: p.by && !p.trick ? 'Broken up' : 'Incomplete', x: cp[0], y: cp[1] + 2.8});
     // The man in coverage gets a hand on it.
     if (p.by && !p.trick) { toBall(tacklerKey, 0.7); act(tacklerKey, 'sw', tCatch - 0.05, tCatch + 0.05); }
     else if (coverMan) toBall(coverMan, 1.3, false);
@@ -1233,7 +1232,7 @@ function stage(s, p, late) {
     coastAll(tCatch, [passer]);
   } else if (kind === 'int') {
     const back = Math.max(L + 2, cp[1] - 8), bx = cp[0] + (MID - cp[0]) * 0.3, tBack = tCatch + 0.35;
-    calls.push({t: tCatch + 0.02, text: 'Picked off!', x: cp[0], y: cp[1] + 2.8, cls: forO(false), pow: 'SNATCH!'});
+    calls.push({t: tCatch + 0.02, text: 'Picked off!', x: cp[0], y: cp[1] + 2.8, cls: forO(false)});
     if (tacklerKey && on(tacklerKey)) {
       toBall(tacklerKey, 0.3);
       set(tacklerKey, (() => {
@@ -1259,37 +1258,15 @@ export const planOf = (s, p) => choreo(s, p), trackAt = (track, t) => at(track, 
 export const planSecs = plan => plan.dur * PACE / 1000;
 /** The line's pairs for a snap (lineMatch), for the kit's checks. */
 export const lineOf = (s, p) => { const start = {}; spots(s, viewOf(p)).forEach(d => { start[d.key] = [d.x, d.y, d.off]; }); return lineMatch(start, E.unitsFor(s, p.poss).d.front, p.ball); };
-/** A comic book popup: a starburst (its points a little uneven, the same for the same seed) with a halftone, the word
- *  in it, and a caption box with what happened. */
-let powN = 0;
-function powHTML(word, text, seed) {
-  let a = (Math.abs(Math.round(seed)) % 233280) || 1;
-  const rnd = () => ((a = (a * 9301 + 49297) % 233280) / 233280);
-  const n = 13, pts = [];
-  for (let i = 0; i < n * 2; i++) {
-    const ang = (i / (n * 2)) * Math.PI * 2 - Math.PI / 2 + (rnd() - 0.5) * 0.14, r = i % 2 ? 0.6 + rnd() * 0.1 : 0.9 + rnd() * 0.14;
-    pts.push(`${(Math.cos(ang) * r * 74).toFixed(1)} ${(Math.sin(ang) * r * 54).toFixed(1)}`);
-  }
-  const d = `M${pts.join('L')}Z`, id = `dr-ht${++powN}`, rot = ((rnd() - 0.5) * 14).toFixed(1);
-  return `<svg class="dr-pow-b" viewBox="-86 -64 172 128" aria-hidden="true"><defs><pattern id="${id}" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(30)"><circle cx="3" cy="3" r="1.25"/></pattern></defs>`
-    + `<path class="dr-pow-sh" d="${d}" transform="translate(5 6)"/><path class="dr-pow-f" d="${d}"/><path class="dr-pow-ht" d="${d}" fill="url(#${id})"/></svg>`
-    + `<b class="dr-pow-w" style="--len:${word.length};--rot:${rot}deg">${esc(word)}</b><i class="dr-pow-c">${esc(text)}</i>`;
-}
-/** How a snap ends, called where it ends. The big ones come as a comic popup (pow: its word; see .dr-pow): a
- *  touchdown, a two-point try, a safety, a big gain (BIG_PLAY yards and more), a run stuffed for a loss. */
-const BIG_PLAY = 20;
 function finishCalls(p, kind, calls, x, y, forO, t = 0.92) {
-  const at2 = (text, cls, dy = 3, pow) => calls.push({t, text, x: Math.max(8, Math.min(WIDTH - 8, x)), y: Math.min(106, y + dy), cls, pow});
-  const gain = p.gain || 0;
-  if (p.kind === '2good') at2('It’s good!', 'is-score', 3, 'BOOM!');
+  const at2 = (text, cls, dy = 3) => calls.push({t, text, x: Math.max(8, Math.min(WIDTH - 8, x)), y: Math.min(106, y + dy), cls});
+  if (p.kind === '2good') at2('It’s good!', 'is-score');
   else if (p.kind === '2fail') at2('No good', 'is-bad');
-  else if (p.td) at2('Touchdown!', p.poss === 'us' ? 'is-score' : 'is-bad', 3, 'BOOM!');
-  else if (p.safety) at2('Safety!', forO(false), 3, 'THUD!');
-  else if (p.downs) at2('Turnover on downs', forO(false), 3, 'DENIED!');
-  else if (gain >= BIG_PLAY && (kind === 'run' || kind === 'catch')) at2(`Big play: ${gain} yards`, forO(true), 3, 'ZOOM!');
+  else if (p.td) at2('Touchdown!', p.poss === 'us' ? 'is-score' : 'is-bad');
+  else if (p.safety) at2('Safety!', forO(false));
+  else if (p.downs) at2('Turnover on downs', forO(false));
   else if (p.first) at2('First down', forO(true));
   else if (p.oob) at2('Out of bounds');
-  else if (kind === 'run' && gain <= -2) at2('Stuffed!', forO(false), 3, 'SMACK!');
 }
 
 /** How fast a snap plays out: each plan's own length times PACE (above 1: slower, so the play can be followed). */
@@ -1415,19 +1392,10 @@ function runAnim(st, plan, p) {
       seen.add(i);
       const pos = c.key ? at(plan.tr[c.key], c.t) : [c.x, c.y];
       const el = document.createElement('span');
-      if (c.pow) {
-        // A big moment: a comic book popup (its word in a burst, what happened under it).
-        el.className = 'dr-pow' + (c.cls ? ' ' + c.cls : '') + (c.brief ? ' is-brief' : '');
-        el.innerHTML = powHTML(c.pow, c.text, p.ball * 31 + i * 7 + c.pow.length);
-        el.setAttribute('role', 'img');
-        el.setAttribute('aria-label', c.text);
-        ui.haptic(c.cls === 'is-bad' ? 'error' : 'medium');
-      } else {
-        el.className = 'dr-co' + (c.cls ? ' ' + c.cls : '');
-        el.textContent = c.text;
-      }
+      el.className = 'dr-co' + (c.cls ? ' ' + c.cls : '');
+      el.textContent = c.text;
       // On the camera, over the players' heads (a player's own over his), so it doesn't hide what's happening.
-      if (cam) { cam.overlay.appendChild(el); shown.push({el, x: pos[0], y: pos[1] - (c.key ? 0 : 2.8), lift: 1, pow: !!c.pow}); }
+      if (cam) { cam.overlay.appendChild(el); shown.push({el, x: pos[0], y: pos[1] - (c.key ? 0 : 2.8), lift: 1}); }
       else {
         el.style.left = left(Math.max(9, Math.min(WIDTH - 9, pos[0])));
         el.style.top = top(pos[1] + (c.key ? 2.8 : 0));
@@ -1440,10 +1408,8 @@ function runAnim(st, plan, p) {
       shown.forEach(c => {
         const q = cam.css(c.x, c.y, c.lift);
         if (!q) return;
-        // (a popup's burst is bigger: it keeps clear of the edges by more, and sits above him, so the moment shows)
-        const mx = c.pow ? 78 : 64, top = c.pow ? q[1] - 62 : q[1];
-        c.el.style.left = `${Math.max(mx, Math.min(w - mx, q[0])).toFixed(1)}px`;
-        c.el.style.top = `${Math.max(c.pow ? 58 : 18, Math.min(h - (c.pow ? 52 : 18), top)).toFixed(1)}px`;
+        c.el.style.left = `${Math.max(64, Math.min(w - 64, q[0])).toFixed(1)}px`;
+        c.el.style.top = `${Math.max(18, Math.min(h - 18, q[1])).toFixed(1)}px`;
       });
     };
     const clockAt = t => {
