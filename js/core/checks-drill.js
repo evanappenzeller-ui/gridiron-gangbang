@@ -7,6 +7,7 @@
 
 import * as dr from './drill.js';
 import * as data from './data.js';
+import * as SP from '../views/drill-sprites.js';
 
 const E = dr.E;
 const OFF = ['QB', 'RB', 'WR1', 'WR2', 'WR3', 'TE', 'LT', 'LG', 'C', 'RG', 'RT'];
@@ -642,6 +643,17 @@ export async function drillChecks(check) {
     return {pass: !bad.length, detail: bad.length ? bad.join('; ') : `60 typical games: ${top.length} coaches, the most often ${top[0][0]} (${top[0][1]}); every comp with two more close`};
   });
 
+  check('Drill: the players are pictures (five sprite sheets, js/views/drill-sprites.js): every player in every moment the camera can show (each position, before the snap, running each way, a block, the throw, a catch, a stiff arm, a tackle, a swat, a pick, on the ground, with the ball or without) has one', () => {
+    const slots = {o: ['QB', 'RB', 'WR1', 'TE', 'LT', 'C'], d: ['LDE', 'NT', 'MLB', 'CB1', 'FS']};
+    const poses = ['stand', 'set', 'line', 'run', 'bk', 'tw', 'tr', 'ct', 'sw', 'tk', 'tl'], missing = new Set();
+    let n = 0;
+    Object.entries(slots).forEach(([side, list]) => list.forEach(slot => poses.forEach(pose => ['b', 'f', 'l', 'r'].forEach(face => [false, true].forEach(ball => [null, 'l', 'r'].forEach(down => [false, true].forEach(pre => [false, true].forEach(moving => {
+      const pk = SP.pick({side, slot, key: side + '-' + slot}, {pose, face, ph: moving ? 4 : 0, ball, down, pre, moving});
+      n++;
+      if (!pk || !SP.hasFrame(pk.f)) missing.add(pk ? pk.f : '(none)');
+    }))))))));
+    return {pass: !missing.size && SP.TALL > 0, detail: missing.size ? `no picture for ${[...missing].join(', ')}` : `${n} moments, each with a picture`};
+  });
   check('Drill: replays for the owner only (to try the game out): Evan\'s phones can play a finished day again as often as wanted, a practice run each time (the day\'s first game is the one on the board and in the record); no one else can', () => {
     const me = data.me(), can = dr.canReplay();
     const pass = dr.TESTERS.join() === 'evan' && can === (me === 'evan');

@@ -11,9 +11,15 @@
 // open(field, scene) -> cam (or null with no 2D canvas): cam.render(frame), cam.css(x, y, lift), cam.overlay,
 // cam.close() (fades out, then removes itself), cam.remove(). chalkMark(side, key): a player's chalk mark on the
 // chalkboard (the dots' field, views/drill.js), which the camera starts from.
+// The players are pictures (views/drill-sprites.js: five sprite sheets, in each team's colours) once they've loaded;
+// till then (or if they can't load) the jointed figures below.
 // Owner: Drill.
+import * as SP from './drill-sprites.js';
 
+SP.load();
 const WIDTH = 53.33, MID = 26.67;
+// How tall a runner's picture stands against TALL (a running man leans, so a little under it).
+const SPRITE_TALL = 0.95;
 // The game camera: its pitch (degrees down), its distance to what it looks at (yards: wide while the ball is behind the
 // line, so the passer's drop and throw stay in; pushed in once it's past it or a back has it), its lens (the focal
 // length as a share of the canvas width), and how much further than views/drill.js asks it leans toward the ball's
@@ -818,6 +824,15 @@ export function open(field, scene) {
         if (!head) return;
         const s = (p[1] - head[1]) / 100;
         if (!(s > 0)) return;
+        const has = !!f.ball && pl.key === f.hold;
+        if (SP.ready()) {
+          const pk = SP.pick(pl, {pose, face, ph: mo.ph, ball: has, down, pre, moving: sp > 1.6});
+          if (SP.draw(g, pk, pl.team, pl.colored, p[0], p[1], s * 100 * SPRITE_TALL)) {
+            // the ball with the man who has it, when his picture hasn't got one
+            if (has) { if (!SP.hasBall(pk)) drawBall(f, m, {r: 0.4, l: -0.4, b: 0.3, f: 0.12}[face]); ballDone = true; }
+            return;
+          }
+        }
         if (down) {
           // On the ground: laid on his side, seen from above.
           g.setTransform(s, 0, 0, s * 0.5, p[0], p[1] + 2 * s);
