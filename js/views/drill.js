@@ -7,9 +7,11 @@
 // The screen: the header's score bug (both teams, their scores and timeouts, the clock, who has the ball, the down and
 // distance), the situation, the field as a coach's chalkboard (top-down, the team with the ball going up, every player
 // an O on offense or an X on defense in his rating's chalk, the line of scrimmage blue and the first-down line yellow,
-// routes as chalk arrows), then the call.
-// On offense: the defense's look, then Run · Pass · RPO · Trick, a field goal when it's on, and the clock tools (and the
-// kneel when you lead). Pass opens the receivers: each on his route (drawn on the field; tap a receiver there, or his
+// routes as chalk arrows), the other side's look under it with the player ratings, then the call. It all fits on one
+// screen, the open type's plays and all: the field gives up height for them (fitField), and opening a type or ending
+// a snap brings the whole game into view (frameGame).
+// On offense: Run · Pass · RPO · Trick (each type's plays three to a row), a field goal when it's on, and the clock
+// tools (and the kneel when you lead). Pass opens the receivers: each on his route (drawn on the field; tap a receiver there, or his
 // route below, to change it) with the look's odds for a throw to him, and play action, roll out and out of bounds to
 // toggle; tap a name to throw it. Run and RPO pick a side (strong is the tight end's) and whether to head for the
 // sideline. After a touchdown that leaves you down one or two: kick, or go for two.
@@ -40,7 +42,7 @@ const ST = new WeakMap(); // ctx -> pane state
 
 // A home-screen app open across an update imports this module new under the stylesheet it started with: when
 // drill.css's mark (--dr-css on :root) isn't this module's, the current file is added (as in views/seventeen.js).
-const CSS_V = '35';
+const CSS_V = '36';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--dr-css').trim() === CSS_V || document.querySelector('link[data-dr-css]')) return;
@@ -1617,10 +1619,9 @@ function boardInner(b) {
     + `<span class="dr-hd-q"><i>${esc(b.q)}</i>${b.spot ? `<i>${esc(b.spot)}</i>` : ''}</span></div>`;
   const tag = sd ? `<span class="dr-hd-side ${sd[0]}">${ui.icon(sd[1], {size: 13})}${sd[2]}</span>` : '<span class="dr-hd-side is-fin">Final</span>';
   const state = fin ? `<b class="dr-hd-res">${esc(b.head)}</b>`
-    : `<span class="dr-hd-st${b.run ? ' is-run' : ''}">${b.run ? '<i class="dr-dot"></i>Clock running' : `${ui.icon('clock', {size: 13})}Clock stopped`}</span>`;
+    : `<span class="dr-hd-st${b.run ? ' is-run' : ''}">${b.run ? '<i class="dr-dot"></i>Running' : `${ui.icon('clock', {size: 13})}Stopped`}</span>`;
   return `<div class="dr-hd-b" aria-hidden="true">${boardTeamHTML(b.teams[0], 0)}${mid}${boardTeamHTML(b.teams[1], 1)}</div>`
-    + `<div class="dr-hd-sit" aria-hidden="true">${tag}${state}</div>`
-    + (b.need ? `<p class="dr-hd-need" aria-hidden="true">${esc(b.need)}</p>` : '');
+    + `<div class="dr-hd-sit" aria-hidden="true">${tag}${state}${b.need ? `<p class="dr-hd-need">${esc(b.need)}</p>` : ''}</div>`;
 }
 function boardLabel(b) {
   const [u, t] = b.teams, has = u.ball ? ' You have the ball.' : t.ball ? ` The ${t.name} have the ball.` : '';
@@ -1631,12 +1632,15 @@ function boardLabel(b) {
   const need = b.need ? ` ${b.need}${/[.!?]$/.test(b.need) ? '' : '.'}` : '';
   return `${u.name} ${u.score}, ${t.name} ${t.score}. ${clock}${has}${down}${need} Timeouts: you ${u.tos}, ${t.name} ${t.tos}.`;
 }
-/** The header: the drill and the day, the help, and the scoreboard. */
-function scoreHTML(st, b = boardOf(st.s)) {
+/** Over the game: the drill and the day, and the help. */
+function titleHTML(st) {
   const n = st.n;
-  return `<header class="dr-hd"><div class="dr-hd-k"><p>${esc(`Two-Minute Drill #${n} · ${dr.dayLabel(n)}${dr.testing() ? ' · Test play' : dr.dayState(n).practice ? ' · Practice' : ''}`)}</p>`
-    + ui.iconButton({icon: 'info', label: 'How the Two-Minute Drill works', cls: 'dr-howto', attrs: {'data-dr-help': ''}}) + `</div>`
-    + `<div class="dr-hd-in" data-dr-bug role="group" aria-label="${esc(boardLabel(b))}">${boardInner(b)}</div></header>`;
+  return `<div class="dr-hd-k"><p>${esc(`Two-Minute Drill #${n} · ${dr.dayLabel(n)}${dr.testing() ? ' · Test play' : dr.dayState(n).practice ? ' · Practice' : ''}`)}</p>`
+    + ui.iconButton({icon: 'info', label: 'How the Two-Minute Drill works', cls: 'dr-howto', attrs: {'data-dr-help': ''}}) + `</div>`;
+}
+/** The game's header: the scoreboard. */
+function scoreHTML(st, b = boardOf(st.s)) {
+  return `<header class="dr-hd"><div class="dr-hd-in" data-dr-bug role="group" aria-label="${esc(boardLabel(b))}">${boardInner(b)}</div></header>`;
 }
 /** The scoreboard to b (the rest of the header stays). */
 function setBoard(st, b) {
@@ -1655,10 +1659,15 @@ function loadLogos(root) {
     im.src = i.dataset.logo;
   });
 }
+/** The key to the dots (their rating's colour, O and X), at the top of the ratings sheet. */
 function legendHTML() {
-  return `<div class="dr-legend"><span class="dr-scale" aria-hidden="true"><span>Rating</span><i></i></span>`
-    + `<span class="dr-key" aria-hidden="true">${markSVG('o', 'key-o')}Offense</span><span class="dr-key" aria-hidden="true">${markSVG('d', 'key-d')}Defense</span>`
-    + `<button type="button" class="dr-pill" data-dr-ratings>${ui.icon('search', {size: 14})}<span>Player ratings</span></button></div>`;
+  return `<div class="dr-legend" aria-hidden="true"><span class="dr-scale"><span>Rating</span><i></i></span>`
+    + `<span class="dr-key">${markSVG('o', 'key-o')}Offense</span><span class="dr-key">${markSVG('d', 'key-d')}Defense</span></div>`;
+}
+/** Under the field: what the other side shows before the snap (none once it's final), and the player ratings. */
+function lookRowHTML(st) {
+  const s = st.s, look = s && !s.result ? lookHTML(s) : '';
+  return look + `<button type="button" class="dr-pill dr-ratings" data-dr-ratings aria-label="Player ratings">${ui.icon('search', {size: 14})}<span>Ratings</span></button>`;
 }
 let lookSeen = '';
 /** What the other side shows before the snap, as a card in the look's colour: who, the look (or their formation) and
@@ -1667,13 +1676,13 @@ function lookHTML(s) {
   const them = s.poss === 'them', id = them ? s.form : s.look, L = them ? E.FORMS[id] : E.LOOKS[id];
   const key = [s.sc.n, s.poss, s.clock, s.down, s.togo, s.ball, s.us, s.them, id].join('|'), fresh = key !== lookSeen;
   lookSeen = key;
-  return `<div class="dr-look ${them ? 'is-form' : `is-${id}`}${fresh ? ' is-new' : ''}" role="note"><span class="dr-look-ic">${ui.icon(them ? 'football' : id === 'blitz' ? 'bolt' : 'shield', {size: 21})}</span>`
+  return `<div class="dr-look ${them ? 'is-form' : `is-${id}`}${fresh ? ' is-new' : ''}" role="note"><span class="dr-look-ic">${ui.icon(them ? 'football' : id === 'blitz' ? 'bolt' : 'shield', {size: 16})}</span>`
     + `<span class="dr-look-tx"><small>${esc(them ? `${E.idsFor(s, 'them').o} offense lines up in` : `${s.sc.d} defense shows`)}</small>`
-    + `<b>${esc(L.name)}</b><span>${esc(L.sub)}</span></span></div>`;
+    + `<span class="dr-look-ln"><b>${esc(L.name)}</b> <span>${esc(L.sub)}</span></span></span></div>`;
 }
 function headRow(title, s) {
-  const where = s.phase === 'pat' ? 'Try from the 2' : `${dr.downText(s.down, s.togo, s.ball)} · ${s.ball === 50 ? 'midfield' : dr.spot(s)}`;
-  return `<div class="dr-call-h"><h3 class="dr-call-t" id="dr-call-t">${esc(title)}</h3><p class="dr-call-s">${esc(where)}</p></div>`;
+  const pat = s.phase === 'pat', where = pat ? 'Try from the 2' : `${dr.downText(s.down, s.togo, s.ball)} · ${s.ball === 50 ? 'midfield' : dr.spot(s)}`;
+  return `<div class="dr-call-h${pat ? '' : ' is-quiet'}"><h3 class="dr-call-t" id="dr-call-t">${esc(title)}</h3><p class="dr-call-s">${esc(where)}</p></div>`;
 }
 // No huddle: from a running clock, the snap comes E.NO_HUDDLE seconds later instead of E.HURRY, a little less set. A
 // switch on every snap of yours that stays on until you turn it off; it only goes into a call while the clock runs
@@ -1708,8 +1717,7 @@ function typesHTML(st, open) {
 function callHTML(st) {
   const s = st.s, o = E.options(s), open = typeOf(st);
   const pat = s.phase === 'pat';
-  const body = open === 'pass' ? passBody(st) : open === 'run' || open === 'rpo' ? runBody(st, open) : open === 'trick' ? trickBody(st)
-    : `<p class="dr-hint">Pick a play type to see its plays.</p>`;
+  const body = open === 'pass' ? passBody(st) : open === 'run' || open === 'rpo' ? runBody(st, open) : open === 'trick' ? trickBody(st) : '';
   const fg = o.fg ? `<button type="button" class="dr-fg" data-dr-go="${E.tok.fg}"><span class="dr-fg-tx"><b>Field goal</b><small>${esc(`${o.fg.dist} yards`)}</small></span><span class="dr-fg-p">${pct(o.fg.p)}<small>to make</small></span></button>` : '';
   let kick = '';
   if (pat) {
@@ -1726,7 +1734,7 @@ function callHTML(st) {
   const warn = warnHTML(st);
   const lead = s.us > s.them && !pat ? `<p class="dr-goal">${esc(`Kneel to run out the clock: each one takes ${E.KNEEL} seconds off when it's running.`)}</p>` : '';
   return `<section class="dr-call" aria-labelledby="dr-call-t">${headRow(pat ? 'Kick or go for two?' : 'Your call', s)}<div class="dr-call-box">`
-    + kick + lead + lookHTML(s) + typesHTML(st, open) + body + fg
+    + kick + lead + typesHTML(st, open) + body + fg
     + (tools.filter(Boolean).length ? `<div class="dr-tools">${tools.join('')}</div>` : '') + warn + `</div></section>`;
 }
 /** What your defense has to do, from the score. */
@@ -1752,10 +1760,9 @@ function defenseHTML(st) {
   const s = st.s, o = E.options(s), open = dtypeOf(st);
   const tools = o.timeout ? `<div class="dr-tools"><button type="button" class="dr-pill" data-dr-go="${E.tok.timeout}">${ui.icon('clock', {size: 14})}<span>Timeout · ${s.tos} left</span></button></div>` : '';
   const warn = o.timeout && s.them > s.us ? `<p class="dr-warn">${ui.icon('clock', {size: 15})}<span>${esc(`Their clock is running. Each snap takes ${E.MILK} seconds off unless you stop it.`)}</span></p>` : '';
-  const body = open ? `<div class="dr-cards" data-dr-cards>${defCardsHTML(st, DEF_TYPES.find(([k]) => k === open)[2])}</div>` + legendDefHTML()
-    : `<p class="dr-hint">Pick a type of call to see its plays. Their play is set at the snap from the formation and the situation, whatever you call.</p>`;
+  const body = open ? `<div class="dr-cards" data-dr-cards>${defCardsHTML(st, DEF_TYPES.find(([k]) => k === open)[2])}</div>` + legendDefHTML() : '';
   return `<section class="dr-call is-def" aria-labelledby="dr-call-t">${headRow('Your defense', s)}<div class="dr-call-box">`
-    + lookHTML(s) + defTypesHTML(open) + body + tools + warn + `</div></section>`;
+    + defTypesHTML(open) + body + tools + warn + `</div></section>`;
 }
 // ---------------------------------------------------------------------------- Play cards
 // Three plays of each type, drawn like a Madden play-call screen: the formation and the play's name, the target
@@ -1772,7 +1779,6 @@ const RC = {key: '#FF4D5E', white: 'rgba(255,255,255,.88)'};
 /** Each receiver's own colour on the cards (his route, his name, the mark on his route in the list); the play's
  *  target is red instead. */
 const SLOT_C = {WR1: '#F5C518', WR2: '#38BDF8', WR3: '#4ADE80', TE: '#FB923C', RB: '#C084FC'};
-const FORMATION = 'Gun Doubles';
 /** The play's target: the player on its card (pass plays: the read the play is built for). */
 const PASS_KEY = {verts: 'WR1', postdig: 'WR2', smash: 'WR3', slantwheel: 'RB', levels: 'WR2', dagger: 'WR3', outs: 'WR1', mesh: 'TE', corners: 'TE', hail: 'WR2',
   curlflat: 'WR2', stick: 'TE', comebacks: 'WR1', flood: 'TE', screen: 'RB', hitchseam: 'WR3'};
@@ -1863,9 +1869,8 @@ const UNDER = [MID, -1.3];
 const runPos = (dir, play) => Object.assign({}, dir === 'w' ? flipPos(OFF_POS) : OFF_POS, play === 'q' ? {QB: UNDER} : {});
 const artRoute = (slot, route) => routePath(route, OFF_POS[slot][0], OFF_POS[slot][1]);
 const colOf = (slot, key) => (slot === key ? RC.key : SLOT_C[slot] || RC.white);
-/** What every card shares: your receivers' last names by slot (their labels) and the look their defense shows. */
-const artOn = s => ({who: Object.fromEntries(E.TARGETS.concat('QB').map(k => [k, dr.lastName(s.mine.by[k].n)])),
-  vs: s.poss === 'us' ? `vs ${E.LOOKS[s.look || PRE_LOOK].name}` : ''});
+/** What every card shares: your receivers' last names by slot (their labels). */
+const artOn = s => ({who: Object.fromEntries(E.TARGETS.concat('QB').map(k => [k, dr.lastName(s.mine.by[k].n)]))});
 /** The receivers' blocks on a run: a few yards up, a bar at the end. */
 const artBlocks = skip => E.TARGETS.filter(k => k !== 'RB' && !skip.includes(k)).map(k => {
   const [x, y] = OFF_POS[k];
@@ -1942,18 +1947,18 @@ function usage(s, match) {
   const yds = list.reduce((t, p) => t + (['catch', 'run', 'sack'].includes(p.kind) || p.two ? (p.gain || 0) : 0), 0);
   return {calls: list.length, yds: list.length ? yds / list.length : 0};
 }
-/** A play card. go: the action it calls; else pick: the pass play it selects. key: the player on it (none: no
- *  player). form: the formation over its name; sub: a line under the header; foot: the footer (else how the play has
- *  gone: use); off: not callable now (greyed). */
-function cardHTML(st, {i, art, name, tag, key, use, go, pick, on, label, form = FORMATION, sub = '', foot = null, vs = '', off = false}) {
+/** A play card, three to a row: who it's for (key: the player, with his face; else form, the formation; neither: no
+ *  line), its name, a line under it (sub), the art, and how the play has gone (use; or foot). go: the action it calls;
+ *  else pick: the pass play it selects (aud: its routes audibled). off: not callable now (greyed). */
+function cardHTML(st, {art, name, key, use, go, pick, on, label, form = '', aud = false, sub = '', foot = null, off = false}) {
   const s = st.s, p = key ? s.mine.by[key] : null;
   const at = go ? `data-dr-go="${go}"` : `data-dr-card="${pick}" aria-pressed="${!!on}"`;
+  const who = p ? `<span class="dr-card-k">${faceHTML(p, s.sc.o)}<span>${esc(dr.short(p.n))}</span></span>` : form ? `<span class="dr-card-k"><span>${esc(form)}</span></span>` : '';
   return `<button type="button" class="dr-card${on ? ' is-on' : ''}" ${at}${off ? ' disabled' : ''} aria-label="${esc(label || name)}">`
-    + `<span class="dr-card-h"><span class="dr-card-tt"><small><span class="dr-card-tag is-${tag.toLowerCase()}">${esc(tag)}</span>${esc(form)}</small><b>${esc(name)}</b></span>`
-    + (p ? `<span class="dr-card-p">${faceHTML(p, s.sc.o)}<small>${esc(dr.short(p.n))}</small></span>` : '') + `</span>`
+    + `${who}<b class="dr-card-n${name.length > 12 ? ' is-long' : ''}">${esc(name)}</b>`
     + (sub ? `<span class="dr-card-d">${esc(sub)}</span>` : '')
     + `<span class="dr-card-art">${art}</span>`
-    + `<span class="dr-card-f">${vs ? `<span class="dr-card-vs">${esc(vs)}</span>` : ''}<span>${esc(foot || `${use.calls} ${use.calls === 1 ? 'call' : 'calls'} | ${use.yds.toFixed(1)} avg yds`)}</span></span></button>`;
+    + `<span class="dr-card-f">${aud ? '<em>Audible</em> · ' : ''}${esc(foot || `${use.calls} ${use.calls === 1 ? 'call' : 'calls'} · ${use.yds.toFixed(1)} avg`)}</span></button>`;
 }
 /** The snap's three pass plays; the picked one drawn with its routes as they stand (audibles and all), marked so. */
 function passCardsHTML(st) {
@@ -1963,25 +1968,24 @@ function passCardsHTML(st) {
     const rs = st.card === i ? Object.assign({}, P.routes, st.routes) : P.routes;
     const aud = E.TARGETS.some(slot => rs[slot] !== P.routes[slot]);
     const label = `${P.name}${aud ? ' (audibled)' : ''}, for ${s.mine.by[key].n}: ${E.TARGETS.map(slot => `${dr.lastName(s.mine.by[slot].n)} ${E.ROUTES[rs[slot]].name.toLowerCase()}`).join(', ')}`;
-    return cardHTML(st, {i, art: passArt(s.ball, rs, key, field), name: P.name, tag: 'Pass', key, use: usage(s, p => p.pp === k), pick: i, on: st.card === i, label, vs: field.vs,
-      form: aud ? `${FORMATION} · Audible` : FORMATION});
+    return cardHTML(st, {art: passArt(s.ball, rs, key, field), name: P.name, use: usage(s, p => p.pp === k), pick: i, on: st.card === i, label, aud});
   }).join('');
 }
 function runCardsHTML(st) {
   const s = st.s, kind = st.panel, rpo = kind === 'rpo', book = rpo ? E.RPOS : E.RUNS, mk = rpo ? E.tok.rpo : E.tok.run;
   const side = st.side === 'w' ? 'weak' : 'strong';
   const field = artOn(s);
-  return Object.keys(book).map((k, i) => cardHTML(st, {i, art: rpo ? rpoArt(s.ball, k, st.side, field) : runArt(s.ball, k, st.side, field), name: book[k].name,
-    tag: rpo ? 'RPO' : 'Run', key: rpo ? RPO_KEY(k) : book[k].who || 'RB', use: usage(s, p => p.a.kind === kind && p.a.play === k), vs: field.vs,
+  return Object.keys(book).map(k => cardHTML(st, {art: rpo ? rpoArt(s.ball, k, st.side, field) : runArt(s.ball, k, st.side, field), name: book[k].name,
+    key: rpo ? RPO_KEY(k) : book[k].who || 'RB', use: usage(s, p => p.a.kind === kind && p.a.play === k),
     go: mk(st.side, st.runOob, k, hurryOn(st)), label: `${book[k].name} to the ${side} side: ${book[k].what}`})).join('');
 }
 function trickCardsHTML(st) {
   const s = st.s;
   const field = artOn(s);
-  return Object.keys(E.TRICKS).map((k, i) => {
+  return Object.keys(E.TRICKS).map(k => {
     const off = !E.trickOk(s, k);
-    return cardHTML(st, {i, art: trickArt(s.ball, k, field), name: E.TRICKS[k].name, tag: 'Trick', key: TRICK_KEY[k], off,
-      use: usage(s, p => p.a.kind === 'trick' && p.a.play === k), go: E.tok.tricks(k), vs: field.vs, foot: off ? 'Only with the clock running' : null,
+    return cardHTML(st, {art: trickArt(s.ball, k, field), name: E.TRICKS[k].name, key: TRICK_KEY[k], off,
+      use: usage(s, p => p.a.kind === 'trick' && p.a.play === k), go: E.tok.tricks(k), foot: off ? 'Clock must be running' : null,
       label: `${E.TRICKS[k].name}: ${E.TRICKS[k].what}${off ? '. Only with the clock running, not on fourth down' : ''}`});
   }).join('');
 }
@@ -1992,8 +1996,6 @@ function trickCardsHTML(st) {
 // purple), a man (an orange line to him), a rush (a white arrow) or a blitz (a red one).
 const ZONE = {deep: ['#3B82F6', 'Deep zone'], hook: ['#FACC15', 'Hook zone'], flat: ['#22D3EE', 'Flat zone'], cf: ['#A855F7', 'Curl-flat zone']};
 const MAN_C = '#FB923C', BLITZ_C = '#FF4D5E';
-/** Each call's tag on its card: its type on the switch. */
-const DEF_TAG = Object.fromEntries(DEF_TYPES.flatMap(([, l, calls]) => calls.map(k => [k, l])));
 /** What each of your defenders does on a call: {slot: {zone: [kind, x, depth]} | {man: slot} | {rush: true, blitz}}.
  *  P: where the call lines them up (defPos); U: your units (who's on the front, who the linebackers are). */
 function defRoles(U, P, O, call) {
@@ -2119,12 +2121,12 @@ function defArt(st, call) {
 const defForm = (T, call) => (call === 'dm' ? 'Dime' : CALL_LOOK[call] === 'box' ? `${T.s === '34' ? '3-4' : '4-3'} Base` : `Nickel ${T.s === '34' ? '3-3-5' : '4-2-5'}`);
 function defCardsHTML(st, calls) {
   const s = st.s, U = s.mine;
-  return calls.map((k, i) => {
+  return calls.map(k => {
     const C = E.CALLS[k], list = s.plays.filter(p => p.poss === 'them' && p.dcall === k && p.act);
-    const yds = list.reduce((t, p) => t + (['catch', 'run', 'sack'].includes(p.kind) ? (p.gain || 0) : 0), 0);
-    const foot = `${list.length} ${list.length === 1 ? 'call' : 'calls'} | ${(list.length ? yds / list.length : 0).toFixed(1)} avg yds allowed`;
-    return cardHTML(st, {i, art: defArt(st, k), name: C.name, tag: DEF_TAG[k], key: null, form: defForm(U.T, k), sub: C.short, foot,
-      go: E.tok.def(k), label: `${C.name}: ${C.what}. ${foot}.`});
+    const yds = list.reduce((t, p) => t + (['catch', 'run', 'sack'].includes(p.kind) ? (p.gain || 0) : 0), 0), avg = (list.length ? yds / list.length : 0).toFixed(1);
+    const calls = `${list.length} ${list.length === 1 ? 'call' : 'calls'}`;
+    return cardHTML(st, {art: defArt(st, k), name: C.name, key: null, form: defForm(U.T, k), sub: C.short, foot: `${calls} · ${avg} avg`,
+      go: E.tok.def(k), label: `${C.name}: ${C.what}. ${calls}, ${avg} average yards allowed.`});
   }).join('');
 }
 const legendDefHTML = () => `<p class="dr-dlegend" aria-hidden="true">${Object.values(ZONE).map(([c, t]) => `<span><i style="--c:${c}"></i>${t}</span>`).join('')}`
@@ -2147,12 +2149,13 @@ function routeMenuHTML(st, slot) {
     + (open ? `<ul class="dr-rlist" role="listbox" aria-label="${esc(`${p.n}'s other routes`)}">${E.ROUTES_FOR[slot].filter(r => r !== route).map(opt).join('')}</ul>` : '')
     + `</span>`;
 }
-/** A receiver to throw to, on one line: his position (coloured by his rating), his name, his route's menu. */
+/** A receiver to throw to, on one line: his position (coloured by his rating), his name (the target's in full, across
+ *  the list; the others', two to a row, last names), his route's menu. */
 function receiverRowHTML(st, slot) {
   const s = st.s, p = s.mine.by[slot], route = st.routes[slot], key = slot === keyOf(st);
   return `<li class="dr-rcv${key ? ' is-key' : ''}${st.rtOpen === slot ? ' is-open' : ''}" data-dr-rcvrow="${slot}"><button type="button" class="dr-rcv-go" data-dr-go="${E.tok.pass(slot, route, Object.assign({}, st.flags, {c: st.card, h: hurryOn(st)}))}" aria-label="${esc(`${key ? 'The target. ' : ''}Throw to ${p.n}, ${E.ROUTES[route].name}`)}">`
     + `<span class="dr-rcv-pos" style="--rc:${ratingColor(p.r)}">${esc(dr.posOf(slot))}</span>`
-    + `<span class="dr-rcv-id">${key ? '<span class="dr-rcv-tag">Target</span>' : ''}<b>${esc(dr.short(p.n))}</b></span></button>`
+    + `<span class="dr-rcv-id">${key ? '<span class="dr-rcv-tag">Target</span>' : ''}<b>${esc(key ? dr.short(p.n) : dr.lastName(p.n))}</b></span></button>`
     + routeMenuHTML(st, slot) + `</li>`;
 }
 /** The receivers to throw to, the play's target first. */
@@ -2161,21 +2164,22 @@ const rowsHTML = st => { const key = keyOf(st); return (key ? [key] : []).concat
 function passBody(st) {
   const chips = FLAG_INFO.map(([k, l]) => `<button type="button" class="dr-toggle" data-dr-flag="${k}" aria-pressed="${!!st.flags[k]}">${esc(l)}</button>`).join('') + hurryHTML(st, 'dr-toggle');
   return `<div class="dr-cards" role="group" aria-label="Pass plays" data-dr-cards>${passCardsHTML(st)}</div>`
-    + `<ol class="dr-rcvs" data-dr-rcvs>${rowsHTML(st)}</ol>`
-    + `<div class="dr-flags" role="group" aria-label="Options">${chips}</div>`
-    + `<p class="dr-hint">Pick a play and it goes to its target; throw to him or anyone else. Audible a receiver from his route's menu, or tap him on the field for his next route.</p>`;
+    + `<ol class="dr-rcvs" data-dr-rcvs aria-label="Throw to">${rowsHTML(st)}</ol>`
+    + `<div class="dr-flags" role="group" aria-label="Options">${chips}</div>`;
 }
 function runBody(st, kind) {
   const s = st.s;
-  const sides = [['w', '◀ Weak side'], ['s', 'Strong side ▶']].map(([d, l]) => `<button type="button" class="dr-side" data-dr-side="${d}" aria-pressed="${st.side === d}">${l}</button>`).join('');
-  const hint = `Their front leans to the ${s.shade === 's' ? 'strong' : 'weak'} side.${kind === 'rpo' ? ' Your QB reads the box: crowded, he throws it; light, he hands it off.' : ''}`;
-  return `<div class="dr-sides" role="group" aria-label="Which side">${sides}</div><p class="dr-hint">${esc(hint)}</p>`
-    + (hurryHTML(st) ? `<div class="dr-flags">${hurryHTML(st, 'dr-toggle')}</div>` : '')
-    + `<div class="dr-cards" role="group" aria-label="${kind === 'run' ? 'Runs' : 'RPOs'}" data-dr-cards>${runCardsHTML(st)}</div>`
-    + `<div class="dr-oob"><span class="dr-oob-tx"><b>Get out of bounds</b><small>The ball carrier tries to stop the clock. No guarantee.</small></span>${ui.switchCtl({name: 'dr-oob', checked: st.runOob, label: 'Get out of bounds'})}</div>`;
+  // The side their front leans to is marked on its button (run away from it).
+  const sides = [['w', '◀ Weak side'], ['s', 'Strong side ▶']].map(([d, l]) => {
+    const lean = s.shade === d;
+    return `<button type="button" class="dr-side" data-dr-side="${d}" aria-pressed="${st.side === d}"${lean ? ` aria-label="${esc(`${l.replace(/[◀▶] ?| ?[◀▶]/g, '')}, where their front leans`)}"` : ''}>${l}${lean ? '<small class="dr-lean">Front leans</small>' : ''}</button>`;
+  }).join('');
+  return `<div class="dr-sides" role="group" aria-label="Which side">${sides}</div>`
+    + `<div class="dr-opts">${hurryHTML(st, 'dr-toggle')}<span class="dr-oob"><span class="dr-oob-tx">Get out of bounds</span>${ui.switchCtl({name: 'dr-oob', checked: st.runOob, label: 'Get out of bounds: the ball carrier tries to stop the clock, no guarantee'})}</span></div>`
+    + `<div class="dr-cards" role="group" aria-label="${kind === 'run' ? 'Runs' : 'RPOs'}" data-dr-cards>${runCardsHTML(st)}</div>`;
 }
 function trickBody(st) {
-  return `<p class="dr-hint">One a game. Each fools a different defense: the aggressive ones bite.</p>`
+  return `<p class="dr-cap">One a game. Each fools a different defense: the aggressive ones bite.</p>`
     + `<div class="dr-cards" role="group" aria-label="Trick plays" data-dr-cards>${trickCardsHTML(st)}</div>`;
 }
 function snapHTML() {
@@ -2317,7 +2321,7 @@ function skipHTML() {
     + `<span>Tap to skip</span></button></div>`;
 }
 function gameHTML(st) {
-  return `<div class="dr-stage">${scoreHTML(st)}${fieldHTML(st)}${legendHTML()}${skipHTML()}</div>`
+  return titleHTML(st) + `<div class="dr-stage">${scoreHTML(st)}${fieldHTML(st)}<div class="dr-lkrow" data-dr-lk>${lookRowHTML(st)}</div>${skipHTML()}</div>`
     + `<div class="dr-panel" data-dr-panel>${panelHTML(st)}</div>`
     + `<div data-dr-pbph>${pbpHTML(st)}</div>`;
 }
@@ -2471,7 +2475,7 @@ function openRatings(st) {
   const edge = D.s === '34' ? {WLB: 'OLB', SLB: 'OLB'} : {};
   const whose = side => ((side === 'o') === (s.poss === 'us') ? 'Your' : 'Their');
   const body = `<div class="dr-sheet dr-rts">`
-    + `<p class="dr-rt-intro">${esc(`Each starter’s rank at his spot across the league, from his 2025 season and 2026 so far (55 to 99). Depth charts as of ${asofText()}.`)}</p>`
+    + `<p class="dr-rt-intro">${esc(`Each starter’s rank at his spot across the league, from his 2025 season and 2026 so far (55 to 99). Depth charts as of ${asofText()}.`)}</p>` + legendHTML()
     + `<h3 class="dr-rt-h">${esc(`${whose('o')} offense · ${O.city} ${O.n}`)}</h3><ol class="dr-rt-l">${off.map(p => ratingRowHTML(p, dr.posOf(p.slot))).join('')}${ratingRowHTML(U.o.k, 'K')}</ol>`
     + `<h3 class="dr-rt-h">${esc(`${whose('d')} defense · ${D.city} ${D.n}`)}</h3><ol class="dr-rt-l">${def.map(p => ratingRowHTML(p, edge[p.slot] || DEF_POS[p.slot] || p.slot)).join('')}</ol>`
     + `</div>`;
@@ -2696,6 +2700,9 @@ function setPanel(st) {
   if (!panel) return;
   panel.innerHTML = panelHTML(st);
   ui.hydrate(panel);
+  const lk = st.el.querySelector('[data-dr-lk]');
+  if (lk && !st.busy) { lk.innerHTML = lookRowHTML(st); ui.hydrate(lk); }
+  fitField(st);
 }
 function finishPlay(st, p) {
   st.busy = false;
@@ -2724,6 +2731,7 @@ function finishPlay(st, p) {
     const who = s.poss === 'us' ? '' : `${E.idsFor(s, 'them').o} ball, `;
     ui.announce(`${t.line} ${extra} ${who}${dr.downText(s.down, s.togo, s.ball)} on the ${dr.spot(s)}, ${dr.clockText(s.clock)} left.`);
     wpNow(st, s); // ready for the next breakdown
+    frameGame(st); // the scoreboard back in view with the next call
   }
 }
 /** Replays the last snap on the field (from that side of the ball), then puts it back where the game is now. */
@@ -2786,7 +2794,7 @@ function playAgain(st) {
   ui.announce('Practice run: a fresh start on today’s drill.');
 }
 function rerender(st, {fade = true} = {}) {
-  const go2 = () => { st.el.innerHTML = bodyHTML(st); ui.hydrate(st.el); loadLogos(st.el); aimRoutes(st.el); };
+  const go2 = () => { st.el.innerHTML = bodyHTML(st); ui.hydrate(st.el); loadLogos(st.el); aimRoutes(st.el); fitField(st); };
   if (fade && !ui.RM && st.ctx.visible) ui.crossfade(st.el, go2, {duration: 160}); else go2();
 }
 function openMenu(st, k) {
@@ -2802,18 +2810,45 @@ function openMenu(st, k) {
   flipField(st);
   const first = st.el.querySelector(`[data-dr-panel] [data-dr-menu="${k === 'main' ? was : k}"]`);
   if (first) { try { first.focus({preventScroll: true}); } catch (_) {} }
-  if (k !== 'main') centerCards(st);
+  if (k !== 'main') frameGame(st);
 }
-/** The open type's plays to the middle of what's on screen (under the top bar, over the tab bar). */
-function centerCards(st) {
-  const cards = st.el.querySelector('[data-dr-panel] [data-dr-cards]');
-  const scr = cards && cards.closest('.screen');
-  if (!scr || !st.ctx.visible) return;
-  const nav = scr.querySelector(':scope > .nav'), bar = document.getElementById('tabbar');
-  const sr = scr.getBoundingClientRect(), br = bar && bar.offsetHeight ? bar.getBoundingClientRect() : null;
-  const under = nav ? nav.getBoundingClientRect().bottom : sr.top, above = Math.min(sr.bottom, br ? br.top : Infinity);
-  const r = cards.getBoundingClientRect(), d = (r.top + r.bottom) / 2 - (under + above) / 2;
-  if (Math.abs(d) > 4) scr.scrollTo({top: Math.max(0, scr.scrollTop + d), behavior: ui.RM ? 'auto' : 'smooth'});
+// ============================================================================ The game on one screen
+// The scoreboard, the field, what they show and the call (the open type's plays and all) fit between the top bar and
+// the tab bar: the field gives up height for it (its yard, --dr-yd, from YD.max down to YD.min; past that the call
+// scrolls), and opening a type of play brings the whole game into view.
+const YD = {max: 9, min: 5.5};
+/** What's on screen of the pane's scroller: from under the top bar (under) to over the tab bar (above), 8px in. */
+function screenRoom(scr) {
+  const nav = scr.querySelector(':scope > .nav'), bar = document.getElementById('tabbar'), sr = scr.getBoundingClientRect();
+  return {under: (nav ? nav.getBoundingClientRect().bottom : sr.top) + 8, above: Math.min(sr.bottom, bar && bar.offsetHeight ? bar.getBoundingClientRect().top : Infinity) - 8};
+}
+/** The game, from the scoreboard to the end of the call, as it stands: {stage, box, scr, rest (its height but the
+ *  field's)}, or null (no call: a snap on, or the final). */
+function gameBlock(st) {
+  const f = st.el.querySelector('[data-dr-field]'), stage = f && f.closest('.dr-stage'), scr = stage && stage.closest('.screen');
+  const box = st.el.querySelector('[data-dr-panel] .dr-call-box');
+  if (!scr || !box || st.busy || !st.s || st.s.result) return null;
+  return {stage, box, scr, rest: box.getBoundingClientRect().bottom - stage.getBoundingClientRect().top - f.getBoundingClientRect().height};
+}
+/** Sizes the field's yard so the game fits on the screen (YD.max with no call to fit). */
+function fitField(st) {
+  if (st.busy || st.dead || !st.ctx.visible) return;
+  const g = gameBlock(st);
+  if (g && !g.box.offsetHeight) return; // not laid out (hidden)
+  let yd = YD.max;
+  if (g) { const r = screenRoom(g.scr); yd = Math.max(YD.min, Math.min(YD.max, Math.floor((r.above - r.under - g.rest) / 36 * 4) / 4)); }
+  st.el.style.setProperty('--dr-yd', `${yd}px`);
+}
+/** Brings the whole game into view: the scoreboard just under the top bar, or, when it can't all show, the end of the
+ *  call just over the tab bar. Nothing moves when it's all in view already. */
+function frameGame(st) {
+  fitField(st);
+  const g = gameBlock(st);
+  if (!g || !st.ctx.visible) return;
+  const r = screenRoom(g.scr), top = g.stage.getBoundingClientRect().top, bottom = g.box.getBoundingClientRect().bottom;
+  if (top >= r.under - 1 && bottom <= r.above + 1) return;
+  const d = bottom - top <= r.above - r.under ? top - r.under : bottom - r.above;
+  glide(st, g.scr, st.el.querySelector('[data-dr-field]').getBoundingClientRect().top - d);
 }
 /** Your back to where the open call lines him up (the weak side flips him), on the dots. */
 function flipField(st) {
@@ -2829,7 +2864,8 @@ function openDefMenu(st, k) {
   setPanel(st);
   const b = st.el.querySelector(`[data-dr-panel] [data-dr-dmenu="${k || was}"]`);
   if (b) { try { b.focus({preventScroll: true}); } catch (_) {} }
-  if (k) centerCards(st);
+  if (k) frameGame(st);
+  else fitField(st);
 }
 /** No huddle on or off: the switches, the calls that carry it and the clock warning follow. */
 function toggleHurry(st) {
@@ -2865,9 +2901,8 @@ function pickCard(st, i) {
   patchRoutes(st);
   const rows = st.el.querySelector('[data-dr-rcvs]');
   if (rows) { rows.innerHTML = rowsHTML(st); ui.hydrate(rows); }
-  // Straight to the play's target: his row, ready to throw.
-  const row = st.el.querySelector('.dr-rcv.is-key');
-  if (row) row.scrollIntoView({block: 'center', behavior: ui.RM ? 'auto' : 'smooth'});
+  // The play's target (his row, first) ready to throw, with the rest of the game.
+  frameGame(st);
   ui.announce(`${E.PASS_PLAYS[s.book[i]].name}, for ${s.mine.by[keyOf(st)].n}.`);
 }
 /** Redraws a receiver's row (his throw and his route's menu). */
@@ -3036,6 +3071,8 @@ export function mount(el, ctx, {anchor} = {}) {
   el.addEventListener('ui:change', st.onChange);
   st.onOut = e => { if (st.rtOpen && !el.contains(e.target)) openRoutes(st, null); };
   document.addEventListener('pointerdown', st.onOut, true);
+  st.onResize = () => fitField(st);
+  window.addEventListener('resize', st.onResize);
   st.stopTick = ctx.timer(() => tick(st), 20000);
   st.unsub = daily.subscribe(type => {
     // A reset for this phone's member (dr.applyResets) or another tab: the saved game isn't the one showing.
@@ -3052,7 +3089,7 @@ export function mount(el, ctx, {anchor} = {}) {
 /** Shown again (the picker, a link): catch up with the day. */
 export function params(el, ctx) {
   const st = ST.get(ctx);
-  if (st) tick(st);
+  if (st) { tick(st); fitField(st); }
 }
 
 export function unmount(el, ctx) {
@@ -3067,6 +3104,7 @@ export function unmount(el, ctx) {
   el.removeEventListener('toggle', st.onToggle, true);
   el.removeEventListener('ui:change', st.onChange);
   document.removeEventListener('pointerdown', st.onOut, true);
+  window.removeEventListener('resize', st.onResize);
   if (st.stopTick) st.stopTick();
   if (st.unsub) st.unsub();
   if (st.cancelBoard) st.cancelBoard();
