@@ -3,10 +3,11 @@
    app (the system's type, soft depth, pills and cards), never the app's retro pixel style; the snap itself is seen
    from behind the offense like a console football game (views/drill-cam.js). The game sits on a dark stage (the
    scorebug, the situation and the field), the calls below it on the theme's surfaces.
-   Team colours come in per element as --tc; a player's rating colour as --rc. */
+   Team colours come in per element as --tc; a player's rating colour as --rc (his chalk mark's colour on the board:
+   green for a star player, plain chalk for the rest). */
 
 /* The version mark views/drill.js checks (CSS_V): bump both when the pane needs rules an older file lacks. */
-:root { --dr-css: 37; }
+:root { --dr-css: 38; }
 
 .dr-pane, .sh-drill {
   --dr-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -287,6 +288,7 @@
   background: linear-gradient(90deg, hsl(4 86% 74%), hsl(34 86% 73%), hsl(58 86% 72%), hsl(128 86% 70%));
 }
 .sh-drill .dr-key > .dr-pl-g { width: 15px; height: 15px; overflow: visible; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.sh-drill .dr-key.is-star > .dr-pl-g { stroke: var(--dr-good); }
 
 /* ---------------------------------------------------------------- Pills and tiles (the controls) */
 .dr-pane .dr-pill {
@@ -350,19 +352,21 @@
   35% { transform: scale(1.015); }
   100% { transform: none; box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--lk) 60%, transparent), 0 0 0 14px transparent; }
 }
-/* The play types: one switch above the open type's plays, so another type is a tap away. */
+/* The play types: one slim switch above the open type's plays (the plays get the room), another type a tap away. */
 .dr-pane .dr-types {
-  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; margin-top: 8px; padding: 3px;
-  border-radius: 15px; background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--dr-line);
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 3px; margin-top: 6px; padding: 2px;
+  border-radius: 11px; background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--dr-line);
 }
 .dr-pane .dr-type {
-  display: grid; place-items: center; min-width: 0; height: 38px; padding: 0 4px; border-radius: 12px; text-align: center;
+  position: relative; display: grid; place-items: center; min-width: 0; height: 28px; padding: 0 4px; border-radius: 9px; text-align: center;
   background: var(--surface-1); color: var(--ink);
-  font: 700 16px/1 var(--dr-display); letter-spacing: -.01em; white-space: nowrap; box-shadow: inset 0 0 0 1px var(--dr-line);
+  font: 700 13.5px/1 var(--dr-display); letter-spacing: -.01em; white-space: nowrap; box-shadow: inset 0 0 0 1px var(--dr-line);
   transition: transform 220ms cubic-bezier(.3,1.4,.5,1), background-color 160ms, color 160ms, opacity 160ms;
 }
 .dr-pane .dr-type[aria-pressed="true"] { background: var(--tint); color: var(--on-tint); box-shadow: 0 1px 2px rgba(0,0,0,.2), 0 2px 8px rgba(0,0,0,.12); }
 .dr-pane .dr-type:disabled { opacity: .4; background: transparent; text-decoration: line-through; }
+/* (a finger's worth to tap, past the slim switch) */
+.dr-pane .dr-type::before { content: ""; position: absolute; inset: -6px -1px; }
 .dr-pane .dr-tools { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .dr-pane .dr-warn {
   display: flex; align-items: flex-start; gap: 8px; margin-top: 12px; padding: 10px 12px; border-radius: 14px;
@@ -481,13 +485,14 @@
   font: 800 9px/12px var(--dr-font); letter-spacing: .06em; text-transform: uppercase; color: #fff; background: #FF4D5E;
 }
 
-/* Play cards, like a Madden play-call screen, three to a row (a fourth swipes in): who the play's for (his face, his
-   name) or the defense's formation, the play's name, the play art on a dark field, how it has gone this game. */
+/* Play cards, like a Madden play-call screen, two and a bit to a row (the rest swipe in): who the play's for (his
+   face, his name) or the defense's formation, the play's name, the play art on a dark field, how it has gone this
+   game. */
 .dr-pane .dr-cards {
-  display: grid; grid-auto-flow: column; grid-auto-columns: calc((100% - 12px) / 3); gap: 6px; margin: 8px -16px 0; padding: 2px 16px 4px;
+  display: grid; grid-auto-flow: column; grid-auto-columns: calc((100% - 32px) / 2.35); gap: 8px; margin: 8px -16px 0; padding: 2px 16px 4px;
   overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding: 0 16px; scrollbar-width: none; -webkit-overflow-scrolling: touch;
 }
-.dr-pane .dr-call-box .dr-cards { grid-auto-columns: calc((100% - 28px) / 3); }
+.dr-pane .dr-call-box .dr-cards { grid-auto-columns: calc((100% - 16px) / 2.35); }
 .dr-pane .dr-cards::-webkit-scrollbar { display: none; }
 .dr-pane .dr-card {
   scroll-snap-align: start; display: flex; flex-direction: column; min-width: 0;
@@ -500,24 +505,24 @@
 /* A play that can't be called now (the fake spike with the clock stopped). */
 .dr-pane .dr-card:disabled { opacity: .42; filter: saturate(.3); cursor: default; }
 .dr-pane .dr-card-k {
-  display: flex; align-items: center; gap: 5px; min-width: 0; height: 16px; margin: 6px 7px 0;
-  font: 800 8.5px/1 var(--dr-font); letter-spacing: .05em; text-transform: uppercase; color: #A3AAB8;
+  display: flex; align-items: center; gap: 6px; min-width: 0; height: 18px; margin: 7px 9px 0;
+  font: 800 9.5px/1 var(--dr-font); letter-spacing: .05em; text-transform: uppercase; color: #A3AAB8;
 }
 .dr-pane .dr-card-k > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dr-pane .dr-card-n {
-  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; margin: 6px 7px 5px;
-  font: italic 800 12px/14px var(--dr-display); letter-spacing: -.02em; text-transform: uppercase;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; margin: 7px 9px 6px;
+  font: italic 800 14.5px/17px var(--dr-display); letter-spacing: -.02em; text-transform: uppercase;
 }
 .dr-pane .dr-card-k + .dr-card-n { margin-top: 3px; }
-.dr-pane .dr-card-n.is-long { font-size: 10.5px; letter-spacing: -.03em; }
+.dr-pane .dr-card-n.is-long { font-size: 13px; letter-spacing: -.03em; }
 .dr-pane .dr-card.is-on .dr-card-n { color: var(--tint); }
 .dr-face {
-  position: relative; display: block; width: 22px; height: 16px; border-radius: 4px; overflow: hidden;
+  position: relative; display: block; width: 25px; height: 18px; border-radius: 4px; overflow: hidden;
   background: radial-gradient(120% 90% at 50% 100%, color-mix(in srgb, var(--tc) 90%, #fff 10%), color-mix(in srgb, var(--tc) 55%, #000 45%));
   box-shadow: inset 0 0 0 1px rgba(255,255,255,.12);
 }
 .dr-pane .dr-card-k > .dr-face { flex: none; }
-.dr-face > i { position: absolute; inset: 0; display: grid; place-items: center; font: italic 800 9px/1 var(--dr-display); font-style: italic; color: rgba(255,255,255,.55); }
+.dr-face > i { position: absolute; inset: 0; display: grid; place-items: center; font: italic 800 10px/1 var(--dr-display); font-style: italic; color: rgba(255,255,255,.55); }
 .dr-face > span { position: absolute; inset: 0; background: center 20% / cover no-repeat; }
 .dr-pane .dr-card-art { position: relative; display: block; margin-top: auto; background: linear-gradient(180deg, #121418, #0E1013); }
 .dr-pane .dr-art { display: block; width: 100%; height: auto; aspect-ratio: 53.33 / 24.15; }
@@ -528,10 +533,10 @@
 }
 .dr-art .dr-art-n { font: 700 2.4px var(--dr-display); fill: rgba(255,255,255,.28); text-anchor: middle; dominant-baseline: middle; letter-spacing: .3px; }
 /* A defense card's line under its name: what the call is. */
-.dr-pane .dr-card-d { display: block; margin: -3px 7px 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 9.5px/12px var(--dr-font); color: #A3AAB8; }
+.dr-pane .dr-card-d { display: block; margin: -3px 9px 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 10.5px/13px var(--dr-font); color: #A3AAB8; }
 .dr-pane .dr-card-f {
-  display: block; padding: 4px 7px 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  font: 700 8px/10px var(--dr-font); letter-spacing: .06em; text-transform: uppercase; color: #8E95A3; background: #17191E;
+  display: block; padding: 5px 9px 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font: 700 9px/11px var(--dr-font); letter-spacing: .06em; text-transform: uppercase; color: #8E95A3; background: #17191E;
 }
 .dr-pane .dr-card-f > em { font-style: normal; color: var(--tint); }
 .dr-pane .dr-sides { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 8px; padding: 3px; border-radius: 999px; background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--dr-line); }
@@ -829,9 +834,9 @@
 @container app (max-width: 360px) {
   .dr-pane .dr-stage { padding: 6px; border-radius: 22px; }
   .dr-pane .dr-call-t { font-size: 19px; }
-  .dr-pane .dr-type { font-size: 15px; }
-  .dr-pane .dr-type.is-long { padding: 0 2px; font-size: 14px; letter-spacing: -.025em; }
-  .dr-pane .dr-card-n { font-size: 11.5px; line-height: 13px; }
+  .dr-pane .dr-type { font-size: 13px; }
+  .dr-pane .dr-type.is-long { padding: 0 2px; font-size: 12.5px; letter-spacing: -.025em; }
+  .dr-pane .dr-card-n { font-size: 13px; line-height: 15px; }
   /* The target's row: its red bar and red name are enough here, no tag. */
   .dr-pane .dr-rcv-tag { display: none; }
   .dr-pane .dr-rcv.is-key .dr-rcv-id b { color: #FF6B78; }
