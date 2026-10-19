@@ -24,7 +24,7 @@ function legFor(k, y) {
 
 export async function kickChecks(check) {
   // 1. The day's kicks, and the weather by makes
-  check('Kick It: day 1 is Oct 18 2026; a day\'s 40 kicks are the same every time (the same on every phone) and differ day to day; distances 18-62 yards, the first three chip shots near the middle, the ball always on or between the hash marks (high school\'s, 8.89 yards out), wandering out toward them as the run goes (a third of the later kicks right on one) and the kicks getting longer; the kicks themselves are in calm air (the wind and the wall go by makes)', () => {
+  check('Kick It: day 1 is Oct 18 2026; a day\'s 40 kicks are the same every time (the same on every phone) and differ day to day; the ball always on or between the hash marks (high school\'s, 8.89 yards out), the first few near the middle, wandering out toward them as the run goes (a third of the later kicks right on one); the kicks themselves are in calm air (how far back, the wind and the wall go by makes)', () => {
     const one = K.todayNumber(new Date(2026, 9, 18, 9)) === 1 && K.todayNumber(new Date(2026, 9, 19, 23, 59)) === 2 && K.todayNumber(new Date(2026, 9, 1)) === 1
       && K.dateOf(3).getDate() === 20;
     const a = K.kicks(5), b = K.kicks(5), c = K.kicks(6);
@@ -34,17 +34,25 @@ export async function kickChecks(check) {
     for (let n = 1; n <= 40; n++) {
       const ks = K.kicks(n);
       ks.forEach((k, i) => {
-        const ok = k.i === i && Number.isInteger(k.d) && k.d >= 18 && k.d <= 62 && Math.abs(k.gx) <= Math.min(K.HASH, 2 + i * .5) + 1e-9 && k.w === 0 && !k.obs.length;
+        const ok = k.i === i && Math.abs(k.dj) <= 2 && Math.abs(k.gx) <= Math.min(K.HASH, 2 + i * .5) + 1e-9 && k.w === 0 && !k.obs.length;
         if (!ok && bad.length < 3) bad.push(`day ${n} kick ${i}: ${JSON.stringify(k)}`);
         shape = shape && ok;
       });
-      shape = shape && ks.slice(0, 3).every(k => k.d <= 29 && Math.abs(k.gx) <= 5);
+      shape = shape && ks.slice(0, 3).every(k => Math.abs(k.gx) <= 5);
     }
     const avg = (n, from, to, f) => { let s = 0, m = 0; for (let d = 1; d <= n; d++) K.kicks(d).slice(from, to).forEach(k => { s += f(k); m++; }); return s / m; };
-    const grows = avg(30, 25, 40, k => k.d) > avg(30, 0, 10, k => k.d) + 20 && avg(30, 25, 40, k => Math.abs(k.gx)) > avg(30, 0, 10, k => Math.abs(k.gx)) * 2;
+    const wider = avg(30, 25, 40, k => Math.abs(k.gx)) > avg(30, 0, 10, k => Math.abs(k.gx)) * 2;
     const onHash = avg(30, 14, 40, k => (Math.abs(k.gx) === K.HASH ? 1 : 0));
-    const pass = one && same && shape && grows && K.HASH === 8.89 && onHash > .22 && onHash < .45;
-    return {pass, detail: `days ${one}; same ${same}; in range, inside the hashes and calm ${shape}${bad.length ? ' (' + bad.join('; ') + ')' : ''}; longer and wider later ${grows}; on a hash from kick 15: ${(onHash * 100).toFixed(0)}%`};
+    const pass = one && same && shape && wider && K.HASH === 8.89 && onHash > .22 && onHash < .45;
+    return {pass, detail: `days ${one}; same ${same}; inside the hashes, calm, a couple of yards' give ${shape}${bad.length ? ' (' + bad.join('; ') + ')' : ''}; wider later ${wider}; on a hash from kick 15: ${(onHash * 100).toFixed(0)}%`};
+  });
+  check('Kick It: how far back goes by makes ("jump from a 20 yarder to 30-40 quickly"): a chip shot (18-22 yards) till the first make, then about 30 and three yards more a make to about 39 by the fourth, then a yard and a half more a make, 62 the longest; a miss doesn\'t move it back', () => {
+    const range = made => { let lo = 99, hi = 0; for (let n = 1; n <= 30; n++) for (let i = made; i < K.MAX_KICKS; i++) { const d = K.kickFor(n, i, made).d; lo = Math.min(lo, d); hi = Math.max(hi, d); } return [lo, hi]; };
+    const r = [0, 1, 2, 3, 4, 8, 20].map(range);
+    const fits = ([lo, hi], a, b) => lo >= a && hi <= b;
+    const steps = fits(r[0], 18, 22) && fits(r[1], 28, 32) && fits(r[2], 31, 35) && fits(r[3], 34, 38) && fits(r[4], 37, 41) && fits(r[5], 41, 47) && r[6][1] <= 62 && r[6][0] >= 58;
+    const miss = K.nextKick(3, [['good', 20], ['short', 31]]).d === K.kickFor(3, 2, 1).d && Math.abs(K.nextKick(3, [['good', 20], ['short', 31]]).d - 30) <= 2;
+    return {pass: steps && miss, detail: `${[0, 1, 2, 3, 4, 8, 20].map((m, k) => `${m} made ${r[k][0]}-${r[k][1]}`).join(', ')} yds; after a miss the same band ${miss}`};
   });
   check('Kick It: the weather goes by makes: calm air for the first three makes; then wind (4-8 mph) till the fifth make; from the fifth it picks up with every make (to 26 mph at most, never more than leaves the kick makeable); from the seventh make the wall; the same kick with the same makes is the same on every phone', () => {
     const avg = (made, f) => { let s = 0, m = 0; for (let n = 1; n <= 20; n++) for (let i = made; i < Math.min(K.MAX_KICKS, made + 4); i++) { s += f(K.kickFor(n, i, made)); m++; } return s / m; };
@@ -55,7 +63,8 @@ export async function kickChecks(check) {
       [3, 4].forEach(m => { const k = K.kickFor(n, i, m); breeze = breeze && k.w <= 8 && !k.obs.length; });
       [5, 9, 14, 20].forEach(m => { const k = K.kickFor(n, i, m); cap = cap && k.w <= K.WIND_MAX && k.dir >= 0 && k.dir <= 360 && Number.isInteger(k.w); });
     }
-    const rising = wind(3) >= 4 && wind(5) > wind(4) + 2 && wind(7) > wind(5) + 2 && wind(10) > wind(7) + 3 && wind(12) > 18;
+    // (by 12 made the kicks are 50 yards and more: keeping them makeable takes a little off the wind)
+    const rising = wind(3) >= 4 && wind(5) > wind(4) + 2 && wind(7) > wind(5) + 2 && wind(10) > wind(7) + 3 && wind(12) > 16;
     const wall = walls(6) === 0 && walls(7) === 1 && walls(12) === 1;
     const same = JSON.stringify(K.kickFor(4, 9, 6)) === JSON.stringify(K.kickFor(4, 9, 6)) && K.nextKick(4, [['good', 20], ['good', 22], ['short', 25], ['good', 30]]).w === K.kickFor(4, 4, 3).w;
     const consts = K.WIND_FROM === 3 && K.WIND_GROWS === 5 && K.WALL_FROM === 7;

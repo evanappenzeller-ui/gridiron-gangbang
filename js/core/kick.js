@@ -1,15 +1,17 @@
 // Kick It core: the Daily Games' field-goal game, after Paper Toss. Each day everyone gets the same run of kicks: the
-// posts stand somewhere new for every kick (a different distance and angle), the kicks get longer as the run goes on,
-// and the third miss ends it. The weather goes by how many you've made (the owner's ask, Oct 2026): calm air for the
+// posts stand somewhere new for every kick (a different distance and angle), the kicks get longer with every make (a
+// chip shot till the first, then straight back to 30 and on toward 40: DIST), and the third miss ends it. The weather goes by how many you've made (the owner's ask, Oct 2026): calm air for the
 // first three makes, then wind (a breeze till the fifth make, stronger with every make after it), and from the seventh
 // make a brick wall in the goal's opening, standing on the crossbar against an upright. The line of scrimmage is 7
 // yards out, a holder at the spot. A kick is a swipe of the ball: its line aims and its speed is the leg; it flies
 // straight and rides the wind (no curving it: the swipe's shape doesn't matter). No DOM. Owner: KICK.
 //
 //   todayNumber(), dateOf(n), dayLabel(n)       day 1 on START, a new run at local midnight
-//   kicks(n)                                    day n's kicks in calm air: [{i, d (yards to the posts), gx (the posts'
-//                                               offset, yards, + right), w: 0, dir, obs: []}]
-//   kickFor(n, i, made)                         day n's kick i with made kicks made before it: the same plus w (wind,
+//   kicks(n)                                    day n's kicks in calm air: [{i, dj (its distance's own yards either
+//                                               way), gx (the posts' offset, yards, + right), w: 0, dir, obs: []}]
+//   distFor(made, dj)                           yards to the posts with made kicks made (DIST)
+//   kickFor(n, i, made)                         day n's kick i with made kicks made before it: the same plus d (yards
+//                                               to the posts: distFor), w (wind,
 //                                               mph), dir (its heading, degrees: 0 toward the posts, 90 to the right)
 //                                               and obs (the wall, from the seventh make: [{t (OBSTACLES' key), x, z
 //                                               (its middle, yards), half (half its width), y0 (its foot: the crossbar),
@@ -82,22 +84,30 @@ export const WIND_FROM = 3, WIND_GROWS = 5, WALL_FROM = 7, WIND_MAX = 26;
 // wider than the NFL's 18 feet 6 inches. The ball is spotted on a hash or between them, never outside (the owner's ask,
 // Oct 2026).
 export const HASH = 8.89;
-/** Day n's kicks, the same on every phone, in calm air. The first few are chip shots near the middle; then the spot
- *  wanders out toward the hashes (out to them by kick 15, and from then a third of the kicks are right on one) and the
- *  kicks get longer (a yard and a third a kick, 62 the longest, about kick 30 on). gx: where the posts are from the
- *  ball, so the ball is gx from the middle of the field the other way, never more than HASH. The wind and the wall for
- *  a kick come from how many you've made: kickFor(). */
+// How far back the posts are, by makes (the owner's ask, Oct 2026: "jump from a 20 yarder to 30-40 quickly"): a chip
+// shot till the first make; then 30, and DIST.step more a make to 39 by the fourth; then DIST.late more a make, to
+// DIST.max. Each kick a couple of yards either way of that (dj).
+export const DIST = {chip: 20, first: 30, step: 3, late: 1.5, max: 62};
+export function distFor(made, dj = 0) {
+  const at = made < 1 ? DIST.chip : DIST.first + DIST.step * Math.min(made - 1, 3) + DIST.late * Math.max(0, made - 4);
+  return Math.round(clamp(at + dj, 18, DIST.max));
+}
+/** Day n's kicks, the same on every phone, in calm air. The first few near the middle; then the spot wanders out
+ *  toward the hashes (out to them by kick 15, and from then a third of the kicks are right on one). gx: where the
+ *  posts are from the ball, so the ball is gx from the middle of the field the other way, never more than HASH; dj:
+ *  the kick's own yards either way of its distance. How far back, the wind and the wall come from how many you've
+ *  made: kickFor(). */
 const DAYS = new Map(); // day n -> its kicks (worked out once)
 export function kicks(n) {
   if (DAYS.has(n)) return DAYS.get(n);
   const r = rng(hashStr(`kick-it-${n}`)), out = [];
   for (let i = 0; i < MAX_KICKS; i++) {
-    const d = Math.round(clamp(19 + i * 1.35 + (r() * 8 - 3), 18, 62));
+    const dj = Math.round((r() * 4 - 2) * 10) / 10;
     const span = Math.min(HASH, 2 + i * .5), u = r() * 2 - 1, onHash = i >= 14 && r() < 1 / 3;
     const gx = onHash ? (u < 0 ? -HASH : HASH) : Math.round(u * span * 100) / 100;
     if (i < 14) r();
-    r(); // (what was each kick's own wind: kept, so a day's distances stay as they were)
-    out.push({i, d, gx, w: 0, dir: 0, obs: []});
+    r(); // (what was each kick's own wind: kept, so a day's spots stay as they were)
+    out.push({i, dj, gx, w: 0, dir: 0, obs: []});
   }
   if (DAYS.size > 40) DAYS.clear();
   DAYS.set(n, out);
@@ -110,16 +120,16 @@ export function windFor(made, f = .5) {
   if (made < WIND_GROWS) return Math.round(4 + 4 * f);
   return Math.round(Math.min(WIND_MAX, 8 + (made - WIND_GROWS) * 1.6 + 3 * f));
 }
-/** Day n's kick i with made kicks made before it: its wind (heading and strength: the same on every phone for the
- *  same kick and makes) and, from WALL_FROM made, the wall; never more wind than leaves it makeable (fair(): it comes
- *  down a mph at a time till it is). */
+/** Day n's kick i with made kicks made before it: how far back (distFor), its wind (heading and strength: the same on
+ *  every phone for the same kick and makes) and, from WALL_FROM made, the wall; never more wind than leaves it
+ *  makeable (fair(): it comes down a mph at a time till it is). */
 const FOR = new Map();
 export function kickFor(n, i, made) {
   const base = kicks(n)[Math.max(0, Math.min(MAX_KICKS - 1, i))], key = `${n}|${base.i}|${made}`;
   if (FOR.has(key)) return FOR.get(key);
   const r = rng(hashStr(`kick-it-wind-${n}-${base.i}`)), ro = rng(hashStr(`kick-it-obs-${n}-${base.i}-${made >= WALL_FROM + 6 ? 2 : made >= WALL_FROM + 3 ? 1 : 0}`));
-  const f = r(), dir = Math.round(r() * 360);
-  const k = Object.assign({}, base, {w: windFor(made, f), dir, made, obs: made >= WALL_FROM ? obstaclesFor(ro, made, base.d, base.gx) : []});
+  const f = r(), dir = Math.round(r() * 360), d = distFor(made, base.dj);
+  const k = Object.assign({}, base, {d, w: windFor(made, f), dir, made, obs: made >= WALL_FROM ? obstaclesFor(ro, made, d, base.gx) : []});
   while (k.w > 0 && !fair(k)) k.w--;
   if (FOR.size > 400) FOR.clear();
   FOR.set(key, k);
