@@ -1,8 +1,9 @@
 // Kick It: the Daily Games' fourth game (a pane of views/puzzles.js; route /puzzles/kick), after Paper Toss. The field
-// from behind the tee, at night under the lights; the posts stand somewhere new for every kick (distance and angle), the
-// flags on the uprights and the wind arrow show the wind. Flick the ball at the posts: the flick's direction aims and
-// its speed is the leg; the wind carries the ball in the air. "It's good!", or wide, short, off the bar or off an
-// upright; the third miss ends the day's run. Then the run's numbers and the league's scoreboard (Today / Week).
+// from behind and above the kicker and the holder (third person), at night under the lights; the posts stand somewhere
+// new for every kick (distance and angle), the flags on the uprights and the wind arrow show the wind. Flick the ball
+// at the posts: the flick's direction aims and its speed is the leg; the wind carries the ball in the air. "It's
+// good!", or wide, short, off the bar or off an upright; the third miss ends the day's run. Then the run's numbers and
+// the league's scoreboard (Today / Week).
 // The physics, the day's kicks, memory and the board are core/kick.js; this draws (one canvas) and takes the flick.
 // For now only on the owner's phones (puzzles.js gamesFor). A finger on the field shows how to kick (the guide), and
 // three steps under it say it.
@@ -135,9 +136,10 @@ function bodyHTML(st) {
 }
 
 // ============================================================================ The scene
-// The world in yards (core/kick.js): x across, y up, z downfield from the tee; the camera K.CAM.back behind the tee
-// and st.camH up (K.CAM.h, higher on a tall stage). The posts stand at the middle of the field: a kick from off to the
-// side has the field off to the side.
+// The world in yards (core/kick.js): x across, y up, z downfield from the tee. The camera is third person: st.back
+// (K.CAM.back) behind the ball and st.camH up (about K.CAM.h, set so the stage fits), looking down on the kicker, the
+// holder, the line and the posts. The posts stand at the middle of the field: a kick from off to the side has the
+// field off to the side.
 const FIELD = {half: 26.67, hash: 3.083};
 /** The height between the screen's nav bar and the tab bar (0 when it can't be measured). */
 function screenRoom(st) {
@@ -158,13 +160,16 @@ function size(st) {
   st.W = W; st.H = H; st.dpr = dpr;
   placeGusts(st);
   st.f = W * 1.05;
-  // The horizon about 38% of the way down, the tee's ball 64 px off the bottom: on a taller stage the camera rises a
-  // little (looking down on more of the field) rather than showing more sky.
-  st.camH = Math.max(K.CAM.h, Math.min(4.6, (H * .62 - 64) * K.CAM.back / st.f + .15));
-  st.y0 = H - 64 - st.f * (st.camH - .15) / K.CAM.back;
+  st.back = K.CAM.back;
+  // The ball about a seventh of the way up (clear of the buttons under it), the horizon about a third of the way
+  // down: the camera rises to fit, so a taller stage looks down on more of the field rather than showing more sky.
+  const yBall = H - Math.max(84, H * .14), yHor = Math.max(110, H * .34);
+  st.camH = Math.max(4, Math.min(9, .15 + (yBall - yHor) * st.back / st.f));
+  st.y0 = yBall - st.f * (st.camH - .15) / st.back;
+  cv.dataset.kkCam = [st.f, st.back, st.camH, st.y0].map(v => v.toFixed(3)).join(); // (for the tests)
 }
 function proj(st, x, y, z) {
-  const Z = Math.max(.25, z + K.CAM.back);
+  const Z = Math.max(.25, z + st.back);
   return {x: st.W / 2 + st.f * x / Z, y: st.y0 + st.f * (st.camH - y) / Z, s: st.f / Z};
 }
 function quad(c, a, b, d, e) { c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.lineTo(d.x, d.y); c.lineTo(e.x, e.y); c.closePath(); }
@@ -448,7 +453,7 @@ function crowdStrip() {
  *  stands rising back from it, up to the horizon (where the backdrop's stands carry on). The fans stay put as the
  *  field moves (each seat is a spot in the world). */
 function endStands(st, c, sc) {
-  const {d, gx} = sc, {W, y0, f} = st, zw = d + 10, back = K.CAM.back;
+  const {d, gx} = sc, {W, y0, f, back} = st, zw = d + 10;
   const w0 = proj(st, gx, 0, zw), w1 = proj(st, gx, 1.3, zw);
   if (w1.y <= y0 + 1) return;
   c.fillStyle = '#0A1129'; c.fillRect(0, y0, W, w1.y - y0 + .5);
@@ -484,14 +489,11 @@ function endStands(st, c, sc) {
   }
   c.fillStyle = 'rgba(0,0,0,.3)'; c.fillRect(0, w0.y, W, Math.max(1, wh * .12));
 }
-/** The name across the end zone, white with a navy edge, each letter laid flat on the turf where it lies (faint when
- *  the end zone is close, just behind the line, where it would only show in bits between the players). */
+/** The name across the end zone, white with a navy edge, each letter laid flat on the turf where it lies. */
 function endZoneName(st, c, sc, top) {
   const {d, gx} = sc, gl = d - 10, word = 'GRIDIRON', S = 100, za = gl + 2.8, zb = gl + 7.2, span = 26;
-  const a = Math.max(0, Math.min(1, (za - 12) / 8)) * .85;
-  if (a < .04) return;
   c.save();
-  c.globalAlpha = a;
+  c.globalAlpha = .88;
   c.font = `800 ${S}px "Barlow Condensed", "Arial Narrow", sans-serif`;
   c.textAlign = 'center'; c.textBaseline = 'alphabetic'; c.lineJoin = 'round';
   const ws = [...word].map(ch => c.measureText(ch).width + S * .1), tot = ws.reduce((a, b) => a + b, 0), kx = span / tot, kz = (zb - za) / (S * .72);
@@ -709,43 +711,70 @@ function drawLine(st, c, side, f) {
     c.restore();
   });
 }
-// The holder kneels at the ball's right (a right-footed kicker comes in from the left), back to us, facing the line: the
-// right knee down, its shin flat on the turf toward us (the cleat's sole showing); the left knee up; the left hand on
-// the ball's tip, the right on the thigh; the head turned to the ball. As it's kicked the hand comes away. hand: true
-// draws just the glove on the tip, over the ball.
-const HOLD = {x: .78, z: .02, num: 4};
-function drawHolder(st, c, hand, f) {
-  const b = proj(st, HOLD.x, 0, HOLD.z), k = KIT.us, skin = SKIN[3];
-  c.save(); c.translate(b.x, b.y); c.scale(b.s, -b.s);
-  c.lineCap = 'round'; c.lineJoin = 'round';
-  const bx = -HOLD.x, top = BALL.len, off = f ? Math.min(1, f.t / .12) : 0;
-  const tip = mixP([bx + .05, top + .05], [bx + .3, top + .42], off);
-  if (hand) {
-    limb(c, [tip[0] - .02, tip[1] - .02], [bx + .005, top - .005], .035, k.glove);
-    oval(c, tip[0], tip[1], .075, .052, k.glove);
-    c.restore();
-    return;
+// ---------------------------------------------------------------- The kicker, the holder and the ball (sprites)
+// Pictures in img/kick/ (from the field-goal asset pack, preloaded once): the holder kneels at the ball's left, gloves
+// on it (the ball in the picture is the ball on the spot; once it's kicked, the same holder with empty gloves); the
+// kicker at its right, set to kick, then through the ball and following through till the next kick is set; the ball
+// in the air tumbling end over end. Each is placed by its anchor (in the picture's pixels: the ball's tip, the
+// kicker's foot) at a spot in the world, px a yard (yd) its scale; never stretched.
+const SPRITES = {
+  holder: {src: 'holder', ax: 398.4, ay: 349.2, yd: 288},
+  empty: {src: 'holder-empty', ax: 398.4, ay: 349.2, yd: 288},
+  set: {src: 'kicker-b', ax: 57, ay: 603.3, yd: 277.1},
+  kick: {src: 'kicker-a', ax: 53.9, ay: 510.9, yd: 277.1},
+  ball: {src: 'football', ax: 100, ay: 55, yd: 200 / .38}
+};
+let SPRITES_LOADING = null;
+function loadSprites() {
+  if (!SPRITES_LOADING) {
+    SPRITES_LOADING = Promise.all(Object.values(SPRITES).map(sp => {
+      const im = new Image();
+      im.decoding = 'async';
+      im.src = new URL(`../../img/kick/${sp.src}.webp`, import.meta.url).href;
+      sp.im = im;
+      return (im.decode ? im.decode() : new Promise((ok, no) => { im.onload = ok; im.onerror = no; })).catch(() => {});
+    }));
   }
-  oval(c, -.02, -.03, .52, .1, 'rgba(0,0,0,.28)');
-  // the left leg, knee up and out ahead, seen past the body's left side
-  limb(c, [-.27, .55], [-.3, .15], .17, k.sock);
-  limb(c, [-.15, .5], [-.27, .58], .25, k.pantsShade);
-  // the right leg: the thigh straight down to the knee on the turf, the shin flat toward us, the sole and its studs
-  limb(c, [.15, .48], [.15, .1], .27, k.pants);
-  limb(c, [.15, .08], [.16, -.06], .2, k.sock);
-  oval(c, .165, -.12, .1, .07, k.cleat);
-  c.fillStyle = '#6A707C';
-  [[-.05, -.03], [.045, -.02], [-.035, .03], [.04, .035], [0, 0]].forEach(([dx, dy]) => { c.beginPath(); c.arc(.165 + dx, -.12 + dy, .016, 0, Math.PI * 2); c.fill(); });
-  pantsSeat(c, k, .62, .4);
-  jersey(c, k, .6, 1.0, -.05);
-  numberAt(c, k, HOLD.num, -.02, .8, .26);
-  // the right arm down to the thigh; the left out to the ball
-  arm(c, k, skin, 1, [.36, .95], [.44, .72], [.27, .57]);
-  arm(c, k, skin, -1, [-.47, .93], mixP([-.68, .66], [-.64, .84], off), tip);
-  // the head turned to the ball: a sliver of the face mask shows on the left
-  helmetBack(c, k, -.1, 1.19);
-  c.strokeStyle = k.mask; c.lineWidth = .032;
-  c.beginPath(); c.moveTo(-.29, 1.24); c.quadraticCurveTo(-.34, 1.13, -.26, 1.05); c.stroke();
+  return SPRITES_LOADING;
+}
+const spritesReady = () => Object.values(SPRITES).every(sp => sp.im && sp.im.complete && sp.im.naturalWidth > 0);
+/** A sprite with its anchor at world (x, y, z); rot turns it about the anchor. */
+function drawSprite(st, c, sp, x, y, z, rot = 0) {
+  const b = proj(st, x, y, z), k = b.s / sp.yd;
+  c.save();
+  c.translate(b.x, b.y);
+  if (rot) c.rotate(rot);
+  c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high';
+  c.drawImage(sp.im, -sp.ax * k, -sp.ay * k, sp.im.naturalWidth * k, sp.im.naturalHeight * k);
+  c.restore();
+}
+function shadowAt(st, c, x, z, w) {
+  const b = proj(st, x, 0, z);
+  c.fillStyle = 'rgba(0,0,0,.3)'; c.beginPath(); c.ellipse(b.x, b.y, w * b.s, w * .2 * b.s, 0, 0, Math.PI * 2); c.fill();
+}
+const HOLD = {z: .02};
+function drawHolder(st, c, held) {
+  shadowAt(st, c, -.6, HOLD.z, .75);
+  drawSprite(st, c, held ? SPRITES.holder : SPRITES.empty, 0, 0, HOLD.z);
+}
+// The kicker's set foot, beside the ball on its right; through the ball the kicking foot meets it (y: the ball's middle)
+// and carries on up a little.
+const KICKER = {x: .42, z: -.04};
+function drawKicker(st, c, pose) {
+  if (!pose) { shadowAt(st, c, .95, KICKER.z, .7); drawSprite(st, c, SPRITES.set, KICKER.x, 0, KICKER.z); return; }
+  const u = Math.min(1, pose.t / .3), e = 1 - (1 - u) * (1 - u);
+  shadowAt(st, c, .75, KICKER.z, .7);
+  drawSprite(st, c, SPRITES.kick, .03 - .08 * e, .17 + .12 * e, KICKER.z, -.06 * e);
+}
+/** The ball in the air: tumbling end over end (seen from behind, as long as it shows its length), never too small to follow. */
+function drawFlying(st, c, b, spin) {
+  const p = proj(st, b.x, b.y, b.z), sh = proj(st, b.x, 0, b.z), sp = SPRITES.ball;
+  const len = Math.max(11, .38 * p.s), k = len / sp.im.naturalWidth;
+  c.fillStyle = `rgba(0,0,0,${.38 * Math.max(0, 1 - b.y / 9)})`;
+  c.beginPath(); c.ellipse(sh.x, sh.y, len * .38, len * .11, 0, 0, Math.PI * 2); c.fill();
+  c.save(); c.translate(p.x, p.y); c.rotate(Math.PI / 2 + .12); c.scale(Math.max(.5, Math.abs(Math.cos(spin))), 1);
+  c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high';
+  c.drawImage(sp.im, -sp.im.naturalWidth * k / 2, -sp.im.naturalHeight * k / 2, sp.im.naturalWidth * k, sp.im.naturalHeight * k);
   c.restore();
 }
 // A bonk: a star where the ball hit, for a moment.
@@ -829,9 +858,11 @@ function draw(st, now = performance.now()) {
     .concat(obs.map(o => ({z: o.z, ob: true, draw: () => drawObstacle(st, c, o, t, sc.pop == null ? 1 : sc.pop, o === hitOb ? Math.max(0, 1 - (f.t - f.call.tHit) * 2.5) : 0)})));
   // the players as the kick left them, till the next one's set up
   const pose = f || st.spent || null;
-  items.push({z: K.LINE.z + .6, ob: true, draw: () => drawLine(st, c, 'them', pose)}, {z: K.LINE.z - .5, draw: () => drawLine(st, c, 'us', pose)}, {z: HOLD.z, draw: () => drawHolder(st, c, false, pose)});
-  if (st.ballOn !== false) items.push({z: ball.z, draw: () => drawBall(st, c, ball, spin, !f)});
-  if (st.ballOn !== false && !f) items.push({z: -.01, draw: () => drawHolder(st, c, true, null)});
+  items.push({z: K.LINE.z + .6, ob: true, draw: () => drawLine(st, c, 'them', pose)}, {z: K.LINE.z - .5, draw: () => drawLine(st, c, 'us', pose)});
+  // the holder (with the ball on the spot in hand, till it's kicked) and the kicker; the ball in the air
+  const held = st.ballOn !== false && !f, sprites = spritesReady();
+  if (sprites) items.push({z: HOLD.z, draw: () => drawHolder(st, c, held)}, {z: KICKER.z, draw: () => drawKicker(st, c, pose)});
+  if (st.ballOn !== false && (f || !sprites)) items.push({z: ball.z, draw: () => (sprites ? drawFlying(st, c, ball, spin) : drawBall(st, c, ball, spin, !f))});
   items.sort((p, q) => q.z - p.z);
   const lastOb = items.map(x => !!x.ob).lastIndexOf(true);
   items.forEach((x, i) => {
@@ -1045,7 +1076,7 @@ function onUp(st, e) {
   // where the flick points at the posts: its line from the ball, at the crossbar's height on screen
   let aim;
   const ball = proj(st, 0, .15, 0), cb = proj(st, k.gx, K.POST.bar, k.d);
-  if (dy < 0 && cb.y < ball.y) aim = ((ball.x + dx * (cb.y - ball.y) / dy - st.W / 2) * (k.d + K.CAM.back) / st.f) / k.d;
+  if (dy < 0 && cb.y < ball.y) aim = ((ball.x + dx * (cb.y - ball.y) / dy - st.W / 2) * (k.d + st.back) / st.f) / k.d;
   const launch = e.type === 'pointercancel' ? null : K.launchOf({dx, dy, speed, aim, curve: K.curveOf(g.pts)});
   if (!launch) { draw(st); guide(st, true); return; }
   const call = K.fly(k, launch);
@@ -1163,6 +1194,7 @@ export function mount(el, ctx) {
   st.stopLife = ctx.timer(() => idle(st), 70);
   K.autoPost();
   armGuide(st);
+  loadSprites().then(() => { if (!st.dead) draw(st); });
   // laid out: the field fills the screen while a run is on
   requestAnimationFrame(() => { if (!st.dead) { size(st); draw(st); placeGuide(st); fitScreen(st, true); } });
 }

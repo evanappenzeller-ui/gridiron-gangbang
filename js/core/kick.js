@@ -118,10 +118,11 @@ function obstaclesFor(r, i, d, gx) {
 
 // ---------------------------------------------------------------------------------------------- the kick
 // The world in yards: x across (+ right), y up, z downfield from the tee. The posts stand on the plane z = d: uprights
-// 18 ft 6 in apart (3.083 yards each side of the middle), the crossbar 10 ft up (3.333 yards), drawn 21 ft above it. The camera sits CAM.back
-// behind the tee and CAM.h up, looking downfield (views/kick.js draws with the same numbers).
+// 18 ft 6 in apart (3.083 yards each side of the middle), the crossbar 10 ft up (3.333 yards), drawn 21 ft above it. The camera is third
+// person: CAM.back behind the tee and about CAM.h up, looking downfield over the kicker and the holder (views/kick.js
+// draws from there, raising or lowering it a little to fit the screen).
 export const POST = {half: 3.083, bar: 3.333, top: 10.333};
-export const CAM = {h: 2, back: 4};
+export const CAM = {h: 6.5, back: 7.5};
 export const GRAV = 9.2;                   // yards a second, a second (a touch floaty: slower, higher arcs)
 const ELEV = 30 * Math.PI / 180;           // the ball's climb off the tee
 const V_MIN = 13, V_MAX = 30;              // the leg, yards a second
