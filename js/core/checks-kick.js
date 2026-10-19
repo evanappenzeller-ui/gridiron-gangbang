@@ -8,7 +8,7 @@
 
 import * as K from './kick.js';
 import * as daily from './daily.js';
-import {gamesFor, gameFor} from '../views/puzzles.js';
+import {gameFor} from '../views/puzzles.js';
 
 const calm = (d, gx = 0) => ({i: 0, d, gx, w: 0, dir: 0});
 const straight = (k, v = 30) => K.fly(k, {theta: Math.atan(k.gx / k.d), v});
@@ -219,11 +219,9 @@ export async function kickChecks(check) {
     const pass = !out.shown && !/Zed/.test(out.rows) && !/Zed/.test(out.week) && out.ryan && /Mason/.test(out.rows) && !reads.length;
     return {pass, detail: `rows ${out.rows}; week ${out.week}; guest shown ${out.shown}; ${reads.length ? 'reads LB.all: ' + reads.join() : 'no LB.all reads'}`};
   });
-  check('Kick It is the owner\'s alone for now ("Build this for me only"): the picker shows it only on Evan\'s phones, and /puzzles/kick opens it only there (Daily Puzzles for anyone else, a guest or an app user); the other three games for everyone', () => {
-    const evan = gamesFor('evan').join(), mason = gamesFor('mason').join(), none = gamesFor(null).join();
-    const routes = [gameFor('kick', 'evan'), gameFor('kick', 'mason'), gameFor('kick', null), gameFor('drill', 'mason'), gameFor('17-0', null), gameFor('nope', 'evan')].join();
-    const pass = evan === 'puzzles,17-0,drill,kick' && mason === 'puzzles,17-0,drill' && none === mason && routes === 'kick,puzzles,puzzles,drill,17-0,puzzles';
-    return {pass, detail: `Evan ${evan}; Mason ${mason}; no one ${none}; routes ${routes}`};
+  check('Kick It is open to everyone (Oct 2026): /puzzles/kick opens it on any phone (gameFor no longer asks who this phone is), like the other three games; an unknown game opens Daily Puzzles', () => {
+    const routes = ['kick', 'drill', '17-0', 'puzzles', 'nope', undefined].map(g => gameFor(g)).join();
+    return {pass: routes === 'kick,drill,17-0,puzzles,puzzles,puzzles' && gameFor.length === 1, detail: `routes ${routes}`};
   });
   check('Kick It: unlimited tries for the owner only (to test it): he can start the day\'s run over as often as he likes, and his first finished run stays the one that counts (and posts); a run started over before any finished keeps nothing', () => {
     const who = [K.canReplay('evan'), K.canReplay('mason'), K.canReplay(null)].join();

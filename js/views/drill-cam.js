@@ -43,6 +43,17 @@ const DPR_MAX = 2;
 const WX0 = -9, WX1 = WIDTH + 9, WY0 = -22, WY1 = 122, WALL = 1.2, BACK = 40, RISE = 30;
 // A player stands a touch taller than life (yards), so he reads on a phone.
 const TALL = 2.2;
+// The line closed up. On the chalkboard the linemen stand four yards apart (the dots need the room); the camera draws
+// everyone nearer the ball the nearer he is to it, LINE_K as far out at the ball (about a yard and a half man to man
+// on the line, the tackles three and a bit out), easing out to the sidelines, which stay put (the receivers come in a
+// little). One map for every player and the ball, so blocks, holes, catches and tackles stay together. b: how far
+// it's come in (0, the chalkboard's spots; 1, the line closed up).
+const LINE_K = 0.35;
+function closeUp(x, b) {
+  if (!b) return x;
+  const u = (x - MID) / MID;
+  return x + (MID + MID * u * (LINE_K + (1 - LINE_K) * u * u) - x) * b;
+}
 const OL = new Set(['LT', 'LG', 'C', 'RG', 'RT']), DL = new Set(['LDE', 'LDT', 'RDT', 'RDE', 'NT']);
 const SKINS = ['#F1C9A5', '#E2B084', '#C68A5C', '#A0673F', '#7B4B2A', '#5A3520'];
 const FANS = ['#E8E4DA', '#B9BDC8', '#5B6272', '#2A2F3B', '#C9B48E', '#8C2F2F', '#2F4F8C', '#D8D2C2', '#41464F', '#9AA3B5'];
@@ -496,7 +507,7 @@ export function open(field, scene, big = null) {
   // The play's moments by player: key -> [{a (a pose), t0, t1}].
   const acts = new Map();
   (scene.acts || []).forEach(x => { if (!acts.has(x.key)) acts.set(x.key, []); acts.get(x.key).push(x); });
-  let cam = null, fx = null, last = 0, closed = false, prevBall = null, pushK = null, aimY = null;
+  let cam = null, fx = null, last = 0, closed = false, prevBall = null, pushK = null, aimY = null, lineB = 0;
 
   const proj = (x, y, z) => {
     const [xc, yc, zc] = toCam(cam, x, y, z);
@@ -774,10 +785,15 @@ export function open(field, scene, big = null) {
   /** One frame. f: {u, t, top [x, y], follow [x, y], pos {key: [x, y]}, down {key: 'l'|'r'}, ball [x, y, z], carry,
    *  hold (the key of the man with the ball, or null), los, fd, now, look ('pass' | 'run' | null), air ({t0, t1} on a
    *  pass)}. */
-  function render(f) {
+  function render(f0) {
     if (closed) return;
-    const dt = last ? Math.min(100, f.now - last) : 0;
-    last = f.now;
+    const dt = last ? Math.min(100, f0.now - last) : 0;
+    last = f0.now;
+    // The line closes up as the figures come in over the dots (m, below).
+    lineB = clamp01((f0.u - 0.18) / 0.5);
+    const X = x => closeUp(x, lineB);
+    const f = Object.assign({}, f0, {follow: [X(f0.follow[0]), f0.follow[1]], ball: f0.ball && [X(f0.ball[0]), f0.ball[1], f0.ball[2]],
+      pos: Object.fromEntries(Object.entries(f0.pos).map(([k, q]) => [k, [X(q[0]), q[1]]]))});
     // The camera eases toward the ball; between the dots and the play it swings from straight down to behind.
     if (fx == null) fx = f.follow[0]; else {
       const a = 1 - Math.exp(-dt / 230);
@@ -818,7 +834,7 @@ export function open(field, scene, big = null) {
     drawGround();
     drawLines(f.los, f.fd);
     // The players, far to near, each on his shadow; the ball with the man who has it.
-    const m = clamp01((f.u - 0.18) / 0.5);
+    const m = lineB;
     const list = [];
     players.forEach(pl => {
       const q = f.pos[pl.key];
@@ -892,10 +908,11 @@ export function open(field, scene, big = null) {
     } else if (f.ball) prevBall = null;
     drawPosts(f.u);
   }
-  /** Where a field point is on screen, in CSS pixels from the field's top left (lift: above a player's head). */
+  /** Where a field point is on screen, in CSS pixels from the field's top left (lift: above a player's head), across
+   *  on the closed-up line's map, like the players. */
   function css(x, y, lift = 0) {
     if (!cam) return null;
-    const p = proj(x, y, lift ? TALL + 1.1 : 0);
+    const p = proj(closeUp(x, lineB), y, lift ? TALL + 1.1 : 0);
     if (!p) return null;
     return [p[0] / S, p[1] / S];
   }

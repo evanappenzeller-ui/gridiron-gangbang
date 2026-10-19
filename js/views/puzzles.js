@@ -191,16 +191,10 @@ const GAMES = [
   {id: 'drill', label: 'Two-Minute Drill', badge: 'img/drill.webp', sub: []},
   {id: 'kick', label: 'Kick It, field goals', badge: 'img/kick.webp', sub: []}
 ];
-// Kick It is the owner's alone for now (his ask, Oct 2026: "Build this for me only"): it's in the picker, and its route
-// opens it, only on his phones (gg-me 'evan', The Lay's admin). Everyone else has the three games as before, and a link
-// to /puzzles/kick opens Daily Puzzles. To open it to the league, drop the check (and its kit check, checks-kick.js).
-const KICK_FOR = ['evan'];
-const kickOpen = (id = data.me()) => !!id && KICK_FOR.includes(id);
-/** The games this phone's picker shows (ids, in order). */
-export const gamesFor = (id = data.me()) => GAMES.filter(x => x.id !== 'kick' || kickOpen(id)).map(x => x.id);
-/** The game a route opens on this phone (Kick It only where it's open). */
-export function gameFor(g, id = data.me()) {
-  return g === '17-0' || g === 'drill' || (g === 'kick' && kickOpen(id)) ? g : 'puzzles';
+/** The game a route opens (Daily Puzzles for anything else). Every game is everyone's: Kick It, the owner's alone
+ *  while it was built, opened to the league in Oct 2026. */
+export function gameFor(g) {
+  return GAMES.some(x => x.id === g) ? g : 'puzzles';
 }
 const gameOf = ctx => gameFor(ctx && ctx.params && ctx.params.game);
 const gamePath = g => (g === 'puzzles' ? '/puzzles' : `/puzzles/${g}`);
@@ -220,8 +214,7 @@ function syncSeventeen() {
 }
 
 function pickerHTML(g) {
-  const ids = gamesFor();
-  return `<div class="c-games${ids.length === 4 ? ' is-4' : ''}" data-key="games" data-ids="${ids.join(' ')}" data-enter role="tablist" aria-label="Pick a game">` + GAMES.filter(x => ids.includes(x.id)).map(x => `<button type="button" role="tab" class="c-game" data-game="${x.id}" aria-selected="${x.id === g}" aria-label="${esc(x.label)}">`
+  return `<div class="c-games" data-key="games" data-enter role="tablist" aria-label="Pick a game">` + GAMES.map(x => `<button type="button" role="tab" class="c-game" data-game="${x.id}" aria-selected="${x.id === g}" aria-label="${esc(x.label)}">`
     + `<img class="c-game-badge" src="${x.badge}" alt="" width="56" height="56" decoding="async" draggable="false">`
     + (x.sub.length ? `<span class="c-game-tx" aria-hidden="true">${x.sub.map(t => `<span>${esc(t)}</span>`).join('')}</span>` : '') + `</button>`).join('') + `</div>`;
 }
@@ -295,7 +288,7 @@ const kkLoading = () => `<div class="kk-loading" aria-busy="true">${ui.skeleton(
 // Like the others: a phone with a finished run posts it from any visit to this tab.
 let kkSynced = false;
 function syncKick() {
-  if (kkSynced || !kickOpen()) return;
+  if (kkSynced) return;
   kkSynced = true;
   import('../core/kick.js')
     .then(m => (m.totals().played ? m.autoPost() : null))
@@ -639,9 +632,6 @@ export default {
     // The picker (a tap, or a link to /puzzles/17-0, /puzzles/drill or /puzzles/kick): show that game; shown again,
     // it catches up with the day.
     const g = gameOf(ctx);
-    // a change of who this phone is can add or take away Kick It
-    const pk = st.el.querySelector('.c-games');
-    if (pk && pk.dataset.ids !== gamesFor().join(' ')) { pk.outerHTML = pickerHTML(g); ui.hydrate(st.el.querySelector('.c-games')); }
     patchPicker(st, g, ctx.visible);
     if (g !== st.game) switchGame(st, g);
     else if (g === '17-0') showSV(st);

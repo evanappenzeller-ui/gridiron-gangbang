@@ -6,8 +6,7 @@
 // in the goal's opening). "It's good!", or wide, short, off the bar or off an upright; the third miss ends the day's
 // run. Then the run's numbers and the league's scoreboard (Today / Week).
 // The physics, the day's kicks, memory and the board are core/kick.js; this draws (one canvas) and takes the flick.
-// For now only on the owner's phones (puzzles.js gamesFor). A finger on the field shows how to kick (the guide), and
-// three steps under it say it.
+// A finger on the field shows how to kick (the guide), and three steps under it say it.
 // Exports: render(ctx), mount(el, ctx, {anchor}), params(el, ctx), unmount(el, ctx). Owner: KICK.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
