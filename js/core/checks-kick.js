@@ -232,16 +232,12 @@ export async function kickChecks(check) {
     const routes = ['kick', 'drill', '17-0', 'puzzles', 'nope', undefined].map(g => gameFor(g)).join();
     return {pass: routes === 'kick,drill,17-0,puzzles,puzzles,puzzles' && gameFor.length === 1, detail: `routes ${routes}`};
   });
-  check('Kick It: unlimited tries for the owner only (to test it): he can start the day\'s run over as often as he likes, and his first finished run stays the one that counts (and posts); a run started over before any finished keeps nothing', () => {
-    const who = [K.canReplay('evan'), K.canReplay('mason'), K.canReplay(null)].join();
-    const run1 = {r: [['good', 20], ['short', 24], ['blocked', 24], ['wide-l', 22]], done: true, at: 111};
-    const again = K.restartDay(run1), twice = K.restartDay(Object.assign({}, again, {r: [['good', 20], ['good', 24], ['good', 24]]}));
-    const off1 = K.officialOf(run1), off2 = K.officialOf(again), off3 = K.officialOf(twice);
-    const mid = K.restartDay({r: [['good', 20]]});
-    const pass = who === 'true,false,false' && again.r.length === 0 && again.tries === 2 && twice.tries === 3
-      && off1.made === 1 && off1.missed === 3 && off2.made === 1 && off2.at === 111 && off3.made === 1 && off3.at === 111
-      && !mid.first && K.officialOf(mid) === null && K.officialOf({r: [['good', 20]]}) === null;
-    return {pass, detail: `can replay (Evan, Mason, no one): ${who}; the first run counts after one and two restarts: ${off2 && off2.made}/${off3 && off3.made} made; started over mid-run keeps ${mid.first ? 'a run' : 'nothing'}`};
+  check('Kick It: no Play again (the owner tests with Test play): no restart; a day still holding one of his old practice runs counts its first finished run', () => {
+    const gone = !('restart' in K) && !('canReplay' in K) && !('restartDay' in K);
+    const old = {r: [['good', 20], ['good', 31]], tries: 2, first: {r: [['good', 20], ['short', 30], ['wide-l', 31], ['bar', 30]], at: 111}};
+    const off = K.officialOf(old), plain = K.officialOf({r: [['good', 20], ['short', 31], ['short', 31], ['post', 30]], done: true, at: 222});
+    const pass = gone && off.made === 1 && off.at === 111 && plain.made === 1 && plain.at === 222 && K.officialOf({r: [['good', 20]]}) === null;
+    return {pass, detail: `restart gone ${gone}; an old practice day counts its first run: ${off && off.made} made at ${off && off.at}`};
   });
   check('Kick It: its stylesheet (css/views/kick.css) is linked: the version mark is on :root', () => {
     const v = getComputedStyle(document.documentElement).getPropertyValue('--kk-css').trim();

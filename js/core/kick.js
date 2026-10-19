@@ -25,15 +25,12 @@
 //   fly(kick, launch)                           the flight and the call: {made, why, d, tCross, at, pos(t), tEnd, hit
 //                                               (the obstacle it hit, or null)}
 //   dayState(n, real), record(n, kick, call), score(list), totals()   localStorage 'gg-kick1'
-//   setTest(on, n), testing()                   test play (the owner's sandbox, below)
-//   canReplay(), restart(n)                     unlimited tries for the owner, to test it: a new run of the day's
-//                                               kicks; his first finished run stays the one on the scoreboard
+//   setTest(on, n), testing()                   test play (the owner's sandbox, below; his way to play it again)
 //   autoPost(), boardRows(n), weekRows(n), weekDays(n), boardState()   the league scoreboard (below)
 //
 // THE RULE (CLAUDE.md): the scoreboard reads daily.LB.raw, the board as this phone may see it: league members and
 // Ryan D for everyone; a guest (or Ryan S) only on their own phones.
 import {lsGet, lsSet} from './ui.js';
-import * as data from './data.js';
 import * as daily from './daily.js';
 
 // ---------------------------------------------------------------------------------------------- days
@@ -247,8 +244,10 @@ export function windCall(kick, launch, call) {
 }
 
 // ---------------------------------------------------------------------------------------------- memory
-// 'gg-kick1': {days: {n: {r: [[why, d], ...] (each kick taken), done, at, first: {r, at} (the first finished run, kept
-// when a run's started over), tries}}, played}
+// 'gg-kick1': {days: {n: {r: [[why, d], ...] (each kick taken), done, at, first: {r, at}, tries}}, played}. first and
+// tries are from the owner's replays, while he had them (Test play does it now: his ask, Oct 2026): first, the first
+// finished run, kept when he started one over; a day still holding one stays practice, the first run the one that
+// counts.
 const KEY = 'gg-kick1', KEEP = 60;
 const WHYS = Object.keys(CALLS);
 // Test play (the owner's: views/testplay.js): the day's game again in a sandbox, whenever he needs to test it. While
@@ -297,24 +296,6 @@ export function officialOf(d) {
   if (!finished(d)) return null;
   const list = cleanList(d.r);
   return Object.assign({list, at: Number(d.at) || 0}, score(list));
-}
-/** A day's record started over: no kicks taken, the first finished run kept (if there was one). */
-export function restartDay(d) {
-  d = d || {};
-  const first = d.first || (finished(d) ? {r: cleanList(d.r), at: Number(d.at) || Date.now()} : null);
-  return Object.assign({r: [], tries: (Number.isInteger(d.tries) ? d.tries : 1) + 1}, first ? {first} : {});
-}
-// Unlimited tries, for testing: the owner may start the day's run over as often as he likes (his ask, Oct 2026). The
-// first run he finishes is the one on the scoreboard; the rest are practice.
-export const TESTERS = ['evan'];
-export const canReplay = (id = data.me()) => !!id && TESTERS.includes(id);
-/** Starts day n's run over (a tester only). Returns the day's state, or null. */
-export function restart(n) {
-  if (!canReplay()) return null;
-  const v = read();
-  v.days[n] = restartDay(v.days[n]);
-  write(v);
-  return dayState(n);
 }
 /** Saves a kick of day n's run (kick: its index, which must be the next). Returns the day's state, or null (a finished
  *  run, or a kick out of turn). */

@@ -206,10 +206,9 @@
   background: rgba(255,255,255,.08); font: 600 13px/18px var(--font-text); color: rgba(255,255,255,.8);
 }
 
-/* ---------------------------------------------------------------- Unlimited tries (the owner, testing) */
+/* ---------------------------------------------------------------- A practice run's note (the owner's old replays); the scoreboard */
 .kk-pane .kk-over-p { margin-top: 8px !important; font: 400 13px/18px var(--font-text); color: rgba(255,255,255,.7); }
-.kk-pane .kk-again { margin-top: 14px; min-width: 190px; }
-.kk-pane .kk-sb-go { margin-top: 10px; min-width: 190px; }
+.kk-pane .kk-sb-go { margin-top: 14px; min-width: 190px; }
 
 /* ---------------------------------------------------------------- Playing: the field is the screen */
 /* Nothing under the field till the run's finished: no scoreboard; a spacer (views/kick.js) lets the field scroll up to

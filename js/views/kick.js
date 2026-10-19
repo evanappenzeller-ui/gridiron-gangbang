@@ -87,8 +87,7 @@ function overHTML(st) {
     + `<p class="kk-over-h">${esc(head)}</p>`
     + `<p class="kk-over-s">${esc(d.longest ? `Longest ${d.longest} yds · ${d.yards} yds in all · ${plural(d.list.length, 'kick')}` : `${plural(d.list.length, 'kick')}, none through`)}</p>`
     + (d.practice && d.official ? `<p class="kk-over-p">${esc(`Practice run. Your first run today (${plural(d.official.made, 'field goal')}) is the one on the scoreboard.`)}</p>` : '')
-    + (K.canReplay() ? ui.button({label: 'Play again', kind: 'primary', icon: 'play-fill', cls: 'kk-again', attrs: {'data-kk-again': ''}}) : '')
-    + ui.button({label: 'See the scoreboard', kind: K.canReplay() ? 'secondary' : 'primary', icon: 'trophy', cls: 'kk-sb-go', attrs: {'data-kk-sb': ''}})
+    + ui.button({label: 'See the scoreboard', kind: 'primary', icon: 'trophy', cls: 'kk-sb-go', attrs: {'data-kk-sb': ''}})
     + `<p class="kk-over-t">${ui.icon('clock', {size: 14})}<span>${esc(`New kicks in ${ui.untilText(msToMidnight())}`)}</span></p></div>`;
 }
 // The guide's finger (a hand, index finger up; the ring at its tip is where it touches).
@@ -1152,26 +1151,6 @@ function fitScreen(st, smooth) {
   if (target > max) fill.style.height = `${Math.ceil(target - max)}px`;
   if (Math.abs(scr.scrollTop - target) > 2) scr.scrollTo({top: target, behavior: smooth && !ui.RM ? 'smooth' : 'auto'});
 }
-/** Play again (a tester, once a run's finished: core/kick.js canReplay): today's kicks from the first, three misses
- *  again; the first finished run stays the one on the scoreboard. Not while a kick is in the air. */
-function startOver(st) {
-  if (st.flight || st.drag || !K.canReplay()) return;
-  const day = K.restart(st.n);
-  if (!day) return;
-  st.timers.forEach(clearTimeout); st.timers = [];
-  st.move = null; st.after = null; st.busy = false;
-  setDay(st, st.n);
-  const over = st.el.querySelector('[data-kk-over]'), call = st.el.querySelector('[data-kk-call]');
-  if (over) { over.hidden = true; over.innerHTML = ''; }
-  if (call) call.className = 'kk-call';
-  setMode(st);
-  patchHud(st);
-  draw(st);
-  armGuide(st);
-  ui.haptic('light');
-  fitScreen(st, true);
-}
-
 /** The owner's Test play (views/testplay.js): today's kicks fresh in the sandbox (never posted, never counted), or back
  *  to the real run as it was. Not while a kick is in the air. */
 function testPlay(st, on) {
@@ -1253,7 +1232,6 @@ export function mount(el, ctx) {
   st.onClick = e => {
     const tp = e.target.closest('[data-kk-test]');
     if (tp) { testPlay(st, tp.dataset.kkTest === 'on'); return; }
-    if (e.target.closest('[data-kk-again]')) { startOver(st); return; }
     if (e.target.closest('[data-kk-sb]')) { const b = st.el.querySelector('[data-kk-board]'); if (b) b.scrollIntoView({block: 'start', behavior: ui.RM ? 'auto' : 'smooth'}); }
   };
   el.addEventListener('click', st.onClick);
