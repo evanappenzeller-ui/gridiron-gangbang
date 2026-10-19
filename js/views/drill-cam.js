@@ -23,11 +23,12 @@ const SPRITE_TALL = 0.95;
 // The pictures' own moments, as the drawn figures pose them (a juke and a juked man as a stiff arm and a lunge, a
 // diving catch as a catch).
 const FIGURE_POSE = {jk: 'tk', jd: 'tl', dc: 'ct'};
-// The game camera: its pitch (degrees down), its distance to what it looks at (yards: wide while the ball is behind the
-// line, so the passer's drop and throw stay in; pushed in once it's past it or a back has it), its lens (the focal
-// length as a share of the canvas width), and how much further than views/drill.js asks it leans toward the ball's
-// side. The top-down camera's distance is whatever matches the dots' field.
-const CAMS = {pitch: 19, snap: 29, play: 19, lens: 0.6, followX: 1.35};
+// The game camera: its pitch (degrees down), its distance to what it looks at (yards: snap and play for a kick or a
+// spike, wide while the ball is behind the line and pushed in once it's past it; close behind the passer as every
+// pass and run starts, wide as a pass is thrown), its lens (the focal length as a share of the canvas width), and how
+// much further than views/drill.js asks it leans toward the ball's side. The top-down camera's distance is whatever
+// matches the dots' field.
+const CAMS = {pitch: 19, snap: 29, play: 19, lens: 0.6, followX: 1.35, close: 13.5, wide: 31};
 const NEAR = 0.5;
 // Drawn at the screen's resolution, up to this many canvas pixels to a CSS pixel.
 const DPR_MAX = 2;
@@ -484,7 +485,7 @@ export function open(field, scene) {
   // The play's moments by player: key -> [{a (a pose), t0, t1}].
   const acts = new Map();
   (scene.acts || []).forEach(x => { if (!acts.has(x.key)) acts.set(x.key, []); acts.get(x.key).push(x); });
-  let cam = null, fx = null, fy = null, last = 0, closed = false, prevBall = null, pushK = null;
+  let cam = null, fx = null, last = 0, closed = false, prevBall = null, pushK = null, aimY = null;
 
   const proj = (x, y, z) => {
     const [xc, yc, zc] = toCam(cam, x, y, z);
@@ -760,26 +761,47 @@ export function open(field, scene) {
   }
 
   /** One frame. f: {u, t, top [x, y], follow [x, y], pos {key: [x, y]}, down {key: 'l'|'r'}, ball [x, y, z], carry,
-   *  hold (the key of the man with the ball, or null), los, fd, now}. */
+   *  hold (the key of the man with the ball, or null), los, fd, now, look ('pass' | 'run' | null), air ({t0, t1} on a
+   *  pass)}. */
   function render(f) {
     if (closed) return;
     const dt = last ? Math.min(100, f.now - last) : 0;
     last = f.now;
     // The camera eases toward the ball; between the dots and the play it swings from straight down to behind.
-    if (fx == null) { fx = f.follow[0]; fy = f.follow[1]; } else {
+    if (fx == null) fx = f.follow[0]; else {
       const a = 1 - Math.exp(-dt / 230);
-      fx += (f.follow[0] - fx) * a; fy += (f.follow[1] - fy) * a;
+      fx += (f.follow[0] - fx) * a;
     }
     const e = smooth(f.u);
-    // Wide while the ball is behind the line (the formation, the passer's throw, a sack all in), pushed in once it's
-    // past it. Eased, so the push follows the ball rather than jumping with it.
-    let push = f.ball && f.los != null ? smooth(clamp01((f.ball[1] - f.los + 1) / 7)) : 0;
-    // Handed off, the back has it: in most of the way, so a run stopped at the line is still seen up close.
-    if (f.hold && f.hold !== 'o-QB' && f.t > 0.05) push = Math.max(push, 0.75);
-    pushK = pushK == null ? push : pushK + (push - pushK) * (1 - Math.exp(-dt / 170));
-    const dist = C.snap + (C.play - C.snap) * pushK;
+    // How far back, and what it looks at. Every snap starts up close behind the passer, looking over the line. A pass:
+    // the camera pulls out as he drops (the receivers and the coverage in view), and once it's caught and run with
+    // comes in after the man with it. A run: it stays in close at the line, following the carrier when he gets
+    // through. Anything else (a kick, a spike): wide while the ball's behind the line, in once it's past it. Eased, so
+    // the camera glides from one to the next.
+    const ballY = f.ball ? f.ball[1] : f.los, los = f.los == null ? ballY : f.los, closeY = Math.max(los + 3, ballY + 2.5);
+    let want, wantY;
+    if (f.look === 'pass') {
+      const out = smooth(clamp01((f.t - 0.04) / 0.18));
+      const run = f.air && f.t > f.air.t1 && f.hold && f.hold.startsWith('o-') ? smooth(clamp01((f.t - f.air.t1) / 0.12)) : 0;
+      want = C.close + (C.wide - C.close) * out;
+      want += (C.play - want) * run;
+      wantY = closeY + (f.follow[1] - closeY) * Math.max(0, out - run * 0.5);
+    } else if (f.look === 'run') {
+      want = C.close;
+      wantY = closeY;
+    } else {
+      let push = f.ball && f.los != null ? smooth(clamp01((f.ball[1] - f.los + 1) / 7)) : 0;
+      if (f.hold && f.hold !== 'o-QB' && f.t > 0.05) push = Math.max(push, 0.75);
+      want = C.snap + (C.play - C.snap) * push;
+      wantY = f.follow[1];
+    }
+    if (pushK == null || !f.t) { pushK = want; aimY = wantY; } else {
+      const a = 1 - Math.exp(-dt / 200);
+      pushK += (want - pushK) * a; aimY += (wantY - aimY) * a;
+    }
+    const dist = pushK;
     const tx = clamp(MID + (fx - MID) * C.followX, 4, WIDTH - 4);
-    cam = cameraAt(V, f.u, f.top[0] + (tx - f.top[0]) * e, f.top[1] + (fy - f.top[1]) * e, dist);
+    cam = cameraAt(V, f.u, f.top[0] + (tx - f.top[0]) * e, f.top[1] + (aimY - f.top[1]) * e, dist);
     g.setTransform(1, 0, 0, 1, 0, 0);
     drawStadium();
     drawGround();

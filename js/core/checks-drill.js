@@ -456,6 +456,41 @@ export async function drillChecks(check) {
     return {pass: plays > 100 && pairs > 200 && men > 20 && !bad.length, detail: bad.length ? bad.slice(0, 5).join('; ') : `${plays} snaps: ${pairs} blocks, widest ${worstPair.toFixed(1)} yds; ${close} of ${men} men in man coverage within 3.5 yds (corners and nickels within ${worstDB.toFixed(1)}); fastest ${top.toFixed(1)} yds/s (${topAny.toFixed(1)} with the ball carrier, the passer and the play's man)`};
   });
 
+  check('Drill: on the field, the play reads like football: a completed pass has the receiver open (two yards and more from the man on him as he catches it), a pass broken up has the man on him right there (within a yard and a half); the line holds the pocket on a pass and heads downfield after a run that gets going; and the defense swarms a man it brings down (four and more round him at the whistle)', () => {
+    need();
+    if (!V || typeof V.planOf !== 'function') return {pass: false, detail: 'views/drill.js planOf did not load'};
+    const d2 = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]), OLs = ['o-LT', 'o-LG', 'o-C', 'o-RG', 'o-RT'];
+    const n = {catches: 0, open: 0, breakups: 0, tight: 0, passes: 0, pocket: 0, runs: 0, downfield: 0, tackles: 0, swarmed: 0}, bad = [];
+    for (let d = 1; d <= 16; d++) for (let i = 0; i < 4; i++) {
+      const {s} = randomGame(dr.scenario(d), 5200 + d * 13 + i);
+      s.plays.forEach(p => {
+        if (!p.act || p.two || p.trick || !['run', 'catch', 'inc'].includes(p.kind)) return;
+        const plan = V.planOf(s, p), T = plan.tr, at = (k, t) => V.trackAt(T[k], t), L = p.ball;
+        const cov = (plan.covers || []).find(([r]) => r === 'o-' + p.who);
+        if (p.kind === 'catch' && cov && plan.air) { n.catches++; if (d2(at(cov[0], plan.air.t1), at(cov[1], plan.air.t1)) >= 2) n.open++; else if (bad.length < 4) bad.push(`day ${d} catch: ${cov[1].slice(2)} on him`); }
+        if (p.kind === 'inc' && p.by && cov && cov[1] === 'd-' + p.by && plan.air) { n.breakups++; if (d2(at(cov[0], plan.air.t1), at(cov[1], plan.air.t1)) <= 1.5) n.tight++; else if (bad.length < 4) bad.push(`day ${d} breakup: ${p.by} off him`); }
+        if (p.kind !== 'run') {
+          n.passes++;
+          let top = -99;
+          OLs.filter(k => T[k]).forEach(k => { for (let t = 0; t <= 1; t += 0.02) top = Math.max(top, at(k, t)[1]); });
+          if (top <= L + 1.2) n.pocket++; else if (bad.length < 4) bad.push(`day ${d} pass: the line ${(top - L).toFixed(1)} yds past the line`);
+        } else if ((p.gain || 0) >= 6 && p.rk !== 'q') {
+          n.runs++;
+          const ks = OLs.filter(k => T[k]), avg = ks.reduce((t, k) => t + at(k, 1)[1] - L, 0) / ks.length;
+          if (avg >= 2.5) n.downfield++; else if (bad.length < 4) bad.push(`day ${d} ${p.gain}-yd run: the line ${avg.toFixed(1)} yds downfield`);
+        }
+        const dn = (plan.down || []).find(x => !x.tackler && x.key !== 'o-QB');
+        if (dn) {
+          n.tackles++;
+          const c = at(dn.key, 1), near = Object.keys(T).filter(k => k.startsWith('d-') && d2(at(k, 1), c) <= 5).length;
+          if (near >= 4) n.swarmed++;
+        }
+      });
+    }
+    const pass = n.catches > 20 && n.open === n.catches && n.breakups > 10 && n.tight === n.breakups && n.passes > 50 && n.pocket === n.passes
+      && n.runs > 10 && n.downfield >= n.runs * 0.9 && n.tackles > 50 && n.swarmed >= n.tackles * 0.85;
+    return {pass, detail: `${n.open}/${n.catches} catches open, ${n.tight}/${n.breakups} breakups tight, the line in the pocket on ${n.pocket}/${n.passes} passes and downfield on ${n.downfield}/${n.runs} runs of 6+, ${n.swarmed}/${n.tackles} tackles swarmed${bad.length ? '; ' + bad.join('; ') : ''}`};
+  });
   check('Drill: on the field, a run that loses yards is stopped behind the line of scrimmage (the ball carrier never crosses it), and no ball carrier who reaches the line runs back more than a yard to where he goes down', () => {
     need();
     if (!V || typeof V.planOf !== 'function') return {pass: false, detail: 'views/drill.js planOf did not load'};
