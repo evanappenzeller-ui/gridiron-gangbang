@@ -698,6 +698,7 @@ function drawFront(c, k, skin, num, crouch, arms) {
   [-1, 1].forEach(s => arm(c, k, skin, s, [s * .4, sh - .06], mixP([s * .5, sh - .32], [s * .56, sh + .32], arms), mixP([s * .3, Math.max(.1, sh - .68)], [s * .44, sh + .74], arms)));
 }
 function drawLine(st, c, side, f) {
+  if (spritesReady()) { drawLineArt(st, c, side === 'us', f); return; } // (the drawn players below till the pictures load)
   const us = side === 'us', k = KIT[side], t = f ? f.t : 0;
   // the rush leaps as the ball's kicked, pushing in a little, and comes back down; the blockers rise out of their stance
   const arms = f && !us ? Math.min(1, t / .15) : 0, jump = f && !us ? Math.max(0, Math.sin(Math.min(1, t / .8) * Math.PI)) : 0;
@@ -711,19 +712,28 @@ function drawLine(st, c, side, f) {
     c.restore();
   });
 }
-// ---------------------------------------------------------------- The kicker, the holder and the ball (sprites)
-// Pictures in img/kick/ (from the field-goal asset pack, preloaded once): the holder kneels at the ball's left, gloves
-// on it (the ball in the picture is the ball on the spot; once it's kicked, the same holder with empty gloves); the
-// kicker at its right, set to kick, then through the ball and following through till the next kick is set; the ball
-// in the air tumbling end over end. Each is placed by its anchor (in the picture's pixels: the ball's tip, the
-// kicker's foot) at a spot in the world, px a yard (yd) its scale; never stretched.
+// ---------------------------------------------------------------- The kicker, the holder, the line and the ball (sprites)
+// Pictures in img/kick/ (built by tools/kick/sprites.py, preloaded once), seen from behind like the camera, but for the
+// rush: the holder kneels at the ball's right, a hand on it (the ball in the picture is the ball on the spot; once it's
+// kicked, the same holder with the hand empty); the kicker waits back and to the left (a right-footed kicker's
+// approach), steps in as it's kicked and plants beside it, there till the next kick is set; the line (line.webp, a pose
+// from LINE_ART for each player, by how long since the kick); the ball in the air, tumbling end over end. Each is placed
+// by its anchor (in the picture's pixels: the ball's tip, the kicker's planted foot, a lineman's feet) at a spot in the
+// world, px a yard (yd) its scale; never stretched.
 const SPRITES = {
-  holder: {src: 'holder', ax: 398.4, ay: 349.2, yd: 288},
-  empty: {src: 'holder-empty', ax: 398.4, ay: 349.2, yd: 288},
-  set: {src: 'kicker-b', ax: 57, ay: 603.3, yd: 277.1},
-  kick: {src: 'kicker-a', ax: 53.9, ay: 510.9, yd: 277.1},
+  holder: {src: 'holder', ax: 25.5, ay: 264.5, yd: 249.4},
+  empty: {src: 'holder-empty', ax: 25.5, ay: 264.5, yd: 249.4},
+  kicker: {src: 'kicker', ax: 366.6, ay: 468.6, yd: 246.5},
+  line: {src: 'line', yd: 88},
   ball: {src: 'football', ax: 100, ay: 55, yd: 200 / .38}
 };
+// The line's poses in line.webp, [x, y, w, h, ax, ay] px. 0-7 ours, from behind: 0, 3 and 7 set, 1 rising, 2 and 6 hands
+// up, 4 and 5 stepping into a block. 8-15 the rush, from the front: 8 and 12 set, 9 and 10 charging, 11 hands up, 13 and
+// 14 leaping with their arms up, 15 landed, arms still up.
+const LINE_ART = [[4, 4, 127, 122, 63.3, 122], [135, 4, 131, 154, 64.7, 153.5], [270, 4, 128, 156, 63.5, 155], [402, 4, 129, 122, 65.7, 121.5],
+  [4, 164, 156, 147, 84.1, 146.5], [164, 164, 138, 142, 63.1, 141], [306, 164, 130, 146, 66.1, 145.5], [440, 164, 116, 121, 58.8, 120.5],
+  [4, 315, 134, 115, 65.8, 114.5], [142, 315, 118, 139, 58, 138.5], [264, 315, 110, 140, 59.2, 139], [378, 315, 116, 135, 57.3, 134.5],
+  [4, 459, 126, 110, 62.3, 110], [134, 459, 76, 154, 38.4, 154], [214, 459, 78, 142, 38.9, 141.5], [296, 459, 104, 124, 51.4, 123]];
 let SPRITES_LOADING = null;
 function loadSprites() {
   if (!SPRITES_LOADING) {
@@ -754,17 +764,42 @@ function shadowAt(st, c, x, z, w) {
 }
 const HOLD = {z: .02};
 function drawHolder(st, c, held) {
-  shadowAt(st, c, -.6, HOLD.z, .75);
+  shadowAt(st, c, .62, HOLD.z, .62);
   drawSprite(st, c, held ? SPRITES.holder : SPRITES.empty, 0, 0, HOLD.z);
 }
-// The kicker's set foot, beside the ball on its right; through the ball the kicking foot meets it (y: the ball's middle)
-// and carries on up a little.
-const KICKER = {x: .42, z: -.04};
+// Where the kicker's planted foot is: waiting back and to the left, then (as it's kicked) in beside the ball.
+const KICKER = {wait: {x: -1.1, z: -.85}, plant: {x: -.42, z: -.06}};
+function kickerAt(pose) {
+  const u = pose ? Math.min(1, pose.t / .14) : 0, e = 1 - (1 - u) * (1 - u), {wait: a, plant: b} = KICKER;
+  return {x: a.x + (b.x - a.x) * e, z: a.z + (b.z - a.z) * e, e};
+}
 function drawKicker(st, c, pose) {
-  if (!pose) { shadowAt(st, c, .95, KICKER.z, .7); drawSprite(st, c, SPRITES.set, KICKER.x, 0, KICKER.z); return; }
-  const u = Math.min(1, pose.t / .3), e = 1 - (1 - u) * (1 - u);
-  shadowAt(st, c, .75, KICKER.z, .7);
-  drawSprite(st, c, SPRITES.kick, .03 - .08 * e, .17 + .12 * e, KICKER.z, -.06 * e);
+  const k = kickerAt(pose);
+  shadowAt(st, c, k.x + .3, k.z, .55);
+  drawSprite(st, c, SPRITES.kicker, k.x, 0, k.z, -.06 * k.e);
+}
+// A player's pose (LINE_ART): ours set in their stance (a wing in a two-point stance), up out of it at the kick, then
+// blocking (hands up, or stepping in); the rush set, charging off the ball, leaping with their arms up, landing.
+function poseOf(us, i, f, wing) {
+  const t = f ? f.t : 0;
+  if (us) return !f ? (wing ? 7 : [0, 3, 0, 7, 3][i % 5]) : t < .12 ? 1 : [2, 4, 6, 5][i % 4];
+  return !f ? (i % 3 === 1 ? 12 : 8) : t < .14 ? (i % 2 ? 10 : 9) : t < .8 ? (i % 2 ? 14 : 13) : (i % 2 ? 11 : 15);
+}
+function drawLineArt(st, c, us, f) {
+  const t = f ? f.t : 0, sp = SPRITES.line;
+  const leap = f && !us && t >= .14 && t < .8 ? Math.sin((t - .14) / .66 * Math.PI) * .45 : 0, surge = f && !us ? Math.min(1, t / .5) * .35 : 0;
+  // (spread a little wider than the drawn players: the pictures are broader)
+  (us ? US : THEM).map(([x, num, back = 0], i) => ({x: x * 1.18, i, wing: !!back, z: K.LINE.z + (us ? -.5 - back : .6 - surge)})).sort((a, b) => b.z - a.z).forEach(p => {
+    const b = proj(st, p.x, 0, p.z), fr = LINE_ART[poseOf(us, p.i, f, p.wing)], k = b.s / sp.yd;
+    if (b.s <= 0 || b.x < -b.s * 1.5 || b.x > st.W + b.s * 1.5) return;
+    c.fillStyle = 'rgba(0,0,0,.28)'; c.beginPath(); c.ellipse(b.x, b.y, .5 * b.s, .12 * b.s, 0, 0, Math.PI * 2); c.fill();
+    c.save();
+    c.translate(b.x, b.y - leap * b.s);
+    if (p.i % 2) c.scale(-1, 1); // every other one the other way round, so the line isn't all the same
+    c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high';
+    c.drawImage(sp.im, fr[0], fr[1], fr[2], fr[3], -fr[4] * k, -fr[5] * k, fr[2] * k, fr[3] * k);
+    c.restore();
+  });
 }
 /** The ball in the air: tumbling end over end (seen from behind, as long as it shows its length), never too small to follow. */
 function drawFlying(st, c, b, spin) {
@@ -861,7 +896,7 @@ function draw(st, now = performance.now()) {
   items.push({z: K.LINE.z + .6, ob: true, draw: () => drawLine(st, c, 'them', pose)}, {z: K.LINE.z - .5, draw: () => drawLine(st, c, 'us', pose)});
   // the holder (with the ball on the spot in hand, till it's kicked) and the kicker; the ball in the air
   const held = st.ballOn !== false && !f, sprites = spritesReady();
-  if (sprites) items.push({z: HOLD.z, draw: () => drawHolder(st, c, held)}, {z: KICKER.z, draw: () => drawKicker(st, c, pose)});
+  if (sprites) items.push({z: HOLD.z, draw: () => drawHolder(st, c, held)}, {z: kickerAt(pose).z, draw: () => drawKicker(st, c, pose)});
   if (st.ballOn !== false && (f || !sprites)) items.push({z: ball.z, draw: () => (sprites ? drawFlying(st, c, ball, spin) : drawBall(st, c, ball, spin, !f))});
   items.sort((p, q) => q.z - p.z);
   const lastOb = items.map(x => !!x.ob).lastIndexOf(true);
