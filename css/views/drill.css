@@ -191,7 +191,6 @@
 }
 .dr-pane .dr-pl-g { position: absolute; inset: -1px; width: 26px; height: 26px; overflow: visible; fill: none; stroke: var(--rc); stroke-width: 2.3; stroke-linecap: round; stroke-linejoin: round; }
 .dr-pane .dr-pl.is-off { opacity: 0; }
-.dr-pane .dr-pl-j { position: relative; font: 700 10.5px/1 var(--dr-hand); color: var(--dr-chalk); font-variant-numeric: tabular-nums; letter-spacing: -.02em; text-shadow: 0 0 2px rgba(243,240,230,.35); }
 .dr-pane .dr-pl-n {
   position: absolute; left: 50%; top: 100%; transform: translateX(-50%); margin-top: 2px;
   white-space: nowrap; pointer-events: none;
@@ -845,7 +844,6 @@
   .dr-pane .dr-ropt { gap: 4px; padding: 0 7px 0 8px; }
   .dr-pane .dr-rcv-rt { padding: 0 7px 0 8px; }
   .dr-pane .dr-pl { width: 22px; height: 22px; margin: -11px 0 0 -11px; }
-  .dr-pane .dr-pl-j { font-size: 10px; }
   .dr-pane .dr-pl-n { font-size: 8.5px; }
   .dr-pane .dr-fsb { gap: 6px; }
   .dr-pane .dr-fsb-sc { font-size: 38px; }

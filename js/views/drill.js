@@ -186,7 +186,7 @@ function dotHTML(d, view) {
   const mine = (side === 'o') === (view.poss === 'us');
   const tgt = side === 'o' && view.poss === 'us' && E.TARGETS.includes(slot) ? ` data-dr-rcv="${slot}"` : '';
   return `<span class="dr-pl is-${side}${mine ? ' is-mine' : ''}${ls ? ' is-lab-' + ls : ''}${edgeCls(x)}${off ? ' is-off' : ''}" data-dr-p="${side}-${slot}"${tgt} style="left:${left(x)};top:${top(y)};--rc:${markColor(p.r)}">`
-    + `${markSVG(side, `${side}-${slot}`, p.r >= STAR)}<b class="dr-pl-j">${p.j == null ? '' : p.j}</b>${lab}</span>`;
+    + `${markSVG(side, `${side}-${slot}`, p.r >= STAR)}${lab}</span>`;
 }
 /** Every player's spot before a snap: [{key, side, slot, p, x, y, off}] (view.center: the QB under center, for the sneak
  *  and the fake spike; view.motion: the receiver on the double reverse, motioned across before the snap). */

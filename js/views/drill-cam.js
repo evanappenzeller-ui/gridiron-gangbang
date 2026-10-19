@@ -73,7 +73,7 @@ const FONT = '"Helvetica Neue", Helvetica, Arial, sans-serif';
 
 // ---------------------------------------------------------------------------- The chalkboard's marks
 // Before the snap the field is a coach's chalkboard (views/drill.js): an O for each man on offense, an X for each on
-// defense (its middle left open for his number), and a star for a star player on either side (views/drill.js STAR),
+// defense (its middle left open), and a star for a star player on either side (views/drill.js STAR),
 // drawn by hand: a few takes on each, turned a little, so no two look stamped. In a 24-unit box round the player's
 // spot.
 const CHALK_O = [
@@ -86,7 +86,7 @@ const CHALK_X = [
   'M2.4 3.4L7.2 7.9M16.8 16.1L21 20.8M20.7 2.3L16.3 7.2M7.8 16.9L3.3 21.6',
   'M3.1 2.3L7.7 7.3M16.2 16.7L20.9 21.6M21.5 3.2L16.7 7.6M7.2 16.3L2.5 20.8'
 ];
-// Five points round a middle wide enough for his number, the stroke running on a touch past where it started.
+// Five points round a full middle, the stroke running on a touch past where it started.
 const CHALK_STAR = [
   'M11.6 0.8L15.6 7.7L23.1 9.3L18.1 14.6L18.7 22.2L11.9 19.1L5.1 21.8L5.9 14.7L1.4 9.1L8.4 7.6L11.6 0.8L12.5 2.3',
   'M12.4 0.9L15.6 7.5L23.3 9.4L18.0 14.7L18.7 22.6L12.1 18.9L5.0 21.8L6.1 14.8L1.1 9.2L8.4 7.5L12.4 0.9L13.1 2.3',
@@ -717,13 +717,11 @@ export function open(field, scene, big = null) {
     }
     // (The corners' shade is drill.css's, over the canvas.)
   }
-  /** The chalkboard's marks (the top-down field's players: an O or an X in his rating's chalk, his number in white)
-   *  fading into the figures as the camera tips down. */
+  /** The chalkboard's marks (the top-down field's players: an O, an X or a star player's star, in chalk) fading into
+   *  the figures as the camera tips down. */
   function drawDots(list, alpha) {
     if (alpha <= 0) return;
     g.globalAlpha = alpha;
-    g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.font = `700 ${Math.round(10.5 * S)}px ${FONT}`;
     g.lineCap = 'round'; g.lineJoin = 'round';
     list.forEach(({pl, p}) => {
       const mk = chalkMark(pl.side, pl.key, pl.star);
@@ -733,8 +731,6 @@ export function open(field, scene, big = null) {
       g.lineWidth = 2.3; g.strokeStyle = pl.rc;
       g.stroke(markPath(mk.d));
       g.setTransform(1, 0, 0, 1, 0, 0);
-      g.fillStyle = '#F3F0E6';
-      g.fillText(String(pl.j == null ? '' : pl.j), p[0], p[1] + 0.5 * S);
     });
     g.globalAlpha = 1;
   }
