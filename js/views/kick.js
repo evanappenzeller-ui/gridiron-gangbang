@@ -716,7 +716,8 @@ function drawLine(st, c, side, f) {
 // Pictures in img/kick/ (built by tools/kick/sprites.py, preloaded once), seen from behind like the camera, but for the
 // rush: the holder kneels at the ball's right, a hand on it (the ball in the picture is the ball on the spot; once it's
 // kicked, the same holder with the hand empty); the kicker waits back and to the left (a right-footed kicker's
-// approach), steps in as it's kicked and plants beside it, there till the next kick is set; the line (line.webp, a pose
+// approach) winding up, steps in as it's kicked, plants beside the ball and follows through, the kicking leg high, till
+// the next kick is set; the line (line.webp, a pose
 // from LINE_ART for each player, by how long since the kick); the ball in the air, tumbling end over end. Each is placed
 // by its anchor (in the picture's pixels: the ball's tip, the kicker's planted foot, a lineman's feet) at a spot in the
 // world, px a yard (yd) its scale; never stretched.
@@ -724,6 +725,7 @@ const SPRITES = {
   holder: {src: 'holder', ax: 25.5, ay: 264.5, yd: 249.4},
   empty: {src: 'holder-empty', ax: 25.5, ay: 264.5, yd: 249.4},
   kicker: {src: 'kicker', ax: 366.6, ay: 468.6, yd: 246.5},
+  follow: {src: 'kicker-follow', ax: 234.6, ay: 479.5, yd: 246.5},
   line: {src: 'line', yd: 88},
   ball: {src: 'football', ax: 100, ay: 55, yd: 200 / .38}
 };
@@ -767,16 +769,17 @@ function drawHolder(st, c, held) {
   shadowAt(st, c, .62, HOLD.z, .62);
   drawSprite(st, c, held ? SPRITES.holder : SPRITES.empty, 0, 0, HOLD.z);
 }
-// Where the kicker's planted foot is: waiting back and to the left, then (as it's kicked) in beside the ball.
-const KICKER = {wait: {x: -1.1, z: -.85}, plant: {x: -.42, z: -.06}};
+// Where the kicker's planted foot is: waiting back and to the left, then (as it's kicked, over `step` seconds) in
+// beside the ball; through it from `through` on (the follow-through picture).
+const KICKER = {wait: {x: -1.1, z: -.85}, plant: {x: -.42, z: -.06}, step: .09, through: .07};
 function kickerAt(pose) {
-  const u = pose ? Math.min(1, pose.t / .14) : 0, e = 1 - (1 - u) * (1 - u), {wait: a, plant: b} = KICKER;
+  const u = pose ? Math.min(1, pose.t / KICKER.step) : 0, e = 1 - (1 - u) * (1 - u), {wait: a, plant: b} = KICKER;
   return {x: a.x + (b.x - a.x) * e, z: a.z + (b.z - a.z) * e, e};
 }
 function drawKicker(st, c, pose) {
-  const k = kickerAt(pose);
-  shadowAt(st, c, k.x + .3, k.z, .55);
-  drawSprite(st, c, SPRITES.kicker, k.x, 0, k.z, -.06 * k.e);
+  const k = kickerAt(pose), through = !!pose && pose.t >= KICKER.through;
+  shadowAt(st, c, k.x + (through ? .12 : .3), k.z, .55);
+  drawSprite(st, c, through ? SPRITES.follow : SPRITES.kicker, k.x, 0, k.z, through ? 0 : -.06 * k.e);
 }
 // A player's pose (LINE_ART): ours set in their stance (a wing in a two-point stance), up out of it at the kick, then
 // blocking (hands up, or stepping in); the rush set, charging off the ball, leaping with their arms up, landing.

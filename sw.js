@@ -7,7 +7,7 @@
 // A slow request falls back to whatever is cached under its path (from the previous worker too), so data whose
 // format changes gets a new file name rather than new content under the old one (data/puzzles-v4.json: see
 // js/core/daily.js).
-const CACHE = 'gg-v214';
+const CACHE = 'gg-v215';
 const CORE = ['ui', 'data', 'daily', 'fire', 'week', 'nfl', 'stats', 'motw', 'press', 'checks', 'checks-stats', 'checks-pickem', 'checks-press', 'checks-seventeen', 'checks-drill', 'checks-kick', 'lay', 'plays', 'laytrack', 'seventeen', 'drill-sim', 'drill', 'kick', 'avatars'];
 // The six tab roots are puzzles, pickem, rivals (Matchup), league, moves (Draft) and lay (The Lay).
 const VIEWS = ['welcome', 'guest', 'puzzles', 'board', 'you', 'sharecard', 'results', 'run', 'college', 'silhouette', 'mystery', 'journey', 'grid', 'picker',
@@ -22,7 +22,7 @@ const SHELL = [
   'js/app.js', ...CORE.map(m => `js/core/${m}.js`),
   ...VIEWS.map(v => `js/views/${v}.js`),
   'fonts/barlow-condensed-800.woff2', 'fonts/press-start-2p.woff2', 'fonts/vt323.woff2', 'img/logo.webp', 'img/nfl.webp', 'img/ncaa.webp', 'img/puzzles.webp', 'img/seventeen.webp', 'img/drill.webp', 'img/kick.webp',
-  'img/kick/holder.webp', 'img/kick/holder-empty.webp', 'img/kick/kicker.webp', 'img/kick/line.webp', 'img/kick/football.webp',
+  'img/kick/holder.webp', 'img/kick/holder-empty.webp', 'img/kick/kicker.webp', 'img/kick/kicker-follow.webp', 'img/kick/line.webp', 'img/kick/football.webp',
   'icons/hub-192.png', 'icons/hub-512.png', 'icons/hub-maskable-512.png', 'icons/hub-apple-180.png',
   'data/league.json', 'data/pressers.json', 'data/lay.json', 'data/puzzles-v4.json', 'data/nfl-players.json', 'data/seventeen.json', 'data/drill.json'
 ];

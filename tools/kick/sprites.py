@@ -1,7 +1,7 @@
 # Kick It's sprites (img/kick/*.webp) from the art: the line sheet (a 4 x 4 sheet: rows 1-2 our blockers from behind,
-# rows 3-4 the rush from the front) and the kicker and holder from behind (one picture, the kicker at its left, the
-# holder kneeling with the ball at its right).
-#   python3 tools/kick/sprites.py <line sheet.png> <kicker and holder.png> img/kick
+# rows 3-4 the rush from the front), the kicker and holder from behind (one picture, the kicker at its left winding up,
+# the holder kneeling with the ball at its right) and the kicker's follow-through from behind.
+#   python3 tools/kick/sprites.py <line sheet.png> <kicker and holder.png> img/kick [<follow-through.png>]
 # The sheet's figures overlap their neighbours' cells a little (arms up reach into the row above), so each figure is
 # its connected shapes, gathered by the cell their middle falls in. Every figure is cropped, scaled to the same px a
 # yard and packed into one atlas (line.webp); the kicker, the holder and the holder with empty hands (the ball taken
@@ -13,6 +13,7 @@ import numpy as np
 from PIL import Image
 
 line_src, kh_src, out = sys.argv[1], sys.argv[2], sys.argv[3]
+follow_src = sys.argv[4] if len(sys.argv) > 4 else None
 
 def load(p):
     im = Image.open(p).convert('RGBA')
@@ -130,3 +131,16 @@ e[inside & ~skin, 3] = 0
 out_img(e, 'holder-empty')
 print('kicker', ks, 'anchor', [round(v * KK, 1) for v in kanc], 'px a yard', round(425 * KK, 1))
 print('holder', hs, 'anchor', [round(v * KK, 1) for v in hanc], 'px a yard', round(430 * KK, 1))
+
+# ---- the kicker's follow-through: the same kicker drawn bigger (its helmet ~1.57 times as wide), so scaled to the
+# wind-up's px a yard; anchored at the planted foot
+if follow_src:
+    fo = load(follow_src)
+    ys, xs = np.nonzero(fo[:, :, 3] > 100)
+    y0, y1, x0, x1 = ys.min(), ys.max() + 1, xs.min(), xs.max() + 1
+    low = ys.max(); band = xs[ys >= low - 20]
+    fanc = ((band.min() + band.max()) / 2 - x0, low - y0)
+    KF = 425 * KK / (425 * 1.57)
+    im = Image.fromarray(fo[y0:y1, x0:x1]); im = im.resize((round(im.width * KF), round(im.height * KF)), Image.LANCZOS)
+    save(im, 'kicker-follow')
+    print('kicker-follow', im.size, 'anchor', [round(v * KF, 1) for v in fanc], 'px a yard', round(425 * KK, 1))
