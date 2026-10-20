@@ -841,14 +841,14 @@ function titleHTML() {
 // The league switch under the title, the screen's focal point: four scoreboard buttons, NFL, College, the League's own
 // fantasy matchups (views/lpick.js) and Survivor (views/survivor.js), the active one lit up like the field. A tap
 // switches the screen to that one (League switch, at the bottom). Each one's badge: the retro pixel logos
-// (img/nfl.webp, img/ncaa.webp, img/league.webp, img/survivor.webp: tools/pickem/badges.py), a word under it.
+// (img/nfl.webp, img/ncaa.webp, img/league.webp, img/survivor.webp: tools/pickem/badges.py), a word under the others.
 const BADGE_SRC = {nfl: 'img/nfl.webp', cfb: 'img/ncaa.webp', lg: 'img/league.webp', sv: 'img/survivor.webp'};
 const badgeHTML = id => `<img class="pk-badge" src="${BADGE_SRC[id]}" alt="" width="44" height="44" decoding="async" draggable="false">`;
-export const LEAGUES = [{id: 'nfl', label: 'NFL', sub: 'Straight up'}, {id: 'cfb', label: 'NCAA', sub: 'Top 25'}, {id: 'lg', label: 'League', sub: 'League'}, {id: 'sv', label: 'Survivor', sub: 'Survivor'}];
+export const LEAGUES = [{id: 'nfl', label: 'NFL', sub: ''}, {id: 'cfb', label: 'NCAA', sub: 'Top 25'}, {id: 'lg', label: 'League', sub: 'League'}, {id: 'sv', label: 'Survivor', sub: 'Survivor'}];
 /** The switch, with `on` lit (the League and Survivor screens draw it too). */
 export function leagueTabsHTML(on = SPORT) {
   return `<div class="pk-lg" role="tablist" aria-label="Pick'em">${LEAGUES.map(l => `<button type="button" role="tab" class="pk-lg-t" data-pk-sport="${l.id}"`
-    + ` aria-selected="${l.id === on}"${l.id === on ? '' : ' tabindex="-1"'} aria-label="${l.id === 'lg' || l.id === 'sv' ? `${l.label} pick'em` : `${l.label} pick'em, ${l.sub.toLowerCase()}`}">`
+    + ` aria-selected="${l.id === on}"${l.id === on ? '' : ' tabindex="-1"'} aria-label="${l.id === 'cfb' ? `${l.label} pick'em, ${l.sub.toLowerCase()}` : `${l.label} pick'em`}">`
     + `<span class="pk-lg-ic" aria-hidden="true">${badgeHTML(l.id)}</span>`
     + (l.sub ? `<span class="pk-lg-tx" aria-hidden="true"><span class="pk-lg-s">${l.sub}</span></span>` : '')
     + `<span class="pk-lg-u" aria-hidden="true"></span></button>`).join('')}</div>`;

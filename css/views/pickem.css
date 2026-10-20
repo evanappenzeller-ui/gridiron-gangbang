@@ -49,7 +49,7 @@ html.rm .c-pk-dot::after { animation: none; }
    a word. The active one is lit like the field (turf stripes, a neon edge, the arcade bevel); the others wait in navy. */
 .v-pickem .pk-lg { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 10px 0 14px; }
 .v-pickem .pk-lg-t {
-  position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 4px;
   min-height: 82px; padding: 8px 4px 9px; min-width: 0;
   border-radius: 12px;
   background: var(--surface-1);
