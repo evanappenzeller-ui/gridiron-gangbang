@@ -272,7 +272,7 @@ function placeText(s) {
   const me = s.rows && s.rows.find(r => r.me);
   return me ? `${ui.ordinal(me.rank)} of ${s.rows.length} today` : '';
 }
-/** A case's back: the band, the cover faded behind the name, the result, today's leaderboard, a barcode. */
+/** A case's back: the band, the cover faded behind the name, the result, today's leaderboard. */
 function backHTML(g, s) {
   const place = placeText(s), note = boardNote(s.board, s.rows || []);
   const rows = note || `<div class="gm-scr-rows" role="list" aria-label="Today’s leaderboard">${miniRows(s.rows, 5).map(r => (r ? rowHTML(r) : '<div class="gm-r-gap" aria-hidden="true">· · ·</div>')).join('')}</div>`;
@@ -282,7 +282,7 @@ function backHTML(g, s) {
     + `<span class="gm-bk-res"><span class="gm-bk-vis">${s.vis || ''}</span><span class="gm-bk-tt"><b class="gm-bk-h${s.gold ? ' is-gold' : ''}">${esc(s.head || '')}</b>`
     + `${(s.lines || []).map(l => `<small>${esc(l)}</small>`).join('')}${place ? `<em>${esc(place)}</em>` : ''}</span></span>`
     + `<span class="gm-scr"><span class="gm-scr-h">Today’s leaderboard</span>${rows}</span>`
-    + `<span class="gm-bk-foot"><span class="gm-bar" aria-hidden="true"></span><span class="gm-bk-tap">Tap for the season ›</span></span></span></div>`;
+    + `<span class="gm-bk-foot"><span class="gm-bk-tap">Tap for the season ›</span></span></span></div>`;
 }
 function caseHTML(g, s, i, n) {
   const done = s.kind === 'done';
@@ -404,7 +404,7 @@ export function mountList(el, ctx, opts = {}) {
       + `<div class="gm-bk-res"><span class="gm-bk-vis">${s.vis || ''}</span><span class="gm-bk-tt"><b class="gm-bk-h${s.gold ? ' is-gold' : ''}">${esc(s.head || '')}</b>${(s.lines || []).map(l => `<small>${esc(l)}</small>`).join('')}</span></div>`
       + `<div class="gm-z-tog" role="tablist" aria-label="Leaderboard"><button type="button" role="tab" aria-selected="true" data-gm-zmode="today">Today</button><button type="button" role="tab" aria-selected="false" data-gm-zmode="season">Season</button></div>`
       + `<div class="gm-scr is-z"><div class="gm-z-body" data-gm-zbody>${zoomBody(g, 'today')}</div></div>`
-      + `<div class="gm-bk-foot"><span class="gm-bar" aria-hidden="true"></span>`
+      + `<div class="gm-bk-foot">`
       + `${ui.button({label: 'Open the game', kind: 'secondary', size: 's', attrs: {'data-gm-open': id}, cls: 'gm-z-open'})}</div></div></div>`;
     (document.getElementById('overlays') || document.body).appendChild(z);
     ui.hydrate(z);

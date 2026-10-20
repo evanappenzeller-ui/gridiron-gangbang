@@ -164,7 +164,7 @@ html.rm .v-puzzles .c-prog-f, html.rm .v-puzzles .c-prog-f::after, html.rm .v-pu
 .gm-stk { flex: none; padding: 1.1cqw 2cqw; border-radius: 1cqw; background: #FFD23F; color: #141414; font: 800 2.8cqw/1 var(--font-text); letter-spacing: .1em; }
 .gm-stk.is-test { background: #3EF08F; }
 
-/* ---- The back (and the back up close): the cover faded behind the name, the result, the leaderboard, a barcode */
+/* ---- The back (and the back up close): the cover faded behind the name, the result, the leaderboard */
 .gm-back { transform: rotateY(180deg); color: #EEF0F4; }
 .gm-bk-tag { flex: none; padding: 1.1cqw 2cqw; border-radius: 1cqw; background: var(--gc); color: #fff; font: 800 2.8cqw/1 var(--font-text); letter-spacing: .14em; }
 .gm-bk-in { position: relative; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 2.8cqw; padding: 4.4cqw 4cqw 3.4cqw; overflow: hidden; background: #141417; }
@@ -212,11 +212,7 @@ html.rm .v-puzzles .c-prog-f, html.rm .v-puzzles .c-prog-f::after, html.rm .v-pu
 .gm-r-you.is-g { background: #FFD23F; color: #141414; }
 .gm-r-v { flex: none; font: 800 5.4cqw/1 var(--gm-cond); color: #fff; font-variant-numeric: tabular-nums; }
 .gm-r-gap { text-align: center; font: 700 3.4cqw/1 var(--font-text); letter-spacing: .3em; opacity: .45; }
-.gm-bk-foot { display: flex; align-items: center; justify-content: space-between; gap: 3cqw; min-width: 0; }
-.gm-bar {
-  flex: none; width: 22cqw; height: 7.4cqw; background-color: #F4F4F4; box-shadow: 0 0 0 1cqw #F4F4F4;
-  background-image: repeating-linear-gradient(90deg, #111 0 .5cqw, transparent .5cqw .9cqw, #111 .9cqw 1.6cqw, transparent 1.6cqw 2cqw, #111 2cqw 2.3cqw, transparent 2.3cqw 3.1cqw);
-}
+.gm-bk-foot { display: flex; align-items: center; justify-content: flex-end; gap: 3cqw; min-width: 0; }
 .gm-bk-tap { font: 800 2.7cqw/1.3 var(--font-text); letter-spacing: .12em; text-transform: uppercase; color: rgba(238,240,244,.7); text-align: right; }
 .gm-tile {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
@@ -265,7 +261,6 @@ html.rm .v-puzzles .c-prog-f, html.rm .v-puzzles .c-prog-f::after, html.rm .v-pu
 .gm-zoom .gm-r-v { font-size: 5.4cqw; }
 .gm-zoom .gm-r-s { font-size: 3cqw; }
 .gm-zoom .gm-r-you { font-size: 2cqw; }
-.gm-zoom .gm-bar { width: 20cqw; height: 6.4cqw; }
 .gm-z-open { margin-left: auto; }
 
 /* ---- Under the shelf: the game you're on */
