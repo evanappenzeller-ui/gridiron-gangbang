@@ -236,6 +236,17 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
 .gm-r-you { margin-left: .6cqw; padding: .5cqw 1cqw .4cqw; border-radius: .8cqw; background: var(--gc); color: #fff; font: 800 2.2cqw/1 var(--font-text); font-style: normal; letter-spacing: .1em; vertical-align: .3cqw; }
 .gm-r-you.is-g { background: #FFD23F; color: #141414; }
 .gm-r-v { flex: none; font: 800 5.4cqw/1 var(--gm-cond); color: #fff; font-variant-numeric: tabular-nums; }
+/* a graded game's letter (the Two-Minute Drill), coloured by it as on the drill's own board */
+.gm-r-gr {
+  flex: none; min-width: 8.4cqw; padding: .9cqw 1.1cqw .7cqw; border-radius: 1.6cqw; text-align: center;
+  font: 800 4cqw/1 var(--gm-cond); background: rgba(255,255,255,.1); color: #EEF0F4; box-shadow: inset 0 0 0 .3cqw rgba(255,255,255,.1);
+}
+.gm-r-gr.is-A { background: rgba(48,209,88,.2); color: #4BE07A; }
+.gm-r-gr.is-B { background: rgba(10,132,255,.22); color: #6DB4FF; }
+.gm-r-gr.is-C { background: rgba(255,214,10,.17); color: #FFD60A; }
+.gm-r-gr.is-D, .gm-r-gr.is-F { background: rgba(255,69,58,.2); color: #FF7A70; }
+.gm-zoom .gm-r-gr { font-size: 3.8cqw; min-width: 8cqw; }
+.gm-r-gr + .gm-r-v { min-width: 16cqw; text-align: right; } /* (the letters in a column) */
 .gm-r-gap { text-align: center; font: 700 3.4cqw/1 var(--font-text); letter-spacing: .3em; opacity: .45; }
 .gm-bk-foot { display: flex; align-items: center; justify-content: flex-end; gap: 3cqw; min-width: 0; }
 .gm-bk-tap { font: 800 2.7cqw/1.3 var(--font-text); letter-spacing: .12em; text-transform: uppercase; color: rgba(238,240,244,.7); text-align: right; }

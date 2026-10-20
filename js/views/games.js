@@ -227,7 +227,7 @@ const tileHTML = (big, small, cls = '') => `<span class="gm-tile ${cls}"><b clas
 const SUB_TODAY = {
   puzzles: r => r.sub || '',
   '17-0': r => `${(Number(r.p) || 0).toFixed(1)} points a game`,
-  drill: r => (r.letter ? `Grade ${r.letter}` : ''),
+  drill: r => (r.grade != null ? `Call grade ${Math.round(r.grade)}` : ''), // (its letter is by the score)
   kick: r => (r.l ? `Longest ${r.l} yds` : ''),
   return: r => `Longest ${nf(r.l)}${r.td ? ` · ${plural(r.td, 'TD')}` : ''}`
 };
@@ -248,12 +248,14 @@ function frontHTML(g, s) {
   return `<div class="gm-face gm-front">${bandHTML(stk)}<span class="gm-art"><img class="gm-img" src="${g.art}" alt="" decoding="async" draggable="false"></span></div>`;
 }
 function rowHTML(r, {sub = false} = {}) {
-  const label = `${ui.ordinal(r.rank)}, ${r.name}${r.me ? ', you' : ''}${r.guest ? ', guest' : ''}: ${r.val}${sub && r.sub ? `. ${r.sub}` : ''}`;
+  const label = `${ui.ordinal(r.rank)}, ${r.name}${r.me ? ', you' : ''}${r.guest ? ', guest' : ''}: ${r.val}${r.letter ? `, grade ${r.letter}` : ''}${sub && r.sub ? `. ${r.sub}` : ''}`;
+  // a graded game (the Two-Minute Drill) shows its letter by the score, coloured as on the drill's own board
+  const grade = r.letter ? `<span class="gm-r-gr is-${esc(String(r.letter)[0])}" aria-hidden="true">${esc(r.letter)}</span>` : '';
   return `<div class="gm-r${r.me ? ' is-me' : ''}" role="listitem" aria-label="${esc(label)}">`
     + `<span class="gm-r-rk${r.rank <= 3 ? ' is-r' + r.rank : ''}" aria-hidden="true">${r.rank}</span>`
     + `<span class="gm-r-av" aria-hidden="true">${ui.nickAvatar(r.name, {size: sub ? 30 : 22, managerId: r.managerId || null, you: r.me})}</span>`
     + `<span class="gm-r-nm" aria-hidden="true"><span class="gm-r-t">${esc(r.name)}${r.me ? ' <i class="gm-r-you">YOU</i>' : r.guest ? ' <i class="gm-r-you is-g">GUEST</i>' : ''}</span>${sub && r.sub ? `<span class="gm-r-s">${esc(r.sub)}</span>` : ''}</span>`
-    + `<span class="gm-r-v" aria-hidden="true">${esc(r.val)}</span></div>`;
+    + `${grade}<span class="gm-r-v" aria-hidden="true">${esc(r.val)}</span></div>`;
 }
 /** The rows a case's back shows (null: a gap): today's top n with you among them. You lead the people you're tied
  *  with, and when you're further down the top n - 1 come first, then a gap, then you. */
