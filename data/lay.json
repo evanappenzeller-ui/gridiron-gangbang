@@ -87,6 +87,23 @@
         {"by": "mitch", "bet": "Houston Texans Team Total Over 19.5", "hit": true, "stat": "Texans scored 26"},
         {"by": "sayer", "bet": "Puka Nacua Anytime TD Scorer", "hit": true, "stat": "1 TD catch, 17 catches for 138 yds"}
       ]
+    },
+    {
+      "year": 2026, "week": 6,
+      "legs": [
+        {"by": "ben", "bet": "Josh Allen Anytime TD Scorer", "hit": false, "stat": "No TD: 5 carries for 1 yd"},
+        {"by": "corbin", "bet": "Ashton Jeanty Anytime TD Scorer", "hit": true, "stat": "1 rush TD"},
+        {"by": "dresden", "bet": "Kansas City Chiefs -8.5", "hit": true, "stat": "Chiefs won 22–6"},
+        {"by": "evan", "bet": "Christian Watson 5+ Receptions", "hit": false, "stat": "3 catches for 64 yds"},
+        {"by": "jackson", "bet": "Christian Watson Anytime TD Scorer", "hit": false, "stat": "No TD: 3 catches for 64 yds"},
+        {"by": "jacob", "bet": "Tetairoa McMillan Anytime TD Scorer", "hit": false, "stat": "No TD: 6 catches for 86 yds"},
+        {"by": "jaymin", "bet": "Jonathan Taylor 60+ Rushing Yards", "hit": true, "stat": "21 carries for 94 yds"},
+        {"by": "jayton", "bet": "Pittsburgh Steelers -2.5", "hit": true, "stat": "Steelers won 26–19"},
+        {"by": "john", "bet": "Brian Robinson 30+ Rushing Yards", "hit": false, "stat": "2 carries for 1 yd"},
+        {"by": "mason", "bet": "Christian McCaffrey Anytime TD Scorer", "hit": true, "stat": "2 rush TDs"},
+        {"by": "mitch", "bet": "Carolina Panthers Moneyline", "hit": true, "stat": "Panthers won 25–14"},
+        {"by": "sayer", "bet": "Blake Corum 10+ Receiving Yards", "hit": true, "stat": "2 catches for 18 yds"}
+      ]
     }
   ]
 }
