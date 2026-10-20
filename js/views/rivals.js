@@ -993,12 +993,13 @@ function pastGame(h) {
   return {a: r.a || a, b: r.b || b, sa: +r.sa, sb: +r.sb, week: h.week, year: h.year, type: 'reg', reg: true};
 }
 const votesStr = h => h.total ? `${h.votes || 0} of ${plural(h.total, 'vote', 'votes')}` : plural(h.votes || 0, 'vote', 'votes');
-const votedFor = h => !!(h.mine && h.mine.pick && h.mine.pick === h.pick);
 function pastItemHTML(h, hidden) {
   const g = pastGame(h);
   const foot = `WK ${h.week} · ${votesStr(h)}`.toUpperCase();
   const cls = `rv-past-it${hidden ? ' is-more' : ''}`;
-  if (g) return ui.scoreBug(g, {footer: foot, cls, key: h.key || `${h.year}-w${h.week}`, badges: votedFor(h) ? [['you', 'Your vote']] : null, attrs: {'data-motw': h.pick, 'data-press': 'row'}});
+  // (each is the week's matchup with the most votes, history's pick: tagged so, not with this phone's own vote, which
+  // read as if the list were your picks: the owner's ask, Oct 2026)
+  if (g) return ui.scoreBug(g, {footer: foot, cls, key: h.key || `${h.year}-w${h.week}`, badges: [['you', 'Most votes']], attrs: {'data-motw': h.pick, 'data-press': 'row'}});
   const [a, b] = pairOf(h.pick);
   return `<button type="button" class="bug bug-row rv-past-np ${cls}" data-motw="${esc(h.pick)}" data-press="row" aria-label="${esc(`Week ${h.week}, ${nm(a)} versus ${nm(b)}, not played yet. ${votesStr(h)}`)}">`
     + `<span class="bug-side is-tie">${ui.avatar(a, {size: 24})}<span class="bug-name"><b>${esc(nm(a))}</b></span></span>`
