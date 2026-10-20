@@ -1,9 +1,10 @@
 /* return.css: Return Man (views/return.js), the Daily Games' endless kick return. Owner: RETURN. Scope: the pane
-   .rm-pane. The game is one canvas (the field at night from behind the returner) on a dark stage, the HUD, the move
-   calls and the kickoff cards laid over it; the scoreboard below on the theme's surfaces. */
+   .rm-pane. The game is one canvas (the run from behind the returner: the stadium, then out through the places of
+   views/return-world.js) on a dark stage, the HUD (with the power-ups he's carrying), the calls and the kickoff cards
+   laid over it; the scoreboard below on the theme's surfaces. */
 
 /* The version mark views/return.js checks (CSS_V): bump both when the pane needs rules an older file lacks. */
-:root { --rm-css: 1; }
+:root { --rm-css: 2; }
 
 .rm-pane {
   --rm-good: #3EF08F; --rm-gold: #FFD23F; --rm-hot: #FF6A2B;
@@ -46,6 +47,21 @@
 .rm-pane .rm-ko { width: 10px; height: 10px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.55); }
 .rm-pane .rm-ko.is-done { background: var(--rm-good); box-shadow: none; }
 .rm-pane .rm-ko.is-cur { background: #fff; box-shadow: 0 0 10px rgba(255,255,255,.7); }
+.rm-pane .rm-yds.is-x2 { background: linear-gradient(135deg, rgba(214,150,40,.7), rgba(120,70,10,.7)); box-shadow: inset 0 0 0 1px rgba(255,214,90,.7), 0 0 18px rgba(255,200,80,.45); }
+.rm-pane .rm-yds.is-x2 .rm-yu { color: var(--rm-gold); }
+
+/* The power-ups he's carrying: the salts (how many), the painkillers and the booze (the time left) */
+.rm-pane .rm-pows { grid-column: 1 / -1; display: flex; gap: 6px; flex-wrap: wrap; }
+.rm-pane .rm-pw { display: flex; align-items: center; gap: 6px; padding: 3px 9px 3px 4px; border-radius: 12px; }
+.rm-pane .rm-pw b { font: 800 16px/18px var(--rm-display); }
+.rm-pane .rm-pw.is-salts { box-shadow: inset 0 0 0 1px rgba(150,225,255,.6), 0 0 12px rgba(150,225,255,.35); }
+.rm-pane .rm-pw.is-pills { box-shadow: inset 0 0 0 1px rgba(255,165,60,.7), 0 0 12px rgba(255,165,60,.4); }
+.rm-pane .rm-pw.is-booze { box-shadow: inset 0 0 0 1px rgba(255,214,90,.7), 0 0 12px rgba(255,214,90,.4); }
+.rm-pane .rm-bar { display: block; width: 38px; height: 5px; border-radius: 3px; background: rgba(255,255,255,.18); overflow: hidden; }
+.rm-pane .rm-bar b { display: block; height: 100%; transform-origin: left center; border-radius: inherit; }
+.rm-pane .is-pills .rm-bar b { background: #FFA53C; }
+.rm-pane .is-booze .rm-bar b { background: var(--rm-gold); }
+.rm-pane .rm-ic { display: block; flex: none; }
 
 /* ---------------------------------------------------------------- A move's call: JUKE! HURDLE! SPIN! TOUCHDOWN! */
 .rm-pane .rm-pop {
@@ -56,6 +72,11 @@
 .rm-pane .rm-pop.is-on { animation: rm-pop .75s cubic-bezier(.22,1,.36,1) forwards; }
 .rm-pane .rm-pop.is-td { font-size: 54px; color: var(--rm-gold); text-shadow: 0 3px 0 rgba(0,0,0,.55), 0 0 30px rgba(255,210,63,.8); }
 .rm-pane .rm-pop.is-td.is-on { animation-duration: 1.6s; }
+.rm-pane .rm-pop.is-zone { font-size: 40px; color: #fff; letter-spacing: .06em; text-shadow: 0 3px 0 rgba(0,0,0,.5), 0 0 26px rgba(255,255,255,.55); }
+.rm-pane .rm-pop.is-zone.is-on { animation-duration: 1.9s; }
+.rm-pane .rm-pop.is-salts { color: #BFEFFF; text-shadow: 0 2px 0 rgba(0,0,0,.5), 0 0 22px rgba(150,225,255,.8); }
+.rm-pane .rm-pop.is-pills { color: #FFC07A; text-shadow: 0 2px 0 rgba(0,0,0,.5), 0 0 22px rgba(255,140,40,.8); }
+.rm-pane .rm-pop.is-booze { color: var(--rm-gold); text-shadow: 0 2px 0 rgba(0,0,0,.5), 0 0 22px rgba(255,200,80,.8); }
 @keyframes rm-pop {
   0% { opacity: 0; transform: translateY(14px) scale(.7); }
   18% { opacity: 1; transform: translateY(0) scale(1.08); }
@@ -94,7 +115,15 @@
 }
 .rm-pane .rm-kk.is-dn { background: var(--rm-gold); }
 .rm-pane .rm-kk.is-lr { background: #EAF1FF; }
-.rm-pane .rm-kk.is-wall { background: #E8323F; color: #fff; letter-spacing: -.1em; }
+.rm-pane .rm-kk.is-ramp { background: #F2C230; color: #2A1E00; }
+.rm-pane .rm-card-in.is-first .rm-keys { margin-top: 10px !important; gap: 6px; }
+.rm-pane .rm-card-in.is-first .rm-key { font-size: 13px; line-height: 16px; }
+.rm-pane .rm-card-in.is-first .rm-kk { min-width: 40px; height: 24px; font-size: 14px; }
+.rm-pane .rm-pks { list-style: none; padding: 0; margin: 12px 0 0 !important; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.rm-pane .rm-pk { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 6px 2px 7px; border-radius: 12px; background: rgba(255,255,255,.06); text-align: center; }
+.rm-pane .rm-pk b { font: 700 12px/14px var(--font-text); color: #fff; }
+.rm-pane .rm-pk span { font: 400 11px/13px var(--font-text); color: rgba(255,255,255,.7); }
+.rm-pane .rm-card-in.is-first .rm-go { margin-top: 12px !important; }
 
 /* ---------------------------------------------------------------- Playing: the field is the screen */
 .rm-pane .rm.is-playing .rm-board-w { display: none; }

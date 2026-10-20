@@ -116,7 +116,7 @@ const SUBS = {
   '17-0': 'Five players, one budget, one season. Can your team go 17–0?',
   drill: 'Down late with the ball. Call every play to the final whistle.',
   kick: 'Field goals that get longer with every make. Three misses and you’re done.',
-  return: 'Swipe to juke, hurdle and spin through the coverage. Three kickoffs; every yard counts.'
+  return: 'Run it back out of the stadium and across town. Juke, jump, ride the roofs, grab the booze.'
 };
 function drillSub(dr, n) {
   try {
@@ -200,7 +200,7 @@ function returnState() {
   }
   return {kind: 'done', test, board: boardOf(RM), rows,
     vis: tileHTML(nf(off.yards), 'yards'),
-    head: off.tds ? plural(off.tds, 'touchdown') : off.yards >= 300 ? 'Electric' : off.yards >= 150 ? 'Great field position' : 'Three returns',
+    head: off.tds ? plural(off.tds, 'touchdown') : off.yards >= 180 ? 'Great field position' : 'Three returns',
     lines: [`Longest ${nf(off.longest)} yards`],
     actions: [{label: 'See your returns', kind: 'secondary', attrs: {'data-gm-open': 'return'}}]};
 }
