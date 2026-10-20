@@ -1,18 +1,18 @@
 // Service worker (spec 11). Bump CACHE on every deploy.
 // Network-first (2.5 s timeout, then cache) for navigations, HTML, JSON, JS and CSS, so weekly data and new
-// puzzles show up right away; cache-first for the font and icons. Other apps share this origin, so only
+// puzzles show up right away; cache-first for the font, icons, pictures and 3D models. Other apps share this origin, so only
 // caches named gg-* or gridiron-* are ever deleted, and cross-origin requests (Firebase, the ESPN scoreboard and
 // team logos, the Press Room's YouTube player and thumbnails) are never touched: live scores must never come from a
 // cache here.
 // A slow request falls back to whatever is cached under its path (from the previous worker too), so data whose
 // format changes gets a new file name rather than new content under the old one (data/puzzles-v4.json: see
 // js/core/daily.js).
-const CACHE = 'gg-v284';
+const CACHE = 'gg-v285';
 const CORE = ['ui', 'data', 'daily', 'fire', 'week', 'nfl', 'stats', 'motw', 'press', 'checks', 'checks-stats', 'checks-pickem', 'checks-press', 'checks-seventeen', 'checks-drill', 'checks-kick', 'return', 'checks-return', 'lay', 'plays', 'laytrack', 'seventeen', 'drill-sim', 'drill', 'kick', 'avatars', 'lpick', 'survivor', 'checks-lpick'];
 // The six tab roots are puzzles, pickem, rivals (Matchup), league, moves (Draft) and lay (The Lay).
 const VIEWS = ['welcome', 'guest', 'puzzles', 'games', 'board', 'you', 'sharecard', 'results', 'run', 'college', 'silhouette', 'mystery', 'journey', 'grid', 'picker',
   'league', 'standings', 'season', 'review', 'wrap', 'matchup', 'rivals', 'pickem', 'press', 'hall', 'hall-trophies', 'hall-records', 'hall-shame',
-  'moves', 'profile', 'lay', 'plays', 'seventeen', 'drill', 'drill-cam', 'drill-sprites', 'kick', 'stadium', 'return-world', 'return', 'photo', 'testplay', 'lpick', 'survivor', '_kit'];
+  'moves', 'profile', 'lay', 'plays', 'seventeen', 'drill', 'drill-cam', 'drill-sprites', 'kick', 'stadium', 'return-world', 'return-3d', 'return', 'photo', 'testplay', 'lpick', 'survivor', '_kit'];
 const VIEW_CSS = ['welcome', 'puzzles', 'board', 'results', 'you', 'run', 'college', 'silhouette', 'mystery', 'journey', 'grid', 'picker',
   'standings', 'season', 'review', 'wrap', 'matchup', 'rivals', 'pickem', 'press', 'hall', 'moves', 'profile', 'lay', 'plays', 'seventeen', 'drill', 'kick', 'return', '_kit'];
 const SHELL = [
@@ -45,7 +45,7 @@ self.addEventListener('activate', e => {
     .then(() => self.clients.claim()));
 });
 
-const isCacheFirst = url => /\.(woff2|png|webp|ico)$/.test(url.pathname);
+const isCacheFirst = url => /\.(woff2|png|webp|ico|glb)$/.test(url.pathname);
 const isNetworkFirst = (req, url) => req.mode === 'navigate' || url.pathname.endsWith('/') || /\.(html|json|js|css|webmanifest)$/.test(url.pathname);
 
 function put(key, res) {

@@ -11,16 +11,18 @@
 // below. A hit while he's there (at the catch he starts there too) and he tackles him: a card says where, with Run it
 // again (as many runs as you like, the best of the day counts: the owner's ask, Oct 2026), the scoreboard under it.
 // Every 100 yards is a touchdown.
-// The scene is drawn on a canvas (views/return-world.js: the places, the vehicles, the power-ups); the players are the
-// owner's sprite sheets (views/drill-sprites.js: the Two-Minute Drill's), animated picture by picture (running, cutting,
-// spinning, leaping, sliding, stumbling, the tackle), ours in navy, the linebacker in red, with drawn ones till those
-// load. A power-up, picked up, says what it is and what it does.
+// The scene is drawn on a canvas (views/return-world.js: the places, the vehicles, the power-ups); the players are in
+// real 3D (views/return-3d.js: a rigged, animated athlete in each side's uniform, smooth at the screen's frame rate:
+// running, cutting, spinning, leaping, sliding, stumbling, the tackle), ours in navy, the linebacker in red. Till that
+// loads (or on a phone without WebGL) they're the owner's sprite sheets (views/drill-sprites.js), picture by picture.
+// A power-up, picked up, says what it is and what it does.
 // Exports: render(ctx), mount(el, ctx), params(el, ctx), unmount(el, ctx). Owner: RETURN.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as daily from '../core/daily.js';
 import * as R from '../core/return.js';
 import * as SP from './drill-sprites.js';
+import * as D3 from './return-3d.js';
 import * as W from './return-world.js';
 import {seeded} from './stadium.js';
 import {msToMidnight} from './board.js';
@@ -308,6 +310,44 @@ function chaserAnim(st, now, z) {
   if (st.mode === 'catch' || st.mode === 'ready') return {f: 'def.r_b0', mo: {t, seed: 7}};
   return {f: `def.r_b${Math.floor(z / 1.4) & 1}`, mo: {ph: z / 1.4 * Math.PI, t, seed: 7}};
 }
+// In 3D (views/return-3d.js, once it's loaded; the pictures above till then, or on a phone without WebGL): the same
+// moments as smooth poses, the run's clip keeping pace with the yards.
+/** The returner's 3D pose now (return-3d.js pose's spec; dz: yards on from where he is, thrown forward going down). */
+function runner3(st, now) {
+  const run = st.run, t = now / 1000;
+  if (!run || st.mode === 'ready') return {clip: 'idle', t};
+  if (st.mode === 'catch') {
+    // reaching up for it as it comes down; the ball his once it's there, and in it comes
+    const p = Math.min(1, (now - st.catchAt) / CATCH_MS), q = Math.max(0, (p - CATCH_HANDS) / (1 - CATCH_HANDS));
+    return {clip: 'idle', t, catch: Math.min(1, p / .3) * (1 - .5 * q), carry: .5 * q, ball: p >= CATCH_HANDS};
+  }
+  const off = Math.min(1, Math.max(0, (now - st.catchAt - CATCH_MS) / 240)); // (out of the catch, into his stride)
+  const o = {clip: 'run', phase: run.z / D3.STRIDE, t, runW: off, carry: .5 + .5 * off, catch: .5 * (1 - off), ball: true};
+  if (run.over) {
+    const k = Math.min(1, (now - st.downAt) / 420);
+    return Object.assign(o, {fall: Math.min(1, k * 2.5), pitch: 1.48 * k * k, lift: .15 * k, turn: fallDir(run) * .55 * k, dz: .25 * k});
+  }
+  const g = R.groundAt(run.co, R.laneOf(run), run.z, run.y), h = run.y - g;
+  if (h > .02 || run.vy > 0) { o.air = Math.min(1, Math.max(h / .2, run.vy > 0 ? .6 : 0)); o.tuck = Math.min(1, h / .7); }
+  if (run.slide > 0) o.slide = Math.min(1, (R.MOVE.slide - run.slide) / .1, run.slide / .12);
+  const stum = run.slow > 0 ? run.slow / R.CHASE.slow : 0, he = st.hitAt ? now - st.hitAt : 1e9;
+  if (stum) o.stumble = stum;
+  o.pitch = .1 + (he < 320 ? .38 * Math.sin(Math.PI * he / 320) : 0); // (leaning into his run; a hit: he lurches forward)
+  const cut = Math.max(-1, Math.min(1, (R.xOf(run, run.lane) - run.x) / R.LANE)), sp = st.spinAt ? (now - st.spinAt) / SPIN_MS : 1;
+  o.turn = .5 * cut + (sp < 1 ? st.spinDir * Math.PI * 2 * smooth(sp) : 0);
+  o.roll = .24 * cut + stum * .16 * Math.sin(run.slow * 22) + .45 * edgeBounce(st, now);
+  return o;
+}
+/** The linebacker's 3D pose (z: where he is): running him down; set while the kick's in the air; the dive. */
+function chaser3(st, now, z) {
+  const run = st.run, t = now / 1000;
+  if (run.over && run.why === 'caught') {
+    const k = Math.min(1, (now - st.downAt) / 380);
+    return {clip: 'run', phase: z / D3.STRIDE, t, dive: Math.min(1, k * 3), pitch: .3 + 1.22 * smooth(k), lift: .45 * Math.sin(Math.PI * k) + .1 * k, turn: fallDir(run) * .4 * k, dz: .45 * smooth(k)};
+  }
+  if (st.mode === 'catch' || st.mode === 'ready') return {clip: 'idle', t: t + 1.3};
+  return {clip: 'run', phase: z / D3.STRIDE, t, pitch: .12};
+}
 /** The dust he kicks up sliding in (k: how far into it), off his feet and his seat. */
 function dust(st, c, x, y, z, now, k) {
   for (let i = 0; i < 6; i++) {
@@ -331,6 +371,7 @@ function puff(st, c, x, y, z, age, w = 1) {
  *  the linebacker behind him. */
 function drawLanes(st, c, now) {
   const run = st.run, t = now / 1000, list = [];
+  if (D3.ready()) D3.camera(st);
   const rz = run ? run.z : 0, rx = run ? run.x : 0, ry = run ? run.y : 0;
   if (run) {
     const A = R.ahead(run, 120, PAST + 2);
@@ -359,15 +400,15 @@ function drawLanes(st, c, now) {
     if (cz > st.camZ + W.NEAR + .4) {
       const want = rx + (rx > .5 ? -1 : 1) * (run.over ? .35 : .95);
       st.chX = st.chX == null ? want : st.chX + (want - st.chX) * Math.min(1, (st.dt || .016) * 8);
-      const a = chaserAnim(st, now, cz), cx = st.chX, az = cz + (a.dz || 0), e = run.over ? now - st.downAt : -1;
+      const three = D3.ready(), a = three ? chaser3(st, now, cz) : chaserAnim(st, now, cz), cx = st.chX, az = cz + (a.dz || 0), e = run.over ? now - st.downAt : -1;
       list.push({z: az, x0: cx - .5, x1: cx + .5, draw: () => {
         shadow(st, c, cx, 0, az);
-        sprite(st, c, a, THEM, cx, 0, az);
+        if (three) D3.draw(st, c, 'them', a, cx, 0, az); else sprite(st, c, a, THEM, cx, 0, az);
         puff(st, c, cx, 0, az + .6, (e - 480) / 450, 1.2); // (down on top of him)
       }});
     }
   }
-  const an = runnerAnim(st, now), g = run ? R.groundAt(run.co, R.laneOf(run), rz, ry) : 0;
+  const three = D3.ready(), an = three ? runner3(st, now) : runnerAnim(st, now), g = run ? R.groundAt(run.co, R.laneOf(run), rz, ry) : 0;
   const bx = rx + .5 * edgeBounce(st, now), az = rz + (an.dz || 0); // (bouncing off the edge of the road; thrown forward)
   list.push({z: az, me: true, draw: () => {
     shadow(st, c, bx, g, az, .5);
@@ -381,13 +422,14 @@ function drawLanes(st, c, now) {
       c.strokeStyle = `rgba(255,150,50,${(.85 * k).toFixed(2)})`; c.lineWidth = Math.max(1.5, f.s * .07);
       c.beginPath(); c.ellipse(f.x, f.y, rw, rw * .3, 0, 0, Math.PI * 2); c.stroke();
     }
-    // a cut's and a spin's afterimages, behind him
-    (an.ghosts || []).forEach(gh => sprite(st, c, {f: gh.f, flip: gh.flip, mo: an.mo, ex: an.ex}, US, bx + gh.dx, ry, az + .05, gh.a));
+    const me = (x, z, alpha) => (three ? D3.draw(st, c, 'us', an, x, ry, z, alpha) : sprite(st, c, an, US, x, ry, z, alpha));
+    // a cut's and a spin's afterimages, behind him (the pictures'; in 3D he turns smoothly)
+    if (!three) (an.ghosts || []).forEach(gh => sprite(st, c, {f: gh.f, flip: gh.flip, mo: an.mo, ex: an.ex}, US, bx + gh.dx, ry, az + .05, gh.a));
     // booze: he's seeing double
-    if (run && !run.over && run.booze > 0) sprite(st, c, an, US, bx + .45 * Math.sin(now / 430), ry, az + .2, .32 * Math.min(1, run.booze / .8));
+    if (run && !run.over && run.booze > 0) me(bx + .45 * Math.sin(now / 430), az + .2, .32 * Math.min(1, run.booze / .8));
     // back up after the salts: he flickers while nothing can touch him
     const blink = run && !run.over && run.shield > 0 && !run.pills && Math.floor(now / 70) % 2;
-    sprite(st, c, an, US, bx, ry, az, blink ? .35 : 1);
+    me(bx, az, blink ? .35 : 1);
     if (run && !run.over && run.slide > 0) dust(st, c, rx, g, rz, now, Math.min(1, run.slide / .25));
     if (run && !run.over && st.landAt) puff(st, c, rx, g, rz, (now - st.landAt) / 350, .7); // (landing a jump)
     if (run && run.over) puff(st, c, bx, g, az + .5, (now - st.downAt - 520) / 450, 1.1); // (down)
@@ -784,6 +826,7 @@ export function mount(el, ctx) {
   st.stopLife = ctx.timer(() => { if (!st.raf && !ui.RM && st.cv.getBoundingClientRect().bottom > 0) draw(st); }, 90);
   R.autoPost();
   SP.load().then(() => { if (!st.dead) draw(st); });
+  D3.load().then(ok => { if (ok && !st.dead) draw(st); });
   requestAnimationFrame(() => { if (st.dead) return; size(st); draw(st); fitScreen(st, true); });
 }
 export function params(el, ctx) {
