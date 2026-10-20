@@ -551,14 +551,13 @@
   box-shadow: inset 0 0 0 1px rgba(62,240,143,.30), 0 0 18px -6px var(--glow);
 }
 :root[data-skin="prime"] .tab[aria-current="page"] .tab-ic > .ic { filter: drop-shadow(0 0 7px var(--glow)); }
-/* The games' switches (Daily Games, Pick'em NFL / NCAA): glass panes; the open one lit with the gradient and a glow,
-   no turf, no bevel. */
-:root[data-skin="prime"] .v-puzzles .c-game, :root[data-skin="prime"] .v-pickem .pk-lg-t {
+/* Pick'em's NFL / NCAA switch: glass panes; the open one lit with the gradient and a glow, no turf, no bevel. */
+:root[data-skin="prime"] .v-pickem .pk-lg-t {
   background: linear-gradient(180deg, var(--surface-2), var(--surface-1));
   box-shadow: 0 8px 20px -12px rgba(0,0,0,.8), inset 0 1px 0 var(--edge-hi), inset 0 0 0 1px var(--rim);
 }
-:root[data-skin="prime"] .v-puzzles .c-game.is-pressed, :root[data-skin="prime"] .v-pickem .pk-lg-t.is-pressed { transform: scale(.97); }
-:root[data-skin="prime"] .v-puzzles .c-game[aria-selected="true"], :root[data-skin="prime"] .v-pickem .pk-lg-t[aria-selected="true"] {
+:root[data-skin="prime"] .v-pickem .pk-lg-t.is-pressed { transform: scale(.97); }
+:root[data-skin="prime"] .v-pickem .pk-lg-t[aria-selected="true"] {
   color: #fff;
   background: linear-gradient(155deg, rgba(62,240,143,.26) 0%, rgba(43,217,240,.12) 60%, rgba(43,217,240,.04) 100%), var(--surface-1);
   box-shadow: 0 0 28px -8px var(--glow), 0 10px 24px -14px rgba(0,0,0,.9), inset 0 0 0 1.5px rgba(62,240,143,.75), inset 0 1px 0 rgba(255,255,255,.14);

@@ -1,7 +1,7 @@
 // Boot, router, history projection, tab bar (and its badges), transitions, swipe-back, scroll memory, view registry.
 // Owner: foundation (shell). Spec 3.2-3.5, 5.2, 11, 12; the five tabs of the tabs-v4 contract.
 //
-// TABS (id → root route · root view): puzzles /puzzles · puzzles (shown as Daily Games: Daily Puzzles, 17-0 and the Two-Minute Drill), pickem /pickem · pickem, matchup /matchup · rivals,
+// TABS (id → root route · root view): puzzles /puzzles · puzzles (shown as Daily Games: the list of Daily Puzzles, 17-0, the Two-Minute Drill and Kick It, each game's page pushed over it), pickem /pickem · pickem, matchup /matchup · rivals,
 //   league /league/standings · league, draft /draft · moves, lay /lay · lay (the weekly parlay; the tab bar scrolls
 //   sideways past the fifth tab). The app opens on Puzzles (HOME): it is the history base,
 //   covers (/puzzles/play/<slug>, /puzzles/results) present over it, and Back from another tab's root lands on it.
@@ -84,12 +84,12 @@ function matchSegs(p, q) {
       if (n === 1) return R('puzzles', 'root', 'puzzles');
       if (n === 3 && b === 'play' && PUZZLES.includes(c)) return R('run', 'cover', 'puzzles', {puzzle: c});
       if (n === 2 && b === 'results') return R('results', 'cover', 'puzzles');
-      // The Daily Games root's other game, 17-0 (views/seventeen.js, a pane of puzzles.js): today's board.
-      if (n === 2 && b === '17-0') return R('puzzles', 'root', 'puzzles', {game: '17-0'});
-      // ... and its third, the Two-Minute Drill (views/drill.js): today's game.
-      if (n === 2 && b === 'drill') return R('puzzles', 'root', 'puzzles', {game: 'drill'});
-      // ... and its fourth, Kick It (views/kick.js): today's kicks.
-      if (n === 2 && b === 'kick') return R('puzzles', 'root', 'puzzles', {game: 'kick'});
+      // A game's own page, pushed over the Daily Games list (views/puzzles.js with params.game): Daily Puzzles (its card
+      // and the leaderboard), 17-0 (views/seventeen.js), the Two-Minute Drill (views/drill.js) and Kick It (views/kick.js).
+      if (n === 2 && b === 'daily') return R('puzzles', 'push', 'puzzles', {game: 'puzzles'});
+      if (n === 2 && b === '17-0') return R('puzzles', 'push', 'puzzles', {game: '17-0'});
+      if (n === 2 && b === 'drill') return R('puzzles', 'push', 'puzzles', {game: 'drill'});
+      if (n === 2 && b === 'kick') return R('puzzles', 'push', 'puzzles', {game: 'kick'});
       return null;
     case 'pickem':
       // NFL Pick'em (optional ?week=N) is a tab root now: links to it switch to the tab.

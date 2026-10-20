@@ -100,3 +100,93 @@ html.rm .v-puzzles .c-prog-f, html.rm .v-puzzles .c-prog-f::after, html.rm .v-pu
 @media (prefers-reduced-motion: reduce) {
   .v-puzzles .c-prog-f, .v-puzzles .c-prog-f::after, .v-puzzles .c-hero-ti { transition: none; }
 }
+
+/* ---------------------------------------------------------------- The list of games (views/games.js) */
+/* One big card per game, about the size of the old score card: the thumbnail, the name and how it plays, Play. A game
+   played today is that game's scoreboard: the result, today's top of the board, the way on, the countdown. */
+.v-puzzles .gm-list { display: grid; gap: 16px; margin-top: 12px; }
+.v-puzzles .gm-card { padding: 0; overflow: hidden; border-radius: var(--r-hero); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.v-puzzles .gm-card + .gm-card { margin-top: 0; }
+.v-puzzles .gm-card.is-loading { cursor: default; }
+.v-puzzles .gm-art { position: relative; aspect-ratio: 358 / 201; overflow: hidden; background: #0C1428; }
+.v-puzzles .gm-art-img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.v-puzzles .gm-art::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 56%; pointer-events: none;
+  background: linear-gradient(to bottom, transparent, rgba(16,27,58,.55) 45%, var(--surface-1));
+}
+.v-puzzles .gm-chip {
+  display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 999px;
+  background: rgba(7,14,34,.8); color: var(--gold); box-shadow: inset 0 0 0 1px rgba(255,197,49,.45);
+  font: 700 11px/16px var(--font-text); letter-spacing: .06em; text-transform: uppercase;
+}
+.v-puzzles .gm-art .gm-chip { position: absolute; top: 10px; left: 10px; z-index: 1; }
+.v-puzzles .gm-info { position: relative; z-index: 1; padding: 0 16px 16px; margin-top: -22px; }
+.v-puzzles .gm-head { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.v-puzzles .gm-badge { width: 48px; height: 48px; flex: none; filter: drop-shadow(0 2px 6px rgba(0,0,0,.55)); }
+.v-puzzles .gm-badge.is-s { width: 32px; height: 32px; }
+.v-puzzles .gm-tt { min-width: 0; }
+.v-puzzles .gm-t { font: 800 26px/28px var(--font-num); text-transform: uppercase; letter-spacing: .02em; color: var(--ink); }
+.v-puzzles .gm-sub { font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2); margin-top: 2px; }
+.v-puzzles .gm-meta { margin-top: 10px; }
+.v-puzzles .gm-meta .c-prog { margin: 2px 0 0; }
+.v-puzzles .gm-meta .c-prog-t { text-align: left; }
+.v-puzzles .gm-note { font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+.v-puzzles .gm-social { display: flex; align-items: center; gap: 8px; min-width: 0; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+.v-puzzles .gm-social > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-puzzles .gm-ctas { display: flex; gap: 10px; margin-top: 14px; }
+.v-puzzles .gm-cta { min-height: 52px; font-size: 18px; }
+.v-puzzles .gm-cta > .gm-cta-ic { width: 20px; height: 20px; stroke-width: 1; margin-left: -4px; }
+.v-puzzles .gm-act { flex: 1 1 0; min-width: 0; padding: 0 12px; }
+.v-puzzles .gm-act > .ic { width: 20px; height: 20px; margin-top: -2px; }
+
+/* Played today: the scoreboard */
+.v-puzzles .gm-card.is-done { padding: 14px 16px 16px; }
+.v-puzzles .gm-sbh { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.v-puzzles .gm-sbt { flex: 1 1 auto; min-width: 0; font: 800 20px/24px var(--font-num); text-transform: uppercase; letter-spacing: .03em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-puzzles .gm-final { flex: none; font: 700 11px/16px var(--font-text); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); padding: 3px 9px; border-radius: 999px; background: var(--surface-2); }
+.v-puzzles .gm-res { display: flex; align-items: center; gap: 14px; margin-top: 12px; min-width: 0; }
+.v-puzzles .gm-vis { flex: none; display: grid; place-items: center; width: 88px; height: 88px; }
+.v-puzzles .gm-ring .ring-center { gap: 0; }
+.v-puzzles .gm-ringn { font: 800 26px/28px var(--font-num); color: var(--ink); }
+.v-puzzles .gm-tile {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  width: 88px; height: 88px; border-radius: 16px; background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--rim, rgba(255,255,255,.06));
+}
+.v-puzzles .gm-tile > b { font-family: var(--font-num); font-weight: 800; font-size: 34px; line-height: 36px; color: var(--ink); white-space: nowrap; }
+.v-puzzles .gm-tile > small { font: 600 11px/14px var(--font-text); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+.v-puzzles .gm-tile.is-gold { background: var(--gold-soft); box-shadow: inset 0 0 0 1.5px var(--gold); }
+.v-puzzles .gm-tile.is-gold > b { color: var(--gold); }
+.v-puzzles .gm-tile.is-W { background: var(--tint-soft); box-shadow: inset 0 0 0 1.5px var(--tint); }
+.v-puzzles .gm-tile.is-W > b { color: var(--tint); }
+.v-puzzles .gm-tile.is-L { background: var(--wrong-soft); box-shadow: inset 0 0 0 1.5px var(--wrong); }
+.v-puzzles .gm-tile.is-L > b { color: var(--wrong); }
+.v-puzzles .gm-rt { min-width: 0; }
+.v-puzzles .gm-rh { display: flex; align-items: center; gap: 6px; font: 800 22px/26px var(--font-num); text-transform: uppercase; letter-spacing: .03em; color: var(--ink); }
+.v-puzzles .gm-rh.is-gold { color: var(--gold); }
+.v-puzzles .gm-rh .ic { flex: none; stroke-width: 2; }
+.v-puzzles .gm-rl { font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2); margin-top: 2px; }
+.v-puzzles .gm-place { font: 600 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--tint); margin-top: 4px; }
+.v-puzzles .gm-mini { margin-top: 12px; border-radius: 12px; background: var(--surface-2); padding: 2px 0; }
+.v-puzzles .gm-mini.is-loading { padding: 4px 12px; }
+.v-puzzles .gm-mini-note { margin-top: 12px; }
+.v-puzzles .gm-row { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; min-width: 0; }
+.v-puzzles .gm-row + .gm-row { box-shadow: inset 0 1px 0 var(--sep, rgba(255,255,255,.06)); }
+.v-puzzles .gm-row.is-me { background: var(--tint-soft); }
+.v-puzzles .gm-row:first-child { border-radius: 12px 12px 0 0; }
+.v-puzzles .gm-row:last-child { border-radius: 0 0 12px 12px; }
+.v-puzzles .gm-rk { flex: none; width: 18px; text-align: center; font: 800 18px/20px var(--font-num); color: var(--ink-3); }
+.v-puzzles .gm-rk.is-r1 { color: var(--gold); }
+.v-puzzles .gm-rk.is-r2 { color: var(--silver); }
+.v-puzzles .gm-rk.is-r3 { color: var(--bronze); }
+.v-puzzles .gm-av { flex: none; display: inline-flex; }
+.v-puzzles .gm-nm { flex: 1 1 auto; display: flex; align-items: center; gap: 6px; min-width: 0; font: 600 var(--fs-sub)/var(--lh-sub) var(--font-text); }
+.v-puzzles .gm-nmt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-puzzles .gm-val { flex: none; font-family: var(--font-num); font-weight: 800; color: var(--ink); }
+.v-puzzles .gm-gap { text-align: center; font: 700 14px/14px var(--font-text); color: var(--ink-4); padding: 1px 0 3px; }
+.v-puzzles .gm-cd { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 14px; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+.v-puzzles .gm-cd .ic { stroke-width: 2; flex: none; }
+.v-puzzles .gm-cd-v { color: var(--ink-2); font-weight: 600; font-variant-numeric: tabular-nums; }
+.v-puzzles .gm-cdw { margin-top: 14px; }
+
+/* A game's own page (pushed over the list): Daily Puzzles' card and leaderboard start under the nav bar. */
+.v-puzzles .c-pz-pane > .c-hero-wrap { margin-top: 8px; }

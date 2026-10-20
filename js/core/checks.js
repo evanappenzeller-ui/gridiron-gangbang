@@ -15,6 +15,7 @@ import * as ui from './ui.js';
 import college from '../views/college.js';
 import silhouette from '../views/silhouette.js';
 import plays from '../views/plays.js';
+import {GAMES, gamePath, listHTML, miniRows} from '../views/games.js';
 
 // ---------------------------------------------------------------------------
 // Old formulas, copied from the old index.html
@@ -1523,6 +1524,30 @@ export async function runChecks() {
       })));
     } finally { host.remove(); }
     return {pass: !bad.length && out.length === 6, detail: bad.length ? bad.join('; ') : out.join('; ')};
+  });
+
+  // The Daily Games list (Oct 2026): one big card per game, each with its own thumbnail, opening the game's own page; a
+  // game played today is its scoreboard, read from the board as this phone may see it (THE RULE, CLAUDE.md).
+  check('Daily Games: a list of the four games (Daily Puzzles, 17-0, the Two-Minute Drill, Kick It), each with its own thumbnail and its own page; a played game\'s card is its scoreboard, today\'s top three with you among them, read from the board as this phone sees it', async () => {
+    const host = document.createElement('div');
+    host.innerHTML = listHTML();
+    const cards = [...host.querySelectorAll('.gm-card')];
+    const order = cards.map(c => c.dataset.gm).join();
+    const own = new Set(GAMES.map(g => g.art)).size === 4 && GAMES.every(g => /^img\/games\/[a-z0-9-]+-art\.webp$/.test(g.art));
+    const loads = await Promise.all(GAMES.map(g => fetch(new URL('../../' + g.art, import.meta.url)).then(r => r.ok && /image/.test(r.headers.get('content-type') || '')).catch(() => false)));
+    const pages = GAMES.map(g => gamePath(g.id)).join();
+    // the scoreboard rows: you first among the people you're tied with; further down, the top two, a gap, you
+    const R = (rank, me) => ({rank, me: !!me, name: me ? 'You' : 'P' + rank});
+    const names = list => list.map(r => (r ? r.name : '…')).join(' ');
+    const tie = names(miniRows([R(1), R(1), R(1), R(1, true)])), low = names(miniRows([R(1), R(2), R(3), R(4), R(5, true)]));
+    const mid = names(miniRows([R(1), R(2, true), R(3), R(4)])), none = names(miniRows([R(1), R(2), R(3), R(4)]));
+    const rows = tie === 'You P1 P1' && low === 'P1 P2 … You' && mid === 'P1 You P3' && none === 'P1 P2 P3';
+    // and the code never reads every doc (LB.all), comments aside
+    const src = await fetch(new URL('../views/games.js', import.meta.url)).then(r => r.text()).catch(() => '');
+    const all = !src || src.split('\n').some(l => /LB\.all\b/.test(l.replace(/\/\/.*$/, '').replace(/\/\*.*?\*\//g, '')));
+    const pass = order === 'puzzles,17-0,drill,kick' && cards.every(c => c.querySelector('.gm-art-img, .gm-sbh')) && own && loads.every(Boolean)
+      && pages === '/puzzles/daily,/puzzles/17-0,/puzzles/drill,/puzzles/kick' && rows && !all;
+    return {pass, detail: `cards ${order}; thumbnails ${loads.filter(Boolean).length}/4 load${own ? '' : ' (not each its own)'}; pages ${pages}; rows: tie "${tie}", 5th "${low}", 2nd "${mid}"; ${all ? 'reads LB.all' : 'no LB.all reads'}`};
   });
 
   check('The Lay live tracking reads the league\'s kinds of legs and scores them against a game', () => {

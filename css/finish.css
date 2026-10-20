@@ -55,7 +55,7 @@
 }
 
 /* Pixel art (the league, game and puzzle badges) stays pixel-sharp when it is scaled. */
-.pk-badge, .c-game-badge, img[src$="nfl.webp"], img[src$="ncaa.webp"], img[src$="puzzles.webp"], img[src$="seventeen.webp"] {
+.pk-badge, img[src$="nfl.webp"], img[src$="ncaa.webp"], img[src$="puzzles.webp"], img[src$="seventeen.webp"] {
   image-rendering: pixelated;
 }
 /* ================================================================ Press: the release */
@@ -70,7 +70,7 @@
 /* The tap highlight (ui.js): a soft glow in the control's own text colour, blooming from the finger. Its own layer
    above the app, so no view's markup changes; clipped to the control's shape and to what is on screen. Filled
    controls (dark text on a bright face) glow with light instead: --ink-c. */
-.btn-primary, .btn-destructive-fill, .c-game[aria-selected="true"], .pk-lg-t[aria-selected="true"] { --ink-c: #fff; --ink-a: .55; }
+.btn-primary, .btn-destructive-fill, .pk-lg-t[aria-selected="true"] { --ink-c: #fff; --ink-a: .55; }
 /* The layer blends in overlay: light lifts a dark surface and brightens a bright face, while dark text stays dark and
    light text stays light, so a label never washes out under the glow. */
 #ink { position: fixed; inset: 0; z-index: 120; pointer-events: none; overflow: hidden; mix-blend-mode: overlay; }
@@ -86,7 +86,7 @@
 @media (hover: hover) and (pointer: fine) {
   :where(.row):hover { background-color: rgba(255,255,255,.035); }
   :root[data-light] :where(.row):hover { background-color: rgba(0,0,0,.03); }
-  :where(button.card, a.card, .btn-primary, .btn-secondary, .chip, .c-game, .pk-lg-t, .tp-t):hover { filter: brightness(1.07); }
+  :where(button.card, a.card, .gm-card, .btn-primary, .btn-secondary, .chip, .pk-lg-t, .tp-t):hover { filter: brightness(1.07); }
   :root[data-light] :where(button.card, a.card, .btn-secondary, .chip, .tp-t):hover { filter: brightness(.97); }
   .screen, .sheet-body, .tp-body { scrollbar-width: thin; scrollbar-color: var(--surface-3) transparent; }
 }

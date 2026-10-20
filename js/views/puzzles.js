@@ -1,22 +1,24 @@
-// Daily Games tab root (tab id 'puzzles'; routes /puzzles, /puzzles/17-0, /puzzles/drill and /puzzles/kick;
-// tabs-v4 contract §3, replaces the Today hub): the large title (the date, "Daily Games", the streak pill and your
-// avatar button from you.js), then the game picker (Daily Puzzles · 17-0 · Two-Minute Drill · Kick It: route param
-// game, the choice lands in the URL) over four panes.
-// Daily Puzzles: one hero card with one big Play button, then the league leaderboard. The hero has three states: not started ("Play"), started ("Continue", a thin progress bar with
-// one segment per puzzle, "1 of 3 done") and finished (the score ring, the grade, "See results" and "Share", the
-// midnight countdown). Play opens the run cover at the first unfinished puzzle. Works for every day version (three
-// puzzles on v1 and v4 days, five on v2 and v3): everything is driven by daily.STEPS.
-// 17-0, the Two-Minute Drill and Kick It: the pane modules views/seventeen.js, views/drill.js and views/kick.js, each
-// imported the first time the picker (or a link) opens it.
+// Daily Games tab (tab id 'puzzles'; tabs-v4 contract §3, replaces the Today hub). Two kinds of screen:
+// - The tab root, /puzzles: the large title (the date, "Daily Games", the streak pill and your avatar button from
+//   you.js), then the list of games (views/games.js: one big card per game, each turning into that game's scoreboard
+//   once it's played today).
+// - A game's own page, pushed over it (params.game): /puzzles/daily is Daily Puzzles' hero card and the league
+//   leaderboard; /puzzles/17-0, /puzzles/drill and /puzzles/kick hold the pane modules views/seventeen.js,
+//   views/drill.js and views/kick.js, each imported the first time its page opens.
+// The Daily Puzzles hero has three states: not started ("Play"), started ("Continue", a thin progress bar with one
+// segment per puzzle, "1 of 3 done") and finished (the score ring, the grade, "See results" and "Share", the midnight
+// countdown). Play opens the run cover at the first unfinished puzzle. Works for every day version (three puzzles on
+// v1 and v4 days, five on v2 and v3): everything is driven by daily.STEPS.
 // Also exports badge() for the tab bar: today's puzzles aren't finished (and a 'gg:badge' event when that changes).
 // Owner: PUZZLES (tabs-v4).
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as daily from '../core/daily.js';
 import {mountBoard, streakPillHTML, stepParts, zeroParts, gradeGold, stepIcon, whenVisible, countdownHTML,
-  msToMidnight, ensureDefs, ringHTML, maxPts, dayLabel, itemCount} from './board.js';
+  msToMidnight, ensureDefs, ringHTML, maxPts, dayLabel} from './board.js';
 import {youButtonHTML, settingsButtonHTML, openStreakSheet} from './you.js';
 import {canTest, testRowHTML} from './testplay.js';
+import {GAMES, gamePath, dailyKind, progHTML, fracOf, perfectOf, doneCount, listHTML, mountList} from './games.js';
 
 const esc = data.esc;
 const nf = n => data.nf(n);
@@ -29,14 +31,7 @@ const HUB = new WeakMap(); // ctx → hub state
 const localLabel = () => new Date().toLocaleDateString('en-US', {weekday: 'long', month: 'long', day: 'numeric'});
 const ready = () => daily.status === 'ready' && !!daily.DAY;
 const READY_KINDS = new Set(['new', 'started', 'done']);
-/** 'error' | 'loading' | 'new' (nothing played) | 'started' | 'done' (every puzzle finished). */
-function heroKind() {
-  if (daily.status === 'error') return 'error';
-  if (!ready()) return 'loading';
-  if (daily.allDone()) return 'done';
-  if (daily.playedElsewhere()) return 'played';
-  return daily.anyStarted() ? 'started' : 'new';
-}
+const heroKind = dailyKind; // 'error' | 'loading' | 'new' | 'started' | 'played' | 'done' (views/games.js)
 
 // ============================================================================ Tab badge
 /** True while today's puzzles aren't all finished. Never loads anything: before puzzles.json is in it reads what
@@ -78,30 +73,12 @@ function trailHTML() {
 
 // ============================================================================ Markup: hero
 const lineText = () => 'Daily Puzzles';
-/** Progress of step i as a fraction (the run cover's rule): items answered for College, Silhouettes and Grid; 1 when
- *  done for Mystery and Journey. */
-function fracOf(i) {
-  const s = daily.STEPS[i], ds = daily.DS;
-  if (s.done()) return 1;
-  if (s.id === 'col') return Math.min(1, ds.col.a.length / (itemCount('col') || 1));
-  if (s.id === 'sil') return Math.min(1, ((ds.sil && ds.sil.a) || []).length / (itemCount('sil') || 1));
-  if (s.id === 'grid') return Math.min(1, ds.grid.cells.filter(Boolean).length / (itemCount('grid') || 1));
-  return 0;
-}
-const perfectOf = i => daily.STEPS[i].done() && daily.STEPS[i].pts() === daily.STEPS[i].max;
-const doneCount = () => daily.STEPS.filter(s => s.done()).length;
-
 function typesHTML() {
   const S = daily.STEPS;
   const label = `Today: ${daily.andList(S.map(s => s.label))}`;
   return `<div class="c-hero-types" role="img" aria-label="${esc(label)}">`
     + S.map((s, i) => `<span class="c-hero-ti${s.done() ? ' is-done' : ''}" data-i="${i}">${ui.icon(stepIcon(i), {size: 18})}</span>`).join('')
     + `</div>`;
-}
-function progHTML() {
-  const S = daily.STEPS;
-  return `<div class="c-prog" aria-hidden="true">${S.map((_, i) => `<i class="c-prog-s"><b class="c-prog-f${perfectOf(i) ? ' is-perfect' : ''}" style="transform:scaleX(${fracOf(i)})"></b></i>`).join('')}</div>`
-    + `<p class="c-prog-t">${esc(`${doneCount()} of ${S.length} done`)}</p>`;
 }
 /** The finished score: ring + total at what this session last showed (sync() then animates to the live values),
  *  and the grade word. */
@@ -182,22 +159,13 @@ function cardHTML(k = heroKind()) {
   return readyCard(k);
 }
 
-// ============================================================================ The game picker
-// Big scoreboard buttons with pixel badges, like Pick'em's NFL / NCAA switch (img/puzzles.webp, img/seventeen.webp,
-// img/drill.webp, img/kick.webp: tools/seventeen/badges.py); the game showing is lit like the field.
-const GAMES = [
-  {id: 'puzzles', label: 'Daily Puzzles', badge: 'img/puzzles.webp', sub: ['Daily', 'Puzzles']},
-  {id: '17-0', label: '17\u20130, build a $15 team', badge: 'img/seventeen.webp', sub: []},
-  {id: 'drill', label: 'Two-Minute Drill', badge: 'img/drill.webp', sub: []},
-  {id: 'kick', label: 'Kick It, field goals', badge: 'img/kick.webp', sub: []}
-];
-/** The game a route opens (Daily Puzzles for anything else). Every game is everyone's: Kick It, the owner's alone
- *  while it was built, opened to the league in Oct 2026. */
+// ============================================================================ Game pages
+/** The game a page shows ('puzzles', '17-0', 'drill', 'kick'), or null on the list (the tab root). Every game is
+ *  everyone's: Kick It, the owner's alone while it was built, opened to the league in Oct 2026. */
 export function gameFor(g) {
-  return GAMES.some(x => x.id === g) ? g : 'puzzles';
+  return GAMES.some(x => x.id === g) ? g : null;
 }
 const gameOf = ctx => gameFor(ctx && ctx.params && ctx.params.game);
-const gamePath = g => (g === 'puzzles' ? '/puzzles' : `/puzzles/${g}`);
 let SV = null; // views/seventeen.js, once imported
 const loadSV = () => (SV ? Promise.resolve(SV) : import('./seventeen.js').then(m => (SV = m)));
 const svLoading = () => `<div class="sv-loading" aria-busy="true">${ui.skeleton('rows', 4, {label: 'Loading 17\u20130.'})}</div>`;
@@ -213,19 +181,6 @@ function syncSeventeen() {
     .catch(() => { svSynced = false; });
 }
 
-function pickerHTML(g) {
-  return `<div class="c-games" data-key="games" data-enter role="tablist" aria-label="Pick a game">` + GAMES.map(x => `<button type="button" role="tab" class="c-game" data-game="${x.id}" aria-selected="${x.id === g}" aria-label="${esc(x.label)}">`
-    + `<img class="c-game-badge" src="${x.badge}" alt="" width="56" height="56" decoding="async" draggable="false">`
-    + (x.sub.length ? `<span class="c-game-tx" aria-hidden="true">${x.sub.map(t => `<span>${esc(t)}</span>`).join('')}</span>` : '') + `</button>`).join('') + `</div>`;
-}
-function patchPicker(st, g, animate) {
-  st.el.querySelectorAll('.c-game').forEach(b => {
-    const on = b.dataset.game === g;
-    if ((b.getAttribute('aria-selected') === 'true') === on) return;
-    b.setAttribute('aria-selected', String(on));
-    if (on && animate && !ui.RM) ui.animate(b, [{transform: 'scale(.94)'}, {transform: 'none'}], {spring: 'bouncy'});
-  });
-}
 /** The 17-0 pane: imported and mounted the first time it shows; later shows only sync its board to the route. */
 function showSV(st) {
   const pane = st.el.querySelector('.c-sv-pane');
@@ -237,7 +192,7 @@ function showSV(st) {
   loadSV().then(() => {
     if (HUB.get(st.ctx) !== st) return;
     pane.innerHTML = SV.render(st.ctx);
-    SV.mount(pane, st.ctx, {anchor: st.el.querySelector('.c-games')});
+    SV.mount(pane, st.ctx, {});
     ui.hydrate(pane);
     st.sv = 'on';
   }, err => {
@@ -271,7 +226,7 @@ function showDR(st) {
   loadDR().then(() => {
     if (HUB.get(st.ctx) !== st) return;
     pane.innerHTML = DR.render(st.ctx);
-    DR.mount(pane, st.ctx, {anchor: st.el.querySelector('.c-games')});
+    DR.mount(pane, st.ctx, {});
     ui.hydrate(pane);
     st.dr = 'on';
   }, err => {
@@ -305,7 +260,7 @@ function showKK(st) {
   loadKK().then(() => {
     if (HUB.get(st.ctx) !== st) return;
     pane.innerHTML = KK.render(st.ctx);
-    KK.mount(pane, st.ctx, {anchor: st.el.querySelector('.c-games')});
+    KK.mount(pane, st.ctx);
     ui.hydrate(pane);
     st.kk = 'on';
   }, err => {
@@ -316,30 +271,6 @@ function showKK(st) {
     ui.hydrate(pane);
   });
 }
-/** Keep the picker on screen when the game changes while the page is scrolled far down. */
-function clampToPicker(st) {
-  const scr = st.ctx.screen, pk = st.el.querySelector('.c-games');
-  if (!scr || !pk) return;
-  const nav = scr.querySelector(':scope > .nav');
-  const max = Math.max(0, pk.getBoundingClientRect().top - scr.getBoundingClientRect().top + scr.scrollTop - (nav ? nav.offsetHeight : 44) - 8);
-  if (scr.scrollTop > max) scr.scrollTop = max;
-}
-function switchGame(st, g) {
-  const pz = st.el.querySelector('.c-pz-pane'), svp = st.el.querySelector('.c-sv-pane'), drp = st.el.querySelector('.c-dr-pane'), kkp = st.el.querySelector('.c-kk-pane');
-  st.game = g;
-  if (pz) pz.hidden = g !== 'puzzles';
-  if (svp) svp.hidden = g !== '17-0';
-  if (drp) drp.hidden = g !== 'drill';
-  if (kkp) kkp.hidden = g !== 'kick';
-  clampToPicker(st);
-  const shown = g === '17-0' ? svp : g === 'drill' ? drp : g === 'kick' ? kkp : pz;
-  if (shown && st.ctx.visible && !ui.RM) ui.animate(shown, [{opacity: 0, transform: 'translateY(6px)'}, {opacity: 1, transform: 'none'}], {duration: 200, easing: 'cubic-bezier(.22,1,.36,1)'});
-  if (g === '17-0') showSV(st);
-  else if (g === 'drill') showDR(st);
-  else if (g === 'kick') showKK(st);
-  else if (ready()) sync(st, false);
-}
-
 // ============================================================================ Patching
 function sameParts(a, b) {
   if (!a || !b || a.length !== b.length) return false;
@@ -491,11 +422,7 @@ function patchEyebrow(st) {
 
 // ============================================================================ Events
 function onClick(st, e) {
-  const game = e.target.closest('.c-game');
-  if (game) {
-    if (game.dataset.game !== st.game) { ui.haptic('selection'); st.ctx.replace(gamePath(game.dataset.game)); }
-    return;
-  }
+  if (st.game === null && onListClick(st, e)) return;
   // The 17-0 pane handles its own taps (views/seventeen.js), all but "Try again" after its import failed.
   const load = e.target.closest('[data-sv-load]');
   if (load) { showSV(st); return; }
@@ -505,12 +432,7 @@ function onClick(st, e) {
   const t = e.target.closest('[data-cta], [data-share], [data-streak], [data-retry], [data-cd-load], [data-pz-test]');
   if (!t || !st.el.contains(t)) return;
   const {ctx} = st;
-  if (t.hasAttribute('data-cta')) {
-    if (!ready()) return;
-    // Play / Continue: the run cover at the first unfinished puzzle; finished: the results cover.
-    ctx.nav(daily.allDone() ? '/puzzles/results' : '/puzzles/play/' + daily.slug(daily.firstOpen()));
-    return;
-  }
+  if (t.hasAttribute('data-cta')) { playPuzzles(ctx); return; }
   if (t.hasAttribute('data-share')) {
     if (!ready()) return;
     // ui.share runs synchronously inside the tap (iOS user activation); without a share sheet it copies.
@@ -524,6 +446,35 @@ function onClick(st, e) {
   if (t.hasAttribute('data-pz-test')) { testPlay(st, t.dataset.pzTest === 'on'); return; }
   if (t.hasAttribute('data-retry')) { retry(st); return; }
   if (t.hasAttribute('data-cd-load')) location.reload();
+}
+
+/** Daily Puzzles' Play / Continue: the run cover at the first unfinished puzzle; finished: the results cover. */
+function playPuzzles(ctx) {
+  if (!ready()) return;
+  ctx.nav(daily.allDone() ? '/puzzles/results' : '/puzzles/play/' + daily.slug(daily.firstOpen()));
+}
+/** The list's taps (true when handled): Play on a card opens that game (Daily Puzzles straight into the run), a
+ *  finished card's buttons open its results or page, and a tap anywhere else on a card opens the game's page. */
+function onListClick(st, e) {
+  const {ctx} = st;
+  const play = e.target.closest('[data-gm-play]');
+  if (play) {
+    ui.haptic('light');
+    if (play.dataset.gmPlay === 'puzzles' && ready()) playPuzzles(ctx); else ctx.nav(gamePath(play.dataset.gmPlay));
+    return true;
+  }
+  const open = e.target.closest('[data-gm-open]');
+  if (open) { ctx.nav(gamePath(open.dataset.gmOpen)); return true; }
+  if (e.target.closest('[data-gm-results]')) { if (ready()) ctx.nav('/puzzles/results'); return true; }
+  if (e.target.closest('[data-gm-retry]')) {
+    daily.ensure().catch(() => ui.toast("Still can't reach the puzzles.")).finally(() => { if (st.list) st.list.refresh(true); });
+    return true;
+  }
+  // The card's own buttons (Share, Load) are handled below; anywhere else on a card opens its page.
+  if (e.target.closest('button, a, [data-streak]')) return false;
+  const card = e.target.closest('.gm-card[data-gm]');
+  if (card && card.dataset.kind !== 'loading') { ui.haptic('selection'); ctx.nav(gamePath(card.dataset.gm)); return true; }
+  return false;
 }
 
 /** The owner's Test play (views/testplay.js): today's puzzles fresh in the sandbox (never posted, never counted toward
@@ -568,6 +519,15 @@ function retry(st) {
 }
 
 function onDaily(st, type) {
+  if (st.game === null) {
+    // The list: its cards follow the day and the board; the title's date and streak pill too.
+    if (type === 'ready' || type === 'error') patchEyebrow(st);
+    if (!st.ctx.visible) { st.pending = true; return; }
+    if (st.list) st.list.refresh(type !== 'ready');
+    patchPill(st, true);
+    return;
+  }
+  if (st.game !== 'puzzles') return;
   if (type === 'ready' || type === 'error') {
     if (st.retrying) return;
     patchEyebrow(st);
@@ -583,66 +543,83 @@ function onDaily(st, type) {
 export default {
   id: 'puzzles',
   chrome: 'nav',
-  title: 'Daily Games',
+  // The list is Daily Games; a game's page is named for its game (its back button reads "Daily Games").
+  title: ctx => { const g = gameOf(ctx); return g ? GAMES.find(x => x.id === g).title : 'Daily Games'; },
 
   render(ctx) {
     const g = gameOf(ctx);
-    return ui.largeTitle({eyebrow: ready() ? daily.TODAY_LABEL : localLabel(), title: 'Daily Games', trailing: trailHTML()})
-      + pickerHTML(g)
-      + `<div class="c-pz-pane"${g === 'puzzles' ? '' : ' hidden'}>`
-      + `<div class="c-hero-wrap" data-key="hero" data-enter>${cardHTML()}</div>`
-      + `<div class="c-board-host" data-key="board" data-enter></div>`
-      // the owner's Test play row at the bottom (views/testplay.js)
-      + `<div class="c-tp-host" data-pz-tp>${ready() ? testRowHTML(daily.TEST, 'data-pz-test') : ''}</div></div>`
-      + `<div class="c-sv-pane sv-pane"${g === '17-0' ? '' : ' hidden'}>${g === '17-0' ? (SV ? SV.render(ctx) : svLoading()) : ''}</div>`
-      + `<div class="c-dr-pane dr-pane"${g === 'drill' ? '' : ' hidden'}>${g === 'drill' ? (DR ? DR.render(ctx) : drLoading()) : ''}</div>`
-      + `<div class="c-kk-pane kk-pane"${g === 'kick' ? '' : ' hidden'}>${g === 'kick' ? (KK ? KK.render(ctx) : kkLoading()) : ''}</div>`;
+    if (g === null) {
+      return ui.largeTitle({eyebrow: ready() ? daily.TODAY_LABEL : localLabel(), title: 'Daily Games', trailing: trailHTML()})
+        + listHTML();
+    }
+    if (g === 'puzzles') {
+      return `<div class="c-pz-pane">`
+        + `<div class="c-hero-wrap" data-key="hero" data-enter>${cardHTML()}</div>`
+        + `<div class="c-board-host" data-key="board" data-enter></div>`
+        // the owner's Test play row at the bottom (views/testplay.js)
+        + `<div class="c-tp-host" data-pz-tp>${ready() ? testRowHTML(daily.TEST, 'data-pz-test') : ''}</div></div>`;
+    }
+    if (g === '17-0') return `<div class="c-sv-pane sv-pane">${SV ? SV.render(ctx) : svLoading()}</div>`;
+    if (g === 'drill') return `<div class="c-dr-pane dr-pane">${DR ? DR.render(ctx) : drLoading()}</div>`;
+    return `<div class="c-kk-pane kk-pane">${KK ? KK.render(ctx) : kkLoading()}</div>`;
   },
 
   mount(el, ctx) {
     ensureDefs();
-    const st = {el, ctx, board: null, pending: false, cancelRing: null, retrying: false, game: gameOf(ctx), sv: null, dr: null, kk: null};
+    const st = {el, ctx, board: null, list: null, pending: false, cancelRing: null, retrying: false, game: gameOf(ctx), sv: null, dr: null, kk: null};
     HUB.set(ctx, st);
-    st.board = mountBoard(el.querySelector('.c-board-host'), {mode: 'today', ctx});
     el.addEventListener('click', e => onClick(st, e));
+    if (st.game === null) {
+      st.list = mountList(el.querySelector('.gm-list'), ctx);
+      ctx.setBackTitle('Games'); // a game page's back button: short, so its title has the room
+      // A phone with a finished game posts it from any visit to this tab.
+      ui.whenIdle(syncSeventeen);
+      ui.whenIdle(syncDrill);
+      ui.whenIdle(syncKick);
+      ctx.on('daily', type => onDaily(st, type));
+      ctx.timer(() => { st.list.tick(); st.list.refresh(false); }, 20000);
+      if (ready()) patchPill(st, false);
+      else if (daily.status !== 'error') daily.ensure().catch(() => {});
+      emitBadge();
+      if (ctx.first) ui.stagger(el);
+      return;
+    }
+    if (st.game === 'puzzles') {
+      st.board = mountBoard(el.querySelector('.c-board-host'), {mode: 'today', ctx});
+      ctx.on('daily', type => onDaily(st, type));
+      ctx.timer(() => tickCd(st, ctx.visible), 20000);
+      if (ready()) sync(st, false);
+      else if (daily.status !== 'error') daily.ensure().catch(() => {});
+      return;
+    }
     if (st.game === '17-0') showSV(st);
-    if (st.game === 'drill') showDR(st);
-    if (st.game === 'kick') showKK(st);
-    ui.whenIdle(syncSeventeen);
-    ui.whenIdle(syncDrill);
-    ui.whenIdle(syncKick);
-    ctx.on('daily', type => onDaily(st, type));
-    ctx.timer(() => tickCd(st, ctx.visible), 20000);
-    if (ready()) patchPill(st, false);
-    else if (daily.status !== 'error') daily.ensure().catch(() => {});
-    emitBadge();
-    if (ctx.first) ui.stagger(el);
+    else if (st.game === 'drill') showDR(st);
+    else showKK(st);
   },
 
   onShow(ctx) {
     const st = HUB.get(ctx);
     if (!st) return;
     st.pending = false;
-    if (ready()) sync(st, true);
+    // Back on the list from a game's page: its card catches up (a game just finished turns into its scoreboard).
+    if (st.game === null) { if (st.list) st.list.refresh(true); patchPill(st, true); return; }
+    if (st.game === 'puzzles' && ready()) sync(st, true);
   },
 
   update(ctx) {
     const st = HUB.get(ctx);
     if (!st) return;
-    // The picker (a tap, or a link to /puzzles/17-0, /puzzles/drill or /puzzles/kick): show that game; shown again,
-    // it catches up with the day.
-    const g = gameOf(ctx);
-    patchPicker(st, g, ctx.visible);
-    if (g !== st.game) switchGame(st, g);
-    else if (g === '17-0') showSV(st);
-    else if (g === 'drill') showDR(st);
-    else if (g === 'kick') showKK(st);
-    if (ctx.reason !== 'params' && st.board) st.board.refresh({animate: false});
+    if (st.game === null) { if (st.list) st.list.refresh(false); return; }
+    if (st.game === 'puzzles') { if (ctx.reason !== 'params' && st.board) st.board.refresh({animate: false}); return; }
+    if (st.game === '17-0') showSV(st);
+    else if (st.game === 'drill') showDR(st);
+    else showKK(st);
   },
 
   unmount(el, ctx) {
     const st = HUB.get(ctx);
     if (!st) return;
+    if (st.list) st.list.destroy();
     if (st.cancelRing) st.cancelRing();
     if (st.board) st.board.destroy();
     if (st.sv === 'on' && SV) SV.unmount(el.querySelector('.c-sv-pane'), ctx);
