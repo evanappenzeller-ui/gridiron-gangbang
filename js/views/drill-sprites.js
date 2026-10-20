@@ -3,9 +3,12 @@
 // which grey is the jersey, the pants and the helmet (players-mask.webp): each team's colours are put on once a game
 // (atlasFor, kept), yours in your colours and theirs in white, as the drawn players were. pick() chooses a player's
 // picture for the moment (his stance before the snap; his stride the way he's going, two to a stride; a block, the
-// throw, a catch, a stiff arm, a tackle, a swat, a pick; on the ground) and draw() puts it at his feet.
-// Exports: load(), ready(), pick(pl, o), hasFrame(name), hasBall(pick), draw(g, pick, team, colored, x, y, tallPx), TALL.
+// throw, a catch, a stiff arm, a tackle, a swat, a pick; on the ground) and draw() puts it at his feet, with a body's
+// give (giveOf: the bounce of his stride, a lean into a cut, a block's strain, a breath while he stands).
+// Exports: load(), ready(), pick(pl, o), hasFrame(name), hasBall(pick), giveOf(pick, mo),
+// draw(g, pick, team, colored, x, y, tallPx, mo), TALL.
 // Owner: Drill.
+import * as ui from '../core/ui.js';
 
 // <frames> (tools/drill/sprites.py writes this)
 /** A runner's height in the atlas, px. */
@@ -225,12 +228,58 @@ export function pick(pl, o) {
 export const hasFrame = f => !!FRAMES[f];
 /** Whether a pick's picture has the ball in it (so the ball isn't drawn again). */
 export const hasBall = p => !!(FRAMES[p.f] && FRAMES[p.f][6]);
-/** Draws a pick at (x, y) on g (screen px: his feet), tallPx a runner's height there. */
-export function draw(g, p, team, colored, x, y, tallPx) {
+
+// ---------------------------------------------------------------------------- How a picture moves
+// Two pictures to a stride would snap from one to the other; with a body's give they read as a run. He comes down on
+// each foot as his picture changes (squashed a touch), rises off it (stretched) and rocks over it, leaning into a cut
+// (from the side, into where he's going); a jump stretches him going up and squashes him landing; a block strains
+// back and forth; standing, he breathes. None of it with reduced motion.
+const BLOCK = new Set(['ol.pass', 'ol.drive', 'def.swim', 'def.rip']);
+const LYING = /\.(fallen|dive|flat|layout|down|falling)$/;
+const clamp1 = v => Math.max(-1, Math.min(1, v || 0));
+/** A pick's give now: {lift (a share of his height), sx, sy (his scale, about his feet), rot (radians, about his
+ *  feet)}, or null to draw it as it is. mo: {ph (his stride, radians; null when he isn't striding), lean (-1 to 1:
+ *  into a cut, + to the right), vy (in the air: his speed up or down, 1 at full spring), land (seconds since he landed a jump),
+ *  t (seconds), seed (so a crowd doesn't move as one)}. */
+export function giveOf(p, mo) {
+  if (!mo || ui.RM) return null;
+  const t = mo.t || 0, sd = mo.seed || 0;
+  const v = {lift: 0, sx: 1, sy: 1, rot: 0}, lean = .1 * clamp1(mo.lean);
+  if (mo.ph != null && /\.r_[bflr][01]$/.test(p.f)) {
+    // u: 0 as a foot comes down (when the picture changes), 1 at the top of the stride
+    const u = Math.abs(Math.sin(mo.ph)), land = Math.pow(1 - u, 4), dir = /r_r/.test(p.f) ? 1 : /r_l/.test(p.f) ? -1 : 0;
+    v.lift = .045 * u;
+    v.sx = 1 + .04 * land - .015 * u; v.sy = 1 - .05 * land + .025 * u;
+    v.rot = dir ? dir * (.04 + .02 * u) : .035 * Math.sin(mo.ph) + lean;
+  } else if (LYING.test(p.f)) return null;
+  else {
+    if (mo.vy != null) {
+      const up = Math.min(1, Math.abs(mo.vy));
+      v.sx = 1 - .04 * up; v.sy = 1 + .06 * up;
+    } else if (BLOCK.has(p.f)) {
+      v.rot = .035 * Math.sin(t * 6.5 + sd); v.sy = 1 + .012 * Math.sin(t * 11 + sd);
+    } else {
+      const b = Math.sin(t * 2.6 + sd);
+      v.sx = 1 - .005 * b; v.sy = 1 + .012 * b;
+    }
+    v.rot += lean;
+  }
+  if (mo.land != null && mo.land >= 0 && mo.land < .22) {
+    const k = Math.pow(1 - mo.land / .22, 2);
+    v.sx *= 1 + .09 * k; v.sy *= 1 - .12 * k;
+  }
+  return v;
+}
+/** Draws a pick at (x, y) on g (screen px: his feet), tallPx a runner's height there; mo: how he's moving (giveOf). */
+export function draw(g, p, team, colored, x, y, tallPx, mo) {
   const fr = FRAMES[p.f];
   if (!fr) return false;
-  const atlas = atlasFor(kitOf(team, colored)), k = tallPx / TALL;
-  g.setTransform(p.flip ? -k : k, 0, 0, k, x, y);
+  const atlas = atlasFor(kitOf(team, colored)), k = tallPx / TALL, v = giveOf(p, mo);
+  if (v) {
+    g.setTransform(1, 0, 0, 1, x, y - v.lift * tallPx);
+    g.rotate(v.rot);
+    g.scale((p.flip ? -k : k) * v.sx, k * v.sy);
+  } else g.setTransform(p.flip ? -k : k, 0, 0, k, x, y);
   g.drawImage(atlas, fr[0], fr[1], fr[2], fr[3], -fr[4], -fr[5], fr[2], fr[3]);
   g.setTransform(1, 0, 0, 1, 0, 0);
   return true;
