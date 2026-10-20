@@ -4,7 +4,7 @@
    laid over it; the scoreboard below on the theme's surfaces. */
 
 /* The version mark views/return.js checks (CSS_V): bump both when the pane needs rules an older file lacks. */
-:root { --rm-css: 3; }
+:root { --rm-css: 4; }
 
 .rm-pane {
   --rm-good: #3EF08F; --rm-gold: #FFD23F; --rm-hot: #FF6A2B;
@@ -62,6 +62,32 @@
 .rm-pane .is-pills .rm-bar b { background: #FFA53C; }
 .rm-pane .is-booze .rm-bar b { background: var(--rm-gold); }
 .rm-pane .rm-ic { display: block; flex: none; }
+
+/* A power-up just picked up: what it is and what it does, under the HUD for a moment */
+.rm-pane .rm-got {
+  grid-column: 1 / -1; justify-self: center; width: min(100%, 330px);
+  display: flex; align-items: center; gap: 10px; padding: 9px 14px 9px 10px; border-radius: 16px;
+  background: rgba(8,14,32,.8); box-shadow: inset 0 0 0 1px var(--rm-got, rgba(255,255,255,.3)), 0 0 22px -4px var(--rm-got, transparent), 0 10px 24px -12px rgba(0,0,0,.9);
+  -webkit-backdrop-filter: blur(10px) saturate(1.3); backdrop-filter: blur(10px) saturate(1.3);
+}
+.rm-pane .rm-got[hidden] { display: none; }
+.rm-pane .rm-got.is-on { animation: rm-got 3.2s cubic-bezier(.22,1,.36,1) forwards; }
+.rm-pane .rm-got.is-salts { --rm-got: rgba(150,225,255,.75); }
+.rm-pane .rm-got.is-pills { --rm-got: rgba(255,165,60,.8); }
+.rm-pane .rm-got.is-booze { --rm-got: rgba(255,214,90,.8); }
+.rm-pane .rm-got-t { display: flex; flex-direction: column; min-width: 0; }
+.rm-pane .rm-got-t b { font: 800 21px/1 var(--rm-display); letter-spacing: .05em; text-transform: uppercase; color: #fff; }
+.rm-pane .rm-got.is-salts b { color: #BFEFFF; }
+.rm-pane .rm-got.is-pills b { color: #FFC07A; }
+.rm-pane .rm-got.is-booze b { color: var(--rm-gold); }
+.rm-pane .rm-got-t span { margin-top: 3px; font: 400 12px/15px var(--font-text); color: rgba(255,255,255,.72); }
+.rm-pane .rm-got-t strong { margin-top: 1px; font: 700 13px/16px var(--font-text); color: #fff; }
+@keyframes rm-got {
+  0% { opacity: 0; transform: translateY(-10px) scale(.94); }
+  8% { opacity: 1; transform: none; }
+  88% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: translateY(-6px); }
+}
 
 /* ---------------------------------------------------------------- A move's call: JUKE! HURDLE! SPIN! TOUCHDOWN! */
 .rm-pane .rm-pop {
@@ -148,4 +174,5 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .rm-pane .rm-pop.is-on { animation-duration: .01s; }
+  .rm-pane .rm-got.is-on { animation: none; }
 }

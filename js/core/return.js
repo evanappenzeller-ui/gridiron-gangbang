@@ -154,10 +154,11 @@ function pickKind(th, r) {
   return th.kinds[0][0];
 }
 // The power-ups: salts (you can carry SALTS_MAX), pills (seconds) and booze (seconds of double yards).
+// is, does: what it is and what it does, in a line each (said when you pick one up).
 export const POWER = {
-  salts: {name: 'Smelling salts', says: 'An extra life'},
-  pills: {name: 'Painkillers', says: 'Nothing can stop you', s: 6},
-  booze: {name: 'Booze', says: 'Double yards', s: 8}
+  salts: {name: 'Smelling salts', says: 'An extra life', is: 'One sniff and you’re wide awake', does: 'An extra life: the next tackle, you shake him off'},
+  pills: {name: 'Painkillers', says: 'Nothing can stop you', s: 6, is: 'You can’t feel a thing', does: 'For 6 seconds, run straight through whatever’s in your way'},
+  booze: {name: 'Booze', says: 'Double yards', s: 8, is: 'Liquid courage (the world gets wobbly)', does: 'For 8 seconds, every yard counts double'}
 };
 export const SALTS_MAX = 2, SHIELD = 1.2;
 // The linebacker, chasing (yards behind you, seconds): at the catch and right after a hit he's on you, near (after a hit
