@@ -6,7 +6,9 @@
 //   slot (Thursday night, Sunday morning (international), Sunday early, Sunday late, Sunday night, Monday night),
 //   each a card: away and home as two big tap targets with logos, records and the kickoff in local time; after
 //   kickoff a lock, the live score and clock, then Final with your pick marked right or wrong, the pick split bar and
-//   who picked whom (sheet). Previous weeks are read-only results. Leaderboard sheet: This week / Season.
+//   who picked whom (sheet). Previous weeks are read-only results. Once every game is over the week's final
+//   scoreboard leads; this week's stays up, with a note of when the next week's picks open, until they do: the NFL's
+//   Wednesday 12:00 AM ET, college's Tuesday reset (nfl.pickWeek). Leaderboard sheet: This week / Season.
 //   Pick, then submit: a tap drafts a pick on this phone (dashed, "Not submitted"; kept in localStorage per week, see
 //   Drafts) and the Submit bar above the tab bar sends every change at once (week.submitPicks). Only submitted picks
 //   count anywhere: the summary, others' counts, the reveal, grading and the leaderboard.
@@ -303,7 +305,8 @@ export function leaderText(s, {done} = {}) {
 const memo = {cur: null, boards: new Map(), snaps: new Map()};
 const wkey = (y, w) => `${y}-w${w}`;
 let curP = null, curT = 0;
-/** The pick'em week (nfl.js / week.js decide: the current ESPN week, or the next one once every game is final). */
+/** The pick'em week (nfl.js / week.js decide: the current ESPN week; once every game is over, its results stay up
+ *  through Tuesday and the next week opens Wednesday 12:00 AM ET; college at the Tuesday reset). */
 export function currentWeek(force) {
   if (!force && curP && Date.now() - curT < 60e3) return curP;
   curT = Date.now();
@@ -336,7 +339,8 @@ function seasonYear() {
 // what the screen reads of a subscription payload (your submitted picks, the counts and the picks the reveal rule
 // already shows, the week's table, the locks). Read back as `cached`: a cached board's live dots rest, and a cached
 // snap is never taken for an answer about drafts (sweepDrafts waits for the server). Not read back once it is more
-// than 8 days old or its games are over (the pick'em has moved on to the next slate).
+// than 8 days old or its games are over (a finished week comes from the network: its results until the next week
+// opens, Wednesday 12:00 AM ET, then the next slate).
 const LAST_KEY = 'gg-pk-last' + SFX, LAST_V = 1;
 const SNAP_KEEP = ['key', 'year', 'week', 'mine', 'saved', 'byGame', 'rows', 'count', 'locks', 'lockedMe', 'lockedCount', 'locksError'];
 /** Keep a week ({year, week, board, snap}) on this phone. -> saved (false when storage refuses). */
@@ -362,7 +366,7 @@ export function cacheLoad(key = LAST_KEY, at = Date.now()) {
   const games = o.board.games.map(g => (g && typeof g.id === 'string' && g.home && g.away && g.home.abbr && g.away.abbr
     ? Object.assign({}, g, {kickoff: new Date(g.kickoff)}) : null));
   if (!games.length || games.some(g => !g || isNaN(g.kickoff))) return null;
-  // Over, or surely over by now (8 hours after the last kickoff): the pick'em has moved on to the next slate.
+  // Over, or surely over by now (8 hours after the last kickoff): asked for afresh (its results, or the next slate).
   if (games.every(g => g.over) || at > Math.max(...games.map(g => g.kickoff.getTime())) + 8 * 3600e3) return null;
   const board = {year: +o.year, week: +o.week, games, stale: false, error: null, cached: true};
   const snap = o.snap && typeof o.snap === 'object' ? Object.assign({picks: [], byGame: {}, rows: [], locks: []}, o.snap, {cached: true, ready: false}) : null;
@@ -397,8 +401,9 @@ try { addEventListener('pagehide', () => { if (lastT) saveLast(); }); } catch (_
 
 /**
  * Follow a week's games (nfl.watch: live polling) and picks (week.subscribeNflPicks).
- * target: {year, week}, or null for the current pick'em week (re-resolved when that week is all final, so Tuesday
- * rolls over to the next slate). fn({year, week, board, snap, cur, error}) on every change. -> stop()
+ * target: {year, week}, or null for the current pick'em week (re-resolved while that week is all final, so it rolls
+ * over to the next slate when that opens: Wednesday 12:00 AM ET for the NFL, the Tuesday reset for college).
+ * fn({year, week, board, snap, cur, error}) on every change. -> stop()
  */
 export function follow(target, fn) {
   let dead = false, unW = null, unS = null, y = null, w = null, rollT = 0;
@@ -444,8 +449,8 @@ export function follow(target, fn) {
       }
     } catch (e) { console.error(e); }
   };
-  // The followed current week finished: ask ESPN again (fresh), and move on once the pick'em week has; else try
-  // again in 10 minutes (nothing polls a finished week).
+  // The followed current week finished: ask ESPN again (fresh), and move on once the pick'em week has (its results
+  // stay up until the next week opens); else try again in 10 minutes (nothing polls a finished week).
   const roll = (ms = 1500) => {
     if (rollT || dead) return;
     rollT = setTimeout(() => {
@@ -997,8 +1002,17 @@ function bannerHTML(v) {
   return out.join('');
 }
 function noteHTML(v) {
+  if (v.current && v.sum.done) return nextNoteHTML(v);
   if (!v.current || v.sum.done || !v.sum.open || v.off) return '';
   return v.lockPending ? `<p class="pk-note">Locking in your picks for week ${st.week}…</p>` : '';
+}
+// This week is over and its results stay up until the next week opens: when that is ("Week 5 picks open Wed 12:00
+// AM.", in this phone's time): the NFL's Wednesday 12:00 AM ET, college's Tuesday reset (nfl.releaseAfter the last
+// kickoff). Nothing after the last regular-season week, or once that time has come (the screen is about to roll over).
+function nextNoteHTML(v) {
+  if (!(st.week < WEEKS) || !v.games.length || typeof nfl.releaseAfter !== 'function') return '';
+  const t = nfl.releaseAfter(Math.max(...v.games.map(g => g.kickoff.getTime())), {cfb: CFB});
+  return t > v.at ? `<p class="pk-note">Week ${st.week + 1} picks open ${esc(kickText(new Date(t), v.at))}.</p>` : '';
 }
 
 // Status column: kickoff time, the live clock, or Final.
@@ -2032,7 +2046,7 @@ function startFollow() {
     if (u.error && u.year == null) { st.err = u.error; later(() => renderBody()); return; }
     st.err = u.error || null;
     if (!st.explicit && u.week != null && (u.week !== st.week || u.year !== st.year)) {
-      // First resolution of the current week (or Tuesday's roll to the next slate).
+      // First resolution of the current week (or the roll to the next slate: Wednesday 12:00 AM ET for the NFL).
       const had = st.week;
       st.year = u.year; st.week = u.week; st.pending.clear(); st.seen.clear();
       later(() => renderBody({fade: !!had}));

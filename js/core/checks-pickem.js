@@ -147,23 +147,35 @@ export async function pickemChecks(check) {
   });
 
   // 3. Which week the pick'em is on
-  check('Pick\'em week: ESPN\'s week, or the next one once every game in it is over (a postponed game holds it)', () => {
+  check('Pick\'em week: ESPN\'s week; once every game in it is over its results stay up through Tuesday, and the next week opens Wednesday 12:00 AM ET (even if ESPN moves on sooner; a postponed game holds it)', () => {
     const b3 = nfl.parse(clone(W3));
-    const w = nfl.pickWeek(b3);
-    const live = nfl.pickWeek(nfl.parse(setGame(clone(W3), '401872963', 'in', 7, 3)));
-    const w4 = nfl.pickWeek(nfl.parse(clone(W4)));
-    const pre = nfl.pickWeek(Object.assign({}, b3, {seasontype: 1, week: 3}));
-    const post = nfl.pickWeek(Object.assign({}, b3, {seasontype: 3, week: 1}));
-    const last = nfl.pickWeek(Object.assign({}, b3, {week: 18}));
-    const empty = nfl.pickWeek(Object.assign({}, b3, {games: []}));
+    // Week 3's last kickoff: Monday night, Sep 28 8:15 PM EDT (2026-09-29T00:15Z). The next week opens Wednesday Sep 30
+    // 12:00 AM EDT (2026-09-30T04:00Z); ESPN's own calendar has week 4 from 3:00 AM EDT that Wednesday.
+    const MNF = ms('2026-09-29T02:30Z'), TUE = ms('2026-09-29T16:00Z'), LATE = ms('2026-09-30T03:59Z'), WED = ms('2026-09-30T04:00Z'), THU = ms('2026-10-01T16:00Z');
+    const pw = (b, at) => nfl.pickWeek(b, nfl.REG_WEEKS, {at});
+    const rel = nfl.releaseAfter(ms('2026-09-29T00:15Z')) === WED && nfl.releaseAfter(ms('2026-11-10T01:15Z')) === ms('2026-11-11T05:00Z'); // EDT, EST
+    // Every game final: week 3 (its results) Monday night through Tuesday, week 4 from Wednesday 12:00 AM ET.
+    const fin = [MNF, TUE, LATE, WED, THU].map(t => pw(b3, t).week).join();
+    const w = pw(b3, WED);
+    const live = pw(nfl.parse(setGame(clone(W3), '401872963', 'in', 7, 3)), MNF);
+    const w4 = pw(nfl.parse(clone(W4)), THU);
+    // ESPN's default scoreboard already on week 4 (its calendar moved on early): still week 3 until Wednesday.
+    const b4 = Object.assign(nfl.parse(clone(W4)), {cal: b3.cal});
+    const early = [TUE, LATE, WED, THU].map(t => pw(b4, t).week).join();
+    const pre = pw(Object.assign({}, b3, {seasontype: 1, week: 3}), ms('2026-08-20T16:00Z'));
+    const post = pw(Object.assign({}, b3, {seasontype: 3, week: 1}), ms('2027-01-20T16:00Z'));
+    const last = pw(Object.assign({}, b3, {week: 18}), ms('2027-01-14T16:00Z'));
+    const empty = pw(Object.assign({}, b3, {games: []}), WED);
     // Postponed (state 'post', not completed) can come back: the week is not over, not cached for good, still polled.
     // Canceled is over for good.
-    const pp = nfl.parse(setGame(clone(W3), '401872963', 'postponed', 0, 0)), held = nfl.pickWeek(pp);
-    const cx = nfl.parse(setGame(clone(W3), '401872963', 'canceled', 0, 0)), moved = nfl.pickWeek(cx);
+    const pp = nfl.parse(setGame(clone(W3), '401872963', 'postponed', 0, 0)), held = pw(pp, WED), held2 = pw(pp, THU);
+    const cx = nfl.parse(setGame(clone(W3), '401872963', 'canceled', 0, 0)), cxTue = pw(cx, TUE), moved = pw(cx, WED);
     const over = nfl.weekOver(b3.games) && !nfl.weekOver(pp.games) && nfl.weekOver(cx.games) && !nfl.weekOver([]) && !nfl.gameOver(pp.games[15]);
-    const pass = w.week === 4 && w.espnWeek === 3 && w.advanced && w.year === 2026 && live.week === 3 && !live.advanced && w4.week === 4
-      && pre.week === 1 && post.week === 18 && last.week === 18 && empty.week === 3 && held.week === 3 && !held.advanced && moved.week === 4 && over;
-    return {pass, detail: `all final: week ${w.week}; MNF live: ${live.week}; MNF postponed: ${held.week}; MNF canceled: ${moved.week}; week 4 before kickoff: ${w4.week}; preseason ${pre.week}, postseason ${post.week}, week 18 over ${last.week}`};
+    const pass = rel && fin === '3,3,3,4,4' && w.week === 4 && w.espnWeek === 3 && w.advanced && w.year === 2026 && live.week === 3 && !live.advanced && w4.week === 4
+      && early === '3,3,4,4' && pre.week === 1 && post.week === 18 && last.week === 18 && empty.week === 3 && held.week === 3 && !held.advanced && held2.week === 3
+      && cxTue.week === 3 && moved.week === 4 && over;
+    return {pass, detail: `all final, Mon night / Tue / Tue 11:59 PM / Wed 12:00 AM / Thu ET: weeks ${fin}; ESPN already on week 4 then: ${early}; MNF live: ${live.week}; `
+      + `MNF postponed: ${held.week} (Thu ${held2.week}); MNF canceled: Tue ${cxTue.week}, Wed ${moved.week}; week 4 before kickoff: ${w4.week}; preseason ${pre.week}, postseason ${post.week}, week 18 over ${last.week}${rel ? '' : '; releaseAfter is off'}`};
   });
 
   check('College pick\'em week: a finished Saturday stays up through Monday; the next week opens at the Tuesday reset (3:00 AM ET)', () => {
@@ -175,8 +187,10 @@ export async function pickemChecks(check) {
     const at = t => ({cfb: true, at: Date.parse(t)});
     const rows = [['2026-10-04T16:00Z', 6, 6], ['2026-10-05T23:00Z', 6, 6], ['2026-10-06T06:59Z', 6, 6], ['2026-10-06T07:00Z', 7, 7], ['2026-10-07T12:00Z', 7, 7]];
     const bad = rows.filter(([t, a, b]) => nfl.pickWeek(b6, 16, at(t)).week !== a || nfl.pickWeek(b7, 16, at(t)).week !== b).map(r => r[0]);
-    if (nfl.pickWeek(b6).week !== 7) bad.push('the NFL rule changed');
-    return {pass: !bad.length, detail: bad.length ? 'wrong week at ' + bad.join(', ') : 'Week 6 stays up Sunday and Monday (however ESPN moves), Week 7 from Tuesday 3:00 AM ET; the NFL still moves on when its week is over'};
+    // The NFL rule on the same finished week: no Tuesday reset, it stays up until Wednesday 12:00 AM ET.
+    const nflAt = t => nfl.pickWeek(b6, 16, {at: Date.parse(t)}).week;
+    if (nflAt('2026-10-06T07:00Z') !== 6 || nflAt('2026-10-07T03:59Z') !== 6 || nflAt('2026-10-07T04:00Z') !== 7) bad.push('the NFL rule changed');
+    return {pass: !bad.length, detail: bad.length ? 'wrong week at ' + bad.join(', ') : 'Week 6 stays up Sunday and Monday (however ESPN moves), Week 7 from Tuesday 3:00 AM ET; the NFL waits for Wednesday 12:00 AM ET'};
   });
 
   // 4. Locks

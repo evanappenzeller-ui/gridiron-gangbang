@@ -943,9 +943,10 @@ export async function clearVote() {
   return write('motw', cur.key, null);
 }
 
-// The pick'em week: nfl.currentWeek() (ESPN's week, or the next one once every game in it is final) with its
-// games: Promise<{year, week, key, games, stale, espnWeek, weeks}>. Rejects (err.code 'offline') only when there
-// are no scores at all.
+// The pick'em week: nfl.currentWeek() (ESPN's week; once every game in it is over, its results stay up through
+// Tuesday and the next week opens Wednesday 12:00 AM ET; college: at the Tuesday reset) with its games:
+// Promise<{year, week, key, games, stale, espnWeek, weeks}>. Rejects (err.code 'offline') only when there are no
+// scores at all.
 export async function pickemWeek(sport) {
   const feed = feedOf(kindOf(sport));
   const cw = await feed.currentWeek();
@@ -1380,7 +1381,9 @@ async function fetchPicks(y, w, past, kind = 'nflpicks') {
   }
   return Object.assign(r, {locks: l.locks});
 }
-// Weeks of `year` the pick'em has moved past, given nfl.currentWeek() (nothing is "past" when it is unknown).
+// Weeks of `year` the pick'em has moved past, given nfl.currentWeek() (nothing is "past" when it is unknown). A
+// finished week becomes past once the next one opens (the NFL's Wednesday 12:00 AM ET, college's Tuesday reset), not
+// when its last game ends.
 const pastWeek = (cw, year, w) => !!cw && (cw.year > year || (cw.year === year && w < cw.week));
 
 const yearOr = y => (y != null ? Number(y) : (liveSeason() || {}).year);
