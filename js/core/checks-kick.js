@@ -228,9 +228,10 @@ export async function kickChecks(check) {
     const pass = !out.shown && out.owner && !/Zed/.test(out.rows) && !/Zed/.test(out.week) && out.ryan && /Mason/.test(out.rows) && !reads.length;
     return {pass, detail: `rows ${out.rows}; week ${out.week}; guest shown ${out.shown} (on the owner's phone ${out.owner}); ${reads.length ? 'reads LB.all: ' + reads.join() : 'no LB.all reads'}`};
   });
-  check('Kick It is open to everyone (Oct 2026): /puzzles/kick opens its page on any phone (gameFor never asks who this phone is), like the other three games; an unknown game is the list of games', () => {
+  check('Kick It is open to everyone (Oct 2026): /puzzles/kick opens its page on any phone (the owner\'s, a member\'s, a guest\'s), like the other three games; an unknown game is the list of games', () => {
     const routes = ['kick', 'drill', '17-0', 'puzzles', 'nope', undefined].map(g => String(gameFor(g))).join();
-    return {pass: routes === 'kick,drill,17-0,puzzles,null,null' && gameFor.length === 1, detail: `routes ${routes}`};
+    const anyone = ['evan', 'mitch', null].every(who => gameFor('kick', who) === 'kick');
+    return {pass: routes === 'kick,drill,17-0,puzzles,null,null' && anyone, detail: `routes ${routes}; on any phone ${anyone}`};
   });
   check('Kick It: no Play again (the owner tests with Test play): no restart; a day still holding one of his old practice runs counts its first finished run', () => {
     const gone = !('restart' in K) && !('canReplay' in K) && !('restartDay' in K);

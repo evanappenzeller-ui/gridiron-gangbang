@@ -18,7 +18,7 @@ import {mountBoard, streakPillHTML, stepParts, zeroParts, gradeGold, stepIcon, w
   msToMidnight, ensureDefs, ringHTML, maxPts, dayLabel} from './board.js';
 import {youButtonHTML, settingsButtonHTML, openStreakSheet} from './you.js';
 import {canTest, testRowHTML} from './testplay.js';
-import {GAMES, gamePath, dailyKind, progHTML, fracOf, perfectOf, doneCount, listHTML, mountList} from './games.js';
+import {GAMES, gameOpen, gamePath, dailyKind, progHTML, fracOf, perfectOf, doneCount, listHTML, mountList} from './games.js';
 
 const esc = data.esc;
 const nf = n => data.nf(n);
@@ -160,10 +160,11 @@ function cardHTML(k = heroKind()) {
 }
 
 // ============================================================================ Game pages
-/** The game a page shows ('puzzles', '17-0', 'drill', 'kick'), or null on the list (the tab root). Every game is
- *  everyone's: Kick It, the owner's alone while it was built, opened to the league in Oct 2026. */
-export function gameFor(g) {
-  return GAMES.some(x => x.id === g) ? g : null;
+/** The game a page shows ('puzzles', '17-0', 'drill', 'kick', 'return'), or null on the list (the tab root). Every game
+ *  is everyone's but Return Man, the owner's alone while he tests it (games.js gameOpen): on anyone else's phone a link
+ *  to /puzzles/return shows the list. (Kick It, the owner's alone while it was built, opened to the league Oct 2026.) */
+export function gameFor(g, who) {
+  return GAMES.some(x => x.id === g) && gameOpen(g, who) ? g : null;
 }
 const gameOf = ctx => gameFor(ctx && ctx.params && ctx.params.game);
 let SV = null; // views/seventeen.js, once imported
@@ -277,7 +278,7 @@ const rmLoading = () => `<div class="rm-loading" aria-busy="true">${ui.skeleton(
 // Like the others: a phone with a finished day posts it from any visit to this tab.
 let rmSynced = false;
 function syncReturn() {
-  if (rmSynced) return;
+  if (rmSynced || !gameOpen('return')) return;
   rmSynced = true;
   import('../core/return.js')
     .then(m => (m.totals().played ? m.autoPost() : null))

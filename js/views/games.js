@@ -7,7 +7,8 @@
 // today's league board, the way to the rest and the countdown to the next one. The rows come from each game's core
 // (boardRows: daily.LB.raw / LB.players, the board as this phone may see it: THE RULE, CLAUDE.md).
 // 17-0's, the drill's, Kick It's and Return Man's cores load at idle (17-0's and the drill's with their day files);
-// until then their cards offer Play. Exports: GAMES, gamePath(id), dailyKind(), progHTML() (and its fracOf, perfectOf, doneCount),
+// until then their cards offer Play. Return Man is the owner's alone while he tests it (gameOpen, below).
+// Exports: GAMES, gameOpen(id), gamesFor(), gamePath(id), dailyKind(), progHTML() (and its fracOf, perfectOf, doneCount),
 // miniRows(rows), listHTML(), mountList(el, ctx) → {refresh(animate), tick(), destroy()}.
 // Owner: PUZZLES.
 import * as ui from '../core/ui.js';
@@ -29,6 +30,14 @@ export const GAMES = [
   {id: 'return', name: 'Return Man', title: 'Return Man', art: 'img/games/return-art.webp', badge: 'img/return.webp', cd: 'New kickoffs in'}
 ];
 const byId = id => GAMES.find(g => g.id === id);
+// Return Man is the owner's alone for now (his ask, Oct 2026: "exclusive to me for testing"): on the list, and its page
+// opens, only on his phones (data.OWNER); nobody else's phone loads it or posts it. To open it to the league, drop it
+// from ONLY (and turn its kit check, checks-return.js, back to "everyone's").
+const ONLY = {return: [data.OWNER]};
+/** Whether game id is open on this phone (who: the phone's member). */
+export const gameOpen = (id, who = data.me()) => !ONLY[id] || (!!who && ONLY[id].includes(who));
+/** The games this phone's list shows, in order. */
+export const gamesFor = (who = data.me()) => GAMES.filter(g => gameOpen(g.id, who));
 /** A game's page (pushed over the list): Daily Puzzles' is /puzzles/daily. */
 export const gamePath = id => (id === 'puzzles' ? '/puzzles/daily' : `/puzzles/${id}`);
 
@@ -109,7 +118,7 @@ function loadCores(then) {
   import('../core/seventeen.js').then(m => m.load().then(() => { C.sv = m; then(); })).catch(() => {});
   import('../core/drill.js').then(m => m.load().then(() => { C.dr = m; then(); })).catch(() => {});
   import('../core/kick.js').then(m => { C.kk = m; then(); }).catch(() => {});
-  import('../core/return.js').then(m => { C.rm = m; then(); }).catch(() => {});
+  if (gameOpen('return')) import('../core/return.js').then(m => { C.rm = m; then(); }).catch(() => {});
 }
 const boardOf = m => safe(() => [m.boardState()])[0] || 'loading';
 const SUBS = {
@@ -280,7 +289,8 @@ function cardHTML(g, s = stateOf(g)) {
 }
 /** The list as it stands now (the cores that haven't loaded yet show Play). */
 export function listHTML() {
-  return `<div class="gm-list" data-key="games" data-enter>${GAMES.map(g => cardHTML(g)).join('')}</div>`;
+  const list = gamesFor();
+  return `<div class="gm-list" data-key="games" data-enter data-ids="${list.map(g => g.id).join(' ')}">${list.map(g => cardHTML(g)).join('')}</div>`;
 }
 
 // ============================================================================ Behavior
@@ -290,7 +300,16 @@ export function mountList(el, ctx) {
   const st = {dead: false};
   const refresh = (animate = true) => {
     if (st.dead) return;
-    GAMES.forEach(g => {
+    // a change of who this phone is can add or take away a game (Return Man): the list is drawn again
+    const ids = gamesFor().map(g => g.id).join(' ');
+    if (el.dataset.ids !== ids) {
+      el.dataset.ids = ids;
+      el.innerHTML = gamesFor().map(g => cardHTML(g)).join('');
+      ui.hydrate(el);
+      if (gameOpen('return')) { coresAsked = false; loadCores(() => refresh(true)); }
+      return;
+    }
+    gamesFor().forEach(g => {
       const card = el.querySelector(`.gm-card[data-gm="${g.id}"]`);
       if (!card) return;
       const s = stateOf(g), html = innerHTML(g, s);
