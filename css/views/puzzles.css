@@ -209,6 +209,11 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
   background: linear-gradient(#FFFFFF, #DCE3EA 38%, #8794A2 54%, #C3D0DC 76%, #F2F6FA); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
 }
 .gm-band > :not(.gm-band-t) { position: absolute; right: 2.4cqw; top: 50%; transform: translateY(-50%); }
+/* a game still being worked on (Return Man): BETA at the band's left end */
+.gm-band > .gm-beta {
+  right: auto; left: 2.4cqw; padding: .8cqw 1.5cqw .7cqw; border: max(1px, .3cqw) solid #F2C230; border-radius: 1cqw;
+  background: rgba(242,194,48,.14); color: #F2C230; font: 800 2.6cqw/1 var(--font-text); letter-spacing: .14em;
+}
 .gm-art { position: relative; flex: 1 1 auto; min-height: 0; display: block; overflow: hidden; background: #1A1A1D; }
 .gm-img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; }
 /* a sticker on the shrink wrap, bottom right of the cover (clear of its title), while a game's under way (or a test play) */

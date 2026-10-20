@@ -1528,10 +1528,10 @@ export async function runChecks() {
 
   // The Daily Games list (Oct 2026): a shelf of game cases, each with its own cover (the owner's art), opening the game's
   // own page; a game played today is its scoreboard, read from the board as this phone may see it (THE RULE, CLAUDE.md).
-  check('Daily Games: a shelf of game cases (Daily Puzzles, 17-0, the Two-Minute Drill, Kick It, Return Man: the owner\'s alone while he tests it), each a green case with the Gridiron Hub band, its own cover and its own page; swiped along in a circle (its own sideways scroll, not the tabs\'); a game played today shows its case\'s back: today\'s board with you among them, and a Season board behind it, read from the board as this phone sees it', async () => {
+  check('Daily Games: a shelf of game cases (Daily Puzzles, 17-0, the Two-Minute Drill, Kick It, Return Man, in beta), each a green case with the Gridiron Hub band, its own cover and its own page; swiped along in a circle (its own sideways scroll, not the tabs\'); a game played today shows its case\'s back: today\'s board with you among them, and a Season board behind it, read from the board as this phone sees it', async () => {
     const host = document.createElement('div');
     host.innerHTML = listHTML();
-    const want = data.me() === data.OWNER ? 'puzzles,17-0,drill,kick,return' : 'puzzles,17-0,drill,kick';
+    const want = 'puzzles,17-0,drill,kick,return';
     const cases = [...host.querySelectorAll('.gm-slot:not([data-gm-clone]) .gm-case')];
     const order = cases.map(c => c.dataset.gm).join();
     // in a circle: a copy of the row each side (past the last game, the first again), hidden from screen readers

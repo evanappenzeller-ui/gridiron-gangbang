@@ -6,7 +6,7 @@
 // board; tap it and it comes up close with the whole board, Today's or the Season's. The rows come from each game's core
 // (boardRows: daily.LB.raw / LB.players, the board as this phone may see it: THE RULE, CLAUDE.md).
 // 17-0's, the drill's, Kick It's and Return Man's cores load at idle (17-0's and the drill's with their day files);
-// until then their cards offer Play. Return Man is the owner's alone while he tests it (gameOpen, below).
+// until then their cards offer Play. Return Man is open to the league in beta (a BETA tag on its case: GAMES beta).
 // Exports: GAMES, gameOpen(id), gamesFor(), gamePath(id), dailyKind(), progHTML() (and its fracOf, perfectOf, doneCount),
 // miniRows(rows), listHTML(), mountList(el, ctx) → {refresh(animate), tick(), destroy()}.
 // Owner: PUZZLES.
@@ -20,19 +20,20 @@ const nf = n => data.nf(n);
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 
 // The games in list order. art: its case's cover (the owner's art, Oct 2026); badge: the pixel scoreboard badge (tools/seventeen/badges.py);
-// title: the game page's nav title; cd: the countdown's words once it's played.
+// title: the game page's nav title; cd: the countdown's words once it's played; beta: still being worked on (a BETA tag
+// on its case, the owner's ask, Oct 2026: Return Man, open to the league while he works on it).
 export const GAMES = [
   {id: 'puzzles', name: 'Daily Puzzles', title: 'Daily Puzzles', art: 'img/games/puzzles-cover.webp', badge: 'img/puzzles.webp', cd: 'New puzzles in'},
   {id: '17-0', name: '17–0', title: '17–0', art: 'img/games/seventeen-cover.webp', badge: 'img/seventeen.webp', cd: 'New board in'},
   {id: 'drill', name: 'Two-Minute Drill', title: 'Two-Minute Drill', art: 'img/games/drill-cover.webp', badge: 'img/drill.webp', cd: 'Next drill in'},
   {id: 'kick', name: 'Kick It', title: 'Kick It', art: 'img/games/kick-cover.webp', badge: 'img/kick.webp', cd: 'New kicks in'},
-  {id: 'return', name: 'Return Man', title: 'Return Man', art: 'img/games/return-cover.webp', badge: 'img/return.webp', cd: 'New kickoffs in'}
+  {id: 'return', name: 'Return Man', title: 'Return Man', art: 'img/games/return-cover.webp', badge: 'img/return.webp', cd: 'New kickoffs in', beta: true}
 ];
 const byId = id => GAMES.find(g => g.id === id);
-// Return Man is the owner's alone for now (his ask, Oct 2026: "exclusive to me for testing"): on the list, and its page
-// opens, only on his phones (data.OWNER); nobody else's phone loads it or posts it. To open it to the league, drop it
-// from ONLY (and turn its kit check, checks-return.js, back to "everyone's").
-const ONLY = {return: [data.OWNER]};
+// A game the owner keeps to himself while he builds it: id -> the members whose phones list it and open its page
+// (nobody else's phone loads it or posts it). Empty: every game is everyone's (Kick It opened to the league Oct 2026,
+// Return Man too, in beta). To keep a new game to the owner: {id: [data.OWNER]} (and a kit check saying so).
+const ONLY = {};
 /** Whether game id is open on this phone (who: the phone's member). */
 export const gameOpen = (id, who = data.me()) => !ONLY[id] || (!!who && ONLY[id].includes(who));
 /** The games this phone's list shows, in order. */
@@ -206,7 +207,9 @@ const STATE = {puzzles: puzzlesState, '17-0': seventeenState, drill: drillState,
 // its back is the leaderboard. Tap the back and it comes up close, Today's and the Season's to switch between.
 // ACCENT: each game's colour on its back (the tag, the switch), out of its cover.
 const ACCENT = {puzzles: '#B5452F', '17-0': '#A0721F', drill: '#D23B2F', kick: '#C9A227', return: '#A31F34'};
-const bandHTML = (end = '') => `<span class="gm-band"><span class="gm-band-t">GRIDIRON HUB</span>${end}</span>`;
+// The band: the name in the middle, a BETA tag at its left end for a game still being worked on, a tag or the close
+// button at its right.
+const bandHTML = (end = '', beta = false) => `<span class="gm-band">${beta ? '<span class="gm-beta">BETA</span>' : ''}<span class="gm-band-t">GRIDIRON HUB</span>${end}</span>`;
 const tileHTML = (big, small, cls = '') => `<span class="gm-tile ${cls}"><b class="n2">${esc(big)}</b>${small ? `<small>${esc(small)}</small>` : ''}</span>`;
 // A line under each row: what it was today, or over the season.
 const SUB_TODAY = {
@@ -230,7 +233,7 @@ const sticker = (cls, text) => `<span class="gm-stk ${cls}">${esc(text)}</span>`
 /** A case's front: the band, the cover (a sticker on it while it's under way). */
 function frontHTML(g, s) {
   const stk = s.test ? sticker('is-test', 'TEST PLAY') : s.kind === 'started' ? sticker('is-go', 'IN PROGRESS') : '';
-  return `<div class="gm-face gm-front">${bandHTML()}<span class="gm-art"><img class="gm-img" src="${g.art}" alt="" decoding="async" draggable="false">${stk}</span></div>`;
+  return `<div class="gm-face gm-front">${bandHTML('', g.beta)}<span class="gm-art"><img class="gm-img" src="${g.art}" alt="" decoding="async" draggable="false">${stk}</span></div>`;
 }
 function rowHTML(r, {sub = false} = {}) {
   const label = `${ui.ordinal(r.rank)}, ${r.name}${r.me ? ', you' : ''}${r.guest ? ', guest' : ''}: ${r.val}${r.letter ? `, grade ${r.letter}` : ''}${sub && r.sub ? `. ${r.sub}` : ''}`;
@@ -263,7 +266,7 @@ function placeText(s) {
 function backHTML(g, s) {
   const place = placeText(s), note = boardNote(s.board, s.rows || []);
   const rows = note || `<div class="gm-scr-rows" role="list" aria-label="Today’s leaderboard">${miniRows(s.rows, 5).map(r => (r ? rowHTML(r) : '<div class="gm-r-gap" aria-hidden="true">· · ·</div>')).join('')}</div>`;
-  return `<div class="gm-face gm-back" style="--gc:${ACCENT[g.id]}">${bandHTML(`<span class="gm-bk-tag">${s.test ? 'TEST' : 'FINAL'}</span>`)}`
+  return `<div class="gm-face gm-back" style="--gc:${ACCENT[g.id]}">${bandHTML(`<span class="gm-bk-tag">${s.test ? 'TEST' : 'FINAL'}</span>`, g.beta)}`
     + `<span class="gm-bk-in">`
     + `<span class="gm-bk-name">${esc(g.name)}</span>`
     + `<span class="gm-bk-res"><span class="gm-bk-vis">${s.vis || ''}</span><span class="gm-bk-tt"><b class="gm-bk-h${s.gold ? ' is-gold' : ''}">${esc(s.head || '')}</b>`
@@ -271,9 +274,13 @@ function backHTML(g, s) {
     + `<span class="gm-scr"><span class="gm-scr-h">Today’s leaderboard</span>${rows}</span>`
     + `<span class="gm-bk-foot"><span class="gm-bk-tap">Tap for the full leaderboard ›</span></span></span></div>`;
 }
+const caseLabel = (g, s) => {
+  const name = `${g.name}${g.beta ? ' (beta)' : ''}`;
+  return s.kind === 'done' ? `${name}: played today${placeText(s) ? `, ${placeText(s)}` : ''}. Show the leaderboard` : `${name}${s.kind === 'started' ? ', under way' : ''}`;
+};
 function caseHTML(g, s, i, n, clone) {
   const done = s.kind === 'done';
-  const what = done ? `${g.name}: played today${placeText(s) ? `, ${placeText(s)}` : ''}. Show the leaderboard` : `${g.name}${s.kind === 'started' ? ', under way' : ''}`;
+  const what = caseLabel(g, s);
   const slot = clone ? 'aria-hidden="true" data-gm-clone' : `role="group" aria-roledescription="slide" aria-label="${i + 1} of ${n}"`;
   return `<div class="gm-slot" ${slot} data-gm-slot="${g.id}">`
     + `<button type="button" class="gm-case${done ? ' is-done' : ''}" data-gm="${g.id}" data-kind="${s.kind}" aria-label="${esc(what)}"${clone ? ' tabindex="-1"' : ''}>`
@@ -417,7 +424,7 @@ export function mountList(el, ctx, opts = {}) {
     z.className = 'gm-zoom';
     z.innerHTML = `<div class="gm-z-scrim" data-gm-zclose></div>`
       + `<div class="gm-z-case gm-back" style="--gc:${ACCENT[id]}" role="dialog" aria-modal="true" aria-labelledby="gm-z-t" tabindex="-1">`
-      + bandHTML(ui.iconButton({icon: 'close', label: 'Close', cls: 'gm-z-x', filled: true, attrs: 'data-gm-zclose'}))
+      + bandHTML(ui.iconButton({icon: 'close', label: 'Close', cls: 'gm-z-x', filled: true, attrs: 'data-gm-zclose'}), g.beta)
       + `<div class="gm-bk-in"><span class="gm-bk-name" id="gm-z-t">${esc(g.name)}</span>`
       + `<div class="gm-bk-res"><span class="gm-bk-vis">${s.vis || ''}</span><span class="gm-bk-tt"><b class="gm-bk-h${s.gold ? ' is-gold' : ''}">${esc(s.head || '')}</b>${(s.lines || []).map(l => `<small>${esc(l)}</small>`).join('')}</span></div>`
       + `<div class="gm-z-tog" role="tablist" aria-label="Leaderboard"><button type="button" role="tab" aria-selected="true" data-gm-zmode="today">Today</button><button type="button" role="tab" aria-selected="false" data-gm-zmode="season">Season</button></div>`
@@ -548,7 +555,7 @@ export function mountList(el, ctx, opts = {}) {
         // a game just finished: its case turns round to the leaderboard
         if (flipNow && animate && ctx.visible && !ui.RM) requestAnimationFrame(() => requestAnimationFrame(() => cs.classList.add('is-done')));
         else cs.classList.toggle('is-done', s.kind === 'done');
-        cs.setAttribute('aria-label', s.kind === 'done' ? `${g.name}: played today${placeText(s) ? `, ${placeText(s)}` : ''}. Show the leaderboard` : `${g.name}${s.kind === 'started' ? ', under way' : ''}`);
+        cs.setAttribute('aria-label', caseLabel(g, s));
       });
       const pip = el.querySelector(`[data-gm-pip="${g.id}"]`);
       if (pip) pip.classList.toggle('is-done', s.kind === 'done');

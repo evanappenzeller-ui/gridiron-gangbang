@@ -161,8 +161,8 @@ function cardHTML(k = heroKind()) {
 
 // ============================================================================ Game pages
 /** The game a page shows ('puzzles', '17-0', 'drill', 'kick', 'return'), or null on the list (the tab root). Every game
- *  is everyone's but Return Man, the owner's alone while he tests it (games.js gameOpen): on anyone else's phone a link
- *  to /puzzles/return shows the list. (Kick It, the owner's alone while it was built, opened to the league Oct 2026.) */
+ *  is everyone's (games.js gameOpen: Kick It opened to the league Oct 2026, Return Man too, in beta); a game the owner
+ *  keeps to himself would show anyone else the list. */
 export function gameFor(g, who) {
   return GAMES.some(x => x.id === g) && gameOpen(g, who) ? g : null;
 }

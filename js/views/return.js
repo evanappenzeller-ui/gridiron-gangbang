@@ -71,6 +71,10 @@ function keysHTML() {
     + pw('booze', 'Booze', 'Double yards')
     + `</ul>`;
 }
+// Return Man is in beta (open to the league while the owner works on it, Oct 2026): a BETA tag on the cards before a
+// kickoff and at the day's end, and a word about it on the first.
+const BETA = '<span class="rm-beta">Beta</span>';
+const betaLine = () => `<p class="rm-card-s rm-beta-l">${esc(`Still being worked on: ${(data.M[data.OWNER] || {name: 'the commissioner'}).name}’s tuning it, so it may change.`)}</p>`;
 const soFar = list => list.length ? `So far: ${list.map(e => nf(e.y)).join(' + ')}${list.length > 1 ? ` = ${nf(R.score(list).yards)}` : ''} yards` : '';
 /** The card over the stage: before a kickoff, after a tackle, paused, or the day's last word. */
 function cardHTML(st) {
@@ -92,7 +96,7 @@ function cardHTML(st) {
   if (d.done) {
     const s = d.official || d, head = s.yards >= 1500 ? 'Unstoppable.' : s.yards >= 800 ? 'House call machine.' : s.yards >= 400 ? 'Electric.'
       : s.yards >= 180 ? 'Great field position.' : s.yards >= 80 ? 'Solid returns.' : 'Fair catch next time?';
-    return `<div class="rm-card-in is-day"><p class="rm-card-o">Return Man · ${esc(R.dayLabel(st.n))}</p>`
+    return `<div class="rm-card-in is-day"><p class="rm-card-o">Return Man · ${esc(R.dayLabel(st.n))} ${BETA}</p>`
       + `<p class="rm-big"><span class="n1">${esc(nf(s.yards))}</span><small>yards</small></p>`
       + `<h2 class="rm-card-t">${esc(head)}</h2>`
       + `<p class="rm-card-s">${esc(`${s.list.map(e => nf(e.y)).join(' + ')}. Longest ${nf(s.longest)}${s.tds ? ` · ${plural(s.tds, 'touchdown')}` : ''}.`)}</p>`
@@ -100,9 +104,9 @@ function cardHTML(st) {
       + ui.button({label: 'See the scoreboard', kind: 'secondary', attrs: {'data-rm-sb': ''}, cls: 'rm-go'})
       + `<p class="rm-card-t2">${ui.icon('clock', {size: 14})}<span data-rm-next>${esc(`New kickoffs in ${ui.untilText(msToMidnight())}`)}</span></p></div>`;
   }
-  return `<div class="rm-card-in${k === 0 ? ' is-first' : ''}"><p class="rm-card-o">Kickoff ${k + 1} of ${R.RETURNS}${R.testing() ? ' · Test play' : ''}</p>`
+  return `<div class="rm-card-in${k === 0 ? ' is-first' : ''}"><p class="rm-card-o">Kickoff ${k + 1} of ${R.RETURNS}${R.testing() ? ' · Test play' : ''} ${BETA}</p>`
     + `<h2 class="rm-card-t">${esc(KO_WORDS[k] || KO_WORDS[0])}</h2>`
-    + (k === 0 ? keysHTML() : `<p class="rm-card-s">${esc(soFar(d.list))}</p>`)
+    + (k === 0 ? keysHTML() + betaLine() : `<p class="rm-card-s">${esc(soFar(d.list))}</p>`)
     + ui.button({label: 'Field the kick', icon: 'play-fill', attrs: {'data-rm-go': ''}, cls: 'rm-go'}) + `</div>`;
 }
 function hudHTML() {

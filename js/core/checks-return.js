@@ -10,7 +10,7 @@
 import * as R from './return.js';
 import * as daily from './daily.js';
 import {gameFor} from '../views/puzzles.js';
-import {gamesFor} from '../views/games.js';
+import {gamesFor, listHTML, GAMES} from '../views/games.js';
 
 /** A returner who sees the course and plans: each twentieth of a second, a search for the swipes that keep him up for
  *  the next 1.3 seconds (power-ups taken away, so it's the course alone that lets him through). Runs till he's down or
@@ -320,12 +320,16 @@ export async function returnChecks(check) {
     const pass = !out.shown && out.owner && !/Zed/.test(out.rows) && !/Zed/.test(out.week) && out.ryan && /Mason/.test(out.rows) && !reads.length;
     return {pass, detail: `rows ${out.rows}; week ${out.week}; guest shown ${out.shown} (on the owner's phone ${out.owner}); ${reads.length ? 'reads LB.all: ' + reads.join() : 'no LB.all reads'}`};
   });
-  check('Return Man is the owner\'s alone while he tests it: on the list and /puzzles/return opens its page only on his phones; anyone else\'s list has the other four, and the link shows them the list', () => {
-    const mine = gameFor('return', 'evan'), theirs = gameFor('return', 'mitch'), guest = gameFor('return', null);
-    const lists = [gamesFor('evan'), gamesFor('mitch')].map(l => l.map(g => g.id).join());
-    const pass = mine === 'return' && theirs === null && guest === null && gameFor('kick', 'mitch') === 'kick'
-      && lists[0] === 'puzzles,17-0,drill,kick,return' && lists[1] === 'puzzles,17-0,drill,kick';
-    return {pass, detail: `the owner: ${mine}; a member: ${theirs}; a guest: ${guest}; lists ${lists.join(' | ')}`};
+  check('Return Man is open to the league in beta (Oct 2026): on every phone\'s list and /puzzles/return opens its page (the owner\'s, a member\'s, a guest\'s); its case wears a BETA tag (front and back), the other games\' don\'t', () => {
+    const who = ['evan', 'mitch', null];
+    const open = who.every(w => gameFor('return', w) === 'return');
+    const lists = who.map(w => gamesFor(w).map(g => g.id).join());
+    const all = lists.every(l => l === 'puzzles,17-0,drill,kick,return');
+    const host = document.createElement('div');
+    host.innerHTML = listHTML();
+    const tagged = [...host.querySelectorAll('.gm-slot:not([data-gm-clone])')].filter(sl => sl.querySelector('.gm-front .gm-beta')).map(sl => sl.dataset.gmSlot).join();
+    const beta = tagged === 'return' && GAMES.filter(g => g.beta).map(g => g.id).join() === 'return';
+    return {pass: open && all && beta, detail: `opens on every phone ${open}; lists ${lists.join(' | ')}; BETA on ${tagged || 'none'}`};
   });
   check('Return Man: its stylesheet (css/views/return.css) is linked: the version mark is on :root', () => {
     const v = getComputedStyle(document.documentElement).getPropertyValue('--rm-css').trim();

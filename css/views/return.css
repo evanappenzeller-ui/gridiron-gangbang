@@ -100,6 +100,11 @@
 .rm-pane .rm-card-o { font: 700 11px/14px var(--font-text); letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.6); }
 .rm-pane .rm-card-t { margin-top: 8px !important; font: 800 26px/28px var(--rm-display); letter-spacing: .02em; text-transform: uppercase; color: var(--rm-gold); }
 .rm-pane .rm-card-s { margin-top: 6px !important; font: 400 14px/19px var(--font-text); color: rgba(255,255,255,.8); }
+.rm-pane .rm-beta {
+  display: inline-block; margin-left: 6px; padding: 2px 6px 1px; border: 1px solid #F2C230; border-radius: 5px; vertical-align: 1px;
+  background: rgba(242,194,48,.14); color: #F2C230; font: 800 10px/12px var(--font-text); letter-spacing: .12em;
+}
+.rm-pane .rm-beta-l { font-size: 12px; line-height: 16px; color: rgba(255,255,255,.62); }
 .rm-pane .rm-big { display: flex; flex-direction: column; align-items: center; margin-top: 6px !important; }
 .rm-pane .rm-big .n1 { font: 800 72px/.95 var(--rm-display); color: var(--rm-good); text-shadow: 0 0 26px rgba(62,240,143,.55); font-variant-numeric: tabular-nums; }
 .rm-pane .rm-big small { font: 800 16px/20px var(--rm-display); letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,.85); }
