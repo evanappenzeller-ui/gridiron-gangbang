@@ -14,6 +14,7 @@ import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as daily from '../core/daily.js';
 import {ringHTML, stepParts, maxPts, gradeGold, msToMidnight, countdownHTML, itemCount} from './board.js';
+import {turnable} from './game-case.js';
 
 const esc = data.esc;
 const nf = n => data.nf(n);
@@ -226,10 +227,12 @@ function seasonRowsOf(id) {
   return safe(() => M.seasonRows()).map(r => ({...r, val: `${nf(r.y)} yds`, sub: `${plural(r.played, 'day')} · longest ${nf(r.l)}`}));
 }
 const sticker = (cls, text) => `<span class="gm-stk ${cls}">${esc(text)}</span>`;
-/** A case's front: the band, the cover (a sticker on it while it's under way). */
-function frontHTML(g, s) {
+const GLOSS = '<span class="gm-z-gl" aria-hidden="true"></span>'; // (the shine on a case up close)
+/** A case's front: the band, the cover (a sticker on it while it's under way). up: the case up close (a tap on it
+ *  opens it, a shine moves over it as it turns). */
+function frontHTML(g, s, up = false) {
   const stk = s.test ? sticker('is-test', 'TEST PLAY') : s.kind === 'started' ? sticker('is-go', 'IN PROGRESS') : '';
-  return `<div class="gm-face gm-front">${bandHTML('', g.beta)}<span class="gm-art"><img class="gm-img" src="${g.art}" alt="" decoding="async" draggable="false">${stk}</span></div>`;
+  return `<div class="gm-face gm-front${up ? ' gm-z-front" data-gm-zfront aria-hidden="true' : ''}">${bandHTML('', g.beta)}<span class="gm-art"><img class="gm-img" src="${g.art}" alt="" decoding="async" draggable="false">${stk}</span>${up ? GLOSS : ''}</div>`;
 }
 function rowHTML(r, {sub = false} = {}) {
   const label = `${ui.ordinal(r.rank)}, ${r.name}${r.me ? ', you' : ''}${r.guest ? ', guest' : ''}: ${r.val}${r.letter ? `, grade ${r.letter}` : ''}${sub && r.sub ? `. ${r.sub}` : ''}`;
@@ -410,6 +413,29 @@ export function mountList(el, ctx, opts = {}) {
     return (me ? `<p class="gm-z-me">You: ${esc(ui.ordinal(me.rank))} of ${rows.length} · ${esc(me.val)}</p>` : '')
       + (note || `<div class="gm-scr-rows" role="list" aria-label="${mode === 'season' ? 'The season' : 'Today'}">${rows.map(r => rowHTML(r, {sub: true})).join('')}</div>`);
   }
+  // The case up close (the owner's ask, Oct 2026): a real case to turn in your hand (views/game-case.js), its back the
+  // whole board, its front the cover; turned to the front it opens, the disc inside.
+  function caseUpHTML(g, s, go) {
+    const back = `<div class="gm-face gm-back gm-z-back">${bandHTML(`<span class="gm-bk-tag">${s.test ? 'TEST' : 'FINAL'}</span>`, g.beta)}`
+      + `<div class="gm-bk-in"><span class="gm-bk-name" id="gm-z-t">${esc(g.name)}</span>`
+      + `<div class="gm-bk-res"><span class="gm-bk-vis">${s.vis || ''}</span><span class="gm-bk-tt"><b class="gm-bk-h${s.gold ? ' is-gold' : ''}">${esc(s.head || '')}</b>${(s.lines || []).map(l => `<small>${esc(l)}</small>`).join('')}</span></div>`
+      + `<div class="gm-z-tog" role="tablist" aria-label="Leaderboard"><button type="button" role="tab" aria-selected="true" data-gm-zmode="today">Today</button><button type="button" role="tab" aria-selected="false" data-gm-zmode="season">Season</button></div>`
+      + `<div class="gm-scr is-z"><div class="gm-z-body" data-gm-zbody>${zoomBody(g, 'today')}</div></div>`
+      + `<div class="gm-bk-foot">${ui.button({label: go.label, kind: 'secondary', size: 's', attrs: go.attrs, cls: 'gm-z-open'})}</div></div>${GLOSS}</div>`;
+    // its sides (the spine with the name down it), the tray inside with the disc on its hub, the cover on its hinge
+    // (the cover outside, inside a booklet held in by two clips)
+    const art = `<img src="${g.art}" alt="" decoding="async" draggable="false">`;
+    const sides = `<span class="gm-z-edge is-l" aria-hidden="true"><span class="gm-z-spine"><b>GRIDIRON HUB</b><span>${esc(g.name)}</span></span></span>`
+      + ['r', 't', 'b'].map(k => `<span class="gm-z-edge is-${k}" aria-hidden="true"></span>`).join('');
+    const inside = `<div class="gm-z-tray" aria-hidden="true"><span class="gm-z-emb">GRIDIRON HUB</span></div>`
+      + `<div class="gm-z-disc" data-gm-zdisc aria-hidden="true"><span class="gm-z-lab">${art}</span><span class="gm-z-sheen"></span></div>`
+      + `<span class="gm-z-hub" aria-hidden="true"></span>`;
+    const lid = `<div class="gm-z-lid">${frontHTML(g, s, true)}`
+      + `<div class="gm-z-in" aria-hidden="true"><span class="gm-z-book">${bandHTML()}<span class="gm-z-book-art">${art}</span><span class="gm-z-book-t">Instruction booklet</span></span>`
+      + `<span class="gm-z-clip is-t"></span><span class="gm-z-clip is-b"></span></div></div>`;
+    return `<div class="gm-z-stage" style="--gc:${ACCENT[g.id]}"><div class="gm-z-obj">${back}${sides}${inside}${lid}</div></div>`;
+  }
+  const HINT = {back: 'Drag the case to turn it. Turn it to the front to open it', front: 'Tap the cover to open the case', open: 'Tap the case to close it'};
   function openZoom(id) {
     const g = byId(id), cs = curCase(id);
     if (!g || st.zoom) return;
@@ -419,29 +445,40 @@ export function mountList(el, ctx, opts = {}) {
     const z = document.createElement('div');
     z.className = 'gm-zoom';
     z.innerHTML = `<div class="gm-z-scrim" data-gm-zclose></div>`
-      + `<div class="gm-z-case gm-back" style="--gc:${ACCENT[id]}" role="dialog" aria-modal="true" aria-labelledby="gm-z-t" tabindex="-1">`
-      + bandHTML(ui.iconButton({icon: 'close', label: 'Close', cls: 'gm-z-x', filled: true, attrs: 'data-gm-zclose'}), g.beta)
-      + `<div class="gm-bk-in"><span class="gm-bk-name" id="gm-z-t">${esc(g.name)}</span>`
-      + `<div class="gm-bk-res"><span class="gm-bk-vis">${s.vis || ''}</span><span class="gm-bk-tt"><b class="gm-bk-h${s.gold ? ' is-gold' : ''}">${esc(s.head || '')}</b>${(s.lines || []).map(l => `<small>${esc(l)}</small>`).join('')}</span></div>`
-      + `<div class="gm-z-tog" role="tablist" aria-label="Leaderboard"><button type="button" role="tab" aria-selected="true" data-gm-zmode="today">Today</button><button type="button" role="tab" aria-selected="false" data-gm-zmode="season">Season</button></div>`
-      + `<div class="gm-scr is-z"><div class="gm-z-body" data-gm-zbody>${zoomBody(g, 'today')}</div></div>`
-      + `<div class="gm-bk-foot">${ui.button({label: go.label, kind: 'secondary', size: 's', attrs: go.attrs, cls: 'gm-z-open'})}</div></div></div>`;
+      + `<div class="gm-z-dlg" role="dialog" aria-modal="true" aria-labelledby="gm-z-t" tabindex="-1">`
+      + ui.iconButton({icon: 'close', label: 'Close', cls: 'gm-z-x', filled: true, attrs: 'data-gm-zclose'})
+      + caseUpHTML(g, s, go)
+      + `<div class="gm-z-ctl">${ui.button({label: 'Turn over', kind: 'secondary', size: 's', icon: 'swap', attrs: 'data-gm-zturn'})}`
+      + `${ui.button({label: 'Open the case', kind: 'secondary', size: 's', attrs: 'data-gm-zlid', disabled: true})}</div>`
+      + `<p class="gm-z-hint" data-gm-zhint>${HINT.back}</p></div>`;
     (document.getElementById('overlays') || document.body).appendChild(z);
     ui.hydrate(z);
-    const card = z.querySelector('.gm-z-case'), app = document.getElementById('app');
-    st.zoom = {el: z, id, mode: 'today', app, prev: app ? app.inert : false};
+    const dlg = z.querySelector('.gm-z-dlg'), stage = z.querySelector('.gm-z-stage'), app = document.getElementById('app');
+    const lidBtn = z.querySelector('[data-gm-zlid]'), hint = z.querySelector('[data-gm-zhint]');
+    // what the case can do now: open (facing front), close (open), neither (turned away)
+    const said = ({front, open}) => {
+      lidBtn.disabled = !open && !front;
+      lidBtn.querySelector('.btn-label').textContent = open ? 'Close the case' : 'Open the case';
+      hint.textContent = HINT[open ? 'open' : front ? 'front' : 'back'];
+    };
+    const T = turnable(z, dlg, said);
+    st.zoom = {el: z, id, mode: 'today', app, prev: app ? app.inert : false, turn: T};
     if (app && !z.closest('#app')) app.inert = true;
     // from the case on the shelf up to the middle of the screen
     if (cs && !ui.RM) {
-      const a = cs.getBoundingClientRect(), b = card.getBoundingClientRect();
+      const a = cs.getBoundingClientRect(), b = stage.getBoundingClientRect();
       const sx = a.width / b.width, sy = a.height / b.height, dx = a.left + a.width / 2 - (b.left + b.width / 2), dy = a.top + a.height / 2 - (b.top + b.height / 2);
-      ui.animate(card, [{transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`, opacity: .6}, {transform: 'none', opacity: 1}], {duration: 420, easing: 'cubic-bezier(.22,1,.36,1)'});
+      ui.animate(stage, [{transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`, opacity: .6}, {transform: 'none', opacity: 1}], {duration: 420, easing: 'cubic-bezier(.22,1,.36,1)'});
       ui.animate(z.querySelector('.gm-z-scrim'), [{opacity: 0}, {opacity: 1}], {duration: 300, easing: 'linear'});
+      [z.querySelector('.gm-z-ctl'), hint, z.querySelector('.gm-z-x')].forEach(el => ui.animate(el, [{opacity: 0}, {opacity: 1}], {duration: 260, delay: 220, easing: 'linear', fill: 'backwards'}));
     }
     z.addEventListener('click', e => {
       if (e.target.closest('[data-gm-zclose]')) { closeZoom(); return; }
+      if (e.target.closest('[data-gm-zturn]')) { T.turn(1); return; }
+      if (e.target.closest('[data-gm-zlid]')) { T.lid(); return; }
       const m = e.target.closest('[data-gm-zmode]');
-      if (m && m.dataset.gmZmode !== st.zoom.mode) {
+      if (m) {
+        if (m.dataset.gmZmode === st.zoom.mode) return;
         st.zoom.mode = m.dataset.gmZmode;
         z.querySelectorAll('[data-gm-zmode]').forEach(b => b.setAttribute('aria-selected', String(b === m)));
         const body = z.querySelector('[data-gm-zbody]');
@@ -452,10 +489,23 @@ export function mountList(el, ctx, opts = {}) {
       }
       const open = e.target.closest('[data-gm-open]');
       if (open) { closeZoom(true); ctx.nav(gamePath(open.dataset.gmOpen)); return; }
-      if (e.target.closest('[data-gm-results]')) { closeZoom(true); ctx.nav('/puzzles/results'); }
+      if (e.target.closest('[data-gm-results]')) { closeZoom(true); ctx.nav('/puzzles/results'); return; }
+      // open, a tap on the disc gives it a spin, anywhere else on the case shuts it; shut, a tap on the cover opens it
+      if (T.state.open) {
+        const lab = e.target.closest('[data-gm-zdisc]') && z.querySelector('.gm-z-lab');
+        if (lab) { if (!ui.RM) ui.animate(lab, [{transform: 'rotate(0deg)'}, {transform: 'rotate(360deg)'}], {duration: 1100, easing: 'cubic-bezier(.15,.7,.3,1)'}); ui.haptic('light'); }
+        else if (e.target.closest('.gm-z-obj')) T.lid(false);
+        return;
+      }
+      if (e.target.closest('[data-gm-zfront]')) T.lid(true);
     });
-    z.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); closeZoom(); } });
-    card.focus({preventScroll: true});
+    z.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { e.preventDefault(); closeZoom(); return; }
+      if (e.target !== dlg) return;
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); T.turn(e.key === 'ArrowLeft' ? -1 : 1); }
+      else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); T.lid(); }
+    });
+    dlg.focus({preventScroll: true});
     ui.haptic('light');
   }
   function closeZoom(fast) {
@@ -463,14 +513,23 @@ export function mountList(el, ctx, opts = {}) {
     if (!Z) return;
     st.zoom = null;
     if (Z.app) Z.app.inert = Z.prev;
-    const cs = curCase(Z.id), card = Z.el.querySelector('.gm-z-case');
-    if (fast || ui.RM || !cs || !card) { Z.el.remove(); if (cs && !fast) cs.focus({preventScroll: true}); return; }
-    const a = cs.getBoundingClientRect(), b = card.getBoundingClientRect();
+    Z.turn.stop();
+    const cs = curCase(Z.id), stage = Z.el.querySelector('.gm-z-stage');
+    if (fast || ui.RM || !cs || !stage) { Z.el.remove(); if (cs && !fast) cs.focus({preventScroll: true}); return; }
+    // shut and turned round to its back (as it stands on the shelf) on its way back down
+    const obj = Z.el.querySelector('.gm-z-obj'), lid = Z.el.querySelector('.gm-z-lid'), rest = Z.turn.rest();
+    [[obj, rest.obj], [lid, rest.lid]].forEach(([el, to]) => {
+      const from = el.style.transform;
+      el.style.transform = to;
+      if (from && from !== to) ui.animate(el, [{transform: from}, {transform: to}], {duration: 300, easing: 'cubic-bezier(.4,0,.6,1)'});
+    });
+    const a = cs.getBoundingClientRect(), b = stage.getBoundingClientRect();
     const sx = a.width / b.width, sy = a.height / b.height, dx = a.left + a.width / 2 - (b.left + b.width / 2), dy = a.top + a.height / 2 - (b.top + b.height / 2);
     ui.animate(Z.el.querySelector('.gm-z-scrim'), [{opacity: 1}, {opacity: 0}], {duration: 260, easing: 'linear'});
-    const an = ui.animate(card, [{transform: 'none', opacity: 1}, {transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`, opacity: .4}], {duration: 300, easing: 'cubic-bezier(.4,0,.6,1)'});
+    [Z.el.querySelector('.gm-z-ctl'), Z.el.querySelector('.gm-z-hint'), Z.el.querySelector('.gm-z-x')].forEach(el => ui.animate(el, [{opacity: 1}, {opacity: 0}], {duration: 140, easing: 'linear', fill: 'forwards'}));
+    const an = ui.animate(stage, [{transform: 'none', opacity: 1}, {transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`, opacity: .4}], {duration: 320, easing: 'cubic-bezier(.4,0,.6,1)'});
     const done = () => { Z.el.remove(); cs.focus({preventScroll: true}); };
-    if (an && an.finished) an.finished.then(done, done); else setTimeout(done, 300);
+    if (an && an.finished) an.finished.then(done, done); else setTimeout(done, 320);
   }
   // ---------------------------------------------------------------- taps, keys
   const onClick = e => {
