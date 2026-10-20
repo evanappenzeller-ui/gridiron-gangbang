@@ -201,11 +201,11 @@ const STATE = {puzzles: puzzlesState, '17-0': seventeenState, drill: drillState,
 
 // ============================================================================ The cases
 // The list is a shelf of game cases (the owner's ask, Oct 2026, after a console's shelf of box art): you swipe along
-// it; the case in the middle is the one you're on, its name and its Play under it. Each case is a black case, the
-// Gridiron Hub band across its top and the game's cover under it (the owner's art). Played today, a case turns round:
+// it; the case in the middle is the one you're on, its Play under it. Each case is a green case, the Gridiron Hub
+// band across its top and the game's cover under it (the owner's art). Played today, a case turns round:
 // its back is the leaderboard. Tap the back and it comes up close, Today's and the Season's to switch between.
 // ACCENT: each game's colour on its back (the tag, the switch), out of its cover.
-const ACCENT = {puzzles: '#B5452F', '17-0': '#2F7A4C', drill: '#D23B2F', kick: '#C9A227', return: '#A31F34'};
+const ACCENT = {puzzles: '#B5452F', '17-0': '#A0721F', drill: '#D23B2F', kick: '#C9A227', return: '#A31F34'};
 const bandHTML = (end = '') => `<span class="gm-band"><span class="gm-band-t">GRIDIRON HUB</span>${end}</span>`;
 const tileHTML = (big, small, cls = '') => `<span class="gm-tile ${cls}"><b class="n2">${esc(big)}</b>${small ? `<small>${esc(small)}</small>` : ''}</span>`;
 // A line under each row: what it was today, or over the season.
@@ -227,10 +227,10 @@ function seasonRowsOf(id) {
   return safe(() => M.seasonRows()).map(r => ({...r, val: `${nf(r.y)} yds`, sub: `${plural(r.played, 'day')} · longest ${nf(r.l)}`}));
 }
 const sticker = (cls, text) => `<span class="gm-stk ${cls}">${esc(text)}</span>`;
-/** A case's front: the band, the cover (a sticker on the band while it's under way). */
+/** A case's front: the band, the cover (a sticker on it while it's under way). */
 function frontHTML(g, s) {
   const stk = s.test ? sticker('is-test', 'TEST PLAY') : s.kind === 'started' ? sticker('is-go', 'IN PROGRESS') : '';
-  return `<div class="gm-face gm-front">${bandHTML(stk)}<span class="gm-art"><img class="gm-img" src="${g.art}" alt="" decoding="async" draggable="false"></span></div>`;
+  return `<div class="gm-face gm-front">${bandHTML()}<span class="gm-art"><img class="gm-img" src="${g.art}" alt="" decoding="async" draggable="false">${stk}</span></div>`;
 }
 function rowHTML(r, {sub = false} = {}) {
   const label = `${ui.ordinal(r.rank)}, ${r.name}${r.me ? ', you' : ''}${r.guest ? ', guest' : ''}: ${r.val}${r.letter ? `, grade ${r.letter}` : ''}${sub && r.sub ? `. ${r.sub}` : ''}`;

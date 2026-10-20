@@ -153,7 +153,7 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
 }
 .v-puzzles .gm-slot.is-cur { z-index: 12; }
 .v-puzzles .gm-case {
-  position: relative; display: block; width: 100%; aspect-ratio: 100 / 152; padding: 0; border: 0; border-radius: 10px;
+  position: relative; display: block; width: 100%; aspect-ratio: 100 / 138; padding: 0; border: 0; border-radius: 10px;
   background: none; cursor: pointer; container-type: inline-size; -webkit-tap-highlight-color: transparent;
 }
 .v-puzzles .gm-case:focus-visible { outline: none; }
@@ -172,21 +172,35 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
 .v-puzzles .gm-case.is-done > .gm-gloss { opacity: .5; }
 @media (prefers-reduced-motion: reduce) { .v-puzzles .gm-flip { transition: none; } }
 
-/* ---- The case: black plastic (a thicker lip on the opening side), the band with its rule, the cover */
+/* ---- The case: glossy green plastic (the owner's covers, Oct 2026: a thin lip on the spine side, a thicker one on the
+   opening side), the band with its rule, the cover. The case is as tall as the covers need (about 7:9) under the band. */
 .gm-front, .gm-back {
   --gm-cond: "Barlow Condensed", "Arial Narrow", sans-serif;
-  display: flex; flex-direction: column; padding: 2.4cqw 3.4cqw 2.8cqw 2cqw;
-  background: linear-gradient(90deg, #070708, #1E1E22 1.6%, #121214 6%, #111113 90%, #202024 95.5%, #0A0A0B);
-  box-shadow: 0 20px 34px -16px rgba(0,0,0,.85), inset 0 0 0 1px rgba(255,255,255,.17), inset 0 1.1cqw 0 rgba(255,255,255,.04);
+  display: flex; flex-direction: column; padding: 2.6cqw 3cqw 2cqw 1.6cqw;
+  background:
+    linear-gradient(rgba(255,255,255,.2), rgba(255,255,255,0) 2.4%, rgba(255,255,255,0) 97%, rgba(0,0,0,.22)),
+    linear-gradient(90deg, #2B4C0C, #6E9A3C .6%, #A6CD6A 1.1%, #5E8E22 1.6%, #4E8614 40%, #5A9117 95%, #86B23C 96.6%, #6C9C24 98%, #24500A);
+  box-shadow: 0 20px 34px -16px rgba(0,0,0,.85), inset 0 0 0 1px rgba(16,34,0,.55), inset 0 .5cqw 0 rgba(220,255,160,.22);
 }
+.gm-band, .gm-art, .gm-bk-in { box-shadow: 0 0 0 .3cqw rgba(16,34,0,.5); } /* (where the insert meets the plastic) */
 .gm-band {
-  flex: none; display: flex; align-items: center; justify-content: space-between; gap: 2cqw; min-height: 10cqw; padding: 0 2.4cqw 0 4cqw;
-  background: linear-gradient(#19191C, #0D0D0F); border-bottom: max(1px, .45cqw) solid #D9D9D9;
+  position: relative; flex: none; display: flex; align-items: center; justify-content: center; min-height: 10cqw; padding: 0 2.4cqw;
+  background: linear-gradient(#0C0C0E, #050506 62%, #17171A); border-bottom: max(1px, .45cqw) solid #E2E2DE;
 }
-.gm-band-t { min-width: 0; white-space: nowrap; font: 700 3.9cqw/1 var(--font-text); letter-spacing: .26em; color: #F4F4F4; }
+/* the name in brushed silver, spread wide (drawn a little wider than the system font) */
+.gm-band-t {
+  display: inline-block; min-width: 0; white-space: nowrap; padding-left: .58em; transform: scaleX(1.16);
+  font: 600 3.3cqw/1.2 var(--font-text); letter-spacing: .58em; color: #DCE3EA;
+  background: linear-gradient(#FFFFFF, #DCE3EA 38%, #8794A2 54%, #C3D0DC 76%, #F2F6FA); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+}
+.gm-band > :not(.gm-band-t) { position: absolute; right: 2.4cqw; top: 50%; transform: translateY(-50%); }
 .gm-art { position: relative; flex: 1 1 auto; min-height: 0; display: block; overflow: hidden; background: #1A1A1D; }
 .gm-img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; }
-.gm-stk { flex: none; padding: 1.1cqw 2cqw; border-radius: 1cqw; background: #FFD23F; color: #141414; font: 800 2.8cqw/1 var(--font-text); letter-spacing: .1em; }
+/* a sticker on the shrink wrap, bottom right of the cover (clear of its title), while a game's under way (or a test play) */
+.gm-stk {
+  position: absolute; bottom: 3cqw; right: 2.6cqw; padding: 1.3cqw 2.2cqw; border-radius: 1cqw; background: #FFD23F; color: #141414;
+  font: 800 2.9cqw/1 var(--font-text); letter-spacing: .1em; box-shadow: 0 .8cqw 2cqw rgba(0,0,0,.45);
+}
 .gm-stk.is-test { background: #3EF08F; }
 
 /* ---- The back (and the back up close): the cover faded behind the name, the result, the leaderboard */
@@ -271,7 +285,7 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
 .gm-zoom .gm-z-case {
   position: relative; transform: none; -webkit-backface-visibility: visible; backface-visibility: visible; container-type: inline-size;
   width: min(100%, 420px); height: min(100%, 700px); border-radius: 18px; outline: none; padding: 2cqw 3cqw 2.4cqw 2cqw;
-  box-shadow: 0 30px 60px -20px rgba(0,0,0,.9), inset 0 0 0 1px rgba(255,255,255,.17), inset 0 1cqw 0 rgba(255,255,255,.04);
+  box-shadow: 0 30px 60px -20px rgba(0,0,0,.9), inset 0 0 0 1px rgba(16,34,0,.55), inset 0 .6cqw 0 rgba(220,255,160,.22);
 }
 .gm-zoom .gm-band { min-height: 13cqw; border-radius: 12px 12px 0 0; }
 .gm-zoom .gm-band-t { font-size: 3.4cqw; }
