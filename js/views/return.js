@@ -5,7 +5,9 @@
 // lanes. A swipe on the stage (or the arrow keys) jukes a lane over, jumps (over a man diving at his legs, up onto a low one),
 // or spins out of a wrap-up (and in the air, drops him). Ramps take him up onto the roofs. The power-ups he runs
 // through: smelling salts (back up after the next hit), painkillers (nothing stops him for a bit) and booze (double
-// yards for a bit, and the camera sways). The first hit he can't take ends the return: a card says what got him and
+// yards for a bit, and the camera sways). The kicker chases him down from behind (core CHASE): a hit (a man he didn't
+// beat, a vehicle he ran into) staggers him, slows him and puts the kicker on his back, the screen's edges red; run on
+// clean and the kicker drops out of sight below. A second hit while he's still there and he's run down: a card says
 // where. One kickoff a day (the owner's ask, Oct 2026); after it the stage holds the day's card and the scoreboard
 // shows under it. Every 100 yards is a touchdown.
 // The scene is drawn on a canvas (views/return-world.js: the places, the vehicles, the power-ups); the players are the
@@ -65,8 +67,9 @@ function keysHTML() {
     + k('is-up', '↑', 'Jump: over a dive, onto a low one')
     + k('is-dn', '↓', 'Spin out of a wrap-up')
     + k('is-ramp', '◢', 'Run up a ramp onto the roofs')
+    + k('is-chase', '!', 'Hit something and the kicker’s on you. Again before you lose him: caught')
     + `</ul><ul class="rm-pks" aria-label="Power-ups">`
-    + pw('salts', 'Smelling salts', 'Get back up')
+    + pw('salts', 'Smelling salts', 'Shake the kicker')
     + pw('pills', 'Painkillers', 'Feel nothing')
     + pw('booze', 'Booze', 'Double yards')
     + `</ul>`;
@@ -263,7 +266,9 @@ function runnerGive(st, now) {
   const run = st.run, t = now / 1000, land = st.landAt ? (now - st.landAt) / 1000 : null;
   if (!run || run.over || st.mode !== 'run') return {t, land};
   const g = R.groundAt(run.co, R.laneOf(run), run.z, run.y), air = run.y > g + .12 || run.vy > 0;
-  return {ph: air || run.spin > 0 ? null : run.z / 1.5 * Math.PI, lean: (R.xOf(run, run.lane) - run.x) / 1.2,
+  // (a stumble: he staggers, side to side, as he gets going again)
+  const wob = run.slow > 0 ? Math.sin(run.slow * 22) * .7 * run.slow / R.CHASE.slow : 0;
+  return {ph: air || run.spin > 0 ? null : run.z / 1.5 * Math.PI, lean: (R.xOf(run, run.lane) - run.x) / 1.2 + wob,
     vy: air ? run.vy / 8 : null, t, land};
 }
 /** How far ahead a coverage man is drawn now: he waits at his spot till you're CHARGE yards off, then runs at you. */
@@ -306,6 +311,21 @@ function drawLanes(st, c, now) {
     for (let g = Math.ceil((rz - st.back) / R.ZONE) * R.ZONE; g < rz + 140; g += R.ZONE) if (g > 0) list.push({z: g, draw: () => W.gate(st, c, g, R.zoneAt(run.co, g).theme, t)});
   } else {
     list.push({z: R.ZONE, draw: () => W.gate(st, c, R.ZONE, R.zoneAt(st.co, R.ZONE).theme, t)});
+  }
+  // the kicker, chasing: just behind him (a step to the side, so he doesn't hide him) after a hit, then dropping away
+  // below the screen as he runs on clean; diving at his back when he runs him down
+  if (run) {
+    const gap = R.gapOf(run), cz = rz - gap;
+    if (cz > st.camZ + W.NEAR + .4) {
+      const want = rx + (rx > .5 ? -1 : 1) * (run.over ? .35 : .95);
+      st.chX = st.chX == null ? want : st.chX + (want - st.chX) * Math.min(1, (st.dt || .016) * 8);
+      const caught = run.over && run.why === 'caught';
+      const f = caught ? 'def.dive' : `def.r_b${Math.floor(cz / 1.4) & 1}`, cx = st.chX;
+      list.push({z: cz, x0: cx - .5, x1: cx + .5, draw: () => {
+        shadow(st, c, cx, 0, cz);
+        sprite(st, c, f, cx > rx, THEM, cx, caught ? .45 : 0, cz, 1, caught ? null : {ph: cz / 1.4 * Math.PI, t, seed: 7});
+      }});
+    }
   }
   const pose = runnerPose(st), g = run ? R.groundAt(run.co, R.laneOf(run), rz, ry) : 0, give = runnerGive(st, now);
   list.push({z: rz, me: true, draw: () => {
@@ -373,7 +393,8 @@ function draw(st, now = performance.now()) {
   st.co = run ? run.co : R.course(st.n, st.day.next < R.RETURNS ? st.day.next : 0);
   // the camera: behind him, following him across part of the way; up when he's up top; a jolt off a vehicle's side
   const bump = run && run.t - run.bump < .22 ? Math.sin((run.t - run.bump) * 60) * .25 * (1 - (run.t - run.bump) / .22) : 0;
-  const tx = (run ? run.x : 0) * .6 + bump;
+  const sh = st.hitAt ? (now - st.hitAt) / 320 : 1, shake = sh < 1 ? Math.sin(sh * 26) * .3 * (1 - sh) : 0; // a stumble's jolt
+  const tx = (run ? run.x : 0) * .6 + bump + shake;
   st.camX = st.camX == null ? tx : st.camX + (tx - st.camX) * Math.min(1, dt * 9);
   const lift = run && !run.over ? R.groundAt(run.co, R.laneOf(run), run.z, run.y) * .8 : st.lift || 0;
   st.lift = (st.lift || 0) + (lift - (st.lift || 0)) * Math.min(1, dt * 3.5);
@@ -404,6 +425,11 @@ function draw(st, now = performance.now()) {
   const edge = (col, a) => { const g = c.createRadialGradient(st.W / 2, st.H * .55, st.H * .28, st.W / 2, st.H * .55, st.H * .8); g.addColorStop(0, `rgba(${col},0)`); g.addColorStop(1, `rgba(${col},${a.toFixed(2)})`); c.fillStyle = g; c.fillRect(0, 0, st.W, st.H); };
   if (drunk > 0) edge('214,150,40', .35 * drunk);
   if (run && !run.over && run.pills > 0) edge('255,110,40', .42 * Math.min(1, run.pills / .8) * (.75 + .25 * Math.sin(t * 9)));
+  // the kicker on your back (after a hit, till you've lost him): red at the edges, beating faster the closer he is
+  if (run && run.hits && !run.over) {
+    const close = 1 - (R.gapOf(run) - R.CHASE.near) / (R.CHASE.far - R.CHASE.near);
+    if (close > 0) edge('214,24,40', .5 * close * (.7 + .3 * Math.sin(t * (6 + 6 * close))));
+  }
   const flash = st.flashAt ? 1 - (now - st.flashAt) / 450 : 0;
   if (flash > 0) { c.fillStyle = `rgba(235,250,255,${(.75 * flash).toFixed(2)})`; c.fillRect(0, 0, st.W, st.H); }
 }
@@ -461,7 +487,7 @@ function pop(st, text, cls = '', sub = '') {
 function go(st) {
   if (st.day.done || st.mode === 'run' || st.mode === 'catch') return;
   st.run = R.startRun(st.n, st.day.next);
-  st.beaten = new Map(); st.knocked = new Map(); st.got = new Set(); st.flashAt = 0;
+  st.beaten = new Map(); st.knocked = new Map(); st.got = new Set(); st.flashAt = 0; st.hitAt = 0; st.chX = null;
   st.co = st.run.co;
   W.warm(st, 0);
   st.mode = 'catch'; st.catchAt = performance.now();
@@ -497,8 +523,14 @@ function onEvents(st, evs) {
     else if (e.type === 'landed') st.landAt = now;
     else if (e.type === 'trucked') { st.knocked.set(`${e.row.i}:${e.lane}`, {at: now, z: e.z + .6}); pop(st, 'TRUCKED!', 'is-pills'); ui.haptic('medium'); }
     else if (e.type === 'vaulted') { pop(st, 'OVER THE TOP!', 'is-pills'); ui.haptic('medium'); }
+    else if (e.type === 'stumbled') {
+      st.hitAt = now; pop(st, 'STUMBLE!', 'is-hit', 'The kicker’s on you'); ui.haptic('warning');
+      ui.announce(`${R.hitLine(e)}. The kicker’s on you: another hit and he’ll catch you.`);
+      if (e.row) st.knocked.set(`${e.row.i}:${e.lane}`, {at: now, z: e.z + .6});
+    }
+    else if (e.type === 'shoved') { if (e.row) st.knocked.set(`${e.row.i}:${e.lane}`, {at: now, z: e.z + .6}); }
     else if (e.type === 'revived') {
-      st.flashAt = now; pop(st, 'BACK UP!', 'is-salts'); ui.haptic('warning');
+      st.flashAt = now; pop(st, 'SHOOK HIM!', 'is-salts', 'The smelling salts'); ui.haptic('warning');
       if (e.row) st.knocked.set(`${e.row.i}:${e.lane}`, {at: now, z: e.z + .6});
     }
     else if (e.type === 'tackled') tackled(st);

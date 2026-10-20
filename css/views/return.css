@@ -78,6 +78,7 @@
 .rm-pane .rm-pop.is-salts { color: #BFEFFF; text-shadow: 0 2px 0 rgba(0,0,0,.5), 0 0 22px rgba(150,225,255,.8); }
 .rm-pane .rm-pop.is-pills { color: #FFC07A; text-shadow: 0 2px 0 rgba(0,0,0,.5), 0 0 22px rgba(255,140,40,.8); }
 .rm-pane .rm-pop.is-booze { color: var(--rm-gold); text-shadow: 0 2px 0 rgba(0,0,0,.5), 0 0 22px rgba(255,200,80,.8); }
+.rm-pane .rm-pop.is-hit { color: #FF5A5F; text-shadow: 0 2px 0 rgba(0,0,0,.55), 0 0 22px rgba(230,30,40,.8); }
 @keyframes rm-pop {
   0% { opacity: 0; transform: translateY(14px) scale(.7); }
   18% { opacity: 1; transform: translateY(0) scale(1.08); }
@@ -122,6 +123,7 @@
 .rm-pane .rm-kk.is-dn { background: var(--rm-gold); }
 .rm-pane .rm-kk.is-lr { background: #EAF1FF; }
 .rm-pane .rm-kk.is-ramp { background: #F2C230; color: #2A1E00; }
+.rm-pane .rm-kk.is-chase { background: #E5323F; color: #fff; }
 .rm-pane .rm-card-in.is-first .rm-keys { margin-top: 10px !important; gap: 6px; }
 .rm-pane .rm-card-in.is-first .rm-key { font-size: 13px; line-height: 16px; }
 .rm-pane .rm-card-in.is-first .rm-kk { min-width: 40px; height: 24px; font-size: 14px; }

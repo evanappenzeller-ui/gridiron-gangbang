@@ -6,9 +6,12 @@
 // spin). A wedge of two blockers can only be juked around (or run over from up high). In the way too: each place's
 // vehicles, parked in the lanes (a team bus, an RV, a train car...). The tall ones you go round, or run up a ramp onto
 // the roof and along the top; the low ones you jump onto and run across. Jump down off the end, or juke off the side.
-// On the way, three power-ups: smelling salts (an extra life: the next hit, you get back up), prescription painkillers
-// (a few seconds when nothing can stop you) and booze (a few seconds of double yards). You speed up as you go, and
-// every 100 yards is a touchdown. One kickoff a day (the owner's ask, Oct 2026: one attempt a day; it was three), the
+// The kicker chases you down from behind (CHASE, the owner's ask, Oct 2026, after Subway Surfers' inspector): a hit (a
+// man you didn't beat, a vehicle you ran into, the side of one you juked into) slows you and puts him right on your
+// back; run on clean and he drops away. A second hit while he's still on you and he runs you down: that's the return.
+// On the way, three power-ups: smelling salts (an extra life: the next time he'd catch you, you shake him off),
+// prescription painkillers (a few seconds when nothing can stop you) and booze (a few seconds of double yards). You
+// speed up as you go, and every 100 yards is a touchdown. One kickoff a day (the owner's ask, Oct 2026: one attempt a day; it was three), the
 // same course on every phone; the day's score is its yards. No DOM. Owner: RETURN.
 //
 //   todayNumber(), dateOf(n), dayLabel(n)       day 1 on START, a new day at local midnight
@@ -26,6 +29,7 @@
 //                                               step moves it on dt seconds and says what happened (events)
 //   laneOf(run), xOf(run, lane), ahead(run, dist), endOf(run)   where you are; what's in front of you (for drawing);
 //                                               what ended it
+//   CHASE, gapOf(run), hitLine(what)            the kicker behind you: how far back he is now; a hit's words
 //   dayState(n, real), record(n, k, yards, dist), score(list), totals()   localStorage 'gg-ret1'
 //   keepLive(n, k, yards, dist), settle(n), live(n)   a return under way: kept as it goes, counted if it's left behind
 //   setTest(on, n), testing()                   test play (the owner's sandbox; his way to play it again)
@@ -154,6 +158,11 @@ export const POWER = {
   booze: {name: 'Booze', says: 'Double yards', s: 8}
 };
 export const SALTS_MAX = 2, SHIELD = 1.2;
+// The kicker, chasing (yards behind you, seconds): right after a hit he's near (and you're slowed by slowBy for slow
+// s, easing back to speed); run clean and he falls back, out of sight (far: behind the camera) once window s have gone
+// by. A hit inside window s of the last is the catch. For grace s after a hit nothing else counts (it's the same
+// collision), and a tall vehicle's front knocks you into the open lane beside it (or, with none open, up onto it).
+export const CHASE = {near: 2.2, far: 9, window: 4, slow: 1, slowBy: .45, grace: .35};
 
 function hashStr(str) {
   let h = 0x811c9dc5 | 0;
@@ -294,7 +303,8 @@ export const platAt = (co, lane, z) => blockAt(co, lane, z, 0);
 export function startRun(n, k) {
   return {n, k, co: course(n, k), t: 0, z: 0, yards: 0, lane: 1, x: 0, jFrom: 0, jt: 1, y: 0, vy: 0, jumpQ: -9,
     spin: 0, lastJuke: -9, bump: -9, next: 0, nextItem: 0, zone: 0, tds: 0,
-    salts: 0, pills: 0, booze: 0, shield: 0, over: false, why: null, by: null};
+    salts: 0, pills: 0, booze: 0, shield: 0, over: false, why: null, by: null,
+    hits: 0, hitAt: 0, slow: 0, grace: 0, knock: 0, sideHit: null}; // (the kicker starts on you, at the catch)
 }
 export const xOf = (run, lane) => (lane - 1) * LANE;
 /** The lane you're in now (the nearest to you, mid-juke). */
@@ -307,7 +317,8 @@ export function move(run, dir) {
   if (dir === 'left' || dir === 'right') {
     const to = run.lane + (dir === 'left' ? -1 : 1);
     if (to < 0 || to >= LANES) return false;
-    if (blockAt(run.co, to, run.z, run.y)) { run.bump = run.t; return false; }
+    const side = blockAt(run.co, to, run.z, run.y);
+    if (side) { run.bump = run.t; run.sideHit = {plat: side, lane: to, side: true}; return false; } // (a hit: step counts it)
     run.jFrom = run.x; run.lane = to; run.jt = 0; run.lastJuke = run.t;
     return true;
   }
@@ -322,31 +333,62 @@ export function move(run, dir) {
   }
   return false;
 }
-// What gets you (a man, a vehicle's front): with painkillers (or just back up) you go through it (or up onto it);
-// with salts you go down and get back up; else that's the return.
+/** How far behind you the kicker is now, in yards (CHASE): near just after a hit (and at the catch), then falling back to
+ *  far once CHASE.window seconds have gone by; on top of you once he's run you down. */
+export function gapOf(run) {
+  if (!run) return CHASE.far;
+  if (run.over && run.why === 'caught') return .6;
+  const k = clamp((run.t - run.hitAt - CHASE.slow) / (CHASE.window - CHASE.slow), 0, 1);
+  return CHASE.near + (CHASE.far - CHASE.near) * k;
+}
+// What you run into (a man, a vehicle's front, its side): with painkillers (or just back up after the salts) you go
+// through it (or up onto it); just after a hit, it's the same collision ('shoved'); else a hit: you stumble, slowed, the
+// kicker on your back, unless he's still close from the last one: then he runs you down (the salts shake him off once).
+// -> 'pass' | 'stumble' | false (the return's over).
 function hit(run, out, what) {
-  const kind = what.man ? 'trucked' : 'vaulted';
-  if (run.pills > 0 || run.shield > 0) { out.push(Object.assign({type: kind, z: run.z}, what)); return true; }
-  if (run.salts > 0) {
-    run.salts--; run.shield = SHIELD;
-    out.push(Object.assign({type: 'revived', z: run.z, salts: run.salts}, what));
-    return true;
+  if (run.pills > 0 || run.shield > 0) { if (!what.side) out.push(Object.assign({type: what.man ? 'trucked' : 'vaulted', z: run.z}, what)); return 'pass'; }
+  if (run.grace > 0) { out.push(Object.assign({type: 'shoved', z: run.z}, what)); return 'pass'; }
+  if (run.hits > 0 && run.t - run.hitAt < CHASE.window) {
+    if (run.salts > 0) {
+      run.salts--; run.shield = SHIELD; run.hitAt = run.t; run.slow = CHASE.slow;
+      out.push(Object.assign({type: 'revived', z: run.z, salts: run.salts}, what));
+      return 'pass';
+    }
+    run.over = true; run.why = 'caught'; run.by = what;
+    out.push(Object.assign({type: 'tackled', z: run.z, caught: true}, what));
+    return false;
   }
-  run.over = true; run.why = what.man || 'crash'; run.by = what;
-  out.push(Object.assign({type: 'tackled', z: run.z}, what));
-  return false;
+  run.hits++; run.hitAt = run.t; run.slow = CHASE.slow; run.grace = CHASE.grace;
+  out.push(Object.assign({type: 'stumbled', z: run.z, n: run.hits}, what));
+  return 'stumble';
+}
+/** A hit's words: "Wrapped up", "Ran into the city bus", "Bounced off the city bus". */
+export function hitLine(what) {
+  if (!what) return '';
+  if (what.man) return MEN[what.man].says;
+  const p = what.plat, name = p && KINDS[p.kind] ? KINDS[p.kind].name : 'wall';
+  return `${what.side ? 'Bounced off' : 'Ran into'} the ${name}`;
 }
 function sub(run, dt, out) {
-  const co = run.co, v = speedAt(run.z);
+  const co = run.co, v = speedAt(run.z) * (1 - CHASE.slowBy * run.slow / CHASE.slow);
   run.t += dt; run.z += v * dt; run.yards += v * dt * (run.booze > 0 ? 2 : 1);
   if (run.jt < 1) { run.jt = Math.min(1, run.jt + dt / MOVE.juke); const e = 1 - (1 - run.jt) * (1 - run.jt); run.x = run.jFrom + (xOf(run, run.lane) - run.jFrom) * e; }
   else run.x = xOf(run, run.lane);
-  const lane = laneOf(run), blk = blockAt(co, lane, run.z, run.y);
+  // a juke into a vehicle's side (refused by move) is a hit
+  if (run.sideHit) { const w = run.sideHit; run.sideHit = null; if (!hit(run, out, w)) return; }
+  // (knocked off a vehicle's front, you're in the lane you're headed for)
+  const lane = run.knock > 0 ? run.lane : laneOf(run), blk = blockAt(co, lane, run.z, run.y);
   // something in your way: a pad you've jumped up into from under stops you; a front (or a side, mid-juke) is a hit
   if (blk && blk.b > run.y + .8 && run.vy > 0) { run.vy = 0; run.y = Math.max(0, blk.b - BODY - 1e-3); }
   else if (blk) {
-    if (!hit(run, out, {plat: blk, lane})) return;
-    run.y = heightOf(blk, run.z); run.vy = Math.max(run.vy, 3);
+    const h = hit(run, out, {plat: blk, lane});
+    if (!h) return;
+    // through it (painkillers) or a low one: up onto it; a tall one's front knocks you into the open lane beside it
+    const to = h === 'stumble' && heightOf(blk, run.z) - run.y > 1.6
+      ? [lane - 1, lane + 1].filter(l => l >= 0 && l < LANES && !blockAt(co, l, run.z, run.y) && !blockAt(co, l, run.z + 2, run.y)).sort((a, b) => Math.abs(a - 1) - Math.abs(b - 1))[0]
+      : undefined;
+    if (to != null) { run.jFrom = run.x; run.lane = to; run.jt = 0; run.knock = MOVE.juke; }
+    else { run.y = heightOf(blk, run.z); run.vy = Math.max(run.vy, 3); }
   }
   const g = groundAt(co, lane, run.z, run.y);
   let landed = false;
@@ -386,11 +428,16 @@ function sub(run, dt, out) {
   run.pills = Math.max(0, run.pills - dt);
   run.booze = Math.max(0, run.booze - dt);
   run.shield = Math.max(0, run.shield - dt);
+  run.slow = Math.max(0, run.slow - dt);
+  run.grace = Math.max(0, run.grace - dt);
+  run.knock = Math.max(0, run.knock - dt);
 }
 /** Moves a return on dt seconds. Returns what happened: [{type: 'td' | 'zone' | 'juked' | 'hurdled' | 'spun' | 'over' |
- *  'passed' | 'landed' | 'pickup' | 'trucked' | 'vaulted' | 'revived' | 'tackled', z, ...}] ('juked': you left a man's
- *  lane in the last moment before he got there; 'over': he was below you; 'trucked', 'vaulted': through a man or up
- *  onto a vehicle you'd have hit, on painkillers; 'revived': the salts got you up). */
+ *  'passed' | 'landed' | 'pickup' | 'trucked' | 'vaulted' | 'stumbled' | 'shoved' | 'revived' | 'tackled', z, ...}]
+ *  ('juked': you left a man's lane in the last moment before he got there; 'over': he was below you; 'trucked',
+ *  'vaulted': through a man or up onto a vehicle you'd have hit, on painkillers; 'stumbled': a hit, the kicker on you
+ *  (n: hits so far); 'shoved': the same collision a moment on; 'revived': the salts shook him off; 'tackled' (caught):
+ *  he ran you down). */
 export function step(run, dt) {
   if (run.over || !(dt > 0)) return [];
   const out = [];
@@ -405,6 +452,7 @@ export function step(run, dt) {
 /** What ended a return: the line for it ("Wrapped up", "Ran into the city bus"). */
 export function endOf(run) {
   if (!run || !run.why) return '';
+  if (run.why === 'caught') return 'Run down from behind by the kicker';
   if (run.why !== 'crash') return MEN[run.why].says;
   const p = run.by && run.by.plat;
   return `Ran into the ${p && KINDS[p.kind] ? KINDS[p.kind].name : 'wall'}`;
