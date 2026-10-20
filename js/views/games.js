@@ -305,6 +305,12 @@ function cdHTML(g) {
   return `<p class="gm-cd">${ui.icon('clock', {size: 15})}<span>${esc(g.cd)} <span class="gm-cd-v" data-gm-cd>${esc(ui.untilText(msToMidnight()))}</span></span></p>`;
 }
 function newDay() { try { return ready() && daily.checkDay(); } catch (_) { return false; } }
+// A finished game's buttons; with three to a row, the ones after the first that have an icon show just the icon
+// (Share), named for screen readers.
+function actHTML(a, i, all) {
+  const ic = all.length > 2 && i > 0 && a.icon;
+  return ui.button({label: a.label, kind: a.kind, icon: a.icon, attrs: ic ? {...a.attrs, 'aria-label': a.label} : a.attrs, cls: ic ? 'gm-act is-ic' : 'gm-act'});
+}
 function selHTML(g, s) {
   const done = s.kind === 'done';
   const over = s.test ? 'Test play' : done ? 'Played today' : s.kind === 'started' ? 'Under way' : s.kind === 'loading' ? 'Loading' : 'New today';
@@ -312,7 +318,7 @@ function selHTML(g, s) {
   const acts = done ? [{label: 'Leaderboard', kind: 'primary', icon: 'trophy', attrs: {'data-gm-zoom': g.id}}, ...s.actions.map(a => ({...a, kind: 'secondary'}))] : null;
   return `<p class="gm-sel-o">${esc(over)}</p><h2 class="gm-sel-t" id="gm-t-${g.id}">${esc(g.name)}</h2><p class="gm-sel-s">${esc(line || '')}</p>`
     + (!done && s.meta ? `<div class="gm-meta">${s.meta}</div>` : '')
-    + `<div class="gm-ctas">${acts ? acts.map(a => ui.button({label: a.label, kind: a.kind, icon: a.icon, attrs: a.attrs, cls: 'gm-act'})).join('') : ctaHTML(g, s)}</div>`
+    + `<div class="gm-ctas${acts && acts.length > 2 ? ' is-3' : ''}">${acts ? acts.map(actHTML).join('') : ctaHTML(g, s)}</div>`
     + (done ? cdHTML(g) : '');
 }
 function stateOf(g) {

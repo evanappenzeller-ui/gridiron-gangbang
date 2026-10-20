@@ -183,7 +183,8 @@ html.rm .v-puzzles .c-prog-f, html.rm .v-puzzles .c-prog-f::after, html.rm .v-pu
 .gm-bk-vis .gm-tile { width: 23cqw; height: 23cqw; border-radius: 3.4cqw; background: rgba(0,0,0,.5); }
 .gm-bk-vis .gm-tile > b { font: 800 10cqw/1 var(--gm-cond); }
 .gm-bk-vis .gm-tile > small { font-size: 2.8cqw; line-height: 1.2; }
-.gm-bk-vis svg { width: 23cqw; height: 23cqw; }
+/* (the ring is sized as a whole, so its score stays in the middle of it) */
+.gm-bk-vis > svg, .gm-bk-vis .ring { width: 23cqw; height: 23cqw; }
 .gm-bk-vis .gm-ringn { font: 800 7.6cqw/1 var(--gm-cond); }
 .gm-bk-tt { display: flex; flex-direction: column; gap: .8cqw; min-width: 0; }
 .gm-bk-tt b { font: 800 7.6cqw/1 var(--gm-cond); text-transform: uppercase; color: #fff; }
@@ -246,7 +247,7 @@ html.rm .v-puzzles .c-prog-f, html.rm .v-puzzles .c-prog-f::after, html.rm .v-pu
 .gm-zoom .gm-bk-in { gap: 3cqw; padding: 4.4cqw 4cqw 3.6cqw; border-radius: 0 0 10px 10px; }
 .gm-zoom .gm-bk-art { height: 50%; background-position: 50% 88%; }
 .gm-zoom .gm-bk-name { font-size: 10cqw; }
-.gm-zoom .gm-bk-vis, .gm-zoom .gm-bk-vis .gm-tile, .gm-zoom .gm-bk-vis svg { width: 19cqw; height: 19cqw; }
+.gm-zoom .gm-bk-vis, .gm-zoom .gm-bk-vis .gm-tile, .gm-zoom .gm-bk-vis > svg, .gm-zoom .gm-bk-vis .ring { width: 19cqw; height: 19cqw; }
 .gm-zoom .gm-bk-vis .gm-tile > b { font-size: 8cqw; }
 .gm-zoom .gm-bk-tt b { font-size: 6.4cqw; }
 .gm-zoom .gm-bk-tt small { font-size: 3.4cqw; }
@@ -285,6 +286,16 @@ html.rm .v-puzzles .c-prog-f, html.rm .v-puzzles .c-prog-f::after, html.rm .v-pu
 .v-puzzles .gm-cta > .gm-cta-ic { width: 20px; height: 20px; stroke-width: 1; margin-left: -4px; }
 .v-puzzles .gm-act { flex: 1 1 0; min-width: 0; padding: 0 12px; }
 .v-puzzles .gm-act > .ic { width: 20px; height: 20px; margin-top: -2px; }
+/* Three to a row (Daily Puzzles: Leaderboard, See results, Share): Share is just its icon, the others as wide as
+   their words need, sharing what's left. */
+.v-puzzles .gm-ctas.is-3 .gm-act { flex: 1 1 auto; width: auto; padding: 0 10px; }
+.v-puzzles .gm-ctas.is-3 .gm-act.is-ic { flex: none; width: 52px; padding: 0; }
+.v-puzzles .gm-act.is-ic > .btn-label { display: none; }
+.v-puzzles .gm-act.is-ic > .ic { margin: -2px 0 0; }
+@media (max-width: 370px) {
+  .v-puzzles .gm-ctas.is-3 { gap: 8px; }
+  .v-puzzles .gm-ctas.is-3 .gm-act:not(.is-ic) { padding: 0 8px; gap: 6px; font-size: 16px; }
+}
 .v-puzzles .gm-cd { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 14px; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
 .v-puzzles .gm-cd .ic { stroke-width: 2; flex: none; }
 .v-puzzles .gm-cd-v { color: var(--ink-2); font-weight: 600; font-variant-numeric: tabular-nums; }
