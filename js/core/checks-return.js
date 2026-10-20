@@ -50,6 +50,7 @@ function field({rows = [], sets = [], items = []}, lane = 1) {
   const run = R.startRun(1, 0);
   run.co = {n: 0, k: 0, order: [0, 1, 2, 3, 4], rows, sets, items, r: () => 0, z: 1e9, itemAt: 1e9, done: 1e9};
   run.lane = lane; run.x = R.xOf(run, lane);
+  run.t = R.CHASE.window + 1; // (the linebacker already lost: a hit there is a stumble, not a tackle)
   return run;
 }
 /** Runs at a row (lanes as given, 30 yards out) with one move made t seconds before it: what happens there. */
@@ -263,7 +264,7 @@ export async function returnChecks(check) {
     const pass = s1 && two.salts === R.SALTS_MAX && p1 && late.ev.includes('stumbled') && b1 && !miss.ev.includes('pickup');
     return {pass, detail: `salts: shook him off ${s1}, carries ${two.salts}; painkillers: through a barricade and onto a bus ${p1}, worn off (a hit again) ${late.ev.includes('stumbled')}; booze: ${Math.round(booze.yards)} yards for ${Math.round(booze.z)} run; another lane's left ${!miss.ev.includes('pickup')}`};
   });
-  check('Return Man: the linebacker chases him down: a hit (a barricade, a banner, a vehicle) slows him and puts the linebacker right behind him; run on clean and he falls back out of sight; a second hit while he\'s still close (inside CHASE.window seconds) and he\'s run down; one after he\'s gone is just another stumble', () => {
+  check('Return Man: the linebacker chases him down: on him at the catch; a hit (a barricade, a banner, a vehicle) slows him and puts the linebacker right behind him; run on clean and he falls back out of sight; a hit while he\'s on him (inside CHASE.window seconds of the catch or the last hit) is a tackle; one after he\'s gone is just another stumble', () => {
     const wedge = z => ({i: z, z, lanes: [null, 'hurdle', null]});
     const C = R.CHASE;
     // one hit: slowed, the linebacker near, then back to speed and the linebacker gone
@@ -274,18 +275,23 @@ export async function returnChecks(check) {
       if (evs.some(e => e.type === 'stumbled')) { gNear = R.gapOf(one); v0 = R.speedAt(z); }
       else if (gNear != null && vSlow == null) vSlow = (one.z - z) * 120;
     }
-    const slowed = vSlow < v0 * (1 - C.slowBy * .9) && gNear === C.near && !one.over && Math.abs(R.gapOf(one) - C.far) < 1e-9;
+    const slowed = vSlow < v0 * (1 - C.slowBy * .9) && gNear === C.near && !one.over && Math.abs(R.gapOf(one) - C.far) < 1e-9 && !R.chasing(one);
     // two hits close together: caught; two far apart: two stumbles
     const at = s => 30 + R.speedAt(30) * s * .9;
     const quick = play({rows: [wedge(30), wedge(at(2))]}, 8), slow = play({rows: [wedge(30), wedge(at(C.window + 2))]}, 12);
-    const caught = quick.run.over && quick.run.why === 'caught' && R.endOf(quick.run) === 'Run down from behind by the linebacker' && quick.ev.join().includes('stumbled');
+    const caught = quick.run.over && quick.run.why === 'caught' && R.endOf(quick.run) === 'Tackled from behind by the linebacker' && quick.ev.join().includes('stumbled');
+    // at the catch he's on him: a hit in the first CHASE.window seconds is a tackle, no stumble first
+    const start = field({rows: [wedge(20)]});
+    start.t = 0;
+    for (let i = 0; i < 120 * 4 && !start.over; i++) R.step(start, 1 / 120);
+    const atCatch = R.chasing(R.startRun(1, 0)) && start.over && start.why === 'caught' && start.hits === 0;
     const twice = !slow.run.over && slow.ev.filter(e => e === 'stumbled').length === 2;
     // a juke into a bus's side counts, then a banner right after: caught
     const side = field({sets: [set(plat(1, 10, 60, true))], rows: [{i: 0, z: 36, lanes: ['bar', null, null]}]}, 0);
     side.z = 20; R.move(side, 'right');
     for (let i = 0; i < 120 * 4 && !side.over; i++) R.step(side, 1 / 120);
     const sideHit = side.over && side.why === 'caught';
-    return {pass: slowed && caught && twice && sideHit, detail: `a hit: ${Math.round(vSlow * 10) / 10} yds/s from ${Math.round(v0 * 10) / 10}, the linebacker ${gNear} yds back, gone after ${C.window} s ${slowed}; two in ${2} s: ${quick.run.why || 'not caught'}; two ${C.window + 2} s apart: ${twice ? 'two stumbles' : 'WRONG'}; a bus's side then a banner: ${sideHit ? 'caught' : 'WRONG'}`};
+    return {pass: slowed && caught && twice && sideHit && atCatch, detail: `on him at the catch: a hit ${atCatch ? 'a tackle' : 'WRONG'}; a hit: ${Math.round(vSlow * 10) / 10} yds/s from ${Math.round(v0 * 10) / 10}, the linebacker ${gNear} yds back, gone after ${C.window} s ${slowed}; two in ${2} s: ${quick.run.why || 'not caught'}; two ${C.window + 2} s apart: ${twice ? 'two stumbles' : 'WRONG'}; a bus's side then a banner: ${sideHit ? 'caught' : 'WRONG'}`};
   });
   check('Return Man: speed and touchdowns: from a jog (9.5 yards a second) to a sprint (19) by about a thousand yards; a touchdown every 100 yards run', () => {
     const v = [0, 100, 400, 1000, 5000].map(z => R.speedAt(z));

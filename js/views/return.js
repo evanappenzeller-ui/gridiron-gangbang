@@ -8,9 +8,9 @@
 // (nothing stops him for a bit) and booze (double yards for a bit, and the camera sways). A linebacker chases him down
 // from behind (core CHASE): a hit (a barricade or banner he didn't clear, a vehicle he ran into) staggers him, slows
 // him and puts the linebacker on his back, the screen's edges red; run on clean and the linebacker drops out of sight
-// below. A second hit while he's still there and he's run down: a card says
-// where. One kickoff a day (the owner's ask, Oct 2026); after it the stage holds the day's card and the scoreboard
-// shows under it. Every 100 yards is a touchdown.
+// below. A hit while he's there (at the catch he starts there too) and he tackles him: a card says where, with Run it
+// again (as many runs as you like, the best of the day counts: the owner's ask, Oct 2026), the scoreboard under it.
+// Every 100 yards is a touchdown.
 // The scene is drawn on a canvas (views/return-world.js: the places, the vehicles, the power-ups); the players are the
 // Two-Minute Drill's pictures (views/drill-sprites.js), ours in navy, theirs in red, with drawn ones till those load.
 // Exports: render(ctx), mount(el, ctx), params(el, ctx), unmount(el, ctx). Owner: RETURN.
@@ -67,7 +67,7 @@ function keysHTML() {
     + k('is-up', '↑', 'Jump a barricade, or onto a low one')
     + k('is-dn', '↓', 'Slide under a banner')
     + k('is-ramp', '◢', 'Run up a ramp onto the roofs')
-    + k('is-chase', '!', 'Hit something and the linebacker’s on you. Again before you lose him: caught')
+    + k('is-chase', '!', 'The linebacker’s on your heels at the catch and after any hit. Hit something while he’s there: tackled')
     + `</ul><ul class="rm-pks" aria-label="Power-ups">`
     + pw('salts', 'Smelling salts', 'Shake the linebacker')
     + pw('pills', 'Painkillers', 'Feel nothing')
@@ -395,10 +395,11 @@ function draw(st, now = performance.now()) {
   const edge = (col, a) => { const g = c.createRadialGradient(st.W / 2, st.H * .55, st.H * .28, st.W / 2, st.H * .55, st.H * .8); g.addColorStop(0, `rgba(${col},0)`); g.addColorStop(1, `rgba(${col},${a.toFixed(2)})`); c.fillStyle = g; c.fillRect(0, 0, st.W, st.H); };
   if (drunk > 0) edge('214,150,40', .35 * drunk);
   if (run && !run.over && run.pills > 0) edge('255,110,40', .42 * Math.min(1, run.pills / .8) * (.75 + .25 * Math.sin(t * 9)));
-  // the linebacker on your back (after a hit, till you've lost him): red at the edges, beating faster the closer he is
-  if (run && run.hits && !run.over) {
-    const close = 1 - (R.gapOf(run) - R.CHASE.near) / (R.CHASE.far - R.CHASE.near);
-    if (close > 0) edge('214,24,40', .5 * close * (.7 + .3 * Math.sin(t * (6 + 6 * close))));
+  // the linebacker on your back (at the catch and after a hit, till you've lost him: a hit now is a tackle): red at the
+  // edges, beating faster the closer he is
+  if (R.chasing(run)) {
+    const close = .35 + .65 * (1 - (R.gapOf(run) - R.CHASE.near) / (R.CHASE.edge - R.CHASE.near));
+    edge('214,24,40', .5 * close * (.7 + .3 * Math.sin(t * (6 + 6 * close))));
   }
   const flash = st.flashAt ? 1 - (now - st.flashAt) / 450 : 0;
   if (flash > 0) { c.fillStyle = `rgba(235,250,255,${(.75 * flash).toFixed(2)})`; c.fillRect(0, 0, st.W, st.H); }
@@ -489,7 +490,7 @@ function onEvents(st, evs) {
     else if (e.type === 'vaulted') { pop(st, 'OVER THE TOP!', 'is-pills'); ui.haptic('medium'); }
     else if (e.type === 'stumbled') {
       st.hitAt = now; pop(st, 'STUMBLE!', 'is-hit', 'The linebacker’s on you'); ui.haptic('warning');
-      ui.announce(`${R.hitLine(e)}. The linebacker’s on you: another hit and he’ll catch you.`);
+      ui.announce(`${R.hitLine(e)}. The linebacker’s on you: another hit now and he’ll tackle you.`);
       if (e.row) st.knocked.set(`${e.row.i}:${e.lane}`, {at: now});
     }
     else if (e.type === 'shoved') { if (e.row) st.knocked.set(`${e.row.i}:${e.lane}`, {at: now}); }
