@@ -1,13 +1,14 @@
 // Return Man core: the Daily Games' endless runner, after Subway Surfers (the owner's ask, Oct 2026). You field a
 // kickoff in the stadium and run it back as far as you can, and the run goes on out of the stadium into a new place
 // every 100 yards (ZONE: each one a field, a touchdown at its far end): the tailgate, the city, the frozen tundra, the
-// desert, the farmers market, the beach, outer space and the farm, in an order of the kickoff's own, and round again. Three lanes. The coverage team comes at you a row at a time: swipe left or right to
-// juke a lane over, up to jump (a man diving at your legs), down to spin out of a wrap-up (in the air: drop, then
-// spin). A wedge of two blockers can only be juked around (or run over from up high). In the way too: each place's
+// desert, the farmers market, the beach, outer space and the farm, in an order of the kickoff's own, and round again.
+// Three lanes, and in them, a row at a time, the things to get past (OBST; the owner's ask, Oct 2026: no coverage men
+// running at you, more to jump and slide): a barricade to jump, a banner to slide under. Swipe left or right to juke
+// a lane over, up to jump, down to slide (in the air: drop, then slide). In the way too: each place's
 // vehicles, parked in the lanes (a team bus, an RV, a train car...). The tall ones you go round, or run up a ramp onto
 // the roof and along the top; the low ones you jump onto and run across. Jump down off the end, or juke off the side.
 // The kicker chases you down from behind (CHASE, the owner's ask, Oct 2026, after Subway Surfers' inspector): a hit (a
-// man you didn't beat, a vehicle you ran into, the side of one you juked into) slows you and puts him right on your
+// barricade or banner you didn't clear, a vehicle you ran into, the side of one you juked into) slows you and puts him right on your
 // back; run on clean and he drops away. A second hit while he's still on you and he runs you down: that's the return.
 // On the way, three power-ups: smelling salts (an extra life: the next time he'd catch you, you shake him off),
 // prescription painkillers (a few seconds when nothing can stop you) and booze (a few seconds of double yards). You
@@ -15,16 +16,16 @@
 // same course on every phone; the day's score is its yards. No DOM. Owner: RETURN.
 //
 //   todayNumber(), dateOf(n), dayLabel(n)       day 1 on START, a new day at local midnight
-//   course(n, k), fill(course, z)               day n's kickoff k (0 while it's one a day), worked out as far as z yards: its rows of men
-//                                               [{i, z (where he meets you), lanes: [type|null x 3]}], its vehicles
+//   course(n, k), fill(course, z)               day n's kickoff k (0 while it's one a day), worked out as far as z yards: its rows
+//                                               [{i, z (where it stands), lanes: [OBST type|null x 3]}], its vehicles
 //                                               (sets: [{i, zs, ze, plats: [{lane, kind, part, z0 (the front), z1, h, b,
 //                                               ramp, hi}]}]: KINDS)
 //                                               and its power-ups [{i, z, lane, top, kind}]
 //   THEMES, ZONE, zoneAt(course, z)             the places, and which one z yards is in ({i, theme, z0})
 //   groundAt(course, lane, z, y), blockAt(...)  how high the ground is there for him at height y (a ramp, a roof, a
 //                                               pad; 0 on the road); what's in his way there
-//   speedAt(z), tdsAt(z), LANE, VD, RETURNS     your speed (yards a second) at z yards; touchdowns by z yards; the
-//                                               lanes' spacing (yards); the coverage's speed; kickoffs a day
+//   speedAt(z), tdsAt(z), LANE, RETURNS         your speed (yards a second) at z yards; touchdowns by z yards; the
+//                                               lanes' spacing (yards); kickoffs a day
 //   startRun(n, k), move(run, dir), step(run, dt)   a return, played: move takes a swipe ('left' 'right' 'up' 'down'),
 //                                               step moves it on dt seconds and says what happened (events)
 //   laneOf(run), xOf(run, lane), ahead(run, dist), endOf(run)   where you are; what's in front of you (for drawing);
@@ -56,28 +57,27 @@ export const dayLabel = (n, o = {weekday: 'short', month: 'short', day: 'numeric
 
 // ---------------------------------------------------------------------------------------------- the world
 // In yards: x across (+ right), y up, z ahead from where you field the kick. The lanes are the hash marks and the
-// middle (the NFL's hashes, 18 ft 6 in apart) and go on as the lanes of the road. The coverage runs at you (VD); you
-// run at speedAt(z), from a jog to a sprint; every 100 yards is a touchdown.
+// middle (the NFL's hashes, 18 ft 6 in apart) and go on as the lanes of the road. You run at speedAt(z), from a jog
+// to a sprint; every 100 yards is a touchdown.
 // RETURNS: kickoffs a day (one: the owner's ask, Oct 2026). A day kept when it was three counts its first return.
 export const LANE = 3.083, LANES = 3, RETURNS = 1;
-export const VD = 3.5;
 export const SPEED = {start: 9.5, top: 19, ramp: 360};
 export const speedAt = z => SPEED.start + (SPEED.top - SPEED.start) * (1 - Math.exp(-Math.max(0, z) / SPEED.ramp));
 export const TD = 100;
 /** Touchdowns in a return of z yards. */
 export const tdsAt = z => Math.max(0, Math.floor(z / TD));
-// You, in the air: a jump (up) peaks at JUMP_V^2 / 2GRAV (1.35 yards, over a man at your ankles, up onto a low
-// vehicle; a tall one's roof is out of reach) and lasts 2 JUMP_V / GRAV (.6 s). A jump swiped in the air waits for you
-// to land (BUFFER s). Down in the air drops you (DROP_V) and spins you. You step up anything STEP yards or less (a
-// ramp, onto a roof from the air); anything higher in your way is a crash. From OVER yards up, the men are below you.
-export const GRAV = 30, JUMP_V = 9, DROP_V = -18, BUFFER = .25, STEP = .45, OVER = 1.55;
-// The moves, seconds: a juke takes you a lane over; a spin carries you through a wrap-up.
-export const MOVE = {juke: .16, spin: .5};
-// The men: what each one is, and what beats him (a juke beats them all; so does being up high).
-export const MEN = {
-  wedge: {name: 'wedge', beat: null, says: 'Stoned by the wedge'},
-  diver: {name: 'diving tackle', beat: 'jump', says: 'Taken down at the ankles'},
-  wrap: {name: 'wrap-up', beat: 'spin', says: 'Wrapped up'}
+// You, in the air: a jump (up) peaks at JUMP_V^2 / 2GRAV (1.35 yards, over a barricade, up onto a low vehicle; a
+// tall one's roof is out of reach) and lasts 2 JUMP_V / GRAV (.6 s). A jump swiped in the air waits for you to land
+// (BUFFER s). Down slides you (in the air: drops you, DROP_V, into the slide). You step up anything STEP yards or less
+// (a ramp, onto a roof from the air); anything higher in your way is a crash.
+export const GRAV = 30, JUMP_V = 9, DROP_V = -18, BUFFER = .25, STEP = .45;
+// The moves, seconds: a juke takes you a lane over; a slide keeps you low (SLIDE_BODY yards, not BODY) for slide s.
+export const MOVE = {juke: .16, slide: .7};
+// The things in the rows, standing still in a lane: what beats each (a juke round it beats both; so does being up
+// over it, top yards). A barricade you jump (clear: up that high as you reach it); a banner you slide under.
+export const OBST = {
+  hurdle: {name: 'barricade', beat: 'jump', clear: .5, top: 1.05, says: 'Clipped the barricade'},
+  bar: {name: 'banner', beat: 'slide', top: 2.5, says: 'Ran into the banner'}
 };
 // What stands in the lanes: each place's own (KINDS, below): vehicles to go round or climb (a tall one, HIGH_H yards;
 // a ramp up onto its roof, or not), low ones to jump on (LOW_H), and things to climb: ramps up onto rocks and crates,
@@ -85,7 +85,7 @@ export const MEN = {
 // parts in a lane, each part a box (h its top, b its bottom: above the ground for a floating pad) with a ramp up to
 // its front or not. You stand on a part you're up level with (STEP); you pass under one whose bottom is over your head
 // (BODY); anything else in your way is a crash, and a pad you jump up into from below stops you short.
-export const HIGH_H = 3, LOW_H = .95, RAMP = 8, BODY = 2;
+export const HIGH_H = 3, LOW_H = .95, RAMP = 8, BODY = 2, SLIDE_BODY = .9;
 // The places, one after another, ZONE yards each (a field each: you score as you go into the next): the stadium first,
 // then the other eight in the kickoff's own order, and round again. A vehicle never sits across the line between two
 // (there are goalposts on it).
@@ -183,12 +183,12 @@ const shuffle = (a, r) => { for (let i = a.length - 1; i > 0; i--) { const j = M
 const round2 = v => Math.round(v * 100) / 100;
 
 // ---------------------------------------------------------------------------------------------- the course
-// Worked out a beat at a time, each beat a row of men or a set of vehicles, the next beat a moment later: 1.3 seconds
-// at first, down to GAP.min by GAP.by yards (and a bit more now and then). The first row comes at GAP.first; the first
-// vehicles after GAP.cars, more often as you go (a second one beside the first, later on, always leaving a lane
-// open). Rows grow with the yards: one man early on (a wedge to juke round for the first 40), then two, then often
-// three; never three wedges. Beside a vehicle a row is only in the open lanes, never a wedge, and a beat apart
-// (IN_GAP s or more), so the open lane is always a way through. A power-up every 90 to 180 yards: on a tall vehicle's
+// Worked out a beat at a time, each beat a row (barricades and banners) or a set of vehicles, the next beat a moment
+// later: 1.3 seconds at first, down to GAP.min by GAP.by yards (and a bit more now and then). The first row comes at
+// GAP.first; the first vehicles after GAP.cars, more often as you go (a second one beside the first, later on, always
+// leaving a lane open). Rows grow with the yards: one thing early on (a barricade to jump for the first 40), then two,
+// then often three (each one beaten by its move, so a full row still has a way through). Beside a vehicle a row is
+// only in the open lanes, and a beat apart (IN_GAP s or more). A power-up every 90 to 180 yards: on a tall vehicle's
 // roof when there's one to put it on, else on the road in a lane between two beats.
 export const GAP = {first: 22, cars: 45, max: 1.3, min: .62, by: 1000, jitter: .25, in: .8};
 const COURSES = new Map();
@@ -215,17 +215,12 @@ function addItem(co, z, lane, top) {
   co.items.push({i: co.items.length, z: round2(z), lane, top: !!top, kind});
   co.itemAt = z + 90 + co.r() * 90;
 }
-function addRow(co, z, open, L, wedges) {
+function addRow(co, z, open) {
   const r = co.r, lanes = [null, null, null];
   const pick = r(), most = open.length;
   let count = z < 60 ? 1 : z < 200 ? (pick < .7 ? 1 : 2) : z < 450 ? (pick < .35 ? 1 : pick < .9 ? 2 : 3) : (pick < .15 ? 1 : pick < .7 ? 2 : 3);
   count = Math.min(count, most);
-  shuffle(open.slice(), r).slice(0, count).forEach(l => {
-    const u = r();
-    lanes[l] = !wedges ? (u < .55 ? 'diver' : 'wrap') : z < 40 ? 'wedge' : u < .5 - .15 * L ? 'wedge' : u < .75 - .05 * L ? 'diver' : 'wrap';
-  });
-  // never a row you can't get through: a full row keeps at least one man who can be beaten
-  if (lanes.every(t => t === 'wedge')) lanes[Math.floor(r() * 3)] = r() < .5 ? 'diver' : 'wrap';
+  shuffle(open.slice(), r).slice(0, count).forEach(l => { lanes[l] = z < 40 || r() < .5 ? 'hurdle' : 'bar'; });
   co.rows.push({i: co.rows.length, z: round2(z), lanes});
 }
 // A set at z (where the first ramp starts, or the fronts): a thing of the place's in one lane, or two side by side
@@ -250,7 +245,7 @@ function addSet(co, z, L) {
   // the rows beside it: in the open lanes, a beat apart
   const open = [0, 1, 2].filter(l => !plats.some(p => p.lane === l)), zf = Math.min(...plats.map(p => p.z0));
   for (let at = zf + Math.max(GAP.in, gapAt(co, L)) * speedAt(zf); at < ze - 3; at += Math.max(GAP.in, gapAt(co, L)) * speedAt(at)) {
-    if (r() < .75) addRow(co, at, open, L, false);
+    if (r() < .75) addRow(co, at, open);
   }
   co.z = ze + (gapAt(co, L) + (plats.some(p => p.hi) ? .45 : .15)) * speedAt(ze);
   return true;
@@ -260,7 +255,7 @@ export function fill(co, z) {
   while (co.z <= z + 2) {
     const r = co.r, at = co.z, L = Math.min(1, at / GAP.by);
     if (at > GAP.cars && r() < .2 + .18 * L && addSet(co, at, L)) continue;
-    addRow(co, at, [0, 1, 2], L, true);
+    addRow(co, at, [0, 1, 2]);
     const next = at + gapAt(co, L) * speedAt(at);
     if (at >= co.itemAt) addItem(co, (at + next) / 2, Math.floor(r() * 3), false);
     co.z = next;
@@ -291,9 +286,10 @@ export function groundAt(co, lane, z, y = Infinity) {
   partsAt(co, lane, z).forEach(p => { const h = heightOf(p, z); if (h <= y + STEP && h > g) g = h; });
   return g;
 }
-/** What's in the way of someone at height y in a lane at z yards (a part over his step and under his head), or null. */
-export function blockAt(co, lane, z, y) {
-  return partsAt(co, lane, z).find(p => heightOf(p, z) > y + STEP && p.b < y + BODY) || null;
+/** What's in the way of someone at height y in a lane at z yards (a part over his step and under his head: body
+ *  yards tall, less in a slide), or null. */
+export function blockAt(co, lane, z, y, body = BODY) {
+  return partsAt(co, lane, z).find(p => heightOf(p, z) > y + STEP && p.b < y + body) || null;
 }
 /** The part in a lane at z yards he'd hit at the height of the road (for the crash's words), or null. */
 export const platAt = (co, lane, z) => blockAt(co, lane, z, 0);
@@ -302,7 +298,7 @@ export const platAt = (co, lane, z) => blockAt(co, lane, z, 0);
 /** A new return: day n's kickoff k, you in the middle lane where you field it. */
 export function startRun(n, k) {
   return {n, k, co: course(n, k), t: 0, z: 0, yards: 0, lane: 1, x: 0, jFrom: 0, jt: 1, y: 0, vy: 0, jumpQ: -9,
-    spin: 0, lastJuke: -9, bump: -9, next: 0, nextItem: 0, zone: 0, tds: 0,
+    slide: 0, lastJuke: -9, bump: -9, next: 0, nextItem: 0, zone: 0, tds: 0,
     salts: 0, pills: 0, booze: 0, shield: 0, over: false, why: null, by: null,
     hits: 0, hitAt: 0, slow: 0, grace: 0, knock: 0, sideHit: null}; // (the kicker starts on you, at the catch)
 }
@@ -310,8 +306,8 @@ export const xOf = (run, lane) => (lane - 1) * LANE;
 /** The lane you're in now (the nearest to you, mid-juke). */
 export const laneOf = run => clamp(Math.round(run.x / LANE) + 1, 0, LANES - 1);
 const grounded = run => run.vy <= 0 && run.y <= groundAt(run.co, laneOf(run), run.z, run.y) + 1e-3;
-/** A swipe: 'left' and 'right' juke a lane over, 'up' jumps, 'down' spins (and drops you, in the air). False when it
- *  can't: the edge of the road, the side of a vehicle (run.bump notes when), the return's over. */
+/** A swipe: 'left' and 'right' juke a lane over, 'up' jumps (out of a slide too), 'down' slides (and drops you, in the
+ *  air). False when it can't: the edge of the road, the side of a vehicle (run.bump notes when), the return's over. */
 export function move(run, dir) {
   if (run.over) return false;
   if (dir === 'left' || dir === 'right') {
@@ -323,12 +319,12 @@ export function move(run, dir) {
     return true;
   }
   if (dir === 'up') {
-    if (grounded(run)) { run.vy = JUMP_V; run.spin = 0; run.jumpQ = -9; } else run.jumpQ = run.t;
+    if (grounded(run)) { run.vy = JUMP_V; run.slide = 0; run.jumpQ = -9; } else run.jumpQ = run.t;
     return true;
   }
   if (dir === 'down') {
     if (!grounded(run)) run.vy = Math.min(run.vy, DROP_V);
-    run.spin = MOVE.spin; run.jumpQ = -9;
+    run.slide = MOVE.slide; run.jumpQ = -9;
     return true;
   }
   return false;
@@ -341,12 +337,12 @@ export function gapOf(run) {
   const k = clamp((run.t - run.hitAt - CHASE.slow) / (CHASE.window - CHASE.slow), 0, 1);
   return CHASE.near + (CHASE.far - CHASE.near) * k;
 }
-// What you run into (a man, a vehicle's front, its side): with painkillers (or just back up after the salts) you go
+// What you run into (a barricade, a banner, a vehicle's front, its side): with painkillers (or just back up after the salts) you go
 // through it (or up onto it); just after a hit, it's the same collision ('shoved'); else a hit: you stumble, slowed, the
 // kicker on your back, unless he's still close from the last one: then he runs you down (the salts shake him off once).
 // -> 'pass' | 'stumble' | false (the return's over).
 function hit(run, out, what) {
-  if (run.pills > 0 || run.shield > 0) { if (!what.side) out.push(Object.assign({type: what.man ? 'trucked' : 'vaulted', z: run.z}, what)); return 'pass'; }
+  if (run.pills > 0 || run.shield > 0) { if (!what.side) out.push(Object.assign({type: what.ob ? 'trucked' : 'vaulted', z: run.z}, what)); return 'pass'; }
   if (run.grace > 0) { out.push(Object.assign({type: 'shoved', z: run.z}, what)); return 'pass'; }
   if (run.hits > 0 && run.t - run.hitAt < CHASE.window) {
     if (run.salts > 0) {
@@ -362,10 +358,10 @@ function hit(run, out, what) {
   out.push(Object.assign({type: 'stumbled', z: run.z, n: run.hits}, what));
   return 'stumble';
 }
-/** A hit's words: "Wrapped up", "Ran into the city bus", "Bounced off the city bus". */
+/** A hit's words: "Clipped the barricade", "Ran into the city bus", "Bounced off the city bus". */
 export function hitLine(what) {
   if (!what) return '';
-  if (what.man) return MEN[what.man].says;
+  if (what.ob) return OBST[what.ob].says;
   const p = what.plat, name = p && KINDS[p.kind] ? KINDS[p.kind].name : 'wall';
   return `${what.side ? 'Bounced off' : 'Ran into'} the ${name}`;
 }
@@ -377,7 +373,8 @@ function sub(run, dt, out) {
   // a juke into a vehicle's side (refused by move) is a hit
   if (run.sideHit) { const w = run.sideHit; run.sideHit = null; if (!hit(run, out, w)) return; }
   // (knocked off a vehicle's front, you're in the lane you're headed for)
-  const lane = run.knock > 0 ? run.lane : laneOf(run), blk = blockAt(co, lane, run.z, run.y);
+  const body = run.slide > 0 ? SLIDE_BODY : BODY;
+  const lane = run.knock > 0 ? run.lane : laneOf(run), blk = blockAt(co, lane, run.z, run.y, body);
   // something in your way: a pad you've jumped up into from under stops you; a front (or a side, mid-juke) is a hit
   if (blk && blk.b > run.y + .8 && run.vy > 0) { run.vy = 0; run.y = Math.max(0, blk.b - BODY - 1e-3); }
   else if (blk) {
@@ -385,7 +382,7 @@ function sub(run, dt, out) {
     if (!h) return;
     // through it (painkillers) or a low one: up onto it; a tall one's front knocks you into the open lane beside it
     const to = h === 'stumble' && heightOf(blk, run.z) - run.y > 1.6
-      ? [lane - 1, lane + 1].filter(l => l >= 0 && l < LANES && !blockAt(co, l, run.z, run.y) && !blockAt(co, l, run.z + 2, run.y)).sort((a, b) => Math.abs(a - 1) - Math.abs(b - 1))[0]
+      ? [lane - 1, lane + 1].filter(l => l >= 0 && l < LANES && !blockAt(co, l, run.z, run.y, body) && !blockAt(co, l, run.z + 2, run.y, body)).sort((a, b) => Math.abs(a - 1) - Math.abs(b - 1))[0]
       : undefined;
     if (to != null) { run.jFrom = run.x; run.lane = to; run.jt = 0; run.knock = MOVE.juke; }
     else { run.y = heightOf(blk, run.z); run.vy = Math.max(run.vy, 3); }
@@ -396,24 +393,24 @@ function sub(run, dt, out) {
     run.vy -= GRAV * dt; run.y += run.vy * dt;
     if (run.y <= g) { landed = run.vy < -1; run.y = g; run.vy = 0; if (landed) out.push({type: 'landed', z: run.z, on: g > 0}); }
   } else { run.y = g; run.vy = 0; }
-  if (run.y <= g + 1e-3 && run.vy === 0 && run.t - run.jumpQ < BUFFER) { run.vy = JUMP_V; run.spin = 0; run.jumpQ = -9; }
+  if (run.y <= g + 1e-3 && run.vy === 0 && run.t - run.jumpQ < BUFFER) { run.vy = JUMP_V; run.slide = 0; run.jumpQ = -9; }
   // the place, the touchdowns
   const zone = Math.floor(run.z / ZONE);
   if (zone > run.zone) { run.zone = zone; out.push({type: 'zone', z: run.z, theme: zoneAt(co, run.z).theme}); }
   const tds = tdsAt(run.z);
   if (tds > run.tds) { run.tds = tds; out.push({type: 'td', z: run.z, n: tds}); }
-  // the men
+  // the rows: a barricade jumped, a banner slid under (or up over either, on a roof), or a hit
   const rows = co.rows;
   while (run.next < rows.length && rows[run.next].z <= run.z) {
-    const row = rows[run.next++], man = row.lanes[lane];
-    // A man you've just left behind in the lane you juked out of: a juke.
+    const row = rows[run.next++], ob = row.lanes[lane];
+    // Something you've just left behind in the lane you juked out of: a juke.
     const near = run.t - run.lastJuke < .45 && row.lanes.some((t, l) => t && l !== lane && Math.abs(xOf(run, l) - run.jFrom) < LANE * .5);
-    if (!man) { out.push({type: near ? 'juked' : 'passed', row, lane, z: run.z}); continue; }
-    const beat = MEN[man].beat;
-    if (run.y >= OVER) { out.push({type: 'over', row, lane, man, z: run.z}); continue; }
-    if (beat === 'jump' && run.y >= .35) { out.push({type: 'hurdled', row, lane, z: run.z}); continue; }
-    if (beat === 'spin' && run.spin > 0) { out.push({type: 'spun', row, lane, z: run.z}); continue; }
-    if (!hit(run, out, {man, row, lane})) return;
+    if (!ob) { out.push({type: near ? 'juked' : 'passed', row, lane, z: run.z}); continue; }
+    const O = OBST[ob];
+    if (run.y >= O.top + .1) { out.push({type: 'over', row, lane, ob, z: run.z}); continue; }
+    if (O.beat === 'jump' && run.y >= O.clear) { out.push({type: 'hurdled', row, lane, ob, z: run.z}); continue; }
+    if (O.beat === 'slide' && run.slide > 0 && run.y < .3) { out.push({type: 'slid', row, lane, ob, z: run.z}); continue; }
+    if (!hit(run, out, {ob, row, lane})) return;
   }
   // the power-ups: in your lane, at your height
   const items = co.items;
@@ -424,7 +421,7 @@ function sub(run, dt, out) {
     else run[it.kind] = POWER[it.kind].s;
     out.push({type: 'pickup', kind: it.kind, item: it, z: run.z});
   }
-  run.spin = Math.max(0, run.spin - dt);
+  run.slide = Math.max(0, run.slide - dt);
   run.pills = Math.max(0, run.pills - dt);
   run.booze = Math.max(0, run.booze - dt);
   run.shield = Math.max(0, run.shield - dt);
@@ -432,10 +429,10 @@ function sub(run, dt, out) {
   run.grace = Math.max(0, run.grace - dt);
   run.knock = Math.max(0, run.knock - dt);
 }
-/** Moves a return on dt seconds. Returns what happened: [{type: 'td' | 'zone' | 'juked' | 'hurdled' | 'spun' | 'over' |
+/** Moves a return on dt seconds. Returns what happened: [{type: 'td' | 'zone' | 'juked' | 'hurdled' | 'slid' | 'over' |
  *  'passed' | 'landed' | 'pickup' | 'trucked' | 'vaulted' | 'stumbled' | 'shoved' | 'revived' | 'tackled', z, ...}]
- *  ('juked': you left a man's lane in the last moment before he got there; 'over': he was below you; 'trucked',
- *  'vaulted': through a man or up onto a vehicle you'd have hit, on painkillers; 'stumbled': a hit, the kicker on you
+ *  ('juked': you left a thing's lane in the last moment before it; 'over': it was below you; 'trucked', 'vaulted':
+ *  through a barricade or banner, or up onto a vehicle you'd have hit, on painkillers; 'stumbled': a hit, the kicker on you
  *  (n: hits so far); 'shoved': the same collision a moment on; 'revived': the salts shook him off; 'tackled' (caught):
  *  he ran you down). */
 export function step(run, dt) {
@@ -453,7 +450,7 @@ export function step(run, dt) {
 export function endOf(run) {
   if (!run || !run.why) return '';
   if (run.why === 'caught') return 'Run down from behind by the kicker';
-  if (run.why !== 'crash') return MEN[run.why].says;
+  if (run.why !== 'crash') return OBST[run.why] ? OBST[run.why].says : '';
   const p = run.by && run.by.plat;
   return `Ran into the ${p && KINDS[p.kind] ? KINDS[p.kind].name : 'wall'}`;
 }

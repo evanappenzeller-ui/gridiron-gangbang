@@ -1,12 +1,12 @@
 // Return Man (Daily Games, its own page /puzzles/return; core/return.js): the endless kick return, after Subway Surfers.
 // The camera rides behind the returner as he runs out of the stadium and on into a new place every 100 yards (the
 // tailgate, the city, the frozen tundra, the desert, the farmers market, the beach, outer space, the farm: a touchdown
-// under the goalposts into each), the coverage team coming at him a row at a time and the vehicles parked in the
-// lanes. A swipe on the stage (or the arrow keys) jukes a lane over, jumps (over a man diving at his legs, up onto a low one),
-// or spins out of a wrap-up (and in the air, drops him). Ramps take him up onto the roofs. The power-ups he runs
-// through: smelling salts (back up after the next hit), painkillers (nothing stops him for a bit) and booze (double
-// yards for a bit, and the camera sways). The kicker chases him down from behind (core CHASE): a hit (a man he didn't
-// beat, a vehicle he ran into) staggers him, slows him and puts the kicker on his back, the screen's edges red; run on
+// under the goalposts into each), the barricades and banners across the lanes a row at a time (no coverage men: the
+// owner's ask, Oct 2026) and the vehicles parked in them. A swipe on the stage (or the arrow keys) jukes a lane over,
+// jumps (a barricade; up onto a low vehicle) or slides (under a banner; in the air, it drops him first). Ramps take him
+// up onto the roofs. The power-ups he runs through: smelling salts (shake the kicker off once), painkillers (nothing
+// stops him for a bit) and booze (double yards for a bit, and the camera sways). The kicker chases him down from behind
+// (core CHASE): a hit (a barricade or banner he didn't clear, a vehicle he ran into) staggers him, slows him and puts the kicker on his back, the screen's edges red; run on
 // clean and the kicker drops out of sight below. A second hit while he's still there and he's run down: a card says
 // where. One kickoff a day (the owner's ask, Oct 2026); after it the stage holds the day's card and the scoreboard
 // shows under it. Every 100 yards is a touchdown.
@@ -64,8 +64,8 @@ function keysHTML() {
   const pw = (kind, name, what) => `<li class="rm-pk">${iconHTML(kind, 34)}<b>${name}</b><span>${what}</span></li>`;
   return `<ul class="rm-keys" aria-label="How to play">`
     + k('is-lr', '← →', 'Swipe to juke a lane')
-    + k('is-up', '↑', 'Jump: over a dive, onto a low one')
-    + k('is-dn', '↓', 'Spin out of a wrap-up')
+    + k('is-up', '↑', 'Jump a barricade, or onto a low one')
+    + k('is-dn', '↓', 'Slide under a banner')
     + k('is-ramp', '◢', 'Run up a ramp onto the roofs')
     + k('is-chase', '!', 'Hit something and the kicker’s on you. Again before you lose him: caught')
     + `</ul><ul class="rm-pks" aria-label="Power-ups">`
@@ -149,7 +149,7 @@ function boardHTML(st) {
 }
 function bodyHTML(st) {
   return `<div class="rm${st.day.done ? '' : ' is-playing'}" data-rm>`
-    + `<div class="rm-stage" data-rm-stage data-hscroll aria-label="Return Man: swipe left or right to juke, up to jump, down to spin">`
+    + `<div class="rm-stage" data-rm-stage data-hscroll aria-label="Return Man: swipe left or right to juke, up to jump, down to slide">`
     + `<canvas class="rm-cv" data-rm-cv></canvas>${hudHTML()}`
     + `<div class="rm-pop" data-rm-pop aria-hidden="true"></div>`
     + `<div class="rm-card" data-rm-card role="group" aria-live="polite">${cardHTML(st)}</div></div>`
@@ -189,7 +189,7 @@ const P = (st, x, y, z) => W.P(st, x, y, z);
 // ---------------------------------------------------------------- The players
 // Each is drawn at his feet, his height by how far he is (a man is 2 yards), with a shadow on what's under him. While
 // the pictures load, drawn ones stand in.
-const TALL_YD = 2.05, PAST = 1.8, CHARGE = 16;
+const TALL_YD = 2.05, PAST = 1.8;
 function shadow(st, c, x, y, z, w = .55) {
   if (z < st.camZ + W.NEAR) return;
   const p = P(st, x, y, z), r = P(st, x + w, y, z);
@@ -219,44 +219,27 @@ function sprite(st, c, f, flip, team, x, y, z, alpha = 1, mo = null) {
   }
   c.globalAlpha = 1;
 }
-/** A coverage man's picture: running at us, then (close) his move: arms out to wrap up, or the dive. Past us: on the
- *  turf or grabbing at air. */
-const manPh = (t, i) => (t * 7 + i * 1.7) * Math.PI;
-function manPose(type, d, t, i, beaten) {
-  const stride = Math.floor(manPh(t, i) / Math.PI) & 1;
-  if (d < -0.3) return type === 'diver' ? 'def.flat' : type === 'wedge' ? `ol.r_f${stride}` : beaten === 'spun' ? 'def.fallen' : 'def.juked';
-  if (type === 'diver') return d < 8 ? 'def.dive' : `def.r_f${stride}`;
-  if (type === 'wrap') return d < 12 ? 'def.reach' : `def.r_f${stride}`;
-  return `ol.r_f${stride}`;
-}
 function hint(st, c, type, x, z) {
-  // Over a man you beat with a move (once he's close enough to read and not on top of you): the move.
-  const p = P(st, x, TALL_YD + .55, z), r = Math.max(7, Math.min(15, p.s * .34));
+  // Over a barricade or a banner (once it's close enough to read and not on top of you): the move that beats it, an
+  // arrow up (jump) or down (slide).
+  const p = P(st, x, type === 'bar' ? 3.05 : 1.6, z), r = Math.max(7, Math.min(15, p.s * .34));
   if (p.y < st.y0 + 4) return;
-  c.fillStyle = type === 'diver' ? 'rgba(62,240,143,.92)' : 'rgba(255,205,74,.92)';
+  const up = type === 'hurdle';
+  c.fillStyle = up ? 'rgba(62,240,143,.92)' : 'rgba(255,205,74,.92)';
   c.beginPath(); c.arc(p.x, p.y - r, r, 0, Math.PI * 2); c.fill();
-  c.strokeStyle = '#06210A'; c.fillStyle = '#06210A'; c.lineWidth = Math.max(1.4, r * .2); c.lineCap = 'round'; c.lineJoin = 'round';
-  if (type === 'diver') {
-    c.beginPath(); c.moveTo(p.x - r * .42, p.y - r * .8); c.lineTo(p.x, p.y - r * 1.38); c.lineTo(p.x + r * .42, p.y - r * .8); c.stroke();
-    c.beginPath(); c.moveTo(p.x, p.y - r * 1.3); c.lineTo(p.x, p.y - r * .5); c.stroke();
-  } else {
-    c.beginPath(); c.arc(p.x, p.y - r, r * .48, -Math.PI * .1, Math.PI * 1.45); c.stroke();
-    const ax = p.x + r * .48 * Math.cos(-Math.PI * .1), ay = p.y - r + r * .48 * Math.sin(-Math.PI * .1);
-    c.beginPath(); c.moveTo(ax + r * .28, ay - r * .02); c.lineTo(ax - r * .02, ay - r * .32); c.lineTo(ax - r * .12, ay + r * .12); c.closePath(); c.fill();
-  }
+  c.strokeStyle = '#06210A'; c.lineWidth = Math.max(1.4, r * .2); c.lineCap = 'round'; c.lineJoin = 'round';
+  const s = up ? 1 : -1, cy = p.y - r;
+  c.beginPath(); c.moveTo(p.x - r * .42, cy + s * r * .2); c.lineTo(p.x, cy - s * r * .38); c.lineTo(p.x + r * .42, cy + s * r * .2); c.stroke();
+  c.beginPath(); c.moveTo(p.x, cy - s * r * .3); c.lineTo(p.x, cy + s * r * .5); c.stroke();
 }
-/** The returner's picture now: his stride; the juke, the jump and the spin; going down. */
+/** The returner's picture now: his stride; the juke, the jump and the slide; going down. */
 function runnerPose(st) {
   const run = st.run;
   if (!run || st.mode === 'ready' || st.mode === 'catch') return {f: st.mode === 'catch' ? 'rb.stiff_b' : 'rb.r_b0', flip: false};
   if (run.over) return {f: performance.now() - st.downAt > 380 ? 'rb.down' : 'rb.falling', flip: run.x < 0};
   const g = R.groundAt(run.co, R.laneOf(run), run.z, run.y);
-  if (run.spin > 0) {
-    const p = 1 - run.spin / R.MOVE.spin, seq = [['rb.r_r0', false], ['rb.r_f0', false], ['rb.r_l0', false], ['rb.r_b1', false]];
-    const [f, flip] = seq[Math.min(3, Math.floor(p * 4))];
-    return {f, flip};
-  }
   if (run.y > g + .12 || run.vy > 0) return {f: 'rb.hurdle', flip: false};
+  if (run.slide > 0) return {f: 'rb.dive', flip: false};
   if (run.jt < 1) return {f: 'rb.juke', flip: R.xOf(run, run.lane) > run.jFrom};
   return {f: `rb.r_b${Math.floor(run.z / 1.5) & 1}`, flip: false};
 }
@@ -268,12 +251,11 @@ function runnerGive(st, now) {
   const g = R.groundAt(run.co, R.laneOf(run), run.z, run.y), air = run.y > g + .12 || run.vy > 0;
   // (a stumble: he staggers, side to side, as he gets going again)
   const wob = run.slow > 0 ? Math.sin(run.slow * 22) * .7 * run.slow / R.CHASE.slow : 0;
-  return {ph: air || run.spin > 0 ? null : run.z / 1.5 * Math.PI, lean: (R.xOf(run, run.lane) - run.x) / 1.2 + wob,
+  return {ph: air || run.slide > 0 ? null : run.z / 1.5 * Math.PI, lean: (R.xOf(run, run.lane) - run.x) / 1.2 + wob,
     vy: air ? run.vy / 8 : null, t, land};
 }
-/** How far ahead a coverage man is drawn now: he waits at his spot till you're CHARGE yards off, then runs at you. */
-const manD = (run, d) => d + R.VD * Math.min(Math.max(d, 0), CHARGE) / R.speedAt(run.z) + (d < 0 ? d * R.VD / R.speedAt(run.z) : 0);
-/** Everything in the lanes, far to near: the vehicles, the gates, the power-ups, the men and him. */
+/** Everything in the lanes, far to near: the vehicles, the gates, the power-ups, the barricades and banners, him and
+ *  the kicker behind him. */
 function drawLanes(st, c, now) {
   const run = st.run, t = now / 1000, list = [];
   const rz = run ? run.z : 0, rx = run ? run.x : 0, ry = run ? run.y : 0;
@@ -282,29 +264,14 @@ function drawLanes(st, c, now) {
     A.sets.forEach(({set}) => set.plats.forEach(p => { const X = R.xOf(run, p.lane), w = p.hi ? 1.25 : 1.15; list.push({z: p.z1, veh: {x0: X - w, x1: X + w, z0: p.z0 - (p.ramp || 0), z1: p.z1}, x0: X - w, x1: X + w, draw: () => W.vehicle(st, c, p)}); }));
     A.items.forEach(({item}) => { if (!st.got.has(item.i)) { const X = R.xOf(run, item.lane); list.push({z: item.z, x0: X - .4, x1: X + .4, draw: () => W.item(st, c, item, t)}); } });
     A.rows.forEach(({row, d}) => row.lanes.forEach((type, l) => {
-      if (!type) return;
-      const key = `${row.i}:${l}`, beat = st.beaten.get(row.i), knocked = st.knocked.get(key);
-      const tackler = run.over && run.by && run.by.row === row && run.by.lane === l;
-      const dd = tackler ? Math.max(.4, d) : manD(run, d), z = tackler ? rz + .5 : rz + dd, x = R.xOf(run, l);
-      if (!tackler && d < -PAST) return;
-      const w = type === 'wedge' ? 1.1 : .5;
-      list.push({z, x0: x - w, x1: x + w, draw: () => {
-        const alpha = d < 0 && !tackler ? Math.max(0, 1 + d / PAST) : 1;
-        if (knocked) {
-          // trucked: sent flying off to the side
-          const k = Math.min(1.2, (now - knocked.at) / 1000), side = l === 0 ? -1 : l === 2 ? 1 : (row.i % 2 ? 1 : -1);
-          sprite(st, c, 'def.fallen', side > 0, THEM, x + side * k * 7, Math.max(0, 6 * k - 9 * k * k) + .2, knocked.z + k * 3, Math.max(0, 1 - k));
-          return;
-        }
-        const f = tackler ? (type === 'wedge' ? 'ol.r_f0' : type === 'diver' ? 'def.dive' : 'def.reach') : manPose(type, dd, t, row.i + l, beat);
-        if (type === 'wedge') {
-          // two big men shoulder to shoulder, out of step
-          [-.62, .62].forEach((o, j) => { const fj = j && /r_f/.test(f) ? f.replace(/\d$/, m => String(1 - Number(m))) : f; shadow(st, c, x + o, 0, z, .6); sprite(st, c, fj, false, THEM, x + o, 0, z, alpha, {ph: manPh(t, row.i + l) + j * Math.PI, t, seed: j}); });
-        } else {
-          shadow(st, c, x, 0, z);
-          sprite(st, c, f, (row.i + l) % 2 === 1, THEM, x, f === 'def.dive' ? .35 : 0, z, alpha, {ph: manPh(t, row.i + l), t, seed: row.i + l});
-          if (!run.over && d > 2.5 && d < 40 && st.mode === 'run' && ry < 1.2) hint(st, c, type, x, z);
-        }
+      if (!type || d < -PAST) return;
+      // a barricade or banner where it stands (knocked flying when he hit it, or smashed through on painkillers)
+      const knocked = st.knocked.get(`${row.i}:${l}`), k = knocked ? Math.min(1, (now - knocked.at) / 650) : 0;
+      if (k >= 1) return;
+      const z = rz + d, x = R.xOf(run, l);
+      list.push({z, x0: x - 1.4, x1: x + 1.4, draw: () => {
+        W.obstacle(st, c, type, l, z, k);
+        if (!k && !run.over && d > 2.5 && d < 40 && st.mode === 'run' && ry < 1.2) hint(st, c, type, x, z);
       }});
     }));
     // the gates into the places ahead
@@ -487,7 +454,7 @@ function pop(st, text, cls = '', sub = '') {
 function go(st) {
   if (st.day.done || st.mode === 'run' || st.mode === 'catch') return;
   st.run = R.startRun(st.n, st.day.next);
-  st.beaten = new Map(); st.knocked = new Map(); st.got = new Set(); st.flashAt = 0; st.hitAt = 0; st.chX = null;
+  st.knocked = new Map(); st.got = new Set(); st.flashAt = 0; st.hitAt = 0; st.chX = null;
   st.co = st.run.co;
   W.warm(st, 0);
   st.mode = 'catch'; st.catchAt = performance.now();
@@ -516,22 +483,22 @@ function onEvents(st, evs) {
       st.cheer = now + 2600; ui.haptic('success'); ui.announce(`Touchdown! ${plural(e.n, 'touchdown')}.${into ? ` ${into.theme.name}.` : ''}`);
     }
     else if (e.type === 'zone') { W.warm(st, e.z); if (!evs.some(x => x.type === 'td')) pop(st, e.theme.name.toUpperCase(), 'is-zone'); }
-    else if (e.type === 'juked') { pop(st, 'JUKE!'); st.beaten.set(e.row.i, 'juked'); }
-    else if (e.type === 'hurdled') { pop(st, 'HURDLE!'); st.beaten.set(e.row.i, 'hurdled'); ui.haptic('light'); }
-    else if (e.type === 'spun') { pop(st, 'SPIN!'); st.beaten.set(e.row.i, 'spun'); ui.haptic('light'); }
+    else if (e.type === 'juked') pop(st, 'JUKE!');
+    else if (e.type === 'hurdled') { pop(st, 'HURDLE!'); ui.haptic('light'); }
+    else if (e.type === 'slid') { pop(st, 'SLIDE!'); ui.haptic('light'); }
     else if (e.type === 'pickup') { st.got.add(e.item.i); pop(st, GOT[e.kind], 'is-' + e.kind); ui.haptic('success'); ui.announce(`${R.POWER[e.kind].name}: ${R.POWER[e.kind].says}.`); }
     else if (e.type === 'landed') st.landAt = now;
-    else if (e.type === 'trucked') { st.knocked.set(`${e.row.i}:${e.lane}`, {at: now, z: e.z + .6}); pop(st, 'TRUCKED!', 'is-pills'); ui.haptic('medium'); }
+    else if (e.type === 'trucked') { st.knocked.set(`${e.row.i}:${e.lane}`, {at: now}); pop(st, 'SMASHED!', 'is-pills'); ui.haptic('medium'); }
     else if (e.type === 'vaulted') { pop(st, 'OVER THE TOP!', 'is-pills'); ui.haptic('medium'); }
     else if (e.type === 'stumbled') {
       st.hitAt = now; pop(st, 'STUMBLE!', 'is-hit', 'The kicker’s on you'); ui.haptic('warning');
       ui.announce(`${R.hitLine(e)}. The kicker’s on you: another hit and he’ll catch you.`);
-      if (e.row) st.knocked.set(`${e.row.i}:${e.lane}`, {at: now, z: e.z + .6});
+      if (e.row) st.knocked.set(`${e.row.i}:${e.lane}`, {at: now});
     }
-    else if (e.type === 'shoved') { if (e.row) st.knocked.set(`${e.row.i}:${e.lane}`, {at: now, z: e.z + .6}); }
+    else if (e.type === 'shoved') { if (e.row) st.knocked.set(`${e.row.i}:${e.lane}`, {at: now}); }
     else if (e.type === 'revived') {
       st.flashAt = now; pop(st, 'SHOOK HIM!', 'is-salts', 'The smelling salts'); ui.haptic('warning');
-      if (e.row) st.knocked.set(`${e.row.i}:${e.lane}`, {at: now, z: e.z + .6});
+      if (e.row) st.knocked.set(`${e.row.i}:${e.lane}`, {at: now});
     }
     else if (e.type === 'tackled') tackled(st);
   });
@@ -678,7 +645,7 @@ export function render(ctx) {
 }
 export function mount(el, ctx) {
   ensureCss();
-  const st = {el, ctx, mode: 'ready', sbMode: 'today', run: null, beaten: new Map(), knocked: new Map(), got: new Set(), dead: false, raf: 0, camX: null, cheer: 0, lift: 0};
+  const st = {el, ctx, mode: 'ready', sbMode: 'today', run: null, knocked: new Map(), got: new Set(), dead: false, raf: 0, camX: null, cheer: 0, lift: 0};
   STATE.set(el, st);
   // a return left under way (the app closed mid-run) ends where it was
   R.settle(R.todayNumber());

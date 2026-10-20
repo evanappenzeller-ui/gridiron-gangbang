@@ -6,8 +6,9 @@
 // trading post), the gate into it, and its weather. In the lanes: the vehicles (boxes in perspective, each place's own,
 // with their ramps), the power-ups, and the goal line every 100 yards.
 // st: the view's state {W, H, y0, dpr, f, camX, camZ, camH, co (the course)}. The world in yards (x across, y up, z
-// ahead); P(st, x, y, z) puts a point on the screen. Exports: P, NEAR, FAR, sky, ground, sides, vehicle, item, gate,
-// weather, ICONS (the power-ups' pictures, for the HUD and the cards). Owner: RETURN.
+// ahead); P(st, x, y, z) puts a point on the screen. Exports: P, NEAR, FAR, sky, ground, sides, vehicle, obstacle (the
+// rows' barricades and banners), item, gate, weather, ICONS (the power-ups' pictures, for the HUD and the cards).
+// Owner: RETURN.
 import * as R from '../core/return.js';
 import {backdrop, bowl, seeded, sparkle} from './stadium.js';
 
@@ -1796,6 +1797,53 @@ export function vehicle(st, c, p) {
   const draw = KIND_DRAW[p.kind] || VEHICLES[th.id][p.hi ? 'hi' : 'lo'];
   draw(st, c, b, p);
   if (p.ramp) ramp(st, c, p, RAMP_OF[p.kind] || RAMPS[th.id]);
+}
+
+// ============================================================================ The rows: barricades and banners
+// What stands across a lane a row at a time (core/return.js OBST): a barricade to jump (a striped board on two
+// sawhorse legs, about a yard up) and a banner to slide under (slung between two poles, its bottom 1.15 yards up). Each
+// in the colours of the place it stands in, the banner with the place's word on it. k (0 to 1): knocked flying, after
+// a hit (or smashed through on painkillers).
+const OB = {stadium: ['#C8102E', '#FFFFFF', 'RETURN MAN'], tailgate: ['#F28C28', '#FFFFFF', 'TAILGATE'], city: ['#F2A900', '#1B1B1B', 'DETOUR'],
+  tundra: ['#2E6FB5', '#FFFFFF', 'FROZEN TUNDRA'], desert: ['#B5652B', '#F3D9A4', 'WILD WEST'], market: ['#2E9E4F', '#FFF4D6', 'FRESH'],
+  beach: ['#1FA6C9', '#FFFFFF', 'SURF’S UP'], space: ['#6B3CFF', '#5CF4FF', 'ZERO G'], farm: ['#C8322B', '#F3E6C8', 'FARM FRESH']};
+export function obstacle(st, c, type, lane, z, k = 0) {
+  if (z < st.camZ + NEAR + .2) return;
+  const [a, b, word] = OB[themeOf(st, z).id] || OB.stadium;
+  const side = lane === 0 ? -1 : 1, X = R.xOf(null, lane) + side * k * 4.5, lift = Math.max(0, 3.2 * k - 4 * k * k);
+  c.save();
+  c.globalAlpha = Math.max(0, 1 - k * k);
+  if (!k) fill(c, gnd(st, X - 1.3, X + 1.3, z - .1, z + .45), 'rgba(0,0,0,.22)');
+  flat(st, c, X, lift, z);
+  c.rotate(side * k * 1.3);
+  if (type === 'hurdle') {
+    // two sawhorse legs
+    c.fillStyle = '#2B2F36';
+    [-1.02, 1.02].forEach(e => { c.beginPath(); c.moveTo(e - .2, 0); c.lineTo(e - .05, -.9); c.lineTo(e + .05, -.9); c.lineTo(e + .2, 0); c.lineTo(e + .1, 0); c.lineTo(e, -.62); c.lineTo(e - .1, 0); c.closePath(); c.fill(); });
+    // the board: the place's colour in diagonal stripes on the other
+    c.save(); rr(c, -1.17, -1, 2.34, .42, .05); c.clip();
+    c.fillStyle = b; c.fillRect(-1.17, -1, 2.34, .42);
+    c.fillStyle = a; c.beginPath();
+    for (let x = -1.7; x < 1.3; x += .38) { c.moveTo(x, -.58); c.lineTo(x + .19, -.58); c.lineTo(x + .4, -1); c.lineTo(x + .21, -1); c.closePath(); }
+    c.fill();
+    c.fillStyle = 'rgba(255,255,255,.18)'; c.fillRect(-1.17, -1, 2.34, .08);
+    c.restore();
+    c.strokeStyle = 'rgba(0,0,0,.4)'; c.lineWidth = .03; rr(c, -1.17, -1, 2.34, .42, .05); c.stroke();
+    // a blinking lamp at each end
+    c.fillStyle = Math.floor((st.t || 0) * 2.5) % 2 ? '#FFC23A' : '#B07A10';
+    [-.98, .98].forEach(x => { c.beginPath(); c.arc(x, -1.07, .075, 0, Math.PI * 2); c.fill(); });
+  } else {
+    // two poles, a banner slung between them
+    c.fillStyle = '#8E98A4'; c.fillRect(-1.45, -2.7, .1, 2.7); c.fillRect(1.35, -2.7, .1, 2.7);
+    c.fillStyle = '#E9EDF1'; [-1.4, 1.4].forEach(x => { c.beginPath(); c.arc(x, -2.72, .08, 0, Math.PI * 2); c.fill(); });
+    rr(c, -1.36, -2.45, 2.72, 1.3, .04); c.fillStyle = a; c.fill();
+    c.fillStyle = b; c.fillRect(-1.36, -2.45, 2.72, .09); c.fillRect(-1.36, -1.24, 2.72, .09);
+    c.fillStyle = 'rgba(0,0,0,.18)'; c.fillRect(-1.36, -1.24, 2.72, .03);
+    c.fillStyle = b; c.font = `800 .52px ${DISPLAY}`; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText(word, 0, -1.8, 2.45);
+  }
+  c.restore();
+  c.restore();
 }
 
 // ============================================================================ The power-ups
