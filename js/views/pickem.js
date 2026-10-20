@@ -202,7 +202,7 @@ export function logoURL(t, px = 64) {
   const s = Math.round(px);
   return `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500-dark/scoreboard/${slug}.png&h=${s}&w=${s}`;
 }
-function logoHTML(t, size = 32, cls = '') {
+export function logoHTML(t, size = 32, cls = '') {
   const src = logoURL(t, size * 2);
   return `<span class="c-pk-logo${cls ? ' ' + cls : ''}" style="--lg:${size}px" aria-hidden="true">`
     + (src ? `<img src="${esc(src)}" alt="" width="${size}" height="${size}" decoding="async" referrerpolicy="no-referrer" draggable="false">` : '')
@@ -496,8 +496,9 @@ export function follow(target, fn) {
  * and the tab dot knows which week it is. Picks come from the week kept on this phone until the screen follows it.
  */
 export function warm() {
-  // The College pick'em last chosen on this phone: its module and week too, so the tab opens on it at once.
-  if (!CFB && host.sport === 'cfb') loadCfb().then(m => m.warm(), () => {});
+  // The College, League or Survivor screen last chosen on this phone: its module (and week) too, so the tab opens on it
+  // at once.
+  if (!CFB && host.sport !== 'nfl') loadSport(host.sport).then(m => { if (typeof m.warm === 'function') m.warm(); }, () => {});
   return currentWeek().then(() => { keepLast(memo.cur.year, memo.cur.week); armDrafts(); signalBadge(); }, () => {});
 }
 
@@ -837,15 +838,17 @@ const eyebrowText = () => (st && st.week ? `${LEAGUE} · Week ${st.week}` : `${L
 function titleHTML() {
   return ui.largeTitle({eyebrow: eyebrowText(), title: "Pick'em", trailing: youButtonHTML()});
 }
-// The league switch under the title, the screen's focal point: two big scoreboard buttons, NFL and College, the
-// active one lit up like the field. A tap switches the screen to the other league (League switch, at the bottom).
-// Each league's badge: the retro pixel logos (img/nfl.webp, img/ncaa.webp), no name beside them; NCAA keeps "Top 25".
-const BADGE_SRC = {nfl: 'img/nfl.webp', cfb: 'img/ncaa.webp'};
+// The league switch under the title, the screen's focal point: four scoreboard buttons, NFL, College, the League's own
+// fantasy matchups (views/lpick.js) and Survivor (views/survivor.js), the active one lit up like the field. A tap
+// switches the screen to that one (League switch, at the bottom). Each one's badge: the retro pixel logos
+// (img/nfl.webp, img/ncaa.webp, img/league.webp, img/survivor.webp: tools/pickem/badges.py), a word under it.
+const BADGE_SRC = {nfl: 'img/nfl.webp', cfb: 'img/ncaa.webp', lg: 'img/league.webp', sv: 'img/survivor.webp'};
 const badgeHTML = id => `<img class="pk-badge" src="${BADGE_SRC[id]}" alt="" width="44" height="44" decoding="async" draggable="false">`;
-const LEAGUES = [{id: 'nfl', label: 'NFL', sub: ''}, {id: 'cfb', label: 'NCAA', sub: 'Top 25'}];
-function leagueTabsHTML() {
-  return `<div class="pk-lg" role="tablist" aria-label="League">${LEAGUES.map(l => `<button type="button" role="tab" class="pk-lg-t" data-pk-sport="${l.id}"`
-    + ` aria-selected="${l.id === SPORT}"${l.id === SPORT ? '' : ' tabindex="-1"'} aria-label="${l.label} pick'em${l.sub ? ', ' + l.sub.toLowerCase() : ''}">`
+export const LEAGUES = [{id: 'nfl', label: 'NFL', sub: 'Straight up'}, {id: 'cfb', label: 'NCAA', sub: 'Top 25'}, {id: 'lg', label: 'League', sub: 'League'}, {id: 'sv', label: 'Survivor', sub: 'Survivor'}];
+/** The switch, with `on` lit (the League and Survivor screens draw it too). */
+export function leagueTabsHTML(on = SPORT) {
+  return `<div class="pk-lg" role="tablist" aria-label="Pick'em">${LEAGUES.map(l => `<button type="button" role="tab" class="pk-lg-t" data-pk-sport="${l.id}"`
+    + ` aria-selected="${l.id === on}"${l.id === on ? '' : ' tabindex="-1"'} aria-label="${l.id === 'lg' || l.id === 'sv' ? `${l.label} pick'em` : `${l.label} pick'em, ${l.sub.toLowerCase()}`}">`
     + `<span class="pk-lg-ic" aria-hidden="true">${badgeHTML(l.id)}</span>`
     + (l.sub ? `<span class="pk-lg-tx" aria-hidden="true"><span class="pk-lg-s">${l.sub}</span></span>` : '')
     + `<span class="pk-lg-u" aria-hidden="true"></span></button>`).join('')}</div>`;
@@ -2259,29 +2262,42 @@ let switcher = null;
 export function setSwitcher(fn) { switcher = fn; }
 
 const SPORT_KEY = 'gg-pk-sport';
-const host = {sport: ui.lsGet(SPORT_KEY) === 'cfb' ? 'cfb' : 'nfl', cfb: null, cfbP: null, on: VIEW, el: null, ctx: null};
-function loadCfb() {
-  if (!host.cfbP) {
-    host.cfbP = import('./pickem.js?sport=cfb').then(m => { host.cfb = m; m.setSwitcher(switchTo); return m; });
-    host.cfbP.catch(() => { host.cfbP = null; });
+const SPORTS = ['nfl', 'cfb', 'lg', 'sv'];
+// The other screens, loaded the first time they're chosen: College is this file again (?sport=cfb), League and
+// Survivor their own views. mods: sport -> {view} once loaded.
+const LOADERS = {
+  cfb: () => import('./pickem.js?sport=cfb').then(m => { m.setSwitcher(switchTo); return m; }),
+  lg: () => import('./lpick.js'),
+  sv: () => import('./survivor.js')
+};
+const NAMES = {nfl: 'NFL', cfb: 'NCAA', lg: 'League', sv: 'Survivor'};
+const host = {sport: SPORTS.includes(ui.lsGet(SPORT_KEY)) ? ui.lsGet(SPORT_KEY) : 'nfl', mods: {}, loads: {}, on: VIEW, el: null, ctx: null};
+function loadSport(sp) {
+  if (!host.loads[sp]) {
+    host.loads[sp] = LOADERS[sp]().then(m => { host.mods[sp] = m; return m; });
+    host.loads[sp].catch(() => { host.loads[sp] = null; });
   }
-  return host.cfbP;
+  return host.loads[sp];
 }
-const shown = () => (host.sport === 'cfb' && host.cfb ? host.cfb.view : VIEW);
+const viewOf = sp => (sp === 'nfl' ? VIEW : host.mods[sp] ? (sp === 'cfb' ? host.mods[sp].view : host.mods[sp].default) : null);
+const shown = () => viewOf(host.sport) || VIEW;
+/** Shows another of the Pick'em tab's screens ('nfl' | 'cfb' | 'lg' | 'sv'): what its switch's tabs call. */
+export function goLeague(sport) { return switchTo(sport); }
 async function switchTo(sport) {
-  sport = sport === 'cfb' ? 'cfb' : 'nfl';
+  sport = SPORTS.includes(sport) ? sport : 'nfl';
+  const was = host.sport;
   ui.lsSet(SPORT_KEY, sport);
   host.sport = sport;
-  if (sport === 'cfb') {
-    try { await loadCfb(); } catch (e) { console.error(e); ui.toast("NCAA didn't load. Try again.", {icon: 'x-circle'}); host.sport = 'nfl'; ui.lsSet(SPORT_KEY, 'nfl'); return; }
+  if (sport !== 'nfl') {
+    try { await loadSport(sport); } catch (e) { console.error(e); ui.toast(`${NAMES[sport]} didn't load. Try again.`, {icon: 'x-circle'}); host.sport = was; ui.lsSet(SPORT_KEY, was); return; }
   }
-  swap(true);
+  swap(true, was);
 }
-function swap(animate) {
+function swap(animate, was) {
   const el = host.el, ctx = host.ctx, next = shown();
   if (!el || !ctx || !el.isConnected || next === host.on) return;
   const tab = sp => el.querySelector(`.pk-lg-t[data-pk-sport="${sp}"] .pk-lg-u`);
-  const from = tab(next === VIEW ? 'cfb' : 'nfl');
+  const from = was ? tab(was) : null;
   const r0 = from && from.getBoundingClientRect();
   const old = host.on;
   try { if (old.onHide) old.onHide(ctx); old.unmount(el, ctx); } catch (e) { console.error(e); }
@@ -2294,20 +2310,20 @@ function swap(animate) {
   // The league just chosen lights up with a little bounce.
   const to = el.querySelector(`.pk-lg-t[data-pk-sport="${host.sport}"]`);
   if (animate && r0 && to && ctx.visible && !ui.RM) ui.animate(to, [{transform: 'scale(.94)'}, {transform: 'none'}], {spring: 'bouncy'});
-  if (animate) { ui.haptic('selection'); ui.announce(`${next === VIEW ? 'NFL' : 'NCAA'} pick'em.`); }
+  if (animate) { ui.haptic('selection'); ui.announce(`${NAMES[host.sport]} pick'em.`); }
 }
 setSwitcher(switchTo);
 
 const ROOT = {
   id: 'pickem',
   title: ctx => shown().title(ctx),
-  actions: ctx => VIEW.actions(ctx),
+  actions: ctx => (shown().actions ? shown().actions(ctx) : []),
   render(ctx) { host.on = shown(); return host.on.render(ctx); },
   mount(el, ctx) {
     host.el = el; host.ctx = ctx;
     host.on.mount(el, ctx);
-    // College was last chosen but isn't loaded yet: NFL shows meanwhile, then College takes over.
-    if (host.sport === 'cfb' && !host.cfb) loadCfb().then(() => swap(false), () => { host.sport = 'nfl'; });
+    // Another screen was last chosen but isn't loaded yet: NFL shows meanwhile, then it takes over.
+    if (host.sport !== 'nfl' && !viewOf(host.sport)) loadSport(host.sport).then(() => swap(false), () => { host.sport = 'nfl'; });
   },
   onShow(ctx) { if (host.on.onShow) host.on.onShow(ctx); },
   onHide(ctx) { if (host.on.onHide) host.on.onHide(ctx); },

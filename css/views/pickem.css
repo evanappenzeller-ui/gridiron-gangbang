@@ -45,12 +45,12 @@ html.rm .c-pk-dot::after { animation: none; }
 
 /* ================================================================ Screen */
 .v-pickem .pk-acc { margin-top: 4px; }
-/* League switch (NFL · College): the screen's focal point, two big scoreboard buttons. The active one is lit like
-   the field (turf stripes, a neon edge, the arcade bevel); the other waits in navy. */
-.v-pickem .pk-lg { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0 14px; }
+/* League switch (NFL · College · League · Survivor): the screen's focal point, four scoreboard buttons, the badge over
+   a word. The active one is lit like the field (turf stripes, a neon edge, the arcade bevel); the others wait in navy. */
+.v-pickem .pk-lg { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 10px 0 14px; }
 .v-pickem .pk-lg-t {
-  position: relative; display: flex; align-items: center; justify-content: center; gap: 12px;
-  min-height: 72px; padding: 12px 14px;
+  position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  min-height: 82px; padding: 8px 4px 9px; min-width: 0;
   border-radius: 12px;
   background: var(--surface-1);
   box-shadow: 0 4px 0 rgba(0,0,0,.45), inset 0 0 0 2px var(--separator);
@@ -63,14 +63,14 @@ html.rm .c-pk-dot::after { animation: none; }
   background: repeating-linear-gradient(90deg, rgba(255,255,255,.07) 0 2px, transparent 2px 22px), linear-gradient(180deg, #2A9A3E, #17672B);
   box-shadow: 0 4px 0 #0C3D18, inset 0 0 0 2px var(--tint), 0 0 22px rgba(124,240,88,.25);
 }
-.v-pickem .pk-lg-ic { flex: none; display: grid; place-items: center; width: 56px; height: 56px; }
-.v-pickem .pk-badge { width: 56px; height: 56px; object-fit: contain; filter: drop-shadow(2px 2px 0 rgba(0,0,0,.55)); }
+.v-pickem .pk-lg-ic { flex: none; display: grid; place-items: center; width: 46px; height: 46px; }
+.v-pickem .pk-badge { width: 46px; height: 46px; object-fit: contain; image-rendering: pixelated; filter: drop-shadow(2px 2px 0 rgba(0,0,0,.55)); }
 /* The league not shown: its badge waits, dimmed. */
 .v-pickem .pk-lg-t[aria-selected="false"] .pk-badge { opacity: .55; filter: grayscale(.5) drop-shadow(2px 2px 0 rgba(0,0,0,.55)); }
-.v-pickem .pk-lg-tx { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.v-pickem .pk-lg-tx { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; max-width: 100%; }
 .v-pickem .pk-lg-l { font: 400 15px/18px var(--font-pixel); text-transform: uppercase; letter-spacing: 0; white-space: nowrap; }
 .v-pickem .pk-lg-t[aria-selected="true"] .pk-lg-l { text-shadow: 2px 2px 0 #000; }
-.v-pickem .pk-lg-s { font: 400 15px/14px var(--font-num); text-transform: uppercase; letter-spacing: .06em; color: var(--ink-4); }
+.v-pickem .pk-lg-s { font: 400 13px/14px var(--font-num); text-transform: uppercase; letter-spacing: .05em; color: var(--ink-4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .v-pickem .pk-lg-t[aria-selected="true"] .pk-lg-s { color: rgba(255,255,255,.75); }
 .v-pickem .pk-lg-u { display: none; }
 /* College rank before the team name. */
@@ -514,3 +514,91 @@ html.rm .c-pk-dot::after { animation: none; }
 .v-pickem .pk-final-more > .ic { width: 18px; height: 18px; }
 .v-pickem .pk-final-more > .chev { color: var(--ink-3); }
 .v-pickem .pk-final-none { margin: 4px 0 12px; font: 400 var(--fs-sub)/var(--lh-sub) var(--font-text); color: var(--ink-3); }
+
+/* ================================================================ League pick'em (views/lpick.js) */
+.v-pickem .lp-sum { margin-top: 4px; padding: 16px 18px; }
+.v-pickem .lp-sum .ovl { color: var(--tint); }
+.v-pickem .lp-sum-h { margin-top: 4px; font: 700 var(--fs-2)/var(--lh-2) var(--font-text); color: var(--ink); }
+.v-pickem .lp-sum-l { margin-top: 4px; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2); }
+.v-pickem .lp-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.v-pickem .lp-g { position: relative; border-radius: var(--r-card); background: var(--surface-1); overflow: hidden; --stack-ring: var(--surface-1); }
+.v-pickem .lp-g::after { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 3px; background: transparent; pointer-events: none; }
+.v-pickem .lp-g.is-right::after { background: var(--tint); }
+.v-pickem .lp-g.is-wrong::after { background: var(--wrong); }
+.v-pickem .lp-t {
+  position: relative; display: grid; grid-template-columns: 36px minmax(0, 1fr) auto 24px; align-items: center; column-gap: 12px;
+  width: 100%; min-height: 62px; padding: 8px 12px 8px 14px; color: var(--ink); text-align: left; background-color: transparent;
+  transition: background-color 200ms linear;
+}
+.v-pickem .lp-t + .lp-t::before { content: ""; position: absolute; top: 0; left: 62px; right: 0; height: .5px; background: var(--separator); }
+.v-pickem .lp-t.is-on { background-color: var(--tint-soft); }
+.v-pickem .lp-t.is-on.is-lose { background-color: var(--wrong-soft); }
+.v-pickem .lp-t.is-on + .lp-t::before, .v-pickem .lp-t + .lp-t.is-on::before { opacity: 0; }
+.v-pickem .lp-t.is-dim .lp-av, .v-pickem .lp-t.is-lose:not(.is-on) .lp-av { opacity: .55; }
+.v-pickem .lp-t.is-dim .lp-tm { color: var(--ink-2); }
+.v-pickem .lp-t.is-pressed { background-color: var(--surface-2); transition: none; }
+.v-pickem .lp-t.is-locked { cursor: default; }
+.v-pickem .lp-t.is-locked.is-pressed { background-color: transparent; }
+.v-pickem .lp-av { display: inline-flex; transition: opacity 200ms linear; }
+.v-pickem .lp-tn { display: flex; flex-direction: column; min-width: 0; }
+.v-pickem .lp-tm { font: 600 var(--fs-headline)/var(--lh-headline) var(--font-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-pickem .lp-ts { font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.v-pickem .lp-sc { text-align: right; color: var(--ink); font-variant-numeric: tabular-nums; font-size: 19px; line-height: 22px; }
+.v-pickem .lp-t.is-lose .lp-sc { color: var(--ink-3); }
+.v-pickem .lp-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 40px; padding: 6px 14px 8px;
+  border-top: .5px solid var(--separator); color: var(--ink-3); font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text);
+}
+.v-pickem .lp-foot .pk-f-in { display: inline-flex; align-items: center; gap: 6px; }
+.v-pickem .lp-foot .pk-f-in .ic { width: 15px; height: 15px; }
+.v-pickem .lp-board { margin-top: 26px; }
+.v-pickem .lp-board .seg { margin: 0 0 10px; }
+.v-pickem .lp-board-c { padding: 4px 0; }
+.v-pickem .lp-rows { list-style: none; margin: 0; padding: 0; }
+.v-pickem .lp-r { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 6px 16px; }
+.v-pickem .lp-r + .lp-r { border-top: .5px solid var(--separator); }
+.v-pickem .lp-r.is-me { background: var(--tint-soft); }
+.v-pickem .lp-r-k { flex: none; width: 22px; text-align: center; color: var(--ink-3); }
+.v-pickem .lp-r-n { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.v-pickem .lp-r-t { font: 600 var(--fs-body)/var(--lh-body) var(--font-text); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-pickem .lp-r-s { font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+.v-pickem .lp-r-s:empty { display: none; }
+.v-pickem .lp-r-v { flex: none; color: var(--ink); font-variant-numeric: tabular-nums; }
+.v-pickem .lp-you { margin-left: 4px; padding: 1px 6px; border-radius: 6px; background: var(--tint); color: var(--on-tint); font: 800 10px/14px var(--font-text); font-style: normal; letter-spacing: .06em; vertical-align: 2px; }
+.v-pickem .lp-you.is-g { background: var(--gold); color: #1B1B1B; }
+.v-pickem .lp-none { padding: 18px 16px; text-align: center; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+.v-pickem .lp-rules { margin: 22px 6px 0; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+
+/* ================================================================ Survivor (views/survivor.js) */
+.v-pickem .su-hero { position: relative; margin-top: 4px; padding: 16px 18px; min-height: 92px; }
+.v-pickem .su-hero .ovl { color: var(--tint); }
+.v-pickem .su-hero.is-out .ovl { color: var(--wrong); }
+.v-pickem .su-hero.is-champ .ovl { color: var(--gold); }
+.v-pickem .su-h { margin-top: 4px; font: 700 var(--fs-2)/var(--lh-2) var(--font-text); color: var(--ink); }
+.v-pickem .su-l { margin-top: 4px; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2); }
+.v-pickem .su-used { margin-top: 8px; font: 600 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+.v-pickem .su-hero > .su-pick, .v-pickem .su-hero > .su-torch { float: right; margin: 0 0 6px 12px; }
+.v-pickem .su-torch img { width: 56px; height: 56px; image-rendering: pixelated; }
+.v-pickem .su-pre { margin-top: 24px; }
+.v-pickem .pk-t.is-used .c-pk-logo { opacity: .35; filter: grayscale(1); }
+.v-pickem .pk-t.is-used .pk-tnm { color: var(--ink-3); text-decoration: line-through; text-decoration-color: var(--ink-4); }
+.v-pickem .su-pool { margin-top: 26px; }
+.v-pickem .su-rows { list-style: none; margin: 0; padding: 4px 0; }
+.v-pickem .su-r { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 6px 16px; }
+.v-pickem .su-r + .su-r { border-top: .5px solid var(--separator); }
+.v-pickem .su-r.is-me { background: var(--tint-soft); }
+.v-pickem .su-r.is-out .su-r-t { color: var(--ink-3); }
+.v-pickem .su-r-n { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.v-pickem .su-r-t { font: 600 var(--fs-body)/var(--lh-body) var(--font-text); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-pickem .su-cells { display: flex; flex-wrap: wrap; gap: 4px; min-height: 22px; }
+.v-pickem .su-cells:empty { display: none; }
+.v-pickem .su-c { position: relative; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; background: var(--surface-2); color: var(--ink-3); }
+.v-pickem .su-c:empty { display: none; }
+.v-pickem .su-c .ic { width: 13px; height: 13px; }
+.v-pickem .su-c.is-w { box-shadow: inset 0 0 0 1.5px var(--tint); }
+.v-pickem .su-c.is-l { box-shadow: inset 0 0 0 1.5px var(--wrong); background: var(--wrong-soft); }
+.v-pickem .su-c.is-l .c-pk-logo { opacity: .6; }
+.v-pickem .su-c.is-miss { font: 800 14px/1 var(--font-text); }
+.v-pickem .su-tag { flex: none; padding: 3px 9px; border-radius: 999px; font: 800 11px/16px var(--font-text); letter-spacing: .06em; text-transform: uppercase; }
+.v-pickem .su-tag.is-in { background: var(--tint-soft); color: var(--tint); }
+.v-pickem .su-tag.is-out { background: var(--surface-2); color: var(--ink-3); }

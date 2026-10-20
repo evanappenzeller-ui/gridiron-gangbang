@@ -1852,6 +1852,16 @@ export async function runChecks() {
     check('Return Man checks (checks-return.js) loaded', () => ({pass: false, detail: rmErr ? 'did not load: ' + (rmErr.message || rmErr) : 'no returnChecks export'}));
   }
 
+  // League pick'em and Survivor checks (js/core/checks-lpick.js, owned by PICKEM: the League week and its lock, picks
+  // across phones, grading, Survivor's pool and its refusals, the Pick'em switch, the league's rule). Guarded the same way.
+  let lpMod = null, lpErr = null;
+  try { lpMod = await import('./checks-lpick.js'); } catch (e) { lpErr = e; }
+  if (lpMod && typeof lpMod.lpickChecks === 'function') {
+    try { await lpMod.lpickChecks(check); } catch (e) { check('League pick\'em and Survivor checks (checks-lpick.js)', () => { throw e; }); }
+  } else {
+    check('League pick\'em and Survivor checks (checks-lpick.js) loaded', () => ({pass: false, detail: lpErr ? 'did not load: ' + (lpErr.message || lpErr) : 'no lpickChecks export'}));
+  }
+
   await Promise.all(pending);
   return out;
 }

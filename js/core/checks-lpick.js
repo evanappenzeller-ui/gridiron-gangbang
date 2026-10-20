@@ -1,0 +1,112 @@
+// League pick'em and Survivor checks for the dev gallery (#/_kit): the League week (the Matchup of the Week's, its
+// Thursday lock), a member's picks across phones, the lock, the grading and the table (on crafted board docs over
+// a played week); Survivor's pool on crafted NFL boards (in from the first week, a loss, a tie, a missed week, a reused
+// team, a pick after kickoff, everyone out the same week, the winner, picks hidden till kickoff) and its refusals; the
+// Pick'em tab's switch; and both reading the board as this phone may see it (THE RULE, CLAUDE.md). checks.js (owner:
+// core) imports lpickChecks and calls it with its own check(name, fn) helper. Nothing here writes to storage or the
+// database. Owner: PICKEM.
+
+import * as data from './data.js';
+import * as daily from './daily.js';
+import * as week from './week.js';
+import * as LP from './lpick.js';
+import * as SV from './survivor.js';
+
+const H = 36e5, D = 864e5;
+const nickOf = id => (data.M[id] ? data.M[id].name : id);
+
+export async function lpickChecks(check) {
+  check('League pick\'em: the Matchup of the Week\'s week (the next unplayed league week, from Week 7): its six matchups, every pick locking at that week\'s first NFL kickoff', () => {
+    const c = LP.current();
+    if (!c) return {pass: true, detail: 'no League week right now (the schedule is played out)'};
+    const ok = c.week >= (LP.FIRST[c.year] || 1) && c.games.length === 6 && c.lock.getTime() === week.lockTime(c.year, c.week).getTime()
+      && c.games.every(g => g.id === LP.pairKey(g.a, g.b) && data.M[g.a] && data.M[g.b]);
+    return {pass: ok, detail: `${c.year} week ${c.week}: ${c.games.map(g => `${g.a}–${g.b}`).join(', ')}; locks ${c.lock.toISOString()}`};
+  });
+
+  check('League pick\'em: a member\'s latest save before the lock counts (across their phones); a save at or after it never does; right or wrong by who won', () => {
+    const y = 2026, wk = 6, key = week.weekKey(y, wk), lock = week.lockTime(y, wk).getTime();
+    const games = LP.gamesOf(y, wk);
+    if (games.length !== 6) return {pass: false, detail: `week 6 has ${games.length} matchups`};
+    const win = g => LP.resultOf(y, wk, g.a, g.b).winner, lose = g => (win(g) === g.a ? g.b : g.a);
+    const all = f => Object.fromEntries(games.map(g => [g.id, f(g)]));
+    const doc = (id, nick, p, t, extra) => Object.assign({id, nick, total: 0, [LP.F]: {[key]: {p, t}}}, extra);
+    const list = [
+      doc('k-jy1', nickOf('jayton'), all(lose), lock - 2 * H),            // Jayton's older phone: every loser
+      doc('k-jy2', nickOf('jayton'), all(win), lock - H),                 // his newer save: every winner (counts)
+      doc('k-mi', nickOf('mitch'), Object.fromEntries(games.slice(0, 4).map((g, i) => [g.id, i < 3 ? win(g) : lose(g)])), lock - H),
+      doc('k-jo', nickOf('john'), all(win), lock + H),                    // saved after the lock: never counts
+      doc('k-gz', 'Zed Q', {[games[0].id]: win(games[0])}, lock - H, {g: true})
+    ];
+    const rows = LP.weekRows(y, wk, list), by = n => rows.find(r => r.name === n) || null;
+    const jy = by(nickOf('jayton')), mi = by(nickOf('mitch')), gz = by('Zed Q');
+    const ok = !!jy && jy.right === 6 && jy.wrong === 0 && jy.rank === 1 && !!mi && mi.right === 3 && mi.wrong === 1 && mi.picked === 4
+      && !by(nickOf('john')) && !!gz && gz.guest && rows.length === 3;
+    const sp = LP.splitOf(y, wk, games[0], list, lock + H);
+    const split = !!sp && sp.a.length + sp.b.length === 3 && !LP.splitOf(y, wk, games[0], list, lock - H);
+    return {pass: ok && split, detail: rows.map(r => `${r.rank}. ${r.name} ${r.right}–${r.wrong}${r.guest ? ' (guest)' : ''}`).join(', ') + `; split after the lock ${split ? 'shown' : 'WRONG'}, none before`};
+  });
+
+  // Survivor, on crafted NFL boards round now (kickoffs before and after it)
+  const at = Date.now();
+  const T = abbr => ({abbr, short: abbr, name: abbr});
+  const G = (id, away, home, kick, res) => ({id, kickoff: new Date(kick), tbd: false, away: T(away), home: T(home), detail: '', status: res ? 'STATUS_FINAL' : 'STATUS_SCHEDULED',
+    state: res ? 'post' : kick <= at ? 'in' : 'pre', final: !!res, tie: res === 'tie', winner: res === 'tie' || !res ? null : res});
+  const w7 = {games: [G('71', 'KC', 'DEN', at - 8 * D, 'home'), G('72', 'BUF', 'MIA', at - 8 * D, 'away'), G('73', 'NYJ', 'NE', at - 8 * D, 'tie')]};
+  const w8 = {games: [G('81', 'KC', 'LV', at + 2 * D, null), G('82', 'DEN', 'SF', at - D, 'home')]};
+  const boards = new Map([[7, w7], [8, w8]]);
+  const sv = (id, nick, picks) => ({id, nick, total: 0, [SV.F]: {2026: picks}});
+  const P = (k, g, t) => ({k, g, t});
+  check('Survivor: in from the first week; a win goes on, a loss or a tie goes out, a missed week goes out once every game has started, a reused team or a pick after kickoff doesn\'t count; others\' picks hide till kickoff', () => {
+    const before = at - 9 * D;
+    const list = [
+      sv('s-jy', nickOf('jayton'), {7: P('DEN', '71', before), 8: P('KC', '81', at - 3 * D)}),
+      sv('s-mi', nickOf('mitch'), {7: P('KC', '71', before)}),
+      sv('s-jo', nickOf('john'), {7: P('NYJ', '73', before)}),
+      sv('s-be', nickOf('ben'), {7: P('BUF', '72', before)}),
+      sv('s-dr', nickOf('dresden'), {7: P('DEN', '71', at - 7 * D)}),         // after its kickoff: not in
+      sv('s-sa', nickOf('sayer'), {7: P('BUF', '72', before), 8: P('DEN', '82', at - 2 * D)}),
+      sv('s-co', nickOf('corbin'), {7: P('DEN', '71', before), 8: P('DEN', '82', at - 2 * D)}) // DEN again: no pick
+    ];
+    const r = SV.pool(2026, 8, boards, list, at), by = id => r.rows.find(x => x.name === nickOf(id));
+    const st = id => { const x = by(id); return x ? (x.alive ? 'in' : `out ${x.out} ${x.why}`) : 'not in'; };
+    const want = {jayton: 'in', mitch: 'out 7 L', john: 'out 7 T', ben: 'in', dresden: 'not in', sayer: 'out 8 L', corbin: 'in'};
+    const bad = Object.keys(want).filter(id => st(id) !== want[id]);
+    const jy = by('jayton'), hid = jy && jy.picks.find(p => p.w === 8);
+    const hide = !!hid && hid.shown === false && jy.picks.find(p => p.w === 7).shown === true;
+    // the same week once every game of week 8 has started: Ben and Corbin (no pick that counts) go out
+    const late = new Map([[7, w7], [8, {games: w8.games.map(g => Object.assign({}, g, {kickoff: new Date(at - D), state: 'in'}))}]]);
+    const r2 = SV.pool(2026, 8, late, list, at), miss = ['ben', 'corbin'].every(id => { const x = r2.rows.find(y => y.name === nickOf(id)); return x && !x.alive && x.out === 8 && x.why === 'none'; });
+    const order = r.rows.slice(0, 3).every(x => x.alive) && r.entered === 6 && r.alive === 3;
+    return {pass: !bad.length && hide && miss && order, detail: `${Object.keys(want).map(id => `${id} ${st(id)}`).join(', ')}${bad.length ? `; WRONG: ${bad.join(', ')}` : ''}; week 8 picks hidden till kickoff ${hide}; no pick when week 8 has all started: out ${miss}`};
+  });
+
+  check('Survivor: everyone still in losing the same week all stay in; the last one standing wins', () => {
+    const before = at - 9 * D;
+    const all = SV.pool(2026, 7, boards, [sv('a1', nickOf('ben'), {7: P('KC', '71', before)}), sv('a2', nickOf('mitch'), {7: P('MIA', '72', before)})], at);
+    const stay = all.alive === 2 && all.rows.every(x => x.alive && x.saved === 7);
+    const one = SV.pool(2026, 7, boards, [sv('b1', nickOf('ben'), {7: P('DEN', '71', before)}), sv('b2', nickOf('mitch'), {7: P('KC', '71', before)})], at);
+    const champ = one.champion === nickOf('ben').toLowerCase() || (one.rows.find(x => x.key === one.champion) || {}).name === nickOf('ben');
+    return {pass: stay && champ, detail: `both lost week 7: ${stay ? 'both still in' : 'WRONG'}; one left: ${champ ? `${nickOf('ben')} wins` : 'WRONG'}`};
+  });
+
+  check('Survivor: a pick is refused for a game that has kicked off and for a team you\'ve used (nothing saved)', async () => {
+    const started = await SV.pick(2026, 8, w8, 'SF', new Map());
+    const used = await SV.pick(2026, 8, w8, 'KC', new Map([['KC', 7]]));
+    const early = await SV.pick(2026, (SV.FIRST[2026] || 7) - 1, w8, 'KC', new Map());
+    return {pass: started === 'started' && used === 'used' && early === 'closed', detail: `kicked off: ${started}; used: ${used}; before Survivor's first week: ${early}`};
+  });
+
+  check('Pick\'em tab: NFL, NCAA, League and Survivor in the switch; League and Survivor read the board as this phone may see it (never LB.all)', async () => {
+    const pk = await import('../views/pickem.js');
+    const html = pk.leagueTabsHTML('lg');
+    const tabs = [...html.matchAll(/data-pk-sport="(\w+)"/g)].map(m => m[1]).join();
+    const lit = /data-pk-sport="lg"[^>]*aria-selected="true"/.test(html);
+    const srcs = await Promise.all(['./lpick.js', './survivor.js', '../views/lpick.js', '../views/survivor.js'].map(f => fetch(new URL(f, import.meta.url)).then(r => r.text()).catch(() => '')));
+    const strip = t => t.split('\n').map(l => l.replace(/\/\/.*$/, '')).join('\n');
+    const all = srcs.some(t => /LB\.all\b/.test(strip(t)));
+    const raw = /LB\.raw/.test(srcs[0]) && /LB\.raw/.test(srcs[1]);
+    return {pass: tabs === 'nfl,cfb,lg,sv' && lit && !all && raw && srcs.every(Boolean), detail: `tabs ${tabs}; League lit ${lit}; ${all ? 'reads LB.all' : 'no LB.all reads'}; board ${raw ? 'LB.raw' : 'NOT LB.raw'}`};
+  });
+  void daily;
+}
