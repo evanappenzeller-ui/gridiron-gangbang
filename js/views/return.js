@@ -240,7 +240,7 @@ function runnerPose(st) {
   const run = st.run;
   if (!run || st.mode === 'ready' || st.mode === 'catch') return {f: st.mode === 'catch' ? 'rb.stiff_b' : 'rb.r_b0', flip: false};
   if (run.over) return {f: performance.now() - st.downAt > 380 ? 'rb.down' : 'rb.falling', flip: run.x < 0};
-  const g = R.groundAt(run.co, R.laneOf(run), run.z);
+  const g = R.groundAt(run.co, R.laneOf(run), run.z, run.y);
   if (run.spin > 0) {
     const p = 1 - run.spin / R.MOVE.spin, seq = [['rb.r_r0', false], ['rb.r_f0', false], ['rb.r_l0', false], ['rb.r_b1', false]];
     const [f, flip] = seq[Math.min(3, Math.floor(p * 4))];
@@ -255,7 +255,7 @@ function runnerPose(st) {
 function runnerGive(st, now) {
   const run = st.run, t = now / 1000, land = st.landAt ? (now - st.landAt) / 1000 : null;
   if (!run || run.over || st.mode !== 'run') return {t, land};
-  const g = R.groundAt(run.co, R.laneOf(run), run.z), air = run.y > g + .12 || run.vy > 0;
+  const g = R.groundAt(run.co, R.laneOf(run), run.z, run.y), air = run.y > g + .12 || run.vy > 0;
   return {ph: air || run.spin > 0 ? null : run.z / 1.5 * Math.PI, lean: (R.xOf(run, run.lane) - run.x) / 1.2,
     vy: air ? run.vy / 8 : null, t, land};
 }
@@ -300,7 +300,7 @@ function drawLanes(st, c, now) {
   } else {
     list.push({z: R.ZONE, draw: () => W.gate(st, c, R.ZONE, R.zoneAt(st.co, R.ZONE).theme, t)});
   }
-  const pose = runnerPose(st), g = run ? R.groundAt(run.co, R.laneOf(run), rz) : 0, give = runnerGive(st, now);
+  const pose = runnerPose(st), g = run ? R.groundAt(run.co, R.laneOf(run), rz, ry) : 0, give = runnerGive(st, now);
   list.push({z: rz, me: true, draw: () => {
     shadow(st, c, rx, g, rz, .5);
     if (run && !run.over && run.pills > 0) {
@@ -368,7 +368,7 @@ function draw(st, now = performance.now()) {
   const bump = run && run.t - run.bump < .22 ? Math.sin((run.t - run.bump) * 60) * .25 * (1 - (run.t - run.bump) / .22) : 0;
   const tx = (run ? run.x : 0) * .6 + bump;
   st.camX = st.camX == null ? tx : st.camX + (tx - st.camX) * Math.min(1, dt * 9);
-  const lift = run && !run.over ? R.groundAt(run.co, R.laneOf(run), run.z) * .8 : st.lift || 0;
+  const lift = run && !run.over ? R.groundAt(run.co, R.laneOf(run), run.z, run.y) * .8 : st.lift || 0;
   st.lift = (st.lift || 0) + (lift - (st.lift || 0)) * Math.min(1, dt * 3.5);
   st.camH = st.camH0 + st.lift;
   st.camZ = (run ? run.z : 0) - st.back;
