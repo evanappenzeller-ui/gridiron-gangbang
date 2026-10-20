@@ -41,8 +41,6 @@
 :root[data-light] { --you-ring: var(--ink); --clear-x: #fff; }
 :root[data-light] .chip[aria-pressed="true"], :root[data-light] .sheet .chip[aria-pressed="true"], :root[data-light] .v-moves .mv-all[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
 :root[data-light] .card, :root[data-light] .group, :root[data-light] .tile { box-shadow: var(--pixel-shadow), inset 0 0 0 1px rgba(0,0,0,.05); }
-:root[data-light] #title .ts-stars, :root[data-light] #title .ts-lights { display: none; }
-:root[data-light] #title .ts-foot { color: var(--ink-3); }
 
 /* ---------------------------------------------------------------- Prime Time (the default)
    Polished night-game look: crisp condensed display type with a gradient face and a soft glow, stadium light
@@ -126,16 +124,6 @@
 :root[data-skin="prime"] .num.is-tint, :root[data-skin="prime"] .tint { text-shadow: 0 0 14px var(--glow); }
 
 /* ---------------------------------------------------------------- Theme picker (js/themes.js) */
-.ts-theme {
-  position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 52px); transform: translateX(-50%);
-  display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px; border: 0; border-radius: 999px;
-  background: rgba(0,0,0,.42); color: #fff; box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.35);
-  font: 600 15px/20px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif; cursor: pointer;
-  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
-}
-.ts-theme svg { width: 18px; height: 18px; }
-.ts-theme-sw { width: 16px; height: 16px; border-radius: 50%; box-shadow: 0 0 0 2px rgba(255,255,255,.8); }
-
 #theme-picker {
   position: fixed; inset: 0; z-index: 100; display: flex; flex-direction: column;
   background: var(--bg); color: var(--ink); font-family: var(--font-text);

@@ -254,69 +254,123 @@ html.lite .bar {
   backdrop-filter: none !important;
 }
 
-/* ---------------------------------------------------------------- Title screen (retro, the Gridiron Hub logo) */
+/* ---------------------------------------------------------------- The opening (index.html #title) */
+/* After ESPN's (Oct 2026), on every launch, 1.7 s in all. The logo pops out of nothing; the burst flies out round it
+   (rings, a shock wave, footballs, flags, trophies, pylons) and drifts; the logo breaks into slices that fly apart as
+   streaks cross the screen, and slam back together smaller; then we fly through it into the app (which comes in from
+   a little way back: html.ts-in). Transforms and opacity only, so it keeps its frame rate while the app starts
+   underneath. One clock (--ts) for everything, its beats in percent of it: pop 0-20, drift to 58, break 58-68, back
+   together 68-77, through 81-100. */
 html { font-synthesis: none; } /* the pixel faces have one weight: never smear them with a fake bold */
 #title {
-  position: fixed; inset: 0; z-index: 90;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  padding: var(--sa-t) 24px var(--sa-b);
-  background: var(--title-bg, radial-gradient(120% 70% at 50% 0%, #1B3F94 0%, #0D2152 38%, #070E22 72%) #070E22);
-  color: #fff; cursor: pointer; overflow: hidden; outline: none;
-  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+  --ts: 1700ms; --S: min(66vw, 300px);
+  position: fixed; inset: 0; z-index: 90; overflow: hidden; cursor: pointer; contain: strict;
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
 }
-/* Pixel stars: a few squares on a tile, blinking in steps. */
-#title .ts-stars {
-  position: absolute; inset: 0; opacity: .7; image-rendering: pixelated;
-  background-image:
-    linear-gradient(#fff, #fff), linear-gradient(#fff, #fff), linear-gradient(#FFE07A, #FFE07A), linear-gradient(#fff, #fff),
-    linear-gradient(#9CC4FF, #9CC4FF), linear-gradient(#fff, #fff), linear-gradient(#fff, #fff);
-  background-size: 3px 3px;
-  background-repeat: no-repeat;
-  background-position: 12% 9%, 31% 22%, 78% 12%, 88% 31%, 55% 6%, 8% 38%, 67% 41%;
-  animation: ts-twinkle 1.6s steps(2) infinite;
+#title .ts-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+#title .ts-bg {
+  position: absolute; inset: 0;
+  background: radial-gradient(90% 60% at 50% 46%, #2D58F6 0%, #1636CF 42%, #0A1A86 100%) #0A1A86;
+  animation: ts-bg var(--ts) linear both;
 }
-@keyframes ts-twinkle { 50% { opacity: .35; } }
-/* Two stadium light banks in the top corners. */
-#title .ts-lights i {
-  position: absolute; top: calc(var(--sa-t) + 18px); width: 54px; height: 30px;
-  background:
-    radial-gradient(circle, #FFF6C8 0 4px, transparent 5px) 0 0 / 18px 15px;
-  filter: drop-shadow(0 0 10px rgba(255,236,160,.75));
+@keyframes ts-bg { 0%, 82% { opacity: 1; } 100% { opacity: 0; } }
+#title .ts-rings > i, #title .ts-wave, #title .ts-mark {
+  position: absolute; left: 50%; top: 46%; width: var(--S); height: var(--S); margin: calc(var(--S) / -2) 0 0 calc(var(--S) / -2);
 }
-#title .ts-lights i:first-child { left: 18px; }
-#title .ts-lights i:last-child { right: 18px; }
-#title .ts-logo {
-  position: relative; width: min(78vw, 360px); height: auto; aspect-ratio: 1;
-  border-radius: 22%;
-  box-shadow: 0 10px 0 rgba(0,0,0,.45), 0 0 0 4px #000, 0 0 60px rgba(70,120,255,.35);
-  image-rendering: pixelated;
-  animation: ts-drop 700ms steps(7, end) both;
+/* The rings: the logo's shape, three times, lighter and lighter, thrown out behind it */
+#title .ts-rings > i { border-radius: 22%; background: rgba(125,160,255,.22); box-shadow: inset 0 0 0 3px rgba(170,195,255,.28); animation: ts-ring var(--ts) both; }
+#title .ts-rings > i:nth-child(2) { background: rgba(125,160,255,.14); animation-delay: 30ms; }
+#title .ts-rings > i:nth-child(3) { background: rgba(125,160,255,.08); animation-delay: 60ms; }
+@keyframes ts-ring {
+  0%, 4% { transform: scale(.4); opacity: 0; animation-timing-function: cubic-bezier(.2,1.5,.4,1); }
+  20% { transform: scale(var(--k)); opacity: 1; animation-timing-function: linear; }
+  58% { transform: scale(calc(var(--k) * 1.07)); opacity: 1; animation-timing-function: cubic-bezier(.6,0,.9,.5); }
+  70%, 100% { transform: scale(calc(var(--k) * 3)); opacity: 0; }
 }
-@keyframes ts-drop { from { transform: translateY(-40vh); } to { transform: none; } }
-#title .ts-press {
-  position: relative; margin: 44px 0 0;
-  font: 14px/20px "Press Start 2P", monospace; letter-spacing: .04em; text-transform: uppercase;
-  color: #FFC531; text-shadow: 3px 3px 0 #000;
-  animation: ts-blink 1s steps(1, end) 700ms infinite both;
+/* The shock wave of the pop */
+#title .ts-wave { border-radius: 50%; box-shadow: 0 0 0 6px #3EF08F, 0 0 34px 8px rgba(62,240,143,.55); opacity: 0; animation: ts-wave var(--ts) both; }
+@keyframes ts-wave {
+  0%, 6% { transform: scale(.3); opacity: 0; animation-timing-function: cubic-bezier(.1,.7,.3,1); }
+  7% { opacity: 1; }
+  30%, 100% { transform: scale(3); opacity: 0; }
 }
-@keyframes ts-blink { 0% { opacity: 1; } 50% { opacity: 0; } }
+/* The burst: out from behind the logo to where each one sits, a slow drift, then gone past the camera */
+#title .ts-o { position: absolute; left: 50%; top: 46%; width: var(--w); height: auto; overflow: visible; animation: ts-obj var(--ts) var(--d, 0ms) both; }
+@keyframes ts-obj {
+  0%, 5% { transform: translate(-50%, -50%) translate(0vw, 0vh) rotate(0deg) scale(0); opacity: 1; animation-timing-function: cubic-bezier(.12,.9,.3,1); }
+  24% { transform: translate(-50%, -50%) translate(var(--x), var(--y)) rotate(var(--r)) scale(1); animation-timing-function: linear; }
+  58% { transform: translate(-50%, -50%) translate(calc(var(--x) * 1.12), calc(var(--y) * 1.12)) rotate(calc(var(--r) + 12deg)) scale(1.06); animation-timing-function: cubic-bezier(.6,0,1,.6); }
+  70% { transform: translate(-50%, -50%) translate(calc(var(--x) * 2.8), calc(var(--y) * 2.8)) rotate(calc(var(--r) + 50deg)) scale(1.8); opacity: 1; }
+  71%, 100% { transform: translate(-50%, -50%) translate(calc(var(--x) * 2.8), calc(var(--y) * 2.8)) rotate(calc(var(--r) + 50deg)) scale(1.8); opacity: 0; }
+}
+/* The streaks across the screen while the logo is in pieces */
+#title .ts-streaks > i {
+  position: absolute; left: 10vw; top: var(--t); width: 80vw; height: var(--h); border-radius: 99px; opacity: 0;
+  background: linear-gradient(90deg, transparent, var(--c) 30%, var(--c) 72%, transparent);
+  animation: ts-streak var(--ts) var(--d) both;
+}
+@keyframes ts-streak {
+  0%, 59% { transform: rotate(var(--z)) translateX(calc(var(--v) * -140%)); opacity: 0; animation-timing-function: cubic-bezier(.5,0,.5,1); }
+  60% { opacity: 1; }
+  71% { transform: rotate(var(--z)) translateX(calc(var(--v) * 140%)); opacity: 1; }
+  72%, 100% { transform: rotate(var(--z)) translateX(calc(var(--v) * 140%)); opacity: 0; }
+}
+/* The logo: pops (over and back), pushes in, breaks and comes back smaller, then we go through it */
+#title .ts-mark { animation: ts-pop var(--ts) both; }
+@keyframes ts-pop {
+  0% { transform: scale(.2); opacity: 0; animation-timing-function: cubic-bezier(.2,.8,.3,1); }
+  3% { opacity: 1; }
+  10% { transform: scale(1.16); animation-timing-function: ease-in-out; }
+  15% { transform: scale(.95); animation-timing-function: ease-out; }
+  20% { transform: scale(1); animation-timing-function: linear; }
+  58% { transform: scale(1.07); }
+  68% { transform: scale(1.07); animation-timing-function: cubic-bezier(.3,0,.2,1); }
+  77% { transform: scale(.78); animation-timing-function: ease-out; }
+  81% { transform: scale(.84); opacity: 1; animation-timing-function: cubic-bezier(.5,0,.9,.5); }
+  92% { opacity: 0; }
+  100% { transform: scale(3); opacity: 0; }
+}
+/* its white edge and shadow (off while it's in pieces) */
+#title .ts-mark::before {
+  content: ""; position: absolute; inset: -5px; border-radius: 24%; background: #fff;
+  box-shadow: 0 18px 44px rgba(2,8,60,.55); animation: ts-edge var(--ts) both;
+}
+@keyframes ts-edge { 0%, 57% { opacity: 1; } 59%, 74% { opacity: 0; } 77%, 100% { opacity: 1; } }
+/* four slices of it: out one side, back in from the other */
+#title .ts-sl {
+  position: absolute; left: 0; right: 0; top: calc(var(--i) * 25%); height: 25.3%;
+  background: url(../img/logo.webp) 50% calc(var(--i) * 100% / 3) / 100% 400% no-repeat;
+  animation: ts-slice var(--ts) calc(var(--i) * 14ms) both;
+}
+#title .ts-sl:nth-child(1) { border-radius: calc(var(--S) * .22) calc(var(--S) * .22) 0 0; }
+#title .ts-sl:nth-child(4) { border-radius: 0 0 calc(var(--S) * .22) calc(var(--S) * .22); }
+@keyframes ts-slice {
+  0%, 58% { transform: translateX(0%) skewX(0deg); animation-timing-function: cubic-bezier(.6,0,1,.4); }
+  64.9% { transform: translateX(calc(var(--v) * 130%)) skewX(calc(var(--v) * -18deg)); opacity: 1; }
+  65% { transform: translateX(calc(var(--v) * -130%)) skewX(calc(var(--v) * 18deg)); opacity: 0; animation-timing-function: linear; }
+  67.9% { opacity: 0; }
+  68% { transform: translateX(calc(var(--v) * -130%)) skewX(calc(var(--v) * 18deg)); opacity: 1; animation-timing-function: cubic-bezier(.1,.8,.25,1); }
+  76%, 100% { transform: translateX(0%) skewX(0deg); opacity: 1; }
+}
+/* a flash at the pop and as it lands back together */
+#title .ts-shine { position: absolute; inset: 0; border-radius: 22%; background: #fff; opacity: 0; animation: ts-shine var(--ts) both; }
+@keyframes ts-shine { 0%, 8% { opacity: 0; } 10% { opacity: .55; } 16%, 74% { opacity: 0; } 76.5% { opacity: .7; } 84%, 100% { opacity: 0; } }
 #title .ts-foot {
-  position: absolute; left: 0; right: 0; bottom: calc(var(--sa-b) + 22px); margin: 0;
-  text-align: center; font: 8px/12px "Press Start 2P", monospace; letter-spacing: .06em; text-transform: uppercase;
-  color: rgba(255,255,255,.5);
+  position: absolute; left: 0; right: 0; bottom: calc(var(--sa-b) + 26px); margin: 0; text-align: center;
+  font: 800 11px/14px var(--font-text); letter-spacing: .24em; text-transform: uppercase; color: rgba(255,255,255,.72);
+  animation: ts-foot var(--ts) both;
 }
-#title .ts-flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
-/* Started: a white flash, then the screen wipes up in chunky steps. */
-#title.is-out { pointer-events: none; animation: ts-out 520ms steps(6, end) 120ms forwards; }
-#title.is-out .ts-flash { animation: ts-flash 160ms steps(2, end) forwards; }
-#title.is-out .ts-press { animation: ts-blink 80ms steps(1, end) 3; }
-@keyframes ts-flash { 0% { opacity: .9; } 100% { opacity: 0; } }
-@keyframes ts-out { to { transform: translateY(-100%); } }
+@keyframes ts-foot { 0%, 8% { opacity: 0; transform: translateY(8px); } 18%, 60% { opacity: 1; transform: none; } 66%, 100% { opacity: 0; transform: none; } }
+/* Through it: the app comes in from a little way back. A tap skips the lot. */
+html.ts-in #app { animation: ts-app 420ms cubic-bezier(.2,.8,.25,1) both; }
+@keyframes ts-app { from { transform: scale(.9); opacity: .35; } to { transform: none; opacity: 1; } }
+#title.is-skip { pointer-events: none; animation: ts-skip 200ms ease-out forwards; }
+@keyframes ts-skip { to { opacity: 0; transform: scale(1.08); } }
 @media (prefers-reduced-motion: reduce) {
-  #title .ts-logo, #title .ts-stars, #title .ts-press { animation: none; }
-  #title.is-out { animation: ts-fade 200ms linear forwards; }
-  #title.is-out .ts-flash { animation: none; }
-  @keyframes ts-fade { to { opacity: 0; } }
+  #title .ts-rings, #title .ts-wave, #title .ts-objs, #title .ts-streaks, #title .ts-shine { display: none; }
+  #title .ts-sl, #title .ts-mark::before, #title .ts-foot { animation: none; }
+  #title .ts-bg, #title .ts-mark { animation: ts-bg 900ms linear both; }
+  html.ts-in #app, #title.is-skip { animation: none; }
 }
 @media (min-width: 720px) { :root:not(.is-rot) #title { left: 0; right: 0; } }
 

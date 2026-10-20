@@ -140,15 +140,45 @@
   <symbol id="i-letters" viewBox="0 0 24 24"><path d="m3 15 4-8 4 8"/><path d="M4 13h6"/><path d="M15 11h4.5a2 2 0 0 1 0 4H15V7h4a2 2 0 0 1 0 4"/></symbol>
 </svg>
 
-<!-- Title screen: shown on every launch over the app (which loads underneath, inert), gone on a tap. -->
-<div id="title" role="button" tabindex="0" aria-label="Gridiron Hub. Tap to start.">
-  <div class="ts-stars" aria-hidden="true"></div>
-  <div class="ts-lights" aria-hidden="true"><i></i><i></i></div>
-  <img class="ts-logo" src="img/logo.webp" alt="" width="720" height="720" decoding="async" draggable="false">
-  <p class="ts-press" aria-hidden="true">Tap to start</p>
-  <button type="button" class="ts-theme" data-ts-theme><span class="ts-theme-sw" style="background:var(--tint)" aria-hidden="true"></span>Change theme</button>
-  <p class="ts-foot" aria-hidden="true">Gridiron Gangbang &middot; Est. 2021</p>
-  <div class="ts-flash" aria-hidden="true"></div>
+<!-- The opening (Oct 2026, after ESPN's): on every launch, over the app (which loads underneath, inert). The logo
+     pops, the burst flies out round it, the logo breaks apart and slams back together, then we fly through it into
+     the app: 1.7 s in all (css/base.css, the opening). A tap skips it. -->
+<div id="title" aria-hidden="true">
+  <svg class="ts-defs" width="0" height="0" focusable="false">
+    <symbol id="ts-ball" viewBox="0 0 120 72"><path d="M6 36C30 2 90 2 114 36 90 70 30 70 6 36Z" fill="#fff" stroke="#0A1660" stroke-width="5" stroke-linejoin="round"/><path d="M27 15c-5 13-5 29 0 42M93 15c5 13 5 29 0 42M42 36h36M48 30v12M55 30v12M62 30v12M69 30v12" fill="none" stroke="#0A1660" stroke-width="5" stroke-linecap="round"/></symbol>
+    <symbol id="ts-cup" viewBox="0 0 100 100"><path d="M28 22H15c0 16 7 24 16 24M72 22h13c0 16-7 24-16 24" fill="none" stroke="#0A1660" stroke-width="6" stroke-linecap="round"/><path d="M28 12h44v28c0 16-10 25-22 25S28 56 28 40Z" fill="#FFCD4A" stroke="#0A1660" stroke-width="5" stroke-linejoin="round"/><path d="M45 27l7-4v28" fill="none" stroke="#0A1660" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M44 65h12v10H44ZM32 75h36v12H32Z" fill="#FFCD4A" stroke="#0A1660" stroke-width="5" stroke-linejoin="round"/></symbol>
+    <symbol id="ts-flag" viewBox="0 0 100 100"><path d="M18 22c20-12 40 10 66-4l-6 44c-22 12-40-10-58 2Z" fill="#FFD23F" stroke="#0A1660" stroke-width="5" stroke-linejoin="round"/><circle cx="22" cy="68" r="9" fill="#FFD23F" stroke="#0A1660" stroke-width="5"/><path d="M16 76l-6 14M26 77l2 15" stroke="#0A1660" stroke-width="5" stroke-linecap="round"/></symbol>
+    <symbol id="ts-pylon" viewBox="0 0 80 100"><path d="M40 6l26 78H14Z" fill="#FF7A1A" stroke="#0A1660" stroke-width="5" stroke-linejoin="round"/><path d="M28 44h24l4 13H24Z" fill="#fff"/><path d="M6 84h68v10H6Z" fill="#FF7A1A" stroke="#0A1660" stroke-width="5" stroke-linejoin="round"/></symbol>
+    <symbol id="ts-finger" viewBox="0 0 84 112"><path d="M31 12c0-8 13-8 13 0v34c4-5 13-4 14 3 4-5 13-3 13 4v22c0 20-12 31-29 31S14 95 14 77V56c0-7 9-9 17-4Z" fill="#3EF08F" stroke="#0A1660" stroke-width="5" stroke-linejoin="round"/><path d="M44 48v14M58 52v12" stroke="#0A1660" stroke-width="4" stroke-linecap="round"/></symbol>
+    <symbol id="ts-star" viewBox="0 0 100 100"><path d="M50 0c4 36 14 46 50 50-36 4-46 14-50 50-4-36-14-46-50-50 36-4 46-14 50-50Z" fill="#fff"/></symbol>
+  </svg>
+  <div class="ts-bg"></div>
+  <div class="ts-rings"><i style="--k:1.32"></i><i style="--k:1.72"></i><i style="--k:2.25"></i></div>
+  <div class="ts-wave"></div>
+  <div class="ts-objs">
+    <svg class="ts-o" style="--x:36vw;--y:-35vh;--w:150px;--r:-25deg;--d:0ms"><use href="#ts-ball"/></svg>
+    <svg class="ts-o" style="--x:-44vw;--y:-13vh;--w:112px;--r:40deg;--d:30ms"><use href="#ts-ball"/></svg>
+    <svg class="ts-o" style="--x:-30vw;--y:37vh;--w:172px;--r:14deg;--d:10ms"><use href="#ts-ball"/></svg>
+    <svg class="ts-o" style="--x:39vw;--y:27vh;--w:92px;--r:62deg;--d:50ms"><use href="#ts-ball"/></svg>
+    <svg class="ts-o" style="--x:5vw;--y:-29vh;--w:64px;--r:-8deg;--d:20ms"><use href="#ts-cup"/></svg>
+    <svg class="ts-o" style="--x:-13vw;--y:31vh;--w:46px;--r:12deg;--d:60ms"><use href="#ts-cup"/></svg>
+    <svg class="ts-o" style="--x:41vw;--y:5vh;--w:74px;--r:18deg;--d:40ms"><use href="#ts-flag"/></svg>
+    <svg class="ts-o" style="--x:22vw;--y:35vh;--w:60px;--r:-22deg;--d:20ms"><use href="#ts-flag"/></svg>
+    <svg class="ts-o" style="--x:-41vw;--y:-31vh;--w:50px;--r:-30deg;--d:50ms"><use href="#ts-flag"/></svg>
+    <svg class="ts-o" style="--x:-37vw;--y:17vh;--w:56px;--r:-15deg;--d:30ms"><use href="#ts-pylon"/></svg>
+    <svg class="ts-o" style="--x:31vw;--y:-17vh;--w:42px;--r:22deg;--d:60ms"><use href="#ts-pylon"/></svg>
+    <svg class="ts-o" style="--x:-25vw;--y:-35vh;--w:62px;--r:-12deg;--d:10ms"><use href="#ts-finger"/></svg>
+    <svg class="ts-o" style="--x:-15vw;--y:-21vh;--w:26px;--r:0deg;--d:70ms"><use href="#ts-star"/></svg>
+    <svg class="ts-o" style="--x:25vw;--y:-12vh;--w:20px;--r:0deg;--d:40ms"><use href="#ts-star"/></svg>
+    <svg class="ts-o" style="--x:-41vw;--y:3vh;--w:18px;--r:0deg;--d:20ms"><use href="#ts-star"/></svg>
+    <svg class="ts-o" style="--x:13vw;--y:24vh;--w:24px;--r:0deg;--d:60ms"><use href="#ts-star"/></svg>
+  </div>
+  <div class="ts-streaks"><i style="--t:28%;--c:#fff;--h:5px;--z:-8deg;--v:1;--d:0ms"></i><i style="--t:39%;--c:#3EF08F;--h:9px;--z:-8deg;--v:-1;--d:30ms"></i><i style="--t:47%;--c:#FFCD4A;--h:4px;--z:-8deg;--v:1;--d:15ms"></i><i style="--t:55%;--c:#fff;--h:7px;--z:-8deg;--v:-1;--d:45ms"></i><i style="--t:63%;--c:#3EF08F;--h:4px;--z:-8deg;--v:1;--d:25ms"></i></div>
+  <div class="ts-mark">
+    <i class="ts-sl" style="--i:0;--v:-1"></i><i class="ts-sl" style="--i:1;--v:1"></i><i class="ts-sl" style="--i:2;--v:-1"></i><i class="ts-sl" style="--i:3;--v:1"></i>
+    <i class="ts-shine"></i>
+  </div>
+  <p class="ts-foot">Gridiron Gangbang &middot; Est. 2021</p>
 </div>
 <div id="app" inert>
   <div id="stage">
@@ -184,33 +214,45 @@
 <!-- Firebase web config for the shared leaderboard. Leave {} to run without it. -->
 <script id="firebase-config" type="application/json">{"apiKey":"AIzaSyDWcOeYQcoz7T2oi0NqBsgbq9I-6Zrrm34","authDomain":"gridiron-gangbang.firebaseapp.com","projectId":"gridiron-gangbang","storageBucket":"gridiron-gangbang.firebasestorage.app","messagingSenderId":"996712077165","appId":"1:996712077165:web:05d0d7c1df7fa20c69ac64"}</script>
 <script>
-// The title screen: any tap (or Enter / Space) starts the app. Runs before the app's modules so the first tap works.
+// The opening: plays once and gets out of the way (1.7 s), the app live under it from the fly-through on; a tap
+// skips it. Runs before the app's modules, so it starts with the first paint.
 (function () {
   var t = document.getElementById('title'), app = document.getElementById('app');
-  if (!t) { if (app) app.inert = false; return; }
-  // An update reload (the app swapping in a new version mid-session) skips the title screen.
+  var live = function () { if (app) { app.inert = false; app.removeAttribute('inert'); } };
+  if (!t) { live(); return; }
+  // An update reload (the app swapping in a new version mid-session) skips the opening.
   try {
     if (sessionStorage.getItem('gg-skip-title')) {
       sessionStorage.removeItem('gg-skip-title');
-      t.remove();
-      if (app) { app.inert = false; app.removeAttribute('inert'); }
+      t.remove(); live();
       return;
     }
   } catch (_) {}
-  var go = function () {
-    if (t.getAttribute('data-out')) return;
-    t.setAttribute('data-out', '1');
-    try { if (navigator.vibrate) navigator.vibrate([8, 40, 12]); } catch (_) {}
-    if (app) { app.inert = false; app.removeAttribute('inert'); }
-    t.classList.add('is-out');
-    setTimeout(function () { t.remove(); }, 700);
+  var done = false, timers = [];
+  var end = function () {
+    if (done) return;
+    done = true;
+    timers.forEach(clearTimeout);
+    live();
+    t.remove();
   };
-  // "Change theme": the theme picker over the title screen (js/themes.js); the tap doesn't start the app.
-  var th = t.querySelector('[data-ts-theme]');
-  if (th) th.addEventListener('click', function (e) { e.stopPropagation(); if (window.GGTheme) window.GGTheme.picker(); });
-  t.addEventListener('click', go);
-  t.addEventListener('keydown', function (e) { if (e.target !== t) return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
-  try { t.focus({preventScroll: true}); } catch (_) {}
+  var buzz = function (ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (_) {} };
+  timers.push(setTimeout(function () { buzz(10); }, 160));                       // the pop
+  timers.push(setTimeout(function () { buzz(16); }, 1285));                      // back together
+  timers.push(setTimeout(function () { live(); document.documentElement.classList.add('ts-in'); }, 1400)); // through it
+  timers.push(setTimeout(end, 2500));                                            // (in case the animation never ends)
+  t.addEventListener('animationend', function (e) { if (e.animationName === 'ts-bg') end(); });
+  if (app) app.addEventListener('animationend', function off(e) {
+    if (e.animationName !== 'ts-app') return;
+    document.documentElement.classList.remove('ts-in');
+    app.removeEventListener('animationend', off);
+  });
+  t.addEventListener('click', function () {
+    if (done || t.classList.contains('is-skip')) return;
+    live();
+    t.classList.add('is-skip');
+    timers.push(setTimeout(end, 220));
+  });
 })();
 </script>
 <script>

@@ -3,8 +3,8 @@
 // data-skin (the token block in css/themes.css; none for Retro), data-light, data-stars, data-font and
 // data-radius (the shared looks). Prime Time is the default (a phone that never picked one); Retro, the original, is
 // a pick away. window.GGTheme: {list, get(), set(id), picker()}; set() fires 'gg:theme' on window.
-// The picker: a full-screen chooser (Classic, Creative, NFL teams) opened from the title screen's "Change theme" and
-// from the You sheet; a tap applies the theme at once.
+// The picker: a full-screen chooser (Classic, Creative, NFL teams) opened from the You sheet; a tap applies the theme
+// at once.
 (function () {
   var THEMES = /*THEMES*/[];
   var KEY = 'gg-skin', root = document.documentElement;
