@@ -216,15 +216,12 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
 }
 .gm-stk.is-test { background: #3EF08F; }
 
-/* ---- The back (and the back up close): the cover faded behind the name, the result, the leaderboard */
+/* ---- The back (and the back up close): the name, the result, the leaderboard (no cover art: the owner's ask, Oct 2026,
+   the back shows only the scoreboard), on the dark tinted at its top with the game's colour */
 .gm-back { transform: rotateY(180deg); color: #EEF0F4; }
 .gm-bk-tag { flex: none; padding: 1.1cqw 2cqw; border-radius: 1cqw; background: var(--gc); color: #fff; font: 800 2.8cqw/1 var(--font-text); letter-spacing: .14em; }
-.gm-bk-in { position: relative; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 2.8cqw; padding: 4.4cqw 4cqw 3.4cqw; overflow: hidden; background: #141417; }
-.gm-bk-art {
-  position: absolute; left: 0; right: 0; top: 0; height: 62%; pointer-events: none; background-size: cover; background-position: 50% 80%;
-  opacity: .34; -webkit-mask-image: linear-gradient(transparent, #000 24%, #000 42%, transparent); mask-image: linear-gradient(transparent, #000 24%, #000 42%, transparent);
-}
-.gm-bk-in > :not(.gm-bk-art) { position: relative; }
+.gm-bk-in { position: relative; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 2.8cqw; padding: 4.4cqw 4cqw 3.4cqw; overflow: hidden;
+  background: linear-gradient(color-mix(in srgb, var(--gc) 16%, #141417), #141417 38%); }
 .gm-bk-name {
   min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font: 800 11.6cqw/.9 var(--gm-cond); text-transform: uppercase; color: #fff; text-shadow: 0 .6cqw 2.4cqw rgba(0,0,0,.7);
@@ -304,7 +301,6 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
 .gm-zoom .gm-band-t { font-size: 3.4cqw; }
 .gm-z-x { flex: none; }
 .gm-zoom .gm-bk-in { gap: 3cqw; padding: 4.4cqw 4cqw 3.6cqw; border-radius: 0 0 10px 10px; }
-.gm-zoom .gm-bk-art { height: 50%; background-position: 50% 100%; }
 .gm-zoom .gm-bk-name { font-size: 10cqw; }
 .gm-zoom .gm-bk-vis, .gm-zoom .gm-bk-vis .gm-tile, .gm-zoom .gm-bk-vis > svg, .gm-zoom .gm-bk-vis .ring { width: 19cqw; height: 19cqw; }
 .gm-zoom .gm-bk-vis .gm-tile > b { font-size: 8cqw; }

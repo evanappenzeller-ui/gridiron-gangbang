@@ -259,12 +259,12 @@ function placeText(s) {
   const me = s.rows && s.rows.find(r => r.me);
   return me ? `${ui.ordinal(me.rank)} of ${s.rows.length} today` : '';
 }
-/** A case's back: the band, the cover faded behind the name, the result, today's leaderboard. */
+/** A case's back: the band, the name, the result, today's leaderboard. */
 function backHTML(g, s) {
   const place = placeText(s), note = boardNote(s.board, s.rows || []);
   const rows = note || `<div class="gm-scr-rows" role="list" aria-label="Today’s leaderboard">${miniRows(s.rows, 5).map(r => (r ? rowHTML(r) : '<div class="gm-r-gap" aria-hidden="true">· · ·</div>')).join('')}</div>`;
   return `<div class="gm-face gm-back" style="--gc:${ACCENT[g.id]}">${bandHTML(`<span class="gm-bk-tag">${s.test ? 'TEST' : 'FINAL'}</span>`)}`
-    + `<span class="gm-bk-in"><span class="gm-bk-art" style="background-image:url('${g.art}')" aria-hidden="true"></span>`
+    + `<span class="gm-bk-in">`
     + `<span class="gm-bk-name">${esc(g.name)}</span>`
     + `<span class="gm-bk-res"><span class="gm-bk-vis">${s.vis || ''}</span><span class="gm-bk-tt"><b class="gm-bk-h${s.gold ? ' is-gold' : ''}">${esc(s.head || '')}</b>`
     + `${(s.lines || []).map(l => `<small>${esc(l)}</small>`).join('')}${place ? `<em>${esc(place)}</em>` : ''}</span></span>`
@@ -423,7 +423,7 @@ export function mountList(el, ctx, opts = {}) {
     z.innerHTML = `<div class="gm-z-scrim" data-gm-zclose></div>`
       + `<div class="gm-z-case gm-back" style="--gc:${ACCENT[id]}" role="dialog" aria-modal="true" aria-labelledby="gm-z-t" tabindex="-1">`
       + bandHTML(ui.iconButton({icon: 'close', label: 'Close', cls: 'gm-z-x', filled: true, attrs: 'data-gm-zclose'}))
-      + `<div class="gm-bk-in"><span class="gm-bk-art" style="background-image:url('${g.art}')" aria-hidden="true"></span><span class="gm-bk-name" id="gm-z-t">${esc(g.name)}</span>`
+      + `<div class="gm-bk-in"><span class="gm-bk-name" id="gm-z-t">${esc(g.name)}</span>`
       + `<div class="gm-bk-res"><span class="gm-bk-vis">${s.vis || ''}</span><span class="gm-bk-tt"><b class="gm-bk-h${s.gold ? ' is-gold' : ''}">${esc(s.head || '')}</b>${(s.lines || []).map(l => `<small>${esc(l)}</small>`).join('')}</span></div>`
       + `<div class="gm-z-tog" role="tablist" aria-label="Leaderboard"><button type="button" role="tab" aria-selected="true" data-gm-zmode="today">Today</button><button type="button" role="tab" aria-selected="false" data-gm-zmode="season">Season</button></div>`
       + `<div class="gm-scr is-z"><div class="gm-z-body" data-gm-zbody>${zoomBody(g, 'today')}</div></div>`
