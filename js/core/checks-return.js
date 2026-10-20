@@ -91,13 +91,13 @@ const set = (...plats) => ({i: 0, zs: Math.min(...plats.map(p => p.z0 - p.ramp))
 
 export async function returnChecks(check) {
   // ------------------------------------------------------------------------------------------- the course
-  check('Return Man: day 1 is Oct 20 2026; a day\'s three kickoffs are the same every time (the same on every phone) and differ kickoff to kickoff and day to day; a wedge (go round it) is all you meet for the first 40 yards, one man a row till 60; every row leaves a way through (never three wedges); the rows come no closer than GAP.min seconds apart', () => {
+  check('Return Man: day 1 is Oct 20 2026; a day\'s kickoff (one a day) is the same every time (the same on every phone) and differs day to day; a wedge (go round it) is all you meet for the first 40 yards, one man a row till 60; every row leaves a way through (never three wedges); the rows come no closer than GAP.min seconds apart', () => {
     const day1 = R.todayNumber(new Date(2026, 9, 20, 9)) === 1 && R.todayNumber(new Date(2026, 9, 21, 1)) === 2 && R.dayLabel(1, {month: 'short', day: 'numeric'}) === 'Oct 20';
     const sig = (n, k) => { const co = R.fill(R.course(n, k), 800); return JSON.stringify([co.rows.slice(0, 30), co.sets.slice(0, 6), co.items.slice(0, 5)]); };
-    const same = sig(3, 1) === sig(3, 1), differ = sig(3, 0) !== sig(3, 1) && sig(3, 1) !== sig(4, 1);
+    const same = sig(3, 0) === sig(3, 0), differ = sig(3, 0) !== sig(4, 0) && sig(4, 0) !== sig(5, 0);
     const bad = [];
     let minT = Infinity;
-    for (let n = 1; n <= 8; n++) for (let k = 0; k < R.RETURNS; k++) {
+    for (let n = 1; n <= 24; n++) for (const k of [0]) {
       const rows = R.fill(R.course(n, k), 3000).rows;
       rows.forEach((r, i) => {
         const men = r.lanes.filter(Boolean);
@@ -114,7 +114,7 @@ export async function returnChecks(check) {
   check('Return Man: the vehicles always leave a way through: at most two side by side (an open lane always), never across the line into the next place; beside one the men stand only in the open lanes, never a wedge; a power-up every 90 to 180 yards or so, the ones up top on a tall one\'s roof', () => {
     const bad = [];
     let sets = 0, hi = 0, lo = 0, ramps = 0, items = 0, roofs = 0;
-    for (let n = 1; n <= 8; n++) for (let k = 0; k < R.RETURNS; k++) {
+    for (let n = 1; n <= 24; n++) for (const k of [0]) {
       const co = R.fill(R.course(n, k), 3000);
       co.sets.forEach(s => {
         sets++;
@@ -137,9 +137,9 @@ export async function returnChecks(check) {
     const per = items / 24, pass = !bad.length && hi > 0 && lo > 0 && ramps > 0 && roofs > 0 && per >= 2900 / 200 && per <= 2900 / 80;
     return {pass, detail: `${sets} sets (${hi} tall, ${lo} low, ${ramps} ramps); ${per.toFixed(1)} power-ups a kickoff to 2,900 yds (${roofs} on roofs); ${bad.length ? bad.slice(0, 4).join('; ') : 'all clear'}`};
   });
-  check('Return Man: every kickoff can be run back forever: a returner who reads it right (and gets no power-ups) gets 1,500 yards on all three kickoffs of days 1-3; standing still, he\'s down inside the first 200', () => {
+  check('Return Man: every kickoff can be run back forever: a returner who reads it right (and gets no power-ups) gets 1,500 yards on the kickoffs of days 1-9; standing still, he\'s down inside the first 200', () => {
     const out = [], down = [];
-    for (let n = 1; n <= 3; n++) for (let k = 0; k < R.RETURNS; k++) {
+    for (let n = 1; n <= 9; n++) for (const k of [0]) {
       const b = bot(n, k, 1500);
       if (b.over) out.push(`day ${n}/${k} down at ${Math.round(b.z)} (${R.endOf(b)})`);
       const idle = R.startRun(n, k);
@@ -263,12 +263,13 @@ export async function returnChecks(check) {
     return {pass: speed && tds === '0,0,1,1,2,3,10', detail: `speed ${v.map(x => x.toFixed(1)).join(', ')}; TDs ${tds}`};
   });
   // ------------------------------------------------------------------------------------------- a day
-  check('Return Man: a day is three returns and all their yards count (the longest and the touchdowns, by how far he ran, go with it); it counts once all three are run; bad entries are left out; a day kept before power-ups (plain yards) still reads', () => {
+  check('Return Man: one kickoff a day (the owner\'s ask, Oct 2026: one attempt): the day counts once it\'s run, its yards (the touchdowns by how far he ran); a day kept when it was three counts only its first return; bad entries are left out; a day kept before power-ups (plain yards) still reads', () => {
     const list = [{y: 174, d: 174}, {y: 312, d: 240}, {y: 45, d: 45}], s = R.score(list);
-    const off = R.officialOf({r: list, at: 9}), part = R.officialOf({r: list.slice(0, 2)}), bad = R.officialOf({r: [list[0], {y: -5, d: 3}, 'x', list[1], list[2]]});
-    const old = R.officialOf({r: [174, 312, 45]});
-    const pass = s.yards === 531 && s.longest === 312 && s.tds === 3 && off && off.yards === 531 && off.at === 9 && part === null && bad && bad.yards === 531 && old && old.yards === 531 && old.tds === 4;
-    return {pass, detail: `${s.yards} yards, longest ${s.longest}, ${s.tds} TDs; two returns: ${part}; with junk in it: ${bad && bad.yards}; plain yards: ${old && old.yards} (${old && old.tds} TDs)`};
+    const one = R.officialOf({r: [list[1]], at: 9}), none = R.officialOf({r: []}), three = R.officialOf({r: list, at: 7});
+    const bad = R.officialOf({r: [{y: -5, d: 3}, 'x', list[1], list[2]]}), old = R.officialOf({r: [174, 312, 45]});
+    const pass = R.RETURNS === 1 && s.yards === 531 && s.tds === 3 && one && one.yards === 312 && one.tds === 2 && one.at === 9 && none === null
+      && three && three.yards === 174 && three.list.length === 1 && bad && bad.yards === 312 && old && old.yards === 174 && old.tds === 1;
+    return {pass, detail: `${R.RETURNS} a day; a day: ${one && one.yards} yards, ${one && one.tds} TDs; none run: ${none}; kept as three: ${three && three.yards} (its first); with junk in it: ${bad && bad.yards}; plain yards: ${old && old.yards}`};
   });
   check('Return Man: no Play again (the owner tests with Test play): no restart; a return left under way counts where it got to (keepLive/settle), so no kickoff is run twice', () => {
     const gone = !('restart' in R) && !('canReplay' in R) && !('restartDay' in R);
@@ -276,7 +277,7 @@ export async function returnChecks(check) {
     return {pass: gone && kept, detail: `restart gone ${gone}; a left return counts ${kept}`};
   });
   // ------------------------------------------------------------------------------------------- the scoreboard
-  const doc = (id, nick, rm, extra = {}) => Object.assign({id, nick, total: 0, last: 1, rm1: rm}, extra);
+  const doc = (id, nick, rm, extra = {}) => Object.assign({id, nick, total: 0, last: 1, rm2: rm}, extra);
   const e = (y, l, td, t) => ({y, l, td, t});
   check('Return Man: the scoreboard ranks the day by yards, then the longest return, then touchdowns (ties share a rank); a member on two phones is one row, their first finished day; bad entries are left out', () => {
     const docs = [

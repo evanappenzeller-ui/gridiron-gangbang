@@ -8,11 +8,11 @@
 // the roof and along the top; the low ones you jump onto and run across. Jump down off the end, or juke off the side.
 // On the way, three power-ups: smelling salts (an extra life: the next hit, you get back up), prescription painkillers
 // (a few seconds when nothing can stop you) and booze (a few seconds of double yards). You speed up as you go, and
-// every 100 yards is a touchdown. Three kickoffs a day, the same three courses on every phone; the day's score is the
-// yards of all three. No DOM. Owner: RETURN.
+// every 100 yards is a touchdown. One kickoff a day (the owner's ask, Oct 2026: one attempt a day; it was three), the
+// same course on every phone; the day's score is its yards. No DOM. Owner: RETURN.
 //
 //   todayNumber(), dateOf(n), dayLabel(n)       day 1 on START, a new day at local midnight
-//   course(n, k), fill(course, z)               day n's kickoff k (0-2), worked out as far as z yards: its rows of men
+//   course(n, k), fill(course, z)               day n's kickoff k (0 while it's one a day), worked out as far as z yards: its rows of men
 //                                               [{i, z (where he meets you), lanes: [type|null x 3]}], its vehicles
 //                                               (sets: [{i, zs, ze, plats: [{lane, kind, part, z0 (the front), z1, h, b,
 //                                               ramp, hi}]}]: KINDS)
@@ -54,7 +54,8 @@ export const dayLabel = (n, o = {weekday: 'short', month: 'short', day: 'numeric
 // In yards: x across (+ right), y up, z ahead from where you field the kick. The lanes are the hash marks and the
 // middle (the NFL's hashes, 18 ft 6 in apart) and go on as the lanes of the road. The coverage runs at you (VD); you
 // run at speedAt(z), from a jog to a sprint; every 100 yards is a touchdown.
-export const LANE = 3.083, LANES = 3, RETURNS = 3;
+// RETURNS: kickoffs a day (one: the owner's ask, Oct 2026). A day kept when it was three counts its first return.
+export const LANE = 3.083, LANES = 3, RETURNS = 1;
 export const VD = 3.5;
 export const SPEED = {start: 9.5, top: 19, ramp: 360};
 export const speedAt = z => SPEED.start + (SPEED.top - SPEED.start) * (1 - Math.exp(-Math.max(0, z) / SPEED.ramp));
@@ -467,12 +468,12 @@ export function score(list) {
   return {yards, longest, tds};
 }
 /** Day n on this phone: {list ([{y, d}] per return run), done, at, next (the next kickoff), official (the day that
- *  counts: {list, at} plus score(list), or null till all three are run)} plus score(list). */
+ *  counts: {list, at} plus score(list), or null till its return is run)} plus score(list). */
 export function dayState(n, real) {
   const d = read(real).days[n] || {}, list = cleanList(d.r);
   return Object.assign({list, done: list.length >= RETURNS, at: Number(d.at) || 0, next: list.length, official: officialOf(d)}, score(list));
 }
-/** The day that counts: all three returns ({list, at} plus score(list)), or null. */
+/** The day that counts: its return(s) ({list, at} plus score(list)), or null. */
 export function officialOf(d) {
   const list = cleanList(d && d.r);
   if (list.length < RETURNS) return null;
@@ -494,7 +495,8 @@ export function record(n, k, yards, dist = yards) {
 }
 export function totals() {
   const v = read(true);
-  return {played: v.played};
+  // (a day kept when it was three kickoffs, and only part run then, is finished now: it counts as played)
+  return {played: Math.max(v.played, Object.values(v.days).filter(d => d && cleanList(d.r).length >= RETURNS).length)};
 }
 // A return under way is kept as it goes (live: {k, y, d}), so one left behind (the app closed, the page left) still
 // counts, ending where it was: no kickoff run twice.
@@ -518,10 +520,12 @@ export function settle(n) {
 export const live = n => { const d = read().days[n]; return !!(d && d.live && d.live.k === cleanList(d.r).length); };
 
 // ---------------------------------------------------------------------------------------------- scoreboard
-// Days ride on each phone's board doc (players/{uid}, daily.js), like the other games': rm1: {n: {y (yards, all three
-// returns), l (the longest), td (touchdowns), t (when the third ended)}}. A finished day posts by itself once the board
-// has loaded (and again after a failed post). One day per person: across their phones the first finished counts.
-const F = 'rm1', POST_BACK = 7;
+// Days ride on each phone's board doc (players/{uid}, daily.js), like the other games': rm2: {n: {y (yards), l (the
+// longest return: the one), td (touchdowns), t (when it ended)}}. A finished day posts by itself once the board has
+// loaded (and again after a failed post). One day per person: across their phones the first finished counts.
+// (rm1 held days of three kickoffs: when it went to one, Oct 20 2026, the board started again as rm2, each phone
+// posting its first return of the day.)
+const F = 'rm2', POST_BACK = 7;
 let posting = false;
 export function entryOf(p, n) {
   const e = p && p[F] && typeof p[F] === 'object' ? p[F][n] : null;

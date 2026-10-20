@@ -27,7 +27,7 @@ export const GAMES = [
   {id: '17-0', name: '17–0', title: '17–0', art: 'img/games/seventeen-cover.webp', badge: 'img/seventeen.webp', cd: 'New board in'},
   {id: 'drill', name: 'Two-Minute Drill', title: 'Two-Minute Drill', art: 'img/games/drill-cover.webp', badge: 'img/drill.webp', cd: 'Next drill in'},
   {id: 'kick', name: 'Kick It', title: 'Kick It', art: 'img/games/kick-cover.webp', badge: 'img/kick.webp', cd: 'New kicks in'},
-  {id: 'return', name: 'Return Man', title: 'Return Man', art: 'img/games/return-cover.webp', badge: 'img/return.webp', cd: 'New kickoffs in', beta: true}
+  {id: 'return', name: 'Return Man', title: 'Return Man', art: 'img/games/return-cover.webp', badge: 'img/return.webp', cd: 'Next kickoff in', beta: true}
 ];
 const byId = id => GAMES.find(g => g.id === id);
 // A game the owner keeps to himself while he builds it: id -> the members whose phones list it and open its page
@@ -194,8 +194,8 @@ function returnState() {
   }
   return {kind: 'done', test, board: boardOf(RM), rows,
     vis: tileHTML(nf(off.yards), 'yards'),
-    head: off.tds ? plural(off.tds, 'touchdown') : off.yards >= 180 ? 'Great field position' : 'Three returns',
-    lines: [`Longest ${nf(off.longest)} yards`],
+    head: off.tds ? plural(off.tds, 'touchdown') : off.yards >= 180 ? 'Great field position' : 'Today’s return',
+    lines: [RM.RETURNS > 1 ? `Longest ${nf(off.longest)} yards` : 'One kickoff a day'],
     actions: [{label: 'See your returns', kind: 'secondary', attrs: {'data-gm-open': 'return'}}]};
 }
 const STATE = {puzzles: puzzlesState, '17-0': seventeenState, drill: drillState, kick: kickState, return: returnState};
@@ -217,7 +217,7 @@ const SUB_TODAY = {
   '17-0': r => `${(Number(r.p) || 0).toFixed(1)} points a game`,
   drill: r => (r.grade != null ? `Call grade ${Math.round(r.grade)}` : ''), // (its letter is by the score)
   kick: r => (r.l ? `Longest ${r.l} yds` : ''),
-  return: r => `Longest ${nf(r.l)}${r.td ? ` · ${plural(r.td, 'TD')}` : ''}`
+  return: r => (r.td ? plural(r.td, 'touchdown') : '') // (one kickoff a day: its yards are the row's)
 };
 /** The season's board for a game (every day so far, the board as this phone may see it): rows with val and sub. */
 function seasonRowsOf(id) {

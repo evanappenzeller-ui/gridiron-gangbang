@@ -6,8 +6,8 @@
 // or spins out of a wrap-up (and in the air, drops him). Ramps take him up onto the roofs. The power-ups he runs
 // through: smelling salts (back up after the next hit), painkillers (nothing stops him for a bit) and booze (double
 // yards for a bit, and the camera sways). The first hit he can't take ends the return: a card says what got him and
-// where, and the next kickoff waits for a tap. Three kickoffs a day; after the third the stage holds the day's card
-// and the scoreboard shows under it. Every 100 yards is a touchdown.
+// where. One kickoff a day (the owner's ask, Oct 2026); after it the stage holds the day's card and the scoreboard
+// shows under it. Every 100 yards is a touchdown.
 // The scene is drawn on a canvas (views/return-world.js: the places, the vehicles, the power-ups); the players are the
 // Two-Minute Drill's pictures (views/drill-sprites.js), ours in navy, theirs in red, with drawn ones till those load.
 // Exports: render(ctx), mount(el, ctx), params(el, ctx), unmount(el, ctx). Owner: RETURN.
@@ -75,12 +75,14 @@ function keysHTML() {
 // kickoff and at the day's end, and a word about it on the first.
 const BETA = '<span class="rm-beta">Beta</span>';
 const betaLine = () => `<p class="rm-card-s rm-beta-l">${esc(`Still being worked on: ${(data.M[data.OWNER] || {name: 'the commissioner'}).name}’s tuning it, so it may change.`)}</p>`;
+// The eyebrow over a kickoff: which one, while there's more than one a day.
+const koLabel = k => (R.RETURNS === 1 ? 'Today’s kickoff' : `Kickoff ${k + 1} of ${R.RETURNS}`);
 const soFar = list => list.length ? `So far: ${list.map(e => nf(e.y)).join(' + ')}${list.length > 1 ? ` = ${nf(R.score(list).yards)}` : ''} yards` : '';
 /** The card over the stage: before a kickoff, after a tackle, paused, or the day's last word. */
 function cardHTML(st) {
   const d = st.day, k = d.next;
   if (st.mode === 'paused') {
-    return `<div class="rm-card-in"><p class="rm-card-o">Kickoff ${st.run.k + 1} of ${R.RETURNS}</p><h2 class="rm-card-t">Paused</h2>`
+    return `<div class="rm-card-in"><p class="rm-card-o">${koLabel(st.run.k)}</p><h2 class="rm-card-t">Paused</h2>`
       + `<p class="rm-card-s">${esc(`${nf(Math.floor(st.run.yards))} yards and counting.`)}</p>`
       + ui.button({label: 'Keep running', icon: 'play-fill', attrs: {'data-rm-resume': ''}, cls: 'rm-go'}) + `</div>`;
   }
@@ -88,7 +90,7 @@ function cardHTML(st) {
     const run = st.run, y = Math.floor(run.yards), tds = R.tdsAt(run.z), th = R.zoneAt(run.co, run.z).theme;
     const next = d.done ? ui.button({label: 'See the day', attrs: {'data-rm-day': ''}, cls: 'rm-go'})
       : ui.button({label: `Next kickoff (${k + 1} of ${R.RETURNS})`, icon: 'play-fill', attrs: {'data-rm-go': ''}, cls: 'rm-go'});
-    return `<div class="rm-card-in"><p class="rm-card-o">Kickoff ${run.k + 1} of ${R.RETURNS}</p>`
+    return `<div class="rm-card-in"><p class="rm-card-o">${koLabel(run.k)}</p>`
       + `<p class="rm-big"><span class="n1">${esc(nf(y))}</span><small>yards</small></p>`
       + `<p class="rm-card-s">${esc(`${R.endOf(run)} ${WHERE[th.id]}.${tds ? ` ${plural(tds, 'touchdown')}!` : ''}`)}</p>`
       + `${next}</div>`;
@@ -99,12 +101,12 @@ function cardHTML(st) {
     return `<div class="rm-card-in is-day"><p class="rm-card-o">Return Man · ${esc(R.dayLabel(st.n))} ${BETA}</p>`
       + `<p class="rm-big"><span class="n1">${esc(nf(s.yards))}</span><small>yards</small></p>`
       + `<h2 class="rm-card-t">${esc(head)}</h2>`
-      + `<p class="rm-card-s">${esc(`${s.list.map(e => nf(e.y)).join(' + ')}. Longest ${nf(s.longest)}${s.tds ? ` · ${plural(s.tds, 'touchdown')}` : ''}.`)}</p>`
+      + `<p class="rm-card-s">${esc(s.list.length > 1 ? `${s.list.map(e => nf(e.y)).join(' + ')}. Longest ${nf(s.longest)}${s.tds ? ` · ${plural(s.tds, 'touchdown')}` : ''}.` : s.tds ? `${plural(s.tds, 'touchdown')} on the way.` : 'One kickoff a day: try again tomorrow.')}</p>`
       + (R.testing() ? '<p class="rm-card-s">Test play: not counted, not on the scoreboard.</p>' : '')
       + ui.button({label: 'See the scoreboard', kind: 'secondary', attrs: {'data-rm-sb': ''}, cls: 'rm-go'})
-      + `<p class="rm-card-t2">${ui.icon('clock', {size: 14})}<span data-rm-next>${esc(`New kickoffs in ${ui.untilText(msToMidnight())}`)}</span></p></div>`;
+      + `<p class="rm-card-t2">${ui.icon('clock', {size: 14})}<span data-rm-next>${esc(`Next kickoff in ${ui.untilText(msToMidnight())}`)}</span></p></div>`;
   }
-  return `<div class="rm-card-in${k === 0 ? ' is-first' : ''}"><p class="rm-card-o">Kickoff ${k + 1} of ${R.RETURNS}${R.testing() ? ' · Test play' : ''} ${BETA}</p>`
+  return `<div class="rm-card-in${k === 0 ? ' is-first' : ''}"><p class="rm-card-o">${koLabel(k)}${R.testing() ? ' · Test play' : ''} ${BETA}</p>`
     + `<h2 class="rm-card-t">${esc(KO_WORDS[k] || KO_WORDS[0])}</h2>`
     + (k === 0 ? keysHTML() + betaLine() : `<p class="rm-card-s">${esc(soFar(d.list))}</p>`)
     + ui.button({label: 'Field the kick', icon: 'play-fill', attrs: {'data-rm-go': ''}, cls: 'rm-go'}) + `</div>`;
@@ -112,8 +114,9 @@ function cardHTML(st) {
 function hudHTML() {
   return `<div class="rm-hud" aria-hidden="true">`
     + `<div class="rm-chip rm-yds" data-rm-ychip><span class="rm-yn" data-rm-yds>0</span><span class="rm-yu" data-rm-yu>yds</span></div>`
-    + `<div class="rm-chip rm-kos" data-rm-kos></div>`
-    + `<div class="rm-chip rm-tot"><span class="rm-tn" data-rm-tot>0</span><span class="rm-yu">today</span></div>`
+    // the kickoffs and the day's yards so far, while there's more than one a day (one: its yards are the day's)
+    + (R.RETURNS > 1 ? `<div class="rm-chip rm-kos" data-rm-kos></div>`
+      + `<div class="rm-chip rm-tot"><span class="rm-tn" data-rm-tot>0</span><span class="rm-yu">today</span></div>` : '<span></span><span></span>')
     + `<div class="rm-pows" data-rm-pows></div></div>`;
 }
 const SB_MODES = [{id: 'today', label: 'Today'}, {id: 'week', label: 'Week'}];
@@ -132,7 +135,7 @@ function boardBodyHTML(st) {
   if (state !== 'ready') return `<p class="c-board-note">The scoreboard isn't connected right now.</p>`;
   let rows = [];
   try { rows = st.sbMode === 'week' ? R.weekRows(st.n) : R.boardRows(st.n); } catch (e) { console.error(e); }
-  if (!rows.length) return `<div class="c-board-empty"><p class="c-board-et">${st.sbMode === 'week' ? 'No returns this week yet.' : 'Nobody’s run one back yet today.'}</p><p class="c-board-eb">Run your three to put the first score up.</p></div>`;
+  if (!rows.length) return `<div class="c-board-empty"><p class="c-board-et">${st.sbMode === 'week' ? 'No returns this week yet.' : 'Nobody’s run one back yet today.'}</p><p class="c-board-eb">Run yours back to put the first score up.</p></div>`;
   return `<p class="rm-sb-sum">${esc(st.sbMode === 'week' ? 'Return yards this week (Tuesday to Monday)' : `${plural(rows.length, 'returner')} today`)}</p>`
     + `<div class="c-brows" role="list" aria-label="${esc(st.sbMode === 'week' ? 'This week' : 'Today')}">${rows.map(r => rowHTML(r, st.sbMode)).join('')}</div>`;
 }
@@ -603,7 +606,7 @@ function patchBoard(st) {
   b.innerHTML = html;
   ui.hydrate(b);
 }
-/** The owner's Test play (views/testplay.js): today's kickoffs fresh in the sandbox, or back to the real day. */
+/** The owner's Test play (views/testplay.js): today's kickoff fresh in the sandbox, or back to the real day. */
 function testPlay(st, on) {
   if (!canTest() || st.mode === 'run' || st.mode === 'catch') return;
   R.setTest(on, st.n);
@@ -616,7 +619,7 @@ function testPlay(st, on) {
   patchHud(st); patchBoard(st); draw(st);
   ui.haptic('medium');
   fitScreen(st, true);
-  ui.announce(on ? 'Test play: today’s kickoffs, fresh. They won’t count.' : 'Test play over: back to your real day.');
+  ui.announce(on ? 'Test play: today’s kickoff, fresh. It won’t count.' : 'Test play over: back to your real day.');
 }
 function onClick(st, e) {
   const t = e.target.closest('[data-rm-go], [data-rm-resume], [data-rm-day], [data-rm-sb], [data-rm-test]');
@@ -628,12 +631,12 @@ function onClick(st, e) {
   if (t.hasAttribute('data-rm-test')) testPlay(st, t.dataset.rmTest === 'on');
 }
 function tick(st) {
-  // a new day at midnight: the next three kickoffs
+  // a new day at midnight: the next kickoff
   if (R.todayNumber() !== st.n && st.mode !== 'run' && st.mode !== 'catch') {
     st.run = null; st.mode = 'ready'; setDay(st, R.todayNumber()); setCard(st, true); patchHud(st); patchBoard(st); draw(st);
   }
   const nx = st.el.querySelector('[data-rm-next]');
-  if (nx) nx.textContent = `New kickoffs in ${ui.untilText(msToMidnight())}`;
+  if (nx) nx.textContent = `Next kickoff in ${ui.untilText(msToMidnight())}`;
 }
 
 export function render(ctx) {
