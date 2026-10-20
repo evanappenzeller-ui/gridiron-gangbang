@@ -90,9 +90,11 @@ function cardHTML(st) {
       + `<p class="rm-card-s">${esc(`${nf(Math.floor(st.run.yards))} yards and counting.`)}</p>`
       + ui.button({label: 'Keep running', icon: 'play-fill', attrs: {'data-rm-resume': ''}, cls: 'rm-go'}) + `</div>`;
   }
+  // (test play: as many runs as he likes, the owner's ask, Oct 2026: each one ends with Run it again)
+  const again = () => (R.testing() ? ui.button({label: 'Run it again', icon: 'play-fill', attrs: {'data-rm-again': ''}, cls: 'rm-go'}) : '');
   if (st.mode === 'tackled') {
     const run = st.run, y = Math.floor(run.yards), tds = R.tdsAt(run.z), th = R.zoneAt(run.co, run.z).theme;
-    const next = d.done ? ui.button({label: 'See the day', attrs: {'data-rm-day': ''}, cls: 'rm-go'})
+    const next = d.done && R.testing() ? again() : d.done ? ui.button({label: 'See the day', attrs: {'data-rm-day': ''}, cls: 'rm-go'})
       : ui.button({label: `Next kickoff (${k + 1} of ${R.RETURNS})`, icon: 'play-fill', attrs: {'data-rm-go': ''}, cls: 'rm-go'});
     return `<div class="rm-card-in"><p class="rm-card-o">${koLabel(run.k)}</p>`
       + `<p class="rm-big"><span class="n1">${esc(nf(y))}</span><small>yards</small></p>`
@@ -105,8 +107,9 @@ function cardHTML(st) {
     return `<div class="rm-card-in is-day"><p class="rm-card-o">Return Man · ${esc(R.dayLabel(st.n))} ${BETA}</p>`
       + `<p class="rm-big"><span class="n1">${esc(nf(s.yards))}</span><small>yards</small></p>`
       + `<h2 class="rm-card-t">${esc(head)}</h2>`
-      + `<p class="rm-card-s">${esc(s.list.length > 1 ? `${s.list.map(e => nf(e.y)).join(' + ')}. Longest ${nf(s.longest)}${s.tds ? ` · ${plural(s.tds, 'touchdown')}` : ''}.` : s.tds ? `${plural(s.tds, 'touchdown')} on the way.` : 'One kickoff a day: try again tomorrow.')}</p>`
-      + (R.testing() ? '<p class="rm-card-s">Test play: not counted, not on the scoreboard.</p>' : '')
+      + `<p class="rm-card-s">${esc(s.list.length > 1 ? `${s.list.map(e => nf(e.y)).join(' + ')}. Longest ${nf(s.longest)}${s.tds ? ` · ${plural(s.tds, 'touchdown')}` : ''}.` : s.tds ? `${plural(s.tds, 'touchdown')} on the way.` : R.testing() ? 'No touchdown this time.' : 'One kickoff a day: try again tomorrow.')}</p>`
+      + (R.testing() ? '<p class="rm-card-s">Test play: not counted, not on the scoreboard. Run it as often as you like.</p>' : '')
+      + again()
       + ui.button({label: 'See the scoreboard', kind: 'secondary', attrs: {'data-rm-sb': ''}, cls: 'rm-go'})
       + `<p class="rm-card-t2">${ui.icon('clock', {size: 14})}<span data-rm-next>${esc(`Next kickoff in ${ui.untilText(msToMidnight())}`)}</span></p></div>`;
   }
@@ -621,9 +624,20 @@ function testPlay(st, on) {
   fitScreen(st, true);
   ui.announce(on ? 'Test play: today’s kickoff, fresh. It won’t count.' : 'Test play over: back to your real day.');
 }
+/** Test play's Run it again: today's kickoff fresh in the sandbox once more, and straight into it. */
+function runAgain(st) {
+  if (!canTest() || !R.testing() || st.mode === 'run' || st.mode === 'catch') return;
+  R.setTest(true, st.n);
+  clearTimeout(st.later);
+  st.run = null; st.mode = 'ready';
+  setDay(st, st.n);
+  patchHud(st); patchBoard(st);
+  go(st);
+}
 function onClick(st, e) {
-  const t = e.target.closest('[data-rm-go], [data-rm-resume], [data-rm-day], [data-rm-sb], [data-rm-test]');
+  const t = e.target.closest('[data-rm-go], [data-rm-resume], [data-rm-day], [data-rm-sb], [data-rm-test], [data-rm-again]');
   if (!t || !st.el.contains(t)) return;
+  if (t.hasAttribute('data-rm-again')) { runAgain(st); return; }
   if (t.hasAttribute('data-rm-go')) { if (st.mode === 'tackled') { st.mode = 'ready'; st.run = null; } go(st); return; }
   if (t.hasAttribute('data-rm-resume')) { resume(st); return; }
   if (t.hasAttribute('data-rm-day')) { st.mode = 'ready'; st.run = null; setCard(st, true); patchHud(st); draw(st); return; }
