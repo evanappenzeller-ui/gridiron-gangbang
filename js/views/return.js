@@ -4,10 +4,11 @@
 // under the goalposts into each), the barricades and banners across the lanes a row at a time (no coverage men: the
 // owner's ask, Oct 2026) and the vehicles parked in them. A swipe on the stage (or the arrow keys) jukes a lane over,
 // jumps (a barricade; up onto a low vehicle) or slides (under a banner; in the air, it drops him first). Ramps take him
-// up onto the roofs. The power-ups he runs through: smelling salts (shake the kicker off once), painkillers (nothing
-// stops him for a bit) and booze (double yards for a bit, and the camera sways). The kicker chases him down from behind
-// (core CHASE): a hit (a barricade or banner he didn't clear, a vehicle he ran into) staggers him, slows him and puts the kicker on his back, the screen's edges red; run on
-// clean and the kicker drops out of sight below. A second hit while he's still there and he's run down: a card says
+// up onto the roofs. The power-ups he runs through: smelling salts (shake the linebacker off once), painkillers
+// (nothing stops him for a bit) and booze (double yards for a bit, and the camera sways). A linebacker chases him down
+// from behind (core CHASE): a hit (a barricade or banner he didn't clear, a vehicle he ran into) staggers him, slows
+// him and puts the linebacker on his back, the screen's edges red; run on clean and the linebacker drops out of sight
+// below. A second hit while he's still there and he's run down: a card says
 // where. One kickoff a day (the owner's ask, Oct 2026); after it the stage holds the day's card and the scoreboard
 // shows under it. Every 100 yards is a touchdown.
 // The scene is drawn on a canvas (views/return-world.js: the places, the vehicles, the power-ups); the players are the
@@ -67,9 +68,9 @@ function keysHTML() {
     + k('is-up', '↑', 'Jump a barricade, or onto a low one')
     + k('is-dn', '↓', 'Slide under a banner')
     + k('is-ramp', '◢', 'Run up a ramp onto the roofs')
-    + k('is-chase', '!', 'Hit something and the kicker’s on you. Again before you lose him: caught')
+    + k('is-chase', '!', 'Hit something and the linebacker’s on you. Again before you lose him: caught')
     + `</ul><ul class="rm-pks" aria-label="Power-ups">`
-    + pw('salts', 'Smelling salts', 'Shake the kicker')
+    + pw('salts', 'Smelling salts', 'Shake the linebacker')
     + pw('pills', 'Painkillers', 'Feel nothing')
     + pw('booze', 'Booze', 'Double yards')
     + `</ul>`;
@@ -255,7 +256,7 @@ function runnerGive(st, now) {
     vy: air ? run.vy / 8 : null, t, land};
 }
 /** Everything in the lanes, far to near: the vehicles, the gates, the power-ups, the barricades and banners, him and
- *  the kicker behind him. */
+ *  the linebacker behind him. */
 function drawLanes(st, c, now) {
   const run = st.run, t = now / 1000, list = [];
   const rz = run ? run.z : 0, rx = run ? run.x : 0, ry = run ? run.y : 0;
@@ -279,7 +280,7 @@ function drawLanes(st, c, now) {
   } else {
     list.push({z: R.ZONE, draw: () => W.gate(st, c, R.ZONE, R.zoneAt(st.co, R.ZONE).theme, t)});
   }
-  // the kicker, chasing: just behind him (a step to the side, so he doesn't hide him) after a hit, then dropping away
+  // the linebacker, chasing: just behind him (a step to the side, so he doesn't hide him) after a hit, then dropping away
   // below the screen as he runs on clean; diving at his back when he runs him down
   if (run) {
     const gap = R.gapOf(run), cz = rz - gap;
@@ -392,7 +393,7 @@ function draw(st, now = performance.now()) {
   const edge = (col, a) => { const g = c.createRadialGradient(st.W / 2, st.H * .55, st.H * .28, st.W / 2, st.H * .55, st.H * .8); g.addColorStop(0, `rgba(${col},0)`); g.addColorStop(1, `rgba(${col},${a.toFixed(2)})`); c.fillStyle = g; c.fillRect(0, 0, st.W, st.H); };
   if (drunk > 0) edge('214,150,40', .35 * drunk);
   if (run && !run.over && run.pills > 0) edge('255,110,40', .42 * Math.min(1, run.pills / .8) * (.75 + .25 * Math.sin(t * 9)));
-  // the kicker on your back (after a hit, till you've lost him): red at the edges, beating faster the closer he is
+  // the linebacker on your back (after a hit, till you've lost him): red at the edges, beating faster the closer he is
   if (run && run.hits && !run.over) {
     const close = 1 - (R.gapOf(run) - R.CHASE.near) / (R.CHASE.far - R.CHASE.near);
     if (close > 0) edge('214,24,40', .5 * close * (.7 + .3 * Math.sin(t * (6 + 6 * close))));
@@ -491,8 +492,8 @@ function onEvents(st, evs) {
     else if (e.type === 'trucked') { st.knocked.set(`${e.row.i}:${e.lane}`, {at: now}); pop(st, 'SMASHED!', 'is-pills'); ui.haptic('medium'); }
     else if (e.type === 'vaulted') { pop(st, 'OVER THE TOP!', 'is-pills'); ui.haptic('medium'); }
     else if (e.type === 'stumbled') {
-      st.hitAt = now; pop(st, 'STUMBLE!', 'is-hit', 'The kicker’s on you'); ui.haptic('warning');
-      ui.announce(`${R.hitLine(e)}. The kicker’s on you: another hit and he’ll catch you.`);
+      st.hitAt = now; pop(st, 'STUMBLE!', 'is-hit', 'The linebacker’s on you'); ui.haptic('warning');
+      ui.announce(`${R.hitLine(e)}. The linebacker’s on you: another hit and he’ll catch you.`);
       if (e.row) st.knocked.set(`${e.row.i}:${e.lane}`, {at: now});
     }
     else if (e.type === 'shoved') { if (e.row) st.knocked.set(`${e.row.i}:${e.lane}`, {at: now}); }

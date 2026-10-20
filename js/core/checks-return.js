@@ -2,7 +2,7 @@
 // row at first, fuller and quicker as the yards go, the vehicles in the lanes always leaving a way through, never across
 // the line into the next place), the places in their order, the moves (a juke a lane over, a jump over a barricade and
 // up onto a low vehicle, a slide under a banner), the vehicles (a tall one a hit, its ramp the
-// way up, a roof to run along and juke off), the kicker chasing (a hit a stumble, two close together the catch), the
+// way up, a roof to run along and juke off), the linebacker chasing (a hit a stumble, two close together the catch), the
 // power-ups (salts, painkillers, booze), the speed and the touchdowns,
 // a day's numbers, and the league scoreboard's rows (on crafted board docs), which read the board as this phone may see
 // it (THE RULE, CLAUDE.md). checks.js (owner: core) imports returnChecks and calls it with its own check(name, fn)
@@ -32,7 +32,7 @@ function bot(n, k, maxZ) {
         const c = {...r};
         if (a && !R.move(c, a)) continue;
         R.step(c, TICK); strip(c);
-        if (c.over || c.hits > r.hits) continue; // (a hit: the kicker gains)
+        if (c.over || c.hits > r.hits) continue; // (a hit: the linebacker gains)
         const rest = dfs(c, d + 1);
         if (rest) return [a, ...rest];
       }
@@ -137,7 +137,7 @@ export async function returnChecks(check) {
     const per = items / 24, pass = !bad.length && hi > 0 && lo > 0 && ramps > 0 && roofs > 0 && per >= 2900 / 200 && per <= 2900 / 80;
     return {pass, detail: `${sets} sets (${hi} tall, ${lo} low, ${ramps} ramps); ${per.toFixed(1)} power-ups a kickoff to 2,900 yds (${roofs} on roofs); ${bad.length ? bad.slice(0, 4).join('; ') : 'all clear'}`};
   });
-  check('Return Man: every kickoff can be run back forever: a returner who reads it right (and gets no power-ups) gets 1,500 yards on the kickoffs of days 1-9; standing still (the kicker gets him at a second hit close after the first), he\'s down inside the first 450, most inside 200', () => {
+  check('Return Man: every kickoff can be run back forever: a returner who reads it right (and gets no power-ups) gets 1,500 yards on the kickoffs of days 1-9; standing still (the linebacker gets him at a second hit close after the first), he\'s down inside the first 450, most inside 200', () => {
     const out = [], down = [];
     for (let n = 1; n <= 9; n++) for (const k of [0]) {
       const b = bot(n, k, 1500);
@@ -247,7 +247,7 @@ export async function returnChecks(check) {
     return {pass, detail: `the sheet in its places ${places}; under the top pad ${under}; ${Object.entries(r).map(([k, [a, b]]) => `${k}: ${a.over ? a.end : 'through'} / ${b.over ? b.end : 'up to ' + b.top}`).join('; ')}`};
   });
   // ------------------------------------------------------------------------------------------- the power-ups
-  check('Return Man: the power-ups: smelling salts shake the kicker off when he\'d catch him (once each; he carries two at most); painkillers carry him through barricades and banners and up onto vehicles for a few seconds; booze makes every yard count double for a few; picked up only in his lane, at his height', () => {
+  check('Return Man: the power-ups: smelling salts shake the linebacker off when he\'d catch him (once each; he carries two at most); painkillers carry him through barricades and banners and up onto vehicles for a few seconds; booze makes every yard count double for a few; picked up only in his lane, at his height', () => {
     const wedge = z => ({i: z, z, lanes: [null, 'hurdle', null]});
     const salts = play({items: [{i: 0, z: 20, lane: 1, top: false, kind: 'salts'}], rows: [wedge(40), wedge(60), wedge(80)]}, 10);
     const s1 = salts.ev.includes('pickup') && salts.ev.join().includes('stumbled,revived') && salts.run.over && salts.run.why === 'caught' && Math.round(salts.run.z) >= 80;
@@ -263,10 +263,10 @@ export async function returnChecks(check) {
     const pass = s1 && two.salts === R.SALTS_MAX && p1 && late.ev.includes('stumbled') && b1 && !miss.ev.includes('pickup');
     return {pass, detail: `salts: shook him off ${s1}, carries ${two.salts}; painkillers: through a barricade and onto a bus ${p1}, worn off (a hit again) ${late.ev.includes('stumbled')}; booze: ${Math.round(booze.yards)} yards for ${Math.round(booze.z)} run; another lane's left ${!miss.ev.includes('pickup')}`};
   });
-  check('Return Man: the kicker chases him down: a hit (a barricade, a banner, a vehicle) slows him and puts the kicker right behind him; run on clean and he falls back out of sight; a second hit while he\'s still close (inside CHASE.window seconds) and he\'s run down; one after he\'s gone is just another stumble', () => {
+  check('Return Man: the linebacker chases him down: a hit (a barricade, a banner, a vehicle) slows him and puts the linebacker right behind him; run on clean and he falls back out of sight; a second hit while he\'s still close (inside CHASE.window seconds) and he\'s run down; one after he\'s gone is just another stumble', () => {
     const wedge = z => ({i: z, z, lanes: [null, 'hurdle', null]});
     const C = R.CHASE;
-    // one hit: slowed, the kicker near, then back to speed and the kicker gone
+    // one hit: slowed, the linebacker near, then back to speed and the linebacker gone
     const one = field({rows: [wedge(30)]});
     let v0 = null, vSlow = null, gNear = null;
     for (let i = 0; i < 120 * 9 && !one.over; i++) {
@@ -278,14 +278,14 @@ export async function returnChecks(check) {
     // two hits close together: caught; two far apart: two stumbles
     const at = s => 30 + R.speedAt(30) * s * .9;
     const quick = play({rows: [wedge(30), wedge(at(2))]}, 8), slow = play({rows: [wedge(30), wedge(at(C.window + 2))]}, 12);
-    const caught = quick.run.over && quick.run.why === 'caught' && R.endOf(quick.run) === 'Run down from behind by the kicker' && quick.ev.join().includes('stumbled');
+    const caught = quick.run.over && quick.run.why === 'caught' && R.endOf(quick.run) === 'Run down from behind by the linebacker' && quick.ev.join().includes('stumbled');
     const twice = !slow.run.over && slow.ev.filter(e => e === 'stumbled').length === 2;
     // a juke into a bus's side counts, then a banner right after: caught
     const side = field({sets: [set(plat(1, 10, 60, true))], rows: [{i: 0, z: 36, lanes: ['bar', null, null]}]}, 0);
     side.z = 20; R.move(side, 'right');
     for (let i = 0; i < 120 * 4 && !side.over; i++) R.step(side, 1 / 120);
     const sideHit = side.over && side.why === 'caught';
-    return {pass: slowed && caught && twice && sideHit, detail: `a hit: ${Math.round(vSlow * 10) / 10} yds/s from ${Math.round(v0 * 10) / 10}, the kicker ${gNear} yds back, gone after ${C.window} s ${slowed}; two in ${2} s: ${quick.run.why || 'not caught'}; two ${C.window + 2} s apart: ${twice ? 'two stumbles' : 'WRONG'}; a bus's side then a banner: ${sideHit ? 'caught' : 'WRONG'}`};
+    return {pass: slowed && caught && twice && sideHit, detail: `a hit: ${Math.round(vSlow * 10) / 10} yds/s from ${Math.round(v0 * 10) / 10}, the linebacker ${gNear} yds back, gone after ${C.window} s ${slowed}; two in ${2} s: ${quick.run.why || 'not caught'}; two ${C.window + 2} s apart: ${twice ? 'two stumbles' : 'WRONG'}; a bus's side then a banner: ${sideHit ? 'caught' : 'WRONG'}`};
   });
   check('Return Man: speed and touchdowns: from a jog (9.5 yards a second) to a sprint (19) by about a thousand yards; a touchdown every 100 yards run', () => {
     const v = [0, 100, 400, 1000, 5000].map(z => R.speedAt(z));
