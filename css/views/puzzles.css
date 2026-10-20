@@ -304,10 +304,7 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
 .v-puzzles .gm-pip { width: 7px; height: 7px; border-radius: 4px; background: var(--surface-3); transition: width .25s cubic-bezier(.22,1,.36,1), background-color .2s linear; }
 .v-puzzles .gm-pip.is-done { background: var(--tint); opacity: .55; }
 .v-puzzles .gm-pip.is-cur { width: 20px; background: var(--ink); opacity: 1; }
-.v-puzzles .gm-sel { text-align: center; padding: 0 4px; min-height: 170px; }
-.v-puzzles .gm-sel-o { font: 800 11px/14px var(--font-text); letter-spacing: .18em; text-transform: uppercase; color: var(--tint); }
-.v-puzzles .gm-sel-t { margin-top: 8px; font: 800 30px/32px var(--font-num); text-transform: uppercase; letter-spacing: .02em; color: var(--ink); }
-.v-puzzles .gm-sel-s { margin: 4px auto 0; max-width: 34ch; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2); }
+.v-puzzles .gm-sel { text-align: center; padding: 0 4px; min-height: 100px; }
 .v-puzzles .gm-meta { margin-top: 10px; display: flex; justify-content: center; }
 .v-puzzles .gm-meta .c-prog { margin: 2px 0 0; width: 220px; }
 .v-puzzles .gm-note { font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }

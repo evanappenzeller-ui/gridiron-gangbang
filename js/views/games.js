@@ -86,11 +86,10 @@ function socialHTML() {
 }
 function puzzlesState() {
   const k = dailyKind(), test = !!daily.TEST;
-  const sub = ready() ? `${daily.andList(daily.STEPS.map(s => s.label))}. ${nf(maxPts())} points.` : 'Today’s puzzles: a few minutes, every day.';
-  if (k === 'loading') return {kind: 'loading', sub};
-  if (k === 'error') return {kind: 'error', sub: 'Puzzles need a connection the first time.'};
-  if (k === 'new') return {kind: 'new', test, sub, meta: socialHTML()};
-  if (k === 'started') return {kind: 'started', test, sub, meta: `<div class="gm-prog">${progHTML()}</div>`};
+  if (k === 'loading') return {kind: 'loading'};
+  if (k === 'error') return {kind: 'error', meta: '<p class="gm-note">Puzzles need a connection the first time.</p>'};
+  if (k === 'new') return {kind: 'new', test, meta: socialHTML()};
+  if (k === 'started') return {kind: 'started', test, meta: `<div class="gm-prog">${progHTML()}</div>`};
   const rows = dailyBoard() === 'ready' ? safe(() => daily.boardRows('today')).map(r => ({...r, val: nf(r.pts)})) : [];
   const base = {kind: 'done', test, board: dailyBoard(), rows};
   if (k === 'played') {
@@ -120,32 +119,18 @@ function loadCores(then) {
   if (gameOpen('return')) import('../core/return.js').then(m => { C.rm = m; then(); }).catch(() => {});
 }
 const boardOf = m => safe(() => [m.boardState()])[0] || 'loading';
-const SUBS = {
-  '17-0': 'Five players, one budget, one season. Can your team go 17–0?',
-  drill: 'Down late with the ball. Call every play to the final whistle.',
-  kick: 'Field goals that get longer with every make. Three misses and you’re done.',
-  return: 'A new world every 100 yards, from the beach to outer space. Juke, jump, ride the roofs.'
-};
-function drillSub(dr, n) {
-  try {
-    const s = dr.scenario(n), o = dr.team(s.o).n, d = dr.team(s.d).n;
-    const clock = `${Math.floor(s.t / 60)}:${String(s.t % 60).padStart(2, '0')}`;
-    const where = s.us < s.them ? `The ${o} trail the ${d} ${s.them}–${s.us}.` : s.us > s.them ? `The ${o} lead the ${d} ${s.us}–${s.them}.` : `The ${o} and the ${d}, tied at ${s.us}.`;
-    return `${where} ${clock} left, your ball.`;
-  } catch (_) { return SUBS.drill; }
-}
 // A season's word on its card (the season screen's verdicts, views/seventeen.js, cut to a headline).
 const SEASON = [[17, 'Perfect season'], [16, 'One from perfect'], [14, 'A juggernaut'], [11, 'Playoff team'], [8, 'On the bubble'], [5, 'Rebuilding year'], [0, 'Top-three pick']];
 function seventeenState() {
   const sv = C.sv;
-  if (!sv) return {kind: 'new', sub: SUBS['17-0']};
+  if (!sv) return {kind: 'new'};
   const n = sv.todayNumber(), day = sv.dayState(n), test = sv.testing();
   const rows = boardOf(sv) === 'ready' ? safe(() => sv.boardRows('today', n)).map(r => ({...r, val: `${r.w}–${r.l}`})) : [];
   const mine = rows.find(r => r.me);
   const res = day.played || (!test && mine ? {w: mine.w, l: mine.l, ppg: mine.p} : null);
   if (!res) {
     const k = day.pick.filter(x => x != null).length;
-    return k ? {kind: 'started', test, sub: SUBS['17-0'], meta: `<p class="gm-note">${esc(`${k} of 5 picked`)}</p>`} : {kind: 'new', test, sub: SUBS['17-0']};
+    return k ? {kind: 'started', test, meta: `<p class="gm-note">${esc(`${k} of 5 picked`)}</p>`} : {kind: 'new', test};
   }
   return {kind: 'done', test, board: boardOf(sv), rows, gold: res.w === 17,
     vis: tileHTML(`${res.w}–${res.l}`, 'record', res.w === 17 ? 'is-gold' : ''),
@@ -155,13 +140,13 @@ function seventeenState() {
 }
 function drillState() {
   const dr = C.dr;
-  if (!dr) return {kind: 'new', sub: SUBS.drill};
+  if (!dr) return {kind: 'new'};
   const n = dr.todayNumber(), day = dr.dayState(n), test = dr.testing();
   const rows = boardOf(dr) === 'ready' ? safe(() => dr.boardRows(n)).map(r => ({...r, val: `${r.r} ${r.u}–${r.h}`})) : [];
   const mine = rows.find(r => r.me);
   if (!day.result && !(mine && !test)) {
-    return day.acts ? {kind: 'started', test, sub: drillSub(dr, n), meta: '<p class="gm-note">Under way. Pick up where you left off.</p>'}
-      : {kind: 'new', test, sub: drillSub(dr, n)};
+    return day.acts ? {kind: 'started', test, meta: '<p class="gm-note">Under way. Pick up where you left off.</p>'}
+      : {kind: 'new', test};
   }
   const r = day.result || mine.r;
   let us = mine && mine.u, them = mine && mine.h, how = '', grade = mine ? mine.grade : null;
@@ -181,14 +166,14 @@ function drillState() {
 }
 function kickState() {
   const K = C.kk;
-  if (!K) return {kind: 'new', sub: SUBS.kick};
+  if (!K) return {kind: 'new'};
   const n = K.todayNumber(), day = K.dayState(n), test = K.testing();
   const rows = boardOf(K) === 'ready' ? safe(() => K.boardRows(n)).map(r => ({...r, val: String(r.m)})) : [];
   const mine = rows.find(r => r.me);
   const off = day.official || (!test && mine ? {made: mine.m, longest: mine.l} : null);
   if (!off) {
-    return day.list.length ? {kind: 'started', test, sub: SUBS.kick, meta: `<p class="gm-note">${esc(`${day.made} made, ${day.missed} missed so far`)}</p>`}
-      : {kind: 'new', test, sub: SUBS.kick};
+    return day.list.length ? {kind: 'started', test, meta: `<p class="gm-note">${esc(`${day.made} made, ${day.missed} missed so far`)}</p>`}
+      : {kind: 'new', test};
   }
   return {kind: 'done', test, board: boardOf(K), rows,
     vis: tileHTML(String(off.made), 'made'),
@@ -197,14 +182,14 @@ function kickState() {
 }
 function returnState() {
   const RM = C.rm;
-  if (!RM) return {kind: 'new', sub: SUBS.return};
+  if (!RM) return {kind: 'new'};
   const n = RM.todayNumber(), day = RM.dayState(n), test = RM.testing();
   const rows = boardOf(RM) === 'ready' ? safe(() => RM.boardRows(n)).map(r => ({...r, val: nf(r.y)})) : [];
   const mine = rows.find(r => r.me);
   const off = day.official || (!test && mine ? {yards: mine.y, longest: mine.l, tds: mine.td} : null);
   if (!off) {
-    return day.list.length || RM.live(n) ? {kind: 'started', test, sub: SUBS.return, meta: `<p class="gm-note">${esc(day.list.length ? `${plural(day.list.length, 'return')} run: ${nf(day.yards)} yards so far` : 'A return under way.')}</p>`}
-      : {kind: 'new', test, sub: SUBS.return};
+    return day.list.length || RM.live(n) ? {kind: 'started', test, meta: `<p class="gm-note">${esc(day.list.length ? `${plural(day.list.length, 'return')} run: ${nf(day.yards)} yards so far` : 'A return under way.')}</p>`}
+      : {kind: 'new', test};
   }
   return {kind: 'done', test, board: boardOf(RM), rows,
     vis: tileHTML(nf(off.yards), 'yards'),
@@ -316,16 +301,16 @@ function actHTML(a, i, all) {
 }
 function selHTML(g, s) {
   const done = s.kind === 'done';
-  const over = s.test ? 'Test play' : done ? 'Played today' : s.kind === 'started' ? 'Under way' : s.kind === 'loading' ? 'Loading' : 'New today';
-  const line = done ? [s.head, ...(s.lines || []), placeText(s)].filter(Boolean).join(' · ') : s.sub;
   const acts = done ? [{label: 'Leaderboard', kind: 'primary', icon: 'trophy', attrs: {'data-gm-zoom': g.id}}, ...s.actions.map(a => ({...a, kind: 'secondary'}))] : null;
-  return `<p class="gm-sel-o">${esc(over)}</p><h2 class="gm-sel-t" id="gm-t-${g.id}">${esc(g.name)}</h2><p class="gm-sel-s">${esc(line || '')}</p>`
+  // (no words over the buttons, the owner's ask, Oct 2026: the case says the game and, played, the result; the name
+  // stays for screen readers)
+  return `<h2 class="sr-only">${esc(g.name)}</h2>`
     + (!done && s.meta ? `<div class="gm-meta">${s.meta}</div>` : '')
     + `<div class="gm-ctas${acts && acts.length > 2 ? ' is-3' : ''}">${acts ? acts.map(actHTML).join('') : ctaHTML(g, s)}</div>`
     + (done ? cdHTML(g) : '');
 }
 function stateOf(g) {
-  try { return STATE[g.id](); } catch (e) { console.error(e); return {kind: 'new', sub: SUBS[g.id] || ''}; }
+  try { return STATE[g.id](); } catch (e) { console.error(e); return {kind: 'new'}; }
 }
 /** The shelf as it stands now (the cores that haven't loaded yet show Play). It goes round in a circle (the owner's
  *  ask, Oct 2026): the games three times over, the real ones in the middle and a copy each side (data-gm-clone, hidden
