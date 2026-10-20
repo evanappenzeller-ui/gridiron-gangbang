@@ -19,14 +19,14 @@ const esc = data.esc;
 const nf = n => data.nf(n);
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 
-// The games in list order. art: the card's thumbnail; badge: the pixel scoreboard badge (tools/seventeen/badges.py);
+// The games in list order. art: its case's cover (the owner's art, Oct 2026); badge: the pixel scoreboard badge (tools/seventeen/badges.py);
 // title: the game page's nav title; cd: the countdown's words once it's played.
 export const GAMES = [
-  {id: 'puzzles', name: 'Daily Puzzles', title: 'Daily Puzzles', art: 'img/games/puzzles-art.webp', badge: 'img/puzzles.webp', cd: 'New puzzles in'},
-  {id: '17-0', name: '17–0', title: '17–0', art: 'img/games/seventeen-art.webp', badge: 'img/seventeen.webp', cd: 'New board in'},
-  {id: 'drill', name: 'Two-Minute Drill', title: 'Two-Minute Drill', art: 'img/games/drill-art.webp', badge: 'img/drill.webp', cd: 'Next drill in'},
-  {id: 'kick', name: 'Kick It', title: 'Kick It', art: 'img/games/kick-art.webp', badge: 'img/kick.webp', cd: 'New kicks in'},
-  {id: 'return', name: 'Return Man', title: 'Return Man', art: 'img/games/return-art.webp', badge: 'img/return.webp', cd: 'New kickoffs in'}
+  {id: 'puzzles', name: 'Daily Puzzles', title: 'Daily Puzzles', art: 'img/games/puzzles-cover.webp', badge: 'img/puzzles.webp', cd: 'New puzzles in'},
+  {id: '17-0', name: '17–0', title: '17–0', art: 'img/games/seventeen-cover.webp', badge: 'img/seventeen.webp', cd: 'New board in'},
+  {id: 'drill', name: 'Two-Minute Drill', title: 'Two-Minute Drill', art: 'img/games/drill-cover.webp', badge: 'img/drill.webp', cd: 'Next drill in'},
+  {id: 'kick', name: 'Kick It', title: 'Kick It', art: 'img/games/kick-cover.webp', badge: 'img/kick.webp', cd: 'New kicks in'},
+  {id: 'return', name: 'Return Man', title: 'Return Man', art: 'img/games/return-cover.webp', badge: 'img/return.webp', cd: 'New kickoffs in'}
 ];
 const byId = id => GAMES.find(g => g.id === id);
 // Return Man is the owner's alone for now (his ask, Oct 2026: "exclusive to me for testing"): on the list, and its page
@@ -215,18 +215,13 @@ function returnState() {
 const STATE = {puzzles: puzzlesState, '17-0': seventeenState, drill: drillState, kick: kickState, return: returnState};
 
 // ============================================================================ The cases
-// The list is a shelf of game cases (the owner's ask, Oct 2026, after a console's shelf of box art, Nintendo's for its
-// looks): you swipe along it; the case in the middle is the one you're on, its name and its Play under it. Each game's
-// case is a box of a different era (ERA: a Game Boy's, a Super's, the black box, a 64's, an Advance's), its cover the
-// game's art. Played today, a case turns round: its back is the leaderboard, on a little screen. Tap the back and it
-// comes up close, Today's and the Season's to switch between.
-const ERA = {
-  puzzles: {era: 'gb', band: 'GAME DAY', logo: ['DAILY', 'PUZZLES'], col: '#306230', pix: 'gb'},
-  '17-0': {era: 'snes', band: 'SUPER GRIDIRON', logo: ['17–0'], col: '#C8102E'},
-  drill: {era: 'nes', band: 'GRIDIRON', logo: ['TWO-MINUTE', 'DRILL'], col: '#3EF08F', pix: 'nes', series: 'SPORTS SERIES'},
-  kick: {era: 'n64', band: 'GRIDIRON 64', logo: ['KICK IT!'], col: '#2F7DD8'},
-  return: {era: 'gba', band: 'GRIDIRON ADVANCE', logo: ['RETURN', 'MAN'], col: '#F28C28'}
-};
+// The list is a shelf of game cases (the owner's ask, Oct 2026, after a console's shelf of box art): you swipe along
+// it; the case in the middle is the one you're on, its name and its Play under it. Each case is a black case, the
+// Gridiron Hub band across its top and the game's cover under it (the owner's art). Played today, a case turns round:
+// its back is the leaderboard. Tap the back and it comes up close, Today's and the Season's to switch between.
+// ACCENT: each game's colour on its back (the tag, the switch), out of its cover.
+const ACCENT = {puzzles: '#B5452F', '17-0': '#2F7A4C', drill: '#D23B2F', kick: '#C9A227', return: '#A31F34'};
+const bandHTML = (end = '') => `<span class="gm-band"><span class="gm-band-t">GRIDIRON HUB</span>${end}</span>`;
 const tileHTML = (big, small, cls = '') => `<span class="gm-tile ${cls}"><b class="n2">${esc(big)}</b>${small ? `<small>${esc(small)}</small>` : ''}</span>`;
 // A line under each row: what it was today, or over the season.
 const SUB_TODAY = {
@@ -247,17 +242,10 @@ function seasonRowsOf(id) {
   return safe(() => M.seasonRows()).map(r => ({...r, val: `${nf(r.y)} yds`, sub: `${plural(r.played, 'day')} · longest ${nf(r.l)}`}));
 }
 const sticker = (cls, text) => `<span class="gm-stk ${cls}">${esc(text)}</span>`;
-/** A case's front: the box of its era, the art, the name, the corners. */
+/** A case's front: the band, the cover (a sticker on the band while it's under way). */
 function frontHTML(g, s) {
-  const E = ERA[g.id];
-  const art = E.pix ? `<canvas class="gm-pix" data-pix="${E.pix}" data-src="${g.art}" width="${E.pix === 'gb' ? 100 : 104}" height="${E.pix === 'gb' ? 92 : 88}"></canvas>`
-    : `<img class="gm-img" src="${g.art}" alt="" decoding="async" draggable="false">`;
-  const logo = `<span class="gm-logo">${E.logo.map(l => `<b>${esc(l)}</b>`).join('')}</span>`;
-  const band = `<span class="gm-band"><span class="gm-band-t">${esc(E.band)}</span>${E.era === 'snes' ? '<span class="gm-dots4" aria-hidden="true"><i></i><i></i><i></i><i></i></span>' : ''}${E.era === 'nes' ? '<span class="gm-ges">ENTERTAINMENT SYSTEM</span>' : ''}</span>`;
   const stk = s.test ? sticker('is-test', 'TEST PLAY') : s.kind === 'started' ? sticker('is-go', 'IN PROGRESS') : '';
-  return `<div class="gm-face gm-front gm-era-${E.era}" style="--gc:${E.col}">${band}<span class="gm-art">${art}</span>${logo}`
-    + `${E.series ? `<span class="gm-series">${esc(E.series)}</span>` : ''}`
-    + `<span class="gm-rate" aria-hidden="true"><b>L</b><small>LEAGUE</small></span><span class="gm-seal" aria-hidden="true">OFFICIAL<br>LEAGUE<br>SEAL</span>${stk}</div>`;
+  return `<div class="gm-face gm-front">${bandHTML(stk)}<span class="gm-art"><img class="gm-img" src="${g.art}" alt="" decoding="async" draggable="false"></span></div>`;
 }
 function rowHTML(r, {sub = false} = {}) {
   const label = `${ui.ordinal(r.rank)}, ${r.name}${r.me ? ', you' : ''}${r.guest ? ', guest' : ''}: ${r.val}${sub && r.sub ? `. ${r.sub}` : ''}`;
@@ -284,16 +272,17 @@ function placeText(s) {
   const me = s.rows && s.rows.find(r => r.me);
   return me ? `${ui.ordinal(me.rank)} of ${s.rows.length} today` : '';
 }
-/** A case's back: the result, and today's leaderboard on its screen. */
+/** A case's back: the band, the cover faded behind the name, the result, today's leaderboard, a barcode. */
 function backHTML(g, s) {
-  const E = ERA[g.id], place = placeText(s), note = boardNote(s.board, s.rows || []);
+  const place = placeText(s), note = boardNote(s.board, s.rows || []);
   const rows = note || `<div class="gm-scr-rows" role="list" aria-label="Today’s leaderboard">${miniRows(s.rows, 5).map(r => (r ? rowHTML(r) : '<div class="gm-r-gap" aria-hidden="true">· · ·</div>')).join('')}</div>`;
-  return `<div class="gm-face gm-back gm-era-${E.era}" style="--gc:${E.col}">`
-    + `<span class="gm-bk-top"><span class="gm-bk-name">${esc(g.name)}</span>${s.test ? '<span class="gm-bk-tag">TEST</span>' : '<span class="gm-bk-tag">FINAL</span>'}</span>`
+  return `<div class="gm-face gm-back" style="--gc:${ACCENT[g.id]}">${bandHTML(`<span class="gm-bk-tag">${s.test ? 'TEST' : 'FINAL'}</span>`)}`
+    + `<span class="gm-bk-in"><span class="gm-bk-art" style="background-image:url('${g.art}')" aria-hidden="true"></span>`
+    + `<span class="gm-bk-name">${esc(g.name)}</span>`
     + `<span class="gm-bk-res"><span class="gm-bk-vis">${s.vis || ''}</span><span class="gm-bk-tt"><b class="gm-bk-h${s.gold ? ' is-gold' : ''}">${esc(s.head || '')}</b>`
     + `${(s.lines || []).map(l => `<small>${esc(l)}</small>`).join('')}${place ? `<em>${esc(place)}</em>` : ''}</span></span>`
-    + `<span class="gm-scr"><span class="gm-scr-h">TODAY’S LEADERBOARD</span>${rows}</span>`
-    + `<span class="gm-bk-foot"><span class="gm-bar" aria-hidden="true"></span><span class="gm-bk-tap">TAP FOR THE SEASON ▸</span></span></div>`;
+    + `<span class="gm-scr"><span class="gm-scr-h">Today’s leaderboard</span>${rows}</span>`
+    + `<span class="gm-bk-foot"><span class="gm-bar" aria-hidden="true"></span><span class="gm-bk-tap">Tap for the season ›</span></span></span></div>`;
 }
 function caseHTML(g, s, i, n) {
   const done = s.kind === 'done';
@@ -340,33 +329,6 @@ export function listHTML() {
 }
 
 // ============================================================================ Behavior
-// The pixel art: the cover drawn small and shown big (the black box's chunky screenshot; the Game Boy's four greens).
-const GB = [[15, 56, 15], [48, 98, 48], [139, 172, 15], [155, 188, 15]];
-const ARTS = new Map();
-function pixelate(cv) {
-  if (cv.dataset.done) return;
-  const src = cv.dataset.src, kind = cv.dataset.pix;
-  const draw = img => {
-    const c = cv.getContext('2d'), w = cv.width, h = cv.height, iw = img.naturalWidth, ih = img.naturalHeight;
-    const k = Math.max(w / iw, h / ih), sw = w / k, sh = h / k;
-    c.imageSmoothingEnabled = true;
-    c.drawImage(img, (iw - sw) / 2, (ih - sh) / 2, sw, sh, 0, 0, w, h);
-    if (kind === 'gb') {
-      const d = c.getImageData(0, 0, w, h), px = d.data;
-      for (let i = 0; i < px.length; i += 4) {
-        const l = (px[i] * .3 + px[i + 1] * .59 + px[i + 2] * .11) / 255, q = GB[Math.min(3, Math.floor(l * 4.2))];
-        px[i] = q[0]; px[i + 1] = q[1]; px[i + 2] = q[2];
-      }
-      c.putImageData(d, 0, 0);
-    }
-    cv.dataset.done = '1';
-  };
-  if (ARTS.has(src) && ARTS.get(src).complete) { draw(ARTS.get(src)); return; }
-  const img = ARTS.get(src) || new Image();
-  ARTS.set(src, img);
-  img.addEventListener('load', () => { if (cv.isConnected) draw(img); }, {once: true});
-  if (!img.src) img.src = src;
-}
 const SHELF_KEY = 'gg-shelf';
 /** Wires the shelf in el: the cores load at idle; refresh(animate) brings every case (and what's under the shelf) up to
  *  date (a game just finished turns its case round), tick() moves the countdown. opts.play(id): open a game. */
@@ -377,7 +339,6 @@ export function mountList(el, ctx, opts = {}) {
   const slots = () => [...el.querySelectorAll('.gm-slot')];
   const shown = new Map(); // id → the markup its case shows
   const sig = (g, s) => `${s.kind}|${s.test ? 1 : 0}|${s.kind === 'done' ? backHTML(g, s) : frontHTML(g, s)}`;
-  el.querySelectorAll('canvas.gm-pix').forEach(pixelate);
   // the case in the middle: bigger and lit, the others smaller and turned a little toward it
   const layout = () => {
     st.raf = 0;
@@ -421,23 +382,24 @@ export function mountList(el, ctx, opts = {}) {
   function zoomBody(g, mode) {
     const {board, rows} = rowsFor(g, mode), note = boardNote(board, rows, mode === 'season');
     const me = rows.find(r => r.me);
-    return (me ? `<p class="gm-z-me">YOU: ${esc(ui.ordinal(me.rank).toUpperCase())} OF ${rows.length} · ${esc(me.val)}</p>` : '')
+    return (me ? `<p class="gm-z-me">You: ${esc(ui.ordinal(me.rank))} of ${rows.length} · ${esc(me.val)}</p>` : '')
       + (note || `<div class="gm-scr-rows" role="list" aria-label="${mode === 'season' ? 'The season' : 'Today'}">${rows.map(r => rowHTML(r, {sub: true})).join('')}</div>`);
   }
   function openZoom(id) {
     const g = byId(id), cs = el.querySelector(`.gm-case[data-gm="${id}"]`);
     if (!g || st.zoom) return;
-    const E = ERA[id], s = stateOf(g);
+    const s = stateOf(g);
     const z = document.createElement('div');
     z.className = 'gm-zoom';
     z.innerHTML = `<div class="gm-z-scrim" data-gm-zclose></div>`
-      + `<div class="gm-z-case gm-back gm-era-${E.era}" style="--gc:${E.col}" role="dialog" aria-modal="true" aria-labelledby="gm-z-t" tabindex="-1">`
-      + `<div class="gm-bk-top"><span class="gm-bk-name" id="gm-z-t">${esc(g.name)}</span>${ui.iconButton({icon: 'close', label: 'Close', cls: 'gm-z-x', filled: true, attrs: 'data-gm-zclose'})}</div>`
+      + `<div class="gm-z-case gm-back" style="--gc:${ACCENT[id]}" role="dialog" aria-modal="true" aria-labelledby="gm-z-t" tabindex="-1">`
+      + bandHTML(ui.iconButton({icon: 'close', label: 'Close', cls: 'gm-z-x', filled: true, attrs: 'data-gm-zclose'}))
+      + `<div class="gm-bk-in"><span class="gm-bk-art" style="background-image:url('${g.art}')" aria-hidden="true"></span><span class="gm-bk-name" id="gm-z-t">${esc(g.name)}</span>`
       + `<div class="gm-bk-res"><span class="gm-bk-vis">${s.vis || ''}</span><span class="gm-bk-tt"><b class="gm-bk-h${s.gold ? ' is-gold' : ''}">${esc(s.head || '')}</b>${(s.lines || []).map(l => `<small>${esc(l)}</small>`).join('')}</span></div>`
-      + `<div class="gm-z-tog" role="tablist" aria-label="Leaderboard"><button type="button" role="tab" aria-selected="true" data-gm-zmode="today">TODAY</button><button type="button" role="tab" aria-selected="false" data-gm-zmode="season">SEASON</button></div>`
+      + `<div class="gm-z-tog" role="tablist" aria-label="Leaderboard"><button type="button" role="tab" aria-selected="true" data-gm-zmode="today">Today</button><button type="button" role="tab" aria-selected="false" data-gm-zmode="season">Season</button></div>`
       + `<div class="gm-scr is-z"><div class="gm-z-body" data-gm-zbody>${zoomBody(g, 'today')}</div></div>`
-      + `<div class="gm-bk-foot"><span class="gm-bar" aria-hidden="true"></span><span class="gm-rate" aria-hidden="true"><b>L</b><small>LEAGUE</small></span>`
-      + `${ui.button({label: 'Open the game', kind: 'secondary', size: 's', attrs: {'data-gm-open': id}, cls: 'gm-z-open'})}</div></div>`;
+      + `<div class="gm-bk-foot"><span class="gm-bar" aria-hidden="true"></span>`
+      + `${ui.button({label: 'Open the game', kind: 'secondary', size: 's', attrs: {'data-gm-open': id}, cls: 'gm-z-open'})}</div></div></div>`;
     (document.getElementById('overlays') || document.body).appendChild(z);
     ui.hydrate(z);
     const card = z.querySelector('.gm-z-case'), app = document.getElementById('app');
@@ -536,7 +498,6 @@ export function mountList(el, ctx, opts = {}) {
       el.querySelector('.gm-pips').innerHTML = t.querySelector('.gm-pips').innerHTML;
       shown.clear();
       ui.hydrate(shelf);
-      shelf.querySelectorAll('canvas.gm-pix').forEach(pixelate);
       if (gameOpen('return')) { coresAsked = false; loadCores(() => refresh(true)); }
       requestAnimationFrame(start);
       return;
@@ -553,7 +514,6 @@ export function mountList(el, ctx, opts = {}) {
       const fl = cs.querySelector('.gm-flip');
       fl.innerHTML = frontHTML(g, s) + (s.kind === 'done' ? backHTML(g, s) : '');
       ui.hydrate(fl);
-      fl.querySelectorAll('canvas.gm-pix').forEach(pixelate);
       // a game just finished: its case turns round to the leaderboard
       if (flipNow && animate && ctx.visible && !ui.RM) requestAnimationFrame(() => requestAnimationFrame(() => cs.classList.add('is-done')));
       else cs.classList.toggle('is-done', s.kind === 'done');
