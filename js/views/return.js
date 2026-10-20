@@ -59,7 +59,6 @@ function iconURL(kind) {
   return ICON_URL[kind];
 }
 const iconHTML = (kind, size = 28) => `<img class="rm-ic" src="${iconURL(kind)}" width="${size}" height="${size}" alt="" draggable="false">`;
-const KO_WORDS = ['Take it to the house', 'Second kickoff', 'Last kickoff'];
 function keysHTML() {
   const k = (cls, label, what) => `<li class="rm-key"><span class="rm-kk ${cls}" aria-hidden="true">${label}</span><span>${what}</span></li>`;
   const pw = (kind, name, what) => `<li class="rm-pk">${iconHTML(kind, 34)}<b>${name}</b><span>${what}</span></li>`;
@@ -76,13 +75,12 @@ function keysHTML() {
     + `</ul>`;
 }
 // Return Man is in beta (open to the league while the owner works on it, Oct 2026): a BETA tag on the cards before a
-// kickoff and at the day's end, and a word about it on the first.
+// kickoff, and a word about it on the first.
 const BETA = '<span class="rm-beta">Beta</span>';
 const betaLine = () => `<p class="rm-card-s rm-beta-l">${esc(`Still being worked on: ${(data.M[data.OWNER] || {name: 'the commissioner'}).name}’s tuning it, so it may change.`)}</p>`;
-// The eyebrow over a kickoff: which one, while there's more than one a day.
-const koLabel = k => (R.RETURNS === 1 ? 'Today’s kickoff' : `Kickoff ${k + 1} of ${R.RETURNS}`);
-const soFar = list => list.length ? `So far: ${list.map(e => nf(e.y)).join(' + ')}${list.length > 1 ? ` = ${nf(R.score(list).yards)}` : ''} yards` : '';
-/** The card over the stage: before a kickoff, after a tackle, paused, or the day's last word. */
+// The eyebrow over a kickoff: today's first, or which run of the day (as many as you like: the best one counts).
+const koLabel = k => (k ? `Run ${k + 1} today` : 'Today’s kickoff');
+/** The card over the stage: before a kickoff (the first of the day: how to play), after he's run down, or paused. */
 function cardHTML(st) {
   const d = st.day, k = d.next;
   if (st.mode === 'paused') {
@@ -90,40 +88,39 @@ function cardHTML(st) {
       + `<p class="rm-card-s">${esc(`${nf(Math.floor(st.run.yards))} yards and counting.`)}</p>`
       + ui.button({label: 'Keep running', icon: 'play-fill', attrs: {'data-rm-resume': ''}, cls: 'rm-go'}) + `</div>`;
   }
-  // (test play: as many runs as he likes, the owner's ask, Oct 2026: each one ends with Run it again)
-  const again = () => (R.testing() ? ui.button({label: 'Run it again', icon: 'play-fill', attrs: {'data-rm-again': ''}, cls: 'rm-go'}) : '');
+  // as many runs as you like (the owner's ask, Oct 2026): each ends with Run it again; the day's best is what counts
+  const again = (label = 'Run it again') => ui.button({label, icon: 'play-fill', attrs: {'data-rm-go': ''}, cls: 'rm-go'});
+  const sb = () => ui.button({label: 'See the scoreboard', kind: 'secondary', attrs: {'data-rm-sb': ''}, cls: 'rm-go'});
+  const note = R.testing() ? '<p class="rm-card-s">Test play: not counted, not on the scoreboard.</p>' : '';
   if (st.mode === 'tackled') {
     const run = st.run, y = Math.floor(run.yards), tds = R.tdsAt(run.z), th = R.zoneAt(run.co, run.z).theme;
-    const next = d.done && R.testing() ? again() : d.done ? ui.button({label: 'See the day', attrs: {'data-rm-day': ''}, cls: 'rm-go'})
-      : ui.button({label: `Next kickoff (${k + 1} of ${R.RETURNS})`, icon: 'play-fill', attrs: {'data-rm-go': ''}, cls: 'rm-go'});
+    const prev = d.list.slice(0, -1).reduce((m, e) => Math.max(m, e.y), 0); // (the best before this run)
+    const best = d.runs > 1 && y > prev ? '<p class="rm-card-best">New best today!</p>'
+      : d.runs > 1 ? `<p class="rm-card-s">${esc(`Your best today: ${nf(d.best)} yards`)}</p>` : '';
     return `<div class="rm-card-in"><p class="rm-card-o">${koLabel(run.k)}</p>`
       + `<p class="rm-big"><span class="n1">${esc(nf(y))}</span><small>yards</small></p>`
       + `<p class="rm-card-s">${esc(`${R.endOf(run)} ${WHERE[th.id]}.${tds ? ` ${plural(tds, 'touchdown')}!` : ''}`)}</p>`
-      + `${next}</div>`;
+      + best + note + again() + sb() + `</div>`;
   }
-  if (d.done) {
-    const s = d.official || d, head = s.yards >= 1500 ? 'Unstoppable.' : s.yards >= 800 ? 'House call machine.' : s.yards >= 400 ? 'Electric.'
-      : s.yards >= 180 ? 'Great field position.' : s.yards >= 80 ? 'Solid returns.' : 'Fair catch next time?';
-    return `<div class="rm-card-in is-day"><p class="rm-card-o">Return Man · ${esc(R.dayLabel(st.n))} ${BETA}</p>`
-      + `<p class="rm-big"><span class="n1">${esc(nf(s.yards))}</span><small>yards</small></p>`
-      + `<h2 class="rm-card-t">${esc(head)}</h2>`
-      + `<p class="rm-card-s">${esc(s.list.length > 1 ? `${s.list.map(e => nf(e.y)).join(' + ')}. Longest ${nf(s.longest)}${s.tds ? ` · ${plural(s.tds, 'touchdown')}` : ''}.` : s.tds ? `${plural(s.tds, 'touchdown')} on the way.` : R.testing() ? 'No touchdown this time.' : 'One kickoff a day: try again tomorrow.')}</p>`
-      + (R.testing() ? '<p class="rm-card-s">Test play: not counted, not on the scoreboard. Run it as often as you like.</p>' : '')
-      + again()
-      + ui.button({label: 'See the scoreboard', kind: 'secondary', attrs: {'data-rm-sb': ''}, cls: 'rm-go'})
-      + `<p class="rm-card-t2">${ui.icon('clock', {size: 14})}<span data-rm-next>${esc(`Next kickoff in ${ui.untilText(msToMidnight())}`)}</span></p></div>`;
+  if (k > 0) {
+    // back for another: today's best to beat, and when the course changes
+    return `<div class="rm-card-in is-day"><p class="rm-card-o">Return Man · ${esc(R.dayLabel(st.n))}${R.testing() ? ' · Test play' : ''} ${BETA}</p>`
+      + `<p class="rm-big"><span class="n1">${esc(nf(d.best))}</span><small>yards, your best today</small></p>`
+      + `<h2 class="rm-card-t">Run it back</h2>`
+      + `<p class="rm-card-s">As many runs as you like. Your best one counts.</p>`
+      + note + again('Field the kick') + sb()
+      + `<p class="rm-card-t2">${ui.icon('clock', {size: 14})}<span data-rm-next>${esc(`New course in ${ui.untilText(msToMidnight())}`)}</span></p></div>`;
   }
-  return `<div class="rm-card-in${k === 0 ? ' is-first' : ''}"><p class="rm-card-o">${koLabel(k)}${R.testing() ? ' · Test play' : ''} ${BETA}</p>`
-    + `<h2 class="rm-card-t">${esc(KO_WORDS[k] || KO_WORDS[0])}</h2>`
-    + (k === 0 ? keysHTML() + betaLine() : `<p class="rm-card-s">${esc(soFar(d.list))}</p>`)
-    + ui.button({label: 'Field the kick', icon: 'play-fill', attrs: {'data-rm-go': ''}, cls: 'rm-go'}) + `</div>`;
+  return `<div class="rm-card-in is-first"><p class="rm-card-o">${koLabel(0)}${R.testing() ? ' · Test play' : ''} ${BETA}</p>`
+    + `<h2 class="rm-card-t">Take it to the house</h2>`
+    + keysHTML() + betaLine()
+    + again('Field the kick') + `</div>`;
 }
 function hudHTML() {
   return `<div class="rm-hud" aria-hidden="true">`
     + `<div class="rm-chip rm-yds" data-rm-ychip><span class="rm-yn" data-rm-yds>0</span><span class="rm-yu" data-rm-yu>yds</span></div>`
-    // the kickoffs and the day's yards so far, while there's more than one a day (one: its yards are the day's)
-    + (R.RETURNS > 1 ? `<div class="rm-chip rm-kos" data-rm-kos></div>`
-      + `<div class="rm-chip rm-tot"><span class="rm-tn" data-rm-tot>0</span><span class="rm-yu">today</span></div>` : '<span></span><span></span>')
+    // today's best (this run once it's beaten it)
+    + `<span></span><div class="rm-chip rm-tot"><span class="rm-tn" data-rm-tot>0</span><span class="rm-yu">best</span></div>`
     + `<div class="rm-pows" data-rm-pows></div></div>`;
 }
 const SB_MODES = [{id: 'today', label: 'Today'}, {id: 'week', label: 'Week'}];
@@ -151,8 +148,10 @@ function boardHTML(st) {
     + ui.seg({name: 'rm-sb', items: SB_MODES, value: st.sbMode, small: true, label: 'Scoreboard', cls: 'c-board-seg'})
     + `<div data-rm-sbody>${boardBodyHTML(st)}</div></section>`;
 }
+// While a return's on (or before the day's first), the scoreboard waits under the stage; between runs it shows.
+const playing = st => !st.day.runs || st.mode === 'run' || st.mode === 'catch' || st.mode === 'paused';
 function bodyHTML(st) {
-  return `<div class="rm${st.day.done ? '' : ' is-playing'}" data-rm>`
+  return `<div class="rm${playing(st) ? ' is-playing' : ''}" data-rm>`
     + `<div class="rm-stage" data-rm-stage data-hscroll aria-label="Return Man: swipe left or right to juke, up to jump, down to slide">`
     + `<canvas class="rm-cv" data-rm-cv></canvas>${hudHTML()}`
     + `<div class="rm-pop" data-rm-pop aria-hidden="true"></div>`
@@ -361,7 +360,7 @@ function draw(st, now = performance.now()) {
   if (!c || !st.W) return;
   c.setTransform(st.dpr, 0, 0, st.dpr, 0, 0);
   const run = st.run, dt = st.dt || .016;
-  st.co = run ? run.co : R.course(st.n, st.day.next < R.RETURNS ? st.day.next : 0);
+  st.co = run ? run.co : R.course(st.n, 0);
   // the camera: behind him, following him across part of the way; up when he's up top; a jolt off a vehicle's side
   const bump = run && run.t - run.bump < .22 ? Math.sin((run.t - run.bump) * 60) * .25 * (1 - (run.t - run.bump) / .22) : 0;
   const sh = st.hitAt ? (now - st.hitAt) / 320 : 1, shake = sh < 1 ? Math.sin(sh * 26) * .3 * (1 - sh) : 0; // a stumble's jolt
@@ -414,14 +413,8 @@ function setDay(st, n) {
 function patchHud(st) {
   const el = st.el, run = st.run, live = run && st.mode !== 'ready', y = live ? Math.floor(run.yards) : 0;
   const yd = el.querySelector('[data-rm-yds]'); if (yd && yd.textContent !== String(y)) yd.textContent = String(y);
-  const tot = el.querySelector('[data-rm-tot]'), t = nf(st.day.yards + (run && !run.over && st.mode !== 'ready' ? y : 0));
+  const tot = el.querySelector('[data-rm-tot]'), t = nf(Math.max(st.day.best, run && !run.over && st.mode !== 'ready' ? y : 0));
   if (tot && tot.textContent !== t) tot.textContent = t;
-  const kos = el.querySelector('[data-rm-kos]');
-  if (kos) {
-    const cur = st.mode === 'ready' || st.day.done ? -1 : (run ? run.k : -1);
-    const html = Array.from({length: R.RETURNS}, (_, i) => `<i class="rm-ko${i < st.day.list.length ? ' is-done' : ''}${i === cur && i >= st.day.list.length ? ' is-cur' : ''}"></i>`).join('');
-    if (kos.dataset.html !== html) { kos.dataset.html = html; kos.innerHTML = html; }
-  }
   // the power-ups he's carrying: the salts, and what's left of the painkillers and the booze
   const on = live && !run.over, x2 = on && run.booze > 0;
   const chip = el.querySelector('[data-rm-ychip]'); if (chip) chip.classList.toggle('is-x2', !!x2);
@@ -442,7 +435,7 @@ function setCard(st, show) {
   if (!card) return;
   if (show) { card.innerHTML = cardHTML(st); ui.hydrate(card); }
   card.hidden = !show;
-  st.el.querySelector('[data-rm]').classList.toggle('is-playing', !st.day.done || st.mode === 'tackled');
+  st.el.querySelector('[data-rm]').classList.toggle('is-playing', playing(st));
   if (show && !ui.RM) ui.animate(card.firstElementChild, [{opacity: 0, transform: 'translateY(10px) scale(.98)'}, {opacity: 1, transform: 'none'}], {spring: 'smooth'});
 }
 function pop(st, text, cls = '', sub = '') {
@@ -456,7 +449,7 @@ function pop(st, text, cls = '', sub = '') {
 }
 /** A kickoff: the ball comes down into his hands, then he's off. */
 function go(st) {
-  if (st.day.done || st.mode === 'run' || st.mode === 'catch') return;
+  if (st.mode === 'run' || st.mode === 'catch') return;
   st.run = R.startRun(st.n, st.day.next);
   st.knocked = new Map(); st.got = new Set(); st.flashAt = 0; st.hitAt = 0; st.chX = null;
   st.co = st.run.co;
@@ -592,7 +585,7 @@ function onKey(st, e) {
 /** While a return's on, the stage fills the screen between the nav bar and the tab bar. */
 function fitScreen(st, smooth) {
   const scr = st.ctx.screen, stage = st.el.querySelector('[data-rm-stage]');
-  if (!scr || !stage || !st.ctx.visible || (st.day.done && st.mode !== 'tackled')) return;
+  if (!scr || !stage || !st.ctx.visible) return;
   const nav = scr.querySelector(':scope > .nav'), navB = nav ? nav.getBoundingClientRect().bottom : scr.getBoundingClientRect().top;
   const want = scr.scrollTop + stage.getBoundingClientRect().top - navB - 8;
   const fill = st.el.querySelector('[data-rm-fill]');
@@ -624,23 +617,11 @@ function testPlay(st, on) {
   fitScreen(st, true);
   ui.announce(on ? 'Test play: today’s kickoff, fresh. It won’t count.' : 'Test play over: back to your real day.');
 }
-/** Test play's Run it again: today's kickoff fresh in the sandbox once more, and straight into it. */
-function runAgain(st) {
-  if (!canTest() || !R.testing() || st.mode === 'run' || st.mode === 'catch') return;
-  R.setTest(true, st.n);
-  clearTimeout(st.later);
-  st.run = null; st.mode = 'ready';
-  setDay(st, st.n);
-  patchHud(st); patchBoard(st);
-  go(st);
-}
 function onClick(st, e) {
-  const t = e.target.closest('[data-rm-go], [data-rm-resume], [data-rm-day], [data-rm-sb], [data-rm-test], [data-rm-again]');
+  const t = e.target.closest('[data-rm-go], [data-rm-resume], [data-rm-sb], [data-rm-test]');
   if (!t || !st.el.contains(t)) return;
-  if (t.hasAttribute('data-rm-again')) { runAgain(st); return; }
   if (t.hasAttribute('data-rm-go')) { if (st.mode === 'tackled') { st.mode = 'ready'; st.run = null; } go(st); return; }
   if (t.hasAttribute('data-rm-resume')) { resume(st); return; }
-  if (t.hasAttribute('data-rm-day')) { st.mode = 'ready'; st.run = null; setCard(st, true); patchHud(st); draw(st); return; }
   if (t.hasAttribute('data-rm-sb')) { const b = st.el.querySelector('[data-rm-board]'); if (b) b.scrollIntoView({behavior: ui.RM ? 'auto' : 'smooth', block: 'start'}); return; }
   if (t.hasAttribute('data-rm-test')) testPlay(st, t.dataset.rmTest === 'on');
 }
@@ -650,7 +631,7 @@ function tick(st) {
     st.run = null; st.mode = 'ready'; setDay(st, R.todayNumber()); setCard(st, true); patchHud(st); patchBoard(st); draw(st);
   }
   const nx = st.el.querySelector('[data-rm-next]');
-  if (nx) nx.textContent = `Next kickoff in ${ui.untilText(msToMidnight())}`;
+  if (nx) nx.textContent = `New course in ${ui.untilText(msToMidnight())}`;
 }
 
 export function render(ctx) {

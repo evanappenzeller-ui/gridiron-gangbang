@@ -13,11 +13,12 @@
 // you and he runs you down: that's the return.
 // On the way, three power-ups: smelling salts (an extra life: the next time he'd catch you, you shake him off),
 // prescription painkillers (a few seconds when nothing can stop you) and booze (a few seconds of double yards). You
-// speed up as you go, and every 100 yards is a touchdown. One kickoff a day (the owner's ask, Oct 2026: one attempt a day; it was three), the
-// same course on every phone; the day's score is its yards. No DOM. Owner: RETURN.
+// speed up as you go, and every 100 yards is a touchdown. Run it back as often as you like (the owner's ask, Oct 2026:
+// replayed, an arcade game), the day's course the same on every phone and every run; the day's score is your best
+// run's yards. No DOM. Owner: RETURN.
 //
 //   todayNumber(), dateOf(n), dayLabel(n)       day 1 on START, a new day at local midnight
-//   course(n, k), fill(course, z)               day n's kickoff k (0 while it's one a day), worked out as far as z yards: its rows
+//   course(n, k), fill(course, z)               day n's course (k 0: every run of the day runs it), worked out as far as z yards: its rows
 //                                               [{i, z (where it stands), lanes: [OBST type|null x 3]}], its vehicles
 //                                               (sets: [{i, zs, ze, plats: [{lane, kind, part, z0 (the front), z1, h, b,
 //                                               ramp, hi}]}]: KINDS)
@@ -25,8 +26,8 @@
 //   THEMES, ZONE, zoneAt(course, z)             the places, and which one z yards is in ({i, theme, z0})
 //   groundAt(course, lane, z, y), blockAt(...)  how high the ground is there for him at height y (a ramp, a roof, a
 //                                               pad; 0 on the road); what's in his way there
-//   speedAt(z), tdsAt(z), LANE, RETURNS         your speed (yards a second) at z yards; touchdowns by z yards; the
-//                                               lanes' spacing (yards); kickoffs a day
+//   speedAt(z), tdsAt(z), LANE                  your speed (yards a second) at z yards; touchdowns by z yards; the
+//                                               lanes' spacing (yards)
 //   startRun(n, k), move(run, dir), step(run, dt)   a return, played: move takes a swipe ('left' 'right' 'up' 'down'),
 //                                               step moves it on dt seconds and says what happened (events)
 //   laneOf(run), xOf(run, lane), ahead(run, dist), endOf(run)   where you are; what's in front of you (for drawing);
@@ -60,8 +61,7 @@ export const dayLabel = (n, o = {weekday: 'short', month: 'short', day: 'numeric
 // In yards: x across (+ right), y up, z ahead from where you field the kick. The lanes are the hash marks and the
 // middle (the NFL's hashes, 18 ft 6 in apart) and go on as the lanes of the road. You run at speedAt(z), from a jog
 // to a sprint; every 100 yards is a touchdown.
-// RETURNS: kickoffs a day (one: the owner's ask, Oct 2026). A day kept when it was three counts its first return.
-export const LANE = 3.083, LANES = 3, RETURNS = 1;
+export const LANE = 3.083, LANES = 3;
 export const SPEED = {start: 9.5, top: 19, ramp: 360};
 export const speedAt = z => SPEED.start + (SPEED.top - SPEED.start) * (1 - Math.exp(-Math.max(0, z) / SPEED.ramp));
 export const TD = 100;
@@ -296,9 +296,9 @@ export function blockAt(co, lane, z, y, body = BODY) {
 export const platAt = (co, lane, z) => blockAt(co, lane, z, 0);
 
 // ---------------------------------------------------------------------------------------------- a return
-/** A new return: day n's kickoff k, you in the middle lane where you field it. */
+/** A new return: day n's run k (on the day's course: every run the same), you in the middle lane where you field it. */
 export function startRun(n, k) {
-  return {n, k, co: course(n, k), t: 0, z: 0, yards: 0, lane: 1, x: 0, jFrom: 0, jt: 1, y: 0, vy: 0, jumpQ: -9,
+  return {n, k, co: course(n, 0), t: 0, z: 0, yards: 0, lane: 1, x: 0, jFrom: 0, jt: 1, y: 0, vy: 0, jumpQ: -9,
     slide: 0, lastJuke: -9, bump: -9, next: 0, nextItem: 0, zone: 0, tds: 0,
     salts: 0, pills: 0, booze: 0, shield: 0, over: false, why: null, by: null,
     hits: 0, hitAt: 0, slow: 0, grace: 0, knock: 0, sideHit: null}; // (the linebacker starts on you, at the catch)
@@ -478,8 +478,9 @@ export function ahead(run, dist = 90, behind = 6) {
 }
 
 // ---------------------------------------------------------------------------------------------- memory
-// 'gg-ret1': {days: {n: {r: [{y (yards), d (how far you ran)}, ...] (each return run, in order), at (when the third
-// ended)}}, played}. (A return kept as a plain number, before power-ups, is its yards and its distance.)
+// 'gg-ret1': {days: {n: {r: [{y (yards), d (how far you ran)}, ...] (every run that day, in order), at (when the best
+// one ended)}}, played (runs, all time)}. (A return kept as a plain number, before power-ups, is its yards and its
+// distance.)
 const KEY = 'gg-ret1', KEEP = 60, MAX_YARDS = 99999;
 // Test play (the owner's: views/testplay.js): the day's game again in a sandbox, whenever he needs to test it. While
 // it's on, play reads and writes a store of its own (KEY + '-test', the day started fresh each time), never posted and
@@ -506,46 +507,49 @@ function write(v, real) {
 }
 const okNum = y => Number.isInteger(y) && y >= 0 && y <= MAX_YARDS;
 const cleanOne = e => (okNum(e) ? {y: e, d: e} : e && okNum(e.y) && okNum(e.d) ? {y: e.y, d: e.d} : null);
-const cleanList = r => (Array.isArray(r) ? r.map(cleanOne) : []).filter(Boolean).slice(0, RETURNS);
-/** A day's numbers from its returns ([{y, d}]): yards (all of them), longest, tds. */
+const cleanList = r => (Array.isArray(r) ? r.map(cleanOne) : []).filter(Boolean);
+/** The best of a day's runs ([{y, d}]): the most yards (the first of equals), or null. */
+const bestOf = list => list.reduce((b, e) => (!b || e.y > b.y ? e : b), null);
+/** Numbers from returns ([{y, d}]): yards (all of them), longest, tds. */
 export function score(list) {
   let yards = 0, longest = 0, tds = 0;
   list.forEach(e => { yards += e.y; longest = Math.max(longest, e.y); tds += tdsAt(e.d); });
   return {yards, longest, tds};
 }
-/** Day n on this phone: {list ([{y, d}] per return run), done, at, next (the next kickoff), official (the day that
- *  counts: {list, at} plus score(list), or null till its return is run)} plus score(list). */
+/** Day n on this phone: {list ([{y, d}] every run), runs, next (the next run's number), best (its yards; 0 with none),
+ *  at, official (the day that counts: the best run, {list: [it], at} plus its score, or null before a run)} plus the
+ *  best run's score (yards, longest, tds). */
 export function dayState(n, real) {
-  const d = read(real).days[n] || {}, list = cleanList(d.r);
-  return Object.assign({list, done: list.length >= RETURNS, at: Number(d.at) || 0, next: list.length, official: officialOf(d)}, score(list));
+  const d = read(real).days[n] || {}, list = cleanList(d.r), b = bestOf(list);
+  return Object.assign({list, runs: list.length, next: list.length, best: b ? b.y : 0, at: Number(d.at) || 0, official: officialOf(d)}, score(b ? [b] : []));
 }
-/** The day that counts: its return(s) ({list, at} plus score(list)), or null. */
+/** The day that counts: its best run ({list: [it], at} plus score), or null. */
 export function officialOf(d) {
-  const list = cleanList(d && d.r);
-  if (list.length < RETURNS) return null;
-  return Object.assign({list, at: Number(d.at) || 0}, score(list));
+  const b = bestOf(cleanList(d && d.r));
+  return b ? Object.assign({list: [b], at: Number(d.at) || 0}, score([b])) : null;
 }
 const yardsOf = v => clamp(Math.floor(v) || 0, 0, MAX_YARDS);
-/** Saves kickoff k's return (its yards, and how far you ran; k must be the next). Returns the day's state, or null (the
- *  day's done, or a return out of turn). */
+/** Saves run k's return (its yards, and how far you ran; k must be the next). Returns the day's state, or null (a
+ *  return out of turn). */
 export function record(n, k, yards, dist = yards) {
   const v = read(), day = v.days[n] || (v.days[n] = {r: []});
-  const list = cleanList(day.r);
-  if (list.length >= RETURNS || k !== list.length) return null;
-  list.push({y: yardsOf(yards), d: yardsOf(dist)});
+  const list = cleanList(day.r), was = bestOf(list);
+  if (k !== list.length) return null;
+  const e = {y: yardsOf(yards), d: yardsOf(dist)};
+  list.push(e);
   day.r = list;
   delete day.live;
-  if (list.length >= RETURNS) { day.at = Date.now(); v.played += 1; }
+  if (!was || e.y > was.y) day.at = Date.now(); // (when the best run ended)
+  v.played += 1;
   write(v);
   return dayState(n);
 }
 export function totals() {
   const v = read(true);
-  // (a day kept when it was three kickoffs, and only part run then, is finished now: it counts as played)
-  return {played: Math.max(v.played, Object.values(v.days).filter(d => d && cleanList(d.r).length >= RETURNS).length)};
+  return {played: Math.max(v.played, Object.values(v.days).filter(d => d && cleanList(d.r).length).length)};
 }
 // A return under way is kept as it goes (live: {k, y, d}), so one left behind (the app closed, the page left) still
-// counts, ending where it was: no kickoff run twice.
+// counts, ending where it was.
 /** Notes how far kickoff k of day n has got (its yards so far, and how far you've run). */
 export function keepLive(n, k, yards, dist = yards) {
   const v = read(), day = v.days[n] || (v.days[n] = {r: []});
@@ -567,15 +571,15 @@ export const live = n => { const d = read().days[n]; return !!(d && d.live && d.
 
 // ---------------------------------------------------------------------------------------------- scoreboard
 // Days ride on each phone's board doc (players/{uid}, daily.js), like the other games': rm2: {n: {y (yards), l (the
-// longest return: the one), td (touchdowns), t (when it ended)}}. A finished day posts by itself once the board has
-// loaded (and again after a failed post). One day per person: across their phones the first finished counts.
-// (rm1 held days of three kickoffs: when it went to one, Oct 20 2026, the board started again as rm2, each phone
-// posting its first return of the day.)
+// longest return: the one), td (touchdowns), t (when it ended)}}: the day's best run, posted by itself once the board
+// has loaded and again whenever a run beats it (and after a failed post). One day per person: across their phones the
+// best counts. (rm1 held days of three kickoffs; rm2 began with one a day, first run counting, Oct 20 2026, and is
+// each day's best run since replays came in the same day.)
 const F = 'rm2', POST_BACK = 7;
 let posting = false;
 export function entryOf(p, n) {
   const e = p && p[F] && typeof p[F] === 'object' ? p[F][n] : null;
-  if (!e || !Number.isInteger(e.y) || !Number.isInteger(e.l) || e.y < 0 || e.y > MAX_YARDS * RETURNS || e.l < 0 || e.l > e.y) return null;
+  if (!e || !Number.isInteger(e.y) || !Number.isInteger(e.l) || e.y < 0 || e.y > MAX_YARDS || e.l < 0 || e.l > e.y) return null;
   return {y: e.y, l: e.l, td: Number.isInteger(e.td) && e.td >= 0 ? e.td : 0, t: Number(e.t) || 0};
 }
 // The board as this phone may see it (THE RULE, CLAUDE.md): never every doc.
@@ -586,11 +590,12 @@ function people(list) {
   list.forEach(p => { const k = daily.boardKey(p); if (!m.has(k)) m.set(k, []); m.get(k).push(p); });
   return m;
 }
-function firstOf(list, n) {
+// A person's day across their docs: the best (the most yards, then the longest, then the earliest).
+function bestEntry(list, n) {
   let out = null;
   list.forEach(p => {
     const e = entryOf(p, n);
-    if (e && (!out || e.t < out.e.t || (e.t === out.e.t && String(p.id) < String(out.doc.id)))) out = {e, doc: p};
+    if (e && (!out || e.y > out.e.y || (e.y === out.e.y && (e.l > out.e.l || (e.l === out.e.l && e.t < out.e.t))))) out = {e, doc: p};
   });
   return out;
 }
@@ -600,7 +605,8 @@ function unposted() {
   const v = read(true), top = todayNumber();
   return Object.keys(v.days).map(Number)
     .filter(n => Number.isInteger(n) && n <= top && n > top - POST_BACK && dayState(n, true).official)
-    .filter(n => !theirs.some(p => entryOf(p, n)))
+    // (not posted yet, or this phone's best now beats what's posted)
+    .filter(n => { const b = bestEntry(theirs, n); return !b || dayState(n, true).official.yards > b.e.y; })
     .sort((a, b) => a - b);
 }
 export async function autoPost() {
@@ -640,7 +646,7 @@ const rank = (rows, same) => { rows.forEach((r, i) => { r.rank = i && same(rows[
 export function boardRows(n = todayNumber(), list = docs()) {
   const rows = [];
   people(list).forEach((ds, k) => {
-    const f = firstOf(ds, n);
+    const f = bestEntry(ds, n);
     if (f) rows.push(Object.assign(rowWho(ds, k), f.e));
   });
   const cmp = (a, b) => b.y - a.y || b.l - a.l || b.td - a.td;
@@ -669,7 +675,7 @@ function totalsOver(days, list) {
   const rows = [];
   people(list).forEach((ds, k) => {
     const row = Object.assign(rowWho(ds, k), {y: 0, l: 0, td: 0, played: 0});
-    days.forEach(d => { const f = firstOf(ds, d); if (f) { row.y += f.e.y; row.l = Math.max(row.l, f.e.l); row.td += f.e.td; row.played++; } });
+    days.forEach(d => { const f = bestEntry(ds, d); if (f) { row.y += f.e.y; row.l = Math.max(row.l, f.e.l); row.td += f.e.td; row.played++; } });
     if (row.played) rows.push(row);
   });
   const cmp = (a, b) => b.y - a.y || b.l - a.l || a.played - b.played;

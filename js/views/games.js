@@ -182,21 +182,17 @@ function kickState() {
     actions: [{label: 'See your kicks', kind: 'secondary', attrs: {'data-gm-open': 'kick'}}]};
 }
 function returnState() {
+  // Return Man is replayed as often as you like (the owner's ask, Oct 2026): its case keeps its front, Play again on it,
+  // your best today (and where it puts you) under the shelf; the scoreboard is on its page.
   const RM = C.rm;
   if (!RM) return {kind: 'new'};
   const n = RM.todayNumber(), day = RM.dayState(n), test = RM.testing();
-  const rows = boardOf(RM) === 'ready' ? safe(() => RM.boardRows(n)).map(r => ({...r, val: nf(r.y)})) : [];
-  const mine = rows.find(r => r.me);
-  const off = day.official || (!test && mine ? {yards: mine.y, longest: mine.l, tds: mine.td} : null);
-  if (!off) {
-    return day.list.length || RM.live(n) ? {kind: 'started', test, meta: `<p class="gm-note">${esc(day.list.length ? `${plural(day.list.length, 'return')} run: ${nf(day.yards)} yards so far` : 'A return under way.')}</p>`}
-      : {kind: 'new', test};
-  }
-  return {kind: 'done', test, board: boardOf(RM), rows,
-    vis: tileHTML(nf(off.yards), 'yards'),
-    head: off.tds ? plural(off.tds, 'touchdown') : off.yards >= 180 ? 'Great field position' : 'Today’s return',
-    lines: [RM.RETURNS > 1 ? `Longest ${nf(off.longest)} yards` : 'One kickoff a day'],
-    actions: [{label: 'See your returns', kind: 'secondary', attrs: {'data-gm-open': 'return'}}]};
+  if (RM.live(n)) return {kind: 'started', test, meta: '<p class="gm-note">A return under way.</p>'};
+  const rows = boardOf(RM) === 'ready' ? safe(() => RM.boardRows(n)) : [];
+  const mine = rows.find(r => r.me), best = day.official ? day.official.yards : !test && mine ? mine.y : null;
+  if (best == null) return {kind: 'new', test};
+  const place = mine && !test ? ` · ${ui.ordinal(mine.rank)} of ${rows.length} today` : '';
+  return {kind: 'new', test, again: true, played: true, meta: `<p class="gm-note">${esc(`Your best today: ${nf(best)} yards${place}`)}</p>`};
 }
 const STATE = {puzzles: puzzlesState, '17-0': seventeenState, drill: drillState, kick: kickState, return: returnState};
 
@@ -291,7 +287,7 @@ function caseHTML(g, s, i, n, clone) {
 function ctaHTML(g, s) {
   if (s.kind === 'loading') return ui.button({label: 'Loading puzzles', kind: 'primary', block: true, disabled: true, cls: 'gm-cta'});
   if (s.kind === 'error') return ui.button({label: 'Try again', kind: 'primary', block: true, attrs: {'data-gm-retry': ''}, cls: 'gm-cta'});
-  const label = s.kind === 'started' ? 'Continue' : 'Play';
+  const label = s.kind === 'started' ? 'Continue' : s.again ? 'Play again' : 'Play';
   return `<button type="button" class="btn btn-primary btn-block gm-cta" data-gm-play="${g.id}" aria-label="${esc(`${label} ${g.name}`)}">`
     + `${ui.icon('play-fill', {cls: 'gm-cta-ic'})}<span class="btn-label">${label}</span></button>`;
 }
@@ -322,7 +318,7 @@ export function listHTML() {
   return `<div class="gm-list" data-key="games" data-enter data-ids="${list.map(g => g.id).join(' ')}">`
     + `<div class="gm-shelf" data-hscroll role="region" aria-roledescription="carousel" aria-label="Daily games: swipe across" tabindex="0">`
     + row(true) + row(false) + row(true) + `</div>`
-    + `<div class="gm-pips" aria-hidden="true">${list.map((g, i) => `<i class="gm-pip${states[i].kind === 'done' ? ' is-done' : ''}" data-gm-pip="${g.id}"></i>`).join('')}</div>`
+    + `<div class="gm-pips" aria-hidden="true">${list.map((g, i) => `<i class="gm-pip${states[i].kind === 'done' || states[i].played ? ' is-done' : ''}" data-gm-pip="${g.id}"></i>`).join('')}</div>`
     + `<div class="gm-sel" data-gm-sel aria-live="polite">${selHTML(list[0], states[0])}</div></div>`;
 }
 
@@ -339,7 +335,7 @@ export function mountList(el, ctx, opts = {}) {
   const n = () => Math.max(1, list().length);
   const curCase = id => { const sl = slots()[st.cur]; return sl && sl.dataset.gmSlot === id ? sl.querySelector('.gm-case') : el.querySelector(`.gm-slot:not([data-gm-clone]) .gm-case[data-gm="${id}"]`); };
   const shown = new Map(); // id → the markup its case shows
-  const sig = (g, s) => `${s.kind}|${s.test ? 1 : 0}|${s.kind === 'done' ? backHTML(g, s) : frontHTML(g, s)}`;
+  const sig = (g, s) => `${s.kind}|${s.test ? 1 : 0}|${s.again ? 1 : 0}|${s.meta || ''}|${s.kind === 'done' ? backHTML(g, s) : frontHTML(g, s)}`; // (Return Man: its front stays, its line under the shelf moves)
   // the case in the middle: bigger and lit, the others smaller and turned a little toward it
   const layout = () => {
     st.raf = 0;
@@ -558,7 +554,7 @@ export function mountList(el, ctx, opts = {}) {
         cs.setAttribute('aria-label', caseLabel(g, s));
       });
       const pip = el.querySelector(`[data-gm-pip="${g.id}"]`);
-      if (pip) pip.classList.toggle('is-done', s.kind === 'done');
+      if (pip) pip.classList.toggle('is-done', s.kind === 'done' || !!s.played);
       if (i === st.cur % n()) setCur(i, animate);
     });
     if (st.zoom) {

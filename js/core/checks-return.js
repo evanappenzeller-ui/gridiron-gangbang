@@ -294,15 +294,16 @@ export async function returnChecks(check) {
     return {pass: speed && tds === '0,0,1,1,2,3,10', detail: `speed ${v.map(x => x.toFixed(1)).join(', ')}; TDs ${tds}`};
   });
   // ------------------------------------------------------------------------------------------- a day
-  check('Return Man: one kickoff a day (the owner\'s ask, Oct 2026: one attempt): the day counts once it\'s run, its yards (the touchdowns by how far he ran); a day kept when it was three counts only its first return; bad entries are left out; a day kept before power-ups (plain yards) still reads', () => {
+  check('Return Man: as many runs as you like (the owner\'s ask, Oct 2026: replayed, best run counts): every run is kept, on the day\'s one course; the day counts its best run (its yards, the touchdowns by how far he ran) from the first run on; a day kept from before counts its best; bad entries are left out; a day kept before power-ups (plain yards) still reads', () => {
     const list = [{y: 174, d: 174}, {y: 312, d: 240}, {y: 45, d: 45}], s = R.score(list);
-    const one = R.officialOf({r: [list[1]], at: 9}), none = R.officialOf({r: []}), three = R.officialOf({r: list, at: 7});
-    const bad = R.officialOf({r: [{y: -5, d: 3}, 'x', list[1], list[2]]}), old = R.officialOf({r: [174, 312, 45]});
-    const pass = R.RETURNS === 1 && s.yards === 531 && s.tds === 3 && one && one.yards === 312 && one.tds === 2 && one.at === 9 && none === null
-      && three && three.yards === 174 && three.list.length === 1 && bad && bad.yards === 312 && old && old.yards === 174 && old.tds === 1;
-    return {pass, detail: `${R.RETURNS} a day; a day: ${one && one.yards} yards, ${one && one.tds} TDs; none run: ${none}; kept as three: ${three && three.yards} (its first); with junk in it: ${bad && bad.yards}; plain yards: ${old && old.yards}`};
+    const one = R.officialOf({r: [list[0]], at: 9}), none = R.officialOf({r: []}), three = R.officialOf({r: list, at: 7});
+    const bad = R.officialOf({r: [{y: -5, d: 3}, 'x', list[2], list[1]]}), old = R.officialOf({r: [174, 312, 45]});
+    const same = R.startRun(4, 0).co === R.startRun(4, 3).co;
+    const pass = s.yards === 531 && s.tds === 3 && one && one.yards === 174 && one.at === 9 && none === null
+      && three && three.yards === 312 && three.tds === 2 && three.list.length === 1 && bad && bad.yards === 312 && old && old.yards === 312 && same;
+    return {pass, detail: `one run: ${one && one.yards}; none run: ${none}; three runs: ${three && three.yards} (the best, ${three && three.tds} TDs); with junk in it: ${bad && bad.yards}; plain yards: ${old && old.yards}; every run the same course ${same}`};
   });
-  check('Return Man: no Play again (the owner tests with Test play): no restart; a return left under way counts where it got to (keepLive/settle), so no kickoff is run twice', () => {
+  check('Return Man: a return left under way counts where it got to (keepLive/settle); no restart of a day (Test play is the owner\'s sandbox)', () => {
     const gone = !('restart' in R) && !('canReplay' in R) && !('restartDay' in R);
     const kept = typeof R.keepLive === 'function' && typeof R.settle === 'function' && typeof R.live === 'function' && typeof R.setTest === 'function';
     return {pass: gone && kept, detail: `restart gone ${gone}; a left return counts ${kept}`};
@@ -310,7 +311,7 @@ export async function returnChecks(check) {
   // ------------------------------------------------------------------------------------------- the scoreboard
   const doc = (id, nick, rm, extra = {}) => Object.assign({id, nick, total: 0, last: 1, rm2: rm}, extra);
   const e = (y, l, td, t) => ({y, l, td, t});
-  check('Return Man: the scoreboard ranks the day by yards, then the longest return, then touchdowns (ties share a rank); a member on two phones is one row, their first finished day; bad entries are left out', () => {
+  check('Return Man: the scoreboard ranks the day by yards, then the longest return, then touchdowns (ties share a rank); a member on two phones is one row, their best run; bad entries are left out', () => {
     const docs = [
       doc('rm-a', 'Mason', {1: e(400, 210, 2, 50)}),
       doc('rm-b', 'Jacob', {1: e(400, 250, 2, 40)}),
@@ -321,7 +322,7 @@ export async function returnChecks(check) {
       doc('rm-g', 'John', {2: e(300, 120, 1, 5)})
     ];
     const rows = R.boardRows(1, docs), sig = rows.map(r => `${r.rank}.${r.name.split(' ')[0]} ${r.y}/${r.l}`).join(', ');
-    return {pass: sig === '1.Evan 612/300, 2.Jacob 400/250, 2.Tommy 400/250, 4.Mason 90/40', detail: sig};
+    return {pass: sig === '1.Evan 612/300, 2.Jacob 400/250, 2.Tommy 400/250, 4.Mason 400/210', detail: sig};
   });
   check('Return Man: the week (Tuesday to Monday) adds up each person\'s yards over its days, then the longest; last week\'s days don\'t count', () => {
     // day 1 (Oct 20 2026) is a Tuesday: days 1-7 are a week, day 8 starts the next

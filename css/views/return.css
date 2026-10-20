@@ -101,6 +101,7 @@
 .rm-pane .rm-card-o { font: 700 11px/14px var(--font-text); letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.6); }
 .rm-pane .rm-card-t { margin-top: 8px !important; font: 800 26px/28px var(--rm-display); letter-spacing: .02em; text-transform: uppercase; color: var(--rm-gold); }
 .rm-pane .rm-card-s { margin-top: 6px !important; font: 400 14px/19px var(--font-text); color: rgba(255,255,255,.8); }
+.rm-pane .rm-card-best { margin-top: 6px !important; font: 800 18px/22px var(--rm-display); letter-spacing: .06em; text-transform: uppercase; color: var(--rm-gold); text-shadow: 0 0 16px rgba(255,210,63,.55); }
 .rm-pane .rm-beta {
   display: inline-block; margin-left: 6px; padding: 2px 6px 1px; border: 1px solid #F2C230; border-radius: 5px; vertical-align: 1px;
   background: rgba(242,194,48,.14); color: #F2C230; font: 800 10px/12px var(--font-text); letter-spacing: .12em;
