@@ -11,15 +11,16 @@
 // below. A hit while he's there (at the catch he starts there too) and he tackles him: a card says where, with Run it
 // again (as many runs as you like, the best of the day counts: the owner's ask, Oct 2026), the scoreboard under it.
 // Every 100 yards is a touchdown.
-// The scene is drawn on a canvas (views/return-world.js: the places, the vehicles, the power-ups); the players are drawn
-// and animated in it (views/return-runner.js: running, jumping, sliding, spinning, stumbling, going down), ours in navy,
-// the linebacker in red. A power-up, picked up, says what it is and what it does.
+// The scene is drawn on a canvas (views/return-world.js: the places, the vehicles, the power-ups); the players are the
+// owner's sprite sheets (views/drill-sprites.js: the Two-Minute Drill's), animated picture by picture (running, cutting,
+// spinning, leaping, sliding, stumbling, the tackle), ours in navy, the linebacker in red, with drawn ones till those
+// load. A power-up, picked up, says what it is and what it does.
 // Exports: render(ctx), mount(el, ctx), params(el, ctx), unmount(el, ctx). Owner: RETURN.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as daily from '../core/daily.js';
 import * as R from '../core/return.js';
-import * as RP from './return-runner.js';
+import * as SP from './drill-sprites.js';
 import * as W from './return-world.js';
 import {seeded} from './stadium.js';
 import {msToMidnight} from './board.js';
@@ -191,7 +192,11 @@ function size(st) {
 const P = (st, x, y, z) => W.P(st, x, y, z);
 
 // ---------------------------------------------------------------- The players
-// Each is drawn at his feet (views/return-runner.js), a man about 2 yards tall, with a shadow on what's under him.
+// The owner's sprite sheets (views/drill-sprites.js: the Two-Minute Drill's players), ours in navy and the linebacker
+// in red, animated (runnerAnim, chaserAnim: the owner's ask, Oct 2026): each move a run of its pictures in order, with
+// its own arc, lean and squeeze. Each is drawn at his feet, his height by how far he is (a man is 2 yards), with a
+// shadow on what's under him. While the pictures load, drawn ones stand in.
+const US = ['#1D3F8F'], THEM = ['#C8102E'];
 const TALL_YD = 2.05, PAST = 1.8;
 function shadow(st, c, x, y, z, w = .55) {
   if (z < st.camZ + W.NEAR) return;
@@ -199,30 +204,29 @@ function shadow(st, c, x, y, z, w = .55) {
   c.fillStyle = 'rgba(0,0,0,.32)';
   c.beginPath(); c.ellipse(p.x, p.y, Math.abs(r.x - p.x), Math.max(1, Math.abs(r.x - p.x) * .3), 0, 0, Math.PI * 2); c.fill();
 }
-/** A player (kit K, pose J, o: how he's turned, leaned, pitched; views/return-runner.js draw) at his feet (x, y, z);
- *  see-through (alpha) drawn whole off to the side first, so his arms don't show through him. */
-function player(st, c, K, J, x, y, z, o, alpha = 1) {
-  if (z < st.camZ + W.NEAR + .3) return;
-  const p = P(st, x, y, z);
-  if (p.y < st.y0 - 40 || p.s * TALL_YD < 2) return;
-  if (alpha >= 1) { RP.draw(st, c, x, y, z, K, J, o); return; }
-  if (!st.ghost) st.ghost = document.createElement('canvas');
-  const g = st.ghost, cv = st.cv;
-  if (g.width !== cv.width || g.height !== cv.height) { g.width = cv.width; g.height = cv.height; }
-  const gc = g.getContext('2d'), m = c.getTransform();
-  // (just the box he's in, in the canvas's pixels)
-  const xs = [], ys = [];
-  [[p.x - 1.7 * p.s, p.y - 2.8 * p.s], [p.x + 1.7 * p.s, p.y - 2.8 * p.s], [p.x - 1.7 * p.s, p.y + .8 * p.s], [p.x + 1.7 * p.s, p.y + .8 * p.s]]
-    .forEach(([a, b]) => { xs.push(m.a * a + m.c * b + m.e); ys.push(m.b * a + m.d * b + m.f); });
-  const x0 = Math.max(0, Math.floor(Math.min(...xs))), y0 = Math.max(0, Math.floor(Math.min(...ys)));
-  const w = Math.min(g.width, Math.ceil(Math.max(...xs))) - x0, h = Math.min(g.height, Math.ceil(Math.max(...ys))) - y0;
-  if (w <= 0 || h <= 0) return;
-  gc.setTransform(1, 0, 0, 1, 0, 0); gc.clearRect(x0, y0, w, h);
-  gc.setTransform(m);
-  RP.draw(st, gc, x, y, z, K, J, o);
-  c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = alpha;
-  c.drawImage(g, x0, y0, w, h, x0, y0, w, h);
-  c.restore();
+/** A picture of a move (a: {f, flip, mo (his stride's give: drill-sprites.js giveOf), ex (the move's own lift, squeeze,
+ *  lean)}) at his feet (x, y, z). */
+function sprite(st, c, a, team, x, y, z, alpha = 1) {
+  if (z < st.camZ + W.NEAR) return;
+  const p = P(st, x, y, z), tall = p.s * TALL_YD;
+  if (p.y < st.y0 - 40 || tall < 2) return;
+  c.globalAlpha = alpha;
+  if (SP.ready() && SP.hasFrame(a.f)) {
+    // (the pictures draw in device pixels: through the camera's sway, if any)
+    const m = c.getTransform(), k = Math.hypot(m.a, m.b);
+    SP.draw(c, {f: a.f, flip: !!a.flip}, team, true, m.a * p.x + m.c * p.y + m.e, m.b * p.x + m.d * p.y + m.f, tall * k, a.mo || null, a.ex || null);
+    c.setTransform(m);
+  } else {
+    const low = /dive|flat|down|fallen/.test(a.f);
+    c.fillStyle = team[0];
+    if (low) { c.beginPath(); c.ellipse(p.x, p.y - tall * .12, tall * .42, tall * .12, 0, 0, Math.PI * 2); c.fill(); }
+    else {
+      c.beginPath(); c.roundRect ? c.roundRect(p.x - tall * .17, p.y - tall * .78, tall * .34, tall * .5, tall * .08) : c.rect(p.x - tall * .17, p.y - tall * .78, tall * .34, tall * .5); c.fill();
+      c.fillStyle = '#EDEFF5'; c.fillRect(p.x - tall * .13, p.y - tall * .3, tall * .26, tall * .3);
+      c.fillStyle = team[0]; c.beginPath(); c.arc(p.x, p.y - tall * .88, tall * .11, 0, Math.PI * 2); c.fill();
+    }
+  }
+  c.globalAlpha = 1;
 }
 function hint(st, c, type, x, z) {
   // Over a barricade or a banner (once it's close enough to read and not on top of you): the move that beats it, an
@@ -237,33 +241,73 @@ function hint(st, c, type, x, z) {
   c.beginPath(); c.moveTo(p.x - r * .42, cy + s * r * .2); c.lineTo(p.x, cy - s * r * .38); c.lineTo(p.x + r * .42, cy + s * r * .2); c.stroke();
   c.beginPath(); c.moveTo(p.x, cy - s * r * .3); c.lineTo(p.x, cy + s * r * .5); c.stroke();
 }
-/** The returner now (views/return-runner.js): his pose and how he's turned, leaned and pitched. Waiting for the kick,
- *  under it; then running (the ball tucked away), leaning into a juke and turning with it, spinning past a thing he's
- *  just juked, tucked up over a jump, landing in his knees, sliding in, staggering after a hit; going down. */
-function runnerFig(st, now) {
-  const run = st.run, t = now / 1000;
-  if (!run || st.mode === 'ready') return {J: RP.stand(t), o: {}};
-  if (st.mode === 'catch') return {J: RP.catching((now - st.catchAt) / CATCH_MS), o: {}};
-  if (run.over) {
-    // (forward and twisting to the side as he goes, so he lands across the screen, not straight away from us)
-    const k = Math.min(1, (now - st.downAt) / 420);
-    return {J: RP.mix(RP.run(run.z / 1.5 * Math.PI, {carry: true}), RP.sprawl({carry: true}), Math.min(1, k * 2.5)), o: {pitch: 1.5 * k * k, lift: .14 * k, turn: fallDir(run) * 1.1 * k}};
-  }
-  const g = R.groundAt(run.co, R.laneOf(run), run.z, run.y), h = run.y - g;
-  const stum = run.slow > 0 ? run.slow / R.CHASE.slow : 0, land = st.landAt ? 1 - (now - st.landAt) / 170 : 0;
-  let J = RP.run(run.z / 1.5 * Math.PI, {carry: true, lean: .2 + .25 * stum, stride: 1 - .25 * stum, sink: land > 0 ? .13 * land : 0});
-  if (stum) RP.flail(J, stum, t);
-  if (h > .02 || run.vy > 0) J = RP.mix(J, RP.air(h / .7, {carry: true}), Math.min(1, Math.max(h / .2, run.vy > 0 ? .6 : 0)));
-  if (run.slide > 0) J = RP.mix(J, RP.slide(), Math.min(1, (R.MOVE.slide - run.slide) / .1, run.slide / .12));
-  const cut = Math.max(-1, Math.min(1, (R.xOf(run, run.lane) - run.x) / R.LANE)), sp = st.spinAt ? (now - st.spinAt) / SPIN_MS : 1;
-  return {J, o: {turn: .45 * cut + (sp < 1 ? st.spinDir * Math.PI * 2 * sp * sp * (3 - 2 * sp) : 0),
-    roll: .28 * cut + stum * .2 * Math.sin(run.slow * 22) + .5 * edgeBounce(st, now)}};
-}
-const EDGE_MS = 320;
+// The moves, picture by picture (ms, or seconds where it says): the spin goes round his facings (from behind, to his
+// right, three-quarters, the front, three-quarters, to his left, and back to behind), squeezed as he turns out of each.
+const FACE = [['rb.r_b0', false], ['rb.r_r0', false], ['rb.spin', true], ['rb.r_f0', false], ['rb.spin', false], ['rb.r_l0', false]];
+const SPIN_MS = 420, CUT_S = .22, EDGE_MS = 320, CATCH_HANDS = .8;
+const smooth = v => v * v * (3 - 2 * v);
+const fallDir = run => (run.x > .5 ? -1 : 1); // (which way he goes down, or lurches: toward the middle, or to his right)
+/** His stride from behind: the ball in the same arm both steps (drill-sprites.js MADE). */
+const strideOf = z => (Math.floor(z / 1.5) & 1 ? 'rb.r_b1x' : 'rb.r_b0');
 /** Off the edge of the road (a hit): out toward it and back, -1 to 1 (0 when he isn't). */
 const edgeBounce = (st, now) => (st.edgeAt && now - st.edgeAt < EDGE_MS ? st.edgeDir * Math.sin(Math.PI * (now - st.edgeAt) / EDGE_MS) : 0);
-const SPIN_MS = 380;
-const fallDir = run => (run.x > .5 ? -1 : 1); // (which way he goes down: toward the middle, or to his right)
+/** The returner now: {f, flip, mo, ex, dz (yards on from where he is: thrown forward in the tackle), ghosts
+ *  ([{f, flip, dx, a}]: afterimages of a cut or a spin)}. Waiting for the kick; reaching up for it; then running with
+ *  it tucked away: cutting a lane over (side on), spinning past a thing he's just juked, leaping (arms up, then the
+ *  legs reaching for the ground), sliding in low on his side, lurching and staggering after a hit (into the edge of
+ *  the road first, side on); tackled, driven forward off his feet and down. */
+function runnerAnim(st, now) {
+  const run = st.run, t = now / 1000;
+  if (!run || st.mode === 'ready') return {f: 'wr.r_b1', mo: {t}};
+  if (st.mode === 'catch') {
+    const p = (now - st.catchAt) / CATCH_MS;
+    return p < CATCH_HANDS ? {f: 'wr.r_b1', mo: {t}} : {f: 'wr.high', ex: {lift: .04 * Math.sin(Math.PI * Math.min(1, (p - CATCH_HANDS) / (1 - CATCH_HANDS)))}};
+  }
+  if (run.over) {
+    const e = now - st.downAt, dir = fallDir(run);
+    if (e < 140) return {f: 'rb.lunge', flip: dir < 0, ex: {rot: dir * .14 * e / 140}};
+    const k = Math.min(1, (e - 140) / 380);
+    return {f: 'rb.dive', flip: dir < 0, dz: .9 * smooth(k), ex: {lift: .2 * Math.sin(Math.PI * k)}};
+  }
+  const g = R.groundAt(run.co, R.laneOf(run), run.z, run.y), h = run.y - g, ph = run.z / 1.5 * Math.PI;
+  // (a stumble: he staggers, side to side, as he gets going again)
+  const wob = run.slow > 0 ? Math.sin(run.slow * 22) * .7 * run.slow / R.CHASE.slow : 0;
+  const mo = {ph, t, land: st.landAt ? (now - st.landAt) / 1000 : null, lean: (R.xOf(run, run.lane) - run.x) / 1.2 + wob};
+  const ee = st.edgeAt ? now - st.edgeAt : 1e9, he = st.hitAt ? now - st.hitAt : 1e9, low = h < .1 && !run.slide;
+  if (ee < 110) return {f: st.edgeDir > 0 ? 'rb.r_r0' : 'rb.r_l0', ex: {rot: st.edgeDir * .22}};
+  if (he < 150 && low) return {f: 'rb.lunge', flip: st.hitDir < 0};
+  if (he < 320 && low) return {f: 'rb.juke', flip: st.hitDir > 0, ex: {rot: .07 * Math.sin(he / 38)}};
+  if (run.slide > 0) {
+    const into = R.MOVE.slide - run.slide, left = run.x < -.5;
+    return into < .09 || run.slide < .1 ? {f: 'rb.lunge', flip: !left} : {f: 'rb.down', flip: left, ex: {rot: .018 * Math.sin(t * 50)}};
+  }
+  if (h > .05 || run.vy > 0) return run.vy > -2.5 ? {f: 'wr.high', ex: {sy: 1 + .05 * Math.max(0, run.vy / R.JUMP_V), rot: .05 * mo.lean}} : {f: 'rb.r_b0', ex: {sx: .96, sy: 1.06}};
+  const sp = st.spinAt ? (now - st.spinAt) / SPIN_MS : 1;
+  if (sp < 1) {
+    const n = FACE.length - 1, pos = sp * n, i = Math.floor(pos), at = k => FACE[st.spinDir > 0 ? 1 + k : n - k];
+    const [f, flip] = at(i), prev = i > 0 ? at(i - 1) : null;
+    return {f, flip, ex: {sx: .78 + .22 * Math.sin(Math.PI * (pos - i)), lift: .05 * Math.sin(Math.PI * sp)}, ghosts: prev ? [{f: prev[0], flip: prev[1], dx: 0, a: .28}] : []};
+  }
+  const dir = Math.sign(R.xOf(run, run.lane) - run.jFrom);
+  if (dir && run.t - run.lastJuke < CUT_S) {
+    const f = (dir > 0 ? 'rb.r_r' : 'rb.r_l') + (Math.floor(run.z / 1.5) & 1), back = run.jFrom - run.x;
+    return {f, mo, ghosts: run.jt < 1 ? [{f, dx: back * .35, a: .3}, {f, dx: back * .7, a: .14}] : []};
+  }
+  return {f: strideOf(run.z), mo};
+}
+/** The linebacker now (z: where he is): running him down (set while the kick's in the air); when he gets there, up
+ *  off his feet and flat out through the air, down on top of him. */
+function chaserAnim(st, now, z) {
+  const run = st.run, t = now / 1000;
+  if (run.over && run.why === 'caught') {
+    const e = now - st.downAt;
+    if (e < 150) return {f: 'def.r_b1', ex: {lift: .1 * e / 150, sy: 1.06}};
+    const k = Math.min(1, (e - 150) / 330);
+    return {f: 'def.flat', dz: .4 + .7 * smooth(k), ex: {lift: .3 * (1 - k * k)}};
+  }
+  if (st.mode === 'catch' || st.mode === 'ready') return {f: 'def.r_b0', mo: {t, seed: 7}};
+  return {f: `def.r_b${Math.floor(z / 1.4) & 1}`, mo: {ph: z / 1.4 * Math.PI, t, seed: 7}};
+}
 /** The dust he kicks up sliding in (k: how far into it), off his feet and his seat. */
 function dust(st, c, x, y, z, now, k) {
   for (let i = 0; i < 6; i++) {
@@ -271,6 +315,16 @@ function dust(st, c, x, y, z, now, k) {
     const q = P(st, x + side * (.2 + .5 * age), y + .08 + .45 * age, z + .9 - 1.3 * age - (i % 3) * .2);
     c.fillStyle = `rgba(226,214,190,${(.3 * (1 - age) * k).toFixed(3)})`;
     c.beginPath(); c.arc(q.x, q.y, (.1 + .26 * age) * q.s, 0, Math.PI * 2); c.fill();
+  }
+}
+/** A puff of dust where he comes down (age 0 to 1): a ring of it spreading out and fading. */
+function puff(st, c, x, y, z, age, w = 1) {
+  if (age < 0 || age >= 1) return;
+  for (let i = 0; i < 7; i++) {
+    const a = i / 7 * Math.PI * 2, r = (.25 + .9 * age) * w;
+    const q = P(st, x + Math.cos(a) * r, y + .1 + .25 * age, z + Math.sin(a) * r * .6);
+    c.fillStyle = `rgba(226,214,190,${(.38 * (1 - age)).toFixed(3)})`;
+    c.beginPath(); c.arc(q.x, q.y, (.14 + .22 * age) * w * q.s, 0, Math.PI * 2); c.fill();
   }
 }
 /** Everything in the lanes, far to near: the vehicles, the gates, the power-ups, the barricades and banners, him and
@@ -305,22 +359,18 @@ function drawLanes(st, c, now) {
     if (cz > st.camZ + W.NEAR + .4) {
       const want = rx + (rx > .5 ? -1 : 1) * (run.over ? .35 : .95);
       st.chX = st.chX == null ? want : st.chX + (want - st.chX) * Math.min(1, (st.dt || .016) * 8);
-      const caught = run.over && run.why === 'caught', cx = st.chX;
-      // running him down (set while the kick's in the air); diving at his back when he gets there
-      const k = caught ? Math.min(1, (now - st.downAt) / 380) : 0;
-      const J = caught ? RP.mix(RP.run(cz / 1.4 * Math.PI, {pump: 1.25, lean: .3}), RP.dive(), Math.min(1, k * 3))
-        : st.mode === 'catch' ? RP.stand(t) : RP.run(cz / 1.4 * Math.PI, {pump: 1.25, lean: .3});
-      const o = caught ? {pitch: .3 + 1.2 * k * k * (3 - 2 * k), lift: .5 * Math.sin(Math.PI * k) + .1 * k, turn: fallDir(run) * .8 * k} : {turn: Math.max(-.3, Math.min(.3, (rx - cx) * .15))};
-      list.push({z: cz, x0: cx - .5, x1: cx + .5, draw: () => {
-        shadow(st, c, cx, 0, cz);
-        player(st, c, RP.KITS.them, J, cx, 0, cz, o);
+      const a = chaserAnim(st, now, cz), cx = st.chX, az = cz + (a.dz || 0), e = run.over ? now - st.downAt : -1;
+      list.push({z: az, x0: cx - .5, x1: cx + .5, draw: () => {
+        shadow(st, c, cx, 0, az);
+        sprite(st, c, a, THEM, cx, 0, az);
+        puff(st, c, cx, 0, az + .6, (e - 480) / 450, 1.2); // (down on top of him)
       }});
     }
   }
-  const fig = runnerFig(st, now), g = run ? R.groundAt(run.co, R.laneOf(run), rz, ry) : 0, us = RP.KITS.us;
-  const bx = rx + .5 * edgeBounce(st, now); // (bouncing off the edge of the road)
-  list.push({z: rz, me: true, draw: () => {
-    shadow(st, c, bx, g, rz, .5);
+  const an = runnerAnim(st, now), g = run ? R.groundAt(run.co, R.laneOf(run), rz, ry) : 0;
+  const bx = rx + .5 * edgeBounce(st, now), az = rz + (an.dz || 0); // (bouncing off the edge of the road; thrown forward)
+  list.push({z: az, me: true, draw: () => {
+    shadow(st, c, bx, g, az, .5);
     if (run && !run.over && run.pills > 0) {
       // painkillers: he burns hot, a ring round his feet
       const k = Math.min(1, run.pills / .6), q = P(st, rx, ry + 1, rz), r = q.s * (1.45 + .15 * Math.sin(now / 90));
@@ -331,12 +381,16 @@ function drawLanes(st, c, now) {
       c.strokeStyle = `rgba(255,150,50,${(.85 * k).toFixed(2)})`; c.lineWidth = Math.max(1.5, f.s * .07);
       c.beginPath(); c.ellipse(f.x, f.y, rw, rw * .3, 0, 0, Math.PI * 2); c.stroke();
     }
+    // a cut's and a spin's afterimages, behind him
+    (an.ghosts || []).forEach(gh => sprite(st, c, {f: gh.f, flip: gh.flip, mo: an.mo, ex: an.ex}, US, bx + gh.dx, ry, az + .05, gh.a));
     // booze: he's seeing double
-    if (run && !run.over && run.booze > 0) player(st, c, us, fig.J, bx + .45 * Math.sin(now / 430), ry, rz + .2, fig.o, .32 * Math.min(1, run.booze / .8));
+    if (run && !run.over && run.booze > 0) sprite(st, c, an, US, bx + .45 * Math.sin(now / 430), ry, az + .2, .32 * Math.min(1, run.booze / .8));
     // back up after the salts: he flickers while nothing can touch him
     const blink = run && !run.over && run.shield > 0 && !run.pills && Math.floor(now / 70) % 2;
-    player(st, c, us, fig.J, bx, ry, rz, fig.o, blink ? .35 : 1);
+    sprite(st, c, an, US, bx, ry, az, blink ? .35 : 1);
     if (run && !run.over && run.slide > 0) dust(st, c, rx, g, rz, now, Math.min(1, run.slide / .25));
+    if (run && !run.over && st.landAt) puff(st, c, rx, g, rz, (now - st.landAt) / 350, .7); // (landing a jump)
+    if (run && run.over) puff(st, c, bx, g, az + .5, (now - st.downAt - 520) / 450, 1.1); // (down)
   }});
   // Far to near; but whatever stands beyond a vehicle's side from the camera (in a lane further over, beside it) goes
   // before that vehicle, so its body hides them, however long it is.
@@ -355,9 +409,10 @@ function drawLanes(st, c, now) {
   list.sort((a, b) => b.key - a.key || b.z - a.z || (a.me ? 1 : b.me ? -1 : 0));
   list.forEach(it => it.draw());
   // the kick coming down into his hands
-  if (st.mode === 'catch') {
-    const p = Math.min(1, (now - st.catchAt) / CATCH_MS), y = TALL_YD * .55 + (1 - p) * (1 - p) * 26, z = rz + .3 + (1 - p) * 6;
-    const q = P(st, rx + .15, y, z), sz = Math.max(4, q.s * .32);
+  if (st.mode === 'catch' && now - st.catchAt < CATCH_MS * CATCH_HANDS) {
+    // (into his hands up over his head; from there the picture has it)
+    const p = Math.min(1, (now - st.catchAt) / CATCH_MS / CATCH_HANDS), y = TALL_YD * 1.1 + (1 - p) * (1 - p) * 26, z = rz + .05 + (1 - p) * 6;
+    const q = P(st, rx, y, z), sz = Math.max(4, q.s * .32);
     c.save(); c.translate(q.x, q.y); c.rotate(p * 9);
     c.fillStyle = '#7A3B1B'; c.beginPath(); c.ellipse(0, 0, sz, sz * .6, 0, 0, Math.PI * 2); c.fill();
     c.strokeStyle = '#F4F0E6'; c.lineWidth = Math.max(.8, sz * .12); c.beginPath(); c.moveTo(-sz * .35, 0); c.lineTo(sz * .35, 0); c.stroke();
@@ -532,13 +587,13 @@ function onEvents(st, evs) {
     else if (e.type === 'trucked') { st.knocked.set(`${e.row.i}:${e.lane}`, {at: now}); pop(st, 'SMASHED!', 'is-pills'); ui.haptic('medium'); }
     else if (e.type === 'vaulted') { pop(st, 'OVER THE TOP!', 'is-pills'); ui.haptic('medium'); }
     else if (e.type === 'stumbled') {
-      st.hitAt = now; pop(st, 'STUMBLE!', 'is-hit', 'The linebacker’s on you'); ui.haptic('warning');
+      st.hitAt = now; st.hitDir = fallDir(st.run); pop(st, 'STUMBLE!', 'is-hit', 'The linebacker’s on you'); ui.haptic('warning');
       ui.announce(`${R.hitLine(e)}. The linebacker’s on you: another hit now and he’ll tackle you.`);
       if (e.row) st.knocked.set(`${e.row.i}:${e.lane}`, {at: now});
     }
     else if (e.type === 'shoved') { if (e.row) st.knocked.set(`${e.row.i}:${e.lane}`, {at: now}); }
     else if (e.type === 'revived') {
-      st.flashAt = now; pop(st, 'SHOOK HIM!', 'is-salts', 'The smelling salts'); ui.haptic('warning');
+      st.flashAt = now; st.hitAt = now; st.hitDir = fallDir(st.run); pop(st, 'SHOOK HIM!', 'is-salts', 'The smelling salts'); ui.haptic('warning');
       if (e.row) st.knocked.set(`${e.row.i}:${e.lane}`, {at: now});
     }
     else if (e.type === 'tackled') tackled(st);
@@ -728,6 +783,7 @@ export function mount(el, ctx) {
   // the stands twinkle while nothing's moving
   st.stopLife = ctx.timer(() => { if (!st.raf && !ui.RM && st.cv.getBoundingClientRect().bottom > 0) draw(st); }, 90);
   R.autoPost();
+  SP.load().then(() => { if (!st.dead) draw(st); });
   requestAnimationFrame(() => { if (st.dead) return; size(st); draw(st); fitScreen(st, true); });
 }
 export function params(el, ctx) {

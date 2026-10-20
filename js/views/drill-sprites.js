@@ -5,8 +5,10 @@
 // picture for the moment (his stance before the snap; his stride the way he's going, two to a stride; a block, the
 // throw, a catch, a stiff arm, a tackle, a swat, a pick; on the ground) and draw() puts it at his feet, with a body's
 // give (giveOf: the bounce of his stride, a lean into a cut, a block's strain, a breath while he stands).
+// Return Man (views/return.js) runs on them too, with pictures made from two (MADE: the top of one over the legs of
+// another, so the ball stays in one arm as his legs change).
 // Exports: load(), ready(), pick(pl, o), hasFrame(name), hasBall(pick), giveOf(pick, mo),
-// draw(g, pick, team, colored, x, y, tallPx, mo), TALL.
+// draw(g, pick, team, colored, x, y, tallPx, mo, ex), TALL.
 // Owner: Drill.
 import * as ui from '../core/ui.js';
 
@@ -224,10 +226,39 @@ export function pick(pl, o) {
     default: return run('def', o.face, !o.moving);
   }
 }
-/** Whether the atlas has a picture by this name ('sheet.pose'). */
-export const hasFrame = f => !!FRAMES[f];
+// ---------------------------------------------------------------------------- Pictures made from two
+// name -> the picture whose top half it takes and the one whose legs ([name, mirrored]), and where they meet (px above
+// his feet, at the top of the pants). rb.r_b1x: the back's second stride from behind with the ball in the same arm as
+// his first (rb.r_b1's top mirrored over its own legs), so a stride doesn't swap the ball from arm to arm.
+const MADE = {
+  'rb.r_b1x': {top: ['rb.r_b1', true], legs: ['rb.r_b1', false], seam: 54}
+};
+const MADE_W = 130, MADE_H = 140, MADE_FEET = 6;
+const MADES = new Map(); // a uniform's atlas -> {cv, fr: {name: [x, y, w, h, ax, ay, ball]}}
+function madeFor(atlas) {
+  if (MADES.has(atlas)) return MADES.get(atlas);
+  const names = Object.keys(MADE), cv = document.createElement('canvas'), fr = {};
+  cv.width = MADE_W * names.length; cv.height = MADE_H;
+  const g = cv.getContext('2d');
+  names.forEach((n, i) => {
+    const m = MADE[n], ax = i * MADE_W + MADE_W / 2, ay = MADE_H - MADE_FEET, cut = ay - m.seam;
+    [[m.legs, cut, MADE_H], [m.top, 0, cut]].forEach(([[f, flip], y0, y1]) => {
+      const s = FRAMES[f];
+      g.save(); g.beginPath(); g.rect(i * MADE_W, y0, MADE_W, y1 - y0); g.clip();
+      g.translate(ax, ay); if (flip) g.scale(-1, 1);
+      g.drawImage(atlas, s[0], s[1], s[2], s[3], -s[4], -s[5], s[2], s[3]);
+      g.restore();
+    });
+    fr[n] = [i * MADE_W, 0, MADE_W, MADE_H, MADE_W / 2, ay, FRAMES[m.top[0]][6]];
+  });
+  const out = {cv, fr};
+  MADES.set(atlas, out);
+  return out;
+}
+/** Whether there's a picture by this name ('sheet.pose'). */
+export const hasFrame = f => !!(FRAMES[f] || MADE[f]);
 /** Whether a pick's picture has the ball in it (so the ball isn't drawn again). */
-export const hasBall = p => !!(FRAMES[p.f] && FRAMES[p.f][6]);
+export const hasBall = p => !!(FRAMES[p.f] ? FRAMES[p.f][6] : MADE[p.f] && FRAMES[MADE[p.f].top[0]][6]);
 
 // ---------------------------------------------------------------------------- How a picture moves
 // Two pictures to a stride would snap from one to the other; with a body's give they read as a run. He comes down on
@@ -245,7 +276,7 @@ export function giveOf(p, mo) {
   if (!mo || ui.RM) return null;
   const t = mo.t || 0, sd = mo.seed || 0;
   const v = {lift: 0, sx: 1, sy: 1, rot: 0}, lean = .1 * clamp1(mo.lean);
-  if (mo.ph != null && /\.r_[bflr][01]$/.test(p.f)) {
+  if (mo.ph != null && /\.r_[bflr][01]x?$/.test(p.f)) {
     // u: 0 as a foot comes down (when the picture changes), 1 at the top of the stride
     const u = Math.abs(Math.sin(mo.ph)), land = Math.pow(1 - u, 4), dir = /r_r/.test(p.f) ? 1 : /r_l/.test(p.f) ? -1 : 0;
     v.lift = .045 * u;
@@ -270,11 +301,18 @@ export function giveOf(p, mo) {
   }
   return v;
 }
-/** Draws a pick at (x, y) on g (screen px: his feet), tallPx a runner's height there; mo: how he's moving (giveOf). */
-export function draw(g, p, team, colored, x, y, tallPx, mo) {
-  const fr = FRAMES[p.f];
+/** Draws a pick at (x, y) on g (screen px: his feet), tallPx a runner's height there; mo: how he's moving (giveOf);
+ *  ex: more on top of that ({lift (a share of his height), sx, sy, rot}: a move's own arc, turn and squash). */
+export function draw(g, p, team, colored, x, y, tallPx, mo, ex) {
+  let fr = FRAMES[p.f], atlas = fr || MADE[p.f] ? atlasFor(kitOf(team, colored)) : null;
+  if (!fr && MADE[p.f]) { const m = madeFor(atlas); fr = m.fr[p.f]; atlas = m.cv; }
   if (!fr) return false;
-  const atlas = atlasFor(kitOf(team, colored)), k = tallPx / TALL, v = giveOf(p, mo);
+  const k = tallPx / TALL;
+  let v = giveOf(p, mo);
+  if (ex) {
+    v = v || {lift: 0, sx: 1, sy: 1, rot: 0};
+    v.lift += ex.lift || 0; v.sx *= ex.sx ?? 1; v.sy *= ex.sy ?? 1; v.rot += ex.rot || 0;
+  }
   if (v) {
     g.setTransform(1, 0, 0, 1, x, y - v.lift * tallPx);
     g.rotate(v.rot);
