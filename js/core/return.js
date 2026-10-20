@@ -1,7 +1,7 @@
 // Return Man core: the Daily Games' endless runner, after Subway Surfers (the owner's ask, Oct 2026). You field a
-// kickoff in the stadium and run it back as far as you can, and the run goes on out of the stadium: through the
-// tailgate lots, downtown, the frozen tundra and the Wild West (a new place every ZONE yards, in an order of the
-// kickoff's own), and round again. Three lanes. The coverage team comes at you a row at a time: swipe left or right to
+// kickoff in the stadium and run it back as far as you can, and the run goes on out of the stadium into a new place
+// every 100 yards (ZONE: each one a field, a touchdown at its far end): the tailgate, the city, the frozen tundra, the
+// desert, the farmers market, the beach, outer space and the farm, in an order of the kickoff's own, and round again. Three lanes. The coverage team comes at you a row at a time: swipe left or right to
 // juke a lane over, up to jump (a man diving at your legs), down to spin out of a wrap-up (in the air: drop, then
 // spin). A wedge of two blockers can only be juked around (or run over from up high). In the way too: each place's
 // vehicles, parked in the lanes (a team bus, an RV, a train car...). The tall ones you go round, or run up a ramp onto
@@ -74,15 +74,20 @@ export const MEN = {
 };
 // The vehicles: a tall one (HIGH_H yards; a ramp up onto its roof, or not) and a low one (LOW_H; jump on) in each place.
 export const HIGH_H = 3, LOW_H = .95, RAMP = 8;
-// The places, one after another, ZONE yards each: the stadium first, then the other four in the kickoff's own order,
-// and round again. A vehicle never sits across the line between two (there's a gate on it).
-export const ZONE = 220;
+// The places, one after another, ZONE yards each (a field each: you score as you go into the next): the stadium first,
+// then the other eight in the kickoff's own order, and round again. A vehicle never sits across the line between two
+// (there are goalposts on it).
+export const ZONE = 100;
 export const THEMES = [
   {id: 'stadium', name: 'The Stadium', hi: 'team bus', lo: 'bench'},
   {id: 'tailgate', name: 'The Tailgate', hi: 'RV', lo: 'beer pong table'},
-  {id: 'downtown', name: 'Downtown', hi: 'city bus', lo: 'road work'},
+  {id: 'city', name: 'The City', hi: 'city bus', lo: 'road work'},
   {id: 'tundra', name: 'The Frozen Tundra', hi: 'snowplow', lo: 'snowbank'},
-  {id: 'west', name: 'The Wild West', hi: 'train car', lo: 'hay wagon'}
+  {id: 'desert', name: 'The Desert', hi: 'train car', lo: 'hay wagon'},
+  {id: 'market', name: 'Farmers Market', hi: 'produce truck', lo: 'apple cart'},
+  {id: 'beach', name: 'The Beach', hi: 'ice cream truck', lo: 'sandcastle'},
+  {id: 'space', name: 'Outer Space', hi: 'space shuttle', lo: 'moon rover'},
+  {id: 'farm', name: 'The Farm', hi: 'combine', lo: 'hay bales'}
 ];
 // The power-ups: salts (you can carry SALTS_MAX), pills (seconds) and booze (seconds of double yards).
 export const POWER = {
@@ -125,8 +130,8 @@ export function course(n, k) {
   const key = `${n}|${k}`;
   if (COURSES.has(key)) return COURSES.get(key);
   // the places after the stadium: the day's order, each kickoff starting one further on
-  const others = shuffle([1, 2, 3, 4], rng(hashStr(`return-man-places-${n}`)));
-  const order = [0, ...others.slice(k % 4), ...others.slice(0, k % 4)];
+  const others = shuffle(THEMES.map((_, i) => i).slice(1), rng(hashStr(`return-man-places-${n}`))), m = others.length;
+  const order = [0, ...others.slice(k % m), ...others.slice(0, k % m)];
   const c = {n, k, order, rows: [], sets: [], items: [], r: rng(hashStr(`return-man-${n}-${k}`)), z: GAP.first, itemAt: 60, done: 0};
   if (COURSES.size > 12) COURSES.clear();
   COURSES.set(key, c);
@@ -160,7 +165,7 @@ function addRow(co, z, open, L, wedges) {
 function addSet(co, z, L) {
   const r = co.r, lanes = shuffle([0, 1, 2], r), two = L > .2 && r() < .45;
   const plats = lanes.slice(0, two ? 2 : 1).map((lane, j) => {
-    const hi = r() < (j ? .55 : .45), len = hi ? 14 + r() * (12 + 18 * L) : 6 + r() * 6;
+    const hi = r() < (j ? .55 : .45), len = hi ? 12 + r() * (9 + 13 * L) : 6 + r() * 5;
     return {lane, hi, h: hi ? HIGH_H : LOW_H, len, ramp: hi && r() < .65 ? RAMP : 0};
   });
   const zf = z + Math.max(...plats.map(p => p.ramp));

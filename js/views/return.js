@@ -1,7 +1,8 @@
 // Return Man (Daily Games, its own page /puzzles/return; core/return.js): the endless kick return, after Subway Surfers.
-// The camera rides behind the returner as he runs out of the stadium and on through the tailgate, downtown, the frozen
-// tundra and the Wild West, the coverage team coming at him a row at a time and the vehicles parked in the lanes. A
-// swipe on the stage (or the arrow keys) jukes a lane over, jumps (over a man diving at his legs, up onto a low one),
+// The camera rides behind the returner as he runs out of the stadium and on into a new place every 100 yards (the
+// tailgate, the city, the frozen tundra, the desert, the farmers market, the beach, outer space, the farm: a touchdown
+// under the goalposts into each), the coverage team coming at him a row at a time and the vehicles parked in the
+// lanes. A swipe on the stage (or the arrow keys) jukes a lane over, jumps (over a man diving at his legs, up onto a low one),
 // or spins out of a wrap-up (and in the air, drops him). Ramps take him up onto the roofs. The power-ups he runs
 // through: smelling salts (back up after the next hit), painkillers (nothing stops him for a bit) and booze (double
 // yards for a bit, and the camera sways). The first hit he can't take ends the return: a card says what got him and
@@ -24,7 +25,7 @@ const esc = data.esc;
 const nf = n => data.nf(n);
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 // The version mark css/views/return.css carries (--rm-css): an older cached stylesheet gets the new one linked.
-const CSS_V = '2';
+const CSS_V = '3';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--rm-css').trim() === CSS_V) return;
@@ -38,7 +39,8 @@ function ensureCss() {
 const US = ['#1D3F8F'], THEM = ['#C8102E'];
 const STATE = new WeakMap(); // pane → its state
 // Where a return ended, in a sentence ("Wrapped up in the Wild West").
-const WHERE = {stadium: 'in the stadium', tailgate: 'at the tailgate', downtown: 'downtown', tundra: 'on the frozen tundra', west: 'in the Wild West'};
+const WHERE = {stadium: 'in the stadium', tailgate: 'at the tailgate', city: 'in the city', tundra: 'on the frozen tundra', desert: 'in the desert',
+  market: 'at the farmers market', beach: 'on the beach', space: 'in outer space', farm: 'on the farm'};
 
 // ============================================================================ Markup
 /** A power-up's picture (the one on the road), as an image for the HUD and the cards. */
@@ -360,6 +362,7 @@ function draw(st, now = performance.now()) {
   st.camH = st.camH0 + st.lift;
   st.camZ = (run ? run.z : 0) - st.back;
   const z = run ? run.z : 0, t = now / 1000;
+  st.t = t;
   // booze: the world sways
   const drunk = run && !run.over ? Math.min(1, run.booze / .8) : 0;
   if (drunk > 0) {
@@ -427,10 +430,11 @@ function setCard(st, show) {
   st.el.querySelector('[data-rm]').classList.toggle('is-playing', !st.day.done || st.mode === 'tackled');
   if (show && !ui.RM) ui.animate(card.firstElementChild, [{opacity: 0, transform: 'translateY(10px) scale(.98)'}, {opacity: 1, transform: 'none'}], {spring: 'smooth'});
 }
-function pop(st, text, cls = '') {
+function pop(st, text, cls = '', sub = '') {
   const el = st.el.querySelector('[data-rm-pop]');
   if (!el) return;
   el.textContent = text;
+  if (sub) { const sm = document.createElement('small'); sm.textContent = sub; el.appendChild(sm); }
   el.className = 'rm-pop' + (cls ? ' ' + cls : '');
   void el.offsetWidth;
   el.classList.add('is-on');
@@ -461,8 +465,13 @@ const GOT = {salts: 'SMELLING SALTS!', pills: 'PAINKILLERS!', booze: 'BOOZE! ×2
 function onEvents(st, evs) {
   const now = performance.now();
   evs.forEach(e => {
-    if (e.type === 'td') { pop(st, 'TOUCHDOWN!', 'is-td'); st.cheer = now + 2600; ui.haptic('success'); ui.announce(`Touchdown! ${plural(e.n, 'touchdown')}.`); }
-    else if (e.type === 'zone') { pop(st, e.theme.name.toUpperCase(), 'is-zone'); W.warm(st, e.z); ui.announce(`${e.theme.name}.`); }
+    // a touchdown is the way into the next place: the call says both
+    if (e.type === 'td') {
+      const into = evs.find(x => x.type === 'zone');
+      pop(st, 'TOUCHDOWN!', 'is-td', into ? `Welcome to ${into.theme.name.replace(/^The /, 'the ')}` : '');
+      st.cheer = now + 2600; ui.haptic('success'); ui.announce(`Touchdown! ${plural(e.n, 'touchdown')}.${into ? ` ${into.theme.name}.` : ''}`);
+    }
+    else if (e.type === 'zone') { W.warm(st, e.z); if (!evs.some(x => x.type === 'td')) pop(st, e.theme.name.toUpperCase(), 'is-zone'); }
     else if (e.type === 'juked') { pop(st, 'JUKE!'); st.beaten.set(e.row.i, 'juked'); }
     else if (e.type === 'hurdled') { pop(st, 'HURDLE!'); st.beaten.set(e.row.i, 'hurdled'); ui.haptic('light'); }
     else if (e.type === 'spun') { pop(st, 'SPIN!'); st.beaten.set(e.row.i, 'spun'); ui.haptic('light'); }

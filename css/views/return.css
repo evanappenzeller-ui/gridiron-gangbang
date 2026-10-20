@@ -4,7 +4,7 @@
    laid over it; the scoreboard below on the theme's surfaces. */
 
 /* The version mark views/return.js checks (CSS_V): bump both when the pane needs rules an older file lacks. */
-:root { --rm-css: 2; }
+:root { --rm-css: 3; }
 
 .rm-pane {
   --rm-good: #3EF08F; --rm-gold: #FFD23F; --rm-hot: #FF6A2B;
@@ -72,6 +72,7 @@
 .rm-pane .rm-pop.is-on { animation: rm-pop .75s cubic-bezier(.22,1,.36,1) forwards; }
 .rm-pane .rm-pop.is-td { font-size: 54px; color: var(--rm-gold); text-shadow: 0 3px 0 rgba(0,0,0,.55), 0 0 30px rgba(255,210,63,.8); }
 .rm-pane .rm-pop.is-td.is-on { animation-duration: 1.6s; }
+.rm-pane .rm-pop small { display: block; margin-top: 6px; font: 800 22px/1 var(--rm-display); letter-spacing: .06em; text-transform: uppercase; color: #fff; text-shadow: 0 2px 0 rgba(0,0,0,.5), 0 0 18px rgba(255,255,255,.5); }
 .rm-pane .rm-pop.is-zone { font-size: 40px; color: #fff; letter-spacing: .06em; text-shadow: 0 3px 0 rgba(0,0,0,.5), 0 0 26px rgba(255,255,255,.55); }
 .rm-pane .rm-pop.is-zone.is-on { animation-duration: 1.9s; }
 .rm-pane .rm-pop.is-salts { color: #BFEFFF; text-shadow: 0 2px 0 rgba(0,0,0,.5), 0 0 22px rgba(150,225,255,.8); }

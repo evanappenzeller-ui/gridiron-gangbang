@@ -151,14 +151,15 @@ export async function returnChecks(check) {
     const pass = eMen === 1 && lMen > 1.8 && eT > 1.2 && lT < .95;
     return {pass, detail: `first 60 yds: ${eMen.toFixed(2)} men a row, ${eT.toFixed(2)} s apart; past 450: ${lMen.toFixed(2)} men, ${lT.toFixed(2)} s`};
   });
-  check('Return Man: the places: the stadium first, then the tailgate, downtown, the frozen tundra and the Wild West in an order of the day\'s own (each kickoff starting one further on), a new one every ZONE yards, round and round; each with its tall vehicle and its low one', () => {
-    const ids = (n, k) => [0, 1, 2, 3, 4, 5].map(i => R.zoneAt(R.course(n, k), i * R.ZONE + 1).theme.id);
+  check('Return Man: the places: the stadium first, then the tailgate, the city, the frozen tundra, the desert, the farmers market, the beach, outer space and the farm in an order of the day\'s own (each kickoff starting one further on), a new one every 100 yards (a touchdown into each), round and round; each with its tall vehicle and its low one', () => {
+    const N = R.THEMES.length;
+    const ids = (n, k) => Array.from({length: N + 1}, (_, i) => R.zoneAt(R.course(n, k), i * R.ZONE + 1).theme.id);
     const a = ids(2, 0), b = ids(2, 1), c = ids(2, 2);
-    const first = [a, b, c].every(x => x[0] === 'stadium' && x[5] === 'stadium' && new Set(x.slice(0, 5)).size === 5);
+    const first = [a, b, c].every(x => x[0] === 'stadium' && x[N] === 'stadium' && new Set(x.slice(0, N)).size === N);
     const turn = b[1] === a[2] && c[1] === a[3];
-    const named = R.THEMES.length === 5 && R.THEMES.every(t => t.name && t.hi && t.lo);
-    const edge = R.zoneAt(R.course(2, 0), R.ZONE - .01).i === 0 && R.zoneAt(R.course(2, 0), R.ZONE).i === 1;
-    return {pass: first && turn && named && edge, detail: `kickoff 1: ${a.join(' → ')}; kickoff 2: ${b.slice(1, 5).join(', ')}; kickoff 3: ${c.slice(1, 5).join(', ')}`};
+    const named = N === 9 && R.THEMES.every(t => t.name && t.hi && t.lo) && ['tailgate', 'city', 'tundra', 'desert', 'market', 'beach', 'space', 'farm'].every(id => R.THEMES.some(t => t.id === id));
+    const edge = R.ZONE === 100 && R.ZONE === R.TD && R.zoneAt(R.course(2, 0), 99.99).i === 0 && R.zoneAt(R.course(2, 0), 100).i === 1;
+    return {pass: first && turn && named && edge, detail: `kickoff 1: ${a.join(' → ')}; kickoff 2 starts ${b[1]}, kickoff 3 ${c[1]}; every ${R.ZONE} yards`};
   });
   // ------------------------------------------------------------------------------------------- the moves
   check('Return Man: the moves: a juke takes him a lane over (not off the road); a jump beats a man diving at his legs, a spin a wrap-up, and neither beats the other or a wedge; doing nothing in a man\'s lane ends it; leaving his lane late is a juke; a jump swiped in the air goes the moment he lands', () => {

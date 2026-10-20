@@ -125,7 +125,7 @@ const SUBS = {
   '17-0': 'Five players, one budget, one season. Can your team go 17–0?',
   drill: 'Down late with the ball. Call every play to the final whistle.',
   kick: 'Field goals that get longer with every make. Three misses and you’re done.',
-  return: 'Run it back out of the stadium and across town. Juke, jump, ride the roofs, grab the booze.'
+  return: 'A new world every 100 yards, from the beach to outer space. Juke, jump, ride the roofs.'
 };
 function drillSub(dr, n) {
   try {
