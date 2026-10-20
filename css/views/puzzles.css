@@ -136,7 +136,9 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
   background: radial-gradient(ellipse 56% 50% at 50% 47%, rgba(70,180,30,.2), rgba(50,150,20,.08) 46%, transparent 72%);
 }
 .v-puzzles .gm-shelf {
-  --cw: min(62cqw, 262px);
+  /* the cases big (the owner's ask, Oct 2026): four fifths of the width, as much as a short screen leaves room for
+     (and never smaller than they were) */
+  --cw: max(min(62cqw, 262px), min(80cqw, 340px, calc((100svh - 380px) / 1.38)));
   position: relative; display: flex; align-items: center;
   /* (10px higher than it looks: the lit case's glow fades out before the scroller's edge cuts it off) */
   margin: -10px calc(-1 * var(--gutter)) 0; padding: 30px calc(50% - var(--cw) / 2) 18px;
@@ -335,18 +337,6 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
 .v-puzzles .gm-ctas { display: flex; gap: 10px; margin-top: 14px; }
 .v-puzzles .gm-cta { min-height: 52px; font-size: 18px; }
 .v-puzzles .gm-cta > .gm-cta-ic { width: 20px; height: 20px; stroke-width: 1; margin-left: -4px; }
-.v-puzzles .gm-act { flex: 1 1 0; min-width: 0; padding: 0 12px; }
-.v-puzzles .gm-act > .ic { width: 20px; height: 20px; margin-top: -2px; }
-/* Three to a row (Daily Puzzles: Leaderboard, See results, Share): Share is just its icon, the others as wide as
-   their words need, sharing what's left. */
-.v-puzzles .gm-ctas.is-3 .gm-act { flex: 1 1 auto; width: auto; padding: 0 10px; }
-.v-puzzles .gm-ctas.is-3 .gm-act.is-ic { flex: none; width: 52px; padding: 0; }
-.v-puzzles .gm-act.is-ic > .btn-label { display: none; }
-.v-puzzles .gm-act.is-ic > .ic { margin: -2px 0 0; }
-@media (max-width: 370px) {
-  .v-puzzles .gm-ctas.is-3 { gap: 8px; }
-  .v-puzzles .gm-ctas.is-3 .gm-act:not(.is-ic) { padding: 0 8px; gap: 6px; font-size: 16px; }
-}
 .v-puzzles .gm-cd { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 14px; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
 .v-puzzles .gm-cd .ic { stroke-width: 2; flex: none; }
 .v-puzzles .gm-cd-v { color: var(--ink-2); font-weight: 600; font-variant-numeric: tabular-nums; }

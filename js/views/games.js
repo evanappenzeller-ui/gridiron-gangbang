@@ -269,7 +269,7 @@ function backHTML(g, s) {
     + `<span class="gm-bk-res"><span class="gm-bk-vis">${s.vis || ''}</span><span class="gm-bk-tt"><b class="gm-bk-h${s.gold ? ' is-gold' : ''}">${esc(s.head || '')}</b>`
     + `${(s.lines || []).map(l => `<small>${esc(l)}</small>`).join('')}${place ? `<em>${esc(place)}</em>` : ''}</span></span>`
     + `<span class="gm-scr"><span class="gm-scr-h">Today’s leaderboard</span>${rows}</span>`
-    + `<span class="gm-bk-foot"><span class="gm-bk-tap">Tap for the season ›</span></span></span></div>`;
+    + `<span class="gm-bk-foot"><span class="gm-bk-tap">Tap for the full leaderboard ›</span></span></span></div>`;
 }
 function caseHTML(g, s, i, n, clone) {
   const done = s.kind === 'done';
@@ -293,21 +293,14 @@ function cdHTML(g) {
   return `<p class="gm-cd">${ui.icon('clock', {size: 15})}<span>${esc(g.cd)} <span class="gm-cd-v" data-gm-cd>${esc(ui.untilText(msToMidnight()))}</span></span></p>`;
 }
 function newDay() { try { return ready() && daily.checkDay(); } catch (_) { return false; } }
-// A finished game's buttons; with three to a row, the ones after the first that have an icon show just the icon
-// (Share), named for screen readers.
-function actHTML(a, i, all) {
-  const ic = all.length > 2 && i > 0 && a.icon;
-  return ui.button({label: a.label, kind: a.kind, icon: a.icon, attrs: ic ? {...a.attrs, 'aria-label': a.label} : a.attrs, cls: ic ? 'gm-act is-ic' : 'gm-act'});
-}
 function selHTML(g, s) {
   const done = s.kind === 'done';
-  const acts = done ? [{label: 'Leaderboard', kind: 'primary', icon: 'trophy', attrs: {'data-gm-zoom': g.id}}, ...s.actions.map(a => ({...a, kind: 'secondary'}))] : null;
   // (no words over the buttons, the owner's ask, Oct 2026: the case says the game and, played, the result; the name
-  // stays for screen readers)
+  // stays for screen readers). A game played today has no buttons here: its case's back is the leaderboard, a tap
+  // on it brings the whole board up close (with the way into the game's own page).
   return `<h2 class="sr-only">${esc(g.name)}</h2>`
     + (!done && s.meta ? `<div class="gm-meta">${s.meta}</div>` : '')
-    + `<div class="gm-ctas${acts && acts.length > 2 ? ' is-3' : ''}">${acts ? acts.map(actHTML).join('') : ctaHTML(g, s)}</div>`
-    + (done ? cdHTML(g) : '');
+    + (done ? cdHTML(g) : `<div class="gm-ctas">${ctaHTML(g, s)}</div>`);
 }
 function stateOf(g) {
   try { return STATE[g.id](); } catch (e) { console.error(e); return {kind: 'new'}; }
@@ -418,6 +411,8 @@ export function mountList(el, ctx, opts = {}) {
     const g = byId(id), cs = curCase(id);
     if (!g || st.zoom) return;
     const s = stateOf(g);
+    // its foot: the game's own way on (Daily Puzzles' results, 17-0's season, ...)
+    const go = (s.actions || [])[0] || {label: 'Open the game', attrs: {'data-gm-open': id}};
     const z = document.createElement('div');
     z.className = 'gm-zoom';
     z.innerHTML = `<div class="gm-z-scrim" data-gm-zclose></div>`
@@ -427,8 +422,7 @@ export function mountList(el, ctx, opts = {}) {
       + `<div class="gm-bk-res"><span class="gm-bk-vis">${s.vis || ''}</span><span class="gm-bk-tt"><b class="gm-bk-h${s.gold ? ' is-gold' : ''}">${esc(s.head || '')}</b>${(s.lines || []).map(l => `<small>${esc(l)}</small>`).join('')}</span></div>`
       + `<div class="gm-z-tog" role="tablist" aria-label="Leaderboard"><button type="button" role="tab" aria-selected="true" data-gm-zmode="today">Today</button><button type="button" role="tab" aria-selected="false" data-gm-zmode="season">Season</button></div>`
       + `<div class="gm-scr is-z"><div class="gm-z-body" data-gm-zbody>${zoomBody(g, 'today')}</div></div>`
-      + `<div class="gm-bk-foot">`
-      + `${ui.button({label: 'Open the game', kind: 'secondary', size: 's', attrs: {'data-gm-open': id}, cls: 'gm-z-open'})}</div></div></div>`;
+      + `<div class="gm-bk-foot">${ui.button({label: go.label, kind: 'secondary', size: 's', attrs: go.attrs, cls: 'gm-z-open'})}</div></div></div>`;
     (document.getElementById('overlays') || document.body).appendChild(z);
     ui.hydrate(z);
     const card = z.querySelector('.gm-z-case'), app = document.getElementById('app');
@@ -454,7 +448,8 @@ export function mountList(el, ctx, opts = {}) {
         return;
       }
       const open = e.target.closest('[data-gm-open]');
-      if (open) { closeZoom(true); ctx.nav(gamePath(open.dataset.gmOpen)); }
+      if (open) { closeZoom(true); ctx.nav(gamePath(open.dataset.gmOpen)); return; }
+      if (e.target.closest('[data-gm-results]')) { closeZoom(true); ctx.nav('/puzzles/results'); }
     });
     z.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); closeZoom(); } });
     card.focus({preventScroll: true});
@@ -476,8 +471,6 @@ export function mountList(el, ctx, opts = {}) {
   }
   // ---------------------------------------------------------------- taps, keys
   const onClick = e => {
-    const zb = e.target.closest('[data-gm-zoom]');
-    if (zb) { openZoom(zb.dataset.gmZoom); return; }
     const cs = e.target.closest('.gm-case[data-gm]');
     if (!cs) return;
     const i = slots().indexOf(cs.closest('.gm-slot'));
