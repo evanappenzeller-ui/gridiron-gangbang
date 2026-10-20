@@ -178,7 +178,7 @@ export async function returnChecks(check) {
     return {pass: first && turn && named && edge, detail: `kickoff 1: ${a.join(' → ')}; kickoff 2 starts ${b[1]}, kickoff 3 ${c[1]}; every ${R.ZONE} yards`};
   });
   // ------------------------------------------------------------------------------------------- the moves
-  check('Return Man: the moves: a juke takes him a lane over (not off the road); a jump clears a barricade, a slide goes under a banner, and neither beats the other; doing nothing in its lane is a hit (a stumble); leaving its lane late is a juke; a jump swiped in the air goes the moment he lands; a slide under a hover pad he\'d hit standing', () => {
+  check('Return Man: the moves: a juke takes him a lane over; one off the edge of the road (either side) is a hit, a stumble (the owner\'s ask, Oct 2026); a jump clears a barricade, a slide goes under a banner, and neither beats the other; doing nothing in its lane is a hit (a stumble); leaving its lane late is a juke; a jump swiped in the air goes the moment he lands; a slide under a hover pad he\'d hit standing', () => {
     const lanes = t => [null, t, null];
     const r = {
       dive: [meet(lanes('hurdle'), 'up'), meet(lanes('hurdle'), 'down'), meet(lanes('hurdle'), null)],
@@ -187,9 +187,13 @@ export async function returnChecks(check) {
       empty: meet([null, null, null], null),
       early: meet(lanes('hurdle'), 'up', 1.2)
     };
-    const edge = field({});
-    edge.lane = 0; edge.x = R.xOf(edge, 0);
-    const walls = !R.move(edge, 'left') && R.move(edge, 'right') && edge.lane === 1;
+    // off the edge, either side: he stays in his lane, and it's a hit (a stumble, its words); back in from the edge is a juke
+    const wall = dir => {
+      const lane = dir === 'left' ? 0 : R.LANES - 1, run = field({}, lane);
+      const no = !R.move(run, dir) && run.lane === lane && run.bump === run.t, e = R.step(run, 1 / 120).find(x => x.type === 'stumbled');
+      return no && !!e && e.edge === dir && run.hits === 1 && R.laneOf(run) === lane && R.hitLine(e) === `Ran out of room on the ${dir}`;
+    };
+    const inward = field({}, 0), walls = wall('left') && wall('right') && R.move(inward, 'right') && inward.lane === 1;
     // a jump, and another swiped on the way down: up again as soon as he lands
     const j = field({});
     R.move(j, 'up'); for (let i = 0; i < 54; i++) R.step(j, 1 / 120); R.move(j, 'up');
@@ -200,7 +204,7 @@ export async function returnChecks(check) {
     const pad = slide => { const run = field({sets: [{i: 0, zs: 30, ze: 34, plats: [{lane: 1, kind: 'hover', part: 1, z0: 30, z1: 34, h: 1.5, b: 1.2, ramp: 0, hi: false}]}]}); let hit = false; for (let i = 0; i < 120 * 5 && run.z < 40; i++) { if (slide && run.z > 27 && run.z < 28) R.move(run, 'down'); if (R.step(run, 1 / 120).some(e => e.type === 'stumbled')) hit = true; } return hit; };
     const under = pad(false) && !pad(true);
     const got = [r.dive.join(), r.wrap.join(), r.wedge.join(), r.empty, r.early].join('|');
-    return {pass: got === want && walls && again && under, detail: `barricade: ${r.dive.join(', ')}; banner: ${r.wrap.join(', ')}; left late ${r.wedge.join(', ')}; an empty row ${r.empty}; a jump a second early ${r.early}; the edge ${walls}; the jump on landing ${again}; under a pad in a slide ${under}`};
+    return {pass: got === want && walls && again && under, detail: `barricade: ${r.dive.join(', ')}; banner: ${r.wrap.join(', ')}; left late ${r.wedge.join(', ')}; an empty row ${r.empty}; a jump a second early ${r.early}; off the edge ${walls ? 'a stumble, either side' : 'WRONG'}; the jump on landing ${again}; under a pad in a slide ${under}`};
   });
   check('Return Man: the vehicles: running into a tall one is a hit (a jump won\'t clear it) that knocks him into the open lane beside it; its ramp takes him up onto the roof, he runs along the top over the banners below, and drops off the end; a low one he jumps onto (or runs into, and scrambles up); he can\'t juke into a tall one\'s side (a hit too), but he can juke off a roof', () => {
     const tall = play({sets: [set(plat(1, 30, 50, true))]}, 4), jumped = play({sets: [set(plat(1, 30, 50, true))]}, 4, [[27, 'up']]);

@@ -63,7 +63,7 @@ function keysHTML() {
   const k = (cls, label, what) => `<li class="rm-key"><span class="rm-kk ${cls}" aria-hidden="true">${label}</span><span>${what}</span></li>`;
   const pw = (kind, name, what) => `<li class="rm-pk">${iconHTML(kind, 34)}<b>${name}</b><span>${what}</span></li>`;
   return `<ul class="rm-keys" aria-label="How to play">`
-    + k('is-lr', '← →', 'Swipe to juke a lane')
+    + k('is-lr', '← →', 'Swipe to juke a lane. Off the edge, you stumble')
     + k('is-up', '↑', 'Jump a barricade, or onto a low one')
     + k('is-dn', '↓', 'Slide under a banner')
     + k('is-ramp', '◢', 'Run up a ramp onto the roofs')
@@ -257,8 +257,11 @@ function runnerFig(st, now) {
   if (run.slide > 0) J = RP.mix(J, RP.slide(), Math.min(1, (R.MOVE.slide - run.slide) / .1, run.slide / .12));
   const cut = Math.max(-1, Math.min(1, (R.xOf(run, run.lane) - run.x) / R.LANE)), sp = st.spinAt ? (now - st.spinAt) / SPIN_MS : 1;
   return {J, o: {turn: .45 * cut + (sp < 1 ? st.spinDir * Math.PI * 2 * sp * sp * (3 - 2 * sp) : 0),
-    roll: .28 * cut + stum * .2 * Math.sin(run.slow * 22)}};
+    roll: .28 * cut + stum * .2 * Math.sin(run.slow * 22) + .5 * edgeBounce(st, now)}};
 }
+const EDGE_MS = 320;
+/** Off the edge of the road (a hit): out toward it and back, -1 to 1 (0 when he isn't). */
+const edgeBounce = (st, now) => (st.edgeAt && now - st.edgeAt < EDGE_MS ? st.edgeDir * Math.sin(Math.PI * (now - st.edgeAt) / EDGE_MS) : 0);
 const SPIN_MS = 380;
 const fallDir = run => (run.x > .5 ? -1 : 1); // (which way he goes down: toward the middle, or to his right)
 /** The dust he kicks up sliding in (k: how far into it), off his feet and his seat. */
@@ -315,8 +318,9 @@ function drawLanes(st, c, now) {
     }
   }
   const fig = runnerFig(st, now), g = run ? R.groundAt(run.co, R.laneOf(run), rz, ry) : 0, us = RP.KITS.us;
+  const bx = rx + .5 * edgeBounce(st, now); // (bouncing off the edge of the road)
   list.push({z: rz, me: true, draw: () => {
-    shadow(st, c, rx, g, rz, .5);
+    shadow(st, c, bx, g, rz, .5);
     if (run && !run.over && run.pills > 0) {
       // painkillers: he burns hot, a ring round his feet
       const k = Math.min(1, run.pills / .6), q = P(st, rx, ry + 1, rz), r = q.s * (1.45 + .15 * Math.sin(now / 90));
@@ -328,10 +332,10 @@ function drawLanes(st, c, now) {
       c.beginPath(); c.ellipse(f.x, f.y, rw, rw * .3, 0, 0, Math.PI * 2); c.stroke();
     }
     // booze: he's seeing double
-    if (run && !run.over && run.booze > 0) player(st, c, us, fig.J, rx + .45 * Math.sin(now / 430), ry, rz + .2, fig.o, .32 * Math.min(1, run.booze / .8));
+    if (run && !run.over && run.booze > 0) player(st, c, us, fig.J, bx + .45 * Math.sin(now / 430), ry, rz + .2, fig.o, .32 * Math.min(1, run.booze / .8));
     // back up after the salts: he flickers while nothing can touch him
     const blink = run && !run.over && run.shield > 0 && !run.pills && Math.floor(now / 70) % 2;
-    player(st, c, us, fig.J, rx, ry, rz, fig.o, blink ? .35 : 1);
+    player(st, c, us, fig.J, bx, ry, rz, fig.o, blink ? .35 : 1);
     if (run && !run.over && run.slide > 0) dust(st, c, rx, g, rz, now, Math.min(1, run.slide / .25));
   }});
   // Far to near; but whatever stands beyond a vehicle's side from the camera (in a lane further over, beside it) goes
@@ -470,7 +474,7 @@ function pop(st, text, cls = '', sub = '') {
 function go(st) {
   if (st.mode === 'run' || st.mode === 'catch') return;
   st.run = R.startRun(st.n, st.day.next);
-  st.knocked = new Map(); st.got = new Set(); st.flashAt = 0; st.hitAt = 0; st.chX = null; st.spinAt = 0; st.landAt = 0;
+  st.knocked = new Map(); st.got = new Set(); st.flashAt = 0; st.hitAt = 0; st.chX = null; st.spinAt = 0; st.landAt = 0; st.edgeAt = 0;
   ungot(st);
   st.co = st.run.co;
   W.warm(st, 0);
@@ -511,6 +515,8 @@ function ungot(st) {
 function onEvents(st, evs) {
   const now = performance.now();
   evs.forEach(e => {
+    // a juke off the edge of the road (a hit): he bounces off it
+    if (e.edge) { st.edgeAt = now; st.edgeDir = e.edge === 'right' ? 1 : -1; }
     // a touchdown is the way into the next place: the call says both
     if (e.type === 'td') {
       const into = evs.find(x => x.type === 'zone');

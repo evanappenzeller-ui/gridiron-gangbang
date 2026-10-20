@@ -9,7 +9,8 @@
 // the roof and along the top; the low ones you jump onto and run across. Jump down off the end, or juke off the side.
 // A linebacker chases you down from behind (CHASE, the owner's ask, Oct 2026, after Subway Surfers' inspector; not the
 // kicker, his word): a hit (a barricade or banner you didn't clear, a vehicle you ran into, the side of one you juked
-// into) slows you and puts him right on your back; run on clean and he drops away. A hit while he's on you (at the
+// into, a juke off the edge of the road: the owner's ask, Oct 2026) slows you and puts him right on your back; run on
+// clean and he drops away. A hit while he's on you (at the
 // catch he starts there too) and he tackles you: that's the return.
 // On the way, three power-ups: smelling salts (an extra life: the next time he'd catch you, you shake him off),
 // prescription painkillers (a few seconds when nothing can stop you) and booze (a few seconds of double yards). You
@@ -312,12 +313,13 @@ export const xOf = (run, lane) => (lane - 1) * LANE;
 export const laneOf = run => clamp(Math.round(run.x / LANE) + 1, 0, LANES - 1);
 const grounded = run => run.vy <= 0 && run.y <= groundAt(run.co, laneOf(run), run.z, run.y) + 1e-3;
 /** A swipe: 'left' and 'right' juke a lane over, 'up' jumps (out of a slide too), 'down' slides (and drops you, in the
- *  air). False when it can't: the edge of the road, the side of a vehicle (run.bump notes when), the return's over. */
+ *  air). False when it can't: off the edge of the road or into the side of a vehicle (a hit, both: run.bump notes when,
+ *  step counts it), the return's over. */
 export function move(run, dir) {
   if (run.over) return false;
   if (dir === 'left' || dir === 'right') {
     const to = run.lane + (dir === 'left' ? -1 : 1);
-    if (to < 0 || to >= LANES) return false;
+    if (to < 0 || to >= LANES) { run.bump = run.t; run.sideHit = {edge: dir, lane: run.lane, side: true}; return false; } // (a hit: step counts it)
     const side = blockAt(run.co, to, run.z, run.y);
     if (side) { run.bump = run.t; run.sideHit = {plat: side, lane: to, side: true}; return false; } // (a hit: step counts it)
     run.jFrom = run.x; run.lane = to; run.jt = 0; run.lastJuke = run.t;
@@ -366,9 +368,11 @@ function hit(run, out, what) {
   out.push(Object.assign({type: 'stumbled', z: run.z, n: run.hits}, what));
   return 'stumble';
 }
-/** A hit's words: "Clipped the barricade", "Ran into the city bus", "Bounced off the city bus". */
+/** A hit's words: "Clipped the barricade", "Ran into the city bus", "Bounced off the city bus", "Ran out of room on the
+ *  right". */
 export function hitLine(what) {
   if (!what) return '';
+  if (what.edge) return `Ran out of room on the ${what.edge}`;
   if (what.ob) return OBST[what.ob].says;
   const p = what.plat, name = p && KINDS[p.kind] ? KINDS[p.kind].name : 'wall';
   return `${what.side ? 'Bounced off' : 'Ran into'} the ${name}`;
@@ -378,7 +382,7 @@ function sub(run, dt, out) {
   run.t += dt; run.z += v * dt; run.yards += v * dt * (run.booze > 0 ? 2 : 1);
   if (run.jt < 1) { run.jt = Math.min(1, run.jt + dt / MOVE.juke); const e = 1 - (1 - run.jt) * (1 - run.jt); run.x = run.jFrom + (xOf(run, run.lane) - run.jFrom) * e; }
   else run.x = xOf(run, run.lane);
-  // a juke into a vehicle's side (refused by move) is a hit
+  // a juke into a vehicle's side or off the edge of the road (refused by move) is a hit
   if (run.sideHit) { const w = run.sideHit; run.sideHit = null; if (!hit(run, out, w)) return; }
   // (knocked off a vehicle's front, you're in the lane you're headed for)
   const body = run.slide > 0 ? SLIDE_BODY : BODY;
