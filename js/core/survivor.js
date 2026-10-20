@@ -1,16 +1,17 @@
 // Survivor (the owner's ask, Oct 2026): every week, pick one NFL team to win its game. A team can be picked once a
-// season. Your team loses (or ties), or you don't pick before the week's last game kicks off, and you're out; last one
-// standing wins. If everyone still in loses the same week, nobody goes out (a missed week still does). Pure logic + the one
-// write; no DOM. Its screen is views/survivor.js, the Pick'em tab's "Survivor".
+// season. Your team loses (or ties), or you don't pick before the week locks, and you're out; last one standing wins.
+// If everyone still in loses the same week, nobody goes out (a missed week still does). Pure logic + the one write; no
+// DOM. Its screen is views/survivor.js, the Pick'em tab's "Survivor".
 //
-// The weeks are the NFL pick'em's (nfl.currentWeek: a finished week's results stay up through Tuesday, the next
-// week opens Wednesday 12:00 AM ET), from FIRST on: you're in if you picked in the first week. A pick can change
-// until its game kicks off (then it's locked), to any team you haven't used whose game hasn't started.
+// The weeks are the NFL's, from FIRST on (you're in if you picked in the first week). A week opens for picks as soon
+// as the week before is over (every game final: Tuesday, after Monday night's game), not Wednesday as the NFL pick'em
+// does (the owner's ask: picks open the day the last week ends). Every pick locks at the week's first kickoff (lockOf:
+// Thursday night's game): until then a pick can change, to any team you haven't used.
 // Picks ride on each phone's Daily board doc (players/{uid}, daily.js), like the League pick'em's:
 //   sv1: {'2026': {'7': {k: 'PIT' (the team), g: '401872964' (ESPN's game id), t (ms, when saved)}}}
-// The kickoff lock is the app's (a friends' league; the rules only let a phone write its own doc): this phone stops
-// saving once that game has started, and a pick saved at or after its game's kickoff never counts, on any phone. A
-// member on two phones counts once: their latest save that counts. Others' picks show once their game has kicked off.
+// The lock is the app's (a friends' league; the rules only let a phone write its own doc): this phone stops saving at
+// the week's first kickoff, and a pick saved at or after it never counts, on any phone. A member on two phones counts
+// once: their latest save that counts. Others' picks show once the week has locked.
 // Every board read here is the board as this phone may see it (daily.LB.raw: THE RULE, CLAUDE.md).
 import * as daily from './daily.js';
 import * as nfl from './nfl.js';
@@ -30,7 +31,17 @@ export function gameOf(board, team) {
   const g = board && (board.games || []).find(x => x.home.abbr === team || x.away.abbr === team);
   return g ? {g, side: g.home.abbr === team ? 'home' : 'away'} : null;
 }
-const started = (g, at) => nfl.gameStarted(g, at);
+/** A week's lock: its first kickoff (Thursday night's game), in ms; null for a board with no games. */
+export function lockOf(board) {
+  const ks = ((board && board.games) || []).map(g => ms(g.kickoff)).filter(isFinite);
+  return ks.length ? Math.min(...ks) : null;
+}
+/** Whether a week's picks are locked at `at`: its first kickoff has come (or ESPN already has a game under way). */
+export function locked(board, at = now()) {
+  if (!board || !(board.games || []).length) return false;
+  const l = lockOf(board);
+  return (l != null && ms(at) >= l) || board.games.some(g => g.state === 'in');
+}
 /** A pick's result: 'W' (won), 'L' (lost), 'T' (tied: out too), 'C' (the game was canceled: you go on), or null (not
  *  over yet). */
 export function resultOf(g, team) {
@@ -60,16 +71,17 @@ function who(ds, k) {
   const rep = ds.find(p => p.id === uid) || ds.slice().sort((a, b) => (b.last || 0) - (a.last || 0))[0];
   return {key: k, name: daily.displayName(rep), managerId: daily.keyManager(k), guest: daily.guestOf(rep), you: ds.some(p => p.id === uid) || (!!mk && k === mk)};
 }
-/** A member's pick for a week from their docs: the latest save made before its game kicked off (a pick whose game
- *  isn't in the week's board doesn't count once the board is known). */
+/** A member's pick for a week from their docs: the latest save made before the week locked (a pick whose game isn't
+ *  in the week's board doesn't count once the board is known). */
 function pickOf(ds, year, wk, board) {
   let best = null;
+  const lock = lockOf(board);
   ds.forEach(d => {
     const e = entryOf(d, year, wk);
     if (!e) return;
     if (board) {
       const m = gameOf(board, e.k);
-      if (!m || m.g.id !== e.g || e.t >= ms(m.g.kickoff)) return;
+      if (!m || m.g.id !== e.g || (lock != null && e.t >= lock)) return;
     }
     if (!best || e.t > best.t) best = e;
   });
@@ -95,8 +107,7 @@ export function pool(year, cur, boards, list, at = now()) {
     rows.push(Object.assign(who(ds, k), {ds, alive: true, out: null, why: null, weeks: 0, picks: [], used: new Set(), pick: null}));
   });
   for (let w = first; w <= cur; w++) {
-    const board = boards.get(w);
-    const allStarted = !!board && board.games.length > 0 && board.games.every(g => started(g, at) || /CANCEL/.test(String(g.status || '')));
+    const board = boards.get(w), shut = locked(board, at);
     const goers = [];
     let decided = true;
     rows.filter(r => r.alive).forEach(r => {
@@ -104,12 +115,12 @@ export function pool(year, cur, boards, list, at = now()) {
       if (e && r.used.has(e.k)) e = null; // a team used before doesn't count
       if (w === cur) r.pick = e ? {k: e.k, g: e.g} : null;
       if (!e) {
-        if (allStarted) goers.push([r, 'none']); else decided = false;
+        if (shut) goers.push([r, 'none']); else decided = false; // no pick by the lock: out
         return;
       }
       const m = gameOf(board, e.k), res = m ? resultOf(m.g, e.k) : null;
       r.used.add(e.k);
-      r.picks.push({w, k: e.k, res, shown: r.you || (!!m && started(m.g, at))});
+      r.picks.push({w, k: e.k, res, shown: r.you || shut});
       if (res === 'L' || res === 'T') goers.push([r, res]);
       else if (res === 'W' || res === 'C') r.weeks++;
       else decided = false;
@@ -147,20 +158,18 @@ export function mine(year, wk, list) {
 
 // ---------------------------------------------------------------------------------------------- picking
 let saving = Promise.resolve();
-/** Picks team (in game g of the week's board) for the week; team null takes it back. -> 'ok' | 'started' (that game
- *  or your current pick's has kicked off) | 'used' (a team you've picked before) | 'closed' (not a week you can pick
- *  in) | 'off' (no board to save to) | 'failed'. */
+/** Picks team (in game g of the week's board) for the week; team null takes it back. -> 'ok' | 'locked' (the week's
+ *  first game has kicked off) | 'used' (a team you've picked before) | 'closed' (not a week you can pick in) | 'off'
+ *  (no board to save to) | 'failed'. */
 export function pick(year, wk, board, team, used = new Map()) {
   const run = async () => {
     const LB = daily.LB, at = now();
     if (wk < (FIRST[year] || Infinity)) return 'closed';
-    const cur = mine(year, wk);
-    if (cur) { const m = gameOf(board, cur.k); if (m && m.g.id === cur.g && started(m.g, at)) return 'started'; }
+    if (locked(board, at)) return 'locked';
     let body;
     if (team) {
       const m = gameOf(board, team);
       if (!m) return 'closed';
-      if (started(m.g, at)) return 'started';
       if (used.has(team)) return 'used';
       body = {k: team, g: m.g.id, t: Date.now()};
     } else body = null;
@@ -175,19 +184,24 @@ export function pick(year, wk, board, team, used = new Map()) {
 }
 
 // ---------------------------------------------------------------------------------------------- loading
-/** The week to pick ({year, week}: the NFL pick'em's) and every Survivor week's board so far: {year, cur, boards
- *  (Map week -> board), stale}. Rejects (code 'offline') only with no scores at all. */
+/** The week to pick and every Survivor week's board so far: {year, cur, boards (Map week -> board), stale, before}.
+ *  The week is the NFL pick'em's (nfl.currentWeek), or the one after it once every game of that one is over (the
+ *  pick'em keeps a finished week up through Tuesday; Survivor's next week opens then). Rejects (code 'offline') only
+ *  with no scores at all. */
 export async function load() {
   const cw = await nfl.currentWeek();
   const year = cw.year, first = FIRST[year];
+  let cur = cw.week;
+  const wb = await nfl.scoreboard(year, cur).catch(() => null);
+  if (wb && nfl.weekOver(wb.games) && cur < (cw.weeks || nfl.REG_WEEKS)) cur++;
   const boards = new Map();
-  if (!first || cw.week < first) {
+  if (!first || cur < first) {
     if (first) boards.set(first, await nfl.scoreboard(year, first).catch(() => null)); // the opening week, to look at
-    return {year, cur: cw.week, boards, stale: !!cw.stale, before: true};
+    return {year, cur, boards, stale: !!cw.stale, before: true};
   }
   const weeks = [];
-  for (let w = first; w <= cw.week; w++) weeks.push(w);
-  const got = await Promise.all(weeks.map(w => nfl.scoreboard(year, w).catch(() => null)));
+  for (let w = first; w <= cur; w++) weeks.push(w);
+  const got = await Promise.all(weeks.map(w => (w === cw.week && wb ? wb : nfl.scoreboard(year, w).catch(() => null))));
   weeks.forEach((w, i) => { if (got[i]) boards.set(w, got[i]); });
-  return {year, cur: cw.week, boards, stale: !!cw.stale || got.some(b => !b || b.stale), before: false};
+  return {year, cur, boards, stale: !!cw.stale || got.some(b => !b || b.stale), before: false};
 }

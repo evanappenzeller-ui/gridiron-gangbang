@@ -1,13 +1,13 @@
 // Survivor (the Pick'em tab's "Survivor", the owner's ask, Oct 2026): each week pick one NFL team to win; a team once
 // a season; lose, tie or miss a week and you're out; last one standing wins (core/survivor.js has the rules). Shown in
 // the Pick'em tab's screen by views/pickem.js's league switch (its default export is this screen's view).
-//   Large title (eyebrow "Survivor · Week 7") · the switch · your card (in or out, this week's pick, how many are left)
-//   · this week's games, by day: every team a tap target (the ones you've used, and games under way, can't be picked)
-//   · the pool: everyone in first, then out by the week they went; each with their picks week by week (the current
-//   week's shows once its game kicks off) · the rules.
+//   Large title (eyebrow "Survivor · Week 7") · the switch · your card (in or out, this week's pick, how many are left,
+//   when picks lock) · this week's games, by day: every team a tap target (not the ones you've used, nor any once the
+//   week has locked) · the pool: everyone in first, then out by the week they went; each with their picks week by week
+//   (the current week's shows once the week locks) · the rules.
 // A tap picks that team for the week at once (core/survivor.js pick: on this phone's board doc); a tap on your pick
-// takes it back. Until its game kicks off you can change it. Before the first week opens (the NFL pick'em's week,
-// Wednesday 12:00 AM ET) the screen says when it starts.
+// takes it back. A week opens once the week before is over (Tuesday) and every pick locks at its first kickoff
+// (Thursday night). Before Survivor's first week opens the screen says when it starts.
 // Every row is the board as this phone may see it (THE RULE, CLAUDE.md: core/survivor.js reads LB.raw).
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
@@ -39,12 +39,18 @@ function whoAvatar(r, size = 30) {
   return r.managerId ? ui.avatar(r.managerId, {size, you: r.you}) : ui.nickAvatar(r.name, {size, you: r.you});
 }
 const teamOf = (board, k) => { const m = SV.gameOf(board, k); return m ? m.g[m.side] : {abbr: k, short: k, name: k}; };
+// When the week's picks lock (its first kickoff, Thursday night's game), or that they have.
+function lockLine(board, at = week.now()) {
+  const l = SV.lockOf(board);
+  if (l == null) return 'Picks lock at the week’s first kickoff.';
+  return SV.locked(board, at) ? 'Picks are locked for the week.' : `You can change it until picks lock at the first kickoff, ${kickText(new Date(l), at)}.`;
+}
 function heroHTML(d, P, me, used, board) {
   const first = SV.FIRST[d.year];
   if (d.before) {
     return `<section class="card su-hero"><span class="su-torch" aria-hidden="true"><img src="img/survivor.webp" alt="" width="56" height="56"></span>`
       + `<p class="ovl">Starts Week ${first}</p><h2 class="su-h">Pick one team a week. Don’t lose.</h2>`
-      + `<p class="su-l">Week ${first}’s picks open Wednesday at 12:00 AM ET, with the NFL pick’em. Pick in Week ${first} to be in.</p></section>`;
+      + `<p class="su-l">Week ${first}’s picks open once Week ${first - 1}’s games are over. Pick in Week ${first} to be in.</p></section>`;
   }
   const left = `${P.alive} of ${P.entered} still in`;
   if (P.champion) {
@@ -52,9 +58,10 @@ function heroHTML(d, P, me, used, board) {
     return `<section class="card su-hero is-champ"><p class="ovl">Survivor</p><h2 class="su-h">${esc(w.you ? 'You won Survivor' : `${w.name} won Survivor`)}</h2><p class="su-l">${esc(`Last one standing, ${plural(w.weeks, 'week')}.`)}</p></section>`;
   }
   if (!me) {
-    const late = d.cur > first;
+    const late = d.cur > first || SV.locked(board, week.now());
+    const why = d.cur > first ? `Survivor started in Week ${first}.` : `Week ${first}’s picks locked at its first kickoff.`;
     return `<section class="card su-hero"><p class="ovl">${esc(left)}</p><h2 class="su-h">${late ? 'You’re not in this one' : 'Make a pick to get in'}</h2>`
-      + `<p class="su-l">${late ? `Survivor started in Week ${first}. Next season, pick in the first week.` : `Pick a team below to win its game this week. You can change it until it kicks off.`}</p></section>`;
+      + `<p class="su-l">${late ? `${why} Next season, pick in the first week.` : `Pick a team below to win its game this week. ${lockLine(board)}`}</p></section>`;
   }
   if (!me.alive) {
     const p = me.picks.find(x => x.w === me.out);
@@ -64,8 +71,8 @@ function heroHTML(d, P, me, used, board) {
   const pick = me.pick;
   const line = pick
     ? (() => { const m = SV.gameOf(board, pick.k), t = teamOf(board, pick.k), o = m ? m.g[m.side === 'home' ? 'away' : 'home'] : null;
-      return `${t.short}${o ? ` ${m.side === 'home' ? 'vs' : 'at'} ${o.short}` : ''}${m && m.g.state === 'pre' ? `, ${kickText(m.g.kickoff)}` : ''}`; })()
-    : 'Pick a team below. You can change it until its game kicks off.';
+      return `${t.short}${o ? ` ${m.side === 'home' ? 'vs' : 'at'} ${o.short}` : ''}${m && m.g.state === 'pre' ? `, ${kickText(m.g.kickoff)}` : ''}.${SV.locked(board, week.now()) ? '' : ` ${lockLine(board)}`}`; })()
+    : `Pick a team below. ${lockLine(board)}`;
   return `<section class="card su-hero is-in">${pick ? `<span class="su-pick">${logoHTML(teamOf(board, pick.k), 48)}</span>` : ''}`
     + `<p class="ovl">${esc(`You’re in · ${left}`)}</p><h2 class="su-h">${esc(pick ? `Week ${d.cur}: ${teamOf(board, pick.k).name}` : `Week ${d.cur}: no pick yet`)}</h2>`
     + `<p class="su-l">${esc(line)}</p>${used.size ? `<p class="su-used">${esc(`Used: ${[...used.keys()].join(', ')}`)}</p>` : ''}</section>`;
@@ -73,14 +80,13 @@ function heroHTML(d, P, me, used, board) {
 function sideHTML(g, side, v) {
   const t = g[side], k = t.abbr;
   const isMine = v.pick === k, used = v.used.get(k);
-  const started = nfl.gameStarted(g, v.at);
-  const can = v.open && !started && !used && !(v.pickStarted && !isMine);
+  const can = v.open && !v.locked && !used;
   const res = isMine ? SV.resultOf(g, k) : null;
   const sc = (g.state === 'in' || (g.state === 'post' && g.final)) && t.score != null ? String(t.score) : '';
   const cls = `pk-t${isMine ? ' is-on' : ''}${res === 'L' || res === 'T' ? ' is-lose' : ''}${can ? '' : ' is-locked'}${used ? ' is-used' : ''}`;
   const sub = used ? `Used Week ${used}` : recText(t.record);
   const mark = isMine ? `<span class="pk-mk ${res === 'L' || res === 'T' ? 'is-wrong' : res === 'W' ? 'is-right' : 'is-on'}">${ui.icon(res === 'L' || res === 'T' ? 'x' : 'check')}</span>` : can ? '<span class="pk-mk is-open"></span>' : '';
-  const label = `${t.name}${t.record ? `, ${recText(t.record)}` : ''}${used ? `, used in week ${used}` : ''}${isMine ? ', your pick' : ''}${started && !isMine ? ', kicked off' : ''}`;
+  const label = `${t.name}${t.record ? `, ${recText(t.record)}` : ''}${used ? `, used in week ${used}` : ''}${isMine ? ', your pick' : ''}${v.locked && !isMine ? ', picks locked' : ''}`;
   return `<button type="button" class="${cls}" data-su-team="${esc(k)}" data-su-g="${esc(g.id)}" aria-pressed="${isMine}"${can ? '' : ' aria-disabled="true"'} aria-label="${esc(label)}">`
     + logoHTML(t, 32)
     + `<span class="pk-tn"><span class="pk-tnm">${esc(t.short)}</span><span class="pk-tsub"><span class="pk-trec">${esc(sub || '')}</span></span></span>`
@@ -101,7 +107,7 @@ function gamesHTML(board, v) {
     days.get(k).push(g);
   });
   return [...days].map(([day, gs]) => `<section class="pk-slot"><h2 class="pk-sl-h"><span class="ovl">${esc(day)}</span></h2><ul class="pk-list">`
-    + gs.map(g => `<li class="pk-g is-${g.state}${nfl.gameStarted(g, v.at) ? ' is-locked' : ''}" data-g="${esc(g.id)}"><div class="pk-g-main"><div class="pk-sides">${sideHTML(g, 'away', v)}${sideHTML(g, 'home', v)}</div><div class="pk-stat">${statHTML(g, v)}</div></div></li>`).join('')
+    + gs.map(g => `<li class="pk-g is-${g.state}${v.locked || nfl.gameStarted(g, v.at) ? ' is-locked' : ''}" data-g="${esc(g.id)}"><div class="pk-g-main"><div class="pk-sides">${sideHTML(g, 'away', v)}${sideHTML(g, 'home', v)}</div><div class="pk-stat">${statHTML(g, v)}</div></div></li>`).join('')
     + `</ul></section>`).join('');
 }
 function poolHTML(d, P) {
@@ -136,15 +142,14 @@ function bodyHTML(st) {
   const opt = st && st.opt && st.opt.w === d.cur ? st.opt : null;
   const saved = me ? me.pick : (d.cur === first ? SV.mine(d.year, d.cur) : null);
   const pick = opt ? opt.k : saved ? saved.k : null;
-  const pm = pick && board ? SV.gameOf(board, pick) : null;
   const open = !d.before && !P.champion && (me ? me.alive : d.cur === first);
-  const v = {at, open, pick, used, pickStarted: !!(pm && nfl.gameStarted(pm.g, at))};
+  const v = {at, open, pick, used, locked: SV.locked(board, at)};
   if (me && opt) me.pick = opt.k ? {k: opt.k} : null;
   return heroHTML(d, P, me, used, board)
-    + (d.before ? `<h2 class="pk-sl-h su-pre"><span class="ovl">Week ${first}’s games</span><span class="pk-sl-r">Picks open Wednesday</span></h2>` : '')
+    + (d.before ? `<h2 class="pk-sl-h su-pre"><span class="ovl">Week ${first}’s games</span><span class="pk-sl-r">Picks open soon</span></h2>` : '')
     + gamesHTML(board, v)
     + poolHTML(d, P)
-    + `<p class="lp-rules">Each week, pick one NFL team to win its game: any team you haven’t picked before. Your pick can change until it kicks off. If it loses or ties, or you don’t pick before the week’s last game, you’re out. If everyone still in loses the same week, they all stay in. Last one standing wins.</p>`;
+    + `<p class="lp-rules">Each week, pick one NFL team to win its game: any team you haven’t picked before. A week’s picks open once the week before is over, and lock at its first kickoff (Thursday night): until then you can change yours. If your team loses or ties, or you haven’t picked by the lock, you’re out. If everyone still in loses the same week, they all stay in. Last one standing wins.</p>`;
 }
 const pageHTML = st => titleHTML(memo.d) + leagueTabsHTML('sv') + `<div class="pk-main su-main">${bodyHTML(st)}</div>`;
 
@@ -178,7 +183,7 @@ async function tapTeam(st, k) {
   if (r !== 'ok') {
     st.opt = null;
     patch(st);
-    const msg = {started: 'That game has kicked off: picks for it are locked.', used: 'You’ve used that team already this season.', closed: 'Survivor isn’t open for picks right now.', off: 'Can’t save picks right now: the scoreboard isn’t connected.'}[r] || 'That pick didn’t save. Try again.';
+    const msg = {locked: 'Picks are locked: the week’s first game has kicked off.', used: 'You’ve used that team already this season.', closed: 'Survivor isn’t open for picks right now.', off: 'Can’t save picks right now: the scoreboard isn’t connected.'}[r] || 'That pick didn’t save. Try again.';
     ui.toast(msg, {icon: 'x-circle'});
     return;
   }
@@ -192,6 +197,7 @@ function onClick(st, e) {
   if (t.getAttribute('aria-disabled') === 'true') {
     const k = t.dataset.suTeam, d = memo.d, used = d ? SV.usedBy(d.year, d.cur, d.boards) : new Map();
     if (used.has(k)) ui.toast(`You used ${k} in Week ${used.get(k)}.`, {icon: 'info'});
+    else if (d && SV.locked(d.boards.get(d.cur), week.now())) ui.toast('Picks are locked: the week’s first game has kicked off.', {icon: 'lock'});
     return;
   }
   tapTeam(st, t.dataset.suTeam);
@@ -217,7 +223,7 @@ const VIEW = {
       if (st.opt && ((saved && saved.k) || null) === (st.opt.k || null)) st.opt = null; // the board has it now
       patch(st);
     });
-    // kickoffs lock teams while you watch; a new week comes on Wednesday
+    // the first kickoff locks the week while you watch; the next week opens once this one is over
     st.untick = ctx.timer(() => { if (memo.d && Date.now() - memo.t > 10 * 60e3) start(st, true); else patch(st); }, 30000);
     daily.ensure().catch(() => {});
     const main = el.querySelector('.su-main');

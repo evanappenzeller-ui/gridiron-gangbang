@@ -1,7 +1,8 @@
 // League pick'em and Survivor checks for the dev gallery (#/_kit): the League week (the Matchup of the Week's, its
 // Thursday lock), a member's picks across phones, the lock, the grading and the table (on crafted board docs over
-// a played week); Survivor's pool on crafted NFL boards (in from the first week, a loss, a tie, a missed week, a reused
-// team, a pick after kickoff, everyone out the same week, the winner, picks hidden till kickoff) and its refusals; the
+// a played week); Survivor's pool on crafted NFL boards (in from the first week, a loss, a tie, the week's lock at its
+// first kickoff: a pick saved after it, no pick by it; a reused team, everyone out the same week, the winner, picks
+// hidden till the lock) and its refusals; the
 // Pick'em tab's switch; and both reading the board as this phone may see it (THE RULE, CLAUDE.md). checks.js (owner:
 // core) imports lpickChecks and calls it with its own check(name, fn) helper. Nothing here writes to storage or the
 // database. Owner: PICKEM.
@@ -53,32 +54,38 @@ export async function lpickChecks(check) {
   const G = (id, away, home, kick, res) => ({id, kickoff: new Date(kick), tbd: false, away: T(away), home: T(home), detail: '', status: res ? 'STATUS_FINAL' : 'STATUS_SCHEDULED',
     state: res ? 'post' : kick <= at ? 'in' : 'pre', final: !!res, tie: res === 'tie', winner: res === 'tie' || !res ? null : res});
   const w7 = {games: [G('71', 'KC', 'DEN', at - 8 * D, 'home'), G('72', 'BUF', 'MIA', at - 8 * D, 'away'), G('73', 'NYJ', 'NE', at - 8 * D, 'tie')]};
-  const w8 = {games: [G('81', 'KC', 'LV', at + 2 * D, null), G('82', 'DEN', 'SF', at - D, 'home')]};
+  const w8 = {games: [G('81', 'KC', 'LV', at + 2 * D, null), G('82', 'DEN', 'SF', at + 3 * D, null)]}; // locks at +2 days
   const boards = new Map([[7, w7], [8, w8]]);
+  // week 8 once its first game (Thursday's) has kicked off: locked, the rest still to come
+  const w8shut = {games: [G('81', 'KC', 'LV', at - D / 4, null), G('82', 'DEN', 'SF', at + 3 * D, null)]};
   const sv = (id, nick, picks) => ({id, nick, total: 0, [SV.F]: {2026: picks}});
   const P = (k, g, t) => ({k, g, t});
-  check('Survivor: in from the first week; a win goes on, a loss or a tie goes out, a missed week goes out once every game has started, a reused team or a pick after kickoff doesn\'t count; others\' picks hide till kickoff', () => {
+  check('Survivor: in from the first week; a win goes on, a loss or a tie goes out; every pick locks at the week\'s first kickoff (Thursday\'s): one saved after it doesn\'t count, no pick by it goes out; a reused team doesn\'t count; others\' picks hide till the lock', () => {
     const before = at - 9 * D;
     const list = [
       sv('s-jy', nickOf('jayton'), {7: P('DEN', '71', before), 8: P('KC', '81', at - 3 * D)}),
       sv('s-mi', nickOf('mitch'), {7: P('KC', '71', before)}),
       sv('s-jo', nickOf('john'), {7: P('NYJ', '73', before)}),
       sv('s-be', nickOf('ben'), {7: P('BUF', '72', before)}),
-      sv('s-dr', nickOf('dresden'), {7: P('DEN', '71', at - 7 * D)}),         // after its kickoff: not in
+      sv('s-dr', nickOf('dresden'), {7: P('DEN', '71', at - 7 * D)}),         // after week 7's lock: not in
       sv('s-sa', nickOf('sayer'), {7: P('BUF', '72', before), 8: P('DEN', '82', at - 2 * D)}),
-      sv('s-co', nickOf('corbin'), {7: P('DEN', '71', before), 8: P('DEN', '82', at - 2 * D)}) // DEN again: no pick
+      sv('s-co', nickOf('corbin'), {7: P('DEN', '71', before), 8: P('DEN', '82', at - 2 * D)}), // DEN again: no pick
+      sv('s-ma', nickOf('mason'), {7: P('BUF', '72', before), 8: P('SF', '82', at - D / 8)})     // after Thursday's kickoff, before SF's
     ];
-    const r = SV.pool(2026, 8, boards, list, at), by = id => r.rows.find(x => x.name === nickOf(id));
-    const st = id => { const x = by(id); return x ? (x.alive ? 'in' : `out ${x.out} ${x.why}`) : 'not in'; };
-    const want = {jayton: 'in', mitch: 'out 7 L', john: 'out 7 T', ben: 'in', dresden: 'not in', sayer: 'out 8 L', corbin: 'in'};
-    const bad = Object.keys(want).filter(id => st(id) !== want[id]);
-    const jy = by('jayton'), hid = jy && jy.picks.find(p => p.w === 8);
+    const r = SV.pool(2026, 8, boards, list, at), by = (q, id) => q.rows.find(x => x.name === nickOf(id));
+    const st = (q, id) => { const x = by(q, id); return x ? (x.alive ? 'in' : `out ${x.out} ${x.why}`) : 'not in'; };
+    // week 8 before its lock: nobody out for it yet
+    const want = {jayton: 'in', mitch: 'out 7 L', john: 'out 7 T', ben: 'in', dresden: 'not in', sayer: 'in', corbin: 'in', mason: 'in'};
+    const bad = Object.keys(want).filter(id => st(r, id) !== want[id]);
+    const jy = by(r, 'jayton'), hid = jy && jy.picks.find(p => p.w === 8);
     const hide = !!hid && hid.shown === false && jy.picks.find(p => p.w === 7).shown === true;
-    // the same week once every game of week 8 has started: Ben and Corbin (no pick that counts) go out
-    const late = new Map([[7, w7], [8, {games: w8.games.map(g => Object.assign({}, g, {kickoff: new Date(at - D), state: 'in'}))}]]);
-    const r2 = SV.pool(2026, 8, late, list, at), miss = ['ben', 'corbin'].every(id => { const x = r2.rows.find(y => y.name === nickOf(id)); return x && !x.alive && x.out === 8 && x.why === 'none'; });
-    const order = r.rows.slice(0, 3).every(x => x.alive) && r.entered === 6 && r.alive === 3;
-    return {pass: !bad.length && hide && miss && order, detail: `${Object.keys(want).map(id => `${id} ${st(id)}`).join(', ')}${bad.length ? `; WRONG: ${bad.join(', ')}` : ''}; week 8 picks hidden till kickoff ${hide}; no pick when week 8 has all started: out ${miss}`};
+    // week 8 locked (Thursday's game under way): Ben (no pick), Corbin (a used team) and Mason (saved after the lock) go out
+    const r2 = SV.pool(2026, 8, new Map([[7, w7], [8, w8shut]]), list, at);
+    const want2 = {jayton: 'in', sayer: 'in', ben: 'out 8 none', corbin: 'out 8 none', mason: 'out 8 none'};
+    const bad2 = Object.keys(want2).filter(id => st(r2, id) !== want2[id]);
+    const shown = (by(r2, 'jayton').picks.find(p => p.w === 8) || {}).shown === true;
+    const order = r.rows.slice(0, 5).every(x => x.alive) && r.entered === 7 && r.alive === 5;
+    return {pass: !bad.length && hide && !bad2.length && shown && order, detail: `before the lock: ${Object.keys(want).map(id => `${id} ${st(r, id)}`).join(', ')}${bad.length ? `; WRONG: ${bad.join(', ')}` : ''}; week 8 picks hidden till the lock ${hide}; locked: ${Object.keys(want2).map(id => `${id} ${st(r2, id)}`).join(', ')}${bad2.length ? `; WRONG: ${bad2.join(', ')}` : ''}; shown once locked ${shown}`};
   });
 
   check('Survivor: everyone still in losing the same week all stay in; the last one standing wins', () => {
@@ -90,11 +97,12 @@ export async function lpickChecks(check) {
     return {pass: stay && champ, detail: `both lost week 7: ${stay ? 'both still in' : 'WRONG'}; one left: ${champ ? `${nickOf('ben')} wins` : 'WRONG'}`};
   });
 
-  check('Survivor: a pick is refused for a game that has kicked off and for a team you\'ve used (nothing saved)', async () => {
-    const started = await SV.pick(2026, 8, w8, 'SF', new Map());
+  check('Survivor: a pick is refused once the week has locked (its first kickoff, even for a game still to come) and for a team you\'ve used (nothing saved)', async () => {
+    const shut = await SV.pick(2026, 8, w8shut, 'SF', new Map());
     const used = await SV.pick(2026, 8, w8, 'KC', new Map([['KC', 7]]));
     const early = await SV.pick(2026, (SV.FIRST[2026] || 7) - 1, w8, 'KC', new Map());
-    return {pass: started === 'started' && used === 'used' && early === 'closed', detail: `kicked off: ${started}; used: ${used}; before Survivor's first week: ${early}`};
+    const lock = SV.lockOf(w8) === w8.games[0].kickoff.getTime() && SV.locked(w8shut, at) && !SV.locked(w8, at);
+    return {pass: shut === 'locked' && used === 'used' && early === 'closed' && lock, detail: `after Thursday's kickoff: ${shut}; used: ${used}; before Survivor's first week: ${early}; the lock is the first kickoff ${lock}`};
   });
 
   check('Pick\'em tab: NFL, NCAA, League and Survivor in the switch; League and Survivor read the board as this phone may see it (never LB.all)', async () => {
