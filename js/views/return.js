@@ -11,11 +11,13 @@
 // below. A hit while he's there (at the catch he starts there too) and he tackles him: a card says where, with Run it
 // again (as many runs as you like, the best of the day counts: the owner's ask, Oct 2026), the scoreboard under it.
 // Every 100 yards is a touchdown.
-// The scene is drawn on a canvas (views/return-world.js: the places, the vehicles, the power-ups); the players are in
-// real 3D (views/return-3d.js: a rigged, animated athlete in each side's uniform, smooth at the screen's frame rate:
-// running, cutting, spinning, leaping, sliding, stumbling, the tackle), ours in navy, the linebacker in red. Till that
-// loads (or on a phone without WebGL) they're the owner's sprite sheets (views/drill-sprites.js), picture by picture.
-// A power-up, picked up, says what it is and what it does.
+// The scene is in real 3D (the owner's ask, Oct 2026): the world (views/return-3dworld.js: each place's ground, what
+// stands beside the road, the gates, the barricades and banners, the vehicles, the power-ups) and the players
+// (views/return-3d.js: a rigged, animated athlete in each side's uniform, smooth at the screen's frame rate: running,
+// cutting, spinning, leaping, sliding, stumbling, the tackle; ours in navy, the linebacker in red), lit, with shadows,
+// rendered over the sky (views/return-world.js's painting) on the stage's canvas, the hints and the dust over that.
+// Till that loads (or on a phone without WebGL) it's all drawn in 2D (views/return-world.js), the players the owner's
+// sprite sheets (views/drill-sprites.js). A power-up, picked up, says what it is and what it does.
 // Exports: render(ctx), mount(el, ctx), params(el, ctx), unmount(el, ctx). Owner: RETURN.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
@@ -371,7 +373,6 @@ function puff(st, c, x, y, z, age, w = 1) {
  *  the linebacker behind him. */
 function drawLanes(st, c, now) {
   const run = st.run, t = now / 1000, list = [];
-  if (D3.ready()) D3.camera(st);
   const rz = run ? run.z : 0, rx = run ? run.x : 0, ry = run ? run.y : 0;
   if (run) {
     const A = R.ahead(run, 120, PAST + 2);
@@ -395,44 +396,29 @@ function drawLanes(st, c, now) {
   }
   // the linebacker, chasing: just behind him (a step to the side, so he doesn't hide him) after a hit, then dropping away
   // below the screen as he runs on clean; diving at his back when he runs him down
-  if (run) {
-    const gap = R.gapOf(run), cz = rz - gap;
-    if (cz > st.camZ + W.NEAR + .4) {
-      const want = rx + (rx > .5 ? -1 : 1) * (run.over ? .35 : .95);
-      st.chX = st.chX == null ? want : st.chX + (want - st.chX) * Math.min(1, (st.dt || .016) * 8);
-      const three = D3.ready(), a = three ? chaser3(st, now, cz) : chaserAnim(st, now, cz), cx = st.chX, az = cz + (a.dz || 0), e = run.over ? now - st.downAt : -1;
-      list.push({z: az, x0: cx - .5, x1: cx + .5, draw: () => {
-        shadow(st, c, cx, 0, az);
-        if (three) D3.draw(st, c, 'them', a, cx, 0, az); else sprite(st, c, a, THEM, cx, 0, az);
-        puff(st, c, cx, 0, az + .6, (e - 480) / 450, 1.2); // (down on top of him)
-      }});
-    }
+  const ch = chaserAt(st);
+  if (ch) {
+    const a = chaserAnim(st, now, ch.cz), cx = ch.cx, az = ch.cz + (a.dz || 0), e = run.over ? now - st.downAt : -1;
+    list.push({z: az, x0: cx - .5, x1: cx + .5, draw: () => {
+      shadow(st, c, cx, 0, az);
+      sprite(st, c, a, THEM, cx, 0, az);
+      puff(st, c, cx, 0, az + .6, (e - 480) / 450, 1.2); // (down on top of him)
+    }});
   }
-  const three = D3.ready(), an = three ? runner3(st, now) : runnerAnim(st, now), g = run ? R.groundAt(run.co, R.laneOf(run), rz, ry) : 0;
+  const an = runnerAnim(st, now), g = run ? R.groundAt(run.co, R.laneOf(run), rz, ry) : 0;
   const bx = rx + .5 * edgeBounce(st, now), az = rz + (an.dz || 0); // (bouncing off the edge of the road; thrown forward)
   list.push({z: az, me: true, draw: () => {
     shadow(st, c, bx, g, az, .5);
-    if (run && !run.over && run.pills > 0) {
-      // painkillers: he burns hot, a ring round his feet
-      const k = Math.min(1, run.pills / .6), q = P(st, rx, ry + 1, rz), r = q.s * (1.45 + .15 * Math.sin(now / 90));
-      const gr = c.createRadialGradient(q.x, q.y, 0, q.x, q.y, r);
-      gr.addColorStop(0, `rgba(255,190,80,${(.8 * k).toFixed(2)})`); gr.addColorStop(.45, `rgba(255,110,30,${(.4 * k).toFixed(2)})`); gr.addColorStop(1, 'rgba(255,90,20,0)');
-      c.fillStyle = gr; c.fillRect(q.x - r, q.y - r, r * 2, r * 2);
-      const f = P(st, rx, g, rz), rw = f.s * (.75 + .12 * Math.sin(now / 70));
-      c.strokeStyle = `rgba(255,150,50,${(.85 * k).toFixed(2)})`; c.lineWidth = Math.max(1.5, f.s * .07);
-      c.beginPath(); c.ellipse(f.x, f.y, rw, rw * .3, 0, 0, Math.PI * 2); c.stroke();
-    }
-    const me = (x, z, alpha) => (three ? D3.draw(st, c, 'us', an, x, ry, z, alpha) : sprite(st, c, an, US, x, ry, z, alpha));
-    // a cut's and a spin's afterimages, behind him (the pictures'; in 3D he turns smoothly)
-    if (!three) (an.ghosts || []).forEach(gh => sprite(st, c, {f: gh.f, flip: gh.flip, mo: an.mo, ex: an.ex}, US, bx + gh.dx, ry, az + .05, gh.a));
+    pillsGlow(st, c, now, g);
+    const me = (x, z, alpha) => sprite(st, c, an, US, x, ry, z, alpha);
+    // a cut's and a spin's afterimages, behind him
+    (an.ghosts || []).forEach(gh => sprite(st, c, {f: gh.f, flip: gh.flip, mo: an.mo, ex: an.ex}, US, bx + gh.dx, ry, az + .05, gh.a));
     // booze: he's seeing double
     if (run && !run.over && run.booze > 0) me(bx + .45 * Math.sin(now / 430), az + .2, .32 * Math.min(1, run.booze / .8));
     // back up after the salts: he flickers while nothing can touch him
     const blink = run && !run.over && run.shield > 0 && !run.pills && Math.floor(now / 70) % 2;
     me(bx, az, blink ? .35 : 1);
-    if (run && !run.over && run.slide > 0) dust(st, c, rx, g, rz, now, Math.min(1, run.slide / .25));
-    if (run && !run.over && st.landAt) puff(st, c, rx, g, rz, (now - st.landAt) / 350, .7); // (landing a jump)
-    if (run && run.over) puff(st, c, bx, g, az + .5, (now - st.downAt - 520) / 450, 1.1); // (down)
+    runnerFx(st, c, now, bx, g, az);
   }});
   // Far to near; but whatever stands beyond a vehicle's side from the camera (in a lane further over, beside it) goes
   // before that vehicle, so its body hides them, however long it is.
@@ -450,16 +436,74 @@ function drawLanes(st, c, now) {
   });
   list.sort((a, b) => b.key - a.key || b.z - a.z || (a.me ? 1 : b.me ? -1 : 0));
   list.forEach(it => it.draw());
-  // the kick coming down into his hands
-  if (st.mode === 'catch' && now - st.catchAt < CATCH_MS * CATCH_HANDS) {
-    // (into his hands up over his head; from there the picture has it)
-    const p = Math.min(1, (now - st.catchAt) / CATCH_MS / CATCH_HANDS), y = TALL_YD * 1.1 + (1 - p) * (1 - p) * 26, z = rz + .05 + (1 - p) * 6;
-    const q = P(st, rx, y, z), sz = Math.max(4, q.s * .32);
-    c.save(); c.translate(q.x, q.y); c.rotate(p * 9);
-    c.fillStyle = '#7A3B1B'; c.beginPath(); c.ellipse(0, 0, sz, sz * .6, 0, 0, Math.PI * 2); c.fill();
-    c.strokeStyle = '#F4F0E6'; c.lineWidth = Math.max(.8, sz * .12); c.beginPath(); c.moveTo(-sz * .35, 0); c.lineTo(sz * .35, 0); c.stroke();
-    c.restore();
+  kickBall(st, c, now);
+}
+/** The kick coming down into his hands (up over his head: from there his picture, or his 3D hands, have it). */
+function kickBall(st, c, now) {
+  if (st.mode !== 'catch' || now - st.catchAt >= CATCH_MS * CATCH_HANDS) return;
+  const run = st.run, rz = run ? run.z : 0, rx = run ? run.x : 0;
+  const p = Math.min(1, (now - st.catchAt) / CATCH_MS / CATCH_HANDS), y = TALL_YD * 1.1 + (1 - p) * (1 - p) * 26, z = rz + .05 + (1 - p) * 6;
+  const q = P(st, rx, y, z), sz = Math.max(4, q.s * .32);
+  c.save(); c.translate(q.x, q.y); c.rotate(p * 9);
+  c.fillStyle = '#7A3B1B'; c.beginPath(); c.ellipse(0, 0, sz, sz * .6, 0, 0, Math.PI * 2); c.fill();
+  c.strokeStyle = '#F4F0E6'; c.lineWidth = Math.max(.8, sz * .12); c.beginPath(); c.moveTo(-sz * .35, 0); c.lineTo(sz * .35, 0); c.stroke();
+  c.restore();
+}
+/** Where the linebacker is (chasing: just behind him, a step to the side so he doesn't hide him, after a hit; dropping
+ *  away below the screen as he runs on clean; on top of him when he runs him down), or null when he's out of sight. */
+function chaserAt(st) {
+  const run = st.run;
+  if (!run) return null;
+  const cz = run.z - R.gapOf(run);
+  if (cz <= st.camZ + W.NEAR + .4) return null;
+  const want = run.x + (run.x > .5 ? -1 : 1) * (run.over ? .35 : .95);
+  st.chX = st.chX == null ? want : st.chX + (want - st.chX) * Math.min(1, (st.dt || .016) * 8);
+  return {cx: st.chX, cz};
+}
+/** Painkillers: he burns hot, a ring round his feet (g: the ground under him). */
+function pillsGlow(st, c, now, g) {
+  const run = st.run;
+  if (!run || run.over || !(run.pills > 0)) return;
+  const rx = run.x, ry = run.y, rz = run.z;
+  const k = Math.min(1, run.pills / .6), q = P(st, rx, ry + 1, rz), r = q.s * (1.45 + .15 * Math.sin(now / 90));
+  const gr = c.createRadialGradient(q.x, q.y, 0, q.x, q.y, r);
+  gr.addColorStop(0, `rgba(255,190,80,${(.8 * k).toFixed(2)})`); gr.addColorStop(.45, `rgba(255,110,30,${(.4 * k).toFixed(2)})`); gr.addColorStop(1, 'rgba(255,90,20,0)');
+  c.fillStyle = gr; c.fillRect(q.x - r, q.y - r, r * 2, r * 2);
+  const f = P(st, rx, g, rz), rw = f.s * (.75 + .12 * Math.sin(now / 70));
+  c.strokeStyle = `rgba(255,150,50,${(.85 * k).toFixed(2)})`; c.lineWidth = Math.max(1.5, f.s * .07);
+  c.beginPath(); c.ellipse(f.x, f.y, rw, rw * .3, 0, 0, Math.PI * 2); c.stroke();
+}
+/** The dust he kicks up: sliding in, landing a jump, going down. */
+function runnerFx(st, c, now, bx, g, az) {
+  const run = st.run;
+  if (!run) return;
+  if (!run.over && run.slide > 0) dust(st, c, run.x, g, run.z, now, Math.min(1, run.slide / .25));
+  if (!run.over && st.landAt) puff(st, c, run.x, g, run.z, (now - st.landAt) / 350, .7); // (landing a jump)
+  if (run.over) puff(st, c, bx, g, az + .5, (now - st.downAt - 520) / 450, 1.1); // (down)
+}
+/** The world and the players in 3D (views/return-3d.js and return-3dworld.js), laid over the sky; then what's drawn
+ *  over them: the painkillers' glow, the dust, the hints over what's coming, the kick coming down. */
+function draw3(st, c, now) {
+  const run = st.run, rz = run ? run.z : 0, rx = run ? run.x : 0, ry = run ? run.y : 0;
+  const us = runner3(st, now), bx = rx + .5 * edgeBounce(st, now), az = rz + (us.dz || 0);
+  const blink = run && !run.over && run.shield > 0 && !run.pills && Math.floor(now / 70) % 2;
+  const who = {us: {spec: us, x: bx, y: ry, z: az, show: !blink}};
+  // booze: he's seeing double
+  if (run && !run.over && run.booze > 0) who.ghost = {spec: us, x: bx + .45 * Math.sin(now / 430), y: ry, z: az + .2, alpha: .32 * Math.min(1, run.booze / .8)};
+  const ch = chaserAt(st);
+  if (ch) { const a = chaser3(st, now, ch.cz); who.them = {spec: a, x: ch.cx, y: 0, z: ch.cz + (a.dz || 0)}; }
+  c.drawImage(D3.render(st, now, who), 0, 0, st.W, st.H);
+  const g = run ? R.groundAt(run.co, R.laneOf(run), rz, ry) : 0;
+  pillsGlow(st, c, now, g);
+  runnerFx(st, c, now, bx, g, az);
+  if (ch && run.over) puff(st, c, ch.cx, 0, ch.cz + .6, (now - st.downAt - 480) / 450, 1.2);
+  // over a barricade or a banner coming up: the move that beats it
+  if (run && !run.over && st.mode === 'run' && ry < 1.2) {
+    R.ahead(run, 40, 0).rows.forEach(({row, d}) => row.lanes.forEach((type, l) => {
+      if (type && d > 2.5 && d < 40 && !st.knocked.get(`${row.i}:${l}`)) hint(st, c, type, R.xOf(run, l), rz + d);
+    }));
   }
+  kickBall(st, c, now);
 }
 /** Speed lines at the sides once he's flying. */
 function drawSpeed(st, c, now) {
@@ -498,10 +542,8 @@ function draw(st, now = performance.now()) {
     c.translate(st.W / 2, st.H * .62); c.rotate(.045 * drunk * Math.sin(t * 1.7)); c.scale(1.07, 1.07); c.translate(-st.W / 2 + 6 * drunk * Math.sin(t * 1.1), -st.H * .62);
   }
   W.sky(st, c, t, z);
-  W.ground(st, c);
-  W.sides(st, c);
-  drawSpeed(st, c, now);
-  drawLanes(st, c, now);
+  if (D3.ready()) { draw3(st, c, now); drawSpeed(st, c, now); }
+  else { W.ground(st, c); W.sides(st, c); drawSpeed(st, c, now); drawLanes(st, c, now); }
   W.weather(st, c, t, z);
   c.setTransform(st.dpr, 0, 0, st.dpr, 0, 0);
   if (!st.vig || st.vig.w !== st.W || st.vig.h !== st.H) {

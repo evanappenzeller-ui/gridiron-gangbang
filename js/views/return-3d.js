@@ -3,15 +3,16 @@
 // project under Adobe's Mixamo terms; slimmed by tools/return/player-model.mjs, with its idle and its run; three.js
 // itself in js/vendor/three, MIT) dressed in each side's uniform (the jersey, pants, socks, cleats and gloves painted on by which bone
 // moves each part of him; a glossy helmet with a stripe and a face mask, shoulder pads, his number on his back and his
-// chest, and for the returner the ball), lit, and laid into the 2D scene where he stands in it (views/return.js): each
-// player is rendered on a WebGL canvas off the page through a camera that matches the scene's (views/return-world.js P),
-// then drawn onto the stage's canvas in his turn, so whatever is nearer still covers him.
+// chest, and for the returner the ball), lit, in the 3D world (views/return-3dworld.js: the ground, the roadside, the
+// lane things, built in the same scene): the whole of it rendered on a WebGL canvas off the page through a camera that
+// matches the 2D scene's (views/return-world.js P), each frame, and laid over the sky (views/return.js), with the
+// place's light, its haze as fog, and the sun's shadows.
 // A pose (views/return.js says which: pose specs) is the run's clip at the stride the yards say (or the idle), with
 // the moment's own pose laid over it bone by bone (aim(): each bone turned to point where the move wants it, in his own
 // frame: +z ahead, +x his left, +y up): the ball tucked, the catch, the leap's tuck, the slide, a stumble's arm, going
 // down, the dive; turned (a cut, a spin), leaned and pitched (a fall, a dive) as a whole.
-// Exports: load(), ready(), camera(st), draw(st, c, who, spec, x, y, z, alpha), STRIDE.
-import {P as project} from './return-world.js';
+// Exports: load(), ready(), render(st, now, who), STRIDE.
+import * as W3 from './return-3dworld.js';
 const V = new URL('../vendor/three/', import.meta.url).href;
 const MODEL = new URL('../../models/return-player.glb', import.meta.url).href;
 /** Yards a full run cycle (two strides) covers: the clip's legs keep pace with the ground. */
@@ -23,7 +24,7 @@ const KITS = {
   them: {jersey: 0xC8102E, trim: 0xF4F4F6, pants: 0xF3F3F5, stripe: 0xC8102E, sock: 0xC8102E, cleat: 0x15171C, glove: 0xF4F4F6, skin: 0xC68C5E,
     helmet: 0xF2F3F5, helmetStripe: 0xC8102E, mask: 0x4E535C, num: 52, numFill: '#FFFFFF', numEdge: '#6E0E10', ball: false, size: 1.06}
 };
-let T = null, GL = null, LOADING = null, DEAD = false;
+let T = null, GL = null, GL_UTILS = null, LOADING = null, DEAD = false;
 
 /** Loads three.js and the model, and dresses both players (once). Resolves true when they're in; false if this phone
  *  can't (no WebGL, a load failed): the sprite players stay. */
@@ -33,9 +34,10 @@ export function load() {
       try {
         const probe = document.createElement('canvas');
         if (!(probe.getContext('webgl2') || probe.getContext('webgl'))) throw new Error('no WebGL');
-        const [three, {GLTFLoader}, SK, {RoomEnvironment}] = await Promise.all([
-          import(V + 'three.module.min.js'), import(V + 'GLTFLoader.js'), import(V + 'SkeletonUtils.js'), import(V + 'RoomEnvironment.js')]);
+        const [three, {GLTFLoader}, SK, {RoomEnvironment}, BU] = await Promise.all([
+          import(V + 'three.module.min.js'), import(V + 'GLTFLoader.js'), import(V + 'SkeletonUtils.js'), import(V + 'RoomEnvironment.js'), import(V + 'BufferGeometryUtils.js')]);
         T = three;
+        GL_UTILS = BU;
         const gltf = await new GLTFLoader().loadAsync(MODEL);
         try { await document.fonts.load('800 100px "Barlow Condensed"'); } catch (_) {}
         GL = build(gltf, SK, RoomEnvironment);
@@ -271,20 +273,30 @@ function build(gltf, SK, RoomEnvironment) {
   renderer.outputColorSpace = T.SRGBColorSpace;
   renderer.toneMapping = T.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
   renderer.setClearColor(0x000000, 0);
+  renderer.shadowMap.enabled = true; renderer.shadowMap.type = T.PCFSoftShadowMap;
   const scene = new T.Scene();
   const pmrem = new T.PMREMGenerator(renderer);
   scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), .04).texture;
   pmrem.dispose();
-  // the light: the sky, the sun from the upper left over the camera's shoulder, a cool rim from up ahead
-  scene.add(new T.HemisphereLight(0xE4ECFF, 0x34452C, 1.15));
-  const sun = new T.DirectionalLight(0xFFF1DC, 2.3); sun.position.set(-3, 6, 4); scene.add(sun);
-  const rim = new T.DirectionalLight(0xA9C8FF, 1.3); rim.position.set(3, 4, -6); scene.add(rim);
+  // the light (each place's: return-3dworld.js look): the sky's, the sun (casting the shadows round him), a cool rim
+  // from up ahead; the haze as fog
+  const hemi = new T.HemisphereLight(0xE4ECFF, 0x34452C, 1.15); scene.add(hemi);
+  const sun = new T.DirectionalLight(0xFFF1DC, 2.3); sun.position.set(-3, 6, 4); scene.add(sun, sun.target);
+  sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024); sun.shadow.bias = -.0006; sun.shadow.normalBias = .02;
+  Object.assign(sun.shadow.camera, {left: -16, right: 16, top: 16, bottom: -16, near: 1, far: 80});
+  const rim = new T.DirectionalLight(0xA9C8FF, 1.1); rim.position.set(3, 4, -6); scene.add(rim);
+  scene.fog = new T.Fog(0x8899AA, 70, 150);
+  W3.init(T, scene, GL_UTILS);
   const info = partsOf(gltf.scene);
-  const players = {us: dress(gltf, SK, KITS.us, info), them: dress(gltf, SK, KITS.them, info)};
-  scene.add(players.us.root, players.them.root);
+  // the returner, the linebacker, and the returner seen double (booze): see-through
+  const players = {us: dress(gltf, SK, KITS.us, info), them: dress(gltf, SK, KITS.them, info), ghost: dress(gltf, SK, KITS.us, info)};
+  const ghost = [];
+  players.ghost.root.traverse(o => { if (o.isMesh) { const one = !Array.isArray(o.material), list = (one ? [o.material] : o.material).map(m => { const c = m.clone(); c.transparent = true; c.opacity = .3; c.depthWrite = false; ghost.push(c); return c; }); o.material = one ? list[0] : list; } });
+  [players.us, players.them].forEach(P => P.root.traverse(o => { if (o.isMesh) o.castShadow = true; }));
+  scene.add(players.us.root, players.them.root, players.ghost.root);
   const camera = new T.PerspectiveCamera();
   camera.matrixAutoUpdate = true;
-  return {renderer, canvas, scene, camera, players, w: 0, h: 0};
+  return {renderer, canvas, scene, camera, players, ghost, hemi, sun, rim, w: 0, h: 0};
 }
 
 // ---------------------------------------------------------------------------- Posing him
@@ -356,12 +368,11 @@ function pose(P, s) {
   if (P.ball) P.ball.visible = !!s.ball;
 }
 
-// ---------------------------------------------------------------------------- Drawing him
+// ---------------------------------------------------------------------------- Drawing it all
 /** The camera, matched to the scene's (views/return-world.js P: a pinhole at (camX, camH, camZ) looking ahead, f px
- *  to the screen, its middle at (W / 2, y0)); and the canvas, matched to the stage's. Once a frame, before draw(). */
-export function camera(st) {
-  if (!GL) return;
-  const cw = st.cv.width, ch = st.cv.height;
+ *  to the screen, its middle at (W / 2, y0)); and the canvas, the stage's size (at most twice its CSS pixels). */
+function camera(st) {
+  const k = Math.min(2, st.dpr || 1), cw = Math.round(st.W * k), ch = Math.round(st.H * k);
   if (GL.w !== cw || GL.h !== ch) { GL.renderer.setSize(cw, ch, false); GL.w = cw; GL.h = ch; }
   const cam = GL.camera, n = .1, f = 400;
   cam.position.set(st.camX, st.camH, -st.camZ);
@@ -370,30 +381,30 @@ export function camera(st) {
   cam.projectionMatrix.makePerspective(-st.W / 2 / st.f * n, st.W / 2 / st.f * n, st.y0 / st.f * n, -(st.H - st.y0) / st.f * n, n, f);
   cam.projectionMatrixInverse.copy(cam.projectionMatrix).invert();
 }
-/** Draws player who ('us' | 'them') posed as spec says with his feet at (x, y, z) (the scene's yards) onto c, through
- *  c's transform (the camera's sway, if any); alpha for a see-through one. */
-export function draw(st, c, who, spec, x, y, z, alpha = 1) {
-  if (!GL) return false;
-  const P = GL.players[who];
-  P.root.position.set(x, y + (spec.lift || 0), -z);
-  pose(P, spec);
-  // the box he's in on the screen (CSS px), from a box round him in the world
-  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
-  for (const dx of [-1.6, 1.6]) for (const dy of [-.3, 2.9]) for (const dz of [-1.4, 2.8]) {
-    const q = project(st, x + dx, y + dy, Math.max(st.camZ + .3, z + dz));
-    x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y);
-  }
-  x0 = Math.max(0, Math.floor(x0)); y0 = Math.max(0, Math.floor(y0)); x1 = Math.min(st.W, Math.ceil(x1)); y1 = Math.min(st.H, Math.ceil(y1));
-  if (x1 <= x0 || y1 <= y0) return true;
-  const k = st.cv.width / st.W, R = GL.renderer;
-  GL.players.us.root.visible = who === 'us'; GL.players.them.root.visible = who === 'them';
-  R.setScissorTest(true);
-  R.setScissor(x0 * k, (st.H - y1) * k, (x1 - x0) * k, (y1 - y0) * k);
+/** Renders the world and the players as they are now; who: {us, them, ghost} (each {spec (pose's), x, y, z (his
+ *  feet), show} or null: not there). Returns the canvas it's on (transparent where the sky shows through). */
+export function render(st, now, who) {
+  camera(st);
+  W3.update(st, now);
+  // the place's light where he is (the next place's coming in at its gate)
+  const L = W3.look(st, st.camZ + st.back);
+  GL.hemi.color.copy(L.sky); GL.hemi.groundColor.copy(L.ground); GL.hemi.intensity = L.hemi;
+  GL.sun.color.copy(L.sun); GL.sun.intensity = L.sunI;
+  const fx = st.run ? st.run.x : 0, fz = -(st.camZ + st.back + 4);
+  GL.sun.target.position.set(fx, 0, fz); GL.sun.position.set(fx + L.at[0] * 6, L.at[1] * 6, fz + L.at[2] * 6); // (at: + toward the camera)
+  GL.sun.target.updateMatrixWorld();
+  GL.scene.fog.color.copy(L.haze);
+  ['us', 'them', 'ghost'].forEach(k => {
+    const P = GL.players[k], w = who[k];
+    P.root.visible = !!(w && w.show !== false);
+    if (!P.root.visible) return;
+    P.root.position.set(w.x, w.y + (w.spec.lift || 0), -w.z);
+    pose(P, w.spec);
+    if (k === 'ghost') GL.ghost.forEach(m => { m.opacity = w.alpha; });
+  });
+  const R = GL.renderer;
+  R.setScissorTest(false);
   R.setViewport(0, 0, GL.w, GL.h);
   R.render(GL.scene, GL.camera);
-  const ga = c.globalAlpha;
-  c.globalAlpha = alpha;
-  c.drawImage(GL.canvas, x0 * k, y0 * k, (x1 - x0) * k, (y1 - y0) * k, x0, y0, x1 - x0, y1 - y0);
-  c.globalAlpha = ga;
-  return true;
+  return GL.canvas;
 }

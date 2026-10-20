@@ -7,7 +7,8 @@
 // with their ramps), the power-ups, and the goal line every 100 yards.
 // st: the view's state {W, H, y0, dpr, f, camX, camZ, camH, co (the course)}. The world in yards (x across, y up, z
 // ahead); P(st, x, y, z) puts a point on the screen. Exports: P, NEAR, FAR, sky, ground, sides, vehicle, obstacle (the
-// rows' barricades and banners), item, gate, weather, ICONS (the power-ups' pictures, for the HUD and the cards).
+// rows' barricades and banners), item, gate, weather, ICONS (the power-ups' pictures, for the HUD and the cards);
+// dressList, LOOKS, OBS, GOODS_COL (for the 3D world).
 // Owner: RETURN.
 import * as R from '../core/return.js';
 import {backdrop, bowl, seeded, sparkle} from './stadium.js';
@@ -2037,3 +2038,5 @@ export function weather(st, c, t, z) {
     }
   }
 }
+// (for the 3D world, views/return-3dworld.js: the same things beside the road, the same colours)
+export {dressOf as dressList, LOOK as LOOKS, OB as OBS, GOODS_COL};
