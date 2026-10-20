@@ -1528,27 +1528,32 @@ export async function runChecks() {
 
   // The Daily Games list (Oct 2026): one big card per game, each with its own thumbnail, opening the game's own page; a
   // game played today is its scoreboard, read from the board as this phone may see it (THE RULE, CLAUDE.md).
-  check('Daily Games: a list of the five games (Daily Puzzles, 17-0, the Two-Minute Drill, Kick It, Return Man: the owner\'s alone while he tests it), each with its own thumbnail and its own page; a played game\'s card is its scoreboard, today\'s top three with you among them, read from the board as this phone sees it', async () => {
+  check('Daily Games: a shelf of game cases (Daily Puzzles, 17-0, the Two-Minute Drill, Kick It, Return Man: the owner\'s alone while he tests it), each a retro box of its own era with its own art and page; swiped along (its own sideways scroll, not the tabs\'); a game played today shows its case\'s back: today\'s board with you among them, and a Season board behind it, read from the board as this phone sees it', async () => {
     const host = document.createElement('div');
     host.innerHTML = listHTML();
     const want = data.me() === data.OWNER ? 'puzzles,17-0,drill,kick,return' : 'puzzles,17-0,drill,kick';
-    const cards = [...host.querySelectorAll('.gm-card')];
-    const order = cards.map(c => c.dataset.gm).join();
+    const cases = [...host.querySelectorAll('.gm-case')];
+    const order = cases.map(c => c.dataset.gm).join();
+    const eras = new Set(cases.map(c => (c.querySelector('.gm-front').className.match(/gm-era-(\w+)/) || [])[1]));
+    const art = cases.every(c => c.querySelector('.gm-front .gm-art img, .gm-front .gm-art canvas') && c.querySelector('.gm-logo'));
     const own = new Set(GAMES.map(g => g.art)).size === GAMES.length && GAMES.every(g => /^img\/games\/[a-z0-9-]+-art\.webp$/.test(g.art));
     const loads = await Promise.all(GAMES.map(g => fetch(new URL('../../' + g.art, import.meta.url)).then(r => r.ok && /image/.test(r.headers.get('content-type') || '')).catch(() => false)));
     const pages = GAMES.map(g => gamePath(g.id)).join();
-    // the scoreboard rows: you first among the people you're tied with; further down, the top two, a gap, you
+    const swipe = !!host.querySelector('.gm-shelf[data-hscroll]') && !!host.querySelector('[data-gm-sel]');
+    // the rows on a case's back: you first among the people you're tied with; further down, the top ones, a gap, you
     const R = (rank, me) => ({rank, me: !!me, name: me ? 'You' : 'P' + rank});
     const names = list => list.map(r => (r ? r.name : '…')).join(' ');
     const tie = names(miniRows([R(1), R(1), R(1), R(1, true)])), low = names(miniRows([R(1), R(2), R(3), R(4), R(5, true)]));
-    const mid = names(miniRows([R(1), R(2, true), R(3), R(4)])), none = names(miniRows([R(1), R(2), R(3), R(4)]));
-    const rows = tie === 'You P1 P1' && low === 'P1 P2 … You' && mid === 'P1 You P3' && none === 'P1 P2 P3';
-    // and the code never reads every doc (LB.all), comments aside
+    const mid = names(miniRows([R(1), R(2, true), R(3), R(4)])), none = names(miniRows([R(1), R(2), R(3), R(4)])), five = names(miniRows([R(1), R(2), R(3), R(4), R(5), R(6), R(7, true)], 5));
+    const rows = tie === 'You P1 P1' && low === 'P1 P2 … You' && mid === 'P1 You P3' && none === 'P1 P2 P3' && five === 'P1 P2 P3 P4 … You';
+    // and the code never reads every doc (LB.all), comments aside; the season boards are there for every game
     const src = await fetch(new URL('../views/games.js', import.meta.url)).then(r => r.text()).catch(() => '');
     const all = !src || src.split('\n').some(l => /LB\.all\b/.test(l.replace(/\/\/.*$/, '').replace(/\/\*.*?\*\//g, '')));
-    const pass = order === want && cards.every(c => c.querySelector('.gm-art-img, .gm-sbh')) && own && loads.every(Boolean)
-      && pages === '/puzzles/daily,/puzzles/17-0,/puzzles/drill,/puzzles/kick,/puzzles/return' && rows && !all;
-    return {pass, detail: `cards ${order}; thumbnails ${loads.filter(Boolean).length}/${GAMES.length} load${own ? '' : ' (not each its own)'}; pages ${pages}; rows: tie "${tie}", 5th "${low}", 2nd "${mid}"; ${all ? 'reads LB.all' : 'no LB.all reads'}`};
+    const [dr, kk, rm] = await Promise.all(['./drill.js', './kick.js', './return.js'].map(f => import(f)));
+    const season = /daily\.boardRows\('season'\)/.test(src) && /boardRows\('all'\)/.test(src) && [dr, kk, rm].every(m => typeof m.seasonRows === 'function');
+    const pass = order === want && eras.size === cases.length && art && own && loads.every(Boolean) && swipe
+      && pages === '/puzzles/daily,/puzzles/17-0,/puzzles/drill,/puzzles/kick,/puzzles/return' && rows && !all && season;
+    return {pass, detail: `cases ${order} (${[...eras].join(', ')}); art ${art}; thumbnails ${loads.filter(Boolean).length}/${GAMES.length} load${own ? '' : ' (not each its own)'}; swiped ${swipe}; pages ${pages}; rows: tie "${tie}", 5th "${low}", 2nd "${mid}", top five "${five}"; season boards ${season}; ${all ? 'reads LB.all' : 'no LB.all reads'}`};
   });
 
   check('The Lay live tracking reads the league\'s kinds of legs and scores them against a game', () => {

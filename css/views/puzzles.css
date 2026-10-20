@@ -101,88 +101,254 @@ html.rm .v-puzzles .c-prog-f, html.rm .v-puzzles .c-prog-f::after, html.rm .v-pu
   .v-puzzles .c-prog-f, .v-puzzles .c-prog-f::after, .v-puzzles .c-hero-ti { transition: none; }
 }
 
-/* ---------------------------------------------------------------- The list of games (views/games.js) */
-/* One big card per game, about the size of the old score card: the thumbnail, the name and how it plays, Play. A game
-   played today is that game's scoreboard: the result, today's top of the board, the way on, the countdown. */
-.v-puzzles .gm-list { display: grid; gap: 16px; margin-top: 12px; }
-.v-puzzles .gm-card { padding: 0; overflow: hidden; border-radius: var(--r-hero); cursor: pointer; -webkit-tap-highlight-color: transparent; }
-.v-puzzles .gm-card + .gm-card { margin-top: 0; }
-.v-puzzles .gm-card.is-loading { cursor: default; }
-.v-puzzles .gm-art { position: relative; aspect-ratio: 358 / 201; overflow: hidden; background: #0C1428; }
-.v-puzzles .gm-art-img { display: block; width: 100%; height: 100%; object-fit: cover; }
-.v-puzzles .gm-art::after {
-  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 56%; pointer-events: none;
-  background: linear-gradient(to bottom, transparent, rgba(16,27,58,.55) 45%, var(--surface-1));
+/* ---------------------------------------------------------------- The shelf of games (views/games.js) */
+/* A shelf of retro game cases swiped along (scroll snap): the one in the middle big and lit, a white ring round it;
+   the others smaller, turned in toward it. Under it, the one you're on: its name, how it plays, Play. A game played
+   today shows its case's back (the leaderboard on a little screen): tap it and it comes up close (.gm-zoom, below). */
+.v-puzzles .gm-list { position: relative; margin-top: 2px; }
+.v-puzzles .gm-list::before {
+  content: ""; position: absolute; left: calc(-1 * var(--gutter)); right: calc(-1 * var(--gutter)); top: 0; height: 400px; pointer-events: none;
+  background: radial-gradient(ellipse 55% 50% at 50% 46%, rgba(110,150,255,.2), transparent 72%);
 }
-.v-puzzles .gm-chip {
-  display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 999px;
-  background: rgba(7,14,34,.8); color: var(--gold); box-shadow: inset 0 0 0 1px rgba(255,197,49,.45);
-  font: 700 11px/16px var(--font-text); letter-spacing: .06em; text-transform: uppercase;
+.v-puzzles .gm-shelf {
+  --cw: min(64cqw, 272px);
+  position: relative; display: flex; align-items: center;
+  margin: 0 calc(-1 * var(--gutter)); padding: 22px calc(50% - var(--cw) / 2) 20px;
+  overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch; outline: none;
 }
-.v-puzzles .gm-art .gm-chip { position: absolute; top: 10px; left: 10px; z-index: 1; }
-.v-puzzles .gm-info { position: relative; z-index: 1; padding: 0 16px 16px; margin-top: -22px; }
-.v-puzzles .gm-head { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.v-puzzles .gm-badge { width: 48px; height: 48px; flex: none; filter: drop-shadow(0 2px 6px rgba(0,0,0,.55)); }
-.v-puzzles .gm-badge.is-s { width: 32px; height: 32px; }
-.v-puzzles .gm-tt { min-width: 0; }
-.v-puzzles .gm-t { font: 800 26px/28px var(--font-num); text-transform: uppercase; letter-spacing: .02em; color: var(--ink); }
-.v-puzzles .gm-sub { font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2); margin-top: 2px; }
-.v-puzzles .gm-meta { margin-top: 10px; }
-.v-puzzles .gm-meta .c-prog { margin: 2px 0 0; }
-.v-puzzles .gm-meta .c-prog-t { text-align: left; }
+.v-puzzles .gm-shelf::-webkit-scrollbar { display: none; }
+.v-puzzles .gm-slot {
+  --k: 1; --d: 0;
+  flex: none; width: var(--cw); margin: 0 calc(var(--cw) * -.07); scroll-snap-align: center; position: relative;
+  transform: perspective(900px) rotateY(calc(var(--d) * -14deg)) scale(calc(1 - var(--k) * .17));
+  opacity: calc(1 - var(--k) * .3); z-index: calc(10 - var(--k) * 5);
+  will-change: transform;
+}
+.v-puzzles .gm-slot.is-cur { z-index: 12; }
+.v-puzzles .gm-case {
+  position: relative; display: block; width: 100%; aspect-ratio: 5 / 7; padding: 0; border: 0; border-radius: 9px;
+  background: none; cursor: pointer; container-type: inline-size; -webkit-tap-highlight-color: transparent;
+}
+.v-puzzles .gm-case:focus-visible { outline: none; }
+.v-puzzles .gm-case::after {
+  content: ""; position: absolute; inset: -6px; border-radius: 14px; pointer-events: none; opacity: 0; transition: opacity .2s linear;
+  box-shadow: 0 0 0 3px #fff, 0 0 26px 2px rgba(130,175,255,.55);
+}
+.v-puzzles .gm-slot.is-cur .gm-case::after { opacity: 1; }
+.v-puzzles .gm-flip { position: absolute; inset: 0; transform-style: preserve-3d; border-radius: inherit; transition: transform .95s cubic-bezier(.3,1.3,.45,1); }
+.v-puzzles .gm-case.is-done .gm-flip { transform: rotateY(180deg); }
+.v-puzzles .gm-face { position: absolute; inset: 0; border-radius: 9px; overflow: hidden; -webkit-backface-visibility: hidden; backface-visibility: hidden; text-align: left; }
+.v-puzzles .gm-front { box-shadow: 0 20px 34px -16px rgba(0,0,0,.85), inset 0 0 0 1px rgba(255,255,255,.08); }
+.v-puzzles .gm-case > .gm-gloss {
+  position: absolute; inset: 0; border-radius: 9px; pointer-events: none;
+  background: linear-gradient(118deg, rgba(255,255,255,.2), rgba(255,255,255,0) 30%, rgba(255,255,255,0) 72%, rgba(255,255,255,.08));
+}
+.v-puzzles .gm-case.is-done > .gm-gloss { opacity: .5; }
+@media (prefers-reduced-motion: reduce) { .v-puzzles .gm-flip { transition: none; } }
+
+/* ---- The fronts: pieces each era puts where its box had them */
+.gm-front .gm-band, .gm-front .gm-art, .gm-front .gm-logo, .gm-front .gm-series, .gm-front .gm-rate, .gm-front .gm-seal, .gm-front .gm-stk { position: absolute; }
+.gm-front .gm-art { display: block; overflow: hidden; }
+.gm-front .gm-img, .gm-front .gm-pix { display: block; width: 100%; height: 100%; object-fit: cover; }
+.gm-front .gm-pix { image-rendering: pixelated; image-rendering: crisp-edges; }
+.gm-front .gm-logo { display: flex; flex-direction: column; font-family: var(--font-num); font-weight: 900; font-style: italic; text-transform: uppercase; }
+.gm-front .gm-logo > b { display: block; font-weight: inherit; white-space: nowrap; }
+.gm-rate {
+  left: 5%; bottom: 3.2%; width: 10%; aspect-ratio: 1 / 1.35; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: #fff; color: #111; box-shadow: 0 0 0 .6cqw #111;
+}
+.gm-rate > b { font: 900 6.4cqw/1 var(--font-num); }
+.gm-rate > small { font: 800 1.6cqw/1 var(--font-text); letter-spacing: .02em; margin-top: .4cqw; }
+.gm-seal {
+  right: 5%; bottom: 3%; width: 15%; aspect-ratio: 1; border-radius: 50%; display: grid; place-items: center; text-align: center;
+  background: radial-gradient(circle at 40% 35%, #FFE89A, #D9AE45 60%, #A57C1E); color: #4A3208;
+  font: 800 1.7cqw/1.15 var(--font-text); letter-spacing: .02em; box-shadow: inset 0 0 0 .5cqw #8A6A1E, 0 0 0 .5cqw #F7D774;
+}
+.gm-stk {
+  top: 4%; right: 4%; z-index: 3; transform: rotate(7deg); padding: 1.2cqw 2.6cqw; border-radius: 1.2cqw;
+  background: #FFD23F; color: #1B1B1B; font: 900 4.2cqw/1 var(--font-num); letter-spacing: .04em; box-shadow: 0 1cqw 2cqw rgba(0,0,0,.45);
+}
+.gm-stk.is-test { background: #3EF08F; }
+
+/* Game Boy (Daily Puzzles): a grey box, a black spine, the art in four greens, the name in pixels */
+.gm-era-gb.gm-front { background: linear-gradient(160deg, #DADBD5, #C2C4BD); }
+.gm-era-gb .gm-band { left: 0; top: 0; bottom: 0; width: 13%; background: #1B1B1F; display: flex; align-items: center; justify-content: center; }
+.gm-era-gb .gm-band-t { writing-mode: vertical-rl; transform: rotate(180deg); font: italic 900 7.4cqw/1 var(--font-num); letter-spacing: .1em; color: #fff; }
+.gm-era-gb .gm-art { left: 20%; right: 7%; top: 8%; height: 53%; border-radius: 2cqw; box-shadow: 0 0 0 1.6cqw #0F380F, 0 0 0 2.4cqw #8A8C86; background: #9BBC0F; }
+.gm-era-gb .gm-logo { left: 20%; right: 5%; top: 67%; font: 400 6.6cqw/1.3 "Press Start 2P", monospace; color: #0F380F; text-shadow: .6cqw .6cqw 0 #8BAC0F; font-style: normal; }
+.gm-era-gb .gm-rate { left: 20%; }
+/* Super (17–0): a grey band with the four buttons, the art to the edges, the score huge over it */
+.gm-era-snes.gm-front { background: #1A1A1A; }
+.gm-era-snes .gm-band {
+  left: 0; right: 0; top: 0; height: 12.5%; display: flex; align-items: center; justify-content: space-between; padding: 0 5%; z-index: 2;
+  background: linear-gradient(#E2E2E2, #B4B4B4); box-shadow: 0 .8cqw 0 #222;
+}
+.gm-era-snes .gm-band-t { font: italic 900 6.4cqw/1 var(--font-num); letter-spacing: .03em; color: #1A1A1A; }
+.gm-dots4 { display: flex; gap: 1cqw; }
+.gm-dots4 > i { width: 3.6cqw; height: 3.6cqw; border-radius: 50%; background: #E4002B; box-shadow: inset 0 -.5cqw 0 rgba(0,0,0,.25); }
+.gm-dots4 > i:nth-child(2) { background: #FFC72C; }
+.gm-dots4 > i:nth-child(3) { background: #00A651; }
+.gm-dots4 > i:nth-child(4) { background: #1E4FB8; }
+.gm-era-snes .gm-art { left: 0; right: 0; top: 13.3%; bottom: 0; }
+.gm-era-snes .gm-art::after { content: ""; position: absolute; inset: 0; background: linear-gradient(transparent 55%, rgba(0,0,0,.55)); }
+.gm-era-snes .gm-logo { left: 6%; top: 15%; font-size: 30cqw; line-height: .95; color: #FFD23F; -webkit-text-stroke: 1.6cqw #8E0F1D; paint-order: stroke fill; text-shadow: 1.6cqw 1.6cqw 0 #111; }
+/* The black box (the Two-Minute Drill): black, the lines, the plate, a framed pixel screenshot, the series */
+.gm-era-nes.gm-front { background: #0B0B0C; }
+.gm-era-nes.gm-front::before { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 52%; background: repeating-linear-gradient(to bottom, rgba(255,255,255,.13) 0 .55cqw, transparent .55cqw 2.4cqw); }
+.gm-era-nes .gm-band { top: 5%; left: 6%; display: flex; flex-direction: column; align-items: flex-start; }
+.gm-era-nes .gm-band-t { background: #D8322B; color: #fff; font: italic 900 6.2cqw/1 var(--font-num); letter-spacing: .04em; padding: .8cqw 2.6cqw .6cqw; }
+.gm-ges { margin-top: 1cqw; font: 700 2.6cqw/1 var(--font-text); letter-spacing: .14em; color: #D9D9D9; }
+.gm-era-nes .gm-logo { left: 6%; right: 6%; top: 19%; font: 400 7.4cqw/1.25 "Press Start 2P", monospace; color: var(--gc); text-shadow: .8cqw .8cqw 0 #0B4D2A; font-style: normal; }
+.gm-era-nes .gm-art { left: 13%; right: 13%; top: 41%; height: 37%; box-shadow: 0 0 0 1.4cqw #F4F4F4, 0 0 0 2.2cqw #0B0B0C, 0 0 0 2.6cqw #555; }
+.gm-series { right: 0; bottom: 14%; padding: 1.4cqw 3cqw 1.2cqw 5cqw; background: var(--gc); color: #062114; font: italic 900 4cqw/1 var(--font-num); letter-spacing: .06em; clip-path: polygon(10% 0, 100% 0, 100% 100%, 0 100%); }
+/* 64 (Kick It): black, a spine of colours, the art, the name in gold */
+.gm-era-n64.gm-front { background: #070707; }
+.gm-era-n64 .gm-band { left: 0; top: 0; bottom: 0; width: 15%; display: flex; align-items: center; justify-content: center; background: #000; box-shadow: .8cqw 0 0 #262626; z-index: 2; }
+.gm-era-n64 .gm-band-t {
+  writing-mode: vertical-rl; transform: rotate(180deg); font: italic 900 8.6cqw/1 var(--font-num); letter-spacing: .06em; color: transparent;
+  background: linear-gradient(to top, #E4002B 0 25%, #FFC72C 25% 50%, #00A651 50% 75%, #3B7BFF 75%); -webkit-background-clip: text; background-clip: text;
+}
+.gm-era-n64 .gm-art { left: 15%; right: 0; top: 0; bottom: 0; }
+.gm-era-n64 .gm-art::after { content: ""; position: absolute; inset: 0; background: linear-gradient(rgba(0,0,0,.5), transparent 35%, transparent 70%, rgba(0,0,0,.6)); }
+.gm-era-n64 .gm-logo { left: 20%; right: 4%; top: 5%; font-size: 19cqw; line-height: .95; color: #F2C230; -webkit-text-stroke: 1.2cqw #1B1400; paint-order: stroke fill; text-shadow: 1.4cqw 1.4cqw 0 #000; }
+.gm-era-n64 .gm-rate { left: 20%; }
+/* Advance (Return Man): a silver band, the art, the name in orange */
+.gm-era-gba.gm-front { background: linear-gradient(#ECEEF2, #CDD2DB); }
+.gm-era-gba .gm-band { left: 0; right: 0; top: 0; height: 11%; display: flex; align-items: center; padding: 0 5%; background: linear-gradient(#FFFFFF, #DCE0E8); box-shadow: 0 .8cqw 0 #5E2A84; z-index: 2; }
+.gm-era-gba .gm-band-t { font: italic 900 6.4cqw/1 var(--font-num); letter-spacing: .05em; color: #5E2A84; }
+.gm-era-gba .gm-art { left: 0; right: 0; top: 11.8%; bottom: 14%; }
+.gm-era-gba .gm-logo { left: 6%; right: 6%; top: 14%; font-size: 17cqw; line-height: .9; color: #F28C28; -webkit-text-stroke: 1.3cqw #fff; paint-order: stroke fill; text-shadow: 1.5cqw 1.5cqw 0 #3A1A5A; }
+
+/* ---- The backs (and the back up close): the result, the leaderboard on a little screen, a barcode */
+.gm-back { --on: #EAF1FF; display: flex; flex-direction: column; gap: 3cqw; padding: 5cqw 5cqw 4cqw; background: #14151B; color: var(--on); transform: rotateY(180deg); box-shadow: 0 20px 34px -16px rgba(0,0,0,.85), inset 0 0 0 1px rgba(255,255,255,.08); }
+.gm-back.gm-era-gb { background: linear-gradient(160deg, #DADBD5, #C2C4BD); --on: #1B1B1F; }
+.gm-back.gm-era-snes { background: linear-gradient(#E2E2E2, #C4C4C4); --on: #1A1A1A; }
+.gm-back.gm-era-nes { background: #0B0B0C; }
+.gm-back.gm-era-n64 { background: #0B0B0B; }
+.gm-back.gm-era-gba { background: linear-gradient(#ECEEF2, #CDD2DB); --on: #2A1A3A; }
+.gm-bk-top { display: flex; align-items: center; justify-content: space-between; gap: 2cqw; min-width: 0; }
+.gm-bk-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: italic 900 8.4cqw/1 var(--font-num); text-transform: uppercase; letter-spacing: .02em; color: var(--on); }
+.gm-bk-tag { flex: none; padding: 1cqw 1.8cqw; background: var(--gc); color: #fff; font: 400 3cqw/1 "Press Start 2P", monospace; }
+.gm-bk-res { display: flex; align-items: center; gap: 4cqw; min-width: 0; }
+.gm-bk-vis { flex: none; width: 27cqw; height: 27cqw; display: grid; place-items: center; }
+.gm-bk-vis > * { max-width: 100%; max-height: 100%; }
+.gm-bk-vis .gm-tile { width: 27cqw; height: 27cqw; border-radius: 4cqw; }
+.gm-bk-vis .gm-tile > b { font-size: 10cqw; line-height: 1; }
+.gm-bk-vis .gm-tile > small { font-size: 3cqw; line-height: 1.2; }
+.gm-bk-vis svg { width: 27cqw; height: 27cqw; }
+.gm-bk-vis .gm-ringn { font-size: 8cqw; line-height: 1; }
+.gm-bk-tt { display: flex; flex-direction: column; gap: .8cqw; min-width: 0; }
+.gm-bk-tt b { font: italic 900 7cqw/1.05 var(--font-num); text-transform: uppercase; color: var(--on); }
+.gm-bk-tt b.is-gold { color: #D9A21B; }
+.gm-bk-tt small { font: 500 3.7cqw/1.25 var(--font-text); color: var(--on); opacity: .78; }
+.gm-bk-tt em { font: 700 3.7cqw/1.25 var(--font-text); font-style: normal; color: var(--gc); }
+.gm-era-gb .gm-bk-tt em { color: #306230; }
+.gm-scr {
+  position: relative; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden;
+  padding: 3cqw 3cqw 2cqw; border-radius: 3cqw; background: #090D1C; color: #EAF1FF;
+  box-shadow: 0 0 0 1.2cqw #2B2E3B, inset 0 0 6cqw rgba(0,0,0,.85);
+}
+.gm-scr::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(to bottom, transparent 0 2px, rgba(0,0,0,.22) 2px 3px); }
+.gm-era-gb .gm-scr { background: #9BBC0F; color: #0F380F; box-shadow: 0 0 0 1.2cqw #4A4C46, inset 0 0 4cqw rgba(15,56,15,.35); }
+.gm-scr-h { display: block; margin-bottom: 2cqw; font: 400 3.1cqw/1.2 "Press Start 2P", monospace; color: var(--gc); }
+.gm-era-gb .gm-scr-h { color: #0F380F; }
+.gm-scr-note { margin: auto 0; text-align: center; font: 400 2.8cqw/1.5 "Press Start 2P", monospace; color: inherit; opacity: .75; }
+.gm-scr-rows { display: flex; flex-direction: column; gap: .4cqw; min-height: 0; }
+.gm-r { display: flex; align-items: center; gap: 2.2cqw; min-width: 0; padding: .9cqw 1.4cqw; border-radius: 1.6cqw; font: 400 6.4cqw/1 "VT323", monospace; }
+.gm-r.is-me { background: rgba(62,240,143,.16); box-shadow: inset 0 0 0 .4cqw rgba(62,240,143,.5); }
+.gm-era-gb .gm-r.is-me { background: rgba(15,56,15,.16); box-shadow: inset 0 0 0 .4cqw #306230; }
+.gm-r-rk { flex: none; width: 4.6cqw; text-align: center; color: #9AA3B8; }
+.gm-r-rk.is-r1 { color: #FFD23F; }
+.gm-r-rk.is-r2 { color: #C9D2E3; }
+.gm-r-rk.is-r3 { color: #E0A36A; }
+.gm-era-gb .gm-r-rk { color: #306230; }
+.gm-r-av { flex: none; display: inline-flex; }
+.gm-r-nm { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.gm-r-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gm-r-s { font: 500 3.2cqw/1.2 var(--font-text); opacity: .7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gm-r-you { font: 400 2.4cqw/1 "Press Start 2P", monospace; font-style: normal; color: #3EF08F; vertical-align: 1px; }
+.gm-r-you.is-g { color: #FFD23F; }
+.gm-era-gb .gm-r-you { color: #0F380F; }
+.gm-r-v { flex: none; color: #FFD23F; }
+.gm-era-gb .gm-r-v { color: #0F380F; }
+.gm-r-gap { text-align: center; font: 400 4cqw/1 "VT323", monospace; opacity: .6; }
+.gm-bk-foot { display: flex; align-items: center; justify-content: space-between; gap: 3cqw; min-width: 0; }
+.gm-bar {
+  flex: none; width: 24cqw; height: 8cqw; background-color: #fff; box-shadow: 0 0 0 1cqw #fff;
+  background-image: repeating-linear-gradient(90deg, #111 0 .5cqw, transparent .5cqw .9cqw, #111 .9cqw 1.6cqw, transparent 1.6cqw 2cqw, #111 2cqw 2.3cqw, transparent 2.3cqw 3.1cqw);
+}
+.gm-bk-tap { font: 400 2.6cqw/1.3 "Press Start 2P", monospace; color: var(--gc); text-align: right; }
+.gm-era-gb .gm-bk-tap { color: #306230; }
+.gm-tile {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  width: 88px; height: 88px; border-radius: 16px; background: var(--surface-2, #1B1E2A); box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
+}
+.gm-tile > b { font-family: var(--font-num); font-weight: 800; font-size: 34px; line-height: 36px; color: #EAF1FF; white-space: nowrap; }
+.gm-tile > small { font: 600 11px/14px var(--font-text); letter-spacing: .06em; text-transform: uppercase; color: rgba(234,241,255,.6); }
+.gm-tile.is-gold { background: rgba(255,197,49,.16); box-shadow: inset 0 0 0 1.5px #FFC531; }
+.gm-tile.is-gold > b { color: #FFC531; }
+.gm-tile.is-W { background: rgba(62,240,143,.16); box-shadow: inset 0 0 0 1.5px #3EF08F; }
+.gm-tile.is-W > b { color: #3EF08F; }
+.gm-tile.is-L { background: rgba(255,92,92,.16); box-shadow: inset 0 0 0 1.5px #FF5C5C; }
+.gm-tile.is-L > b { color: #FF5C5C; }
+.gm-ring .ring-center { gap: 0; }
+.gm-ringn { font: 800 26px/28px var(--font-num); color: #EAF1FF; }
+.gm-era-gb .gm-ringn, .gm-era-snes .gm-ringn, .gm-era-gba .gm-ringn { color: var(--on); }
+
+/* ---- The back, up close: over everything, the Today / Season switch, the whole board */
+.gm-zoom { position: fixed; inset: 0; z-index: 900; pointer-events: auto; display: grid; place-items: center; padding: max(16px, var(--sa-t, 0px)) 14px max(16px, var(--sa-b, 0px)); }
+.gm-z-scrim { position: absolute; inset: 0; background: rgba(4,8,20,.74); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.gm-zoom .gm-z-case {
+  position: relative; transform: none; -webkit-backface-visibility: visible; backface-visibility: visible; container-type: inline-size;
+  width: min(100%, 420px); height: min(100%, 700px); border-radius: 18px; outline: none; gap: 3.2cqw; padding: 5cqw;
+  box-shadow: 0 30px 60px -20px rgba(0,0,0,.9), inset 0 0 0 1px rgba(255,255,255,.1);
+}
+.gm-zoom .gm-bk-name { font-size: 7.6cqw; }
+.gm-z-x { flex: none; }
+.gm-zoom .gm-bk-vis, .gm-zoom .gm-bk-vis .gm-tile, .gm-zoom .gm-bk-vis svg { width: 20cqw; height: 20cqw; }
+.gm-zoom .gm-bk-vis .gm-tile > b { font-size: 7.6cqw; }
+.gm-zoom .gm-bk-tt b { font-size: 6cqw; }
+.gm-zoom .gm-bk-tt small { font-size: 3.4cqw; }
+.gm-z-tog { display: flex; gap: 1.2cqw; padding: 1.2cqw; border-radius: 2.4cqw; background: rgba(0,0,0,.55); }
+.gm-z-tog > button {
+  flex: 1 1 0; min-height: 40px; border: 0; border-radius: 1.6cqw; background: transparent; color: rgba(255,255,255,.7); cursor: pointer;
+  font: 400 3.2cqw/1 "Press Start 2P", monospace; letter-spacing: .04em;
+}
+.gm-z-tog > button[aria-selected="true"] { background: var(--gc); color: #fff; box-shadow: inset 0 -.8cqw 0 rgba(0,0,0,.25); }
+.gm-era-nes .gm-z-tog > button[aria-selected="true"] { color: #062114; }
+.gm-scr.is-z { padding: 3.2cqw 2.4cqw 2cqw; }
+.gm-z-body { position: relative; z-index: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.gm-z-me { margin: 0 0 2cqw 1.4cqw; font: 400 2.8cqw/1.4 "Press Start 2P", monospace; color: #3EF08F; }
+.gm-era-gb .gm-z-me { color: #0F380F; }
+.gm-zoom .gm-r { font-size: 5.6cqw; padding: 1.4cqw 1.6cqw; }
+.gm-zoom .gm-r-rk { width: 5cqw; }
+.gm-zoom .gm-r-s { font-size: 3cqw; }
+.gm-zoom .gm-r-you { font-size: 2cqw; }
+.gm-zoom .gm-bar { width: 20cqw; height: 6.4cqw; }
+.gm-zoom .gm-rate { position: relative; left: auto; bottom: auto; width: 7cqw; }
+.gm-zoom .gm-rate > b { font-size: 4.4cqw; }
+.gm-zoom .gm-rate > small { font-size: 1.2cqw; }
+.gm-z-open { margin-left: auto; }
+
+/* ---- Under the shelf: the game you're on */
+.v-puzzles .gm-pips { display: flex; justify-content: center; align-items: center; gap: 7px; margin: 0 0 12px; }
+.v-puzzles .gm-pip { width: 7px; height: 7px; border-radius: 4px; background: var(--surface-3); transition: width .25s cubic-bezier(.22,1,.36,1), background-color .2s linear; }
+.v-puzzles .gm-pip.is-done { background: var(--tint); opacity: .55; }
+.v-puzzles .gm-pip.is-cur { width: 20px; background: var(--ink); opacity: 1; }
+.v-puzzles .gm-sel { text-align: center; padding: 0 4px; min-height: 170px; }
+.v-puzzles .gm-sel-o { font: 400 9px/14px "Press Start 2P", monospace; letter-spacing: .06em; text-transform: uppercase; color: var(--tint); }
+.v-puzzles .gm-sel-t { margin-top: 8px; font: 800 30px/32px var(--font-num); text-transform: uppercase; letter-spacing: .02em; color: var(--ink); }
+.v-puzzles .gm-sel-s { margin: 4px auto 0; max-width: 34ch; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2); }
+.v-puzzles .gm-meta { margin-top: 10px; display: flex; justify-content: center; }
+.v-puzzles .gm-meta .c-prog { margin: 2px 0 0; width: 220px; }
 .v-puzzles .gm-note { font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
 .v-puzzles .gm-social { display: flex; align-items: center; gap: 8px; min-width: 0; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
-.v-puzzles .gm-social > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .v-puzzles .gm-ctas { display: flex; gap: 10px; margin-top: 14px; }
 .v-puzzles .gm-cta { min-height: 52px; font-size: 18px; }
 .v-puzzles .gm-cta > .gm-cta-ic { width: 20px; height: 20px; stroke-width: 1; margin-left: -4px; }
 .v-puzzles .gm-act { flex: 1 1 0; min-width: 0; padding: 0 12px; }
 .v-puzzles .gm-act > .ic { width: 20px; height: 20px; margin-top: -2px; }
-
-/* Played today: the scoreboard */
-.v-puzzles .gm-card.is-done { padding: 14px 16px 16px; }
-.v-puzzles .gm-sbh { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.v-puzzles .gm-sbt { flex: 1 1 auto; min-width: 0; font: 800 20px/24px var(--font-num); text-transform: uppercase; letter-spacing: .03em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.v-puzzles .gm-final { flex: none; font: 700 11px/16px var(--font-text); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); padding: 3px 9px; border-radius: 999px; background: var(--surface-2); }
-.v-puzzles .gm-res { display: flex; align-items: center; gap: 14px; margin-top: 12px; min-width: 0; }
-.v-puzzles .gm-vis { flex: none; display: grid; place-items: center; width: 88px; height: 88px; }
-.v-puzzles .gm-ring .ring-center { gap: 0; }
-.v-puzzles .gm-ringn { font: 800 26px/28px var(--font-num); color: var(--ink); }
-.v-puzzles .gm-tile {
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-  width: 88px; height: 88px; border-radius: 16px; background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--rim, rgba(255,255,255,.06));
-}
-.v-puzzles .gm-tile > b { font-family: var(--font-num); font-weight: 800; font-size: 34px; line-height: 36px; color: var(--ink); white-space: nowrap; }
-.v-puzzles .gm-tile > small { font: 600 11px/14px var(--font-text); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
-.v-puzzles .gm-tile.is-gold { background: var(--gold-soft); box-shadow: inset 0 0 0 1.5px var(--gold); }
-.v-puzzles .gm-tile.is-gold > b { color: var(--gold); }
-.v-puzzles .gm-tile.is-W { background: var(--tint-soft); box-shadow: inset 0 0 0 1.5px var(--tint); }
-.v-puzzles .gm-tile.is-W > b { color: var(--tint); }
-.v-puzzles .gm-tile.is-L { background: var(--wrong-soft); box-shadow: inset 0 0 0 1.5px var(--wrong); }
-.v-puzzles .gm-tile.is-L > b { color: var(--wrong); }
-.v-puzzles .gm-rt { min-width: 0; }
-.v-puzzles .gm-rh { display: flex; align-items: center; gap: 6px; font: 800 22px/26px var(--font-num); text-transform: uppercase; letter-spacing: .03em; color: var(--ink); }
-.v-puzzles .gm-rh.is-gold { color: var(--gold); }
-.v-puzzles .gm-rh .ic { flex: none; stroke-width: 2; }
-.v-puzzles .gm-rl { font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2); margin-top: 2px; }
-.v-puzzles .gm-place { font: 600 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--tint); margin-top: 4px; }
-.v-puzzles .gm-mini { margin-top: 12px; border-radius: 12px; background: var(--surface-2); padding: 2px 0; }
-.v-puzzles .gm-mini.is-loading { padding: 4px 12px; }
-.v-puzzles .gm-mini-note { margin-top: 12px; }
-.v-puzzles .gm-row { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; min-width: 0; }
-.v-puzzles .gm-row + .gm-row { box-shadow: inset 0 1px 0 var(--sep, rgba(255,255,255,.06)); }
-.v-puzzles .gm-row.is-me { background: var(--tint-soft); }
-.v-puzzles .gm-row:first-child { border-radius: 12px 12px 0 0; }
-.v-puzzles .gm-row:last-child { border-radius: 0 0 12px 12px; }
-.v-puzzles .gm-rk { flex: none; width: 18px; text-align: center; font: 800 18px/20px var(--font-num); color: var(--ink-3); }
-.v-puzzles .gm-rk.is-r1 { color: var(--gold); }
-.v-puzzles .gm-rk.is-r2 { color: var(--silver); }
-.v-puzzles .gm-rk.is-r3 { color: var(--bronze); }
-.v-puzzles .gm-av { flex: none; display: inline-flex; }
-.v-puzzles .gm-nm { flex: 1 1 auto; display: flex; align-items: center; gap: 6px; min-width: 0; font: 600 var(--fs-sub)/var(--lh-sub) var(--font-text); }
-.v-puzzles .gm-nmt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.v-puzzles .gm-val { flex: none; font-family: var(--font-num); font-weight: 800; color: var(--ink); }
-.v-puzzles .gm-gap { text-align: center; font: 700 14px/14px var(--font-text); color: var(--ink-4); padding: 1px 0 3px; }
 .v-puzzles .gm-cd { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 14px; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
 .v-puzzles .gm-cd .ic { stroke-width: 2; flex: none; }
 .v-puzzles .gm-cd-v { color: var(--ink-2); font-weight: 600; font-variant-numeric: tabular-nums; }

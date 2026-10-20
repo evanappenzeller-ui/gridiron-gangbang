@@ -507,10 +507,7 @@ function onListClick(st, e) {
     daily.ensure().catch(() => ui.toast("Still can't reach the puzzles.")).finally(() => { if (st.list) st.list.refresh(true); });
     return true;
   }
-  // The card's own buttons (Share, Load) are handled below; anywhere else on a card opens its page.
-  if (e.target.closest('button, a, [data-streak]')) return false;
-  const card = e.target.closest('.gm-card[data-gm]');
-  if (card && card.dataset.kind !== 'loading') { ui.haptic('selection'); ctx.nav(gamePath(card.dataset.gm)); return true; }
+  // (the cases on the shelf are the shelf's own: games.js mountList)
   return false;
 }
 
@@ -608,7 +605,7 @@ export default {
     HUB.set(ctx, st);
     el.addEventListener('click', e => onClick(st, e));
     if (st.game === null) {
-      st.list = mountList(el.querySelector('.gm-list'), ctx);
+      st.list = mountList(el.querySelector('.gm-list'), ctx, {play: id => (id === 'puzzles' && ready() ? playPuzzles(ctx) : ctx.nav(gamePath(id)))});
       ctx.setBackTitle('Games'); // a game page's back button: short, so its title has the room
       // A phone with a finished game posts it from any visit to this tab.
       ui.whenIdle(syncSeventeen);

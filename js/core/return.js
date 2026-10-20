@@ -607,7 +607,16 @@ export function weekDays(n = todayNumber(), today = todayNumber()) {
 /** The week's board: yards summed over its days, then the longest of the week, then the days played. Rows: {key, name,
  *  managerId, me, guest, y, l, td, played, rank}. */
 export function weekRows(n = todayNumber(), list = docs(), today = todayNumber()) {
-  const days = weekDays(n, today), rows = [];
+  return totalsOver(weekDays(n, today), list);
+}
+/** The season's board (every day so far), the same way as the week's: rows as weekRows'. */
+export function seasonRows(list = docs(), today = todayNumber()) {
+  const days = [];
+  for (let d = 1; d <= today; d++) days.push(d);
+  return totalsOver(days, list);
+}
+function totalsOver(days, list) {
+  const rows = [];
   people(list).forEach((ds, k) => {
     const row = Object.assign(rowWho(ds, k), {y: 0, l: 0, td: 0, played: 0});
     days.forEach(d => { const f = firstOf(ds, d); if (f) { row.y += f.e.y; row.l = Math.max(row.l, f.e.l); row.td += f.e.td; row.played++; } });

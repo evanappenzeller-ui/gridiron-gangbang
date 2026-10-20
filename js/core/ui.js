@@ -1451,7 +1451,7 @@ export function setChips(chipsEl, value, {emit = false, scroll = true} = {}) {
 // the control re-rendered). A finished tap on a button, card, chip or icon button also pops: a quick overshoot of
 // its `scale`, a property of its own, so it never fights the transform the press uses. Reduced motion: neither.
 const INK_ON = '.row, .card, .btn:not(.btn-plain):not(.btn-destructive), .tile, .bug, .chip, .pk-lg-t, .sv-cell, .tp-t, [data-press]:not([data-press="none"])';
-const POP_ON = '.btn:not(.btn-plain):not(.btn-destructive), button.card, a.card, .gm-card, .chip, .pk-lg-t, .sv-cell, .icon-btn, .tp-t, [data-press]:not([data-press="row"]):not([data-press="none"])';
+const POP_ON = '.btn:not(.btn-plain):not(.btn-destructive), button.card, a.card, .gm-case, .chip, .pk-lg-t, .sv-cell, .icon-btn, .tp-t, [data-press]:not([data-press="row"]):not([data-press="none"])';
 const CLIPS = '.screen, .sheet, .sheet-body, .cover, [data-hscroll], .chips, #app';
 let inkHost = null;
 function inkLayer() {

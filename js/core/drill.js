@@ -648,7 +648,16 @@ export function weekLabel(n = todayNumber()) {
  * week's top-graded game {name, me, day, grade, r, u, h}, or null.
  */
 export function weekRows(n = todayNumber(), list = docs(), today = todayNumber()) {
-  const days = weekDays(n, today), rows = [];
+  return standings(weekDays(n, today), list, today);
+}
+/** The season's standings (every day so far), the same way as the week's: rows as weekRows'. */
+export function seasonRows(list = docs(), today = todayNumber()) {
+  const days = [];
+  for (let d = 1; d <= Math.min(today, DOC.days.length); d++) days.push(d);
+  return standings(days, list, today);
+}
+function standings(days, list, today) {
+  const rows = [];
   let top = null;
   people(list).forEach((ds, k) => {
     const row = Object.assign(rowWho(ds, k), {w: 0, t: 0, l: 0, played: 0, pts: 0, avg: null, best: null, streak: 0});

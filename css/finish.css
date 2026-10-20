@@ -86,7 +86,7 @@
 @media (hover: hover) and (pointer: fine) {
   :where(.row):hover { background-color: rgba(255,255,255,.035); }
   :root[data-light] :where(.row):hover { background-color: rgba(0,0,0,.03); }
-  :where(button.card, a.card, .gm-card, .btn-primary, .btn-secondary, .chip, .pk-lg-t, .tp-t):hover { filter: brightness(1.07); }
+  :where(button.card, a.card, .gm-case, .btn-primary, .btn-secondary, .chip, .pk-lg-t, .tp-t):hover { filter: brightness(1.07); }
   :root[data-light] :where(button.card, a.card, .btn-secondary, .chip, .tp-t):hover { filter: brightness(.97); }
   .screen, .sheet-body, .tp-body { scrollbar-width: thin; scrollbar-color: var(--surface-3) transparent; }
 }

@@ -1,10 +1,9 @@
-// The Daily Games list (the tab's root, views/puzzles.js; the owner's ask, Oct 2026): one big card per game, Daily
-// Puzzles, 17-0, the Two-Minute Drill, Kick It and Return Man, each about the size of the old score card, with its thumbnail
-// (img/games/*.webp: captures of the games themselves), its name, how it plays and Play (Continue once it's started).
-// Play opens the game: Daily Puzzles straight into today's run, the others on their own page (/puzzles/<game>,
-// pushed); a tap anywhere else on a card opens the game's page too (Daily Puzzles' has its leaderboard).
-// A game finished today turns its card into that game's scoreboard: your result, your place today and the top of
-// today's league board, the way to the rest and the countdown to the next one. The rows come from each game's core
+// The Daily Games list (the tab's root, views/puzzles.js; the owner's asks, Oct 2026): a shelf of retro game cases, one
+// a game (Daily Puzzles, 17-0, the Two-Minute Drill, Kick It, Return Man), swiped along; under it the one you're on,
+// its name, how it plays and Play (Continue once it's started). Play (or a tap on the case) opens the game: Daily
+// Puzzles straight into today's run, the others on their own page (/puzzles/<game>, pushed).
+// A game finished today turns its case round: on its back, your result, your place and the top of today's league
+// board; tap it and it comes up close with the whole board, Today's or the Season's. The rows come from each game's core
 // (boardRows: daily.LB.raw / LB.players, the board as this phone may see it: THE RULE, CLAUDE.md).
 // 17-0's, the drill's, Kick It's and Return Man's cores load at idle (17-0's and the drill's with their day files);
 // until then their cards offer Play. Return Man is the owner's alone while he tests it (gameOpen, below).
@@ -215,11 +214,96 @@ function returnState() {
 }
 const STATE = {puzzles: puzzlesState, '17-0': seventeenState, drill: drillState, kick: kickState, return: returnState};
 
-// ============================================================================ Markup
+// ============================================================================ The cases
+// The list is a shelf of game cases (the owner's ask, Oct 2026, after a console's shelf of box art, Nintendo's for its
+// looks): you swipe along it; the case in the middle is the one you're on, its name and its Play under it. Each game's
+// case is a box of a different era (ERA: a Game Boy's, a Super's, the black box, a 64's, an Advance's), its cover the
+// game's art. Played today, a case turns round: its back is the leaderboard, on a little screen. Tap the back and it
+// comes up close, Today's and the Season's to switch between.
+const ERA = {
+  puzzles: {era: 'gb', band: 'GAME DAY', logo: ['DAILY', 'PUZZLES'], col: '#306230', pix: 'gb'},
+  '17-0': {era: 'snes', band: 'SUPER GRIDIRON', logo: ['17–0'], col: '#C8102E'},
+  drill: {era: 'nes', band: 'GRIDIRON', logo: ['TWO-MINUTE', 'DRILL'], col: '#3EF08F', pix: 'nes', series: 'SPORTS SERIES'},
+  kick: {era: 'n64', band: 'GRIDIRON 64', logo: ['KICK IT!'], col: '#2F7DD8'},
+  return: {era: 'gba', band: 'GRIDIRON ADVANCE', logo: ['RETURN', 'MAN'], col: '#F28C28'}
+};
 const tileHTML = (big, small, cls = '') => `<span class="gm-tile ${cls}"><b class="n2">${esc(big)}</b>${small ? `<small>${esc(small)}</small>` : ''}</span>`;
-const imgHTML = (src, cls, w, h) => `<img class="${cls}" src="${src}" alt="" width="${w}" height="${h}" decoding="async" draggable="false">`;
-const chipHTML = () => '<span class="gm-chip">Test play</span>';
+// A line under each row: what it was today, or over the season.
+const SUB_TODAY = {
+  puzzles: r => r.sub || '',
+  '17-0': r => `${(Number(r.p) || 0).toFixed(1)} points a game`,
+  drill: r => (r.letter ? `Grade ${r.letter}` : ''),
+  kick: r => (r.l ? `Longest ${r.l} yds` : ''),
+  return: r => `Longest ${nf(r.l)}${r.td ? ` · ${plural(r.td, 'TD')}` : ''}`
+};
+/** The season's board for a game (every day so far, the board as this phone may see it): rows with val and sub. */
+function seasonRowsOf(id) {
+  if (id === 'puzzles') return dailyBoard() === 'ready' ? safe(() => daily.boardRows('season')).map(r => ({...r, val: nf(r.pts)})) : [];
+  const M = {'17-0': C.sv, drill: C.dr, kick: C.kk, return: C.rm}[id];
+  if (!M || boardOf(M) !== 'ready') return [];
+  if (id === '17-0') return safe(() => M.boardRows('all')).map(r => ({...r, val: `${r.w}–${r.l}`, sub: `${plural(r.seasons, 'season')}${r.perfect ? ` · ${r.perfect} perfect` : ''}`}));
+  if (id === 'drill') return safe(() => M.seasonRows()).map(r => ({...r, val: `${r.pts} pts`, sub: `${r.w}–${r.l}${r.t ? `–${r.t}` : ''} · ${plural(r.played, 'game')}`}));
+  if (id === 'kick') return safe(() => M.seasonRows()).map(r => ({...r, val: `${r.m} made`, sub: `${plural(r.played, 'day')} · longest ${r.l} yds`}));
+  return safe(() => M.seasonRows()).map(r => ({...r, val: `${nf(r.y)} yds`, sub: `${plural(r.played, 'day')} · longest ${nf(r.l)}`}));
+}
+const sticker = (cls, text) => `<span class="gm-stk ${cls}">${esc(text)}</span>`;
+/** A case's front: the box of its era, the art, the name, the corners. */
+function frontHTML(g, s) {
+  const E = ERA[g.id];
+  const art = E.pix ? `<canvas class="gm-pix" data-pix="${E.pix}" data-src="${g.art}" width="${E.pix === 'gb' ? 100 : 104}" height="${E.pix === 'gb' ? 92 : 88}"></canvas>`
+    : `<img class="gm-img" src="${g.art}" alt="" decoding="async" draggable="false">`;
+  const logo = `<span class="gm-logo">${E.logo.map(l => `<b>${esc(l)}</b>`).join('')}</span>`;
+  const band = `<span class="gm-band"><span class="gm-band-t">${esc(E.band)}</span>${E.era === 'snes' ? '<span class="gm-dots4" aria-hidden="true"><i></i><i></i><i></i><i></i></span>' : ''}${E.era === 'nes' ? '<span class="gm-ges">ENTERTAINMENT SYSTEM</span>' : ''}</span>`;
+  const stk = s.test ? sticker('is-test', 'TEST PLAY') : s.kind === 'started' ? sticker('is-go', 'IN PROGRESS') : '';
+  return `<div class="gm-face gm-front gm-era-${E.era}" style="--gc:${E.col}">${band}<span class="gm-art">${art}</span>${logo}`
+    + `${E.series ? `<span class="gm-series">${esc(E.series)}</span>` : ''}`
+    + `<span class="gm-rate" aria-hidden="true"><b>L</b><small>LEAGUE</small></span><span class="gm-seal" aria-hidden="true">OFFICIAL<br>LEAGUE<br>SEAL</span>${stk}</div>`;
+}
+function rowHTML(r, {sub = false} = {}) {
+  const label = `${ui.ordinal(r.rank)}, ${r.name}${r.me ? ', you' : ''}${r.guest ? ', guest' : ''}: ${r.val}${sub && r.sub ? `. ${r.sub}` : ''}`;
+  return `<div class="gm-r${r.me ? ' is-me' : ''}" role="listitem" aria-label="${esc(label)}">`
+    + `<span class="gm-r-rk${r.rank <= 3 ? ' is-r' + r.rank : ''}" aria-hidden="true">${r.rank}</span>`
+    + `<span class="gm-r-av" aria-hidden="true">${ui.nickAvatar(r.name, {size: sub ? 30 : 22, managerId: r.managerId || null, you: r.me})}</span>`
+    + `<span class="gm-r-nm" aria-hidden="true"><span class="gm-r-t">${esc(r.name)}${r.me ? ' <i class="gm-r-you">YOU</i>' : r.guest ? ' <i class="gm-r-you is-g">GUEST</i>' : ''}</span>${sub && r.sub ? `<span class="gm-r-s">${esc(r.sub)}</span>` : ''}</span>`
+    + `<span class="gm-r-v" aria-hidden="true">${esc(r.val)}</span></div>`;
+}
+/** The rows a case's back shows (null: a gap): today's top n with you among them. You lead the people you're tied
+ *  with, and when you're further down the top n - 1 come first, then a gap, then you. */
+export function miniRows(rows, n = 3) {
+  const ord = rows.map((r, i) => ({r, i})).sort((a, b) => a.r.rank - b.r.rank || (b.r.me ? 1 : 0) - (a.r.me ? 1 : 0) || a.i - b.i).map(x => x.r);
+  const me = ord.find(r => r.me), top = ord.slice(0, n);
+  return !me || top.includes(me) ? top : [...ord.slice(0, n - 1), ...(ord.indexOf(me) > n - 1 ? [null] : []), me];
+}
+function boardNote(board, rows, season) {
+  if (board === 'loading') return `<p class="gm-scr-note">LOADING…</p>`;
+  if (board !== 'ready') return `<p class="gm-scr-note">THE SCOREBOARD ISN’T CONNECTED RIGHT NOW</p>`;
+  if (!rows.length) return `<p class="gm-scr-note">${season ? 'NO SEASON YET' : 'YOU’RE FIRST ON TODAY’S BOARD ONCE IT POSTS'}</p>`;
+  return '';
+}
+function placeText(s) {
+  const me = s.rows && s.rows.find(r => r.me);
+  return me ? `${ui.ordinal(me.rank)} of ${s.rows.length} today` : '';
+}
+/** A case's back: the result, and today's leaderboard on its screen. */
+function backHTML(g, s) {
+  const E = ERA[g.id], place = placeText(s), note = boardNote(s.board, s.rows || []);
+  const rows = note || `<div class="gm-scr-rows" role="list" aria-label="Today’s leaderboard">${miniRows(s.rows, 5).map(r => (r ? rowHTML(r) : '<div class="gm-r-gap" aria-hidden="true">· · ·</div>')).join('')}</div>`;
+  return `<div class="gm-face gm-back gm-era-${E.era}" style="--gc:${E.col}">`
+    + `<span class="gm-bk-top"><span class="gm-bk-name">${esc(g.name)}</span>${s.test ? '<span class="gm-bk-tag">TEST</span>' : '<span class="gm-bk-tag">FINAL</span>'}</span>`
+    + `<span class="gm-bk-res"><span class="gm-bk-vis">${s.vis || ''}</span><span class="gm-bk-tt"><b class="gm-bk-h${s.gold ? ' is-gold' : ''}">${esc(s.head || '')}</b>`
+    + `${(s.lines || []).map(l => `<small>${esc(l)}</small>`).join('')}${place ? `<em>${esc(place)}</em>` : ''}</span></span>`
+    + `<span class="gm-scr"><span class="gm-scr-h">TODAY’S LEADERBOARD</span>${rows}</span>`
+    + `<span class="gm-bk-foot"><span class="gm-bar" aria-hidden="true"></span><span class="gm-bk-tap">TAP FOR THE SEASON ▸</span></span></div>`;
+}
+function caseHTML(g, s, i, n) {
+  const done = s.kind === 'done';
+  const what = done ? `${g.name}: played today${placeText(s) ? `, ${placeText(s)}` : ''}. Show the leaderboard` : `${g.name}${s.kind === 'started' ? ', under way' : ''}`;
+  return `<div class="gm-slot" role="group" aria-roledescription="slide" aria-label="${i + 1} of ${n}" data-gm-slot="${g.id}">`
+    + `<button type="button" class="gm-case${done ? ' is-done' : ''}" data-gm="${g.id}" data-kind="${s.kind}" aria-label="${esc(what)}">`
+    + `<span class="gm-flip">${frontHTML(g, s)}${done ? backHTML(g, s) : ''}</span><span class="gm-gloss" aria-hidden="true"></span></button></div>`;
+}
 
+// ---------------------------------------------------------------- What's under the shelf: the game you're on
 function ctaHTML(g, s) {
   if (s.kind === 'loading') return ui.button({label: 'Loading puzzles', kind: 'primary', block: true, disabled: true, cls: 'gm-cta'});
   if (s.kind === 'error') return ui.button({label: 'Try again', kind: 'primary', block: true, attrs: {'data-gm-retry': ''}, cls: 'gm-cta'});
@@ -227,110 +311,277 @@ function ctaHTML(g, s) {
   return `<button type="button" class="btn btn-primary btn-block gm-cta" data-gm-play="${g.id}" aria-label="${esc(`${label} ${g.name}`)}">`
     + `${ui.icon('play-fill', {cls: 'gm-cta-ic'})}<span class="btn-label">${label}</span></button>`;
 }
-/** Not played yet (or under way): the thumbnail, the name and how it plays, Play. */
-function playInner(g, s) {
-  return `<div class="gm-art">${imgHTML(g.art, 'gm-art-img', 358, 201)}${s.test ? chipHTML() : ''}</div>`
-    + `<div class="gm-info"><div class="gm-head">${imgHTML(g.badge, 'gm-badge', 44, 44)}`
-    + `<div class="gm-tt"><h2 class="gm-t" id="gm-t-${g.id}">${esc(g.name)}</h2><p class="gm-sub">${esc(s.sub)}</p></div></div>`
-    + (s.meta ? `<div class="gm-meta">${s.meta}</div>` : '')
-    + `<div class="gm-ctas">${ctaHTML(g, s)}</div></div>`;
-}
-function rowHTML(r) {
-  const label = `${ui.ordinal(r.rank)}, ${r.name}${r.me ? ', you' : ''}${r.guest ? ', guest' : ''}: ${r.val}`;
-  return `<div class="gm-row${r.me ? ' is-me' : ''}" role="listitem" aria-label="${esc(label)}">`
-    + `<span class="gm-rk${r.rank <= 3 ? ' is-r' + r.rank : ''}" aria-hidden="true">${r.rank}</span>`
-    + `<span class="gm-av" aria-hidden="true">${ui.nickAvatar(r.name, {size: 28, managerId: r.managerId || null, you: r.me})}</span>`
-    + `<span class="gm-nm" aria-hidden="true"><span class="gm-nmt">${esc(r.name)}</span>${r.me ? ui.badge('you') : r.guest ? ui.badge('guest') : ''}</span>`
-    + `<span class="gm-val n4" aria-hidden="true">${esc(r.val)}</span></div>`;
-}
-/** The rows a scoreboard card shows (null: a gap): today's top three with you among them. You lead the people you're
- *  tied with, and when you're further down the top two come first, then a gap, then you. */
-export function miniRows(rows) {
-  const ord = rows.map((r, i) => ({r, i})).sort((a, b) => a.r.rank - b.r.rank || (b.r.me ? 1 : 0) - (a.r.me ? 1 : 0) || a.i - b.i).map(x => x.r);
-  const me = ord.find(r => r.me), top = ord.slice(0, 3);
-  return !me || top.includes(me) ? top : [...ord.slice(0, 2), ...(ord.indexOf(me) > 2 ? [null] : []), me];
-}
-function miniHTML(s) {
-  if (s.board === 'loading') return `<div class="gm-mini is-loading">${ui.skeleton('rows', 3, {label: 'Loading the scoreboard.'})}</div>`;
-  if (s.board !== 'ready') return `<p class="gm-note gm-mini-note">The scoreboard isn’t connected right now.</p>`;
-  if (!s.rows.length) return `<p class="gm-note gm-mini-note">You’re the first on today’s board once it posts.</p>`;
-  const list = miniRows(s.rows);
-  return `<div class="gm-mini" role="list" aria-label="Today’s scoreboard">`
-    + list.map(r => (r ? rowHTML(r) : '<div class="gm-gap" aria-hidden="true">⋯</div>')).join('') + `</div>`;
-}
-function placeText(s) {
-  const me = s.rows && s.rows.find(r => r.me);
-  return me ? `${ui.ordinal(me.rank)} of ${s.rows.length} today` : '';
-}
 function cdHTML(g) {
   if (g.id === 'puzzles' && newDay()) return `<div class="gm-cdw">${countdownHTML(true)}</div>`;
   return `<p class="gm-cd">${ui.icon('clock', {size: 15})}<span>${esc(g.cd)} <span class="gm-cd-v" data-gm-cd>${esc(ui.untilText(msToMidnight()))}</span></span></p>`;
 }
 function newDay() { try { return ready() && daily.checkDay(); } catch (_) { return false; } }
-/** Played today: the card is that game's scoreboard. */
-function boardInner(g, s) {
-  const place = placeText(s);
-  return `<header class="gm-sbh">${imgHTML(g.badge, 'gm-badge is-s', 32, 32)}<h2 class="gm-sbt" id="gm-t-${g.id}">${esc(g.name)}</h2>`
-    + `${s.test ? chipHTML() : '<span class="gm-final">Final</span>'}</header>`
-    + `<div class="gm-res"><div class="gm-vis">${s.vis}</div><div class="gm-rt">`
-    + `<p class="gm-rh${s.gold ? ' is-gold' : ''}">${s.gold ? ui.icon('trophy', {size: 16}) : ''}<span>${esc(s.head)}</span></p>`
-    + s.lines.map(l => `<p class="gm-rl">${esc(l)}</p>`).join('')
-    + (place ? `<p class="gm-place">${esc(place)}</p>` : '') + `</div></div>`
-    + miniHTML(s)
-    + `<div class="gm-ctas">${s.actions.map(a => ui.button({label: a.label, kind: a.kind, icon: a.icon, attrs: a.attrs, cls: 'gm-act'})).join('')}</div>`
-    + cdHTML(g);
+function selHTML(g, s) {
+  const done = s.kind === 'done';
+  const over = s.test ? 'Test play' : done ? 'Played today' : s.kind === 'started' ? 'Under way' : s.kind === 'loading' ? 'Loading' : 'New today';
+  const line = done ? [s.head, ...(s.lines || []), placeText(s)].filter(Boolean).join(' · ') : s.sub;
+  const acts = done ? [{label: 'Leaderboard', kind: 'primary', icon: 'trophy', attrs: {'data-gm-zoom': g.id}}, ...s.actions.map(a => ({...a, kind: 'secondary'}))] : null;
+  return `<p class="gm-sel-o">${esc(over)}</p><h2 class="gm-sel-t" id="gm-t-${g.id}">${esc(g.name)}</h2><p class="gm-sel-s">${esc(line || '')}</p>`
+    + (!done && s.meta ? `<div class="gm-meta">${s.meta}</div>` : '')
+    + `<div class="gm-ctas">${acts ? acts.map(a => ui.button({label: a.label, kind: a.kind, icon: a.icon, attrs: a.attrs, cls: 'gm-act'})).join('') : ctaHTML(g, s)}</div>`
+    + (done ? cdHTML(g) : '');
 }
-const innerHTML = (g, s) => (s.kind === 'done' ? boardInner(g, s) : playInner(g, s));
 function stateOf(g) {
   try { return STATE[g.id](); } catch (e) { console.error(e); return {kind: 'new', sub: SUBS[g.id] || ''}; }
 }
-function cardHTML(g, s = stateOf(g)) {
-  return `<article class="card gm-card is-${s.kind}" data-gm="${g.id}" data-kind="${s.kind}" aria-labelledby="gm-t-${g.id}">${innerHTML(g, s)}</article>`;
-}
-/** The list as it stands now (the cores that haven't loaded yet show Play). */
+/** The shelf as it stands now (the cores that haven't loaded yet show Play). */
 export function listHTML() {
-  const list = gamesFor();
-  return `<div class="gm-list" data-key="games" data-enter data-ids="${list.map(g => g.id).join(' ')}">${list.map(g => cardHTML(g)).join('')}</div>`;
+  const list = gamesFor(), states = list.map(stateOf);
+  return `<div class="gm-list" data-key="games" data-enter data-ids="${list.map(g => g.id).join(' ')}">`
+    + `<div class="gm-shelf" data-hscroll role="region" aria-roledescription="carousel" aria-label="Daily games: swipe across" tabindex="0">`
+    + list.map((g, i) => caseHTML(g, states[i], i, list.length)).join('') + `</div>`
+    + `<div class="gm-pips" aria-hidden="true">${list.map((g, i) => `<i class="gm-pip${states[i].kind === 'done' ? ' is-done' : ''}" data-gm-pip="${g.id}"></i>`).join('')}</div>`
+    + `<div class="gm-sel" data-gm-sel aria-live="polite">${selHTML(list[0], states[0])}</div></div>`;
 }
 
 // ============================================================================ Behavior
-/** Wires the list in el: the cores load at idle; refresh(animate) brings every card up to date (a card that changed
- *  state crossfades), tick() moves the countdowns. */
-export function mountList(el, ctx) {
-  const st = {dead: false};
+// The pixel art: the cover drawn small and shown big (the black box's chunky screenshot; the Game Boy's four greens).
+const GB = [[15, 56, 15], [48, 98, 48], [139, 172, 15], [155, 188, 15]];
+const ARTS = new Map();
+function pixelate(cv) {
+  if (cv.dataset.done) return;
+  const src = cv.dataset.src, kind = cv.dataset.pix;
+  const draw = img => {
+    const c = cv.getContext('2d'), w = cv.width, h = cv.height, iw = img.naturalWidth, ih = img.naturalHeight;
+    const k = Math.max(w / iw, h / ih), sw = w / k, sh = h / k;
+    c.imageSmoothingEnabled = true;
+    c.drawImage(img, (iw - sw) / 2, (ih - sh) / 2, sw, sh, 0, 0, w, h);
+    if (kind === 'gb') {
+      const d = c.getImageData(0, 0, w, h), px = d.data;
+      for (let i = 0; i < px.length; i += 4) {
+        const l = (px[i] * .3 + px[i + 1] * .59 + px[i + 2] * .11) / 255, q = GB[Math.min(3, Math.floor(l * 4.2))];
+        px[i] = q[0]; px[i + 1] = q[1]; px[i + 2] = q[2];
+      }
+      c.putImageData(d, 0, 0);
+    }
+    cv.dataset.done = '1';
+  };
+  if (ARTS.has(src) && ARTS.get(src).complete) { draw(ARTS.get(src)); return; }
+  const img = ARTS.get(src) || new Image();
+  ARTS.set(src, img);
+  img.addEventListener('load', () => { if (cv.isConnected) draw(img); }, {once: true});
+  if (!img.src) img.src = src;
+}
+const SHELF_KEY = 'gg-shelf';
+/** Wires the shelf in el: the cores load at idle; refresh(animate) brings every case (and what's under the shelf) up to
+ *  date (a game just finished turns its case round), tick() moves the countdown. opts.play(id): open a game. */
+export function mountList(el, ctx, opts = {}) {
+  const st = {dead: false, cur: 0, zoom: null, raf: 0, saved: 0};
+  const shelf = el.querySelector('.gm-shelf'), sel = el.querySelector('[data-gm-sel]');
+  const list = () => gamesFor().filter(g => el.querySelector(`.gm-slot[data-gm-slot="${g.id}"]`));
+  const slots = () => [...el.querySelectorAll('.gm-slot')];
+  const shown = new Map(); // id → the markup its case shows
+  const sig = (g, s) => `${s.kind}|${s.test ? 1 : 0}|${s.kind === 'done' ? backHTML(g, s) : frontHTML(g, s)}`;
+  el.querySelectorAll('canvas.gm-pix').forEach(pixelate);
+  // the case in the middle: bigger and lit, the others smaller and turned a little toward it
+  const layout = () => {
+    st.raf = 0;
+    const box = shelf.getBoundingClientRect(), mid = box.left + box.width / 2;
+    let best = 0, bd = Infinity;
+    slots().forEach((sl, i) => {
+      const r = sl.getBoundingClientRect(), d = (r.left + r.width / 2 - mid) / (r.width || 1), a = Math.min(1, Math.abs(d));
+      sl.style.setProperty('--k', a.toFixed(3));
+      sl.style.setProperty('--d', Math.max(-1.5, Math.min(1.5, d)).toFixed(3));
+      sl.classList.toggle('is-cur', a < .5);
+      if (Math.abs(d) < bd) { bd = Math.abs(d); best = i; }
+    });
+    if (best !== st.cur) setCur(best);
+  };
+  const onScroll = () => {
+    if (!st.raf) st.raf = requestAnimationFrame(layout);
+    clearTimeout(st.saved);
+    st.saved = setTimeout(() => { const g = list()[st.cur]; if (g) try { sessionStorage.setItem(SHELF_KEY, g.id); } catch (_) {} }, 200);
+  };
+  function setCur(i, animate = true) {
+    st.cur = i;
+    const g = list()[i];
+    if (!g) return;
+    el.querySelectorAll('[data-gm-pip]').forEach(p => p.classList.toggle('is-cur', p.dataset.gmPip === g.id));
+    const html = selHTML(g, stateOf(g));
+    if (sel.dataset.html === html) return;
+    const go = () => { sel.dataset.html = html; sel.innerHTML = html; ui.hydrate(sel); };
+    if (animate && ctx.visible && !ui.RM) ui.crossfade(sel, go, {duration: 140}); else go();
+  }
+  const center = (i, smooth = true) => {
+    const sl = slots()[i];
+    if (!sl) return;
+    shelf.scrollTo({left: sl.offsetLeft + sl.offsetWidth / 2 - shelf.clientWidth / 2, behavior: smooth && !ui.RM ? 'smooth' : 'auto'});
+  };
+  // ---------------------------------------------------------------- the back, up close
+  function rowsFor(g, mode) {
+    if (mode === 'season') return {board: g.id === 'puzzles' ? dailyBoard() : boardOf({'17-0': C.sv, drill: C.dr, kick: C.kk, return: C.rm}[g.id] || {boardState: () => 'loading'}), rows: seasonRowsOf(g.id)};
+    const s = stateOf(g);
+    return {board: s.board, rows: (s.rows || []).map(r => ({...r, sub: SUB_TODAY[g.id](r)}))};
+  }
+  function zoomBody(g, mode) {
+    const {board, rows} = rowsFor(g, mode), note = boardNote(board, rows, mode === 'season');
+    const me = rows.find(r => r.me);
+    return (me ? `<p class="gm-z-me">YOU: ${esc(ui.ordinal(me.rank).toUpperCase())} OF ${rows.length} · ${esc(me.val)}</p>` : '')
+      + (note || `<div class="gm-scr-rows" role="list" aria-label="${mode === 'season' ? 'The season' : 'Today'}">${rows.map(r => rowHTML(r, {sub: true})).join('')}</div>`);
+  }
+  function openZoom(id) {
+    const g = byId(id), cs = el.querySelector(`.gm-case[data-gm="${id}"]`);
+    if (!g || st.zoom) return;
+    const E = ERA[id], s = stateOf(g);
+    const z = document.createElement('div');
+    z.className = 'gm-zoom';
+    z.innerHTML = `<div class="gm-z-scrim" data-gm-zclose></div>`
+      + `<div class="gm-z-case gm-back gm-era-${E.era}" style="--gc:${E.col}" role="dialog" aria-modal="true" aria-labelledby="gm-z-t" tabindex="-1">`
+      + `<div class="gm-bk-top"><span class="gm-bk-name" id="gm-z-t">${esc(g.name)}</span>${ui.iconButton({icon: 'close', label: 'Close', cls: 'gm-z-x', filled: true, attrs: 'data-gm-zclose'})}</div>`
+      + `<div class="gm-bk-res"><span class="gm-bk-vis">${s.vis || ''}</span><span class="gm-bk-tt"><b class="gm-bk-h${s.gold ? ' is-gold' : ''}">${esc(s.head || '')}</b>${(s.lines || []).map(l => `<small>${esc(l)}</small>`).join('')}</span></div>`
+      + `<div class="gm-z-tog" role="tablist" aria-label="Leaderboard"><button type="button" role="tab" aria-selected="true" data-gm-zmode="today">TODAY</button><button type="button" role="tab" aria-selected="false" data-gm-zmode="season">SEASON</button></div>`
+      + `<div class="gm-scr is-z"><div class="gm-z-body" data-gm-zbody>${zoomBody(g, 'today')}</div></div>`
+      + `<div class="gm-bk-foot"><span class="gm-bar" aria-hidden="true"></span><span class="gm-rate" aria-hidden="true"><b>L</b><small>LEAGUE</small></span>`
+      + `${ui.button({label: 'Open the game', kind: 'secondary', size: 's', attrs: {'data-gm-open': id}, cls: 'gm-z-open'})}</div></div>`;
+    (document.getElementById('overlays') || document.body).appendChild(z);
+    ui.hydrate(z);
+    const card = z.querySelector('.gm-z-case'), app = document.getElementById('app');
+    st.zoom = {el: z, id, mode: 'today', app, prev: app ? app.inert : false};
+    if (app && !z.closest('#app')) app.inert = true;
+    // from the case on the shelf up to the middle of the screen
+    if (cs && !ui.RM) {
+      const a = cs.getBoundingClientRect(), b = card.getBoundingClientRect();
+      const sx = a.width / b.width, sy = a.height / b.height, dx = a.left + a.width / 2 - (b.left + b.width / 2), dy = a.top + a.height / 2 - (b.top + b.height / 2);
+      ui.animate(card, [{transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`, opacity: .6}, {transform: 'none', opacity: 1}], {duration: 420, easing: 'cubic-bezier(.22,1,.36,1)'});
+      ui.animate(z.querySelector('.gm-z-scrim'), [{opacity: 0}, {opacity: 1}], {duration: 300, easing: 'linear'});
+    }
+    z.addEventListener('click', e => {
+      if (e.target.closest('[data-gm-zclose]')) { closeZoom(); return; }
+      const m = e.target.closest('[data-gm-zmode]');
+      if (m && m.dataset.gmZmode !== st.zoom.mode) {
+        st.zoom.mode = m.dataset.gmZmode;
+        z.querySelectorAll('[data-gm-zmode]').forEach(b => b.setAttribute('aria-selected', String(b === m)));
+        const body = z.querySelector('[data-gm-zbody]');
+        const go = () => { body.innerHTML = zoomBody(g, st.zoom.mode); ui.hydrate(body); body.scrollTop = 0; };
+        if (!ui.RM) ui.crossfade(body, go, {duration: 140}); else go();
+        ui.haptic('selection');
+        return;
+      }
+      const open = e.target.closest('[data-gm-open]');
+      if (open) { closeZoom(true); ctx.nav(gamePath(open.dataset.gmOpen)); }
+    });
+    z.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); closeZoom(); } });
+    card.focus({preventScroll: true});
+    ui.haptic('light');
+  }
+  function closeZoom(fast) {
+    const Z = st.zoom;
+    if (!Z) return;
+    st.zoom = null;
+    if (Z.app) Z.app.inert = Z.prev;
+    const cs = el.querySelector(`.gm-case[data-gm="${Z.id}"]`), card = Z.el.querySelector('.gm-z-case');
+    if (fast || ui.RM || !cs || !card) { Z.el.remove(); if (cs && !fast) cs.focus({preventScroll: true}); return; }
+    const a = cs.getBoundingClientRect(), b = card.getBoundingClientRect();
+    const sx = a.width / b.width, sy = a.height / b.height, dx = a.left + a.width / 2 - (b.left + b.width / 2), dy = a.top + a.height / 2 - (b.top + b.height / 2);
+    ui.animate(Z.el.querySelector('.gm-z-scrim'), [{opacity: 1}, {opacity: 0}], {duration: 260, easing: 'linear'});
+    const an = ui.animate(card, [{transform: 'none', opacity: 1}, {transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`, opacity: .4}], {duration: 300, easing: 'cubic-bezier(.4,0,.6,1)'});
+    const done = () => { Z.el.remove(); cs.focus({preventScroll: true}); };
+    if (an && an.finished) an.finished.then(done, done); else setTimeout(done, 300);
+  }
+  // ---------------------------------------------------------------- taps, keys
+  const onClick = e => {
+    const zb = e.target.closest('[data-gm-zoom]');
+    if (zb) { openZoom(zb.dataset.gmZoom); return; }
+    const cs = e.target.closest('.gm-case[data-gm]');
+    if (!cs) return;
+    const i = list().findIndex(g => g.id === cs.dataset.gm);
+    if (i !== st.cur) { ui.haptic('selection'); center(i); return; }
+    if (cs.dataset.kind === 'done') { openZoom(cs.dataset.gm); return; }
+    if (cs.dataset.kind === 'loading') return;
+    if (cs.dataset.kind === 'error') { const b = sel.querySelector('[data-gm-retry]'); if (b) b.click(); return; }
+    ui.haptic('light');
+    if (opts.play) opts.play(cs.dataset.gm);
+  };
+  const onKey = e => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    e.preventDefault();
+    const i = Math.max(0, Math.min(list().length - 1, st.cur + (e.key === 'ArrowLeft' ? -1 : 1)));
+    if (i !== st.cur) center(i);
+  };
+  shelf.addEventListener('scroll', onScroll, {passive: true});
+  shelf.addEventListener('keydown', onKey);
+  el.addEventListener('click', onClick);
+  const onResize = () => { center(st.cur, false); layout(); };
+  addEventListener('resize', onResize, {passive: true});
+  const onPop = () => closeZoom(true);
+  addEventListener('popstate', onPop);
+  addEventListener('hashchange', onPop);
+  // where you were on the shelf, else the first game you haven't played today
+  const start = () => {
+    let id = null;
+    try { id = sessionStorage.getItem(SHELF_KEY); } catch (_) {}
+    const gs = list();
+    let i = gs.findIndex(g => g.id === id);
+    if (i < 0) i = Math.max(0, gs.findIndex(g => stateOf(g).kind !== 'done'));
+    center(i, false);
+    st.cur = -1;
+    layout();
+  };
+  requestAnimationFrame(start);
+
   const refresh = (animate = true) => {
     if (st.dead) return;
-    // a change of who this phone is can add or take away a game (Return Man): the list is drawn again
+    // a change of who this phone is can add or take away a game (Return Man): the shelf is drawn again
     const ids = gamesFor().map(g => g.id).join(' ');
     if (el.dataset.ids !== ids) {
+      const t = document.createElement('div');
+      t.innerHTML = listHTML();
       el.dataset.ids = ids;
-      el.innerHTML = gamesFor().map(g => cardHTML(g)).join('');
-      ui.hydrate(el);
+      shelf.innerHTML = t.querySelector('.gm-shelf').innerHTML;
+      el.querySelector('.gm-pips').innerHTML = t.querySelector('.gm-pips').innerHTML;
+      shown.clear();
+      ui.hydrate(shelf);
+      shelf.querySelectorAll('canvas.gm-pix').forEach(pixelate);
       if (gameOpen('return')) { coresAsked = false; loadCores(() => refresh(true)); }
+      requestAnimationFrame(start);
       return;
     }
-    gamesFor().forEach(g => {
-      const card = el.querySelector(`.gm-card[data-gm="${g.id}"]`);
-      if (!card) return;
-      const s = stateOf(g), html = innerHTML(g, s);
-      if (shown.get(card) === html) return;
-      const was = card.dataset.kind;
-      const go = () => {
-        card.className = `card gm-card is-${s.kind}`;
-        card.dataset.kind = s.kind;
-        card.innerHTML = html;
-        shown.set(card, html);
-        ui.hydrate(card);
-      };
-      if (animate && was !== s.kind && ctx.visible && !ui.RM) ui.crossfade(card, go, {duration: 200}); else go();
+    list().forEach((g, i) => {
+      const cs = el.querySelector(`.gm-case[data-gm="${g.id}"]`);
+      if (!cs) return;
+      const s = stateOf(g), key = sig(g, s);
+      if (shown.get(g.id) === key) return;
+      const was = cs.dataset.kind;
+      shown.set(g.id, key);
+      const flipNow = s.kind === 'done' && was !== 'done';
+      cs.dataset.kind = s.kind;
+      const fl = cs.querySelector('.gm-flip');
+      fl.innerHTML = frontHTML(g, s) + (s.kind === 'done' ? backHTML(g, s) : '');
+      ui.hydrate(fl);
+      fl.querySelectorAll('canvas.gm-pix').forEach(pixelate);
+      // a game just finished: its case turns round to the leaderboard
+      if (flipNow && animate && ctx.visible && !ui.RM) requestAnimationFrame(() => requestAnimationFrame(() => cs.classList.add('is-done')));
+      else cs.classList.toggle('is-done', s.kind === 'done');
+      cs.setAttribute('aria-label', s.kind === 'done' ? `${g.name}: played today${placeText(s) ? `, ${placeText(s)}` : ''}. Show the leaderboard` : `${g.name}${s.kind === 'started' ? ', under way' : ''}`);
+      const pip = el.querySelector(`[data-gm-pip="${g.id}"]`);
+      if (pip) pip.classList.toggle('is-done', s.kind === 'done');
+      if (i === st.cur) setCur(i, animate);
     });
+    if (st.zoom) {
+      const body = st.zoom.el.querySelector('[data-gm-zbody]'), g = byId(st.zoom.id), html = zoomBody(g, st.zoom.mode);
+      if (body && body.dataset.html !== html) { body.dataset.html = html; body.innerHTML = html; ui.hydrate(body); }
+    }
   };
-  const shown = new WeakMap(); // card → the markup it shows
-  el.querySelectorAll('.gm-card').forEach(card => { const g = byId(card.dataset.gm); if (g) shown.set(card, innerHTML(g, stateOf(g))); });
+  list().forEach(g => shown.set(g.id, sig(g, stateOf(g))));
   ui.whenIdle(() => loadCores(() => refresh(true)));
   const tick = () => {
     const t = ui.untilText(msToMidnight());
     el.querySelectorAll('[data-gm-cd]').forEach(v => { if (v.textContent !== t) v.textContent = t; });
   };
-  return {refresh, tick, destroy() { st.dead = true; }};
+  return {refresh, tick, destroy() {
+    st.dead = true;
+    closeZoom(true);
+    shelf.removeEventListener('scroll', onScroll);
+    shelf.removeEventListener('keydown', onKey);
+    el.removeEventListener('click', onClick);
+    removeEventListener('resize', onResize);
+    removeEventListener('popstate', onPop);
+    removeEventListener('hashchange', onPop);
+    if (st.raf) cancelAnimationFrame(st.raf);
+  }};
 }
