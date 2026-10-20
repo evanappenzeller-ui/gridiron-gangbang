@@ -133,7 +133,7 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
 .v-puzzles .gm-list { position: relative; margin-top: 2px; }
 .v-puzzles .gm-list::before {
   content: ""; position: absolute; left: calc(-1 * var(--gutter)); right: calc(-1 * var(--gutter)); top: 0; height: 420px; pointer-events: none;
-  background: radial-gradient(ellipse 60% 52% at 50% 46%, rgba(90,160,180,.14), transparent 72%);
+  background: radial-gradient(ellipse 56% 50% at 50% 47%, rgba(70,180,30,.3), rgba(50,150,20,.12) 46%, transparent 72%);
 }
 .v-puzzles .gm-shelf {
   --cw: min(62cqw, 262px);
@@ -159,11 +159,14 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
 .v-puzzles .gm-case:focus-visible { outline: none; }
 .v-puzzles .gm-case::after {
   content: ""; position: absolute; inset: 0; border-radius: 10px; pointer-events: none; opacity: 0; transition: opacity .2s linear;
-  box-shadow: 0 0 28px 4px rgba(190,205,255,.4);
+  --gm-glow: 0 0 3px 1px rgba(200,255,125,.9), 0 0 10px 2px rgba(132,230,52,.66), 0 0 22px 5px rgba(80,190,26,.42);
+  box-shadow: var(--gm-glow);
 }
-/* the case you're on glows (no white outline: the owner's ask, Oct 2026); the outline only for a keyboard's focus */
+/* the case you're on glows green, bright at its edge and deeper green as it fades (no white outline: the owner's
+   ask, Oct 2026), the wide soft part of it the green behind the shelf (.gm-list::before: a glow this wide on the case
+   itself would be cut off at the scroller's top); the outline only for a keyboard's focus */
 .v-puzzles .gm-slot.is-cur .gm-case::after { opacity: 1; }
-.v-puzzles .gm-case:focus-visible::after { opacity: 1; box-shadow: 0 0 0 3px #fff, 0 0 28px 4px rgba(190,205,255,.4); }
+.v-puzzles .gm-case:focus-visible::after { opacity: 1; box-shadow: 0 0 0 3px #fff, var(--gm-glow); }
 .v-puzzles .gm-flip { position: absolute; inset: 0; transform-style: preserve-3d; border-radius: inherit; transition: transform .95s cubic-bezier(.3,1.3,.45,1); }
 .v-puzzles .gm-case.is-done .gm-flip { transform: rotateY(180deg); }
 .v-puzzles .gm-face { position: absolute; inset: 0; border-radius: 10px; overflow: hidden; -webkit-backface-visibility: hidden; backface-visibility: hidden; text-align: left; }
