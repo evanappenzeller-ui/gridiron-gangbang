@@ -1254,21 +1254,23 @@ const VEHICLES = {
   // ---------------------------------------------------------------- the city: the city bus; road work
   city: {
     hi(st, c, b, p) {
-      box(st, c, b, {front: '#E9EDF2', side: '#CBD2DA', top: '#B9C1CB',
+      box(st, c, b, {front: '#F2F4F7', side: '#DCE1E8', top: '#C9D0D9',
         sideDeco: (sx, za, zb) => {
           fill(c, sideQ(st, sx, 0, .4, za, zb), '#3C424B');
-          fill(c, sideQ(st, sx, .55, 1.1, za, zb), '#1F6FE0');
+          fill(c, sideQ(st, sx, .55, 1.1, za, zb), '#D8322B');
+          fill(c, sideQ(st, sx, 2.7, 2.95, za, zb), '#1E4FB8');
           windows(st, c, sx, 1.35, 2.55, p.z0 + 1.8, p.z1 - .4, 2.1, .18, za, zb, '#1E2A3A');
           wheels(st, c, sx, [p.z0 + 2, p.z1 - 2.4], .52, za, zb);
         },
-        topDeco: (za, zb) => fill(c, topQ(st, b.y1, b.x0 + .5, b.x1 - .5, Math.max(za, p.z0 + 3), Math.max(za, Math.min(zb, p.z0 + 6))), '#A3ACB7'),
+        topDeco: (za, zb) => fill(c, topQ(st, b.y1, b.x0 + .7, b.x1 - .7, za, zb), '#1E4FB8'),
         frontDeco: (w, h) => {
           c.fillStyle = '#111317'; c.fillRect(-w / 2 + .15, -h + .1, w - .3, .42);
           c.fillStyle = '#FF9B21'; c.font = `800 .3px ${DISPLAY}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('17  STADIUM', 0, -h + .31);
           c.fillStyle = '#1E2A3A'; rr(c, -w / 2 + .12, -h + .62, w - .24, 1.5, .1); c.fill();
           c.fillStyle = 'rgba(200,225,255,.25)'; c.beginPath(); c.moveTo(w / 2 - .4, -h + .7); c.lineTo(w / 2 - .9, -h + 2); c.lineTo(w / 2 - 1.2, -h + 2); c.lineTo(w / 2 - .7, -h + .7); c.fill();
-          c.fillStyle = '#1F6FE0'; c.fillRect(-w / 2, -1.1, w, .5);
+          c.fillStyle = '#D8322B'; c.fillRect(-w / 2, -1.1, w, .5);
           lights(w, h, .45)(c);
+          badge(c, 0, -1.55, .5);
           c.strokeStyle = '#3C424B'; c.lineWidth = .06; c.strokeRect(-.6, -1.0, 1.2, .5);
         }});
     },
@@ -1550,14 +1552,250 @@ function ramp(st, c, p, look) {
   c.fill();
 }
 /** A vehicle (and its ramp) in its lane, in the place it stands in. */
+// The things on the owner's sheet (Oct 2026: "Run, Jump, Climb"), each part by part (p.part: which of its pieces).
+const wood = (st, c, sx, za, zb, y0, y1, pitch, col = 'rgba(60,30,10,.3)') => { c.fillStyle = col; c.beginPath(); for (let y = y0 + pitch; y < y1 - .02; y += pitch) path(c, sideQ(st, sx, y, y + .05, za, zb)); c.fill(); };
+const planks = (st, c, b, za, zb, pitch, col = 'rgba(60,30,10,.28)') => { c.fillStyle = col; c.beginPath(); marks(za, zb, pitch, b.z0).forEach(z => path(c, topQ(st, b.y1, b.x0, b.x1, z, z + .07))); c.fill(); };
+/** A football on a round white badge (the sheet's mark on everything), r its radius, in the front's yards. */
+function badge(c, x, y, r) {
+  c.fillStyle = '#FFFFFF'; c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill();
+  c.strokeStyle = 'rgba(0,0,0,.2)'; c.lineWidth = r * .1; c.stroke();
+  football(c, x, y, r * 1.35);
+}
+/** A pennant on the front: a team colour, a football, hanging from a little bar. */
+function flag(c, x, y, col, k = 1) {
+  c.fillStyle = col; c.beginPath(); c.moveTo(x - .45 * k, y); c.lineTo(x + .45 * k, y); c.lineTo(x + .45 * k, y + .55 * k); c.lineTo(x, y + 1.05 * k); c.lineTo(x - .45 * k, y + .55 * k); c.fill();
+  football(c, x, y + .42 * k, .45 * k);
+}
+const KIND_DRAW = {
+  teambus: VEHICLES.stadium.hi, bench: VEHICLES.stadium.lo, rv: VEHICLES.tailgate.hi, pong: VEHICLES.tailgate.lo,
+  citybus: VEHICLES.city.hi, plow: VEHICLES.tundra.hi, snowbank: VEHICLES.tundra.lo, train: VEHICLES.desert.hi,
+  producetruck: VEHICLES.market.hi, icecream: VEHICLES.beach.hi, shuttle: VEHICLES.space.hi, combine: VEHICLES.farm.hi,
+  // ---------------------------------------------------------------- the desert
+  canyon(st, c, b, p) {
+    box(st, c, b, {front: '#C8613C', side: '#B9512E', top: '#E39A68',
+      sideDeco: (sx, za, zb) => { wood(st, c, sx, za, zb, 0, b.y1, .45, 'rgba(110,40,20,.3)'); fill(c, sideQ(st, sx, b.y1 - .25, b.y1, za, zb), '#E39A68'); },
+      topDeco: (za, zb) => { c.fillStyle = 'rgba(150,80,40,.25)'; c.beginPath(); marks(za, zb, 2.3, b.z0 + .8).forEach((z, k) => { const q = P(st, (b.x0 + b.x1) / 2 + (k % 2 ? .5 : -.4), b.y1, z), w = q.s * .3; c.moveTo(q.x + w, q.y); c.ellipse(q.x, q.y, w, w * .3, 0, 0, Math.PI * 2); }); c.fill(); },
+      frontDeco: (w, h) => flag(c, w / 2 - .3, -h - .2, '#C8102E', .9)});
+  },
+  minecart(st, c, b, p) {
+    box(st, c, b, {front: '#7A5233', side: '#6B4628', top: '#3E2A1A',
+      sideDeco: (sx, za, zb) => {
+        fill(c, sideQ(st, sx, 0, .3, za, zb), '#2A2C30');
+        wood(st, c, sx, za, zb, .3, b.y1, .26);
+        fill(c, sideQ(st, sx, b.y1 - .14, b.y1, za, zb), '#8A929C'); fill(c, sideQ(st, sx, .3, .42, za, zb), '#8A929C');
+        wheels(st, c, sx, [p.z0 + .6, p.z1 - .6], .26, za, zb, '#2A2C30');
+      },
+      topDeco: (za, zb) => { c.fillStyle = '#B07A48'; c.beginPath(); marks(za, zb, .55, b.z0 + .2).forEach((z, k) => path(c, topQ(st, b.y1 + .05, b.x0 + .25 + (k % 2) * .4, b.x0 + 1.3 + (k % 2) * .4, z, z + .4))); c.fill(); },
+      frontDeco: (w, h) => {
+        c.fillStyle = 'rgba(60,30,10,.35)'; for (let y = -h + .3; y < -.3; y += .26) c.fillRect(-w / 2, y, w, .05);
+        c.fillStyle = '#8A929C'; c.fillRect(-w / 2, -h, w, .14); c.fillRect(-w / 2, -.42, w, .12); c.fillRect(-w / 2, -h, .14, h - .3); c.fillRect(w / 2 - .14, -h, .14, h - .3);
+        badge(c, 0, -.72, .26);
+        c.fillStyle = '#2A2C30'; c.fillRect(-w / 2 + .1, -.3, w - .2, .3);
+      }});
+  },
+  wagonbridge(st, c, b, p) {
+    box(st, c, b, {front: '#9C6B3E', side: '#8A5A34', top: '#C98A4E',
+      sideDeco: (sx, za, zb) => {
+        fill(c, sideQ(st, sx, 0, b.y1 - .45, za, zb), 'rgba(60,35,18,.85)');
+        fill(c, sideQ(st, sx, b.y1 - .45, b.y1, za, zb), '#A86E3E');
+        c.fillStyle = '#5B3E2A'; c.beginPath(); marks(za, zb, 2.2, b.z0 + .3).forEach(z => path(c, sideQ(st, sx, 0, b.y1 - .45, z, z + .25))); c.fill();
+        wheels(st, c, sx, [p.z0 + 1.6, p.z1 - 1.6], .75, za, zb, '#6B4325');
+      },
+      topDeco: (za, zb) => planks(st, c, b, za, zb, .5),
+      frontDeco: (w, h) => { c.fillStyle = '#5B3E2A'; c.fillRect(-w / 2, -h + .45, w, h - .45); flag(c, -w / 2 + .45, -h - .1, '#C8102E', .85); }});
+  },
+  // ---------------------------------------------------------------- the city
+  parkedcar(st, c, b, p) {
+    box(st, c, b, {front: '#2F5BD8', side: '#2849B0', top: '#3A68E6',
+      sideDeco: (sx, za, zb) => {
+        fill(c, sideQ(st, sx, 0, .25, za, zb), '#1E2230');
+        windows(st, c, sx, .82, 1.18, p.z0 + 1.2, p.z1 - .9, 1.25, .12, za, zb, '#1C2530');
+        fill(c, sideQ(st, sx, .55, .62, za, zb), '#FFFFFF');
+        wheels(st, c, sx, [p.z0 + .9, p.z1 - .9], .36, za, zb);
+      },
+      topDeco: (za, zb) => { const X = (b.x0 + b.x1) / 2; fill(c, topQ(st, b.y1, X - .35, X - .15, za, zb), '#FFFFFF'); fill(c, topQ(st, b.y1, X + .15, X + .35, za, zb), '#FFFFFF'); },
+      frontDeco: (w, h) => {
+        c.fillStyle = '#1C2530'; rr(c, -w / 2 + .2, -h + .05, w - .4, .4, .08); c.fill();
+        c.fillStyle = '#FFFFFF'; c.fillRect(-.3, -h, .18, h - .3); c.fillRect(.12, -h, .18, h - .3);
+        c.fillStyle = '#E8323F'; c.fillRect(-w / 2 + .1, -.62, .4, .16); c.fillRect(w / 2 - .5, -.62, .4, .16);
+        c.fillStyle = '#C9CED6'; c.fillRect(-w / 2, -.25, w, .2); c.fillStyle = '#F4F1E2'; c.fillRect(-.3, -.48, .6, .2);
+      }});
+  },
+  ramptruck(st, c, b, p) {
+    if (p.part === 0) {
+      box(st, c, b, {front: '#4A4F58', side: '#3C4048', top: '#5E6470',
+        sideDeco: (sx, za, zb) => { fill(c, sideQ(st, sx, 0, .5, za, zb), '#24262C'); fill(c, sideQ(st, sx, b.y1 - .2, b.y1, za, zb), '#F2C230'); wheels(st, c, sx, [p.z0 + 1.2, p.z0 + 2.4], .5, za, zb); },
+        topDeco: (za, zb) => planks(st, c, b, za, zb, .35, 'rgba(255,255,255,.08)')});
+      return;
+    }
+    box(st, c, b, {front: '#F2C230', side: '#D9A91B', top: '#F7D35A',
+      sideDeco: (sx, za, zb) => { fill(c, sideQ(st, sx, 0, .5, za, zb), '#24262C'); windows(st, c, sx, 1.6, 2.3, p.z0 + .3, p.z1 - .2, 2.1, .1, za, zb, '#1F2A36'); wheels(st, c, sx, [p.z1 - 1.1], .5, za, zb); },
+      frontDeco: (w, h) => { c.fillStyle = '#1F2A36'; rr(c, -w / 2 + .3, -h + .45, w - .6, .7, .1); c.fill(); badge(c, 0, -h + 1.75, .32); c.fillStyle = '#FF9B21'; c.fillRect(-w / 2 + .2, -h - .12, w - .4, .14); }});
+  },
+  // ---------------------------------------------------------------- the farmers market
+  producecart(st, c, b, p) {
+    const fruit = ['#D63B2E', '#F28C28', '#4FA845', '#F2C94C'];
+    box(st, c, b, {front: '#9C6B3E', side: '#8A5A34', top: '#C9372B',
+      sideDeco: (sx, za, zb) => { fill(c, sideQ(st, sx, 0, .3, za, zb), 'rgba(40,25,10,.6)'); wood(st, c, sx, za, zb, .3, b.y1, .28); wheels(st, c, sx, [p.z0 + .9, p.z1 - .9], .48, za, zb, '#6B4325'); },
+      topDeco: (za, zb) => fruit.forEach((col, k) => { c.fillStyle = col; c.beginPath(); marks(za, zb, 1.1, b.z0 + k * .27).forEach((z, m) => [b.x0 + .35 + (m % 2) * .3, b.x0 + 1.2 + (m % 2) * .25].forEach(x => { const q = P(st, x, b.y1 + .06, z); if (q.s > 4) { c.moveTo(q.x + q.s * .13, q.y); c.arc(q.x, q.y, q.s * .13, 0, Math.PI * 2); } })); c.fill(); }),
+      frontDeco: (w, h) => {
+        fruit.forEach((col, k) => { c.fillStyle = col; for (let x = -w / 2 + .2 + k * .12; x < w / 2 - .1; x += .5) { c.beginPath(); c.arc(x, -h - .02 + (k % 2) * .08, .14, 0, Math.PI * 2); c.fill(); } });
+        c.fillStyle = 'rgba(60,30,10,.35)'; c.fillRect(-w / 2, -.6, w, .05); c.fillRect(-w / 2, -.33, w, .05);
+        flag(c, w / 2 - .5, -h + .15, '#2E9E4F', .75);
+      }});
+  },
+  marketramp(st, c, b, p) {
+    box(st, c, b, {front: '#C98A4E', side: '#B07A48', top: '#D9A866',
+      sideDeco: (sx, za, zb) => { c.fillStyle = 'rgba(80,45,15,.45)'; c.beginPath(); marks(za, zb, 1.05, b.z0).forEach(z => path(c, sideQ(st, sx, 0, b.y1, z, z + .06))); path(c, sideQ(st, sx, b.y1 / 2 - .03, b.y1 / 2 + .03, za, zb)); c.fill(); },
+      topDeco: (za, zb) => planks(st, c, b, za, zb, .45),
+      frontDeco: (w, h) => { c.strokeStyle = 'rgba(80,45,15,.5)'; c.lineWidth = .06; c.strokeRect(-w / 2 + .05, -h + .05, w / 2 - .1, h / 2 - .1); c.strokeRect(.05, -h + .05, w / 2 - .1, h / 2 - .1); c.strokeRect(-w / 2 + .05, -h / 2 + .05, w - .1, h / 2 - .1); badge(c, 0, -h * .27, .3); }});
+  },
+  awning(st, c, b, p) {
+    if (p.part === 0) {
+      box(st, c, b, {front: '#C98A4E', side: '#B07A48', top: '#E8A04A',
+        sideDeco: (sx, za, zb) => { c.fillStyle = 'rgba(80,45,15,.45)'; c.beginPath(); marks(za, zb, 1, b.z0).forEach(z => path(c, sideQ(st, sx, 0, b.y1, z, z + .06))); c.fill(); },
+        topDeco: (za, zb) => { c.fillStyle = '#F28C28'; c.beginPath(); marks(za, zb, .5, b.z0 + .2).forEach((z, m) => [b.x0 + .4, b.x0 + 1.1, b.x0 + 1.8].forEach(x => { const q = P(st, x + (m % 2) * .2, b.y1 + .06, z); if (q.s > 4) { c.moveTo(q.x + q.s * .12, q.y); c.arc(q.x, q.y, q.s * .12, 0, Math.PI * 2); } })); c.fill(); },
+        frontDeco: (w, h) => { c.strokeStyle = 'rgba(80,45,15,.5)'; c.lineWidth = .06; c.strokeRect(-w / 2 + .05, -h + .05, w - .1, h - .1); badge(c, 0, -h / 2, .26); }});
+      return;
+    }
+    // the stall: posts and a counter under its striped awning (the awning is what you stand on)
+    box(st, c, b, {front: 'rgba(0,0,0,0)', side: 'rgba(40,25,15,.75)', top: '#D8392B',
+      sideDeco: (sx, za, zb) => {
+        fill(c, sideQ(st, sx, 0, .95, za, zb), '#9C6B3E');
+        c.fillStyle = '#6B4A33'; c.beginPath(); [p.z0 + .05, p.z1 - .25].forEach(z => { if (z + .2 > za) path(c, sideQ(st, sx, 0, b.y1, Math.max(za, z), z + .2)); }); c.fill();
+        for (let z = p.z0, k = 0; z < p.z1; z += .5, k++) { const a = Math.max(za, z), e = Math.min(zb, z + .5); if (e > a) fill(c, sideQ(st, sx, b.y1 - .35, b.y1, a, e), k % 2 ? '#FFFFFF' : '#D8392B'); }
+      },
+      topDeco: (za, zb) => { for (let z = p.z0, k = 0; z < p.z1; z += .55, k++) { const a = Math.max(za, z), e = Math.min(zb, z + .55); if (e > a && k % 2) fill(c, topQ(st, b.y1, b.x0, b.x1, a, e), '#FFFFFF'); } },
+      frontDeco: (w, h) => {
+        c.fillStyle = '#6B4A33'; c.fillRect(-w / 2, -h, .18, h); c.fillRect(w / 2 - .18, -h, .18, h);
+        c.fillStyle = '#9C6B3E'; c.fillRect(-w / 2, -.95, w, .95);
+        for (let k = 0; k < 6; k++) { c.fillStyle = k % 2 ? '#FFFFFF' : '#D8392B'; c.fillRect(-w / 2 + k * w / 6, -h, w / 6 + .01, .35); }
+        flag(c, 0, -h + .4, '#D8392B', .8);
+      }});
+  },
+  // ---------------------------------------------------------------- the beach
+  lifeguard(st, c, b, p) {
+    box(st, c, b, {front: '#C9915A', side: '#B07A48', top: '#D9A866',
+      sideDeco: (sx, za, zb) => {
+        fill(c, sideQ(st, sx, 0, b.y1 - .35, za, zb), 'rgba(40,25,15,.55)');
+        c.fillStyle = '#D83A2E'; c.beginPath(); marks(za, zb, 1.8, b.z0 + .2).forEach(z => path(c, sideQ(st, sx, 0, b.y1 - .35, z, z + .22))); c.fill();
+        fill(c, sideQ(st, sx, b.y1 - .35, b.y1, za, zb), '#B07A48');
+      },
+      topDeco: (za, zb) => planks(st, c, b, za, zb, .45),
+      frontDeco: (w, h) => { c.fillStyle = '#D83A2E'; c.fillRect(-w / 2 + .1, -h + .35, .22, h - .35); c.fillRect(w / 2 - .32, -h + .35, .22, h - .35); flag(c, -w / 2 + .5, -h - .15, '#1E4FB8', .8); c.strokeStyle = '#FFFFFF'; c.lineWidth = .14; c.beginPath(); c.arc(w / 2 - .5, -h * .45, .3, 0, Math.PI * 2); c.stroke(); }});
+  },
+  buggy(st, c, b, p) {
+    box(st, c, b, {front: '#F28C28', side: '#E07A1A', top: '#2A2C30',
+      sideDeco: (sx, za, zb) => {
+        fill(c, sideQ(st, sx, .3, .8, za, zb), '#F28C28');
+        c.strokeStyle = '#1E1F23'; c.lineWidth = 1.5; c.beginPath(); [[p.z0 + .5, p.z0 + 1.3], [p.z1 - .5, p.z1 - 1.3]].forEach(([a, e]) => { if (Math.min(a, e) < za) return; const A = P(st, sx, .8, a), B = P(st, sx, b.y1, e); c.moveTo(A.x, A.y); c.lineTo(B.x, B.y); }); c.stroke();
+        fill(c, sideQ(st, sx, .85, 1.0, Math.max(za, p.z0 + 1.3), p.z1 - 1.3), '#2F7DD8');
+        wheels(st, c, sx, [p.z0 + .7, p.z1 - .7], .45, za, zb);
+      },
+      topDeco: (za, zb) => { c.strokeStyle = '#1E1F23'; c.lineWidth = 1.2; c.beginPath(); marks(za, zb, .9, b.z0 + .4).forEach(z => { const a = P(st, b.x0, b.y1, z), e = P(st, b.x1, b.y1, z); c.moveTo(a.x, a.y); c.lineTo(e.x, e.y); }); c.stroke(); },
+      frontDeco: (w, h) => {
+        c.strokeStyle = '#1E1F23'; c.lineWidth = .12; c.strokeRect(-w / 2 + .15, -h, w - .3, h - .8);
+        c.fillStyle = '#F28C28'; c.fillRect(-w / 2, -.8, w, .5);
+        c.fillStyle = '#FFE08A'; [-1, 1].forEach(sg => { c.beginPath(); c.arc(sg * w * .32, -.55, .13, 0, Math.PI * 2); c.fill(); });
+        badge(c, 0, -.55, .2);
+        c.fillStyle = '#1E1F23'; c.fillRect(-w / 2, -.3, w, .3);
+      }});
+  },
+  pier(st, c, b, p) {
+    box(st, c, b, {front: '#B07A48', side: 'rgba(70,45,25,.7)', top: '#C9915A',
+      sideDeco: (sx, za, zb) => {
+        c.fillStyle = '#5B3E2A'; c.beginPath(); marks(za, zb, 1.4, b.z0 + .1).forEach(z => path(c, sideQ(st, sx, 0, b.y1, z, Math.min(zb, z + .25)))); c.fill();
+        fill(c, sideQ(st, sx, b.y1 - .25, b.y1, za, zb), '#A86E3E');
+      },
+      topDeco: (za, zb) => planks(st, c, b, za, zb, .4),
+      frontDeco: (w, h) => {
+        c.fillStyle = 'rgba(70,45,25,.75)'; c.fillRect(-w / 2, -h + .25, w, h - .25);
+        c.fillStyle = '#5B3E2A'; c.fillRect(-w / 2 + .05, -h - .5, .22, h + .5); c.fillRect(w / 2 - .27, -h - .5, .22, h + .5);
+        c.fillStyle = '#A86E3E'; c.fillRect(-w / 2, -h, w, .25);
+        flag(c, w / 2 - .16, -h - 1.45, '#C8102E', .55);
+      }});
+  },
+  // ---------------------------------------------------------------- outer space
+  rover(st, c, b, p) {
+    box(st, c, b, {front: '#E9ECF2', side: '#C9CED8', top: '#DDE1E8',
+      sideDeco: (sx, za, zb) => {
+        fill(c, sideQ(st, sx, .3, b.y1, za, zb), '#E9ECF2');
+        fill(c, sideQ(st, sx, .6, .75, za, zb), '#F28C28');
+        windows(st, c, sx, .8, 1.02, p.z0 + .4, p.z0 + 1.6, .55, .1, za, zb, '#2B3A62');
+        wheels(st, c, sx, [p.z0 + .6, (p.z0 + p.z1) / 2, p.z1 - .6], .42, za, zb, '#2A2C34');
+      },
+      topDeco: (za, zb) => fill(c, topQ(st, b.y1, b.x0 + .3, b.x1 - .3, Math.max(za, (p.z0 + p.z1) / 2 - .6), Math.max(za, (p.z0 + p.z1) / 2 + .6)), '#25356E'),
+      frontDeco: (w, h) => {
+        c.fillStyle = '#2B3A62'; rr(c, -w / 2 + .2, -h + .1, w - .4, .35, .08); c.fill();
+        c.fillStyle = '#F28C28'; c.fillRect(-w / 2, -.75, w, .15);
+        badge(c, 0, -.45, .2);
+        c.strokeStyle = '#9AA3B8'; c.lineWidth = .05; c.beginPath(); c.moveTo(w * .35, -h); c.lineTo(w * .35, -h - .6); c.stroke();
+        c.fillStyle = '#EEF1F7'; c.beginPath(); c.ellipse(w * .35, -h - .65, .3, .1, -.4, 0, Math.PI * 2); c.fill();
+      }});
+  },
+  cargo(st, c, b, p) {
+    box(st, c, b, {front: '#2E3446', side: '#262B3A', top: '#3A4157',
+      sideDeco: (sx, za, zb) => {
+        c.fillStyle = 'rgba(0,0,0,.25)'; c.beginPath(); marks(za, zb, .9, b.z0).forEach(z => path(c, sideQ(st, sx, .2, b.y1 - .2, z, z + .1))); c.fill();
+        fill(c, sideQ(st, sx, b.y1 - .2, b.y1 - .1, za, zb), '#5CF4FF'); fill(c, sideQ(st, sx, .3, .38, za, zb), '#5CF4FF');
+      },
+      topDeco: (za, zb) => { fill(c, topQ(st, b.y1, b.x0, b.x0 + .1, za, zb), '#5CF4FF'); fill(c, topQ(st, b.y1, b.x1 - .1, b.x1, za, zb), '#5CF4FF'); },
+      frontDeco: (w, h) => { c.strokeStyle = '#5CF4FF'; c.lineWidth = .1; c.strokeRect(-w / 2 + .12, -h + .12, w - .24, h - .24); badge(c, 0, -h / 2, .4); }});
+  },
+  hover(st, c, b, p) {
+    // its glow on the ground under it, then the pad
+    const zn = nearOf(st, p.z0, p.z1);
+    if (zn != null) {
+      const q = P(st, (b.x0 + b.x1) / 2, 0, (Math.max(zn, p.z0) + p.z1) / 2), e = P(st, b.x1, 0, (Math.max(zn, p.z0) + p.z1) / 2);
+      glow(c, q.x, q.y, Math.abs(e.x - q.x) * 1.4, '92,200,255');
+      const u = P(st, (b.x0 + b.x1) / 2, p.b, Math.max(zn, p.z0) + .3);
+      c.fillStyle = 'rgba(120,220,255,.55)'; c.beginPath(); c.ellipse(u.x, u.y, u.s * 1, u.s * .2, 0, 0, Math.PI * 2); c.fill();
+    }
+    box(st, c, b, {front: '#2A3150', side: '#222842', top: '#C9CED8',
+      sideDeco: (sx, za, zb) => fill(c, sideQ(st, sx, b.y1 - .1, b.y1, za, zb), '#F2C230'),
+      topDeco: (za, zb) => fill(c, topQ(st, b.y1, b.x0 + .35, b.x1 - .35, za, zb), '#2A3150'),
+      frontDeco: (w, h) => { c.fillStyle = '#F2C230'; c.fillRect(-w / 2, -h, w, .08); badge(c, 0, -h / 2, .11); c.fillStyle = '#5CF4FF'; c.fillRect(-w / 2 + .2, -.04, w - .4, .04); }});
+  },
+  // ---------------------------------------------------------------- the farm
+  hay: VEHICLES.farm.lo,
+  trailer(st, c, b, p) {
+    box(st, c, b, {front: '#C8322B', side: '#B02A24', top: '#C98A4E',
+      sideDeco: (sx, za, zb) => {
+        fill(c, sideQ(st, sx, 0, .45, za, zb), 'rgba(40,20,15,.6)');
+        fill(c, sideQ(st, sx, b.y1 - .3, b.y1 + .35, za, zb), 'rgba(200,50,43,.9)');
+        c.fillStyle = '#8E2A20'; c.beginPath(); marks(za, zb, 1.2, b.z0).forEach(z => path(c, sideQ(st, sx, b.y1 - .3, b.y1 + .35, z, z + .08))); c.fill();
+        wheels(st, c, sx, [p.z0 + 1.4, p.z1 - 1.4], .55, za, zb);
+      },
+      topDeco: (za, zb) => planks(st, c, b, za, zb, .4),
+      frontDeco: (w, h) => { c.fillStyle = 'rgba(40,20,15,.6)'; c.fillRect(-w / 2, -.45, w, .45); flag(c, w / 2 - .45, -h - .1, '#C8102E', .75); }});
+  },
+  fence(st, c, b, p) {
+    if (b.z0 < st.camZ + NEAR) return;
+    flat(st, c, (b.x0 + b.x1) / 2, 0, b.z0);
+    const w = b.x1 - b.x0 + .3, h = b.y1;
+    c.fillStyle = '#F4F1EA';
+    c.fillRect(-w / 2, -h - .15, .22, h + .15); c.fillRect(w / 2 - .22, -h - .15, .22, h + .15);
+    c.fillRect(-w / 2, -h + .05, w, .2); c.fillRect(-w / 2, -h * .5, w, .2);
+    c.strokeStyle = 'rgba(0,0,0,.12)'; c.lineWidth = .03; c.strokeRect(-w / 2, -h + .05, w, .2);
+    flag(c, 0, -h + .25, '#C8102E', .7);
+    [[-w / 2 - .25, -.9], [w / 2 + .25, -1.1]].forEach(([x, y]) => { c.strokeStyle = '#3E8E3A'; c.lineWidth = .06; c.beginPath(); c.moveTo(x, 0); c.lineTo(x, y); c.stroke(); c.fillStyle = '#F7C62F'; c.beginPath(); c.arc(x, y, .2, 0, Math.PI * 2); c.fill(); c.fillStyle = '#6B3E1E'; c.beginPath(); c.arc(x, y, .08, 0, Math.PI * 2); c.fill(); });
+    c.restore();
+  }
+};
+// The ramps up the things that have them: the place's colours, or the thing's own.
+const RAMP_OF = {canyon: ['#C98A4E', '#8E5E34', '#6E4A33'], wagonbridge: ['#C98A4E', '#8E5E34', '#C8102E'], ramptruck: ['#5E6470', '#3E434C', '#F2C230'],
+  marketramp: ['#D9A866', '#A87A44', '#2E9E4F'], lifeguard: ['#C9915A', '#9C6A3C', '#1FA6C9'], cargo: ['#4A5068', '#30354A', '#5CF4FF'], trailer: ['#C98A4E', '#8E5E34', '#C8322B']};
+const WIDE = {fence: 1.35, pier: 1.3, hover: 1.2, canyon: 1.3, marketramp: 1.25, awning: 1.25, lifeguard: 1.25, cargo: 1.25, wagonbridge: 1.25, trailer: 1.2, ramptruck: 1.2};
+/** A thing in a lane (one part of it), in the place it stands in. */
 export function vehicle(st, c, p) {
-  const th = themeOf(st, p.z0), X = R.xOf(null, p.lane), w = p.hi ? HW : LW;
-  const b = {x0: X - w, x1: X + w, y0: 0, y1: p.h, z0: p.z0, z1: p.z1};
+  const th = themeOf(st, p.z0), X = R.xOf(null, p.lane), w = WIDE[p.kind] || (p.hi ? HW : LW);
+  const b = {x0: X - w, x1: X + w, y0: p.b || 0, y1: p.h, z0: p.z0, z1: p.z1};
   const zn = nearOf(st, p.z0 - (p.ramp || 0), p.z1);
   if (zn == null) return;
-  fill(c, gnd(st, b.x0 - .25, b.x1 + .35, Math.max(zn, p.z0 - .2), p.z1 + .9), 'rgba(0,0,0,.26)');
-  VEHICLES[th.id][p.hi ? 'hi' : 'lo'](st, c, b, p);
-  if (p.ramp) ramp(st, c, p, RAMPS[th.id]);
+  if (!p.b) fill(c, gnd(st, b.x0 - .25, b.x1 + .35, Math.max(zn, p.z0 - .2), p.z1 + .9), 'rgba(0,0,0,.26)');
+  const draw = KIND_DRAW[p.kind] || VEHICLES[th.id][p.hi ? 'hi' : 'lo'];
+  draw(st, c, b, p);
+  if (p.ramp) ramp(st, c, p, RAMP_OF[p.kind] || RAMPS[th.id]);
 }
 
 // ============================================================================ The power-ups

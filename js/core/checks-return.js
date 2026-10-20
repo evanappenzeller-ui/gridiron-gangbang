@@ -72,7 +72,21 @@ function play(course, s, moves = [], lane = 1) {
   }
   return {run, ev};
 }
-const plat = (lane, z0, z1, hi, ramp = 0) => ({lane, z0, z1, h: hi ? R.HIGH_H : R.LOW_H, hi, ramp});
+const plat = (lane, z0, z1, hi, ramp = 0) => ({lane, z0, z1, h: hi ? R.HIGH_H : R.LOW_H, b: 0, hi, ramp, kind: hi ? 'teambus' : 'bench'});
+/** One of a kind's things in lane 1 from z 30 (its parts as the course lays them out), and swipes up at the z's given:
+ *  how far he got, and what stopped him. */
+function climb(kind, jumps = []) {
+  const parts = R.KINDS[kind].build(() => .5, .5, 1.02), from = Math.min(...parts.map(q => q.at - (q.ramp || 0)));
+  const plats = parts.map((q, i) => ({lane: 1, kind, part: i, z0: 30 + q.at - from, z1: 30 + q.at - from + q.len, h: q.h, b: q.b || 0, ramp: q.ramp || 0, hi: q.h >= 2}));
+  const run = field({sets: [{i: 0, zs: 30, ze: Math.max(...plats.map(p => p.z1)), plats}]}), todo = jumps.slice();
+  let top = 0;
+  for (let i = 0; i < 120 * 12 && !run.over && run.z < 70; i++) {
+    while (todo.length && run.z >= todo[0]) { R.move(run, 'up'); todo.shift(); }
+    R.step(run, 1 / 120);
+    top = Math.max(top, run.y);
+  }
+  return {over: run.over, end: R.endOf(run), top: Math.round(top * 100) / 100};
+}
 const set = (...plats) => ({i: 0, zs: Math.min(...plats.map(p => p.z0 - p.ramp)), ze: Math.max(...plats.map(p => p.z1)), plats});
 
 export async function returnChecks(check) {
@@ -104,8 +118,8 @@ export async function returnChecks(check) {
       const co = R.fill(R.course(n, k), 3000);
       co.sets.forEach(s => {
         sets++;
-        s.plats.forEach(p => { if (p.hi) hi++; else lo++; if (p.ramp) ramps++; if (!p.hi && p.ramp) bad.push(`day ${n}/${k}: a ramp on a low one`); });
-        if (s.plats.length > 2 || new Set(s.plats.map(p => p.lane)).size !== s.plats.length) bad.push(`day ${n}/${k} set at ${s.zs}: no open lane`);
+        s.plats.forEach(p => { if (p.hi) hi++; else lo++; if (p.ramp) ramps++; if (p.ramp && p.h < 1.2) bad.push(`day ${n}/${k}: a ramp up to something low`); });
+        if (new Set(s.plats.map(p => p.lane)).size > 2) bad.push(`day ${n}/${k} set at ${s.zs}: no open lane`);
         if (Math.floor(s.zs / R.ZONE) !== Math.floor(s.ze / R.ZONE)) bad.push(`day ${n}/${k} set at ${s.zs}: across a gate`);
         co.rows.filter(r => r.z >= s.zs && r.z <= s.ze).forEach(r => r.lanes.forEach((t, l) => {
           if (t && s.plats.some(p => p.lane === l)) bad.push(`day ${n}/${k}: a man in a vehicle's lane at ${r.z}`);
@@ -116,7 +130,7 @@ export async function returnChecks(check) {
       items += its.length;
       its.forEach((it, i) => {
         if (i && it.z - its[i - 1].z < 45) bad.push(`day ${n}/${k}: power-ups ${Math.round(it.z - its[i - 1].z)} yds apart`);
-        if (it.top) { roofs++; if (R.groundAt(co, it.lane, it.z) !== R.HIGH_H) bad.push(`day ${n}/${k}: a roof power-up not on a roof at ${it.z}`); }
+        if (it.top) { roofs++; if (R.groundAt(co, it.lane, it.z) < 1.5) bad.push(`day ${n}/${k}: a roof power-up not up top at ${it.z}`); }
         else if (R.groundAt(co, it.lane, it.z) !== 0) bad.push(`day ${n}/${k}: a road power-up inside a vehicle at ${it.z}`);
       });
     }
@@ -151,13 +165,13 @@ export async function returnChecks(check) {
     const pass = eMen === 1 && lMen > 1.8 && eT > 1.2 && lT < .95;
     return {pass, detail: `first 60 yds: ${eMen.toFixed(2)} men a row, ${eT.toFixed(2)} s apart; past 450: ${lMen.toFixed(2)} men, ${lT.toFixed(2)} s`};
   });
-  check('Return Man: the places: the stadium first, then the tailgate, the city, the frozen tundra, the desert, the farmers market, the beach, outer space and the farm in an order of the day\'s own (each kickoff starting one further on), a new one every 100 yards (a touchdown into each), round and round; each with its tall vehicle and its low one', () => {
+  check('Return Man: the places: the stadium first, then the tailgate, the city, the frozen tundra, the desert, the farmers market, the beach, outer space and the farm in an order of the day\'s own (each kickoff starting one further on), a new one every 100 yards (a touchdown into each), round and round; each with things of its own in the lanes', () => {
     const N = R.THEMES.length;
     const ids = (n, k) => Array.from({length: N + 1}, (_, i) => R.zoneAt(R.course(n, k), i * R.ZONE + 1).theme.id);
     const a = ids(2, 0), b = ids(2, 1), c = ids(2, 2);
     const first = [a, b, c].every(x => x[0] === 'stadium' && x[N] === 'stadium' && new Set(x.slice(0, N)).size === N);
     const turn = b[1] === a[2] && c[1] === a[3];
-    const named = N === 9 && R.THEMES.every(t => t.name && t.hi && t.lo) && ['tailgate', 'city', 'tundra', 'desert', 'market', 'beach', 'space', 'farm'].every(id => R.THEMES.some(t => t.id === id));
+    const named = N === 9 && R.THEMES.every(t => t.name && t.kinds.length >= 2 && t.kinds.every(([k]) => R.KINDS[k] && R.KINDS[k].name)) && ['tailgate', 'city', 'tundra', 'desert', 'market', 'beach', 'space', 'farm'].every(id => R.THEMES.some(t => t.id === id));
     const edge = R.ZONE === 100 && R.ZONE === R.TD && R.zoneAt(R.course(2, 0), 99.99).i === 0 && R.zoneAt(R.course(2, 0), 100).i === 1;
     return {pass: first && turn && named && edge, detail: `kickoff 1: ${a.join(' → ')}; kickoff 2 starts ${b[1]}, kickoff 3 ${c[1]}; every ${R.ZONE} yards`};
   });
@@ -203,6 +217,27 @@ export async function returnChecks(check) {
     for (let i = 0; i < 120; i++) R.step(off, 1 / 120);
     const down = jukeOff && !off.over && off.y === 0 && R.laneOf(off) === 0;
     return {pass: crash && ramp && onLow && refused && down, detail: `a tall one: ${crash}; the ramp and roof: up to ${top.toFixed(2)}, ${ev.includes('over') ? 'over the wedge' : 'no wedge passed'}, down ${rp.y === 0}; a low one: ${onLow}; its side refused ${refused}; off a roof ${down}`};
+  });
+  check('Return Man: the owner\'s sheet (Run, Jump, Climb): three things of their own in each of six places; the climbs work: up the hover pads in three jumps (under the top one on foot; the bottom one in your way), across the gap between the piers (or down into it), up the hay steps, onto the tow truck\'s cab (or into it), over the fence (or into it), up the crates onto the stall\'s awning', () => {
+    const sheet = {desert: ['canyon', 'minecart', 'wagonbridge'], city: ['parkedcar', 'ramptruck', 'citybus'], market: ['producecart', 'marketramp', 'awning'], beach: ['lifeguard', 'buggy', 'pier'], space: ['rover', 'cargo', 'hover'], farm: ['hay', 'trailer', 'fence']};
+    const places = Object.entries(sheet).every(([id, ks]) => { const th = R.THEMES.find(t => t.id === id); return th && ks.every(k => R.KINDS[k] && th.kinds.some(([x]) => x === k)); });
+    const under = (() => {
+      const run = field({sets: [{i: 0, zs: 30, ze: 35, plats: [{lane: 1, kind: 'hover', part: 2, z0: 30, z1: 35, h: 2.8, b: 2.55, ramp: 0, hi: true}]}]});
+      for (let i = 0; i < 120 * 5 && !run.over && run.z < 45; i++) R.step(run, 1 / 120);
+      return !run.over;
+    })();
+    const r = {
+      hover: [climb('hover'), climb('hover', [26.5, 29.8, 34.5, 39.3])],
+      pier: [climb('pier', [28.6]), climb('pier', [28.6, 34.6])],
+      hay: [climb('hay', [28.6]), climb('hay', [26.5, 29.8, 34.4, 38.5])],
+      truck: [climb('ramptruck'), climb('ramptruck', [39.5])],
+      fence: [climb('fence'), climb('fence', [28.8, 35.8])],
+      awning: [climb('awning'), climb('awning', [26.5, 29.8])]
+    };
+    const ok = (pair, top) => pair[0].over && !pair[1].over && pair[1].top >= top - .01;
+    const pass = places && under && ok(r.hover, 2.8) && ok(r.pier, 1) && ok(r.hay, 1.9) && ok(r.truck, 2.6) && ok(r.fence, .5) && ok(r.awning, 2.2)
+      && r.hover[0].end === 'Ran into the hover pad' && r.pier[0].end === 'Ran into the pier' && r.truck[0].end === 'Ran into the tow truck';
+    return {pass, detail: `the sheet in its places ${places}; under the top pad ${under}; ${Object.entries(r).map(([k, [a, b]]) => `${k}: ${a.over ? a.end : 'through'} / ${b.over ? b.end : 'up to ' + b.top}`).join('; ')}`};
   });
   // ------------------------------------------------------------------------------------------- the power-ups
   check('Return Man: the power-ups: smelling salts get him back up after a hit (one hit each; he carries two at most); painkillers carry him through men and up onto vehicles for a few seconds; booze makes every yard count double for a few; picked up only in his lane, at his height', () => {

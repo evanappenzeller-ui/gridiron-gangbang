@@ -14,10 +14,12 @@
 //   todayNumber(), dateOf(n), dayLabel(n)       day 1 on START, a new day at local midnight
 //   course(n, k), fill(course, z)               day n's kickoff k (0-2), worked out as far as z yards: its rows of men
 //                                               [{i, z (where he meets you), lanes: [type|null x 3]}], its vehicles
-//                                               (sets: [{i, zs, ze, plats: [{lane, z0 (the front), z1, h, ramp, hi}]}])
+//                                               (sets: [{i, zs, ze, plats: [{lane, kind, part, z0 (the front), z1, h, b,
+//                                               ramp, hi}]}]: KINDS)
 //                                               and its power-ups [{i, z, lane, top, kind}]
 //   THEMES, ZONE, zoneAt(course, z)             the places, and which one z yards is in ({i, theme, z0})
-//   groundAt(course, lane, z)                   how high the ground is there (on a ramp, a roof; 0 on the road)
+//   groundAt(course, lane, z, y), blockAt(...)  how high the ground is there for him at height y (a ramp, a roof, a
+//                                               pad; 0 on the road); what's in his way there
 //   speedAt(z), tdsAt(z), LANE, VD, RETURNS     your speed (yards a second) at z yards; touchdowns by z yards; the
 //                                               lanes' spacing (yards); the coverage's speed; kickoffs a day
 //   startRun(n, k), move(run, dir), step(run, dt)   a return, played: move takes a swipe ('left' 'right' 'up' 'down'),
@@ -72,23 +74,78 @@ export const MEN = {
   diver: {name: 'diving tackle', beat: 'jump', says: 'Taken down at the ankles'},
   wrap: {name: 'wrap-up', beat: 'spin', says: 'Wrapped up'}
 };
-// The vehicles: a tall one (HIGH_H yards; a ramp up onto its roof, or not) and a low one (LOW_H; jump on) in each place.
-export const HIGH_H = 3, LOW_H = .95, RAMP = 8;
+// What stands in the lanes: each place's own (KINDS, below): vehicles to go round or climb (a tall one, HIGH_H yards;
+// a ramp up onto its roof, or not), low ones to jump on (LOW_H), and things to climb: ramps up onto rocks and crates,
+// steps of hay bales, a flatbed and its cab, piers with a gap between, pads floating in the air. Each is one or more
+// parts in a lane, each part a box (h its top, b its bottom: above the ground for a floating pad) with a ramp up to
+// its front or not. You stand on a part you're up level with (STEP); you pass under one whose bottom is over your head
+// (BODY); anything else in your way is a crash, and a pad you jump up into from below stops you short.
+export const HIGH_H = 3, LOW_H = .95, RAMP = 8, BODY = 2;
 // The places, one after another, ZONE yards each (a field each: you score as you go into the next): the stadium first,
 // then the other eight in the kickoff's own order, and round again. A vehicle never sits across the line between two
 // (there are goalposts on it).
 export const ZONE = 100;
 export const THEMES = [
-  {id: 'stadium', name: 'The Stadium', hi: 'team bus', lo: 'bench'},
-  {id: 'tailgate', name: 'The Tailgate', hi: 'RV', lo: 'beer pong table'},
-  {id: 'city', name: 'The City', hi: 'city bus', lo: 'road work'},
-  {id: 'tundra', name: 'The Frozen Tundra', hi: 'snowplow', lo: 'snowbank'},
-  {id: 'desert', name: 'The Desert', hi: 'train car', lo: 'hay wagon'},
-  {id: 'market', name: 'Farmers Market', hi: 'produce truck', lo: 'apple cart'},
-  {id: 'beach', name: 'The Beach', hi: 'ice cream truck', lo: 'sandcastle'},
-  {id: 'space', name: 'Outer Space', hi: 'space shuttle', lo: 'moon rover'},
-  {id: 'farm', name: 'The Farm', hi: 'combine', lo: 'hay bales'}
+  {id: 'stadium', name: 'The Stadium', kinds: [['teambus', 1], ['bench', 1.2]]},
+  {id: 'tailgate', name: 'The Tailgate', kinds: [['rv', 1], ['pong', 1.2]]},
+  {id: 'city', name: 'The City', kinds: [['citybus', 1], ['ramptruck', 1], ['parkedcar', 1.2]]},
+  {id: 'tundra', name: 'The Frozen Tundra', kinds: [['plow', 1], ['snowbank', 1.2]]},
+  {id: 'desert', name: 'The Desert', kinds: [['train', .7], ['canyon', 1], ['minecart', 1], ['wagonbridge', 1]]},
+  {id: 'market', name: 'Farmers Market', kinds: [['producetruck', .6], ['producecart', 1], ['marketramp', 1], ['awning', 1]]},
+  {id: 'beach', name: 'The Beach', kinds: [['icecream', .6], ['lifeguard', 1], ['buggy', 1], ['pier', 1]]},
+  {id: 'space', name: 'Outer Space', kinds: [['shuttle', .6], ['rover', 1], ['cargo', 1], ['hover', 1]]},
+  {id: 'farm', name: 'The Farm', kinds: [['combine', .6], ['hay', 1], ['trailer', 1], ['fence', 1]]}
 ];
+// The kinds: the name a crash says, and its parts (at: where the part's front is, from where the thing starts; len,
+// h, b (its bottom, 0 on the ground), ramp (the ramp's length up to its front)), drawn from the course's own numbers
+// (r), how far into it (L) and how fast you're going there (k: 1 at a jog, 2 at a sprint; a step you land on and jump
+// again from is longer the faster you come).
+const tall = (r, L, rampP) => [{at: RAMP, len: 12 + r() * (9 + 13 * L), h: HIGH_H, ramp: r() < rampP ? RAMP : 0}];
+const low = (r, len, h = LOW_H) => [{at: 0, len, h}];
+export const KINDS = {
+  teambus: {name: 'team bus', build: (r, L) => tall(r, L, .65)},
+  bench: {name: 'bench', build: r => low(r, 6 + r() * 5)},
+  rv: {name: 'RV', build: (r, L) => tall(r, L, .65)},
+  pong: {name: 'beer pong table', build: r => low(r, 5.4 + Math.floor(r() * 3) * 2.7)},
+  plow: {name: 'snowplow', build: (r, L) => tall(r, L, .65)},
+  snowbank: {name: 'snowbank', build: r => low(r, 6 + r() * 5)},
+  // the city: the bus (up on its roof by a ramp, or not); a tow truck (up its ramp onto the bed, a jump up onto the
+  // cab); a parked car (jump on)
+  citybus: {name: 'city bus', build: (r, L) => tall(r, L, .5)},
+  ramptruck: {name: 'tow truck', build: (r, L, k) => { const bed = (5 + r() * 2) * k; return [{at: 5, len: bed, h: 1.4, ramp: 5}, {at: 5 + bed, len: 2.6, h: 2.6}]; }},
+  parkedcar: {name: 'parked car', build: r => (r() < .4 ? [{at: 0, len: 4.6, h: 1.25}, {at: 5.6, len: 4.6, h: 1.25}] : [{at: 0, len: 4.6, h: 1.25}])},
+  // the desert: a train car; a ramp up onto the canyon rock; mine carts on the rails (jump on); a wagon bridge
+  train: {name: 'train car', build: (r, L) => tall(r, L, .55)},
+  canyon: {name: 'canyon rock', build: (r, L) => [{at: 7, len: 6 + r() * (4 + 6 * L), h: 2.4, ramp: 7}]},
+  minecart: {name: 'mine cart', build: r => (r() < .55 ? [{at: 0, len: 2.6, h: 1.1}, {at: 3.6, len: 2.6, h: 1.1}] : [{at: 0, len: 2.6, h: 1.1}])},
+  wagonbridge: {name: 'wagon bridge', build: (r, L) => [{at: 4.5, len: 8 + r() * (3 + 4 * L), h: 1.6, ramp: 4.5}]},
+  // the market: the produce truck; a produce cart (jump on); a ramp up the crates; crates to jump on, then the awning
+  producetruck: {name: 'produce truck', build: (r, L) => tall(r, L, .6)},
+  producecart: {name: 'produce cart', build: r => low(r, 3.8 + r() * 1.5, 1.15)},
+  marketramp: {name: 'stack of crates', build: r => [{at: 5, len: 4 + r() * 2.5, h: 1.9, ramp: 5}]},
+  awning: {name: 'market stall', build: (r, L, k) => [{at: 0, len: 4 * k, h: LOW_H}, {at: 4 * k, len: 4 + r() * 1.5, h: 2.2}]},
+  // the beach: the ice cream truck; the lifeguard's ramp up to his deck; a beach buggy (jump on); two piers, a gap
+  icecream: {name: 'ice cream truck', build: (r, L) => tall(r, L, .6)},
+  lifeguard: {name: 'lifeguard stand', build: r => [{at: 5, len: 5 + r() * 3, h: 2, ramp: 5}]},
+  buggy: {name: 'beach buggy', build: r => low(r, 3.6, 1.2)},
+  pier: {name: 'pier', build: r => { const a = 4 + r() * 2, gap = 2.4 + r() * 1.2; return [{at: 0, len: a, h: 1}, {at: a + gap, len: 4 + r() * 2, h: 1}]; }},
+  // space: the shuttle; a moon rover (jump on); a ramp up onto the cargo; pads floating up in steps (under the top one)
+  shuttle: {name: 'space shuttle', build: (r, L) => tall(r, L, .6)},
+  rover: {name: 'moon rover', build: r => low(r, 4 + r() * 1.5, 1.1)},
+  cargo: {name: 'cargo crate', build: (r, L) => [{at: 6, len: 6 + r() * (4 + 5 * L), h: 2.4, ramp: 6}]},
+  hover: {name: 'hover pad', build: (r, L, k) => [{at: 0, len: 4 * k, h: 1, b: .75}, {at: 4.8 * k, len: 4 * k, h: 1.9, b: 1.65}, {at: 9.6 * k, len: 4.5 * k, h: 2.8, b: 2.55}]},
+  // the farm: the combine; hay bales in steps; a ramp up onto the trailer; a fence to hurdle
+  combine: {name: 'combine', build: (r, L) => tall(r, L, .5)},
+  hay: {name: 'hay bales', build: (r, L, k) => [{at: 0, len: 4 * k, h: LOW_H}, {at: 4 * k, len: 4 * k, h: 1.9}].concat(r() < .5 ? [{at: 8 * k, len: 3.5, h: 2.85}] : [])},
+  trailer: {name: 'farm trailer', build: r => [{at: 4, len: 5.5 + r() * 2, h: 1.3, ramp: 4}]},
+  fence: {name: 'fence', build: r => (r() < .5 ? [{at: 0, len: .35, h: .9}, {at: 7, len: .35, h: .9}] : [{at: 0, len: .35, h: .9}])}
+};
+function pickKind(th, r) {
+  const sum = th.kinds.reduce((a, k) => a + k[1], 0);
+  let u = r() * sum;
+  for (const [id, w] of th.kinds) { if ((u -= w) < 0) return id; }
+  return th.kinds[0][0];
+}
 // The power-ups: salts (you can carry SALTS_MAX), pills (seconds) and booze (seconds of double yards).
 export const POWER = {
   salts: {name: 'Smelling salts', says: 'An extra life'},
@@ -161,24 +218,27 @@ function addRow(co, z, open, L, wedges) {
   if (lanes.every(t => t === 'wedge')) lanes[Math.floor(r() * 3)] = r() < .5 ? 'diver' : 'wrap';
   co.rows.push({i: co.rows.length, z: round2(z), lanes});
 }
-// A set of vehicles at z (where the first ramp starts, or the fronts): false if it would cross into the next place.
+// A set at z (where the first ramp starts, or the fronts): a thing of the place's in one lane, or two side by side
+// (always a lane left open). False if it would cross into the next place.
 function addSet(co, z, L) {
-  const r = co.r, lanes = shuffle([0, 1, 2], r), two = L > .2 && r() < .45;
-  const plats = lanes.slice(0, two ? 2 : 1).map((lane, j) => {
-    const hi = r() < (j ? .55 : .45), len = hi ? 12 + r() * (9 + 13 * L) : 6 + r() * 5;
-    return {lane, hi, h: hi ? HIGH_H : LOW_H, len, ramp: hi && r() < .65 ? RAMP : 0};
+  const r = co.r, th = zoneAt(co, z).theme, lanes = shuffle([0, 1, 2], r), two = L > .2 && r() < .45;
+  const plats = [];
+  lanes.slice(0, two ? 2 : 1).forEach(lane => {
+    const kind = pickKind(th, r), parts = KINDS[kind].build(r, L, speedAt(z) / 10), from = Math.min(...parts.map(q => q.at - (q.ramp || 0)));
+    parts.forEach((q, i) => {
+      const z0 = z + q.at - from;
+      plats.push({lane, kind, part: i, z0: round2(z0), z1: round2(z0 + q.len), h: q.h, b: q.b || 0, ramp: q.ramp || 0, hi: q.h >= 2});
+    });
   });
-  const zf = z + Math.max(...plats.map(p => p.ramp));
-  plats.forEach(p => { p.z0 = round2(zf); p.z1 = round2(zf + p.len); delete p.len; });
   const ze = Math.max(...plats.map(p => p.z1)), edge = (Math.floor(z / ZONE) + 1) * ZONE;
   if (ze > edge - 10) return false;
   const set = {i: co.sets.length, zs: round2(z), ze, plats};
   co.sets.push(set);
-  // a power-up on a roof
-  const roof = plats.find(p => p.hi);
+  // a power-up up top: on the highest thing there is to climb
+  const roof = plats.filter(p => p.h >= 1.5).sort((a, b) => b.h - a.h)[0];
   if (roof && z >= co.itemAt - 40) addItem(co, roof.z0 + (roof.z1 - roof.z0) * (.35 + r() * .3), roof.lane, true);
   // the rows beside it: in the open lanes, a beat apart
-  const open = [0, 1, 2].filter(l => !plats.some(p => p.lane === l));
+  const open = [0, 1, 2].filter(l => !plats.some(p => p.lane === l)), zf = Math.min(...plats.map(p => p.z0));
   for (let at = zf + Math.max(GAP.in, gapAt(co, L)) * speedAt(zf); at < ze - 3; at += Math.max(GAP.in, gapAt(co, L)) * speedAt(at)) {
     if (r() < .75) addRow(co, at, open, L, false);
   }
@@ -208,17 +268,25 @@ function setAt(co, z) {
   return null;
 }
 const heightOf = (p, z) => (z > p.z1 || z < p.z0 - p.ramp ? 0 : z >= p.z0 ? p.h : p.h * (z - (p.z0 - p.ramp)) / p.ramp);
-/** The vehicle (or its ramp) in a lane at z yards, or null. */
-export function platAt(co, lane, z) {
+/** The parts (and ramps) in a lane at z yards. */
+function partsAt(co, lane, z) {
   if (co.done < z) fill(co, z);
-  const s = setAt(co, z), p = s && s.plats.find(q => q.lane === lane);
-  return p && heightOf(p, z) > 0 ? p : null;
+  const s = setAt(co, z);
+  return s ? s.plats.filter(q => q.lane === lane && heightOf(q, z) > 0) : [];
 }
-/** How high the ground is in a lane at z yards (a ramp, a roof; 0 on the road). */
-export function groundAt(co, lane, z) {
-  const p = platAt(co, lane, z);
-  return p ? heightOf(p, z) : 0;
+/** How high the ground is in a lane at z yards for someone at height y (the top of the highest part he's up level
+ *  with: a ramp, a roof, a pad; 0 on the road). Leave y out for the highest there is. */
+export function groundAt(co, lane, z, y = Infinity) {
+  let g = 0;
+  partsAt(co, lane, z).forEach(p => { const h = heightOf(p, z); if (h <= y + STEP && h > g) g = h; });
+  return g;
 }
+/** What's in the way of someone at height y in a lane at z yards (a part over his step and under his head), or null. */
+export function blockAt(co, lane, z, y) {
+  return partsAt(co, lane, z).find(p => heightOf(p, z) > y + STEP && p.b < y + BODY) || null;
+}
+/** The part in a lane at z yards he'd hit at the height of the road (for the crash's words), or null. */
+export const platAt = (co, lane, z) => blockAt(co, lane, z, 0);
 
 // ---------------------------------------------------------------------------------------------- a return
 /** A new return: day n's kickoff k, you in the middle lane where you field it. */
@@ -230,7 +298,7 @@ export function startRun(n, k) {
 export const xOf = (run, lane) => (lane - 1) * LANE;
 /** The lane you're in now (the nearest to you, mid-juke). */
 export const laneOf = run => clamp(Math.round(run.x / LANE) + 1, 0, LANES - 1);
-const grounded = run => run.vy <= 0 && run.y <= groundAt(run.co, laneOf(run), run.z) + 1e-3;
+const grounded = run => run.vy <= 0 && run.y <= groundAt(run.co, laneOf(run), run.z, run.y) + 1e-3;
 /** A swipe: 'left' and 'right' juke a lane over, 'up' jumps, 'down' spins (and drops you, in the air). False when it
  *  can't: the edge of the road, the side of a vehicle (run.bump notes when), the return's over. */
 export function move(run, dir) {
@@ -238,7 +306,7 @@ export function move(run, dir) {
   if (dir === 'left' || dir === 'right') {
     const to = run.lane + (dir === 'left' ? -1 : 1);
     if (to < 0 || to >= LANES) return false;
-    if (groundAt(run.co, to, run.z) > run.y + STEP) { run.bump = run.t; return false; }
+    if (blockAt(run.co, to, run.z, run.y)) { run.bump = run.t; return false; }
     run.jFrom = run.x; run.lane = to; run.jt = 0; run.lastJuke = run.t;
     return true;
   }
@@ -272,13 +340,14 @@ function sub(run, dt, out) {
   run.t += dt; run.z += v * dt; run.yards += v * dt * (run.booze > 0 ? 2 : 1);
   if (run.jt < 1) { run.jt = Math.min(1, run.jt + dt / MOVE.juke); const e = 1 - (1 - run.jt) * (1 - run.jt); run.x = run.jFrom + (xOf(run, run.lane) - run.jFrom) * e; }
   else run.x = xOf(run, run.lane);
-  const lane = laneOf(run), g = groundAt(co, lane, run.z);
-  // a vehicle's front (or side, mid-juke) in your way
-  if (g > run.y + STEP) {
-    const p = platAt(co, lane, run.z);
-    if (!hit(run, out, {plat: p, lane})) return;
-    run.y = g; run.vy = Math.max(run.vy, 3);
+  const lane = laneOf(run), blk = blockAt(co, lane, run.z, run.y);
+  // something in your way: a pad you've jumped up into from under stops you; a front (or a side, mid-juke) is a hit
+  if (blk && blk.b > run.y + .8 && run.vy > 0) { run.vy = 0; run.y = Math.max(0, blk.b - BODY - 1e-3); }
+  else if (blk) {
+    if (!hit(run, out, {plat: blk, lane})) return;
+    run.y = heightOf(blk, run.z); run.vy = Math.max(run.vy, 3);
   }
+  const g = groundAt(co, lane, run.z, run.y);
   let landed = false;
   if (run.vy > 0 || run.y > g + 1e-3) {
     run.vy -= GRAV * dt; run.y += run.vy * dt;
@@ -336,8 +405,8 @@ export function step(run, dt) {
 export function endOf(run) {
   if (!run || !run.why) return '';
   if (run.why !== 'crash') return MEN[run.why].says;
-  const p = run.by && run.by.plat, th = zoneAt(run.co, run.z).theme;
-  return `Ran into the ${p && !p.hi ? th.lo : th.hi}`;
+  const p = run.by && run.by.plat;
+  return `Ran into the ${p && KINDS[p.kind] ? KINDS[p.kind].name : 'wall'}`;
 }
 /** What's in front of you out to dist yards (and just behind, for a moment): {rows: [{row, d (yards ahead)}], sets:
  *  [{set, d}], items: [{item, d}]}. */
