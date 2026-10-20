@@ -16,6 +16,7 @@
 // The players are pictures (views/drill-sprites.js: five sprite sheets, in each team's colours) once they've loaded;
 // till then (or if they can't load) the jointed figures below.
 // Owner: Drill.
+import * as ui from '../core/ui.js';
 import * as SP from './drill-sprites.js';
 
 SP.load();
@@ -853,8 +854,9 @@ export function open(field, scene, big = null) {
     drawDots(list, 1 - m);
     if (m > 0) {
       g.globalAlpha = m;
-      list.forEach(({p}) => {
-        const k = p[2];
+      list.forEach(({p, mo}) => {
+        // (smaller as he rises off a foot)
+        const k = p[2] * (ui.RM || Math.hypot(mo.vx, mo.vy) <= 1.6 ? 1 : 1 - 0.14 * Math.abs(Math.sin(mo.ph)));
         g.fillStyle = 'rgba(0,0,0,.16)';
         g.beginPath(); g.ellipse(p[0] + 0.18 * k, p[1], 0.62 * k, 0.62 * k * 0.36, 0, 0, Math.PI * 2); g.fill();
         g.fillStyle = 'rgba(0,0,0,.24)';
@@ -883,8 +885,9 @@ export function open(field, scene, big = null) {
         if (!(s > 0)) return;
         const has = !!f.ball && pl.key === f.hold;
         if (SP.ready()) {
-          const pk = SP.pick(pl, {pose, face, ph: mo.ph, ball: has, down, pre, moving: sp > 1.6});
-          if (SP.draw(g, pk, pl.team, pl.colored, p[0], p[1], s * 100 * SPRITE_TALL)) {
+          const moving = sp > 1.6, pk = SP.pick(pl, {pose, face, ph: mo.ph, ball: has, down, pre, moving});
+          const give = {ph: moving ? mo.ph : null, lean: mo.vx / 8, t: f.now / 1000, seed: hash(pl.key) % 628 / 100};
+          if (SP.draw(g, pk, pl.team, pl.colored, p[0], p[1], s * 100 * SPRITE_TALL, give)) {
             // the ball with the man who has it, when his picture hasn't got one
             if (has) { if (!SP.hasBall(pk)) drawBall(f, m, {r: 0.4, l: -0.4, b: 0.3, f: 0.12}[face]); ballDone = true; }
             return;

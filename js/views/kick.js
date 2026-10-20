@@ -571,8 +571,8 @@ function drawFront(c, k, skin, num, crouch, arms) {
   helmetFront(c, k, skin, 0, head);
   [-1, 1].forEach(s => arm(c, k, skin, s, [s * .4, sh - .06], mixP([s * .5, sh - .32], [s * .56, sh + .32], arms), mixP([s * .3, Math.max(.1, sh - .68)], [s * .44, sh + .74], arms)));
 }
-function drawLine(st, c, side, f) {
-  if (spritesReady()) { drawLineArt(st, c, side === 'us', f); return; } // (the drawn players below till the pictures load)
+function drawLine(st, c, side, f, sec) {
+  if (spritesReady()) { drawLineArt(st, c, side === 'us', f, sec); return; } // (the drawn players below till the pictures load)
   const us = side === 'us', k = KIT[side], t = f ? f.t : 0;
   // the rush leaps as the ball's kicked, pushing in a little, and comes back down; the blockers rise out of their stance
   const arms = f && !us ? Math.min(1, t / .15) : 0, jump = f && !us ? Math.max(0, Math.sin(Math.min(1, t / .8) * Math.PI)) : 0;
@@ -624,12 +624,13 @@ function loadSprites() {
   return SPRITES_LOADING;
 }
 const spritesReady = () => Object.values(SPRITES).every(sp => sp.im && sp.im.complete && sp.im.naturalWidth > 0);
-/** A sprite with its anchor at world (x, y, z); rot turns it about the anchor. */
-function drawSprite(st, c, sp, x, y, z, rot = 0) {
+/** A sprite with its anchor at world (x, y, z); rot turns it about the anchor, sx and sy stretch it from there. */
+function drawSprite(st, c, sp, x, y, z, rot = 0, sx = 1, sy = 1) {
   const b = proj(st, x, y, z), k = b.s / sp.yd;
   c.save();
   c.translate(b.x, b.y);
   if (rot) c.rotate(rot);
+  if (sx !== 1 || sy !== 1) c.scale(sx, sy);
   c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high';
   c.drawImage(sp.im, -sp.ax * k, -sp.ay * k, sp.im.naturalWidth * k, sp.im.naturalHeight * k);
   c.restore();
@@ -638,10 +639,31 @@ function shadowAt(st, c, x, z, w) {
   const b = proj(st, x, 0, z);
   c.fillStyle = 'rgba(0,0,0,.3)'; c.beginPath(); c.ellipse(b.x, b.y, w * b.s, w * .2 * b.s, 0, 0, Math.PI * 2); c.fill();
 }
+// Two pictures each for the kicker and the holder would hold still between them; drawn with a body's give they move.
+// Waiting, the kicker rocks on his feet and breathes, the holder too; the kick drives the kicker down into his plant
+// (squashed) and up through it (stretched) and he hops forward off it, leaning away with the swing, then settles;
+// the holder flinches as the ball leaves his hand. None of it with reduced motion. (t: seconds; the kick's pose.)
+const spring = (k, w = 14, d = 6) => Math.exp(-d * k) * Math.cos(w * k); // 1 at the kick, ringing down to 0
+function kickerGive(pose, t) {
+  if (ui.RM) return {lift: 0, rot: 0, sx: 1, sy: 1};
+  if (!pose || pose.t < KICKER.through) {
+    const b = Math.sin(t * 2.4), r = Math.sin(t * 1.15);
+    return {lift: 0, rot: .018 * r, sx: 1 - .005 * b, sy: 1 + .012 * b};
+  }
+  const k = pose.t - KICKER.through, s = spring(k), hop = k > .08 && k < .4 ? Math.sin((k - .08) / .32 * Math.PI) : 0;
+  return {lift: .12 * hop, rot: -.045 * (1 - Math.exp(-10 * k)) * Math.exp(-1.6 * k), sx: 1 + .035 * s, sy: 1 - .06 * s};
+}
+function holderGive(pose, t) {
+  if (ui.RM) return {rot: 0, sx: 1, sy: 1};
+  if (!pose) { const b = Math.sin(t * 2.1 + 1.3); return {rot: 0, sx: 1, sy: 1 + .01 * b}; }
+  const s = spring(pose.t, 18, 7);
+  return {rot: .03 * s, sx: 1 - .02 * s, sy: 1 + .03 * s};
+}
 const HOLD = {z: .02};
-function drawHolder(st, c, held) {
+function drawHolder(st, c, held, pose, t) {
+  const v = holderGive(pose, t);
   shadowAt(st, c, .62, HOLD.z, .62);
-  drawSprite(st, c, held ? SPRITES.holder : SPRITES.empty, 0, 0, HOLD.z);
+  drawSprite(st, c, held ? SPRITES.holder : SPRITES.empty, 0, 0, HOLD.z, v.rot, v.sx, v.sy);
 }
 // Where the kicker's planted foot is: waiting back and to the left, then (as it's kicked, over `step` seconds) in
 // beside the ball; through it from `through` on (the follow-through picture).
@@ -650,10 +672,10 @@ function kickerAt(pose) {
   const u = pose ? Math.min(1, pose.t / KICKER.step) : 0, e = 1 - (1 - u) * (1 - u), {wait: a, plant: b} = KICKER;
   return {x: a.x + (b.x - a.x) * e, z: a.z + (b.z - a.z) * e, e};
 }
-function drawKicker(st, c, pose) {
-  const k = kickerAt(pose), through = !!pose && pose.t >= KICKER.through;
-  shadowAt(st, c, k.x + (through ? .12 : .3), k.z, .55);
-  drawSprite(st, c, through ? SPRITES.follow : SPRITES.kicker, k.x, 0, k.z, through ? 0 : -.06 * k.e);
+function drawKicker(st, c, pose, t) {
+  const k = kickerAt(pose), through = !!pose && pose.t >= KICKER.through, v = kickerGive(pose, t);
+  shadowAt(st, c, k.x + (through ? .12 : .3), k.z, .55 * (1 - 1.5 * v.lift));
+  drawSprite(st, c, through ? SPRITES.follow : SPRITES.kicker, k.x, v.lift, k.z, (through ? 0 : -.06 * k.e) + v.rot, v.sx, v.sy);
 }
 // A player's pose (LINE_ART): ours set in their stance (a wing in a two-point stance), up out of it at the kick, then
 // blocking (hands up, or stepping in); the rush set, charging off the ball, leaping with their arms up, landing.
@@ -662,7 +684,16 @@ function poseOf(us, i, f, wing) {
   if (us) return !f ? (wing ? 7 : [0, 3, 0, 7, 3][i % 5]) : t < .12 ? 1 : [2, 4, 6, 5][i % 4];
   return !f ? (i % 3 === 1 ? 12 : 8) : t < .14 ? (i % 2 ? 10 : 9) : t < .8 ? (i % 2 ? 14 : 13) : (i % 2 ? 11 : 15);
 }
-function drawLineArt(st, c, us, f) {
+/** A lineman's give (sec: seconds; i: which of them): set, he breathes; ours strain in their blocks; the rush, landed,
+ *  heave for breath. None with reduced motion. */
+function lineGive(us, i, f, sec) {
+  if (ui.RM) return {rot: 0, sy: 1};
+  const t = f ? f.t : 0, ph = sec + i * 1.7;
+  if (us && f && t >= .12) return {rot: .03 * Math.sin(ph * 7), sy: 1 + .012 * Math.sin(ph * 12)};
+  if (!us && f && t >= .8) return {rot: 0, sy: 1 + .02 * Math.sin(ph * 4)};
+  return {rot: 0, sy: f ? 1 : 1 + .01 * Math.sin(ph * 2.3)};
+}
+function drawLineArt(st, c, us, f, sec = 0) {
   const t = f ? f.t : 0, sp = SPRITES.line;
   const leap = f && !us && t >= .14 && t < .8 ? Math.sin((t - .14) / .66 * Math.PI) * .45 : 0, surge = f && !us ? Math.min(1, t / .5) * .35 : 0;
   // (spread a little wider than the drawn players: the pictures are broader)
@@ -671,8 +702,10 @@ function drawLineArt(st, c, us, f) {
     if (b.s <= 0 || b.x < -b.s * 1.5 || b.x > st.W + b.s * 1.5) return;
     c.fillStyle = 'rgba(0,0,0,.28)'; c.beginPath(); c.ellipse(b.x, b.y, .5 * b.s, .12 * b.s, 0, 0, Math.PI * 2); c.fill();
     c.save();
+    const v = lineGive(us, p.i, f, sec);
     c.translate(b.x, b.y - leap * b.s);
-    if (p.i % 2) c.scale(-1, 1); // every other one the other way round, so the line isn't all the same
+    if (v.rot) c.rotate(v.rot);
+    c.scale(p.i % 2 ? -1 : 1, v.sy); // every other one the other way round, so the line isn't all the same
     c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high';
     c.drawImage(sp.im, fr[0], fr[1], fr[2], fr[3], -fr[4] * k, -fr[5] * k, fr[2] * k, fr[3] * k);
     c.restore();
@@ -770,10 +803,10 @@ function draw(st, now = performance.now()) {
     .concat(obs.map(o => ({z: o.z, ob: true, draw: () => drawObstacle(st, c, o, t, sc.pop == null ? 1 : sc.pop, o === hitOb ? Math.max(0, 1 - (f.t - f.call.tHit) * 2.5) : 0)})));
   // the players as the kick left them, till the next one's set up
   const pose = f || st.spent || null;
-  items.push({z: K.LINE.z + .6, ob: true, draw: () => drawLine(st, c, 'them', pose)}, {z: K.LINE.z - .5, draw: () => drawLine(st, c, 'us', pose)});
+  items.push({z: K.LINE.z + .6, ob: true, draw: () => drawLine(st, c, 'them', pose, t)}, {z: K.LINE.z - .5, draw: () => drawLine(st, c, 'us', pose, t)});
   // the holder (with the ball on the spot in hand, till it's kicked) and the kicker; the ball in the air
   const held = st.ballOn !== false && !f, sprites = spritesReady();
-  if (sprites) items.push({z: HOLD.z, draw: () => drawHolder(st, c, held)}, {z: kickerAt(pose).z, draw: () => drawKicker(st, c, pose)});
+  if (sprites) items.push({z: HOLD.z, draw: () => drawHolder(st, c, held, pose, t)}, {z: kickerAt(pose).z, draw: () => drawKicker(st, c, pose, t)});
   if (st.ballOn !== false && (f || !sprites)) items.push({z: ball.z, draw: () => (sprites ? drawFlying(st, c, ball, spin) : drawBall(st, c, ball, spin, !f))});
   items.sort((p, q) => q.z - p.z);
   const lastOb = items.map(x => !!x.ob).lastIndexOf(true);

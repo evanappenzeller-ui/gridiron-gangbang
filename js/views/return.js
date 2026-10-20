@@ -186,7 +186,8 @@ function shadow(st, c, x, y, z, w = .55) {
   c.fillStyle = 'rgba(0,0,0,.32)';
   c.beginPath(); c.ellipse(p.x, p.y, Math.abs(r.x - p.x), Math.max(1, Math.abs(r.x - p.x) * .3), 0, 0, Math.PI * 2); c.fill();
 }
-function sprite(st, c, f, flip, team, x, y, z, alpha = 1) {
+/** mo: how he's moving (drill-sprites.js giveOf: his stride, a lean, a jump). */
+function sprite(st, c, f, flip, team, x, y, z, alpha = 1, mo = null) {
   if (z < st.camZ + W.NEAR) return;
   const p = P(st, x, y, z), tall = p.s * TALL_YD;
   if (p.y < st.y0 - 40 || tall < 2) return;
@@ -194,7 +195,7 @@ function sprite(st, c, f, flip, team, x, y, z, alpha = 1) {
   if (SP.ready() && SP.hasFrame(f)) {
     // (the pictures draw in device pixels: through the camera's sway, if any)
     const m = c.getTransform(), k = Math.hypot(m.a, m.b);
-    SP.draw(c, {f, flip}, team, true, m.a * p.x + m.c * p.y + m.e, m.b * p.x + m.d * p.y + m.f, tall * k);
+    SP.draw(c, {f, flip}, team, true, m.a * p.x + m.c * p.y + m.e, m.b * p.x + m.d * p.y + m.f, tall * k, mo);
     c.setTransform(m);
   } else {
     const low = /dive|flat|down|fallen/.test(f);
@@ -210,8 +211,9 @@ function sprite(st, c, f, flip, team, x, y, z, alpha = 1) {
 }
 /** A coverage man's picture: running at us, then (close) his move: arms out to wrap up, or the dive. Past us: on the
  *  turf or grabbing at air. */
+const manPh = (t, i) => (t * 7 + i * 1.7) * Math.PI;
 function manPose(type, d, t, i, beaten) {
-  const stride = (Math.floor(t * 7 + i * 1.7) & 1);
+  const stride = Math.floor(manPh(t, i) / Math.PI) & 1;
   if (d < -0.3) return type === 'diver' ? 'def.flat' : type === 'wedge' ? `ol.r_f${stride}` : beaten === 'spun' ? 'def.fallen' : 'def.juked';
   if (type === 'diver') return d < 8 ? 'def.dive' : `def.r_f${stride}`;
   if (type === 'wrap') return d < 12 ? 'def.reach' : `def.r_f${stride}`;
@@ -248,6 +250,15 @@ function runnerPose(st) {
   if (run.jt < 1) return {f: 'rb.juke', flip: R.xOf(run, run.lane) > run.jFrom};
   return {f: `rb.r_b${Math.floor(run.z / 1.5) & 1}`, flip: false};
 }
+/** How he moves in his picture now (drill-sprites.js giveOf): his stride (the picture changes every 1.5 yards, as a
+ *  foot comes down), a lean into a juke, stretched going up in a jump and squashed landing. */
+function runnerGive(st, now) {
+  const run = st.run, t = now / 1000, land = st.landAt ? (now - st.landAt) / 1000 : null;
+  if (!run || run.over || st.mode !== 'run') return {t, land};
+  const g = R.groundAt(run.co, R.laneOf(run), run.z), air = run.y > g + .12 || run.vy > 0;
+  return {ph: air || run.spin > 0 ? null : run.z / 1.5 * Math.PI, lean: (R.xOf(run, run.lane) - run.x) / 1.2,
+    vy: air ? run.vy / 8 : null, t, land};
+}
 /** How far ahead a coverage man is drawn now: he waits at his spot till you're CHARGE yards off, then runs at you. */
 const manD = (run, d) => d + R.VD * Math.min(Math.max(d, 0), CHARGE) / R.speedAt(run.z) + (d < 0 ? d * R.VD / R.speedAt(run.z) : 0);
 /** Everything in the lanes, far to near: the vehicles, the gates, the power-ups, the men and him. */
@@ -276,10 +287,10 @@ function drawLanes(st, c, now) {
         const f = tackler ? (type === 'wedge' ? 'ol.r_f0' : type === 'diver' ? 'def.dive' : 'def.reach') : manPose(type, dd, t, row.i + l, beat);
         if (type === 'wedge') {
           // two big men shoulder to shoulder, out of step
-          [-.62, .62].forEach((o, j) => { const fj = j && /r_f/.test(f) ? f.replace(/\d$/, m => String(1 - Number(m))) : f; shadow(st, c, x + o, 0, z, .6); sprite(st, c, fj, false, THEM, x + o, 0, z, alpha); });
+          [-.62, .62].forEach((o, j) => { const fj = j && /r_f/.test(f) ? f.replace(/\d$/, m => String(1 - Number(m))) : f; shadow(st, c, x + o, 0, z, .6); sprite(st, c, fj, false, THEM, x + o, 0, z, alpha, {ph: manPh(t, row.i + l) + j * Math.PI, t, seed: j}); });
         } else {
           shadow(st, c, x, 0, z);
-          sprite(st, c, f, (row.i + l) % 2 === 1, THEM, x, f === 'def.dive' ? .35 : 0, z, alpha);
+          sprite(st, c, f, (row.i + l) % 2 === 1, THEM, x, f === 'def.dive' ? .35 : 0, z, alpha, {ph: manPh(t, row.i + l), t, seed: row.i + l});
           if (!run.over && d > 2.5 && d < 40 && st.mode === 'run' && ry < 1.2) hint(st, c, type, x, z);
         }
       }});
@@ -289,7 +300,7 @@ function drawLanes(st, c, now) {
   } else {
     list.push({z: R.ZONE, draw: () => W.gate(st, c, R.ZONE, R.zoneAt(st.co, R.ZONE).theme, t)});
   }
-  const pose = runnerPose(st), g = run ? R.groundAt(run.co, R.laneOf(run), rz) : 0;
+  const pose = runnerPose(st), g = run ? R.groundAt(run.co, R.laneOf(run), rz) : 0, give = runnerGive(st, now);
   list.push({z: rz, me: true, draw: () => {
     shadow(st, c, rx, g, rz, .5);
     if (run && !run.over && run.pills > 0) {
@@ -303,10 +314,10 @@ function drawLanes(st, c, now) {
       c.beginPath(); c.ellipse(f.x, f.y, rw, rw * .3, 0, 0, Math.PI * 2); c.stroke();
     }
     // booze: he's seeing double
-    if (run && !run.over && run.booze > 0) sprite(st, c, pose.f, pose.flip, US, rx + .45 * Math.sin(now / 430), ry, rz + .2, .32 * Math.min(1, run.booze / .8));
+    if (run && !run.over && run.booze > 0) sprite(st, c, pose.f, pose.flip, US, rx + .45 * Math.sin(now / 430), ry, rz + .2, .32 * Math.min(1, run.booze / .8), give);
     // back up after the salts: he flickers while nothing can touch him
     const blink = run && !run.over && run.shield > 0 && !run.pills && Math.floor(now / 70) % 2;
-    sprite(st, c, pose.f, pose.flip, US, rx, ry, rz, blink ? .35 : 1);
+    sprite(st, c, pose.f, pose.flip, US, rx, ry, rz, blink ? .35 : 1, give);
   }});
   // Far to near; but whatever stands beyond a vehicle's side from the camera (in a lane further over, beside it) goes
   // before that vehicle, so its body hides them, however long it is.
@@ -476,6 +487,7 @@ function onEvents(st, evs) {
     else if (e.type === 'hurdled') { pop(st, 'HURDLE!'); st.beaten.set(e.row.i, 'hurdled'); ui.haptic('light'); }
     else if (e.type === 'spun') { pop(st, 'SPIN!'); st.beaten.set(e.row.i, 'spun'); ui.haptic('light'); }
     else if (e.type === 'pickup') { st.got.add(e.item.i); pop(st, GOT[e.kind], 'is-' + e.kind); ui.haptic('success'); ui.announce(`${R.POWER[e.kind].name}: ${R.POWER[e.kind].says}.`); }
+    else if (e.type === 'landed') st.landAt = now;
     else if (e.type === 'trucked') { st.knocked.set(`${e.row.i}:${e.lane}`, {at: now, z: e.z + .6}); pop(st, 'TRUCKED!', 'is-pills'); ui.haptic('medium'); }
     else if (e.type === 'vaulted') { pop(st, 'OVER THE TOP!', 'is-pills'); ui.haptic('medium'); }
     else if (e.type === 'revived') {
