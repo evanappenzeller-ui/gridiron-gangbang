@@ -367,15 +367,26 @@ export function mountList(el, ctx, opts = {}) {
     });
     if (best !== st.cur) { const was = st.cur; st.cur = best; if (was < 0 || was % n() !== best % n()) setCur(best % n()); }
   };
+  // Straight to a place on the shelf, nothing to see in between. The snapping is off for the moment it takes: Safari
+  // otherwise puts a snapping scroller back on the case it last came to rest on (so the shelf could start out on the
+  // copy at the far left, with nothing before it, and go round one way only).
+  const jumpTo = left => {
+    shelf.style.scrollSnapType = 'none';
+    shelf.scrollLeft = left;
+    void shelf.scrollLeft; // (taken before the snapping comes back)
+    requestAnimationFrame(() => { shelf.style.scrollSnapType = ''; });
+  };
   // Round the circle: at rest on a copy, the same case in the middle row takes its place (no movement to see: the
   // copies look the same). Never under a finger, and not before the shelf has stopped.
   const settle = () => {
     st.settle = 0;
+    if (st.dead || st.touch || !shelf.clientWidth) return;
+    layout();
     const k = n(), j = st.cur;
-    if (st.dead || st.touch || j < 0 || (j >= k && j < 2 * k)) return;
+    if (j < 0 || (j >= k && j < 2 * k)) return;
     const all = slots(), to = k + (j % k);
     if (!all[j] || !all[to]) return;
-    shelf.scrollLeft += all[to].offsetLeft - all[j].offsetLeft; // (at once: the shelf has no smooth scrolling of its own)
+    jumpTo(shelf.scrollLeft + all[to].offsetLeft - all[j].offsetLeft);
     st.cur = to;
     layout();
   };
@@ -401,7 +412,8 @@ export function mountList(el, ctx, opts = {}) {
   const center = (i, smooth = true) => {
     const sl = slots()[i];
     if (!sl) return;
-    shelf.scrollTo({left: sl.offsetLeft + sl.offsetWidth / 2 - shelf.clientWidth / 2, behavior: smooth && !ui.RM ? 'smooth' : 'auto'});
+    const left = sl.offsetLeft + sl.offsetWidth / 2 - shelf.clientWidth / 2;
+    if (smooth && !ui.RM) shelf.scrollTo({left, behavior: 'smooth'}); else jumpTo(left);
   };
   // ---------------------------------------------------------------- the back, up close
   function rowsFor(g, mode) {
@@ -518,6 +530,10 @@ export function mountList(el, ctx, opts = {}) {
     center(n() + i, false); // in the middle row
     st.cur = -1;
     layout();
+    // and still there once the page has settled (fonts, the covers, the panel under the shelf): back to the middle
+    // row if anything moved it out to a copy
+    [400, 1200].forEach(ms => setTimeout(settle, ms));
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => setTimeout(settle, 50), () => {});
   };
   requestAnimationFrame(start);
 
