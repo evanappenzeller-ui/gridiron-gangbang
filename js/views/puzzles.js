@@ -3,8 +3,8 @@
 //   you.js), then the list of games (views/games.js: one big card per game, each turning into that game's scoreboard
 //   once it's played today).
 // - A game's own page, pushed over it (params.game): /puzzles/daily is Daily Puzzles' hero card and the league
-//   leaderboard; /puzzles/17-0, /puzzles/drill and /puzzles/kick hold the pane modules views/seventeen.js,
-//   views/drill.js and views/kick.js, each imported the first time its page opens.
+//   leaderboard; /puzzles/17-0, /puzzles/drill, /puzzles/kick and /puzzles/return hold the pane modules
+//   views/seventeen.js, views/drill.js, views/kick.js and views/return.js, each imported the first time its page opens.
 // The Daily Puzzles hero has three states: not started ("Play"), started ("Continue", a thin progress bar with one
 // segment per puzzle, "1 of 3 done") and finished (the score ring, the grade, "See results" and "Share", the midnight
 // countdown). Play opens the run cover at the first unfinished puzzle. Works for every day version (three puzzles on
@@ -271,6 +271,41 @@ function showKK(st) {
     ui.hydrate(pane);
   });
 }
+let RM = null; // views/return.js, once imported
+const loadRM = () => (RM ? Promise.resolve(RM) : import('./return.js').then(m => (RM = m)));
+const rmLoading = () => `<div class="rm-loading" aria-busy="true">${ui.skeleton('rows', 4, {label: 'Loading Return Man.'})}</div>`;
+// Like the others: a phone with a finished day posts it from any visit to this tab.
+let rmSynced = false;
+function syncReturn() {
+  if (rmSynced) return;
+  rmSynced = true;
+  import('../core/return.js')
+    .then(m => (m.totals().played ? m.autoPost() : null))
+    .catch(() => { rmSynced = false; });
+}
+/** The Return Man pane: like showSV. */
+function showRM(st) {
+  const pane = st.el.querySelector('.c-rm-pane');
+  if (!pane) return;
+  if (st.rm === 'on') { RM.params(pane, st.ctx); return; }
+  if (st.rm === 'loading') return;
+  st.rm = 'loading';
+  if (!pane.firstElementChild) pane.innerHTML = rmLoading();
+  loadRM().then(() => {
+    if (HUB.get(st.ctx) !== st) return;
+    pane.innerHTML = RM.render(st.ctx);
+    RM.mount(pane, st.ctx);
+    ui.hydrate(pane);
+    st.rm = 'on';
+  }, err => {
+    console.error(err);
+    if (HUB.get(st.ctx) !== st) return;
+    st.rm = null;
+    pane.innerHTML = ui.empty({icon: 'football', title: 'Return Man didn\u2019t load.', action: {label: 'Try again', attrs: {'data-rm-load': ''}}});
+    ui.hydrate(pane);
+  });
+}
+
 // ============================================================================ Patching
 function sameParts(a, b) {
   if (!a || !b || a.length !== b.length) return false;
@@ -428,7 +463,8 @@ function onClick(st, e) {
   if (load) { showSV(st); return; }
   if (e.target.closest('[data-dr-load]')) { showDR(st); return; }
   if (e.target.closest('[data-kk-load]')) { showKK(st); return; }
-  if (e.target.closest('.c-sv-pane, .c-dr-pane, .c-kk-pane')) return;
+  if (e.target.closest('[data-rm-load]')) { showRM(st); return; }
+  if (e.target.closest('.c-sv-pane, .c-dr-pane, .c-kk-pane, .c-rm-pane')) return;
   const t = e.target.closest('[data-cta], [data-share], [data-streak], [data-retry], [data-cd-load], [data-pz-test]');
   if (!t || !st.el.contains(t)) return;
   const {ctx} = st;
@@ -561,12 +597,13 @@ export default {
     }
     if (g === '17-0') return `<div class="c-sv-pane sv-pane">${SV ? SV.render(ctx) : svLoading()}</div>`;
     if (g === 'drill') return `<div class="c-dr-pane dr-pane">${DR ? DR.render(ctx) : drLoading()}</div>`;
+    if (g === 'return') return `<div class="c-rm-pane rm-pane">${RM ? RM.render(ctx) : rmLoading()}</div>`;
     return `<div class="c-kk-pane kk-pane">${KK ? KK.render(ctx) : kkLoading()}</div>`;
   },
 
   mount(el, ctx) {
     ensureDefs();
-    const st = {el, ctx, board: null, list: null, pending: false, cancelRing: null, retrying: false, game: gameOf(ctx), sv: null, dr: null, kk: null};
+    const st = {el, ctx, board: null, list: null, pending: false, cancelRing: null, retrying: false, game: gameOf(ctx), sv: null, dr: null, kk: null, rm: null};
     HUB.set(ctx, st);
     el.addEventListener('click', e => onClick(st, e));
     if (st.game === null) {
@@ -576,6 +613,7 @@ export default {
       ui.whenIdle(syncSeventeen);
       ui.whenIdle(syncDrill);
       ui.whenIdle(syncKick);
+      ui.whenIdle(syncReturn);
       ctx.on('daily', type => onDaily(st, type));
       ctx.timer(() => { st.list.tick(); st.list.refresh(false); }, 20000);
       if (ready()) patchPill(st, false);
@@ -594,6 +632,7 @@ export default {
     }
     if (st.game === '17-0') showSV(st);
     else if (st.game === 'drill') showDR(st);
+    else if (st.game === 'return') showRM(st);
     else showKK(st);
   },
 
@@ -613,6 +652,7 @@ export default {
     if (st.game === 'puzzles') { if (ctx.reason !== 'params' && st.board) st.board.refresh({animate: false}); return; }
     if (st.game === '17-0') showSV(st);
     else if (st.game === 'drill') showDR(st);
+    else if (st.game === 'return') showRM(st);
     else showKK(st);
   },
 
@@ -625,6 +665,7 @@ export default {
     if (st.sv === 'on' && SV) SV.unmount(el.querySelector('.c-sv-pane'), ctx);
     if (st.dr === 'on' && DR) DR.unmount(el.querySelector('.c-dr-pane'), ctx);
     if (st.kk === 'on' && KK) KK.unmount(el.querySelector('.c-kk-pane'), ctx);
+    if (st.rm === 'on' && RM) RM.unmount(el.querySelector('.c-rm-pane'), ctx);
     HUB.delete(ctx);
   }
 };

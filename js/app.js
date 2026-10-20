@@ -85,11 +85,13 @@ function matchSegs(p, q) {
       if (n === 3 && b === 'play' && PUZZLES.includes(c)) return R('run', 'cover', 'puzzles', {puzzle: c});
       if (n === 2 && b === 'results') return R('results', 'cover', 'puzzles');
       // A game's own page, pushed over the Daily Games list (views/puzzles.js with params.game): Daily Puzzles (its card
-      // and the leaderboard), 17-0 (views/seventeen.js), the Two-Minute Drill (views/drill.js) and Kick It (views/kick.js).
+      // and the leaderboard), 17-0 (views/seventeen.js), the Two-Minute Drill (views/drill.js), Kick It (views/kick.js)
+      // and Return Man (views/return.js).
       if (n === 2 && b === 'daily') return R('puzzles', 'push', 'puzzles', {game: 'puzzles'});
       if (n === 2 && b === '17-0') return R('puzzles', 'push', 'puzzles', {game: '17-0'});
       if (n === 2 && b === 'drill') return R('puzzles', 'push', 'puzzles', {game: 'drill'});
       if (n === 2 && b === 'kick') return R('puzzles', 'push', 'puzzles', {game: 'kick'});
+      if (n === 2 && b === 'return') return R('puzzles', 'push', 'puzzles', {game: 'return'});
       return null;
     case 'pickem':
       // NFL Pick'em (optional ?week=N) is a tab root now: links to it switch to the tab.

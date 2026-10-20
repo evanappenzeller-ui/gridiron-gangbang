@@ -18,9 +18,9 @@ How it's enforced, and what to keep doing:
 
 - `js/core/daily.js` `boardShows()` decides what each phone sees; `boardFilter()` applies it to every board doc when
   the snapshot arrives. `LB.raw` and `LB.players` are the filtered board; `LB.all` is every doc.
-- Every scoreboard (Daily Puzzles, 17-0, the Two-Minute Drill and Kick It, today and week, the finished-game cards on
-  the Daily Games list in `js/views/games.js`, and any new game) must read `daily.LB.raw` / `daily.LB.players`, never
-  `LB.all`.
+- Every scoreboard (Daily Puzzles, 17-0, the Two-Minute Drill, Kick It and Return Man, today and week, the
+  finished-game cards on the Daily Games list in `js/views/games.js`, and any new game) must read `daily.LB.raw` /
+  `daily.LB.players`, never `LB.all`.
 - The owner is `js/core/data.js` `OWNER` (`isOwner()`); `boardShows()`, `pictureShows()` and `week.js` `finishRows()`
   honor it. Don't give it to anyone else unless the owner says so.
 - App users live in `js/core/data.js` `USERS`. A new app user is hidden from the league by default. Only an entry

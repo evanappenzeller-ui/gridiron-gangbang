@@ -1528,12 +1528,12 @@ export async function runChecks() {
 
   // The Daily Games list (Oct 2026): one big card per game, each with its own thumbnail, opening the game's own page; a
   // game played today is its scoreboard, read from the board as this phone may see it (THE RULE, CLAUDE.md).
-  check('Daily Games: a list of the four games (Daily Puzzles, 17-0, the Two-Minute Drill, Kick It), each with its own thumbnail and its own page; a played game\'s card is its scoreboard, today\'s top three with you among them, read from the board as this phone sees it', async () => {
+  check('Daily Games: a list of the five games (Daily Puzzles, 17-0, the Two-Minute Drill, Kick It, Return Man), each with its own thumbnail and its own page; a played game\'s card is its scoreboard, today\'s top three with you among them, read from the board as this phone sees it', async () => {
     const host = document.createElement('div');
     host.innerHTML = listHTML();
     const cards = [...host.querySelectorAll('.gm-card')];
     const order = cards.map(c => c.dataset.gm).join();
-    const own = new Set(GAMES.map(g => g.art)).size === 4 && GAMES.every(g => /^img\/games\/[a-z0-9-]+-art\.webp$/.test(g.art));
+    const own = new Set(GAMES.map(g => g.art)).size === GAMES.length && GAMES.every(g => /^img\/games\/[a-z0-9-]+-art\.webp$/.test(g.art));
     const loads = await Promise.all(GAMES.map(g => fetch(new URL('../../' + g.art, import.meta.url)).then(r => r.ok && /image/.test(r.headers.get('content-type') || '')).catch(() => false)));
     const pages = GAMES.map(g => gamePath(g.id)).join();
     // the scoreboard rows: you first among the people you're tied with; further down, the top two, a gap, you
@@ -1545,9 +1545,9 @@ export async function runChecks() {
     // and the code never reads every doc (LB.all), comments aside
     const src = await fetch(new URL('../views/games.js', import.meta.url)).then(r => r.text()).catch(() => '');
     const all = !src || src.split('\n').some(l => /LB\.all\b/.test(l.replace(/\/\/.*$/, '').replace(/\/\*.*?\*\//g, '')));
-    const pass = order === 'puzzles,17-0,drill,kick' && cards.every(c => c.querySelector('.gm-art-img, .gm-sbh')) && own && loads.every(Boolean)
-      && pages === '/puzzles/daily,/puzzles/17-0,/puzzles/drill,/puzzles/kick' && rows && !all;
-    return {pass, detail: `cards ${order}; thumbnails ${loads.filter(Boolean).length}/4 load${own ? '' : ' (not each its own)'}; pages ${pages}; rows: tie "${tie}", 5th "${low}", 2nd "${mid}"; ${all ? 'reads LB.all' : 'no LB.all reads'}`};
+    const pass = order === 'puzzles,17-0,drill,kick,return' && cards.every(c => c.querySelector('.gm-art-img, .gm-sbh')) && own && loads.every(Boolean)
+      && pages === '/puzzles/daily,/puzzles/17-0,/puzzles/drill,/puzzles/kick,/puzzles/return' && rows && !all;
+    return {pass, detail: `cards ${order}; thumbnails ${loads.filter(Boolean).length}/${GAMES.length} load${own ? '' : ' (not each its own)'}; pages ${pages}; rows: tie "${tie}", 5th "${low}", 2nd "${mid}"; ${all ? 'reads LB.all' : 'no LB.all reads'}`};
   });
 
   check('The Lay live tracking reads the league\'s kinds of legs and scores them against a game', () => {
@@ -1830,6 +1830,16 @@ export async function runChecks() {
     try { await kkMod.kickChecks(check); } catch (e) { check('Kick It checks (checks-kick.js)', () => { throw e; }); }
   } else {
     check('Kick It checks (checks-kick.js) loaded', () => ({pass: false, detail: kkErr ? 'did not load: ' + (kkErr.message || kkErr) : 'no kickChecks export'}));
+  }
+
+  // Return Man checks (js/core/checks-return.js, owned by RETURN: the day's courses, the moves, a day's numbers, the
+  // scoreboard and the league's rule). Guarded the same way.
+  let rmMod = null, rmErr = null;
+  try { rmMod = await import('./checks-return.js'); } catch (e) { rmErr = e; }
+  if (rmMod && typeof rmMod.returnChecks === 'function') {
+    try { await rmMod.returnChecks(check); } catch (e) { check('Return Man checks (checks-return.js)', () => { throw e; }); }
+  } else {
+    check('Return Man checks (checks-return.js) loaded', () => ({pass: false, detail: rmErr ? 'did not load: ' + (rmErr.message || rmErr) : 'no returnChecks export'}));
   }
 
   await Promise.all(pending);

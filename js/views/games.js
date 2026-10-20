@@ -1,13 +1,13 @@
 // The Daily Games list (the tab's root, views/puzzles.js; the owner's ask, Oct 2026): one big card per game, Daily
-// Puzzles, 17-0, the Two-Minute Drill and Kick It, each about the size of the old score card, with its thumbnail
+// Puzzles, 17-0, the Two-Minute Drill, Kick It and Return Man, each about the size of the old score card, with its thumbnail
 // (img/games/*.webp: captures of the games themselves), its name, how it plays and Play (Continue once it's started).
 // Play opens the game: Daily Puzzles straight into today's run, the others on their own page (/puzzles/<game>,
 // pushed); a tap anywhere else on a card opens the game's page too (Daily Puzzles' has its leaderboard).
 // A game finished today turns its card into that game's scoreboard: your result, your place today and the top of
 // today's league board, the way to the rest and the countdown to the next one. The rows come from each game's core
 // (boardRows: daily.LB.raw / LB.players, the board as this phone may see it: THE RULE, CLAUDE.md).
-// 17-0's, the drill's and Kick It's cores load at idle (17-0's and the drill's with their day files); until then their
-// cards offer Play. Exports: GAMES, gamePath(id), dailyKind(), progHTML() (and its fracOf, perfectOf, doneCount),
+// 17-0's, the drill's, Kick It's and Return Man's cores load at idle (17-0's and the drill's with their day files);
+// until then their cards offer Play. Exports: GAMES, gamePath(id), dailyKind(), progHTML() (and its fracOf, perfectOf, doneCount),
 // miniRows(rows), listHTML(), mountList(el, ctx) → {refresh(animate), tick(), destroy()}.
 // Owner: PUZZLES.
 import * as ui from '../core/ui.js';
@@ -25,7 +25,8 @@ export const GAMES = [
   {id: 'puzzles', name: 'Daily Puzzles', title: 'Daily Puzzles', art: 'img/games/puzzles-art.webp', badge: 'img/puzzles.webp', cd: 'New puzzles in'},
   {id: '17-0', name: '17–0', title: '17–0', art: 'img/games/seventeen-art.webp', badge: 'img/seventeen.webp', cd: 'New board in'},
   {id: 'drill', name: 'Two-Minute Drill', title: 'Two-Minute Drill', art: 'img/games/drill-art.webp', badge: 'img/drill.webp', cd: 'Next drill in'},
-  {id: 'kick', name: 'Kick It', title: 'Kick It', art: 'img/games/kick-art.webp', badge: 'img/kick.webp', cd: 'New kicks in'}
+  {id: 'kick', name: 'Kick It', title: 'Kick It', art: 'img/games/kick-art.webp', badge: 'img/kick.webp', cd: 'New kicks in'},
+  {id: 'return', name: 'Return Man', title: 'Return Man', art: 'img/games/return-art.webp', badge: 'img/return.webp', cd: 'New kickoffs in'}
 ];
 const byId = id => GAMES.find(g => g.id === id);
 /** A game's page (pushed over the list): Daily Puzzles' is /puzzles/daily. */
@@ -100,7 +101,7 @@ const safe = f => { try { return f() || []; } catch (e) { console.error(e); retu
 
 // ============================================================================ 17-0, the drill, Kick It
 // Their cores, once loaded (17-0's and the drill's need their day files).
-const C = {sv: null, dr: null, kk: null};
+const C = {sv: null, dr: null, kk: null, rm: null};
 let coresAsked = false;
 function loadCores(then) {
   if (coresAsked) return;
@@ -108,12 +109,14 @@ function loadCores(then) {
   import('../core/seventeen.js').then(m => m.load().then(() => { C.sv = m; then(); })).catch(() => {});
   import('../core/drill.js').then(m => m.load().then(() => { C.dr = m; then(); })).catch(() => {});
   import('../core/kick.js').then(m => { C.kk = m; then(); }).catch(() => {});
+  import('../core/return.js').then(m => { C.rm = m; then(); }).catch(() => {});
 }
 const boardOf = m => safe(() => [m.boardState()])[0] || 'loading';
 const SUBS = {
   '17-0': 'Five players, one budget, one season. Can your team go 17–0?',
   drill: 'Down late with the ball. Call every play to the final whistle.',
-  kick: 'Field goals that get longer with every make. Three misses and you’re done.'
+  kick: 'Field goals that get longer with every make. Three misses and you’re done.',
+  return: 'Swipe to juke, hurdle and spin through the coverage. Three kickoffs; every yard counts.'
 };
 function drillSub(dr, n) {
   try {
@@ -184,7 +187,24 @@ function kickState() {
     head: plural(off.made, 'field goal'), lines: [off.longest ? `Longest ${off.longest} yds` : 'No makes today'],
     actions: [{label: 'See your kicks', kind: 'secondary', attrs: {'data-gm-open': 'kick'}}]};
 }
-const STATE = {puzzles: puzzlesState, '17-0': seventeenState, drill: drillState, kick: kickState};
+function returnState() {
+  const RM = C.rm;
+  if (!RM) return {kind: 'new', sub: SUBS.return};
+  const n = RM.todayNumber(), day = RM.dayState(n), test = RM.testing();
+  const rows = boardOf(RM) === 'ready' ? safe(() => RM.boardRows(n)).map(r => ({...r, val: nf(r.y)})) : [];
+  const mine = rows.find(r => r.me);
+  const off = day.official || (!test && mine ? {yards: mine.y, longest: mine.l, tds: mine.td} : null);
+  if (!off) {
+    return day.list.length || RM.live(n) ? {kind: 'started', test, sub: SUBS.return, meta: `<p class="gm-note">${esc(day.list.length ? `${plural(day.list.length, 'return')} run: ${nf(day.yards)} yards so far` : 'A return under way.')}</p>`}
+      : {kind: 'new', test, sub: SUBS.return};
+  }
+  return {kind: 'done', test, board: boardOf(RM), rows,
+    vis: tileHTML(nf(off.yards), 'yards'),
+    head: off.tds ? plural(off.tds, 'touchdown') : off.yards >= 300 ? 'Electric' : off.yards >= 150 ? 'Great field position' : 'Three returns',
+    lines: [`Longest ${nf(off.longest)} yards`],
+    actions: [{label: 'See your returns', kind: 'secondary', attrs: {'data-gm-open': 'return'}}]};
+}
+const STATE = {puzzles: puzzlesState, '17-0': seventeenState, drill: drillState, kick: kickState, return: returnState};
 
 // ============================================================================ Markup
 const tileHTML = (big, small, cls = '') => `<span class="gm-tile ${cls}"><b class="n2">${esc(big)}</b>${small ? `<small>${esc(small)}</small>` : ''}</span>`;
