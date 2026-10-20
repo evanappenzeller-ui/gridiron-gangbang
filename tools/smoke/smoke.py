@@ -48,7 +48,7 @@ d = np.clip((s - lo) / (hi - lo), 0, 1)
 d = d * d * (3 - 2 * d)            # smoothstep
 d = d ** 1.5
 
-col = np.array([168, 222, 236], float)                 # light teal: the screen's tint does the rest
+col = np.array([86, 132, 150], float)                 # a deep teal (the owner: darker, Oct 2026)
 rgba = np.zeros((N, N, 4), np.uint8)
 rgba[..., :3] = col
 rgba[..., 3] = np.round(d * 255).astype(np.uint8)

@@ -284,11 +284,12 @@ function backHTML(g, s) {
     + `<span class="gm-scr"><span class="gm-scr-h">Today’s leaderboard</span>${rows}</span>`
     + `<span class="gm-bk-foot"><span class="gm-bk-tap">Tap for the season ›</span></span></span></div>`;
 }
-function caseHTML(g, s, i, n) {
+function caseHTML(g, s, i, n, clone) {
   const done = s.kind === 'done';
   const what = done ? `${g.name}: played today${placeText(s) ? `, ${placeText(s)}` : ''}. Show the leaderboard` : `${g.name}${s.kind === 'started' ? ', under way' : ''}`;
-  return `<div class="gm-slot" role="group" aria-roledescription="slide" aria-label="${i + 1} of ${n}" data-gm-slot="${g.id}">`
-    + `<button type="button" class="gm-case${done ? ' is-done' : ''}" data-gm="${g.id}" data-kind="${s.kind}" aria-label="${esc(what)}">`
+  const slot = clone ? 'aria-hidden="true" data-gm-clone' : `role="group" aria-roledescription="slide" aria-label="${i + 1} of ${n}"`;
+  return `<div class="gm-slot" ${slot} data-gm-slot="${g.id}">`
+    + `<button type="button" class="gm-case${done ? ' is-done' : ''}" data-gm="${g.id}" data-kind="${s.kind}" aria-label="${esc(what)}"${clone ? ' tabindex="-1"' : ''}>`
     + `<span class="gm-flip">${frontHTML(g, s)}${done ? backHTML(g, s) : ''}</span><span class="gm-gloss" aria-hidden="true"></span></button></div>`;
 }
 
@@ -324,12 +325,16 @@ function selHTML(g, s) {
 function stateOf(g) {
   try { return STATE[g.id](); } catch (e) { console.error(e); return {kind: 'new', sub: SUBS[g.id] || ''}; }
 }
-/** The shelf as it stands now (the cores that haven't loaded yet show Play). */
+/** The shelf as it stands now (the cores that haven't loaded yet show Play). It goes round in a circle (the owner's
+ *  ask, Oct 2026): the games three times over, the real ones in the middle and a copy each side (data-gm-clone, hidden
+ *  from screen readers), so past the last game comes the first again; mountList moves you back to the middle row
+ *  whenever the shelf comes to rest out on a copy. */
 export function listHTML() {
   const list = gamesFor(), states = list.map(stateOf);
+  const row = clone => list.map((g, i) => caseHTML(g, states[i], i, list.length, clone)).join('');
   return `<div class="gm-list" data-key="games" data-enter data-ids="${list.map(g => g.id).join(' ')}">`
     + `<div class="gm-shelf" data-hscroll role="region" aria-roledescription="carousel" aria-label="Daily games: swipe across" tabindex="0">`
-    + list.map((g, i) => caseHTML(g, states[i], i, list.length)).join('') + `</div>`
+    + row(true) + row(false) + row(true) + `</div>`
     + `<div class="gm-pips" aria-hidden="true">${list.map((g, i) => `<i class="gm-pip${states[i].kind === 'done' ? ' is-done' : ''}" data-gm-pip="${g.id}"></i>`).join('')}</div>`
     + `<div class="gm-sel" data-gm-sel aria-live="polite">${selHTML(list[0], states[0])}</div></div>`;
 }
@@ -339,10 +344,13 @@ const SHELF_KEY = 'gg-shelf';
 /** Wires the shelf in el: the cores load at idle; refresh(animate) brings every case (and what's under the shelf) up to
  *  date (a game just finished turns its case round), tick() moves the countdown. opts.play(id): open a game. */
 export function mountList(el, ctx, opts = {}) {
-  const st = {dead: false, cur: 0, zoom: null, raf: 0, saved: 0};
+  // st.cur: the slot in the middle, counting every copy (slots()); its game is list()[st.cur % n()]
+  const st = {dead: false, cur: 0, zoom: null, raf: 0, saved: 0, settle: 0, touch: false};
   const shelf = el.querySelector('.gm-shelf'), sel = el.querySelector('[data-gm-sel]');
   const list = () => gamesFor().filter(g => el.querySelector(`.gm-slot[data-gm-slot="${g.id}"]`));
   const slots = () => [...el.querySelectorAll('.gm-slot')];
+  const n = () => Math.max(1, list().length);
+  const curCase = id => { const sl = slots()[st.cur]; return sl && sl.dataset.gmSlot === id ? sl.querySelector('.gm-case') : el.querySelector(`.gm-slot:not([data-gm-clone]) .gm-case[data-gm="${id}"]`); };
   const shown = new Map(); // id → the markup its case shows
   const sig = (g, s) => `${s.kind}|${s.test ? 1 : 0}|${s.kind === 'done' ? backHTML(g, s) : frontHTML(g, s)}`;
   // the case in the middle: bigger and lit, the others smaller and turned a little toward it
@@ -357,15 +365,30 @@ export function mountList(el, ctx, opts = {}) {
       sl.classList.toggle('is-cur', a < .5);
       if (Math.abs(d) < bd) { bd = Math.abs(d); best = i; }
     });
-    if (best !== st.cur) setCur(best);
+    if (best !== st.cur) { const was = st.cur; st.cur = best; if (was < 0 || was % n() !== best % n()) setCur(best % n()); }
+  };
+  // Round the circle: at rest on a copy, the same case in the middle row takes its place (no movement to see: the
+  // copies look the same). Never under a finger, and not before the shelf has stopped.
+  const settle = () => {
+    st.settle = 0;
+    const k = n(), j = st.cur;
+    if (st.dead || st.touch || j < 0 || (j >= k && j < 2 * k)) return;
+    const all = slots(), to = k + (j % k);
+    if (!all[j] || !all[to]) return;
+    shelf.scrollLeft += all[to].offsetLeft - all[j].offsetLeft; // (at once: the shelf has no smooth scrolling of its own)
+    st.cur = to;
+    layout();
   };
   const onScroll = () => {
     if (!st.raf) st.raf = requestAnimationFrame(layout);
+    clearTimeout(st.settle);
+    st.settle = setTimeout(settle, 140);
     clearTimeout(st.saved);
-    st.saved = setTimeout(() => { const g = list()[st.cur]; if (g) try { sessionStorage.setItem(SHELF_KEY, g.id); } catch (_) {} }, 200);
+    st.saved = setTimeout(() => { const g = list()[st.cur % n()]; if (g) try { sessionStorage.setItem(SHELF_KEY, g.id); } catch (_) {} }, 200);
   };
+  const onDown = () => { st.touch = true; };
+  const onUp = () => { st.touch = false; clearTimeout(st.settle); st.settle = setTimeout(settle, 140); };
   function setCur(i, animate = true) {
-    st.cur = i;
     const g = list()[i];
     if (!g) return;
     el.querySelectorAll('[data-gm-pip]').forEach(p => p.classList.toggle('is-cur', p.dataset.gmPip === g.id));
@@ -374,6 +397,7 @@ export function mountList(el, ctx, opts = {}) {
     const go = () => { sel.dataset.html = html; sel.innerHTML = html; ui.hydrate(sel); };
     if (animate && ctx.visible && !ui.RM) ui.crossfade(sel, go, {duration: 140}); else go();
   }
+  // i: a slot, counting every copy
   const center = (i, smooth = true) => {
     const sl = slots()[i];
     if (!sl) return;
@@ -392,7 +416,7 @@ export function mountList(el, ctx, opts = {}) {
       + (note || `<div class="gm-scr-rows" role="list" aria-label="${mode === 'season' ? 'The season' : 'Today'}">${rows.map(r => rowHTML(r, {sub: true})).join('')}</div>`);
   }
   function openZoom(id) {
-    const g = byId(id), cs = el.querySelector(`.gm-case[data-gm="${id}"]`);
+    const g = byId(id), cs = curCase(id);
     if (!g || st.zoom) return;
     const s = stateOf(g);
     const z = document.createElement('div');
@@ -442,7 +466,7 @@ export function mountList(el, ctx, opts = {}) {
     if (!Z) return;
     st.zoom = null;
     if (Z.app) Z.app.inert = Z.prev;
-    const cs = el.querySelector(`.gm-case[data-gm="${Z.id}"]`), card = Z.el.querySelector('.gm-z-case');
+    const cs = curCase(Z.id), card = Z.el.querySelector('.gm-z-case');
     if (fast || ui.RM || !cs || !card) { Z.el.remove(); if (cs && !fast) cs.focus({preventScroll: true}); return; }
     const a = cs.getBoundingClientRect(), b = card.getBoundingClientRect();
     const sx = a.width / b.width, sy = a.height / b.height, dx = a.left + a.width / 2 - (b.left + b.width / 2), dy = a.top + a.height / 2 - (b.top + b.height / 2);
@@ -457,8 +481,8 @@ export function mountList(el, ctx, opts = {}) {
     if (zb) { openZoom(zb.dataset.gmZoom); return; }
     const cs = e.target.closest('.gm-case[data-gm]');
     if (!cs) return;
-    const i = list().findIndex(g => g.id === cs.dataset.gm);
-    if (i !== st.cur) { ui.haptic('selection'); center(i); return; }
+    const i = slots().indexOf(cs.closest('.gm-slot'));
+    if (i >= 0 && i !== st.cur) { ui.haptic('selection'); center(i); return; }
     if (cs.dataset.kind === 'done') { openZoom(cs.dataset.gm); return; }
     if (cs.dataset.kind === 'loading') return;
     if (cs.dataset.kind === 'error') { const b = sel.querySelector('[data-gm-retry]'); if (b) b.click(); return; }
@@ -468,10 +492,15 @@ export function mountList(el, ctx, opts = {}) {
   const onKey = e => {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
     e.preventDefault();
-    const i = Math.max(0, Math.min(list().length - 1, st.cur + (e.key === 'ArrowLeft' ? -1 : 1)));
-    if (i !== st.cur) center(i);
+    center(st.cur + (e.key === 'ArrowLeft' ? -1 : 1)); // round the circle (settle brings it back to the middle row)
   };
   shelf.addEventListener('scroll', onScroll, {passive: true});
+  shelf.addEventListener('pointerdown', onDown, {passive: true});
+  shelf.addEventListener('touchstart', onDown, {passive: true});
+  addEventListener('pointerup', onUp, {passive: true});
+  addEventListener('touchend', onUp, {passive: true});
+  addEventListener('touchcancel', onUp, {passive: true});
+  if ('onscrollend' in shelf) shelf.addEventListener('scrollend', onUp);
   shelf.addEventListener('keydown', onKey);
   el.addEventListener('click', onClick);
   const onResize = () => { center(st.cur, false); layout(); };
@@ -486,7 +515,7 @@ export function mountList(el, ctx, opts = {}) {
     const gs = list();
     let i = gs.findIndex(g => g.id === id);
     if (i < 0) i = Math.max(0, gs.findIndex(g => stateOf(g).kind !== 'done'));
-    center(i, false);
+    center(n() + i, false); // in the middle row
     st.cur = -1;
     layout();
   };
@@ -509,24 +538,25 @@ export function mountList(el, ctx, opts = {}) {
       return;
     }
     list().forEach((g, i) => {
-      const cs = el.querySelector(`.gm-case[data-gm="${g.id}"]`);
-      if (!cs) return;
+      const css = [...el.querySelectorAll(`.gm-case[data-gm="${g.id}"]`)]; // the game and its copies
+      if (!css.length) return;
       const s = stateOf(g), key = sig(g, s);
       if (shown.get(g.id) === key) return;
-      const was = cs.dataset.kind;
       shown.set(g.id, key);
-      const flipNow = s.kind === 'done' && was !== 'done';
-      cs.dataset.kind = s.kind;
-      const fl = cs.querySelector('.gm-flip');
-      fl.innerHTML = frontHTML(g, s) + (s.kind === 'done' ? backHTML(g, s) : '');
-      ui.hydrate(fl);
-      // a game just finished: its case turns round to the leaderboard
-      if (flipNow && animate && ctx.visible && !ui.RM) requestAnimationFrame(() => requestAnimationFrame(() => cs.classList.add('is-done')));
-      else cs.classList.toggle('is-done', s.kind === 'done');
-      cs.setAttribute('aria-label', s.kind === 'done' ? `${g.name}: played today${placeText(s) ? `, ${placeText(s)}` : ''}. Show the leaderboard` : `${g.name}${s.kind === 'started' ? ', under way' : ''}`);
+      css.forEach(cs => {
+        const flipNow = s.kind === 'done' && cs.dataset.kind !== 'done';
+        cs.dataset.kind = s.kind;
+        const fl = cs.querySelector('.gm-flip');
+        fl.innerHTML = frontHTML(g, s) + (s.kind === 'done' ? backHTML(g, s) : '');
+        ui.hydrate(fl);
+        // a game just finished: its case turns round to the leaderboard
+        if (flipNow && animate && ctx.visible && !ui.RM) requestAnimationFrame(() => requestAnimationFrame(() => cs.classList.add('is-done')));
+        else cs.classList.toggle('is-done', s.kind === 'done');
+        cs.setAttribute('aria-label', s.kind === 'done' ? `${g.name}: played today${placeText(s) ? `, ${placeText(s)}` : ''}. Show the leaderboard` : `${g.name}${s.kind === 'started' ? ', under way' : ''}`);
+      });
       const pip = el.querySelector(`[data-gm-pip="${g.id}"]`);
       if (pip) pip.classList.toggle('is-done', s.kind === 'done');
-      if (i === st.cur) setCur(i, animate);
+      if (i === st.cur % n()) setCur(i, animate);
     });
     if (st.zoom) {
       const body = st.zoom.el.querySelector('[data-gm-zbody]'), g = byId(st.zoom.id), html = zoomBody(g, st.zoom.mode);
@@ -542,7 +572,14 @@ export function mountList(el, ctx, opts = {}) {
   return {refresh, tick, destroy() {
     st.dead = true;
     closeZoom(true);
+    clearTimeout(st.settle);
     shelf.removeEventListener('scroll', onScroll);
+    shelf.removeEventListener('pointerdown', onDown);
+    shelf.removeEventListener('touchstart', onDown);
+    shelf.removeEventListener('scrollend', onUp);
+    removeEventListener('pointerup', onUp);
+    removeEventListener('touchend', onUp);
+    removeEventListener('touchcancel', onUp);
     shelf.removeEventListener('keydown', onKey);
     el.removeEventListener('click', onClick);
     removeEventListener('resize', onResize);

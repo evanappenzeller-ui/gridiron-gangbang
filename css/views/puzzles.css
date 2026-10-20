@@ -111,11 +111,11 @@ html.rm .v-puzzles .c-prog-f, html.rm .v-puzzles .c-prog-f::after, html.rm .v-pu
   content: ""; position: absolute; left: -60px; top: -40px; z-index: -1; pointer-events: none;
   width: calc(100% + 180px); height: calc(100% + 140px);
   background: url(../../img/games/smoke.webp) 0 0 / 620px 620px repeat;
-  opacity: .5; will-change: transform;
+  opacity: .4; will-change: transform;
   animation: gm-smoke-a 34s ease-in-out infinite alternate;
 }
 :root:not([data-light]) .screen.v-puzzles[data-path="/puzzles"]::after {
-  background-size: 900px 900px; background-position: 210px 380px; opacity: .34;
+  background-size: 900px 900px; background-position: 210px 380px; opacity: .27;
   animation: gm-smoke-b 47s ease-in-out -12s infinite alternate;
 }
 @keyframes gm-smoke-a { from { transform: translate(0, 0); } to { transform: translate(-110px, -70px); } }
@@ -133,7 +133,7 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
 .v-puzzles .gm-list { position: relative; margin-top: 2px; }
 .v-puzzles .gm-list::before {
   content: ""; position: absolute; left: calc(-1 * var(--gutter)); right: calc(-1 * var(--gutter)); top: 0; height: 420px; pointer-events: none;
-  background: radial-gradient(ellipse 60% 52% at 50% 46%, rgba(120,200,220,.2), transparent 72%);
+  background: radial-gradient(ellipse 60% 52% at 50% 46%, rgba(90,160,180,.14), transparent 72%);
 }
 .v-puzzles .gm-shelf {
   --cw: min(62cqw, 262px);
@@ -146,7 +146,7 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
 .v-puzzles .gm-shelf::-webkit-scrollbar { display: none; }
 .v-puzzles .gm-slot {
   --k: 1; --d: 0;
-  flex: none; width: var(--cw); margin: 0 calc(var(--cw) * -.07); scroll-snap-align: center; position: relative;
+  flex: none; width: var(--cw); margin: 0 calc(var(--cw) * -.07); scroll-snap-align: center; scroll-snap-stop: always; position: relative;
   transform: perspective(900px) rotateY(calc(var(--d) * -14deg)) scale(calc(1 - var(--k) * .17));
   opacity: calc(1 - var(--k) * .3); z-index: calc(10 - var(--k) * 5);
   will-change: transform;
