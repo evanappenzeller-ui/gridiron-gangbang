@@ -306,12 +306,16 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
   touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
 }
 .gm-z-scrim { position: absolute; inset: 0; background: rgba(4,6,12,.8); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
-.gm-z-dlg { position: relative; display: flex; flex-direction: column; align-items: center; gap: 14px; outline: none; pointer-events: none; }
+.gm-z-dlg { position: relative; display: flex; flex-direction: column; align-items: center; gap: 12px; outline: none; pointer-events: none; }
 .gm-z-dlg > * { pointer-events: auto; }
 .gm-z-x { position: fixed; z-index: 3; top: max(8px, var(--sa-t, 0px)); right: 8px; }
 .gm-z-stage {
-  position: relative; width: min(calc(100vw - 40px), 430px, calc((100svh - var(--sa-t, 0px) - var(--sa-b, 0px) - 200px) / 1.38));
-  aspect-ratio: 100 / 138; container-type: inline-size; perspective: 1500px;
+  /* most of the screen (the owner's ask, Oct 2026): as wide as the screen, a little in from its sides, and as tall as
+     the room under the close button and over the buttons allows, from a case's own shape (1.38) up to a taller one
+     (1.6, a handheld's case) */
+  --avh: calc(100svh - var(--sa-t, 0px) - var(--sa-b, 0px) - 146px);
+  --zw: min(calc(100vw - 20px), calc(var(--avh) / 1.38));
+  position: relative; width: var(--zw); height: min(var(--avh), var(--zw) * 1.6); container-type: size; perspective: 1500px;
 }
 .gm-z-obj { --zd: 7cqw; position: absolute; inset: 0; transform-style: preserve-3d; transform: rotateY(180deg); }
 .gm-z-obj > *, .gm-z-lid > * { position: absolute; -webkit-backface-visibility: hidden; backface-visibility: hidden; }
@@ -319,6 +323,17 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
   box-shadow: inset 0 0 0 1px rgba(16,34,0,.55), inset 0 .5cqw 0 rgba(220,255,160,.22); }
 .gm-zoom .gm-z-back { transform: rotateY(180deg) translateZ(calc(var(--zd) / 2)); padding: 2cqw 3cqw 2.4cqw 2cqw; }
 .gm-zoom .gm-z-front { cursor: pointer; }
+/* a case taller than its cover: the cover keeps its shape (none of its title cut off), a black strip under it like the
+   band over it, a football in silver on it (the strip goes when there's no room) */
+.gm-zoom .gm-z-front > .gm-art { flex: 0 1 auto; aspect-ratio: 808 / 1040; border-radius: 0; }
+.gm-z-foot {
+  position: relative; flex: 1 1 0; min-height: 0; display: flex; align-items: center; justify-content: center; gap: 2.4cqw; overflow: hidden;
+  border-radius: 0 0 1.8cqw 1.8cqw; background: linear-gradient(#17171A, #050506 45%, #0C0C0E); box-shadow: 0 0 0 .3cqw rgba(16,34,0,.5); color: #C3D0DC;
+}
+.gm-z-foot::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: max(1px, .45cqw); background: #E2E2DE; }
+.gm-z-foot::after, .gm-z-foot > i { content: ""; width: 14cqw; height: max(1px, .3cqw); background: linear-gradient(90deg, transparent, #8794A2); }
+.gm-z-foot::after { transform: scaleX(-1); }
+.gm-z-foot > .ic { flex: none; width: 6cqw; height: 6cqw; }
 /* the shine on the plastic, moved as it turns */
 .gm-z-gl {
   position: absolute; inset: -60%; z-index: 4; pointer-events: none;
@@ -356,8 +371,8 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
 .gm-z-edge.is-t, .gm-z-edge.is-b { left: 0; top: calc(50% - var(--zd) / 2); width: 100%; height: var(--zd); background: linear-gradient(#2E5A0B, #4E8614 22%, #5E9A1E 50%, #4E8614 78%, #2E5A0B); }
 .gm-z-edge.is-r { transform: rotateY(90deg) translateZ(50cqw); box-shadow: inset 0 0 0 50cqw rgba(0,0,0,.18); }
 .gm-z-edge.is-l { transform: rotateY(-90deg) translateZ(50cqw); }
-.gm-z-edge.is-t { transform: rotateX(90deg) translateZ(69cqw); box-shadow: inset 0 0 0 50cqw rgba(255,255,255,.08); }
-.gm-z-edge.is-b { transform: rotateX(-90deg) translateZ(69cqw); box-shadow: inset 0 0 0 50cqw rgba(0,0,0,.3); }
+.gm-z-edge.is-t { transform: rotateX(90deg) translateZ(50cqh); box-shadow: inset 0 0 0 50cqw rgba(255,255,255,.08); }
+.gm-z-edge.is-b { transform: rotateX(-90deg) translateZ(50cqh); box-shadow: inset 0 0 0 50cqw rgba(0,0,0,.3); }
 .gm-z-spine {
   position: absolute; inset: 7cqw .9cqw; display: flex; align-items: center; justify-content: space-between; padding: 3cqw 0; overflow: hidden;
   writing-mode: vertical-rl; white-space: nowrap; border-radius: .6cqw; background: linear-gradient(90deg, #0C0C0E, #1C1C20 50%, #0C0C0E);
@@ -372,7 +387,7 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
 }
 .gm-z-emb { position: absolute; left: 0; right: 0; bottom: 5.4cqw; text-align: center; font: 700 2.6cqw/1 var(--font-text); letter-spacing: .5em; color: #2A4E0C; text-shadow: 0 .25cqw 0 rgba(160,220,90,.25), 0 -.2cqw 0 rgba(0,0,0,.4); }
 .gm-z-disc {
-  left: 7cqw; top: 26cqw; width: 86cqw; height: 86cqw; border-radius: 50%; transform: translateZ(calc(var(--zd) / -2 + 1.2cqw)); cursor: pointer;
+  left: 7cqw; top: calc(50cqh - 43cqw); width: 86cqw; height: 86cqw; border-radius: 50%; transform: translateZ(calc(var(--zd) / -2 + 1.2cqw)); cursor: pointer;
   background:
     radial-gradient(circle closest-side, transparent 0 38.6%, rgba(255,255,255,.55) 39.2%, transparent 40.4%),
     conic-gradient(from 20deg, #D9DDE3, #F7F9FB 8%, #C4CBD6 15%, #E9D9F7 22%, #CDEEF0 30%, #F4F1D2 37%, #D9DDE3 45%, #F7F9FB 55%, #C4CBD6 62%, #E9D9F7 70%, #CDEEF0 80%, #F4F1D2 88%, #D9DDE3);
@@ -393,7 +408,7 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
     conic-gradient(from 18deg, rgba(255,255,255,0), rgba(255,255,255,.3) 5%, rgba(255,255,255,0) 13%, rgba(255,255,255,0) 50%, rgba(255,255,255,.22) 55%, rgba(255,255,255,0) 63%);
 }
 .gm-z-hub {
-  left: 44.5cqw; top: 63.5cqw; width: 11cqw; height: 11cqw; border-radius: 50%; transform: translateZ(calc(var(--zd) / -2 + 1.8cqw));
+  left: 44.5cqw; top: calc(50cqh - 5.5cqw); width: 11cqw; height: 11cqw; border-radius: 50%; transform: translateZ(calc(var(--zd) / -2 + 1.8cqw));
   background: radial-gradient(circle closest-side, #6C9C24 0 30%, #23420A 33% 38%, transparent 40%), repeating-conic-gradient(#5A9117 0 9deg, #2E5A0B 9deg 18deg);
   box-shadow: 0 .3cqw .8cqw rgba(0,0,0,.5);
 }
@@ -409,9 +424,9 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
 }
 .gm-z-book > .gm-band { min-height: 8cqw; border-radius: 0; box-shadow: none; }
 .gm-z-book .gm-band-t { font-size: 2.6cqw; }
-.gm-z-book-art { position: relative; flex: 1 1 auto; min-height: 0; }
+.gm-z-book-art { position: relative; flex: 0 1 auto; min-height: 0; aspect-ratio: 808 / 1040; }
 .gm-z-book-art > img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; }
-.gm-z-book-t { flex: none; padding: 2.2cqw 0 2cqw; text-align: center; font: 800 2.6cqw/1 var(--font-text); letter-spacing: .3em; text-transform: uppercase; color: #141414; }
+.gm-z-book-t { flex: 1 0 auto; display: grid; place-items: center; padding: 2.2cqw 0 2cqw; text-align: center; font: 800 2.6cqw/1 var(--font-text); letter-spacing: .3em; text-transform: uppercase; color: #141414; }
 .gm-z-clip { position: absolute; left: calc(50% - 8cqw); width: 16cqw; height: 4.6cqw; border-radius: 1cqw; background: linear-gradient(#6C9C24, #4E8614); box-shadow: 0 .4cqw 1cqw rgba(0,0,0,.45), inset 0 .3cqw 0 rgba(220,255,160,.3); }
 .gm-z-clip.is-t { top: 6.6cqw; }
 .gm-z-clip.is-b { bottom: 6.6cqw; }

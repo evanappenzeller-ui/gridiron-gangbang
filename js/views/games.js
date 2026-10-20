@@ -232,7 +232,7 @@ const GLOSS = '<span class="gm-z-gl" aria-hidden="true"></span>'; // (the shine 
  *  opens it, a shine moves over it as it turns). */
 function frontHTML(g, s, up = false) {
   const stk = s.test ? sticker('is-test', 'TEST PLAY') : s.kind === 'started' ? sticker('is-go', 'IN PROGRESS') : '';
-  return `<div class="gm-face gm-front${up ? ' gm-z-front" data-gm-zfront aria-hidden="true' : ''}">${bandHTML('', g.beta)}<span class="gm-art"><img class="gm-img" src="${g.art}" alt="" decoding="async" draggable="false">${stk}</span>${up ? GLOSS : ''}</div>`;
+  return `<div class="gm-face gm-front${up ? ' gm-z-front" data-gm-zfront aria-hidden="true' : ''}">${bandHTML('', g.beta)}<span class="gm-art"><img class="gm-img" src="${g.art}" alt="" decoding="async" draggable="false">${stk}</span>${up ? `<span class="gm-z-foot"><i></i>${ui.icon('football')}</span>${GLOSS}` : ''}</div>`;
 }
 function rowHTML(r, {sub = false} = {}) {
   const label = `${ui.ordinal(r.rank)}, ${r.name}${r.me ? ', you' : ''}${r.guest ? ', guest' : ''}: ${r.val}${r.letter ? `, grade ${r.letter}` : ''}${sub && r.sub ? `. ${r.sub}` : ''}`;
@@ -435,7 +435,7 @@ export function mountList(el, ctx, opts = {}) {
       + `<span class="gm-z-clip is-t"></span><span class="gm-z-clip is-b"></span></div></div>`;
     return `<div class="gm-z-stage" style="--gc:${ACCENT[g.id]}"><div class="gm-z-obj">${back}${sides}${inside}${lid}</div></div>`;
   }
-  const HINT = {back: 'Drag the case to turn it. Turn it to the front to open it', front: 'Tap the cover to open the case', open: 'Tap the case to close it'};
+  const HINT = {back: 'Drag to turn it · it opens from the front', front: 'Tap the cover to open it', open: 'Tap the case to close it'};
   function openZoom(id) {
     const g = byId(id), cs = curCase(id);
     if (!g || st.zoom) return;
