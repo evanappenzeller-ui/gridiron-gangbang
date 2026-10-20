@@ -18,10 +18,10 @@ const MODEL = new URL('../../models/return-player.glb', import.meta.url).href;
 export const STRIDE = 5;
 const SCALE = 1.12; // the model's metres to yards, a little big (a man is about 2 yards with his helmet on)
 const KITS = {
-  us: {jersey: 0x1D3F8F, pants: 0xD9DDE5, stripe: 0x1D3F8F, sock: 0x1D3F8F, cleat: 0x15171C, glove: 0x1A2240, skin: 0x8A5A36,
-    helmet: 0x1D3F8F, helmetStripe: 0xF4F6FA, mask: 0xC4CAD4, num: 22, numFill: '#FFFFFF', numEdge: '#0C1A44', ball: true},
-  them: {jersey: 0xC8102E, pants: 0xF3F3F5, stripe: 0xC8102E, sock: 0xC8102E, cleat: 0x15171C, glove: 0xF4F4F6, skin: 0xC68C5E,
-    helmet: 0xF2F3F5, helmetStripe: 0xC8102E, mask: 0x4E535C, num: 52, numFill: '#FFFFFF', numEdge: '#6E0E10', ball: false}
+  us: {jersey: 0x1D3F8F, trim: 0xF4F6FA, pants: 0xD9DDE5, stripe: 0x1D3F8F, sock: 0x1D3F8F, cleat: 0x15171C, glove: 0x1A2240, skin: 0x8A5A36,
+    helmet: 0x1D3F8F, helmetStripe: 0xF4F6FA, mask: 0xC4CAD4, num: 22, numFill: '#FFFFFF', numEdge: '#0C1A44', ball: true, size: 1},
+  them: {jersey: 0xC8102E, trim: 0xF4F4F6, pants: 0xF3F3F5, stripe: 0xC8102E, sock: 0xC8102E, cleat: 0x15171C, glove: 0xF4F4F6, skin: 0xC68C5E,
+    helmet: 0xF2F3F5, helmetStripe: 0xC8102E, mask: 0x4E535C, num: 52, numFill: '#FFFFFF', numEdge: '#6E0E10', ball: false, size: 1.06}
 };
 let T = null, GL = null, LOADING = null, DEAD = false;
 
@@ -55,13 +55,13 @@ export const ready = () => !!GL && !DEAD;
 // Which part of the uniform each bit of him is, by the bone that moves it (and where it is on him, standing in the
 // model's T-pose, metres, facing +z): the jersey (the chest, the top of the arms), the pants (the hips below the
 // waist, the thighs, the knee, with a stripe down the outside of the thigh), socks, cleats, gloves, and skin.
-const PART = {jersey: 0, pants: 1, stripe: 2, sock: 3, cleat: 4, glove: 5, skin: 6};
+const PART = {jersey: 0, pants: 1, stripe: 2, sock: 3, cleat: 4, glove: 5, skin: 6, trim: 7};
 function partOf(bone, p, R) {
   const n = bone;
   if (/^(Head|HeadTop|LeftEye|RightEye|Neck)/.test(n)) return PART.skin;
   if (/^Spine|Shoulder$/.test(n)) return PART.jersey;
   if (n === 'Hips') return p.y > R.waist ? PART.jersey : PART.pants;
-  if (/^(Left|Right)Arm$/.test(n)) return (Math.abs(p.x) - R.shoulderX) / R.upperArm < .55 ? PART.jersey : PART.skin;
+  if (/^(Left|Right)Arm$/.test(n)) return (Math.abs(p.x) - R.shoulderX) / R.upperArm < .45 ? PART.jersey : PART.skin;
   if (/ForeArm$/.test(n)) return PART.skin;
   if (/Hand/.test(n)) return PART.glove;
   if (/UpLeg$/.test(n)) {
@@ -75,32 +75,80 @@ function partOf(bone, p, R) {
 }
 const bare = name => name.replace(/^mixamorig:?/, '');
 const GET = ['getX', 'getY', 'getZ', 'getW'].map(f => function (i) { return this[f](i); }); // (an attribute's k-th component)
-/** Each mesh's parts, worked out once from the model as it stands (its T-pose). */
+const smooth = (a, b, v) => { const u = Math.max(0, Math.min(1, (v - a) / (b - a))); return u * u * (3 - 2 * u); };
+const clamp01 = v => Math.max(0, Math.min(1, v));
+/** How far to move a bit of him (p, standing, metres; n its outward normal; on bone `bone`) to build him like a
+ *  football player (the owner's ask, Oct 2026: more muscle): a chest and back broad and deep up to the shoulders, a
+ *  thick neck, round shoulders, big arms, glutes, thighs and calves. Into d (metres). */
+function bulkOf(bone, p, n, R, d) {
+  d.set(0, 0, 0);
+  let grow = 0;
+  if (/^Spine|^Hips$/.test(bone) && (bone !== 'Hips' || p.y > R.waist)) {
+    // the trunk, solid from the belt to the shoulders: the belly (narrower on the model) grown most, then the chest,
+    // broadest at the shoulders
+    const up = smooth(R.waist, R.chest, p.y), top = smooth(R.chest - .04, R.chest + .1, p.y);
+    d.x = p.x * (.34 - .1 * up + .1 * top);
+    d.z = (p.z - R.trunkZ) * (.3 - .1 * up);
+    grow = .008;
+  } else if (/Shoulder$/.test(bone)) { d.x = p.x * .24; d.z = (p.z - R.trunkZ) * .2; grow = .012; }
+  else if (bone === 'Neck') grow = .022;
+  else if (bone === 'Hips') { d.x = p.x * .08; grow = .016 + .014 * Math.max(0, -n.z); } // (the seat)
+  else if (/^(Left|Right)Arm$/.test(bone)) { const t = clamp01((Math.abs(p.x) - R.shoulderX) / R.upperArm); grow = .02 + .018 * Math.sin(Math.PI * t) + .01 * (1 - t); }
+  else if (/ForeArm$/.test(bone)) { const t = clamp01((Math.abs(p.x) - R.foreX) / R.foreArm); grow = .011 + .012 * Math.sin(Math.PI * Math.min(1, t * 1.4)); }
+  else if (/Hand$/.test(bone)) grow = .004;
+  else if (/UpLeg$/.test(bone)) { const t = clamp01((R.hipY - p.y) / (R.hipY - R.knee)); grow = .016 + .014 * Math.sin(Math.PI * t); }
+  else if (/Leg$/.test(bone)) { const t = clamp01((R.knee - p.y) / (R.knee - R.foot)); grow = .006 + (.006 + .016 * Math.max(0, -n.z)) * Math.sin(Math.PI * Math.min(1, t / .65)); }
+  else if (/Foot|Toe/.test(bone)) grow = .005;
+  d.addScaledVector(n, grow);
+  return d;
+}
+/** Each mesh's parts (worked out once from the model as it stands: its T-pose), and the model built up (bulkOf) for
+ *  every player: each vertex moved in the mesh's own space by the world's move turned back through the skinning,
+ *  which standing is the same for every bone. */
 function partsOf(scene) {
   scene.updateMatrixWorld(true);
   const B = {};
   scene.traverse(o => { if (o.isBone) B[bare(o.name)] = o; });
   const at = n => B[n].getWorldPosition(new T.Vector3());
-  const hip = at('LeftUpLeg'), knee = at('LeftLeg');
-  const R = {waist: at('Hips').y - .03, shoulderX: at('LeftArm').x, upperArm: at('LeftForeArm').x - at('LeftArm').x,
-    hipX: hip.x, hipY: hip.y, hipZ: hip.z, knee: knee.y, kneeX: knee.x, kneeZ: knee.z, stripeOut: .045};
-  const out = new Map(), v = new T.Vector3(), box = {head: new T.Box3(), chest: new T.Box3()};
+  const hip = at('LeftUpLeg'), knee = at('LeftLeg'), arm = at('LeftArm'), fore = at('LeftForeArm');
+  const R = {waist: at('Hips').y - .03, chest: at('Spine2').y + .06, trunkZ: at('Spine1').z, shoulderX: arm.x, upperArm: fore.x - arm.x,
+    foreX: fore.x, foreArm: at('LeftHand').x - fore.x, hipX: hip.x, hipY: hip.y, hipZ: hip.z, knee: knee.y, kneeX: knee.x, kneeZ: knee.z,
+    foot: at('LeftFoot').y, stripeOut: .045};
+  const out = new Map(), v = new T.Vector3(), nv = new T.Vector3(), d = new T.Vector3(), box = {head: new T.Box3(), chest: new T.Box3()};
   scene.traverse(o => {
     if (!o.isSkinnedMesh) return;
-    const g = o.geometry, si = g.attributes.skinIndex, sw = g.attributes.skinWeight, n = g.attributes.position.count;
-    const parts = new Uint8Array(n);
+    const g = o.geometry, si = g.attributes.skinIndex, sw = g.attributes.skinWeight, pa = g.attributes.position, na = g.attributes.normal, n = pa.count;
+    o.skeleton.update();
+    // the mesh's space to the world, standing (the first bone's say: they all agree there), and back
+    const A = new T.Matrix4().multiplyMatrices(o.matrixWorld, o.bindMatrixInverse).multiply(o.skeleton.boneMatrices ? new T.Matrix4().fromArray(o.skeleton.boneMatrices, 0) : new T.Matrix4()).multiply(o.bindMatrix);
+    const back = new T.Matrix3().setFromMatrix4(new T.Matrix4().copy(A).invert()), nm = new T.Matrix3().getNormalMatrix(A);
+    const parts = new Uint8Array(n), pos = new Float32Array(n * 3);
     for (let i = 0; i < n; i++) {
       let best = 0, bw = -1;
       for (let k = 0; k < 4; k++) { const w = GET[k].call(sw, i); if (w > bw) { bw = w; best = GET[k].call(si, i); } }
       o.getVertexPosition(i, v); v.applyMatrix4(o.matrixWorld);
+      nv.set(na.getX(i), na.getY(i), na.getZ(i)).applyMatrix3(nm).normalize();
       const bn = bare(o.skeleton.bones[best].name);
       parts[i] = partOf(bn, v, R);
-      if (bn === 'Head') box.head.expandByPoint(v);
-      if (/^Spine/.test(bn) && v.y > 1.24 && v.y < 1.36) box.chest.expandByPoint(v);
+      bulkOf(bn, v, nv, R, d).applyMatrix3(back);
+      pos[i * 3] = pa.getX(i) + d.x; pos[i * 3 + 1] = pa.getY(i) + d.y; pos[i * 3 + 2] = pa.getZ(i) + d.z;
     }
+    g.setAttribute('position', new T.BufferAttribute(pos, 3));
+    g.deleteAttribute('normal'); g.computeVertexNormals();
+    g.computeBoundingSphere();
     out.set(o.name, parts);
+    // (where his head and his chest are now, for the helmet, the pads and the numbers)
+    for (let i = 0; i < n; i++) {
+      let best = 0, bw = -1;
+      for (let k = 0; k < 4; k++) { const w = GET[k].call(sw, i); if (w > bw) { bw = w; best = GET[k].call(si, i); } }
+      const bn = bare(o.skeleton.bones[best].name);
+      if (bn !== 'Head' && !/^Spine/.test(bn)) continue;
+      o.getVertexPosition(i, v); v.applyMatrix4(o.matrixWorld);
+      if (bn === 'Head') box.head.expandByPoint(v);
+      else if (v.y > 1.24 && v.y < 1.36) box.chest.expandByPoint(v);
+    }
   });
-  return {parts: out, box, at};
+  return {parts: out, box, at, R};
 }
 // The number: white with an edge in the kit's dark, on a canvas.
 function numberTexture(k) {
@@ -128,11 +176,12 @@ function dress(gltf, SK, k, info) {
   model.updateMatrixWorld(true);
   const B = {};
   model.traverse(o => { if (o.isBone) B[bare(o.name)] = o; });
-  // built like a football player: thicker legs and arms (each bone's own y runs along it, so this thickens, not lengthens)
-  ['LeftUpLeg', 'RightUpLeg'].forEach(n => B[n].scale.set(1.22, 1, 1.22));
-  ['LeftArm', 'RightArm'].forEach(n => B[n].scale.set(1.18, 1, 1.18));
+  // thicker still through the legs and arms (each bone's own y runs along it, so this thickens, not lengthens); big gloves
+  ['LeftUpLeg', 'RightUpLeg'].forEach(n => B[n].scale.set(1.1, 1, 1.1));
+  ['LeftArm', 'RightArm'].forEach(n => B[n].scale.set(1.14, 1, 1.14));
+  ['LeftHand', 'RightHand'].forEach(n => B[n].scale.setScalar(1.12));
   // the uniform, painted on (the joints' rings a shade darker, as seams)
-  const COL = [k.jersey, k.pants, k.stripe, k.sock, k.cleat, k.glove, k.skin].map(h => new T.Color(h));
+  const COL = [k.jersey, k.pants, k.stripe, k.sock, k.cleat, k.glove, k.skin, k.trim].map(h => new T.Color(h));
   const body = new T.MeshStandardMaterial({vertexColors: true, roughness: .62, metalness: 0, envMapIntensity: .55});
   model.traverse(o => {
     if (!o.isSkinnedMesh) return;
@@ -158,19 +207,28 @@ function dress(gltf, SK, k, info) {
   bar(arc(-r * .18, r * 1.12, 1.05)); bar(arc(-r * .5, r * 1.1, .95)); bar(arc(-r * .78, r * .95, .7));
   bar([new T.Vector3(0, -r * .1, r * 1.12), new T.Vector3(0, -r * .5, r * 1.1), new T.Vector3(0, -r * .82, r * .95)]);
   [-1, 1].forEach(s => bar([new T.Vector3(s * Math.sin(1.05) * r * 1.12, -r * .18, Math.cos(1.05) * r * 1.12), new T.Vector3(s * Math.sin(.95) * r * 1.1, -r * .5, Math.cos(.95) * r * 1.1), new T.Vector3(s * Math.sin(.7) * r * .95, -r * .78, Math.cos(.7) * r * .95)]));
+  // a dark eye shield in the opening
+  const visorM = new T.MeshPhysicalMaterial({color: 0x0E1116, roughness: .05, metalness: .4, clearcoat: 1, clearcoatRoughness: .02, envMapIntensity: 1.5});
+  helmet.add(new T.Mesh(new T.SphereGeometry(r * .985, 28, 6, Math.PI / 2 - W, 2 * W, Math.PI * .4, Math.PI * .15), visorM));
   helmet.scale.set(1, 1.02, 1.08);
   hang(B.Head, helmet, new T.Vector3(hc.x, hc.y + hs.y * .06, hc.z + .005));
-  // shoulder pads under the jersey: a yoke across the top of him, a cap over each shoulder
+  // the pads under the jersey: shoulder pads (a yoke across the top of him, broad over the shoulders, and a big cap over
+  // each), a collar round his neck; thigh and knee pads under the pants
   const cb = info.box.chest, cc = cb.getCenter(new T.Vector3()), cs = cb.getSize(new T.Vector3());
-  const padM = new T.MeshStandardMaterial({color: k.jersey, roughness: .6, envMapIntensity: .55});
-  const sh = info.at('LeftArm');
-  const yoke = new T.Mesh(new T.SphereGeometry(1, 28, 16), padM);
-  yoke.scale.set(cs.x * .62, .085, cs.z * .62);
-  hang(B.Spine2, yoke, new T.Vector3(0, sh.y + .005, cc.z));
+  const padM = new T.MeshStandardMaterial({color: k.jersey, roughness: .55, envMapIntensity: .6});
+  const sh = info.at('LeftArm'), neck = info.at('Neck');
+  const egg = (m, sx, sy, sz) => { const e = new T.Mesh(new T.SphereGeometry(1, 28, 18), m); e.scale.set(sx, sy, sz); return e; };
+  hang(B.Spine2, egg(padM, cs.x * .54, .1, cs.z * .6), new T.Vector3(0, sh.y - .01, cc.z));
   [-1, 1].forEach(s => {
-    const cap = new T.Mesh(new T.SphereGeometry(1, 20, 14, 0, Math.PI * 2, 0, Math.PI * .62), padM);
-    cap.scale.set(.085, .07, .1);
-    hang(B.Spine2, cap, new T.Vector3(s * sh.x * .95, sh.y + .015, cc.z));
+    hang(B.Spine2, egg(padM, .115, .062, .13), new T.Vector3(s * (sh.x + .05), sh.y + .035, cc.z), new T.Quaternion().setFromEuler(new T.Euler(0, 0, -s * .32)));
+  });
+  const collar = new T.Mesh(new T.TorusGeometry(.068, .017, 10, 28), new T.MeshStandardMaterial({color: k.trim, roughness: .6, envMapIntensity: .5}));
+  hang(B.Spine2, collar, new T.Vector3(0, neck.y - .005, neck.z + .005), new T.Quaternion().setFromEuler(new T.Euler(Math.PI / 2 - .12, 0, 0)));
+  const pantsM = new T.MeshStandardMaterial({color: k.pants, roughness: .62, envMapIntensity: .5});
+  [['Left', 1], ['Right', -1]].forEach(([n, x]) => {
+    const hp = info.at(n + 'UpLeg'), kn = info.at(n + 'Leg');
+    hang(B[n + 'UpLeg'], egg(pantsM, .062, .1, .032), new T.Vector3(hp.x + (kn.x - hp.x) * .5 + x * .01, hp.y + (kn.y - hp.y) * .48, hp.z + .085));
+    hang(B[n + 'Leg'], egg(pantsM, .055, .055, .03), new T.Vector3(kn.x, kn.y - .015, kn.z + .07));
   });
   // the number on his back and his chest
   const tex = numberTexture(k), numM = new T.MeshStandardMaterial({map: tex, transparent: true, alphaTest: .4, roughness: .6, envMapIntensity: .5, polygonOffset: true, polygonOffsetFactor: -2});
@@ -197,7 +255,7 @@ function dress(gltf, SK, k, info) {
   }
   const root = new T.Group(), wrap = new T.Group();
   root.rotation.order = 'YXZ';
-  wrap.rotation.y = Math.PI; wrap.scale.setScalar(SCALE);
+  wrap.rotation.y = Math.PI; wrap.scale.setScalar(SCALE * k.size);
   wrap.add(model); root.add(wrap);
   const mixer = new T.AnimationMixer(model);
   const clip = name => gltf.animations.find(a => a.name === name);
