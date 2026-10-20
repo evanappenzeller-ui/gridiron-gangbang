@@ -34,7 +34,7 @@ const esc = data.esc;
 const nf = n => data.nf(n);
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 // The version mark css/views/return.css carries (--rm-css): an older cached stylesheet gets the new one linked.
-const CSS_V = '4';
+const CSS_V = '5';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--rm-css').trim() === CSS_V) return;
@@ -74,7 +74,7 @@ function keysHTML() {
     + k('is-ramp', '◢', 'Run up a ramp onto the roofs')
     + k('is-chase', '!', 'The linebacker’s on your heels at the catch and after any hit. Hit something while he’s there: tackled')
     + `</ul><ul class="rm-pks" aria-label="Power-ups">`
-    + pw('salts', 'Smelling salts', 'Shake the linebacker')
+    + pw('salts', 'Smelling salts', 'Speed burst + extra life')
     + pw('pills', 'Painkillers', 'Feel nothing')
     + pw('booze', 'Booze', 'Double yards')
     + `</ul>`;
@@ -334,7 +334,7 @@ function runner3(st, now) {
   if (run.slide > 0) o.slide = Math.min(1, (R.MOVE.slide - run.slide) / .1, run.slide / .12);
   const stum = run.slow > 0 ? run.slow / R.CHASE.slow : 0, he = st.hitAt ? now - st.hitAt : 1e9;
   if (stum) o.stumble = stum;
-  o.pitch = .1 + (he < 320 ? .38 * Math.sin(Math.PI * he / 320) : 0); // (leaning into his run; a hit: he lurches forward)
+  o.pitch = .1 + .3 * R.burstOf(run) + (he < 320 ? .38 * Math.sin(Math.PI * he / 320) : 0); // (leaning into his run, more in a burst; a hit: he lurches forward)
   const cut = Math.max(-1, Math.min(1, (R.xOf(run, run.lane) - run.x) / R.LANE)), sp = st.spinAt ? (now - st.spinAt) / SPIN_MS : 1;
   o.turn = .5 * cut + (sp < 1 ? st.spinDir * Math.PI * 2 * smooth(sp) : 0);
   o.roll = .24 * cut + stum * .16 * Math.sin(run.slow * 22) + .45 * edgeBounce(st, now);
@@ -509,7 +509,7 @@ function draw3(st, c, now) {
 function drawSpeed(st, c, now) {
   const run = st.run;
   if (!run || st.mode !== 'run') return;
-  const v = R.speedAt(run.z), k = Math.max(0, (v - 13) / 6) + (run.pills > 0 ? .6 : 0);
+  const v = R.speedAt(run.z), k = Math.max(0, (v - 13) / 6) + (run.pills > 0 ? .6 : 0) + 3 * R.burstOf(run);
   if (k <= 0) return;
   const r = seeded(Math.floor(now / 70));
   c.strokeStyle = `rgba(255,255,255,${(.18 * Math.min(1.3, k)).toFixed(2)})`; c.lineWidth = 1.5;
@@ -556,6 +556,7 @@ function draw(st, now = performance.now()) {
   const edge = (col, a) => { const g = c.createRadialGradient(st.W / 2, st.H * .55, st.H * .28, st.W / 2, st.H * .55, st.H * .8); g.addColorStop(0, `rgba(${col},0)`); g.addColorStop(1, `rgba(${col},${a.toFixed(2)})`); c.fillStyle = g; c.fillRect(0, 0, st.W, st.H); };
   if (drunk > 0) edge('214,150,40', .35 * drunk);
   if (run && !run.over && run.pills > 0) edge('255,110,40', .42 * Math.min(1, run.pills / .8) * (.75 + .25 * Math.sin(t * 9)));
+  if (run && !run.over && run.burst > 0) edge('120,220,255', 1.2 * R.burstOf(run)); // (the salts' burst: cold air rushing by)
   // the linebacker on your back (at the catch and after a hit, till you've lost him: a hit now is a tackle): red at the
   // edges, beating faster the closer he is
   if (R.chasing(run)) {
@@ -583,13 +584,14 @@ function patchHud(st) {
   const yu = el.querySelector('[data-rm-yu]'); if (yu && yu.textContent !== (x2 ? 'yds ×2' : 'yds')) yu.textContent = x2 ? 'yds ×2' : 'yds';
   const pw = el.querySelector('[data-rm-pows]');
   if (pw) {
-    const list = on ? [run.salts > 0 && 'salts', run.pills > 0 && 'pills', run.booze > 0 && 'booze'].filter(Boolean) : [];
-    const key = list.join() + (on ? run.salts : '');
+    // (the salts: how many he's got, and the burst's time left while he's bursting)
+    const list = on ? [(run.salts > 0 || run.burst > 0) && 'salts', run.pills > 0 && 'pills', run.booze > 0 && 'booze'].filter(Boolean) : [];
+    const key = list.join() + (on ? run.salts + (run.burst > 0 ? 'b' : '') : '');
     if (pw.dataset.key !== key) {
       pw.dataset.key = key;
-      pw.innerHTML = list.map(k => `<span class="rm-chip rm-pw is-${k}">${iconHTML(k, 22)}${k === 'salts' ? `<b>×${run.salts}</b>` : `<i class="rm-bar"><b data-rm-bar="${k}"></b></i>`}</span>`).join('');
+      pw.innerHTML = list.map(k => `<span class="rm-chip rm-pw is-${k}">${iconHTML(k, 22)}${k === 'salts' ? (run.salts > 0 ? `<b>×${run.salts}</b>` : '') + (run.burst > 0 ? '<i class="rm-bar"><b data-rm-bar="burst"></b></i>' : '') : `<i class="rm-bar"><b data-rm-bar="${k}"></b></i>`}</span>`).join('');
     }
-    if (on) pw.querySelectorAll('[data-rm-bar]').forEach(b => { const k = b.dataset.rmBar; b.style.transform = `scaleX(${Math.max(0, Math.min(1, run[k] / R.POWER[k].s)).toFixed(3)})`; });
+    if (on) pw.querySelectorAll('[data-rm-bar]').forEach(b => { const k = b.dataset.rmBar, of = k === 'burst' ? R.BURST.s : R.POWER[k].s; b.style.transform = `scaleX(${Math.max(0, Math.min(1, run[k] / of)).toFixed(3)})`; });
   }
 }
 function setCard(st, show) {
@@ -677,7 +679,7 @@ function onEvents(st, evs) {
     }
     else if (e.type === 'shoved') { if (e.row) st.knocked.set(`${e.row.i}:${e.lane}`, {at: now}); }
     else if (e.type === 'revived') {
-      st.flashAt = now; st.hitAt = now; st.hitDir = fallDir(st.run); pop(st, 'SHOOK HIM!', 'is-salts', 'The smelling salts'); ui.haptic('warning');
+      st.flashAt = now; st.hitAt = now; st.hitDir = fallDir(st.run); pop(st, 'SHOOK HIM!', 'is-salts', 'Smelling salts: burst!'); ui.haptic('warning');
       if (e.row) st.knocked.set(`${e.row.i}:${e.lane}`, {at: now});
     }
     else if (e.type === 'tackled') tackled(st);

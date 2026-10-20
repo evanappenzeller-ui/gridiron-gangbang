@@ -18,7 +18,7 @@ import {gamesFor, listHTML, GAMES} from '../views/games.js';
  *  to maxZ yards. */
 function bot(n, k, maxZ) {
   const ACTS = [null, 'up', 'down', 'left', 'right'], TICK = .05, DEPTH = 26;
-  const strip = r => { r.salts = 0; r.pills = 0; r.shield = 0; };
+  const strip = r => { r.salts = 0; r.pills = 0; r.shield = 0; r.burst = 0; };
   const run = R.startRun(n, k);
   while (!run.over && run.z < maxZ && run.t < 400) {
     let nodes = 0;
@@ -252,12 +252,17 @@ export async function returnChecks(check) {
     return {pass, detail: `the sheet in its places ${places}; under the top pad ${under}; ${Object.entries(r).map(([k, [a, b]]) => `${k}: ${a.over ? a.end : 'through'} / ${b.over ? b.end : 'up to ' + b.top}`).join('; ')}`};
   });
   // ------------------------------------------------------------------------------------------- the power-ups
-  check('Return Man: the power-ups: smelling salts shake the linebacker off when he\'d catch him (once each; he carries two at most); painkillers carry him through barricades and banners and up onto vehicles for a few seconds; booze makes every yard count double for a few; picked up only in his lane, at his height', () => {
+  check('Return Man: the power-ups: smelling salts give a burst of speed (BURST.k faster for BURST.s seconds, the owner\'s ask, Oct 2026) and shake the linebacker off when he\'d catch him (once each; he carries two at most); painkillers carry him through barricades and banners and up onto vehicles for a few seconds; booze makes every yard count double for a few; picked up only in his lane, at his height', () => {
     const wedge = z => ({i: z, z, lanes: [null, 'hurdle', null]});
     const salts = play({items: [{i: 0, z: 20, lane: 1, top: false, kind: 'salts'}], rows: [wedge(40), wedge(60), wedge(80)]}, 10);
     const s1 = salts.ev.includes('pickup') && salts.ev.join().includes('stumbled,revived') && salts.run.over && salts.run.why === 'caught' && Math.round(salts.run.z) >= 80;
     const two = field({items: [0, 1, 2].map(i => ({i, z: 20 + i * 5, lane: 1, top: false, kind: 'salts'}))});
     for (let i = 0; i < 400; i++) R.step(two, 1 / 120);
+    // the burst: faster than he'd be without it, just after; his own speed again once it's over
+    const pace = (items, from, secs) => { const r = field({items}); for (let i = 0; i < 120 * from; i++) R.step(r, 1 / 120); const z0 = r.z; for (let i = 0; i < 120 * secs; i++) R.step(r, 1 / 120); return (r.z - z0) / secs; };
+    const salt = [{i: 0, z: 5, lane: 1, top: false, kind: 'salts'}];
+    const fast = pace(salt, 1, 1) / pace([], 1, 1), after = pace(salt, R.BURST.s + 1.5, 1) / pace([], R.BURST.s + 1.5, 1);
+    const burst = Math.abs(fast - (1 + R.BURST.k)) < .03 && Math.abs(after - 1) < .03;
     const pills = play({items: [{i: 0, z: 20, lane: 1, top: false, kind: 'pills'}], rows: [wedge(40)], sets: [set(plat(1, 55, 70, true))]}, 7);
     const p1 = pills.ev.includes('trucked') && pills.ev.includes('vaulted') && !pills.run.over;
     const late = play({items: [{i: 0, z: 20, lane: 1, top: false, kind: 'pills'}], rows: [wedge(20 + R.speedAt(20) * (R.POWER.pills.s + .5))]}, 9);
@@ -265,8 +270,8 @@ export async function returnChecks(check) {
     for (let i = 0; i < 120 * 3; i++) R.step(booze, 1 / 120);
     const b1 = booze.yards - 10 > (booze.z - 10) * 1.9; // (double from where he picked it up)
     const miss = play({items: [{i: 0, z: 20, lane: 0, top: false, kind: 'booze'}]}, 3);
-    const pass = s1 && two.salts === R.SALTS_MAX && p1 && late.ev.includes('stumbled') && b1 && !miss.ev.includes('pickup');
-    return {pass, detail: `salts: shook him off ${s1}, carries ${two.salts}; painkillers: through a barricade and onto a bus ${p1}, worn off (a hit again) ${late.ev.includes('stumbled')}; booze: ${Math.round(booze.yards)} yards for ${Math.round(booze.z)} run; another lane's left ${!miss.ev.includes('pickup')}`};
+    const pass = s1 && burst && two.salts === R.SALTS_MAX && p1 && late.ev.includes('stumbled') && b1 && !miss.ev.includes('pickup');
+    return {pass, detail: `salts: shook him off ${s1}, carries ${two.salts}, a burst ${fast.toFixed(2)}× then ${after.toFixed(2)}×; painkillers: through a barricade and onto a bus ${p1}, worn off (a hit again) ${late.ev.includes('stumbled')}; booze: ${Math.round(booze.yards)} yards for ${Math.round(booze.z)} run; another lane's left ${!miss.ev.includes('pickup')}`};
   });
   check('Return Man: the linebacker chases him down: on him at the catch; a hit (a barricade, a banner, a vehicle) slows him and puts the linebacker right behind him; run on clean and he falls back out of sight; a hit while he\'s on him (inside CHASE.window seconds of the catch or the last hit) is a tackle; one after he\'s gone is just another stumble', () => {
     const wedge = z => ({i: z, z, lanes: [null, 'hurdle', null]});

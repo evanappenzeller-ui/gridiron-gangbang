@@ -12,7 +12,8 @@
 // into, a juke off the edge of the road: the owner's ask, Oct 2026) slows you and puts him right on your back; run on
 // clean and he drops away. A hit while he's on you (at the
 // catch he starts there too) and he tackles you: that's the return.
-// On the way, three power-ups: smelling salts (an extra life: the next time he'd catch you, you shake him off),
+// On the way, three power-ups: smelling salts (a burst of speed, BURST: the owner's ask, Oct 2026; and an extra life:
+// the next time he'd catch you, you shake him off, and away you burst again),
 // prescription painkillers (a few seconds when nothing can stop you) and booze (a few seconds of double yards). You
 // speed up as you go, and every 100 yards is a touchdown. Run it back as often as you like (the owner's ask, Oct 2026:
 // replayed, an arcade game), the day's course the same on every phone and every run; the day's score is your best
@@ -157,11 +158,16 @@ function pickKind(th, r) {
 // The power-ups: salts (you can carry SALTS_MAX), pills (seconds) and booze (seconds of double yards).
 // is, does: what it is and what it does, in a line each (said when you pick one up).
 export const POWER = {
-  salts: {name: 'Smelling salts', says: 'An extra life', is: 'One sniff and you’re wide awake', does: 'An extra life: the next tackle, you shake him off'},
+  salts: {name: 'Smelling salts', says: 'A burst of speed and an extra life', is: 'One sniff and you’re wide awake', does: 'A 4-second burst of speed, and an extra life: shake off the next tackle'},
   pills: {name: 'Painkillers', says: 'Nothing can stop you', s: 6, is: 'You can’t feel a thing', does: 'For 6 seconds, run straight through whatever’s in your way'},
   booze: {name: 'Booze', says: 'Double yards', s: 8, is: 'Liquid courage (the world gets wobbly)', does: 'For 8 seconds, every yard counts double'}
 };
 export const SALTS_MAX = 2, SHIELD = 1.2;
+// The salts' burst (picked up, and again when they shake the linebacker off): k faster for s seconds, easing back to
+// your own speed over the last ease of them.
+export const BURST = {s: 4, k: .3, ease: 1};
+/** How much faster than your own speed you are now (0 to BURST.k). */
+export const burstOf = run => (run && run.burst > 0 ? BURST.k * Math.min(1, run.burst / BURST.ease) : 0);
 // The linebacker, chasing (yards behind you, seconds): at the catch and right after a hit he's on you, near (after a hit
 // you're slowed too, by slowBy for slow s, easing back to speed), falling back to edge (the bottom of the screen) as you
 // run clean; once window s have gone by he's lost: in drop s he's out of sight (far: behind the camera). A hit while
@@ -305,7 +311,7 @@ export const platAt = (co, lane, z) => blockAt(co, lane, z, 0);
 export function startRun(n, k) {
   return {n, k, co: course(n, 0), t: 0, z: 0, yards: 0, lane: 1, x: 0, jFrom: 0, jt: 1, y: 0, vy: 0, jumpQ: -9,
     slide: 0, lastJuke: -9, bump: -9, next: 0, nextItem: 0, zone: 0, tds: 0,
-    salts: 0, pills: 0, booze: 0, shield: 0, over: false, why: null, by: null,
+    salts: 0, pills: 0, booze: 0, shield: 0, burst: 0, over: false, why: null, by: null,
     hits: 0, hitAt: 0, slow: 0, grace: 0, knock: 0, sideHit: null}; // (the linebacker starts on you, at the catch)
 }
 export const xOf = (run, lane) => (lane - 1) * LANE;
@@ -356,7 +362,7 @@ function hit(run, out, what) {
   if (run.grace > 0) { out.push(Object.assign({type: 'shoved', z: run.z}, what)); return 'pass'; }
   if (chasing(run)) {
     if (run.salts > 0) {
-      run.salts--; run.shield = SHIELD; run.hitAt = run.t; run.slow = CHASE.slow;
+      run.salts--; run.shield = SHIELD; run.hitAt = run.t; run.slow = CHASE.slow; run.burst = BURST.s;
       out.push(Object.assign({type: 'revived', z: run.z, salts: run.salts}, what));
       return 'pass';
     }
@@ -378,7 +384,7 @@ export function hitLine(what) {
   return `${what.side ? 'Bounced off' : 'Ran into'} the ${name}`;
 }
 function sub(run, dt, out) {
-  const co = run.co, v = speedAt(run.z) * (1 - CHASE.slowBy * run.slow / CHASE.slow);
+  const co = run.co, v = speedAt(run.z) * (1 - CHASE.slowBy * run.slow / CHASE.slow) * (1 + burstOf(run));
   run.t += dt; run.z += v * dt; run.yards += v * dt * (run.booze > 0 ? 2 : 1);
   if (run.jt < 1) { run.jt = Math.min(1, run.jt + dt / MOVE.juke); const e = 1 - (1 - run.jt) * (1 - run.jt); run.x = run.jFrom + (xOf(run, run.lane) - run.jFrom) * e; }
   else run.x = xOf(run, run.lane);
@@ -429,7 +435,7 @@ function sub(run, dt, out) {
   while (run.nextItem < items.length && items[run.nextItem].z <= run.z) {
     const it = items[run.nextItem++];
     if (it.lane !== lane || Math.abs(run.y - groundAt(co, it.lane, it.z)) > 1.4) continue;
-    if (it.kind === 'salts') run.salts = Math.min(SALTS_MAX, run.salts + 1);
+    if (it.kind === 'salts') { run.salts = Math.min(SALTS_MAX, run.salts + 1); run.burst = BURST.s; }
     else run[it.kind] = POWER[it.kind].s;
     out.push({type: 'pickup', kind: it.kind, item: it, z: run.z});
   }
@@ -437,6 +443,7 @@ function sub(run, dt, out) {
   run.pills = Math.max(0, run.pills - dt);
   run.booze = Math.max(0, run.booze - dt);
   run.shield = Math.max(0, run.shield - dt);
+  run.burst = Math.max(0, (run.burst || 0) - dt);
   run.slow = Math.max(0, run.slow - dt);
   run.grace = Math.max(0, run.grace - dt);
   run.knock = Math.max(0, run.knock - dt);

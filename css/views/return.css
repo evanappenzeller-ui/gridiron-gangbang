@@ -4,7 +4,7 @@
    laid over it; the scoreboard below on the theme's surfaces. */
 
 /* The version mark views/return.js checks (CSS_V): bump both when the pane needs rules an older file lacks. */
-:root { --rm-css: 4; }
+:root { --rm-css: 5; }
 
 .rm-pane {
   --rm-good: #3EF08F; --rm-gold: #FFD23F; --rm-hot: #FF6A2B;
@@ -61,6 +61,7 @@
 .rm-pane .rm-bar b { display: block; height: 100%; transform-origin: left center; border-radius: inherit; }
 .rm-pane .is-pills .rm-bar b { background: #FFA53C; }
 .rm-pane .is-booze .rm-bar b { background: var(--rm-gold); }
+.rm-pane .is-salts .rm-bar b { background: #96E1FF; }
 .rm-pane .rm-ic { display: block; flex: none; }
 
 /* A power-up just picked up: what it is and what it does, under the HUD for a moment */
