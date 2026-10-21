@@ -1,10 +1,11 @@
 // The Realm's lot in 3D (views/realm.js and views/realm-raid.js): three.js (js/vendor/three, MIT), the buildings from
 // views/realm-models.js, a camera looking down across the lot corner-on (a diamond, as these games are), dragged to
 // pan, pinched or wheeled to zoom. The lot lies on the meadow in the middle of the coastal scenery (img/realm/scenery/,
-// tools/realm/scenery.py): its landscape (the sea and the shore, the meadow, hills and lakes far off) laid on the
-// ground so the camera sees it as painted, and its pictures (a castle, a village, a harbour, trees and wheat) stood on
-// it where its layout puts them; the camera never looks past the landscape's edges (without it: a meadow with a moat
-// round it, pines beyond and mountains far off). The Keep, gold mines, archer towers and dragon hatcheries are drawn
+// tools/realm/scenery.py; wide on a landscape screen, tall on a portrait one, changed over when the phone turns): its
+// landscape (the sea and the shore, the meadow, hills and lakes far off) laid on the ground so the camera sees it as
+// painted, and its pictures (a castle, a village, a harbour, trees and wheat) stood on it where its layout puts them;
+// the camera never looks past the landscape's edges till you zoom out past all of it (without it: a meadow with a
+// moat round it, pines beyond and mountains far off). The Keep, gold mines, archer towers and dragon hatcheries are drawn
 // from their art (views/realm-sprites.js), and folk stand about: villagers at work by their buildings, an archer up each tower, a cannon's crew round it. It
 // draws when something moved (a finger, a raid) and, while there are folk about, a few times a second for them.
 // In a raid it also draws the raiders (instanced: a few draw calls however many; a dragon in the air, flapping), what
@@ -14,10 +15,15 @@ import * as FM from './realm-models.js';
 import * as SPR from './realm-sprites.js';
 import {KINDS, TROOPS, N} from '../core/realm.js';
 const V = new URL('../vendor/three/', import.meta.url).href;
-let T = null, RE = null, LOADING = null, DEAD = false, SCENERY = null;
-// Where the lot lies in the scenery (its px): the middle of its build zone, and how tall the lot's diamond is there (its
-// far corner to its near one): as big as fits inside the zone (the checks hold it to that).
-export const SCENE = {cx: 1050, cy: 610, lot: 430};
+let T = null, RE = null, LOADING = null, DEAD = false;
+// The scenery's two shapes, each its own landscape, placements and lot (its layout's lot: where the lot lies in it, px:
+// the middle and its diamond's height, far corner to near; as big as fits in the build zone, the checks hold it to
+// that): wide for a landscape screen, tall for a portrait one (the owner's ask, Oct 2026). Each loaded when it's first
+// wanted (SCENERY: those in, by shape).
+export const SHAPES = {wide: 'layout.json', tall: 'layout-tall.json'};
+const shapeOf = (w, h) => (h > w ? 'tall' : 'wide');
+const SCENERY = {}, ASKED = {};
+const sceneryFor = shape => ASKED[shape] || (ASKED[shape] = scenery(SHAPES[shape]).then(sc => { if (sc) { sc.shape = shape; SCENERY[shape] = sc; } return sc; }));
 const SCENERY_AT = new URL('../../img/realm/scenery/', import.meta.url).href;
 const picture = file => new Promise(ok => {
   const im = new Image();
@@ -26,10 +32,10 @@ const picture = file => new Promise(ok => {
   im.onerror = () => ok(null);
   im.src = SCENERY_AT + file;
 });
-/** The scenery: {lay (its layout.json), ground (the landscape), pics {asset id: picture}}, or null without it. */
-async function scenery() {
+/** A shape of the scenery: {lay (its layout), ground (the landscape), pics {asset id: picture}}, or null without it. */
+async function scenery(file) {
   try {
-    const lay = await (await fetch(SCENERY_AT + 'layout.json')).json(), bg = lay.scene.background_asset_id;
+    const lay = await (await fetch(SCENERY_AT + file)).json(), bg = lay.scene.background_asset_id;
     const ids = Object.keys(lay.assets), got = await Promise.all(ids.map(id => picture(lay.assets[id].pic.file)));
     const pics = Object.fromEntries(ids.map((id, i) => [id, got[i]]).filter(([id, im]) => im && id !== bg));
     const ground = got[ids.indexOf(bg)];
@@ -51,7 +57,7 @@ export function load() {
         T = three; RE = RoomEnvironment;
         FM.init(T, BU);
         SPR.init(T, PITCH);
-        [, SCENERY] = await Promise.all([SPR.load(), scenery()]); // (without the art, everything's drawn in 3D)
+        await Promise.all([SPR.load(), sceneryFor(shapeOf(innerWidth, innerHeight))]); // (without the art, everything's drawn in 3D)
         try { await document.fonts.load('800 60px "Barlow Condensed"'); } catch (_) {}
         return true;
       } catch (e) {
@@ -164,21 +170,21 @@ function bladesTexture(T) {
  * The landscape laid on the ground (y 0) so that, looked at the way the game's camera looks (the painting has no
  * perspective, so straight along that line, not from a point), it's as painted with the lot on its meadow: a grid of
  * the painting's points, each put where its ray meets the ground. The game's camera then sees it with the same
- * perspective as the lot. → {mesh, px(world point) → where it is on the painting (px), under(x, y) → the ground under a
- * px of it (world), per (world a px of it, standing facing the camera), w, h}.
+ * perspective as the lot (lot: where it lies, its layout's). → {mesh, px(world point) → where it is on the painting
+ * (px), under(x, y) → the ground under a px of it (world), per (world a px of it, standing facing the camera), lot, w, h}.
  */
-function sceneryGround(img, maxAniso) {
+function sceneryGround(img, lot, maxAniso) {
   const w = img.naturalWidth, h = img.naturalHeight, D = 200;
   const rc = new T.OrthographicCamera(-w / h, w / h, 1, -1, 1, 2 * D), hd = Math.cos(PITCH) * D;
   rc.position.set(Math.sin(YAW) * hd, Math.sin(PITCH) * D, Math.cos(YAW) * hd); rc.lookAt(0, 0, 0); rc.updateMatrixWorld();
   const far = new T.Vector3(-N / 2, 0, -N / 2).project(rc), near = new T.Vector3(N / 2, 0, N / 2).project(rc);
-  const k = (far.y - near.y) / (SCENE.lot / (h / 2)), mid = (far.y + near.y) / 2; // (the painting's px to the camera's)
+  const k = (far.y - near.y) / (lot.h / (h / 2)), mid = (far.y + near.y) / 2; // (the painting's px to the camera's)
   const ray = new T.Raycaster(), ground = new T.Plane(new T.Vector3(0, 1, 0), 0), at = new T.Vector3(), v = new T.Vector2();
   const GX = 48, GY = 28, pos = [], uv = [], idx = [];
   for (let j = 0; j <= GY; j++) {
     for (let i = 0; i <= GX; i++) {
       const px = i / GX * w, py = j / GY * h;
-      ray.setFromCamera(v.set((px - SCENE.cx) / (w / 2) * k, mid - (py - SCENE.cy) / (h / 2) * k), rc);
+      ray.setFromCamera(v.set((px - lot.cx) / (w / 2) * k, mid - (py - lot.cy) / (h / 2) * k), rc);
       if (!ray.ray.intersectPlane(ground, at)) throw new Error('scenery: off the ground');
       pos.push(at.x, 0, at.z); uv.push(px / w, 1 - py / h);
       if (i < GX && j < GY) { const a = j * (GX + 1) + i, b = a + GX + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
@@ -190,15 +196,16 @@ function sceneryGround(img, maxAniso) {
   geo.setIndex(idx);
   const tex = new T.Texture(img);
   tex.colorSpace = T.SRGBColorSpace; tex.anisotropy = maxAniso; tex.needsUpdate = true;
+  geo.userData.tex = tex;
   const mesh = new T.Mesh(geo, new T.MeshBasicMaterial({map: tex, toneMapped: false, fog: false}));
   mesh.position.y = -.02;
   const p = new T.Vector3();
-  const px = q => { p.copy(q).project(rc); return {x: SCENE.cx + p.x / k * (w / 2), y: SCENE.cy - (p.y - mid) / k * (h / 2)}; };
+  const px = q => { p.copy(q).project(rc); return {x: lot.cx + p.x / k * (w / 2), y: lot.cy - (p.y - mid) / k * (h / 2)}; };
   const under = (x, y) => {
-    ray.setFromCamera(v.set((x - SCENE.cx) / (w / 2) * k, mid - (y - SCENE.cy) / (h / 2) * k), rc);
+    ray.setFromCamera(v.set((x - lot.cx) / (w / 2) * k, mid - (y - lot.cy) / (h / 2) * k), rc);
     return ray.ray.intersectPlane(ground, new T.Vector3());
   };
-  return {mesh, px, under, per: 2 * k / h, w, h};
+  return {mesh, px, under, per: 2 * k / h, lot, w, h};
 }
 
 /**
@@ -209,7 +216,7 @@ function sceneryGround(img, maxAniso) {
  * stand in front of the lot's); none of them hides anything else. → [THREE.Sprite].
  */
 function sceneryPictures(sc, gr) {
-  const mats = {}, out = [];
+  const mats = sc.mats || (sc.mats = {}), out = []; // (its textures shared by every view)
   sc.lay.instances.forEach(it => {
     const a = sc.lay.assets[it.asset_id], im = sc.pics[it.asset_id];
     if (!a || !im || !a.pic) return;
@@ -228,7 +235,7 @@ function sceneryPictures(sc, gr) {
     sp.center.set((it.flip_x ? left + w - ax : ax - left) / w, 1 - (ay - top) / h);
     sp.scale.set(w * gr.per, h * gr.per, 1);
     sp.position.copy(g);
-    sp.renderOrder = (ay <= SCENE.cy ? -1000 : 1000) + (it.draw_order || 0);
+    sp.renderOrder = (ay <= gr.lot.cy ? -1000 : 1000) + (it.draw_order || 0);
     sp.raycast = () => {};
     out.push(sp);
   });
@@ -267,13 +274,23 @@ export function create(host, opts = {}) {
 
   // ---- the ground: the scenery, the lot on its meadow (only the buildings' shadows drawn over it); or, without it,
   // grass all round, a moat round the lot (a stone lip each side), the lot, pines and mountains
-  let scene0 = null;
-  if (SCENERY) {
-    try { scene0 = sceneryGround(SCENERY.ground, renderer.capabilities.getMaxAnisotropy()); } catch (e) { console.warn('Realm: no scenery', e); }
+  let scene0 = null, sceneG = null;
+  const shape0 = shapeOf(host.clientWidth || innerWidth, host.clientHeight || innerHeight);
+  /** Lays the scenery's shape sc round the lot (instead of the one there): true when it's down. */
+  function setScenery(sc) {
+    let gr;
+    try { gr = sceneryGround(sc.ground, sc.lay.lot, renderer.capabilities.getMaxAnisotropy()); } catch (e) { console.warn('Realm: no scenery', e); return false; }
+    if (sceneG) { scene.remove(sceneG); scene0.mesh.geometry.userData.tex.dispose(); scene0.mesh.geometry.dispose(); scene0.mesh.material.dispose(); }
+    sceneG = new T.Group();
+    sceneG.add(gr.mesh, ...sceneryPictures(sc, gr));
+    scene.add(sceneG);
+    scene0 = gr; scene0.shape = sc.shape;
+    return true;
   }
+  const first = SCENERY[shape0] || Object.values(SCENERY)[0];
+  if (first) setScenery(first);
   if (scene0) {
     scene.background.set(0x16202A); // (round it when you've zoomed out past it: a plain border, not stretched)
-    scene.add(scene0.mesh, ...sceneryPictures(SCENERY, scene0));
     // blades over the lot, so it's grass close up too, fading out the last few tiles to its edge
     const geo = new T.PlaneGeometry(N, N, 24, 24), at = geo.attributes.position, rgba = [];
     for (let i = 0; i < at.count; i++) rgba.push(1, 1, 1, Math.max(0, Math.min(1, (N / 2 - Math.max(Math.abs(at.getX(i)), Math.abs(at.getY(i)))) / 4)));
@@ -346,7 +363,6 @@ export function create(host, opts = {}) {
   // over the landscape, never past its edges: where the screen's corners fall on it, then the view slid back in; zoomed
   // out past both its sides (or its top and bottom), centred on it that way
   const RIGHT = new T.Vector3(Math.cos(YAW), 0, -Math.sin(YAW)), AWAY = new T.Vector3(-Math.sin(YAW), 0, -Math.cos(YAW));
-  const PXW = N * Math.SQRT2 * Math.sin(PITCH) / SCENE.lot; // (world a painting px across, about, near the lot)
   const cRay = new T.Raycaster(), cNdc = new T.Vector2(), cAt = new T.Vector3(), flat = new T.Plane(new T.Vector3(0, 1, 0), 0);
   function inScene() {
     for (let n = 0; n < 32; n++) {
@@ -359,7 +375,8 @@ export function create(host, opts = {}) {
         l = Math.max(l, -p.x); r = Math.max(r, p.x - scene0.w); t = Math.max(t, -p.y); b = Math.max(b, p.y - scene0.h);
       }
       if (t === Infinity) { if (view.dist <= ZMIN) return; view.dist = Math.max(ZMIN, view.dist * .94); continue; }
-      const dx = (l && r ? (l - r) / 2 : l - r) * PXW * .8, dy = (t && b ? (t - b) / 2 : t - b) * PXW / Math.sin(PITCH) * .8;
+      const pxw = N * Math.SQRT2 * Math.sin(PITCH) / scene0.lot.h; // (world a painting px across, about, near the lot)
+      const dx = (l && r ? (l - r) / 2 : l - r) * pxw * .8, dy = (t && b ? (t - b) / 2 : t - b) * pxw / Math.sin(PITCH) * .8;
       if (Math.abs(dx) + Math.abs(dy) < .01) return;
       view.tx += RIGHT.x * dx - AWAY.x * dy; view.tz += RIGHT.z * dx - AWAY.z * dy;
     }
@@ -386,6 +403,12 @@ export function create(host, opts = {}) {
     renderer.setSize(w, h, false);
     canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
     cam.aspect = w / h; cam.updateProjectionMatrix();
+    // (the phone turned: the scenery's other shape, once it's in)
+    const sh = shapeOf(w, h);
+    if (scene0 && scene0.shape !== sh) {
+      if (SCENERY[sh]) setScenery(SCENERY[sh]);
+      else sceneryFor(sh).then(sc => { if (sc && !dead && scene0 && scene0.shape !== sh && shapeOf(Wd, Hd) === sh && setScenery(sc)) { zTop = wholeAt(); clampView(); want(); } });
+    }
     if (scene0) zTop = wholeAt();
     clampView();
     want();

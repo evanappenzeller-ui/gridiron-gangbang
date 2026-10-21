@@ -1568,5 +1568,10 @@
    "rotation_degrees": 0,
    "draw_order": 43
   }
- ]
+ ],
+ "lot": {
+  "cx": 1050,
+  "cy": 610,
+  "h": 430
+ }
 }
