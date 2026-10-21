@@ -202,8 +202,9 @@ const round2 = v => Math.round(v * 100) / 100;
 // GAP.first; the first vehicles after GAP.cars, more often as you go (a second one beside the first, later on, always
 // leaving a lane open). Rows grow with the yards: one thing early on (a barricade to jump for the first 40), then two,
 // then often three (each one beaten by its move, so a full row still has a way through). Beside a vehicle a row is
-// only in the open lanes, and a beat apart (IN_GAP s or more). A power-up every 90 to 180 yards: on a tall vehicle's
-// roof when there's one to put it on, else on the road in a lane between two beats.
+// only in the open lanes, and a beat apart (IN_GAP s or more). A power-up every 180 to 360 yards (fewer of them: the
+// owner's ask, Oct 2026): on a tall vehicle's roof when there's one to put it on, else on the road in a lane between
+// two beats.
 export const GAP = {first: 22, cars: 45, max: 1.3, min: .62, by: 1000, jitter: .25, in: .8};
 const COURSES = new Map();
 /** Day n's kickoff k: the same on every phone. It's worked out as it's needed (fill). */
@@ -213,7 +214,7 @@ export function course(n, k) {
   // the places after the stadium: the day's order, each kickoff starting one further on
   const others = shuffle(THEMES.map((_, i) => i).slice(1), rng(hashStr(`return-man-places-${n}`))), m = others.length;
   const order = [0, ...others.slice(k % m), ...others.slice(0, k % m)];
-  const c = {n, k, order, rows: [], sets: [], items: [], r: rng(hashStr(`return-man-${n}-${k}`)), z: GAP.first, itemAt: 60, done: 0};
+  const c = {n, k, order, rows: [], sets: [], items: [], r: rng(hashStr(`return-man-${n}-${k}`)), z: GAP.first, itemAt: 100, done: 0};
   if (COURSES.size > 12) COURSES.clear();
   COURSES.set(key, c);
   return c;
@@ -227,7 +228,7 @@ const gapAt = (co, L) => GAP.max - (GAP.max - GAP.min) * L + co.r() * GAP.jitter
 function addItem(co, z, lane, top) {
   const u = co.r(), kind = u < .25 ? 'salts' : u < .6 ? 'pills' : 'booze';
   co.items.push({i: co.items.length, z: round2(z), lane, top: !!top, kind});
-  co.itemAt = z + 90 + co.r() * 90;
+  co.itemAt = z + 180 + co.r() * 180;
 }
 function addRow(co, z, open) {
   const r = co.r, lanes = [null, null, null];

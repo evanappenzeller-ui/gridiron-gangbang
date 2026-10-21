@@ -113,7 +113,7 @@ export async function returnChecks(check) {
     const pass = day1 && same && differ && !bad.length && minT >= R.GAP.min - .01;
     return {pass, detail: `day 1 ${day1}; same ${same}, differ ${differ}; closest rows ${minT.toFixed(2)} s; ${bad.length ? bad.slice(0, 4).join('; ') : 'every row has a way through'}`};
   });
-  check('Return Man: the vehicles always leave a way through: at most two side by side (an open lane always), never across the line into the next place; beside one the rows stand only in the open lanes; a power-up every 90 to 180 yards or so, the ones up top on a tall one\'s roof', () => {
+  check('Return Man: the vehicles always leave a way through: at most two side by side (an open lane always), never across the line into the next place; beside one the rows stand only in the open lanes; a power-up every 180 to 360 yards or so, the ones up top on a tall one\'s roof', () => {
     const bad = [];
     let sets = 0, hi = 0, lo = 0, ramps = 0, items = 0, roofs = 0;
     for (let n = 1; n <= 24; n++) for (const k of [0]) {
@@ -135,7 +135,7 @@ export async function returnChecks(check) {
         else if (R.groundAt(co, it.lane, it.z) !== 0) bad.push(`day ${n}/${k}: a road power-up inside a vehicle at ${it.z}`);
       });
     }
-    const per = items / 24, pass = !bad.length && hi > 0 && lo > 0 && ramps > 0 && roofs > 0 && per >= 2900 / 200 && per <= 2900 / 80;
+    const per = items / 24, pass = !bad.length && hi > 0 && lo > 0 && ramps > 0 && roofs > 0 && per >= 2900 / 400 && per <= 2900 / 160;
     return {pass, detail: `${sets} sets (${hi} tall, ${lo} low, ${ramps} ramps); ${per.toFixed(1)} power-ups a kickoff to 2,900 yds (${roofs} on roofs); ${bad.length ? bad.slice(0, 4).join('; ') : 'all clear'}`};
   });
   check('Return Man: every kickoff can be run back forever: a returner who reads it right (and gets no power-ups) gets 1,500 yards on the kickoffs of days 1-9; standing still (the linebacker gets him at a second hit close after the first), he\'s down inside the first 450, most inside 200', () => {
