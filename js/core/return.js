@@ -173,8 +173,9 @@ export const burstOf = run => (run && run.burst > 0 ? BURST.k * Math.min(1, run.
 // run clean; once window s have gone by he's lost: in drop s he's out of sight (far: behind the camera). A hit while
 // he's on you (within window s of the catch or the last hit) is the tackle (the owner's ask, Oct 2026: a stumble with
 // him there is a tackle). For grace s after a hit nothing else counts (it's the same collision), and a tall vehicle's
-// front knocks you into the open lane beside it (or, with none open, up onto it).
-export const CHASE = {near: 2.2, edge: 3.4, far: 9, window: 4, drop: .6, slow: 1, slowBy: .45, grace: .35};
+// front knocks you into the open lane beside it (or, with none open, up onto it). After a hit he runs up on you from
+// wherever he was (out of sight, or further back), near in runUp s (the owner's ask, Oct 2026: not out of nowhere).
+export const CHASE = {near: 2.2, edge: 3.4, far: 9, window: 4, drop: .6, slow: 1, slowBy: .45, grace: .35, runUp: .55};
 
 function hashStr(str) {
   let h = 0x811c9dc5 | 0;
@@ -342,12 +343,14 @@ export function move(run, dir) {
   }
   return false;
 }
-/** How far behind you the linebacker is now, in yards (CHASE): near at the catch and just after a hit, falling back to
- *  edge while he's on you, then out of sight (far) once he's lost; on top of you once he's tackled you. */
+/** How far behind you the linebacker is now, in yards (CHASE): near at the catch, running up on you from where he was
+ *  just after a hit (near runUp s on), falling back to edge while he's on you, then out of sight (far) once he's lost;
+ *  on top of you once he's tackled you. */
 export function gapOf(run) {
   if (!run) return CHASE.far;
   if (run.over && run.why === 'caught') return .6;
   const s = run.t - run.hitAt;
+  if (s < CHASE.runUp && run.fromGap > CHASE.near) { const k = 1 - s / CHASE.runUp; return CHASE.near + (run.fromGap - CHASE.near) * k * k; }
   if (s < CHASE.window) return CHASE.near + (CHASE.edge - CHASE.near) * clamp((s - CHASE.slow) / (CHASE.window - CHASE.slow), 0, 1);
   return CHASE.edge + (CHASE.far - CHASE.edge) * clamp((s - CHASE.window) / CHASE.drop, 0, 1);
 }
@@ -362,7 +365,7 @@ function hit(run, out, what) {
   if (run.grace > 0) { out.push(Object.assign({type: 'shoved', z: run.z}, what)); return 'pass'; }
   if (chasing(run)) {
     if (run.salts > 0) {
-      run.salts--; run.shield = SHIELD; run.hitAt = run.t; run.slow = CHASE.slow; run.burst = BURST.s;
+      run.salts--; run.shield = SHIELD; run.fromGap = gapOf(run); run.hitAt = run.t; run.slow = CHASE.slow; run.burst = BURST.s;
       out.push(Object.assign({type: 'revived', z: run.z, salts: run.salts}, what));
       return 'pass';
     }
@@ -370,7 +373,7 @@ function hit(run, out, what) {
     out.push(Object.assign({type: 'tackled', z: run.z, caught: true}, what));
     return false;
   }
-  run.hits++; run.hitAt = run.t; run.slow = CHASE.slow; run.grace = CHASE.grace;
+  run.hits++; run.fromGap = gapOf(run); run.hitAt = run.t; run.slow = CHASE.slow; run.grace = CHASE.grace;
   out.push(Object.assign({type: 'stumbled', z: run.z, n: run.hits}, what));
   return 'stumble';
 }

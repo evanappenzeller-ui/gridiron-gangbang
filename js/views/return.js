@@ -560,8 +560,9 @@ function draw(st, now = performance.now()) {
   // the linebacker on your back (at the catch and after a hit, till you've lost him: a hit now is a tackle): red at the
   // edges, beating faster the closer he is
   if (R.chasing(run)) {
-    const close = .35 + .65 * (1 - (R.gapOf(run) - R.CHASE.near) / (R.CHASE.edge - R.CHASE.near));
-    edge('214,24,40', .5 * close * (.7 + .3 * Math.sin(t * (6 + 6 * close))));
+    const C = R.CHASE, g = R.gapOf(run), cl = v => Math.max(0, Math.min(1, v));
+    const close = .35 + .65 * (1 - cl((g - C.near) / (C.edge - C.near))), coming = cl((C.far - g) / (C.far - C.edge)); // (rising as he runs up)
+    edge('214,24,40', .5 * close * coming * (.7 + .3 * Math.sin(t * (6 + 6 * close))));
   }
   const flash = st.flashAt ? 1 - (now - st.flashAt) / 450 : 0;
   if (flash > 0) { c.fillStyle = `rgba(235,250,255,${(.75 * flash).toFixed(2)})`; c.fillRect(0, 0, st.W, st.H); }
