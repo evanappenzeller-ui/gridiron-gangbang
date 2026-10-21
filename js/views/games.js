@@ -1,20 +1,21 @@
 // The Daily Games list (the tab's root, views/puzzles.js; the owner's asks, Oct 2026): a shelf of retro game cases, one
-// a game (Daily Puzzles, 17-0, the Two-Minute Drill, Kick It, Return Man), swiped along; under it the one you're on,
-// its name, how it plays and Play (Continue once it's started). Play (or a tap on the case) opens the game: Daily
-// Puzzles straight into today's run, the others on their own page (/puzzles/<game>, pushed).
+// a game (Daily Puzzles, 17-0, the Two-Minute Drill, Kick It, Return Man), swiped along; under it the one you're on.
+// A game is started from its case (the owner's ask, Oct 2026): a tap on its front brings it up close and opens it, and
+// Start (Continue once it's started) in the tray over the disc opens the game: Daily Puzzles straight into today's run,
+// the others on their own page (/puzzles/<game>, pushed).
 // A game finished today turns its case round: on its back, your result, your place and the top of today's league
 // board; tap it and it comes up close with the whole board, Today's or the Season's. The rows come from each game's core
 // (boardRows: daily.LB.raw / LB.players, the board as this phone may see it: THE RULE, CLAUDE.md).
 // 17-0's, the drill's, Kick It's and Return Man's cores load at idle (17-0's and the drill's with their day files);
-// until then their cards offer Play. Return Man is open to the league in beta (a BETA tag on its case: GAMES beta).
+// until then their cases open to Start. Return Man is open to the league in beta (a BETA tag on its case: GAMES beta).
 // Exports: GAMES, gameOpen(id), gamesFor(), gamePath(id), dailyKind(), progHTML() (and its fracOf, perfectOf, doneCount),
-// miniRows(rows), listHTML(), mountList(el, ctx) → {refresh(animate), tick(), destroy()}.
+// miniRows(rows), listHTML(), mountList(el, ctx) → {refresh(animate), tick(), destroy()}, testingAll(), testAll(on).
 // Owner: PUZZLES.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as daily from '../core/daily.js';
 import {ringHTML, stepParts, maxPts, gradeGold, msToMidnight, countdownHTML, itemCount} from './board.js';
-import {turnable, shelfTurner} from './game-case.js';
+import {turnable, shelfTurner, shellHTML} from './game-case.js';
 
 const esc = data.esc;
 const nf = n => data.nf(n);
@@ -117,10 +118,26 @@ let coresAsked = false;
 function loadCores(then) {
   if (coresAsked) return;
   coresAsked = true;
-  import('../core/seventeen.js').then(m => m.load().then(() => { C.sv = m; then(); })).catch(() => {});
-  import('../core/drill.js').then(m => m.load().then(() => { C.dr = m; then(); })).catch(() => {});
-  import('../core/kick.js').then(m => { C.kk = m; then(); }).catch(() => {});
-  if (gameOpen('return')) import('../core/return.js').then(m => { C.rm = m; then(); }).catch(() => {});
+  const got = (k, m) => { C[k] = m; if (TEST_ALL && !m.testing()) m.setTest(true); then(); }; // (one loaded in test mode joins it)
+  import('../core/seventeen.js').then(m => m.load().then(() => got('sv', m))).catch(() => {});
+  import('../core/drill.js').then(m => m.load().then(() => got('dr', m))).catch(() => {});
+  import('../core/kick.js').then(m => got('kk', m)).catch(() => {});
+  if (gameOpen('return')) import('../core/return.js').then(m => got('rm', m)).catch(() => {});
+}
+
+// ============================================================================ The owner's test mode
+// One button for every game (the owner's ask, Oct 2026: at the top right of Daily Games, on his phones only): each
+// game's Test play (views/testplay.js) at once, today's games started fresh in their sandboxes, never posted and never
+// counted (the Franchise's pay too comes only from what's posted); on again, they all start fresh again; off, the real
+// day comes back as it was.
+let TEST_ALL = false;
+/** Whether any of today's games is in its sandbox. */
+export const testingAll = () => !!daily.TEST || Object.values(C).some(m => m && m.testing());
+/** Every game fresh in its sandbox (on), or all back to the real day (off). */
+export function testAll(on) {
+  TEST_ALL = !!on;
+  if (!daily.setTest(TEST_ALL) && TEST_ALL) daily.ensure().then(() => { if (TEST_ALL && !daily.TEST) daily.setTest(true); }, () => {});
+  Object.values(C).forEach(m => { if (m) m.setTest(TEST_ALL); });
 }
 const boardOf = m => safe(() => [m.boardState()])[0] || 'loading';
 // A season's word on its card (the season screen's verdicts, views/seventeen.js, cut to a headline).
@@ -185,7 +202,7 @@ function kickState() {
     actions: [{label: 'See your kicks', kind: 'secondary', attrs: {'data-gm-open': 'kick'}}]};
 }
 function returnState() {
-  // Return Man is replayed as often as you like (the owner's ask, Oct 2026): its case keeps its front, Play again on it,
+  // Return Man is replayed as often as you like (the owner's ask, Oct 2026): its case keeps its front, opened to Start again,
   // your best today (and where it puts you) under the shelf; the scoreboard is on its page.
   const RM = C.rm;
   if (!RM) return {kind: 'new'};
@@ -230,6 +247,8 @@ function seasonRowsOf(id) {
 }
 const sticker = (cls, text) => `<span class="gm-stk ${cls}">${esc(text)}</span>`;
 const GLOSS = '<span class="gm-z-gl" aria-hidden="true"></span>'; // (the shine on a case up close)
+/** A case's sides, its name down the spine (views/game-case.js: the case is solid, turned on the shelf or up close). */
+const sidesHTML = g => shellHTML(`<span class="gm-spine"><b>GRIDIRON HUB</b><span>${esc(g.name)}</span></span>`);
 /** A case's front: the band, the cover (a sticker on it while it's under way). up: the case up close (a tap on it
  *  opens it, a shine moves over it as it turns). */
 function frontHTML(g, s, up = false) {
@@ -277,7 +296,8 @@ function backHTML(g, s) {
 }
 const caseLabel = (g, s) => {
   const name = `${g.name}${g.beta ? ' (beta)' : ''}`;
-  return s.kind === 'done' ? `${name}: played today${placeText(s) ? `, ${placeText(s)}` : ''}. Show the leaderboard` : `${name}${s.kind === 'started' ? ', under way' : ''}`;
+  if (s.kind === 'done') return `${name}: played today${placeText(s) ? `, ${placeText(s)}` : ''}. Show the leaderboard`;
+  return `${name}${s.kind === 'started' ? ', under way' : ''}${s.kind === 'loading' || s.kind === 'error' ? '' : '. Open the case to play'}`;
 };
 function caseHTML(g, s, i, n, clone) {
   const done = s.kind === 'done';
@@ -285,17 +305,16 @@ function caseHTML(g, s, i, n, clone) {
   const slot = clone ? 'aria-hidden="true" data-gm-clone' : `role="group" aria-roledescription="slide" aria-label="${i + 1} of ${n}"`;
   return `<div class="gm-slot" ${slot} data-gm-slot="${g.id}">`
     + `<button type="button" class="gm-case${done ? ' is-done' : ''}" data-gm="${g.id}" data-kind="${s.kind}" aria-label="${esc(what)}"${clone ? ' tabindex="-1"' : ''}>`
-    + `<span class="gm-flip">${frontHTML(g, s)}${done ? backHTML(g, s) : ''}</span><span class="gm-gloss" aria-hidden="true"></span>`
+    + `<span class="gm-flip">${sidesHTML(g)}${frontHTML(g, s)}${done ? backHTML(g, s) : ''}</span><span class="gm-gloss" aria-hidden="true"></span>`
     + ['t', 'b', 'l', 'r'].map(k => `<span class="gm-grip is-${k}" aria-hidden="true"></span>`).join('') + `</button></div>`; // (views/game-case.js shelfTurner)
 }
 
 // ---------------------------------------------------------------- What's under the shelf: the game you're on
-function ctaHTML(g, s) {
-  if (s.kind === 'loading') return ui.button({label: 'Loading puzzles', kind: 'primary', block: true, disabled: true, cls: 'gm-cta'});
-  if (s.kind === 'error') return ui.button({label: 'Try again', kind: 'primary', block: true, attrs: {'data-gm-retry': ''}, cls: 'gm-cta'});
-  const label = s.kind === 'started' ? 'Continue' : s.again ? 'Play again' : 'Play';
-  return `<button type="button" class="btn btn-primary btn-block gm-cta" data-gm-play="${g.id}" aria-label="${esc(`${label} ${g.name}`)}">`
-    + `${ui.icon('play-fill', {cls: 'gm-cta-ic'})}<span class="btn-label">${label}</span></button>`;
+// (no Play here: a game starts from its case, the owner's ask, Oct 2026; a line under the shelf says so)
+function ctaHTML(s) {
+  if (s.kind === 'loading') return `<div class="gm-ctas">${ui.button({label: 'Loading puzzles', kind: 'primary', block: true, disabled: true, cls: 'gm-cta'})}</div>`;
+  if (s.kind === 'error') return `<div class="gm-ctas">${ui.button({label: 'Try again', kind: 'primary', block: true, attrs: {'data-gm-retry': ''}, cls: 'gm-cta'})}</div>`;
+  return `<p class="gm-cd gm-tap">${ui.icon('play-fill', {size: 15})}<span>Tap the case to play</span></p>`;
 }
 function cdHTML(g) {
   if (g.id === 'puzzles' && newDay()) return `<div class="gm-cdw">${countdownHTML(true)}</div>`;
@@ -309,7 +328,7 @@ function selHTML(g, s) {
   // on it brings the whole board up close (with the way into the game's own page).
   return `<h2 class="sr-only">${esc(g.name)}</h2>`
     + (!done && s.meta ? `<div class="gm-meta">${s.meta}</div>` : '')
-    + (done ? cdHTML(g) : `<div class="gm-ctas">${ctaHTML(g, s)}</div>`);
+    + (done ? cdHTML(g) : ctaHTML(s));
 }
 function stateOf(g) {
   try { return STATE[g.id](); } catch (e) { console.error(e); return {kind: 'new'}; }
@@ -442,8 +461,10 @@ export function mountList(el, ctx, opts = {}) {
     shrink(.45);
   }
   // The case up close (the owner's ask, Oct 2026): a real case to turn in your hand (views/game-case.js), its back the
-  // whole board, its front the cover; turned to the front it opens, the disc inside.
-  function caseUpHTML(g, s) {
+  // whole board, its front the cover; turned to the front it opens, the disc inside. play: a game not played yet, to
+  // start: it comes up facing front (no back to turn to) and opens, Start in the tray's top right over the disc.
+  const goLabel = s => (s.kind === 'started' ? 'Continue' : 'Start');
+  function caseUpHTML(g, s, play = false) {
     // (the game's name up in the black band, where the cover has GRIDIRON HUB: the owner's ask, Oct 2026)
     const band = `<span class="gm-band is-z">${g.beta ? '<span class="gm-beta">BETA</span>' : ''}<span class="gm-bk-name" id="gm-z-t">${esc(g.name)}</span>`
       + `<span class="gm-bk-tag">${s.test ? 'TEST' : 'FINAL'}</span></span>`;
@@ -454,42 +475,48 @@ export function mountList(el, ctx, opts = {}) {
     // its sides (the spine with the name down it), the tray inside with the disc on its hub, the cover on its hinge
     // (the cover outside, inside the booklet held in by two clips)
     const img = src => `<img src="${src}" alt="" decoding="async" draggable="false">`;
-    const sides = `<span class="gm-z-edge is-l" aria-hidden="true"><span class="gm-z-spine"><b>GRIDIRON HUB</b><span>${esc(g.name)}</span></span></span>`
-      + ['r', 't', 'b'].map(k => `<span class="gm-z-edge is-${k}" aria-hidden="true"></span>`).join('');
+    const sides = sidesHTML(g);
     const inside = `<div class="gm-z-tray" aria-hidden="true"><span class="gm-z-emb">GRIDIRON HUB</span></div>`
       + `<div class="gm-z-disc" data-gm-zdisc aria-hidden="true"><span class="gm-z-lab">${img(g.disc)}</span><span class="gm-z-sheen"></span></div>`
-      + `<span class="gm-z-hub" aria-hidden="true"></span>`;
+      + `<span class="gm-z-hub" aria-hidden="true"></span>`
+      + (play ? `<button type="button" class="gm-z-go" data-gm-zgo disabled aria-label="${esc(`${goLabel(s)} ${g.name}`)}">${ui.icon('play-fill')}<span>${goLabel(s)}</span></button>` : '');
     const lid = `<div class="gm-z-lid">${frontHTML(g, s, true)}`
       + `<div class="gm-z-in" aria-hidden="true"><span class="gm-z-bk"><span class="gm-z-book">${img(g.book)}</span>`
       + `<span class="gm-z-clip is-t"></span><span class="gm-z-clip is-b"></span></span></div></div>`;
-    return `<div class="gm-z-stage" style="--gc:${ACCENT[g.id]}"><div class="gm-z-obj">${back}${sides}${inside}${lid}</div></div>`;
+    return `<div class="gm-z-stage" style="--gc:${ACCENT[g.id]}"><div class="gm-z-obj">${play ? '' : back}${sides}${inside}${lid}</div></div>`;
   }
   const HINT = {back: 'Drag to turn it · it opens from the front', front: 'Tap the cover to open it', open: 'Tap the case to close it'};
   function openZoom(id) {
     const g = byId(id), cs = curCase(id);
     if (!g || st.zoom) return;
-    const s = stateOf(g);
+    const s = stateOf(g), play = s.kind !== 'done';
+    const hints = play ? {front: HINT.front, open: `Press ${goLabel(s)} to play`} : HINT;
     const z = document.createElement('div');
     z.className = 'gm-zoom';
     z.innerHTML = `<div class="gm-z-scrim" data-gm-zclose></div>`
       + `<div class="gm-z-dlg" role="dialog" aria-modal="true" aria-labelledby="gm-z-t" tabindex="-1">`
       + ui.iconButton({icon: 'close', label: 'Close', cls: 'gm-z-x', filled: true, attrs: 'data-gm-zclose'})
-      + caseUpHTML(g, s)
-      + `<div class="gm-z-ctl">${ui.button({label: 'Turn over', kind: 'secondary', size: 's', icon: 'swap', attrs: 'data-gm-zturn'})}`
-      + `${ui.button({label: 'Open the case', kind: 'secondary', size: 's', attrs: 'data-gm-zlid', disabled: true})}</div>`
-      + `<p class="gm-z-hint" data-gm-zhint>${HINT.back}</p></div>`;
+      + caseUpHTML(g, s, play)
+      + `<div class="gm-z-ctl">${play ? '' : ui.button({label: 'Turn over', kind: 'secondary', size: 's', icon: 'swap', attrs: 'data-gm-zturn'})}`
+      + `${ui.button({label: 'Open the case', kind: 'secondary', size: 's', attrs: 'data-gm-zlid', disabled: !play})}</div>`
+      + `<p class="gm-z-hint" data-gm-zhint>${play ? hints.front : hints.back}</p></div>`;
     (document.getElementById('overlays') || document.body).appendChild(z);
     ui.hydrate(z);
     const dlg = z.querySelector('.gm-z-dlg'), stage = z.querySelector('.gm-z-stage'), app = document.getElementById('app');
-    const lidBtn = z.querySelector('[data-gm-zlid]'), hint = z.querySelector('[data-gm-zhint]');
-    // what the case can do now: open (facing front), close (open), neither (turned away)
+    const lidBtn = z.querySelector('[data-gm-zlid]'), hint = z.querySelector('[data-gm-zhint]'), goBtn = z.querySelector('[data-gm-zgo]');
+    const turnBtn = z.querySelector('[data-gm-zturn]');
+    // what the case can do now: open (facing front), close (open), neither (turned away); Start only while it's open.
+    // Open, the one button under it is a small red Close Case (the owner's ask, Oct 2026)
     const said = ({front, open}) => {
       lidBtn.disabled = !open && !front;
-      lidBtn.querySelector('.btn-label').textContent = open ? 'Close the case' : 'Open the case';
-      hint.textContent = HINT[open ? 'open' : front ? 'front' : 'back'];
+      lidBtn.querySelector('.btn-label').textContent = open ? 'Close Case' : 'Open the case';
+      lidBtn.classList.toggle('is-close', open);
+      if (turnBtn) turnBtn.hidden = open;
+      hint.textContent = hints[open ? 'open' : front ? 'front' : 'back'];
+      if (goBtn) goBtn.disabled = !open;
     };
-    const T = turnable(z, dlg, said);
-    st.zoom = {el: z, id, mode: 'today', app, prev: app ? app.inert : false, turn: T, fit: () => fitBoard(z.querySelector('[data-gm-zbody]'))};
+    const T = turnable(z, dlg, said, {still: play});
+    st.zoom = {el: z, id, mode: 'today', play, app, prev: app ? app.inert : false, turn: T, fit: () => fitBoard(z.querySelector('[data-gm-zbody]'))};
     st.zoom.fit();
     addEventListener('resize', st.zoom.fit, {passive: true});
     if (app && !z.closest('#app')) app.inert = true;
@@ -501,8 +528,12 @@ export function mountList(el, ctx, opts = {}) {
       ui.animate(z.querySelector('.gm-z-scrim'), [{opacity: 0}, {opacity: 1}], {duration: 300, easing: 'linear'});
       [z.querySelector('.gm-z-ctl'), hint, z.querySelector('.gm-z-x')].forEach(el => ui.animate(el, [{opacity: 0}, {opacity: 1}], {duration: 260, delay: 220, easing: 'linear', fill: 'backwards'}));
     }
+    // a game to start: the touch on its front that brought it up opens it, once it's up
+    if (play) setTimeout(() => { if (st.zoom && st.zoom.turn === T) T.lid(true); }, cs && !ui.RM ? 380 : 0);
+    const start = () => { ui.haptic('light'); closeZoom(true); if (opts.play) opts.play(id); };
     z.addEventListener('click', e => {
       if (e.target.closest('[data-gm-zclose]')) { closeZoom(); return; }
+      if (e.target.closest('[data-gm-zgo]')) { if (T.state.open) start(); return; }
       if (e.target.closest('[data-gm-zturn]')) { T.turn(1); return; }
       if (e.target.closest('[data-gm-zlid]')) { T.lid(); return; }
       const m = e.target.closest('[data-gm-zmode]');
@@ -529,7 +560,7 @@ export function mountList(el, ctx, opts = {}) {
       if (e.key === 'Escape') { e.preventDefault(); closeZoom(); return; }
       if (e.target !== dlg) return;
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); T.turn(e.key === 'ArrowLeft' ? -1 : 1); }
-      else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); T.lid(); }
+      else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (play && T.state.open) start(); else T.lid(); }
     });
     dlg.focus({preventScroll: true});
     ui.haptic('light');
@@ -564,11 +595,9 @@ export function mountList(el, ctx, opts = {}) {
     if (!cs) return;
     const i = slots().indexOf(cs.closest('.gm-slot'));
     if (i >= 0 && i !== st.cur) { ui.haptic('selection'); center(i); return; }
-    if (cs.dataset.kind === 'done') { openZoom(cs.dataset.gm); return; }
     if (cs.dataset.kind === 'loading') return;
     if (cs.dataset.kind === 'error') { const b = sel.querySelector('[data-gm-retry]'); if (b) b.click(); return; }
-    ui.haptic('light');
-    if (opts.play) opts.play(cs.dataset.gm);
+    openZoom(cs.dataset.gm); // (played: its board; not yet: it opens, Start inside)
   };
   const onKey = e => {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
@@ -632,7 +661,7 @@ export function mountList(el, ctx, opts = {}) {
         const flipNow = s.kind === 'done' && cs.dataset.kind !== 'done';
         cs.dataset.kind = s.kind;
         const fl = cs.querySelector('.gm-flip');
-        fl.innerHTML = frontHTML(g, s) + (s.kind === 'done' ? backHTML(g, s) : '');
+        fl.innerHTML = sidesHTML(g) + frontHTML(g, s) + (s.kind === 'done' ? backHTML(g, s) : '');
         ui.hydrate(fl);
         // a game just finished: its case turns round to the leaderboard
         if (flipNow && animate && ctx.visible && !ui.RM) requestAnimationFrame(() => requestAnimationFrame(() => cs.classList.add('is-done')));
@@ -643,7 +672,7 @@ export function mountList(el, ctx, opts = {}) {
       if (pip) pip.classList.toggle('is-done', s.kind === 'done' || !!s.played);
       if (i === st.cur % n()) setCur(i, animate);
     });
-    if (st.zoom) {
+    if (st.zoom && !st.zoom.play) {
       const body = st.zoom.el.querySelector('[data-gm-zbody]'), g = byId(st.zoom.id), html = zoomBody(g, st.zoom.mode);
       if (body && body.dataset.html !== html) { body.dataset.html = html; body.innerHTML = html; ui.hydrate(body); fitBoard(body); }
     }

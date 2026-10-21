@@ -125,6 +125,8 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
   .screen.v-puzzles[data-path="/puzzles"]::before, .screen.v-puzzles[data-path="/puzzles"]::after { animation: none; }
 }
 
+/* the date stays on one line over the title, out over the buttons beside it (they sit lower, by the title) */
+.screen.v-puzzles[data-path="/puzzles"] .lt-eyebrow { white-space: nowrap; }
 /* ---------------------------------------------------------------- The shelf of games (views/games.js) */
 /* A shelf of game cases swiped along (scroll snap): the one in the middle big and lit, a white ring round it; the
    others smaller, turned in toward it. Each is a black case: the Gridiron Hub band, then the game's cover. Under it,
@@ -173,7 +175,7 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
 }
 .v-puzzles .gm-case {
   position: relative; display: block; width: 100%; aspect-ratio: 100 / 138; padding: 0; border: 0; border-radius: 10px;
-  background: none; cursor: pointer; container-type: inline-size; -webkit-tap-highlight-color: transparent; perspective: 2000px;
+  background: none; cursor: pointer; container-type: inline-size; -webkit-tap-highlight-color: transparent; perspective: 1400px;
 }
 /* grab the case in the middle by its top, bottom or sides and it turns where it stands (views/game-case.js
    shelfTurner): those edges are the case's (no panning from them); its middle is the shelf's, to swipe along */
@@ -184,7 +186,7 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
 .v-puzzles .gm-grip.is-l, .v-puzzles .gm-grip.is-r { top: 18%; bottom: 18%; width: 22%; }
 .v-puzzles .gm-grip.is-l { left: 0; }
 .v-puzzles .gm-grip.is-r { right: 0; }
-.v-puzzles .gm-slot:not(.is-cur) .gm-grip { display: none; }
+.v-puzzles .gm-slot:not(.is-cur) .gm-grip, .v-puzzles .gm-case:not(.is-done) .gm-grip { display: none; } /* (a game not finished doesn't turn: its edges swipe the shelf) */
 .v-puzzles .gm-slot.is-cur .gm-case.is-turning::after, .v-puzzles .gm-case.is-turning > .gm-gloss { opacity: 0; }
 .v-puzzles .gm-case:focus-visible { outline: none; }
 .v-puzzles .gm-case::after {
@@ -197,9 +199,18 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
    itself would be cut off at the scroller's top); the outline only for a keyboard's focus */
 .v-puzzles .gm-slot.is-cur .gm-case::after { opacity: 1; }
 .v-puzzles .gm-case:focus-visible::after { opacity: 1; box-shadow: 0 0 0 3px #fff, var(--gm-glow); }
-.v-puzzles .gm-flip { position: absolute; inset: 0; transform-style: preserve-3d; border-radius: inherit; transition: transform .95s cubic-bezier(.3,1.3,.45,1); }
+/* a case is a box --sd deep (a real one's about a tenth as deep as it's wide): its front and back out at its faces, its
+   sides round its edge (.gm-sd, below) */
+.v-puzzles .gm-flip {
+  --sw: 100cqw; --sh: 138cqw; --sr: 5.6cqw; --sd: 9cqw;
+  position: absolute; inset: 0; transform-style: preserve-3d; border-radius: inherit; transition: transform .95s cubic-bezier(.3,1.3,.45,1);
+}
 .v-puzzles .gm-case.is-done .gm-flip { transform: rotateY(180deg); }
 .v-puzzles .gm-face { position: absolute; inset: 0; border-radius: 5.6cqw; overflow: hidden; -webkit-backface-visibility: hidden; backface-visibility: hidden; text-align: left; }
+.v-puzzles .gm-front { transform: translateZ(calc(var(--sd) / 2)); }
+.v-puzzles .gm-back { transform: rotateY(180deg) translateZ(calc(var(--sd) / 2)); }
+/* (turned, its shadow under it goes: it would fall across its own bottom edge) */
+.v-puzzles .gm-case.is-turning .gm-face { box-shadow: inset 0 0 0 1px rgba(16,34,0,.55), inset 0 .5cqw 0 rgba(220,255,160,.22); }
 .v-puzzles .gm-case > .gm-gloss {
   position: absolute; inset: 0; border-radius: 5.6cqw; pointer-events: none;
   background: linear-gradient(118deg, rgba(255,255,255,.16), rgba(255,255,255,0) 28%, rgba(255,255,255,0) 74%, rgba(255,255,255,.06));
@@ -339,8 +350,11 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
   --zw: min(calc(100vw - 20px), calc(var(--avh) / 1.38));
   position: relative; width: var(--zw); height: min(var(--avh), var(--zw) * 1.6); container-type: size; perspective: 1500px;
 }
-.gm-z-obj { --zd: 7cqw; position: absolute; inset: 0; transform-style: preserve-3d; transform: rotateY(180deg); }
+.gm-z-obj { --zd: 7cqw; --sw: 100cqw; --sh: 100cqh; --sr: 2.8cqw; --sd: var(--zd); position: absolute; inset: 0; transform-style: preserve-3d; transform: rotateY(180deg); }
 .gm-z-obj > *, .gm-z-lid > * { position: absolute; -webkit-backface-visibility: hidden; backface-visibility: hidden; }
+/* (a tap goes to what's drawn, not to the case's own flat box in front of the tray: the disc, Start) */
+.gm-z-obj, .gm-z-lid { pointer-events: none; }
+.gm-z-obj > :not(.gm-z-lid), .gm-z-lid > * { pointer-events: auto; }
 .gm-zoom .gm-face { inset: 0; border-radius: 2.8cqw; overflow: hidden; text-align: left;
   box-shadow: inset 0 0 0 1px rgba(16,34,0,.55), inset 0 .5cqw 0 rgba(220,255,160,.22); }
 .gm-zoom .gm-z-back { transform: rotateY(180deg) translateZ(calc(var(--zd) / 2)); padding: 2cqw 3cqw 2.4cqw 2cqw; }
@@ -401,20 +415,34 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
 .gm-zoom .gm-r-gr + .gm-r-v { min-width: 3.4em; }
 .gm-z-body.is-tight .gm-r-s { display: none; }
 
-/* its sides: the same green plastic, the spine (on the left, seen from the front) with the name down it */
-.gm-z-edge { border-radius: .8cqw; background: linear-gradient(90deg, #2E5A0B, #4E8614 22%, #5E9A1E 50%, #4E8614 78%, #2E5A0B); }
-.gm-z-edge.is-l, .gm-z-edge.is-r { top: 0; left: calc(50% - var(--zd) / 2); width: var(--zd); height: 100%; }
-.gm-z-edge.is-t, .gm-z-edge.is-b { left: 0; top: calc(50% - var(--zd) / 2); width: 100%; height: var(--zd); background: linear-gradient(#2E5A0B, #4E8614 22%, #5E9A1E 50%, #4E8614 78%, #2E5A0B); }
-.gm-z-edge.is-r { transform: rotateY(90deg) translateZ(50cqw); box-shadow: inset 0 0 0 50cqw rgba(0,0,0,.18); }
-.gm-z-edge.is-l { transform: rotateY(-90deg) translateZ(50cqw); }
-.gm-z-edge.is-t { transform: rotateX(90deg) translateZ(50cqh); box-shadow: inset 0 0 0 50cqw rgba(255,255,255,.08); }
-.gm-z-edge.is-b { transform: rotateX(-90deg) translateZ(50cqh); box-shadow: inset 0 0 0 50cqw rgba(0,0,0,.3); }
-.gm-z-spine {
+/* its sides (views/game-case.js shellHTML): glossy green plastic round the edge, the corners rounded, each strip
+   darkened (--dk) and caught by the light (--hi) as the way it faces turns; the seam where the cover shuts down the
+   middle of all but the spine, the finger notch in the opening side, the name down the spine */
+.gm-sd {
+  --l: calc(var(--lw, 0) * var(--sw) + var(--lh, 0) * var(--sh) + var(--lr) * var(--sr) + 1px);
+  --gm-pl: linear-gradient(90deg, #1C4006, #3F7810 7%, #6CA62A 20%, #5A9620 36%, #52901A 64%, #43800F 90%, #1C4006);
+  position: absolute; left: 50%; top: 50%; width: var(--sd); height: var(--l); margin: calc(var(--l) / -2) 0 0 calc(var(--sd) / -2);
+  transform: translate(calc(var(--ex) * (var(--sw) / 2 - var(--sr)) + var(--nx) * var(--sr)), calc(var(--ey) * (var(--sh) / 2 - var(--sr)) + var(--ny) * var(--sr))) rotate(var(--a)) rotateY(90deg);
+  -webkit-backface-visibility: hidden; backface-visibility: hidden; pointer-events: none; background: var(--gm-pl);
+}
+.gm-sd.is-sm {
+  background: linear-gradient(90deg, transparent calc(50% - .45cqw), rgba(12,30,2,.85) calc(50% - .45cqw) calc(50% + .05cqw), rgba(190,240,130,.35) calc(50% + .05cqw) calc(50% + .35cqw), transparent calc(50% + .35cqw)), var(--gm-pl);
+}
+.gm-sd::before {
+  content: ""; position: absolute; inset: 0; z-index: 2;
+  background: linear-gradient(90deg, rgba(255,255,255,0) 8%, rgba(255,255,255,var(--hi, 0)) 24%, rgba(255,255,255,calc(var(--hi, 0) * .35)) 46%, rgba(255,255,255,0) 72%), rgba(0,0,0,var(--dk, .2));
+}
+.gm-sd.is-op::after {
+  content: ""; position: absolute; left: 16%; right: 16%; top: 32%; bottom: 32%; z-index: 1; border-radius: 99px;
+  background: linear-gradient(90deg, #163404, #24500A 45%, #3A700E 85%, #5E9A1E);
+  box-shadow: inset 0 0 0 .3cqw rgba(10,26,0,.55), inset 0 .8cqw 1.4cqw rgba(0,0,0,.55);
+}
+.gm-spine {
   position: absolute; inset: 7cqw .9cqw; display: flex; align-items: center; justify-content: space-between; padding: 3cqw 0; overflow: hidden;
   writing-mode: vertical-rl; white-space: nowrap; border-radius: .6cqw; background: linear-gradient(90deg, #0C0C0E, #1C1C20 50%, #0C0C0E);
 }
-.gm-z-spine > b { font: 600 2.2cqw/1 var(--font-text); letter-spacing: .5em; color: #C3D0DC; }
-.gm-z-spine > span { font: 800 3.8cqw/1 "Barlow Condensed", "Arial Narrow", sans-serif; letter-spacing: .06em; text-transform: uppercase; color: #fff; }
+.gm-spine > b { font: 600 2.2cqw/1 var(--font-text); letter-spacing: .5em; color: #C3D0DC; }
+.gm-spine > span { font: 800 3.8cqw/1 "Barlow Condensed", "Arial Narrow", sans-serif; letter-spacing: .06em; text-transform: uppercase; color: #fff; }
 /* inside: the tray, its rim the case's walls; the disc on the hub in the middle */
 .gm-z-tray {
   inset: 0; border-radius: 2.8cqw; transform: translateZ(calc(var(--zd) / -2 + .4cqw));
@@ -453,10 +481,30 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
 .gm-z-clip { position: absolute; left: calc(50% - 8cqw); width: 16cqw; height: 4.6cqw; border-radius: 1cqw; background: linear-gradient(#6C9C24, #4E8614); box-shadow: 0 .4cqw 1cqw rgba(0,0,0,.45), inset 0 .3cqw 0 rgba(220,255,160,.3); }
 .gm-z-clip.is-t { top: -2.4cqw; }
 .gm-z-clip.is-b { bottom: -2.4cqw; }
+/* a game to start (the owner's ask, Oct 2026): Start in the tray's top right, over the disc, there once the case is
+   open (it lies open at half size on a phone, so it's drawn big, its reach bigger still) */
+.gm-z-go {
+  top: 4.6cqw; right: 4.6cqw; height: 17cqw; padding: 0 5.4cqw 0 4.2cqw; display: flex; align-items: center; gap: 1.8cqw;
+  transform: translateZ(calc(var(--zd) / -2 + 2.4cqw)); border: 0; border-radius: 8.5cqw; cursor: pointer;
+  background: linear-gradient(#FFD45A, #F2A922 55%, #D98E12); color: #2A1A00;
+  box-shadow: 0 .9cqw 0 #8A5A08, 0 1.6cqw 3cqw rgba(0,0,0,.55), inset 0 .5cqw 0 rgba(255,255,255,.55);
+  font: 900 8cqw/1 "Barlow Condensed", "Arial Narrow", sans-serif; letter-spacing: .08em; text-transform: uppercase;
+  transition: opacity .2s linear .25s, translate .12s ease;
+}
+.gm-z-go::before { content: ""; position: absolute; inset: -5cqw; border-radius: 12cqw; } /* (its reach) */
+.gm-z-go > .ic { width: 7cqw; height: 7cqw; flex: none; }
+.gm-z-go:active { translate: 0 .7cqw; box-shadow: 0 .2cqw 0 #8A5A08, 0 .8cqw 2cqw rgba(0,0,0,.55), inset 0 .5cqw 0 rgba(255,255,255,.55); }
+.gm-z-go:disabled { opacity: 0; pointer-events: none; transition: opacity .1s linear; }
+.gm-z-go:focus-visible { outline: .8cqw solid #fff; outline-offset: .8cqw; }
+@media (prefers-reduced-motion: reduce) { .gm-z-go { transition: none; } }
 /* under it: turn it over, open it */
 .gm-z-ctl { display: flex; gap: 10px; }
 .gm-z-ctl .btn { background: rgba(255,255,255,.12); color: #fff; box-shadow: none; }
 .gm-z-ctl .btn:disabled { opacity: .38; }
+.gm-z-ctl .btn[hidden] { display: none; }
+/* open: a small red Close Case (over every skin's button: css/themes.css draws .btn-secondary itself) */
+.gm-zoom .gm-z-ctl .btn.is-close { background: #D3263A; color: #fff; box-shadow: 0 2px 10px rgba(211,38,58,.35), inset 0 1px 0 rgba(255,255,255,.25); }
+.gm-zoom .gm-z-ctl .btn.is-close:active, .gm-zoom .gm-z-ctl .btn.is-close.is-pressed { background: #B01D2F; }
 .gm-z-hint { margin: -4px 0 0; max-width: 300px; padding: 0 16px; text-align: center; font: 500 13px/1.35 var(--font-text); color: rgba(238,240,244,.62); }
 
 /* ---- Under the shelf: the game you're on */
@@ -472,7 +520,6 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
 .v-puzzles .gm-social { display: flex; align-items: center; gap: 8px; min-width: 0; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
 .v-puzzles .gm-ctas { display: flex; gap: 10px; margin-top: 14px; }
 .v-puzzles .gm-cta { min-height: 52px; font-size: 18px; }
-.v-puzzles .gm-cta > .gm-cta-ic { width: 20px; height: 20px; stroke-width: 1; margin-left: -4px; }
 .v-puzzles .gm-cd { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 14px; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
 .v-puzzles .gm-cd .ic { stroke-width: 2; flex: none; }
 .v-puzzles .gm-cd-v { color: var(--ink-2); font-weight: 600; font-variant-numeric: tabular-nums; }
