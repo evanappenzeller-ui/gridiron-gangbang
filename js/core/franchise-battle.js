@@ -1,0 +1,286 @@
+// A raid, played out (core/franchise.js: the Franchise). The raider drops their team round the edge of a franchise's
+// lot; each player heads for what he goes after (the nearest building, the nearest defense, a fence, the money),
+// finding his way round buildings and through fences (breaking one when that's quicker than going round), and goes at
+// it; the defenses shoot back at whoever's nearest in their reach (the JUGS Machine and the Gatorade Shower hit
+// everyone round where it lands). Fixed steps of DT, nothing random: the same drops at the same moments play out the
+// same every time. What a building holds comes out as it's knocked down (its share by the damage done).
+// makeBattle(base, loot, army) → {t, over, deploy(t, x, y), step(), canDrop(x, y), pct(), stars(), result(), ...}.
+import {KINDS, TROOPS, stat, N, RAID_S} from './franchise.js';
+
+export const DT = .1;
+const HIT_EVERY = 1;   // seconds between a player's hits
+const REACH = .55;     // how far past his range a player still hits (a tile's half and a bit: where his path ends)
+const FLIGHT = {cannon: .35, pressbox: .25, jugs: 1.2, shower: .15};
+
+// ---- a heap for the path search
+function Heap() { this.k = []; this.v = []; }
+Heap.prototype.push = function (key, val) {
+  const k = this.k, v = this.v;
+  let i = k.length;
+  k.push(key); v.push(val);
+  while (i > 0) { const p = (i - 1) >> 1; if (k[p] <= key) break; k[i] = k[p]; v[i] = v[p]; i = p; }
+  k[i] = key; v[i] = val;
+};
+Heap.prototype.pop = function () {
+  const k = this.k, v = this.v, top = v[0], lk = k.pop(), lv = v.pop(), n = k.length;
+  if (n) {
+    let i = 0;
+    for (;;) {
+      let c = 2 * i + 1;
+      if (c >= n) break;
+      if (c + 1 < n && k[c + 1] < k[c]) c++;
+      if (k[c] >= lk) break;
+      k[i] = k[c]; v[i] = v[c]; i = c;
+    }
+    k[i] = lk; v[i] = lv;
+  }
+  return top;
+};
+
+/** The distance from (x, y) to a building's footprint (0 inside it). */
+const distTo = (b, x, y) => Math.hypot(Math.max(b.x - x, 0, x - (b.x + b.size)), Math.max(b.y - y, 0, y - (b.y + b.size)));
+
+/**
+ * A raid on base (a franchise state: its buildings), with loot {by: {buildingId: {cash, juice}}}, by a team army
+ * ({troop: n}).
+ */
+export function makeBattle(base, loot, army) {
+  const B = {t: 0, step: 0, over: false, why: '', bl: [], tr: [], shots: [], fx: [], left: Object.assign({}, army), used: {}, got: {cash: 0, juice: 0}, gotBy: {}, seq: 0, drops: []};
+  const occ = new Int32Array(N * N).fill(-1);
+  (base.b || []).forEach(b => {
+    if (b.l < 1) return;
+    const K = KINDS[b.t], st = stat(b.t, b.l), size = K.size;
+    const e = {i: b.i, t: b.t, l: b.l, x: b.x, y: b.y, size, cx: b.x + size / 2, cy: b.y + size / 2, hp: st.hp, max: st.hp,
+      wall: K.role === 'wall', def: K.role === 'def' ? st : null, cd: 0, loot: (loot && loot.by && loot.by[b.i]) || null,
+      took: {cash: 0, juice: 0}, dead: false, money: K.role === 'make' || K.role === 'store', aim: 0};
+    const idx = B.bl.length;
+    B.bl.push(e);
+    for (let y = b.y; y < b.y + size; y++) for (let x = b.x; x < b.x + size; x++) if (x >= 0 && y >= 0 && x < N && y < N) occ[y * N + x] = idx;
+  });
+  const total = B.bl.filter(b => !b.wall).length || 1;
+  B.total = total;
+  // where nothing can be dropped: on or next to a building that's standing
+  B.canDrop = (x, y) => {
+    if (x < 0 || y < 0 || x >= N || y >= N) return false;
+    const tx = Math.floor(x), ty = Math.floor(y);
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const X = tx + dx, Y = ty + dy;
+      if (X < 0 || Y < 0 || X >= N || Y >= N) continue;
+      const o = occ[Y * N + X];
+      if (o >= 0 && !B.bl[o].dead) return false;
+    }
+    return true;
+  };
+  B.pct = () => Math.round(100 * B.bl.filter(b => !b.wall && b.dead).length / total);
+  B.stars = () => {
+    const p = B.pct(), hall = B.bl.find(b => b.t === 'stadium');
+    return (p >= 50 ? 1 : 0) + (hall && hall.dead ? 1 : 0) + (p >= 100 ? 1 : 0);
+  };
+  B.fieldLeft = () => B.tr.some(u => !u.dead) || Object.values(B.left).some(n => n > 0);
+
+  // ---- choosing a target
+  const pick = u => {
+    const T = TROOPS[u.t];
+    const alive = B.bl.filter(b => !b.dead);
+    let pool;
+    if (T.aim === 'def') pool = alive.filter(b => b.def);
+    else if (T.aim === 'loot') pool = alive.filter(b => b.money);
+    else if (T.aim === 'wall') pool = alive.filter(b => b.wall);
+    if (!pool || !pool.length) pool = alive.filter(b => !b.wall);
+    let best = null, bd = Infinity;
+    pool.forEach(b => { const d = distTo(b, u.x, u.y); if (d < bd) { bd = d; best = b; } });
+    return best;
+  };
+  // ---- finding the way: tile to tile (diagonals too), round buildings, through fences at the time it takes to break
+  // them, to any tile from which the target is in reach
+  const path = (u, tg) => {
+    const T = TROOPS[u.t], reach = T.range + REACH - .05, dps = T.dps || 30;
+    const sx = Math.max(0, Math.min(N - 1, Math.floor(u.x))), sy = Math.max(0, Math.min(N - 1, Math.floor(u.y)));
+    const g = new Float32Array(N * N).fill(Infinity), from = new Int32Array(N * N).fill(-1), closed = new Uint8Array(N * N);
+    const tgIdx = B.bl.indexOf(tg);
+    const H = (x, y) => Math.max(0, distTo(tg, x + .5, y + .5) - reach);
+    const heap = new Heap(), s = sy * N + sx;
+    g[s] = 0;
+    heap.push(H(sx, sy), s);
+    let goal = -1, guard = 0;
+    while (heap.k.length && guard++ < 6000) {
+      const c = heap.pop();
+      if (closed[c]) continue;
+      closed[c] = 1;
+      const cx = c % N, cy = (c / N) | 0;
+      if (distTo(tg, cx + .5, cy + .5) <= reach) { goal = c; break; }
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        if (!dx && !dy) continue;
+        const X = cx + dx, Y = cy + dy;
+        if (X < 0 || Y < 0 || X >= N || Y >= N) continue;
+        const n = Y * N + X, o = occ[n];
+        let cost = dx && dy ? 1.414 : 1;
+        if (o >= 0 && !B.bl[o].dead && o !== tgIdx) {
+          const b = B.bl[o];
+          if (!b.wall) continue;
+          cost += b.hp / dps * T.speed;
+          // (no squeezing between two fences on a diagonal)
+        }
+        if (dx && dy) {
+          const a = occ[cy * N + X], b2 = occ[Y * N + cx];
+          if ((a >= 0 && !B.bl[a].dead && !B.bl[a].wall && a !== tgIdx) || (b2 >= 0 && !B.bl[b2].dead && !B.bl[b2].wall && b2 !== tgIdx)) continue;
+        }
+        const ng = g[c] + cost;
+        if (ng < g[n]) { g[n] = ng; from[n] = c; heap.push(ng + H(X, Y), n); }
+      }
+    }
+    if (goal < 0) return [];
+    const out = [];
+    for (let c = goal; c !== s && c >= 0; c = from[c]) out.push(c);
+    return out.reverse();
+  };
+  const retarget = u => {
+    u.tg = pick(u);
+    u.path = u.tg ? path(u, u.tg) : [];
+    u.pi = 0;
+    u.wallAt = null;
+  };
+
+  // ---- hits
+  const takeLoot = (b, d) => {
+    if (!b.loot) return;
+    ['cash', 'juice'].forEach(c => {
+      const want = Math.floor(b.loot[c] * Math.min(1, (b.max - Math.max(0, b.hp)) / b.max)), add = Math.max(0, want - b.took[c]);
+      if (add > 0) { b.took[c] += add; B.got[c] += add; (B.gotBy[b.i] = B.gotBy[b.i] || {cash: 0, juice: 0})[c] += add; B.fx.push({k: 'coin', t: B.t, x: b.cx, y: b.cy, c, n: add}); }
+    });
+  };
+  const hurt = (b, d) => {
+    if (b.dead || d <= 0) return;
+    b.hp -= d;
+    takeLoot(b, d);
+    if (b.hp <= 0) {
+      b.hp = 0; b.dead = true;
+      if (b.loot) { b.hp = 0; takeLoot(b, 0); }
+      B.fx.push({k: 'boom', t: B.t, x: b.cx, y: b.cy, i: b.i, wall: b.wall, size: b.size});
+    }
+  };
+  const hurtTroop = (u, d) => {
+    if (u.dead) return;
+    u.hp -= d;
+    if (u.hp <= 0) { u.hp = 0; u.dead = true; B.fx.push({k: 'down', t: B.t, x: u.x, y: u.y, id: u.id}); }
+  };
+
+  // ---- dropping a player
+  B.deploy = (t, x, y) => {
+    if (B.over || !(B.left[t] > 0) || !B.canDrop(x, y)) return null;
+    B.left[t]--;
+    B.used[t] = (B.used[t] || 0) + 1;
+    const T = TROOPS[t];
+    const u = {id: ++B.seq, t, x, y, hp: T.hp, max: T.hp, tg: null, path: [], pi: 0, cd: 0, dead: false, face: 0, hitAt: -9, wallAt: null, born: B.t};
+    B.tr.push(u);
+    B.drops.push([B.step, t, Math.round(x * 10), Math.round(y * 10)]);
+    retarget(u);
+    return u;
+  };
+
+  // ---- a step
+  B.step1 = () => {
+    if (B.over) return;
+    B.t = +(B.t + DT).toFixed(3);
+    B.step++;
+    // the players
+    B.tr.forEach(u => {
+      if (u.dead) return;
+      const T = TROOPS[u.t];
+      if (!u.tg || u.tg.dead) retarget(u);
+      const tg = u.tg;
+      if (!tg) return;
+      u.cd = Math.max(0, u.cd - DT);
+      // a fence in the way: break it first
+      let foe = u.wallAt && !u.wallAt.dead ? u.wallAt : null;
+      if (!foe && distTo(tg, u.x, u.y) <= T.range + REACH) foe = tg;
+      if (foe) {
+        u.face = Math.atan2(foe.cy - u.y, foe.cx - u.x);
+        if (u.cd <= 0) {
+          u.cd = HIT_EVERY;
+          u.hitAt = B.t;
+          if (T.blast) {
+            // the fullback: every fence round him takes the blast, and he's done
+            B.bl.forEach(b => { if (b.wall && !b.dead && distTo(b, u.x, u.y) <= 1.4) hurt(b, T.blast); });
+            if (!foe.wall) hurt(foe, 20);
+            u.dead = true; u.hp = 0;
+            B.fx.push({k: 'blast', t: B.t, x: u.x, y: u.y, id: u.id});
+            return;
+          }
+          const d = T.dps * HIT_EVERY * (u.t === 'mascot' && foe.money ? 2 : 1);
+          if (T.range > 1) B.shots.push({k: u.t, from: u.id, x0: u.x, y0: u.y, x1: foe.cx, y1: foe.cy, t0: B.t, t1: B.t + .3, b: foe.i, d, splash: T.splash || 0, foe: false});
+          else {
+            hurt(foe, d);
+            B.fx.push({k: 'hit', t: B.t, x: foe.cx, y: foe.cy, id: u.id});
+          }
+        }
+        if (foe === u.wallAt && foe.dead) u.wallAt = null;
+        return;
+      }
+      // walking
+      if (u.pi >= u.path.length) { u.path = path(u, tg); u.pi = 0; if (!u.path.length) return; }
+      const c = u.path[u.pi], nx = c % N + .5, ny = ((c / N) | 0) + .5;
+      const o = occ[c];
+      if (o >= 0 && !B.bl[o].dead && B.bl[o] !== tg && B.bl[o].wall) { u.wallAt = B.bl[o]; return; }
+      const dx = nx - u.x, dy = ny - u.y, d = Math.hypot(dx, dy), go = T.speed * DT;
+      u.face = Math.atan2(dy, dx);
+      if (d <= go) { u.x = nx; u.y = ny; u.pi++; }
+      else { u.x += dx / d * go; u.y += dy / d * go; }
+    });
+    // the defenses
+    B.bl.forEach(b => {
+      if (b.dead || !b.def) return;
+      b.cd = Math.max(0, b.cd - DT);
+      if (b.cd > 0) return;
+      let best = null, bd = Infinity;
+      B.tr.forEach(u => {
+        if (u.dead) return;
+        const d = Math.hypot(u.x - b.cx, u.y - b.cy);
+        if (d <= b.def.range + b.size / 2 && d >= (b.def.min || 0) && d < bd) { bd = d; best = u; }
+      });
+      if (!best) return;
+      b.cd = b.def.every;
+      b.aim = Math.atan2(best.y - b.cy, best.x - b.cx);
+      const fl = FLIGHT[b.t] || .3;
+      B.shots.push({k: b.t, from: b.i, x0: b.cx, y0: b.cy, x1: best.x, y1: best.y, t0: B.t, t1: B.t + fl, u: best.id, d: b.def.dps * b.def.every, splash: b.def.splash || 0, foe: true});
+    });
+    // shots landing
+    B.shots = B.shots.filter(s => {
+      if (s.t1 > B.t + 1e-6) return true;
+      if (s.foe) {
+        if (s.splash) B.tr.forEach(u => { if (!u.dead && Math.hypot(u.x - s.x1, u.y - s.y1) <= s.splash) hurtTroop(u, s.d); });
+        else { const u = B.tr.find(q => q.id === s.u); if (u) hurtTroop(u, s.d); }
+        B.fx.push({k: 'land', t: B.t, x: s.x1, y: s.y1, of: s.k, splash: s.splash});
+      } else {
+        const b = B.bl.find(q => q.i === s.b);
+        if (b) {
+          if (s.splash) B.bl.forEach(q => { if (!q.dead && distTo(q, s.x1, s.y1) <= s.splash) hurt(q, s.d); });
+          else hurt(b, s.d);
+          B.fx.push({k: 'hit', t: B.t, x: s.x1, y: s.y1, of: s.k});
+        }
+      }
+      return false;
+    });
+    // the end: the clock, everything down, or no one left to send
+    if (B.t >= RAID_S) end('time');
+    else if (B.pct() >= 100) end('all');
+    else if (B.tr.length && !B.fieldLeft()) end('out');
+  };
+  const end = why => { B.over = true; B.why = why; };
+  B.end = () => end('quit');
+  /** Runs the clock to t seconds (steps of DT). */
+  B.run = t => { while (!B.over && B.t + DT <= t + 1e-9) B.step1(); };
+  B.result = () => ({stars: B.stars(), pct: B.pct(), got: Object.assign({}, B.got), gotBy: JSON.parse(JSON.stringify(B.gotBy)), used: Object.assign({}, B.used), t: B.t, drops: B.drops.slice()});
+  return B;
+}
+
+/** Plays a recorded raid again from its drops ([[step, troop, x*10, y*10]]): the same raid. */
+export function replay(base, loot, army, drops, until = Infinity) {
+  const B = makeBattle(base, loot, army);
+  let k = 0;
+  while (!B.over && B.t < until) {
+    while (k < drops.length && drops[k][0] <= B.step) { const d = drops[k++]; B.deploy(d[1], d[2] / 10, d[3] / 10); }
+    B.step1();
+  }
+  return B;
+}

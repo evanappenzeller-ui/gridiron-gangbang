@@ -1862,6 +1862,16 @@ export async function runChecks() {
     check('League pick\'em and Survivor checks (checks-lpick.js) loaded', () => ({pass: false, detail: lpErr ? 'did not load: ' + (lpErr.message || lpErr) : 'no lpickChecks export'}));
   }
 
+  // Franchise checks (js/core/checks-franchise.js: what the games pay, storage, coaches, training, raids, shields,
+  // and the league's rule). Guarded the same way.
+  let frMod = null, frErr = null;
+  try { frMod = await import('./checks-franchise.js'); } catch (e) { frErr = e; }
+  if (frMod && typeof frMod.franchiseChecks === 'function') {
+    try { await frMod.franchiseChecks(check); } catch (e) { check('Franchise checks (checks-franchise.js)', () => { throw e; }); }
+  } else {
+    check('Franchise checks (checks-franchise.js) loaded', () => ({pass: false, detail: frErr ? 'did not load: ' + (frErr.message || frErr) : 'no franchiseChecks export'}));
+  }
+
   await Promise.all(pending);
   return out;
 }

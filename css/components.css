@@ -11,7 +11,7 @@
 /* A floating capsule (after Instagram's and Yahoo Fantasy's): inset from the screen's edges, above the home
    indicator, the content scrolling on behind and around it. Icons only (each button's aria-label names it); the
    current tab sits on a soft pill (.tab-ind, sized to its tab and slid between tabs by app.js) with its filled icon
-   in the theme's tint. All six fit, so the bar no longer scrolls (app.js's edge fades and first-visit hint find
+   in the theme's tint. All seven fit, so the bar no longer scrolls (app.js's edge fades and first-visit hint find
    nothing to do). --tab-h (tokens.css) is the capsule plus the gap under it: screens pad their content by it. */
 #tabbar {
   position: absolute; z-index: var(--z-tab);
@@ -41,7 +41,7 @@
   color: var(--ink-2);
 }
 .tab-ic {
-  position: relative; width: 44px; height: 44px;
+  position: relative; width: min(44px, 100%); height: 44px;
   display: grid; place-items: center;
   transition: transform var(--spring-snappy-dur) var(--spring-snappy);
 }

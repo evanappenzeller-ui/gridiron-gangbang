@@ -1,6 +1,6 @@
 // Dev component gallery at #/_kit (not linked anywhere; pushed, a cold link sits on Puzzles). Owner: foundation
 // (shell). Renders every ui.js primitive on real league data, plus the Core checks panel (checks.js, then the
-// shell's own route checks: the five tab roots, every legacy link's new home, the push routes' home tabs).
+// shell's own route checks: the seven tab roots, every legacy link's new home, the push routes' home tabs).
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import {runChecks} from '../core/checks.js';
@@ -59,17 +59,17 @@ const LEGACY_LINKS = [
 function routeChecks() {
   const out = [];
   const bad = (list, f) => list.map(f).filter(Boolean);
-  // The six tab roots.
-  const roots = [['/puzzles', 'puzzles', 'puzzles'], ['/pickem', 'pickem', 'pickem'], ['/matchup', 'matchup', 'rivals'], ['/league/standings', 'league', null], ['/draft', 'draft', 'moves'], ['/lay', 'lay', 'lay']];
+  // The seven tab roots.
+  const roots = [['/puzzles', 'puzzles', 'puzzles'], ['/pickem', 'pickem', 'pickem'], ['/matchup', 'matchup', 'rivals'], ['/league/standings', 'league', null], ['/draft', 'draft', 'moves'], ['/lay', 'lay', 'lay'], ['/franchise', 'franchise', 'franchise']];
   let miss = bad(roots, ([p, tab, view]) => { const r = parseRoute(p); return r && r.open === 'root' && r.tab === tab && (!view || r.view === view) && r.path === p ? null : p; });
-  out.push({name: 'Routes: the six tab roots', pass: !miss.length && TABS.join() === 'puzzles,pickem,lay,matchup,league,draft', detail: miss.length ? 'wrong: ' + miss.join(', ') : TABS.join(' · ')});
+  out.push({name: 'Routes: the seven tab roots', pass: !miss.length && TABS.join() === 'puzzles,pickem,lay,matchup,league,draft,franchise', detail: miss.length ? 'wrong: ' + miss.join(', ') : TABS.join(' · ')});
   // Every legacy link lands on its canonical new path.
   miss = bad(LEGACY_LINKS, ([p, to]) => { const r = parseRoute(p); return r && r.path === to ? null : `${p || '(empty)'} → ${r ? r.path : 'nothing'}`; });
   out.push({name: 'Routes: old links redirect', pass: !miss.length, detail: miss.length ? miss.join('; ') : `${LEGACY_LINKS.length} old links land on their new homes`});
   // Pushed routes and covers: how they open and which tab a cold link sits on.
   const pushes = [['/standings/2024', 'push', 'league'], ['/standings/2024/wrap/3', 'push', 'league'], ['/managers/evan', 'push', 'league'], ['/press', 'push', 'matchup'],
     ['/press/2026-w2', 'push', 'matchup'], ['/_kit', 'push', 'puzzles'], ['/puzzles/play/grid', 'cover', 'puzzles'], ['/puzzles/results', 'cover', 'puzzles'],
-    ['/puzzles/daily', 'push', 'puzzles'], ['/puzzles/17-0', 'push', 'puzzles'], ['/puzzles/drill', 'push', 'puzzles'], ['/puzzles/kick', 'push', 'puzzles'], ['/puzzles/return', 'push', 'puzzles']];
+    ['/puzzles/daily', 'push', 'puzzles'], ['/puzzles/17-0', 'push', 'puzzles'], ['/puzzles/drill', 'push', 'puzzles'], ['/puzzles/kick', 'push', 'puzzles'], ['/puzzles/return', 'push', 'puzzles'], ['/franchise/raid/bot%3A1', 'cover', 'franchise']];
   miss = bad(pushes, ([p, open, home]) => { const r = parseRoute(p); return r && r.open === open && r.home === home ? null : p; });
   out.push({name: 'Routes: pushes, covers and their home tabs', pass: !miss.length, detail: miss.length ? 'wrong: ' + miss.join(', ') : `${pushes.length} routes`});
   // Unknown and malformed links stay unknown (the app lands on Puzzles with a toast).

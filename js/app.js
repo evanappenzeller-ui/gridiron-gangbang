@@ -54,13 +54,15 @@ export const REGISTRY = {
   press: () => import('./views/press.js'),
   profile: () => import('./views/profile.js'),
   lay: () => import('./views/lay.js'),
+  franchise: () => import('./views/franchise.js'),
+  'franchise-raid': () => import('./views/franchise-raid.js'),
   _kit: () => import('./views/_kit.js')
 };
-export const TABS = ['puzzles', 'pickem', 'lay', 'matchup', 'league', 'draft'];
+export const TABS = ['puzzles', 'pickem', 'lay', 'matchup', 'league', 'draft', 'franchise'];
 const HOME = 'puzzles'; // the tab the app opens on: the history base, where covers present, where Back from a root lands
-const TAB_VIEW = {puzzles: 'puzzles', pickem: 'pickem', matchup: 'rivals', league: 'league', draft: 'moves', lay: 'lay'}; // root view ids
-const ROOTS = {puzzles: '/puzzles', pickem: '/pickem', matchup: '/matchup', league: '/league/standings', draft: '/draft', lay: '/lay'};
-const TAB_TITLES = {puzzles: 'Daily Games', pickem: "Pick'em", matchup: 'Matchup', league: 'League', draft: 'Draft', lay: 'The Lay'};
+const TAB_VIEW = {puzzles: 'puzzles', pickem: 'pickem', matchup: 'rivals', league: 'league', draft: 'moves', lay: 'lay', franchise: 'franchise'}; // root view ids
+const ROOTS = {puzzles: '/puzzles', pickem: '/pickem', matchup: '/matchup', league: '/league/standings', draft: '/draft', lay: '/lay', franchise: '/franchise'};
+const TAB_TITLES = {puzzles: 'Daily Games', pickem: "Pick'em", matchup: 'Matchup', league: 'League', draft: 'Draft', lay: 'The Lay', franchise: 'Franchise'};
 // Old bare hashes (#daily, #records...) from the first app. Null prototype: '#constructor' is not a legacy hash.
 const LEGACY = Object.assign(Object.create(null), {daily: '/puzzles', records: '/league/records', trophies: '/league/trophies', standings: '/league/standings', rivals: '/matchup', moves: '/draft'});
 const PUZZLES = ['college', 'silhouette', 'mystery', 'journey', 'grid', 'plays']; // every day's steps are some of these (daily.SLUGS)
@@ -118,6 +120,11 @@ function matchSegs(p, q) {
     case 'lay':
       // The Lay: the weekly 12-leg parlay (data/lay.json).
       if (n === 1) return R('lay', 'root', 'lay');
+      return null;
+    case 'franchise':
+      // The Franchise (views/franchise.js): your lot; a raid on someone's (views/franchise-raid.js) is a cover.
+      if (n === 1) return R('franchise', 'root', 'franchise');
+      if (n === 3 && b === 'raid' && c) return R('franchise-raid', 'cover', 'franchise', {key: c});
       return null;
     // ---- Legacy routes (shared links, bookmarks, share texts, notifications): redirected to the new homes.
     case 'today':
@@ -1410,7 +1417,7 @@ function updateTabBar(T, {animate = true} = {}) {
 // this phone showed today (gg-ring, same local date), so it never flashes a wrong state.
 // Polled after every navigation, on the Daily's events, on 'me' and 'data', every 30 s while the page is visible, when
 // a view module finishes loading, and whenever a view dispatches a 'gg:badge' event (on any node, or window).
-const BADGE_TABS = ['puzzles', 'pickem', 'matchup', 'lay'];
+const BADGE_TABS = ['puzzles', 'pickem', 'matchup', 'lay', 'franchise'];
 const RING_KEY = 'gg-ring'; // {date, parts, left}: also read by the Puzzles screen for its loading state
 const ringDate = () => new Date().toDateString();
 function cachedRing() {
@@ -1462,7 +1469,7 @@ function badgeLabel(T, on) {
     try { why = ns && typeof ns.badgeText === 'function' ? ns.badgeText() : ''; } catch (e) { console.error(e); }
     return `${base}, ${why || 'games to pick'}`;
   }
-  if (T === 'lay') return `${base}, new`;
+  if (T === 'lay' || T === 'franchise') return `${base}, new`;
   return T === 'matchup' ? `${base}, vote open` : base;
 }
 let badgeQueued = false;
