@@ -9,7 +9,9 @@
 // moat round it, pines beyond and mountains far off). The Keep, gold mines, archer towers and dragon hatcheries are drawn
 // from their art (views/realm-sprites.js), and folk stand about: villagers at work by their buildings, an archer up each tower, a cannon's crew round it. It
 // draws when something moved (a finger, a raid) and, while there are folk about, a few times a second for them.
-// In a raid it also draws the raiders (instanced: a few draw calls however many; a dragon in the air, flapping), what
+// In a raid it also draws the raiders (instanced: a few draw calls however many), each drawn from his picture (img/realm/
+// army/, tools/realm/army.py: stood up facing the camera, turned the way he's going, a soft shadow under him; the
+// Dragon in the air) but the Sapper (no picture: drawn in 3D), what
 // the defenses loose and what the raiders shoot (arrows, bolts, boulders, fire), dust where a building goes down.
 // load() → true when three.js is in and this phone has WebGL; create(host, opts) → the view (see its methods).
 import * as FM from './realm-models.js';
@@ -50,6 +52,22 @@ async function scenery(file) {
   }
 }
 
+// The army's pictures (tools/realm/army.py): {troop: {w, h, ax, ay (where he stands, px), right (faces right), fly,
+// tall or wide (tiles), img, url}}; a troop without one (the Sapper) is drawn in 3D.
+const ARMY = {};
+const ARMY_AT = new URL('../../img/realm/army/', import.meta.url).href;
+async function army() {
+  try {
+    const meta = await (await fetch(ARMY_AT + 'army.json')).json();
+    await Promise.all(Object.entries(meta).map(([k, m]) => new Promise(ok => {
+      const im = new Image();
+      im.decoding = 'async';
+      im.onload = () => { ARMY[k] = Object.assign({}, m, {img: im, url: ARMY_AT + k + '.webp'}); ok(); };
+      im.onerror = () => ok();
+      im.src = ARMY_AT + k + '.webp';
+    })));
+  } catch (e) { console.warn('Realm: no army pictures', e); }
+}
 /** Loads three.js, the art and scenery theme's layout for this screen (the coast's if none's given). */
 export function load(theme = 'coast') {
   if (LOADING) return LOADING.then(ok => (ok ? sceneryFor(fileFor(theme, shapeOf(innerWidth, innerHeight))).then(() => ok) : ok));
@@ -61,7 +79,7 @@ export function load(theme = 'coast') {
       T = three; RE = RoomEnvironment;
       FM.init(T, BU);
       SPR.init(T, PITCH);
-      await Promise.all([SPR.load(), sceneryFor(fileFor(theme, shapeOf(innerWidth, innerHeight)))]); // (without the art, everything's drawn in 3D)
+      await Promise.all([SPR.load(), army(), sceneryFor(fileFor(theme, shapeOf(innerWidth, innerHeight)))]); // (without the art, everything's drawn in 3D)
       try { await document.fonts.load('800 60px "Barlow Condensed"'); } catch (_) {}
       return true;
     } catch (e) {
@@ -84,6 +102,7 @@ const THUMBS = new Map();
 export function thumb(k, l, house, troop = false) {
   if (!ready()) return '';
   if (!troop && SPR.ready() && SPR.KINDS.includes(k)) return SPR.thumbURL(k, l);
+  if (troop && ARMY[k]) return ARMY[k].url;
   const key = `${troop ? 't' : 'b'}:${k}:${l}:${house.pri}:${house.sigil}`;
   if (THUMBS.has(key)) return THUMBS.get(key);
   try {
@@ -142,6 +161,14 @@ function lotTexture(T) {
   for (let i = 0; i < 160; i++) { g.fillStyle = ['#E8E2C8', '#D9C34A', '#B8A6D8'][i % 3]; g.fillRect(r() * 576, r() * 576, 2, 2); }
   const t = new T.CanvasTexture(cv); t.colorSpace = T.SRGBColorSpace; t.anisotropy = 8;
   return t;
+}
+function blobTexture(T) {
+  // a soft round shadow
+  const cv = document.createElement('canvas'); cv.width = cv.height = 64;
+  const g = cv.getContext('2d'), gr = g.createRadialGradient(32, 32, 2, 32, 32, 31);
+  gr.addColorStop(0, 'rgba(0,0,0,.42)'); gr.addColorStop(.6, 'rgba(0,0,0,.22)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  return new T.CanvasTexture(cv);
 }
 function puffTexture(T) {
   const cv = document.createElement('canvas'); cv.width = cv.height = 64;
@@ -751,8 +778,22 @@ export function create(host, opts = {}) {
   function raidStart(B, raider) {
     raidStop();
     const kinds = Object.keys(TROOPS), meshes = {}, m4 = new T.Matrix4();
+    let shadows = 0;
     kinds.forEach(k => {
       const n = Math.max(1, (B.left[k] || 0) + (B.used[k] || 0));
+      shadows += n;
+      const A = ARMY[k];
+      if (A) {
+        // his picture on a card a tile across, its anchor (where he stands) at the origin; scaled to size each frame
+        const g = new T.PlaneGeometry(1, 1);
+        g.translate(.5 - A.ax / A.w, A.ay / A.h - .5, 0);
+        if (!A.tex) { A.tex = new T.Texture(A.img); A.tex.colorSpace = T.SRGBColorSpace; A.tex.anisotropy = 4; A.tex.needsUpdate = true; }
+        const art = new T.InstancedMesh(g, new T.MeshBasicMaterial({map: A.tex, alphaTest: .35, side: T.DoubleSide, toneMapped: false, fog: false}), n);
+        art.count = 0; art.frustumCulled = false; art.renderOrder = 3;
+        scene.add(art);
+        meshes[k] = {art};
+        return;
+      }
       const parts = FM.troopParts(k, raider);
       const body = new T.InstancedMesh(parts.body, FM.mats().paint, n), leg = new T.InstancedMesh(parts.leg, FM.mats().paint, n * 2);
       body.castShadow = leg.castShadow = true; body.count = leg.count = 0;
@@ -760,6 +801,10 @@ export function create(host, opts = {}) {
       scene.add(body, leg);
       meshes[k] = {body, leg};
     });
+    // a soft shadow under each soldier drawn from his picture (a dragon's on the ground under it)
+    const shadow = new T.InstancedMesh(new T.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new T.MeshBasicMaterial({map: blobTexture(T), transparent: true, depthWrite: false, toneMapped: false, fog: false}), Math.max(1, shadows));
+    shadow.count = 0; shadow.frustumCulled = false; shadow.renderOrder = 2; shadow.position.y = .02;
+    scene.add(shadow);
     // what flies: arrows (archers, archer towers), bolts (ballistas), boulders (trebuchets), dragon fire
     const arrowGeo = new T.CylinderGeometry(.014, .014, .46, 5); arrowGeo.rotateX(Math.PI / 2);
     const boltGeo = new T.CylinderGeometry(.035, .035, .85, 6); boltGeo.rotateX(Math.PI / 2);
@@ -782,7 +827,7 @@ export function create(host, opts = {}) {
     const zone = new T.Mesh(new T.PlaneGeometry(N, N), new T.MeshBasicMaterial({map: zoneTex, transparent: true, opacity: 0, depthWrite: false, toneMapped: false}));
     zone.rotation.x = -Math.PI / 2; zone.position.y = .015; zone.renderOrder = 1;
     scene.add(zone);
-    raid = {B, meshes, fly, puffs, fxAt: 0, prev: new Map(), cur: new Map(), stepSeen: -1, zone, zoneCv: cv, zoneTex, zoneSig: '', zoneShow: 0, aim: new Map(),
+    raid = {B, meshes, shadow, fly, puffs, fxAt: 0, prev: new Map(), cur: new Map(), stepSeen: -1, zone, zoneCv: cv, zoneTex, zoneSig: '', zoneShow: 0, aim: new Map(),
       fired: new Map(), byId: new Map(B.bl.map(b => [b.i, b])), t: 0, shotSeen: new WeakSet()};
     drawZone();
     want();
@@ -815,7 +860,8 @@ export function create(host, opts = {}) {
     const f = Math.max(0, Math.min(1, (t - (B.t - .1)) / .1));
     // the soldiers
     const m4 = new T.Matrix4(), q = new T.Quaternion(), sc = new T.Vector3(1.5, 1.5, 1.5), up = new T.Vector3(0, 1, 0), pv = new T.Vector3();
-    const counts = {};
+    const counts = {}, camQ = cam.quaternion, tilt = new T.Quaternion(), zAxis = new T.Vector3(0, 0, 1), ssc = new T.Vector3();
+    let nShadow = 0;
     Object.keys(R.meshes).forEach(k => { counts[k] = 0; });
     B.tr.forEach(u => {
       if (u.dead) return;
@@ -824,6 +870,21 @@ export function create(host, opts = {}) {
       const x = p.x + (c.x - p.x) * f, y = p.y + (c.y - p.y) * f;
       const moving = Math.hypot(c.x - p.x, c.y - p.y) > .001, swing = moving ? Math.sin(t * 14 + u.id) * .6 : 0;
       const hit = t - u.hitAt < .35 ? Math.sin((t - u.hitAt) / .35 * Math.PI) : 0;
+      if (M.art) {
+        // his picture facing the camera, turned the way he's going (the way the screen sees it), a step's bob and
+        // rock as he walks, knocked back a little when he's hit; the Dragon high up, bobbing
+        const A = ARMY[u.t], right = Math.cos(u.face) - Math.sin(u.face) >= 0, sx = right === A.right ? 1 : -1;
+        const wk = A.fly ? A.wide : A.tall * A.w / A.h, hk = A.fly ? A.wide * A.h / A.w : A.tall;
+        const hy = A.fly ? 2.3 + Math.sin(t * 2.2 + u.id) * .15 : (moving ? Math.abs(Math.sin(t * 9 + u.id)) * .06 : 0);
+        tilt.setFromAxisAngle(zAxis, (moving && !A.fly ? Math.sin(t * 9 + u.id) * .06 : 0) + sx * .25 * hit);
+        pv.set(W(x), hy, W(y));
+        m4.compose(pv, camQ.clone().multiply(tilt), ssc.set(wk * sx, hk, 1));
+        M.art.setMatrixAt(counts[u.t]++, m4);
+        const sw = A.fly ? 1.6 : Math.max(.55, wk * .8);
+        m4.compose(pv.set(W(x), 0, W(y)), q.identity(), ssc.set(sw, 1, sw * .6));
+        R.shadow.setMatrixAt(nShadow++, m4);
+        return;
+      }
       const face = -u.face + Math.PI / 2;
       q.setFromAxisAngle(up, face);
       const i = counts[u.t]++;
@@ -850,7 +911,11 @@ export function create(host, opts = {}) {
         m4.compose(new T.Vector3(pv.x + off.x, .33 + bob, pv.z + off.z), lq, sc); M.leg.setMatrixAt(i * 2 + j, m4);
       });
     });
-    Object.entries(R.meshes).forEach(([k, M]) => { M.body.count = counts[k]; M.leg.count = counts[k] * 2; M.body.instanceMatrix.needsUpdate = true; M.leg.instanceMatrix.needsUpdate = true; });
+    Object.entries(R.meshes).forEach(([k, M]) => {
+      if (M.art) { M.art.count = counts[k]; M.art.instanceMatrix.needsUpdate = true; return; }
+      M.body.count = counts[k]; M.leg.count = counts[k] * 2; M.body.instanceMatrix.needsUpdate = true; M.leg.instanceMatrix.needsUpdate = true;
+    });
+    R.shadow.count = nShadow; R.shadow.instanceMatrix.needsUpdate = true;
     // what's in the air: each along its arc, pointing the way it's going
     const KIND = {archer: 'arrow', tower: 'arrow', ballista: 'bolt', trebuchet: 'rock', dragon: 'fire', cannon: 'ball'};
     const ARC = {trebuchet: 4, archer: 1.1, tower: 1, ballista: .35, dragon: .15, cannon: .3};
@@ -918,7 +983,11 @@ export function create(host, opts = {}) {
   }
   function raidStop() {
     if (!raid) return;
-    Object.values(raid.meshes).forEach(M => { scene.remove(M.body, M.leg); M.body.dispose(); M.leg.dispose(); });
+    Object.values(raid.meshes).forEach(M => {
+      if (M.art) { scene.remove(M.art); M.art.geometry.dispose(); M.art.material.dispose(); M.art.dispose(); return; }
+      scene.remove(M.body, M.leg); M.body.dispose(); M.leg.dispose();
+    });
+    scene.remove(raid.shadow); raid.shadow.geometry.dispose(); raid.shadow.material.map.dispose(); raid.shadow.material.dispose(); raid.shadow.dispose();
     Object.values(raid.fly).forEach(M => { scene.remove(M); M.dispose(); });
     scene.remove(raid.zone);
     raid.puffs.forEach(p => scene.remove(p.sp));
