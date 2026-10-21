@@ -24,64 +24,65 @@ export const CUR_NAME = {gold: 'Gold', grain: 'Grain'};
 export const mayPlay = () => !!(data.isOwner && data.isOwner());
 
 // ---------------------------------------------------------------------------------------------------- the buildings
-// Per level (index level - 1): cost (to build it, then to reach each level), time (seconds), hp, th (the Keep level it
-// needs); and what it does: rate (an hour) and hold (hours of it) for mines and farms; cap for treasuries and
-// granaries; store for the Keep; room (soldiers) for war camps; dps, range, every (seconds a shot), splash, min, air
-// (can it hit a dragon) for defenses; the dragons it has room for (a level each) for the hatchery. pay: what it's
-// paid for in. size: tiles square.
+// Per level (index level - 1): cost (to build it, then to reach each level), time (seconds: each level takes longer
+// than the last, minutes at first, a day or two at the top; the owner, Oct 2026), hp, th (the Keep level it needs);
+// and what it does: rate (an hour) and hold (hours of it) for mines and farms; cap for treasuries and granaries; store
+// for the Keep; room (soldiers) for war camps; dps, range, every (seconds a shot), splash, min, air (can it hit a
+// dragon) for defenses; the dragons it has room for (a level each) for the hatchery. pay: what it's paid for in.
+// size: tiles square.
 export const KINDS = {
   keep: {name: 'Keep', size: 4, pay: 'gold', role: 'hall',
     blurb: 'The heart of your realm. Its level decides how many of everything you can build and how far each can go.',
     cost: [0, 2500, 10000, 40000, 120000, 300000, 650000, 1200000],
-    time: [0, 60, 900, 3600, 14400, 28800, 57600, 86400],
+    time: [0, 1800, 7200, 21600, 43200, 86400, 129600, 172800],
     hp: [1500, 1700, 2000, 2400, 2900, 3500, 4200, 5000],
     th: [1, 1, 2, 3, 4, 5, 6, 7],
     store: [2500, 5000, 10000, 20000, 40000, 80000, 120000, 160000]},
   mine: {name: 'Gold Mine', size: 3, pay: 'grain', role: 'make', makes: 'gold',
     blurb: 'Digs Gold while you’re away: it piles up until you collect it.',
     cost: [150, 300, 700, 1400, 3000, 6000, 12000, 24000, 45000, 80000, 140000, 220000],
-    time: [10, 60, 300, 900, 1800, 3600, 7200, 14400, 21600, 36000, 50400, 72000],
+    time: [10, 300, 900, 1800, 3600, 7200, 14400, 28800, 43200, 64800, 86400, 129600],
     hp: [400, 440, 480, 520, 560, 600, 640, 680, 720, 780, 840, 900],
     th: [1, 1, 2, 2, 3, 3, 4, 4, 5, 6, 7, 8],
     rate: [20, 35, 50, 70, 90, 115, 140, 170, 200, 240, 280, 330], hold: 10},
   farm: {name: 'Farm', size: 3, pay: 'gold', role: 'make', makes: 'grain',
     blurb: 'Grows Grain while you’re away: it piles up until you collect it.',
     cost: [150, 300, 700, 1400, 3000, 6000, 12000, 24000, 45000, 80000, 140000, 220000],
-    time: [10, 60, 300, 900, 1800, 3600, 7200, 14400, 21600, 36000, 50400, 72000],
+    time: [10, 300, 900, 1800, 3600, 7200, 14400, 28800, 43200, 64800, 86400, 129600],
     hp: [400, 440, 480, 520, 560, 600, 640, 680, 720, 780, 840, 900],
     th: [1, 1, 2, 2, 3, 3, 4, 4, 5, 6, 7, 8],
     rate: [20, 35, 50, 70, 90, 115, 140, 170, 200, 240, 280, 330], hold: 10},
   treasury: {name: 'Treasury', size: 3, pay: 'grain', role: 'store', holds: 'gold',
     blurb: 'Holds your Gold. More room means bigger upgrades, and more for raiders to take.',
     cost: [300, 750, 1500, 3000, 6000, 12000, 25000, 50000, 100000, 180000, 300000],
-    time: [10, 120, 600, 1800, 3600, 7200, 14400, 21600, 36000, 57600, 86400],
+    time: [10, 600, 1800, 3600, 7200, 14400, 28800, 43200, 64800, 86400, 129600],
     hp: [400, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400],
     th: [1, 2, 2, 3, 3, 4, 4, 5, 6, 7, 8],
     cap: [3000, 7500, 15000, 30000, 50000, 80000, 120000, 170000, 240000, 330000, 450000]},
   granary: {name: 'Granary', size: 3, pay: 'gold', role: 'store', holds: 'grain',
     blurb: 'Holds your Grain. More room means bigger upgrades, and more for raiders to take.',
     cost: [300, 750, 1500, 3000, 6000, 12000, 25000, 50000, 100000, 180000, 300000],
-    time: [10, 120, 600, 1800, 3600, 7200, 14400, 21600, 36000, 57600, 86400],
+    time: [10, 600, 1800, 3600, 7200, 14400, 28800, 43200, 64800, 86400, 129600],
     hp: [400, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400],
     th: [1, 2, 2, 3, 3, 4, 4, 5, 6, 7, 8],
     cap: [3000, 7500, 15000, 30000, 50000, 80000, 120000, 170000, 240000, 330000, 450000]},
   barracks: {name: 'Barracks', size: 4, pay: 'grain', role: 'train',
     blurb: 'Trains your army with Grain. Each level opens a new kind of soldier; each barracks trains alongside the others.',
     cost: [200, 1000, 4000, 12000, 30000, 70000, 140000, 260000],
-    time: [10, 300, 1800, 7200, 14400, 28800, 43200, 72000],
+    time: [10, 900, 3600, 10800, 21600, 43200, 64800, 86400],
     hp: [250, 290, 330, 370, 420, 470, 520, 580],
     th: [1, 2, 3, 4, 5, 6, 7, 8]},
   camp: {name: 'War Camp', size: 4, pay: 'grain', role: 'camp',
     blurb: 'Where your army waits to march. Its room is how big an army you can take.',
     cost: [250, 2500, 10000, 40000, 100000, 200000],
-    time: [10, 600, 7200, 14400, 28800, 57600],
+    time: [10, 1800, 10800, 28800, 57600, 86400],
     hp: [250, 270, 290, 310, 330, 350],
     th: [1, 2, 3, 5, 6, 7],
     room: [20, 30, 35, 40, 45, 50]},
   hatchery: {name: 'Dragon Hatchery', size: 4, pay: 'grain', role: 'hatch',
     blurb: 'Where your dragons hatch and grow. You need one to train a dragon, and each level is room for one more.',
     cost: [20000, 40000, 70000, 110000, 160000, 220000, 300000, 400000, 520000, 660000],
-    time: [3600, 7200, 14400, 21600, 28800, 43200, 57600, 72000, 86400, 108000],
+    time: [3600, 10800, 21600, 32400, 43200, 64800, 86400, 108000, 129600, 172800],
     hp: [800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700],
     th: [6, 6, 6, 7, 7, 7, 8, 8, 8, 8]},
   hut: {name: 'Builder’s Hut', size: 2, pay: 'gold', role: 'builder',
@@ -90,42 +91,42 @@ export const KINDS = {
   cannon: {name: 'Cannon', size: 3, pay: 'gold', role: 'def', air: false,
     blurb: 'Its crew fires iron shot at one attacker at a time, hard and quick. Can’t hit a dragon.',
     cost: [250, 1000, 4000, 10000, 25000, 60000, 120000, 220000, 380000, 600000],
-    time: [10, 120, 900, 3600, 10800, 21600, 36000, 57600, 86400, 129600],
+    time: [10, 600, 1800, 5400, 14400, 28800, 43200, 72000, 108000, 172800],
     hp: [420, 470, 520, 570, 620, 680, 750, 830, 920, 1020],
     th: [1, 1, 2, 3, 4, 5, 6, 7, 8, 8],
     dps: [11, 14, 18, 23, 29, 36, 45, 54, 63, 72], range: 8, every: .9},
   ballista: {name: 'Ballista', size: 3, pay: 'gold', role: 'def', air: true,
     blurb: 'Looses great bolts at one attacker at a time, on the ground or in the air.',
     cost: [250, 1000, 4000, 10000, 25000, 60000, 120000, 220000, 380000, 600000],
-    time: [10, 120, 900, 3600, 10800, 21600, 36000, 57600, 86400, 129600],
+    time: [10, 600, 1800, 5400, 14400, 28800, 43200, 72000, 108000, 172800],
     hp: [420, 470, 520, 570, 620, 680, 750, 830, 920, 1020],
     th: [1, 1, 2, 3, 4, 5, 6, 7, 8, 8],
     dps: [9, 11, 15, 19, 25, 31, 40, 48, 56, 64], range: 9, every: .8},
   tower: {name: 'Archer Tower', size: 3, pay: 'gold', role: 'def', air: true,
     blurb: 'Reaches farther than anything and picks attackers off, dragons too.',
     cost: [1000, 2000, 5000, 15000, 35000, 70000, 140000, 250000, 400000, 600000],
-    time: [15, 300, 1800, 3600, 10800, 21600, 36000, 57600, 86400, 129600],
+    time: [15, 900, 3600, 7200, 18000, 32400, 50400, 72000, 108000, 172800],
     hp: [380, 420, 460, 500, 540, 580, 630, 690, 750, 810],
     th: [2, 2, 3, 4, 5, 5, 6, 7, 8, 8],
     dps: [11, 15, 19, 25, 30, 35, 42, 48, 56, 63], range: 10, every: 1},
   trebuchet: {name: 'Trebuchet', size: 3, pay: 'gold', role: 'def', air: false,
     blurb: 'Hurls boulders a long way into a crowd. Slow, and it can’t hit anyone right next to it, or in the air.',
     cost: [8000, 20000, 60000, 150000, 300000, 550000],
-    time: [600, 3600, 14400, 28800, 57600, 86400],
+    time: [600, 7200, 21600, 43200, 86400, 129600],
     hp: [400, 450, 500, 550, 600, 650],
     th: [3, 4, 5, 6, 7, 8],
     dps: [4, 5, 6, 7, 9, 11], range: 11, min: 4, every: 5, splash: 1.5},
   cauldron: {name: 'Pitch Cauldron', size: 3, pay: 'gold', role: 'def', air: false,
     blurb: 'Pours burning pitch on everyone close by. Short reach, hits a crowd on the ground.',
     cost: [60000, 120000, 220000, 360000, 520000, 720000],
-    time: [3600, 14400, 28800, 43200, 72000, 108000],
+    time: [3600, 21600, 43200, 72000, 108000, 172800],
     hp: [620, 660, 700, 750, 800, 850],
     th: [4, 5, 6, 7, 8, 8],
     dps: [11, 13, 16, 20, 24, 32], range: 7, every: 1.3, splash: 1},
   wall: {name: 'Wall', size: 1, pay: 'gold', role: 'wall',
-    blurb: 'Keeps attackers out until they break through: a palisade, then stone. Goes up at once, no builder needed.',
+    blurb: 'Keeps attackers out until they break through: a palisade, then stone. Goes up at once; its upgrades take a while but need no builder.',
     cost: [50, 1000, 5000, 10000, 20000, 40000, 80000, 150000],
-    time: [0, 0, 0, 0, 0, 0, 0, 0],
+    time: [0, 60, 300, 900, 1800, 3600, 7200, 14400],
     hp: [300, 500, 700, 900, 1400, 2000, 2500, 3000],
     th: [2, 2, 3, 4, 5, 6, 7, 8]}
 };
@@ -354,7 +355,7 @@ export function capOf(s) {
 /** Builders: how many there are (huts up) and how many are on a job now. */
 export function builders(s, now = Date.now()) {
   const total = s.b.filter(b => b.t === 'hut' && b.l >= 1).length;
-  const working = s.b.filter(b => busy(b, now)).length;
+  const working = s.b.filter(b => b.t !== 'wall' && busy(b, now)).length;
   return {total, busy: working, free: Math.max(0, total - working)};
 }
 /** Dragons the hatcheries have room for (a level each). */
@@ -476,7 +477,7 @@ export function canUpgrade(s, id, now = Date.now()) {
   if (to > maxLevel(b.t) || b.t === 'hut') return Object.assign(o, {why: 'At its top level'});
   if (to > topLevel(b.t, keepOf(s))) return Object.assign(o, {why: `Needs Keep level ${K.th[to - 1]}`});
   if (o.cost > s.r[K.pay]) return Object.assign(o, {why: `Not enough ${CUR_NAME[K.pay]}`});
-  if (o.time > 0 && builders(s, now).free < 1) return Object.assign(o, {why: 'Every builder is busy'});
+  if (o.time > 0 && b.t !== 'wall' && builders(s, now).free < 1) return Object.assign(o, {why: 'Every builder is busy'});
   if (b.t === 'barracks' && s.q.length) return Object.assign(o, {why: 'Training’s under way there'});
   return Object.assign(o, {ok: true});
 }

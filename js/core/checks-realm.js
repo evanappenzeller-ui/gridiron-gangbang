@@ -56,9 +56,9 @@ export async function realmChecks(check) {
     s.r.gold -= 100;
     const got = F.collect(s, mine.i, T0 + 3 * F.HOUR), left = F.made(mine, T0 + 3 * F.HOUR);
     s.r.grain = 2500;
-    const up = F.upgrade(s, mine.i, T0 + 4 * F.HOUR), during = F.made(mine, T0 + 4 * F.HOUR + 30e3);
-    F.tick(s, T0 + 4 * F.HOUR + 61e3);
-    const after = mine.l === 2 && F.made(mine, T0 + 5 * F.HOUR + 61e3) === 35;
+    const up = F.upgrade(s, mine.i, T0 + 4 * F.HOUR), during = F.made(mine, T0 + 4 * F.HOUR + 30e3), done = F.KINDS.mine.time[1] * 1000 + 1e3;
+    F.tick(s, T0 + 4 * F.HOUR + done);
+    const after = mine.l === 2 && F.made(mine, T0 + 5 * F.HOUR + done) === 35;
     const ok = cap.gold === 2500 && cap.grain === 2500 && moved.gold === 2500 && pend.gold === 9000 && m3 === 60 && m30 === 200 && full === 0 && got === 60 && left === 0
       && up && during === 0 && after;
     return {pass: ok, detail: `cap ${JSON.stringify(cap)}, moved ${moved.gold}, waiting ${pend.gold}; mine 3h ${m3}, 30h ${m30}; full ${full}, then ${got} (left ${left}); upgrading ${up}, digging ${during}; after ${after}`};
@@ -82,6 +82,25 @@ export async function realmChecks(check) {
     const ok = !!built && built.l === 0 && busy === 'Every builder is busy' && !!hut && hut.l === 1 && two.total === 2 && two.free === 1 && granary
       && /Keep level 2/.test(mine) && /Keep level 2/.test(gate) && /Keep level 2/.test(wall) && !!wb && wb.l === 1 && wb.u === 0;
     return {pass: ok, detail: `treasury ${!!built}; then: ${busy}; 2nd hut ${!!hut}, builders ${JSON.stringify(two)}, granary ${granary}; mine: ${mine}; ballista 3: ${gate}; wall at 1: ${wall}; at 2: ${wb ? 'up at once' : 'no'}`};
+  });
+
+  check('Realm: upgrades take time (the owner, Oct 2026): every level past the first takes longer than the one before (minutes at first, a day or two at the top); the Keep isn’t a level higher till its time’s up, and its builder’s busy till then; a wall’s upgrade takes time too (an hour or few at the top) but no builder', () => {
+    const slow = F.ORDER.filter(k => k !== 'hut' && F.KINDS[k].time.slice(1).some((t, i, a) => t < 60 || (i && t <= a[i - 1])));
+    const tops = F.ORDER.filter(k => k !== 'hut' && k !== 'wall').map(k => F.KINDS[k].time[F.maxLevel(k) - 1]);
+    const s = F.fresh(T0), keep = s.b.find(b => b.t === 'keep');
+    s.r.gold = s.r.grain = 99999;
+    const t2 = F.KINDS.keep.time[1] * 1000, up = F.upgrade(s, keep.i, T0), why = F.canUpgrade(s, keep.i, T0 + 1e3).why;
+    const free = F.builders(s, T0 + 1e3).free;
+    F.tick(s, T0 + t2 - 1e3);
+    const early = keep.l;
+    F.tick(s, T0 + t2);
+    const late = keep.l;
+    const f = F.spotFor(s, 'wall'), w = F.build(s, 'wall', f.x, f.y, T0 + t2), m = F.spotFor(s, 'mine'), busy = !!F.build(s, 'mine', m.x, m.y, T0 + t2);
+    const wUp = !!w && F.builders(s, T0 + t2).free === 0 && F.upgrade(s, w.i, T0 + t2), wTime = w ? w.u - (T0 + t2) : 0;
+    F.tick(s, T0 + t2 + wTime);
+    const ok = !slow.length && Math.min(...tops) >= 86400 && F.KINDS.wall.time[F.maxLevel('wall') - 1] >= 3600 && up && why === 'Being upgraded' && free === 0 && early === 1 && late === 2
+      && !!w && w.l === 2 && busy && wUp && wTime === F.KINDS.wall.time[1] * 1000 && wTime > 0;
+    return {pass: ok, detail: `too quick or not longer than the level before: ${slow.join(', ') || 'none'}; quickest top level ${Math.min(...tops) / 3600}h; Keep upgraded ${up} (${why}, ${free} builders free), a second before ${early}, at its time ${late}; a wall upgraded with every builder busy ${wUp}, ${wTime / 1000}s, then level ${w && w.l}`};
   });
 
   check('Realm: the base: everything stands inside it (EDGE tiles in from the lot’s sides) and nothing overlaps: building or moving onto taken ground, part of it, or off the base is refused, onto clear ground anywhere on it is fine; a save with two on the same ground (or one off the base) is laid out clear when it’s taken up', () => {
