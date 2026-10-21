@@ -8,12 +8,39 @@
 // Everything is built as the road comes up and let go behind: the ground and the roadside in 20-yard chunks (each a few
 // merged meshes, coloured by vertex), the lane things one by one (shared shapes and materials).
 // The world in yards (x across, y up, z ahead); three.js's z is the other way (-z).
-// Exports: init(three, scene, utils), update(st, now), look(st, z).
+// The curved world (the owner's ask, Oct 2026): every material here and on the players is bent (bend(): its vertex
+// shader sinks each point BEND_U * d^2 yards, d its depth ahead of the camera, after it's placed), so the ground needs
+// vertices along it to bend: the ground's planes come in 2-yard strips, long boxes in 5-yard pieces.
+// Exports: init(three, scene, utils), update(st, now), look(st, z), bend(obj), BEND_U.
 import * as R from '../core/return.js';
 import {dressList, LOOKS, OBS, GOODS_COL} from './return-world.js';
 import {seeded} from './stadium.js';
 
 let T = null, U = null, SCENE = null, ROOT = null;
+/** The bend (yards down per yard of depth squared: return-3d.js sets it each frame from st.bend). */
+export const BEND_U = {value: 0};
+const BENT = new WeakSet();
+// (one function for every material, so they all share its programs)
+function bendShader(sh) {
+  sh.uniforms.uBend = BEND_U;
+  const v = sh.vertexShader, curve = 'mvPosition.y -= uBend * mvPosition.z * mvPosition.z;\ngl_Position = projectionMatrix * mvPosition;';
+  sh.vertexShader = 'uniform float uBend;\n' + (v.includes('#include <project_vertex>')
+    ? v.replace('#include <project_vertex>', '#include <project_vertex>\n' + curve)
+    : v.replace('gl_Position = projectionMatrix * mvPosition;', curve)); // (a sprite's)
+}
+/** Bends every material on obj and what's under it (once each). */
+export function bend(obj) {
+  obj.traverse(o => {
+    if (!o.material) return;
+    (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => {
+      if (BENT.has(m)) return;
+      BENT.add(m);
+      m.onBeforeCompile = bendShader;
+      m.needsUpdate = true;
+    });
+  });
+  return obj;
+}
 const LANE = R.LANE, CHUNK = 20, AHEAD = 150, BEHIND = 12;
 const DISPLAY = '"Barlow Condensed", "Arial Narrow", sans-serif';
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -100,7 +127,12 @@ class Batch {
     return this;
   }
   /** A box from (x0, y0, z0) to (x1, y1, z1). */
-  box(hex, x0, x1, y0, y1, z0, z1, ry = 0) { return this.add('box', hex, (x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2, Math.abs(x1 - x0), Math.abs(y1 - y0), Math.abs(z1 - z0), 0, ry); }
+  box(hex, x0, x1, y0, y1, z0, z1, ry = 0) {
+    // (a long one along the road in 5-yard pieces, so it bends with the ground)
+    const n = ry ? 1 : Math.max(1, Math.ceil(Math.abs(z1 - z0) / 5)), d = (z1 - z0) / n;
+    for (let i = 0; i < n; i++) { const a = z0 + d * i, b = a + d; this.add('box', hex, (x0 + x1) / 2, (y0 + y1) / 2, (a + b) / 2, Math.abs(x1 - x0), Math.abs(y1 - y0), Math.abs(d), 0, ry); }
+    return this;
+  }
   /** An upright cylinder (radius r, from y0 to y1) at (x, z). */
   cyl(hex, x, y0, y1, z, r, shape = 'cyl') { return this.add(shape, hex, x, (y0 + y1) / 2, z, r, y1 - y0, r); }
   mesh(mat) {
@@ -255,13 +287,13 @@ function baseMat(id) {
 }
 /** A flat rectangle on the ground (x0..x1, z0..z1, at height y), its texture laid u across, v along every per yards. */
 function plane(mat, x0, x1, z0, z1, y = 0, per = 0, u0 = 0, u1 = 1) {
-  const g = new T.PlaneGeometry(1, 1);
+  const g = new T.PlaneGeometry(1, 1, 1, Math.max(1, Math.ceil((z1 - z0) / 2))); // (in strips along it, to bend)
   g.rotateX(-Math.PI / 2);
-  g.scale(x1 - x0, 1, z1 - z0); g.translate((x0 + x1) / 2, y, -(z0 + z1) / 2);
-  const uv = g.attributes.uv;
-  // (PlaneGeometry's corners: far left, far right, near left, near right, once laid flat)
+  const uv = g.attributes.uv, pa = g.attributes.position;
+  // (laid flat, x -.5 to .5 across and z -.5 (far) to .5 (near))
   const vf = per ? z1 / per : 1, vn = per ? z0 / per : 0;
-  uv.setXY(0, u0, vf); uv.setXY(1, u1, vf); uv.setXY(2, u0, vn); uv.setXY(3, u1, vn);
+  for (let i = 0; i < pa.count; i++) uv.setXY(i, u0 + (u1 - u0) * (pa.getX(i) + .5), vn + (vf - vn) * (.5 - pa.getZ(i)));
+  g.scale(x1 - x0, 1, z1 - z0); g.translate((x0 + x1) / 2, y, -(z0 + z1) / 2);
   const m = new T.Mesh(g, mat);
   m.matrixAutoUpdate = false; m.receiveShadow = true;
   return m;
@@ -403,9 +435,16 @@ function crowd(s, z0, z1) {
     }
   }))}));
   const xi = s * 32, xo = s * (32 + 9 * 1.6), yi = 1.62, yo = 1.62 + 9 * 1.15, geo = new T.BufferGeometry();
-  geo.setAttribute('position', new T.Float32BufferAttribute([xi, yi, -z0, xi, yi, -z1, xo, yo, -z0, xo, yo, -z1], 3));
-  geo.setAttribute('uv', new T.Float32BufferAttribute([z0 / 12, 0, z1 / 12, 0, z0 / 12, 3, z1 / 12, 3], 2));
-  geo.setIndex([0, 1, 2, 2, 1, 3]); geo.computeVertexNormals();
+  // (in 5-yard strips along the stands, to bend)
+  const n = Math.max(1, Math.ceil((z1 - z0) / 5)), pos = [], uv = [], idx = [];
+  for (let i = 0; i <= n; i++) {
+    const z = z0 + (z1 - z0) * i / n;
+    pos.push(xi, yi, -z, xo, yo, -z); uv.push(z / 12, 0, z / 12, 3);
+    if (i) { const a = (i - 1) * 2; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
+  }
+  geo.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('uv', new T.Float32BufferAttribute(uv, 2));
+  geo.setIndex(idx); geo.computeVertexNormals();
   const m = new T.Mesh(geo, mat);
   m.matrixAutoUpdate = false;
   return m;
@@ -621,7 +660,7 @@ function windowsBox(hex, x0, x1, y0, y1, z0, z1) {
     const r = seeded(3);
     for (let y = 0; y < 2; y++) for (let x = 0; x < 2; x++) { const lit = r() < .3; g.fillStyle = lit ? '#FFE6A8' : '#3A4E66'; g.fillRect(x * 64 + 14, y * 64 + 12, 36, 40); g.fillStyle = 'rgba(255,255,255,.25)'; g.fillRect(x * 64 + 14, y * 64 + 12, 36, 6); }
   }))}));
-  const geo = new T.BoxGeometry(Math.abs(x1 - x0), y1 - y0, z1 - z0);
+  const geo = new T.BoxGeometry(Math.abs(x1 - x0), y1 - y0, z1 - z0, 1, 1, Math.max(1, Math.ceil(Math.abs(z1 - z0) / 5)));
   // (the windows every 2.2 yards up and 2.4 along, on every face)
   const uv = geo.attributes.uv, pos = geo.attributes.position, nrm = geo.attributes.normal;
   for (let i = 0; i < uv.count; i++) {
@@ -643,7 +682,7 @@ function cornWall(x0, x1, z0, z1, s) {
     for (let i = 0; i < 40; i++) { g.fillStyle = '#F2C94C'; g.fillRect(r() * w, 30 + r() * 60, 4, 12); }
     for (let i = 0; i < 60; i++) { g.fillStyle = '#7CCB5E'; g.beginPath(); const x = r() * w, y = r() * h; g.moveTo(x, y); g.lineTo(x + 14, y - 8); g.lineTo(x + 2, y + 2); g.fill(); }
   }));
-  const geo = new T.PlaneGeometry(z1 - z0, 2.3);
+  const geo = new T.PlaneGeometry(z1 - z0, 2.3, Math.max(1, Math.ceil(Math.abs(z1 - z0) / 5)), 1);
   const uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, (z0 + uv.getX(i) * (z1 - z0)) / 4, uv.getY(i));
   const m = new T.Mesh(geo, mat);
   m.rotation.y = s > 0 ? -Math.PI / 2 : Math.PI / 2;
@@ -671,7 +710,7 @@ function sign(text, bg, ink, x, y, z, w, h, s) {
 const LIVE = new Map(); // key -> {obj, seen}
 function keep(key, make, may = true) {
   let e = LIVE.get(key);
-  if (!e) { if (!may) return null; const obj = make(); if (!obj) return null; ROOT.add(obj); e = {obj}; LIVE.set(key, e); }
+  if (!e) { if (!may) return null; const obj = make(); if (!obj) return null; ROOT.add(bend(obj)); e = {obj}; LIVE.set(key, e); }
   e.seen = FRAME;
   return e.obj;
 }
@@ -889,7 +928,7 @@ export function update(st, now) {
   FRAME++;
   const t = now / 1000, run = st.run, cz = st.camZ, key = `${st.co.n}|${st.co.k}`;
   // the ground beyond the last chunk, out to the horizon (all haze by then)
-  if (!FAR_GROUND) { FAR_GROUND = new T.Mesh(new T.PlaneGeometry(4000, 3000).rotateX(-Math.PI / 2), new T.MeshLambertMaterial({color: 0x808080})); ROOT.add(FAR_GROUND); }
+  if (!FAR_GROUND) { FAR_GROUND = new T.Mesh(new T.PlaneGeometry(4000, 3000).rotateX(-Math.PI / 2), new T.MeshLambertMaterial({color: 0x808080})); ROOT.add(bend(FAR_GROUND)); }
   FAR_GROUND.position.set(0, -.03, -(cz + AHEAD + 1500));
   FAR_GROUND.material.color.set(GROUNDS[R.zoneAt(st.co, cz + AHEAD).theme.id].base);
   // the chunks

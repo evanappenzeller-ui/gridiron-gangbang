@@ -194,6 +194,8 @@ function size(st) {
   st.camH = st.camH0 + (st.lift || 0);
 }
 const P = (st, x, y, z) => W.P(st, x, y, z);
+/** The view the sky's painted for: in 3D the world's bent (return-world.js BEND), its horizon down at the brow. */
+const skyView = st => (st.bend ? Object.assign({}, st, {y0: W.horizonOf(st)}) : st);
 
 // ---------------------------------------------------------------- The players
 // The owner's sprite sheets (views/drill-sprites.js: the Two-Minute Drill's players), ours in navy and the linebacker
@@ -313,31 +315,40 @@ function chaserAnim(st, now, z) {
   return {f: `def.r_b${Math.floor(z / 1.4) & 1}`, mo: {ph: z / 1.4 * Math.PI, t, seed: 7}};
 }
 // In 3D (views/return-3d.js, once it's loaded; the pictures above till then, or on a phone without WebGL): the same
-// moments as smooth poses, the run's clip keeping pace with the yards.
+// moments as its moves' clips, cross-faded one into the next (the run's keeping pace with the yards).
+// A juke's side-step and lean (the owner's ask, Oct 2026: snappier, Subway Surfers' way) take SIDE_S: into the lean
+// quick, out of it slower.
+const SIDE_S = .32;
+const leanOf = u => (u < 0 || u >= 1 ? 0 : u < .35 ? smooth(u / .35) : 1 - smooth((u - .35) / .65));
 /** The returner's 3D pose now (return-3d.js pose's spec; dz: yards on from where he is, thrown forward going down). */
 function runner3(st, now) {
   const run = st.run, t = now / 1000;
-  if (!run || st.mode === 'ready') return {clip: 'idle', t};
+  if (!run || st.mode === 'ready') return {move: 'idle', t};
   if (st.mode === 'catch') {
     // reaching up for it as it comes down; the ball his once it's there, and in it comes
     const p = Math.min(1, (now - st.catchAt) / CATCH_MS), q = Math.max(0, (p - CATCH_HANDS) / (1 - CATCH_HANDS));
-    return {clip: 'idle', t, catch: Math.min(1, p / .3) * (1 - .5 * q), carry: .5 * q, ball: p >= CATCH_HANDS};
+    return {move: 'idle', t, catch: Math.min(1, p / .3) * (1 - .5 * q), carry: .5 * q, ball: p >= CATCH_HANDS};
   }
   const off = Math.min(1, Math.max(0, (now - st.catchAt - CATCH_MS) / 240)); // (out of the catch, into his stride)
-  const o = {clip: 'run', phase: run.z / D3.STRIDE, t, runW: off, carry: .5 + .5 * off, catch: .5 * (1 - off), ball: true};
+  const o = {move: 'run', phase: run.z / D3.STRIDE, t, carry: .5 + .5 * off, catch: .5 * (1 - off), ball: true};
   if (run.over) {
     const k = Math.min(1, (now - st.downAt) / 420);
-    return Object.assign(o, {fall: Math.min(1, k * 2.5), pitch: 1.48 * k * k, lift: .15 * k, turn: fallDir(run) * .55 * k, dz: .25 * k});
+    return Object.assign(o, {move: 'fall', u: k, pitch: 1.48 * k * k, lift: .15 * k, turn: fallDir(run) * .55 * k, dz: .25 * k});
   }
   const g = R.groundAt(run.co, R.laneOf(run), run.z, run.y), h = run.y - g;
-  if (h > .02 || run.vy > 0) { o.air = Math.min(1, Math.max(h / .2, run.vy > 0 ? .6 : 0)); o.tuck = Math.min(1, h / .7); }
-  if (run.slide > 0) o.slide = Math.min(1, (R.MOVE.slide - run.slide) / .1, run.slide / .12);
+  const js = (run.t - run.lastJuke) / SIDE_S, dir = js < 1 ? Math.sign(R.xOf(run, run.lane) - run.jFrom) : 0;
+  // the move: a slide; in the air (the jump's clip by how fast he's going up or down: tucked at the top, reaching for
+  // the ground coming down); a juke's side-step; or running
+  if (run.slide > 0) { o.move = 'slide'; o.u = 1 - run.slide / R.MOVE.slide; }
+  else if (h > .02 || run.vy > 0) { o.move = 'jump'; o.u = Math.max(0, Math.min(1, (R.JUMP_V - run.vy) / (2 * R.JUMP_V))); }
+  else if (dir) { o.move = dir > 0 ? 'sideR' : 'sideL'; o.u = js; }
   const stum = run.slow > 0 ? run.slow / R.CHASE.slow : 0, he = st.hitAt ? now - st.hitAt : 1e9;
   if (stum) o.stumble = stum;
   o.pitch = .1 + .3 * R.burstOf(run) + (he < 320 ? .38 * Math.sin(Math.PI * he / 320) : 0); // (leaning into his run, more in a burst; a hit: he lurches forward)
-  const cut = Math.max(-1, Math.min(1, (R.xOf(run, run.lane) - run.x) / R.LANE)), sp = st.spinAt ? (now - st.spinAt) / SPIN_MS : 1;
-  o.turn = .5 * cut + (sp < 1 ? st.spinDir * Math.PI * 2 * smooth(sp) : 0);
-  o.roll = .24 * cut + stum * .16 * Math.sin(run.slow * 22) + .45 * edgeBounce(st, now);
+  // a juke: turned and leaned into it, eased in and out; a spin goes all the way round
+  const lean = dir * leanOf(js), sp = st.spinAt ? (now - st.spinAt) / SPIN_MS : 1;
+  o.turn = .38 * lean + (sp < 1 ? st.spinDir * Math.PI * 2 * smooth(sp) : 0);
+  o.roll = .26 * lean + stum * .16 * Math.sin(run.slow * 22) + .45 * edgeBounce(st, now);
   return o;
 }
 /** The linebacker's 3D pose (z: where he is): running him down; set while the kick's in the air; the dive. */
@@ -345,10 +356,10 @@ function chaser3(st, now, z) {
   const run = st.run, t = now / 1000;
   if (run.over && run.why === 'caught') {
     const k = Math.min(1, (now - st.downAt) / 380);
-    return {clip: 'run', phase: z / D3.STRIDE, t, dive: Math.min(1, k * 3), pitch: .3 + 1.22 * smooth(k), lift: .45 * Math.sin(Math.PI * k) + .1 * k, turn: fallDir(run) * .4 * k, dz: .45 * smooth(k)};
+    return {move: 'fall', u: k, phase: z / D3.STRIDE, t, pitch: .3 + 1.22 * smooth(k), lift: .45 * Math.sin(Math.PI * k) + .1 * k, turn: fallDir(run) * .4 * k, dz: .45 * smooth(k)};
   }
-  if (st.mode === 'catch' || st.mode === 'ready') return {clip: 'idle', t: t + 1.3};
-  return {clip: 'run', phase: z / D3.STRIDE, t, pitch: .12};
+  if (st.mode === 'catch' || st.mode === 'ready') return {move: 'idle', t: t + 1.3};
+  return {move: 'run', phase: z / D3.STRIDE, t, pitch: .12};
 }
 /** The dust he kicks up sliding in (k: how far into it), off his feet and his seat. */
 function dust(st, c, x, y, z, now, k) {
@@ -524,11 +535,14 @@ function draw(st, now = performance.now()) {
   c.setTransform(st.dpr, 0, 0, st.dpr, 0, 0);
   const run = st.run, dt = st.dt || .016;
   st.co = run ? run.co : R.course(st.n, 0);
-  // the camera: behind him, following him across part of the way; up when he's up top; a jolt off a vehicle's side
+  // the camera: behind him, following him across part of the way a beat behind (a spring, critically damped: it sets
+  // off easy and settles without swinging past); up when he's up top; a jolt off a vehicle's side, a stumble's
   const bump = run && run.t - run.bump < .22 ? Math.sin((run.t - run.bump) * 60) * .25 * (1 - (run.t - run.bump) / .22) : 0;
-  const sh = st.hitAt ? (now - st.hitAt) / 320 : 1, shake = sh < 1 ? Math.sin(sh * 26) * .3 * (1 - sh) : 0; // a stumble's jolt
-  const tx = (run ? run.x : 0) * .6 + bump + shake;
-  st.camX = st.camX == null ? tx : st.camX + (tx - st.camX) * Math.min(1, dt * 9);
+  const sh = st.hitAt ? (now - st.hitAt) / 320 : 1, shake = sh < 1 ? Math.sin(sh * 26) * .3 * (1 - sh) : 0;
+  const tx = (run ? run.x : 0) * .6;
+  if (st.camF == null) { st.camF = tx; st.camV = 0; }
+  else { st.camV += (CAM_W * CAM_W * (tx - st.camF) - 2 * CAM_W * st.camV) * dt; st.camF += st.camV * dt; }
+  st.camX = st.camF + .2 * bump + .35 * shake;
   const lift = run && !run.over ? R.groundAt(run.co, R.laneOf(run), run.z, run.y) * .8 : st.lift || 0;
   st.lift = (st.lift || 0) + (lift - (st.lift || 0)) * Math.min(1, dt * 3.5);
   st.camH = st.camH0 + st.lift;
@@ -541,7 +555,8 @@ function draw(st, now = performance.now()) {
     c.fillStyle = '#1A1408'; c.fillRect(0, 0, st.W, st.H);
     c.translate(st.W / 2, st.H * .62); c.rotate(.045 * drunk * Math.sin(t * 1.7)); c.scale(1.07, 1.07); c.translate(-st.W / 2 + 6 * drunk * Math.sin(t * 1.1), -st.H * .62);
   }
-  W.sky(st, c, t, z);
+  st.bend = D3.ready() ? W.BEND : 0;
+  W.sky(skyView(st), c, t, z);
   if (D3.ready()) { draw3(st, c, now); drawSpeed(st, c, now); }
   else { W.ground(st, c); W.sides(st, c); drawSpeed(st, c, now); drawLanes(st, c, now); }
   W.weather(st, c, t, z);
@@ -570,6 +585,7 @@ function draw(st, now = performance.now()) {
 
 // ============================================================================ Play
 const CATCH_MS = 750;
+const CAM_W = 8; // (the camera's spring across: half way there in about a fifth of a second)
 function setDay(st, n) {
   st.n = n;
   st.day = R.dayState(n);
@@ -619,7 +635,7 @@ function go(st) {
   st.knocked = new Map(); st.got = new Set(); st.flashAt = 0; st.hitAt = 0; st.chX = null; st.spinAt = 0; st.landAt = 0; st.edgeAt = 0;
   ungot(st);
   st.co = st.run.co;
-  W.warm(st, 0);
+  W.warm(skyView(st), 0);
   st.mode = 'catch'; st.catchAt = performance.now();
   setCard(st, false);
   patchHud(st);
@@ -665,7 +681,7 @@ function onEvents(st, evs) {
       pop(st, 'TOUCHDOWN!', 'is-td', into ? `Welcome to ${into.theme.name.replace(/^The /, 'the ')}` : '');
       st.cheer = now + 2600; ui.haptic('success'); ui.announce(`Touchdown! ${plural(e.n, 'touchdown')}.${into ? ` ${into.theme.name}.` : ''}`);
     }
-    else if (e.type === 'zone') { W.warm(st, e.z); if (!evs.some(x => x.type === 'td')) pop(st, e.theme.name.toUpperCase(), 'is-zone'); }
+    else if (e.type === 'zone') { W.warm(skyView(st), e.z); if (!evs.some(x => x.type === 'td')) pop(st, e.theme.name.toUpperCase(), 'is-zone'); }
     else if (e.type === 'juked') { pop(st, 'SPIN MOVE!'); st.spinAt = now; st.spinDir = Math.sign(R.xOf(st.run, st.run.lane) - st.run.jFrom) || 1; }
     else if (e.type === 'hurdled') { pop(st, 'HURDLE!'); ui.haptic('light'); }
     else if (e.type === 'slid') { pop(st, 'SLIDE!'); ui.haptic('light'); }
@@ -827,7 +843,7 @@ export function render(ctx) {
 }
 export function mount(el, ctx) {
   ensureCss();
-  const st = {el, ctx, mode: 'ready', sbMode: 'today', run: null, knocked: new Map(), got: new Set(), dead: false, raf: 0, camX: null, cheer: 0, lift: 0};
+  const st = {el, ctx, mode: 'ready', sbMode: 'today', run: null, knocked: new Map(), got: new Set(), dead: false, raf: 0, camX: null, camF: null, cheer: 0, lift: 0};
   STATE.set(el, st);
   // a return left under way (the app closed mid-run) ends where it was
   R.settle(R.todayNumber());

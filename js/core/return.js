@@ -75,8 +75,9 @@ export const tdsAt = z => Math.max(0, Math.floor(z / TD));
 // (BUFFER s). Down slides you (in the air: drops you, DROP_V, into the slide). You step up anything STEP yards or less
 // (a ramp, onto a roof from the air); anything higher in your way is a crash.
 export const GRAV = 30, JUMP_V = 9, DROP_V = -18, BUFFER = .25, STEP = .45;
-// The moves, seconds: a juke takes you a lane over; a slide keeps you low (SLIDE_BODY yards, not BODY) for slide s.
-export const MOVE = {juke: .16, slide: .7};
+// The moves, seconds: a juke takes you a lane over (eased out: most of the way at once, settling in; snappier, the
+// owner's ask, Oct 2026); a slide keeps you low (SLIDE_BODY yards, not BODY) for slide s.
+export const MOVE = {juke: .13, slide: .7};
 // The things in the rows, standing still in a lane: what beats each (a juke round it beats both; so does being up
 // over it, top yards). A barricade you jump (clear: up that high as you reach it); a banner you slide under.
 export const OBST = {
@@ -389,7 +390,7 @@ export function hitLine(what) {
 function sub(run, dt, out) {
   const co = run.co, v = speedAt(run.z) * (1 - CHASE.slowBy * run.slow / CHASE.slow) * (1 + burstOf(run));
   run.t += dt; run.z += v * dt; run.yards += v * dt * (run.booze > 0 ? 2 : 1);
-  if (run.jt < 1) { run.jt = Math.min(1, run.jt + dt / MOVE.juke); const e = 1 - (1 - run.jt) * (1 - run.jt); run.x = run.jFrom + (xOf(run, run.lane) - run.jFrom) * e; }
+  if (run.jt < 1) { run.jt = Math.min(1, run.jt + dt / MOVE.juke); const e = 1 - (1 - run.jt) ** 3; run.x = run.jFrom + (xOf(run, run.lane) - run.jFrom) * e; }
   else run.x = xOf(run, run.lane);
   // a juke into a vehicle's side or off the edge of the road (refused by move) is a hit
   if (run.sideHit) { const w = run.sideHit; run.sideHit = null; if (!hit(run, out, w)) return; }

@@ -7,11 +7,12 @@
 // lane things, built in the same scene): the whole of it rendered on a WebGL canvas off the page through a camera that
 // matches the 2D scene's (views/return-world.js P), each frame, and laid over the sky (views/return.js), with the
 // place's light, its haze as fog, and the sun's shadows.
-// A pose (views/return.js says which: pose specs) is the run's clip at the stride the yards say (or the idle), with
-// the moment's own pose laid over it bone by bone (aim(): each bone turned to point where the move wants it, in his own
-// frame: +z ahead, +x his left, +y up): the ball tucked, the catch, the leap's tuck, the slide, a stumble's arm, going
-// down, the dive; turned (a cut, a spin), leaned and pitched (a fall, a dive) as a whole.
-// Exports: load(), ready(), render(st, now, who), STRIDE.
+// A pose (views/return.js says which: pose specs) is a move's clip, cross-faded from the one before (the idle; the
+// run, at the stride the yards say; the jump, the slide, a side-step, going down: MOVES), with the moment's own pose
+// laid over it bone by bone (aim(): each bone turned to point where the move wants it, in his own frame: +z ahead, +x
+// his left, +y up): the ball tucked, the catch, a stumble's arm; turned (a cut, a spin), leaned and pitched (a fall, a
+// dive) as a whole. Everything's bent with the world (return-3dworld.js bend()).
+// Exports: load(), ready(), render(st, now, who), STRIDE, MOVES.
 import * as W3 from './return-3dworld.js';
 const V = new URL('../vendor/three/', import.meta.url).href;
 const MODEL = new URL('../../models/return-player.glb', import.meta.url).href;
@@ -263,7 +264,17 @@ function dress(gltf, SK, k, info) {
   const clip = name => gltf.animations.find(a => a.name === name);
   const run = mixer.clipAction(clip('run')), idle = mixer.clipAction(clip('idle'));
   [run, idle].forEach(a => { a.play(); a.setEffectiveWeight(0); });
-  return {root, wrap, model, B, mixer, run, idle, ball, hipsY: B.Hips.position.y, q: new T.Quaternion()};
+  return {root, wrap, model, B, mixer, run, idle, ball, hipsY: B.Hips.position.y, q: new T.Quaternion(),
+    act: {run, idle}, w: {run: 0, idle: 1}, u: {}, slot: {}, last: 0};
+}
+/** Gives a player the moves' clips (two takes of each: a move started again while the last is still fading out takes
+ *  the other, so neither jumps). */
+function arm(P, clips) {
+  clips.forEach(c => [c.name, c.name + '~'].forEach(k => {
+    const a = P.mixer.clipAction(k === c.name ? c : Object.assign(c.clone(), {name: k}));
+    a.play(); a.setEffectiveWeight(0);
+    P.act[k] = a; P.w[k] = 0;
+  }));
 }
 function build(gltf, SK, RoomEnvironment) {
   const canvas = document.createElement('canvas');
@@ -290,10 +301,12 @@ function build(gltf, SK, RoomEnvironment) {
   const info = partsOf(gltf.scene);
   // the returner, the linebacker, and the returner seen double (booze): see-through
   const players = {us: dress(gltf, SK, KITS.us, info), them: dress(gltf, SK, KITS.them, info), ghost: dress(gltf, SK, KITS.us, info)};
+  const clips = bake(players.us, gltf);
+  Object.values(players).forEach(P => arm(P, clips));
   const ghost = [];
   players.ghost.root.traverse(o => { if (o.isMesh) { const one = !Array.isArray(o.material), list = (one ? [o.material] : o.material).map(m => { const c = m.clone(); c.transparent = true; c.opacity = .3; c.depthWrite = false; ghost.push(c); return c; }); o.material = one ? list[0] : list; } });
   [players.us, players.them].forEach(P => P.root.traverse(o => { if (o.isMesh) o.castShadow = true; }));
-  scene.add(players.us.root, players.them.root, players.ghost.root);
+  scene.add(W3.bend(players.us.root), W3.bend(players.them.root), W3.bend(players.ghost.root));
   const camera = new T.PerspectiveCamera();
   camera.matrixAutoUpdate = true;
   return {renderer, canvas, scene, camera, players, ghost, hemi, sun, rim, w: 0, h: 0};
@@ -320,51 +333,130 @@ function aim(P, name, to, dir, w = 1) {
 }
 const mix = (a, b, u) => a + (b - a) * u;
 const mix3 = (a, b, u) => [mix(a[0], b[0], u), mix(a[1], b[1], u), mix(a[2], b[2], u)];
-/** Sets his pose: s = {clip ('run' | 'idle'), phase (0-1 round the run's cycle), t (seconds), runW (how much of the
- *  run over the idle), carry, catch, air (and tuck), slide, stumble, fall, dive (each 0-1: how far into it), turn,
- *  roll, pitch (radians), lift (yards), ball (whether the ball's in his arm)}. */
-function pose(P, s) {
-  const run = P.run, idle = P.idle, rw = s.runW ?? (s.clip === 'idle' ? 0 : 1);
-  run.time = ((s.phase || 0) % 1 + 1) % 1 * run.getClip().duration;
-  idle.time = (s.t || 0) % idle.getClip().duration;
-  run.setEffectiveWeight(rw); idle.setEffectiveWeight(1 - rw);
+const leg = (P, n, up, low, w = 1) => { aim(P, n + 'UpLeg', n + 'Leg', up, w); aim(P, n + 'Leg', n + 'Foot', low, w); };
+const limb = (P, n, up, low, w = 1) => { aim(P, n + 'Arm', n + 'ForeArm', up, w); aim(P, n + 'ForeArm', n + 'Hand', low, w); };
+const trunk = (P, d, w = 1) => { aim(P, 'Spine', 'Spine1', d, w); aim(P, 'Spine1', 'Spine2', d, w); aim(P, 'Spine2', 'Neck', [d[0], d[1] + .2, d[2] * .6], w); };
+
+// ---------------------------------------------------------------------------- The moves, as clips
+// Each move a clip the mixer cross-fades into (the owner's ask, Oct 2026: Subway Surfers' way), FADE seconds into
+// each, its time where the move's got to (pose's u, 0 to 1: the jump by how fast he's rising or falling, a slide and a
+// side-step by the clock, going down by how far): jump; slide; sideL, sideR (a side-step to his left, the screen's
+// left, and his right); fall (going down; the linebacker's dive). A clip of that name in the model (a Mixamo one, say:
+// tools/return/player-model.mjs keeps it) is used as it is; till then each is keyed here from poses (bake(): the run's
+// stride with the bones aimed).
+export const MOVES = ['jump', 'slide', 'sideL', 'sideR', 'fall'];
+const FADE = {idle: .3, run: .14, jump: .08, slide: .09, sideL: .06, sideR: .06, fall: .12};
+const airLegs = (P, k) => {
+  leg(P, 'Left', mix3([.05, -1, .1], [.1, -.28, .95], k), mix3([0, -1, -.1], [0, -.72, .7], k));
+  leg(P, 'Right', mix3([-.05, -1, -.1], [-.42, -.5, .5], k), mix3([0, -1, -.2], [.2, -.35, -.9], k));
+};
+const reach = (P, w) => limb(P, 'Left', [.4, .5, .75], [.18, .82, .55], w); // (his free arm up in a leap)
+const low = (P, up = 0) => {
+  trunk(P, [0, .72 + up, -.7 + up * 1.2]);
+  leg(P, 'Left', [.1, -.08, 1], [.06, -.12, 1]); leg(P, 'Right', [-.5, -.15, .85], [.55, -.2, -.8]);
+  limb(P, 'Left', [.55, -.72, -.42], [.15, -1, -.15]);
+};
+const down = P => {
+  [['Left', 1], ['Right', -1]].forEach(([n, x]) => leg(P, n, [x * .1, -.95, -.3], [x * .05, -.9, -.42]));
+  limb(P, 'Left', [.25, .95, .3], [.1, .95, .38]); limb(P, 'Right', [-.25, .95, .3], [-.1, .95, .38]);
+};
+// A side-step x's way (-1: his right, 1: his left): off the trailing foot, the leading one reaching out, gathered in the
+// air, down on the leading foot with the other crossing over; the trunk leaning into it, his free arm out for balance
+// (or leading, going his left).
+const SIDE = [
+  (P, x) => { leg(P, x < 0 ? 'Left' : 'Right', [-x * .3, -.93, -.15], [-x * .15, -1, -.25]); leg(P, x < 0 ? 'Right' : 'Left', [x * .35, -.9, .2], [x * .15, -1, 0]); trunk(P, [x * .22, 1, .12]); },
+  (P, x) => { leg(P, x < 0 ? 'Left' : 'Right', [-x * .05, -.85, .4], [0, -1, -.4]); leg(P, x < 0 ? 'Right' : 'Left', [x * .15, -.95, .15], [x * .05, -1, -.1]); trunk(P, [x * .3, 1, .14]); },
+  (P, x) => { leg(P, x < 0 ? 'Left' : 'Right', [x * .08, -.97, .15], [0, -1, -.15]); leg(P, x < 0 ? 'Right' : 'Left', [x * .04, -1, 0], [0, -1, -.05]); trunk(P, [x * .08, 1, .12]); }
+];
+const sideArm = (P, x, w) => (x < 0 ? limb(P, 'Left', [.85, -.35, .15], [.7, -.1, .45], w) : limb(P, 'Left', [.7, -.5, .35], [.4, -.3, .75], w));
+const sideKeys = x => [
+  {u: 0, at: P => { SIDE[0](P, x); sideArm(P, x, .8); }},
+  {u: .45, at: P => { SIDE[1](P, x); sideArm(P, x, 1); }},
+  {u: 1, at: P => { SIDE[2](P, x); sideArm(P, x, .4); }}
+];
+// Each move's keys: {u, at (the bones aimed), hips (his hips' height, of standing)}.
+const KEYS = {
+  jump: [
+    {u: 0, at: P => { airLegs(P, .25); reach(P, .9); }},
+    {u: .4, at: P => { airLegs(P, 1); reach(P, .9); }},
+    {u: .7, at: P => { airLegs(P, .75); reach(P, .85); }},
+    {u: 1, at: P => { leg(P, 'Left', [.06, -.96, .28], [0, -1, .05]); leg(P, 'Right', [-.05, -.98, .05], [0, -1, -.12]); reach(P, .5); }} // (reaching for the ground)
+  ],
+  slide: [
+    {u: 0, at: P => low(P, .06), hips: .4},
+    {u: .15, at: P => low(P), hips: .27},
+    {u: .8, at: P => low(P, .04), hips: .29},
+    {u: 1, at: P => low(P, .1), hips: .34}
+  ],
+  sideL: sideKeys(1),
+  sideR: sideKeys(-1),
+  fall: [{u: 0, at: () => {}}, {u: .4, at: down}, {u: 1, at: down}]
+};
+/** The moves' clips: the model's own, or each keyed from KEYS on P (standing straight, mid-stride: the run's clip a
+ *  tenth of the way round). */
+function bake(P, gltf) {
+  const bones = Object.values(P.B), hips = P.B.Hips, rc = P.run.getClip();
+  // the stride, straight from the run's tracks (the mixer skips a bone whose value it set last time, so it can't be
+  // asked twice), kept to start each key from
+  rc.tracks.forEach(tr => { const [n, prop] = tr.name.split('.'), b = bones.find(x => x.name === n); if (b) b[prop].fromArray(tr.createInterpolant().evaluate(.1 * rc.duration)); });
+  const base = bones.map(b => [b.quaternion.clone(), b.position.clone()]);
+  P.root.rotation.set(0, 0, 0); P.root.updateMatrixWorld(true);
+  P.wrap.getWorldQuaternion(P.q);
+  return MOVES.map(name => {
+    const own = gltf.animations.find(a => a.name === name);
+    if (own) return own;
+    const keys = KEYS[name], times = keys.map(k => k.u), q = bones.map(() => []), hp = [];
+    keys.forEach(k => {
+      bones.forEach((b, i) => { b.quaternion.copy(base[i][0]); b.position.copy(base[i][1]); });
+      if (k.hips) hips.position.y = P.hipsY * k.hips;
+      P.model.updateMatrixWorld(true);
+      k.at(P);
+      bones.forEach((b, i) => q[i].push(...b.quaternion.toArray()));
+      hp.push(...hips.position.toArray());
+    });
+    const tracks = bones.map((b, i) => new T.QuaternionKeyframeTrack(b.name + '.quaternion', times, q[i]));
+    tracks.push(new T.VectorKeyframeTrack(hips.name + '.position', times, hp));
+    return new T.AnimationClip(name, 1, tracks);
+  });
+}
+/** Sets his pose: s = {move ('idle', 'run', or one of MOVES), u (0-1: how far into the move), phase (0-1 round the
+ *  run's cycle), t (seconds), carry, catch, stumble (each 0-1: how far into it), turn, roll, pitch (radians), lift
+ *  (yards), ball (whether the ball's in his arm)}; dt: seconds since the last. */
+function pose(P, s, dt) {
+  // the move's take: the one it's on, or the other if it's started again while this one still shows
+  const want = s.move || 'run';
+  let on = want;
+  if (P.act[want + '~']) {
+    const u = Math.max(0, Math.min(1, s.u || 0));
+    on = P.slot[want] || want;
+    if (u < (P.u[on] ?? 0) - .2 && P.w[on] > .02) { on = on === want ? want + '~' : want; P.slot[want] = on; }
+    P.u[on] = u;
+  }
+  // the cross-fade: the move coming in at its pace, the rest going out as fast; shared out to add up to one
+  const step = dt / FADE[want];
+  let sum = 0;
+  for (const k in P.w) { P.w[k] = k === on ? Math.min(1, P.w[k] + step) : Math.max(0, P.w[k] - step); sum += P.w[k]; }
+  for (const k in P.act) {
+    const a = P.act[k], d = a.getClip().duration;
+    a.setEffectiveWeight(sum > 0 ? P.w[k] / sum : k === on ? 1 : 0);
+    a.time = k === 'run' ? ((s.phase || 0) % 1 + 1) % 1 * d : k === 'idle' ? (s.t || 0) % d : (P.u[k] ?? 0) * d;
+  }
   P.mixer.update(0);
   // the whole of him: turned, leaned, pitched forward about his feet
   P.root.rotation.set(-(s.pitch || 0), -(s.turn || 0), -(s.roll || 0));
   P.root.updateMatrixWorld(true);
   P.wrap.getWorldQuaternion(P.q);
   P.model.updateMatrixWorld(true);
-  const B = P.B, t = s.t || 0;
-  // down low in a slide: his hips near the ground
-  if (s.slide > 0) { B.Hips.position.y = mix(B.Hips.position.y, P.hipsY * .27, s.slide); B.Hips.updateMatrixWorld(true); }
-  // the trunk: back in a slide, forward in a stumble
-  const sp = s.slide > 0 ? [0, .72, -.7] : s.stumble > 0 ? [0, .78, .62] : null, spw = s.slide > 0 ? s.slide : (s.stumble || 0) * .8;
-  if (sp) { aim(P, 'Spine', 'Spine1', sp, spw); aim(P, 'Spine1', 'Spine2', sp, spw); aim(P, 'Spine2', 'Neck', [sp[0], sp[1] + .2, sp[2] * .6], spw); }
-  // the legs
-  if (s.air > 0) {
-    const k = s.air, u = s.tuck ?? 1;
-    aim(P, 'LeftUpLeg', 'LeftLeg', mix3([.05, -1, .1], [.1, -.28, .95], u), k); aim(P, 'LeftLeg', 'LeftFoot', mix3([0, -1, -.1], [0, -.72, .7], u), k);
-    aim(P, 'RightUpLeg', 'RightLeg', mix3([-.05, -1, -.1], [-.42, -.5, .5], u), k); aim(P, 'RightLeg', 'RightFoot', mix3([0, -1, -.2], [.2, -.35, -.9], u), k);
+  const t = s.t || 0;
+  // a stumble: the trunk forward (not down in a slide), his free arm flailing
+  if (s.stumble > 0) {
+    if (want !== 'slide') trunk(P, [0, .78, .62], s.stumble * .8);
+    const w = Math.sin(t * 14);
+    limb(P, 'Left', [.92, .25 + .35 * w, .22], [.62, .72 + .2 * w, .25], s.stumble);
   }
-  if (s.slide > 0) {
-    const k = s.slide;
-    aim(P, 'LeftUpLeg', 'LeftLeg', [.1, -.08, 1], k); aim(P, 'LeftLeg', 'LeftFoot', [.06, -.12, 1], k);
-    aim(P, 'RightUpLeg', 'RightLeg', [-.5, -.15, .85], k); aim(P, 'RightLeg', 'RightFoot', [.55, -.2, -.8], k);
-  }
-  if (s.fall > 0 || s.dive > 0) {
-    const k = Math.max(s.fall || 0, s.dive || 0);
-    [['Left', 1], ['Right', -1]].forEach(([n, x]) => { aim(P, n + 'UpLeg', n + 'Leg', [x * .1, -.95, -.3], k); aim(P, n + 'Leg', n + 'Foot', [x * .05, -.9, -.42], k); });
-  }
-  // the arms: his left free (the clip's swing, or up in a leap, flailing in a stumble, back on the ground in a slide,
-  // out ahead going down); the ball tucked in his right
-  const L = (arm, fore, w) => { aim(P, 'LeftArm', 'LeftForeArm', arm, w); aim(P, 'LeftForeArm', 'LeftHand', fore, w); };
-  const Rt = (arm, fore, w) => { aim(P, 'RightArm', 'RightForeArm', arm, w); aim(P, 'RightForeArm', 'RightHand', fore, w); };
-  if (s.catch > 0) { L([.3, .85, .42], [.06, .9, .45], s.catch); Rt([-.3, .85, .42], [-.06, .9, .45], s.catch); }
-  if (s.air > 0) L([.4, .5, .75], [.18, .82, .55], s.air * .9);
-  if (s.slide > 0) L([.55, -.72, -.42], [.15, -1, -.15], s.slide);
-  if (s.stumble > 0) { const w = Math.sin(t * 14); L([.92, .25 + .35 * w, .22], [.62, .72 + .2 * w, .25], s.stumble); }
-  if (s.fall > 0 || s.dive > 0) { const k = Math.max(s.fall || 0, s.dive || 0); L([.25, .95, .3], [.1, .95, .38], k); if (!s.carry) Rt([-.25, .95, .3], [-.1, .95, .38], k); }
-  if (s.carry > 0) { const sw = .12 * Math.sin((s.phase || 0) * Math.PI * 2); Rt([-.22, -.86, -.42 + sw], [.42, .3 + sw * .5, .86], s.carry); }
+  // the catch: both hands up; the ball tucked in his right
+  if (s.catch > 0) { limb(P, 'Left', [.3, .85, .42], [.06, .9, .45], s.catch); limb(P, 'Right', [-.3, .85, .42], [-.06, .9, .45], s.catch); }
+  if (s.carry > 0) { const sw = .12 * Math.sin((s.phase || 0) * Math.PI * 2); limb(P, 'Right', [-.22, -.86, -.42 + sw], [.42, .3 + sw * .5, .86], s.carry); }
   if (P.ball) P.ball.visible = !!s.ball;
 }
 
@@ -380,6 +472,7 @@ function camera(st) {
   cam.updateMatrixWorld(true);
   cam.projectionMatrix.makePerspective(-st.W / 2 / st.f * n, st.W / 2 / st.f * n, st.y0 / st.f * n, -(st.H - st.y0) / st.f * n, n, f);
   cam.projectionMatrixInverse.copy(cam.projectionMatrix).invert();
+  W3.BEND_U.value = st.bend || 0;
 }
 /** Renders the world and the players as they are now; who: {us, them, ghost} (each {spec (pose's), x, y, z (his
  *  feet), show} or null: not there). Returns the canvas it's on (transparent where the sky shows through). */
@@ -399,7 +492,8 @@ export function render(st, now, who) {
     P.root.visible = !!(w && w.show !== false);
     if (!P.root.visible) return;
     P.root.position.set(w.x, w.y + (w.spec.lift || 0), -w.z);
-    pose(P, w.spec);
+    pose(P, w.spec, P.last ? Math.min(.1, Math.max(0, (now - P.last) / 1000)) : 1);
+    P.last = now;
     if (k === 'ghost') GL.ghost.forEach(m => { m.opacity = w.alpha; });
   });
   const R = GL.renderer;

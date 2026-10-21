@@ -6,7 +6,7 @@
 // trading post), the gate into it, and its weather. In the lanes: the vehicles (boxes in perspective, each place's own,
 // with their ramps), the power-ups, and the goal line every 100 yards.
 // st: the view's state {W, H, y0, dpr, f, camX, camZ, camH, co (the course)}. The world in yards (x across, y up, z
-// ahead); P(st, x, y, z) puts a point on the screen. Exports: P, NEAR, FAR, sky, ground, sides, vehicle, obstacle (the
+// ahead); P(st, x, y, z) puts a point on the screen. Exports: P, NEAR, FAR, BEND, horizonOf, sky, ground, sides, vehicle, obstacle (the
 // rows' barricades and banners), item, gate, weather, ICONS (the power-ups' pictures, for the HUD and the cards);
 // dressList, LOOKS, OBS, GOODS_COL (for the 3D world).
 // Owner: RETURN.
@@ -14,12 +14,18 @@ import * as R from '../core/return.js';
 import {backdrop, bowl, seeded, sparkle} from './stadium.js';
 
 export const NEAR = .9, FAR = 150;
+// The curved world (the owner's ask, Oct 2026: Subway Surfers' bend): in 3D everything sinks BEND * d^2 yards at d
+// yards ahead of the camera (return-3dworld.js bend(), in the shaders), so the road rolls away over a brow and what's
+// coming rises into view over it. st.bend is BEND while the 3D world is up (0 in 2D), and P follows it, so what's
+// drawn over the 3D (the hints, the dust, the kick) sits where it should. horizonOf: where the brow is on the screen.
+export const BEND = .0012;
+export const horizonOf = st => Math.round(st.y0 + 2 * st.f * Math.sqrt(Math.max(0, st.camH0 * (st.bend || 0))));
 const FADE = 28; // yards before a gate the next place's sky comes in over
 const WORDS = ['RETURN MAN', '★', 'GRIDIRON', '★', 'KICKOFF', '★'];
 const DISPLAY = '"Barlow Condensed", "Arial Narrow", sans-serif';
 export function P(st, x, y, z) {
   const Z = Math.max(.05, z - st.camZ);
-  return {x: st.W / 2 + st.f * (x - st.camX) / Z, y: st.y0 + st.f * (st.camH - y) / Z, s: st.f / Z};
+  return {x: st.W / 2 + st.f * (x - st.camX) / Z, y: st.y0 + st.f * (st.camH - y + (st.bend || 0) * Z * Z) / Z, s: st.f / Z};
 }
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 function path(c, pts) { c.moveTo(pts[0].x, pts[0].y); for (let i = 1; i < pts.length; i++) c.lineTo(pts[i].x, pts[i].y); c.closePath(); }
@@ -283,6 +289,8 @@ function skyOne(st, c, id, t, a) {
   const S = skyOf(st, id);
   c.globalAlpha = a;
   c.drawImage(S.cv, 0, 0, st.W, st.y0 + 2);
+  // (bent, the brow can come up short of the sky, up on a roof: its last row down to the bottom fills the gap)
+  if (st.bend) c.drawImage(S.cv, 0, S.cv.height - 1, S.cv.width, 1, 0, st.y0 + 1, st.W, st.H - st.y0 - 1);
   if (id === 'stadium') {
     S.sparks.forEach(s => { const b = Math.max(0, Math.sin(t * s.v + s.ph)); if (b > .05) sparkle(c, s.x, s.y, s.s * (.6 + .4 * b), b * .9 * a); });
     // phones flashing in the stands, a burst of them after a touchdown
