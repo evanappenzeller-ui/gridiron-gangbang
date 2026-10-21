@@ -2,7 +2,7 @@
 // alone: data.isOwner()). Your realm is a lot with your Keep at its heart. The daily games pay for it: every result
 // you've posted to the board this season (and every one from here on) comes in as Gold and Grain, both, waiting in
 // your coffers until the treasuries and granaries have room. Gold mines dig Gold and farms grow Grain while you're
-// away. Builders raise and upgrade, one job each, on a clock. Grain trains an army at the barracks; the army raids the
+// away. Your builder raises and upgrades one thing at a time (the owner, Oct 2026), on a clock. Grain trains an army at the barracks; the army raids the
 // computer's realms for what they hold. The computer's realms raid you too (core/realm-battle.js defend), a few times
 // a day, which is what your walls and towers are for.
 //
@@ -86,7 +86,7 @@ export const KINDS = {
     hp: [800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700],
     th: [6, 6, 6, 7, 7, 7, 8, 8, 8, 8]},
   hut: {name: 'Builder’s Hut', size: 2, pay: 'gold', role: 'builder',
-    blurb: 'Each hut is a builder: one builder raises or upgrades one thing at a time.',
+    blurb: 'Where your builder lives. He raises or upgrades one thing at a time, however many huts you have.',
     cost: [0], time: [10], hp: [250], th: [1]},
   cannon: {name: 'Cannon', size: 3, pay: 'gold', role: 'def', air: false,
     blurb: 'Its crew fires iron shot at one attacker at a time, hard and quick. Can’t hit a dragon.',
@@ -124,7 +124,7 @@ export const KINDS = {
     th: [4, 5, 6, 7, 8, 8],
     dps: [11, 13, 16, 20, 24, 32], range: 7, every: 1.3, splash: 1},
   wall: {name: 'Wall', size: 1, pay: 'gold', role: 'wall',
-    blurb: 'Keeps attackers out until they break through: a palisade, then stone. Goes up at once; its upgrades take a while but need no builder.',
+    blurb: 'Keeps attackers out until they break through: a palisade, then stone. Goes up at once; its upgrades take your builder a while.',
     cost: [50, 1000, 5000, 10000, 20000, 40000, 80000, 150000],
     time: [0, 60, 300, 900, 1800, 3600, 7200, 14400],
     hp: [300, 500, 700, 900, 1400, 2000, 2500, 3000],
@@ -354,9 +354,8 @@ export function capOf(s) {
 }
 /** Builders: how many there are (huts up) and how many are on a job now. */
 export function builders(s, now = Date.now()) {
-  const total = s.b.filter(b => b.t === 'hut' && b.l >= 1).length;
-  const working = s.b.filter(b => b.t !== 'wall' && busy(b, now)).length;
-  return {total, busy: working, free: Math.max(0, total - working)};
+  const working = s.b.filter(b => busy(b, now)).length;
+  return {total: 1, busy: working, free: Math.max(0, 1 - working)};
 }
 /** Dragons the hatcheries have room for (a level each). */
 export const hatchRoom = s => s.b.filter(b => b.t === 'hatchery' && b.l >= 1).reduce((a, b) => a + stat('hatchery', b.l).dragons, 0);
@@ -447,12 +446,13 @@ export function canBuild(s, k, now = Date.now()) {
   const K = KINDS[k], n = countOf(s, k), cap = allowed(s, k);
   const cost = costOf(s, k, 1), o = {ok: false, why: '', cost, pay: K.pay, time: K.time[0]};
   if (k === 'keep') return Object.assign(o, {why: 'You have one'});
+  if (k === 'hut') return Object.assign(o, {why: 'One builder does it all'});
   if (n >= cap) {
     const next = COUNT[k].findIndex(c => c > n);
     return Object.assign(o, {why: next < 0 ? `All ${cap} built` : `Keep level ${next + 1} for another`});
   }
   if (cost > s.r[K.pay]) return Object.assign(o, {why: `Not enough ${CUR_NAME[K.pay]}`});
-  if (K.time[0] > 0 && k !== 'hut' && builders(s, now).free < 1) return Object.assign(o, {why: 'Every builder is busy'});
+  if (K.time[0] > 0 && builders(s, now).free < 1) return Object.assign(o, {why: 'Your builder is busy'});
   if (!spotFor(s, k)) return Object.assign(o, {why: 'No room on the lot'});
   return Object.assign(o, {ok: true});
 }
@@ -477,7 +477,7 @@ export function canUpgrade(s, id, now = Date.now()) {
   if (to > maxLevel(b.t) || b.t === 'hut') return Object.assign(o, {why: 'At its top level'});
   if (to > topLevel(b.t, keepOf(s))) return Object.assign(o, {why: `Needs Keep level ${K.th[to - 1]}`});
   if (o.cost > s.r[K.pay]) return Object.assign(o, {why: `Not enough ${CUR_NAME[K.pay]}`});
-  if (o.time > 0 && b.t !== 'wall' && builders(s, now).free < 1) return Object.assign(o, {why: 'Every builder is busy'});
+  if (o.time > 0 && builders(s, now).free < 1) return Object.assign(o, {why: 'Your builder is busy'});
   if (b.t === 'barracks' && s.q.length) return Object.assign(o, {why: 'Training’s under way there'});
   return Object.assign(o, {ok: true});
 }

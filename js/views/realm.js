@@ -2,7 +2,7 @@
 // alone (data.isOwner(): app.js shows the tab on his phones only, and this screen shows nothing on anyone else's). Your
 // lot fills the screen: a thin strip along the top with your glory, Gold and Grain (as Clash Royale keeps its coins and
 // gems, Oct 2026), under it at the right your house's crest and name (tap it to rename your house) and what's waiting
-// in your coffers, at the left your builders; along the bottom Attack, Army, Build and
+// in your coffers, at the left your builder (one job at a time); along the bottom Attack, Army, Build and
 // the Chronicle. Tap a building for what it is and to upgrade, move or collect it (a mine or farm with something in
 // it collects at a tap); Build puts what you pick on the lot to drag where it goes. When you come back after the
 // computer's realms have raided you, what they did is the first thing you see.
@@ -116,8 +116,8 @@ function hud(st) {
   const p = F.pending(s, EARNED.total), off = el.querySelector('[data-rl-coffers]');
   off.innerHTML = p.gold > 0 || p.grain > 0 ? `<span class="rl-oft">Coffers</span>${curHTML('gold', p.gold)}${curHTML('grain', p.grain)}<span class="rl-ofn">waiting for room</span>`
     : `<span class="rl-oft">Coffers</span><span class="rl-ofn">Your games pay into them</span>`;
-  const co = F.builders(s, now);
-  el.querySelector('[data-rl-builders]').innerHTML = `<span class="rl-hammer" aria-hidden="true"></span>Builders <b>${co.free}/${co.total}</b>${s.sh > now ? ` <span class="rl-truce">· truce ${dur(s.sh - now)}</span>` : ''}`;
+  const co = F.builders(s, now), next = Math.min(...s.b.filter(b => b.u > now).map(b => b.u));
+  el.querySelector('[data-rl-builders]').innerHTML = `<span class="rl-hammer" aria-hidden="true"></span>Builder <b>${co.free ? 'free' : `busy · ${dur(next - now)}`}</b>${s.sh > now ? ` <span class="rl-truce">· truce ${dur(s.sh - now)}</span>` : ''}`;
   const army = F.roomOf(s.ar), room = F.armyRoom(s);
   el.querySelector('[data-rl-armyn]').textContent = room ? `${army}/${room}` : '';
 }
@@ -301,7 +301,7 @@ function logSheet() {
 }
 function shopSheet(st) {
   const s = F.mine(), th = F.keepOf(s);
-  const groups = [['Treasure', ['mine', 'farm', 'treasury', 'granary']], ['Army', ['barracks', 'camp', 'hatchery', 'hut']], ['Defense', ['cannon', 'ballista', 'tower', 'trebuchet', 'cauldron', 'wall']]];
+  const groups = [['Treasure', ['mine', 'farm', 'treasury', 'granary']], ['Army', ['barracks', 'camp', 'hatchery']], ['Defense', ['cannon', 'ballista', 'tower', 'trebuchet', 'cauldron', 'wall']]];
   const card = k => {
     const K = F.KINDS[k], chk = F.canBuild(s, k), n = F.countOf(s, k), cap = F.allowed(s, k);
     return `<button type="button" class="rl-shop-c${chk.ok ? '' : ' is-no'}" data-rl-buy="${k}"><span class="rl-shop-ic" aria-hidden="true">${picOf(k, MY_HOUSE)}</span><b>${esc(K.name)}</b>`
@@ -475,7 +475,7 @@ function welcome() {
     + `<div class="rl-rows">`
     + `<div class="rl-row"><span><b>Your coffers</b> hold your pay until your Keep, treasuries and granaries have room. Raiders can’t touch them.</span></div>`
     + `<div class="rl-row"><span><b>Gold mines</b> dig Gold and <b>farms</b> grow Grain while you’re away: tap them to collect.</span></div>`
-    + `<div class="rl-row"><span><b>Builders</b> raise and upgrade, one job each. Raise your <b>Keep</b> to unlock more of everything.</span></div>`
+    + `<div class="rl-row"><span><b>Your builder</b> raises or upgrades one thing at a time. Raise your <b>Keep</b> to unlock more of everything.</span></div>`
     + `<div class="rl-row"><span><b>Attack</b>: train an army at the barracks with Grain (footmen, archers, knights, sappers, thieves, and in time dragons from your hatchery) and sack the computer’s realms for their gold and grain.</span></div>`
     + `<div class="rl-row"><span><b>Defend</b>: once your Keep is level 2, those realms raid you too, now and then. Cannons, ballistas, archer towers, trebuchets, pitch cauldrons and walls keep them out.</span></div>`
     + `</div><p class="rl-sh-note">Drag to look around, pinch to zoom. Tap a building for what it does; tap your house’s name to rename it.</p>`});
