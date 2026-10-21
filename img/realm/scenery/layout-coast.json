@@ -10,26 +10,26 @@
  "placement_convention": "x,y = bottom-center of the picture; rect for exact drawing",
  "build_zone_polygon": [
   [
-   199,
+   144,
    850
   ],
   [
    475,
-   634
+   591
   ],
   [
-   751,
+   806,
    850
   ],
   [
    475,
-   1066
+   1109
   ]
  ],
  "lot": {
   "cx": 475,
   "cy": 850,
-  "h": 400
+  "h": 480
  },
  "assets": {
   "coast:ground": {

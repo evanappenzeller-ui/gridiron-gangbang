@@ -10,26 +10,26 @@
  "placement_convention": "x,y = bottom-center of the picture; rect for exact drawing",
  "build_zone_polygon": [
   [
-   164,
+   109,
    880
   ],
   [
    440,
-   664
+   621
   ],
   [
-   716,
+   771,
    880
   ],
   [
    440,
-   1096
+   1139
   ]
  ],
  "lot": {
   "cx": 440,
   "cy": 880,
-  "h": 400
+  "h": 480
  },
  "assets": {
   "infernal:ground": {

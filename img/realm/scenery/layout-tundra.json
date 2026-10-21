@@ -10,26 +10,26 @@
  "placement_convention": "x,y = bottom-center of the picture; rect for exact drawing",
  "build_zone_polygon": [
   [
-   184,
+   154,
    850
   ],
   [
-   460,
-   634
+   485,
+   591
   ],
   [
-   736,
+   816,
    850
   ],
   [
-   460,
-   1066
+   485,
+   1109
   ]
  ],
  "lot": {
-  "cx": 460,
+  "cx": 485,
   "cy": 850,
-  "h": 400
+  "h": 480
  },
  "assets": {
   "tundra:ground": {

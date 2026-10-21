@@ -320,7 +320,7 @@ export function create(host, opts = {}) {
   const sun = new T.DirectionalLight(0xFFE8C8, 2.8);
   sun.position.set(-16, 30, 12); sun.target.position.set(0, 0, 0);
   sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -.0005; sun.shadow.normalBias = .03;
-  Object.assign(sun.shadow.camera, {left: -24, right: 24, top: 24, bottom: -24, near: 1, far: 90});
+  Object.assign(sun.shadow.camera, {left: -N * .7, right: N * .7, top: N * .7, bottom: -N * .7, near: 1, far: 90});
   scene.add(sun, sun.target);
 
   // ---- the ground: the scenery (opts.scenery: its theme, core/realm.js SCENERIES; the coast if none), the lot on its

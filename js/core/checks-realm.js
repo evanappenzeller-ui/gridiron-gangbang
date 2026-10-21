@@ -142,6 +142,19 @@ export async function realmChecks(check) {
     return {pass: onKeep && off && corner && refused && moved && kept && clear(s.b), detail: `onto the Keep refused ${onKeep}; off the base refused ${off}; its corners fine ${corner}; a build on the Keep refused ${refused}; a move onto it refused, to a clear corner fine ${moved}; a save piled on the Keep and off the base: ${fixed ? `${fixed.b.length} of ${bad.b.length} kept, ${kept ? 'laid out clear, the Keep where it was' : 'NOT clear'}` : 'not taken up'}`};
   });
 
+  check('Realm: room for everything (the owner, Oct 2026): the base is big enough that everything the top Keep allows takes up no more than half of it; a new realm and the computer’s are laid out round its middle; a save from the smaller lot (36 tiles) is moved over whole, into the middle of this one, once', () => {
+    const B = F.N - 2 * F.EDGE, need = F.ORDER.reduce((t, k) => t + F.COUNT[k][F.MAX_KEEP - 1] * F.KINDS[k].size ** 2, 0);
+    const room = need <= B * B / 2;
+    const mid = s => { const k = s.b.find(b => b.t === 'keep'); return !!k && k.x + F.KINDS.keep.size / 2 === F.N / 2 && k.y + F.KINDS.keep.size / 2 === F.N / 2; };
+    const centred = mid(F.fresh(T0)) && F.BOTS.every(b => mid(F.botBase(b.th)));
+    const old = JSON.parse(JSON.stringify(F.fresh(T0))), by = (F.N - 36) / 2;
+    delete old.n;
+    old.b.forEach(b => { b.x -= by; b.y -= by; });
+    const got = F.clean(old), again = got && F.clean(got);
+    const moved = !!got && got.n === F.N && got.b.every((b, i) => b.x === old.b[i].x + by && b.y === old.b[i].y + by) && mid(got) && JSON.stringify(again) === JSON.stringify(got);
+    return {pass: room && centred && moved, detail: `the base ${B}×${B} (${B * B} tiles), the top Keep’s lot ${need} (${Math.round(need / B / B * 100)}%); laid out round the middle ${centred}; an old save moved ${by} over, once ${moved}`};
+  });
+
   check('Realm: the lands (Oct 2026): a realm starts on the coast; raising the Keep unlocks the Enchanted Forest (level 2), the Frozen Tundra (3), the Ocean Sanctuary (5), the Amber Desert (6) and the Infernal Wastes (7), each its to pick once open, never before; the pick is kept with the realm, and a save whose pick isn’t open (or isn’t one) lies on the coast', () => {
     const s = F.fresh(T0), keep = s.b.find(b => b.t === 'keep');
     const start = F.sceneryOf(s) === 'coast' && F.SCENERIES.filter(x => F.sceneryOpen(s, x.k)).map(x => x.k).join() === 'coast';

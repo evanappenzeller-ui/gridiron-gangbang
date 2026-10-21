@@ -407,7 +407,7 @@ async function start3d(st) {
   if (!ok) { host.innerHTML = '<div class="rl-loading">This phone can’t show your realm in 3D.</div>'; return; }
   host.innerHTML = '';
   st.v = D3.create(host, {
-    house: MY_HOUSE, zoom: 52, scenery: F.sceneryOf(F.mine()),
+    house: MY_HOUSE, zoom: 64, scenery: F.sceneryOf(F.mine()),
     onCamera: () => placeTags(st),
     onTap: hit => onLotTap(st, hit),
     onGrab: (tile, id) => {

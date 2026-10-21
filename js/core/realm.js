@@ -13,7 +13,8 @@
 import * as daily from './daily.js';
 import * as data from './data.js';
 
-export const N = 36;               // the lot: N x N tiles
+export const N = 44;               // the lot: N x N tiles (36 till Oct 2026: more room on the base, the owner's ask; clean())
+const N_WAS = 36;                  // (a save from then, laid out on the smaller lot)
 export const EDGE = 2;             // buildings keep this many tiles off the lot's sides
 export const HOUR = 3600e3;
 export const MAX_KEEP = 8;
@@ -267,16 +268,18 @@ export function pickScenery(s, k) {
 // far), xo: {gold, grain} (into the coffers besides the games: the starter, raids' overflow), ar: {troop: n} (the army
 // in the war camps), q: [[troop, n]] (training), qs (when the first in line started, ms), tp (glory), rd: [raids
 // made], df: [raids on you], lr (when the computer last raided you: core/realm-battle.js defend), sh (a truce until,
-// ms), bt: {realm: day raided}, nb (the next building id), born (ms), sc (the scenery picked: SCENERIES; none: the coast)}.
+// ms), bt: {realm: day raided}, nb (the next building id), born (ms), sc (the scenery picked: SCENERIES; none: the coast),
+// n (the lot it's laid out on, N; none: N_WAS)}.
 export function fresh(now = Date.now()) {
+  const M = N / 2;
   const b = [
-    {i: 1, t: 'keep', l: 1, x: 16, y: 16, u: 0},
-    {i: 2, t: 'hut', l: 1, x: 17, y: 12, u: 0},
-    {i: 3, t: 'mine', l: 1, x: 11, y: 16, u: 0, c: now},
-    {i: 4, t: 'farm', l: 1, x: 22, y: 16, u: 0, c: now},
-    {i: 5, t: 'ballista', l: 1, x: 17, y: 21, u: 0}
+    {i: 1, t: 'keep', l: 1, x: M - 2, y: M - 2, u: 0},
+    {i: 2, t: 'hut', l: 1, x: M - 1, y: M - 6, u: 0},
+    {i: 3, t: 'mine', l: 1, x: M - 7, y: M - 2, u: 0, c: now},
+    {i: 4, t: 'farm', l: 1, x: M + 4, y: M - 2, u: 0, c: now},
+    {i: 5, t: 'ballista', l: 1, x: M - 1, y: M + 3, u: 0}
   ];
-  return {v: 2, at: now, born: now, nm: '', b, r: {gold: 0, grain: 0}, cl: {gold: 0, grain: 0}, xo: {gold: STARTER, grain: STARTER},
+  return {v: 2, n: N, at: now, born: now, nm: '', b, r: {gold: 0, grain: 0}, cl: {gold: 0, grain: 0}, xo: {gold: STARTER, grain: STARTER},
     ar: {}, q: [], qs: 0, tp: 0, rd: [], df: [], lr: now, sh: 0, bt: {}, nb: 6};
 }
 // The Franchise's names (v1, Oct 2026), taken up as the Realm's.
@@ -295,6 +298,10 @@ export function clean(s) {
   o.v = 2; o.at = num(o.at); o.born = num(o.born) || o.at;
   o.nm = typeof o.nm === 'string' ? o.nm.slice(0, 28) : '';
   o.sc = SCENERIES.some(x => x.k === o.sc) ? o.sc : '';
+  // (laid out on a smaller lot: everything moved over together, so it's in the middle of this one as it was in that)
+  const was = Number.isInteger(o.n) && o.n > 0 ? o.n : N_WAS, by = Math.floor((N - was) / 2);
+  o.n = N;
+  o.b = o.b.map(b => (b && by && Number.isInteger(b.x) && Number.isInteger(b.y) ? Object.assign({}, b, {x: b.x + by, y: b.y + by}) : b));
   o.b = o.b.map(b => (b && old && OLD_KIND[b.t] ? Object.assign({}, b, {t: OLD_KIND[b.t]}) : b))
     .filter(b => b && KINDS[b.t] && Number.isInteger(b.x) && Number.isInteger(b.y))
     .map(b => ({i: num(b.i), t: b.t, l: Math.max(0, Math.min(maxLevel(b.t), num(b.l) | 0)), x: b.x, y: b.y, u: num(b.u), ...(KINDS[b.t].role === 'make' ? {c: num(b.c)} : {})}));
@@ -618,7 +625,7 @@ export function botBase(th) {
   const R = rng(9000 + th * 77), s = {b: [], r: {gold: 0, grain: 0}};
   let i = 1;
   const put = (t, l, x, y) => { if (fits(s, KINDS[t].size, x, y)) { s.b.push({i: i++, t, l, x, y, u: 0, c: 0}); return true; } return false; };
-  put('keep', th, 16, 16);
+  put('keep', th, N / 2 - 2, N / 2 - 2);
   const ring = (t, n, r0, r1) => {
     for (let k = 0, tries = 0; k < n && tries < 400; tries++) {
       const a = R() * Math.PI * 2, r = r0 + R() * (r1 - r0), sz = KINDS[t].size;
@@ -629,7 +636,7 @@ export function botBase(th) {
   ['cannon', 'ballista', 'tower', 'trebuchet', 'cauldron'].forEach(t => ring(t, COUNT[t][th - 1], 4, 7.5));
   ['treasury', 'granary'].forEach(t => ring(t, COUNT[t][th - 1], 5, 9));
   if (th >= 2) {
-    const lo = 9, hi = 26, top = topLevel('wall', th);
+    const lo = N / 2 - 9, hi = N / 2 + 8, top = topLevel('wall', th);
     let n = COUNT.wall[th - 1];
     for (let d = lo; d <= hi && n > 0; d++) [[d, lo], [d, hi], [lo, d], [hi, d]].forEach(([x, y]) => { if (n > 0 && put('wall', Math.max(1, top - 1), x, y)) n--; });
   }

@@ -162,7 +162,7 @@ async function start3d(st) {
   if (!ok) { host.innerHTML = '<div class="rl-loading">This phone can’t show the attack in 3D.</div>'; return; }
   host.innerHTML = '';
   const house = houseOf(st.T.key);
-  st.v = D3.create(host, {house, zoom: 50, onTap: hit => { if (hit.tile) send(st, hit.tile); }, onCamera: () => bars(st)});
+  st.v = D3.create(host, {house, zoom: 60, onTap: hit => { if (hit.tile) send(st, hit.tile); }, onCamera: () => bars(st)});
   st.v.setLot(st.T.base, {now: Date.now(), house});
   { const bx = F.boxOf(st.T.base); st.v.frame(bx.x0 - 3, bx.y0 - 3, bx.x1 + 3, bx.y1 + 3, 1); }
   st.el.querySelector('.rlr').__rl = st; // (for the checks' and tests' hands)

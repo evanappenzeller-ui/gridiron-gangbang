@@ -71,7 +71,7 @@ async function start3d(st) {
   if (!ok) { host.innerHTML = '<div class="rl-loading">This phone can’t show the realm in 3D.</div>'; return; }
   host.innerHTML = '';
   const house = houseOf(st.T.key);
-  st.v = D3.create(host, {house, zoom: 50, onTap: hit => select(st, hit.id == null || hit.id === st.sel ? null : hit.id)});
+  st.v = D3.create(host, {house, zoom: 60, onTap: hit => select(st, hit.id == null || hit.id === st.sel ? null : hit.id)});
   st.v.setLot(st.T.base, {now: Date.now(), house});
   fitAll(st);
   st.el.querySelector('.rls').__rl = st; // (for the checks' and tests' hands)
