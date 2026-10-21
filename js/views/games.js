@@ -7,7 +7,7 @@
 // board; tap it and it comes up close with the whole board, Today's or the Season's. The rows come from each game's core
 // (boardRows: daily.LB.raw / LB.players, the board as this phone may see it: THE RULE, CLAUDE.md).
 // 17-0's, the drill's, Kick It's and Return Man's cores load at idle (17-0's and the drill's with their day files);
-// until then their cards offer Play. Return Man is open to the league in beta (a BETA tag on its case: GAMES beta).
+// until then their cases open to Start. Return Man is open to the league in beta (a BETA tag on its case: GAMES beta).
 // Exports: GAMES, gameOpen(id), gamesFor(), gamePath(id), dailyKind(), progHTML() (and its fracOf, perfectOf, doneCount),
 // miniRows(rows), listHTML(), mountList(el, ctx) → {refresh(animate), tick(), destroy()}, testingAll(), testAll(on).
 // Owner: PUZZLES.
@@ -202,7 +202,7 @@ function kickState() {
     actions: [{label: 'See your kicks', kind: 'secondary', attrs: {'data-gm-open': 'kick'}}]};
 }
 function returnState() {
-  // Return Man is replayed as often as you like (the owner's ask, Oct 2026): its case keeps its front, Play again on it,
+  // Return Man is replayed as often as you like (the owner's ask, Oct 2026): its case keeps its front, opened to Start again,
   // your best today (and where it puts you) under the shelf; the scoreboard is on its page.
   const RM = C.rm;
   if (!RM) return {kind: 'new'};
