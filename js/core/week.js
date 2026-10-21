@@ -534,18 +534,27 @@ export function tallyNfl(docs, games, uid, opt = {}) {
 }
 
 // Grades the counted picks into one row per person: a manager is one row across phones, nick-only players one
-// row per uid. -> Map(key -> {uid (latest), uids, me, nick (latest), right, wrong, push, pending, picked})
-function rowsOf(counted) {
+// row per uid. -> Map(key -> {uid (latest), uids, me, nick (latest), right, wrong, push, pending, picked, missed})
+// missed: games past their lock without a pick that counts from them (a postponed or canceled game misses nobody).
+function rowsOf(counted, at = now()) {
   const rows = new Map();
-  counted.forEach(({g, picks}) => picks.forEach(p => {
-    const k = p.me ? 'm:' + p.me : 'u:' + p.uid;
-    let r = rows.get(k);
-    if (!r) rows.set(k, r = {uid: p.uid, uids: new Set(), me: p.me, nick: p.nick, _at: -Infinity, right: 0, wrong: 0, push: 0, pending: 0, picked: 0});
-    r.uids.add(p.uid);
-    if ((p.at || 0) >= r._at) { r._at = p.at || 0; r.uid = p.uid; r.nick = p.nick; }
-    r.picked++;
-    r[gradeNfl(g, p.team)]++;
-  }));
+  let shut = 0;
+  const onShut = new Map();
+  counted.forEach(({g, picks}) => {
+    const closed = gameLocked(g, at) && !(g.state === 'post' && !g.final);
+    if (closed) shut++;
+    picks.forEach(p => {
+      const k = p.me ? 'm:' + p.me : 'u:' + p.uid;
+      let r = rows.get(k);
+      if (!r) rows.set(k, r = {uid: p.uid, uids: new Set(), me: p.me, nick: p.nick, _at: -Infinity, right: 0, wrong: 0, push: 0, pending: 0, picked: 0, missed: 0});
+      r.uids.add(p.uid);
+      if ((p.at || 0) >= r._at) { r._at = p.at || 0; r.uid = p.uid; r.nick = p.nick; }
+      r.picked++;
+      r[gradeNfl(g, p.team)]++;
+      if (closed) onShut.set(k, (onShut.get(k) || 0) + 1);
+    });
+  });
+  rows.forEach((r, k) => { r.missed = shut - (onShut.get(k) || 0); });
   return rows;
 }
 
@@ -559,7 +568,10 @@ const rowShows = o => !!(o.me && data.M[o.me]) || o.you || !!(data.userReserving
 
 // Rows -> ranked output rows. Ranked by right (desc), then fewer wrong; a rank is shared only when both are equal
 // (the rule the Pick'em summary and the Wrap use for the leader). Then by name.
-function finishRows(rows, uid, me, extra, all) {
+// card (the week's table; the owner's ask, Oct 2026): a player who missed a game can't finish first. First place
+// goes to the best record among those who picked every game so far, and anyone who missed one but did better
+// lines up right under them. When nobody has picked every game, the plain order stands.
+function finishRows(rows, uid, me, extra, all, card) {
   const my = me && data.M[me] ? me : null;
   if (my === data.OWNER) all = true;
   const list = [...rows.values()].map(r => {
@@ -568,25 +580,34 @@ function finishRows(rows, uid, me, extra, all) {
     const o = {who: {uid: r.uid, me: r.me, nick: r.nick, name}, uid: r.uid, me: r.me, nick: r.nick, name,
       you: (!!uid && r.uids.has(uid)) || (!!my && r.me === my),
       right: r.right, wrong: r.wrong, decided, pushes: r.push, pending: r.pending, picked: r.picked, pct: decided ? r.right / decided : 0};
+    if (card) o.missed = r.missed || 0;
     return Object.assign(o, extra ? extra(r) : null);
   }).filter(o => all || rowShows(o));
   list.sort((x, y) => y.right - x.right || x.wrong - y.wrong || x.name.localeCompare(y.name) || byUid(x, y));
+  const lead = card ? list.find(r => !r.missed) : null;
+  let top = 0;
+  if (lead) {
+    const first = list.filter(r => !r.missed && r.right === lead.right && r.wrong === lead.wrong);
+    top = first.length;
+    list.splice(0, list.length, ...first, ...list.filter(r => !first.includes(r)));
+  }
   let rank = 0;
-  list.forEach((r, i) => { if (!i || r.right !== list[i - 1].right || r.wrong !== list[i - 1].wrong) rank = i + 1; r.rank = rank; });
+  list.forEach((r, i) => { if (!i || i === top || r.right !== list[i - 1].right || r.wrong !== list[i - 1].wrong) rank = i + 1; r.rank = rank; });
   return list;
 }
 
 // One week's table: [{who: {uid, me, nick, name}, uid, me, nick, name, you, right, wrong, decided (right +
-// wrong), pushes (ties: no pick), pending (not over yet), picked (picks that count), pct, rank, locked (when they
-// locked in, ms, or null)}], ranked. opt.me: your manager id; opt.locks: the week's lock docs; opt.all: every row,
-// not just the ones this phone shows (THE RULE, above).
+// wrong), pushes (ties: no pick), pending (not over yet), picked (picks that count), missed (games past their lock
+// without one), pct, rank (nobody who missed a game is first: finishRows), locked (when they locked in, ms, or
+// null)}], ranked. opt.me: your manager id; opt.locks: the week's lock docs; opt.at: the clock for missed games
+// (default now()); opt.all: every row, not just the ones this phone shows (THE RULE, above).
 export function nflRowsFrom(docs, games, uid, opt = {}) {
   const L = lockIndex(opt.locks);
-  return finishRows(rowsOf(countNfl(docs, games, uid, opt.locks)), uid, opt.me, r => {
+  return finishRows(rowsOf(countNfl(docs, games, uid, opt.locks), opt.at != null ? toMs(opt.at) : now()), uid, opt.me, r => {
     let t = r.me ? L.byMe.get(r.me) : undefined;
     r.uids.forEach(u => { const x = L.byUid.get(u); if (x != null && (t == null || x < t)) t = x; });
     return {locked: t == null ? null : t};
-  }, opt.all);
+  }, opt.all, true);
 }
 
 // Season table from weeks = [{year, week, games, docs, locks}]: the same rows summed over the weeks, plus weeks
@@ -859,7 +880,7 @@ function nflPayload(e, docs) {
   const locks = locksOf(e, e.key);
   const lk = nflLocks(locks, uid, {me, mes: mesOf(docs, uid)});
   const t = tallyNfl(docs, games, uid, {at, me, locks});
-  const rows = nflRowsFrom(docs, games, uid, {me, locks});
+  const rows = nflRowsFrom(docs, games, uid, {me, locks, at});
   const conf = confirmedDocs(docs, inflight.get(ik(e.kind, e.key)));
   const saved = conf === docs ? t.mine : tallyNfl(conf, games, uid, {at, me, locks}).mine;
   return Object.assign(emptyNfl(), t, {
@@ -1432,9 +1453,9 @@ export function records(hist) {
 }
 
 // One NFL week's pick'em table: Promise<[{who: {uid, me, nick, name}, uid, me, nick, name, you, right, wrong,
-// decided (right + wrong), pushes (tied games: no pick), pending (not over yet), picked (picks that count), pct,
-// rank, locked (when they locked in, ms, or null)}]>, ranked by right, then fewer wrong (a rank is shared when both
-// are equal). "Mitch went 12–4" = right–wrong. Picks stamped after their person locked in never count. The array also carries
+// decided (right + wrong), pushes (tied games: no pick), pending (not over yet), picked (picks that count), missed,
+// pct, rank, locked (when they locked in, ms, or null)}]>, ranked by right, then fewer wrong (a rank is shared when
+// both are equal), except that nobody who missed a game is first (finishRows). "Mitch went 12–4" = right–wrong. Picks stamped after their person locked in never count. The array also carries
 // .games (games that week), .decidedGames (final with a winner), .stale, and .error ('denied' | 'off' | 'failed'
 // for the picks, 'scores' when the week's games could not be loaded: the array is then empty).
 export async function nflWeekResults(year, week, sport) {
