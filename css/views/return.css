@@ -97,8 +97,6 @@
   text-shadow: 0 2px 0 rgba(0,0,0,.5), 0 0 22px rgba(62,240,143,.6);
 }
 .rm-pane .rm-pop.is-on { animation: rm-pop .75s cubic-bezier(.22,1,.36,1) forwards; }
-.rm-pane .rm-pop.is-td { font-size: 54px; color: var(--rm-gold); text-shadow: 0 3px 0 rgba(0,0,0,.55), 0 0 30px rgba(255,210,63,.8); }
-.rm-pane .rm-pop.is-td.is-on { animation-duration: 1.6s; }
 .rm-pane .rm-pop small { display: block; margin-top: 6px; font: 800 22px/1 var(--rm-display); letter-spacing: .06em; text-transform: uppercase; color: #fff; text-shadow: 0 2px 0 rgba(0,0,0,.5), 0 0 18px rgba(255,255,255,.5); }
 .rm-pane .rm-pop.is-zone { font-size: 40px; color: #fff; letter-spacing: .06em; text-shadow: 0 3px 0 rgba(0,0,0,.5), 0 0 26px rgba(255,255,255,.55); }
 .rm-pane .rm-pop.is-zone.is-on { animation-duration: 1.9s; }

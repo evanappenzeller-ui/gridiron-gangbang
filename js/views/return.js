@@ -675,10 +675,9 @@ function onEvents(st, evs) {
   evs.forEach(e => {
     // a juke off the edge of the road (a hit): he bounces off it
     if (e.edge) { st.edgeAt = now; st.edgeDir = e.edge === 'right' ? 1 : -1; }
-    // a touchdown is the way into the next place: the call says both
+    // a touchdown is the way into the next place: no pop for it (the owner's ask, Oct 2026), just the crowd and the call
     if (e.type === 'td') {
       const into = evs.find(x => x.type === 'zone');
-      pop(st, 'TOUCHDOWN!', 'is-td', into ? `Welcome to ${into.theme.name.replace(/^The /, 'the ')}` : '');
       st.cheer = now + 2600; ui.haptic('success'); ui.announce(`Touchdown! ${plural(e.n, 'touchdown')}.${into ? ` ${into.theme.name}.` : ''}`);
     }
     else if (e.type === 'zone') { W.warm(skyView(st), e.z); if (!evs.some(x => x.type === 'td')) pop(st, e.theme.name.toUpperCase(), 'is-zone'); }
