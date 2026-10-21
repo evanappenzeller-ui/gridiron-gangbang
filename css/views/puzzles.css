@@ -130,18 +130,28 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
    others smaller, turned in toward it. Each is a black case: the Gridiron Hub band, then the game's cover. Under it,
    the one you're on: its name, how it plays, Play. A game played today shows its case's back (the leaderboard): tap
    it and it comes up close (.gm-zoom, below). */
-.v-puzzles .gm-list { position: relative; margin-top: 2px; }
+/* The list fills the screen from the title down to the tab bar, the shelf and Play centred in it (the owner's ask,
+   Oct 2026). */
+.screen.v-puzzles[data-path="/puzzles"] { display: flex; flex-direction: column; }
+.screen.v-puzzles[data-path="/puzzles"] > * { flex: none; }
+.screen.v-puzzles[data-path="/puzzles"] > .screen-body { flex: 1 0 auto; display: flex; flex-direction: column; }
+.v-puzzles .gm-list {
+  /* the cases big (the owner's ask, Oct 2026): as wide as the screen less a peek at the cases either side, and as tall
+     as the room between the title and the tab bar leaves after the pips and Play (and never smaller than they were) */
+  --cw: max(min(62cqw, 262px), min(calc(100cqw - 40px), 440px, calc((100svh - var(--nav-h) - var(--tab-h) - 222px) / 1.38)));
+  --ch: calc(var(--cw) * 1.38);
+  position: relative; margin-top: 2px; flex: 1 0 auto; display: flex; flex-direction: column; justify-content: center;
+}
+.v-puzzles .gm-list > * { flex: none; }
+/* (the glow sits 30px over the case's top, wherever the centring puts it: the shelf, pips and Play are --ch + 119px) */
 .v-puzzles .gm-list::before {
-  content: ""; position: absolute; left: calc(-1 * var(--gutter)); right: calc(-1 * var(--gutter)); top: 0; height: 420px; pointer-events: none;
+  content: ""; position: absolute; left: calc(-1 * var(--gutter)); right: calc(-1 * var(--gutter)); top: calc(50% - var(--ch) / 2 - 69.5px); height: var(--ch); pointer-events: none;
   background: radial-gradient(ellipse 56% 50% at 50% 47%, rgba(70,180,30,.2), rgba(50,150,20,.08) 46%, transparent 72%);
 }
 .v-puzzles .gm-shelf {
-  /* the cases big (the owner's ask, Oct 2026): four fifths of the width, as much as a short screen leaves room for
-     (and never smaller than they were) */
-  --cw: max(min(62cqw, 262px), min(80cqw, 340px, calc((100svh - 380px) / 1.38)));
   position: relative; display: flex; align-items: center;
   /* (10px higher than it looks: the lit case's glow fades out before the scroller's edge cuts it off) */
-  margin: -10px calc(-1 * var(--gutter)) 0; padding: 30px calc(50% - var(--cw) / 2) 18px;
+  margin: -10px calc(-1 * var(--gutter)) 0; padding: 30px calc(50% - var(--cw) / 2) 14px;
   overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch; outline: none;
 }
@@ -441,7 +451,8 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
 .v-puzzles .gm-pip { width: 7px; height: 7px; border-radius: 4px; background: var(--surface-3); transition: width .25s cubic-bezier(.22,1,.36,1), background-color .2s linear; }
 .v-puzzles .gm-pip.is-done { background: var(--tint); opacity: .55; }
 .v-puzzles .gm-pip.is-cur { width: 20px; background: var(--ink); opacity: 1; }
-.v-puzzles .gm-sel { text-align: center; padding: 0 4px; min-height: 100px; }
+/* (room kept for the taller lines under some games, hanging into the room over the tab bar: the centring goes by Play) */
+.v-puzzles .gm-sel { text-align: center; padding: 0 4px; min-height: 100px; margin-bottom: -34px; }
 .v-puzzles .gm-meta { margin-top: 10px; display: flex; justify-content: center; }
 .v-puzzles .gm-meta .c-prog { margin: 2px 0 0; width: 220px; }
 .v-puzzles .gm-note { font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
