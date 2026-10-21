@@ -7,7 +7,7 @@
 // A slow request falls back to whatever is cached under its path (from the previous worker too), so data whose
 // format changes gets a new file name rather than new content under the old one (data/puzzles-v4.json: see
 // js/core/daily.js).
-const CACHE = 'gg-v291';
+const CACHE = 'gg-v294';
 const CORE = ['ui', 'data', 'daily', 'fire', 'week', 'nfl', 'stats', 'motw', 'press', 'checks', 'checks-stats', 'checks-pickem', 'checks-press', 'checks-seventeen', 'checks-drill', 'checks-kick', 'return', 'checks-return', 'lay', 'plays', 'laytrack', 'seventeen', 'drill-sim', 'drill', 'kick', 'avatars', 'lpick', 'survivor', 'checks-lpick', 'franchise', 'franchise-battle', 'checks-franchise'];
 // The seven tab roots are puzzles, pickem, rivals (Matchup), league, moves (Draft), lay (The Lay) and franchise.
 const VIEWS = ['welcome', 'guest', 'puzzles', 'games', 'game-case', 'board', 'you', 'sharecard', 'results', 'run', 'college', 'silhouette', 'mystery', 'journey', 'grid', 'picker',
@@ -22,7 +22,9 @@ const SHELL = [
   'js/app.js', ...CORE.map(m => `js/core/${m}.js`),
   ...VIEWS.map(v => `js/views/${v}.js`),
   'fonts/barlow-condensed-800.woff2', 'fonts/press-start-2p.woff2', 'fonts/vt323.woff2', 'img/logo.webp', 'img/nfl.webp', 'img/ncaa.webp', 'img/league.webp', 'img/survivor.webp', 'img/puzzles.webp', 'img/seventeen.webp', 'img/drill.webp',
-  'img/games/puzzles-cover.webp', 'img/games/seventeen-cover.webp', 'img/games/drill-cover.webp', 'img/games/kick-cover.webp', 'img/games/return-cover.webp', 'img/games/smoke.webp', 'img/return.webp', 'img/kick.webp',
+  'img/games/puzzles-cover.webp', 'img/games/seventeen-cover.webp', 'img/games/drill-cover.webp', 'img/games/kick-cover.webp', 'img/games/return-cover.webp', 'img/games/smoke.webp',
+  'img/games/puzzles-book.webp', 'img/games/seventeen-book.webp', 'img/games/drill-book.webp', 'img/games/kick-book.webp', 'img/games/return-book.webp',
+  'img/games/puzzles-disc.webp', 'img/games/seventeen-disc.webp', 'img/games/drill-disc.webp', 'img/games/kick-disc.webp', 'img/games/return-disc.webp', 'img/return.webp', 'img/kick.webp',
   'img/kick/holder.webp', 'img/kick/holder-empty.webp', 'img/kick/kicker.webp', 'img/kick/kicker-follow.webp', 'img/kick/line.webp', 'img/kick/football.webp',
   'img/drill/players.webp', 'img/drill/players-mask.webp',
   'icons/hub-192.png', 'icons/hub-512.png', 'icons/hub-maskable-512.png', 'icons/hub-apple-180.png',

@@ -130,18 +130,29 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
    others smaller, turned in toward it. Each is a black case: the Gridiron Hub band, then the game's cover. Under it,
    the one you're on: its name, how it plays, Play. A game played today shows its case's back (the leaderboard): tap
    it and it comes up close (.gm-zoom, below). */
-.v-puzzles .gm-list { position: relative; margin-top: 2px; }
+/* The list fills the screen from the title down to the tab bar, the shelf and Play centred in it (the owner's ask,
+   Oct 2026). */
+.screen.v-puzzles[data-path="/puzzles"] { display: flex; flex-direction: column; padding-bottom: calc(var(--tab-h) + 12px); }
+.screen.v-puzzles[data-path="/puzzles"] > * { flex: none; }
+.screen.v-puzzles[data-path="/puzzles"] > .screen-body { flex: 1 0 auto; display: flex; flex-direction: column; }
+.v-puzzles .gm-list {
+  /* the cases big (the owner's ask, Oct 2026): as wide as the screen less a peek at the cases either side, and as tall
+     as the room between the title and the tab bar leaves after the pips and Play (and never smaller than they were).
+     (The app's frame, cqh, not svh: an iPhone's home-screen app reports svh short by the status bar's height.) */
+  --cw: max(min(62cqw, 262px), min(calc(100cqw - 40px), 440px, calc((100cqh - var(--nav-h) - var(--tab-h) - 237px) / 1.38)));
+  --ch: calc(var(--cw) * 1.38);
+  position: relative; margin-top: 2px; flex: 1 0 auto; display: flex; flex-direction: column; justify-content: center;
+}
+.v-puzzles .gm-list > * { flex: none; }
+/* (the glow sits 30px over the case's top, wherever the centring puts it: the shelf, pips and Play are --ch + 147px) */
 .v-puzzles .gm-list::before {
-  content: ""; position: absolute; left: calc(-1 * var(--gutter)); right: calc(-1 * var(--gutter)); top: 0; height: 420px; pointer-events: none;
+  content: ""; position: absolute; left: calc(-1 * var(--gutter)); right: calc(-1 * var(--gutter)); top: calc(50% - var(--ch) / 2 - 83.5px); height: var(--ch); pointer-events: none;
   background: radial-gradient(ellipse 56% 50% at 50% 47%, rgba(70,180,30,.2), rgba(50,150,20,.08) 46%, transparent 72%);
 }
 .v-puzzles .gm-shelf {
-  /* the cases big (the owner's ask, Oct 2026): four fifths of the width, as much as a short screen leaves room for
-     (and never smaller than they were) */
-  --cw: max(min(62cqw, 262px), min(80cqw, 340px, calc((100svh - 380px) / 1.38)));
   position: relative; display: flex; align-items: center;
   /* (10px higher than it looks: the lit case's glow fades out before the scroller's edge cuts it off) */
-  margin: -10px calc(-1 * var(--gutter)) 0; padding: 30px calc(50% - var(--cw) / 2) 18px;
+  margin: -10px calc(-1 * var(--gutter)) 0; padding: 30px calc(50% - var(--cw) / 2) 14px;
   overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch; outline: none;
 }
@@ -387,20 +398,12 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
 }
 .gm-z-emb { position: absolute; left: 0; right: 0; bottom: 5.4cqw; text-align: center; font: 700 2.6cqw/1 var(--font-text); letter-spacing: .5em; color: #2A4E0C; text-shadow: 0 .25cqw 0 rgba(160,220,90,.25), 0 -.2cqw 0 rgba(0,0,0,.4); }
 .gm-z-disc {
+  /* (the owner's disc, cut round: its clear middle see-through, the hole open over the hub) */
   left: 7cqw; top: calc(50cqh - 43cqw); width: 86cqw; height: 86cqw; border-radius: 50%; transform: translateZ(calc(var(--zd) / -2 + 1.2cqw)); cursor: pointer;
-  background:
-    radial-gradient(circle closest-side, transparent 0 38.6%, rgba(255,255,255,.55) 39.2%, transparent 40.4%),
-    conic-gradient(from 20deg, #D9DDE3, #F7F9FB 8%, #C4CBD6 15%, #E9D9F7 22%, #CDEEF0 30%, #F4F1D2 37%, #D9DDE3 45%, #F7F9FB 55%, #C4CBD6 62%, #E9D9F7 70%, #CDEEF0 80%, #F4F1D2 88%, #D9DDE3);
-  /* (its middle clear plastic, a hole in the middle of that) */
-  -webkit-mask: radial-gradient(circle closest-side, transparent 0 12.6%, rgba(0,0,0,.42) 13% 27.4%, #000 28%);
-  mask: radial-gradient(circle closest-side, transparent 0 12.6%, rgba(0,0,0,.42) 13% 27.4%, #000 28%);
+  box-shadow: 0 .4cqw 1.4cqw rgba(0,0,0,.45);
 }
-.gm-z-lab {
-  position: absolute; inset: 0; border-radius: 50%; overflow: hidden;
-  -webkit-mask: radial-gradient(circle closest-side, transparent 0 40.6%, #000 41.2% 96.4%, transparent 97%);
-  mask: radial-gradient(circle closest-side, transparent 0 40.6%, #000 41.2% 96.4%, transparent 97%);
-}
-.gm-z-lab > img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%; }
+.gm-z-lab { position: absolute; inset: 0; border-radius: 50%; overflow: hidden; }
+.gm-z-lab > img { display: block; width: 100%; height: 100%; }
 .gm-z-sheen {
   position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
   background:
@@ -418,18 +421,13 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
   inset: 0; border-radius: 2.8cqw; overflow: hidden; transform: rotateY(180deg) translateZ(.5cqw); cursor: pointer;
   background: linear-gradient(200deg, #3A6A10, #2B520B 60%, #23440A); box-shadow: inset 0 0 0 1.6cqw #4E8614, inset 0 0 4cqw rgba(0,0,0,.5);
 }
-.gm-z-book {
-  position: absolute; left: 9cqw; right: 9cqw; top: 9cqw; bottom: 9cqw; display: flex; flex-direction: column; overflow: hidden;
-  border-radius: 1cqw; background: #F2F0EA; box-shadow: 0 .6cqw 2cqw rgba(0,0,0,.5);
-}
-.gm-z-book > .gm-band { min-height: 8cqw; border-radius: 0; box-shadow: none; }
-.gm-z-book .gm-band-t { font-size: 2.6cqw; }
-.gm-z-book-art { position: relative; flex: 0 1 auto; min-height: 0; aspect-ratio: 808 / 1040; }
-.gm-z-book-art > img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; }
-.gm-z-book-t { flex: 1 0 auto; display: grid; place-items: center; padding: 2.2cqw 0 2cqw; text-align: center; font: 800 2.6cqw/1 var(--font-text); letter-spacing: .3em; text-transform: uppercase; color: #141414; }
+/* the booklet (the owner's), its own shape, as big as the lid takes; a clip over its top and its bottom */
+.gm-z-bk { position: absolute; left: 50%; top: 50%; height: min(calc(100cqh - 18cqw), 120.4cqw); aspect-ratio: 620 / 910; translate: -50% -50%; }
+.gm-z-book { position: absolute; inset: 0; overflow: hidden; border-radius: 1.4cqw; background: #F2F0EA; box-shadow: 0 .6cqw 2cqw rgba(0,0,0,.5); }
+.gm-z-book > img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .gm-z-clip { position: absolute; left: calc(50% - 8cqw); width: 16cqw; height: 4.6cqw; border-radius: 1cqw; background: linear-gradient(#6C9C24, #4E8614); box-shadow: 0 .4cqw 1cqw rgba(0,0,0,.45), inset 0 .3cqw 0 rgba(220,255,160,.3); }
-.gm-z-clip.is-t { top: 6.6cqw; }
-.gm-z-clip.is-b { bottom: 6.6cqw; }
+.gm-z-clip.is-t { top: -2.4cqw; }
+.gm-z-clip.is-b { bottom: -2.4cqw; }
 /* under it: turn it over, open it */
 .gm-z-ctl { display: flex; gap: 10px; }
 .gm-z-ctl .btn { background: rgba(255,255,255,.12); color: #fff; box-shadow: none; }
@@ -441,7 +439,8 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
 .v-puzzles .gm-pip { width: 7px; height: 7px; border-radius: 4px; background: var(--surface-3); transition: width .25s cubic-bezier(.22,1,.36,1), background-color .2s linear; }
 .v-puzzles .gm-pip.is-done { background: var(--tint); opacity: .55; }
 .v-puzzles .gm-pip.is-cur { width: 20px; background: var(--ink); opacity: 1; }
-.v-puzzles .gm-sel { text-align: center; padding: 0 4px; min-height: 100px; }
+/* (the centring goes by the tallest of what's under the shelf, a line over Play (94px), not the room kept round it) */
+.v-puzzles .gm-sel { text-align: center; padding: 0 4px; min-height: 100px; margin-bottom: -6px; }
 .v-puzzles .gm-meta { margin-top: 10px; display: flex; justify-content: center; }
 .v-puzzles .gm-meta .c-prog { margin: 2px 0 0; width: 220px; }
 .v-puzzles .gm-note { font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }

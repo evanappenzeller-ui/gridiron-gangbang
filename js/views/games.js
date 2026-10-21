@@ -20,15 +20,17 @@ const esc = data.esc;
 const nf = n => data.nf(n);
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 
-// The games in list order. art: its case's cover (the owner's art, Oct 2026); badge: the pixel scoreboard badge (tools/seventeen/badges.py);
-// title: the game page's nav title; cd: the countdown's words once it's played; beta: still being worked on (a BETA tag
-// on its case, the owner's ask, Oct 2026: Return Man, open to the league while he works on it).
+// The games in list order. art: its case's cover (the owner's art, Oct 2026); book, disc: the booklet in its lid and
+// the disc in it (the owner's art too, cut out of his photos: the disc round, its clear middle see-through); badge: the
+// pixel scoreboard badge (tools/seventeen/badges.py); title: the game page's nav title; cd: the countdown's words once
+// it's played; beta: still being worked on (a BETA tag on its case, the owner's ask, Oct 2026: Return Man, open to the
+// league while he works on it).
 export const GAMES = [
-  {id: 'puzzles', name: 'Daily Puzzles', title: 'Daily Puzzles', art: 'img/games/puzzles-cover.webp', badge: 'img/puzzles.webp', cd: 'New puzzles in'},
-  {id: '17-0', name: '17–0', title: '17–0', art: 'img/games/seventeen-cover.webp', badge: 'img/seventeen.webp', cd: 'New board in'},
-  {id: 'drill', name: 'Two-Minute Drill', title: 'Two-Minute Drill', art: 'img/games/drill-cover.webp', badge: 'img/drill.webp', cd: 'Next drill in'},
-  {id: 'kick', name: 'Kick It', title: 'Kick It', art: 'img/games/kick-cover.webp', badge: 'img/kick.webp', cd: 'New kicks in'},
-  {id: 'return', name: 'Return Man', title: 'Return Man', art: 'img/games/return-cover.webp', badge: 'img/return.webp', cd: 'Next kickoff in', beta: true}
+  {id: 'puzzles', name: 'Daily Puzzles', title: 'Daily Puzzles', art: 'img/games/puzzles-cover.webp', book: 'img/games/puzzles-book.webp', disc: 'img/games/puzzles-disc.webp', badge: 'img/puzzles.webp', cd: 'New puzzles in'},
+  {id: '17-0', name: '17–0', title: '17–0', art: 'img/games/seventeen-cover.webp', book: 'img/games/seventeen-book.webp', disc: 'img/games/seventeen-disc.webp', badge: 'img/seventeen.webp', cd: 'New board in'},
+  {id: 'drill', name: 'Two-Minute Drill', title: 'Two-Minute Drill', art: 'img/games/drill-cover.webp', book: 'img/games/drill-book.webp', disc: 'img/games/drill-disc.webp', badge: 'img/drill.webp', cd: 'Next drill in'},
+  {id: 'kick', name: 'Kick It', title: 'Kick It', art: 'img/games/kick-cover.webp', book: 'img/games/kick-book.webp', disc: 'img/games/kick-disc.webp', badge: 'img/kick.webp', cd: 'New kicks in'},
+  {id: 'return', name: 'Return Man', title: 'Return Man', art: 'img/games/return-cover.webp', book: 'img/games/return-book.webp', disc: 'img/games/return-disc.webp', badge: 'img/return.webp', cd: 'Next kickoff in', beta: true}
 ];
 const byId = id => GAMES.find(g => g.id === id);
 // A game the owner keeps to himself while he builds it: id -> the members whose phones list it and open its page
@@ -423,16 +425,16 @@ export function mountList(el, ctx, opts = {}) {
       + `<div class="gm-scr is-z"><div class="gm-z-body" data-gm-zbody>${zoomBody(g, 'today')}</div></div>`
       + `<div class="gm-bk-foot">${ui.button({label: go.label, kind: 'secondary', size: 's', attrs: go.attrs, cls: 'gm-z-open'})}</div></div>${GLOSS}</div>`;
     // its sides (the spine with the name down it), the tray inside with the disc on its hub, the cover on its hinge
-    // (the cover outside, inside a booklet held in by two clips)
-    const art = `<img src="${g.art}" alt="" decoding="async" draggable="false">`;
+    // (the cover outside, inside the booklet held in by two clips)
+    const img = src => `<img src="${src}" alt="" decoding="async" draggable="false">`;
     const sides = `<span class="gm-z-edge is-l" aria-hidden="true"><span class="gm-z-spine"><b>GRIDIRON HUB</b><span>${esc(g.name)}</span></span></span>`
       + ['r', 't', 'b'].map(k => `<span class="gm-z-edge is-${k}" aria-hidden="true"></span>`).join('');
     const inside = `<div class="gm-z-tray" aria-hidden="true"><span class="gm-z-emb">GRIDIRON HUB</span></div>`
-      + `<div class="gm-z-disc" data-gm-zdisc aria-hidden="true"><span class="gm-z-lab">${art}</span><span class="gm-z-sheen"></span></div>`
+      + `<div class="gm-z-disc" data-gm-zdisc aria-hidden="true"><span class="gm-z-lab">${img(g.disc)}</span><span class="gm-z-sheen"></span></div>`
       + `<span class="gm-z-hub" aria-hidden="true"></span>`;
     const lid = `<div class="gm-z-lid">${frontHTML(g, s, true)}`
-      + `<div class="gm-z-in" aria-hidden="true"><span class="gm-z-book">${bandHTML()}<span class="gm-z-book-art">${art}</span><span class="gm-z-book-t">Instruction booklet</span></span>`
-      + `<span class="gm-z-clip is-t"></span><span class="gm-z-clip is-b"></span></div></div>`;
+      + `<div class="gm-z-in" aria-hidden="true"><span class="gm-z-bk"><span class="gm-z-book">${img(g.book)}</span>`
+      + `<span class="gm-z-clip is-t"></span><span class="gm-z-clip is-b"></span></span></div></div>`;
     return `<div class="gm-z-stage" style="--gc:${ACCENT[g.id]}"><div class="gm-z-obj">${back}${sides}${inside}${lid}</div></div>`;
   }
   const HINT = {back: 'Drag to turn it · it opens from the front', front: 'Tap the cover to open it', open: 'Tap the case to close it'};
