@@ -287,7 +287,6 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
 .gm-r-gr.is-B { background: rgba(10,132,255,.22); color: #6DB4FF; }
 .gm-r-gr.is-C { background: rgba(255,214,10,.17); color: #FFD60A; }
 .gm-r-gr.is-D, .gm-r-gr.is-F { background: rgba(255,69,58,.2); color: #FF7A70; }
-.gm-zoom .gm-r-gr { font-size: 3.8cqw; min-width: 8cqw; }
 .gm-r-gr + .gm-r-v { min-width: 16cqw; text-align: right; } /* (the letters in a column) */
 .gm-r-gap { text-align: center; font: 700 3.4cqw/1 var(--font-text); letter-spacing: .3em; opacity: .45; }
 .gm-bk-foot { display: flex; align-items: center; justify-content: flex-end; gap: 3cqw; min-width: 0; }
@@ -352,29 +351,40 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
 }
 .gm-zoom .gm-band { border-radius: 1.8cqw 1.8cqw 0 0; }
 .gm-zoom .gm-art, .gm-zoom .gm-bk-in { border-radius: 0 0 1.8cqw 1.8cqw; }
-.gm-zoom .gm-bk-in { gap: 2.4cqw; padding: 3.6cqw 3.6cqw 3cqw; }
-.gm-zoom .gm-bk-name { font-size: 9cqw; }
-.gm-zoom .gm-bk-vis, .gm-zoom .gm-bk-vis .gm-tile, .gm-zoom .gm-bk-vis > svg, .gm-zoom .gm-bk-vis .ring { width: 15cqw; height: 15cqw; }
-.gm-zoom .gm-bk-vis .gm-tile > b { font-size: 6.6cqw; }
-.gm-zoom .gm-bk-vis .gm-ringn { font-size: 5.4cqw; }
-.gm-zoom .gm-bk-tt b { font-size: 5.8cqw; }
-.gm-zoom .gm-bk-tt small { font-size: 3.2cqw; }
-.gm-z-tog { display: flex; gap: 1.2cqw; padding: 1cqw; border-radius: 2.4cqw; background: rgba(0,0,0,.5); box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); }
+.gm-zoom .gm-bk-in { gap: 1.8cqw; padding: 3cqw 3.2cqw 2.6cqw; }
+/* your score, compact: the name, then the ring (or tile) small by the result */
+.gm-zoom .gm-bk-name { font-size: 7.4cqw; }
+.gm-zoom .gm-bk-res { gap: 2.4cqw; }
+.gm-zoom .gm-bk-vis, .gm-zoom .gm-bk-vis .gm-tile, .gm-zoom .gm-bk-vis > svg, .gm-zoom .gm-bk-vis .ring { width: 11cqw; height: 11cqw; }
+.gm-zoom .gm-bk-vis .gm-tile { border-radius: 2.4cqw; }
+.gm-zoom .gm-bk-vis .gm-tile > b { font-size: 4.8cqw; }
+.gm-zoom .gm-bk-vis .gm-tile > small { font-size: 1.8cqw; }
+.gm-zoom .gm-bk-vis .gm-ringn { font-size: 4cqw; }
+.gm-zoom .gm-bk-tt { gap: .5cqw; }
+.gm-zoom .gm-bk-tt b { font-size: 4.8cqw; }
+.gm-zoom .gm-bk-tt small { font-size: 2.9cqw; }
+.gm-z-tog { display: flex; gap: 1cqw; padding: .8cqw; border-radius: 2cqw; background: rgba(0,0,0,.5); box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); }
 .gm-z-tog > button {
-  flex: 1 1 0; min-height: 34px; padding: 0 0 0 .14em; border: 0; border-radius: 1.6cqw; background: transparent; color: rgba(255,255,255,.66); cursor: pointer;
-  font: 800 3.3cqw/1 var(--font-text); letter-spacing: .14em; text-transform: uppercase; text-align: center;
+  flex: 1 1 0; min-height: 30px; padding: 0 0 0 .14em; border: 0; border-radius: 1.4cqw; background: transparent; color: rgba(255,255,255,.66); cursor: pointer;
+  font: 800 3cqw/1 var(--font-text); letter-spacing: .14em; text-transform: uppercase; text-align: center;
 }
 .gm-z-tog > button[aria-selected="true"] { background: var(--gc); color: #fff; }
-.gm-scr.is-z { padding: 2.4cqw 2cqw 1.6cqw; }
-/* (the board scrolls up and down under a finger; across, the finger turns the case) */
-.gm-z-body { position: relative; z-index: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
-.gm-z-me { margin: 0 0 1.6cqw 1.6cqw; font: 800 2.9cqw/1.4 var(--font-text); letter-spacing: .12em; text-transform: uppercase; color: color-mix(in srgb, var(--gc) 40%, #fff); }
-.gm-zoom .gm-r { font-size: 4.2cqw; padding: 1.3cqw 1.8cqw; }
-.gm-zoom .gm-r-rk { width: 5cqw; font-size: 5cqw; }
-.gm-zoom .gm-r-v { font-size: 5.2cqw; }
-.gm-zoom .gm-r-s { font-size: 3cqw; }
-.gm-zoom .gm-r-you { font-size: 2cqw; }
-.gm-z-open { margin-left: auto; }
+.gm-scr.is-z { padding: 1.8cqw 1.6cqw 1.4cqw; }
+/* the whole board, no scrolling (a finger on it turns the case): sized in em off --zr, which fitBoard() in
+   views/games.js brings down till every row fits; .is-tight drops the line under each name */
+.gm-z-body { position: relative; z-index: 1; flex: 1 1 auto; min-height: 0; overflow: hidden; font-size: calc(4cqw * var(--zr, 1)); }
+.gm-z-me { margin: 0 0 .4em .45em; font: 800 .68em/1.3 var(--font-text); letter-spacing: .12em; text-transform: uppercase; color: color-mix(in srgb, var(--gc) 40%, #fff); }
+.gm-zoom .gm-scr-rows { gap: .1em; }
+.gm-zoom .gm-r { gap: .55em; padding: .26em .45em; border-radius: .4em; font-size: 1em; }
+.gm-zoom .gm-r-rk { width: 1em; font-size: 1.15em; }
+.gm-zoom .gm-r-av { font-size: .77em; }
+.gm-zoom .gm-r-av > .av { width: 2.27em; height: 2.27em; font-size: inherit; } /* (1.75 of the row's text) */
+.gm-zoom .gm-r-v { font-size: 1.2em; }
+.gm-zoom .gm-r-s { font-size: .72em; }
+.gm-zoom .gm-r-you { font-size: .5em; }
+.gm-zoom .gm-r-gr { font-size: .9em; min-width: 2em; }
+.gm-zoom .gm-r-gr + .gm-r-v { min-width: 3.4em; }
+.gm-z-body.is-tight .gm-r-s { display: none; }
 
 /* its sides: the same green plastic, the spine (on the left, seen from the front) with the name down it */
 .gm-z-edge { border-radius: .8cqw; background: linear-gradient(90deg, #2E5A0B, #4E8614 22%, #5E9A1E 50%, #4E8614 78%, #2E5A0B); }

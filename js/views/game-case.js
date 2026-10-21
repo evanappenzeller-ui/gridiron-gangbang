@@ -1,6 +1,6 @@
 // A game case up close that turns in your hand (the owner's ask, Oct 2026: once a game's played, its case can be
 // turned every way, and it rights itself as you move it, like a real case with the disc in it). Drag it (anywhere on
-// the screen) to turn it: while it's held it eases back upright, let go and it springs to whichever side is nearer,
+// the screen but the Today / Season switch on its back) to turn it: while it's held it eases back upright, let go and it springs to whichever side is nearer,
 // its front or its back. Facing front it can be opened (a tap on the cover, or Open the case): the cover swings over
 // on its spine and the disc is inside. It opens only from the front.
 import * as ui from '../core/ui.js';
@@ -118,16 +118,14 @@ export function turnable(surface, dlg, on = () => {}) {
   const down = e => {
     if (P || e.button > 0 || S.dead) return;
     S.dragged = false; // (a finger's drag has no click after it to clear this)
-    if (e.target.closest('.gm-z-x, .gm-z-ctl')) return;
-    P = {id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, on: false, body: !!e.target.closest('.gm-z-body'), moves: []};
+    if (e.target.closest('.gm-z-x, .gm-z-ctl, .gm-z-tog')) return;
+    P = {id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, on: false, moves: []};
   };
   const move = e => {
     if (!P || e.pointerId !== P.id) return;
     if (!P.on) {
       const tx = e.clientX - P.x0, ty = e.clientY - P.y0;
       if (Math.hypot(tx, ty) < 8) return;
-      // on the leaderboard, up and down is its scroll
-      if (P.body && Math.abs(ty) > Math.abs(tx)) { P = null; return; }
       P.on = true; S.held = true; S.dragged = true; S.goal = null; S.w = [0, 0, 0];
       try { surface.setPointerCapture(e.pointerId); } catch (_) {}
     }
