@@ -3,6 +3,8 @@
 // the screen but the Today / Season switch on its back) to turn it: while it's held it eases back upright, let go and it springs to whichever side is nearer,
 // its front or its back. Facing front it can be opened (a tap on the cover, or Open the case): the cover swings over
 // on its spine and the disc is inside. It opens only from the front.
+// A game not yet played comes up still (opts.still: the owner's ask, Oct 2026): facing front, it can't be turned, only
+// opened, the Start button in the tray over the disc.
 import * as ui from '../core/ui.js';
 
 // ---------------------------------------------------------------- quaternions ([x, y, z, w]; CSS axes: x right, y down, z out of the screen)
@@ -87,12 +89,14 @@ function flickOf(P, e) {
 
 /**
  * Wires the case in dlg (its .gm-z-stage > .gm-z-obj, the cover .gm-z-lid). surface: where a drag turns it (the whole
- * overlay). on(state): told when what it can do changes ({front, open}). Returns {turn(dir), lid(open), rest(), stop()}.
+ * overlay). on(state): told when what it can do changes ({front, open}). opts.still: it faces front and can't be turned.
+ * Returns {turn(dir), lid(open), rest(), stop()}.
  */
-export function turnable(surface, dlg, on = () => {}) {
+export function turnable(surface, dlg, on = () => {}, opts = {}) {
+  const still = !!opts.still, home = still ? FRONT : BACK; // (how it stands on the shelf)
   const stage = dlg.querySelector('.gm-z-stage'), obj = dlg.querySelector('.gm-z-obj'), lid = dlg.querySelector('.gm-z-lid');
   const gl = [dlg.querySelector('.gm-z-front .gm-z-gl'), dlg.querySelector('.gm-z-back .gm-z-gl')];
-  const S = {q: BACK.slice(), w: [0, 0, 0], u: 0, uv: 0, open: 0, goal: null, held: false, raf: 0, t: 0, dead: false, said: '', dragged: false};
+  const S = {q: home.slice(), w: [0, 0, 0], u: 0, uv: 0, open: 0, goal: null, held: false, raf: 0, t: 0, dead: false, said: '', dragged: false};
   let P = null; // the pointer turning it
 
   const target = () => (S.open || S.u > .05 ? FRONT : S.goal || (Math.abs(S.q[3]) >= Math.abs(S.q[1]) ? FRONT : BACK));
@@ -117,14 +121,14 @@ export function turnable(surface, dlg, on = () => {}) {
     if (ui.RM) { S.u = S.open; S.uv = 0; }
     else { S.uv += (OK * (S.open - S.u) - OC * S.uv) * dt; S.u += S.uv * dt; }
   }
-  const still = () => !S.held && len(between(S.q, target())) < .002 && len(S.w) < .02 && Math.abs(S.u - S.open) < .002 && Math.abs(S.uv) < .01;
+  const resting = () => !S.held && len(between(S.q, target())) < .002 && len(S.w) < .02 && Math.abs(S.u - S.open) < .002 && Math.abs(S.uv) < .01;
   function frame(now) {
     S.raf = 0;
     if (S.dead) return;
     const dt = Math.min(1 / 30, Math.max(0, (now - S.t) / 1000)) || 1 / 60;
     S.t = now;
     step(dt);
-    if (still()) {
+    if (resting()) {
       const was = S.goal;
       S.q = target().slice(); S.w = [0, 0, 0]; S.u = S.open; S.uv = 0; S.goal = null;
       paint();
@@ -140,7 +144,7 @@ export function turnable(surface, dlg, on = () => {}) {
   const down = e => {
     if (P || e.button > 0 || S.dead) return;
     S.dragged = false; // (a finger's drag has no click after it to clear this)
-    if (e.target.closest('.gm-z-x, .gm-z-ctl, .gm-z-tog')) return;
+    if (still || e.target.closest('.gm-z-x, .gm-z-ctl, .gm-z-tog, .gm-z-go')) return;
     P = {id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, on: false, moves: []};
   };
   const move = e => {
@@ -178,7 +182,7 @@ export function turnable(surface, dlg, on = () => {}) {
   return {
     /** Turn it round (dir 1: its right side toward you), closing it first if it's open. */
     turn(dir = 1) {
-      if (S.held) return;
+      if (S.held || still) return;
       // (open, it shuts first, then turns)
       S.goal = target() === FRONT ? BACK : FRONT;
       if (S.open) { S.open = 0; ui.haptic('light'); }
@@ -201,8 +205,8 @@ export function turnable(surface, dlg, on = () => {}) {
       return true;
     },
     get state() { return {front: facingFront(), open: !!S.open}; },
-    /** Where it ends up shut and turned round (to go back to the shelf): the transforms for the case and the cover. */
-    rest() { return {obj: `translateX(0px) scale(1) translateX(0px) ${matrixOf(BACK)} translateX(0px)`, lid: 'translateZ(calc(var(--zd) / 2)) rotateY(0deg)'}; },
+    /** Where it ends up shut and as it stands on the shelf (to go back there): the transforms for the case and the cover. */
+    rest() { return {obj: `translateX(0px) scale(1) translateX(0px) ${matrixOf(home)} translateX(0px)`, lid: 'translateZ(calc(var(--zd) / 2)) rotateY(0deg)'}; },
     stop() {
       S.dead = true;
       if (S.raf) cancelAnimationFrame(S.raf);

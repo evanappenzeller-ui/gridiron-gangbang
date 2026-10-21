@@ -343,6 +343,9 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
 }
 .gm-z-obj { --zd: 7cqw; position: absolute; inset: 0; transform-style: preserve-3d; transform: rotateY(180deg); }
 .gm-z-obj > *, .gm-z-lid > * { position: absolute; -webkit-backface-visibility: hidden; backface-visibility: hidden; }
+/* (a tap goes to what's drawn, not to the case's own flat box in front of the tray: the disc, Start) */
+.gm-z-obj, .gm-z-lid { pointer-events: none; }
+.gm-z-obj > :not(.gm-z-lid), .gm-z-lid > * { pointer-events: auto; }
 .gm-zoom .gm-face { inset: 0; border-radius: 2.8cqw; overflow: hidden; text-align: left;
   box-shadow: inset 0 0 0 1px rgba(16,34,0,.55), inset 0 .5cqw 0 rgba(220,255,160,.22); }
 .gm-zoom .gm-z-back { transform: rotateY(180deg) translateZ(calc(var(--zd) / 2)); padding: 2cqw 3cqw 2.4cqw 2cqw; }
@@ -455,6 +458,22 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
 .gm-z-clip { position: absolute; left: calc(50% - 8cqw); width: 16cqw; height: 4.6cqw; border-radius: 1cqw; background: linear-gradient(#6C9C24, #4E8614); box-shadow: 0 .4cqw 1cqw rgba(0,0,0,.45), inset 0 .3cqw 0 rgba(220,255,160,.3); }
 .gm-z-clip.is-t { top: -2.4cqw; }
 .gm-z-clip.is-b { bottom: -2.4cqw; }
+/* a game to start (the owner's ask, Oct 2026): Start in the tray's top right, over the disc, there once the case is
+   open (it lies open at half size on a phone, so it's drawn big, its reach bigger still) */
+.gm-z-go {
+  top: 4.6cqw; right: 4.6cqw; height: 17cqw; padding: 0 5.4cqw 0 4.2cqw; display: flex; align-items: center; gap: 1.8cqw;
+  transform: translateZ(calc(var(--zd) / -2 + 2.4cqw)); border: 0; border-radius: 8.5cqw; cursor: pointer;
+  background: linear-gradient(#FFD45A, #F2A922 55%, #D98E12); color: #2A1A00;
+  box-shadow: 0 .9cqw 0 #8A5A08, 0 1.6cqw 3cqw rgba(0,0,0,.55), inset 0 .5cqw 0 rgba(255,255,255,.55);
+  font: 900 8cqw/1 "Barlow Condensed", "Arial Narrow", sans-serif; letter-spacing: .08em; text-transform: uppercase;
+  transition: opacity .2s linear .25s, translate .12s ease;
+}
+.gm-z-go::before { content: ""; position: absolute; inset: -5cqw; border-radius: 12cqw; } /* (its reach) */
+.gm-z-go > .ic { width: 7cqw; height: 7cqw; flex: none; }
+.gm-z-go:active { translate: 0 .7cqw; box-shadow: 0 .2cqw 0 #8A5A08, 0 .8cqw 2cqw rgba(0,0,0,.55), inset 0 .5cqw 0 rgba(255,255,255,.55); }
+.gm-z-go:disabled { opacity: 0; pointer-events: none; transition: opacity .1s linear; }
+.gm-z-go:focus-visible { outline: .8cqw solid #fff; outline-offset: .8cqw; }
+@media (prefers-reduced-motion: reduce) { .gm-z-go { transition: none; } }
 /* under it: turn it over, open it */
 .gm-z-ctl { display: flex; gap: 10px; }
 .gm-z-ctl .btn { background: rgba(255,255,255,.12); color: #fff; box-shadow: none; }
@@ -474,7 +493,6 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
 .v-puzzles .gm-social { display: flex; align-items: center; gap: 8px; min-width: 0; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
 .v-puzzles .gm-ctas { display: flex; gap: 10px; margin-top: 14px; }
 .v-puzzles .gm-cta { min-height: 52px; font-size: 18px; }
-.v-puzzles .gm-cta > .gm-cta-ic { width: 20px; height: 20px; stroke-width: 1; margin-left: -4px; }
 .v-puzzles .gm-cd { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 14px; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
 .v-puzzles .gm-cd .ic { stroke-width: 2; flex: none; }
 .v-puzzles .gm-cd-v { color: var(--ink-2); font-weight: 600; font-variant-numeric: tabular-nums; }

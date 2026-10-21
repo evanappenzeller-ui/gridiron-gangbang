@@ -526,16 +526,10 @@ function playPuzzles(ctx) {
   if (!ready()) return;
   ctx.nav(daily.allDone() ? '/puzzles/results' : '/puzzles/play/' + daily.slug(daily.firstOpen()));
 }
-/** The list's taps (true when handled): Play on a card opens that game (Daily Puzzles straight into the run), a
- *  finished card's buttons open its results or page, and a tap anywhere else on a card opens the game's page. */
+/** The list's taps (true when handled): a finished card's buttons open its results or page. (A game starts from its
+ *  case: games.js mountList's Start, through its play.) */
 function onListClick(st, e) {
   const {ctx} = st;
-  const play = e.target.closest('[data-gm-play]');
-  if (play) {
-    ui.haptic('light');
-    if (play.dataset.gmPlay === 'puzzles' && ready()) playPuzzles(ctx); else ctx.nav(gamePath(play.dataset.gmPlay));
-    return true;
-  }
   const open = e.target.closest('[data-gm-open]');
   if (open) { ctx.nav(gamePath(open.dataset.gmOpen)); return true; }
   if (e.target.closest('[data-gm-results]')) { if (ready()) ctx.nav('/puzzles/results'); return true; }
