@@ -234,9 +234,11 @@ function sprite(st, c, a, team, x, y, z, alpha = 1) {
   }
   c.globalAlpha = 1;
 }
+const HINT_YDS = 50;
 function hint(st, c, type, x, z) {
   // Over a barricade or a banner (once it's close enough to read and not on top of you): the move that beats it, an
-  // arrow up (jump) or down (slide).
+  // arrow up (jump) or down (slide). Only on the first HINT_YDS yards: after that you know (the owner's ask, Oct 2026).
+  if (z >= HINT_YDS) return;
   const p = P(st, x, type === 'bar' ? 3.05 : 1.6, z), r = Math.max(7, Math.min(15, p.s * .34));
   if (p.y < st.y0 + 4) return;
   const up = type === 'hurdle';
