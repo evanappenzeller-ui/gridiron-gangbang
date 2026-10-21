@@ -84,14 +84,15 @@ function shellHTML() {
     + `<div class="rl-gl" aria-hidden="true"><div class="rl-loading">Riding out to your realm…</div></div>`
     + `<div class="rl-tags" aria-hidden="true"></div>`
     + `<div class="rl-top">`
-    + `<div class="rl-res">`
-    + `<div class="rl-cur is-tp" aria-label="Glory"><i class="rl-crown" aria-hidden="true"></i><span class="rl-curt"><b data-rl-tp>0</b></span></div>`
-    + F.CUR.map(c => `<div class="rl-cur is-${c}" data-rl-cur="${c}"><i class="rl-coin" aria-hidden="true"></i><span class="rl-curt"><b data-rl-n>0</b><span class="rl-curb"><i data-rl-f></i></span></span></div>`).join('')
-    + `</div>`
-    + `<button type="button" class="rl-id" data-rl-house aria-label="Your house"><span class="rl-crest" data-rl-lv>1</span><b data-rl-name></b></button>`
-    + `</div>`
-    + `<button type="button" class="rl-office" data-rl-coffers></button>`
+    + `<div class="rl-left">`
+    + `<button type="button" class="rl-me" data-rl-house aria-label="Your house"><span class="rl-crest" data-rl-lv>1</span><span class="rl-me-t"><b data-rl-name></b><small data-rl-land></small></span></button>`
+    + `<div class="rl-glory" aria-label="Glory"><i class="rl-crown" aria-hidden="true"></i><b data-rl-tp>0</b></div>`
     + `<div class="rl-builders" data-rl-builders></div>`
+    + `</div>`
+    + `<div class="rl-res">`
+    + F.CUR.map(c => `<div class="rl-cur is-${c}" data-rl-cur="${c}"><span class="rl-curb"><i data-rl-f></i></span><b data-rl-n>0</b><i class="rl-coin" aria-hidden="true"></i></div>`).join('')
+    + `<button type="button" class="rl-office" data-rl-coffers></button>`
+    + `</div></div>`
     + `<div class="rl-sel" data-rl-sel hidden></div>`
     + `<div class="rl-bar" data-rl-bar>`
     + `<button type="button" class="rl-btn is-raid" data-rl-raid><span class="rl-bi" aria-hidden="true">${ui.icon('versus')}</span><span>Attack</span></button>`
@@ -105,6 +106,7 @@ function hud(st) {
   const s = F.mine(), now = Date.now(), cap = F.capOf(s), el = st.el;
   el.querySelector('[data-rl-lv]').textContent = F.keepOf(s);
   el.querySelector('[data-rl-name]').textContent = houseName(s);
+  el.querySelector('[data-rl-land]').textContent = (F.SCENERIES.find(x => x.k === F.sceneryOf(s)) || F.SCENERIES[0]).name;
   el.querySelector('[data-rl-tp]').textContent = nf(s.tp);
   F.CUR.forEach(c => {
     const box = el.querySelector(`[data-rl-cur="${c}"]`);

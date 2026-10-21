@@ -1,8 +1,7 @@
 /* realm.css: the Realm tab (views/realm.js), an attack (views/realm-raid.js) and a look round a realm first
    (views/realm-scout.js), the owner's alone. The lot (3D) fills the screen; over it a medieval HUD in dark oak and
-   gilt: a thin strip of glory, Gold and Grain, your house's crest and name, the coffers, the builders, the four buttons
-   along the bottom, a selected building's card. The sheets (.sh-rl) live
-   in #overlays. Cinzel (Natanael Gama, SIL Open Font License 1.1) for the names and labels. */
+   gilt: your house's crest and name, glory and the builders at the top left, Gold, Grain and the coffers at the top
+   right, the four buttons along the bottom, a selected building's card. The sheets (.sh-rl) live in #overlays. Cinzel (Natanael Gama, SIL Open Font License 1.1) for the names and labels. */
 @font-face {
   font-family: "Cinzel";
   font-style: normal;
@@ -40,45 +39,53 @@
 .rl-crown { display: inline-block; flex: none; width: 1.1em; height: .85em; vertical-align: -.08em; background: linear-gradient(#FFE9A3, #E0A92B);
   clip-path: polygon(0 22%, 26% 58%, 50% 0, 74% 58%, 100% 22%, 90% 100%, 10% 100%); }
 
-/* ---- the top: a thin strip of glory, Gold and Grain (as Clash Royale keeps its coins and gems along the top, Oct 2026),
-   your house compact under it at the right */
-.rl-top { position: absolute; top: calc(var(--sa-t, 0px) + 6px); left: 10px; right: 10px; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; pointer-events: none; }
-.rl-top > * { pointer-events: auto; }
-.rl-res { align-self: stretch; display: flex; gap: 14px; padding-left: 8px; }
-.rl-cur { position: relative; flex: 1 1 0; min-width: 0; display: flex; align-items: center; height: 26px; padding: 0 9px 0 0; border-radius: 8px; background: var(--rl-glass);
-  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px var(--rl-line); cursor: pointer; }
-.rl-cur.is-tp { flex: .8 1 0; cursor: default; }
-.rl-cur > .rl-coin, .rl-cur > .rl-crown { width: 28px; height: 28px; margin: 0 4px 0 -9px; font-size: 28px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.55)); }
-.rl-cur > .rl-crown { height: 22px; }
-.rl-curt { position: relative; flex: 1; min-width: 0; align-self: stretch; display: flex; align-items: center; justify-content: flex-end; }
-.rl-curt b { font: 700 15px/1 var(--rl-face); font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; text-shadow: 0 1px 2px rgba(0,0,0,.7); }
-.rl-cur.is-tp .rl-curt b { color: #FBE39A; }
-.rl-curb { position: absolute; left: 0; right: -4px; bottom: 3px; height: 3px; border-radius: 2px; background: rgba(255,240,210,.14); overflow: hidden; }
-.rl-curb > i { display: block; height: 100%; border-radius: 2px; background: var(--rl-gold); transition: width .4s ease; }
-.is-grain .rl-curb > i { background: var(--rl-grain); }
-.rl-cur.is-full { box-shadow: inset 0 0 0 1px rgba(255,140,120,.7); }
-.rl-cur.is-full .rl-curt b { color: #FFB4A8; }
-.rl-id { display: flex; align-items: center; gap: 6px; min-width: 0; max-width: 62%; height: 30px; padding: 0 11px 0 4px; border: 0; border-radius: 9px; background: var(--rl-glass); color: #F7EEDD; text-align: left;
-  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px var(--rl-line); cursor: pointer; }
-.rl-id > b { min-width: 0; font: 700 13px/1.1 var(--rl-face); letter-spacing: .03em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* ---- the top, as Clash of Clans lays it (Oct 2026): your house at the left (the crest with the Keep level riding the
+   name's strip, the land under the name), glory under it, then the builders; Gold and Grain stacked at the right, each
+   a bar filled for how full it is with its coin or sack at the end (red when full; tap one for how much of how much),
+   the coffers under them. It all starts under iOS 26's frosted band below the status bar (the system draws it over
+   the page, about the status bar's height again, up to 44px), which blurred a strip laid any higher: --rl-hud-t. */
+.rl { --rl-hud-t: max(8px, calc(var(--sa-t, 0px) + min(44px, var(--sa-t, 0px)))); }
+.rl-top { position: absolute; top: var(--rl-hud-t); left: 10px; right: 10px; display: flex; align-items: flex-start; gap: 10px; pointer-events: none; }
+.rl-top > * > * { pointer-events: auto; }
+.rl-left { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 7px; }
+.rl-res { flex: none; width: clamp(138px, 42%, 178px); display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
+.rl-me { display: flex; align-items: center; max-width: 100%; padding: 0; border: 0; background: none; color: #F7EEDD; text-align: left; cursor: pointer; }
+.rl-me > .rl-crest { z-index: 1; width: 40px; height: 46px; padding-bottom: 6px; font-size: 18px; filter: drop-shadow(0 2px 3px rgba(0,0,0,.5)); }
+.rl-me-t { min-width: 0; display: flex; flex-direction: column; gap: 3px; margin-left: -12px; padding: 5px 12px 6px 18px; border-radius: 0 10px 10px 0; background: var(--rl-glass);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px var(--rl-line); }
+.rl-me-t b { font: 700 14px/1.1 var(--rl-face); letter-spacing: .03em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
+.rl-me-t small { font: 600 11px/1.1 var(--font-text); letter-spacing: .04em; text-transform: uppercase; color: rgba(247,238,221,.68); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rl-crest, .rl-tg-lv { position: relative; isolation: isolate; flex: none; display: grid; place-items: center; width: 38px; height: 44px; padding-bottom: 6px;
   font: 800 19px/1 var(--rl-face); color: #FBE39A; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
-.rl-id > .rl-crest { width: 22px; height: 26px; padding-bottom: 4px; font-size: 12px; }
 .rl-crest::before, .rl-crest::after, .rl-tg-lv::before, .rl-tg-lv::after { content: ""; position: absolute; z-index: -1;
   clip-path: polygon(0 0, 100% 0, 100% 50%, 92% 70%, 75% 86%, 50% 100%, 25% 86%, 8% 70%, 0 50%); }
 .rl-crest::before, .rl-tg-lv::before { inset: 0; background: linear-gradient(#FBE2A0, #B98A2C); }
 .rl-crest::after, .rl-tg-lv::after { inset: 2.5px 2.5px 3px; background: var(--rl-crimson); }
-.rl-id > .rl-crest::after { inset: 1.5px 1.5px 2px; }
-@media (max-width: 360px) { .rl-res { gap: 12px; } .rl-curt b { font-size: 13px; } .rl-cur > .rl-coin, .rl-cur > .rl-crown { width: 24px; height: 24px; font-size: 24px; } .rl-cur > .rl-crown { height: 19px; } }
+.rl-glory { display: flex; align-items: center; gap: 7px; height: 28px; padding: 0 12px 0 8px; border-radius: 9px; background: var(--rl-glass);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px var(--rl-line); }
+.rl-glory > .rl-crown { width: 22px; height: 17px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.55)); }
+.rl-glory b { font: 700 15px/1 var(--rl-face); font-variant-numeric: tabular-nums lining-nums; color: #FBE39A; text-shadow: 0 1px 2px rgba(0,0,0,.7); }
+/* a store: the bar (filled for how full), the amount at its right, the coin or sack over its end */
+.rl-cur { position: relative; display: flex; align-items: center; justify-content: flex-end; height: 28px; margin-right: 6px; padding: 0 30px 0 8px; border-radius: 8px; background: var(--rl-glass);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px var(--rl-line); cursor: pointer; }
+.rl-curb { position: absolute; inset: 2px; border-radius: 6px; overflow: hidden; }
+.rl-curb > i { display: block; height: 100%; background: linear-gradient(rgba(240,194,62,.5), rgba(168,116,18,.42)); transition: width .4s ease; }
+.is-grain .rl-curb > i { background: linear-gradient(rgba(190,214,104,.48), rgba(95,122,40,.42)); }
+.rl-cur > b { position: relative; font: 700 15px/1 var(--rl-face); font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; text-shadow: 0 1px 2px rgba(0,0,0,.8); }
+.rl-cur > .rl-coin { position: absolute; right: -8px; top: 50%; width: 34px; height: 34px; margin-top: -17px; font-size: 34px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.55)); }
+.rl-cur.is-full { box-shadow: inset 0 0 0 1px rgba(255,140,120,.8); }
+.rl-cur.is-full > b { color: #FFB4A8; }
+@media (max-width: 360px) { .rl-cur > b, .rl-glory b { font-size: 13px; } .rl-me-t b { font-size: 13px; } }
 
 /* ---- the coffers (what the games paid, waiting for room), the builders */
-.rl-office { position: absolute; right: 10px; top: calc(var(--sa-t, 0px) + 74px); display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 2px 8px; max-width: min(62%, 260px);
-  padding: 6px 12px; border: 0; border-radius: 10px; background: rgba(26,18,12,.66); color: #F7EEDD; font: 700 13px/1.2 var(--font-text); text-align: right;
+.rl-office { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 2px 8px; margin-right: 6px;
+  padding: 6px 10px; border: 0; border-radius: 10px; background: rgba(26,18,12,.66); color: #F7EEDD; font: 700 13px/1.2 var(--font-text); text-align: right;
   -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px var(--rl-line); cursor: pointer; }
+.rl-office .rl-amt + .rl-amt { margin-left: 0; }
 .rl-oft { width: 100%; font: 700 11px/1.2 var(--rl-face); letter-spacing: .14em; text-transform: uppercase; color: var(--rl-gilt); }
 .rl-ofn { width: 100%; font: 500 11px/1.2 var(--font-text); color: rgba(247,238,221,.62); }
-.rl-builders { position: absolute; left: 10px; top: calc(var(--sa-t, 0px) + 40px); display: flex; align-items: center; gap: 6px; padding: 6px 11px; border-radius: 10px;
-  background: rgba(26,18,12,.66); font: 600 13px/1 var(--font-text); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px var(--rl-line); pointer-events: none; }
+.rl-builders { display: flex; align-items: center; gap: 6px; padding: 6px 11px; border-radius: 10px;
+  background: rgba(26,18,12,.66); font: 600 13px/1 var(--font-text); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px var(--rl-line); pointer-events: none !important; }
 .rl-builders b { font-weight: 800; font-variant-numeric: tabular-nums; }
 .rl-hammer { width: 13px; height: 14px; background: linear-gradient(#E9E2D2, #9C927F 55%, #7A5434 56%, #5A3C22);
   clip-path: polygon(0 0, 100% 0, 100% 38%, 62% 38%, 62% 100%, 38% 100%, 38% 38%, 0 38%); }
@@ -207,7 +214,7 @@
 .rl-stars.is-big i { width: 30px; height: 30px; }
 
 /* ---- an attack */
-.rlr-top { position: absolute; top: calc(var(--sa-t, 0px) + 8px); left: 10px; right: 10px; display: flex; align-items: center; gap: 8px; }
+.rlr-top { position: absolute; top: var(--rl-hud-t); left: 10px; right: 10px; display: flex; align-items: center; gap: 8px; }
 .rlr-quit { flex: none; height: 38px; padding: 0 14px; border: 0; border-radius: 10px; background: var(--rl-crimson); color: #FFF3DA; font: 700 14px/1 var(--rl-face); letter-spacing: .05em; cursor: pointer;
   box-shadow: inset 0 0 0 1px rgba(240,194,62,.6); }
 .rlr-who { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; padding: 4px 10px 4px 6px; border-radius: 12px; background: var(--rl-glass); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px var(--rl-line); }
@@ -216,7 +223,7 @@
 .rlr-who small { font: 700 12px/1.2 var(--font-text); color: rgba(247,238,221,.82); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rlr-clock { flex: none; min-width: 58px; padding: 9px 10px; border-radius: 10px; background: var(--rl-glass); box-shadow: inset 0 0 0 1px var(--rl-line); text-align: center; font: 700 18px/1 var(--rl-face); font-variant-numeric: tabular-nums lining-nums; }
 .rlr-clock.is-low { color: #FF9C8F; }
-.rlr-score { position: absolute; top: calc(var(--sa-t, 0px) + 58px); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; padding: 6px 14px; border-radius: 12px;
+.rlr-score { position: absolute; top: calc(var(--rl-hud-t) + 50px); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; padding: 6px 14px; border-radius: 12px;
   background: var(--rl-glass); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px var(--rl-line); white-space: nowrap; }
 .rlr-score > b { font: 700 18px/1 var(--rl-face); }
 .rlr-got { font: 800 14px/1 var(--font-text); }
@@ -248,7 +255,7 @@
 /* ---- a look round a realm before you attack it */
 .sh-rl .rl-tg [data-rl-scout] { padding: 0 12px; }
 .rlr-quit.is-back { background: var(--rl-glass); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px var(--rl-line); }
-.rls-def { position: absolute; top: calc(var(--sa-t, 0px) + 58px); left: 10px; right: 10px; display: flex; flex-wrap: wrap; gap: 6px; pointer-events: none; }
+.rls-def { position: absolute; top: calc(var(--rl-hud-t) + 50px); left: 10px; right: 10px; display: flex; flex-wrap: wrap; gap: 6px; pointer-events: none; }
 .rls-chip { padding: 5px 10px; border-radius: 999px; background: var(--rl-glass); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px var(--rl-line);
   font: 700 12px/1.1 var(--font-text); color: rgba(247,238,221,.9); white-space: nowrap; }
 .rls-zoom { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 6px; }
