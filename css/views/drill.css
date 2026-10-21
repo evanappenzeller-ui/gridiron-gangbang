@@ -301,7 +301,7 @@
 .dr-pane .dr-pill.is-accent { background: var(--tint); color: var(--on-tint); box-shadow: none; }
 .dr-pane .dr-pill:disabled { opacity: .4; }
 .dr-pane .dr-pill.is-pressed, .dr-pane .dr-type.is-pressed, .dr-pane .dr-fg.is-pressed,
-.dr-pane .dr-toggle.is-pressed, .dr-pane .dr-sb-row.is-pressed { transform: scale(.97); transition: none; }
+.dr-pane .dr-toggle.is-pressed { transform: scale(.97); transition: none; }
 
 /* ---------------------------------------------------------------- The call */
 .dr-pane .dr-call { margin-top: 10px; }
@@ -687,60 +687,17 @@
 .dr-comp-a > span:first-child { font: 700 10.5px/14px var(--dr-font); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
 .dr-comp-x { display: inline-flex; align-items: center; gap: 6px; }
 
-/* ---------------------------------------------------------------- The league's finals */
-.dr-pane .dr-sb-host { margin-top: 28px; }
-.dr-pane .dr-board-h { display: flex; flex-direction: column; gap: 2px; padding: 0 2px; }
-.dr-pane .dr-board-t { min-width: 0; font: 800 21px/1.15 var(--dr-display); letter-spacing: -.02em; color: var(--ink); }
-.dr-pane .dr-board-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-/* Today's finals or the week's standings. */
-.dr-pane .dr-sb-tabs { flex: none; display: flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--dr-line); }
-.dr-pane .dr-sb-tab { height: 28px; padding: 0 12px; border-radius: 999px; color: var(--ink-2); font: 600 13px/1 var(--dr-font); transition: background-color 160ms, color 160ms; }
-.dr-pane .dr-sb-tab[aria-selected="true"] { background: var(--surface-1); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.18); }
-.dr-pane .dr-board-s { font: 400 13px/18px var(--dr-font); color: var(--ink-3); }
-.dr-pane .dr-sb-sum { margin: 12px 2px 8px; font: 600 12px/16px var(--dr-font); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-3); }
-.dr-pane .dr-sb-list { border-radius: 22px; background: var(--surface-1); overflow: hidden; box-shadow: var(--dr-shadow), inset 0 0 0 1px var(--dr-line); }
-.dr-pane .dr-sb-row {
-  display: grid; grid-template-columns: 22px 36px minmax(0, 1fr) auto auto; align-items: center; gap: 10px;
-  width: 100%; padding: 10px 14px; text-align: left; color: var(--ink);
-  transition: transform 220ms cubic-bezier(.3,1.4,.5,1), background-color 160ms;
-}
-.dr-pane .dr-sb-row + .dr-sb-row { border-top: 1px solid var(--dr-line); }
-.dr-pane .dr-sb-row.is-me { background: var(--tint-soft); }
-.dr-pane .dr-sb-rank { font: 700 15px/1 var(--dr-display); color: var(--ink-3); text-align: center; font-variant-numeric: tabular-nums; }
-.dr-pane .dr-sb-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.dr-pane .dr-sb-name { display: flex; align-items: center; gap: 6px; min-width: 0; font: 600 15px/20px var(--dr-font); overflow: hidden; white-space: nowrap; }
-/* The name gives way to its tag (YOU, or GUEST on another guest's row). */
-.dr-pane .dr-sb-nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.dr-pane .dr-sb-name > .badge { flex: none; }
-.dr-pane .dr-sb-sub { font: 400 12.5px/16px var(--dr-font); color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dr-pane .dr-sb-res { display: flex; align-items: center; gap: 8px; }
-.dr-pane .dr-sb-res > b {
-  display: grid; place-items: center; width: 24px; height: 24px; border-radius: 8px;
-  font: 800 12px/1 var(--dr-font); background: var(--surface-3); color: var(--ink-2);
-}
-.dr-pane .dr-sb-res.is-W > b { background: var(--dr-good); color: #fff; }
-.dr-pane .dr-sb-res.is-T > b { background: var(--dr-gold); color: #1A1400; }
-.dr-pane .dr-sb-res > span { min-width: 46px; text-align: right; font: 700 16px/1 var(--dr-display); letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
-.dr-pane .dr-sb-res.is-L > span { color: var(--ink-3); }
 /* A game's call grade: its letter over its number, coloured by the letter. */
-.dr-pane .dr-sb-gr, .dr-fg-chip {
+.dr-fg-chip {
   display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 34px; height: 34px; padding: 0 4px;
   border-radius: 10px; background: var(--g, var(--surface-3)); color: var(--gi, var(--ink-2));
 }
-.dr-pane .dr-sb-gr > b, .dr-fg-chip > b { font: 800 13px/1 var(--dr-display); letter-spacing: -.01em; }
-.dr-pane .dr-sb-gr > small, .dr-fg-chip > small { margin-top: 2px; font: 600 9.5px/1 var(--dr-font); opacity: .8; font-variant-numeric: tabular-nums; }
-.dr-pane .dr-sb-gr.is-A, .dr-fg-chip.is-A { --g: rgba(48,209,88,.18); --gi: var(--dr-good); }
-.dr-pane .dr-sb-gr.is-B, .dr-fg-chip.is-B { --g: rgba(10,132,255,.16); --gi: #4DA3FF; }
-.dr-pane .dr-sb-gr.is-C, .dr-fg-chip.is-C { --g: var(--dr-gold-soft); --gi: var(--dr-gold); }
-.dr-pane .dr-sb-gr.is-D, .dr-pane .dr-sb-gr.is-F, .dr-fg-chip.is-D, .dr-fg-chip.is-F { --g: var(--dr-bad-soft); --gi: var(--dr-bad); }
-.dr-pane .dr-sb-foot { margin: 8px 4px 0; font: 400 12px/16px var(--dr-font); color: var(--ink-3); }
-/* The week: points on the right; the best-called game under the table. */
-.dr-pane .dr-wk-row { grid-template-columns: 22px 36px minmax(0, 1fr) auto; }
-.dr-pane .dr-wk-pts { display: flex; flex-direction: column; align-items: flex-end; }
-.dr-pane .dr-wk-pts > b { font: 800 20px/1 var(--dr-display); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
-.dr-pane .dr-wk-pts > small { margin-top: 2px; font: 600 10px/1 var(--dr-font); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
-.dr-pane .dr-wk-top { display: flex; align-items: center; gap: 6px; margin: 10px 4px 0; font: 500 13px/18px var(--dr-font); color: var(--ink-2); }
-.dr-pane .dr-wk-top > .ic { flex: none; color: var(--dr-gold); }
+.dr-fg-chip > b { font: 800 13px/1 var(--dr-display); letter-spacing: -.01em; }
+.dr-fg-chip > small { margin-top: 2px; font: 600 9.5px/1 var(--dr-font); opacity: .8; font-variant-numeric: tabular-nums; }
+.dr-fg-chip.is-A { --g: rgba(48,209,88,.18); --gi: var(--dr-good); }
+.dr-fg-chip.is-B { --g: rgba(10,132,255,.16); --gi: #4DA3FF; }
+.dr-fg-chip.is-C { --g: var(--dr-gold-soft); --gi: var(--dr-gold); }
+.dr-fg-chip.is-D, .dr-fg-chip.is-F { --g: var(--dr-bad-soft); --gi: var(--dr-bad); }
 /* Your call grade on the final card (and on a member's game). */
 .dr-final-grade { display: flex; align-items: center; gap: 10px; margin-top: 12px; text-align: left; font: 400 12.5px/17px var(--dr-font); color: rgba(255,255,255,.72); }
 .sh-drill .dr-final-grade { color: var(--ink-2); }
@@ -766,11 +723,6 @@
 .dr-gr-all > summary { cursor: pointer; padding: 6px 2px; font: 600 13px/18px var(--dr-font); color: rgba(255,255,255,.78); list-style-position: inside; }
 .sh-drill .dr-gr-all > summary { color: var(--ink-2); }
 .dr-gr-all > ol { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 0; padding: 0 2px; list-style: none; }
-.dr-pane .dr-sb-note, .dr-pane .dr-sb-empty { margin-top: 12px; padding: 16px; border-radius: 20px; background: var(--surface-1); text-align: center; box-shadow: inset 0 0 0 1px var(--dr-line); }
-.dr-pane .dr-sb-note { font: 400 14px/20px var(--dr-font); color: var(--ink-2); }
-.dr-pane .dr-sb-et { font: 700 16px/22px var(--dr-display); color: var(--ink); }
-.dr-pane .dr-sb-eb { margin-top: 2px; font: 400 14px/20px var(--dr-font); color: var(--ink-2); }
-.dr-pane .dr-sb-sk { margin-top: 12px; }
 
 /* ---------------------------------------------------------------- Sheets */
 .sh-drill .dr-sheet { padding-bottom: 8px; }
@@ -845,12 +797,6 @@
   .dr-pane .dr-fsb { gap: 6px; }
   .dr-pane .dr-fsb-sc { font-size: 38px; }
   .dr-comp-n { font-size: 24px; }
-  .dr-pane .dr-board-t { font-size: 19px; }
-  .dr-pane .dr-sb-row { grid-template-columns: 16px 36px minmax(0, 1fr) auto auto; gap: 8px; padding: 10px 12px; }
-  .dr-pane .dr-wk-row { grid-template-columns: 16px 36px minmax(0, 1fr) auto; }
-  .dr-pane .dr-sb-res { flex-direction: column; align-items: flex-end; gap: 4px; }
-  .dr-pane .dr-sb-res > b { width: 22px; height: 18px; border-radius: 6px; font-size: 11px; }
-  .dr-pane .dr-sb-res > span { min-width: 0; font-size: 14px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .dr-pane .dr-track, .dr-pane .dr-pl, .dr-pane .dr-ball, .dr-pane .dr-los, .dr-pane .dr-fd { transition: none; }

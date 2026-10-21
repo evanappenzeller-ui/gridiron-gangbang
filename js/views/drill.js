@@ -8,8 +8,8 @@
 // distance), the field as a coach's chalkboard (top-down, the team with the ball going up, every player
 // an O on offense or an X on defense in his rating's chalk, the line of scrimmage blue and the first-down line yellow,
 // routes as chalk arrows), the other side's look under it with the player ratings, then the call. It all fits on one
-// screen, the open type's plays and all: the field gives up height for them (fitField), and opening a type or ending
-// a snap brings the whole game into view (frameGame).
+// screen, the open type's plays and all: the field takes the height the rest leaves it, growing on a tall screen and
+// giving it up for the plays (fitField), and opening a type or ending a snap brings the whole game into view (frameGame).
 // On offense: Run · Pass · RPO · Trick (each type's plays two and a bit to a row, the rest a swipe away), a field goal when it's on, and the clock
 // tools (and the kneel when you lead). Pass opens the receivers: each on his route (drawn on the field; tap a receiver there, or his
 // route below, to change it) with the look's odds for a throw to him, and play action, roll out and out of bounds to
@@ -2678,40 +2678,43 @@ function openMenu(st, k) {
   if (k !== 'main') frameGame(st);
 }
 // ============================================================================ The game on one screen
-// The scoreboard, the field, what they show and the call (the open type's plays and all) fit between the top bar and
-// the tab bar: the field gives up height for it (its yard, --dr-yd, from YD.max down to YD.min; past that the call
-// scrolls), and opening a type of play brings the whole game into view.
-const YD = {max: 9, min: 5.5};
+// The scoreboard, the field, what they show and the call (the open type's plays and all) fill the screen between the
+// top bar and the tab bar: nothing sits under the game (the league's finals are on the Daily Games list), so the field
+// takes whatever height the rest leaves it (its yard, --dr-yd, up to YD.max on a tall screen, down to YD.min; past that
+// the call scrolls), and opening a type of play brings the whole game into view. With no call to fit (the final), a
+// yard is YD.rest.
+const YD = {max: 16, min: 5.5, rest: 9};
 /** What's on screen of the pane's scroller: from under the top bar (under) to over the tab bar (above), 8px in. */
 function screenRoom(scr) {
   const nav = scr.querySelector(':scope > .nav'), bar = document.getElementById('tabbar'), sr = scr.getBoundingClientRect();
   return {under: (nav ? nav.getBoundingClientRect().bottom : sr.top) + 8, above: Math.min(sr.bottom, bar && bar.offsetHeight ? bar.getBoundingClientRect().top : Infinity) - 8};
 }
-/** The game, from the scoreboard to the end of the call, as it stands: {stage, box, scr, rest (its height but the
- *  field's)}, or null (no call: a snap on, or the final). */
+/** The game, from its title (the drill and the day, over the scoreboard) to the end of the call, as it stands:
+ *  {head, box, scr, rest (its height but the field's)}, or null (no call: a snap on, or the final). */
 function gameBlock(st) {
   const f = st.el.querySelector('[data-dr-field]'), stage = f && f.closest('.dr-stage'), scr = stage && stage.closest('.screen');
   const box = st.el.querySelector('[data-dr-panel] .dr-call-box');
   if (!scr || !box || st.busy || !st.s || st.s.result) return null;
-  return {stage, box, scr, rest: box.getBoundingClientRect().bottom - stage.getBoundingClientRect().top - f.getBoundingClientRect().height};
+  const head = st.el.querySelector('.dr-hd-k') || stage;
+  return {head, box, scr, rest: box.getBoundingClientRect().bottom - head.getBoundingClientRect().top - f.getBoundingClientRect().height};
 }
-/** Sizes the field's yard so the game fits on the screen (YD.max with no call to fit). */
+/** Sizes the field's yard so the game fills the screen (YD.rest with no call to fit). */
 function fitField(st) {
   if (st.busy || st.dead || !st.ctx.visible) return;
   const g = gameBlock(st);
   if (g && !g.box.offsetHeight) return; // not laid out (hidden)
-  let yd = YD.max;
+  let yd = YD.rest;
   if (g) { const r = screenRoom(g.scr); yd = Math.max(YD.min, Math.min(YD.max, Math.floor((r.above - r.under - g.rest) / 36 * 4) / 4)); }
   st.el.style.setProperty('--dr-yd', `${yd}px`);
 }
-/** Brings the whole game into view, in the same place every time: the scoreboard just under the top bar, or, when it
+/** Brings the whole game into view, in the same place every time: its title just under the top bar, or, when it
  *  can't all show, the end of the call just over the tab bar. */
 function frameGame(st) {
   stopGlide(st); // (the snap's, still watching for the field: this place wins)
   fitField(st);
   const g = gameBlock(st);
   if (!g || !st.ctx.visible) return;
-  const r = screenRoom(g.scr), top = g.stage.getBoundingClientRect().top, bottom = g.box.getBoundingClientRect().bottom;
+  const r = screenRoom(g.scr), top = g.head.getBoundingClientRect().top, bottom = g.box.getBoundingClientRect().bottom;
   const d = bottom - top <= r.above - r.under ? top - r.under : bottom - r.above;
   if (Math.abs(d) <= 1) return;
   glide(st, g.scr, st.el.querySelector('[data-dr-field]').getBoundingClientRect().top - d);
