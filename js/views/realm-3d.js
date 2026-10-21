@@ -1,12 +1,12 @@
-// The Franchise's lot in 3D (views/franchise.js and views/franchise-raid.js): three.js (js/vendor/three, MIT), the
-// buildings from views/franchise-models.js, a camera looking down across the lot corner-on (a diamond, as these games
-// are), dragged to pan, pinched or wheeled to zoom. The lot is a mowed field with a running track round it and trees
+// The Realm's lot in 3D (views/realm.js and views/realm-raid.js): three.js (js/vendor/three, MIT), the buildings from
+// views/realm-models.js, a camera looking down across the lot corner-on (a diamond, as these games are), dragged to
+// pan, pinched or wheeled to zoom. The lot is a meadow with a moat round it, pines beyond and mountains far off
 // beyond. It draws only when something moved (a finger, a job's scaffolding, a raid), so it costs nothing at rest.
-// In a raid it also draws the raiders (instanced: a few draw calls however many), what the defenses fire and what the
-// raiders throw and kick, dust where a building goes down, splashes.
+// In a raid it also draws the raiders (instanced: a few draw calls however many; a dragon in the air, flapping), what
+// the defenses loose and what the raiders shoot (arrows, bolts, boulders, fire), dust where a building goes down.
 // load() → true when three.js is in and this phone has WebGL; create(host, opts) → the view (see its methods).
-import * as FM from './franchise-models.js';
-import {KINDS, TROOPS, N} from '../core/franchise.js';
+import * as FM from './realm-models.js';
+import {KINDS, TROOPS, N} from '../core/realm.js';
 const V = new URL('../vendor/three/', import.meta.url).href;
 let T = null, RE = null, LOADING = null, DEAD = false;
 
@@ -22,7 +22,7 @@ export function load() {
         try { await document.fonts.load('800 60px "Barlow Condensed"'); } catch (_) {}
         return true;
       } catch (e) {
-        console.warn('Franchise: no 3D', e);
+        console.warn('Realm: no 3D', e);
         DEAD = true;
         return false;
       }
@@ -35,13 +35,13 @@ export const ready = () => !!T && !DEAD;
 const YAW = Math.PI / 4, PITCH = .9;
 const W = (x) => x - N / 2; // a tile coordinate to the world's (the lot centred on the origin)
 
-// ---- pictures of the models for the shop and the team (rendered once each, on a small canvas of their own)
+// ---- pictures of the models for the shop and the army (rendered once each, on a small canvas of their own)
 let THUMB = null;
 const THUMBS = new Map();
-/** A picture (data URL) of kind k at level l in team's colours, or of a player (troop: true). */
-export function thumb(k, l, team, troop = false) {
+/** A picture (data URL) of kind k at level l in a house's colours, or of a soldier (troop: true). */
+export function thumb(k, l, house, troop = false) {
   if (!ready()) return '';
-  const key = `${troop ? 't' : 'b'}:${k}:${l}:${team.pri}`;
+  const key = `${troop ? 't' : 'b'}:${k}:${l}:${house.pri}:${house.sigil}`;
   if (THUMBS.has(key)) return THUMBS.get(key);
   try {
     if (!THUMB) {
@@ -57,11 +57,12 @@ export function thumb(k, l, team, troop = false) {
     const {r, sc, cam} = THUMB;
     let obj;
     if (troop) {
-      const parts = FM.troopParts(k, team), mat = FM.mats().paint;
+      const parts = FM.troopParts(k, house), mat = FM.mats().paint;
       obj = new T.Group();
       const body = new T.Mesh(parts.body, mat); body.position.y = .22; obj.add(body);
-      [-1, 1].forEach(sd => { const lg = new T.Mesh(parts.leg, mat); lg.position.set(sd * .06 * (k === 'lineman' ? 1.4 : 1), .22, 0); lg.rotation.x = sd * .3; obj.add(lg); });
-    } else obj = FM.model(k, l, team);
+      if (k === 'dragon') [-1, 1].forEach(sd => { const w = new T.Mesh(parts.leg, mat); w.position.set(sd * .18, .32, .1); w.scale.x = sd; w.rotation.z = sd * .35; obj.add(w); });
+      else [-1, 1].forEach(sd => { const lg = new T.Mesh(parts.leg, mat); lg.position.set(sd * .06 * (k === 'knight' ? 1.35 : 1), .22, 0); lg.rotation.x = sd * .3; obj.add(lg); });
+    } else obj = FM.model(k, l, house);
     sc.add(obj);
     const box = new T.Box3().setFromObject(obj), c = box.getCenter(new T.Vector3()), sz = box.getSize(new T.Vector3());
     const R = Math.max(sz.x, sz.y, sz.z) * .62;
@@ -79,31 +80,24 @@ export function thumb(k, l, team, troop = false) {
 function grassTexture(T) {
   const cv = document.createElement('canvas'); cv.width = cv.height = 256;
   const g = cv.getContext('2d');
-  g.fillStyle = '#4C8A33'; g.fillRect(0, 0, 256, 256);
+  g.fillStyle = '#4A7A35'; g.fillRect(0, 0, 256, 256);
   let s = 7;
   const r = () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
-  for (let i = 0; i < 2600; i++) { g.fillStyle = `rgba(${r() < .5 ? '30,70,20' : '120,170,70'},${.08 + r() * .12})`; g.fillRect(r() * 256, r() * 256, 1 + r() * 2, 2 + r() * 4); }
+  for (let i = 0; i < 2600; i++) { g.fillStyle = `rgba(${r() < .5 ? '28,60,22' : '120,160,70'},${.08 + r() * .12})`; g.fillRect(r() * 256, r() * 256, 1 + r() * 2, 2 + r() * 4); }
   const t = new T.CanvasTexture(cv); t.colorSpace = T.SRGBColorSpace; t.wrapS = t.wrapT = T.RepeatWrapping; t.anisotropy = 4;
   return t;
 }
 function lotTexture(T) {
-  // mowed in stripes two tiles wide, the way a field is
+  // a meadow: grass in patches, a little worn earth, flowers here and there
   const cv = document.createElement('canvas'); cv.width = cv.height = 576;
-  const g = cv.getContext('2d'), u = 576 / N;
-  for (let i = 0; i < N; i += 2) { g.fillStyle = (i / 2) % 2 ? '#56A03A' : '#61AE43'; g.fillRect(i * u, 0, 2 * u + 1, 576); }
+  const g = cv.getContext('2d');
+  g.fillStyle = '#5B913C'; g.fillRect(0, 0, 576, 576);
   let s = 11;
   const r = () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
-  for (let i = 0; i < 5000; i++) { g.fillStyle = `rgba(${r() < .5 ? '40,90,25' : '150,200,90'},${.05 + r() * .08})`; g.fillRect(r() * 576, r() * 576, 1 + r() * 2, 2 + r() * 3); }
+  for (let i = 0; i < 40; i++) { const x = r() * 576, y = r() * 576, R = 20 + r() * 60, gr = g.createRadialGradient(x, y, 0, x, y, R); gr.addColorStop(0, r() < .5 ? 'rgba(70,120,45,.45)' : 'rgba(110,150,60,.4)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(x - R, y - R, 2 * R, 2 * R); }
+  for (let i = 0; i < 6000; i++) { g.fillStyle = `rgba(${r() < .5 ? '40,80,25' : '150,190,90'},${.05 + r() * .08})`; g.fillRect(r() * 576, r() * 576, 1 + r() * 2, 2 + r() * 3); }
+  for (let i = 0; i < 160; i++) { g.fillStyle = ['#E8E2C8', '#D9C34A', '#B8A6D8'][i % 3]; g.fillRect(r() * 576, r() * 576, 2, 2); }
   const t = new T.CanvasTexture(cv); t.colorSpace = T.SRGBColorSpace; t.anisotropy = 8;
-  return t;
-}
-function trackTexture(T) {
-  const cv = document.createElement('canvas'); cv.width = 64; cv.height = 64;
-  const g = cv.getContext('2d');
-  g.fillStyle = '#B4553B'; g.fillRect(0, 0, 64, 64);
-  g.strokeStyle = 'rgba(255,255,255,.75)'; g.lineWidth = 2;
-  [16, 32, 48].forEach(y => { g.beginPath(); g.moveTo(0, y); g.lineTo(64, y); g.stroke(); });
-  const t = new T.CanvasTexture(cv); t.colorSpace = T.SRGBColorSpace; t.wrapS = t.wrapT = T.RepeatWrapping;
   return t;
 }
 function puffTexture(T) {
@@ -116,7 +110,7 @@ function puffTexture(T) {
 }
 
 /**
- * The view, in host (filled). opts: {team: {pri, sec, abbr}, zoom (start), onTap(hit), onGrab(tile) → bool (a drag
+ * The view, in host (filled). opts: {house: {pri, sec, sigil}, zoom (start), onTap(hit), onGrab(tile) → bool (a drag
  * that starts here moves something instead of panning: onDrag(tile), onDrop(tile)), onCamera()}.
  */
 export function create(host, opts = {}) {
@@ -126,50 +120,60 @@ export function create(host, opts = {}) {
   renderer.toneMapping = T.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.02;
   renderer.shadowMap.enabled = true; renderer.shadowMap.type = T.PCFSoftShadowMap;
   const canvas = renderer.domElement;
-  canvas.className = 'fr-canvas';
+  canvas.className = 'rl-canvas';
   host.appendChild(canvas);
   let lost = false;
   canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); lost = true; });
   canvas.addEventListener('webglcontextrestored', () => { lost = false; want(); });
 
   const scene = new T.Scene();
-  scene.background = new T.Color(0x8FC1E8);
-  scene.fog = new T.Fog(0x9CC8EA, 70, 140);
+  scene.background = new T.Color(0x9AAEC0);
+  scene.fog = new T.Fog(0xA3B4C4, 70, 140);
   const pmrem = new T.PMREMGenerator(renderer);
   scene.environment = pmrem.fromScene(new RE(renderer), .04).texture;
   pmrem.dispose();
-  const hemi = new T.HemisphereLight(0xE6F0FF, 0x46663A, .8); scene.add(hemi);
-  const sun = new T.DirectionalLight(0xFFF0D8, 2.9);
+  const hemi = new T.HemisphereLight(0xDCE6F2, 0x3E5530, .75); scene.add(hemi);
+  const sun = new T.DirectionalLight(0xFFE8C8, 2.8);
   sun.position.set(-16, 30, 12); sun.target.position.set(0, 0, 0);
   sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -.0005; sun.shadow.normalBias = .03;
   Object.assign(sun.shadow.camera, {left: -24, right: 24, top: 24, bottom: -24, near: 1, far: 90});
   scene.add(sun, sun.target);
 
-  // ---- the ground: grass all round, the track, the lot
+  // ---- the ground: grass all round, a moat round the lot (a stone lip each side), the lot
   const grass = new T.Mesh(new T.PlaneGeometry(260, 260), new T.MeshStandardMaterial({map: grassTexture(T), roughness: 1}));
   grass.material.map.repeat.set(60, 60);
   grass.rotation.x = -Math.PI / 2; grass.position.y = -.02; grass.receiveShadow = true;
   scene.add(grass);
-  const trk = trackTexture(T);
-  const track = new T.Mesh(new T.RingGeometry(N * .5 * Math.SQRT2 + .6, N * .5 * Math.SQRT2 + 3.6, 4, 1), new T.MeshStandardMaterial({map: trk, roughness: .95}));
-  track.rotation.x = -Math.PI / 2; track.rotation.z = Math.PI / 4; track.position.y = -.01; track.receiveShadow = true;
-  scene.add(track);
+  const ringAt = (r0, r1, y, mat) => {
+    const m = new T.Mesh(new T.RingGeometry(r0 * Math.SQRT2, r1 * Math.SQRT2, 4, 1), mat);
+    m.rotation.x = -Math.PI / 2; m.rotation.z = Math.PI / 4; m.position.y = y; m.receiveShadow = true;
+    scene.add(m);
+  };
+  ringAt(N / 2 + .9, N / 2 + 3.1, -.06, new T.MeshStandardMaterial({color: 0x2F5F73, roughness: .12, metalness: .2, envMapIntensity: 1.2}));
+  ringAt(N / 2 + .3, N / 2 + .9, .005, new T.MeshStandardMaterial({color: 0x8E887E, roughness: .9}));
+  ringAt(N / 2 + 3.1, N / 2 + 3.6, .005, new T.MeshStandardMaterial({color: 0x8E887E, roughness: .9}));
   const lot = new T.Mesh(new T.PlaneGeometry(N, N), new T.MeshStandardMaterial({map: lotTexture(T), roughness: .95}));
   lot.rotation.x = -Math.PI / 2; lot.receiveShadow = true;
   scene.add(lot);
-  // trees and light poles round the outside
+  // pines round the outside (a few tiers each), mountains far off with snow on top
   {
-    const leaves = new T.MeshStandardMaterial({color: 0x2F6B2A, roughness: .85}), bark = new T.MeshStandardMaterial({color: 0x6B4A2E, roughness: .9});
-    const crown = new T.ConeGeometry(1.4, 3.2, 7), trunk = new T.CylinderGeometry(.18, .24, 1, 6);
     let s = 3;
     const r = () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
-    const n = 70, cr = new T.InstancedMesh(crown, leaves, n), tr = new T.InstancedMesh(trunk, bark, n), m = new T.Matrix4(), q = new T.Quaternion();
+    const needles = new T.MeshStandardMaterial({color: 0x24482A, roughness: .9}), bark = new T.MeshStandardMaterial({color: 0x5A3E2A, roughness: .9});
+    const tiers = [new T.ConeGeometry(1.3, 1.8, 7), new T.ConeGeometry(1.0, 1.5, 7), new T.ConeGeometry(.7, 1.2, 7)], trunk = new T.CylinderGeometry(.16, .22, 1, 6);
+    const n = 90, meshes = tiers.map(g => new T.InstancedMesh(g, needles, n)), tr = new T.InstancedMesh(trunk, bark, n), m = new T.Matrix4(), q = new T.Quaternion();
     for (let i = 0; i < n; i++) {
-      const a = r() * Math.PI * 2, d = N * .78 + 4 + r() * 16, x = Math.cos(a) * d, z = Math.sin(a) * d, k = .7 + r() * .7;
-      m.compose(new T.Vector3(x, 2.4 * k, z), q, new T.Vector3(k, k, k)); cr.setMatrixAt(i, m);
+      const a = r() * Math.PI * 2, d = N * .8 + 4 + r() * 18, x = Math.cos(a) * d, z = Math.sin(a) * d, k = .7 + r() * .8;
+      meshes.forEach((M, j) => { m.compose(new T.Vector3(x, (1.5 + j * 1.0) * k, z), q, new T.Vector3(k, k, k)); M.setMatrixAt(i, m); });
       m.compose(new T.Vector3(x, .5 * k, z), q, new T.Vector3(k, k, k)); tr.setMatrixAt(i, m);
     }
-    cr.castShadow = true; scene.add(cr, tr);
+    meshes.forEach(M => { M.castShadow = true; scene.add(M); }); scene.add(tr);
+    const rockM = new T.MeshStandardMaterial({color: 0x6F7378, roughness: 1, flatShading: true}), snowM = new T.MeshStandardMaterial({color: 0xEEF2F6, roughness: .9, flatShading: true});
+    for (let i = 0; i < 9; i++) {
+      const a = -2.6 + i * .5 + r() * .2, d = 110 + r() * 20, h = 30 + r() * 25, w = 22 + r() * 16;
+      const mt = new T.Mesh(new T.ConeGeometry(w, h, 6), rockM); mt.position.set(Math.cos(a) * d, h / 2 - 2, Math.sin(a) * d); mt.rotation.y = r() * 3; scene.add(mt);
+      const cap = new T.Mesh(new T.ConeGeometry(w * .32, h * .32, 6), snowM); cap.position.set(mt.position.x, h - 2 - h * .16 + .3, mt.position.z); cap.rotation.y = mt.rotation.y; scene.add(cap);
+    }
   }
 
   // ---- the camera: looking down across the lot corner-on
@@ -228,20 +232,20 @@ export function create(host, opts = {}) {
   };
 
   // ---- the buildings
-  let team = opts.team || {pri: 0x1D3F8F, sec: 0xF2C94C, abbr: 'HOME'};
+  let house = opts.house || {pri: 0x7A1F2B, sec: 0xD4A63A, sigil: 'crown'};
   const groups = new Map(); // id -> {g, key, b}
   const picks = [];
-  let fenceSig = '', fenceMesh = null;
+  let wallSig = '', wallMesh = null;
   const root = new T.Group(); scene.add(root);
   function setLot(s, o = {}) {
     const now = o.now || Date.now(), gone = o.gone || new Set();
-    if (o.team) team = o.team;
+    if (o.house) house = o.house;
     const seen = new Set();
     s.b.forEach(b => {
-      if (b.t === 'fence') return;
+      if (b.t === 'wall') return;
       seen.add(b.i);
       const size = KINDS[b.t].size, down = gone.has(b.i), status = down ? 'down' : b.u > now ? (b.l < 1 ? 'new' : 'up') : 'ok';
-      const key = `${b.t}:${b.l}:${status}:${team.pri}`;
+      const key = `${b.t}:${b.l}:${status}:${house.pri}:${house.sigil}`;
       let e = groups.get(b.i);
       if (!e || e.key !== key) {
         if (e) root.remove(e.g);
@@ -249,7 +253,7 @@ export function create(host, opts = {}) {
         if (status === 'down') g.add(FM.rubble(size));
         else if (status === 'new') { g.add(FM.scaffold(size)); }
         else {
-          g.add(FM.model(b.t, b.l, team));
+          g.add(FM.model(b.t, b.l, house));
           if (status === 'up') g.add(FM.scaffold(size));
         }
         g.traverse(m => { if (m.isMesh) m.userData.bid = b.i; });
@@ -261,32 +265,32 @@ export function create(host, opts = {}) {
       e.g.position.set(W(b.x + size / 2), 0, W(b.y + size / 2));
     });
     [...groups.keys()].forEach(id => { if (!seen.has(id)) { root.remove(groups.get(id).g); groups.delete(id); } });
-    // the fences: one instanced post and rail mesh for the lot, rails joining fences side by side
-    const fences = s.b.filter(b => b.t === 'fence' && !gone.has(b.i));
-    const sig = fences.map(f => `${f.i}.${f.x}.${f.y}.${f.l}`).join(',');
-    if (sig !== fenceSig) {
-      fenceSig = sig;
-      if (fenceMesh) { root.remove(fenceMesh.post, fenceMesh.rail); fenceMesh.post.dispose(); fenceMesh.rail.dispose(); }
-      const parts = FM.fenceParts(), at = new Map(fences.map(f => [f.x + ',' + f.y, f]));
-      const rails = [];
-      fences.forEach(f => { if (at.has((f.x + 1) + ',' + f.y)) rails.push([f, 0]); if (at.has(f.x + ',' + (f.y + 1))) rails.push([f, 1]); });
+    // the walls: one instanced pillar and run mesh for the lot, a run joining walls side by side
+    const walls = s.b.filter(b => b.t === 'wall' && !gone.has(b.i));
+    const sig = walls.map(f => `${f.i}.${f.x}.${f.y}.${f.l}`).join(',');
+    if (sig !== wallSig) {
+      wallSig = sig;
+      if (wallMesh) { root.remove(wallMesh.post, wallMesh.rail); wallMesh.post.dispose(); wallMesh.rail.dispose(); }
+      const parts = FM.wallParts(), at = new Map(walls.map(f => [f.x + ',' + f.y, f]));
+      const runs = [];
+      walls.forEach(f => { if (at.has((f.x + 1) + ',' + f.y)) runs.push([f, 0]); if (at.has(f.x + ',' + (f.y + 1))) runs.push([f, 1]); });
       const mat = FM.mats().paint;
-      const post = new T.InstancedMesh(parts.post, mat, Math.max(1, fences.length)), rail = new T.InstancedMesh(parts.rail, mat, Math.max(1, rails.length));
+      const post = new T.InstancedMesh(parts.post, mat, Math.max(1, walls.length)), rail = new T.InstancedMesh(parts.rail, mat, Math.max(1, runs.length));
       const m = new T.Matrix4(), q = new T.Quaternion(), one = new T.Vector3(1, 1, 1), c = new T.Color();
-      fences.forEach((f, i) => { m.compose(new T.Vector3(W(f.x + .5), 0, W(f.y + .5)), q, one); post.setMatrixAt(i, m); post.setColorAt(i, c.set(FM.FENCE_TINT[f.l - 1] || 0xA0703F)); });
-      rails.forEach(([f, dir], i) => {
+      walls.forEach((f, i) => { m.compose(new T.Vector3(W(f.x + .5), 0, W(f.y + .5)), q, one); post.setMatrixAt(i, m); post.setColorAt(i, c.set(FM.WALL_TINT[f.l - 1] || 0x8A6239)); });
+      runs.forEach(([f, dir], i) => {
         m.compose(new T.Vector3(W(f.x + .5), 0, W(f.y + .5)), new T.Quaternion().setFromAxisAngle(new T.Vector3(0, 1, 0), dir ? -Math.PI / 2 : 0), one);
-        rail.setMatrixAt(i, m); rail.setColorAt(i, c.set(FM.FENCE_TINT[f.l - 1] || 0xA0703F));
+        rail.setMatrixAt(i, m); rail.setColorAt(i, c.set(FM.WALL_TINT[f.l - 1] || 0x8A6239));
       });
-      post.count = fences.length; rail.count = rails.length;
-      post.castShadow = rail.castShadow = true; post.receiveShadow = true;
-      post.userData.fences = fences;
+      post.count = walls.length; rail.count = runs.length;
+      post.castShadow = rail.castShadow = true; post.receiveShadow = rail.receiveShadow = true;
+      post.userData.walls = walls;
       root.add(post, rail);
-      fenceMesh = {post, rail};
+      wallMesh = {post, rail};
     }
     picks.length = 0;
     groups.forEach(e => e.g.traverse(m => { if (m.isMesh) picks.push(m); }));
-    if (fenceMesh) picks.push(fenceMesh.post);
+    if (wallMesh) picks.push(wallMesh.post);
     want();
   }
   /** The building under a point on the screen (its id), or null. */
@@ -294,7 +298,7 @@ export function create(host, opts = {}) {
     placeCam(); ndcOf(cx, cy); ray.setFromCamera(ndc, cam);
     const hit = ray.intersectObjects(picks, false)[0];
     if (!hit) return null;
-    if (hit.object.isInstancedMesh && hit.object.userData.fences) { const f = hit.object.userData.fences[hit.instanceId]; return f ? f.i : null; }
+    if (hit.object.isInstancedMesh && hit.object.userData.walls) { const f = hit.object.userData.walls[hit.instanceId]; return f ? f.i : null; }
     return hit.object.userData.bid ?? null;
   };
 
@@ -334,7 +338,7 @@ export function create(host, opts = {}) {
   function setGhost(g) {
     if (ghost) { root.remove(ghost.g); ghost = null; }
     if (!g) { select(null); return; }
-    const grp = FM.model(g.t, 1, team);
+    const grp = FM.model(g.t, 1, house);
     grp.traverse(m => { if (m.isMesh) { m.castShadow = false; } });
     const size = KINDS[g.t].size;
     grp.position.set(W(g.x + size / 2), .25, W(g.y + size / 2));
@@ -417,8 +421,8 @@ export function create(host, opts = {}) {
 
   // ---------------------------------------------------------------------------------------------------- a raid
   let raid = null;
-  /** Draws battle B (core/franchise-battle.js) on this lot: call before the raid's first frame; then raidFrame(t)
-   *  each frame with the raid's clock (interpolated between its steps). raider: the raiders' team colours. */
+  /** Draws battle B (core/realm-battle.js) on this lot: call before the raid's first frame; then raidFrame(t)
+   *  each frame with the raid's clock (interpolated between its steps). raider: the raiders' house. */
   function raidStart(B, raider) {
     raidStop();
     const kinds = Object.keys(TROOPS), meshes = {}, m4 = new T.Matrix4();
@@ -431,13 +435,16 @@ export function create(host, opts = {}) {
       scene.add(body, leg);
       meshes[k] = {body, leg};
     });
-    // what flies: footballs (QBs, kickers, the JUGS), shirts (the cannon), the press box's, splashes, dust
-    const ballGeo = new T.SphereGeometry(.09, 10, 8); ballGeo.scale(1, 1, 1.7);
-    const shirtGeo = new T.CylinderGeometry(.07, .07, .22, 8); shirtGeo.rotateX(Math.PI / 2);
-    const balls = new T.InstancedMesh(ballGeo, new T.MeshStandardMaterial({color: 0x7A3B1B, roughness: .5}), 80);
-    const shirts = new T.InstancedMesh(shirtGeo, new T.MeshStandardMaterial({color: 0xFFFFFF, roughness: .7}), 60);
-    balls.frustumCulled = shirts.frustumCulled = false;
-    scene.add(balls, shirts);
+    // what flies: arrows (archers, archer towers), bolts (ballistas), boulders (trebuchets), dragon fire
+    const arrowGeo = new T.CylinderGeometry(.014, .014, .46, 5); arrowGeo.rotateX(Math.PI / 2);
+    const boltGeo = new T.CylinderGeometry(.035, .035, .85, 6); boltGeo.rotateX(Math.PI / 2);
+    const mk = (g, mat, n) => { const m = new T.InstancedMesh(g, mat, n); m.frustumCulled = false; m.count = 0; scene.add(m); return m; };
+    const fly = {
+      arrow: mk(arrowGeo, new T.MeshStandardMaterial({color: 0x6B4A2A, roughness: .7}), 160),
+      bolt: mk(boltGeo, new T.MeshStandardMaterial({color: 0x4A3220, roughness: .6}), 40),
+      rock: mk(new T.DodecahedronGeometry(.22, 0), new T.MeshStandardMaterial({color: 0x77726A, roughness: 1, flatShading: true}), 24),
+      fire: mk(new T.SphereGeometry(.22, 10, 8), new T.MeshBasicMaterial({color: 0xFF8A1E, toneMapped: false}), 24)
+    };
     const puffTex = puffTexture(T), puffs = [];
     for (let i = 0; i < 40; i++) {
       const sp = new T.Sprite(new T.SpriteMaterial({map: puffTex, color: 0xBFB7AA, transparent: true, depthWrite: false, opacity: 0}));
@@ -449,7 +456,7 @@ export function create(host, opts = {}) {
     const zone = new T.Mesh(new T.PlaneGeometry(N, N), new T.MeshBasicMaterial({map: zoneTex, transparent: true, opacity: 0, depthWrite: false, toneMapped: false}));
     zone.rotation.x = -Math.PI / 2; zone.position.y = .015; zone.renderOrder = 1;
     scene.add(zone);
-    raid = {B, meshes, balls, shirts, puffs, fxAt: 0, prev: new Map(), cur: new Map(), stepSeen: -1, zone, zoneCv: cv, zoneTex, zoneSig: '', zoneShow: 0, aim: new Map()};
+    raid = {B, meshes, fly, puffs, fxAt: 0, prev: new Map(), cur: new Map(), stepSeen: -1, zone, zoneCv: cv, zoneTex, zoneSig: '', zoneShow: 0, aim: new Map()};
     drawZone();
     want();
   }
@@ -478,7 +485,7 @@ export function create(host, opts = {}) {
       R.stepSeen = B.step;
     }
     const f = Math.max(0, Math.min(1, (t - (B.t - .1)) / .1));
-    // the players
+    // the soldiers
     const m4 = new T.Matrix4(), q = new T.Quaternion(), sc = new T.Vector3(1.5, 1.5, 1.5), up = new T.Vector3(0, 1, 0), pv = new T.Vector3();
     const counts = {};
     Object.keys(R.meshes).forEach(k => { counts[k] = 0; });
@@ -491,47 +498,65 @@ export function create(host, opts = {}) {
       const hit = t - u.hitAt < .35 ? Math.sin((t - u.hitAt) / .35 * Math.PI) : 0;
       const face = -u.face + Math.PI / 2;
       q.setFromAxisAngle(up, face);
+      const i = counts[u.t]++;
+      if (u.t === 'dragon') {
+        // in the air, bobbing, its wings beating
+        const flap = Math.sin(t * 7 + u.id) * .55, hy = 2.3 + Math.sin(t * 2.2 + u.id) * .12;
+        pv.set(W(x), hy, W(y));
+        m4.compose(pv, q.clone().multiply(new T.Quaternion().setFromAxisAngle(new T.Vector3(1, 0, 0), -.08 - .25 * hit)), sc); M.body.setMatrixAt(i, m4);
+        [-1, 1].forEach((sd, j) => {
+          const wq = q.clone().multiply(new T.Quaternion().setFromAxisAngle(new T.Vector3(0, 0, 1), sd * flap));
+          const off = new T.Vector3(sd * .2, .12, .1).multiplyScalar(1.5).applyQuaternion(q);
+          m4.compose(new T.Vector3(pv.x + off.x, hy + off.y, pv.z + off.z), wq, new T.Vector3(sd * 1.5, 1.5, 1.5)); M.leg.setMatrixAt(i * 2 + j, m4);
+        });
+        return;
+      }
       const lean = new T.Quaternion().setFromAxisAngle(new T.Vector3(1, 0, 0), .15 * (moving ? 1 : 0) + .5 * hit);
       const qq = q.clone().multiply(lean);
       const bob = moving ? Math.abs(Math.sin(t * 14 + u.id)) * .04 : 0;
       pv.set(W(x), .33 + bob, W(y));
-      const i = counts[u.t]++;
       m4.compose(pv, qq, sc); M.body.setMatrixAt(i, m4);
-      [-1, 1].forEach((s, j) => {
-        const lq = q.clone().multiply(new T.Quaternion().setFromAxisAngle(new T.Vector3(1, 0, 0), s * swing));
-        const off = new T.Vector3(s * .09 * (u.t === 'lineman' ? 1.4 : 1), 0, 0).applyQuaternion(q);
+      [-1, 1].forEach((sd, j) => {
+        const lq = q.clone().multiply(new T.Quaternion().setFromAxisAngle(new T.Vector3(1, 0, 0), sd * swing));
+        const off = new T.Vector3(sd * .09 * (u.t === 'knight' ? 1.35 : 1), 0, 0).applyQuaternion(q);
         m4.compose(new T.Vector3(pv.x + off.x, .33 + bob, pv.z + off.z), lq, sc); M.leg.setMatrixAt(i * 2 + j, m4);
       });
     });
     Object.entries(R.meshes).forEach(([k, M]) => { M.body.count = counts[k]; M.leg.count = counts[k] * 2; M.body.instanceMatrix.needsUpdate = true; M.leg.instanceMatrix.needsUpdate = true; });
-    // what's in the air
-    let nb = 0, ns = 0;
+    // what's in the air: each along its arc, pointing the way it's going
+    const KIND = {archer: 'arrow', tower: 'arrow', ballista: 'bolt', trebuchet: 'rock', dragon: 'fire'};
+    const ARC = {trebuchet: 4, archer: 1.1, tower: 1, ballista: .35, dragon: .15};
+    const n = {arrow: 0, bolt: 0, rock: 0, fire: 0}, dir = new T.Vector3(), fwd = new T.Vector3(0, 0, 1), one = new T.Vector3(1, 1, 1);
     B.shots.forEach(s => {
-      const u = Math.max(0, Math.min(1, (t - s.t0) / Math.max(.01, s.t1 - s.t0)));
-      const arc = s.k === 'jugs' ? 4 : s.k === 'kicker' ? 2.2 : s.k === 'qb' ? 1.1 : s.k === 'cannon' ? .8 : .5;
-      const x = s.x0 + (s.x1 - s.x0) * u, y = s.y0 + (s.y1 - s.y0) * u, h = (s.foe ? 1.1 : .5) + arc * 4 * u * (1 - u) - (s.foe ? .7 * u : 0);
-      pv.set(W(x), h, W(y));
-      q.setFromAxisAngle(up, Math.atan2(s.x1 - s.x0, s.y1 - s.y0));
-      m4.compose(pv, q, sc);
-      if (s.k === 'cannon' || s.k === 'pressbox') { if (ns < 60) shirtsSet(ns++, m4); }
-      else if (s.k !== 'shower' && nb < 80) R.balls.setMatrixAt(nb++, m4);
+      const kind = KIND[s.k];
+      if (!kind) return;
+      const M = R.fly[kind];
+      if (n[kind] >= M.instanceMatrix.count) return;
+      const u = Math.max(0, Math.min(1, (t - s.t0) / Math.max(.01, s.t1 - s.t0))), arc = ARC[s.k] || .5;
+      const y0 = s.foe ? (s.k === 'tower' ? 2.6 : 1.1) : (s.k === 'dragon' ? 2.2 : .55), y1 = s.high ? 2.3 : .35;
+      const x = s.x0 + (s.x1 - s.x0) * u, z = s.y0 + (s.y1 - s.y0) * u, h = y0 + (y1 - y0) * u + arc * 4 * u * (1 - u);
+      dir.set(s.x1 - s.x0, (y1 - y0) + arc * 4 * (1 - 2 * u), s.y1 - s.y0).normalize();
+      q.setFromUnitVectors(fwd, dir);
+      pv.set(W(x), h, W(z));
+      m4.compose(pv, q, kind === 'fire' ? new T.Vector3(1 + u, 1 + u, 1 + u) : one);
+      M.setMatrixAt(n[kind]++, m4);
     });
-    function shirtsSet(i, m) { R.shirts.setMatrixAt(i, m); }
-    R.balls.count = nb; R.shirts.count = ns; R.balls.instanceMatrix.needsUpdate = true; R.shirts.instanceMatrix.needsUpdate = true;
-    // the defenses turn to whom they're shooting at; the bucket tips when it pours
+    Object.entries(R.fly).forEach(([k, M]) => { M.count = n[k]; M.instanceMatrix.needsUpdate = true; });
+    // the defenses turn to whom they're shooting at; the cauldron tips when it pours
     B.bl.forEach(b => {
       if (!b.def) return;
       const e = groups.get(b.i);
       const top = e && e.g.getObjectByName('top');
       if (!top) return;
-      if (b.t === 'shower') { const tip = B.t - (b.cd > 0 ? (b.def.every - b.cd) : 9) < .5 ? .6 : .15; top.rotation.z += (tip - top.rotation.z) * .3; }
+      if (b.t === 'cauldron') { const tip = B.t - (b.cd > 0 ? (b.def.every - b.cd) : 9) < .5 ? .6 : .15; top.rotation.z += (tip - top.rotation.z) * .3; }
       else { const want = -b.aim + Math.PI / 2; const cur = R.aim.get(b.i) ?? want; const d = Math.atan2(Math.sin(want - cur), Math.cos(want - cur)); const nv = cur + d * .25; R.aim.set(b.i, nv); top.rotation.y = nv; }
     });
     // what happened since the last frame: dust, splashes, puffs
     for (; R.fxAt < B.fx.length; R.fxAt++) {
       const e = B.fx[R.fxAt];
       if (e.k === 'boom') { for (let j = 0; j < (e.wall ? 1 : 4); j++) puff(e.x + (j % 2 - .5) * .8, e.y + (j > 1 ? .4 : -.4), e.wall ? .9 : 2.4, 0xB5AC9E, 1.1, now); }
-      else if (e.k === 'land' && e.splash) puff(e.x, e.y, e.splash * 2.2, e.of === 'shower' ? 0x9BE15D : 0xE8D8B0, .6, now);
+      else if (e.k === 'land' && e.splash) puff(e.x, e.y, e.splash * 2.2, e.of === 'cauldron' ? 0xE0641E : 0xC9BCA4, .6, now);
+      else if (e.k === 'hit' && e.of === 'dragon') puff(e.x, e.y, 1.8, 0xFF7A1E, .5, now);
       else if (e.k === 'blast') puff(e.x, e.y, 2.2, 0xFF9A3C, .7, now);
       else if (e.k === 'down') puff(e.x, e.y, .9, 0xDDDDDD, .6, now);
     }
@@ -556,7 +581,8 @@ export function create(host, opts = {}) {
   function raidStop() {
     if (!raid) return;
     Object.values(raid.meshes).forEach(M => { scene.remove(M.body, M.leg); M.body.dispose(); M.leg.dispose(); });
-    scene.remove(raid.balls, raid.shirts, raid.zone);
+    Object.values(raid.fly).forEach(M => { scene.remove(M); M.dispose(); });
+    scene.remove(raid.zone);
     raid.puffs.forEach(p => scene.remove(p.sp));
     raid = null;
   }

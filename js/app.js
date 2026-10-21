@@ -54,15 +54,29 @@ export const REGISTRY = {
   press: () => import('./views/press.js'),
   profile: () => import('./views/profile.js'),
   lay: () => import('./views/lay.js'),
-  franchise: () => import('./views/franchise.js'),
-  'franchise-raid': () => import('./views/franchise-raid.js'),
+  realm: () => import('./views/realm.js'),
+  'realm-raid': () => import('./views/realm-raid.js'),
   _kit: () => import('./views/_kit.js')
 };
-export const TABS = ['puzzles', 'pickem', 'lay', 'matchup', 'league', 'draft', 'franchise'];
+// Every tab, in order. The Realm is the owner's alone (data.isOwner(): the owner's ask, Oct 2026): TABS, the tabs this
+// phone shows (the pager, the swipes, the scrub and the idle warm-up all go by it), has it only on his phones; syncTabs()
+// keeps it so as who this phone is changes.
+const ALL_TABS = ['puzzles', 'pickem', 'lay', 'matchup', 'league', 'draft', 'realm'];
+const OWNER_TABS = ['realm'];
+export const TABS = ALL_TABS.filter(t => !OWNER_TABS.includes(t));
+/** Brings TABS (and the tab bar's buttons) in line with who this phone is. True if they changed. */
+function syncTabs() {
+  const want = ALL_TABS.filter(t => !OWNER_TABS.includes(t) || data.isOwner());
+  document.querySelectorAll('#tabbar .tab[data-tab]').forEach(b => { b.hidden = !want.includes(b.dataset.tab); });
+  if (want.join() === TABS.join()) return false;
+  TABS.splice(0, TABS.length, ...want);
+  return true;
+}
+export const ownerTab = t => OWNER_TABS.includes(t);
 const HOME = 'puzzles'; // the tab the app opens on: the history base, where covers present, where Back from a root lands
-const TAB_VIEW = {puzzles: 'puzzles', pickem: 'pickem', matchup: 'rivals', league: 'league', draft: 'moves', lay: 'lay', franchise: 'franchise'}; // root view ids
-const ROOTS = {puzzles: '/puzzles', pickem: '/pickem', matchup: '/matchup', league: '/league/standings', draft: '/draft', lay: '/lay', franchise: '/franchise'};
-const TAB_TITLES = {puzzles: 'Daily Games', pickem: "Pick'em", matchup: 'Matchup', league: 'League', draft: 'Draft', lay: 'The Lay', franchise: 'Franchise'};
+const TAB_VIEW = {puzzles: 'puzzles', pickem: 'pickem', matchup: 'rivals', league: 'league', draft: 'moves', lay: 'lay', realm: 'realm'}; // root view ids
+const ROOTS = {puzzles: '/puzzles', pickem: '/pickem', matchup: '/matchup', league: '/league/standings', draft: '/draft', lay: '/lay', realm: '/realm'};
+const TAB_TITLES = {puzzles: 'Daily Games', pickem: "Pick'em", matchup: 'Matchup', league: 'League', draft: 'Draft', lay: 'The Lay', realm: 'Realm'};
 // Old bare hashes (#daily, #records...) from the first app. Null prototype: '#constructor' is not a legacy hash.
 const LEGACY = Object.assign(Object.create(null), {daily: '/puzzles', records: '/league/records', trophies: '/league/trophies', standings: '/league/standings', rivals: '/matchup', moves: '/draft'});
 const PUZZLES = ['college', 'silhouette', 'mystery', 'journey', 'grid', 'plays']; // every day's steps are some of these (daily.SLUGS)
@@ -121,10 +135,12 @@ function matchSegs(p, q) {
       // The Lay: the weekly 12-leg parlay (data/lay.json).
       if (n === 1) return R('lay', 'root', 'lay');
       return null;
-    case 'franchise':
-      // The Franchise (views/franchise.js): your lot; a raid on someone's (views/franchise-raid.js) is a cover.
-      if (n === 1) return R('franchise', 'root', 'franchise');
-      if (n === 3 && b === 'raid' && c) return R('franchise-raid', 'cover', 'franchise', {key: c});
+    case 'realm':
+      // The Realm (views/realm.js): the owner's alone. On anyone else's phone (once the data says who) its links land on
+      // Daily Games. An attack (views/realm-raid.js) is a cover.
+      if (data.DATA && !data.isOwner()) return {redirect: '/puzzles', query: false};
+      if (n === 1) return R('realm', 'root', 'realm');
+      if (n === 3 && b === 'raid' && c) return R('realm-raid', 'cover', 'realm', {key: c});
       return null;
     // ---- Legacy routes (shared links, bookmarks, share texts, notifications): redirected to the new homes.
     case 'today':
@@ -1417,7 +1433,7 @@ function updateTabBar(T, {animate = true} = {}) {
 // this phone showed today (gg-ring, same local date), so it never flashes a wrong state.
 // Polled after every navigation, on the Daily's events, on 'me' and 'data', every 30 s while the page is visible, when
 // a view module finishes loading, and whenever a view dispatches a 'gg:badge' event (on any node, or window).
-const BADGE_TABS = ['puzzles', 'pickem', 'matchup', 'lay', 'franchise'];
+const BADGE_TABS = ['puzzles', 'pickem', 'matchup', 'lay', 'realm'];
 const RING_KEY = 'gg-ring'; // {date, parts, left}: also read by the Puzzles screen for its loading state
 const ringDate = () => new Date().toDateString();
 function cachedRing() {
@@ -1469,7 +1485,7 @@ function badgeLabel(T, on) {
     try { why = ns && typeof ns.badgeText === 'function' ? ns.badgeText() : ''; } catch (e) { console.error(e); }
     return `${base}, ${why || 'games to pick'}`;
   }
-  if (T === 'lay' || T === 'franchise') return `${base}, new`;
+  if (T === 'lay' || T === 'realm') return `${base}, new`;
   return T === 'matchup' ? `${base}, vote open` : base;
 }
 let badgeQueued = false;
@@ -1633,7 +1649,7 @@ const pager = {
   },
   /** The pill under pos (the swipe; the bar's drag moves it under the finger itself). */
   pill(pos) {
-    const bar = $('tabbar'), ind = bar.querySelector('.tab-ind'), btns = [...bar.querySelectorAll('.tab')];
+    const bar = $('tabbar'), ind = bar.querySelector('.tab-ind'), btns = [...bar.querySelectorAll('.tab:not([hidden])')];
     if (!ind || !btns.length) return;
     const p = Math.max(0, Math.min(btns.length - 1, pos)), a = Math.floor(p), b = Math.ceil(p);
     indX = btns[a].offsetLeft + (btns[b].offsetLeft - btns[a].offsetLeft) * (p - a);
@@ -1733,7 +1749,7 @@ function slideTo(T) {
 let scrubEnd = 0;
 function setupScrub(bar) {
   let g = null;
-  const tabs = () => [...bar.querySelectorAll('.tab')];
+  const tabs = () => [...bar.querySelectorAll('.tab:not([hidden])')];
   const mark = btn => tabs().forEach(t => t.classList.toggle('is-scrub', t === btn));
   // The finger's place along the bar as a tab position: tab k's centre is k, fractional between centres.
   const posAt = x => {
@@ -2000,6 +2016,13 @@ document.addEventListener('keydown', e => {
 // Data and "me" changes: update visible screens now, the rest when they are next shown.
 // 'me' applies at once (it follows a tap); 'data' waits for ui.whenIdle so a reload never swaps
 // content in the middle of an animation or a scroll.
+// Who this phone is decides the tabs (the Realm is the owner's): off a tab that's gone, onto Daily Games.
+data.subscribe(type => {
+  if (type !== 'me' || !syncTabs()) return;
+  if (!TABS.includes(S.tab)) goTab(HOME);
+  else moveIndicator($('tabbar').querySelector(`.tab[data-tab="${S.tab}"]`), true);
+  queueBadges();
+});
 data.subscribe(type => {
   if (type !== 'data' && type !== 'me') return;
   const apply = () => {
@@ -2119,6 +2142,7 @@ function takeBootMark() {
   } catch (_) { return null; }
 }
 async function start() {
+  syncTabs();
   let hash0 = location.hash;
   const st0 = history.state;
   const marked = takeBootMark();
@@ -2163,7 +2187,7 @@ async function boot() {
   try { history.scrollRestoration = 'manual'; } catch (_) {}
   const h = location.hash.replace(/^#/, '');
   if (LEGACY[h]) { try { history.replaceState(null, '', '#' + LEGACY[h]); } catch (_) {} }
-  TABS.forEach(t => { S.stacks[t] = [newEntry(parseRoute(ROOTS[t]), t, 'root')]; });
+  ALL_TABS.forEach(t => { S.stacks[t] = [newEntry(parseRoute(ROOTS[t]), t, 'root')]; });
   try { await data.load(); } catch (e) { console.error(e); showFatal(); return; }
   await start();
 }

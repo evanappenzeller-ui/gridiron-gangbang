@@ -30,9 +30,10 @@ How it's enforced, and what to keep doing:
 - The Pick'em standings (week and season tables, and the leader line built from them) follow the same rule:
   `js/core/week.js` `finishRows()` drops any row that isn't a member's, Ryan D's or this phone's own. The kit check
   "Standings show league members and Ryan D to everyone…" (`js/core/checks-pickem.js`) covers it.
-- The Franchise (`js/views/franchise.js`, `js/core/franchise.js`) follows it too: its League list ranks franchises from
-  `daily.LB.raw`, and only the league's (members and Ryan D) can be raided, and only by the league; guests and other app
-  users raid only the computer's franchises. The kit checks "Franchise (THE RULE)…" (`js/core/checks-franchise.js`) cover it.
+- The Realm (`js/views/realm.js`, `js/core/realm.js`) is the owner's alone (October 2026): its tab and links are on his
+  phones only (`js/app.js` `OWNER_TABS`), it raids only the computer's realms, and no one else's scores, names or
+  realms appear in it. Don't open it to anyone else unless the owner says so. The kit check "Realm: the owner's
+  alone…" (`js/core/checks-realm.js`) covers it.
 - Profile pictures follow the same rule (`js/core/avatars.js` `pictureShows()`): a member's picture, and Ryan D's, shows
   to everyone; a guest's or any other app user's only on their own phones. The kit check "pictures: …" covers it.
 

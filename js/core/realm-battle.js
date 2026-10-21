@@ -1,16 +1,19 @@
-// A raid, played out (core/franchise.js: the Franchise). The raider drops their team round the edge of a franchise's
-// lot; each player heads for what he goes after (the nearest building, the nearest defense, a fence, the money),
-// finding his way round buildings and through fences (breaking one when that's quicker than going round), and goes at
-// it; the defenses shoot back at whoever's nearest in their reach (the JUGS Machine and the Gatorade Shower hit
-// everyone round where it lands). Fixed steps of DT, nothing random: the same drops at the same moments play out the
-// same every time. What a building holds comes out as it's knocked down (its share by the damage done).
-// makeBattle(base, loot, army) → {t, over, deploy(t, x, y), step(), canDrop(x, y), pct(), stars(), result(), ...}.
-import {KINDS, TROOPS, stat, N, RAID_S} from './franchise.js';
+// A raid, played out (core/realm.js: the Realm). The raider drops their army round the edge of a realm's lot; each
+// soldier heads for what he goes after (the nearest building, the nearest defense, a wall, the gold and grain),
+// finding his way round buildings and through walls (breaking one when that's quicker than going round), and goes at
+// it; a dragon flies straight there over everything. The defenses shoot back at whoever's nearest in their reach (the
+// trebuchet and the pitch cauldron hit everyone round where it lands, and can't reach a dragon). Fixed steps of DT,
+// nothing random: the same drops at the same moments play out the same every time. What a building holds comes out
+// as it's knocked down (its share by the damage done).
+// makeBattle(base, loot, army) → {t, over, deploy(t, x, y), step1(), canDrop(x, y), pct(), stars(), result(), ...};
+// replay(...) plays a recorded raid again; defend(s, now) plays the computer's raids on your realm since you last
+// looked (a few a day).
+import {KINDS, TROOPS, stat, N, RAID_S, BOTS, rng, boxOf, keepOf, lootOf, takeRaid, HOUR} from './realm.js';
 
 export const DT = .1;
-const HIT_EVERY = 1;   // seconds between a player's hits
-const REACH = .55;     // how far past his range a player still hits (a tile's half and a bit: where his path ends)
-const FLIGHT = {cannon: .35, pressbox: .25, jugs: 1.2, shower: .15};
+const HIT_EVERY = 1;   // seconds between a soldier's hits
+const REACH = .55;     // how far past his range a soldier still hits (a tile's half and a bit: where his path ends)
+const FLIGHT = {ballista: .35, tower: .25, trebuchet: 1.2, cauldron: .15};
 
 // ---- a heap for the path search
 function Heap() { this.k = []; this.v = []; }
@@ -41,18 +44,18 @@ Heap.prototype.pop = function () {
 const distTo = (b, x, y) => Math.hypot(Math.max(b.x - x, 0, x - (b.x + b.size)), Math.max(b.y - y, 0, y - (b.y + b.size)));
 
 /**
- * A raid on base (a franchise state: its buildings), with loot {by: {buildingId: {cash, juice}}}, by a team army
+ * A raid on base (a realm state: its buildings), with loot {by: {buildingId: {gold, grain}}}, by an army
  * ({troop: n}).
  */
 export function makeBattle(base, loot, army) {
-  const B = {t: 0, step: 0, over: false, why: '', bl: [], tr: [], shots: [], fx: [], left: Object.assign({}, army), used: {}, got: {cash: 0, juice: 0}, gotBy: {}, seq: 0, drops: []};
+  const B = {t: 0, step: 0, over: false, why: '', bl: [], tr: [], shots: [], fx: [], left: Object.assign({}, army), used: {}, got: {gold: 0, grain: 0}, gotBy: {}, seq: 0, drops: []};
   const occ = new Int32Array(N * N).fill(-1);
   (base.b || []).forEach(b => {
     if (b.l < 1) return;
     const K = KINDS[b.t], st = stat(b.t, b.l), size = K.size;
     const e = {i: b.i, t: b.t, l: b.l, x: b.x, y: b.y, size, cx: b.x + size / 2, cy: b.y + size / 2, hp: st.hp, max: st.hp,
       wall: K.role === 'wall', def: K.role === 'def' ? st : null, cd: 0, loot: (loot && loot.by && loot.by[b.i]) || null,
-      took: {cash: 0, juice: 0}, dead: false, money: K.role === 'make' || K.role === 'store', aim: 0};
+      took: {gold: 0, grain: 0}, dead: false, money: K.role === 'make' || K.role === 'store', aim: 0};
     const idx = B.bl.length;
     B.bl.push(e);
     for (let y = b.y; y < b.y + size; y++) for (let x = b.x; x < b.x + size; x++) if (x >= 0 && y >= 0 && x < N && y < N) occ[y * N + x] = idx;
@@ -73,7 +76,7 @@ export function makeBattle(base, loot, army) {
   };
   B.pct = () => Math.round(100 * B.bl.filter(b => !b.wall && b.dead).length / total);
   B.stars = () => {
-    const p = B.pct(), hall = B.bl.find(b => b.t === 'stadium');
+    const p = B.pct(), hall = B.bl.find(b => b.t === 'keep');
     return (p >= 50 ? 1 : 0) + (hall && hall.dead ? 1 : 0) + (p >= 100 ? 1 : 0);
   };
   B.fieldLeft = () => B.tr.some(u => !u.dead) || Object.values(B.left).some(n => n > 0);
@@ -91,7 +94,7 @@ export function makeBattle(base, loot, army) {
     pool.forEach(b => { const d = distTo(b, u.x, u.y); if (d < bd) { bd = d; best = b; } });
     return best;
   };
-  // ---- finding the way: tile to tile (diagonals too), round buildings, through fences at the time it takes to break
+  // ---- finding the way: tile to tile (diagonals too), round buildings, through walls at the time it takes to break
   // them, to any tile from which the target is in reach
   const path = (u, tg) => {
     const T = TROOPS[u.t], reach = T.range + REACH - .05, dps = T.dps || 30;
@@ -119,7 +122,7 @@ export function makeBattle(base, loot, army) {
           const b = B.bl[o];
           if (!b.wall) continue;
           cost += b.hp / dps * T.speed;
-          // (no squeezing between two fences on a diagonal)
+          // (no squeezing between two walls on a diagonal)
         }
         if (dx && dy) {
           const a = occ[cy * N + X], b2 = occ[Y * N + cx];
@@ -136,7 +139,7 @@ export function makeBattle(base, loot, army) {
   };
   const retarget = u => {
     u.tg = pick(u);
-    u.path = u.tg ? path(u, u.tg) : [];
+    u.path = u.tg && !TROOPS[u.t].fly ? path(u, u.tg) : [];
     u.pi = 0;
     u.wallAt = null;
   };
@@ -144,9 +147,9 @@ export function makeBattle(base, loot, army) {
   // ---- hits
   const takeLoot = (b, d) => {
     if (!b.loot) return;
-    ['cash', 'juice'].forEach(c => {
+    ['gold', 'grain'].forEach(c => {
       const want = Math.floor(b.loot[c] * Math.min(1, (b.max - Math.max(0, b.hp)) / b.max)), add = Math.max(0, want - b.took[c]);
-      if (add > 0) { b.took[c] += add; B.got[c] += add; (B.gotBy[b.i] = B.gotBy[b.i] || {cash: 0, juice: 0})[c] += add; B.fx.push({k: 'coin', t: B.t, x: b.cx, y: b.cy, c, n: add}); }
+      if (add > 0) { b.took[c] += add; B.got[c] += add; (B.gotBy[b.i] = B.gotBy[b.i] || {gold: 0, grain: 0})[c] += add; B.fx.push({k: 'coin', t: B.t, x: b.cx, y: b.cy, c, n: add}); }
     });
   };
   const hurt = (b, d) => {
@@ -165,7 +168,7 @@ export function makeBattle(base, loot, army) {
     if (u.hp <= 0) { u.hp = 0; u.dead = true; B.fx.push({k: 'down', t: B.t, x: u.x, y: u.y, id: u.id}); }
   };
 
-  // ---- dropping a player
+  // ---- sending a soldier
   B.deploy = (t, x, y) => {
     if (B.over || !(B.left[t] > 0) || !B.canDrop(x, y)) return null;
     B.left[t]--;
@@ -183,7 +186,7 @@ export function makeBattle(base, loot, army) {
     if (B.over) return;
     B.t = +(B.t + DT).toFixed(3);
     B.step++;
-    // the players
+    // the soldiers
     B.tr.forEach(u => {
       if (u.dead) return;
       const T = TROOPS[u.t];
@@ -191,7 +194,7 @@ export function makeBattle(base, loot, army) {
       const tg = u.tg;
       if (!tg) return;
       u.cd = Math.max(0, u.cd - DT);
-      // a fence in the way: break it first
+      // a wall in the way: break it first
       let foe = u.wallAt && !u.wallAt.dead ? u.wallAt : null;
       if (!foe && distTo(tg, u.x, u.y) <= T.range + REACH) foe = tg;
       if (foe) {
@@ -200,14 +203,14 @@ export function makeBattle(base, loot, army) {
           u.cd = HIT_EVERY;
           u.hitAt = B.t;
           if (T.blast) {
-            // the fullback: every fence round him takes the blast, and he's done
+            // the sapper: every wall round him takes the keg's blast, and he's done
             B.bl.forEach(b => { if (b.wall && !b.dead && distTo(b, u.x, u.y) <= 1.4) hurt(b, T.blast); });
             if (!foe.wall) hurt(foe, 20);
             u.dead = true; u.hp = 0;
             B.fx.push({k: 'blast', t: B.t, x: u.x, y: u.y, id: u.id});
             return;
           }
-          const d = T.dps * HIT_EVERY * (u.t === 'mascot' && foe.money ? 2 : 1);
+          const d = T.dps * HIT_EVERY * (u.t === 'thief' && foe.money ? 2 : 1);
           if (T.range > 1) B.shots.push({k: u.t, from: u.id, x0: u.x, y0: u.y, x1: foe.cx, y1: foe.cy, t0: B.t, t1: B.t + .3, b: foe.i, d, splash: T.splash || 0, foe: false});
           else {
             hurt(foe, d);
@@ -215,6 +218,14 @@ export function makeBattle(base, loot, army) {
           }
         }
         if (foe === u.wallAt && foe.dead) u.wallAt = null;
+        return;
+      }
+      // flying: straight at it, over everything
+      if (T.fly) {
+        const px = Math.max(tg.x, Math.min(tg.x + tg.size, u.x)), py = Math.max(tg.y, Math.min(tg.y + tg.size, u.y));
+        const dx = px - u.x, dy = py - u.y, d = Math.hypot(dx, dy), go = Math.min(T.speed * DT, Math.max(0, d - T.range));
+        u.face = Math.atan2(dy, dx);
+        if (d > 1e-6) { u.x += dx / d * go; u.y += dy / d * go; }
         return;
       }
       // walking
@@ -234,7 +245,7 @@ export function makeBattle(base, loot, army) {
       if (b.cd > 0) return;
       let best = null, bd = Infinity;
       B.tr.forEach(u => {
-        if (u.dead) return;
+        if (u.dead || (TROOPS[u.t].fly && !b.def.air)) return;
         const d = Math.hypot(u.x - b.cx, u.y - b.cy);
         if (d <= b.def.range + b.size / 2 && d >= (b.def.min || 0) && d < bd) { bd = d; best = u; }
       });
@@ -242,13 +253,13 @@ export function makeBattle(base, loot, army) {
       b.cd = b.def.every;
       b.aim = Math.atan2(best.y - b.cy, best.x - b.cx);
       const fl = FLIGHT[b.t] || .3;
-      B.shots.push({k: b.t, from: b.i, x0: b.cx, y0: b.cy, x1: best.x, y1: best.y, t0: B.t, t1: B.t + fl, u: best.id, d: b.def.dps * b.def.every, splash: b.def.splash || 0, foe: true});
+      B.shots.push({k: b.t, from: b.i, x0: b.cx, y0: b.cy, x1: best.x, y1: best.y, t0: B.t, t1: B.t + fl, u: best.id, d: b.def.dps * b.def.every, splash: b.def.splash || 0, air: b.def.air, foe: true, high: !!TROOPS[best.t].fly});
     });
     // shots landing
     B.shots = B.shots.filter(s => {
       if (s.t1 > B.t + 1e-6) return true;
       if (s.foe) {
-        if (s.splash) B.tr.forEach(u => { if (!u.dead && Math.hypot(u.x - s.x1, u.y - s.y1) <= s.splash) hurtTroop(u, s.d); });
+        if (s.splash) B.tr.forEach(u => { if (!u.dead && (!TROOPS[u.t].fly || s.air) && Math.hypot(u.x - s.x1, u.y - s.y1) <= s.splash) hurtTroop(u, s.d); });
         else { const u = B.tr.find(q => q.id === s.u); if (u) hurtTroop(u, s.d); }
         B.fx.push({k: 'land', t: B.t, x: s.x1, y: s.y1, of: s.k, splash: s.splash});
       } else {
@@ -283,4 +294,78 @@ export function replay(base, loot, army, drops, until = Infinity) {
     B.step1();
   }
   return B;
+}
+
+// ---------------------------------------------------------------------------------------------------- raids on you
+// The computer's realms raid yours (the Realm is the owner's alone, so they're the only ones who can): at most one in
+// each half of the day (12 hours from midnight), at an hour of it that's the same on every phone; none in your
+// realm's first day or before your Keep is level 2, none during a truce (12 hours after one that took a star), and no
+// more than the last two while you were away. The raiders are the realm a level below yours, an army a little smaller
+// than yours could be, all coming from one side: knights and sappers first, the rest a moment later.
+export const TRUCE_H = 12, WINDOW_H = 12;
+/** When the raids on s since it last looked fall (ms), the last two at most. */
+export function raidsDue(s, now = Date.now()) {
+  const from = Math.max(s.lr || 0, (s.born || 0) + 24 * HOUR, now - 2 * 24 * HOUR), out = [];
+  const d0 = new Date(from); d0.setHours(0, 0, 0, 0);
+  for (let w = d0.getTime(); w <= now; w += WINDOW_H * HOUR) {
+    const d = new Date(w), R = rng(d.getFullYear() * 1000 + (d.getMonth() + 1) * 40 + d.getDate() + Math.floor(d.getHours() / WINDOW_H) * 17 + 7);
+    const at = Math.round(w + (1 + R() * (WINDOW_H - 2)) * HOUR);
+    if (at > from && at <= now) out.push(at);
+  }
+  return out.slice(-2);
+}
+/** The army a computer realm raids a Keep of level th with. */
+export function raidArmy(th) {
+  const room = 10 + th * 5, a = {};
+  let left = room;
+  const add = (t, n) => { n = Math.min(n, Math.floor(left / TROOPS[t].room)); if (n > 0) { a[t] = (a[t] || 0) + n; left -= n * TROOPS[t].room; } };
+  if (th >= 7) add('dragon', 1);
+  if (th >= 3) add('knight', Math.floor(th / 2));
+  if (th >= 4) add('sapper', 2);
+  if (th >= 5) add('thief', 4);
+  add('archer', Math.floor(left * .45));
+  add('footman', left);
+  return a;
+}
+/** Plays the raids on s that are due (raidsDue) and takes each off it (core/realm.js takeRaid). Mutates s; returns
+ *  the raids played. */
+export function defend(s, now = Date.now()) {
+  if (keepOf(s) < 2) { s.lr = Math.max(s.lr || 0, now); return []; }
+  const out = [];
+  raidsDue(s, now).forEach(at => {
+    s.lr = at;
+    if (at < (s.sh || 0)) return;
+    const th = keepOf(s), bot = BOTS[Math.max(0, Math.min(BOTS.length - 1, th - 2))], army = raidArmy(th);
+    const B = makeBattle(s, lootOf(s, at), army), box = boxOf(s), R = rng(at % 2147483647);
+    const side = Math.floor(R() * 4);
+    // a spot on that side, outside the walls' reach, spread along it
+    const spot = (f, out0) => {
+      for (let o = out0; o < out0 + 6; o += 1) {
+        const along = box.x0 + f * (box.x1 - box.x0), across = box.y0 + f * (box.y1 - box.y0);
+        const p = side === 0 ? [along, box.y0 - o] : side === 1 ? [box.x1 + o, across] : side === 2 ? [along, box.y1 + o] : [box.x0 - o, across];
+        if (B.canDrop(p[0], p[1])) return p;
+      }
+      return null;
+    };
+    const first = ['dragon', 'knight', 'sapper'], plan = [];
+    Object.entries(army).forEach(([t, n]) => { for (let i = 0; i < n; i++) plan.push([first.includes(t) ? 0 : 25, t, (i + .5) / n]); });
+    plan.sort((a, b) => a[0] - b[0]);
+    let k = 0;
+    while (!B.over) {
+      while (k < plan.length && plan[k][0] <= B.step) { const [, t, f] = plan[k++], p = spot(.2 + f * .6, 1.5); if (p) B.deploy(t, p[0], p[1]); }
+      B.step1();
+      if (k >= plan.length && !B.fieldLeft()) break;
+    }
+    const r = B.result(), ls = [0, 0], lb = {};
+    Object.entries(r.gotBy).forEach(([id, v]) => {
+      const b = s.b.find(x => x.i === Number(id));
+      if (b && KINDS[b.t].role === 'make') lb[id] = [v.gold, v.grain];
+      else { ls[0] += v.gold; ls[1] += v.grain; }
+    });
+    const rec = {id: 'd' + at.toString(36), at, by: bot.name, th: bot.th, st: r.stars, pc: r.pct, lt: [r.got.gold, r.got.grain], ls, lb, td: r.stars ? -r.stars * th * 3 : th * 3};
+    takeRaid(s, rec);
+    if (r.stars) s.sh = at + TRUCE_H * HOUR;
+    out.push(rec);
+  });
+  return out;
 }

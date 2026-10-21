@@ -1862,14 +1862,14 @@ export async function runChecks() {
     check('League pick\'em and Survivor checks (checks-lpick.js) loaded', () => ({pass: false, detail: lpErr ? 'did not load: ' + (lpErr.message || lpErr) : 'no lpickChecks export'}));
   }
 
-  // Franchise checks (js/core/checks-franchise.js: what the games pay, storage, coaches, training, raids, shields,
-  // and the league's rule). Guarded the same way.
-  let frMod = null, frErr = null;
-  try { frMod = await import('./checks-franchise.js'); } catch (e) { frErr = e; }
-  if (frMod && typeof frMod.franchiseChecks === 'function') {
-    try { await frMod.franchiseChecks(check); } catch (e) { check('Franchise checks (checks-franchise.js)', () => { throw e; }); }
+  // Realm checks (js/core/checks-realm.js: the owner's alone, what the games pay, storage, builders, training, attacks,
+  // the computer's raids on the realm, the old Franchise's realms taken up). Guarded the same way.
+  let rlMod = null, rlErr = null;
+  try { rlMod = await import('./checks-realm.js'); } catch (e) { rlErr = e; }
+  if (rlMod && typeof rlMod.realmChecks === 'function') {
+    try { await rlMod.realmChecks(check); } catch (e) { check('Realm checks (checks-realm.js)', () => { throw e; }); }
   } else {
-    check('Franchise checks (checks-franchise.js) loaded', () => ({pass: false, detail: frErr ? 'did not load: ' + (frErr.message || frErr) : 'no franchiseChecks export'}));
+    check('Realm checks (checks-realm.js) loaded', () => ({pass: false, detail: rlErr ? 'did not load: ' + (rlErr.message || rlErr) : 'no realmChecks export'}));
   }
 
   await Promise.all(pending);

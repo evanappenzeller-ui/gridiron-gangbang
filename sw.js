@@ -8,20 +8,20 @@
 // format changes gets a new file name rather than new content under the old one (data/puzzles-v4.json: see
 // js/core/daily.js).
 const CACHE = 'gg-v298';
-const CORE = ['ui', 'data', 'daily', 'fire', 'week', 'nfl', 'stats', 'motw', 'press', 'checks', 'checks-stats', 'checks-pickem', 'checks-press', 'checks-seventeen', 'checks-drill', 'checks-kick', 'return', 'checks-return', 'lay', 'plays', 'laytrack', 'seventeen', 'drill-sim', 'drill', 'kick', 'avatars', 'lpick', 'survivor', 'checks-lpick', 'franchise', 'franchise-battle', 'checks-franchise'];
-// The seven tab roots are puzzles, pickem, rivals (Matchup), league, moves (Draft), lay (The Lay) and franchise.
+const CORE = ['ui', 'data', 'daily', 'fire', 'week', 'nfl', 'stats', 'motw', 'press', 'checks', 'checks-stats', 'checks-pickem', 'checks-press', 'checks-seventeen', 'checks-drill', 'checks-kick', 'return', 'checks-return', 'lay', 'plays', 'laytrack', 'seventeen', 'drill-sim', 'drill', 'kick', 'avatars', 'lpick', 'survivor', 'checks-lpick', 'realm', 'realm-battle', 'checks-realm'];
+// The tab roots are puzzles, pickem, rivals (Matchup), league, moves (Draft), lay (The Lay) and, on the owner's phones, realm.
 const VIEWS = ['welcome', 'guest', 'puzzles', 'games', 'game-case', 'board', 'you', 'sharecard', 'results', 'run', 'college', 'silhouette', 'mystery', 'journey', 'grid', 'picker',
   'league', 'standings', 'season', 'review', 'wrap', 'matchup', 'rivals', 'pickem', 'press', 'hall', 'hall-trophies', 'hall-records', 'hall-shame',
-  'moves', 'profile', 'lay', 'plays', 'seventeen', 'drill', 'drill-cam', 'drill-sprites', 'kick', 'stadium', 'return-world', 'return-3dworld', 'return-3d', 'return', 'photo', 'testplay', 'lpick', 'survivor', 'franchise', 'franchise-3d', 'franchise-models', 'franchise-raid', '_kit'];
+  'moves', 'profile', 'lay', 'plays', 'seventeen', 'drill', 'drill-cam', 'drill-sprites', 'kick', 'stadium', 'return-world', 'return-3dworld', 'return-3d', 'return', 'photo', 'testplay', 'lpick', 'survivor', 'realm', 'realm-3d', 'realm-models', 'realm-raid', '_kit'];
 const VIEW_CSS = ['welcome', 'puzzles', 'board', 'results', 'you', 'run', 'college', 'silhouette', 'mystery', 'journey', 'grid', 'picker',
-  'standings', 'season', 'review', 'wrap', 'matchup', 'rivals', 'pickem', 'press', 'hall', 'moves', 'profile', 'lay', 'plays', 'seventeen', 'drill', 'kick', 'return', 'franchise', '_kit'];
+  'standings', 'season', 'review', 'wrap', 'matchup', 'rivals', 'pickem', 'press', 'hall', 'moves', 'profile', 'lay', 'plays', 'seventeen', 'drill', 'kick', 'return', 'realm', '_kit'];
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest',
   'css/tokens.css', 'css/base.css', 'css/components.css', 'css/themes.css', 'css/finish.css', 'js/themes.js', 'js/lock.js',
   ...VIEW_CSS.map(v => `css/views/${v}.css`),
   'js/app.js', ...CORE.map(m => `js/core/${m}.js`),
   ...VIEWS.map(v => `js/views/${v}.js`),
-  'fonts/barlow-condensed-800.woff2', 'fonts/press-start-2p.woff2', 'fonts/vt323.woff2', 'img/logo.webp', 'img/nfl.webp', 'img/ncaa.webp', 'img/league.webp', 'img/survivor.webp', 'img/puzzles.webp', 'img/seventeen.webp', 'img/drill.webp',
+  'fonts/barlow-condensed-800.woff2', 'fonts/cinzel-latin.woff2', 'fonts/press-start-2p.woff2', 'fonts/vt323.woff2', 'img/logo.webp', 'img/nfl.webp', 'img/ncaa.webp', 'img/league.webp', 'img/survivor.webp', 'img/puzzles.webp', 'img/seventeen.webp', 'img/drill.webp',
   'img/games/puzzles-cover.webp', 'img/games/seventeen-cover.webp', 'img/games/drill-cover.webp', 'img/games/kick-cover.webp', 'img/games/return-cover.webp', 'img/games/smoke.webp',
   'img/games/puzzles-book.webp', 'img/games/seventeen-book.webp', 'img/games/drill-book.webp', 'img/games/kick-book.webp', 'img/games/return-book.webp',
   'img/games/puzzles-disc.webp', 'img/games/seventeen-disc.webp', 'img/games/drill-disc.webp', 'img/games/kick-disc.webp', 'img/games/return-disc.webp', 'img/return.webp', 'img/kick.webp',

@@ -884,7 +884,7 @@ async function startFirebase() {
       const ref = () => fs.doc(db, 'players', LB.uid);
       LB.save = body => fs.setDoc(ref(), body, {mergeFields: DAILY_FIELDS});
       LB.merge = body => fs.setDoc(ref(), body, {merge: true});
-      // (a field replaced whole: the franchise, core/franchise.js, where a merge would keep what it took away)
+      // (a field replaced whole: the realm, core/realm.js, where a merge would keep what it took away)
       LB.put = (body, fields) => fs.setDoc(ref(), body, {mergeFields: fields});
     }
     fs.onSnapshot(fs.collection(db, 'players'), snap => {
