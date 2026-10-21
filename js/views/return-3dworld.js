@@ -16,6 +16,9 @@ import * as R from '../core/return.js';
 import {dressList, LOOKS, OBS, GOODS_COL} from './return-world.js';
 import {seeded} from './stadium.js';
 import * as cityBus from './return-city-bus.js';
+import * as data from '../core/data.js';
+import * as style from './return-style.js';
+import {decorate} from './return-scenery.js';
 
 let T = null, U = null, SCENE = null, ROOT = null;
 /** The bend (yards down per yard of depth squared: return-3d.js sets it each frame from st.bend). */
@@ -54,6 +57,11 @@ export function init(three, scene, utils) {
   ROOT = new T.Group(); ROOT.name = 'world';
   SCENE.add(ROOT);
   cityBus.init(T, refreshCityBuses);
+  styleMode = style.enabled();
+  if (!styleSubscribed) {
+    styleSubscribed = true;
+    data.subscribe(type => { if (type === 'me' || type === 'data') syncStyle(); });
+  }
   shapes();
   // everything each place needs drawn once now (the ground's pictures, the barricades, banners, power-ups and gates),
   // so coming to a new place never holds a frame up
@@ -105,7 +113,7 @@ const tm = () => TM || (TM = {m: _m(), e: _e(), q: _q(), p: _v(), s: _v(), n: ne
 /** A batch of shapes, each placed, sized and coloured, into one mesh (one draw) at the end: written straight into
  *  one growing buffer (no shape copied, so building a chunk leaves next to nothing to collect). */
 class Batch {
-  constructor() { this.n = 0; this.cap = 0; this.p = null; this.nr = null; this.c = null; }
+  constructor(id = null) { this.styled = !!id && style.enabled(); this.n = 0; this.cap = 0; this.p = null; this.nr = null; this.c = null; }
   room(k) {
     if (this.n + k <= this.cap) return;
     const cap = Math.max(2048, (this.n + k) * 2), grow = a => { const b = new Float32Array(cap * 3); if (a) b.set(a.subarray(0, this.n * 3)); return b; };
@@ -113,6 +121,7 @@ class Batch {
   }
   /** shape at (x, y, z) (the world's yards: its middle), sized (sx, sy, sz), turned (rx, ry, rz), coloured. */
   add(shape, hex, x, y, z, sx, sy, sz, rx = 0, ry = 0, rz = 0) {
+    if (this.styled) { hex = style.paint(hex); if (shape === 'sph') shape = 'ball'; if (shape === 'cyl') shape = 'cyl6'; }
     const g = S[shape], P = g.attributes.position.array, N = g.attributes.normal.array, k = P.length / 3, t = tm();
     t.e.set(rx, ry, rz); t.q.setFromEuler(t.e); t.p.set(x, y, -z); t.s.set(sx, sy, sz);
     const m = t.m.compose(t.p, t.q, t.s).elements, nm = t.n.getNormalMatrix(t.m).elements, c = col(hex);
@@ -277,15 +286,15 @@ function grain(g, w, h, a, cool = false) {
 }
 const pow2 = v => 2 ** Math.round(Math.log2(v));
 function roadMat(id) {
-  const G = GROUNDS[id];
-  return texMat('road:' + id, () => {
+  const G = style.ground(id, GROUNDS[id]);
+  return texMat(style.key() + 'road:' + id, () => {
     const px = G.w / (G.half * 2), h = clamp(pow2(G.per * px), 64, 1024);
     return canvasTex(G.w, h, (g, w, hh) => G.draw(g, w, hh, hh / G.per));
   });
 }
 const NOISE = () => texOf('noise', () => canvasTex(256, 256, (g, w, h) => { g.fillStyle = '#FFFFFF'; g.fillRect(0, 0, w, h); grain(g, w, h, .22); }));
 function baseMat(id) {
-  return texOf('base:' + id, () => new T.MeshLambertMaterial({color: col(GROUNDS[id].base), map: NOISE()}));
+  return texOf(style.key() + 'base:' + id, () => new T.MeshLambertMaterial({color: col(style.ground(id, GROUNDS[id]).base), map: style.enabled() ? null : NOISE()}));
 }
 /** A flat rectangle on the ground (x0..x1, z0..z1, at height y), its texture laid u across, v along every per yards. */
 function plane(mat, x0, x1, z0, z1, y = 0, per = 0, u0 = 0, u1 = 1) {
@@ -318,7 +327,7 @@ function chunk(st, i) {
   // the ground: the road band, the ground either side out to the horizon
   g.add(plane(roadMat(id), -G.half, G.half, z0, z1, 0, G.per));
   g.add(plane(baseMat(id), -260, -G.half, z0, z1, -.01), plane(baseMat(id), G.half, 260, z0, z1, -.01));
-  const b = new Batch(), lit = new Batch();
+  const b = new Batch(id), lit = new Batch(id);
   GROUND_EXTRA[id] && GROUND_EXTRA[id](g, b, lit, z0, z1, zone, st);
   // what stands beside the road here (the 2D world's list for this place, the bits in this chunk)
   const D = dressList(st, Math.floor(z0 / R.ZONE));
@@ -328,6 +337,7 @@ function chunk(st, i) {
     if (at < z0 || at >= z1) return;
     const f = PROPS[o.k];
     if (f) f(b, lit, o, g, st);
+    if (style.enabled()) decorate(b, lit, o, g);
   });
   const m = b.mesh(mats().vc), l = lit.mesh(mats().glow);
   if (m) g.add(m);
@@ -361,6 +371,14 @@ const GROUND_EXTRA = {
         b.box(k % 3 === 2 ? '#2A3550' : '#1B2440', x, x + s * 1.6, y - 1.15, y, z0, z1);
       }
       g.add(crowd(s, z0, z1));
+      if (style.enabled()) {
+        // Broad team-color fascia and gold pennants frame the field without filling its lanes.
+        b.box('#FFCB39', s * 31, s * 31.65, 1.6, 1.85, z0, z1);
+        for (let z = z0 + 5; z < z1; z += 10) {
+          b.box('#FFF4D8', s * 31.1, s * 31.2, 2, 5.3, z - .07, z + .07);
+          b.add('cone4', '#F15D48', s * 31.15, 4.7, z + .65, .035, 1.25, .65, 0, 0, 0);
+        }
+      }
       // a light tower every 50 yards
       for (let z = Math.ceil(z0 / 50) * 50 + 25; z < z1; z += 50) {
         const x = s * 47;
@@ -657,7 +675,18 @@ const PROPS = {
 };
 /** A building's face of windows (a texture), and its body. */
 function windowsBox(hex, x0, x1, y0, y1, z0, z1) {
-  const mat = texOf('m:bldg:' + hex, () => new T.MeshLambertMaterial({color: col(hex), map: texOf('windows', () => canvasTex(128, 128, (g, w, h) => {
+  const arcade = style.enabled();
+  const mat = texOf(style.key() + 'm:bldg:' + hex, () => new T.MeshLambertMaterial({color: col(arcade ? '#FFFFFF' : hex), map: texOf(style.key() + 'windows:' + (arcade ? hex : ''), () => canvasTex(128, 128, (g, w, h) => {
+    if (arcade) {
+      const tones = ['#F4CE8E', '#F29875', '#71BDB5', '#F0DCA9', '#DB9B82'];
+      g.fillStyle = tones[hashOf(hex) % tones.length]; g.fillRect(0, 0, w, h);
+      for (let y = 0; y < 2; y++) for (let x = 0; x < 2; x++) {
+        g.fillStyle = '#FFF1D4'; g.fillRect(x * 64 + 9, y * 64 + 8, 46, 49);
+        g.fillStyle = '#32616D'; g.fillRect(x * 64 + 13, y * 64 + 12, 38, 38);
+        g.fillStyle = '#81BDC3'; g.fillRect(x * 64 + 17, y * 64 + 15, 30, 7);
+      }
+      return;
+    }
     g.fillStyle = '#FFFFFF'; g.fillRect(0, 0, w, h);
     const r = seeded(3);
     for (let y = 0; y < 2; y++) for (let x = 0; x < 2; x++) { const lit = r() < .3; g.fillStyle = lit ? '#FFE6A8' : '#3A4E66'; g.fillRect(x * 64 + 14, y * 64 + 12, 36, 40); g.fillStyle = 'rgba(255,255,255,.25)'; g.fillRect(x * 64 + 14, y * 64 + 12, 36, 6); }
@@ -710,6 +739,19 @@ function sign(text, bg, ink, x, y, z, w, h, s) {
 // ============================================================================ In the lanes
 // Each a group of its own, built when it comes up, kept while it's in view (by its key).
 const LIVE = new Map(); // key -> {obj, seen}
+let styleMode = null, styleSubscribed = false;
+function syncStyle() {
+  const next = style.enabled();
+  if (styleMode === next) return;
+  styleMode = next;
+  for (const [key, entry] of LIVE) {
+    ROOT.remove(entry.obj);
+    if (key.startsWith('c:') || key.startsWith('v:')) entry.obj.traverse(o => { if (o.isMesh && o.geometry && !o.userData.shared) o.geometry.dispose(); });
+  }
+  LIVE.clear();
+  if (FAR_GROUND) FAR_GROUND.visible = false;
+  style.clear();
+}
 // Readiness and profile changes must replace cached vehicles, even with the game view hidden.
 function refreshCityBuses() {
   for (const [key, entry] of LIVE) {
@@ -790,9 +832,9 @@ const GATE_LOOK = {
   beach: ['#E9EEF3', '#1FA6C9', '#FFF4C2', '#FFFFFF'], space: ['#565C70', '#2A1F5C', '#5CF4FF', '#E8FBFF'], farm: ['#8A5E34', '#B2362A', '#FFE08A', '#FFFFFF']
 };
 function gateOf(th) {
-  const key = 'gate:' + th.id;
+  const key = style.key() + 'gate:' + th.id;
   if (OBJ.has(key)) return OBJ.get(key);
-  const [post, board, small, ink] = GATE_LOOK[th.id] || GATE_LOOK.stadium, g = new T.Group(), b = new Batch();
+  const [post, board, small, ink] = style.gate(th.id, GATE_LOOK[th.id] || GATE_LOOK.stadium), g = new T.Group(), b = new Batch(th.id);
   b.box(post, -7.3, -6.5, 0, 8.2, -.4, .4); b.box(post, 6.5, 7.3, 0, 8.2, -.4, .4);
   // the goalposts standing up out of the sign
   const bar = 10.2;
@@ -831,7 +873,9 @@ const TALL = {
 };
 function vehicleOf(p, th) {
   const X = R.xOf(null, p.lane), w = WIDE[p.kind] || (p.hi ? 1.25 : 1.15), x0 = X - w, x1 = X + w, y0 = p.b || 0, y1 = p.h, z0 = p.z0, z1 = p.z1;
-  const b = new Batch(), lit = new Batch(), g = new T.Group();
+  // The existing City bus pilot keeps its exact wheels and complete fallback if art cannot load.
+  const palette = p.kind === 'citybus' ? null : th.id;
+  const b = new Batch(palette), lit = new Batch(palette), g = new T.Group();
   const isCityBus = th.id === 'city' && p.kind === 'citybus';
   const painted = isCityBus ? cityBus.body({x0, x1, y0, y1, z0, z1}) : null;
   if (isCityBus) { g.userData.cityBus = true; g.userData.cityBusPilot = !!painted; }
@@ -931,11 +975,11 @@ const LIGHT = {
   space: {sky: 0x9B86E0, ground: 0x2A1F5C, hemi: 1.1, sun: 0xC8F6FF, sunI: 2, at: [3, 5, -2]},
   farm: {sky: 0xE2F6E8, ground: 0x6E9A4A, hemi: 1.2, sun: 0xFFF4E2, sunI: 2.5, at: [-3, 6, 2]}
 };
-const hazeOf = id => { const [r, g, b] = (LOOKS[id] || LOOKS.stadium).haze.split(',').map(Number); return new T.Color(r / 255, g / 255, b / 255); };
+const hazeOf = id => { if (style.enabled()) return new T.Color(style.haze(id)); const [r, g, b] = (LOOKS[id] || LOOKS.stadium).haze.split(',').map(Number); return new T.Color(r / 255, g / 255, b / 255); };
 /** The light and haze at z (blending into the next place's as you come to its gate). */
 export function look(st, z) {
   const zone = R.zoneAt(st.co, z), next = R.zoneAt(st.co, zone.z0 + R.ZONE), k = clamp((z - (zone.z0 + R.ZONE - 28)) / 28, 0, 1);
-  const a = LIGHT[zone.theme.id], b = LIGHT[next.theme.id];
+  const a = style.light(zone.theme.id, LIGHT[zone.theme.id]), b = style.light(next.theme.id, LIGHT[next.theme.id]);
   const c = (x, y) => new T.Color(x).lerp(new T.Color(y), k);
   return {sky: c(a.sky, b.sky), ground: c(a.ground, b.ground), hemi: a.hemi + (b.hemi - a.hemi) * k, sun: c(a.sun, b.sun), sunI: a.sunI + (b.sunI - a.sunI) * k,
     at: a.at.map((v, i) => v + (b.at[i] - v) * k), haze: hazeOf(zone.theme.id).lerp(hazeOf(next.theme.id), k)};
@@ -944,13 +988,16 @@ export function look(st, z) {
  *  (knocked flying, picked up, spinning, blinking). */
 export function update(st, now) {
   if (!ROOT) return;
+  syncStyle();
   cityBus.sync();
   FRAME++;
   const t = now / 1000, run = st.run, cz = st.camZ, key = `${st.co.n}|${st.co.k}`;
   // the ground beyond the last chunk, out to the horizon (all haze by then)
   if (!FAR_GROUND) { FAR_GROUND = new T.Mesh(new T.PlaneGeometry(4000, 3000).rotateX(-Math.PI / 2), new T.MeshLambertMaterial({color: 0x808080})); ROOT.add(bend(FAR_GROUND)); }
   FAR_GROUND.position.set(0, -.03, -(cz + AHEAD + 1500));
-  FAR_GROUND.material.color.set(GROUNDS[R.zoneAt(st.co, cz + AHEAD).theme.id].base);
+  FAR_GROUND.visible = true;
+  const farId = R.zoneAt(st.co, cz + AHEAD).theme.id;
+  FAR_GROUND.material.color.set(style.ground(farId, GROUNDS[farId]).base);
   // the chunks
   const i0 = Math.floor((cz - BEHIND) / CHUNK), i1 = Math.floor((cz + AHEAD) / CHUNK);
   // (one new chunk a frame, near to far, so building them never holds a frame up; but all of those near you at once)

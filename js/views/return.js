@@ -26,6 +26,7 @@ import * as R from '../core/return.js';
 import * as SP from './drill-sprites.js';
 import * as D3 from './return-3d.js';
 import * as W from './return-world.js';
+import * as style from './return-style.js';
 import {seeded} from './stadium.js';
 import {msToMidnight} from './board.js';
 import {canTest, testRowHTML} from './testplay.js';
@@ -560,7 +561,7 @@ function draw(st, now = performance.now()) {
     c.translate(st.W / 2, st.H * .62); c.rotate(.045 * drunk * Math.sin(t * 1.7)); c.scale(1.07, 1.07); c.translate(-st.W / 2 + 6 * drunk * Math.sin(t * 1.1), -st.H * .62);
   }
   st.bend = D3.ready() ? W.BEND : 0;
-  W.sky(skyView(st), c, t, z);
+  if (!(D3.ready() && style.sky(skyView(st), c, t, z))) W.sky(skyView(st), c, t, z);
   if (D3.ready()) { draw3(st, c, now); drawSpeed(st, c, now); }
   else { W.ground(st, c); W.sides(st, c); drawSpeed(st, c, now); drawLanes(st, c, now); }
   W.weather(st, c, t, z);

@@ -11,6 +11,16 @@ Gate new visuals and asset loads, recheck eligibility after asynchronous work, a
 when the profile changes (including another tab). Do not add owner-only artwork to the shared offline precache.
 Verify both owner and non-owner behavior before deploying. These rules also apply to future work outside Return Man.
 
+## Return Man art direction
+
+Evan chose the supplied colorful low-poly runner reference for Return Man's environments: bold silhouettes,
+warm cream trim, saturated accents, faceted foliage, clean roads and clearly visible hazards. Keep each of the
+nine locations distinct. This direction applies to Evan's profile only. `return-style.js` owns the procedural
+ground/sky palettes; `return-scenery.js` adds batched roadside details; `return-3dworld.js` integrates them.
+Keep gameplay dimensions and collisions intact, retain the 2D fallback, and preserve the existing City bus art
+and its complete loading-failure fallback. Verify `node tools/return/check-environments.cjs`,
+`node tools/return/check-city-bus.cjs`, and `node tools/return/check-city-cache.cjs` before further visual releases.
+
 ## Scoreboards are for the league
 
 Standing rule from the league's owner (October 2026):
