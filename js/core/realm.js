@@ -238,7 +238,7 @@ export function incomeOf(docs, mods = {}) {
 }
 
 // ---------------------------------------------------------------------------------------------------- a realm
-// State: {v, at (saved, ms), nm (the house's name, or none: "House <first name>"), b: [{i, t (kind), l (level; 0
+// State: {v, at (saved, ms), nm (the house's name, or none: "House <last name>"), b: [{i, t (kind), l (level; 0
 // while first going up), x, y (its top-left tile), u (when the job on it is done, ms; 0: none), c (mines and farms:
 // when what's in it started piling up, ms)}], r: {gold, grain} (stored), cl: {gold, grain} (taken from the coffers so
 // far), xo: {gold, grain} (into the coffers besides the games: the starter, raids' overflow), ar: {troop: n} (the army

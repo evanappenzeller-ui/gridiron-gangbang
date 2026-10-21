@@ -39,11 +39,14 @@ export const houseOf = key => {
   const [pri, sec, sigil] = BOT_HOUSES[b];
   return {pri, sec, sigil};
 };
-/** Your house's name: the one you gave it, else House and your first name. */
+// Surnames the league's list doesn't carry (it has first names only): the owner's, for his house (Oct 2026).
+const SURNAME = {evan: 'Appenzeller'};
+/** Your house's name: the one you gave it, else House and your last name (House Appenzeller). (The old default, House
+ *  and your first name, kept by saving it unchanged, counts as none.) */
 export function houseName(s = F.mine()) {
-  if (s.nm) return s.nm;
-  const m = data.me(), n = (m && data.name ? data.name(m) : '') || 'Evan';
-  return `House ${String(n).split(' ')[0]}`;
+  const m = data.me() || data.OWNER, n = String((data.name ? data.name(m) : '') || '').trim().split(/\s+/);
+  if (s.nm && s.nm !== `House ${n[0]}`) return s.nm;
+  return `House ${SURNAME[m] || n[n.length - 1] || SURNAME[data.OWNER]}`;
 }
 /** A picture of a building or a soldier (thumb() in realm-3d.js), as an <img>, or '' before the 3D is in. */
 export function picOf(k, house, troop = false) {
