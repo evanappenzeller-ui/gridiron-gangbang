@@ -132,6 +132,8 @@
   background: rgba(242,194,48,.14); color: #F2C230; font: 800 10px/12px var(--font-text); letter-spacing: .12em;
 }
 .rm-pane .rm-beta-l { font-size: 12px; line-height: 16px; color: rgba(255,255,255,.62); }
+.rm-pane .rm-credit { margin-top: 10px !important; font-size: 10px; line-height: 13px; color: rgba(255,255,255,.45); }
+.rm-pane .rm-credit a { color: inherit; text-decoration: underline; }
 .rm-pane .rm-big { display: flex; flex-direction: column; align-items: center; margin-top: 6px !important; }
 .rm-pane .rm-big .n1 { font: 800 72px/.95 var(--rm-display); color: var(--rm-good); text-shadow: 0 0 26px rgba(62,240,143,.55); font-variant-numeric: tabular-nums; }
 .rm-pane .rm-big small { font: 800 16px/20px var(--rm-display); letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,.85); }

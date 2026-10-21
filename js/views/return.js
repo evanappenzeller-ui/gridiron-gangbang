@@ -83,6 +83,8 @@ function keysHTML() {
 // kickoff, and a word about it on the first.
 const BETA = '<span class="rm-beta">Beta</span>';
 const betaLine = () => `<p class="rm-card-s rm-beta-l">${esc(`Still being worked on: ${(data.M[data.OWNER] || {name: 'the commissioner'}).name}’s tuning it, so it may change.`)}</p>`;
+// The players' model's credit (its licence asks for one: views/return-3d.js)
+const creditLine = () => '<p class="rm-card-s rm-beta-l rm-credit">Players: <a href="https://sketchfab.com/3d-models/american-football-player-10bf41a1c05a4c9cb74676b7dd8cb18e" target="_blank" rel="noopener">American Football Player</a> by blakeallen25, <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>, recoloured</p>';
 // The eyebrow over a kickoff: today's first, or which run of the day (as many as you like: the best one counts).
 const koLabel = k => (k ? `Run ${k + 1} today` : 'Today’s kickoff');
 /** The card over the stage: before a kickoff (the first of the day: how to play), after he's run down, or paused. */
@@ -119,7 +121,7 @@ function cardHTML(st) {
   return `<div class="rm-card-in is-first"><p class="rm-card-o">${koLabel(0)}${R.testing() ? ' · Test play' : ''} ${BETA}</p>`
     + `<h2 class="rm-card-t">Take it to the house</h2>`
     + keysHTML() + betaLine()
-    + again('Field the kick') + `</div>`;
+    + again('Field the kick') + creditLine() + `</div>`;
 }
 function hudHTML() {
   return `<div class="rm-hud" aria-hidden="true">`
