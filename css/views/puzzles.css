@@ -398,20 +398,12 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
 }
 .gm-z-emb { position: absolute; left: 0; right: 0; bottom: 5.4cqw; text-align: center; font: 700 2.6cqw/1 var(--font-text); letter-spacing: .5em; color: #2A4E0C; text-shadow: 0 .25cqw 0 rgba(160,220,90,.25), 0 -.2cqw 0 rgba(0,0,0,.4); }
 .gm-z-disc {
+  /* (the owner's disc, cut round: its clear middle see-through, the hole open over the hub) */
   left: 7cqw; top: calc(50cqh - 43cqw); width: 86cqw; height: 86cqw; border-radius: 50%; transform: translateZ(calc(var(--zd) / -2 + 1.2cqw)); cursor: pointer;
-  background:
-    radial-gradient(circle closest-side, transparent 0 38.6%, rgba(255,255,255,.55) 39.2%, transparent 40.4%),
-    conic-gradient(from 20deg, #D9DDE3, #F7F9FB 8%, #C4CBD6 15%, #E9D9F7 22%, #CDEEF0 30%, #F4F1D2 37%, #D9DDE3 45%, #F7F9FB 55%, #C4CBD6 62%, #E9D9F7 70%, #CDEEF0 80%, #F4F1D2 88%, #D9DDE3);
-  /* (its middle clear plastic, a hole in the middle of that) */
-  -webkit-mask: radial-gradient(circle closest-side, transparent 0 12.6%, rgba(0,0,0,.42) 13% 27.4%, #000 28%);
-  mask: radial-gradient(circle closest-side, transparent 0 12.6%, rgba(0,0,0,.42) 13% 27.4%, #000 28%);
+  box-shadow: 0 .4cqw 1.4cqw rgba(0,0,0,.45);
 }
-.gm-z-lab {
-  position: absolute; inset: 0; border-radius: 50%; overflow: hidden;
-  -webkit-mask: radial-gradient(circle closest-side, transparent 0 40.6%, #000 41.2% 96.4%, transparent 97%);
-  mask: radial-gradient(circle closest-side, transparent 0 40.6%, #000 41.2% 96.4%, transparent 97%);
-}
-.gm-z-lab > img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%; }
+.gm-z-lab { position: absolute; inset: 0; border-radius: 50%; overflow: hidden; }
+.gm-z-lab > img { display: block; width: 100%; height: 100%; }
 .gm-z-sheen {
   position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
   background:
@@ -429,18 +421,13 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
   inset: 0; border-radius: 2.8cqw; overflow: hidden; transform: rotateY(180deg) translateZ(.5cqw); cursor: pointer;
   background: linear-gradient(200deg, #3A6A10, #2B520B 60%, #23440A); box-shadow: inset 0 0 0 1.6cqw #4E8614, inset 0 0 4cqw rgba(0,0,0,.5);
 }
-.gm-z-book {
-  position: absolute; left: 9cqw; right: 9cqw; top: 9cqw; bottom: 9cqw; display: flex; flex-direction: column; overflow: hidden;
-  border-radius: 1cqw; background: #F2F0EA; box-shadow: 0 .6cqw 2cqw rgba(0,0,0,.5);
-}
-.gm-z-book > .gm-band { min-height: 8cqw; border-radius: 0; box-shadow: none; }
-.gm-z-book .gm-band-t { font-size: 2.6cqw; }
-.gm-z-book-art { position: relative; flex: 0 1 auto; min-height: 0; aspect-ratio: 808 / 1040; }
-.gm-z-book-art > img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; }
-.gm-z-book-t { flex: 1 0 auto; display: grid; place-items: center; padding: 2.2cqw 0 2cqw; text-align: center; font: 800 2.6cqw/1 var(--font-text); letter-spacing: .3em; text-transform: uppercase; color: #141414; }
+/* the booklet (the owner's), its own shape, as big as the lid takes; a clip over its top and its bottom */
+.gm-z-bk { position: absolute; left: 50%; top: 50%; height: min(calc(100cqh - 18cqw), 120.4cqw); aspect-ratio: 620 / 910; translate: -50% -50%; }
+.gm-z-book { position: absolute; inset: 0; overflow: hidden; border-radius: 1.4cqw; background: #F2F0EA; box-shadow: 0 .6cqw 2cqw rgba(0,0,0,.5); }
+.gm-z-book > img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .gm-z-clip { position: absolute; left: calc(50% - 8cqw); width: 16cqw; height: 4.6cqw; border-radius: 1cqw; background: linear-gradient(#6C9C24, #4E8614); box-shadow: 0 .4cqw 1cqw rgba(0,0,0,.45), inset 0 .3cqw 0 rgba(220,255,160,.3); }
-.gm-z-clip.is-t { top: 6.6cqw; }
-.gm-z-clip.is-b { bottom: 6.6cqw; }
+.gm-z-clip.is-t { top: -2.4cqw; }
+.gm-z-clip.is-b { bottom: -2.4cqw; }
 /* under it: turn it over, open it */
 .gm-z-ctl { display: flex; gap: 10px; }
 .gm-z-ctl .btn { background: rgba(255,255,255,.12); color: #fff; box-shadow: none; }
