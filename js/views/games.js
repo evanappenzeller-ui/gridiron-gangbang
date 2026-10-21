@@ -282,13 +282,13 @@ function placeText(s) {
   const me = s.rows && s.rows.find(r => r.me);
   return me ? `${ui.ordinal(me.rank)} of ${s.rows.length} today` : '';
 }
-/** A case's back: the band, the name, the result, today's leaderboard. */
+/** A case's back: the band, the result, today's leaderboard (no name: the owner's ask, Oct 2026, for the room; the
+ *  case's label still says it, and up close it's in the band). */
 function backHTML(g, s) {
   const place = placeText(s), note = boardNote(s.board, s.rows || []);
   const rows = note || `<div class="gm-scr-rows" role="list" aria-label="Today’s leaderboard">${miniRows(s.rows, 5).map(r => (r ? rowHTML(r) : '<div class="gm-r-gap" aria-hidden="true">· · ·</div>')).join('')}</div>`;
   return `<div class="gm-face gm-back" style="--gc:${ACCENT[g.id]}">${bandHTML(`<span class="gm-bk-tag">${s.test ? 'TEST' : 'FINAL'}</span>`, g.beta)}`
     + `<span class="gm-bk-in">`
-    + `<span class="gm-bk-name">${esc(g.name)}</span>`
     + `<span class="gm-bk-res"><span class="gm-bk-vis">${s.vis || ''}</span><span class="gm-bk-tt"><b class="gm-bk-h${s.gold ? ' is-gold' : ''}">${esc(s.head || '')}</b>`
     + `${(s.lines || []).map(l => `<small>${esc(l)}</small>`).join('')}${place ? `<em>${esc(place)}</em>` : ''}</span></span>`
     + `<span class="gm-scr"><span class="gm-scr-h">Today’s leaderboard</span>${rows}</span>`
