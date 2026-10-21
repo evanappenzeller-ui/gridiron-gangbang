@@ -176,7 +176,9 @@ export const burstOf = run => (run && run.burst > 0 ? BURST.k * Math.min(1, run.
 // him there is a tackle). For grace s after a hit nothing else counts (it's the same collision), and a tall vehicle's
 // front knocks you into the open lane beside it (or, with none open, up onto it). After a hit he runs up on you from
 // wherever he was (out of sight, or further back), near in runUp s (the owner's ask, Oct 2026: not out of nowhere).
-export const CHASE = {near: 2.2, edge: 3.4, far: 9, window: 4, drop: .6, slow: 1, slowBy: .45, grace: .35, runUp: .55};
+// And while he's still in the picture (under seen yards back: the camera rides 7 behind you, views/return.js), falling
+// away once he's lost you, a hit is the tackle too (the owner's ask, Oct 2026: a stumble with him in frame is a tackle).
+export const CHASE = {near: 2.2, edge: 3.4, far: 9, window: 4, drop: .6, slow: 1, slowBy: .45, grace: .35, runUp: .55, seen: 5.7};
 
 function hashStr(str) {
   let h = 0x811c9dc5 | 0;
@@ -356,8 +358,9 @@ export function gapOf(run) {
   if (s < CHASE.window) return CHASE.near + (CHASE.edge - CHASE.near) * clamp((s - CHASE.slow) / (CHASE.window - CHASE.slow), 0, 1);
   return CHASE.edge + (CHASE.far - CHASE.edge) * clamp((s - CHASE.window) / CHASE.drop, 0, 1);
 }
-/** Whether the linebacker is on you now (at the catch, or a hit ago, and not lost yet): a hit now is a tackle. */
-export const chasing = run => !!run && !run.over && run.t - run.hitAt < CHASE.window;
+/** Whether the linebacker is on you now (at the catch, or a hit ago, and not lost yet, or still in the picture as he
+ *  falls away): a hit now is a tackle. */
+export const chasing = run => !!run && !run.over && (run.t - run.hitAt < CHASE.window || gapOf(run) < CHASE.seen);
 // What you run into (a barricade, a banner, a vehicle's front, its side): with painkillers (or just back up after the salts) you go
 // through it (or up onto it); just after a hit, it's the same collision ('shoved'); with the linebacker on you, he tackles
 // you (the salts shake him off once); else you stumble, slowed, and he's on your back.

@@ -469,8 +469,8 @@ function kickBall(st, c, now) {
 function chaserAt(st) {
   const run = st.run;
   if (!run) return null;
-  const cz = run.z - R.gapOf(run);
-  if (cz <= st.camZ + W.NEAR + .4) return null;
+  const g = R.gapOf(run), cz = run.z - g;
+  if (g >= R.CHASE.seen || cz <= st.camZ + W.NEAR + .4) return null; // (out of the picture: a hit's no tackle then)
   const want = run.x + (run.x > .5 ? -1 : 1) * (run.over ? .35 : .95);
   st.chX = st.chX == null ? want : st.chX + (want - st.chX) * Math.min(1, (st.dt || .016) * 8);
   return {cx: st.chX, cz};

@@ -273,7 +273,7 @@ export async function returnChecks(check) {
     const pass = s1 && burst && two.salts === R.SALTS_MAX && p1 && late.ev.includes('stumbled') && b1 && !miss.ev.includes('pickup');
     return {pass, detail: `salts: shook him off ${s1}, carries ${two.salts}, a burst ${fast.toFixed(2)}× then ${after.toFixed(2)}×; painkillers: through a barricade and onto a bus ${p1}, worn off (a hit again) ${late.ev.includes('stumbled')}; booze: ${Math.round(booze.yards)} yards for ${Math.round(booze.z)} run; another lane's left ${!miss.ev.includes('pickup')}`};
   });
-  check('Return Man: the linebacker chases him down: on him at the catch; a hit (a barricade, a banner, a vehicle) slows him and the linebacker runs up from where he was to right behind him; run on clean and he falls back out of sight; a hit while he\'s on him (inside CHASE.window seconds of the catch or the last hit) is a tackle; one after he\'s gone is just another stumble', () => {
+  check('Return Man: the linebacker chases him down: on him at the catch; a hit (a barricade, a banner, a vehicle) slows him and the linebacker runs up from where he was to right behind him; run on clean and he falls back out of sight; a hit while he\'s on him (inside CHASE.window seconds of the catch or the last hit, or while he\'s still in the picture falling away) is a tackle; one after he\'s gone is just another stumble', () => {
     const wedge = z => ({i: z, z, lanes: [null, 'hurdle', null]});
     const C = R.CHASE;
     // one hit: slowed, the linebacker near, then back to speed and the linebacker gone
@@ -297,12 +297,16 @@ export async function returnChecks(check) {
     for (let i = 0; i < 120 * 4 && !start.over; i++) R.step(start, 1 / 120);
     const atCatch = R.chasing(R.startRun(1, 0)) && start.over && start.why === 'caught' && start.hits === 0;
     const twice = !slow.run.over && slow.ev.filter(e => e === 'stumbled').length === 2;
+    // past CHASE.window, falling away but still in the picture (under CHASE.seen yards back): a hit's a tackle; once
+    // he's out of it, a stumble
+    const late = after => { const f = field({rows: [wedge(1)]}); f.t = C.window + after; for (let i = 0; i < 120 && !f.over && !f.hits; i++) R.step(f, 1 / 120); return f; };
+    const inFrame = late(.05), gone = late(.3), framed = inFrame.over && inFrame.why === 'caught' && !gone.over && gone.hits === 1;
     // a juke into a bus's side counts, then a banner right after: caught
     const side = field({sets: [set(plat(1, 10, 60, true))], rows: [{i: 0, z: 36, lanes: ['bar', null, null]}]}, 0);
     side.z = 20; R.move(side, 'right');
     for (let i = 0; i < 120 * 4 && !side.over; i++) R.step(side, 1 / 120);
     const sideHit = side.over && side.why === 'caught';
-    return {pass: slowed && caught && twice && sideHit && atCatch, detail: `on him at the catch: a hit ${atCatch ? 'a tackle' : 'WRONG'}; a hit: ${Math.round(vSlow * 10) / 10} yds/s from ${Math.round(v0 * 10) / 10}, the linebacker ${Math.round(gHit * 10) / 10} yds back at the hit, ${Math.round(gNear * 10) / 10} ${C.runUp} s on, gone after ${C.window} s ${slowed}; two in ${2} s: ${quick.run.why || 'not caught'}; two ${C.window + 2} s apart: ${twice ? 'two stumbles' : 'WRONG'}; a bus's side then a banner: ${sideHit ? 'caught' : 'WRONG'}`};
+    return {pass: slowed && caught && twice && sideHit && atCatch && framed, detail: `on him at the catch: a hit ${atCatch ? 'a tackle' : 'WRONG'}; falling away still in the picture: ${inFrame.over ? 'a tackle' : 'WRONG'}, out of it: ${gone.hits === 1 && !gone.over ? 'a stumble' : 'WRONG'}; a hit: ${Math.round(vSlow * 10) / 10} yds/s from ${Math.round(v0 * 10) / 10}, the linebacker ${Math.round(gHit * 10) / 10} yds back at the hit, ${Math.round(gNear * 10) / 10} ${C.runUp} s on, gone after ${C.window} s ${slowed}; two in ${2} s: ${quick.run.why || 'not caught'}; two ${C.window + 2} s apart: ${twice ? 'two stumbles' : 'WRONG'}; a bus's side then a banner: ${sideHit ? 'caught' : 'WRONG'}`};
   });
   check('Return Man: speed and touchdowns: from a jog (9.5 yards a second) to a sprint (19) by about a thousand yards; a touchdown every 100 yards run', () => {
     const v = [0, 100, 400, 1000, 5000].map(z => R.speedAt(z));
