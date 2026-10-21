@@ -353,7 +353,10 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
 .gm-zoom .gm-art, .gm-zoom .gm-bk-in { border-radius: 0 0 1.8cqw 1.8cqw; }
 .gm-zoom .gm-bk-in { gap: 1.8cqw; padding: 3cqw 3.2cqw 2.6cqw; }
 /* your score, compact: the name, then the ring (or tile) small by the result */
-.gm-zoom .gm-bk-name { font-size: 7.4cqw; }
+/* the back's band: the game's name in it, FINAL (and BETA) beside it */
+.gm-band.is-z { justify-content: flex-start; gap: 2cqw; min-height: 12cqw; padding: 0 2.4cqw 0 3.2cqw; }
+.gm-band.is-z > * { position: static; transform: none; }
+.gm-band.is-z > .gm-bk-name { flex: 1 1 auto; font-size: 7.4cqw; line-height: 1; padding-top: .4cqw; }
 .gm-zoom .gm-bk-res { gap: 2.4cqw; }
 .gm-zoom .gm-bk-vis, .gm-zoom .gm-bk-vis .gm-tile, .gm-zoom .gm-bk-vis > svg, .gm-zoom .gm-bk-vis .ring { width: 11cqw; height: 11cqw; }
 .gm-zoom .gm-bk-vis .gm-tile { border-radius: 2.4cqw; }

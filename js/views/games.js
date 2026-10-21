@@ -435,8 +435,10 @@ export function mountList(el, ctx, opts = {}) {
   // The case up close (the owner's ask, Oct 2026): a real case to turn in your hand (views/game-case.js), its back the
   // whole board, its front the cover; turned to the front it opens, the disc inside.
   function caseUpHTML(g, s) {
-    const back = `<div class="gm-face gm-back gm-z-back">${bandHTML(`<span class="gm-bk-tag">${s.test ? 'TEST' : 'FINAL'}</span>`, g.beta)}`
-      + `<div class="gm-bk-in"><span class="gm-bk-name" id="gm-z-t">${esc(g.name)}</span>`
+    // (the game's name up in the black band, where the cover has GRIDIRON HUB: the owner's ask, Oct 2026)
+    const band = `<span class="gm-band is-z">${g.beta ? '<span class="gm-beta">BETA</span>' : ''}<span class="gm-bk-name" id="gm-z-t">${esc(g.name)}</span>`
+      + `<span class="gm-bk-tag">${s.test ? 'TEST' : 'FINAL'}</span></span>`;
+    const back = `<div class="gm-face gm-back gm-z-back">${band}<div class="gm-bk-in">`
       + `<div class="gm-bk-res"><span class="gm-bk-vis">${s.vis || ''}</span><span class="gm-bk-tt"><b class="gm-bk-h${s.gold ? ' is-gold' : ''}">${esc(s.head || '')}</b>${(s.lines || []).map(l => `<small>${esc(l)}</small>`).join('')}</span></div>`
       + `<div class="gm-z-tog" role="tablist" aria-label="Leaderboard"><button type="button" role="tab" aria-selected="true" data-gm-zmode="today">Today</button><button type="button" role="tab" aria-selected="false" data-gm-zmode="season">Season</button></div>`
       + `<div class="gm-scr is-z"><div class="gm-z-body" data-gm-zbody>${zoomBody(g, 'today')}</div></div></div>${GLOSS}</div>`;
