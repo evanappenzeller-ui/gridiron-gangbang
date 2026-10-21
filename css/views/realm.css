@@ -1,6 +1,6 @@
 /* realm.css: the Realm tab (views/realm.js) and an attack (views/realm-raid.js), the owner's alone. The lot (3D) fills
-   the screen; over it a medieval HUD in dark oak and gilt: your house's crest and name and your glory, Gold and Grain,
-   the coffers, the builders, the four buttons along the bottom, a selected building's card. The sheets (.sh-rl) live
+   the screen; over it a medieval HUD in dark oak and gilt: a thin strip of glory, Gold and Grain, your house's crest
+   and name, the coffers, the builders, the four buttons along the bottom, a selected building's card. The sheets (.sh-rl) live
    in #overlays. Cinzel (Natanael Gama, SIL Open Font License 1.1) for the names and labels. */
 @font-face {
   font-family: "Cinzel";
@@ -39,40 +39,44 @@
 .rl-crown { display: inline-block; flex: none; width: 1.1em; height: .85em; vertical-align: -.08em; background: linear-gradient(#FFE9A3, #E0A92B);
   clip-path: polygon(0 22%, 26% 58%, 50% 0, 74% 58%, 100% 22%, 90% 100%, 10% 100%); }
 
-/* ---- the top: your crest and house, Gold and Grain */
-.rl-top { position: absolute; top: calc(var(--sa-t, 0px) + 8px); left: 10px; right: 10px; display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; pointer-events: none; }
+/* ---- the top: a thin strip of glory, Gold and Grain (as Clash Royale keeps its coins and gems along the top, Oct 2026),
+   your house compact under it at the right */
+.rl-top { position: absolute; top: calc(var(--sa-t, 0px) + 6px); left: 10px; right: 10px; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; pointer-events: none; }
 .rl-top > * { pointer-events: auto; }
-.rl-id { display: flex; align-items: center; gap: 8px; min-width: 0; max-width: 54%; padding: 5px 13px 5px 6px; border: 0; border-radius: 12px; background: var(--rl-glass); color: #F7EEDD; text-align: left;
+.rl-res { align-self: stretch; display: flex; gap: 14px; padding-left: 8px; }
+.rl-cur { position: relative; flex: 1 1 0; min-width: 0; display: flex; align-items: center; height: 26px; padding: 0 9px 0 0; border-radius: 8px; background: var(--rl-glass);
   -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px var(--rl-line); cursor: pointer; }
+.rl-cur.is-tp { flex: .8 1 0; cursor: default; }
+.rl-cur > .rl-coin, .rl-cur > .rl-crown { width: 28px; height: 28px; margin: 0 4px 0 -9px; font-size: 28px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.55)); }
+.rl-cur > .rl-crown { height: 22px; }
+.rl-curt { position: relative; flex: 1; min-width: 0; align-self: stretch; display: flex; align-items: center; justify-content: flex-end; }
+.rl-curt b { font: 700 15px/1 var(--rl-face); font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; text-shadow: 0 1px 2px rgba(0,0,0,.7); }
+.rl-cur.is-tp .rl-curt b { color: #FBE39A; }
+.rl-curb { position: absolute; left: 0; right: -4px; bottom: 3px; height: 3px; border-radius: 2px; background: rgba(255,240,210,.14); overflow: hidden; }
+.rl-curb > i { display: block; height: 100%; border-radius: 2px; background: var(--rl-gold); transition: width .4s ease; }
+.is-grain .rl-curb > i { background: var(--rl-grain); }
+.rl-cur.is-full { box-shadow: inset 0 0 0 1px rgba(255,140,120,.7); }
+.rl-cur.is-full .rl-curt b { color: #FFB4A8; }
+.rl-id { display: flex; align-items: center; gap: 6px; min-width: 0; max-width: 62%; height: 30px; padding: 0 11px 0 4px; border: 0; border-radius: 9px; background: var(--rl-glass); color: #F7EEDD; text-align: left;
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px var(--rl-line); cursor: pointer; }
+.rl-id > b { min-width: 0; font: 700 13px/1.1 var(--rl-face); letter-spacing: .03em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rl-crest, .rl-tg-lv { position: relative; isolation: isolate; flex: none; display: grid; place-items: center; width: 38px; height: 44px; padding-bottom: 6px;
   font: 800 19px/1 var(--rl-face); color: #FBE39A; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
+.rl-id > .rl-crest { width: 22px; height: 26px; padding-bottom: 4px; font-size: 12px; }
 .rl-crest::before, .rl-crest::after, .rl-tg-lv::before, .rl-tg-lv::after { content: ""; position: absolute; z-index: -1;
   clip-path: polygon(0 0, 100% 0, 100% 50%, 92% 70%, 75% 86%, 50% 100%, 25% 86%, 8% 70%, 0 50%); }
 .rl-crest::before, .rl-tg-lv::before { inset: 0; background: linear-gradient(#FBE2A0, #B98A2C); }
 .rl-crest::after, .rl-tg-lv::after { inset: 2.5px 2.5px 3px; background: var(--rl-crimson); }
-.rl-idt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.rl-idt b { font: 700 15px/1.1 var(--rl-face); letter-spacing: .03em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rl-idt small { display: flex; align-items: center; gap: 5px; font: 700 13px/1.2 var(--font-text); color: var(--rl-gilt); font-variant-numeric: tabular-nums; }
-.rl-res { display: flex; flex-direction: column; gap: 6px; width: min(44%, 190px); }
-.rl-cur { position: relative; display: flex; align-items: center; height: 34px; padding: 0 10px 0 4px; border-radius: 10px; background: var(--rl-glass);
-  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px var(--rl-line); }
-.rl-cur > .rl-coin { width: 26px; height: 26px; margin-right: 7px; font-size: 26px; }
-.rl-curt { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
-.rl-curt b { font: 700 16px/1 var(--rl-face); font-variant-numeric: tabular-nums lining-nums; }
-.rl-curb { display: block; height: 4px; margin-top: 3px; border-radius: 2px; background: rgba(255,240,210,.14); overflow: hidden; }
-.rl-curb > i { display: block; height: 100%; border-radius: 2px; background: var(--rl-gold); transition: width .4s ease; }
-.is-grain .rl-curb > i { background: var(--rl-grain); }
-.rl-curt small { position: absolute; right: 0; top: 0; font: 600 10px/1 var(--font-text); color: rgba(247,238,221,.6); }
-.rl-cur.is-full .rl-curt small { color: #FF9C8F; }
-@media (max-width: 360px) { .rl-curt small { display: none; } .rl-curt b { font-size: 15px; } }
+.rl-id > .rl-crest::after { inset: 1.5px 1.5px 2px; }
+@media (max-width: 360px) { .rl-res { gap: 12px; } .rl-curt b { font-size: 13px; } .rl-cur > .rl-coin, .rl-cur > .rl-crown { width: 24px; height: 24px; font-size: 24px; } .rl-cur > .rl-crown { height: 19px; } }
 
 /* ---- the coffers (what the games paid, waiting for room), the builders */
-.rl-office { position: absolute; right: 10px; top: calc(var(--sa-t, 0px) + 92px); display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 2px 8px; max-width: min(62%, 260px);
+.rl-office { position: absolute; right: 10px; top: calc(var(--sa-t, 0px) + 74px); display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 2px 8px; max-width: min(62%, 260px);
   padding: 6px 12px; border: 0; border-radius: 10px; background: rgba(26,18,12,.66); color: #F7EEDD; font: 700 13px/1.2 var(--font-text); text-align: right;
   -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px var(--rl-line); cursor: pointer; }
 .rl-oft { width: 100%; font: 700 11px/1.2 var(--rl-face); letter-spacing: .14em; text-transform: uppercase; color: var(--rl-gilt); }
 .rl-ofn { width: 100%; font: 500 11px/1.2 var(--font-text); color: rgba(247,238,221,.62); }
-.rl-builders { position: absolute; left: 10px; top: calc(var(--sa-t, 0px) + 66px); display: flex; align-items: center; gap: 6px; padding: 6px 11px; border-radius: 10px;
+.rl-builders { position: absolute; left: 10px; top: calc(var(--sa-t, 0px) + 40px); display: flex; align-items: center; gap: 6px; padding: 6px 11px; border-radius: 10px;
   background: rgba(26,18,12,.66); font: 600 13px/1 var(--font-text); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px var(--rl-line); pointer-events: none; }
 .rl-builders b { font-weight: 800; font-variant-numeric: tabular-nums; }
 .rl-hammer { width: 13px; height: 14px; background: linear-gradient(#E9E2D2, #9C927F 55%, #7A5434 56%, #5A3C22);

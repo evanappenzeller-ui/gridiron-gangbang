@@ -1,7 +1,8 @@
 // The Realm tab (core/realm.js: the game; views/realm-3d.js: the lot in 3D; views/realm-raid.js: a raid). The owner's
 // alone (data.isOwner(): app.js shows the tab on his phones only, and this screen shows nothing on anyone else's). Your
-// lot fills the screen: your house's crest and name (tap it to rename your house) and your glory at the top, Gold and
-// Grain beside it, what's waiting in your coffers under them, your builders; along the bottom Attack, Army, Build and
+// lot fills the screen: a thin strip along the top with your glory, Gold and Grain (as Clash Royale keeps its coins and
+// gems, Oct 2026), under it at the right your house's crest and name (tap it to rename your house) and what's waiting
+// in your coffers, at the left your builders; along the bottom Attack, Army, Build and
 // the Chronicle. Tap a building for what it is and to upgrade, move or collect it (a mine or farm with something in
 // it collects at a tap); Build puts what you pick on the lot to drag where it goes. When you come back after the
 // computer's realms have raided you, what they did is the first thing you see.
@@ -82,10 +83,12 @@ function shellHTML() {
     + `<div class="rl-gl" aria-hidden="true"><div class="rl-loading">Riding out to your realm…</div></div>`
     + `<div class="rl-tags" aria-hidden="true"></div>`
     + `<div class="rl-top">`
-    + `<button type="button" class="rl-id" data-rl-house aria-label="Your house"><span class="rl-crest" data-rl-lv>1</span><span class="rl-idt"><b data-rl-name></b><small><span class="rl-crown" aria-hidden="true"></span><span data-rl-tp>0</span> glory</small></span></button>`
     + `<div class="rl-res">`
-    + F.CUR.map(c => `<div class="rl-cur is-${c}" data-rl-cur="${c}"><i class="rl-coin" aria-hidden="true"></i><span class="rl-curt"><b data-rl-n>0</b><span class="rl-curb"><i data-rl-f></i></span><small data-rl-cap></small></span></div>`).join('')
-    + `</div></div>`
+    + `<div class="rl-cur is-tp" aria-label="Glory"><i class="rl-crown" aria-hidden="true"></i><span class="rl-curt"><b data-rl-tp>0</b></span></div>`
+    + F.CUR.map(c => `<div class="rl-cur is-${c}" data-rl-cur="${c}"><i class="rl-coin" aria-hidden="true"></i><span class="rl-curt"><b data-rl-n>0</b><span class="rl-curb"><i data-rl-f></i></span></span></div>`).join('')
+    + `</div>`
+    + `<button type="button" class="rl-id" data-rl-house aria-label="Your house"><span class="rl-crest" data-rl-lv>1</span><b data-rl-name></b></button>`
+    + `</div>`
     + `<button type="button" class="rl-office" data-rl-coffers></button>`
     + `<div class="rl-builders" data-rl-builders></div>`
     + `<div class="rl-sel" data-rl-sel hidden></div>`
@@ -106,7 +109,8 @@ function hud(st) {
     const box = el.querySelector(`[data-rl-cur="${c}"]`);
     box.querySelector('[data-rl-n]').textContent = nf(s.r[c]);
     box.querySelector('[data-rl-f]').style.width = `${Math.min(100, s.r[c] / Math.max(1, cap[c]) * 100).toFixed(1)}%`;
-    box.querySelector('[data-rl-cap]').textContent = `of ${nf(cap[c])}`;
+    box.setAttribute('aria-label', `${c === 'gold' ? 'Gold' : 'Grain'}: ${nf(s.r[c])} of ${nf(cap[c])}`);
+    box.title = `${nf(s.r[c])} of ${nf(cap[c])}`;
     box.classList.toggle('is-full', s.r[c] >= cap[c]);
   });
   const p = F.pending(s, EARNED.total), off = el.querySelector('[data-rl-coffers]');
@@ -503,6 +507,7 @@ export default {
       if (t.closest('[data-rl-shop]')) { shopSheet(st); return; }
       if (t.closest('[data-rl-log]')) { logSheet(); return; }
       if (t.closest('[data-rl-house]')) { houseSheet(st); return; }
+      if (t.closest('[data-rl-cur]')) { ui.toast(t.closest('[data-rl-cur]').getAttribute('aria-label'), {icon: 'info'}); return; }
       if (t.closest('[data-rl-raid]')) { raidSheet(st, ctx); return; }
       if (t.closest('[data-rl-unsel]')) { select(st, null); return; }
       if (t.closest('[data-rl-cancel]')) { endPlace(st); return; }
