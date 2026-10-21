@@ -445,7 +445,24 @@ export function mountList(el, ctx, opts = {}) {
     const {board, rows} = rowsFor(g, mode), note = boardNote(board, rows, mode === 'season');
     const me = rows.find(r => r.me);
     return (me ? `<p class="gm-z-me">You: ${esc(ui.ordinal(me.rank))} of ${rows.length} · ${esc(me.val)}</p>` : '')
-      + (note || `<div class="gm-scr-rows" role="list" aria-label="${mode === 'season' ? 'The season' : 'Today'}">${rows.map(r => rowHTML(r, {sub: true, who: g.id === '17-0'})).join('')}</div>`);
+      + (note || `<div class="gm-scr-rows" role="list" aria-label="${mode === 'season' ? 'The season' : 'Today'}">${rows.map(r => rowHTML(r, {sub: true, who: g.id === '17-0'})).join('')}</div>`)
+      + (g.id === '17-0' && mode === 'today' ? bestHTML() : '');
+  }
+  // Under 17-0's Today up close, the board's best possible team (the owner's ask, Oct 2026; the case is up close only
+  // once you've played, so it gives nothing away): its five players and its season; a tap shows it whole.
+  function bestHTML() {
+    const sv = C.sv;
+    if (!sv) return '';
+    let b, top, s;
+    try { b = sv.board(sv.todayNumber()); top = sv.best(b); s = sv.season(b, top.pick); } catch (e) { console.error(e); return ''; }
+    const last = n => { const i = String(n).indexOf(' '); return i < 0 ? String(n) : n.slice(i + 1); };
+    const names = top.pick.map((r, c) => last(sv.card(b, c, r).n)).join(' · ');
+    const sub = `${s.ppg.toFixed(1)} points a game · $${sv.cost(b, top.pick)} team`;
+    return `<p class="gm-z-me gm-z-bh">Best possible team</p>`
+      + `<button type="button" class="gm-r is-tap gm-z-best" data-gm-best aria-label="${esc(`The best possible team: ${names}. ${sv.rec(s)}, ${sub}. Show it.`)}">`
+      + `<span class="gm-r-rk" aria-hidden="true">${ui.icon('trophy')}</span>`
+      + `<span class="gm-r-nm" aria-hidden="true"><span class="gm-r-t">${esc(names)}</span><span class="gm-r-s">${esc(sub)}</span></span>`
+      + `<span class="gm-r-v${s.w === 17 ? ' is-gold' : ''}" aria-hidden="true">${esc(sv.rec(s))}</span></button>`;
   }
   // The whole board fits on the back (the owner's ask, Oct 2026: no scrolling, a finger anywhere but the Today / Season
   // switch turns the case): the rows come down in size till they fit, then lose their lines under the names.
@@ -541,8 +558,12 @@ export function mountList(el, ctx, opts = {}) {
       if (e.target.closest('[data-gm-zgo]')) { if (T.state.open) start(); return; }
       if (e.target.closest('[data-gm-zturn]')) { T.turn(1); return; }
       if (e.target.closest('[data-gm-zlid]')) { T.lid(); return; }
-      const who = e.target.closest('[data-gm-who]');
-      if (who) { if (!T.state.front && !T.state.open) showTeam(who.dataset.gmWho); return; }
+      const who = e.target.closest('[data-gm-who], [data-gm-best]');
+      if (who) {
+        const key = who.dataset.gmWho, mode = st.zoom.mode === 'season' ? 'all' : 'today';
+        if (!T.state.front && !T.state.open) overCase((m, n, o) => (key ? m.showTeam(key, mode, n, o) : m.showBest(n, o)));
+        return;
+      }
       const m = e.target.closest('[data-gm-zmode]');
       if (m) {
         if (m.dataset.gmZmode === st.zoom.mode) return;
@@ -572,14 +593,15 @@ export function mountList(el, ctx, opts = {}) {
     dlg.focus({preventScroll: true});
     ui.haptic('light');
   }
-  // A name on 17-0's board up close: that person's team (views/seventeen.js's sheet, the one its own scoreboard opens),
-  // over the case, the case left as it was under it.
-  function showTeam(key) {
+  // A name on 17-0's board up close: that person's team (views/seventeen.js's sheet, the one its own scoreboard opens);
+  // the best possible team: its sheet. Over the case, the case left as it was under it. open(m, n, o): the sheet from
+  // views/seventeen.js m for today's board n, o its options.
+  function overCase(open) {
     const Z = st.zoom;
     if (!Z || !C.sv) return;
     import('./seventeen.js').then(m => {
       if (st.zoom !== Z) return;
-      const sh = m.showTeam(key, Z.mode === 'season' ? 'all' : 'today', C.sv.todayNumber(), {onClose: () => { Z.el.inert = false; }});
+      const sh = open(m, C.sv.todayNumber(), {onClose: () => { Z.el.inert = false; }});
       if (!sh) return;
       // (sheets stack from z-index 1 in the overlays; the case up close sits at 900)
       sh.el.style.zIndex = '902';

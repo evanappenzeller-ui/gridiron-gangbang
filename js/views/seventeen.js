@@ -7,7 +7,8 @@
 // boards sent just one to three).
 //
 // A pane module, like League's segments: render(ctx), mount(el, ctx, {anchor}), params(el, ctx), unmount(el, ctx).
-// Also showTeam(key, mode, n): a scoreboard row's team sheet (the Daily Games list opens it from 17-0's case up close).
+// Also showTeam(key, mode, n) and showBest(n): a scoreboard row's team sheet, and board n's best team's (the Daily Games
+// list opens them from 17-0's case up close).
 // anchor: the element to keep in view when the pane swaps phases (the game picker).
 // Two phases, from what this phone stored for today's board: 'build' (the budget, the grid, the lineup bar with Play
 // right under it, the scouting report of the last player tapped) and 'season' once played. One season a day: Play locks the
@@ -333,6 +334,24 @@ export function showTeam(key, mode = 'today', n = sv.todayNumber(), o = {}) {
   ensureFaceFallback();
   ui.haptic('light');
   return ui.openSheet({...o, title: row.me ? 'Your team' : `${row.name}’s team`, body, detents: shown.length === 1 ? ['fit'] : ['medium', 'large'], cls: 'sh-seventeen sh-sv-team'});
+}
+/** The sheet of board n's best possible team (the most points a game under the cap): from 17-0's case up close
+ *  (views/games.js), so only once you've played. o: more for ui.openSheet (onClose). Returns the sheet. */
+export function showBest(n = sv.todayNumber(), o = {}) {
+  const b = sv.board(n), top = sv.best(b), s = sv.season(b, top.pick), all = sv.all(b), day = sv.dayState(n);
+  const you = !!day.played && sv.samePick(day.pick, top.pick);
+  const note = you ? 'You found it: it’s your team.'
+    : all.perfect > 1 ? `The best of the ${nf(all.perfect)} lineups that go 17\u2060–\u20600 today.` // (17–0 kept on one line)
+    : s.w === 17 ? 'The only lineup under the cap that goes 17\u2060–\u20600 today.' : 'No lineup under the cap scores more today.';
+  const body = `<div class="sv-pane sv-team"><section class="sv-tm" aria-label="${esc(`17–0 number ${n}, ${sv.dayLabel(n)}: the best team, ${s.w} and ${s.l}`)}">`
+    + `<div class="sv-tm-head"><p class="sv-tm-day">${esc(`${sv.dayLabel(n)} · #${n}`)}</p><p class="sv-tm-rec${s.w === 17 ? ' is-gold' : ''}">${s.w}–${s.l}</p></div>`
+    + `<p class="sv-tm-meta">${esc(`${s.ppg.toFixed(1)} PPG · #1 of ${nf(all.list.length)} · ${money(sv.cost(b, top.pick))} team`)}</p>`
+    + `<p class="sv-tm-note is-gold">${ui.icon('trophy', {size: 16})}<span>${esc(note)}</span></p>`
+    + lineupHTML(b, top.pick) + `</section></div>`;
+  ensureCss();
+  ensureFaceFallback();
+  ui.haptic('light');
+  return ui.openSheet({...o, title: 'The best possible team', body, detents: ['fit'], cls: 'sh-seventeen sh-sv-team'});
 }
 // Faces in the team sheet (outside the pane): the same fallback as the pane's, caught at the document.
 let faceFallback = false;

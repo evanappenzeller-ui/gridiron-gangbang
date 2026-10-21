@@ -420,6 +420,14 @@ button.gm-r { width: 100%; text-align: left; -webkit-tap-highlight-color: transp
 button.gm-r:active { background: rgba(255,255,255,.1); }
 button.gm-r.is-me:active { background: color-mix(in srgb, var(--gc) 46%, transparent); }
 button.gm-r:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
+/* 17-0's Today: the best possible team under the rows, picked out in gold (a tap shows it whole) */
+.gm-z-bh { margin-top: .8em; }
+.gm-zoom .gm-z-best { background: rgba(242,194,48,.08); box-shadow: inset 0 0 0 .12em rgba(242,194,48,.38); }
+.gm-zoom .gm-z-best:active { background: rgba(242,194,48,.18); }
+.gm-z-best .gm-r-rk { display: inline-flex; justify-content: center; color: #F2C230; }
+.gm-z-best .gm-r-rk svg { width: .9em; height: .9em; }
+.gm-z-best .gm-r-t { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.gm-z-best .gm-r-v.is-gold { color: #F2C230; }
 
 /* its sides (views/game-case.js shellHTML): glossy green plastic round the edge, the corners rounded, each strip
    darkened (--dk) and caught by the light (--hi) as the way it faces turns; the seam where the cover shuts down the
