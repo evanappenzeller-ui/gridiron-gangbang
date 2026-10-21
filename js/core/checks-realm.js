@@ -142,13 +142,13 @@ export async function realmChecks(check) {
     return {pass: onKeep && off && corner && refused && moved && kept && clear(s.b), detail: `onto the Keep refused ${onKeep}; off the base refused ${off}; its corners fine ${corner}; a build on the Keep refused ${refused}; a move onto it refused, to a clear corner fine ${moved}; a save piled on the Keep and off the base: ${fixed ? `${fixed.b.length} of ${bad.b.length} kept, ${kept ? 'laid out clear, the Keep where it was' : 'NOT clear'}` : 'not taken up'}`};
   });
 
-  check('Realm: the lands (Oct 2026): a realm starts on the coast; raising the Keep unlocks the Frozen Tundra (level 3), the Ocean Sanctuary (5) and the Infernal Wastes (7), each its to pick once open, never before; the pick is kept with the realm, and a save whose pick isn’t open (or isn’t one) lies on the coast', () => {
+  check('Realm: the lands (Oct 2026): a realm starts on the coast; raising the Keep unlocks the Enchanted Forest (level 2), the Frozen Tundra (3), the Ocean Sanctuary (5), the Amber Desert (6) and the Infernal Wastes (7), each its to pick once open, never before; the pick is kept with the realm, and a save whose pick isn’t open (or isn’t one) lies on the coast', () => {
     const s = F.fresh(T0), keep = s.b.find(b => b.t === 'keep');
     const start = F.sceneryOf(s) === 'coast' && F.SCENERIES.filter(x => F.sceneryOpen(s, x.k)).map(x => x.k).join() === 'coast';
     const early = !F.pickScenery(s, 'tundra') && F.sceneryOf(s) === 'coast';
     const at = {};
     for (let l = 1; l <= F.MAX_KEEP; l++) { keep.l = l; F.SCENERIES.forEach(x => { if (at[x.k] == null && F.sceneryOpen(s, x.k)) at[x.k] = l; }); }
-    const levels = at.coast === 1 && at.tundra === 3 && at.ocean === 5 && at.infernal === 7;
+    const levels = at.coast === 1 && at.forest === 2 && at.tundra === 3 && at.ocean === 5 && at.desert === 6 && at.infernal === 7;
     keep.l = 5;
     const picked = F.pickScenery(s, 'ocean') && F.sceneryOf(s) === 'ocean' && !F.pickScenery(s, 'infernal') && F.sceneryOf(s) === 'ocean';
     const kept = F.sceneryOf(F.clean(JSON.parse(JSON.stringify(s)))) === 'ocean';
@@ -246,9 +246,9 @@ export async function realmChecks(check) {
     return {pass: !bad.length && !missing.length && plat && !gone.length && sheets.size >= 20, detail: `buildings ${bad.length ? 'wrong: ' + bad.join(', ') : S.KINDS.join(', ') + ' ok'}; ${sheets.size} folk sheets called for${missing.length ? ', missing ' + missing.join(', ') : ''}; tower platforms ${plat}; ${gone.length ? 'pictures missing: ' + gone.join(', ') : 'pictures there'}`};
   });
 
-  check('Realm: the scenery (tools/realm/scenery.py, scenery_themes.py; img/realm/scenery/: the coast wide and tall, the Frozen Tundra, Ocean Sanctuary and Infernal Wastes tall): every layout’s landscape and every picture its placements call for are there; nothing’s placed in its build zone, and its lot lies inside it', async () => {
+  check('Realm: the scenery (tools/realm/sceneries.py; img/realm/scenery/: every land a blank portrait landscape, the owner’s, Oct 2026): every land has its layout, tall, and its landscape (and any picture placed on it) is there; nothing’s placed in its build zone, its lot lies inside it, and the zone inside the landscape', async () => {
     const D3 = await import('../views/realm-3d.js'), out = [];
-    let pass = F.SCENERIES.every(x => D3.FILES[x.k] && Object.keys(D3.FILES[x.k]).length);
+    let pass = F.SCENERIES.every(x => D3.FILES[x.k] && D3.FILES[x.k].tall);
     for (const [shape, file] of Object.entries(D3.FILES).flatMap(([k, f]) => Object.entries(f).map(([sh, fl]) => [`${k} ${sh}`, fl]))) {
       const lay = await fetch(new URL(`../../img/realm/scenery/${file}`, import.meta.url)).then(r => r.json(), () => null);
       if (!lay) { pass = false; out.push(`${shape}: no layout`); continue; }
@@ -261,8 +261,9 @@ export async function realmChecks(check) {
       const inside = lay.instances.filter(it => inZone([it.rect.x + it.rect.width / 2, it.rect.y + it.rect.height])).map(it => it.id);
       const hh = L ? L.h / 2 : 0, hw = hh / Math.sin(D3.PITCH);
       const lot = !!L && [[L.cx - hw, L.cy], [L.cx, L.cy - hh], [L.cx + hw, L.cy], [L.cx, L.cy + hh]].every(inZone);
-      pass = pass && !unknown.length && !gone.length && !inside.length && lot && lay.instances.length > 0;
-      out.push(`${shape}: ${lay.instances.length} placed${unknown.length ? `, unknown pictures: ${unknown.join(', ')}` : ''}; ${gone.length ? 'missing: ' + gone.join(', ') : 'all there'}; in the build zone: ${inside.length ? inside.join(', ') : 'nothing'}; the lot ${lot ? 'inside it' : 'NOT inside it'}`);
+      const S = lay.scene, onIt = !!S && S.height > S.width && Z.every(([x, y]) => x >= 0 && y >= 0 && x <= S.width && y <= S.height);
+      pass = pass && !unknown.length && !gone.length && !inside.length && lot && onIt;
+      out.push(`${shape}: ${lay.instances.length} placed${unknown.length ? `, unknown pictures: ${unknown.join(', ')}` : ''}; ${gone.length ? 'missing: ' + gone.join(', ') : 'all there'}; in the build zone: ${inside.length ? inside.join(', ') : 'nothing'}; the lot ${lot ? 'inside it' : 'NOT inside it'}; ${onIt ? 'portrait, the zone on it' : 'NOT portrait with the zone on it'}`);
     }
     return {pass, detail: out.join(' · ')};
   });

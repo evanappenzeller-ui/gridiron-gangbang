@@ -1,0 +1,46 @@
+{
+ "schema_version": 1,
+ "scene": {
+  "width": 853,
+  "height": 1844,
+  "origin": "top-left",
+  "units": "reference pixels",
+  "background_asset_id": "forest:ground"
+ },
+ "placement_convention": "x,y = bottom-center of the picture; rect for exact drawing",
+ "build_zone_polygon": [
+  [
+   179,
+   860
+  ],
+  [
+   455,
+   644
+  ],
+  [
+   731,
+   860
+  ],
+  [
+   455,
+   1076
+  ]
+ ],
+ "lot": {
+  "cx": 455,
+  "cy": 860,
+  "h": 400
+ },
+ "assets": {
+  "forest:ground": {
+   "width": 853,
+   "height": 1844,
+   "pic": {
+    "file": "forest/ground.webp",
+    "w": 853,
+    "h": 1844
+   }
+  }
+ },
+ "instances": []
+}

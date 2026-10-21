@@ -1,11 +1,9 @@
 // The Realm's lot in 3D (views/realm.js and views/realm-raid.js): three.js (js/vendor/three, MIT), the buildings from
 // views/realm-models.js, a camera looking down across the lot corner-on (a diamond, as these games are), dragged to
-// pan, pinched or wheeled to zoom. The lot lies on the meadow in the middle of the coastal scenery (img/realm/scenery/,
-// tools/realm/scenery.py; wide on a landscape screen, tall on a portrait one, changed over when the phone turns): its
-// landscape (the sea and the shore, the meadow, hills and lakes far off) laid on the ground so the camera sees it as
-// painted, and its pictures (a castle, a village, a harbour, trees and wheat) stood on it where its layout puts them;
-// the camera never looks past the landscape's edges, nor zooms out further than fills the screen with it (the
-// owner's ask, Oct 2026; without it: a meadow with a
+// pan, pinched or wheeled to zoom. The lot lies in the middle of its land's open ground (img/realm/scenery/,
+// tools/realm/sceneries.py: a blank portrait landscape a land, on any screen) laid on the ground so the camera sees it
+// as painted; the camera never looks past the landscape's edges, nor zooms out further than fills the screen with it
+// (the owner's ask, Oct 2026: each tall enough round the lot to zoom well out; without it: a meadow with a
 // moat round it, pines beyond and mountains far off). The Keep, gold mines, archer towers and dragon hatcheries are drawn
 // from their art (views/realm-sprites.js), and folk stand about: villagers at work by their buildings, an archer up each tower, a cannon's crew round it. It
 // draws when something moved (a finger, a raid) and, while there are folk about, a few times a second for them.
@@ -19,12 +17,11 @@ import * as SPR from './realm-sprites.js';
 import {KINDS, TROOPS, N, EDGE} from '../core/realm.js';
 const V = new URL('../vendor/three/', import.meta.url).href;
 let T = null, RE = null, LOADING = null, DEAD = false;
-// The sceneries (core/realm.js SCENERIES), each a layout a shape: its own landscape, placements and lot (its layout's
-// lot: where the lot lies in it, px: the middle and its diamond's height, far corner to near; as big as fits in the
-// build zone, the checks hold it to that). The coast has a wide one for a landscape screen and a tall one for a
-// portrait one (the owner's ask, Oct 2026); the others are tall, on any screen. Each loaded when it's first wanted
-// (SCENERY: those in, by file).
-export const FILES = {coast: {wide: 'layout.json', tall: 'layout-tall.json'}, tundra: {tall: 'layout-tundra.json'}, ocean: {tall: 'layout-ocean.json'}, infernal: {tall: 'layout-infernal.json'}};
+// The sceneries (core/realm.js SCENERIES), each a layout a shape: its own landscape, placements (none now: the lands
+// are blank) and lot (its layout's lot: where the lot lies in it, px: the middle and its diamond's height, far corner
+// to near; as big as fits in the build zone, the checks hold it to that). Every land is tall (portrait), on any screen
+// (the owner's ask, Oct 2026). Each loaded when it's first wanted (SCENERY: those in, by file).
+export const FILES = Object.fromEntries(['coast', 'forest', 'tundra', 'ocean', 'desert', 'infernal'].map(k => [k, {tall: `layout-${k}.json`}]));
 const shapeOf = (w, h) => (h > w ? 'tall' : 'wide');
 const fileFor = (theme, shape) => { const f = FILES[theme] || FILES.coast; return f[shape] || f.tall || f.wide; };
 const SCENERY = {}, ASKED = {};
@@ -179,14 +176,16 @@ function puffTexture(T) {
   return t;
 }
 
-// The base's ground in each land: its check's two tiles, its patches and specks (dark, light), its edge, the kerb, and
-// whether grass blades grow on it close up.
+// The base's ground in each land (its open ground's colours, taken from its landscape under the lot): its check's two
+// tiles, its patches and specks (dark, light), its edge, the kerb, and whether grass blades grow on it close up.
 const GROUND = {
-  grass: {a: '#97B142', b: '#8DA73A', pd: '110,130,30', pl: '180,190,90', sd: '70,95,20', sl: '190,200,100', edge: 'rgba(60,70,20,.45)', kerb: 0xB4AA94, blades: true},
-  snow: {a: '#EEF3F7', b: '#E2EAF1', pd: '150,175,200', pl: '255,255,255', sd: '120,150,180', sl: '255,255,255', edge: 'rgba(90,120,150,.4)', kerb: 0x8E9AA6, blades: false},
-  ash: {a: '#4E3D33', b: '#46362D', pd: '30,20,16', pl: '120,70,40', sd: '20,14,12', sl: '255,120,40', edge: 'rgba(255,90,20,.35)', kerb: 0x3A302C, blades: false}
+  coast: {a: '#96952E', b: '#8C8D2A', pd: '110,115,25', pl: '180,170,70', sd: '70,80,15', sl: '190,180,90', edge: 'rgba(60,65,15,.45)', kerb: 0xB4AA94, blades: true},
+  ocean: {a: '#9E9B34', b: '#94932F', pd: '115,118,30', pl: '185,175,75', sd: '75,82,18', sl: '195,185,95', edge: 'rgba(60,65,15,.45)', kerb: 0xC2B48E, blades: true},
+  forest: {a: '#51652C', b: '#4A5E28', pd: '40,55,20', pl: '110,130,60', sd: '30,40,12', sl: '120,140,70', edge: 'rgba(20,30,10,.5)', kerb: 0x7C8070, blades: true},
+  tundra: {a: '#CED3DF', b: '#C6CCDA', pd: '150,165,190', pl: '235,238,245', sd: '130,145,170', sl: '245,247,250', edge: 'rgba(90,110,140,.4)', kerb: 0x8E9AA6, blades: false},
+  desert: {a: '#ED9F4D', b: '#E59646', pd: '190,110,40', pl: '250,190,110', sd: '160,90,30', sl: '255,210,140', edge: 'rgba(150,80,25,.4)', kerb: 0xB08A5E, blades: false},
+  infernal: {a: '#57362B', b: '#4F3026', pd: '35,20,15', pl: '120,70,50', sd: '25,14,10', sl: '255,120,40', edge: 'rgba(255,90,20,.35)', kerb: 0x3A302C, blades: false}
 };
-const GROUND_OF = {coast: 'grass', ocean: 'grass', tundra: 'snow', infernal: 'ash'};
 function plotTexture(T, B, G) {
   // the base: its ground a tile each in a faint check (lighter and darker by turns), worn a little, a darker line at
   // its edge under the kerb
@@ -331,11 +330,11 @@ export function create(host, opts = {}) {
   const plain = new T.Group();
   let sceneryTheme = 'coast';
   const base = {}; // (the base's ground: below)
-  /** The base's ground for land k (GROUND_OF). */
+  /** The base's ground for land k (GROUND). */
   function groundFor(k) {
     sceneryTheme = k;
     if (!base.plot) return;
-    const G = GROUND[GROUND_OF[k] || 'grass'], key = GROUND_OF[k] || 'grass';
+    const key = GROUND[k] ? k : 'coast', G = GROUND[key];
     base.plot.material.map = base.tex[key] || (base.tex[key] = plotTexture(T, base.B, G));
     base.plot.material.needsUpdate = true;
     base.blades.visible = G.blades;
@@ -411,7 +410,7 @@ export function create(host, opts = {}) {
   }
 
   // ---- the base: a clear square cut out of the land, where everything's built and moved about (the lot inside its
-  // EDGE: core/realm.js fits()), its ground the land's (GROUND: grass, snow or ash) in a faint check a tile each, short
+  // EDGE: core/realm.js fits()), its ground the land's (GROUND: grass, moss, snow, sand or ash) in a faint check a tile each, short
   // blades over grass close up, a low stone kerb round it
   {
     const B = N - 2 * EDGE;
@@ -420,7 +419,7 @@ export function create(host, opts = {}) {
     const blades = new T.Mesh(new T.PlaneGeometry(B, B), new T.MeshBasicMaterial({map: bladesTexture(T), transparent: true, depthWrite: false, toneMapped: false, fog: false}));
     blades.material.map.repeat.set(B / 2, B / 2);
     blades.rotation.x = -Math.PI / 2; blades.position.y = .009; blades.renderOrder = -2001;
-    const kerbM = new T.MeshStandardMaterial({color: GROUND.grass.kerb, roughness: .9}), w = .26, hgt = .14;
+    const kerbM = new T.MeshStandardMaterial({color: GROUND.coast.kerb, roughness: .9}), w = .26, hgt = .14;
     [[0, -1], [0, 1], [-1, 0], [1, 0]].forEach(([sx, sz]) => {
       const k = new T.Mesh(new T.BoxGeometry(sx ? w : B + 2 * w, hgt, sz ? w : B + 2 * w), kerbM);
       k.position.set(sx * (B + w) / 2, hgt / 2, sz * (B + w) / 2); k.receiveShadow = true;

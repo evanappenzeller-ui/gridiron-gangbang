@@ -198,6 +198,8 @@
 .sh-rl .rl-scn.is-coast .rl-scn-sw { background: linear-gradient(135deg, #1E5FA8 0 34%, #E7D7A8 34% 40%, #6FA23A 40%); }
 .sh-rl .rl-scn.is-tundra .rl-scn-sw { background: linear-gradient(135deg, #1B5C9C 0 34%, #CFE3F2 34% 40%, #F4F8FB 40% 78%, #2E5A40 78%); }
 .sh-rl .rl-scn.is-ocean .rl-scn-sw { background: radial-gradient(ellipse 50% 60% at 50% 50%, #6FB43A 0 58%, #F0DFAE 60% 68%, #2BB6C4 70% 82%, #13489A 84%); }
+.sh-rl .rl-scn.is-forest .rl-scn-sw { background: radial-gradient(ellipse 55% 60% at 50% 50%, #55692E 0 56%, #2FB6C8 60% 66%, #23402A 70% 86%, #6A4FC4 90%); }
+.sh-rl .rl-scn.is-desert .rl-scn-sw { background: linear-gradient(135deg, #F3B862 0 22%, #B8532E 26% 34%, #ED9F4D 34% 80%, #A4462A 84%); }
 .sh-rl .rl-scn.is-infernal .rl-scn-sw { background: linear-gradient(135deg, #F04A10 0 26%, #2A1A14 30% 36%, #4B3A30 36% 82%, #E8551A 86%); }
 .rl-stars { display: inline-flex; gap: 2px; }
 .rl-stars i { width: 14px; height: 14px; background: rgba(255,240,210,.22); clip-path: polygon(50% 0, 62% 35%, 100% 38%, 70% 60%, 80% 100%, 50% 77%, 20% 100%, 30% 60%, 0 38%, 38% 35%); }

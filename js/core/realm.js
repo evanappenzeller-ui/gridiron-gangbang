@@ -242,9 +242,11 @@ export function incomeOf(docs, mods = {}) {
 // Where your realm lies (views/realm-3d.js draws it, img/realm/scenery/): the coast from the start; the rest unlocked by
 // raising the Keep (the owner's ask, Oct 2026), each yours to pick (the house card) once it is.
 export const SCENERIES = [
-  {k: 'coast', name: 'The Coast', at: 1, blurb: 'A harbour, a village and a castle on the meadow by the sea'},
+  {k: 'coast', name: 'The Coast', at: 1, blurb: 'A meadow by the sea, pines along the shore, mountains and lakes beyond'},
+  {k: 'forest', name: 'Enchanted Forest', at: 2, blurb: 'A glade in a moonlit wood, glowing streams and blooms all round'},
   {k: 'tundra', name: 'Frozen Tundra', at: 3, blurb: 'A snowfield by an icy sea, pines and mountains all round'},
   {k: 'ocean', name: 'Ocean Sanctuary', at: 5, blurb: 'An island of grass and palms in a turquoise sea'},
+  {k: 'desert', name: 'Amber Desert', at: 6, blurb: 'Sand under a setting sun, red rock and an oasis beyond'},
   {k: 'infernal', name: 'Infernal Wastes', at: 7, blurb: 'Scorched ground ringed by rivers of lava, a volcano beyond'}
 ];
 /** Whether scenery k is open to this realm (its Keep high enough). */

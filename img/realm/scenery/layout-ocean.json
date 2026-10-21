@@ -1,8 +1,8 @@
 {
  "schema_version": 1,
  "scene": {
-  "width": 941,
-  "height": 1672,
+  "width": 851,
+  "height": 1848,
   "origin": "top-left",
   "units": "reference pixels",
   "background_asset_id": "ocean:ground"
@@ -10,348 +10,37 @@
  "placement_convention": "x,y = bottom-center of the picture; rect for exact drawing",
  "build_zone_polygon": [
   [
-   298,
-   770
+   164,
+   870
   ],
   [
-   525,
-   592
+   440,
+   654
   ],
   [
-   752,
-   770
+   716,
+   870
   ],
   [
-   525,
-   948
+   440,
+   1086
   ]
  ],
  "lot": {
-  "cx": 525,
-  "cy": 770,
-  "h": 330
+  "cx": 440,
+  "cy": 870,
+  "h": 400
  },
  "assets": {
   "ocean:ground": {
-   "width": 941,
-   "height": 1672,
+   "width": 851,
+   "height": 1848,
    "pic": {
     "file": "ocean/ground.webp",
-    "w": 941,
-    "h": 1672
-   }
-  },
-  "ocean:castle": {
-   "width": 463,
-   "height": 403,
-   "pic": {
-    "file": "ocean/castle.webp",
-    "w": 463,
-    "h": 403,
-    "crop": [
-     0,
-     0,
-     463,
-     403
-    ]
-   }
-  },
-  "ocean:cottage": {
-   "width": 344,
-   "height": 273,
-   "pic": {
-    "file": "ocean/cottage.webp",
-    "w": 312,
-    "h": 248,
-    "crop": [
-     0,
-     0,
-     344,
-     273
-    ]
-   }
-  },
-  "ocean:forge": {
-   "width": 423,
-   "height": 268,
-   "pic": {
-    "file": "ocean/forge.webp",
-    "w": 400,
-    "h": 253,
-    "crop": [
-     0,
-     0,
-     423,
-     268
-    ]
-   }
-  },
-  "ocean:dock": {
-   "width": 491,
-   "height": 286,
-   "pic": {
-    "file": "ocean/dock.webp",
-    "w": 491,
-    "h": 286,
-    "crop": [
-     0,
-     0,
-     491,
-     286
-    ]
-   }
-  },
-  "ocean:hall": {
-   "width": 390,
-   "height": 301,
-   "pic": {
-    "file": "ocean/hall.webp",
-    "w": 390,
-    "h": 301,
-    "crop": [
-     0,
-     0,
-     390,
-     301
-    ]
-   }
-  },
-  "ocean:watchtower": {
-   "width": 234,
-   "height": 310,
-   "pic": {
-    "file": "ocean/watchtower.webp",
-    "w": 175,
-    "h": 232,
-    "crop": [
-     0,
-     0,
-     234,
-     310
-    ]
-   }
-  },
-  "ocean:storehouse": {
-   "width": 414,
-   "height": 247,
-   "pic": {
-    "file": "ocean/storehouse.webp",
-    "w": 375,
-    "h": 224,
-    "crop": [
-     0,
-     0,
-     414,
-     247
-    ]
-   }
-  },
-  "ocean:ship": {
-   "width": 407,
-   "height": 290,
-   "pic": {
-    "file": "ocean/ship.webp",
-    "w": 375,
-    "h": 267,
-    "crop": [
-     0,
-     0,
-     407,
-     290
-    ]
+    "w": 851,
+    "h": 1848
    }
   }
  },
- "instances": [
-  {
-   "id": "hall_0",
-   "asset_id": "ocean:hall",
-   "x": 345,
-   "y": 430,
-   "width": 180,
-   "height": 139,
-   "anchor": [
-    0.5,
-    1.0
-   ],
-   "rect": {
-    "x": 255,
-    "y": 291,
-    "width": 180,
-    "height": 139
-   },
-   "draw_order": 0
-  },
-  {
-   "id": "castle_1",
-   "asset_id": "ocean:castle",
-   "x": 575,
-   "y": 460,
-   "width": 230,
-   "height": 200,
-   "anchor": [
-    0.5,
-    1.0
-   ],
-   "rect": {
-    "x": 460,
-    "y": 260,
-    "width": 230,
-    "height": 200
-   },
-   "draw_order": 1
-  },
-  {
-   "id": "cottage_2",
-   "asset_id": "ocean:cottage",
-   "x": 290,
-   "y": 575,
-   "width": 125,
-   "height": 99,
-   "anchor": [
-    0.5,
-    1.0
-   ],
-   "rect": {
-    "x": 228,
-    "y": 476,
-    "width": 125,
-    "height": 99
-   },
-   "draw_order": 2
-  },
-  {
-   "id": "watchtower_3",
-   "asset_id": "ocean:watchtower",
-   "x": 755,
-   "y": 585,
-   "width": 70,
-   "height": 93,
-   "anchor": [
-    0.5,
-    1.0
-   ],
-   "rect": {
-    "x": 720,
-    "y": 492,
-    "width": 70,
-    "height": 93
-   },
-   "draw_order": 3
-  },
-  {
-   "id": "dock_4",
-   "asset_id": "ocean:dock",
-   "x": 155,
-   "y": 870,
-   "width": 200,
-   "height": 116,
-   "anchor": [
-    0.5,
-    1.0
-   ],
-   "rect": {
-    "x": 55,
-    "y": 754,
-    "width": 200,
-    "height": 116
-   },
-   "draw_order": 4
-  },
-  {
-   "id": "ship_5",
-   "asset_id": "ocean:ship",
-   "x": 70,
-   "y": 910,
-   "width": 150,
-   "height": 107,
-   "anchor": [
-    0.5,
-    1.0
-   ],
-   "rect": {
-    "x": -5,
-    "y": 803,
-    "width": 150,
-    "height": 107
-   },
-   "draw_order": 5
-  },
-  {
-   "id": "dock_6",
-   "asset_id": "ocean:dock",
-   "x": 175,
-   "y": 1060,
-   "width": 190,
-   "height": 111,
-   "anchor": [
-    0.5,
-    1.0
-   ],
-   "rect": {
-    "x": 80,
-    "y": 949,
-    "width": 190,
-    "height": 111
-   },
-   "draw_order": 6
-  },
-  {
-   "id": "forge_7",
-   "asset_id": "ocean:forge",
-   "x": 395,
-   "y": 1080,
-   "width": 160,
-   "height": 101,
-   "anchor": [
-    0.5,
-    1.0
-   ],
-   "rect": {
-    "x": 315,
-    "y": 979,
-    "width": 160,
-    "height": 101
-   },
-   "draw_order": 7
-  },
-  {
-   "id": "storehouse_8",
-   "asset_id": "ocean:storehouse",
-   "x": 645,
-   "y": 1085,
-   "width": 150,
-   "height": 89,
-   "anchor": [
-    0.5,
-    1.0
-   ],
-   "rect": {
-    "x": 570,
-    "y": 996,
-    "width": 150,
-    "height": 89
-   },
-   "draw_order": 8
-  },
-  {
-   "id": "ship_9",
-   "asset_id": "ocean:ship",
-   "x": 95,
-   "y": 1110,
-   "width": 145,
-   "height": 103,
-   "anchor": [
-    0.5,
-    1.0
-   ],
-   "rect": {
-    "x": 22,
-    "y": 1007,
-    "width": 145,
-    "height": 103
-   },
-   "draw_order": 9
-  }
- ]
+ "instances": []
 }

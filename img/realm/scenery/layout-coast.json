@@ -1,0 +1,46 @@
+{
+ "schema_version": 1,
+ "scene": {
+  "width": 853,
+  "height": 1844,
+  "origin": "top-left",
+  "units": "reference pixels",
+  "background_asset_id": "coast:ground"
+ },
+ "placement_convention": "x,y = bottom-center of the picture; rect for exact drawing",
+ "build_zone_polygon": [
+  [
+   199,
+   850
+  ],
+  [
+   475,
+   634
+  ],
+  [
+   751,
+   850
+  ],
+  [
+   475,
+   1066
+  ]
+ ],
+ "lot": {
+  "cx": 475,
+  "cy": 850,
+  "h": 400
+ },
+ "assets": {
+  "coast:ground": {
+   "width": 853,
+   "height": 1844,
+   "pic": {
+    "file": "coast/ground.webp",
+    "w": 853,
+    "h": 1844
+   }
+  }
+ },
+ "instances": []
+}

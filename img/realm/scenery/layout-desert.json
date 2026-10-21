@@ -1,0 +1,46 @@
+{
+ "schema_version": 1,
+ "scene": {
+  "width": 851,
+  "height": 1848,
+  "origin": "top-left",
+  "units": "reference pixels",
+  "background_asset_id": "desert:ground"
+ },
+ "placement_convention": "x,y = bottom-center of the picture; rect for exact drawing",
+ "build_zone_polygon": [
+  [
+   174,
+   870
+  ],
+  [
+   450,
+   654
+  ],
+  [
+   726,
+   870
+  ],
+  [
+   450,
+   1086
+  ]
+ ],
+ "lot": {
+  "cx": 450,
+  "cy": 870,
+  "h": 400
+ },
+ "assets": {
+  "desert:ground": {
+   "width": 851,
+   "height": 1848,
+   "pic": {
+    "file": "desert/ground.webp",
+    "w": 851,
+    "h": 1848
+   }
+  }
+ },
+ "instances": []
+}

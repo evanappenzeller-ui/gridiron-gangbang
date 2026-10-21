@@ -1,0 +1,9 @@
+{
+ "_": "The Realm's lands (tools/realm/sceneries.py): each one's blank portrait landscape (the owner's, Oct 2026: Blank_Sceneries_All_Six.zip) and where the lot lies on it (px: its middle and its diamond's height, far corner to near), in the middle of its open ground.",
+ "coast": {"file": "Coastal_Grassland.png", "lot": {"cx": 475, "cy": 850, "h": 400}},
+ "forest": {"file": "Enchanted_Forest.png", "lot": {"cx": 455, "cy": 860, "h": 400}},
+ "tundra": {"file": "Frozen_Tundra.png", "lot": {"cx": 460, "cy": 850, "h": 400}},
+ "ocean": {"file": "Ocean_Island.png", "lot": {"cx": 440, "cy": 870, "h": 400}},
+ "desert": {"file": "Amber_Desert.png", "lot": {"cx": 450, "cy": 870, "h": 400}},
+ "infernal": {"file": "Hellish_Landscape.png", "lot": {"cx": 440, "cy": 880, "h": 400}}
+}
