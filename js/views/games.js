@@ -415,15 +415,33 @@ export function mountList(el, ctx, opts = {}) {
     return (me ? `<p class="gm-z-me">You: ${esc(ui.ordinal(me.rank))} of ${rows.length} · ${esc(me.val)}</p>` : '')
       + (note || `<div class="gm-scr-rows" role="list" aria-label="${mode === 'season' ? 'The season' : 'Today'}">${rows.map(r => rowHTML(r, {sub: true})).join('')}</div>`);
   }
+  // The whole board fits on the back (the owner's ask, Oct 2026: no scrolling, a finger anywhere but the Today / Season
+  // switch turns the case): the rows come down in size till they fit, then lose their lines under the names.
+  function fitBoard(body) {
+    if (!body) return;
+    body.classList.remove('is-tight');
+    body.style.removeProperty('--zr');
+    const over = () => body.scrollHeight > body.clientHeight + 1;
+    if (!body.clientHeight || !over()) return;
+    let r = 1;
+    const shrink = min => { for (let i = 0; i < 6 && over() && r > min; i++) { r = Math.max(min, r * body.clientHeight / body.scrollHeight - .01); body.style.setProperty('--zr', r.toFixed(3)); } };
+    shrink(.74);
+    if (!over()) return;
+    body.classList.add('is-tight');
+    r = 1;
+    body.style.removeProperty('--zr');
+    shrink(.45);
+  }
   // The case up close (the owner's ask, Oct 2026): a real case to turn in your hand (views/game-case.js), its back the
   // whole board, its front the cover; turned to the front it opens, the disc inside.
-  function caseUpHTML(g, s, go) {
-    const back = `<div class="gm-face gm-back gm-z-back">${bandHTML(`<span class="gm-bk-tag">${s.test ? 'TEST' : 'FINAL'}</span>`, g.beta)}`
-      + `<div class="gm-bk-in"><span class="gm-bk-name" id="gm-z-t">${esc(g.name)}</span>`
+  function caseUpHTML(g, s) {
+    // (the game's name up in the black band, where the cover has GRIDIRON HUB: the owner's ask, Oct 2026)
+    const band = `<span class="gm-band is-z">${g.beta ? '<span class="gm-beta">BETA</span>' : ''}<span class="gm-bk-name" id="gm-z-t">${esc(g.name)}</span>`
+      + `<span class="gm-bk-tag">${s.test ? 'TEST' : 'FINAL'}</span></span>`;
+    const back = `<div class="gm-face gm-back gm-z-back">${band}<div class="gm-bk-in">`
       + `<div class="gm-bk-res"><span class="gm-bk-vis">${s.vis || ''}</span><span class="gm-bk-tt"><b class="gm-bk-h${s.gold ? ' is-gold' : ''}">${esc(s.head || '')}</b>${(s.lines || []).map(l => `<small>${esc(l)}</small>`).join('')}</span></div>`
       + `<div class="gm-z-tog" role="tablist" aria-label="Leaderboard"><button type="button" role="tab" aria-selected="true" data-gm-zmode="today">Today</button><button type="button" role="tab" aria-selected="false" data-gm-zmode="season">Season</button></div>`
-      + `<div class="gm-scr is-z"><div class="gm-z-body" data-gm-zbody>${zoomBody(g, 'today')}</div></div>`
-      + `<div class="gm-bk-foot">${ui.button({label: go.label, kind: 'secondary', size: 's', attrs: go.attrs, cls: 'gm-z-open'})}</div></div>${GLOSS}</div>`;
+      + `<div class="gm-scr is-z"><div class="gm-z-body" data-gm-zbody>${zoomBody(g, 'today')}</div></div></div>${GLOSS}</div>`;
     // its sides (the spine with the name down it), the tray inside with the disc on its hub, the cover on its hinge
     // (the cover outside, inside the booklet held in by two clips)
     const img = src => `<img src="${src}" alt="" decoding="async" draggable="false">`;
@@ -442,14 +460,12 @@ export function mountList(el, ctx, opts = {}) {
     const g = byId(id), cs = curCase(id);
     if (!g || st.zoom) return;
     const s = stateOf(g);
-    // its foot: the game's own way on (Daily Puzzles' results, 17-0's season, ...)
-    const go = (s.actions || [])[0] || {label: 'Open the game', attrs: {'data-gm-open': id}};
     const z = document.createElement('div');
     z.className = 'gm-zoom';
     z.innerHTML = `<div class="gm-z-scrim" data-gm-zclose></div>`
       + `<div class="gm-z-dlg" role="dialog" aria-modal="true" aria-labelledby="gm-z-t" tabindex="-1">`
       + ui.iconButton({icon: 'close', label: 'Close', cls: 'gm-z-x', filled: true, attrs: 'data-gm-zclose'})
-      + caseUpHTML(g, s, go)
+      + caseUpHTML(g, s)
       + `<div class="gm-z-ctl">${ui.button({label: 'Turn over', kind: 'secondary', size: 's', icon: 'swap', attrs: 'data-gm-zturn'})}`
       + `${ui.button({label: 'Open the case', kind: 'secondary', size: 's', attrs: 'data-gm-zlid', disabled: true})}</div>`
       + `<p class="gm-z-hint" data-gm-zhint>${HINT.back}</p></div>`;
@@ -464,7 +480,9 @@ export function mountList(el, ctx, opts = {}) {
       hint.textContent = HINT[open ? 'open' : front ? 'front' : 'back'];
     };
     const T = turnable(z, dlg, said);
-    st.zoom = {el: z, id, mode: 'today', app, prev: app ? app.inert : false, turn: T};
+    st.zoom = {el: z, id, mode: 'today', app, prev: app ? app.inert : false, turn: T, fit: () => fitBoard(z.querySelector('[data-gm-zbody]'))};
+    st.zoom.fit();
+    addEventListener('resize', st.zoom.fit, {passive: true});
     if (app && !z.closest('#app')) app.inert = true;
     // from the case on the shelf up to the middle of the screen
     if (cs && !ui.RM) {
@@ -484,14 +502,11 @@ export function mountList(el, ctx, opts = {}) {
         st.zoom.mode = m.dataset.gmZmode;
         z.querySelectorAll('[data-gm-zmode]').forEach(b => b.setAttribute('aria-selected', String(b === m)));
         const body = z.querySelector('[data-gm-zbody]');
-        const go = () => { body.innerHTML = zoomBody(g, st.zoom.mode); ui.hydrate(body); body.scrollTop = 0; };
+        const go = () => { body.innerHTML = zoomBody(g, st.zoom.mode); ui.hydrate(body); fitBoard(body); };
         if (!ui.RM) ui.crossfade(body, go, {duration: 140}); else go();
         ui.haptic('selection');
         return;
       }
-      const open = e.target.closest('[data-gm-open]');
-      if (open) { closeZoom(true); ctx.nav(gamePath(open.dataset.gmOpen)); return; }
-      if (e.target.closest('[data-gm-results]')) { closeZoom(true); ctx.nav('/puzzles/results'); return; }
       // open, a tap on the disc gives it a spin, anywhere else on the case shuts it; shut, a tap on the cover opens it
       if (T.state.open) {
         const lab = e.target.closest('[data-gm-zdisc]') && z.querySelector('.gm-z-lab');
@@ -516,6 +531,7 @@ export function mountList(el, ctx, opts = {}) {
     st.zoom = null;
     if (Z.app) Z.app.inert = Z.prev;
     Z.turn.stop();
+    removeEventListener('resize', Z.fit);
     const cs = curCase(Z.id), stage = Z.el.querySelector('.gm-z-stage');
     if (fast || ui.RM || !cs || !stage) { Z.el.remove(); if (cs && !fast) cs.focus({preventScroll: true}); return; }
     // shut and turned round to its back (as it stands on the shelf) on its way back down
@@ -620,7 +636,7 @@ export function mountList(el, ctx, opts = {}) {
     });
     if (st.zoom) {
       const body = st.zoom.el.querySelector('[data-gm-zbody]'), g = byId(st.zoom.id), html = zoomBody(g, st.zoom.mode);
-      if (body && body.dataset.html !== html) { body.dataset.html = html; body.innerHTML = html; ui.hydrate(body); }
+      if (body && body.dataset.html !== html) { body.dataset.html = html; body.innerHTML = html; ui.hydrate(body); fitBoard(body); }
     }
   };
   list().forEach(g => shown.set(g.id, sig(g, stateOf(g))));
