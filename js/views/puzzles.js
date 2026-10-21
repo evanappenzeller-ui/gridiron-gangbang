@@ -18,7 +18,7 @@ import {mountBoard, streakPillHTML, stepParts, zeroParts, gradeGold, stepIcon, w
   msToMidnight, ensureDefs, ringHTML, maxPts, dayLabel} from './board.js';
 import {youButtonHTML, settingsButtonHTML, openStreakSheet} from './you.js';
 import {canTest, testRowHTML} from './testplay.js';
-import {GAMES, gameOpen, gamePath, dailyKind, progHTML, fracOf, perfectOf, doneCount, listHTML, mountList} from './games.js';
+import {GAMES, gameOpen, gamePath, dailyKind, progHTML, fracOf, perfectOf, doneCount, listHTML, mountList, testingAll, testAll} from './games.js';
 
 const esc = data.esc;
 const nf = n => data.nf(n);
@@ -67,8 +67,41 @@ const pillSig = s => (s ? [s.current, s.best, s.atRisk].join('|') : '');
 function trailHTML() {
   const s = pillState();
   return `<span class="c-spill-slot" data-sig="${pillSig(s)}">${s ? streakPillHTML(s, {attrs: 'data-streak'}) : ''}</span>`
-    // The gear (Settings) and your avatar button: app.js opens the sheets on [data-settings] / [data-you].
-    + settingsButtonHTML() + youButtonHTML();
+    // The owner's test mode (games.js testAll: up in the corner, by the date), then the gear (Settings) and your avatar button: app.js opens the
+    // sheets on [data-settings] / [data-you].
+    + testBtnHTML() + settingsButtonHTML() + youButtonHTML();
+}
+const testLabel = on => (on ? 'Test mode on: reset the games or end it' : 'Test mode: every game fresh, nothing counts');
+const testBtnHTML = () => (canTest() ? `<button type="button" class="c-test-btn" data-gm-testall aria-pressed="${testingAll()}" aria-label="${testLabel(testingAll())}">Test</button>` : '');
+function patchTestBtn(st) {
+  // (who this phone is can change under it: the button comes and goes with the owner)
+  let b = st.el.querySelector('[data-gm-testall]');
+  const gear = st.el.querySelector('.lt-trail [data-settings]');
+  if (b && !canTest()) { b.remove(); return; }
+  if (!b && canTest() && gear) { gear.insertAdjacentHTML('beforebegin', testBtnHTML()); return; }
+  const on = String(testingAll());
+  if (!b || b.getAttribute('aria-pressed') === on) return;
+  b.setAttribute('aria-pressed', on);
+  b.setAttribute('aria-label', testLabel(on === 'true'));
+}
+/** The owner's test button: off, every game starts fresh in its sandbox; on, start them all fresh again or end it. */
+async function testAllTap(st, btn) {
+  if (!canTest()) return;
+  let go = 'on';
+  if (testingAll()) {
+    go = await ui.actionSheet({
+      title: 'Test mode',
+      message: 'Your games here don’t count and aren’t posted.',
+      actions: [{label: 'Reset all games', value: 'on', role: 'primary'}, {label: 'End test mode', value: 'off'}],
+      returnFocus: btn
+    });
+    if (!go || !st.el.isConnected) return;
+  }
+  testAll(go === 'on');
+  if (st.list) st.list.refresh(true);
+  patchTestBtn(st);
+  ui.haptic('medium');
+  ui.toast(go === 'on' ? 'Test mode: every game is fresh. Nothing counts.' : 'Test mode over: your real games are back.', {icon: go === 'on' ? 'play-fill' : 'check-circle'});
 }
 
 // ============================================================================ Markup: hero
@@ -429,6 +462,7 @@ function tickCd(st, animate) {
 }
 
 function patchPill(st, animate) {
+  patchTestBtn(st);
   const slot = st.el.querySelector('.c-spill-slot');
   if (!slot || !ready()) return;
   const s = pillState();
@@ -458,6 +492,8 @@ function patchEyebrow(st) {
 
 // ============================================================================ Events
 function onClick(st, e) {
+  const tb = e.target.closest('[data-gm-testall]');
+  if (tb) { testAllTap(st, tb); return; }
   if (st.game === null && onListClick(st, e)) return;
   // The 17-0 pane handles its own taps (views/seventeen.js), all but "Try again" after its import failed.
   const load = e.target.closest('[data-sv-load]');
@@ -646,7 +682,7 @@ export default {
   update(ctx) {
     const st = HUB.get(ctx);
     if (!st) return;
-    if (st.game === null) { if (st.list) st.list.refresh(false); return; }
+    if (st.game === null) { if (st.list) st.list.refresh(false); patchTestBtn(st); return; }
     if (st.game === 'puzzles') { if (ctx.reason !== 'params' && st.board) st.board.refresh({animate: false}); return; }
     if (st.game === '17-0') showSV(st);
     else if (st.game === 'drill') showDR(st);

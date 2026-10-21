@@ -8,7 +8,7 @@
 // 17-0's, the drill's, Kick It's and Return Man's cores load at idle (17-0's and the drill's with their day files);
 // until then their cards offer Play. Return Man is open to the league in beta (a BETA tag on its case: GAMES beta).
 // Exports: GAMES, gameOpen(id), gamesFor(), gamePath(id), dailyKind(), progHTML() (and its fracOf, perfectOf, doneCount),
-// miniRows(rows), listHTML(), mountList(el, ctx) → {refresh(animate), tick(), destroy()}.
+// miniRows(rows), listHTML(), mountList(el, ctx) → {refresh(animate), tick(), destroy()}, testingAll(), testAll(on).
 // Owner: PUZZLES.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
@@ -117,10 +117,26 @@ let coresAsked = false;
 function loadCores(then) {
   if (coresAsked) return;
   coresAsked = true;
-  import('../core/seventeen.js').then(m => m.load().then(() => { C.sv = m; then(); })).catch(() => {});
-  import('../core/drill.js').then(m => m.load().then(() => { C.dr = m; then(); })).catch(() => {});
-  import('../core/kick.js').then(m => { C.kk = m; then(); }).catch(() => {});
-  if (gameOpen('return')) import('../core/return.js').then(m => { C.rm = m; then(); }).catch(() => {});
+  const got = (k, m) => { C[k] = m; if (TEST_ALL && !m.testing()) m.setTest(true); then(); }; // (one loaded in test mode joins it)
+  import('../core/seventeen.js').then(m => m.load().then(() => got('sv', m))).catch(() => {});
+  import('../core/drill.js').then(m => m.load().then(() => got('dr', m))).catch(() => {});
+  import('../core/kick.js').then(m => got('kk', m)).catch(() => {});
+  if (gameOpen('return')) import('../core/return.js').then(m => got('rm', m)).catch(() => {});
+}
+
+// ============================================================================ The owner's test mode
+// One button for every game (the owner's ask, Oct 2026: at the top right of Daily Games, on his phones only): each
+// game's Test play (views/testplay.js) at once, today's games started fresh in their sandboxes, never posted and never
+// counted (the Franchise's pay too comes only from what's posted); on again, they all start fresh again; off, the real
+// day comes back as it was.
+let TEST_ALL = false;
+/** Whether any of today's games is in its sandbox. */
+export const testingAll = () => !!daily.TEST || Object.values(C).some(m => m && m.testing());
+/** Every game fresh in its sandbox (on), or all back to the real day (off). */
+export function testAll(on) {
+  TEST_ALL = !!on;
+  if (!daily.setTest(TEST_ALL) && TEST_ALL) daily.ensure().then(() => { if (TEST_ALL && !daily.TEST) daily.setTest(true); }, () => {});
+  Object.values(C).forEach(m => { if (m) m.setTest(TEST_ALL); });
 }
 const boardOf = m => safe(() => [m.boardState()])[0] || 'loading';
 // A season's word on its card (the season screen's verdicts, views/seventeen.js, cut to a headline).

@@ -125,6 +125,8 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
   .screen.v-puzzles[data-path="/puzzles"]::before, .screen.v-puzzles[data-path="/puzzles"]::after { animation: none; }
 }
 
+/* the date stays on one line over the title, out over the buttons beside it (they sit lower, by the title) */
+.screen.v-puzzles[data-path="/puzzles"] .lt-eyebrow { white-space: nowrap; }
 /* ---------------------------------------------------------------- The shelf of games (views/games.js) */
 /* A shelf of game cases swiped along (scroll snap): the one in the middle big and lit, a white ring round it; the
    others smaller, turned in toward it. Each is a black case: the Gridiron Hub band, then the game's cover. Under it,
