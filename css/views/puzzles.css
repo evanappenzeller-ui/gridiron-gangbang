@@ -414,6 +414,12 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
 .gm-zoom .gm-r-gr { font-size: .9em; min-width: 2em; }
 .gm-zoom .gm-r-gr + .gm-r-v { min-width: 3.4em; }
 .gm-z-body.is-tight .gm-r-s { display: none; }
+/* 17-0's rows are buttons: a tap shows that person's team (a drag still turns the case) */
+.gm-r-w { display: contents; }
+button.gm-r { width: 100%; text-align: left; -webkit-tap-highlight-color: transparent; }
+button.gm-r:active { background: rgba(255,255,255,.1); }
+button.gm-r.is-me:active { background: color-mix(in srgb, var(--gc) 46%, transparent); }
+button.gm-r:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
 
 /* its sides (views/game-case.js shellHTML): glossy green plastic round the edge, the corners rounded, each strip
    darkened (--dk) and caught by the light (--hi) as the way it faces turns; the seam where the cover shuts down the

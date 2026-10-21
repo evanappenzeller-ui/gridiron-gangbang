@@ -255,15 +255,19 @@ function frontHTML(g, s, up = false) {
   const stk = s.test ? sticker('is-test', 'TEST PLAY') : s.kind === 'started' ? sticker('is-go', 'IN PROGRESS') : '';
   return `<div class="gm-face gm-front${up ? ' gm-z-front" data-gm-zfront aria-hidden="true' : ''}">${bandHTML('', g.beta)}<span class="gm-art"><img class="gm-img" src="${g.art}" alt="" decoding="async" draggable="false">${stk}</span>${up ? `<span class="gm-z-foot"><i></i>${ui.icon('football')}</span>${GLOSS}` : ''}</div>`;
 }
-function rowHTML(r, {sub = false} = {}) {
+/** A board row. who: a tap shows the row's team (17-0's board up close: a button, data-gm-who its key). */
+function rowHTML(r, {sub = false, who = false} = {}) {
   const label = `${ui.ordinal(r.rank)}, ${r.name}${r.me ? ', you' : ''}${r.guest ? ', guest' : ''}: ${r.val}${r.letter ? `, grade ${r.letter}` : ''}${sub && r.sub ? `. ${r.sub}` : ''}`;
   // a graded game (the Two-Minute Drill) shows its letter by the score, coloured as on the drill's own board
   const grade = r.letter ? `<span class="gm-r-gr is-${esc(String(r.letter)[0])}" aria-hidden="true">${esc(r.letter)}</span>` : '';
-  return `<div class="gm-r${r.me ? ' is-me' : ''}" role="listitem" aria-label="${esc(label)}">`
+  const open = who && r.key
+    ? `<div class="gm-r-w" role="listitem"><button type="button" class="gm-r is-tap${r.me ? ' is-me' : ''}" data-gm-who="${esc(r.key)}" aria-label="${esc(`${label}. Show ${r.me ? 'your' : 'their'} team.`)}">`
+    : `<div class="gm-r${r.me ? ' is-me' : ''}" role="listitem" aria-label="${esc(label)}">`;
+  return open
     + `<span class="gm-r-rk${r.rank <= 3 ? ' is-r' + r.rank : ''}" aria-hidden="true">${r.rank}</span>`
     + `<span class="gm-r-av" aria-hidden="true">${ui.nickAvatar(r.name, {size: sub ? 30 : 22, managerId: r.managerId || null, you: r.me})}</span>`
     + `<span class="gm-r-nm" aria-hidden="true"><span class="gm-r-t">${esc(r.name)}${r.me ? ' <i class="gm-r-you">YOU</i>' : r.guest ? ' <i class="gm-r-you is-g">GUEST</i>' : ''}</span>${sub && r.sub ? `<span class="gm-r-s">${esc(r.sub)}</span>` : ''}</span>`
-    + `${grade}<span class="gm-r-v" aria-hidden="true">${esc(r.val)}</span></div>`;
+    + `${grade}<span class="gm-r-v" aria-hidden="true">${esc(r.val)}</span>${who && r.key ? '</button></div>' : '</div>'}`;
 }
 /** The rows a case's back shows (null: a gap): today's top n with you among them. You lead the people you're tied
  *  with, and when you're further down the top n - 1 come first, then a gap, then you. */
@@ -441,7 +445,7 @@ export function mountList(el, ctx, opts = {}) {
     const {board, rows} = rowsFor(g, mode), note = boardNote(board, rows, mode === 'season');
     const me = rows.find(r => r.me);
     return (me ? `<p class="gm-z-me">You: ${esc(ui.ordinal(me.rank))} of ${rows.length} · ${esc(me.val)}</p>` : '')
-      + (note || `<div class="gm-scr-rows" role="list" aria-label="${mode === 'season' ? 'The season' : 'Today'}">${rows.map(r => rowHTML(r, {sub: true})).join('')}</div>`);
+      + (note || `<div class="gm-scr-rows" role="list" aria-label="${mode === 'season' ? 'The season' : 'Today'}">${rows.map(r => rowHTML(r, {sub: true, who: g.id === '17-0'})).join('')}</div>`);
   }
   // The whole board fits on the back (the owner's ask, Oct 2026: no scrolling, a finger anywhere but the Today / Season
   // switch turns the case): the rows come down in size till they fit, then lose their lines under the names.
@@ -490,7 +494,7 @@ export function mountList(el, ctx, opts = {}) {
     const g = byId(id), cs = curCase(id);
     if (!g || st.zoom) return;
     const s = stateOf(g), play = s.kind !== 'done';
-    const hints = play ? {front: HINT.front, open: `Press ${goLabel(s)} to play`} : HINT;
+    const hints = play ? {front: HINT.front, open: `Press ${goLabel(s)} to play`} : id === '17-0' ? {...HINT, back: 'Tap a name for their team · drag to turn it'} : HINT;
     const z = document.createElement('div');
     z.className = 'gm-zoom';
     z.innerHTML = `<div class="gm-z-scrim" data-gm-zclose></div>`
@@ -516,7 +520,8 @@ export function mountList(el, ctx, opts = {}) {
       if (goBtn) goBtn.disabled = !open;
     };
     const T = turnable(z, dlg, said, {still: play});
-    st.zoom = {el: z, id, mode: 'today', play, app, prev: app ? app.inert : false, turn: T, fit: () => fitBoard(z.querySelector('[data-gm-zbody]'))};
+    st.zoom = {el: z, id, mode: 'today', play, app, prev: app ? app.inert : false, turn: T, fit: () => fitBoard(z.querySelector('[data-gm-zbody]')),
+      n: history.state && history.state.n, team: false};
     st.zoom.fit();
     addEventListener('resize', st.zoom.fit, {passive: true});
     if (app && !z.closest('#app')) app.inert = true;
@@ -536,6 +541,8 @@ export function mountList(el, ctx, opts = {}) {
       if (e.target.closest('[data-gm-zgo]')) { if (T.state.open) start(); return; }
       if (e.target.closest('[data-gm-zturn]')) { T.turn(1); return; }
       if (e.target.closest('[data-gm-zlid]')) { T.lid(); return; }
+      const who = e.target.closest('[data-gm-who]');
+      if (who) { if (!T.state.front && !T.state.open) showTeam(who.dataset.gmWho); return; }
       const m = e.target.closest('[data-gm-zmode]');
       if (m) {
         if (m.dataset.gmZmode === st.zoom.mode) return;
@@ -564,6 +571,22 @@ export function mountList(el, ctx, opts = {}) {
     });
     dlg.focus({preventScroll: true});
     ui.haptic('light');
+  }
+  // A name on 17-0's board up close: that person's team (views/seventeen.js's sheet, the one its own scoreboard opens),
+  // over the case, the case left as it was under it.
+  function showTeam(key) {
+    const Z = st.zoom;
+    if (!Z || !C.sv) return;
+    import('./seventeen.js').then(m => {
+      if (st.zoom !== Z) return;
+      const sh = m.showTeam(key, Z.mode === 'season' ? 'all' : 'today', C.sv.todayNumber(), {onClose: () => { Z.el.inert = false; }});
+      if (!sh) return;
+      // (sheets stack from z-index 1 in the overlays; the case up close sits at 900)
+      sh.el.style.zIndex = '902';
+      if (sh.el.previousElementSibling) sh.el.previousElementSibling.style.zIndex = '901';
+      Z.el.inert = true;
+      Z.team = true;
+    }).catch(e => console.error(e));
   }
   function closeZoom(fast) {
     const Z = st.zoom;
@@ -615,7 +638,13 @@ export function mountList(el, ctx, opts = {}) {
   el.addEventListener('click', onClick);
   const onResize = () => { center(st.cur, false); layout(); };
   addEventListener('resize', onResize, {passive: true});
-  const onPop = () => closeZoom(true);
+  // (a team sheet opened over the case pushes a history entry: its back comes down to where the case was opened, and
+  // leaves the case up)
+  const onPop = e => {
+    const Z = st.zoom;
+    if (Z && Z.team && e && e.state && Z.n != null && e.state.n === Z.n) return;
+    closeZoom(true);
+  };
   addEventListener('popstate', onPop);
   addEventListener('hashchange', onPop);
   // where you were on the shelf, else the first game you haven't played today

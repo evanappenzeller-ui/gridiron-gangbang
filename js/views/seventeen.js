@@ -7,6 +7,7 @@
 // boards sent just one to three).
 //
 // A pane module, like League's segments: render(ctx), mount(el, ctx, {anchor}), params(el, ctx), unmount(el, ctx).
+// Also showTeam(key, mode, n): a scoreboard row's team sheet (the Daily Games list opens it from 17-0's case up close).
 // anchor: the element to keep in view when the pane swaps phases (the game picker).
 // Two phases, from what this phone stored for today's board: 'build' (the budget, the grid, the lineup bar with Play
 // right under it, the scouting report of the last player tapped) and 'season' once played. One season a day: Play locks the
@@ -312,13 +313,15 @@ function teamSeasonHTML(row, s) {
     + body + `</section>`;
 }
 /** The team sheet for a scoreboard row: today's season (Today), or their seasons, newest first (All-time). */
-function openTeam(st, key) {
-  const mode = st.sbMode, n = st.b.n;
+const openTeam = (st, key) => showTeam(key, st.sbMode, st.b.n);
+/** The team sheet for the row key on board n's scoreboard (mode 'today' or 'all'); also from a case's back up close
+ *  (views/games.js). o: more for ui.openSheet (onClose). Returns the sheet, or null when there's no such row. */
+export function showTeam(key, mode = 'today', n = sv.todayNumber(), o = {}) {
   const row = sv.boardRows(mode, n).find(r => r.key === key);
-  if (!row) return;
+  if (!row) return null;
   let list = sv.seasonsOf(key, n);
   if (mode === 'today') list = list.filter(s => s.n === n);
-  if (!list.length) return;
+  if (!list.length) return null;
   const shown = list.slice(0, TEAM_MAX);
   const more = list.length - shown.length;
   const body = `<div class="sv-pane sv-team">`
@@ -326,9 +329,10 @@ function openTeam(st, key) {
     + shown.map(s => teamSeasonHTML(row, s)).join('')
     + (more > 0 ? `<p class="sv-tm-more">${esc(`And ${plural(more, 'earlier season')}.`)}</p>` : '')
     + `</div>`;
+  ensureCss();
   ensureFaceFallback();
   ui.haptic('light');
-  ui.openSheet({title: row.me ? 'Your team' : `${row.name}’s team`, body, detents: shown.length === 1 ? ['fit'] : ['medium', 'large'], cls: 'sh-seventeen sh-sv-team'});
+  return ui.openSheet({...o, title: row.me ? 'Your team' : `${row.name}’s team`, body, detents: shown.length === 1 ? ['fit'] : ['medium', 'large'], cls: 'sh-seventeen sh-sv-team'});
 }
 // Faces in the team sheet (outside the pane): the same fallback as the pane's, caught at the document.
 let faceFallback = false;
