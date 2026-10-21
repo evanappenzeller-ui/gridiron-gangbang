@@ -4,7 +4,8 @@
 // tools/realm/scenery.py; wide on a landscape screen, tall on a portrait one, changed over when the phone turns): its
 // landscape (the sea and the shore, the meadow, hills and lakes far off) laid on the ground so the camera sees it as
 // painted, and its pictures (a castle, a village, a harbour, trees and wheat) stood on it where its layout puts them;
-// the camera never looks past the landscape's edges till you zoom out past all of it (without it: a meadow with a
+// the camera never looks past the landscape's edges, nor zooms out further than fills the screen with it (the
+// owner's ask, Oct 2026; without it: a meadow with a
 // moat round it, pines beyond and mountains far off). The Keep, gold mines, archer towers and dragon hatcheries are drawn
 // from their art (views/realm-sprites.js), and folk stand about: villagers at work by their buildings, an archer up each tower, a cannon's crew round it. It
 // draws when something moved (a finger, a raid) and, while there are folk about, a few times a second for them.
@@ -290,7 +291,7 @@ export function create(host, opts = {}) {
   const first = SCENERY[shape0] || Object.values(SCENERY)[0];
   if (first) setScenery(first);
   if (scene0) {
-    scene.background.set(0x16202A); // (round it when you've zoomed out past it: a plain border, not stretched)
+    scene.background.set(0x16202A); // (never seen: the camera stays over it)
     // blades over the lot, so it's grass close up too, fading out the last few tiles to its edge
     const geo = new T.PlaneGeometry(N, N, 24, 24), at = geo.attributes.position, rgba = [];
     for (let i = 0; i < at.count; i++) rgba.push(1, 1, 1, Math.max(0, Math.min(1, (N / 2 - Math.max(Math.abs(at.getX(i)), Math.abs(at.getY(i)))) / 4)));
@@ -354,14 +355,14 @@ export function create(host, opts = {}) {
     scene.fog.near = view.dist * .9 + 20; scene.fog.far = view.dist * 1.7 + 70;
   };
   const ZMIN = 14, ZMAX = 130, PAN = N / 2 + 2;
-  let zTop = ZMAX; // (with the scenery: out as far as shows all of it, on this screen's shape)
+  let zTop = ZMAX; // (with the scenery: out as far as the screen's still all on it, on this screen's shape)
   const clampView = () => {
     view.dist = Math.max(ZMIN, Math.min(zTop, view.dist));
     view.tx = Math.max(-PAN, Math.min(PAN, view.tx)); view.tz = Math.max(-PAN, Math.min(PAN, view.tz));
     if (scene0) inScene();
   };
-  // over the landscape, never past its edges: where the screen's corners fall on it, then the view slid back in; zoomed
-  // out past both its sides (or its top and bottom), centred on it that way
+  // over the landscape, never past its edges: where the screen's corners fall on it, then the view slid back in (past
+  // both sides at once can't happen, zTop sees to that; if it did, it'd be centred)
   const RIGHT = new T.Vector3(Math.cos(YAW), 0, -Math.sin(YAW)), AWAY = new T.Vector3(-Math.sin(YAW), 0, -Math.cos(YAW));
   const cRay = new T.Raycaster(), cNdc = new T.Vector2(), cAt = new T.Vector3(), flat = new T.Plane(new T.Vector3(0, 1, 0), 0);
   function inScene() {
@@ -381,19 +382,20 @@ export function create(host, opts = {}) {
       view.tx += RIGHT.x * dx - AWAY.x * dy; view.tz += RIGHT.z * dx - AWAY.z * dy;
     }
   }
-  /** How far out the camera has to be to show all the scenery at once (looking at its middle) on this screen. */
-  function wholeAt() {
-    const cs = [[0, 0], [scene0.w, 0], [0, scene0.h], [scene0.w, scene0.h]].map(([x, y]) => scene0.under(x, y));
-    if (cs.some(c => !c)) return ZMAX;
-    const mid = cs.reduce((a, c) => a.add(c), new T.Vector3()).multiplyScalar(.25), was = {...view}, q = new T.Vector3();
+  /** How far out the camera can be with the screen still all on the scenery: where the screen's corners fall on it
+   *  takes up no more than its width and height (wherever it's looking: the painting's laid down evenly). */
+  function mostOut() {
+    const was = {...view};
     let lo = ZMIN, hi = 4000;
     for (let i = 0; i < 32; i++) {
-      Object.assign(view, {tx: mid.x, tz: mid.z, dist: (lo + hi) / 2});
+      view.dist = (lo + hi) / 2;
       placeCam();
-      if (cs.every(c => { q.copy(c).project(cam); return Math.abs(q.x) <= 1 && Math.abs(q.y) <= 1; })) hi = view.dist; else lo = view.dist;
+      const ps = [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([x, y]) => { cRay.setFromCamera(cNdc.set(x, y), cam); return cRay.ray.intersectPlane(flat, cAt) ? scene0.px(cAt) : null; });
+      const ok = ps.every(Boolean) && Math.max(...ps.map(p => p.x)) - Math.min(...ps.map(p => p.x)) <= scene0.w && Math.max(...ps.map(p => p.y)) - Math.min(...ps.map(p => p.y)) <= scene0.h;
+      if (ok) lo = view.dist; else hi = view.dist;
     }
     Object.assign(view, was);
-    return Math.max(60, hi);
+    return lo * .995;
   }
   let Wd = 1, Hd = 1;
   const resize = () => {
@@ -407,9 +409,9 @@ export function create(host, opts = {}) {
     const sh = shapeOf(w, h);
     if (scene0 && scene0.shape !== sh) {
       if (SCENERY[sh]) setScenery(SCENERY[sh]);
-      else sceneryFor(sh).then(sc => { if (sc && !dead && scene0 && scene0.shape !== sh && shapeOf(Wd, Hd) === sh && setScenery(sc)) { zTop = wholeAt(); clampView(); want(); } });
+      else sceneryFor(sh).then(sc => { if (sc && !dead && scene0 && scene0.shape !== sh && shapeOf(Wd, Hd) === sh && setScenery(sc)) { zTop = mostOut(); clampView(); want(); } });
     }
-    if (scene0) zTop = wholeAt();
+    if (scene0) zTop = mostOut();
     clampView();
     want();
   };
