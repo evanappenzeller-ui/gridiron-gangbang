@@ -1,6 +1,7 @@
 // Return Man's players in real 3D (the owner's ask, Oct 2026: smooth, at the screen's frame rate, not pictures): a
 // rigged, animated athlete (models/return-player.glb: Mixamo's X Bot from the three.js examples, free to use in a
-// project under Adobe's Mixamo terms; slimmed by tools/return/player-model.mjs, with its idle and its run; three.js
+// project under Adobe's Mixamo terms; slimmed by tools/return/player-model.mjs, with its idle, and Mixamo's Fast Run
+// for his run (retargeted in by tools/return/mixamo-clip.mjs, in place: the ground moves under him); three.js
 // itself in js/vendor/three, MIT) dressed in each side's uniform (the jersey, pants, socks, cleats and gloves painted on by which bone
 // moves each part of him; a glossy helmet with a stripe and a face mask, shoulder pads, his number on his back and his
 // chest, and for the returner the ball), lit, in the 3D world (views/return-3dworld.js: the ground, the roadside, the
@@ -16,7 +17,9 @@
 import * as W3 from './return-3dworld.js';
 const V = new URL('../vendor/three/', import.meta.url).href;
 const MODEL = new URL('../../models/return-player.glb', import.meta.url).href;
-/** Yards a full run cycle (two strides) covers: the clip's legs keep pace with the ground. */
+/** Yards a full run cycle (two strides) covers: the clip's legs keep pace with the ground. (Mixamo's Fast Run plants
+ *  3.3 a cycle, tools/return/mixamo-clip.mjs says; at his 13-19 yards a second that spins the legs past three times a
+ *  second, too fast to read, so a longer stride: his feet slide a little, out of sight from behind him.) */
 export const STRIDE = 5;
 const SCALE = 1.12; // the model's metres to yards, a little big (a man is about 2 yards with his helmet on)
 const KITS = {

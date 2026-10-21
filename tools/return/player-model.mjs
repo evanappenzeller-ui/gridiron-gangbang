@@ -5,6 +5,7 @@
 // triangles) and quantized.
 //   npm i @gltf-transform/core@4 @gltf-transform/extensions@4 @gltf-transform/functions@4 meshoptimizer
 //   node tools/return/player-model.mjs Xbot.glb models/return-player.glb .4
+// (then the run: tools/return/mixamo-clip.mjs Fast_Run.fbx run models/return-player.glb)
 import {NodeIO} from '@gltf-transform/core';
 import {ALL_EXTENSIONS} from '@gltf-transform/extensions';
 import {prune, dedup, weld, simplify, quantize, resample} from '@gltf-transform/functions';
