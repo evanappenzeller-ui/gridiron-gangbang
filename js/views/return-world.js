@@ -8,7 +8,7 @@
 // st: the view's state {W, H, y0, dpr, f, camX, camZ, camH, co (the course)}. The world in yards (x across, y up, z
 // ahead); P(st, x, y, z) puts a point on the screen. Exports: P, NEAR, FAR, BEND, horizonOf, sky, ground, sides, vehicle, obstacle (the
 // rows' barricades and banners), item, gate, weather, ICONS (the power-ups' pictures, for the HUD and the cards);
-// dressList, LOOKS, OBS, GOODS_COL (for the 3D world).
+// dressList, LOOKS, OBS, GOODS_COL, HOLE_COL (for the 3D world).
 // Owner: RETURN.
 import * as R from '../core/return.js';
 import {backdrop, bowl, seeded, sparkle} from './stadium.js';
@@ -1816,8 +1816,23 @@ export function vehicle(st, c, p) {
 const OB = {stadium: ['#C8102E', '#FFFFFF', 'RETURN MAN'], tailgate: ['#F28C28', '#FFFFFF', 'TAILGATE'], city: ['#F2A900', '#1B1B1B', 'DETOUR'],
   tundra: ['#2E6FB5', '#FFFFFF', 'FROZEN TUNDRA'], desert: ['#B5652B', '#F3D9A4', 'WILD WEST'], market: ['#2E9E4F', '#FFF4D6', 'FRESH'],
   beach: ['#1FA6C9', '#FFFFFF', 'SURF’S UP'], space: ['#6B3CFF', '#5CF4FF', 'ZERO G'], farm: ['#C8322B', '#F3E6C8', 'FARM FRESH']};
+// The hard course's two (core/return.js HARD_OBST): a pothole, each place's own (HOLE_COL: its broken edge, its
+// inside), sunk in the lane about two yards across and two long; and a tackling sled, two pads on a skid in the place's colours.
+const HOLE_COL = {stadium: ['#6B4A2B', '#24160B'], tailgate: ['#5B5E63', '#141518'], city: ['#5B5E63', '#141518'], tundra: ['#DDEFFF', '#0F3552'],
+  desert: ['#C9955E', '#3D2412'], market: ['#7A7F87', '#0B0B0C'], beach: ['#E9D3A0', '#7E5F35'], space: ['#B7BCC8', '#24272F'], farm: ['#6B4A2B', '#3A2614']};
+function hole(st, c, X, z, id) {
+  const [rim, deep] = HOLE_COL[id] || HOLE_COL.city, ring = (rx, rz) => {
+    const pts = [];
+    for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2, w = 1 + .09 * Math.sin(3 * a + z) + .05 * Math.cos(5 * a); pts.push(P(st, X + rx * Math.cos(a) * w, 0, z + rz * Math.sin(a) * w)); }
+    return pts;
+  };
+  fill(c, ring(1.15, 1.05), rim);
+  fill(c, ring(.94, .84), deep);
+  fill(c, ring(.6, .5), 'rgba(0,0,0,.35)');
+}
 export function obstacle(st, c, type, lane, z, k = 0) {
   if (z < st.camZ + NEAR + .2) return;
+  if (type === 'hole') { hole(st, c, R.xOf(null, lane), z, themeOf(st, z).id); return; }
   const [a, b, word] = OB[themeOf(st, z).id] || OB.stadium;
   const side = lane === 0 ? -1 : 1, X = R.xOf(null, lane) + side * k * 4.5, lift = Math.max(0, 3.2 * k - 4 * k * k);
   c.save();
@@ -1841,6 +1856,16 @@ export function obstacle(st, c, type, lane, z, k = 0) {
     // a blinking lamp at each end
     c.fillStyle = Math.floor((st.t || 0) * 2.5) % 2 ? '#FFC23A' : '#B07A10';
     [-.98, .98].forEach(x => { c.beginPath(); c.arc(x, -1.07, .075, 0, Math.PI * 2); c.fill(); });
+  } else if (type === 'sled') {
+    // the skid, and two pads standing up on it
+    c.fillStyle = '#2B2F36'; rr(c, -1.25, -.16, 2.5, .16, .06); c.fill();
+    c.fillStyle = '#545B66'; c.fillRect(-1.1, -.42, 2.2, .1);
+    [-.6, .6].forEach(x => {
+      rr(c, x - .36, -1.62, .72, 1.42, .2); c.fillStyle = a; c.fill();
+      c.fillStyle = b; c.fillRect(x - .36, -1.12, .72, .14);
+      c.fillStyle = 'rgba(255,255,255,.16)'; c.fillRect(x - .3, -1.55, .12, 1.25);
+      c.strokeStyle = 'rgba(0,0,0,.35)'; c.lineWidth = .03; rr(c, x - .36, -1.62, .72, 1.42, .2); c.stroke();
+    });
   } else {
     // two poles, a banner slung between them
     c.fillStyle = '#8E98A4'; c.fillRect(-1.45, -2.7, .1, 2.7); c.fillRect(1.35, -2.7, .1, 2.7);
@@ -2047,4 +2072,4 @@ export function weather(st, c, t, z) {
   }
 }
 // (for the 3D world, views/return-3dworld.js: the same things beside the road, the same colours)
-export {dressOf as dressList, LOOK as LOOKS, OB as OBS, GOODS_COL};
+export {dressOf as dressList, LOOK as LOOKS, OB as OBS, GOODS_COL, HOLE_COL};

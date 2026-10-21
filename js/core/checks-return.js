@@ -3,7 +3,8 @@
 // the line into the next place), the places in their order, the moves (a juke a lane over, a jump over a barricade and
 // up onto a low vehicle, a slide under a banner), the vehicles (a tall one a hit, its ramp the
 // way up, a roof to run along and juke off), the linebacker chasing (a hit a stumble, two close together the catch), the
-// power-ups (salts, painkillers, booze), the speed and the touchdowns,
+// power-ups (salts, painkillers, booze), the speed and the touchdowns, the hard course (the owner's for now: potholes,
+// sleds, a bus head on the end of it, never done speeding up),
 // a day's numbers, and the league scoreboard's rows (on crafted board docs), which read the board as this phone may see
 // it (THE RULE, CLAUDE.md). checks.js (owner: core) imports returnChecks and calls it with its own check(name, fn)
 // helper; every fn returns true or {pass, detail}. Nothing here writes to storage or the database. Owner: RETURN.
@@ -16,10 +17,10 @@ import {gamesFor, listHTML, GAMES} from '../views/games.js';
 /** A returner who sees the course and plans: each twentieth of a second, a search for the swipes that keep him up for
  *  the next 1.3 seconds (power-ups taken away, so it's the course alone that lets him through). Runs till he's down or
  *  to maxZ yards. */
-function bot(n, k, maxZ) {
+function bot(n, k, maxZ, hard = false) {
   const ACTS = [null, 'up', 'down', 'left', 'right'], TICK = .05, DEPTH = 26;
   const strip = r => { r.salts = 0; r.pills = 0; r.shield = 0; r.burst = 0; };
-  const run = R.startRun(n, k);
+  const run = R.startRun(n, k, hard);
   while (!run.over && run.z < maxZ && run.t < 400) {
     let nodes = 0;
     const dead = new Set();
@@ -45,10 +46,11 @@ function bot(n, k, maxZ) {
   }
   return run;
 }
-/** A run on a course of its own: the rows, vehicle sets and power-ups given (nothing else), from z 0 in the lane. */
-function field({rows = [], sets = [], items = []}, lane = 1) {
+/** A run on a course of its own: the rows, vehicle sets and power-ups given (nothing else), from z 0 in the lane (hard:
+ *  the hard course's rules). */
+function field({rows = [], sets = [], items = [], hard = false}, lane = 1) {
   const run = R.startRun(1, 0);
-  run.co = {n: 0, k: 0, order: [0, 1, 2, 3, 4], rows, sets, items, r: () => 0, z: 1e9, itemAt: 1e9, done: 1e9};
+  run.co = {n: 0, k: 0, hard, order: [0, 1, 2, 3, 4], rows, sets, items, r: () => 0, z: 1e9, itemAt: 1e9, done: 1e9, first: {}};
   run.lane = lane; run.x = R.xOf(run, lane);
   run.t = R.CHASE.window + 1; // (the linebacker already lost: a hit there is a stumble, not a tackle)
   return run;
@@ -384,6 +386,56 @@ export async function returnChecks(check) {
     const tagged = [...host.querySelectorAll('.gm-slot:not([data-gm-clone])')].filter(sl => sl.querySelector('.gm-front .gm-beta')).map(sl => sl.dataset.gmSlot).join();
     const beta = tagged === 'return' && GAMES.filter(g => g.beta).map(g => g.id).join() === 'return';
     return {pass: open && all && beta, detail: `opens on every phone ${open}; lists ${lists.join(' | ')}; BETA on ${tagged || 'none'}`};
+  });
+  // ------------------------------------------------------------------------------------------- the hard course
+  check('Return Man: the hard course (the owner\'s ask, Oct 2026: a run of 90 seconds to 3 minutes, his profile only for now): a course of its own (the regular one as it was); quicker from the start and never done speeding up (past 30 yards a second by 3,000 yards; the regular course tops out at 19); the beats keep closing in; potholes and tackling sleds, none in the first 40 yards, the sleds only with the road open all the way across and never in every lane', () => {
+    const bad = [];
+    let holes = 0, sleds = 0, late = [];
+    const differ = R.course(3, 0) !== R.course(3, 0, true) && R.course(3, 0, true) === R.course(3, 0, true) && !R.course(3, 0).hard && R.startRun(3, 0).co === R.course(3, 0) && R.startRun(3, 0, true).co.hard === true;
+    const v = [0, 300, 1000, 3000, 6000].map(z => R.speedAt(z, true)), v0 = [0, 300, 1000, 3000, 6000].map(z => R.speedAt(z));
+    const speed = v.every((x, i) => x > v0[i] && (!i || x >= v[i - 1])) && v[3] > 30 && v[2] > 22 && v0.every(x => x <= 19);
+    for (let n = 1; n <= 12; n++) {
+      const co = R.fill(R.course(n, 0, true), 4000), rows = co.rows;
+      rows.forEach((r, i) => {
+        const men = r.lanes.filter(Boolean), sl = r.lanes.filter(t => t === 'sled').length;
+        holes += r.lanes.filter(t => t === 'hole').length; sleds += sl;
+        if (men.some(t => !R.OBST[t])) bad.push(`day ${n} row ${i}: a ${men.join('/')}`);
+        if (r.z < 40 && men.some(t => t !== 'hurdle')) bad.push(`day ${n}: a ${men.join('/')} at ${Math.round(r.z)} yds`);
+        if (sl && (sl > 2 || co.sets.some(s => r.z >= s.zs && r.z <= s.ze && s.plats.length))) bad.push(`day ${n}: ${sl} sleds at ${Math.round(r.z)} yds${sl < 3 ? ' beside a vehicle' : ''}`);
+        if (i && r.z > 2500 && !co.sets.some(s => r.z >= s.zs - 1 && r.z <= s.ze + 60)) late.push((r.z - rows[i - 1].z) / R.speedAt(rows[i - 1].z, true));
+      });
+    }
+    const lateT = late.reduce((a, x) => a + x, 0) / Math.max(1, late.length);
+    const pass = differ && speed && !bad.length && holes > 100 && sleds > 100 && lateT < .55;
+    return {pass, detail: `its own course ${differ}; speed ${v.map(x => x.toFixed(1)).join(', ')} (regular ${v0.map(x => x.toFixed(1)).join(', ')}); ${holes} potholes, ${sleds} sleds on 12 days to 4,000 yds; past 2,500 yds the rows ${lateT.toFixed(2)} s apart; ${bad.length ? bad.slice(0, 4).join('; ') : 'every row has a way through'}`};
+  });
+  check('Return Man: the hard course can always be run: a returner who reads it right (no power-ups) gets 3,000 yards on the hard kickoffs of days 1-5 without a hit', () => {
+    const out = [];
+    for (let n = 1; n <= 5; n++) { const b = bot(n, 0, 3000, true); if (b.over || b.hits) out.push(`day ${n}: ${b.over ? 'down' : b.hits + ' hits'} at ${Math.round(b.z)} (${R.endOf(b) || 'stumbled'})`); }
+    return {pass: !out.length, detail: out.length ? out.join('; ') : '5 hard kickoffs to 3,000 yards, not a hit'};
+  });
+  check('Return Man: on the hard course, a pothole is jumped (a slide goes in it, so does running on), named for its place ("Stepped in the crater" in space); a tackling sled is juked round (a jump or a slide runs into it); head on into a tall vehicle is the end of the return ("Ran into the team bus"), but the salts shake it off, painkillers take him up onto it, and on the regular course it\'s still a stumble', () => {
+    const lanes = t => [null, t, null];
+    const hard = (lanes2, move, t = .15) => {
+      const run = field({rows: [{i: 0, z: 30, lanes: lanes2, th: 'space'}], hard: true});
+      let out = null, moved = !move, e = null;
+      for (let i = 0; i < 2000 && !out; i++) {
+        if (!moved && (30 - run.z) / R.speedAt(run.z, true) <= t) { R.move(run, move); moved = true; }
+        e = R.step(run, 1 / 120).find(x => x.type !== 'td' && x.type !== 'landed');
+        if (e) out = e;
+      }
+      return out;
+    };
+    const hole = [hard(lanes('hole'), 'up'), hard(lanes('hole'), 'down'), hard(lanes('hole'), null)].map(e => e && e.type).join();
+    const named = R.hitLine(hard(lanes('hole'), null)) === 'Stepped in the crater' && R.hitLine({ob: 'hole', row: {th: 'city'}}) === 'Stepped in the pothole';
+    const sled = [hard(lanes('sled'), 'up'), hard(lanes('sled'), 'down'), hard(lanes('sled'), null), hard(lanes('sled'), 'left', .25)].map(e => e && e.type).join();
+    const bus = items => { const r = play({sets: [set(plat(1, 30, 50, true))], items, hard: true}, 4); return r; };
+    const crash = bus(), salts = bus([{i: 0, z: 10, lane: 1, top: false, kind: 'salts'}]), pills = bus([{i: 0, z: 10, lane: 1, top: false, kind: 'pills'}]);
+    const ended = crash.run.over && crash.run.why === 'crash' && crash.ev.includes('crashed') && !crash.ev.includes('stumbled') && R.endOf(crash.run) === 'Ran into the team bus';
+    const saved = !salts.run.over && salts.ev.includes('revived') && !pills.run.over && pills.ev.includes('vaulted');
+    const regular = play({sets: [set(plat(1, 30, 50, true))]}, 4), still = !regular.run.over && regular.ev.includes('stumbled');
+    const pass = hole === 'hurdled,stumbled,stumbled' && named && sled === 'stumbled,stumbled,stumbled,juked' && ended && saved && still;
+    return {pass, detail: `pothole: ${hole} (${named ? 'named for its place' : 'WRONG name'}); sled: ${sled}; head on: ${ended ? 'the end' : 'WRONG'}, salts ${salts.run.over ? 'WRONG' : 'shook it off'}, painkillers ${pills.run.over ? 'WRONG' : 'up onto it'}; regular course ${still ? 'a stumble' : 'WRONG'}`};
   });
   check('Return Man: its stylesheet (css/views/return.css) is linked: the version mark is on :root', () => {
     const v = getComputedStyle(document.documentElement).getPropertyValue('--rm-css').trim();

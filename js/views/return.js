@@ -65,14 +65,14 @@ function iconURL(kind) {
   return ICON_URL[kind];
 }
 const iconHTML = (kind, size = 28) => `<img class="rm-ic" src="${iconURL(kind)}" width="${size}" height="${size}" alt="" draggable="false">`;
-function keysHTML() {
+function keysHTML(hard) {
   const k = (cls, label, what) => `<li class="rm-key"><span class="rm-kk ${cls}" aria-hidden="true">${label}</span><span>${what}</span></li>`;
   const pw = (kind, name, what) => `<li class="rm-pk">${iconHTML(kind, 34)}<b>${name}</b><span>${what}</span></li>`;
   return `<ul class="rm-keys" aria-label="How to play">`
-    + k('is-lr', '← →', 'Swipe to juke a lane. Off the edge, you stumble')
-    + k('is-up', '↑', 'Jump a barricade, or onto a low one')
+    + k('is-lr', '← →', hard ? 'Swipe to juke a lane, and round a tackling sled. Off the edge, you stumble' : 'Swipe to juke a lane. Off the edge, you stumble')
+    + k('is-up', '↑', hard ? 'Jump a barricade or a pothole, or onto a low one' : 'Jump a barricade, or onto a low one')
     + k('is-dn', '↓', 'Slide under a banner')
-    + k('is-ramp', '◢', 'Run up a ramp onto the roofs')
+    + k('is-ramp', '◢', hard ? 'Run up a ramp onto the roofs. Head on into a bus: down' : 'Run up a ramp onto the roofs')
     + k('is-chase', '!', 'The linebacker’s on your heels at the catch and after any hit. Hit something while he’s there: tackled')
     + `</ul><ul class="rm-pks" aria-label="Power-ups">`
     + pw('salts', 'Smelling salts', 'Speed burst + extra life')
@@ -99,7 +99,8 @@ function cardHTML(st) {
   // as many runs as you like (the owner's ask, Oct 2026): each ends with Run it again; the day's best is what counts
   const again = (label = 'Run it again') => ui.button({label, icon: 'play-fill', attrs: {'data-rm-go': ''}, cls: 'rm-go'});
   const sb = () => ui.button({label: 'See the scoreboard', kind: 'secondary', attrs: {'data-rm-sb': ''}, cls: 'rm-go'});
-  const note = R.testing() ? '<p class="rm-card-s">Test play: not counted, not on the scoreboard.</p>' : '';
+  const note = (R.testing() ? '<p class="rm-card-s">Test play: not counted, not on the scoreboard.</p>' : '')
+    + (data.isOwner() ? '<p class="rm-card-s">Hard course: faster, potholes and sleds, and a bus head on ends it. Just your profile for now.</p>' : '');
   if (st.mode === 'tackled') {
     const run = st.run, y = Math.floor(run.yards), tds = R.tdsAt(run.z), th = R.zoneAt(run.co, run.z).theme;
     const prev = d.list.slice(0, -1).reduce((m, e) => Math.max(m, e.y), 0); // (the best before this run)
@@ -121,7 +122,7 @@ function cardHTML(st) {
   }
   return `<div class="rm-card-in is-first"><p class="rm-card-o">${koLabel(0)}${R.testing() ? ' · Test play' : ''} ${BETA}</p>`
     + `<h2 class="rm-card-t">Take it to the house</h2>`
-    + keysHTML() + betaLine()
+    + keysHTML(data.isOwner()) + note + betaLine()
     + again('Field the kick') + creditLine() + `</div>`;
 }
 function hudHTML() {
@@ -241,13 +242,21 @@ const HINT_YDS = 50;
 function hint(st, c, type, x, z) {
   // Over a barricade or a banner (once it's close enough to read and not on top of you): the move that beats it, an
   // arrow up (jump) or down (slide). Only on the first HINT_YDS yards: after that you know (the owner's ask, Oct 2026).
-  if (z >= HINT_YDS) return;
-  const p = P(st, x, type === 'bar' ? 3.05 : 1.6, z), r = Math.max(7, Math.min(15, p.s * .34));
+  // On the hard course, a pothole's and a sled's first HINT_YDS yards too (from the first one: an arrow up; the sled's
+  // either way).
+  const first = st.co && st.co.first && st.co.first[type];
+  if (z >= HINT_YDS && !(first != null && z < first + HINT_YDS)) return;
+  const p = P(st, x, type === 'bar' ? 3.05 : type === 'sled' ? 2.1 : type === 'hole' ? 1 : 1.6, z), r = Math.max(7, Math.min(15, p.s * .34));
   if (p.y < st.y0 + 4) return;
-  const up = type === 'hurdle';
-  c.fillStyle = up ? 'rgba(62,240,143,.92)' : 'rgba(255,205,74,.92)';
+  const up = type === 'hurdle' || type === 'hole';
+  c.fillStyle = type === 'sled' ? 'rgba(120,200,255,.92)' : up ? 'rgba(62,240,143,.92)' : 'rgba(255,205,74,.92)';
   c.beginPath(); c.arc(p.x, p.y - r, r, 0, Math.PI * 2); c.fill();
   c.strokeStyle = '#06210A'; c.lineWidth = Math.max(1.4, r * .2); c.lineCap = 'round'; c.lineJoin = 'round';
+  if (type === 'sled') {
+    const cy = p.y - r;
+    [-1, 1].forEach(s => { c.beginPath(); c.moveTo(p.x + s * r * .2, cy - r * .32); c.lineTo(p.x + s * r * .55, cy); c.lineTo(p.x + s * r * .2, cy + r * .32); c.stroke(); });
+    return;
+  }
   const s = up ? 1 : -1, cy = p.y - r;
   c.beginPath(); c.moveTo(p.x - r * .42, cy + s * r * .2); c.lineTo(p.x, cy - s * r * .38); c.lineTo(p.x + r * .42, cy + s * r * .2); c.stroke();
   c.beginPath(); c.moveTo(p.x, cy - s * r * .3); c.lineTo(p.x, cy + s * r * .5); c.stroke();
@@ -301,10 +310,10 @@ function runnerAnim(st, now) {
   }
   const dir = Math.sign(R.xOf(run, run.lane) - run.jFrom);
   if (dir && run.t - run.lastJuke < CUT_S) {
-    const f = (dir > 0 ? 'rb.r_r' : 'rb.r_l') + (Math.floor(run.z / 1.5) & 1), back = run.jFrom - run.x;
+    const f = (dir > 0 ? 'rb.r_r' : 'rb.r_l') + (Math.floor(run.steps / 1.5) & 1), back = run.jFrom - run.x;
     return {f, mo, ghosts: run.jt < 1 ? [{f, dx: back * .35, a: .3}, {f, dx: back * .7, a: .14}] : []};
   }
-  return {f: strideOf(run.z), mo};
+  return {f: strideOf(run.steps), mo};
 }
 /** The linebacker now (z: where he is): running him down (set while the kick's in the air); when he gets there, up
  *  off his feet and flat out through the air, down on top of him. */
@@ -335,7 +344,7 @@ function runner3(st, now) {
     return {move: 'idle', t, catch: Math.min(1, p / .3) * (1 - .5 * q), carry: .5 * q, ball: p >= CATCH_HANDS};
   }
   const off = Math.min(1, Math.max(0, (now - st.catchAt - CATCH_MS) / 240)); // (out of the catch, into his stride)
-  const o = {move: 'run', phase: run.z / D3.STRIDE, t, carry: .5 + .5 * off, catch: .5 * (1 - off), ball: true};
+  const o = {move: 'run', phase: run.steps / D3.STRIDE, t, carry: .5 + .5 * off, catch: .5 * (1 - off), ball: true};
   if (run.over) {
     const k = Math.min(1, (now - st.downAt) / 420);
     return Object.assign(o, {move: 'fall', u: k, pitch: 1.48 * k * k, lift: .15 * k, turn: fallDir(run) * .55 * k, dz: .25 * k});
@@ -397,7 +406,7 @@ function drawLanes(st, c, now) {
     A.rows.forEach(({row, d}) => row.lanes.forEach((type, l) => {
       if (!type || d < -PAST) return;
       // a barricade or banner where it stands (knocked flying when he hit it, or smashed through on painkillers)
-      const knocked = st.knocked.get(`${row.i}:${l}`), k = knocked ? Math.min(1, (now - knocked.at) / 650) : 0;
+      const knocked = type !== 'hole' && st.knocked.get(`${row.i}:${l}`), k = knocked ? Math.min(1, (now - knocked.at) / 650) : 0;
       if (k >= 1) return;
       const z = rz + d, x = R.xOf(run, l);
       list.push({z, x0: x - 1.4, x1: x + 1.4, draw: () => {
@@ -525,7 +534,7 @@ function draw3(st, c, now) {
 function drawSpeed(st, c, now) {
   const run = st.run;
   if (!run || st.mode !== 'run') return;
-  const v = R.speedAt(run.z), k = Math.max(0, (v - 13) / 6) + (run.pills > 0 ? .6 : 0) + 3 * R.burstOf(run);
+  const v = R.speedAt(run.z, run.co.hard), k = Math.min(2, Math.max(0, (v - 13) / 6)) + (run.pills > 0 ? .6 : 0) + 3 * R.burstOf(run);
   if (k <= 0) return;
   const r = seeded(Math.floor(now / 70));
   c.strokeStyle = `rgba(255,255,255,${(.18 * Math.min(1.3, k)).toFixed(2)})`; c.lineWidth = 1.5;
@@ -539,7 +548,7 @@ function draw(st, now = performance.now()) {
   if (!c || !st.W) return;
   c.setTransform(st.dpr, 0, 0, st.dpr, 0, 0);
   const run = st.run, dt = st.dt || .016;
-  st.co = run ? run.co : R.course(st.n, 0);
+  st.co = run ? run.co : R.course(st.n, 0, data.isOwner());
   // the camera: behind him, following him across part of the way a beat behind (a spring, critically damped: it sets
   // off easy and settles without swinging past); up when he's up top; a jolt off a vehicle's side, a stumble's
   const bump = run && run.t - run.bump < .22 ? Math.sin((run.t - run.bump) * 60) * .25 * (1 - (run.t - run.bump) / .22) : 0;
@@ -636,7 +645,7 @@ function pop(st, text, cls = '', sub = '') {
 /** A kickoff: the ball comes down into his hands, then he's off. */
 function go(st) {
   if (st.mode === 'run' || st.mode === 'catch') return;
-  st.run = R.startRun(st.n, st.day.next);
+  st.run = R.startRun(st.n, st.day.next, data.isOwner());
   st.knocked = new Map(); st.got = new Set(); st.flashAt = 0; st.hitAt = 0; st.chX = null; st.spinAt = 0; st.landAt = 0; st.edgeAt = 0;
   ungot(st);
   st.co = st.run.co;
@@ -687,7 +696,7 @@ function onEvents(st, evs) {
     }
     else if (e.type === 'zone') { W.warm(skyView(st), e.z); if (!evs.some(x => x.type === 'td')) pop(st, e.theme.name.toUpperCase(), 'is-zone'); }
     else if (e.type === 'juked') { pop(st, 'SPIN MOVE!'); st.spinAt = now; st.spinDir = Math.sign(R.xOf(st.run, st.run.lane) - st.run.jFrom) || 1; }
-    else if (e.type === 'hurdled') { pop(st, 'HURDLE!'); ui.haptic('light'); }
+    else if (e.type === 'hurdled') { pop(st, e.ob === 'hole' ? 'HOP!' : 'HURDLE!'); ui.haptic('light'); }
     else if (e.type === 'slid') { pop(st, 'SLIDE!'); ui.haptic('light'); }
     else if (e.type === 'pickup') { st.got.add(e.item.i); got(st, e.kind); ui.haptic('success'); ui.announce(`${R.POWER[e.kind].name}: ${R.POWER[e.kind].is}. ${R.POWER[e.kind].does}.`); }
     else if (e.type === 'landed') st.landAt = now;
@@ -703,7 +712,7 @@ function onEvents(st, evs) {
       st.flashAt = now; st.hitAt = now; st.hitDir = fallDir(st.run); pop(st, 'SHOOK HIM!', 'is-salts', 'Smelling salts: burst!'); ui.haptic('warning');
       if (e.row) st.knocked.set(`${e.row.i}:${e.lane}`, {at: now});
     }
-    else if (e.type === 'tackled') tackled(st);
+    else if (e.type === 'tackled' || e.type === 'crashed') tackled(st);
   });
 }
 function frame(st, now) {
@@ -712,6 +721,8 @@ function frame(st, now) {
   // off screen (another tab, a sheet over it): the return waits
   if ((st.mode === 'run' || st.mode === 'catch') && !st.ctx.visible) { pause(st); return; }
   if (st.mode === 'catch' && now - st.catchAt >= CATCH_MS) st.mode = 'run';
+  // (the hard course is the owner's alone: off his profile, even from another tab, a return on it ends where it is)
+  if ((st.mode === 'run' || st.mode === 'catch' || st.mode === 'paused') && st.run.co.hard && !data.isOwner()) { R.stop(st.run); tackled(st); }
   if (st.mode === 'run') {
     const bumped = st.run.bump;
     onEvents(st, R.step(st.run, dt));

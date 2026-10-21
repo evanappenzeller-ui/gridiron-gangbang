@@ -13,7 +13,7 @@
 // vertices along it to bend: the ground's planes come in 2-yard strips, long boxes in 5-yard pieces.
 // Exports: init(three, scene, utils), update(st, now), look(st, z), bend(obj), BEND_U.
 import * as R from '../core/return.js';
-import {dressList, LOOKS, OBS, GOODS_COL} from './return-world.js';
+import {dressList, LOOKS, OBS, GOODS_COL, HOLE_COL} from './return-world.js';
 import {seeded} from './stadium.js';
 import * as cityBus from './return-city-bus.js';
 import * as data from '../core/data.js';
@@ -66,6 +66,8 @@ export function init(three, scene, utils) {
   // everything each place needs drawn once now (the ground's pictures, the barricades, banners, power-ups and gates),
   // so coming to a new place never holds a frame up
   R.THEMES.forEach(th => { roadMat(th.id); baseMat(th.id); obstacleOf('hurdle', th.id); obstacleOf('bar', th.id); gateOf(th); });
+  // (the hard course's potholes and sleds: the owner's only, so only on his phones)
+  if (data.isOwner()) R.THEMES.forEach(th => R.HARD_OBST.forEach(type => obstacleOf(type, th.id)));
   ['salts', 'pills', 'booze'].forEach(itemOf);
   endzoneMat(); logoMat(); seaMat(); for (let n = 10; n <= 50; n += 10) numberMat(n);
 }
@@ -774,7 +776,29 @@ function obstacleOf(type, id) {
   const key = type + ':' + id;
   if (OBJ.has(key)) return OBJ.get(key);
   const [a, b, word] = OBS[id] || OBS.stadium, g = new T.Group(), parts = new Batch();
-  if (type === 'hurdle') {
+  if (type === 'hole') {
+    // a pothole (each place's own: return-world.js HOLE_COL): its broken edge and its dark inside, flat in the road
+    const [rim, deep] = HOLE_COL[id] || HOLE_COL.city;
+    const m = new T.MeshLambertMaterial({transparent: true, depthWrite: false, map: texOf('hole:' + id, () => canvasTex(256, 144, (c2, w, h) => {
+      const blob = (k, col) => { c2.fillStyle = col; c2.beginPath(); for (let i = 0; i <= 24; i++) { const t = i / 24 * Math.PI * 2, q = 1 + .09 * Math.sin(3 * t) + .05 * Math.cos(5 * t); c2.lineTo(w / 2 + Math.cos(t) * q * w * .48 * k, h / 2 + Math.sin(t) * q * h * .48 * k); } c2.fill(); };
+      blob(1, rim); blob(.82, deep); blob(.52, 'rgba(0,0,0,.4)');
+    }, false))});
+    const d = decal(m, 2.3, 2.1, 0, 0, 0);
+    d.position.y = .014; d.updateMatrix(); d.userData.shared = true;
+    g.add(d);
+    OBJ.set(key, g);
+    return g;
+  }
+  if (type === 'sled') {
+    // a tackling sled: the skid, its bar, and two pads standing up on it in the place's colours
+    parts.add('box', '#2B2F36', 0, .08, 0, 2.5, .16, 1.1);
+    parts.add('box', '#545B66', 0, .37, .3, 2.2, .1, .1);
+    [-.6, .6].forEach(x => {
+      parts.add('box', a, x, .91, -.05, .72, 1.42, .6);
+      parts.add('box', b, x, 1.05, -.05, .74, .14, .62);
+    });
+  }
+  else if (type === 'hurdle') {
     [-1.02, 1.02].forEach(e => { parts.add('box', '#2B2F36', e, .45, -.12, .1, .95, .1, -.22, 0, 0); parts.add('box', '#2B2F36', e, .45, .12, .1, .95, .1, .22, 0, 0); });
     const board = new T.Mesh(new T.BoxGeometry(2.34, .42, .1), new T.MeshLambertMaterial({map: texOf('stripes:' + a + b, () => canvasTex(256, 64, (c2, w, h) => {
       c2.fillStyle = b; c2.fillRect(0, 0, w, h); c2.fillStyle = a;
@@ -991,7 +1015,7 @@ export function update(st, now) {
   syncStyle();
   cityBus.sync();
   FRAME++;
-  const t = now / 1000, run = st.run, cz = st.camZ, key = `${st.co.n}|${st.co.k}`;
+  const t = now / 1000, run = st.run, cz = st.camZ, key = `${st.co.n}|${st.co.k}${st.co.hard ? 'h' : ''}`;
   // the ground beyond the last chunk, out to the horizon (all haze by then)
   if (!FAR_GROUND) { FAR_GROUND = new T.Mesh(new T.PlaneGeometry(4000, 3000).rotateX(-Math.PI / 2), new T.MeshLambertMaterial({color: 0x808080})); ROOT.add(bend(FAR_GROUND)); }
   FAR_GROUND.position.set(0, -.03, -(cz + AHEAD + 1500));
@@ -1020,7 +1044,7 @@ export function update(st, now) {
     A.rows.forEach(({row, d}) => row.lanes.forEach((type, l) => {
       if (!type) return;
       const z = run.z + d, id = R.zoneAt(st.co, z).theme.id, o = keep(`r:${key}|${row.i}|${l}`, () => { const g = obstacleOf(type, id).clone(); g.position.set(R.xOf(null, l), 0, -z); return g; });
-      const kn = st.knocked && st.knocked.get(`${row.i}:${l}`), k = kn ? Math.min(1, (now - kn.at) / 650) : 0;
+      const kn = type !== 'hole' && st.knocked && st.knocked.get(`${row.i}:${l}`), k = kn ? Math.min(1, (now - kn.at) / 650) : 0;
       if (o) {
         const side = l === 0 ? -1 : 1;
         o.position.set(R.xOf(null, l) + side * k * 4.5, Math.max(0, 3.2 * k - 4 * k * k), -z);

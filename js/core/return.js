@@ -20,7 +20,8 @@
 // run's yards. No DOM. Owner: RETURN.
 //
 //   todayNumber(), dateOf(n), dayLabel(n)       day 1 on START, a new day at local midnight
-//   course(n, k), fill(course, z)               day n's course (k 0: every run of the day runs it), worked out as far as z yards: its rows
+//   course(n, k, hard), fill(course, z)         day n's course (k 0: every run of the day runs it; hard: HARD_SPEED,
+//                                               HARD_GAP, HARD_OBST), worked out as far as z yards: its rows
 //                                               [{i, z (where it stands), lanes: [OBST type|null x 3]}], its vehicles
 //                                               (sets: [{i, zs, ze, plats: [{lane, kind, part, z0 (the front), z1, h, b,
 //                                               ramp, hi}]}]: KINDS)
@@ -28,9 +29,10 @@
 //   THEMES, ZONE, zoneAt(course, z)             the places, and which one z yards is in ({i, theme, z0})
 //   groundAt(course, lane, z, y), blockAt(...)  how high the ground is there for him at height y (a ramp, a roof, a
 //                                               pad; 0 on the road); what's in his way there
-//   speedAt(z), tdsAt(z), LANE                  your speed (yards a second) at z yards; touchdowns by z yards; the
+//   speedAt(z, hard), tdsAt(z), LANE            your speed (yards a second) at z yards; touchdowns by z yards; the
 //                                               lanes' spacing (yards)
-//   startRun(n, k), move(run, dir), step(run, dt)   a return, played: move takes a swipe ('left' 'right' 'up' 'down'),
+//   startRun(n, k, hard), move(run, dir), step(run, dt), stop(run)   a return, played (hard: the hard course, the
+//                                               owner's for now): move takes a swipe ('left' 'right' 'up' 'down'),
 //                                               step moves it on dt seconds and says what happened (events)
 //   laneOf(run), xOf(run, lane), ahead(run, dist), endOf(run)   where you are; what's in front of you (for drawing);
 //                                               what ended it
@@ -66,7 +68,16 @@ export const dayLabel = (n, o = {weekday: 'short', month: 'short', day: 'numeric
 // to a sprint; every 100 yards is a touchdown.
 export const LANE = 3.083, LANES = 3;
 export const SPEED = {start: 9.5, top: 19, ramp: 360};
-export const speedAt = z => SPEED.start + (SPEED.top - SPEED.start) * (1 - Math.exp(-Math.max(0, z) / SPEED.ramp));
+// Hard (the owner's ask, Oct 2026: "far too easy", a run should last about 90 seconds to 3 minutes; his profile only
+// for now, data.isOwner(), so the league's course and board stay as they were): off quicker, to a sprint sooner, and
+// never done speeding up: climb more a yard on top, to max.
+export const HARD_SPEED = {start: 11, top: 20, ramp: 220, climb: .0045, max: 36};
+/** Your speed (yards a second) z yards into a return: on the hard course (hard) HARD_SPEED's. */
+export function speedAt(z, hard = false) {
+  const S = hard ? HARD_SPEED : SPEED, d = Math.max(0, z);
+  const v = S.start + (S.top - S.start) * (1 - Math.exp(-d / S.ramp)) + (S.climb || 0) * d;
+  return S.max ? Math.min(S.max, v) : v;
+}
 export const TD = 100;
 /** Touchdowns in a return of z yards. */
 export const tdsAt = z => Math.max(0, Math.floor(z / TD));
@@ -75,15 +86,24 @@ export const tdsAt = z => Math.max(0, Math.floor(z / TD));
 // (BUFFER s). Down slides you (in the air: drops you, DROP_V, into the slide). You step up anything STEP yards or less
 // (a ramp, onto a roof from the air); anything higher in your way is a crash.
 export const GRAV = 30, JUMP_V = 9, DROP_V = -18, BUFFER = .25, STEP = .45;
+// (his stride, run.steps: a yard a yard run up to STRIDE_V yards a second, the regular course's top speed)
+export const STRIDE_V = 19;
 // The moves, seconds: a juke takes you a lane over (eased out: most of the way at once, settling in; snappier, the
 // owner's ask, Oct 2026); a slide keeps you low (SLIDE_BODY yards, not BODY) for slide s.
 export const MOVE = {juke: .13, slide: .7};
 // The things in the rows, standing still in a lane: what beats each (a juke round it beats both; so does being up
 // over it, top yards). A barricade you jump (clear: up that high as you reach it); a banner you slide under.
+// The hard course adds two (HARD_OBST): a pothole you jump (it's flat: a slide goes in it), each place's own (HOLES),
+// and a tackling sled, too high to jump and too low to slide under: you juke round it.
 export const OBST = {
   hurdle: {name: 'barricade', beat: 'jump', clear: .5, top: 1.05, says: 'Clipped the barricade'},
-  bar: {name: 'banner', beat: 'slide', top: 2.5, says: 'Ran into the banner'}
+  bar: {name: 'banner', beat: 'slide', top: 2.5, says: 'Ran into the banner'},
+  hole: {name: 'pothole', beat: 'jump', clear: .25, top: 1.05, says: 'Stepped in the pothole'},
+  sled: {name: 'tackling sled', beat: 'juke', top: 1.6, says: 'Ran into the tackling sled'}
 };
+export const HARD_OBST = ['hole', 'sled'];
+export const HOLES = {stadium: 'divot', tailgate: 'pothole', city: 'pothole', tundra: 'ice hole', desert: 'sinkhole', market: 'open manhole',
+  beach: 'sand pit', space: 'crater', farm: 'mud pit'};
 // What stands in the lanes: each place's own (KINDS, below): vehicles to go round or climb (a tall one, HIGH_H yards;
 // a ramp up onto its roof, or not), low ones to jump on (LOW_H), and things to climb: ramps up onto rocks and crates,
 // steps of hay bales, a flatbed and its cab, piers with a gap between, pads floating in the air. Each is one or more
@@ -208,15 +228,23 @@ const round2 = v => Math.round(v * 100) / 100;
 // owner's ask, Oct 2026): on a tall vehicle's roof when there's one to put it on, else on the road in a lane between
 // two beats.
 export const GAP = {first: 22, cars: 45, max: 1.3, min: .62, by: 1000, jitter: .25, in: .8};
+// Hard: the beats start closer and keep closing in (by is how many yards they take to close most of the way to min,
+// late's last bit of it over its own yards: they never stop closing in), the jitter shrinking too; vehicles from cars
+// yards, more of them (sets: the chance a beat is one, from .. to, over mix yards; two: the chance of two side by
+// side) and less room after one (after: past a tall one, a low one); the potholes from hole yards, the sleds from sled.
+// (A returner who reads it all right but can only swipe every .35-.45 s is down in 1 to 3 minutes; on the regular
+// course he runs forever.)
+export const HARD_GAP = {first: 20, cars: 35, max: 1.1, min: .32, by: 650, late: [.06, 3000], jitter: .2, in: .6, after: [.25, .1], mix: 700, sets: [.22, .38], two: .6, hole: 120, sled: 220};
 const COURSES = new Map();
 /** Day n's kickoff k: the same on every phone. It's worked out as it's needed (fill). */
-export function course(n, k) {
-  const key = `${n}|${k}`;
+export function course(n, k, hard = false) {
+  hard = !!hard;
+  const key = `${n}|${k}|${hard ? 'h' : ''}`;
   if (COURSES.has(key)) return COURSES.get(key);
   // the places after the stadium: the day's order, each kickoff starting one further on
   const others = shuffle(THEMES.map((_, i) => i).slice(1), rng(hashStr(`return-man-places-${n}`))), m = others.length;
   const order = [0, ...others.slice(k % m), ...others.slice(0, k % m)];
-  const c = {n, k, order, rows: [], sets: [], items: [], r: rng(hashStr(`return-man-${n}-${k}`)), z: GAP.first, itemAt: 100, done: 0};
+  const c = {n, k, hard, order, rows: [], sets: [], items: [], r: rng(hashStr(`return-man-${n}-${k}${hard ? '-hard' : ''}`)), z: (hard ? HARD_GAP : GAP).first, itemAt: 100, done: 0, first: {}};
   if (COURSES.size > 12) COURSES.clear();
   COURSES.set(key, c);
   return c;
@@ -226,7 +254,13 @@ export function zoneAt(co, z) {
   const i = Math.max(0, Math.floor(z / ZONE));
   return {i, theme: THEMES[co.order[i % co.order.length]], z0: i * ZONE};
 }
-const gapAt = (co, L) => GAP.max - (GAP.max - GAP.min) * L + co.r() * GAP.jitter;
+/** Seconds to the next beat at z yards (L: how far into the course, 0 to 1). */
+function gapAt(co, L, z) {
+  if (!co.hard) return GAP.max - (GAP.max - GAP.min) * L + co.r() * GAP.jitter;
+  const H = HARD_GAP, d = Math.max(0, z), [lk, lby] = H.late;
+  return H.min + lk * Math.exp(-d / lby) + (H.max - H.min - lk) * Math.exp(-d / H.by) + co.r() * H.jitter * (1 - .5 * Math.min(1, d / 2000));
+}
+const speedOn = (co, z) => speedAt(z, co.hard);
 function addItem(co, z, lane, top) {
   const u = co.r(), kind = u < .25 ? 'salts' : u < .6 ? 'pills' : 'booze';
   co.items.push({i: co.items.length, z: round2(z), lane, top: !!top, kind});
@@ -235,18 +269,31 @@ function addItem(co, z, lane, top) {
 function addRow(co, z, open) {
   const r = co.r, lanes = [null, null, null];
   const pick = r(), most = open.length;
-  let count = z < 60 ? 1 : z < 200 ? (pick < .7 ? 1 : 2) : z < 450 ? (pick < .35 ? 1 : pick < .9 ? 2 : 3) : (pick < .15 ? 1 : pick < .7 ? 2 : 3);
+  let count = co.hard
+    ? (z < 40 ? 1 : z < 150 ? (pick < .6 ? 1 : 2) : z < 350 ? (pick < .15 ? 1 : pick < .65 ? 2 : 3) : z < 1000 ? (pick < .05 ? 1 : pick < .45 ? 2 : 3) : (pick < .25 ? 2 : 3))
+    : (z < 60 ? 1 : z < 200 ? (pick < .7 ? 1 : 2) : z < 450 ? (pick < .35 ? 1 : pick < .9 ? 2 : 3) : (pick < .15 ? 1 : pick < .7 ? 2 : 3));
   count = Math.min(count, most);
-  shuffle(open.slice(), r).slice(0, count).forEach(l => { lanes[l] = z < 40 || r() < .5 ? 'hurdle' : 'bar'; });
-  co.rows.push({i: co.rows.length, z: round2(z), lanes});
+  // (a sled only with the road open all the way across, never more than one before 600 yards, two after: there's always
+  // a lane it isn't in)
+  let sleds = co.hard && most === 3 && z >= HARD_GAP.sled ? (z < 600 ? 1 : 2) : 0;
+  shuffle(open.slice(), r).slice(0, count).forEach(l => {
+    if (!co.hard) { lanes[l] = z < 40 || r() < .5 ? 'hurdle' : 'bar'; return; }
+    if (z < 40) { lanes[l] = 'hurdle'; return; }
+    const u = r(), hole = z >= HARD_GAP.hole, w = hole ? (sleds ? [.3, .3, .22, .18] : [.36, .36, .28, 0]) : [.5, .5, 0, 0];
+    const t = u < w[0] ? 'hurdle' : u < w[0] + w[1] ? 'bar' : u < w[0] + w[1] + w[2] ? 'hole' : 'sled';
+    if (t === 'sled') sleds--;
+    lanes[l] = t;
+    if (!(t in co.first)) co.first[t] = z;
+  });
+  co.rows.push({i: co.rows.length, z: round2(z), lanes, th: zoneAt(co, z).theme.id});
 }
 // A set at z (where the first ramp starts, or the fronts): a thing of the place's in one lane, or two side by side
 // (always a lane left open). False if it would cross into the next place.
 function addSet(co, z, L) {
-  const r = co.r, th = zoneAt(co, z).theme, lanes = shuffle([0, 1, 2], r), two = L > .2 && r() < .45;
+  const r = co.r, th = zoneAt(co, z).theme, lanes = shuffle([0, 1, 2], r), two = co.hard ? L > .1 && r() < HARD_GAP.two : L > .2 && r() < .45;
   const plats = [];
   lanes.slice(0, two ? 2 : 1).forEach(lane => {
-    const kind = pickKind(th, r), parts = KINDS[kind].build(r, L, speedAt(z) / 10), from = Math.min(...parts.map(q => q.at - (q.ramp || 0)));
+    const kind = pickKind(th, r), parts = KINDS[kind].build(r, L, speedOn(co, z) / 10), from = Math.min(...parts.map(q => q.at - (q.ramp || 0)));
     parts.forEach((q, i) => {
       const z0 = z + q.at - from;
       plats.push({lane, kind, part: i, z0: round2(z0), z1: round2(z0 + q.len), h: q.h, b: q.b || 0, ramp: q.ramp || 0, hi: q.h >= 2});
@@ -261,19 +308,21 @@ function addSet(co, z, L) {
   if (roof && z >= co.itemAt - 40) addItem(co, roof.z0 + (roof.z1 - roof.z0) * (.35 + r() * .3), roof.lane, true);
   // the rows beside it: in the open lanes, a beat apart
   const open = [0, 1, 2].filter(l => !plats.some(p => p.lane === l)), zf = Math.min(...plats.map(p => p.z0));
-  for (let at = zf + Math.max(GAP.in, gapAt(co, L)) * speedAt(zf); at < ze - 3; at += Math.max(GAP.in, gapAt(co, L)) * speedAt(at)) {
+  const gIn = (co.hard ? HARD_GAP : GAP).in;
+  for (let at = zf + Math.max(gIn, gapAt(co, L, zf)) * speedOn(co, zf); at < ze - 3; at += Math.max(gIn, gapAt(co, L, at)) * speedOn(co, at)) {
     if (r() < .75) addRow(co, at, open);
   }
-  co.z = ze + (gapAt(co, L) + (plats.some(p => p.hi) ? .45 : .15)) * speedAt(ze);
+  const after = co.hard ? HARD_GAP.after : [.45, .15];
+  co.z = ze + (gapAt(co, L, ze) + (plats.some(p => p.hi) ? after[0] : after[1])) * speedOn(co, ze);
   return true;
 }
 /** Works the course out as far as z yards (once; the same every time). */
 export function fill(co, z) {
   while (co.z <= z + 2) {
-    const r = co.r, at = co.z, L = Math.min(1, at / GAP.by);
-    if (at > GAP.cars && r() < .2 + .18 * L && addSet(co, at, L)) continue;
+    const r = co.r, at = co.z, H = HARD_GAP, L = Math.min(1, at / (co.hard ? H.mix : GAP.by));
+    if (at > (co.hard ? H.cars : GAP.cars) && r() < (co.hard ? H.sets[0] + (H.sets[1] - H.sets[0]) * L : .2 + .18 * L) && addSet(co, at, L)) continue;
     addRow(co, at, [0, 1, 2]);
-    const next = at + gapAt(co, L) * speedAt(at);
+    const next = at + gapAt(co, L, at) * speedOn(co, at);
     if (at >= co.itemAt) addItem(co, (at + next) / 2, Math.floor(r() * 3), false);
     co.z = next;
   }
@@ -313,8 +362,8 @@ export const platAt = (co, lane, z) => blockAt(co, lane, z, 0);
 
 // ---------------------------------------------------------------------------------------------- a return
 /** A new return: day n's run k (on the day's course: every run the same), you in the middle lane where you field it. */
-export function startRun(n, k) {
-  return {n, k, co: course(n, 0), t: 0, z: 0, yards: 0, lane: 1, x: 0, jFrom: 0, jt: 1, y: 0, vy: 0, jumpQ: -9,
+export function startRun(n, k, hard = false) {
+  return {n, k, co: course(n, 0, hard), t: 0, steps: 0, z: 0, yards: 0, lane: 1, x: 0, jFrom: 0, jt: 1, y: 0, vy: 0, jumpQ: -9,
     slide: 0, lastJuke: -9, bump: -9, next: 0, nextItem: 0, zone: 0, tds: 0,
     salts: 0, pills: 0, booze: 0, shield: 0, burst: 0, over: false, why: null, by: null,
     hits: 0, hitAt: 0, slow: 0, grace: 0, knock: 0, sideHit: null}; // (the linebacker starts on you, at the catch)
@@ -365,9 +414,21 @@ export const chasing = run => !!run && !run.over && (run.t - run.hitAt < CHASE.w
 // through it (or up onto it); just after a hit, it's the same collision ('shoved'); with the linebacker on you, he tackles
 // you (the salts shake him off once); else you stumble, slowed, and he's on your back.
 // -> 'pass' | 'stumble' | false (the return's over).
+// On the hard course, head on into a tall one's front (what.wall: more than a man's height over you) is the end of the
+// return whether he's on you or not (the owner's ask, Oct 2026: Subway Surfers' train); the salts shake that off too.
 function hit(run, out, what) {
   if (run.pills > 0 || run.shield > 0) { if (!what.side) out.push(Object.assign({type: what.ob ? 'trucked' : 'vaulted', z: run.z}, what)); return 'pass'; }
   if (run.grace > 0) { out.push(Object.assign({type: 'shoved', z: run.z}, what)); return 'pass'; }
+  if (what.wall && run.co.hard) {
+    if (run.salts > 0) {
+      run.salts--; run.shield = SHIELD; run.fromGap = gapOf(run); run.hitAt = run.t; run.slow = CHASE.slow; run.burst = BURST.s;
+      out.push(Object.assign({type: 'revived', z: run.z, salts: run.salts}, what));
+      return 'pass';
+    }
+    run.over = true; run.why = 'crash'; run.by = what;
+    out.push(Object.assign({type: 'crashed', z: run.z}, what));
+    return false;
+  }
   if (chasing(run)) {
     if (run.salts > 0) {
       run.salts--; run.shield = SHIELD; run.fromGap = gapOf(run); run.hitAt = run.t; run.slow = CHASE.slow; run.burst = BURST.s;
@@ -387,13 +448,16 @@ function hit(run, out, what) {
 export function hitLine(what) {
   if (!what) return '';
   if (what.edge) return `Ran out of room on the ${what.edge}`;
+  if (what.ob === 'hole') return `Stepped in the ${HOLES[what.row && what.row.th] || OBST.hole.name}`;
   if (what.ob) return OBST[what.ob].says;
   const p = what.plat, name = p && KINDS[p.kind] ? KINDS[p.kind].name : 'wall';
   return `${what.side ? 'Bounced off' : 'Ran into'} the ${name}`;
 }
 function sub(run, dt, out) {
-  const co = run.co, v = speedAt(run.z) * (1 - CHASE.slowBy * run.slow / CHASE.slow) * (1 + burstOf(run));
+  const co = run.co, v0 = speedAt(run.z, co.hard), v = v0 * (1 - CHASE.slowBy * run.slow / CHASE.slow) * (1 + burstOf(run));
   run.t += dt; run.z += v * dt; run.yards += v * dt * (run.booze > 0 ? 2 : 1);
+  // (his strides: a yard a yard up to STRIDE_V, longer past it, so his legs never spin faster than they do at a sprint)
+  run.steps += v * dt * Math.min(1, STRIDE_V / v0);
   if (run.jt < 1) { run.jt = Math.min(1, run.jt + dt / MOVE.juke); const e = 1 - (1 - run.jt) ** 3; run.x = run.jFrom + (xOf(run, run.lane) - run.jFrom) * e; }
   else run.x = xOf(run, run.lane);
   // a juke into a vehicle's side or off the edge of the road (refused by move) is a hit
@@ -404,7 +468,7 @@ function sub(run, dt, out) {
   // something in your way: a pad you've jumped up into from under stops you; a front (or a side, mid-juke) is a hit
   if (blk && blk.b > run.y + .8 && run.vy > 0) { run.vy = 0; run.y = Math.max(0, blk.b - BODY - 1e-3); }
   else if (blk) {
-    const h = hit(run, out, {plat: blk, lane});
+    const h = hit(run, out, {plat: blk, lane, wall: blk.hi && heightOf(blk, run.z) - run.y > 1.6});
     if (!h) return;
     // through it (painkillers) or a low one: up onto it; a tall one's front knocks you into the open lane beside it
     const to = h === 'stumble' && heightOf(blk, run.z) - run.y > 1.6
@@ -457,11 +521,11 @@ function sub(run, dt, out) {
   run.knock = Math.max(0, run.knock - dt);
 }
 /** Moves a return on dt seconds. Returns what happened: [{type: 'td' | 'zone' | 'juked' | 'hurdled' | 'slid' | 'over' |
- *  'passed' | 'landed' | 'pickup' | 'trucked' | 'vaulted' | 'stumbled' | 'shoved' | 'revived' | 'tackled', z, ...}]
+ *  'passed' | 'landed' | 'pickup' | 'trucked' | 'vaulted' | 'stumbled' | 'shoved' | 'revived' | 'tackled' | 'crashed', z, ...}]
  *  ('juked': you left a thing's lane in the last moment before it; 'over': it was below you; 'trucked', 'vaulted':
  *  through a barricade or banner, or up onto a vehicle you'd have hit, on painkillers; 'stumbled': a hit, the linebacker on you
  *  (n: hits so far); 'shoved': the same collision a moment on; 'revived': the salts shook him off; 'tackled' (caught):
- *  he ran you down). */
+ *  he ran you down; 'crashed': head on into a tall one's front, on the hard course). */
 export function step(run, dt) {
   if (run.over || !(dt > 0)) return [];
   const out = [];
@@ -473,10 +537,16 @@ export function step(run, dt) {
   }
   return out;
 }
+/** Ends a return where it is (the hard course, when this phone's no longer the owner's: views/return.js). */
+export function stop(run) {
+  if (!run || run.over) return;
+  run.over = true; run.why = 'stopped';
+}
 /** What ended a return: the line for it ("Wrapped up", "Ran into the city bus"). */
 export function endOf(run) {
   if (!run || !run.why) return '';
   if (run.why === 'caught') return 'Tackled from behind by the linebacker';
+  if (run.why === 'stopped') return 'Whistled dead';
   if (run.why !== 'crash') return OBST[run.why] ? OBST[run.why].says : '';
   const p = run.by && run.by.plat;
   return `Ran into the ${p && KINDS[p.kind] ? KINDS[p.kind].name : 'wall'}`;
