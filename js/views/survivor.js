@@ -50,7 +50,7 @@ function heroHTML(d, P, me, used, board, v) {
   if (d.before) {
     return `<section class="card su-hero"><span class="su-torch" aria-hidden="true"><img src="img/survivor.webp" alt="" width="56" height="56"></span>`
       + `<p class="ovl">Starts Week ${first}</p><h2 class="su-h">Pick one team a week. Don’t lose.</h2>`
-      + `<p class="su-l">Week ${first}’s picks open once Week ${first - 1}’s games are over. Pick in Week ${first} to be in.</p></section>`;
+      + `<p class="su-l">Week ${first}’s picks open once Week ${first - 1}’s games are over. Every league member is in: no pick by a week’s lock and you’re out.</p></section>`;
   }
   const left = `${P.alive} of ${P.entered} still in`;
   if (P.champion) {
@@ -154,7 +154,7 @@ function bodyHTML(st) {
     + (d.before ? `<h2 class="pk-sl-h su-pre"><span class="ovl">Week ${first}’s games</span><span class="pk-sl-r">Picks open soon</span></h2>` : '')
     + gamesHTML(board, v)
     + poolHTML(d, P)
-    + `<p class="lp-rules">Each week, pick one NFL team to win its game: any team you haven’t picked before. A week’s picks open once the week before is over, and lock at its first kickoff (Thursday night): until then you can change yours. Lock in your pick to make it final early: once locked in, it can’t be changed. If your team loses or ties, or you haven’t picked by the lock, you’re out. If everyone still in loses the same week, they all stay in. Last one standing wins.</p>`;
+    + `<p class="lp-rules">Each week, pick one NFL team to win its game: any team you haven’t picked before. A week’s picks open once the week before is over, and lock at its first kickoff (Thursday night): until then you can change yours. Lock in your pick to make it final early: once locked in, it can’t be changed. Every league member starts in. If your team loses or ties, or you haven’t picked by the lock, you’re out. If everyone still in who picked loses the same week, they all stay in. Last one standing wins.</p>`;
 }
 const pageHTML = st => titleHTML(memo.d) + leagueTabsHTML('sv') + `<div class="pk-main su-main">${bodyHTML(st)}</div>`;
 

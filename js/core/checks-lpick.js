@@ -60,14 +60,14 @@ export async function lpickChecks(check) {
   const w8shut = {games: [G('81', 'KC', 'LV', at - D / 4, null), G('82', 'DEN', 'SF', at + 3 * D, null)]};
   const sv = (id, nick, picks) => ({id, nick, total: 0, [SV.F]: {2026: picks}});
   const P = (k, g, t) => ({k, g, t});
-  check('Survivor: in from the first week; a win goes on, a loss or a tie goes out; every pick locks at the week\'s first kickoff (Thursday\'s): one saved after it doesn\'t count, no pick by it goes out; a reused team doesn\'t count; others\' picks hide till the lock', () => {
+  check('Survivor: every league member in from the first week (no pick by its lock: out), anyone else only with a pick in it; a win goes on, a loss or a tie goes out; every pick locks at the week\'s first kickoff (Thursday\'s): one saved after it doesn\'t count, no pick by it goes out; a reused team doesn\'t count; others\' picks hide till the lock', () => {
     const before = at - 9 * D;
     const list = [
       sv('s-jy', nickOf('jayton'), {7: P('DEN', '71', before), 8: P('KC', '81', at - 3 * D)}),
       sv('s-mi', nickOf('mitch'), {7: P('KC', '71', before)}),
       sv('s-jo', nickOf('john'), {7: P('NYJ', '73', before)}),
       sv('s-be', nickOf('ben'), {7: P('BUF', '72', before)}),
-      sv('s-dr', nickOf('dresden'), {7: P('DEN', '71', at - 7 * D)}),         // after week 7's lock: not in
+      sv('s-dr', nickOf('dresden'), {7: P('DEN', '71', at - 7 * D)}),         // after week 7's lock: no pick, out
       sv('s-sa', nickOf('sayer'), {7: P('BUF', '72', before), 8: P('DEN', '82', at - 2 * D)}),
       sv('s-co', nickOf('corbin'), {7: P('DEN', '71', before), 8: P('DEN', '82', at - 2 * D)}), // DEN again: no pick
       sv('s-ma', nickOf('mason'), {7: P('BUF', '72', before), 8: P('SF', '82', at - D / 8)})     // after Thursday's kickoff, before SF's
@@ -75,7 +75,7 @@ export async function lpickChecks(check) {
     const r = SV.pool(2026, 8, boards, list, at), by = (q, id) => q.rows.find(x => x.name === nickOf(id));
     const st = (q, id) => { const x = by(q, id); return x ? (x.alive ? 'in' : `out ${x.out} ${x.why}`) : 'not in'; };
     // week 8 before its lock: nobody out for it yet
-    const want = {jayton: 'in', mitch: 'out 7 L', john: 'out 7 T', ben: 'in', dresden: 'not in', sayer: 'in', corbin: 'in', mason: 'in'};
+    const want = {jayton: 'in', mitch: 'out 7 L', john: 'out 7 T', ben: 'in', dresden: 'out 7 none', sayer: 'in', corbin: 'in', mason: 'in', jackson: 'out 7 none'};
     const bad = Object.keys(want).filter(id => st(r, id) !== want[id]);
     const jy = by(r, 'jayton'), hid = jy && jy.picks.find(p => p.w === 8);
     const hide = !!hid && hid.shown === false && jy.picks.find(p => p.w === 7).shown === true;
@@ -84,14 +84,15 @@ export async function lpickChecks(check) {
     const want2 = {jayton: 'in', sayer: 'in', ben: 'out 8 none', corbin: 'out 8 none', mason: 'out 8 none'};
     const bad2 = Object.keys(want2).filter(id => st(r2, id) !== want2[id]);
     const shown = (by(r2, 'jayton').picks.find(p => p.w === 8) || {}).shown === true;
-    const order = r.rows.slice(0, 5).every(x => x.alive) && r.entered === 7 && r.alive === 5;
+    const order = r.rows.slice(0, 5).every(x => x.alive) && r.entered === SV.membersOf(2026).length && r.alive === 5;
     return {pass: !bad.length && hide && !bad2.length && shown && order, detail: `before the lock: ${Object.keys(want).map(id => `${id} ${st(r, id)}`).join(', ')}${bad.length ? `; WRONG: ${bad.join(', ')}` : ''}; week 8 picks hidden till the lock ${hide}; locked: ${Object.keys(want2).map(id => `${id} ${st(r2, id)}`).join(', ')}${bad2.length ? `; WRONG: ${bad2.join(', ')}` : ''}; shown once locked ${shown}`};
   });
 
-  check('Survivor: everyone still in losing the same week all stay in; the last one standing wins', () => {
+  check('Survivor: everyone still in who picked losing the same week all stay in (those with no pick go out); the last one standing wins', () => {
     const before = at - 9 * D;
+    // (every other member missed week 7: out, never saved)
     const all = SV.pool(2026, 7, boards, [sv('a1', nickOf('ben'), {7: P('KC', '71', before)}), sv('a2', nickOf('mitch'), {7: P('MIA', '72', before)})], at);
-    const stay = all.alive === 2 && all.rows.every(x => x.alive && x.saved === 7);
+    const stay = all.alive === 2 && all.rows.every(x => x.alive ? x.saved === 7 : x.why === 'none');
     const one = SV.pool(2026, 7, boards, [sv('b1', nickOf('ben'), {7: P('DEN', '71', before)}), sv('b2', nickOf('mitch'), {7: P('KC', '71', before)})], at);
     const champ = one.champion === nickOf('ben').toLowerCase() || (one.rows.find(x => x.key === one.champion) || {}).name === nickOf('ben');
     return {pass: stay && champ, detail: `both lost week 7: ${stay ? 'both still in' : 'WRONG'}; one left: ${champ ? `${nickOf('ben')} wins` : 'WRONG'}`};
