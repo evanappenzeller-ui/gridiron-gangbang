@@ -17,14 +17,16 @@ import * as SPR from './realm-sprites.js';
 import {KINDS, TROOPS, N, EDGE} from '../core/realm.js';
 const V = new URL('../vendor/three/', import.meta.url).href;
 let T = null, RE = null, LOADING = null, DEAD = false;
-// The scenery's two shapes, each its own landscape, placements and lot (its layout's lot: where the lot lies in it, px:
-// the middle and its diamond's height, far corner to near; as big as fits in the build zone, the checks hold it to
-// that): wide for a landscape screen, tall for a portrait one (the owner's ask, Oct 2026). Each loaded when it's first
-// wanted (SCENERY: those in, by shape).
-export const SHAPES = {wide: 'layout.json', tall: 'layout-tall.json'};
+// The sceneries (core/realm.js SCENERIES), each a layout a shape: its own landscape, placements and lot (its layout's
+// lot: where the lot lies in it, px: the middle and its diamond's height, far corner to near; as big as fits in the
+// build zone, the checks hold it to that). The coast has a wide one for a landscape screen and a tall one for a
+// portrait one (the owner's ask, Oct 2026); the others are tall, on any screen. Each loaded when it's first wanted
+// (SCENERY: those in, by file).
+export const FILES = {coast: {wide: 'layout.json', tall: 'layout-tall.json'}, tundra: {tall: 'layout-tundra.json'}, ocean: {tall: 'layout-ocean.json'}, infernal: {tall: 'layout-infernal.json'}};
 const shapeOf = (w, h) => (h > w ? 'tall' : 'wide');
+const fileFor = (theme, shape) => { const f = FILES[theme] || FILES.coast; return f[shape] || f.tall || f.wide; };
 const SCENERY = {}, ASKED = {};
-const sceneryFor = shape => ASKED[shape] || (ASKED[shape] = scenery(SHAPES[shape]).then(sc => { if (sc) { sc.shape = shape; SCENERY[shape] = sc; } return sc; }));
+const sceneryFor = file => ASKED[file] || (ASKED[file] = scenery(file).then(sc => { if (sc) { sc.file = file; SCENERY[file] = sc; } return sc; }));
 const SCENERY_AT = new URL('../../img/realm/scenery/', import.meta.url).href;
 const picture = file => new Promise(ok => {
   const im = new Image();
@@ -48,26 +50,26 @@ async function scenery(file) {
   }
 }
 
-export function load() {
-  if (!LOADING) {
-    LOADING = (async () => {
-      try {
-        const probe = document.createElement('canvas');
-        if (!(probe.getContext('webgl2') || probe.getContext('webgl'))) throw new Error('no WebGL');
-        const [three, {RoomEnvironment}, BU] = await Promise.all([import(V + 'three.module.min.js'), import(V + 'RoomEnvironment.js'), import(V + 'BufferGeometryUtils.js')]);
-        T = three; RE = RoomEnvironment;
-        FM.init(T, BU);
-        SPR.init(T, PITCH);
-        await Promise.all([SPR.load(), sceneryFor(shapeOf(innerWidth, innerHeight))]); // (without the art, everything's drawn in 3D)
-        try { await document.fonts.load('800 60px "Barlow Condensed"'); } catch (_) {}
-        return true;
-      } catch (e) {
-        console.warn('Realm: no 3D', e);
-        DEAD = true;
-        return false;
-      }
-    })();
-  }
+/** Loads three.js, the art and scenery theme's layout for this screen (the coast's if none's given). */
+export function load(theme = 'coast') {
+  if (LOADING) return LOADING.then(ok => (ok ? sceneryFor(fileFor(theme, shapeOf(innerWidth, innerHeight))).then(() => ok) : ok));
+  LOADING = (async () => {
+    try {
+      const probe = document.createElement('canvas');
+      if (!(probe.getContext('webgl2') || probe.getContext('webgl'))) throw new Error('no WebGL');
+      const [three, {RoomEnvironment}, BU] = await Promise.all([import(V + 'three.module.min.js'), import(V + 'RoomEnvironment.js'), import(V + 'BufferGeometryUtils.js')]);
+      T = three; RE = RoomEnvironment;
+      FM.init(T, BU);
+      SPR.init(T, PITCH);
+      await Promise.all([SPR.load(), sceneryFor(fileFor(theme, shapeOf(innerWidth, innerHeight)))]); // (without the art, everything's drawn in 3D)
+      try { await document.fonts.load('800 60px "Barlow Condensed"'); } catch (_) {}
+      return true;
+    } catch (e) {
+      console.warn('Realm: no 3D', e);
+      DEAD = true;
+      return false;
+    }
+  })();
   return LOADING;
 }
 export const ready = () => !!T && !DEAD;
@@ -150,17 +152,25 @@ function puffTexture(T) {
   return t;
 }
 
-function plotTexture(T, B) {
-  // the base: mown grass, a tile each in a faint check (lighter and darker by turns), worn a little, a darker line at
+// The base's ground in each land: its check's two tiles, its patches and specks (dark, light), its edge, the kerb, and
+// whether grass blades grow on it close up.
+const GROUND = {
+  grass: {a: '#97B142', b: '#8DA73A', pd: '110,130,30', pl: '180,190,90', sd: '70,95,20', sl: '190,200,100', edge: 'rgba(60,70,20,.45)', kerb: 0xB4AA94, blades: true},
+  snow: {a: '#EEF3F7', b: '#E2EAF1', pd: '150,175,200', pl: '255,255,255', sd: '120,150,180', sl: '255,255,255', edge: 'rgba(90,120,150,.4)', kerb: 0x8E9AA6, blades: false},
+  ash: {a: '#4E3D33', b: '#46362D', pd: '30,20,16', pl: '120,70,40', sd: '20,14,12', sl: '255,120,40', edge: 'rgba(255,90,20,.35)', kerb: 0x3A302C, blades: false}
+};
+const GROUND_OF = {coast: 'grass', ocean: 'grass', tundra: 'snow', infernal: 'ash'};
+function plotTexture(T, B, G) {
+  // the base: its ground a tile each in a faint check (lighter and darker by turns), worn a little, a darker line at
   // its edge under the kerb
   const px = 32, cv = document.createElement('canvas'); cv.width = cv.height = B * px;
   const g = cv.getContext('2d');
   let s = 13;
   const r = () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
-  for (let y = 0; y < B; y++) for (let x = 0; x < B; x++) { g.fillStyle = (x + y) % 2 ? '#8DA73A' : '#97B142'; g.fillRect(x * px, y * px, px, px); }
-  for (let i = 0; i < 60; i++) { const x = r() * B * px, y = r() * B * px, R = 30 + r() * 90, gr = g.createRadialGradient(x, y, 0, x, y, R); gr.addColorStop(0, r() < .5 ? 'rgba(110,130,30,.22)' : 'rgba(180,190,90,.18)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(x - R, y - R, 2 * R, 2 * R); }
-  for (let i = 0; i < 9000; i++) { g.fillStyle = `rgba(${r() < .5 ? '70,95,20' : '190,200,100'},${.06 + r() * .1})`; g.fillRect(r() * B * px, r() * B * px, 1 + r() * 2, 1 + r() * 2); }
-  g.strokeStyle = 'rgba(60,70,20,.45)'; g.lineWidth = 6; g.strokeRect(3, 3, B * px - 6, B * px - 6);
+  for (let y = 0; y < B; y++) for (let x = 0; x < B; x++) { g.fillStyle = (x + y) % 2 ? G.b : G.a; g.fillRect(x * px, y * px, px, px); }
+  for (let i = 0; i < 60; i++) { const x = r() * B * px, y = r() * B * px, R = 30 + r() * 90, gr = g.createRadialGradient(x, y, 0, x, y, R); gr.addColorStop(0, r() < .5 ? `rgba(${G.pd},.22)` : `rgba(${G.pl},.18)`); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(x - R, y - R, 2 * R, 2 * R); }
+  for (let i = 0; i < 9000; i++) { g.fillStyle = `rgba(${r() < .5 ? G.sd : G.sl},${.06 + r() * .1})`; g.fillRect(r() * B * px, r() * B * px, 1 + r() * 2, 1 + r() * 2); }
+  g.strokeStyle = G.edge; g.lineWidth = 6; g.strokeRect(3, 3, B * px - 6, B * px - 6);
   const t = new T.CanvasTexture(cv); t.colorSpace = T.SRGBColorSpace; t.anisotropy = 8;
   return t;
 }
@@ -287,41 +297,70 @@ export function create(host, opts = {}) {
   Object.assign(sun.shadow.camera, {left: -24, right: 24, top: 24, bottom: -24, near: 1, far: 90});
   scene.add(sun, sun.target);
 
-  // ---- the ground: the scenery, the lot on its meadow; or, without it,
-  // grass all round, a moat round the lot (a stone lip each side), the lot, pines and mountains
-  let scene0 = null, sceneG = null;
-  const shape0 = shapeOf(host.clientWidth || innerWidth, host.clientHeight || innerHeight);
-  /** Lays the scenery's shape sc round the lot (instead of the one there): true when it's down. */
+  // ---- the ground: the scenery (opts.scenery: its theme, core/realm.js SCENERIES; the coast if none), the lot on its
+  // ground; or, till it's in or without it, grass all round, a moat round the lot (a stone lip each side), the lot,
+  // pines and mountains (plain)
+  let scene0 = null, sceneG = null, theme = opts.scenery || 'coast';
+  const plain = new T.Group();
+  let sceneryTheme = 'coast';
+  const base = {}; // (the base's ground: below)
+  /** The base's ground for land k (GROUND_OF). */
+  function groundFor(k) {
+    sceneryTheme = k;
+    if (!base.plot) return;
+    const G = GROUND[GROUND_OF[k] || 'grass'], key = GROUND_OF[k] || 'grass';
+    base.plot.material.map = base.tex[key] || (base.tex[key] = plotTexture(T, base.B, G));
+    base.plot.material.needsUpdate = true;
+    base.blades.visible = G.blades;
+    base.kerbM.color.set(G.kerb);
+  }
+  /** Lays scenery sc (a theme's layout for a shape) round the lot, instead of what's there: true when it's down. */
   function setScenery(sc) {
     let gr;
     try { gr = sceneryGround(sc.ground, sc.lay.lot, renderer.capabilities.getMaxAnisotropy()); } catch (e) { console.warn('Realm: no scenery', e); return false; }
     if (sceneG) { scene.remove(sceneG); scene0.mesh.geometry.userData.tex.dispose(); scene0.mesh.geometry.dispose(); scene0.mesh.material.dispose(); }
+    scene.remove(plain);
+    scene.background.set(0x16202A); // (never seen: the camera stays over it)
     sceneG = new T.Group();
     sceneG.add(gr.mesh, ...sceneryPictures(sc, gr));
     scene.add(sceneG);
-    scene0 = gr; scene0.shape = sc.shape;
+    scene0 = gr; scene0.file = sc.file;
+    groundFor(Object.keys(FILES).find(k => Object.values(FILES[k]).includes(sc.file)) || 'coast');
     return true;
   }
-  const first = SCENERY[shape0] || Object.values(SCENERY)[0];
-  if (first) setScenery(first);
-  if (scene0) {
-    scene.background.set(0x16202A); // (never seen: the camera stays over it)
-  } else {
+  /** The theme's layout for this screen's shape laid down: now, if it's in; else once it is (if it's still wanted). */
+  function wantScenery(w, h) {
+    const f = fileFor(theme, shapeOf(w, h));
+    if (scene0 && scene0.file === f) return;
+    if (SCENERY[f]) { setScenery(SCENERY[f]); return; }
+    sceneryFor(f).then(sc => {
+      if (!sc || dead || (scene0 && scene0.file === f) || fileFor(theme, shapeOf(Wd, Hd)) !== f || !setScenery(sc)) return;
+      zTop = mostOut(); clampView(); want();
+    });
+  }
+  {
+    const w0 = host.clientWidth || innerWidth, h0 = host.clientHeight || innerHeight, f0 = fileFor(theme, shapeOf(w0, h0));
+    // (the coast's while another's coming)
+    const first = SCENERY[f0] || SCENERY[fileFor('coast', shapeOf(w0, h0))] || Object.values(SCENERY)[0];
+    if (first) setScenery(first);
+  }
+  if (!scene0) scene.add(plain);
+  {
     const grass = new T.Mesh(new T.PlaneGeometry(260, 260), new T.MeshStandardMaterial({map: grassTexture(T), roughness: 1}));
     grass.material.map.repeat.set(60, 60);
     grass.rotation.x = -Math.PI / 2; grass.position.y = -.02; grass.receiveShadow = true;
-    scene.add(grass);
+    plain.add(grass);
     const ringAt = (r0, r1, y, mat) => {
       const m = new T.Mesh(new T.RingGeometry(r0 * Math.SQRT2, r1 * Math.SQRT2, 4, 1), mat);
       m.rotation.x = -Math.PI / 2; m.rotation.z = Math.PI / 4; m.position.y = y; m.receiveShadow = true;
-      scene.add(m);
+      plain.add(m);
     };
     ringAt(N / 2 + .9, N / 2 + 3.1, -.06, new T.MeshStandardMaterial({color: 0x2F5F73, roughness: .12, metalness: .2, envMapIntensity: 1.2}));
     ringAt(N / 2 + .3, N / 2 + .9, .005, new T.MeshStandardMaterial({color: 0x8E887E, roughness: .9}));
     ringAt(N / 2 + 3.1, N / 2 + 3.6, .005, new T.MeshStandardMaterial({color: 0x8E887E, roughness: .9}));
     const lot = new T.Mesh(new T.PlaneGeometry(N, N), new T.MeshStandardMaterial({map: lotTexture(T), roughness: .95}));
     lot.rotation.x = -Math.PI / 2; // (the shadows on it: the base's, below)
-    scene.add(lot);
+    plain.add(lot);
     // pines round the outside (a few tiers each), mountains far off with snow on top
     {
       let s = 3;
@@ -334,27 +373,27 @@ export function create(host, opts = {}) {
         meshes.forEach((M, j) => { m.compose(new T.Vector3(x, (1.5 + j * 1.0) * k, z), q, new T.Vector3(k, k, k)); M.setMatrixAt(i, m); });
         m.compose(new T.Vector3(x, .5 * k, z), q, new T.Vector3(k, k, k)); tr.setMatrixAt(i, m);
       }
-      meshes.forEach(M => { M.castShadow = true; scene.add(M); }); scene.add(tr);
+      meshes.forEach(M => { M.castShadow = true; plain.add(M); }); plain.add(tr);
       const rockM = new T.MeshStandardMaterial({color: 0x6F7378, roughness: 1, flatShading: true}), snowM = new T.MeshStandardMaterial({color: 0xEEF2F6, roughness: .9, flatShading: true});
       for (let i = 0; i < 9; i++) {
         const a = -2.6 + i * .5 + r() * .2, d = 110 + r() * 20, h = 30 + r() * 25, w = 22 + r() * 16;
-        const mt = new T.Mesh(new T.ConeGeometry(w, h, 6), rockM); mt.position.set(Math.cos(a) * d, h / 2 - 2, Math.sin(a) * d); mt.rotation.y = r() * 3; scene.add(mt);
-        const cap = new T.Mesh(new T.ConeGeometry(w * .32, h * .32, 6), snowM); cap.position.set(mt.position.x, h - 2 - h * .16 + .3, mt.position.z); cap.rotation.y = mt.rotation.y; scene.add(cap);
+        const mt = new T.Mesh(new T.ConeGeometry(w, h, 6), rockM); mt.position.set(Math.cos(a) * d, h / 2 - 2, Math.sin(a) * d); mt.rotation.y = r() * 3; plain.add(mt);
+        const cap = new T.Mesh(new T.ConeGeometry(w * .32, h * .32, 6), snowM); cap.position.set(mt.position.x, h - 2 - h * .16 + .3, mt.position.z); cap.rotation.y = mt.rotation.y; plain.add(cap);
       }
     }
   }
 
-  // ---- the base: a clear square cut out of the meadow, where everything's built and moved about (the lot inside its
-  // EDGE: core/realm.js fits()), its grass mown in a faint check a tile each, short blades over it close up, a low stone
-  // kerb round it
+  // ---- the base: a clear square cut out of the land, where everything's built and moved about (the lot inside its
+  // EDGE: core/realm.js fits()), its ground the land's (GROUND: grass, snow or ash) in a faint check a tile each, short
+  // blades over grass close up, a low stone kerb round it
   {
     const B = N - 2 * EDGE;
-    const plot = new T.Mesh(new T.PlaneGeometry(B, B), new T.MeshBasicMaterial({map: plotTexture(T, B), toneMapped: false, fog: false}));
+    const plot = new T.Mesh(new T.PlaneGeometry(B, B), new T.MeshBasicMaterial({toneMapped: false, fog: false}));
     plot.rotation.x = -Math.PI / 2; plot.position.y = .006;
     const blades = new T.Mesh(new T.PlaneGeometry(B, B), new T.MeshBasicMaterial({map: bladesTexture(T), transparent: true, depthWrite: false, toneMapped: false, fog: false}));
     blades.material.map.repeat.set(B / 2, B / 2);
     blades.rotation.x = -Math.PI / 2; blades.position.y = .009; blades.renderOrder = -2001;
-    const kerbM = new T.MeshStandardMaterial({color: 0xB4AA94, roughness: .9}), w = .26, hgt = .14;
+    const kerbM = new T.MeshStandardMaterial({color: GROUND.grass.kerb, roughness: .9}), w = .26, hgt = .14;
     [[0, -1], [0, 1], [-1, 0], [1, 0]].forEach(([sx, sz]) => {
       const k = new T.Mesh(new T.BoxGeometry(sx ? w : B + 2 * w, hgt, sz ? w : B + 2 * w), kerbM);
       k.position.set(sx * (B + w) / 2, hgt / 2, sz * (B + w) / 2); k.receiveShadow = true;
@@ -364,6 +403,8 @@ export function create(host, opts = {}) {
     const shade = new T.Mesh(new T.PlaneGeometry(N + 6, N + 6), new T.ShadowMaterial({opacity: .32}));
     shade.rotation.x = -Math.PI / 2; shade.position.y = .016; shade.receiveShadow = true; shade.renderOrder = -2000;
     scene.add(plot, blades, shade);
+    Object.assign(base, {B, plot, blades, kerbM, tex: {}});
+    groundFor(sceneryTheme);
   }
 
   // ---- the camera: looking down across the lot corner-on
@@ -430,12 +471,7 @@ export function create(host, opts = {}) {
     renderer.setSize(w, h, false);
     canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
     cam.aspect = w / h; cam.updateProjectionMatrix();
-    // (the phone turned: the scenery's other shape, once it's in)
-    const sh = shapeOf(w, h);
-    if (scene0 && scene0.shape !== sh) {
-      if (SCENERY[sh]) setScenery(SCENERY[sh]);
-      else sceneryFor(sh).then(sc => { if (sc && !dead && scene0 && scene0.shape !== sh && shapeOf(Wd, Hd) === sh && setScenery(sc)) { zTop = mostOut(); clampView(); want(); } });
-    }
+    wantScenery(w, h); // (the phone turned: the scenery's other shape, if it has one)
     if (scene0) zTop = mostOut();
     clampView();
     want();
@@ -906,6 +942,9 @@ export function create(host, opts = {}) {
     setLot, select, setGhost, showGrid, pick, tileAt, project, want, setAnim, look, frame: fit, resize,
     raidStart, raidFrame, raidStop, showZone,
     get zoom() { return view.dist; },
+    /** Lays scenery theme k round the lot (once it's in). */
+    setTheme(k) { theme = k || 'coast'; wantScenery(Wd, Hd); if (scene0) { zTop = mostOut(); clampView(); } want(); },
+    get theme() { return theme; },
     canvas,
     dispose() {
       dead = true;

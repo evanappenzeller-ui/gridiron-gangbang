@@ -237,6 +237,26 @@ export function incomeOf(docs, mods = {}) {
   return {total, by, today, days};
 }
 
+// ---------------------------------------------------------------------------------------------------- the scenery
+// Where your realm lies (views/realm-3d.js draws it, img/realm/scenery/): the coast from the start; the rest unlocked by
+// raising the Keep (the owner's ask, Oct 2026), each yours to pick (the house card) once it is.
+export const SCENERIES = [
+  {k: 'coast', name: 'The Coast', at: 1, blurb: 'A harbour, a village and a castle on the meadow by the sea'},
+  {k: 'tundra', name: 'Frozen Tundra', at: 3, blurb: 'A snowfield by an icy sea, pines and mountains all round'},
+  {k: 'ocean', name: 'Ocean Sanctuary', at: 5, blurb: 'An island of grass and palms in a turquoise sea'},
+  {k: 'infernal', name: 'Infernal Wastes', at: 7, blurb: 'Scorched ground ringed by rivers of lava, a volcano beyond'}
+];
+/** Whether scenery k is open to this realm (its Keep high enough). */
+export const sceneryOpen = (s, k) => { const x = SCENERIES.find(q => q.k === k); return !!x && keepOf(s) >= x.at; };
+/** The scenery this realm lies in: the one picked, while it's open to it; else the coast. */
+export const sceneryOf = s => (s && s.sc && sceneryOpen(s, s.sc) ? s.sc : 'coast');
+/** Picks scenery k (true), if it's open. */
+export function pickScenery(s, k) {
+  if (!sceneryOpen(s, k)) return false;
+  s.sc = k === 'coast' ? '' : k;
+  return true;
+}
+
 // ---------------------------------------------------------------------------------------------------- a realm
 // State: {v, at (saved, ms), nm (the house's name, or none: "House <last name>"), b: [{i, t (kind), l (level; 0
 // while first going up), x, y (its top-left tile), u (when the job on it is done, ms; 0: none), c (mines and farms:
@@ -244,7 +264,7 @@ export function incomeOf(docs, mods = {}) {
 // far), xo: {gold, grain} (into the coffers besides the games: the starter, raids' overflow), ar: {troop: n} (the army
 // in the war camps), q: [[troop, n]] (training), qs (when the first in line started, ms), tp (glory), rd: [raids
 // made], df: [raids on you], lr (when the computer last raided you: core/realm-battle.js defend), sh (a truce until,
-// ms), bt: {realm: day raided}, nb (the next building id), born (ms)}.
+// ms), bt: {realm: day raided}, nb (the next building id), born (ms), sc (the scenery picked: SCENERIES; none: the coast)}.
 export function fresh(now = Date.now()) {
   const b = [
     {i: 1, t: 'keep', l: 1, x: 16, y: 16, u: 0},
@@ -271,6 +291,7 @@ export function clean(s) {
   const old = !(Number(o.v) >= 2);
   o.v = 2; o.at = num(o.at); o.born = num(o.born) || o.at;
   o.nm = typeof o.nm === 'string' ? o.nm.slice(0, 28) : '';
+  o.sc = SCENERIES.some(x => x.k === o.sc) ? o.sc : '';
   o.b = o.b.map(b => (b && old && OLD_KIND[b.t] ? Object.assign({}, b, {t: OLD_KIND[b.t]}) : b))
     .filter(b => b && KINDS[b.t] && Number.isInteger(b.x) && Number.isInteger(b.y))
     .map(b => ({i: num(b.i), t: b.t, l: Math.max(0, Math.min(maxLevel(b.t), num(b.l) | 0)), x: b.x, y: b.y, u: num(b.u), ...(KINDS[b.t].role === 'make' ? {c: num(b.c)} : {})}));

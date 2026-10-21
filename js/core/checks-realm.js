@@ -101,6 +101,22 @@ export async function realmChecks(check) {
     return {pass: onKeep && off && corner && refused && moved && kept && clear(s.b), detail: `onto the Keep refused ${onKeep}; off the base refused ${off}; its corners fine ${corner}; a build on the Keep refused ${refused}; a move onto it refused, to a clear corner fine ${moved}; a save piled on the Keep and off the base: ${fixed ? `${fixed.b.length} of ${bad.b.length} kept, ${kept ? 'laid out clear, the Keep where it was' : 'NOT clear'}` : 'not taken up'}`};
   });
 
+  check('Realm: the lands (Oct 2026): a realm starts on the coast; raising the Keep unlocks the Frozen Tundra (level 3), the Ocean Sanctuary (5) and the Infernal Wastes (7), each its to pick once open, never before; the pick is kept with the realm, and a save whose pick isn’t open (or isn’t one) lies on the coast', () => {
+    const s = F.fresh(T0), keep = s.b.find(b => b.t === 'keep');
+    const start = F.sceneryOf(s) === 'coast' && F.SCENERIES.filter(x => F.sceneryOpen(s, x.k)).map(x => x.k).join() === 'coast';
+    const early = !F.pickScenery(s, 'tundra') && F.sceneryOf(s) === 'coast';
+    const at = {};
+    for (let l = 1; l <= F.MAX_KEEP; l++) { keep.l = l; F.SCENERIES.forEach(x => { if (at[x.k] == null && F.sceneryOpen(s, x.k)) at[x.k] = l; }); }
+    const levels = at.coast === 1 && at.tundra === 3 && at.ocean === 5 && at.infernal === 7;
+    keep.l = 5;
+    const picked = F.pickScenery(s, 'ocean') && F.sceneryOf(s) === 'ocean' && !F.pickScenery(s, 'infernal') && F.sceneryOf(s) === 'ocean';
+    const kept = F.sceneryOf(F.clean(JSON.parse(JSON.stringify(s)))) === 'ocean';
+    const low = F.clean(Object.assign(JSON.parse(JSON.stringify(s)), {sc: 'infernal'})), junk = F.clean(Object.assign(JSON.parse(JSON.stringify(s)), {sc: 'moon'}));
+    const fallback = F.sceneryOf(low) === 'coast' && junk.sc === '' && F.sceneryOf(junk) === 'coast';
+    const back = F.pickScenery(s, 'coast') && F.sceneryOf(s) === 'coast' && s.sc === '';
+    return {pass: start && early && levels && picked && kept && fallback && back, detail: `starts on the coast ${start}; the tundra at Keep 1 refused ${early}; unlocked at ${JSON.stringify(at)}; at Keep 5 the ocean picked, the wastes refused ${picked}; kept in the save ${kept}; a pick not open (or unknown) on the coast ${fallback}; back to the coast ${back}`};
+  });
+
   check('Realm: the army trains one at a time with Grain (a footman 5 s at one barracks), into the war camps’ room; a full camp takes no more; one taken out of training gives its Grain back', () => {
     const s = F.fresh(T0);
     s.b.push({i: 50, t: 'barracks', l: 1, x: 3, y: 3, u: 0}, {i: 51, t: 'camp', l: 1, x: 3, y: 9, u: 0});
@@ -189,10 +205,10 @@ export async function realmChecks(check) {
     return {pass: !bad.length && !missing.length && plat && !gone.length && sheets.size >= 20, detail: `buildings ${bad.length ? 'wrong: ' + bad.join(', ') : S.KINDS.join(', ') + ' ok'}; ${sheets.size} folk sheets called for${missing.length ? ', missing ' + missing.join(', ') : ''}; tower platforms ${plat}; ${gone.length ? 'pictures missing: ' + gone.join(', ') : 'pictures there'}`};
   });
 
-  check('Realm: the scenery (tools/realm/scenery.py, img/realm/scenery/: wide for a landscape screen, tall for a portrait one): each shape’s landscape and every picture its placements call for are there; nothing’s placed in its build zone, and its lot lies inside it', async () => {
+  check('Realm: the scenery (tools/realm/scenery.py, scenery_themes.py; img/realm/scenery/: the coast wide and tall, the Frozen Tundra, Ocean Sanctuary and Infernal Wastes tall): every layout’s landscape and every picture its placements call for are there; nothing’s placed in its build zone, and its lot lies inside it', async () => {
     const D3 = await import('../views/realm-3d.js'), out = [];
-    let pass = true;
-    for (const [shape, file] of Object.entries(D3.SHAPES)) {
+    let pass = F.SCENERIES.every(x => D3.FILES[x.k] && Object.keys(D3.FILES[x.k]).length);
+    for (const [shape, file] of Object.entries(D3.FILES).flatMap(([k, f]) => Object.entries(f).map(([sh, fl]) => [`${k} ${sh}`, fl]))) {
       const lay = await fetch(new URL(`../../img/realm/scenery/${file}`, import.meta.url)).then(r => r.json(), () => null);
       if (!lay) { pass = false; out.push(`${shape}: no layout`); continue; }
       const A = lay.assets, bg = lay.scene.background_asset_id, Z = lay.build_zone_polygon, L = lay.lot;

@@ -1,0 +1,376 @@
+{
+ "schema_version": 1,
+ "scene": {
+  "width": 941,
+  "height": 1672,
+  "origin": "top-left",
+  "units": "reference pixels",
+  "background_asset_id": "tundra:ground"
+ },
+ "placement_convention": "x,y = bottom-center of the picture; rect for exact drawing",
+ "build_zone_polygon": [
+  [
+   313,
+   805
+  ],
+  [
+   575,
+   600
+  ],
+  [
+   837,
+   805
+  ],
+  [
+   575,
+   1010
+  ]
+ ],
+ "lot": {
+  "cx": 575,
+  "cy": 805,
+  "h": 380
+ },
+ "assets": {
+  "tundra:ground": {
+   "width": 941,
+   "height": 1672,
+   "pic": {
+    "file": "tundra/ground.webp",
+    "w": 941,
+    "h": 1672
+   }
+  },
+  "tundra:castle": {
+   "width": 489,
+   "height": 440,
+   "pic": {
+    "file": "tundra/castle.webp",
+    "w": 489,
+    "h": 440,
+    "crop": [
+     0,
+     0,
+     489,
+     440
+    ]
+   }
+  },
+  "tundra:cottage": {
+   "width": 333,
+   "height": 253,
+   "pic": {
+    "file": "tundra/cottage.webp",
+    "w": 333,
+    "h": 253,
+    "crop": [
+     0,
+     0,
+     333,
+     253
+    ]
+   }
+  },
+  "tundra:forge": {
+   "width": 447,
+   "height": 228,
+   "pic": {
+    "file": "tundra/forge.webp",
+    "w": 447,
+    "h": 228,
+    "crop": [
+     0,
+     0,
+     447,
+     228
+    ]
+   }
+  },
+  "tundra:dock": {
+   "width": 499,
+   "height": 255,
+   "pic": {
+    "file": "tundra/dock.webp",
+    "w": 499,
+    "h": 255,
+    "crop": [
+     0,
+     0,
+     499,
+     255
+    ]
+   }
+  },
+  "tundra:hall": {
+   "width": 511,
+   "height": 328,
+   "pic": {
+    "file": "tundra/hall.webp",
+    "w": 511,
+    "h": 328,
+    "crop": [
+     0,
+     0,
+     511,
+     328
+    ]
+   }
+  },
+  "tundra:watchtower": {
+   "width": 183,
+   "height": 302,
+   "pic": {
+    "file": "tundra/watchtower.webp",
+    "w": 183,
+    "h": 302,
+    "crop": [
+     0,
+     0,
+     183,
+     302
+    ]
+   }
+  },
+  "tundra:storehouse": {
+   "width": 405,
+   "height": 225,
+   "pic": {
+    "file": "tundra/storehouse.webp",
+    "w": 405,
+    "h": 225,
+    "crop": [
+     0,
+     0,
+     405,
+     225
+    ]
+   }
+  },
+  "tundra:ship": {
+   "width": 342,
+   "height": 279,
+   "pic": {
+    "file": "tundra/ship.webp",
+    "w": 342,
+    "h": 279,
+    "crop": [
+     0,
+     0,
+     342,
+     279
+    ]
+   }
+  }
+ },
+ "instances": [
+  {
+   "id": "hall_0",
+   "asset_id": "tundra:hall",
+   "x": 345,
+   "y": 440,
+   "width": 235,
+   "height": 151,
+   "anchor": [
+    0.5,
+    1.0
+   ],
+   "rect": {
+    "x": 228,
+    "y": 289,
+    "width": 235,
+    "height": 151
+   },
+   "draw_order": 0
+  },
+  {
+   "id": "castle_1",
+   "asset_id": "tundra:castle",
+   "x": 665,
+   "y": 480,
+   "width": 270,
+   "height": 243,
+   "anchor": [
+    0.5,
+    1.0
+   ],
+   "rect": {
+    "x": 530,
+    "y": 237,
+    "width": 270,
+    "height": 243
+   },
+   "draw_order": 1
+  },
+  {
+   "id": "cottage_2",
+   "asset_id": "tundra:cottage",
+   "x": 245,
+   "y": 575,
+   "width": 140,
+   "height": 106,
+   "anchor": [
+    0.5,
+    1.0
+   ],
+   "rect": {
+    "x": 175,
+    "y": 469,
+    "width": 140,
+    "height": 106
+   },
+   "draw_order": 2
+  },
+  {
+   "id": "cottage_3",
+   "asset_id": "tundra:cottage",
+   "x": 395,
+   "y": 590,
+   "width": 130,
+   "height": 99,
+   "anchor": [
+    0.5,
+    1.0
+   ],
+   "rect": {
+    "x": 330,
+    "y": 491,
+    "width": 130,
+    "height": 99
+   },
+   "draw_order": 3
+  },
+  {
+   "id": "watchtower_4",
+   "asset_id": "tundra:watchtower",
+   "x": 800,
+   "y": 600,
+   "width": 80,
+   "height": 132,
+   "anchor": [
+    0.5,
+    1.0
+   ],
+   "rect": {
+    "x": 760,
+    "y": 468,
+    "width": 80,
+    "height": 132
+   },
+   "draw_order": 4
+  },
+  {
+   "id": "dock_5",
+   "asset_id": "tundra:dock",
+   "x": 175,
+   "y": 850,
+   "width": 210,
+   "height": 107,
+   "anchor": [
+    0.5,
+    1.0
+   ],
+   "rect": {
+    "x": 70,
+    "y": 743,
+    "width": 210,
+    "height": 107
+   },
+   "draw_order": 5
+  },
+  {
+   "id": "ship_6",
+   "asset_id": "tundra:ship",
+   "x": 85,
+   "y": 885,
+   "width": 140,
+   "height": 114,
+   "anchor": [
+    0.5,
+    1.0
+   ],
+   "rect": {
+    "x": 15,
+    "y": 771,
+    "width": 140,
+    "height": 114
+   },
+   "draw_order": 6
+  },
+  {
+   "id": "dock_7",
+   "asset_id": "tundra:dock",
+   "x": 170,
+   "y": 1045,
+   "width": 200,
+   "height": 102,
+   "anchor": [
+    0.5,
+    1.0
+   ],
+   "rect": {
+    "x": 70,
+    "y": 943,
+    "width": 200,
+    "height": 102
+   },
+   "draw_order": 7
+  },
+  {
+   "id": "ship_8",
+   "asset_id": "tundra:ship",
+   "x": 80,
+   "y": 1085,
+   "width": 140,
+   "height": 114,
+   "anchor": [
+    0.5,
+    1.0
+   ],
+   "rect": {
+    "x": 10,
+    "y": 971,
+    "width": 140,
+    "height": 114
+   },
+   "draw_order": 8
+  },
+  {
+   "id": "forge_9",
+   "asset_id": "tundra:forge",
+   "x": 455,
+   "y": 1135,
+   "width": 190,
+   "height": 97,
+   "anchor": [
+    0.5,
+    1.0
+   ],
+   "rect": {
+    "x": 360,
+    "y": 1038,
+    "width": 190,
+    "height": 97
+   },
+   "draw_order": 9
+  },
+  {
+   "id": "storehouse_10",
+   "asset_id": "tundra:storehouse",
+   "x": 715,
+   "y": 1140,
+   "width": 175,
+   "height": 97,
+   "anchor": [
+    0.5,
+    1.0
+   ],
+   "rect": {
+    "x": 628,
+    "y": 1043,
+    "width": 175,
+    "height": 97
+   },
+   "draw_order": 10
+  }
+ ]
+}

@@ -156,6 +156,8 @@ function selHTML(st) {
   if (K.role === 'make') what.push(`Makes ${nf(sv.rate)} ${F.CUR_NAME[K.makes]} an hour · holds ${nf(sv.hold)}`);
   if (K.role === 'store') what.push(`Holds ${nf(sv.cap)} ${F.CUR_NAME[K.holds]}`);
   if (K.role === 'hall') what.push(`Holds ${nf(sv.store)} of each`);
+  const opens = b.t === 'keep' ? F.SCENERIES.find(x => x.at === lv + 1) : null;
+  if (opens) what.push(`Level ${lv + 1} unlocks the ${opens.name}`);
   if (K.role === 'camp') what.push(`Room for ${sv.room}`);
   if (K.role === 'hatch') what.push(`Room for ${sv.dragons} dragon${sv.dragons === 1 ? '' : 's'}`);
   if (K.role === 'def') what.push(`${nf(sv.dps)} damage a second · reach ${sv.range}${sv.splash ? ' · hits a crowd' : ''}${sv.air ? ' · hits dragons' : ''}`);
@@ -313,17 +315,35 @@ function shopSheet(st) {
     startPlace(st, k);
   });
 }
+// Where your realm lies: the sceneries, each open once the Keep's high enough (core/realm.js SCENERIES), the one it's in
+// marked; tap an open one to move there.
+const sceneriesHTML = s => F.SCENERIES.map(x => {
+  const open = F.sceneryOpen(s, x.k), on = F.sceneryOf(s) === x.k;
+  return `<button type="button" class="rl-scn is-${x.k}${on ? ' is-on' : ''}" data-rl-scn="${x.k}" aria-pressed="${on}"${open ? '' : ' aria-disabled="true"'}>`
+    + `<i class="rl-scn-sw" aria-hidden="true"></i><span><b>${esc(x.name)}</b><small>${open ? (on ? 'Your realm lies here' : esc(x.blurb)) : `Keep level ${x.at} to unlock`}</small></span></button>`;
+}).join('');
 function houseSheet(st) {
   const s = F.mine();
-  const sh = ui.openSheet({title: 'Your house', cls: 'sh-rl', detents: ['fit'], body:
+  const sh = ui.openSheet({title: 'Your house', cls: 'sh-rl', detents: ['fit', 'large'], body:
     `<form class="rl-name" data-rl-nameform><label class="rl-sh-h" for="rl-name-in">Its name</label>`
     + `<input id="rl-name-in" class="rl-in" maxlength="28" autocomplete="off" value="${esc(houseName(s))}">`
     + `<p class="rl-sh-note">Keep level ${F.keepOf(s)} · ${nf(s.tp)} glory.</p>`
-    + `<button type="submit" class="btn btn-primary btn-block">Save</button></form>`});
+    + `<button type="submit" class="btn btn-primary btn-block">Save</button></form>`
+    + `<h3 class="rl-sh-h">Your lands <span>raise your Keep to unlock more</span></h3><div class="rl-scns" data-rl-scns>${sceneriesHTML(s)}</div>`});
   sh.body.querySelector('form').addEventListener('submit', e => {
     e.preventDefault();
     const v = sh.body.querySelector('input').value.replace(/\s+/g, ' ').trim().slice(0, 28);
     s.nm = v; F.touch(); hud(st); sh.close();
+  });
+  sh.body.querySelector('[data-rl-scns]').addEventListener('click', e => {
+    const b = e.target.closest('[data-rl-scn]');
+    if (!b) return;
+    const k = b.dataset.rlScn, x = F.SCENERIES.find(q => q.k === k);
+    if (!F.sceneryOpen(s, k)) { ui.toast(`${x.name} opens at Keep level ${x.at}`, {icon: 'info'}); return; }
+    if (F.sceneryOf(s) === k) return;
+    F.pickScenery(s, k); F.touch(); ui.haptic('light');
+    if (st.v) st.v.setTheme(k);
+    sh.body.querySelector('[data-rl-scns]').innerHTML = sceneriesHTML(s);
   });
 }
 
@@ -367,13 +387,14 @@ function commitPlace(st) {
 
 // ---------------------------------------------------------------------------------------------------- the 3D
 async function start3d(st) {
-  const ok = await (D3 ? D3.load() : import('./realm-3d.js').then(m => { D3 = m; return m.load(); }));
+  const theme = F.sceneryOf(F.mine());
+  const ok = await (D3 ? D3.load(theme) : import('./realm-3d.js').then(m => { D3 = m; return m.load(theme); }));
   if (st.dead) return;
   const host = st.el.querySelector('.rl-gl');
   if (!ok) { host.innerHTML = '<div class="rl-loading">This phone can’t show your realm in 3D.</div>'; return; }
   host.innerHTML = '';
   st.v = D3.create(host, {
-    house: MY_HOUSE, zoom: 52,
+    house: MY_HOUSE, zoom: 52, scenery: F.sceneryOf(F.mine()),
     onCamera: () => placeTags(st),
     onTap: hit => onLotTap(st, hit),
     onGrab: (tile, id) => {
