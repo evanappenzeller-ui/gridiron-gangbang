@@ -27,7 +27,8 @@ export const mayPlay = () => !!(data.isOwner && data.isOwner());
 // Per level (index level - 1): cost (to build it, then to reach each level), time (seconds), hp, th (the Keep level it
 // needs); and what it does: rate (an hour) and hold (hours of it) for mines and farms; cap for treasuries and
 // granaries; store for the Keep; room (soldiers) for war camps; dps, range, every (seconds a shot), splash, min, air
-// (can it hit a dragon) for defenses. pay: what it's paid for in. size: tiles square.
+// (can it hit a dragon) for defenses; the dragons it has room for (a level each) for the hatchery. pay: what it's
+// paid for in. size: tiles square.
 export const KINDS = {
   keep: {name: 'Keep', size: 4, pay: 'gold', role: 'hall',
     blurb: 'The heart of your realm. Its level decides how many of everything you can build and how far each can go.',
@@ -77,9 +78,22 @@ export const KINDS = {
     hp: [250, 270, 290, 310, 330, 350],
     th: [1, 2, 3, 5, 6, 7],
     room: [20, 30, 35, 40, 45, 50]},
+  hatchery: {name: 'Dragon Hatchery', size: 4, pay: 'grain', role: 'hatch',
+    blurb: 'Where your dragons hatch and grow. You need one to train a dragon, and each level is room for one more.',
+    cost: [20000, 40000, 70000, 110000, 160000, 220000, 300000, 400000, 520000, 660000],
+    time: [3600, 7200, 14400, 21600, 28800, 43200, 57600, 72000, 86400, 108000],
+    hp: [800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700],
+    th: [6, 6, 6, 7, 7, 7, 8, 8, 8, 8]},
   hut: {name: 'Builder’s Hut', size: 2, pay: 'gold', role: 'builder',
     blurb: 'Each hut is a builder: one builder raises or upgrades one thing at a time.',
     cost: [0], time: [10], hp: [250], th: [1]},
+  cannon: {name: 'Cannon', size: 3, pay: 'gold', role: 'def', air: false,
+    blurb: 'Its crew fires iron shot at one attacker at a time, hard and quick. Can’t hit a dragon.',
+    cost: [250, 1000, 4000, 10000, 25000, 60000, 120000, 220000, 380000, 600000],
+    time: [10, 120, 900, 3600, 10800, 21600, 36000, 57600, 86400, 129600],
+    hp: [420, 470, 520, 570, 620, 680, 750, 830, 920, 1020],
+    th: [1, 1, 2, 3, 4, 5, 6, 7, 8, 8],
+    dps: [11, 14, 18, 23, 29, 36, 45, 54, 63, 72], range: 8, every: .9},
   ballista: {name: 'Ballista', size: 3, pay: 'gold', role: 'def', air: true,
     blurb: 'Looses great bolts at one attacker at a time, on the ground or in the air.',
     cost: [250, 1000, 4000, 10000, 25000, 60000, 120000, 220000, 380000, 600000],
@@ -115,7 +129,7 @@ export const KINDS = {
     hp: [300, 500, 700, 900, 1400, 2000, 2500, 3000],
     th: [2, 2, 3, 4, 5, 6, 7, 8]}
 };
-export const ORDER = ['keep', 'hut', 'mine', 'farm', 'treasury', 'granary', 'barracks', 'camp', 'ballista', 'tower', 'trebuchet', 'cauldron', 'wall'];
+export const ORDER = ['keep', 'hut', 'mine', 'farm', 'treasury', 'granary', 'barracks', 'camp', 'hatchery', 'cannon', 'ballista', 'tower', 'trebuchet', 'cauldron', 'wall'];
 // How many of each a Keep level allows (index Keep level - 1).
 export const COUNT = {
   keep: [1, 1, 1, 1, 1, 1, 1, 1],
@@ -126,6 +140,8 @@ export const COUNT = {
   granary: [1, 1, 2, 2, 2, 3, 4, 4],
   barracks: [1, 2, 2, 3, 3, 3, 4, 4],
   camp: [1, 1, 2, 2, 3, 3, 4, 4],
+  hatchery: [0, 0, 0, 0, 0, 1, 1, 1],
+  cannon: [1, 1, 2, 2, 3, 3, 4, 4],
   ballista: [2, 2, 2, 3, 3, 4, 5, 5],
   tower: [0, 1, 1, 2, 3, 3, 4, 5],
   trebuchet: [0, 0, 1, 1, 1, 2, 3, 3],
@@ -142,6 +158,7 @@ export function stat(k, l) {
   if (K.role === 'store') o.cap = K.cap[i];
   if (K.role === 'hall') o.store = K.store[i];
   if (K.role === 'camp') o.room = K.room[i];
+  if (K.role === 'hatch') o.dragons = i + 1;
   if (K.role === 'def') Object.assign(o, {dps: K.dps[i], range: K.range, every: K.every, splash: K.splash || 0, min: K.min || 0, air: !!K.air});
   return o;
 }
@@ -164,7 +181,7 @@ export const TROOPS = {
   thief: {name: 'Thief', hp: 30, dps: 11, speed: 3, range: .5, room: 1, cost: 40, time: 7, at: 5, aim: 'loot',
     blurb: 'Goes for the gold and grain: mines, farms, treasuries and granaries, double damage on them.'},
   dragon: {name: 'Dragon', hp: 900, dps: 60, speed: 1.4, range: 2.5, room: 10, cost: 3000, time: 120, at: 6, aim: 'any', splash: .9, fly: true,
-    blurb: 'Flies over walls and burns everything where its fire lands. Only ballistas and archer towers can reach it.'}
+    blurb: 'Flies over walls and burns everything where its fire lands. Only ballistas and archer towers can reach it. Needs a hatchery.'}
 };
 export const TROOP_ORDER = ['footman', 'archer', 'knight', 'sapper', 'thief', 'dragon'];
 
@@ -254,7 +271,7 @@ export function clean(s) {
   const old = !(Number(o.v) >= 2);
   o.v = 2; o.at = num(o.at); o.born = num(o.born) || o.at;
   o.nm = typeof o.nm === 'string' ? o.nm.slice(0, 28) : '';
-  o.b = o.b.map(b => (b && OLD_KIND[b.t] ? Object.assign({}, b, {t: OLD_KIND[b.t]}) : b))
+  o.b = o.b.map(b => (b && old && OLD_KIND[b.t] ? Object.assign({}, b, {t: OLD_KIND[b.t]}) : b))
     .filter(b => b && KINDS[b.t] && Number.isInteger(b.x) && Number.isInteger(b.y))
     .map(b => ({i: num(b.i), t: b.t, l: Math.max(0, Math.min(maxLevel(b.t), num(b.l) | 0)), x: b.x, y: b.y, u: num(b.u), ...(KINDS[b.t].role === 'make' ? {c: num(b.c)} : {})}));
   if (!o.b.some(b => b.t === 'keep')) return null;
@@ -310,6 +327,8 @@ export function builders(s, now = Date.now()) {
   const working = s.b.filter(b => busy(b, now)).length;
   return {total, busy: working, free: Math.max(0, total - working)};
 }
+/** Dragons the hatcheries have room for (a level each). */
+export const hatchRoom = s => s.b.filter(b => b.t === 'hatchery' && b.l >= 1).reduce((a, b) => a + stat('hatchery', b.l).dragons, 0);
 export const armyRoom = s => s.b.filter(b => b.t === 'camp' && b.l >= 1).reduce((a, b) => a + stat('camp', b.l).room, 0);
 export const roomOf = list => Object.entries(list || {}).reduce((a, [t, n]) => a + (TROOPS[t] ? TROOPS[t].room * n : 0), 0);
 export const queued = s => s.q.reduce((a, [t, n]) => a + TROOPS[t].room * n, 0);
@@ -454,6 +473,10 @@ export function canTrain(s, t, n = 1) {
   const T = TROOPS[t];
   if (!trainers(s)) return {ok: false, why: 'Build barracks first'};
   if (barracksLevel(s) < T.at) return {ok: false, why: `Barracks level ${T.at}`};
+  if (t === 'dragon') {
+    const room = hatchRoom(s), have = (s.ar.dragon || 0) + s.q.reduce((a, [k, m]) => a + (k === 'dragon' ? m : 0), 0);
+    if (have + n > room) return {ok: false, why: room ? 'The hatchery is full: upgrade it' : 'Build a dragon hatchery first'};
+  }
   if (roomOf(s.ar) + queued(s) + T.room * n > armyRoom(s)) return {ok: false, why: armyRoom(s) ? 'The war camps are full' : 'Build a war camp first'};
   if (T.cost * n > s.r.grain) return {ok: false, why: 'Not enough Grain'};
   return {ok: true};
@@ -570,7 +593,7 @@ export function botBase(th) {
       if (put(t, Math.max(1, topLevel(t, th) - (R() < .5 ? 1 : 0)), x, y)) k++;
     }
   };
-  ['ballista', 'tower', 'trebuchet', 'cauldron'].forEach(t => ring(t, COUNT[t][th - 1], 4, 7.5));
+  ['cannon', 'ballista', 'tower', 'trebuchet', 'cauldron'].forEach(t => ring(t, COUNT[t][th - 1], 4, 7.5));
   ['treasury', 'granary'].forEach(t => ring(t, COUNT[t][th - 1], 5, 9));
   if (th >= 2) {
     const lo = 9, hi = 26, top = topLevel('wall', th);
@@ -578,7 +601,7 @@ export function botBase(th) {
     for (let d = lo; d <= hi && n > 0; d++) [[d, lo], [d, hi], [lo, d], [hi, d]].forEach(([x, y]) => { if (n > 0 && put('wall', Math.max(1, top - 1), x, y)) n--; });
   }
   ['mine', 'farm'].forEach(t => ring(t, COUNT[t][th - 1], 10, 14));
-  ['barracks', 'camp', 'hut'].forEach(t => ring(t, Math.min(2, COUNT[t][th - 1]), 11, 15));
+  ['barracks', 'camp', 'hatchery', 'hut'].forEach(t => ring(t, Math.min(2, COUNT[t][th - 1]), 11, 15));
   return s;
 }
 /** A computer realm's take today: BOT_LOOT across its money buildings, or nothing once raided today. */

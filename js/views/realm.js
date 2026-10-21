@@ -154,13 +154,14 @@ function selHTML(st) {
   if (K.role === 'store') what.push(`Holds ${nf(sv.cap)} ${F.CUR_NAME[K.holds]}`);
   if (K.role === 'hall') what.push(`Holds ${nf(sv.store)} of each`);
   if (K.role === 'camp') what.push(`Room for ${sv.room}`);
+  if (K.role === 'hatch') what.push(`Room for ${sv.dragons} dragon${sv.dragons === 1 ? '' : 's'}`);
   if (K.role === 'def') what.push(`${nf(sv.dps)} damage a second · reach ${sv.range}${sv.splash ? ' · hits a crowd' : ''}${sv.air ? ' · hits dragons' : ''}`);
   if (K.role === 'train') what.push(`Trains: ${F.TROOP_ORDER.filter(t => F.TROOPS[t].at <= lv).map(t => F.TROOPS[t].name).join(', ')}`);
   what.push(`${nf(sv.hp)} strength`);
   const job = b.u > now ? `<p class="rl-sel-job">${b.l < 1 ? 'Going up' : `Upgrading to level ${b.l + 1}`} · ${dur(b.u - now)} left</p>` : '';
   const up = F.canUpgrade(s, b.i, now), btns = [];
   if (K.role === 'make' && F.made(b, now) > 0) btns.push(`<button type="button" class="rl-act" data-rl-collect="${b.i}">Collect ${curHTML(K.makes, F.made(b, now))}</button>`);
-  if (b.t === 'barracks' || b.t === 'camp') btns.push(`<button type="button" class="rl-act" data-rl-army>Train</button>`);
+  if (b.t === 'barracks' || b.t === 'camp' || b.t === 'hatchery') btns.push(`<button type="button" class="rl-act" data-rl-army>Train</button>`);
   if (b.t !== 'hut' && b.u <= now && up.to <= F.maxLevel(b.t)) {
     btns.push(up.ok ? `<button type="button" class="rl-act is-go" data-rl-up="${b.i}">Upgrade ${curHTML(up.pay, up.cost)}<small>${up.time ? dur(up.time * 1000) : 'at once'}</small></button>`
       : `<button type="button" class="rl-act" disabled>Upgrade<small>${esc(up.why)}${/Not enough/.test(up.why) ? ` (${nf(up.cost)})` : ''}</small></button>`);
@@ -239,10 +240,10 @@ function armySheet(st) {
     const army = F.TROOP_ORDER.filter(t => s.ar[t]).map(t => `<span class="rl-chip">${esc(F.TROOPS[t].name)} ×${s.ar[t]}</span>`).join('') || '<span class="rl-sh-note">No one yet.</span>';
     const line = s.q.map(([t, n], i) => `<span class="rl-chip is-q">${esc(F.TROOPS[t].name)} ×${n}${i === 0 && s.qs ? ` <small>${dur(s.qs + F.trainTime(s, t) * 1000 - now)}</small>` : ''}<button type="button" class="rl-chip-x" data-rl-untrain="${t}" aria-label="Take one ${esc(F.TROOPS[t].name)} out">−</button></span>`).join('');
     const cards = F.TROOP_ORDER.map(t => {
-      const T = F.TROOPS[t], chk = F.canTrain(s, t), locked = F.barracksLevel(s) < T.at;
+      const T = F.TROOPS[t], chk = F.canTrain(s, t), locked = F.barracksLevel(s) < T.at, egg = t === 'dragon' && !locked && !F.hatchRoom(s);
       return `<button type="button" class="rl-tc${locked ? ' is-locked' : ''}" data-rl-train="${t}" ${chk.ok ? '' : 'aria-disabled="true"'}>`
         + `<span class="rl-tc-ic" aria-hidden="true">${picOf(t, MY_HOUSE, true)}</span><b>${esc(T.name)}</b>`
-        + `<span class="rl-tc-c">${locked ? `Barracks level ${T.at}` : `${curHTML('grain', T.cost)} · ${T.room} room`}</span>`
+        + `<span class="rl-tc-c">${locked ? `Barracks level ${T.at}` : egg ? 'Needs a dragon hatchery' : `${curHTML('grain', T.cost)} · ${T.room} room`}</span>`
         + `<small>${esc(T.blurb)}</small></button>`;
     }).join('');
     sh.body.querySelector('[data-rl-armybody]').innerHTML = `<div class="rl-room"><b>${have + q}/${room}</b> room in the war camps${q ? ` (${q} in training)` : ''}</div>`
@@ -291,7 +292,7 @@ function logSheet() {
 }
 function shopSheet(st) {
   const s = F.mine(), th = F.keepOf(s);
-  const groups = [['Treasure', ['mine', 'farm', 'treasury', 'granary']], ['Army', ['barracks', 'camp', 'hut']], ['Defense', ['ballista', 'tower', 'trebuchet', 'cauldron', 'wall']]];
+  const groups = [['Treasure', ['mine', 'farm', 'treasury', 'granary']], ['Army', ['barracks', 'camp', 'hatchery', 'hut']], ['Defense', ['cannon', 'ballista', 'tower', 'trebuchet', 'cauldron', 'wall']]];
   const card = k => {
     const K = F.KINDS[k], chk = F.canBuild(s, k), n = F.countOf(s, k), cap = F.allowed(s, k);
     return `<button type="button" class="rl-shop-c${chk.ok ? '' : ' is-no'}" data-rl-buy="${k}"><span class="rl-shop-ic" aria-hidden="true">${picOf(k, MY_HOUSE)}</span><b>${esc(K.name)}</b>`
@@ -447,8 +448,8 @@ function welcome() {
     + `<div class="rl-row"><span><b>Your coffers</b> hold your pay until your Keep, treasuries and granaries have room. Raiders can’t touch them.</span></div>`
     + `<div class="rl-row"><span><b>Gold mines</b> dig Gold and <b>farms</b> grow Grain while you’re away: tap them to collect.</span></div>`
     + `<div class="rl-row"><span><b>Builders</b> raise and upgrade, one job each. Raise your <b>Keep</b> to unlock more of everything.</span></div>`
-    + `<div class="rl-row"><span><b>Attack</b>: train an army at the barracks with Grain (footmen, archers, knights, sappers, thieves, and in time a dragon) and sack the computer’s realms for their gold and grain.</span></div>`
-    + `<div class="rl-row"><span><b>Defend</b>: once your Keep is level 2, those realms raid you too, now and then. Ballistas, archer towers, trebuchets, pitch cauldrons and walls keep them out.</span></div>`
+    + `<div class="rl-row"><span><b>Attack</b>: train an army at the barracks with Grain (footmen, archers, knights, sappers, thieves, and in time dragons from your hatchery) and sack the computer’s realms for their gold and grain.</span></div>`
+    + `<div class="rl-row"><span><b>Defend</b>: once your Keep is level 2, those realms raid you too, now and then. Cannons, ballistas, archer towers, trebuchets, pitch cauldrons and walls keep them out.</span></div>`
     + `</div><p class="rl-sh-note">Drag to look around, pinch to zoom. Tap a building for what it does; tap your house’s name to rename it.</p>`});
 }
 

@@ -1,7 +1,8 @@
 // The Realm's checks for the dev gallery (#/_kit): that it's the owner's alone (the tab, the screens, the save, his
 // own docs only, the computer's realms the only ones to attack), what the games pay, storage and the coffers, mines and
 // farms, builders and the Keep's limits, training, an attack played out (the same every time), a dragon over walls,
-// the computer's raids on the owner's realm, and an old Franchise save taken up as a realm. checks.js imports
+// the computer's raids on the owner's realm, the cannon and the dragon hatchery, the art the buildings and folk are
+// drawn from, and an old Franchise save taken up as a realm. checks.js imports
 // realmChecks and calls it with its check(name, fn) helper; every fn returns true or {pass, detail}. Nothing here
 // writes to storage or the database.
 import * as F from './realm.js';
@@ -130,6 +131,45 @@ export async function realmChecks(check) {
     C.run(F.RAID_S);
     const shot = !!d2 && d2.hp < d2.max;
     return {pass: flew && hitKnight && shot, detail: `no ballista: dragon ${drake ? `${drake.hp}/${drake.max}` : 'not sent'}, ${A.stars()} stars, ${walls.length} walls whole ${wallsWhole}; the knight ${knight ? `${knight.hp}/${knight.max}` : 'not sent'}; with a ballista: dragon ${d2 ? `${Math.round(d2.hp)}/${d2.max}` : 'not sent'}`};
+  });
+
+  check('Realm: the cannon and the dragon hatchery (Oct 2026): a cannon’s crew hits a footman but never a dragon; a dragon trains only with a hatchery, a level of it each dragon’s room; a cannon saved now stays a cannon (only an old Franchise save’s cannons are ballistas)', () => {
+    const base = {b: [{i: 1, t: 'keep', l: 1, x: 16, y: 16, u: 0}, {i: 2, t: 'cannon', l: 1, x: 10, y: 17, u: 0}]};
+    const A = makeBattle(base, null, {footman: 1}), man = A.deploy('footman', 4, 18);
+    A.run(20);
+    const D = makeBattle(base, null, {dragon: 1}), drake = D.deploy('dragon', 4, 18);
+    D.run(F.RAID_S);
+    const fires = !!man && man.hp < man.max && !!drake && drake.hp === drake.max && D.shots.every(x => x.k !== 'cannon');
+    const s = F.fresh(T0);
+    s.b.push({i: 50, t: 'barracks', l: 6, x: 3, y: 3, u: 0}, {i: 51, t: 'camp', l: 6, x: 3, y: 9, u: 0});
+    s.r.grain = 100000;
+    const none = F.canTrain(s, 'dragon').why;
+    s.b.push({i: 52, t: 'hatchery', l: 1, x: 27, y: 27, u: 0});
+    const one = F.canTrain(s, 'dragon').ok && F.train(s, 'dragon', 1, T0), full = F.canTrain(s, 'dragon').why;
+    s.b.find(b => b.i === 52).l = 3;
+    const room = F.hatchRoom(s) === 3 && F.canTrain(s, 'dragon', 2).ok && !F.canTrain(s, 'dragon', 3).ok;
+    const hatch = /hatchery/.test(none) && one && /full/.test(full) && room;
+    const kept = F.clean(Object.assign(F.fresh(T0), {b: F.fresh(T0).b.concat({i: 9, t: 'cannon', l: 2, x: 3, y: 3, u: 0})}));
+    const stays = !!kept && kept.b.some(b => b.t === 'cannon' && b.l === 2);
+    const bots = F.botBase(6).b.some(b => b.t === 'hatchery') && F.botBase(1).b.some(b => b.t === 'cannon');
+    return {pass: fires && hatch && stays && bots, detail: `cannon: the footman ${man ? `${man.hp}/${man.max}` : 'not sent'}, the dragon ${drake ? `${drake.hp}/${drake.max}` : 'not sent'}; no hatchery: ${none}; one at level 1: ${one}, then ${full}; level 3 room for 3: ${room}; a cannon kept ${stays}; the computer’s realms have them ${bots}`};
+  });
+
+  check('Realm: the art (tools/realm/sprites.py): the Keep, gold mines, archer towers and hatcheries drawn from their pictures, ten each, every level a picture of its own (the top level the grandest); every villager, archer and cannon crew a building calls for has all its poses; the pictures are there', async () => {
+    const S = await import('../views/realm-sprites.js');
+    const bad = [];
+    S.KINDS.forEach(k => {
+      const fr = S.BUILD[k] && S.BUILD[k].f, used = new Set();
+      for (let l = 1; l <= F.maxLevel(k); l++) used.add(S.frameOf(k, l));
+      if (!fr || fr.length !== 10 || used.size !== Math.min(10, F.maxLevel(k)) || S.frameOf(k, F.maxLevel(k)) !== 9 || fr.some(f => f.length !== 7 || f[2] < 50 || f[3] < 50)) bad.push(k);
+    });
+    const sheets = new Set();
+    F.ORDER.forEach(k => { for (let l = 1; l <= F.maxLevel(k); l++) ['ok', 'up'].forEach(st => S.crewOf({i: 1, t: k, l}, st, F.KINDS[k].size).forEach(c => sheets.add(c.sheet))); });
+    const missing = [...sheets].filter(n => !S.FOLK[n] || ![4, 8].includes(S.FOLK[n].length));
+    const plat = Array.from({length: 10}, (_, i) => S.platform(i + 1)).every((p, i) => p && p[0] > 0 && p[0] < S.BUILD.tower.f[i][2] && p[1] > 0 && p[1] < S.BUILD.tower.f[i][3]);
+    const files = await Promise.all([...S.KINDS, 'folk'].map(n => fetch(new URL(`../../img/realm/${n}.webp`, import.meta.url), {method: 'HEAD'}).then(r => r.ok ? '' : n, () => n)));
+    const gone = files.filter(Boolean);
+    return {pass: !bad.length && !missing.length && plat && !gone.length && sheets.size >= 20, detail: `buildings ${bad.length ? 'wrong: ' + bad.join(', ') : S.KINDS.join(', ') + ' ok'}; ${sheets.size} folk sheets called for${missing.length ? ', missing ' + missing.join(', ') : ''}; tower platforms ${plat}; ${gone.length ? 'pictures missing: ' + gone.join(', ') : 'pictures there'}`};
   });
 
   check('Realm: the computer’s realms raid his realm (at most one each half day, the last two while he was away; none in its first day, before Keep level 2 or during a truce): played the same every time, taken off his stores and glory once, never his coffers', () => {

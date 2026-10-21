@@ -318,6 +318,43 @@ const BUILD = {
     k.cyl(0, .08, .4, 0xFFD25A, [0, .08, 0], {mat: 'glow', seg: 8});
     flag(k, h, [1.55, .08, -1.55], 1.1);
   },
+  cannon(k, l, h) {
+    // an emplacement: a ring of earth and timber (stone from level 4) round a turning deck; the powder and shot by it
+    pad(k, 3, l, l >= 4 ? COBBLE : DIRT);
+    k.cyl(.95, 1.02, .16, l >= 4 ? STONE2 : DARKWOOD, [0, .08, 0], {seg: 20});
+    k.cyl(.7, .7, .04, l >= 8 ? 0x5A4A3A : WOOD, [0, .24, 0], {seg: 20});
+    for (let i = 0; i < 3 + Math.min(3, l >> 1); i++) k.ball(.07, 0x2A2B2E, [-1.05 + (i % 3) * .15, .14 + Math.floor(i / 3) * .12, -.95], {mat: 'metal', seg: 10, rows: 8});
+    k.cyl(.12, .12, .22, DARKWOOD, [1.0, .08, -.95], {seg: 10}); k.ring(.122, .012, IRON, [1.0, .2, -.95]);
+  },
+  cannonTop(k, l, h) {
+    // the gun on its carriage, turning: a timber carriage on spoked wheels, the iron barrel (bigger, banded in trim,
+    // and from level 8 gold-mouthed with the house's banners on its carriage)
+    const tier = l >= 8 ? 2 : l >= 4 ? 1 : 0, len = 1.2 + .1 * tier, r = .15 + .025 * tier;
+    k.box(.42, .22, .95, tier === 2 ? 0x3A2A1E : WOOD, [0, .3, -.05]);
+    [-1, 1].forEach(sd => {
+      k.cyl(.24, .24, .07, DARKWOOD, [sd * .3, .5, .18], {rot: [0, 0, Math.PI / 2], mid: true, seg: 14});
+      k.ring(.24, .02, IRON, [sd * .34, .5, .18], {rot: [0, Math.PI / 2, 0], mat: 'metal'});
+      k.cyl(.17, .17, .06, DARKWOOD, [sd * .26, .43, -.42], {rot: [0, 0, Math.PI / 2], mid: true, seg: 12});
+    });
+    k.cyl(.05, .05, .7, IRON, [0, .5, .18], {rot: [0, 0, Math.PI / 2], mid: true, mat: 'metal', seg: 8});
+    const tilt = -.12, y = .66, z = .15;
+    k.cyl(r * .85, r * 1.15, len, 0x2A2B2E, [0, y, z], {rot: [Math.PI / 2 + tilt, 0, 0], mid: true, mat: 'metal', seg: 16});
+    k.ball(r * 1.1, 0x2A2B2E, [0, y + Math.sin(-tilt) * -len / 2, z - len / 2], {mat: 'metal', seg: 12});
+    const band = tier ? trimOf(l) : IRON;
+    [-.35, .1, .45].forEach(f => k.ring(r * (1 - f * .25) + .015, .025, band, [0, y - Math.sin(tilt) * f * len, z + f * len], {rot: [tilt, 0, 0], mat: 'metal'}));
+    k.ring(r * .9, .04, tier === 2 ? GOLD : 0x2A2B2E, [0, y - Math.sin(tilt) * len / 2, z + len / 2], {rot: [tilt, 0, 0], mat: 'metal'});
+    if (tier === 2) [-1, 1].forEach(sd => banner(k, h, [sd * .215, .34, -.05], [0, sd * Math.PI / 2, 0], .3, .22));
+  },
+  hatchery(k, l, h) {
+    // (drawn from its picture when that's in: realm-sprites.js) a stone pen, a fire pit, eggs in the straw
+    pad(k, 4, l, DARKSTONE);
+    [[0, -1.6, 3.4, .25], [0, 1.6, 3.4, .25]].forEach(([x, z, w, t]) => k.box(w, .6 + .04 * l, t, DARKSTONE, [x, .08, z]));
+    [-1.6, 1.6].forEach(x => k.box(.25, .6 + .04 * l, 3.4, DARKSTONE, [x, .08, 0]));
+    k.cyl(.9, 1, .1, THATCH, [0, .08, 0], {seg: 16});
+    for (let i = 0; i < Math.min(6, 1 + Math.ceil(l / 2)); i++) { const a = i * 1.1; k.ball(.18, i % 2 ? 0x7A1E1E : 0x4A2A22, [Math.cos(a) * .45, .3, Math.sin(a) * .45], {scl: [.8, 1.2, .8], mat: 'gloss'}); }
+    k.cyl(0, .2, .35, FIRE, [0, .18, 0], {mat: 'glow', seg: 8});
+    flag(k, h, [1.6, .7, -1.6], .9);
+  },
   ballista(k, l, h) {
     pad(k, 3, l);
     k.cyl(.95, 1.05, .28, STONE, [0, .08, 0], {seg: 20});
@@ -382,8 +419,8 @@ const BUILD = {
     k.ball(.1, FIRE, [0, -.06, 0], {mat: 'glow', scl: [1.6, .4, 1.6]});
   }
 };
-export const HAS_TOP = {ballista: 'ballistaTop', trebuchet: 'trebuchetTop', cauldron: 'cauldronTop'};
-const TOP_Y = {ballista: 0, trebuchet: 0, cauldron: 1.25};
+export const HAS_TOP = {cannon: 'cannonTop', ballista: 'ballistaTop', trebuchet: 'trebuchetTop', cauldron: 'cauldronTop'};
+const TOP_Y = {cannon: 0, ballista: 0, trebuchet: 0, cauldron: 1.25};
 
 /** A building's model (cached geometry, a fresh group each call). */
 export function model(kind, level, house) {

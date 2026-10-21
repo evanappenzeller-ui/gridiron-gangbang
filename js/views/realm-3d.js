@@ -1,11 +1,14 @@
 // The Realm's lot in 3D (views/realm.js and views/realm-raid.js): three.js (js/vendor/three, MIT), the buildings from
 // views/realm-models.js, a camera looking down across the lot corner-on (a diamond, as these games are), dragged to
 // pan, pinched or wheeled to zoom. The lot is a meadow with a moat round it, pines beyond and mountains far off
-// beyond. It draws only when something moved (a finger, a job's scaffolding, a raid), so it costs nothing at rest.
+// beyond. The Keep, gold mines, archer towers and dragon hatcheries are drawn from their art (views/realm-sprites.js),
+// and folk stand about: villagers at work by their buildings, an archer up each tower, a cannon's crew round it. It
+// draws when something moved (a finger, a raid) and, while there are folk about, a few times a second for them.
 // In a raid it also draws the raiders (instanced: a few draw calls however many; a dragon in the air, flapping), what
 // the defenses loose and what the raiders shoot (arrows, bolts, boulders, fire), dust where a building goes down.
 // load() → true when three.js is in and this phone has WebGL; create(host, opts) → the view (see its methods).
 import * as FM from './realm-models.js';
+import * as SPR from './realm-sprites.js';
 import {KINDS, TROOPS, N} from '../core/realm.js';
 const V = new URL('../vendor/three/', import.meta.url).href;
 let T = null, RE = null, LOADING = null, DEAD = false;
@@ -19,6 +22,8 @@ export function load() {
         const [three, {RoomEnvironment}, BU] = await Promise.all([import(V + 'three.module.min.js'), import(V + 'RoomEnvironment.js'), import(V + 'BufferGeometryUtils.js')]);
         T = three; RE = RoomEnvironment;
         FM.init(T, BU);
+        SPR.init(T, PITCH);
+        await SPR.load(); // (without the art, everything's drawn in 3D)
         try { await document.fonts.load('800 60px "Barlow Condensed"'); } catch (_) {}
         return true;
       } catch (e) {
@@ -41,6 +46,7 @@ const THUMBS = new Map();
 /** A picture (data URL) of kind k at level l in a house's colours, or of a soldier (troop: true). */
 export function thumb(k, l, house, troop = false) {
   if (!ready()) return '';
+  if (!troop && SPR.ready() && SPR.KINDS.includes(k)) return SPR.thumbURL(k, l);
   const key = `${troop ? 't' : 'b'}:${k}:${l}:${house.pri}:${house.sigil}`;
   if (THUMBS.has(key)) return THUMBS.get(key);
   try {
@@ -212,6 +218,7 @@ export function create(host, opts = {}) {
     placeCam();
     let more = false;
     if (anim) more = anim(now) !== false;
+    folkFrame(now);
     renderer.render(scene, cam);
     if (opts.onCamera) opts.onCamera();
     if (more) want();
@@ -248,23 +255,26 @@ export function create(host, opts = {}) {
       const key = `${b.t}:${b.l}:${status}:${house.pri}:${house.sigil}`;
       let e = groups.get(b.i);
       if (!e || e.key !== key) {
-        if (e) root.remove(e.g);
+        if (e) { root.remove(e.g); dropFolk(e); }
         const g = new T.Group();
         if (status === 'down') g.add(FM.rubble(size));
         else if (status === 'new') { g.add(FM.scaffold(size)); }
         else {
-          g.add(FM.model(b.t, b.l, house));
+          const art = SPR.ready() && SPR.KINDS.includes(b.t) ? SPR.building(b.t, b.l, size) : null;
+          g.add(art || FM.model(b.t, b.l, house));
+          if (art) g.userData = art.userData;
           if (status === 'up') g.add(FM.scaffold(size));
         }
         g.traverse(m => { if (m.isMesh) m.userData.bid = b.i; });
         root.add(g);
-        e = {g, key, b};
+        e = {g, key, b, folk: []};
         groups.set(b.i, e);
+        if (SPR.ready()) SPR.crewOf(b, status, size).forEach((c, j) => { const sp = SPR.folk(); scene.add(sp); e.folk.push({sp, c, ph: ((b.i * 7919 + j * 104729) % 1000) / 1000}); });
       }
       e.b = b;
       e.g.position.set(W(b.x + size / 2), 0, W(b.y + size / 2));
     });
-    [...groups.keys()].forEach(id => { if (!seen.has(id)) { root.remove(groups.get(id).g); groups.delete(id); } });
+    [...groups.keys()].forEach(id => { if (!seen.has(id)) { root.remove(groups.get(id).g); dropFolk(groups.get(id)); groups.delete(id); } });
     // the walls: one instanced pillar and run mesh for the lot, a run joining walls side by side
     const walls = s.b.filter(b => b.t === 'wall' && !gone.has(b.i));
     const sig = walls.map(f => `${f.i}.${f.x}.${f.y}.${f.l}`).join(',');
@@ -302,6 +312,52 @@ export function create(host, opts = {}) {
     return hit.object.userData.bid ?? null;
   };
 
+  // ---- the folk: each a picture standing where it works, posed for the moment. A villager loops his work (six poses a
+  // second, then a rest), at home only; in a raid a tower's archer draws and looses as the tower shoots (the release
+  // as the arrow goes) and a cannon's crew works the gun while it's firing. Each is drawn a little nearer the camera
+  // than where he stands (his place on the screen kept), so the building he's by never covers him.
+  const camR = new T.Vector3(), camU = new T.Vector3(), fp = new T.Vector3(), toCam = new T.Vector3();
+  function dropFolk(e) { (e.folk || []).forEach(f => { scene.remove(f.sp); f.sp.material.map.dispose(); f.sp.material.dispose(); }); e.folk = []; }
+  function folkFrame(now) {
+    if (!SPR.ready()) return;
+    camR.setFromMatrixColumn(cam.matrixWorld, 0); camU.setFromMatrixColumn(cam.matrixWorld, 1);
+    const sec = now / 1000;
+    groups.forEach(e => e.folk.forEach(f => {
+      const c = f.c, n = SPR.FOLK[c.sheet].length;
+      if (c.role === 'work' && raid) { f.sp.visible = false; return; }
+      f.sp.visible = true;
+      let i = 0, flip = c.flip;
+      const fired = raid ? raid.fired.get(e.b.i) : undefined, rt = raid ? raid.t : 0;
+      if (raid && c.role === 'archer') {
+        const dt = fired == null ? 9 : rt - fired;
+        i = dt < .4 ? 4 + Math.floor(Math.max(0, dt) / .1) : dt < 1.3 ? Math.min(3, Math.floor((dt - .4) / .15)) : 0;
+        const bl = raid.byId.get(e.b.i);
+        if (bl) flip = Math.cos(bl.aim) - Math.sin(bl.aim) < 0; // (aiming left of the screen)
+      } else if (raid && c.role === 'crew') {
+        const dt = fired == null ? 9 : rt - fired;
+        i = dt < 2.5 ? Math.floor(Math.max(0, dt) * 10 + f.ph * n) % n : 0;
+      } else {
+        const run = n / 6, rest = c.role === 'archer' ? 7 + f.ph * 6 : .6 + f.ph * 2.4, p = (sec + f.ph * 9) % (run + rest);
+        i = p < run ? Math.floor(p * 6) : 0;
+      }
+      SPR.pose(f.sp, c.sheet, i, flip, c.size || 1);
+      const g = e.g.position, U = e.g.userData;
+      let bias = c.role === 'crew' ? .08 : .9;
+      if (c.role === 'archer' && U && U.sprite) {
+        const [px, py] = SPR.platform(e.b.l);
+        fp.copy(g).add(U.sprite.position).addScaledVector(camR, (px - U.ax) * U.k).addScaledVector(camU, (U.ay - py) * U.k);
+        bias = .35;
+      } else if (c.role === 'archer') { f.sp.visible = false; return; }
+      else fp.set(g.x + c.u, g.y, g.z + c.v);
+      toCam.copy(cam.position).sub(fp);
+      const d = toCam.length(), sc = (d - bias) / d;
+      f.sp.position.copy(fp).addScaledVector(toCam, bias / d);
+      f.sp.scale.set(f.sp.userData.base[0] * sc, f.sp.userData.base[1] * sc, 1);
+    }));
+  }
+  // (a few frames a second while there are folk about and no raid's drawing every frame)
+  const folkTimer = setInterval(() => { if (!raid && !dead && !lost && SPR.ready() && document.visibilityState === 'visible') { for (const e of groups.values()) if (e.folk.length) { want(); break; } } }, 160);
+
   // ---- the selected building: a ring of light round its footprint; moving it, a green or red square under it
   const sel = {id: null, mesh: null, foot: null, t0: 0};
   {
@@ -338,9 +394,9 @@ export function create(host, opts = {}) {
   function setGhost(g) {
     if (ghost) { root.remove(ghost.g); ghost = null; }
     if (!g) { select(null); return; }
-    const grp = FM.model(g.t, 1, house);
-    grp.traverse(m => { if (m.isMesh) { m.castShadow = false; } });
     const size = KINDS[g.t].size;
+    const grp = SPR.ready() && SPR.KINDS.includes(g.t) ? SPR.building(g.t, 1, size) : FM.model(g.t, 1, house);
+    grp.traverse(m => { if (m.isMesh) { m.castShadow = false; } });
     grp.position.set(W(g.x + size / 2), .25, W(g.y + size / 2));
     root.add(grp);
     ghost = {g: grp};
@@ -443,7 +499,8 @@ export function create(host, opts = {}) {
       arrow: mk(arrowGeo, new T.MeshStandardMaterial({color: 0x6B4A2A, roughness: .7}), 160),
       bolt: mk(boltGeo, new T.MeshStandardMaterial({color: 0x4A3220, roughness: .6}), 40),
       rock: mk(new T.DodecahedronGeometry(.22, 0), new T.MeshStandardMaterial({color: 0x77726A, roughness: 1, flatShading: true}), 24),
-      fire: mk(new T.SphereGeometry(.22, 10, 8), new T.MeshBasicMaterial({color: 0xFF8A1E, toneMapped: false}), 24)
+      fire: mk(new T.SphereGeometry(.22, 10, 8), new T.MeshBasicMaterial({color: 0xFF8A1E, toneMapped: false}), 24),
+      ball: mk(new T.SphereGeometry(.11, 10, 8), new T.MeshStandardMaterial({color: 0x26272A, roughness: .45, metalness: .7}), 40)
     };
     const puffTex = puffTexture(T), puffs = [];
     for (let i = 0; i < 40; i++) {
@@ -456,7 +513,8 @@ export function create(host, opts = {}) {
     const zone = new T.Mesh(new T.PlaneGeometry(N, N), new T.MeshBasicMaterial({map: zoneTex, transparent: true, opacity: 0, depthWrite: false, toneMapped: false}));
     zone.rotation.x = -Math.PI / 2; zone.position.y = .015; zone.renderOrder = 1;
     scene.add(zone);
-    raid = {B, meshes, fly, puffs, fxAt: 0, prev: new Map(), cur: new Map(), stepSeen: -1, zone, zoneCv: cv, zoneTex, zoneSig: '', zoneShow: 0, aim: new Map()};
+    raid = {B, meshes, fly, puffs, fxAt: 0, prev: new Map(), cur: new Map(), stepSeen: -1, zone, zoneCv: cv, zoneTex, zoneSig: '', zoneShow: 0, aim: new Map(),
+      fired: new Map(), byId: new Map(B.bl.map(b => [b.i, b])), t: 0, shotSeen: new WeakSet()};
     drawZone();
     want();
   }
@@ -478,6 +536,7 @@ export function create(host, opts = {}) {
   function raidFrame(t, now = performance.now()) {
     if (!raid) return;
     const B = raid.B, R = raid;
+    R.t = t;
     // the steps' positions: keep the last two
     if (B.step !== R.stepSeen) {
       R.prev = R.cur; R.cur = new Map();
@@ -524,20 +583,25 @@ export function create(host, opts = {}) {
     });
     Object.entries(R.meshes).forEach(([k, M]) => { M.body.count = counts[k]; M.leg.count = counts[k] * 2; M.body.instanceMatrix.needsUpdate = true; M.leg.instanceMatrix.needsUpdate = true; });
     // what's in the air: each along its arc, pointing the way it's going
-    const KIND = {archer: 'arrow', tower: 'arrow', ballista: 'bolt', trebuchet: 'rock', dragon: 'fire'};
-    const ARC = {trebuchet: 4, archer: 1.1, tower: 1, ballista: .35, dragon: .15};
-    const n = {arrow: 0, bolt: 0, rock: 0, fire: 0}, dir = new T.Vector3(), fwd = new T.Vector3(0, 0, 1), one = new T.Vector3(1, 1, 1);
+    const KIND = {archer: 'arrow', tower: 'arrow', ballista: 'bolt', trebuchet: 'rock', dragon: 'fire', cannon: 'ball'};
+    const ARC = {trebuchet: 4, archer: 1.1, tower: 1, ballista: .35, dragon: .15, cannon: .3};
+    const n = {arrow: 0, bolt: 0, rock: 0, fire: 0, ball: 0}, dir = new T.Vector3(), fwd = new T.Vector3(0, 0, 1), one = new T.Vector3(1, 1, 1);
+    const a0 = new T.Vector3(), a1 = new T.Vector3();
     B.shots.forEach(s => {
+      if (s.foe && !R.shotSeen.has(s)) { R.shotSeen.add(s); R.fired.set(s.from, Math.max(R.fired.get(s.from) ?? -9, s.t0)); if (s.k === 'cannon') puff(s.x0 + Math.cos(Math.atan2(s.y1 - s.y0, s.x1 - s.x0)) * 1.1, s.y0 + Math.sin(Math.atan2(s.y1 - s.y0, s.x1 - s.x0)) * 1.1, .7, 0xD8D2C8, .5, now); }
       const kind = KIND[s.k];
       if (!kind) return;
       const M = R.fly[kind];
       if (n[kind] >= M.instanceMatrix.count) return;
       const u = Math.max(0, Math.min(1, (t - s.t0) / Math.max(.01, s.t1 - s.t0))), arc = ARC[s.k] || .5;
-      const y0 = s.foe ? (s.k === 'tower' ? 2.6 : 1.1) : (s.k === 'dragon' ? 2.2 : .55), y1 = s.high ? 2.3 : .35;
-      const x = s.x0 + (s.x1 - s.x0) * u, z = s.y0 + (s.y1 - s.y0) * u, h = y0 + (y1 - y0) * u + arc * 4 * u * (1 - u);
-      dir.set(s.x1 - s.x0, (y1 - y0) + arc * 4 * (1 - 2 * u), s.y1 - s.y0).normalize();
+      const y0 = s.foe ? (s.k === 'tower' ? 2.6 : s.k === 'cannon' ? .68 : 1.1) : (s.k === 'dragon' ? 2.2 : .55), y1 = s.high ? 2.3 : .35;
+      // (a tower's arrow leaves from its archer's bow)
+      const archer = s.foe && s.k === 'tower' ? archerAt(s.from) : null;
+      if (archer) a0.copy(archer); else a0.set(W(s.x0), y0, W(s.y0));
+      a1.set(W(s.x1), y1, W(s.y1));
+      dir.subVectors(a1, a0); dir.y += arc * 4 * (1 - 2 * u); dir.normalize();
       q.setFromUnitVectors(fwd, dir);
-      pv.set(W(x), h, W(z));
+      pv.lerpVectors(a0, a1, u); pv.y += arc * 4 * u * (1 - u);
       m4.compose(pv, q, kind === 'fire' ? new T.Vector3(1 + u, 1 + u, 1 + u) : one);
       M.setMatrixAt(n[kind]++, m4);
     });
@@ -573,6 +637,11 @@ export function create(host, opts = {}) {
     const zt = R.zoneShow > 0 ? (now - R.zoneShow) / 1000 : 9;
     R.zone.material.opacity = zt < 1.2 ? .9 * (1 - Math.max(0, zt - .6) / .6) : 0;
   }
+  /** Where a tower's archer looses from (world), or null when it's drawn in 3D. */
+  function archerAt(id) {
+    const e = groups.get(id), f = e && e.folk.find(x => x.c.role === 'archer' && x.sp.visible);
+    return f ? f.sp.position.clone().addScaledVector(camU, .45) : null;
+  }
   function puff(x, y, size, color, life, now) {
     const p = raid.puffs.find(q => !q.sp.visible) || raid.puffs[0];
     p.sp.visible = true; p.sp.material.color.set(color); p.t0 = now; p.life = life; p.size = size;
@@ -607,6 +676,8 @@ export function create(host, opts = {}) {
     canvas,
     dispose() {
       dead = true;
+      clearInterval(folkTimer);
+      groups.forEach(dropFolk);
       if (raf) cancelAnimationFrame(raf);
       if (ro) ro.disconnect();
       raidStop();

@@ -13,7 +13,7 @@ import {KINDS, TROOPS, stat, N, RAID_S, BOTS, rng, boxOf, keepOf, lootOf, takeRa
 export const DT = .1;
 const HIT_EVERY = 1;   // seconds between a soldier's hits
 const REACH = .55;     // how far past his range a soldier still hits (a tile's half and a bit: where his path ends)
-const FLIGHT = {ballista: .35, tower: .25, trebuchet: 1.2, cauldron: .15};
+const FLIGHT = {cannon: .3, ballista: .35, tower: .25, trebuchet: 1.2, cauldron: .15};
 
 // ---- a heap for the path search
 function Heap() { this.k = []; this.v = []; }
