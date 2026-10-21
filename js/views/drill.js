@@ -21,8 +21,8 @@
 // figure in his uniform, then swings back up as it goes back to its size; the clock in the header runs; Tap to skip
 // under it, or a tap on the field), then the breakdown:
 // what happened, the win chance before and after, what the defense was really in, how your call ranked and how every
-// option scored (each played out many times: drill-sim.js scoreOptions), and Replay. At 0:00: the final and
-// the league's finals for the day (tap one to read it once you've played yours). Every control here is data-dr-*, so
+// option scored (each played out many times: drill-sim.js scoreOptions), and Replay. At 0:00: the final (the league's
+// finals are on the back of the game's case on the Daily Games list, not here). Every control here is data-dr-*, so
 // the Daily Puzzles handlers on the same screen never see these taps.
 // Owner: Drill.
 import * as ui from '../core/ui.js';
@@ -2323,134 +2323,16 @@ function gameHTML(st) {
 function bodyHTML(st) {
   if (!dr.DOC) return loadingHTML();
   // the owner's Test play row at the bottom (views/testplay.js)
-  return gameHTML(st) + boardHTML(st) + testRowHTML(dr.testing(), 'data-dr-test');
+  return gameHTML(st) + testRowHTML(dr.testing(), 'data-dr-test');
 }
 
-// ============================================================================ Markup: the league's finals
-function rowGame(st, r) {
-  const k = `${st.n}|${r.k}`;
-  if (!st.rp.has(k)) st.rp.set(k, r.k ? E.replay(dr.scenario(st.n), dr.DOC.teams, r.k) : null);
-  return st.rp.get(k);
-}
-/** A grade as its letter and number: "A− · 91". */
-const gradeText = g => (g == null ? '' : `${dr.gradeLetter(g)} · ${Math.round(g)}`);
-function gradeChip(g, cls = 'dr-sb-gr') {
+const norm = typeof document !== 'undefined' ? document.createElement('template') : null;
+function gradeChip(g, cls) {
   return g == null ? `<span class="${cls} is-none" aria-hidden="true"><b>–</b></span>`
     : `<span class="${cls} is-${dr.gradeLetter(g)[0]}" aria-hidden="true"><b>${esc(dr.gradeLetter(g))}</b><small>${Math.round(g)}</small></span>`;
 }
-function sbRowHTML(st, r) {
-  const g = rowGame(st, r);
-  const how = g && g.result ? dr.resultText(g, {you: r.me}).sub : '';
-  const sub = [how, plural(r.p, 'play')].filter(Boolean).join(' · ');
-  const graded = r.grade == null ? '' : ` Grade ${gradeText(r.grade)}.`;
-  const label = `${ui.ordinal(r.rank)}, ${r.name}${r.me ? ', you' : ''}${r.guest ? ', guest' : ''}: ${{W: 'won', T: 'tied', L: 'lost'}[r.r]} ${r.u} to ${r.h}.${graded} ${sub}. Show the game.`;
-  return `<button type="button" class="dr-sb-row${r.me ? ' is-me' : ''}" role="listitem" data-dr-who="${esc(r.key)}" aria-label="${esc(label)}">`
-    + `<span class="dr-sb-rank" aria-hidden="true">${r.rank}</span>`
-    + `<span class="dr-sb-av" aria-hidden="true">${ui.nickAvatar(r.name, {size: 36, managerId: r.managerId, you: r.me, crown: r.rank === 1 && r.r === 'W'})}</span>`
-    + `<span class="dr-sb-main" aria-hidden="true"><span class="dr-sb-name"><span class="dr-sb-nm">${esc(r.name)}</span>${r.me ? ui.badge('you') : r.guest ? ui.badge('guest') : ''}</span><span class="dr-sb-sub">${esc(sub)}</span></span>`
-    + gradeChip(r.grade)
-    + `<span class="dr-sb-res is-${r.r}" aria-hidden="true"><b>${r.r}</b><span>${r.u}–${r.h}</span></span></button>`;
-}
-/** The week's standings: points, the record, the average grade, a run of wins; the week's top-graded game below. */
-function weekBodyHTML(st) {
-  const n = st.n || dr.todayNumber();
-  let rows = [];
-  try { rows = dr.weekRows(n); } catch (e) { console.error(e); }
-  if (!rows.length) return `<div class="dr-sb-empty"><p class="dr-sb-et">No games yet this week.</p><p class="dr-sb-eb">Every final this week counts toward the standings.</p></div>`;
-  const days = dr.weekDays(n).length;
-  const list = rows.map(r => {
-    const rec = `${r.w}-${r.l}${r.t ? `-${r.t}` : ''}`;
-    const sub = [rec, r.avg == null ? '' : `avg ${gradeText(r.avg)}`, r.streak >= 2 ? `${r.streak} wins in a row` : ''].filter(Boolean).join(' · ');
-    const label = `${ui.ordinal(r.rank)}, ${r.name}${r.me ? ', you' : ''}${r.guest ? ', guest' : ''}: ${plural(r.pts, 'point')}, ${r.w} won, ${r.l} lost${r.t ? `, ${r.t} tied` : ''}${r.avg == null ? '' : `, average grade ${gradeText(r.avg)}`}${r.streak >= 2 ? `, ${r.streak} wins in a row` : ''}.`;
-    return `<div class="dr-sb-row dr-wk-row${r.me ? ' is-me' : ''}" role="listitem" aria-label="${esc(label)}">`
-      + `<span class="dr-sb-rank" aria-hidden="true">${r.rank}</span>`
-      + `<span class="dr-sb-av" aria-hidden="true">${ui.nickAvatar(r.name, {size: 36, managerId: r.managerId, you: r.me, crown: r.rank === 1 && r.pts > 0})}</span>`
-      + `<span class="dr-sb-main" aria-hidden="true"><span class="dr-sb-name"><span class="dr-sb-nm">${esc(r.name)}</span>${r.me ? ui.badge('you') : r.guest ? ui.badge('guest') : ''}</span><span class="dr-sb-sub">${esc(sub)}</span></span>`
-      + `<span class="dr-wk-pts" aria-hidden="true"><b>${r.pts}</b><small>${r.pts === 1 ? 'pt' : 'pts'}</small></span></div>`;
-  }).join('');
-  const t = rows.top;
-  const top = t ? `<p class="dr-wk-top">${ui.icon('trophy', {size: 15})}<span>${esc(`Top grade: ${t.me ? 'your' : `${t.name}’s`} ${t.u}–${t.h} ${{W: 'win', T: 'tie', L: 'loss'}[t.r]} on ${dr.dayLabel(t.day, {weekday: 'short'})}, ${gradeText(t.grade)}`)}</span></p>` : '';
-  return `<p class="dr-sb-sum">${esc(`${plural(days, 'day')} played · 3 points a win, 1 a tie`)}</p>`
-    + `<div class="dr-sb-list" role="list" aria-label="${esc(`${dr.weekLabel(n)} standings`)}">${list}</div>${top}`;
-}
-/** The board: today's finals or the week's standings (st.sbTab), the switch between them on top. */
-function sbBodyHTML(st) {
-  const week = st.sbTab === 'week', n = st.n || dr.todayNumber();
-  const tab = (k, label) => `<button type="button" class="dr-sb-tab" role="tab" aria-selected="${st.sbTab === k || (!st.sbTab && k === 'day')}" data-dr-sbtab="${k}">${esc(label)}</button>`;
-  const head = `<div class="dr-board-h"><div class="dr-board-row"><h2 class="dr-board-t" id="dr-sb-t">${esc(week ? `${dr.weekLabel(n)} standings` : 'Today’s finals')}</h2>`
-    + `<div class="dr-sb-tabs" role="tablist" aria-label="Scoreboard">${tab('day', 'Today')}${tab('week', 'Week')}</div></div>`
-    + `<p class="dr-board-s">${esc(week ? 'Most points first; the average grade breaks a tie' : 'Wins first, then the best-called games')}</p></div>`;
-  const state = dr.boardState();
-  if (state === 'loading') return head + `<div class="dr-sb-sk">${ui.skeleton('rows', 3, {label: 'Loading the finals.'})}</div>`;
-  if (state !== 'ready') return head + `<p class="dr-sb-note">The scoreboard isn't connected right now.</p>`;
-  if (week) return head + weekBodyHTML(st);
-  let rows = [];
-  try { rows = dr.boardRows(n); } catch (e) { console.error(e); }
-  if (!rows.length) return head + `<div class="dr-sb-empty"><p class="dr-sb-et">No finals yet today.</p><p class="dr-sb-eb">Play yours to put the first score on the board.</p></div>`;
-  const w = rows.filter(r => r.r === 'W').length;
-  const sum = `${plural(rows.length, 'game')} final · ${w} won`;
-  return head + `<p class="dr-sb-sum">${esc(sum)}</p><div class="dr-sb-list" role="list" aria-label="Today's finals">${rows.map(r => sbRowHTML(st, r)).join('')}</div>`
-    + `<p class="dr-sb-foot">${esc(`Grade: a win ${bandText('W')}, a tie ${bandText('T')}, a loss ${bandText('L')}`)}, placed in that band by how close each pass, run and defensive call came to the best one at its snap.</p>`;
-}
-function boardHTML(st) {
-  const hide = dr.boardState() === 'wait';
-  return `<div class="dr-sb-host" data-dr-board${hide ? ' hidden' : ''}><section class="dr-board" aria-labelledby="dr-sb-t">`
-    + `<div class="dr-board-body" data-dr-sbody>${sbBodyHTML(st)}</div></section></div>`;
-}
-const norm = typeof document !== 'undefined' ? document.createElement('template') : null;
-function patchBoard(st, {fade = false} = {}) {
-  if (st.dead || !dr.DOC) return;
-  const host = st.el.querySelector('[data-dr-board]');
-  if (!host) return;
-  host.hidden = dr.boardState() === 'wait';
-  const body = host.querySelector('[data-dr-sbody]');
-  if (!body) return;
-  const html = sbBodyHTML(st);
-  norm.innerHTML = html;
-  if (body.innerHTML === norm.innerHTML) return;
-  const go2 = () => { body.innerHTML = html; ui.hydrate(body); };
-  if (fade && !ui.RM && st.ctx.visible) ui.crossfade(body, go2, {duration: 160}); else go2();
-}
-function scheduleBoard(st) {
-  if (st.dead) return;
-  if (st.cancelBoard) st.cancelBoard();
-  st.cancelBoard = ui.whenIdle(() => { st.cancelBoard = null; patchBoard(st); warmWeek(st); });
-}
-/** Grades the week's games (about 6 ms each) a slice at a time while nothing moves, so the Week tab opens at once. */
-function warmWeek(st) {
-  if (st.dead || st.cancelBoard || !dr.DOC || dr.boardState() !== 'ready') return;
-  const todo = dr.ungraded(st.n || dr.todayNumber());
-  if (!todo.length) return;
-  st.cancelBoard = ui.whenIdle(() => {
-    st.cancelBoard = null;
-    const t0 = performance.now();
-    while (todo.length && performance.now() - t0 < 12) dr.gradeOf(...todo.shift());
-    warmWeek(st);
-  });
-}
 
 // ============================================================================ Sheets
-/** Someone's game today: hidden until this phone has finished its own. */
-function openGame(st, key) {
-  const row = dr.boardRows(st.n).find(r => r.key === key);
-  if (!row) return;
-  const mine = dr.dayState(st.n);
-  let body;
-  if (!row.me && !mine.result) {
-    body = `<p class="dr-sh-note">${ui.icon('lock', {size: 16})}<span>${esc(`Finish today’s drill to watch ${row.name}’s game.`)}</span></p>`;
-  } else {
-    const g = dr.gameOf(key, st.n);
-    if (!g || !g.s) body = `<p class="dr-sh-note">${ui.icon('info', {size: 16})}<span>That game didn’t come with its plays.</span></p>`;
-    else {
-      const r = dr.resultText(g.s, {you: row.me});
-      body = `<div class="dr-sh-final is-${g.s.result}">${finalSBHTML(g.s, row.me ? 'You' : row.name)}<p class="dr-sh-h"><b>${esc(r.head)}</b><span>${esc(r.sub)}</span></p>${finalGradeHTML(st.n, g.s, row.me ? 'Your' : `${row.name}’s`)}</div>`
-        + compHTML(g.s, row.me ? 'you' : row.name)
-        + `<ol class="dr-log">${g.s.plays.map(p => logItemHTML(g.s, p)).join('')}</ol>`;
-    }
-  }
-  ui.haptic('light');
-  ui.openSheet({title: row.me ? 'Your game' : `${row.name}’s game`, body: `<div class="dr-sheet">${body}</div>`, detents: ['medium', 'large'], cls: 'sh-drill'});
-}
 function ratingRowHTML(p, pos) {
   return `<li class="dr-rt"><span class="dr-rt-j">${p.j == null ? '' : '#' + p.j}</span><span class="dr-rt-n"><b>${esc(p.n)}</b><small>${esc(pos)}</small></span>`
     + `<span class="dr-rt-v" style="--rc:${ratingColor(p.r)}">${p.r}</span></li>`;
@@ -2720,7 +2602,6 @@ function finishPlay(st, p) {
       ui.stamp(res.querySelector('.dr-final-h'), {from: 1.4});
       ui.confetti(res.getBoundingClientRect(), {colors: ['#FFC531', '#34D399', '#FFFFFF'], count: 90});
     } else if (s.result === 'L') ui.haptic('error');
-    scheduleBoard(st);
     ui.announce(`${t.line} ${extra} Final: ${dr.resultText(s).head}, ${s.us} to ${s.them}.`);
   } else {
     const who = s.poss === 'us' ? '' : `${E.idsFor(s, 'them').o} ball, `;
@@ -2947,7 +2828,7 @@ function onClick(st, e) {
   if (st.rtOpen) { openRoutes(st, null); return; }
   const rcv = routesOn(st) && e.target.closest('[data-dr-rcv]');
   if (rcv && st.el.contains(rcv)) { cycleRoute(st, rcv.dataset.drRcv); return; }
-  const t = e.target.closest('[data-dr-go], [data-dr-menu], [data-dr-dmenu], [data-dr-card], [data-dr-side], [data-dr-hurry], [data-dr-flag], [data-dr-replay], [data-dr-ratings], [data-dr-help], [data-dr-retry], [data-dr-who], [data-dr-sbtab], [data-dr-test]');
+  const t = e.target.closest('[data-dr-go], [data-dr-menu], [data-dr-dmenu], [data-dr-card], [data-dr-side], [data-dr-hurry], [data-dr-flag], [data-dr-replay], [data-dr-ratings], [data-dr-help], [data-dr-retry], [data-dr-test]');
   if (!t || !st.el.contains(t) || t.disabled) return;
   if (t.hasAttribute('data-dr-go')) { go(st, t.dataset.drGo); return; }
   if (t.hasAttribute('data-dr-menu')) { openMenu(st, st.panel === t.dataset.drMenu ? 'main' : t.dataset.drMenu); return; }
@@ -2975,14 +2856,6 @@ function onClick(st, e) {
   if (t.hasAttribute('data-dr-ratings')) { openRatings(st); return; }
   if (t.hasAttribute('data-dr-help')) { openHelp(); return; }
   if (t.hasAttribute('data-dr-test')) { testPlay(st, t.dataset.drTest === 'on'); return; }
-  if (t.hasAttribute('data-dr-who')) { openGame(st, t.dataset.drWho); return; }
-  if (t.hasAttribute('data-dr-sbtab')) {
-    if ((st.sbTab || 'day') === t.dataset.drSbtab) return;
-    st.sbTab = t.dataset.drSbtab;
-    ui.haptic('selection');
-    patchBoard(st, {fade: true});
-    return;
-  }
   if (t.hasAttribute('data-dr-retry')) load(st);
 }
 function onKey(st, e) {
@@ -3030,7 +2903,7 @@ export function render(ctx) {
   const st = ST.get(ctx);
   if (st) return bodyHTML(st);
   if (!dr.DOC) return loadingHTML();
-  const tmp = {panel: 'main', flags: {}, routes: {}, card: 0, side: 's', timers: [], rp: new Map()};
+  const tmp = {panel: 'main', flags: {}, routes: {}, card: 0, side: 's', timers: []};
   setDaily(tmp);
   return bodyHTML(tmp);
 }
@@ -3038,7 +2911,7 @@ export function render(ctx) {
 export function mount(el, ctx, {anchor} = {}) {
   ensureCss();
   const st = {el, ctx, anchor: anchor || null, n: 0, s: null, panel: 'main', flags: {}, runOob: false, routes: {}, pick: null, rtOpen: null, card: 0, side: 's', hurry: false,
-    last: null, busy: false, dead: false, timers: [], cancelBoard: null, anim: null, wp: new Map(), rp: new Map(), pbpOpen: false};
+    last: null, busy: false, dead: false, timers: [], anim: null, wp: new Map(), pbpOpen: false};
   ST.set(ctx, st);
   st.onClick = e => onClick(st, e);
   st.onKey = e => onKey(st, e);
@@ -3061,7 +2934,6 @@ export function mount(el, ctx, {anchor} = {}) {
   st.unsub = daily.subscribe(type => {
     // A reset for this phone's member (dr.applyResets) or another tab: the saved game isn't the one showing.
     if (type === 'lb' && !st.busy && st.s && dr.DOC) { dr.applyResets(); if (dr.dayState(st.n).acts !== E.actsOf(st.s)) { setDaily(st); rerender(st); } }
-    if (type === 'lb' || type === 'ready' || type === 'error') scheduleBoard(st);
   });
   if (!dr.DOC) { load(st); return; }
   dr.applyResets();
@@ -3091,6 +2963,5 @@ export function unmount(el, ctx) {
   window.removeEventListener('resize', st.onResize);
   if (st.stopTick) st.stopTick();
   if (st.unsub) st.unsub();
-  if (st.cancelBoard) st.cancelBoard();
   ST.delete(ctx);
 }
