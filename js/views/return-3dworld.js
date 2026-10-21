@@ -15,6 +15,7 @@
 import * as R from '../core/return.js';
 import {dressList, LOOKS, OBS, GOODS_COL} from './return-world.js';
 import {seeded} from './stadium.js';
+import * as cityBus from './return-city-bus.js';
 
 let T = null, U = null, SCENE = null, ROOT = null;
 /** The bend (yards down per yard of depth squared: return-3d.js sets it each frame from st.bend). */
@@ -52,6 +53,7 @@ export function init(three, scene, utils) {
   T = three; U = utils; SCENE = scene;
   ROOT = new T.Group(); ROOT.name = 'world';
   SCENE.add(ROOT);
+  cityBus.init(T, refreshCityBuses);
   shapes();
   // everything each place needs drawn once now (the ground's pictures, the barricades, banners, power-ups and gates),
   // so coming to a new place never holds a frame up
@@ -708,6 +710,15 @@ function sign(text, bg, ink, x, y, z, w, h, s) {
 // ============================================================================ In the lanes
 // Each a group of its own, built when it comes up, kept while it's in view (by its key).
 const LIVE = new Map(); // key -> {obj, seen}
+// Readiness and profile changes must replace cached vehicles, even with the game view hidden.
+function refreshCityBuses() {
+  for (const [key, entry] of LIVE) {
+    if (!entry.obj.userData.cityBus) continue;
+    ROOT.remove(entry.obj);
+    entry.obj.traverse(o => { if (o.isMesh && o.geometry && !o.userData.shared) o.geometry.dispose(); });
+    LIVE.delete(key);
+  }
+}
 function keep(key, make, may = true) {
   let e = LIVE.get(key);
   if (!e) { if (!may) return null; const obj = make(); if (!obj) return null; ROOT.add(bend(obj)); e = {obj}; LIVE.set(key, e); }
@@ -821,8 +832,16 @@ const TALL = {
 function vehicleOf(p, th) {
   const X = R.xOf(null, p.lane), w = WIDE[p.kind] || (p.hi ? 1.25 : 1.15), x0 = X - w, x1 = X + w, y0 = p.b || 0, y1 = p.h, z0 = p.z0, z1 = p.z1;
   const b = new Batch(), lit = new Batch(), g = new T.Group();
+  const isCityBus = th.id === 'city' && p.kind === 'citybus';
+  const painted = isCityBus ? cityBus.body({x0, x1, y0, y1, z0, z1}) : null;
+  if (isCityBus) { g.userData.cityBus = true; g.userData.cityBusPilot = !!painted; }
   const f = KIND[p.kind];
-  if (f) f(b, lit, {x0, x1, y0, y1, z0, z1, X, w}, p, g);
+  if (painted) {
+    g.add(painted);
+    // Keep the original wheel geometry, placement, ramp and collision footprint.
+    [z0 + 1.8, z1 - 2.2].forEach(z => [x0 + .1, x1 - .1].forEach(x => wheel(b, x, z, .55, .35)));
+  }
+  else if (f) f(b, lit, {x0, x1, y0, y1, z0, z1, X, w}, p, g);
   else if (TALL[p.kind]) tallOne(b, lit, {x0, x1, y0, y1, z0, z1, X, w}, p, TALL[p.kind], g);
   else b.box('#888888', x0, x1, y0, y1, z0, z1);
   if (p.ramp) rampOf(b, p, X, RAMP_LOOK[p.kind] || RAMP_LOOK[th.id] || RAMP_LOOK.stadium);
@@ -925,6 +944,7 @@ export function look(st, z) {
  *  (knocked flying, picked up, spinning, blinking). */
 export function update(st, now) {
   if (!ROOT) return;
+  cityBus.sync();
   FRAME++;
   const t = now / 1000, run = st.run, cz = st.camZ, key = `${st.co.n}|${st.co.k}`;
   // the ground beyond the last chunk, out to the horizon (all haze by then)

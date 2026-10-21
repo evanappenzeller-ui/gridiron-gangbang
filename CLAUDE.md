@@ -1,5 +1,16 @@
 # Gridiron Gangbang: rules for working on this app
 
+## All new changes are for Evan's profile only
+
+Standing owner instruction (October 21, 2026): all future app changes, across every feature,
+must apply only to Evan Appenzeller's profile unless he explicitly authorizes a wider rollout.
+Preserve existing behavior for every other member, app user, guest and unselected profile.
+Use the existing stable `data.OWNER === 'evan'` / `data.isOwner()` gate; never match a typed display name.
+This app uses local profile selection and anonymous Firebase sessions, not a verified per-person auth UID.
+Gate new visuals and asset loads, recheck eligibility after asynchronous work, and clear owner-only state
+when the profile changes (including another tab). Do not add owner-only artwork to the shared offline precache.
+Verify both owner and non-owner behavior before deploying. These rules also apply to future work outside Return Man.
+
 ## Scoreboards are for the league
 
 Standing rule from the league's owner (October 2026):
