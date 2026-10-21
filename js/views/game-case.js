@@ -272,8 +272,8 @@ export function turnable(surface, dlg, on = () => {}, opts = {}) {
 /**
  * The cases on the shelf turn under a finger too (the owner's ask, Oct 2026): grabbed by its top, bottom or sides (a
  * .gm-grip, on the case in the middle only) a case turns where it stands, and let go it springs to the nearer of its
- * sides (a game not played yet has only its front, a played one its back and its front); a swipe across its middle
- * still goes along the shelf. At rest on the side it shows on its own, its turn is handed back to the stylesheet.
+ * sides, its back or its front; a swipe across its middle still goes along the shelf. Only a game finished turns (the
+ * owner's ask, Oct 2026): till then its case stands still, facing front, here and up close. At rest on the side it shows on its own, its turn is handed back to the stylesheet.
  * Returns {home(cs): ease a case back to that side, stop()}.
  */
 export function shelfTurner(shelf) {
@@ -313,7 +313,7 @@ export function shelfTurner(shelf) {
   const down = e => {
     if (P || e.button > 0) return;
     dragged = false;
-    const g = e.target.closest('.gm-grip'), cs = g && g.closest('.gm-case');
+    const g = e.target.closest('.gm-grip'), cs = g && g.closest('.gm-case.is-done'); // (only a game finished turns)
     if (cs) P = {id: e.pointerId, cs, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, on: false, moves: []};
   };
   const move = e => {
