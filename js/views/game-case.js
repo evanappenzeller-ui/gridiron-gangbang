@@ -43,6 +43,52 @@ function matrixOf([x, y, z, w]) {
 }
 const FRONT = [0, 0, 0, 1], BACK = [0, 1, 0, 0]; // (its back: turned round on its spine)
 const len = v => Math.hypot(v[0], v[1], v[2]);
+/** v turned by q. */
+function rot([x, y, z, w], v) {
+  const t = [2 * (y * v[2] - z * v[1]), 2 * (z * v[0] - x * v[2]), 2 * (x * v[1] - y * v[0])];
+  return [v[0] + w * t[0] + y * t[2] - z * t[1], v[1] + w * t[1] + z * t[0] - x * t[2], v[2] + w * t[2] + x * t[1] - y * t[0]];
+}
+
+// ---------------------------------------------------------------- its sides
+// A case is solid plastic (the owner's ask, Oct 2026: turned round, it looks like a real case, not a card): round its
+// edge a strip for each straight side and three for each rounded corner, each set square to the way it faces (.gm-sd,
+// sized off the case's --sw, --sh, its corners' --sr and its depth --sd). Seen from the front the spine is on the left
+// (the name down it), the opening side on the right (its finger notch); the seam where the cover shuts runs round the
+// rest. Each strip is lit by where it faces now (the light over your left shoulder), so as it turns its edges catch
+// the light and fall into shadow.
+const unit = v => { const l = len(v); return v.map(c => c / l); };
+const LIGHT = unit([-.42, -.7, .58]), HALF = unit([LIGHT[0], LIGHT[1], LIGHT[2] + 1]);
+const C15 = Math.cos(Math.PI / 12), SEG = 2 * Math.sin(Math.PI / 12); // (a corner's strips: how far out, how long, for a radius of 1)
+const f4 = v => +v.toFixed(4);
+function litBy(q, deg) {
+  const a = deg * Math.PI / 180, n = rot(q, [Math.cos(a), Math.sin(a), 0]);
+  const d = Math.max(0, n[0] * LIGHT[0] + n[1] * LIGHT[1] + n[2] * LIGHT[2]), s = Math.max(0, n[0] * HALF[0] + n[1] * HALF[1] + n[2] * HALF[2]);
+  return {dk: f4(.52 * (1 - d)), hi: f4(.5 * s ** 18)};
+}
+function strip(deg, ex, ey, out, size, cls, inner = '') {
+  const a = deg * Math.PI / 180, {dk, hi} = litBy(FRONT, deg);
+  return `<i class="gm-sd${cls}" data-sd="${deg}" style="--a:${deg}deg;--ex:${ex};--ey:${ey};--nx:${f4(out * Math.cos(a))};--ny:${f4(out * Math.sin(a))};${size};--dk:${dk};--hi:${hi}" aria-hidden="true">${inner}</i>`;
+}
+/** A case's sides (spine: what's down its spine). */
+export function shellHTML(spine = '') {
+  let h = '';
+  for (let k = 0; k < 4; k++) {
+    const deg = k * 90, ex = Math.round(Math.cos(deg * Math.PI / 180)), ey = Math.round(Math.sin(deg * Math.PI / 180));
+    h += strip(deg, ex, ey, 1, `--l${ex ? 'h' : 'w'}:1;--lr:-2`, k === 0 ? ' is-op is-sm' : k === 2 ? ' is-sp' : ' is-sm', k === 2 ? spine : '');
+    // the corner after it
+    const cx = Math.sign(Math.cos((deg + 45) * Math.PI / 180)), cy = Math.sign(Math.sin((deg + 45) * Math.PI / 180));
+    [15, 45, 75].forEach(o => { h += strip(deg + o, cx, cy, C15, `--lr:${f4(SEG)}`, Math.cos((deg + o) * Math.PI / 180) > -.3 ? ' is-sm' : ''); });
+  }
+  return h;
+}
+/** Light the sides (els) of a case turned by q. */
+function light(els, q) {
+  els.forEach(el => {
+    const {dk, hi} = litBy(q, +el.dataset.sd);
+    el.style.setProperty('--dk', dk);
+    el.style.setProperty('--hi', hi);
+  });
+}
 
 // How it moves: a drag turns it SENS radians a pixel (across the case and it's turned round); held, it comes upright
 // at PULL a second; let go, a spring (K, C: a little past and back) takes it to the nearer side. The cover the same
@@ -96,6 +142,7 @@ export function turnable(surface, dlg, on = () => {}, opts = {}) {
   const still = !!opts.still, home = still ? FRONT : BACK; // (how it stands on the shelf)
   const stage = dlg.querySelector('.gm-z-stage'), obj = dlg.querySelector('.gm-z-obj'), lid = dlg.querySelector('.gm-z-lid');
   const gl = [dlg.querySelector('.gm-z-front .gm-z-gl'), dlg.querySelector('.gm-z-back .gm-z-gl')];
+  const sides = [...obj.querySelectorAll(':scope > .gm-sd')];
   const S = {q: home.slice(), w: [0, 0, 0], u: 0, uv: 0, open: 0, goal: null, held: false, raf: 0, t: 0, dead: false, said: '', dragged: false};
   let P = null; // the pointer turning it
 
@@ -108,6 +155,7 @@ export function turnable(surface, dlg, on = () => {}, opts = {}) {
     // turns about its spine (in the middle)
     const fit = Math.min(1, ((innerWidth || W * 2) - 24) / (2 * W)), sc = 1 + (fit - 1) * u, p = W / 2 * u;
     obj.style.transform = `translateX(${(p * sc).toFixed(2)}px) scale(${sc.toFixed(4)}) translateX(${(-p).toFixed(2)}px) ${matrixOf(S.q)} translateX(${p.toFixed(2)}px)`;
+    light(sides, S.q);
     lid.style.transform = `translateZ(calc(var(--zd) / 2)) rotateY(${(LID * Math.max(0, S.u)).toFixed(2)}deg)`;
     // the shine on the plastic moves as it turns
     const [x, y, z, w] = S.q, nx = 2 * (x * z + y * w), ny = 2 * (y * z - x * w);
@@ -240,7 +288,10 @@ export function shelfTurner(shelf) {
     return S;
   };
   // (while it's turned its glow goes: the glow is drawn round the case standing square)
-  const paint = S => { S.fl.style.transition = 'none'; S.fl.style.transform = matrixOf(S.q); S.cs.classList.add('is-turning'); };
+  const paint = S => {
+    S.fl.style.transition = 'none'; S.fl.style.transform = matrixOf(S.q); S.cs.classList.add('is-turning');
+    light(S.fl.querySelectorAll(':scope > .gm-sd'), S.q);
+  };
   function frame(S, now) {
     S.raf = 0;
     if (!S.cs.isConnected || !S.fl) { all.delete(S.cs); return; }

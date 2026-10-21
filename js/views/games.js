@@ -15,7 +15,7 @@ import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as daily from '../core/daily.js';
 import {ringHTML, stepParts, maxPts, gradeGold, msToMidnight, countdownHTML, itemCount} from './board.js';
-import {turnable, shelfTurner} from './game-case.js';
+import {turnable, shelfTurner, shellHTML} from './game-case.js';
 
 const esc = data.esc;
 const nf = n => data.nf(n);
@@ -247,6 +247,8 @@ function seasonRowsOf(id) {
 }
 const sticker = (cls, text) => `<span class="gm-stk ${cls}">${esc(text)}</span>`;
 const GLOSS = '<span class="gm-z-gl" aria-hidden="true"></span>'; // (the shine on a case up close)
+/** A case's sides, its name down the spine (views/game-case.js: the case is solid, turned on the shelf or up close). */
+const sidesHTML = g => shellHTML(`<span class="gm-spine"><b>GRIDIRON HUB</b><span>${esc(g.name)}</span></span>`);
 /** A case's front: the band, the cover (a sticker on it while it's under way). up: the case up close (a tap on it
  *  opens it, a shine moves over it as it turns). */
 function frontHTML(g, s, up = false) {
@@ -303,7 +305,7 @@ function caseHTML(g, s, i, n, clone) {
   const slot = clone ? 'aria-hidden="true" data-gm-clone' : `role="group" aria-roledescription="slide" aria-label="${i + 1} of ${n}"`;
   return `<div class="gm-slot" ${slot} data-gm-slot="${g.id}">`
     + `<button type="button" class="gm-case${done ? ' is-done' : ''}" data-gm="${g.id}" data-kind="${s.kind}" aria-label="${esc(what)}"${clone ? ' tabindex="-1"' : ''}>`
-    + `<span class="gm-flip">${frontHTML(g, s)}${done ? backHTML(g, s) : ''}</span><span class="gm-gloss" aria-hidden="true"></span>`
+    + `<span class="gm-flip">${sidesHTML(g)}${frontHTML(g, s)}${done ? backHTML(g, s) : ''}</span><span class="gm-gloss" aria-hidden="true"></span>`
     + ['t', 'b', 'l', 'r'].map(k => `<span class="gm-grip is-${k}" aria-hidden="true"></span>`).join('') + `</button></div>`; // (views/game-case.js shelfTurner)
 }
 
@@ -473,8 +475,7 @@ export function mountList(el, ctx, opts = {}) {
     // its sides (the spine with the name down it), the tray inside with the disc on its hub, the cover on its hinge
     // (the cover outside, inside the booklet held in by two clips)
     const img = src => `<img src="${src}" alt="" decoding="async" draggable="false">`;
-    const sides = `<span class="gm-z-edge is-l" aria-hidden="true"><span class="gm-z-spine"><b>GRIDIRON HUB</b><span>${esc(g.name)}</span></span></span>`
-      + ['r', 't', 'b'].map(k => `<span class="gm-z-edge is-${k}" aria-hidden="true"></span>`).join('');
+    const sides = sidesHTML(g);
     const inside = `<div class="gm-z-tray" aria-hidden="true"><span class="gm-z-emb">GRIDIRON HUB</span></div>`
       + `<div class="gm-z-disc" data-gm-zdisc aria-hidden="true"><span class="gm-z-lab">${img(g.disc)}</span><span class="gm-z-sheen"></span></div>`
       + `<span class="gm-z-hub" aria-hidden="true"></span>`
@@ -660,7 +661,7 @@ export function mountList(el, ctx, opts = {}) {
         const flipNow = s.kind === 'done' && cs.dataset.kind !== 'done';
         cs.dataset.kind = s.kind;
         const fl = cs.querySelector('.gm-flip');
-        fl.innerHTML = frontHTML(g, s) + (s.kind === 'done' ? backHTML(g, s) : '');
+        fl.innerHTML = sidesHTML(g) + frontHTML(g, s) + (s.kind === 'done' ? backHTML(g, s) : '');
         ui.hydrate(fl);
         // a game just finished: its case turns round to the leaderboard
         if (flipNow && animate && ctx.visible && !ui.RM) requestAnimationFrame(() => requestAnimationFrame(() => cs.classList.add('is-done')));
