@@ -155,7 +155,7 @@ export async function realmChecks(check) {
     return {pass: fires && hatch && stays && bots, detail: `cannon: the footman ${man ? `${man.hp}/${man.max}` : 'not sent'}, the dragon ${drake ? `${drake.hp}/${drake.max}` : 'not sent'}; no hatchery: ${none}; one at level 1: ${one}, then ${full}; level 3 room for 3: ${room}; a cannon kept ${stays}; the computer’s realms have them ${bots}`};
   });
 
-  check('Realm: the art (tools/realm/sprites.py, tools/realm/scenery.py): the Keep, gold mines, archer towers and hatcheries drawn from their pictures, ten each, every level a picture of its own (the top level the grandest); every villager, archer and cannon crew a building calls for has all its poses; the pictures and the coastal scenery round the lot are there', async () => {
+  check('Realm: the art (tools/realm/sprites.py): the Keep, gold mines, archer towers and hatcheries drawn from their pictures, ten each, every level a picture of its own (the top level the grandest); every villager, archer and cannon crew a building calls for has all its poses; the pictures are there', async () => {
     const S = await import('../views/realm-sprites.js');
     const bad = [];
     S.KINDS.forEach(k => {
@@ -167,9 +167,23 @@ export async function realmChecks(check) {
     F.ORDER.forEach(k => { for (let l = 1; l <= F.maxLevel(k); l++) ['ok', 'up'].forEach(st => S.crewOf({i: 1, t: k, l}, st, F.KINDS[k].size).forEach(c => sheets.add(c.sheet))); });
     const missing = [...sheets].filter(n => !S.FOLK[n] || ![4, 8].includes(S.FOLK[n].length));
     const plat = Array.from({length: 10}, (_, i) => S.platform(i + 1)).every((p, i) => p && p[0] > 0 && p[0] < S.BUILD.tower.f[i][2] && p[1] > 0 && p[1] < S.BUILD.tower.f[i][3]);
-    const files = await Promise.all([...S.KINDS, 'folk', 'scenery'].map(n => fetch(new URL(`../../img/realm/${n}.webp`, import.meta.url), {method: 'HEAD'}).then(r => r.ok ? '' : n, () => n)));
+    const files = await Promise.all([...S.KINDS, 'folk'].map(n => fetch(new URL(`../../img/realm/${n}.webp`, import.meta.url), {method: 'HEAD'}).then(r => r.ok ? '' : n, () => n)));
     const gone = files.filter(Boolean);
     return {pass: !bad.length && !missing.length && plat && !gone.length && sheets.size >= 20, detail: `buildings ${bad.length ? 'wrong: ' + bad.join(', ') : S.KINDS.join(', ') + ' ok'}; ${sheets.size} folk sheets called for${missing.length ? ', missing ' + missing.join(', ') : ''}; tower platforms ${plat}; ${gone.length ? 'pictures missing: ' + gone.join(', ') : 'pictures there'}`};
+  });
+
+  check('Realm: the scenery (tools/realm/scenery.py, img/realm/scenery/layout.json): its landscape and every picture its placements call for are there; nothing’s placed in its build zone, and the lot (views/realm-3d.js SCENE) lies inside it', async () => {
+    const [D3, lay] = await Promise.all([import('../views/realm-3d.js'), fetch(new URL('../../img/realm/scenery/layout.json', import.meta.url)).then(r => r.json())]);
+    const A = lay.assets, bg = lay.scene.background_asset_id, Z = lay.build_zone_polygon;
+    const unknown = lay.instances.filter(it => !A[it.asset_id] || it.asset_id === bg).map(it => it.id);
+    const files = await Promise.all(Object.values(A).map(a => fetch(new URL(`../../img/realm/scenery/${a.pic && a.pic.file}`, import.meta.url), {method: 'HEAD'}).then(r => r.ok ? '' : a.file, () => a.file)));
+    const gone = files.filter(Boolean);
+    // (the zone is convex: a point's inside when it's on the same side of every edge)
+    const inZone = ([x, y]) => { const s = Z.map((a, i) => { const b = Z[(i + 1) % Z.length]; return Math.sign((b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0])); }).filter(Boolean); return s.every(v => v === s[0]); };
+    const inside = lay.instances.filter(it => inZone([it.rect.x + it.rect.width / 2, it.rect.y + it.rect.height])).map(it => it.id);
+    const S = D3.SCENE, hh = S.lot / 2, hw = hh / Math.sin(D3.PITCH);
+    const lot = [[S.cx - hw, S.cy], [S.cx, S.cy - hh], [S.cx + hw, S.cy], [S.cx, S.cy + hh]].every(inZone);
+    return {pass: !unknown.length && !gone.length && !inside.length && lot && lay.instances.length > 0, detail: `${lay.instances.length} placed${unknown.length ? `, unknown pictures: ${unknown.join(', ')}` : ''}; ${gone.length ? 'missing: ' + gone.join(', ') : 'all there'}; in the build zone: ${inside.length ? inside.join(', ') : 'nothing'}; the lot ${lot ? 'inside it' : 'NOT inside it'}`};
   });
 
   check('Realm: the computer’s realms raid his realm (at most one each half day, the last two while he was away; none in its first day, before Keep level 2 or during a truce): played the same every time, taken off his stores and glory once, never his coffers', () => {

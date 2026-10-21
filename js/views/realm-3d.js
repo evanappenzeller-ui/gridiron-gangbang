@@ -1,10 +1,11 @@
 // The Realm's lot in 3D (views/realm.js and views/realm-raid.js): three.js (js/vendor/three, MIT), the buildings from
 // views/realm-models.js, a camera looking down across the lot corner-on (a diamond, as these games are), dragged to
-// pan, pinched or wheeled to zoom. The lot lies on the meadow in the middle of the coastal painting (img/realm/
-// scenery.webp, tools/realm/scenery.py: a harbour, a village, a castle and forest round it), laid on the ground so the
-// camera sees it as painted, and the camera never looks past the painting's edges (without the painting: a meadow
-// with a moat round it, pines beyond and mountains far off). The Keep, gold mines, archer towers and dragon
-// hatcheries are drawn from their art (views/realm-sprites.js), and folk stand about: villagers at work by their buildings, an archer up each tower, a cannon's crew round it. It
+// pan, pinched or wheeled to zoom. The lot lies on the meadow in the middle of the coastal scenery (img/realm/scenery/,
+// tools/realm/scenery.py): its landscape (the sea and the shore, the meadow, hills and lakes far off) laid on the
+// ground so the camera sees it as painted, and its pictures (a castle, a village, a harbour, trees and wheat) stood on
+// it where its layout puts them; the camera never looks past the landscape's edges (without it: a meadow with a moat
+// round it, pines beyond and mountains far off). The Keep, gold mines, archer towers and dragon hatcheries are drawn
+// from their art (views/realm-sprites.js), and folk stand about: villagers at work by their buildings, an archer up each tower, a cannon's crew round it. It
 // draws when something moved (a finger, a raid) and, while there are folk about, a few times a second for them.
 // In a raid it also draws the raiders (instanced: a few draw calls however many; a dragon in the air, flapping), what
 // the defenses loose and what the raiders shoot (arrows, bolts, boulders, fire), dust where a building goes down.
@@ -14,17 +15,30 @@ import * as SPR from './realm-sprites.js';
 import {KINDS, TROOPS, N} from '../core/realm.js';
 const V = new URL('../vendor/three/', import.meta.url).href;
 let T = null, RE = null, LOADING = null, DEAD = false, SCENERY = null;
-// Where the lot lies on the painting: its meadow's middle (px) and how tall the lot's diamond is there (px, its far
-// corner to its near one).
-const SCENE = {cx: 905, cy: 488, lot: 472};
-function scenery() {
-  return new Promise(ok => {
-    const im = new Image();
-    im.decoding = 'async';
-    im.onload = () => ok(im);
-    im.onerror = () => { console.warn('Realm: no scenery'); ok(null); };
-    im.src = new URL('../../img/realm/scenery.webp', import.meta.url).href;
-  });
+// Where the lot lies in the scenery (its px): the middle of its build zone, and how tall the lot's diamond is there (its
+// far corner to its near one): as big as fits inside the zone (the checks hold it to that).
+export const SCENE = {cx: 1050, cy: 610, lot: 430};
+const SCENERY_AT = new URL('../../img/realm/scenery/', import.meta.url).href;
+const picture = file => new Promise(ok => {
+  const im = new Image();
+  im.decoding = 'async';
+  im.onload = () => ok(im);
+  im.onerror = () => ok(null);
+  im.src = SCENERY_AT + file;
+});
+/** The scenery: {lay (its layout.json), ground (the landscape), pics {asset id: picture}}, or null without it. */
+async function scenery() {
+  try {
+    const lay = await (await fetch(SCENERY_AT + 'layout.json')).json(), bg = lay.scene.background_asset_id;
+    const ids = Object.keys(lay.assets), got = await Promise.all(ids.map(id => picture(lay.assets[id].pic.file)));
+    const pics = Object.fromEntries(ids.map((id, i) => [id, got[i]]).filter(([id, im]) => im && id !== bg));
+    const ground = got[ids.indexOf(bg)];
+    if (!ground) throw new Error('no landscape');
+    return {lay, ground, pics};
+  } catch (e) {
+    console.warn('Realm: no scenery', e);
+    return null;
+  }
 }
 
 export function load() {
@@ -51,7 +65,7 @@ export function load() {
 }
 export const ready = () => !!T && !DEAD;
 
-const YAW = Math.PI / 4, PITCH = .9;
+export const YAW = Math.PI / 4, PITCH = .9;
 const W = (x) => x - N / 2; // a tile coordinate to the world's (the lot centred on the origin)
 
 // ---- pictures of the models for the shop and the army (rendered once each, on a small canvas of their own)
@@ -147,10 +161,11 @@ function bladesTexture(T) {
 }
 
 /**
- * The painting laid on the ground (y 0) so that, looked at the way the game's camera looks (the painting has no
+ * The landscape laid on the ground (y 0) so that, looked at the way the game's camera looks (the painting has no
  * perspective, so straight along that line, not from a point), it's as painted with the lot on its meadow: a grid of
  * the painting's points, each put where its ray meets the ground. The game's camera then sees it with the same
- * perspective as the lot. → {mesh, px(world point) → where it is on the painting (px), w, h}.
+ * perspective as the lot. → {mesh, px(world point) → where it is on the painting (px), under(x, y) → the ground under a
+ * px of it (world), per (world a px of it, standing facing the camera), w, h}.
  */
 function sceneryGround(img, maxAniso) {
   const w = img.naturalWidth, h = img.naturalHeight, D = 200;
@@ -179,7 +194,45 @@ function sceneryGround(img, maxAniso) {
   mesh.position.y = -.02;
   const p = new T.Vector3();
   const px = q => { p.copy(q).project(rc); return {x: SCENE.cx + p.x / k * (w / 2), y: SCENE.cy - (p.y - mid) / k * (h / 2)}; };
-  return {mesh, px, w, h};
+  const under = (x, y) => {
+    ray.setFromCamera(v.set((x - SCENE.cx) / (w / 2) * k, mid - (y - SCENE.cy) / (h / 2) * k), rc);
+    return ray.ray.intersectPlane(ground, new T.Vector3());
+  };
+  return {mesh, px, under, per: 2 * k / h, w, h};
+}
+
+/**
+ * The scenery's pictures, each stood up facing the camera (it never turns, so they look as drawn) on the ground under
+ * its instance's anchor (the bottom middle of its rect), as big as its rect: the whole original in the rect, so the
+ * trimmed picture where its crop was in it. They're drawn in the layout's draw_order: those behind the lot's middle
+ * before everything on the lot (so the lot's buildings stand in front of them), those in front of it after (so they
+ * stand in front of the lot's); none of them hides anything else. → [THREE.Sprite].
+ */
+function sceneryPictures(sc, gr) {
+  const mats = {}, out = [];
+  sc.lay.instances.forEach(it => {
+    const a = sc.lay.assets[it.asset_id], im = sc.pics[it.asset_id];
+    if (!a || !im || !a.pic) return;
+    const R = it.rect, sx = R.width / a.width, sy = R.height / a.height, [x0, y0, x1, y1] = a.pic.crop;
+    const left = R.x + x0 * sx, top = R.y + y0 * sy, w = (x1 - x0) * sx, h = (y1 - y0) * sy;
+    const ax = R.x + R.width / 2, ay = R.y + R.height, g = gr.under(ax, ay);
+    if (!g) return;
+    const key = it.asset_id + (it.flip_x ? ':f' : '');
+    if (!mats[key]) {
+      const t = new T.Texture(im);
+      t.colorSpace = T.SRGBColorSpace; t.anisotropy = 4; t.needsUpdate = true;
+      if (it.flip_x) { t.wrapS = T.RepeatWrapping; t.repeat.x = -1; t.offset.x = 1; }
+      mats[key] = new T.SpriteMaterial({map: t, transparent: true, depthWrite: false, toneMapped: false, fog: false});
+    }
+    const sp = new T.Sprite(mats[key]);
+    sp.center.set((it.flip_x ? left + w - ax : ax - left) / w, 1 - (ay - top) / h);
+    sp.scale.set(w * gr.per, h * gr.per, 1);
+    sp.position.copy(g);
+    sp.renderOrder = (ay <= SCENE.cy ? -1000 : 1000) + (it.draw_order || 0);
+    sp.raycast = () => {};
+    out.push(sp);
+  });
+  return out;
 }
 
 /**
@@ -212,24 +265,24 @@ export function create(host, opts = {}) {
   Object.assign(sun.shadow.camera, {left: -24, right: 24, top: 24, bottom: -24, near: 1, far: 90});
   scene.add(sun, sun.target);
 
-  // ---- the ground: the painting, the lot on its meadow (only the buildings' shadows drawn over it); or, without it,
+  // ---- the ground: the scenery, the lot on its meadow (only the buildings' shadows drawn over it); or, without it,
   // grass all round, a moat round the lot (a stone lip each side), the lot, pines and mountains
   let scene0 = null;
   if (SCENERY) {
-    try { scene0 = sceneryGround(SCENERY, renderer.capabilities.getMaxAnisotropy()); } catch (e) { console.warn('Realm: no scenery', e); }
+    try { scene0 = sceneryGround(SCENERY.ground, renderer.capabilities.getMaxAnisotropy()); } catch (e) { console.warn('Realm: no scenery', e); }
   }
   if (scene0) {
-    scene.add(scene0.mesh);
+    scene.add(scene0.mesh, ...sceneryPictures(SCENERY, scene0));
     // blades over the lot, so it's grass close up too, fading out the last few tiles to its edge
     const geo = new T.PlaneGeometry(N, N, 24, 24), at = geo.attributes.position, rgba = [];
     for (let i = 0; i < at.count; i++) rgba.push(1, 1, 1, Math.max(0, Math.min(1, (N / 2 - Math.max(Math.abs(at.getX(i)), Math.abs(at.getY(i)))) / 4)));
     geo.setAttribute('color', new T.Float32BufferAttribute(rgba, 4));
     const blades = new T.Mesh(geo, new T.MeshBasicMaterial({map: bladesTexture(T), vertexColors: true, transparent: true, depthWrite: false, toneMapped: false, fog: false}));
     blades.material.map.repeat.set(N / 2, N / 2);
-    blades.rotation.x = -Math.PI / 2; blades.position.y = .001;
+    blades.rotation.x = -Math.PI / 2; blades.position.y = .001; blades.renderOrder = -2000;
     scene.add(blades);
     const shade = new T.Mesh(new T.PlaneGeometry(N + 6, N + 6), new T.ShadowMaterial({opacity: .32}));
-    shade.rotation.x = -Math.PI / 2; shade.position.y = .002; shade.receiveShadow = true;
+    shade.rotation.x = -Math.PI / 2; shade.position.y = .002; shade.receiveShadow = true; shade.renderOrder = -2000;
     scene.add(shade);
   } else {
     const grass = new T.Mesh(new T.PlaneGeometry(260, 260), new T.MeshStandardMaterial({map: grassTexture(T), roughness: 1}));
@@ -285,7 +338,7 @@ export function create(host, opts = {}) {
     view.tx = Math.max(-PAN, Math.min(PAN, view.tx)); view.tz = Math.max(-PAN, Math.min(PAN, view.tz));
     if (scene0) inScene();
   };
-  // over the painting, never past its edges: where the screen's corners fall on it, then the view slid back in (or,
+  // over the landscape, never past its edges: where the screen's corners fall on it, then the view slid back in (or,
   // run past both sides, brought closer) till they're all on it
   const RIGHT = new T.Vector3(Math.cos(YAW), 0, -Math.sin(YAW)), AWAY = new T.Vector3(-Math.sin(YAW), 0, -Math.cos(YAW));
   const PXW = N * Math.SQRT2 * Math.sin(PITCH) / SCENE.lot; // (world a painting px across, about, near the lot)
