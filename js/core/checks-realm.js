@@ -155,7 +155,7 @@ export async function realmChecks(check) {
     return {pass: fires && hatch && stays && bots, detail: `cannon: the footman ${man ? `${man.hp}/${man.max}` : 'not sent'}, the dragon ${drake ? `${drake.hp}/${drake.max}` : 'not sent'}; no hatchery: ${none}; one at level 1: ${one}, then ${full}; level 3 room for 3: ${room}; a cannon kept ${stays}; the computer’s realms have them ${bots}`};
   });
 
-  check('Realm: the art (tools/realm/sprites.py): the Keep, gold mines, archer towers and hatcheries drawn from their pictures, ten each, every level a picture of its own (the top level the grandest); every villager, archer and cannon crew a building calls for has all its poses; the pictures are there', async () => {
+  check('Realm: the art (tools/realm/sprites.py, tools/realm/scenery.py): the Keep, gold mines, archer towers and hatcheries drawn from their pictures, ten each, every level a picture of its own (the top level the grandest); every villager, archer and cannon crew a building calls for has all its poses; the pictures and the coastal scenery round the lot are there', async () => {
     const S = await import('../views/realm-sprites.js');
     const bad = [];
     S.KINDS.forEach(k => {
@@ -167,7 +167,7 @@ export async function realmChecks(check) {
     F.ORDER.forEach(k => { for (let l = 1; l <= F.maxLevel(k); l++) ['ok', 'up'].forEach(st => S.crewOf({i: 1, t: k, l}, st, F.KINDS[k].size).forEach(c => sheets.add(c.sheet))); });
     const missing = [...sheets].filter(n => !S.FOLK[n] || ![4, 8].includes(S.FOLK[n].length));
     const plat = Array.from({length: 10}, (_, i) => S.platform(i + 1)).every((p, i) => p && p[0] > 0 && p[0] < S.BUILD.tower.f[i][2] && p[1] > 0 && p[1] < S.BUILD.tower.f[i][3]);
-    const files = await Promise.all([...S.KINDS, 'folk'].map(n => fetch(new URL(`../../img/realm/${n}.webp`, import.meta.url), {method: 'HEAD'}).then(r => r.ok ? '' : n, () => n)));
+    const files = await Promise.all([...S.KINDS, 'folk', 'scenery'].map(n => fetch(new URL(`../../img/realm/${n}.webp`, import.meta.url), {method: 'HEAD'}).then(r => r.ok ? '' : n, () => n)));
     const gone = files.filter(Boolean);
     return {pass: !bad.length && !missing.length && plat && !gone.length && sheets.size >= 20, detail: `buildings ${bad.length ? 'wrong: ' + bad.join(', ') : S.KINDS.join(', ') + ' ok'}; ${sheets.size} folk sheets called for${missing.length ? ', missing ' + missing.join(', ') : ''}; tower platforms ${plat}; ${gone.length ? 'pictures missing: ' + gone.join(', ') : 'pictures there'}`};
   });

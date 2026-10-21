@@ -1,8 +1,10 @@
 // The Realm's lot in 3D (views/realm.js and views/realm-raid.js): three.js (js/vendor/three, MIT), the buildings from
 // views/realm-models.js, a camera looking down across the lot corner-on (a diamond, as these games are), dragged to
-// pan, pinched or wheeled to zoom. The lot is a meadow with a moat round it, pines beyond and mountains far off
-// beyond. The Keep, gold mines, archer towers and dragon hatcheries are drawn from their art (views/realm-sprites.js),
-// and folk stand about: villagers at work by their buildings, an archer up each tower, a cannon's crew round it. It
+// pan, pinched or wheeled to zoom. The lot lies on the meadow in the middle of the coastal painting (img/realm/
+// scenery.webp, tools/realm/scenery.py: a harbour, a village, a castle and forest round it), laid on the ground so the
+// camera sees it as painted, and the camera never looks past the painting's edges (without the painting: a meadow
+// with a moat round it, pines beyond and mountains far off). The Keep, gold mines, archer towers and dragon
+// hatcheries are drawn from their art (views/realm-sprites.js), and folk stand about: villagers at work by their buildings, an archer up each tower, a cannon's crew round it. It
 // draws when something moved (a finger, a raid) and, while there are folk about, a few times a second for them.
 // In a raid it also draws the raiders (instanced: a few draw calls however many; a dragon in the air, flapping), what
 // the defenses loose and what the raiders shoot (arrows, bolts, boulders, fire), dust where a building goes down.
@@ -11,7 +13,19 @@ import * as FM from './realm-models.js';
 import * as SPR from './realm-sprites.js';
 import {KINDS, TROOPS, N} from '../core/realm.js';
 const V = new URL('../vendor/three/', import.meta.url).href;
-let T = null, RE = null, LOADING = null, DEAD = false;
+let T = null, RE = null, LOADING = null, DEAD = false, SCENERY = null;
+// Where the lot lies on the painting: its meadow's middle (px) and how tall the lot's diamond is there (px, its far
+// corner to its near one).
+const SCENE = {cx: 905, cy: 488, lot: 472};
+function scenery() {
+  return new Promise(ok => {
+    const im = new Image();
+    im.decoding = 'async';
+    im.onload = () => ok(im);
+    im.onerror = () => { console.warn('Realm: no scenery'); ok(null); };
+    im.src = new URL('../../img/realm/scenery.webp', import.meta.url).href;
+  });
+}
 
 export function load() {
   if (!LOADING) {
@@ -23,7 +37,7 @@ export function load() {
         T = three; RE = RoomEnvironment;
         FM.init(T, BU);
         SPR.init(T, PITCH);
-        await SPR.load(); // (without the art, everything's drawn in 3D)
+        [, SCENERY] = await Promise.all([SPR.load(), scenery()]); // (without the art, everything's drawn in 3D)
         try { await document.fonts.load('800 60px "Barlow Condensed"'); } catch (_) {}
         return true;
       } catch (e) {
@@ -115,6 +129,59 @@ function puffTexture(T) {
   return t;
 }
 
+function bladesTexture(T) {
+  // the painted meadow close up: short blades in its own dark and sunlit greens on nothing (it tiles)
+  const cv = document.createElement('canvas'); cv.width = cv.height = 256;
+  const g = cv.getContext('2d');
+  let s = 5;
+  const r = () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
+  g.lineCap = 'round';
+  for (let i = 0; i < 1500; i++) {
+    const x = r() * 256, y = r() * 256, h = 3 + r() * 5, lean = (r() - .5) * 3, dark = r() < .55;
+    g.strokeStyle = dark ? `rgba(70,92,14,${.3 + r() * .3})` : `rgba(196,192,82,${.25 + r() * .3})`;
+    g.lineWidth = 1 + r() * .8;
+    [-256, 0, 256].forEach(ox => [-256, 0, 256].forEach(oy => { g.beginPath(); g.moveTo(x + ox, y + oy); g.lineTo(x + ox + lean, y + oy - h); g.stroke(); }));
+  }
+  const t = new T.CanvasTexture(cv); t.colorSpace = T.SRGBColorSpace; t.wrapS = t.wrapT = T.RepeatWrapping; t.anisotropy = 8;
+  return t;
+}
+
+/**
+ * The painting laid on the ground (y 0) so that, looked at the way the game's camera looks (the painting has no
+ * perspective, so straight along that line, not from a point), it's as painted with the lot on its meadow: a grid of
+ * the painting's points, each put where its ray meets the ground. The game's camera then sees it with the same
+ * perspective as the lot. → {mesh, px(world point) → where it is on the painting (px), w, h}.
+ */
+function sceneryGround(img, maxAniso) {
+  const w = img.naturalWidth, h = img.naturalHeight, D = 200;
+  const rc = new T.OrthographicCamera(-w / h, w / h, 1, -1, 1, 2 * D), hd = Math.cos(PITCH) * D;
+  rc.position.set(Math.sin(YAW) * hd, Math.sin(PITCH) * D, Math.cos(YAW) * hd); rc.lookAt(0, 0, 0); rc.updateMatrixWorld();
+  const far = new T.Vector3(-N / 2, 0, -N / 2).project(rc), near = new T.Vector3(N / 2, 0, N / 2).project(rc);
+  const k = (far.y - near.y) / (SCENE.lot / (h / 2)), mid = (far.y + near.y) / 2; // (the painting's px to the camera's)
+  const ray = new T.Raycaster(), ground = new T.Plane(new T.Vector3(0, 1, 0), 0), at = new T.Vector3(), v = new T.Vector2();
+  const GX = 48, GY = 28, pos = [], uv = [], idx = [];
+  for (let j = 0; j <= GY; j++) {
+    for (let i = 0; i <= GX; i++) {
+      const px = i / GX * w, py = j / GY * h;
+      ray.setFromCamera(v.set((px - SCENE.cx) / (w / 2) * k, mid - (py - SCENE.cy) / (h / 2) * k), rc);
+      if (!ray.ray.intersectPlane(ground, at)) throw new Error('scenery: off the ground');
+      pos.push(at.x, 0, at.z); uv.push(px / w, 1 - py / h);
+      if (i < GX && j < GY) { const a = j * (GX + 1) + i, b = a + GX + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
+    }
+  }
+  const geo = new T.BufferGeometry();
+  geo.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('uv', new T.Float32BufferAttribute(uv, 2));
+  geo.setIndex(idx);
+  const tex = new T.Texture(img);
+  tex.colorSpace = T.SRGBColorSpace; tex.anisotropy = maxAniso; tex.needsUpdate = true;
+  const mesh = new T.Mesh(geo, new T.MeshBasicMaterial({map: tex, toneMapped: false, fog: false}));
+  mesh.position.y = -.02;
+  const p = new T.Vector3();
+  const px = q => { p.copy(q).project(rc); return {x: SCENE.cx + p.x / k * (w / 2), y: SCENE.cy - (p.y - mid) / k * (h / 2)}; };
+  return {mesh, px, w, h};
+}
+
 /**
  * The view, in host (filled). opts: {house: {pri, sec, sigil}, zoom (start), onTap(hit), onGrab(tile) → bool (a drag
  * that starts here moves something instead of panning: onDrag(tile), onDrop(tile)), onCamera()}.
@@ -145,40 +212,60 @@ export function create(host, opts = {}) {
   Object.assign(sun.shadow.camera, {left: -24, right: 24, top: 24, bottom: -24, near: 1, far: 90});
   scene.add(sun, sun.target);
 
-  // ---- the ground: grass all round, a moat round the lot (a stone lip each side), the lot
-  const grass = new T.Mesh(new T.PlaneGeometry(260, 260), new T.MeshStandardMaterial({map: grassTexture(T), roughness: 1}));
-  grass.material.map.repeat.set(60, 60);
-  grass.rotation.x = -Math.PI / 2; grass.position.y = -.02; grass.receiveShadow = true;
-  scene.add(grass);
-  const ringAt = (r0, r1, y, mat) => {
-    const m = new T.Mesh(new T.RingGeometry(r0 * Math.SQRT2, r1 * Math.SQRT2, 4, 1), mat);
-    m.rotation.x = -Math.PI / 2; m.rotation.z = Math.PI / 4; m.position.y = y; m.receiveShadow = true;
-    scene.add(m);
-  };
-  ringAt(N / 2 + .9, N / 2 + 3.1, -.06, new T.MeshStandardMaterial({color: 0x2F5F73, roughness: .12, metalness: .2, envMapIntensity: 1.2}));
-  ringAt(N / 2 + .3, N / 2 + .9, .005, new T.MeshStandardMaterial({color: 0x8E887E, roughness: .9}));
-  ringAt(N / 2 + 3.1, N / 2 + 3.6, .005, new T.MeshStandardMaterial({color: 0x8E887E, roughness: .9}));
-  const lot = new T.Mesh(new T.PlaneGeometry(N, N), new T.MeshStandardMaterial({map: lotTexture(T), roughness: .95}));
-  lot.rotation.x = -Math.PI / 2; lot.receiveShadow = true;
-  scene.add(lot);
-  // pines round the outside (a few tiers each), mountains far off with snow on top
-  {
-    let s = 3;
-    const r = () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
-    const needles = new T.MeshStandardMaterial({color: 0x24482A, roughness: .9}), bark = new T.MeshStandardMaterial({color: 0x5A3E2A, roughness: .9});
-    const tiers = [new T.ConeGeometry(1.3, 1.8, 7), new T.ConeGeometry(1.0, 1.5, 7), new T.ConeGeometry(.7, 1.2, 7)], trunk = new T.CylinderGeometry(.16, .22, 1, 6);
-    const n = 90, meshes = tiers.map(g => new T.InstancedMesh(g, needles, n)), tr = new T.InstancedMesh(trunk, bark, n), m = new T.Matrix4(), q = new T.Quaternion();
-    for (let i = 0; i < n; i++) {
-      const a = r() * Math.PI * 2, d = N * .8 + 4 + r() * 18, x = Math.cos(a) * d, z = Math.sin(a) * d, k = .7 + r() * .8;
-      meshes.forEach((M, j) => { m.compose(new T.Vector3(x, (1.5 + j * 1.0) * k, z), q, new T.Vector3(k, k, k)); M.setMatrixAt(i, m); });
-      m.compose(new T.Vector3(x, .5 * k, z), q, new T.Vector3(k, k, k)); tr.setMatrixAt(i, m);
-    }
-    meshes.forEach(M => { M.castShadow = true; scene.add(M); }); scene.add(tr);
-    const rockM = new T.MeshStandardMaterial({color: 0x6F7378, roughness: 1, flatShading: true}), snowM = new T.MeshStandardMaterial({color: 0xEEF2F6, roughness: .9, flatShading: true});
-    for (let i = 0; i < 9; i++) {
-      const a = -2.6 + i * .5 + r() * .2, d = 110 + r() * 20, h = 30 + r() * 25, w = 22 + r() * 16;
-      const mt = new T.Mesh(new T.ConeGeometry(w, h, 6), rockM); mt.position.set(Math.cos(a) * d, h / 2 - 2, Math.sin(a) * d); mt.rotation.y = r() * 3; scene.add(mt);
-      const cap = new T.Mesh(new T.ConeGeometry(w * .32, h * .32, 6), snowM); cap.position.set(mt.position.x, h - 2 - h * .16 + .3, mt.position.z); cap.rotation.y = mt.rotation.y; scene.add(cap);
+  // ---- the ground: the painting, the lot on its meadow (only the buildings' shadows drawn over it); or, without it,
+  // grass all round, a moat round the lot (a stone lip each side), the lot, pines and mountains
+  let scene0 = null;
+  if (SCENERY) {
+    try { scene0 = sceneryGround(SCENERY, renderer.capabilities.getMaxAnisotropy()); } catch (e) { console.warn('Realm: no scenery', e); }
+  }
+  if (scene0) {
+    scene.add(scene0.mesh);
+    // blades over the lot, so it's grass close up too, fading out the last few tiles to its edge
+    const geo = new T.PlaneGeometry(N, N, 24, 24), at = geo.attributes.position, rgba = [];
+    for (let i = 0; i < at.count; i++) rgba.push(1, 1, 1, Math.max(0, Math.min(1, (N / 2 - Math.max(Math.abs(at.getX(i)), Math.abs(at.getY(i)))) / 4)));
+    geo.setAttribute('color', new T.Float32BufferAttribute(rgba, 4));
+    const blades = new T.Mesh(geo, new T.MeshBasicMaterial({map: bladesTexture(T), vertexColors: true, transparent: true, depthWrite: false, toneMapped: false, fog: false}));
+    blades.material.map.repeat.set(N / 2, N / 2);
+    blades.rotation.x = -Math.PI / 2; blades.position.y = .001;
+    scene.add(blades);
+    const shade = new T.Mesh(new T.PlaneGeometry(N + 6, N + 6), new T.ShadowMaterial({opacity: .32}));
+    shade.rotation.x = -Math.PI / 2; shade.position.y = .002; shade.receiveShadow = true;
+    scene.add(shade);
+  } else {
+    const grass = new T.Mesh(new T.PlaneGeometry(260, 260), new T.MeshStandardMaterial({map: grassTexture(T), roughness: 1}));
+    grass.material.map.repeat.set(60, 60);
+    grass.rotation.x = -Math.PI / 2; grass.position.y = -.02; grass.receiveShadow = true;
+    scene.add(grass);
+    const ringAt = (r0, r1, y, mat) => {
+      const m = new T.Mesh(new T.RingGeometry(r0 * Math.SQRT2, r1 * Math.SQRT2, 4, 1), mat);
+      m.rotation.x = -Math.PI / 2; m.rotation.z = Math.PI / 4; m.position.y = y; m.receiveShadow = true;
+      scene.add(m);
+    };
+    ringAt(N / 2 + .9, N / 2 + 3.1, -.06, new T.MeshStandardMaterial({color: 0x2F5F73, roughness: .12, metalness: .2, envMapIntensity: 1.2}));
+    ringAt(N / 2 + .3, N / 2 + .9, .005, new T.MeshStandardMaterial({color: 0x8E887E, roughness: .9}));
+    ringAt(N / 2 + 3.1, N / 2 + 3.6, .005, new T.MeshStandardMaterial({color: 0x8E887E, roughness: .9}));
+    const lot = new T.Mesh(new T.PlaneGeometry(N, N), new T.MeshStandardMaterial({map: lotTexture(T), roughness: .95}));
+    lot.rotation.x = -Math.PI / 2; lot.receiveShadow = true;
+    scene.add(lot);
+    // pines round the outside (a few tiers each), mountains far off with snow on top
+    {
+      let s = 3;
+      const r = () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
+      const needles = new T.MeshStandardMaterial({color: 0x24482A, roughness: .9}), bark = new T.MeshStandardMaterial({color: 0x5A3E2A, roughness: .9});
+      const tiers = [new T.ConeGeometry(1.3, 1.8, 7), new T.ConeGeometry(1.0, 1.5, 7), new T.ConeGeometry(.7, 1.2, 7)], trunk = new T.CylinderGeometry(.16, .22, 1, 6);
+      const n = 90, meshes = tiers.map(g => new T.InstancedMesh(g, needles, n)), tr = new T.InstancedMesh(trunk, bark, n), m = new T.Matrix4(), q = new T.Quaternion();
+      for (let i = 0; i < n; i++) {
+        const a = r() * Math.PI * 2, d = N * .8 + 4 + r() * 18, x = Math.cos(a) * d, z = Math.sin(a) * d, k = .7 + r() * .8;
+        meshes.forEach((M, j) => { m.compose(new T.Vector3(x, (1.5 + j * 1.0) * k, z), q, new T.Vector3(k, k, k)); M.setMatrixAt(i, m); });
+        m.compose(new T.Vector3(x, .5 * k, z), q, new T.Vector3(k, k, k)); tr.setMatrixAt(i, m);
+      }
+      meshes.forEach(M => { M.castShadow = true; scene.add(M); }); scene.add(tr);
+      const rockM = new T.MeshStandardMaterial({color: 0x6F7378, roughness: 1, flatShading: true}), snowM = new T.MeshStandardMaterial({color: 0xEEF2F6, roughness: .9, flatShading: true});
+      for (let i = 0; i < 9; i++) {
+        const a = -2.6 + i * .5 + r() * .2, d = 110 + r() * 20, h = 30 + r() * 25, w = 22 + r() * 16;
+        const mt = new T.Mesh(new T.ConeGeometry(w, h, 6), rockM); mt.position.set(Math.cos(a) * d, h / 2 - 2, Math.sin(a) * d); mt.rotation.y = r() * 3; scene.add(mt);
+        const cap = new T.Mesh(new T.ConeGeometry(w * .32, h * .32, 6), snowM); cap.position.set(mt.position.x, h - 2 - h * .16 + .3, mt.position.z); cap.rotation.y = mt.rotation.y; scene.add(cap);
+      }
     }
   }
 
@@ -196,7 +283,34 @@ export function create(host, opts = {}) {
   const clampView = () => {
     view.dist = Math.max(ZMIN, Math.min(ZMAX, view.dist));
     view.tx = Math.max(-PAN, Math.min(PAN, view.tx)); view.tz = Math.max(-PAN, Math.min(PAN, view.tz));
+    if (scene0) inScene();
   };
+  // over the painting, never past its edges: where the screen's corners fall on it, then the view slid back in (or,
+  // run past both sides, brought closer) till they're all on it
+  const RIGHT = new T.Vector3(Math.cos(YAW), 0, -Math.sin(YAW)), AWAY = new T.Vector3(-Math.sin(YAW), 0, -Math.cos(YAW));
+  const PXW = N * Math.SQRT2 * Math.sin(PITCH) / SCENE.lot; // (world a painting px across, about, near the lot)
+  const cRay = new T.Raycaster(), cNdc = new T.Vector2(), cAt = new T.Vector3(), flat = new T.Plane(new T.Vector3(0, 1, 0), 0);
+  function inScene() {
+    let sx0 = 0, sy0 = 0;
+    for (let n = 0; n < 32; n++) {
+      placeCam();
+      let l = 0, r = 0, t = 0, b = 0;
+      for (const [x, y] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+        cRay.setFromCamera(cNdc.set(x, y), cam);
+        if (!cRay.ray.intersectPlane(flat, cAt)) { t = Infinity; continue; }
+        const p = scene0.px(cAt);
+        l = Math.max(l, -p.x); r = Math.max(r, p.x - scene0.w); t = Math.max(t, -p.y); b = Math.max(b, p.y - scene0.h);
+      }
+      if (!(l || r || t || b)) return;
+      if ((l && r) || (t && b) || t === Infinity) { if (view.dist <= ZMIN) return; view.dist = Math.max(ZMIN, view.dist * .94); continue; }
+      // (a slide that sends it past the other side means it's a little too big for the painting: closer, then)
+      const sx = Math.sign(l - r), sy = Math.sign(t - b);
+      if ((sx && sx === -sx0) || (sy && sy === -sy0)) view.dist = Math.max(ZMIN, view.dist * .97);
+      sx0 = sx || sx0; sy0 = sy || sy0;
+      const dx = (l - r + sx) * PXW * .7, dy = (t - b + sy) * PXW / Math.sin(PITCH) * .7;
+      view.tx += RIGHT.x * dx - AWAY.x * dy; view.tz += RIGHT.z * dx - AWAY.z * dy;
+    }
+  }
   let Wd = 1, Hd = 1;
   const resize = () => {
     const w = host.clientWidth || 1, h = host.clientHeight || 1;
@@ -205,6 +319,7 @@ export function create(host, opts = {}) {
     renderer.setSize(w, h, false);
     canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
     cam.aspect = w / h; cam.updateProjectionMatrix();
+    clampView();
     want();
   };
 
