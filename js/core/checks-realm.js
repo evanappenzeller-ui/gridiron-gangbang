@@ -1,6 +1,6 @@
 // The Realm's checks for the dev gallery (#/_kit): that it's the owner's alone (the tab, the screens, the save, his
-// own docs only, the computer's realms the only ones to attack), what the games pay, storage and the coffers, mines and
-// farms, builders and the Keep's limits, training, an attack played out (the same every time), a dragon over walls,
+// own docs only, the computer's realms the only ones to attack or scout), scouting a realm, what the games pay, storage
+// and the coffers, mines and farms, builders and the Keep's limits, training, an attack played out (the same every time), a dragon over walls,
 // the computer's raids on the owner's realm, the cannon and the dragon hatchery, the art the buildings and folk are
 // drawn from, and an old Franchise save taken up as a realm. checks.js imports
 // realmChecks and calls it with its check(name, fn) helper; every fn returns true or {pass, detail}. Nothing here
@@ -16,25 +16,41 @@ const DAY = 24 * F.HOUR;
 export async function realmChecks(check) {
   const [kk, rm, sv] = await Promise.all([import('./kick.js'), import('./return.js'), import('./seventeen.js').then(async m => { await m.load(); return m; })]);
 
-  check('Realm: the owner’s alone: it plays only on his phones (realm.js mayPlay() is data.isOwner()); its tab shows only there, its screens are empty elsewhere and its save refuses; it reads only his own board docs, never LB.all, and attacks only the computer’s realms', async () => {
+  check('Realm: the owner’s alone: it plays only on his phones (realm.js mayPlay() is data.isOwner()); its tab shows only there, its screens are empty elsewhere and its save refuses; it reads only his own board docs, never LB.all, and attacks and scouts only the computer’s realms', async () => {
     const owner = !!data.isOwner();
-    const [app, view, raid] = await Promise.all([import('../app.js'), import('../views/realm.js'), import('../views/realm-raid.js')]);
+    const [app, view, raid, scout] = await Promise.all([import('../app.js'), import('../views/realm.js'), import('../views/realm-raid.js'), import('../views/realm-scout.js')]);
     const may = F.mayPlay() === owner;
     const btn = document.querySelector('#tabbar .tab[data-tab="realm"]');
     const tab = app.ownerTab('realm') && app.TABS.includes('realm') === owner && !!btn && btn.hidden === !owner;
-    const screens = [view.default, raid.default].every(v => /rl-none/.test(v.render()) === !owner);
-    const files = ['../views/realm.js', '../views/realm-raid.js', './realm.js', './realm-battle.js'];
+    const screens = [view.default, raid.default, scout.default].every(v => /rl-none/.test(v.render()) === !owner);
+    const files = ['../views/realm.js', '../views/realm-raid.js', '../views/realm-scout.js', './realm.js', './realm-battle.js'];
     const src = await Promise.all(files.map(f => fetch(new URL(f, import.meta.url)).then(r => r.text())));
     const all = files.filter((f, i) => /LB\.all\b/.test(src[i]));
-    const fl = src[2].slice(src[2].indexOf('export async function flush'));
+    const fl = src[3].slice(src[3].indexOf('export async function flush'));
     const guard = /!mayPlay\(\)[^\n]*\) return false;/.test(fl.slice(0, fl.indexOf('LB.put(')));
     const refused = owner ? 'not tried (the owner’s phone)' : String(await F.flush());
     const others = [{id: 'fx-m', nick: data.me() === 'mason' ? 'Evan' : 'Mason', fr1: F.fresh(T0)}, {id: 'fx-g', nick: 'Zed Q', g: true, fr1: F.fresh(T0)}];
     const mineOnly = F.myDocs(others).length === 0 && (!daily.LB.uid || F.myDocs(others.concat({id: daily.LB.uid, nick: daily.LB.nick})).length === 1);
     const tg = view.targets(T0, F.fresh(T0));
-    const bots = tg.length === F.BOTS.length && tg.every(x => x.k.startsWith('bot:'));
+    const bots = tg.length === F.BOTS.length && tg.every(x => x.k.startsWith('bot:')) && !!F.realmOf('mason', F.fresh(T0)).why;
     const ok = may && tab && screens && !all.length && guard && (owner || refused === 'false') && mineOnly && bots;
     return {pass: ok, detail: `this phone the owner’s: ${owner}; mayPlay ${F.mayPlay()}; tab ${tab}; screens ${screens}; ${all.length ? 'reads LB.all: ' + all.join(', ') : 'LB.raw only'}; save guarded ${guard}, refused here: ${refused}; only his docs ${mineOnly}; attackable ${tg.map(x => x.k).join(',')}`};
+  });
+
+  check('Realm: scouting (views/realm-scout.js, #/realm/scout/<realm>): each of the computer’s realms can be looked round before it’s attacked, the same lot and take the attack meets, its defenses counted, a building’s card saying what it does and holds, a defense’s reach drawn round it; looking changes nothing', async () => {
+    const [app, view, scout] = await Promise.all([import('../app.js'), import('../views/realm.js'), import('../views/realm-scout.js')]);
+    const r = app.__dev.parseRoute('/realm/scout/bot%3A4'), routed = !data.DATA || !data.isOwner() ? true : !!r && r.view === 'realm-scout' && r.open === 'cover';
+    const s = F.fresh(T0), before = JSON.stringify(s);
+    const all = F.BOTS.map(b => ({b, R: F.realmOf(b.k, s, T0)}));
+    const same = all.every(({b, R}) => !R.why && R.name === b.name && R.th === b.th && JSON.stringify(R.base) === JSON.stringify(F.botBase(b.th))
+      && JSON.stringify(R.loot.total) === JSON.stringify(F.botLoot(b, F.botBase(b.th), s, T0).total));
+    const R4 = all[3].R, def = scout.defensesOf(R4.base), counted = def.reduce((a, d) => a + d.n, 0) === R4.base.b.filter(b => F.KINDS[b.t].role === 'def' || b.t === 'wall').length && def.length > 0;
+    const cannon = R4.base.b.find(b => b.t === 'cannon'), facts = cannon ? view.factsOf(cannon).join(' · ') : '';
+    const card = new RegExp(`reach ${F.KINDS.cannon.range}`).test(facts) && /strength/.test(facts);
+    const missing = !!F.realmOf('nowhere', s, T0).why;
+    const untouched = JSON.stringify(s) === before;
+    const ok = routed && same && counted && card && missing && untouched;
+    return {pass: ok, detail: `route ${routed}; every realm the attack’s own ${same}; ${R4.name}: ${def.map(d => `${d.n} ${d.t}`).join(', ')} (${counted}); a cannon: ${facts}; an unknown realm refused ${missing}; nothing changed ${untouched}`};
   });
 
   check('Realm: the games pay in Gold and Grain alike, a day each (the first finished across his phones; Return Man’s best run): Daily Puzzles 400 + 5 a point, 17–0 400 + 150 a win, Kick It 400 + 200 a make (to 15), Return Man 400 + 3 a yard (to 1,000)', () => {

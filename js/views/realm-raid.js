@@ -16,12 +16,7 @@ const ST = new WeakMap();
 let D3 = null;
 
 /** The realm being attacked and what it holds: {key, name, base, loot, th} or {why}. */
-function targetOf(key, now = Date.now()) {
-  const bot = F.BOTS.find(b => b.k === key);
-  if (!bot) return {why: 'That realm isn’t there.'};
-  const base = F.botBase(bot.th);
-  return {key, name: bot.name, base, loot: F.botLoot(bot, base, F.mine(), now), th: bot.th};
-}
+const targetOf = (key, now = Date.now()) => F.realmOf(key, F.mine(), now);
 
 function shellHTML() {
   return `<div class="rl rlr" data-no-swipe>`

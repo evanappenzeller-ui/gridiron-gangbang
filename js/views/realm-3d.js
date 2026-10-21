@@ -703,6 +703,23 @@ export function create(host, opts = {}) {
   grid.material.transparent = true; grid.material.opacity = .16; grid.material.depthWrite = false; grid.position.y = .02; grid.visible = false;
   scene.add(grid);
   const showGrid = on => { grid.visible = !!on; want(); };
+  // ---- a defense's reach (scouting): a pale red disc out to where it hits, a hole where it can't (a trebuchet's
+  // nearest), a firmer line round its edge
+  const reachM = new T.MeshBasicMaterial({color: 0xFF5A48, transparent: true, opacity: .2, depthWrite: false, toneMapped: false, fog: false});
+  const reachDisc = new T.Mesh(new T.RingGeometry(0, 1, 72), reachM);
+  const reachEdge = new T.Mesh(new T.RingGeometry(.975, 1, 96), new T.MeshBasicMaterial({color: 0xFF8A70, transparent: true, opacity: .75, depthWrite: false, toneMapped: false, fog: false}));
+  [reachDisc, reachEdge].forEach(m => { m.rotation.x = -Math.PI / 2; m.position.y = .021; m.visible = false; m.renderOrder = 1; scene.add(m); });
+  /** Shows a reach round tile (x, y): {x, y, out, min} (tiles), or none. */
+  function showReach(r) {
+    reachDisc.visible = reachEdge.visible = !!r;
+    if (r) {
+      reachDisc.geometry.dispose();
+      reachDisc.geometry = new T.RingGeometry(Math.min(r.min || 0, r.out - .1), r.out, 72);
+      reachDisc.position.set(W(r.x), .021, W(r.y));
+      reachEdge.position.set(W(r.x), .022, W(r.y)); reachEdge.scale.set(r.out, r.out, 1);
+    }
+    want();
+  }
 
   // ---- fingers: drag to pan (or to move what onGrab took), pinch or wheel to zoom, tap to pick
   const ptr = new Map();
@@ -1006,9 +1023,11 @@ export function create(host, opts = {}) {
     view.tx = W((x0 + x1) / 2); view.tz = W((y0 + y1) / 2); view.dist = Math.min(d, most);
     clampView(); want();
   };
+  /** Zooms in (k < 1) or out (k > 1) about the middle of the screen. */
+  const zoomBy = k => { view.dist *= k; clampView(); want(); };
   resize(); placeCam(); want();
   return {
-    setLot, select, setGhost, showGrid, pick, tileAt, project, want, setAnim, look, frame: fit, resize,
+    setLot, select, setGhost, showGrid, showReach, pick, tileAt, project, want, setAnim, look, frame: fit, zoomBy, resize,
     raidStart, raidFrame, raidStop, showZone,
     get zoom() { return view.dist; },
     /** Lays scenery theme k round the lot (once it's in). */

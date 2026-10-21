@@ -1,4 +1,5 @@
-// The Realm tab (core/realm.js: the game; views/realm-3d.js: the lot in 3D; views/realm-raid.js: a raid). The owner's
+// The Realm tab (core/realm.js: the game; views/realm-3d.js: the lot in 3D; views/realm-raid.js: a raid;
+// views/realm-scout.js: a look round a realm before you raid it). The owner's
 // alone (data.isOwner(): app.js shows the tab on his phones only, and this screen shows nothing on anyone else's). Your
 // lot fills the screen: a thin strip along the top with your glory, Gold and Grain (as Clash Royale keeps its coins and
 // gems, Oct 2026), under it at the right your house's crest and name (tap it to rename your house) and what's waiting
@@ -152,21 +153,25 @@ function placeTags(st) {
 }
 
 // ---- the selected building's card
-function selHTML(st) {
-  const s = F.mine(), b = s.b.find(x => x.i === st.sel), now = Date.now();
-  if (!b) return '';
-  const K = F.KINDS[b.t], lv = Math.max(1, b.l), sv = F.stat(b.t, lv);
-  const what = [];
+/** What building b is and does at its level (its card's line, yours or one you're scouting): [text]. */
+export function factsOf(b) {
+  const K = F.KINDS[b.t], lv = Math.max(1, b.l), sv = F.stat(b.t, lv), what = [];
   if (K.role === 'make') what.push(`Makes ${nf(sv.rate)} ${F.CUR_NAME[K.makes]} an hour · holds ${nf(sv.hold)}`);
   if (K.role === 'store') what.push(`Holds ${nf(sv.cap)} ${F.CUR_NAME[K.holds]}`);
   if (K.role === 'hall') what.push(`Holds ${nf(sv.store)} of each`);
-  const opens = b.t === 'keep' ? F.SCENERIES.find(x => x.at === lv + 1) : null;
-  if (opens) what.push(`Level ${lv + 1} unlocks the ${opens.name}`);
   if (K.role === 'camp') what.push(`Room for ${sv.room}`);
   if (K.role === 'hatch') what.push(`Room for ${sv.dragons} dragon${sv.dragons === 1 ? '' : 's'}`);
   if (K.role === 'def') what.push(`${nf(sv.dps)} damage a second · reach ${sv.range}${sv.splash ? ' · hits a crowd' : ''}${sv.air ? ' · hits dragons' : ''}`);
   if (K.role === 'train') what.push(`Trains: ${F.TROOP_ORDER.filter(t => F.TROOPS[t].at <= lv).map(t => F.TROOPS[t].name).join(', ')}`);
   what.push(`${nf(sv.hp)} strength`);
+  return what;
+}
+function selHTML(st) {
+  const s = F.mine(), b = s.b.find(x => x.i === st.sel), now = Date.now();
+  if (!b) return '';
+  const K = F.KINDS[b.t], lv = Math.max(1, b.l), what = factsOf(b);
+  const opens = b.t === 'keep' ? F.SCENERIES.find(x => x.at === lv + 1) : null;
+  if (opens) what.splice(1, 0, `Level ${lv + 1} unlocks the ${opens.name}`);
   const job = b.u > now ? `<p class="rl-sel-job">${b.l < 1 ? 'Going up' : `Upgrading to level ${b.l + 1}`} · ${dur(b.u - now)} left</p>` : '';
   const up = F.canUpgrade(s, b.i, now), btns = [];
   if (K.role === 'make' && F.made(b, now) > 0) btns.push(`<button type="button" class="rl-act" data-rl-collect="${b.i}">Collect ${curHTML(K.makes, F.made(b, now))}</button>`);
@@ -282,8 +287,12 @@ function raidSheet(st, ctx) {
       : `<p class="rl-sh-lead">You need an army first: raise barracks and a war camp, then train one (Army).</p>`)
     + targets(Date.now(), s).map(x => `<div class="rl-tg"><span class="rl-tg-lv">${x.th}</span><span class="rl-tg-n"><b>${esc(x.name)}</b>`
       + `<small>${x.loot.gold || x.loot.grain ? `${curHTML('gold', x.loot.gold)} ${curHTML('grain', x.loot.grain)}` : 'Raided today: nothing left to take'}</small></span>`
-      + `<button type="button" class="rl-act is-go rl-tg-go" data-rl-go="${esc(x.k)}" ${army ? '' : 'disabled'}>Attack</button></div>`).join('')});
+      + `<button type="button" class="rl-act rl-tg-go" data-rl-scout="${esc(x.k)}">Scout</button>`
+      + `<button type="button" class="rl-act is-go rl-tg-go" data-rl-go="${esc(x.k)}" ${army ? '' : 'disabled'}>Attack</button></div>`).join('')
+    + `<p class="rl-sh-note">Scout a realm to look round it first: where its towers reach, where its walls run, where its gold and grain are kept.</p>`});
   sh.body.addEventListener('click', e => {
+    const sc = e.target.closest('[data-rl-scout]');
+    if (sc) { sh.close(); ctx.nav('/realm/scout/' + encodeURIComponent(sc.dataset.rlScout)); return; }
     const go = e.target.closest('[data-rl-go]');
     if (!go || go.disabled) return;
     sh.close();

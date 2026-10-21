@@ -56,6 +56,7 @@ export const REGISTRY = {
   lay: () => import('./views/lay.js'),
   realm: () => import('./views/realm.js'),
   'realm-raid': () => import('./views/realm-raid.js'),
+  'realm-scout': () => import('./views/realm-scout.js'),
   _kit: () => import('./views/_kit.js')
 };
 // Every tab, in order. The Realm is the owner's alone (data.isOwner(): the owner's ask, Oct 2026): TABS, the tabs this
@@ -137,10 +138,11 @@ function matchSegs(p, q) {
       return null;
     case 'realm':
       // The Realm (views/realm.js): the owner's alone. On anyone else's phone (once the data says who) its links land on
-      // Daily Games. An attack (views/realm-raid.js) is a cover.
+      // Daily Games. An attack (views/realm-raid.js) and a look round a realm first (views/realm-scout.js) are covers.
       if (data.DATA && !data.isOwner()) return {redirect: '/puzzles', query: false};
       if (n === 1) return R('realm', 'root', 'realm');
       if (n === 3 && b === 'raid' && c) return R('realm-raid', 'cover', 'realm', {key: c});
+      if (n === 3 && b === 'scout' && c) return R('realm-scout', 'cover', 'realm', {key: c});
       return null;
     // ---- Legacy routes (shared links, bookmarks, share texts, notifications): redirected to the new homes.
     case 'today':

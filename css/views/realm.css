@@ -1,6 +1,7 @@
-/* realm.css: the Realm tab (views/realm.js) and an attack (views/realm-raid.js), the owner's alone. The lot (3D) fills
-   the screen; over it a medieval HUD in dark oak and gilt: a thin strip of glory, Gold and Grain, your house's crest
-   and name, the coffers, the builders, the four buttons along the bottom, a selected building's card. The sheets (.sh-rl) live
+/* realm.css: the Realm tab (views/realm.js), an attack (views/realm-raid.js) and a look round a realm first
+   (views/realm-scout.js), the owner's alone. The lot (3D) fills the screen; over it a medieval HUD in dark oak and
+   gilt: a thin strip of glory, Gold and Grain, your house's crest and name, the coffers, the builders, the four buttons
+   along the bottom, a selected building's card. The sheets (.sh-rl) live
    in #overlays. Cinzel (Natanael Gama, SIL Open Font License 1.1) for the names and labels. */
 @font-face {
   font-family: "Cinzel";
@@ -9,8 +10,8 @@
   font-display: swap;
   src: url(../../fonts/cinzel-latin.woff2) format("woff2");
 }
-.screen.v-realm, .screen.v-realm-raid { overflow: hidden; padding: 0; background: #9AAEC0; }
-.v-realm > .screen-body, .v-realm-raid > .screen-body { position: absolute; inset: 0; padding: 0; }
+.screen.v-realm, .screen.v-realm-raid, .screen.v-realm-scout { overflow: hidden; padding: 0; background: #9AAEC0; }
+.v-realm > .screen-body, .v-realm-raid > .screen-body, .v-realm-scout > .screen-body { position: absolute; inset: 0; padding: 0; }
 .rl, .sh-rl {
   --rl-glass: rgba(26,18,12,.78); --rl-line: rgba(232,190,96,.34); --rl-gilt: #E8C268; --rl-gold: #F0C23E; --rl-grain: #A9C55B;
   --rl-wood: linear-gradient(#5E4330, #3B2A1D); --rl-crimson: linear-gradient(#A82A33, #6E1520);
@@ -241,3 +242,22 @@
 .rl .rlr-card .btn.btn-primary, .sheet.sh-rl .btn.btn-primary { background: linear-gradient(#E6BE58, #B58424); color: #2A1B08; font-family: var(--rl-face); font-weight: 700; letter-spacing: .04em;
   --ink-c: #2A1B08; --bevel: #6E4C12; box-shadow: inset 0 1px 0 rgba(255,250,220,.55), 0 4px 0 #6E4C12; }
 .rl .rlr-card .btn.btn-primary.is-pressed, .sheet.sh-rl .btn.btn-primary.is-pressed { transform: translateY(3px); filter: none; box-shadow: inset 0 1px 0 rgba(255,250,220,.55), 0 1px 0 #6E4C12; }
+
+/* ---- a look round a realm before you attack it */
+.sh-rl .rl-tg [data-rl-scout] { padding: 0 12px; }
+.rlr-quit.is-back { background: var(--rl-glass); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px var(--rl-line); }
+.rls-def { position: absolute; top: calc(var(--sa-t, 0px) + 58px); left: 10px; right: 10px; display: flex; flex-wrap: wrap; gap: 6px; pointer-events: none; }
+.rls-chip { padding: 5px 10px; border-radius: 999px; background: var(--rl-glass); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px var(--rl-line);
+  font: 700 12px/1.1 var(--font-text); color: rgba(247,238,221,.9); white-space: nowrap; }
+.rls-zoom { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 6px; }
+.rls-zoom button { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 10px; background: var(--rl-glass); color: #F7EEDD; cursor: pointer;
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px var(--rl-line); font: 700 24px/1 var(--rl-face); }
+.rls-zoom button.is-all { font-size: 13px; letter-spacing: .04em; }
+.rls-zoom button:active { transform: translateY(2px); }
+.rls .rl-sel { bottom: max(12px, var(--sa-b, 0px)); }
+.rls-bar { position: absolute; left: 10px; right: 10px; bottom: max(12px, var(--sa-b, 0px)); display: flex; flex-direction: column; gap: 8px; }
+.rls-bar[hidden] { display: none; }
+.rls-hint { align-self: center; margin: 0; padding: 5px 12px; border-radius: 999px; background: var(--rl-glass); font: 600 12px/1.2 var(--font-text); color: rgba(247,238,221,.82); text-align: center; }
+.rls-bar .rl-btn { width: 100%; }
+.rls-bar .rl-btn[disabled] { opacity: .6; cursor: default; }
+.rls-bar .rl-btn em { position: static; font-size: 11px; }

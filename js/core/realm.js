@@ -647,6 +647,15 @@ export function botLoot(bot, base, mine, now = Date.now()) {
   return {by, total};
 }
 
+/** A realm you can scout or attack, by its key: {key, name, th, base, loot} or {why}. The computer's, for now (the
+ *  Realm is the owner's alone: no one else's realm is anywhere in it). */
+export function realmOf(key, mine, now = Date.now()) {
+  const bot = BOTS.find(b => b.k === key);
+  if (!bot) return {why: 'That realm isn’t there.'};
+  const base = botBase(bot.th);
+  return {key, name: bot.name, th: bot.th, base, loot: botLoot(bot, base, mine, now)};
+}
+
 // ---------------------------------------------------------------------------------------------------- the owner's
 const LS = 'gg-fr1';
 // PROVISIONAL: this phone started a new realm before the board said whether the owner has one (a new phone, a cleared
