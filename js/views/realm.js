@@ -1,10 +1,9 @@
 // The Realm tab (core/realm.js: the game; views/realm-3d.js: the lot in 3D; views/realm-raid.js: a raid;
 // views/realm-scout.js: a look round a realm before you raid it). The owner's
 // alone (data.isOwner(): app.js shows the tab on his phones only, and this screen shows nothing on anyone else's). Your
-// lot fills the screen: a thin strip along the top with your glory, Gold and Grain (as Clash Royale keeps its coins and
-// gems, Oct 2026), under it at the right your house's crest and name (tap it to rename your house) and what's waiting
-// in your coffers, at the left your builder (one job at a time); along the bottom Attack, Army, Build and
-// the Chronicle. Tap a building for what it is and to upgrade, move or collect it (a mine or farm with something in
+// lot fills the screen: at the top left your house's crest and name (tap it to rename your house), at the top right
+// Gold and Grain (tap one for the coffers, what your games paid that's waiting for room) and nothing else (Oct 2026);
+// along the bottom Attack, Army, Build and the Chronicle. Tap a building for what it is and to upgrade, move or collect it (a mine or farm with something in
 // it collects at a tap); Build puts what you pick on the lot to drag where it goes. When you come back after the
 // computer's realms have raided you, what they did is the first thing you see.
 import * as ui from '../core/ui.js';
@@ -84,14 +83,9 @@ function shellHTML() {
     + `<div class="rl-gl" aria-hidden="true"><div class="rl-loading">Riding out to your realm…</div></div>`
     + `<div class="rl-tags" aria-hidden="true"></div>`
     + `<div class="rl-top">`
-    + `<div class="rl-left">`
-    + `<button type="button" class="rl-me" data-rl-house aria-label="Your house"><span class="rl-crest" data-rl-lv>1</span><span class="rl-me-t"><b data-rl-name></b><small data-rl-land></small></span></button>`
-    + `<div class="rl-glory" aria-label="Glory"><i class="rl-crown" aria-hidden="true"></i><b data-rl-tp>0</b></div>`
-    + `<div class="rl-builders" data-rl-builders></div>`
-    + `</div>`
+    + `<button type="button" class="rl-me" data-rl-house aria-label="Your house"><span class="rl-crest" data-rl-lv>1</span><b data-rl-name></b></button>`
     + `<div class="rl-res">`
-    + F.CUR.map(c => `<div class="rl-cur is-${c}" data-rl-cur="${c}"><span class="rl-curb"><i data-rl-f></i></span><b data-rl-n>0</b><i class="rl-coin" aria-hidden="true"></i></div>`).join('')
-    + `<button type="button" class="rl-office" data-rl-coffers></button>`
+    + F.CUR.map(c => `<button type="button" class="rl-cur is-${c}" data-rl-cur="${c}"><span class="rl-curb"><i data-rl-f></i></span><b data-rl-n>0</b><i class="rl-coin" aria-hidden="true"></i></button>`).join('')
     + `</div></div>`
     + `<div class="rl-sel" data-rl-sel hidden></div>`
     + `<div class="rl-bar" data-rl-bar>`
@@ -103,24 +97,17 @@ function shellHTML() {
 }
 
 function hud(st) {
-  const s = F.mine(), now = Date.now(), cap = F.capOf(s), el = st.el;
+  const s = F.mine(), cap = F.capOf(s), el = st.el;
   el.querySelector('[data-rl-lv]').textContent = F.keepOf(s);
   el.querySelector('[data-rl-name]').textContent = houseName(s);
-  el.querySelector('[data-rl-land]').textContent = (F.SCENERIES.find(x => x.k === F.sceneryOf(s)) || F.SCENERIES[0]).name;
-  el.querySelector('[data-rl-tp]').textContent = nf(s.tp);
   F.CUR.forEach(c => {
     const box = el.querySelector(`[data-rl-cur="${c}"]`);
     box.querySelector('[data-rl-n]').textContent = nf(s.r[c]);
     box.querySelector('[data-rl-f]').style.width = `${Math.min(100, s.r[c] / Math.max(1, cap[c]) * 100).toFixed(1)}%`;
-    box.setAttribute('aria-label', `${c === 'gold' ? 'Gold' : 'Grain'}: ${nf(s.r[c])} of ${nf(cap[c])}`);
+    box.setAttribute('aria-label', `${c === 'gold' ? 'Gold' : 'Grain'}: ${nf(s.r[c])} of ${nf(cap[c])}; the coffers`);
     box.title = `${nf(s.r[c])} of ${nf(cap[c])}`;
     box.classList.toggle('is-full', s.r[c] >= cap[c]);
   });
-  const p = F.pending(s, EARNED.total), off = el.querySelector('[data-rl-coffers]');
-  off.innerHTML = p.gold > 0 || p.grain > 0 ? `<span class="rl-oft">Coffers</span>${curHTML('gold', p.gold)}${curHTML('grain', p.grain)}<span class="rl-ofn">waiting for room</span>`
-    : `<span class="rl-oft">Coffers</span><span class="rl-ofn">Your games pay into them</span>`;
-  const co = F.builders(s, now), next = Math.min(...s.b.filter(b => b.u > now).map(b => b.u));
-  el.querySelector('[data-rl-builders]').innerHTML = `<span class="rl-hammer" aria-hidden="true"></span>Builder <b>${co.free ? 'free' : `busy · ${dur(next - now)}`}</b>${s.sh > now ? ` <span class="rl-truce">· truce ${dur(s.sh - now)}</span>` : ''}`;
   const army = F.roomOf(s.ar), room = F.armyRoom(s);
   el.querySelector('[data-rl-armyn]').textContent = room ? `${army}/${room}` : '';
 }
@@ -241,11 +228,12 @@ function defenses(st) {
 
 // ---------------------------------------------------------------------------------------------------- sheets
 function cofferSheet() {
-  const s = F.mine(), p = F.pending(s, EARNED.total);
+  const s = F.mine(), p = F.pending(s, EARNED.total), cap = F.capOf(s);
   const rows = Object.keys(F.GAME_NAME).map(g => `<div class="rl-row"><span>${esc(F.GAME_NAME[g])}</span><span class="rl-row-v">${EARNED.today[g] ? `<em>+${nf(EARNED.today[g])} today</em>` : ''}${nf(EARNED.by[g] || 0)}</span></div>`).join('');
   ui.openSheet({title: 'The coffers', cls: 'sh-rl', detents: ['large'], body:
     `<p class="rl-sh-lead">Every daily game you play pays your realm, in Gold and Grain alike. It waits in your coffers, safe from raiders, and moves into your Keep, treasuries and granaries as they have room.</p>`
     + `<div class="rl-sh-big">${curHTML('gold', p.gold)}${curHTML('grain', p.grain)}<small>waiting now</small></div>`
+    + `<h3 class="rl-sh-h">In store</h3><div class="rl-rows">${F.CUR.map(c => `<div class="rl-row"><span>${c === 'gold' ? 'Gold' : 'Grain'}</span><span class="rl-row-v">${nf(s.r[c])} of ${nf(cap[c])}</span></div>`).join('')}</div>`
     + `<h3 class="rl-sh-h">This season, of each</h3><div class="rl-rows">${rows}<div class="rl-row is-sum"><span>All told</span><span class="rl-row-v">${nf(EARNED.total)}</span></div></div>`
     + `<p class="rl-sh-note">A day’s pay: Daily Puzzles 400 plus 5 a point · 17–0 400 plus 150 a win (500 more for 17–0) · Two-Minute Drill 3,000 a win, 2,000 a tie, 1,000 a loss · Kick It 400 plus 200 a make (up to 15) · Return Man 400 plus 3 a yard (up to 1,000). More room: upgrade your treasuries, granaries and Keep.</p>`});
 }
@@ -513,12 +501,11 @@ export default {
     el.addEventListener('click', e => {
       const t = e.target;
       if (t.closest('[data-rl-collect]')) { collectOne(st, +t.closest('[data-rl-collect]').dataset.rlCollect); return; }
-      if (t.closest('[data-rl-coffers]')) { cofferSheet(); return; }
+      if (t.closest('[data-rl-cur]')) { cofferSheet(); return; }
       if (t.closest('[data-rl-army]')) { armySheet(st); return; }
       if (t.closest('[data-rl-shop]')) { shopSheet(st); return; }
       if (t.closest('[data-rl-log]')) { logSheet(); return; }
       if (t.closest('[data-rl-house]')) { houseSheet(st); return; }
-      if (t.closest('[data-rl-cur]')) { ui.toast(t.closest('[data-rl-cur]').getAttribute('aria-label'), {icon: 'info'}); return; }
       if (t.closest('[data-rl-raid]')) { raidSheet(st, ctx); return; }
       if (t.closest('[data-rl-unsel]')) { select(st, null); return; }
       if (t.closest('[data-rl-cancel]')) { endPlace(st); return; }

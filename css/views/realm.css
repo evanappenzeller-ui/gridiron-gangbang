@@ -1,7 +1,8 @@
 /* realm.css: the Realm tab (views/realm.js), an attack (views/realm-raid.js) and a look round a realm first
    (views/realm-scout.js), the owner's alone. The lot (3D) fills the screen; over it a medieval HUD in dark oak and
-   gilt: your house's crest and name, glory and the builders at the top left, Gold, Grain and the coffers at the top
-   right, the four buttons along the bottom, a selected building's card. The sheets (.sh-rl) live in #overlays. Cinzel (Natanael Gama, SIL Open Font License 1.1) for the names and labels. */
+   gilt: your house's crest and name at the top left, Gold and Grain at the top right, the four buttons along the
+   bottom, a selected building's card. The sheets (.sh-rl) live in #overlays. Cinzel (Natanael Gama, SIL Open Font
+   License 1.1) for the names and labels. */
 @font-face {
   font-family: "Cinzel";
   font-style: normal;
@@ -39,57 +40,37 @@
 .rl-crown { display: inline-block; flex: none; width: 1.1em; height: .85em; vertical-align: -.08em; background: linear-gradient(#FFE9A3, #E0A92B);
   clip-path: polygon(0 22%, 26% 58%, 50% 0, 74% 58%, 100% 22%, 90% 100%, 10% 100%); }
 
-/* ---- the top, as Clash of Clans lays it (Oct 2026): your house at the left (the crest with the Keep level riding the
-   name's strip, the land under the name), glory under it, then the builders; Gold and Grain stacked at the right, each
-   a bar filled for how full it is with its coin or sack at the end (red when full; tap one for how much of how much),
-   the coffers under them. It all starts under iOS 26's frosted band below the status bar (the system draws it over
-   the page, about the status bar's height again, up to 44px), which blurred a strip laid any higher: --rl-hud-t. */
+/* ---- the top, compact (Oct 2026): your house at the left (the crest with the Keep level riding the name's strip; tap
+   it to rename your house), Gold and Grain stacked at the right, each a bar filled for how full it is with its coin or
+   sack over the end (red when full; tap one for the coffers), and nothing else. It starts under iOS 26's frosted band
+   below the status bar (the system draws it over the page, about the status bar's height again, up to 44px), which
+   blurred a strip laid any higher: --rl-hud-t. */
 .rl { --rl-hud-t: max(8px, calc(var(--sa-t, 0px) + min(44px, var(--sa-t, 0px)))); }
-.rl-top { position: absolute; top: var(--rl-hud-t); left: 10px; right: 10px; display: flex; align-items: flex-start; gap: 10px; pointer-events: none; }
-.rl-top > * > * { pointer-events: auto; }
-.rl-left { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 7px; }
-.rl-res { flex: none; width: clamp(138px, 42%, 178px); display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
-.rl-me { display: flex; align-items: center; max-width: 100%; padding: 0; border: 0; background: none; color: #F7EEDD; text-align: left; cursor: pointer; }
-.rl-me > .rl-crest { z-index: 1; width: 40px; height: 46px; padding-bottom: 6px; font-size: 18px; filter: drop-shadow(0 2px 3px rgba(0,0,0,.5)); }
-.rl-me-t { min-width: 0; display: flex; flex-direction: column; gap: 3px; margin-left: -12px; padding: 5px 12px 6px 18px; border-radius: 0 10px 10px 0; background: var(--rl-glass);
-  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px var(--rl-line); }
-.rl-me-t b { font: 700 14px/1.1 var(--rl-face); letter-spacing: .03em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
-.rl-me-t small { font: 600 11px/1.1 var(--font-text); letter-spacing: .04em; text-transform: uppercase; color: rgba(247,238,221,.68); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rl-top { position: absolute; top: var(--rl-hud-t); left: 10px; right: 10px; display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; pointer-events: none; }
+.rl-top > *, .rl-res > * { pointer-events: auto; }
+.rl-me { flex: 0 1 auto; min-width: 0; display: flex; align-items: center; padding: 0; border: 0; background: none; color: #F7EEDD; text-align: left; cursor: pointer; }
+.rl-me > .rl-crest { z-index: 1; width: 28px; height: 33px; padding-bottom: 5px; font-size: 14px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
+.rl-me > .rl-crest::after { inset: 2px 2px 2.5px; }
+.rl-me > b { min-width: 0; margin-left: -9px; padding: 6px 10px 6px 14px; border-radius: 0 8px 8px 0; background: var(--rl-glass);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px var(--rl-line);
+  font: 700 13px/1.1 var(--rl-face); letter-spacing: .03em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
 .rl-crest, .rl-tg-lv { position: relative; isolation: isolate; flex: none; display: grid; place-items: center; width: 38px; height: 44px; padding-bottom: 6px;
   font: 800 19px/1 var(--rl-face); color: #FBE39A; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
 .rl-crest::before, .rl-crest::after, .rl-tg-lv::before, .rl-tg-lv::after { content: ""; position: absolute; z-index: -1;
   clip-path: polygon(0 0, 100% 0, 100% 50%, 92% 70%, 75% 86%, 50% 100%, 25% 86%, 8% 70%, 0 50%); }
 .rl-crest::before, .rl-tg-lv::before { inset: 0; background: linear-gradient(#FBE2A0, #B98A2C); }
 .rl-crest::after, .rl-tg-lv::after { inset: 2.5px 2.5px 3px; background: var(--rl-crimson); }
-.rl-glory { display: flex; align-items: center; gap: 7px; height: 28px; padding: 0 12px 0 8px; border-radius: 9px; background: var(--rl-glass);
-  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px var(--rl-line); }
-.rl-glory > .rl-crown { width: 22px; height: 17px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.55)); }
-.rl-glory b { font: 700 15px/1 var(--rl-face); font-variant-numeric: tabular-nums lining-nums; color: #FBE39A; text-shadow: 0 1px 2px rgba(0,0,0,.7); }
+.rl-res { flex: none; width: clamp(116px, 34%, 146px); display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding-right: 5px; }
 /* a store: the bar (filled for how full), the amount at its right, the coin or sack over its end */
-.rl-cur { position: relative; display: flex; align-items: center; justify-content: flex-end; height: 28px; margin-right: 6px; padding: 0 30px 0 8px; border-radius: 8px; background: var(--rl-glass);
+.rl-cur { position: relative; display: flex; align-items: center; justify-content: flex-end; height: 24px; padding: 0 24px 0 8px; border: 0; border-radius: 7px; background: var(--rl-glass); color: #F7EEDD;
   -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px var(--rl-line); cursor: pointer; }
-.rl-curb { position: absolute; inset: 2px; border-radius: 6px; overflow: hidden; }
+.rl-curb { position: absolute; inset: 2px; border-radius: 5px; overflow: hidden; }
 .rl-curb > i { display: block; height: 100%; background: linear-gradient(rgba(240,194,62,.5), rgba(168,116,18,.42)); transition: width .4s ease; }
 .is-grain .rl-curb > i { background: linear-gradient(rgba(190,214,104,.48), rgba(95,122,40,.42)); }
-.rl-cur > b { position: relative; font: 700 15px/1 var(--rl-face); font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; text-shadow: 0 1px 2px rgba(0,0,0,.8); }
-.rl-cur > .rl-coin { position: absolute; right: -8px; top: 50%; width: 34px; height: 34px; margin-top: -17px; font-size: 34px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.55)); }
+.rl-cur > b { position: relative; font: 700 13px/1 var(--rl-face); font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; text-shadow: 0 1px 2px rgba(0,0,0,.8); }
+.rl-cur > .rl-coin { position: absolute; right: -6px; top: 50%; width: 28px; height: 28px; margin-top: -14px; font-size: 28px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.55)); }
 .rl-cur.is-full { box-shadow: inset 0 0 0 1px rgba(255,140,120,.8); }
 .rl-cur.is-full > b { color: #FFB4A8; }
-@media (max-width: 360px) { .rl-cur > b, .rl-glory b { font-size: 13px; } .rl-me-t b { font-size: 13px; } }
-
-/* ---- the coffers (what the games paid, waiting for room), the builders */
-.rl-office { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 2px 8px; margin-right: 6px;
-  padding: 6px 10px; border: 0; border-radius: 10px; background: rgba(26,18,12,.66); color: #F7EEDD; font: 700 13px/1.2 var(--font-text); text-align: right;
-  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px var(--rl-line); cursor: pointer; }
-.rl-office .rl-amt + .rl-amt { margin-left: 0; }
-.rl-oft { width: 100%; font: 700 11px/1.2 var(--rl-face); letter-spacing: .14em; text-transform: uppercase; color: var(--rl-gilt); }
-.rl-ofn { width: 100%; font: 500 11px/1.2 var(--font-text); color: rgba(247,238,221,.62); }
-.rl-builders { display: flex; align-items: center; gap: 6px; padding: 6px 11px; border-radius: 10px;
-  background: rgba(26,18,12,.66); font: 600 13px/1 var(--font-text); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px var(--rl-line); pointer-events: none !important; }
-.rl-builders b { font-weight: 800; font-variant-numeric: tabular-nums; }
-.rl-hammer { width: 13px; height: 14px; background: linear-gradient(#E9E2D2, #9C927F 55%, #7A5434 56%, #5A3C22);
-  clip-path: polygon(0 0, 100% 0, 100% 38%, 62% 38%, 62% 100%, 38% 100%, 38% 38%, 0 38%); }
-.rl-truce { color: #A9E0A0; font-weight: 700; }
 
 /* ---- over the buildings: a job's clock, a mine's or farm's take */
 .rl-tag.is-job { width: 74px; margin: -14px 0 0 -37px; padding: 3px 4px 4px; border-radius: 6px; background: rgba(26,18,12,.84); text-align: center;
