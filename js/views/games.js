@@ -503,10 +503,14 @@ export function mountList(el, ctx, opts = {}) {
     ui.hydrate(z);
     const dlg = z.querySelector('.gm-z-dlg'), stage = z.querySelector('.gm-z-stage'), app = document.getElementById('app');
     const lidBtn = z.querySelector('[data-gm-zlid]'), hint = z.querySelector('[data-gm-zhint]'), goBtn = z.querySelector('[data-gm-zgo]');
-    // what the case can do now: open (facing front), close (open), neither (turned away); Start only while it's open
+    const turnBtn = z.querySelector('[data-gm-zturn]');
+    // what the case can do now: open (facing front), close (open), neither (turned away); Start only while it's open.
+    // Open, the one button under it is a small red Close Case (the owner's ask, Oct 2026)
     const said = ({front, open}) => {
       lidBtn.disabled = !open && !front;
-      lidBtn.querySelector('.btn-label').textContent = open ? 'Close the case' : 'Open the case';
+      lidBtn.querySelector('.btn-label').textContent = open ? 'Close Case' : 'Open the case';
+      lidBtn.classList.toggle('is-close', open);
+      if (turnBtn) turnBtn.hidden = open;
       hint.textContent = hints[open ? 'open' : front ? 'front' : 'back'];
       if (goBtn) goBtn.disabled = !open;
     };

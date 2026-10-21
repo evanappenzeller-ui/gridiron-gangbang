@@ -478,6 +478,10 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
 .gm-z-ctl { display: flex; gap: 10px; }
 .gm-z-ctl .btn { background: rgba(255,255,255,.12); color: #fff; box-shadow: none; }
 .gm-z-ctl .btn:disabled { opacity: .38; }
+.gm-z-ctl .btn[hidden] { display: none; }
+/* open: a small red Close Case (over every skin's button: css/themes.css draws .btn-secondary itself) */
+.gm-zoom .gm-z-ctl .btn.is-close { background: #D3263A; color: #fff; box-shadow: 0 2px 10px rgba(211,38,58,.35), inset 0 1px 0 rgba(255,255,255,.25); }
+.gm-zoom .gm-z-ctl .btn.is-close:active, .gm-zoom .gm-z-ctl .btn.is-close.is-pressed { background: #B01D2F; }
 .gm-z-hint { margin: -4px 0 0; max-width: 300px; padding: 0 16px; text-align: center; font: 500 13px/1.35 var(--font-text); color: rgba(238,240,244,.62); }
 
 /* ---- Under the shelf: the game you're on */
