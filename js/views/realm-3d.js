@@ -14,7 +14,7 @@
 // load() → true when three.js is in and this phone has WebGL; create(host, opts) → the view (see its methods).
 import * as FM from './realm-models.js';
 import * as SPR from './realm-sprites.js';
-import {KINDS, TROOPS, N} from '../core/realm.js';
+import {KINDS, TROOPS, N, EDGE} from '../core/realm.js';
 const V = new URL('../vendor/three/', import.meta.url).href;
 let T = null, RE = null, LOADING = null, DEAD = false;
 // The scenery's two shapes, each its own landscape, placements and lot (its layout's lot: where the lot lies in it, px:
@@ -150,6 +150,20 @@ function puffTexture(T) {
   return t;
 }
 
+function plotTexture(T, B) {
+  // the base: mown grass, a tile each in a faint check (lighter and darker by turns), worn a little, a darker line at
+  // its edge under the kerb
+  const px = 32, cv = document.createElement('canvas'); cv.width = cv.height = B * px;
+  const g = cv.getContext('2d');
+  let s = 13;
+  const r = () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
+  for (let y = 0; y < B; y++) for (let x = 0; x < B; x++) { g.fillStyle = (x + y) % 2 ? '#8DA73A' : '#97B142'; g.fillRect(x * px, y * px, px, px); }
+  for (let i = 0; i < 60; i++) { const x = r() * B * px, y = r() * B * px, R = 30 + r() * 90, gr = g.createRadialGradient(x, y, 0, x, y, R); gr.addColorStop(0, r() < .5 ? 'rgba(110,130,30,.22)' : 'rgba(180,190,90,.18)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(x - R, y - R, 2 * R, 2 * R); }
+  for (let i = 0; i < 9000; i++) { g.fillStyle = `rgba(${r() < .5 ? '70,95,20' : '190,200,100'},${.06 + r() * .1})`; g.fillRect(r() * B * px, r() * B * px, 1 + r() * 2, 1 + r() * 2); }
+  g.strokeStyle = 'rgba(60,70,20,.45)'; g.lineWidth = 6; g.strokeRect(3, 3, B * px - 6, B * px - 6);
+  const t = new T.CanvasTexture(cv); t.colorSpace = T.SRGBColorSpace; t.anisotropy = 8;
+  return t;
+}
 function bladesTexture(T) {
   // the painted meadow close up: short blades in its own dark and sunlit greens on nothing (it tiles)
   const cv = document.createElement('canvas'); cv.width = cv.height = 256;
@@ -273,7 +287,7 @@ export function create(host, opts = {}) {
   Object.assign(sun.shadow.camera, {left: -24, right: 24, top: 24, bottom: -24, near: 1, far: 90});
   scene.add(sun, sun.target);
 
-  // ---- the ground: the scenery, the lot on its meadow (only the buildings' shadows drawn over it); or, without it,
+  // ---- the ground: the scenery, the lot on its meadow; or, without it,
   // grass all round, a moat round the lot (a stone lip each side), the lot, pines and mountains
   let scene0 = null, sceneG = null;
   const shape0 = shapeOf(host.clientWidth || innerWidth, host.clientHeight || innerHeight);
@@ -292,17 +306,6 @@ export function create(host, opts = {}) {
   if (first) setScenery(first);
   if (scene0) {
     scene.background.set(0x16202A); // (never seen: the camera stays over it)
-    // blades over the lot, so it's grass close up too, fading out the last few tiles to its edge
-    const geo = new T.PlaneGeometry(N, N, 24, 24), at = geo.attributes.position, rgba = [];
-    for (let i = 0; i < at.count; i++) rgba.push(1, 1, 1, Math.max(0, Math.min(1, (N / 2 - Math.max(Math.abs(at.getX(i)), Math.abs(at.getY(i)))) / 4)));
-    geo.setAttribute('color', new T.Float32BufferAttribute(rgba, 4));
-    const blades = new T.Mesh(geo, new T.MeshBasicMaterial({map: bladesTexture(T), vertexColors: true, transparent: true, depthWrite: false, toneMapped: false, fog: false}));
-    blades.material.map.repeat.set(N / 2, N / 2);
-    blades.rotation.x = -Math.PI / 2; blades.position.y = .001; blades.renderOrder = -2000;
-    scene.add(blades);
-    const shade = new T.Mesh(new T.PlaneGeometry(N + 6, N + 6), new T.ShadowMaterial({opacity: .32}));
-    shade.rotation.x = -Math.PI / 2; shade.position.y = .002; shade.receiveShadow = true; shade.renderOrder = -2000;
-    scene.add(shade);
   } else {
     const grass = new T.Mesh(new T.PlaneGeometry(260, 260), new T.MeshStandardMaterial({map: grassTexture(T), roughness: 1}));
     grass.material.map.repeat.set(60, 60);
@@ -317,7 +320,7 @@ export function create(host, opts = {}) {
     ringAt(N / 2 + .3, N / 2 + .9, .005, new T.MeshStandardMaterial({color: 0x8E887E, roughness: .9}));
     ringAt(N / 2 + 3.1, N / 2 + 3.6, .005, new T.MeshStandardMaterial({color: 0x8E887E, roughness: .9}));
     const lot = new T.Mesh(new T.PlaneGeometry(N, N), new T.MeshStandardMaterial({map: lotTexture(T), roughness: .95}));
-    lot.rotation.x = -Math.PI / 2; lot.receiveShadow = true;
+    lot.rotation.x = -Math.PI / 2; // (the shadows on it: the base's, below)
     scene.add(lot);
     // pines round the outside (a few tiers each), mountains far off with snow on top
     {
@@ -339,6 +342,28 @@ export function create(host, opts = {}) {
         const cap = new T.Mesh(new T.ConeGeometry(w * .32, h * .32, 6), snowM); cap.position.set(mt.position.x, h - 2 - h * .16 + .3, mt.position.z); cap.rotation.y = mt.rotation.y; scene.add(cap);
       }
     }
+  }
+
+  // ---- the base: a clear square cut out of the meadow, where everything's built and moved about (the lot inside its
+  // EDGE: core/realm.js fits()), its grass mown in a faint check a tile each, short blades over it close up, a low stone
+  // kerb round it
+  {
+    const B = N - 2 * EDGE;
+    const plot = new T.Mesh(new T.PlaneGeometry(B, B), new T.MeshBasicMaterial({map: plotTexture(T, B), toneMapped: false, fog: false}));
+    plot.rotation.x = -Math.PI / 2; plot.position.y = .006;
+    const blades = new T.Mesh(new T.PlaneGeometry(B, B), new T.MeshBasicMaterial({map: bladesTexture(T), transparent: true, depthWrite: false, toneMapped: false, fog: false}));
+    blades.material.map.repeat.set(B / 2, B / 2);
+    blades.rotation.x = -Math.PI / 2; blades.position.y = .009; blades.renderOrder = -2001;
+    const kerbM = new T.MeshStandardMaterial({color: 0xB4AA94, roughness: .9}), w = .26, hgt = .14;
+    [[0, -1], [0, 1], [-1, 0], [1, 0]].forEach(([sx, sz]) => {
+      const k = new T.Mesh(new T.BoxGeometry(sx ? w : B + 2 * w, hgt, sz ? w : B + 2 * w), kerbM);
+      k.position.set(sx * (B + w) / 2, hgt / 2, sz * (B + w) / 2); k.receiveShadow = true;
+      scene.add(k);
+    });
+    // (the buildings' shadows over it all, the base and the scenery round it)
+    const shade = new T.Mesh(new T.PlaneGeometry(N + 6, N + 6), new T.ShadowMaterial({opacity: .32}));
+    shade.rotation.x = -Math.PI / 2; shade.position.y = .016; shade.receiveShadow = true; shade.renderOrder = -2000;
+    scene.add(plot, blades, shade);
   }
 
   // ---- the camera: looking down across the lot corner-on

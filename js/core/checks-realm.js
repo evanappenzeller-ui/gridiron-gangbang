@@ -84,6 +84,23 @@ export async function realmChecks(check) {
     return {pass: ok, detail: `treasury ${!!built}; then: ${busy}; 2nd hut ${!!hut}, builders ${JSON.stringify(two)}, granary ${granary}; mine: ${mine}; ballista 3: ${gate}; wall at 1: ${wall}; at 2: ${wb ? 'up at once' : 'no'}`};
   });
 
+  check('Realm: the base: everything stands inside it (EDGE tiles in from the lot’s sides) and nothing overlaps: building or moving onto taken ground, part of it, or off the base is refused, onto clear ground anywhere on it is fine; a save with two on the same ground (or one off the base) is laid out clear when it’s taken up', () => {
+    const s = F.fresh(T0), keep = s.b.find(b => b.t === 'keep'), K = F.KINDS.keep.size;
+    s.r.gold = s.r.grain = 99999;
+    const onKeep = !F.fits(s, 3, keep.x, keep.y) && !F.fits(s, 1, keep.x + K - 1, keep.y + K - 1) && !F.fits(s, 3, keep.x - 2, keep.y - 2);
+    const off = !F.fits(s, 1, F.EDGE - 1, F.EDGE) && !F.fits(s, 1, F.N - F.EDGE, F.EDGE) && !F.fits(s, 3, F.EDGE, F.N - F.EDGE - 2);
+    const corner = F.fits(s, 1, F.EDGE, F.EDGE) && F.fits(s, 1, F.N - F.EDGE - 1, F.N - F.EDGE - 1);
+    const refused = !F.build(s, 'treasury', keep.x + 1, keep.y + 1, T0);
+    const t = F.build(s, 'treasury', F.EDGE, F.EDGE, T0), moved = !!t && !F.move(s, t.i, keep.x, keep.y) && F.move(s, t.i, F.N - F.EDGE - F.KINDS.treasury.size, F.EDGE);
+    const clear = b => b.every(a => a.x >= F.EDGE && a.y >= F.EDGE && a.x + F.KINDS[a.t].size <= F.N - F.EDGE && a.y + F.KINDS[a.t].size <= F.N - F.EDGE
+      && b.every(c => c === a || !(a.x < c.x + F.KINDS[c.t].size && c.x < a.x + F.KINDS[a.t].size && a.y < c.y + F.KINDS[c.t].size && c.y < a.y + F.KINDS[a.t].size)));
+    const bad = JSON.parse(JSON.stringify(s));
+    bad.b.forEach(b => { if (b.t !== 'keep') { b.x = keep.x; b.y = keep.y; } });
+    bad.b.push({i: 999, t: 'wall', l: 1, x: 0, y: 0, u: 0});
+    const fixed = F.clean(bad), kept = fixed && fixed.b.length === bad.b.length && clear(fixed.b) && fixed.b.find(b => b.t === 'keep').x === keep.x;
+    return {pass: onKeep && off && corner && refused && moved && kept && clear(s.b), detail: `onto the Keep refused ${onKeep}; off the base refused ${off}; its corners fine ${corner}; a build on the Keep refused ${refused}; a move onto it refused, to a clear corner fine ${moved}; a save piled on the Keep and off the base: ${fixed ? `${fixed.b.length} of ${bad.b.length} kept, ${kept ? 'laid out clear, the Keep where it was' : 'NOT clear'}` : 'not taken up'}`};
+  });
+
   check('Realm: the army trains one at a time with Grain (a footman 5 s at one barracks), into the war camps’ room; a full camp takes no more; one taken out of training gives its Grain back', () => {
     const s = F.fresh(T0);
     s.b.push({i: 50, t: 'barracks', l: 1, x: 3, y: 3, u: 0}, {i: 51, t: 'camp', l: 1, x: 3, y: 9, u: 0});

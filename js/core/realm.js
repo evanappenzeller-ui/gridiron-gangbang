@@ -275,6 +275,15 @@ export function clean(s) {
     .filter(b => b && KINDS[b.t] && Number.isInteger(b.x) && Number.isInteger(b.y))
     .map(b => ({i: num(b.i), t: b.t, l: Math.max(0, Math.min(maxLevel(b.t), num(b.l) | 0)), x: b.x, y: b.y, u: num(b.u), ...(KINDS[b.t].role === 'make' ? {c: num(b.c)} : {})}));
   if (!o.b.some(b => b.t === 'keep')) return null;
+  // nothing on the same ground as anything else, nothing off the base (an old save, or one from before a rule): one
+  // that doesn't fit where it is goes to the nearest spot it does (the Keep first, then the rest in order), or, with
+  // nowhere left, off the lot
+  const laid = {b: []};
+  [...o.b].sort((a, b) => (b.t === 'keep') - (a.t === 'keep')).forEach(b => {
+    if (!fits(laid, KINDS[b.t].size, b.x, b.y)) { const p = spotFor(laid, b.t, {x: b.x, y: b.y}); if (!p) return; b.x = p.x; b.y = p.y; }
+    laid.b.push(b);
+  });
+  o.b = o.b.filter(b => laid.b.includes(b));
   ['r', 'cl', 'xo'].forEach(f => {
     const v = o[f] || {};
     o[f] = Object.fromEntries(CUR.map(c => [c, Math.max(0, num(v[c] != null ? v[c] : (old ? v[OLD_CUR[c]] : 0)))]));
