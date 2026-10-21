@@ -17,9 +17,10 @@ import * as SPR from './realm-sprites.js';
 import {KINDS, TROOPS, N, EDGE} from '../core/realm.js';
 const V = new URL('../vendor/three/', import.meta.url).href;
 let T = null, RE = null, LOADING = null, DEAD = false;
-// The sceneries (core/realm.js SCENERIES), each a layout a shape: its own landscape, placements (none now: the lands
-// are blank) and lot (its layout's lot: where the lot lies in it, px: the middle and its diamond's height, far corner
-// to near; as big as fits in the build zone, the checks hold it to that). Every land is tall (portrait), on any screen
+// The sceneries (core/realm.js SCENERIES), each a layout a shape: its own landscape, placements (its village round
+// the lot: tools/realm/village.py, the owner's kit's buildings, Oct 2026) and lot (its layout's lot: where the lot lies
+// in it, px: the middle and its diamond's height, far corner to near; as big as fits in the build zone, the checks hold
+// it to that). Every land is tall (portrait), on any screen
 // (the owner's ask, Oct 2026). Each loaded when it's first wanted (SCENERY: those in, by file).
 export const FILES = Object.fromEntries(['coast', 'forest', 'tundra', 'ocean', 'desert', 'infernal'].map(k => [k, {tall: `layout-${k}.json`}]));
 const shapeOf = (w, h) => (h > w ? 'tall' : 'wide');

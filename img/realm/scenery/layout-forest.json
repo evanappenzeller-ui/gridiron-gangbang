@@ -40,7 +40,246 @@
     "w": 853,
     "h": 1844
    }
+  },
+  "forest:v-castle": {
+   "width": 517,
+   "height": 348.65,
+   "kit": "sprites/forest/castle.png",
+   "pic": {
+    "file": "forest/v-castle.webp",
+    "w": 345,
+    "h": 246,
+    "crop": [
+     2,
+     0,
+     515,
+     365
+    ]
+   }
+  },
+  "forest:v-great_hall": {
+   "width": 557,
+   "height": 333.45,
+   "kit": "sprites/forest/great_hall.png",
+   "pic": {
+    "file": "forest/v-great_hall.webp",
+    "w": 274,
+    "h": 171,
+    "crop": [
+     2,
+     2,
+     555,
+     348
+    ]
+   }
+  },
+  "forest:v-watchtower": {
+   "width": 178,
+   "height": 317.3,
+   "kit": "sprites/forest/watchtower.png",
+   "pic": {
+    "file": "forest/v-watchtower.webp",
+    "w": 129,
+    "h": 245,
+    "crop": [
+     2,
+     2,
+     176,
+     332
+    ]
+   }
+  },
+  "forest:v-cottage": {
+   "width": 411,
+   "height": 278.35,
+   "kit": "sprites/forest/cottage.png",
+   "pic": {
+    "file": "forest/v-cottage.webp",
+    "w": 184,
+    "h": 131,
+    "crop": [
+     2,
+     2,
+     409,
+     291
+    ]
+   }
+  },
+  "forest:v-forge": {
+   "width": 461,
+   "height": 273.6,
+   "kit": "sprites/forest/forge.png",
+   "pic": {
+    "file": "forest/v-forge.webp",
+    "w": 208,
+    "h": 129,
+    "crop": [
+     2,
+     2,
+     459,
+     286
+    ]
+   }
+  },
+  "forest:v-storage": {
+   "width": 438,
+   "height": 254.6,
+   "kit": "sprites/forest/storage.png",
+   "pic": {
+    "file": "forest/v-storage.webp",
+    "w": 202,
+    "h": 123,
+    "crop": [
+     2,
+     2,
+     436,
+     266
+    ]
+   }
+  },
+  "forest:v-moonstone": {
+   "width": 245,
+   "height": 277.4,
+   "kit": "sprites/forest/moonstone.png",
+   "pic": {
+    "file": "forest/v-moonstone.webp",
+    "w": 124,
+    "h": 148,
+    "crop": [
+     2,
+     2,
+     243,
+     290
+    ]
+   }
+  },
+  "forest:v-glow_tree": {
+   "width": 297,
+   "height": 273.6,
+   "kit": "sprites/forest/glow_tree.png",
+   "pic": {
+    "file": "forest/v-glow_tree.webp",
+    "w": 183,
+    "h": 178,
+    "crop": [
+     2,
+     2,
+     295,
+     286
+    ]
+   }
   }
  },
- "instances": []
+ "instances": [
+  {
+   "id": "v-castle",
+   "asset_id": "forest:v-castle",
+   "rect": {
+    "x": 567.0,
+    "y": 506.8,
+    "width": 116,
+    "height": 78.2
+   },
+   "draw_order": 585
+  },
+  {
+   "id": "v-great_hall",
+   "asset_id": "forest:v-great_hall",
+   "rect": {
+    "x": 254.0,
+    "y": 534.9,
+    "width": 92,
+    "height": 55.1
+   },
+   "draw_order": 590
+  },
+  {
+   "id": "v-watchtower",
+   "asset_id": "forest:v-watchtower",
+   "rect": {
+    "x": 748.0,
+    "y": 621.6,
+    "width": 44,
+    "height": 78.4
+   },
+   "draw_order": 700
+  },
+  {
+   "id": "v-cottage_2",
+   "asset_id": "forest:v-cottage",
+   "rect": {
+    "x": 147.0,
+    "y": 662.1,
+    "width": 56,
+    "height": 37.9
+   },
+   "draw_order": 700
+  },
+  {
+   "id": "v-cottage",
+   "asset_id": "forest:v-cottage",
+   "rect": {
+    "x": 169.0,
+    "y": 1023.0,
+    "width": 62,
+    "height": 42.0
+   },
+   "draw_order": 1065
+  },
+  {
+   "id": "v-moonstone",
+   "asset_id": "forest:v-moonstone",
+   "rect": {
+    "x": 724.0,
+    "y": 1022.4,
+    "width": 42,
+    "height": 47.6
+   },
+   "draw_order": 1070
+  },
+  {
+   "id": "v-forge",
+   "asset_id": "forest:v-forge",
+   "rect": {
+    "x": 295.0,
+    "y": 1153.5,
+    "width": 70,
+    "height": 41.5
+   },
+   "draw_order": 1195
+  },
+  {
+   "id": "v-storage",
+   "asset_id": "forest:v-storage",
+   "rect": {
+    "x": 566.0,
+    "y": 1165.5,
+    "width": 68,
+    "height": 39.5
+   },
+   "draw_order": 1205
+  },
+  {
+   "id": "v-watchtower_2",
+   "asset_id": "forest:v-watchtower",
+   "rect": {
+    "x": 450.0,
+    "y": 1228.7,
+    "width": 40,
+    "height": 71.3
+   },
+   "draw_order": 1300
+  },
+  {
+   "id": "v-glow_tree",
+   "asset_id": "forest:v-glow_tree",
+   "rect": {
+    "x": 704.0,
+    "y": 1242.9,
+    "width": 62,
+    "height": 57.1
+   },
+   "draw_order": 1300
+  }
+ ]
 }

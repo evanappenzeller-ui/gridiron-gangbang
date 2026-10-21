@@ -5,7 +5,7 @@
 # lot lies where tools/realm/sceneries.json puts it (edit there, then run this again).
 #   python3 tools/realm/sceneries.py <the folder they were unpacked into>
 # Out: <land>/ground.webp, layout-<land>.json (the coast's layout shape: the landscape, nothing stood on it, the build
-# zone just round the lot, the lot).
+# zone just round the lot, the lot). Then run village.py, which stands each land's village round the lot.
 import sys, os, json
 import numpy as np
 from PIL import Image

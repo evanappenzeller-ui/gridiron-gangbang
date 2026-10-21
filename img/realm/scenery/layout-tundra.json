@@ -40,7 +40,192 @@
     "w": 851,
     "h": 1848
    }
+  },
+  "tundra:v-castle": {
+   "width": 497,
+   "height": 421.8,
+   "kit": "sprites/frozen/castle.png",
+   "pic": {
+    "file": "tundra/v-castle.webp",
+    "w": 345,
+    "h": 308,
+    "crop": [
+     2,
+     2,
+     495,
+     442
+    ]
+   }
+  },
+  "tundra:v-great_hall": {
+   "width": 525,
+   "height": 316.35,
+   "kit": "sprites/frozen/great_hall.png",
+   "pic": {
+    "file": "tundra/v-great_hall.webp",
+    "w": 274,
+    "h": 173,
+    "crop": [
+     2,
+     2,
+     523,
+     331
+    ]
+   }
+  },
+  "tundra:v-watchtower": {
+   "width": 189,
+   "height": 295.45,
+   "kit": "sprites/frozen/watchtower.png",
+   "pic": {
+    "file": "tundra/v-watchtower.webp",
+    "w": 129,
+    "h": 214,
+    "crop": [
+     2,
+     2,
+     187,
+     309
+    ]
+   }
+  },
+  "tundra:v-cottage": {
+   "width": 341,
+   "height": 245.1,
+   "kit": "sprites/frozen/cottage.png",
+   "pic": {
+    "file": "tundra/v-cottage.webp",
+    "w": 184,
+    "h": 139,
+    "crop": [
+     2,
+     2,
+     339,
+     256
+    ]
+   }
+  },
+  "tundra:v-forge": {
+   "width": 455,
+   "height": 220.4,
+   "kit": "sprites/frozen/forge.png",
+   "pic": {
+    "file": "tundra/v-forge.webp",
+    "w": 208,
+    "h": 105,
+    "crop": [
+     2,
+     2,
+     453,
+     230
+    ]
+   }
+  },
+  "tundra:v-storage": {
+   "width": 412,
+   "height": 221.35,
+   "kit": "sprites/frozen/storage.png",
+   "pic": {
+    "file": "tundra/v-storage.webp",
+    "w": 202,
+    "h": 113,
+    "crop": [
+     2,
+     2,
+     410,
+     231
+    ]
+   }
   }
  },
- "instances": []
+ "instances": [
+  {
+   "id": "v-castle",
+   "asset_id": "tundra:v-castle",
+   "rect": {
+    "x": 567.0,
+    "y": 486.6,
+    "width": 116,
+    "height": 98.4
+   },
+   "draw_order": 585
+  },
+  {
+   "id": "v-great_hall",
+   "asset_id": "tundra:v-great_hall",
+   "rect": {
+    "x": 254.0,
+    "y": 534.6,
+    "width": 92,
+    "height": 55.4
+   },
+   "draw_order": 590
+  },
+  {
+   "id": "v-cottage_2",
+   "asset_id": "tundra:v-cottage",
+   "rect": {
+    "x": 212.0,
+    "y": 649.7,
+    "width": 56,
+    "height": 40.3
+   },
+   "draw_order": 690
+  },
+  {
+   "id": "v-watchtower",
+   "asset_id": "tundra:v-watchtower",
+   "rect": {
+    "x": 748.0,
+    "y": 631.2,
+    "width": 44,
+    "height": 68.8
+   },
+   "draw_order": 700
+  },
+  {
+   "id": "v-cottage",
+   "asset_id": "tundra:v-cottage",
+   "rect": {
+    "x": 169.0,
+    "y": 1020.4,
+    "width": 62,
+    "height": 44.6
+   },
+   "draw_order": 1065
+  },
+  {
+   "id": "v-forge",
+   "asset_id": "tundra:v-forge",
+   "rect": {
+    "x": 295.0,
+    "y": 1161.1,
+    "width": 70,
+    "height": 33.9
+   },
+   "draw_order": 1195
+  },
+  {
+   "id": "v-storage",
+   "asset_id": "tundra:v-storage",
+   "rect": {
+    "x": 566.0,
+    "y": 1168.5,
+    "width": 68,
+    "height": 36.5
+   },
+   "draw_order": 1205
+  },
+  {
+   "id": "v-watchtower_2",
+   "asset_id": "tundra:v-watchtower",
+   "rect": {
+    "x": 450.0,
+    "y": 1237.5,
+    "width": 40,
+    "height": 62.5
+   },
+   "draw_order": 1300
+  }
+ ]
 }

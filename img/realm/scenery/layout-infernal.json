@@ -40,7 +40,192 @@
     "w": 851,
     "h": 1848
    }
+  },
+  "infernal:v-castle": {
+   "width": 601,
+   "height": 443.65,
+   "kit": "sprites/hellish/castle.png",
+   "pic": {
+    "file": "infernal/v-castle.webp",
+    "w": 346,
+    "h": 269,
+    "crop": [
+     2,
+     0,
+     599,
+     465
+    ]
+   }
+  },
+  "infernal:v-great_hall": {
+   "width": 473,
+   "height": 323.95,
+   "kit": "sprites/hellish/great_hall.png",
+   "pic": {
+    "file": "infernal/v-great_hall.webp",
+    "w": 274,
+    "h": 197,
+    "crop": [
+     2,
+     2,
+     471,
+     339
+    ]
+   }
+  },
+  "infernal:v-watchtower": {
+   "width": 229,
+   "height": 283.1,
+   "kit": "sprites/hellish/watchtower.png",
+   "pic": {
+    "file": "infernal/v-watchtower.webp",
+    "w": 130,
+    "h": 169,
+    "crop": [
+     2,
+     3,
+     227,
+     296
+    ]
+   }
+  },
+  "infernal:v-cottage": {
+   "width": 320,
+   "height": 243.2,
+   "kit": "sprites/hellish/cottage.png",
+   "pic": {
+    "file": "infernal/v-cottage.webp",
+    "w": 184,
+    "h": 146,
+    "crop": [
+     2,
+     2,
+     318,
+     254
+    ]
+   }
+  },
+  "infernal:v-forge": {
+   "width": 448,
+   "height": 253.65,
+   "kit": "sprites/hellish/forge.png",
+   "pic": {
+    "file": "infernal/v-forge.webp",
+    "w": 208,
+    "h": 123,
+    "crop": [
+     2,
+     3,
+     446,
+     265
+    ]
+   }
+  },
+  "infernal:v-storage": {
+   "width": 451,
+   "height": 252.7,
+   "kit": "sprites/hellish/storage.png",
+   "pic": {
+    "file": "infernal/v-storage.webp",
+    "w": 202,
+    "h": 119,
+    "crop": [
+     2,
+     2,
+     449,
+     264
+    ]
+   }
   }
  },
- "instances": []
+ "instances": [
+  {
+   "id": "v-castle",
+   "asset_id": "infernal:v-castle",
+   "rect": {
+    "x": 567.0,
+    "y": 499.4,
+    "width": 116,
+    "height": 85.6
+   },
+   "draw_order": 585
+  },
+  {
+   "id": "v-great_hall",
+   "asset_id": "infernal:v-great_hall",
+   "rect": {
+    "x": 254.0,
+    "y": 527.0,
+    "width": 92,
+    "height": 63.0
+   },
+   "draw_order": 590
+  },
+  {
+   "id": "v-watchtower",
+   "asset_id": "infernal:v-watchtower",
+   "rect": {
+    "x": 748.0,
+    "y": 645.6,
+    "width": 44,
+    "height": 54.4
+   },
+   "draw_order": 700
+  },
+  {
+   "id": "v-cottage_2",
+   "asset_id": "infernal:v-cottage",
+   "rect": {
+    "x": 147.0,
+    "y": 657.4,
+    "width": 56,
+    "height": 42.6
+   },
+   "draw_order": 700
+  },
+  {
+   "id": "v-cottage",
+   "asset_id": "infernal:v-cottage",
+   "rect": {
+    "x": 169.0,
+    "y": 1017.9,
+    "width": 62,
+    "height": 47.1
+   },
+   "draw_order": 1065
+  },
+  {
+   "id": "v-forge",
+   "asset_id": "infernal:v-forge",
+   "rect": {
+    "x": 295.0,
+    "y": 1155.4,
+    "width": 70,
+    "height": 39.6
+   },
+   "draw_order": 1195
+  },
+  {
+   "id": "v-storage",
+   "asset_id": "infernal:v-storage",
+   "rect": {
+    "x": 566.0,
+    "y": 1166.9,
+    "width": 68,
+    "height": 38.1
+   },
+   "draw_order": 1205
+  },
+  {
+   "id": "v-watchtower_2",
+   "asset_id": "infernal:v-watchtower",
+   "rect": {
+    "x": 450.0,
+    "y": 1250.6,
+    "width": 40,
+    "height": 49.4
+   },
+   "draw_order": 1300
+  }
+ ]
 }
