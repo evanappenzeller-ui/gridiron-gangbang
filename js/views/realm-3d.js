@@ -272,6 +272,7 @@ export function create(host, opts = {}) {
     try { scene0 = sceneryGround(SCENERY.ground, renderer.capabilities.getMaxAnisotropy()); } catch (e) { console.warn('Realm: no scenery', e); }
   }
   if (scene0) {
+    scene.background.set(0x16202A); // (round it when you've zoomed out past it: a plain border, not stretched)
     scene.add(scene0.mesh, ...sceneryPictures(SCENERY, scene0));
     // blades over the lot, so it's grass close up too, fading out the last few tiles to its edge
     const geo = new T.PlaneGeometry(N, N, 24, 24), at = geo.attributes.position, rgba = [];
@@ -329,22 +330,25 @@ export function create(host, opts = {}) {
     const h = Math.cos(PITCH) * view.dist;
     cam.position.set(view.tx + Math.sin(YAW) * h, Math.sin(PITCH) * view.dist, view.tz + Math.cos(YAW) * h);
     cam.lookAt(view.tx, 0, view.tz);
+    // (the near and far planes go with the zoom: zoomed right out to the whole scenery it's hundreds of yards off)
+    const nr = Math.max(.5, view.dist * .03), fr = view.dist * 3 + 100;
+    if (cam.near !== nr || cam.far !== fr) { cam.near = nr; cam.far = fr; cam.updateProjectionMatrix(); }
     cam.updateMatrixWorld();
     scene.fog.near = view.dist * .9 + 20; scene.fog.far = view.dist * 1.7 + 70;
   };
   const ZMIN = 14, ZMAX = 130, PAN = N / 2 + 2;
+  let zTop = ZMAX; // (with the scenery: out as far as shows all of it, on this screen's shape)
   const clampView = () => {
-    view.dist = Math.max(ZMIN, Math.min(ZMAX, view.dist));
+    view.dist = Math.max(ZMIN, Math.min(zTop, view.dist));
     view.tx = Math.max(-PAN, Math.min(PAN, view.tx)); view.tz = Math.max(-PAN, Math.min(PAN, view.tz));
     if (scene0) inScene();
   };
-  // over the landscape, never past its edges: where the screen's corners fall on it, then the view slid back in (or,
-  // run past both sides, brought closer) till they're all on it
+  // over the landscape, never past its edges: where the screen's corners fall on it, then the view slid back in; zoomed
+  // out past both its sides (or its top and bottom), centred on it that way
   const RIGHT = new T.Vector3(Math.cos(YAW), 0, -Math.sin(YAW)), AWAY = new T.Vector3(-Math.sin(YAW), 0, -Math.cos(YAW));
   const PXW = N * Math.SQRT2 * Math.sin(PITCH) / SCENE.lot; // (world a painting px across, about, near the lot)
   const cRay = new T.Raycaster(), cNdc = new T.Vector2(), cAt = new T.Vector3(), flat = new T.Plane(new T.Vector3(0, 1, 0), 0);
   function inScene() {
-    let sx0 = 0, sy0 = 0;
     for (let n = 0; n < 32; n++) {
       placeCam();
       let l = 0, r = 0, t = 0, b = 0;
@@ -354,15 +358,25 @@ export function create(host, opts = {}) {
         const p = scene0.px(cAt);
         l = Math.max(l, -p.x); r = Math.max(r, p.x - scene0.w); t = Math.max(t, -p.y); b = Math.max(b, p.y - scene0.h);
       }
-      if (!(l || r || t || b)) return;
-      if ((l && r) || (t && b) || t === Infinity) { if (view.dist <= ZMIN) return; view.dist = Math.max(ZMIN, view.dist * .94); continue; }
-      // (a slide that sends it past the other side means it's a little too big for the painting: closer, then)
-      const sx = Math.sign(l - r), sy = Math.sign(t - b);
-      if ((sx && sx === -sx0) || (sy && sy === -sy0)) view.dist = Math.max(ZMIN, view.dist * .97);
-      sx0 = sx || sx0; sy0 = sy || sy0;
-      const dx = (l - r + sx) * PXW * .7, dy = (t - b + sy) * PXW / Math.sin(PITCH) * .7;
+      if (t === Infinity) { if (view.dist <= ZMIN) return; view.dist = Math.max(ZMIN, view.dist * .94); continue; }
+      const dx = (l && r ? (l - r) / 2 : l - r) * PXW * .8, dy = (t && b ? (t - b) / 2 : t - b) * PXW / Math.sin(PITCH) * .8;
+      if (Math.abs(dx) + Math.abs(dy) < .01) return;
       view.tx += RIGHT.x * dx - AWAY.x * dy; view.tz += RIGHT.z * dx - AWAY.z * dy;
     }
+  }
+  /** How far out the camera has to be to show all the scenery at once (looking at its middle) on this screen. */
+  function wholeAt() {
+    const cs = [[0, 0], [scene0.w, 0], [0, scene0.h], [scene0.w, scene0.h]].map(([x, y]) => scene0.under(x, y));
+    if (cs.some(c => !c)) return ZMAX;
+    const mid = cs.reduce((a, c) => a.add(c), new T.Vector3()).multiplyScalar(.25), was = {...view}, q = new T.Vector3();
+    let lo = ZMIN, hi = 4000;
+    for (let i = 0; i < 32; i++) {
+      Object.assign(view, {tx: mid.x, tz: mid.z, dist: (lo + hi) / 2});
+      placeCam();
+      if (cs.every(c => { q.copy(c).project(cam); return Math.abs(q.x) <= 1 && Math.abs(q.y) <= 1; })) hi = view.dist; else lo = view.dist;
+    }
+    Object.assign(view, was);
+    return Math.max(60, hi);
   }
   let Wd = 1, Hd = 1;
   const resize = () => {
@@ -372,6 +386,7 @@ export function create(host, opts = {}) {
     renderer.setSize(w, h, false);
     canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
     cam.aspect = w / h; cam.updateProjectionMatrix();
+    if (scene0) zTop = wholeAt();
     clampView();
     want();
   };
