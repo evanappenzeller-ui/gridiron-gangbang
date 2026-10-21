@@ -268,7 +268,7 @@ export function summarize(games, snap, {mine, at = nowMs()} = {}) {
   // one row per manager across phones, late picks dropped); the revealed picks are the fallback.
   let rows;
   if (snap && Array.isArray(snap.rows)) {
-    rows = snap.rows.map(r => ({w: who(r), right: +r.right || 0, wrong: +r.wrong || 0, picked: +r.picked || 0}));
+    rows = snap.rows.map(r => ({w: who(r), right: +r.right || 0, wrong: +r.wrong || 0, picked: +r.picked || 0, rank: r.rank}));
   } else {
     const idx = pickIndex(snap), m2 = new Map();
     G.forEach(g => {
@@ -283,9 +283,11 @@ export function summarize(games, snap, {mine, at = nowMs()} = {}) {
     });
     rows = [...m2.values()];
   }
-  const graded = rows.filter(r => r.right + r.wrong > 0).sort((x, y) => y.right - x.right || x.wrong - y.wrong || x.w.name.localeCompare(y.w.name));
-  const best = graded.length && graded[0].right > 0 ? graded[0] : null;
-  const leaders = best ? graded.filter(r => r.right === best.right && r.wrong === best.wrong) : [];
+  // week.js's ranks put nobody who missed a game first; the fallback has none, so it goes by record.
+  const ranked = rows.length && rows.every(r => Number.isInteger(r.rank));
+  const graded = rows.filter(r => r.right + r.wrong > 0).sort((x, y) => (ranked ? x.rank - y.rank : 0) || y.right - x.right || x.wrong - y.wrong || x.w.name.localeCompare(y.w.name));
+  const best = graded.length && graded[0].right > 0 && (!ranked || graded[0].rank === 1) ? graded[0] : null;
+  const leaders = best ? graded.filter(r => (ranked ? r.rank === 1 : r.right === best.right && r.wrong === best.wrong)) : [];
   const overOf = g => (g.over != null ? g.over : g.state === 'post' && (g.final || /CANCEL/.test(String(g.status || ''))));
   return {n: G.length, picked, right, wrong, decided, live, open, done: G.length > 0 && G.every(overOf),
     next, allIn: open > 0 && openPicked === open, leaders, best, people: rows.filter(r => r.picked > 0).length, mineMap: M};

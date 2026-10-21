@@ -375,6 +375,33 @@ export async function pickemChecks(check) {
     return {pass, detail: `Mitch's phone: ${onMitch}; season: ${seasonMitch}; Ryan S's phone: ${onRyanS}; Evan's (the owner's): ${onEvan}; season: ${seasonEvan}`};
   });
 
+  // 8c. A missed game keeps you out of first (the owner's ask, Oct 2026)
+  check('Standings: nobody who missed a game (past its lock, no pick) finishes first in the week; whoever did better lines up right under the best full card; a game still open misses nobody; the season table is unchanged', () => {
+    need();
+    const E = mgr('evan'), M = mgr('mitch'), J = mgr('john');
+    const g3 = nfl.parse(clone(W3)).games, k = g => g.kickoff.getTime();
+    const win = g => g[g.winner].abbr, lose = g => g[g.winner === 'home' ? 'away' : 'home'].abbr;
+    const P = (uid, g, team, me, nick) => ({id: week.nflPickId(uid, g.id), uid, game: g.id, team, me: me || null, nick: nick || data.name(me), at: k(g) - HOUR});
+    // Evan and Mitch pick all 16 (10–6); John skips the last game and goes 15–0; Fan skips it too, 10–5.
+    const docs = [...g3.map((g, i) => P('e1', g, i < 10 ? win(g) : lose(g), E)), ...g3.map((g, i) => P('m1', g, i < 10 ? win(g) : lose(g), M)),
+      ...g3.slice(0, 15).map(g => P('j1', g, win(g), J)), ...g3.slice(0, 15).map((g, i) => P('f1', g, i < 10 ? win(g) : lose(g), null, 'Fan'))];
+    const fmt = r => `${r.me || r.nick}:${r.right}-${r.wrong}:#${r.rank}`;
+    const got = week.nflRowsFrom(docs, g3, 'e1', {me: E, all: true}).map(fmt).join(' ');
+    const want = 'evan:10-6:#1 mitch:10-6:#1 john:15-0:#3 Fan:10-5:#4';
+    // Before the last game kicks off John has missed nothing yet and leads.
+    const last = g3[15], open = g3.slice(0, 15).concat(Object.assign({}, last, {state: 'pre', final: false, winner: null}));
+    const early = week.nflRowsFrom(docs, open, 'e1', {me: E, all: true, at: k(last) - MIN}).map(fmt).join(' ');
+    const wantEarly = 'john:15-0:#1 evan:10-5:#2 Fan:10-5:#2 mitch:10-5:#2';
+    // A postponed game misses nobody.
+    const off = g3.slice(0, 15).concat(Object.assign({}, last, {state: 'post', final: false, winner: null}));
+    const post = week.nflRowsFrom(docs, off, 'e1', {me: E, all: true}).map(fmt).join(' ');
+    const wantPost = 'john:15-0:#1 evan:10-5:#2 Fan:10-5:#2 mitch:10-5:#2';
+    const season = week.nflStandingsFrom([{year: 2026, week: 3, games: g3, docs}], 'e1', {me: E, all: true}).map(fmt).join(' ');
+    const wantSeason = 'john:15-0:#1 Fan:10-5:#2 evan:10-6:#3 mitch:10-6:#3';
+    const pass = got === want && early === wantEarly && post === wantPost && season === wantSeason;
+    return {pass, detail: `final: ${got}; before the last kickoff: ${early}; last game postponed: ${post}; season: ${season}`};
+  });
+
   // 9. Doc ids match the rules
   check('Pick doc ids match the rules: {uid}__{gameId} with a 1–12 digit ESPN id', () => {
     const uid = 'Xy9AbC0dEfGhIjKlMnOpQrStUv12';

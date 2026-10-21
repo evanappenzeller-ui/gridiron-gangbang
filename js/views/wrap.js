@@ -268,10 +268,11 @@ function pickemCard(r, m) {
   if (!rows.length) return '';
   const nameOf = x => (x.me && data.M[x.me]) ? data.name(x.me) : (String(x.name || x.nick || '').trim() || 'Someone');
   const rec = x => `${+x.right || 0}–${+x.wrong || 0}`;
-  // The best record: most right, then fewest wrong (rows arrive ranked by right).
-  const sorted = rows.slice().sort((x, y) => (+y.right || 0) - (+x.right || 0) || (+x.wrong || 0) - (+y.wrong || 0));
+  // week.js's ranks (nobody who missed a game is first), else the best record: most right, then fewest wrong.
+  const ranked = rows.every(x => Number.isInteger(x.rank));
+  const sorted = rows.slice().sort((x, y) => (ranked ? x.rank - y.rank : 0) || (+y.right || 0) - (+x.right || 0) || (+x.wrong || 0) - (+y.wrong || 0));
   const top = sorted[0];
-  const best = sorted.filter(x => +x.right === +top.right && +x.wrong === +top.wrong);
+  const best = sorted.filter(x => (ranked ? x.rank === top.rank : +x.right === +top.right && +x.wrong === +top.wrong));
   const names = best.map(nameOf);
   const list = names.length > 3 ? `${names.slice(0, 2).join(', ')} and ${names.length - 2} others` : names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0];
   const perfect = +top.wrong === 0 && +top.right >= 3;
@@ -282,7 +283,7 @@ function pickemCard(r, m) {
   if (+top.right > 0 && +top.decided >= 6 && +top.right / +top.decided < .6) body += ' A rough week for everyone.';
   const rowsHtml = sorted.slice(0, 5).map((x, i) => {
     const mid = x.me && data.M[x.me] ? x.me : undefined;
-    const rk = i && +x.right === +sorted[i - 1].right && +x.wrong === +sorted[i - 1].wrong ? '' : String(i + 1);
+    const rk = i && (ranked ? x.rank === sorted[i - 1].rank : +x.right === +sorted[i - 1].right && +x.wrong === +sorted[i - 1].wrong) ? '' : String(ranked ? x.rank : i + 1);
     return `<li class="wr-pk${x.you ? ' is-me' : ''}"><span class="n5 wr-pk-r">${esc(rk)}</span>${ui.nickAvatar(nameOf(x), {size: 28, managerId: mid, you: !!x.you})}`
       + `<span class="wr-pk-n">${esc(nameOf(x))}</span><span class="n4 wr-pk-s" aria-label="${esc(`${+x.right || 0} right, ${+x.wrong || 0} wrong`)}">${esc(rec(x))}</span></li>`;
   }).join('');
