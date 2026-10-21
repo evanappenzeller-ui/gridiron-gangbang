@@ -2,7 +2,7 @@
 // Thursday lock), a member's picks across phones, the lock, the grading and the table (on crafted board docs over
 // a played week); Survivor's pool on crafted NFL boards (in from the first week, a loss, a tie, the week's lock at its
 // first kickoff: a pick saved after it, no pick by it; a reused team, everyone out the same week, the winner, picks
-// hidden till the lock) and its refusals; the
+// hidden till the lock, a pick locked in) and its refusals; the
 // Pick'em tab's switch; and both reading the board as this phone may see it (THE RULE, CLAUDE.md). checks.js (owner:
 // core) imports lpickChecks and calls it with its own check(name, fn) helper. Nothing here writes to storage or the
 // database. Owner: PICKEM.
@@ -95,6 +95,23 @@ export async function lpickChecks(check) {
     const one = SV.pool(2026, 7, boards, [sv('b1', nickOf('ben'), {7: P('DEN', '71', before)}), sv('b2', nickOf('mitch'), {7: P('KC', '71', before)})], at);
     const champ = one.champion === nickOf('ben').toLowerCase() || (one.rows.find(x => x.key === one.champion) || {}).name === nickOf('ben');
     return {pass: stay && champ, detail: `both lost week 7: ${stay ? 'both still in' : 'WRONG'}; one left: ${champ ? `${nickOf('ben')} wins` : 'WRONG'}`};
+  });
+
+  check('Survivor: a pick locked in is final: a later save on another phone doesn\'t count; one locked in after the week\'s lock doesn\'t either', () => {
+    const before = at - 9 * D;
+    const L = (k, g, t) => ({k, g, t, l: 1});
+    const two = [ // one member on two phones: locked in KC on one, DEN saved later on the other
+      sv('l-a', nickOf('ben'), {7: P('BUF', '72', before), 8: L('KC', '81', at - 3 * D)}),
+      sv('l-b', nickOf('ben'), {7: P('BUF', '72', before), 8: P('DEN', '82', at - 2 * D)}),
+      sv('l-c', nickOf('mitch'), {7: P('BUF', '72', before), 8: L('SF', '82', at - D / 8)}) // locked in after Thursday's kickoff
+    ];
+    const q = SV.pool(2026, 8, new Map([[7, w7], [8, w8shut]]), two, at), by = id => q.rows.find(x => x.name === nickOf(id));
+    const bp = by('ben') && by('ben').picks.find(p => p.w === 8);
+    const held = !!bp && bp.k === 'KC' && bp.l === true;
+    const late = !!by('mitch') && by('mitch').out === 8 && by('mitch').why === 'none';
+    const e = SV.entryOf({[SV.F]: {2026: {8: L('KC', '81', at)}}}, 2026, 8), plain = SV.entryOf(two[1], 2026, 8);
+    const flag = !!e && e.l === true && !!plain && plain.l === false;
+    return {pass: held && late && flag, detail: `two phones: ${bp ? `${bp.k}${bp.l ? ' (locked in)' : ''}` : 'none'}${held ? '' : ' WRONG'}; locked in after the lock: ${late ? 'out' : 'WRONG'}; the flag read ${flag}`};
   });
 
   check('Survivor: a pick is refused once the week has locked (its first kickoff, even for a game still to come) and for a team you\'ve used (nothing saved)', async () => {

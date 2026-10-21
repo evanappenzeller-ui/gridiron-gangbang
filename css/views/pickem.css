@@ -576,6 +576,9 @@ html.rm .c-pk-dot::after { animation: none; }
 .v-pickem .su-hero.is-champ .ovl { color: var(--gold); }
 .v-pickem .su-h { margin-top: 4px; font: 700 var(--fs-2)/var(--lh-2) var(--font-text); color: var(--ink); }
 .v-pickem .su-l { margin-top: 4px; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-2); }
+.v-pickem .su-lockin { margin-top: 12px; }
+.v-pickem .su-final { display: inline-flex; align-items: center; gap: 4px; margin-top: 10px; padding: 3px 10px 3px 8px; border-radius: 999px; background: var(--tint-soft); color: var(--tint); font: 700 var(--fs-foot)/var(--lh-foot) var(--font-text); }
+.v-pickem .su-final .ic { width: 14px; height: 14px; }
 .v-pickem .su-used { margin-top: 8px; font: 600 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
 .v-pickem .su-hero > .su-pick, .v-pickem .su-hero > .su-torch { float: right; margin: 0 0 6px 12px; }
 .v-pickem .su-torch img { width: 56px; height: 56px; image-rendering: pixelated; }
