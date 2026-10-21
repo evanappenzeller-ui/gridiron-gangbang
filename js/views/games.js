@@ -14,7 +14,7 @@ import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as daily from '../core/daily.js';
 import {ringHTML, stepParts, maxPts, gradeGold, msToMidnight, countdownHTML, itemCount} from './board.js';
-import {turnable} from './game-case.js';
+import {turnable, shelfTurner} from './game-case.js';
 
 const esc = data.esc;
 const nf = n => data.nf(n);
@@ -285,7 +285,8 @@ function caseHTML(g, s, i, n, clone) {
   const slot = clone ? 'aria-hidden="true" data-gm-clone' : `role="group" aria-roledescription="slide" aria-label="${i + 1} of ${n}"`;
   return `<div class="gm-slot" ${slot} data-gm-slot="${g.id}">`
     + `<button type="button" class="gm-case${done ? ' is-done' : ''}" data-gm="${g.id}" data-kind="${s.kind}" aria-label="${esc(what)}"${clone ? ' tabindex="-1"' : ''}>`
-    + `<span class="gm-flip">${frontHTML(g, s)}${done ? backHTML(g, s) : ''}</span><span class="gm-gloss" aria-hidden="true"></span></button></div>`;
+    + `<span class="gm-flip">${frontHTML(g, s)}${done ? backHTML(g, s) : ''}</span><span class="gm-gloss" aria-hidden="true"></span>`
+    + ['t', 'b', 'l', 'r'].map(k => `<span class="gm-grip is-${k}" aria-hidden="true"></span>`).join('') + `</button></div>`; // (views/game-case.js shelfTurner)
 }
 
 // ---------------------------------------------------------------- What's under the shelf: the game you're on
@@ -335,6 +336,7 @@ export function mountList(el, ctx, opts = {}) {
   // st.cur: the slot in the middle, counting every copy (slots()); its game is list()[st.cur % n()]
   const st = {dead: false, cur: 0, zoom: null, raf: 0, saved: 0, settle: 0, touch: false};
   const shelf = el.querySelector('.gm-shelf'), sel = el.querySelector('[data-gm-sel]');
+  const turner = shelfTurner(shelf); // (a case grabbed by its edge turns where it stands)
   const list = () => gamesFor().filter(g => el.querySelector(`.gm-slot[data-gm-slot="${g.id}"]`));
   const slots = () => [...el.querySelectorAll('.gm-slot')];
   const n = () => Math.max(1, list().length);
@@ -353,7 +355,14 @@ export function mountList(el, ctx, opts = {}) {
       sl.classList.toggle('is-cur', a < .5);
       if (Math.abs(d) < bd) { bd = Math.abs(d); best = i; }
     });
-    if (best !== st.cur) { const was = st.cur; st.cur = best; if (was < 0 || was % n() !== best % n()) setCur(best % n()); }
+    if (best !== st.cur) {
+      const was = st.cur;
+      st.cur = best;
+      if (was < 0 || was % n() !== best % n()) setCur(best % n());
+      // a case turned in your hand goes back the way it stands once it's no longer the one in the middle
+      const off = was >= 0 && slots()[was];
+      if (off) turner.home(off.querySelector('.gm-case'));
+    }
   };
   // Straight to a place on the shelf, nothing to see in between. The snapping is off for the moment it takes: Safari
   // otherwise puts a snapping scroller back on the case it last came to rest on (so the shelf could start out on the
@@ -648,6 +657,7 @@ export function mountList(el, ctx, opts = {}) {
   return {refresh, tick, destroy() {
     st.dead = true;
     closeZoom(true);
+    turner.stop();
     clearTimeout(st.settle);
     shelf.removeEventListener('scroll', onScroll);
     shelf.removeEventListener('pointerdown', onDown);

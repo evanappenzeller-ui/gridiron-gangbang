@@ -49,6 +49,42 @@ const SENS = .0088, PULL = 1.4, K = 58, C = 9.5, OK = 130, OC = 17, LID = -172, 
 // Facing front within this (radians) it can be opened.
 const NEAR = .32;
 
+/** One step of a case turning (S: its q, w, held) toward `to`: held, it comes upright (its top toward the top of the
+ *  screen), however it's turned about; let go, a spring takes it there. */
+function turnStep(S, dt, to) {
+  if (S.held) {
+    const [x, y, z, w] = S.q, ux = -2 * (x * y - z * w), uy = -(1 - 2 * (x * x + z * z)), uz = -2 * (y * z + x * w);
+    const ax = [uz, 0, -ux], s = len(ax);
+    if (s > 1e-6) {
+      const a = Math.atan2(s, -uy) * Math.min(1, PULL * dt) / s;
+      S.q = norm(mul(fromVec([ax[0] * a, 0, ax[2] * a]), S.q));
+    }
+  } else if (ui.RM) {
+    S.q = to.slice(); S.w = [0, 0, 0];
+  } else {
+    const v = between(S.q, to);
+    S.w = S.w.map((c, i) => c + (K * v[i] - C * c) * dt);
+    S.q = norm(mul(fromVec(S.w.map(c => c * dt)), S.q));
+  }
+}
+/** A finger moved by (dx, dy) turns S that way; its moves (the last 90ms of them) make the flick. */
+function dragBy(S, P, e) {
+  const dx = e.clientX - P.x, dy = e.clientY - P.y;
+  P.x = e.clientX; P.y = e.clientY;
+  const v = [-dy * SENS, dx * SENS, 0];
+  S.q = norm(mul(fromVec(v), S.q));
+  P.moves.push({t: e.timeStamp, v});
+  while (P.moves.length > 1 && e.timeStamp - P.moves[0].t > 90) P.moves.shift();
+}
+/** Let go: a flick keeps it turning (its spin), else none. */
+function flickOf(P, e) {
+  const m = P.moves, span = m.length > 1 ? (m[m.length - 1].t - m[0].t) / 1000 : 0;
+  if (!(span > .008 && e.type !== 'pointercancel' && e.timeStamp - m[m.length - 1].t < 60)) return null;
+  const sum = m.slice(1).reduce((a, x) => [a[0] + x.v[0], a[1] + x.v[1], 0], [0, 0, 0]);
+  const w = sum.map(c => c / span), l = len(w);
+  return l > FLING ? w.map(c => c * FLING / l) : w;
+}
+
 /**
  * Wires the case in dlg (its .gm-z-stage > .gm-z-obj, the cover .gm-z-lid). surface: where a drag turns it (the whole
  * overlay). on(state): told when what it can do changes ({front, open}). Returns {turn(dir), lid(open), rest(), stop()}.
@@ -77,21 +113,7 @@ export function turnable(surface, dlg, on = () => {}) {
     if (key !== S.said) { S.said = key; on(st); }
   }
   function step(dt) {
-    if (S.held) {
-      // held: it comes upright (its top toward the top of the screen), however it's turned about
-      const [x, y, z, w] = S.q, ux = -2 * (x * y - z * w), uy = -(1 - 2 * (x * x + z * z)), uz = -2 * (y * z + x * w);
-      const ax = [uz, 0, -ux], s = len(ax);
-      if (s > 1e-6) {
-        const a = Math.atan2(s, -uy) * Math.min(1, PULL * dt) / s;
-        S.q = norm(mul(fromVec([ax[0] * a, 0, ax[2] * a]), S.q));
-      }
-    } else if (ui.RM) {
-      S.q = target().slice(); S.w = [0, 0, 0];
-    } else {
-      const v = between(S.q, target());
-      S.w = S.w.map((c, i) => c + (K * v[i] - C * c) * dt);
-      S.q = norm(mul(fromVec(S.w.map(c => c * dt)), S.q));
-    }
+    turnStep(S, dt, target());
     if (ui.RM) { S.u = S.open; S.uv = 0; }
     else { S.uv += (OK * (S.open - S.u) - OC * S.uv) * dt; S.u += S.uv * dt; }
   }
@@ -129,12 +151,7 @@ export function turnable(surface, dlg, on = () => {}) {
       P.on = true; S.held = true; S.dragged = true; S.goal = null; S.w = [0, 0, 0];
       try { surface.setPointerCapture(e.pointerId); } catch (_) {}
     }
-    const dx = e.clientX - P.x, dy = e.clientY - P.y;
-    P.x = e.clientX; P.y = e.clientY;
-    const v = [-dy * SENS, dx * SENS, 0];
-    S.q = norm(mul(fromVec(v), S.q));
-    P.moves.push({t: e.timeStamp, v});
-    while (P.moves.length > 1 && e.timeStamp - P.moves[0].t > 90) P.moves.shift();
+    dragBy(S, P, e);
     paint();
     wake();
   };
@@ -144,15 +161,8 @@ export function turnable(surface, dlg, on = () => {}) {
     P = null;
     if (!was.on) return;
     S.held = false;
-    // a flick keeps it turning
-    const m = was.moves, span = m.length > 1 ? (m[m.length - 1].t - m[0].t) / 1000 : 0;
-    if (span > .008 && e.type !== 'pointercancel' && e.timeStamp - m[m.length - 1].t < 60) {
-      const sum = m.slice(1).reduce((a, x) => [a[0] + x.v[0], a[1] + x.v[1], 0], [0, 0, 0]);
-      let w = sum.map(c => c / span);
-      const l = len(w);
-      if (l > FLING) w = w.map(c => c * FLING / l);
-      S.w = w;
-    }
+    const w = flickOf(was, e);
+    if (w) S.w = w;
     wake();
   };
   // a drag isn't a tap: the click after it goes nowhere
@@ -202,6 +212,100 @@ export function turnable(surface, dlg, on = () => {}) {
       surface.removeEventListener('pointercancel', up);
       surface.removeEventListener('click', click, true);
       removeEventListener('resize', paint);
+    }
+  };
+}
+
+// ---------------------------------------------------------------- the cases on the shelf
+/**
+ * The cases on the shelf turn under a finger too (the owner's ask, Oct 2026): grabbed by its top, bottom or sides (a
+ * .gm-grip, on the case in the middle only) a case turns where it stands, and let go it springs to the nearer of its
+ * sides (a game not played yet has only its front, a played one its back and its front); a swipe across its middle
+ * still goes along the shelf. At rest on the side it shows on its own, its turn is handed back to the stylesheet.
+ * Returns {home(cs): ease a case back to that side, stop()}.
+ */
+export function shelfTurner(shelf) {
+  const all = new Map(); // a case turned → its state
+  let P = null, dragged = false;
+  const own = cs => (cs.classList.contains('is-done') ? BACK : FRONT);
+  const sidesOf = cs => (cs.classList.contains('is-done') ? [BACK, FRONT] : [FRONT]);
+  const target = S => S.goal || sidesOf(S.cs).reduce((a, b) => (len(between(S.q, b)) < len(between(S.q, a)) ? b : a));
+  const stateOf = cs => {
+    let S = all.get(cs);
+    if (!S) { S = {cs, fl: cs.querySelector('.gm-flip'), q: own(cs).slice(), w: [0, 0, 0], held: false, goal: null, raf: 0, t: 0}; all.set(cs, S); }
+    return S;
+  };
+  // (while it's turned its glow goes: the glow is drawn round the case standing square)
+  const paint = S => { S.fl.style.transition = 'none'; S.fl.style.transform = matrixOf(S.q); S.cs.classList.add('is-turning'); };
+  function frame(S, now) {
+    S.raf = 0;
+    if (!S.cs.isConnected || !S.fl) { all.delete(S.cs); return; }
+    const dt = Math.min(1 / 30, Math.max(0, (now - S.t) / 1000)) || 1 / 60;
+    S.t = now;
+    turnStep(S, dt, target(S));
+    if (!S.held && len(between(S.q, target(S))) < .002 && len(S.w) < .02) {
+      const to = target(S);
+      if (to === own(S.cs)) { S.fl.style.transform = ''; S.fl.style.transition = ''; all.delete(S.cs); }
+      else { S.q = to.slice(); S.w = [0, 0, 0]; S.goal = null; paint(S); }
+      S.cs.classList.remove('is-turning');
+      return;
+    }
+    paint(S);
+    S.raf = requestAnimationFrame(t => frame(S, t));
+  }
+  const wake = S => { if (!S.raf) { S.t = performance.now(); S.raf = requestAnimationFrame(t => frame(S, t)); } };
+
+  const down = e => {
+    if (P || e.button > 0) return;
+    dragged = false;
+    const g = e.target.closest('.gm-grip'), cs = g && g.closest('.gm-case');
+    if (cs) P = {id: e.pointerId, cs, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, on: false, moves: []};
+  };
+  const move = e => {
+    if (!P || e.pointerId !== P.id) return;
+    const S = stateOf(P.cs);
+    if (!P.on) {
+      if (Math.hypot(e.clientX - P.x0, e.clientY - P.y0) < 6) return;
+      P.on = true; dragged = true; S.held = true; S.goal = null; S.w = [0, 0, 0];
+      try { shelf.setPointerCapture(e.pointerId); } catch (_) {}
+    }
+    dragBy(S, P, e);
+    paint(S);
+    wake(S);
+  };
+  const up = e => {
+    if (!P || e.pointerId !== P.id) return;
+    const was = P;
+    P = null;
+    if (!was.on) return;
+    const S = stateOf(was.cs);
+    S.held = false;
+    const w = flickOf(was, e);
+    if (w) S.w = w;
+    wake(S);
+  };
+  // a turn isn't a tap: the click after it doesn't open the game
+  const click = e => { if (dragged) { dragged = false; e.stopPropagation(); e.preventDefault(); } };
+  shelf.addEventListener('pointerdown', down);
+  shelf.addEventListener('pointermove', move);
+  shelf.addEventListener('pointerup', up);
+  shelf.addEventListener('pointercancel', up);
+  shelf.addEventListener('click', click, true);
+  return {
+    home(cs) {
+      const S = cs && all.get(cs);
+      if (!S || (P && P.cs === cs)) return;
+      S.held = false; S.goal = own(cs);
+      wake(S);
+    },
+    stop() {
+      all.forEach(S => { if (S.raf) cancelAnimationFrame(S.raf); S.cs.classList.remove('is-turning'); });
+      all.clear();
+      shelf.removeEventListener('pointerdown', down);
+      shelf.removeEventListener('pointermove', move);
+      shelf.removeEventListener('pointerup', up);
+      shelf.removeEventListener('pointercancel', up);
+      shelf.removeEventListener('click', click, true);
     }
   };
 }

@@ -151,8 +151,9 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
 }
 .v-puzzles .gm-shelf {
   position: relative; display: flex; align-items: center;
-  /* (10px higher than it looks: the lit case's glow fades out before the scroller's edge cuts it off) */
-  margin: -10px calc(-1 * var(--gutter)) 0; padding: 30px calc(50% - var(--cw) / 2) 14px;
+  /* (10px higher than it looks: the lit case's glow fades out before the scroller's edge cuts it off; and 30px lower,
+     room for a case turned in your hand to swing its near corner out, the pips back up under it) */
+  margin: -10px calc(-1 * var(--gutter)) -30px; padding: 30px calc(50% - var(--cw) / 2) 44px;
   overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch; outline: none;
 }
@@ -172,8 +173,19 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
 }
 .v-puzzles .gm-case {
   position: relative; display: block; width: 100%; aspect-ratio: 100 / 138; padding: 0; border: 0; border-radius: 10px;
-  background: none; cursor: pointer; container-type: inline-size; -webkit-tap-highlight-color: transparent;
+  background: none; cursor: pointer; container-type: inline-size; -webkit-tap-highlight-color: transparent; perspective: 2000px;
 }
+/* grab the case in the middle by its top, bottom or sides and it turns where it stands (views/game-case.js
+   shelfTurner): those edges are the case's (no panning from them); its middle is the shelf's, to swipe along */
+.v-puzzles .gm-grip { position: absolute; z-index: 3; touch-action: none; }
+.v-puzzles .gm-grip.is-t, .v-puzzles .gm-grip.is-b { left: 0; right: 0; height: 18%; }
+.v-puzzles .gm-grip.is-t { top: 0; }
+.v-puzzles .gm-grip.is-b { bottom: 0; }
+.v-puzzles .gm-grip.is-l, .v-puzzles .gm-grip.is-r { top: 18%; bottom: 18%; width: 22%; }
+.v-puzzles .gm-grip.is-l { left: 0; }
+.v-puzzles .gm-grip.is-r { right: 0; }
+.v-puzzles .gm-slot:not(.is-cur) .gm-grip { display: none; }
+.v-puzzles .gm-slot.is-cur .gm-case.is-turning::after, .v-puzzles .gm-case.is-turning > .gm-gloss { opacity: 0; }
 .v-puzzles .gm-case:focus-visible { outline: none; }
 .v-puzzles .gm-case::after {
   content: ""; position: absolute; inset: 0; border-radius: 5.6cqw; pointer-events: none; opacity: 0; transition: opacity .2s linear;
