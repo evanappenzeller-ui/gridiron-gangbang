@@ -444,7 +444,7 @@ function midfieldLogo(z) {
   if (image) {
     if (!fieldLogoMaterial) {
       const map = canvasTex(image.width, image.height, c => c.drawImage(image, 0, 0), false);
-      fieldLogoMaterial = new T.MeshLambertMaterial({map, transparent: true, depthWrite: false});
+      fieldLogoMaterial = new T.MeshLambertMaterial({map, transparent: true, opacity: fieldLogo.OPACITY, depthWrite: false});
     }
     const width = fieldLogo.WIDTH, depth = width * image.height / image.width;
     // Segments follow the same curved ground as the turf beneath this painted mark.

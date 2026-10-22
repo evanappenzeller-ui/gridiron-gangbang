@@ -341,6 +341,7 @@ function midfieldLogo(st, c, za, zb) {
   const image = fieldLogo.image();
   if (!image) return;
   const width = fieldLogo.WIDTH, depth = width * image.height / image.width;
+  c.save(); c.globalAlpha *= fieldLogo.OPACITY;
   marks(za - depth / 2, zb + depth / 2, R.ZONE, 50).forEach(z => {
     const near = Math.max(za, z - depth / 2), far = Math.min(zb, z + depth / 2);
     if (near >= far) return;
@@ -354,6 +355,7 @@ function midfieldLogo(st, c, za, zb) {
         st.W / 2 + (-width / 2 - st.camX) * scale, y0, width * scale, y1 - y0);
     }
   });
+  c.restore();
 }
 const GROUNDS = {
   stadium(st, c, za, zb) {

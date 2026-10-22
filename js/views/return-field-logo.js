@@ -2,6 +2,7 @@
 import * as data from '../core/data.js';
 
 export const WIDTH = 12;
+export const OPACITY = .88; // Let the turf and mowing stripes show through the paint.
 const listeners = new Set();
 let bitmap = null, attempt = null, tried = false, subscribed = false;
 const changed = () => listeners.forEach(fn => fn());
@@ -34,7 +35,7 @@ export function sync() {
 
 async function loadImage(load) {
   try {
-    const response = await fetch(new URL('../../img/return-toreadors-logo.png', import.meta.url), {signal: load.signal});
+    const response = await fetch(new URL('../../img/return-toreadors-painted-v1.png', import.meta.url), {signal: load.signal});
     if (!response.ok) throw new Error('Midfield logo unavailable');
     const blob = await response.blob();
     if (!current(load)) return;

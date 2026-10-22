@@ -7,7 +7,7 @@
 // A slow request falls back to whatever is cached under its path (from the previous worker too), so data whose
 // format changes gets a new file name rather than new content under the old one (data/puzzles-v4.json: see
 // js/core/daily.js).
-const CACHE = 'gg-v353';
+const CACHE = 'gg-v354';
 const CORE = ['ui', 'data', 'daily', 'fire', 'week', 'nfl', 'stats', 'motw', 'press', 'checks', 'checks-stats', 'checks-pickem', 'checks-press', 'checks-seventeen', 'checks-drill', 'checks-kick', 'return', 'checks-return', 'lay', 'plays', 'laytrack', 'seventeen', 'drill-sim', 'drill', 'kick', 'avatars', 'lpick', 'survivor', 'checks-lpick', 'realm', 'realm-battle', 'checks-realm'];
 // The tab roots are puzzles, pickem, rivals (Matchup), league, moves (Draft), lay (The Lay) and, on the owner's phones, realm.
 const VIEWS = ['welcome', 'guest', 'puzzles', 'games', 'game-case', 'board', 'you', 'sharecard', 'results', 'run', 'college', 'silhouette', 'mystery', 'journey', 'grid', 'picker',
@@ -99,7 +99,7 @@ self.addEventListener('fetch', e => {
   // Owner-only art is requested by the profile-gated renderer, never precached or
   // written into this shared offline cache. Offline loads retain the original artwork.
   if (/\/img\/return\/city\/bus-(rear|side|roof)-v1\.webp$/.test(url.pathname) ||
-      /\/img\/return-toreadors-logo\.png$/.test(url.pathname) ||
+      /\/img\/return-toreadors-(?:logo|painted-v1)\.png$/.test(url.pathname) ||
       /\/js\/views\/return-player-style\.js$/.test(url.pathname)) {
     e.respondWith(fetch(req));
     return;
