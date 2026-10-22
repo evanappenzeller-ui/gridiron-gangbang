@@ -561,10 +561,10 @@ export function mountList(el, ctx, opts = {}) {
   // The case up close (the owner's ask, Oct 2026): a real case to turn in your hand (views/game-case.js), its back the
   // whole board, its front the cover; turned to the front it opens, the disc inside. play: a game not played yet, to
   // start: it comes up facing front (no back to turn to) and opens, Start in the tray's top right over the disc.
-  // (the owner's is a big START block up at the top of the screen, the case under it: his ask, Oct 2026)
+  // The owner's launch control sits directly below the case, at full touch size even when the case scales.
   const goLabel = s => (s.kind === 'started' ? 'Continue' : 'Start');
   const ownerGoHTML = (g, s) => `<button type="button" class="gm-z-go" data-gm-zgo disabled aria-label="${esc(`${goLabel(s)}: ${g.name}`)}">`
-    + `<span class="gm-z-go-word" aria-hidden="true">${goLabel(s)}</span></button>`;
+    + `${ui.icon('play-fill')}<span class="gm-z-go-word" aria-hidden="true">${goLabel(s)}</span></button>`;
   function caseUpHTML(g, s, play = false) {
     // (the game's name up in the black band, where the cover has GRIDIRON HUB: the owner's ask, Oct 2026)
     const band = `<span class="gm-band is-z">${g.beta ? '<span class="gm-beta">BETA</span>' : ''}<span class="gm-bk-name" id="gm-z-t">${esc(g.name)}</span>`

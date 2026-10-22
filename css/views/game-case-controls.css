@@ -1,25 +1,27 @@
-/* Evan's launch control: a slim, sleek START pill pinned at the top of the screen, between the safe area and the
-   case, full-sized however small the open case scales (his asks, Oct 2026). Royal blue, so it stands off the green case. */
-.gm-zoom.gm-owner.gm-has-play { padding-top: calc(max(8px, var(--sa-t, 0px)) + 60px); }
+/* Evan's launch control stays with the case, in the same emerald and warm cream palette. */
+.gm-zoom.gm-owner.gm-has-play .gm-z-stage {
+  --avh: calc(100svh - var(--sa-t, 0px) - var(--sa-b, 0px) - 240px);
+}
 .gm-zoom.gm-owner .gm-z-dlg > .gm-z-go {
-  position: fixed; z-index: 3; inset: max(12px, var(--sa-t, 0px)) auto auto 50%;
-  transform: translateX(-50%); translate: none;
-  display: grid; place-items: center; flex: none;
-  width: min(176px, calc(100vw - 132px)); height: 42px; padding: 0 20px;
-  border: 1px solid #ffffff2e; border-radius: 21px;
-  background: linear-gradient(180deg, #3d7ef0, #1f56c8); color: #fff;
-  box-shadow: inset 0 1px 0 #ffffff40, 0 6px 18px #0b1f5c66, 0 1px 3px #0006;
-  font: 700 15px/1 var(--font-text); letter-spacing: .24em; text-indent: .24em; text-transform: uppercase; text-align: center;
+  position: relative; z-index: 3; inset: auto;
+  transform: none; translate: none;
+  display: flex; align-items: center; justify-content: center; gap: 12px; flex: none;
+  width: min(220px, calc(100vw - 48px)); height: 50px; margin-top: clamp(8px, 3vw, 40px); padding: 0 24px;
+  border: 1px solid #b9cf8b99; border-radius: 14px;
+  background: linear-gradient(180deg, #286341, #174b31 56%, #123c28); color: #fff3d6;
+  box-shadow: inset 0 1px 0 #e5f2b933, inset 0 -1px 0 #092b1c, 0 3px 0 #082a1b, 0 8px 22px #0006;
+  font: 700 15px/1 var(--font-text); letter-spacing: .14em; text-indent: 0; text-transform: uppercase; text-align: center;
   transition: opacity .2s, visibility .2s, translate .15s, box-shadow .15s, filter .15s;
   cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
-.gm-zoom.gm-owner .gm-z-dlg > .gm-z-go::before { inset: -8px; border-radius: 29px; pointer-events: none; } /* (its reach) */
+.gm-zoom.gm-owner .gm-z-dlg > .gm-z-go::before { inset: 0; border-radius: inherit; pointer-events: none; }
+.gm-zoom.gm-owner .gm-z-dlg > .gm-z-go > .ic { width: 17px; height: 17px; flex: none; color: #e6cf91; }
 .gm-zoom.gm-owner .gm-z-go-word { display: block; max-width: 100%; overflow: hidden; text-overflow: clip; white-space: nowrap; }
 @media (hover: hover) {
-  .gm-zoom.gm-owner .gm-z-dlg > .gm-z-go:hover:not(:disabled) { translate: 0 -1px; filter: brightness(1.08); box-shadow: inset 0 1px 0 #ffffff40, 0 8px 22px #0b1f5c80, 0 1px 3px #0006; }
+  .gm-zoom.gm-owner .gm-z-dlg > .gm-z-go:hover:not(:disabled) { translate: 0 -1px; filter: brightness(1.12); box-shadow: inset 0 1px 0 #e5f2b944, 0 4px 0 #082a1b, 0 10px 24px #0007; }
 }
-.gm-zoom.gm-owner .gm-z-dlg > .gm-z-go:active:not(:disabled) { translate: 0 1px; filter: brightness(.94); box-shadow: inset 0 1px 0 #ffffff26, 0 2px 8px #0b1f5c66; }
-.gm-zoom.gm-owner .gm-z-dlg > .gm-z-go:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+.gm-zoom.gm-owner .gm-z-dlg > .gm-z-go:active:not(:disabled) { translate: 0 2px; filter: brightness(.96); box-shadow: inset 0 1px 0 #e5f2b926, 0 1px 0 #082a1b, 0 3px 10px #0005; }
+.gm-zoom.gm-owner .gm-z-dlg > .gm-z-go:focus-visible { outline: 2px solid #f4dda2; outline-offset: 4px; }
 .gm-zoom.gm-owner .gm-z-dlg > .gm-z-go:disabled { opacity: 0; visibility: hidden; pointer-events: none; }
 .gm-zoom.gm-owner .gm-z-dlg > .gm-z-go[aria-busy="true"] { opacity: .65; visibility: visible; }
 .gm-zoom.gm-owner.gm-is-launching .gm-z-dlg > .gm-z-go { opacity: 0; visibility: hidden; pointer-events: none; }
