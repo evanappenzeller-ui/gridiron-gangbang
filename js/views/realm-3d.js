@@ -801,12 +801,38 @@ export function create(host, opts = {}) {
     }
     want();
   }
-  // a building not on the lot yet (the shop's pick), shown where it would go
+  // a building not on the lot yet (the shop's pick), shown where it would go; a run of walls (g.run, the tiles in a
+  // line) joined as they'd stand, a green or red square under each
   let ghost = null;
+  const runFoot = new T.PlaneGeometry(.92, .92).rotateX(-Math.PI / 2);
+  const runMat = ok => new T.MeshBasicMaterial({color: ok ? 0x3BD16F : 0xE5484D, transparent: true, opacity: .45, depthWrite: false, toneMapped: false});
+  const runMats = {true: runMat(true), false: runMat(false)};
   function setGhost(g) {
-    if (ghost) { root.remove(ghost.g); ghost = null; }
+    if (ghost) { root.remove(ghost.g); ghost.g.children.forEach(m => m.isInstancedMesh && m.dispose()); ghost = null; }
     if (!g) { select(null); return; }
     const size = KINDS[g.t].size;
+    if (g.run) {
+      // a run of new walls, in the level-1 design the lot draws them in (realm-walls.js), rails joining each to the next
+      const run = g.run, design = data.isOwner() ? 1 : 0, parts = FM.wallParts(design), n = run.length, horiz = run[1].y === run[0].y, grp = new T.Group();
+      const post = new T.InstancedMesh(parts.post, FM.mats().paint, n), rail = new T.InstancedMesh(parts.rail, FM.mats().paint, n - 1);
+      const foot = new T.InstancedMesh(runFoot, runMats[!!g.ok], n);
+      const m = new T.Matrix4(), one = new T.Vector3(1, 1, 1), c = new T.Color(FM.WALL_TINT[0]);
+      const turn = new T.Quaternion().setFromAxisAngle(new T.Vector3(0, 1, 0), horiz ? 0 : -Math.PI / 2), none = new T.Quaternion();
+      // from the run's lower tile: rails join each tile to the next along +x or +y
+      const tiles = run.slice().sort((a, b) => a.x - b.x || a.y - b.y);
+      tiles.forEach((q, i) => {
+        post.setMatrixAt(i, m.compose(new T.Vector3(W(q.x + .5), .25, W(q.y + .5)), none, one));
+        foot.setMatrixAt(i, m.compose(new T.Vector3(W(q.x + .5), .025, W(q.y + .5)), none, one));
+        if (i < n - 1) rail.setMatrixAt(i, m.compose(new T.Vector3(W(q.x + .5), .25, W(q.y + .5)), turn, one));
+        if (!design) { post.setColorAt(i, c); if (i < n - 1) rail.setColorAt(i, c); }
+      });
+      foot.renderOrder = 1;
+      grp.add(post, rail, foot);
+      root.add(grp);
+      ghost = {g: grp};
+      select(null);
+      return;
+    }
     const grp = g.t === 'wall' ? wallPreview(T, 1) : SPR.ready() && SPR.KINDS.includes(g.t) ? SPR.building(g.t, 1, size) : FM.model(g.t, 1, house);
     if (!grp) return;
     grp.traverse(m => { if (m.isMesh) { m.castShadow = false; } });
@@ -1219,6 +1245,7 @@ export function create(host, opts = {}) {
       if (ro) ro.disconnect();
       if (wear) { wear.mesh.geometry.dispose(); wear.mesh.material.dispose(); wear.tex.dispose(); }
       if (village && base.plot.material.map) base.plot.material.map.dispose();
+      setGhost(null); runFoot.dispose(); runMats.true.dispose(); runMats.false.dispose();
       raidStop();
       canvas.removeEventListener('pointerdown', down); canvas.removeEventListener('pointermove', move);
       canvas.removeEventListener('pointerup', up); canvas.removeEventListener('pointercancel', up); canvas.removeEventListener('wheel', wheel);

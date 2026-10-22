@@ -292,12 +292,24 @@ function showSel(st) {
   const html = selHTML(st);
   if (box.dataset.html !== html) { box.dataset.html = html; box.innerHTML = html; }
 }
-/** The card while something new is being placed ({t, ok}: its kind, whether where it is now fits). */
+/** The card while something new is being placed ({t, ok, run}: its kind, whether where it is now fits, and for a run of
+ *  walls their tiles), walls with how many go down at once. */
 function placeHTML(s, place) {
   const K = F.KINDS[place.t], chk = F.canBuild(s, place.t);
-  return `<div class="rl-sel-h"><div><b>${esc(K.name)}</b><span class="rl-sel-lv">Drag it where it goes</span></div></div>`
+  const n = place.run ? place.run.length : 1, cost = chk.cost * n;
+  const why = !chk.ok ? chk.why : cost > s.r[chk.pay] ? `Not enough ${F.CUR_NAME[chk.pay]}` : !place.ok ? 'It doesn’t fit there' : '';
+  let qty = '';
+  if (place.t === 'wall') {
+    const steps = wallSteps(s), i = steps.indexOf(n);
+    qty = `<div class="rl-qty"><button type="button" class="rl-qty-b" data-rl-qty="-1" aria-label="Fewer walls" ${i > 0 ? '' : 'disabled'}>−</button>`
+      + `<span class="rl-qty-n"><b>${n}</b> wall${n === 1 ? '' : 's'}</span>`
+      + `<button type="button" class="rl-qty-b" data-rl-qty="1" aria-label="More walls" ${i < steps.length - 1 ? '' : 'disabled'}>+</button>`
+      + (n > 1 ? `<button type="button" class="rl-qty-b is-turn" data-rl-turn>Turn</button>` : '') + `</div>`;
+  }
+  return `<div class="rl-sel-h"><div><b>${esc(K.name)}</b><span class="rl-sel-lv">${n > 1 ? 'Drag the line where it goes' : 'Drag it where it goes'}</span></div></div>`
+    + qty
     + `<div class="rl-acts"><button type="button" class="rl-act" data-rl-cancel>Cancel</button>`
-    + `<button type="button" class="rl-act is-go" data-rl-place ${place.ok && chk.ok ? '' : 'disabled'}>Build ${curHTML(chk.pay, chk.cost)}<small>${chk.ok ? (chk.time && place.t !== 'hut' ? dur(chk.time * 1000) : 'at once') : esc(chk.why)}</small></button></div>`;
+    + `<button type="button" class="rl-act is-go" data-rl-place ${why ? 'disabled' : ''}>Build ${curHTML(chk.pay, cost)}<small>${why ? esc(why) : chk.time && place.t !== 'hut' ? dur(chk.time * 1000) : 'at once'}</small></button></div>`;
 }
 function select(st, id) {
   st.sel = id; st.moving = null;
@@ -508,13 +520,55 @@ function houseSheet(st) {
   });
 }
 
-// ---- placing something new: where there's room near the middle; drag it; Build
+// ---- placing something new: where there's room near the middle; drag it; Build. Walls go down 1 or 10 at a time, more
+// in tens (the owner, Oct 2026), in a line from where the first goes, as many as the Keep allows and a line can hold;
+// Turn swaps across and down.
+const WALL_STEP = 10, WALL_LINE = F.N - 2 * F.EDGE;
+const wallsLeft = s => Math.max(0, F.allowed(s, 'wall') - F.countOf(s, 'wall'));
+/** The wall amounts on offer: 1, then tens up to what's left to build (and what fits in one line). */
+const wallSteps = s => [1, ...Array.from({length: Math.floor(Math.min(wallsLeft(s), WALL_LINE) / WALL_STEP)}, (_, i) => (i + 1) * WALL_STEP)];
+const clampWalls = st => { st.wallQty = Math.max(...wallSteps(F.mine()).filter(n => n <= (st.wallQty || 1))); };
+const lineOf = (x, y, n, d) => Array.from({length: n}, (_, i) => ({x: x + d[0] * i, y: y + d[1] * i}));
+/** Whether what's being placed fits where it is (for a run of walls, every tile of it). */
+function fitPlace(st) {
+  const s = F.mine(), p = st.place;
+  if (p.t !== 'wall' || (st.wallQty || 1) < 2) { p.run = null; p.ok = F.fits(s, F.KINDS[p.t].size, p.x, p.y); return; }
+  p.run = lineOf(p.x, p.y, st.wallQty, st.wallDir || [1, 0]);
+  p.ok = p.run.every(q => F.fits(s, 1, q.x, q.y));
+}
+/** The start of a line of n walls going d that fits, nearest near (or the middle), or null. */
+function runSpot(s, n, d, near = null) {
+  const c = near || {x: F.N / 2, y: F.N / 2};
+  let best = null, bd = Infinity;
+  for (let y = F.EDGE; y < F.N - F.EDGE; y++) for (let x = F.EDGE; x < F.N - F.EDGE; x++) {
+    const dd = (x - c.x) ** 2 + (y - c.y) ** 2;
+    if (dd < bd && lineOf(x, y, n, d).every(q => F.fits(s, 1, q.x, q.y))) { bd = dd; best = {x, y}; }
+  }
+  return best;
+}
+/** The run of walls where it is if it fits there, else the nearest place it does. */
+function seatWalls(st) {
+  const p = st.place;
+  fitPlace(st);
+  if (!p.ok && p.run) { const sp = runSpot(F.mine(), p.run.length, st.wallDir || [1, 0], {x: p.x, y: p.y}); if (sp) { Object.assign(p, sp); fitPlace(st); } }
+}
+/** The amount (+1 a step more, -1 a step fewer) or the way (turn) changed while placing walls. */
+function changeWalls(st, step, turn = false) {
+  if (!st.place || st.place.t !== 'wall') return;
+  const steps = wallSteps(F.mine()), i = Math.max(0, steps.indexOf(st.wallQty || 1));
+  st.wallQty = steps[Math.max(0, Math.min(steps.length - 1, i + step))];
+  if (turn) { const d = st.wallDir || [1, 0]; st.wallDir = [d[1], d[0]]; }
+  seatWalls(st);
+  if (st.v) st.v.setGhost(st.place);
+  showSel(st);
+}
 function startPlace(st, k, near = null) {
   const s = F.mine(), spot = F.spotFor(s, k, near);
   if (!spot) { ui.toast('No room on the lot', {icon: 'info'}); return; }
   st.sel = null;
   st.place = {t: k, x: spot.x, y: spot.y, ok: true};
-  if (st.v) { st.v.select(null); st.v.setGhost(st.place); st.v.showGrid(true); st.v.look(spot.x + F.KINDS[k].size / 2, spot.y + F.KINDS[k].size / 2, Math.max(36, Math.min(60, st.v.zoom))); }
+  if (k === 'wall') { clampWalls(st); seatWalls(st); }
+  if (st.v) { st.v.select(null); st.v.setGhost(st.place); st.v.showGrid(true); st.v.look(st.place.x + F.KINDS[k].size / 2, st.place.y + F.KINDS[k].size / 2, Math.max(36, Math.min(60, st.v.zoom))); }
   showSel(st);
   tags(st);
 }
@@ -526,19 +580,30 @@ function endPlace(st) {
 function commitPlace(st) {
   const s = F.mine(), p = st.place;
   if (!p) return;
-  const b = F.build(s, p.t, p.x, p.y);
-  if (!b) { ui.toast(F.canBuild(s, p.t).why || 'It doesn’t fit there', {icon: 'info'}); return; }
+  if (p.run) {
+    // a run of walls: all of it or none
+    fitPlace(st);
+    const chk = F.canBuild(s, 'wall'), n = p.run.length;
+    const why = !chk.ok ? chk.why : n > wallsLeft(s) ? `Only ${wallsLeft(s)} more allowed` : chk.cost * n > s.r.gold ? 'Not enough Gold' : !p.ok ? 'It doesn’t fit there' : '';
+    if (why) { ui.toast(why, {icon: 'info'}); return; }
+    p.run.forEach(q => F.build(s, 'wall', q.x, q.y));
+  } else {
+    const b = F.build(s, p.t, p.x, p.y);
+    if (!b) { ui.toast(F.canBuild(s, p.t).why || 'It doesn’t fit there', {icon: 'info'}); return; }
+  }
   F.touch();
   ui.haptic('light');
-  // walls: the next goes on beside it, the same way along
+  // walls: the next (or the next run) goes on beside it, the same way along
   if (p.t === 'wall' && F.canBuild(s, 'wall').ok) {
-    const d = st.lastWall ? [p.x - st.lastWall.x, p.y - st.lastWall.y] : null;
-    const dir = d && Math.abs(d[0]) + Math.abs(d[1]) === 1 ? d : [1, 0];
-    st.lastWall = {x: p.x, y: p.y};
-    const nx = p.x + dir[0], ny = p.y + dir[1];
-    const next = F.fits(s, 1, nx, ny) ? {x: nx, y: ny} : F.spotFor(s, 'wall', {x: p.x, y: p.y});
-    if (next) {
-      st.place = {t: 'wall', x: next.x, y: next.y, ok: true};
+    const end = p.run ? p.run[p.run.length - 1] : {x: p.x, y: p.y};
+    const d = !p.run && st.lastWall ? [p.x - st.lastWall.x, p.y - st.lastWall.y] : null;
+    const dir = st.wallDir = d && Math.abs(d[0]) + Math.abs(d[1]) === 1 ? d : st.wallDir || [1, 0];
+    st.lastWall = end;
+    clampWalls(st);
+    st.place = {t: 'wall', x: end.x + dir[0], y: end.y + dir[1], ok: true};
+    seatWalls(st);
+    if (!st.place.ok && !st.place.run) { const sp = F.spotFor(s, 'wall', end); if (sp) { Object.assign(st.place, sp); fitPlace(st); } }
+    if (st.place.ok) {
       st.v.setLot(s, {now: Date.now(), house: MY_HOUSE}); st.v.setGhost(st.place); refresh(st); showSel(st);
       return;
     }
@@ -565,14 +630,20 @@ async function start3d(st) {
     onCamera: () => placeTags(st),
     onTap: hit => onLotTap(st, hit),
     onGrab: (tile, id) => {
-      if (st.place) { const sz = F.KINDS[st.place.t].size; return tile.x >= st.place.x - .5 && tile.x <= st.place.x + sz + .5 && tile.y >= st.place.y - .5 && tile.y <= st.place.y + sz + .5; }
+      if (st.place) {
+        // a run of walls is held by the tile grabbed, so it moves with the finger from there
+        const p = st.place, sz = F.KINDS[p.t].size, i = (p.run || [p]).findIndex(q => tile.x >= q.x - .5 && tile.x <= q.x + sz + .5 && tile.y >= q.y - .5 && tile.y <= q.y + sz + .5);
+        st.grabAt = Math.max(0, i);
+        return i >= 0;
+      }
       return st.moving != null && id === st.moving;
     },
     onDrag: tile => {
       if (st.place) {
-        const sz = F.KINDS[st.place.t].size, x = Math.round(tile.x - sz / 2), y = Math.round(tile.y - sz / 2);
+        const sz = F.KINDS[st.place.t].size, d = st.wallDir || [1, 0], at = st.place.run ? st.grabAt || 0 : 0;
+        const x = Math.round(tile.x - sz / 2) - d[0] * at, y = Math.round(tile.y - sz / 2) - d[1] * at;
         if (x === st.place.x && y === st.place.y) return;
-        Object.assign(st.place, {x, y, ok: F.fits(F.mine(), sz, x, y)});
+        Object.assign(st.place, {x, y}); fitPlace(st);
         st.v.setGhost(st.place); showSel(st);
         return;
       }
@@ -738,6 +809,8 @@ export default {
       if (t.closest('[data-rl-unsel]')) { select(st, null); return; }
       if (t.closest('[data-rl-cancel]')) { endPlace(st); return; }
       if (t.closest('[data-rl-place]')) { commitPlace(st); return; }
+      if (t.closest('[data-rl-qty]')) { changeWalls(st, +t.closest('[data-rl-qty]').dataset.rlQty); return; }
+      if (t.closest('[data-rl-turn]')) { changeWalls(st, 0, true); return; }
       const up = t.closest('[data-rl-up]');
       if (up) {
         const s = F.mine();

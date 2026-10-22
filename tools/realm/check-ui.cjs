@@ -105,6 +105,22 @@ async function uiChecks(page, context, url) {
   await page.screenshot({path: path.join(output, 'realm-build-390.png')});
   await page.locator('[data-rl-cancel]').click();
   assert.equal(await page.locator('[data-rl-place]').count(), 0, 'Build placement cancels');
+  // Walls go down 1 or 10 at a time (tens up to what the Keep allows), in a line, all for the one Build.
+  const wallsBefore = await page.evaluate(async () => { const F = await import('/js/core/realm.js'), s = F.mine(); s.r.gold = 5000; return {n: F.countOf(s, 'wall'), gold: s.r.gold, cap: F.allowed(s, 'wall')}; });
+  await page.locator('[data-rl-shop]').click();
+  await page.locator('[data-rl-buy="wall"]').click();
+  await page.waitForSelector('[data-rl-qty]');
+  assert(/\b1\s*wall\b/.test(await page.locator('.rl-qty-n').innerText()), 'Walls start at one');
+  await page.locator('[data-rl-qty="1"]').click();
+  assert(/\b10\s*walls\b/.test(await page.locator('.rl-qty-n').innerText()), 'Plus goes to 10 walls');
+  assert(/500/.test(await page.locator('[data-rl-place]').innerText()), 'Build shows the cost of all 10');
+  assert.equal(await page.locator('[data-rl-qty="1"]').isDisabled(), wallsBefore.cap - wallsBefore.n < 20, 'No more tens than the Keep allows');
+  await page.locator('[data-rl-turn]').click();
+  await page.screenshot({path: path.join(output, 'realm-walls-390.png')});
+  await page.locator('[data-rl-place]').click();
+  const wallsAfter = await page.evaluate(async () => { const F = await import('/js/core/realm.js'), s = F.mine(), w = s.b.filter(b => b.t === 'wall'); return {n: w.length, gold: s.r.gold, xs: new Set(w.slice(-10).map(b => b.x)).size}; });
+  assert(wallsAfter.n - wallsBefore.n === 10 && wallsBefore.gold - wallsAfter.gold === 500 && wallsAfter.xs === 1, 'Ten walls built down one line for 500 Gold');
+  await page.locator('[data-rl-cancel]').click();
   await page.setViewportSize({width: 320, height: 740});
   await page.locator('[data-rl-frame]').click();
   await page.waitForTimeout(150);
