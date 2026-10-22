@@ -14,7 +14,7 @@ const THEMES = {
 };
 
 // The central playable diamond is deliberately left empty. Each small herd has
-// its own glade; flight routes circle the outer world instead of crossing the lot.
+// its own glade; flight routes stay in the outer scenery, clear of the lot.
 const ZONES = {
   birds: [{x: .49, y: .27, rx: .34, ry: .15}, {x: .50, y: .84, rx: .34, ry: .10}],
   dragons: [{x: .17, y: .46, rx: .075, ry: .24}, {x: .84, y: .43, rx: .065, ry: .25}, {x: .54, y: .88, rx: .23, ry: .045}],
@@ -212,24 +212,48 @@ export function createWildlife(T, scene, options = {}) {
     return Math.abs(x - lotX) / protectedX + Math.abs(screenY - lotY) / protectedY > 1 + rx / protectedX + ry / protectedY;
   }
   function path(z, a) { return {x: z.x + Math.cos(a) * z.rx, y: z.y + Math.sin(a) * z.ry}; }
+  function birdPath(z, i, time) {
+    // Independent waves make long drifting passes and changing turns rather
+    // than a flock tracing one ellipse. The main tangent dominates the drift,
+    // preventing stalls or sudden heading flips. Position weights sum to less
+    // than one, keeping every route inside its authored scenery zone.
+    const phase = i * 2.399963, direction = i % 3 === 0 ? -1 : 1;
+    const a = phase + time * direction * (.115 + (i % 5) * .011);
+    return {
+      x: z.x + z.rx * (.66 * Math.sin(a) + .21 * Math.sin(a * .43 + phase * .8) + .12 * Math.sin(a * 1.73 + phase * 1.1)),
+      y: z.y + z.ry * (.64 * Math.cos(a) + .18 * Math.sin(a * .61 + phase * .7) + .15 * Math.sin(a * 1.19 + phase * 1.7))
+    };
+  }
   function setBody(mesh, index, p, yaw, s, y, bank = 0) {
     body.position.copy(p); body.position.y += y; body.rotation.set(0, yaw, bank); body.scale.setScalar(s); body.updateMatrix();
     mesh.setMatrixAt(index, body.matrix);
   }
   function flying(mesh, wings, key, n, time, dragon) {
-    const zz = zones[key], speed = dragon ? .105 : .16, s0 = unit * (dragon ? .012 : .0051);
+    const zz = zones[key], speed = .105, s0 = unit * (dragon ? .012 : .0026);
     for (let i = 0; i < n; i++) {
       const z = zz[i % zz.length], phase = i * 2.399963, a = phase + time * speed * (1 + (i % 3) * .11);
-      const pos = path(z, a), next = path(z, a + .008), s = s0 * (.83 + (i % 4) * .11);
+      const pos = dragon ? path(z, a) : birdPath(z, i, time), next = dragon ? path(z, a + .008) : birdPath(z, i, time + .2);
+      const s = s0 * (.83 + (i % 4) * .11);
       // Height is modest: flight reads in silhouette while staying aligned to the
       // outer scenery's routes, safely clear of the playable center.
-      const h = s * (dragon ? 1.6 : 2.2) + Math.sin(a * 2) * s * .2;
+      const h = dragon ? s * 1.6 + Math.sin(a * 2) * s * .2 : s * (3.8 + Math.sin(time * .51 + phase) * .6);
       if (!safe(pos.x, pos.y, s * (dragon ? 1.9 : 1.55), h)) { mesh.setMatrixAt(i, invisible); wings.setMatrixAt(i * 2, invisible); wings.setMatrixAt(i * 2 + 1, invisible); continue; }
       const p = gr.under(pos.x * gr.w, pos.y * gr.h), q = gr.under(next.x * gr.w, next.y * gr.h);
       heading.subVectors(q, p);
       const yaw = Math.atan2(heading.x, heading.z);
-      setBody(mesh, i, p, yaw, s, h, Math.sin(a) * .12);
-      const flap = Math.sin(time * (dragon ? 2.4 : 7) + phase) * (dragon ? .42 : .62);
+      let bank = Math.sin(a) * .12;
+      if (!dragon) {
+        const ahead = birdPath(z, i, time + .4), r = gr.under(ahead.x * gr.w, ahead.y * gr.h);
+        heading.subVectors(r, q);
+        const turn = Math.atan2(heading.x, heading.z) - yaw;
+        bank = clamp(-Math.atan2(Math.sin(turn), Math.cos(turn)) * 3.5, -.24, .24);
+      }
+      setBody(mesh, i, p, yaw, s, h, bank);
+      // Brief wingbeat bursts give way to extended glides; each bird has its
+      // own cadence so the small silhouettes do not flap in lockstep.
+      const effort = dragon ? 1 : smooth((Math.sin(time * (.53 + (i % 4) * .07) + phase) - .12) / .65);
+      const flap = dragon ? Math.sin(time * 2.4 + phase) * .42 :
+        .06 + Math.sin(time * (6.1 + (i % 5) * .39) + phase) * (.035 + effort * .57);
       for (let side = 0; side < 2; side++) {
         const sign = side ? 1 : -1;
         limb.position.set(sign * .10, .02, 0); limb.rotation.set(0, 0, sign * flap); limb.scale.set(sign, 1, 1); limb.updateMatrix();

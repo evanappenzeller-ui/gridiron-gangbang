@@ -12,7 +12,8 @@ const light = (x, y, rx = .012, ry = .009, hue = 'warm') => ({x, y, rx, ry, hue}
 // second color mask excludes roofs, banks, snow, ice floes and passing boats.
 export const AMBIENCE_REGIONS = {
   coast: {
-    water: [water(.847, .911, .105, .023)],
+    water: [water(.727, .879, .035, .013), water(.893, .898, .010, .012, 'fall'),
+      water(.847, .911, .105, .023)],
     lights: [light(.438, .120, .013, .012), light(.485, .120, .013, .012),
       light(.102, .357), light(.126, .446), light(.646, .741, .015, .014)]
   },
@@ -118,8 +119,10 @@ float realmLiquid(vec3 c, float kind) {
       * smoothstep(1.15, 1.65, c.r / max(0.015, c.g))
       * (1.0 - smoothstep(0.45, 0.85, c.b / max(0.015, c.g)));
   }
-  float blue = smoothstep(0.035, 0.13, c.b - c.r)
-    * smoothstep(0.015, 0.065, c.g - c.r);
+  // Texture samples are linear, so shaded blue/green water needs a lower
+  // chroma threshold than the visible sRGB painting. Warm banks stay excluded.
+  float blue = smoothstep(0.012, 0.075, c.b - c.r)
+    * smoothstep(0.005, 0.045, c.g - c.r);
   if (kind < 0.5) return blue * (1.0 - smoothstep(0.15, 0.32, c.r));
   float white = smoothstep(0.32, 0.65, min(c.g, c.b))
     * (1.0 - smoothstep(0.12, 0.25, abs(c.r - c.g)));
@@ -156,26 +159,49 @@ float realmLamp(vec3 c, float violet) {
       vec2 pixel = realmP / realmPixel;
       float slow = 1.0 - 0.52 * realmLava;
       float travel = realmTime * slow;
-      float ripple = sin(pixel.y * 0.17 - travel * 2.7 + pixel.x * 0.023);
-      float cross = sin(pixel.x * 0.14 + pixel.y * 0.071 - travel * 1.8);
-      vec2 shift = vec2(ripple * (0.80 - 0.35 * realmFall),
-        cross * (0.40 + 0.70 * realmFall)) * realmPixel;
+      float ripple = sin(pixel.y * 0.19 - travel * 2.4 + sin(pixel.x * 0.038 + travel * 0.6));
+      float cross = sin(pixel.x * 0.11 + pixel.y * 0.065 - travel * 1.7);
+      float cascade = sin(pixel.y * 0.32 - travel * 5.8 + pixel.x * 0.09);
+      vec2 shift = vec2(ripple * (2.2 - 1.5 * realmFall),
+        cross * 1.1 + cascade * realmFall * 2.4) * realmPixel;
       vec4 flowing = texture2D(map, vMapUv + shift);
-      // A sub-pixel shimmer, never a translated castle or shoreline. Both the
-      // original and destination colors must be liquid before a sample moves.
-      float destination = max(realmLiquid(flowing.rgb, 0.0) * realmWater,
-        max(realmLiquid(flowing.rgb, 1.0) * realmFall, realmLiquid(flowing.rgb, 2.0) * realmLava));
+      // Both source and destination must be liquid; apply the region feather
+      // once, so the current stays visible instead of fading almost to zero.
+      float destination = max(realmLiquid(flowing.rgb, 0.0) * step(0.001, realmWater),
+        max(realmLiquid(flowing.rgb, 1.0) * step(0.001, realmFall),
+          realmLiquid(flowing.rgb, 2.0) * step(0.001, realmLava)));
       float motion = realmWet * destination;
-      sampledDiffuseColor.rgb = mix(sampledDiffuseColor.rgb, flowing.rgb, motion * 0.78);
-      sampledDiffuseColor.rgb *= 1.0 + motion * (0.045 * ripple + 0.018 * cross);
+      sampledDiffuseColor.rgb = mix(sampledDiffuseColor.rgb, flowing.rgb, motion * 0.9);
+      sampledDiffuseColor.rgb *= 1.0 + motion * (0.12 * ripple + 0.055 * cross);
+      // Narrow reflections travel across pools; foam travels down waterfalls.
+      // These stay inside liquid pixels rather than wobbling painted shores.
+      float crest = pow(max(0.0, ripple), 8.0) * (0.55 + 0.45 * cross);
+      float foam = pow(max(0.0, cascade), 5.0);
+      sampledDiffuseColor.rgb += realmAllowed * (
+        realmWater * crest * vec3(0.020, 0.040, 0.052)
+        + realmFall * foam * vec3(0.035, 0.043, 0.048)
+        + realmLava * crest * vec3(0.045, 0.014, 0.002));
     }
-    float flicker = 0.0;
+    vec3 glisten = vec3(0.0);
     for (int i = 0; i < ${regions.lights.length}; i++) {
-      float lamp = realmArea(realmP, realmLights[i])
-        * realmLamp(sampledDiffuseColor.rgb, realmLightStates[i].y);
-      flicker += lamp * realmLightStates[i].x;
+      vec4 region = realmLights[i];
+      float area = realmArea(realmP, region);
+      // Keep the per-light trigonometry off the rest of the full-screen map.
+      if (area > 0.001) {
+        float source = realmLamp(sampledDiffuseColor.rgb, realmLightStates[i].y);
+        vec2 local = (realmP - region.xy) / region.zw;
+        float phase = float(i) * 2.399963;
+        float shimmer = sin(local.y * 5.0 - realmTime * 3.2 + phase)
+          * sin(local.x * 3.0 + realmTime * 1.9 + phase);
+        float core = exp(-dot(local, local) * 7.0);
+        vec3 tint = mix(vec3(1.0, 0.43, 0.09), vec3(0.52, 0.20, 1.0), realmLightStates[i].y);
+        float flicker = realmLightStates[i].x;
+        glisten += area * (sampledDiffuseColor.rgb * source * (flicker + shimmer * 0.09)
+          + tint * (source * (0.038 + 0.026 * shimmer + 0.07 * flicker)
+            + core * (0.014 + flicker * 0.025)));
+      }
     }
-    sampledDiffuseColor.rgb *= 1.0 + clamp(flicker, -0.14, 0.17) * realmAllowed;
+    sampledDiffuseColor.rgb += clamp(glisten, vec3(-0.12), vec3(0.24)) * realmAllowed;
   }
   diffuseColor *= sampledDiffuseColor;
 #endif
@@ -186,7 +212,7 @@ float realmLamp(vec3 c, float violet) {
     shader.fragmentShader = declarations + shader.fragmentShader.replace('#include <map_fragment>', mapFragment);
     counts.compiled = true;
   }
-  const cacheKey = () => `${oldKey}|realm-ambience-v1:${theme}`;
+  const cacheKey = () => `${oldKey}|realm-ambience-v2:${theme}`;
   material.onBeforeCompile = compile;
   material.customProgramCacheKey = cacheKey;
   material.needsUpdate = true;
@@ -206,8 +232,8 @@ float realmLamp(vec3 c, float violet) {
     regions.lights.forEach((r, i) => {
       const phase = i * 2.399963 + (r.x + r.y) * 5;
       // Multiple smooth, unsynchronised frequencies, without strobing or flashes.
-      uniforms.realmLightStates.value[i].x = .075 * Math.sin(lastTime * 3.7 + phase)
-        + .035 * Math.sin(lastTime * 6.3 + phase * 1.7) + .025 * Math.sin(lastTime * 1.3 + phase * .7);
+      uniforms.realmLightStates.value[i].x = .14 * Math.sin(lastTime * 3.7 + phase)
+        + .065 * Math.sin(lastTime * 6.3 + phase * 1.7) + .045 * Math.sin(lastTime * 1.3 + phase * .7);
     });
     return true;
   }
