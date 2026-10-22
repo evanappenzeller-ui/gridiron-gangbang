@@ -4,7 +4,7 @@
 // sea; a road across the moon; a dirt road through the fields), what stands beside the road (the same things in the
 // same places as the 2D world's: views/return-world.js dressList), the gates into each place, and in the lanes the
 // barricades and banners (the hard course's potholes, each with its cone, and sleds), the vehicles and their ramps,
-// and the power-ups. The sky stays the 2D world's painting
+// the power-ups, and the owner's gold coins (his first run of the day: one instanced mesh). The sky stays the 2D world's painting
 // behind it all (the camera only ever looks straight ahead), the fog its haze.
 // Everything is built as the road comes up and let go behind: the ground and the roadside in 20-yard chunks (each a few
 // merged meshes, coloured by vertex), the lane things one by one (shared shapes and materials).
@@ -57,6 +57,7 @@ const rnd = (...k) => seeded(hashOf(k.join('|')) || 1);
 export function init(three, scene, utils) {
   T = three; U = utils; SCENE = scene;
   ROOT = new T.Group(); ROOT.name = 'world';
+  COINS = null; // (the owner's coins: made again, in this world, when a coin run's drawn)
   SCENE.add(ROOT);
   cityBus.init(T, refreshCityBuses);
   fieldLogo.subscribe(refreshFieldLogos);
@@ -1045,6 +1046,54 @@ function animateArcadeItem(o, t, phase, camX, distance) {
     star.scale.setScalar(.14 + .1 * (.5 + .5 * Math.sin(t * 5 + i * 2)));
   }
 }
+// ---------------------------------------------------------------- The coins (the owner's first run of the day)
+// core/return.js COIN: lines of gold coins on his hard course, his first run of the day alone (views/return.js says
+// which: st.run.coins, st.coinGot the ones he's run through). All of them one instanced mesh, one draw call however
+// many are in view (COIN_CAP at most), no shadow; each coin spinning on its own matrix: a gold disc, its milled rim
+// darker, its face raised and brighter, coloured by its faces, metal under the scene's light. Built the first time a
+// coin run is drawn on his profile (never for anyone else), from shapes alone: nothing to load, nothing to cache.
+const COIN_CAP = 72;
+const COIN_COL = {face: 0xFFD45A, faceRim: 0xE2A21E, disc: 0xF0B02C, rim: 0xB87212};
+let COINS = null;
+function coinsMesh() {
+  if (COINS) return COINS;
+  const r = R.COIN.r, th = .085, pos = [], nor = [], cols = [], c = new T.Color();
+  const disc = new T.CylinderGeometry(r, r, th, 28, 1).rotateX(Math.PI / 2).toNonIndexed();
+  const face = new T.CylinderGeometry(r * .7, r * .7, th + .03, 28, 1).rotateX(Math.PI / 2).toNonIndexed();
+  [[disc, 'disc', 'rim'], [face, 'face', 'faceRim']].forEach(([g, cap, side]) => {
+    const p = g.attributes.position.array, n = g.attributes.normal.array;
+    for (let i = 0; i < p.length; i += 9) {
+      c.set(COIN_COL[Math.abs((n[i + 2] + n[i + 5] + n[i + 8]) / 3) > .5 ? cap : side]);
+      for (let j = 0; j < 9; j++) { pos.push(p[i + j]); nor.push(n[i + j]); }
+      cols.push(c.r, c.g, c.b, c.r, c.g, c.b, c.r, c.g, c.b);
+    }
+    g.dispose();
+  });
+  const geo = new T.BufferGeometry();
+  geo.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); geo.setAttribute('normal', new T.Float32BufferAttribute(nor, 3)); geo.setAttribute('color', new T.Float32BufferAttribute(cols, 3));
+  geo.computeBoundingSphere();
+  const m = new T.InstancedMesh(geo, new T.MeshStandardMaterial({vertexColors: true, metalness: .6, roughness: .32, emissive: 0x7A4C00, emissiveIntensity: .55}), COIN_CAP);
+  m.name = 'coins'; m.instanceMatrix.setUsage(T.DynamicDrawUsage);
+  m.frustumCulled = false; m.castShadow = false; m.receiveShadow = false; m.count = 0; m.visible = false; m.userData.shared = true;
+  ROOT.add(bend(m));
+  COINS = m;
+  return m;
+}
+/** The coins in view (A: core ahead's, or null with no coin run), spinning and bobbing a little; none off his profile. */
+function coinsUpdate(st, A, t) {
+  if (!(A && st.run && st.run.coins && data.isOwner())) { if (COINS) { COINS.count = 0; COINS.visible = false; } return; }
+  const m = coinsMesh(), M = tm();
+  let n = 0;
+  for (const {coin} of A.coins) {
+    if (n >= COIN_CAP) break;
+    if (st.coinGot && st.coinGot.has(coin.i)) continue;
+    M.e.set(0, t * 4.2 + coin.i * .35, 0); M.q.setFromEuler(M.e);
+    M.p.set(R.xOf(null, coin.lane), coin.y + .05 * Math.sin(t * 3 + coin.i * .7), -coin.z); M.s.set(1, 1, 1);
+    m.setMatrixAt(n++, M.m.compose(M.p, M.q, M.s));
+  }
+  m.count = n; m.visible = n > 0;
+  m.instanceMatrix.needsUpdate = true;
+}
 const glowTex = () => texOf('glow', () => canvasTex(128, 128, (g, w, h) => {
   const gr = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2);
   gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(.3, 'rgba(255,255,255,.45)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
@@ -1281,7 +1330,9 @@ export function update(st, now) {
       const glow = o.children[1]; glow.position.y = y + bob; glow.scale.setScalar(k * (1.9 + .5 * pulse));
       const ring = o.children[2]; ring.position.y = .03; ring.scale.setScalar(k * (1 + .15 * pulse));
     });
-  }
+    // the coins (the owner's first run of the day): one instanced mesh
+    coinsUpdate(st, A, t);
+  } else coinsUpdate(st, null, t);
   // let go of whatever's out of view
   for (const [k, e] of LIVE) {
     if (e.seen === FRAME) continue;

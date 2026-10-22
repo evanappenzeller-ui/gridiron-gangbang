@@ -1,7 +1,8 @@
 // The Keep (the owner's ask, Oct 2026: a Clash of Clans of his own, in a medieval fantasy, a game case on Daily Games; his
 // alone: data.isOwner()). Your realm is a lot with your Castle at its heart. The daily games pay for it: every result
-// you've posted to the board this season (and every one from here on) comes in as Gold and Ale, both, waiting in
-// your coffers until the treasuries and cellars have room. Gold mines dig Gold and breweries brew Ale while you're
+// you've posted to the board this season (and every one from here on) comes in as Gold and Ale (from Oct 22 2026: Ale
+// for your place on three boards, Gold from Kick It and Return Man; incomeOf), waiting in your coffers until the
+// treasuries and cellars have room. Gold mines dig Gold and breweries brew Ale while you're
 // away. Your builder raises and upgrades one thing at a time (the owner, Oct 2026), on a clock. Ale trains an army at the barracks; the army raids the
 // computer's realms for what they hold. The computer's realms raid you too (core/realm-battle.js defend), a few times
 // a day, which is what your walls and towers are for.
@@ -249,7 +250,18 @@ export const recruitHero = (s, k) => changeHero(s, k, true);
 export const upgradeHero = (s, k) => changeHero(s, k, false);
 
 // ---------------------------------------------------------------------------------------------------- what the games pay
-// Each day's result, in Gold and in Ale alike (a strong day across the five games is about 12,000 of each).
+// Two rules, by the day (the owner, Oct 21 2026: "the user's spot in the leaderboard for the following games give the
+// player ale: daily puzzle, 17-0, and 2:00 drill. In the field goal game, there should be one in every 5 field goals
+// will earn them coins. the return man game should have coins"; and "coins are only available on the 1st attempt"):
+// - Every game day before NEW_PAY (each game's own day numbers) keeps the old pay exactly: the day's result, in Gold and
+//   Ale alike (PAY), so nothing already paid ever drops.
+// - From NEW_PAY on, Ale (the 'grain' id) is your place on the day's final league board in Daily Puzzles, 17–0 and the
+//   Two-Minute Drill (ALE_BY_PLACE: tied rows share the higher place), ranked as each game's own board ranks it (the
+//   league's board, the members' and Ryan D's rows: never the guests and app users the owner's phone also shows; a
+//   person once across their phones), paid once that game's day is over (the next morning) and then frozen (the realm's
+//   pd: freezePaid), so a late post on that day's board can't take it back; today's place is pending till then. Gold is every 5th make on the Kick It run that counts (the day's
+//   first finished: kickGold) and 10 a coin on the day's first Return Man run (coinGold: the coins that run's board
+//   entry carries, COIN_FIELD), paid as soon as the run is on the board. Those three pay no Gold now, these two no Ale.
 export const PAY = {
   puzzles: e => 400 + 5 * Math.max(0, Math.min(600, Number(e.p) || 0)),
   '17-0': e => 400 + 150 * e.w + (e.w === 17 ? 500 : 0),
@@ -258,46 +270,178 @@ export const PAY = {
   return: e => 400 + Math.min(3000, 3 * e.y)
 };
 export const GAME_NAME = {puzzles: 'Daily Puzzles', '17-0': '17–0', drill: 'Two-Minute Drill', kick: 'Kick It', return: 'Return Man'};
+// The first day of the new pay in each game's numbering: Thu Oct 22 2026, the first day played after it shipped (the
+// owner asked for it on the evening of Wed Oct 21, by when he'd played all five of that day's games under the old pay:
+// they keep it). The Daily Puzzles count from Sep 28, 17–0 from Oct 9, the Drill from Oct 15, Kick It from Oct 18,
+// Return Man from Oct 20. Written down once, never worked out from the clock, so no earlier day is ever paid the new way.
+export const NEW_PAY = Object.freeze({puzzles: 25, '17-0': 14, drill: 8, kick: 5, return: 3});
+/** That day, for the words (the coffers say when it starts while a game's still on the old pay). */
+export const NEW_PAY_DATE = '2026-10-22';
+/** Whether a game is still on the old pay today (E: incomeOf()'s, its day numbers). */
+export const oldPayToday = E => Object.keys(NEW_PAY).some(g => { const n = ((E && E.day) || {})[g]; return n > 0 && n < NEW_PAY[g]; });
+/** The games that pay Ale by your place on their board, and the two that pay Gold. */
+export const RANKED = ['puzzles', '17-0', 'drill'];
+export const GOLD_GAMES = ['kick', 'return'];
+/** Ale for a day's place (index place - 1; 7th or lower, having played at all, the last). */
+export const ALE_BY_PLACE = Object.freeze([5000, 4000, 3200, 2600, 2100, 1700, 1200]);
+export const aleFor = place => (Number.isInteger(place) && place >= 1 ? ALE_BY_PLACE[Math.min(place, ALE_BY_PLACE.length) - 1] : 0);
+export const KICK_EVERY = 5, KICK_GOLD = 1000, COIN_GOLD = 10;
+/** Return Man's coins on a day's board entry (the day's first run's: core/return.js puts them there, dayCoins reads them),
+ *  and the most a run can carry (Return Man's own bound, COIN.most: anything past it pays nothing). */
+export const COIN_FIELD = 'c', COIN_MAX = 1000;
+/** Gold for a Kick It run of `made` makes: 1,000 for every 5th. */
+export const kickGold = made => KICK_GOLD * Math.floor(Math.max(0, Math.floor(Number(made) || 0)) / KICK_EVERY);
+/** Gold for a Return Man run's coins: 10 a coin. */
+export const coinGold = coins => { const c = Math.floor(Number(coins) || 0); return c >= 0 && c <= COIN_MAX ? COIN_GOLD * c : 0; };
 const STARTER = 1500; // (of each, for a new realm, on top of what its games have paid)
+const FIELD = {'17-0': 's17', drill: 'dr5', kick: 'kk1', return: 'rm2'};
+const MOD = {'17-0': 'sv', drill: 'dr', kick: 'kk', return: 'rm'};
+// a game's day number for a date (its days start at local midnight, day 1 on start: 'YYYY-MM-DD'), as the games count
+const dayNo = (start, t) => {
+  const [y, m, d] = String(start).split('-').map(Number);
+  return 1 + Math.max(0, Math.round((Date.UTC(t.getFullYear(), t.getMonth(), t.getDate()) - Date.UTC(y, m - 1, d)) / 86400000));
+};
+/** Each game's day number on date at (default: now, by the clock, past midnight too), 0 for a game whose days aren't
+ *  loaded yet. */
+export function todayNumbers(mods = {}, at = null) {
+  const out = {puzzles: daily.PZ && daily.PZ.start ? dayNo(daily.PZ.start, at || new Date()) : 0};
+  Object.keys(MOD).forEach(g => { const M = mods[MOD[g]]; let n = 0; try { n = M && M.todayNumber ? M.todayNumber(at || new Date()) : 0; } catch (_) { n = 0; } out[g] = n || 0; });
+  return out;
+}
 
 /**
- * What a person's games have paid, from their board docs (all of them one person's): {total, by: {game: amount},
- * today: {game: amount}, days: count}. mods: the loaded game cores {sv, dr, kk, rm} (their entryOf, todayNumber); a
- * missing one pays nothing yet. Per game and day the entry that counts is the boards' own (the first finished across
- * their phones, Return Man's best run).
+ * What a person's games have paid, from their board docs (docs: all of them one person's):
+ *   {total: {gold, grain}, by: {game: {gold, grain}}, today: {game: {gold, grain}} (what came in today: today's Gold,
+ *    and the Ale for yesterday's place, paid this morning; on a game's last days of the old pay, today's in both),
+ *    pending: {game: {n, place, of, grain}} (today's place on a ranked game's board, paid tomorrow if it holds), last:
+ *    {game: {n, place, of, grain}} (the latest place paid), days, day: {game: today's day number} (todayNumbers()),
+ *    fresh: {game: {n: place}} (the places paid now that weren't frozen yet: paidPlaces keeps them)}
+ * mods: the loaded game cores {sv, dr, kk, rm} (entryOf, todayNumber, boardRows); a missing one pays nothing yet. The
+ * Daily Puzzles' board is daily.js's own. Options: board (the docs the places are ranked among: default daily.LB.raw;
+ * either way only the rows the LEAGUE's boards show count, daily.boardShows(p, false): the members' and Ryan D's, never
+ * a guest's or another app user's, which the owner's phone shows him but which aren't on the league's boards; his docs
+ * are counted on it whether or not it has them), me (whose row is his on the boards: a board key, default this
+ * phone's, myKey()), at (the moment: default now), paid (the places already paid, frozen: {game: {n: place}}, a
+ * realm's pd; a day there pays that place whatever its board says now). Per game and day the entry that counts is the
+ * boards' own (old days: the first finished across his phones, Return Man's best run).
  */
-export function incomeOf(docs, mods = {}) {
-  const by = {}, today = {};
-  let total = 0, days = 0;
-  const add = (g, v, isToday) => { by[g] = (by[g] || 0) + v; total += v; days++; if (isToday) today[g] = (today[g] || 0) + v; };
+export function incomeOf(docs, mods = {}, {board = null, me, at = null, paid = null} = {}) {
+  docs = (docs || []).filter(p => p && typeof p === 'object');
+  // (the league's board: never the guests and app users his phone shows him, so none of them can push his place down)
+  const list = (board || daily.LB.raw || []).filter(p => p && daily.boardShows(p, false));
+  docs.forEach(p => { if (!list.some(q => q.id === p.id)) list.push(p); });
+  if (me === undefined) me = myKey();
+  const myIds = new Set(docs.map(p => p.id));
+  const byId = new Map(list.map(p => [p.id, p]));
+  const isMine = id => myIds.has(id) || (!!me && byId.has(id) && daily.boardKey(byId.get(id)) === me);
+  const zero = () => ({gold: 0, grain: 0});
+  const total = zero(), by = {}, today = {}, pending = {}, last = {}, fresh = {};
+  let days = 0;
+  const tn = todayNumbers(mods, at);
+  // (a day of today's is in today's, if it paid nothing: a Kick It run without a 5th make)
+  const pay = (g, c, v, isToday) => {
+    if (isToday) today[g] = today[g] || zero();
+    if (!(v > 0)) return;
+    (by[g] = by[g] || zero())[c] += v;
+    total[c] += v;
+    if (isToday) today[g][c] += v;
+  };
+  // (the old pay: the day's result in both alike)
+  const old = (g, v, n) => { pay(g, 'gold', v, n === tn[g]); pay(g, 'grain', v, n === tn[g]); days++; };
+  // (the new pay for a ranked game: his place on day n's board, rows from the game's own boardRows; a day already paid,
+  // its place frozen in paid, pays that place: a late post on its board can't take back what came in)
+  const place = (g, n, rowsOf, mine) => {
+    if (!tn[g] || n > tn[g]) return;
+    const was = n < tn[g] && paid && paid[g] && typeof paid[g] === 'object' ? paid[g][n] : null;
+    let o;
+    if (Number.isInteger(was) && was >= 1) o = {n, place: was, of: 0, grain: aleFor(was)};
+    else {
+      let rows = [];
+      try { rows = rowsOf() || []; } catch (e) { rows = []; }
+      const r = rows.find(mine);
+      if (!r || !Number.isInteger(r.rank) || r.rank < 1) return;
+      o = {n, place: r.rank, of: rows.length, grain: aleFor(r.rank)};
+      if (n < tn[g]) (fresh[g] = fresh[g] || {})[n] = r.rank;
+    }
+    if (n === tn[g]) { pending[g] = o; return; }
+    pay(g, 'grain', o.grain, n === tn[g] - 1);
+    days++;
+    if (!last[g] || n > last[g].n) last[g] = o;
+  };
+  // Daily Puzzles: old days the first finished across his docs; new days his place on daily.js's board (one score a
+  // member a day: onePerMember, as the board has it)
   const pz = new Map();
-  docs.forEach(p => Object.keys((p && p.days) || {}).forEach(k => {
+  docs.forEach(p => Object.keys(p.days || {}).forEach(k => {
     const e = p.days[k], t = Number(e && e.t) || 0, was = pz.get(k);
     if (e && (!was || t < was.t)) pz.set(k, {e, t});
   }));
-  const pnum = daily.PNUM;
-  pz.forEach(({e}, k) => add('puzzles', PAY.puzzles(e), Number(k) === pnum));
-  const games = [['17-0', mods.sv, 's17', false], ['drill', mods.dr, 'dr5', false], ['kick', mods.kk, 'kk1', false], ['return', mods.rm, 'rm2', true]];
-  games.forEach(([g, M, F, best]) => {
+  let players = null;
+  pz.forEach(({e}, k) => {
+    const n = Number(k);
+    if (!(n >= 1)) return;
+    if (n < NEW_PAY.puzzles) { old('puzzles', PAY.puzzles(e), n); return; }
+    place('puzzles', n, () => daily.boardRows('today', players || (players = daily.onePerMember(list)), n, daily.dayFor(n)), r => isMine(r.id));
+  });
+  ['17-0', 'drill', 'kick', 'return'].forEach(g => {
+    const M = mods[MOD[g]], F = FIELD[g];
     if (!M || !M.entryOf) return;
     const keys = new Set();
-    docs.forEach(p => Object.keys((p && p[F]) || {}).forEach(k => keys.add(k)));
-    let now = 0;
-    try { now = M.todayNumber(); } catch (_) {}
-    keys.forEach(k => {
-      const n = Number(k);
-      let pick = null;
-      docs.forEach(p => {
-        let e = null;
-        try { e = M.entryOf(p, n); } catch (_) { e = null; }
-        if (!e) return;
-        if (!pick) { pick = e; return; }
-        if (best ? (e.y > pick.y || (e.y === pick.y && (e.t || 0) < (pick.t || 0))) : (e.t || 0) < (pick.t || 0)) pick = e;
-      });
-      if (pick) add(g, PAY[g](pick), n === now);
+    docs.forEach(p => Object.keys((p[F] && typeof p[F] === 'object' && p[F]) || {}).forEach(k => keys.add(Number(k))));
+    keys.forEach(n => {
+      if (!Number.isInteger(n) || n < 1) return;
+      const entries = [];
+      docs.forEach(p => { let e = null; try { e = M.entryOf(p, n); } catch (_) { e = null; } if (e) entries.push({e, p}); });
+      if (!entries.length) return;
+      if (n < NEW_PAY[g]) {
+        // (as the old pay picked it: the first finished across his docs, Return Man's best run, the earlier of equals)
+        const pick = entries.reduce((b, x) => (g === 'return' ? x.e.y > b.e.y || (x.e.y === b.e.y && (x.e.t || 0) < (b.e.t || 0)) : (x.e.t || 0) < (b.e.t || 0)) ? x : b);
+        old(g, PAY[g](pick.e), n);
+        return;
+      }
+      // the run that counts on the board: the first finished across his docs (the earliest, then the lower doc id)
+      const first = entries.slice().sort((a, b) => (a.e.t || 0) - (b.e.t || 0) || (String(a.p.id) < String(b.p.id) ? -1 : 1))[0];
+      if (g === '17-0') { place(g, n, () => M.boardRows('today', n, list), r => r.key === me || myIds.has(r.uid)); return; }
+      if (g === 'drill') { place(g, n, () => M.boardRows(n, list), r => r.key === me || myIds.has(r.uid)); return; }
+      if (tn[g] && n > tn[g]) return;
+      // (Kick It's own rule when its core has it, goldOf: what its end card promises is what's paid)
+      if (g === 'kick') pay(g, 'gold', (typeof M.goldOf === 'function' ? M.goldOf : kickGold)(first.e.m), n === tn[g]);
+      else pay(g, 'gold', coinGold(typeof M.dayCoins === 'function' ? M.dayCoins(docs, n) : firstCoins(entries, n, M)), n === tn[g]);
+      days++;
     });
   });
-  return {total, by, today, days};
+  return {total, by, today, pending, last, days, day: tn, fresh};
+}
+/** Freezes the places incomeOf has just paid (its fresh) into a realm (s.pd: {game: {n: place}}), so a day's Ale, once
+ *  paid, stays what it was; only from the board as it really is (loaded, and this realm the board's or taken up from
+ *  it), never from a board not yet in (where he'd look first on every day). Mutates s; true if anything was added. */
+export function freezePaid(s, fresh) {
+  if (PROVISIONAL || !boardKnown() || daily.LB.err) return false;
+  return freezeInto(s, fresh);
+}
+/** freezePaid's work, whatever the board: each place in fresh not frozen yet goes into s.pd. True if any did. */
+export function freezeInto(s, fresh) {
+  if (!s || !fresh || typeof fresh !== 'object') return false;
+  let added = false;
+  s.pd = s.pd && typeof s.pd === 'object' ? s.pd : {};
+  RANKED.forEach(g => Object.entries(fresh[g] || {}).forEach(([n, place]) => {
+    if (!Number.isInteger(place) || place < 1 || !(Number(n) >= 1)) return;
+    const m = s.pd[g] || (s.pd[g] = {});
+    if (m[n] == null) { m[n] = place; added = true; }
+  }));
+  return added;
+}
+/** Return Man: the coins of a person's first run of a day, from their entries that day ([{e, p}]: entryOf's, and its
+ *  doc), when the game's core doesn't say (its dayCoins, the same rule): COIN_FIELD on their entries (the first run's
+ *  coins: on the phone that ran it, and carried on by their others), the most any of them says, or 0; never more than
+ *  the day's course lays out within the most yards they posted, when the core can say (its coinsWithin). */
+function firstCoins(entries, n, M) {
+  const most = entries.reduce((m, {e, p}) => {
+    const raw = p[FIELD.return] && typeof p[FIELD.return] === 'object' ? p[FIELD.return][n] : null;
+    const c = Number.isInteger(e[COIN_FIELD]) ? e[COIN_FIELD] : raw && typeof raw === 'object' ? raw[COIN_FIELD] : null;
+    return Number.isInteger(c) && c >= 0 && c <= COIN_MAX ? Math.max(m, c) : m;
+  }, 0);
+  const far = entries.reduce((m, {e}) => Math.max(m, Number(e.y) || 0), 0);
+  return most > 0 && M && typeof M.coinsWithin === 'function' ? Math.min(most, M.coinsWithin(n, far)) : most;
 }
 
 // ---------------------------------------------------------------------------------------------------- the scenery
@@ -331,7 +475,8 @@ export function pickScenery(s, k) {
 // in the war camps), q: [[troop, n]] (training), qs (when the first in line started, ms), tp (glory), rd: [raids
 // made], df: [raids on you], lr (when the computer last raided you: core/realm-battle.js defend), sh (a truce until,
 // ms), bt: {realm: day raided}, nb (the next building id), born (ms), sc (the scenery picked: SCENERIES; none: the coast),
-// n (the lot it's laid out on, N; none: N_WAS)}.
+// n (the lot it's laid out on, N; none: N_WAS), pd (the Ale places already paid, frozen: {game: {day: place}},
+// freezePaid)}.
 export function fresh(now = Date.now()) {
   const M = N / 2;
   const b = [
@@ -399,6 +544,13 @@ export function clean(s) {
   o.rd = Array.isArray(o.rd) ? o.rd.filter(r => r && typeof r.id === 'string' && String(r.vs).startsWith('bot:')).slice(-40) : [];
   o.df = Array.isArray(o.df) ? o.df.filter(r => r && Number(r.at)).slice(-20) : [];
   o.bt = o.bt && typeof o.bt === 'object' ? o.bt : {};
+  // (the Ale places already paid, frozen: incomeOf's paid, freezePaid)
+  const pd = o.pd && typeof o.pd === 'object' ? o.pd : {};
+  o.pd = {};
+  RANKED.forEach(g => {
+    const m = pd[g] && typeof pd[g] === 'object' ? Object.entries(pd[g]).filter(([n, v]) => Number(n) >= 1 && Number.isInteger(v) && v >= 1) : [];
+    if (m.length) o.pd[g] = Object.fromEntries(m);
+  });
   delete o.ap;
   o.nb = Math.max(num(o.nb), ...o.b.map(b => b.i + 1), 1);
   return o;
@@ -473,9 +625,14 @@ export function tick(s, now = Date.now()) {
   if (!s.q.length && s.qs) { s.qs = 0; changed = true; }
   return changed;
 }
-/** The coffers: what's waiting there (the games' pay and the rest, less what's been taken into storage). */
+// (what the games have paid, of each: incomeOf()'s total, {gold, grain}; a single number, as it was before the games paid
+// each their own, is the same of both)
+const earnedOf = e => (e && typeof e === 'object' ? {gold: Number(e.gold) || 0, grain: Number(e.grain) || 0} : {gold: Number(e) || 0, grain: Number(e) || 0});
+/** The coffers: what's waiting there, of each (the games' pay and the rest, less what's been taken into storage). Never
+ *  below nothing. */
 export function pending(s, earned) {
-  return {gold: Math.max(0, earned + s.xo.gold - s.cl.gold), grain: Math.max(0, earned + s.xo.grain - s.cl.grain)};
+  const e = earnedOf(earned);
+  return {gold: Math.max(0, e.gold + s.xo.gold - s.cl.gold), grain: Math.max(0, e.grain + s.xo.grain - s.cl.grain)};
 }
 /** Moves what's waiting in the coffers into storage, as far as there's room. Mutates s; returns what moved. */
 export function claim(s, earned) {

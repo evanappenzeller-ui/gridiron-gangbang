@@ -27,6 +27,7 @@
 //   dayState(n, real), record(n, kick, call), score(list), totals()   localStorage 'gg-kick1'
 //   setTest(on, n), testing()                   test play (the owner's sandbox, below; his way to play it again)
 //   autoPost(), boardRows(n), weekRows(n), weekDays(n), boardState()   the league scoreboard (below)
+//   GOLD, goldDay(n), goldOf(made), goldMake(made), countingRun(n)   what a day pays The Keep (the owner's: below)
 //
 // THE RULE (CLAUDE.md): the scoreboard reads daily.LB.raw, the board as this phone may see it: league members and
 // Ryan D for everyone; a guest (or Ryan S) only on their own phones.
@@ -428,4 +429,35 @@ function totalsOver(days, list) {
   });
   const cmp = (a, b) => b.m - a.m || b.l - a.l || a.played - b.played;
   return rank(rows.sort((a, b) => cmp(a, b) || a.name.localeCompare(b.name)), (a, b) => !cmp(a, b));
+}
+
+// ---------------------------------------------------------------------------------------------- The Keep's Gold
+// The owner's ask (Oct 21 2026): "one in every 5 field goals will earn them coins": every 5th make (the 5th, 10th,
+// 15th...) pays GOLD.each Gold to The Keep (core/realm.js PAY, the owner's alone: views/kick.js shows it only on his
+// profile). A day's pay is its counting entry's makes, the board doc's kk1[n].m (entryOf): one run a day counts, the
+// first finished (officialOf: there's no Play again, and Test play is a sandbox, never posted, never paid), and across
+// a person's phones the first posted (the earliest t, as the board's firstOf and realm.js incomeOf pick it).
+// from: the first day paid this way, in Kick It's numbering (day 5, Thu Oct 22 2026: core/realm.js NEW_PAY.kick, the
+// same day, the kit checks they agree; Wed Oct 21, when it was asked for, is day 4 and keeps the old pay). Days before
+// it show nothing of it (goldDay).
+export const GOLD = {every: 5, each: 1000, from: 5};
+/** Whether day n pays The Keep this way (from GOLD.from on). */
+export const goldDay = n => Number.isInteger(n) && n >= GOLD.from;
+/** The Gold a run with made field goals pays: GOLD.each for every GOLD.every-th make (40 makes at most: 8,000). */
+export function goldOf(made) {
+  const m = Math.max(0, Math.min(MAX_KICKS, Math.floor(Number(made) || 0)));
+  return Math.floor(m / GOLD.every) * GOLD.each;
+}
+/** Whether a run's made-th make (1 the first) is one that pays: the 5th, 10th, 15th... */
+export const goldMake = made => Number.isInteger(made) && made > 0 && made <= MAX_KICKS && made % GOLD.every === 0;
+/** The run of day n that pays, for this person: {m (its makes), t, from: 'board' (their counting entry on the board,
+ *  from any of their phones) | 'phone' (this phone's first finished run, not posted yet)}, or null (none finished).
+ *  Always the real run (never Test play's). */
+export function countingRun(n = todayNumber(), list = docs()) {
+  const mine = list.find(p => p.id === daily.LB.uid), k = meKey();
+  const theirs = list.filter(p => p === mine || (k && daily.boardKey(p) === k));
+  const f = firstOf(theirs, n);
+  if (f) return {m: f.e.m, t: f.e.t, from: 'board'};
+  const s = dayState(n, true).official;
+  return s ? {m: s.made, t: s.at, from: 'phone'} : null;
 }

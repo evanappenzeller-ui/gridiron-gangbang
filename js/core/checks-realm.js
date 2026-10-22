@@ -1,7 +1,8 @@
 // The Keep's checks for the dev gallery (#/_kit) (the game was the Realm till Oct 21 2026: its ids and saves keep that
 // name): that it's the owner's alone (the case, the screens, the save, his
-// own docs only, the computer's realms the only ones to attack or scout), scouting a realm, what the games pay, storage
-// and the coffers, mines and breweries, builders and the Castle's limits, training, an attack played out (the same every time), a dragon over walls,
+// own docs only, the computer's realms the only ones to attack or scout), scouting a realm, what the games pay (the old
+// pay kept for the days before NEW_PAY; from then, Ale by place on three boards and Gold from Kick It and Return Man),
+// storage and the coffers (never below nothing, and what their sheet says), mines and breweries, builders and the Castle's limits, training, an attack played out (the same every time), a dragon over walls,
 // the computer's raids on the owner's realm, the cannon and the dragon hatchery, the art the buildings and folk are
 // drawn from, an old Franchise save taken up as a realm, and the words on screen (Ale, breweries, cellars, the Castle,
 // The Keep). checks.js imports
@@ -16,7 +17,8 @@ const T0 = Date.UTC(2026, 9, 21, 12);
 const DAY = 24 * F.HOUR;
 
 export async function realmChecks(check) {
-  const [kk, rm, sv] = await Promise.all([import('./kick.js'), import('./return.js'), import('./seventeen.js').then(async m => { await m.load(); return m; })]);
+  const [kk, rm, sv, dr] = await Promise.all([import('./kick.js'), import('./return.js'), import('./seventeen.js').then(async m => { await m.load(); return m; }),
+    import('./drill.js').then(async m => { await m.load(); return m; })]);
 
   check('The Keep: the owner’s alone: its Daily Games case and pushed route open only on his phones; it has no separate tab, its screens are empty elsewhere and its save refuses; it reads only his own board docs, never LB.all, and attacks and scouts only the computer’s realms', async () => {
     const owner = !!data.isOwner();
@@ -59,14 +61,213 @@ export async function realmChecks(check) {
     return {pass: ok, detail: `route ${routed}; every realm the attack’s own ${same}; ${R4.name}: ${def.map(d => `${d.n} ${d.t}`).join(', ')} (${counted}); a cannon: ${facts}; an unknown realm refused ${missing}; nothing changed ${untouched}`};
   });
 
-  check('The Keep: the games pay in Gold and Ale alike, a day each (the first finished across his phones; Return Man’s best run): Daily Puzzles 400 + 5 a point, 17–0 400 + 150 a win, Kick It 400 + 200 a make (to 15), Return Man 400 + 3 a yard (to 1,000)', () => {
+  check('The Keep: the old pay, kept for every game day before the new pay (NEW_PAY): in Gold and Ale alike, a day each (the first finished across his phones; Return Man’s best run): Daily Puzzles 400 + 5 a point, 17–0 400 + 150 a win, Kick It 400 + 200 a make (to 15), Return Man 400 + 3 a yard (to 1,000)', () => {
     const a = {id: 'fx-a', nick: 'Evan', days: {10: {v: 4, p: 400, t: 2}}, kk1: {2: {m: 5, l: 40, y: 150, k: 8, t: 10}}, rm2: {1: {y: 300, l: 300, td: 3, t: 5}}, s17: {3: {w: 12, l: 5, p: 21.5, r: 0, k: '01234', t: 3}}};
     const b = {id: 'fx-b', nick: 'Evan', days: {10: {v: 4, p: 600, t: 5}, 11: {v: 4, p: 100, t: 6}}, kk1: {2: {m: 9, l: 48, y: 330, k: 12, t: 20}}, rm2: {1: {y: 900, l: 900, td: 9, t: 9}}};
-    const inc = F.incomeOf([a, b], {kk, rm, sv});
-    const want = {puzzles: 2400 + 900, '17-0': 400 + 150 * 12, kick: 400 + 200 * 5, return: 400 + 3 * 900};
-    const ok = Object.entries(want).every(([g, v]) => inc.by[g] === v) && inc.total === Object.values(want).reduce((x, y) => x + y, 0);
+    const inc = F.incomeOf([a, b], {kk, rm, sv}, {board: [], me: null});
+    const want = {puzzles: 2400 + 900, '17-0': 400 + 150 * 12, kick: 400 + 200 * 5, return: 400 + 3 * 900}, sum = Object.values(want).reduce((x, y) => x + y, 0);
+    const ok = Object.entries(want).every(([g, v]) => inc.by[g] && inc.by[g].gold === v && inc.by[g].grain === v) && inc.total.gold === sum && inc.total.grain === sum;
+    const before = 10 < F.NEW_PAY.puzzles && 11 < F.NEW_PAY.puzzles && 3 < F.NEW_PAY['17-0'] && 2 < F.NEW_PAY.kick && 1 < F.NEW_PAY.return;
     const cap = F.PAY.kick({m: 40}) === 3400 && F.PAY.return({y: 5000}) === 3400 && F.PAY['17-0']({w: 17}) === 400 + 150 * 17 + 500;
-    return {pass: ok && cap, detail: `by ${JSON.stringify(inc.by)} total ${inc.total}; caps ${cap}`};
+    return {pass: ok && before && cap, detail: `by ${JSON.stringify(inc.by)} total ${JSON.stringify(inc.total)}; old days ${before}; caps ${cap}`};
+  });
+
+  // The new pay (the owner, Oct 21 2026), worked on one made-up season seen at noon four days after its first day, SHIP
+  // (each game’s days then: AT_N): his two phones’ docs (fx-e1, fx-e2), the league’s, a guest’s and an app user’s who
+  // isn’t in the league (Ryan S: on his boards, as his phones show them, but on no one else’s; both above him) and a row
+  // that is no one’s (on no one’s board), filtered as his phone’s board is (daily.boardShows, the owner’s). His places
+  // are the league’s board’s (league: the members’ rows and Ryan D’s), so neither the guest nor Ryan S lowers them.
+  const SHIP = kk.dateOf(F.NEW_PAY.kick), on = (d, h = 12, m = 0) => new Date(SHIP.getFullYear(), SHIP.getMonth(), SHIP.getDate() + d, h, m);
+  const AT = on(4);
+  const econ = () => {
+    const M = (data.DATA && data.DATA.managers) || [], nick = id => (M.find(m => m.id === id) || {}).name;
+    const others = M.map(m => m.id).filter(id => id !== data.OWNER).slice(0, 8);
+    if (!nick(data.OWNER) || others.length < 8 || !daily.PZ) return null;
+    const P = F.NEW_PAY, AT_N = F.todayNumbers({sv, dr, kk, rm}, AT);
+    // (a Daily Puzzles entry of the shape day n's board takes)
+    const pe = (n, p, t) => { const v = daily.dayVersion(daily.dayFor(n)); return Object.assign(v === 4 ? {v: 4} : v === 3 ? {v: 3} : v === 2 ? {s: 0} : {}, {p, t}); };
+    const doc = (id, who, f = {}) => Object.assign({id, nick: who}, f);
+    const e1 = doc('fx-e1', nick(data.OWNER), {
+      days: {[P.puzzles - 1]: {v: 4, p: 400, t: 1}, [P.puzzles]: pe(P.puzzles, 700, 100), [AT_N.puzzles - 1]: pe(AT_N.puzzles - 1, 900, 100), [AT_N.puzzles]: pe(AT_N.puzzles, 600, 100)},
+      s17: {[P['17-0'] - 1]: {w: 10, l: 7, p: 18, t: 1}, [P['17-0']]: {w: 12, l: 5, p: 20.1, t: 100}},
+      dr5: {[P.drill - 1]: {r: 'W', u: 21, h: 14, p: 9, t: 1}, [P.drill]: {r: 'L', u: 10, h: 14, p: 12, t: 100}, [AT_N.drill]: {r: 'T', u: 14, h: 14, p: 10, t: 100}},
+      kk1: {[P.kick - 1]: {m: 6, l: 35, y: 200, k: 9, t: 1}, [P.kick]: {m: 12, l: 40, y: 400, k: 15, t: 100}, [P.kick + 1]: {m: 14, l: 44, y: 480, k: 17, t: 200},
+        [P.kick + 2]: {m: 5, l: 33, y: 160, k: 8, t: 100}, [AT_N.kick]: {m: 10, l: 38, y: 330, k: 13, t: 100}},
+      rm2: {[P.return - 1]: {y: 500, l: 500, td: 5, t: 1}, [P.return]: {y: 2000, l: 2000, td: 20, t: 50, c: 84}, [P.return + 1]: {y: 900, l: 900, td: 9, t: 500},
+        [P.return + 2]: {y: 200, l: 200, td: 2, t: 10, c: 999999}, [P.return + 3]: {y: 150, l: 150, td: 1, t: 10, c: 900}, [AT_N.return]: {y: 400, l: 400, td: 4, t: 10, c: 12}}
+    });
+    // (his other phone: a later, better Daily score and 17–0 season that day, which the boards don't count; the first
+    // Kick It run of a day, a short one; the first Return Man run of a day, its coins, his best run that day the other phone's)
+    const e2 = doc('fx-e2', nick(data.OWNER), {days: {[P.puzzles]: pe(P.puzzles, 950, 200)}, s17: {[P['17-0']]: {w: 16, l: 1, p: 30, t: 300}},
+      kk1: {[P.kick + 1]: {m: 4, l: 31, y: 120, k: 7, t: 50}}, rm2: {[P.return + 1]: {y: 100, l: 100, td: 1, t: 100, c: 30}}});
+    const [o1, o2, o3, o4, o5, o6, o7] = others.map(id => nick(id));
+    const league = [
+      doc('fx-o1', o1, {days: {[P.puzzles]: pe(P.puzzles, 900, 50), [AT_N.puzzles - 1]: pe(AT_N.puzzles - 1, 800, 50), [AT_N.puzzles]: pe(AT_N.puzzles, 800, 50)},
+        s17: {[P['17-0']]: {w: 14, l: 3, p: 25, t: 50}}, dr5: {[P.drill]: {r: 'W', u: 21, h: 14, p: 9, t: 50}}}),
+      doc('fx-o2', o2, {days: {[P.puzzles]: pe(P.puzzles, 700, 60)}, s17: {[P['17-0']]: {w: 12, l: 5, p: 20.1, t: 60}}, dr5: {[P.drill]: {r: 'W', u: 21, h: 14, p: 9, t: 60}}}),
+      doc('fx-o3', o3, {days: {[P.puzzles]: pe(P.puzzles, 500, 70)}, s17: {[P['17-0']]: {w: 12, l: 5, p: 19, t: 70}}, dr5: {[P.drill]: {r: 'W', u: 21, h: 14, p: 9, t: 70}}}),
+      ...[o4, o5, o6, o7].map((n, i) => doc('fx-o' + (4 + i), n, {dr5: {[P.drill]: {r: 'W', u: 21, h: 14, p: 9, t: 80 + i}}})),
+      doc('fx-g', 'Zed Q', {g: true, days: {[P.puzzles]: pe(P.puzzles, 1000, 40)}}),
+      doc('fx-u', 'RyStew', {s17: {[P['17-0']]: {w: 15, l: 2, p: 26, t: 45}}, days: {[AT_N.puzzles]: pe(AT_N.puzzles, 950, 45)}}),
+      doc('fx-x', 'Testy McTest', {days: {[P.puzzles]: pe(P.puzzles, 2000, 30)}, s17: {[P['17-0']]: {w: 17, l: 0, p: 40, t: 30}}})
+    ];
+    const all = [e1, e2, ...league], board = all.filter(p => daily.boardShows(p, true)), leagueBoard = all.filter(p => daily.boardShows(p, false));
+    const inc = F.incomeOf([e1, e2], {sv, dr, kk, rm}, {board, me: data.OWNER, at: AT});
+    // (a day whose entry says more coins than a 150-yard run could have run through: paid what the course lays out there)
+    const cut = rm.coinsWithin(P.return + 3, 150) * F.COIN_GOLD;
+    return {P, AT_N, e1, e2, all, board, leagueBoard, inc, pe, cut};
+  };
+  const by = (inc, g, c) => (inc.by[g] ? inc.by[g][c] : 0);
+
+  check('The Keep: the new pay starts on Thu Oct 22 2026, the first day played after it shipped (the owner had played all of Oct 21’s games under the old pay), in every game’s own numbering (NEW_PAY: the Daily Puzzles’ 25th day, 17–0’s 14th, the Drill’s 8th, Kick It’s 5th, Return Man’s 3rd), written down, not worked out from the clock; the day before, each game’s last old day, keeps the old pay exactly, in Gold and Ale alike', () => {
+    const G = {sv, dr, kk, rm}, first = F.todayNumbers(G, new Date(2026, 9, 22, 12)), eve = F.todayNumbers(G, new Date(2026, 9, 21, 23, 59));
+    const ship = Object.keys(F.NEW_PAY).every(g => first[g] === F.NEW_PAY[g] && eve[g] === F.NEW_PAY[g] - 1) && Object.isFrozen(F.NEW_PAY) && SHIP.getTime() === new Date(2026, 9, 22).getTime()
+      && F.NEW_PAY_DATE === '2026-10-22' && F.oldPayToday({day: eve}) && !F.oldPayToday({day: first});
+    const E = econ();
+    if (!E) return {pass: false, detail: `the league or the puzzles didn’t load; Oct 22: ${JSON.stringify(first)}`};
+    const old = {puzzles: 400 + 5 * 400, '17-0': 400 + 150 * 10, drill: 3000, kick: 400 + 200 * 6, return: 400 + 3 * 500};
+    // (each game’s Gold and Ale: the old day’s in both; the new days’ in their own one only)
+    const newGold = {kick: 2000 + 0 + 1000 + 2000, return: 840 + 300 + 0 + E.cut + 120}, newAle = {puzzles: 4000 + 5000, '17-0': 4000, drill: 1200};
+    const split = Object.keys(old).every(g => by(E.inc, g, 'gold') === old[g] + (newGold[g] || 0) && by(E.inc, g, 'grain') === old[g] + (newAle[g] || 0));
+    const sum = o => Object.values(o).reduce((a, b) => a + b, 0);
+    const totals = E.inc.total.gold === sum(old) + sum(newGold) && E.inc.total.grain === sum(old) + sum(newAle);
+    return {pass: ship && split && totals, detail: `Oct 22: ${JSON.stringify(first)}, Oct 21: ${JSON.stringify(eve)} (${ship}); by game ${JSON.stringify(E.inc.by)} (${split}); total ${JSON.stringify(E.inc.total)} (${totals})`};
+  });
+
+  check('The Keep: from the new pay on, Ale for his place on the day’s final board in the Daily Puzzles, 17–0 and the Two-Minute Drill (1st 5,000 · 2nd 4,000 · 3rd 3,200 · 4th 2,600 · 5th 2,100 · 6th 1,700 · 7th or lower 1,200), ranked as each game’s own board ranks it, on the league’s board: a tie shares the higher place, he counts once across his phones (the board’s counting entry, not a later better one), a guest or an app user who isn’t in the league (Ryan S) above him on his phone’s boards doesn’t lower his place (they’re not on the league’s), Ryan D would, and a row that is no one’s doesn’t; paid the morning after (yesterday’s place came in today), today’s place pending (“#2 right now”), and no Gold from those three', () => {
+    const E = econ();
+    if (!E) return {pass: false, detail: 'the league or the puzzles didn’t load'};
+    const {P, AT_N, inc, board, leagueBoard} = E;
+    const table = [1, 2, 3, 4, 5, 6, 7, 8, 20].map(F.aleFor).join() === '5000,4000,3200,2600,2100,1700,1200,1200,1200' && F.aleFor(0) === 0;
+    // (the boards themselves, as the games rank them: his row on each, the league’s; and on his phone’s, where the
+    // guest and Ryan S are above him)
+    const pzOn = b => daily.boardRows('today', daily.onePerMember(b), P.puzzles, daily.dayFor(P.puzzles)).find(r => r.id === 'fx-e1' || r.id === 'fx-e2');
+    const rowPz = pzOn(leagueBoard), row17 = sv.boardRows('today', P['17-0'], leagueBoard).find(r => r.key === data.OWNER), rowDr = dr.boardRows(P.drill, leagueBoard).find(r => r.key === data.OWNER);
+    const places = !!rowPz && rowPz.rank === 2 && rowPz.pts === 700 && !!row17 && row17.rank === 2 && row17.w === 12 && !!rowDr && rowDr.rank === 8;
+    const his = pzOn(board), his17 = sv.boardRows('today', P['17-0'], board).find(r => r.key === data.OWNER);
+    const outsiders = !!his && his.rank === 3 && !!his17 && his17.rank === 3 && board.some(p => p.id === 'fx-u') && board.some(p => p.id === 'fx-g')
+      && !leagueBoard.some(p => p.id === 'fx-u' || p.id === 'fx-g' || p.id === 'fx-x');
+    // (and Ryan D, the one app user on the league’s boards, does push him down)
+    const rd = {id: 'fx-rd', nick: 'Ryan Dow', s17: {[P['17-0']]: {w: 16, l: 1, p: 29, t: 44}}};
+    const withRd = F.incomeOf([E.e1, E.e2], {sv, dr, kk, rm}, {board: board.concat(rd), me: data.OWNER, at: AT});
+    const ryanD = by(withRd, '17-0', 'grain') === 1900 + 3200;
+    const ale = by(inc, 'puzzles', 'grain') === 2400 + 4000 + 5000 && by(inc, '17-0', 'grain') === 1900 + 4000 && by(inc, 'drill', 'grain') === 3000 + 1200;
+    const noGold = by(inc, 'puzzles', 'gold') === 2400 && by(inc, '17-0', 'gold') === 1900 && by(inc, 'drill', 'gold') === 3000;
+    const pend = inc.pending.puzzles && inc.pending.puzzles.n === AT_N.puzzles && inc.pending.puzzles.place === 2 && inc.pending.puzzles.grain === 4000
+      && inc.pending.drill && inc.pending.drill.place === 1 && inc.pending.drill.grain === 5000 && !inc.pending['17-0'] && !inc.pending.kick && !inc.pending.return;
+    const morning = inc.today.puzzles && inc.today.puzzles.grain === 5000 && inc.last.puzzles && inc.last.puzzles.n === AT_N.puzzles - 1 && inc.last.puzzles.place === 1
+      && !(inc.today['17-0'] && inc.today['17-0'].grain) && !(inc.today.drill && inc.today.drill.grain);
+    // (seen the next day, today's place is paid, and a day still to come pays nothing)
+    const next = F.incomeOf([E.e1, E.e2], {sv, dr, kk, rm}, {board, me: data.OWNER, at: on(5, 9)});
+    const paid = by(next, 'puzzles', 'grain') === 2400 + 4000 + 5000 + 4000 && by(next, 'drill', 'grain') === 3000 + 1200 + 5000 && !next.pending.puzzles;
+    // (and seen on the first day itself, its places are pending, the day after the old pay's last)
+    const early = F.incomeOf([E.e1, E.e2], {sv, dr, kk, rm}, {board, me: data.OWNER, at: on(0, 23, 59)});
+    const notYet = by(early, 'puzzles', 'grain') === 2400 && early.pending.puzzles && early.pending.puzzles.place === 2 && by(early, '17-0', 'grain') === 1900 && early.pending['17-0'].place === 2;
+    // (someone else's view of the same board: never his)
+    const nobody = F.incomeOf([], {sv, dr, kk, rm}, {board, me: null, at: AT}).total;
+    const none = nobody.gold === 0 && nobody.grain === 0;
+    const ok = table && places && outsiders && ryanD && ale && noGold && pend && morning && paid && notYet && none;
+    return {pass: ok, detail: `table ${table}; his places on the league’s board: Daily #${rowPz && rowPz.rank} (${rowPz && rowPz.pts}), 17–0 #${row17 && row17.rank}, Drill #${rowDr && rowDr.rank} (${places}); on his phone’s, with the guest and Ryan S above him: Daily #${his && his.rank}, 17–0 #${his17 && his17.rank}, not counted ${outsiders}; Ryan D above him counts ${ryanD}; Ale ${['puzzles', '17-0', 'drill'].map(g => by(inc, g, 'grain')).join('/')} (${ale}); no new Gold ${noGold}; pending ${JSON.stringify(inc.pending)} (${pend}); this morning ${JSON.stringify(inc.today.puzzles)} (${morning}); the next day paid ${paid}; on its first day still pending ${notYet}; no docs no pay ${none}`};
+  });
+
+  check('The Keep: from the new pay on, Gold from Kick It and Return Man, paid as soon as the run is on the board: 1,000 for every 5th make on the run that counts (the day’s first finished across his phones, not a later better try), and 10 a coin on the day’s first Return Man run (its board entry’s c, whatever the best run was; none on a later run, nothing for a number no run could have); no Ale from those two', () => {
+    const E = econ();
+    if (!E) return {pass: false, detail: 'the league or the puzzles didn’t load'};
+    const {inc} = E;
+    const helpers = F.kickGold(4) === 0 && F.kickGold(5) === 1000 && F.kickGold(9) === 1000 && F.kickGold(10) === 2000 && F.kickGold(40) === 8000
+      && F.coinGold(84) === 840 && F.coinGold(0) === 0 && F.coinGold(-3) === 0 && F.coinGold(F.COIN_MAX + 1) === 0 && F.COIN_FIELD === 'c';
+    const kick = by(inc, 'kick', 'gold') === 1600 + 2000 + 0 + 1000 + 2000 && by(inc, 'kick', 'grain') === 1600 && inc.today.kick && inc.today.kick.gold === 2000;
+    const cut = E.cut > 0 && E.cut < 9000; // (900 coins said on a 150-yard run: what the course lays out there, a few)
+    const ret = by(inc, 'return', 'gold') === 1900 + 840 + 300 + E.cut + 120 && by(inc, 'return', 'grain') === 1900 && inc.today.return && inc.today.return.gold === 120;
+    // (his runs alone pay: the board's others don't)
+    const solo = F.incomeOf([E.e1], {sv, dr, kk, rm}, {board: E.board, me: data.OWNER, at: AT});
+    const one = by(solo, 'kick', 'gold') === 1600 + 2000 + 2000 + 1000 + 2000 && by(solo, 'return', 'gold') === 1900 + 840 + 0 + E.cut + 120;
+    // (the coins as Return Man's core reads them, dayCoins, and as The Keep reads them without it: the same)
+    const own = typeof rm.dayCoins === 'function' && rm.dayCoins([E.e1, E.e2], F.NEW_PAY.return + 1) === 30;
+    const bare = F.incomeOf([E.e1, E.e2], {sv, dr, kk, rm: Object.assign({}, rm, {dayCoins: null})}, {board: E.board, me: data.OWNER, at: AT});
+    const same = JSON.stringify(bare.by.return) === JSON.stringify(inc.by.return);
+    // (what the games' own screens promise, "+N Gold for The Keep", is what The Keep pays)
+    const agree = (typeof kk.goldOf !== 'function' || Array.from({length: 41}, (_, m) => kk.goldOf(m) === F.kickGold(m)).every(Boolean))
+      && (!rm.COIN || (rm.COIN.gold === F.COIN_GOLD && rm.COIN.most === F.COIN_MAX && rm.COIN.fromDay === F.NEW_PAY.return));
+    return {pass: helpers && cut && kick && ret && one && own && same && agree, detail: `the games’ own numbers agree (Return Man’s coins out from The Keep’s first day of paying for them, ${rm.COIN && rm.COIN.fromDay}) ${agree}; helpers ${helpers}; a forged count paid only what the course lays out (${E.cut} Gold) ${cut}; Kick It ${JSON.stringify(inc.by.kick)}, today ${JSON.stringify(inc.today.kick)} (${kick}); Return Man ${JSON.stringify(inc.by.return)}, today ${JSON.stringify(inc.today.return)} (${ret}); one phone’s docs alone ${one}; Return Man’s dayCoins ${own}, the same without it ${same}`};
+  });
+
+  check('The Keep: a day’s place, once paid, stays paid: incomeOf lists the places it pays that weren’t frozen yet (fresh: the final days, never today’s), the realm keeps them (pd, through clean(), junk dropped), and a frozen day pays its place whatever’s posted to its board later; frozen only from the board as it really is (freezePaid refuses before it’s in); the coffers freeze them after the sync, from the realm’s own', async () => {
+    const E = econ();
+    if (!E) return {pass: false, detail: 'the league or the puzzles didn’t load'};
+    const {P, AT_N} = E, G = {sv, dr, kk, rm}, fr = E.inc.fresh || {};
+    const listed = !!fr.puzzles && fr.puzzles[P.puzzles] === 2 && fr.puzzles[AT_N.puzzles - 1] === 1 && !(AT_N.puzzles in fr.puzzles)
+      && !!fr['17-0'] && fr['17-0'][P['17-0']] === 2 && !!fr.drill && fr.drill[P.drill] === 8 && !(AT_N.drill in fr.drill) && !fr.kick && !fr.return;
+    // (a member's late post above him on a day already paid: unfrozen his place would drop, frozen it holds)
+    const late = Object.assign({}, E.all.find(p => p.id === 'fx-o4'), {id: 'fx-late', days: {[P.puzzles]: E.pe(P.puzzles, 990, 20)}});
+    const board = E.board.concat(late);
+    const loose = F.incomeOf([E.e1, E.e2], G, {board, me: data.OWNER, at: AT}), held = F.incomeOf([E.e1, E.e2], G, {board, me: data.OWNER, at: AT, paid: fr});
+    const drops = by(loose, 'puzzles', 'grain') === 2400 + 3200 + 5000;
+    const holds = by(held, 'puzzles', 'grain') === 2400 + 4000 + 5000 && JSON.stringify(held.total) === JSON.stringify(E.inc.total) && !Object.keys(held.fresh).length;
+    // (today's place is never frozen: it's still pending, and moves with the board)
+    const today = F.incomeOf([E.e1, E.e2], G, {board: E.board, me: data.OWNER, at: AT, paid: {puzzles: {[AT_N.puzzles]: 1}}});
+    const live = today.pending.puzzles && today.pending.puzzles.place === 2 && by(today, 'puzzles', 'grain') === by(E.inc, 'puzzles', 'grain');
+    // (the realm keeps them)
+    const s = F.fresh(T0);
+    s.pd = {puzzles: {[P.puzzles]: 2, 26: 'x', 0: 3}, '17-0': {14: 1.5}, kick: {5: 1}, junk: 4};
+    const kept = JSON.stringify(F.clean(s).pd) === JSON.stringify({puzzles: {[P.puzzles]: 2}}) && JSON.stringify(F.clean(F.fresh(T0)).pd) === '{}';
+    const t = F.fresh(T0), a1 = F.freezeInto(t, fr), a2 = F.freezeInto(t, fr);
+    const into = a1 && !a2 && t.pd.puzzles[P.puzzles] === 2 && t.pd.drill[P.drill] === 8 && !t.pd.kick;
+    t.pd.puzzles[P.puzzles] = 1;
+    const once = !F.freezeInto(t, fr) && t.pd.puzzles[P.puzzles] === 1; // (what's frozen stays frozen)
+    let refused;
+    const was = daily.LB.ready;
+    try { daily.LB.ready = false; refused = !F.freezePaid(F.fresh(T0), fr); } finally { daily.LB.ready = was; }
+    const src = await fetch(new URL('../views/realm.js', import.meta.url)).then(r => r.text()).catch(() => '');
+    const view = src.includes('F.incomeOf(F.myDocs(), MODS, {paid: F.mine().pd})') && /const froze = F\.freezePaid\(s, EARNED\.fresh\);\s+if \(got\.gold \|\| got\.grain \|\| froze\) F\.touch\(\);/.test(src);
+    const ok = listed && drops && holds && live && kept && into && once && refused && view;
+    return {pass: ok, detail: `fresh ${JSON.stringify(fr)} (${listed}); a late post above him: unfrozen ${by(loose, 'puzzles', 'grain')} Ale (${drops}), frozen ${by(held, 'puzzles', 'grain')} (${holds}); today’s still pending ${live}; kept by clean() ${kept}; frozen once ${into}, never changed ${once}; refused without the board ${refused}; the coffers freeze from the realm’s, after the sync ${view}`};
+  });
+
+  check('The Keep: the coffers never go below nothing: pay of each (Gold and Ale apart, or one number for both as before) waits there and moves into storage as there’s room, one currency without the other; pay that falls short of what’s been taken (a day’s place lower than when it paid) leaves nothing waiting, never less, and storage untouched', () => {
+    const s = F.fresh(T0), moved = F.claim(s, {gold: 10000, grain: 0}), p = F.pending(s, {gold: 10000, grain: 0});
+    const split = moved.gold === 2500 && moved.grain === 1500 && p.gold === 10000 + 1500 - 2500 && p.grain === 0;
+    const same = JSON.stringify(F.pending(F.fresh(T0), 4000)) === JSON.stringify(F.pending(F.fresh(T0), {gold: 4000, grain: 4000}));
+    const t = F.fresh(T0);
+    t.cl = {gold: 50000, grain: 50000}; t.r = {gold: 700, grain: 900};
+    const short = F.pending(t, {gold: 1000, grain: 0}), took = F.claim(t, {gold: 1000, grain: 0});
+    const never = short.gold === 0 && short.grain === 0 && took.gold === 0 && took.grain === 0 && t.r.gold === 700 && t.r.grain === 900 && t.cl.gold === 50000;
+    const junk = F.pending(F.fresh(T0), {gold: NaN, grain: undefined});
+    const safe = junk.gold === 1500 && junk.grain === 1500;
+    return {pass: split && same && never && safe, detail: `Gold alone: moved ${JSON.stringify(moved)}, waiting ${JSON.stringify(p)} (${split}); one number for both ${same}; short pay: waiting ${JSON.stringify(short)}, moved ${JSON.stringify(took)}, stored ${JSON.stringify(t.r)} (${never}); bad numbers ${JSON.stringify(junk)}`};
+  });
+
+  check('The Keep: the coffers say how the games pay now (“Ale: your place on the Daily Puzzles, 17–0 and Two-Minute Drill boards, paid the next morning. Gold: every 5th Kick It make, and the coins on your first Return Man run.”), today’s place (“#2 right now · 4,000 Ale tomorrow if it holds”), what came in today and the season’s Gold and Ale for each game; on the old pay’s last day, that day’s pay the old way and what tomorrow brings; so does the welcome', async () => {
+    const view = await import('../views/realm.js');
+    const E = econ();
+    if (!E) return {pass: false, detail: 'the league or the puzzles didn’t load'};
+    const pages = view._screens(F.fresh(T0), T0, {earned: E.inc});
+    // (the evening before the new pay: every game played that day, the old way)
+    const eve = F.incomeOf([E.e1, E.e2], {sv, dr, kk, rm}, {board: E.board, me: data.OWNER, at: on(-1, 20)});
+    const evePages = view._screens(F.fresh(T0), T0, {earned: eve});
+    // (a page's words as one run of text, and node by node: an amount and its name, a picture's, sit in tags of their own)
+    const text = (w, list = pages) => {
+      const p = list.find(x => x.where === w), t = document.createElement('template'), out = [];
+      t.innerHTML = p ? p.html : '';
+      const wk = document.createTreeWalker(t.content, 4);
+      while (wk.nextNode()) out.push(wk.currentNode.nodeValue);
+      return t.content.textContent.replace(/\s+/g, ' ') + ' \n ' + out.join(' ').replace(/\s+/g, ' ');
+    };
+    const cof = text('The coffers'), hi = text('The Keep');
+    const copy = 'Ale: your place on the Daily Puzzles, 17–0 and Two-Minute Drill boards, paid the next morning. Gold: every 5th Kick It make, and the coins on your first Return Man run.';
+    const lines = [copy, '#2 right now · 4,000 Ale tomorrow if it holds', '#1 right now · 5,000 Ale tomorrow if it holds', '#1 yesterday: paid this morning', 'Not played yet: your place pays Ale tomorrow',
+      '10+ makes on your run', '12 coins on your first run', `All told ${E.inc.total.gold.toLocaleString('en-US')} Gold ${E.inc.total.grain.toLocaleString('en-US')} Ale`, '1st 5,000', '7th or lower 1,200'];
+    const missing = lines.filter(l => !cof.includes(l));
+    const old = /400 plus|Gold and Ale alike/.test(cof + hi);
+    const welcome = hi.includes(copy);
+    const last = text('The coffers', evePages), lastLines = ['Paid the old way: Gold and Ale alike', 'From tomorrow: your place on its board pays Ale', 'From tomorrow: every 5th make pays 1,000 Gold',
+      'From tomorrow: coins on your first run pay 10 Gold each', `+ 2,400 Gold 2,400 Ale`];
+    const lastMissing = lastLines.filter(l => !last.includes(l)), lastNew = /right now|this morning|on your run|on your first run today/.test(last);
+    // (the old pay's last day: the lead says when the new one starts; from then, it doesn't)
+    const starts = last.includes('Starting Thu Oct 22. ' + copy) && !cof.includes('Starting');
+    if (!starts) lastMissing.push('Starting Thu Oct 22. (on the eve alone)');
+    return {pass: !missing.length && !old && welcome && !lastMissing.length && !lastNew,
+      detail: `${missing.length ? 'the coffers never say: ' + missing.join(' | ') : 'the coffers say it all'}; the old pay’s words ${old ? 'still there' : 'gone'}; the welcome ${welcome}; the old pay’s last day ${lastMissing.length ? 'never says: ' + lastMissing.join(' | ') : 'says it'}${lastNew ? ', but speaks of the new pay' : ''}`};
   });
 
   check('The Keep: a new realm holds 2,500 of each in its Castle; the coffers keep what doesn’t fit (the games’ pay and the starter 1,500) and move it in as room opens; a gold mine digs 20 an hour up to 10 hours’ worth, collected as far as there’s room, and stops while it’s upgraded', () => {
@@ -363,7 +564,8 @@ export async function realmChecks(check) {
       rd: [{id: 'a1', vs: 'bot:2', nm: 'Briarwatch', at: T0 - F.HOUR, st: 2, pc: 60, lt: [500, 400], ta: 16}],
       df: [{id: 'd1', at: T0 - 2 * F.HOUR, by: 'Thornfield Hamlet', th: 1, st: 1, pc: 55, lt: [300, 200], ls: [300, 200], lb: {}, td: -3},
         {id: 'd2', at: T0 - 3 * F.HOUR, by: 'Briarwatch', th: 2, st: 0, pc: 20, lt: [0, 0], ls: [0, 0], lb: {}, td: 6}]});
-    const earned = {total: 5000, by: {puzzles: 3000, kick: 2000}, today: {puzzles: 400}, days: 3};
+    const earned = {total: {gold: 5000, grain: 7200}, by: {puzzles: {gold: 3000, grain: 7200}, kick: {gold: 2000, grain: 0}}, today: {puzzles: {gold: 0, grain: 3200}, kick: {gold: 1000, grain: 0}},
+      pending: {drill: {n: 9, place: 2, of: 6, grain: 4000}}, last: {puzzles: {n: 8, place: 3, of: 6, grain: 3200}}, days: 3};
     const pages = view._screens(bare, T0).concat(view._screens(full, T0, {done: full.df, earned}));
     // what it says when something can't be done (the toasts)
     const whys = [bare, full].flatMap(s => [...F.ORDER.map(k => F.canBuild(s, k, T0).why), ...s.b.map(b => F.canUpgrade(s, b.i, T0).why), ...F.TROOP_ORDER.map(t => F.canTrain(s, t).why)]).filter(Boolean);

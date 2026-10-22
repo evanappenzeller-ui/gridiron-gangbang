@@ -30,6 +30,8 @@ function realmSheet(options) {
 function loadMods() {
   if (!modsAsked) {
     modsAsked = Promise.all([
+      // (the Daily Puzzles' days, for ranking a day on its board: core/realm.js incomeOf)
+      Promise.resolve().then(() => daily.ensure()).catch(() => {}),
       import('../core/seventeen.js').then(m => Promise.resolve(m.load && m.load()).then(() => { MODS.sv = m; }), () => {}),
       import('../core/drill.js').then(m => Promise.resolve(m.load && m.load()).then(() => { MODS.dr = m; }), () => {}),
       import('../core/kick.js').then(m => { MODS.kk = m; }, () => {}),
@@ -81,9 +83,15 @@ export const curHTML = (c, n) => `<span class="rl-amt is-${c}"><i class="rl-coin
 export const starsHTML = (n, big = false) => `<span class="rl-stars${big ? ' is-big' : ''}" aria-label="${n} star${n === 1 ? '' : 's'}">${[0, 1, 2].map(i => `<i class="${i < n ? 'is-on' : ''}"></i>`).join('')}</span>`;
 
 // ---------------------------------------------------------------------------------------------------- what the games paid
-let EARNED = {total: 0, by: {}, today: {}, days: 0};
+// (incomeOf(): of each, {gold, grain}; places on today's boards pending; nothing at all off the owner's phone)
+const NO_PAY = () => ({total: {gold: 0, grain: 0}, by: {}, today: {}, pending: {}, last: {}, days: 0, day: {}});
+let EARNED = NO_PAY(), EARNED_DAY = '';
+// (another profile on this phone, here or in another tab: the owner's pay isn't kept in memory for it)
+try { data.subscribe(type => { if (type === 'me' && !F.mayPlay()) { EARNED = NO_PAY(); EARNED_DAY = ''; } }); } catch (_) {}
 function earned() {
-  try { EARNED = F.incomeOf(F.myDocs(), MODS); } catch (e) { console.error(e); }
+  if (!F.mayPlay()) { EARNED = NO_PAY(); return EARNED.total; }
+  // (the places already paid count as they were paid, frozen in the realm: refresh freezes the new ones)
+  try { EARNED = F.incomeOf(F.myDocs(), MODS, {paid: F.mine().pd}); EARNED_DAY = F.dayKey(); } catch (e) { console.error(e); }
   return EARNED.total;
 }
 
@@ -322,8 +330,13 @@ function select(st, id) {
 function refresh(st) {
   if (st.dead || !F.mayPlay()) return;
   const s = F.mine(), now = Date.now();
+  // (past midnight a ranked game's day is over: its place pays, and today's games start again)
+  if (EARNED_DAY && EARNED_DAY !== F.dayKey(now)) earned();
   const got = F.claim(s, EARNED.total);
-  if (got.gold || got.grain) F.touch();
+  // (a day's place, once paid, frozen: a late post on its board can't take it back; after sync, so it's on the realm
+  // that's kept)
+  const froze = F.freezePaid(s, EARNED.fresh);
+  if (got.gold || got.grain || froze) F.touch();
   if (st.v) st.v.setLot(s, {now, house: MY_HOUSE});
   hud(st);
   tags(st);
@@ -357,16 +370,57 @@ function awayHTML(done, s, now) {
 function cofferSheet() {
   realmSheet({title: 'The coffers', cls: 'sh-rl', detents: ['large'], body: cofferHTML(F.mine(), EARNED)});
 }
-/** The coffers: what the games paid (E: incomeOf()), what's waiting for room, what's in store. */
-function cofferHTML(s, E) {
-  const p = F.pending(s, E.total), cap = F.capOf(s);
-  const rows = Object.keys(F.GAME_NAME).map(g => `<div class="rl-row"><span>${esc(F.GAME_NAME[g])}</span><span class="rl-row-v">${E.today[g] ? `<em>+${nf(E.today[g])} today</em>` : ''}${nf(E.by[g] || 0)}</span></div>`).join('');
-  return `<p class="rl-sh-lead">Every daily game you play pays your realm, in Gold and Ale alike. It waits in your coffers, safe from raiders, and moves into your Castle, treasuries and cellars as they have room.</p>`
-    + `<div class="rl-sh-big">${curHTML('gold', p.gold)}${curHTML('grain', p.grain)}<small>waiting now</small></div>`
-    + `<h3 class="rl-sh-h">In store</h3><div class="rl-rows">${F.CUR.map(c => `<div class="rl-row"><span>${F.CUR_NAME[c]}</span><span class="rl-row-v">${nf(s.r[c])} of ${nf(cap[c])}</span></div>`).join('')}</div>`
-    + `<h3 class="rl-sh-h">This season, of each</h3><div class="rl-rows">${rows}<div class="rl-row is-sum"><span>All told</span><span class="rl-row-v">${nf(E.total)}</span></div></div>`
-    + `<p class="rl-sh-note">A day’s pay: Daily Puzzles 400 plus 5 a point · 17–0 400 plus 150 a win (500 more for 17–0) · Two-Minute Drill 3,000 a win, 2,000 a tie, 1,000 a loss · Kick It 400 plus 200 a make (up to 15) · Return Man 400 plus 3 a yard (up to 1,000). More room: upgrade your treasuries, cellars and Castle.</p>`;
+/** How a game's pay stands today (E: incomeOf()): a ranked game's place right now (its Ale paid tomorrow if it holds)
+ *  and yesterday's, paid this morning; Kick It's and Return Man's Gold, paid as soon as the run's on the board; on a
+ *  game's last day of the old pay, that day's in both and what tomorrow brings. {lines, got ([{c, n}]: what came in
+ *  today)}. */
+export function payToday(g, E) {
+  const t = (E.today || {})[g], n = (E.day || {})[g] || 0, from = F.NEW_PAY[g], lines = [], got = [];
+  const NEXT = {kick: `every 5th make pays ${nf(F.KICK_GOLD)} Gold`, return: `coins on your first run pay ${F.COIN_GOLD} Gold each`};
+  if (n && n < from) {
+    // (a game's last days of the old pay: the day's result in both)
+    if (t && (t.gold || t.grain)) { lines.push('Paid the old way: Gold and Ale alike'); got.push({c: 'gold', n: t.gold}, {c: 'grain', n: t.grain}); }
+    else lines.push('Not played yet');
+    if (n === from - 1) lines.push(`From tomorrow: ${NEXT[g] || 'your place on its board pays Ale'}`);
+  } else if (F.RANKED.includes(g)) {
+    const q = (E.pending || {})[g], l = (E.last || {})[g];
+    lines.push(q ? `#${q.place} right now · ${nf(q.grain)} Ale tomorrow if it holds` : 'Not played yet: your place pays Ale tomorrow');
+    if (t && t.grain) { got.push({c: 'grain', n: t.grain}); lines.push(`${l ? `#${l.place} yesterday` : 'Yesterday’s place'}: paid this morning`); }
+  } else if (g === 'kick') {
+    if (t && t.gold) got.push({c: 'gold', n: t.gold});
+    lines.push(t ? (t.gold ? `${nf(t.gold / F.KICK_GOLD * F.KICK_EVERY)}+ makes on your run` : 'No 5th make on today’s run') : `Every 5th make pays ${nf(F.KICK_GOLD)} Gold`);
+  } else {
+    if (t && t.gold) got.push({c: 'gold', n: t.gold});
+    lines.push(t ? (t.gold ? `${nf(t.gold / F.COIN_GOLD)} coins on your first run` : 'No coins on your first run today') : `Coins on your first run pay ${F.COIN_GOLD} Gold each`);
+  }
+  return {lines, got};
 }
+/** The coffers: how the games pay, what's waiting for room, today's pay, what's in store, the season's pay (E:
+ *  incomeOf()). */
+function cofferHTML(s, E) {
+  const tot = E.total || {gold: 0, grain: 0}, p = F.pending(s, tot), cap = F.capOf(s), by = E.by || {}, games = Object.keys(F.GAME_NAME);
+  const today = games.map(g => {
+    const {lines, got} = payToday(g, E);
+    return `<div class="rl-row is-pay"><span class="rl-pay-t"><b>${esc(F.GAME_NAME[g])}</b>${lines.map(l => `<small>${esc(l)}</small>`).join('')}</span>`
+      + `<span class="rl-row-v">${got.length ? `<em class="rl-pay-got">+</em>${got.map(x => curHTML(x.c, x.n)).join('')}` : ''}</span></div>`;
+  }).join('');
+  const cells = v => F.CUR.map(c => `<span role="cell">${curHTML(c, (v && v[c]) || 0)}</span>`).join('');
+  const ledger = `<div class="rl-ledger" role="table" aria-label="What the games have paid this season">`
+    + `<div class="rl-lg-row is-head" role="row"><span role="columnheader">Game</span>${F.CUR.map(c => `<span role="columnheader">${F.CUR_NAME[c]}</span>`).join('')}</div>`
+    + games.map(g => `<div class="rl-lg-row" role="row"><span role="cell">${esc(F.GAME_NAME[g])}</span>${cells(by[g])}</div>`).join('')
+    + `<div class="rl-lg-row is-sum" role="row"><span role="cell">All told</span>${cells(tot)}</div></div>`;
+  const places = F.ALE_BY_PLACE.map((v, i) => `${i === F.ALE_BY_PLACE.length - 1 ? `${ordinal(i + 1)} or lower` : ordinal(i + 1)} ${nf(v)}`).join(' · ');
+  // (while a game's still on the old pay, the lead says when this starts)
+  const [py, pm, pdd] = F.NEW_PAY_DATE.split('-').map(Number);
+  const from = F.oldPayToday(E) ? `<b>Starting ${esc(new Date(py, pm - 1, pdd).toLocaleDateString('en-US', {weekday: 'short', month: 'short', day: 'numeric'}).replace(',', ''))}.</b> ` : '';
+  return `<p class="rl-sh-lead">${from}<b>Ale</b>: your place on the Daily Puzzles, 17–0 and Two-Minute Drill boards, paid the next morning. <b>Gold</b>: every 5th Kick It make, and the coins on your first Return Man run.</p>`
+    + `<div class="rl-sh-big">${curHTML('gold', p.gold)}${curHTML('grain', p.grain)}<small>waiting now, safe from raiders, till your Castle, treasuries and cellars have room</small></div>`
+    + `<h3 class="rl-sh-h">Today</h3><div class="rl-rows">${today}</div>`
+    + `<h3 class="rl-sh-h">In store</h3><div class="rl-rows">${F.CUR.map(c => `<div class="rl-row"><span>${F.CUR_NAME[c]}</span><span class="rl-row-v">${nf(s.r[c])} of ${nf(cap[c])}</span></div>`).join('')}</div>`
+    + `<h3 class="rl-sh-h">This season</h3>${ledger}`
+    + `<p class="rl-sh-note">A day’s place pays Ale: ${places} (a tie shares the higher place). Kick It: ${nf(F.KICK_GOLD)} Gold every ${ordinal(F.KICK_EVERY)} make. Return Man: ${F.COIN_GOLD} Gold a coin, on your first run of the day. More room: upgrade your treasuries, cellars and Castle.</p>`;
+}
+const ordinal = n => `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th'}`;
 /** Your army and heroes: the heroes to recruit or upgrade, who's ready, who's training, who you can train (with Ale). */
 function armyHTML(s, now) {
   const room = F.armyRoom(s), have = F.roomOf(s.ar), q = F.queued(s);
@@ -738,8 +792,9 @@ function markSeen() {
   welcome();
 }
 const WELCOME_TITLE = 'The Keep';
-const welcomeHTML = () => `<p class="rl-sh-lead">Raise your house, fill your treasuries, sack the realms around you. Every daily game you play pays your realm in <b>Gold</b> and <b>Ale</b>; everything you’ve played this season already has. It’s yours alone.</p>`
+const welcomeHTML = () => `<p class="rl-sh-lead">Raise your house, fill your treasuries, sack the realms around you. The daily games pay your realm, and everything you’ve played this season already has. It’s yours alone.</p>`
   + `<div class="rl-rows">`
+  + `<div class="rl-row"><span><b>Ale</b>: your place on the Daily Puzzles, 17–0 and Two-Minute Drill boards, paid the next morning. <b>Gold</b>: every 5th Kick It make, and the coins on your first Return Man run.</span></div>`
   + `<div class="rl-row"><span><b>Your coffers</b> hold your pay until your Castle, treasuries and cellars have room. Raiders can’t touch them.</span></div>`
   + `<div class="rl-row"><span><b>Gold mines</b> dig Gold and <b>breweries</b> brew Ale while you’re away: tap them to collect.</span></div>`
   + `<div class="rl-row"><span><b>Your builder</b> raises or upgrades one thing at a time. Raise your <b>Castle</b> to unlock more of everything.</span></div>`
@@ -756,7 +811,7 @@ function welcome() {
  *  opening or changing anything: the screen with its top filled in and the overlays on the lot, every building's card,
  *  the card for placing each kind, and every sheet (done: raids to tell of, as defend() gives them; earned: incomeOf()).
  *  [{where, html}]. */
-export function _screens(s, now, {done = [], earned: E = {total: 0, by: {}, today: {}, days: 0}} = {}) {
+export function _screens(s, now, {done = [], earned: E = NO_PAY()} = {}) {
   const el = document.createElement('div');
   el.innerHTML = shellHTML();
   hud({el}, s);

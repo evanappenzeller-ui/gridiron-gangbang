@@ -43,15 +43,26 @@
 //   CONE, coneZ(row), fallsIn(e)                the cone before each pothole (no obstacle: knocked flying); whether
 //                                               a hit is a fall into a pothole (the only thing he falls into)
 //   FALL, fallPlan(run, row), fallAt(plan, s, d)   that fall's picture: how long, how far it's held back, how far down
-//   dayState(n, real), record(n, k, yards, dist), score(list), totals()   localStorage 'gg-ret1'
-//   keepLive(n, k, yards, dist), settle(n), live(n)   a return under way: kept as it goes, counted if it's left behind
+//   COIN, coinsTo(course, z), coinGap(v), jumpY(t)   the gold coins (the owner's hard course, his first run of the day
+//                                               only): their lines, laid out as far as z yards ({coins: [{i, line,
+//                                               lane, z, y}], lines: [{i, lane, z0, z1, n, over, jump, end}]})
+//   coinsOpen(n, k, hard), coinsWait(n, k, hard), ranElsewhere(n), dropCoins(run)   whether a run has them (the
+//                                               board in to tell it's the day's first); whether to wait for the board;
+//                                               whether his other phone ran first; taking them off a run
+//   dayCoins(docs, n), coinsWithin(n, y)        what a person's day's coins are on the board (for The Keep's pay),
+//                                               never more than the course lays out within their yards
+//   dayState(n, real), record(n, k, yards, dist, coins), score(list), totals()   localStorage 'gg-ret1'
+//   keepLive(n, k, yards, dist, coins), settle(n), live(n)   a return under way: kept as it goes, counted if it's left
+//                                               behind
 //   setTest(on, n), testing()                   test play (the owner's sandbox; his way to play it again)
 //   autoPost(), boardRows(n), weekRows(n), weekDays(n), boardState()   the league scoreboard (below)
+//   attemptsOf(docs, n)                         a person's runs of day n, their phones added up (on the owner's board)
 //
 // THE RULE (CLAUDE.md): the scoreboard reads daily.LB.raw, the board as this phone may see it: league members and
 // Ryan D for everyone; a guest (or Ryan S) only on their own phones.
 import {lsGet, lsSet} from './ui.js';
 import * as daily from './daily.js';
+import * as data from './data.js';
 
 // ---------------------------------------------------------------------------------------------- days
 export const START = '2026-10-20';
@@ -98,15 +109,16 @@ export const STRIDE_V = 19;
 export const MOVE = {juke: .13, slide: .7};
 // The things in the rows, standing still in a lane: what beats each (a juke round it beats both; so does being up
 // over it, top yards). A barricade you jump (clear: up that high as you reach it); a banner you slide under.
-// The hard course adds two (HARD_OBST): a pothole you jump (it's flat: a slide goes in it), each place's own (HOLES),
-// and a tackling sled, too high to jump and too low to slide under: you juke round it.
+// The hard course adds a pothole (HARD_OBST) you jump (it's flat: a slide goes in it), each place's own (HOLES). It
+// had a tackling sled too, too high to jump and too low to slide under: you juked round it. No more (Oct 22 2026,
+// addRow); its rules stay, for the kit's checks.
 export const OBST = {
   hurdle: {name: 'barricade', beat: 'jump', clear: .5, top: 1.05, says: 'Clipped the barricade'},
   bar: {name: 'banner', beat: 'slide', top: 2.5, says: 'Ran into the banner'},
   hole: {name: 'pothole', beat: 'jump', clear: .25, top: 1.05, says: 'Stepped in the pothole'},
   sled: {name: 'tackling sled', beat: 'juke', top: 1.6, says: 'Ran into the tackling sled'}
 };
-export const HARD_OBST = ['hole', 'sled'];
+export const HARD_OBST = ['hole'];
 export const HOLES = {stadium: 'divot', tailgate: 'pothole', city: 'pothole', tundra: 'ice hole', desert: 'sinkhole', market: 'open manhole',
   beach: 'sand pit', space: 'crater', farm: 'mud pit'};
 // A traffic cone stands just before every pothole, in its lane (the owner's ask, Oct 2026: a marker to see it coming),
@@ -354,17 +366,22 @@ function addRow(co, z, open) {
   count = Math.min(count, most);
   // (a sled only with the road open all the way across, never more than one before 600 yards, two after: there's always
   // a lane it isn't in)
+  // No sleds any more (the owner's ask, Oct 22 2026: "Remove the obstacle with the two pillars"): where one is drawn the
+  // lane is left open, the draws as they were, so the rest of the course (rows, vehicles, power-ups) is just where it
+  // was, today's too. sl keeps the lanes a sled was drawn in, for the coins alone: they're laid out round them as
+  // before (coinsFit), so no day's coins move.
   let sleds = co.hard && most === 3 && z >= HARD_GAP.sled ? (z < 600 ? 1 : 2) : 0;
+  const sl = [];
   shuffle(open.slice(), r).slice(0, count).forEach(l => {
     if (!co.hard) { lanes[l] = z < 40 || r() < .5 ? 'hurdle' : 'bar'; return; }
     if (z < 40) { lanes[l] = 'hurdle'; return; }
     const u = r(), hole = z >= HARD_GAP.hole, w = hole ? (sleds ? [.3, .3, .22, .18] : [.36, .36, .28, 0]) : [.5, .5, 0, 0];
     const t = u < w[0] ? 'hurdle' : u < w[0] + w[1] ? 'bar' : u < w[0] + w[1] + w[2] ? 'hole' : 'sled';
-    if (t === 'sled') sleds--;
+    if (t === 'sled') { sleds--; sl.push(l); return; }
     lanes[l] = t;
     if (!(t in co.first)) co.first[t] = z;
   });
-  co.rows.push({i: co.rows.length, z: round2(z), lanes, th: zoneAt(co, z).theme.id});
+  co.rows.push(Object.assign({i: co.rows.length, z: round2(z), lanes, th: zoneAt(co, z).theme.id}, sl.length ? {sl} : {}));
 }
 // A set at z (where the first ramp starts, or the fronts): a thing of the place's in one lane, or two side by side
 // (always a lane left open). False if it would cross into the next place.
@@ -408,6 +425,109 @@ export function fill(co, z) {
   co.done = z;
   return co;
 }
+
+// ---------------------------------------------------------------------------------------------- the coins
+// Gold coins to run through (the owner's ask, Oct 21 2026: "the return man game should have coins every so often that
+// line up for the player to run through", Subway Surfers'), on his hard course alone and on the day's first run alone
+// (his word: "coins are only available on the 1st attempt"; coinsOpen). A line of COIN.min to COIN.max of them in one
+// lane, spinning, floating at his waist (COIN.y yards up), coinGap yards apart, about every COIN.every seconds; some
+// arc up over a barricade or a pothole in the lane (lines[].jump: a jump from there carries him through them all, and
+// over it). Never in or on a vehicle (nor on its ramp), never through a banner or a sled (or a barricade or a pothole,
+// but the one an arc goes over), never by a power-up, and never so they run him into something: his lane's clear from
+// just before the first coin to COIN.react seconds past the last (or past where the arc's jump lands him). Laid out
+// from a seed of their own, the course's draws untouched (its rows, vehicles and power-ups are what they'd be without
+// them): the same every time, on every phone. Run through one (in his lane, between his feet and the top of his head)
+// and it's his (step's 'coin'). Each is COIN.gold Gold for The Keep (core/realm.js pays it from the board entry's c:
+// the first run's coins).
+// (r: a coin's radius; reach: how far past his feet or the top of his head (his body: BODY, SLIDE_BODY in a slide) a
+// coin's middle may be and still be his)
+// (look: seconds before the first coin with no banner or sled in its lane, so neither hides the line nor has him juke
+// out of it as it starts; fromDay: the first day the coins are out, the first day The Keep pays for them, core/realm.js
+// NEW_PAY.return; most: the most a run's record or board entry carries, and what's paid is never more than the day's
+// course lays out within the yards posted: dayCoins. Late in a run, with every lane busier, a line fits less often, so
+// they come further apart than COIN.every there.)
+export const COIN = {min: 6, max: 12, y: 1, r: .36, reach: .2, from: 30, every: [3.5, 7], retry: .5, react: .35, clear: 1.4, look: .3, item: 2.5, gold: 10, most: 1000, fromDay: 3};
+/** The coins' spacing along a line at v yards a second (about ten a second, never closer than 1.6 or wider than 3). */
+export const coinGap = v => clamp(v * .1, 1.6, 3);
+const JUMP_S = 2 * JUMP_V / GRAV; // (a jump's time in the air)
+/** How high a jump has him t seconds after he leaves the ground (0 before it and after it). */
+export const jumpY = t => (t > 0 && t < JUMP_S ? JUMP_V * t - GRAV / 2 * t * t : 0);
+/** The first row at z yards or beyond (the rows go in order). */
+function rowFrom(co, z) {
+  let lo = 0, hi = co.rows.length;
+  while (lo < hi) { const m = (lo + hi) >> 1; if (co.rows[m].z < z) lo = m + 1; else hi = m; }
+  return lo;
+}
+/** Lays a hard course's coin lines out as far as z yards (once each; the same every time): co.coins [{i, line, lane, z,
+ *  y}] in order of z, co.lines [{i, lane, z0, z1, n, over (the row it arcs over, its i; or null), jump (where a jump
+ *  takes him through it; or null), end}]. The regular course has none. */
+export function coinsTo(co, z) {
+  if (!co.hard) return co;
+  if (!co.coins) Object.assign(co, {coins: [], lines: [], cr: rng(hashStr(`return-man-coins-${co.n}-${co.k}`)), coinAt: COIN.from});
+  while (co.coinAt <= z + 2) {
+    const at = co.coinAt, v = speedAt(at, true);
+    if (co.done < at + 90) fill(co, at + 90);
+    const line = coinLine(co, at);
+    co.coinAt = line ? line.end + (COIN.every[0] + co.cr() * (COIN.every[1] - COIN.every[0])) * v : at + COIN.retry * v;
+  }
+  return co;
+}
+/** A line from at yards on (its lane, flat or arcing over a barricade or pothole, the day's draws), or null (nowhere
+ *  it fits there). */
+function coinLine(co, at) {
+  const r = co.cr, v = speedAt(at, true), sp = coinGap(v), n = COIN.min + Math.floor(r() * (COIN.max - COIN.min + 1));
+  const lanes = shuffle([0, 1, 2], r), arcFirst = r() < .5, lead = Math.floor(r() * 3);
+  for (const lane of lanes) {
+    for (const arc of arcFirst ? [true, false] : [false, true]) {
+      let s = at, over = null, jump = null, vj = v;
+      if (arc) {
+        // the first barricade or pothole in the lane far enough on to jump it from here
+        for (let i = rowFrom(co, at + 4); i < co.rows.length && co.rows[i].z <= at + 45; i++) {
+          const w = co.rows[i], t = w.lanes[lane];
+          if (t !== 'hurdle' && t !== 'hole') continue;
+          vj = speedAt(w.z, true);
+          if (w.z - vj * JUMP_S / 2 >= at) { over = w; break; }
+        }
+        if (!over) continue;
+        jump = over.z - vj * JUMP_S / 2;
+        s = jump - Math.min(lead, Math.floor((jump - at) / sp)) * sp;
+      }
+      const coins = [];
+      for (let i = 0; i < n; i++) {
+        const z = s + i * sp;
+        coins.push({lane, z: round2(z), y: round2(COIN.y + (jump == null ? 0 : jumpY((z - jump) / vj)))});
+      }
+      const land = jump == null ? null : jump + vj * JUMP_S;
+      if (!coinsFit(co, lane, coins, over, land)) continue;
+      const li = co.lines.length, end = Math.max(coins[n - 1].z, land || 0);
+      co.lines.push({i: li, lane, z0: coins[0].z, z1: coins[n - 1].z, n, over: over ? over.i : null, jump: jump == null ? null : round2(jump), end: round2(end)});
+      coins.forEach(c => co.coins.push(Object.assign({i: co.coins.length, line: li}, c)));
+      return co.lines[li];
+    }
+  }
+  return null;
+}
+/** Whether a line's coins (in one lane) fit where they are: nothing in the lane from just before the first to well
+ *  past the last (or where the arc's jump lands him), but the row it arcs over; no vehicle or ramp there; no power-up
+ *  by them; over a pothole, well over its cone. */
+function coinsFit(co, lane, coins, over, land) {
+  const za = coins[0].z - COIN.clear, last = coins[coins.length - 1].z, zEnd = Math.max(last, land || 0);
+  const zb = zEnd + COIN.react * speedAt(zEnd, true);
+  if (co.done < zb + 10) fill(co, zb + 10);
+  // (where a sled was drawn, sl, counts as it did before the sleds went: the coins stay where they were)
+  const sledIn = (w, l) => !!(w.sl && w.sl.includes(l));
+  for (let i = rowFrom(co, za); i < co.rows.length && co.rows[i].z <= zb; i++) { const w = co.rows[i]; if ((w.lanes[lane] || sledIn(w, lane)) && w !== over) return false; }
+  // (and just before that, no banner to hide the line or sled to juke round as it starts: COIN.look seconds clear)
+  const zl = coins[0].z - COIN.look * speedAt(coins[0].z, true);
+  for (let i = rowFrom(co, zl); i < co.rows.length && co.rows[i].z < za; i++) { const w = co.rows[i], t = w.lanes[lane]; if (t === 'bar' || t === 'sled' || sledIn(w, lane)) return false; }
+  if (co.sets.some(s => s.zs <= zb && s.ze >= za && s.plats.some(p => p.lane === lane && p.z0 - p.ramp <= zb && p.z1 >= za))) return false;
+  if (co.items.some(it => it.lane === lane && it.z > za - COIN.item && it.z < last + COIN.item)) return false;
+  if (over && over.lanes[lane] === 'hole') {
+    const zc = coneZ(over);
+    if (coins.some(c => Math.abs(c.z - zc) < CONE.r + COIN.r + .15 && c.y - COIN.r < CONE.h + .1)) return false;
+  }
+  return true;
+}
 function setAt(co, z) {
   const s = co.sets;
   let lo = 0, hi = s.length - 1;
@@ -440,13 +560,22 @@ export function blockAt(co, lane, z, y, body = BODY) {
 export const platAt = (co, lane, z) => blockAt(co, lane, z, 0);
 
 // ---------------------------------------------------------------------------------------------- a return
-/** A new return: day n's run k (on the day's course: every run the same), you in the middle lane where you field it. */
-export function startRun(n, k, hard = false) {
+/** A new return: day n's run k (on the day's course: every run the same), you in the middle lane where you field it.
+ *  coins: the run has the coins (COIN: only on the hard course; views/return.js asks coinsOpen, the day's first run);
+ *  run.c counts the ones he's run through. */
+export function startRun(n, k, hard = false, coins = false) {
   return {n, k, co: course(n, 0, hard), t: 0, steps: 0, z: 0, yards: 0, lane: 1, x: 0, jFrom: 0, jt: 1, y: 0, vy: 0, jumpQ: -9,
     slide: 0, lastJuke: -9, bump: -9, next: 0, nextCone: 0, nextItem: 0, zone: 0, tds: 0,
     salts: 0, pills: 0, booze: 0, shield: 0, burst: 0, over: false, why: null, by: null,
     hits: 0, hitAt: 0, slow: 0, grace: 0, knock: 0, sideHit: null,
-    stumblePending: false, lastHit: null}; // (the linebacker starts on you, at the catch)
+    stumblePending: false, lastHit: null, // (the linebacker starts on you, at the catch)
+    coins: !!(coins && hard), c: 0, nextCoin: 0};
+}
+/** Takes a run's coins away (it isn't the day's first after all: the board shows another of his phones ran it,
+ *  ranElsewhere): none to see, none counted, and run.elsewhere says why (the end card's words). */
+export function dropCoins(run) {
+  if (!run) return;
+  run.coins = false; run.c = 0; run.elsewhere = true;
 }
 export const xOf = (run, lane) => (lane - 1) * LANE;
 /** The lane you're in now (the nearest to you, mid-juke). */
@@ -610,6 +739,16 @@ function sub(run, dt, out) {
     else run[it.kind] = POWER[it.kind].s;
     out.push({type: 'pickup', kind: it.kind, item: it, z: run.z});
   }
+  // the coins (his first run of the day, on the hard course): in his lane, between his feet and the top of his head
+  if (run.coins && co.coins) {
+    const cs = co.coins;
+    while (run.nextCoin < cs.length && cs[run.nextCoin].z <= run.z) {
+      const cn = cs[run.nextCoin++];
+      if (cn.lane !== lane || cn.y < run.y - COIN.reach || cn.y > run.y + body + COIN.reach) continue;
+      run.c++;
+      out.push({type: 'coin', coin: cn, c: run.c, z: run.z});
+    }
+  }
   run.slide = Math.max(0, run.slide - dt);
   run.pills = Math.max(0, run.pills - dt);
   run.booze = Math.max(0, run.booze - dt);
@@ -620,7 +759,8 @@ function sub(run, dt, out) {
   run.knock = Math.max(0, run.knock - dt);
 }
 /** Moves a return on dt seconds. Returns what happened: [{type: 'td' | 'zone' | 'juked' | 'hurdled' | 'slid' | 'over' |
- *  'passed' | 'landed' | 'pickup' | 'coned' | 'trucked' | 'vaulted' | 'stumbled' | 'shoved' | 'revived' | 'tackled' | 'crashed', z, ...}]
+ *  'passed' | 'landed' | 'pickup' | 'coin' | 'coned' | 'trucked' | 'vaulted' | 'stumbled' | 'shoved' | 'revived' | 'tackled' | 'crashed', z, ...}]
+ *  ('coin': he ran through one, coin, c his count now)
  *  ('juked': you left a thing's lane in the last moment before it; 'over': it was below you; 'coned': you ran through
  *  a pothole's cone (row, lane), knocking it flying: nothing more; 'trucked', 'vaulted':
  *  through a barricade or banner, or up onto a vehicle you'd have hit, on painkillers; 'stumbled': a hit, the linebacker on you
@@ -630,6 +770,7 @@ export function step(run, dt) {
   if (run.over || !(dt > 0)) return [];
   const out = [];
   fill(run.co, run.z + 120);
+  if (run.coins) coinsTo(run.co, run.z + 120);
   for (let left = Math.min(dt, .25); left > 1e-9 && !run.over;) {
     const h = Math.min(left, 1 / 120);
     sub(run, h, out);
@@ -652,10 +793,18 @@ export function endOf(run) {
   return `Ran into the ${p && KINDS[p.kind] ? KINDS[p.kind].name : 'wall'}`;
 }
 /** What's in front of you out to dist yards (and just behind, for a moment): {rows: [{row, d (yards ahead)}], sets:
- *  [{set, d}], items: [{item, d}]}. */
+ *  [{set, d}], items: [{item, d}], coins: [{coin, d}] (a coin run's; none on any other)}. */
 export function ahead(run, dist = 90, behind = 6) {
   const co = fill(run.co, run.z + dist), z = run.z;
-  const rows = [], sets = [], items = [];
+  const rows = [], sets = [], items = [], coins = [];
+  if (run.coins) {
+    coinsTo(co, z + dist);
+    for (let i = Math.max(0, run.nextCoin - 16); i < co.coins.length; i++) {
+      const d = co.coins[i].z - z;
+      if (d > dist) break;
+      if (d >= -behind) coins.push({coin: co.coins[i], d});
+    }
+  }
   for (let i = Math.max(0, run.next - 4); i < co.rows.length; i++) {
     const d = co.rows[i].z - z;
     if (d > dist) break;
@@ -670,13 +819,14 @@ export function ahead(run, dist = 90, behind = 6) {
     if (d > dist) break;
     if (d >= -behind) items.push({item: co.items[i], d});
   }
-  return {rows, sets, items};
+  return {rows, sets, items, coins};
 }
 
 // ---------------------------------------------------------------------------------------------- memory
 // 'gg-ret1': {days: {n: {r: [{y (yards), d (how far you ran)}, ...] (every run that day, in order), at (when the best
 // one ended)}}, played (runs, all time)}. (A return kept as a plain number, before power-ups, is its yards and its
-// distance.)
+// distance.) The day's first run, when it had the coins (COIN: the owner's), keeps them too: c (how many he ran
+// through); no other run ever has a c, and nobody else's runs do.
 const KEY = 'gg-ret1', KEEP = 60, MAX_YARDS = 99999;
 // Test play (the owner's: views/testplay.js): the day's game again in a sandbox, whenever he needs to test it. While
 // it's on, play reads and writes a store of its own (KEY + '-test', the day started fresh each time), never posted and
@@ -702,8 +852,18 @@ function write(v, real) {
   lsSet(keyOf(real), JSON.stringify(v));
 }
 const okNum = y => Number.isInteger(y) && y >= 0 && y <= MAX_YARDS;
-const cleanOne = e => (okNum(e) ? {y: e, d: e} : e && okNum(e.y) && okNum(e.d) ? {y: e.y, d: e.d} : null);
+const okCoins = c => Number.isInteger(c) && c >= 0 && c <= COIN.most;
+const cleanOne = (e, i) => (okNum(e) ? {y: e, d: e} : e && okNum(e.y) && okNum(e.d) ? Object.assign({y: e.y, d: e.d}, !i && okCoins(e.c) ? {c: e.c} : {}) : null);
 const cleanList = r => (Array.isArray(r) ? r.map(cleanOne) : []).filter(Boolean);
+/** A day's first run's coins (d: a day as kept, {r: [...]}): c, or null (it had none: not a coin run). */
+export function firstCoins(d) {
+  const e = d && Array.isArray(d.r) ? cleanOne(d.r[0], 0) : null;
+  return e && okCoins(e.c) ? e.c : null;
+}
+/** A run as it's kept: {y, d}, and c (his coins) on the day's first run (k 0) when it had them. */
+export function runEntry(k, yards, dist = yards, coins) {
+  return Object.assign({y: yardsOf(yards), d: yardsOf(dist)}, k === 0 && okCoins(coins) ? {c: coins} : {});
+}
 /** The best of a day's runs ([{y, d}]): the most yards (the first of equals), or null. */
 const bestOf = list => list.reduce((b, e) => (!b || e.y > b.y ? e : b), null);
 /** Numbers from returns ([{y, d}]): yards (all of them), longest, tds. */
@@ -713,11 +873,11 @@ export function score(list) {
   return {yards, longest, tds};
 }
 /** Day n on this phone: {list ([{y, d}] every run), runs, next (the next run's number), best (its yards; 0 with none),
- *  at, official (the day that counts: the best run, {list: [it], at} plus its score, or null before a run)} plus the
- *  best run's score (yards, longest, tds). */
+ *  at, official (the day that counts: the best run, {list: [it], at} plus its score, or null before a run), coins (the
+ *  first run's, when it had them: else null)} plus the best run's score (yards, longest, tds). */
 export function dayState(n, real) {
   const d = read(real).days[n] || {}, list = cleanList(d.r), b = bestOf(list);
-  return Object.assign({list, runs: list.length, next: list.length, best: b ? b.y : 0, at: Number(d.at) || 0, official: officialOf(d)}, score(b ? [b] : []));
+  return Object.assign({list, runs: list.length, next: list.length, best: b ? b.y : 0, at: Number(d.at) || 0, official: officialOf(d), coins: firstCoins(d)}, score(b ? [b] : []));
 }
 /** The day that counts: its best run ({list: [it], at} plus score), or null. */
 export function officialOf(d) {
@@ -725,13 +885,13 @@ export function officialOf(d) {
   return b ? Object.assign({list: [b], at: Number(d.at) || 0}, score([b])) : null;
 }
 const yardsOf = v => clamp(Math.floor(v) || 0, 0, MAX_YARDS);
-/** Saves run k's return (its yards, and how far you ran; k must be the next). Returns the day's state, or null (a
- *  return out of turn). */
-export function record(n, k, yards, dist = yards) {
+/** Saves run k's return (its yards, and how far you ran; k must be the next; coins: the first run's, when it had them).
+ *  Returns the day's state, or null (a return out of turn). */
+export function record(n, k, yards, dist = yards, coins) {
   const v = read(), day = v.days[n] || (v.days[n] = {r: []});
   const list = cleanList(day.r), was = bestOf(list);
   if (k !== list.length) return null;
-  const e = {y: yardsOf(yards), d: yardsOf(dist)};
+  const e = runEntry(k, yards, dist, coins);
   list.push(e);
   day.r = list;
   delete day.live;
@@ -746,21 +906,22 @@ export function totals() {
 }
 // A return under way is kept as it goes (live: {k, y, d}), so one left behind (the app closed, the page left) still
 // counts, ending where it was.
-/** Notes how far kickoff k of day n has got (its yards so far, and how far you've run). */
-export function keepLive(n, k, yards, dist = yards) {
+/** Notes how far kickoff k of day n has got (its yards so far, and how far you've run; coins: his coins so far, on a
+ *  coin run). */
+export function keepLive(n, k, yards, dist = yards, coins) {
   const v = read(), day = v.days[n] || (v.days[n] = {r: []});
   if (cleanList(day.r).length !== k) return;
-  day.live = {k, y: Math.floor(yards), d: Math.floor(dist)};
+  day.live = Object.assign({k, y: Math.floor(yards), d: Math.floor(dist)}, k === 0 && okCoins(coins) ? {c: coins} : {});
   write(v);
 }
 /** Ends a return left behind on day n where it was. Returns the day's state when it did, else null. */
 export function settle(n) {
   const v = read(), day = v.days[n];
   if (!day || !day.live) return null;
-  const {k} = day.live, y = day.live.y ?? day.live.z, d = day.live.d ?? y, list = cleanList(day.r);
+  const {k, c} = day.live, y = day.live.y ?? day.live.z, d = day.live.d ?? y, list = cleanList(day.r);
   delete day.live;
   write(v);
-  return k === list.length && Number.isFinite(y) ? record(n, k, y, Number.isFinite(d) ? d : y) : null;
+  return k === list.length && Number.isFinite(y) ? record(n, k, y, Number.isFinite(d) ? d : y, c) : null;
 }
 /** Whether day n has a return under way (kept by keepLive). */
 export const live = n => { const d = read().days[n]; return !!(d && d.live && d.live.k === cleanList(d.r).length); };
@@ -770,17 +931,82 @@ export const live = n => { const d = read().days[n]; return !!(d && d.live && d.
 // longest return: the one), td (touchdowns), t (when it ended)}}: the day's best run, posted by itself once the board
 // has loaded and again whenever a run beats it (and after a failed post). One day per person: across their phones the
 // best counts. (rm1 held days of three kickoffs; rm2 began with one a day, first run counting, Oct 20 2026, and is
-// each day's best run since replays came in the same day.)
-const F = 'rm2', POST_BACK = 7;
+// each day's best run since replays came in the same day.) The owner's days carry one more (Oct 21 2026): c, the coins
+// of the day's first run (COIN), whatever run is the best (The Keep pays 10 Gold a coin from it: dayCoins); posted with
+// the day's best by the phone that ran the first run (and by his other phones, once their board has it).
+// And a, the runs of the day on that phone (Oct 22 2026: the owner's ask, how many attempts each player has made, shown
+// on his scoreboard alone): posted again whenever it moves, a person's phones added up (attemptsOf). An entry from
+// before it has none.
+const F = 'rm2', POST_BACK = 7, MAX_RUNS = 9999;
 let posting = false;
+const okRuns = a => Number.isInteger(a) && a >= 1 && a <= MAX_RUNS;
 export function entryOf(p, n) {
   const e = p && p[F] && typeof p[F] === 'object' ? p[F][n] : null;
   if (!e || !Number.isInteger(e.y) || !Number.isInteger(e.l) || e.y < 0 || e.y > MAX_YARDS || e.l < 0 || e.l > e.y) return null;
-  return {y: e.y, l: e.l, td: Number.isInteger(e.td) && e.td >= 0 ? e.td : 0, t: Number(e.t) || 0};
+  return Object.assign({y: e.y, l: e.l, td: Number.isInteger(e.td) && e.td >= 0 ? e.td : 0, t: Number(e.t) || 0}, okCoins(e.c) ? {c: e.c} : {}, okRuns(e.a) ? {a: e.a} : {});
+}
+/** A person's attempts on day n, their docs' runs added up (each phone posts its own), or null (none posted any). */
+export function attemptsOf(list, n) {
+  let a = null;
+  (list || []).forEach(p => { const e = entryOf(p, n); if (e && e.a != null) a = (a || 0) + e.a; });
+  return a;
+}
+/** This phone's runs of day n, as posted (a), or null with none. */
+const runsToPost = n => { const r = Math.min(MAX_RUNS, dayState(n, true).runs); return okRuns(r) ? r : null; };
+/** A person's coins for day n (their first run's: COIN), from their board docs (all of them one person's): the most any
+ *  of them says (the first run is on one phone; the others may carry it on), or 0; never more than day n's course lays
+ *  out within the most yards any of them posted (coinsWithin: a run's coins are all behind him, and his yards are never
+ *  short of how far he's run), so no entry can say more than a run could have taken. What The Keep pays from
+ *  (COIN.gold Gold a coin). */
+export function dayCoins(list, n) {
+  let most = 0, far = 0, any = false;
+  (list || []).forEach(p => { const e = entryOf(p, n); if (!e) return; far = Math.max(far, e.y); if (e.c != null) { any = true; most = Math.max(most, e.c); } });
+  return any && most > 0 ? Math.min(most, coinsWithin(n, far)) : 0;
+}
+const WITHIN = new Map();
+/** How many coins day n's hard course (its first run's: COIN) lays out within y yards (the same every time). */
+export function coinsWithin(n, y) {
+  const key = `${n}|${y}`;
+  if (!WITHIN.has(key)) {
+    const co = coinsTo(course(n, 0, true), y + 2);
+    let c = 0;
+    for (const x of co.coins) { if (x.z > y + 1) break; c++; }
+    if (WITHIN.size > 400) WITHIN.clear();
+    WITHIN.set(key, c);
+  }
+  return WITHIN.get(key);
 }
 // The board as this phone may see it (THE RULE, CLAUDE.md): never every doc.
 const docs = () => daily.LB.raw || daily.LB.players || [];
 const meKey = () => (daily.LB.uid ? daily.boardKey({id: daily.LB.uid, nick: daily.LB.nick}) : null);
+/** This person's docs on the board as this phone sees it (this phone's, and their other phones'). */
+function theirDocs() {
+  const list = docs(), mine = list.find(p => p.id === daily.LB.uid), k = meKey();
+  return list.filter(p => p === mine || (k && daily.boardKey(p) === k));
+}
+/** Whether the board's in (loaded, on, no error): only then can it tell a run is the day's first across his phones. */
+const boardIn = () => !!(daily.LB.ready && !daily.LB.off && !daily.LB.err && daily.LB.uid);
+/** Whether the board shows a run of day n on one of this person's phones already (so the day's first has been run). */
+export const ranElsewhere = n => theirDocs().some(p => entryOf(p, n));
+/** Whether day n's run k has the coins (COIN): on the hard course (the owner's: views/return.js asks on his profile
+ *  alone), from COIN.fromDay on, the day's first run: run 0 on this phone and, with the board in to say so, on none of
+ *  this person's phones a run of the day yet (before the board's in, or with it off, there's no telling: none). Test
+ *  play: the sandbox's first run, whatever the day and the board. */
+export function coinsOpen(n, k, hard) {
+  if (!hard || k !== 0) return false;
+  if (TEST) return true;
+  return n >= COIN.fromDay && boardIn() && !ranElsewhere(n);
+}
+/** Whether day n's run k would be a coin run but the board isn't in yet to say so (it's on its way: not off, no error):
+ *  the owner's first kickoff waits a moment for it (views/return.js autoGo). */
+export const coinsWait = (n, k, hard) => !!hard && k === 0 && !TEST && n >= COIN.fromDay && !boardIn() && !daily.LB.off && !daily.LB.err;
+/** The coins this phone would post with day n (the owner's alone): the first run's here, or what the board has from
+ *  his other phones (the most of them); null when there are none. */
+function coinsToPost(n, theirs) {
+  if (!data.isOwner()) return null;
+  const here = dayState(n, true).coins, there = theirs.some(p => { const e = entryOf(p, n); return e && e.c != null; }) ? dayCoins(theirs, n) : null;
+  return here == null && there == null ? null : Math.max(here || 0, there || 0);
+}
 function people(list) {
   const m = new Map();
   list.forEach(p => { const k = daily.boardKey(p); if (!m.has(k)) m.set(k, []); m.get(k).push(p); });
@@ -796,13 +1022,19 @@ function bestEntry(list, n) {
   return out;
 }
 function unposted() {
-  const list = docs(), mine = list.find(p => p.id === daily.LB.uid), k = meKey();
-  const theirs = list.filter(p => p === mine || (k && daily.boardKey(p) === k));
+  const theirs = theirDocs(), mine = theirs.find(p => p.id === daily.LB.uid);
   const v = read(true), top = todayNumber();
   return Object.keys(v.days).map(Number)
     .filter(n => Number.isInteger(n) && n <= top && n > top - POST_BACK && dayState(n, true).official)
-    // (not posted yet, or this phone's best now beats what's posted)
-    .filter(n => { const b = bestEntry(theirs, n); return !b || dayState(n, true).official.yards > b.e.y; })
+    // (not posted yet, or this phone's best now beats what's posted, or its runs of the day (a) aren't what this phone's
+    // entry says; the owner's: or the day's coins aren't on the board yet, or not on this phone's entry while it has one)
+    .filter(n => {
+      const b = bestEntry(theirs, n);
+      if (!b || dayState(n, true).official.yards > b.e.y) return true;
+      const c = coinsToPost(n, theirs), own = mine ? entryOf(mine, n) : null, a = runsToPost(n);
+      if (a != null && (!own || own.a !== a)) return true;
+      return c != null && (!theirs.some(p => { const e = entryOf(p, n); return e && e.c != null; }) || (!!own && own.c !== c));
+    })
     .sort((a, b) => a - b);
 }
 export async function autoPost() {
@@ -810,10 +1042,14 @@ export async function autoPost() {
   if (posting || !LB.merge || !LB.ready || LB.off || !LB.uid) return false;
   const days = unposted();
   if (!days.length) return false;
-  const out = {};
-  days.forEach(n => { const s = dayState(n, true).official; out[n] = {y: s.yards, l: s.longest, td: s.tds, t: s.at || Date.now()}; });
+  const out = {}, theirs = theirDocs(), mine = theirs.find(p => p.id === LB.uid);
+  days.forEach(n => {
+    const s = dayState(n, true).official, c = coinsToPost(n, theirs), a = runsToPost(n), own = mine ? entryOf(mine, n) : null;
+    // (posted again for its runs alone, it never takes back a better run this phone's entry already has)
+    const best = own && own.y > s.yards ? {y: own.y, l: own.l, td: own.td, t: own.t} : {y: s.yards, l: s.longest, td: s.tds, t: s.at || Date.now()};
+    out[n] = Object.assign(best, c != null ? {c} : {}, a != null ? {a} : {});
+  });
   const body = {[F]: out};
-  const mine = docs().find(p => p.id === LB.uid);
   if (!mine) Object.assign(body, {nick: (daily.postName() || '').trim().slice(0, 24), g: daily.asGuest(), total: 0});
   posting = true;
   try { await LB.merge(body); return true; } catch (_) { return false; } finally { posting = false; }
@@ -838,12 +1074,13 @@ const rowWho = (ds, k) => {
 };
 const rank = (rows, same) => { rows.forEach((r, i) => { r.rank = i && same(rows[i - 1], r) ? rows[i - 1].rank : i + 1; }); return rows; };
 /** Day n's board: one row per person, the most yards first, then the longest return, then touchdowns. Rows: {key, name,
- *  managerId, me, guest, y, l, td, rank}. list: board docs (default: the board as this phone may see it). */
+ *  managerId, me, guest, y, l, td, a (attempts across their phones, or null), rank}. list: board docs (default: the
+ *  board as this phone may see it). */
 export function boardRows(n = todayNumber(), list = docs()) {
   const rows = [];
   people(list).forEach((ds, k) => {
     const f = bestEntry(ds, n);
-    if (f) rows.push(Object.assign(rowWho(ds, k), f.e));
+    if (f) rows.push(Object.assign(rowWho(ds, k), f.e, {a: attemptsOf(ds, n)}));
   });
   const cmp = (a, b) => b.y - a.y || b.l - a.l || b.td - a.td;
   return rank(rows.sort((a, b) => cmp(a, b) || a.name.localeCompare(b.name)), (a, b) => !cmp(a, b));
@@ -857,7 +1094,7 @@ export function weekDays(n = todayNumber(), today = todayNumber()) {
   return out;
 }
 /** The week's board: yards summed over its days, then the longest of the week, then the days played. Rows: {key, name,
- *  managerId, me, guest, y, l, td, played, rank}. */
+ *  managerId, me, guest, y, l, td, played, a (attempts over its days, or null), rank}. */
 export function weekRows(n = todayNumber(), list = docs(), today = todayNumber()) {
   return totalsOver(weekDays(n, today), list);
 }
@@ -870,8 +1107,12 @@ export function seasonRows(list = docs(), today = todayNumber()) {
 function totalsOver(days, list) {
   const rows = [];
   people(list).forEach((ds, k) => {
-    const row = Object.assign(rowWho(ds, k), {y: 0, l: 0, td: 0, played: 0});
-    days.forEach(d => { const f = bestEntry(ds, d); if (f) { row.y += f.e.y; row.l = Math.max(row.l, f.e.l); row.td += f.e.td; row.played++; } });
+    const row = Object.assign(rowWho(ds, k), {y: 0, l: 0, td: 0, played: 0, a: null});
+    days.forEach(d => {
+      const f = bestEntry(ds, d), a = attemptsOf(ds, d);
+      if (f) { row.y += f.e.y; row.l = Math.max(row.l, f.e.l); row.td += f.e.td; row.played++; }
+      if (f && a != null) row.a = (row.a || 0) + a;
+    });
     if (row.played) rows.push(row);
   });
   const cmp = (a, b) => b.y - a.y || b.l - a.l || a.played - b.played;

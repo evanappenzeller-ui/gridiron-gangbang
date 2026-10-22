@@ -116,6 +116,7 @@ const safe = f => { try { return f() || []; } catch (e) { console.error(e); retu
 // ============================================================================ 17-0, the drill, Kick It
 // Their cores, once loaded (17-0's and the drill's need their day files).
 const C = {sv: null, dr: null, kk: null, rm: null};
+export const __dev = {cores: C}; // (the kit's checks build the shelf with a core in place)
 let coresAsked = false;
 function loadCores(then) {
   if (coresAsked) return;
@@ -206,15 +207,20 @@ function kickState() {
 function returnState() {
   // Return Man is replayed as often as you like (the owner's ask, Oct 2026): its case keeps its front, opened to Start again,
   // your best today (and where it puts you) under the shelf; the scoreboard is on its page.
+  // Its case turns round too, played today or not (turns: the owner's ask, Oct 22 2026, for everyone: "the game is
+  // repeatable"): today's leaderboard on its back (shelfTurner's .is-turns), standing on its front to play.
   const RM = C.rm;
   if (!RM) return {kind: 'new'};
-  const n = RM.todayNumber(), day = RM.dayState(n), test = RM.testing();
-  if (RM.live(n)) return {kind: 'started', test, meta: '<p class="gm-note">A return under way.</p>'};
-  const rows = boardOf(RM) === 'ready' ? safe(() => RM.boardRows(n)) : [];
+  const n = RM.todayNumber(), day = RM.dayState(n), test = RM.testing(), board = boardOf(RM);
+  const rows = board === 'ready' ? safe(() => RM.boardRows(n)).map(r => ({...r, val: nf(r.y)})) : [];
   const mine = rows.find(r => r.me), best = day.official ? day.official.yards : !test && mine ? mine.y : null;
-  if (best == null) return {kind: 'new', test};
+  const back = {turns: true, board, rows, tag: 'TODAY',
+    vis: best == null ? '' : tileHTML(nf(best), 'yds'),
+    head: best == null ? 'No runs yet today' : 'Your best today', lines: best == null ? ['Run it back as often as you like'] : []};
+  if (RM.live(n)) return {kind: 'started', test, meta: '<p class="gm-note">A return under way.</p>', ...back};
+  if (best == null) return {kind: 'new', test, ...back};
   const place = mine && !test ? ` · ${ui.ordinal(mine.rank)} of ${rows.length} today` : '';
-  return {kind: 'new', test, again: true, played: true, meta: `<p class="gm-note">${esc(`Your best today: ${nf(best)} yards${place}`)}</p>`};
+  return {kind: 'new', test, again: true, played: true, meta: `<p class="gm-note">${esc(`Your best today: ${nf(best)} yards${place}`)}</p>`, ...back};
 }
 function keepState() {
   // The existing first-visit marker follows the same saved realm. This is a persistent game: no daily final,
@@ -299,7 +305,7 @@ function placeText(s) {
 function backHTML(g, s) {
   const place = placeText(s), note = boardNote(s.board, s.rows || []);
   const rows = note || `<div class="gm-scr-rows" role="list" aria-label="Today’s leaderboard">${miniRows(s.rows, 5).map(r => (r ? rowHTML(r) : '<div class="gm-r-gap" aria-hidden="true">· · ·</div>')).join('')}</div>`;
-  return `<div class="gm-face gm-back" style="--gc:${ACCENT[g.id]}">${bandHTML(`<span class="gm-bk-tag">${s.test ? 'TEST' : 'FINAL'}</span>`, g.beta)}`
+  return `<div class="gm-face gm-back" style="--gc:${ACCENT[g.id]}">${bandHTML(`<span class="gm-bk-tag">${s.test ? 'TEST' : s.tag || 'FINAL'}</span>`, g.beta)}`
     + `<span class="gm-bk-in">`
     + `<span class="gm-bk-res"><span class="gm-bk-vis">${s.vis || ''}</span><span class="gm-bk-tt"><b class="gm-bk-h${s.gold ? ' is-gold' : ''}">${esc(s.head || '')}</b>`
     + `${(s.lines || []).map(l => `<small>${esc(l)}</small>`).join('')}${place ? `<em>${esc(place)}</em>` : ''}</span></span>`
@@ -311,13 +317,15 @@ const caseLabel = (g, s) => {
   if (s.kind === 'done') return `${name}: played today${placeText(s) ? `, ${placeText(s)}` : ''}. Show the leaderboard`;
   return `${name}${s.kind === 'started' ? ', under way' : ''}${s.kind === 'loading' || s.kind === 'error' ? '' : '. Open the case to play'}`;
 };
+/** A case's faces: its front, and its back when it has one (a game finished; one that turns before it's played). */
+const facesHTML = (g, s) => sidesHTML(g) + frontHTML(g, s) + (s.kind === 'done' || s.turns ? backHTML(g, s) : '');
 function caseHTML(g, s, i, n, clone) {
   const done = s.kind === 'done';
   const what = caseLabel(g, s);
   const slot = clone ? 'aria-hidden="true" data-gm-clone' : `role="group" aria-roledescription="slide" aria-label="${i + 1} of ${n}"`;
   return `<div class="gm-slot" ${slot} data-gm-slot="${g.id}">`
-    + `<button type="button" class="gm-case${done ? ' is-done' : ''}" data-gm="${g.id}" data-kind="${s.kind}" aria-label="${esc(what)}"${clone ? ' tabindex="-1"' : ''}>`
-    + `<span class="gm-flip">${sidesHTML(g)}${frontHTML(g, s)}${done ? backHTML(g, s) : ''}</span><span class="gm-gloss" aria-hidden="true"></span>`
+    + `<button type="button" class="gm-case${done ? ' is-done' : s.turns ? ' is-turns' : ''}" data-gm="${g.id}" data-kind="${s.kind}" aria-label="${esc(what)}"${clone ? ' tabindex="-1"' : ''}>`
+    + `<span class="gm-flip">${facesHTML(g, s)}</span><span class="gm-gloss" aria-hidden="true"></span>`
     + ['t', 'b', 'l', 'r'].map(k => `<span class="gm-grip is-${k}" aria-hidden="true"></span>`).join('') + `</button></div>`; // (views/game-case.js shelfTurner)
 }
 
@@ -326,8 +334,13 @@ function caseHTML(g, s, i, n, clone) {
 function ctaHTML(s) {
   if (s.kind === 'loading') return `<div class="gm-ctas">${ui.button({label: 'Loading puzzles', kind: 'primary', block: true, disabled: true, cls: 'gm-cta'})}</div>`;
   if (s.kind === 'error') return `<div class="gm-ctas">${ui.button({label: 'Try again', kind: 'primary', block: true, attrs: {'data-gm-retry': ''}, cls: 'gm-cta'})}</div>`;
-  return `<p class="gm-cd gm-tap">${ui.icon('play-fill', {size: 15})}<span>Tap the case to play</span></p>`;
+  return `<p class="gm-cd gm-tap">${ui.icon('play-fill', {size: 15})}<span>Tap the case to play</span></p>` + flipHTML(s);
 }
+// (a case that turns before it's played, Return Man: a button under it turns it round to its leaderboard and back, the
+// owner's ask, Oct 22 2026, his profile only: "Add a view scoreboard or flip case button"; mountList's syncFlip keeps
+// its words to the side the case is on)
+const flipHTML = s => (s.turns && s.kind !== 'done' && data.isOwner()
+  ? `<div class="gm-flipw">${ui.button({label: 'View scoreboard', kind: 'secondary', size: 's', icon: 'trophy', attrs: {'data-gm-flip': '', 'aria-pressed': 'false'}, cls: 'gm-flipb'})}</div>` : '');
 function cdHTML(g) {
   if (g.id === 'puzzles' && newDay()) return `<div class="gm-cdw">${countdownHTML(true)}</div>`;
   return `<p class="gm-cd">${ui.icon('clock', {size: 15})}<span>${esc(g.cd)} <span class="gm-cd-v" data-gm-cd>${esc(ui.untilText(msToMidnight()))}</span></span></p>`;
@@ -367,7 +380,7 @@ export function mountList(el, ctx, opts = {}) {
   // st.cur: the slot in the middle, counting every copy (slots()); its game is list()[st.cur % n()]
   const st = {dead: false, cur: 0, zoom: null, raf: 0, saved: 0, settle: 0, touch: false, owner: null, assets: null, styles: []};
   const shelf = el.querySelector('.gm-shelf'), sel = el.querySelector('[data-gm-sel]');
-  const turner = shelfTurner(shelf); // (a case grabbed by its edge turns where it stands)
+  const turner = shelfTurner(shelf, {rest: () => syncFlip()}); // (a case grabbed by its edge turns where it stands)
   const list = () => gamesFor().filter(g => el.querySelector(`.gm-slot[data-gm-slot="${g.id}"]`));
   const slots = () => [...el.querySelectorAll('.gm-slot')];
   const n = () => Math.max(1, list().length);
@@ -401,7 +414,7 @@ export function mountList(el, ctx, opts = {}) {
   }
   const unprofile = data.subscribe(type => { if (type === 'me' && !st.dead) refresh(false); });
   syncOwner();
-  const sig = (g, s) => `${s.kind}|${s.test ? 1 : 0}|${s.again ? 1 : 0}|${s.meta || ''}|${s.kind === 'done' ? backHTML(g, s) : frontHTML(g, s)}`; // (Return Man: its front stays, its line under the shelf moves)
+  const sig = (g, s) => `${s.kind}|${s.test ? 1 : 0}|${s.again ? 1 : 0}|${s.meta || ''}|${s.kind === 'done' ? backHTML(g, s) : frontHTML(g, s)}${s.turns ? '|' + backHTML(g, s) : ''}`; // (Return Man: its front stays, its line under the shelf and its back move)
   // the case in the middle: bigger and lit, the others smaller and turned a little toward it
   const layout = () => {
     st.raf = 0;
@@ -460,9 +473,22 @@ export function mountList(el, ctx, opts = {}) {
     if (!g) return;
     el.querySelectorAll('[data-gm-pip]').forEach(p => p.classList.toggle('is-cur', p.dataset.gmPip === g.id));
     const html = selHTML(g, stateOf(g));
-    if (sel.dataset.html === html) return;
-    const go = () => { sel.dataset.html = html; sel.innerHTML = html; ui.hydrate(sel); };
+    if (sel.dataset.html === html) { syncFlip(); return; }
+    const go = () => { sel.dataset.html = html; sel.innerHTML = html; ui.hydrate(sel); syncFlip(); };
     if (animate && ctx.visible && !ui.RM) ui.crossfade(sel, go, {duration: 140}); else go();
+  }
+  // The flip button under a case that turns (flipHTML) says what it'll do: to the scoreboard, or back to the cover
+  // (and a tap on the case, turned round, brings the whole board up close)
+  function syncFlip() {
+    const b = sel.querySelector('[data-gm-flip]');
+    if (!b || st.dead) return;
+    const g = list()[st.cur % n()], cs = g && curCase(g.id), on = !!cs && turner.back(cs);
+    if (b.getAttribute('aria-pressed') === String(on)) return;
+    b.setAttribute('aria-pressed', String(on));
+    b.querySelector('.btn-label').textContent = on ? 'Flip to the cover' : 'View scoreboard';
+    b.querySelector('use')?.setAttribute('href', on ? '#i-swap' : '#i-trophy');
+    const tap = sel.querySelector('.gm-tap span');
+    if (tap) tap.textContent = on ? 'Tap the case for the whole board' : 'Tap the case to play';
   }
   // i: a slot, counting every copy
   const center = (i, smooth = true) => {
@@ -527,7 +553,7 @@ export function mountList(el, ctx, opts = {}) {
   function caseUpHTML(g, s, play = false) {
     // (the game's name up in the black band, where the cover has GRIDIRON HUB: the owner's ask, Oct 2026)
     const band = `<span class="gm-band is-z">${g.beta ? '<span class="gm-beta">BETA</span>' : ''}<span class="gm-bk-name" id="gm-z-t">${esc(g.name)}</span>`
-      + `<span class="gm-bk-tag">${s.test ? 'TEST' : 'FINAL'}</span></span>`;
+      + `<span class="gm-bk-tag">${s.test ? 'TEST' : s.tag || 'FINAL'}</span></span>`;
     const back = play ? '' : `<div class="gm-face gm-back gm-z-back">${band}<div class="gm-bk-in">`
       + `<div class="gm-bk-res"><span class="gm-bk-vis">${s.vis || ''}</span><span class="gm-bk-tt"><b class="gm-bk-h${s.gold ? ' is-gold' : ''}">${esc(s.head || '')}</b>${(s.lines || []).map(l => `<small>${esc(l)}</small>`).join('')}</span></div>`
       + `<div class="gm-z-tog" role="tablist" aria-label="Leaderboard"><button type="button" role="tab" aria-selected="true" data-gm-zmode="today">Today</button><button type="button" role="tab" aria-selected="false" data-gm-zmode="season">Season</button></div>`
@@ -546,12 +572,16 @@ export function mountList(el, ctx, opts = {}) {
     return `<div class="gm-z-stage" style="--gc:${ACCENT[g.id]}"><div class="gm-z-obj">${play ? '' : back}${sides}${inside}${lid}</div></div>`;
   }
   const HINT = {back: 'Drag to turn it · it opens from the front', front: 'Tap the cover to open it', open: 'Tap the case to close it'};
-  function openZoom(id) {
+  // board: a game that turns before it's done (Return Man, s.turns) up close by its back, the whole board, as a
+  // finished one comes up; opened from its front it comes up again to play (replay), Start inside.
+  function openZoom(id, {board = false} = {}) {
     syncOwner();
     const g = byId(id), cs = curCase(id);
     if (!g || !gameOpen(id) || st.zoom) return;
-    const s = stateOf(g), play = s.kind !== 'done';
-    const hints = play ? {front: HINT.front, open: data.isOwner() ? 'Ready to play' : `Press ${goLabel(s)} to play`} : id === '17-0' ? {...HINT, back: 'Tap a name for their team · drag to turn it'} : HINT;
+    const s = stateOf(g), replay = board && !!s.turns && s.kind !== 'done', play = s.kind !== 'done' && !replay;
+    const hints = play ? {front: HINT.front, open: data.isOwner() ? 'Ready to play' : `Press ${goLabel(s)} to play`}
+      : replay ? {...HINT, back: 'Drag to turn it · open it from the front to play', front: 'Tap the cover to play'}
+      : id === '17-0' ? {...HINT, back: 'Tap a name for their team · drag to turn it'} : HINT;
     const z = document.createElement('div');
     const owner = data.isOwner();
     z.className = `gm-zoom${owner ? ' gm-owner' : ''}${owner && play ? ' gm-has-play' : ''}`;
@@ -619,9 +649,12 @@ export function mountList(el, ctx, opts = {}) {
       try { Z.launch = mod.launchGame({host: z, game: g, reducedMotion: ui.RM, onComplete: finish}); }
       catch (_) { finish(); }
     };
+    // (replay: opened from its front, it comes up again to play, the case on the shelf back on its front)
+    const toPlay = () => { closeZoom(true); const c = curCase(id); if (c) turner.home(c); openZoom(id); };
     z.addEventListener('click', e => {
       if (e.target.closest('[data-gm-zclose]')) { closeZoom(); return; }
       if (st.zoom?.launching) return;
+      if (replay && (e.target.closest('[data-gm-zlid]') || (T.state.front && !T.state.open && e.target.closest('[data-gm-zfront]')))) { toPlay(); return; }
       if (e.target.closest('[data-gm-zgo]')) { if (T.state.open) start(); return; }
       if (e.target.closest('[data-gm-zturn]')) { T.turn(1); return; }
       if (e.target.closest('[data-gm-zlid]')) { T.lid(); return; }
@@ -663,7 +696,7 @@ export function mountList(el, ctx, opts = {}) {
       if (st.zoom?.launching) return;
       if (e.target !== dlg) return;
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); T.turn(e.key === 'ArrowLeft' ? -1 : 1); }
-      else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (play && T.state.open) start(); else T.lid(); }
+      else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (play && T.state.open) start(); else if (replay && T.state.front) toPlay(); else T.lid(); }
     });
     dlg.focus({preventScroll: true});
     ui.haptic('light');
@@ -715,13 +748,19 @@ export function mountList(el, ctx, opts = {}) {
   }
   // ---------------------------------------------------------------- taps, keys
   const onClick = e => {
+    if (e.target.closest('[data-gm-flip]')) { // (the case in the middle turns round, and back)
+      const g = list()[st.cur % n()], c = g && curCase(g.id);
+      if (c && turner.flip(c) != null) { ui.haptic('light'); syncFlip(); }
+      return;
+    }
     const cs = e.target.closest('.gm-case[data-gm]');
     if (!cs) return;
     const i = slots().indexOf(cs.closest('.gm-slot'));
     if (i >= 0 && i !== st.cur) { ui.haptic('selection'); center(i); return; }
     if (cs.dataset.kind === 'loading') return;
     if (cs.dataset.kind === 'error') { const b = sel.querySelector('[data-gm-retry]'); if (b) b.click(); return; }
-    openZoom(cs.dataset.gm); // (played: its board; not yet: it opens, Start inside)
+    // (played: its board; not yet: it opens, Start inside; Return Man turned round to its back: its board)
+    openZoom(cs.dataset.gm, {board: cs.classList.contains('is-turns') && turner.back(cs)});
   };
   const onKey = e => {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
@@ -794,8 +833,9 @@ export function mountList(el, ctx, opts = {}) {
         const flipNow = s.kind === 'done' && cs.dataset.kind !== 'done';
         cs.dataset.kind = s.kind;
         const fl = cs.querySelector('.gm-flip');
-        fl.innerHTML = sidesHTML(g) + frontHTML(g, s) + (s.kind === 'done' ? backHTML(g, s) : '');
+        fl.innerHTML = facesHTML(g, s);
         ui.hydrate(fl);
+        cs.classList.toggle('is-turns', !!s.turns && s.kind !== 'done');
         // a game just finished: its case turns round to the leaderboard
         if (flipNow && animate && ctx.visible && !ui.RM) requestAnimationFrame(() => requestAnimationFrame(() => cs.classList.add('is-done')));
         else cs.classList.toggle('is-done', s.kind === 'done');

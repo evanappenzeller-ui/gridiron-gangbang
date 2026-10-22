@@ -8,7 +8,19 @@
 
 import * as K from './kick.js';
 import * as daily from './daily.js';
+import * as data from './data.js';
 import {gameFor} from '../views/puzzles.js';
+import {keepHTML, burstHTML} from '../views/kick.js';
+
+/** Names for crafted board docs: self, the profile this phone is on (the boards take this phone's own doc as that
+ *  profile's, whatever name it carries, so "his" other docs must carry the same; Evan with no profile picked), and
+ *  other, another league member's (never this profile's or the owner's). */
+function fixtureNames() {
+  const M = (data.DATA && data.DATA.managers) || [], mine = M.find(m => m.id === data.me());
+  const self = mine ? mine.name : 'Evan';
+  const other = (M.find(m => m.name !== self && m.id !== data.OWNER) || {}).name || (self === 'Mason' ? 'Jacob' : 'Mason');
+  return {self, other};
+}
 
 const calm = (d, gx = 0) => ({i: 0, d, gx, w: 0, dir: 0});
 const straight = (k, v = 30) => K.fly(k, {theta: Math.atan(k.gx / k.d), v});
@@ -224,7 +236,8 @@ export async function kickChecks(check) {
     // and the code: the game's files never read LB.all (comments aside)
     const files = ['./kick.js', '../views/kick.js'];
     const srcs = await Promise.all(files.map(f => fetch(new URL(f, import.meta.url)).then(r => r.text()).catch(() => '')));
-    const reads = srcs.map((s, i) => (s && !s.split('\n').some(l => /LB\.all\b/.test(l.replace(/\/\/.*$/, '').replace(/\/\*.*?\*\//g, ''))) ? '' : files[i])).filter(Boolean);
+    // (split on CRLF too: a Windows checkout's line ends would otherwise keep a comment from being stripped)
+    const reads = srcs.map((s, i) => (s && !s.split(/\r?\n/).some(l => /LB\.all\b/.test(l.replace(/\/\/.*$/, '').replace(/\/\*.*?\*\//g, ''))) ? '' : files[i])).filter(Boolean);
     const pass = !out.shown && out.owner && !/Zed/.test(out.rows) && !/Zed/.test(out.week) && out.ryan && /Mason/.test(out.rows) && !reads.length;
     return {pass, detail: `rows ${out.rows}; week ${out.week}; guest shown ${out.shown} (on the owner's phone ${out.owner}); ${reads.length ? 'reads LB.all: ' + reads.join() : 'no LB.all reads'}`};
   });
@@ -239,6 +252,49 @@ export async function kickChecks(check) {
     const off = K.officialOf(old), plain = K.officialOf({r: [['good', 20], ['short', 31], ['short', 31], ['post', 30]], done: true, at: 222});
     const pass = gone && off.made === 1 && off.at === 111 && plain.made === 1 && plain.at === 222 && K.officialOf({r: [['good', 20]]}) === null;
     return {pass, detail: `restart gone ${gone}; an old practice day counts its first run: ${off && off.made} made at ${off && off.at}`};
+  });
+  // 5. The Keep's Gold (the owner's alone)
+  check('Kick It: The Keep\'s Gold (the owner\'s alone, Oct 21 2026; paid from Thu Oct 22, the day realm.js NEW_PAY switches Kick It, his Test play showing it any day): every 5th make pays 1,000 Gold (floor(makes / 5) x 1,000, 8,000 at most), the burst comes on the 5th, 10th, 15th... make and no other (and not on a run when one from another of his phones already counts); the day\'s pay is the counting entry\'s makes (kk1[n].m: the first finished run, across a person\'s phones the earliest posted; Test play is never posted); the final card says "+N Gold for The Keep" on the owner\'s profile and nothing (the card as it was) on anyone else\'s; the burst is drawn, no picture', async () => {
+    const gold = [0, 4, 5, 9, 10, 14, 15, 39, 40, 41, -3, 'x'].map(K.goldOf).join();
+    const goldOk = gold === '0,0,1000,1000,2000,2000,3000,7000,8000,8000,0,0' && K.GOLD.every === 5 && K.GOLD.each === 1000;
+    const bursts = [];
+    for (let m = 0; m <= K.MAX_KICKS + 1; m++) if (K.goldMake(m)) bursts.push(m);
+    const burstOk = bursts.join() === '5,10,15,20,25,30,35,40' && bursts.length * K.GOLD.each === K.goldOf(K.MAX_KICKS) && !K.goldMake(5.5);
+    // the counting entry: a person's earliest posted run across their phones, never someone else's
+    const LB = daily.LB, uid = LB.uid, nick = LB.nick;
+    let run, none, entryM;
+    // (the boards take this phone's own doc as the profile the kit runs on, whatever its name: "his" docs carry that
+    // profile's name, someone else's another member's)
+    const {self, other: else1} = fixtureNames();
+    try {
+      LB.uid = 'kg-me1'; LB.nick = self;
+      const docs = [doc('kg-me1', self, {9: e(12, 50, 500, 50)}), doc('kg-me2', self, {9: e(4, 40, 120, 20)}), doc('kg-x', else1, {9: e(30, 60, 900, 5)})];
+      run = K.countingRun(9, docs);
+      none = K.countingRun(999, []);
+      entryM = K.entryOf(docs[0], 9).m;
+    } finally { LB.uid = uid; LB.nick = nick; }
+    const runOk = !!run && run.m === 4 && run.from === 'board' && none === null && entryM === 12;
+    // the final card's line
+    const plain = txt => txt.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    const others = [{made: 10}, {made: 10, test: true}, {made: 3, run}].every(o => keepHTML(Object.assign({owner: false}, o)) === '');
+    const ten = plain(keepHTML({owner: true, made: 10})), three = plain(keepHTML({owner: true, made: 3}));
+    const other = plain(keepHTML({owner: true, made: 10, run: {m: 4, from: 'board'}})), test = plain(keepHTML({owner: true, made: 15, test: true}));
+    const cardOk = others && ten === '+2,000 Gold for The Keep' && three === 'No Gold for The Keep today 1,000 Gold for every 5th field goal.'
+      && other === 'No Gold for The Keep today From your first run today: 4 field goals.' && /^\+3,000 Gold Test play/.test(test);
+    const b = burstHTML();
+    const drawn = (b.match(/kk-coin-f/g) || []).length === 14 && plain(b) === '+1,000' && !/url\(|<img|\.webp|\.png/.test(b);
+    // and the code: the burst checks the profile itself (nothing for anyone else), and goes when the profile changes
+    const src = await fetch(new URL('../views/kick.js', import.meta.url)).then(r => r.text()).catch(() => '');
+    const gated = /function coinBurst\(st\) \{[^]*?if \(st\.dead \|\| !stage \|\| !data\.isOwner\(\)\) return false;/.test(src)
+      && /keepShows\(st\) && !otherRunCounts\(st\) && coinBurst\(st\)/.test(src)
+      && /const keepShows = st => data\.isOwner\(\) && \(K\.testing\(\) \|\| K\.goldDay\(st\.n\)\);/.test(src)
+      && /data\.subscribe\(type => \{ if \(type === 'me'\) patchKeep\(st\); \}\)/.test(src) && /if \(!data\.isOwner\(\)\) clearBurst\(st\);/.test(src);
+    // from the day The Keep's pay switched (core/realm.js NEW_PAY.kick: Thu Oct 22 2026, day 5); the days before it
+    // keep the old pay and show nothing of this
+    const F = await import('./realm.js').catch(() => null), from = F && F.NEW_PAY ? F.NEW_PAY.kick : null;
+    const dayOk = K.GOLD.from === from && K.dateOf(K.GOLD.from).getDate() === 22 && !K.goldDay(4) && K.goldDay(5) && K.goldDay(40) && !K.goldDay('5');
+    const pass = goldOk && burstOk && runOk && cardOk && drawn && gated && dayOk;
+    return {pass, detail: `from day ${K.GOLD.from} (${K.dayLabel(K.GOLD.from)}; realm.js NEW_PAY.kick ${from}): ${dayOk}; gold ${gold}; bursts at ${bursts.join(', ')}; counting run ${run && run.m} (${run && run.from}), none ${none}; the card: "${ten}" / "${three}" / "${other}" / "${test}", others' card unchanged ${others}; drawn ${drawn}; gated ${gated}`};
   });
   check('Kick It: its stylesheet (css/views/kick.css) is linked: the version mark is on :root', () => {
     const v = getComputedStyle(document.documentElement).getPropertyValue('--kk-css').trim();

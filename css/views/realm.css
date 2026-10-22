@@ -152,6 +152,22 @@
 .sh-rl .rl-row-v { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .sh-rl .rl-row-v em { margin-right: 10px; font-style: normal; font-weight: 600; color: var(--rl-gain); }
 .sh-rl .rl-row.is-sum { font-weight: 800; }
+/* The coffers' Today: a game, how its pay stands (a place right now, yesterday's paid), what came in today. */
+.sh-rl .rl-row.is-pay { align-items: center; }
+.sh-rl .rl-pay-t { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sh-rl .rl-pay-t b { color: #F7EEDD; font-weight: 700; }
+.sh-rl .rl-pay-t small { font: 500 13px/1.3 var(--font-text); color: rgba(247,238,221,.62); }
+.sh-rl .rl-pay-t small:first-of-type { color: rgba(247,238,221,.82); }
+.sh-rl .rl-row-v em.rl-pay-got { margin-right: 2px; color: var(--rl-gain); }
+/* The season's pay: each game's Gold and Ale side by side. */
+.sh-rl .rl-ledger { border-radius: 12px; background: var(--surface-2); overflow: hidden; }
+.sh-rl .rl-lg-row { display: grid; grid-template-columns: minmax(0, 1fr) 6.4em 6.4em; gap: 8px; align-items: center; padding: 10px 14px; font: 500 15px/1.3 var(--font-text); }
+.sh-rl .rl-lg-row + .rl-lg-row { box-shadow: inset 0 1px 0 var(--sep); }
+.sh-rl .rl-lg-row > span:not(:first-child) { justify-self: end; }
+.sh-rl .rl-lg-row > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sh-rl .rl-lg-row.is-head { padding-top: 8px; padding-bottom: 8px; font: 700 11px/1.2 var(--rl-face); letter-spacing: .1em; text-transform: uppercase; color: rgba(247,238,221,.55); }
+.sh-rl .rl-lg-row .rl-amt { font-weight: 700; }
+.sh-rl .rl-lg-row.is-sum, .sh-rl .rl-lg-row.is-sum .rl-amt { font-weight: 800; }
 .sh-rl .rl-shop { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
 .sh-rl .rl-shop-c { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 10px 12px 12px; border: 0; border-radius: 12px; background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--sep); color: #F7EEDD; text-align: left; cursor: pointer; }
 .sh-rl .rl-shop-c.is-no { opacity: .55; }

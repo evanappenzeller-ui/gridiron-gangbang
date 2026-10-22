@@ -7,7 +7,8 @@
 // with their ramps), the power-ups, and the goal line every 100 yards.
 // st: the view's state {W, H, y0, dpr, f, camX, camZ, camH, co (the course)}. The world in yards (x across, y up, z
 // ahead); P(st, x, y, z) puts a point on the screen. Exports: P, NEAR, FAR, BEND, horizonOf, sky, ground, sides, vehicle, obstacle (the
-// rows' barricades and banners), cone (a pothole's), item, gate, weather, ICONS (the power-ups' pictures, for the HUD and the cards);
+// rows' barricades and banners), cone (a pothole's), item, coin (the owner's first run's gold coins), gate, weather, ICONS (the
+// power-ups' pictures, for the HUD and the cards);
 // dressList, LOOKS, OBS, GOODS_COL, HOLE_COL, coneFly, coneAhead, CONE_MS (for the 3D world).
 // Owner: RETURN.
 import * as R from '../core/return.js';
@@ -2078,6 +2079,27 @@ export function item(st, c, it, t) {
   glow(c, p.x, p.y, s * k * (.75 + .15 * pulse), col);
   c.save(); c.translate(p.x, p.y); c.scale(s * 1.05 * k, s * 1.05 * k); c.rotate(Math.sin(t * 2 + it.i) * .18);
   ICONS[it.kind](c, t);
+  c.restore();
+}
+
+/** A gold coin (core/return.js COIN: the owner's first run of the day; views/return.js draws only those) floating in
+ *  its lane at its height, spinning: its rim, its face (seen narrower as it turns edge on), a ring stamped in it and a
+ *  glint; a faint shadow on the road under it. All drawn here: no picture to load. */
+export function coin(st, c, cn, t) {
+  if (cn.z < st.camZ + NEAR + .3) return;
+  const X = R.xOf(null, cn.lane), p = P(st, X, cn.y, cn.z), r = R.COIN.r * p.s;
+  if (r < .8 || p.y < st.y0 - 40) return;
+  const a = t * 4.2 + cn.i * .35, w = Math.max(.1, Math.abs(Math.cos(a))), edge = Math.sign(Math.sin(a)) * r * .16 * (1 - w);
+  const g0 = P(st, X, 0, cn.z);
+  c.fillStyle = 'rgba(0,0,0,.18)'; c.beginPath(); c.ellipse(g0.x, g0.y, r * .8, r * .22, 0, 0, Math.PI * 2); c.fill();
+  c.save(); c.translate(p.x, p.y);
+  c.fillStyle = '#B87612'; c.beginPath(); c.ellipse(edge, 0, r * w, r, 0, 0, Math.PI * 2); c.fill(); // (its rim, as it turns)
+  const gr = c.createLinearGradient(-r, -r, r, r);
+  gr.addColorStop(0, '#FFF2A8'); gr.addColorStop(.45, '#FFCB3A'); gr.addColorStop(1, '#D98A10');
+  c.fillStyle = gr; c.beginPath(); c.ellipse(0, 0, r * w, r, 0, 0, Math.PI * 2); c.fill();
+  c.strokeStyle = 'rgba(140,82,0,.55)'; c.lineWidth = Math.max(.8, r * .1);
+  c.beginPath(); c.ellipse(0, 0, r * w * .66, r * .66, 0, 0, Math.PI * 2); c.stroke();
+  c.fillStyle = 'rgba(255,255,255,.75)'; c.beginPath(); c.ellipse(-r * w * .34, -r * .42, r * w * .14, r * .2, -.5, 0, Math.PI * 2); c.fill();
   c.restore();
 }
 
