@@ -838,7 +838,8 @@ function onEvents(st, evs) {
       st.cheer = now + 2600; ui.haptic('success'); ui.announce(`Touchdown! ${plural(e.n, 'touchdown')}.${into ? ` ${into.theme.name}.` : ''}`);
     }
     else if (e.type === 'zone') { W.warm(skyView(st), e.z); if (!evs.some(x => x.type === 'td')) say(e.theme.name.toUpperCase(), 'is-zone'); }
-    else if (e.type === 'juked') { say('SPIN MOVE!'); st.spinAt = now; st.spinDir = Math.sign(R.xOf(st.run, st.run.lane) - st.run.jFrom) || 1; }
+    // a juke past something: he spins all the way round (not on the owner's phone, his ask, Oct 2026: just the cut)
+    else if (e.type === 'juked') { if (!data.isOwner()) { say('SPIN MOVE!'); st.spinAt = now; st.spinDir = Math.sign(R.xOf(st.run, st.run.lane) - st.run.jFrom) || 1; } }
     else if (e.type === 'hurdled') { say(e.ob === 'hole' ? 'HOP!' : 'HURDLE!'); ui.haptic('light'); }
     else if (e.type === 'slid') { say('SLIDE!'); ui.haptic('light'); }
     else if (e.type === 'pickup') {
