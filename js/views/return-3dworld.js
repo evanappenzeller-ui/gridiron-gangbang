@@ -826,6 +826,7 @@ const HALO = {salts: 0x96E1FF, pills: 0xFFA53C, booze: 0xFFD65A};
 // green, BIG times the size, and a beam of its light standing up out of it to spot from far off.
 const HALO_BIG = {salts: 0x5CE1FF, pills: 0xFF4040, booze: 0x6EF05A}, BIG = 1.7;
 function itemOf(kind, big = false) {
+  if (data.isOwner()) return arcadeItemOf(kind);
   const key = 'item:' + kind + (big ? ':big' : '');
   if (OBJ.has(key)) return OBJ.get(key);
   const g = new T.Group(), spin = new T.Group(), b = new Batch();
@@ -852,6 +853,131 @@ function itemOf(kind, big = false) {
   }
   OBJ.set(key, g);
   return g;
+}
+// Evan's floating collectibles: modelled at their display size, with readable fronts and a warm runner-game burst.
+// These procedural textures are created only after the profile gate above; no new artwork is fetched or precached.
+const PICKUP_COLOR = {salts: 0x54E8FF, pills: 0xFF8740, booze: 0x8AE53F};
+function pickupLabel(kind) {
+  return texOf('arcade-pickup-label:' + kind, () => canvasTex(512, 512, (c, w, h) => {
+    c.fillStyle = '#FFF9DF'; c.fillRect(0, 0, w, h);
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    if (kind === 'salts') {
+      c.fillStyle = '#1BBFDE'; c.fillRect(0, 0, w, 94); c.fillRect(0, 422, w, 90);
+      c.fillStyle = '#087C9C'; c.fillRect(0, 94, w, 12); c.fillRect(0, 410, w, 12);
+      c.fillStyle = '#FFFFFF'; c.font = `800 45px ${DISPLAY}`; c.fillText('SMELLING', 256, 48);
+      c.fillStyle = '#133C55'; c.font = `800 76px ${DISPLAY}`; c.fillText('SALTS', 256, 157);
+      c.fillStyle = '#19B6D8'; c.beginPath(); c.moveTo(275, 208); c.lineTo(176, 306); c.lineTo(239, 306);
+      c.lineTo(212, 383); c.lineTo(338, 271); c.lineTo(270, 271); c.closePath(); c.fill();
+      c.fillStyle = '#FFFFFF'; c.font = `800 34px ${DISPLAY}`; c.fillText('SNAP • WAKE UP', 256, 464);
+    } else if (kind === 'pills') {
+      c.fillStyle = '#EF4B3E'; c.fillRect(0, 0, w, 36); c.fillRect(0, 468, w, 44);
+      c.fillStyle = '#C93233'; c.font = 'bold 235px Georgia, serif'; c.fillText('Rx', 256, 203);
+      c.fillStyle = '#143A51'; c.font = `800 55px ${DISPLAY}`; c.fillText('PAINKILLER', 256, 365);
+      c.fillStyle = '#B9B8A6'; c.fillRect(145, 416, 222, 10); c.fillRect(179, 437, 154, 8);
+    } else {
+      c.fillStyle = '#DAAB2D'; c.fillRect(0, 0, w, 22); c.fillRect(0, 490, w, 22);
+      c.fillStyle = '#206B31'; c.beginPath(); c.arc(256, 123, 73, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#FFDC62'; c.beginPath();
+      for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 24 : 49; c.lineTo(256 + Math.cos(a) * r, 123 + Math.sin(a) * r); }
+      c.closePath(); c.fill(); c.fillStyle = '#174E2B'; c.font = `800 119px ${DISPLAY}`; c.fillText('BEER', 256, 285);
+      c.fillStyle = '#D8AA32'; c.fillRect(94, 365, 324, 6); c.font = `800 51px ${DISPLAY}`; c.fillText('★  ★  ★', 256, 423);
+    }
+  }, false));
+}
+function pickupBurstTex() {
+  return texOf('arcade-pickup-burst', () => canvasTex(256, 256, (c) => {
+    const gr = c.createRadialGradient(128, 128, 20, 128, 128, 126);
+    gr.addColorStop(0, 'rgba(255,255,228,.9)'); gr.addColorStop(.38, 'rgba(255,226,104,.66)'); gr.addColorStop(1, 'rgba(255,197,57,0)');
+    c.fillStyle = gr;
+    for (let i = 0; i < 10; i++) {
+      const a = i * Math.PI / 5, r = i % 2 ? 108 : 128;
+      c.beginPath(); c.moveTo(128, 128); c.lineTo(128 + Math.cos(a - .1) * r, 128 + Math.sin(a - .1) * r);
+      c.lineTo(128 + Math.cos(a + .1) * r, 128 + Math.sin(a + .1) * r); c.closePath(); c.fill();
+    }
+  }, false));
+}
+function pickupSparkTex() {
+  return texOf('arcade-pickup-spark', () => canvasTex(64, 64, c => {
+    c.fillStyle = '#FFFBE4'; c.beginPath();
+    [[32, 0], [39, 25], [64, 32], [39, 39], [32, 64], [25, 39], [0, 32], [25, 25]].forEach(([x, y]) => c.lineTo(x, y));
+    c.closePath(); c.fill();
+  }, false));
+}
+function arcadeItemOf(kind) {
+  const key = 'item:arcade:' + kind;
+  if (OBJ.has(key)) return OBJ.get(key);
+  const g = new T.Group(), model = new T.Group(), trim = new Batch();
+  g.name = 'arcade-pickup-' + kind; model.name = 'pickup-model';
+  g.userData.arcadePickup = true;
+  const solid = (hex, roughness = .38) => new T.MeshStandardMaterial({color: hex, roughness, metalness: .08, emissive: hex, emissiveIntensity: .14});
+  const lathe = (points, material) => {
+    const mesh = new T.Mesh(new T.LatheGeometry(points.map(([r, y]) => new T.Vector2(r, y)), 24), material);
+    mesh.castShadow = true; model.add(mesh); return mesh;
+  };
+  const label = new T.MeshBasicMaterial({map: pickupLabel(kind), toneMapped: false});
+  if (kind === 'booze') {
+    lathe([[0, -.92], [.23, -.92], [.31, -.88], [.34, -.79], [.34, .15], [.32, .27], [.23, .4], [.13, .49], [.12, .78], [.14, .81], [.14, .87], [0, .87]], solid(0x32932F, .24));
+    trim.cyl('#255C25', 0, -.91, -.83, 0, .305); trim.cyl('#FFDA54', 0, .84, .96, 0, .16);
+    trim.cyl('#FFED98', 0, .94, .98, 0, .15); trim.cyl('#F6D966', 0, .61, .74, 0, .123);
+    trim.add('sph', '#A4EC63', -.22, .02, -.238, .045, .61, .019);
+    trim.add('sph', '#F3FFD9', -.072, .64, -.105, .022, .14, .012);
+    const wrap = new T.Mesh(new T.CylinderGeometry(.347, .347, .64, 28, 1, true, -1.22, 2.44), label);
+    wrap.position.y = -.34; model.add(wrap);
+  } else if (kind === 'pills') {
+    lathe([[0, -.79], [.36, -.79], [.43, -.72], [.43, .39], [.38, .48], [.34, .53], [0, .53]], solid(0xEF8A24, .3));
+    trim.cyl('#D26719', 0, -.79, -.69, 0, .4); trim.cyl('#FFF9E7', 0, .46, .76, 0, .48);
+    trim.cyl('#FFFFFF', 0, .74, .82, 0, .44); trim.cyl('#D6DBD1', 0, .45, .49, 0, .45);
+    for (let i = 0; i < 24; i++) { const a = i * Math.PI / 12; trim.add('box', '#E1E7DE', Math.sin(a) * .476, .61, Math.cos(a) * .476, .027, .21, .026, 0, -a); }
+    trim.add('sph', '#FFD67C', -.29, -.1, -.31, .045, .53, .02);
+    const wrap = new T.Mesh(new T.CylinderGeometry(.438, .438, .82, 28, 1, true, -1.16, 2.32), label);
+    wrap.position.y = -.1; model.add(wrap);
+  } else {
+    // A sealed, pillow-shaped foil sachet, including crimped edges and tear notch; it is deliberately not a vial.
+    const shape = new T.Shape();
+    shape.moveTo(-.45, -.78);
+    for (let i = 1; i <= 12; i++) shape.lineTo(-.45 + i * .075, -.78 + (i % 2 ? .025 : 0));
+    shape.lineTo(.48, .47); shape.lineTo(.39, .53); shape.lineTo(.47, .59); shape.lineTo(.45, .78);
+    for (let i = 1; i <= 12; i++) shape.lineTo(.45 - i * .075, .78 - (i % 2 ? .025 : 0));
+    shape.lineTo(-.48, 0); shape.closePath();
+    const packet = new T.Mesh(new T.ExtrudeGeometry(shape, {depth: .045, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: .045, bevelThickness: .025}), solid(0xEDF6E6, .42));
+    packet.position.z = -.0225; packet.castShadow = true; model.add(packet);
+    trim.add('box', '#D6EEE1', 0, -.71, 0, .91, .1, .055); trim.add('box', '#F8FFF0', 0, .71, 0, .91, .1, .055);
+    for (let i = 0; i < 13; i++) {
+      const x = -.43 + i * .071;
+      trim.add('box', '#BAD9D3', x, -.71, -.041, .016, .1, .012);
+      trim.add('box', '#C2DCD4', x, .71, -.041, .016, .1, .012);
+    }
+    const front = new T.Mesh(new T.PlaneGeometry(.89, 1.24), label); front.position.z = .052; model.add(front);
+    const back = front.clone(); back.position.z = -.052; back.rotation.y = Math.PI; model.add(back);
+    trim.add('box', '#FFFFFF', -.46, 0, -.033, .018, 1.1, .012);
+  }
+  const details = trim.mesh(mats().vcs); details.castShadow = true; model.add(details); g.add(model);
+  const color = PICKUP_COLOR[kind];
+  const sprite = (map, tint, opacity) => new T.Sprite(new T.SpriteMaterial({map, color: tint, transparent: true, opacity,
+    depthWrite: false, blending: T.AdditiveBlending, toneMapped: false}));
+  const glow = sprite(glowTex(), color, .62); glow.position.z = -.5; g.add(glow);
+  const ring = new T.Mesh(new T.RingGeometry(.56, .61, 40), new T.MeshBasicMaterial({color, transparent: true, opacity: .65, depthWrite: false, toneMapped: false}));
+  ring.rotation.x = -Math.PI / 2; g.add(ring);
+  const burst = sprite(pickupBurstTex(), 0xFFFFFF, .75); burst.position.z = -.55; g.add(burst);
+  const sparks = new T.Group();
+  for (let i = 0; i < 3; i++) sparks.add(sprite(pickupSparkTex(), i === 1 ? color : 0xFFF2B4, .9));
+  g.add(sparks);
+  OBJ.set(key, g); return g;
+}
+function animateArcadeItem(o, t, phase, camX, distance) {
+  const bob = Math.sin(t * 3 + phase) * .16, pulse = .5 + .5 * Math.sin(t * 4 + phase), y = 1.65 + bob;
+  const [model, glow, ring, burst, sparks] = o.children;
+  model.position.y = y;
+  // A small turn shows the model's thickness while keeping its label visible from every lane.
+  model.rotation.set(.04 * Math.sin(t * 1.6 + phase), Math.atan2(camX - o.position.x, Math.max(1, distance)) + .24 * Math.sin(t * 1.7 + phase), -.1 + .08 * Math.sin(t * 2 + phase));
+  glow.position.y = burst.position.y = y;
+  glow.scale.setScalar(3.2 + .25 * pulse); burst.scale.setScalar(3.7 + .25 * pulse);
+  ring.position.y = .035; ring.scale.setScalar(1 + .12 * pulse);
+  for (let i = 0; i < sparks.children.length; i++) {
+    const star = sparks.children[i], a = t * .65 + phase + i * Math.PI * 2 / 3;
+    star.position.set(Math.cos(a) * (i === 1 ? 1.12 : .94), y + Math.sin(a) * .86, .2);
+    star.scale.setScalar(.14 + .1 * (.5 + .5 * Math.sin(t * 5 + i * 2)));
+  }
 }
 const glowTex = () => texOf('glow', () => canvasTex(128, 128, (g, w, h) => {
   const gr = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2);
@@ -1071,6 +1197,7 @@ export function update(st, now) {
       const g = R.groundAt(st.co, item.lane, item.z), bob = Math.sin(t * 3 + item.i) * .12, pulse = .5 + .5 * Math.sin(t * 5 + item.i);
       o.visible = !(st.got && st.got.has(item.i));
       o.position.set(R.xOf(null, item.lane), g, -item.z);
+      if (o.userData.arcadePickup) { animateArcadeItem(o, t, item.i, st.camX || 0, item.z - st.camZ); return; }
       const spin = o.children[0], y = big ? 1.35 : 1;
       spin.position.y = y + bob; spin.rotation.y = t * 2.2 + item.i;
       const glow = o.children[1]; glow.position.y = y + bob; glow.scale.setScalar(k * (1.9 + .5 * pulse));

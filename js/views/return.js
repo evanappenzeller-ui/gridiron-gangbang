@@ -54,17 +54,20 @@ const WHERE = {stadium: 'in the stadium', tailgate: 'at the tailgate', city: 'in
 // ============================================================================ Markup
 /** A power-up's picture (the one on the road), as an image for the HUD and the cards. */
 const ICON_URL = {};
+let iconOwner = null;
 function iconURL(kind) {
+  const owner = data.isOwner();
+  if (iconOwner !== owner) { Object.keys(ICON_URL).forEach(k => delete ICON_URL[k]); iconOwner = owner; }
   if (ICON_URL[kind]) return ICON_URL[kind];
   try {
-    const cv = document.createElement('canvas'); cv.width = cv.height = 64;
-    const c = cv.getContext('2d'); c.translate(32, 34); c.scale(56, 56);
+    const cv = document.createElement('canvas'); cv.width = cv.height = owner ? 128 : 64;
+    const c = cv.getContext('2d'); c.translate(owner ? 64 : 32, owner ? 64 : 34); c.scale(owner ? 112 : 56, owner ? 112 : 56);
     W.ICONS[kind](c, .4);
     ICON_URL[kind] = cv.toDataURL();
   } catch (_) { ICON_URL[kind] = ''; }
   return ICON_URL[kind];
 }
-const iconHTML = (kind, size = 28) => `<img class="rm-ic" src="${iconURL(kind)}" width="${size}" height="${size}" alt="" draggable="false">`;
+const iconHTML = (kind, size = 28) => `<img class="rm-ic" data-rm-icon="${kind}" src="${iconURL(kind)}" width="${size}" height="${size}" alt="" draggable="false">`;
 function keysHTML(hard) {
   const k = (cls, label, what) => `<li class="rm-key"><span class="rm-kk ${cls}" aria-hidden="true">${label}</span><span>${what}</span></li>`;
   const pw = (kind, name, what) => `<li class="rm-pk">${iconHTML(kind, 34)}<b>${name}</b><span>${what}</span></li>`;
@@ -902,6 +905,14 @@ export function mount(el, ctx) {
   addEventListener('pagehide', st.on.leave);
   document.addEventListener('visibilitychange', st.on.vis);
   st.unsub = daily.subscribe(type => { if (type === 'lb' || type === 'ready' || type === 'error') patchBoard(st); });
+  // Profile changes also arrive from other tabs. Refresh existing HUD/card images immediately.
+  st.iconOwner = data.isOwner();
+  st.unsubIcons = data.subscribe(type => {
+    if (type !== 'me' || st.dead || st.iconOwner === data.isOwner()) return;
+    st.iconOwner = data.isOwner();
+    el.querySelectorAll('[data-rm-icon]').forEach(img => { img.src = iconURL(img.dataset.rmIcon); });
+    draw(st);
+  });
   st.stopTick = ctx.timer(() => tick(st), 20000);
   // the stands twinkle while nothing's moving
   st.stopLife = ctx.timer(() => { if (!st.raf && !ui.RM && st.cv.getBoundingClientRect().bottom > 0) draw(st); }, 90);
@@ -938,6 +949,7 @@ export function unmount(el, ctx) {
   removeEventListener('pagehide', st.on.leave);
   document.removeEventListener('visibilitychange', st.on.vis);
   if (st.unsub) st.unsub();
+  if (st.unsubIcons) st.unsubIcons();
   if (st.stopTick) st.stopTick();
   if (st.stopLife) st.stopLife();
   STATE.delete(el);

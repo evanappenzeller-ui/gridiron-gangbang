@@ -11,6 +11,7 @@
 // dressList, LOOKS, OBS, GOODS_COL, HOLE_COL (for the 3D world).
 // Owner: RETURN.
 import * as R from '../core/return.js';
+import * as data from '../core/data.js';
 import {backdrop, bowl, seeded, sparkle} from './stadium.js';
 
 export const NEAR = .9, FAR = 150;
@@ -1881,8 +1882,8 @@ export function obstacle(st, c, type, lane, z, k = 0) {
 }
 
 // ============================================================================ The power-ups
-// Each about a yard tall, drawn in yards about its middle (y down). ICONS[kind](c, t).
-export const ICONS = {
+// Original art stays unchanged for every other profile. Drawings use a unit box, y down.
+const LEGACY_ICONS = {
   salts(c, t) {
     c.save(); c.rotate(-.35);
     c.fillStyle = '#FFFFFF'; rr(c, -.13, -.32, .26, .64, .13); c.fill();
@@ -1910,12 +1911,106 @@ export const ICONS = {
     c.fillStyle = '#C8102E'; c.fillRect(-.14, .1, .28, .05);
   }
 };
+// The owner's pickups: chunky, readable silhouettes, bright bevels and a mostly front-facing label.
+// Shared by the road's 2D fallback and the HUD; no separate image asset or offline artwork cache.
+function pickupPoly(c, points, col) {
+  c.fillStyle = col; c.beginPath(); points.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); c.closePath(); c.fill();
+}
+function pickupShade(c, x0, x1, stops) {
+  const g = c.createLinearGradient(x0, 0, x1, 0); stops.forEach(([at, col]) => g.addColorStop(at, col)); return g;
+}
+const OWNER_ICONS = {
+  salts(c) {
+    c.save(); c.rotate(-.1);
+    // Crimped foil packet, with folded edges and a cyan band at each end.
+    const edge = [[-.28, -.47], [-.2, -.445], [-.12, -.47], [-.04, -.445], [.04, -.47], [.12, -.445], [.2, -.47], [.28, -.445], [.265, -.31], [.29, .31], [.275, .46], [.19, .44], [.11, .465], [.03, .44], [-.05, .465], [-.13, .44], [-.21, .465], [-.285, .44], [-.27, .31], [-.295, -.31]];
+    pickupPoly(c, edge, pickupShade(c, -.29, .29, [[0, '#8CBECE'], [.12, '#E2F5F4'], [.34, '#FFFFFF'], [.72, '#FFF9E8'], [1, '#A6CAD6']]));
+    c.strokeStyle = '#205265'; c.lineWidth = .025; c.lineJoin = 'round'; c.stroke();
+    c.save(); c.clip();
+    c.fillStyle = '#32CDE9'; c.fillRect(-.31, -.41, .62, .12); c.fillRect(-.31, .29, .62, .105);
+    c.fillStyle = '#BDF6FF'; c.fillRect(-.31, -.405, .62, .025); c.fillRect(-.31, .295, .62, .018);
+    c.strokeStyle = 'rgba(41,102,126,.3)'; c.lineWidth = .009;
+    for (let x = -.25; x <= .25; x += .04) { c.beginPath(); c.moveTo(x, -.47); c.lineTo(x + .006, -.405); c.moveTo(x, .4); c.lineTo(x + .006, .47); c.stroke(); }
+    c.restore();
+    pickupPoly(c, [[-.235, -.28], [-.195, -.22], [-.19, .24], [-.24, .28]], 'rgba(255,255,255,.75)');
+    pickupPoly(c, [[.235, -.28], [.19, -.21], [.2, .24], [.25, .29]], 'rgba(51,115,145,.15)');
+    c.fillStyle = '#173B5B'; c.font = `900 .071px ${DISPLAY}`; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText('SMELLING', 0, -.19); c.font = `900 .108px ${DISPLAY}`; c.fillText('SALTS', 0, -.095);
+    pickupPoly(c, [[.025, -.035], [-.1, .12], [-.015, .12], [-.045, .25], [.12, .055], [.035, .055], [.075, -.035]], '#173B5B');
+    c.restore();
+  },
+  pills(c) {
+    c.save();
+    c.fillStyle = pickupShade(c, -.285, .285, [[0, '#AD4315'], [.15, '#EF8A24'], [.39, '#FFC45C'], [.68, '#EF8A24'], [1, '#BA4A13']]);
+    rr(c, -.265, -.26, .53, .67, .08); c.fill(); c.strokeStyle = '#88401B'; c.lineWidth = .025; c.stroke();
+    c.fillStyle = 'rgba(255,235,157,.65)'; rr(c, -.211, -.22, .044, .55, .022); c.fill();
+    c.fillStyle = '#D57524'; rr(c, -.22, -.32, .44, .1, .022); c.fill();
+    c.fillStyle = pickupShade(c, -.3, .3, [[0, '#A9BEC7'], [.2, '#F5FFFF'], [.55, '#FFFFFF'], [1, '#B8CCD2']]);
+    rr(c, -.3, -.43, .6, .18, .04); c.fill(); c.strokeStyle = '#456679'; c.lineWidth = .021; c.stroke();
+    c.strokeStyle = '#A1B8C1'; c.lineWidth = .012;
+    for (let x = -.25; x <= .26; x += .047) { c.beginPath(); c.moveTo(x, -.385); c.lineTo(x, -.275); c.stroke(); }
+    c.fillStyle = '#FFFFFF'; rr(c, -.255, -.425, .51, .035, .017); c.fill();
+    c.fillStyle = '#FFF9E7'; rr(c, -.262, -.115, .524, .35, .018); c.fill();
+    c.fillStyle = '#EF4B3E'; c.fillRect(-.262, -.115, .524, .045); c.fillRect(-.262, .202, .524, .033);
+    c.font = `900 .205px ${DISPLAY}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('Rx', 0, .035);
+    c.fillStyle = '#9B6445'; c.fillRect(-.115, .145, .23, .014);
+    c.fillStyle = 'rgba(255,230,151,.55)'; rr(c, -.18, .31, .3, .035, .017); c.fill();
+    c.restore();
+  },
+  booze(c) {
+    c.save();
+    c.beginPath(); c.moveTo(-.205, .47); c.quadraticCurveTo(-.25, .46, -.25, .39); c.lineTo(-.25, -.035);
+    c.quadraticCurveTo(-.25, -.135, -.095, -.23); c.lineTo(-.095, -.43); c.lineTo(.095, -.43); c.lineTo(.095, -.23);
+    c.quadraticCurveTo(.25, -.135, .25, -.035); c.lineTo(.25, .39); c.quadraticCurveTo(.25, .46, .205, .47); c.closePath();
+    c.fillStyle = pickupShade(c, -.25, .25, [[0, '#20672D'], [.18, '#369D33'], [.4, '#90E33D'], [.7, '#42B638'], [1, '#246C2E']]); c.fill();
+    c.strokeStyle = '#19522A'; c.lineWidth = .027; c.lineJoin = 'round'; c.stroke();
+    c.strokeStyle = 'rgba(226,255,143,.8)'; c.lineWidth = .034; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(-.17, .39); c.lineTo(-.17, -.035); c.quadraticCurveTo(-.17, -.115, -.045, -.2); c.lineTo(-.045, -.375); c.stroke();
+    c.fillStyle = '#FFDA54'; rr(c, -.125, -.495, .25, .085, .023); c.fill(); c.strokeStyle = '#A3701B'; c.lineWidth = .017; c.stroke();
+    c.fillStyle = '#FFF3B0'; rr(c, -.1, -.49, .2, .022, .01); c.fill();
+    c.strokeStyle = '#B18C26'; c.lineWidth = .011;
+    for (let x = -.085; x <= .1; x += .042) { c.beginPath(); c.moveTo(x, -.457); c.lineTo(x, -.417); c.stroke(); }
+    c.fillStyle = '#FFE791'; c.fillRect(-.097, -.32, .194, .063);
+    c.fillStyle = '#FFF2CE'; rr(c, -.248, -.005, .496, .3, .035); c.fill();
+    c.fillStyle = '#DCA52C'; c.fillRect(-.247, .025, .494, .027); c.fillRect(-.247, .246, .494, .027);
+    c.fillStyle = '#205F2C'; c.font = `900 .142px ${DISPLAY}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('BEER', 0, .14);
+    c.fillStyle = 'rgba(214,255,125,.5)'; rr(c, -.14, .383, .27, .031, .015); c.fill();
+    c.restore();
+  }
+};
+export const ICONS = Object.fromEntries(Object.keys(LEGACY_ICONS).map(kind => [kind, (c, t) => (data.isOwner() ? OWNER_ICONS : LEGACY_ICONS)[kind](c, t)]));
 const HALO = {salts: '150,225,255', pills: '255,165,60', booze: '255,214,90'};
 // (the hard course's, the owner's: bigger, and each its own colour: return-3dworld.js HALO_BIG)
 const HALO_BIG = {salts: '92,225,255', pills: '255,64,64', booze: '110,240,90'};
+function ownerItem(st, c, it, t, X, g) {
+  const bob = Math.sin(t * 3 + it.i) * .16, p = P(st, X, g + 1.65 + bob, it.z), base = P(st, X, g + .025, it.z), s = p.s;
+  if (s < 1.2) return;
+  const col = HALO_BIG[it.kind], pulse = .5 + .5 * Math.sin(t * 4 + it.i);
+  c.save();
+  c.fillStyle = 'rgba(0,0,0,.15)'; c.beginPath(); c.ellipse(base.x, base.y, s * .52, s * .14, 0, 0, Math.PI * 2); c.fill();
+  c.strokeStyle = `rgba(${col},${.35 + pulse * .18})`; c.lineWidth = Math.max(1, s * .035);
+  c.beginPath(); c.ellipse(base.x, base.y, s * .67, s * .18, 0, 0, Math.PI * 2); c.stroke();
+  glow(c, p.x, p.y, s * (1.65 + pulse * .18), col);
+  c.translate(p.x, p.y); c.scale(s, s);
+  // Broad gold rays echo the reference's collectible burst without obscuring the label.
+  c.save(); c.rotate(t * .2 + it.i);
+  const rays = c.createRadialGradient(0, 0, .25, 0, 0, 1.8); rays.addColorStop(0, 'rgba(255,251,178,.7)'); rays.addColorStop(.5, 'rgba(255,221,72,.3)'); rays.addColorStop(1, 'rgba(255,221,72,0)');
+  c.fillStyle = rays;
+  for (let j = 0; j < 8; j++) { c.rotate(Math.PI / 4); c.beginPath(); c.moveTo(-.1, .2); c.lineTo(-.24, 1.75); c.lineTo(.24, 1.75); c.lineTo(.1, .2); c.closePath(); c.fill(); }
+  c.restore();
+  for (let j = 0; j < 4; j++) {
+    const a = t * .5 + j * Math.PI / 2 + it.i, x = Math.cos(a) * (1.05 + .1 * Math.sin(t + j)), y = Math.sin(a) * 1.15;
+    const d = .035 + .035 * (.5 + .5 * Math.sin(t * 4 + j * 2));
+    pickupPoly(c, [[x, y - d * 2], [x + d * .45, y - d * .45], [x + d * 2, y], [x + d * .45, y + d * .45], [x, y + d * 2], [x - d * .45, y + d * .45], [x - d * 2, y], [x - d * .45, y - d * .45]], '#FFF9CA');
+  }
+  c.rotate(Math.sin(t * 1.8 + it.i) * .075); c.scale(1.95, 1.95);
+  OWNER_ICONS[it.kind](c, t);
+  c.restore();
+}
 export function item(st, c, it, t) {
   const X = R.xOf(null, it.lane), g = R.groundAt(st.co, it.lane, it.z), bob = Math.sin(t * 3 + it.i) * .12;
   if (it.z < st.camZ + NEAR + 1) return;
+  if (data.isOwner()) { ownerItem(st, c, it, t, X, g); return; }
   const big = !!st.co.hard, k = big ? 1.7 : 1, col = (big ? HALO_BIG : HALO)[it.kind];
   const p = P(st, X, g + (big ? 1.35 : 1) + bob, it.z), base = P(st, X, g, it.z), s = p.s;
   if (s < 1.2) return;
