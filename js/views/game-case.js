@@ -4,7 +4,7 @@
 // its front or its back. Facing front it can be opened (a tap on the cover, or Open the case): the cover swings over
 // on its spine and the disc is inside. It opens only from the front.
 // A game not yet played comes up still (opts.still: the owner's ask, Oct 2026): facing front, it can't be turned, only
-// opened, the Start button in the tray over the disc.
+// opened, the Start button in the tray over the disc. The owner's Keep has a printed back and can always turn.
 import * as ui from '../core/ui.js';
 
 // ---------------------------------------------------------------- quaternions ([x, y, z, w]; CSS axes: x right, y down, z out of the screen)
@@ -135,11 +135,12 @@ function flickOf(P, e) {
 
 /**
  * Wires the case in dlg (its .gm-z-stage > .gm-z-obj, the cover .gm-z-lid). surface: where a drag turns it (the whole
- * overlay). on(state): told when what it can do changes ({front, open}). opts.still: it faces front and can't be turned.
+ * overlay). on(state): told when what it can do changes ({front, open}). opts.still: it faces front and can't be turned. opts.front: start front while still allowing turns.
+ * opts.closeOnDrag: shut an open case as a swivel starts (The Keep).
  * Returns {turn(dir), lid(open), rest(), stop()}.
  */
 export function turnable(surface, dlg, on = () => {}, opts = {}) {
-  const still = !!opts.still, home = still ? FRONT : BACK; // (how it stands on the shelf)
+  const still = !!opts.still, home = still || opts.front ? FRONT : BACK; // (how it stands on the shelf)
   const stage = dlg.querySelector('.gm-z-stage'), obj = dlg.querySelector('.gm-z-obj'), lid = dlg.querySelector('.gm-z-lid');
   const gl = [dlg.querySelector('.gm-z-front .gm-z-gl'), dlg.querySelector('.gm-z-back .gm-z-gl')];
   const sides = [...obj.querySelectorAll(':scope > .gm-sd')];
@@ -204,6 +205,7 @@ export function turnable(surface, dlg, on = () => {}, opts = {}) {
       const tx = e.clientX - P.x0, ty = e.clientY - P.y0;
       if (Math.hypot(tx, ty) < 8) return;
       P.on = true; S.held = true; S.dragged = true; S.goal = null; S.w = [0, 0, 0];
+      if (opts.closeOnDrag && S.open) { S.open = 0; ui.haptic('light'); }
       try { surface.setPointerCapture(e.pointerId); } catch (_) {}
     }
     dragBy(S, P, e);
@@ -216,6 +218,8 @@ export function turnable(surface, dlg, on = () => {}, opts = {}) {
     P = null;
     if (!was.on) return;
     S.held = false;
+    // Remember the intended face while an open Keep's lid finishes shutting.
+    if (opts.closeOnDrag && !S.open && S.u > .05) S.goal = Math.abs(S.q[3]) >= Math.abs(S.q[1]) ? FRONT : BACK;
     const w = flickOf(was, e);
     if (w) S.w = w;
     wake();
@@ -288,7 +292,7 @@ export function shelfTurner(shelf, {rest = () => {}} = {}) {
   const all = new Map(); // a case turned → its state
   let P = null, dragged = false;
   const own = cs => (cs.classList.contains('is-done') ? BACK : FRONT);
-  const sidesOf = cs => (cs.classList.contains('is-done') ? [BACK, FRONT] : cs.classList.contains('is-turns') ? [FRONT, BACK] : [FRONT]);
+  const sidesOf = cs => (cs.classList.contains('is-done') ? [BACK, FRONT] : cs.classList.contains('is-turns') ? [FRONT, BACK] : cs.classList.contains('is-swivel') ? [FRONT, BACK] : [FRONT]);
   const target = S => S.goal || sidesOf(S.cs).reduce((a, b) => (len(between(S.q, b)) < len(between(S.q, a)) ? b : a));
   const stateOf = cs => {
     let S = all.get(cs);
@@ -322,7 +326,7 @@ export function shelfTurner(shelf, {rest = () => {}} = {}) {
   const down = e => {
     if (P || e.button > 0) return;
     dragged = false;
-    const g = e.target.closest('.gm-grip'), cs = g && g.closest('.gm-case.is-done, .gm-case.is-turns'); // (only a game finished turns, and one played again and again)
+    const g = e.target.closest('.gm-grip'), cs = g && (g.closest('.gm-case.is-done, .gm-case.is-turns') || g.closest('.gm-case.is-swivel')); // (only a game finished turns, and one played again and again)
     if (cs) P = {id: e.pointerId, cs, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, on: false, moves: []};
   };
   const move = e => {
