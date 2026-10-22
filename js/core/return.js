@@ -183,11 +183,23 @@ export const POWER = {
   pills: {name: 'Painkillers', says: 'Nothing can stop you', s: 6, is: 'You can’t feel a thing', does: 'For 6 seconds, run straight through whatever’s in your way'},
   booze: {name: 'Booze', says: 'Double yards', s: 8, is: 'Liquid courage (the world gets wobbly)', does: 'For 8 seconds, every yard counts double'}
 };
+// On the hard course (the owner's, for now) the power-ups as he asked for them (Oct 2026): the salts' burst lasts
+// HARD_BURST_S seconds; their words (HARD_POWER over POWER's: powerOf).
+export const HARD_POWER = {
+  salts: {says: 'A 10-second burst of speed and an extra life', does: 'A 10-second burst of speed, and an extra life: shake off the next tackle'},
+  pills: {says: 'Hit anything, no stumble', does: 'For 6 seconds, hit anything without stumbling'},
+  booze: {is: 'Liquid courage (the world goes blurry and won’t sit still)'}
+};
+export const HARD_BURST_S = 10;
+/** A power-up's words on the course (hard: the hard course's). */
+export const powerOf = (kind, hard) => (hard ? Object.assign({}, POWER[kind], HARD_POWER[kind]) : POWER[kind]);
 export const SALTS_MAX = 2, SHIELD = 1.2;
 // The salts' burst (picked up, and again when they shake the linebacker off): k faster for s seconds, easing back to
 // your own speed over the last ease of them.
 export const BURST = {s: 4, k: .3, ease: 1};
 /** How much faster than your own speed you are now (0 to BURST.k). */
+/** How long the salts' burst lasts on a run's course. */
+export const burstSecs = run => (run && run.co && run.co.hard ? HARD_BURST_S : BURST.s);
 export const burstOf = run => (run && run.burst > 0 ? BURST.k * Math.min(1, run.burst / BURST.ease) : 0);
 // The linebacker, chasing (yards behind you, seconds): at the catch and right after a hit he's on you, near (after a hit
 // you're slowed too, by slowBy for slow s, easing back to speed), falling back to edge (the bottom of the screen) as you
@@ -421,7 +433,7 @@ function hit(run, out, what) {
   if (run.grace > 0) { out.push(Object.assign({type: 'shoved', z: run.z}, what)); return 'pass'; }
   if (what.wall && run.co.hard) {
     if (run.salts > 0) {
-      run.salts--; run.shield = SHIELD; run.fromGap = gapOf(run); run.hitAt = run.t; run.slow = CHASE.slow; run.burst = BURST.s;
+      run.salts--; run.shield = SHIELD; run.fromGap = gapOf(run); run.hitAt = run.t; run.slow = CHASE.slow; run.burst = burstSecs(run);
       out.push(Object.assign({type: 'revived', z: run.z, salts: run.salts}, what));
       return 'pass';
     }
@@ -431,7 +443,7 @@ function hit(run, out, what) {
   }
   if (chasing(run)) {
     if (run.salts > 0) {
-      run.salts--; run.shield = SHIELD; run.fromGap = gapOf(run); run.hitAt = run.t; run.slow = CHASE.slow; run.burst = BURST.s;
+      run.salts--; run.shield = SHIELD; run.fromGap = gapOf(run); run.hitAt = run.t; run.slow = CHASE.slow; run.burst = burstSecs(run);
       out.push(Object.assign({type: 'revived', z: run.z, salts: run.salts}, what));
       return 'pass';
     }
@@ -507,7 +519,7 @@ function sub(run, dt, out) {
   while (run.nextItem < items.length && items[run.nextItem].z <= run.z) {
     const it = items[run.nextItem++];
     if (it.lane !== lane || Math.abs(run.y - groundAt(co, it.lane, it.z)) > 1.4) continue;
-    if (it.kind === 'salts') { run.salts = Math.min(SALTS_MAX, run.salts + 1); run.burst = BURST.s; }
+    if (it.kind === 'salts') { run.salts = Math.min(SALTS_MAX, run.salts + 1); run.burst = burstSecs(run); }
     else run[it.kind] = POWER[it.kind].s;
     out.push({type: 'pickup', kind: it.kind, item: it, z: run.z});
   }

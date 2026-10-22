@@ -75,9 +75,9 @@ function keysHTML(hard) {
     + k('is-ramp', '◢', hard ? 'Run up a ramp onto the roofs. Head on into a bus: down' : 'Run up a ramp onto the roofs')
     + k('is-chase', '!', 'The linebacker’s on your heels at the catch and after any hit. Hit something while he’s there: tackled')
     + `</ul><ul class="rm-pks" aria-label="Power-ups">`
-    + pw('salts', 'Smelling salts', 'Speed burst + extra life')
-    + pw('pills', 'Painkillers', 'Feel nothing')
-    + pw('booze', 'Booze', 'Double yards')
+    + pw('salts', 'Smelling salts', hard ? '10-second speed burst + extra life' : 'Speed burst + extra life')
+    + pw('pills', 'Painkillers', hard ? 'Hit anything, no stumble' : 'Feel nothing')
+    + pw('booze', 'Booze', hard ? 'Double yards, but blurry' : 'Double yards')
     + `</ul>`;
 }
 // Return Man is in beta (open to the league while the owner works on it, Oct 2026): a BETA tag on the cards before a
@@ -563,12 +563,17 @@ function draw(st, now = performance.now()) {
   st.camZ = (run ? run.z : 0) - st.back;
   const z = run ? run.z : 0, t = now / 1000;
   st.t = t;
-  // booze: the world sways
-  const drunk = run && !run.over ? Math.min(1, run.booze / .8) : 0;
+  // booze: the world sways (on the hard course, the owner's ask, Oct 2026: further, up and down too, and blurred)
+  const drunk = run && !run.over ? Math.min(1, run.booze / .8) : 0, hardDrunk = drunk > 0 && run.co.hard;
   if (drunk > 0) {
+    const [rot, sc, dx, dy] = hardDrunk ? [.085, 1.13, 15, 9] : [.045, 1.07, 6, 0];
     c.fillStyle = '#1A1408'; c.fillRect(0, 0, st.W, st.H);
-    c.translate(st.W / 2, st.H * .62); c.rotate(.045 * drunk * Math.sin(t * 1.7)); c.scale(1.07, 1.07); c.translate(-st.W / 2 + 6 * drunk * Math.sin(t * 1.1), -st.H * .62);
+    c.translate(st.W / 2, st.H * .62); c.rotate(rot * drunk * Math.sin(t * 1.7)); c.scale(sc, sc);
+    c.translate(-st.W / 2 + dx * drunk * Math.sin(t * 1.1), -st.H * .62 + dy * drunk * Math.sin(t * 1.35 + 1));
   }
+  // (the blur's on the canvas itself, so the score and the power-ups over it stay sharp)
+  const blur = hardDrunk ? (Math.round((1.8 + .9 * Math.sin(t * 2.3)) * drunk * 10) / 10) : 0;
+  if (blur !== (st.blur || 0)) { st.blur = blur; c.canvas.style.filter = blur ? `blur(${blur}px)` : ''; }
   st.bend = D3.ready() ? W.BEND : 0;
   if (!(D3.ready() && style.sky(skyView(st), c, t, z))) W.sky(skyView(st), c, t, z);
   if (D3.ready()) { draw3(st, c, now); drawSpeed(st, c, now); }
@@ -622,7 +627,7 @@ function patchHud(st) {
       pw.dataset.key = key;
       pw.innerHTML = list.map(k => `<span class="rm-chip rm-pw is-${k}">${iconHTML(k, 22)}${k === 'salts' ? (run.salts > 0 ? `<b>×${run.salts}</b>` : '') + (run.burst > 0 ? '<i class="rm-bar"><b data-rm-bar="burst"></b></i>' : '') : `<i class="rm-bar"><b data-rm-bar="${k}"></b></i>`}</span>`).join('');
     }
-    if (on) pw.querySelectorAll('[data-rm-bar]').forEach(b => { const k = b.dataset.rmBar, of = k === 'burst' ? R.BURST.s : R.POWER[k].s; b.style.transform = `scaleX(${Math.max(0, Math.min(1, run[k] / of)).toFixed(3)})`; });
+    if (on) pw.querySelectorAll('[data-rm-bar]').forEach(b => { const k = b.dataset.rmBar, of = k === 'burst' ? R.burstSecs(run) : R.POWER[k].s; b.style.transform = `scaleX(${Math.max(0, Math.min(1, run[k] / of)).toFixed(3)})`; });
   }
 }
 function setCard(st, show) {
@@ -669,7 +674,7 @@ function tackled(st) {
 /** A power-up he's just picked up: what it is and what it does, under the HUD for a moment. */
 const GOT_MS = 3200;
 function got(st, kind) {
-  const el = st.el.querySelector('[data-rm-got]'), p = R.POWER[kind];
+  const el = st.el.querySelector('[data-rm-got]'), p = R.powerOf(kind, st.run && st.run.co.hard);
   if (!el) return;
   el.className = 'rm-got is-' + kind;
   el.innerHTML = `${iconHTML(kind, 40)}<span class="rm-got-t"><b>${esc(p.name)}</b><span>${esc(p.is)}</span><strong>${esc(p.does)}</strong></span>`;
@@ -698,7 +703,7 @@ function onEvents(st, evs) {
     else if (e.type === 'juked') { pop(st, 'SPIN MOVE!'); st.spinAt = now; st.spinDir = Math.sign(R.xOf(st.run, st.run.lane) - st.run.jFrom) || 1; }
     else if (e.type === 'hurdled') { pop(st, e.ob === 'hole' ? 'HOP!' : 'HURDLE!'); ui.haptic('light'); }
     else if (e.type === 'slid') { pop(st, 'SLIDE!'); ui.haptic('light'); }
-    else if (e.type === 'pickup') { st.got.add(e.item.i); got(st, e.kind); ui.haptic('success'); ui.announce(`${R.POWER[e.kind].name}: ${R.POWER[e.kind].is}. ${R.POWER[e.kind].does}.`); }
+    else if (e.type === 'pickup') { const pw = R.powerOf(e.kind, st.run.co.hard); st.got.add(e.item.i); got(st, e.kind); ui.haptic('success'); ui.announce(`${pw.name}: ${pw.is}. ${pw.does}.`); }
     else if (e.type === 'landed') st.landAt = now;
     else if (e.type === 'trucked') { st.knocked.set(`${e.row.i}:${e.lane}`, {at: now}); pop(st, 'SMASHED!', 'is-pills'); ui.haptic('medium'); }
     else if (e.type === 'vaulted') { pop(st, 'OVER THE TOP!', 'is-pills'); ui.haptic('medium'); }

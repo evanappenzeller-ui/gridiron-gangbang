@@ -822,8 +822,11 @@ function obstacleOf(type, id) {
 }
 // ---------------------------------------------------------------- The power-ups
 const HALO = {salts: 0x96E1FF, pills: 0xFFA53C, booze: 0xFFD65A};
-function itemOf(kind) {
-  const key = 'item:' + kind;
+// On the hard course (the owner's, Oct 2026: bigger and easy to tell apart): each its own colour, ice blue, red and
+// green, BIG times the size, and a beam of its light standing up out of it to spot from far off.
+const HALO_BIG = {salts: 0x5CE1FF, pills: 0xFF4040, booze: 0x6EF05A}, BIG = 1.7;
+function itemOf(kind, big = false) {
+  const key = 'item:' + kind + (big ? ':big' : '');
   if (OBJ.has(key)) return OBJ.get(key);
   const g = new T.Group(), spin = new T.Group(), b = new Batch();
   if (kind === 'salts') {
@@ -837,10 +840,16 @@ function itemOf(kind) {
   spin.add(b.mesh(mats().vcs)); spin.children[0].castShadow = true;
   // (its children: the bottle spinning, its glow, the ring on the ground; nothing in userData: a clone copies that as JSON)
   g.add(spin);
-  const glow = new T.Sprite(new T.SpriteMaterial({map: glowTex(), color: HALO[kind], transparent: true, depthWrite: false, blending: T.AdditiveBlending, opacity: .8}));
+  const col = (big ? HALO_BIG : HALO)[kind];
+  const glow = new T.Sprite(new T.SpriteMaterial({map: glowTex(), color: col, transparent: true, depthWrite: false, blending: T.AdditiveBlending, opacity: .8}));
   glow.scale.set(2.2, 2.2, 1); g.add(glow);
-  const ring = new T.Mesh(new T.RingGeometry(.45, .58, 32), new T.MeshBasicMaterial({color: HALO[kind], transparent: true, opacity: .6, depthWrite: false, blending: T.AdditiveBlending, toneMapped: false}));
+  const ring = new T.Mesh(new T.RingGeometry(.45, .58, 32), new T.MeshBasicMaterial({color: col, transparent: true, opacity: .6, depthWrite: false, blending: T.AdditiveBlending, toneMapped: false}));
   ring.rotation.x = -Math.PI / 2; g.add(ring);
+  if (big) {
+    spin.scale.setScalar(BIG); ring.scale.setScalar(BIG);
+    const beam = new T.Mesh(new T.CylinderGeometry(.32, .5, 7, 16, 1, true).translate(0, 3.5, 0), new T.MeshBasicMaterial({color: col, transparent: true, opacity: .22, depthWrite: false, side: T.DoubleSide, blending: T.AdditiveBlending, toneMapped: false}));
+    g.add(beam);
+  }
   OBJ.set(key, g);
   return g;
 }
@@ -1057,15 +1066,15 @@ export function update(st, now) {
     A.sets.forEach(({set}) => set.plats.forEach((p, j) => keep(`v:${key}|${set.i}|${j}`, () => vehicleOf(p, R.zoneAt(st.co, p.z0).theme))));
     // the power-ups (gone once picked up)
     A.items.forEach(({item}) => {
-      const o = keep(`i:${key}|${item.i}`, () => itemOf(item.kind).clone());
+      const big = !!st.co.hard, k = big ? BIG : 1, o = keep(`i:${key}|${item.i}`, () => itemOf(item.kind, big).clone());
       if (!o) return;
       const g = R.groundAt(st.co, item.lane, item.z), bob = Math.sin(t * 3 + item.i) * .12, pulse = .5 + .5 * Math.sin(t * 5 + item.i);
       o.visible = !(st.got && st.got.has(item.i));
       o.position.set(R.xOf(null, item.lane), g, -item.z);
-      const spin = o.children[0];
-      spin.position.y = 1 + bob; spin.rotation.y = t * 2.2 + item.i;
-      const glow = o.children[1]; glow.position.y = 1 + bob; glow.scale.setScalar(1.9 + .5 * pulse);
-      const ring = o.children[2]; ring.position.y = .03; ring.scale.setScalar(1 + .15 * pulse);
+      const spin = o.children[0], y = big ? 1.35 : 1;
+      spin.position.y = y + bob; spin.rotation.y = t * 2.2 + item.i;
+      const glow = o.children[1]; glow.position.y = y + bob; glow.scale.setScalar(k * (1.9 + .5 * pulse));
+      const ring = o.children[2]; ring.position.y = .03; ring.scale.setScalar(k * (1 + .15 * pulse));
     });
   }
   // let go of whatever's out of view

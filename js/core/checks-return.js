@@ -437,6 +437,27 @@ export async function returnChecks(check) {
     const pass = hole === 'hurdled,stumbled,stumbled' && named && sled === 'stumbled,stumbled,stumbled,juked' && ended && saved && still;
     return {pass, detail: `pothole: ${hole} (${named ? 'named for its place' : 'WRONG name'}); sled: ${sled}; head on: ${ended ? 'the end' : 'WRONG'}, salts ${salts.run.over ? 'WRONG' : 'shook it off'}, painkillers ${pills.run.over ? 'WRONG' : 'up onto it'}; regular course ${still ? 'a stumble' : 'WRONG'}`};
   });
+  check('Return Man: the hard course\'s power-ups (the owner\'s ask, Oct 2026): the smelling salts burst him on for 10 seconds (4 on the regular course); painkillers carry him through a barricade, a banner, a pothole, a sled and up onto a bus without a stumble; booze doubles his yards for 8 seconds; their words say so', () => {
+    // (how much faster than the course's own speed where he is, from seconds after he picks them up)
+    const pace = (hard, from) => {
+      const r = field({items: [{i: 0, z: 5, lane: 1, top: false, kind: 'salts'}], hard});
+      for (let i = 0; i < 120 * from; i++) R.step(r, 1 / 120);
+      const z0 = r.z; R.step(r, 1 / 120);
+      return (r.z - z0) * 120 / R.speedAt(z0, hard);
+    };
+    const tenS = R.burstSecs(R.startRun(1, 0, true)) === 10 && R.burstSecs(R.startRun(1, 0)) === R.BURST.s;
+    const hard = [pace(true, 8.5), pace(true, 11)], reg = [pace(false, 2.5), pace(false, 5)];
+    const burst = Math.abs(hard[0] - (1 + R.BURST.k)) < .01 && Math.abs(hard[1] - 1) < .01 && Math.abs(reg[0] - (1 + R.BURST.k)) < .01 && Math.abs(reg[1] - 1) < .01;
+    const row = (z, t) => ({i: z, z, lanes: [null, t, null], th: 'city'});
+    const pills = play({items: [{i: 0, z: 10, lane: 1, top: false, kind: 'pills'}], rows: [row(25, 'hurdle'), row(35, 'bar'), row(45, 'hole'), row(55, 'sled')], sets: [set(plat(1, 70, 90, true))], hard: true}, 6);
+    const through = !pills.run.over && pills.run.hits === 0 && pills.ev.filter(e => e === 'trucked').length === 4 && pills.ev.includes('vaulted') && !pills.ev.includes('stumbled');
+    const booze = field({items: [{i: 0, z: 10, lane: 1, top: false, kind: 'booze'}], hard: true});
+    let y8 = 0, z8 = 0;
+    for (let i = 0; i < 120 * 12; i++) { R.step(booze, 1 / 120); if (booze.booze > 0) { y8 = booze.yards; z8 = booze.z; } }
+    const dbl = R.POWER.booze.s === 8 && y8 - 10 > (z8 - 10) * 1.95 && booze.yards - y8 < (booze.z - z8) * 1.05;
+    const words = R.powerOf('salts', true).does.startsWith('A 10-second burst') && R.powerOf('salts', false) === R.POWER.salts && /without stumbling/.test(R.powerOf('pills', true).does) && /blurry/.test(R.powerOf('booze', true).is);
+    return {pass: tenS && burst && through && dbl && words, detail: `salts: ${R.burstSecs(R.startRun(1, 0, true))} s hard (${hard.map(x => x.toFixed(2) + '×').join(' then ')}), ${R.BURST.s} s regular (${reg.map(x => x.toFixed(2) + '×').join(' then ')}); painkillers: ${through ? 'through all four and up onto the bus, not a stumble' : 'WRONG ' + pills.ev.join()}; booze: double ${dbl}; words ${words}`};
+  });
   check('Return Man: its stylesheet (css/views/return.css) is linked: the version mark is on :root', () => {
     const v = getComputedStyle(document.documentElement).getPropertyValue('--rm-css').trim();
     return {pass: v !== '', detail: `--rm-css ${v || 'missing'}`};

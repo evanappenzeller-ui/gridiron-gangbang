@@ -1911,16 +1911,25 @@ export const ICONS = {
   }
 };
 const HALO = {salts: '150,225,255', pills: '255,165,60', booze: '255,214,90'};
+// (the hard course's, the owner's: bigger, and each its own colour: return-3dworld.js HALO_BIG)
+const HALO_BIG = {salts: '92,225,255', pills: '255,64,64', booze: '110,240,90'};
 export function item(st, c, it, t) {
   const X = R.xOf(null, it.lane), g = R.groundAt(st.co, it.lane, it.z), bob = Math.sin(t * 3 + it.i) * .12;
   if (it.z < st.camZ + NEAR + 1) return;
-  const p = P(st, X, g + 1 + bob, it.z), base = P(st, X, g, it.z), s = p.s;
+  const big = !!st.co.hard, k = big ? 1.7 : 1, col = (big ? HALO_BIG : HALO)[it.kind];
+  const p = P(st, X, g + (big ? 1.35 : 1) + bob, it.z), base = P(st, X, g, it.z), s = p.s;
   if (s < 1.2) return;
   const pulse = .5 + .5 * Math.sin(t * 5 + it.i);
-  c.strokeStyle = `rgba(${HALO[it.kind]},${(.35 + .35 * pulse).toFixed(2)})`; c.lineWidth = Math.max(1, s * .06);
-  c.beginPath(); c.ellipse(base.x, base.y, s * .55, s * .16, 0, 0, Math.PI * 2); c.stroke();
-  glow(c, p.x, p.y, s * (.75 + .15 * pulse), HALO[it.kind]);
-  c.save(); c.translate(p.x, p.y); c.scale(s * 1.05, s * 1.05); c.rotate(Math.sin(t * 2 + it.i) * .18);
+  if (big) {
+    // its beam, standing up out of it
+    const top = P(st, X, g + 7, it.z), gr = c.createLinearGradient(0, base.y, 0, top.y);
+    gr.addColorStop(0, `rgba(${col},.32)`); gr.addColorStop(1, `rgba(${col},0)`);
+    c.fillStyle = gr; c.fillRect(base.x - s * .4, top.y, s * .8, base.y - top.y);
+  }
+  c.strokeStyle = `rgba(${col},${(.35 + .35 * pulse).toFixed(2)})`; c.lineWidth = Math.max(1, s * .06 * k);
+  c.beginPath(); c.ellipse(base.x, base.y, s * .55 * k, s * .16 * k, 0, 0, Math.PI * 2); c.stroke();
+  glow(c, p.x, p.y, s * k * (.75 + .15 * pulse), col);
+  c.save(); c.translate(p.x, p.y); c.scale(s * 1.05 * k, s * 1.05 * k); c.rotate(Math.sin(t * 2 + it.i) * .18);
   ICONS[it.kind](c, t);
   c.restore();
 }
