@@ -11,6 +11,7 @@ import * as data from '../core/data.js';
 import * as daily from '../core/daily.js';
 import * as F from '../core/realm.js';
 import {defend} from '../core/realm-battle.js';
+import {heroCards, residentsNote} from './realm-heroes.js';
 
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const nf = n => Math.round(Number(n) || 0).toLocaleString('en-US');
@@ -239,7 +240,7 @@ export function factsOf(b) {
   if (K.role === 'store') what.push(`Holds ${nf(sv.cap)} ${F.CUR_NAME[K.holds]}`);
   if (K.role === 'hall') what.push(`Holds ${nf(sv.store)} of each`);
   if (K.role === 'camp') what.push(`Room for ${sv.room}`);
-  if (K.role === 'hatch') what.push(`Room for ${sv.dragons} dragon${sv.dragons === 1 ? '' : 's'}`);
+  if (K.role === 'hatch') what.push(`Room for ${sv.dragons} dragon${sv.dragons === 1 ? '' : 's'}`, 'Tended by your dragon keeper');
   if (K.role === 'def') what.push(`${nf(sv.dps)} damage a second · reach ${sv.range}${sv.splash ? ' · hits a crowd' : ''}${sv.air ? ' · hits dragons' : ''}`);
   if (K.role === 'train') what.push(`Trains: ${F.TROOP_ORDER.filter(t => F.TROOPS[t].at <= lv).map(t => F.TROOPS[t].name).join(', ')}`);
   what.push(`${nf(sv.hp)} strength`);
@@ -255,6 +256,7 @@ function selHTML(st) {
   const up = F.canUpgrade(s, b.i, now), btns = [];
   if (K.role === 'make' && F.made(b, now) > 0) btns.push(`<button type="button" class="rl-act" data-rl-collect="${b.i}">Collect ${curHTML(K.makes, F.made(b, now))}</button>`);
   if (b.t === 'barracks' || b.t === 'camp' || b.t === 'hatchery') btns.push(`<button type="button" class="rl-act" data-rl-army>Train</button>`);
+  if (b.t === 'keep') btns.push(`<button type="button" class="rl-act" data-rl-army>Heroes</button>`);
   if (b.t !== 'hut' && b.u <= now && up.to <= F.maxLevel(b.t)) {
     btns.push(up.ok ? `<button type="button" class="rl-act is-go" data-rl-up="${b.i}">Upgrade ${curHTML(up.pay, up.cost)}<small>${up.time ? dur(up.time * 1000) : 'at once'}</small></button>`
       : `<button type="button" class="rl-act" disabled>Upgrade<small>${esc(up.why)}${/Not enough/.test(up.why) ? ` (${nf(up.cost)})` : ''}</small></button>`);
@@ -332,7 +334,7 @@ function cofferSheet() {
     + `<p class="rl-sh-note">A day’s pay: Daily Puzzles 400 plus 5 a point · 17–0 400 plus 150 a win (500 more for 17–0) · Two-Minute Drill 3,000 a win, 2,000 a tie, 1,000 a loss · Kick It 400 plus 200 a make (up to 15) · Return Man 400 plus 3 a yard (up to 1,000). More room: upgrade your treasuries, granaries and Keep.</p>`});
 }
 function armySheet(st) {
-  const sh = realmSheet({title: 'Your army', cls: 'sh-rl', detents: ['large'], body: '<div data-rl-armybody></div>'});
+  const sh = realmSheet({title: 'Your army & heroes', cls: 'sh-rl', detents: ['large'], body: '<div data-rl-armybody></div>'});
   const draw = () => {
     if (st.dead || !F.mayPlay()) return;
     const s = F.mine(), now = Date.now(), room = F.armyRoom(s), have = F.roomOf(s.ar), q = F.queued(s);
@@ -345,16 +347,35 @@ function armySheet(st) {
         + `<span class="rl-tc-c">${locked ? `Barracks level ${T.at}` : egg ? 'Needs a dragon hatchery' : `${curHTML('grain', T.cost)} · ${T.room} room`}</span>`
         + `<small>${esc(T.blurb)}</small></button>`;
     }).join('');
-    sh.body.querySelector('[data-rl-armybody]').innerHTML = `<div class="rl-room"><b>${have + q}/${room}</b> room in the war camps${q ? ` (${q} in training)` : ''}</div>`
+    const body = `<h3 class="rl-sh-h">Heroes of the Keep</h3><p class="rl-sh-note">Recruit once. Upgrade with Gold. Your heroes defend automatically and can each deploy once per attack. They return after every battle and use no camp space.</p>`
+      + `<div class="rl-heroes">${heroCards(s)}</div><p class="rl-sh-note rl-residents">${residentsNote(s)}</p>`
+      + `<div class="rl-room"><b>${have + q}/${room}</b> room in the war camps${q ? ` (${q} in training)` : ''}</div>`
       + `<h3 class="rl-sh-h">Ready to march</h3><div class="rl-chips">${army}</div>`
       + (line ? `<h3 class="rl-sh-h">Training${s.q.length ? ` · done in ${dur(F.trainedBy(s, now) - now)}` : ''}</h3><div class="rl-chips">${line}</div>` : '')
       + `<h3 class="rl-sh-h">Train <span>(tap to add one · Grain ${nf(s.r.grain)})</span></h3><div class="rl-tcs">${cards}</div>`;
+    const host = sh.body.querySelector('[data-rl-armybody]');
+    if (host.innerHTML !== body) {
+      const focused = document.activeElement;
+      const key = focused && host.contains(focused) ? ['rlRecruitHero', 'rlUpgradeHero', 'rlTrain', 'rlUntrain'].find(k => focused.dataset[k]) : null;
+      const value = key && focused.dataset[key];
+      host.innerHTML = body;
+      if (key) Array.from(host.querySelectorAll('button')).find(b => b.dataset[key] === value && !b.disabled)?.focus({preventScroll: true});
+    }
   };
   draw();
   sh.body.addEventListener('click', e => {
     if (st.dead || !F.mayPlay()) return;
     const tr = e.target.closest('[data-rl-train]'), un = e.target.closest('[data-rl-untrain]'), s = F.mine();
-    if (tr) {
+    const recruit = e.target.closest('[data-rl-recruit-hero]'), upgradeHero = e.target.closest('[data-rl-upgrade-hero]');
+    if (recruit || upgradeHero) {
+      const k = recruit ? recruit.dataset.rlRecruitHero : upgradeHero.dataset.rlUpgradeHero;
+      const check = recruit ? F.canRecruitHero(s, k) : F.canUpgradeHero(s, k);
+      if (!check.ok) { ui.toast(check.why, {icon: 'info'}); return; }
+      if (recruit ? F.recruitHero(s, k) : F.upgradeHero(s, k)) {
+        F.touch(); F.flush(); ui.haptic('success'); draw(); refresh(st);
+        ui.toast(`${F.HEROES[k].name} ${recruit ? 'recruited' : `upgraded to level ${F.heroLevel(s, k)}`}`, {icon: 'shield'});
+      }
+    } else if (tr) {
       const t = tr.dataset.rlTrain, chk = F.canTrain(s, t);
       if (!chk.ok) { ui.toast(chk.why, {icon: 'info'}); return; }
       F.train(s, t, 1); F.touch(); ui.haptic('selection'); draw(); hud(st);
@@ -367,10 +388,11 @@ export function targets(now = Date.now(), mine = F.mine()) {
   return F.BOTS.map(b => ({k: b.k, name: b.name, th: b.th, loot: F.botLoot(b, F.botBase(b.th), mine, now).total}));
 }
 function raidSheet(st, ctx) {
-  const s = F.mine(), army = F.roomOf(s.ar);
+  const s = F.mine(), army = F.roomOf(s.ar) || Object.keys(F.heroArmy(s)).length;
+  const march = [...F.TROOP_ORDER.filter(t => s.ar[t]).map(t => `${esc(F.TROOPS[t].name)} ×${s.ar[t]}`), ...F.HERO_ORDER.filter(k => F.heroArmy(s)['hero_' + k]).map(k => `${esc(F.HEROES[k].name)} level ${F.heroLevel(s, k)}`)];
   const sh = realmSheet({title: 'Attack', cls: 'sh-rl', detents: ['large'], body:
-    (army ? `<p class="rl-sh-lead">Your army: ${F.TROOP_ORDER.filter(t => s.ar[t]).map(t => `${esc(F.TROOPS[t].name)} ×${s.ar[t]}`).join(', ')}. Send them round the edge of a realm; they carry off what its treasuries, granaries, mines and farms hold. Each realm’s stores fill again every morning.</p>`
-      : `<p class="rl-sh-lead">You need an army first: raise barracks and a war camp, then train one (Army).</p>`)
+    (army ? `<p class="rl-sh-lead">Ready to march: ${march.join(', ')}. Send them round the edge of a realm; they carry off what its treasuries, granaries, mines and farms hold. Each realm’s stores fill again every morning.</p>`
+      : `<p class="rl-sh-lead">Open Army to recruit a hero or train troops before attacking.</p>`)
     + targets(Date.now(), s).map(x => `<div class="rl-tg"><span class="rl-tg-lv">${x.th}</span><span class="rl-tg-n"><b>${esc(x.name)}</b>`
       + `<small>${x.loot.gold || x.loot.grain ? `${curHTML('gold', x.loot.gold)} ${curHTML('grain', x.loot.grain)}` : 'Raided today: nothing left to take'}</small></span>`
       + `<button type="button" class="rl-act rl-tg-go" data-rl-scout="${esc(x.k)}">Scout</button>`
@@ -617,6 +639,8 @@ function welcome() {
     + `<div class="rl-row"><span><b>Gold mines</b> dig Gold and <b>farms</b> grow Grain while you’re away: tap them to collect.</span></div>`
     + `<div class="rl-row"><span><b>Your builder</b> raises or upgrades one thing at a time. Raise your <b>Keep</b> to unlock more of everything.</span></div>`
     + `<div class="rl-row"><span><b>Attack</b>: train an army at the barracks with Grain (footmen, archers, knights, thieves, and in time dragons from your hatchery) and sack the computer’s realms for their gold and grain.</span></div>`
+    + `<div class="rl-row"><span><b>Heroes</b>: recruit the Knight at Keep level 2 and Wizard at level 4 from Army. Upgrade with Gold, send each once per attack, and let them defend automatically. They return after battle.</span></div>`
+    + `<div class="rl-row"><span><b>Your people</b>: guards patrol the village. A dragon keeper arrives when the Dragon Hatchery unlocks at Keep level 6.</span></div>`
     + `<div class="rl-row"><span><b>Defend</b>: once your Keep is level 2, those realms raid you too, now and then. Cannons, ballistas, archer towers, trebuchets, pitch cauldrons and walls keep them out.</span></div>`
     + `</div><p class="rl-sh-note">Drag to look around, pinch to zoom. Tap a building for what it does; tap your house’s name to rename it.</p>`});
 }

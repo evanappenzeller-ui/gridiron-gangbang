@@ -185,6 +185,63 @@ export const TROOPS = {
 };
 export const TROOP_ORDER = ['footman', 'archer', 'knight', 'thief', 'dragon'];
 
+// Unique champions live outside the trained army. Gold buys permanent levels; a fallen hero returns home after
+// the raid and can march again. The ordinary Knight troop remains a separate, expendable soldier.
+export const HERO_ORDER = ['knight', 'wizard'];
+export const HEROES = {
+  knight: {name: 'Knight Hero', at: 2, troop: 'hero_knight', hp: 500, dps: 24, speed: 1.5, range: .8, aim: 'def', air: false,
+    cap: [0, 2, 3, 4, 6, 8, 9, 10], cost: [1500, 2200, 4000, 7000, 12000, 20000, 32000, 50000, 75000, 110000],
+    blurb: 'A champion in heavy armor. Leads your attacks and meets ground raiders with sword and shield.'},
+  wizard: {name: 'Wizard Hero', at: 4, troop: 'hero_wizard', hp: 230, dps: 30, speed: 1.7, range: 4.5, aim: 'any', air: true, splash: 1.2,
+    cap: [0, 0, 0, 2, 4, 6, 8, 10], cost: [8000, 10000, 16000, 24000, 36000, 52000, 75000, 105000, 145000, 200000],
+    blurb: 'A spellcaster whose blasts strike groups. Attacks enemy keeps and defends against ground troops and dragons.'}
+};
+const heroKind = k => HERO_ORDER.includes(k) ? HEROES[k] : null;
+export const heroCap = (s, k) => heroKind(k) ? (HEROES[k].cap[keepOf(s) - 1] || 0) : 0;
+/** A valid, recruited level, restricted to the current Keep's cap. Bad or unknown entries cannot create a hero. */
+export function heroLevel(s, k) {
+  const l = s && s.hr && s.hr[k];
+  return heroKind(k) && Number.isInteger(l) && l > 0 ? Math.min(l, 10, heroCap(s, k)) : 0;
+}
+/** Snapshot this roster for a raid/replay. Eligibility is checked again when battle units are created. */
+export const heroLevels = s => mayPlay() ? Object.fromEntries(HERO_ORDER.map(k => [k, heroLevel(s, k)]).filter(([, l]) => l > 0)) : {};
+export const heroArmy = s => Object.fromEntries(Object.keys(heroLevels(s)).map(k => [HEROES[k].troop, 1]));
+/** Combat stats are copied, so a battle never changes the permanent roster. */
+export function heroStat(k, level) {
+  const H = heroKind(k);
+  if (!H || !Number.isInteger(level) || level < 1 || level > 10) return null;
+  return {hp: Math.round(H.hp * (1 + .18 * (level - 1))), dps: Math.round(H.dps * (1 + .16 * (level - 1))),
+    speed: H.speed, range: H.range, aim: H.aim, air: H.air, splash: H.splash || 0, room: 0};
+}
+function heroChange(s, k, recruit) {
+  const H = heroKind(k), level = H ? heroLevel(s, k) : 0, to = recruit ? 1 : level + 1;
+  const o = {ok: false, why: '', cost: H ? (H.cost[to - 1] || 0) : 0, pay: 'gold', to};
+  if (!mayPlay()) return {...o, why: 'The Keep is available on Evan’s profile'};
+  if (!H) return {...o, why: 'Unknown hero'};
+  if (keepOf(s) < H.at) return {...o, why: `Needs Keep level ${H.at}`};
+  if (recruit && level) return {...o, why: 'Already recruited'};
+  if (!recruit && !level) return {...o, why: 'Recruit this hero first'};
+  if (to > 10) return {...o, why: 'At the top hero level'};
+  if (to > heroCap(s, k)) {
+    const need = H.cap.findIndex(n => n >= to) + 1;
+    return {...o, why: `Needs Keep level ${need}`};
+  }
+  if (!s.r || !Number.isFinite(s.r.gold) || s.r.gold < o.cost) return {...o, why: 'Not enough Gold'};
+  return {...o, ok: true};
+}
+export const canRecruitHero = (s, k) => heroChange(s, k, true);
+export const canUpgradeHero = (s, k) => heroChange(s, k, false);
+function changeHero(s, k, recruit) {
+  const check = heroChange(s, k, recruit);
+  if (!check.ok) return false;
+  s.r.gold -= check.cost;
+  if (!s.hr || typeof s.hr !== 'object' || Array.isArray(s.hr)) s.hr = {};
+  s.hr[k] = check.to;
+  return true;
+}
+export const recruitHero = (s, k) => changeHero(s, k, true);
+export const upgradeHero = (s, k) => changeHero(s, k, false);
+
 // ---------------------------------------------------------------------------------------------------- what the games pay
 // Each day's result, in Gold and in Grain alike (a strong day across the five games is about 12,000 of each).
 export const PAY = {
@@ -279,7 +336,7 @@ export function fresh(now = Date.now()) {
     {i: 5, t: 'ballista', l: 1, x: M - 1, y: M + 3, u: 0}
   ];
   return {v: 2, n: N, at: now, born: now, nm: '', b, r: {gold: 0, grain: 0}, cl: {gold: 0, grain: 0}, xo: {gold: STARTER, grain: STARTER},
-    ar: {}, q: [], qs: 0, tp: 0, rd: [], df: [], lr: now, sh: 0, bt: {}, nb: 6};
+    ar: {}, hr: {}, q: [], qs: 0, tp: 0, rd: [], df: [], lr: now, sh: 0, bt: {}, nb: 6};
 }
 // The Franchise's names (v1, Oct 2026), taken up as the Realm's.
 const OLD_KIND = {stadium: 'keep', office: 'hut', booth: 'mine', cooler: 'farm', vault: 'treasury', tank: 'granary', practice: 'barracks',
@@ -329,6 +386,7 @@ export function clean(s) {
   if (Array.isArray(training[0]) && retired(training[0][0])) o.qs = 0;
   const troops = (m) => Object.fromEntries(Object.entries(m || {}).map(([t, n]) => [OLD_TROOP[t] || t, n]));
   o.ar = Object.fromEntries(Object.entries(troops(o.ar)).filter(([t, n]) => TROOPS[t] && num(n) > 0).map(([t, n]) => [t, num(n) | 0]));
+  o.hr = Object.fromEntries(HERO_ORDER.map(k => [k, heroLevel(o, k)]).filter(([, l]) => l > 0));
   o.q = (Array.isArray(o.q) ? o.q : []).map(x => (Array.isArray(x) ? [OLD_TROOP[x[0]] || x[0], x[1]] : x))
     .filter(x => Array.isArray(x) && TROOPS[x[0]] && num(x[1]) > 0).map(([t, n]) => [t, num(n) | 0]);
   o.qs = o.q.length ? num(o.qs) : 0; o.tp = Math.max(0, num(o.tp)); o.lr = num(o.lr) || o.at; o.sh = num(o.sh);
@@ -598,7 +656,7 @@ export function finishRaid(s, rec, used, now = Date.now()) {
     s.r[c] += fit;
     s.xo[c] += got - fit;
   });
-  Object.entries(used || {}).forEach(([t, n]) => { s.ar[t] = Math.max(0, (s.ar[t] || 0) - n); if (!s.ar[t]) delete s.ar[t]; });
+  Object.entries(used || {}).forEach(([t, n]) => { if (!TROOP_ORDER.includes(t)) return; s.ar[t] = Math.max(0, (s.ar[t] || 0) - n); if (!s.ar[t]) delete s.ar[t]; });
   s.tp = Math.max(0, s.tp + (rec.ta || 0));
   s.bt[rec.vs] = dayKey(now);
   s.rd.push(rec);

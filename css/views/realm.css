@@ -306,3 +306,27 @@ html.is-realm-playing #tabbar { visibility: hidden; pointer-events: none; }
 @media (prefers-reduced-motion: reduce) {
   .rl-effects .rl-float { animation: none; }
 }
+
+/* Unique, reusable heroes live in the Army sheet without crowding the village HUD. */
+.sh-rl .rl-heroes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr)); gap: 12px; }
+.sh-rl .rl-hero { min-width: 0; padding: 15px; border: 1px solid #b7924d66; border-radius: 14px; background: linear-gradient(145deg, #56332166, #211912); }
+.sh-rl .rl-hero.is-wizard { background: linear-gradient(145deg, #47416a66, #211912); border-color: #a79cdb66; }
+.sh-rl .rl-hero.is-locked { border-style: dashed; }
+.rl-hero-head { display: flex; align-items: center; gap: 12px; }
+.rl-hero-art { display: block; flex: 0 0 64px; width: 64px; height: 64px; border-radius: 12px; background: #0f0c1455; }
+.rl-hero-art svg, .rlr-t.is-hero svg { display: block; width: 100%; height: 100%; }
+.sh-rl .rl-hero-head small { font: 700 9px/1.2 var(--font-text); letter-spacing: .16em; color: #cfb47c; }
+.sh-rl .rl-hero h3 { margin: 3px 0; font: 700 22px/1.1 var(--rl-face); color: #fbe7b0; }
+.sh-rl .rl-hero-head p { margin: 0; font: 600 12px/1.4 var(--font-text); color: #dacdb6; }
+.sh-rl .rl-hero-desc { margin: 12px 0; color: #e1d6c4; font: 400 13px/1.5 var(--font-text); }
+.rl-hero-stats { display: flex; flex-wrap: wrap; gap: 10px 20px; }
+.rl-hero-stats span { color: #c6b79e; font: 400 10px/1.5 var(--font-text); }
+.rl-hero-stats b { display: block; color: #fff0d4; font: 700 17px/1.3 var(--font-text); font-variant-numeric: tabular-nums; }
+.sh-rl .rl-hero-next, .sh-rl .rl-hero-note { margin: 10px 0 0; font: 400 12px/1.4 var(--font-text); color: #d9c59b; }
+.rl-hero-action { display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; min-height: 46px; margin-top: 14px; padding: 10px 12px; border: 1px solid #c19a56; border-radius: 9px; background: #67491e; color: #fff1ce; cursor: pointer; font: 700 13px/1.3 var(--font-text); }
+.is-wizard .rl-hero-action { background: #4a4267; border-color: #a79cdb; }
+.rl-hero-action:disabled { background: #29231f; border-color: #76634866; color: #bbad95; cursor: default; }
+.rl-hero-action:focus-visible { outline: 2px solid #ffe6a4; outline-offset: 3px; }
+.sh-rl .rl-residents { padding: 10px 0 5px; }
+.rlr-t.is-hero { border-color: #e7bd67; }
+.rlr-t.is-hero .rl-tc-ic { background: radial-gradient(ellipse at center, #6c517e88, #24171f); }

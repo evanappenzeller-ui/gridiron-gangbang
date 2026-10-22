@@ -6,14 +6,17 @@
 // Chronicle, the glory onto your house. Leaving before the first soldier goes costs nothing; leaving after ends it.
 import * as ui from '../core/ui.js';
 import * as daily from '../core/daily.js';
+import * as data from '../core/data.js';
 import * as F from '../core/realm.js';
 import {makeBattle} from '../core/realm-battle.js';
 import {houseOf, MY_HOUSE, dur, picOf, curHTML, starsHTML} from './realm.js';
+import {heroIcon} from './realm-heroes.js';
 
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const nf = n => Math.round(Number(n) || 0).toLocaleString('en-US');
 const ST = new WeakMap();
 let D3 = null;
+const DEPLOY_ORDER = [...F.TROOP_ORDER, ...F.HERO_ORDER.map(k => 'hero_' + k)];
 
 /** The realm being attacked and what it holds: {key, name, base, loot, th} or {why}. */
 const targetOf = (key, now = Date.now()) => F.realmOf(key, F.mine(), now);
@@ -31,7 +34,10 @@ function shellHTML() {
 }
 function troopsHTML(st) {
   const B = st.B;
-  return F.TROOP_ORDER.filter(t => (B.left[t] || 0) + (B.used[t] || 0) > 0).map(t => `<button type="button" class="rlr-t${st.pick === t ? ' is-on' : ''}${B.left[t] ? '' : ' is-out'}" role="radio" aria-checked="${st.pick === t}" data-rlr-pick="${t}"><span class="rl-tc-ic" aria-hidden="true">${picOf(t, MY_HOUSE, true)}</span><b>${B.left[t] || 0}</b><small>${esc(F.TROOPS[t].name)}</small></button>`).join('');
+  return DEPLOY_ORDER.filter(t => (B.left[t] || 0) + (B.used[t] || 0) > 0).map(t => {
+    const k = t.startsWith('hero_') ? t.slice(5) : null, hero = k && F.HEROES[k];
+    return `<button type="button" class="rlr-t${hero ? ' is-hero' : ''}${st.pick === t ? ' is-on' : ''}${B.left[t] ? '' : ' is-out'}" role="radio" aria-checked="${st.pick === t}" aria-label="${esc(hero ? `${hero.name}, level ${st.heroLevels[k]}, ${B.left[t] ? 'ready' : 'deployed'}` : `${F.TROOPS[t].name}, ${B.left[t] || 0} ready`)}" data-rlr-pick="${t}"><span class="rl-tc-ic" aria-hidden="true">${hero ? heroIcon(k) : picOf(t, MY_HOUSE, true)}</span><b>${hero ? 'Lv ' + st.heroLevels[k] : B.left[t] || 0}</b><small>${esc(hero ? hero.name : F.TROOPS[t].name)}</small></button>`;
+  }).join('');
 }
 function score(st) {
   const B = st.B;
@@ -67,9 +73,9 @@ function floatText(st, x, y, text, c) {
 
 function send(st, tile) {
   const B = st.B;
-  if (!tile || B.over || st.done) return false;
+  if (!F.mayPlay() || st.dead || !tile || B.over || st.done) return false;
   if (!B.left[st.pick]) {
-    const next = F.TROOP_ORDER.find(t => B.left[t] > 0);
+    const next = DEPLOY_ORDER.find(t => B.left[t] > 0);
     if (!next) return false;
     st.pick = next;
   }
@@ -83,12 +89,12 @@ function send(st, tile) {
 
 /** The attack's end: the take, the glory, the Chronicle, the card. */
 function finish(st, quiet = false) {
-  if (st.done) return;
+  if (st.done || !F.mayPlay()) return;
   st.done = true;
   const B = st.B, r = B.result(), s = F.mine(), now = Date.now();
   if (!B.drops.length) return;
   const ta = F.gloryFor(r.stars, st.T.th);
-  F.finishRaid(s, {id: `a${now.toString(36)}`, vs: st.T.key, nm: st.T.name, at: now, st: r.stars, pc: r.pct, lt: [r.got.gold, r.got.grain], ta}, r.used, now);
+  F.finishRaid(s, {id: `a${now.toString(36)}`, vs: st.T.key, nm: st.T.name, at: now, st: r.stars, pc: r.pct, lt: [r.got.gold, r.got.grain], ta, hr: r.heroes}, r.used, now);
   F.touch();
   F.flush();
   if (quiet) return;
@@ -113,7 +119,15 @@ export default {
     const key = decodeURIComponent((ctx.params && ctx.params.key) || '');
     const st = {el, ctx, key, v: null, B: null, T: null, pick: null, t0: 0, t: 0, done: false, dead: false, hold: null, deadSig: '', coinAt: 0};
     ST.set(ctx, st);
+    st.stopProfile = data.subscribe(type => {
+      if (type === 'me' && !F.mayPlay()) {
+        st.dead = true; st.done = true; stopHold(st);
+        if (st.v) { st.v.dispose(); st.v = null; }
+        el.replaceChildren();
+      }
+    });
     el.addEventListener('click', e => {
+      if (st.dead || !F.mayPlay()) return;
       if (e.target.closest('[data-rlr-home]')) { ctx.back(); return; }
       if (e.target.closest('[data-rlr-quit]')) {
         if (st.t0 && !st.done) { st.B.end(); finish(st); return; }
@@ -124,17 +138,19 @@ export default {
       if (p) { st.pick = p.dataset.rlrPick; el.querySelector('[data-rlr-troops]').innerHTML = troopsHTML(st); ui.haptic('selection'); }
     });
     const begin = () => {
+      if (st.dead || !F.mayPlay()) return;
       const msg = el.querySelector('[data-rlr-msg]');
       if (!daily.LB.ready) { msg.hidden = false; msg.textContent = 'Riding out…'; const off = ctx.on('daily', type => { if (type === 'lb') { off(); begin(); } }); return; }
       F.sync();
       const T = targetOf(key);
       if (T.why) { msg.hidden = false; msg.textContent = T.why; return; }
-      const army = Object.assign({}, F.mine().ar);
-      if (!F.roomOf(army)) { msg.hidden = false; msg.textContent = 'You need an army first (Army, in your realm).'; return; }
+      const s = F.mine(), army = Object.assign({}, s.ar);
+      st.heroLevels = F.heroLevels(s);
+      if (!F.roomOf(army) && !Object.keys(F.heroArmy(s)).length) { msg.hidden = false; msg.textContent = 'Recruit a hero or train troops first (Army, in your realm).'; return; }
       msg.hidden = true;
       st.T = T;
-      st.B = makeBattle(T.base, T.loot, army);
-      st.pick = F.TROOP_ORDER.find(t => army[t] > 0);
+      st.B = makeBattle(T.base, T.loot, army, {heroes: st.heroLevels});
+      st.pick = DEPLOY_ORDER.find(t => st.B.left[t] > 0);
       el.querySelector('[data-rlr-who]').innerHTML = `<span class="rl-tg-lv">${T.th}</span><span><b>${esc(T.name)}</b><small>${T.loot.total.gold || T.loot.total.grain ? `To take ${curHTML('gold', T.loot.total.gold)} ${curHTML('grain', T.loot.total.grain)}` : 'Sacked today: nothing left to take'}</small></span>`;
       el.querySelector('[data-rlr-troops]').innerHTML = troopsHTML(st);
       score(st);
@@ -149,6 +165,7 @@ export default {
     st.dead = true;
     if (st.B && st.t0 && !st.done) { st.B.end(); finish(st, true); }
     stopHold(st);
+    if (st.stopProfile) st.stopProfile();
     if (st.v) st.v.dispose();
     ST.delete(ctx);
   }
@@ -157,7 +174,7 @@ export default {
 function stopHold(st) { if (st.hold) { clearTimeout(st.hold.wait); clearInterval(st.hold.iv); st.hold = null; } }
 async function start3d(st) {
   const ok = await (D3 ? D3.load() : import('./realm-3d.js').then(m => { D3 = m; return m.load(); }));
-  if (st.dead) return;
+  if (st.dead || !F.mayPlay()) return;
   const host = st.el.querySelector('.rl-gl');
   if (!ok) { host.innerHTML = '<div class="rl-loading">This phone can’t show the attack in 3D.</div>'; return; }
   host.innerHTML = '';

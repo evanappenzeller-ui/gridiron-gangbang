@@ -19,6 +19,7 @@ import * as data from '../core/data.js';
 import {createWildlife} from './realm-wildlife.js';
 import {createAmbience} from './realm-ambience.js';
 import {villageGroundTexture} from './realm-ground.js';
+import {createHomeNPCs, createBattleHeroes} from './realm-npcs.js';
 const V = new URL('../vendor/three/', import.meta.url).href;
 let T = null, RE = null, LOADING = null, DEAD = false;
 // The sceneries (core/realm.js SCENERIES), each a layout a shape: its own landscape, placements (its village round
@@ -600,6 +601,7 @@ export function create(host, opts = {}) {
       more = ambience.update(now / 1000, {zoom: view.dist, active: ambienceVisible}) || more;
     }
     if (wildlife) more = wildlife.update(now / 1000, {zoom: view.dist, active: document.visibilityState === 'visible'}) || more;
+    if (homeNPCs) homeNPCs.update(now / 1000, {zoom: view.dist, active: !raid, placement});
     folkFrame(now);
     renderer.render(scene, cam);
     if (opts.onCamera && sig !== cameraSig) { cameraSig = sig; opts.onCamera(); }
@@ -622,6 +624,7 @@ export function create(host, opts = {}) {
 
   // ---- the buildings
   let house = opts.house || {pri: 0x7A1F2B, sec: 0xD4A63A, sigil: 'crown'};
+  const homeNPCs = village ? createHomeNPCs(T, scene) : null;
   const groups = new Map(); // id -> {g, key, b}
   const picks = [];
   let wallSig = '', wallMesh = null;
@@ -668,6 +671,7 @@ export function create(host, opts = {}) {
     updateWear(s);
     const now = o.now || Date.now(), gone = o.gone || new Set();
     if (o.house) house = o.house;
+    if (homeNPCs) homeNPCs.setLot(s, {house});
     const seen = new Set();
     s.b.forEach(b => {
       if (b.t === 'wall') return;
@@ -778,7 +782,11 @@ export function create(host, opts = {}) {
     }));
   }
   // (a few frames a second while there are folk about and no raid's drawing every frame)
-  const folkTimer = setInterval(() => { if (!raid && !dead && !lost && SPR.ready() && document.visibilityState === 'visible') { for (const e of groups.values()) if (e.folk.length) { want(); break; } } }, 160);
+  const folkTimer = setInterval(() => {
+    if (raid || dead || lost || document.visibilityState !== 'visible' || !data.isOwner()) return;
+    if (homeNPCs && homeNPCs.animated) { want(); return; }
+    if (SPR.ready()) for (const e of groups.values()) if (e.folk.length) { want(); break; }
+  }, 160);
 
   // ---- the selected building: a ring of light round its footprint; moving it, a green or red square under it
   const sel = {id: null, mesh: null, foot: null, t0: 0};
@@ -959,7 +967,8 @@ export function create(host, opts = {}) {
       bolt: mk(boltGeo, new T.MeshStandardMaterial({color: 0x4A3220, roughness: .6}), 40),
       rock: mk(new T.DodecahedronGeometry(.22, 0), new T.MeshStandardMaterial({color: 0x77726A, roughness: 1, flatShading: true}), 24),
       fire: mk(new T.SphereGeometry(.22, 10, 8), new T.MeshBasicMaterial({color: 0xFF8A1E, toneMapped: false}), 24),
-      ball: mk(new T.SphereGeometry(.11, 10, 8), new T.MeshStandardMaterial({color: 0x26272A, roughness: .45, metalness: .7}), 40)
+      ball: mk(new T.SphereGeometry(.11, 10, 8), new T.MeshStandardMaterial({color: 0x26272A, roughness: .45, metalness: .7}), 40),
+      magic: mk(new T.OctahedronGeometry(.2), new T.MeshBasicMaterial({color: 0x8FE6FF, toneMapped: false}), 12)
     };
     const puffTex = puffTexture(T), puffs = [];
     for (let i = 0; i < 40; i++) {
@@ -973,7 +982,8 @@ export function create(host, opts = {}) {
     zone.rotation.x = -Math.PI / 2; zone.position.y = .015; zone.renderOrder = 1;
     scene.add(zone);
     raid = {B, meshes, shadow, fly, puffs, fxAt: 0, prev: new Map(), cur: new Map(), stepSeen: -1, zone, zoneCv: cv, zoneTex, zoneSig: '', zoneShow: 0, aim: new Map(),
-      fired: new Map(), byId: new Map(B.bl.map(b => [b.i, b])), t: 0, shotSeen: new WeakSet()};
+      fired: new Map(), byId: new Map(B.bl.map(b => [b.i, b])), t: 0, shotSeen: new WeakSet(),
+      heroes: createBattleHeroes(T, scene, {house: raider}), heroCur: new Map(), heroPrev: new Map()};
     drawZone();
     want();
   }
@@ -1000,9 +1010,12 @@ export function create(host, opts = {}) {
     if (B.step !== R.stepSeen) {
       R.prev = R.cur; R.cur = new Map();
       B.tr.forEach(u => R.cur.set(u.id, {x: u.x, y: u.y}));
+      R.heroPrev = R.heroCur; R.heroCur = new Map();
+      [...B.tr, ...(B.defenders || [])].forEach(u => { if (u.hero) R.heroCur.set(`${u.targetHero ? 'd' : 'a'}:${u.id}`, {x: u.x, y: u.y}); });
       R.stepSeen = B.step;
     }
     const f = Math.max(0, Math.min(1, (t - (B.t - .1)) / .1));
+    R.heroes.update([...B.tr, ...(B.defenders || [])], t, R.heroCur, R.heroPrev, f);
     // the soldiers
     const m4 = new T.Matrix4(), q = new T.Quaternion(), sc = new T.Vector3(1.5, 1.5, 1.5), up = new T.Vector3(0, 1, 0), pv = new T.Vector3();
     const counts = {}, camQ = cam.quaternion, tilt = new T.Quaternion(), zAxis = new T.Vector3(0, 0, 1), ssc = new T.Vector3();
@@ -1062,9 +1075,9 @@ export function create(host, opts = {}) {
     });
     R.shadow.count = nShadow; R.shadow.instanceMatrix.needsUpdate = true;
     // what's in the air: each along its arc, pointing the way it's going
-    const KIND = {archer: 'arrow', tower: 'arrow', ballista: 'bolt', trebuchet: 'rock', dragon: 'fire', cannon: 'ball'};
+    const KIND = {archer: 'arrow', tower: 'arrow', ballista: 'bolt', trebuchet: 'rock', dragon: 'fire', cannon: 'ball', hero_wizard: 'magic'};
     const ARC = {trebuchet: 4, archer: 1.1, tower: 1, ballista: .35, dragon: .15, cannon: .3};
-    const n = {arrow: 0, bolt: 0, rock: 0, fire: 0, ball: 0}, dir = new T.Vector3(), fwd = new T.Vector3(0, 0, 1), one = new T.Vector3(1, 1, 1);
+    const n = {arrow: 0, bolt: 0, rock: 0, fire: 0, ball: 0, magic: 0}, dir = new T.Vector3(), fwd = new T.Vector3(0, 0, 1), one = new T.Vector3(1, 1, 1);
     const a0 = new T.Vector3(), a1 = new T.Vector3();
     B.shots.forEach(s => {
       if (s.foe && !R.shotSeen.has(s)) { R.shotSeen.add(s); R.fired.set(s.from, Math.max(R.fired.get(s.from) ?? -9, s.t0)); if (s.k === 'cannon') puff(s.x0 + Math.cos(Math.atan2(s.y1 - s.y0, s.x1 - s.x0)) * 1.1, s.y0 + Math.sin(Math.atan2(s.y1 - s.y0, s.x1 - s.x0)) * 1.1, .7, 0xD8D2C8, .5, now); }
@@ -1127,12 +1140,13 @@ export function create(host, opts = {}) {
   }
   function raidStop() {
     if (!raid) return;
+    raid.heroes.dispose();
     Object.values(raid.meshes).forEach(M => {
       if (M.art) { scene.remove(M.art); M.art.geometry.dispose(); M.art.material.dispose(); M.art.dispose(); return; }
       scene.remove(M.body, M.leg); M.body.dispose(); M.leg.dispose();
     });
     scene.remove(raid.shadow); raid.shadow.geometry.dispose(); raid.shadow.material.map.dispose(); raid.shadow.material.dispose(); raid.shadow.dispose();
-    Object.values(raid.fly).forEach(M => { scene.remove(M); M.dispose(); });
+    Object.values(raid.fly).forEach(M => { scene.remove(M); M.geometry.dispose(); M.material.dispose(); M.dispose(); });
     scene.remove(raid.zone);
     raid.puffs.forEach(p => scene.remove(p.sp));
     raid = null;
@@ -1215,6 +1229,7 @@ export function create(host, opts = {}) {
       dead = true;
       dropScenery();
       clearInterval(folkTimer);
+      if (homeNPCs) homeNPCs.dispose();
       groups.forEach(dropFolk);
       if (raf) cancelAnimationFrame(raf);
       if (ro) ro.disconnect();

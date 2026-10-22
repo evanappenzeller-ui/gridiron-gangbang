@@ -8,7 +8,7 @@
 // makeBattle(base, loot, army) → {t, over, deploy(t, x, y), step1(), canDrop(x, y), pct(), stars(), result(), ...};
 // replay(...) plays a recorded raid again; defend(s, now) plays the computer's raids on your realm since you last
 // looked (a few a day).
-import {KINDS, TROOPS, TROOP_ORDER, stat, N, RAID_S, BOTS, rng, boxOf, keepOf, lootOf, takeRaid, HOUR} from './realm.js';
+import {KINDS, TROOPS, TROOP_ORDER, HEROES, HERO_ORDER, heroLevels, heroStat, mayPlay, stat, N, RAID_S, BOTS, rng, boxOf, keepOf, lootOf, takeRaid, HOUR} from './realm.js';
 
 export const DT = .1;
 const HIT_EVERY = 1;   // seconds between a soldier's hits
@@ -45,10 +45,16 @@ const distTo = (b, x, y) => Math.hypot(Math.max(b.x - x, 0, x - (b.x + b.size)),
 
 /**
  * A raid on base (a realm state: its buildings), with loot {by: {buildingId: {gold, grain}}}, by an army
- * ({troop: n}).
+ * ({troop: n}). options.heroes is the attacker's permanent-level snapshot, keyed knight/wizard. Defenders come
+ * from base.hr. Hero units use hero_knight/hero_wizard so ordinary trained knights keep their original behavior.
  */
-export function makeBattle(base, loot, army) {
-  const B = {t: 0, step: 0, over: false, why: '', bl: [], tr: [], shots: [], fx: [], left: Object.fromEntries(TROOP_ORDER.filter(t => Number.isInteger(army?.[t]) && army[t] > 0).map(t => [t, army[t]])), used: {}, got: {gold: 0, grain: 0}, gotBy: {}, seq: 0, drops: []};
+export function makeBattle(base, loot, army, options = {}) {
+  const heroes = mayPlay() ? Object.fromEntries(HERO_ORDER.filter(k => heroStat(k, options?.heroes?.[k])).map(k => [k, options.heroes[k]])) : {};
+  const defending = heroLevels(base);
+  const left = Object.fromEntries(TROOP_ORDER.filter(t => Number.isInteger(army?.[t]) && army[t] > 0).map(t => [t, army[t]]));
+  Object.keys(heroes).forEach(k => { left[HEROES[k].troop] = 1; });
+  const B = {t: 0, step: 0, over: false, why: '', bl: [], tr: [], defenders: [], heroes, shots: [], fx: [], left, used: {}, got: {gold: 0, grain: 0}, gotBy: {}, seq: 0, drops: []};
+  const combatStats = u => u.stats || TROOPS[u.t];
   const occ = new Int32Array(N * N).fill(-1);
   (base.b || []).forEach(b => {
     if (b.l < 1) return;
@@ -64,7 +70,7 @@ export function makeBattle(base, loot, army) {
   B.total = total;
   // where nothing can be dropped: on or next to a building that's standing
   B.canDrop = (x, y) => {
-    if (x < 0 || y < 0 || x >= N || y >= N) return false;
+    if (!Number.isFinite(x) || !Number.isFinite(y) || x < 0 || y < 0 || x >= N || y >= N) return false;
     const tx = Math.floor(x), ty = Math.floor(y);
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
       const X = tx + dx, Y = ty + dy;
@@ -81,9 +87,31 @@ export function makeBattle(base, loot, army) {
   };
   B.fieldLeft = () => B.tr.some(u => !u.dead) || Object.values(B.left).some(n => n > 0);
 
+  // Champions muster on clear tiles beside the Keep. They occupy no building footprint and never affect stars,
+  // loot or destruction percentage. A fixed search order gives every replay the same starting positions.
+  const keep = B.bl.find(b => b.t === 'keep');
+  Object.entries(defending).forEach(([hero, level], i) => {
+    if (!keep) return;
+    let home = null, best = Infinity;
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      if (occ[y * N + x] >= 0 || B.defenders.some(u => u.x === x + .5 && u.y === y + .5)) continue;
+      const score = (x + .5 - (keep.cx + (i ? 1.5 : -1.5))) ** 2 + (y + .5 - keep.y - keep.size - 1) ** 2;
+      if (score < best) { best = score; home = {x: x + .5, y: y + .5}; }
+    }
+    if (!home) return;
+    const stats = heroStat(hero, level);
+    B.defenders.push({id: 'def_' + hero, i: 'def_' + hero, t: HEROES[hero].troop, hero, l: level, level, stats,
+      x: home.x, y: home.y, cx: home.x, cy: home.y, size: .6, home, hp: stats.hp, max: stats.hp,
+      targetHero: true, cd: 0, dead: false, face: 0, hitAt: -9, born: 0, path: [], pi: 0, nextPath: 0});
+  });
+  const targetDistance = (b, x, y) => b.targetHero ? Math.hypot(b.x - x, b.y - y) : distTo(b, x, y);
+
   // ---- choosing a target
   const pick = u => {
-    const T = TROOPS[u.t];
+    const T = combatStats(u);
+    const champion = B.defenders.filter(h => !h.dead && targetDistance(h, u.x, u.y) <= 7)
+      .sort((a, b) => targetDistance(a, u.x, u.y) - targetDistance(b, u.x, u.y))[0];
+    if (champion) return champion;
     const alive = B.bl.filter(b => !b.dead);
     let pool;
     if (T.aim === 'def') pool = alive.filter(b => b.def);
@@ -96,11 +124,11 @@ export function makeBattle(base, loot, army) {
   // ---- finding the way: tile to tile (diagonals too), round buildings, through walls at the time it takes to break
   // them, to any tile from which the target is in reach
   const path = (u, tg) => {
-    const T = TROOPS[u.t], reach = T.range + REACH - .05, dps = T.dps || 30;
+    const T = combatStats(u), reach = T.range + REACH - .05, dps = T.dps || 30;
     const sx = Math.max(0, Math.min(N - 1, Math.floor(u.x))), sy = Math.max(0, Math.min(N - 1, Math.floor(u.y)));
     const g = new Float32Array(N * N).fill(Infinity), from = new Int32Array(N * N).fill(-1), closed = new Uint8Array(N * N);
     const tgIdx = B.bl.indexOf(tg);
-    const H = (x, y) => Math.max(0, distTo(tg, x + .5, y + .5) - reach);
+    const H = (x, y) => Math.max(0, targetDistance(tg, x + .5, y + .5) - reach);
     const heap = new Heap(), s = sy * N + sx;
     g[s] = 0;
     heap.push(H(sx, sy), s);
@@ -110,7 +138,7 @@ export function makeBattle(base, loot, army) {
       if (closed[c]) continue;
       closed[c] = 1;
       const cx = c % N, cy = (c / N) | 0;
-      if (distTo(tg, cx + .5, cy + .5) <= reach) { goal = c; break; }
+      if (targetDistance(tg, cx + .5, cy + .5) <= reach) { goal = c; break; }
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
         if (!dx && !dy) continue;
         const X = cx + dx, Y = cy + dy;
@@ -119,13 +147,13 @@ export function makeBattle(base, loot, army) {
         let cost = dx && dy ? 1.414 : 1;
         if (o >= 0 && !B.bl[o].dead && o !== tgIdx) {
           const b = B.bl[o];
-          if (!b.wall) continue;
+          if (!b.wall || u.targetHero) continue;
           cost += b.hp / dps * T.speed;
           // (no squeezing between two walls on a diagonal)
         }
         if (dx && dy) {
           const a = occ[cy * N + X], b2 = occ[Y * N + cx];
-          if ((a >= 0 && !B.bl[a].dead && !B.bl[a].wall && a !== tgIdx) || (b2 >= 0 && !B.bl[b2].dead && !B.bl[b2].wall && b2 !== tgIdx)) continue;
+          if ((a >= 0 && !B.bl[a].dead && (!B.bl[a].wall || u.targetHero) && a !== tgIdx) || (b2 >= 0 && !B.bl[b2].dead && (!B.bl[b2].wall || u.targetHero) && b2 !== tgIdx)) continue;
         }
         const ng = g[c] + cost;
         if (ng < g[n]) { g[n] = ng; from[n] = c; heap.push(ng + H(X, Y), n); }
@@ -138,7 +166,7 @@ export function makeBattle(base, loot, army) {
   };
   const retarget = u => {
     u.tg = pick(u);
-    u.path = u.tg && !TROOPS[u.t].fly ? path(u, u.tg) : [];
+    u.path = u.tg && !combatStats(u).fly ? path(u, u.tg) : [];
     u.pi = 0;
     u.wallAt = null;
   };
@@ -153,6 +181,7 @@ export function makeBattle(base, loot, army) {
   };
   const hurt = (b, d) => {
     if (b.dead || d <= 0) return;
+    if (b.targetHero) { hurtTroop(b, d); return; }
     b.hp -= d;
     takeLoot(b, d);
     if (b.hp <= 0) {
@@ -169,11 +198,16 @@ export function makeBattle(base, loot, army) {
 
   // ---- sending a soldier
   B.deploy = (t, x, y) => {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+    // Store and use the same coordinates when heroes participate, including automatic defense simulations.
+    if (Object.keys(heroes).length || B.defenders.length) { x = Math.round(x * 10) / 10; y = Math.round(y * 10) / 10; }
     if (B.over || !(B.left[t] > 0) || !B.canDrop(x, y)) return null;
+    const hero = HERO_ORDER.find(k => HEROES[k].troop === t), T = hero ? heroStat(hero, heroes[hero]) : TROOPS[t];
+    if (!T || (hero && !mayPlay())) return null;
     B.left[t]--;
     B.used[t] = (B.used[t] || 0) + 1;
-    const T = TROOPS[t];
     const u = {id: ++B.seq, t, x, y, hp: T.hp, max: T.hp, tg: null, path: [], pi: 0, cd: 0, dead: false, face: 0, hitAt: -9, wallAt: null, born: B.t};
+    if (hero) Object.assign(u, {hero, l: heroes[hero], level: heroes[hero], stats: T});
     B.tr.push(u);
     B.drops.push([B.step, t, Math.round(x * 10), Math.round(y * 10)]);
     retarget(u);
@@ -188,21 +222,21 @@ export function makeBattle(base, loot, army) {
     // the soldiers
     B.tr.forEach(u => {
       if (u.dead) return;
-      const T = TROOPS[u.t];
-      if (!u.tg || u.tg.dead) retarget(u);
+      const T = combatStats(u);
+      if (!u.tg || u.tg.dead || (B.defenders.length && B.step % 10 === 0)) retarget(u);
       const tg = u.tg;
       if (!tg) return;
       u.cd = Math.max(0, u.cd - DT);
       // a wall in the way: break it first
       let foe = u.wallAt && !u.wallAt.dead ? u.wallAt : null;
-      if (!foe && distTo(tg, u.x, u.y) <= T.range + REACH) foe = tg;
+      if (!foe && targetDistance(tg, u.x, u.y) <= T.range + REACH) foe = tg;
       if (foe) {
         u.face = Math.atan2(foe.cy - u.y, foe.cx - u.x);
         if (u.cd <= 0) {
           u.cd = HIT_EVERY;
           u.hitAt = B.t;
           const d = T.dps * HIT_EVERY * (u.t === 'thief' && foe.money ? 2 : 1);
-          if (T.range > 1) B.shots.push({k: u.t, from: u.id, x0: u.x, y0: u.y, x1: foe.cx, y1: foe.cy, t0: B.t, t1: B.t + .3, b: foe.i, d, splash: T.splash || 0, foe: false});
+          if (T.range > 1) B.shots.push({k: u.t, from: u.id, x0: u.x, y0: u.y, x1: foe.cx, y1: foe.cy, t0: B.t, t1: B.t + .3, b: foe.i, h: foe.targetHero ? foe.id : null, d, splash: T.splash || 0, foe: false});
           else {
             hurt(foe, d);
             B.fx.push({k: 'hit', t: B.t, x: foe.cx, y: foe.cy, id: u.id});
@@ -213,7 +247,7 @@ export function makeBattle(base, loot, army) {
       }
       // flying: straight at it, over everything
       if (T.fly) {
-        const px = Math.max(tg.x, Math.min(tg.x + tg.size, u.x)), py = Math.max(tg.y, Math.min(tg.y + tg.size, u.y));
+        const px = tg.targetHero ? tg.x : Math.max(tg.x, Math.min(tg.x + tg.size, u.x)), py = tg.targetHero ? tg.y : Math.max(tg.y, Math.min(tg.y + tg.size, u.y));
         const dx = px - u.x, dy = py - u.y, d = Math.hypot(dx, dy), go = Math.min(T.speed * DT, Math.max(0, d - T.range));
         u.face = Math.atan2(dy, dx);
         if (d > 1e-6) { u.x += dx / d * go; u.y += dy / d * go; }
@@ -229,6 +263,36 @@ export function makeBattle(base, loot, army) {
       if (d <= go) { u.x = nx; u.y = ny; u.pi++; }
       else { u.x += dx / d * go; u.y += dy / d * go; }
     });
+    // Heroes defend on the ground, walking around their own buildings and walls. The Wizard can target flyers;
+    // the Knight cannot. Both can be attacked and defeated, and return unharmed to the permanent roster afterward.
+    B.defenders.forEach(h => {
+      if (h.dead) return;
+      const T = combatStats(h);
+      h.cd = Math.max(0, h.cd - DT);
+      const foe = B.tr.filter(u => !u.dead && (T.air || !combatStats(u).fly) && Math.hypot(u.x - h.home.x, u.y - h.home.y) <= 14)
+        .sort((a, b) => Math.hypot(a.x - h.x, a.y - h.y) - Math.hypot(b.x - h.x, b.y - h.y))[0];
+      const target = foe || h.home, distance = Math.hypot(target.x - h.x, target.y - h.y);
+      h.face = Math.atan2(target.y - h.y, target.x - h.x);
+      if (foe && distance <= T.range + REACH) {
+        if (h.cd <= 0) {
+          h.cd = HIT_EVERY; h.hitAt = B.t;
+          if (T.range > 1) B.shots.push({k: h.t, from: h.id, x0: h.x, y0: h.y, x1: foe.x, y1: foe.y,
+            t0: B.t, t1: B.t + .3, u: foe.id, d: T.dps, splash: T.splash, air: T.air, foe: true, high: !!combatStats(foe).fly});
+          else { hurtTroop(foe, T.dps); B.fx.push({k: 'hit', t: B.t, x: foe.x, y: foe.y, id: h.id}); }
+        }
+        return;
+      }
+      if (!foe && distance < .7) return;
+      if (B.step >= h.nextPath) {
+        h.path = path(h, {x: target.x, y: target.y, targetHero: true}); h.pi = 0; h.nextPath = B.step + 10;
+      }
+      const c = h.path[h.pi];
+      if (c == null) return;
+      const nx = c % N + .5, ny = Math.floor(c / N) + .5, dx = nx - h.x, dy = ny - h.y, d = Math.hypot(dx, dy), go = T.speed * DT;
+      if (d <= go) { h.x = nx; h.y = ny; h.pi++; }
+      else { h.x += dx / d * go; h.y += dy / d * go; }
+      h.cx = h.x; h.cy = h.y;
+    });
     // the defenses
     B.bl.forEach(b => {
       if (b.dead || !b.def) return;
@@ -236,7 +300,7 @@ export function makeBattle(base, loot, army) {
       if (b.cd > 0) return;
       let best = null, bd = Infinity;
       B.tr.forEach(u => {
-        if (u.dead || (TROOPS[u.t].fly && !b.def.air)) return;
+        if (u.dead || (combatStats(u).fly && !b.def.air)) return;
         const d = Math.hypot(u.x - b.cx, u.y - b.cy);
         if (d <= b.def.range + b.size / 2 && d >= (b.def.min || 0) && d < bd) { bd = d; best = u; }
       });
@@ -244,19 +308,19 @@ export function makeBattle(base, loot, army) {
       b.cd = b.def.every;
       b.aim = Math.atan2(best.y - b.cy, best.x - b.cx);
       const fl = FLIGHT[b.t] || .3;
-      B.shots.push({k: b.t, from: b.i, x0: b.cx, y0: b.cy, x1: best.x, y1: best.y, t0: B.t, t1: B.t + fl, u: best.id, d: b.def.dps * b.def.every, splash: b.def.splash || 0, air: b.def.air, foe: true, high: !!TROOPS[best.t].fly});
+      B.shots.push({k: b.t, from: b.i, x0: b.cx, y0: b.cy, x1: best.x, y1: best.y, t0: B.t, t1: B.t + fl, u: best.id, d: b.def.dps * b.def.every, splash: b.def.splash || 0, air: b.def.air, foe: true, high: !!combatStats(best).fly});
     });
     // shots landing
     B.shots = B.shots.filter(s => {
       if (s.t1 > B.t + 1e-6) return true;
       if (s.foe) {
-        if (s.splash) B.tr.forEach(u => { if (!u.dead && (!TROOPS[u.t].fly || s.air) && Math.hypot(u.x - s.x1, u.y - s.y1) <= s.splash) hurtTroop(u, s.d); });
+        if (s.splash) B.tr.forEach(u => { if (!u.dead && (!combatStats(u).fly || s.air) && Math.hypot(u.x - s.x1, u.y - s.y1) <= s.splash) hurtTroop(u, s.d); });
         else { const u = B.tr.find(q => q.id === s.u); if (u) hurtTroop(u, s.d); }
         B.fx.push({k: 'land', t: B.t, x: s.x1, y: s.y1, of: s.k, splash: s.splash});
       } else {
-        const b = B.bl.find(q => q.i === s.b);
+        const b = s.h ? B.defenders.find(q => q.id === s.h) : B.bl.find(q => q.i === s.b);
         if (b) {
-          if (s.splash) B.bl.forEach(q => { if (!q.dead && distTo(q, s.x1, s.y1) <= s.splash) hurt(q, s.d); });
+          if (s.splash) [...B.bl, ...B.defenders].forEach(q => { if (!q.dead && targetDistance(q, s.x1, s.y1) <= s.splash) hurt(q, s.d); });
           else hurt(b, s.d);
           B.fx.push({k: 'hit', t: B.t, x: s.x1, y: s.y1, of: s.k});
         }
@@ -272,13 +336,13 @@ export function makeBattle(base, loot, army) {
   B.end = () => end('quit');
   /** Runs the clock to t seconds (steps of DT). */
   B.run = t => { while (!B.over && B.t + DT <= t + 1e-9) B.step1(); };
-  B.result = () => ({stars: B.stars(), pct: B.pct(), got: Object.assign({}, B.got), gotBy: JSON.parse(JSON.stringify(B.gotBy)), used: Object.assign({}, B.used), t: B.t, drops: B.drops.slice()});
+  B.result = () => ({stars: B.stars(), pct: B.pct(), got: Object.assign({}, B.got), gotBy: JSON.parse(JSON.stringify(B.gotBy)), used: Object.assign({}, B.used), t: B.t, drops: B.drops.slice(), heroes: {...heroes}});
   return B;
 }
 
 /** Plays a recorded raid again from its drops ([[step, troop, x*10, y*10]]): the same raid. */
-export function replay(base, loot, army, drops, until = Infinity) {
-  const B = makeBattle(base, loot, army);
+export function replay(base, loot, army, drops, until = Infinity, options = {}) {
+  const B = makeBattle(base, loot, army, options);
   let k = 0;
   while (!B.over && B.t < until) {
     while (k < drops.length && drops[k][0] <= B.step) { const d = drops[k++]; B.deploy(d[1], d[2] / 10, d[3] / 10); }
@@ -352,7 +416,8 @@ export function defend(s, now = Date.now()) {
       if (b && KINDS[b.t].role === 'make') lb[id] = [v.gold, v.grain];
       else { ls[0] += v.gold; ls[1] += v.grain; }
     });
-    const rec = {id: 'd' + at.toString(36), at, by: bot.name, th: bot.th, st: r.stars, pc: r.pct, lt: [r.got.gold, r.got.grain], ls, lb, td: r.stars ? -r.stars * th * 3 : th * 3};
+    const rec = {id: 'd' + at.toString(36), at, by: bot.name, th: bot.th, st: r.stars, pc: r.pct, lt: [r.got.gold, r.got.grain], ls, lb, td: r.stars ? -r.stars * th * 3 : th * 3,
+      hr: heroLevels(s)};
     takeRaid(s, rec);
     if (r.stars) s.sh = at + TRUCE_H * HOUR;
     out.push(rec);
