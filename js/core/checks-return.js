@@ -15,7 +15,7 @@ import * as R from './return.js';
 import * as daily from './daily.js';
 import * as data from './data.js';
 import {gameFor} from '../views/puzzles.js';
-import {gamesFor, listHTML, GAMES} from '../views/games.js';
+import {gamesFor, listHTML, GAMES, __dev as shelfDev} from '../views/games.js';
 
 /** Names for crafted board docs: self, the profile this phone is on (the boards take this phone's own doc as that
  *  profile's, whatever name it carries, so "his" other docs must carry the same; Evan with no profile picked), and
@@ -485,6 +485,28 @@ export async function returnChecks(check) {
     const tagged = [...host.querySelectorAll('.gm-slot:not([data-gm-clone])')].filter(sl => sl.querySelector('.gm-front .gm-beta')).map(sl => sl.dataset.gmSlot).join();
     const beta = tagged === 'return' && GAMES.filter(g => g.beta).map(g => g.id).join() === 'return';
     return {pass: open && all && beta, detail: `opens on every phone ${open}; lists ${lists.join(' | ')}; BETA on ${tagged || 'none'}`};
+  });
+  check('Return Man\'s case turns before it\'s played (the owner\'s ask, Oct 22 2026, for everyone: "the game is repeatable"): on the shelf it stands on its front to play, today\'s leaderboard on its back (TODAY, not FINAL), its edges grab to turn it like a finished game\'s; an unplayed game\'s case still doesn\'t turn', async () => {
+    const LB = daily.LB, saved = {raw: LB.raw, all: LB.all, players: LB.players, ready: LB.ready, off: LB.off, err: LB.err}, was = shelfDev.cores.rm;
+    const n = R.todayNumber(), mason = doc('rt-m', 'Mason', {[n]: e(300, 150, 1, 1)});
+    let back = null, cls = '', others = '', board = '';
+    try {
+      LB.raw = LB.all = LB.players = [mason]; LB.ready = true; LB.off = false; LB.err = undefined;
+      shelfDev.cores.rm = R;
+      board = R.boardState();
+      const host = document.createElement('div');
+      host.innerHTML = listHTML();
+      const cs = host.querySelector('.gm-slot:not([data-gm-clone]) .gm-case[data-gm="return"]');
+      cls = cs ? cs.className : '';
+      back = cs && cs.querySelector('.gm-back');
+      others = [...host.querySelectorAll('.gm-slot:not([data-gm-clone]) .gm-case.is-turns')].map(c => c.dataset.gm).join();
+    } finally { Object.assign(LB, saved); shelfDev.cores.rm = was; }
+    const txt = back ? back.textContent : '';
+    const shows = /Today’s leaderboard/.test(txt) && /TODAY/.test(txt) && !/FINAL/.test(txt) && (board === 'ready' ? /Mason/.test(txt) : !!back.querySelector('.gm-scr-note'));
+    const [turner, css] = await Promise.all(['../views/game-case.js', '../../css/views/puzzles.css'].map(f => fetch(new URL(f, import.meta.url)).then(r => r.text()).catch(() => '')));
+    const turns = /is-turns'\) \? \[FRONT, BACK\]/.test(turner) && /closest\('\.gm-case\.is-done, \.gm-case\.is-turns'\)/.test(turner) && /\.gm-case:not\(\.is-done\):not\(\.is-turns\) \.gm-grip \{ display: none; \}/.test(css);
+    const pass = /\bis-turns\b/.test(cls) && !/\bis-done\b/.test(cls) && shows && others === 'return' && turns;
+    return {pass, detail: `the case ${cls}; its back ${shows ? 'today\'s leaderboard' : 'WRONG: ' + txt.slice(0, 80)} (board ${board}); cases that turn unplayed: ${others || 'none'}; grabbed and turned like a finished one ${turns}`};
   });
   // ------------------------------------------------------------------------------------------- the hard course
   check('Return Man: the hard course (the owner\'s ask, Oct 2026: a run of 90 seconds to 3 minutes, his profile only for now): a course of its own (the regular one as it was); quicker from the start and never done speeding up (past 30 yards a second by 3,000 yards; the regular course tops out at 19); the beats keep closing in; potholes, none in the first 40 yards; no tackling sleds (the owner\'s ask, Oct 22 2026: "Remove the obstacle with the two pillars"), their lanes left open where they were drawn (sl: only with the road open all the way across, never in every lane)', () => {

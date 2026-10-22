@@ -186,7 +186,7 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
 .v-puzzles .gm-grip.is-l, .v-puzzles .gm-grip.is-r { top: 18%; bottom: 18%; width: 22%; }
 .v-puzzles .gm-grip.is-l { left: 0; }
 .v-puzzles .gm-grip.is-r { right: 0; }
-.v-puzzles .gm-slot:not(.is-cur) .gm-grip, .v-puzzles .gm-case:not(.is-done) .gm-grip { display: none; } /* (a game not finished doesn't turn: its edges swipe the shelf) */
+.v-puzzles .gm-slot:not(.is-cur) .gm-grip, .v-puzzles .gm-case:not(.is-done):not(.is-turns) .gm-grip { display: none; } /* (a game not finished doesn't turn: its edges swipe the shelf; Return Man, played again and again, turns anyway) */
 .v-puzzles .gm-slot.is-cur .gm-case.is-turning::after, .v-puzzles .gm-case.is-turning > .gm-gloss { opacity: 0; }
 .v-puzzles .gm-case:focus-visible { outline: none; }
 .v-puzzles .gm-case::after {

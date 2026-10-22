@@ -277,13 +277,15 @@ export function turnable(surface, dlg, on = () => {}, opts = {}) {
  * .gm-grip, on the case in the middle only) a case turns where it stands, and let go it springs to the nearer of its
  * sides, its back or its front; a swipe across its middle still goes along the shelf. Only a game finished turns (the
  * owner's ask, Oct 2026): till then its case stands still, facing front, here and up close. At rest on the side it shows on its own, its turn is handed back to the stylesheet.
- * Returns {home(cs): ease a case back to that side, stop()}.
+ * A game played again and again (.is-turns: Return Man, the owner's ask, Oct 22 2026, for everyone) turns too, played
+ * today or not, its leaderboard on its back; it stands on its front (to play), and goes back to it off the middle.
+ * Returns {home(cs): ease a case back to that side, back(cs): whether it's showing its back now, stop()}.
  */
 export function shelfTurner(shelf) {
   const all = new Map(); // a case turned → its state
   let P = null, dragged = false;
   const own = cs => (cs.classList.contains('is-done') ? BACK : FRONT);
-  const sidesOf = cs => (cs.classList.contains('is-done') ? [BACK, FRONT] : [FRONT]);
+  const sidesOf = cs => (cs.classList.contains('is-done') ? [BACK, FRONT] : cs.classList.contains('is-turns') ? [FRONT, BACK] : [FRONT]);
   const target = S => S.goal || sidesOf(S.cs).reduce((a, b) => (len(between(S.q, b)) < len(between(S.q, a)) ? b : a));
   const stateOf = cs => {
     let S = all.get(cs);
@@ -316,7 +318,7 @@ export function shelfTurner(shelf) {
   const down = e => {
     if (P || e.button > 0) return;
     dragged = false;
-    const g = e.target.closest('.gm-grip'), cs = g && g.closest('.gm-case.is-done'); // (only a game finished turns)
+    const g = e.target.closest('.gm-grip'), cs = g && g.closest('.gm-case.is-done, .gm-case.is-turns'); // (only a game finished turns, and one played again and again)
     if (cs) P = {id: e.pointerId, cs, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, on: false, moves: []};
   };
   const move = e => {
@@ -355,6 +357,11 @@ export function shelfTurner(shelf) {
       if (!S || (P && P.cs === cs)) return;
       S.held = false; S.goal = own(cs);
       wake(S);
+    },
+    back(cs) {
+      const S = cs && all.get(cs);
+      if (!S) return !!cs && own(cs) === BACK;
+      return target(S) === BACK;
     },
     stop() {
       all.forEach(S => { if (S.raf) cancelAnimationFrame(S.raf); S.cs.classList.remove('is-turning'); });
