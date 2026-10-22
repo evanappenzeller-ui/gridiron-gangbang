@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "scene": {
+    "width": 887,
+    "height": 1774,
+    "origin": "top-left",
+    "units": "reference pixels",
+    "background_asset_id": "christmas:world-v2"
+  },
+  "lot": {
+    "cx": 442,
+    "cy": 872,
+    "h": 132
+  },
+  "terrain_color": "#c8cce9",
+  "lighting": "dusk",
+  "build_zone_polygon": [
+    [
+      351.00350910464994,
+      872
+    ],
+    [
+      442,
+      800.72
+    ],
+    [
+      532.99649089535,
+      872
+    ],
+    [
+      442,
+      943.28
+    ]
+  ],
+  "assets": {
+    "christmas:world-v2": {
+      "width": 887,
+      "height": 1774,
+      "pic": {
+        "file": "christmas/world-v2.webp",
+        "w": 887,
+        "h": 1774
+      }
+    },
+    "christmas:sleigh": {
+      "width": 1536,
+      "height": 1024,
+      "pic": {
+        "file": "christmas/santa-sleigh-v1.webp",
+        "w": 1536,
+        "h": 1024
+      }
+    }
+  },
+  "instances": [],
+  "notes": "Architecture and vegetation are baked into the world art. The calibrated lot maps to the unchanged 44 by 44 tile square. Wildlife is rendered separately."
+}

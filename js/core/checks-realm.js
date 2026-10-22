@@ -155,20 +155,26 @@ export async function realmChecks(check) {
     return {pass: room && centred && moved, detail: `the base ${B}×${B} (${B * B} tiles), the top Keep’s lot ${need} (${Math.round(need / B / B * 100)}%); laid out round the middle ${centred}; an old save moved ${by} over, once ${moved}`};
   });
 
-  check('Realm: the lands (Oct 2026): a realm starts on the coast; raising the Keep unlocks the Enchanted Forest (level 2), the Frozen Tundra (3), the Ocean Sanctuary (5), the Amber Desert (6) and the Infernal Wastes (7), each its to pick once open, never before; the pick is kept with the realm, and a save whose pick isn’t open (or isn’t one) lies on the coast', () => {
-    const s = F.fresh(T0), keep = s.b.find(b => b.t === 'keep');
-    const start = F.sceneryOf(s) === 'coast' && F.SCENERIES.filter(x => F.sceneryOpen(s, x.k)).map(x => x.k).join() === 'coast';
+  check('Realm: the lands (Oct 2026): a realm starts on the coast; Christmas Kingdom is available to Evan at Keep 1 only; raising the Keep unlocks the Enchanted Forest (level 2), the Frozen Tundra (3), the Ocean Sanctuary (5), the Amber Desert (6) and the Infernal Wastes (7); scenery choices persist, can return to the coast, and unavailable choices fall back safely', () => {
+    const s = F.fresh(T0), keep = s.b.find(b => b.t === 'keep'), owner = !!data.isOwner();
+    const start = F.sceneryOf(s) === 'coast' && F.SCENERIES.filter(x => F.sceneryOpen(s, x.k)).map(x => x.k).sort().join() === (owner ? 'christmas,coast' : 'coast');
     const early = !F.pickScenery(s, 'tundra') && F.sceneryOf(s) === 'coast';
     const at = {};
     for (let l = 1; l <= F.MAX_KEEP; l++) { keep.l = l; F.SCENERIES.forEach(x => { if (at[x.k] == null && F.sceneryOpen(s, x.k)) at[x.k] = l; }); }
-    const levels = at.coast === 1 && at.forest === 2 && at.tundra === 3 && at.ocean === 5 && at.desert === 6 && at.infernal === 7;
+    const levels = at.coast === 1 && at.forest === 2 && at.tundra === 3 && at.ocean === 5 && at.desert === 6 && at.infernal === 7 && (owner ? at.christmas === 1 : at.christmas == null);
     keep.l = 5;
     const picked = F.pickScenery(s, 'ocean') && F.sceneryOf(s) === 'ocean' && !F.pickScenery(s, 'infernal') && F.sceneryOf(s) === 'ocean';
     const kept = F.sceneryOf(F.clean(JSON.parse(JSON.stringify(s)))) === 'ocean';
     const low = F.clean(Object.assign(JSON.parse(JSON.stringify(s)), {sc: 'infernal'})), junk = F.clean(Object.assign(JSON.parse(JSON.stringify(s)), {sc: 'moon'}));
     const fallback = F.sceneryOf(low) === 'coast' && junk.sc === '' && F.sceneryOf(junk) === 'coast';
     const back = F.pickScenery(s, 'coast') && F.sceneryOf(s) === 'coast' && s.sc === '';
-    return {pass: start && early && levels && picked && kept && fallback && back, detail: `starts on the coast ${start}; the tundra at Keep 1 refused ${early}; unlocked at ${JSON.stringify(at)}; at Keep 5 the ocean picked, the wastes refused ${picked}; kept in the save ${kept}; a pick not open (or unknown) on the coast ${fallback}; back to the coast ${back}`};
+    const holiday = F.fresh(T0), christmasPick = F.pickScenery(holiday, 'christmas');
+    const holidaySave = F.clean({...F.fresh(T0), sc: 'christmas'});
+    const christmas = owner
+      ? christmasPick && F.keepOf(holiday) === 1 && F.sceneryOf(holiday) === 'christmas' && F.sceneryOf(F.clean(JSON.parse(JSON.stringify(holiday)))) === 'christmas'
+        && F.pickScenery(holiday, 'coast') && holiday.sc === '' && F.sceneryOf(holiday) === 'coast'
+      : !christmasPick && F.sceneryOf(holiday) === 'coast' && F.sceneryOf(holidaySave) === 'coast';
+    return {pass: start && early && levels && picked && kept && fallback && back && christmas, detail: `starts on the coast ${start}; the tundra at Keep 1 refused ${early}; unlocked at ${JSON.stringify(at)}; at Keep 5 the ocean picked, the wastes refused ${picked}; kept in the save ${kept}; a pick not open (or unknown) on the coast ${fallback}; back to the coast ${back}; Christmas selection/persistence/owner restriction ${christmas}`};
   });
 
   check('Realm: the army trains one at a time with Grain (a footman 5 s at one barracks), into the war camps’ room; a full camp takes no more; one taken out of training gives its Grain back', () => {

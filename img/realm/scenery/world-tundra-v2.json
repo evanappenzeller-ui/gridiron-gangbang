@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "scene": {
+    "width": 887,
+    "height": 1774,
+    "origin": "top-left",
+    "units": "reference pixels",
+    "background_asset_id": "tundra:world-v2"
+  },
+  "lot": {
+    "cx": 450,
+    "cy": 876,
+    "h": 170
+  },
+  "terrain_color": "#d6e0ef",
+  "build_zone_polygon": [
+    [
+      332.80754960447337,
+      876
+    ],
+    [
+      450,
+      784.2
+    ],
+    [
+      567.1924503955266,
+      876
+    ],
+    [
+      450,
+      967.8
+    ]
+  ],
+  "assets": {
+    "tundra:world-v2": {
+      "width": 887,
+      "height": 1774,
+      "pic": {
+        "file": "tundra/world-v2.webp",
+        "w": 887,
+        "h": 1774
+      }
+    }
+  },
+  "instances": [],
+  "notes": "Architecture and vegetation are baked into the world art. The calibrated lot maps to the unchanged 44 by 44 tile square. Wildlife is rendered separately."
+}

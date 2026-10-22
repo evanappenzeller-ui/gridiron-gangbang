@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "scene": {
+    "width": 887,
+    "height": 1774,
+    "origin": "top-left",
+    "units": "reference pixels",
+    "background_asset_id": "coast:world-v2"
+  },
+  "lot": {
+    "cx": 452,
+    "cy": 807,
+    "h": 140
+  },
+  "terrain_color": "#606625",
+  "lighting": "dusk",
+  "build_zone_polygon": [
+    [
+      355.4885702625075,
+      807
+    ],
+    [
+      452,
+      731.4
+    ],
+    [
+      548.5114297374926,
+      807
+    ],
+    [
+      452,
+      882.6
+    ]
+  ],
+  "assets": {
+    "coast:world-v2": {
+      "width": 887,
+      "height": 1774,
+      "pic": {
+        "file": "coast/world-v3.webp",
+        "w": 887,
+        "h": 1774
+      }
+    }
+  },
+  "instances": [],
+  "notes": "Architecture and vegetation are baked into the world art. The calibrated lot maps to the unchanged 44 by 44 tile square. Wildlife is rendered separately."
+}

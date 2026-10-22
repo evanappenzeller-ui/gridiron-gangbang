@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "scene": {
+    "width": 887,
+    "height": 1774,
+    "origin": "top-left",
+    "units": "reference pixels",
+    "background_asset_id": "infernal:world-v2"
+  },
+  "lot": {
+    "cx": 440,
+    "cy": 892,
+    "h": 150
+  },
+  "terrain_color": "#644130",
+  "build_zone_polygon": [
+    [
+      336.59489670982947,
+      892
+    ],
+    [
+      440,
+      811.0
+    ],
+    [
+      543.4051032901705,
+      892
+    ],
+    [
+      440,
+      973.0
+    ]
+  ],
+  "assets": {
+    "infernal:world-v2": {
+      "width": 887,
+      "height": 1774,
+      "pic": {
+        "file": "infernal/world-v2.webp",
+        "w": 887,
+        "h": 1774
+      }
+    }
+  },
+  "instances": [],
+  "notes": "Architecture and vegetation are baked into the world art. The calibrated lot maps to the unchanged 44 by 44 tile square. Wildlife is rendered separately."
+}

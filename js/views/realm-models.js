@@ -40,6 +40,11 @@ class Kit {
   }
   box(w, h, d, color, at = [0, 0, 0], o = {}) { return this.add(new T.BoxGeometry(w, h, d), color, o.mat, [at[0], at[1] + h / 2, at[2]], o.rot || [0, 0, 0]); }
   cyl(rt, rb, h, color, at = [0, 0, 0], o = {}) { return this.add(new T.CylinderGeometry(rt, rb, h, o.seg || 20, 1, !!o.open), color, o.mat, [at[0], at[1] + (o.mid ? 0 : h / 2), at[2]], o.rot || [0, 0, 0], o.scl || [1, 1, 1]); }
+  rod(r, from, to, color, o = {}) {
+    const a = new T.Vector3(...from), b = new T.Vector3(...to), d = b.clone().sub(a), q = new T.Quaternion().setFromUnitVectors(new T.Vector3(0, 1, 0), d.clone().normalize());
+    const e = new T.Euler().setFromQuaternion(q);
+    return this.cyl(r, r, d.length(), color, a.add(b).multiplyScalar(.5).toArray(), {...o, mid: true, rot: [e.x, e.y, e.z]});
+  }
   ball(r, color, at, o = {}) { return this.add(new T.SphereGeometry(r, o.seg || 18, o.rows || 12, 0, Math.PI * 2, 0, o.cap || Math.PI), color, o.mat, at, o.rot || [0, 0, 0], o.scl || [1, 1, 1]); }
   ring(r, tube, color, at, o = {}) { return this.add(new T.TorusGeometry(r, tube, 8, o.seg || 28, o.arc || Math.PI * 2), color, o.mat, at, o.rot || [Math.PI / 2, 0, 0]); }
   rock(r, color, at, o = {}) { return this.add(new T.DodecahedronGeometry(r, 0), color, o.mat, at, o.rot || [0, 0, 0], o.scl || [1, 1, 1]); }
@@ -141,12 +146,38 @@ export function bannerTexture(h) {
 // Trim by level: iron, bronze, silver, gold.
 const TRIM = [0x4A4D52, 0x4A4D52, 0x4A4D52, 0x9A6B3A, 0x9A6B3A, 0xBFC4CB, 0xBFC4CB, 0xD9AD3C, 0xD9AD3C, 0xE8BE4A, 0xE8BE4A, 0xF2CB55];
 export const trimOf = l => TRIM[Math.max(0, Math.min(TRIM.length - 1, l - 1))];
-const STONE = 0x9A958C, STONE2 = 0x7C776F, DARKSTONE = 0x55524D, WOOD = 0x7B5434, DARKWOOD = 0x4B321F, THATCH = 0xC9A24F, PLASTER = 0xE3D9C3,
+const STONE = 0x9A958C, STONE2 = 0x7C776F, DARKSTONE = 0x55524D, WOOD = 0x7B5434, DARKWOOD = 0x4B321F, THATCH = 0x927546, PLASTER = 0xB3AA94,
   IRON = 0x3F4247, GOLD = 0xE2B23C, DIRT = 0x7E6347, COBBLE = 0x8C8478, FIRE = 0xFF8A1E;
-/** The cobbles every building stands on. */
+// Small, uneven stones and exposed soil keep procedural buildings grounded beside the painted building sprites.
+// All the detail is baked into the existing meshes; foundations still finish at y .08 within the same footprint.
 function pad(k, s, l, color = COBBLE) {
-  k.slab(s - .14, s - .14, .08, .2, color, [0, 0, 0]);
-  if (l >= 4) k.slab(s - .02, s - .02, .03, .22, trimOf(l), [0, -.01, 0], {mat: 'metal'});
+  const earth = color === DIRT, dark = color === DARKSTONE;
+  const colors = earth ? [0x584B37, 0x65543E, 0x706049, 0x4D4535] : dark ? [0x42443E, 0x51514A, 0x5D5B51, 0x45473F] : [0x5F5E51, 0x6D6A5C, 0x59594E, 0x777163];
+  k.slab(s - .18, s - .18, .025, .38, 0x3F3C2E, [0, .005, 0]);
+  k.slab(s - .32, s - .32, .025, .32, earth ? 0x564833 : dark ? 0x3C4038 : 0x4D4D41, [0, .025, 0]);
+  const n = Math.max(4, Math.round((s - .5) / .37)), step = (s - .48) / n;
+  for (let row = 0; row < n; row++) for (let col = 0; col < n; col++) {
+    // An offset bond, with chipped corners and occasional gaps of bare soil.
+    const i = row * n + col, x = (col - (n - 1) / 2) * step + (row % 2 ? .045 : -.045), z = (row - (n - 1) / 2) * step;
+    if (((row === 0 || row === n - 1) && (col === 0 || col === n - 1)) || (earth && i % 5 === 0)) continue;
+    k.box(step - .035 - (i % 3) * .01, .018 + (i % 3) * .004, step - .045, colors[(row * 3 + col) % colors.length], [x, .05, z], {rot: [0, ((i % 5) - 2) * .018, 0]});
+  }
+  for (let i = 0; i < 11; i++) {
+    const a = i * Math.PI * 2 / 11 + .15, r = s * .44, p = .045 + (i % 3) * .015;
+    k.rock(p, colors[i % colors.length], [Math.cos(a) * r, .025, Math.sin(a) * r], {scl: [1.2, .45, .9], rot: [0, a, .2]});
+  }
+  if (l >= 4) [-1, 1].forEach(x => [-1, 1].forEach(z => k.box(.13, .025, .13, trimOf(l), [x * (s * .5 - .32), .045, z * (s * .5 - .32)], {mat: 'metal'})));
+}
+/** A planked rotating deck, with visible seams and a narrow iron retaining hoop. */
+function timberDeck(k, r, y) {
+  k.cyl(r, r, .035, DARKWOOD, [0, y, 0], {seg: 24});
+  const n = Math.max(5, Math.round(r * 2 / .18)), step = r * 2 / n;
+  for (let i = 0; i < n; i++) {
+    const z = -r + (i + .5) * step, edge = Math.abs(z) + step * .44, w = Math.sqrt(Math.max(0, r * r - edge * edge)) * 2;
+    k.box(w, .018, step * .88, [0x60472E, 0x6E5337, 0x57412D][i % 3], [0, y + .035, z]);
+    if (w > .5) [-1, 1].forEach(sd => k.cyl(.012, .012, .006, IRON, [sd * (w / 2 - .09), y + .054, z], {seg: 5}));
+  }
+  k.ring(r - .012, .016, IRON, [0, y + .04, 0], {mat: 'metal', seg: 24});
 }
 const banner = (k, house, at, rot = [0, 0, 0], w = .34, h = .68) => k.plane(w, h, bannerTexture(house), at, rot, {alpha: true, double: true});
 const flag = (k, house, at, pole = .6) => {
@@ -231,7 +262,11 @@ const BUILD = {
     for (let i = 0; i < rows; i++) {
       const z = -1.15 + i * (2.1 / (rows - 1));
       k.box(1.8, .04, .14, 0x5A4430, [-.3, .06, z]);
-      k.box(1.72, .16 + .01 * l, .1, i % 2 ? 0xD6B44C : 0xC9A23E, [-.3, .1, z]);
+      for (let j = 0; j < 9; j++) {
+        const x = -1.08 + j * .19, height = .13 + .01 * l + ((i + j) % 3) * .025;
+        k.box(.025, height, .025, 0x86733D, [x, .1, z], {rot: [0, 0, ((j % 3) - 1) * .13]});
+        k.box(.065, .09, .055, (i + j) % 2 ? 0xBA9A48 : 0x9D813C, [x, .1 + height * .7, z]);
+      }
     }
     // the windmill at the back corner: a stone tower, a thatched cap, four sails
     const wx = .95, wz = -.85, wh = 1.15 + .06 * l;
@@ -321,8 +356,12 @@ const BUILD = {
   cannon(k, l, h) {
     // an emplacement: a ring of earth and timber (stone from level 4) round a turning deck; the powder and shot by it
     pad(k, 3, l, l >= 4 ? COBBLE : DIRT);
-    k.cyl(.95, 1.02, .16, l >= 4 ? STONE2 : DARKWOOD, [0, .08, 0], {seg: 20});
-    k.cyl(.7, .7, .04, l >= 8 ? 0x5A4A3A : WOOD, [0, .24, 0], {seg: 20});
+    k.cyl(.95, 1.02, .16, l >= 4 ? 0x4F5148 : DARKWOOD, [0, .08, 0], {seg: 20});
+    for (let i = 0; i < 16; i++) {
+      const a = i * Math.PI / 8;
+      k.box(.3, .12, .12, l >= 4 ? [0x636153, 0x777162, 0x585B50][i % 3] : [0x5B422C, 0x705337, 0x4F3B2A][i % 3], [Math.sin(a) * .94, .1, Math.cos(a) * .94], {rot: [0, a, 0]});
+    }
+    timberDeck(k, .7, .24);
     for (let i = 0; i < 3 + Math.min(3, l >> 1); i++) k.ball(.07, 0x2A2B2E, [-1.05 + (i % 3) * .15, .14 + Math.floor(i / 3) * .12, -.95], {mat: 'metal', seg: 10, rows: 8});
     k.cyl(.12, .12, .22, DARKWOOD, [1.0, .08, -.95], {seg: 10}); k.ring(.122, .012, IRON, [1.0, .2, -.95]);
   },
@@ -335,6 +374,10 @@ const BUILD = {
       k.cyl(.24, .24, .07, DARKWOOD, [sd * .3, .5, .18], {rot: [0, 0, Math.PI / 2], mid: true, seg: 14});
       k.ring(.24, .02, IRON, [sd * .34, .5, .18], {rot: [0, Math.PI / 2, 0], mat: 'metal'});
       k.cyl(.17, .17, .06, DARKWOOD, [sd * .26, .43, -.42], {rot: [0, 0, Math.PI / 2], mid: true, seg: 12});
+      for (let i = 0; i < 4; i++) k.box(.035, .38, .035, 0x86613C, [sd * .342, .31, .18], {rot: [i * Math.PI / 4, 0, 0]});
+      k.cyl(.055, .055, .085, IRON, [sd * .35, .5, .18], {rot: [0, 0, Math.PI / 2], mid: true, mat: 'metal', seg: 8});
+      k.box(.018, .16, .82, 0x493522, [sd * .215, .34, -.05]);
+      [-.32, .24].forEach(z => k.box(.025, .19, .045, IRON, [sd * .23, .32, z], {mat: 'metal'}));
     });
     k.cyl(.05, .05, .7, IRON, [0, .5, .18], {rot: [0, 0, Math.PI / 2], mid: true, mat: 'metal', seg: 8});
     const tilt = -.12, y = .66, z = .15;
@@ -357,18 +400,54 @@ const BUILD = {
   },
   ballista(k, l, h) {
     pad(k, 3, l);
-    k.cyl(.95, 1.05, .28, STONE, [0, .08, 0], {seg: 20});
-    k.merlonRing(.98, .36, STONE2, [0, 0, 0], 10, .14);
+    // Mortar behind two offset courses of weathered stone; the old bright slab and crenellations dominated the bow.
+    k.cyl(.92, 1.01, .27, 0x3F433B, [0, .08, 0], {seg: 24});
+    for (let row = 0; row < 2; row++) for (let i = 0; i < 16; i++) {
+      const a = (i + row * .5) * Math.PI / 8, r = row ? .88 : .92;
+      k.box(.31, .115, .18, [0x686659, 0x55594F, 0x75705F, 0x5F6154][(i + row) % 4], [Math.sin(a) * r, .09 + row * .13, Math.cos(a) * r], {rot: [0, a, 0]});
+    }
+    timberDeck(k, .76, .305);
+    for (let i = 0; i < 4; i++) {
+      const a = i * Math.PI / 2 + Math.PI / 4, x = Math.sin(a) * .88, z = Math.cos(a) * .88;
+      k.box(.2, .055, .18, 0x4E5147, [x, .35, z], {rot: [0, a, 0]});
+      k.cyl(.025, .03, .025, IRON, [x, .405, z], {mat: 'metal', seg: 6});
+    }
+    // A small bolt rack makes the emplacement read as a working weapon at the village's normal zoom.
+    [-.99, -.81].forEach(x => k.box(.045, .16, .45, DARKWOOD, [x, .08, -.88]));
+    for (let i = 0; i < 3; i++) {
+      const x = -.99 + i * .09;
+      k.cyl(.018, .018, .66, 0x8B6B43, [x, .25, -.88], {rot: [Math.PI / 2, 0, 0], mid: true, seg: 5});
+      k.cyl(0, .034, .09, IRON, [x, .25, -.51], {rot: [Math.PI / 2, 0, 0], mid: true, mat: 'metal', seg: 5});
+    }
   },
   ballistaTop(k, l, h) {
-    // the turning part: a wooden stock on its post, the bow's arms, a bolt laid
-    k.cyl(.12, .16, .4, DARKWOOD, [0, .36, 0], {seg: 8});
-    k.box(.3, .18, 1.25, WOOD, [0, .74, .1], {rot: [-.12, 0, 0]});
+    // The turning part keeps its original pivot: oak stock, braced pedestal, iron joints, torsion ropes, loaded bolt.
+    k.cyl(.19, .22, .05, IRON, [0, .36, 0], {seg: 12, mat: 'metal'});
+    k.cyl(.12, .16, .35, DARKWOOD, [0, .41, 0], {seg: 8});
+    [.44, .67].forEach(y => k.ring(.125, .018, IRON, [0, y, 0], {seg: 12, mat: 'metal'}));
+    [-1, 1].forEach(sd => k.box(.075, .38, .085, 0x665037, [0, .4, sd * .15], {rot: [sd * .5, 0, 0]}));
+    k.box(.3, .18, 1.25, 0x60472E, [0, .74, .1], {rot: [-.12, 0, 0]});
+    // Parallel grain lines and dark inset rail give the stock depth without adding another material or texture.
+    [-.11, .11].forEach(x => k.box(.018, .015, 1.17, 0x8B6B45, [x, .925, .1], {rot: [-.12, 0, 0]}));
+    k.box(.055, .02, 1.1, 0x332B21, [0, .925, .1], {rot: [-.12, 0, 0]});
+    [-.35, .06, .47].forEach(z => {
+      k.box(.32, .025, .055, IRON, [0, .925 + (z - .1) * .12, z], {mat: 'metal', rot: [-.12, 0, 0]});
+      [-.155, .155].forEach(x => k.box(.018, .16, .055, IRON, [x, .755 + (z - .1) * .12, z], {mat: 'metal'}));
+    });
     const span = .75 + .03 * l;
-    [-1, 1].forEach(s => k.box(span, .08, .1, DARKWOOD, [s * span / 2, .82, .62], {rot: [0, s * .45, 0]}));
-    k.box(span * 1.7, .015, .015, 0xD8D0BC, [0, .83, .35]);
+    [-1, 1].forEach(s => {
+      k.box(span, .08, .1, DARKWOOD, [s * span / 2, .82, .62], {rot: [0, s * .45, 0]});
+      k.box(span * .82, .025, .105, 0x85613A, [s * span / 2, .9, .62], {rot: [0, s * .45, 0]});
+      k.box(.09, .15, .2, IRON, [s * .23, .79, .62], {mat: 'metal'});
+      k.cyl(.045, .045, .14, 0xA18A5D, [s * .23, .8, .62], {seg: 8});
+      [.83, .865, .9].forEach(y => k.ring(.046, .009, 0x6F5C3B, [s * .23, y, .62], {seg: 8}));
+      k.rod(.009, [s * span * .95, .86, .62 - span * .5 * Math.sin(.45)], [0, .92, -.21], 0xA99A78, {seg: 5});
+    });
     k.cyl(.025, .025, 1.1, 0x5A3E25, [0, .92, .15], {rot: [Math.PI / 2 - .12, 0, 0], mid: true, seg: 6});
     k.cyl(0, .05, .14, trimOf(l) === 0x4A4D52 ? IRON : trimOf(l), [0, .99, .74], {rot: [Math.PI / 2 - .12, 0, 0], mid: true, seg: 6, mat: 'metal'});
+    k.box(.12, .025, .14, 0xA99875, [0, .85, -.36], {rot: [-.12, 0, 0]});
+    k.cyl(.045, .045, .41, IRON, [0, .83, -.44], {rot: [0, 0, Math.PI / 2], mid: true, mat: 'metal', seg: 8});
+    k.box(.035, .16, .035, DARKWOOD, [.23, .7, -.44]);
   },
   tower(k, l, h) {
     pad(k, 3, l);
@@ -386,7 +465,9 @@ const BUILD = {
   },
   trebuchet(k, l, h) {
     pad(k, 3, l, DIRT);
-    k.cyl(.9, .95, .14, DARKWOOD, [0, .08, 0], {seg: 16});
+    k.cyl(.9, .95, .09, DARKWOOD, [0, .08, 0], {seg: 16});
+    timberDeck(k, .9, .17);
+    for (let i = 0; i < 4; i++) k.rock(.1, [0x666457, 0x777062][i % 2], [-1.05 + (i % 2) * .17, .14 + Math.floor(i / 2) * .12, -.9], {scl: [1, .8, 1]});
   },
   trebuchetTop(k, l, h) {
     // the machine on its turntable: an A-frame each side, the axle, the arm cocked back, its counterweight, the sling
@@ -394,12 +475,19 @@ const BUILD = {
     [-.32, .32].forEach(x => {
       k.box(.08, H * 1.12, .08, WOOD, [x, .2, -.28], {rot: [.26, 0, 0]});
       k.box(.08, H * 1.12, .08, WOOD, [x, .2, .28], {rot: [-.26, 0, 0]});
+      k.box(.085, .08, .75, 0x5D432B, [x, .57, 0]);
+      [-.3, .3].forEach(z => k.box(.1, .08, .11, IRON, [x, .28, z], {mat: 'metal'}));
+      k.box(.1, .16, .18, IRON, [x, .15 + H, 0], {mat: 'metal'});
     });
     k.box(.8, .08, .9, DARKWOOD, [0, .22, 0]);
+    [-.25, 0, .25].forEach(x => k.box(.21, .018, .86, [0x62482F, 0x745538, 0x695034][Math.round((x + .25) * 4)], [x, .3, 0]));
     k.cyl(.04, .04, .74, IRON, [0, .22 + H, 0], {rot: [0, 0, Math.PI / 2], mid: true, mat: 'metal', seg: 8});
     k.box(.08, .08, 1.8, WOOD, [0, .22 + H + .35, -.2], {rot: [.65, 0, 0]});
     k.box(.36, .34, .34, 0x4E4A44, [0, .22 + H - .32, .45]);
     k.box(.38, .04, .36, IRON, [0, .22 + H + .02, .45], {mat: 'metal'});
+    [-.12, .12].forEach(x => k.box(.035, .34, .36, IRON, [x, .22 + H - .32, .45], {mat: 'metal'}));
+    [-1, 1].forEach(sd => k.rod(.012, [0, H + 1.12, -.91], [sd * .1, .4, -.7], 0x8E7B55, {seg: 5}));
+    k.rock(.15, DARKWOOD, [0, .37, -.7], {scl: [1, .5, 1]});
     k.rock(.13, 0x77726A, [0, .4, -.7]);
   },
   cauldron(k, l, h) {

@@ -243,15 +243,16 @@ export function incomeOf(docs, mods = {}) {
 // Where your realm lies (views/realm-3d.js draws it, img/realm/scenery/): the coast from the start; the rest unlocked by
 // raising the Keep (the owner's ask, Oct 2026), each yours to pick (the house card) once it is.
 export const SCENERIES = [
-  {k: 'coast', name: 'The Coast', at: 1, blurb: 'A meadow by the sea, pines along the shore, mountains and lakes beyond'},
+  {k: 'coast', name: 'The Coast', at: 1, blurb: 'A meadow by the sea, pines along the shore, mountains and lakes beyond', ownerName: 'Twilight Highlands', ownerBlurb: 'Rolling hills and torchlit gates beneath the last light of sunset'},
+  {k: 'christmas', name: 'Christmas Kingdom', at: 1, ownerOnly: true, blurb: 'A snowy kingdom of festive castles, glowing village streets, decorated firs and wandering reindeer'},
   {k: 'forest', name: 'Enchanted Forest', at: 2, blurb: 'A glade in a moonlit wood, glowing streams and blooms all round'},
   {k: 'tundra', name: 'Frozen Tundra', at: 3, blurb: 'A snowfield by an icy sea, pines and mountains all round'},
   {k: 'ocean', name: 'Ocean Sanctuary', at: 5, blurb: 'An island of grass and palms in a turquoise sea'},
   {k: 'desert', name: 'Amber Desert', at: 6, blurb: 'Sand under a setting sun, red rock and an oasis beyond'},
   {k: 'infernal', name: 'Infernal Wastes', at: 7, blurb: 'Scorched ground ringed by rivers of lava, a volcano beyond'}
 ];
-/** Whether scenery k is open to this realm (its Keep high enough). */
-export const sceneryOpen = (s, k) => { const x = SCENERIES.find(q => q.k === k); return !!x && keepOf(s) >= x.at; };
+/** Whether scenery k is open to this realm (its Keep high enough and profile eligible). */
+export const sceneryOpen = (s, k) => { const x = SCENERIES.find(q => q.k === k); return !!x && (!x.ownerOnly || data.isOwner()) && keepOf(s) >= x.at; };
 /** The scenery this realm lies in: the one picked, while it's open to it; else the coast. */
 export const sceneryOf = s => (s && s.sc && sceneryOpen(s, s.sc) ? s.sc : 'coast');
 /** Picks scenery k (true), if it's open. */

@@ -1,9 +1,9 @@
 // The Realm tab (core/realm.js: the game; views/realm-3d.js: the lot in 3D; views/realm-raid.js: a raid;
 // views/realm-scout.js: a look round a realm before you raid it). The owner's
 // alone (data.isOwner(): app.js shows the tab on his phones only, and this screen shows nothing on anyone else's). Your
-// lot fills the screen: at the top left your house's crest and name (tap it to rename your house), at the top right
-// Gold and Grain (tap one for the coffers, what your games paid that's waiting for room) and nothing else (Oct 2026);
-// along the bottom Attack, Army, Build and the Chronicle. Tap a building for what it is and to upgrade, move or collect it (a mine or farm with something in
+// lot fills the screen: your house, resource counters, a way back to the Hub and a village framing control above;
+// a state-aware next step and Attack, Army, Build and Chronicle below. Tap a building for its current and next-level
+// benefits, upgrade cost/time, moving or collection (a mine or farm with something in
 // it collects at a tap); Build puts what you pick on the lot to drag where it goes. When you come back after the
 // computer's realms have raided you, what they did is the first thing you see.
 import * as ui from '../core/ui.js';
@@ -18,6 +18,12 @@ const ST = new WeakMap();
 let D3 = null; // views/realm-3d.js, once loaded
 const MODS = {}; // the game cores, for what the games have paid
 let modsAsked = null;
+function realmSheet(options) {
+  let stop = () => {};
+  const sh = ui.openSheet({...options, onClose: () => { stop(); if (options.onClose) options.onClose(); }});
+  stop = data.subscribe(type => { if (type === 'me' && !F.mayPlay()) { sh.body.replaceChildren(); sh.close(); } });
+  return sh;
+}
 function loadMods() {
   if (!modsAsked) {
     modsAsked = Promise.all([
@@ -79,14 +85,20 @@ function earned() {
 
 // ---------------------------------------------------------------------------------------------------- the screen
 function shellHTML() {
-  return `<div class="rl" data-no-swipe>`
+  return `<div class="rl rl-home" data-no-swipe>`
     + `<div class="rl-gl" aria-hidden="true"><div class="rl-loading">Riding out to your realm…</div></div>`
-    + `<div class="rl-tags" aria-hidden="true"></div>`
+    + `<div class="rl-tags"></div><div class="rl-effects" aria-hidden="true"></div>`
+    + `<div class="sr-only" data-rl-announcement role="status" aria-live="polite"></div>`
     + `<div class="rl-top">`
     + `<button type="button" class="rl-me" data-rl-house aria-label="Your house"><span class="rl-crest" data-rl-lv>1</span><b data-rl-name></b></button>`
     + `<div class="rl-res">`
     + F.CUR.map(c => `<button type="button" class="rl-cur is-${c}" data-rl-cur="${c}"><span class="rl-curb"><i data-rl-f></i></span><b data-rl-n>0</b><i class="rl-coin" aria-hidden="true"></i></button>`).join('')
     + `</div></div>`
+    + `<div class="rl-utility"><button type="button" class="rl-hub" data-nav="/puzzles" aria-label="Back to Fantasy Hub">‹ Hub</button>`
+    + `<div class="rl-camera-modes"><button type="button" class="rl-frame" data-rl-frame aria-label="Center your village">Village</button>`
+    + `<button type="button" class="rl-frame" data-rl-world aria-label="Zoom out to the whole realm">Whole realm</button></div></div>`
+    + `<div class="rl-zoom" role="group" aria-label="Camera zoom"><button type="button" data-rl-zoom="in" aria-label="Zoom in">+</button><button type="button" data-rl-zoom="out" aria-label="Zoom out">−</button></div>`
+    + `<button type="button" class="rl-objective" data-rl-objective hidden></button>`
     + `<div class="rl-sel" data-rl-sel hidden></div>`
     + `<div class="rl-bar" data-rl-bar>`
     + `<button type="button" class="rl-btn is-raid" data-rl-raid><span class="rl-bi" aria-hidden="true">${ui.icon('versus')}</span><span>Attack</span></button>`
@@ -97,6 +109,7 @@ function shellHTML() {
 }
 
 function hud(st) {
+  if (st.dead || !F.mayPlay()) return;
   const s = F.mine(), cap = F.capOf(s), el = st.el;
   el.querySelector('[data-rl-lv]').textContent = F.keepOf(s);
   el.querySelector('[data-rl-name]').textContent = houseName(s);
@@ -110,11 +123,81 @@ function hud(st) {
   });
   const army = F.roomOf(s.ar), room = F.armyRoom(s);
   el.querySelector('[data-rl-armyn]').textContent = room ? `${army}/${room}` : '';
+  objective(st, s);
+}
+
+/** One useful, currently available action. Never spends resources until its normal confirmation. */
+export function nextObjective(s, now = Date.now()) {
+  const working = s.b.filter(b => b.u > now).sort((a, b) => a.u - b.u)[0];
+  if (working) return {kind: 'select', id: working.i, title: `${F.KINDS[working.t].name} ${working.l ? 'upgrading' : 'building'}`, detail: `Ready in ${dur(working.u - now)} · View progress`};
+  const build = k => {
+    const chk = F.canBuild(s, k, now);
+    return chk.ok ? {kind: 'build', type: k, title: `Build ${F.KINDS[k].name}`, detail: `${nf(chk.cost)} ${F.CUR_NAME[chk.pay]} · Choose a spot`} : null;
+  };
+  const upgrade = b => b && F.canUpgrade(s, b.i, now).ok ? {kind: 'select', id: b.i, title: `Upgrade ${F.KINDS[b.t].name}`, detail: upgradeBenefit(b)} : null;
+  const cap = F.capOf(s);
+  for (const c of F.CUR) {
+    if (s.r[c] < cap[c] * .9) continue;
+    const k = c === 'gold' ? 'treasury' : 'granary';
+    const goal = build(k) || s.b.filter(b => b.t === k).map(upgrade).find(Boolean);
+    if (goal) return goal;
+  }
+  for (const k of ['mine', 'farm', 'barracks', 'camp', 'cannon']) {
+    if (s.b.some(b => b.t === k)) continue;
+    const goal = build(k);
+    if (goal) return goal;
+  }
+  if (!F.roomOf(s.ar) && !s.q.length && F.canTrain(s, 'footman').ok) return {kind: 'army', title: 'Train your first troops', detail: 'Prepare an army for a raid'};
+  const candidates = s.b.filter(b => ['mine', 'farm', 'ballista', 'cannon', 'keep'].includes(b.t)).sort((a, b) => a.l - b.l || (a.t === 'keep') - (b.t === 'keep'));
+  for (const b of candidates) { const goal = upgrade(b); if (goal) return goal; }
+  const ready = s.b.find(b => F.KINDS[b.t].role === 'make' && F.made(b, now) >= 1 && s.r[F.KINDS[b.t].makes] < cap[F.KINDS[b.t].makes]);
+  if (ready) return {kind: 'collect', id: ready.i, title: `Collect ${F.CUR_NAME[F.KINDS[ready.t].makes]}`, detail: 'Bring your production into storage'};
+  if (s.q.length) return {kind: 'army', title: 'Your army is training', detail: `Ready in ${dur(F.trainedBy(s, now) - now)} · View army`};
+  if (F.roomOf(s.ar)) return {kind: 'raid', title: 'Scout your next raid', detail: 'Inspect a rival realm before you attack'};
+  return {kind: 'games', title: 'Earn more Gold and Grain', detail: 'Daily games pay into your realm’s coffers'};
+}
+
+export function upgradeBenefit(b) {
+  const K = F.KINDS[b.t], lv = Math.max(1, b.l);
+  if (lv >= F.maxLevel(b.t) || b.t === 'hut') return 'At its top level';
+  const a = F.stat(b.t, lv), n = F.stat(b.t, lv + 1), change = (label, x, y, unit = '') => `${label}: ${nf(x)} → ${nf(y)}${unit}`;
+  if (K.role === 'make') return change(F.CUR_NAME[K.makes], a.rate, n.rate, '/hour');
+  if (K.role === 'store') return change(`${F.CUR_NAME[K.holds]} capacity`, a.cap, n.cap);
+  if (K.role === 'hall') return change('Storage each', a.store, n.store) + ' · New buildings';
+  if (K.role === 'def') return change('Damage', a.dps, n.dps, '/second');
+  if (K.role === 'camp') return change('Army room', a.room, n.room);
+  if (K.role === 'hatch') return change('Dragon room', a.dragons, n.dragons);
+  if (K.role === 'train') {
+    const opens = F.TROOP_ORDER.filter(t => F.TROOPS[t].at === lv + 1).map(t => F.TROOPS[t].name);
+    if (opens.length) return `Unlocks ${opens.join(', ')}`;
+  }
+  return change('Strength', a.hp, n.hp);
+}
+
+function objective(st, s = F.mine()) {
+  const box = st.el.querySelector('[data-rl-objective]');
+  st.goal = nextObjective(s);
+  box.hidden = !!st.place || st.sel != null;
+  const html = `<span class="rl-objective-k">Next step</span><b>${esc(st.goal.title)}</b><small>${esc(st.goal.detail)}</small><span class="rl-objective-arrow" aria-hidden="true">›</span>`;
+  if (box.dataset.html !== html) { box.dataset.html = html; box.innerHTML = html; }
+}
+
+function followObjective(st) {
+  const goal = nextObjective(F.mine());
+  if (goal.kind === 'build') { startPlace(st, goal.type); return; }
+  if (goal.kind === 'army') { armySheet(st); return; }
+  if (goal.kind === 'raid') { raidSheet(st, st.ctx); return; }
+  if (goal.kind === 'games') { st.ctx.nav('/puzzles'); return; }
+  const b = F.mine().b.find(b => b.i === goal.id);
+  if (!b) return;
+  if (st.v) { const sz = F.KINDS[b.t].size; st.v.look(b.x + sz / 2, b.y + sz / 2, Math.min(42, st.v.zoom)); }
+  if (goal.kind === 'collect') collectOne(st, b.i);
+  select(st, b.i);
 }
 
 // The overlays over the lot: what's piled up in a mine or farm (tap to collect), a job's clock.
 function tags(st) {
-  if (!st.v) return;
+  if (!st.v || st.dead || !F.mayPlay()) return;
   const s = F.mine(), now = Date.now(), box = st.el.querySelector('.rl-tags');
   let html = '';
   s.b.forEach(b => {
@@ -124,20 +207,27 @@ function tags(st) {
       html += `<div class="rl-tag is-job" data-rl-tag="${b.i}" data-h="${K.size > 2 ? 2.4 : 1.7}"><span>${dur(b.u - now)}</span><i style="width:${Math.max(4, Math.min(100, f * 100)).toFixed(1)}%"></i></div>`;
     } else if (K.role === 'make') {
       const m = F.made(b, now), hold = F.stat(b.t, b.l).hold;
-      if (m >= Math.max(1, hold * .08)) html += `<button type="button" class="rl-tag is-made is-${K.makes}${m >= hold ? ' is-full' : ''}" data-rl-tag="${b.i}" data-rl-collect="${b.i}" data-h="2.2" aria-label="Collect ${nf(m)} ${F.CUR_NAME[K.makes]}"><i class="rl-coin"></i></button>`;
+      if (m >= Math.max(1, hold * .08)) html += `<button type="button" class="rl-tag is-made is-${K.makes}${m >= hold ? ' is-full' : ''}" data-rl-tag="${b.i}" data-rl-collect="${b.i}" data-h="2.2" aria-label="Collect ${nf(m)} ${F.CUR_NAME[K.makes]}"><span class="rl-collect-disc"><i class="rl-coin" aria-hidden="true"></i></span></button>`;
     }
   });
-  if (box.dataset.html !== html) { box.dataset.html = html; box.innerHTML = html; }
+  if (st.goal && st.goal.id != null && !st.place && st.sel == null) html += `<div class="rl-tag is-objective" data-rl-tag="${st.goal.id}" data-h=".08" aria-hidden="true"></div>`;
+  if (box.dataset.html !== html) {
+    const focused = box.contains(document.activeElement) ? document.activeElement.dataset.rlCollect : null;
+    box.dataset.html = html; box.innerHTML = html;
+    if (focused) box.querySelector(`[data-rl-collect="${Number(focused)}"]`)?.focus({preventScroll: true});
+  }
   placeTags(st);
 }
 function placeTags(st) {
-  if (!st.v) return;
+  if (!st.v || st.dead || !F.mayPlay()) return;
   const s = F.mine();
+  st.el.querySelector('.rl-tags').style.setProperty('--rl-tag-scale', st.v.overlayScale || 1);
   st.el.querySelectorAll('[data-rl-tag]').forEach(t => {
     const b = s.b.find(x => x.i === +t.dataset.rlTag);
     if (!b) return;
     const sz = F.KINDS[b.t].size, p = st.v.project(b.x + sz / 2, b.y + sz / 2, +t.dataset.h || 2);
-    t.style.transform = `translate(${p.x.toFixed(1)}px, ${p.y.toFixed(1)}px)`;
+    t.style.transform = `translate(${p.x.toFixed(1)}px, ${p.y.toFixed(1)}px)${t.classList.contains('is-made') ? '' : ` scale(${st.v.overlayScale || 1})`}`;
+    t.hidden = p.x < 16 || p.y < 16 || p.x > st.el.clientWidth - 16 || p.y > st.el.clientHeight - 90;
   });
 }
 
@@ -172,10 +262,11 @@ function selHTML(st) {
   btns.push(`<button type="button" class="rl-act" data-rl-move="${b.i}">Move</button>`);
   return `<div class="rl-sel-h"><div><b>${esc(K.name)}</b><span class="rl-sel-lv">${b.l < 1 ? 'Going up' : `Level ${b.l}`}</span></div>${ui.iconButton({icon: 'close', label: 'Done', cls: 'rl-sel-x', attrs: 'data-rl-unsel'})}</div>`
     + `<p class="rl-sel-what">${what.map(esc).join(' · ')}</p>${job}`
-    + `<p class="rl-sel-blurb">${esc(K.blurb)}</p>`
+    + (b.u <= now && b.l > 0 && b.l < F.maxLevel(b.t) && b.t !== 'hut' ? `<p class="rl-sel-benefit"><b>Level ${b.l + 1}</b> · ${esc(upgradeBenefit(b))}</p><p class="rl-sel-cost">${curHTML(up.pay, up.cost)} · ${dur(up.time * 1000)}</p>` : '')
     + `<div class="rl-acts">${btns.join('')}</div>`;
 }
 function showSel(st) {
+  objective(st);
   const box = st.el.querySelector('[data-rl-sel]'), bar = st.el.querySelector('[data-rl-bar]');
   if (st.place) {
     const K = F.KINDS[st.place.t], chk = F.canBuild(F.mine(), st.place.t);
@@ -192,13 +283,14 @@ function showSel(st) {
 }
 function select(st, id) {
   st.sel = id; st.moving = null;
-  if (st.v) st.v.select(id);
+  if (st.v) { st.v.select(id); st.v.showGrid(false); }
   showSel(st);
+  tags(st);
 }
 
 // ---- keeping it all current
 function refresh(st) {
-  if (st.dead) return;
+  if (st.dead || !F.mayPlay()) return;
   const s = F.mine(), now = Date.now();
   const got = F.claim(s, EARNED.total);
   if (got.gold || got.grain) F.touch();
@@ -210,18 +302,20 @@ function refresh(st) {
 // The board's copy of your realm taken up (the first time it shows, or newer from your other phone), and the raids on
 // it since you last looked played (while the Realm is on screen).
 function synced(st) {
+  if (st.dead || !F.mayPlay()) return;
   const took = F.sync();
   refresh(st);
   if (took && st.ctx.visible) defenses(st);
 }
 // The computer's raids on your realm since you last looked: played, taken off it, and told.
 function defenses(st) {
+  if (st.dead || !F.mayPlay()) return;
   const s = F.mine(), done = defend(s);
   if (!done.length) return;
   F.touch();
   refresh(st);
   const lost = done.filter(r => r.st > 0);
-  ui.openSheet({title: 'While you were away', cls: 'sh-rl', detents: ['large'], body:
+  realmSheet({title: 'While you were away', cls: 'sh-rl', detents: ['large'], body:
     done.map(r => `<div class="rl-log"><span>${starsHTML(r.st)}</span><span class="rl-log-t"><span><b>${esc(r.by)}</b> ${r.st ? `broke through and took ${curHTML('gold', r.lt[0])} ${curHTML('grain', r.lt[1])}` : 'were driven off'}</span><small>${ago(r.at)} · ${r.pc}% of your realm knocked down · ${r.td > 0 ? '+' : ''}${r.td} glory</small></span></div>`).join('')
     + `<p class="rl-sh-note">${lost.length ? `A truce holds for ${F.mine().sh > Date.now() ? dur(F.mine().sh - Date.now()) : 'a while'}: no one raids you while it lasts. Stronger walls and towers, and your treasuries and granaries kept behind them, keep more of your gold and grain.` : 'Your defenses held.'} Your coffers are never touched.</p>`});
 }
@@ -230,7 +324,7 @@ function defenses(st) {
 function cofferSheet() {
   const s = F.mine(), p = F.pending(s, EARNED.total), cap = F.capOf(s);
   const rows = Object.keys(F.GAME_NAME).map(g => `<div class="rl-row"><span>${esc(F.GAME_NAME[g])}</span><span class="rl-row-v">${EARNED.today[g] ? `<em>+${nf(EARNED.today[g])} today</em>` : ''}${nf(EARNED.by[g] || 0)}</span></div>`).join('');
-  ui.openSheet({title: 'The coffers', cls: 'sh-rl', detents: ['large'], body:
+  realmSheet({title: 'The coffers', cls: 'sh-rl', detents: ['large'], body:
     `<p class="rl-sh-lead">Every daily game you play pays your realm, in Gold and Grain alike. It waits in your coffers, safe from raiders, and moves into your Keep, treasuries and granaries as they have room.</p>`
     + `<div class="rl-sh-big">${curHTML('gold', p.gold)}${curHTML('grain', p.grain)}<small>waiting now</small></div>`
     + `<h3 class="rl-sh-h">In store</h3><div class="rl-rows">${F.CUR.map(c => `<div class="rl-row"><span>${c === 'gold' ? 'Gold' : 'Grain'}</span><span class="rl-row-v">${nf(s.r[c])} of ${nf(cap[c])}</span></div>`).join('')}</div>`
@@ -238,8 +332,9 @@ function cofferSheet() {
     + `<p class="rl-sh-note">A day’s pay: Daily Puzzles 400 plus 5 a point · 17–0 400 plus 150 a win (500 more for 17–0) · Two-Minute Drill 3,000 a win, 2,000 a tie, 1,000 a loss · Kick It 400 plus 200 a make (up to 15) · Return Man 400 plus 3 a yard (up to 1,000). More room: upgrade your treasuries, granaries and Keep.</p>`});
 }
 function armySheet(st) {
-  const sh = ui.openSheet({title: 'Your army', cls: 'sh-rl', detents: ['large'], body: '<div data-rl-armybody></div>'});
+  const sh = realmSheet({title: 'Your army', cls: 'sh-rl', detents: ['large'], body: '<div data-rl-armybody></div>'});
   const draw = () => {
+    if (st.dead || !F.mayPlay()) return;
     const s = F.mine(), now = Date.now(), room = F.armyRoom(s), have = F.roomOf(s.ar), q = F.queued(s);
     const army = F.TROOP_ORDER.filter(t => s.ar[t]).map(t => `<span class="rl-chip">${esc(F.TROOPS[t].name)} ×${s.ar[t]}</span>`).join('') || '<span class="rl-sh-note">No one yet.</span>';
     const line = s.q.map(([t, n], i) => `<span class="rl-chip is-q">${esc(F.TROOPS[t].name)} ×${n}${i === 0 && s.qs ? ` <small>${dur(s.qs + F.trainTime(s, t) * 1000 - now)}</small>` : ''}<button type="button" class="rl-chip-x" data-rl-untrain="${t}" aria-label="Take one ${esc(F.TROOPS[t].name)} out">−</button></span>`).join('');
@@ -257,6 +352,7 @@ function armySheet(st) {
   };
   draw();
   sh.body.addEventListener('click', e => {
+    if (st.dead || !F.mayPlay()) return;
     const tr = e.target.closest('[data-rl-train]'), un = e.target.closest('[data-rl-untrain]'), s = F.mine();
     if (tr) {
       const t = tr.dataset.rlTrain, chk = F.canTrain(s, t);
@@ -264,7 +360,7 @@ function armySheet(st) {
       F.train(s, t, 1); F.touch(); ui.haptic('selection'); draw(); hud(st);
     } else if (un) { F.untrain(s, un.dataset.rlUntrain); F.touch(); draw(); hud(st); }
   });
-  const iv = setInterval(() => { if (!sh.el.isConnected) { clearInterval(iv); return; } F.mine(); draw(); }, 1000);
+  const iv = setInterval(() => { if (st.dead || !F.mayPlay() || !sh.el.isConnected) { clearInterval(iv); return; } F.mine(); draw(); }, 1000);
 }
 /** The computer's realms you can attack, with what each holds today. */
 export function targets(now = Date.now(), mine = F.mine()) {
@@ -272,7 +368,7 @@ export function targets(now = Date.now(), mine = F.mine()) {
 }
 function raidSheet(st, ctx) {
   const s = F.mine(), army = F.roomOf(s.ar);
-  const sh = ui.openSheet({title: 'Attack', cls: 'sh-rl', detents: ['large'], body:
+  const sh = realmSheet({title: 'Attack', cls: 'sh-rl', detents: ['large'], body:
     (army ? `<p class="rl-sh-lead">Your army: ${F.TROOP_ORDER.filter(t => s.ar[t]).map(t => `${esc(F.TROOPS[t].name)} ×${s.ar[t]}`).join(', ')}. Send them round the edge of a realm; they carry off what its treasuries, granaries, mines and farms hold. Each realm’s stores fill again every morning.</p>`
       : `<p class="rl-sh-lead">You need an army first: raise barracks and a war camp, then train one (Army).</p>`)
     + targets(Date.now(), s).map(x => `<div class="rl-tg"><span class="rl-tg-lv">${x.th}</span><span class="rl-tg-n"><b>${esc(x.name)}</b>`
@@ -281,6 +377,7 @@ function raidSheet(st, ctx) {
       + `<button type="button" class="rl-act is-go rl-tg-go" data-rl-go="${esc(x.k)}" ${army ? '' : 'disabled'}>Attack</button></div>`).join('')
     + `<p class="rl-sh-note">Scout a realm to look round it first: where its towers reach, where its walls run, where its gold and grain are kept.</p>`});
   sh.body.addEventListener('click', e => {
+    if (st.dead || !F.mayPlay()) return;
     const sc = e.target.closest('[data-rl-scout]');
     if (sc) { sh.close(); ctx.nav('/realm/scout/' + encodeURIComponent(sc.dataset.rlScout)); return; }
     const go = e.target.closest('[data-rl-go]');
@@ -293,7 +390,7 @@ function logSheet() {
   const s = F.mine(), now = Date.now();
   const off = s.rd.slice().sort((a, b) => b.at - a.at).slice(0, 20), def = s.df.slice().sort((a, b) => b.at - a.at);
   const won = s.rd.filter(r => r.st > 0).length, held = s.df.filter(r => !r.st).length;
-  ui.openSheet({title: 'The Chronicle', cls: 'sh-rl', detents: ['large'], body:
+  realmSheet({title: 'The Chronicle', cls: 'sh-rl', detents: ['large'], body:
     `<div class="rl-sh-big"><span class="rl-amt"><i class="rl-crown"></i>${nf(s.tp)}</span><small>glory · ${won} realm${won === 1 ? '' : 's'} sacked · ${held} raid${held === 1 ? '' : 's'} driven off${s.sh > now ? ` · truce for ${dur(s.sh - now)}` : ''}</small></div>`
     + `<h3 class="rl-sh-h">Raids on your realm</h3>${def.length ? def.map(r => `<div class="rl-log"><span>${starsHTML(r.st || 0)}</span><span class="rl-log-t"><span><b>${esc(r.by)}</b> ${r.st ? `took ${curHTML('gold', (r.lt || [])[0])} ${curHTML('grain', (r.lt || [])[1])}` : 'were driven off'}</span><small>${ago(r.at)} · ${r.pc || 0}% · ${r.td > 0 ? '+' : ''}${r.td || 0} glory</small></span></div>`).join('') : `<p class="rl-sh-note">${F.keepOf(s) < 2 ? 'No one bothers with a realm this small yet. Once your Keep is level 2, the computer’s realms will start raiding you, now and then.' : 'No one has raided you yet.'}</p>`}`
     + `<h3 class="rl-sh-h">Your attacks</h3>${off.length ? off.map(r => `<div class="rl-log"><span>${starsHTML(r.st || 0)}</span><span class="rl-log-t"><span><b>${esc(r.nm)}</b> · you took ${curHTML('gold', (r.lt || [])[0])} ${curHTML('grain', (r.lt || [])[1])}</span><small>${ago(r.at)} · ${r.pc || 0}% · +${r.ta || 0} glory</small></span></div>`).join('') : '<p class="rl-sh-note">You haven’t attacked anyone yet.</p>'}`});
@@ -306,10 +403,11 @@ function shopSheet(st) {
     return `<button type="button" class="rl-shop-c${chk.ok ? '' : ' is-no'}" data-rl-buy="${k}"><span class="rl-shop-ic" aria-hidden="true">${picOf(k, MY_HOUSE)}</span><b>${esc(K.name)}</b>`
       + `<span class="rl-shop-cost">${curHTML(chk.pay, chk.cost)}</span><small>${n}/${cap}${chk.ok ? (chk.time && k !== 'hut' ? ` · ${dur(chk.time * 1000)}` : ' · at once') : ` · ${esc(chk.why)}`}</small></button>`;
   };
-  const sh = ui.openSheet({title: 'Build', cls: 'sh-rl', detents: ['large'], body:
+  const sh = realmSheet({title: 'Build', cls: 'sh-rl', detents: ['large'], body:
     `<p class="rl-sh-lead">Keep level ${th}: raise it for more of everything.</p>`
     + groups.map(([h, ks]) => `<h3 class="rl-sh-h">${h}</h3><div class="rl-shop">${ks.map(card).join('')}</div>`).join('')});
   sh.body.addEventListener('click', e => {
+    if (st.dead || !F.mayPlay()) return;
     const c = e.target.closest('[data-rl-buy]');
     if (!c) return;
     const k = c.dataset.rlBuy, chk = F.canBuild(F.mine(), k);
@@ -322,12 +420,13 @@ function shopSheet(st) {
 // marked; tap an open one to move there.
 const sceneriesHTML = s => F.SCENERIES.map(x => {
   const open = F.sceneryOpen(s, x.k), on = F.sceneryOf(s) === x.k;
+  const name = data.isOwner() && x.ownerName || x.name, blurb = data.isOwner() && x.ownerBlurb || x.blurb;
   return `<button type="button" class="rl-scn is-${x.k}${on ? ' is-on' : ''}" data-rl-scn="${x.k}" aria-pressed="${on}"${open ? '' : ' aria-disabled="true"'}>`
-    + `<i class="rl-scn-sw" aria-hidden="true"></i><span><b>${esc(x.name)}</b><small>${open ? (on ? 'Your realm lies here' : esc(x.blurb)) : `Keep level ${x.at} to unlock`}</small></span></button>`;
+    + `<i class="rl-scn-sw" aria-hidden="true"></i><span><b>${esc(name)}</b><small>${open ? (on ? 'Your realm lies here' : esc(blurb)) : `Keep level ${x.at} to unlock`}</small></span></button>`;
 }).join('');
 function houseSheet(st) {
   const s = F.mine();
-  const sh = ui.openSheet({title: 'Your house', cls: 'sh-rl', detents: ['fit', 'large'], body:
+  const sh = realmSheet({title: 'Your house', cls: 'sh-rl', detents: ['fit', 'large'], body:
     `<form class="rl-name" data-rl-nameform><label class="rl-sh-h" for="rl-name-in">Its name</label>`
     + `<input id="rl-name-in" class="rl-in" maxlength="28" autocomplete="off" value="${esc(houseName(s))}">`
     + `<p class="rl-sh-note">Keep level ${F.keepOf(s)} · ${nf(s.tp)} glory.</p>`
@@ -335,10 +434,12 @@ function houseSheet(st) {
     + `<h3 class="rl-sh-h">Your lands <span>raise your Keep to unlock more</span></h3><div class="rl-scns" data-rl-scns>${sceneriesHTML(s)}</div>`});
   sh.body.querySelector('form').addEventListener('submit', e => {
     e.preventDefault();
+    if (st.dead || !F.mayPlay()) return;
     const v = sh.body.querySelector('input').value.replace(/\s+/g, ' ').trim().slice(0, 28);
     s.nm = v; F.touch(); hud(st); sh.close();
   });
   sh.body.querySelector('[data-rl-scns]').addEventListener('click', e => {
+    if (st.dead || !F.mayPlay()) return;
     const b = e.target.closest('[data-rl-scn]');
     if (!b) return;
     const k = b.dataset.rlScn, x = F.SCENERIES.find(q => q.k === k);
@@ -356,8 +457,9 @@ function startPlace(st, k, near = null) {
   if (!spot) { ui.toast('No room on the lot', {icon: 'info'}); return; }
   st.sel = null;
   st.place = {t: k, x: spot.x, y: spot.y, ok: true};
-  if (st.v) { st.v.select(null); st.v.setGhost(st.place); st.v.showGrid(true); }
+  if (st.v) { st.v.select(null); st.v.setGhost(st.place); st.v.showGrid(true); st.v.look(spot.x + F.KINDS[k].size / 2, spot.y + F.KINDS[k].size / 2, Math.max(36, Math.min(60, st.v.zoom))); }
   showSel(st);
+  tags(st);
 }
 function endPlace(st) {
   st.place = null; st.lastWall = null;
@@ -386,18 +488,23 @@ function commitPlace(st) {
   }
   endPlace(st);
   refresh(st);
+  if (st.v) st.v.frameVillage();
 }
 
 // ---------------------------------------------------------------------------------------------------- the 3D
 async function start3d(st) {
+  if (st.dead || !F.mayPlay()) return;
   const theme = F.sceneryOf(F.mine());
-  const ok = await (D3 ? D3.load(theme) : import('./realm-3d.js').then(m => { D3 = m; return m.load(theme); }));
-  if (st.dead) return;
+  if (!D3) D3 = await import('./realm-3d.js');
+  if (st.dead || !F.mayPlay()) return;
+  const ok = await D3.load(theme);
+  if (st.dead || !F.mayPlay()) return;
   const host = st.el.querySelector('.rl-gl');
   if (!ok) { host.innerHTML = '<div class="rl-loading">This phone can’t show your realm in 3D.</div>'; return; }
   host.innerHTML = '';
   st.v = D3.create(host, {
-    house: MY_HOUSE, zoom: 64, scenery: F.sceneryOf(F.mine()),
+    house: MY_HOUSE, zoom: 64, scenery: F.sceneryOf(F.mine()), village: true,
+    isActive: () => !st.dead && st.ctx.visible && F.mayPlay(),
     onCamera: () => placeTags(st),
     onTap: hit => onLotTap(st, hit),
     onGrab: (tile, id) => {
@@ -428,8 +535,8 @@ async function start3d(st) {
       tags(st);
     }
   });
-  { const bx = F.boxOf(F.mine()); st.v.frame(bx.x0 - 1, bx.y0 - 1, bx.x1 + 1, bx.y1 + 1, 1.05, 70); }
   refresh(st);
+  st.v.frameVillage();
 }
 function onLotTap(st, hit) {
   if (st.place) return;
@@ -441,10 +548,11 @@ function onLotTap(st, hit) {
   select(st, hit.id);
 }
 function collectOne(st, id) {
+  if (st.dead || !F.mayPlay()) return;
   const s = F.mine(), b = s.b.find(x => x.i === id);
   if (!b) return;
   const c = F.KINDS[b.t].makes, got = F.collect(s, id);
-  if (got > 0) { F.touch(); ui.haptic('light'); floatText(st, b, `+${nf(got)}`, c); }
+  if (got > 0) { F.touch(); ui.haptic('light'); floatText(st, b, `+${nf(got)} ${F.CUR_NAME[c]}`, c); }
   else if (F.made(b) > 0) ui.toast(`No room for more ${F.CUR_NAME[c]}: upgrade a ${c === 'gold' ? 'treasury' : 'granary'}`, {icon: 'info'});
   refresh(st);
 }
@@ -453,8 +561,41 @@ function floatText(st, b, text, c) {
   const sz = F.KINDS[b.t].size, p = st.v.project(b.x + sz / 2, b.y + sz / 2, 2.4), el = document.createElement('div');
   el.className = `rl-float is-${c}`; el.textContent = text;
   el.style.left = p.x + 'px'; el.style.top = p.y + 'px';
-  st.el.querySelector('.rl-tags').appendChild(el);
-  setTimeout(() => el.remove(), 1300);
+  const layer = st.el.querySelector('.rl-effects'), target = st.el.querySelector(`[data-rl-cur="${c}"]`), bounds = st.el.getBoundingClientRect(), dest = target.getBoundingClientRect();
+  layer.appendChild(el);
+  st.el.querySelector('[data-rl-announcement]').textContent = text;
+  target.classList.remove('is-collected');
+  const timer = setTimeout(() => { target.classList.remove('is-collected'); el.remove(); st.effects.delete(timer); }, 1400);
+  st.effects.add(timer);
+  if (ui.RM) { target.classList.add('is-collected'); return; }
+  for (let i = 0; i < 4; i++) {
+    const coin = document.createElement('i');
+    coin.className = `rl-flying-coin rl-coin is-${c}`;
+    coin.style.left = p.x + 'px'; coin.style.top = p.y + 'px'; layer.appendChild(coin);
+    const dx = dest.right - bounds.left - 13 - p.x, dy = dest.top - bounds.top + dest.height / 2 - p.y;
+    const flight = coin.animate([
+      {transform: 'translate(-50%, -50%) scale(.7)', opacity: 0},
+      {transform: `translate(${(i - 1.5) * 10}px, -24px) scale(1)`, opacity: 1, offset: .25},
+      {transform: `translate(${dx}px, ${dy}px) scale(.45)`, opacity: .9}
+    ], {duration: 650, delay: i * 65, easing: 'cubic-bezier(.4,0,.6,1)', fill: 'both'});
+    st.flights.add(flight);
+    flight.finished.then(() => { if (!st.dead && F.mayPlay()) target.classList.add('is-collected'); }, () => {}).finally(() => { coin.remove(); st.flights.delete(flight); });
+  }
+}
+
+function fullScreen(st, on) {
+  document.documentElement.classList.toggle('is-realm-playing', !!on && !st.dead && F.mayPlay());
+}
+function disposeState(st) {
+  if (st.dead) return;
+  st.dead = true;
+  fullScreen(st, false);
+  st.events.abort();
+  st.stops.splice(0).forEach(f => f());
+  st.effects.forEach(clearTimeout); st.effects.clear();
+  st.flights.forEach(a => a.cancel()); st.flights.clear();
+  if (st.v) { st.v.dispose(); st.v = null; }
+  st.sel = st.place = st.goal = st.moving = st.drag = null;
 }
 
 // ---------------------------------------------------------------------------------------------------- the view
@@ -469,7 +610,7 @@ function markSeen() {
   welcome();
 }
 function welcome() {
-  ui.openSheet({title: 'Your realm', cls: 'sh-rl', detents: ['large'], body:
+  realmSheet({title: 'Your realm', cls: 'sh-rl', detents: ['large'], body:
     `<p class="rl-sh-lead">Raise your house, fill your treasuries, sack the realms around you. Every daily game you play pays your realm in <b>Gold</b> and <b>Grain</b>; everything you’ve played this season already has. It’s yours alone.</p>`
     + `<div class="rl-rows">`
     + `<div class="rl-row"><span><b>Your coffers</b> hold your pay until your Keep, treasuries and granaries have room. Raiders can’t touch them.</span></div>`
@@ -488,18 +629,27 @@ export default {
   render() { return F.mayPlay() ? shellHTML() : '<div class="rl rl-none"></div>'; },
 
   mount(el, ctx) {
-    if (!F.mayPlay()) return; // (the owner's alone: nothing here on anyone else's phone)
-    const st = {el, ctx, v: null, sel: null, place: null, moving: null, drag: null, dead: false, stops: []};
+    if (!F.mayPlay()) { ST.set(ctx, {el, ctx, dead: true}); return; }
+    const st = {el, ctx, v: null, sel: null, place: null, moving: null, drag: null, dead: false, stops: [], events: new AbortController(), effects: new Set(), flights: new Set()};
     ST.set(ctx, st);
+    fullScreen(st, ctx.visible);
+    st.stops.push(data.subscribe(type => {
+      if (type === 'me' && !F.mayPlay()) { disposeState(st); el.innerHTML = '<div class="rl rl-none"></div>'; }
+    }));
     F.mine();
     earned();
     hud(st);
-    loadMods().then(() => { if (!st.dead) { earned(); synced(st); } });
+    loadMods().then(() => { if (!st.dead && F.mayPlay()) { earned(); synced(st); } });
     st.stops.push(F.subscribe(() => { if (!st.dead) { hud(st); tags(st); } }));
-    ctx.on('daily', type => { if (type === 'lb' && !st.dead) { earned(); synced(st); } });
-    ctx.timer(() => { if (!st.dead) { F.mine(); refresh(st); } }, 1000);
+    st.stops.push(ctx.on('daily', type => { if (type === 'lb' && !st.dead && F.mayPlay()) { earned(); synced(st); } }));
+    st.stops.push(ctx.timer(() => { if (!st.dead && F.mayPlay()) { F.mine(); refresh(st); } }, 1000));
     el.addEventListener('click', e => {
+      if (st.dead || !F.mayPlay()) return;
       const t = e.target;
+      if (t.closest('[data-rl-frame]')) { if (st.v) st.v.frameVillage(); return; }
+      if (t.closest('[data-rl-world]')) { if (st.v) st.v.frameWorld(); return; }
+      if (t.closest('[data-rl-zoom]')) { if (st.v) st.v.zoomBy(t.closest('[data-rl-zoom]').dataset.rlZoom === 'in' ? .72 : 1 / .72); return; }
+      if (t.closest('[data-rl-objective]')) { followObjective(st); return; }
       if (t.closest('[data-rl-collect]')) { collectOne(st, +t.closest('[data-rl-collect]').dataset.rlCollect); return; }
       if (t.closest('[data-rl-cur]')) { cofferSheet(); return; }
       if (t.closest('[data-rl-army]')) { armySheet(st); return; }
@@ -519,27 +669,36 @@ export default {
       }
       const mv = t.closest('[data-rl-move]');
       if (mv) { st.moving = +mv.dataset.rlMove; if (st.v) st.v.showGrid(true); ui.toast('Drag it where you want it, then tap the lot', {icon: 'info'}); }
-    });
+    }, {signal: st.events.signal});
     start3d(st);
     if (ctx.visible) { markSeen(); setTimeout(() => { if (!st.dead && ctx.visible) defenses(st); }, 900); }
   },
 
   onShow(ctx) {
+    if (!F.mayPlay()) return;
     markSeen();
-    const st = ST.get(ctx);
+    let st = ST.get(ctx);
+    if (st && st.dead) { this.update(ctx); st = ST.get(ctx); }
     if (!st) return;
+    fullScreen(st, true);
     F.sync(); refresh(st); if (st.v) st.v.want();
     defenses(st);
   },
 
-  update(ctx) { const st = ST.get(ctx); if (st) refresh(st); },
+  onHide(ctx) { const st = ST.get(ctx); if (st) fullScreen(st, false); },
+
+  update(ctx) {
+    const st = ST.get(ctx);
+    if (!st) return;
+    if (!F.mayPlay()) { disposeState(st); st.el.innerHTML = '<div class="rl rl-none"></div>'; return; }
+    if (st.dead) { st.el.innerHTML = shellHTML(); this.mount(st.el, ctx); return; }
+    refresh(st);
+  },
 
   unmount(el, ctx) {
     const st = ST.get(ctx);
     if (!st) return;
-    st.dead = true;
-    st.stops.forEach(f => f());
-    if (st.v) st.v.dispose();
+    disposeState(st);
     F.flush();
     ST.delete(ctx);
   }
