@@ -50,6 +50,9 @@ export function createWildlife(T, scene, options = {}) {
   const gr = options.ground;
   if (!data.isOwner() || !gr || typeof gr.under !== 'function' || !gr.w || !gr.h) return empty;
   const style = THEMES[options.theme] || THEMES.coast;
+  const armor = new T.Color(style.dragon).multiplyScalar(.48);
+  const membraneColor = new T.Color(style.wing).multiplyScalar(.64);
+  const horn = 0xc5b899, claw = 0xe0d5b7, joint = 0x22252a;
   const group = new T.Group(); group.name = 'realm-ambient-wildlife'; group.visible = false;
   group.userData.ambientOnly = true;
   const meshes = [], materials = [], geometries = [], textures = [];
@@ -68,8 +71,8 @@ export function createWildlife(T, scene, options = {}) {
   function sculpture(build) {
     const positions = [], colors = [], matrix = new T.Matrix4(), q = new T.Quaternion(), rotation = new T.Euler(), scale = new T.Vector3(), position = new T.Vector3();
     const paint = new T.Color(), point = new T.Vector3();
-    function part(geometry, color, x, y, z, sx = 1, sy = 1, sz = 1, rx = 0, rz = 0) {
-      q.setFromEuler(rotation.set(rx, 0, rz));
+    function part(geometry, color, x, y, z, sx = 1, sy = 1, sz = 1, rx = 0, rz = 0, orientation = null) {
+      if (orientation) q.copy(orientation); else q.setFromEuler(rotation.set(rx, 0, rz));
       matrix.compose(position.set(x, y, z), q, scale.set(sx, sy, sz));
       const flat = geometry.index ? geometry.toNonIndexed() : geometry;
       const attr = flat.getAttribute('position');
@@ -86,7 +89,13 @@ export function createWildlife(T, scene, options = {}) {
     const ellipsoid = (c, x, y, z, sx, sy, sz) => part(new T.SphereGeometry(1, 7, 5), c, x, y, z, sx, sy, sz);
     const cone = (c, x, y, z, sx, sy, sz, rx = 0, rz = 0) => part(new T.ConeGeometry(1, 1, 5), c, x, y, z, sx, sy, sz, rx, rz);
     const box = (c, x, y, z, sx, sy, sz) => part(new T.BoxGeometry(1, 1, 1), c, x, y, z, sx, sy, sz);
-    build({ellipsoid, cone, box});
+    const taper = (c, from, to, base, tip = 0) => {
+      const a = new T.Vector3(...from), b = new T.Vector3(...to), direction = b.clone().sub(a);
+      const turn = new T.Quaternion().setFromUnitVectors(new T.Vector3(0, 1, 0), direction.clone().normalize());
+      const center = a.add(b).multiplyScalar(.5);
+      part(new T.CylinderGeometry(tip, base, direction.length(), 5), c, center.x, center.y, center.z, 1, 1, 1, 0, 0, turn);
+    };
+    build({ellipsoid, cone, box, taper});
     const geo = new T.BufferGeometry();
     geo.setAttribute('position', new T.Float32BufferAttribute(positions, 3));
     geo.setAttribute('color', new T.Float32BufferAttribute(colors, 3));
@@ -95,12 +104,25 @@ export function createWildlife(T, scene, options = {}) {
   function membrane(dragon) {
     // One right wing. Mirroring the instance makes the left wing; rotation about
     // its inner edge produces actual flapping instead of a whole-bird wobble.
-    const outline = dragon ? [[0, .10, .23], [.63, .18, .66], [1.72, 0, -.30], [1.08, -.025, -.09], [.93, -.02, -.61], [.49, .015, -.32], [.27, .025, -.64]] :
+    const outline = dragon ? [[0, .10, .24], [.63, .22, .72], [2.08, .02, .10], [1.47, -.04, -.20], [1.43, -.02, -.86], [.86, -.05, -.46], [.88, 0, -1.02], [.47, -.02, -.55], [.15, .04, -.73]] :
       [[0, .02, .22], [.49, .08, .38], [1.34, 0, -.22], [.76, -.025, -.29], [.32, 0, -.42]];
     const pos = [], col = [], c = new T.Color();
     for (let i = 1; i < outline.length - 1; i++) {
-      c.set(dragon ? (i % 2 ? style.wing : style.dragon) : (i === 2 ? style.tip : style.bird));
+      c.set(dragon ? (i % 2 ? membraneColor : armor) : (i === 2 ? style.tip : style.bird));
       for (const at of [outline[0], outline[i], outline[i + 1]]) { pos.push(...at); col.push(c.r, c.g, c.b); }
+    }
+    if (dragon) {
+      // Raised finger bones and a hooked thumb keep the broad, torn-looking
+      // silhouette readable at scenery scale. Merge them into the same draw.
+      const ribs = sculpture(({taper}) => {
+        const elbow = [.63, .25, .72];
+        taper(armor, [0, .13, .24], elbow, .075, .045);
+        for (const i of [2, 4, 6, 8]) taper(joint, elbow, outline[i], .035, .008);
+        taper(horn, elbow, [.83, .32, 1.02], .055);
+        taper(horn, [1.88, .04, .19], [2.14, .02, .08], .028);
+      });
+      pos.push(...ribs.getAttribute('position').array); col.push(...ribs.getAttribute('color').array);
+      ribs.dispose();
     }
     const geo = new T.BufferGeometry();
     geo.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
@@ -123,13 +145,34 @@ export function createWildlife(T, scene, options = {}) {
     cone(style.tip, 0, .065, .58, .07, .23, .055, Math.PI / 2);
     cone(style.tip, 0, .01, -.48, .18, .36, .045, -Math.PI / 2);
   });
-  const dragonBody = sculpture(({ellipsoid, cone}) => {
-    ellipsoid(style.dragon, 0, .02, 0, .22, .19, .62);
-    ellipsoid(style.dragon, 0, .13, .63, .12, .16, .33);
-    ellipsoid(style.wing, 0, .14, .91, .14, .12, .21);
-    cone(style.dragon, 0, .02, -.88, .16, .95, .13, -Math.PI / 2);
-    for (const x of [-.10, .10]) cone(style.wing, x, .31, .81, .04, .23, .04, -.25);
-    for (let i = 0; i < 4; i++) cone(style.wing, 0, .22, .3 - .23 * i, .07, .18, .10);
+  const dragonBody = sculpture(({ellipsoid, cone, box, taper}) => {
+    ellipsoid(armor, 0, .02, 0, .27, .23, .65);
+    ellipsoid(membraneColor, 0, -.12, .12, .17, .10, .47);
+    taper(armor, [0, .06, .35], [0, .22, .91], .19, .13);
+    ellipsoid(armor, 0, .25, .98, .24, .18, .29);
+    // A heavy brow and separated jaws, with a dark mouth and exposed fangs.
+    box(armor, 0, .22, 1.22, .34, .14, .39);
+    box(0x190f13, 0, .10, 1.22, .28, .10, .32);
+    ellipsoid(armor, 0, -.015, 1.19, .17, .055, .30);
+    for (const side of [-1, 1]) {
+      ellipsoid(options.theme === 'tundra' ? 0x91e9ff : 0xff6b19, side * .205, .30, 1.04, .037, .027, .073);
+      taper(joint, [side * .17, .35, 1.16], [side * .23, .37, .91], .052, .025);
+      taper(armor, [side * .17, .32, .90], [side * .34, .51, .59], .095, .047);
+      taper(horn, [side * .34, .51, .59], [side * .46, .56, .33], .048);
+      taper(horn, [side * .19, .17, .90], [side * .42, .19, .59], .07);
+      for (const z of [1.12, 1.28, 1.40]) cone(claw, side * .13, .09, z, .027, .14, .027, Math.PI);
+      // Rear legs trail beneath the wings, ending in three hooked talons.
+      taper(armor, [side * .17, -.06, -.35], [side * .40, -.27, -.57], .11, .075);
+      taper(armor, [side * .40, -.27, -.57], [side * .34, -.39, -.84], .075, .045);
+      for (const toe of [-1, 0, 1]) taper(claw, [side * .34 + toe * .045, -.39, -.84], [side * .34 + toe * .07, -.43, -1.04], .025);
+    }
+    taper(armor, [0, .015, -.44], [.14, -.01, -1.12], .19, .085);
+    taper(armor, [.14, -.01, -1.12], [.35, .05, -1.62], .085, .032);
+    taper(horn, [.35, .05, -1.62], [.24, .09, -1.97], .065);
+    for (let i = 0; i < 7; i++) {
+      const z = .66 - .26 * i, height = .27 - i * .018;
+      taper(horn, [0, .22 - i * .016, z], [0, .22 + height, z - .16], .065 - i * .005);
+    }
   });
   const animalBody = sculpture(({ellipsoid, cone}) => {
     const c = style.animal, p = style.pale;
@@ -176,7 +219,7 @@ export function createWildlife(T, scene, options = {}) {
     else box(style.animal, 0, -.21, 0, .075, style.kind === 'fox' ? .30 : .48, .075);
   });
   const shadowGeo = new T.CircleGeometry(1, 12); shadowGeo.rotateX(-Math.PI / 2);
-  counts.birds = 20; counts.dragons = 3; counts.animals = Math.min(8, zones.animals.length * 2);
+  counts.birds = 10; counts.dragons = 2; counts.animals = Math.min(8, zones.animals.length * 2);
   const birds = batch('realm-birds', birdBody, counts.birds), birdWings = batch('realm-bird-wings', membrane(false), counts.birds * 2);
   const dragons = batch('realm-dragons', dragonBody, counts.dragons), dragonWings = batch('realm-dragon-wings', membrane(true), counts.dragons * 2);
   const animals = batch('realm-grazing-animals', animalBody, counts.animals), legs = batch('realm-animal-legs', legGeo, counts.animals * 4);
@@ -237,7 +280,7 @@ export function createWildlife(T, scene, options = {}) {
       // Height is modest: flight reads in silhouette while staying aligned to the
       // outer scenery's routes, safely clear of the playable center.
       const h = dragon ? s * 1.6 + Math.sin(a * 2) * s * .2 : s * (3.8 + Math.sin(time * .51 + phase) * .6);
-      if (!safe(pos.x, pos.y, s * (dragon ? 1.9 : 1.55), h)) { mesh.setMatrixAt(i, invisible); wings.setMatrixAt(i * 2, invisible); wings.setMatrixAt(i * 2 + 1, invisible); continue; }
+      if (!safe(pos.x, pos.y, s * (dragon ? 2.35 : 1.55), h)) { mesh.setMatrixAt(i, invisible); wings.setMatrixAt(i * 2, invisible); wings.setMatrixAt(i * 2 + 1, invisible); continue; }
       const p = gr.under(pos.x * gr.w, pos.y * gr.h), q = gr.under(next.x * gr.w, next.y * gr.h);
       heading.subVectors(q, p);
       const yaw = Math.atan2(heading.x, heading.z);
