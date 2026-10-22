@@ -1,6 +1,7 @@
 // Evan's reviewed navy 22 kit. The caller owns the profile gate and lifetime.
 // Call immediately after dress(), while the skeleton is still in its bind pose.
 // U is three.js BufferGeometryUtils, loaded alongside this owner-only module.
+import {bulkUp} from './return-player-bulk.js';
 export function restyleFootball(P, T, U) {
   if (typeof U?.mergeGeometries !== 'function') throw new Error('Player style needs BufferGeometryUtils');
   const C = {navy: 0x173b6c, deep: 0x102744, cream: 0xf0f2e8, pants: 0xdce2dc,
@@ -30,6 +31,8 @@ export function restyleFootball(P, T, U) {
     o.castShadow = true; o.receiveShadow = false; o.frustumCulled = false; return o;
   };
   const v = (x,y,z) => new T.Vector3(x,y,z);
+  // His fuller, defined build (Evan, Oct 21 2026): sculpted in the bind pose, before anything is hung on him.
+  restore.push(bulkUp(P, T));
   P.model.updateWorldMatrix(true, true);
   const modelInverse = P.model.matrixWorld.clone().invert();
   const at = name => P.B[name].getWorldPosition(new T.Vector3()).applyMatrix4(modelInverse);

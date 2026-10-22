@@ -503,6 +503,113 @@ export async function returnChecks(check) {
     const unchanged = !regular.run.over && regular.ev.includes('revived') && regular.ev.includes('trucked');
     return {pass: immediate && unchanged, detail: `owner ${hits}, shield ${owner.run.shield}; regular ${regular.ev.join(',')}, shield ${regular.run.shield.toFixed(2)}`};
   });
+  // ------------------------------------------------------------------------------------------- the owner's build
+  check('Return Man: Evan\'s build (his ask, Oct 21 2026: "the return man football player looks too skinny. add some defined muscles and bulk him up a bit"; views/return-player-bulk.js, on his navy kit alone): sculpted in the bind pose, off the page\'s thread: his limbs a good deal thicker at the belly (each 10-30%), shaped (the biceps and the calf\'s back fuller than their other sides), the skin of his hands, feet and head untouched; UVs, skin weights and faces as they were, no seam opened, every normal whole; the shoulder kept inside its pads; the ball out with his forearm; the ghost given the same at once; undone, his own geometry back and the copies let go; the model itself never touched; his kit the only way in, the offline cache leaving it out', async () => {
+    const V = new URL('../vendor/three/', import.meta.url).href;
+    const [T, {GLTFLoader}, SK, BU, styleSrc, swSrc] = await Promise.all([import(V + 'three.module.min.js'), import(V + 'GLTFLoader.js'),
+      import(V + 'SkeletonUtils.js'), import('../views/return-player-bulk.js'),
+      fetch(new URL('../views/return-player-style.js', import.meta.url)).then(r => r.text()), fetch(new URL('../../sw.js', import.meta.url)).then(r => r.text())]);
+    const gltf = await new GLTFLoader().loadAsync(new URL('../../models/return-player.glb', import.meta.url).href);
+    const bare = n => n.replace(/^mixamorig:?/, '').replace(/^xtra_(.+)_\d+$/, '$1');
+    // a player as views/return-3d.js dress() makes him: the model cloned (in its bind pose), the ball on his right forearm
+    const make = () => {
+      const model = SK.clone(gltf.scene), B = {};
+      model.updateMatrixWorld(true);
+      model.traverse(o => { if (o.isBone) B[o.name.replace(/^mixamorig:?/, '')] = o; });
+      const at = n => B[n].getWorldPosition(new T.Vector3()), ball = new T.Group();
+      B.RightForeArm.add(ball);
+      ball.position.copy(B.RightForeArm.worldToLocal(at('RightHand').lerp(at('RightForeArm'), .3).add(new T.Vector3(0, -.02, .07))));
+      return {model, B, ball};
+    };
+    const P = make(), inv = P.model.matrixWorld.clone().invert(), meshes = [];
+    P.model.traverse(o => { if (o.isSkinnedMesh) meshes.push(o); });
+    const sources = meshes.map(m => m.geometry);
+    const sig = g => Object.values(g.attributes).map(a => { const arr = a.isInterleavedBufferAttribute ? a.data.array : a.array; let h = 0; for (let i = 0; i < arr.length; i++) h = (h * 31 + arr[i]) | 0; return h; }).join();
+    const kept = sources.map(sig), ballAt = P.ball.position.clone(), ballWas = P.ball.getWorldPosition(new T.Vector3()).applyMatrix4(inv);
+    const t0 = performance.now(), undo = BU.bulkUp(P, T), page = performance.now() - t0;
+    const ready = await undo.ready, took = performance.now() - t0;
+    const moved = meshes.filter((m, i) => m.geometry !== sources[i]), names = moved.map(m => m.material.name);
+    // each vertex where the model has it (bind pose), as it came and as sculpted
+    const space = (m, g) => {
+      const sk = m.skeleton, b = g.attributes.skinIndex.getX(0), D = inv.clone().multiply(sk.bones[b].matrixWorld).multiply(sk.boneInverses[b]);
+      const p = g.attributes.position, v = new T.Vector3(), out = new Float64Array(p.count * 3);
+      for (let i = 0; i < p.count; i++) v.fromBufferAttribute(p, i).applyMatrix4(D).toArray(out, i * 3);
+      return out;
+    };
+    const FIELDS = new Set(['Hips', 'Spine', 'Spine1', 'Spine2', 'Neck', 'LeftShoulder', 'RightShoulder', ...['Left', 'Right'].flatMap(s => ['Arm', 'ForeArm', 'UpLeg', 'Leg'].map(n => s + n))]);
+    const pads = ['Left', 'Right'].map(s => ({c: P.B[s + 'Arm'].getWorldPosition(new T.Vector3()).applyMatrix4(inv).add(new T.Vector3(s === 'Left' ? .008 : -.008, .003, .003)), r: new T.Vector3(.095, .055, .105)}));
+    let still = 0, maxStill = 0, kept2 = true, seams = 0, seamGap = 0, norms = true, padOut = 0;
+    const gains = {};
+    for (const m of moved) {
+      const src = sources[meshes.indexOf(m)], g = m.geometry, A0 = space(m, src), A1 = space(m, g), sk = m.skeleton, skin = m.material.name === 'Bodymat';
+      const si = src.attributes.skinIndex, sw = src.attributes.skinWeight, nrm = g.attributes.normal, seen = new Map();
+      for (const k of ['uv', 'skinIndex', 'skinWeight']) { // (UVs, skin weights: as they were)
+        const a = src.attributes[k], b = g.attributes[k], get = ['getX', 'getY', 'getZ', 'getW'].slice(0, a ? a.itemSize : 0);
+        for (let i = 0; a && i < a.count && kept2; i++) for (const x of get) if (a[x](i) !== b[x](i)) kept2 = false;
+      }
+      if (src.index && (src.index.count !== g.index.count || src.index.array.some((x, i) => x !== g.index.array[i]))) kept2 = false;
+      for (let i = 0; i < si.count; i++) {
+        const d = Math.hypot(A1[i * 3] - A0[i * 3], A1[i * 3 + 1] - A0[i * 3 + 1], A1[i * 3 + 2] - A0[i * 3 + 2]);
+        const ws = [[si.getX(i), sw.getX(i)], [si.getY(i), sw.getY(i)], [si.getZ(i), sw.getZ(i)], [si.getW(i), sw.getW(i)]];
+        if (skin && ws.every(([b, w]) => !(w > 0) || !FIELDS.has(bare(sk.bones[b].name)))) { still++; maxStill = Math.max(maxStill, d); }
+        // a seam's split vertices: one place before, one place after
+        const key = [src.attributes.position.getX(i), src.attributes.position.getY(i), src.attributes.position.getZ(i)].join();
+        if (seen.has(key)) { const j = seen.get(key); seams++; seamGap = Math.max(seamGap, Math.hypot(A1[i * 3] - A1[j * 3], A1[i * 3 + 1] - A1[j * 3 + 1], A1[i * 3 + 2] - A1[j * 3 + 2])); }
+        else seen.set(key, i);
+        const n0 = src.attributes.normal, as = Math.abs(nrm.getX(i) - n0.getX(i)) + Math.abs(nrm.getY(i) - n0.getY(i)) + Math.abs(nrm.getZ(i) - n0.getZ(i));
+        if (!(Math.abs(Math.hypot(nrm.getX(i), nrm.getY(i), nrm.getZ(i)) - 1) < 1e-3 || as < 1e-6)) norms = false; // (unit, or the model's own)
+        for (const pad of pads) {
+          const e0 = new T.Vector3(A0[i * 3], A0[i * 3 + 1], A0[i * 3 + 2]).sub(pad.c).divide(pad.r).length();
+          if (e0 < 1 && new T.Vector3(A1[i * 3], A1[i * 3 + 1], A1[i * 3 + 2]).sub(pad.c).divide(pad.r).length() >= 1) padOut++;
+        }
+      }
+      // each limb's gain at its belly: the mean distance from its bone before and after, in fifths along it (the
+      // fullest fifth); and that fifth's mean push on each side of it (front, outer, back, inner)
+      for (const [bone, to] of [['LeftArm', 'LeftForeArm'], ['LeftForeArm', 'LeftHand'], ['LeftUpLeg', 'LeftLeg'], ['LeftLeg', 'LeftFoot']]) {
+        const j = P.B[bone].getWorldPosition(new T.Vector3()).applyMatrix4(inv), ax = P.B[to].getWorldPosition(new T.Vector3()).applyMatrix4(inv).sub(j), L = ax.length();
+        ax.normalize();
+        const f = new T.Vector3(0, 0, 1).addScaledVector(ax, -ax.z).normalize(), o = new T.Vector3(1, 0, 0).addScaledVector(ax, -ax.x).addScaledVector(f, -f.x).normalize();
+        const bins = Array.from({length: 5}, () => ({r0: 0, r1: 0, n: 0, sides: {}}));
+        for (let i = 0; i < si.count; i++) {
+          let w = 0;
+          for (const [b, x] of [[si.getX(i), sw.getX(i)], [si.getY(i), sw.getY(i)], [si.getZ(i), sw.getZ(i)], [si.getW(i), sw.getW(i)]]) if (bare(sk.bones[b].name) === bone) w += x;
+          if (w < .6) continue;
+          const v0 = new T.Vector3(A0[i * 3], A0[i * 3 + 1], A0[i * 3 + 2]).sub(j), v1 = new T.Vector3(A1[i * 3], A1[i * 3 + 1], A1[i * 3 + 2]).sub(j), t = v0.dot(ax) / L;
+          if (t < 0 || t >= 1) continue;
+          const q0 = v0.clone().addScaledVector(ax, -v0.dot(ax)), r0 = q0.length(), r1 = v1.clone().addScaledVector(ax, -v1.dot(ax)).length();
+          if (r0 > .13) continue;
+          const bin = bins[Math.floor(t * 5)], side = Math.round(Math.atan2(q0.dot(o), q0.dot(f)) / (Math.PI / 2)) & 3;
+          bin.r0 += r0; bin.r1 += r1; bin.n++;
+          const s = bin.sides[side] || (bin.sides[side] = [0, 0]);
+          s[0] += r1 - r0; s[1]++;
+        }
+        const best = bins.filter(b => b.n > 5).sort((a, b) => b.r1 / b.r0 - a.r1 / a.r0)[0];
+        const side = k => (best.sides[k] ? best.sides[k][0] / best.sides[k][1] : 0);
+        if (best) gains[bone + '/' + m.material.name] = {gain: best.r1 / best.r0 - 1, front: side(0), outer: side(1), back: side(2), inner: side(3)};
+      }
+    }
+    const arm = gains['LeftArm/Bodymat'], fore = gains['LeftForeArm/Bodymat'], thigh = gains['LeftUpLeg/pants'], calf = gains['LeftLeg/Default'];
+    const thick = [arm, fore, thigh, calf].every(x => x && x.gain >= .1 && x.gain <= .3);
+    const shaped = !!arm && arm.front > 1.5 * arm.inner && !!calf && calf.back > 2 * calf.front;
+    const ballOut = P.ball.getWorldPosition(new T.Vector3()).applyMatrix4(inv).distanceTo(ballWas);
+    // the ghost: the same sculpt, at once
+    const G = make(), t1 = performance.now(), undoG = BU.bulkUp(G, T), ghostPage = performance.now() - t1, ghostReady = await undoG.ready, gm = [];
+    G.model.traverse(o => { if (o.isSkinnedMesh) gm.push(o); });
+    const same = gm.every((o, i) => (o.geometry === sources[i] ? meshes[i].geometry === sources[i] : o.geometry.attributes.position.array === meshes[i].geometry.attributes.position.array));
+    // undone: his own geometry back, the copies let go
+    let freed = 0;
+    moved.forEach(m => m.geometry.addEventListener('dispose', () => { freed++; }));
+    undo(); undoG();
+    const back = meshes.every((m, i) => m.geometry === sources[i]) && P.ball.position.equals(ballAt) && freed === moved.length;
+    const untouched = sources.every((g, i) => sig(g) === kept[i]);
+    const hook = /import \{bulkUp\} from '\.\/return-player-bulk\.js';/.test(styleSrc) && /restore\.push\(bulkUp\(P, T\)\)/.test(styleSrc);
+    const offline = !swSrc.includes("'return-player-bulk'") && swSrc.includes('return-player-(style|bulk)');
+    const want = ['Bodymat', 'shirt_0', 'pants', 'Default'].every(n => names.includes(n)) && !names.includes('sepatu_key.obj');
+    const pass = ready && want && thick && shaped && maxStill < 1e-6 && kept2 && seamGap < 1e-6 && norms && padOut === 0 && ballOut > .002 && ballOut < .025 &&
+      ghostReady && same && back && untouched && hook && offline && page < 25 && ghostPage < 10;
+    const pc = x => (x ? Math.round(x.gain * 100) + '%' : 'none'), mm = x => (x * 1000).toFixed(1);
+    return {pass, detail: `sculpted ${ready} (${names.join(', ')}); at the belly: upper arm +${pc(arm)}, forearm +${pc(fore)}, thigh +${pc(thigh)}, calf +${pc(calf)}; shaped ${shaped} (biceps ${arm ? mm(arm.front) : '-'} mm, its inner side ${arm ? mm(arm.inner) : '-'}; calf's back ${calf ? mm(calf.back) : '-'}, its front ${calf ? mm(calf.front) : '-'}); skin of his hands, feet and head moved ${(maxStill * 1000).toFixed(3)} mm (${still} vertices); UVs, weights and faces kept ${kept2}; ${seams} seam vertices, the widest apart ${(seamGap * 1000).toFixed(3)} mm; normals whole ${norms}; out of a pad ${padOut}; the ball out ${mm(ballOut)} mm; the ghost the same ${same} (${ghostPage.toFixed(1)} ms); undone ${back}; the model untouched ${untouched}; the kit's hook ${hook}; out of the offline cache ${offline}; ${page.toFixed(1)} ms on the page, sculpted in ${Math.round(took)} ms`};
+  });
   check('Return Man: its stylesheet (css/views/return.css) is linked: the version mark is on :root', () => {
     const v = getComputedStyle(document.documentElement).getPropertyValue('--rm-css').trim();
     return {pass: v !== '', detail: `--rm-css ${v || 'missing'}`};

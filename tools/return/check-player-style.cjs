@@ -134,6 +134,8 @@ async function fixture(browser, {legacy = false, delay = false, fail = false} = 
         frame(.2, 'run', .5, {catch: 1}); samples.push({move: 'catch', ...(await player(D3.GL.players.us))});
         return {samples, ghostAlpha: D3.GL.ghost.map(m => ({transparent: m.transparent, opacity: m.opacity, depthWrite: m.depthWrite}))};
       }, monitor, disposal() { return watched; },
+      // his build (return-player-bulk.js) is sculpted off the page's thread and goes in a moment after the kit
+      bulked() { return ['us', 'ghost'].every(key => { let on = false; D3.GL.players[key].root.traverse(o => { if (o.isSkinnedMesh && /-bulk$/.test(o.geometry.name)) on = true; }); return on; }); },
       screenshot(view) {
         frame(); const gl = D3.GL;
         gl.players.them.root.visible = false; gl.players.ghost.root.visible = false;
@@ -153,6 +155,7 @@ async function fixture(browser, {legacy = false, delay = false, fail = false} = 
     snapshot: () => page.evaluate(() => window.playerCheck.snapshot()),
     status: () => page.evaluate(() => window.playerCheck.status()),
     async styled() { await page.waitForFunction(() => { window.playerCheck.frame(); return window.playerCheck.status().styled; }); },
+    async bulked() { await page.waitForFunction(() => { window.playerCheck.frame(); return window.playerCheck.bulked(); }); },
     async screenshot(name, view) { await page.evaluate(view => window.playerCheck.screenshot(view), view); await page.screenshot({path: path.join(output, name + '.png')}); },
     clean() { assert.deepEqual(errors, []); assert.deepEqual(external, []); },
     async close() { release(); await context.close(); }
@@ -179,6 +182,7 @@ async function waitRequests(f) { const end = Date.now() + 10000; while (!f.reque
       report.moves = await f.page.evaluate(() => window.playerCheck.moves());
       for (const sample of report.moves.samples) { assert.equal(sample.finite, true, sample.move + ' finite pose'); assert.equal(sample.ball, true); assert.ok(sample.ballDistance < .6, sample.move + ' keeps ball at hand'); }
       assert.ok(report.moves.ghostAlpha.every(m => m.transparent && m.opacity === .22 && !m.depthWrite));
+      await f.bulked(); // (the screenshots show his build)
       for (const view of ['game', 'rear', 'front', 'side']) await f.screenshot('owner-player-' + view, view);
       const observed = await f.page.evaluate(() => window.playerCheck.monitor()); assert.ok(observed.expectedGeometry > 0 && observed.expectedMaterial > 0);
       await f.identity('ben'); assert.deepEqual(await f.status(), {owner: false, styled: false, ghostStyled: false, originalRefs: true, ready: true});
