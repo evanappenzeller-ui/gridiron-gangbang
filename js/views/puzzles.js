@@ -604,6 +604,10 @@ function onDaily(st, type) {
 }
 
 // ============================================================================ View
+function patchAtmosphere(st) {
+  st.ctx.screen.classList.toggle('gm-owner-light', st.game === null && data.isOwner());
+}
+
 export default {
   id: 'puzzles',
   chrome: 'nav',
@@ -635,6 +639,9 @@ export default {
     HUB.set(ctx, st);
     el.addEventListener('click', e => onClick(st, e));
     if (st.game === null) {
+      patchAtmosphere(st);
+      // Also clear a hidden shelf immediately when this phone or another tab changes profile.
+      ctx.on('me', () => patchAtmosphere(st));
       st.list = mountList(el.querySelector('.gm-list'), ctx, {play: id => (id === 'puzzles' && ready() ? playPuzzles(ctx) : ctx.nav(gamePath(id)))});
       ctx.setBackTitle('Games'); // a game page's back button: short, so its title has the room
       // A phone with a finished game posts it from any visit to this tab.
@@ -668,6 +675,7 @@ export default {
     const st = HUB.get(ctx);
     if (!st) return;
     st.pending = false;
+    patchAtmosphere(st);
     // Back on the list from a game's page: its card catches up (a game just finished turns into its scoreboard).
     if (st.game === null) { if (st.list) st.list.refresh(true); patchPill(st, true); return; }
     if (st.game === 'puzzles' && ready()) sync(st, true);
@@ -692,6 +700,7 @@ export default {
   unmount(el, ctx) {
     const st = HUB.get(ctx);
     if (!st) return;
+    ctx.screen.classList.remove('gm-owner-light');
     if (st.list) st.list.destroy();
     if (st.cancelRing) st.cancelRing();
     if (st.board) st.board.destroy();
