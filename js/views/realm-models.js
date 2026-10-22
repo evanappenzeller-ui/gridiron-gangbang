@@ -559,16 +559,110 @@ export function rubble(size) {
   }
   return GEO.get(key).clone();
 }
-/** A wall's pillar and the wall between two (one each, instanced by realm-3d.js), white, tinted per wall. */
-export function wallParts() {
-  if (!GEO.has('wall')) {
+/** A wall's pillar and its one-tile run, cached for instancing. Levels 1–5 carry their own vertex colours;
+ *  the default preserves the white legacy geometry for callers that tint walls per instance. */
+export function wallParts(level = 0) {
+  const style = Number.isInteger(level) && level >= 1 && level <= 5 ? level : 0;
+  const key = style ? `wall:${style}` : 'wall';
+  if (!GEO.has(key)) {
     const post = new Kit(true), run = new Kit(true);
-    post.box(.34, .68, .34, 0xFFFFFF).box(.4, .08, .4, 0xFFFFFF, [0, .68, 0]);
-    run.box(1, .5, .24, 0xFFFFFF, [.5, 0, 0]).box(.16, .14, .26, 0xFFFFFF, [.5, .5, 0]);
+    // The run always spans x 0…1, with a complete pillar centred on each endpoint. Keeping the pillar
+    // square and detailing both faces lets the same parts join at corners and four-way intersections.
+    const courses = (k, w, d, y, rows, step, colors, cx = 0, blocks = 1) => {
+      for (let row = 0; row < rows; row++) {
+        const n = blocks === 1 ? 1 : blocks + row % 2, bw = w / n;
+        for (let col = 0; col < n; col++) k.box(bw - .012, step - .014, d, colors[(row + col) % colors.length], [cx - w / 2 + (col + .5) * bw, y + row * step, 0]);
+      }
+    };
+    const crown = (k, span, y, size, height, stone, cap) => {
+      [-1, 1].forEach(x => [-1, 1].forEach(z => {
+        k.box(size, height, size, stone, [x * span, y, z * span]);
+        if (cap) k.box(size + .012, .035, size + .012, cap, [x * span, y + height, z * span]);
+      }));
+    };
+    if (!style) {
+      post.box(.34, .68, .34, 0xFFFFFF).box(.4, .08, .4, 0xFFFFFF, [0, .68, 0]);
+      run.box(1, .5, .24, 0xFFFFFF, [.5, 0, 0]).box(.16, .14, .26, 0xFFFFFF, [.5, .5, 0]);
+    } else if (style <= 2) {
+      // Hewn oak stakes with pale cut points; the second tier stands on stone and gains iron ties.
+      const reinforced = style === 2, foot = reinforced ? .13 : 0, timber = [0x795130, 0x89613B, 0x69492F];
+      if (reinforced) {
+        post.box(.44, .18, .44, 0x77766A);
+        run.box(1, foot, .32, 0x656557, [.5, 0, 0]);
+        courses(run, 1, .34, .025, 1, .105, [0x8B8775, 0x777765], .5, 3);
+      }
+      const base = reinforced ? .18 : 0, shaft = reinforced ? .62 : .64;
+      post.box(.3, shaft, .3, timber[0], [0, base, 0]);
+      post.pyramid(.3, .3, reinforced ? .18 : .2, reinforced ? IRON : 0xB28A53, [0, base + shaft, 0]);
+      [base + .14, base + shaft - .12].forEach(y => post.box(.33, .055, .33, reinforced ? IRON : DARKWOOD, [0, y, 0]));
+      for (let i = 0; i < 5; i++) {
+        const x = .1 + i * .2, h = (reinforced ? .58 : .55) + (i % 2 ? .025 : 0);
+        run.box(.17, h, .19, timber[i % 3], [x, foot, 0]);
+        run.pyramid(.17, .19, .16, reinforced ? 0xA27C4C : 0xB28A53, [x, foot + h, 0]);
+      }
+      [-1, 1].forEach(sd => {
+        [foot + .16, foot + .45].forEach(y => run.box(1, .07, .045, reinforced ? IRON : DARKWOOD, [.5, y, sd * .12]));
+        if (reinforced) run.rod(.024, [.12, foot + .19, sd * .15], [.88, foot + .48, sd * .15], IRON, {seg: 4});
+      });
+    } else if (style === 3) {
+      // Three open crenels and staggered courses make the first stone tier read as a castle wall.
+      const stone = [0xA09A89, 0x8C897A, 0xB0A792];
+      post.box(.34, .87, .34, 0x646658).box(.44, .08, .44, 0x7A7B6C);
+      courses(post, .39, .39, .08, 4, .195, stone);
+      post.box(.44, .07, .44, 0xB1AA98, [0, .86, 0]);
+      crown(post, .15, .93, .14, .17, stone[0]);
+      run.box(1, .72, .25, 0x626556, [.5, 0, 0]).box(1, .08, .32, 0x7A7B6C, [.5, 0, 0]);
+      courses(run, 1, .28, .08, 3, .21, stone, .5, 3);
+      run.box(1, .07, .32, 0xB1AA98, [.5, .71, 0]);
+      [.16, .5, .84].forEach(x => run.box(.16, .17, .3, stone[0], [x, .78, 0]));
+    } else if (style === 4) {
+      // Broad corner buttresses and a black iron belt reinforce the darker fortress masonry.
+      const stone = [0x575D58, 0x697065, 0x454D48];
+      post.box(.4, .96, .4, 0x343D38).box(.56, .11, .56, 0x555B50);
+      courses(post, .43, .43, .11, 4, .21, stone);
+      [-1, 1].forEach(x => [-1, 1].forEach(z => {
+        post.box(.12, .62, .12, 0x74786A, [x * .22, .11, z * .22]);
+        post.pyramid(.12, .12, .14, 0x818474, [x * .22, .73, z * .22]);
+      }));
+      post.box(.46, .06, .46, IRON, [0, .88, 0]).box(.56, .09, .56, 0x858777, [0, .95, 0]);
+      crown(post, .18, 1.04, .17, .18, stone[1]);
+      run.box(1, .82, .3, 0x343D38, [.5, 0, 0]).box(1, .11, .4, 0x555B50, [.5, 0, 0]);
+      courses(run, 1, .33, .11, 4, .1775, stone, .5, 3);
+      [-1, 1].forEach(sd => {
+        [.25, .75].forEach(x => {
+          run.box(.12, .53, .12, 0x74786A, [x, .11, sd * .19]);
+          run.pyramid(.12, .12, .14, 0x818474, [x, .64, sd * .19]);
+        });
+        run.box(.045, .19, .015, 0x202B28, [.5, .44, sd * .172]);
+      });
+      run.box(1, .055, .36, IRON, [.5, .765, 0]).box(1, .08, .39, 0x858777, [.5, .82, 0]);
+      [.16, .5, .84].forEach(x => run.box(.18, .18, .34, stone[1], [x, .9, 0]));
+    } else {
+      // Pale dressed stone, bronze string courses and gold-capped merlons crown the citadel tier.
+      const stone = [0xC9C0A5, 0xB8B19A, 0xD8CEB2], bronze = 0x9A7239, gold = 0xD2AD58;
+      post.box(.44, 1.04, .44, 0x7B8170).box(.58, .12, .58, 0x9F9D84);
+      courses(post, .47, .47, .12, 4, .23, stone);
+      [-1, 1].forEach(x => [-1, 1].forEach(z => post.box(.1, .86, .1, stone[2], [x * .24, .16, z * .24])));
+      [.28, .76].forEach(y => post.box(.5, .035, .5, bronze, [0, y, 0]));
+      post.box(.6, .08, .6, stone[2], [0, 1.02, 0]).box(.6, .035, .6, gold, [0, 1.1, 0]);
+      crown(post, .2, 1.135, .18, .19, stone[0], gold);
+      run.box(1, .91, .33, 0x7B8170, [.5, 0, 0]).box(1, .12, .44, 0x9F9D84, [.5, 0, 0]);
+      courses(run, 1, .36, .12, 4, .1975, stone, .5, 3);
+      [.26, .7].forEach(y => run.box(1, .035, .38, bronze, [.5, y, 0]));
+      [-1, 1].forEach(sd => {
+        run.box(.1, .66, .09, stone[2], [.5, .16, sd * .2]);
+        run.box(.13, .09, .105, gold, [.5, .75, sd * .2]);
+      });
+      run.box(1, .075, .42, stone[2], [.5, .91, 0]).box(1, .03, .43, gold, [.5, .985, 0]);
+      [.16, .5, .84].forEach(x => {
+        run.box(.19, .17, .37, stone[0], [x, 1.015, 0]);
+        run.box(.202, .035, .382, gold, [x, 1.185, 0]);
+      });
+    }
     const g = m => m.build().children[0].geometry;
-    GEO.set('wall', {post: g(post), rail: g(run)});
+    GEO.set(key, {post: g(post), rail: g(run)});
   }
-  return GEO.get('wall');
+  return GEO.get(key);
 }
 // Walls by level: a timber palisade, then stone, darker stone, stone capped in gold.
 export const WALL_TINT = [0x8A6239, 0x77512E, 0xA49E94, 0x928C82, 0x76716A, 0x66615B, 0xC9A146, 0xE2B83E];

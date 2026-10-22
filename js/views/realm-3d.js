@@ -13,6 +13,7 @@
 // the defenses loose and what the raiders shoot (arrows, bolts, boulders, fire), dust where a building goes down.
 // load() → true when three.js is in and this phone has WebGL; create(host, opts) → the view (see its methods).
 import * as FM from './realm-models.js';
+import {createWallView, wallPreview} from './realm-walls.js';
 import * as SPR from './realm-sprites.js';
 import {KINDS, TROOPS, N, EDGE} from '../core/realm.js';
 import * as data from '../core/data.js';
@@ -117,6 +118,7 @@ const THUMBS = new Map();
 /** A picture (data URL) of kind k at level l in a house's colours, or of a soldier (troop: true). */
 export function thumb(k, l, house, troop = false) {
   if (!ready()) return '';
+  if (k === 'wall' && !data.isOwner()) return '';
   if (!troop && SPR.ready() && SPR.KINDS.includes(k)) return SPR.thumbURL(k, l);
   if (troop && ARMY[k]) return ARMY[k].url;
   const key = `${troop ? 't' : 'b'}:${k}:${l}:${house.pri}:${house.sigil}`;
@@ -140,7 +142,7 @@ export function thumb(k, l, house, troop = false) {
       const body = new T.Mesh(parts.body, mat); body.position.y = .22; obj.add(body);
       if (k === 'dragon') [-1, 1].forEach(sd => { const w = new T.Mesh(parts.leg, mat); w.position.set(sd * .18, .32, .1); w.scale.x = sd; w.rotation.z = sd * .35; obj.add(w); });
       else [-1, 1].forEach(sd => { const lg = new T.Mesh(parts.leg, mat); lg.position.set(sd * .06 * (k === 'knight' ? 1.35 : 1), .22, 0); lg.rotation.x = sd * .3; obj.add(lg); });
-    } else obj = FM.model(k, l, house);
+    } else obj = k === 'wall' ? wallPreview(T, l, true) : FM.model(k, l, house);
     sc.add(obj);
     const box = new T.Box3().setFromObject(obj), c = box.getCenter(new T.Vector3()), sz = box.getSize(new T.Vector3());
     const R = Math.max(sz.x, sz.y, sz.z) * .62;
@@ -627,8 +629,8 @@ export function create(host, opts = {}) {
   const homeNPCs = village ? createHomeNPCs(T, scene) : null;
   const groups = new Map(); // id -> {g, key, b}
   const picks = [];
-  let wallSig = '', wallMesh = null;
   const root = new T.Group(); scene.add(root);
+  const wallView = createWallView(T, root, W);
   // One transparent decal for the whole lot. Soft wear at entrances and narrow paths leave the landscape visible.
   let wear = null, wearSig = '';
   function updateWear(s) {
@@ -700,32 +702,12 @@ export function create(host, opts = {}) {
       e.g.position.set(W(b.x + size / 2), 0, W(b.y + size / 2));
     });
     [...groups.keys()].forEach(id => { if (!seen.has(id)) { root.remove(groups.get(id).g); dropFolk(groups.get(id)); groups.delete(id); } });
-    // the walls: one instanced pillar and run mesh for the lot, a run joining walls side by side
+    // Walls retain their own design at mixed-level joins and remain selectable along each run.
     const walls = s.b.filter(b => b.t === 'wall' && !gone.has(b.i));
-    const sig = walls.map(f => `${f.i}.${f.x}.${f.y}.${f.l}`).join(',');
-    if (sig !== wallSig) {
-      wallSig = sig;
-      if (wallMesh) { root.remove(wallMesh.post, wallMesh.rail); wallMesh.post.dispose(); wallMesh.rail.dispose(); }
-      const parts = FM.wallParts(), at = new Map(walls.map(f => [f.x + ',' + f.y, f]));
-      const runs = [];
-      walls.forEach(f => { if (at.has((f.x + 1) + ',' + f.y)) runs.push([f, 0]); if (at.has(f.x + ',' + (f.y + 1))) runs.push([f, 1]); });
-      const mat = FM.mats().paint;
-      const post = new T.InstancedMesh(parts.post, mat, Math.max(1, walls.length)), rail = new T.InstancedMesh(parts.rail, mat, Math.max(1, runs.length));
-      const m = new T.Matrix4(), q = new T.Quaternion(), one = new T.Vector3(1, 1, 1), c = new T.Color();
-      walls.forEach((f, i) => { m.compose(new T.Vector3(W(f.x + .5), 0, W(f.y + .5)), q, one); post.setMatrixAt(i, m); post.setColorAt(i, c.set(FM.WALL_TINT[f.l - 1] || 0x8A6239)); });
-      runs.forEach(([f, dir], i) => {
-        m.compose(new T.Vector3(W(f.x + .5), 0, W(f.y + .5)), new T.Quaternion().setFromAxisAngle(new T.Vector3(0, 1, 0), dir ? -Math.PI / 2 : 0), one);
-        rail.setMatrixAt(i, m); rail.setColorAt(i, c.set(FM.WALL_TINT[f.l - 1] || 0x8A6239));
-      });
-      post.count = walls.length; rail.count = runs.length;
-      post.castShadow = rail.castShadow = true; post.receiveShadow = rail.receiveShadow = true;
-      post.userData.walls = walls;
-      root.add(post, rail);
-      wallMesh = {post, rail};
-    }
+    wallView.setLot(walls);
     picks.length = 0;
     groups.forEach(e => e.g.traverse(m => { if (m.isMesh) picks.push(m); }));
-    if (wallMesh) picks.push(wallMesh.post);
+    picks.push(...wallView.picks);
     if (village && autoFrame && layoutChanged && !placement) frameVillage();
     want();
   }
@@ -825,7 +807,8 @@ export function create(host, opts = {}) {
     if (ghost) { root.remove(ghost.g); ghost = null; }
     if (!g) { select(null); return; }
     const size = KINDS[g.t].size;
-    const grp = SPR.ready() && SPR.KINDS.includes(g.t) ? SPR.building(g.t, 1, size) : FM.model(g.t, 1, house);
+    const grp = g.t === 'wall' ? wallPreview(T, 1) : SPR.ready() && SPR.KINDS.includes(g.t) ? SPR.building(g.t, 1, size) : FM.model(g.t, 1, house);
+    if (!grp) return;
     grp.traverse(m => { if (m.isMesh) { m.castShadow = false; } });
     grp.position.set(W(g.x + size / 2), .25, W(g.y + size / 2));
     root.add(grp);
@@ -1231,6 +1214,7 @@ export function create(host, opts = {}) {
       clearInterval(folkTimer);
       if (homeNPCs) homeNPCs.dispose();
       groups.forEach(dropFolk);
+      wallView.dispose();
       if (raf) cancelAnimationFrame(raf);
       if (ro) ro.disconnect();
       if (wear) { wear.mesh.geometry.dispose(); wear.mesh.material.dispose(); wear.tex.dispose(); }

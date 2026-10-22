@@ -58,7 +58,7 @@ export function houseName(s = F.mine()) {
 }
 /** A picture of a building or a soldier (thumb() in realm-3d.js), as an <img>, or '' before the 3D is in. */
 export function picOf(k, house, troop = false) {
-  const url = D3 && D3.ready() ? D3.thumb(k, troop ? 1 : 2, house, troop) : '';
+  const url = D3 && D3.ready() ? D3.thumb(k, troop || k === 'wall' ? 1 : 2, house, troop) : '';
   return url ? `<img src="${url}" alt="" draggable="false">` : '';
 }
 
