@@ -1589,15 +1589,15 @@ export async function runChecks() {
     return {pass: legs.length > 0 && !none.length && !bad.length, detail: none.length ? 'unread: ' + none.join('; ') : bad.length ? bad.join('; ') : `${legs.length} legs: ${Object.entries(kinds).map(([k, n]) => `${k} ${n}`).join(', ')}`};
   });
 
-  check('Themes: Prime Time by default with Retro beside it, every theme in the picker has its colour block, all 32 NFL teams', () => {
+  check('Themes: only Prime Time (the default) and Old School Gridiron on offer, each with its colour block', () => {
     const T = window.GGTheme;
     if (!T) return {pass: false, detail: 'js/themes.js not loaded'};
     const rules = new Set();
     for (const sh of document.styleSheets) { let rs; try { rs = sh.cssRules; } catch (_) { continue; } for (const r of rs) { const m = /data-skin="([a-z]+)"\]$/.exec(r.selectorText || ''); if (m) rules.add(m[1]); } }
-    const missing = T.list.filter(t => t.id !== 'retro' && !rules.has(t.id)).map(t => t.id);
-    const nfl = T.list.filter(t => t.group === 'NFL').length, ids = new Set(T.list.map(t => t.id));
-    const pass = T.list[0].id === 'prime' && T.list[1].id === 'retro' && T.list[0].group === 'Classic' && T.list[1].group === 'Classic' && !missing.length && nfl === 32 && ids.size === T.list.length && ['space', 'future', 'tundra', 'neon', 'oldschool', 'day'].every(x => ids.has(x));
-    return {pass, detail: missing.length ? 'no colours for ' + missing.join(', ') : `${T.list.length} themes (${nfl} NFL), in use: ${T.get()}`};
+    const missing = T.list.filter(t => !rules.has(t.id)).map(t => t.id);
+    const ids = T.list.map(t => t.id).join(',');
+    const pass = ids === 'prime,oldschool' && !missing.length && T.list.some(t => t.id === T.get());
+    return {pass, detail: missing.length ? 'no colours for ' + missing.join(', ') : `on offer: ${ids}; in use: ${T.get()}`};
   });
 
   check('The Lay leg box reads nicknames, short names and typos as the player, and autofills bets', async () => {

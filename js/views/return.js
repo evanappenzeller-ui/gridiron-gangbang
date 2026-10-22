@@ -123,6 +123,11 @@ function cardHTML(st) {
       + note + again('Field the kick') + sb()
       + `<p class="rm-card-t2">${ui.icon('clock', {size: 14})}<span data-rm-next>${esc(`New course in ${ui.untilText(msToMidnight())}`)}</span></p></div>`;
   }
+  // the owner's: no how-to-play, the day's first kickoff starts on its own (autoGo); this only shows if it couldn't
+  if (data.isOwner()) {
+    return `<div class="rm-card-in is-first"><p class="rm-card-o">${koLabel(0)}${R.testing() ? ' · Test play' : ''} ${BETA}</p>`
+      + again('Field the kick') + creditLine() + `</div>`;
+  }
   return `<div class="rm-card-in is-first"><p class="rm-card-o">${koLabel(0)}${R.testing() ? ' · Test play' : ''} ${BETA}</p>`
     + `<h2 class="rm-card-t">Take it to the house</h2>`
     + keysHTML(data.isOwner()) + note + betaLine()
@@ -161,6 +166,14 @@ function boardHTML(st) {
     + ui.seg({name: 'rm-sb', items: SB_MODES, value: st.sbMode, small: true, label: 'Scoreboard', cls: 'c-board-seg'})
     + `<div data-rm-sbody>${boardBodyHTML(st)}</div></section>`;
 }
+// On the owner's profile the day's first kickoff (and Test play's) starts on its own when the page opens, no card
+// first (the owner's ask, Oct 2026). Everyone else still taps Field the kick.
+const autoGoes = st => data.isOwner() && st.mode === 'ready' && !st.day.next;
+function autoGo(st) {
+  if (st.dead) return;
+  if (autoGoes(st) && document.visibilityState !== 'hidden') { go(st); return; }
+  if (st.mode === 'ready') setCard(st, true); // (not now: the card, with its button)
+}
 // While a return's on (or before the day's first), the scoreboard waits under the stage; between runs it shows.
 const playing = st => !st.day.runs || st.mode === 'run' || st.mode === 'catch' || st.mode === 'paused';
 function bodyHTML(st) {
@@ -168,7 +181,7 @@ function bodyHTML(st) {
     + `<div class="rm-stage" data-rm-stage data-hscroll aria-label="Return Man: swipe left or right to juke, up to jump, down to slide">`
     + `<canvas class="rm-cv" data-rm-cv></canvas>${hudHTML()}`
     + `<div class="rm-pop" data-rm-pop aria-hidden="true"></div>`
-    + `<div class="rm-card" data-rm-card role="group" aria-live="polite">${cardHTML(st)}</div></div>`
+    + `<div class="rm-card" data-rm-card role="group" aria-live="polite"${autoGoes(st) ? ' hidden' : ''}>${cardHTML(st)}</div></div>`
     + `<div class="rm-fill" data-rm-fill></div>`
     + `<div class="rm-board-w" data-rm-board>${boardHTML(st)}</div>`
     + `<div data-rm-tp>${testRowHTML(R.testing(), 'data-rm-test')}</div></div>`;
@@ -850,11 +863,13 @@ function testPlay(st, on) {
   setDay(st, st.n);
   const tp = st.el.querySelector('[data-rm-tp]');
   if (tp) { tp.innerHTML = testRowHTML(R.testing(), 'data-rm-test'); ui.hydrate(tp); }
-  setCard(st, true);
+  const auto = on && autoGoes(st); // (the owner's Test play kicks off on its own; back to the real day waits for him)
+  if (!auto) setCard(st, true);
   patchHud(st); patchBoard(st); draw(st);
   ui.haptic('medium');
   fitScreen(st, true);
   ui.announce(on ? 'Test play: today’s kickoff, fresh. It won’t count.' : 'Test play over: back to your real day.');
+  if (auto) go(st);
 }
 function onClick(st, e) {
   const t = e.target.closest('[data-rm-go], [data-rm-resume], [data-rm-sb], [data-rm-test]');
@@ -933,7 +948,7 @@ export function mount(el, ctx) {
   R.autoPost();
   SP.load().then(() => { if (!st.dead) draw(st); });
   D3.load().then(ok => { if (ok && !st.dead) draw(st); });
-  requestAnimationFrame(() => { if (st.dead) return; size(st); draw(st); fitScreen(st, true); });
+  requestAnimationFrame(() => { if (st.dead) return; size(st); draw(st); fitScreen(st, true); autoGo(st); });
 }
 export function params(el, ctx) {
   const st = STATE.get(el);
