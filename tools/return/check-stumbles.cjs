@@ -122,19 +122,74 @@ async function main() {
         r.co.sets = [{i: 0, zs: 0, ze: 50, plats: [p]}]; require(!R.move(r, 'right'), 'vehicle side refused');
         require(R.step(r, dt).some(e => e.type === 'stumbled'), 'side should stumble'); tackled(r, rowHit(r));
       });
-      test('Owner: painkillers and revival shield preserve protection', () => {
-        for (const effect of ['pills', 'shield']) {
-          const r = field(); first(r); r[effect] = 1; const events = rowHit(r, 'bar');
-          require(!r.over && r.hits === 1 && events.some(e => e.type === 'trucked'), `${effect} protection lost`);
+      test('Owner: painkillers still protect against every row obstacle', () => {
+        for (const ob of ['hurdle', 'bar', 'hole', 'sled']) {
+          const r = field(); first(r); r.pills = 1; const events = rowHit(r, ob);
+          require(!r.over && r.hits === 1 && events.some(e => e.type === 'trucked'), `${ob}: painkiller protection lost`);
         }
       });
-      test('Owner: salts save second collision, shield works, a fresh stumble then tackles', () => {
+      test('Owner: a legacy shield cannot suppress a distinct collision', () => {
+        const r = field(); first(r); r.shield = R.SHIELD; tackled(r, rowHit(r, 'bar'));
+      });
+      test('Owner: the salts pickup burst leaves every row obstacle active', () => {
+        for (const ob of ['hurdle', 'bar', 'hole', 'sled']) {
+          const r = field();
+          r.co.items = [{i: 0, z: .02, lane: 1, top: false, kind: 'salts'}];
+          require(R.step(r, dt).some(e => e.type === 'pickup') && r.salts === 1 && r.burst > 9 && r.shield === 0, `${ob}: pickup should give speed and a stored life`);
+          const events = rowHit(r, ob);
+          require(events.some(e => e.type === 'stumbled') && r.hits === 1 && r.salts === 1 && !r.over, `${ob}: pickup must not protect against a stumble`);
+          require(!events.some(e => e.type === 'trucked') && r.burst > 0, `${ob}: burst must not truck an obstacle`);
+        }
+      });
+      test('Owner: salts save one collision; the immediate next obstacle tackles', () => {
+        const r = field(); first(r); r.salts = 1;
+        require(rowHit(r, 'bar').some(e => e.type === 'revived') && !r.over && r.salts === 0, 'salts should save the second hit');
+        require(r.shield === 0 && r.burst > 9 && !r.stumblePending, 'revival should reset the penalty and give speed without a shield');
+        tackled(r, rowHit(r));
+      });
+      test('Owner: a clean stretch after salts revival permits a fresh stumble', () => {
         const r = field(); first(r); wait(r, R.CHASE.window + R.CHASE.drop + 1); r.salts = 1;
         require(rowHit(r, 'bar').some(e => e.type === 'revived') && !r.over && r.salts === 0, 'salts should save the second hit');
-        require(rowHit(r).some(e => e.type === 'trucked') && !r.over, 'revival shield should protect');
-        wait(r, R.SHIELD + R.CHASE.window + 1);
+        require(r.shield === 0, 'revival must not grant a shield');
+        wait(r, R.CHASE.window + R.CHASE.drop + 1);
         require(rowHit(r, 'bar').some(e => e.type === 'stumbled') && !r.over, 'salts revival should reset the stumble penalty');
         tackled(r, rowHit(r));
+      });
+      test('Owner: two stored salts are spent on distinct consecutive collisions', () => {
+        const r = field(); first(r); r.salts = 2;
+        for (const remaining of [1, 0]) {
+          require(rowHit(r, 'bar').some(e => e.type === 'revived') && r.salts === remaining && !r.over, 'each collision should spend one stored life');
+          require(r.shield === 0, 'neither stored life should grant a shield');
+        }
+        tackled(r, rowHit(r, 'sled'));
+      });
+      test('Owner: a tall-front salts revival leaves the next edge collision active', () => {
+        const r = field(true, 0), p = {lane: 0, kind: 'teambus', part: 0, z0: .02, z1: 50, h: R.HIGH_H, b: 0, ramp: 0, hi: true};
+        r.co.sets = [{i: 0, zs: 0, ze: 50, plats: [p]}]; r.salts = 1;
+        const saved = R.step(r, dt);
+        require(saved.some(e => e.type === 'revived' && e.wall) && !r.over && r.salts === 0, 'salts should still save the tall-front collision');
+        require(r.shield === 0 && r.burst > 9, 'tall-front revival should give speed without a shield');
+        require(!R.move(r, 'left'), 'edge swipe should remain blocked'); tackled(r, R.step(r, dt));
+      });
+      test('Owner: a tall vehicle immediately after salts revival still crashes', () => {
+        const r = field(); first(r); r.salts = 1;
+        require(rowHit(r, 'bar').some(e => e.type === 'revived'), 'salts should revive');
+        const p = {lane: 1, kind: 'teambus', part: 0, z0: r.z + .02, z1: r.z + 50, h: R.HIGH_H, b: 0, ramp: 0, hi: true};
+        r.co.sets = [{i: 0, zs: r.z, ze: r.z + 50, plats: [p]}];
+        const events = R.step(r, dt);
+        require(r.over && r.why === 'crash' && events.some(e => e.type === 'crashed'), 'revival must not vault the next tall vehicle');
+      });
+      test('Owner: a vehicle side immediately after salts revival still tackles', () => {
+        const r = field(true, 0); first(r); r.salts = 1;
+        require(rowHit(r, 'bar').some(e => e.type === 'revived'), 'salts should revive');
+        const p = {lane: 1, kind: 'teambus', part: 0, z0: 0, z1: r.z + 50, h: R.HIGH_H, b: 0, ramp: 0, hi: true};
+        r.co.sets = [{i: 0, zs: 0, ze: r.z + 50, plats: [p]}];
+        require(!R.move(r, 'right'), 'vehicle side should remain blocked'); tackled(r, R.step(r, dt));
+      });
+      test('Regular course: salts revival retains its shield and next-obstacle protection', () => {
+        const r = field(false); first(r); wait(r, R.CHASE.grace + .1); r.salts = 1;
+        require(rowHit(r, 'bar').some(e => e.type === 'revived') && !r.over && r.salts === 0 && r.shield > 0, 'regular revival shield changed');
+        require(rowHit(r).some(e => e.type === 'trucked') && !r.over, 'regular shield should still protect the next obstacle');
       });
       test('Owner: repeated vehicle contact is one stumble; a different vehicle tackles', () => {
         const r = field(true, 0), p = {lane: 1, kind: 'citybus', part: 0, z0: 0, z1: 50, h: R.HIGH_H, b: 0, ramp: 0, hi: true};
@@ -150,6 +205,14 @@ async function main() {
         const events = R.step(r, .25);
         tackled(r, events);
         require(events.filter(e => e.type === 'stumbled').length === 1 && events.filter(e => e.type === 'tackled').length === 1, 'one stumble then one tackle');
+      });
+      test('Owner: salts cannot shield close obstacles within the same step(.25)', () => {
+        const r = field(); r.salts = 1;
+        r.co.rows = [.1, .2, .3].map((z, i) => ({i, z, lanes: [null, 'hurdle', null]}));
+        const events = R.step(r, .25);
+        tackled(r, events);
+        require(events.filter(e => ['stumbled', 'revived', 'trucked', 'tackled'].includes(e.type)).map(e => e.type).join(',') === 'stumbled,revived,tackled', 'one stumble, one saved collision, then one tackle');
+        require(r.salts === 0 && r.shield === 0, 'same-step revival must spend the life without a shield');
       });
       return results;
     }));

@@ -15,7 +15,7 @@
 // On Evan's hard course a stumble keeps him on your heels until a tackle or a salts revival: the next distinct,
 // unprotected collision catches you even after a long clean stretch. Other profiles keep the timed recovery.
 // On the way, three power-ups: smelling salts (a burst of speed, BURST: the owner's ask, Oct 2026; and an extra life:
-// the next time he'd catch you, you shake him off, and away you burst again),
+// the next time he'd catch you, you shake him off, and away you burst again; on Evan's course, never an obstacle shield),
 // prescription painkillers (a few seconds when nothing can stop you) and booze (a few seconds of double yards). You
 // speed up as you go, and every 100 yards is a touchdown. Run it back as often as you like (the owner's ask, Oct 2026:
 // replayed, an arcade game), the day's course the same on every phone and every run; the day's score is your best
@@ -195,7 +195,7 @@ export const HARD_POWER = {
 export const HARD_BURST_S = 10;
 /** A power-up's words on the course (hard: the hard course's). */
 export const powerOf = (kind, hard) => (hard ? Object.assign({}, POWER[kind], HARD_POWER[kind]) : POWER[kind]);
-export const SALTS_MAX = 2, SHIELD = 1.2;
+export const SALTS_MAX = 2, SHIELD = 1.2; // Revival protection is only for the regular course.
 // The salts' burst (picked up, and again when they shake the linebacker off): k faster for s seconds, easing back to
 // your own speed over the last ease of them.
 export const BURST = {s: 4, k: .3, ease: 1};
@@ -435,20 +435,20 @@ function clearStumble(run) {
   if (!run.co.hard) return;
   run.stumblePending = false; run.lastHit = null; run.grace = 0;
 }
-// What you run into (a barricade, a banner, a vehicle's front, its side): with painkillers (or just back up after the salts) you go
+// What you run into (a barricade, a banner, a vehicle's front, its side): with painkillers (or regular-course revival protection) you go
 // through it (or up onto it); just after a hit, it's the same collision ('shoved'); with the linebacker on you, he tackles
 // you (the salts shake him off once); else you stumble, slowed, and he's on your back.
 // -> 'pass' | 'stumble' | false (the return's over).
 // On the hard course, head on into a tall one's front (what.wall: more than a man's height over you) is the end of the
 // return whether he's on you or not (the owner's ask, Oct 2026: Subway Surfers' train); the salts shake that off too.
 function hit(run, out, what) {
-  if (run.pills > 0 || run.shield > 0) { if (!what.side) out.push(Object.assign({type: what.ob ? 'trucked' : 'vaulted', z: run.z}, what)); return 'pass'; }
+  if (run.pills > 0 || (!run.co.hard && run.shield > 0)) { if (!what.side) out.push(Object.assign({type: what.ob ? 'trucked' : 'vaulted', z: run.z}, what)); return 'pass'; }
   if (run.grace > 0 && (!run.co.hard || sameCollision(run.lastHit, what))) {
     out.push(Object.assign({type: 'shoved', z: run.z}, what)); return 'pass';
   }
   if (what.wall && run.co.hard) {
     if (run.salts > 0) {
-      run.salts--; run.shield = SHIELD; run.fromGap = gapOf(run); run.hitAt = run.t; run.slow = CHASE.slow; run.burst = burstSecs(run);
+      run.salts--; run.shield = run.co.hard ? 0 : SHIELD; run.fromGap = gapOf(run); run.hitAt = run.t; run.slow = CHASE.slow; run.burst = burstSecs(run);
       clearStumble(run);
       out.push(Object.assign({type: 'revived', z: run.z, salts: run.salts}, what));
       return 'pass';
@@ -459,7 +459,7 @@ function hit(run, out, what) {
   }
   if (chasing(run)) {
     if (run.salts > 0) {
-      run.salts--; run.shield = SHIELD; run.fromGap = gapOf(run); run.hitAt = run.t; run.slow = CHASE.slow; run.burst = burstSecs(run);
+      run.salts--; run.shield = run.co.hard ? 0 : SHIELD; run.fromGap = gapOf(run); run.hitAt = run.t; run.slow = CHASE.slow; run.burst = burstSecs(run);
       clearStumble(run);
       out.push(Object.assign({type: 'revived', z: run.z, salts: run.salts}, what));
       return 'pass';

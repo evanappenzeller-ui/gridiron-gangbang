@@ -478,11 +478,11 @@ export async function returnChecks(check) {
   });
   check('Return Man: the hard course\'s stumble penalty survives painkillers but a smelling-salts revival resets it; protected collisions never become extra stumbles', () => {
     const row = z => ({i: z, z, lanes: [null, 'hurdle', null]});
-    const saved = field({hard: true, rows: [1, 2, 3, 200, 201].map(row)});
+    const saved = field({hard: true, rows: [1, 2, 200, 201].map(row)});
     saved.salts = 1;
     const events = [];
     for (let i = 0; i < 120 * 30 && !saved.over; i++) R.step(saved, 1 / 120).forEach(e => events.push(e.type));
-    const life = events.filter(e => ['stumbled', 'revived', 'tackled'].includes(e)).join(',') === 'stumbled,revived,stumbled,tackled' && saved.salts === 0;
+    const life = events.filter(e => ['stumbled', 'revived', 'tackled'].includes(e)).join(',') === 'stumbled,revived,stumbled,tackled' && saved.salts === 0 && saved.shield === 0;
     const protectedRun = field({hard: true, rows: [1, 2, 3, 200].map(row)});
     const protectedEvents = [];
     for (let i = 0; i < 120 * 30 && !protectedRun.over; i++) {
@@ -493,6 +493,15 @@ export async function returnChecks(check) {
     const fresh = R.startRun(1, 0, true);
     return {pass: life && pills && !fresh.stumblePending && fresh.hits === 0,
       detail: `salts ${events.join(',')}; painkillers ${protectedEvents.join(',')}; new run starts clean ${!fresh.stumblePending}`};
+  });
+  check('Return Man: Evan\'s smelling salts never shield another obstacle, during the pickup burst or immediately after a revival; the regular course retains its revival protection', () => {
+    const row = (z, ob = 'hurdle') => ({i: z, z, lanes: [null, ob, null]});
+    const course = {items: [{i: 0, z: 1, lane: 1, kind: 'salts'}], rows: [row(2), row(20, 'bar'), row(21, 'sled')]};
+    const owner = play({...course, hard: true}, 4), regular = play(course, 4);
+    const hits = owner.ev.filter(e => ['stumbled', 'revived', 'tackled', 'trucked'].includes(e)).join(',');
+    const immediate = owner.run.over && owner.run.why === 'caught' && owner.run.shield === 0 && owner.run.burst > 0 && hits === 'stumbled,revived,tackled';
+    const unchanged = !regular.run.over && regular.ev.includes('revived') && regular.ev.includes('trucked');
+    return {pass: immediate && unchanged, detail: `owner ${hits}, shield ${owner.run.shield}; regular ${regular.ev.join(',')}, shield ${regular.run.shield.toFixed(2)}`};
   });
   check('Return Man: its stylesheet (css/views/return.css) is linked: the version mark is on :root', () => {
     const v = getComputedStyle(document.documentElement).getPropertyValue('--rm-css').trim();
