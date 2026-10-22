@@ -4,7 +4,8 @@
 // TABS (id → root route · root view): puzzles /puzzles · puzzles (shown as Daily Games: the list of Daily Puzzles, 17-0, the Two-Minute Drill and Kick It, each game's page pushed over it), pickem /pickem · pickem, matchup /matchup · rivals,
 //   league /league/standings · league, draft /draft · moves, lay /lay · lay (the weekly parlay; the tab bar scrolls
 //   sideways past the fifth tab). The app opens on Puzzles (HOME): it is the history base,
-//   covers (/puzzles/play/<slug>, /puzzles/results) present over it, and Back from another tab's root lands on it.
+//   covers present over their route's tab (puzzle play/results over Puzzles; scouting/raids over your Realm),
+//   and Back from another tab's root lands on Puzzles.
 //   Every root view draws its own large title with youButtonHTML() (views/you.js) in the trailing slot; a tap on any
 //   [data-you] opens the You sheet (delegated here). Tab badges: see "Tab badges" below (root views export badge()).
 //   A root view may also export warm(), called once at idle after launch (start()).
@@ -74,7 +75,7 @@ function syncTabs() {
   return true;
 }
 export const ownerTab = t => OWNER_TABS.includes(t);
-const HOME = 'puzzles'; // the tab the app opens on: the history base, where covers present, where Back from a root lands
+const HOME = 'puzzles'; // the tab the app opens on: the history base, where Back from another tab's root lands
 const TAB_VIEW = {puzzles: 'puzzles', pickem: 'pickem', matchup: 'rivals', league: 'league', draft: 'moves', lay: 'lay', realm: 'realm'}; // root view ids
 const ROOTS = {puzzles: '/puzzles', pickem: '/pickem', matchup: '/matchup', league: '/league/standings', draft: '/draft', lay: '/lay', realm: '/realm'};
 const TAB_TITLES = {puzzles: 'Daily Games', pickem: "Pick'em", matchup: 'Matchup', league: 'League', draft: 'Draft', lay: 'The Lay', realm: 'Realm'};
@@ -940,7 +941,7 @@ async function forwardTo(n, hash) {
   const r = parseRoute(hash);
   if (r && n === S.n + 1 && !S.cover && !S.sheets.length) {
     if (r.open === 'push' && topOf(S.tab).route.path !== r.path) { await pushRoute(r, {addEntry: false}); return; }
-    if (r.open === 'cover' && S.tab === HOME) { await openCover(r, {addEntry: false}); return; }
+    if (r.open === 'cover' && S.tab === r.tab) { await openCover(r, {addEntry: false}); return; }
   }
   S.n = n;
   await go(-n);
@@ -1156,7 +1157,7 @@ async function goRoot(r) {
 }
 
 function buildCover(r, v, err, transition) {
-  const e = newEntry(r, HOME, 'cover');
+  const e = newEntry(r, r.tab, 'cover');
   const scrim = document.createElement('div');
   scrim.className = 'cover-scrim';
   const wrap = document.createElement('div');
@@ -1174,10 +1175,10 @@ function focusCover(e) {
   if (e && e.scr && !e.coverEl.contains(document.activeElement)) focusQuiet(e.scr.el);
 }
 async function openCover(r, {dir, addEntry = true} = {}) {
-  if (S.cover) return swapCover(r, {dir});
+  if (S.cover && S.cover.route.tab === r.tab) return swapCover(r, {dir});
   const trigger = document.activeElement;
   await stripOverlays();
-  if (S.tab !== HOME) { await switchTabUI(HOME, {motion: false}); await rebuildHistory(); }
+  if (S.tab !== r.tab) { await switchTabUI(r.tab, {motion: false}); await rebuildHistory(); }
   const {v, err} = await loadViewSafe(r.view);
   finishTransitions();
   const e = buildCover(r, v, err, 'cover');
@@ -1277,7 +1278,7 @@ async function deepLink(hash, {warm = false} = {}) {
     resetStack(T);
     S.stacks[T].push(newEntry(r, T, 'push'));
   } else {
-    T = HOME;
+    T = r.tab;
   }
   if (T !== S.tab) await switchTabUI(T, {motion: false});
   await showTop();
@@ -1310,7 +1311,7 @@ async function opBack({animate = true} = {}) {
 }
 
 // ============================================================================ Public navigation API
-/** Navigate: tab-root routes switch tabs (resetting that stack), 'any' routes push, cover routes open over Puzzles.
+/** Navigate: tab-root routes switch tabs (resetting that stack), 'any' routes push, covers open over their route's tab.
  *  opts.morphFrom: the tapped avatar element (flies to the new screen's [data-morph] element). */
 export function nav(path, o = {}) {
   const morphRect = o.morphFrom && o.morphFrom.getBoundingClientRect ? o.morphFrom.getBoundingClientRect() : null;

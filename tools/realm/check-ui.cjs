@@ -1,5 +1,5 @@
 // Local-only browser regression runner for Realm. No production requests or storage.
-// Usage: node tools/realm/check-ui.cjs [--serve | --url=http://127.0.0.1:4179]
+// Usage: node tools/realm/check-ui.cjs [--serve | --url=http://127.0.0.1:4179] [--navigation]
 const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
@@ -198,11 +198,132 @@ async function loadingGuard(browser, url) {
   } finally { release(); await context.close(); }
 }
 
+// Exercise the real sheet, cover and history operations without depending on 3D asset or launch artwork checks.
+async function navigationChecks(browser, url) {
+  const scoutPath = '/realm/scout/bot%3A1';
+  for (const profile of ['evan', 'mason', 'none']) {
+    const context = await browser.newContext({viewport: {width: 390, height: 844}, reducedMotion: 'reduce', serviceWorkers: 'block'});
+    await context.route('**/*', route => {
+      const target = new URL(route.request().url());
+      return target.origin === new URL(url).origin || ['data:', 'blob:'].includes(target.protocol) ? route.continue() : route.abort();
+    });
+    await context.addInitScript(profile => {
+      localStorage.setItem('gg-me', profile);
+      localStorage.setItem('gg-welcome', '1');
+      localStorage.setItem('gg-realm-seen', '1');
+      sessionStorage.setItem('gg-skip-title', '1');
+    }, profile);
+    const page = await context.newPage(), errors = [], artLoads = [];
+    page.on('pageerror', error => errors.push(error.message));
+    page.on('console', message => { if (message.type() === 'error' && !message.text().startsWith('Failed to load resource:')) errors.push(message.text()); });
+    page.on('request', request => { if (/\/img\/realm\/.+\.(webp|png|jpg)(\?|$)/.test(request.url())) artLoads.push(request.url()); });
+    const settled = async (path, tab, cover = null) => {
+      await page.waitForFunction(() => window.__ggBooted);
+      await page.evaluate(async () => { window.__navigationRouter = (await import('/js/app.js')).__dev; });
+      await page.waitForFunction(({path, tab, cover}) => {
+        const __dev = window.__navigationRouter, S = __dev.S;
+        return !__dev.queueBusy && location.hash === '#' + path && S.tab === tab
+          && (S.cover ? S.cover.route.view : null) === cover && !S.sheets.length;
+      }, {path, tab, cover});
+    };
+    const ownKeep = async (message, sameScreen = false) => {
+      await settled('/realm', 'realm');
+      assert.equal(await page.locator('.rl-home').isVisible(), true, message + ': own keep is visible');
+      assert.equal(await page.evaluate(() => document.documentElement.classList.contains('is-realm-playing')), true, message + ': game mode remains active');
+      assert.equal(await page.locator('#tabbar').isVisible(), false, message + ': Hub navigation stays collapsed');
+      if (sameScreen) assert.equal(await page.evaluate(() => window.__navigationKeep === document.querySelector('.rl-home')), true, message + ': original keep is retained');
+    };
+    const openScout = async () => {
+      await page.locator('[data-rl-raid]').click();
+      await page.locator('[data-rl-scout="bot:1"]').click();
+      await settled(scoutPath, 'realm', 'realm-scout');
+      await page.locator('[data-rls-back]').waitFor({state: 'visible'});
+      assert.equal(await page.locator('[data-rls-back]').isVisible(), true, 'Scout Back control is available');
+    };
+    try {
+      await page.goto(url + '/#/puzzles');
+      await settled('/puzzles', 'puzzles');
+      assert.equal(await page.evaluate(async () => (await import('/js/core/fire.js')).canWrite()), false, 'Navigation checks cannot write remote data');
+      if (profile === 'evan') {
+        await page.evaluate(async () => {
+          const F = await import('/js/core/realm.js'), s = F.fresh();
+          s.ar.footman = 1; F._set(s);
+          await (await import('/js/app.js')).nav('/realm');
+          window.__navigationKeep = document.querySelector('.rl-home');
+        });
+        await ownKeep('Opening Realm');
+        await openScout();
+        await page.locator('[data-rls-back]').click();
+        await ownKeep('Scout UI Back', true);
+
+        await openScout();
+        await page.goBack();
+        await ownKeep('Browser Back from scout', true);
+        await page.goForward();
+        await settled(scoutPath, 'realm', 'realm-scout');
+        await page.goBack();
+        await ownKeep('Browser Back after Forward', true);
+
+        await openScout();
+        await page.locator('[data-rls-attack]').click();
+        await settled('/realm/raid/bot%3A1', 'realm', 'realm-raid');
+        await page.locator('[data-rls-back]').waitFor({state: 'detached'});
+        assert.equal(await page.locator('[data-rls-back]').count(), 0, 'Attack replaces the scout');
+        await page.locator('[data-rlr-quit]').click();
+        await ownKeep('Leaving an unstarted raid', true);
+
+        await openScout();
+        await page.evaluate(async () => (await import('/js/app.js')).nav('/puzzles/results'));
+        await settled('/puzzles/results', 'puzzles', 'results');
+        await page.locator('.c-rbar-done').click();
+        await settled('/puzzles', 'puzzles');
+        assert.equal(await page.locator('#tabbar').isVisible(), true, 'Switching cover families returns to the puzzle cover home');
+
+        // Cold links and reloads must establish the same own-keep history entry as ordinary scouting.
+        await page.goto(url + '/data/league.json');
+        await page.goto(url + '/#' + scoutPath);
+        await settled(scoutPath, 'realm', 'realm-scout');
+        await page.reload();
+        await settled(scoutPath, 'realm', 'realm-scout');
+        await page.locator('[data-rls-back]').click();
+        await ownKeep('Back after reloading a scout link');
+        console.log('PASS: Scout UI Back, browser Back/Forward, raid replacement, cover home switching, cold scout links and reloads');
+      } else {
+        for (const target of ['/realm', scoutPath, '/realm/raid/bot%3A1']) {
+          await page.evaluate(async path => (await import('/js/app.js')).nav(path), target);
+          await settled('/puzzles', 'puzzles');
+        }
+        await page.goto(url + '/data/league.json');
+        await page.goto(url + '/#' + scoutPath);
+        await settled('/puzzles', 'puzzles');
+        assert.equal(await page.locator('.rl-home, .rls, .rlr').count(), 0, 'Non-owner cannot render Realm screens');
+        assert.equal(await page.evaluate(() => document.documentElement.classList.contains('is-realm-playing')), false, 'Non-owner retains normal Hub layout');
+        assert.equal(artLoads.length, 0, 'Non-owner navigation loads no Realm artwork');
+        console.log('PASS: ' + profile + ' Realm navigation and cold links remain owner-only');
+      }
+
+      // Puzzle covers still return to Daily Games when opened from another tab, for every profile.
+      await page.evaluate(async () => {
+        const app = await import('/js/app.js');
+        await app.nav('/league/standings');
+        await app.nav('/puzzles/results');
+      });
+      await settled('/puzzles/results', 'puzzles', 'results');
+      await page.locator('.c-rbar-done').click();
+      await settled('/puzzles', 'puzzles');
+      assert.equal(await page.locator('#tabbar').isVisible(), true, 'Puzzle exit restores Hub navigation for ' + profile);
+      assert.deepEqual(errors, [], 'Navigation raises no browser exceptions for ' + profile);
+    } finally { await context.close(); }
+  }
+  console.log('PASS: existing puzzle cover returns remain unchanged for owner, member and unselected profiles');
+}
+
 async function run(url) {
   assert(['127.0.0.1', 'localhost', '[::1]'].includes(new URL(url).hostname), 'Only loopback test URLs are allowed');
   const {chromium} = playwright();
   const browser = await chromium.launch({channel: 'chrome', headless: true, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader']});
   try {
+    if (process.argv.includes('--navigation')) { await navigationChecks(browser, url); return; }
     if (process.argv.includes('--camera')) { await loadingGuard(browser, url); return; }
     for (const profile of ['evan', 'mason', 'none']) {
       const context = await browser.newContext({viewport: {width: 390, height: 844}, deviceScaleFactor: 1, serviceWorkers: 'block'});
