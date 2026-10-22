@@ -7,12 +7,12 @@
 // A slow request falls back to whatever is cached under its path (from the previous worker too), so data whose
 // format changes gets a new file name rather than new content under the old one (data/puzzles-v4.json: see
 // js/core/daily.js).
-const CACHE = 'gg-v387';
+const CACHE = 'gg-v388';
 const CORE = ['ui', 'data', 'daily', 'fire', 'week', 'nfl', 'stats', 'motw', 'press', 'checks', 'checks-stats', 'checks-pickem', 'checks-press', 'checks-seventeen', 'checks-drill', 'checks-kick', 'return', 'checks-return', 'lay', 'plays', 'laytrack', 'seventeen', 'drill-sim', 'drill', 'kick', 'avatars', 'lpick', 'survivor', 'checks-lpick', 'realm', 'realm-battle', 'checks-realm'];
 // The tab roots are puzzles, pickem, rivals (Matchup), league, moves (Draft) and lay (The Lay). The Keep opens from Daily Games.
 const VIEWS = ['welcome', 'guest', 'puzzles', 'games', 'game-case', 'board', 'you', 'sharecard', 'results', 'run', 'college', 'silhouette', 'mystery', 'journey', 'grid', 'picker',
   'league', 'standings', 'season', 'review', 'wrap', 'matchup', 'rivals', 'pickem', 'press', 'hall', 'hall-trophies', 'hall-records', 'hall-shame',
-  'moves', 'profile', 'lay', 'plays', 'seventeen', 'drill', 'drill-cam', 'drill-sprites', 'kick', 'stadium', 'return-world', 'return-3dworld', 'return-field-logo', 'return-style', 'return-scenery', 'return-city-bus', 'return-3d', 'return', 'photo', 'testplay', 'lpick', 'survivor', 'realm', 'realm-3d', 'realm-ground', 'realm-grass', 'realm-models', 'realm-walls', 'realm-sprites', 'realm-wildlife', 'realm-ambience', 'realm-heroes', 'realm-npcs', 'realm-raid', 'realm-scout', '_kit'];
+  'moves', 'profile', 'lay', 'plays', 'seventeen', 'drill', 'drill-cam', 'drill-sprites', 'kick', 'stadium', 'return-world', 'return-3dworld', 'return-field-logo', 'return-style', 'return-scenery', 'return-city-bus', 'return-3d', 'return', 'photo', 'testplay', 'lpick', 'survivor', 'realm', 'realm-3d', 'realm-ground', 'realm-grass', 'realm-models', 'realm-walls', 'realm-sprites', 'realm-upgrade-art', 'realm-wildlife', 'realm-ambience', 'realm-heroes', 'realm-npcs', 'realm-raid', 'realm-scout', '_kit'];
 const VIEW_CSS = ['welcome', 'puzzles', 'board', 'results', 'you', 'run', 'college', 'silhouette', 'mystery', 'journey', 'grid', 'picker',
   'standings', 'season', 'review', 'wrap', 'matchup', 'rivals', 'pickem', 'press', 'hall', 'moves', 'profile', 'lay', 'plays', 'seventeen', 'drill', 'kick', 'return', 'realm', '_kit'];
 const SHELL = [
@@ -101,7 +101,8 @@ self.addEventListener('fetch', e => {
   // (and the original player: his kit, return-player-style.js, and the build it sculpts him to, return-player-bulk.js).
   if (/\/img\/return\/city\/bus-(rear|side|roof)-v1\.webp$/.test(url.pathname) ||
       /\/img\/return-toreadors-(?:logo|painted-v1)\.png$/.test(url.pathname) ||
-      /\/js\/views\/return-player-(style|bulk)\.js$/.test(url.pathname)) {
+      /\/js\/views\/return-player-(style|bulk)\.js$/.test(url.pathname) ||
+      /\/img\/realm\/upgrades-v1\/[^/]+\.webp$/.test(url.pathname)) {
     e.respondWith(fetch(req));
     return;
   }

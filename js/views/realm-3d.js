@@ -23,7 +23,9 @@ import {villageGroundTexture} from './realm-ground.js';
 import {createGrassWallpaper} from './realm-grass.js';
 import {createHomeNPCs, createBattleHeroes} from './realm-npcs.js';
 const V = new URL('../vendor/three/', import.meta.url).href;
-let T = null, RE = null, LOADING = null, DEAD = false;
+let T = null, RE = null, LOADING = null, DEAD = false, LOAD_EPOCH = 0;
+let ownerActive = data.isOwner();
+data.subscribe(type => { if (type !== 'me') return; const next = data.isOwner(); if (next !== ownerActive) { ownerActive = next; LOAD_EPOCH++; LOADING = null; } });
 // The sceneries (core/realm.js SCENERIES), each a layout a shape: its own landscape, placements (its village round
 // the lot: tools/realm/village.py, the owner's kit's buildings, Oct 2026) and lot (its layout's lot: where the lot lies
 // in it, px: the middle and its diamond's height, far corner to near; as big as fits in the build zone, the checks hold
@@ -87,26 +89,31 @@ async function army() {
 /** Loads three.js, the art and scenery theme's layout for this screen (the coast's if none's given). */
 export function load(theme = 'coast') {
   if (!data.isOwner()) return Promise.resolve(false);
-  if (LOADING) return LOADING.then(ok => (ok && data.isOwner() ? sceneryFor(fileFor(theme, shapeOf(innerWidth, innerHeight))).then(() => data.isOwner()) : false));
-  LOADING = (async () => {
+  const epoch = LOAD_EPOCH, active = () => data.isOwner() && epoch === LOAD_EPOCH;
+  if (LOADING) return LOADING.then(async ok => {
+    if (!ok || !active()) return false;
+    await Promise.all([SPR.load(), sceneryFor(fileFor(theme, shapeOf(innerWidth, innerHeight)))]);
+    return active();
+  });
+  const task = (async () => {
     try {
       const probe = document.createElement('canvas');
       if (!(probe.getContext('webgl2') || probe.getContext('webgl'))) throw new Error('no WebGL');
       const [three, {RoomEnvironment}, BU] = await Promise.all([import(V + 'three.module.min.js'), import(V + 'RoomEnvironment.js'), import(V + 'BufferGeometryUtils.js')]);
+      if (!active()) return false;
       T = three; RE = RoomEnvironment;
-      if (!data.isOwner()) return false;
-      FM.init(T, BU);
-      SPR.init(T, PITCH);
-      await Promise.all([SPR.load(), army(), sceneryFor(fileFor(theme, shapeOf(innerWidth, innerHeight)))]); // (without the art, everything's drawn in 3D)
+      FM.init(T, BU); SPR.init(T, PITCH);
+      await Promise.all([SPR.load(), army(), sceneryFor(fileFor(theme, shapeOf(innerWidth, innerHeight)))]);
+      if (!active()) return false;
       try { await document.fonts.load('800 60px "Barlow Condensed"'); } catch (_) {}
-      return true;
+      return active();
     } catch (e) {
-      console.warn('The Keep: no 3D', e);
-      DEAD = true;
+      if (active()) { console.warn('The Keep: no 3D', e); DEAD = true; }
       return false;
     }
   })();
-  return LOADING.then(ok => { if (!ok && !DEAD) LOADING = null; return ok && data.isOwner(); });
+  LOADING = task;
+  return task.then(ok => { if (LOADING === task && !ok && !DEAD) LOADING = null; return ok && active(); });
 }
 export const ready = () => !!T && !DEAD;
 
@@ -118,9 +125,8 @@ let THUMB = null;
 const THUMBS = new Map();
 /** A picture (data URL) of kind k at level l in a house's colours, or of a soldier (troop: true). */
 export function thumb(k, l, house, troop = false) {
-  if (!ready()) return '';
-  if (k === 'wall' && !data.isOwner()) return '';
-  if (!troop && SPR.ready() && SPR.KINDS.includes(k)) return SPR.thumbURL(k, l);
+  if (!ready() || !data.isOwner()) return '';
+  if (!troop && SPR.has(k)) return SPR.thumbURL(k, l);
   if (troop && ARMY[k]) return ARMY[k].url;
   const key = `${troop ? 't' : 'b'}:${k}:${l}:${house.pri}:${house.sigil}`;
   if (THUMBS.has(key)) return THUMBS.get(key);
@@ -690,12 +696,12 @@ export function create(host, opts = {}) {
       const key = `${b.t}:${b.l}:${status}:${house.pri}:${house.sigil}`;
       let e = groups.get(b.i);
       if (!e || e.key !== key) {
-        if (e) { root.remove(e.g); dropFolk(e); }
+        if (e) { root.remove(e.g); SPR.release(e.g); dropFolk(e); }
         const g = new T.Group();
         if (status === 'down') g.add(FM.rubble(size));
         else if (status === 'new') { g.add(FM.scaffold(size)); }
         else {
-          const art = SPR.ready() && SPR.KINDS.includes(b.t) ? SPR.building(b.t, b.l, size) : null;
+          const art = SPR.has(b.t) ? SPR.building(b.t, b.l, size) : null;
           g.add(art || FM.model(b.t, b.l, house));
           if (art) g.userData = art.userData;
           if (status === 'up') g.add(FM.scaffold(size));
@@ -704,12 +710,12 @@ export function create(host, opts = {}) {
         root.add(g);
         e = {g, key, b, folk: []};
         groups.set(b.i, e);
-        if (SPR.ready()) SPR.crewOf(b, status, size).forEach((c, j) => { const sp = SPR.folk(); scene.add(sp); e.folk.push({sp, c, ph: ((b.i * 7919 + j * 104729) % 1000) / 1000}); });
+        if (SPR.folkReady()) SPR.crewOf(b, status, size).forEach((c, j) => { const sp = SPR.folk(); scene.add(sp); e.folk.push({sp, c, ph: ((b.i * 7919 + j * 104729) % 1000) / 1000}); });
       }
       e.b = b;
       e.g.position.set(W(b.x + size / 2), 0, W(b.y + size / 2));
     });
-    [...groups.keys()].forEach(id => { if (!seen.has(id)) { root.remove(groups.get(id).g); dropFolk(groups.get(id)); groups.delete(id); } });
+    [...groups.keys()].forEach(id => { if (!seen.has(id)) { root.remove(groups.get(id).g); SPR.release(groups.get(id).g); dropFolk(groups.get(id)); groups.delete(id); } });
     // Walls retain their own design at mixed-level joins and remain selectable along each run.
     const walls = s.b.filter(b => b.t === 'wall' && !gone.has(b.i));
     wallView.setLot(walls);
@@ -735,7 +741,7 @@ export function create(host, opts = {}) {
   const camR = new T.Vector3(), camU = new T.Vector3(), fp = new T.Vector3(), toCam = new T.Vector3();
   function dropFolk(e) { (e.folk || []).forEach(f => { scene.remove(f.sp); f.sp.material.map.dispose(); f.sp.material.dispose(); }); e.folk = []; }
   function folkFrame(now) {
-    if (!SPR.ready()) return;
+    if (!SPR.folkReady()) return;
     camR.setFromMatrixColumn(cam.matrixWorld, 0); camU.setFromMatrixColumn(cam.matrixWorld, 1);
     const sec = now / 1000;
     groups.forEach(e => e.folk.forEach(f => {
@@ -775,7 +781,7 @@ export function create(host, opts = {}) {
   const folkTimer = setInterval(() => {
     if (raid || dead || lost || document.visibilityState !== 'visible' || !data.isOwner()) return;
     if (homeNPCs && homeNPCs.animated) { want(); return; }
-    if (SPR.ready()) for (const e of groups.values()) if (e.folk.length) { want(); break; }
+    if (SPR.folkReady()) for (const e of groups.values()) if (e.folk.length) { want(); break; }
   }, 160);
 
   // ---- the selected building: a ring of light round its footprint; moving it, a green or red square under it
@@ -816,7 +822,7 @@ export function create(host, opts = {}) {
   const runMat = ok => new T.MeshBasicMaterial({color: ok ? 0x3BD16F : 0xE5484D, transparent: true, opacity: .45, depthWrite: false, toneMapped: false});
   const runMats = {true: runMat(true), false: runMat(false)};
   function setGhost(g) {
-    if (ghost) { root.remove(ghost.g); ghost.g.children.forEach(m => m.isInstancedMesh && m.dispose()); ghost = null; }
+    if (ghost) { root.remove(ghost.g); SPR.release(ghost.g); ghost.g.children.forEach(m => m.isInstancedMesh && m.dispose()); ghost = null; }
     if (!g) { select(null); return; }
     const size = KINDS[g.t].size;
     if (g.run) {
@@ -841,7 +847,7 @@ export function create(host, opts = {}) {
       select(null);
       return;
     }
-    const grp = g.t === 'wall' ? wallPreview(T, 1) : SPR.ready() && SPR.KINDS.includes(g.t) ? SPR.building(g.t, 1, size) : FM.model(g.t, 1, house);
+    const grp = g.t === 'wall' ? wallPreview(T, 1) : SPR.has(g.t) ? SPR.building(g.t, 1, size) : FM.model(g.t, 1, house);
     if (!grp) return;
     grp.traverse(m => { if (m.isMesh) { m.castShadow = false; } });
     grp.position.set(W(g.x + size / 2), .25, W(g.y + size / 2));
@@ -1115,10 +1121,11 @@ export function create(host, opts = {}) {
       M.setMatrixAt(n[kind]++, m4);
     });
     Object.entries(R.fly).forEach(([k, M]) => { M.count = n[k]; M.instanceMatrix.needsUpdate = true; });
-    // the defenses turn to whom they're shooting at; the cauldron tips when it pours
+    // Painted weapons recoil on actual shots; procedural fallbacks retain aiming and tipping.
     B.bl.forEach(b => {
       if (!b.def) return;
       const e = groups.get(b.i);
+      if (e && SPR.animateDefense(e.g, b.t, R.t - (R.fired.get(b.i) ?? -9), b.aim)) return;
       const top = e && e.g.getObjectByName('top');
       if (!top) return;
       if (b.t === 'cauldron') { const tip = B.t - (b.cd > 0 ? (b.def.every - b.cd) : 9) < .5 ? .6 : .15; top.rotation.z += (tip - top.rotation.z) * .3; }
@@ -1157,6 +1164,7 @@ export function create(host, opts = {}) {
   }
   function raidStop() {
     if (!raid) return;
+    groups.forEach(e => SPR.animateDefense(e.g, e.b.t, Infinity));
     raid.heroes.dispose();
     Object.values(raid.meshes).forEach(M => {
       if (M.art) { scene.remove(M.art); M.art.geometry.dispose(); M.art.material.dispose(); M.art.dispose(); return; }
@@ -1247,7 +1255,7 @@ export function create(host, opts = {}) {
       dropScenery();
       clearInterval(folkTimer);
       if (homeNPCs) homeNPCs.dispose();
-      groups.forEach(dropFolk);
+      groups.forEach(e => { dropFolk(e); SPR.release(e.g); });
       wallView.dispose();
       if (raf) cancelAnimationFrame(raf);
       if (ro) ro.disconnect();

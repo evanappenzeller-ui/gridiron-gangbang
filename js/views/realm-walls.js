@@ -2,7 +2,7 @@
 import * as data from '../core/data.js';
 import * as FM from './realm-models.js';
 
-const designOf = (level, owner) => owner && level >= 1 && level <= 5 ? level : 0;
+const designOf = (level, owner) => owner && level >= 1 && level <= 8 ? level : 0;
 const tintOf = wall => FM.WALL_TINT[wall.l - 1] || FM.WALL_TINT[0];
 const legacyMaterials = new Map();
 

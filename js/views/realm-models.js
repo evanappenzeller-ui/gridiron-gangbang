@@ -762,10 +762,10 @@ export function rubble(size) {
   }
   return GEO.get(key).clone();
 }
-/** A wall's pillar and its one-tile run, cached for instancing. Levels 1–5 carry their own vertex colours;
+/** A wall's pillar and its one-tile run, cached for instancing. Levels 1–8 carry their own vertex colours;
  *  the default preserves the white legacy geometry for callers that tint walls per instance. */
 export function wallParts(level = 0) {
-  const style = Number.isInteger(level) && level >= 1 && level <= 5 ? level : 0;
+  const style = Number.isInteger(level) && level >= 1 && level <= 8 ? level : 0;
   const key = style ? `wall:${style}` : 'wall';
   if (!GEO.has(key)) {
     const post = new Kit(true), run = new Kit(true);
@@ -840,7 +840,7 @@ export function wallParts(level = 0) {
       });
       run.box(1, .055, .36, IRON, [.5, .765, 0]).box(1, .08, .39, 0x858777, [.5, .82, 0]);
       [.16, .5, .84].forEach(x => run.box(.18, .18, .34, stone[1], [x, .9, 0]));
-    } else {
+    } else if (style === 5) {
       // Pale dressed stone, bronze string courses and gold-capped merlons crown the citadel tier.
       const stone = [0xC9C0A5, 0xB8B19A, 0xD8CEB2], bronze = 0x9A7239, gold = 0xD2AD58;
       post.box(.44, 1.04, .44, 0x7B8170).box(.58, .12, .58, 0x9F9D84);
@@ -861,6 +861,51 @@ export function wallParts(level = 0) {
         run.box(.19, .17, .37, stone[0], [x, 1.015, 0]);
         run.box(.202, .035, .382, gold, [x, 1.185, 0]);
       });
+    }
+    if (style >= 6) {
+      // Shielded bastion, flying buttresses, then a royal spired crown; posts and runs grow each time.
+      const tier = style - 6, H = 1.32 + tier * .24, width = .64 + tier * .075;
+      const stone = tier === 0 ? [0x717C7F, 0x909A98, 0xA9B0A4] : tier === 1 ? [0x535C68, 0x747D88, 0xA0A4A8] : [0xCCC5B0, 0xE1D6B7, 0xA9AA98];
+      const trim = tier === 0 ? 0xB5A27E : tier === 1 ? 0xC8A259 : 0xE7BE56;
+      post.box(width, .16, width, stone[0]);
+      post.box(width - .14, H, width - .14, stone[0]);
+      courses(post, width - .08, width - .08, .16, 5 + tier, (H - .16) / (5 + tier), stone);
+      [-1, 1].forEach(x => [-1, 1].forEach(z => {
+        post.box(.13, H - .2, .13, stone[2], [x * (width / 2 - .055), .16, z * (width / 2 - .055)]);
+        if (tier >= 1) post.pyramid(.19, .19, .24, trim, [x * (width / 2 - .055), H - .04, z * (width / 2 - .055)]);
+      }));
+      [.34, H * .7].forEach(y => post.box(width + .025, .055, width + .025, trim, [0, y, 0]));
+      post.box(width + .06, .1, width + .06, stone[2], [0, H, 0]);
+      crown(post, width / 2 - .1, H + .1, .21, .23, stone[1], trim);
+      [-1, 1].forEach(sd => {
+        post.box(.2, .32, .035, trim, [0, H * .48, sd * (width / 2 + .01)]);
+        post.pyramid(.2, .04, .13, trim, [0, H * .48 - .13, sd * (width / 2 + .01)]);
+      });
+      const rh = H - .18, thick = .4 + tier * .045;
+      run.box(1, .16, thick + .1, stone[0], [.5, 0, 0]);
+      run.box(1, rh, thick, stone[0], [.5, 0, 0]);
+      courses(run, 1, thick + .025, .16, 5 + tier, (rh - .16) / (5 + tier), stone, .5, 4);
+      [.32, rh * .76].forEach(y => run.box(1, .045, thick + .07, trim, [.5, y, 0]));
+      [-1, 1].forEach(sd => {
+        [.22, .78].forEach(x => {
+          run.box(.12, rh - .18, .11, stone[2], [x, .16, sd * (thick / 2 + .025)]);
+          if (tier >= 1) run.pyramid(.17, .16, .27, trim, [x, rh - .12, sd * (thick / 2 + .025)]);
+        });
+        run.box(.08, .32, .025, 0x29323C, [.5, rh * .52, sd * (thick / 2 + .016)]);
+        if (tier === 2) {
+          run.box(.2, .35, .025, 0x762735, [.5, rh * .25, sd * (thick / 2 + .035)]);
+          run.box(.045, .19, .03, trim, [.5, rh * .25 + .07, sd * (thick / 2 + .05)]);
+        }
+      });
+      run.box(1, .09, thick + .1, stone[2], [.5, rh, 0]);
+      [.15, .5, .85].forEach(x => {
+        run.box(.2, .22, thick + .06, stone[1], [x, rh + .09, 0]);
+        run.box(.22, .035, thick + .08, trim, [x, rh + .31, 0]);
+      });
+      if (tier === 2) {
+        [-1, 1].forEach(x => [-1, 1].forEach(z => post.pyramid(.16, .16, .27, trim, [x * (width / 2 - .1), H + .365, z * (width / 2 - .1)])));
+        [.15, .85].forEach(x => run.pyramid(.15, .15, .22, trim, [x, rh + .345, 0]));
+      }
     }
     const g = m => m.build().children[0].geometry;
     GEO.set(key, {post: g(post), rail: g(run)});

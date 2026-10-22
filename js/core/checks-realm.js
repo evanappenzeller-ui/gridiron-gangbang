@@ -455,22 +455,30 @@ export async function realmChecks(check) {
     return {pass: fires && hatch && stays && bots, detail: `cannon: the footman ${man ? `${man.hp}/${man.max}` : 'not sent'}, the dragon ${drake ? `${drake.hp}/${drake.max}` : 'not sent'}; no hatchery: ${none}; one at level 1: ${one}, then ${full}; level 3 room for 3: ${room}; a cannon kept ${stays}; the computer’s realms have them ${bots}`};
   });
 
-  check('The Keep: the art (tools/realm/sprites.py): the Castle, gold mines, archer towers and hatcheries drawn from their pictures, ten each, every level looking its own (a picture of its own, or the same one smaller: the Castle’s level 1), the top level the grandest, every Castle a stone castle (never the atlas’s first three, timber halls); every villager, archer and cannon crew a building calls for has all its poses; the pictures are there', async () => {
-    const S = await import('../views/realm-sprites.js');
-    const bad = [];
-    S.KINDS.forEach(k => {
-      const fr = S.BUILD[k] && S.BUILD[k].f, used = new Set();
-      for (let l = 1; l <= F.maxLevel(k); l++) used.add(S.frameOf(k, l) + ':' + S.shrinkOf(k, l));
-      if (!fr || fr.length !== 10 || used.size !== Math.min(10, F.maxLevel(k)) || S.frameOf(k, F.maxLevel(k)) !== 9 || S.shrinkOf(k, F.maxLevel(k)) !== 1 || fr.some(f => f.length !== 7 || f[2] < 50 || f[3] < 50)) bad.push(k);
+  check('The Keep: every building level has unique growing artwork and all villagers and tower platforms remain intact', async () => {
+    const S = await import('../views/realm-sprites.js'), bad = [];
+    const kinds = F.ORDER.filter(k => k !== 'wall');
+    if (kinds.some(k => !S.KINDS.includes(k)) || S.KINDS.length !== kinds.length) bad.push('missing family');
+    kinds.forEach(k => {
+      const fam = S.BUILD[k], fr = fam && fam.f, count = F.maxLevel(k), used = new Set();
+      let previous = {width: 0, height: 0, baseWidth: 0};
+      if (!fr || fr.length !== count) { bad.push(k + ' frame count'); return; }
+      for (let l = 1; l <= count; l++) {
+        const f = fr[S.frameOf(k, l)], d = S.dimensionsOf(k, l);
+        used.add(f.slice(0, 4).join(':'));
+        if (d.baseWidth <= previous.baseWidth || d.width <= previous.width || d.height <= previous.height || f.length !== 7 || f[2] < 30 || f[3] < 30 || f[6] <= 0 || f[0] < 0 || f[1] < 0 || f[0] + f[2] > fam.w || f[1] + f[3] > fam.h) bad.push(k + ' level ' + l);
+        previous = d;
+      }
+      if (used.size !== count) bad.push(k + ' repeated frame');
     });
-    if (Array.from({length: F.maxLevel('keep')}, (_, i) => S.frameOf('keep', i + 1)).some(f => f < 3)) bad.push('keep (a timber hall)');
     const sheets = new Set();
     F.ORDER.forEach(k => { for (let l = 1; l <= F.maxLevel(k); l++) ['ok', 'up'].forEach(st => S.crewOf({i: 1, t: k, l}, st, F.KINDS[k].size).forEach(c => sheets.add(c.sheet))); });
     const missing = [...sheets].filter(n => !S.FOLK[n] || ![4, 8].includes(S.FOLK[n].length));
-    const plat = Array.from({length: 10}, (_, i) => S.platform(i + 1)).every((p, i) => p && p[0] > 0 && p[0] < S.BUILD.tower.f[i][2] && p[1] > 0 && p[1] < S.BUILD.tower.f[i][3]);
-    const files = await Promise.all([...S.KINDS, 'folk'].map(n => fetch(new URL(`../../img/realm/${n}.webp`, import.meta.url), {method: 'HEAD'}).then(r => r.ok ? '' : n, () => n)));
+    const plat = Array.from({length: F.maxLevel('tower')}, (_, i) => S.platform(i + 1)).every((p, i) => p && p[0] > 0 && p[0] < S.BUILD.tower.f[i][2] && p[1] > 0 && p[1] < S.BUILD.tower.f[i][3]);
+    const paths = kinds.map(k => 'upgrades-v1/' + k + '.webp').concat('folk.webp');
+    const files = data.isOwner() ? await Promise.all(paths.map(n => fetch(new URL('../../img/realm/' + n, import.meta.url), {method: 'HEAD'}).then(r => r.ok ? '' : n, () => n))) : [];
     const gone = files.filter(Boolean);
-    return {pass: !bad.length && !missing.length && plat && !gone.length && sheets.size >= 20, detail: `buildings ${bad.length ? 'wrong: ' + bad.join(', ') : S.KINDS.join(', ') + ' ok'}; ${sheets.size} folk sheets called for${missing.length ? ', missing ' + missing.join(', ') : ''}; tower platforms ${plat}; ${gone.length ? 'pictures missing: ' + gone.join(', ') : 'pictures there'}`};
+    return {pass: !bad.length && !missing.length && plat && !gone.length && sheets.size >= 20, detail: JSON.stringify({bad, missing, plat, gone, families:kinds.length})};
   });
 
   check('The Keep: the scenery (tools/realm/sceneries.py; img/realm/scenery/: every land a blank portrait landscape, the owner’s, Oct 2026, and its village round the lot, tools/realm/village.py): every land has its layout, tall, and its landscape and every picture placed on it are there; nothing’s placed in its build zone, its lot lies inside it, and the zone inside the landscape', async () => {

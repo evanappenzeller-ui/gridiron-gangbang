@@ -1,117 +1,158 @@
-// The Keep's pictures (views/realm-3d.js puts them in its 3D lot): the Castle (KINDS.keep), the gold mine, the archer tower and the
-// dragon hatchery drawn from their art, a picture a level (stood up facing the camera, which never turns, so they
-// look as drawn), and the folk: villagers at work by their buildings, an archer on each archer tower, a cannon's crew
-// round it. The art (img/realm/*.webp) and its frames below come from tools/realm/sprites.py.
-// A building's picture stands on its footprint: its base's front point a little in front of the footprint's middle
-// (so the middle of the base it's drawn on lands on the footprint's), as wide as the footprint seen corner-on at the
-// family's top level (a level-1 hut stands smaller on the same ground). A figure's feet are where it stands.
-// Exports: init(T, pitch), load() → true when the art's in, ready(), KINDS (the buildings drawn from art), building(kind,
-// level, size) → THREE.Group, frameOf(kind, level), thumbURL(kind, level), folk() → a figure (THREE.Sprite), pose(figure,
-// sheet, i, flip), FOLK_H, crewOf(b, status) (who stands round a building), platform(level) (where a tower's archer
-// stands, px in its picture), FOLK.
-let T = null, SIN_P = .78, IMGS = null, LOADING = null, DEAD = false;
-const TEX = {};
-const MATS = new Map();
-const URLS = new Map();
+// Owner-only Keep upgrade art: a unique picture per playable building level.
+// Fixed gameplay footprints; visible buildings grow within those footprints. Legacy art is a per-family fallback.
+import * as data from '../core/data.js';
+import {BUILD as UPGRADE_BUILD, PLATFORM as UPGRADE_PLATFORM} from './realm-upgrade-art.js';
+export const BUILD = UPGRADE_BUILD;
+export const KINDS = Object.keys(BUILD);
+let T = null, SIN_P = .78, IMGS = {}, SOURCES = {}, LOADING = null, EPOCH = 0;
+const TEX = {}, MATS = new Map(), URLS = new Map(), PENDING = new Set();
 const BASE = new URL('../../img/realm/', import.meta.url).href;
-export const KINDS = ['keep', 'mine', 'tower', 'hatchery'];
-// How wide a family's widest base is on its footprint (seen corner-on, a footprint is size x 1.41 across).
-const FIT = {keep: 1.02, mine: 1.04, tower: .98, hatchery: 1.04};
-// The art's ground is drawn flatter than the camera sees it: its base's half-height is this share of its width.
 const ISO = .27;
-/** A figure's height (tiles) for TALL px. */
 export const FOLK_H = .95;
-
+let SHADOW = null;
 export function init(three, pitch) { T = three; SIN_P = Math.sin(pitch); }
+/** Cancel pending loads and clear owner art on profile eligibility transitions. */
+export function clear() {
+  EPOCH++;
+  [...PENDING].forEach(cancel => cancel()); PENDING.clear();
+  MATS.forEach(m => { m.map.dispose(); m.dispose(); }); MATS.clear();
+  Object.keys(TEX).forEach(k => { TEX[k].dispose(); delete TEX[k]; });
+  URLS.clear(); IMGS = {}; SOURCES = {}; LOADING = null;
+  if (SHADOW) { SHADOW.dispose(); SHADOW = null; }
+}
+let ownerActive = data.isOwner();
+data.subscribe(type => { if (type !== 'me') return; const next = data.isOwner(); if (next !== ownerActive) { ownerActive = next; clear(); } });
+function imageAt(file, epoch) {
+  return new Promise(resolve => {
+    if (!data.isOwner() || epoch !== EPOCH) { resolve(null); return; }
+    const im = new Image(); let finished = false;
+    const done = image => {
+      if (finished) return;
+      finished = true; PENDING.delete(cancel); im.onload = im.onerror = null;
+      resolve(data.isOwner() && epoch === EPOCH ? image : null);
+    };
+    const cancel = () => { done(null); im.removeAttribute('src'); };
+    PENDING.add(cancel);
+    im.decoding = 'async'; im.onload = () => done(im); im.onerror = () => done(null);
+    im.src = BASE + file;
+  });
+}
 export function load() {
-  if (!LOADING) {
-    LOADING = Promise.all([...KINDS, 'folk'].map(n => new Promise((ok, no) => {
-      const im = new Image();
-      im.decoding = 'async';
-      im.onload = () => ok([n, im]);
-      im.onerror = () => no(new Error('no ' + n));
-      im.src = BASE + n + '.webp';
-    }))).then(list => { IMGS = Object.fromEntries(list); return true; }, e => { console.warn('The Keep: no art', e); DEAD = true; return false; });
-  }
+  if (!data.isOwner()) return Promise.resolve(false);
+  if (LOADING) return LOADING;
+  const epoch = EPOCH, active = () => data.isOwner() && epoch === EPOCH;
+  LOADING = Promise.all([
+    ...KINDS.map(async kind => {
+      let im = await imageAt(`upgrades-v1/${kind}.webp`, epoch), source = 'upgrade';
+      if (!im && active() && LEGACY_BUILD[kind]) { im = await imageAt(kind + '.webp', epoch); source = 'legacy'; }
+      if (im && active()) { IMGS[kind] = im; SOURCES[kind] = source; }
+    }),
+    imageAt('folk.webp', epoch).then(im => { if (im && active()) IMGS.folk = im; })
+  ]).then(() => active() && Object.keys(IMGS).length > 0);
   return LOADING;
 }
-export const ready = () => !!IMGS && !DEAD && !!T;
+export const ready = () => data.isOwner() && !!T && Object.keys(IMGS).length > 0;
+export const has = kind => ready() && !!IMGS[kind] && !!BUILD[kind];
+export const folkReady = () => ready() && !!IMGS.folk;
+export const sourceOf = kind => has(kind) ? SOURCES[kind] : null;
 function texOf(n) {
   if (!TEX[n]) {
     const t = new T.Texture(IMGS[n]);
-    t.colorSpace = T.SRGBColorSpace; t.anisotropy = 4; t.needsUpdate = true;
-    TEX[n] = t;
+    t.colorSpace = T.SRGBColorSpace; t.anisotropy = 4; t.needsUpdate = true; TEX[n] = t;
   }
   return TEX[n];
 }
-/** A frame of an atlas (px from its top left) as a texture of its own (the picture shared). */
 function frameTex(n, x, y, w, h, W, H, flip = false) {
-  const t = texOf(n).clone();
-  setFrame(t, x, y, w, h, W, H, flip);
-  return t;
+  const t = texOf(n).clone(); setFrame(t, x, y, w, h, W, H, flip); return t;
 }
 function setFrame(t, x, y, w, h, W, H, flip) {
   t.repeat.set((flip ? -w : w) / W, h / H);
   t.offset.set((flip ? x + w : x) / W, 1 - (y + h) / H);
 }
-
-// The Castle's pictures (Oct 21 2026: the Keep became the Castle): the atlas's first three are timber halls, so its 8
-// levels are drawn from the seven stone castles (3 to 9), levels 1 and 2 both the smallest, level 1's drawn smaller.
-const FRAMES = {keep: [3, 3, 4, 5, 6, 7, 8, 9]};
-const SHRINK = {keep: [.84]};
-/** Which of a family's ten pictures a level gets (the mine's 12 levels spread over them; the Castle's above). */
 export function frameOf(kind, level) {
-  const top = {keep: 8, mine: 12}[kind] || 10, l = Math.max(1, Math.min(top, level || 1));
-  return FRAMES[kind] ? FRAMES[kind][l - 1] : Math.round((l - 1) * 9 / (top - 1));
+  return Math.max(0, Math.min(BUILD[kind].f.length - 1, Math.floor(Number(level) || 1) - 1));
 }
-/** How much smaller than its picture a level stands (1: as drawn). */
-export const shrinkOf = (kind, level) => (SHRINK[kind] || [])[Math.max(1, level || 1) - 1] || 1;
-let SHADOW = null;
+export function shrinkOf(kind, level) {
+  const n = BUILD[kind].f.length;
+  return n === 1 ? .78 : .55 + .45 * frameOf(kind, level) / (n - 1);
+}
+function legacyFrame(kind, level) {
+  const i = frameOf(kind, level);
+  return kind === 'keep' ? [3, 3, 4, 5, 6, 7, 8, 9][i] : Math.round(i * 9 / (BUILD[kind].f.length - 1));
+}
+function frameData(kind, level) {
+  const legacy = SOURCES[kind] === 'legacy', fam = legacy ? LEGACY_BUILD[kind] : BUILD[kind];
+  const i = legacy ? legacyFrame(kind, level) : frameOf(kind, level);
+  return {fam, i, f: fam.f[i]};
+}
+/** Keep aspect ratios while visible width, height and base grow at every upgrade. */
+export function dimensionsOf(kind, level, size = 1) {
+  const n = BUILD[kind].f.length, chosen = frameOf(kind, level); let next = null;
+  for (let i = n - 1; i >= chosen; i--) {
+    const {f} = frameData(kind, i + 1);
+    let k = size * Math.SQRT2 * shrinkOf(kind, i + 1) / f[6];
+    if (next) k = Math.min(k, next.width / (f[2] * 1.035), next.height / (f[3] * 1.035), next.baseWidth / (f[6] * 1.035));
+    next = {k, baseWidth: f[6] * k, width: f[2] * k, height: f[3] * k};
+  }
+  return next;
+}
 function shadowTex() {
   if (!SHADOW) {
     const cv = document.createElement('canvas'); cv.width = cv.height = 64;
     const g = cv.getContext('2d'), gr = g.createRadialGradient(32, 32, 6, 32, 32, 32);
     gr.addColorStop(0, 'rgba(0,0,0,.55)'); gr.addColorStop(.7, 'rgba(0,0,0,.3)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
-    g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
-    SHADOW = new T.CanvasTexture(cv);
+    g.fillStyle = gr; g.fillRect(0, 0, 64, 64); SHADOW = new T.CanvasTexture(cv);
   }
   return SHADOW;
 }
-/** A building drawn from its art, on a size x size footprint centred on the group's origin: its picture, a soft
- *  shadow on the ground, and an unseen box to tap. userData: {sprite, k (tiles a px), ax, ay (its anchor, px)}. */
 export function building(kind, level, size) {
-  const fam = BUILD[kind], i = frameOf(kind, level), [x, y, w, h, ax, ay, bw] = fam.f[i];
-  const top = Math.max(...fam.f.map(f => f[6])), k = size * Math.SQRT2 * FIT[kind] / top * shrinkOf(kind, level);
-  const key = `${kind}:${i}`;
+  if (!has(kind)) return null;
+  const {fam, i, f} = frameData(kind, level), [x, y, w, h, ax, ay, bw] = f;
+  const {k} = dimensionsOf(kind, level, size), key = `${kind}:${SOURCES[kind]}:${i}`;
   if (!MATS.has(key)) MATS.set(key, new T.SpriteMaterial({map: frameTex(kind, x, y, w, h, fam.w, fam.h), transparent: true, alphaTest: .04, toneMapped: false}));
   const sp = new T.Sprite(MATS.get(key));
-  sp.center.set(ax / w, 1 - ay / h);
-  sp.scale.set(w * k, h * k, 1);
+  sp.center.set(ax / w, 1 - ay / h); sp.scale.set(w * k, h * k, 1);
   const g = ISO * bw * k / SIN_P;
-  sp.position.set(g * Math.SQRT1_2, 0, g * Math.SQRT1_2);
-  sp.renderOrder = 1;
-  const grp = new T.Group();
-  grp.add(sp);
-  const sh = new T.Mesh(new T.PlaneGeometry(size * 1.15, size * 1.15), new T.MeshBasicMaterial({map: shadowTex(), transparent: true, depthWrite: false, toneMapped: false}));
-  sh.rotation.x = -Math.PI / 2; sh.position.y = .012;
-  grp.add(sh);
-  const hit = new T.Mesh(new T.BoxGeometry(size * .9, Math.min(4, h * k * .8), size * .9), new T.MeshBasicMaterial({visible: false}));
-  hit.position.y = Math.min(4, h * k * .8) / 2;
-  grp.add(hit);
-  grp.userData = {sprite: sp, k, ax, ay, w, h};
+  sp.position.set(g * Math.SQRT1_2, 0, g * Math.SQRT1_2); sp.renderOrder = 1;
+  const grp = new T.Group(); grp.add(sp);
+  const shadowSize = bw * k / Math.SQRT2 * 1.15;
+  const sh = new T.Mesh(new T.PlaneGeometry(shadowSize, shadowSize), new T.MeshBasicMaterial({map: shadowTex(), transparent: true, depthWrite: false, toneMapped: false}));
+  sh.rotation.x = -Math.PI / 2; sh.position.y = .012; grp.add(sh);
+  const hitHeight = Math.min(4, h * k * .8);
+  const hit = new T.Mesh(new T.BoxGeometry(size * .9, hitHeight, size * .9), new T.MeshBasicMaterial({visible: false}));
+  hit.position.y = hitHeight / 2; grp.add(hit);
+  grp.userData = {sprite: sp, k, ax, ay, w, h, rest: sp.position.clone(), base: sp.scale.clone(), owned: [sh, hit]};
   return grp;
 }
-/** A picture of a building at a level (a data URL), for the shop. */
+/** Release per-building geometry; atlas materials and shadow texture remain shared. */
+export function release(group) {
+  const owned = group && group.userData && group.userData.owned;
+  if (!owned) return;
+  owned.forEach(mesh => { mesh.geometry.dispose(); mesh.material.dispose(); });
+  group.userData.owned = [];
+}
 export function thumbURL(kind, level) {
-  const key = kind + ':' + frameOf(kind, level) + ':' + shrinkOf(kind, level);
+  if (!has(kind)) return '';
+  const key = kind + ':' + SOURCES[kind] + ':' + frameOf(kind, level);
   if (URLS.has(key)) return URLS.get(key);
-  const fam = BUILD[kind], [x, y, w, h] = fam.f[frameOf(kind, level)];
+  const {f} = frameData(kind, level), [x, y, w, h] = f, dim = dimensionsOf(kind, level);
+  const last = dimensionsOf(kind, BUILD[kind].f.length), px = 152 / Math.max(last.width, last.height), scale = dim.k * px;
   const cv = document.createElement('canvas'); cv.width = cv.height = 160;
-  const s = Math.min(152 / w, 152 / h) * shrinkOf(kind, level);
-  cv.getContext('2d').drawImage(IMGS[kind], x, y, w, h, (160 - w * s) / 2, 156 - h * s, w * s, h * s);
-  const url = cv.toDataURL('image/png');
-  URLS.set(key, url);
-  return url;
+  cv.getContext('2d').drawImage(IMGS[kind], x, y, w, h, (160 - w * scale) / 2, 156 - h * scale, w * scale, h * scale);
+  const url = cv.toDataURL('image/png'); URLS.set(key, url); return url;
+}
+/** Actual shot times drive recoil; transforms belong to each sprite, with shared materials. */
+export function animateDefense(group, kind, elapsed, aim = 0) {
+  const u = group.userData;
+  if (!u.sprite || !['cannon', 'ballista', 'trebuchet', 'cauldron'].includes(kind)) return false;
+  const duration = kind === 'trebuchet' ? .65 : kind === 'cauldron' ? .5 : .3;
+  const pulse = elapsed >= 0 && elapsed < duration ? Math.sin(Math.PI * elapsed / duration) : 0;
+  u.sprite.position.copy(u.rest);
+  u.sprite.position.x -= Math.cos(aim) * .13 * pulse;
+  u.sprite.position.z -= Math.sin(aim) * .13 * pulse;
+  u.sprite.position.y += (kind === 'trebuchet' ? .12 : .045) * pulse;
+  u.sprite.scale.set(u.base.x * (1 + .025 * pulse), u.base.y * (1 - .035 * pulse), 1);
+  return true;
 }
 
 // ---------------------------------------------------------------------------------------------------- the folk
@@ -135,8 +176,8 @@ export function pose(sp, sheet, i, flip = false, size = 1) {
   sp.userData.base = [w * k, h * k];
 }
 // Where an archer tower's archer stands, per level: px in its picture (the floor of its platform, at the front).
-const PLATFORM = [[115, 150], [118, 128], [122, 162], [136, 136], [142, 112], [130, 205], [140, 212], [150, 125], [160, 140], [172, 132]];
-export const platform = level => PLATFORM[frameOf('tower', level)];
+const LEGACY_PLATFORM = [[115, 150], [118, 128], [122, 162], [136, 136], [142, 112], [130, 205], [140, 212], [150, 125], [160, 140], [172, 132]];
+export const platform = level => SOURCES.tower === 'legacy' ? LEGACY_PLATFORM[legacyFrame('tower', level)] : UPGRADE_PLATFORM[frameOf('tower', level)];
 const TIER = l => (l >= 8 ? 2 : l >= 4 ? 1 : 0);
 // The work each building's villagers do (one each side of its front corner). The brewery's (KINDS.farm) carry in a sack
 // of malt and wood for the kettle's fire (the farmer and the harvest sheets were the farm's, before it brewed Ale).
@@ -162,7 +203,7 @@ export function crewOf(b, status, size) {
 // <frames> (tools/realm/sprites.py writes this)
 /** Buildings: per family, a frame per level [x, y, w, h, ax, ay, bw] (px in img/realm/<family>.webp; ax, ay
  *  the front point of its base, bw its base's width). */
-export const BUILD = {
+const LEGACY_BUILD = {
   keep: {w: 2048, h: 772, f: [[1335, 423, 333, 270, 166.0, 269.0, 332], [1004, 423, 329, 282, 164.0, 282.0, 328], [679, 423, 323, 296, 161.5, 296.0, 323], [2, 423, 325, 344, 163.0, 344.0, 324], [329, 423, 348, 322, 173.5, 322.0, 347], [1147, 2, 371, 380, 186.0, 380.0, 370], [1520, 2, 371, 377, 185.5, 376.0, 369], [781, 2, 364, 388, 182.0, 388.0, 364], [2, 2, 381, 419, 190.5, 419.0, 381], [385, 2, 394, 414, 196.5, 414.0, 393]]},
   mine: {w: 2048, h: 784, f: [[1446, 442, 328, 237, 164.0, 237.0, 328], [1119, 442, 325, 271, 162.5, 271.0, 325], [372, 442, 355, 329, 177.0, 329.0, 354], [2, 442, 368, 338, 184.0, 338.0, 368], [729, 442, 388, 327, 194.0, 326.0, 388], [1173, 2, 361, 403, 180.5, 403.0, 361], [1536, 2, 365, 401, 182.5, 401.0, 365], [401, 2, 376, 420, 188.0, 420.0, 376], [779, 2, 392, 419, 196.0, 419.0, 392], [2, 2, 397, 438, 198.5, 438.0, 397]]},
   tower: {w: 2048, h: 876, f: [[548, 476, 234, 364, 116.5, 364.0, 233], [784, 476, 237, 361, 118.5, 360.0, 237], [2, 476, 254, 398, 127.5, 398.0, 253], [1521, 2, 276, 399, 138.0, 399.0, 274], [258, 476, 288, 381, 144.0, 380.0, 288], [346, 2, 262, 465, 130.5, 465.0, 261], [610, 2, 277, 460, 138.5, 460.0, 277], [1213, 2, 306, 437, 148.0, 437.0, 278], [889, 2, 322, 455, 159.0, 455.0, 318], [2, 2, 342, 472, 171.0, 471.0, 342]]},
