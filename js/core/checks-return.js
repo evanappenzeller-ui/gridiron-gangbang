@@ -119,8 +119,9 @@ function regularPrint() {
   return fnv(out.join('\n'));
 }
 // The hard course (the owner's) as it was before its coins came in (Oct 21 2026): days 1-20's kickoff to 3,000 yards,
-// the same with the coins laid out first (they draw from a seed of their own).
-const HARD_FP = '7d9998b7';
+// the same with the coins laid out first (they draw from a seed of their own). (Changed Oct 22 2026, the owner's ask:
+// the sleds gone, their lanes left open, everything else on it where it was: was 7d9998b7.)
+const HARD_FP = '6ac2e402';
 // The coins' lines on days 1-20's hard course (to 2,900 yards) when they came in (Oct 21 2026): the same however far
 // ahead they're laid out at a time, on every phone. It changes only when the coins' layout does: on purpose, never
 // mid-day. (Changed before they first came out, Oct 21 2026: no banner or sled in a line's lane just before it, COIN.look.)
@@ -486,17 +487,18 @@ export async function returnChecks(check) {
     return {pass: open && all && beta, detail: `opens on every phone ${open}; lists ${lists.join(' | ')}; BETA on ${tagged || 'none'}`};
   });
   // ------------------------------------------------------------------------------------------- the hard course
-  check('Return Man: the hard course (the owner\'s ask, Oct 2026: a run of 90 seconds to 3 minutes, his profile only for now): a course of its own (the regular one as it was); quicker from the start and never done speeding up (past 30 yards a second by 3,000 yards; the regular course tops out at 19); the beats keep closing in; potholes and tackling sleds, none in the first 40 yards, the sleds only with the road open all the way across and never in every lane', () => {
+  check('Return Man: the hard course (the owner\'s ask, Oct 2026: a run of 90 seconds to 3 minutes, his profile only for now): a course of its own (the regular one as it was); quicker from the start and never done speeding up (past 30 yards a second by 3,000 yards; the regular course tops out at 19); the beats keep closing in; potholes, none in the first 40 yards; no tackling sleds (the owner\'s ask, Oct 22 2026: "Remove the obstacle with the two pillars"), their lanes left open where they were drawn (sl: only with the road open all the way across, never in every lane)', () => {
     const bad = [];
-    let holes = 0, sleds = 0, late = [];
+    let holes = 0, sleds = 0, gone = 0, late = [];
     const differ = R.course(3, 0) !== R.course(3, 0, true) && R.course(3, 0, true) === R.course(3, 0, true) && !R.course(3, 0).hard && R.startRun(3, 0).co === R.course(3, 0) && R.startRun(3, 0, true).co.hard === true;
     const v = [0, 300, 1000, 3000, 6000].map(z => R.speedAt(z, true)), v0 = [0, 300, 1000, 3000, 6000].map(z => R.speedAt(z));
     const speed = v.every((x, i) => x > v0[i] && (!i || x >= v[i - 1])) && v[3] > 30 && v[2] > 22 && v0.every(x => x <= 19);
     for (let n = 1; n <= 12; n++) {
       const co = R.fill(R.course(n, 0, true), 4000), rows = co.rows;
       rows.forEach((r, i) => {
-        const men = r.lanes.filter(Boolean), sl = r.lanes.filter(t => t === 'sled').length;
-        holes += r.lanes.filter(t => t === 'hole').length; sleds += sl;
+        const men = r.lanes.filter(Boolean), sl = (r.sl || []).length;
+        holes += r.lanes.filter(t => t === 'hole').length; sleds += r.lanes.filter(t => t === 'sled').length; gone += sl;
+        if ((r.sl || []).some(l => r.lanes[l])) bad.push(`day ${n} row ${i}: something where a sled was`);
         if (men.some(t => !R.OBST[t])) bad.push(`day ${n} row ${i}: a ${men.join('/')}`);
         if (r.z < 40 && men.some(t => t !== 'hurdle')) bad.push(`day ${n}: a ${men.join('/')} at ${Math.round(r.z)} yds`);
         if (sl && (sl > 2 || co.sets.some(s => r.z >= s.zs && r.z <= s.ze && s.plats.length))) bad.push(`day ${n}: ${sl} sleds at ${Math.round(r.z)} yds${sl < 3 ? ' beside a vehicle' : ''}`);
@@ -504,8 +506,8 @@ export async function returnChecks(check) {
       });
     }
     const lateT = late.reduce((a, x) => a + x, 0) / Math.max(1, late.length);
-    const pass = differ && speed && !bad.length && holes > 100 && sleds > 100 && lateT < .55;
-    return {pass, detail: `its own course ${differ}; speed ${v.map(x => x.toFixed(1)).join(', ')} (regular ${v0.map(x => x.toFixed(1)).join(', ')}); ${holes} potholes, ${sleds} sleds on 12 days to 4,000 yds; past 2,500 yds the rows ${lateT.toFixed(2)} s apart; ${bad.length ? bad.slice(0, 4).join('; ') : 'every row has a way through'}`};
+    const pass = differ && speed && !bad.length && holes > 100 && sleds === 0 && gone > 100 && lateT < .55;
+    return {pass, detail: `its own course ${differ}; speed ${v.map(x => x.toFixed(1)).join(', ')} (regular ${v0.map(x => x.toFixed(1)).join(', ')}); ${holes} potholes, ${sleds} sleds (${gone} lanes left open where one was) on 12 days to 4,000 yds; past 2,500 yds the rows ${lateT.toFixed(2)} s apart; ${bad.length ? bad.slice(0, 4).join('; ') : 'every row has a way through'}`};
   });
   check('Return Man: the hard course can always be run: a returner who reads it right (no power-ups) gets 3,000 yards on the hard kickoffs of days 1-5 without a hit', () => {
     const out = [];

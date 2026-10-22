@@ -76,7 +76,7 @@ function keysHTML(hard) {
   const k = (cls, label, what) => `<li class="rm-key"><span class="rm-kk ${cls}" aria-hidden="true">${label}</span><span>${what}</span></li>`;
   const pw = (kind, name, what) => `<li class="rm-pk">${iconHTML(kind, 34)}<b>${name}</b><span>${what}</span></li>`;
   return `<ul class="rm-keys" aria-label="How to play">`
-    + k('is-lr', '← →', hard ? 'Swipe to juke a lane, and round a tackling sled. Off the edge, you stumble' : 'Swipe to juke a lane. Off the edge, you stumble')
+    + k('is-lr', '← →', 'Swipe to juke a lane. Off the edge, you stumble')
     + k('is-up', '↑', hard ? 'Jump a barricade or a pothole, or onto a low one' : 'Jump a barricade, or onto a low one')
     + k('is-dn', '↓', 'Slide under a banner')
     + k('is-ramp', '◢', hard ? 'Run up a ramp onto the roofs. Head on into a bus: down' : 'Run up a ramp onto the roofs')
@@ -107,7 +107,7 @@ function cardHTML(st) {
   const again = (label = 'Run it again') => ui.button({label, icon: 'play-fill', attrs: {'data-rm-go': ''}, cls: 'rm-go'});
   const sb = () => ui.button({label: 'See the scoreboard', kind: 'secondary', attrs: {'data-rm-sb': ''}, cls: 'rm-go'});
   const note = (R.testing() ? '<p class="rm-card-s">Test play: not counted, not on the scoreboard.</p>' : '')
-    + (data.isOwner() ? '<p class="rm-card-s">Hard course: faster, potholes and sleds, and a bus head on ends it. Just your profile for now.</p>' : '');
+    + (data.isOwner() ? '<p class="rm-card-s">Hard course: faster, potholes, and a bus head on ends it. Just your profile for now.</p>' : '');
   if (st.mode === 'tackled') {
     const run = st.run, y = Math.floor(run.yards), tds = R.tdsAt(run.z), th = R.zoneAt(run.co, run.z).theme;
     const prev = d.list.slice(0, -1).reduce((m, e) => Math.max(m, e.y), 0); // (the best before this run)

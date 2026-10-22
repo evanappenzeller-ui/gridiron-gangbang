@@ -109,15 +109,16 @@ export const STRIDE_V = 19;
 export const MOVE = {juke: .13, slide: .7};
 // The things in the rows, standing still in a lane: what beats each (a juke round it beats both; so does being up
 // over it, top yards). A barricade you jump (clear: up that high as you reach it); a banner you slide under.
-// The hard course adds two (HARD_OBST): a pothole you jump (it's flat: a slide goes in it), each place's own (HOLES),
-// and a tackling sled, too high to jump and too low to slide under: you juke round it.
+// The hard course adds a pothole (HARD_OBST) you jump (it's flat: a slide goes in it), each place's own (HOLES). It
+// had a tackling sled too, too high to jump and too low to slide under: you juked round it. No more (Oct 22 2026,
+// addRow); its rules stay, for the kit's checks.
 export const OBST = {
   hurdle: {name: 'barricade', beat: 'jump', clear: .5, top: 1.05, says: 'Clipped the barricade'},
   bar: {name: 'banner', beat: 'slide', top: 2.5, says: 'Ran into the banner'},
   hole: {name: 'pothole', beat: 'jump', clear: .25, top: 1.05, says: 'Stepped in the pothole'},
   sled: {name: 'tackling sled', beat: 'juke', top: 1.6, says: 'Ran into the tackling sled'}
 };
-export const HARD_OBST = ['hole', 'sled'];
+export const HARD_OBST = ['hole'];
 export const HOLES = {stadium: 'divot', tailgate: 'pothole', city: 'pothole', tundra: 'ice hole', desert: 'sinkhole', market: 'open manhole',
   beach: 'sand pit', space: 'crater', farm: 'mud pit'};
 // A traffic cone stands just before every pothole, in its lane (the owner's ask, Oct 2026: a marker to see it coming),
@@ -365,17 +366,22 @@ function addRow(co, z, open) {
   count = Math.min(count, most);
   // (a sled only with the road open all the way across, never more than one before 600 yards, two after: there's always
   // a lane it isn't in)
+  // No sleds any more (the owner's ask, Oct 22 2026: "Remove the obstacle with the two pillars"): where one is drawn the
+  // lane is left open, the draws as they were, so the rest of the course (rows, vehicles, power-ups) is just where it
+  // was, today's too. sl keeps the lanes a sled was drawn in, for the coins alone: they're laid out round them as
+  // before (coinsFit), so no day's coins move.
   let sleds = co.hard && most === 3 && z >= HARD_GAP.sled ? (z < 600 ? 1 : 2) : 0;
+  const sl = [];
   shuffle(open.slice(), r).slice(0, count).forEach(l => {
     if (!co.hard) { lanes[l] = z < 40 || r() < .5 ? 'hurdle' : 'bar'; return; }
     if (z < 40) { lanes[l] = 'hurdle'; return; }
     const u = r(), hole = z >= HARD_GAP.hole, w = hole ? (sleds ? [.3, .3, .22, .18] : [.36, .36, .28, 0]) : [.5, .5, 0, 0];
     const t = u < w[0] ? 'hurdle' : u < w[0] + w[1] ? 'bar' : u < w[0] + w[1] + w[2] ? 'hole' : 'sled';
-    if (t === 'sled') sleds--;
+    if (t === 'sled') { sleds--; sl.push(l); return; }
     lanes[l] = t;
     if (!(t in co.first)) co.first[t] = z;
   });
-  co.rows.push({i: co.rows.length, z: round2(z), lanes, th: zoneAt(co, z).theme.id});
+  co.rows.push(Object.assign({i: co.rows.length, z: round2(z), lanes, th: zoneAt(co, z).theme.id}, sl.length ? {sl} : {}));
 }
 // A set at z (where the first ramp starts, or the fronts): a thing of the place's in one lane, or two side by side
 // (always a lane left open). False if it would cross into the next place.
@@ -508,10 +514,12 @@ function coinsFit(co, lane, coins, over, land) {
   const za = coins[0].z - COIN.clear, last = coins[coins.length - 1].z, zEnd = Math.max(last, land || 0);
   const zb = zEnd + COIN.react * speedAt(zEnd, true);
   if (co.done < zb + 10) fill(co, zb + 10);
-  for (let i = rowFrom(co, za); i < co.rows.length && co.rows[i].z <= zb; i++) { const w = co.rows[i]; if (w.lanes[lane] && w !== over) return false; }
+  // (where a sled was drawn, sl, counts as it did before the sleds went: the coins stay where they were)
+  const sledIn = (w, l) => !!(w.sl && w.sl.includes(l));
+  for (let i = rowFrom(co, za); i < co.rows.length && co.rows[i].z <= zb; i++) { const w = co.rows[i]; if ((w.lanes[lane] || sledIn(w, lane)) && w !== over) return false; }
   // (and just before that, no banner to hide the line or sled to juke round as it starts: COIN.look seconds clear)
   const zl = coins[0].z - COIN.look * speedAt(coins[0].z, true);
-  for (let i = rowFrom(co, zl); i < co.rows.length && co.rows[i].z < za; i++) { const t = co.rows[i].lanes[lane]; if (t === 'bar' || t === 'sled') return false; }
+  for (let i = rowFrom(co, zl); i < co.rows.length && co.rows[i].z < za; i++) { const w = co.rows[i], t = w.lanes[lane]; if (t === 'bar' || t === 'sled' || sledIn(w, lane)) return false; }
   if (co.sets.some(s => s.zs <= zb && s.ze >= za && s.plats.some(p => p.lane === lane && p.z0 - p.ramp <= zb && p.z1 >= za))) return false;
   if (co.items.some(it => it.lane === lane && it.z > za - COIN.item && it.z < last + COIN.item)) return false;
   if (over && over.lanes[lane] === 'hole') {
