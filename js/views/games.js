@@ -3,6 +3,8 @@
 // A game is started from its case (the owner's ask, Oct 2026): a tap on its front brings it up close and opens it, and
 // Start (Continue once it's started) in the tray over the disc opens the game: Daily Puzzles straight into today's run,
 // the others on their own page (/puzzles/<game>, pushed).
+// Evan's profile has the physical green case skin, a full-size Play / Continue control below the open case,
+// and a cancellable disc-to-console transition before that same game route opens.
 // A game finished today turns its case round: on its back, your result, your place and the top of today's league
 // board; tap it and it comes up close with the whole board, Today's or the Season's. The rows come from each game's core
 // (boardRows: daily.LB.raw / LB.players, the board as this phone may see it: THE RULE, CLAUDE.md).
@@ -357,7 +359,7 @@ const SHELF_KEY = 'gg-shelf';
  *  date (a game just finished turns its case round), tick() moves the countdown. opts.play(id): open a game. */
 export function mountList(el, ctx, opts = {}) {
   // st.cur: the slot in the middle, counting every copy (slots()); its game is list()[st.cur % n()]
-  const st = {dead: false, cur: 0, zoom: null, raf: 0, saved: 0, settle: 0, touch: false};
+  const st = {dead: false, cur: 0, zoom: null, raf: 0, saved: 0, settle: 0, touch: false, owner: null, assets: null, styles: []};
   const shelf = el.querySelector('.gm-shelf'), sel = el.querySelector('[data-gm-sel]');
   const turner = shelfTurner(shelf); // (a case grabbed by its edge turns where it stands)
   const list = () => gamesFor().filter(g => el.querySelector(`.gm-slot[data-gm-slot="${g.id}"]`));
@@ -365,6 +367,34 @@ export function mountList(el, ctx, opts = {}) {
   const n = () => Math.max(1, list().length);
   const curCase = id => { const sl = slots()[st.cur]; return sl && sl.dataset.gmSlot === id ? sl.querySelector('.gm-case') : el.querySelector(`.gm-slot:not([data-gm-clone]) .gm-case[data-gm="${id}"]`); };
   const shown = new Map(); // id → the markup its case shows
+  // Owner preview: request the new styles and launch module only for Evan's profile.
+  // Removing the links and cancelling the overlay also handles profile changes from another tab.
+  function syncOwner() {
+    const owner = data.isOwner();
+    if (st.owner === owner) return;
+    if (st.zoom) closeZoom(true);
+    st.owner = owner;
+    el.classList.toggle('gm-owner', owner);
+    st.styles.forEach(({link, cancel}) => { cancel(); link.remove(); });
+    st.styles = [];
+    st.assets = null;
+    if (!owner) return;
+    const css = ['game-case-owner', 'game-case-controls', 'game-launch'].map(name => new Promise(resolve => {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = new URL(`../../css/views/${name}.css`, import.meta.url).href;
+      let timer;
+      const done = ok => { clearTimeout(timer); link.onload = link.onerror = null; resolve(ok); };
+      link.onload = () => done(true);
+      link.onerror = () => done(false);
+      timer = setTimeout(() => done(false), 5000);
+      st.styles.push({link, cancel: () => done(false)});
+      document.head.appendChild(link);
+    }));
+    st.assets = Promise.all([import('./game-launch.js'), ...css]).then(([mod, ...ready]) => ready.every(Boolean) ? mod : null).catch(() => null);
+  }
+  const unprofile = data.subscribe(type => { if (type === 'me' && !st.dead) syncOwner(); });
+  syncOwner();
   const sig = (g, s) => `${s.kind}|${s.test ? 1 : 0}|${s.again ? 1 : 0}|${s.meta || ''}|${s.kind === 'done' ? backHTML(g, s) : frontHTML(g, s)}`; // (Return Man: its front stays, its line under the shelf moves)
   // the case in the middle: bigger and lit, the others smaller and turned a little toward it
   const layout = () => {
@@ -484,7 +514,10 @@ export function mountList(el, ctx, opts = {}) {
   // The case up close (the owner's ask, Oct 2026): a real case to turn in your hand (views/game-case.js), its back the
   // whole board, its front the cover; turned to the front it opens, the disc inside. play: a game not played yet, to
   // start: it comes up facing front (no back to turn to) and opens, Start in the tray's top right over the disc.
-  const goLabel = s => (s.kind === 'started' ? 'Continue' : 'Start');
+  const goLabel = s => (s.kind === 'started' ? 'Continue' : data.isOwner() ? 'Play Game' : 'Start');
+  const ownerGoHTML = (g, s) => `<button type="button" class="gm-z-go" data-gm-zgo disabled aria-label="${esc(`${goLabel(s)}: ${g.name}`)}">`
+    + `<span class="gm-z-go-icon" aria-hidden="true">${ui.icon('play-fill')}</span><span class="gm-z-go-copy"><strong>${goLabel(s)}</strong><small>${esc(g.name)}</small></span>`
+    + `<span class="gm-z-go-arrow" aria-hidden="true">${ui.icon('chevron-right')}</span></button>`;
   function caseUpHTML(g, s, play = false) {
     // (the game's name up in the black band, where the cover has GRIDIRON HUB: the owner's ask, Oct 2026)
     const band = `<span class="gm-band is-z">${g.beta ? '<span class="gm-beta">BETA</span>' : ''}<span class="gm-bk-name" id="gm-z-t">${esc(g.name)}</span>`
@@ -500,7 +533,7 @@ export function mountList(el, ctx, opts = {}) {
     const inside = `<div class="gm-z-tray" aria-hidden="true"><span class="gm-z-emb">GRIDIRON HUB</span></div>`
       + `<div class="gm-z-disc" data-gm-zdisc aria-hidden="true"><span class="gm-z-lab">${img(g.disc)}</span><span class="gm-z-sheen"></span></div>`
       + `<span class="gm-z-hub" aria-hidden="true"></span>`
-      + (play ? `<button type="button" class="gm-z-go" data-gm-zgo disabled aria-label="${esc(`${goLabel(s)} ${g.name}`)}">${ui.icon('play-fill')}<span>${goLabel(s)}</span></button>` : '');
+      + (play && !data.isOwner() ? `<button type="button" class="gm-z-go" data-gm-zgo disabled aria-label="${esc(`${goLabel(s)} ${g.name}`)}">${ui.icon('play-fill')}<span>${goLabel(s)}</span></button>` : '');
     const lid = `<div class="gm-z-lid">${frontHTML(g, s, true)}`
       + `<div class="gm-z-in" aria-hidden="true"><span class="gm-z-bk"><span class="gm-z-book">${img(g.book)}</span>`
       + `<span class="gm-z-clip is-t"></span><span class="gm-z-clip is-b"></span></span></div></div>`;
@@ -508,16 +541,19 @@ export function mountList(el, ctx, opts = {}) {
   }
   const HINT = {back: 'Drag to turn it · it opens from the front', front: 'Tap the cover to open it', open: 'Tap the case to close it'};
   function openZoom(id) {
+    syncOwner();
     const g = byId(id), cs = curCase(id);
     if (!g || st.zoom) return;
     const s = stateOf(g), play = s.kind !== 'done';
-    const hints = play ? {front: HINT.front, open: `Press ${goLabel(s)} to play`} : id === '17-0' ? {...HINT, back: 'Tap a name for their team · drag to turn it'} : HINT;
+    const hints = play ? {front: HINT.front, open: data.isOwner() ? 'Ready to play' : `Press ${goLabel(s)} to play`} : id === '17-0' ? {...HINT, back: 'Tap a name for their team · drag to turn it'} : HINT;
     const z = document.createElement('div');
-    z.className = 'gm-zoom';
+    const owner = data.isOwner();
+    z.className = `gm-zoom${owner ? ' gm-owner' : ''}${owner && play ? ' gm-has-play' : ''}`;
     z.innerHTML = `<div class="gm-z-scrim" data-gm-zclose></div>`
-      + `<div class="gm-z-dlg" role="dialog" aria-modal="true" aria-labelledby="gm-z-t" tabindex="-1">`
+      + `<div class="gm-z-dlg" role="dialog" aria-modal="true" ${owner ? `aria-label="${esc(g.name)} game case"` : 'aria-labelledby="gm-z-t"'} tabindex="-1">`
       + ui.iconButton({icon: 'close', label: 'Close', cls: 'gm-z-x', filled: true, attrs: 'data-gm-zclose'})
       + caseUpHTML(g, s, play)
+      + (owner && play ? ownerGoHTML(g, s) : '')
       + `<div class="gm-z-ctl">${play ? '' : ui.button({label: 'Turn over', kind: 'secondary', size: 's', icon: 'swap', attrs: 'data-gm-zturn'})}`
       + `${ui.button({label: 'Open the case', kind: 'secondary', size: 's', attrs: 'data-gm-zlid', disabled: !play})}</div>`
       + `<p class="gm-z-hint" data-gm-zhint>${play ? hints.front : hints.back}</p></div>`;
@@ -536,8 +572,8 @@ export function mountList(el, ctx, opts = {}) {
       hint.textContent = hints[open ? 'open' : front ? 'front' : 'back'];
       if (goBtn) goBtn.disabled = !open;
     };
-    const T = turnable(z, dlg, said, {still: play});
-    st.zoom = {el: z, id, mode: 'today', play, app, prev: app ? app.inert : false, turn: T, fit: () => fitBoard(z.querySelector('[data-gm-zbody]')),
+    const T = turnable(z, dlg, said, {still: play, compact: owner});
+    st.zoom = {el: z, id, mode: 'today', play, owner, launching: false, launch: null, launchTimer: 0, app, prev: app ? app.inert : false, turn: T, fit: () => fitBoard(z.querySelector('[data-gm-zbody]')),
       n: history.state && history.state.n, team: false};
     st.zoom.fit();
     addEventListener('resize', st.zoom.fit, {passive: true});
@@ -552,9 +588,34 @@ export function mountList(el, ctx, opts = {}) {
     }
     // a game to start: the touch on its front that brought it up opens it, once it's up
     if (play) setTimeout(() => { if (st.zoom && st.zoom.turn === T) T.lid(true); }, cs && !ui.RM ? 380 : 0);
-    const start = () => { ui.haptic('light'); closeZoom(true); if (opts.play) opts.play(id); };
+    const start = async () => {
+      const Z = st.zoom;
+      if (!Z || Z.el !== z || Z.launching || st.dead || ctx.visible === false) return;
+      if (owner && !data.isOwner()) { closeZoom(true); return; }
+      ui.haptic('light');
+      if (!owner) { closeZoom(true); if (opts.play) opts.play(id); return; }
+      Z.launching = true;
+      T.stop();
+      dlg.focus({preventScroll: true});
+      if (goBtn) { goBtn.disabled = true; goBtn.setAttribute('aria-busy', 'true'); }
+      lidBtn.disabled = true;
+      hint.textContent = `Preparing ${g.name}…`;
+      const finish = () => {
+        if (st.zoom !== Z || st.dead || ctx.visible === false || !data.isOwner() || !z.isConnected) return;
+        closeZoom(true);
+        if (opts.play) opts.play(id);
+      };
+      // Artwork/network trouble must never strand the player behind a loading screen.
+      const mod = await Promise.race([st.assets, new Promise(resolve => { Z.launchTimer = setTimeout(() => resolve(null), 1500); })]);
+      clearTimeout(Z.launchTimer);
+      if (st.zoom !== Z || st.dead || ctx.visible === false || !data.isOwner() || !z.isConnected) return;
+      if (!mod) { finish(); return; }
+      try { Z.launch = mod.launchGame({host: z, game: g, reducedMotion: ui.RM, onComplete: finish}); }
+      catch (_) { finish(); }
+    };
     z.addEventListener('click', e => {
       if (e.target.closest('[data-gm-zclose]')) { closeZoom(); return; }
+      if (st.zoom?.launching) return;
       if (e.target.closest('[data-gm-zgo]')) { if (T.state.open) start(); return; }
       if (e.target.closest('[data-gm-zturn]')) { T.turn(1); return; }
       if (e.target.closest('[data-gm-zlid]')) { T.lid(); return; }
@@ -586,6 +647,14 @@ export function mountList(el, ctx, opts = {}) {
     });
     z.addEventListener('keydown', e => {
       if (e.key === 'Escape') { e.preventDefault(); closeZoom(); return; }
+      if (owner && e.key === 'Tab') {
+        const buttons = [...dlg.querySelectorAll('button:not(:disabled):not([hidden])')].filter(b => b.getClientRects().length && getComputedStyle(b).visibility !== 'hidden');
+        const first = buttons[0], last = buttons[buttons.length - 1];
+        if (first && ((!e.shiftKey && (e.target === last || e.target === dlg)) || (e.shiftKey && (e.target === first || e.target === dlg)))) {
+          e.preventDefault(); (e.shiftKey ? last : first).focus();
+        }
+      }
+      if (st.zoom?.launching) return;
       if (e.target !== dlg) return;
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); T.turn(e.key === 'ArrowLeft' ? -1 : 1); }
       else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (play && T.state.open) start(); else T.lid(); }
@@ -613,12 +682,16 @@ export function mountList(el, ctx, opts = {}) {
   function closeZoom(fast) {
     const Z = st.zoom;
     if (!Z) return;
+    const restoreFocus = !fast;
     st.zoom = null;
+    clearTimeout(Z.launchTimer);
+    if (Z.launch) Z.launch.cancel();
+    if (Z.launching) fast = true;
     if (Z.app) Z.app.inert = Z.prev;
     Z.turn.stop();
     removeEventListener('resize', Z.fit);
     const cs = curCase(Z.id), stage = Z.el.querySelector('.gm-z-stage');
-    if (fast || ui.RM || !cs || !stage) { Z.el.remove(); if (cs && !fast) cs.focus({preventScroll: true}); return; }
+    if (fast || ui.RM || !cs || !stage) { Z.el.remove(); if (cs && restoreFocus) cs.focus({preventScroll: true}); return; }
     // shut and turned round to its back (as it stands on the shelf) on its way back down
     const obj = Z.el.querySelector('.gm-z-obj'), lid = Z.el.querySelector('.gm-z-lid'), rest = Z.turn.rest();
     [[obj, rest.obj], [lid, rest.lid]].forEach(([el, to]) => {
@@ -688,6 +761,7 @@ export function mountList(el, ctx, opts = {}) {
 
   const refresh = (animate = true) => {
     if (st.dead) return;
+    syncOwner();
     // a change of who this phone is can add or take away a game (Return Man): the shelf is drawn again
     const ids = gamesFor().map(g => g.id).join(' ');
     if (el.dataset.ids !== ids) {
@@ -734,9 +808,14 @@ export function mountList(el, ctx, opts = {}) {
     const t = ui.untilText(msToMidnight());
     el.querySelectorAll('[data-gm-cd]').forEach(v => { if (v.textContent !== t) v.textContent = t; });
   };
-  return {refresh, tick, destroy() {
+  return {refresh, tick, hide() { if (st.zoom?.owner) closeZoom(true); }, destroy() {
     st.dead = true;
     closeZoom(true);
+    unprofile();
+    st.styles.forEach(({link, cancel}) => { cancel(); link.remove(); });
+    st.styles = [];
+    st.assets = null;
+    el.classList.remove('gm-owner');
     turner.stop();
     clearTimeout(st.settle);
     shelf.removeEventListener('scroll', onScroll);

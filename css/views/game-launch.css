@@ -1,0 +1,99 @@
+/* Loaded only for the owner's game cases. The close control remains available during the sequence. */
+.gm-is-launching .gm-z-dlg > :not(.gm-z-x):not(.gm-launch) { visibility: hidden; pointer-events: none; }
+.gm-launch {
+  position: fixed; inset: 0; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: max(64px, var(--sa-t, 0px)) 20px max(32px, var(--sa-b, 0px)); pointer-events: none !important;
+  background: radial-gradient(ellipse 65% 48% at 50% 46%, rgba(27,55,25,.28), transparent 78%);
+  animation: gm-launch-appear 180ms ease-out both;
+}
+.gm-launch-scene { position: relative; width: min(88vw, 440px); aspect-ratio: 1.3; perspective: 900px; flex: none; }
+.gm-launch-ground {
+  position: absolute; left: 1%; right: 1%; top: 45%; height: 22%; border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(0,0,0,.85), rgba(0,0,0,.35) 40%, transparent 70%); filter: blur(7px);
+}
+.gm-launch-console { position: absolute; inset: 0; }
+.gm-launch-top {
+  position: absolute; left: 7%; top: 24%; width: 86%; height: 17%;
+  background: linear-gradient(162deg, #424748 0, #24292a 28%, #161b1d 70%, #34393a);
+  clip-path: polygon(5% 0, 95% 0, 100% 100%, 0 100%);
+}
+.gm-launch-top::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent 54%, rgba(255,255,255,.06) 54.2%, transparent 54.5%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.26);
+}
+.gm-launch-vents {
+  position: absolute; left: 60%; top: 27%; width: 26%; height: 9%; transform: skewX(10deg);
+  background: repeating-linear-gradient(90deg, #090d0e 0 2px, transparent 2px 5px); opacity: .7;
+}
+.gm-launch-front {
+  position: absolute; left: 7%; top: 40%; width: 86%; height: 15%; border-radius: 1px 1px 4px 4px;
+  background: linear-gradient(100deg, #121718, #202526 57%, #121718);
+  border-top: 1px solid #4d5352; border-bottom: 2px solid #060909;
+  box-shadow: 0 9px 18px rgba(0,0,0,.5), inset 0 -3px 0 rgba(255,255,255,.03);
+}
+.gm-launch-front::after {
+  content: ""; position: absolute; left: 60%; top: 0; bottom: 0; width: 1px;
+  background: #050a0a; box-shadow: 1px 0 rgba(255,255,255,.07);
+}
+.gm-launch-slot {
+  position: absolute; left: 16%; top: 44%; width: 58%; height: 4px; z-index: 4; border-radius: 8px;
+  background: #010402; box-shadow: 0 -1px 0 #626e64, 0 1px 0 rgba(99,168,60,.3);
+}
+.gm-launch-slot::after {
+  content: ""; position: absolute; inset: 1px 5px; border-radius: inherit; background: #7cdd52;
+  box-shadow: 0 0 7px rgba(119,224,70,.65); opacity: .18; animation: gm-launch-slot 1540ms ease-in-out both;
+}
+.gm-launch-power {
+  position: absolute; left: 83%; top: 44%; width: 3%; aspect-ratio: 1; border: 1.5px solid #a7ed87; border-radius: 50%;
+  box-shadow: 0 0 9px rgba(122,225,83,.35); animation: gm-launch-power 1540ms ease-out both;
+}
+.gm-launch-power::before {
+  content: ""; position: absolute; left: 42%; top: -2px; width: 2px; height: 55%; border-radius: 2px;
+  background: #c8ffb1; box-shadow: 0 0 0 2px #1c2220;
+}
+.gm-launch-foot { position: absolute; top: 55%; width: 10%; height: 2%; background: #070b0b; border-radius: 0 0 3px 3px; }
+.gm-launch-foot.is-left { left: 13%; }
+.gm-launch-foot.is-right { right: 13%; }
+/* Clip at the physical slot. The disc disappears into the console, rather than shrinking out of view. */
+.gm-launch-feed { position: absolute; left: 16%; top: calc(44% + 3px); width: 58%; height: 61%; z-index: 3; overflow: hidden; }
+.gm-launch-disc {
+  position: absolute; left: 0; top: 0; width: 100%; aspect-ratio: 1; border-radius: 50%;
+  background: radial-gradient(circle, #102017 0 7%, #c7d4cc 7.5% 11%, #69766e 11.5% 13%, transparent 13.5%),
+    conic-gradient(from 10deg, #b8c8c3, #637467, #d9ded1, #9da7b8, #ebf1dc, #5b6d65, #b8c8c3);
+  box-shadow: 0 2px 0 #82918b, 0 4px 0 #24332b, 0 14px 20px rgba(0,0,0,.38);
+  transform: translateY(-15%) rotateX(58deg) rotateZ(-14deg); transform-origin: 50% 50%;
+  animation: gm-launch-disc 1540ms cubic-bezier(.32,0,.24,1) both; will-change: transform;
+}
+.gm-launch-disc img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; border-radius: inherit; }
+.gm-launch-sheen {
+  position: absolute; inset: 0; border-radius: inherit;
+  background: conic-gradient(from -30deg, transparent 0 13%, rgba(255,255,255,.4) 19%, transparent 25% 63%, rgba(255,255,255,.23) 69%, transparent 75%);
+  box-shadow: inset 0 0 0 1px rgba(222,255,225,.5);
+}
+.gm-launch-status { display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 18px 0 0; text-align: center; color: #f3f7f1; }
+.gm-launch-status > span { font: 700 11px/1.3 var(--font-text); letter-spacing: .22em; text-transform: uppercase; color: #a5c99b; }
+.gm-launch-status > strong { font: 700 clamp(22px, 6vw, 32px)/1.1 var(--font-display, var(--font-text)); letter-spacing: -.02em; }
+@keyframes gm-launch-appear { from { opacity: 0; } to { opacity: 1; } }
+@keyframes gm-launch-disc {
+  0% { opacity: 0; transform: translateY(-8%) rotateX(58deg) rotateZ(-14deg); }
+  13% { opacity: 1; }
+  32% { opacity: 1; transform: translateY(-19%) rotateX(68deg) rotateZ(-5deg); }
+  86%, 100% { opacity: 1; transform: translateY(-86%) rotateX(68deg) rotateZ(6deg); }
+}
+@keyframes gm-launch-slot { 0%, 15% { opacity: .18; } 50%, 75% { opacity: .85; } 100% { opacity: .32; } }
+@keyframes gm-launch-power { 0%, 15% { opacity: .4; } 55%, 100% { opacity: 1; } }
+.gm-launch.is-reduced { animation: gm-launch-appear 120ms linear both; }
+.gm-launch.is-reduced .gm-launch-disc { animation: none; transform: translateY(-15%) rotateX(58deg); will-change: auto; }
+.gm-launch.is-reduced .gm-launch-slot::after, .gm-launch.is-reduced .gm-launch-power { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .gm-launch { animation: none; }
+  .gm-launch .gm-launch-disc { animation: none; transform: translateY(-15%) rotateX(58deg); will-change: auto; }
+  .gm-launch .gm-launch-slot::after, .gm-launch .gm-launch-power { animation: none; }
+}
+@media (max-height: 480px) {
+  .gm-launch { padding-top: 40px; padding-bottom: 12px; }
+  .gm-launch-scene { width: min(55vh, 340px); }
+  .gm-launch-status { gap: 4px; margin-top: 8px; }
+  .gm-launch-status > strong { font-size: 22px; }
+}

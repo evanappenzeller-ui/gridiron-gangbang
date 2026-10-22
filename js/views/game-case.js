@@ -154,6 +154,9 @@ export function turnable(surface, dlg, on = () => {}, opts = {}) {
     // open, the case lies flat with its cover out to the left: the pair is twice as wide, so it comes down to fit and
     // turns about its spine (in the middle)
     const fit = Math.min(1, ((innerWidth || W * 2) - 24) / (2 * W)), sc = 1 + (fit - 1) * u, p = W / 2 * u;
+    // The owner launch control sits below the case. Reclaim the space left by
+    // scaling an open pair down on a phone, keeping the control beside the case.
+    if (opts.compact) stage.style.marginBlock = `${(-stage.offsetHeight * (1 - sc) / 2).toFixed(2)}px`;
     obj.style.transform = `translateX(${(p * sc).toFixed(2)}px) scale(${sc.toFixed(4)}) translateX(${(-p).toFixed(2)}px) ${matrixOf(S.q)} translateX(${p.toFixed(2)}px)`;
     light(sides, S.q);
     lid.style.transform = `translateZ(calc(var(--zd) / 2)) rotateY(${(LID * Math.max(0, S.u)).toFixed(2)}deg)`;

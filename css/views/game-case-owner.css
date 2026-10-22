@@ -1,0 +1,164 @@
+/* Evan's physical game cases. Loaded only for data.isOwner(); every rule also
+   requires .gm-owner so changing profiles cannot leave this skin behind. */
+
+/* A DVD-sized shell: a consistent shape on the shelf and in the hand. */
+.v-puzzles .gm-owner.gm-list {
+  --cw: max(min(62cqw, 262px), min(calc(100cqw - 40px), 440px, calc((100cqh - var(--nav-h) - var(--tab-h) - 237px) / 1.41)));
+  --ch: calc(var(--cw) * 1.41);
+}
+.gm-owner .gm-case { aspect-ratio: 100 / 141; border-radius: 2.8cqw; }
+.gm-owner .gm-flip { --sh: 141cqw; --sr: 2.8cqw; --sd: 9.4cqw; }
+.gm-owner .gm-case::before,
+.gm-owner .gm-case::after,
+.gm-owner .gm-case > .gm-gloss,
+.gm-owner .gm-face { border-radius: 2.8cqw; }
+.gm-owner .gm-case::after {
+  --gm-glow: 0 0 0 1px rgba(186,255,154,.42), 0 0 12px 1px rgba(85,226,84,.22), 0 10px 26px -8px rgba(0,0,0,.8);
+}
+.gm-zoom.gm-owner .gm-z-stage {
+  --zw: min(calc(100vw - 24px), calc(var(--avh) / 1.41));
+  height: calc(var(--zw) * 1.41);
+}
+.gm-zoom.gm-owner.gm-has-play .gm-z-stage {
+  --avh: calc(100svh - var(--sa-t, 0px) - var(--sa-b, 0px) - 226px);
+}
+.gm-owner .gm-z-obj { --zd: 9.4cqw; --sr: 2.8cqw; }
+.gm-owner .gm-z-scrim {
+  background: radial-gradient(ellipse at 50% 42%, rgba(17,37,26,.86), rgba(3,8,9,.94) 80%);
+}
+
+/* Emerald resin, with a bright rolled lip and a darker opening edge. The
+   narrow second outline is the clear sleeve holding the printed cover. */
+.gm-owner .gm-front,
+.gm-owner .gm-back {
+  padding: 2cqw 2.6cqw 2cqw 1.7cqw;
+  background:
+    linear-gradient(168deg, rgba(217,255,177,.28), transparent 16% 78%, rgba(0,19,5,.38)),
+    linear-gradient(90deg, #074b1c, #71bd64 .65%, #b5e69b 1.1%, #2b9b36 1.8%, #188329 46%, #16802a 96%, #61be56 97.1%, #0b5a20 98.8%, #063712);
+  box-shadow: 0 18px 26px -12px rgba(0,0,0,.8), inset 0 0 0 .25cqw rgba(2,45,14,.85), inset 0 .4cqw .2cqw rgba(217,255,184,.54), inset 0 -.4cqw .3cqw rgba(0,31,11,.7);
+}
+.gm-owner .gm-front::before,
+.gm-owner .gm-back::before {
+  content: ""; position: absolute; inset: 1.1cqw 1.2cqw 1.1cqw .9cqw; z-index: 3;
+  border: .18cqw solid rgba(209,255,192,.25); border-right-color: rgba(3,46,17,.75);
+  border-bottom-color: rgba(0,36,10,.7); border-radius: 1.8cqw; pointer-events: none;
+}
+.gm-owner .gm-band {
+  min-height: 10.8cqw; border-radius: 1.2cqw 1.2cqw 0 0;
+  border-bottom: .35cqw solid rgba(220,255,205,.7);
+  background: linear-gradient(100deg, #07561d, #108333 52%, #086224);
+  box-shadow: inset 0 .25cqw 0 rgba(213,255,195,.24), 0 0 0 .3cqw rgba(0,39,12,.7);
+}
+.gm-owner .gm-band-t {
+  padding-left: .35em; transform: none; font-size: 3.55cqw; font-weight: 700; letter-spacing: .35em;
+  background: none; color: #f5fff2; -webkit-text-fill-color: currentColor;
+  text-shadow: 0 .25cqw .5cqw rgba(0,25,6,.5);
+}
+.gm-owner .gm-band > .gm-beta {
+  left: 1.4cqw; padding: .65cqw .75cqw; border-width: .22cqw; border-radius: .5cqw;
+  font-size: 2.15cqw; letter-spacing: .08em; color: #ffed9b; background: rgba(20,37,6,.7);
+}
+.gm-owner .gm-art,
+.gm-owner .gm-bk-in {
+  border-radius: 0 0 1.1cqw 1.1cqw;
+  box-shadow: 0 0 0 .3cqw rgba(0,37,12,.8), .4cqw .3cqw .3cqw rgba(4,32,9,.35);
+}
+.gm-owner .gm-case > .gm-gloss {
+  background: linear-gradient(117deg, rgba(238,255,230,.13), transparent 26% 78%, rgba(220,255,216,.04));
+}
+.gm-owner .gm-bk-in { background: linear-gradient(155deg, color-mix(in srgb, var(--gc) 14%, #14211a), #111715 38%); }
+.gm-zoom.gm-owner .gm-z-back { padding: 2cqw 2.6cqw 2cqw 1.7cqw; }
+.gm-zoom.gm-owner .gm-band.is-z { min-height: 11.8cqw; }
+.gm-zoom.gm-owner .gm-z-front > .gm-art { flex: 1 1 auto; aspect-ratio: auto; border-radius: 0 0 1.1cqw 1.1cqw; }
+.gm-owner .gm-z-foot { display: none; }
+.gm-owner .gm-z-gl { background: linear-gradient(118deg, transparent 39%, rgba(238,255,229,.1) 46%, rgba(255,255,255,.025) 52%, transparent 60%); }
+
+/* The actual thickness is visible when turning: a recessed sleeve on the
+   spine, a fine closing seam, and the thumb notch on the opening side. */
+.gm-owner .gm-sd {
+  --gm-pl: linear-gradient(90deg, #053d15, #16782b 8%, #6ab455 20%, #258f35 36%, #12812b 62%, #096121 87%, #033d13);
+}
+.gm-owner .gm-sd.is-sm {
+  background: linear-gradient(90deg, transparent 46%, rgba(1,26,7,.9) 46% 50%, rgba(165,233,138,.5) 51% 54%, transparent 55%), var(--gm-pl);
+}
+.gm-owner .gm-sd.is-op::after {
+  top: 39%; bottom: 39%; left: 13%; right: 13%;
+  background: linear-gradient(90deg, #032d10, #0d5220 48%, #2e8b37);
+  box-shadow: inset 0 0 0 .3cqw rgba(0,31,9,.7), inset 0 .7cqw 1.2cqw rgba(0,0,0,.5), 0 .2cqw 0 rgba(154,226,121,.32);
+}
+.gm-owner .gm-spine {
+  inset: 5cqw 1cqw; border-radius: .4cqw;
+  background: linear-gradient(90deg, #0b2c16, #173b25 45%, #0b2815);
+  box-shadow: 0 0 0 .22cqw rgba(204,255,181,.2), inset .4cqw 0 .5cqw rgba(0,0,0,.3);
+}
+.gm-owner .gm-spine > b { color: #daecd8; font-size: 2cqw; letter-spacing: .38em; }
+
+/* Open: the well is molded into the tray, with finger scoops and raised
+   retaining ribs. All details remain part of the existing 3D geometry. */
+.gm-owner .gm-z-tray {
+  background:
+    radial-gradient(circle at 50% 50%, #105520 0 43.2cqw, #0b481a 43.5cqw 44.7cqw, #529b42 45cqw, #2e852f 45.4cqw 46cqw, transparent 46.3cqw),
+    linear-gradient(145deg, #449a40, #257f2c 34%, #186d25 73%, #165d22);
+  box-shadow: inset 0 0 0 .7cqw #0b4d1b, inset 0 0 0 1.3cqw #5baa48, inset 0 0 0 2.2cqw #267e2b, inset 0 0 0 2.5cqw rgba(2,48,13,.6), inset 0 0 4cqw rgba(0,27,7,.45);
+}
+.gm-owner .gm-z-tray::before {
+  content: ""; position: absolute; inset: 3.4cqw; border: .3cqw solid rgba(124,194,98,.34);
+  border-bottom-color: rgba(0,40,12,.45); border-right-color: rgba(0,40,12,.45); border-radius: 1.4cqw;
+  background:
+    radial-gradient(ellipse 5cqw 3.4cqw at 50% calc(50% - 45cqw), #0b461a 70%, #76b65b 77%, transparent 84%),
+    radial-gradient(ellipse 5cqw 3.4cqw at 50% calc(50% + 45cqw), #0b461a 70%, #76b65b 77%, transparent 84%);
+  pointer-events: none;
+}
+.gm-owner .gm-z-tray::after {
+  content: ""; position: absolute; left: 1.5cqw; top: 10cqw; bottom: 10cqw; width: 2.2cqw; border-radius: 1cqw;
+  background: repeating-linear-gradient(0deg, #175c23 0 2cqw, #4c9b3e 2.2cqw 2.7cqw, #216d27 3cqw 8cqw);
+  box-shadow: -.35cqw 0 .5cqw rgba(0,32,7,.6), .3cqw 0 .2cqw rgba(139,208,107,.35); pointer-events: none;
+}
+.gm-owner .gm-z-emb {
+  bottom: 7cqw; font-size: 2.4cqw; letter-spacing: .38em; color: #1d6c27;
+  text-shadow: 0 .25cqw 0 rgba(143,210,110,.38), 0 -.2cqw 0 rgba(0,46,14,.6);
+}
+.gm-owner .gm-z-disc { box-shadow: 0 .7cqw 1.2cqw rgba(0,15,5,.75), 0 0 0 .24cqw rgba(205,226,215,.7); }
+.gm-owner .gm-z-sheen {
+  background:
+    radial-gradient(circle closest-side, transparent 94.8%, rgba(244,255,255,.8) 95.3%, rgba(52,70,65,.9) 96.3%, rgba(214,233,227,.9) 97%, transparent 98.5%),
+    conic-gradient(from 32deg, transparent 0 11%, rgba(221,244,255,.22) 13%, rgba(218,248,205,.1) 15%, transparent 20% 60%, rgba(238,225,255,.18) 64%, transparent 71%);
+}
+.gm-owner .gm-z-hub {
+  background: radial-gradient(circle closest-side, #69ac4c 0 28%, #286d2b 30% 35%, transparent 37%), repeating-conic-gradient(#4a953a 0 12deg, #154e20 13deg 18deg, #6ba752 19deg 24deg);
+  box-shadow: 0 .5cqw .8cqw rgba(0,25,5,.65), inset 0 .25cqw .3cqw rgba(173,230,140,.65), 0 0 0 .3cqw #1e6026;
+}
+.gm-owner .gm-z-hub::after {
+  content: ""; position: absolute; inset: 34%; border-radius: 50%; border: .3cqw solid rgba(9,61,19,.6);
+  box-shadow: inset 0 .25cqw .3cqw rgba(169,222,131,.5); pointer-events: none;
+}
+
+/* Matching lid resin, a paper booklet edge and two translucent retention tabs. */
+.gm-owner .gm-z-in {
+  background: linear-gradient(112deg, rgba(138,211,105,.15), transparent 28% 80%, rgba(0,36,9,.2)), linear-gradient(160deg, #3a9338, #24762c 58%, #155b22);
+  box-shadow: inset 0 0 0 .7cqw #0b4d1b, inset 0 0 0 1.3cqw #5baa48, inset 0 0 0 2.2cqw #267e2b, inset 0 0 0 2.5cqw rgba(2,48,13,.5);
+}
+.gm-owner .gm-z-in::before {
+  content: ""; position: absolute; right: 1.5cqw; top: 10cqw; bottom: 10cqw; width: 2.2cqw; border-radius: 1cqw;
+  background: repeating-linear-gradient(0deg, #175c23 0 2cqw, #4c9b3e 2.2cqw 2.7cqw, #216d27 3cqw 8cqw);
+  box-shadow: .3cqw 0 .4cqw rgba(0,32,7,.45); pointer-events: none;
+}
+.gm-owner .gm-z-book {
+  border-radius: .45cqw;
+  box-shadow: .35cqw .25cqw 0 #c8c9b7, .65cqw .6cqw 0 #f4f0de, .85cqw 1cqw 0 #b7baa9, 1cqw 1.5cqw 2cqw rgba(0,28,7,.55);
+}
+.gm-owner .gm-z-book::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(90deg, rgba(0,0,0,.15), transparent 1.4%, rgba(255,255,255,.14) 2%, transparent 3.5% 97%, rgba(0,0,0,.12)); pointer-events: none;
+}
+.gm-owner .gm-z-clip {
+  left: calc(50% - 7cqw); width: 14cqw; height: 4cqw; border-radius: .6cqw .6cqw 1.5cqw 1.5cqw;
+  border: .25cqw solid rgba(145,214,108,.52);
+  background: linear-gradient(100deg, rgba(112,181,80,.94), rgba(42,127,43,.94) 28% 70%, rgba(75,154,56,.94));
+  box-shadow: 0 .5cqw .8cqw rgba(0,34,8,.6), inset 0 .3cqw 0 rgba(180,237,147,.45);
+}
+.gm-owner .gm-z-clip::after {
+  content: ""; position: absolute; inset: .8cqw 2.2cqw; border-top: .3cqw solid rgba(194,239,164,.35); border-bottom: .3cqw solid rgba(12,78,23,.5); pointer-events: none;
+}
+.gm-owner .gm-z-clip.is-t { top: -2cqw; }
+.gm-owner .gm-z-clip.is-b { bottom: -2cqw; rotate: 180deg; }

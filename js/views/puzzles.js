@@ -673,6 +673,11 @@ export default {
     if (st.game === 'puzzles' && ready()) sync(st, true);
   },
 
+  onHide(ctx) {
+    const st = HUB.get(ctx);
+    if (st && st.list) st.list.hide();
+  },
+
   update(ctx) {
     const st = HUB.get(ctx);
     if (!st) return;
