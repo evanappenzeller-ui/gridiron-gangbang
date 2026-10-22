@@ -20,7 +20,7 @@
   height: calc(var(--zw) * 1.41);
 }
 .gm-zoom.gm-owner.gm-has-play .gm-z-stage {
-  --avh: calc(100svh - var(--sa-t, 0px) - var(--sa-b, 0px) - 226px);
+  --avh: calc(100svh - var(--sa-t, 0px) - var(--sa-b, 0px) - 170px);
 }
 .gm-owner .gm-z-obj { --zd: 9.4cqw; --sr: 2.8cqw; }
 .gm-owner .gm-z-scrim {

@@ -1,31 +1,26 @@
-/* Evan's launch control stays full-sized when the open case scales to a phone. */
+/* Evan's launch control: a big START block pinned at the top of the screen, between the safe area and the case,
+   full-sized however small the open case scales. Royal blue, so it stands off the green case. */
+.gm-zoom.gm-owner.gm-has-play { padding-top: calc(max(8px, var(--sa-t, 0px)) + 76px); }
 .gm-zoom.gm-owner .gm-z-dlg > .gm-z-go {
-  position: relative; inset: auto; transform: none; translate: none;
-  display: flex; align-items: center; gap: 14px; flex: none;
-  width: min(320px, calc(100vw - 48px)); height: 72px; padding: 10px 18px 10px 12px;
-  border: 1px solid #fff; border-radius: 16px;
-  background: linear-gradient(165deg, #fff 0%, #f7f8f9 52%, #e9edef 100%); color: #17201b;
-  box-shadow: inset 0 1px 0 #fff, inset 0 -2px 0 #d5dadd, 0 4px 0 #a5aeb2, 0 10px 28px #0008, 0 0 28px #ffffff14;
-  font-family: var(--font-text); letter-spacing: 0; text-transform: none; text-align: left;
+  position: fixed; z-index: 3; inset: max(10px, var(--sa-t, 0px)) auto auto 50%;
+  transform: translateX(-50%); translate: none;
+  display: grid; place-items: center; flex: none;
+  width: min(280px, calc(100vw - 132px)); height: 60px; padding: 0 16px;
+  border: 0; border-radius: 14px;
+  background: linear-gradient(180deg, #3b82f6 0%, #1d5fd6 48%, #123f9e 100%); color: #fff;
+  box-shadow: inset 0 1px 0 #ffffff59, inset 0 -3px 0 #0b2e78, 0 4px 0 #0a2560, 0 10px 26px #0009, 0 0 30px #3b82f633;
+  font: 900 31px/1 var(--font-text); letter-spacing: .02em; text-transform: uppercase; text-align: center;
+  text-shadow: 0 2px 0 #0b2e7899;
   transition: opacity .2s, visibility .2s, translate .15s, box-shadow .15s, filter .15s;
   cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
-.gm-zoom.gm-owner .gm-z-dlg > .gm-z-go::before { inset: 0; border-radius: inherit; pointer-events: none; }
-.gm-zoom.gm-owner .gm-z-go-icon {
-  display: grid; place-items: center; flex: none; width: 46px; height: 46px; border-radius: 50%;
-  color: #fff; background: linear-gradient(#29352e, #17201b); box-shadow: 0 2px 7px #0003, inset 0 1px 0 #ffffff30;
-}
-.gm-zoom.gm-owner .gm-z-go-icon .ic { width: 23px; height: 23px; margin-left: 3px; }
-.gm-zoom.gm-owner .gm-z-go-copy { display: flex; flex: 1; flex-direction: column; gap: 4px; min-width: 0; }
-.gm-zoom.gm-owner .gm-z-go-copy strong { font: 800 20px/1.1 var(--font-text); letter-spacing: -.02em; }
-.gm-zoom.gm-owner .gm-z-go-copy small { font: 500 11px/1.2 var(--font-text); color: #526057; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.gm-zoom.gm-owner .gm-z-go-arrow { display: flex; flex: none; color: #45534b; }
-.gm-zoom.gm-owner .gm-z-go-arrow .ic { width: 21px; height: 21px; }
+.gm-zoom.gm-owner .gm-z-dlg > .gm-z-go::before { inset: -6px; border-radius: 18px; pointer-events: none; }
+.gm-zoom.gm-owner .gm-z-go-word { display: block; max-width: 100%; overflow: hidden; text-overflow: clip; white-space: nowrap; }
 @media (hover: hover) {
-  .gm-zoom.gm-owner .gm-z-dlg > .gm-z-go:hover:not(:disabled) { translate: 0 -2px; filter: brightness(1.03); box-shadow: inset 0 1px 0 #fff, 0 6px 0 #a5aeb2, 0 14px 30px #0008, 0 0 32px #ffffff24; }
+  .gm-zoom.gm-owner .gm-z-dlg > .gm-z-go:hover:not(:disabled) { translate: 0 -2px; filter: brightness(1.08); box-shadow: inset 0 1px 0 #ffffff59, inset 0 -3px 0 #0b2e78, 0 6px 0 #0a2560, 0 14px 30px #0009, 0 0 36px #3b82f64d; }
 }
-.gm-zoom.gm-owner .gm-z-dlg > .gm-z-go:active:not(:disabled) { translate: 0 3px; box-shadow: inset 0 1px 0 #fff, 0 1px 0 #a5aeb2, 0 4px 12px #0006; }
-.gm-zoom.gm-owner .gm-z-dlg > .gm-z-go:focus-visible { outline: 3px solid #fff; outline-offset: 5px; }
+.gm-zoom.gm-owner .gm-z-dlg > .gm-z-go:active:not(:disabled) { translate: 0 3px; box-shadow: inset 0 1px 0 #ffffff40, inset 0 -2px 0 #0b2e78, 0 1px 0 #0a2560, 0 4px 12px #0007; }
+.gm-zoom.gm-owner .gm-z-dlg > .gm-z-go:focus-visible { outline: 3px solid #fff; outline-offset: 4px; }
 .gm-zoom.gm-owner .gm-z-dlg > .gm-z-go:disabled { opacity: 0; visibility: hidden; pointer-events: none; }
 .gm-zoom.gm-owner .gm-z-dlg > .gm-z-go[aria-busy="true"] { opacity: .65; visibility: visible; }
 .gm-zoom.gm-owner.gm-is-launching .gm-z-dlg > .gm-z-go { opacity: 0; visibility: hidden; pointer-events: none; }
