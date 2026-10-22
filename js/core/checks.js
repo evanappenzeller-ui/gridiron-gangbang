@@ -15,7 +15,7 @@ import * as ui from './ui.js';
 import college from '../views/college.js';
 import silhouette from '../views/silhouette.js';
 import plays from '../views/plays.js';
-import {GAMES, gamePath, listHTML, miniRows} from '../views/games.js';
+import {GAMES, gamesFor, gamePath, listHTML, miniRows} from '../views/games.js';
 
 // ---------------------------------------------------------------------------
 // Old formulas, copied from the old index.html
@@ -1531,7 +1531,8 @@ export async function runChecks() {
   check('Daily Games: a shelf of game cases (Daily Puzzles, 17-0, the Two-Minute Drill, Kick It, Return Man, in beta), each a green case with the Gridiron Hub band, its own cover and its own page; swiped along in a circle (its own sideways scroll, not the tabs\'); a game played today shows its case\'s back: today\'s board with you among them, and a Season board behind it, read from the board as this phone sees it', async () => {
     const host = document.createElement('div');
     host.innerHTML = listHTML();
-    const want = 'puzzles,17-0,drill,kick,return';
+    const want = 'puzzles,17-0,drill,kick,return' + (data.isOwner() ? ',keep' : '');
+    const visibleGames = gamesFor();
     const cases = [...host.querySelectorAll('.gm-slot:not([data-gm-clone]) .gm-case')];
     const order = cases.map(c => c.dataset.gm).join();
     // in a circle: a copy of the row each side (past the last game, the first again), hidden from screen readers
@@ -1541,8 +1542,8 @@ export async function runChecks() {
     const art = cases.every((c, i) => covers[i] === (GAMES.find(g => g.id === c.dataset.gm) || {}).art
       && (c.querySelector('.gm-front .gm-band-t') || {}).textContent === 'GRIDIRON HUB');
     const own = new Set(GAMES.map(g => g.art)).size === GAMES.length && GAMES.every(g => /^img\/games\/[a-z0-9-]+-cover\.webp$/.test(g.art));
-    const loads = await Promise.all(GAMES.map(g => fetch(new URL('../../' + g.art, import.meta.url)).then(r => r.ok && /image/.test(r.headers.get('content-type') || '')).catch(() => false)));
-    const pages = GAMES.map(g => gamePath(g.id)).join();
+    const loads = await Promise.all(visibleGames.map(g => fetch(new URL('../../' + g.art, import.meta.url)).then(r => r.ok && /image/.test(r.headers.get('content-type') || '')).catch(() => false)));
+    const pages = visibleGames.map(g => gamePath(g.id)).join();
     const swipe = !!host.querySelector('.gm-shelf[data-hscroll]') && !!host.querySelector('[data-gm-sel]');
     // the rows on a case's back: you first among the people you're tied with; further down, the top ones, a gap, you
     const R = (rank, me) => ({rank, me: !!me, name: me ? 'You' : 'P' + rank});
@@ -1556,8 +1557,8 @@ export async function runChecks() {
     const [dr, kk, rm] = await Promise.all(['./drill.js', './kick.js', './return.js'].map(f => import(f)));
     const season = /daily\.boardRows\('season'\)/.test(src) && /boardRows\('all'\)/.test(src) && [dr, kk, rm].every(m => typeof m.seasonRows === 'function');
     const pass = order === want && ring && art && own && loads.every(Boolean) && swipe
-      && pages === '/puzzles/daily,/puzzles/17-0,/puzzles/drill,/puzzles/kick,/puzzles/return' && rows && !all && season;
-    return {pass, detail: `cases ${order}${ring ? ', round in a circle' : ' (not in a circle)'}; covers and bands ${art}; covers ${loads.filter(Boolean).length}/${GAMES.length} load${own ? '' : ' (not each its own)'}; swiped ${swipe}; pages ${pages}; rows: tie "${tie}", 5th "${low}", 2nd "${mid}", top five "${five}"; season boards ${season}; ${all ? 'reads LB.all' : 'no LB.all reads'}`};
+      && pages === '/puzzles/daily,/puzzles/17-0,/puzzles/drill,/puzzles/kick,/puzzles/return' + (data.isOwner() ? ',/puzzles/keep' : '') && rows && !all && season;
+    return {pass, detail: `cases ${order}${ring ? ', round in a circle' : ' (not in a circle)'}; covers and bands ${art}; covers ${loads.filter(Boolean).length}/${visibleGames.length} load${own ? '' : ' (not each its own)'}; swiped ${swipe}; pages ${pages}; rows: tie "${tie}", 5th "${low}", 2nd "${mid}", top five "${five}"; season boards ${season}; ${all ? 'reads LB.all' : 'no LB.all reads'}`};
   });
 
   check('The Lay live tracking reads the league\'s kinds of legs and scores them against a game', () => {

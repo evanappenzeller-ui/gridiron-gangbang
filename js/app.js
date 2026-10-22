@@ -4,7 +4,7 @@
 // TABS (id → root route · root view): puzzles /puzzles · puzzles (shown as Daily Games: the list of Daily Puzzles, 17-0, the Two-Minute Drill and Kick It, each game's page pushed over it), pickem /pickem · pickem, matchup /matchup · rivals,
 //   league /league/standings · league, draft /draft · moves, lay /lay · lay (the weekly parlay; the tab bar scrolls
 //   sideways past the fifth tab). The app opens on Puzzles (HOME): it is the history base,
-//   covers present over their route's tab (puzzle play/results over Puzzles; scouting/raids over your Realm),
+//   covers present over their route's tab (puzzle play/results over Puzzles; scouting/raids over The Keep in Daily Games),
 //   and Back from another tab's root lands on Puzzles.
 //   Every root view draws its own large title with youButtonHTML() (views/you.js) in the trailing slot; a tap on any
 //   [data-you] opens the You sheet (delegated here). Tab badges: see "Tab badges" below (root views export badge()).
@@ -60,11 +60,9 @@ export const REGISTRY = {
   'realm-scout': () => import('./views/realm-scout.js'),
   _kit: () => import('./views/_kit.js')
 };
-// Every tab, in order. The Realm is the owner's alone (data.isOwner(): the owner's ask, Oct 2026): TABS, the tabs this
-// phone shows (the pager, the swipes, the scrub and the idle warm-up all go by it), has it only on his phones; syncTabs()
-// keeps it so as who this phone is changes.
-const ALL_TABS = ['puzzles', 'pickem', 'lay', 'matchup', 'league', 'draft', 'realm'];
-const OWNER_TABS = ['realm'];
+// Every tab, in order. The Keep lives in Daily Games; it has no separate tab or idle tab warm-up.
+const ALL_TABS = ['puzzles', 'pickem', 'lay', 'matchup', 'league', 'draft'];
+const OWNER_TABS = [];
 export const TABS = ALL_TABS.filter(t => !OWNER_TABS.includes(t));
 /** Brings TABS (and the tab bar's buttons) in line with who this phone is. True if they changed. */
 function syncTabs() {
@@ -76,14 +74,15 @@ function syncTabs() {
 }
 export const ownerTab = t => OWNER_TABS.includes(t);
 const HOME = 'puzzles'; // the tab the app opens on: the history base, where Back from another tab's root lands
-const TAB_VIEW = {puzzles: 'puzzles', pickem: 'pickem', matchup: 'rivals', league: 'league', draft: 'moves', lay: 'lay', realm: 'realm'}; // root view ids
-const ROOTS = {puzzles: '/puzzles', pickem: '/pickem', matchup: '/matchup', league: '/league/standings', draft: '/draft', lay: '/lay', realm: '/realm'};
-const TAB_TITLES = {puzzles: 'Daily Games', pickem: "Pick'em", matchup: 'Matchup', league: 'League', draft: 'Draft', lay: 'The Lay', realm: 'Realm'};
+const TAB_VIEW = {puzzles: 'puzzles', pickem: 'pickem', matchup: 'rivals', league: 'league', draft: 'moves', lay: 'lay'}; // root view ids
+const ROOTS = {puzzles: '/puzzles', pickem: '/pickem', matchup: '/matchup', league: '/league/standings', draft: '/draft', lay: '/lay'};
+const TAB_TITLES = {puzzles: 'Daily Games', pickem: "Pick'em", matchup: 'Matchup', league: 'League', draft: 'Draft', lay: 'The Lay'};
 // Old bare hashes (#daily, #records...) from the first app. Null prototype: '#constructor' is not a legacy hash.
 const LEGACY = Object.assign(Object.create(null), {daily: '/puzzles', records: '/league/records', trophies: '/league/trophies', standings: '/league/standings', rivals: '/matchup', moves: '/draft'});
 const PUZZLES = ['college', 'silhouette', 'mystery', 'journey', 'grid', 'plays']; // every day's steps are some of these (daily.SLUGS)
 const LEAGUE_SEGS = ['standings', 'trophies', 'records', 'shame'];
 const BAD_LINK = "That link didn't lead anywhere.";
+const isKeepRoute = r => !!r && ['realm', 'realm-raid', 'realm-scout'].includes(r.view);
 // "evan-vs-mason" → {a, b} (strings, not validated: the Matchup view checks them), else null.
 const pairOf = s => { const i = s.indexOf('-vs-'); return i > 0 && i + 4 < s.length ? {a: s.slice(0, i), b: s.slice(i + 4)} : null; };
 const enc = encodeURIComponent;
@@ -110,6 +109,7 @@ function matchSegs(p, q) {
       if (n === 2 && b === 'drill') return R('puzzles', 'push', 'puzzles', {game: 'drill'});
       if (n === 2 && b === 'kick') return R('puzzles', 'push', 'puzzles', {game: 'kick'});
       if (n === 2 && b === 'return') return R('puzzles', 'push', 'puzzles', {game: 'return'});
+      if (n === 2 && b === 'keep') return data.isOwner() ? R('realm', 'push', 'puzzles') : {redirect: '/puzzles', query: false};
       return null;
     case 'pickem':
       // NFL Pick'em (optional ?week=N) is a tab root now: links to it switch to the tab.
@@ -138,12 +138,11 @@ function matchSegs(p, q) {
       if (n === 1) return R('lay', 'root', 'lay');
       return null;
     case 'realm':
-      // The Realm (views/realm.js): the owner's alone. On anyone else's phone (once the data says who) its links land on
-      // Daily Games. An attack (views/realm-raid.js) and a look round a realm first (views/realm-scout.js) are covers.
-      if (data.DATA && !data.isOwner()) return {redirect: '/puzzles', query: false};
-      if (n === 1) return R('realm', 'root', 'realm');
-      if (n === 3 && b === 'raid' && c) return R('realm-raid', 'cover', 'realm', {key: c});
-      if (n === 3 && b === 'scout' && c) return R('realm-scout', 'cover', 'realm', {key: c});
+      // Existing realm links keep working. Scouting and raids return to The Keep, including from a cold link.
+      if (!data.isOwner()) return {redirect: '/puzzles', query: false};
+      if (n === 1) return {redirect: '/puzzles/keep'};
+      if (n === 3 && b === 'raid' && c) return {...R('realm-raid', 'cover', 'puzzles', {key: c}), base: '/puzzles/keep'};
+      if (n === 3 && b === 'scout' && c) return {...R('realm-scout', 'cover', 'puzzles', {key: c}), base: '/puzzles/keep'};
       return null;
     // ---- Legacy routes (shared links, bookmarks, share texts, notifications): redirected to the new homes.
     case 'today':
@@ -1110,6 +1109,7 @@ async function pushRoute(r, {morphRect, addEntry = true} = {}) {
   const outE = st[st.length - 1];
   if (!outE.scr) await ensureScreen(outE, {z: st.length, restore: true});
   const {v, err} = await loadViewSafe(r.view);
+  if (isKeepRoute(r) && !data.isOwner()) return goRoot(parseRoute(ROOTS[HOME]));
   finishTransitions();
   if (st[st.length - 1].route.path === r.path) return;
   const e = newEntry(r, tab, 'push');
@@ -1175,11 +1175,18 @@ function focusCover(e) {
   if (e && e.scr && !e.coverEl.contains(document.activeElement)) focusQuiet(e.scr.el);
 }
 async function openCover(r, {dir, addEntry = true} = {}) {
-  if (S.cover && S.cover.route.tab === r.tab) return swapCover(r, {dir});
+  if (S.cover && S.cover.route.tab === r.tab && (!r.base || topOf(r.tab).route.path === r.base)) return swapCover(r, {dir});
   const trigger = document.activeElement;
   await stripOverlays();
   if (S.tab !== r.tab) { await switchTabUI(r.tab, {motion: false}); await rebuildHistory(); }
+  if (r.base && topOf(r.tab).route.path !== r.base) {
+    resetStack(r.tab);
+    S.stacks[r.tab].push(newEntry(parseRoute(r.base), r.tab, 'push'));
+    await showTop();
+    await rebuildHistory();
+  }
   const {v, err} = await loadViewSafe(r.view);
+  if (isKeepRoute(r) && !data.isOwner()) return goRoot(parseRoute(ROOTS[HOME]));
   finishTransitions();
   const e = buildCover(r, v, err, 'cover');
   e.trigger = trigger && trigger !== document.body ? trigger : null;
@@ -1212,6 +1219,7 @@ async function swapCover(r, {dir} = {}) {
   const c = S.cover;
   const old = c.scr;
   const {v, err} = await loadViewSafe(r.view);
+  if (isKeepRoute(r) && !data.isOwner()) return goRoot(parseRoute(ROOTS[HOME]));
   finishTransitions();
   const oldView = c.route.view;
   c.route = r;
@@ -1274,16 +1282,22 @@ async function deepLink(hash, {warm = false} = {}) {
     resetStack(T);
     await setRootRoute(T, r);
   } else if (r.open === 'push') {
-    T = warm ? S.tab : r.home;
+    T = warm && r.view !== 'realm' ? S.tab : r.home;
     resetStack(T);
     S.stacks[T].push(newEntry(r, T, 'push'));
   } else {
     T = r.tab;
+    if (r.base) {
+      resetStack(T);
+      S.stacks[T].push(newEntry(parseRoute(r.base), T, 'push'));
+    }
   }
   if (T !== S.tab) await switchTabUI(T, {motion: false});
   await showTop();
+  if (isKeepRoute(r) && !data.isOwner()) return deepLink(ROOTS[HOME]);
   if (r.open === 'cover') {
     const {v, err} = await loadViewSafe(r.view);
+    if (isKeepRoute(r) && !data.isOwner()) return deepLink(ROOTS[HOME]);
     buildCover(r, v, err, 'none');
     const c = S.cover;
     c.scrimEl.style.opacity = '.4';
@@ -1320,6 +1334,7 @@ export function nav(path, o = {}) {
     if (!r) { ui.toast(BAD_LINK); return; }
     if (r.open === 'cover') return openCover(r, o);
     if (r.open === 'root') return goRoot(r);
+    if (r.view === 'realm' && S.tab !== r.tab) { await switchTabUI(r.tab, {motion: false}); await rebuildHistory(); }
     return pushRoute(r, {morphRect});
   });
 }
@@ -1446,7 +1461,7 @@ function updateTabBar(T, {animate = true} = {}) {
 // this phone showed today (gg-ring, same local date), so it never flashes a wrong state.
 // Polled after every navigation, on the Daily's events, on 'me' and 'data', every 30 s while the page is visible, when
 // a view module finishes loading, and whenever a view dispatches a 'gg:badge' event (on any node, or window).
-const BADGE_TABS = ['puzzles', 'pickem', 'matchup', 'lay', 'realm'];
+const BADGE_TABS = ['puzzles', 'pickem', 'matchup', 'lay'];
 const RING_KEY = 'gg-ring'; // {date, parts, left}: also read by the Puzzles screen for its loading state
 const ringDate = () => new Date().toDateString();
 function cachedRing() {
@@ -1498,7 +1513,7 @@ function badgeLabel(T, on) {
     try { why = ns && typeof ns.badgeText === 'function' ? ns.badgeText() : ''; } catch (e) { console.error(e); }
     return `${base}, ${why || 'games to pick'}`;
   }
-  if (T === 'lay' || T === 'realm') return `${base}, new`;
+  if (T === 'lay') return `${base}, new`;
   return T === 'matchup' ? `${base}, vote open` : base;
 }
 let badgeQueued = false;
@@ -2061,7 +2076,25 @@ if (ownerMotionPreference.addEventListener) ownerMotionPreference.addEventListen
 else ownerMotionPreference.addListener?.(finishOwnerMotion);
 
 data.subscribe(type => {
-  if (type !== 'me' || !syncTabs()) return;
+  if (type !== 'me') return;
+  // The owner game now shares the Daily Games stack. A profile change must still leave and discard it,
+  // even though the tab list stays the same (and even when that stack is hidden under another tab).
+  if (!data.isOwner()) {
+    const hasKeep = Object.values(S.stacks).some(st => st.some(e => isKeepRoute(e.route)));
+    if (hasKeep || isKeepRoute(S.cover && S.cover.route)) {
+      run(async () => {
+        if (data.isOwner()) return;
+        await stripOverlays();
+        Object.entries(S.stacks).forEach(([tab, st]) => {
+          const i = st.findIndex(e => isKeepRoute(e.route));
+          if (i >= 0) instantPopTo(tab, Math.max(0, i - 1));
+        });
+        await showTop();
+        await rebuildHistory();
+      });
+    }
+  }
+  if (!syncTabs()) return;
   if (!TABS.includes(S.tab)) goTab(HOME);
   else moveIndicator($('tabbar').querySelector(`.tab[data-tab="${S.tab}"]`), true);
   queueBadges();

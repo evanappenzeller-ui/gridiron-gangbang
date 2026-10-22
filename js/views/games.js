@@ -1,5 +1,5 @@
 // The Daily Games list (the tab's root, views/puzzles.js; the owner's asks, Oct 2026): a shelf of retro game cases, one
-// a game (Daily Puzzles, 17-0, the Two-Minute Drill, Kick It, Return Man), swiped along; under it the one you're on.
+// a game (Daily Puzzles, 17-0, the Two-Minute Drill, Kick It, Return Man, and the owner's Keep), swiped along; under it the one you're on.
 // A game is started from its case (the owner's ask, Oct 2026): a tap on its front brings it up close and opens it, and
 // Start (Continue once it's started) in the tray over the disc opens the game: Daily Puzzles straight into today's run,
 // the others on their own page (/puzzles/<game>, pushed).
@@ -33,13 +33,13 @@ export const GAMES = [
   {id: '17-0', name: '17–0', title: '17–0', art: 'img/games/seventeen-cover.webp', book: 'img/games/seventeen-book.webp', disc: 'img/games/seventeen-disc.webp', badge: 'img/seventeen.webp', cd: 'New board in'},
   {id: 'drill', name: 'Two-Minute Drill', title: 'Two-Minute Drill', art: 'img/games/drill-cover.webp', book: 'img/games/drill-book.webp', disc: 'img/games/drill-disc.webp', badge: 'img/drill.webp', cd: 'Next drill in'},
   {id: 'kick', name: 'Kick It', title: 'Kick It', art: 'img/games/kick-cover.webp', book: 'img/games/kick-book.webp', disc: 'img/games/kick-disc.webp', badge: 'img/kick.webp', cd: 'New kicks in'},
-  {id: 'return', name: 'Return Man', title: 'Return Man', art: 'img/games/return-cover.webp', book: 'img/games/return-book.webp', disc: 'img/games/return-disc.webp', badge: 'img/return.webp', cd: 'Next kickoff in', beta: true}
+  {id: 'return', name: 'Return Man', title: 'Return Man', art: 'img/games/return-cover.webp', book: 'img/games/return-book.webp', disc: 'img/games/return-disc.webp', badge: 'img/return.webp', cd: 'Next kickoff in', beta: true},
+  {id: 'keep', name: 'The Keep', title: 'The Keep', art: 'img/games/keep-cover.webp', book: 'img/games/keep-book.webp', disc: 'img/games/keep-disc.webp'}
 ];
 const byId = id => GAMES.find(g => g.id === id);
 // A game the owner keeps to himself while he builds it: id -> the members whose phones list it and open its page
-// (nobody else's phone loads it or posts it). Empty: every game is everyone's (Kick It opened to the league Oct 2026,
-// Return Man too, in beta). To keep a new game to the owner: {id: [data.OWNER]} (and a kit check saying so).
-const ONLY = {};
+// (nobody else's phone loads it or posts it). The Keep remains the owner's alone; the other games are the league's.
+const ONLY = {keep: [data.OWNER]};
 /** Whether game id is open on this phone (who: the phone's member). */
 export const gameOpen = (id, who = data.me()) => !ONLY[id] || (!!who && ONLY[id].includes(who));
 /** The games this phone's list shows, in order. */
@@ -216,7 +216,13 @@ function returnState() {
   const place = mine && !test ? ` · ${ui.ordinal(mine.rank)} of ${rows.length} today` : '';
   return {kind: 'new', test, again: true, played: true, meta: `<p class="gm-note">${esc(`Your best today: ${nf(best)} yards${place}`)}</p>`};
 }
-const STATE = {puzzles: puzzlesState, '17-0': seventeenState, drill: drillState, kick: kickState, return: returnState};
+function keepState() {
+  // The existing first-visit marker follows the same saved realm. This is a persistent game: no daily final,
+  // countdown or league board, and showing its case never starts or mutates the realm.
+  return {kind: ui.lsGet('gg-realm-seen') === '1' ? 'started' : 'new',
+    meta: '<p class="gm-note">Raise your keep. Train your army. Defend your realm.</p>'};
+}
+const STATE = {puzzles: puzzlesState, '17-0': seventeenState, drill: drillState, kick: kickState, return: returnState, keep: keepState};
 
 // ============================================================================ The cases
 // The list is a shelf of game cases (the owner's ask, Oct 2026, after a console's shelf of box art): you swipe along
@@ -224,7 +230,7 @@ const STATE = {puzzles: puzzlesState, '17-0': seventeenState, drill: drillState,
 // band across its top and the game's cover under it (the owner's art). Played today, a case turns round:
 // its back is the leaderboard. Tap the back and it comes up close, Today's and the Season's to switch between.
 // ACCENT: each game's colour on its back (the tag, the switch), out of its cover.
-const ACCENT = {puzzles: '#B5452F', '17-0': '#A0721F', drill: '#D23B2F', kick: '#C9A227', return: '#A31F34'};
+const ACCENT = {puzzles: '#B5452F', '17-0': '#A0721F', drill: '#D23B2F', kick: '#C9A227', return: '#A31F34', keep: '#AEB9BD'};
 // The band: the name in the middle, a BETA tag at its left end for a game still being worked on, a tag or the close
 // button at its right.
 const bandHTML = (end = '', beta = false) => `<span class="gm-band">${beta ? '<span class="gm-beta">BETA</span>' : ''}<span class="gm-band-t">GRIDIRON HUB</span>${end}</span>`;
@@ -393,7 +399,7 @@ export function mountList(el, ctx, opts = {}) {
     }));
     st.assets = Promise.all([import('./game-launch.js'), ...css]).then(([mod, ...ready]) => ready.every(Boolean) ? mod : null).catch(() => null);
   }
-  const unprofile = data.subscribe(type => { if (type === 'me' && !st.dead) syncOwner(); });
+  const unprofile = data.subscribe(type => { if (type === 'me' && !st.dead) refresh(false); });
   syncOwner();
   const sig = (g, s) => `${s.kind}|${s.test ? 1 : 0}|${s.again ? 1 : 0}|${s.meta || ''}|${s.kind === 'done' ? backHTML(g, s) : frontHTML(g, s)}`; // (Return Man: its front stays, its line under the shelf moves)
   // the case in the middle: bigger and lit, the others smaller and turned a little toward it
@@ -522,7 +528,7 @@ export function mountList(el, ctx, opts = {}) {
     // (the game's name up in the black band, where the cover has GRIDIRON HUB: the owner's ask, Oct 2026)
     const band = `<span class="gm-band is-z">${g.beta ? '<span class="gm-beta">BETA</span>' : ''}<span class="gm-bk-name" id="gm-z-t">${esc(g.name)}</span>`
       + `<span class="gm-bk-tag">${s.test ? 'TEST' : 'FINAL'}</span></span>`;
-    const back = `<div class="gm-face gm-back gm-z-back">${band}<div class="gm-bk-in">`
+    const back = play ? '' : `<div class="gm-face gm-back gm-z-back">${band}<div class="gm-bk-in">`
       + `<div class="gm-bk-res"><span class="gm-bk-vis">${s.vis || ''}</span><span class="gm-bk-tt"><b class="gm-bk-h${s.gold ? ' is-gold' : ''}">${esc(s.head || '')}</b>${(s.lines || []).map(l => `<small>${esc(l)}</small>`).join('')}</span></div>`
       + `<div class="gm-z-tog" role="tablist" aria-label="Leaderboard"><button type="button" role="tab" aria-selected="true" data-gm-zmode="today">Today</button><button type="button" role="tab" aria-selected="false" data-gm-zmode="season">Season</button></div>`
       + `<div class="gm-scr is-z"><div class="gm-z-body" data-gm-zbody>${zoomBody(g, 'today')}</div></div></div>${GLOSS}</div>`;
@@ -543,7 +549,7 @@ export function mountList(el, ctx, opts = {}) {
   function openZoom(id) {
     syncOwner();
     const g = byId(id), cs = curCase(id);
-    if (!g || st.zoom) return;
+    if (!g || !gameOpen(id) || st.zoom) return;
     const s = stateOf(g), play = s.kind !== 'done';
     const hints = play ? {front: HINT.front, open: data.isOwner() ? 'Ready to play' : `Press ${goLabel(s)} to play`} : id === '17-0' ? {...HINT, back: 'Tap a name for their team · drag to turn it'} : HINT;
     const z = document.createElement('div');
@@ -762,7 +768,7 @@ export function mountList(el, ctx, opts = {}) {
   const refresh = (animate = true) => {
     if (st.dead) return;
     syncOwner();
-    // a change of who this phone is can add or take away a game (Return Man): the shelf is drawn again
+    // A profile change can add or remove The Keep, including from a hidden shelf.
     const ids = gamesFor().map(g => g.id).join(' ');
     if (el.dataset.ids !== ids) {
       const t = document.createElement('div');
@@ -770,6 +776,8 @@ export function mountList(el, ctx, opts = {}) {
       el.dataset.ids = ids;
       shelf.innerHTML = t.querySelector('.gm-shelf').innerHTML;
       el.querySelector('.gm-pips').innerHTML = t.querySelector('.gm-pips').innerHTML;
+      sel.innerHTML = t.querySelector('[data-gm-sel]').innerHTML;
+      delete sel.dataset.html;
       shown.clear();
       ui.hydrate(shelf);
       if (gameOpen('return')) { coresAsked = false; loadCores(() => refresh(true)); }

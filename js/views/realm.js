@@ -94,7 +94,7 @@ function shellHTML() {
     + `<div class="rl-res">`
     + F.CUR.map(c => `<button type="button" class="rl-cur is-${c}" data-rl-cur="${c}"><span class="rl-curb"><i data-rl-f></i></span><b data-rl-n>0</b><i class="rl-coin" aria-hidden="true"></i></button>`).join('')
     + `</div></div>`
-    + `<div class="rl-utility"><button type="button" class="rl-hub" data-nav="/puzzles" aria-label="Back to Fantasy Hub">‹ Hub</button>`
+    + `<div class="rl-utility"><button type="button" class="rl-hub" data-nav="/puzzles" aria-label="Back to Daily Games">‹ Games</button>`
     + `<div class="rl-camera-modes"><button type="button" class="rl-frame" data-rl-frame aria-label="Center your village">Village</button>`
     + `<button type="button" class="rl-frame" data-rl-world aria-label="Zoom out to the whole realm">Whole realm</button></div></div>`
     + `<div class="rl-zoom" role="group" aria-label="Camera zoom"><button type="button" data-rl-zoom="in" aria-label="Zoom in">+</button><button type="button" data-rl-zoom="out" aria-label="Zoom out">−</button></div>`
@@ -624,7 +624,7 @@ function welcome() {
 export default {
   id: 'realm',
   chrome: 'none',
-  title: 'Realm',
+  title: 'The Keep',
 
   render() { return F.mayPlay() ? shellHTML() : '<div class="rl rl-none"></div>'; },
 

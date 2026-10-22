@@ -1,4 +1,4 @@
-// The Realm's checks for the dev gallery (#/_kit): that it's the owner's alone (the tab, the screens, the save, his
+// The Realm's checks for the dev gallery (#/_kit): that it's the owner's alone (the case, the screens, the save, his
 // own docs only, the computer's realms the only ones to attack or scout), scouting a realm, what the games pay, storage
 // and the coffers, mines and farms, builders and the Keep's limits, training, an attack played out (the same every time), a dragon over walls,
 // the computer's raids on the owner's realm, the cannon and the dragon hatchery, the art the buildings and folk are
@@ -16,12 +16,16 @@ const DAY = 24 * F.HOUR;
 export async function realmChecks(check) {
   const [kk, rm, sv] = await Promise.all([import('./kick.js'), import('./return.js'), import('./seventeen.js').then(async m => { await m.load(); return m; })]);
 
-  check('Realm: the owner’s alone: it plays only on his phones (realm.js mayPlay() is data.isOwner()); its tab shows only there, its screens are empty elsewhere and its save refuses; it reads only his own board docs, never LB.all, and attacks and scouts only the computer’s realms', async () => {
+  check('The Keep: the owner’s alone: its Daily Games case and pushed route open only on his phones; it has no separate tab, its screens are empty elsewhere and its save refuses; it reads only his own board docs, never LB.all, and attacks and scouts only the computer’s realms', async () => {
     const owner = !!data.isOwner();
-    const [app, view, raid, scout] = await Promise.all([import('../app.js'), import('../views/realm.js'), import('../views/realm-raid.js'), import('../views/realm-scout.js')]);
+    const [app, view, raid, scout, games] = await Promise.all([import('../app.js'), import('../views/realm.js'), import('../views/realm-raid.js'), import('../views/realm-scout.js'), import('../views/games.js')]);
     const may = F.mayPlay() === owner;
     const btn = document.querySelector('#tabbar .tab[data-tab="realm"]');
-    const tab = app.ownerTab('realm') && app.TABS.includes('realm') === owner && !!btn && btn.hidden === !owner;
+    const route = app.parseRoute('/puzzles/keep'), legacy = app.parseRoute('/realm');
+    const tab = !app.TABS.includes('realm') && (!btn || btn.hidden)
+      && games.gamesFor().some(g => g.id === 'keep') === owner
+      && (owner ? route.view === 'realm' && route.open === 'push' && route.tab === 'puzzles' : route.path === '/puzzles')
+      && legacy.path === route.path;
     const screens = [view.default, raid.default, scout.default].every(v => /rl-none/.test(v.render()) === !owner);
     const files = ['../views/realm.js', '../views/realm-raid.js', '../views/realm-scout.js', './realm.js', './realm-battle.js'];
     const src = await Promise.all(files.map(f => fetch(new URL(f, import.meta.url)).then(r => r.text())));

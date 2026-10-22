@@ -59,13 +59,13 @@ const LEGACY_LINKS = [
 function routeChecks() {
   const out = [];
   const bad = (list, f) => list.map(f).filter(Boolean);
-  // The tab roots (the Realm's on the owner's phones only: elsewhere its link lands on Daily Games).
+  // The tab roots. The Keep is a pushed owner-only game; elsewhere its link lands on Daily Games.
   const owner = data.isOwner();
-  const roots = [['/puzzles', 'puzzles', 'puzzles'], ['/pickem', 'pickem', 'pickem'], ['/matchup', 'matchup', 'rivals'], ['/league/standings', 'league', null], ['/draft', 'draft', 'moves'], ['/lay', 'lay', 'lay'], ...(owner ? [['/realm', 'realm', 'realm']] : [])];
+  const roots = [['/puzzles', 'puzzles', 'puzzles'], ['/pickem', 'pickem', 'pickem'], ['/matchup', 'matchup', 'rivals'], ['/league/standings', 'league', null], ['/draft', 'draft', 'moves'], ['/lay', 'lay', 'lay']];
   let miss = bad(roots, ([p, tab, view]) => { const r = parseRoute(p); return r && r.open === 'root' && r.tab === tab && (!view || r.view === view) && r.path === p ? null : p; });
-  const realmLink = parseRoute('/realm'), realmOk = owner ? !!realmLink && realmLink.view === 'realm' : !!realmLink && realmLink.path === '/puzzles';
-  const want = 'puzzles,pickem,lay,matchup,league,draft' + (owner ? ',realm' : '');
-  out.push({name: 'Routes: the tab roots (the Realm is the owner’s alone: its tab only on his phones, its link elsewhere lands on Daily Games)', pass: !miss.length && TABS.join() === want && realmOk && !!document.querySelector('#tabbar .tab[data-tab="realm"]') && document.querySelector('#tabbar .tab[data-tab="realm"]').hidden === !owner,
+  const realmLink = parseRoute('/realm'), realmOk = owner ? !!realmLink && realmLink.view === 'realm' && realmLink.path === '/puzzles/keep' && realmLink.open === 'push' : !!realmLink && realmLink.path === '/puzzles';
+  const want = 'puzzles,pickem,lay,matchup,league,draft';
+  out.push({name: 'Routes: the tab roots (The Keep is an owner-only game in Daily Games, with no separate Realm tab)', pass: !miss.length && TABS.join() === want && realmOk && !document.querySelector('#tabbar .tab[data-tab="realm"]'),
     detail: (miss.length ? 'wrong: ' + miss.join(', ') + '; ' : '') + TABS.join(' · ') + ` (this phone the owner's: ${owner}; /realm → ${realmLink ? realmLink.path : 'nothing'})`});
   // Every legacy link lands on its canonical new path.
   miss = bad(LEGACY_LINKS, ([p, to]) => { const r = parseRoute(p); return r && r.path === to ? null : `${p || '(empty)'} → ${r ? r.path : 'nothing'}`; });
@@ -73,7 +73,7 @@ function routeChecks() {
   // Pushed routes and covers: how they open and which tab a cold link sits on.
   const pushes = [['/standings/2024', 'push', 'league'], ['/standings/2024/wrap/3', 'push', 'league'], ['/managers/evan', 'push', 'league'], ['/press', 'push', 'matchup'],
     ['/press/2026-w2', 'push', 'matchup'], ['/_kit', 'push', 'puzzles'], ['/puzzles/play/grid', 'cover', 'puzzles'], ['/puzzles/results', 'cover', 'puzzles'],
-    ['/puzzles/daily', 'push', 'puzzles'], ['/puzzles/17-0', 'push', 'puzzles'], ['/puzzles/drill', 'push', 'puzzles'], ['/puzzles/kick', 'push', 'puzzles'], ['/puzzles/return', 'push', 'puzzles'], ...(data.isOwner() ? [['/realm/raid/bot%3A1', 'cover', 'realm']] : [])];
+    ['/puzzles/daily', 'push', 'puzzles'], ['/puzzles/17-0', 'push', 'puzzles'], ['/puzzles/drill', 'push', 'puzzles'], ['/puzzles/kick', 'push', 'puzzles'], ['/puzzles/return', 'push', 'puzzles'], ...(data.isOwner() ? [['/puzzles/keep', 'push', 'puzzles'], ['/realm/raid/bot%3A1', 'cover', 'puzzles'], ['/realm/scout/bot%3A1', 'cover', 'puzzles']] : [])];
   miss = bad(pushes, ([p, open, home]) => { const r = parseRoute(p); return r && r.open === open && r.home === home ? null : p; });
   out.push({name: 'Routes: pushes, covers and their home tabs', pass: !miss.length, detail: miss.length ? 'wrong: ' + miss.join(', ') : `${pushes.length} routes`});
   // Unknown and malformed links stay unknown (the app lands on Puzzles with a toast).
