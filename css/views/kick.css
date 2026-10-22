@@ -3,7 +3,7 @@
    stage, the HUD, the call and the run's final card laid over it; the scoreboard below on the theme's surfaces. */
 
 /* The version mark views/kick.js checks (CSS_V): bump both when the pane needs rules an older file lacks. */
-:root { --kk-css: 7; }
+:root { --kk-css: 8; }
 
 .kk-pane {
   --kk-good: #3EF08F; --kk-bad: #FF5A4E; --kk-gold: #FFD23F; --kk-ribbon: #FF6A2B;
@@ -210,6 +210,55 @@
 .kk-pane .kk-over-p { margin-top: 8px !important; font: 400 13px/18px var(--font-text); color: rgba(255,255,255,.7); }
 .kk-pane .kk-sb-go { margin-top: 14px; min-width: 190px; }
 
+/* ---------------------------------------------------------------- The Keep's Gold (the owner's alone: views/kick.js) */
+/* A coin, drawn (no picture): gold, lit from the upper left, a raised rim. --s its size. */
+.kk-pane .kk-coin {
+  display: inline-block; flex: none; width: var(--s, 18px); height: var(--s, 18px); border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, #FFF7CF 0 10%, #FFD84A 28%, #F0B21A 58%, #B87708 100%);
+  box-shadow: inset 0 0 0 1.5px rgba(255,240,170,.9), inset 0 0 0 3.5px rgba(176,110,6,.55), 0 0 10px rgba(255,210,63,.55);
+}
+/* The burst on a make that pays: coins fly up and out from the crossbar (--ox, --oy), flipping as they go, and
+   "+1,000" rises under the call (--ly). Over the field, under the HUD's glass and the call's words. */
+.kk-pane .kk-coins { position: absolute; z-index: 1; inset: 0; pointer-events: none; overflow: hidden; }
+.kk-pane .kk-coin-f {
+  position: absolute; left: var(--ox, 50%); top: var(--oy, 40%); margin: calc(var(--s, 18px) / -2) 0 0 calc(var(--s, 18px) / -2);
+  opacity: 0; animation: kk-coin 1.3s cubic-bezier(.2,.75,.3,1) var(--d, 0ms) both; will-change: transform, opacity;
+}
+@keyframes kk-coin {
+  0% { opacity: 0; transform: translate(0, 0) scale(.3) rotateY(0deg); }
+  12% { opacity: 1; }
+  62% { opacity: 1; transform: translate(var(--dx), var(--dy)) scale(1) rotateY(var(--r)); }
+  100% { opacity: 0; transform: translate(calc(var(--dx) * 1.12), calc(var(--dy) + 36px)) scale(.85) rotateY(calc(var(--r) * 2)); }
+}
+.kk-pane .kk-coins-n {
+  position: absolute; left: 50%; top: var(--ly, 50%); display: flex; align-items: center; gap: 8px; white-space: nowrap;
+  padding: 5px 14px 5px 7px; border-radius: 99px;
+  background: rgba(10,16,34,.8); box-shadow: inset 0 0 0 1.5px rgba(255,210,63,.75), 0 0 26px -4px rgba(255,210,63,.75);
+  font: 800 30px/1 var(--kk-display); letter-spacing: .02em; color: var(--kk-gold); text-shadow: 0 0 14px rgba(255,210,63,.6);
+  font-variant-numeric: tabular-nums;
+  transform: translateX(-50%); animation: kk-gold 1.75s cubic-bezier(.22,1,.36,1) both;
+}
+.kk-pane .kk-coins-n .kk-coin { --s: 26px; }
+@keyframes kk-gold {
+  0% { opacity: 0; transform: translate(-50%, 16px) scale(.6); }
+  16% { opacity: 1; transform: translate(-50%, 0) scale(1.1); }
+  28% { transform: translate(-50%, 0) scale(1); }
+  78% { opacity: 1; transform: translate(-50%, -12px) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -26px) scale(1); }
+}
+/* On the run's final card: what the day pays The Keep */
+.kk-pane .kk-over-g {
+  display: flex; align-items: center; gap: 8px; width: fit-content; max-width: 100%; margin: 12px auto 0 !important;
+  padding: 5px 14px 5px 7px; border-radius: 99px; text-align: left;
+  background: rgba(255,210,63,.12); box-shadow: inset 0 0 0 1px rgba(255,210,63,.5), 0 0 22px -8px rgba(255,210,63,.6);
+  font: 800 18px/22px var(--kk-display); letter-spacing: .02em; color: var(--kk-gold);
+}
+.kk-pane .kk-over-g .kk-coin { --s: 22px; }
+.kk-pane .kk-over-g.is-none { color: rgba(255,255,255,.78); background: rgba(255,255,255,.06); box-shadow: inset 0 0 0 1px rgba(255,255,255,.16); }
+.kk-pane .kk-over-g.is-none .kk-coin { filter: grayscale(1); opacity: .55; }
+.kk-pane .kk-over-g.is-test { box-shadow: inset 0 0 0 1px rgba(255,210,63,.35); background: rgba(255,210,63,.06); }
+.kk-pane .kk-over-gs { margin-top: 4px !important; font: 400 13px/18px var(--font-text); color: rgba(255,255,255,.66); }
+
 /* ---------------------------------------------------------------- Playing: the field is the screen */
 /* Nothing under the field till the run's finished: no scoreboard; a spacer (views/kick.js) lets the field scroll up to
    just under the nav bar. */
@@ -229,4 +278,6 @@
   .kk-pane .kk-call.is-in { animation: none; opacity: 1; transform: none; }
   .kk-pane .kk-wind svg { transition: none; }
   .kk-pane .kk-gusts { display: none; }
+  .kk-pane .kk-coin-f { display: none; }
+  .kk-pane .kk-coins-n { animation: none; }
 }

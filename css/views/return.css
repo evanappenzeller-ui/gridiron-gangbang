@@ -4,7 +4,7 @@
    laid over it; the scoreboard below on the theme's surfaces. */
 
 /* The version mark views/return.js checks (CSS_V): bump both when the pane needs rules an older file lacks. */
-:root { --rm-css: 5; }
+:root { --rm-css: 6; }
 
 .rm-pane {
   --rm-good: #3EF08F; --rm-gold: #FFD23F; --rm-hot: #FF6A2B;
@@ -49,6 +49,16 @@
 .rm-pane .rm-ko.is-cur { background: #fff; box-shadow: 0 0 10px rgba(255,255,255,.7); }
 .rm-pane .rm-yds.is-x2 { background: linear-gradient(135deg, rgba(214,150,40,.7), rgba(120,70,10,.7)); box-shadow: inset 0 0 0 1px rgba(255,214,90,.7), 0 0 18px rgba(255,200,80,.45); }
 .rm-pane .rm-yds.is-x2 .rm-yu { color: var(--rm-gold); }
+/* The yards, and beside them the coins he's run through (the owner's first run of the day alone: views/return.js) */
+.rm-pane .rm-hl { justify-self: start; display: flex; align-items: stretch; gap: 6px; min-width: 0; }
+.rm-pane .rm-coins { display: flex; align-items: center; gap: 6px; padding: 6px 11px 6px 8px; box-shadow: inset 0 0 0 1px rgba(255,210,63,.45), 0 0 14px -4px rgba(255,200,60,.5), 0 6px 16px -8px rgba(0,0,0,.8); }
+.rm-pane .rm-coins[hidden] { display: none; }
+.rm-pane .rm-cn { font: 800 24px/24px var(--rm-display); font-variant-numeric: tabular-nums; color: var(--rm-gold); min-width: 1ch; }
+.rm-pane .rm-coin {
+  flex: none; display: inline-block; width: 18px; height: 18px; border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, #FFF4B0 0 14%, #FFCB3A 46%, #D98A10 100%);
+  box-shadow: inset 0 0 0 1.5px #B87612, inset 0 0 0 3.5px rgba(255,232,140,.55), 0 0 8px rgba(255,200,60,.45);
+}
 
 /* The power-ups he's carrying: the salts (how many), the painkillers and the booze (the time left) */
 .rm-pane .rm-pows { grid-column: 1 / -1; display: flex; gap: 6px; flex-wrap: wrap; }
@@ -131,6 +141,13 @@
 .rm-pane .rm-card-t { margin-top: 8px !important; font: 800 26px/28px var(--rm-display); letter-spacing: .02em; text-transform: uppercase; color: var(--rm-gold); }
 .rm-pane .rm-card-s { margin-top: 6px !important; font: 400 14px/19px var(--font-text); color: rgba(255,255,255,.8); }
 .rm-pane .rm-card-best { margin-top: 6px !important; font: 800 18px/22px var(--rm-display); letter-spacing: .06em; text-transform: uppercase; color: var(--rm-gold); text-shadow: 0 0 16px rgba(255,210,63,.55); }
+/* The end card's coins: what the first run's coins pay The Keep (the owner's) */
+.rm-pane .rm-card-coins {
+  display: inline-block; max-width: 100%; margin-top: 10px !important; padding: 6px 14px; border-radius: 16px; text-align: center; text-wrap: balance;
+  background: rgba(255,210,63,.12); box-shadow: inset 0 0 0 1px rgba(255,210,63,.45);
+  font: 800 18px/22px var(--rm-display); color: var(--rm-gold); font-variant-numeric: tabular-nums;
+}
+.rm-pane .rm-card-coins .rm-coin { width: 16px; height: 16px; margin-right: 7px; vertical-align: -2px; }
 .rm-pane .rm-beta {
   display: inline-block; margin-left: 6px; padding: 2px 6px 1px; border: 1px solid #F2C230; border-radius: 5px; vertical-align: 1px;
   background: rgba(242,194,48,.14); color: #F2C230; font: 800 10px/12px var(--font-text); letter-spacing: .12em;

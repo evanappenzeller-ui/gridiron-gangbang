@@ -12,6 +12,8 @@
 // again (as many runs as you like, the best of the day counts: the owner's ask, Oct 2026), the scoreboard under it.
 // On the hard course a pothole (an orange cone just before each, kicked flying if he runs through it) is the one thing
 // he falls into: down into it, the camera dipping, and scrambling out (FALL; the owner's ask, Oct 2026).
+// On his first run of the day there, lines of gold coins to run through (core COIN; the owner's ask, Oct 21 2026): a
+// sparkle and a tick of the counter beside the yards for each, and on the end card what they pay The Keep.
 // Every 100 yards is a touchdown.
 // The scene is in real 3D (the owner's ask, Oct 2026): the world (views/return-3dworld.js: each place's ground, what
 // stands beside the road, the gates, the barricades and banners, the vehicles, the power-ups) and the players
@@ -37,7 +39,7 @@ const esc = data.esc;
 const nf = n => data.nf(n);
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 // The version mark css/views/return.css carries (--rm-css): an older cached stylesheet gets the new one linked.
-const CSS_V = '5';
+const CSS_V = '6';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--rm-css').trim() === CSS_V) return;
@@ -114,7 +116,7 @@ function cardHTML(st) {
     return `<div class="rm-card-in"><p class="rm-card-o">${koLabel(run.k)}</p>`
       + `<p class="rm-big"><span class="n1">${esc(nf(y))}</span><small>yards</small></p>`
       + `<p class="rm-card-s">${esc(`${R.endOf(run)} ${WHERE[th.id]}.${tds ? ` ${plural(tds, 'touchdown')}!` : ''}`)}</p>`
-      + best + note + again() + sb() + `</div>`;
+      + coinsLine(st, run) + best + note + again() + sb() + `</div>`;
   }
   if (k > 0) {
     // back for another: today's best to beat, and when the course changes
@@ -127,17 +129,40 @@ function cardHTML(st) {
   }
   // the owner's: no how-to-play, the day's first kickoff starts on its own (autoGo); this only shows if it couldn't
   if (data.isOwner()) {
+    // (his day's first run, the one with the coins, waiting for the board to say it's the first: autoGo)
+    const wait = R.coinsWait(st.n, 0, true) ? '<p class="rm-card-s rm-card-wait">Getting the scoreboard: it tells this is your first run today, the one with the coins. It kicks off as soon as it’s in; field it now and this run has none.</p>' : '';
     return `<div class="rm-card-in is-first"><p class="rm-card-o">${koLabel(0)}${R.testing() ? ' · Test play' : ''} ${BETA}</p>`
-      + again('Field the kick') + creditLine() + `</div>`;
+      + wait + again('Field the kick') + creditLine() + `</div>`;
   }
   return `<div class="rm-card-in is-first"><p class="rm-card-o">${koLabel(0)}${R.testing() ? ' · Test play' : ''} ${BETA}</p>`
     + `<h2 class="rm-card-t">Take it to the house</h2>`
     + keysHTML(data.isOwner()) + note + betaLine()
     + again('Field the kick') + creditLine() + `</div>`;
 }
+// The gold coins (core COIN: the owner's hard course, his first run of the day alone; the owner's ask, Oct 21 2026):
+// on the end card, what the run's coins pay The Keep (COIN.gold Gold each); on his later runs, that they're only on the
+// first. Nobody else's card changes.
+const coinGlyph = '<i class="rm-coin" aria-hidden="true"></i>';
+function coinsLine(st, run) {
+  if (!data.isOwner() || !run || !run.co.hard) return '';
+  if (!R.testing() && st.n < R.COIN.fromDay) return ''; // (before the coins' first day: nothing to say of them)
+  if (!run.coins) {
+    // (why a run has none: a later run; his first today was on another phone (the board says so); or, his first here,
+    // the board wasn't in to tell it was the day's first)
+    const why = run.k > 0 ? 'Coins are only on your first run.' : run.elsewhere ? 'Your first run today was on another phone: its coins are the ones that count.'
+      : 'No coins this run: the scoreboard wasn’t in to tell it was your first today.';
+    return `<p class="rm-card-s rm-card-nocoins">${esc(why)}</p>`;
+  }
+  const c = run.c, gold = nf(c * R.COIN.gold);
+  if (!c) return `<p class="rm-card-coins">${coinGlyph}<span>No coins this run</span></p>`;
+  const pay = R.testing() ? `${gold} Gold (test play: not paid)` : `${gold} Gold for The Keep`;
+  return `<p class="rm-card-coins">${coinGlyph}<span>${esc(`${nf(c)} ${c === 1 ? 'coin' : 'coins'} · ${pay}`)}</span></p>`;
+}
 function hudHTML() {
-  return `<div class="rm-hud" aria-hidden="true">`
+  // (the coin counter beside the yards: shown on a coin run alone, patchHud)
+  return `<div class="rm-hud" aria-hidden="true"><div class="rm-hl">`
     + `<div class="rm-chip rm-yds" data-rm-ychip><span class="rm-yn" data-rm-yds>0</span><span class="rm-yu" data-rm-yu>yds</span></div>`
+    + `<div class="rm-chip rm-coins" data-rm-coins hidden>${coinGlyph}<span class="rm-cn" data-rm-cn>0</span></div></div>`
     // today's best (this run once it's beaten it)
     + `<span></span><div class="rm-chip rm-tot"><span class="rm-tn" data-rm-tot>0</span><span class="rm-yu">best</span></div>`
     + `<div class="rm-pows" data-rm-pows></div>`
@@ -170,10 +195,22 @@ function boardHTML(st) {
 }
 // On the owner's profile the day's first kickoff (and Test play's) starts on its own when the page opens, no card
 // first (the owner's ask, Oct 2026). Everyone else still taps Field the kick.
+// His day's first run, a coin run, waits for the board (core coinsWait: only it can tell the run's the first across his
+// phones, coinsOpen): the stage a moment (BOARD_WAIT_MS), then his card saying so; it kicks off as the board comes in
+// (the 'lb' in mount).
 const autoGoes = st => data.isOwner() && st.mode === 'ready' && !st.day.next;
+const BOARD_WAIT_MS = 2500;
 function autoGo(st) {
   if (st.dead) return;
-  if (autoGoes(st) && document.visibilityState !== 'hidden') { go(st); return; }
+  if (autoGoes(st) && document.visibilityState !== 'hidden') {
+    if (R.coinsWait(st.n, st.day.next, true)) {
+      if (!st.waitT && !st.waited) st.waitT = setTimeout(() => { st.waitT = 0; st.waited = true; if (!st.dead && st.mode === 'ready') setCard(st, true); }, BOARD_WAIT_MS);
+      return;
+    }
+    clearTimeout(st.waitT); st.waitT = 0;
+    go(st);
+    return;
+  }
   if (st.mode === 'ready') setCard(st, true); // (not now: the card, with its button)
 }
 // While a return's on (or before the day's first), the scoreboard waits under the stage; between runs it shows.
@@ -477,6 +514,8 @@ function drawLanes(st, c, now) {
     const lag = st.lag || 0, A = R.ahead(run, 120, PAST + 2 + lag); // (further back while he's held back in a pothole)
     A.sets.forEach(({set}) => set.plats.forEach(p => { const X = R.xOf(run, p.lane), w = p.hi ? 1.25 : 1.15; list.push({z: p.z1, veh: {x0: X - w, x1: X + w, z0: p.z0 - (p.ramp || 0), z1: p.z1}, x0: X - w, x1: X + w, draw: () => W.vehicle(st, c, p)}); }));
     A.items.forEach(({item}) => { if (!st.got.has(item.i)) { const X = R.xOf(run, item.lane); list.push({z: item.z, x0: X - .4, x1: X + .4, draw: () => W.item(st, c, item, t)}); } });
+    // the coins (the owner's first run of the day: core COIN), till he runs through them
+    if (coinsShown(st)) A.coins.forEach(({coin}) => { if (!st.coinGot.has(coin.i)) { const X = R.xOf(run, coin.lane); list.push({z: coin.z, x0: X - .35, x1: X + .35, draw: () => W.coin(st, c, coin, t)}); } });
     A.rows.forEach(({row, d}) => row.lanes.forEach((type, l) => {
       if (!type) return;
       // a pothole's cone just before it (kicked flying when he ran through it)
@@ -530,6 +569,7 @@ function drawLanes(st, c, now) {
     me(bx, az, blink ? .35 : 1);
     c.restore();
     runnerFx(st, c, now, bx, g, az);
+    coinFx(st, c, now, bx, az);
   }});
   // Far to near; but whatever stands beyond a vehicle's side from the camera (in a lane further over, beside it) goes
   // before that vehicle, so its body hides them, however long it is.
@@ -618,6 +658,65 @@ function runnerFx(st, c, now, bx, g, az) {
   }
 }
 const rgbOf = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)).join(',');
+// ---------------------------------------------------------------- The coins (the owner's first run of the day)
+// core COIN: lines of gold coins on his hard course, his first run of the day alone. Each one he runs through goes in a
+// little sparkle where it was on him (SPARK_MS), the counter beside the yards ticks up, and a tap of haptics; no words
+// (the owner's rule: only a pickup's catchphrase pops up, and coins come too often for one).
+const SPARK_MS = 380, COIN_BUZZ_MS = 70;
+/** Whether the coins show: a coin run, on the owner's profile (off it, even from another tab, they're hidden: none
+ *  drawn, none counted (onEvents)). */
+const coinsShown = st => !!(st.run && st.run.coins && data.isOwner());
+/** A coin run under way, looked at again on his profile (the board's come in, or he's back on it): no longer the
+ *  day's first as the board sees it (another of his phones has a run of the day on it), and its coins are gone. A
+ *  profile change alone hides them (coinsShown), and ends a run on his hard course where it is (frame), keeping the
+ *  ones he's taken (runCoins). */
+function recheckCoins(st) {
+  const run = st.run;
+  if (!run || !run.coins || run.over || R.testing() || !data.isOwner()) return;
+  if (!R.ranElsewhere(st.n)) return;
+  R.dropCoins(run);
+  st.coinGot = new Set(); st.sparks = [];
+  patchHud(st);
+}
+/** He's run through a coin: its sparkle (where it was on him: it rides with him), the counter's tick, a tap. */
+function coinGot(st, e, now) {
+  const run = st.run;
+  st.coinGot.add(e.coin.i);
+  st.sparks.push({at: now, dx: R.xOf(run, e.coin.lane) - run.x, dy: e.coin.y - run.y, i: e.coin.i});
+  if (st.sparks.length > 10) st.sparks.shift();
+  const chip = st.el.querySelector('[data-rm-coins]');
+  if (chip && !ui.RM && chip.animate) chip.animate([{transform: 'scale(1.16)'}, {transform: 'none'}], {duration: 200, easing: 'cubic-bezier(.2,.9,.3,1)'});
+  if (!(now - (st.coinBuzz || 0) < COIN_BUZZ_MS)) { st.coinBuzz = now; ui.haptic('selection'); }
+}
+/** The coins' sparkles, on him (bx, az: where he's drawn; y: his height): a gold glow and little stars flying out. */
+function coinFx(st, c, now, bx, az) {
+  const run = st.run;
+  if (!run || !st.sparks.length) return;
+  st.sparks = st.sparks.filter(s => now - s.at < SPARK_MS);
+  if (!st.sparks.length || !coinsShown(st)) return;
+  c.save();
+  // (try/finally: whatever happens, the canvas is never left adding light; and a spark's age is never below nothing,
+  // since its time is the pickup's, performance.now(), and a frame's can be a little behind it, as puff's guard knows)
+  try {
+    c.globalCompositeOperation = 'lighter';
+    st.sparks.forEach(s => {
+      const a = Math.min(1, Math.max(0, (now - s.at) / SPARK_MS)), q = P(st, bx + s.dx, run.y + s.dy, az + .15), k = 1 - a;
+      if (!(q.s > 0)) return;
+      const gr = c.createRadialGradient(q.x, q.y, 0, q.x, q.y, (.3 + .45 * a) * q.s);
+      gr.addColorStop(0, `rgba(255,236,140,${(.75 * k).toFixed(3)})`); gr.addColorStop(1, 'rgba(255,190,40,0)');
+      c.fillStyle = gr; c.beginPath(); c.arc(q.x, q.y, (.3 + .45 * a) * q.s, 0, Math.PI * 2); c.fill();
+      if (ui.RM) return;
+      const out = 1 - (1 - a) ** 3, r = seeded(s.i * 13 + 5);
+      for (let i = 0; i < 6; i++) {
+        const ang = i / 6 * Math.PI * 2 + r() * .8, dist = (.18 + .62 * out) * q.s, sz = (.05 + .1 * k) * q.s;
+        const x = q.x + Math.cos(ang) * dist, y = q.y + Math.sin(ang) * dist * .8 - .25 * out * q.s;
+        c.fillStyle = i % 2 ? `rgba(255,214,70,${k.toFixed(3)})` : `rgba(255,250,215,${k.toFixed(3)})`;
+        c.beginPath(); c.moveTo(x, y - sz); c.lineTo(x + sz * .28, y - sz * .28); c.lineTo(x + sz, y); c.lineTo(x + sz * .28, y + sz * .28);
+        c.lineTo(x, y + sz); c.lineTo(x - sz * .28, y + sz * .28); c.lineTo(x - sz, y); c.lineTo(x - sz * .28, y - sz * .28); c.closePath(); c.fill();
+      }
+    });
+  } finally { c.restore(); }
+}
 /** The world and the players in 3D (views/return-3d.js and return-3dworld.js), laid over the sky; then what's drawn
  *  over them: the painkillers' glow, the dust, the hints over what's coming, the kick coming down. */
 function draw3(st, c, now) {
@@ -643,6 +742,7 @@ function draw3(st, c, now) {
   const g = run ? R.groundAt(run.co, R.laneOf(run), rz, ry) : 0;
   pillsGlow(st, c, now, g);
   runnerFx(st, c, now, bx, g, az);
+  coinFx(st, c, now, bx, az);
   if (ch && run.over) puff(st, c, ch.cx, 0, ch.cz + .6, (now - st.downAt - 480) / 450, 1.2);
   // over a barricade or a banner coming up: the move that beats it
   if (run && !run.over && st.mode === 'run' && ry < 1.2) {
@@ -742,6 +842,13 @@ function patchHud(st) {
   const yd = el.querySelector('[data-rm-yds]'); if (yd && yd.textContent !== String(y)) yd.textContent = String(y);
   const tot = el.querySelector('[data-rm-tot]'), t = nf(Math.max(st.day.best, run && !run.over && st.mode !== 'ready' ? y : 0));
   if (tot && tot.textContent !== t) tot.textContent = t;
+  // the coins he's run through (a coin run, on the owner's profile, alone)
+  const cc = el.querySelector('[data-rm-coins]'), coins = live && coinsShown(st);
+  if (cc) {
+    if (cc.hidden === coins) cc.hidden = !coins;
+    const cn = cc.querySelector('[data-rm-cn]'), cv = coins ? nf(run.c) : '0';
+    if (cn && cn.textContent !== cv) cn.textContent = cv;
+  }
   // the power-ups he's carrying: the salts, and what's left of the painkillers and the booze
   const on = live && !run.over, x2 = on && run.booze > 0;
   const chip = el.querySelector('[data-rm-ychip]'); if (chip) chip.classList.toggle('is-x2', !!x2);
@@ -778,8 +885,17 @@ function pop(st, text, cls = '', sub = '') {
 /** A kickoff: the ball comes down into his hands, then he's off. */
 function go(st) {
   if (st.mode === 'run' || st.mode === 'catch') return;
-  st.run = R.startRun(st.n, st.day.next, data.isOwner());
+  clearTimeout(st.waitT); st.waitT = 0; st.waited = false;
+  // (a run of the day's left under way here and never ended (paused, then dropped some other way): it counts where it
+  // got to first, so no kickoff is run twice, nor the day's first run with its coins)
+  if (R.live(st.n)) { R.settle(st.n); if (!R.testing()) R.autoPost(); setDay(st, st.n); }
+  // (the owner's: the hard course; the coins on the day's first run alone, core coinsOpen)
+  const own = data.isOwner(), k = st.day.next, coins = own && R.coinsOpen(st.n, k, own);
+  st.run = R.startRun(st.n, k, own, coins);
+  // (his first run here, but the board shows another of his phones ran the day's first: the end card says so)
+  if (own && !coins && !k && !R.testing() && R.ranElsewhere(st.n)) st.run.elsewhere = true;
   st.knocked = new Map(); st.got = new Set(); st.flashAt = 0; st.hitAt = 0; st.chX = null; st.spinAt = 0; st.landAt = 0; st.edgeAt = 0; st.fall = null; st.splash = null; st.lagOut = null; st.dip = 0;
+  st.coinGot = new Set(); st.sparks = [];
   ungot(st);
   st.co = st.run.co;
   W.warm(skyView(st), 0);
@@ -794,7 +910,7 @@ function tackled(st) {
   st.mode = 'tackled'; st.downAt = performance.now();
   ungot(st);
   ui.haptic('error');
-  st.day = R.record(st.n, st.run.k, st.run.yards, st.run.z) || R.dayState(st.n);
+  st.day = R.record(st.n, st.run.k, st.run.yards, st.run.z, runCoins(st)) || R.dayState(st.n);
   R.autoPost();
   patchHud(st);
   st.later = setTimeout(() => { if (!st.dead) { setCard(st, true); patchBoard(st); } }, ui.RM ? 200 : 950);
@@ -848,6 +964,8 @@ function onEvents(st, evs) {
       ui.haptic('success'); ui.announce(`${pw.name}: ${pw.is}. ${pw.does}.`);
     }
     else if (e.type === 'landed') st.landAt = now;
+    // (a coin: his, on his profile; off it, where they're hidden, it isn't counted)
+    else if (e.type === 'coin') { if (coinsShown(st)) coinGot(st, e, now); else if (st.run) st.run.c = Math.max(0, st.run.c - 1); }
     // a pothole's cone he ran through: kicked flying, off to the side (his lane's, or the way he's juking); nothing more
     else if (e.type === 'coned') {
       const run = st.run, dir = run.t - run.lastJuke < SIDE_S ? Math.sign(R.xOf(run, run.lane) - run.jFrom) : 0;
@@ -890,7 +1008,11 @@ function frame(st, now) {
   draw(st, now);
   patchHud(st);
 }
-const keep = st => R.keepLive(st.n, st.run.k, st.run.yards, st.run.z);
+/** The run's coins to keep with it (a coin run's), else undefined. Taken on his profile alone (off it they're hidden and
+ *  uncounted, onEvents, and a run on his hard course is whistled dead at the next frame, frame), so a run ended by a
+ *  profile change keeps the ones he took: they're posted only from his profile (core coinsToPost). */
+const runCoins = st => (st.run && st.run.coins ? st.run.c : undefined);
+const keep = st => R.keepLive(st.n, st.run.k, st.run.yards, st.run.z, runCoins(st));
 function loop(st) {
   if (st.raf || st.dead) return;
   st.last = 0;
@@ -980,8 +1102,9 @@ function patchBoard(st) {
 /** The owner's Test play (views/testplay.js): today's kickoff fresh in the sandbox, or back to the real day. */
 function testPlay(st, on) {
   if (!canTest() || st.mode === 'run' || st.mode === 'catch') return;
+  endPaused(st);
   R.setTest(on, st.n);
-  clearTimeout(st.later);
+  clearTimeout(st.later); clearTimeout(st.waitT); st.waitT = 0;
   st.run = null; st.mode = 'ready';
   setDay(st, st.n);
   const tp = st.el.querySelector('[data-rm-tp]');
@@ -1002,9 +1125,17 @@ function onClick(st, e) {
   if (t.hasAttribute('data-rm-sb')) { const b = st.el.querySelector('[data-rm-board]'); if (b) b.scrollIntoView({behavior: ui.RM ? 'auto' : 'smooth', block: 'start'}); return; }
   if (t.hasAttribute('data-rm-test')) testPlay(st, t.dataset.rmTest === 'on');
 }
+/** A run paused here, ended where it got to (as leaving the page ends one) before it's put aside for Test play or a new
+ *  day: never just dropped, so neither a kickoff nor the day's first run, with its coins, can be run again. */
+function endPaused(st) {
+  if (!st.run || st.mode !== 'paused') return;
+  keep(st); R.settle(st.n);
+  if (!R.testing()) R.autoPost();
+}
 function tick(st) {
   // a new day at midnight: the next kickoff
   if (R.todayNumber() !== st.n && st.mode !== 'run' && st.mode !== 'catch') {
+    endPaused(st);
     st.run = null; st.mode = 'ready'; setDay(st, R.todayNumber()); setCard(st, true); patchHud(st); patchBoard(st); draw(st);
   }
   const nx = st.el.querySelector('[data-rm-next]');
@@ -1018,7 +1149,7 @@ export function render(ctx) {
 }
 export function mount(el, ctx) {
   ensureCss();
-  const st = {el, ctx, mode: 'ready', sbMode: 'today', run: null, knocked: new Map(), got: new Set(), dead: false, raf: 0, camX: null, camF: null, cheer: 0, lift: 0};
+  const st = {el, ctx, mode: 'ready', sbMode: 'today', run: null, knocked: new Map(), got: new Set(), coinGot: new Set(), sparks: [], dead: false, raf: 0, camX: null, camF: null, cheer: 0, lift: 0};
   STATE.set(el, st);
   // a return left under way (the app closed mid-run) ends where it was
   R.settle(R.todayNumber());
@@ -1056,13 +1187,23 @@ export function mount(el, ctx) {
   addEventListener('resize', st.on.resize, {passive: true});
   addEventListener('pagehide', st.on.leave);
   document.addEventListener('visibilitychange', st.on.vis);
-  st.unsub = daily.subscribe(type => { if (type === 'lb' || type === 'ready' || type === 'error') patchBoard(st); });
+  st.unsub = daily.subscribe(type => {
+    if (type === 'lb' || type === 'ready' || type === 'error') patchBoard(st);
+    if (type !== 'lb' || st.dead) return;
+    recheckCoins(st); // (the board's in: the day's first run may have been on another of his phones)
+    if ((st.waitT || st.waited) && autoGoes(st)) autoGo(st); // (his first kickoff, waiting for it: off it goes, with the coins or without)
+  });
   // Profile changes also arrive from other tabs. Refresh existing HUD/card images immediately.
   st.iconOwner = data.isOwner();
   st.unsubIcons = data.subscribe(type => {
     if (type !== 'me' || st.dead || st.iconOwner === data.isOwner()) return;
     st.iconOwner = data.isOwner();
     el.querySelectorAll('[data-rm-icon]').forEach(img => { img.src = iconURL(img.dataset.rmIcon); });
+    recheckCoins(st);
+    // (an end card's coins line is the owner's: off his profile it goes)
+    const card = el.querySelector('[data-rm-card]');
+    if (card && !card.hidden && st.mode === 'tackled') { card.innerHTML = cardHTML(st); ui.hydrate(card); }
+    patchHud(st);
     draw(st);
   });
   st.stopTick = ctx.timer(() => tick(st), 20000);
@@ -1085,7 +1226,7 @@ export function unmount(el, ctx) {
   // a return under way when the page goes: it counts where it got to (no kickoff run twice)
   if (st.run && (st.mode === 'run' || st.mode === 'catch' || st.mode === 'paused')) { keep(st); R.settle(st.n); R.autoPost(); }
   st.dead = true;
-  clearTimeout(st.later); clearTimeout(st.gotT);
+  clearTimeout(st.later); clearTimeout(st.gotT); clearTimeout(st.waitT);
   if (st.raf) cancelAnimationFrame(st.raf);
   const stage = el.querySelector('[data-rm-stage]');
   if (stage) {

@@ -5,16 +5,27 @@
 // way up, a roof to run along and juke off), the linebacker chasing (a hit a stumble, two close together the catch), the
 // power-ups (salts, painkillers, booze), the speed and the touchdowns, the hard course (the owner's for now: potholes,
 // each with its cone and the one thing he falls into, sleds, a bus head on the end of it, never done speeding up, no
-// snow pile on its tundra),
+// snow pile on its tundra), its gold coins (the owner's first run of the day alone: their lines, running through them,
+// what's kept and posted of them, his profile alone),
 // a day's numbers, and the league scoreboard's rows (on crafted board docs), which read the board as this phone may see
 // it (THE RULE, CLAUDE.md). checks.js (owner: core) imports returnChecks and calls it with its own check(name, fn)
 // helper; every fn returns true or {pass, detail}. Nothing here writes to storage or the database. Owner: RETURN.
 
 import * as R from './return.js';
 import * as daily from './daily.js';
+import * as data from './data.js';
 import {gameFor} from '../views/puzzles.js';
 import {gamesFor, listHTML, GAMES} from '../views/games.js';
 
+/** Names for crafted board docs: self, the profile this phone is on (the boards take this phone's own doc as that
+ *  profile's, whatever name it carries, so "his" other docs must carry the same; Evan with no profile picked), and
+ *  other, another league member's (never this profile's or the owner's). */
+function fixtureNames() {
+  const M = (data.DATA && data.DATA.managers) || [], mine = M.find(m => m.id === data.me());
+  const self = mine ? mine.name : 'Evan';
+  const other = (M.find(m => m.name !== self && m.id !== data.OWNER) || {}).name || (self === 'Mason' ? 'Jacob' : 'Mason');
+  return {self, other};
+}
 /** A returner who sees the course and plans: each twentieth of a second, a search for the swipes that keep him up for
  *  the next 1.3 seconds (power-ups taken away, so it's the course alone that lets him through). Runs till he's down or
  *  to maxZ yards. */
@@ -106,6 +117,59 @@ function regularPrint() {
     out.push(JSON.stringify([co.order, co.rows.filter(r => lt(r.z)), co.sets.filter(s => lt(s.zs)), co.items.filter(i => lt(i.z))]));
   }
   return fnv(out.join('\n'));
+}
+// The hard course (the owner's) as it was before its coins came in (Oct 21 2026): days 1-20's kickoff to 3,000 yards,
+// the same with the coins laid out first (they draw from a seed of their own).
+const HARD_FP = '7d9998b7';
+// The coins' lines on days 1-20's hard course (to 2,900 yards) when they came in (Oct 21 2026): the same however far
+// ahead they're laid out at a time, on every phone. It changes only when the coins' layout does: on purpose, never
+// mid-day. (Changed before they first came out, Oct 21 2026: no banner or sled in a line's lane just before it, COIN.look.)
+const COIN_FP = 'af842f2f';
+const fnv32 = s => { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193); return (h >>> 0).toString(16).padStart(8, '0'); };
+function hardPrint(coinsFirst) {
+  const out = [], lt = z => z < 3000;
+  for (let n = 1; n <= 20; n++) {
+    const co = R.course(n, 0, true);
+    if (coinsFirst) R.coinsTo(co, 3000);
+    R.fill(co, 3000);
+    out.push(JSON.stringify([co.order, co.rows.filter(r => lt(r.z)), co.sets.filter(s => lt(s.zs)), co.items.filter(i => lt(i.z))]));
+  }
+  return fnv32(out.join('\n'));
+}
+function coinPrint(step) {
+  const out = [];
+  for (let n = 1; n <= 20; n++) {
+    const co = R.course(n, 0, true);
+    if (step) for (let z = 0; z <= 3000; z += step) R.coinsTo(co, z); else R.coinsTo(co, 3000);
+    out.push(JSON.stringify([co.lines.filter(l => l.z0 < 2900), co.coins.filter(c => c.z < 2900)]));
+  }
+  return fnv32(out.join('\n'));
+}
+/** Lets go of the courses worked out so far (core keeps a dozen): the next ones asked for are laid out fresh. */
+const freshCourses = () => { for (let n = 9000; n < 9015; n++) R.course(n, 0); };
+/** A coin run met at one of the day's lines (line, on its hard course co), from just before it in its lane, the
+ *  linebacker long gone: jump: yards early (-) or late (+) to jump an arc from its jump point (null: no jump); slide: in
+ *  a slide all the way; juke: a lane over at once (either way there's room); hop: a jump just before a flat line; coins:
+ *  a coin run or not. Runs to COIN.react s past it: {got (its coins he ran through), hits (before then), juked}. */
+function throughLine(co, line, {jump = 0, slide = false, juke = false, hop = false, coins = true} = {}) {
+  const run = R.startRun(co.n, 0, true, coins), z0 = line.z0 - 1.2, from = (arr, f) => { const i = arr.findIndex(f); return i < 0 ? arr.length : i; };
+  run.co = co;
+  Object.assign(run, {z: z0, lane: line.lane, x: R.xOf(run, line.lane), t: 30, hitAt: 0, zone: Math.floor(z0 / R.ZONE), tds: R.tdsAt(z0)});
+  run.next = from(co.rows, r => r.z >= z0); run.nextCone = from(co.rows, r => R.coneZ(r) >= z0);
+  run.nextItem = from(co.items, it => it.z >= z0); run.nextCoin = from(co.coins, c => c.z >= z0);
+  const zEnd = line.end + R.COIN.react * R.speedAt(line.end, true) - .05, v = R.speedAt(line.z0, true);
+  let got = 0, hits = 0, jumped = false, juked = false;
+  for (let i = 0; i < 6000 && run.z < zEnd && !run.over; i++) {
+    if (line.jump != null && jump != null && !jumped && run.z >= line.jump + jump) { R.move(run, 'up'); jumped = true; }
+    if (hop && !jumped && run.z >= line.z0 - .3 * v) { R.move(run, 'up'); jumped = true; }
+    if (juke && !i) juked = R.move(run, line.lane ? 'left' : 'right') || (line.lane === 1 && R.move(run, 'right'));
+    if (slide && run.slide < .05 && run.y < .01) R.move(run, 'down');
+    R.step(run, 1 / 120).forEach(e => {
+      if (e.type === 'coin' && e.coin.line === line.i) got++;
+      if (['stumbled', 'tackled', 'crashed', 'shoved'].includes(e.type) && e.z < zEnd) hits++;
+    });
+  }
+  return {got, hits, juked};
 }
 
 export async function returnChecks(check) {
@@ -395,7 +459,8 @@ export async function returnChecks(check) {
     const who = ['evan', 'mitch', null];
     const open = who.every(w => gameFor('return', w) === 'return');
     const lists = who.map(w => gamesFor(w).map(g => g.id).join());
-    const all = lists.every(l => l === 'puzzles,17-0,drill,kick,return');
+    // (the owner's list has The Keep's case too, his alone: views/games.js)
+    const all = lists.every(l => l.split(',').filter(g => g !== 'keep').join() === 'puzzles,17-0,drill,kick,return') && lists.slice(1).every(l => !l.split(',').includes('keep'));
     const host = document.createElement('div');
     host.innerHTML = listHTML();
     const tagged = [...host.querySelectorAll('.gm-slot:not([data-gm-clone])')].filter(sl => sl.querySelector('.gm-front .gm-beta')).map(sl => sl.dataset.gmSlot).join();
@@ -743,6 +808,159 @@ export async function returnChecks(check) {
     const view = /R\.fallAt\(f\.plan, s, run\.z - f\.z\)/.test(src) && /st\.camZ = \(run \? run\.z : 0\) - st\.back - \(ui\.RM \? 0 : st\.lag\)/.test(src);
     const pass = !bad.length && falls > 300 && down === falls && maxLag <= R.FALL.lag + 1e-9 && view;
     return {pass, detail: `${falls} falls: back on him by the grace and a quarter second before what's next ${bad.length ? `WRONG ${bad.length}: ${bad.slice(0, 3).join('; ')}` : 'every time'} (${tight} with the next thing under .46 s on: held back at most ${worst.toFixed(2)} yds then); held back ${maxLag.toFixed(2)} yds at most; seen down in it ${down} of ${falls}; the view ${view ? 'draws from fallAt' : 'WRONG'}`};
+  });
+  // ------------------------------------------------------------------------------------------- the coins
+  // The owner's ask (Oct 21 2026): "the return man game should have coins every so often that line up for the player to
+  // run through", and "coins are only available on the 1st attempt". His hard course, his first run of the day; The
+  // Keep pays 10 Gold a coin (core/realm.js, from the board entry's c).
+  check('Return Man coins (the owner\'s ask, Oct 21 2026): on the hard course alone, lines of 6 to 12 gold coins in one lane at his waist, every few seconds, some arcing up over a barricade or a pothole; never in or on a vehicle or its ramp, never by a power-up, never through anything in the lane but the barricade or pothole an arc goes over (well over its cone), the lane clear COIN.react seconds past the last, and no banner (to hide it) or sled (to juke round) in its lane COIN.look seconds before it starts; the same every time and on every phone (however far ahead they\'re laid out; fingerprint ' + COIN_FP + '), day to day different; the hard course itself unchanged (fingerprint ' + HARD_FP + ', coins laid out first or not) and the regular course with none at all (fingerprint ' + REG_FP + ')', () => {
+    const C = R.COIN, bad = [];
+    let lines = 0, coins = 0, arcs = 0, gaps = 0, gapN = 0, holes = 0, look = 0;
+    for (let n = 1; n <= 20; n++) {
+      const co = R.coinsTo(R.course(n, 0, true), 3000), L = co.lines.filter(l => l.z0 < 2900);
+      L.forEach((l, li) => {
+        const cs = co.coins.filter(c => c.line === l.i), v = R.speedAt(l.z0, true), zb = l.end + C.react * R.speedAt(l.end, true);
+        lines++; coins += cs.length;
+        if (li) { gaps += (l.z0 - L[li - 1].end) / v; gapN++; }
+        if (cs.length !== l.n || l.n < C.min || l.n > C.max || cs.some(c => c.lane !== l.lane)) bad.push(`day ${n} line ${l.i}: ${cs.length} coins`);
+        if (cs.some((c, i) => i && c.z <= cs[i - 1].z)) bad.push(`day ${n} line ${l.i}: out of order`);
+        const over = l.over == null ? null : co.rows.find(r => r.i === l.over);
+        if (over) {
+          arcs++;
+          if (over.lanes[l.lane] !== 'hurdle' && over.lanes[l.lane] !== 'hole') bad.push(`day ${n} line ${l.i}: arcs over a ${over.lanes[l.lane]}`);
+          if (!(Math.max(...cs.map(c => c.y)) > C.y + .8) || cs.some(c => c.y < C.y - 1e-9)) bad.push(`day ${n} line ${l.i}: no arc`);
+          if (over.lanes[l.lane] === 'hole') {
+            holes++;
+            const zc = R.coneZ(over);
+            if (cs.some(c => Math.abs(c.z - zc) < R.CONE.r + C.r && c.y - C.r < R.CONE.h)) bad.push(`day ${n} line ${l.i}: through the cone`);
+          }
+        } else if (cs.some(c => c.y !== C.y)) bad.push(`day ${n} line ${l.i}: not at his waist`);
+        cs.forEach(c => {
+          if (R.groundAt(co, c.lane, c.z) !== 0 || co.sets.some(s => s.plats.some(p => p.lane === c.lane && c.z >= p.z0 - p.ramp - .5 && c.z <= p.z1 + .5))) bad.push(`day ${n} coin ${c.i}: in a vehicle at ${c.z}`);
+          if (co.items.some(it => it.lane === c.lane && Math.abs(it.z - c.z) < C.item)) bad.push(`day ${n} coin ${c.i}: by a power-up`);
+        });
+        co.rows.forEach(r => { if (r.lanes[l.lane] && r !== over && r.z >= l.z0 - C.clear + .01 && r.z <= zb - .01) bad.push(`day ${n} line ${l.i}: a ${r.lanes[l.lane]} in it at ${r.z}`); });
+        // (and no banner hiding it or sled to juke round just before it: COIN.look seconds clear of both)
+        const zl = l.z0 - C.look * R.speedAt(l.z0, true);
+        co.rows.forEach(r => { const t = r.lanes[l.lane]; if ((t === 'bar' || t === 'sled') && r.z >= zl + .01 && r.z < l.z0) { look++; bad.push(`day ${n} line ${l.i}: a ${t === 'bar' ? 'banner' : 'sled'} ${(l.z0 - r.z).toFixed(1)} yds before it`); } });
+      });
+    }
+    const fp = coinPrint(0);
+    freshCourses();
+    const fp2 = coinPrint(37); // (fresh courses, laid out 37 yards at a time)
+    const day = n => JSON.stringify(R.coinsTo(R.course(n, 0, true), 600).lines.filter(l => l.z0 < 500));
+    const differ = day(3) !== day(4) && day(4) !== day(5);
+    freshCourses();
+    const hard = hardPrint(true), regular = regularPrint(), none = [1, 2, 3].every(n => !R.coinsTo(R.fill(R.course(n, 0), 1500), 1500).coins);
+    const avg = gaps / Math.max(1, gapN);
+    const pass = !bad.length && lines > 200 && arcs > lines / 5 && arcs < lines && holes > 10 && avg > 3 && avg < 9 && fp === COIN_FP && fp2 === fp && differ && hard === HARD_FP && regular === REG_FP && none;
+    return {pass, detail: `${lines} lines on 20 days (${coins} coins; ${arcs} arcing, ${holes} of them over potholes), ${avg.toFixed(1)} s apart on average; ${bad.length ? `WRONG ${bad.length}: ${bad.slice(0, 4).join('; ')}` : 'every one clear of vehicles, power-ups and everything in its lane'}; laid out ${fp === COIN_FP ? 'as ever' : `DIFFERENTLY (${fp})`}, the same a bit at a time ${fp2 === fp}, day to day different ${differ}; the hard course ${hard === HARD_FP ? 'unchanged' : `CHANGED (${hard})`}; the regular course ${regular === REG_FP ? 'unchanged' : `CHANGED (${regular})`}, with no coins ${none}`};
+  });
+  check('Return Man coins: running through them: in his lane every coin of a line is his (an arc by a jump from its jump point, or a twentieth of a second early or late), and nothing in his lane hits him on the way; a slide through a flat line takes them too; juking out of its lane, or jumping over a flat line, misses them; a run without the coins (startRun\'s coins false: every run but the owner\'s first) takes none, and only the hard course has them', () => {
+    const bad = [];
+    let lines = 0, all = 0, arcs = 0, edges = 0, flats = 0, slid = 0, jukes = 0, juked = 0, hopped = 0, none = 0;
+    for (let n = 1; n <= 8; n++) {
+      const co = R.coinsTo(R.course(n, 0, true), 3000);
+      co.lines.filter(l => l.z0 < 2900).forEach(l => {
+        lines++;
+        const a = throughLine(co, l);
+        if (a.got === l.n && !a.hits) all++; else if (bad.length < 5) bad.push(`day ${n} line ${l.i}: ${a.got}/${l.n}, ${a.hits} hits`);
+        if (l.jump != null) {
+          arcs++;
+          const v = R.speedAt(l.jump, true);
+          if (throughLine(co, l, {jump: -.05 * v}).got === l.n && throughLine(co, l, {jump: .05 * v}).got === l.n) edges++;
+        } else {
+          flats++;
+          if (throughLine(co, l, {slide: true}).got === l.n) slid++;
+          const j = throughLine(co, l, {juke: true});
+          if (j.juked) { jukes++; if (j.got === 0) juked++; }
+          if (throughLine(co, l, {hop: true}).got < l.n) hopped++;
+        }
+        if (throughLine(co, l, {coins: false}).got === 0) none++;
+      });
+    }
+    const regular = !R.startRun(3, 0, false, true).coins && R.startRun(3, 0, true, true).coins && !R.startRun(3, 0, true).coins;
+    const pass = !bad.length && lines > 80 && all === lines && edges === arcs && slid === flats && jukes > flats / 2 && juked === jukes && hopped === flats && none === lines && regular;
+    return {pass, detail: `${all} of ${lines} lines all his, without a hit${bad.length ? ` (WRONG: ${bad.join('; ')})` : ''}; ${edges} of ${arcs} arcs early or late too; ${slid} of ${flats} flat lines in a slide; juked out of ${juked} of ${jukes} (missed them all), jumped over ${hopped} of ${flats} (missed some); a run without them took none on ${none}; only the hard course's runs have them ${regular}`};
+  });
+  check('Return Man coins: the first run of the day alone (the owner\'s word: "coins are only available on the 1st attempt"): coinsOpen says so for run 0 on the hard course while none of this person\'s phones has a run of the day on the board (as the board sees it: this phone\'s doc or another of theirs), never for a later run or the regular course; kept on the first run\'s record (c) and no other (no c ever on anyone else\'s runs: their records as they were); the board entry carries it, and The Keep\'s pay reads the most of a person\'s docs (dayCoins)', () => {
+    const LB = daily.LB, raw = LB.raw, all = LB.all, players = LB.players, uid = LB.uid, nick = LB.nick;
+    // (the boards take this phone's own doc as the profile the kit runs on, whatever its name: "his" docs carry that
+    // profile's name, "someone else's" another member's)
+    const {self, other: else1} = fixtureNames();
+    const me = (rm2) => ({id: 'rc-me', nick: self, total: 0, last: 1, rm2}), other = rm2 => ({id: 'rc-other', nick: self, total: 0, last: 2, rm2}), them = {id: 'rc-them', nick: else1, total: 0, last: 1, rm2: {5: {y: 300, l: 300, td: 3, t: 1}}};
+    const ent = (y, c) => Object.assign({y, l: y, td: 0, t: 1}, c == null ? {} : {c});
+    const ready = LB.ready, off = LB.off, err = LB.err;
+    let open, wait;
+    try {
+      LB.uid = 'rc-me'; LB.nick = self; LB.ready = true; LB.off = false; LB.err = undefined;
+      const at = list => { LB.raw = list; LB.players = list; LB.all = list; return R.coinsOpen(5, 0, true); };
+      open = {fresh: at([me({}), them]), mine: at([me({5: ent(80)}), them]), theirs: at([me({}), other({5: ent(80)}), them]), someoneElse: at([me({}), them]),
+        later: R.coinsOpen(5, 1, true), regular: R.coinsOpen(5, 0, false), early: R.coinsOpen(R.COIN.fromDay - 1, 0, true), elsewhere: R.ranElsewhere(5) === false};
+      at([me({}), other({5: ent(80)}), them]); open.elsewhere = open.elsewhere && R.ranElsewhere(5) === true;
+      wait = {ready: R.coinsWait(5, 0, true)};
+      // (the board not in yet: no telling it's the first, so none; the first kickoff waits for it, unless it's off)
+      at([me({}), them]); LB.ready = false; LB.raw = undefined; LB.players = [];
+      open.loading = R.coinsOpen(5, 0, true); wait.loading = R.coinsWait(5, 0, true); wait.later = R.coinsWait(5, 1, true); wait.regular = R.coinsWait(5, 0, false); wait.early = R.coinsWait(R.COIN.fromDay - 1, 0, true);
+      LB.ready = true; LB.off = true; open.off = R.coinsOpen(5, 0, true); wait.off = R.coinsWait(5, 0, true);
+      LB.off = false; LB.err = 'unavailable'; open.err = R.coinsOpen(5, 0, true); wait.err = R.coinsWait(5, 0, true);
+    } finally { LB.raw = raw; LB.all = all; LB.players = players; LB.uid = uid; LB.nick = nick; LB.ready = ready; LB.off = off; LB.err = err; }
+    const gate = open.fresh && !open.mine && !open.theirs && open.someoneElse && !open.later && !open.regular && !open.early && open.elsewhere
+      && !open.loading && !open.off && !open.err;
+    const waits = !wait.ready && wait.loading && !wait.later && !wait.regular && !wait.early && !wait.off && !wait.err;
+    // what's kept
+    const e0 = R.runEntry(0, 412.7, 500.2, 84), e1 = R.runEntry(1, 300, 300, 50), plain = R.runEntry(0, 120, 130), junk = R.runEntry(0, 10, 10, -4);
+    const kept = JSON.stringify(e0) === '{"y":412,"d":500,"c":84}' && JSON.stringify(e1) === '{"y":300,"d":300}' && JSON.stringify(plain) === '{"y":120,"d":130}' && JSON.stringify(junk) === '{"y":10,"d":10}';
+    const first = R.firstCoins({r: [e0, {y: 900, d: 900}]}) === 84 && R.firstCoins({r: [{y: 5, d: 5}, {y: 9, d: 9, c: 40}]}) === null && R.firstCoins({r: []}) === null;
+    const best = R.officialOf({r: [e0, {y: 900, d: 900}], at: 3});
+    const official = !!best && best.yards === 900;
+    // the board entry
+    const withC = R.entryOf({rm2: {5: ent(600, 84)}}, 5), without = R.entryOf({rm2: {5: ent(600)}}, 5), badC = R.entryOf({rm2: {5: ent(600, 2.5)}}, 5);
+    const board = withC && withC.c === 84 && Object.keys(without).join() === 'y,l,td,t' && !('c' in badC);
+    const far = R.coinsWithin(5, 2400);
+    const pay = far >= 84 && R.dayCoins([me({5: ent(2400)}), other({5: ent(200, 84)}), me({5: ent(10, 12)})], 5) === 84 && R.dayCoins([me({5: ent(600)})], 5) === 0 && R.dayCoins([], 5) === 0 && R.COIN.gold === 10;
+    // (never more than the day's course lays out within the yards he posted: a run's coins are all behind him, and his
+    // yards never fall short of how far he's run; past COIN.most, not a number any entry carries)
+    const within = R.coinsWithin(5, 300), co5 = R.coinsTo(R.course(5, 0, true), 400);
+    const counted = within === co5.coins.filter(c => c.z <= 301).length && R.coinsWithin(5, 0) === 0 && within > 0 && within < 84;
+    const bound = R.dayCoins([me({5: ent(300, 999)})], 5) === within && R.dayCoins([me({5: ent(300, 999)}), other({5: ent(2400)})], 5) === Math.min(999, far)
+      && R.dayCoins([me({5: ent(300, R.COIN.most + 1)})], 5) === 0 && R.COIN.most === 1000;
+    const pass = gate && waits && kept && first && official && board && pay && counted && bound;
+    return {pass, detail: `open: a fresh day ${open.fresh}, after a run on this phone ${open.mine}, on another of his ${open.theirs} (ranElsewhere ${open.elsewhere}), someone else's run doesn't count ${open.someoneElse}, run 2 ${open.later}, the regular course ${open.regular}, before the coins' first day (${R.COIN.fromDay}) ${open.early}, the board loading ${open.loading}, off ${open.off}, in error ${open.err}; waits for the board ${JSON.stringify(wait)} (${waits}); kept on the first run alone ${kept}, read back ${first}, the best run still counts ${official}; on the board ${board}; paid from the most of his docs, ${R.COIN.gold} Gold a coin ${pay}; never more than the course lays out within his yards (${within} within 300, ${far} within 2,400) ${counted && bound}`};
+  });
+  check('Return Man coins: a first run can\'t be run twice for its coins: Test play, or a new day, ends a paused run where it got to (as leaving the page does) before putting it aside, and a kickoff first ends any run of the day left under way (live), so the next is run 2 without coins; the coins\' sparkle can\'t stop the game (its age never below nothing, the canvas always restored)', async () => {
+    const view = await fetch(new URL('../views/return.js', import.meta.url)).then(r => r.text()).catch(() => '');
+    const ends = /function endPaused\(st\) \{\s*\n\s*if \(!st\.run \|\| st\.mode !== 'paused'\) return;\s*\n\s*keep\(st\); R\.settle\(st\.n\);/.test(view);
+    const test = /function testPlay\(st, on\) \{\s*\n[^\n]*\n\s*endPaused\(st\);\s*\n\s*R\.setTest\(on, st\.n\);/.test(view);
+    const day = /endPaused\(st\);\s*\n\s*st\.run = null; st\.mode = 'ready'; setDay\(st, R\.todayNumber\(\)\)/.test(view);
+    const kickoff = /if \(R\.live\(st\.n\)\) \{ R\.settle\(st\.n\);[^\n]*setDay\(st, st\.n\); \}\s*\n[^\n]*\n\s*const own = data\.isOwner\(\), k = st\.day\.next/.test(view);
+    const spark = /const a = Math\.min\(1, Math\.max\(0, \(now - s\.at\) \/ SPARK_MS\)\)/.test(view) && /\} finally \{ c\.restore\(\); \}/.test(view);
+    // (the core's side: a run left under way, settled, is the day's run 0, and the next is run 1)
+    const left = R.settle.length === 1 && R.live.length === 1;
+    const pass = ends && test && day && kickoff && spark && left;
+    return {pass, detail: `a paused run ended where it got to ${ends}: before Test play ${test}, at midnight ${day}; a kickoff ends a run left under way first ${kickoff}; the sparkle guarded ${spark}`};
+  });
+  check('Return Man coins are the owner\'s alone (CLAUDE.md: his profile only): the page starts a coin run only on his profile (and asks coinsOpen), shows the coins, the counter beside the yards and the sparkles only on a coin run on his profile (counting them only there), takes them away when the board shows his first run was on another phone, and on a profile change (another tab too) hides them, the run on his hard course ending where it is with the ones he took kept; his first kickoff waits for the board to tell it\'s the first; its end card says what they pay The Keep (or why a run has none: a later run, his first on another phone, the board not in) on his profile only, from the coins\' first day; the 3D coins are one instanced mesh (one draw call), made only on his profile; no picture to load, nothing new in the offline cache; the counter\'s there for everyone but hidden', async () => {
+    const get = f => fetch(new URL(f, import.meta.url)).then(r => r.text()).catch(() => '');
+    const [view, w3, w2, sw] = await Promise.all([get('../views/return.js'), get('../views/return-3dworld.js'), get('../views/return-world.js'), get('../../sw.js')]);
+    const start = /coins = own && R\.coinsOpen\(st\.n, k, own\);\s*\n\s*st\.run = R\.startRun\(st\.n, k, own, coins\);/.test(view)
+      && /if \(R\.coinsWait\(st\.n, st\.day\.next, true\)\) \{/.test(view); // (his first kickoff waits for the board)
+    const shown = /const coinsShown = st => !!\(st\.run && st\.run\.coins && data\.isOwner\(\)\)/.test(view) && /if \(coinsShown\(st\)\) A\.coins\.forEach/.test(view) && /const runCoins = st => \(st\.run && st\.run\.coins \? st\.run\.c : undefined\);/.test(view)
+      && /else if \(e\.type === 'coin'\) \{ if \(coinsShown\(st\)\) coinGot\(st, e, now\); else if \(st\.run\) st\.run\.c = Math\.max\(0, st\.run\.c - 1\); \}/.test(view);
+    // (taken away when the board shows another of his phones ran first; a profile change hides them and, on his hard
+    // course, ends the run where it is (the frame's whistle), keeping the ones he took: kept with the run, runCoins)
+    const recheck = /recheckCoins\(st\); \/\/ \(the board's in/.test(view) && /recheckCoins\(st\);\s*\n/.test(view)
+      && /if \(!run \|\| !run\.coins \|\| run\.over \|\| R\.testing\(\) \|\| !data\.isOwner\(\)\) return;\s*\n\s*if \(!R\.ranElsewhere\(st\.n\)\) return;\s*\n\s*R\.dropCoins\(run\)/.test(view)
+      && /st\.run\.co\.hard && !data\.isOwner\(\)\) \{ R\.stop\(st\.run\); tackled\(st\); \}/.test(view);
+    const card = /if \(!data\.isOwner\(\) \|\| !run \|\| !run\.co\.hard\) return '';/.test(view) && /if \(!R\.testing\(\) && st\.n < R\.COIN\.fromDay\) return '';/.test(view)
+      && ['Coins are only on your first run.', 'Your first run today was on another phone: its coins are the ones that count.', 'No coins this run', '(test play: not paid)'].every(w => view.includes(w)) && /Gold for The Keep/.test(view);
+    const one = (w3.match(/new T\.InstancedMesh\(/g) || []).length === 1 && /function coinsUpdate\(st, A, t\) \{\s*\n\s*if \(!\(A && st\.run && st\.run\.coins && data\.isOwner\(\)\)\)/.test(w3) && /m\.castShadow = false/.test(w3);
+    const flat = /export function coin\(st, c, cn, t\)/.test(w2) && !/coin[^'"\n]*\.(png|jpe?g|webp|glb|svg)/i.test(w2 + w3 + view) && !/coin/i.test(sw);
+    const host = document.createElement('div');
+    host.innerHTML = (await import('../views/return.js')).render({});
+    const chip = host.querySelector('.rm-hl [data-rm-ychip] + [data-rm-coins][hidden] [data-rm-cn]');
+    const pass = start && shown && recheck && card && one && flat && !!chip;
+    return {pass, detail: `started on his profile alone ${start}; shown on his alone ${shown}; taken away on the board or a profile change ${recheck}; the end card's ${card}; one instanced mesh, his alone ${one}; nothing to load or cache ${flat}; the counter beside the yards, hidden ${!!chip}`};
   });
   check('Return Man: its stylesheet (css/views/return.css) is linked: the version mark is on :root', () => {
     const v = getComputedStyle(document.documentElement).getPropertyValue('--rm-css').trim();

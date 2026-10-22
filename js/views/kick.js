@@ -7,7 +7,14 @@
 // run. Then the run's numbers and the league's scoreboard (Today / Week).
 // The physics, the day's kicks, memory and the board are core/kick.js; this draws (one canvas) and takes the flick.
 // A finger on the field shows how to kick (the guide), and three steps under it say it.
-// Exports: render(ctx), mount(el, ctx, {anchor}), params(el, ctx), unmount(el, ctx). Owner: KICK.
+// The Keep's Gold (the owner's alone, Oct 21 2026): on his profile every 5th, 10th, 15th... make bursts coins up from
+// the posts with "+1,000" (and the game's haptic, its celebration pattern; not when a run from another of his phones
+// already counts today: only the first run pays), and the run's final card says what the day pays The Keep ("+2,000
+// Gold for The Keep"; core/kick.js goldOf, countingRun). From the first day paid this way (Thu Oct 22 2026: goldDay);
+// his Test play shows it any day, saying it isn't paid. Everyone else's game is as it was:
+// nothing of it is drawn, added to the page or said on their phones, and it goes the moment the profile changes.
+// Exports: render(ctx), mount(el, ctx, {anchor}), params(el, ctx), unmount(el, ctx); keepHTML, burstHTML (the kit
+// checks). Owner: KICK.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as daily from '../core/daily.js';
@@ -21,7 +28,7 @@ const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 const ST = new WeakMap(); // ctx -> pane state
 
 // The stylesheet's mark (--kk-css on :root): a home-screen app open across an update adds the current file.
-const CSS_V = '7';
+const CSS_V = '8';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--kk-css').trim() === CSS_V || document.querySelector('link[data-kk-css]')) return;
@@ -88,8 +95,78 @@ function overHTML(st) {
     + `<p class="kk-over-h">${esc(head)}</p>`
     + `<p class="kk-over-s">${esc(d.longest ? `Longest ${d.longest} yds · ${d.yards} yds in all · ${plural(d.list.length, 'kick')}` : `${plural(d.list.length, 'kick')}, none through`)}</p>`
     + (d.practice && d.official ? `<p class="kk-over-p">${esc(`Practice run. Your first run today (${plural(d.official.made, 'field goal')}) is the one on the scoreboard.`)}</p>` : '')
+    + (st.keepSig = keepNow(st))
     + ui.button({label: 'See the scoreboard', kind: 'primary', icon: 'trophy', cls: 'kk-sb-go', attrs: {'data-kk-sb': ''}})
     + `<p class="kk-over-t">${ui.icon('clock', {size: 14})}<span>${esc(`New kicks in ${ui.untilText(msToMidnight())}`)}</span></p></div>`;
+}
+// ---------------------------------------------------------------- The Keep's Gold (the owner's alone)
+const COIN = '<i class="kk-coin" aria-hidden="true"></i>';
+const num = v => Number(v).toLocaleString('en-US');
+/** The Keep's line on the run's final card: what the day pays in Gold ("+2,000 Gold for The Keep"). The owner's alone:
+ *  '' on anyone else's profile, so their card is as it was. o: {owner, test (Test play: shown, never paid), made (this
+ *  run's makes), run (core/kick.js countingRun: the run that pays, which on another phone may be another run),
+ *  practice (an old practice run: its own note already says which run counts)}. */
+export function keepHTML({owner, test, made, run, practice} = {}) {
+  if (!owner) return '';
+  const g = K.goldOf(test || !run ? made : run.m);
+  const words = test ? (g ? `+${num(g)} Gold` : 'No Gold') : g ? `+${num(g)} Gold for The Keep` : 'No Gold for The Keep today';
+  const sub = test ? 'Test play: nothing’s paid to The Keep.'
+    : run && run.m !== made && !practice ? `From your first run today: ${plural(run.m, 'field goal')}.`
+    : !g ? `${num(K.GOLD.each)} Gold for every ${K.GOLD.every}th field goal.` : '';
+  return `<p class="kk-over-g${g ? '' : ' is-none'}${test ? ' is-test' : ''}" data-kk-gold>${COIN}<span>${esc(words)}</span></p>`
+    + (sub ? `<p class="kk-over-gs">${esc(sub)}</p>` : '');
+}
+/** Whether this run shows The Keep's Gold: the owner's, on a day paid this way (core/kick.js goldDay: from Thu Oct 22
+ *  2026), or his Test play (a sandbox: it shows what a real run would, on any day). */
+const keepShows = st => data.isOwner() && (K.testing() || K.goldDay(st.n));
+/** keepHTML for this phone now: '' unless it's the owner's (and the day pays this way). */
+function keepNow(st) {
+  const owner = keepShows(st), test = K.testing();
+  return keepHTML({owner, test, made: st.day.made, run: owner && !test ? K.countingRun(st.n) : null, practice: !!(st.day.practice && st.day.official)});
+}
+/** The coin burst's insides: coins flying up and out from the posts (each its own way, spin and delay, the same every
+ *  time) and "+1,000" under the call. */
+export function burstHTML(amount = K.GOLD.each) {
+  const N = 14, coins = Array.from({length: N}, (_, j) => {
+    const a = j / (N - 1) * 2 - 1, dx = Math.round(a * 120 + ((j * 37) % 23) - 11), dy = -Math.round(105 + ((j * 53) % 70));
+    const r = ((j * 97) % 540) - 270, d = (j * 29) % 170, s = 16 + (j * 7) % 10;
+    return `<i class="kk-coin kk-coin-f" style="--dx:${dx}px;--dy:${dy}px;--r:${r}deg;--d:${d}ms;--s:${s}px"></i>`;
+  }).join('');
+  return `${coins}<b class="kk-coins-n">${COIN}<span>+${esc(num(amount))}</span></b>`;
+}
+/** A make that pays (the 5th, 10th...): coins burst up from the crossbar, "+1,000" under the call. The owner's alone;
+ *  false (nothing shown) on anyone else's profile. */
+function coinBurst(st) {
+  const stage = st.el.querySelector('[data-kk-stage]');
+  if (st.dead || !stage || !data.isOwner()) return false;
+  clearBurst(st);
+  const sc = st.scene || kickNow(st), p = proj(st, sc.gx, K.POST.bar, sc.d), call = st.el.querySelector('[data-kk-call]');
+  const under = call ? call.offsetTop + call.offsetHeight + 12 : st.H * .5;
+  const b = document.createElement('div');
+  b.className = 'kk-coins';
+  b.setAttribute('data-kk-coins', '');
+  b.setAttribute('aria-hidden', 'true');
+  b.style.setProperty('--ox', `${Math.round(Math.max(40, Math.min(st.W - 40, p.x)))}px`);
+  b.style.setProperty('--oy', `${Math.round(Math.max(60, Math.min(st.H * .6, p.y)))}px`);
+  b.style.setProperty('--ly', `${Math.round(Math.min(st.H - 140, under))}px`);
+  b.innerHTML = burstHTML();
+  stage.appendChild(b);
+  st.timers.push(setTimeout(() => b.remove(), 1800));
+  ui.announce(`Plus ${num(K.GOLD.each)} Gold for The Keep.`);
+  return true;
+}
+const clearBurst = st => st.el.querySelectorAll('[data-kk-coins]').forEach(x => x.remove());
+/** Whether, while this run is played, today's run that pays is already another's: one posted from another of the
+ *  owner's phones (this phone posts its run only once it's finished). Test play (a sandbox) shows the Gold as a real
+ *  first run would. */
+const otherRunCounts = st => !K.testing() && !st.day.done && (K.countingRun(st.n) || {}).from === 'board';
+/** The profile changed (here or in another tab), or the board did on the owner's phone: the final card again, with or
+ *  without The Keep's line; a burst on the field goes if it's no longer the owner's. */
+function patchKeep(st) {
+  if (st.dead) return;
+  if (!data.isOwner()) clearBurst(st);
+  const over = st.el.querySelector('[data-kk-over]');
+  if (over && !over.hidden && st.day.done && keepNow(st) !== st.keepSig) over.innerHTML = overHTML(st);
 }
 // The guide's finger (a hand, index finger up; the ring at its tip is where it touches).
 const HAND = `<svg viewBox="0 0 44 56"><circle class="kk-guide-ring" cx="17" cy="7" r="7"/>`
@@ -956,7 +1033,10 @@ function showCall(st, call, wind) {
   el.innerHTML = `<span>${esc(callWords(call))}</span>${note ? `<span class="kk-call-w">${esc(note)}</span>` : ''}`;
   el.className = `kk-call is-in ${call.made ? 'is-good' : 'is-miss'}${note ? ' has-w' : ''}`;
   if (call.made) st.cheer = performance.now() + 2600; // the crowd's phones go off
-  ui.haptic(call.made ? 'success' : 'error');
+  // the 5th, 10th, 15th... make on the owner's profile: The Keep's Gold (coinBurst does nothing on anyone else's);
+  // not when a run from another of his phones already counts today (this one pays nothing: only the first run pays)
+  const pays = call.made && K.goldMake((st.after || st.day).made) && keepShows(st) && !otherRunCounts(st) && coinBurst(st);
+  ui.haptic(call.made ? (pays ? 'celebrate' : 'success') : 'error');
 }
 function settle(st, call) {
   // saved when it was kicked (onUp); shown now it's down
@@ -1060,6 +1140,8 @@ function testPlay(st, on) {
   if (st.flight || st.drag || !canTest()) return;
   K.setTest(on, st.n);
   st.timers.forEach(clearTimeout); st.timers = [];
+  clearBurst(st);
+  guide(st, false); // (a finished day's card has no guide under it: armGuide below only shows one)
   st.move = null; st.after = null;
   setDay(st, st.n);
   st.busy = st.day.done;
@@ -1140,7 +1222,13 @@ export function mount(el, ctx) {
   el.addEventListener('click', st.onClick);
   st.onResize = () => { if (!st.dead) { size(st); draw(st); placeGuide(st); fitScreen(st); } };
   addEventListener('resize', st.onResize, {passive: true});
-  st.unsub = daily.subscribe(type => { if (type === 'lb' || type === 'ready' || type === 'error') patchBoard(st); });
+  st.unsub = daily.subscribe(type => {
+    if (type === 'lb' || type === 'ready' || type === 'error') patchBoard(st);
+    // the owner's card says what the run that counts pays: it may have come in from another of his phones
+    if (type === 'lb' && data.isOwner()) patchKeep(st);
+  });
+  // The Keep's Gold is the owner's alone: a profile change (here or in another tab) puts it on or takes it off
+  st.unme = data.subscribe(type => { if (type === 'me') patchKeep(st); });
   st.stopTick = ctx.timer(() => tick(st), 20000);
   st.stopLife = ctx.timer(() => idle(st), 70);
   K.autoPost();
@@ -1193,6 +1281,7 @@ export function unmount(el, ctx) {
   el.removeEventListener('click', st.onClick);
   removeEventListener('resize', st.onResize);
   if (st.unsub) st.unsub();
+  if (st.unme) st.unme();
   if (st.stopTick) st.stopTick();
   if (st.stopLife) st.stopLife();
   ST.delete(ctx);
