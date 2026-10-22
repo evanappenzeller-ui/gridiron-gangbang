@@ -40,6 +40,9 @@
 //                                               what ended it
 //   CHASE, gapOf(run), chasing(run), hitLine(what)   the linebacker behind you: how far back he is now, whether he's
 //                                               on you (a hit now is a tackle); a hit's words
+//   CONE, coneZ(row), fallsIn(e)                the cone before each pothole (no obstacle: knocked flying); whether
+//                                               a hit is a fall into a pothole (the only thing he falls into)
+//   FALL, fallPlan(run, row), fallAt(plan, s, d)   that fall's picture: how long, how far it's held back, how far down
 //   dayState(n, real), record(n, k, yards, dist), score(list), totals()   localStorage 'gg-ret1'
 //   keepLive(n, k, yards, dist), settle(n), live(n)   a return under way: kept as it goes, counted if it's left behind
 //   setTest(on, n), testing()                   test play (the owner's sandbox; his way to play it again)
@@ -106,6 +109,20 @@ export const OBST = {
 export const HARD_OBST = ['hole', 'sled'];
 export const HOLES = {stadium: 'divot', tailgate: 'pothole', city: 'pothole', tundra: 'ice hole', desert: 'sinkhole', market: 'open manhole',
   beach: 'sand pit', space: 'crater', farm: 'mud pit'};
+// A traffic cone stands just before every pothole, in its lane (the owner's ask, Oct 2026: a marker to see it coming),
+// before yards short of its middle (the hole's HOLE_LEN long), h yards tall, r across its base, on a foot yards square.
+// It's no obstacle: it never trips him and never counts as a hit; run through it (his feet under its top, and not on
+// his way up in a jump) and it's knocked flying (step says 'coned'). A jump over the pothole carries him over it too:
+// on his way up at the cone, he's sure to clear the hole.
+export const CONE = {before: 1.75, h: .88, r: .28, foot: .62, name: 'traffic cone'};
+export const HOLE_LEN = 2.1;
+/** Where a pothole's cone stands (row: its row; the cone's in the hole's lane): z yards. */
+export const coneZ = row => row.z - CONE.before;
+// The pothole is the only thing he falls into (the owner's ask, Oct 2026): a hit on one (a stumble, the salts shaking
+// the linebacker off, the tackle) is a fall in, views/return.js draws it; every other hit keeps its own stumble.
+export const FALL_IN = ['stumbled', 'revived', 'tackled'];
+/** Whether a hit (step's event) is a fall into a pothole. */
+export const fallsIn = e => !!e && e.ob === 'hole' && FALL_IN.includes(e.type);
 // What stands in the lanes: each place's own (KINDS, below): vehicles to go round or climb (a tall one, HIGH_H yards;
 // a ramp up onto its roof, or not), low ones to jump on (LOW_H), and things to climb: ramps up onto rocks and crates,
 // steps of hay bales, a flatbed and its cab, piers with a gap between, pads floating in the air. Each is one or more
@@ -121,7 +138,8 @@ export const THEMES = [
   {id: 'stadium', name: 'The Stadium', kinds: [['teambus', 1], ['bench', 1.2]]},
   {id: 'tailgate', name: 'The Tailgate', kinds: [['rv', 1], ['pong', 1.2]]},
   {id: 'city', name: 'The City', kinds: [['citybus', 1], ['ramptruck', 1], ['parkedcar', 1.2]]},
-  {id: 'tundra', name: 'The Frozen Tundra', kinds: [['plow', 1], ['snowbank', 1.2]]},
+  // (hard: the hard course's own, when it has them: its tundra the plow alone, no snow pile, the owner's ask, Oct 2026)
+  {id: 'tundra', name: 'The Frozen Tundra', kinds: [['plow', 1], ['snowbank', 1.2]], hard: [['plow', 1]]},
   {id: 'desert', name: 'The Desert', kinds: [['train', .7], ['canyon', 1], ['minecart', 1], ['wagonbridge', 1]]},
   {id: 'market', name: 'Farmers Market', kinds: [['producetruck', .6], ['producecart', 1], ['marketramp', 1], ['awning', 1]]},
   {id: 'beach', name: 'The Beach', kinds: [['icecream', .6], ['lifeguard', 1], ['buggy', 1], ['pier', 1]]},
@@ -172,11 +190,12 @@ export const KINDS = {
   trailer: {name: 'farm trailer', build: r => [{at: 4, len: 5.5 + r() * 2, h: 1.3, ramp: 4}]},
   fence: {name: 'fence', build: r => (r() < .5 ? [{at: 0, len: .35, h: .9}, {at: 7, len: .35, h: .9}] : [{at: 0, len: .35, h: .9}])}
 };
-function pickKind(th, r) {
-  const sum = th.kinds.reduce((a, k) => a + k[1], 0);
+/** A thing of the place's (th.kinds; on the hard course its hard ones, when it has them), by their weights. */
+function pickKind(th, r, hard = false) {
+  const kinds = (hard && th.hard) || th.kinds, sum = kinds.reduce((a, k) => a + k[1], 0);
   let u = r() * sum;
-  for (const [id, w] of th.kinds) { if ((u -= w) < 0) return id; }
-  return th.kinds[0][0];
+  for (const [id, w] of kinds) { if ((u -= w) < 0) return id; }
+  return kinds[0][0];
 }
 // The power-ups: salts (you can carry SALTS_MAX), pills (seconds) and booze (seconds of double yards).
 // is, does: what it is and what it does, in a line each (said when you pick one up).
@@ -214,6 +233,51 @@ export const burstOf = run => (run && run.burst > 0 ? BURST.k * Math.min(1, run.
 // And while he's still in the picture (under seen yards back: the camera rides 7 behind you, views/return.js), falling
 // away once he's lost you, a hit is the tackle too (the owner's ask, Oct 2026: a stumble with him in frame is a tackle).
 export const CHASE = {near: 2.2, edge: 3.4, far: 9, window: 4, drop: .6, slow: 1, slowBy: .45, grace: .35, runUp: .55, seen: 5.7};
+// The picture of a fall into a pothole (views/return.js draws it; its timing is here so the kit checks can hold it to
+// the rules'): he drops in (the first drop of it), is held in the hole (to hold), climbs out over its far rim (to
+// climb) and runs on, the picture (him, and the camera with him) held back at most lag yards from where he really is.
+// It's back on him, all of it over, by end seconds after the hit (CHASE.grace: nothing else can hit him till then) and
+// clear seconds before the next thing he could meet in any lane (a row, a vehicle, a power-up), so nothing coming is
+// ever judged from a picture held back. With less time than that it's held back less (not at all with none), and it
+// takes min seconds at the least. Its parts go by his speed: down in the hole (drop) before the picture's held back as
+// far as it may be, held in it till then (hold), out over its far rim as quick as he's carried there (climb), the rest
+// of it catching back up; at the most these fractions of the whole.
+export const FALL = {end: CHASE.grace, clear: .3, min: .16, lag: 1.8, drop: .23, hold: .4, climb: .63};
+/** A fall's plan, for a run that's just stepped in a pothole (row): {z (the hole's middle), D (seconds the fall
+ *  lasts), cap (yards it may hold the picture back), drop, hold, climb (seconds from the hit each part ends)}. */
+export function fallPlan(run, row) {
+  const co = run.co, z0 = row.z, v = speedAt(z0, co.hard) * (1 + burstOf(run)); // (unslowed: the soonest he could be there)
+  if (co.done < z0 + 60) fill(co, z0 + 60);
+  let next = Infinity;
+  co.rows.forEach(r => { if (r.z > z0 + .01 && r.z < next && r.lanes.some(Boolean)) next = r.z; });
+  co.sets.forEach(s => { if (s.zs > z0 + .01 && s.zs < next) next = s.zs; });
+  co.items.forEach(it => { if (it.z > z0 + .01 && it.z < next) next = it.z; });
+  const room = (next - z0) / v - FALL.clear, D = clamp(room, FALL.min, FALL.end), cap = FALL.lag * clamp(room / FALL.end, 0, 1);
+  const vs = v * (1 - CHASE.slowBy), held = Math.max(.03, cap / vs); // (his speed just after the hit, slowed)
+  const drop = Math.min(FALL.drop * D, .6 * held), hold = clamp(held, drop, FALL.hold * D);
+  return {z: z0, D, cap, drop, hold, climb: Math.min(FALL.climb * D, hold + Math.max(.05, 1.1 * (HOLE_LEN / 2 + .15) / vs))};
+}
+/** A fall s seconds after the hit, d yards he's really run on past the hole's middle since (plan: fallPlan's): {lag
+ *  (yards the picture's held back: he shows d - lag past the middle), k (how far down in it, 0 to 1), u (0 to 1: through
+ *  its moves, in and out), done}. Held in the hole only while that's within lag; past that he's carried on through it,
+ *  coming up out of it as he gets to its far rim. (Asked in order through the fall: it keeps on the plan how far back
+ *  he's been since he started climbing out, lo and out.) */
+export function fallAt(plan, s, d) {
+  const {D, drop, hold, climb} = plan;
+  if (!(s < D)) return {lag: 0, k: 0, u: 1, done: true};
+  const sm = v => { v = clamp(v, 0, 1); return v * v * (3 - 2 * v); }, half = HOLE_LEN / 2;
+  const up = s < hold ? 0 : sm((s - hold) / (climb - hold));
+  let lag = Math.max(0, Math.min(d - up * (half + .15), plan.cap));
+  if (s >= hold) {
+    // climbing out he only ever gains on where he is; out of it, he catches up from however far back he was then
+    if (s >= climb && plan.out == null) plan.out = Math.min(plan.lo ?? lag, lag);
+    lag = plan.lo = Math.min(plan.lo ?? lag, lag, plan.out == null ? Infinity : plan.out * (1 - sm((s - climb) / (D - climb))));
+  }
+  const at = d - lag;
+  const k = Math.max(0, Math.min(s < drop ? 1 - (1 - s / drop) ** 2 : 1 - up, 1 - sm((at - .2) / (half - .2))));
+  const u = s < drop ? .27 * s / drop : k > .999 ? .27 + .28 * clamp((s - drop) / Math.max(.001, hold - drop), 0, 1) : .55 + .45 * (1 - k);
+  return {lag, k, u, done: false};
+}
 
 function hashStr(str) {
   let h = 0x811c9dc5 | 0;
@@ -308,7 +372,7 @@ function addSet(co, z, L) {
   const r = co.r, th = zoneAt(co, z).theme, lanes = shuffle([0, 1, 2], r), two = co.hard ? L > .1 && r() < HARD_GAP.two : L > .2 && r() < .45;
   const plats = [];
   lanes.slice(0, two ? 2 : 1).forEach(lane => {
-    const kind = pickKind(th, r), parts = KINDS[kind].build(r, L, speedOn(co, z) / 10), from = Math.min(...parts.map(q => q.at - (q.ramp || 0)));
+    const kind = pickKind(th, r, co.hard), parts = KINDS[kind].build(r, L, speedOn(co, z) / 10), from = Math.min(...parts.map(q => q.at - (q.ramp || 0)));
     parts.forEach((q, i) => {
       const z0 = z + q.at - from;
       plats.push({lane, kind, part: i, z0: round2(z0), z1: round2(z0 + q.len), h: q.h, b: q.b || 0, ramp: q.ramp || 0, hi: q.h >= 2});
@@ -379,7 +443,7 @@ export const platAt = (co, lane, z) => blockAt(co, lane, z, 0);
 /** A new return: day n's run k (on the day's course: every run the same), you in the middle lane where you field it. */
 export function startRun(n, k, hard = false) {
   return {n, k, co: course(n, 0, hard), t: 0, steps: 0, z: 0, yards: 0, lane: 1, x: 0, jFrom: 0, jt: 1, y: 0, vy: 0, jumpQ: -9,
-    slide: 0, lastJuke: -9, bump: -9, next: 0, nextItem: 0, zone: 0, tds: 0,
+    slide: 0, lastJuke: -9, bump: -9, next: 0, nextCone: 0, nextItem: 0, zone: 0, tds: 0,
     salts: 0, pills: 0, booze: 0, shield: 0, burst: 0, over: false, why: null, by: null,
     hits: 0, hitAt: 0, slow: 0, grace: 0, knock: 0, sideHit: null,
     stumblePending: false, lastHit: null}; // (the linebacker starts on you, at the catch)
@@ -519,8 +583,13 @@ function sub(run, dt, out) {
   if (zone > run.zone) { run.zone = zone; out.push({type: 'zone', z: run.z, theme: zoneAt(co, run.z).theme}); }
   const tds = tdsAt(run.z);
   if (tds > run.tds) { run.tds = tds; out.push({type: 'td', z: run.z, n: tds}); }
-  // the rows: a barricade jumped, a banner slid under (or up over either, on a roof), or a hit
   const rows = co.rows;
+  // the cones before the potholes (CONE): run through one and it's knocked flying; never a hit
+  while (run.nextCone < rows.length && coneZ(rows[run.nextCone]) <= run.z) {
+    const row = rows[run.nextCone++];
+    if (row.lanes[lane] === 'hole' && run.y < CONE.h && !(run.vy > 0)) out.push({type: 'coned', row, lane, z: run.z});
+  }
+  // the rows: a barricade jumped, a banner slid under (or up over either, on a roof), or a hit
   while (run.next < rows.length && rows[run.next].z <= run.z) {
     const row = rows[run.next++], ob = row.lanes[lane];
     // Something you've just left behind in the lane you juked out of: a juke.
@@ -551,8 +620,9 @@ function sub(run, dt, out) {
   run.knock = Math.max(0, run.knock - dt);
 }
 /** Moves a return on dt seconds. Returns what happened: [{type: 'td' | 'zone' | 'juked' | 'hurdled' | 'slid' | 'over' |
- *  'passed' | 'landed' | 'pickup' | 'trucked' | 'vaulted' | 'stumbled' | 'shoved' | 'revived' | 'tackled' | 'crashed', z, ...}]
- *  ('juked': you left a thing's lane in the last moment before it; 'over': it was below you; 'trucked', 'vaulted':
+ *  'passed' | 'landed' | 'pickup' | 'coned' | 'trucked' | 'vaulted' | 'stumbled' | 'shoved' | 'revived' | 'tackled' | 'crashed', z, ...}]
+ *  ('juked': you left a thing's lane in the last moment before it; 'over': it was below you; 'coned': you ran through
+ *  a pothole's cone (row, lane), knocking it flying: nothing more; 'trucked', 'vaulted':
  *  through a barricade or banner, or up onto a vehicle you'd have hit, on painkillers; 'stumbled': a hit, the linebacker on you
  *  (n: hits so far); 'shoved': the same collision a moment on; 'revived': the salts shook him off; 'tackled' (caught):
  *  he ran you down; 'crashed': head on into a tall one's front, on the hard course). */

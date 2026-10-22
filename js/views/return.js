@@ -10,6 +10,8 @@
 // him and puts the linebacker on his back, the screen's edges red; run on clean and the linebacker drops out of sight
 // below. A hit while he's there (at the catch he starts there too) and he tackles him: a card says where, with Run it
 // again (as many runs as you like, the best of the day counts: the owner's ask, Oct 2026), the scoreboard under it.
+// On the hard course a pothole (an orange cone just before each, kicked flying if he runs through it) is the one thing
+// he falls into: down into it, the camera dipping, and scrambling out (FALL; the owner's ask, Oct 2026).
 // Every 100 yards is a touchdown.
 // The scene is in real 3D (the owner's ask, Oct 2026): the world (views/return-3dworld.js: each place's ground, what
 // stands beside the road, the gates, the barricades and banners, the vehicles, the power-ups) and the players
@@ -299,8 +301,10 @@ function runnerAnim(st, now) {
     const p = (now - st.catchAt) / CATCH_MS;
     return p < CATCH_HANDS ? {f: 'wr.r_b1', mo: {t}} : {f: 'wr.high', ex: {lift: .04 * Math.sin(Math.PI * Math.min(1, (p - CATCH_HANDS) / (1 - CATCH_HANDS)))}};
   }
+  const fl = fallOf(st, now);
   if (run.over) {
     const e = now - st.downAt, dir = fallDir(run);
+    if (fl) return {f: 'rb.stiff_b', flip: dir < 0, ex: {rot: dir * .3 * Math.min(1, e / 300)}}; // (tackled in a pothole: over forward)
     if (e < 140) return {f: 'rb.lunge', flip: dir < 0, ex: {rot: dir * .14 * e / 140}};
     const k = Math.min(1, (e - 140) / 380);
     return {f: 'rb.dive', flip: dir < 0, dz: .9 * smooth(k), ex: {lift: .2 * Math.sin(Math.PI * k)}};
@@ -309,6 +313,9 @@ function runnerAnim(st, now) {
   // (a stumble: he staggers, side to side, as he gets going again)
   const wob = run.slow > 0 ? Math.sin(run.slow * 22) * .7 * run.slow / R.CHASE.slow : 0;
   const mo = {ph, t, land: st.landAt ? (now - st.landAt) / 1000 : null, lean: (R.xOf(run, run.lane) - run.x) / 1.2 + wob};
+  // in a pothole (from behind, the ball tucked): dropping in and caught in it, an arm out onto its far rim, then
+  // stepping up out of it
+  if (fl && fl.pose) return fl.u < .8 ? {f: 'rb.stiff_b', flip: run.x > .5, ex: {rot: (run.x > .5 ? -1 : 1) * .05 * fl.k}} : {f: strideOf(run.steps), mo, ex: {sy: 1.04}};
   const ee = st.edgeAt ? now - st.edgeAt : 1e9, he = st.hitAt ? now - st.hitAt : 1e9, low = h < .1 && !run.slide;
   if (ee < 110) return {f: st.edgeDir > 0 ? 'rb.r_r0' : 'rb.r_l0', ex: {rot: st.edgeDir * .22}};
   if (he < 150 && low) return {f: 'rb.lunge', flip: st.hitDir < 0};
@@ -350,6 +357,51 @@ function chaserAnim(st, now, z) {
 // quick, out of it slower.
 const SIDE_S = .32;
 const leanOf = u => (u < 0 || u >= 1 ? 0 : u < .35 ? smooth(u / .35) : 1 - smooth((u - .35) / .65));
+// A pothole stepped in (core fallsIn: the only thing he falls into, the owner's ask, Oct 2026): he drops into it to
+// his waist (deep yards), is held in it a moment (bent over its far rim, both hands out on it, the ball kept tucked),
+// climbs out over that rim and runs on, a puff of the hole's dust and bits of its rim kicked up. Its timing is core's
+// (R.FALL, fallPlan, fallAt: over within CHASE.grace, and well before whatever's next, so nothing coming is ever judged
+// from a picture held back): the picture's held back with him, never more than R.FALL.lag yards, the camera with it
+// (so he stays where he always is on the screen), and the camera dips (dip yards, back up easier than it went down).
+// With reduced motion the camera does neither: it stays on where he really is. Hit on his way up in a jump (too late
+// to clear it), it's the usual lurch. Tackled in it, he goes over forward onto its rim, still down in it. The hit
+// itself is the same as ever (core: a stumble, the linebacker, a tackle if he's on him); every other hit keeps its own
+// stumble (and eases the picture back onto him in out ms, if one comes while it's held back).
+const FALL = {deep: .9, dip: .7, out: 120, splash: .5};
+const clamp01 = v => Math.max(0, Math.min(1, v));
+/** Starts the fall into a pothole for a hit (only a pothole's: core fallsIn; any other hit ends one). Whether it did. */
+function fallIn(st, e, now) {
+  const run = st.run;
+  if (!R.fallsIn(e) || (run.vy > 0 && run.y > .02)) { endFall(st, now); return false; }
+  st.fall = {at: now, t: run.t, z: e.row.z, x: R.xOf(run, e.lane), th: e.row.th, i: e.row.i, plan: R.fallPlan(run, e.row)};
+  st.splash = {t: run.t, z: e.row.z, x: st.fall.x, th: e.row.th, i: e.row.i};
+  return true;
+}
+/** Ends a fall early (another hit), the picture eased back onto him rather than snapped. */
+function endFall(st, now) {
+  if (st.fall && st.lag > 0) st.lagOut = {v: st.lag, at: now};
+  st.fall = null;
+}
+/** Yards he's drawn back from where he is while a fall cut short eases out (draw's st.lag then): with the camera, so
+ *  he keeps his place on the screen and the world eases on round him (in a fall, fallOf's z says where he shows). */
+const easeBack = st => (st.fall ? 0 : st.lag || 0);
+/** The fall into a pothole now, or null: {k (how far down he is, 0 to 1), lag (yards the picture's held back), z (where
+ *  he shows), pose (whether he's in its moves: in it or climbing out), u (0 to 1 through them: the 3D clip's), s
+ *  (seconds since), over (tackled in it), hole (its middle)}. */
+function fallOf(st, now) {
+  const f = st.fall, run = st.run;
+  if (!f || !run) return null;
+  if (run.over) {
+    // tackled in it: still down in it (his feet short of its middle), driven over forward onto its far rim
+    const k = smooth(clamp01((now - f.at) / 140));
+    return {k, lag: 0, z: f.z - .3, pose: true, u: .5, s: (now - f.at) / 1000, over: true, hole: f.z};
+  }
+  const s = run.t - f.t, F = R.fallAt(f.plan, s, run.z - f.z);
+  if (F.done) { st.fall = null; return null; }
+  // (up out of it at once if he's left it: jumped out, or juked out of its side)
+  const k = F.k * clamp01((1.15 - Math.abs(run.x - f.x)) / .35) * clamp01(1 - run.y / .45);
+  return {k, lag: F.lag, z: run.z - F.lag - .25 * k, pose: k > .02 && !(run.vy > 0), u: F.u, s, hole: f.z};
+}
 /** The returner's 3D pose now (return-3d.js pose's spec; dz: yards on from where he is, thrown forward going down). */
 function runner3(st, now) {
   const run = st.run, t = now / 1000;
@@ -361,10 +413,16 @@ function runner3(st, now) {
   }
   const off = Math.min(1, Math.max(0, (now - st.catchAt - CATCH_MS) / 240)); // (out of the catch, into his stride)
   const o = {move: 'run', phase: run.steps / D3.STRIDE, t, carry: .5 + .5 * off, catch: .5 * (1 - off), ball: true};
+  const fl = fallOf(st, now);
   if (run.over) {
     const k = Math.min(1, (now - st.downAt) / 420);
+    // (tackled in a pothole: down in it to his waist, his chest driven over forward onto its far rim)
+    if (fl) return Object.assign(o, {move: 'fallin', u: .5, carry: .3, pitch: .2 + .45 * smooth(k), lift: -FALL.deep * fl.k, turn: 0, roll: 0, dz: fl.z - run.z});
     return Object.assign(o, {move: 'fall', u: k, pitch: 1.48 * k * k, lift: .15 * k, turn: fallDir(run) * .55 * k, dz: .25 * k});
   }
+  // in a pothole: dropped in, bent over its far rim with both hands on it, climbing out (held back with the camera: dz)
+  if (fl) o.dz = fl.z - run.z;
+  if (fl && fl.pose) return Object.assign(o, {move: 'fallin', u: fl.u, carry: .2, lift: -FALL.deep * fl.k, pitch: .12 + .28 * fl.k, turn: 0, roll: 0});
   const g = R.groundAt(run.co, R.laneOf(run), run.z, run.y), h = run.y - g;
   const js = (run.t - run.lastJuke) / SIDE_S, dir = js < 1 ? Math.sign(R.xOf(run, run.lane) - run.jFrom) : 0;
   // the move: a slide; in the air (the jump's clip by how fast he's going up or down: tucked at the top, reaching for
@@ -416,11 +474,17 @@ function drawLanes(st, c, now) {
   const run = st.run, t = now / 1000, list = [];
   const rz = run ? run.z : 0, rx = run ? run.x : 0, ry = run ? run.y : 0;
   if (run) {
-    const A = R.ahead(run, 120, PAST + 2);
+    const lag = st.lag || 0, A = R.ahead(run, 120, PAST + 2 + lag); // (further back while he's held back in a pothole)
     A.sets.forEach(({set}) => set.plats.forEach(p => { const X = R.xOf(run, p.lane), w = p.hi ? 1.25 : 1.15; list.push({z: p.z1, veh: {x0: X - w, x1: X + w, z0: p.z0 - (p.ramp || 0), z1: p.z1}, x0: X - w, x1: X + w, draw: () => W.vehicle(st, c, p)}); }));
     A.items.forEach(({item}) => { if (!st.got.has(item.i)) { const X = R.xOf(run, item.lane); list.push({z: item.z, x0: X - .4, x1: X + .4, draw: () => W.item(st, c, item, t)}); } });
     A.rows.forEach(({row, d}) => row.lanes.forEach((type, l) => {
-      if (!type || d < -PAST) return;
+      if (!type) return;
+      // a pothole's cone just before it (kicked flying when he ran through it)
+      if (type === 'hole') {
+        const kc = st.knocked.get(`cone:${row.i}:${l}`), u = kc ? Math.min(1, (now - kc.at) / W.CONE_MS) : 0, zc = R.coneZ(row), xc = R.xOf(run, l);
+        if (u < 1) list.push({z: zc + W.coneFly(u, 0, kc && kc.ahead).z, x0: xc - .4, x1: xc + .4, draw: () => W.cone(st, c, l, zc, u, kc ? kc.side : 0, kc && kc.ahead)});
+      }
+      if (d < -PAST - lag) return;
       // a barricade or banner where it stands (knocked flying when he hit it, or smashed through on painkillers)
       const knocked = type !== 'hole' && st.knocked.get(`${row.i}:${l}`), k = knocked ? Math.min(1, (now - knocked.at) / 650) : 0;
       if (k >= 1) return;
@@ -446,12 +510,17 @@ function drawLanes(st, c, now) {
       puff(st, c, cx, 0, az + .6, (e - 480) / 450, 1.2); // (down on top of him)
     }});
   }
-  const an = runnerAnim(st, now), g = run ? R.groundAt(run.co, R.laneOf(run), rz, ry) : 0;
-  const bx = rx + .5 * edgeBounce(st, now), az = rz + (an.dz || 0); // (bouncing off the edge of the road; thrown forward)
-  list.push({z: az, me: true, draw: () => {
-    shadow(st, c, bx, g, az, .5);
+  const an = runnerAnim(st, now), g = run ? R.groundAt(run.co, R.laneOf(run), rz, ry) : 0, fl = run ? fallOf(st, now) : null;
+  // (bouncing off the edge of the road; thrown forward; held back in a pothole)
+  // (a picture, cut off at the road: to about his waist, as in 3D)
+  const bx = rx + .5 * edgeBounce(st, now), az = (fl ? fl.z : rz - easeBack(st)) + (an.dz || 0), sink = fl ? FALL.deep * .9 * fl.k : 0;
+  // (down in a pothole he's drawn after it, the part of him under the road cut away)
+  list.push({z: fl ? Math.min(az, fl.hole - R.HOLE_LEN / 2 - .01) : az, me: true, draw: () => {
+    if (sink < .1) shadow(st, c, bx, g, az, .5);
     pillsGlow(st, c, now, g);
-    const me = (x, z, alpha) => sprite(st, c, an, US, x, ry, z, alpha);
+    c.save();
+    if (sink > 0) { const road = P(st, bx, 0, az).y; c.beginPath(); c.rect(-1e4, -1e4, 2e4, road + 1e4); c.clip(); }
+    const me = (x, z, alpha) => sprite(st, c, an, US, x, ry - sink, z, alpha);
     // a cut's and a spin's afterimages, behind him
     (an.ghosts || []).forEach(gh => sprite(st, c, {f: gh.f, flip: gh.flip, mo: an.mo, ex: an.ex}, US, bx + gh.dx, ry, az + .05, gh.a));
     // booze: he's seeing double
@@ -459,6 +528,7 @@ function drawLanes(st, c, now) {
     // back up after the salts: he flickers while nothing can touch him
     const blink = run && !run.over && run.shield > 0 && !run.pills && Math.floor(now / 70) % 2;
     me(bx, az, blink ? .35 : 1);
+    c.restore();
     runnerFx(st, c, now, bx, g, az);
   }});
   // Far to near; but whatever stands beyond a vehicle's side from the camera (in a lane further over, beside it) goes
@@ -495,9 +565,20 @@ function kickBall(st, c, now) {
 function chaserAt(st) {
   const run = st.run;
   if (!run) return null;
-  const g = R.gapOf(run), cz = run.z - g;
+  const g = R.gapOf(run), cz = run.z - g - (st.lag || 0); // (held back with him in a pothole)
   if (g >= R.CHASE.seen || cz <= st.camZ + W.NEAR + .4) return null; // (out of the picture: a hit's no tackle then)
-  const want = run.x + (run.x > .5 ? -1 : 1) * (run.over ? .35 : .95);
+  let want = run.x + (run.x > .5 ? -1 : 1) * (run.over ? (st.fall ? .1 : .35) : .95); // (down in a pothole: onto his back)
+  // (round a pothole, not across it: the one he's just been down in, say)
+  if (!run.over && run.co.hard) {
+    const rows = run.co.rows;
+    for (let i = Math.max(0, run.next - 6); i < rows.length && rows[i].z < cz + R.HOLE_LEN; i++) {
+      if (rows[i].z < cz - R.HOLE_LEN) continue;
+      rows[i].lanes.forEach((t, l) => {
+        const hx = R.xOf(run, l);
+        if (t === 'hole' && Math.abs(want - hx) < 1.75) want = hx + (want >= hx ? 1 : -1) * 1.75;
+      });
+    }
+  }
   st.chX = st.chX == null ? want : st.chX + (want - st.chX) * Math.min(1, (st.dt || .016) * 8);
   return {cx: st.chX, cz};
 }
@@ -521,12 +602,27 @@ function runnerFx(st, c, now, bx, g, az) {
   if (!run.over && run.slide > 0) dust(st, c, run.x, g, run.z, now, Math.min(1, run.slide / .25));
   if (!run.over && st.landAt) puff(st, c, run.x, g, run.z, (now - st.landAt) / 350, .7); // (landing a jump)
   if (run.over) puff(st, c, bx, g, az + .5, (now - st.downAt - 520) / 450, 1.1); // (down)
+  // (dropping into a pothole: bits of its rim kicked up off its near and far edges, up and down again, in its colours;
+  // each hole's own, the same every time)
+  const sp = st.splash, s = sp ? run.t - sp.t : 1e9;
+  if (sp && s >= 0 && s < FALL.splash) {
+    const age = s / FALL.splash, cols = (W.HOLE_COL[sp.th] || W.HOLE_COL.city).map(rgbOf), r = seeded(sp.i * 31 + 7);
+    for (let i = 0; i < 9; i++) {
+      const side = r() < .55 ? 1 : -1, a = (r() - .5) * 1.9, vy = 2.2 + r() * 2.8, out = .6 + r() * 1.3, sz = .035 + .075 * r(), rgb = cols[r() < .7 ? 0 : 1];
+      const y = vy * s - 14 * s * s;
+      if (y < 0) continue;
+      const q = P(st, sp.x + Math.sin(a) * (1 + out * s), y, sp.z + side * Math.cos(a) * (.95 + out * s) + 1.2 * s);
+      c.fillStyle = `rgba(${rgb},${(.95 * (1 - age * age)).toFixed(3)})`;
+      c.beginPath(); c.arc(q.x, q.y, Math.max(.8, sz * q.s), 0, Math.PI * 2); c.fill();
+    }
+  }
 }
+const rgbOf = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)).join(',');
 /** The world and the players in 3D (views/return-3d.js and return-3dworld.js), laid over the sky; then what's drawn
  *  over them: the painkillers' glow, the dust, the hints over what's coming, the kick coming down. */
 function draw3(st, c, now) {
   const run = st.run, rz = run ? run.z : 0, rx = run ? run.x : 0, ry = run ? run.y : 0;
-  const us = runner3(st, now), bx = rx + .5 * edgeBounce(st, now), az = rz + (us.dz || 0);
+  const us = runner3(st, now), bx = rx + .5 * edgeBounce(st, now), az = rz + (us.dz || 0) - easeBack(st);
   const blink = run && !run.over && run.shield > 0 && !run.pills && Math.floor(now / 70) % 2;
   const who = {us: {spec: us, x: bx, y: ry, z: az, show: !blink}};
   // booze: he's seeing double
@@ -534,6 +630,16 @@ function draw3(st, c, now) {
   const ch = chaserAt(st);
   if (ch) { const a = chaser3(st, now, ch.cz); who.them = {spec: a, x: ch.cx, y: 0, z: ch.cz + (a.dz || 0)}; }
   c.drawImage(D3.render(st, now, who), 0, 0, st.W, st.H);
+  // down in a pothole: the pit's shadow on him, darkest at the road where it cuts him off
+  const fl = run ? fallOf(st, now) : null;
+  if (fl && fl.k > .05) {
+    const q = P(st, bx, 0, az + .25 * fl.k), r = .62 * q.s;
+    c.save(); c.translate(q.x, q.y); c.scale(1, .6);
+    const gr = c.createRadialGradient(0, 0, 0, 0, 0, r);
+    gr.addColorStop(0, `rgba(0,0,0,${(.62 * fl.k).toFixed(3)})`); gr.addColorStop(.55, `rgba(0,0,0,${(.32 * fl.k).toFixed(3)})`); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    c.fillStyle = gr; c.beginPath(); c.arc(0, 0, r, 0, Math.PI * 2); c.fill();
+    c.restore();
+  }
   const g = run ? R.groundAt(run.co, R.laneOf(run), rz, ry) : 0;
   pillsGlow(st, c, now, g);
   runnerFx(st, c, now, bx, g, az);
@@ -575,8 +681,14 @@ function draw(st, now = performance.now()) {
   st.camX = st.camF + .2 * bump + .35 * shake;
   const lift = run && !run.over ? R.groundAt(run.co, R.laneOf(run), run.z, run.y) * .8 : st.lift || 0;
   st.lift = (st.lift || 0) + (lift - (st.lift || 0)) * Math.min(1, dt * 3.5);
-  st.camH = st.camH0 + st.lift;
-  st.camZ = (run ? run.z : 0) - st.back;
+  // (down into a pothole with him: the picture's held back with him (core fallAt: a moment, a yard or two), the camera
+  // too, and it dips, down quick and back up easier; with reduced motion it does neither: it stays on where he is)
+  const fl = run ? fallOf(st, now) : null, lo = st.lagOut && !fl ? 1 - (now - st.lagOut.at) / FALL.out : 0;
+  st.lag = fl ? fl.lag : lo > 0 ? st.lagOut.v * smooth(lo) : 0;
+  const dip = fl && !ui.RM ? FALL.dip * fl.k : 0;
+  st.dip = (st.dip || 0) + (dip - (st.dip || 0)) * Math.min(1, dt * (dip > (st.dip || 0) ? 30 : 10));
+  st.camH = st.camH0 + st.lift - st.dip;
+  st.camZ = (run ? run.z : 0) - st.back - (ui.RM ? 0 : st.lag);
   const z = run ? run.z : 0, t = now / 1000;
   st.t = t;
   // booze: the world sways (on the hard course, the owner's ask, Oct 2026: further, up and down too, and blurred)
@@ -667,7 +779,7 @@ function pop(st, text, cls = '', sub = '') {
 function go(st) {
   if (st.mode === 'run' || st.mode === 'catch') return;
   st.run = R.startRun(st.n, st.day.next, data.isOwner());
-  st.knocked = new Map(); st.got = new Set(); st.flashAt = 0; st.hitAt = 0; st.chX = null; st.spinAt = 0; st.landAt = 0; st.edgeAt = 0;
+  st.knocked = new Map(); st.got = new Set(); st.flashAt = 0; st.hitAt = 0; st.chX = null; st.spinAt = 0; st.landAt = 0; st.edgeAt = 0; st.fall = null; st.splash = null; st.lagOut = null; st.dip = 0;
   ungot(st);
   st.co = st.run.co;
   W.warm(skyView(st), 0);
@@ -735,19 +847,29 @@ function onEvents(st, evs) {
       ui.haptic('success'); ui.announce(`${pw.name}: ${pw.is}. ${pw.does}.`);
     }
     else if (e.type === 'landed') st.landAt = now;
+    // a pothole's cone he ran through: kicked flying, off to the side (his lane's, or the way he's juking); nothing more
+    else if (e.type === 'coned') {
+      const run = st.run, dir = run.t - run.lastJuke < SIDE_S ? Math.sign(R.xOf(run, run.lane) - run.jFrom) : 0;
+      // (kicked on ahead at most of his speed, slowing as it goes: return-world.js coneFly)
+      st.knocked.set(`cone:${e.row.i}:${e.lane}`, {at: now, side: e.lane === 0 ? -1 : e.lane === 2 ? 1 : dir || (e.row.i % 2 ? 1 : -1), ahead: W.coneAhead(R.speedAt(run.z, run.co.hard))});
+    }
     else if (e.type === 'trucked') { st.knocked.set(`${e.row.i}:${e.lane}`, {at: now}); say('SMASHED!', 'is-pills'); ui.haptic('medium'); }
     else if (e.type === 'vaulted') { say('OVER THE TOP!', 'is-pills'); ui.haptic('medium'); }
+    // a hit: he lurches (into a pothole: he falls in it)
     else if (e.type === 'stumbled') {
-      st.hitAt = now; st.hitDir = fallDir(st.run); say('STUMBLE!', 'is-hit', st.run.co.hard ? 'Next hit: tackled' : 'The linebacker’s on you'); ui.haptic('warning');
+      if (!fallIn(st, e, now)) { st.hitAt = now; st.hitDir = fallDir(st.run); }
+      say('STUMBLE!', 'is-hit', st.run.co.hard ? 'Next hit: tackled' : 'The linebacker’s on you'); ui.haptic('warning');
       ui.announce(`${R.hitLine(e)}. ${st.run.co.hard ? 'Your next unprotected hit will be a tackle, even after a clean stretch.' : 'The linebacker’s on you: another hit now and he’ll tackle you.'}`);
       if (e.row) st.knocked.set(`${e.row.i}:${e.lane}`, {at: now});
     }
     else if (e.type === 'shoved') { if (e.row) st.knocked.set(`${e.row.i}:${e.lane}`, {at: now}); }
     else if (e.type === 'revived') {
-      st.flashAt = now; st.hitAt = now; st.hitDir = fallDir(st.run); say('SHOOK HIM!', 'is-salts', 'Smelling salts: burst!'); ui.haptic('warning');
+      st.flashAt = now;
+      if (!fallIn(st, e, now)) { st.hitAt = now; st.hitDir = fallDir(st.run); }
+      say('SHOOK HIM!', 'is-salts', 'Smelling salts: burst!'); ui.haptic('warning');
       if (e.row) st.knocked.set(`${e.row.i}:${e.lane}`, {at: now});
     }
-    else if (e.type === 'tackled' || e.type === 'crashed') tackled(st);
+    else if (e.type === 'tackled' || e.type === 'crashed') { fallIn(st, e, now); tackled(st); }
   });
 }
 function frame(st, now) {

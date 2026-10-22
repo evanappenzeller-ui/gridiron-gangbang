@@ -3,7 +3,8 @@
 // yard lines and numbers; a parking lot; a city street; packed snow; the desert's rails; cobbles; a boardwalk by the
 // sea; a road across the moon; a dirt road through the fields), what stands beside the road (the same things in the
 // same places as the 2D world's: views/return-world.js dressList), the gates into each place, and in the lanes the
-// barricades and banners, the vehicles and their ramps, and the power-ups. The sky stays the 2D world's painting
+// barricades and banners (the hard course's potholes, each with its cone, and sleds), the vehicles and their ramps,
+// and the power-ups. The sky stays the 2D world's painting
 // behind it all (the camera only ever looks straight ahead), the fog its haze.
 // Everything is built as the road comes up and let go behind: the ground and the roadside in 20-yard chunks (each a few
 // merged meshes, coloured by vertex), the lane things one by one (shared shapes and materials).
@@ -13,7 +14,7 @@
 // vertices along it to bend: the ground's planes come in 2-yard strips, long boxes in 5-yard pieces.
 // Exports: init(three, scene, utils), update(st, now), look(st, z), bend(obj), BEND_U.
 import * as R from '../core/return.js';
-import {dressList, LOOKS, OBS, GOODS_COL, HOLE_COL} from './return-world.js';
+import {dressList, LOOKS, OBS, GOODS_COL, HOLE_COL, coneFly, CONE_MS} from './return-world.js';
 import {seeded} from './stadium.js';
 import * as cityBus from './return-city-bus.js';
 import * as fieldLogo from './return-field-logo.js';
@@ -68,8 +69,8 @@ export function init(three, scene, utils) {
   // everything each place needs drawn once now (the ground's pictures, the barricades, banners, power-ups and gates),
   // so coming to a new place never holds a frame up
   R.THEMES.forEach(th => { roadMat(th.id); baseMat(th.id); obstacleOf('hurdle', th.id); obstacleOf('bar', th.id); gateOf(th); });
-  // (the hard course's potholes and sleds: the owner's only, so only on his phones)
-  if (data.isOwner()) R.THEMES.forEach(th => R.HARD_OBST.forEach(type => obstacleOf(type, th.id)));
+  // (the hard course's potholes, their cones and sleds: the owner's only, so only on his phones)
+  if (data.isOwner()) { R.THEMES.forEach(th => R.HARD_OBST.forEach(type => obstacleOf(type, th.id))); coneObj(); }
   ['salts', 'pills', 'booze'].forEach(itemOf);
   endzoneMat(); logoMat(); seaMat(); for (let n = 10; n <= 50; n += 10) numberMat(n);
 }
@@ -856,6 +857,35 @@ function obstacleOf(type, id) {
   OBJ.set(key, g);
   return g;
 }
+// ---------------------------------------------------------------- The cones before the potholes
+// A bright orange traffic cone (core/return.js CONE: no obstacle, knocked flying when he runs through it, its size) on
+// a dark foot (orange underneath, for when it tumbles), two white reflective bands round it, a little glow in the
+// orange so it's seen coming on the pale places; one mesh coloured by its faces (one draw, and one for its shadow),
+// lit and shadowed like the barricades, bent with the world (keep()).
+const CONE_COL = {body: 0xFF6A12, band: 0xFFFFFF, foot: 0x2F343B, under: 0xFF6A12};
+function coneObj() {
+  if (OBJ.has('cone')) return OBJ.get('cone');
+  const {h: H, r: B, foot: FT} = R.CONE, fh = .06, pos = [], nor = [], cols = [], c = new T.Color();
+  const body = new T.CylinderGeometry(.045, B, H - fh, 20, 25).toNonIndexed(), foot = new T.BoxGeometry(FT, fh, FT).toNonIndexed();
+  body.translate(0, fh + (H - fh) / 2, 0); foot.translate(0, fh / 2, 0);
+  const band = y => (y > H * .36 && y < H * .47) || (y > H * .64 && y < H * .74);
+  [[body, y => (band(y) ? 'band' : 'body')], [foot, (y, ny) => (ny < -.5 ? 'under' : 'foot')]].forEach(([g, pick]) => {
+    const p = g.attributes.position.array, n = g.attributes.normal.array;
+    for (let i = 0; i < p.length; i += 9) {
+      c.set(CONE_COL[pick((p[i + 1] + p[i + 4] + p[i + 7]) / 3, (n[i + 1] + n[i + 4] + n[i + 7]) / 3)]);
+      for (let j = 0; j < 9; j++) { pos.push(p[i + j]); nor.push(n[i + j]); }
+      cols.push(c.r, c.g, c.b, c.r, c.g, c.b, c.r, c.g, c.b);
+    }
+    g.dispose();
+  });
+  const geo = new T.BufferGeometry();
+  geo.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); geo.setAttribute('normal', new T.Float32BufferAttribute(nor, 3)); geo.setAttribute('color', new T.Float32BufferAttribute(cols, 3));
+  geo.computeBoundingSphere();
+  const m = new T.Mesh(geo, new T.MeshStandardMaterial({vertexColors: true, roughness: .45, metalness: 0, emissive: 0xFF5A10, emissiveIntensity: .18}));
+  m.castShadow = true; m.receiveShadow = true; m.userData.shared = true;
+  OBJ.set('cone', m);
+  return m;
+}
 // ---------------------------------------------------------------- The power-ups
 const HALO = {salts: 0x96E1FF, pills: 0xFFA53C, booze: 0xFFD65A};
 // On the hard course (the owner's, Oct 2026: bigger and easy to tell apart): each its own colour, ice blue, red and
@@ -1211,7 +1241,7 @@ export function update(st, now) {
     keep(`g:${key}|${z}`, () => { const g = gateOf(th).clone(); g.position.set(0, 0, -z); const b = new Batch(); pylons(b, z, th.id); g.add(b.mesh(mats().vcs)); return g; });
   }
   if (run) {
-    const A = R.ahead(run, 120, 4);
+    const A = R.ahead(run, 120, 4 + (st.lag || 0)); // (and further back while he's held back in a pothole: views/return.js)
     // the barricades and banners (knocked flying after a hit)
     A.rows.forEach(({row, d}) => row.lanes.forEach((type, l) => {
       if (!type) return;
@@ -1223,6 +1253,17 @@ export function update(st, now) {
         o.rotation.set(-k * 2, 0, -side * k * 1.3);
         o.visible = k < 1;
         o.children.forEach(ch => { if (ch.userData.blink) ch.visible = Math.floor(t * 2.5) % 2 === 0; });
+      }
+      // a pothole's cone, just before it (core CONE): kicked on ahead, tumbling off to the side, when he ran through it
+      if (type === 'hole') {
+        const kc = st.knocked && st.knocked.get(`cone:${row.i}:${l}`), u = kc ? Math.min(1, (now - kc.at) / CONE_MS) : 0;
+        const c = keep(`k:${key}|${row.i}|${l}`, () => coneObj().clone(), u < 1);
+        if (c) {
+          const f = coneFly(u, kc ? kc.side : 0, kc && kc.ahead);
+          c.position.set(R.xOf(null, l) + f.x, f.y, -(R.coneZ(row) + f.z));
+          c.rotation.set(f.rx, f.ry, -f.rz);
+          c.visible = u < 1;
+        }
       }
     }));
     // the vehicles

@@ -7,8 +7,8 @@
 // with their ramps), the power-ups, and the goal line every 100 yards.
 // st: the view's state {W, H, y0, dpr, f, camX, camZ, camH, co (the course)}. The world in yards (x across, y up, z
 // ahead); P(st, x, y, z) puts a point on the screen. Exports: P, NEAR, FAR, BEND, horizonOf, sky, ground, sides, vehicle, obstacle (the
-// rows' barricades and banners), item, gate, weather, ICONS (the power-ups' pictures, for the HUD and the cards);
-// dressList, LOOKS, OBS, GOODS_COL, HOLE_COL (for the 3D world).
+// rows' barricades and banners), cone (a pothole's), item, gate, weather, ICONS (the power-ups' pictures, for the HUD and the cards);
+// dressList, LOOKS, OBS, GOODS_COL, HOLE_COL, coneFly, coneAhead, CONE_MS (for the 3D world).
 // Owner: RETURN.
 import * as R from '../core/return.js';
 import * as data from '../core/data.js';
@@ -1853,6 +1853,35 @@ function hole(st, c, X, z, id) {
   fill(c, ring(1.15, 1.05), rim);
   fill(c, ring(.94, .84), deep);
   fill(c, ring(.6, .5), 'rgba(0,0,0,.35)');
+}
+// A pothole's cone (core/return.js CONE: no obstacle, its size), just before it in its lane: a bright orange traffic
+// cone on a dark foot, two white bands round it. Run through, it's kicked (u: 0 to 1 over CONE_MS ms) on ahead (ahead
+// yards all told, slowing as it goes: coneAhead, from his speed), up and off to its side (-1 left, 1 right), tipping
+// forward, spinning and rolling over toward the side: coneFly says where it is (yards from where it stood; rx its tip
+// forward, ry its spin, rz its roll toward the side, radians; a its fade), for the 3D world too.
+export const CONE_MS = 650;
+/** How far a cone kicked at v yards a second goes on ahead: off his foot at .7 of his speed, slowing to a stop. */
+export const coneAhead = v => .7 * v * CONE_MS / 1000 / 2;
+export function coneFly(u, side = 0, ahead = 3.5) {
+  if (!(u > 0)) return {x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0, a: 1};
+  return {x: side * 3.6 * (1 - (1 - u) ** 2), y: Math.max(0, 3.4 * u - 3.6 * u * u), z: ahead * u * (2 - u), rx: -2.4 * u, ry: side * 3 * u, rz: side * 5 * u, a: Math.max(0, 1 - u ** 3)};
+}
+export function cone(st, c, lane, z, u = 0, side = 0, ahead) {
+  const f = coneFly(u, side, ahead), X = R.xOf(null, lane) + f.x, Z = z + f.z, {h: H, r: B, foot: FT} = R.CONE, fh = .06;
+  if (Z < st.camZ + NEAR + .2 || f.a <= 0) return;
+  c.save();
+  c.globalAlpha = f.a;
+  if (!u) fill(c, gnd(st, X - B - .05, X + B + .2, z - B - .05, z + B + .1), 'rgba(0,0,0,.24)'); // (its shadow)
+  flat(st, c, X, f.y, Z);
+  c.rotate(f.rz); c.scale(Math.abs(Math.cos(f.ry)) * .6 + .4, Math.cos(f.rx) || .01); // (tumbling: end over end and round, seen from behind)
+  const w = y => B - (B - .045) * (y - fh) / (H - fh); // (its half width y yards up)
+  const band = (a, b) => { c.beginPath(); c.moveTo(-w(a), -a); c.lineTo(-w(b), -b); c.lineTo(w(b), -b); c.lineTo(w(a), -a); c.closePath(); c.fill(); };
+  c.fillStyle = '#2F343B'; c.fillRect(-FT / 2, -fh, FT, fh);
+  c.fillStyle = '#FF6A12'; band(fh, H);
+  c.fillStyle = '#FFFFFF'; band(H * .36, H * .47); band(H * .64, H * .74);
+  c.fillStyle = 'rgba(0,0,0,.16)'; c.beginPath(); c.moveTo(w(fh) * .25, -fh); c.lineTo(.012, -H); c.lineTo(w(H), -H); c.lineTo(w(fh), -fh); c.closePath(); c.fill(); // (its shaded side)
+  c.restore();
+  c.restore();
 }
 export function obstacle(st, c, type, lane, z, k = 0) {
   if (z < st.camZ + NEAR + .2) return;

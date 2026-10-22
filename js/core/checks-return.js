@@ -4,7 +4,8 @@
 // up onto a low vehicle, a slide under a banner), the vehicles (a tall one a hit, its ramp the
 // way up, a roof to run along and juke off), the linebacker chasing (a hit a stumble, two close together the catch), the
 // power-ups (salts, painkillers, booze), the speed and the touchdowns, the hard course (the owner's for now: potholes,
-// sleds, a bus head on the end of it, never done speeding up),
+// each with its cone and the one thing he falls into, sleds, a bus head on the end of it, never done speeding up, no
+// snow pile on its tundra),
 // a day's numbers, and the league scoreboard's rows (on crafted board docs), which read the board as this phone may see
 // it (THE RULE, CLAUDE.md). checks.js (owner: core) imports returnChecks and calls it with its own check(name, fn)
 // helper; every fn returns true or {pass, detail}. Nothing here writes to storage or the database. Owner: RETURN.
@@ -92,6 +93,20 @@ function climb(kind, jumps = []) {
   return {over: !!first, end: R.hitLine(first), top: Math.round(top * 100) / 100};
 }
 const set = (...plats) => ({i: 0, zs: Math.min(...plats.map(p => p.z0 - p.ramp)), ze: Math.max(...plats.map(p => p.z1)), plats});
+// The regular course (the league's) as it was when the hard course lost its snow pile and gained its cones (Oct 21
+// 2026): a fingerprint of days 1-20's first two kickoffs to 1,500 yards (their places' order, rows, vehicle sets
+// and power-ups), the same from the generator before that change and after it (compared byte for byte, days 1-40,
+// three kickoffs, to 3,000 yards). It changes only when the regular course does: on purpose, never mid-day.
+const REG_FP = 'a988e22d';
+function regularPrint() {
+  const fnv = s => { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193); return (h >>> 0).toString(16).padStart(8, '0'); };
+  const out = [], lt = z => z < 1500;
+  for (let n = 1; n <= 20; n++) for (const k of [0, 1]) {
+    const co = R.fill(R.course(n, k), 1500); // (however far it's been worked out already: the first 1,500 yards)
+    out.push(JSON.stringify([co.order, co.rows.filter(r => lt(r.z)), co.sets.filter(s => lt(s.zs)), co.items.filter(i => lt(i.z))]));
+  }
+  return fnv(out.join('\n'));
+}
 
 export async function returnChecks(check) {
   // ------------------------------------------------------------------------------------------- the course
@@ -421,7 +436,7 @@ export async function returnChecks(check) {
       let out = null, moved = !move, e = null;
       for (let i = 0; i < 2000 && !out; i++) {
         if (!moved && (30 - run.z) / R.speedAt(run.z, true) <= t) { R.move(run, move); moved = true; }
-        e = R.step(run, 1 / 120).find(x => x.type !== 'td' && x.type !== 'landed');
+        e = R.step(run, 1 / 120).find(x => x.type !== 'td' && x.type !== 'landed' && x.type !== 'coned'); // (the pothole's cone: checked below)
         if (e) out = e;
       }
       return out;
@@ -609,6 +624,125 @@ export async function returnChecks(check) {
       ghostReady && same && back && untouched && hook && offline && page < 25 && ghostPage < 10;
     const pc = x => (x ? Math.round(x.gain * 100) + '%' : 'none'), mm = x => (x * 1000).toFixed(1);
     return {pass, detail: `sculpted ${ready} (${names.join(', ')}); at the belly: upper arm +${pc(arm)}, forearm +${pc(fore)}, thigh +${pc(thigh)}, calf +${pc(calf)}; shaped ${shaped} (biceps ${arm ? mm(arm.front) : '-'} mm, its inner side ${arm ? mm(arm.inner) : '-'}; calf's back ${calf ? mm(calf.back) : '-'}, its front ${calf ? mm(calf.front) : '-'}); skin of his hands, feet and head moved ${(maxStill * 1000).toFixed(3)} mm (${still} vertices); UVs, weights and faces kept ${kept2}; ${seams} seam vertices, the widest apart ${(seamGap * 1000).toFixed(3)} mm; normals whole ${norms}; out of a pad ${padOut}; the ball out ${mm(ballOut)} mm; the ghost the same ${same} (${ghostPage.toFixed(1)} ms); undone ${back}; the model untouched ${untouched}; the kit's hook ${hook}; out of the offline cache ${offline}; ${page.toFixed(1)} ms on the page, sculpted in ${Math.round(took)} ms`};
+  });
+  // The owner's ask (Oct 21 2026): "remove the snow pile obstacle. add a cone in front of the pothole. this should be the
+  // only obstacle you fall into." (His hard course; the league's regular course and board as they were.)
+  check('Return Man: no snow pile on the hard course (the owner\'s ask, Oct 2026): its frozen tundra has the snowplow alone (80 days\' kickoffs, never a snowbank); the regular course\'s tundra keeps its snowbanks, and the regular course is just as it was (days 1-20, kickoffs 1 and 2, to 1,500 yards: the same to the byte as before the change, fingerprint ' + REG_FP + ')', () => {
+    let snow = 0, plows = 0, regSnow = 0;
+    for (let n = 1; n <= 80; n++) {
+      R.fill(R.course(n, 0, true), 3000).sets.forEach(s => s.plats.forEach(p => { if (p.kind === 'snowbank') snow++; if (p.kind === 'plow') plows++; }));
+      R.fill(R.course(n, 0), 3000).sets.forEach(s => s.plats.forEach(p => { if (p.kind === 'snowbank') regSnow++; }));
+    }
+    const fp = regularPrint(), th = R.THEMES.find(t => t.id === 'tundra');
+    const kinds = th.kinds.some(([k]) => k === 'snowbank') && Array.isArray(th.hard) && th.hard.every(([k]) => k !== 'snowbank') && R.THEMES.every(t => t === th || !t.hard);
+    const pass = snow === 0 && plows > 100 && regSnow > 100 && fp === REG_FP && kinds;
+    return {pass, detail: `hard tundra: ${plows} plows, ${snow} snowbanks; regular tundra: ${regSnow} snowbanks; regular course ${fp === REG_FP ? 'unchanged' : `CHANGED (${fp})`}; kinds ${kinds}`};
+  });
+  check('Return Man: a traffic cone just before every pothole, in its lane (the owner\'s ask, Oct 2026): on open road, nothing between it and the hole; no obstacle: running through it knocks it flying (\'coned\') and is never a hit: on foot into the pothole (one hit, the pothole\'s), jumping the pothole (over both), juking out of the lane past it; on painkillers through both', () => {
+    const bad = [];
+    let holes = 0, regular = 0;
+    for (let n = 1; n <= 30; n++) {
+      const co = R.fill(R.course(n, 0, true), 3000), rows = co.rows;
+      rows.forEach(r => r.lanes.forEach((t, l) => {
+        if (t !== 'hole') return;
+        holes++;
+        const zc = R.coneZ(r);
+        if (!(Math.abs(r.z - zc - R.CONE.before) < 1e-9 && R.CONE.before - R.HOLE_LEN / 2 >= .3)) bad.push(`day ${n}: the cone ${(r.z - zc).toFixed(2)} yds before the hole at ${r.z}`);
+        if ([-.4, 0, .4].some(dz => R.groundAt(co, l, zc + dz) !== 0)) bad.push(`day ${n}: the cone at ${zc.toFixed(1)} on a vehicle`);
+        if (rows.some(o => o !== r && o.lanes[l] && o.z > zc - .6 && o.z <= r.z)) bad.push(`day ${n}: something between the cone and the hole at ${r.z}`);
+      }));
+      regular += R.fill(R.course(n, 0), 3000).rows.filter(r => r.lanes.includes('hole')).length;
+    }
+    // a pothole in lane 1 at 30 yards (its cone at 28.25): what happens, and the hits
+    const row = {i: 0, z: 30, lanes: [null, 'hole', null], th: 'tundra'};
+    const go = (moves, items = []) => {
+      const r = field({rows: [row], items, hard: true}), ev = [], todo = moves.slice();
+      for (let i = 0; i < 360 && !r.over; i++) { while (todo.length && r.z >= todo[0][0]) R.move(r, todo.shift()[1]); ev.push(...R.step(r, 1 / 120).filter(e => e.type !== 'td' && e.type !== 'landed')); }
+      return {r, ev, types: ev.map(e => e.type).join()};
+    };
+    const foot = go([]), jump = go([[24, 'up']]), juke = go([[28.6, 'left']]), pills = go([], [{i: 0, z: 10, lane: 1, top: false, kind: 'pills'}]);
+    // (a jump on his way up as he gets to the cone, however late, is sure to clear the hole: over both; one off after
+    // it, through the cone and over the hole)
+    const late = go([[R.coneZ(row) - .05, 'up']]), after = go([[R.coneZ(row) + .2, 'up']]);
+    const hitAt = foot.ev.find(e => e.type === 'stumbled'), coned = foot.ev.find(e => e.type === 'coned');
+    const ok = foot.types === 'coned,stumbled' && foot.r.hits === 1 && hitAt.ob === 'hole' && hitAt.z >= 30 && coned.z < 30 && coned.z >= R.coneZ(row) && coned.lane === 1
+      && jump.types === 'hurdled' && jump.r.hits === 0 && late.types === 'hurdled' && after.types === 'coned,hurdled' && after.r.hits === 0
+      && juke.types === 'coned,juked' && juke.r.hits === 0 && pills.types === 'pickup,coned,trucked' && pills.r.hits === 0 && !R.OBST.cone;
+    const pass = ok && !bad.length && holes > 100 && regular === 0;
+    return {pass, detail: `${holes} potholes on 30 hard kickoffs to 3,000 yds, ${bad.length ? bad.slice(0, 3).join('; ') : 'a cone before each, on open road'} (the regular course: ${regular}); on foot: ${foot.types} (${foot.r.hits} hit, at ${hitAt ? hitAt.z.toFixed(1) : '-'}); a jump: ${jump.types}; a jump at the last moment: ${late.types}; one just past the cone: ${after.types}; a juke past it: ${juke.types}; painkillers: ${pills.types}`};
+  });
+  check('Return Man: the pothole is the only thing he falls into (the owner\'s ask, Oct 2026): a hit on one (a stumble, the salts shaking the linebacker off, the tackle) is a fall in (fallsIn); a barricade, a banner, a sled, a low one\'s front, a bus head on, a bus\'s side, the edge of the road, a cone are not; the hit\'s rules are as they were ("Stepped in the ice hole", a stumble, the linebacker); the game starts its fall from fallsIn alone (views/return.js)', async () => {
+    const lanes = t => [null, t, null], row = t => ({i: 0, z: 30, lanes: lanes(t), th: 'tundra'});
+    const HIT = ['stumbled', 'revived', 'tackled', 'crashed'];
+    const first = (course, lane = 1, setup = null) => {
+      const r = field(course, lane);
+      if (setup) setup(r);
+      for (let i = 0; i < 120 * 6 && !r.over; i++) { const e = R.step(r, 1 / 120).find(x => HIT.includes(x.type)); if (e) return e; }
+      return null;
+    };
+    const salts = [{i: 0, z: 10, lane: 1, top: false, kind: 'salts'}], onHim = r => { r.t = 0; r.hitAt = 0; };
+    const hits = {
+      barricade: first({rows: [row('hurdle')], hard: true}), banner: first({rows: [row('bar')], hard: true}), sled: first({rows: [row('sled')], hard: true}),
+      low: first({sets: [set(plat(1, 30, 38, false))], hard: true}), bus: first({sets: [set(plat(1, 30, 50, true))], hard: true}),
+      side: first({sets: [set(plat(1, 10, 60, true))], hard: true}, 0, r => { r.z = 20; R.move(r, 'right'); }),
+      edge: first({hard: true}, 0, r => R.move(r, 'left')),
+      hole: first({rows: [row('hole')], hard: true}), tackled: first({rows: [row('hole')], hard: true}, 1, onHim),
+      shook: first({rows: [row('hole')], items: salts, hard: true}, 1, onHim)
+    };
+    const fall = Object.fromEntries(Object.entries(hits).map(([k, e]) => [k, R.fallsIn(e)]));
+    const types = ['hole', 'tackled', 'shook'].map(k => hits[k] && hits[k].type).join();
+    const only = Object.entries(fall).every(([k, f]) => f === ['hole', 'tackled', 'shook'].includes(k)) && Object.values(hits).every(Boolean)
+      && !R.fallsIn({type: 'coned', row: row('hole'), lane: 1}) && !R.fallsIn({type: 'trucked', ob: 'hole'}) && !R.fallsIn({type: 'shoved', ob: 'hole'}) && !R.fallsIn(null);
+    const rules = types === 'stumbled,tackled,revived' && R.hitLine(hits.hole) === 'Stepped in the ice hole' && hits.bus.type === 'crashed' && hits.barricade.type === 'stumbled';
+    // the game: one place starts a fall (fallIn), and only for what fallsIn says
+    const src = await fetch(new URL('../views/return.js', import.meta.url)).then(r => r.text()).catch(() => '');
+    // (and the fall's moves, 'fallin', only ever drawn from a fall that's on: fallOf's)
+    const starts = (src.match(/st\.fall = \{/g) || []).length, guarded = /function fallIn\(st, e, now\) \{\s*(?:const run = st\.run;\s*)?if \(!R\.fallsIn\(e\)/.test(src);
+    const clips = src.split('\n').filter(l => l.includes('\'fallin\'')), clip = clips.length >= 1 && clips.every(l => /if \(fl[ )&]/.test(l));
+    const game = starts === 1 && guarded && clip;
+    return {pass: only && rules && game, detail: `falls in: ${Object.entries(fall).filter(([, f]) => f).map(([k]) => k).join(', ') || 'none'} (not: ${Object.entries(fall).filter(([, f]) => !f).map(([k]) => k).join(', ')}); pothole hits ${types}, "${R.hitLine(hits.hole)}"; the game ${game ? 'starts it from fallsIn alone' : `WRONG (${starts} starts, guarded ${guarded}, clip ${clip})`}`};
+  });
+  check('Return Man: a fall into a pothole never holds the picture back when it matters (fair play): on 20 hard days\' every pothole run into on foot, the picture (him, the camera, the linebacker) is back on him by CHASE.grace after the hit and a quarter second before he gets to the next thing in any lane (a row, a vehicle, a power-up; with that under half a second on, within a third of a yard of him), held back R.FALL.lag yards at most, and he\'s seen down in the hole each time (part way, when the next thing\'s so close the fall\'s cut short); the game draws its camera and him from core\'s fallAt (views/return.js)', async () => {
+    const bad = [];
+    let falls = 0, down = 0, tight = 0, maxLag = 0, worst = 0;
+    for (let n = 1; n <= 20; n++) {
+      const co = R.fill(R.course(n, 0, true), 3060);
+      co.rows.forEach((row, ri) => row.lanes.forEach((t, l) => {
+        if (t !== 'hole' || row.z > 3000) return;
+        // on foot into it, from just short of its cone, the linebacker lost
+        const run = R.startRun(n, 0, true);
+        Object.assign(run, {co, z: R.coneZ(row) - .3, lane: l, x: R.xOf(run, l), t: 100, hitAt: 0, next: ri, nextCone: ri, zone: Math.floor((R.coneZ(row) - .3) / R.ZONE), tds: 99});
+        run.nextItem = co.items.findIndex(it => it.z >= run.z); if (run.nextItem < 0) run.nextItem = co.items.length;
+        let hit = null;
+        for (let i = 0; i < 120 && !hit && !run.over; i++) hit = R.step(run, 1 / 120).find(e => e.type === 'stumbled' && e.row === row) || null;
+        if (!hit) return; // (something else got him first: not this check's)
+        falls++;
+        const plan = R.fallPlan(run, row), t0 = run.t, z0 = row.z, trace = [];
+        // the next thing, in any lane, and when he really gets there (on through everything, at his own speed)
+        let next = Infinity;
+        co.rows.forEach(r => { if (r.z > z0 + .01 && r.z < next && r.lanes.some(Boolean)) next = r.z; });
+        co.sets.forEach(s => { if (s.zs > z0 + .01 && s.zs < next) next = s.zs; });
+        co.items.forEach(it => { if (it.z > z0 + .01 && it.z < next) next = it.z; });
+        run.pills = 99;
+        let kMax = 0;
+        for (let i = 0; i < 600 && run.z < next; i++) {
+          const s = run.t - t0, F = R.fallAt(plan, s, run.z - z0);
+          trace.push([s, F.lag]); kMax = Math.max(kMax, F.k);
+          R.step(run, 1 / 120);
+        }
+        const T = run.t - t0, lagAt = s => { let v = 0; trace.forEach(([ts, lg]) => { if (ts <= s) v = lg; }); return v; };
+        const before = lagAt(T - .25), atGrace = R.fallAt(plan, R.CHASE.grace, 99).lag;
+        maxLag = Math.max(maxLag, ...trace.map(x => x[1])); worst = Math.max(worst, before);
+        // (down in it all the way; at least part way when the next thing's so close the fall's cut short)
+        if (kMax > (plan.D > R.FALL.min ? .9 : .4)) down++;
+        if (T < .46) tight++;
+        if (atGrace > 0 || before > (T < .46 ? .3 : .001) || plan.D > R.CHASE.grace) bad.push(`day ${n} at ${z0}: ${before.toFixed(2)} yds held back a quarter second before the next thing (${T.toFixed(2)} s on)`);
+      }));
+    }
+    const src = await fetch(new URL('../views/return.js', import.meta.url)).then(r => r.text()).catch(() => '');
+    const view = /R\.fallAt\(f\.plan, s, run\.z - f\.z\)/.test(src) && /st\.camZ = \(run \? run\.z : 0\) - st\.back - \(ui\.RM \? 0 : st\.lag\)/.test(src);
+    const pass = !bad.length && falls > 300 && down === falls && maxLag <= R.FALL.lag + 1e-9 && view;
+    return {pass, detail: `${falls} falls: back on him by the grace and a quarter second before what's next ${bad.length ? `WRONG ${bad.length}: ${bad.slice(0, 3).join('; ')}` : 'every time'} (${tight} with the next thing under .46 s on: held back at most ${worst.toFixed(2)} yds then); held back ${maxLag.toFixed(2)} yds at most; seen down in it ${down} of ${falls}; the view ${view ? 'draws from fallAt' : 'WRONG'}`};
   });
   check('Return Man: its stylesheet (css/views/return.css) is linked: the version mark is on :root', () => {
     const v = getComputedStyle(document.documentElement).getPropertyValue('--rm-css').trim();

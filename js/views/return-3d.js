@@ -319,11 +319,12 @@ const trunk = (P, d, w = 1) => { aim(P, 'Spine', 'Spine1', d, w); aim(P, 'Spine1
 // Each move a clip the mixer cross-fades into (the owner's ask, Oct 2026: Subway Surfers' way), FADE seconds into
 // each, its time where the move's got to (pose's u, 0 to 1: the jump by how fast he's rising or falling, a slide and a
 // side-step by the clock, going down by how far): jump; slide; sideL, sideR (a side-step to his left, the screen's
-// left, and his right); fall (going down; the linebacker's dive). A clip of that name in the model (a Mixamo one, say:
+// left, and his right); fall (going down; the linebacker's dive); fallin (into a pothole, the only thing he falls into:
+// views/return.js sinks him into it and says how far through it he is). A clip of that name in the model (a Mixamo one, say:
 // tools/return/player-model.mjs keeps it) is used as it is; till then each is keyed here from poses (bake(): the run's
 // stride with the bones aimed).
-export const MOVES = ['jump', 'slide', 'sideL', 'sideR', 'fall'];
-const FADE = {idle: .3, run: .14, jump: .08, slide: .09, sideL: .06, sideR: .06, fall: .12};
+export const MOVES = ['jump', 'slide', 'sideL', 'sideR', 'fall', 'fallin'];
+const FADE = {idle: .3, run: .14, jump: .08, slide: .09, sideL: .06, sideR: .06, fall: .12, fallin: .06};
 const airLegs = (P, k) => {
   leg(P, 'Left', mix3([.05, -1, .1], [.1, -.28, .95], k), mix3([0, -1, -.1], [0, -.72, .7], k));
   leg(P, 'Right', mix3([-.05, -1, -.1], [-.42, -.5, .5], k), mix3([0, -1, -.2], [.2, -.35, -.9], k));
@@ -368,7 +369,17 @@ const KEYS = {
   ],
   sideL: sideKeys(1),
   sideR: sideKeys(-1),
-  fall: [{u: 0, at: () => {}}, {u: .4, at: down}, {u: 1, at: down}]
+  fall: [{u: 0, at: () => {}}, {u: .4, at: down}, {u: 1, at: down}],
+  // into a pothole (the ball kept tucked in his right: the carry, eased off by the view so that forearm comes out onto
+  // the rim too): dropping in, legs straight, his free arm flung up; caught in it, bent over its far rim, both forearms
+  // flat on it ahead at his shoulders' width; a knee up onto the rim, pushing up off it; out, stepping on
+  fallin: [
+    {u: 0, at: P => { trunk(P, [0, 1, -.08]); leg(P, 'Left', [.12, -1, .05], [.05, -1, .1]); leg(P, 'Right', [-.12, -1, .05], [-.05, -1, .1]); limb(P, 'Left', [.75, .55, .15], [.55, .8, .2]); }},
+    {u: .27, at: P => { trunk(P, [0, .75, .66]); leg(P, 'Left', [.08, -1, -.1], [0, -1, -.2]); leg(P, 'Right', [-.08, -1, -.1], [0, -1, -.2]); limb(P, 'Left', [.55, -.2, .82], [.12, -.3, .95]); limb(P, 'Right', [-.55, -.2, .82], [-.12, -.3, .95]); }},
+    {u: .55, at: P => { trunk(P, [0, .72, .7]); leg(P, 'Left', [.08, -1, -.12], [0, -1, -.22]); leg(P, 'Right', [-.08, -1, -.1], [0, -1, -.2]); limb(P, 'Left', [.58, -.28, .78], [.14, -.38, .92]); limb(P, 'Right', [-.58, -.28, .78], [-.14, -.38, .92]); }},
+    {u: .78, at: P => { trunk(P, [0, .8, .6]); leg(P, 'Right', [-.1, -.05, 1], [-.05, -1, .12]); leg(P, 'Left', [.08, -.95, -.3], [0, -.9, -.45]); limb(P, 'Left', [.3, -.55, .75], [.15, -.95, .3]); limb(P, 'Right', [-.3, -.55, .75], [-.15, -.95, .3]); }},
+    {u: 1, at: P => { trunk(P, [0, .9, .4]); leg(P, 'Left', [.1, -.35, .93], [.02, -1, .05]); leg(P, 'Right', [-.06, -.92, -.38], [0, -.75, -.66]); limb(P, 'Left', [.45, -.75, .3], [.25, -.3, .9]); }}
+  ]
 };
 /** The moves' clips: the model's own, or each keyed from KEYS on P (standing straight, mid-stride: the run's clip a
  *  tenth of the way round). */
