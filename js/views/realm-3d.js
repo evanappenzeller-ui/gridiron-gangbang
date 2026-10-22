@@ -18,6 +18,7 @@ import {KINDS, TROOPS, N, EDGE} from '../core/realm.js';
 import * as data from '../core/data.js';
 import {createWildlife} from './realm-wildlife.js';
 import {createAmbience} from './realm-ambience.js';
+import {villageGroundTexture} from './realm-ground.js';
 const V = new URL('../vendor/three/', import.meta.url).href;
 let T = null, RE = null, LOADING = null, DEAD = false;
 // The sceneries (core/realm.js SCENERIES), each a layout a shape: its own landscape, placements (its village round
@@ -367,7 +368,15 @@ export function create(host, opts = {}) {
     if (!base.plot) return;
     const key = GROUND[k] ? k : 'coast', color = village && scene0 && scene0.terrainColor;
     const G = color ? {...GROUND[key], a: color, b: color} : GROUND[key], textureKey = key + (color || '');
-    base.plot.material.map = base.tex[textureKey] || (base.tex[textureKey] = plotTexture(T, base.B, G, village));
+    if (village) {
+      // Keep only the active high-detail texture resident on mobile GPUs.
+      if (base.textureKey !== textureKey) {
+        const previous = base.plot.material.map;
+        base.plot.material.map = villageGroundTexture(T, base.B, key, G.a);
+        base.textureKey = textureKey;
+        if (previous) previous.dispose();
+      }
+    } else base.plot.material.map = base.tex[textureKey] || (base.tex[textureKey] = plotTexture(T, base.B, G));
     base.plot.material.needsUpdate = true;
     base.blades.visible = G.blades;
     base.kerbM.color.set(G.kerb);
@@ -1211,6 +1220,7 @@ export function create(host, opts = {}) {
       if (raf) cancelAnimationFrame(raf);
       if (ro) ro.disconnect();
       if (wear) { wear.mesh.geometry.dispose(); wear.mesh.material.dispose(); wear.tex.dispose(); }
+      if (village && base.plot.material.map) base.plot.material.map.dispose();
       raidStop();
       canvas.removeEventListener('pointerdown', down); canvas.removeEventListener('pointermove', move);
       canvas.removeEventListener('pointerup', up); canvas.removeEventListener('pointercancel', up); canvas.removeEventListener('wheel', wheel);
