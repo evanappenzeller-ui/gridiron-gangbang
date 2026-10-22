@@ -168,7 +168,7 @@ html.rm .v-puzzles .c-prog-f, html.rm .v-puzzles .c-prog-f::after, html.rm .v-pu
   opacity: 0; pointer-events: none; will-change: transform, opacity;
   -webkit-mask-image: radial-gradient(ellipse at center, #000 12%, rgba(0,0,0,.88) 37%, transparent 72%);
   mask-image: radial-gradient(ellipse at center, #000 12%, rgba(0,0,0,.88) 37%, transparent 72%);
-  animation: gm-smoke-disperse var(--life) linear var(--delay) infinite;
+  animation: gm-smoke-disperse calc(var(--life) / 1.2) linear calc(var(--delay) / 1.2) infinite;
 }
 .gm-smoke-wisp::before {
   content: ''; position: absolute; inset: 0;
