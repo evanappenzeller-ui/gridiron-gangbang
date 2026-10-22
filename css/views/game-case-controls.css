@@ -1,26 +1,25 @@
-/* Evan's launch control: a big START block pinned at the top of the screen, between the safe area and the case,
-   full-sized however small the open case scales. Royal blue, so it stands off the green case. */
-.gm-zoom.gm-owner.gm-has-play { padding-top: calc(max(8px, var(--sa-t, 0px)) + 76px); }
+/* Evan's launch control: a slim, sleek START pill pinned at the top of the screen, between the safe area and the
+   case, full-sized however small the open case scales (his asks, Oct 2026). Royal blue, so it stands off the green case. */
+.gm-zoom.gm-owner.gm-has-play { padding-top: calc(max(8px, var(--sa-t, 0px)) + 60px); }
 .gm-zoom.gm-owner .gm-z-dlg > .gm-z-go {
-  position: fixed; z-index: 3; inset: max(10px, var(--sa-t, 0px)) auto auto 50%;
+  position: fixed; z-index: 3; inset: max(12px, var(--sa-t, 0px)) auto auto 50%;
   transform: translateX(-50%); translate: none;
   display: grid; place-items: center; flex: none;
-  width: min(280px, calc(100vw - 132px)); height: 60px; padding: 0 16px;
-  border: 0; border-radius: 14px;
-  background: linear-gradient(180deg, #3b82f6 0%, #1d5fd6 48%, #123f9e 100%); color: #fff;
-  box-shadow: inset 0 1px 0 #ffffff59, inset 0 -3px 0 #0b2e78, 0 4px 0 #0a2560, 0 10px 26px #0009, 0 0 30px #3b82f633;
-  font: 900 31px/1 var(--font-text); letter-spacing: .02em; text-transform: uppercase; text-align: center;
-  text-shadow: 0 2px 0 #0b2e7899;
+  width: min(176px, calc(100vw - 132px)); height: 42px; padding: 0 20px;
+  border: 1px solid #ffffff2e; border-radius: 21px;
+  background: linear-gradient(180deg, #3d7ef0, #1f56c8); color: #fff;
+  box-shadow: inset 0 1px 0 #ffffff40, 0 6px 18px #0b1f5c66, 0 1px 3px #0006;
+  font: 700 15px/1 var(--font-text); letter-spacing: .24em; text-indent: .24em; text-transform: uppercase; text-align: center;
   transition: opacity .2s, visibility .2s, translate .15s, box-shadow .15s, filter .15s;
   cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
-.gm-zoom.gm-owner .gm-z-dlg > .gm-z-go::before { inset: -6px; border-radius: 18px; pointer-events: none; }
+.gm-zoom.gm-owner .gm-z-dlg > .gm-z-go::before { inset: -8px; border-radius: 29px; pointer-events: none; } /* (its reach) */
 .gm-zoom.gm-owner .gm-z-go-word { display: block; max-width: 100%; overflow: hidden; text-overflow: clip; white-space: nowrap; }
 @media (hover: hover) {
-  .gm-zoom.gm-owner .gm-z-dlg > .gm-z-go:hover:not(:disabled) { translate: 0 -2px; filter: brightness(1.08); box-shadow: inset 0 1px 0 #ffffff59, inset 0 -3px 0 #0b2e78, 0 6px 0 #0a2560, 0 14px 30px #0009, 0 0 36px #3b82f64d; }
+  .gm-zoom.gm-owner .gm-z-dlg > .gm-z-go:hover:not(:disabled) { translate: 0 -1px; filter: brightness(1.08); box-shadow: inset 0 1px 0 #ffffff40, 0 8px 22px #0b1f5c80, 0 1px 3px #0006; }
 }
-.gm-zoom.gm-owner .gm-z-dlg > .gm-z-go:active:not(:disabled) { translate: 0 3px; box-shadow: inset 0 1px 0 #ffffff40, inset 0 -2px 0 #0b2e78, 0 1px 0 #0a2560, 0 4px 12px #0007; }
-.gm-zoom.gm-owner .gm-z-dlg > .gm-z-go:focus-visible { outline: 3px solid #fff; outline-offset: 4px; }
+.gm-zoom.gm-owner .gm-z-dlg > .gm-z-go:active:not(:disabled) { translate: 0 1px; filter: brightness(.94); box-shadow: inset 0 1px 0 #ffffff26, 0 2px 8px #0b1f5c66; }
+.gm-zoom.gm-owner .gm-z-dlg > .gm-z-go:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 .gm-zoom.gm-owner .gm-z-dlg > .gm-z-go:disabled { opacity: 0; visibility: hidden; pointer-events: none; }
 .gm-zoom.gm-owner .gm-z-dlg > .gm-z-go[aria-busy="true"] { opacity: .65; visibility: visible; }
 .gm-zoom.gm-owner.gm-is-launching .gm-z-dlg > .gm-z-go { opacity: 0; visibility: hidden; pointer-events: none; }
