@@ -15,6 +15,7 @@
 // dive) as a whole. Everything's bent with the world (return-3dworld.js bend()).
 // Exports: load(), ready(), render(st, now, who), STRIDE, MOVES.
 import * as W3 from './return-3dworld.js';
+import * as data from '../core/data.js';
 const V = new URL('../vendor/three/', import.meta.url).href;
 const MODEL = new URL('../../models/return-player.glb', import.meta.url).href;
 /** Yards a full run cycle (two strides) covers: the clip's legs keep pace with the ground. (Mixamo's Fast Run plants
@@ -29,10 +30,15 @@ const KITS = {
     visor: 0x14181F, num: 52, ball: false, size: 1.06}
 };
 let T = null, GL = null, GL_UTILS = null, LOADING = null, DEAD = false;
+let ownerStyle = null, styleAttempt = null, styleTried = false, styleSubscribed = false;
 
 /** Loads three.js and the model, and dresses both players (once). Resolves true when they're in; false if this phone
  *  can't (no WebGL, a load failed): the sprite players stay. */
 export function load() {
+  if (!styleSubscribed) {
+    styleSubscribed = true;
+    data.subscribe(type => { if (type === 'me' || type === 'data') syncPlayerStyle(); });
+  }
   if (!LOADING) {
     LOADING = (async () => {
       try {
@@ -45,6 +51,7 @@ export function load() {
         const gltf = await new GLTFLoader().loadAsync(MODEL);
         try { await document.fonts.load('800 100px "Barlow Condensed"'); } catch (_) {}
         GL = build(gltf, SK, RoomEnvironment);
+        syncPlayerStyle();
         return true;
       } catch (e) {
         console.warn('Return Man: no 3D players', e);
@@ -56,6 +63,81 @@ export function load() {
   return LOADING;
 }
 export const ready = () => !!GL && !DEAD;
+
+// The reviewed kit is only loaded for Evan's selected profile. Keep the original players intact:
+// fresh clones give accessories their bind-pose attachment points, even after a mid-run profile switch.
+function ghostMaterials(P) {
+  const materials = [];
+  P.root.traverse(o => {
+    if (!o.isMesh) return;
+    const single = !Array.isArray(o.material);
+    const list = (single ? [o.material] : o.material).map(m => {
+      const c = m.clone(); c.transparent = true; c.opacity = .3; c.depthWrite = false;
+      materials.push(c); return c;
+    });
+    o.material = single ? list[0] : list;
+  });
+  return materials;
+}
+function releaseStyledPlayer(entry) {
+  const {player: P, style, ghost, ballGeometry, ballMaterials} = entry;
+  P.root.removeFromParent();
+  style?.dispose();
+  ghost.forEach(m => m.dispose());
+  ballGeometry.forEach(g => g.dispose()); ballMaterials.forEach(m => m.dispose());
+  const skeletons = new Set();
+  P.model.traverse(o => { if (o.skeleton) skeletons.add(o.skeleton); });
+  skeletons.forEach(s => s.dispose());
+  P.mixer.stopAllAction(); P.mixer.uncacheRoot(P.model);
+}
+function styledPlayer(restyle, isGhost) {
+  const P = dress(GL.gltf, GL.SK, KITS.us);
+  const entry = {player: P, style: null, ghost: [], ballGeometry: new Set(), ballMaterials: new Set()};
+  P.ball.traverse(o => {
+    if (!o.isMesh) return;
+    entry.ballGeometry.add(o.geometry);
+    (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => entry.ballMaterials.add(m));
+  });
+  try {
+    entry.style = restyle(P, T, GL_UTILS);
+    arm(P, GL.clips);
+    if (isGhost) entry.ghost = ghostMaterials(P);
+    else P.root.traverse(o => { if (o.isMesh) o.castShadow = true; });
+    W3.bend(P.root);
+    return entry;
+  } catch (error) { releaseStyledPlayer(entry); throw error; }
+}
+function revokePlayerStyle() {
+  styleAttempt = null; styleTried = false;
+  if (!ownerStyle) return;
+  const old = ownerStyle; ownerStyle = null;
+  GL.players = GL.basePlayers; GL.ghost = GL.baseGhost;
+  old.forEach(releaseStyledPlayer);
+}
+function syncPlayerStyle() {
+  if (!data.isOwner()) { revokePlayerStyle(); return; }
+  if (!GL || styleTried) return;
+  styleTried = true;
+  const attempt = {}; styleAttempt = attempt;
+  import('./return-player-style.js').then(({restyleFootball}) => {
+    if (styleAttempt !== attempt || !data.isOwner()) return;
+    const entries = [];
+    try {
+      entries.push(styledPlayer(restyleFootball, false));
+      entries.push(styledPlayer(restyleFootball, true));
+      GL.basePlayers.us.root.visible = GL.basePlayers.ghost.root.visible = false;
+      entries.forEach(e => { e.player.root.visible = false; GL.scene.add(e.player.root); });
+      GL.players = {...GL.basePlayers, us: entries[0].player, ghost: entries[1].player};
+      GL.ghost = entries[1].ghost; ownerStyle = entries;
+    } catch (error) {
+      entries.forEach(releaseStyledPlayer);
+      throw error;
+    }
+  }).catch(error => {
+    // Failed/offline styling leaves the complete original player available; no retry every frame.
+    if (styleAttempt === attempt) console.warn('Return Man: original player kit retained', error);
+  });
+}
 
 // ---------------------------------------------------------------------------- Dressing him
 // The player as he comes (models/return-player.glb: his own jersey, pants, helmet and cleats) in each side's colours:
@@ -199,13 +281,13 @@ function build(gltf, SK, RoomEnvironment) {
   const players = {us: dress(gltf, SK, KITS.us), them: dress(gltf, SK, KITS.them), ghost: dress(gltf, SK, KITS.us)};
   const clips = bake(players.us, gltf);
   Object.values(players).forEach(P => arm(P, clips));
-  const ghost = [];
-  players.ghost.root.traverse(o => { if (o.isMesh) { const one = !Array.isArray(o.material), list = (one ? [o.material] : o.material).map(m => { const c = m.clone(); c.transparent = true; c.opacity = .3; c.depthWrite = false; ghost.push(c); return c; }); o.material = one ? list[0] : list; } });
+  const ghost = ghostMaterials(players.ghost);
   [players.us, players.them].forEach(P => P.root.traverse(o => { if (o.isMesh) o.castShadow = true; }));
   scene.add(W3.bend(players.us.root), W3.bend(players.them.root), W3.bend(players.ghost.root));
   const camera = new T.PerspectiveCamera();
   camera.matrixAutoUpdate = true;
-  return {renderer, canvas, scene, camera, players, ghost, hemi, sun, rim, w: 0, h: 0};
+  return {renderer, canvas, scene, camera, players, ghost, basePlayers: players, baseGhost: ghost,
+    gltf, SK, clips, hemi, sun, rim, w: 0, h: 0};
 }
 
 // ---------------------------------------------------------------------------- Posing him
@@ -373,6 +455,7 @@ function camera(st) {
 /** Renders the world and the players as they are now; who: {us, them, ghost} (each {spec (pose's), x, y, z (his
  *  feet), show} or null: not there). Returns the canvas it's on (transparent where the sky shows through). */
 export function render(st, now, who) {
+  syncPlayerStyle();
   camera(st);
   W3.update(st, now);
   // the place's light where he is (the next place's coming in at its gate)
