@@ -1,0 +1,44 @@
+/* Owner-only control feedback. owner-motion.js owns the root eligibility class.
+   Keep ui.js's press delay, tap highlight and release pop, plus each theme's
+   pressed transform. Independent translate adds a small lift without replacing
+   those transforms. Game screens keep their existing control feedback. */
+@media (prefers-reduced-motion: no-preference) {
+  html.owner-motion:not(.rm) :where(.btn, .icon-btn, .nav-back, .seg > button):not(:where(.v-run *, .dr-pane *, .kk-pane *, .rm-pane *, .sv-pane *, .v-realm *, .v-realm-raid *, .v-realm-scout *)):not(:disabled, [aria-disabled="true"], .is-loading, [data-press="off"], [data-press="none"], .is-pressed) {
+    transition: transform var(--spring-bouncy-dur) var(--spring-bouncy),
+      translate 180ms cubic-bezier(.22, 1, .36, 1),
+      background-color 180ms ease, color 180ms ease,
+      opacity 160ms ease, box-shadow 160ms ease, filter 160ms ease;
+  }
+
+  html.owner-motion:not(.rm) .icon-btn:not(:where(.v-run *, .dr-pane *, .kk-pane *, .rm-pane *, .sv-pane *, .v-realm *, .v-realm-raid *, .v-realm-scout *)):not(:disabled, [aria-disabled="true"], .is-loading, [data-press="off"], [data-press="none"]) > .ic {
+    transition: translate 180ms cubic-bezier(.22, 1, .36, 1);
+  }
+
+  html.owner-motion:not(.rm) .icon-btn.is-pressed:not(:where(.v-run *, .dr-pane *, .kk-pane *, .rm-pane *, .sv-pane *, .v-realm *, .v-realm-raid *, .v-realm-scout *)):not(:disabled, [aria-disabled="true"], .is-loading, [data-press="off"], [data-press="none"]) > .ic {
+    translate: 0 1px;
+    transition-duration: 60ms;
+  }
+
+  html.owner-motion:not(.rm) #tabbar:not(.is-scrubbing) .tab:not(.is-pressed) .tab-ic {
+    transition: transform var(--spring-bouncy-dur) var(--spring-bouncy),
+      translate 180ms cubic-bezier(.22, 1, .36, 1);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    html.owner-motion:not(.rm) :where(.btn, .icon-btn):not(:where(.v-run *, .dr-pane *, .kk-pane *, .rm-pane *, .sv-pane *, .v-realm *, .v-realm-raid *, .v-realm-scout *)):not(:disabled, [aria-disabled="true"], .is-loading, [data-press="off"], [data-press="none"], .is-pressed, :active):hover {
+      translate: 0 -2px;
+    }
+
+    html.owner-motion:not(.rm) :where(.nav-back, .seg > button):not(:where(.v-run *, .dr-pane *, .kk-pane *, .rm-pane *, .sv-pane *, .v-realm *, .v-realm-raid *, .v-realm-scout *)):not(:disabled, [aria-disabled="true"], .is-loading, [data-press="off"], [data-press="none"], .is-pressed, :active):hover {
+      filter: brightness(1.12);
+    }
+
+    html.owner-motion:not(.rm) .icon-btn:not(:where(.v-run *, .dr-pane *, .kk-pane *, .rm-pane *, .sv-pane *, .v-realm *, .v-realm-raid *, .v-realm-scout *)):not(:disabled, [aria-disabled="true"], .is-loading, [data-press="off"], [data-press="none"], .is-pressed, :active):hover::before {
+      opacity: .6;
+    }
+
+    html.owner-motion:not(.rm) #tabbar:not(.is-scrubbing) .tab:not(:disabled, [aria-disabled="true"], .is-pressed, :active):hover .tab-ic {
+      translate: 0 -2px;
+    }
+  }
+}

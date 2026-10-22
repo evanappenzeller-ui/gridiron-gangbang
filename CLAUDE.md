@@ -60,5 +60,9 @@ How it's enforced, and what to keep doing:
 
 ## Deploying
 
+- Standing owner instruction (October 21, 2026): after completing and verifying requested changes,
+  automatically commit and push them through the deployment process below. Evan will give feedback
+  on each published update; do not wait for a separate push/deploy confirmation. Include only the
+  completed task's changes, preserving unrelated work in progress. Keep the owner-only rollout rule.
 - Work on branch `claude/17-0-game-mode`, then fast-forward `main` (the live site).
 - Bump `CACHE` in `sw.js` on every deploy.

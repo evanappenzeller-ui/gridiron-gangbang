@@ -731,6 +731,9 @@ export function odometer(el, from, to) {
 export function stagger(nodes, {step = 24, max = 8, y = 12, duration = 320} = {}) {
   if (!nodes || RM) return;
   let list = nodes instanceof Element ? [...nodes.querySelectorAll('[data-enter]')] : [...nodes];
+  // The owner's screen observer reveals cards when they actually enter the viewport.
+  // Sheets and gameplay covers keep their own entrance choreography.
+  if (DOC.classList.contains('owner-motion')) list = list.filter(n => !n.closest('.screen') || n.closest('.cover'));
   // A [data-enter] inside another one moves with its parent (never twice).
   const set = new Set(list);
   list = list.filter(n => { for (let p = n.parentElement; p; p = p.parentElement) if (set.has(p)) return false; return true; });

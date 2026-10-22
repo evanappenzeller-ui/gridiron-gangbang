@@ -409,7 +409,10 @@ function observeAccessories(scr) {
   }), {root: scr.el, rootMargin: `-${navH}px 0px 0px 0px`, threshold: [0, 1]});
   accs.forEach(a => scr.aio.observe(a));
 }
-function afterContent(scr) { observeCollapse(scr); observeAccessories(scr); updateNav(scr); }
+function afterContent(scr) {
+  observeCollapse(scr); observeAccessories(scr); updateNav(scr);
+  ownerEffects?.refresh(scr, scr.ctx.reason === 'data' || scr.ctx.reason === 'me');
+}
 // The nav height feeds the observers' rootMargin; re-observe when it changes (safe-area or late CSS).
 function checkNavHeight(scr) {
   if (scr && scr.nav && !scr.dead && scr.nav.offsetHeight && scr.nav.offsetHeight !== scr.navH) { observeCollapse(scr); observeAccessories(scr); }
@@ -606,7 +609,9 @@ function setVisible(scr, v) {
     if (!document.hidden) resumeTimers(scr);
     scr.ctx.reason = 'show';
     try { scr.view && scr.view.onShow && scr.view.onShow(scr.ctx); } catch (e) { console.error(e); }
+    ownerEffects?.show(scr);
   } else {
+    ownerEffects?.hide(scr);
     pauseTimers(scr);
     try { scr.view && scr.view.onHide && scr.view.onHide(scr.ctx); } catch (e) { console.error(e); }
   }
@@ -727,14 +732,15 @@ async function animPush(inc, out) {
   pinLayers(inc); pinLayers(out);
   inc.el.classList.add('is-animating'); out.el.classList.add('is-animating');
   const xf = navXfade(out, inc, 1);
+  const motion = data.isOwner() && !ui.RM ? {spring: null, duration: 320, easing: EASE_OUT} : {spring: 'smooth'};
   const list = ui.RM
     ? [ui.animate(inc.el, [{opacity: 0}, {opacity: 1}], {duration: 180, easing: 'linear'})]
     : [
-      ui.animate(inc.el, [{transform: 'translateX(100%)'}, {transform: 'translateX(0)'}], {spring: 'smooth', fill: 'backwards'}),
-      ui.animate(out.el, [{transform: 'translateX(0)'}, {transform: 'translateX(-30%)'}], {spring: 'smooth', fill: 'forwards'}),
-      ui.animate(out.dim, [{opacity: 0}, {opacity: .3}], {spring: 'smooth', fill: 'forwards'}),
-      ui.animate(inc.edge, [{opacity: 0}, {opacity: 1}], {spring: 'smooth', fill: 'forwards'}),
-      ...(xf ? xf.run(0, 1) : [])
+      ui.animate(inc.el, [{transform: 'translateX(100%)'}, {transform: 'translateX(0)'}], {...motion, fill: 'backwards'}),
+      ui.animate(out.el, [{transform: 'translateX(0)'}, {transform: 'translateX(-30%)'}], {...motion, fill: 'forwards'}),
+      ui.animate(out.dim, [{opacity: 0}, {opacity: .3}], {...motion, fill: 'forwards'}),
+      ui.animate(inc.edge, [{opacity: 0}, {opacity: 1}], {...motion, fill: 'forwards'}),
+      ...(xf ? xf.run(0, 1, motion) : [])
     ];
   try { await track(list); } finally { if (xf) xf.done(); }
   if (!out.dead && topOf(out.entry.tab) !== out.entry) out.el.setAttribute('data-under', '');
@@ -747,42 +753,46 @@ async function animPop(top, under, {v0 = 0} = {}) {
   top.el.classList.add('is-animating');
   if (under) under.el.classList.add('is-animating');
   const xf = under ? navXfade(top, under, -1) : null;
+  const motion = data.isOwner() && !ui.RM ? {spring: null, duration: 280, easing: EASE_OUT} : {spring: 'smooth', v0};
   const list = ui.RM
     ? [ui.animate(top.el, [{opacity: 1}, {opacity: 0}], {duration: 180, easing: 'linear', fill: 'forwards'})]
     : [
-      ui.animate(top.el, [{transform: getComputedStyle(top.el).transform === 'none' ? 'translateX(0)' : getComputedStyle(top.el).transform}, {transform: 'translateX(100%)'}], {spring: 'smooth', v0, fill: 'forwards'}),
-      under && ui.animate(under.el, [{transform: 'translateX(-30%)'}, {transform: 'translateX(0)'}], {spring: 'smooth', v0}),
-      under && ui.animate(under.dim, [{opacity: .3}, {opacity: 0}], {spring: 'smooth', v0}),
-      ui.animate(top.edge, [{opacity: 1}, {opacity: 0}], {spring: 'smooth', v0, fill: 'forwards'}),
-      ...(xf ? xf.run(0, 1, {v0}) : [])
+      ui.animate(top.el, [{transform: getComputedStyle(top.el).transform === 'none' ? 'translateX(0)' : getComputedStyle(top.el).transform}, {transform: 'translateX(100%)'}], {...motion, fill: 'forwards'}),
+      under && ui.animate(under.el, [{transform: 'translateX(-30%)'}, {transform: 'translateX(0)'}], motion),
+      under && ui.animate(under.dim, [{opacity: .3}, {opacity: 0}], motion),
+      ui.animate(top.edge, [{opacity: 1}, {opacity: 0}], {...motion, fill: 'forwards'}),
+      ...(xf ? xf.run(0, 1, motion) : [])
     ];
   try { await track(list); } finally { if (xf) xf.done(); }
   clearInline(under);
 }
 async function animCoverIn(wrap, scrim) {
   scrim.style.opacity = '.4';
+  const motion = data.isOwner() && !ui.RM ? {duration: 300, easing: EASE_OUT} : {spring: 'smooth'};
   const list = ui.RM
     ? [ui.animate(wrap, [{opacity: 0}, {opacity: 1}], {duration: 180, easing: 'linear'}), ui.animate(scrim, [{opacity: 0}, {opacity: .4}], {duration: 180})]
-    : [ui.animate(wrap, [{transform: 'translateY(100%)'}, {transform: 'translateY(0)'}], {spring: 'smooth', fill: 'backwards'}), ui.animate(scrim, [{opacity: 0}, {opacity: .4}], {spring: 'smooth'})];
+    : [ui.animate(wrap, [{transform: 'translateY(100%)'}, {transform: 'translateY(0)'}], {...motion, fill: 'backwards'}), ui.animate(scrim, [{opacity: 0}, {opacity: .4}], motion)];
   wrap.classList.add('is-animating');
   await track(list);
   wrap.classList.remove('is-animating');
 }
 async function animCoverOut(wrap, scrim) {
   wrap.classList.add('is-animating');
+  const motion = data.isOwner() && !ui.RM ? {duration: 300, easing: EASE_OUT} : {spring: 'smooth'};
   const list = ui.RM
     ? [ui.animate(wrap, [{opacity: 1}, {opacity: 0}], {duration: 180, fill: 'forwards'}), ui.animate(scrim, [{opacity: .4}, {opacity: 0}], {duration: 180, fill: 'forwards'})]
-    : [ui.animate(wrap, [{transform: 'translateY(0)'}, {transform: 'translateY(100%)'}], {spring: 'smooth', fill: 'forwards'}), ui.animate(scrim, [{opacity: .4}, {opacity: 0}], {spring: 'smooth', fill: 'forwards'})];
+    : [ui.animate(wrap, [{transform: 'translateY(0)'}, {transform: 'translateY(100%)'}], {...motion, fill: 'forwards'}), ui.animate(scrim, [{opacity: .4}, {opacity: 0}], {...motion, fill: 'forwards'})];
   await track(list);
 }
 async function animSwap(out, inc, dir = 1) {
   if (!out || !inc) return;
   out.el.classList.add('is-animating'); inc.el.classList.add('is-animating');
+  const ownerMotion = data.isOwner() && !ui.RM;
   const list = ui.RM
     ? [ui.animate(out.el, [{opacity: 1}, {opacity: 0}], {duration: 120, fill: 'forwards'}), ui.animate(inc.el, [{opacity: 0}, {opacity: 1}], {duration: 180, delay: 60, fill: 'backwards'})]
     : [
-      ui.animate(out.el, [{opacity: 1, transform: 'translateX(0)'}, {opacity: 0, transform: `translateX(${-24 * dir}px)`}], {duration: 160, easing: EASE_IN, fill: 'forwards'}),
-      ui.animate(inc.el, [{opacity: 0, transform: `translateX(${24 * dir}px)`}, {opacity: 1, transform: 'translateX(0)'}], {duration: 240, easing: EASE_OUT, delay: 120, fill: 'backwards'})
+      ui.animate(out.el, [{opacity: 1, transform: 'translateX(0)'}, {opacity: 0, transform: `translateX(${-24 * dir}px)`}], {duration: ownerMotion ? 130 : 160, easing: EASE_IN, fill: 'forwards'}),
+      ui.animate(inc.el, [{opacity: 0, transform: `translateX(${24 * dir}px)`}, {opacity: 1, transform: 'translateX(0)'}], {duration: ownerMotion ? 220 : 240, easing: EASE_OUT, delay: ownerMotion ? 0 : 120, fill: 'backwards'})
     ];
   await track(list);
   clearInline(inc);
@@ -1721,11 +1731,12 @@ function slideTo(T) {
     // Shrink, slide, grow: the cards dip to their smallest about a third of the way across. Quick (TAB_MS), so a tab
     // tap feels instant.
     await new Promise(res => {
-      const ms = TAB_MS, t0 = performance.now();
+      const t0 = performance.now();
       const frame = now => {
-        const t = Math.min(1, (now - t0) / ms);
+        const ownerMotion = data.isOwner() && !ui.RM;
+        const t = ui.RM ? 1 : Math.min(1, (now - t0) / (ownerMotion ? 280 : TAB_MS));
         const p = t * t * t * (t * (t * 6 - 15) + 10); // smootherstep: off gently, across, in gently
-        const sc = 1 - CARD.dip * Math.pow(Math.sin(Math.PI * Math.min(1, t * 1.08)), .7);
+        const sc = 1 - (ownerMotion ? .045 : CARD.dip) * Math.pow(Math.sin(Math.PI * Math.min(1, t * 1.08)), .7);
         const step = cardStep(w, sc);
         cardAt(cur, -dir * p * step, sc);
         cardAt(nxt, dir * (1 - p) * step, sc);
@@ -2019,6 +2030,35 @@ document.addEventListener('keydown', e => {
 // 'me' applies at once (it follows a tap); 'data' waits for ui.whenIdle so a reload never swaps
 // content in the middle of an animation or a scroll.
 // Who this phone is decides the tabs (the Realm is the owner's): off a tab that's gone, onto Daily Games.
+let ownerEffects = null, ownerEffectsLoad = null;
+function syncOwnerEffects() {
+  const enabled = data.isOwner();
+  document.documentElement.classList.toggle('owner-motion', enabled);
+  if (!enabled) { ownerEffects?.stop(); return Promise.resolve(); }
+  const activate = () => {
+    if (!data.isOwner()) return;
+    ownerEffects.start();
+    allMounted().filter(s => s.visible).forEach(s => ownerEffects.show(s));
+  };
+  if (ownerEffects) { activate(); return Promise.resolve(); }
+  // Keep optional motion assets off everyone else's initial load and shared offline precache.
+  if (!ownerEffectsLoad) ownerEffectsLoad = import('./core/owner-motion.js')
+    .then(m => { ownerEffects = m; activate(); })
+    .catch(() => { document.documentElement.classList.remove('owner-motion'); })
+    .finally(() => { ownerEffectsLoad = null; });
+  return ownerEffectsLoad;
+}
+data.subscribe(type => {
+  if (type !== 'me') return;
+  // End the old profile's movement before any visible content is refreshed (also handles storage events).
+  if (document.documentElement.classList.contains('owner-motion')) finishTransitions();
+  syncOwnerEffects();
+});
+const ownerMotionPreference = matchMedia('(prefers-reduced-motion: reduce)');
+const finishOwnerMotion = e => { if (e.matches && data.isOwner()) finishTransitions(); };
+if (ownerMotionPreference.addEventListener) ownerMotionPreference.addEventListener('change', finishOwnerMotion);
+else ownerMotionPreference.addListener?.(finishOwnerMotion);
+
 data.subscribe(type => {
   if (type !== 'me' || !syncTabs()) return;
   if (!TABS.includes(S.tab)) goTab(HOME);
@@ -2144,6 +2184,7 @@ function takeBootMark() {
   } catch (_) { return null; }
 }
 async function start() {
+  await syncOwnerEffects();
   syncTabs();
   let hash0 = location.hash;
   const st0 = history.state;
