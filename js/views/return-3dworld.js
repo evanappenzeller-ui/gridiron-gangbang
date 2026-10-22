@@ -16,6 +16,7 @@ import * as R from '../core/return.js';
 import {dressList, LOOKS, OBS, GOODS_COL, HOLE_COL} from './return-world.js';
 import {seeded} from './stadium.js';
 import * as cityBus from './return-city-bus.js';
+import * as fieldLogo from './return-field-logo.js';
 import * as data from '../core/data.js';
 import * as style from './return-style.js';
 import {decorate} from './return-scenery.js';
@@ -57,6 +58,7 @@ export function init(three, scene, utils) {
   ROOT = new T.Group(); ROOT.name = 'world';
   SCENE.add(ROOT);
   cityBus.init(T, refreshCityBuses);
+  fieldLogo.subscribe(refreshFieldLogos);
   styleMode = style.enabled();
   if (!styleSubscribed) {
     styleSubscribed = true;
@@ -362,7 +364,7 @@ const GROUND_EXTRA = {
       const n = yd <= 50 ? yd : 100 - yd;
       // (read from the sideline, the tops toward it)
       [-1, 1].forEach(s => g.add(decal(numberMat(n), 3.2, 2.2, s * 18.8, z, -s * Math.PI / 2)));
-      if (yd === 50) g.add(decal(logoMat(), 6.4, 6.4, 0, z, 0));
+      if (yd === 50) g.add(midfieldLogo(z));
     }
     // the wall round the field, padded, an ad strip along it; the stands climbing behind it, full
     [-1, 1].forEach(s => {
@@ -435,6 +437,40 @@ const logoMat = () => texMat('logo', () => canvasTex(512, 512, (g, w, h) => {
   g.font = `800 ${h * .16}px ${DISPLAY}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#FFFFFF';
   g.fillText('RETURN MAN', w / 2, h * .7);
 }, false), {transparent: true, depthWrite: false});
+let fieldLogoMaterial = null;
+function midfieldLogo(z) {
+  const image = fieldLogo.image();
+  let mesh;
+  if (image) {
+    if (!fieldLogoMaterial) {
+      const map = canvasTex(image.width, image.height, c => c.drawImage(image, 0, 0), false);
+      fieldLogoMaterial = new T.MeshLambertMaterial({map, transparent: true, depthWrite: false});
+    }
+    const width = fieldLogo.WIDTH, depth = width * image.height / image.width;
+    // Segments follow the same curved ground as the turf beneath this painted mark.
+    mesh = plane(fieldLogoMaterial, -width / 2, width / 2, z - depth / 2, z + depth / 2, .008);
+    mesh.name = 'toreadors-midfield-logo';
+  } else {
+    mesh = decal(logoMat(), 6.4, 6.4, 0, z, 0);
+    mesh.name = 'return-man-midfield-logo';
+  }
+  mesh.userData.fieldLogoZ = z;
+  return mesh;
+}
+function refreshFieldLogos() {
+  const old = fieldLogoMaterial;
+  fieldLogoMaterial = null;
+  for (const {obj} of LIVE.values()) {
+    const logos = [];
+    obj.traverse(o => { if (o.userData.fieldLogoZ != null) logos.push(o); });
+    logos.forEach(o => {
+      const parent = o.parent;
+      parent.remove(o); o.geometry.dispose();
+      parent.add(bend(midfieldLogo(o.userData.fieldLogoZ)));
+    });
+  }
+  if (old) { old.map.dispose(); old.dispose(); }
+}
 const seaMat = () => texOf('m:sea', () => {
   const t = canvasTex(256, 256, (g, w, h) => {
     g.fillStyle = '#22AFD3'; g.fillRect(0, 0, w, h);
@@ -1149,6 +1185,7 @@ export function update(st, now) {
   if (!ROOT) return;
   syncStyle();
   cityBus.sync();
+  fieldLogo.sync();
   FRAME++;
   const t = now / 1000, run = st.run, cz = st.camZ, key = `${st.co.n}|${st.co.k}${st.co.hard ? 'h' : ''}`;
   // the ground beyond the last chunk, out to the horizon (all haze by then)

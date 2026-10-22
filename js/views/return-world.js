@@ -12,6 +12,7 @@
 // Owner: RETURN.
 import * as R from '../core/return.js';
 import * as data from '../core/data.js';
+import * as fieldLogo from './return-field-logo.js';
 import {backdrop, bowl, seeded, sparkle} from './stadium.js';
 
 export const NEAR = .9, FAR = 150;
@@ -335,6 +336,25 @@ function strips(st, c, list, style) {
 function marks(za, zb, step, from = 0) { const out = []; for (let z = Math.ceil((za - from) / step) * step + from; z < zb; z += step) out.push(z); return out; }
 const fieldYard = z => ((z % 100) + 100) % 100;
 const inEndZone = z => z < 0 || (z >= 100 && fieldYard(z) < 10);
+/** Paint the logo in thin screen rows; return.js sets bend=0 for this 2D fallback. */
+function midfieldLogo(st, c, za, zb) {
+  const image = fieldLogo.image();
+  if (!image) return;
+  const width = fieldLogo.WIDTH, depth = width * image.height / image.width;
+  marks(za - depth / 2, zb + depth / 2, R.ZONE, 50).forEach(z => {
+    const near = Math.max(za, z - depth / 2), far = Math.min(zb, z + depth / 2);
+    if (near >= far) return;
+    const top = P(st, 0, 0, far).y, bottom = P(st, 0, 0, near).y;
+    const sourceY = y => clamp((z + depth / 2 - st.camZ - st.f * st.camH / (y - st.y0)) / depth * image.height, 0, image.height);
+    for (let y = Math.max(0, Math.floor(top)); y < Math.min(st.H, bottom); y++) {
+      const y0 = Math.max(y, top), y1 = Math.min(y + 1, bottom), sy0 = sourceY(y0), sy1 = sourceY(y1);
+      if (sy1 <= sy0) continue;
+      const scale = ((y0 + y1) / 2 - st.y0) / st.camH;
+      c.drawImage(image, 0, sy0, image.width, sy1 - sy0,
+        st.W / 2 + (-width / 2 - st.camX) * scale, y0, width * scale, y1 - y0);
+    }
+  });
+}
 const GROUNDS = {
   stadium(st, c, za, zb) {
     strips(st, c, [[-160, 160, za, zb]], '#1A5A31');
@@ -374,6 +394,7 @@ const GROUNDS = {
         c.restore();
       });
     });
+    midfieldLogo(st, c, za, zb);
     // the sideline walls, lit along the top, and the stands rising behind them
     [-1, 1].forEach(s => {
       const x = s * WALL, A = P(st, x, 0, za), B = P(st, x, 0, zb), B2 = P(st, x, 2.4, zb), A2 = P(st, x, 2.4, za);
