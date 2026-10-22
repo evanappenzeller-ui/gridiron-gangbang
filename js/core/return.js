@@ -56,6 +56,7 @@
 //                                               behind
 //   setTest(on, n), testing()                   test play (the owner's sandbox; his way to play it again)
 //   autoPost(), boardRows(n), weekRows(n), weekDays(n), boardState()   the league scoreboard (below)
+//   attemptsOf(docs, n)                         a person's runs of day n, their phones added up (on the owner's board)
 //
 // THE RULE (CLAUDE.md): the scoreboard reads daily.LB.raw, the board as this phone may see it: league members and
 // Ryan D for everyone; a guest (or Ryan S) only on their own phones.
@@ -925,13 +926,25 @@ export const live = n => { const d = read().days[n]; return !!(d && d.live && d.
 // each day's best run since replays came in the same day.) The owner's days carry one more (Oct 21 2026): c, the coins
 // of the day's first run (COIN), whatever run is the best (The Keep pays 10 Gold a coin from it: dayCoins); posted with
 // the day's best by the phone that ran the first run (and by his other phones, once their board has it).
-const F = 'rm2', POST_BACK = 7;
+// And a, the runs of the day on that phone (Oct 22 2026: the owner's ask, how many attempts each player has made, shown
+// on his scoreboard alone): posted again whenever it moves, a person's phones added up (attemptsOf). An entry from
+// before it has none.
+const F = 'rm2', POST_BACK = 7, MAX_RUNS = 9999;
 let posting = false;
+const okRuns = a => Number.isInteger(a) && a >= 1 && a <= MAX_RUNS;
 export function entryOf(p, n) {
   const e = p && p[F] && typeof p[F] === 'object' ? p[F][n] : null;
   if (!e || !Number.isInteger(e.y) || !Number.isInteger(e.l) || e.y < 0 || e.y > MAX_YARDS || e.l < 0 || e.l > e.y) return null;
-  return Object.assign({y: e.y, l: e.l, td: Number.isInteger(e.td) && e.td >= 0 ? e.td : 0, t: Number(e.t) || 0}, okCoins(e.c) ? {c: e.c} : {});
+  return Object.assign({y: e.y, l: e.l, td: Number.isInteger(e.td) && e.td >= 0 ? e.td : 0, t: Number(e.t) || 0}, okCoins(e.c) ? {c: e.c} : {}, okRuns(e.a) ? {a: e.a} : {});
 }
+/** A person's attempts on day n, their docs' runs added up (each phone posts its own), or null (none posted any). */
+export function attemptsOf(list, n) {
+  let a = null;
+  (list || []).forEach(p => { const e = entryOf(p, n); if (e && e.a != null) a = (a || 0) + e.a; });
+  return a;
+}
+/** This phone's runs of day n, as posted (a), or null with none. */
+const runsToPost = n => { const r = Math.min(MAX_RUNS, dayState(n, true).runs); return okRuns(r) ? r : null; };
 /** A person's coins for day n (their first run's: COIN), from their board docs (all of them one person's): the most any
  *  of them says (the first run is on one phone; the others may carry it on), or 0; never more than day n's course lays
  *  out within the most yards any of them posted (coinsWithin: a run's coins are all behind him, and his yards are never
@@ -1005,12 +1018,13 @@ function unposted() {
   const v = read(true), top = todayNumber();
   return Object.keys(v.days).map(Number)
     .filter(n => Number.isInteger(n) && n <= top && n > top - POST_BACK && dayState(n, true).official)
-    // (not posted yet, or this phone's best now beats what's posted; the owner's: or the day's coins aren't on the board
-    // yet, or not on this phone's entry while it has one)
+    // (not posted yet, or this phone's best now beats what's posted, or its runs of the day (a) aren't what this phone's
+    // entry says; the owner's: or the day's coins aren't on the board yet, or not on this phone's entry while it has one)
     .filter(n => {
       const b = bestEntry(theirs, n);
       if (!b || dayState(n, true).official.yards > b.e.y) return true;
-      const c = coinsToPost(n, theirs), own = mine ? entryOf(mine, n) : null;
+      const c = coinsToPost(n, theirs), own = mine ? entryOf(mine, n) : null, a = runsToPost(n);
+      if (a != null && (!own || own.a !== a)) return true;
       return c != null && (!theirs.some(p => { const e = entryOf(p, n); return e && e.c != null; }) || (!!own && own.c !== c));
     })
     .sort((a, b) => a - b);
@@ -1020,13 +1034,14 @@ export async function autoPost() {
   if (posting || !LB.merge || !LB.ready || LB.off || !LB.uid) return false;
   const days = unposted();
   if (!days.length) return false;
-  const out = {}, theirs = theirDocs();
+  const out = {}, theirs = theirDocs(), mine = theirs.find(p => p.id === LB.uid);
   days.forEach(n => {
-    const s = dayState(n, true).official, c = coinsToPost(n, theirs);
-    out[n] = Object.assign({y: s.yards, l: s.longest, td: s.tds, t: s.at || Date.now()}, c != null ? {c} : {});
+    const s = dayState(n, true).official, c = coinsToPost(n, theirs), a = runsToPost(n), own = mine ? entryOf(mine, n) : null;
+    // (posted again for its runs alone, it never takes back a better run this phone's entry already has)
+    const best = own && own.y > s.yards ? {y: own.y, l: own.l, td: own.td, t: own.t} : {y: s.yards, l: s.longest, td: s.tds, t: s.at || Date.now()};
+    out[n] = Object.assign(best, c != null ? {c} : {}, a != null ? {a} : {});
   });
   const body = {[F]: out};
-  const mine = docs().find(p => p.id === LB.uid);
   if (!mine) Object.assign(body, {nick: (daily.postName() || '').trim().slice(0, 24), g: daily.asGuest(), total: 0});
   posting = true;
   try { await LB.merge(body); return true; } catch (_) { return false; } finally { posting = false; }
@@ -1051,12 +1066,13 @@ const rowWho = (ds, k) => {
 };
 const rank = (rows, same) => { rows.forEach((r, i) => { r.rank = i && same(rows[i - 1], r) ? rows[i - 1].rank : i + 1; }); return rows; };
 /** Day n's board: one row per person, the most yards first, then the longest return, then touchdowns. Rows: {key, name,
- *  managerId, me, guest, y, l, td, rank}. list: board docs (default: the board as this phone may see it). */
+ *  managerId, me, guest, y, l, td, a (attempts across their phones, or null), rank}. list: board docs (default: the
+ *  board as this phone may see it). */
 export function boardRows(n = todayNumber(), list = docs()) {
   const rows = [];
   people(list).forEach((ds, k) => {
     const f = bestEntry(ds, n);
-    if (f) rows.push(Object.assign(rowWho(ds, k), f.e));
+    if (f) rows.push(Object.assign(rowWho(ds, k), f.e, {a: attemptsOf(ds, n)}));
   });
   const cmp = (a, b) => b.y - a.y || b.l - a.l || b.td - a.td;
   return rank(rows.sort((a, b) => cmp(a, b) || a.name.localeCompare(b.name)), (a, b) => !cmp(a, b));
@@ -1070,7 +1086,7 @@ export function weekDays(n = todayNumber(), today = todayNumber()) {
   return out;
 }
 /** The week's board: yards summed over its days, then the longest of the week, then the days played. Rows: {key, name,
- *  managerId, me, guest, y, l, td, played, rank}. */
+ *  managerId, me, guest, y, l, td, played, a (attempts over its days, or null), rank}. */
 export function weekRows(n = todayNumber(), list = docs(), today = todayNumber()) {
   return totalsOver(weekDays(n, today), list);
 }
@@ -1083,8 +1099,12 @@ export function seasonRows(list = docs(), today = todayNumber()) {
 function totalsOver(days, list) {
   const rows = [];
   people(list).forEach((ds, k) => {
-    const row = Object.assign(rowWho(ds, k), {y: 0, l: 0, td: 0, played: 0});
-    days.forEach(d => { const f = bestEntry(ds, d); if (f) { row.y += f.e.y; row.l = Math.max(row.l, f.e.l); row.td += f.e.td; row.played++; } });
+    const row = Object.assign(rowWho(ds, k), {y: 0, l: 0, td: 0, played: 0, a: null});
+    days.forEach(d => {
+      const f = bestEntry(ds, d), a = attemptsOf(ds, d);
+      if (f) { row.y += f.e.y; row.l = Math.max(row.l, f.e.l); row.td += f.e.td; row.played++; }
+      if (f && a != null) row.a = (row.a || 0) + a;
+    });
     if (row.played) rows.push(row);
   });
   const cmp = (a, b) => b.y - a.y || b.l - a.l || a.played - b.played;

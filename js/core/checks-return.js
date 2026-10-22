@@ -437,6 +437,24 @@ export async function returnChecks(check) {
     const rows = R.weekRows(7, docs, 8), sig = rows.map(r => `${r.rank}.${r.name.split(' ')[0]} ${r.y}/${r.l}/${r.played}`).join(', ');
     return {pass: wd && sig === '1.Mason 350/100/2, 2.Jacob 300/160/1', detail: `days ${wd}; ${sig}`};
   });
+  check('Return Man attempts (the owner\'s ask, Oct 22 2026: how many attempts each player has made, on his scoreboard alone): a board entry carries a, the runs of the day on that phone; a person\'s phones add up, the day\'s and the week\'s; an entry from before it (or a bad one) has none; shown on the owner\'s rows alone', async () => {
+    const ea = (y, a) => Object.assign(e(y, y, 0, 1), a === undefined ? {} : {a});
+    const kept = R.entryOf({rm2: {1: ea(300, 4)}}, 1).a === 4 && !('a' in R.entryOf({rm2: {1: ea(300)}}, 1))
+      && [0, -1, 2.5, '3', 10000].every(a => !('a' in R.entryOf({rm2: {1: ea(300, a)}}, 1)));
+    const docs = [
+      doc('ra-a', 'Mason', {1: ea(400, 3), 2: ea(100, 1)}),
+      doc('ra-b', 'Mason', {1: ea(200, 2)}, {last: 2}),
+      doc('ra-c', 'Jacob', {1: ea(300)}),
+      doc('ra-d', 'Tommy', {2: ea(250, 6)})
+    ];
+    const day = R.boardRows(1, docs).map(r => `${r.name.split(' ')[0]} ${r.y}/${r.a}`).join(', ');
+    const week = R.weekRows(2, docs, 2).map(r => `${r.name.split(' ')[0]} ${r.y}/${r.a}`).join(', ');
+    const sum = R.attemptsOf(docs.slice(0, 2), 1) === 5 && R.attemptsOf([docs[2]], 1) === null && R.attemptsOf([], 1) === null;
+    const view = await fetch(new URL('../views/return.js', import.meta.url)).then(r => r.text()).catch(() => '');
+    const gated = /const attemptsSub = r => \(data\.isOwner\(\) && r\.a != null \?/.test(view) && /\+ attemptsSub\(r\);/.test(view);
+    const pass = kept && sum && day === 'Mason 400/5, Jacob 300/null' && week === 'Mason 500/6, Jacob 300/null, Tommy 250/6' && gated;
+    return {pass, detail: `kept ${kept}; added up ${sum}; day ${day}; week ${week}; on the owner's rows alone ${gated}`};
+  });
   check('Return Man: THE RULE (CLAUDE.md): the scoreboard reads the board as this phone may see it (daily.LB.raw), never every doc: a guest on the board only on their own phones and the league owner\'s; Ryan D for everyone', async () => {
     const LB = daily.LB, raw = LB.raw, all = LB.all, players = LB.players;
     const member = doc('rr-m', 'Mason', {1: e(300, 150, 1, 1)}), guest = doc('rr-g', 'Zed Q', {1: e(900, 500, 4, 1)}, {g: true});

@@ -169,8 +169,11 @@ function hudHTML() {
     + `<div class="rm-got" data-rm-got hidden></div></div>`;
 }
 const SB_MODES = [{id: 'today', label: 'Today'}, {id: 'week', label: 'Week'}];
+// How many attempts each player has made (the day's runs, or the week's: core attemptsOf), on the owner's scoreboard
+// alone (his ask, Oct 22 2026); a row from before attempts were posted says nothing of them.
+const attemptsSub = r => (data.isOwner() && r.a != null ? ` · ${plural(r.a, 'attempt')}` : '');
 function rowHTML(r, mode) {
-  const sub = mode === 'today' ? `Longest ${nf(r.l)}${r.td ? ` · ${plural(r.td, 'TD')}` : ''}` : `${plural(r.played, 'day')} · longest ${nf(r.l)}`;
+  const sub = (mode === 'today' ? `Longest ${nf(r.l)}${r.td ? ` · ${plural(r.td, 'TD')}` : ''}` : `${plural(r.played, 'day')} · longest ${nf(r.l)}`) + attemptsSub(r);
   const label = `${ui.ordinal(r.rank)}, ${r.name}${r.me ? ', you' : ''}${r.guest ? ', guest' : ''}: ${nf(r.y)} yards. ${sub}.`;
   return `<div class="c-brow-w" role="listitem"><div class="row c-brow rm-brow${r.me ? ' is-me' : ''}" aria-label="${esc(label)}">`
     + `<span class="c-brank n4${r.rank <= 3 ? ' is-r' + r.rank : ''}" aria-hidden="true">${r.rank}</span>`
