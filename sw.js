@@ -7,12 +7,12 @@
 // A slow request falls back to whatever is cached under its path (from the previous worker too), so data whose
 // format changes gets a new file name rather than new content under the old one (data/puzzles-v4.json: see
 // js/core/daily.js).
-const CACHE = 'gg-v377';
+const CACHE = 'gg-v378';
 const CORE = ['ui', 'data', 'daily', 'fire', 'week', 'nfl', 'stats', 'motw', 'press', 'checks', 'checks-stats', 'checks-pickem', 'checks-press', 'checks-seventeen', 'checks-drill', 'checks-kick', 'return', 'checks-return', 'lay', 'plays', 'laytrack', 'seventeen', 'drill-sim', 'drill', 'kick', 'avatars', 'lpick', 'survivor', 'checks-lpick', 'realm', 'realm-battle', 'checks-realm'];
 // The tab roots are puzzles, pickem, rivals (Matchup), league, moves (Draft) and lay (The Lay). The Keep opens from Daily Games.
 const VIEWS = ['welcome', 'guest', 'puzzles', 'games', 'game-case', 'board', 'you', 'sharecard', 'results', 'run', 'college', 'silhouette', 'mystery', 'journey', 'grid', 'picker',
   'league', 'standings', 'season', 'review', 'wrap', 'matchup', 'rivals', 'pickem', 'press', 'hall', 'hall-trophies', 'hall-records', 'hall-shame',
-  'moves', 'profile', 'lay', 'plays', 'seventeen', 'drill', 'drill-cam', 'drill-sprites', 'kick', 'stadium', 'return-world', 'return-3dworld', 'return-field-logo', 'return-style', 'return-scenery', 'return-city-bus', 'return-3d', 'return', 'photo', 'testplay', 'lpick', 'survivor', 'realm', 'realm-3d', 'realm-ground', 'realm-models', 'realm-walls', 'realm-sprites', 'realm-wildlife', 'realm-ambience', 'realm-heroes', 'realm-npcs', 'realm-raid', 'realm-scout', '_kit'];
+  'moves', 'profile', 'lay', 'plays', 'seventeen', 'drill', 'drill-cam', 'drill-sprites', 'kick', 'stadium', 'return-world', 'return-3dworld', 'return-field-logo', 'return-style', 'return-scenery', 'return-city-bus', 'return-3d', 'return', 'photo', 'testplay', 'lpick', 'survivor', 'realm', 'realm-3d', 'realm-ground', 'realm-grass', 'realm-models', 'realm-walls', 'realm-sprites', 'realm-wildlife', 'realm-ambience', 'realm-heroes', 'realm-npcs', 'realm-raid', 'realm-scout', '_kit'];
 const VIEW_CSS = ['welcome', 'puzzles', 'board', 'results', 'you', 'run', 'college', 'silhouette', 'mystery', 'journey', 'grid', 'picker',
   'standings', 'season', 'review', 'wrap', 'matchup', 'rivals', 'pickem', 'press', 'hall', 'moves', 'profile', 'lay', 'plays', 'seventeen', 'drill', 'kick', 'return', 'realm', '_kit'];
 const SHELL = [

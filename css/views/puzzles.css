@@ -120,9 +120,82 @@ html.rm .v-puzzles .c-prog-f, html.rm .v-puzzles .c-prog-f::after, html.rm .v-pu
 }
 @keyframes gm-smoke-a { from { transform: translate(0, 0); } to { transform: translate(-110px, -70px); } }
 @keyframes gm-smoke-b { from { transform: translate(-110px, -10px) scaleX(-1); } to { transform: translate(0, -80px) scaleX(-1); } }
+
+/* Evan's animated wallpaper: two lit smoke banks drift, curl and billow on different loops.
+   The small existing tile masks the light. Only transforms and opacity animate; the extra margin
+   keeps the moving layers' edges offscreen, with no canvas or repainting blur. */
+:root:not([data-light]) .screen.v-puzzles[data-path="/puzzles"].gm-owner-light {
+  background:
+    radial-gradient(ellipse 74% 48% at 50% 44%, transparent 28%, rgba(1,4,8,.6) 100%),
+    radial-gradient(ellipse 44% 32% at 49% 43%, rgba(78,166,41,.19), transparent 78%),
+    radial-gradient(ellipse 70% 50% at 8% 18%, rgba(23,123,128,.2), transparent 75%),
+    radial-gradient(ellipse 52% 24% at 75% 82%, rgba(22,116,84,.13), transparent 78%),
+    #03070b;
+}
+:root:not([data-light]) .screen.v-puzzles[data-path="/puzzles"].gm-owner-light::before,
+:root:not([data-light]) .screen.v-puzzles[data-path="/puzzles"].gm-owner-light::after {
+  left: -100px; top: -90px; width: calc(100% + 240px); height: calc(100% + 220px);
+  transform-origin: 50% 50%; will-change: transform, opacity;
+}
+:root:not([data-light]) .screen.v-puzzles[data-path="/puzzles"].gm-owner-light::before {
+  background:
+    radial-gradient(ellipse 43% 25% at 65% 74%, rgba(177,255,174,.95), rgba(45,193,148,.65) 35%, transparent 82%),
+    radial-gradient(ellipse 55% 42% at 30% 30%, rgba(128,228,208,.8), rgba(33,126,142,.44) 50%, transparent 85%),
+    linear-gradient(160deg, rgba(48,101,121,.32), rgba(21,66,64,.22) 60%, rgba(47,110,97,.4));
+  -webkit-mask: url(../../img/games/smoke.webp) 0 0 / 620px 620px repeat;
+  mask: url(../../img/games/smoke.webp) 0 0 / 620px 620px repeat;
+  opacity: .9;
+  animation: gm-lit-smoke-a 4.5s ease-in-out -1.25s infinite;
+}
+:root:not([data-light]) .screen.v-puzzles[data-path="/puzzles"].gm-owner-light::after {
+  background:
+    radial-gradient(ellipse 48% 45% at 58% 51%, rgba(173,250,153,.8), rgba(49,177,133,.48) 38%, transparent 85%),
+    radial-gradient(ellipse 52% 32% at 70% 12%, rgba(99,196,217,.65), transparent 82%),
+    linear-gradient(rgba(35,84,107,.3), rgba(35,106,92,.25));
+  -webkit-mask: url(../../img/games/smoke.webp) 210px 380px / 900px 900px repeat;
+  mask: url(../../img/games/smoke.webp) 210px 380px / 900px 900px repeat;
+  opacity: .62;
+  animation: gm-lit-smoke-b 6.75s ease-in-out -4s infinite;
+}
+@keyframes gm-lit-smoke-a {
+  0%, 100% { transform: translate3d(-45px, -25px, 0) rotate(-3deg) scale(1.08); opacity: .82; }
+  25% { transform: translate3d(34px, 10px, 0) rotate(1deg) scale(1.16); opacity: .96; }
+  50% { transform: translate3d(-18px, -65px, 0) rotate(4deg) scale(1.1); opacity: .86; }
+  75% { transform: translate3d(-92px, -6px, 0) rotate(-1deg) scale(1.18); opacity: 1; }
+}
+@keyframes gm-lit-smoke-b {
+  0%, 100% { transform: translate3d(20px, -52px, 0) rotate(3deg) scale(1.15); opacity: .58; }
+  25% { transform: translate3d(-82px, -12px, 0) rotate(-2deg) scale(1.06); opacity: .76; }
+  50% { transform: translate3d(-30px, 32px, 0) rotate(-4deg) scale(1.17); opacity: .62; }
+  75% { transform: translate3d(42px, -18px, 0) rotate(1deg) scale(1.09); opacity: .72; }
+}
+/* A game opened above the menu, or another tab selected: keep the wallpaper's place and resume on return. */
+:root:not([data-light]) .screen.v-puzzles[data-path="/puzzles"].gm-owner-light[data-under]::before,
+:root:not([data-light]) .screen.v-puzzles[data-path="/puzzles"].gm-owner-light[data-under]::after,
+:root:not([data-light]) .tab-layer[hidden] .screen.v-puzzles[data-path="/puzzles"].gm-owner-light::before,
+:root:not([data-light]) .tab-layer[hidden] .screen.v-puzzles[data-path="/puzzles"].gm-owner-light::after { animation-play-state: paused; }
+:root:not([data-light]) .gm-owner-light .gm-list::before {
+  top: calc(50% - var(--ch) / 2 - 105px); height: calc(var(--ch) + 80px);
+  background:
+    radial-gradient(ellipse 38% 43% at 50% 43%, rgba(186,249,107,.23), rgba(77,184,73,.14) 40%, transparent 78%),
+    radial-gradient(ellipse 68% 48% at 50% 47%, rgba(25,120,92,.15), transparent 76%);
+}
+:root:not([data-light]) .gm-owner-light .gm-list::after {
+  content: ""; position: absolute; z-index: -1; pointer-events: none;
+  left: calc(-1 * var(--gutter)); right: calc(-1 * var(--gutter));
+  top: calc(50% + var(--ch) / 2 - 75px); height: 64px;
+  background: radial-gradient(ellipse 38% 36% at 50% 50%, rgba(157,239,100,.16), rgba(34,135,94,.09) 44%, transparent 80%);
+}
 html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzles[data-path="/puzzles"]::after { animation: none; }
 @media (prefers-reduced-motion: reduce) {
   .screen.v-puzzles[data-path="/puzzles"]::before, .screen.v-puzzles[data-path="/puzzles"]::after { animation: none; }
+}
+/* Match the owner selectors' specificity so both reduced-motion settings stop the lit layers. */
+:root.rm:not([data-light]) .screen.v-puzzles[data-path="/puzzles"].gm-owner-light::before,
+:root.rm:not([data-light]) .screen.v-puzzles[data-path="/puzzles"].gm-owner-light::after { animation: none; will-change: auto; }
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-light]) .screen.v-puzzles[data-path="/puzzles"].gm-owner-light::before,
+  :root:not([data-light]) .screen.v-puzzles[data-path="/puzzles"].gm-owner-light::after { animation: none; will-change: auto; }
 }
 
 /* the date stays on one line over the title, out over the buttons beside it (they sit lower, by the title) */

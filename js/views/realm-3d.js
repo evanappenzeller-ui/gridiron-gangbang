@@ -20,6 +20,7 @@ import * as data from '../core/data.js';
 import {createWildlife} from './realm-wildlife.js';
 import {createAmbience} from './realm-ambience.js';
 import {villageGroundTexture} from './realm-ground.js';
+import {createGrassWallpaper} from './realm-grass.js';
 import {createHomeNPCs, createBattleHeroes} from './realm-npcs.js';
 const V = new URL('../vendor/three/', import.meta.url).href;
 let T = null, RE = null, LOADING = null, DEAD = false;
@@ -364,6 +365,7 @@ export function create(host, opts = {}) {
   let scene0 = null, sceneG = null, wildlife = null, ambience = null, ambienceSig = '', ambienceVisible = false, theme = opts.scenery || 'coast';
   const plain = new T.Group();
   let sceneryTheme = 'coast';
+  let windGrass = null, windTimer = 0;
   const base = {}; // (the base's ground: below)
   /** The base's ground for land k (GROUND). */
   function groundFor(k) {
@@ -393,6 +395,8 @@ export function create(host, opts = {}) {
   }
   /** Lays scenery sc (a theme's layout for a shape) round the lot, instead of what's there: true when it's down. */
   function dropScenery() {
+    clearTimeout(windTimer); windTimer = 0;
+    if (windGrass) { windGrass.dispose(); windGrass = null; }
     if (ambience) { ambience.dispose(); ambience = null; ambienceSig = ''; }
     if (wildlife) { wildlife.dispose(); wildlife = null; }
     if (!sceneG) return;
@@ -417,6 +421,7 @@ export function create(host, opts = {}) {
     scene0 = gr; scene0.file = sc.file; scene0.terrainColor = sc.lay.terrain_color;
     const key = Object.keys(FILES).find(k => [...Object.values(FILES[k]), ...Object.values(WORLD_FILES[k])].includes(sc.file)) || 'coast';
     groundFor(key);
+    if (village && sc.file.startsWith('world-')) windGrass = createGrassWallpaper(T, sceneG, gr, {theme: key, color: sc.lay.terrain_color, onChange: () => want()});
     const dusk = sc.lay.lighting === 'dusk';
     hemi.intensity = dusk ? .55 : .75;
     sun.intensity = dusk ? (village ? 1.05 : 1.6) : (village ? 1.8 : 2.8);
@@ -603,11 +608,14 @@ export function create(host, opts = {}) {
       more = ambience.update(now / 1000, {zoom: view.dist, active: ambienceVisible}) || more;
     }
     if (wildlife) more = wildlife.update(now / 1000, {zoom: view.dist, active: document.visibilityState === 'visible'}) || more;
+    const windy = windGrass && windGrass.update(now / 1000, {camera: cam});
     if (homeNPCs) homeNPCs.update(now / 1000, {zoom: view.dist, active: !raid, placement});
     folkFrame(now);
     renderer.render(scene, cam);
     if (opts.onCamera && sig !== cameraSig) { cameraSig = sig; opts.onCamera(); }
+    clearTimeout(windTimer); windTimer = 0;
     if (more) want();
+    else if (windy) windTimer = setTimeout(() => { windTimer = 0; want(); }, 50);
   }
 
   // ---- picking and projecting

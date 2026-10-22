@@ -488,7 +488,7 @@ async function hiddenViewCheck(page) {
     const observe = () => { ticks++; if (drew) drawnTicks++; drew = false; monitor = requestAnimationFrame(observe); };
     monitor = requestAnimationFrame(observe);
     const stats = () => ({calls, cameraChanges, zoom: view.zoom, width: view.canvas.width, height: view.canvas.height});
-    window.__hiddenViewCheck = {view, host, stats, cadence: () => ({ticks, drawnTicks}),
+    window.__hiddenViewCheck = {view, host, stats, cadence: () => ({ticks, drawnTicks, now: performance.now()}),
       pause() { active = false; host.style.display = 'none'; view.resize(); view.want(); return stats(); },
       resume() { active = true; host.style.display = 'block'; view.want(); },
       dispose() { cancelAnimationFrame(monitor); view.dispose(); host.remove(); for (const [name, fn] of Object.entries(originals)) gl[name] = fn; }};
@@ -518,11 +518,11 @@ async function hiddenViewCheck(page) {
     await page.waitForTimeout(1200);
     const quietEnd = await page.evaluate(() => window.__hiddenViewCheck.cadence());
     const available = quietEnd.ticks - quietStart.ticks, drawn = quietEnd.drawnTicks - quietStart.drawnTicks;
-    assert(available >= 5 && drawn < available * .65 + 1, `A quiet close village renders at folk cadence instead of continuously (${drawn}/${available} animation ticks drew)`);
+    assert(available >= 5 && drawn > 0 && drawn <= Math.ceil((quietEnd.now - quietStart.now) / 1000 * 25) + 2, `Village grass uses a bounded animation cadence (${drawn} frames)`);
   } finally {
     await page.evaluate(() => { window.__hiddenViewCheck.dispose(); delete window.__hiddenViewCheck; });
   }
-  console.log('PASS: actual GL draws stop for hidden views, resume with saved camera state, avoid repeated DOM updates and stay at low cadence in a quiet close village');
+  console.log('PASS: actual GL draws stop for hidden views, resume with saved camera state, avoid repeated DOM updates and keep village grass animation at a bounded cadence');
 }
 
 async function profileChecks(browser, url) {
