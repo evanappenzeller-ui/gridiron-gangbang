@@ -239,6 +239,9 @@
 .rlr-who small { font: 700 12px/1.2 var(--font-text); color: rgba(247,238,221,.82); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rlr-clock { flex: none; min-width: 58px; padding: 9px 10px; border-radius: 10px; background: var(--rl-glass); box-shadow: inset 0 0 0 1px var(--rl-line); text-align: center; font: 700 18px/1 var(--rl-face); font-variant-numeric: tabular-nums lining-nums; }
 .rlr-clock.is-low { color: #FF9C8F; }
+.rlr-speed { flex: none; min-width: 44px; height: 38px; padding: 0 8px; border: 0; border-radius: 10px; background: var(--rl-glass); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  box-shadow: inset 0 0 0 1px var(--rl-line); color: #F7EEDD; font: 700 16px/1 var(--rl-face); font-variant-numeric: tabular-nums lining-nums; cursor: pointer; }
+.rlr-speed.is-fast { background: var(--rl-crimson); box-shadow: inset 0 0 0 1px rgba(240,194,62,.6); color: #FFE9A3; }
 .rlr-score { position: absolute; top: calc(var(--rl-hud-t) + 50px); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; padding: 6px 14px; border-radius: 12px;
   background: var(--rl-glass); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px var(--rl-line); white-space: nowrap; }
 .rlr-score > b { font: 700 18px/1 var(--rl-face); }

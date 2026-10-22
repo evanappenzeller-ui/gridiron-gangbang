@@ -129,6 +129,15 @@ function hud(st, s = null) {
   el.querySelector('[data-rl-house]').setAttribute('aria-label', `Your house: ${houseName(s)}, Castle level ${F.keepOf(s)}`);
   F.CUR.forEach(c => {
     const box = el.querySelector(`[data-rl-cur="${c}"]`);
+    if (F.testing(s)) {
+      // (testing: unlimited, nothing spent)
+      box.querySelector('[data-rl-n]').textContent = '∞';
+      box.querySelector('[data-rl-f]').style.width = '100%';
+      box.setAttribute('aria-label', `${F.CUR_NAME[c]}: unlimited while testing; the coffers`);
+      box.title = 'Unlimited while testing';
+      box.classList.remove('is-full');
+      return;
+    }
     box.querySelector('[data-rl-n]').textContent = nf(s.r[c]);
     box.querySelector('[data-rl-f]').style.width = `${Math.min(100, s.r[c] / Math.max(1, cap[c]) * 100).toFixed(1)}%`;
     box.setAttribute('aria-label', `${F.CUR_NAME[c]}: ${nf(s.r[c])} of ${nf(cap[c])}; the coffers`);
@@ -284,7 +293,7 @@ function cardHTML(s, id, now) {
   btns.push(`<button type="button" class="rl-act" data-rl-move="${b.i}">Move</button>`);
   return `<div class="rl-sel-h"><div><b>${esc(K.name)}</b><span class="rl-sel-lv">${b.l < 1 ? 'Going up' : `Level ${b.l}`}</span></div>${ui.iconButton({icon: 'close', label: 'Done', cls: 'rl-sel-x', attrs: 'data-rl-unsel'})}</div>`
     + `<p class="rl-sel-what">${what.map(esc).join(' · ')}</p>${job}`
-    + (b.u <= now && b.l > 0 && b.l < F.maxLevel(b.t) && b.t !== 'hut' ? `<p class="rl-sel-benefit"><b>Level ${b.l + 1}</b> · ${esc(upgradeBenefit(b))}</p><p class="rl-sel-cost">${curHTML(up.pay, up.cost)} · ${dur(up.time * 1000)}</p>` : '')
+    + (b.u <= now && b.l > 0 && b.l < F.maxLevel(b.t) && b.t !== 'hut' ? `<p class="rl-sel-benefit"><b>Level ${b.l + 1}</b> · ${esc(upgradeBenefit(b))}</p><p class="rl-sel-cost">${curHTML(up.pay, up.cost)} · ${up.time ? dur(up.time * 1000) : 'at once'}</p>` : '')
     + `<div class="rl-acts">${btns.join('')}</div>`;
 }
 function showSel(st) {
@@ -305,7 +314,7 @@ function showSel(st) {
 function placeHTML(s, place) {
   const K = F.KINDS[place.t], chk = F.canBuild(s, place.t);
   const n = place.run ? place.run.length : 1, cost = chk.cost * n;
-  const why = !chk.ok ? chk.why : cost > s.r[chk.pay] ? `Not enough ${F.CUR_NAME[chk.pay]}` : !place.ok ? 'It doesn’t fit there' : '';
+  const why = !chk.ok ? chk.why : !F.testing(s) && cost > s.r[chk.pay] ? `Not enough ${F.CUR_NAME[chk.pay]}` : !place.ok ? 'It doesn’t fit there' : '';
   let qty = '';
   if (place.t === 'wall') {
     const steps = wallSteps(s), i = steps.indexOf(n);
@@ -638,7 +647,7 @@ function commitPlace(st) {
     // a run of walls: all of it or none
     fitPlace(st);
     const chk = F.canBuild(s, 'wall'), n = p.run.length;
-    const why = !chk.ok ? chk.why : n > wallsLeft(s) ? `Only ${wallsLeft(s)} more allowed` : chk.cost * n > s.r.gold ? 'Not enough Gold' : !p.ok ? 'It doesn’t fit there' : '';
+    const why = !chk.ok ? chk.why : n > wallsLeft(s) ? `Only ${wallsLeft(s)} more allowed` : !F.testing(s) && chk.cost * n > s.r.gold ? 'Not enough Gold' : !p.ok ? 'It doesn’t fit there' : '';
     if (why) { ui.toast(why, {icon: 'info'}); return; }
     p.run.forEach(q => F.build(s, 'wall', q.x, q.y));
   } else {
@@ -726,7 +735,12 @@ function onLotTap(st, hit) {
   if (st.moving != null) { st.moving = null; st.v.showGrid(false); select(st, st.sel); return; }
   if (hit.id == null) { if (st.sel != null) select(st, null); return; }
   const b = s.b.find(x => x.i === hit.id);
-  if (b && F.KINDS[b.t].role === 'make' && F.made(b) > 0) collectOne(st, b.i);
+  // (a mine or brewery with something in it: the tap collects it, no card; tap it again, empty, for its card. With no
+  // room for it, the card, to upgrade storage from)
+  if (b && F.KINDS[b.t].role === 'make' && F.made(b) > 0 && collectOne(st, b.i) > 0) {
+    if (st.sel != null && st.sel !== b.i) select(st, null);
+    return;
+  }
   select(st, hit.id);
 }
 function collectOne(st, id) {
@@ -737,6 +751,7 @@ function collectOne(st, id) {
   if (got > 0) { F.touch(); ui.haptic('light'); floatText(st, b, `+${nf(got)} ${F.CUR_NAME[c]}`, c); }
   else if (F.made(b) > 0) ui.toast(`No room for more ${F.CUR_NAME[c]}: upgrade a ${c === 'gold' ? 'treasury' : 'cellar'}`, {icon: 'info'});
   refresh(st);
+  return got;
 }
 function floatText(st, b, text, c) {
   if (!st.v) return;

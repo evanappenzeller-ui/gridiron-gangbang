@@ -30,6 +30,13 @@ export const CUR = ['gold', 'grain'];
 export const CUR_NAME = {gold: 'Gold', grain: 'Ale'};
 /** Whether this phone may have The Keep at all: the owner's alone. */
 export const mayPlay = () => !!(data.isOwner && data.isOwner());
+// Testing (the owner, Oct 22 2026): his realm started over at Castle level 1 with unlimited Gold and Ale and no
+// building time. A realm marked tst spends nothing and builds and upgrades at once; one saved before TEST_RESET is
+// started over (keeping its house name and scenery) when it loads, on whichever phone loads it first.
+export const TEST_RESET = '2026-10-22';
+export const testing = s => !!(s && s.tst);
+const afford = (s, c, n) => testing(s) || n <= s.r[c];
+const spend = (s, c, n) => { if (!testing(s)) s.r[c] -= n; };
 
 // ---------------------------------------------------------------------------------------------------- the buildings
 // Per level (index level - 1): cost (to build it, then to reach each level), time (seconds: each level takes longer
@@ -233,7 +240,7 @@ function heroChange(s, k, recruit) {
     const need = H.cap.findIndex(n => n >= to) + 1;
     return {...o, why: `Needs Castle level ${need}`};
   }
-  if (!s.r || !Number.isFinite(s.r.gold) || s.r.gold < o.cost) return {...o, why: 'Not enough Gold'};
+  if (!testing(s) && (!s.r || !Number.isFinite(s.r.gold) || s.r.gold < o.cost)) return {...o, why: 'Not enough Gold'};
   return {...o, ok: true};
 }
 export const canRecruitHero = (s, k) => heroChange(s, k, true);
@@ -241,7 +248,7 @@ export const canUpgradeHero = (s, k) => heroChange(s, k, false);
 function changeHero(s, k, recruit) {
   const check = heroChange(s, k, recruit);
   if (!check.ok) return false;
-  s.r.gold -= check.cost;
+  spend(s, 'gold', check.cost);
   if (!s.hr || typeof s.hr !== 'object' || Array.isArray(s.hr)) s.hr = {};
   s.hr[k] = check.to;
   return true;
@@ -505,6 +512,8 @@ export function clean(s) {
   o.v = 2; o.at = num(o.at); o.born = num(o.born) || o.at;
   o.nm = typeof o.nm === 'string' ? o.nm.slice(0, 28) : '';
   o.sc = SCENERIES.some(x => x.k === o.sc) ? o.sc : '';
+  o.rs = typeof o.rs === 'string' ? o.rs : '';
+  if (o.tst) o.tst = 1; else delete o.tst;
   // (laid out on a smaller lot: everything moved over together, so it's in the middle of this one as it was in that)
   const was = Number.isInteger(o.n) && o.n > 0 ? o.n : N_WAS, by = Math.floor((N - was) / 2);
   o.n = N;
@@ -638,7 +647,7 @@ export function pending(s, earned) {
 export function claim(s, earned) {
   const p = pending(s, earned), cap = capOf(s), moved = {gold: 0, grain: 0};
   CUR.forEach(c => {
-    const m = Math.max(0, Math.min(p[c], cap[c] - s.r[c]));
+    const m = Math.max(0, Math.min(p[c], testing(s) ? Infinity : cap[c] - s.r[c]));
     if (m > 0) { s.r[c] += m; s.cl[c] += m; moved[c] = m; }
   });
   return moved;
@@ -647,7 +656,7 @@ export function claim(s, earned) {
 export function collect(s, id, now = Date.now()) {
   const b = s.b.find(x => x.i === id);
   if (!b || KINDS[b.t].role !== 'make') return 0;
-  const c = KINDS[b.t].makes, have = made(b, now), room = Math.max(0, capOf(s)[c] - s.r[c]), take = Math.min(have, room);
+  const c = KINDS[b.t].makes, have = made(b, now), room = testing(s) ? Infinity : Math.max(0, capOf(s)[c] - s.r[c]), take = Math.min(have, room);
   if (take <= 0) return 0;
   s.r[c] += take;
   const rate = stat(b.t, b.l).rate;
@@ -682,15 +691,15 @@ const costOf = (s, k, toLevel) => (k === 'hut' ? HUT_COST[Math.min(HUT_COST.leng
 /** Whether kind k can be built now: {ok, why, cost, pay, time}. */
 export function canBuild(s, k, now = Date.now()) {
   const K = KINDS[k], n = countOf(s, k), cap = allowed(s, k);
-  const cost = costOf(s, k, 1), o = {ok: false, why: '', cost, pay: K.pay, time: K.time[0]};
+  const cost = costOf(s, k, 1), o = {ok: false, why: '', cost, pay: K.pay, time: testing(s) ? 0 : K.time[0]};
   if (k === 'keep') return Object.assign(o, {why: 'You have one'});
   if (k === 'hut') return Object.assign(o, {why: 'One builder does it all'});
   if (n >= cap) {
     const next = COUNT[k].findIndex(c => c > n);
     return Object.assign(o, {why: next < 0 ? `All ${cap} built` : `Castle level ${next + 1} for another`});
   }
-  if (cost > s.r[K.pay]) return Object.assign(o, {why: `Not enough ${CUR_NAME[K.pay]}`});
-  if (K.time[0] > 0 && builders(s, now).free < 1) return Object.assign(o, {why: 'Your builder is busy'});
+  if (!afford(s, K.pay, cost)) return Object.assign(o, {why: `Not enough ${CUR_NAME[K.pay]}`});
+  if (o.time > 0 && builders(s, now).free < 1) return Object.assign(o, {why: 'Your builder is busy'});
   if (!spotFor(s, k)) return Object.assign(o, {why: 'No room on the lot'});
   return Object.assign(o, {ok: true});
 }
@@ -699,9 +708,9 @@ export function canBuild(s, k, now = Date.now()) {
 export function build(s, k, x, y, now = Date.now()) {
   const K = KINDS[k], chk = canBuild(s, k, now);
   if (!chk.ok || !fits(s, K.size, x, y)) return null;
-  s.r[K.pay] -= chk.cost;
-  const b = {i: s.nb++, t: k, l: 0, x, y, u: now + K.time[0] * 1000};
-  if (!K.time[0] || k === 'hut') { b.l = 1; b.u = 0; }
+  spend(s, K.pay, chk.cost);
+  const b = {i: s.nb++, t: k, l: 0, x, y, u: now + chk.time * 1000};
+  if (!chk.time || k === 'hut') { b.l = 1; b.u = 0; }
   if (K.role === 'make') b.c = b.u || now;
   s.b.push(b);
   return b;
@@ -710,11 +719,11 @@ export function build(s, k, x, y, now = Date.now()) {
 export function canUpgrade(s, id, now = Date.now()) {
   const b = s.b.find(x => x.i === id);
   if (!b) return {ok: false, why: 'Gone'};
-  const K = KINDS[b.t], to = b.l + 1, o = {ok: false, why: '', to, pay: K.pay, cost: K.cost[to - 1], time: K.time[to - 1]};
+  const K = KINDS[b.t], to = b.l + 1, o = {ok: false, why: '', to, pay: K.pay, cost: K.cost[to - 1], time: testing(s) ? 0 : K.time[to - 1]};
   if (b.u > now) return Object.assign(o, {why: b.l ? 'Being upgraded' : 'Going up'});
   if (to > maxLevel(b.t) || b.t === 'hut') return Object.assign(o, {why: 'At its top level'});
   if (to > topLevel(b.t, keepOf(s))) return Object.assign(o, {why: `Needs Castle level ${K.th[to - 1]}`});
-  if (o.cost > s.r[K.pay]) return Object.assign(o, {why: `Not enough ${CUR_NAME[K.pay]}`});
+  if (!afford(s, K.pay, o.cost)) return Object.assign(o, {why: `Not enough ${CUR_NAME[K.pay]}`});
   if (o.time > 0 && builders(s, now).free < 1) return Object.assign(o, {why: 'Your builder is busy'});
   if (b.t === 'barracks' && s.q.length) return Object.assign(o, {why: 'Training’s under way there'});
   return Object.assign(o, {ok: true});
@@ -725,7 +734,7 @@ export function upgrade(s, id, now = Date.now()) {
   if (!chk.ok) return false;
   const b = s.b.find(x => x.i === id);
   if (KINDS[b.t].role === 'make') collect(s, id, now);
-  s.r[chk.pay] -= chk.cost;
+  spend(s, chk.pay, chk.cost);
   if (chk.time > 0) b.u = now + chk.time * 1000;
   else b.l = chk.to;
   return true;
@@ -748,12 +757,12 @@ export function canTrain(s, t, n = 1) {
     if (have + n > room) return {ok: false, why: room ? 'The hatchery is full: upgrade it' : 'Build a dragon hatchery first'};
   }
   if (roomOf(s.ar) + queued(s) + T.room * n > armyRoom(s)) return {ok: false, why: armyRoom(s) ? 'The war camps are full' : 'Build a war camp first'};
-  if (T.cost * n > s.r.grain) return {ok: false, why: `Not enough ${CUR_NAME.grain}`};
+  if (!afford(s, 'grain', T.cost * n)) return {ok: false, why: `Not enough ${CUR_NAME.grain}`};
   return {ok: true};
 }
 export function train(s, t, n = 1, now = Date.now()) {
   if (!canTrain(s, t, n).ok) return false;
-  s.r.grain -= TROOPS[t].cost * n;
+  spend(s, 'grain', TROOPS[t].cost * n);
   const last = s.q[s.q.length - 1];
   if (last && last[0] === t) last[1] += n; else s.q.push([t, n]);
   if (!s.qs) s.qs = now;
@@ -765,7 +774,7 @@ export function untrain(s, t, now = Date.now()) {
   for (let i = s.q.length - 1; i >= 0; i--) {
     if (s.q[i][0] !== t) continue;
     s.q[i][1]--;
-    s.r.grain += TROOPS[t].cost;
+    if (!testing(s)) s.r.grain += TROOPS[t].cost;
     if (s.q[i][1] <= 0) { s.q.splice(i, 1); if (i === 0) s.qs = s.q.length ? now : 0; }
     return true;
   }
@@ -919,12 +928,27 @@ export function freshest(docs) {
   docs.forEach(p => { const f = p && p.fr1; if (f && Array.isArray(f.b) && (!best || (Number(f.at) || 0) > (Number(best.at) || 0))) best = f; });
   return best;
 }
+/** The testing realm (TEST_RESET): a fresh one at Castle level 1, marked tst, with old's house name and scenery. */
+export function testRealm(old, now = Date.now()) {
+  const s = fresh(now);
+  s.rs = TEST_RESET; s.tst = 1;
+  if (old) { s.nm = old.nm || ''; if (old.sc) s.sc = old.sc; }
+  return s;
+}
+// (a realm saved before the reset is never taken up again, here or from the board)
+const current = s => (s && s.rs === TEST_RESET ? s : null);
 /** This phone's realm (loaded once: the freshest of this phone's copy and the owner's docs), brought up to now. */
 export function mine(now = Date.now()) {
   if (!MINE) {
-    const local = readLocal(), remote = clean(freshest(myDocs()));
+    const local0 = readLocal(), remote0 = clean(freshest(myDocs()));
+    const local = current(local0), remote = current(remote0);
     MINE = (remote && (!local || remote.at > local.at)) ? remote : local;
-    if (!MINE) { MINE = fresh(now); PROVISIONAL = !boardKnown(); }
+    if (!MINE) {
+      // (started over for testing: kept here at once, on the board as soon as it's known)
+      const old = [local0, remote0].filter(Boolean).sort((a, b) => b.at - a.at)[0];
+      MINE = testRealm(old, now); PROVISIONAL = !boardKnown();
+      if (old) { writeLocal(MINE); dirty = true; }
+    }
   }
   // (what the clock does — a job done, a soldier trained — is kept here only: every phone works it out the same from
   // the times on the realm, so it isn't worth a trip to the board)
@@ -935,7 +959,7 @@ export function mine(now = Date.now()) {
 export function sync(now = Date.now()) {
   const s = mine(now);
   let changed = false;
-  const remote = clean(freshest(myDocs()));
+  const remote = current(clean(freshest(myDocs())));
   if (remote && (PROVISIONAL || remote.at > s.at + 1000)) { MINE = remote; tick(MINE, now); changed = true; writeLocal(MINE); }
   if (boardKnown()) { if (PROVISIONAL && !remote) dirty = true; PROVISIONAL = false; }
   if (changed) emit('sync');

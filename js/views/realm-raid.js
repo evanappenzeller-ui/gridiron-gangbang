@@ -17,6 +17,15 @@ const nf = n => Math.round(Number(n) || 0).toLocaleString('en-US');
 const ST = new WeakMap();
 let D3 = null;
 const DEPLOY_ORDER = [...F.TROOP_ORDER, ...F.HERO_ORDER.map(k => 'hero_' + k)];
+// The raid's speed (the owner, Oct 22 2026): the button by the clock steps it 1×, 2×, 4×; this phone remembers it.
+const SPEEDS = [1, 2, 4], SPEED_KEY = 'gg-rl-speed';
+const savedSpeed = () => { const v = Number(ui.lsGet(SPEED_KEY)); return SPEEDS.includes(v) ? v : 1; };
+function speedBtn(st) {
+  const b = st.el.querySelector('[data-rlr-speed]');
+  b.textContent = `${st.speed}×`;
+  b.setAttribute('aria-label', `Raid speed ${st.speed} times: tap to change`);
+  b.classList.toggle('is-fast', st.speed > 1);
+}
 
 /** The realm being attacked and what it holds: {key, name, base, loot, th} or {why}. */
 const targetOf = (key, now = Date.now()) => F.realmOf(key, F.mine(), now);
@@ -26,7 +35,7 @@ function shellHTML() {
     + `<div class="rl-gl" aria-hidden="true"><div class="rl-loading">Scouting…</div></div>`
     + `<div class="rl-tags" aria-hidden="true"></div>`
     + `<div class="rlr-top"><button type="button" class="rlr-quit" data-rlr-quit>Leave</button>`
-    + `<div class="rlr-who" data-rlr-who></div><div class="rlr-clock" data-rlr-clock>3:00</div></div>`
+    + `<div class="rlr-who" data-rlr-who></div><button type="button" class="rlr-speed" data-rlr-speed></button><div class="rlr-clock" data-rlr-clock>3:00</div></div>`
     + `<div class="rlr-score" data-rlr-score></div>`
     + `<div class="rlr-troops" data-rlr-troops role="radiogroup" aria-label="Who to send"></div>`
     + `<div class="rlr-msg" data-rlr-msg hidden></div>`
@@ -117,8 +126,9 @@ export default {
   mount(el, ctx) {
     if (!F.mayPlay()) return;
     const key = decodeURIComponent((ctx.params && ctx.params.key) || '');
-    const st = {el, ctx, key, v: null, B: null, T: null, pick: null, t0: 0, t: 0, done: false, dead: false, hold: null, deadSig: '', coinAt: 0};
+    const st = {el, ctx, key, v: null, B: null, T: null, pick: null, t0: 0, t: 0, done: false, dead: false, hold: null, deadSig: '', coinAt: 0, speed: savedSpeed(), last: 0};
     ST.set(ctx, st);
+    speedBtn(st);
     st.stopProfile = data.subscribe(type => {
       if (type === 'me' && !F.mayPlay()) {
         st.dead = true; st.done = true; stopHold(st);
@@ -129,6 +139,11 @@ export default {
     el.addEventListener('click', e => {
       if (st.dead || !F.mayPlay()) return;
       if (e.target.closest('[data-rlr-home]')) { ctx.back(); return; }
+      if (e.target.closest('[data-rlr-speed]')) {
+        st.speed = SPEEDS[(SPEEDS.indexOf(st.speed) + 1) % SPEEDS.length];
+        ui.lsSet(SPEED_KEY, st.speed); speedBtn(st); ui.haptic('selection');
+        return;
+      }
       if (e.target.closest('[data-rlr-quit]')) {
         if (st.t0 && !st.done) { st.B.end(); finish(st); return; }
         ctx.back();
@@ -202,10 +217,12 @@ async function start3d(st) {
   st.v.setAnim(now => {
     if (st.dead) return false;
     const B = st.B;
+    // (the battle's clock runs at the raid's speed: each frame moves it on by the time since the last, times that)
     if (st.t0 && !B.over) {
-      st.t = Math.min(F.RAID_S, (now - st.t0) / 1000);
+      st.t = Math.min(F.RAID_S, st.t + Math.max(0, now - (st.last || st.t0)) / 1000 * st.speed);
       B.run(st.t + .1);
     }
+    st.last = now;
     st.v.raidFrame(st.t0 ? st.t : 0, now);
     // buildings down: rubble
     const sig = B.bl.filter(b => b.dead).map(b => b.i).join(',');
