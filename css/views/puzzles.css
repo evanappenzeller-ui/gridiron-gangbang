@@ -121,9 +121,8 @@ html.rm .v-puzzles .c-prog-f, html.rm .v-puzzles .c-prog-f::after, html.rm .v-pu
 @keyframes gm-smoke-a { from { transform: translate(0, 0); } to { transform: translate(-110px, -70px); } }
 @keyframes gm-smoke-b { from { transform: translate(-110px, -10px) scaleX(-1); } to { transform: translate(0, -80px) scaleX(-1); } }
 
-/* Evan's animated wallpaper: two lit smoke banks drift, curl and billow on different loops.
-   The small existing tile masks the light. Only transforms and opacity animate; the extra margin
-   keeps the moving layers' edges offscreen, with no canvas or repainting blur. */
+/* Evan's wallpaper keeps its teal/green lighting. The broad banks are quiet base haze;
+   independently expanding wisps above them supply the drifting, dispersing smoke. */
 :root:not([data-light]) .screen.v-puzzles[data-path="/puzzles"].gm-owner-light {
   background:
     radial-gradient(ellipse 74% 48% at 50% 44%, transparent 28%, rgba(1,4,8,.6) 100%),
@@ -135,7 +134,7 @@ html.rm .v-puzzles .c-prog-f, html.rm .v-puzzles .c-prog-f::after, html.rm .v-pu
 :root:not([data-light]) .screen.v-puzzles[data-path="/puzzles"].gm-owner-light::before,
 :root:not([data-light]) .screen.v-puzzles[data-path="/puzzles"].gm-owner-light::after {
   left: -100px; top: -90px; width: calc(100% + 240px); height: calc(100% + 220px);
-  transform-origin: 50% 50%; will-change: transform, opacity;
+  transform-origin: 50% 50%; will-change: auto;
 }
 :root:not([data-light]) .screen.v-puzzles[data-path="/puzzles"].gm-owner-light::before {
   background:
@@ -144,8 +143,8 @@ html.rm .v-puzzles .c-prog-f, html.rm .v-puzzles .c-prog-f::after, html.rm .v-pu
     linear-gradient(160deg, rgba(48,101,121,.32), rgba(21,66,64,.22) 60%, rgba(47,110,97,.4));
   -webkit-mask: url(../../img/games/smoke.webp) 0 0 / 620px 620px repeat;
   mask: url(../../img/games/smoke.webp) 0 0 / 620px 620px repeat;
-  opacity: .9;
-  animation: gm-lit-smoke-a 9s linear -2.5s infinite;
+  opacity: .18;
+  animation: none; transform: none;
 }
 :root:not([data-light]) .screen.v-puzzles[data-path="/puzzles"].gm-owner-light::after {
   background:
@@ -154,84 +153,48 @@ html.rm .v-puzzles .c-prog-f, html.rm .v-puzzles .c-prog-f::after, html.rm .v-pu
     linear-gradient(rgba(35,84,107,.3), rgba(35,106,92,.25));
   -webkit-mask: url(../../img/games/smoke.webp) 210px 380px / 900px 900px repeat;
   mask: url(../../img/games/smoke.webp) 210px 380px / 900px 900px repeat;
-  opacity: .62;
-  animation: gm-lit-smoke-b 13s linear -7.7s infinite;
+  opacity: .12;
+  animation: none; transform: none;
 }
-/* Rounded, closed drift paths sampled from the original poses. Linear timing keeps the smoke
-   moving through each pose; the 9s/13s layers only repeat together after 117s. */
-@keyframes gm-lit-smoke-a {
-  0%, 100% { transform: translate3d(-45px, -25px, 0) rotate(-3deg) scale(1.08); opacity: 0.82; }
-  3.125% { transform: translate3d(-35.761px, -22.457px, 0) rotate(-2.78deg) scale(1.0823); opacity: 0.8238; }
-  6.25% { transform: translate3d(-24.43px, -17.469px, 0) rotate(-2.398deg) scale(1.0906); opacity: 0.8381; }
-  9.375% { transform: translate3d(-11.962px, -10.996px, 0) rotate(-1.896deg) scale(1.103); opacity: 0.8596; }
-  12.5% { transform: translate3d(0.688px, -4px, 0) rotate(-1.313deg) scale(1.1175); opacity: 0.885; }
-  15.625% { transform: translate3d(12.563px, 2.559px, 0) rotate(-0.69deg) scale(1.1323); opacity: 0.911; }
-  18.75% { transform: translate3d(22.711px, 7.719px, 0) rotate(-0.07deg) scale(1.1456); opacity: 0.9344; }
-  21.875% { transform: translate3d(30.175px, 10.52px, 0) rotate(0.507deg) scale(1.1555); opacity: 0.9518; }
-  25% { transform: translate3d(34px, 10px, 0) rotate(1deg) scale(1.16); opacity: 0.96; }
-  28.125% { transform: translate3d(33.919px, 4.973px, 0) rotate(1.478deg) scale(1.1582); opacity: 0.9573; }
-  31.25% { transform: translate3d(30.727px, -4.156px, 0) rotate(2.008deg) scale(1.1516); opacity: 0.9463; }
-  34.375% { transform: translate3d(25.062px, -15.957px, 0) rotate(2.55deg) scale(1.1416); opacity: 0.9295; }
-  37.5% { transform: translate3d(17.563px, -29px, 0) rotate(3.063deg) scale(1.13); opacity: 0.91; }
-  40.625% { transform: translate3d(8.868px, -41.855px, 0) rotate(3.505deg) scale(1.1184); opacity: 0.8905; }
-  43.75% { transform: translate3d(-0.383px, -53.094px, 0) rotate(3.836deg) scale(1.1084); opacity: 0.8738; }
-  46.875% { transform: translate3d(-9.552px, -61.285px, 0) rotate(4deg) scale(1.1018); opacity: 0.8627; }
-  50% { transform: translate3d(-18px, -65px, 0) rotate(4deg) scale(1.1); opacity: 0.86; }
-  53.125% { transform: translate3d(-27.024px, -63.504px, 0) rotate(3.737deg) scale(1.1045); opacity: 0.8682; }
-  56.25% { transform: translate3d(-37.789px, -57.844px, 0) rotate(3.242deg) scale(1.1144); opacity: 0.8856; }
-  59.375% { transform: translate3d(-49.456px, -49.262px, 0) rotate(2.579deg) scale(1.1277); opacity: 0.909; }
-  62.5% { transform: translate3d(-61.188px, -39px, 0) rotate(1.813deg) scale(1.1425); opacity: 0.935; }
-  65.625% { transform: translate3d(-72.146px, -28.301px, 0) rotate(1.007deg) scale(1.157); opacity: 0.9604; }
-  68.75% { transform: translate3d(-81.492px, -18.406px, 0) rotate(0.227deg) scale(1.1694); opacity: 0.9819; }
-  71.875% { transform: translate3d(-88.39px, -10.559px, 0) rotate(-0.464deg) scale(1.1777); opacity: 0.9962; }
-  75% { transform: translate3d(-92px, -6px, 0) rotate(-1deg) scale(1.18); opacity: 1; }
-  78.125% { transform: translate3d(-92.134px, -5.012px, 0) rotate(-1.435deg) scale(1.1749); opacity: 0.9906; }
-  81.25% { transform: translate3d(-89.508px, -6.531px, 0) rotate(-1.852deg) scale(1.1634); opacity: 0.97; }
-  84.375% { transform: translate3d(-84.644px, -9.785px, 0) rotate(-2.233deg) scale(1.1478); opacity: 0.9419; }
-  87.5% { transform: translate3d(-78.063px, -14px, 0) rotate(-2.563deg) scale(1.13); opacity: 0.91; }
-  90.625% { transform: translate3d(-70.286px, -18.402px, 0) rotate(-2.821deg) scale(1.1122); opacity: 0.8781; }
-  93.75% { transform: translate3d(-61.836px, -22.219px, 0) rotate(-2.992deg) scale(1.0966); opacity: 0.85; }
-  96.875% { transform: translate3d(-53.233px, -24.676px, 0) rotate(-3deg) scale(1.0851); opacity: 0.8294; }
+/* Each patch expands, stretches and loses density instead of sliding back to its start.
+   Only opacity and transforms animate; the small, feathered masks remain unchanged. */
+.gm-smoke-field { display: none; }
+:root:not([data-light]) .gm-owner-light > .gm-smoke-field {
+  display: block; position: absolute; inset: 0; overflow: hidden; pointer-events: none;
+  z-index: -1; contain: layout paint;
 }
-@keyframes gm-lit-smoke-b {
-  0%, 100% { transform: translate3d(20px, -52px, 0) rotate(3deg) scale(1.15); opacity: 0.58; }
-  3.125% { transform: translate3d(10.025px, -50.568px, 0) rotate(2.689deg) scale(1.1446); opacity: 0.5894; }
-  6.25% { transform: translate3d(-3.484px, -47.297px, 0) rotate(2.172deg) scale(1.1334); opacity: 0.61; }
-  9.375% { transform: translate3d(-19.158px, -42.596px, 0) rotate(1.506deg) scale(1.1184); opacity: 0.6381; }
-  12.5% { transform: translate3d(-35.625px, -36.875px, 0) rotate(0.75deg) scale(1.1019); opacity: 0.67; }
-  15.625% { transform: translate3d(-51.514px, -30.545px, 0) rotate(-0.037deg) scale(1.0857); opacity: 0.7019; }
-  18.75% { transform: translate3d(-65.453px, -24.016px, 0) rotate(-0.797deg) scale(1.072); opacity: 0.73; }
-  21.875% { transform: translate3d(-76.072px, -17.697px, 0) rotate(-1.471deg) scale(1.0627); opacity: 0.7506; }
-  25% { transform: translate3d(-82px, -12px, 0) rotate(-2deg) scale(1.06); opacity: 0.76; }
-  28.125% { transform: translate3d(-83.006px, -6.049px, 0) rotate(-2.441deg) scale(1.0655); opacity: 0.7562; }
-  31.25% { transform: translate3d(-80.297px, 0.922px, 0) rotate(-2.875deg) scale(1.0779); opacity: 0.7419; }
-  34.375% { transform: translate3d(-74.658px, 8.338px, 0) rotate(-3.277deg) scale(1.095); opacity: 0.7204; }
-  37.5% { transform: translate3d(-66.875px, 15.625px, 0) rotate(-3.625deg) scale(1.1144); opacity: 0.695; }
-  40.625% { transform: translate3d(-57.732px, 22.209px, 0) rotate(-3.895deg) scale(1.1339); opacity: 0.669; }
-  43.75% { transform: translate3d(-48.016px, 27.516px, 0) rotate(-4deg) scale(1.1512); opacity: 0.6456; }
-  46.875% { transform: translate3d(-38.51px, 30.971px, 0) rotate(-4deg) scale(1.164); opacity: 0.6282; }
-  50% { transform: translate3d(-30px, 32px, 0) rotate(-4deg) scale(1.17); opacity: 0.62; }
-  53.125% { transform: translate3d(-21.314px, 30.139px, 0) rotate(-3.689deg) scale(1.1681); opacity: 0.6227; }
-  56.25% { transform: translate3d(-11.203px, 25.734px, 0) rotate(-3.172deg) scale(1.1601); opacity: 0.6337; }
-  59.375% { transform: translate3d(-0.334px, 19.432px, 0) rotate(-2.506deg) scale(1.1478); opacity: 0.6505; }
-  62.5% { transform: translate3d(10.625px, 11.875px, 0) rotate(-1.75deg) scale(1.1331); opacity: 0.67; }
-  65.625% { transform: translate3d(21.006px, 3.709px, 0) rotate(-0.963deg) scale(1.1181); opacity: 0.6895; }
-  68.75% { transform: translate3d(30.141px, -4.422px, 0) rotate(-0.203deg) scale(1.1046); opacity: 0.7062; }
-  71.875% { transform: translate3d(37.361px, -11.873px, 0) rotate(0.471deg) scale(1.0946); opacity: 0.7173; }
-  75% { transform: translate3d(42px, -18px, 0) rotate(1deg) scale(1.09); opacity: 0.72; }
-  78.125% { transform: translate3d(44.295px, -23.521px, 0) rotate(1.441deg) scale(1.0918); opacity: 0.7118; }
-  81.25% { transform: translate3d(44.984px, -29.359px, 0) rotate(1.875deg) scale(1.0987); opacity: 0.6944; }
-  84.375% { transform: translate3d(44.15px, -35.174px, 0) rotate(2.277deg) scale(1.1088); opacity: 0.671; }
-  87.5% { transform: translate3d(41.875px, -40.625px, 0) rotate(2.625deg) scale(1.1206); opacity: 0.645; }
-  90.625% { transform: translate3d(38.24px, -45.373px, 0) rotate(2.895deg) scale(1.1323); opacity: 0.6196; }
-  93.75% { transform: translate3d(33.328px, -49.078px, 0) rotate(3deg) scale(1.1423); opacity: 0.5981; }
-  96.875% { transform: translate3d(27.221px, -51.4px, 0) rotate(3deg) scale(1.1487); opacity: 0.5838; }
+.gm-smoke-wisp {
+  position: absolute; left: var(--x); top: var(--y); width: var(--size); height: calc(var(--size) * .72);
+  opacity: 0; pointer-events: none; will-change: transform, opacity;
+  -webkit-mask-image: radial-gradient(ellipse at center, #000 12%, rgba(0,0,0,.88) 37%, transparent 72%);
+  mask-image: radial-gradient(ellipse at center, #000 12%, rgba(0,0,0,.88) 37%, transparent 72%);
+  animation: gm-smoke-disperse var(--life) linear var(--delay) infinite;
 }
-/* A game opened above the menu, or another tab selected: keep the wallpaper's place and resume on return. */
-:root:not([data-light]) .screen.v-puzzles[data-path="/puzzles"].gm-owner-light[data-under]::before,
-:root:not([data-light]) .screen.v-puzzles[data-path="/puzzles"].gm-owner-light[data-under]::after,
-:root:not([data-light]) .tab-layer[hidden] .screen.v-puzzles[data-path="/puzzles"].gm-owner-light::before,
-:root:not([data-light]) .tab-layer[hidden] .screen.v-puzzles[data-path="/puzzles"].gm-owner-light::after { animation-play-state: paused; }
+.gm-smoke-wisp::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 42% 54%, rgba(177,255,174,.95), rgba(45,193,148,.65) 38%, rgba(33,126,142,.38) 78%);
+  -webkit-mask: url(../../img/games/smoke.webp) var(--sample) / 150% 150% no-repeat;
+  mask: url(../../img/games/smoke.webp) var(--sample) / 150% 150% no-repeat;
+}
+.gm-smoke-wisp.is-teal::before {
+  background: radial-gradient(ellipse at 54% 46%, rgba(128,228,208,.8), rgba(33,126,142,.55) 44%, rgba(35,84,107,.3) 82%);
+}
+@keyframes gm-smoke-disperse {
+  0% { opacity: 0; transform: translate3d(-50%, -50%, 0) rotate(var(--turn)) scale(.62,.72); }
+  15% { opacity: var(--density); transform: translate3d(calc(-50% + var(--dx) * .15), calc(-50% + var(--dy) * .15), 0) rotate(calc(var(--turn) + 3deg)) scale(.83,.87); }
+  38% { opacity: calc(var(--density) * .78); transform: translate3d(calc(-50% + var(--dx) * .38), calc(-50% + var(--dy) * .38), 0) rotate(calc(var(--turn) + 7deg)) scale(1.17,1.04); }
+  66% { opacity: calc(var(--density) * .32); transform: translate3d(calc(-50% + var(--dx) * .66), calc(-50% + var(--dy) * .66), 0) rotate(calc(var(--turn) + 11deg)) scale(1.57,1.29); }
+  88% { opacity: calc(var(--density) * .055); transform: translate3d(calc(-50% + var(--dx) * .88), calc(-50% + var(--dy) * .88), 0) rotate(calc(var(--turn) + 14deg)) scale(1.89,1.48); }
+  100% { opacity: 0; transform: translate3d(calc(-50% + var(--dx)), calc(-50% + var(--dy)), 0) rotate(calc(var(--turn) + 16deg)) scale(2.06,1.58); }
+}
+/* Pause the dispersion while a game covers the shelf or another tab is selected. */
+.gm-owner-light[data-under] .gm-smoke-wisp,
+.tab-layer[hidden] .gm-owner-light .gm-smoke-wisp { animation-play-state: paused; }
+:root.rm:not([data-light]) .gm-owner-light > .gm-smoke-field { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-light]) .gm-owner-light > .gm-smoke-field { display: none; }
+}
+
 :root:not([data-light]) .gm-owner-light .gm-list::before {
   top: calc(50% - var(--ch) / 2 - 105px); height: calc(var(--ch) + 80px);
   background:

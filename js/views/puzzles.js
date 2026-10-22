@@ -604,8 +604,36 @@ function onDaily(st, type) {
 }
 
 // ============================================================================ View
+// A fixed number of small patches keeps mobile compositing bounded. Different lifetimes and
+// texture samples let new wisps form while older ones spread and disappear, with no shared loop.
+const SMOKE_WISPS = [
+  [18, 88, 320, 155, -135, -12, 19, -3, .86, false, '0% 0%'],
+  [84, 94, 340, -135, -170, 8, 23, -11, .9, false, '100% 80%'],
+  [42, 82, 290, 115, -145, -5, 29, -22, .78, false, '35% 45%'],
+  [106, 72, 270, -185, -105, 15, 17, -8, .7, true, '80% 10%'],
+  [-5, 62, 280, 180, -120, -18, 31, -24, .66, true, '15% 90%'],
+  [20, 24, 300, 125, -125, 3, 26, -7, .62, true, '65% 65%'],
+  [85, 12, 260, -110, -100, 12, 21, -15, .62, true, '100% 30%'],
+  [52, 105, 360, -100, -225, -8, 37, -17, .85, false, '40% 100%']
+];
 function patchAtmosphere(st) {
-  st.ctx.screen.classList.toggle('gm-owner-light', st.game === null && data.isOwner());
+  const owner = st.game === null && data.isOwner();
+  st.ctx.screen.classList.toggle('gm-owner-light', owner);
+  if (!owner) { st.smoke?.remove(); st.smoke = null; return; }
+  if (st.smoke) return;
+  const field = document.createElement('div');
+  field.className = 'gm-smoke-field';
+  field.setAttribute('aria-hidden', 'true');
+  for (const [x, y, size, dx, dy, turn, life, delay, density, teal, sample] of SMOKE_WISPS) {
+    const wisp = document.createElement('span');
+    wisp.className = 'gm-smoke-wisp' + (teal ? ' is-teal' : '');
+    for (const [name, value] of Object.entries({x: x + '%', y: y + '%', size: size + 'px', dx: dx + 'px', dy: dy + 'px', turn: turn + 'deg', life: life + 's', delay: delay + 's', density, sample})) {
+      wisp.style.setProperty('--' + name, value);
+    }
+    field.append(wisp);
+  }
+  st.smoke = field;
+  st.ctx.screen.prepend(field);
 }
 
 export default {
@@ -701,6 +729,8 @@ export default {
     const st = HUB.get(ctx);
     if (!st) return;
     ctx.screen.classList.remove('gm-owner-light');
+    st.smoke?.remove();
+    st.smoke = null;
     if (st.list) st.list.destroy();
     if (st.cancelRing) st.cancelRing();
     if (st.board) st.board.destroy();
