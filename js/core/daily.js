@@ -985,6 +985,8 @@ try {
 } catch (_) {}
 
 export function maybeAutoPost() {
+  // (the online / visibility listeners can fire before the puzzles have loaded: nothing to post yet)
+  if (status !== 'ready' || !DAY) return;
   if (TEST || !allDone() || DS.posted || !LB.save || !LB.ready || LB.posting || LB.status === 'denied' || LB.status === 'full') return;
   // Already on the board today from another of this member's phones: the first score stands.
   if (dupeAt(LB.raw || LB.players)) { if (LB.status !== 'dupe') { LB.status = 'dupe'; lbChanged('status'); } return; }

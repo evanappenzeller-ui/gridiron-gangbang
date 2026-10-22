@@ -104,6 +104,10 @@
 .rm-pane .rm-pop.is-pills { color: #FFC07A; text-shadow: 0 2px 0 rgba(0,0,0,.5), 0 0 22px rgba(255,140,40,.8); }
 .rm-pane .rm-pop.is-booze { color: var(--rm-gold); text-shadow: 0 2px 0 rgba(0,0,0,.5), 0 0 22px rgba(255,200,80,.8); }
 .rm-pane .rm-pop.is-hit { color: #FF5A5F; text-shadow: 0 2px 0 rgba(0,0,0,.55), 0 0 22px rgba(230,30,40,.8); }
+/* a pickup's catchphrase (the hard course): bigger, and up a little longer */
+.rm-pane .rm-pop.is-catch { font-size: 42px; padding: 0 16px; }
+.rm-pane .rm-pop.is-catch.is-on { animation-duration: 1.4s; }
+@keyframes rm-pop-still { 0%, 92% { opacity: 1; } 100% { opacity: 0; } }
 @keyframes rm-pop {
   0% { opacity: 0; transform: translateY(14px) scale(.7); }
   18% { opacity: 1; transform: translateY(0) scale(1.08); }
@@ -175,5 +179,6 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .rm-pane .rm-pop.is-on { animation-duration: .01s; }
+  .rm-pane .rm-pop.is-catch.is-on { animation: rm-pop-still 1.4s linear forwards; }
   .rm-pane .rm-got.is-on { animation: none; }
 }

@@ -692,8 +692,18 @@ function ungot(st) {
   const el = st.el && st.el.querySelector('[data-rm-got]');
   if (el) el.hidden = true;
 }
+// On the hard course (the owner's, for now) the only words that pop up over his run are a pickup's catchphrase (the
+// owner's ask, Oct 2026: "only catch phrases when something is picked up ... when the smelling salts are picked up the
+// screen says, Woooo"): no place names, move calls, hit words or the pickup's card. The haptics, the red edges and the
+// screen reader's words stay.
+const CATCHPHRASE = {salts: 'WOOOO!', pills: 'CAN’T FEEL A THING!', booze: 'HOLD MY BEER!'};
+function catchphrase(st, kind) {
+  ungot(st);
+  pop(st, CATCHPHRASE[kind] || 'WOOOO!', `is-${kind} is-catch`);
+}
 function onEvents(st, evs) {
   const now = performance.now();
+  const quiet = !!(st.run && st.run.co && st.run.co.hard), say = (...a) => { if (!quiet) pop(st, ...a); };
   evs.forEach(e => {
     // a juke off the edge of the road (a hit): he bounces off it
     if (e.edge) { st.edgeAt = now; st.edgeDir = e.edge === 'right' ? 1 : -1; }
@@ -702,22 +712,26 @@ function onEvents(st, evs) {
       const into = evs.find(x => x.type === 'zone');
       st.cheer = now + 2600; ui.haptic('success'); ui.announce(`Touchdown! ${plural(e.n, 'touchdown')}.${into ? ` ${into.theme.name}.` : ''}`);
     }
-    else if (e.type === 'zone') { W.warm(skyView(st), e.z); if (!evs.some(x => x.type === 'td')) pop(st, e.theme.name.toUpperCase(), 'is-zone'); }
-    else if (e.type === 'juked') { pop(st, 'SPIN MOVE!'); st.spinAt = now; st.spinDir = Math.sign(R.xOf(st.run, st.run.lane) - st.run.jFrom) || 1; }
-    else if (e.type === 'hurdled') { pop(st, e.ob === 'hole' ? 'HOP!' : 'HURDLE!'); ui.haptic('light'); }
-    else if (e.type === 'slid') { pop(st, 'SLIDE!'); ui.haptic('light'); }
-    else if (e.type === 'pickup') { const pw = R.powerOf(e.kind, st.run.co.hard); st.got.add(e.item.i); got(st, e.kind); ui.haptic('success'); ui.announce(`${pw.name}: ${pw.is}. ${pw.does}.`); }
+    else if (e.type === 'zone') { W.warm(skyView(st), e.z); if (!evs.some(x => x.type === 'td')) say(e.theme.name.toUpperCase(), 'is-zone'); }
+    else if (e.type === 'juked') { say('SPIN MOVE!'); st.spinAt = now; st.spinDir = Math.sign(R.xOf(st.run, st.run.lane) - st.run.jFrom) || 1; }
+    else if (e.type === 'hurdled') { say(e.ob === 'hole' ? 'HOP!' : 'HURDLE!'); ui.haptic('light'); }
+    else if (e.type === 'slid') { say('SLIDE!'); ui.haptic('light'); }
+    else if (e.type === 'pickup') {
+      const pw = R.powerOf(e.kind, st.run.co.hard); st.got.add(e.item.i);
+      if (quiet) catchphrase(st, e.kind); else got(st, e.kind);
+      ui.haptic('success'); ui.announce(`${pw.name}: ${pw.is}. ${pw.does}.`);
+    }
     else if (e.type === 'landed') st.landAt = now;
-    else if (e.type === 'trucked') { st.knocked.set(`${e.row.i}:${e.lane}`, {at: now}); pop(st, 'SMASHED!', 'is-pills'); ui.haptic('medium'); }
-    else if (e.type === 'vaulted') { pop(st, 'OVER THE TOP!', 'is-pills'); ui.haptic('medium'); }
+    else if (e.type === 'trucked') { st.knocked.set(`${e.row.i}:${e.lane}`, {at: now}); say('SMASHED!', 'is-pills'); ui.haptic('medium'); }
+    else if (e.type === 'vaulted') { say('OVER THE TOP!', 'is-pills'); ui.haptic('medium'); }
     else if (e.type === 'stumbled') {
-      st.hitAt = now; st.hitDir = fallDir(st.run); pop(st, 'STUMBLE!', 'is-hit', st.run.co.hard ? 'Next hit: tackled' : 'The linebacker’s on you'); ui.haptic('warning');
+      st.hitAt = now; st.hitDir = fallDir(st.run); say('STUMBLE!', 'is-hit', st.run.co.hard ? 'Next hit: tackled' : 'The linebacker’s on you'); ui.haptic('warning');
       ui.announce(`${R.hitLine(e)}. ${st.run.co.hard ? 'Your next unprotected hit will be a tackle, even after a clean stretch.' : 'The linebacker’s on you: another hit now and he’ll tackle you.'}`);
       if (e.row) st.knocked.set(`${e.row.i}:${e.lane}`, {at: now});
     }
     else if (e.type === 'shoved') { if (e.row) st.knocked.set(`${e.row.i}:${e.lane}`, {at: now}); }
     else if (e.type === 'revived') {
-      st.flashAt = now; st.hitAt = now; st.hitDir = fallDir(st.run); pop(st, 'SHOOK HIM!', 'is-salts', 'Smelling salts: burst!'); ui.haptic('warning');
+      st.flashAt = now; st.hitAt = now; st.hitDir = fallDir(st.run); say('SHOOK HIM!', 'is-salts', 'Smelling salts: burst!'); ui.haptic('warning');
       if (e.row) st.knocked.set(`${e.row.i}:${e.lane}`, {at: now});
     }
     else if (e.type === 'tackled' || e.type === 'crashed') tackled(st);
