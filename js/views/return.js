@@ -304,7 +304,7 @@ function runnerAnim(st, now) {
     const into = R.MOVE.slide - run.slide, left = run.x < -.5;
     return into < .09 || run.slide < .1 ? {f: 'rb.lunge', flip: !left} : {f: 'rb.down', flip: left, ex: {rot: .018 * Math.sin(t * 50)}};
   }
-  if (h > .05 || run.vy > 0) return run.vy > -2.5 ? {f: 'wr.high', ex: {sy: 1 + .05 * Math.max(0, run.vy / R.JUMP_V), rot: .05 * mo.lean}} : {f: 'rb.r_b0', ex: {sx: .96, sy: 1.06}};
+  if (h > .05 || run.vy > 0) return run.vy > -2.5 ? {f: 'wr.high', ex: {sy: 1 + .05 * Math.max(0, run.vy / R.JUMP_V), rot: .04 * mo.lean}} : {f: 'rb.r_b0', ex: {sx: .96, sy: 1.06}};
   const sp = st.spinAt ? (now - st.spinAt) / SPIN_MS : 1;
   if (sp < 1) {
     const n = FACE.length - 1, pos = sp * n, i = Math.floor(pos), at = k => FACE[st.spinDir > 0 ? 1 + k : n - k];
@@ -365,7 +365,7 @@ function runner3(st, now) {
   // a juke: turned and leaned into it, eased in and out; a spin goes all the way round
   const lean = dir * leanOf(js), sp = st.spinAt ? (now - st.spinAt) / SPIN_MS : 1;
   o.turn = .38 * lean + (sp < 1 ? st.spinDir * Math.PI * 2 * smooth(sp) : 0);
-  o.roll = .26 * lean + stum * .16 * Math.sin(run.slow * 22) + .45 * edgeBounce(st, now);
+  o.roll = .2 * lean + stum * .16 * Math.sin(run.slow * 22) + .45 * edgeBounce(st, now);
   return o;
 }
 /** The linebacker's 3D pose (z: where he is): running him down; set while the kick's in the air; the dive. */
