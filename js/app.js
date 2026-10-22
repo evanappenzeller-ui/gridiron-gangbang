@@ -1931,6 +1931,8 @@ export function enableSwipeBack() {
     if (t.clientX - left > 20) return;
     const st = S.stacks[S.tab];
     if (st.length < 2) return;
+    // Keep owns every swipe, including at the screen edge; leave it with the Back button.
+    if (data.isOwner() && isKeepRoute(st[st.length - 1].route)) return;
     if (e.target.closest && e.target.closest('[data-hscroll]')) return;
     g = {x0: t.clientX, y0: t.clientY, locked: false, topE: st[st.length - 1], underE: st[st.length - 2], s: [[performance.now(), t.clientX]], x: 0, p: 0};
     // Only an edge gesture gets a non-passive listener (to preventDefault after the axis lock); every other
