@@ -1,10 +1,10 @@
-// The Realm's lot in 3D (views/realm.js and views/realm-raid.js): three.js (js/vendor/three, MIT), the buildings from
+// The Keep's lot in 3D (views/realm.js and views/realm-raid.js): three.js (js/vendor/three, MIT), the buildings from
 // views/realm-models.js, a camera looking down across the lot corner-on (a diamond, as these games are), dragged to
 // pan, pinched or wheeled to zoom. The lot lies in the middle of its land's open ground (img/realm/scenery/,
 // tools/realm/sceneries.py: a blank portrait landscape a land, on any screen) laid on the ground so the camera sees it
 // as painted; the camera never looks past the landscape's edges, nor zooms out further than fills the screen with it
 // (the owner's ask, Oct 2026: each tall enough round the lot to zoom well out; without it: a meadow with a
-// moat round it, pines beyond and mountains far off). The Keep, gold mines, archer towers and dragon hatcheries are drawn
+// moat round it, pines beyond and mountains far off). The Castle, gold mines, archer towers and dragon hatcheries are drawn
 // from their art (views/realm-sprites.js), and folk stand about: villagers at work by their buildings, an archer up each tower, a cannon's crew round it. It
 // draws when something moved (a finger, a raid) and, while there are folk about, a few times a second for them.
 // In a raid it also draws the raiders (instanced: a few draw calls however many), each drawn from his picture (img/realm/
@@ -58,7 +58,7 @@ async function scenery(file) {
     if (!ground) throw new Error('no landscape');
     return {lay, ground, pics};
   } catch (e) {
-    console.warn('Realm: no scenery', e);
+    console.warn('The Keep: no scenery', e);
     if (world && data.isOwner()) {
       const key = Object.keys(WORLD_FILES).find(k => Object.values(WORLD_FILES[k]).includes(file));
       return scenery((FILES[key] || FILES.coast).tall);
@@ -81,7 +81,7 @@ async function army() {
       im.onerror = () => ok();
       im.src = ARMY_AT + k + '.webp';
     })));
-  } catch (e) { console.warn('Realm: no army pictures', e); }
+  } catch (e) { console.warn('The Keep: no army pictures', e); }
 }
 /** Loads three.js, the art and scenery theme's layout for this screen (the coast's if none's given). */
 export function load(theme = 'coast') {
@@ -100,7 +100,7 @@ export function load(theme = 'coast') {
       try { await document.fonts.load('800 60px "Barlow Condensed"'); } catch (_) {}
       return true;
     } catch (e) {
-      console.warn('Realm: no 3D', e);
+      console.warn('The Keep: no 3D', e);
       DEAD = true;
       return false;
     }
@@ -407,7 +407,7 @@ export function create(host, opts = {}) {
   function setScenery(sc) {
     if (!data.isOwner()) return false;
     let gr;
-    try { gr = sceneryGround(sc.ground, sc.lay.lot, renderer.capabilities.getMaxAnisotropy()); } catch (e) { console.warn('Realm: no scenery', e); return false; }
+    try { gr = sceneryGround(sc.ground, sc.lay.lot, renderer.capabilities.getMaxAnisotropy()); } catch (e) { console.warn('The Keep: no scenery', e); return false; }
     dropScenery();
     scene.remove(plain);
     scene.background.set(0x16202A); // (never seen: the camera stays over it)

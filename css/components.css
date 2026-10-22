@@ -33,7 +33,7 @@
 @supports (color: color-mix(in srgb, red 50%, blue)) {
   #tabbar { background: color-mix(in srgb, var(--bar-solid) 94%, transparent); }
 }
-.tab[hidden] { display: none; } /* (a tab this phone doesn't have: the Realm, off the owner's phones) */
+.tab[hidden] { display: none; } /* (a tab this phone doesn't have: none now that The Keep lives in Daily Games) */
 .tab {
   position: relative; z-index: 1;
   flex: 1 1 0; min-width: 0;

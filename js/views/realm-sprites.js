@@ -1,4 +1,4 @@
-// The Realm's pictures (views/realm-3d.js puts them in its 3D lot): the Keep, the gold mine, the archer tower and the
+// The Keep's pictures (views/realm-3d.js puts them in its 3D lot): the Castle (KINDS.keep), the gold mine, the archer tower and the
 // dragon hatchery drawn from their art, a picture a level (stood up facing the camera, which never turns, so they
 // look as drawn), and the folk: villagers at work by their buildings, an archer on each archer tower, a cannon's crew
 // round it. The art (img/realm/*.webp) and its frames below come from tools/realm/sprites.py.
@@ -31,7 +31,7 @@ export function load() {
       im.onload = () => ok([n, im]);
       im.onerror = () => no(new Error('no ' + n));
       im.src = BASE + n + '.webp';
-    }))).then(list => { IMGS = Object.fromEntries(list); return true; }, e => { console.warn('Realm: no art', e); DEAD = true; return false; });
+    }))).then(list => { IMGS = Object.fromEntries(list); return true; }, e => { console.warn('The Keep: no art', e); DEAD = true; return false; });
   }
   return LOADING;
 }
@@ -55,11 +55,17 @@ function setFrame(t, x, y, w, h, W, H, flip) {
   t.offset.set((flip ? x + w : x) / W, 1 - (y + h) / H);
 }
 
-/** Which of a family's ten pictures a level gets (the Keep's 8 levels and the mine's 12 spread over them). */
+// The Castle's pictures (Oct 21 2026: the Keep became the Castle): the atlas's first three are timber halls, so its 8
+// levels are drawn from the seven stone castles (3 to 9), levels 1 and 2 both the smallest, level 1's drawn smaller.
+const FRAMES = {keep: [3, 3, 4, 5, 6, 7, 8, 9]};
+const SHRINK = {keep: [.84]};
+/** Which of a family's ten pictures a level gets (the mine's 12 levels spread over them; the Castle's above). */
 export function frameOf(kind, level) {
   const top = {keep: 8, mine: 12}[kind] || 10, l = Math.max(1, Math.min(top, level || 1));
-  return Math.round((l - 1) * 9 / (top - 1));
+  return FRAMES[kind] ? FRAMES[kind][l - 1] : Math.round((l - 1) * 9 / (top - 1));
 }
+/** How much smaller than its picture a level stands (1: as drawn). */
+export const shrinkOf = (kind, level) => (SHRINK[kind] || [])[Math.max(1, level || 1) - 1] || 1;
 let SHADOW = null;
 function shadowTex() {
   if (!SHADOW) {
@@ -75,7 +81,7 @@ function shadowTex() {
  *  shadow on the ground, and an unseen box to tap. userData: {sprite, k (tiles a px), ax, ay (its anchor, px)}. */
 export function building(kind, level, size) {
   const fam = BUILD[kind], i = frameOf(kind, level), [x, y, w, h, ax, ay, bw] = fam.f[i];
-  const top = Math.max(...fam.f.map(f => f[6])), k = size * Math.SQRT2 * FIT[kind] / top;
+  const top = Math.max(...fam.f.map(f => f[6])), k = size * Math.SQRT2 * FIT[kind] / top * shrinkOf(kind, level);
   const key = `${kind}:${i}`;
   if (!MATS.has(key)) MATS.set(key, new T.SpriteMaterial({map: frameTex(kind, x, y, w, h, fam.w, fam.h), transparent: true, alphaTest: .04, toneMapped: false}));
   const sp = new T.Sprite(MATS.get(key));
@@ -97,11 +103,11 @@ export function building(kind, level, size) {
 }
 /** A picture of a building at a level (a data URL), for the shop. */
 export function thumbURL(kind, level) {
-  const key = kind + ':' + frameOf(kind, level);
+  const key = kind + ':' + frameOf(kind, level) + ':' + shrinkOf(kind, level);
   if (URLS.has(key)) return URLS.get(key);
   const fam = BUILD[kind], [x, y, w, h] = fam.f[frameOf(kind, level)];
   const cv = document.createElement('canvas'); cv.width = cv.height = 160;
-  const s = Math.min(152 / w, 152 / h);
+  const s = Math.min(152 / w, 152 / h) * shrinkOf(kind, level);
   cv.getContext('2d').drawImage(IMGS[kind], x, y, w, h, (160 - w * s) / 2, 156 - h * s, w * s, h * s);
   const url = cv.toDataURL('image/png');
   URLS.set(key, url);
@@ -132,8 +138,9 @@ export function pose(sp, sheet, i, flip = false, size = 1) {
 const PLATFORM = [[115, 150], [118, 128], [122, 162], [136, 136], [142, 112], [130, 205], [140, 212], [150, 125], [160, 140], [172, 132]];
 export const platform = level => PLATFORM[frameOf('tower', level)];
 const TIER = l => (l >= 8 ? 2 : l >= 4 ? 1 : 0);
-// The work each building's villagers do (one each side of its front corner).
-const WORK = {keep: ['lantern', 'firewood'], farm: ['farmer', 'harvest'], barracks: ['smith', 'tongs'], camp: ['feed', 'hay'], hut: ['timber'],
+// The work each building's villagers do (one each side of its front corner). The brewery's (KINDS.farm) carry in a sack
+// of malt and wood for the kettle's fire (the farmer and the harvest sheets were the farm's, before it brewed Ale).
+const WORK = {keep: ['lantern', 'firewood'], farm: ['sack', 'firewood'], barracks: ['smith', 'tongs'], camp: ['feed', 'hay'], hut: ['timber'],
   mine: ['sack'], treasury: ['fabric'], granary: ['sack'], hatchery: ['firewood']};
 const CREW = [['powder1', 'ball1', 'ram1'], ['fire2', 'ball2', 'scoop2'], ['fire3', 'ball3', 'ram3']];
 /**

@@ -1,8 +1,8 @@
-/* realm.css: the Realm tab (views/realm.js), an attack (views/realm-raid.js) and a look round a realm first
-   (views/realm-scout.js), the owner's alone. The lot (3D) fills the screen; over it a medieval HUD in dark oak and
-   gilt: your house's crest and name at the top left, Gold and Grain at the top right, the four buttons along the
-   bottom, a selected building's card. The sheets (.sh-rl) live in #overlays. Cinzel (Natanael Gama, SIL Open Font
-   License 1.1) for the names and labels. */
+/* realm.css: The Keep (views/realm.js; its route and classes still say realm), an attack (views/realm-raid.js) and a
+   look round a realm first (views/realm-scout.js), the owner's alone. The lot (3D) fills the screen; over it a
+   medieval HUD in dark oak and gilt: your house's crest and name at the top left, Gold and Ale at the top right, the
+   four buttons along the bottom, a selected building's card. The sheets (.sh-rl) live in #overlays. Cinzel (Natanael
+   Gama, SIL Open Font License 1.1) for the names and labels. */
 @font-face {
   font-family: "Cinzel";
   font-style: normal;
@@ -13,7 +13,7 @@
 .screen.v-realm, .screen.v-realm-raid, .screen.v-realm-scout { overflow: hidden; padding: 0; background: #9AAEC0; }
 .v-realm > .screen-body, .v-realm-raid > .screen-body, .v-realm-scout > .screen-body { position: absolute; inset: 0; padding: 0; }
 .rl, .sh-rl {
-  --rl-glass: rgba(26,18,12,.78); --rl-line: rgba(232,190,96,.34); --rl-gilt: #E8C268; --rl-gold: #F0C23E; --rl-grain: #A9C55B;
+  --rl-glass: rgba(26,18,12,.78); --rl-line: rgba(232,190,96,.34); --rl-gilt: #E8C268; --rl-gold: #F0C23E; --rl-ale: #FFB04A; --rl-gain: #A9C55B;
   --rl-wood: linear-gradient(#5E4330, #3B2A1D); --rl-crimson: linear-gradient(#A82A33, #6E1520);
   --rl-face: "Cinzel", "Trajan Pro", Georgia, serif;
 }
@@ -29,21 +29,22 @@
 .rl-tags { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
 .rl-tags > * { position: absolute; left: 0; top: 0; will-change: transform; }
 
-/* ---- Gold (a coin), Grain (a sack), glory (a crown) */
+/* ---- Gold (a coin), Ale (an amber tankard under its head of foam; inside it's still 'grain'), glory (a crown) */
 .rl-coin { display: inline-block; flex: none; width: 1.05em; height: 1.05em; border-radius: 50%; vertical-align: -.16em;
   background: radial-gradient(circle at 35% 30%, #FFF4BF, #F0C23E 45%, #A87412); box-shadow: inset 0 0 0 .08em rgba(110,70,0,.6); }
-.is-grain .rl-coin, .rl-coin.is-grain { border-radius: 26% 26% 44% 44% / 18% 18% 50% 50%;
-  background: linear-gradient(transparent 0 15%, #6B5426 15% 27%, transparent 27%), radial-gradient(ellipse at 42% 62%, #F2F3C2, #AFC45E 52%, #5F7A28);
-  box-shadow: inset 0 0 0 .08em rgba(50,70,10,.5); }
+.is-grain .rl-coin, .rl-coin.is-grain { border-radius: 0; box-shadow: none;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='2 1.4 20 21.4'%3E%3Cdefs%3E%3ClinearGradient id='b' x1='0' x2='1'%3E%3Cstop offset='0' stop-color='%23FFD98A'/%3E%3Cstop offset='.35' stop-color='%23F4AE42'/%3E%3Cstop offset='.75' stop-color='%23D47A18'/%3E%3Cstop offset='1' stop-color='%239A520C'/%3E%3C/linearGradient%3E%3Cg id='f'%3E%3Ccircle cx='5.4' cy='7.3' r='2.5'/%3E%3Ccircle cx='8.8' cy='5.4' r='3'/%3E%3Ccircle cx='12.6' cy='5.3' r='2.9'/%3E%3Ccircle cx='15.7' cy='7.1' r='2.4'/%3E%3Crect x='3' y='7' width='14.2' height='3' rx='1.5'/%3E%3Crect x='3.2' y='8' width='2.5' height='4.3' rx='1.25'/%3E%3C/g%3E%3C/defs%3E%3Cpath d='M16 10.6h2.3a2.5 2.5 0 0 1 2.5 2.5v2.3a2.5 2.5 0 0 1-2.5 2.5H16' fill='none' stroke='%235A2F08' stroke-width='3.9'/%3E%3Cpath d='M16 10.6h2.3a2.5 2.5 0 0 1 2.5 2.5v2.3a2.5 2.5 0 0 1-2.5 2.5H16' fill='none' stroke='%23E39A34' stroke-width='1.6'/%3E%3Cpath d='M3.7 8.6H16.7L16.2 20.3Q16.1 21.8 14.6 21.8H5.8Q4.3 21.8 4.2 20.3Z' fill='url(%23b)' stroke='%235A2F08' stroke-width='1.3' stroke-linejoin='round'/%3E%3Cpath d='M4.6 19.1H15.8' stroke='%238A4508' stroke-width='1.2'/%3E%3Cpath d='M7.4 12.6v4.6' stroke='%23FFF3D2' stroke-width='1.5' stroke-linecap='round' opacity='.8'/%3E%3Cuse href='%23f' fill='%235A2F08' stroke='%235A2F08' stroke-width='1.3'/%3E%3Cuse href='%23f' fill='%23FFF8EA'/%3E%3Ccircle cx='8.2' cy='4.4' r='1' fill='%23FFFFFF'/%3E%3C/svg%3E") center / contain no-repeat; }
 .rl-amt { display: inline-flex; align-items: center; gap: .25em; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .rl-amt + .rl-amt { margin-left: .5em; }
+/* (in an amount, the tankard drawn as large as the coin beside it: the mug is narrower than the disc, its foam the cue) */
+.rl-amt.is-grain > .rl-coin { transform: scale(1.18); margin: 0 .04em 0 .03em; } /* (scaled, not sized: the amount's line stays put) */
 .rl-crown { display: inline-block; flex: none; width: 1.1em; height: .85em; vertical-align: -.08em; background: linear-gradient(#FFE9A3, #E0A92B);
   clip-path: polygon(0 22%, 26% 58%, 50% 0, 74% 58%, 100% 22%, 90% 100%, 10% 100%); }
 
-/* ---- the top, compact (Oct 2026): your house at the left (the crest with the Keep level riding the name's strip; tap
-   it to rename your house), Gold and Grain stacked at the right, each a bar filled for how full it is with its coin or
-   sack over the end (red when full; tap one for the coffers), and nothing else. It starts under iOS 26's frosted band
-   below the status bar (the system draws it over the page, about the status bar's height again, up to 44px), which
+/* ---- the top, compact (Oct 2026): your house at the left (the crest with the Castle's level riding the name's strip;
+   tap it to rename your house), Gold and Ale stacked at the right, each a bar filled for how full it is with its coin
+   or tankard over the end (red when full; tap one for the coffers), and nothing else. It starts under iOS 26's frosted
+   band below the status bar (the system draws it over the page, about the status bar's height again, up to 44px), which
    blurred a strip laid any higher: --rl-hud-t. */
 .rl { --rl-hud-t: max(8px, calc(var(--sa-t, 0px) + min(44px, var(--sa-t, 0px)))); }
 .rl-top { position: absolute; top: var(--rl-hud-t); left: 10px; right: 10px; display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; pointer-events: none; }
@@ -61,18 +62,24 @@
 .rl-crest::before, .rl-tg-lv::before { inset: 0; background: linear-gradient(#FBE2A0, #B98A2C); }
 .rl-crest::after, .rl-tg-lv::after { inset: 2.5px 2.5px 3px; background: var(--rl-crimson); }
 .rl-res { flex: none; width: clamp(116px, 34%, 146px); display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding-right: 5px; }
-/* a store: the bar (filled for how full), the amount at its right, the coin or sack over its end */
+/* a store: the bar (filled for how full), the amount at its right, the coin or tankard over its end */
 .rl-cur { position: relative; display: flex; align-items: center; justify-content: flex-end; height: 24px; padding: 0 24px 0 8px; border: 0; border-radius: 7px; background: var(--rl-glass); color: #F7EEDD;
   -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px var(--rl-line); cursor: pointer; }
 .rl-curb { position: absolute; inset: 2px; border-radius: 5px; overflow: hidden; }
-.rl-curb > i { display: block; height: 100%; background: linear-gradient(rgba(240,194,62,.5), rgba(168,116,18,.42)); transition: width .4s ease; }
-.is-grain .rl-curb > i { background: linear-gradient(rgba(190,214,104,.48), rgba(95,122,40,.42)); }
+.rl-curb > i { display: block; height: 100%; background: linear-gradient(rgba(255,224,96,.62), rgba(196,146,22,.55)); transition: width .4s ease; }
+/* (ale: amber, a head of foam on it and a few bubbles rising, so it isn't a second brown bar beside the gold) */
+.is-grain .rl-curb > i { background:
+  radial-gradient(circle at 14% 64%, rgba(255,242,210,.6) 0 1px, transparent 1.6px),
+  radial-gradient(circle at 37% 42%, rgba(255,242,210,.45) 0 .8px, transparent 1.4px),
+  radial-gradient(circle at 63% 70%, rgba(255,242,210,.55) 0 1px, transparent 1.6px),
+  radial-gradient(circle at 86% 46%, rgba(255,242,210,.45) 0 .8px, transparent 1.4px),
+  linear-gradient(rgba(255,246,224,.92) 0 2.5px, rgba(246,162,52,.78) 2.5px, rgba(196,98,14,.7)); }
 .rl-cur > b { position: relative; font: 700 13px/1 var(--rl-face); font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; text-shadow: 0 1px 2px rgba(0,0,0,.8); }
 .rl-cur > .rl-coin { position: absolute; right: -6px; top: 50%; width: 28px; height: 28px; margin-top: -14px; font-size: 28px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.55)); }
 .rl-cur.is-full { box-shadow: inset 0 0 0 1px rgba(255,140,120,.8); }
 .rl-cur.is-full > b { color: #FFB4A8; }
 
-/* ---- over the buildings: a job's clock, a mine's or farm's take */
+/* ---- over the buildings: a job's clock, a mine's or brewery's take */
 .rl-tag.is-job { width: 74px; margin: -14px 0 0 -37px; padding: 3px 4px 4px; border-radius: 6px; background: rgba(26,18,12,.84); text-align: center;
   font: 700 11px/1.1 var(--font-text); font-variant-numeric: tabular-nums; box-shadow: inset 0 0 0 1px var(--rl-line), 0 2px 8px rgba(0,0,0,.35); }
 .rl-tag.is-job > span { display: block; margin-bottom: 3px; }
@@ -81,10 +88,12 @@
   background: #F6ECD6; box-shadow: inset 0 0 0 2px #B98A2C, 0 4px 10px rgba(0,0,0,.35); animation: rl-bob 1.6s ease-in-out infinite; }
 .rl-tag.is-made .rl-coin { width: 24px; height: 24px; }
 .rl-tag.is-made.is-full { box-shadow: inset 0 0 0 2px #B98A2C, 0 0 0 3px #E0533F, 0 4px 10px rgba(0,0,0,.35); }
+/* a brewery full up: its tankard's head running over the rim */
+.rl-tag.is-made.is-grain.is-full .rl-coin { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='2 1.4 20 21.4'%3E%3Cdefs%3E%3ClinearGradient id='b' x1='0' x2='1'%3E%3Cstop offset='0' stop-color='%23FFD98A'/%3E%3Cstop offset='.35' stop-color='%23F4AE42'/%3E%3Cstop offset='.75' stop-color='%23D47A18'/%3E%3Cstop offset='1' stop-color='%239A520C'/%3E%3C/linearGradient%3E%3Cg id='f'%3E%3Ccircle cx='5.4' cy='7.3' r='2.5'/%3E%3Ccircle cx='8.8' cy='5.4' r='3'/%3E%3Ccircle cx='12.6' cy='5.3' r='2.9'/%3E%3Ccircle cx='15.7' cy='7.1' r='2.4'/%3E%3Crect x='3' y='7' width='14.2' height='3' rx='1.5'/%3E%3Crect x='3.2' y='8' width='2.5' height='5.4' rx='1.25'/%3E%3Crect x='9.2' y='8' width='2.3' height='3.6' rx='1.15'/%3E%3Crect x='13.9' y='8' width='2.5' height='5' rx='1.25'/%3E%3C/g%3E%3C/defs%3E%3Cpath d='M16 10.6h2.3a2.5 2.5 0 0 1 2.5 2.5v2.3a2.5 2.5 0 0 1-2.5 2.5H16' fill='none' stroke='%235A2F08' stroke-width='3.9'/%3E%3Cpath d='M16 10.6h2.3a2.5 2.5 0 0 1 2.5 2.5v2.3a2.5 2.5 0 0 1-2.5 2.5H16' fill='none' stroke='%23E39A34' stroke-width='1.6'/%3E%3Cpath d='M3.7 8.6H16.7L16.2 20.3Q16.1 21.8 14.6 21.8H5.8Q4.3 21.8 4.2 20.3Z' fill='url(%23b)' stroke='%235A2F08' stroke-width='1.3' stroke-linejoin='round'/%3E%3Cpath d='M4.6 19.1H15.8' stroke='%238A4508' stroke-width='1.2'/%3E%3Cpath d='M7.4 12.6v4.6' stroke='%23FFF3D2' stroke-width='1.5' stroke-linecap='round' opacity='.8'/%3E%3Cuse href='%23f' fill='%235A2F08' stroke='%235A2F08' stroke-width='1.3'/%3E%3Cuse href='%23f' fill='%23FFF8EA'/%3E%3Ccircle cx='8.2' cy='4.4' r='1' fill='%23FFFFFF'/%3E%3C/svg%3E"); }
 @keyframes rl-bob { 50% { translate: 0 -5px; } }
 .rl-float { position: absolute; transform: translate(-50%, -50%); font: 800 22px/1 var(--rl-face); text-shadow: 0 2px 4px rgba(0,0,0,.6), 0 0 2px #000; animation: rl-float 1.2s ease-out forwards; pointer-events: none; }
 .rl-float.is-gold { color: #FFE38A; }
-.rl-float.is-grain { color: #D4EB8E; }
+.rl-float.is-grain { color: var(--rl-ale); }
 @keyframes rl-float { from { opacity: 1; translate: 0 0; } to { opacity: 0; translate: 0 -46px; } }
 @media (prefers-reduced-motion: reduce) { .rl-tag.is-made { animation: none; } .rl-float { animation-duration: .01s; } }
 
@@ -133,7 +142,7 @@
 .sh-rl .rl-row b { color: var(--rl-gilt); }
 .sh-rl .rl-row + .rl-row { box-shadow: inset 0 1px 0 var(--sep); }
 .sh-rl .rl-row-v { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.sh-rl .rl-row-v em { margin-right: 10px; font-style: normal; font-weight: 600; color: var(--rl-grain); }
+.sh-rl .rl-row-v em { margin-right: 10px; font-style: normal; font-weight: 600; color: var(--rl-gain); }
 .sh-rl .rl-row.is-sum { font-weight: 800; }
 .sh-rl .rl-shop { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
 .sh-rl .rl-shop-c { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 10px 12px 12px; border: 0; border-radius: 12px; background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--sep); color: #F7EEDD; text-align: left; cursor: pointer; }
@@ -163,7 +172,8 @@
 .rl-tg-lv { width: 30px; height: 36px; padding-bottom: 5px; font-size: 16px; }
 .sh-rl .rl-tg-n { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .sh-rl .rl-tg-n b { font: 700 15px/1.15 var(--rl-face); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sh-rl .rl-tg-n small { font: 600 13px/1.2 var(--font-text); color: rgba(247,238,221,.6); }
+.sh-rl .rl-tg-n small { display: flex; flex-wrap: wrap; column-gap: .6em; row-gap: 2px; font: 600 13px/1.2 var(--font-text); color: rgba(247,238,221,.6); }
+.sh-rl .rl-tg-n small > .rl-amt + .rl-amt { margin-left: 0; } /* (wrapped, the tankard's line starts under the coin's) */
 .sh-rl .rl-tg-go { flex: none; min-height: 40px; padding: 0 16px; }
 .sh-rl .rl-log-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; font: 500 14px/1.35 var(--font-text); }
 .sh-rl .rl-log-t b { font-family: var(--rl-face); font-weight: 700; }

@@ -1,4 +1,4 @@
-// The Realm's buildings in 3D (views/realm-3d.js draws them): medieval, each made of simple solids baked into a few
+// The Keep's buildings in 3D (views/realm-3d.js draws them): medieval, each made of simple solids baked into a few
 // meshes (one a material, the colours painted on the vertices) so a whole lot is a few hundred draw calls at most; a
 // look per level (taller, more to it, the roofs' trim going from iron to gold). Tiles are one unit; a building of size
 // s stands on an s x s square centred on its group's origin, y up. A house's colours (pri, sec) and its sigil (a
@@ -179,6 +179,25 @@ function timberDeck(k, r, y) {
   }
   k.ring(r - .012, .016, IRON, [0, y + .04, 0], {mat: 'metal', seg: 24});
 }
+// Ale's things (the brewery's and the cellar's): amber ale and its foam, copper kettles, oak barrels and their hoops, hops;
+// the oast's brick and its white cowl; the cellar's mound (earth, moss), its cask's head, the light inside.
+const ALE = 0xC98A22, FOAM = 0xF4EBD4, COPPER = 0xC8743A, COPPER_HI = 0xE8A266, COPPER_DK = 0x8E4A24, BARREL = 0x8A5A32, HOOP = 0x3F4247,
+  HOPS = 0x56843A, HOP_CONE = 0xB9D16C, HEARTH = 0x6F675F, SMOKE = 0xDAD7D1, BRICK = 0x9A5338, BRICK_DK = 0x7A3F2B, COWL = 0xF2EFE8,
+  EARTH = 0x765E44, MOSS = 0x67703E, OAK = 0xA06E3E, LIT = 0xF2A640;
+/** A barrel (or a cask, a keg): r round its belly, len long, its middle at `at`, lying along x or z or standing (y), with two
+ *  hoops (o.hm: their material). Cheap: 8 sides. */
+function barrel(k, r, len, at, axis = 'y', o = {}) {
+  const prof = [[0, -len / 2], [r * .82, -len / 2], [r, 0], [r * .82, len / 2], [0, len / 2]].map(([x, y]) => new T.Vector2(x, y));
+  const rot = axis === 'x' ? [0, 0, -Math.PI / 2] : axis === 'z' ? [Math.PI / 2, 0, 0] : [0, 0, 0];
+  const d = axis === 'x' ? [1, 0, 0] : axis === 'z' ? [0, 0, 1] : [0, 1, 0];
+  k.add(new T.LatheGeometry(prof, 8), o.color || BARREL, 'paint', at, rot);
+  [-.3, .3].forEach(f => k.add(new T.CylinderGeometry(r * .9 + .01, r * .9 + .01, len * .1, 8, 1, true), o.hoop || HOOP, o.hm || 'paint',
+    [at[0] + d[0] * f * len, at[1] + d[1] * f * len, at[2] + d[2] * f * len], rot));
+}
+/** Half a cylinder, its flat side down, len long along z, its middle at `at` (a vault, an arch's top). */
+function halfCyl(k, r, len, color, at, o = {}) {
+  return k.add(new T.CylinderGeometry(r, r, len, o.seg || 14, 1, false, -Math.PI / 2, Math.PI), color, o.mat, at, [-Math.PI / 2, 0, 0], [1, 1, o.tall || 1]);
+}
 const banner = (k, house, at, rot = [0, 0, 0], w = .34, h = .68) => k.plane(w, h, bannerTexture(house), at, rot, {alpha: true, double: true});
 const flag = (k, house, at, pole = .6) => {
   k.cyl(.018, .018, pole, 0x3A3A3A, at, {mat: 'metal', seg: 6});
@@ -256,33 +275,125 @@ const BUILD = {
     }
   },
   farm(k, l, h) {
-    // the field: furrows, wheat in rows (more ripe gold rows with each level)
-    k.slab(2.86, 2.86, .06, .14, 0x6B5236, [0, 0, 0]);
-    const rows = 5 + Math.min(3, Math.floor(l / 3));
-    for (let i = 0; i < rows; i++) {
-      const z = -1.15 + i * (2.1 / (rows - 1));
-      k.box(1.8, .04, .14, 0x5A4430, [-.3, .06, z]);
-      for (let j = 0; j < 9; j++) {
-        const x = -1.08 + j * .19, height = .13 + .01 * l + ((i + j) % 3) * .025;
-        k.box(.025, height, .025, 0x86733D, [x, .1, z], {rot: [0, 0, ((j % 3) - 1) * .13]});
-        k.box(.065, .09, .055, (i + j) % 2 ? 0xBA9A48 : 0x9D813C, [x, .1 + height * .7, z]);
-      }
+    // The Brewery (its id stays 'farm', as saves have it): a timber-and-stone brewhouse along the back and, beside it,
+    // its oast: a round brick kiln for the malt under a tall cone of a roof, the white cowl on its tip (the one shape no
+    // other building has: a brewery across the base). At the front corner the copper kettle, a tall thing on its
+    // hearth (a fire in the hearth's arch), its hood and flue steaming, piped to the open tun of ale beside it under
+    // its head of foam; barrels stacked in the yard, hops climbing their poles, and the sign: an amber tankard, foam
+    // over its rim, as the Ale it brews is drawn everywhere else. With each level the house and the kiln grow taller,
+    // the kettle bigger, the barrels and hops more; the roofs thatch, then oak shingles (level 4), then slate ridged in
+    // the level's trim (level 8); the yard cobbled from level 5, the tankard's rim and handle in the trim from level 4.
+    // One mesh, a second for the fire's glow.
+    const L = Math.min(l, 8), y0 = .06;
+    k.slab(2.86, 2.86, y0, .14, l >= 5 ? COBBLE : 0x7A6146, [0, 0, 0]);
+    // the brewhouse: stone below, plaster between dark beams above (jutting out over the front a little)
+    const cx = -.42, cz = -.68, w = 1.5, d = 1.06, h1 = .46, h2 = .34 + .035 * L, fz = cz + d / 2, y1 = y0 + h1, y2 = y1 + h2, fz2 = fz + .08;
+    k.box(w, h1, d, STONE, [cx, y0, cz]);
+    k.box(w + .04, h2, d + .12, PLASTER, [cx, y1, cz + .04]);
+    k.box(w + .1, .06, d + .16, DARKWOOD, [cx, y1 - .03, cz + .04]);
+    for (let i = 0; i <= 4; i++) k.box(.05, h2, .03, DARKWOOD, [cx - w / 2 + .02 + i * (w - .04) / 4, y1, fz2 + .015]);
+    k.box(w + .04, .05, .03, DARKWOOD, [cx, y2 - .05, fz2 + .015]);
+    [-.3, .3].forEach(z => k.box(.03, h2, .05, DARKWOOD, [cx + w / 2 + .03, y1, cz + .04 + z]));
+    const rh = .52 + .02 * L, roof = l >= 8 ? 0x4E5560 : l >= 4 ? 0x7A4E30 : THATCH;
+    k.gable(w + .26, d + .4, rh, roof, [cx, y2, cz + .04]);
+    k.box(w + .3, .06, .07, l >= 8 ? trimOf(l) : DARKWOOD, [cx, y2 + rh - .05, cz + .04]);
+    if (l >= 10) { // a dormer on the front of the roof, lit
+      const dz = cz + .4, dy = y2 + rh * .45;
+      k.box(.3, .26, .3, PLASTER, [cx - .1, dy - .06, dz]);
+      k.box(.14, .12, .02, 0xF0B04A, [cx - .1, dy + .02, dz + .16]);
+      k.pyramid(.42, .42, .2, roof, [cx - .1, dy + .2, dz]);
     }
-    // the windmill at the back corner: a stone tower, a thatched cap, four sails
-    const wx = .95, wz = -.85, wh = 1.15 + .06 * l;
-    k.cyl(.26, .34, wh, PLASTER, [wx, .06, wz], {seg: 12});
-    k.cyl(0, .36, .45, THATCH, [wx, .06 + wh, wz], {seg: 12});
-    const hub = [wx, wh - .12, wz + .34];
-    k.cyl(.05, .05, .14, DARKWOOD, hub, {rot: [Math.PI / 2, 0, 0], mid: true, seg: 8});
-    [0, 1, 2, 3].forEach(i => {
-      const a = i * Math.PI / 2 + .35;
-      k.box(.08, .78, .02, 0xEFE6D2, [hub[0] + Math.sin(a) * .42, hub[1] - .39 + Math.cos(a) * .42, hub[2] + .06], {rot: [0, 0, -a]});
+    // its arched door (lanterns either side from level 11), its windows lit amber (the loft's too, from level 6)
+    k.box(.3, .44, .04, DARKWOOD, [cx - .38, y0, fz + .01]);
+    k.cyl(.15, .15, .04, DARKWOOD, [cx - .38, y0 + .44, fz + .01], {rot: [Math.PI / 2, 0, 0], mid: true, seg: 8});
+    if (l >= 11) [-.6, -.16].forEach(x => k.box(.06, .09, .06, FIRE, [cx + x, y0 + .36, fz + .04], {mat: 'glow'}));
+    [.08, .44].forEach(x => k.box(.18, .15, .03, 0xF0B04A, [cx + x, y0 + .2, fz + .01]));
+    [-.38, .26].forEach(x => k.box(.15, .14, .03, l >= 6 ? 0xF0B04A : 0x3A2C22, [cx + x, y1 + h2 * .38, fz2 + .02]));
+    // the oast at its end: a brick roundel on a stone plinth, a door and a little window, the cone of its roof (in the
+    // house's roofing; its eaves banded in the trim from level 8), the white cowl leaning on its tip, a vane behind it
+    // to turn it from the wind; its smoke out of the cowl (more from level 6)
+    const ox = .84, oz = -.7, or = .32 + .01 * L, oh = .6 + .055 * L, ch = .74 + .05 * L, ob = y0 + .1, ot = ob + oh;
+    k.cyl(or + .04, or + .06, .1, STONE2, [ox, y0, oz], {seg: 16});
+    k.cyl(or, or + .015, oh, BRICK, [ox, ob, oz], {seg: 16});
+    k.cyl(or + .012, or + .012, .04, BRICK_DK, [ox, ob + oh * .5, oz], {seg: 16, open: true});
+    const face = (a, dd) => [ox + Math.sin(a) * dd, oz + Math.cos(a) * dd];
+    const [dx1, dz1] = face(Math.PI / 4, or - .005);
+    k.box(.18, .32, .03, DARKWOOD, [dx1, ob, dz1], {rot: [0, Math.PI / 4, 0]});
+    const [wx1, wz1] = face(Math.PI * .62, or - .005);
+    k.box(.1, .12, .03, l >= 6 ? 0xF0B04A : 0x2E241C, [wx1, ob + oh * .62, wz1], {rot: [0, Math.PI * .62, 0]});
+    k.cyl(or + .08, or + .08, .045, l >= 8 ? trimOf(l) : DARKWOOD, [ox, ot - .02, oz], {seg: 16});
+    k.cyl(.06, or + .1, ch, l >= 4 ? roof : 0x6B5038, [ox, ot, oz], {seg: 16}); // (weathered boards, under the thatch's level)
+    const cy = ot + ch - .04;
+    k.cyl(.07, .08, .1, COWL, [ox, cy, oz], {seg: 10});
+    k.box(.2, .2, .2, COWL, [ox, cy + .08, oz], {rot: [0, 0, -.12]});
+    k.box(.03, .13, .15, 0x2A2420, [ox + .1, cy + .1, oz], {rot: [0, 0, -.12]});
+    k.pyramid(.27, .26, .12, COWL, [ox - .015, cy + .27, oz]);
+    k.box(.26, .11, .02, COWL, [ox - .22, cy + .14, oz]);
+    [[.16, .06, .08], [.3, .22, .11], [.46, .44, .13]].slice(0, l >= 6 ? 3 : 2)
+      .forEach(([dx, dy, r], i) => k.rock(r, i ? SMOKE + 0x080808 * i : SMOKE, [ox + dx, cy + .14 + dy, oz - dx * .3], {rot: [i, i * 1.7, .4]}));
+    // the copper kettle at the front corner, on its hearth: a fire in the hearth's arch (it faces the front corner),
+    // the kettle taller than it's wide, a band round it, its rim, the conical hood, the flue steaming
+    const kx = .9, kz = .86, kr = .2 + .008 * L, hh = .22, fa = Math.PI / 4;
+    k.cyl(kr + .08, kr + .11, hh, HEARTH, [kx, y0, kz], {seg: 12});
+    const [ax1, az1] = [kx + Math.sin(fa) * (kr + .1), kz + Math.cos(fa) * (kr + .1)];
+    k.box(.17, .12, .05, 0x1A1310, [ax1, y0 + .02, az1], {rot: [0, fa, 0]});
+    k.cyl(.085, .085, .05, 0x1A1310, [ax1, y0 + .14, az1], {rot: [Math.PI / 2, 0, -fa], mid: true, seg: 8});
+    k.box(.12, .09, .02, FIRE, [ax1 + Math.sin(fa) * .02, y0 + .03, az1 + Math.cos(fa) * .02], {rot: [0, fa, 0], mat: 'glow'});
+    k.cyl(0, .05, .09, 0xFFD25A, [ax1 + Math.sin(fa) * .025, y0 + .05, az1 + Math.cos(fa) * .025], {seg: 5, mat: 'glow'});
+    const kb = y0 + hh, kh = .36 + .012 * L;
+    k.cyl(kr, kr * .9, kh, COPPER, [kx, kb, kz], {seg: 14});
+    k.cyl(kr * .96 + .012, kr * .96 + .012, .035, COPPER_HI, [kx, kb + kh * .5, kz], {open: true, seg: 14});
+    k.cyl(kr + .022, kr + .022, .045, COPPER_DK, [kx, kb + kh - .03, kz], {seg: 14});
+    const hy = kb + kh + .01, hH = .22 + .012 * L;
+    k.cyl(.06, kr + .01, hH, COPPER, [kx, hy, kz], {seg: 14});
+    k.cyl(.04, .045, .38, COPPER_DK, [kx, hy + hH - .02, kz], {seg: 8});
+    k.cyl(.056, .056, .035, COPPER_HI, [kx, hy + hH + .33, kz], {seg: 8});
+    const fy = hy + hH + .4;
+    [[0, .06, .07], [-.05, .2, .1], [-.12, .4, .12]].slice(0, l >= 6 ? 3 : 2)
+      .forEach(([dx, dy, r], i) => k.rock(r, i ? SMOKE + 0x080808 * i : 0xF2F1EC, [kx + dx, fy + dy, kz + dx * .4], {rot: [i + 1, i * 1.3, .3]}));
+    // the open tun of ale beside it (its pipe from the kettle turning down over it), one head of foam on the ale, a
+    // ring of the ale round it, the paddle in it
+    const tx = 1.06, tz = .06, tr = .25, py = kb + kh * .5;
+    k.cyl(tr, tr * .9, .38, WOOD, [tx, y0, tz], {seg: 12});
+    [[.07, .92], [.29, .98]].forEach(([y, f]) => k.cyl(tr * f + .012, tr * f + .012, .035, HOOP, [tx, y0 + y, tz], {open: true, seg: 12}));
+    k.cyl(tr + .006, tr + .006, .03, DARKWOOD, [tx, y0 + .36, tz], {open: true, seg: 12});
+    k.cyl(tr - .02, tr - .02, .02, ALE, [tx, y0 + .345, tz], {seg: 12});
+    k.ball(tr * .68, FOAM, [tx - .02, y0 + .36, tz - .01], {scl: [1, .26, 1], seg: 12, rows: 6});
+    k.box(.035, .55, .035, WOOD, [tx - .1, y0 + .2, tz - .04], {rot: [0, 0, .45]});
+    k.rod(.028, [kx + .02, py, kz - kr + .02], [tx - .02, py, tz + .1], COPPER_DK, {seg: 6});
+    k.rod(.028, [tx - .02, py + .02, tz + .1], [tx - .02, y0 + .44, tz + .1], COPPER_DK, {seg: 6});
+    // barrels stacked in the yard, their ends to the front (two, then up to six, three rows high)
+    const bR = .15, bL = .36, rows = [[-.32, 0, .32], [-.16, .16], [0]], n = Math.min(6, 2 + Math.floor(l / 2));
+    let left = n;
+    rows.forEach((row, j) => row.forEach(x => { if (left-- > 0) barrel(k, bR, bL, [x, y0 + bR + j * bR * 1.72, 1.05], 'z'); }));
+    if (l >= 3) barrel(k, .12, .28, [-1.0, y0 + .14, -.02], 'y');
+    if (l >= 9) barrel(k, .12, .28, [-.5, y0 + .14, .12], 'y');
+    // the hop garden: poles, the bines up them, a wire along their tops (a second row from level 8)
+    const poles = 2 + Math.min(2, Math.floor(l / 4)), hopRows = l >= 8 ? [-1.2, -.86] : [-1.2];
+    hopRows.forEach((x, j) => {
+      const zs = Array.from({length: j ? poles - 1 : poles}, (_, i) => .22 + i * .34);
+      zs.forEach((z, i) => {
+        k.box(.04, .92, .04, DARKWOOD, [x, y0, z]);
+        k.rock(.1, HOPS, [x, y0 + .26, z], {rot: [i, i * 2, 0], scl: [1, 1.8, 1]});
+        k.rock(.085, 0x4A7631, [x, y0 + .62, z], {rot: [i + 1, i, 0], scl: [1, 1.6, 1]});
+        k.rock(.05, HOP_CONE, [x + .07, y0 + .42 + (i % 2) * .16, z + .05], {rot: [i, 0, 0], scl: [1, 1.3, 1]});
+      });
+      k.box(.015, .015, zs[zs.length - 1] - zs[0] + .06, DARKWOOD, [x, y0 + .9, (zs[0] + zs[zs.length - 1]) / 2]);
     });
-    k.box(.12, .26, .02, DARKWOOD, [wx, .06, wz + .33]);
-    // a scarecrow, sacks by the field
-    k.box(.04, .55, .04, DARKWOOD, [-1.2, .06, 1.15]); k.box(.4, .04, .04, DARKWOOD, [-1.2, .48, 1.15]); k.ball(.08, THATCH, [-1.2, .66, 1.15]);
-    k.cyl(0, .12, .1, 0x5A3E25, [-1.2, .72, 1.15], {seg: 8});
-    [[1.05, .9], [1.2, 1.1]].forEach(([x, z]) => k.ball(.14, 0xD8C69A, [x, .16, z], {scl: [1, 1.2, 1]}));
+    // the sign: an amber tankard (as the Ale is drawn), foam over its rim, its handle to the side, hung from a bracket
+    // out of the house's upper floor; its rim, foot and handle in the trim from level 4 (oak below)
+    const sx = -.04, wz = fz + .1, mz = wz + .36, armY = y1 + h2 * .45, mr = .14, mh = .28, sy = armY - .17 - mh, edge = l >= 4 ? trimOf(l) : DARKWOOD;
+    k.box(.05, .05, .46, DARKWOOD, [sx, armY, wz + .21]);
+    k.rod(.016, [sx, armY - .2, wz + .01], [sx, armY + .01, wz + .24], DARKWOOD, {seg: 5});
+    k.box(.014, .08, .014, HOOP, [sx, armY - .07, mz]);
+    k.cyl(mr, mr * .9, mh, ALE, [sx, sy, mz], {seg: 12});
+    k.cyl(mr * .92, mr * .92, .03, edge, [sx, sy - .01, mz], {seg: 12});
+    k.cyl(mr + .012, mr + .012, .035, edge, [sx, sy + mh - .035, mz], {seg: 12, open: true});
+    k.box(.03, mh * .55, .015, 0xF0C060, [sx - mr * .3, sy + mh * .2, mz + mr * .97], {rot: [0, -.31, 0]});
+    k.ball(mr * 1.06, FOAM, [sx, sy + mh, mz], {cap: Math.PI / 2, seg: 12, rows: 4, scl: [1, .72, 1]});
+    [[-.06, .05], [.08, .02], [.02, -.07]].forEach(([a, b]) => k.ball(.055, FOAM, [sx + a, sy + mh + .03, mz + b], {seg: 8, rows: 5}));
+    k.ball(.04, FOAM, [sx + mr * .98, sy + mh - .05, mz + .02], {seg: 6, rows: 4, scl: [.7, 1.4, .7]});
+    k.ring(.085, .026, edge, [sx + mr * .72, sy + mh * .5, mz - mr * .72], {rot: [0, Math.PI / 4, 0], seg: 12});
   },
   treasury(k, l, h) {
     pad(k, 3, l);
@@ -307,16 +418,108 @@ const BUILD = {
     for (let i = 0; i < Math.min(8, 2 + l); i++) k.cyl(.07, .07, .03, GOLD, [-.95 + (i % 4) * .1, .08 + Math.floor(i / 4) * .03, .95 - (i % 3) * .05], {mat: 'metal', seg: 10});
   },
   granary(k, l, h) {
+    // The Cellar (its id stays 'granary', as saves have it): an earthen mound over a vault, moss on its crown and
+    // stones showing in its flanks, its front a face of stone in the mound's shape; set into that, a great oak cask,
+    // iron hooped, a little arched door cut in its head and lit amber from inside, its tap by the door (Ale is kept
+    // here); a lantern by it, flagstones out into the yard; racks of barrels along its side, a cask on a handcart. A
+    // mound at every level (its roof is never what changes): the mound grows longer and the barrels more (the rack a
+    // second tier high from level 4); round the cask a timber frame, then a ring of dressed stone (level 4), iron bands
+    // across its head (level 6), a keystone in the level's trim and a lantern each side (level 8); a vent on the mound
+    // (level 4; two from level 9); the house's banners on the face (level 10). One mesh, a second for its iron (from
+    // level 4) and a third for its light.
     pad(k, 3, l, DIRT);
-    const r = .62 + .02 * l, H = 1.15 + .06 * l;
-    k.cyl(r, r * 1.04, H, 0xA67C4E, [0, .08, -.1], {seg: 18});
-    [.25, .55, .85].forEach(f => k.ring(r * 1.02, .025, DARKWOOD, [0, .08 + H * f, -.1]));
-    k.cyl(0, r * 1.28, .75, THATCH, [0, .08 + H, -.1], {seg: 18});
-    k.box(.34, .5, .04, DARKWOOD, [0, .08, -.1 + r]);
-    // a ladder, sacks stacked
-    k.box(.03, H * .8, .03, WOOD, [-.6, .08, .45], {rot: [.2, 0, 0]}); k.box(.03, H * .8, .03, WOOD, [-.4, .08, .45], {rot: [.2, 0, 0]});
-    const n = Math.min(7, 2 + l);
-    for (let i = 0; i < n; i++) k.ball(.13, 0xD8C69A, [.55 + (i % 3) * .24, .17 + Math.floor(i / 3) * .2, .85 - (i % 2) * .08], {scl: [1, .85, 1.1]});
+    const L = Math.min(l, 11), y0 = .08, hm = l >= 4 ? 'metal' : 'paint', iron = l >= 4 ? IRON : HOOP;
+    const vx = -.3, m = .84 + .01 * L, len = 1.2 + .03 * L, fz = .3, vz = fz - len / 2, ta = .76, rise = m * ta;
+    // the mound: the earth over the vault, rounded off at the back, moss on its crown, stones in its flanks
+    halfCyl(k, m, len, EARTH, [vx, y0, vz], {seg: 16, tall: ta});
+    k.ball(m, EARTH, [vx, y0, vz - len / 2], {cap: Math.PI / 2, seg: 16, rows: 6, scl: [1, ta, .32]});
+    k.add(new T.CylinderGeometry(m + .012, m + .012, len - .04, 12, 1, true, -.82, 1.64), MOSS, 'paint', [vx, y0, vz - .02], [-Math.PI / 2, 0, 0], [1, 1, ta]);
+    k.ball(m + .012, MOSS, [vx, y0, vz - len / 2], {cap: .82, seg: 16, rows: 4, scl: [1, ta, .32]});
+    [[-1.2, .15, .08], [1.15, -.25, .07], [1.25, .3, .06], [-1.1, -.45, .065], [1.05, -.6, .055]].forEach(([a, f, r], i) => {
+      if (Math.abs(f) * len > len / 2 - .05) return;
+      k.rock(r, i % 2 ? STONE2 : 0x8E897F, [vx + Math.sin(a) * m * .98, y0 + Math.cos(a) * rise * .98, vz + f * len], {rot: [i, i * 2, a], scl: [1.3, .6, 1]});
+    });
+    (l >= 9 ? [-.28, .12] : l >= 4 ? [-.2] : []).forEach(f => {
+      k.box(.15, .2, .15, DARKSTONE, [vx, y0 + rise - .08, vz + len * f]);
+      k.box(.21, .04, .21, STONE2, [vx, y0 + rise + .12, vz + len * f]);
+    });
+    // its face: stone in the mound's shape (rough to level 3, dressed from 4), a wing wall each side holding the earth
+    const fm = m + .06, ft = .2, ff = fz + .15, fh = rise + .05, face = l >= 4 ? 0x7A7065 : 0x686158, joint = 0x4A453F;
+    halfCyl(k, fm, ft, face, [vx, y0, fz + .05], {seg: 16, tall: fh / fm});
+    [-1, 1].forEach(s => k.box(.26, .2, .2, STONE2, [vx + s * (fm + .08), y0, fz + .04]));
+    // (its courses: mortar lines across it, the joints between its stones staggered)
+    for (let i = 1; i <= 4; i++) {
+      const y = fh * i / 5, half = fm * Math.sqrt(1 - (y / fh) ** 2) - .04;
+      k.box(half * 2, .014, .01, joint, [vx, y0 + y - .007, ff + .002]);
+      for (let j = 0; j < 4; j++) { const x = (j - 1.5 + (i % 2) * .5) * half * .48; if (Math.abs(x) < half - .05) k.box(.012, fh / 5 - .01, .01, joint, [vx + x, y0 + y - fh / 5 + .005, ff + .002]); }
+    }
+    // the cask set into it, lying out of it: oak, two hoops showing, its head's staves, the door cut in its head, lit
+    const R = .34 + .004 * L, cl = .52, cy = y0 + R + .01, cz = ff + .22 - cl / 2, head = cz + cl / 2;
+    const prof = [[0, -cl / 2], [R * .86, -cl / 2], [R * .97, -cl * .25], [R, 0], [R * .97, cl * .25], [R * .86, cl / 2], [0, cl / 2]].map(([x, y]) => new T.Vector2(x, y));
+    k.add(new T.LatheGeometry(prof, 14), BARREL, 'paint', [vx, cy, cz], [Math.PI / 2, 0, 0]);
+    [[.42, .9], [.14, .985]].forEach(([f, r]) => k.add(new T.CylinderGeometry(R * r + .014, R * r + .014, .045, 14, 1, true), iron, hm, [vx, cy, cz + cl * f], [Math.PI / 2, 0, 0]));
+    const hr = R * .86;
+    k.cyl(hr - .01, hr - .01, .014, OAK, [vx, cy, head + .006], {rot: [Math.PI / 2, 0, 0], mid: true, seg: 16});
+    k.ring(hr - .004, .018, DARKWOOD, [vx, cy, head + .012], {rot: [0, 0, 0], seg: 20});
+    [-.62, -.3, .3, .62].forEach(f => { const x = f * hr, hg = 2 * Math.sqrt(hr * hr - x * x) * .94; k.box(.012, hg, .006, DARKWOOD, [vx + x, cy - hg / 2, head + .014]); });
+    const dw = .19, dh = .17, db = cy - hr + .035;
+    k.box(dw + .05, dh, .02, DARKWOOD, [vx, db - .01, head + .016]);
+    k.cyl((dw + .05) / 2, (dw + .05) / 2, .02, DARKWOOD, [vx, db - .01 + dh, head + .016], {rot: [Math.PI / 2, 0, 0], mid: true, seg: 10});
+    k.box(dw, dh - .01, .02, LIT, [vx, db, head + .024], {mat: 'glow'});
+    k.cyl(dw / 2, dw / 2, .02, LIT, [vx, db + dh - .01, head + .024], {rot: [Math.PI / 2, 0, 0], mid: true, seg: 10, mat: 'glow'});
+    k.box(dw * .5, .02, .03, 0x5A3A22, [vx - dw * .25, db, head + .03]);
+    // its tap by the door (oak, then in the trim), a drop of ale under it
+    const tapX = vx + hr * .5, tapY = cy - hr * .25, tapC = l >= 4 ? trimOf(l) : DARKWOOD;
+    k.cyl(.026, .026, .1, tapC, [tapX, tapY, head + .06], {rot: [Math.PI / 2, 0, 0], mid: true, seg: 8, mat: l >= 4 ? 'metal' : 'paint'});
+    k.box(.024, .08, .024, tapC, [tapX, tapY + .02, head + .09], {mat: l >= 4 ? 'metal' : 'paint'});
+    k.ball(.022, ALE, [tapX, tapY - .05, head + .1], {seg: 6, rows: 4, scl: [1, 1.4, 1]});
+    // round the cask: a timber frame (to level 3), a ring of dressed stone (from 4), its keystone in the trim (from 8);
+    // iron bands across its head (from 6)
+    if (l < 4) {
+      [-1, 1].forEach(s => k.box(.07, 2 * R + .05, .06, DARKWOOD, [vx + s * (R + .06), y0, ff + .02]));
+      k.box(2 * R + .2, .07, .07, DARKWOOD, [vx, y0 + 2 * R + .04, ff + .02]);
+    } else {
+      const n = 13;
+      for (let i = 0; i < n; i++) {
+        const a = -Math.PI * .08 + i * Math.PI * 1.16 / (n - 1), key = i === (n - 1) / 2, big = key && l >= 8;
+        k.box(big ? .13 : .1, big ? .17 : .13, .07, big ? trimOf(l) : i % 2 ? 0xB1AA9D : STONE, [vx + Math.cos(a) * (R + .07), cy + Math.sin(a) * (R + .07) - (big ? .085 : .065), ff + .02], {rot: [0, 0, a - Math.PI / 2], mat: big ? 'metal' : 'paint'});
+      }
+    }
+    if (l >= 6) [.3, .6].forEach(f => {
+      const y = cy + R * f, half = Math.sqrt(hr * hr - (R * f) ** 2) * .96;
+      k.box(half * 2, .032, .012, IRON, [vx, y - .016, head + .022], {mat: 'metal'});
+      [-1, 1].forEach(s => k.cyl(.014, .014, .012, IRON, [vx + s * half * .8, y, head + .03], {rot: [Math.PI / 2, 0, 0], mid: true, seg: 6, mat: 'metal'}));
+    });
+    // a lantern by it (one each side from level 8)
+    (l >= 8 ? [-1, 1] : [1]).forEach(s => {
+      const lx = vx + s * (R + .22), ly = y0 + R * 1.5;
+      k.box(.03, .03, .12, iron, [lx, ly + .14, ff + .05], {mat: hm});
+      k.box(.09, .02, .09, iron, [lx, ly + .12, ff + .1], {mat: hm});
+      k.box(.065, .1, .065, LIT, [lx, ly + .02, ff + .1], {mat: 'glow'});
+      k.box(.09, .02, .09, iron, [lx, ly, ff + .1], {mat: hm});
+    });
+    // the house's banners on its face (level 10)
+    if (l >= 10) [-1, 1].forEach(s => banner(k, h, [vx + s * (fm - .2), y0 + rise * .45, ff + .01], [0, 0, 0], .2, .36));
+    // flagstones out from the door
+    [[.02, .62, .3], [-.04, .84, .26], [.03, 1.06, .28]].forEach(([dx, z, w2], i) => k.box(w2, .02, .17, [0x8A847A, 0x7E786F, 0x938C81][i], [vx + dx, y0 - .01, z], {rot: [0, (i - 1) * .12, 0]}));
+    // the rack along its side, its barrels lying on it, their ends out (a second tier from level 4)
+    const n = Math.min(8, 1 + l), tiers = n > 4 ? 2 : 1, rx = .92, z0 = -1.1, bR = .15;
+    for (let t = 0; t < tiers; t++) {
+      const ry = y0 + .08 + t * .36;
+      [-.11, .11].forEach(dx => k.box(.05, .05, 1.36, DARKWOOD, [rx + dx, ry, z0 + .5]));
+      [z0 - .14, z0 + 1.14].forEach(z => [-.11, .11].forEach(dx => k.box(.05, ry + .05 - y0, .05, DARKWOOD, [rx + dx, y0, z])));
+      for (let i = 0; i < 4 && t * 4 + i < n; i++) barrel(k, bR, .36, [rx, ry + .05 + bR * .9, z0 + i * .33], 'x', {hm});
+    }
+    // a cask on a handcart, at the front
+    const hx = .78, hz = .9, big = l >= 5 ? .19 : .16;
+    [-1, 1].forEach(s => {
+      k.cyl(.16, .16, .04, DARKWOOD, [hx + s * .24, y0 + .16, hz], {rot: [0, 0, Math.PI / 2], mid: true, seg: 10});
+      k.box(.04, .04, .7, WOOD, [hx + s * .17, y0 + .2, hz + .12]);
+    });
+    k.box(.38, .04, .44, WOOD, [hx, y0 + .2, hz]);
+    barrel(k, big, .44, [hx, y0 + .24 + big * .92, hz], 'x', {hm});
+    // kegs stood by the door (from level 3)
+    for (let i = 0; i < Math.min(3, Math.floor(l / 3)); i++) barrel(k, .11, .26, [-1.12 + (i % 2) * .24, y0 + .13, .66 + i * .22], 'y', {hm});
   },
   barracks(k, l, h) {
     pad(k, 4, l, DIRT);

@@ -1931,7 +1931,7 @@ export function enableSwipeBack() {
     if (t.clientX - left > 20) return;
     const st = S.stacks[S.tab];
     if (st.length < 2) return;
-    // Keep owns every swipe, including at the screen edge; leave it with the Back button.
+    // The Keep owns every swipe, including at the screen edge; leave it with the Back button.
     if (data.isOwner() && isKeepRoute(st[st.length - 1].route)) return;
     if (e.target.closest && e.target.closest('[data-hscroll]')) return;
     g = {x0: t.clientX, y0: t.clientY, locked: false, topE: st[st.length - 1], underE: st[st.length - 2], s: [[performance.now(), t.clientX]], x: 0, p: 0};
@@ -2047,7 +2047,7 @@ document.addEventListener('keydown', e => {
 // Data and "me" changes: update visible screens now, the rest when they are next shown.
 // 'me' applies at once (it follows a tap); 'data' waits for ui.whenIdle so a reload never swaps
 // content in the middle of an animation or a scroll.
-// Who this phone is decides the tabs (the Realm is the owner's): off a tab that's gone, onto Daily Games.
+// Who this phone is decides the owner-only screens (The Keep, in Daily Games): off one that's gone, onto Daily Games.
 let ownerEffects = null, ownerEffectsLoad = null;
 function syncOwnerEffects() {
   const enabled = data.isOwner();

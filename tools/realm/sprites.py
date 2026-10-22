@@ -1,5 +1,5 @@
-# The Realm's pictures (img/realm/*.webp and the frame tables in js/views/realm-sprites.js) from the Game of
-# Thrones-inspired sprite sheets (Oct 2026): four buildings ten levels each (the Keep, the gold mine, the archer tower,
+# The Keep's pictures (img/realm/*.webp and the frame tables in js/views/realm-sprites.js) from the Game of
+# Thrones-inspired sprite sheets (Oct 2026): four buildings ten levels each (the Castle, id keep; the gold mine, the archer tower,
 # the dragon hatchery), and the folk: twelve villagers at work, three archers loosing and nine cannon crew.
 #   python3 tools/realm/sprites.py <the folder the three zips were unpacked into: GOT_Inspired_Sprites>
 # Each sheet is a grid (README: buildings 5 x 2, eight poses 4 x 2, four poses 2 x 2, read in rows); a frame is the

@@ -1,4 +1,4 @@
-# The Realm's army drawn from its art (img/realm/army/, js/views/realm-3d.js: the soldiers in an attack, and their
+# The Keep's army drawn from its art (img/realm/army/, js/views/realm-3d.js: the soldiers in an attack, and their
 # pictures in the Army and the attack's picker): the owner's unit pictures (Oct 2026: GOT_Army_Units_No_Sapper.zip, a
 # transparent picture each of the Footman, Archer, Knight, Thief and Dragon).
 #   python3 tools/realm/army.py <the folder the zip was unpacked into>

@@ -1,10 +1,16 @@
-// The Realm (the owner's ask, Oct 2026: a Clash of Clans of his own, in a medieval fantasy, the tab at the right; his
-// alone: data.isOwner()). Your realm is a lot with your Keep at its heart. The daily games pay for it: every result
-// you've posted to the board this season (and every one from here on) comes in as Gold and Grain, both, waiting in
-// your coffers until the treasuries and granaries have room. Gold mines dig Gold and farms grow Grain while you're
-// away. Your builder raises and upgrades one thing at a time (the owner, Oct 2026), on a clock. Grain trains an army at the barracks; the army raids the
+// The Keep (the owner's ask, Oct 2026: a Clash of Clans of his own, in a medieval fantasy, a game case on Daily Games; his
+// alone: data.isOwner()). Your realm is a lot with your Castle at its heart. The daily games pay for it: every result
+// you've posted to the board this season (and every one from here on) comes in as Gold and Ale, both, waiting in
+// your coffers until the treasuries and cellars have room. Gold mines dig Gold and breweries brew Ale while you're
+// away. Your builder raises and upgrades one thing at a time (the owner, Oct 2026), on a clock. Ale trains an army at the barracks; the army raids the
 // computer's realms for what they hold. The computer's realms raid you too (core/realm-battle.js defend), a few times
 // a day, which is what your walls and towers are for.
+//
+// Names (the owner, Oct 21 2026): the game was the Realm, its second currency Grain, made by farms and held in
+// granaries, its main building the Keep. On screen they're now The Keep (the game), Ale, breweries, cellars and the
+// Castle; in the code and in every save they keep their old ids (route #/realm, view 'realm', 'grain', 'farm',
+// 'granary', 'keep', fr1, gg-fr1), so every save loads as it was. Only the words people read changed: CUR_NAME,
+// KINDS' names and blurbs, and the views' text.
 //
 // Where it lives: the owner's board doc (players/{uid}, daily.js) as fr1 (its name from when this was the Franchise;
 // the football names of then are taken up as this realm's: clean()), so his realm is the same on every phone of his.
@@ -20,19 +26,19 @@ export const HOUR = 3600e3;
 export const MAX_KEEP = 8;
 export const RAID_S = 180;         // a raid's clock, seconds
 export const CUR = ['gold', 'grain'];
-export const CUR_NAME = {gold: 'Gold', grain: 'Grain'};
-/** Whether this phone may have the Realm at all: the owner's alone. */
+export const CUR_NAME = {gold: 'Gold', grain: 'Ale'};
+/** Whether this phone may have The Keep at all: the owner's alone. */
 export const mayPlay = () => !!(data.isOwner && data.isOwner());
 
 // ---------------------------------------------------------------------------------------------------- the buildings
 // Per level (index level - 1): cost (to build it, then to reach each level), time (seconds: each level takes longer
-// than the last, minutes at first, a day or two at the top; the owner, Oct 2026), hp, th (the Keep level it needs);
-// and what it does: rate (an hour) and hold (hours of it) for mines and farms; cap for treasuries and granaries; store
-// for the Keep; room (soldiers) for war camps; dps, range, every (seconds a shot), splash, min, air (can it hit a
+// than the last, minutes at first, a day or two at the top; the owner, Oct 2026), hp, th (the Castle level it needs);
+// and what it does: rate (an hour) and hold (hours of it) for mines and breweries; cap for treasuries and cellars; store
+// for the Castle; room (soldiers) for war camps; dps, range, every (seconds a shot), splash, min, air (can it hit a
 // dragon) for defenses; the dragons it has room for (a level each) for the hatchery. pay: what it's paid for in.
-// size: tiles square.
+// size: tiles square. (keep is the Castle, farm the Brewery, granary the Cellar: the ids from before, the names now.)
 export const KINDS = {
-  keep: {name: 'Keep', size: 4, pay: 'gold', role: 'hall',
+  keep: {name: 'Castle', size: 4, pay: 'gold', role: 'hall',
     blurb: 'The heart of your realm. Its level decides how many of everything you can build and how far each can go.',
     cost: [0, 2500, 10000, 40000, 120000, 300000, 650000, 1200000],
     time: [0, 1800, 7200, 21600, 43200, 86400, 129600, 172800],
@@ -46,8 +52,8 @@ export const KINDS = {
     hp: [400, 440, 480, 520, 560, 600, 640, 680, 720, 780, 840, 900],
     th: [1, 1, 2, 2, 3, 3, 4, 4, 5, 6, 7, 8],
     rate: [20, 35, 50, 70, 90, 115, 140, 170, 200, 240, 280, 330], hold: 10},
-  farm: {name: 'Farm', size: 3, pay: 'gold', role: 'make', makes: 'grain',
-    blurb: 'Grows Grain while you’re away: it piles up until you collect it.',
+  farm: {name: 'Brewery', size: 3, pay: 'gold', role: 'make', makes: 'grain',
+    blurb: 'Brews Ale while you’re away: it piles up until you collect it.',
     cost: [150, 300, 700, 1400, 3000, 6000, 12000, 24000, 45000, 80000, 140000, 220000],
     time: [10, 300, 900, 1800, 3600, 7200, 14400, 28800, 43200, 64800, 86400, 129600],
     hp: [400, 440, 480, 520, 560, 600, 640, 680, 720, 780, 840, 900],
@@ -60,15 +66,15 @@ export const KINDS = {
     hp: [400, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400],
     th: [1, 2, 2, 3, 3, 4, 4, 5, 6, 7, 8],
     cap: [3000, 7500, 15000, 30000, 50000, 80000, 120000, 170000, 240000, 330000, 450000]},
-  granary: {name: 'Granary', size: 3, pay: 'gold', role: 'store', holds: 'grain',
-    blurb: 'Holds your Grain. More room means bigger upgrades, and more for raiders to take.',
+  granary: {name: 'Cellar', size: 3, pay: 'gold', role: 'store', holds: 'grain',
+    blurb: 'Holds your Ale. More room means bigger upgrades, and more for raiders to take.',
     cost: [300, 750, 1500, 3000, 6000, 12000, 25000, 50000, 100000, 180000, 300000],
     time: [10, 600, 1800, 3600, 7200, 14400, 28800, 43200, 64800, 86400, 129600],
     hp: [400, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400],
     th: [1, 2, 2, 3, 3, 4, 4, 5, 6, 7, 8],
     cap: [3000, 7500, 15000, 30000, 50000, 80000, 120000, 170000, 240000, 330000, 450000]},
   barracks: {name: 'Barracks', size: 4, pay: 'grain', role: 'train',
-    blurb: 'Trains your army with Grain. Higher levels open new kinds of soldier; each barracks trains alongside the others.',
+    blurb: 'Trains your army with Ale. Higher levels open new kinds of soldier; each barracks trains alongside the others.',
     cost: [200, 1000, 4000, 12000, 30000, 70000, 140000, 260000],
     time: [10, 900, 3600, 10800, 21600, 43200, 64800, 86400],
     hp: [250, 290, 330, 370, 420, 470, 520, 580],
@@ -132,7 +138,7 @@ export const KINDS = {
     th: [2, 2, 3, 4, 5, 6, 7, 8]}
 };
 export const ORDER = ['keep', 'hut', 'mine', 'farm', 'treasury', 'granary', 'barracks', 'camp', 'hatchery', 'cannon', 'ballista', 'tower', 'trebuchet', 'cauldron', 'wall'];
-// How many of each a Keep level allows (index Keep level - 1).
+// How many of each a Castle level allows (index Castle level - 1).
 export const COUNT = {
   keep: [1, 1, 1, 1, 1, 1, 1, 1],
   hut: [2, 2, 3, 3, 4, 4, 5, 5],
@@ -166,9 +172,9 @@ export function stat(k, l) {
 }
 
 // ---------------------------------------------------------------------------------------------------- the army
-// hp, dps, speed (tiles a second), range (tiles), room (war camp space), cost (Grain), time (seconds to train), at (the
-// barracks level that opens it), aim (what it goes for first: any building, defenses, walls, or where the gold and
-// grain are). A thief does double to money buildings; an
+// hp, dps, speed (tiles a second), range (tiles), room (war camp space), cost (Ale: s.r.grain), time (seconds to train),
+// at (the barracks level that opens it), aim (what it goes for first: any building, defenses, walls, or where the gold
+// and ale are). A thief does double to money buildings; an
 // archer's arrows and a dragon's fire go over walls; a dragon flies (fly: no wall or building stops it; only
 // ballistas and archer towers can reach it) and burns everything round where its fire lands (splash).
 export const TROOPS = {
@@ -179,7 +185,7 @@ export const TROOPS = {
   knight: {name: 'Knight', hp: 320, dps: 12, speed: 1.2, range: .8, room: 5, cost: 250, time: 30, at: 3, aim: 'def',
     blurb: 'Heavy plate. Goes only for the defenses and takes their fire.'},
   thief: {name: 'Thief', hp: 30, dps: 11, speed: 3, range: .5, room: 1, cost: 40, time: 7, at: 5, aim: 'loot',
-    blurb: 'Goes for the gold and grain: mines, farms, treasuries and granaries, double damage on them.'},
+    blurb: 'Goes for the gold and ale: mines, breweries, treasuries and cellars, double damage on them.'},
   dragon: {name: 'Dragon', hp: 900, dps: 60, speed: 1.4, range: 2.5, room: 10, cost: 3000, time: 120, at: 6, aim: 'any', splash: .9, fly: true,
     blurb: 'Flies over walls and burns everything where its fire lands. Only ballistas and archer towers can reach it. Needs a hatchery.'}
 };
@@ -194,11 +200,11 @@ export const HEROES = {
     blurb: 'A champion in heavy armor. Leads your attacks and meets ground raiders with sword and shield.'},
   wizard: {name: 'Wizard Hero', at: 4, troop: 'hero_wizard', hp: 230, dps: 30, speed: 1.7, range: 4.5, aim: 'any', air: true, splash: 1.2,
     cap: [0, 0, 0, 2, 4, 6, 8, 10], cost: [8000, 10000, 16000, 24000, 36000, 52000, 75000, 105000, 145000, 200000],
-    blurb: 'A spellcaster whose blasts strike groups. Attacks enemy keeps and defends against ground troops and dragons.'}
+    blurb: 'A spellcaster whose blasts strike groups. Attacks enemy castles and defends against ground troops and dragons.'}
 };
 const heroKind = k => HERO_ORDER.includes(k) ? HEROES[k] : null;
 export const heroCap = (s, k) => heroKind(k) ? (HEROES[k].cap[keepOf(s) - 1] || 0) : 0;
-/** A valid, recruited level, restricted to the current Keep's cap. Bad or unknown entries cannot create a hero. */
+/** A valid, recruited level, restricted to the current Castle's cap. Bad or unknown entries cannot create a hero. */
 export function heroLevel(s, k) {
   const l = s && s.hr && s.hr[k];
   return heroKind(k) && Number.isInteger(l) && l > 0 ? Math.min(l, 10, heroCap(s, k)) : 0;
@@ -218,13 +224,13 @@ function heroChange(s, k, recruit) {
   const o = {ok: false, why: '', cost: H ? (H.cost[to - 1] || 0) : 0, pay: 'gold', to};
   if (!mayPlay()) return {...o, why: 'The Keep is available on Evan’s profile'};
   if (!H) return {...o, why: 'Unknown hero'};
-  if (keepOf(s) < H.at) return {...o, why: `Needs Keep level ${H.at}`};
+  if (keepOf(s) < H.at) return {...o, why: `Needs Castle level ${H.at}`};
   if (recruit && level) return {...o, why: 'Already recruited'};
   if (!recruit && !level) return {...o, why: 'Recruit this hero first'};
   if (to > 10) return {...o, why: 'At the top hero level'};
   if (to > heroCap(s, k)) {
     const need = H.cap.findIndex(n => n >= to) + 1;
-    return {...o, why: `Needs Keep level ${need}`};
+    return {...o, why: `Needs Castle level ${need}`};
   }
   if (!s.r || !Number.isFinite(s.r.gold) || s.r.gold < o.cost) return {...o, why: 'Not enough Gold'};
   return {...o, ok: true};
@@ -243,7 +249,7 @@ export const recruitHero = (s, k) => changeHero(s, k, true);
 export const upgradeHero = (s, k) => changeHero(s, k, false);
 
 // ---------------------------------------------------------------------------------------------------- what the games pay
-// Each day's result, in Gold and in Grain alike (a strong day across the five games is about 12,000 of each).
+// Each day's result, in Gold and in Ale alike (a strong day across the five games is about 12,000 of each).
 export const PAY = {
   puzzles: e => 400 + 5 * Math.max(0, Math.min(600, Number(e.p) || 0)),
   '17-0': e => 400 + 150 * e.w + (e.w === 17 ? 500 : 0),
@@ -296,7 +302,7 @@ export function incomeOf(docs, mods = {}) {
 
 // ---------------------------------------------------------------------------------------------------- the scenery
 // Where your realm lies (views/realm-3d.js draws it, img/realm/scenery/): the coast from the start; the rest unlocked by
-// raising the Keep (the owner's ask, Oct 2026), each yours to pick (the house card) once it is.
+// raising the Castle (the owner's ask, Oct 2026), each yours to pick (the house card) once it is.
 export const SCENERIES = [
   {k: 'coast', name: 'The Coast', at: 1, blurb: 'A meadow by the sea, pines along the shore, mountains and lakes beyond', ownerName: 'Twilight Highlands', ownerBlurb: 'Rolling hills and torchlit gates beneath the last light of sunset'},
   {k: 'christmas', name: 'Christmas Kingdom', at: 1, ownerOnly: true, blurb: 'A snowy kingdom of festive castles, glowing village streets, decorated firs and wandering reindeer'},
@@ -306,7 +312,7 @@ export const SCENERIES = [
   {k: 'desert', name: 'Amber Desert', at: 6, blurb: 'Sand under a setting sun, red rock and an oasis beyond'},
   {k: 'infernal', name: 'Infernal Wastes', at: 7, blurb: 'Scorched ground ringed by rivers of lava, a volcano beyond'}
 ];
-/** Whether scenery k is open to this realm (its Keep high enough and profile eligible). */
+/** Whether scenery k is open to this realm (its Castle high enough and profile eligible). */
 export const sceneryOpen = (s, k) => { const x = SCENERIES.find(q => q.k === k); return !!x && (!x.ownerOnly || data.isOwner()) && keepOf(s) >= x.at; };
 /** The scenery this realm lies in: the one picked, while it's open to it; else the coast. */
 export const sceneryOf = s => (s && s.sc && sceneryOpen(s, s.sc) ? s.sc : 'coast');
@@ -338,7 +344,7 @@ export function fresh(now = Date.now()) {
   return {v: 2, n: N, at: now, born: now, nm: '', b, r: {gold: 0, grain: 0}, cl: {gold: 0, grain: 0}, xo: {gold: STARTER, grain: STARTER},
     ar: {}, hr: {}, q: [], qs: 0, tp: 0, rd: [], df: [], lr: now, sh: 0, bt: {}, nb: 6};
 }
-// The Franchise's names (v1, Oct 2026), taken up as the Realm's.
+// The Franchise's names (v1, Oct 2026), taken up as the Realm's (now The Keep's: the same ids).
 const OLD_KIND = {stadium: 'keep', office: 'hut', booth: 'mine', cooler: 'farm', vault: 'treasury', tank: 'granary', practice: 'barracks',
   locker: 'camp', cannon: 'ballista', pressbox: 'tower', jugs: 'trebuchet', shower: 'cauldron', fence: 'wall'};
 const OLD_TROOP = {receiver: 'footman', qb: 'archer', lineman: 'knight', fullback: 'sapper', mascot: 'thief', kicker: 'dragon'};
@@ -375,7 +381,7 @@ export function clean(s) {
     const v = o[f] || {};
     o[f] = Object.fromEntries(CUR.map(c => [c, Math.max(0, num(v[c] != null ? v[c] : (old ? v[OLD_CUR[c]] : 0)))]));
   });
-  // Retire sappers (including their old fullback name), returning their Grain to the coffers.
+  // Retire sappers (including their old fullback name), returning their Ale (grain) to the coffers.
   // Credit before alias normalization so mixed old/new names cannot lose a refund.
   const retired = t => t === 'sapper' || t === 'fullback';
   const count = n => Math.max(0, Math.floor(num(n)));
@@ -398,7 +404,7 @@ export function clean(s) {
   return o;
 }
 export const keepOf = s => { const h = s.b.find(b => b.t === 'keep'); return h ? Math.max(1, h.l) : 1; };
-/** The highest level kind k can go to at this Keep level. */
+/** The highest level kind k can go to at this Castle level. */
 export function topLevel(k, th) {
   const K = KINDS[k];
   if (k === 'keep') return MAX_KEEP;
@@ -524,7 +530,7 @@ export function canBuild(s, k, now = Date.now()) {
   if (k === 'hut') return Object.assign(o, {why: 'One builder does it all'});
   if (n >= cap) {
     const next = COUNT[k].findIndex(c => c > n);
-    return Object.assign(o, {why: next < 0 ? `All ${cap} built` : `Keep level ${next + 1} for another`});
+    return Object.assign(o, {why: next < 0 ? `All ${cap} built` : `Castle level ${next + 1} for another`});
   }
   if (cost > s.r[K.pay]) return Object.assign(o, {why: `Not enough ${CUR_NAME[K.pay]}`});
   if (K.time[0] > 0 && builders(s, now).free < 1) return Object.assign(o, {why: 'Your builder is busy'});
@@ -550,7 +556,7 @@ export function canUpgrade(s, id, now = Date.now()) {
   const K = KINDS[b.t], to = b.l + 1, o = {ok: false, why: '', to, pay: K.pay, cost: K.cost[to - 1], time: K.time[to - 1]};
   if (b.u > now) return Object.assign(o, {why: b.l ? 'Being upgraded' : 'Going up'});
   if (to > maxLevel(b.t) || b.t === 'hut') return Object.assign(o, {why: 'At its top level'});
-  if (to > topLevel(b.t, keepOf(s))) return Object.assign(o, {why: `Needs Keep level ${K.th[to - 1]}`});
+  if (to > topLevel(b.t, keepOf(s))) return Object.assign(o, {why: `Needs Castle level ${K.th[to - 1]}`});
   if (o.cost > s.r[K.pay]) return Object.assign(o, {why: `Not enough ${CUR_NAME[K.pay]}`});
   if (o.time > 0 && builders(s, now).free < 1) return Object.assign(o, {why: 'Your builder is busy'});
   if (b.t === 'barracks' && s.q.length) return Object.assign(o, {why: 'Training’s under way there'});
@@ -585,7 +591,7 @@ export function canTrain(s, t, n = 1) {
     if (have + n > room) return {ok: false, why: room ? 'The hatchery is full: upgrade it' : 'Build a dragon hatchery first'};
   }
   if (roomOf(s.ar) + queued(s) + T.room * n > armyRoom(s)) return {ok: false, why: armyRoom(s) ? 'The war camps are full' : 'Build a war camp first'};
-  if (T.cost * n > s.r.grain) return {ok: false, why: 'Not enough Grain'};
+  if (T.cost * n > s.r.grain) return {ok: false, why: `Not enough ${CUR_NAME.grain}`};
   return {ok: true};
 }
 export function train(s, t, n = 1, now = Date.now()) {
@@ -596,7 +602,7 @@ export function train(s, t, n = 1, now = Date.now()) {
   if (!s.qs) s.qs = now;
   return true;
 }
-/** Takes one of troop t out of training (the last in line), its Grain back. */
+/** Takes one of troop t out of training (the last in line), its Ale back. */
 export function untrain(s, t, now = Date.now()) {
   if (!TROOP_ORDER.includes(t)) return false;
   for (let i = s.q.length - 1; i >= 0; i--) {
@@ -680,7 +686,7 @@ export function takeRaid(s, rec) {
 }
 export const dayKey = (t = Date.now()) => { const d = new Date(t); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
 
-// ---- the computer's realms: one at each Keep level, the same lot every day, full again every morning
+// ---- the computer's realms: one at each Castle level, the same lot every day, full again every morning
 export const BOTS = [
   {k: 'bot:1', name: 'Thornfield Hamlet', th: 1}, {k: 'bot:2', name: 'Briarwatch', th: 2}, {k: 'bot:3', name: 'Mossgate', th: 3},
   {k: 'bot:4', name: 'Cinderholt', th: 4}, {k: 'bot:5', name: 'Stonebrook Hold', th: 5}, {k: 'bot:6', name: 'Duskmere Castle', th: 6},
@@ -724,8 +730,8 @@ export function botLoot(bot, base, mine, now = Date.now()) {
   return {by, total};
 }
 
-/** A realm you can scout or attack, by its key: {key, name, th, base, loot} or {why}. The computer's, for now (the
- *  Realm is the owner's alone: no one else's realm is anywhere in it). */
+/** A realm you can scout or attack, by its key: {key, name, th, base, loot} or {why}. The computer's, for now (The
+ *  Keep is the owner's alone: no one else's realm is anywhere in it). */
 export function realmOf(key, mine, now = Date.now()) {
   const bot = BOTS.find(b => b.k === key);
   if (!bot) return {why: 'That realm isn’t there.'};

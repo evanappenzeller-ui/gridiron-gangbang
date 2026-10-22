@@ -220,7 +220,7 @@ function keepState() {
   // The existing first-visit marker follows the same saved realm. This is a persistent game: no daily final,
   // countdown or league board, and showing its case never starts or mutates the realm.
   return {kind: ui.lsGet('gg-realm-seen') === '1' ? 'started' : 'new',
-    meta: '<p class="gm-note">Raise your keep. Train your army. Defend your realm.</p>'};
+    meta: '<p class="gm-note">Raise your Castle. Train your army. Defend your realm.</p>'};
 }
 const STATE = {puzzles: puzzlesState, '17-0': seventeenState, drill: drillState, kick: kickState, return: returnState, keep: keepState};
 

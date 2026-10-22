@@ -1863,14 +1863,14 @@ export async function runChecks() {
     check('League pick\'em and Survivor checks (checks-lpick.js) loaded', () => ({pass: false, detail: lpErr ? 'did not load: ' + (lpErr.message || lpErr) : 'no lpickChecks export'}));
   }
 
-  // Realm checks (js/core/checks-realm.js: the owner's alone, what the games pay, storage, builders, training, attacks,
-  // the computer's raids on the realm, the old Franchise's realms taken up). Guarded the same way.
+  // The Keep's checks (js/core/checks-realm.js: the owner's alone, what the games pay, storage, builders, training, attacks,
+  // the computer's raids on the realm, the old Franchise's realms taken up, the words on screen). Guarded the same way.
   let rlMod = null, rlErr = null;
   try { rlMod = await import('./checks-realm.js'); } catch (e) { rlErr = e; }
   if (rlMod && typeof rlMod.realmChecks === 'function') {
-    try { await rlMod.realmChecks(check); } catch (e) { check('Realm checks (checks-realm.js)', () => { throw e; }); }
+    try { await rlMod.realmChecks(check); } catch (e) { check('The Keep checks (checks-realm.js)', () => { throw e; }); }
   } else {
-    check('Realm checks (checks-realm.js) loaded', () => ({pass: false, detail: rlErr ? 'did not load: ' + (rlErr.message || rlErr) : 'no realmChecks export'}));
+    check('The Keep checks (checks-realm.js) loaded', () => ({pass: false, detail: rlErr ? 'did not load: ' + (rlErr.message || rlErr) : 'no realmChecks export'}));
   }
 
   await Promise.all(pending);

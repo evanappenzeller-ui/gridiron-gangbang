@@ -1,5 +1,5 @@
-// An attack on one of the computer's realms (core/realm-battle.js plays it; views/realm-3d.js draws it), over the
-// Realm tab, the owner's alone: the realm you're attacking fills the screen, your army along the bottom. Pick a kind
+// An attack on one of the computer's realms (core/realm-battle.js plays it; views/realm-3d.js draws it), over The
+// Keep (a cover over Daily Games), the owner's alone: the realm you're attacking fills the screen, your army along the bottom. Pick a kind
 // of soldier and tap round the edge of the lot to send one (hold to keep sending); red shows where you can't. The
 // clock (three minutes) starts with the first. It ends when the clock does, when everything's down, or when no one's
 // left; or End. What you carry off goes into your storage (what won't fit, to your coffers), the attack into your

@@ -172,7 +172,7 @@ async function ownerChecks(test, url) {
   });
   assert.deepEqual(recruited.levels, {knight: 1, wizard: 1}, 'Recruiting creates both persistent heroes');
   assert.equal(before.gold - recruited.gold, before.costs.reduce((a, b) => a + b, 0), 'Recruiting spends the displayed Gold costs once');
-  assert.equal(recruited.grain, before.grain, 'Hero recruitment leaves Grain unchanged');
+  assert.equal(recruited.grain, before.grain, 'Hero recruitment leaves Ale (grain) unchanged');
   for (const hero of ['knight', 'wizard']) {
     await page.locator(`[data-rl-upgrade-hero="${hero}"]`).click();
     await page.waitForFunction(async hero => {
@@ -188,7 +188,7 @@ async function ownerChecks(test, url) {
   assert.deepEqual(upgraded.army, {}, 'Heroes do not create expendable army troops');
   await page.locator('[data-rl-upgrade-hero="knight"]').focus();
   await page.evaluate(async () => { const F = await import('/js/core/realm.js'); F.mine().r.grain--; F.touch(); });
-  await page.waitForFunction(() => /Grain 9,999/.test(document.querySelector('[data-rl-armybody]').textContent));
+  await page.waitForFunction(() => /Ale 9,999/.test(document.querySelector('[data-rl-armybody]').textContent));
   assert.equal(await page.evaluate(() => document.activeElement?.dataset.rlUpgradeHero), 'knight', 'Army auto-refresh preserves keyboard focus on a hero action');
   await page.screenshot({path: path.join(output, 'realm-heroes-army-390.png')});
   await page.setViewportSize({width: 320, height: 740});

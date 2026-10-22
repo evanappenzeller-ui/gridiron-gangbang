@@ -1,6 +1,6 @@
 // A look round one of the computer's realms before you attack it (core/realm.js realmOf(); views/realm-3d.js draws
-// it), over the Realm tab, the owner's alone. The realm fills the screen: drag to look round, pinch (or the wheel, or
-// + and −) to zoom, All to see the whole of it again. Its name, Keep level and what it holds today at the top, what
+// it), over The Keep (a cover over Daily Games), the owner's alone. The realm fills the screen: drag to look round, pinch (or the wheel, or
+// + and −) to zoom, All to see the whole of it again. Its name, Castle level and what it holds today at the top, what
 // defends it under them; tap a building for what it is, what it does and what it holds, a defense's reach drawn round
 // it. Attack sends your army in (views/realm-raid.js, in its place); Back goes home. Nothing here changes anything.
 import * as ui from '../core/ui.js';

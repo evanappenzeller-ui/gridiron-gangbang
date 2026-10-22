@@ -17,14 +17,14 @@ export function heroCards(s) {
     const check = level ? F.canUpgradeHero(s, k) : F.canRecruitHero(s, k);
     const stats = F.heroStat(k, level || 1), next = level && level < 10 ? F.heroStat(k, level + 1) : null;
     const locked = F.keepOf(s) < H.at;
-    const status = locked ? `Unlocks at Keep level ${H.at}` : level ? `Level ${level} · Defending your keep` : 'Ready to recruit';
+    const status = locked ? `Unlocks at Castle level ${H.at}` : level ? `Level ${level} · Defending your Castle` : 'Ready to recruit';
     const action = level >= 10 ? 'Maximum level' : level ? `Upgrade to level ${level + 1}` : 'Recruit hero';
     return `<article class="rl-hero is-${k}${locked ? ' is-locked' : ''}" data-rl-hero-card="${k}">`
-      + `<div class="rl-hero-head"><span class="rl-hero-art">${heroIcon(k)}</span><div><small>KEEP HERO</small><h3>${esc(H.name)}</h3><p>${status}</p></div></div>`
+      + `<div class="rl-hero-head"><span class="rl-hero-art">${heroIcon(k)}</span><div><small>CASTLE HERO</small><h3>${esc(H.name)}</h3><p>${status}</p></div></div>`
       + `<p class="rl-hero-desc">${k === 'knight' ? 'An armored champion who holds the front line and fights enemies up close.' : 'A ranged spellcaster whose magic strikes groups of enemies, including dragons.'}</p>`
       + `<div class="rl-hero-stats"><span><b>${nf(stats.hp)}</b> Health</span><span><b>${nf(stats.dps)}</b> Damage / sec</span><span><b>${stats.range}</b> Range</span></div>`
       + (next && level < cap ? `<p class="rl-hero-next">Next level: ${nf(next.hp)} health · ${nf(next.dps)} damage / sec</p>` : '')
-      + `<button type="button" class="rl-hero-action" data-rl-${level ? 'upgrade' : 'recruit'}-hero="${k}" ${check.ok ? '' : 'disabled'}><span>${action}</span>${check.cost ? `<span class="rl-amt is-gold"><i class="rl-coin" aria-hidden="true"></i>${nf(check.cost)}</span>` : ''}</button>`
+      + `<button type="button" class="rl-hero-action" data-rl-${level ? 'upgrade' : 'recruit'}-hero="${k}" ${check.ok ? '' : 'disabled'}><span>${action}</span>${check.cost ? `<span class="rl-amt is-gold"><i class="rl-coin" aria-hidden="true"></i>${nf(check.cost)}<span class="sr-only"> Gold</span></span>` : ''}</button>`
       + (!check.ok ? `<p class="rl-hero-note">${esc(check.why)}</p>` : '') + '</article>';
   }).join('');
 }
@@ -33,6 +33,6 @@ export function residentsNote(s) {
   const unlocked = F.allowed(s, 'hatchery') > 0;
   const built = s.b.some(b => b.t === 'hatchery' && b.l >= 1);
   return 'Guards patrol the village. ' + (unlocked
-    ? built ? 'Your dragon keeper tends the Dragon Hatchery.' : 'Your dragon keeper has arrived and waits by the Keep until you build a Dragon Hatchery.'
-    : 'A dragon keeper arrives when the Dragon Hatchery unlocks at Keep level 6.');
+    ? built ? 'Your dragon keeper tends the Dragon Hatchery.' : 'Your dragon keeper has arrived and waits by the Castle until you build a Dragon Hatchery.'
+    : 'A dragon keeper arrives when the Dragon Hatchery unlocks at Castle level 6.');
 }

@@ -1,5 +1,5 @@
-// A raid, played out (core/realm.js: the Realm). The raider drops their army round the edge of a realm's lot; each
-// soldier heads for what he goes after (the nearest building, the nearest defense, a wall, the gold and grain),
+// A raid, played out (core/realm.js: The Keep). The raider drops their army round the edge of a realm's lot; each
+// soldier heads for what he goes after (the nearest building, the nearest defense, a wall, the gold and ale),
 // finding his way round buildings and through walls (breaking one when that's quicker than going round), and goes at
 // it; a dragon flies straight there over everything. The defenses shoot back at whoever's nearest in their reach (the
 // trebuchet and the pitch cauldron hit everyone round where it lands, and can't reach a dragon). Fixed steps of DT,
@@ -87,7 +87,7 @@ export function makeBattle(base, loot, army, options = {}) {
   };
   B.fieldLeft = () => B.tr.some(u => !u.dead) || Object.values(B.left).some(n => n > 0);
 
-  // Champions muster on clear tiles beside the Keep. They occupy no building footprint and never affect stars,
+  // Champions muster on clear tiles beside the Castle (KINDS.keep). They occupy no building footprint and never affect stars,
   // loot or destruction percentage. A fixed search order gives every replay the same starting positions.
   const keep = B.bl.find(b => b.t === 'keep');
   Object.entries(defending).forEach(([hero, level], i) => {
@@ -352,9 +352,9 @@ export function replay(base, loot, army, drops, until = Infinity, options = {}) 
 }
 
 // ---------------------------------------------------------------------------------------------------- raids on you
-// The computer's realms raid yours (the Realm is the owner's alone, so they're the only ones who can): at most one in
+// The computer's realms raid yours (The Keep is the owner's alone, so they're the only ones who can): at most one in
 // each half of the day (12 hours from midnight), at an hour of it that's the same on every phone; none in your
-// realm's first day or before your Keep is level 2, none during a truce (12 hours after one that took a star), and no
+// realm's first day or before your Castle is level 2, none during a truce (12 hours after one that took a star), and no
 // more than the last two while you were away. The raiders are the realm a level below yours, an army a little smaller
 // than yours could be, all coming from one side: knights and dragons first, the rest a moment later.
 export const TRUCE_H = 12, WINDOW_H = 12;
@@ -369,7 +369,7 @@ export function raidsDue(s, now = Date.now()) {
   }
   return out.slice(-2);
 }
-/** The army a computer realm raids a Keep of level th with. */
+/** The army a computer realm raids a Castle of level th with. */
 export function raidArmy(th) {
   const room = 10 + th * 5, a = {};
   let left = room;

@@ -1,4 +1,4 @@
-# The Realm's lands (img/realm/scenery/, laid round the lot by js/views/realm-3d.js; unlocked by the Keep's level,
+# The Keep's lands (img/realm/scenery/, laid round the lot by js/views/realm-3d.js; unlocked by the Castle's level,
 # core/realm.js SCENERIES): the coast, the Enchanted Forest, the Frozen Tundra, the Ocean Sanctuary, the Amber Desert
 # and the Infernal Wastes (Oct 2026: Blank_Sceneries_All_Six.zip, unpacked into one folder). Each is a blank portrait
 # landscape, tall enough round its open ground that the camera can zoom right out without looking past its edges; the
