@@ -96,7 +96,7 @@ function shellHTML() {
     + `</div></div>`
     + `<div class="rl-utility"><button type="button" class="rl-hub" data-nav="/puzzles" aria-label="Back to Daily Games">‹ Games</button>`
     + `<div class="rl-camera-modes"><button type="button" class="rl-frame" data-rl-frame aria-label="Center your village">Village</button>`
-    + `<button type="button" class="rl-frame" data-rl-world aria-label="Zoom out to the whole realm">Whole realm</button></div></div>`
+    + `<button type="button" class="rl-frame" data-rl-world aria-label="Zoom out to the whole realm">Realm</button></div></div>`
     + `<div class="rl-zoom" role="group" aria-label="Camera zoom"><button type="button" data-rl-zoom="in" aria-label="Zoom in">+</button><button type="button" data-rl-zoom="out" aria-label="Zoom out">−</button></div>`
     + `<button type="button" class="rl-objective" data-rl-objective hidden></button>`
     + `<div class="rl-sel" data-rl-sel hidden></div>`
