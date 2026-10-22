@@ -145,7 +145,7 @@ html.rm .v-puzzles .c-prog-f, html.rm .v-puzzles .c-prog-f::after, html.rm .v-pu
   -webkit-mask: url(../../img/games/smoke.webp) 0 0 / 620px 620px repeat;
   mask: url(../../img/games/smoke.webp) 0 0 / 620px 620px repeat;
   opacity: .9;
-  animation: gm-lit-smoke-a 4.5s ease-in-out -1.25s infinite;
+  animation: gm-lit-smoke-a 2.25s ease-in-out -0.625s infinite;
 }
 :root:not([data-light]) .screen.v-puzzles[data-path="/puzzles"].gm-owner-light::after {
   background:
@@ -155,7 +155,7 @@ html.rm .v-puzzles .c-prog-f, html.rm .v-puzzles .c-prog-f::after, html.rm .v-pu
   -webkit-mask: url(../../img/games/smoke.webp) 210px 380px / 900px 900px repeat;
   mask: url(../../img/games/smoke.webp) 210px 380px / 900px 900px repeat;
   opacity: .62;
-  animation: gm-lit-smoke-b 6.75s ease-in-out -4s infinite;
+  animation: gm-lit-smoke-b 3.375s ease-in-out -2s infinite;
 }
 @keyframes gm-lit-smoke-a {
   0%, 100% { transform: translate3d(-45px, -25px, 0) rotate(-3deg) scale(1.08); opacity: .82; }
