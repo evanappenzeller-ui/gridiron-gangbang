@@ -334,8 +334,13 @@ function caseHTML(g, s, i, n, clone) {
 function ctaHTML(s) {
   if (s.kind === 'loading') return `<div class="gm-ctas">${ui.button({label: 'Loading puzzles', kind: 'primary', block: true, disabled: true, cls: 'gm-cta'})}</div>`;
   if (s.kind === 'error') return `<div class="gm-ctas">${ui.button({label: 'Try again', kind: 'primary', block: true, attrs: {'data-gm-retry': ''}, cls: 'gm-cta'})}</div>`;
-  return `<p class="gm-cd gm-tap">${ui.icon('play-fill', {size: 15})}<span>Tap the case to play</span></p>`;
+  return `<p class="gm-cd gm-tap">${ui.icon('play-fill', {size: 15})}<span>Tap the case to play</span></p>` + flipHTML(s);
 }
+// (a case that turns before it's played, Return Man: a button under it turns it round to its leaderboard and back, the
+// owner's ask, Oct 22 2026, his profile only: "Add a view scoreboard or flip case button"; mountList's syncFlip keeps
+// its words to the side the case is on)
+const flipHTML = s => (s.turns && s.kind !== 'done' && data.isOwner()
+  ? `<div class="gm-flipw">${ui.button({label: 'View scoreboard', kind: 'secondary', size: 's', icon: 'trophy', attrs: {'data-gm-flip': '', 'aria-pressed': 'false'}, cls: 'gm-flipb'})}</div>` : '');
 function cdHTML(g) {
   if (g.id === 'puzzles' && newDay()) return `<div class="gm-cdw">${countdownHTML(true)}</div>`;
   return `<p class="gm-cd">${ui.icon('clock', {size: 15})}<span>${esc(g.cd)} <span class="gm-cd-v" data-gm-cd>${esc(ui.untilText(msToMidnight()))}</span></span></p>`;
@@ -375,7 +380,7 @@ export function mountList(el, ctx, opts = {}) {
   // st.cur: the slot in the middle, counting every copy (slots()); its game is list()[st.cur % n()]
   const st = {dead: false, cur: 0, zoom: null, raf: 0, saved: 0, settle: 0, touch: false, owner: null, assets: null, styles: []};
   const shelf = el.querySelector('.gm-shelf'), sel = el.querySelector('[data-gm-sel]');
-  const turner = shelfTurner(shelf); // (a case grabbed by its edge turns where it stands)
+  const turner = shelfTurner(shelf, {rest: () => syncFlip()}); // (a case grabbed by its edge turns where it stands)
   const list = () => gamesFor().filter(g => el.querySelector(`.gm-slot[data-gm-slot="${g.id}"]`));
   const slots = () => [...el.querySelectorAll('.gm-slot')];
   const n = () => Math.max(1, list().length);
@@ -468,9 +473,22 @@ export function mountList(el, ctx, opts = {}) {
     if (!g) return;
     el.querySelectorAll('[data-gm-pip]').forEach(p => p.classList.toggle('is-cur', p.dataset.gmPip === g.id));
     const html = selHTML(g, stateOf(g));
-    if (sel.dataset.html === html) return;
-    const go = () => { sel.dataset.html = html; sel.innerHTML = html; ui.hydrate(sel); };
+    if (sel.dataset.html === html) { syncFlip(); return; }
+    const go = () => { sel.dataset.html = html; sel.innerHTML = html; ui.hydrate(sel); syncFlip(); };
     if (animate && ctx.visible && !ui.RM) ui.crossfade(sel, go, {duration: 140}); else go();
+  }
+  // The flip button under a case that turns (flipHTML) says what it'll do: to the scoreboard, or back to the cover
+  // (and a tap on the case, turned round, brings the whole board up close)
+  function syncFlip() {
+    const b = sel.querySelector('[data-gm-flip]');
+    if (!b || st.dead) return;
+    const g = list()[st.cur % n()], cs = g && curCase(g.id), on = !!cs && turner.back(cs);
+    if (b.getAttribute('aria-pressed') === String(on)) return;
+    b.setAttribute('aria-pressed', String(on));
+    b.querySelector('.btn-label').textContent = on ? 'Flip to the cover' : 'View scoreboard';
+    b.querySelector('use')?.setAttribute('href', on ? '#i-swap' : '#i-trophy');
+    const tap = sel.querySelector('.gm-tap span');
+    if (tap) tap.textContent = on ? 'Tap the case for the whole board' : 'Tap the case to play';
   }
   // i: a slot, counting every copy
   const center = (i, smooth = true) => {
@@ -730,6 +748,11 @@ export function mountList(el, ctx, opts = {}) {
   }
   // ---------------------------------------------------------------- taps, keys
   const onClick = e => {
+    if (e.target.closest('[data-gm-flip]')) { // (the case in the middle turns round, and back)
+      const g = list()[st.cur % n()], c = g && curCase(g.id);
+      if (c && turner.flip(c) != null) { ui.haptic('light'); syncFlip(); }
+      return;
+    }
     const cs = e.target.closest('.gm-case[data-gm]');
     if (!cs) return;
     const i = slots().indexOf(cs.closest('.gm-slot'));

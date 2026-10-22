@@ -508,6 +508,14 @@ export async function returnChecks(check) {
     const pass = /\bis-turns\b/.test(cls) && !/\bis-done\b/.test(cls) && shows && others === 'return' && turns;
     return {pass, detail: `the case ${cls}; its back ${shows ? 'today\'s leaderboard' : 'WRONG: ' + txt.slice(0, 80)} (board ${board}); cases that turn unplayed: ${others || 'none'}; grabbed and turned like a finished one ${turns}`};
   });
+  check('Return Man\'s case has a flip button under it (the owner\'s ask, Oct 22 2026, his profile only: "Add a view scoreboard or flip case button"): View scoreboard turns the case in the middle round to its leaderboard, Flip to the cover turns it back; no one else has the button', async () => {
+    const [view, turner] = await Promise.all(['../views/games.js', '../views/game-case.js'].map(f => fetch(new URL(f, import.meta.url)).then(r => r.text()).catch(() => '')));
+    const gated = /const flipHTML = s => \(s\.turns && s\.kind !== 'done' && data\.isOwner\(\)/.test(view) && /<span>Tap the case to play<\/span><\/p>` \+ flipHTML\(s\);/.test(view);
+    const wired = /if \(e\.target\.closest\('\[data-gm-flip\]'\)\) \{/.test(view) && /turner\.flip\(c\) != null/.test(view) && /shelfTurner\(shelf, \{rest: \(\) => syncFlip\(\)\}\)/.test(view)
+      && /on \? 'Flip to the cover' : 'View scoreboard'/.test(view);
+    const flips = /flip\(cs\) \{\s*\n\s*if \(!cs \|\| !cs\.matches\('\.gm-case\.is-done, \.gm-case\.is-turns'\)/.test(turner) && /S\.goal = target\(S\) === BACK \? FRONT : BACK;/.test(turner) && /rest\(S\.cs\);/.test(turner);
+    return {pass: gated && wired && flips, detail: `the owner's alone ${gated}; wired to the case in the middle ${wired}; the turner turns it ${flips}`};
+  });
   // ------------------------------------------------------------------------------------------- the hard course
   check('Return Man: the hard course (the owner\'s ask, Oct 2026: a run of 90 seconds to 3 minutes, his profile only for now): a course of its own (the regular one as it was); quicker from the start and never done speeding up (past 30 yards a second by 3,000 yards; the regular course tops out at 19); the beats keep closing in; potholes, none in the first 40 yards; no tackling sleds (the owner\'s ask, Oct 22 2026: "Remove the obstacle with the two pillars"), their lanes left open where they were drawn (sl: only with the road open all the way across, never in every lane)', () => {
     const bad = [];

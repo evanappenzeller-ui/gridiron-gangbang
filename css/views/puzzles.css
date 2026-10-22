@@ -538,6 +538,8 @@ button.gm-r:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
 .v-puzzles .gm-cd .ic { stroke-width: 2; flex: none; }
 .v-puzzles .gm-cd-v { color: var(--ink-2); font-weight: 600; font-variant-numeric: tabular-nums; }
 .v-puzzles .gm-cdw { margin-top: 14px; }
+.v-puzzles .gm-flipw { display: flex; justify-content: center; margin-top: 12px; } /* (the flip button under Return Man's case, the owner's alone: views/games.js flipHTML) */
+.v-puzzles .gm-flipb { min-width: 168px; }
 
 /* A game's own page (pushed over the list): Daily Puzzles' card and leaderboard start under the nav bar. */
 .v-puzzles .c-pz-pane > .c-hero-wrap { margin-top: 8px; }

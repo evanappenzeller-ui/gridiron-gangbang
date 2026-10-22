@@ -279,9 +279,12 @@ export function turnable(surface, dlg, on = () => {}, opts = {}) {
  * owner's ask, Oct 2026): till then its case stands still, facing front, here and up close. At rest on the side it shows on its own, its turn is handed back to the stylesheet.
  * A game played again and again (.is-turns: Return Man, the owner's ask, Oct 22 2026, for everyone) turns too, played
  * today or not, its leaderboard on its back; it stands on its front (to play), and goes back to it off the middle.
- * Returns {home(cs): ease a case back to that side, back(cs): whether it's showing its back now, stop()}.
+ * A button can turn one round too (flip(cs): the owner's ask, Oct 22 2026, his profile only: "a view scoreboard or flip
+ * case button" under Return Man's case); opts.rest(cs) is told each time a case comes to rest on a side.
+ * Returns {home(cs): ease a case back to that side, back(cs): whether it's showing its back now, flip(cs): turn it to
+ * its other side (whether that's its back), stop()}.
  */
-export function shelfTurner(shelf) {
+export function shelfTurner(shelf, {rest = () => {}} = {}) {
   const all = new Map(); // a case turned → its state
   let P = null, dragged = false;
   const own = cs => (cs.classList.contains('is-done') ? BACK : FRONT);
@@ -308,6 +311,7 @@ export function shelfTurner(shelf) {
       if (to === own(S.cs)) { S.fl.style.transform = ''; S.fl.style.transition = ''; all.delete(S.cs); }
       else { S.q = to.slice(); S.w = [0, 0, 0]; S.goal = null; paint(S); }
       S.cs.classList.remove('is-turning');
+      rest(S.cs);
       return;
     }
     paint(S);
@@ -362,6 +366,13 @@ export function shelfTurner(shelf) {
       const S = cs && all.get(cs);
       if (!S) return !!cs && own(cs) === BACK;
       return target(S) === BACK;
+    },
+    flip(cs) {
+      if (!cs || !cs.matches('.gm-case.is-done, .gm-case.is-turns') || (P && P.cs === cs)) return null; // (not one in your hand)
+      const S = stateOf(cs);
+      S.held = false; S.goal = target(S) === BACK ? FRONT : BACK;
+      wake(S);
+      return S.goal === BACK;
     },
     stop() {
       all.forEach(S => { if (S.raf) cancelAnimationFrame(S.raf); S.cs.classList.remove('is-turning'); });
