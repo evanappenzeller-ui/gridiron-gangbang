@@ -1,6 +1,6 @@
 # The Realm's army drawn from its art (img/realm/army/, js/views/realm-3d.js: the soldiers in an attack, and their
 # pictures in the Army and the attack's picker): the owner's unit pictures (Oct 2026: GOT_Army_Units_No_Sapper.zip, a
-# transparent picture each of the Footman, Archer, Knight, Thief and Dragon; no Sapper, who stays drawn in 3D).
+# transparent picture each of the Footman, Archer, Knight, Thief and Dragon).
 #   python3 tools/realm/army.py <the folder the zip was unpacked into>
 # Each is trimmed to what's drawn and made TALL px tall (the Dragon WIDE px wide), and noted in army.json: its size,
 # where it stands (a soldier: under the middle of him (where his weight is: a sword or a bow reaching down to his feet

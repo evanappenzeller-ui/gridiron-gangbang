@@ -68,7 +68,7 @@ export const KINDS = {
     th: [1, 2, 2, 3, 3, 4, 4, 5, 6, 7, 8],
     cap: [3000, 7500, 15000, 30000, 50000, 80000, 120000, 170000, 240000, 330000, 450000]},
   barracks: {name: 'Barracks', size: 4, pay: 'grain', role: 'train',
-    blurb: 'Trains your army with Grain. Each level opens a new kind of soldier; each barracks trains alongside the others.',
+    blurb: 'Trains your army with Grain. Higher levels open new kinds of soldier; each barracks trains alongside the others.',
     cost: [200, 1000, 4000, 12000, 30000, 70000, 140000, 260000],
     time: [10, 900, 3600, 10800, 21600, 43200, 64800, 86400],
     hp: [250, 290, 330, 370, 420, 470, 520, 580],
@@ -168,7 +168,7 @@ export function stat(k, l) {
 // ---------------------------------------------------------------------------------------------------- the army
 // hp, dps, speed (tiles a second), range (tiles), room (war camp space), cost (Grain), time (seconds to train), at (the
 // barracks level that opens it), aim (what it goes for first: any building, defenses, walls, or where the gold and
-// grain are). A sapper's keg breaks walls (blast, once, then he's done); a thief does double to money buildings; an
+// grain are). A thief does double to money buildings; an
 // archer's arrows and a dragon's fire go over walls; a dragon flies (fly: no wall or building stops it; only
 // ballistas and archer towers can reach it) and burns everything round where its fire lands (splash).
 export const TROOPS = {
@@ -178,14 +178,12 @@ export const TROOPS = {
     blurb: 'Shoots from range, over walls. Can’t take a hit.'},
   knight: {name: 'Knight', hp: 320, dps: 12, speed: 1.2, range: .8, room: 5, cost: 250, time: 30, at: 3, aim: 'def',
     blurb: 'Heavy plate. Goes only for the defenses and takes their fire.'},
-  sapper: {name: 'Sapper', hp: 24, dps: 0, blast: 260, speed: 2.4, range: .5, room: 2, cost: 600, time: 15, at: 4, aim: 'wall',
-    blurb: 'Carries a powder keg to a wall and blows a hole in it (he’s done after).'},
   thief: {name: 'Thief', hp: 30, dps: 11, speed: 3, range: .5, room: 1, cost: 40, time: 7, at: 5, aim: 'loot',
     blurb: 'Goes for the gold and grain: mines, farms, treasuries and granaries, double damage on them.'},
   dragon: {name: 'Dragon', hp: 900, dps: 60, speed: 1.4, range: 2.5, room: 10, cost: 3000, time: 120, at: 6, aim: 'any', splash: .9, fly: true,
     blurb: 'Flies over walls and burns everything where its fire lands. Only ballistas and archer towers can reach it. Needs a hatchery.'}
 };
-export const TROOP_ORDER = ['footman', 'archer', 'knight', 'sapper', 'thief', 'dragon'];
+export const TROOP_ORDER = ['footman', 'archer', 'knight', 'thief', 'dragon'];
 
 // ---------------------------------------------------------------------------------------------------- what the games pay
 // Each day's result, in Gold and in Grain alike (a strong day across the five games is about 12,000 of each).
@@ -320,11 +318,20 @@ export function clean(s) {
     const v = o[f] || {};
     o[f] = Object.fromEntries(CUR.map(c => [c, Math.max(0, num(v[c] != null ? v[c] : (old ? v[OLD_CUR[c]] : 0)))]));
   });
+  // Retire sappers (including their old fullback name), returning their Grain to the coffers.
+  // Credit before alias normalization so mixed old/new names cannot lose a refund.
+  const retired = t => t === 'sapper' || t === 'fullback';
+  const count = n => Math.max(0, Math.floor(num(n)));
+  const training = Array.isArray(o.q) ? o.q : [];
+  const removed = Object.entries(o.ar || {}).reduce((n, [t, v]) => n + (retired(t) ? count(v) : 0), 0)
+    + training.reduce((n, x) => n + (Array.isArray(x) && retired(x[0]) ? count(x[1]) : 0), 0);
+  o.xo.grain += removed * 600;
+  if (Array.isArray(training[0]) && retired(training[0][0])) o.qs = 0;
   const troops = (m) => Object.fromEntries(Object.entries(m || {}).map(([t, n]) => [OLD_TROOP[t] || t, n]));
   o.ar = Object.fromEntries(Object.entries(troops(o.ar)).filter(([t, n]) => TROOPS[t] && num(n) > 0).map(([t, n]) => [t, num(n) | 0]));
   o.q = (Array.isArray(o.q) ? o.q : []).map(x => (Array.isArray(x) ? [OLD_TROOP[x[0]] || x[0], x[1]] : x))
     .filter(x => Array.isArray(x) && TROOPS[x[0]] && num(x[1]) > 0).map(([t, n]) => [t, num(n) | 0]);
-  o.qs = num(o.qs); o.tp = Math.max(0, num(o.tp)); o.lr = num(o.lr) || o.at; o.sh = num(o.sh);
+  o.qs = o.q.length ? num(o.qs) : 0; o.tp = Math.max(0, num(o.tp)); o.lr = num(o.lr) || o.at; o.sh = num(o.sh);
   o.rd = Array.isArray(o.rd) ? o.rd.filter(r => r && typeof r.id === 'string' && String(r.vs).startsWith('bot:')).slice(-40) : [];
   o.df = Array.isArray(o.df) ? o.df.filter(r => r && Number(r.at)).slice(-20) : [];
   o.bt = o.bt && typeof o.bt === 'object' ? o.bt : {};
@@ -512,6 +519,7 @@ export function move(s, id, x, y) {
 /** Whether n of troop t can go into training now: {ok, why}. */
 export function canTrain(s, t, n = 1) {
   const T = TROOPS[t];
+  if (!TROOP_ORDER.includes(t)) return {ok: false, why: 'Unknown troop'};
   if (!trainers(s)) return {ok: false, why: 'Build barracks first'};
   if (barracksLevel(s) < T.at) return {ok: false, why: `Barracks level ${T.at}`};
   if (t === 'dragon') {
@@ -532,6 +540,7 @@ export function train(s, t, n = 1, now = Date.now()) {
 }
 /** Takes one of troop t out of training (the last in line), its Grain back. */
 export function untrain(s, t, now = Date.now()) {
+  if (!TROOP_ORDER.includes(t)) return false;
   for (let i = s.q.length - 1; i >= 0; i--) {
     if (s.q[i][0] !== t) continue;
     s.q[i][1]--;

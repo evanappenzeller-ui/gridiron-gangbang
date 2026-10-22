@@ -616,7 +616,7 @@ function welcome() {
     + `<div class="rl-row"><span><b>Your coffers</b> hold your pay until your Keep, treasuries and granaries have room. Raiders can’t touch them.</span></div>`
     + `<div class="rl-row"><span><b>Gold mines</b> dig Gold and <b>farms</b> grow Grain while you’re away: tap them to collect.</span></div>`
     + `<div class="rl-row"><span><b>Your builder</b> raises or upgrades one thing at a time. Raise your <b>Keep</b> to unlock more of everything.</span></div>`
-    + `<div class="rl-row"><span><b>Attack</b>: train an army at the barracks with Grain (footmen, archers, knights, sappers, thieves, and in time dragons from your hatchery) and sack the computer’s realms for their gold and grain.</span></div>`
+    + `<div class="rl-row"><span><b>Attack</b>: train an army at the barracks with Grain (footmen, archers, knights, thieves, and in time dragons from your hatchery) and sack the computer’s realms for their gold and grain.</span></div>`
     + `<div class="rl-row"><span><b>Defend</b>: once your Keep is level 2, those realms raid you too, now and then. Cannons, ballistas, archer towers, trebuchets, pitch cauldrons and walls keep them out.</span></div>`
     + `</div><p class="rl-sh-note">Drag to look around, pinch to zoom. Tap a building for what it does; tap your house’s name to rename it.</p>`});
 }

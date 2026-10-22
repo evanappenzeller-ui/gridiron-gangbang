@@ -291,15 +291,15 @@ export async function realmChecks(check) {
     return {pass, detail: out.join(' · ')};
   });
 
-  check('Realm: the army’s pictures (tools/realm/army.py, img/realm/army/): the Footman, Archer, Knight, Thief and Dragon each drawn from his (where he stands inside it, a way he faces, a size: the Dragon bigger than any man, and in the air); the Sapper has none and stays in 3D; the pictures are there', async () => {
+  check('Realm: the army’s pictures (tools/realm/army.py, img/realm/army/): the Footman, Archer, Knight, Thief and Dragon each drawn from his (where he stands inside it, a way he faces, a size: the Dragon bigger than any man, and in the air); the pictures are there', async () => {
     const meta = await fetch(new URL('../../img/realm/army/army.json', import.meta.url)).then(r => r.json(), () => null);
     if (!meta) return {pass: false, detail: 'no army.json'};
-    const want = F.TROOP_ORDER.filter(t => t !== 'sapper'), bad = want.filter(t => { const m = meta[t]; return !m || !(m.w > 50 && m.h > 50) || !(m.ax >= 0 && m.ax <= m.w && m.ay >= 0 && m.ay <= m.h) || typeof m.right !== 'boolean' || !(m.fly ? m.wide > 0 : m.tall > 0); });
+    const want = F.TROOP_ORDER, bad = want.filter(t => { const m = meta[t]; return !m || !(m.w > 50 && m.h > 50) || !(m.ax >= 0 && m.ax <= m.w && m.ay >= 0 && m.ay <= m.h) || typeof m.right !== 'boolean' || !(m.fly ? m.wide > 0 : m.tall > 0); });
     const files = await Promise.all(want.map(t => fetch(new URL(`../../img/realm/army/${t}.webp`, import.meta.url), {method: 'HEAD'}).then(r => (r.ok ? '' : t), () => t)));
     const gone = files.filter(Boolean), men = want.filter(t => t !== 'dragon').map(t => meta[t] && meta[t].tall * meta[t].w / meta[t].h);
     const big = !!meta.dragon && meta.dragon.fly && meta.dragon.wide > Math.max(...men) * 2 && men.every(w => w > 0);
     const pass = !bad.length && !gone.length && !meta.sapper && big && want.every(t => !meta[t] || !!meta[t].fly === !!F.TROOPS[t].fly);
-    return {pass, detail: `${bad.length ? 'wrong: ' + bad.join(', ') : want.join(', ') + ' ok'}; the sapper ${meta.sapper ? 'HAS one' : 'in 3D'}; the dragon ${big ? 'bigger, flying' : 'WRONG'}; ${gone.length ? 'missing: ' + gone.join(', ') : 'pictures there'}`};
+    return {pass, detail: `${bad.length ? 'wrong: ' + bad.join(', ') : want.join(', ') + ' ok'}; the dragon ${big ? 'bigger, flying' : 'WRONG'}; ${gone.length ? 'missing: ' + gone.join(', ') : 'pictures there'}`};
   });
 
   check('Realm: the computer’s realms raid his realm (at most one each half day, the last two while he was away; none in its first day, before Keep level 2 or during a truce): played the same every time, taken off his stores and glory once, never his coffers', () => {

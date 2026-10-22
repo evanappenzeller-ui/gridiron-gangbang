@@ -9,7 +9,7 @@
 // draws when something moved (a finger, a raid) and, while there are folk about, a few times a second for them.
 // In a raid it also draws the raiders (instanced: a few draw calls however many), each drawn from his picture (img/realm/
 // army/, tools/realm/army.py: stood up facing the camera, turned the way he's going, a soft shadow under him; the
-// Dragon in the air) but the Sapper (no picture: drawn in 3D), what
+// Dragon in the air), what
 // the defenses loose and what the raiders shoot (arrows, bolts, boulders, fire), dust where a building goes down.
 // load() → true when three.js is in and this phone has WebGL; create(host, opts) → the view (see its methods).
 import * as FM from './realm-models.js';
@@ -66,7 +66,7 @@ async function scenery(file) {
 }
 
 // The army's pictures (tools/realm/army.py): {troop: {w, h, ax, ay (where he stands, px), right (faces right), fly,
-// tall or wide (tiles), img, url}}; a troop without one (the Sapper) is drawn in 3D.
+// tall or wide (tiles), img, url}}; troops use 3D models if their pictures cannot load.
 const ARMY = {};
 const ARMY_AT = new URL('../../img/realm/army/', import.meta.url).href;
 async function army() {
@@ -1100,7 +1100,6 @@ export function create(host, opts = {}) {
       if (e.k === 'boom') { for (let j = 0; j < (e.wall ? 1 : 4); j++) puff(e.x + (j % 2 - .5) * .8, e.y + (j > 1 ? .4 : -.4), e.wall ? .9 : 2.4, 0xB5AC9E, 1.1, now); }
       else if (e.k === 'land' && e.splash) puff(e.x, e.y, e.splash * 2.2, e.of === 'cauldron' ? 0xE0641E : 0xC9BCA4, .6, now);
       else if (e.k === 'hit' && e.of === 'dragon') puff(e.x, e.y, 1.8, 0xFF7A1E, .5, now);
-      else if (e.k === 'blast') puff(e.x, e.y, 2.2, 0xFF9A3C, .7, now);
       else if (e.k === 'down') puff(e.x, e.y, .9, 0xDDDDDD, .6, now);
     }
     R.puffs.forEach(p => {

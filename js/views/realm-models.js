@@ -606,15 +606,14 @@ export function troopParts(kind, h) {
       k.box(.02, .14, .02, 0xC0C4CA, [.13, .16, .05], {rot: [.5, 0, 0]});
       leg.box(.07, .2, .08, 0x2A2A30, [0, -.2, 0]).box(.08, .05, .12, 0x1E1A16, [0, -.23, .02]);
     } else {
-      const plate = kind === 'knight', wide = plate ? 1.35 : kind === 'sapper' ? 1.1 : 1;
-      const tunic = kind === 'sapper' ? 0x6A4A30 : kind === 'archer' ? 0x4C5A33 : h.pri;
+      const plate = kind === 'knight', wide = plate ? 1.35 : 1;
+      const tunic = kind === 'archer' ? 0x4C5A33 : h.pri;
       k.box(.22 * wide, .24, .14 * wide, plate ? 0x8A9098 : tunic, [0, .18, 0], plate ? {mat: 'metal'} : {});
       if (plate) k.box(.2 * wide, .2, .02, h.pri, [0, .2, .08]);
       [-1, 1].forEach(s => k.box(.06, .2, .07, plate ? 0x8A9098 : kind === 'archer' ? 0x4C5A33 : 0x7D8288, [s * .15 * wide, .2, 0]));
       k.ball(.085, skin, [0, .47, 0]);
       if (kind === 'archer') { k.cyl(0, .12, .2, 0x3E4A2A, [0, .46, -.01], {seg: 10}); k.ring(.2, .012, 0x6B4A2A, [-.18, .32, .05], {arc: Math.PI, rot: [0, Math.PI / 2, Math.PI / 2]}); k.cyl(.04, .04, .22, 0x5A3E25, [.06, .3, -.1], {rot: [.3, 0, 0], seg: 6}); }
       else if (plate) { k.cyl(.1, .1, .16, 0x9AA1A9, [0, .42, 0], {mat: 'metal', seg: 12}); k.box(.1, .02, .02, 0x1A1A1A, [0, .52, .1]); k.cyl(.02, .04, .16, h.sec, [0, .6, -.02], {seg: 6}); k.box(.04, .3, .24, h.pri, [-.2 * wide, .1, .06]); k.box(.045, .3, .04, h.sec, [-.2 * wide - .005, .1, .06]); k.box(.02, .36, .02, 0xC0C4CA, [.2 * wide, .2, .12], {rot: [.6, 0, 0]}); }
-      else if (kind === 'sapper') { k.ball(.1, 0x6A4A30, [0, .5, 0], {cap: Math.PI / 2}); k.cyl(.12, .12, .24, 0x5A3E25, [0, .22, -.15], {seg: 10}); [.28, .4].forEach(y => k.ring(.122, .012, IRON, [0, y, -.15])); k.cyl(.01, .01, .1, 0x222222, [0, .48, -.15], {seg: 4}); }
       else { k.ball(.1, 0x7D8288, [0, .5, 0], {cap: Math.PI / 2, mat: 'metal'}); k.box(.02, .06, .02, 0x7D8288, [0, .42, .09]); k.cyl(.12, .12, .03, h.sec, [-.18, .22, .02], {rot: [0, 0, Math.PI / 2], mid: true, seg: 14}); k.box(.02, .3, .02, 0xC0C4CA, [.17, .2, .1], {rot: [.5, 0, 0]}); }
       leg.box(.075, .2, .08, kind === 'knight' ? 0x8A9098 : 0x3F3A34, [0, -.2, 0]).box(.08, .05, .12, 0x2A2420, [0, -.23, .02]);
     }

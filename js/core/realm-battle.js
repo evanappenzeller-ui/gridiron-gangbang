@@ -8,7 +8,7 @@
 // makeBattle(base, loot, army) → {t, over, deploy(t, x, y), step1(), canDrop(x, y), pct(), stars(), result(), ...};
 // replay(...) plays a recorded raid again; defend(s, now) plays the computer's raids on your realm since you last
 // looked (a few a day).
-import {KINDS, TROOPS, stat, N, RAID_S, BOTS, rng, boxOf, keepOf, lootOf, takeRaid, HOUR} from './realm.js';
+import {KINDS, TROOPS, TROOP_ORDER, stat, N, RAID_S, BOTS, rng, boxOf, keepOf, lootOf, takeRaid, HOUR} from './realm.js';
 
 export const DT = .1;
 const HIT_EVERY = 1;   // seconds between a soldier's hits
@@ -48,7 +48,7 @@ const distTo = (b, x, y) => Math.hypot(Math.max(b.x - x, 0, x - (b.x + b.size)),
  * ({troop: n}).
  */
 export function makeBattle(base, loot, army) {
-  const B = {t: 0, step: 0, over: false, why: '', bl: [], tr: [], shots: [], fx: [], left: Object.assign({}, army), used: {}, got: {gold: 0, grain: 0}, gotBy: {}, seq: 0, drops: []};
+  const B = {t: 0, step: 0, over: false, why: '', bl: [], tr: [], shots: [], fx: [], left: Object.fromEntries(TROOP_ORDER.filter(t => Number.isInteger(army?.[t]) && army[t] > 0).map(t => [t, army[t]])), used: {}, got: {gold: 0, grain: 0}, gotBy: {}, seq: 0, drops: []};
   const occ = new Int32Array(N * N).fill(-1);
   (base.b || []).forEach(b => {
     if (b.l < 1) return;
@@ -88,7 +88,6 @@ export function makeBattle(base, loot, army) {
     let pool;
     if (T.aim === 'def') pool = alive.filter(b => b.def);
     else if (T.aim === 'loot') pool = alive.filter(b => b.money);
-    else if (T.aim === 'wall') pool = alive.filter(b => b.wall);
     if (!pool || !pool.length) pool = alive.filter(b => !b.wall);
     let best = null, bd = Infinity;
     pool.forEach(b => { const d = distTo(b, u.x, u.y); if (d < bd) { bd = d; best = b; } });
@@ -202,14 +201,6 @@ export function makeBattle(base, loot, army) {
         if (u.cd <= 0) {
           u.cd = HIT_EVERY;
           u.hitAt = B.t;
-          if (T.blast) {
-            // the sapper: every wall round him takes the keg's blast, and he's done
-            B.bl.forEach(b => { if (b.wall && !b.dead && distTo(b, u.x, u.y) <= 1.4) hurt(b, T.blast); });
-            if (!foe.wall) hurt(foe, 20);
-            u.dead = true; u.hp = 0;
-            B.fx.push({k: 'blast', t: B.t, x: u.x, y: u.y, id: u.id});
-            return;
-          }
           const d = T.dps * HIT_EVERY * (u.t === 'thief' && foe.money ? 2 : 1);
           if (T.range > 1) B.shots.push({k: u.t, from: u.id, x0: u.x, y0: u.y, x1: foe.cx, y1: foe.cy, t0: B.t, t1: B.t + .3, b: foe.i, d, splash: T.splash || 0, foe: false});
           else {
@@ -301,7 +292,7 @@ export function replay(base, loot, army, drops, until = Infinity) {
 // each half of the day (12 hours from midnight), at an hour of it that's the same on every phone; none in your
 // realm's first day or before your Keep is level 2, none during a truce (12 hours after one that took a star), and no
 // more than the last two while you were away. The raiders are the realm a level below yours, an army a little smaller
-// than yours could be, all coming from one side: knights and sappers first, the rest a moment later.
+// than yours could be, all coming from one side: knights and dragons first, the rest a moment later.
 export const TRUCE_H = 12, WINDOW_H = 12;
 /** When the raids on s since it last looked fall (ms), the last two at most. */
 export function raidsDue(s, now = Date.now()) {
@@ -321,7 +312,6 @@ export function raidArmy(th) {
   const add = (t, n) => { n = Math.min(n, Math.floor(left / TROOPS[t].room)); if (n > 0) { a[t] = (a[t] || 0) + n; left -= n * TROOPS[t].room; } };
   if (th >= 7) add('dragon', 1);
   if (th >= 3) add('knight', Math.floor(th / 2));
-  if (th >= 4) add('sapper', 2);
   if (th >= 5) add('thief', 4);
   add('archer', Math.floor(left * .45));
   add('footman', left);
@@ -347,7 +337,7 @@ export function defend(s, now = Date.now()) {
       }
       return null;
     };
-    const first = ['dragon', 'knight', 'sapper'], plan = [];
+    const first = ['dragon', 'knight'], plan = [];
     Object.entries(army).forEach(([t, n]) => { for (let i = 0; i < n; i++) plan.push([first.includes(t) ? 0 : 25, t, (i + .5) / n]); });
     plan.sort((a, b) => a[0] - b[0]);
     let k = 0;
