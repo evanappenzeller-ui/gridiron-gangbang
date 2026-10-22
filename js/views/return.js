@@ -76,7 +76,7 @@ function keysHTML(hard) {
     + k('is-up', '↑', hard ? 'Jump a barricade or a pothole, or onto a low one' : 'Jump a barricade, or onto a low one')
     + k('is-dn', '↓', 'Slide under a banner')
     + k('is-ramp', '◢', hard ? 'Run up a ramp onto the roofs. Head on into a bus: down' : 'Run up a ramp onto the roofs')
-    + k('is-chase', '!', 'The linebacker’s on your heels at the catch and after any hit. Hit something while he’s there: tackled')
+    + k('is-chase', '!', hard ? 'The linebacker starts close. After a stumble, your next unprotected hit tackles you—even after a clean stretch' : 'The linebacker’s on your heels at the catch and after any hit. Hit something while he’s there: tackled')
     + `</ul><ul class="rm-pks" aria-label="Power-ups">`
     + pw('salts', 'Smelling salts', hard ? '10-second speed burst + extra life' : 'Speed burst + extra life')
     + pw('pills', 'Painkillers', hard ? 'Hit anything, no stumble' : 'Feel nothing')
@@ -711,8 +711,8 @@ function onEvents(st, evs) {
     else if (e.type === 'trucked') { st.knocked.set(`${e.row.i}:${e.lane}`, {at: now}); pop(st, 'SMASHED!', 'is-pills'); ui.haptic('medium'); }
     else if (e.type === 'vaulted') { pop(st, 'OVER THE TOP!', 'is-pills'); ui.haptic('medium'); }
     else if (e.type === 'stumbled') {
-      st.hitAt = now; st.hitDir = fallDir(st.run); pop(st, 'STUMBLE!', 'is-hit', 'The linebacker’s on you'); ui.haptic('warning');
-      ui.announce(`${R.hitLine(e)}. The linebacker’s on you: another hit now and he’ll tackle you.`);
+      st.hitAt = now; st.hitDir = fallDir(st.run); pop(st, 'STUMBLE!', 'is-hit', st.run.co.hard ? 'Next hit: tackled' : 'The linebacker’s on you'); ui.haptic('warning');
+      ui.announce(`${R.hitLine(e)}. ${st.run.co.hard ? 'Your next unprotected hit will be a tackle, even after a clean stretch.' : 'The linebacker’s on you: another hit now and he’ll tackle you.'}`);
       if (e.row) st.knocked.set(`${e.row.i}:${e.lane}`, {at: now});
     }
     else if (e.type === 'shoved') { if (e.row) st.knocked.set(`${e.row.i}:${e.lane}`, {at: now}); }

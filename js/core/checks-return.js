@@ -458,6 +458,42 @@ export async function returnChecks(check) {
     const words = R.powerOf('salts', true).does.startsWith('A 10-second burst') && R.powerOf('salts', false) === R.POWER.salts && /without stumbling/.test(R.powerOf('pills', true).does) && /blurry/.test(R.powerOf('booze', true).is);
     return {pass: tenS && burst && through && dbl && words, detail: `salts: ${R.burstSecs(R.startRun(1, 0, true))} s hard (${hard.map(x => x.toFixed(2) + '×').join(' then ')}), ${R.BURST.s} s regular (${reg.map(x => x.toFixed(2) + '×').join(' then ')}); painkillers: ${through ? 'through all four and up onto the bus, not a stumble' : 'WRONG ' + pills.ev.join()}; booze: double ${dbl}; words ${words}`};
   });
+  check('Return Man: on Evan\'s hard course, the second distinct unprotected collision after a stumble is a tackle, even after a clean stretch or within collision grace; duplicate contact is still ignored; regular courses retain timed recovery', () => {
+    const row = (z, ob = 'hurdle', lane = 1) => ({i: z, z, lanes: [0, 1, 2].map(l => l === lane ? ob : null)});
+    const distant = play({hard: true, rows: [row(1), row(300, 'bar'), row(301), row(302)]}, 40);
+    const rapid = play({hard: true, rows: [row(1), row(2, 'sled'), row(3)]}, 2);
+    const regular = play({rows: [row(1), row(300, 'bar')]}, 40);
+    const repeat = field({hard: true, rows: [row(1, 'hurdle', 0)]}, 0);
+    R.move(repeat, 'left'); const first = R.step(repeat, 1 / 120);
+    R.move(repeat, 'left'); const same = R.step(repeat, 1 / 120);
+    const duplicate = first.some(e => e.type === 'stumbled') && same.some(e => e.type === 'shoved') && !repeat.over;
+    const subsequent = [];
+    for (let i = 0; i < 120 && !repeat.over; i++) R.step(repeat, 1 / 120).forEach(e => subsequent.push(e.type));
+    const caught = r => r.run.over && r.run.why === 'caught' && r.ev.filter(e => e === 'stumbled').length === 1 && r.ev.filter(e => e === 'tackled').length === 1;
+    const waiting = play({hard: true, rows: [row(1)]}, 12).run;
+    const visible = R.chasing(waiting) && R.gapOf(waiting) <= R.CHASE.edge;
+    const unchanged = !regular.run.over && regular.ev.filter(e => e === 'stumbled').length === 2;
+    const pass = caught(distant) && caught(rapid) && duplicate && repeat.why === 'caught' && subsequent.includes('tackled') && visible && unchanged;
+    return {pass, detail: `distant ${distant.ev.join(',')}; rapid ${rapid.ev.join(',')}; duplicate ignored ${duplicate}, next object ${repeat.why}; linebacker stays visible ${visible}; regular recovery ${unchanged}`};
+  });
+  check('Return Man: the hard course\'s stumble penalty survives painkillers but a smelling-salts revival resets it; protected collisions never become extra stumbles', () => {
+    const row = z => ({i: z, z, lanes: [null, 'hurdle', null]});
+    const saved = field({hard: true, rows: [1, 2, 3, 200, 201].map(row)});
+    saved.salts = 1;
+    const events = [];
+    for (let i = 0; i < 120 * 30 && !saved.over; i++) R.step(saved, 1 / 120).forEach(e => events.push(e.type));
+    const life = events.filter(e => ['stumbled', 'revived', 'tackled'].includes(e)).join(',') === 'stumbled,revived,stumbled,tackled' && saved.salts === 0;
+    const protectedRun = field({hard: true, rows: [1, 2, 3, 200].map(row)});
+    const protectedEvents = [];
+    for (let i = 0; i < 120 * 30 && !protectedRun.over; i++) {
+      const ev = R.step(protectedRun, 1 / 120); ev.forEach(e => protectedEvents.push(e.type));
+      if (ev.some(e => e.type === 'stumbled')) protectedRun.pills = 6;
+    }
+    const pills = protectedRun.why === 'caught' && protectedRun.hits === 1 && protectedEvents.filter(e => e === 'trucked').length === 2;
+    const fresh = R.startRun(1, 0, true);
+    return {pass: life && pills && !fresh.stumblePending && fresh.hits === 0,
+      detail: `salts ${events.join(',')}; painkillers ${protectedEvents.join(',')}; new run starts clean ${!fresh.stumblePending}`};
+  });
   check('Return Man: its stylesheet (css/views/return.css) is linked: the version mark is on :root', () => {
     const v = getComputedStyle(document.documentElement).getPropertyValue('--rm-css').trim();
     return {pass: v !== '', detail: `--rm-css ${v || 'missing'}`};

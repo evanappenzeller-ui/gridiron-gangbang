@@ -12,6 +12,8 @@
 // into, a juke off the edge of the road: the owner's ask, Oct 2026) slows you and puts him right on your back; run on
 // clean and he drops away. A hit while he's on you (at the
 // catch he starts there too) and he tackles you: that's the return.
+// On Evan's hard course a stumble keeps him on your heels until a tackle or a salts revival: the next distinct,
+// unprotected collision catches you even after a long clean stretch. Other profiles keep the timed recovery.
 // On the way, three power-ups: smelling salts (a burst of speed, BURST: the owner's ask, Oct 2026; and an extra life:
 // the next time he'd catch you, you shake him off, and away you burst again),
 // prescription painkillers (a few seconds when nothing can stop you) and booze (a few seconds of double yards). You
@@ -205,7 +207,8 @@ export const burstOf = run => (run && run.burst > 0 ? BURST.k * Math.min(1, run.
 // you're slowed too, by slowBy for slow s, easing back to speed), falling back to edge (the bottom of the screen) as you
 // run clean; once window s have gone by he's lost: in drop s he's out of sight (far: behind the camera). A hit while
 // he's on you (within window s of the catch or the last hit) is the tackle (the owner's ask, Oct 2026: a stumble with
-// him there is a tackle). For grace s after a hit nothing else counts (it's the same collision), and a tall vehicle's
+// him there is a tackle). On the regular course grace s ignores further contact; on the hard course it only ignores
+// duplicate contact with the same obstacle. A tall vehicle's
 // front knocks you into the open lane beside it (or, with none open, up onto it). After a hit he runs up on you from
 // wherever he was (out of sight, or further back), near in runUp s (the owner's ask, Oct 2026: not out of nowhere).
 // And while he's still in the picture (under seen yards back: the camera rides 7 behind you, views/return.js), falling
@@ -378,7 +381,8 @@ export function startRun(n, k, hard = false) {
   return {n, k, co: course(n, 0, hard), t: 0, steps: 0, z: 0, yards: 0, lane: 1, x: 0, jFrom: 0, jt: 1, y: 0, vy: 0, jumpQ: -9,
     slide: 0, lastJuke: -9, bump: -9, next: 0, nextItem: 0, zone: 0, tds: 0,
     salts: 0, pills: 0, booze: 0, shield: 0, burst: 0, over: false, why: null, by: null,
-    hits: 0, hitAt: 0, slow: 0, grace: 0, knock: 0, sideHit: null}; // (the linebacker starts on you, at the catch)
+    hits: 0, hitAt: 0, slow: 0, grace: 0, knock: 0, sideHit: null,
+    stumblePending: false, lastHit: null}; // (the linebacker starts on you, at the catch)
 }
 export const xOf = (run, lane) => (lane - 1) * LANE;
 /** The lane you're in now (the nearest to you, mid-juke). */
@@ -409,12 +413,13 @@ export function move(run, dir) {
   return false;
 }
 /** How far behind you the linebacker is now, in yards (CHASE): near at the catch, running up on you from where he was
- *  just after a hit (near runUp s on), falling back to edge while he's on you, then out of sight (far) once he's lost;
- *  on top of you once he's tackled you. */
+ *  just after a hit (near runUp s on), falling back to edge while he's on you, then out of sight (far) once he's lost.
+ *  A hard-course stumble keeps him at edge until a salts revival; on top of you once he's tackled you. */
 export function gapOf(run) {
   if (!run) return CHASE.far;
   if (run.over && run.why === 'caught') return .6;
-  const s = run.t - run.hitAt;
+  const elapsed = run.t - run.hitAt;
+  const s = run.co.hard && run.stumblePending ? Math.min(elapsed, CHASE.window) : elapsed;
   if (s < CHASE.runUp && run.fromGap > CHASE.near) { const k = 1 - s / CHASE.runUp; return CHASE.near + (run.fromGap - CHASE.near) * k * k; }
   if (s < CHASE.window) return CHASE.near + (CHASE.edge - CHASE.near) * clamp((s - CHASE.slow) / (CHASE.window - CHASE.slow), 0, 1);
   return CHASE.edge + (CHASE.far - CHASE.edge) * clamp((s - CHASE.window) / CHASE.drop, 0, 1);
@@ -422,6 +427,14 @@ export function gapOf(run) {
 /** Whether the linebacker is on you now (at the catch, or a hit ago, and not lost yet, or still in the picture as he
  *  falls away): a hit now is a tackle. */
 export const chasing = run => !!run && !run.over && (run.t - run.hitAt < CHASE.window || gapOf(run) < CHASE.seen);
+// Grace prevents duplicate contact with the same obstacle, not a free pass through the next one.
+function sameCollision(a, b) {
+  return !!a && (b.plat ? a.plat === b.plat : b.row ? a.row === b.row && a.lane === b.lane : !!b.edge && a.edge === b.edge);
+}
+function clearStumble(run) {
+  if (!run.co.hard) return;
+  run.stumblePending = false; run.lastHit = null; run.grace = 0;
+}
 // What you run into (a barricade, a banner, a vehicle's front, its side): with painkillers (or just back up after the salts) you go
 // through it (or up onto it); just after a hit, it's the same collision ('shoved'); with the linebacker on you, he tackles
 // you (the salts shake him off once); else you stumble, slowed, and he's on your back.
@@ -430,10 +443,13 @@ export const chasing = run => !!run && !run.over && (run.t - run.hitAt < CHASE.w
 // return whether he's on you or not (the owner's ask, Oct 2026: Subway Surfers' train); the salts shake that off too.
 function hit(run, out, what) {
   if (run.pills > 0 || run.shield > 0) { if (!what.side) out.push(Object.assign({type: what.ob ? 'trucked' : 'vaulted', z: run.z}, what)); return 'pass'; }
-  if (run.grace > 0) { out.push(Object.assign({type: 'shoved', z: run.z}, what)); return 'pass'; }
+  if (run.grace > 0 && (!run.co.hard || sameCollision(run.lastHit, what))) {
+    out.push(Object.assign({type: 'shoved', z: run.z}, what)); return 'pass';
+  }
   if (what.wall && run.co.hard) {
     if (run.salts > 0) {
       run.salts--; run.shield = SHIELD; run.fromGap = gapOf(run); run.hitAt = run.t; run.slow = CHASE.slow; run.burst = burstSecs(run);
+      clearStumble(run);
       out.push(Object.assign({type: 'revived', z: run.z, salts: run.salts}, what));
       return 'pass';
     }
@@ -444,6 +460,7 @@ function hit(run, out, what) {
   if (chasing(run)) {
     if (run.salts > 0) {
       run.salts--; run.shield = SHIELD; run.fromGap = gapOf(run); run.hitAt = run.t; run.slow = CHASE.slow; run.burst = burstSecs(run);
+      clearStumble(run);
       out.push(Object.assign({type: 'revived', z: run.z, salts: run.salts}, what));
       return 'pass';
     }
@@ -452,6 +469,7 @@ function hit(run, out, what) {
     return false;
   }
   run.hits++; run.fromGap = gapOf(run); run.hitAt = run.t; run.slow = CHASE.slow; run.grace = CHASE.grace;
+  if (run.co.hard) { run.stumblePending = true; run.lastHit = what; }
   out.push(Object.assign({type: 'stumbled', z: run.z, n: run.hits}, what));
   return 'stumble';
 }
