@@ -301,14 +301,19 @@ function placeTags(st) {
 }
 
 // ---- the selected building's card
-/** What building b is and does at its level (its card's line, yours or one you're scouting): [text]. */
-export function factsOf(b) {
+/** What building b is and does at its level (its card's line, yours or one you're scouting): [text]. own: it's on your
+ *  realm (a computer's realm's hatchery has no Dragon Hero defending it, nor a dragon keeper: Oct 23 2026, the scout's
+ *  card said it had). */
+export function factsOf(b, {own = false} = {}) {
   const K = F.KINDS[b.t], lv = Math.max(1, b.l), sv = F.stat(b.t, lv), what = [];
   if (K.role === 'make') what.push(`Makes ${nf(sv.rate)} ${F.CUR_NAME[K.makes]} an hour · holds ${nf(sv.hold)}`);
   if (K.role === 'store') what.push(`Holds ${nf(sv.cap)} ${F.CUR_NAME[K.holds]}`);
   if (K.role === 'hall') what.push(`Holds ${nf(sv.store)} of each`);
   if (K.role === 'camp') what.push(`Room for ${sv.room}`);
-  if (K.role === 'hatch') { const d = F.heroStat('dragon', sv.dragon); what.push(`Dragon Hero level ${sv.dragon}: ${nf(d.hp)} health · ${nf(d.dps)} damage a second`, 'Tended by your dragon keeper'); }
+  if (K.role === 'hatch') {
+    const d = F.heroStat('dragon', sv.dragon);
+    what.push(...(own ? [`Dragon Hero level ${sv.dragon}: ${nf(d.hp)} health · ${nf(d.dps)} damage a second`, 'Tended by your dragon keeper'] : ['No Dragon Hero defends it']));
+  }
   if (K.role === 'def') what.push(`${nf(sv.dps)} damage a second · reach ${sv.range}${sv.splash ? ' · hits a crowd' : ''}${sv.air ? ' · hits dragons' : ''}`);
   if (K.role === 'train') what.push(`Trains: ${F.TROOP_ORDER.filter(t => F.TROOPS[t].at <= lv).map(t => F.TROOPS[t].name).join(', ')}`);
   what.push(`${nf(sv.hp)} strength`);
@@ -431,10 +436,12 @@ function tilesOf(s, b, now) {
     const d = F.heroStat('dragon', lv), dz = F.heroStat('dragon', top), dn = n ? F.heroStat('dragon', lv + 1) : null;
     const hero = (k, ic, label, key, unit = '') => ({k, ic, label, value: nf(d[key]), next,
       gain: dn && dn[key] > d[key] ? `+${nf(dn[key] - d[key])}${unit}` : '', bar: [d[key] / (dz[key] || 1), (dn ? dn[key] : d[key]) / (dz[key] || 1)]});
-    tiles.push(hero('herohp', CARD_IC.dragon, 'Dragon Hero health', 'hp'), hero('herodps', CARD_IC.fire, 'Fire damage/second', 'dps', '/second'));
+    // (labels a line long, as the other cards' are, so a row's values sit level: Oct 23 2026, "Dragon Hero health" and
+    // "Fire damage/second" ran to two lines at a phone's width; the egg tile beside them says whose they are)
+    tiles.push(hero('herohp', CARD_IC.dragon, 'Hero health', 'hp'), hero('herodps', CARD_IC.fire, 'Fire/second', 'dps', '/second'));
     const level = b.l >= 1 ? Math.max(b.l, F.heroLevel(s, 'dragon')) : 0;
     tiles.push(level ? {k: 'hatched', ic: CARD_IC.egg, label: 'Dragon Hero', value: 'Hatched', word: true, note: `Level ${level}`}
-      : {k: 'hatched', ic: CARD_IC.egg, label: 'Dragon Hero', value: 'In the egg', word: true, note: 'Build it to hatch your Dragon Hero'});
+      : {k: 'hatched', ic: CARD_IC.egg, label: 'Dragon Hero', value: 'In the egg', word: true, note: b.u > now ? 'Hatches when the hatchery is finished' : 'Build it to hatch your Dragon Hero'});
   } else if (K.role === 'train') {
     const open = F.TROOP_ORDER.filter(t => F.TROOPS[t].at <= lv), soon = n ? F.TROOP_ORDER.filter(t => F.TROOPS[t].at === lv + 1) : [], all = F.TROOP_ORDER.length;
     tiles.push({k: 'troops', ic: CARD_IC.helm, label: 'Kinds of soldier', value: open.length, unit: `of ${all}`, next,
@@ -924,9 +931,13 @@ function raidHTML(s, now) {
         : `<span class="rl-tg-lock" role="img" aria-label="Locked: attack it from Castle level ${F.targetAt(bot || x.k)}">${ui.icon('lock')}<span aria-hidden="true">Castle ${F.targetAt(bot || x.k)}</span></span>`) + `</div>`;
   }).join('');
   if (!F.attackOpen(s)) {
-    const heroes = F.HERO_ORDER.filter(k => F.HEROES[k].at === F.ATTACK_AT).map(k => F.HEROES[k].name);
+    // (the heroes who come with it: the Knight Hero joins there; the Dragon Hero hatches there too, but only once a
+    // Dragon Hatchery is built)
+    const at = F.HERO_ORDER.filter(k => F.HEROES[k].at === F.ATTACK_AT), name = k => F.HEROES[k].name;
+    const join = at.filter(k => !F.HEROES[k].hatch).map(name), hatch = at.filter(k => F.HEROES[k].hatch).map(name);
     return `<div class="rl-lock"><span class="rl-lock-ic" aria-hidden="true">${ui.icon('lock')}</span><span><b>Raids open at Castle level ${F.ATTACK_AT}</b>`
-      + `<small>Your Castle is level ${th}. Raise it to march on the computer’s realms${heroes.length ? `; the ${heroes.join(' and the ')} join you there too` : ''}.</small></span></div>`
+      + `<small>Your Castle is level ${th}. Raise it to march on the computer’s realms${join.length ? `; the ${join.join(' and the ')} join${join.length === 1 ? 's' : ''} you there` : ''}`
+      + `${hatch.length ? `${join.length ? ',' : ';'} and the ${hatch.join(' and the ')} once you build a Dragon Hatchery` : ''}.</small></span></div>`
       + `<div class="rl-acts"><button type="button" class="rl-act is-go" data-rl-tokeep>Go to your Castle</button></div>`
       + `<h3 class="rl-sh-h">The computer’s realms</h3>${rows(false, 0)}`
       + `<p class="rl-sh-note">Their raids on you start at Castle level ${F.DEFEND_AT} all the same: walls, towers and heroes keep them out.</p>`;
@@ -934,7 +945,7 @@ function raidHTML(s, now) {
   const army = F.roomOf(s.ar) || Object.keys(F.heroArmy(s)).length;
   const march = [...F.TROOP_ORDER.filter(t => s.ar[t]).map(t => `${esc(F.TROOPS[t].name)} ×${s.ar[t]}`), ...F.HERO_ORDER.filter(k => F.heroArmy(s)['hero_' + k]).map(k => `${esc(F.HEROES[k].name)} level ${F.heroLevel(s, k)}`)];
   return (army ? `<p class="rl-sh-lead">Ready to march: ${march.join(', ')}. Send them round the edge of a realm; they carry off what its treasuries, cellars, mines and breweries hold. Each realm’s stores fill again every morning.</p>`
-      : `<p class="rl-sh-lead">Open Army to recruit a hero or train troops before attacking.</p>`)
+      : `<p class="rl-sh-lead">Open Army to recruit the Knight Hero or train troops, or build a Dragon Hatchery to hatch the Dragon Hero, before attacking.</p>`)
     + rows(true, army)
     + `<p class="rl-sh-note">Scout a realm to look round it first: where its towers reach, where its walls run, where its gold and ale are kept. You can attack realms up to a level above your Castle.</p>`;
 }

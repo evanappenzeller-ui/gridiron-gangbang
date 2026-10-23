@@ -11,7 +11,9 @@
 // nothing.
 // It loads only on the owner's phone, when a dragon is about to be drawn (a raid with one, a built hatchery, the
 // scenery's first in view: loadDragon), never from the offline cache (sw.js lets it through to the network: the owner's
-// art stays out of the shared cache); a load that fails is tried again a minute on; another profile drops it at once.
+// art stays out of the shared cache); a load that fails is tried again a minute on; another profile, here or in another
+// tab (its storage cleared there too), drops it and every dragon at once; and it's let go a little after the last view
+// that drew one is gone (no view left holding on to it, or to the renderers that drew it).
 // Each dragon is a SkeletonUtils clone (the one geometry, material and textures shared) with its own AnimationMixer; its
 // clips are blended by hand, by weight, at times worked out each frame from the battle's clock (so a replay paused, sped
 // up or jumped along poses them as it plays): fly while it moves, hover while it waits, the attack timed so it rears
@@ -50,7 +52,10 @@ const SPAN = 1.48;          // its wingspan
 const BODY = .3;            // its body's middle above its origin, flying
 const FIRE_AT = .62;        // when the attack's lunge looses fire or bites
 const POSE_EVERY = 8;       // dragons posed a frame at most (more: in turns)
-const MAX_MODELS = 12;      // dragons drawn from the model at once in a battle (a hero always): the rest keep the picture
+// Dragons drawn from the model in a battle (a hero always): an old raid's flock of up to MAX_MODELS (the computer's
+// biggest, the example raids' 24, Oct 22 2026) all from it; a bigger one all keeps the picture (one flock, one look:
+// till Oct 23 2026 the first 12 were the model and the rest the picture, side by side), the heroes still the model.
+const MAX_MODELS = 24;
 // The death (models/keep-dragon.txt): the clip recoils (0-0.6 s) and tips over head first (0.6-1.3 s), then hangs
 // head-down in place (1.3-3.0 s, its head just clear of the ground) till the impact (3.0-3.2 s) and lies (to 3.6 s).
 // Played: the recoil's snap eased (its first RECOIL s of clip over SLOW s, faded in over IN), the rest of it and the
@@ -87,24 +92,58 @@ const reduced = () => typeof matchMedia === 'function' && matchMedia('(prefers-r
 // ---------------------------------------------------------------------------------------------------- the model
 // (a load that failed is tried again a minute on, or as soon as the phone is back online: one bad moment doesn't leave
 // the pictures for the rest of the session)
-let GL = null, LOADING = null, FAILED_AT = 0, EPOCH = 0, LOADS = 0, HOLD = false;
-const RETRY_MS = 60000;
+let GL = null, LOADING = null, FAILED_AT = 0, EPOCH = 0, LOADS = 0, HOLD = false, AWAY = false, LINGER = 0;
+const RETRY_MS = 60000, LINGER_MS = 20000;
 const failed = () => FAILED_AT > 0 && Date.now() - FAILED_AT < RETRY_MS;
 const READY = new Set();
+// Whose phone it is: the owner's (data.isOwner), and not left with no profile by another tab: localStorage.clear()
+// there comes with no key, which core/data.js doesn't hear (it keeps its own copy of gg-me: this tab still reads as
+// his), so the dragon goes all the same, as the Knight model and the attack art do, till he's picked again (here, or
+// gg-me his once more in the storage).
+const mine = () => data.isOwner() && !AWAY;
+// The views drawing dragons (a raid's, the home dragon, the scenery's): each {clear()}, cleared when the phone stops
+// being his; the model let go LINGER_MS after the last of them is gone, unless another comes (each renderer that drew
+// it leaves a listener on its geometry, material and textures, three.js's, kept till they're disposed).
+const VIEWS = new Set();
+function letGo() { EPOCH++; LOADING = null; FAILED_AT = 0; if (GL) { const g = GL; GL = null; drop(g); } }
+function notHis() { letGo(); [...VIEWS].forEach(v => { try { v.clear(); } catch (_) { /* (the rest still cleared) */ } }); }
+function joined(v) { VIEWS.add(v); clearTimeout(LINGER); LINGER = 0; return v; }
+function left(v) {
+  VIEWS.delete(v);
+  if (VIEWS.size || LINGER) return;
+  LINGER = setTimeout(() => { LINGER = 0; if (!VIEWS.size) letGo(); }, LINGER_MS);
+}
 data.subscribe(type => {
-  if (type !== 'me' || data.isOwner()) return;
-  // (another profile: the model let go at once; each view's dragons are cleared by their own listeners)
-  EPOCH++; LOADING = null; FAILED_AT = 0;
-  if (GL) { const g = GL; GL = null; drop(g); }
+  if (type !== 'me') return;
+  if (data.isOwner()) AWAY = false; else notHis();
 });
-if (typeof addEventListener === 'function') addEventListener('online', () => { FAILED_AT = 0; });
+function onStorage(e) {
+  let now = null;
+  try { now = localStorage.getItem('gg-me'); } catch (_) { /* (none to read: not his) */ }
+  // (his in the storage, here and in every tab: back, if a clear had taken the dragon away)
+  if (now === data.OWNER) { AWAY = false; return; }
+  if (e.key !== null && e.key !== 'gg-me') return;
+  if (e.key === null) AWAY = true;
+  notHis();
+}
+if (typeof addEventListener === 'function') {
+  addEventListener('online', () => { FAILED_AT = 0; });
+  addEventListener('storage', onStorage);
+}
+/** For the checks: this tab told of a storage change elsewhere ({key}: null for a clear), as the browser tells it (the
+ *  dragon's own listener alone: the rest of the app isn't stirred). */
+export const _storage = e => onStorage(e);
 const texturesOf = material => [...new Set(Object.keys(material).map(k => material[k]).filter(v => v && v.isTexture))];
 function drop(g) {
   texturesOf(g.material).forEach(t => t.dispose()); g.material.dispose(); g.geometry.dispose();
 }
-/** The model's state, for the checks: {state: 'idle' | 'loading' | 'ready' | 'failed', clips, loads (fetches begun)}. */
-export const dragonState = () => ({state: GL ? 'ready' : LOADING ? 'loading' : failed() ? 'failed' : 'idle', clips: GL ? Object.keys(GL.clips) : [], loads: LOADS});
-export const dragonReady = () => !!GL && !HOLD && data.isOwner();
+/** The model's state, for the checks: {state: 'idle' | 'loading' | 'ready' | 'failed', clips, loads (fetches begun),
+ *  views (drawing dragons now), lettingGo (none left: it goes soon), away (another tab cleared the profile)}. */
+export const dragonState = () => ({state: GL ? 'ready' : LOADING ? 'loading' : failed() ? 'failed' : 'idle', clips: GL ? Object.keys(GL.clips) : [], loads: LOADS,
+  views: VIEWS.size, lettingGo: !!LINGER, away: AWAY});
+export const dragonReady = () => !!GL && !HOLD && mine();
+/** For the checks: the model let go now, as LINGER_MS after the last view would (→ true if it was in). */
+export function _letGo() { const had = !!GL; clearTimeout(LINGER); LINGER = 0; letGo(); return had; }
 /** For the checks and tests: on, every dragon drawn from here on is a picture, as if the model weren't in. */
 export function _holdModel(on) { HOLD = !!on; if (!HOLD && GL) READY.forEach(fn => { try { fn(); } catch (_) {} }); }
 /** fn() each time the model comes in (a view redraws); → stop. */
@@ -113,11 +152,11 @@ export function onDragonReady(fn) { READY.add(fn); return () => READY.delete(fn)
 /** Loads the model (once; on the owner's phone only): resolves true when it's in, false if not (not his phone, or it
  *  couldn't be had: the picture stays). */
 export function loadDragon() {
-  if (!data.isOwner()) return Promise.resolve(false);
+  if (!mine()) return Promise.resolve(false);
   if (GL) return Promise.resolve(true);
   if (LOADING) return LOADING;
   if (failed()) return Promise.resolve(false);
-  const epoch = EPOCH, live = () => epoch === EPOCH && data.isOwner(), again = FAILED_AT > 0;
+  const epoch = EPOCH, live = () => epoch === EPOCH && mine(), again = FAILED_AT > 0;
   const task = (async () => {
     try {
       const got = await readModel(MODEL_URL, live);
@@ -140,7 +179,7 @@ export function loadDragon() {
 }
 /** The model read from url and made ready to clone ({T, SK, scene, mesh, geometry, material, clips}), or null (not the
  *  owner's phone, or it went while it loaded). Throws if it can't be read or isn't the dragon. */
-async function readModel(url, live = () => data.isOwner()) {
+async function readModel(url, live = mine) {
   if (!live()) return null;
   const [T, {GLTFLoader}, SK] = await Promise.all([import(V + 'three.module.min.js'), import(V + 'GLTFLoader.js'), import(V + 'SkeletonUtils.js')]);
   if (!live()) return null;
@@ -195,13 +234,15 @@ function pose(A, base, fly, over = null) {
   A.mixer.update(0);
 }
 /** Gets a renderer ready for the model before its first dragon shows (its textures sent to the GPU and its shader
- *  built off the page's thread where the phone can: one view's first dragon, its hero, no longer holds the screen
- *  still). A the actor whose look (material) is to be ready, in scene's light. */
+ *  handed to the driver, which builds it off the page's thread where the phone can (KHR_parallel_shader_compile): one
+ *  view's first dragon, its hero, no longer holds the screen still). A the actor whose look (material) is to be ready,
+ *  in scene's light. (compile, not compileAsync: that one asks the driver on a timer of its own whether it's done, and
+ *  threw when the view, its renderer, had gone meanwhile, Oct 23 2026; nothing's left waiting here.) */
 function prepareRenderer(renderer, camera, scene, A) {
   if (!renderer || !A) return;
   try {
     texturesOf(A.mesh.material).forEach(t => renderer.initTexture(t));
-    if (typeof renderer.compileAsync === 'function' && camera) renderer.compileAsync(A.root, camera, scene).catch(() => {});
+    if (camera && typeof renderer.compile === 'function') renderer.compile(A.root, camera, scene);
   } catch (_) { /* (it's drawn regardless: only its first frame is slower) */ }
 }
 const idle = fn => (typeof requestIdleCallback === 'function' ? requestIdleCallback(fn, {timeout: 1000}) : setTimeout(fn, 50));
@@ -219,17 +260,20 @@ function blobTexture(T) {
   return new T.CanvasTexture(cv);
 }
 // The hero's marks, as the Knight Hero has them (views/realm-npcs.js createNPC): a ring on the ground (gold, or green
-// defending) and his name and level over him.
-function heroBadge(T, text) {
+// defending) and his name and level over him, its plate in the same colours (green: his realm's own, defending it; two
+// Dragon Heroes in one raid, his and the computer's, told apart by the plate when a building hides the ring), drawn
+// over everything (a name, like the health bars: never behind a wing or a tower). A fallen hero's go at once.
+export const BADGE_ON_TOP = 20000;
+function heroBadge(T, text, def = false) {
   const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 64;
   const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#352524'; ctx.fillRect(0, 4, 256, 52);
-  ctx.strokeStyle = '#F5CD67'; ctx.lineWidth = 3; ctx.strokeRect(2, 6, 252, 48);
+  ctx.fillStyle = def ? '#1F3129' : '#352524'; ctx.fillRect(0, 4, 256, 52);
+  ctx.strokeStyle = def ? '#88D6AD' : '#F5CD67'; ctx.lineWidth = 3; ctx.strokeRect(2, 6, 252, 48);
   ctx.fillStyle = '#FFF3D8'; ctx.font = '700 27px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText(text, 128, 31);
   const texture = new T.CanvasTexture(canvas); texture.colorSpace = T.SRGBColorSpace;
-  const badge = new T.Sprite(new T.SpriteMaterial({map: texture, transparent: true, depthWrite: false, toneMapped: false, fog: false}));
-  badge.scale.set(1.86, .47, 1); badge.renderOrder = 5; badge.raycast = () => {};
+  const badge = new T.Sprite(new T.SpriteMaterial({map: texture, transparent: true, depthTest: false, depthWrite: false, toneMapped: false, fog: false}));
+  badge.scale.set(1.86, .47, 1); badge.renderOrder = BADGE_ON_TOP; badge.raycast = () => {};
   return badge;
 }
 const levelOf = u => (Number.isInteger(u.level) && u.level > 0 ? u.level : Number.isInteger(u.l) && u.l > 0 ? u.l : 0);
@@ -243,7 +287,8 @@ const levelOf = u => (Number.isInteger(u.level) && u.level > 0 ? u.level : Numbe
  * where its fire leaves (world), or null; falling(id) → true for a dragon drawn falling (it lands with its own dust).
  * warm(renderer, camera, n): the renderer readied and n dragons made before the first is wanted. reset() for a battle
  * drawn from its start again; dispose() with the raid. opts.onLand(x, y): a dragon that fell hit the ground there.
- * opts.source: where the model comes from (the checks').
+ * opts.source: where the model comes from (the checks'). counts.flock: the battle's trained dragons (all pictures when
+ * more than MAX_MODELS).
  */
 export function createBattleDragons(T, scene, opts = {}) {
   const source = opts.source || {get gl() { return dragonReady() ? GL : null; }};
@@ -254,9 +299,9 @@ export function createBattleDragons(T, scene, opts = {}) {
   const ringGeo = new T.RingGeometry(.84, 1, 48).rotateX(-Math.PI / 2);
   const ringMats = [0xF5CD67, 0x88D6AD].map(color => new T.MeshBasicMaterial({color, transparent: true, opacity: .72, depthWrite: false, toneMapped: false, fog: false}));
   const v = new T.Vector3(), fwd = new T.Vector3();
-  let lastT = -1, lastNow = -1, flapT = 0, disposed = false, tick = 0, inUse = 0, warmed = null;
-  const counts = {models: 0, pictures: 0, heroes: 0};
-  const off = data.subscribe(type => { if (type === 'me' && !data.isOwner()) { clear(); pool.forEach(releaseActor); pool.length = 0; } });
+  let lastT = -1, lastNow = -1, flapT = 0, disposed = false, tick = 0, inUse = 0, warmed = null, flock = 0;
+  const counts = {models: 0, pictures: 0, heroes: 0, flock: 0};
+  const view = joined({clear() { clear(); pool.forEach(releaseActor); pool.length = 0; }});
 
   function make(u, def) {
     const n = Number(String(u.id).replace(/\D/g, '')) || 0;
@@ -266,16 +311,16 @@ export function createBattleDragons(T, scene, opts = {}) {
     if (u.t === 'hero_dragon') {
       a.level = levelOf(u);
       a.ring = new T.Mesh(ringGeo, ringMats[def ? 1 : 0]); a.ring.renderOrder = 2; a.ring.raycast = () => {};
-      a.badge = heroBadge(T, a.level ? `DRAGON  ${a.level}` : 'DRAGON');
+      a.badge = heroBadge(T, a.level ? `DRAGON  ${a.level}` : 'DRAGON', def);
       group.add(a.ring, a.badge);
     }
     return a;
   }
   function body(a) {
     if (a.body || a.capped || !source.gl) return a.body;
-    // (a sky full of them, the computer's biggest old raids: the first MAX_MODELS from the model, a hero always; the
-    // rest keep the picture for good, none switching from one to the other mid-flight)
-    if (!a.ring && inUse >= MAX_MODELS) { a.capped = true; return null; }
+    // (a sky full of them: a flock bigger than MAX_MODELS all the picture, a hero the model always; none switching from
+    // one to the other mid-flight)
+    if (!a.ring && (flock > MAX_MODELS || inUse >= MAX_MODELS)) { a.capped = true; return null; }
     a.body = pool.pop() || makeActor(source.gl);
     inUse++;
     a.blob = a.blob || new T.Mesh(blobGeo, blobMat);
@@ -294,14 +339,14 @@ export function createBattleDragons(T, scene, opts = {}) {
   /** The renderer readied for the model, and n dragons made at idle, one at a time (the first one now). */
   function warm(renderer, camera, n = 2) {
     const G = source.gl;
-    if (disposed || !G || !data.isOwner()) return;
+    if (disposed || !G || !mine()) return;
     if (warmed !== G) {
       warmed = G;
       if (!pool.length) pool.push(makeActor(G));
       pose(pool[0], 0, 0);
       prepareRenderer(renderer, camera, scene, pool[0]);
     }
-    const more = () => { if (!disposed && source.gl === G && data.isOwner() && pool.length + inUse < n) { pool.push(makeActor(G)); idle(more); } };
+    const more = () => { if (!disposed && source.gl === G && mine() && pool.length + inUse < n) { pool.push(makeActor(G)); idle(more); } };
     idle(more);
   }
 
@@ -349,7 +394,9 @@ export function createBattleDragons(T, scene, opts = {}) {
     const crowd = counts.models; tick++;
     drawn.clear(); seen.clear();
     counts.models = counts.pictures = counts.heroes = 0;
-    if (disposed || !data.isOwner() || !B) { if (actors.size) clear(); return; }
+    if (disposed || !mine() || !B) { if (actors.size) clear(); return; }
+    // (the battle's trained dragons, all it has: sent in and still to come)
+    flock = counts.flock = ((B.used && B.used.dragon) || 0) + ((B.left && B.left.dragon) || 0);
     if (t < lastT - .05) clear(); // (the battle from its start again)
     const dt = lastT < 0 ? 0 : clamp(t - lastT, 0, .25);
     const rdt = Number.isFinite(now) && lastNow >= 0 ? clamp((now - lastNow) / 1000, 0, .25) : dt;
@@ -452,6 +499,8 @@ export function createBattleDragons(T, scene, opts = {}) {
   }
   function marks(a, x, z, top, k) {
     if (!a.ring) return;
+    // (fallen: his ring and badge gone at once, as the Knight Hero's go; he drops and lies without them)
+    if (a.u.dead) { a.ring.removeFromParent(); if (a.badge) a.badge.removeFromParent(); return; }
     counts.heroes++;
     a.ring.position.set(x, .028, z); a.ring.scale.setScalar(1.05 * k);
     if (!a.ring.parent) group.add(a.ring);
@@ -475,18 +524,22 @@ export function createBattleDragons(T, scene, opts = {}) {
   }
   function dispose() {
     if (disposed) return;
-    disposed = true; off(); clear();
+    disposed = true; clear();
     pool.forEach(releaseActor); pool.length = 0;
     group.removeFromParent();
     blobGeo.dispose(); blobMat.dispose(); blobTex.dispose(); ringGeo.dispose(); ringMats.forEach(m => m.dispose());
+    left(view);
   }
   return {update, drawn, mouth, modelled, falling, warm, reset, dispose, counts, group, actors, get pooled() { return pool.length; }};
 }
 
 // ---------------------------------------------------------------------------------------------------- at home
 // The Dragon Hero over his hatchery: hovering just above its roof (the hover clip, a lazy wingbeat), looking about, and
-// every forty seconds or so a slow circle out over the village and back. As wide as the hatchery, bigger with each of
-// his levels (its levels: 1 the smallest, 10 about a third bigger); a soft shadow under it. A flyer over a village of
+// every forty seconds or so a slow circle out over the village and back. As wide as the hatchery, growing as it does
+// (its picture goes from a nest of one egg at level 1 to a domed palace at 10: he's 1.6 times as big there, and rests
+// higher, over its dome and against the grass beyond, not in front of it, dark on dark, as he was till Oct 23 2026); a
+// little light of his own on him at home; his soft shadow on the grass only as he circles (resting, the hatchery's
+// picture under him would cover it). A flyer over a village of
 // pictures: drawn after them, over them (no picture covers it, not the hatchery's, not a taller neighbour's in front,
 // the Castle's), its own parts in their order; a little nearer the camera than it is (bias: its place and size on the
 // screen kept, as the folk are). Nothing while the model isn't in. With the camera pulled out past grow0 it grows (to
@@ -494,7 +547,8 @@ export function createBattleDragons(T, scene, opts = {}) {
 // it's a dragon, not a speck. It's drawn about 30 times a second at most (views/realm-3d.js), not at the screen's every
 // refresh: the quiet village stays quiet.
 // opts.renderer, opts.camera: readied for it before it first shows.
-const HOME = Object.freeze({scale: 4.2 / SPAN, alt: 3.2, circle: 3.8, every: 40, loop: 11, bias: 3, grow0: 100, grow1: 210, grow: .55, order: 9000});
+// (up: how much higher he rests at each level, over the roof of that level's picture; size0 + size a level: his size)
+const HOME = Object.freeze({scale: 4.2 / SPAN, alt: 3.2, up: Object.freeze([0, .15, .35, .55, .7, .9, 1.1, 1.45, 1.9, 2.4]), size0: .9, size: .07, circle: 3.8, every: 40, loop: 11, bias: 3, grow0: 100, grow1: 210, grow: .55, order: 9000});
 export function createHomeDragon(T, scene, opts = {}) {
   const group = new T.Group(); group.name = 'keep-home-dragon'; group.visible = false; scene.add(group);
   const blobTex = blobTexture(T), blob = new T.Mesh(new T.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new T.MeshBasicMaterial({map: blobTex, transparent: true, depthWrite: false, toneMapped: false, fog: false, opacity: .8}));
@@ -503,7 +557,7 @@ export function createHomeDragon(T, scene, opts = {}) {
   let A = null, mat = null, nest = null, level = 0, disposed = false, yaw = Math.PI / 4;
   const counts = {level: 0, model: false, visible: false, circling: false};
   const p = new T.Vector3(), cam = new T.Vector3(), ndc = new T.Vector3();
-  const off = data.subscribe(type => { if (type === 'me' && !data.isOwner()) clear(); });
+  const view = joined({clear: () => clear()});
   function clear() {
     if (A) { releaseActor(A); A = null; }
     if (mat) { mat.dispose(); mat = null; }
@@ -516,7 +570,8 @@ export function createHomeDragon(T, scene, opts = {}) {
     // (its own copy of the material, the raid's warm hide with a little more of the room's light on it: the village's
     // sun is softer than a raid's, and its stone grey would swallow the dragon's own colours)
     A = makeActor(GL); group.add(A.root); counts.model = true;
-    mat = GL.material.clone(); mat.envMapIntensity = .75; A.mesh.material = mat;
+    mat = GL.material.clone(); mat.envMapIntensity = .95; A.mesh.material = mat;
+    if (mat.emissive) { mat.emissive.setRGB(.16, .1, .06); mat.emissiveIntensity = 1; }
     // (drawn after the village's pictures, with the depth they left cleared: over them all, its own parts in order)
     mat.transparent = true; mat.depthWrite = true; A.mesh.renderOrder = HOME.order;
     A.mesh.onBeforeRender = renderer => { renderer.state.buffers.depth.setMask(true); renderer.clearDepth(); };
@@ -525,23 +580,23 @@ export function createHomeDragon(T, scene, opts = {}) {
   }
   /** The village as it stands (its Dragon Hero: its hatchery). */
   function setLot(s) {
-    if (disposed || !data.isOwner()) { clear(); return; }
+    if (disposed || !mine()) { clear(); return; }
     level = homeDragonLevel(s); nest = level ? homeDragonNest(s) : null;
     counts.level = nest ? level : 0;
     if (!nest) { if (A) { releaseActor(A); A = null; } if (mat) { mat.dispose(); mat = null; } group.visible = false; counts.model = counts.visible = false; return; }
-    loadDragon().then(ok => { if (ok && data.isOwner()) prepare(); });
+    loadDragon().then(ok => { if (ok && !disposed && mine()) prepare(); });
   }
   /** One frame (seconds: the page's clock): true while it's on the screen moving (another frame wanted). */
   function update(seconds, {zoom = 40, active = true, placement = false, camera = null} = {}) {
     if (disposed) return false;
-    if (!data.isOwner()) { clear(); return false; }
+    if (!mine()) { clear(); return false; }
     if (!nest || !active || placement || zoom > 230 || !dragonReady()) { group.visible = counts.visible = false; return false; }
     if (!A) prepare();
-    const still = reduced(), k0 = HOME.scale * (.9 + .035 * (clamp(level, 1, 10) - 1));
+    const L = clamp(level, 1, 10) - 1, still = reduced(), k0 = HOME.scale * (HOME.size0 + HOME.size * L);
     const k = k0 * (1 + HOME.grow * smooth((zoom - HOME.grow0) / (HOME.grow1 - HOME.grow0)));
     // hovering where it rests, drifting a little; now and then a lazy circle out to one side and back
     const drift = still ? 0 : 1, hx = nest.x + Math.sin(seconds * .31) * .25 * drift, hy = nest.y + Math.cos(seconds * .23) * .2 * drift;
-    let x = hx, y = hy, alt = HOME.alt + (k - k0) * .6 + (still ? 0 : Math.sin(seconds * 1.1) * .14), fly = 0, bank = 0;
+    let x = hx, y = hy, alt = HOME.alt + HOME.up[L] + (k - k0) * .6 + (still ? 0 : Math.sin(seconds * 1.1) * .14), fly = 0, bank = 0;
     let face = Math.PI / 4 + (still ? 0 : Math.sin(seconds * .17) * .6);
     const c = still ? 0 : (seconds + nest.i * 7.3) % HOME.every, u = (c - (HOME.every - HOME.loop)) / HOME.loop;
     counts.circling = u > 0 && u < 1;
@@ -569,13 +624,15 @@ export function createHomeDragon(T, scene, opts = {}) {
     A.root.position.copy(p); A.root.rotation.set(0, yaw, bank); A.root.scale.setScalar(s);
     const up = clamp(alt / 5);
     blob.position.set(W(x), .02, W(y)); blob.scale.set(k * SPAN * .6 * (1 - .3 * up), 1, k * .78 * (1 - .3 * up));
+    blob.material.opacity = .8 * fly; blob.visible = fly > .02;
     group.visible = true;
     return counts.visible && !still;
   }
   function dispose() {
     if (disposed) return;
-    disposed = true; off(); clear();
+    disposed = true; clear();
     group.removeFromParent(); blob.geometry.dispose(); blob.material.dispose(); blobTex.dispose();
+    left(view);
   }
   return {setLot, update, dispose, counts, group, get animated() { return !!A && !!nest && group.visible && !reduced(); }};
 }
@@ -590,12 +647,12 @@ export function createHomeDragon(T, scene, opts = {}) {
 export function createSceneryDragons(T, parent, n) {
   const items = [];
   let mat = null, dead = false;
-  const off = data.subscribe(type => { if (type === 'me' && !data.isOwner()) clear(); });
+  const view = joined({clear: () => clear()});
   function clear() { items.forEach(releaseActor); items.length = 0; if (mat) { mat.dispose(); mat = null; } }
   function ensure() {
     if (dead) return false;
     // (wanted the first time they're in view: the model fetched then, the silhouettes meanwhile)
-    if (!dragonReady()) { if (!GL && !HOLD && data.isOwner()) loadDragon(); return false; }
+    if (!dragonReady()) { if (!GL && !HOLD && mine()) loadDragon(); return false; }
     if (items.length) return true;
     mat = GL.material.clone(); mat.transparent = true; mat.fog = false; mat.opacity = 0; mat.color.set(0xFFFFFF); mat.envMapIntensity = .45;
     for (let i = 0; i < n; i++) { const A = makeActor(GL); A.mesh.material = mat; A.root.visible = false; parent.add(A.root); items.push(A); }
@@ -618,6 +675,6 @@ export function createSceneryDragons(T, parent, n) {
     },
     hide(i) { if (items[i]) items[i].root.visible = false; },
     opacity(f) { if (mat) mat.opacity = f; },
-    dispose() { if (dead) return; dead = true; off(); clear(); }
+    dispose() { if (dead) return; dead = true; clear(); left(view); }
   };
 }

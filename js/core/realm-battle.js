@@ -42,8 +42,23 @@ Heap.prototype.pop = function () {
   return top;
 };
 
-/** The distance from (x, y) to a building's footprint (0 inside it). */
-const distTo = (b, x, y) => Math.hypot(Math.max(b.x - x, 0, x - (b.x + b.size)), Math.max(b.y - y, 0, y - (b.y + b.size)));
+/** The distance from (x, y) to a building's footprint (0 inside it). (Math.hypot only when it's off a corner: beside a
+ *  side, hypot(d, 0) is d to the last bit, so the shortcut changes nothing; hypot is slow, and the way-finding asks
+ *  this hundreds of thousands of times a raid.) */
+const distTo = (b, x, y) => {
+  const dx = Math.max(b.x - x, 0, x - (b.x + b.size)), dy = Math.max(b.y - y, 0, y - (b.y + b.size));
+  return dx === 0 ? dy : dy === 0 ? dx : Math.hypot(dx, dy);
+};
+// The way-finding's scratch (path, in makeBattle), shared by every battle (a search runs through without a break, so two
+// never use it at once): the cost so far and where from, good while its stamp is this search's (no clearing a
+// lot-sized grid three times a search: most searches end in a few tiles); a tile's done when its other stamp is.
+const WAY = {g: null, from: null, at: null, done: null, n: 0, heap: new Heap()};
+const way = size => {
+  if (!WAY.g || WAY.g.length !== size) Object.assign(WAY, {g: new Float32Array(size), from: new Int32Array(size), at: new Uint32Array(size), done: new Uint32Array(size), n: 0});
+  if (++WAY.n >= 0xffffffff) { WAY.at.fill(0); WAY.done.fill(0); WAY.n = 1; }
+  WAY.heap.k.length = 0; WAY.heap.v.length = 0;
+  return WAY;
+};
 
 /**
  * A raid on base (a realm state: its buildings), with loot {by: {buildingId: {gold, grain}}}, by an army
@@ -135,20 +150,32 @@ export function makeBattle(base, loot, army, options = {}) {
   };
   // ---- finding the way: tile to tile (diagonals too), round buildings, through walls at the time it takes to break
   // them, to any tile from which the target is in reach
+  // (a search that found no way, from that tile to that building (or to a hero where he stands) for a soldier of that
+  // kind, finds none again till a building falls — what can be walked through is all it depends on, when it went
+  // everywhere it could — or, when it gave up first, till a wall is hit as well (the cost of breaking through), so it
+  // isn't made again meanwhile: a soldier with no way to his target stands and asks every step, and on a full lot that
+  // was most of a raid's work. Oct 23 2026, with the scratch below and distTo's shortcut: every battle plays exactly as
+  // it did, step for step, a few times quicker on a full lot)
+  let falls = 0, ways = 0;
+  const noWay = new Map();
   const path = (u, tg) => {
     const T = combatStats(u), reach = T.range + REACH - .05, dps = T.dps || 30;
     const sx = Math.max(0, Math.min(N - 1, Math.floor(u.x))), sy = Math.max(0, Math.min(N - 1, Math.floor(u.y)));
-    const g = new Float32Array(N * N).fill(Infinity), from = new Int32Array(N * N).fill(-1), closed = new Uint8Array(N * N);
-    const tgIdx = B.bl.indexOf(tg);
+    // (in reach where he stands: the search would end on its first tile, with no way to go)
+    if (targetDistance(tg, sx + .5, sy + .5) <= reach) return [];
+    const tgIdx = B.bl.indexOf(tg), key = `${sx},${sy},${tg.targetHero ? `h${tg.id}@${tg.x},${tg.y}` : tgIdx},${reach},${dps},${T.speed},${u.targetHero ? 1 : 0}`;
+    const was = noWay.get(key);
+    if (was && (was[2] ? was[0] === falls : was[1] === ways)) return [];
+    const W = way(N * N), g = W.g, from = W.from, at = W.at, done = W.done, now = W.n;
     const H = (x, y) => Math.max(0, targetDistance(tg, x + .5, y + .5) - reach);
-    const heap = new Heap(), s = sy * N + sx;
-    g[s] = 0;
+    const heap = W.heap, s = sy * N + sx;
+    g[s] = 0; at[s] = now;
     heap.push(H(sx, sy), s);
     let goal = -1, guard = 0;
     while (heap.k.length && guard++ < 6000) {
       const c = heap.pop();
-      if (closed[c]) continue;
-      closed[c] = 1;
+      if (done[c] === now) continue;
+      done[c] = now;
       const cx = c % N, cy = (c / N) | 0;
       if (targetDistance(tg, cx + .5, cy + .5) <= reach) { goal = c; break; }
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
@@ -168,10 +195,10 @@ export function makeBattle(base, loot, army, options = {}) {
           if ((a >= 0 && !B.bl[a].dead && (!B.bl[a].wall || u.targetHero) && a !== tgIdx) || (b2 >= 0 && !B.bl[b2].dead && (!B.bl[b2].wall || u.targetHero) && b2 !== tgIdx)) continue;
         }
         const ng = g[c] + cost;
-        if (ng < g[n]) { g[n] = ng; from[n] = c; heap.push(ng + H(X, Y), n); }
+        if (at[n] !== now || ng < g[n]) { g[n] = ng; at[n] = now; from[n] = c; heap.push(ng + H(X, Y), n); }
       }
     }
-    if (goal < 0) return [];
+    if (goal < 0) { noWay.set(key, [falls, ways, !heap.k.length]); return []; }
     const out = [];
     for (let c = goal; c !== s && c >= 0; c = from[c]) out.push(c);
     return out.reverse();
@@ -195,9 +222,10 @@ export function makeBattle(base, loot, army, options = {}) {
     if (b.dead || d <= 0) return;
     if (b.targetHero) { hurtTroop(b, d); return; }
     b.hp -= d;
+    if (b.wall) ways++;
     takeLoot(b, d);
     if (b.hp <= 0) {
-      b.hp = 0; b.dead = true;
+      b.hp = 0; b.dead = true; ways++; falls++;
       if (b.loot) { b.hp = 0; takeLoot(b, 0); }
       B.fx.push({k: 'boom', t: B.t, x: b.cx, y: b.cy, i: b.i, wall: b.wall, size: b.size});
     }
@@ -533,15 +561,17 @@ export function defend(s, now = Date.now()) {
 const EX_WANT = [0, 1, 3];
 /** The armies the examples try, weakest first, for a Castle of level th: [{army, heroes}] (raidSteps'). From Oct 22 2026
  *  no trained dragons (the top rungs had 1, 3, 6, 12 and 24): more knights and archers in their place, led by the
- *  computer's Dragon Hero (at the level a hatchery reaches a Castle above his, rising to the top). (Without a flock of
- *  dragons, a well-built Castle 6–8 can hold out against all of them: then the third example is the nearest found.) */
+ *  computer's Dragon Hero (at the level a hatchery reaches a Castle above his, rising to the top). Without a flock of
+ *  dragons a full Castle 7 or 8 lot, his Knight and Dragon Hero at 10 defending it, held out against 190 troops, so the
+ *  ladder goes on to two hosts the size of a siege (300 and 430 troops) that break through it from most sides. */
 function exLadder(th) {
   const dl = Math.max(1, topLevel('hatchery', Math.min(BOTS.length, th + 1))), up = l => ({dragon: Math.max(1, Math.min(10, l))});
   const raid = t => ({army: raidArmy(t), heroes: raidHeroes(t)});
   return [{army: {footman: 2}}, {army: {footman: 4}}, {army: {footman: 6, archer: 3}}, raid(Math.max(1, th - 1)), raid(th), raid(th + 1),
     {army: {footman: 20, archer: 15, knight: 4}}, {army: {footman: 25, archer: 22, knight: 7}, heroes: up(dl)}, {army: {footman: 30, archer: 30, knight: 10}, heroes: up(dl)},
     {army: {footman: 35, archer: 45, knight: 16}, heroes: up(dl + 2)}, {army: {footman: 40, archer: 70, knight: 26}, heroes: up(dl + 4)},
-    {army: {footman: 50, archer: 100, knight: 40}, heroes: up(10)}];
+    {army: {footman: 50, archer: 100, knight: 40}, heroes: up(10)}, {army: {footman: 80, archer: 160, knight: 60}, heroes: up(10)},
+    {army: {footman: 100, archer: 250, knight: 80}, heroes: up(10)}];
 }
 /** A battle called off on the step it first had k stars (raidSteps' B.ms): what a record and its replay read of it, as
  *  if it had ended there (its drops till then). null when it never had k on a step of its own. */
@@ -559,7 +589,7 @@ function* exampleSearch(s, now) {
   // (an army from a side, played out once: the same battle isn't played twice; st -1: nowhere to send it)
   function* play(j, side) {
     const key = `${j}:${side}`;
-    if (!seen.has(key)) { const B = yield* raidSteps(s, now, ladder[j].army, side, ladder[j].heroes || {}); seen.set(key, {j, side, B, st: B.drops.length ? B.stars() : -1}); }
+    if (!seen.has(key)) { const B = yield* raidSteps(s, now, ladder[j].army, side, ladder[j].heroes || {}); seen.set(key, {j, side, B, st: B.drops.length ? B.stars() : -1, pc: B.pct()}); }
     return seen.get(key);
   }
   // (the smallest army up to hi, each from a side of its own, that takes k stars or more; hi + 1 when none does)
@@ -581,14 +611,17 @@ function* exampleSearch(s, now) {
   pick[1] = all().filter(x => x.st === 1).sort((a, b) => a.j - b.j || a.side - b.side)[0] || null;
   if (!pick[1]) {
     const over = all().filter(x => x.st > 1 && x.B.ms[1]).sort((a, b) => a.j - b.j || a.side - b.side)[0];
-    if (over) pick[1] = {j: over.j, side: over.side, B: cutAt(over.B, 1), st: 1};
+    if (over) pick[1] = {j: over.j, side: over.side, B: cutAt(over.B, 1), st: 1, pc: over.B.ms[1].pct};
   }
   const shown = new Set(), recs = [], hold = {};
   EX_WANT.forEach((want, n) => {
     // (else the nearest found that isn't already one of them, one that did more before one that did less: on a lot where
     // the Castle falls with half of it, the first star comes with the second, and a raid that took two shows more than
-    // another driven off)
-    const got = pick[want] || all().filter(x => x.st >= 0 && !shown.has(x)).sort((a, b) => Math.abs(a.st - want) - Math.abs(b.st - want) || b.st - a.st || a.j - b.j)[0];
+    // another driven off; of those as near, for a star or the sacking the one that went furthest (most knocked down, then
+    // the bigger army: Oct 23 2026, it was the smallest, and a full lot's examples were three raids driven off, one of
+    // them 5%), for the one driven off the one that did least)
+    const got = pick[want] || all().filter(x => x.st >= 0 && !shown.has(x)).sort((a, b) => Math.abs(a.st - want) - Math.abs(b.st - want) || b.st - a.st
+      || (want ? b.pc - a.pc || b.j - a.j : a.pc - b.pc || a.j - b.j))[0];
     if (!got) return;
     shown.add(got);
     // (the raiders: a realm below his for the one driven off, his own level's for the star, above his for the sacking)

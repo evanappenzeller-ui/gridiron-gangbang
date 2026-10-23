@@ -3,7 +3,7 @@
 import * as data from '../core/data.js';
 import {KINDS, N, keepOf, heroLevel} from '../core/realm.js';
 import {attachKnightModel} from './realm-knight-model.js';
-import {isDragonKind} from './realm-dragon.js';
+import {isDragonKind, BADGE_ON_TOP} from './realm-dragon.js';
 
 const reduced = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const W = x => x - N / 2;
@@ -79,8 +79,10 @@ function sculpt(T, pieces, material) {
   return mesh;
 }
 
-/** A hero is visibly larger than a soldier, with a named level badge and colored base. */
-export function createNPC(T, kind, {level = 1, house = {}, defending = false, onChange} = {}) {
+/** A hero is visibly larger than a soldier, with a named level badge and colored base (green defending, the badge's
+ *  plate too). onTop: the badge drawn over everything (in a raid, as the Dragon Hero's is, views/realm-dragon.js: his
+ *  name never hidden behind a dragon's wing or a tower; Oct 23 2026). */
+export function createNPC(T, kind, {level = 1, house = {}, defending = false, onChange, onTop = false} = {}) {
   if (!data.isOwner()) return null;
   // (the Dragon Hero isn't one of these: he's drawn as the dragon, his ring and badge with him, views/realm-dragon.js)
   if (kind === 'dragon') return null;
@@ -148,13 +150,14 @@ export function createNPC(T, kind, {level = 1, house = {}, defending = false, on
   if (hero) {
     const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 64;
     const ctx = canvas.getContext('2d');
-    ctx.fillStyle = wizard ? '#302040' : '#352524'; ctx.fillRect(0, 4, 256, 52);
-    ctx.strokeStyle = wizard ? '#9DCFFF' : '#F5CD67'; ctx.lineWidth = 3; ctx.strokeRect(2, 6, 252, 48);
+    ctx.fillStyle = wizard ? '#302040' : defending ? '#1F3129' : '#352524'; ctx.fillRect(0, 4, 256, 52);
+    ctx.strokeStyle = wizard ? '#9DCFFF' : defending ? '#88D6AD' : '#F5CD67'; ctx.lineWidth = 3; ctx.strokeRect(2, 6, 252, 48);
     ctx.fillStyle = '#FFF3D8'; ctx.font = '700 27px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(`${wizard ? 'WIZARD' : 'KNIGHT'}  ${level}`, 128, 31);
     const texture = new T.CanvasTexture(canvas); texture.colorSpace = T.SRGBColorSpace;
-    const badge = new T.Sprite(new T.SpriteMaterial({map: texture, transparent: true, depthWrite: false, toneMapped: false}));
+    const badge = new T.Sprite(new T.SpriteMaterial({map: texture, transparent: true, depthWrite: false, toneMapped: false, ...(onTop ? {depthTest: false} : {})}));
     badge.position.y = wizard ? 1.85 : 1.65; badge.scale.set(1.55, .39, 1); root.add(badge);
+    badge.name = 'hero-badge'; if (onTop) badge.renderOrder = BADGE_ON_TOP;
   }
   root.scale.setScalar(hero ? 1.2 : 1);
   const knightModel = kind === 'knight' ? attachKnightModel(T, rig, {onChange}) : null;
@@ -270,7 +273,7 @@ export function createBattleHeroes(T, scene, {house, onChange} = {}) {
         if (!u.hero || u.dead || isDragonKind(u.t)) continue;
         const defending = !!u.targetHero, key = `${defending ? 'd' : 'a'}:${u.id}`; seen.add(key);
         let model = models.get(key);
-        if (!model) { model = createNPC(T, u.hero, {level: u.level || u.l || 1, house, defending, onChange}); if (!model) continue; models.set(key, model); scene.add(model.root); }
+        if (!model) { model = createNPC(T, u.hero, {level: u.level || u.l || 1, house, defending, onChange, onTop: true}); if (!model) continue; models.set(key, model); scene.add(model.root); }
         const c = positions.get(key) || u, p = previous.get(key) || c;
         const x = p.x + (c.x - p.x) * blend, y = p.y + (c.y - p.y) * blend;
         const moving = Math.hypot(c.x - p.x, c.y - p.y) > .001;

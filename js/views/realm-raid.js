@@ -173,7 +173,7 @@ export default {
       if (T.why) { msg.hidden = false; msg.textContent = T.why; return; }
       const s = F.mine(), army = Object.assign({}, s.ar);
       st.heroLevels = F.heroLevels(s);
-      if (!F.roomOf(army) && !Object.keys(F.heroArmy(s)).length) { msg.hidden = false; msg.textContent = 'Recruit a hero or train troops first (Army, in your realm).'; return; }
+      if (!F.roomOf(army) && !Object.keys(F.heroArmy(s)).length) { msg.hidden = false; msg.textContent = 'Recruit the Knight Hero, hatch the Dragon Hero (build a Dragon Hatchery) or train troops first (Army, in your realm).'; return; }
       msg.hidden = true;
       st.T = T;
       st.B = makeBattle(T.base, T.loot, army, {heroes: st.heroLevels});

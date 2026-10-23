@@ -54,7 +54,7 @@ export async function realmChecks(check) {
     return {pass: ok, detail: `this phone the owner’s: ${owner}; mayPlay ${F.mayPlay()}; tab ${tab}; screens ${screens}; ${all.length ? 'reads LB.all: ' + all.join(', ') : 'LB.raw only'}; save guarded ${guard}, refused here: ${refused}; only his docs ${mineOnly}; attackable ${tg.map(x => x.k).join(',')}`};
   });
 
-  check('Keepfall: scouting (views/realm-scout.js, #/realm/scout/<realm>): each of the computer’s realms can be looked round before it’s attacked, the same lot and take the attack meets, its defenses counted, a building’s card saying what it does and holds, a defense’s reach drawn round it; looking changes nothing', async () => {
+  check('Keepfall: scouting (views/realm-scout.js, #/realm/scout/<realm>): each of the computer’s realms can be looked round before it’s attacked, the same lot and take the attack meets, its defenses counted, a building’s card saying what it does and holds (a Dragon Hatchery there has no Dragon Hero defending it, nor a keeper: Oct 23 2026), a defense’s reach drawn round it; looking changes nothing', async () => {
     const [app, view, scout] = await Promise.all([import('../app.js'), import('../views/realm.js'), import('../views/realm-scout.js')]);
     const r = app.__dev.parseRoute('/realm/scout/bot%3A4'), routed = !data.DATA || !data.isOwner() ? true : !!r && r.view === 'realm-scout' && r.open === 'cover';
     // (a realm at the top Castle: every one of theirs in reach, Castle 4's rule aside: its own check)
@@ -67,10 +67,16 @@ export async function realmChecks(check) {
     const R4 = all[3].R, def = scout.defensesOf(R4.base), counted = def.reduce((a, d) => a + d.n, 0) === R4.base.b.filter(b => F.KINDS[b.t].role === 'def' || b.t === 'wall').length && def.length > 0;
     const cannon = R4.base.b.find(b => b.t === 'cannon'), facts = cannon ? view.factsOf(cannon).join(' · ') : '';
     const card = new RegExp(`reach ${F.KINDS.cannon.range}`).test(facts) && /strength/.test(facts);
+    // (a computer's hatchery: no Dragon Hero defends it (it has none: heroLevels of its lot is {}), no keeper; his own
+    // hatchery's card line says his Dragon Hero's level and numbers)
+    const nests = all.map(({R}) => R.base.b.find(b => b.t === 'hatchery')).filter(Boolean), nestFacts = nests.map(b => view.factsOf(b).join(' · '));
+    const own = view.factsOf({t: 'hatchery', l: 3, x: 0, y: 0, i: 1}, {own: true}).join(' · ');
+    const hatch = nests.length >= 4 && nestFacts.every(f => /No Dragon Hero defends it/.test(f) && !/keeper|Dragon Hero level/.test(f)) && all.every(({R}) => !Object.keys(F.heroLevels(R.base)).length)
+      && /Dragon Hero level 3/.test(own) && /dragon keeper/.test(own);
     const missing = !!F.realmOf('nowhere', s, T0).why;
     const untouched = JSON.stringify(s) === before;
-    const ok = routed && same && counted && card && missing && untouched;
-    return {pass: ok, detail: `route ${routed}; every realm the attack’s own ${same}; ${R4.name}: ${def.map(d => `${d.n} ${d.t}`).join(', ')} (${counted}); a cannon: ${facts}; an unknown realm refused ${missing}; nothing changed ${untouched}`};
+    const ok = routed && same && counted && card && hatch && missing && untouched;
+    return {pass: ok, detail: `route ${routed}; every realm the attack’s own ${same}; ${R4.name}: ${def.map(d => `${d.n} ${d.t}`).join(', ')} (${counted}); a cannon: ${facts}; ${nests.length} of their hatcheries: ${nestFacts[0] || 'none'} (${hatch}); an unknown realm refused ${missing}; nothing changed ${untouched}`};
   });
 
   check('Keepfall: the old pay, kept for every game day before the new pay (NEW_PAY): in Gold and Ale alike, a day each (the first finished across his phones; Return Man’s best run): Daily Puzzles 400 + 5 a point, 17–0 400 + 150 a win, Kick It 400 + 200 a make (to 15), Return Man 400 + 3 a yard (to 1,000)', () => {
@@ -622,7 +628,7 @@ export async function realmChecks(check) {
     return {pass, detail: `${bad.length ? 'wrong: ' + bad.join(', ') : want.join(', ') + ' ok'}; the dragon ${big ? 'bigger, flying' : 'WRONG'}; ${gone.length ? 'missing: ' + gone.join(', ') : 'pictures there'}`};
   });
 
-  check('Keepfall: the dragon in 3D (the owner’s ask, Oct 22 2026: “use model for dragons”; views/realm-dragon.js, models/keep-dragon.glb: “Mountain Dragon” by Alexey Zaika, CC BY 4.0): its model loads on his phone alone and never into the shared offline cache, with its five clips; every dragon in a battle (the troop, the Dragon Hero, one defending) gets a model of its own, a hero his ring and badge (the heroes’ walkers leave it alone); it rears before each strike and lunges on the battle’s shot, drops and lands once when it dies, and no more than 12 (and the hero) are drawn from it at once; while the model isn’t in, or never comes, the picture; at home it rests over a built Dragon Hatchery; How to play credits it', async () => {
+  check('Keepfall: the dragon in 3D (the owner’s ask, Oct 22 2026: “use model for dragons”; views/realm-dragon.js, models/keep-dragon.glb: “Mountain Dragon” by Alexey Zaika, CC BY 4.0): its model loads on his phone alone and never into the shared offline cache, with its five clips; every dragon in a battle (the troop, the Dragon Hero, one defending) gets a model of its own, a hero his ring and badge (the heroes’ walkers leave it alone); it rears before each strike and lunges on the battle’s shot, drops and lands once when it dies (a hero’s ring and badge gone as he falls), a flock of up to 24 all from it and a bigger one all the picture (one look; the hero still the model); a hero’s badge drawn over everything, green defending; while the model isn’t in, or never comes, the picture; at home it rests over a built Dragon Hatchery; How to play credits it', async () => {
     const owner = !!data.isOwner();
     const [D, NPC, view, T] = await Promise.all([import('../views/realm-dragon.js'), import('../views/realm-npcs.js'), import('../views/realm.js'), import('../vendor/three/three.module.min.js')]);
     const kinds = D.isDragonKind('dragon') && D.isDragonKind('hero_dragon') && !['knight', 'hero_knight', 'hero_wizard', 'footman', '', undefined].some(D.isDragonKind);
@@ -669,8 +675,14 @@ export async function realmChecks(check) {
     bd.update(B, 1, at); bd.update(B, 1.1, at);
     const models = [drake, hero, guard].map(u => { const a = bd.actors.get((u.targetHero ? 'd:' : 'a:') + u.id); return a && a.body; });
     const own = models.every(A => A && A.mesh && A.mesh.isSkinnedMesh && A.root.parent === bd.group && Object.keys(A.act).length === D.CLIPS.length) && new Set(models.map(A => A && A.mesh.skeleton)).size === 3;
-    const marked = ['a:' + hero.id, 'd:def_dragon'].every(k => { const a = bd.actors.get(k); return a && a.ring && a.ring.parent && a.badge && a.badge.parent; }) && !bd.actors.get('a:' + drake.id).ring;
-    drawn = own && marked && bd.drawn.size === 3 ? '3 models, the heroes marked' : `WRONG (${bd.drawn.size} drawn, own ${own}, marked ${marked})`;
+    const marked = ['a:' + hero.id, 'd:def_dragon'].every(k => { const a = bd.actors.get(k); return a && a.ring && a.ring.parent && a.badge && a.badge.parent && a.badge.material.depthTest === false && a.badge.renderOrder >= D.BADGE_ON_TOP; })
+      && !bd.actors.get('a:' + drake.id).ring && [['a:' + hero.id, '245,205,103'], ['d:def_dragon', '136,214,173']].every(([k, rgb]) => {
+        const d = bd.actors.get(k).badge.material.map.image.getContext('2d').getImageData(2, 30, 1, 1).data; return [d[0], d[1], d[2]].join() === rgb; });
+    // (the hero falls: his ring and badge go at once)
+    hero.dead = true; bd.update(B, 1.15, at);
+    const fallen = bd.actors.get('a:' + hero.id), unmarked = !!fallen && !!fallen.body && !fallen.ring.parent && !(fallen.badge && fallen.badge.parent);
+    hero.dead = false;
+    drawn = own && marked && unmarked && bd.drawn.size === 3 ? '3 models, the heroes marked, a fallen one unmarked' : `WRONG (${bd.drawn.size} drawn, own ${own}, marked ${marked}, a fallen hero unmarked ${unmarked})`;
     // (killed: it drops from where it was hit, faster and faster, lands once (its own dust: the battle's puff under it
     // left out), lies a moment and is gone)
     drake.dead = true;
@@ -705,17 +717,24 @@ export async function realmChecks(check) {
       strikes = !back && !off && lunges >= 4 && first - early >= .4 ? `${lunges} strikes, reared for (the first from ${(first - early).toFixed(2)} s before), each lunge on its shot` : `WRONG (${back} back along the clip, ${off} of ${lunges} lunges off their shot, reared ${(first - early).toFixed(2)} s before the first)`;
       bs.dispose();
     }
-    // (a sky full of them, an old raid's: at most 12 from the model and the hero, the rest the picture for good)
+    // (a sky full of them, an old raid's: a flock of up to 24 (the old example raids' biggest) all from the model, the
+    // hero too; a bigger one all the picture, the hero still the model: never a flock half one, half the other)
     let crowd = '';
     {
-      const B3 = makeBattle({b: [{i: 1, t: 'keep', l: 3, x: 20, y: 20, u: 0}]}, null, {dragon: 16}, {rules: 1});
-      for (let i = 0; i < 16; i++) B3.deploy('dragon', 2, 2 + i * 2.5);
-      B3.tr.push(Object.assign({}, hero, {id: ++B3.seq}));
-      const bc = D.createBattleDragons(T, scene);
-      bc.update(B3, 1, at); bc.update(B3, 1.1, at);
-      const heroIn = [...bc.drawn].some(u => u.t === 'hero_dragon');
-      crowd = bc.counts.models === 13 && bc.counts.pictures === 4 && heroIn ? '17: 12 and the hero modelled, 4 pictures' : `WRONG (${bc.counts.models} models, ${bc.counts.pictures} pictures, hero modelled ${heroIn})`;
-      bc.dispose();
+      const flock = n => {
+        const B3 = makeBattle({b: [{i: 1, t: 'keep', l: 3, x: 20, y: 20, u: 0}]}, null, {dragon: n}, {rules: 1});
+        for (let i = 0; i < Math.min(n, 16); i++) B3.deploy('dragon', 2, 2 + i * 2.5);
+        B3.tr.push(Object.assign({}, hero, {id: ++B3.seq}));
+        const bc = D.createBattleDragons(T, scene);
+        bc.update(B3, 1, at); bc.update(B3, 1.1, at);
+        const r = {models: bc.counts.models, pictures: bc.counts.pictures, flock: bc.counts.flock, hero: [...bc.drawn].some(u => u.t === 'hero_dragon')};
+        bc.dispose();
+        return r;
+      };
+      const f16 = flock(16), f30 = flock(30);
+      crowd = f16.models === 17 && !f16.pictures && f16.hero && f30.flock === 30 && f30.models === 1 && f30.pictures === 16 && f30.hero
+        ? '16 and the hero all modelled; of 30, the 16 in the air all pictures, the hero modelled'
+        : `WRONG (16: ${f16.models} models, ${f16.pictures} pictures; 30: ${f30.models} models, ${f30.pictures} pictures, flock ${f30.flock}, hero modelled ${f30.hero})`;
     }
     // (no model: the picture, the hero still marked; a model that can't be read: refused, nothing thrown)
     const pic = D.createBattleDragons(T, scene, {source: {gl: null}});
@@ -724,8 +743,78 @@ export async function realmChecks(check) {
     fallback = !pic.drawn.size && pic.counts.pictures === 2 && pic.counts.heroes === 2 && !unread ? 'pictures, heroes marked; a bad file refused' : `WRONG (${pic.drawn.size} drawn, ${pic.counts.pictures} pictures, ${pic.counts.heroes} marked, bad file read ${unread})`;
     pic.dispose();
     bad = scene.children.length ? `${scene.children.length} left in the scene` : '';
-    const pass = kinds && home && cache && credit && leftAlone && loads.startsWith('in,') && drawn.startsWith('3 models') && fall.startsWith('fell,') && strikes.includes('each lunge') && crowd.startsWith('17:') && fallback.startsWith('pictures') && !bad;
+    const pass = kinds && home && cache && credit && leftAlone && loads.startsWith('in,') && drawn.startsWith('3 models') && fall.startsWith('fell,') && strikes.includes('each lunge') && crowd.startsWith('16 and') && fallback.startsWith('pictures') && !bad;
     return {pass, detail: `kinds ${kinds}; home ${home}; out of the offline cache ${cache}; credited ${credit}; the walkers leave it ${leftAlone}; the model ${loads}; ${drawn}; killed: ${fall}; strikes: ${strikes}; a crowd: ${crowd}; without it: ${fallback}${bad ? '; ' + bad : ''}`};
+  });
+
+  check('Keepfall: the dragon model’s life (Oct 23 2026): a view gone the moment its dragon was readied for a renderer leaves nothing behind (no error from a timer of its own: compileAsync’s threw); the model let go a little after the last view that drew one is gone (each renderer that drew it kept hold of it); another tab clearing its storage (no key: core/data.js doesn’t hear it) takes the dragons away at once, till he’s picked again; the heroes’ badges in a raid drawn over everything, green defending', async () => {
+    const owner = !!data.isOwner();
+    const [D, NPC, T] = await Promise.all([import('../views/realm-dragon.js'), import('../views/realm-npcs.js'), import('../vendor/three/three.module.min.js')]);
+    if (!owner) {
+      const n = D.dragonState().loads, ok = await D.loadDragon();
+      const none = !ok && D.dragonState().loads === n && D.dragonState().state !== 'ready' && NPC.createNPC(T, 'knight', {onTop: true}) === null;
+      return {pass: none, detail: `not the owner’s phone: nothing loaded, no hero ${none}`};
+    }
+    const errors = [], onError = e => errors.push(String((e && (e.message || (e.reason && e.reason.message))) || e));
+    addEventListener('error', onError); addEventListener('unhandledrejection', onError);
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+    let gone = '', linger = '', away = '', badges = '';
+    try {
+      // (a raid's dragons and the home dragon readied for a real renderer, then the view gone at once, its renderer too)
+      const ok = await D.loadDragon();
+      const canvas = document.createElement('canvas'); canvas.width = canvas.height = 64;
+      let renderer = null;
+      try { renderer = new T.WebGLRenderer({canvas}); } catch (_) { renderer = null; }
+      const scene = new T.Scene(), camera = new T.PerspectiveCamera(40, 1, .1, 200);
+      scene.add(new T.AmbientLight(0xFFFFFF, 1));
+      const bd = D.createBattleDragons(T, scene);
+      bd.warm(renderer, camera, 1);
+      bd.dispose();
+      const hd = D.createHomeDragon(T, scene, {renderer, camera});
+      hd.setLot({hr: {}, b: [{i: 1, t: 'keep', l: 6, x: 20, y: 20, u: 0}, {i: 2, t: 'hatchery', l: 4, x: 10, y: 10, u: 0}]});
+      await wait(0);
+      const made = hd.counts.model;
+      hd.dispose();
+      if (renderer) { renderer.dispose(); renderer.forceContextLoss(); }
+      await wait(400);
+      gone = ok && made && !errors.length ? `readied for a renderer (${renderer ? 'WebGL' : 'none here'}) and gone at once: nothing thrown` : `WRONG (model in ${ok}, home dragon made ${made}, errors: ${errors.join(' | ') || 'none'})`;
+      // (the last view gone: let go soon (LINGER_MS), not while another draws one; let go now for the check)
+      const st = D.dragonState(), again = D.createSceneryDragons(T, new T.Group(), 1), back = D.dragonState();
+      again.dispose();
+      const letting = D.dragonState().lettingGo, had = D._letGo(), after = D.dragonState();
+      linger = !st.views && st.lettingGo && back.views === 1 && !back.lettingGo && letting && had && after.state === 'idle' && !after.clips.length
+        ? 'no view left: let go soon (not while another drew one), then gone' : `WRONG (${JSON.stringify({st, back, letting, had, after: after.state})})`;
+      // (another tab clears its storage: no key, gg-me gone there; then he's picked again)
+      await D.loadDragon();
+      const sc = D.createSceneryDragons(T, new T.Group(), 1), had2 = sc.ready, me = localStorage.getItem('gg-me');
+      try {
+        localStorage.removeItem('gg-me');
+        D._storage({key: null});
+        const off = D.dragonState(), refused = await D.loadDragon(), emptied = sc.count === 0 && !sc.ready;
+        // (picked again: gg-me back in the storage, and word of it)
+        localStorage.setItem('gg-me', me);
+        D._storage({key: 'gg-me'});
+        const on = D.dragonState(), back2 = await D.loadDragon();
+        away = had2 && off.state === 'idle' && off.away && !refused && emptied && !on.away && back2 && D.dragonState().state === 'ready'
+          ? 'cleared in another tab: the model and its dragons gone, none loaded; picked again: back' : `WRONG (${JSON.stringify({had2, off: off.state, away: off.away, refused, emptied, on: on.away, back2})})`;
+      } finally {
+        if (localStorage.getItem('gg-me') !== me) localStorage.setItem('gg-me', me);
+        if (D.dragonState().away) D._storage({key: 'gg-me'});
+        sc.dispose();
+      }
+      // (the Knight Hero's badge in a raid over everything, as the Dragon Hero's is; at home as it was; green defending)
+      const badgeOf = npc => { let b = null; npc.root.traverse(o => { if (o.name === 'hero-badge') b = o; }); return b; };
+      const rgb = b => { const d = b.material.map.image.getContext('2d').getImageData(2, 30, 1, 1).data; return [d[0], d[1], d[2]].join(); };
+      const raidK = NPC.createNPC(T, 'knight', {level: 5, onTop: true}), homeK = NPC.createNPC(T, 'knight', {level: 5}), defK = NPC.createNPC(T, 'knight', {level: 5, defending: true, onTop: true});
+      const [rb, hb, db] = [raidK, homeK, defK].map(badgeOf);
+      badges = rb && hb && db && rb.material.depthTest === false && rb.renderOrder >= D.BADGE_ON_TOP && hb.material.depthTest !== false && rgb(rb) === '245,205,103' && rgb(db) === '136,214,173'
+        ? 'in a raid over everything, at home as before; gold attacking, green defending' : `WRONG (raid ${rb && rb.material.depthTest}/${rb && rb.renderOrder}, home ${hb && hb.material.depthTest}, colours ${rb && rgb(rb)} ${db && rgb(db)})`;
+      [raidK, homeK, defK].forEach(n => n.dispose());
+    } finally {
+      removeEventListener('error', onError); removeEventListener('unhandledrejection', onError);
+    }
+    const pass = gone.startsWith('readied') && linger.startsWith('no view') && away.startsWith('cleared') && badges.startsWith('in a raid');
+    return {pass, detail: `${gone}; ${linger}; ${away}; the heroes’ badges: ${badges}`};
   });
 
   check('Keepfall: the computer’s realms raid his realm (at most one each half day, the last two while he was away; none in its first day, before Castle level 3 (Oct 22 2026, was 2) or during a truce): played the same every time, taken off his stores and glory once, never his coffers', () => {
@@ -791,11 +880,16 @@ export async function realmChecks(check) {
     return {pass: open && targets && words && realms && heroes && stays && raided, detail: `open from Castle 4 ${open}; in reach at Castle 3/4/5/7: ${reach(3) || 'none'}/${reach(4)}/${reach(5)}/${reach(7)} ${targets}; why ${JSON.stringify(whys)} ${words}; realmOf refuses ${realms}; heroes at ${F.HEROES.knight.at}/${F.HEROES.dragon.at}, the Knight Hero at Castle 3: ${k3.why}, at 4: ${k4.ok || k4.why}, the Dragon Hero for Gold: ${w3.why} ${heroes}; one recruited at Castle 2 stays ${stays}; raided from Castle 3, not 2 ${raided}`};
   });
 
-  check('Keepfall: raids on him start at Castle 3 (the owner, Oct 22 2026, was 2; DEFEND_AT): the screens say so (the Chronicle of a smaller realm “Once your Castle is level 3”, Attack’s lock “start at Castle level 3”, the welcome “once your Castle is level 3”), never level 2; the example raids aren’t held to it (a Castle 2 realm still gets its three to watch, on his phone)', async () => {
+  check('Keepfall: raids on him start at Castle 3 (the owner, Oct 22 2026, was 2; DEFEND_AT): the screens say so (the Chronicle of a smaller realm “Once your Castle is level 3”, Attack’s lock “start at Castle level 3”, the welcome “once your Castle is level 3”), never level 2; the example raids aren’t held to it (a Castle 2 realm still gets its three to watch, on his phone); Attack says how each hero comes (the Knight Hero joins at Castle 4, the Dragon Hero once a Dragon Hatchery is built)', async () => {
     const view = await import('../views/realm.js');
     const at = l => { const s = F.fresh(T0 - 3 * DAY); s.b.find(b => b.t === 'keep').l = l; return s; };
     const words = (s, w) => { const t = document.createElement('template'); t.innerHTML = ((view._screens(s, T0) || []).find(p => p.where === w) || {}).html || ''; return t.content.textContent.replace(/\s+/g, ' '); };
     const log2 = words(at(2), 'The Chronicle'), log3 = words(at(3), 'The Chronicle'), atk = words(at(2), 'Attack'), hi = words(at(2), 'Keepfall');
+    // (and how each hero comes, Oct 23 2026: the Knight Hero joins at Castle 4, the Dragon Hero hatches there only once a
+    // Dragon Hatchery is built; with no army, Attack says to recruit the one, hatch the other or train troops)
+    const atk4 = words(at(4), 'Attack');
+    const heroWords = atk.includes('the Knight Hero joins you there, and the Dragon Hero once you build a Dragon Hatchery') && !/Knight Hero and the Dragon Hero join/.test(atk)
+      && atk4.includes('recruit the Knight Hero or train troops, or build a Dragon Hatchery to hatch the Dragon Hero');
     const said = F.DEFEND_AT === 3 && log2.includes('Once your Castle is level 3, the computer’s realms will start raiding you') && log3.includes('No one has raided you yet.')
       && atk.includes('Their raids on you start at Castle level 3 all the same') && hi.includes('once your Castle is level 3, those realms raid you too')
       && !/(once your Castle is|start at Castle) level 2\b/i.test(log2 + atk + hi);
@@ -804,7 +898,7 @@ export async function realmChecks(check) {
     // (the examples: on his phone, three on a Castle 2 realm as on any other; nothing on anyone else's)
     const owner = !!data.isOwner(), two = at(2), ex = exampleRaids(two, T0);
     const examples = owner ? ex.length >= 1 && (two.ex || []).length === ex.length && !two.df.length : !ex.length;
-    return {pass: said && gate && examples, detail: `the words ${said}; defend’s gate ${gate}; example raids on a Castle 2 realm: ${ex.map(r => `${r.st}★`).join(' ') || 'none'} ${examples}`};
+    return {pass: said && gate && examples && heroWords, detail: `the words ${said}; how the heroes come ${heroWords}; defend’s gate ${gate}; example raids on a Castle 2 realm: ${ex.map(r => `${r.st}★`).join(' ') || 'none'} ${examples}`};
   });
 
   check('Keepfall: the computer’s raids come at an hour that moves from day to day, the same on every phone (Oct 22 2026: they’d come at about 05:26 and 17:26 every day), one in each half of the day', () => {
@@ -1157,8 +1251,8 @@ export async function realmChecks(check) {
       barracks: /\+Thief/.test(barracks.text('[data-tile="troops"]')) && !!barracks.q('[data-tile="trains"] .rl-uchip.is-new'),
       defenses: /8 tiles/.test(cannon.text('[data-tile="range"]')) && /Ground only/.test(cannon.text('[data-tile="targets"]')) && /Ground & air/.test(tower.text('[data-tile="targets"]')),
       // (the hatchery: its Dragon Hero, level 1, his health and fire with level 2's gain in green; no dragon room)
-      hatchery: nest.text('[data-tile="herohp"]').includes(`Dragon Hero health ${nfm(d1.hp)} Level 2: +${nfm(d2.hp - d1.hp)}`)
-        && nest.text('[data-tile="herodps"]').includes(`Fire damage/second ${d1.dps} Level 2: +${d2.dps - d1.dps}/second`)
+      hatchery: nest.text('[data-tile="herohp"]').includes(`Hero health ${nfm(d1.hp)} Level 2: +${nfm(d2.hp - d1.hp)}`)
+        && nest.text('[data-tile="herodps"]').includes(`Fire/second ${d1.dps} Level 2: +${d2.dps - d1.dps}/second`)
         && /^Dragon Hero Hatched Level 1$/.test(nest.text('[data-tile="hatched"]'))
         && /Dragon Hero/.test(nest.text('[data-rl-army]')) && !/dragon room|your dragons/i.test(nest.text('[data-rl-part="tiles"]'))
     };
@@ -1170,8 +1264,8 @@ export async function realmChecks(check) {
       upgrading: !!prog && +prog.getAttribute('aria-valuenow') > 0 && /Upgrading to level 3/.test(job.text('[data-rl-card-prog]')) && /Time left 25m/.test(job.text('.rl-card-time')) && !job.q('[data-rl-up]') && !job.q('.rl-tile-gain'),
       busy: /busy on the Treasury/.test(wait.text('.rl-card-up')) && !!wait.q('.rl-card-up[aria-disabled="true"]'),
       castleLevel: /Castle level 6 to upgrade/.test(locked.text('.rl-card-up')) && !!locked.q('.rl-card-up.is-locked'),
-      // (a hatchery going up: no Dragon Hero yet)
-      hatching: /Build it to hatch your Dragon Hero/.test(egg.text('[data-tile="hatched"]')) && !/Hatched/.test(egg.text('[data-tile="hatched"]')) && /Under construction/.test(egg.text('[data-rl-card-prog]'))
+      // (a hatchery going up: no Dragon Hero yet, he hatches when it's finished (Oct 23 2026: it said to build it))
+      hatching: /Hatches when the hatchery is finished/.test(egg.text('[data-tile="hatched"]')) && !/Hatched|Build it/.test(egg.text('[data-tile="hatched"]')) && /Under construction/.test(egg.text('[data-rl-card-prog]'))
     };
     // at the top: Max level, nothing to upgrade; and testing, upgrades at once
     const C = realm(8, [['wall', 8], ['cannon', 10], ['granary', 3]], {tst: 1});

@@ -124,17 +124,24 @@ const fixture = (() => {
   });
   console.log('PASS: the computer raids from Castle 7 with its Dragon Hero (L' + B.raidHeroes(7).dragon + ', L' + B.raidHeroes(8).dragon + ' at 8), no trained dragons, armies fill their room; ' + done.map(r => `${r.st}★ ${r.pc}%`).join(', '));
 
-  // ---- the example raids: a Castle 4 realm (the computer's Castle 4 lot as his) and Castle 8 test realms
-  const lotOf = th => { const s = F.fresh(T0 - 3 * DAY), b = F.botBase(th); s.b = b.b.map(x => Object.assign({}, x, F.KINDS[x.t].role === 'make' ? {c: T0 - 6 * F.HOUR} : {})); s.nb = Math.max(...s.b.map(x => x.i)) + 1; s.r = {gold: 30000, grain: 20000}; s.hr = {knight: Math.min(10, th)}; return s; };
-  const exOn = {'Castle 4 (its computer lot)': lotOf(4), 'Castle 4 (new)': realm(4, 2), 'Castle 8 test realm (new)': realm(8), 'Castle 8 test realm with a hatchery': realm(8, 10)};
+  // ---- the example raids: a Castle 4 realm (the computer's Castle 4 lot as his), Castle 8 test realms, and full Castle 7
+  // and 8 lots (the computer's) with his Knight and Dragon Hero as high as they go there (Oct 23 2026: these had only
+  // raids driven off, the biggest army 190 troops)
+  const lotOf = (th, max) => {
+    const s = F.fresh(T0 - 3 * DAY), b = F.botBase(th); s.b = b.b.map(x => Object.assign({}, x, F.KINDS[x.t].role === 'make' ? {c: T0 - 6 * F.HOUR} : {})); s.nb = Math.max(...s.b.map(x => x.i)) + 1; s.r = {gold: 30000, grain: 20000}; s.hr = {knight: Math.min(10, th)};
+    if (max) { s.b.filter(x => x.t === 'hatchery').forEach(x => { x.l = F.topLevel('hatchery', th); }); s.hr.knight = F.heroCap(s, 'knight'); }
+    return s;
+  };
+  const exOn = {'Castle 4 (its computer lot)': lotOf(4), 'Castle 4 (new)': realm(4, 2), 'Castle 8 test realm (new)': realm(8), 'Castle 8 test realm with a hatchery': realm(8, 10),
+    'Castle 7 (its computer lot, Knight and Dragon Hero at the top)': lotOf(7, true), 'Castle 8 (its computer lot, Knight and Dragon Hero at 10)': lotOf(8, true)};
   for (const [name, s] of Object.entries(exOn)) {
     const t0 = Date.now(), ex = B.exampleRaids(s, T0);
     const rows = ex.map(r => ({r, P: F.decodeReplay(r.rp, s)}));
-    console.log(`  examples, ${name}: ${rows.map(({r, P}) => `${r.st}★ ${r.pc}% (${Object.entries(P.army).map(([t, n]) => `${t} ${n}`).join(', ')}${P.hr.dragon ? `, Dragon Hero ${P.hr.dragon}` : ''})`).join(' · ')} in ${Date.now() - t0} ms`);
+    console.log(`  examples, ${name} (defending: ${JSON.stringify(F.heroLevels(s))}): ${rows.map(({r, P}) => `${r.st}★ ${r.pc}% (${Object.entries(P.army).map(([t, n]) => `${t} ${n}`).join(', ')}${P.hr.dragon ? `, Dragon Hero ${P.hr.dragon}` : ''})`).join(' · ')} in ${Date.now() - t0} ms`);
     assert.equal(ex.map(r => r.st).join(), '0,1,3', name + ': a raid driven off, one taking a star, one breaking through');
     assert(rows.every(({P}) => P && !P.army.dragon), 'no trained dragons');
   }
-  console.log('PASS: the example raids still find 0, 1 and 3 stars on Castle 4 and Castle 8 test realms, without trained dragons');
+  console.log('PASS: the example raids still find 0, 1 and 3 stars on Castle 4 and Castle 8 test realms and full Castle 7 and 8 lots, without trained dragons');
 
   // ---- every replay recorded before plays exactly as recorded
   assert.equal(F.battleMark(1), fixture.mark, 'the old rules’ mark is the one they were recorded under');

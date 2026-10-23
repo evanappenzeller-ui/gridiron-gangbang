@@ -61,7 +61,7 @@ function goHTML(key) {
   // (a realm more than a level above your Castle can be looked round, not attacked yet: core/realm.js attackWhy)
   if (F.attackWhy(s, key)) return `<button type="button" class="rl-btn is-raid is-locked" disabled><span class="rl-bi" aria-hidden="true">${ui.icon('lock')}</span><span>Attack</span><em>Opens at Castle level ${F.targetAt(key)}</em></button>`;
   return army ? `<button type="button" class="rl-btn is-raid" data-rls-attack><span class="rl-bi" aria-hidden="true">${ui.icon('versus')}</span><span>Attack</span></button>`
-    : `<button type="button" class="rl-btn is-raid" disabled><span class="rl-bi" aria-hidden="true">${ui.icon('versus')}</span><span>Attack</span><em>Recruit a hero or train troops</em></button>`;
+    : `<button type="button" class="rl-btn is-raid" disabled><span class="rl-bi" aria-hidden="true">${ui.icon('versus')}</span><span>Attack</span><em>Recruit or hatch a hero, or train troops</em></button>`;
 }
 
 function fitAll(st) { const bx = F.boxOf(st.T.base); st.v.frame(bx.x0 - 3, bx.y0 - 3, bx.x1 + 3, bx.y1 + 3, 1); }
