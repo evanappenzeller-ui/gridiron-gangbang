@@ -11,7 +11,7 @@
 import * as F from './realm.js';
 import * as daily from './daily.js';
 import * as data from './data.js';
-import {makeBattle, replay, raidsDue, defend} from './realm-battle.js';
+import {makeBattle, replay, raidsDue, defend, replayBattle, replayRaid, exampleRaids, ensureExamples, raidArmy} from './realm-battle.js';
 
 const T0 = Date.UTC(2026, 9, 21, 12);
 const DAY = 24 * F.HOUR;
@@ -22,7 +22,7 @@ export async function realmChecks(check) {
 
   check('Keepfall: the owner’s alone: its Daily Games case and pushed route open only on his phones; it has no separate tab, its screens are empty elsewhere and its save refuses; it reads only his own board docs, never LB.all, and attacks and scouts only the computer’s realms', async () => {
     const owner = !!data.isOwner();
-    const [app, view, raid, scout, games] = await Promise.all([import('../app.js'), import('../views/realm.js'), import('../views/realm-raid.js'), import('../views/realm-scout.js'), import('../views/games.js')]);
+    const [app, view, raid, scout, games, replayView] = await Promise.all([import('../app.js'), import('../views/realm.js'), import('../views/realm-raid.js'), import('../views/realm-scout.js'), import('../views/games.js'), import('../views/realm-replay.js')]);
     const may = F.mayPlay() === owner;
     const btn = document.querySelector('#tabbar .tab[data-tab="realm"]');
     const route = app.parseRoute('/puzzles/keep'), legacy = app.parseRoute('/realm');
@@ -30,8 +30,8 @@ export async function realmChecks(check) {
       && games.gamesFor().some(g => g.id === 'keep') === owner
       && (owner ? route.view === 'realm' && route.open === 'push' && route.tab === 'puzzles' : route.path === '/puzzles')
       && legacy.path === route.path;
-    const screens = [view.default, raid.default, scout.default].every(v => /rl-none/.test(v.render()) === !owner);
-    const files = ['../views/realm.js', '../views/realm-raid.js', '../views/realm-scout.js', './realm.js', './realm-battle.js'];
+    const screens = [view.default, raid.default, scout.default, replayView.default].every(v => /rl-none/.test(v.render()) === !owner);
+    const files = ['../views/realm.js', '../views/realm-raid.js', '../views/realm-scout.js', './realm.js', './realm-battle.js', '../views/realm-replay.js'];
     const src = await Promise.all(files.map(f => fetch(new URL(f, import.meta.url)).then(r => r.text())));
     const all = files.filter((f, i) => /LB\.all\b/.test(src[i]));
     const fl = src[3].slice(src[3].indexOf('export async function flush'));
@@ -48,7 +48,10 @@ export async function realmChecks(check) {
   check('Keepfall: scouting (views/realm-scout.js, #/realm/scout/<realm>): each of the computer’s realms can be looked round before it’s attacked, the same lot and take the attack meets, its defenses counted, a building’s card saying what it does and holds, a defense’s reach drawn round it; looking changes nothing', async () => {
     const [app, view, scout] = await Promise.all([import('../app.js'), import('../views/realm.js'), import('../views/realm-scout.js')]);
     const r = app.__dev.parseRoute('/realm/scout/bot%3A4'), routed = !data.DATA || !data.isOwner() ? true : !!r && r.view === 'realm-scout' && r.open === 'cover';
-    const s = F.fresh(T0), before = JSON.stringify(s);
+    // (a realm at the top Castle: every one of theirs in reach, Castle 4's rule aside: its own check)
+    const s = F.fresh(T0);
+    s.b.find(b => b.t === 'keep').l = F.MAX_KEEP;
+    const before = JSON.stringify(s);
     const all = F.BOTS.map(b => ({b, R: F.realmOf(b.k, s, T0)}));
     const same = all.every(({b, R}) => !R.why && R.name === b.name && R.th === b.th && JSON.stringify(R.base) === JSON.stringify(F.botBase(b.th))
       && JSON.stringify(R.loot.total) === JSON.stringify(F.botLoot(b, F.botBase(b.th), s, T0).total));
@@ -113,10 +116,16 @@ export async function realmChecks(check) {
     ];
     const all = [e1, e2, ...league], board = all.filter(p => daily.boardShows(p, true)), leagueBoard = all.filter(p => daily.boardShows(p, false));
     const inc = F.incomeOf([e1, e2], {sv, dr, kk, rm}, {board, me: data.OWNER, at: AT});
-    // (a day whose entry says more coins than a 150-yard run could have run through: paid what the course lays out there)
-    const cut = rm.coinsWithin(P.return + 3, 150) * F.COIN_GOLD;
-    return {P, AT_N, e1, e2, all, board, leagueBoard, inc, pe, cut};
+    // (a day whose entry says more coins than a 150-yard run could have run through: paid what the course lays out there,
+    // and the day a forged count: what Return Man's own reading makes of it, dayCoins, whatever that is)
+    const cutCoins = rm.coinsWithin(P.return + 3, 150), cut = F.coinGold(rm.dayCoins([e1, e2], P.return + 3));
+    const forged = F.coinGold(rm.dayCoins([e1, e2], P.return + 2));
+    // (the competitive pay, Oct 22 2026: Kick It 500 + 3,000 a 5th make; Return Man 500 a day + 25 a coin, the first 200)
+    const kickNew = {[P.kick]: 500 + 3000 * 2, [P.kick + 1]: 500, [P.kick + 2]: 500 + 3000, [AT_N.kick]: 500 + 3000 * 2};
+    const retNew = {[P.return]: 500 + 25 * 84, [P.return + 1]: 500 + 25 * 30, [P.return + 2]: 500 + forged, [P.return + 3]: 500 + cut, [AT_N.return]: 500 + 25 * 12};
+    return {P, AT_N, e1, e2, all, board, leagueBoard, inc, pe, cut, cutCoins, forged, kickNew, retNew};
   };
+  const sumOf = o => Object.values(o).reduce((a, b) => a + b, 0);
   const by = (inc, g, c) => (inc.by[g] ? inc.by[g][c] : 0);
 
   check('Keepfall: the new pay starts on Thu Oct 22 2026, the first day played after it shipped (the owner had played all of Oct 21’s games under the old pay), in every game’s own numbering (NEW_PAY: the Daily Puzzles’ 25th day, 17–0’s 14th, the Drill’s 8th, Kick It’s 5th, Return Man’s 3rd), written down, not worked out from the clock; the day before, each game’s last old day, keeps the old pay exactly, in Gold and Ale alike', () => {
@@ -127,7 +136,7 @@ export async function realmChecks(check) {
     if (!E) return {pass: false, detail: `the league or the puzzles didn’t load; Oct 22: ${JSON.stringify(first)}`};
     const old = {puzzles: 400 + 5 * 400, '17-0': 400 + 150 * 10, drill: 3000, kick: 400 + 200 * 6, return: 400 + 3 * 500};
     // (each game’s Gold and Ale: the old day’s in both; the new days’ in their own one only)
-    const newGold = {kick: 2000 + 0 + 1000 + 2000, return: 840 + 300 + 0 + E.cut + 120}, newAle = {puzzles: 4000 + 5000, '17-0': 4000, drill: 1200};
+    const newGold = {kick: sumOf(E.kickNew), return: sumOf(E.retNew)}, newAle = {puzzles: 4000 + 5000, '17-0': 4000, drill: 1200};
     const split = Object.keys(old).every(g => by(E.inc, g, 'gold') === old[g] + (newGold[g] || 0) && by(E.inc, g, 'grain') === old[g] + (newAle[g] || 0));
     const sum = o => Object.values(o).reduce((a, b) => a + b, 0);
     const totals = E.inc.total.gold === sum(old) + sum(newGold) && E.inc.total.grain === sum(old) + sum(newAle);
@@ -170,26 +179,31 @@ export async function realmChecks(check) {
     return {pass: ok, detail: `table ${table}; his places on the league’s board: Daily #${rowPz && rowPz.rank} (${rowPz && rowPz.pts}), 17–0 #${row17 && row17.rank}, Drill #${rowDr && rowDr.rank} (${places}); on his phone’s, with the guest and Ryan S above him: Daily #${his && his.rank}, 17–0 #${his17 && his17.rank}, not counted ${outsiders}; Ryan D above him counts ${ryanD}; Ale ${['puzzles', '17-0', 'drill'].map(g => by(inc, g, 'grain')).join('/')} (${ale}); no new Gold ${noGold}; pending ${JSON.stringify(inc.pending)} (${pend}); this morning ${JSON.stringify(inc.today.puzzles)} (${morning}); the next day paid ${paid}; on its first day still pending ${notYet}; no docs no pay ${none}`};
   });
 
-  check('Keepfall: from the new pay on, Gold from Kick It and Return Man, paid as soon as the run is on the board: 1,000 for every 5th make on the run that counts (the day’s first finished across his phones, not a later better try), and 10 a coin on the day’s first Return Man run (its board entry’s c, whatever the best run was; none on a later run, nothing for a number no run could have); no Ale from those two', () => {
+  check('Keepfall: from the new pay on, Gold from Kick It and Return Man, paid as soon as the run is on the board (the competitive pay, Oct 22 2026): 500 for the run that counts and 3,000 for every 5th make on it (the day’s first finished across his phones, not a later better try; 0 makes still 500), and 500 a Return Man day with a run on the board plus 25 a coin on the day’s first run, the first 200 (its board entry’s c, whatever the best run was; none on a later run, never more than the course lays out); no Ale from those two', () => {
     const E = econ();
     if (!E) return {pass: false, detail: 'the league or the puzzles didn’t load'};
-    const {inc} = E;
-    const helpers = F.kickGold(4) === 0 && F.kickGold(5) === 1000 && F.kickGold(9) === 1000 && F.kickGold(10) === 2000 && F.kickGold(40) === 8000
-      && F.coinGold(84) === 840 && F.coinGold(0) === 0 && F.coinGold(-3) === 0 && F.coinGold(F.COIN_MAX + 1) === 0 && F.COIN_FIELD === 'c';
-    const kick = by(inc, 'kick', 'gold') === 1600 + 2000 + 0 + 1000 + 2000 && by(inc, 'kick', 'grain') === 1600 && inc.today.kick && inc.today.kick.gold === 2000;
-    const cut = E.cut > 0 && E.cut < 9000; // (900 coins said on a 150-yard run: what the course lays out there, a few)
-    const ret = by(inc, 'return', 'gold') === 1900 + 840 + 300 + E.cut + 120 && by(inc, 'return', 'grain') === 1900 && inc.today.return && inc.today.return.gold === 120;
-    // (his runs alone pay: the board's others don't)
+    const {inc, P} = E;
+    const helpers = F.kickGold(0) === 500 && F.kickGold(4) === 500 && F.kickGold(5) === 3500 && F.kickGold(9) === 3500 && F.kickGold(10) === 6500 && F.kickGold(40) === 24500
+      && F.kickGold(41) === 24500 && F.coinGold(84) === 2100 && F.coinGold(0) === 0 && F.coinGold(-3) === 0 && F.coinGold(200) === 5000 && F.coinGold(201) === 5000
+      && F.returnGold(0) === 500 && F.returnGold(12) === 800 && F.COIN_FIELD === 'c';
+    const kick = by(inc, 'kick', 'gold') === 1600 + sumOf(E.kickNew) && by(inc, 'kick', 'grain') === 1600 && inc.today.kick && inc.today.kick.gold === 6500;
+    // (900 coins said on a 150-yard run: what the course lays out there, a few, 25 each)
+    const cut = E.cutCoins > 0 && E.cutCoins < 900 && E.cut === 25 * Math.min(E.cutCoins, 200);
+    const ret = by(inc, 'return', 'gold') === 1900 + sumOf(E.retNew) && by(inc, 'return', 'grain') === 1900 && inc.today.return && inc.today.return.gold === 800;
+    // (his runs alone pay: the board's others don't; on his first phone the day's first run that had coins was the other's)
     const solo = F.incomeOf([E.e1], {sv, dr, kk, rm}, {board: E.board, me: data.OWNER, at: AT});
-    const one = by(solo, 'kick', 'gold') === 1600 + 2000 + 2000 + 1000 + 2000 && by(solo, 'return', 'gold') === 1900 + 840 + 0 + E.cut + 120;
+    const soloRet = 2600 + 500 + 500 + F.coinGold(rm.dayCoins([E.e1], P.return + 2)) + 500 + F.coinGold(rm.dayCoins([E.e1], P.return + 3)) + 800;
+    const one = by(solo, 'kick', 'gold') === 1600 + 6500 + 6500 + 3500 + 6500 && by(solo, 'return', 'gold') === 1900 + soloRet;
     // (the coins as Return Man's core reads them, dayCoins, and as Keepfall reads them without it: the same)
     const own = typeof rm.dayCoins === 'function' && rm.dayCoins([E.e1, E.e2], F.NEW_PAY.return + 1) === 30;
     const bare = F.incomeOf([E.e1, E.e2], {sv, dr, kk, rm: Object.assign({}, rm, {dayCoins: null})}, {board: E.board, me: data.OWNER, at: AT});
     const same = JSON.stringify(bare.by.return) === JSON.stringify(inc.by.return);
     // (what the games' own screens promise, "+N Gold for Keepfall", is what Keepfall pays)
-    const agree = (typeof kk.goldOf !== 'function' || Array.from({length: 41}, (_, m) => kk.goldOf(m) === F.kickGold(m)).every(Boolean))
-      && (!rm.COIN || (rm.COIN.gold === F.COIN_GOLD && rm.COIN.most === F.COIN_MAX && rm.COIN.fromDay === F.NEW_PAY.return));
-    return {pass: helpers && cut && kick && ret && one && own && same && agree, detail: `the games’ own numbers agree (Return Man’s coins out from Keepfall’s first day of paying for them, ${rm.COIN && rm.COIN.fromDay}) ${agree}; helpers ${helpers}; a forged count paid only what the course lays out (${E.cut} Gold) ${cut}; Kick It ${JSON.stringify(inc.by.kick)}, today ${JSON.stringify(inc.today.kick)} (${kick}); Return Man ${JSON.stringify(inc.by.return)}, today ${JSON.stringify(inc.today.return)} (${ret}); one phone’s docs alone ${one}; Return Man’s dayCoins ${own}, the same without it ${same}`};
+    const agree = typeof kk.goldOf === 'function' && Array.from({length: 41}, (_, m) => kk.goldOf(m) === F.kickGold(m)).every(Boolean)
+      && !!kk.GOLD && kk.GOLD.each === F.KICK_GOLD && kk.GOLD.base === F.KICK_BASE && kk.GOLD.every === F.KICK_EVERY && kk.GOLD.from === F.NEW_PAY.kick
+      && !!rm.COIN && rm.COIN.gold === F.COIN_GOLD && rm.COIN.most === F.COIN_MAX && rm.COIN.fromDay === F.NEW_PAY.return
+      && (rm.COIN.base == null || rm.COIN.base === F.RETURN_BASE) && (rm.COIN.paid == null || rm.COIN.paid === F.COIN_PAID_MAX);
+    return {pass: helpers && cut && kick && ret && one && own && same && agree, detail: `the games’ own numbers agree (Kick It ${JSON.stringify(kk.GOLD)}; Return Man’s coins ${rm.COIN && rm.COIN.gold} Gold, out from Keepfall’s first day of paying for them, ${rm.COIN && rm.COIN.fromDay}) ${agree}; helpers ${helpers}; a forged count paid only what the course lays out (${E.cutCoins} coins, ${E.cut} Gold) ${cut}; Kick It ${JSON.stringify(inc.by.kick)}, today ${JSON.stringify(inc.today.kick)} (${kick}); Return Man ${JSON.stringify(inc.by.return)}, today ${JSON.stringify(inc.today.return)} (${ret}); one phone’s docs alone ${one}; Return Man’s dayCoins ${own}, the same without it ${same}`};
   });
 
   check('Keepfall: a day’s place, once paid, stays paid: incomeOf lists the places it pays that weren’t frozen yet (fresh: the final days, never today’s), the realm keeps them (pd, through clean(), junk dropped), and a frozen day pays its place whatever’s posted to its board later; frozen only from the board as it really is (freezePaid refuses before it’s in); the coffers freeze them after the sync, from the realm’s own', async () => {
@@ -219,7 +233,8 @@ export async function realmChecks(check) {
     const was = daily.LB.ready;
     try { daily.LB.ready = false; refused = !F.freezePaid(F.fresh(T0), fr); } finally { daily.LB.ready = was; }
     const src = await fetch(new URL('../views/realm.js', import.meta.url)).then(r => r.text()).catch(() => '');
-    const view = src.includes('F.incomeOf(F.myDocs(), MODS, {paid: F.mine().pd})') && /const froze = F\.freezePaid\(s, EARNED\.fresh\);\s+if \(got\.gold \|\| got\.grain \|\| froze\) F\.touch\(\);/.test(src);
+    // (the docs his own, F.myDocs(), straight in or by way of a const docs: Oct 22 2026, for today's runs too)
+    const view = (src.includes('F.incomeOf(F.myDocs(), MODS, {paid: F.mine().pd})') || /const docs = F\.myDocs\(\);\s+EARNED = F\.incomeOf\(docs, MODS, \{paid: F\.mine\(\)\.pd\}\)/.test(src)) && /const froze = F\.freezePaid\(s, EARNED\.fresh\);\s+if \(got\.gold \|\| got\.grain \|\| froze\) F\.touch\(\);/.test(src);
     const ok = listed && drops && holds && live && kept && into && once && refused && view;
     return {pass: ok, detail: `fresh ${JSON.stringify(fr)} (${listed}); a late post above him: unfrozen ${by(loose, 'puzzles', 'grain')} Ale (${drops}), frozen ${by(held, 'puzzles', 'grain')} (${holds}); today’s still pending ${live}; kept by clean() ${kept}; frozen once ${into}, never changed ${once}; refused without the board ${refused}; the coffers freeze from the realm’s, after the sync ${view}`};
   });
@@ -237,32 +252,43 @@ export async function realmChecks(check) {
     return {pass: split && same && never && safe, detail: `Gold alone: moved ${JSON.stringify(moved)}, waiting ${JSON.stringify(p)} (${split}); one number for both ${same}; short pay: waiting ${JSON.stringify(short)}, moved ${JSON.stringify(took)}, stored ${JSON.stringify(t.r)} (${never}); bad numbers ${JSON.stringify(junk)}`};
   });
 
-  check('Keepfall: the coffers say how the games pay now (“Ale: your place on the Daily Puzzles, 17–0 and Two-Minute Drill boards, paid the next morning. Gold: every 5th Kick It make, and the coins on your first Return Man run.”), today’s place (“#2 right now · 4,000 Ale tomorrow if it holds”), what came in today and the season’s Gold and Ale for each game; on the old pay’s last day, that day’s pay the old way and what tomorrow brings; so does the welcome', async () => {
+  check('Keepfall: the coffers say how the games pay now (“Ale: your place on the Daily Puzzles, 17–0 and Two-Minute Drill boards, paid the next morning. Gold: …”, the Gold line with the competitive pay’s numbers), today’s place (“#2 right now · 4,000 Ale tomorrow if it holds”), today’s makes and coins as the runs have them (never the Gold worked back), what came in today and the season’s Gold and Ale for each game, and the competitive pay’s numbers (Oct 22 2026: 500 a run and 3,000 a 5th make; 500 a day and 25 a coin); on the old pay’s last day, that day’s pay the old way and what tomorrow brings; so does the welcome', async () => {
     const view = await import('../views/realm.js');
     const E = econ();
     if (!E) return {pass: false, detail: 'the league or the puzzles didn’t load'};
-    const pages = view._screens(F.fresh(T0), T0, {earned: E.inc});
+    // (today's runs as the coffers read them, from the entries: views/realm.js runsOf, as its earned() does)
+    const withRuns = inc => (typeof view.runsOf === 'function' ? Object.assign({}, inc, {runs: view.runsOf([E.e1, E.e2], {sv, dr, kk, rm}, inc.day)}) : inc);
+    const pages = view._screens(F.fresh(T0), T0, {earned: withRuns(E.inc)});
     // (the evening before the new pay: every game played that day, the old way)
     const eve = F.incomeOf([E.e1, E.e2], {sv, dr, kk, rm}, {board: E.board, me: data.OWNER, at: on(-1, 20)});
-    const evePages = view._screens(F.fresh(T0), T0, {earned: eve});
+    const evePages = view._screens(F.fresh(T0), T0, {earned: withRuns(eve)});
     // (a page's words as one run of text, and node by node: an amount and its name, a picture's, sit in tags of their own)
-    const text = (w, list = pages) => {
+    const nodes = (w, list = pages) => {
       const p = list.find(x => x.where === w), t = document.createElement('template'), out = [];
       t.innerHTML = p ? p.html : '';
       const wk = document.createTreeWalker(t.content, 4);
       while (wk.nextNode()) out.push(wk.currentNode.nodeValue);
-      return t.content.textContent.replace(/\s+/g, ' ') + ' \n ' + out.join(' ').replace(/\s+/g, ' ');
+      return {all: t.content.textContent.replace(/\s+/g, ' '), out};
     };
+    const text = (w, list = pages) => { const n = nodes(w, list); return n.all + ' \n ' + n.out.join(' ').replace(/\s+/g, ' '); };
+    // (a line: words, or a pattern one node of the page must match)
+    const says = (w, list, l) => (typeof l === 'string' ? text(w, list).includes(l) : nodes(w, list).out.some(v => l.test(v.replace(/\s+/g, ' '))));
     const cof = text('The coffers'), hi = text('Keepfall');
-    const copy = 'Ale: your place on the Daily Puzzles, 17–0 and Two-Minute Drill boards, paid the next morning. Gold: every 5th Kick It make, and the coins on your first Return Man run.';
-    const lines = [copy, '#2 right now · 4,000 Ale tomorrow if it holds', '#1 right now · 5,000 Ale tomorrow if it holds', '#1 yesterday: paid this morning', 'Not played yet: your place pays Ale tomorrow',
-      '10+ makes on your run', '12 coins on your first run', `All told ${E.inc.total.gold.toLocaleString('en-US')} Gold ${E.inc.total.grain.toLocaleString('en-US')} Ale`, '1st 5,000', '7th or lower 1,200'];
-    const missing = lines.filter(l => !cof.includes(l));
-    const old = /400 plus|Gold and Ale alike/.test(cof + hi);
-    const welcome = hi.includes(copy);
-    const last = text('The coffers', evePages), lastLines = ['Paid the old way: Gold and Ale alike', 'From tomorrow: your place on its board pays Ale', 'From tomorrow: every 5th make pays 1,000 Gold',
-      'From tomorrow: coins on your first run pay 10 Gold each', `+ 2,400 Gold 2,400 Ale`];
-    const lastMissing = lastLines.filter(l => !last.includes(l)), lastNew = /right now|this morning|on your run|on your first run today/.test(last);
+    // (the line on how the games pay: the view's own, payCopyHTML, as words; it must say the Ale and the new Gold)
+    const tc = document.createElement('template');
+    tc.innerHTML = typeof view.payCopyHTML === 'function' ? view.payCopyHTML() : '';
+    const copy = tc.content.textContent.replace(/\s+/g, ' ').trim();
+    const copyOk = copy.startsWith('Ale: your place on the Daily Puzzles, 17–0 and Two-Minute Drill boards, paid the next morning. Gold: ')
+      && /\b500\b.*\b3,000 for every 5th Kick It make\b.*\b25 a coin on your first Return Man run\b/.test(copy);
+    const lines = [copyOk ? copy : 'the line on how the games pay (payCopyHTML) with the new Gold', '#2 right now · 4,000 Ale tomorrow if it holds', '#1 right now · 5,000 Ale tomorrow if it holds', '#1 yesterday: paid this morning', 'Not played yet: your place pays Ale tomorrow',
+      '10 makes on your run', '12 coins on your first run', `All told ${E.inc.total.gold.toLocaleString('en-US')} Gold ${E.inc.total.grain.toLocaleString('en-US')} Ale`, '1st 5,000', '7th or lower 1,200',
+      /Kick It\b.*\b500 Gold\b.*\b3,000\b.*\b5th make/, /Return Man\b.*\b500 Gold\b.*\b25 a coin/];
+    const missing = lines.filter(l => !says('The coffers', pages, l)).map(String);
+    const old = /400 plus|Gold and Ale alike|1,000 Gold every|10 Gold a coin|10 Gold each|\d+\+ makes/.test(cof + hi);
+    const welcome = copyOk && hi.includes(copy);
+    const last = text('The coffers', evePages), lastLines = ['Paid the old way: Gold and Ale alike', 'From tomorrow: your place on its board pays Ale', /^From tomorrow:.*\b500 Gold\b.*\b3,000\b.*\b5th make/,
+      /^From tomorrow:.*\b500 Gold\b.*\b25 a coin/, `+ 2,400 Gold 2,400 Ale`];
+    const lastMissing = lastLines.filter(l => !says('The coffers', evePages, l)).map(String), lastNew = /right now|this morning|on your run|on your first run today/.test(last);
     // (the old pay's last day: the lead says when the new one starts; from then, it doesn't)
     const starts = last.includes('Starting Thu Oct 22. ' + copy) && !cof.includes('Starting');
     if (!starts) lastMissing.push('Starting Thu Oct 22. (on the eve alone)');
@@ -270,7 +296,7 @@ export async function realmChecks(check) {
       detail: `${missing.length ? 'the coffers never say: ' + missing.join(' | ') : 'the coffers say it all'}; the old pay’s words ${old ? 'still there' : 'gone'}; the welcome ${welcome}; the old pay’s last day ${lastMissing.length ? 'never says: ' + lastMissing.join(' | ') : 'says it'}${lastNew ? ', but speaks of the new pay' : ''}`};
   });
 
-  check('Keepfall: a new realm holds 2,500 of each in its Castle; the coffers keep what doesn’t fit (the games’ pay and the starter 1,500) and move it in as room opens; a gold mine digs 20 an hour up to 10 hours’ worth, collected as far as there’s room, and stops while it’s upgraded', () => {
+  check('Keepfall: a new realm holds 2,500 of each in its Castle; the coffers keep what doesn’t fit (the games’ pay and the starter 1,500) and move it in as room opens; a gold mine digs 20 an hour up to 24 hours’ worth (a brewery the same: Oct 22 2026, was 10), collected as far as there’s room, and stops while it’s upgraded', () => {
     const s = F.fresh(T0), cap = F.capOf(s);
     const moved = F.claim(s, 10000), pend = F.pending(s, 10000);
     const mine = s.b.find(b => b.t === 'mine');
@@ -282,9 +308,10 @@ export async function realmChecks(check) {
     const up = F.upgrade(s, mine.i, T0 + 4 * F.HOUR), during = F.made(mine, T0 + 4 * F.HOUR + 30e3), done = F.KINDS.mine.time[1] * 1000 + 1e3;
     F.tick(s, T0 + 4 * F.HOUR + done);
     const after = mine.l === 2 && F.made(mine, T0 + 5 * F.HOUR + done) === 35;
-    const ok = cap.gold === 2500 && cap.grain === 2500 && moved.gold === 2500 && pend.gold === 9000 && m3 === 60 && m30 === 200 && full === 0 && got === 60 && left === 0
+    const day = F.KINDS.mine.hold === 24 && F.KINDS.farm.hold === 24 && F.stat('farm', 1).hold === 480;
+    const ok = day && cap.gold === 2500 && cap.grain === 2500 && moved.gold === 2500 && pend.gold === 9000 && m3 === 60 && m30 === 480 && full === 0 && got === 60 && left === 0
       && up && during === 0 && after;
-    return {pass: ok, detail: `cap ${JSON.stringify(cap)}, moved ${moved.gold}, waiting ${pend.gold}; mine 3h ${m3}, 30h ${m30}; full ${full}, then ${got} (left ${left}); upgrading ${up}, digging ${during}; after ${after}`};
+    return {pass: ok, detail: `holds a day’s ${day}; cap ${JSON.stringify(cap)}, moved ${moved.gold}, waiting ${pend.gold}; mine 3h ${m3}, 30h ${m30}; full ${full}, then ${got} (left ${left}); upgrading ${up}, digging ${during}; after ${after}`};
   });
 
   check('Keepfall: one builder, one job at a time (the owner, Oct 2026): while anything’s going up or being upgraded nothing else can be, walls included (a new wall still goes up at once); no more huts, and a save with two is still one builder; the Castle’s level caps how many of each and how high (one gold mine at level 1, a ballista past level 2 needs Castle 2)', () => {
@@ -540,6 +567,325 @@ export async function realmChecks(check) {
     return {pass: ok1 && skipped && firstDay && inTruce, detail: `Castle 1: none ${skipped}; due ${due.length}, played ${done.length} (${done.map(r => `${r.by} ${r.st}★ ${r.pc}% took ${r.lt.join('/')}`).join('; ')}), again ${again.length}; the same twice ${same}; stores ${JSON.stringify(s.r)} ok ${stores}; glory ${s.tp} ok ${glory}; truce ${truced}; coffers untouched ${JSON.stringify(F.pending(s, 5000)) === coffers}; first day none ${firstDay}; in a truce none ${inTruce}`};
   });
 
+  // ---- the batch of Oct 22 2026: competitive pay, Castle 4 unlocks, raid replays and example raids
+  check('Keepfall: the competitive pay’s numbers (the owner, Oct 22 2026: package C): Kick It 500 for the counting run and 3,000 for every 5th make (40 makes at most: 24,500), Return Man 500 a day with a run and 25 a coin, the first 200; Ale by place as it was; a raid on his realm takes a tenth of what’s stored (was .15) and a quarter of the mines’ and breweries’ piles (was half), which hold a day’s output (24 hours, was 10)', async () => {
+    const kickTable = Array.from({length: 41}, (_, m) => m).filter(m => F.kickGold(m) !== 500 + 3000 * Math.floor(m / 5) || (typeof kk.goldOf === 'function' && kk.goldOf(m) !== F.kickGold(m)));
+    const kick = !kickTable.length && F.kickGold(40) === 24500 && F.kickGold(45) === 24500 && F.KICK_GOLD === 3000 && F.KICK_BASE === 500 && F.KICK_EVERY === 5;
+    const coins = [0, 1, 12, 84, 199, 200, 201, 1000], retTable = coins.filter(c => F.returnGold(c) !== 500 + 25 * Math.min(c, 200));
+    const ret = !retTable.length && F.COIN_GOLD === 25 && F.RETURN_BASE === 500 && F.COIN_PAID_MAX === 200 && F.COIN_MAX === 1000 && F.returnGold(1000) === 5500;
+    const ale = F.ALE_BY_PLACE.join() === '5000,4000,3200,2600,2100,1700,1200' && JSON.stringify(F.NEW_PAY) === JSON.stringify({puzzles: 25, '17-0': 14, drill: 8, kick: 5, return: 3});
+    const shares = F.STORE_SHARE === .1 && F.MADE_SHARE === .25 && F.KINDS.mine.hold === 24 && F.KINDS.farm.hold === 24;
+    // (a new realm, 10,000 Gold and 8,000 Ale stored, its mine and brewery ten hours full: 200 each)
+    const s = F.fresh(T0);
+    s.r = {gold: 10000, grain: 8000};
+    const L = F.lootOf(s, T0 + 10 * F.HOUR);
+    const loot = L.total.gold === 1000 + 50 && L.total.grain === 800 + 50;
+    return {pass: kick && ret && ale && shares && loot, detail: `Kick It ${[0, 4, 5, 10, 25, 40].map(m => `${m}: ${F.kickGold(m)}`).join(', ')}${kickTable.length ? ' (wrong at ' + kickTable.join(',') + ')' : ''} ${kick}; Return Man ${coins.map(c => `${c}: ${F.returnGold(c)}`).join(', ')} ${ret}; Ale ${F.ALE_BY_PLACE.join('/')} ${ale}; shares ${F.STORE_SHARE}/${F.MADE_SHARE}, hold ${F.KINDS.mine.hold}h ${shares}; a raid’s take on 10,000/8,000 stored and 200/200 piled: ${JSON.stringify(L.total)} ${loot}`};
+  });
+
+  check('Keepfall: Castle 4 unlocks (the owner, Oct 22 2026): attacking and scouting the computer’s realms open at Castle level 4 (before then “Raids open at Castle level 4”), and then only realms up to a level above his Castle (the rest “Castle level N”: scouting them is fine); the Knight Hero is recruited from Castle 4 like the Wizard (one recruited before keeps his level); the computer still raids him from Castle 2', () => {
+    const at = l => { const s = F.fresh(T0 - 3 * DAY); s.b.find(b => b.t === 'keep').l = l; s.r = {gold: 99999, grain: 99999}; return s; };
+    const open = [1, 2, 3, 4, 5, 6, 7, 8].map(l => F.attackOpen(at(l))).join() === 'false,false,false,true,true,true,true,true' && F.ATTACK_AT === 4;
+    const reach = l => F.BOTS.filter(b => F.canTarget(at(l), b)).map(b => b.th).join('');
+    const targets = reach(3) === '' && reach(4) === '12345' && reach(5) === '123456' && reach(7) === '12345678' && F.canTarget(at(4), 'bot:5') && !F.canTarget(at(4), 'bot:9');
+    const whys = [F.attackWhy(at(3), 'bot:1'), F.attackWhy(at(4), 'bot:6'), F.attackWhy(at(4), 'bot:8'), F.attackWhy(at(4), 'bot:5'), F.attackWhy(at(4), 'bot:8', {scout: true}), F.attackWhy(at(2), 'bot:1', {scout: true})];
+    const words = JSON.stringify(whys) === JSON.stringify(['Raids open at Castle level 4', 'Castle level 5', 'Castle level 7', '', '', 'Raids open at Castle level 4']) && F.targetAt('bot:2') === 4 && F.targetAt('bot:8') === 7;
+    const r3 = F.realmOf('bot:1', at(3), T0), r6 = F.realmOf('bot:6', at(4), T0), sc6 = F.realmOf('bot:6', at(4), T0, {scout: true}), any = F.realmOf('bot:8', null, T0);
+    const realms = r3.locked && r3.why === 'Raids open at Castle level 4' && r6.locked && r6.why === 'Castle level 5' && !sc6.why && sc6.th === 6 && !any.why && any.th === 8;
+    const owner = !!data.isOwner();
+    const k3 = F.canRecruitHero(at(3), 'knight'), k4 = F.canRecruitHero(at(4), 'knight'), w3 = F.canRecruitHero(at(3), 'wizard');
+    const heroes = F.HEROES.knight.at === 4 && F.HEROES.wizard.at === 4
+      && (owner ? k3.why === 'Needs Castle level 4' && w3.why === 'Needs Castle level 4' && k4.ok : !k3.ok && !k4.ok && /Evan/.test(k4.why));
+    const had = Object.assign(at(2), {hr: {knight: 2}}), kept = F.clean(JSON.parse(JSON.stringify(had)));
+    const stays = !!kept && kept.hr.knight === 2 && F.heroLevel(kept, 'knight') === 2 && (owner ? F.heroLevels(kept).knight === 2 : true);
+    const raided = defend(at(2), T0).length >= 1 && !defend(at(1), T0).length;
+    return {pass: open && targets && words && realms && heroes && stays && raided, detail: `open from Castle 4 ${open}; in reach at Castle 3/4/5/7: ${reach(3) || 'none'}/${reach(4)}/${reach(5)}/${reach(7)} ${targets}; why ${JSON.stringify(whys)} ${words}; realmOf refuses ${realms}; heroes at ${F.HEROES.knight.at}/${F.HEROES.wizard.at}, the Knight Hero at Castle 3: ${k3.why}, at 4: ${k4.ok || k4.why} ${heroes}; one recruited at Castle 2 stays ${stays}; raided from Castle 2 ${raided}`};
+  });
+
+  check('Keepfall: the computer’s raids come at an hour that moves from day to day, the same on every phone (Oct 22 2026: they’d come at about 05:26 and 17:26 every day), one in each half of the day', () => {
+    const days = Array.from({length: 14}, (_, d) => { const t = new Date(2026, 9, 1 + d).getTime(); return raidsDue({lr: t, born: 0}, t + DAY - 1); });
+    const twice = Array.from({length: 14}, (_, d) => { const t = new Date(2026, 9, 1 + d).getTime(); return raidsDue({lr: t, born: 0}, t + DAY - 1); });
+    const hm = t => { const d = new Date(t); return d.getHours() + d.getMinutes() / 60; };
+    const am = days.map(x => x[0]).filter(Boolean).map(hm), pm = days.map(x => x[1]).filter(Boolean).map(hm);
+    const halves = days.every(x => x.length === 2) && am.every(h => h >= 1 && h <= 11) && pm.every(h => h >= 13 && h <= 23);
+    const spread = new Set(am.map(Math.floor)).size >= 5 && new Set(pm.map(Math.floor)).size >= 5 && Math.max(...am) - Math.min(...am) >= 4 && Math.max(...pm) - Math.min(...pm) >= 4;
+    const same = JSON.stringify(days) === JSON.stringify(twice);
+    const fmt = h => `${String(Math.floor(h)).padStart(2, '0')}:${String(Math.round(h % 1 * 60)).padStart(2, '0')}`;
+    return {pass: halves && spread && same, detail: `mornings ${am.map(fmt).join(' ')}; evenings ${pm.map(fmt).join(' ')}; one each half ${halves}; moving ${spread}; the same twice ${same}`};
+  });
+
+  // (an attack as views/realm-raid.js plays it: drops at fractions of a tile, the clock run between them, then End)
+  const attack = (s, key, army, heroes, endAt) => {
+    const T = F.realmOf(key, s, T0), B = makeBattle(T.base, T.loot, army, {heroes}), box = F.boxOf(T.base);
+    const send = (t, n, side) => { for (let i = 0; i < n; i++) B.deploy(t, side ? box.x1 + 1.37 : box.x0 - 1.63, box.y0 + .29 + i * .73); };
+    send('footman', Math.min(6, army.footman || 0), 0);
+    B.run(2.35);
+    send('archer', army.archer || 0, 1);
+    Object.keys(B.heroes).forEach((k, i) => B.deploy(F.HEROES[k].troop, box.x0 - 2.11, box.y1 - 1.07 - i));
+    B.run(7.9);
+    send('footman', Math.max(0, (army.footman || 0) - 6), 1);
+    send('knight', army.knight || 0, 0);
+    B.run(endAt);
+    if (!B.over) B.end();
+    const r = B.result(), rec = {id: `a${(T0 + endAt).toString(36)}`, vs: T.key, nm: T.name, at: T0, st: r.stars, pc: r.pct, lt: [r.got.gold, r.got.grain], ta: F.gloryFor(r.stars, T.th), hr: r.heroes};
+    F.finishRaid(s, rec, r.used, T0, B);
+    return {T, B, r, rec};
+  };
+  const same = (B, rec) => B.stars() === rec.st && B.pct() === rec.pc && B.got.gold === rec.lt[0] && B.got.grain === rec.lt[1];
+  const top = () => { const s = F.fresh(T0 - 3 * DAY); s.b.find(b => b.t === 'keep').l = F.MAX_KEEP; s.ar = {footman: 40, archer: 20, knight: 6}; return s; };
+
+  check('Keepfall: raid replays: an attack is recorded with its replay (rp: the realm’s lot as it stood, its take, the army, every drop, the step it ended on, the heroes) and played again from it it’s the same raid: the same stars, % and take, building by building, ended where it ended (End pressed or not), however its clock is run (all at once or a frame at a time, at any speed); the replay draws the lot it was, from the record', () => {
+    const owner = !!data.isOwner(), s = top();
+    const a = attack(s, 'bot:4', {footman: 14, archer: 8, knight: 2}, owner ? {knight: 3, wizard: 2} : {}, 41.3);
+    const b = attack(s, 'bot:1', {footman: 20}, {}, F.RAID_S);
+    const out = [a, b].map(({T, B, r, rec}) => {
+      const P = F.decodeReplay(rec.rp), mine = F.replayOf(rec);
+      if (!P) return {ok: false, why: 'no replay'};
+      const R = replayBattle(P);
+      R.play(Infinity);
+      const one = same(R, rec) && JSON.stringify(R.gotBy) === JSON.stringify(r.gotBy) && R.step === B.step && R.why === B.why && JSON.stringify(R.used) === JSON.stringify(r.used);
+      // (a frame at a time, at 4×)
+      const S = replayBattle(P);
+      let t = 0, guard = 0;
+      while (!S.over && guard++ < 5000) { t += .016 * 4 + (guard % 7) * .003; S.play(t); }
+      const frames = same(S, rec) && S.step === B.step && Math.abs(S.dur - B.step * .1) < 1e-9;
+      const again = replay(P.base, P.loot, P.army, P.drops, Infinity, P.opts), fn = same(again, rec) && again.step === B.step;
+      // (the lot it was: every standing building where it stood, at its level, with its take)
+      const lot = JSON.stringify(P.base.b.map(x => [x.i, x.t, x.l, x.x, x.y])) === JSON.stringify(T.base.b.filter(x => x.l >= 1).map(x => [x.i, x.t, x.l, x.x, x.y]))
+        && Object.entries(T.loot.by).every(([i, v]) => (!v.gold && !v.grain) || JSON.stringify(P.loot.by[i]) === JSON.stringify(v));
+      const heroes = JSON.stringify(P.hr) === JSON.stringify(B.heroes) && (owner ? JSON.stringify(mine) === JSON.stringify(P) : mine === null) && F.hasReplay(rec);
+      return {ok: one && frames && fn && lot && heroes, why: `${rec.nm}: ${rec.st}★ ${rec.pc}% ${rec.lt.join('/')} (${B.why}, step ${B.step}${Object.keys(B.heroes).length ? ', heroes ' + JSON.stringify(B.heroes) : ''}) → ${R.stars()}★ ${R.pct()}% ${R.got.gold}/${R.got.grain} (${R.why}) same ${one}, frame by frame ${frames}, replay() ${fn}, the lot ${lot}, heroes and owner’s ${heroes}`};
+    });
+    const kept = s.rd.length === 2 && s.rd.every(r => r.rp);
+    return {pass: out.every(o => o.ok) && kept && a.B.why === 'quit' && b.B.why !== 'quit', detail: out.map(o => o.why).join(' · ') + `; on the record ${kept}`};
+  });
+
+  check('Keepfall: raid replays: each of the computer’s raids on his realm is recorded with its replay (his lot then, his defending heroes, the computer’s drops as they went in) and plays again the same: the same stars, % and take; it shows the lot as it was even after he’s moved and upgraded since', () => {
+    const owner = !!data.isOwner(), s = F.fresh(T0 - 3 * DAY);
+    s.b.find(b => b.t === 'keep').l = 2;
+    s.hr = {knight: 2};
+    s.r = {gold: 4000, grain: 4000};
+    [['cannon', 1], ['tower', 1], ['wall', 1], ['wall', 1], ['treasury', 2]].forEach(([t, l]) => { const p = F.spotFor(s, t); if (p) s.b.push({i: s.nb++, t, l, x: p.x, y: p.y, u: 0}); });
+    const lot = JSON.stringify(s.b.filter(b => b.l >= 1).map(b => [b.i, b.t, b.l, b.x, b.y]));
+    const done = defend(s, T0);
+    const each = done.map(rec => {
+      const P = F.decodeReplay(rec.rp, s), R = P && replayBattle(P);
+      if (R) R.play(Infinity);
+      return {rec, ok: !!R && same(R, rec) && JSON.stringify(P.base.b.map(b => [b.i, b.t, b.l, b.x, b.y])) === lot && (owner ? P.dh.knight === 2 && R.defenders.length === 1 : !R.defenders.length), R};
+    });
+    // (since: the cannon moved, the Castle up a level; the replay's lot is the record's)
+    const cannon = s.b.find(b => b.t === 'cannon'), spot = cannon && F.spotFor(Object.assign({}, s, {b: s.b.filter(b => b !== cannon)}), 'cannon', {x: 4, y: 4});
+    if (spot) F.move(s, cannon.i, spot.x, spot.y);
+    s.b.find(b => b.t === 'keep').l = 3;
+    const still = done.every(rec => JSON.stringify(F.decodeReplay(rec.rp, s).base.b.map(b => [b.i, b.t, b.l, b.x, b.y])) === lot);
+    // (his lot kept once, in the realm's lots, however many raids were played on it)
+    const once = !!s.lots && Object.keys(s.lots).length === 1 && done.every(rec => rec.rp.L === Object.keys(s.lots)[0]);
+    const ok = done.length >= 1 && each.every(x => x.ok) && still && once && s.df.every(r => r.rp) && JSON.stringify(s.df.map(r => r.id)) === JSON.stringify(done.map(r => r.id));
+    return {pass: ok, detail: `${done.length} raids: ${each.map(x => `${x.rec.by} ${x.rec.st}★ ${x.rec.pc}% took ${x.rec.lt.join('/')} → ${x.R ? `${x.R.stars()}★ ${x.R.pct()}% ${x.R.got.gold}/${x.R.got.grain}` : 'no replay'} ${x.ok}`).join('; ')}; the lot as it was after a move and an upgrade ${still}; his lot kept once ${once}`};
+  });
+
+  check('Keepfall: raid replays are small on the board (his realm rides on his board doc, which every phone in the league downloads on each save): rp is a few short text fields (the numbers packed, no array or object a building or a drop), a computer’s lot never kept (only which one, checked when played), his own kept once in the realm’s lots whatever number of raids were played on it; a full Castle 8 realm with 10 attacks, 10 raids on him and 3 examples grows by a few KB, not a hundred; kept on the newest 10 of each list, through the save and clean() as it was, the same battle; a broken one has no replay (no ▶) and clean() drops it (and the lots no replay points at); one played under other rules has no ▶ but is kept; the attacks keep their last 40, the raids on him their last 20; the example raids at most 3; a save from before has none and gains no fields', () => {
+    const s = top(), base = F.botBase(1), loot = F.botLoot(F.BOTS[0], base, null, T0);
+    const battle = n => { const B = makeBattle(base, loot, {footman: 1}); B.deploy('footman', 2.5 + (n % 5) * .1, 3.5); B.run(1); B.end(); return B; };
+    for (let n = 0; n < 45; n++) F.finishRaid(s, {id: 'a' + n, vs: 'bot:1', nm: 'Thornfield Hamlet', at: T0 + n, st: 0, pc: 0, lt: [0, 0], ta: 0}, {}, T0 + n, battle(n));
+    const rd = s.rd.length === 40 && s.rd.slice(-10).every(r => r.rp) && s.rd.slice(0, -10).every(r => !r.rp) && s.rd[39].id === 'a44';
+    for (let n = 0; n < 25; n++) F.takeRaid(s, {id: 'd' + n, at: T0 + n, by: 'Briarwatch', th: 2, st: 0, pc: 0, lt: [0, 0], ls: [0, 0], lb: {}, td: 0, rp: F.snapOf(battle(n))});
+    const df = s.df.length === 20 && s.df.slice(-10).every(r => r.rp) && s.df.slice(0, -10).every(r => !r.rp);
+    // (short text: a computer's lot by which one it is, the rest packed)
+    const rp = s.rd[39].rp, text = v => typeof v === 'string' && /^[A-Za-z0-9_.-]*$/.test(v);
+    const flat = rp.v === F.RP_V && text(rp.p) && /^b1\.[0-9a-z]+$/.test(rp.L) && !('b' in rp) && Object.values(rp).every(v => text(v) || Number.isInteger(v)) && !s.lots;
+    const size = JSON.stringify(rp).length;
+    // (through the save and clean(): as it was, and the same battle)
+    const back = F.clean(JSON.parse(JSON.stringify(s)));
+    const kept = !!back && JSON.stringify(back.rd) === JSON.stringify(s.rd) && JSON.stringify(back.df) === JSON.stringify(s.df);
+    const P = F.decodeReplay(back.rd[39].rp, back), R = replayBattle(P), B0 = battle(44);
+    R.play(Infinity);
+    const trip = JSON.stringify(R.bl.map(b => [b.i, b.t, b.l, b.x, b.y, b.loot])) === JSON.stringify(B0.bl.map(b => [b.i, b.t, b.l, b.x, b.y, b.loot])) && R.pct() === B0.pct() && R.step === B0.step;
+    // (broken: cut short, a character that isn't one, a lot that isn't kept, a lot that isn't one, another format; and
+    // played under other rules: no ▶, but kept)
+    const bad = [{...rp, p: rp.p.slice(0, 3)}, {...rp, p: rp.p + '!'}, {...rp, L: 'zz9'}, {v: rp.v, bv: rp.bv, p: rp.p, b: 'AQ'}, {...rp, v: 1}, null, 'x'];
+    const broken = bad.every(p => F.decodeReplay(p) === null && !F.hasReplay({rp: p}));
+    const stale = {...rp, bv: 'older'}, old = F.decodeReplay(stale) === null && !F.hasReplay({rp: stale});
+    const junk = F.clean(Object.assign(top(), {rd: [{id: 'a1', vs: 'bot:1', at: T0, rp: bad[0]}, {id: 'a2', vs: 'bot:1', at: T0, rp}, {id: 'a3', vs: 'bot:1', at: T0, rp: stale}],
+      ex: [1, 2, 3, 4].map(n => ({id: 'x' + n, at: T0, ex: true, rp})).concat({id: 'x9', at: T0, rp}), exv: 1, lots: {zz1: 'AQ'}}));
+    const cleaned = !junk.rd[0].rp && !!junk.rd[1].rp && !!junk.rd[2].rp && junk.ex.length === 3 && junk.ex.every(r => r.ex === true) && junk.ex[2].id === 'x4' && junk.exv === F.EX_V && !('lots' in junk);
+    const none = (() => { const o = F.clean(F.fresh(T0)); return !('ex' in o) && !('exv' in o) && !('lots' in o) && JSON.stringify(F.clean(o)) === JSON.stringify(o); })();
+    // (the board's database takes no array straight inside another; and a replay has no array or map at all now)
+    const nested = v => (Array.isArray(v) ? v.some(x => Array.isArray(x) || nested(x)) : !!v && typeof v === 'object' && Object.values(v).some(nested));
+    const ex = top();
+    exampleRaids(ex, T0);
+    const storable = !nested(s.rd) && !nested(s.df) && !nested(ex.ex || []) && [...s.rd, ...s.df, ...(ex.ex || [])].every(r => !r.rp || Object.values(r.rp).every(v => typeof v !== 'object'));
+    // (a full Castle 8 realm, its own lot (no computer's), 225 walls: 10 attacks on the Obsidian Spire, 10 raids on him,
+    // the 3 examples; how much the replays add to what's saved)
+    const big = top(), B8 = F.botBase(8);
+    big.b = B8.b.map(b => Object.assign({}, b, F.KINDS[b.t].role === 'make' ? {c: T0 - 6 * F.HOUR} : {}));
+    big.b.find(b => b.t === 'wall').l = 1;
+    Object.assign(big, {nb: Math.max(...big.b.map(b => b.i)) + 1, r: {gold: 60000, grain: 60000}, ar: {footman: 40, archer: 30, knight: 8}});
+    // (walls up to the Castle 8's 225, in rows round the outside)
+    for (let guard = 0; F.countOf(big, 'wall') < F.allowed(big, 'wall') && guard < 400; guard++) { const q = F.spotFor(big, 'wall'); if (!q) break; big.b.push({i: big.nb++, t: 'wall', l: 6, x: q.x, y: q.y, u: 0}); }
+    const T8 = F.realmOf('bot:8', null, T0), box8 = F.boxOf(T8.base);
+    for (let n = 0; n < 10; n++) {
+      const A = makeBattle(T8.base, T8.loot, {footman: 30, archer: 25, knight: 8});
+      for (let i = 0; i < 30; i++) A.deploy('footman', box8.x0 - 1.4 - (n % 3) * .3, box8.y0 + i * .55);
+      A.run(3); for (let i = 0; i < 25; i++) A.deploy('archer', box8.x1 + 1.6, box8.y0 + i * .6);
+      A.run(6); for (let i = 0; i < 8; i++) A.deploy('knight', box8.x0 + i * 1.3, box8.y1 + 1.5);
+      A.run(25); A.end();
+      F.finishRaid(big, {id: 'a' + n, vs: 'bot:8', nm: T8.name, at: T0 + n, st: A.stars(), pc: A.pct(), lt: [A.got.gold, A.got.grain], ta: 0}, {}, T0 + n, A);
+    }
+    const mbox = F.boxOf(big);
+    for (let n = 0; n < 10; n++) {
+      const D = makeBattle(big, F.lootOf(big, T0), raidArmy(8));
+      Object.entries(raidArmy(8)).forEach(([t, k]) => { for (let i = 0; i < k; i++) D.deploy(t, mbox.x0 - 1.5, mbox.y0 + (i + n) % 30 * .7); });
+      D.run(20); D.end();
+      F.takeRaid(big, {id: 'd' + n, at: T0 + n, by: 'Ironvale Citadel', th: 7, st: D.stars(), pc: D.pct(), lt: [D.got.gold, D.got.grain], ls: [0, 0], lb: {}, td: 0, rp: F.snapOf(D, {into: big})});
+    }
+    exampleRaids(big, T0);
+    const bare = JSON.parse(JSON.stringify(big));
+    delete bare.ex; delete bare.exv; delete bare.lots;
+    [...bare.rd, ...bare.df].forEach(r => { delete r.rp; });
+    const full = JSON.stringify(big).length, without = JSON.stringify(bare).length, lots = Object.keys(big.lots || {}), walls = F.countOf(big, 'wall');
+    const owner = !!data.isOwner(), bex = big.ex || [];
+    const small = big.rd.filter(r => r.rp).length === 10 && big.df.filter(r => r.rp).length === 10 && bex.length === (owner ? 3 : 0) && lots.length === 1
+      && [...big.df, ...bex].every(r => r.rp.L === lots[0]) && big.rd.every(r => /^b8\./.test(r.rp.L)) && full - without < 20000 && walls === 225;
+    const plays8 = F.decodeReplay(big.df[9].rp, big) && F.decodeReplay(big.rd[9].rp, big) && (!owner || F.decodeReplay(bex[0].rp, big));
+    const ok = rd && df && flat && kept && trip && broken && old && cleaned && none && storable && size < 400 && small && !!plays8;
+    return {pass: ok, detail: `attacks ${s.rd.length}, replays on ${s.rd.filter(r => r.rp).length} (${rd}); raids on him ${s.df.length}, replays on ${s.df.filter(r => r.rp).length} (${df}); short text ${flat}, ${size} characters; nothing nested ${storable}; through the save ${kept}, the same battle ${trip}; broken ones refused ${broken}; other rules hidden ${old}; clean() ${cleaned}; an old save gains nothing ${none}; Castle 8 with ${big.b.length} buildings, ${walls} of them walls: ${without} characters saved without replays, ${full} with 10 + 10 + 3 (+${full - without}; his lot kept ${lots.length}×, ${lots.map(k => big.lots[k].length).join()} characters) ${small}`};
+  });
+
+  check('Keepfall: example raids (the owner’s ask, Oct 22 2026): three of the computer’s raids on his realm as it is, played for real and recorded with replays: one driven off (no star), one taking a star, one breaking through (three); in their own list (ex, never the raids on him), the same each time, and they take nothing: his stores, piles, glory, truce and raids untouched; made once by themselves, cleared and made again on his say; on anyone else’s phone none are made and no replay plays', () => {
+    const owner = !!data.isOwner();
+    const realm = () => {
+      const s = F.fresh(T0 - 3 * DAY), B4 = F.botBase(4);
+      s.b = B4.b.map(b => Object.assign({}, b, F.KINDS[b.t].role === 'make' ? {c: T0 - 6 * F.HOUR} : {}));
+      s.nb = Math.max(...s.b.map(b => b.i)) + 1;
+      Object.assign(s, {r: {gold: 30000, grain: 20000}, tp: 120, sh: T0 - F.HOUR, lr: T0 - 2 * F.HOUR, hr: {knight: 3}, ar: {footman: 5}, df: [{id: 'd1', at: T0 - DAY, by: 'Mossgate', th: 3, st: 0, pc: 10, lt: [0, 0], ls: [0, 0], lb: {}, td: 9}]});
+      return s;
+    };
+    const s = realm(), before = JSON.stringify(s), t0 = performance.now();
+    const ex = exampleRaids(s, T0), ms = Math.round(performance.now() - t0);
+    const rest = JSON.parse(JSON.stringify(s));
+    delete rest.ex; delete rest.exv; delete rest.lots;
+    const untouched = JSON.stringify(rest) === before;
+    if (!owner) {
+      const t = realm(), made = ensureExamples(t, T0), rec = {id: 'x', ex: true, rp: F.snapOf(makeBattle(F.botBase(1), null, {footman: 1}))};
+      const none = !ex.length && untouched && !('ex' in s) && !made && !('exv' in t) && F.replayOf(rec) === null && replayRaid(rec) === null;
+      return {pass: none, detail: `not the owner’s phone: none made ${!ex.length}, nothing changed ${untouched}, ensureExamples ${made}, no replay ${F.replayOf(rec) === null}`};
+    }
+    const stars = ex.map(r => r.st).join() === '0,1,3';
+    const shape = ex.length === 3 && s.ex === ex && s.exv === F.EX_V && ex.every(r => r.ex === true && r.td === 0 && r.ls.join() === '0,0' && !Object.keys(r.lb).length && r.at === T0 && r.by && r.rp)
+      && new Set(ex.map(r => r.id)).size === 3 && ex.every(r => { const f = F.findRaid(s, r.id); return f && f.kind === 'ex' && f.rec === r; }) && s.df.length === 1;
+    const plays = ex.every(r => { const R = replayRaid(r, s); if (!R) return false; R.play(Infinity); return same(R, r) && R.defenders.length === 1; });
+    const twin = realm();
+    exampleRaids(twin, T0);
+    const sameEach = JSON.stringify(twin.ex) === JSON.stringify(s.ex);
+    // (made once: a realm from before them gets them on opening, then never again by itself; cleared, they stay cleared)
+    const u = realm(), first = ensureExamples(u, T0), second = ensureExamples(u, T0 + DAY);
+    const cleared = F.clearExamples(u) && !('ex' in u) && u.exv === F.EX_V && !ensureExamples(u, T0 + DAY) && !('ex' in u);
+    const renewed = exampleRaids(u, T0 + DAY).length === 3 && u.ex.length === 3 && u.ex[0].at === T0 + DAY;
+    const once = first && !second && u.exv === F.EX_V;
+    const ok = stars && shape && plays && untouched && sameEach && once && cleared && renewed && ms < 3000;
+    return {pass: ok, detail: `${ex.map(r => `${r.by} ${r.st}★ ${r.pc}% (would have taken ${r.lt.join('/')}; ${JSON.stringify((F.decodeReplay(r.rp, s) || {}).army)})`).join(' · ')} in ${ms} ms; 0/1/3 stars ${stars}; in their own list, taking nothing ${shape}; replays the same ${plays}; his realm untouched ${untouched}; the same each time ${sameEach}; made once ${once}; cleared ${cleared}; made again ${renewed}`};
+  });
+
+  check('Keepfall: a half day that already has a raid on him on the record has no other (Oct 22 2026, the day the hour moved: the morning’s raid had come at the old hour, 05:23, and the new hour, 07:58, would have raided him again that morning); the rest of the day as it comes', () => {
+    const at = (h, m) => new Date(2026, 9, 22, h, m).getTime();
+    const s = {born: 0, lr: at(5, 23), df: [{id: 'd1', at: at(5, 23), by: 'Mossgate', th: 3, st: 0, pc: 20, lt: [0, 0], ls: [0, 0], lb: {}, td: 9}]};
+    const due = raidsDue(s, at(23, 54)), plain = raidsDue({born: 0, lr: at(5, 23)}, at(23, 54));
+    const am = due.filter(t => t < at(12, 0)), pm = due.filter(t => t >= at(12, 0));
+    const ok = !am.length && pm.length === 1 && plain.filter(t => t < at(12, 0)).length === 1 && plain.filter(t => t >= at(12, 0)).length === 1;
+    const hm = t => new Date(t).toTimeString().slice(0, 5);
+    return {pass: ok, detail: `after a 05:23 raid on the record: ${due.map(hm).join(', ') || 'none'} (morning ${am.length}, evening ${pm.length}); without it: ${plain.map(hm).join(', ')}`};
+  });
+
+  check('Keepfall: a raid on him that takes from a mine’s or brewery’s full pile takes it off the pile (a pile left past its day stops growing: what was taken came off nothing till Oct 22 2026)', () => {
+    const s = F.fresh(T0 - 5 * DAY);
+    s.b.find(b => b.t === 'keep').l = 4;
+    const p = F.spotFor(s, 'mine');
+    s.b.push({i: s.nb++, t: 'mine', l: 4, x: p.x, y: p.y, u: 0, c: T0 - 72 * F.HOUR});
+    const m = s.b[s.b.length - 1], full = F.made(m, T0), took = Math.floor(full * F.MADE_SHARE);
+    F.takeRaid(s, {id: 'd1', at: T0, by: 'Mossgate', th: 3, st: 1, pc: 55, lt: [took, 0], ls: [0, 0], lb: {[m.i]: [took, 0]}, td: -12});
+    const left = F.made(m, T0), later = F.made(m, T0 + 2 * F.HOUR);
+    const q = F.fresh(T0 - 5 * DAY), p2 = F.spotFor(q, 'farm');
+    q.b.push({i: q.nb++, t: 'farm', l: 1, x: p2.x, y: p2.y, u: 0, c: T0 - 3 * F.HOUR});
+    const f = q.b[q.b.length - 1], before = F.made(f, T0);
+    F.takeRaid(q, {id: 'd2', at: T0, by: 'Briarwatch', th: 2, st: 0, pc: 10, lt: [0, 15], ls: [0, 0], lb: {[f.i]: [0, 15]}, td: 3});
+    const ok = full === F.stat('mine', 4).hold && left === full - took && later > left && F.made(f, T0) === before - 15;
+    return {pass: ok, detail: `a level 4 mine left 72 h: ${full} piled (full), a quarter taken (${took}): ${left} left, ${later} two hours on; a brewery not yet full: ${before} → ${F.made(f, T0)} after 15 taken`};
+  });
+
+  check('Keepfall: a copy of his realm saved by a phone that never had the example raids (an older version, or one that hadn’t made them) doesn’t lose them: this phone’s are kept, with the lot they were played on, and so are a record’s replay the newer copy lacks; examples cleared on another phone stay cleared', () => {
+    const owner = !!data.isOwner();
+    const mk = () => { const s = F.fresh(T0 - 3 * DAY); s.b.find(b => b.t === 'keep').l = 3; s.r = {gold: 9000, grain: 9000}; return s; };
+    const local = mk();
+    local.ex = [{id: 'x1', at: T0, by: 'Mossgate', th: 3, st: 0, pc: 10, lt: [0, 0], ls: [0, 0], lb: {}, td: 0, ex: true}];
+    const B = makeBattle(local, F.lootOf(local, T0), {footman: 3}), bx = F.boxOf(local);
+    B.deploy('footman', bx.x0 - 1.5, bx.y0); B.run(4); B.end();
+    local.ex[0].rp = F.snapOf(B, {into: local}); local.exv = F.EX_V;
+    local.df = [{id: 'd1', at: T0 - F.HOUR, by: 'Briarwatch', th: 2, st: 0, pc: 0, lt: [0, 0], ls: [0, 0], lb: {}, td: 6, rp: F.snapOf(B, {into: local})}];
+    // (newer, from a phone on the app before examples: no exv, the raid without its replay)
+    const remote = F.clean(Object.assign(JSON.parse(JSON.stringify(local)), {at: local.at + 60000}));
+    delete remote.ex; delete remote.exv; delete remote.lots; delete remote.df[0].rp;
+    const kept = F.keepMine(remote, local) && remote.ex && remote.ex.length === 1 && remote.exv === F.EX_V && !!remote.df[0].rp
+      && !!F.decodeReplay(remote.ex[0].rp, remote) && !!F.decodeReplay(remote.df[0].rp, remote) && JSON.stringify(F.clean(remote)) === JSON.stringify(remote);
+    // (cleared on the other phone: exv there, no ex)
+    const cleared = F.clean(Object.assign(JSON.parse(JSON.stringify(local)), {at: local.at + 60000}));
+    F.clearExamples(cleared);
+    const stays = !F.keepMine(cleared, local) && !('ex' in cleared);
+    return {pass: kept && stays, detail: `kept from this phone ${kept} (examples ${remote.ex ? remote.ex.length : 0}, the raid’s replay ${!!remote.df[0].rp}, lots ${Object.keys(remote.lots || {}).length}); cleared elsewhere stays cleared ${stays}${owner ? '' : ' (not the owner’s phone)'}`};
+  });
+
+  check('Keepfall: the example raids are made a slice at a time on his phone (exampleRaidsAsync: at once they held Keepfall still for seconds), the same three as all at once, put on the realm as it is when they’re done; stopped (Keepfall closed, another profile) nothing is put anywhere; on anyone else’s phone none', async () => {
+    const owner = !!data.isOwner();
+    const realm = () => {
+      const s = F.fresh(T0 - 3 * DAY), B5 = F.botBase(5);
+      s.b = B5.b.map(b => Object.assign({}, b, F.KINDS[b.t].role === 'make' ? {c: T0 - 6 * F.HOUR} : {}));
+      s.b.find(b => b.t === 'wall').l = 1; // (his own lot, not the computer's)
+      Object.assign(s, {nb: Math.max(...s.b.map(b => b.i)) + 1, r: {gold: 30000, grain: 20000}, hr: {knight: 3, wizard: 2}});
+      return s;
+    };
+    const RB = await import('./realm-battle.js');
+    const a = realm(), b = realm(), into = realm(), t0 = performance.now();
+    const sync = exampleRaids(a, T0), ms = Math.round(performance.now() - t0);
+    let longest = 0, last = performance.now(), ticking = true;
+    const tick = () => { const n = performance.now(); longest = Math.max(longest, n - last); last = n; if (ticking) setTimeout(tick, 0); };
+    setTimeout(tick, 0);
+    let slices = 0;
+    const t1 = performance.now(), got = await RB.exampleRaidsAsync(b, T0, {into: () => into, still: () => ++slices > 0});
+    ticking = false;
+    const wall = Math.round(performance.now() - t1);
+    if (!owner) {
+      const none = got === null && !('ex' in b) && !('ex' in into) && !sync.length;
+      return {pass: none, detail: `not the owner’s phone: none made ${none}`};
+    }
+    const same = !!got && JSON.stringify(into.ex) === JSON.stringify(a.ex) && !('ex' in b) && !('exv' in b) && JSON.stringify(into.lots) === JSON.stringify(a.lots);
+    let n = 0;
+    const c = realm(), stopped = await RB.exampleRaidsAsync(c, T0, {still: () => ++n < 5});
+    const off = stopped === null && !('ex' in c) && !('exv' in c);
+    const busyOnce = (() => { const p1 = RB.exampleRaidsAsync(realm(), T0, {still: () => false}), p2 = RB.exampleRaidsAsync(realm(), T0); return p1 === p2; })();
+    await new Promise(r => setTimeout(r, 0));
+    // (in slices: the page had its turn between them, many times over)
+    const ok = same && off && busyOnce && slices >= 20 && ms < 3000;
+    return {pass: ok, detail: `${a.ex.map(r => `${r.st}★`).join(' ')}: all at once ${ms} ms; a slice at a time ${wall} ms in ${slices} slices, the page’s longest wait ${Math.round(longest)} ms (with the other checks running); the same three, on the realm given ${same}; stopped: nothing put ${off}; one at a time ${busyOnce}`};
+  });
+
+  check('Keepfall: the Chronicle’s ▶ Watch (views/realm.js): on a raid on his realm, an attack of his or an example raid only where it has a replay (rp that reads back), none on an older record without one or a broken one; each opens its own (#/realm/replay/<id>)', async () => {
+    const view = await import('../views/realm.js');
+    const s = top(), B = makeBattle(F.botBase(1), null, {footman: 1});
+    B.deploy('footman', 2.5, 3.5); B.run(1); B.end();
+    const rp = F.snapOf(B), broken = Object.assign({}, rp, {p: 'x'});
+    s.rd = [{id: 'a1', vs: 'bot:1', nm: 'Thornfield Hamlet', at: T0 - 3e5, st: 0, pc: 0, lt: [0, 0], ta: 0, rp}, {id: 'a2', vs: 'bot:1', nm: 'Thornfield Hamlet', at: T0 - 2e5, st: 0, pc: 0, lt: [0, 0], ta: 0},
+      {id: 'a3', vs: 'bot:1', nm: 'Thornfield Hamlet', at: T0 - 1e5, st: 0, pc: 0, lt: [0, 0], ta: 0, rp: broken}];
+    s.df = [{id: 'd1', at: T0 - 4e5, by: 'Briarwatch', th: 2, st: 0, pc: 0, lt: [0, 0], ls: [0, 0], lb: {}, td: 6, rp}, {id: 'd2', at: T0 - 5e5, by: 'Briarwatch', th: 2, st: 0, pc: 0, lt: [0, 0], ls: [0, 0], lb: {}, td: 6}];
+    s.ex = [{id: 'x1', at: T0, by: 'Mossgate', th: 3, st: 0, pc: 0, lt: [0, 0], ls: [0, 0], lb: {}, td: 0, ex: true, rp}];
+    const page = (view._screens(s, T0) || []).find(p => p.where === 'The Chronicle');
+    const t = document.createElement('template');
+    t.innerHTML = page ? page.html : '';
+    const ids = [...t.content.querySelectorAll('[data-rl-watch]')].map(e => e.getAttribute('data-rl-watch')).sort().join();
+    const want = ['a1', 'd1', 'x1'].join();
+    const route = await import('../app.js').then(app => { const r = app.parseRoute('/realm/replay/d1'); return data.isOwner() ? !!r && r.view === 'realm-replay' && r.params && r.params.id === 'd1' : !r || r.view !== 'realm-replay'; }).catch(() => false);
+    return {pass: !!page && ids === want && route, detail: `▶ on ${ids || 'nothing'} (want ${want}); the route ${route}`};
+  });
+
   check('Keepfall: his old Franchise save is taken up as his realm (Stadium to Castle, booths to gold mines, coolers to breweries, cannons to ballistas, fences to walls; Cash to Gold, Juice to Ale; receivers to footmen, kickers to dragons), the same twice, and raids on people dropped', () => {
     const old = {v: 1, at: T0, born: T0 - DAY, nm: '', tp: 40, nb: 9, sh: 0,
       b: [{i: 1, t: 'stadium', l: 3, x: 16, y: 16, u: 0}, {i: 2, t: 'office', l: 1, x: 17, y: 12, u: 0}, {i: 3, t: 'booth', l: 2, x: 11, y: 16, u: 0, c: T0 - F.HOUR},
@@ -596,7 +942,7 @@ export async function realmChecks(check) {
     read.forEach(({where, text}) => BAD.forEach(re => { const m = text.match(re); if (m) found.push(`${where}: “${m[0]}”`); }));
     // and in the code's own words (toasts and the rest written out in the views; comments aside, where the old names
     // still explain the ids)
-    const files = ['../views/realm.js', '../views/realm-raid.js', '../views/realm-scout.js', './realm.js', './realm-battle.js'];
+    const files = ['../views/realm.js', '../views/realm-raid.js', '../views/realm-scout.js', './realm.js', './realm-battle.js', '../views/realm-replay.js'];
     const src = await Promise.all(files.map(f => fetch(new URL(f, import.meta.url)).then(r => r.text())));
     const code = t => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|\s)\/\/.*$/gm, '$1').replace(/(data-rl-world[^>]*>)Realm</g, '$1<'); // (the camera's Realm view)
     const CODE_BAD = /\b(?:Grain|Farms?|farms|Granar(?:y|ies)|granaries)\b|\bKeep level\b|\b(?:your|the|a) Keep\b|\bRealm\b/;

@@ -27,6 +27,13 @@ function speedBtn(st) {
   b.classList.toggle('is-fast', st.speed > 1);
 }
 
+/** Why realm key can't be attacked (or scouted) from realm s yet, or '': raids open at Castle level 4 (the owner, Oct 22
+ *  2026), and a realm more than a level above your Castle waits for it. */
+export function lockedWhy(s, key) {
+  if (!F.attackOpen(s)) return `Raids open at Castle level ${F.ATTACK_AT}.`;
+  const bot = F.BOTS.find(b => b.k === key);
+  return bot && !F.canTarget(s, bot) ? `${bot.name} opens at Castle level ${F.targetAt(bot)}.` : '';
+}
 /** The realm being attacked and what it holds: {key, name, base, loot, th} or {why}. */
 const targetOf = (key, now = Date.now()) => F.realmOf(key, F.mine(), now);
 
@@ -58,8 +65,8 @@ function score(st) {
   if (c.textContent !== clock) c.textContent = clock;
   c.classList.toggle('is-low', !!st.t0 && left < 30);
 }
-// bars over damaged buildings
-function bars(st) {
+// bars over damaged buildings (views/realm-replay.js draws them too)
+export function bars(st) {
   if (!st.v) return;
   const box = st.el.querySelector('.rl-tags');
   let html = '';
@@ -72,7 +79,7 @@ function bars(st) {
     x.style.transform = `translate(${p.x.toFixed(1)}px, ${p.y.toFixed(1)}px)`;
   });
 }
-function floatText(st, x, y, text, c) {
+export function floatText(st, x, y, text, c) {
   const p = st.v.project(x, y, 2.6), el = document.createElement('div');
   el.className = `rl-float is-${c}`; el.textContent = text;
   el.style.left = p.x + 'px'; el.style.top = p.y + 'px';
@@ -103,7 +110,8 @@ function finish(st, quiet = false) {
   const B = st.B, r = B.result(), s = F.mine(), now = Date.now();
   if (!B.drops.length) return;
   const ta = F.gloryFor(r.stars, st.T.th);
-  F.finishRaid(s, {id: `a${now.toString(36)}`, vs: st.T.key, nm: st.T.name, at: now, st: r.stars, pc: r.pct, lt: [r.got.gold, r.got.grain], ta, hr: r.heroes}, r.used, now);
+  // (the battle goes with it, for its replay: core/realm.js snapOf keeps the lot, the drops and where it ended)
+  F.finishRaid(s, {id: `a${now.toString(36)}`, vs: st.T.key, nm: st.T.name, at: now, st: r.stars, pc: r.pct, lt: [r.got.gold, r.got.grain], ta, hr: r.heroes}, r.used, now, B);
   F.touch();
   F.flush();
   if (quiet) return;
@@ -157,6 +165,10 @@ export default {
       const msg = el.querySelector('[data-rlr-msg]');
       if (!daily.LB.ready) { msg.hidden = false; msg.textContent = 'Riding out…'; const off = ctx.on('daily', type => { if (type === 'lb') { off(); begin(); } }); return; }
       F.sync();
+      // (raids open at Castle level 4, and only on realms up to a level above your Castle: core/realm.js attackOpen,
+      // canTarget)
+      const locked = lockedWhy(F.mine(), key);
+      if (locked) { msg.hidden = false; msg.textContent = locked; return; }
       const T = targetOf(key);
       if (T.why) { msg.hidden = false; msg.textContent = T.why; return; }
       const s = F.mine(), army = Object.assign({}, s.ar);

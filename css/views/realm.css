@@ -10,8 +10,8 @@
   font-display: swap;
   src: url(../../fonts/cinzel-latin.woff2) format("woff2");
 }
-.screen.v-realm, .screen.v-realm-raid, .screen.v-realm-scout { overflow: hidden; padding: 0; background: #9AAEC0; }
-.v-realm > .screen-body, .v-realm-raid > .screen-body, .v-realm-scout > .screen-body { position: absolute; inset: 0; padding: 0; }
+.screen.v-realm, .screen.v-realm-raid, .screen.v-realm-scout, .screen.v-realm-replay { overflow: hidden; padding: 0; background: #9AAEC0; }
+.v-realm > .screen-body, .v-realm-raid > .screen-body, .v-realm-scout > .screen-body, .v-realm-replay > .screen-body { position: absolute; inset: 0; padding: 0; }
 .rl, .sh-rl {
   --rl-glass: rgba(26,18,12,.78); --rl-line: rgba(232,190,96,.34); --rl-gilt: #E8C268; --rl-gold: #F0C23E; --rl-ale: #FFB04A; --rl-gain: #A9C55B;
   --rl-wood: linear-gradient(#5E4330, #3B2A1D); --rl-crimson: linear-gradient(#A82A33, #6E1520);
@@ -445,3 +445,89 @@ html.is-realm-playing #tabbar { visibility: hidden; pointer-events: none; }
 @media (prefers-reduced-motion: reduce) {
   .rl-intro-art, .rl-intro-caption { animation: none; }
 }
+
+/* ---- Castle 4 (Oct 22 2026): Attack locked till the Castle's level 4, a realm out of reach locked till it's high enough */
+.rl-btn.is-raid.is-locked { background: linear-gradient(#6E4A4C, #3E2628); }
+.rl-btn.is-raid.is-locked .rl-bi .ic { color: rgba(255,233,163,.6); }
+/* (its "Castle 4" under the word, clear of the lock: in a corner it sat on the lock) */
+.rl-btn em.rl-lockt { position: static; margin-top: -1px; font-size: 11px; color: #FFE9A3; }
+.rl-btn em.rl-lockt[hidden] { display: none; }
+/* (Attack's swords, or its lock while raids are closed) */
+.rl-btn .rl-bi-lock, .rl-btn.is-locked .rl-bi-go { display: none; }
+.rl-btn.is-locked .rl-bi-lock { display: block; }
+.sh-rl .rl-lock { display: flex; align-items: flex-start; gap: 12px; padding: 14px; border-radius: 12px; background: rgba(232,194,104,.1); box-shadow: inset 0 0 0 1px var(--rl-line); }
+.sh-rl .rl-lock > span:last-child { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.sh-rl .rl-lock b { font: 700 17px/1.2 var(--rl-face); color: #FBE7B0; }
+.sh-rl .rl-lock small { font: 500 14px/1.4 var(--font-text); color: rgba(247,238,221,.78); }
+.rl-lock-ic { flex: none; }
+.rl-lock-ic .ic { display: block; width: 28px; height: 28px; color: var(--rl-gilt); stroke-width: 2; }
+.sh-rl .rl-tg.is-locked .rl-tg-n, .sh-rl .rl-tg.is-locked .rl-tg-lv { opacity: .6; }
+/* (a realm's name takes the lines it needs, three at most, rather than a few letters, beside Scout and the lock or Attack;
+   and on a narrow phone the buttons give it a little more room) */
+.sh-rl .rl-tg-n b { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; }
+@media (max-width: 380px) {
+  .sh-rl .rl-tg { gap: 8px; }
+  .sh-rl .rl-tg .rl-tg-n b { font-size: 14px; }
+  .sh-rl .rl-tg .rl-tg-go { padding: 0 11px; }
+  .sh-rl .rl-tg [data-rl-scout] { padding: 0 10px; }
+  .sh-rl .rl-tg-lock { padding: 8px 7px; }
+}
+.sh-rl .rl-tg-lock { flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 8px 9px; border-radius: 9px; background: rgba(255,240,210,.06);
+  font: 700 12px/1 var(--font-text); color: rgba(247,238,221,.78); white-space: nowrap; }
+.sh-rl .rl-tg-lock .ic { width: 13px; height: 13px; stroke-width: 2.4; color: var(--rl-gilt); }
+
+/* ---- the Chronicle's ▶ Watch, and the example raids */
+.sh-rl .rl-act.rl-log-go { flex: none; flex-direction: row; gap: 6px; min-height: 44px; padding: 0 12px; font-size: 13px; }
+.sh-rl .rl-log-go .ic { width: 13px; height: 13px; color: var(--rl-gilt); }
+.sh-rl .rl-log.is-ex { box-shadow: inset 0 0 0 1px rgba(232,190,96,.28); background: rgba(232,194,104,.06); }
+.sh-rl .rl-ex-acts { margin-top: 10px; }
+.sh-rl .rl-ex-acts .rl-act { min-height: 44px; font-size: 13px; }
+
+/* ---- a raid watched again (views/realm-replay.js): who raided whom at the top, the controls in a dock at the bottom */
+/* (over the end card's shade, as the dock is: Close still works there; and a full-size touch) */
+.rlp .rlr-top { align-items: flex-start; z-index: 2; }
+.rlp .rlr-quit { height: 44px; }
+.rlp-who:empty { display: none; }
+.rlp-who { align-items: flex-start; padding: 6px 10px 7px 6px; }
+.rlp-who > .rl-tg-lv { margin-top: 1px; }
+.rlp-who-t { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.rlp .rlp-who b { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; font-size: 14px; line-height: 1.2; }
+.rlp-tag { display: inline-block; margin-right: 4px; padding: 2px 6px 1px; border-radius: 5px; background: var(--rl-gilt); color: #2A1B08; font: 800 10px/1.2 var(--font-text); font-style: normal; letter-spacing: .08em; text-transform: uppercase; vertical-align: 2px; }
+.rlp-res { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font: 700 12px/1.2 var(--font-text); color: rgba(247,238,221,.9); }
+.rlp-res .rl-stars i { width: 12px; height: 12px; }
+.rlp-pc { font: 700 13px/1 var(--rl-face); font-variant-numeric: tabular-nums lining-nums; }
+.rlp-took .rl-amt { margin-left: .35em; }
+.rlp-took .rl-amt + .rl-amt { margin-left: .4em; }
+.rlp-ex { color: var(--rl-gilt); }
+.rlp-dock { position: absolute; left: 10px; right: 10px; bottom: max(12px, var(--sa-b, 0px)); display: flex; flex-direction: column; gap: 6px; padding: 10px 12px 12px; border-radius: 14px;
+  background: var(--rl-glass); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); box-shadow: inset 0 0 0 1px var(--rl-line), 0 8px 24px rgba(0,0,0,.35); }
+.rlp-dock[hidden] { display: none; }
+.rlp-now { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 22px; }
+.rlp-live { display: flex; align-items: center; gap: 10px; min-width: 0; white-space: nowrap; }
+.rlp-live > b { font: 700 17px/1 var(--rl-face); font-variant-numeric: tabular-nums lining-nums; }
+.rlp-time { flex: none; font: 700 13px/1 var(--font-text); font-variant-numeric: tabular-nums; color: rgba(247,238,221,.75); }
+/* the bar: how far in, gilt up to here; drag it to jump */
+.rlp-prog { --rlp-p: 0%; width: 100%; height: 28px; margin: 0; padding: 0; background: transparent; -webkit-appearance: none; appearance: none; cursor: pointer; touch-action: pan-x; }
+.rlp-prog::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: linear-gradient(90deg, var(--rl-gold) var(--rlp-p), rgba(255,240,210,.18) var(--rlp-p)); }
+.rlp-prog::-moz-range-track { height: 6px; border-radius: 3px; background: rgba(255,240,210,.18); }
+.rlp-prog::-moz-range-progress { height: 6px; border-radius: 3px; background: var(--rl-gold); }
+.rlp-prog::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; margin-top: -6px; border: 0; border-radius: 50%; background: #FBE7B0; box-shadow: 0 0 0 2px #B58424, 0 2px 6px rgba(0,0,0,.5); }
+.rlp-prog::-moz-range-thumb { width: 18px; height: 18px; border: 0; border-radius: 50%; background: #FBE7B0; box-shadow: 0 0 0 2px #B58424, 0 2px 6px rgba(0,0,0,.5); }
+.rlp-prog:focus-visible { outline: 2px solid #FFE6A4; outline-offset: 2px; border-radius: 4px; }
+.rlp-ctl { display: flex; align-items: center; justify-content: center; gap: 18px; }
+.rlp-b { display: grid; place-items: center; width: 48px; height: 48px; padding: 0; border: 0; border-radius: 50%; background: rgba(255,240,210,.1); color: #F7EEDD; cursor: pointer;
+  box-shadow: inset 0 0 0 1px var(--rl-line); touch-action: manipulation; }
+.rlp-b svg { width: 22px; height: 22px; }
+.rlp-b.is-play { width: 60px; height: 60px; background: linear-gradient(#E6BE58, #B58424); color: #2A1B08; box-shadow: inset 0 1px 0 rgba(255,250,220,.55), 0 3px 0 #6E4C12; }
+.rlp-b.is-play svg { width: 26px; height: 26px; }
+.rlp-b:active { transform: translateY(2px); }
+.rlp-b.is-play:active { box-shadow: inset 0 1px 0 rgba(255,250,220,.55), 0 1px 0 #6E4C12; }
+.rlr-speed.rlp-speed { min-width: 48px; height: 48px; border-radius: 50%; }
+.rlp button:focus-visible { outline: 2px solid #FFE6A4; outline-offset: 3px; }
+.rlp .rlr-msg p { margin: 0 0 14px; }
+.rl .rlr-msg .btn.btn-primary { background: linear-gradient(#E6BE58, #B58424); color: #2A1B08; font-family: var(--rl-face); font-weight: 700; letter-spacing: .04em;
+  --ink-c: #2A1B08; --bevel: #6E4C12; box-shadow: inset 0 1px 0 rgba(255,250,220,.55), 0 4px 0 #6E4C12; }
+.rlp-close2 { margin-top: 2px; min-height: 44px; padding: 0 12px; border: 0; background: none; color: rgba(247,238,221,.82); font: 700 14px/1 var(--rl-face); letter-spacing: .04em; cursor: pointer; }
+.rlp .rlr-end { z-index: 1; background: rgba(10,6,3,.45); }
+.rlp .rlp-dock { z-index: 2; } /* (over the end card's shade: the bar and the buttons still work there) */
+.rlp .rlr-card-note { margin: 0; font: 600 13px/1.35 var(--font-text); color: rgba(247,238,221,.78); text-align: center; }

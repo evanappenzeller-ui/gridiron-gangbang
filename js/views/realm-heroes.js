@@ -16,7 +16,8 @@ export function heroCards(s) {
     const H = F.HEROES[k], level = F.heroLevel(s, k), cap = F.heroCap(s, k);
     const check = level ? F.canUpgradeHero(s, k) : F.canRecruitHero(s, k);
     const stats = F.heroStat(k, level || 1), next = level && level < 10 ? F.heroStat(k, level + 1) : null;
-    const locked = F.keepOf(s) < H.at;
+    // (both heroes unlock at Castle level 4 from Oct 22 2026, core/realm.js HEROES; one recruited before that stays)
+    const locked = F.keepOf(s) < H.at && !level;
     const status = locked ? `Unlocks at Castle level ${H.at}` : level ? `Level ${level} · Defending your Castle` : 'Ready to recruit';
     const action = level >= 10 ? 'Maximum level' : level ? `Upgrade to level ${level + 1}` : 'Recruit hero';
     return `<article class="rl-hero is-${k}${locked ? ' is-locked' : ''}" data-rl-hero-card="${k}">`

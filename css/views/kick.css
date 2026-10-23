@@ -218,7 +218,7 @@
   box-shadow: inset 0 0 0 1.5px rgba(255,240,170,.9), inset 0 0 0 3.5px rgba(176,110,6,.55), 0 0 10px rgba(255,210,63,.55);
 }
 /* The burst on a make that pays: coins fly up and out from the crossbar (--ox, --oy), flipping as they go, and
-   "+1,000" rises under the call (--ly). Over the field, under the HUD's glass and the call's words. */
+   "+3,000" rises under the call (--ly). Over the field, under the HUD's glass and the call's words. */
 .kk-pane .kk-coins { position: absolute; z-index: 1; inset: 0; pointer-events: none; overflow: hidden; }
 .kk-pane .kk-coin-f {
   position: absolute; left: var(--ox, 50%); top: var(--oy, 40%); margin: calc(var(--s, 18px) / -2) 0 0 calc(var(--s, 18px) / -2);

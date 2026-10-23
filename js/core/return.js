@@ -51,6 +51,7 @@
 //                                               whether his other phone ran first; taking them off a run
 //   dayCoins(docs, n), coinsWithin(n, y)        what a person's day's coins are on the board (for The Keep's pay),
 //                                               never more than the course lays out within their yards
+//   payOf(c)                                    what a day pays Keepfall: the base and the first run's coins (capped)
 //   dayState(n, real), record(n, k, yards, dist, coins), score(list), totals()   localStorage 'gg-ret1'
 //   keepLive(n, k, yards, dist, coins), settle(n), live(n)   a return under way: kept as it goes, counted if it's left
 //                                               behind
@@ -438,15 +439,27 @@ export function fill(co, z) {
 // from a seed of their own, the course's draws untouched (its rows, vehicles and power-ups are what they'd be without
 // them): the same every time, on every phone. Run through one (in his lane, between his feet and the top of his head)
 // and it's his (step's 'coin'). Each is COIN.gold Gold for The Keep (core/realm.js pays it from the board entry's c:
-// the first run's coins).
+// the first run's coins), COIN.paid of them a day at most, on top of COIN.base for the day (a run on the board) (the
+// owner's ask, Oct 22 2026, "playing games alone should give the users a good amount of resources": 25 a coin, was 10,
+// 200 coins paid at most, and 500 for the day's run: payOf; core/realm.js COIN_GOLD, COIN_PAID_MAX, RETURN_BASE and
+// coinGold say the same).
 // (r: a coin's radius; reach: how far past his feet or the top of his head (his body: BODY, SLIDE_BODY in a slide) a
 // coin's middle may be and still be his)
 // (look: seconds before the first coin with no banner or sled in its lane, so neither hides the line nor has him juke
 // out of it as it starts; fromDay: the first day the coins are out, the first day The Keep pays for them, core/realm.js
-// NEW_PAY.return; most: the most a run's record or board entry carries, and what's paid is never more than the day's
-// course lays out within the yards posted: dayCoins. Late in a run, with every lane busier, a line fits less often, so
-// they come further apart than COIN.every there.)
-export const COIN = {min: 6, max: 12, y: 1, r: .36, reach: .2, from: 30, every: [3.5, 7], retry: .5, react: .35, clear: 1.4, look: .3, item: 2.5, gold: 10, most: 1000, fromDay: 3};
+// NEW_PAY.return; most: the most a run's record or board entry carries (a run that takes more counts COIN.most: its
+// count is held there, never dropped), and what's paid is never more than the day's course lays out within the yards
+// posted: dayCoins. Late in a run, with every lane busier, a line fits less often, so they come further apart than
+// COIN.every there.)
+export const COIN = {min: 6, max: 12, y: 1, r: .36, reach: .2, from: 30, every: [3.5, 7], retry: .5, react: .35, clear: 1.4, look: .3, item: 2.5, gold: 25, base: 500, paid: 200, most: 1000, fromDay: 3};
+/** What a day of Return Man pays Keepfall (the owner's: core/realm.js RETURN_BASE + coinGold), its first run's coins
+ *  c: COIN.base for the day's run, and COIN.gold a coin, COIN.paid coins at most (500 + 25 x 200 = 5,500 at most). */
+export function payOf(c) {
+  return COIN.base + COIN.gold * Math.min(COIN.paid, Math.max(0, Math.floor(Number(c) || 0)));
+}
+/** A coin count as kept or posted: a whole number from 0, held at COIN.most (never dropped past it); null if it isn't
+ *  one. */
+const coinsKept = c => (Number.isInteger(c) && c >= 0 ? Math.min(c, COIN.most) : null);
 /** The coins' spacing along a line at v yards a second (about ten a second, never closer than 1.6 or wider than 3). */
 export const coinGap = v => clamp(v * .1, 1.6, 3);
 const JUMP_S = 2 * JUMP_V / GRAV; // (a jump's time in the air)
@@ -745,8 +758,11 @@ function sub(run, dt, out) {
     while (run.nextCoin < cs.length && cs[run.nextCoin].z <= run.z) {
       const cn = cs[run.nextCoin++];
       if (cn.lane !== lane || cn.y < run.y - COIN.reach || cn.y > run.y + body + COIN.reach) continue;
-      run.c++;
-      out.push({type: 'coin', coin: cn, c: run.c, z: run.z});
+      // (held at COIN.most, the most a record carries: past it he still runs through them, the count stays; add, what
+      // this one added to it)
+      const add = run.c < COIN.most ? 1 : 0;
+      run.c += add;
+      out.push({type: 'coin', coin: cn, c: run.c, add, z: run.z});
     }
   }
   run.slide = Math.max(0, run.slide - dt);
@@ -853,16 +869,17 @@ function write(v, real) {
 }
 const okNum = y => Number.isInteger(y) && y >= 0 && y <= MAX_YARDS;
 const okCoins = c => Number.isInteger(c) && c >= 0 && c <= COIN.most;
-const cleanOne = (e, i) => (okNum(e) ? {y: e, d: e} : e && okNum(e.y) && okNum(e.d) ? Object.assign({y: e.y, d: e.d}, !i && okCoins(e.c) ? {c: e.c} : {}) : null);
+const cleanOne = (e, i) => (okNum(e) ? {y: e, d: e} : e && okNum(e.y) && okNum(e.d) ? Object.assign({y: e.y, d: e.d}, !i && coinsKept(e.c) != null ? {c: coinsKept(e.c)} : {}) : null);
 const cleanList = r => (Array.isArray(r) ? r.map(cleanOne) : []).filter(Boolean);
 /** A day's first run's coins (d: a day as kept, {r: [...]}): c, or null (it had none: not a coin run). */
 export function firstCoins(d) {
   const e = d && Array.isArray(d.r) ? cleanOne(d.r[0], 0) : null;
   return e && okCoins(e.c) ? e.c : null;
 }
-/** A run as it's kept: {y, d}, and c (his coins) on the day's first run (k 0) when it had them. */
+/** A run as it's kept: {y, d}, and c (his coins, held at COIN.most) on the day's first run (k 0) when it had them. */
 export function runEntry(k, yards, dist = yards, coins) {
-  return Object.assign({y: yardsOf(yards), d: yardsOf(dist)}, k === 0 && okCoins(coins) ? {c: coins} : {});
+  const c = coinsKept(coins);
+  return Object.assign({y: yardsOf(yards), d: yardsOf(dist)}, k === 0 && c != null ? {c} : {});
 }
 /** The best of a day's runs ([{y, d}]): the most yards (the first of equals), or null. */
 const bestOf = list => list.reduce((b, e) => (!b || e.y > b.y ? e : b), null);
@@ -911,7 +928,8 @@ export function totals() {
 export function keepLive(n, k, yards, dist = yards, coins) {
   const v = read(), day = v.days[n] || (v.days[n] = {r: []});
   if (cleanList(day.r).length !== k) return;
-  day.live = Object.assign({k, y: Math.floor(yards), d: Math.floor(dist)}, k === 0 && okCoins(coins) ? {c: coins} : {});
+  const c = coinsKept(coins);
+  day.live = Object.assign({k, y: Math.floor(yards), d: Math.floor(dist)}, k === 0 && c != null ? {c} : {});
   write(v);
 }
 /** Ends a return left behind on day n where it was. Returns the day's state when it did, else null. */
@@ -932,7 +950,7 @@ export const live = n => { const d = read().days[n]; return !!(d && d.live && d.
 // has loaded and again whenever a run beats it (and after a failed post). One day per person: across their phones the
 // best counts. (rm1 held days of three kickoffs; rm2 began with one a day, first run counting, Oct 20 2026, and is
 // each day's best run since replays came in the same day.) The owner's days carry one more (Oct 21 2026): c, the coins
-// of the day's first run (COIN), whatever run is the best (The Keep pays 10 Gold a coin from it: dayCoins); posted with
+// of the day's first run (COIN), whatever run is the best (Keepfall pays COIN.gold a coin from it: dayCoins, payOf); posted with
 // the day's best by the phone that ran the first run (and by his other phones, once their board has it).
 // And a, the runs of the day on that phone (Oct 22 2026: the owner's ask, how many attempts each player has made, shown
 // on his scoreboard alone): posted again whenever it moves, a person's phones added up (attemptsOf). An entry from
@@ -1005,7 +1023,7 @@ export const coinsWait = (n, k, hard) => !!hard && k === 0 && !TEST && n >= COIN
 function coinsToPost(n, theirs) {
   if (!data.isOwner()) return null;
   const here = dayState(n, true).coins, there = theirs.some(p => { const e = entryOf(p, n); return e && e.c != null; }) ? dayCoins(theirs, n) : null;
-  return here == null && there == null ? null : Math.max(here || 0, there || 0);
+  return here == null && there == null ? null : Math.min(COIN.most, Math.max(here || 0, there || 0)); // (held at COIN.most)
 }
 function people(list) {
   const m = new Map();

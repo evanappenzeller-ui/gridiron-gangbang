@@ -143,8 +143,8 @@ async function ownerChecks(test, url) {
   await readyVillage(page);
   await page.locator('[data-rl-army]').first().click();
   assert.equal(await page.locator('[data-rl-hero-card]').count(), 2, 'Both named heroes appear in Army');
-  assert.match(await page.locator('[data-rl-hero-card="knight"]').innerText(), /Keep\s*(level\s*)?2/i, 'Knight unlock is explained');
-  assert.match(await page.locator('[data-rl-hero-card="wizard"]').innerText(), /Keep\s*(level\s*)?4/i, 'Wizard unlock is explained');
+  assert.match(await page.locator('[data-rl-hero-card="knight"]').innerText(), /Castle\s*(level\s*)?4/i, 'Knight unlock is explained (Castle 4 from Oct 22 2026)');
+  assert.match(await page.locator('[data-rl-hero-card="wizard"]').innerText(), /Castle\s*(level\s*)?4/i, 'Wizard unlock is explained');
   await page.screenshot({path: path.join(output, 'realm-heroes-locked-390.png')});
   await closeSheet(page);
 

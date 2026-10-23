@@ -140,23 +140,27 @@ function cardHTML(st) {
     + again('Field the kick') + creditLine() + `</div>`;
 }
 // The gold coins (core COIN: the owner's hard course, his first run of the day alone; the owner's ask, Oct 21 2026):
-// on the end card, what the run's coins pay Keepfall (COIN.gold Gold each); on his later runs, that they're only on the
-// first. Nobody else's card changes.
+// on the end card, what the day pays Keepfall (core payOf, Oct 22 2026: COIN.base for the day's run and COIN.gold a
+// coin, COIN.paid coins at most); on his later runs, that they're only on the first. Nobody else's card changes.
 const coinGlyph = '<i class="rm-coin" aria-hidden="true"></i>';
 function coinsLine(st, run) {
   if (!data.isOwner() || !run || !run.co.hard) return '';
   if (!R.testing() && st.n < R.COIN.fromDay) return ''; // (before the coins' first day: nothing to say of them)
+  const C = R.COIN, rule = `${nf(C.base)} for the day’s run + ${nf(C.gold)} a coin (the first ${nf(C.paid)} coins pay).`;
   if (!run.coins) {
     // (why a run has none: a later run; his first today was on another phone (the board says so); or, his first here,
-    // the board wasn't in to tell it was the day's first)
+    // the board wasn't in to tell it was the day's first (the day still pays the base for its run))
     const why = run.k > 0 ? 'Coins are only on your first run.' : run.elsewhere ? 'Your first run today was on another phone: its coins are the ones that count.'
-      : 'No coins this run: the scoreboard wasn’t in to tell it was your first today.';
+      : `No coins this run: the scoreboard wasn’t in to tell it was your first today. Keepfall still gets ${nf(C.base)} Gold for today’s run.`;
     return `<p class="rm-card-s rm-card-nocoins">${esc(why)}</p>`;
   }
-  const c = run.c, gold = nf(c * R.COIN.gold);
-  if (!c) return `<p class="rm-card-coins">${coinGlyph}<span>No coins this run</span></p>`;
+  const c = run.c, gold = nf(R.payOf(c));
   const pay = R.testing() ? `${gold} Gold (test play: not paid)` : `${gold} Gold for Keepfall`;
-  return `<p class="rm-card-coins">${coinGlyph}<span>${esc(`${nf(c)} ${c === 1 ? 'coin' : 'coins'} · ${pay}`)}</span></p>`;
+  const what = c ? `${nf(c)} ${c === 1 ? 'coin' : 'coins'}` : 'No coins this run';
+  // (past the cap: the coins he took all count on the board, the pay stops at COIN.paid)
+  const sub = c > C.paid ? `${nf(C.paid)} of them paid: the most a day pays for. ${nf(C.base)} for the day’s run + ${nf(C.gold)} a coin.` : rule;
+  return `<p class="rm-card-coins">${coinGlyph}<span>${esc(`${what} · ${pay}`)}</span></p>`
+    + `<p class="rm-card-s rm-card-cpay">${esc(sub)}</p>`;
 }
 function hudHTML() {
   // (the coin counter beside the yards: shown on a coin run alone, patchHud)
@@ -998,7 +1002,7 @@ function onEvents(st, evs) {
     }
     else if (e.type === 'landed') st.landAt = now;
     // (a coin: his, on his profile; off it, where they're hidden, it isn't counted)
-    else if (e.type === 'coin') { if (coinsShown(st)) coinGot(st, e, now); else if (st.run) st.run.c = Math.max(0, st.run.c - 1); }
+    else if (e.type === 'coin') { if (coinsShown(st)) coinGot(st, e, now); else if (st.run) st.run.c = Math.max(0, st.run.c - (e.add ?? 1)); }
     // a pothole's cone he ran through: kicked flying, off to the side (his lane's, or the way he's juking); nothing more
     else if (e.type === 'coned') {
       const run = st.run, dir = run.t - run.lastJuke < SIDE_S ? Math.sign(R.xOf(run, run.lane) - run.jFrom) : 0;

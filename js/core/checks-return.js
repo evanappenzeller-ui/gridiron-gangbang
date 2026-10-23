@@ -152,9 +152,9 @@ const freshCourses = () => { for (let n = 9000; n < 9015; n++) R.course(n, 0); }
  *  linebacker long gone: jump: yards early (-) or late (+) to jump an arc from its jump point (null: no jump); slide: in
  *  a slide all the way; juke: a lane over at once (either way there's room); hop: a jump just before a flat line; coins:
  *  a coin run or not. Runs to COIN.react s past it: {got (its coins he ran through), hits (before then), juked}. */
-function throughLine(co, line, {jump = 0, slide = false, juke = false, hop = false, coins = true} = {}) {
+function throughLine(co, line, {jump = 0, slide = false, juke = false, hop = false, coins = true, c0 = 0} = {}) {
   const run = R.startRun(co.n, 0, true, coins), z0 = line.z0 - 1.2, from = (arr, f) => { const i = arr.findIndex(f); return i < 0 ? arr.length : i; };
-  run.co = co;
+  run.co = co; run.c = c0; // (c0: the coins he has already, coming to it)
   Object.assign(run, {z: z0, lane: line.lane, x: R.xOf(run, line.lane), t: 30, hitAt: 0, zone: Math.floor(z0 / R.ZONE), tds: R.tdsAt(z0)});
   run.next = from(co.rows, r => r.z >= z0); run.nextCone = from(co.rows, r => R.coneZ(r) >= z0);
   run.nextItem = from(co.items, it => it.z >= z0); run.nextCoin = from(co.coins, c => c.z >= z0);
@@ -170,7 +170,7 @@ function throughLine(co, line, {jump = 0, slide = false, juke = false, hop = fal
       if (['stumbled', 'tackled', 'crashed', 'shoved'].includes(e.type) && e.z < zEnd) hits++;
     });
   }
-  return {got, hits, juked};
+  return {got, hits, juked, c: run.c};
 }
 
 export async function returnChecks(check) {
@@ -862,7 +862,8 @@ export async function returnChecks(check) {
   // ------------------------------------------------------------------------------------------- the coins
   // The owner's ask (Oct 21 2026): "the return man game should have coins every so often that line up for the player to
   // run through", and "coins are only available on the 1st attempt". His hard course, his first run of the day; The
-  // Keep pays 10 Gold a coin (core/realm.js, from the board entry's c).
+  // Keep pays 25 Gold a coin, 200 coins at most, and 500 for the day's run (Oct 22 2026: core/realm.js, from the board
+  // entry's c; core payOf).
   check('Return Man coins (the owner\'s ask, Oct 21 2026): on the hard course alone, lines of 6 to 12 gold coins in one lane at his waist, every few seconds, some arcing up over a barricade or a pothole; never in or on a vehicle or its ramp, never by a power-up, never through anything in the lane but the barricade or pothole an arc goes over (well over its cone), the lane clear COIN.react seconds past the last, and no banner (to hide it) or sled (to juke round) in its lane COIN.look seconds before it starts; the same every time and on every phone (however far ahead they\'re laid out; fingerprint ' + COIN_FP + '), day to day different; the hard course itself unchanged (fingerprint ' + HARD_FP + ', coins laid out first or not) and the regular course with none at all (fingerprint ' + REG_FP + ')', () => {
     const C = R.COIN, bad = [];
     let lines = 0, coins = 0, arcs = 0, gaps = 0, gapN = 0, holes = 0, look = 0;
@@ -968,7 +969,7 @@ export async function returnChecks(check) {
     const withC = R.entryOf({rm2: {5: ent(600, 84)}}, 5), without = R.entryOf({rm2: {5: ent(600)}}, 5), badC = R.entryOf({rm2: {5: ent(600, 2.5)}}, 5);
     const board = withC && withC.c === 84 && Object.keys(without).join() === 'y,l,td,t' && !('c' in badC);
     const far = R.coinsWithin(5, 2400);
-    const pay = far >= 84 && R.dayCoins([me({5: ent(2400)}), other({5: ent(200, 84)}), me({5: ent(10, 12)})], 5) === 84 && R.dayCoins([me({5: ent(600)})], 5) === 0 && R.dayCoins([], 5) === 0 && R.COIN.gold === 10;
+    const pay = far >= 84 && R.dayCoins([me({5: ent(2400)}), other({5: ent(200, 84)}), me({5: ent(10, 12)})], 5) === 84 && R.dayCoins([me({5: ent(600)})], 5) === 0 && R.dayCoins([], 5) === 0 && R.COIN.gold === 25;
     // (never more than the day's course lays out within the yards he posted: a run's coins are all behind him, and his
     // yards never fall short of how far he's run; past COIN.most, not a number any entry carries)
     const within = R.coinsWithin(5, 300), co5 = R.coinsTo(R.course(5, 0, true), 400);
@@ -977,6 +978,22 @@ export async function returnChecks(check) {
       && R.dayCoins([me({5: ent(300, R.COIN.most + 1)})], 5) === 0 && R.COIN.most === 1000;
     const pass = gate && waits && kept && first && official && board && pay && counted && bound;
     return {pass, detail: `open: a fresh day ${open.fresh}, after a run on this phone ${open.mine}, on another of his ${open.theirs} (ranElsewhere ${open.elsewhere}), someone else's run doesn't count ${open.someoneElse}, run 2 ${open.later}, the regular course ${open.regular}, before the coins' first day (${R.COIN.fromDay}) ${open.early}, the board loading ${open.loading}, off ${open.off}, in error ${open.err}; waits for the board ${JSON.stringify(wait)} (${waits}); kept on the first run alone ${kept}, read back ${first}, the best run still counts ${official}; on the board ${board}; paid from the most of his docs, ${R.COIN.gold} Gold a coin ${pay}; never more than the course lays out within his yards (${within} within 300, ${far} within 2,400) ${counted && bound}`};
+  });
+  check('Return Man pays Keepfall competitively (the owner\'s ask, Oct 22 2026: "playing games alone should give the users a good amount of resources"): 500 for a day with a run on the board (the base) and 25 Gold a coin of its first run\'s, 200 coins paid at most (payOf: 5,500 at most), the same as core/realm.js (RETURN_BASE + coinGold, COIN_GOLD, COIN_PAID_MAX) for 0 to 1,000 coins; a run\'s count is held at COIN.most (1,000), never dropped: past it he still runs through them (each still his: the sparkle) and the count stays there, and the record carries 1,000', async () => {
+    const C = R.COIN;
+    const table = [0, 1, 40, 199, 200, 201, 1000, -5, 2.5, 'x'].map(R.payOf).join();
+    const nums = C.gold === 25 && C.base === 500 && C.paid === 200 && C.most === 1000 && table === '500,525,1500,5475,5500,5500,5500,500,550,500';
+    const F = await import('./realm.js').catch(() => null);
+    const agree = !!F && F.RETURN_BASE === C.base && F.COIN_PAID_MAX === C.paid && F.COIN_GOLD === C.gold && typeof F.coinGold === 'function'
+      && Array.from({length: C.most + 1}, (_, c) => F.RETURN_BASE + F.coinGold(c) === R.payOf(c)).every(Boolean);
+    // held at COIN.most: the record (runEntry), one kept before (firstCoins reads it back), and a run's count through a line
+    const kept = JSON.stringify(R.runEntry(0, 900, 900, C.most + 250)) === `{"y":900,"d":900,"c":${C.most}}` && R.firstCoins({r: [{y: 9, d: 9, c: C.most + 7}]}) === C.most
+      && JSON.stringify(R.runEntry(0, 9, 9, 2.5)) === '{"y":9,"d":9}' && JSON.stringify(R.runEntry(1, 9, 9, C.most + 1)) === '{"y":9,"d":9}';
+    const co = R.coinsTo(R.course(5, 0, true), 900), line = co.lines.find(l => l.jump == null && l.n >= 2);
+    const at = line ? throughLine(co, line, {c0: C.most - 1}) : null, under = line ? throughLine(co, line, {c0: 10}) : null;
+    const held = !!at && at.got === line.n && at.c === C.most && under.got === line.n && under.c === 10 + line.n;
+    const pass = nums && agree && kept && held;
+    return {pass, detail: `payOf ${table} (${C.base} + ${C.gold} a coin, ${C.paid} paid at most) ${nums}; realm.js agrees (RETURN_BASE ${F && F.RETURN_BASE}, COIN_GOLD ${F && F.COIN_GOLD}, COIN_PAID_MAX ${F && F.COIN_PAID_MAX}) ${agree}; held at ${C.most} on the record ${kept}; a run at ${C.most - 1} through a line of ${line && line.n}: ${at && at.got} his, the count ${at && at.c} (from 10: ${under && under.c}) ${held}`};
   });
   check('Return Man coins: a first run can\'t be run twice for its coins: Test play, or a new day, ends a paused run where it got to (as leaving the page does) before putting it aside, and a kickoff first ends any run of the day left under way (live), so the next is run 2 without coins; the coins\' sparkle can\'t stop the game (its age never below nothing, the canvas always restored)', async () => {
     const view = await fetch(new URL('../views/return.js', import.meta.url)).then(r => r.text()).catch(() => '');
@@ -996,14 +1013,15 @@ export async function returnChecks(check) {
     const start = /coins = own && R\.coinsOpen\(st\.n, k, own\);\s*\n\s*st\.run = R\.startRun\(st\.n, k, own, coins\);/.test(view)
       && /if \(R\.coinsWait\(st\.n, st\.day\.next, true\)\) \{/.test(view); // (his first kickoff waits for the board)
     const shown = /const coinsShown = st => !!\(st\.run && st\.run\.coins && data\.isOwner\(\)\)/.test(view) && /if \(coinsShown\(st\)\) A\.coins\.forEach/.test(view) && /const runCoins = st => \(st\.run && st\.run\.coins \? st\.run\.c : undefined\);/.test(view)
-      && /else if \(e\.type === 'coin'\) \{ if \(coinsShown\(st\)\) coinGot\(st, e, now\); else if \(st\.run\) st\.run\.c = Math\.max\(0, st\.run\.c - 1\); \}/.test(view);
+      && /else if \(e\.type === 'coin'\) \{ if \(coinsShown\(st\)\) coinGot\(st, e, now\); else if \(st\.run\) st\.run\.c = Math\.max\(0, st\.run\.c - \(e\.add \?\? 1\)\); \}/.test(view);
     // (taken away when the board shows another of his phones ran first; a profile change hides them and, on his hard
     // course, ends the run where it is (the frame's whistle), keeping the ones he took: kept with the run, runCoins)
     const recheck = /recheckCoins\(st\); \/\/ \(the board's in/.test(view) && /recheckCoins\(st\);\s*\n/.test(view)
       && /if \(!run \|\| !run\.coins \|\| run\.over \|\| R\.testing\(\) \|\| !data\.isOwner\(\)\) return;\s*\n\s*if \(!R\.ranElsewhere\(st\.n\)\) return;\s*\n\s*R\.dropCoins\(run\)/.test(view)
       && /st\.run\.co\.hard && !data\.isOwner\(\)\) \{ R\.stop\(st\.run\); tackled\(st\); \}/.test(view);
     const card = /if \(!data\.isOwner\(\) \|\| !run \|\| !run\.co\.hard\) return '';/.test(view) && /if \(!R\.testing\(\) && st\.n < R\.COIN\.fromDay\) return '';/.test(view)
-      && ['Coins are only on your first run.', 'Your first run today was on another phone: its coins are the ones that count.', 'No coins this run', '(test play: not paid)'].every(w => view.includes(w)) && /Gold for Keepfall/.test(view);
+      && ['Coins are only on your first run.', 'Your first run today was on another phone: its coins are the ones that count.', 'No coins this run', '(test play: not paid)'].every(w => view.includes(w)) && /Gold for Keepfall/.test(view)
+      && /const c = run\.c, gold = nf\(R\.payOf\(c\)\);/.test(view); // (the day's pay: the base and the coins, capped: core payOf)
     const one = (w3.match(/new T\.InstancedMesh\(/g) || []).length === 1 && /function coinsUpdate\(st, A, t\) \{\s*\n\s*if \(!\(A && st\.run && st\.run\.coins && data\.isOwner\(\)\)\)/.test(w3) && /m\.castShadow = false/.test(w3);
     const flat = /export function coin\(st, c, cn, t\)/.test(w2) && !/coin[^'"\n]*\.(png|jpe?g|webp|glb|svg)/i.test(w2 + w3 + view) && !/coin/i.test(sw);
     const host = document.createElement('div');

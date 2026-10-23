@@ -8,10 +8,11 @@
 // The physics, the day's kicks, memory and the board are core/kick.js; this draws (one canvas) and takes the flick.
 // A finger on the field shows how to kick (the guide), and three steps under it say it.
 // Keepfall's Gold (the owner's alone, Oct 21 2026): on his profile every 5th, 10th, 15th... make bursts coins up from
-// the posts with "+1,000" (and the game's haptic, its celebration pattern; not when a run from another of his phones
-// already counts today: only the first run pays), and the run's final card says what the day pays Keepfall ("+2,000
-// Gold for Keepfall"; core/kick.js goldOf, countingRun). From the first day paid this way (Thu Oct 22 2026: goldDay);
-// his Test play shows it any day, saying it isn't paid. Everyone else's game is as it was:
+// the posts with "+3,000" (and the game's haptic, its celebration pattern; not when a run from another of his phones
+// already counts today: only the first run pays), and the run's final card says what the day pays Keepfall ("+6,500
+// Gold for Keepfall": 500 for the run and 3,000 for every 5th make, Oct 22 2026; core/kick.js goldOf, countingRun).
+// From the first day paid this way (Thu Oct 22 2026: goldDay); his Test play shows it any day, saying it isn't paid.
+// Everyone else's game is as it was:
 // nothing of it is drawn, added to the page or said on their phones, and it goes the moment the profile changes.
 // Exports: render(ctx), mount(el, ctx, {anchor}), params(el, ctx), unmount(el, ctx); keepHTML, burstHTML (the kit
 // checks). Owner: KICK.
@@ -102,17 +103,19 @@ function overHTML(st) {
 // ---------------------------------------------------------------- Keepfall's Gold (the owner's alone)
 const COIN = '<i class="kk-coin" aria-hidden="true"></i>';
 const num = v => Number(v).toLocaleString('en-US');
-/** Keepfall's line on the run's final card: what the day pays in Gold ("+2,000 Gold for Keepfall"). The owner's alone:
- *  '' on anyone else's profile, so their card is as it was. o: {owner, test (Test play: shown, never paid), made (this
- *  run's makes), run (core/kick.js countingRun: the run that pays, which on another phone may be another run),
- *  practice (an old practice run: its own note already says which run counts)}. */
+/** Keepfall's line on the run's final card: what the day pays in Gold ("+6,500 Gold for Keepfall": the base for the
+ *  run, 500, whatever it made, and 3,000 for every 5th make: core/kick.js goldOf). The owner's alone: '' on anyone
+ *  else's profile, so their card is as it was. o: {owner, test (Test play: shown, never paid), made (this run's makes),
+ *  run (core/kick.js countingRun: the run that pays, which on another phone may be another run), practice (an old
+ *  practice run: its own note already says which run counts)}. */
 export function keepHTML({owner, test, made, run, practice} = {}) {
   if (!owner) return '';
   const g = K.goldOf(test || !run ? made : run.m);
-  const words = test ? (g ? `+${num(g)} Gold` : 'No Gold') : g ? `+${num(g)} Gold for Keepfall` : 'No Gold for Keepfall today';
+  // (a real run always pays the base: never "No Gold" for one)
+  const words = test ? `+${num(g)} Gold` : `+${num(g)} Gold for Keepfall`;
   const sub = test ? 'Test play: nothing’s paid to Keepfall.'
     : run && run.m !== made && !practice ? `From your first run today: ${plural(run.m, 'field goal')}.`
-    : !g ? `${num(K.GOLD.each)} Gold for every ${K.GOLD.every}th field goal.` : '';
+    : `${num(K.GOLD.base)} for the run + ${num(K.GOLD.each)} for every ${K.GOLD.every}th field goal.`;
   return `<p class="kk-over-g${g ? '' : ' is-none'}${test ? ' is-test' : ''}" data-kk-gold>${COIN}<span>${esc(words)}</span></p>`
     + (sub ? `<p class="kk-over-gs">${esc(sub)}</p>` : '');
 }
@@ -125,7 +128,7 @@ function keepNow(st) {
   return keepHTML({owner, test, made: st.day.made, run: owner && !test ? K.countingRun(st.n) : null, practice: !!(st.day.practice && st.day.official)});
 }
 /** The coin burst's insides: coins flying up and out from the posts (each its own way, spin and delay, the same every
- *  time) and "+1,000" under the call. */
+ *  time) and "+3,000" (GOLD.each) under the call. */
 export function burstHTML(amount = K.GOLD.each) {
   const N = 14, coins = Array.from({length: N}, (_, j) => {
     const a = j / (N - 1) * 2 - 1, dx = Math.round(a * 120 + ((j * 37) % 23) - 11), dy = -Math.round(105 + ((j * 53) % 70));
@@ -134,7 +137,7 @@ export function burstHTML(amount = K.GOLD.each) {
   }).join('');
   return `${coins}<b class="kk-coins-n">${COIN}<span>+${esc(num(amount))}</span></b>`;
 }
-/** A make that pays (the 5th, 10th...): coins burst up from the crossbar, "+1,000" under the call. The owner's alone;
+/** A make that pays (the 5th, 10th...): coins burst up from the crossbar, "+3,000" under the call. The owner's alone;
  *  false (nothing shown) on anyone else's profile. */
 function coinBurst(st) {
   const stage = st.el.querySelector('[data-kk-stage]');

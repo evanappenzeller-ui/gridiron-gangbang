@@ -56,8 +56,10 @@ function select(st, id) {
   st.v.showReach(sv ? {x: b.x + sz / 2, y: b.y + sz / 2, out: sv.range + sz / 2, min: sv.min} : null);
 }
 
-function goHTML() {
+function goHTML(key) {
   const s = F.mine(), army = F.roomOf(s.ar) || Object.keys(F.heroArmy(s)).length;
+  // (a realm more than a level above your Castle can be looked round, not attacked yet: core/realm.js attackWhy)
+  if (F.attackWhy(s, key)) return `<button type="button" class="rl-btn is-raid is-locked" disabled><span class="rl-bi" aria-hidden="true">${ui.icon('lock')}</span><span>Attack</span><em>Opens at Castle level ${F.targetAt(key)}</em></button>`;
   return army ? `<button type="button" class="rl-btn is-raid" data-rls-attack><span class="rl-bi" aria-hidden="true">${ui.icon('versus')}</span><span>Attack</span></button>`
     : `<button type="button" class="rl-btn is-raid" disabled><span class="rl-bi" aria-hidden="true">${ui.icon('versus')}</span><span>Attack</span><em>Recruit a hero or train troops</em></button>`;
 }
@@ -101,19 +103,21 @@ export default {
       const msg = el.querySelector('[data-rls-msg]');
       if (!daily.LB.ready) { msg.hidden = false; msg.textContent = 'Riding out…'; const off = ctx.on('daily', type => { if (type === 'lb') { off(); begin(); } }); return; }
       F.sync();
-      const T = F.realmOf(key, F.mine());
-      if (T.why) { msg.hidden = false; msg.textContent = T.why; el.querySelector('[data-rls-bar]').hidden = true; return; }
+      // (raids, and scouting, open at Castle level 4; then any of the computer's realms can be looked round, the ones
+      // more than a level above your Castle too: core/realm.js realmOf's scout)
+      const T = F.realmOf(key, F.mine(), Date.now(), {scout: true});
+      if (T.why) { msg.hidden = false; msg.textContent = T.locked && !/[.!]$/.test(T.why) ? `${T.why}.` : T.why; el.querySelector('[data-rls-bar]').hidden = true; return; }
       msg.hidden = true;
       st.T = T;
       el.querySelector('[data-rls-who]').innerHTML = `<span class="rl-tg-lv">${T.th}</span><span><b>${esc(T.name)}</b><small>${T.loot.total.gold || T.loot.total.grain ? `To take ${curHTML('gold', T.loot.total.gold)} ${curHTML('grain', T.loot.total.grain)}` : 'Sacked today: nothing left to take'}</small></span>`;
       el.querySelector('[data-rls-def]').innerHTML = defensesOf(T.base).map(d => `<span class="rls-chip">${d.n} ${esc(plural(d.t, d.n))}</span>`).join('') || '<span class="rls-chip">No defenses</span>';
-      el.querySelector('[data-rls-go]').innerHTML = goHTML();
+      el.querySelector('[data-rls-go]').innerHTML = goHTML(st.key);
       start3d(st);
     };
     begin();
   },
 
-  onShow(ctx) { const st = ST.get(ctx); if (st && st.T) st.el.querySelector('[data-rls-go]').innerHTML = goHTML(); },
+  onShow(ctx) { const st = ST.get(ctx); if (st && st.T) st.el.querySelector('[data-rls-go]').innerHTML = goHTML(st.key); },
 
   unmount(el, ctx) {
     const st = ST.get(ctx);

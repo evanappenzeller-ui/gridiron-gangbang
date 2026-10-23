@@ -1061,7 +1061,7 @@ export function create(host, opts = {}) {
     scene.add(zone);
     raid = {B, meshes, shadow, fly, puffs, fxAt: 0, prev: new Map(), cur: new Map(), stepSeen: -1, zone, zoneCv: cv, zoneTex, zoneSig: '', zoneShow: 0, aim: new Map(),
       fired: new Map(), byId: new Map(B.bl.map(b => [b.i, b])), t: 0, shotSeen: new WeakSet(),
-      heroes: createBattleHeroes(T, scene, {house: raider}), heroCur: new Map(), heroPrev: new Map()};
+      heroes: createBattleHeroes(T, scene, {house: raider}), heroCur: new Map(), heroPrev: new Map(), raider};
     drawZone();
     want();
   }
@@ -1077,6 +1077,25 @@ export function create(host, opts = {}) {
     }
     g.putImageData(img, 0, 0);
     raid.zoneTex.needsUpdate = true;
+  }
+  /** The raid drawn from its start again with battle B (a replay's restart, or its bar's jump: views/realm-replay.js),
+   *  the same army by the same house as the one drawn: what draws it is kept, emptied, and B put in its place (building it
+   *  all again, and compiling its shaders, held the screen still for a second each time). Otherwise, raidStart. */
+  function raidRestart(B, raider) {
+    const fits = raid && raid.raider === raider && Object.keys(TROOPS).every(k => {
+      const M = raid.meshes[k], n = (B.left[k] || 0) + (B.used[k] || 0);
+      return !n || (!!M && n <= (M.art || M.body).instanceMatrix.count);
+    });
+    if (!fits) { raidStart(B, raider); return; }
+    groups.forEach(e => SPR.animateDefense(e.g, e.b.t, Infinity));
+    Object.values(raid.meshes).forEach(M => { if (M.art) M.art.count = 0; else M.body.count = M.leg.count = 0; });
+    raid.shadow.count = 0;
+    Object.values(raid.fly).forEach(M => { M.count = 0; });
+    raid.puffs.forEach(p => { p.sp.visible = false; p.t0 = -9; });
+    Object.assign(raid, {B, fxAt: 0, prev: new Map(), cur: new Map(), stepSeen: -1, zoneSig: '', zoneShow: 0, aim: new Map(), fired: new Map(),
+      byId: new Map(B.bl.map(b => [b.i, b])), t: 0, shotSeen: new WeakSet(), heroCur: new Map(), heroPrev: new Map()});
+    drawZone();
+    want();
   }
   const showZone = (on) => { if (raid) { raid.zoneShow = on ? performance.now() : -1; want(); } };
   /** One frame of the raid at its clock t (seconds; between steps it eases from where each was to where he is). */
@@ -1297,7 +1316,7 @@ export function create(host, opts = {}) {
   resize(); placeCam(); want();
   return {
     setLot, select, setGhost, showGrid, showReach, pick, pickAll, tileAt, project, want, setAnim, look, frame: fit, frameVillage, frameWorld, zoomBy, resize,
-    raidStart, raidFrame, raidStop, showZone,
+    raidStart, raidRestart, raidFrame, raidStop, showZone,
     get zoom() { return view.dist; },
     get overlayScale() { return village ? Math.max(.5, Math.min(1, 70 / view.dist)) : 1; },
     get overview() { return village && view.dist > 145; },

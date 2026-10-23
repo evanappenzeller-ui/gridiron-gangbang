@@ -7,12 +7,15 @@
 // benefits, upgrade cost/time, moving or collection (a mine or brewery with something in
 // it collects at a tap); Build puts what you pick on the lot to drag where it goes. When you come back after the
 // computer's realms have raided you, what they did is the first thing you see. Each sheet's body is built by a pure
-// function of the realm (cofferHTML, armyHTML, …), so the checks can read every word of it (_screens()).
+// function of the realm (cofferHTML, armyHTML, …), so the checks can read every word of it (_screens()). Raids open at
+// Castle level 4 (core/realm.js ATTACK_AT: Attack shows the lock until then, and the next step points at the Castle).
+// The Chronicle lists the raids on your realm, your attacks and the example raids, each with ▶ Watch where its replay
+// was kept (views/realm-replay.js, #/realm/replay/<id>; closing it opens the Chronicle again).
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as daily from '../core/daily.js';
 import * as F from '../core/realm.js';
-import {defend} from '../core/realm-battle.js';
+import {defend, exampleRaidsAsync, ensureExamplesAsync, examplesBusy} from '../core/realm-battle.js';
 import {heroCards, residentsNote} from './realm-heroes.js';
 import {LORE_VERSION, introHTML, mountIntro} from './realm-lore.js';
 
@@ -87,12 +90,23 @@ export const starsHTML = (n, big = false) => `<span class="rl-stars${big ? ' is-
 // (incomeOf(): of each, {gold, grain}; places on today's boards pending; nothing at all off the owner's phone)
 const NO_PAY = () => ({total: {gold: 0, grain: 0}, by: {}, today: {}, pending: {}, last: {}, days: 0, day: {}});
 let EARNED = NO_PAY(), EARNED_DAY = '';
+// The Chronicle again when Keepfall next shows (a replay closed: views/realm-replay.js).
+let LOG_NEXT = false;
+export function reopenLog() { LOG_NEXT = F.mayPlay(); }
+/** Whether a raid on the record kept its replay (core/realm.js: the newest of each list, and every example) and it plays
+ *  under today's rules (hasReplay). s: the realm it's on (the lots its replay may point at), the owner's by default. */
+export const canWatch = (r, s) => !!(r && r.rp && typeof r.rp === 'object' && F.hasReplay(r, s || undefined));
 // (another profile on this phone, here or in another tab: the owner's pay isn't kept in memory for it)
-try { data.subscribe(type => { if (type === 'me' && !F.mayPlay()) { EARNED = NO_PAY(); EARNED_DAY = ''; } }); } catch (_) {}
+try { data.subscribe(type => { if (type === 'me' && !F.mayPlay()) { EARNED = NO_PAY(); EARNED_DAY = ''; LOG_NEXT = false; } }); } catch (_) {}
 function earned() {
   if (!F.mayPlay()) { EARNED = NO_PAY(); return EARNED.total; }
   // (the places already paid count as they were paid, frozen in the realm: refresh freezes the new ones)
-  try { EARNED = F.incomeOf(F.myDocs(), MODS, {paid: F.mine().pd}); EARNED_DAY = F.dayKey(); } catch (e) { console.error(e); }
+  try {
+    const docs = F.myDocs();
+    EARNED = F.incomeOf(docs, MODS, {paid: F.mine().pd}); EARNED_DAY = F.dayKey();
+    // (today's makes and coins, read from the runs themselves for the coffers' words: payToday)
+    if (!EARNED.runs) EARNED.runs = runsOf(docs, MODS, EARNED.day);
+  } catch (e) { console.error(e); }
   return EARNED.total;
 }
 
@@ -115,7 +129,7 @@ function shellHTML() {
     + `<button type="button" class="rl-objective" data-rl-objective hidden></button>`
     + `<div class="rl-sel" data-rl-sel hidden></div>`
     + `<div class="rl-bar" data-rl-bar>`
-    + `<button type="button" class="rl-btn is-raid" data-rl-raid><span class="rl-bi" aria-hidden="true">${ui.icon('versus')}</span><span>Attack</span></button>`
+    + `<button type="button" class="rl-btn is-raid" data-rl-raid><span class="rl-bi" aria-hidden="true">${ui.icon('versus', {cls: 'rl-bi-go'})}${ui.icon('lock', {cls: 'rl-bi-lock'})}</span><span>Attack</span><em class="rl-lockt" data-rl-raidlock hidden>Castle ${F.ATTACK_AT}</em></button>`
     + `<button type="button" class="rl-btn" data-rl-army><span class="rl-bi" aria-hidden="true">${ui.icon('shield')}</span><span>Army</span><em data-rl-armyn></em></button>`
     + `<button type="button" class="rl-btn" data-rl-shop><span class="rl-bi" aria-hidden="true">${ui.icon('plus')}</span><span>Build</span></button>`
     + `<button type="button" class="rl-btn" data-rl-log><span class="rl-bi" aria-hidden="true">${ui.icon('list')}</span><span>Chronicle</span></button>`
@@ -148,6 +162,11 @@ function hud(st, s = null) {
   });
   const army = F.roomOf(s.ar), room = F.armyRoom(s);
   el.querySelector('[data-rl-armyn]').textContent = room ? `${army}/${room}` : '';
+  // (Attack, locked till Castle level 4: it still opens, to say so)
+  const open = F.attackOpen(s), rb = el.querySelector('[data-rl-raid]');
+  rb.classList.toggle('is-locked', !open);
+  rb.querySelector('[data-rl-raidlock]').hidden = open;
+  rb.setAttribute('aria-label', open ? 'Attack' : `Attack: raids open at Castle level ${F.ATTACK_AT}`);
   objective(st, s);
 }
 
@@ -160,6 +179,14 @@ export function nextObjective(s, now = Date.now()) {
     return chk.ok ? {kind: 'build', type: k, title: `Build ${F.KINDS[k].name}`, detail: `${nf(chk.cost)} ${F.CUR_NAME[chk.pay]} · Choose a spot`} : null;
   };
   const upgrade = b => b && F.canUpgrade(s, b.i, now).ok ? {kind: 'select', id: b.i, title: `Upgrade ${F.KINDS[b.t].name}`, detail: upgradeBenefit(b)} : null;
+  // (raids open at Castle level 4: till then, whenever the Castle can go up, that's the step, before anything else (a full
+  // treasury included: the Castle spends it); when it can't yet, the buildings that pay and hold for it, and the Castle
+  // with what it needs when there's nothing else to do)
+  const locked = !F.attackOpen(s), keep = s.b.find(b => b.t === 'keep');
+  if (locked && keep && F.canUpgrade(s, keep.i, now).ok) {
+    const up = F.canUpgrade(s, keep.i, now);
+    return {kind: 'select', id: keep.i, title: `Raise your Castle to level ${up.to}`, detail: `Raids open at Castle level ${F.ATTACK_AT} · ${nf(up.cost)} ${F.CUR_NAME[up.pay]}`};
+  }
   const cap = F.capOf(s);
   for (const c of F.CUR) {
     if (s.r[c] < cap[c] * .9) continue;
@@ -172,13 +199,19 @@ export function nextObjective(s, now = Date.now()) {
     const goal = build(k);
     if (goal) return goal;
   }
-  if (!F.roomOf(s.ar) && !s.q.length && F.canTrain(s, 'footman').ok) return {kind: 'army', title: 'Train your first troops', detail: 'Prepare an army for a raid'};
+  // (till raids open, no army step: Attack's step is the Castle's)
+  if (!locked && !F.roomOf(s.ar) && !s.q.length && F.canTrain(s, 'footman').ok) return {kind: 'army', title: 'Train your first troops', detail: 'Prepare an army for a raid'};
   const candidates = s.b.filter(b => ['mine', 'farm', 'ballista', 'cannon', 'keep'].includes(b.t)).sort((a, b) => a.l - b.l || (a.t === 'keep') - (b.t === 'keep'));
   for (const b of candidates) { const goal = upgrade(b); if (goal) return goal; }
   const ready = s.b.find(b => F.KINDS[b.t].role === 'make' && F.made(b, now) >= 1 && s.r[F.KINDS[b.t].makes] < cap[F.KINDS[b.t].makes]);
   if (ready) return {kind: 'collect', id: ready.i, title: `Collect ${F.CUR_NAME[F.KINDS[ready.t].makes]}`, detail: 'Bring your production into storage'};
   if (s.q.length) return {kind: 'army', title: 'Your army is training', detail: `Ready in ${dur(F.trainedBy(s, now) - now)} · View army`};
-  if (F.roomOf(s.ar)) return {kind: 'raid', title: 'Scout your next raid', detail: 'Inspect a rival realm before you attack'};
+  if (!locked && F.roomOf(s.ar)) return {kind: 'raid', title: 'Scout your next raid', detail: 'Inspect a rival realm before you attack'};
+  if (locked && keep) {
+    const up = F.canUpgrade(s, keep.i, now);
+    return {kind: 'select', id: keep.i, title: `Raise your Castle to level ${up.to || F.keepOf(s) + 1}`,
+      detail: `Raids open at Castle level ${F.ATTACK_AT} · ${/Not enough/.test(up.why || '') ? `${nf(up.cost)} ${F.CUR_NAME[up.pay]}: the daily games pay it` : up.why || 'Upgrade it'}`};
+  }
   return {kind: 'games', title: 'Earn more Gold and Ale', detail: 'Daily games pay into your realm’s coffers'};
 }
 
@@ -284,6 +317,7 @@ function cardHTML(s, id, now) {
   const K = F.KINDS[b.t], lv = Math.max(1, b.l), what = factsOf(b);
   const opens = b.t === 'keep' ? F.SCENERIES.find(x => x.at === lv + 1) : null;
   if (opens) what.splice(1, 0, `Level ${lv + 1} unlocks the ${opens.name}`);
+  if (b.t === 'keep' && lv + 1 === F.ATTACK_AT) what.splice(1, 0, `Level ${F.ATTACK_AT} opens raids on the computer’s realms`);
   const job = b.u > now ? `<p class="rl-sel-job">${b.l < 1 ? 'Going up' : `Upgrading to level ${b.l + 1}`} · ${dur(b.u - now)} left</p>` : '';
   const up = F.canUpgrade(s, b.i, now), btns = [];
   if (K.role === 'make' && F.made(b, now) > 0) btns.push(`<button type="button" class="rl-act" data-rl-collect="${b.i}">Collect ${curHTML(K.makes, F.made(b, now))}</button>`);
@@ -380,15 +414,35 @@ function synced(st) {
   const took = F.sync();
   refresh(st);
   if (took && st.ctx.visible) defenses(st);
+  examplesOnce(st);
 }
+// The example raids (the owner's ask, Oct 22 2026), made once on the realm the board keeps (core/realm-battle.js
+// ensureExamplesAsync: never again by themselves once made or cleared), a moment after Keepfall is up: played a slice at
+// a time (at once, they held Keepfall still for seconds), and put on the realm as it is when they're done, only while
+// Keepfall is still open on the owner's phone.
+function examplesOnce(st) {
+  if (st.exAsked || st.dead || !F.mayPlay() || !daily.LB.ready) return;
+  st.exAsked = true;
+  const t = setTimeout(() => {
+    st.effects.delete(t);
+    if (st.dead || !F.mayPlay()) return;
+    const run = ensureExamplesAsync(F.mine(), Date.now(), {still: () => !st.dead && F.mayPlay(), into: () => F.mine()});
+    if (LOG_DRAW) LOG_DRAW();
+    run.then(made => { if (made && !st.dead && F.mayPlay()) F.touch(); }, e => console.error(e)).finally(() => { if (LOG_DRAW) LOG_DRAW(); });
+  }, 1500);
+  st.effects.add(t);
+}
+// (the Chronicle open now: its redraw, for the example raids made meanwhile)
+let LOG_DRAW = null;
 // The computer's raids on your realm since you last looked: played, taken off it, and told.
 function defenses(st) {
   if (st.dead || !st.ctx.visible || !F.mayPlay() || st.lore) return;
   const s = F.mine(), done = defend(s);
-  if (!done.length) return;
+  if (!done.length) return false;
   F.touch();
   refresh(st);
   realmSheet({title: 'While you were away', cls: 'sh-rl', detents: ['large'], body: awayHTML(done, F.mine(), Date.now())});
+  return true;
 }
 /** The raids on your realm just played (defend()'s records), and what they mean. */
 function awayHTML(done, s, now) {
@@ -407,7 +461,10 @@ function cofferSheet() {
  *  today)}. */
 export function payToday(g, E) {
   const t = (E.today || {})[g], n = (E.day || {})[g] || 0, from = F.NEW_PAY[g], lines = [], got = [];
-  const NEXT = {kick: `every 5th make pays ${nf(F.KICK_GOLD)} Gold`, return: `coins on your first run pay ${F.COIN_GOLD} Gold each`};
+  // (today's run as its entries have it, runsOf: Kick It's makes, Return Man's first-run coins; never the Gold worked
+  // back, which carries the run's base pay)
+  const run = Object.assign({}, t || {}, ((E.runs || {})[g]) || {});
+  const NEXT = {kick: `a run pays ${nf(F.KICK_BASE)} Gold, and ${nf(F.KICK_GOLD)} more every ${ordinal(F.KICK_EVERY)} make`, return: `a run pays ${nf(F.RETURN_BASE)} Gold, and ${F.COIN_GOLD} a coin on your first run`};
   if (n && n < from) {
     // (a game's last days of the old pay: the day's result in both)
     if (t && (t.gold || t.grain)) { lines.push('Paid the old way: Gold and Ale alike'); got.push({c: 'gold', n: t.gold}, {c: 'grain', n: t.grain}); }
@@ -419,12 +476,38 @@ export function payToday(g, E) {
     if (t && t.grain) { got.push({c: 'grain', n: t.grain}); lines.push(`${l ? `#${l.place} yesterday` : 'Yesterday’s place'}: paid this morning`); }
   } else if (g === 'kick') {
     if (t && t.gold) got.push({c: 'gold', n: t.gold});
-    lines.push(t ? (t.gold ? `${nf(t.gold / F.KICK_GOLD * F.KICK_EVERY)}+ makes on your run` : 'No 5th make on today’s run') : `Every 5th make pays ${nf(F.KICK_GOLD)} Gold`);
+    const m = Number.isInteger(run.m) && run.m >= 0 ? run.m : null;
+    lines.push(!t ? `Not played yet: ${NEXT.kick}`
+      : m == null ? 'Your run is in'
+        : `${nf(m)} make${m === 1 ? '' : 's'} on your run${m > F.KICK_MOST ? ` (the first ${F.KICK_MOST} pay)` : m < F.KICK_EVERY ? ': the base pay' : ''}`);
   } else {
     if (t && t.gold) got.push({c: 'gold', n: t.gold});
-    lines.push(t ? (t.gold ? `${nf(t.gold / F.COIN_GOLD)} coins on your first run` : 'No coins on your first run today') : `Coins on your first run pay ${F.COIN_GOLD} Gold each`);
+    const c = Number.isInteger(run.c) && run.c >= 0 ? run.c : null;
+    lines.push(!t ? `Not played yet: ${NEXT.return}`
+      : c == null ? 'Your run is in'
+        : c ? `${nf(c)} coin${c === 1 ? '' : 's'} on your first run${c > F.COIN_PAID_MAX ? ` (the first ${F.COIN_PAID_MAX} pay)` : ''}` : 'No coins on your first run today: the base pay');
   }
   return {lines, got};
+}
+/** Today's runs as their entries have them (docs: the owner's board docs; mods: the loaded game cores; day: incomeOf's
+ *  day numbers): {kick: {m: the makes on the run that counts, the day's first finished}, return: {c: the coins on the
+ *  day's first run, Return Man's own reading, dayCoins}}, each only when there's one. For payToday (E.runs). */
+export function runsOf(docs, mods, day) {
+  const out = {}, list = (docs || []).filter(p => p && typeof p === 'object'), kk = mods && mods.kk, rm = mods && mods.rm;
+  if (kk && typeof kk.entryOf === 'function' && day && day.kick) {
+    const first = list.map(p => { try { return {e: kk.entryOf(p, day.kick), p}; } catch (_) { return {e: null, p}; } }).filter(x => x.e)
+      .sort((a, b) => (a.e.t || 0) - (b.e.t || 0) || (String(a.p.id) < String(b.p.id) ? -1 : 1))[0];
+    if (first && Number.isInteger(first.e.m)) out.kick = {m: first.e.m};
+  }
+  if (rm && day && day.return) {
+    let c = null;
+    try {
+      if (typeof rm.dayCoins === 'function') c = list.some(p => rm.entryOf && rm.entryOf(p, day.return)) ? rm.dayCoins(list, day.return) : null;
+      else if (typeof rm.entryOf === 'function') c = list.reduce((m, p) => { const e = rm.entryOf(p, day.return); return e ? Math.max(m || 0, Number.isInteger(e.c) ? e.c : 0) : m; }, null);
+    } catch (_) { c = null; }
+    if (Number.isInteger(c)) out.return = {c};
+  }
+  return out;
 }
 /** The coffers: how the games pay, what's waiting for room, today's pay, what's in store, the season's pay (E:
  *  incomeOf()). */
@@ -444,14 +527,23 @@ function cofferHTML(s, E) {
   // (while a game's still on the old pay, the lead says when this starts)
   const [py, pm, pdd] = F.NEW_PAY_DATE.split('-').map(Number);
   const from = F.oldPayToday(E) ? `<b>Starting ${esc(new Date(py, pm - 1, pdd).toLocaleDateString('en-US', {weekday: 'short', month: 'short', day: 'numeric'}).replace(',', ''))}.</b> ` : '';
-  return `<p class="rl-sh-lead">${from}<b>Ale</b>: your place on the Daily Puzzles, 17–0 and Two-Minute Drill boards, paid the next morning. <b>Gold</b>: every 5th Kick It make, and the coins on your first Return Man run.</p>`
+  return `<p class="rl-sh-lead">${from}${payCopyHTML()}</p>`
     + `<div class="rl-sh-big">${curHTML('gold', p.gold)}${curHTML('grain', p.grain)}<small>waiting now, safe from raiders, till your Castle, treasuries and cellars have room</small></div>`
     + `<h3 class="rl-sh-h">Today</h3><div class="rl-rows">${today}</div>`
     + `<h3 class="rl-sh-h">In store</h3><div class="rl-rows">${F.CUR.map(c => `<div class="rl-row"><span>${F.CUR_NAME[c]}</span><span class="rl-row-v">${nf(s.r[c])} of ${nf(cap[c])}</span></div>`).join('')}</div>`
     + `<h3 class="rl-sh-h">This season</h3>${ledger}`
-    + `<p class="rl-sh-note">A day’s place pays Ale: ${places} (a tie shares the higher place). Kick It: ${nf(F.KICK_GOLD)} Gold every ${ordinal(F.KICK_EVERY)} make. Return Man: ${F.COIN_GOLD} Gold a coin, on your first run of the day. More room: upgrade your treasuries, cellars and Castle.</p>`;
+    + `<p class="rl-sh-note">A day’s place pays Ale: ${places} (a tie shares the higher place). Kick It: ${nf(F.KICK_BASE)} Gold for the day’s run, and ${nf(F.KICK_GOLD)} more for every ${ordinal(F.KICK_EVERY)} make (the first ${F.KICK_MOST} makes). Return Man: ${nf(F.RETURN_BASE)} Gold for a day you run, and ${F.COIN_GOLD} a coin on your first run (the first ${F.COIN_PAID_MAX} coins). More room: upgrade your treasuries, cellars and Castle.</p>`;
 }
 const ordinal = n => `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th'}`;
+/** How the games pay, in a line (the coffers' lead and the welcome's): Ale for a place on three boards; Gold for each
+ *  day's Kick It and Return Man run (the competitive pay, Oct 22 2026: core/realm.js KICK_BASE, RETURN_BASE), and more
+ *  for its makes and coins. */
+export function payCopyHTML() {
+  const base = F.KICK_BASE === F.RETURN_BASE ? `${nf(F.KICK_BASE)} each for the day’s Kick It and Return Man runs`
+    : `${nf(F.KICK_BASE)} for each day’s Kick It run and ${nf(F.RETURN_BASE)} for each day’s Return Man run`;
+  return `<b>Ale</b>: your place on the Daily Puzzles, 17–0 and Two-Minute Drill boards, paid the next morning. `
+    + `<b>Gold</b>: ${base}, plus ${nf(F.KICK_GOLD)} for every ${ordinal(F.KICK_EVERY)} Kick It make and ${F.COIN_GOLD} a coin on your first Return Man run.`;
+}
 /** Your army and heroes: the heroes to recruit or upgrade, who's ready, who's training, who you can train (with Ale). */
 function armyHTML(s, now) {
   const room = F.armyRoom(s), have = F.roomOf(s.ar), q = F.queued(s);
@@ -510,22 +602,46 @@ function armySheet(st) {
 export function targets(now = Date.now(), mine = F.mine()) {
   return F.BOTS.map(b => ({k: b.k, name: b.name, th: b.th, loot: F.botLoot(b, F.botBase(b.th), mine, now).total}));
 }
-/** Attack: what marches (troops and heroes), the computer's realms, what each holds today, Scout and Attack for each. */
+/** Attack: what marches (troops and heroes), the computer's realms, what each holds today, Scout and Attack for each;
+ *  before Castle level 4, the lock (raids open there) and the way to the Castle; a realm more than a level above your
+ *  Castle, locked till it's high enough. */
 function raidHTML(s, now) {
+  const th = F.keepOf(s), rows = (open, army) => targets(now, s).map(x => {
+    const bot = F.BOTS.find(b => b.k === x.k), ok = open && F.canTarget(s, bot);
+    return `<div class="rl-tg${ok ? '' : ' is-locked'}"><span class="rl-tg-lv">${x.th}</span><span class="rl-tg-n"><b>${esc(x.name)}</b>`
+      + `<small>${x.loot.gold || x.loot.grain ? `${curHTML('gold', x.loot.gold)} ${curHTML('grain', x.loot.grain)}` : 'Raided today: nothing left to take'}</small></span>`
+      // (from Castle 4 every realm can be scouted, the ones out of reach too: core/realm.js realmOf's scout)
+      + (open ? `<button type="button" class="rl-act rl-tg-go" data-rl-scout="${esc(x.k)}">Scout</button>` : '')
+      + (ok ? `<button type="button" class="rl-act is-go rl-tg-go" data-rl-go="${esc(x.k)}" ${army ? '' : 'disabled'}>Attack</button>`
+        : `<span class="rl-tg-lock" role="img" aria-label="Locked: attack it from Castle level ${F.targetAt(bot || x.k)}">${ui.icon('lock')}<span aria-hidden="true">Castle ${F.targetAt(bot || x.k)}</span></span>`) + `</div>`;
+  }).join('');
+  if (!F.attackOpen(s)) {
+    const heroes = F.HERO_ORDER.filter(k => F.HEROES[k].at === F.ATTACK_AT).map(k => F.HEROES[k].name);
+    return `<div class="rl-lock"><span class="rl-lock-ic" aria-hidden="true">${ui.icon('lock')}</span><span><b>Raids open at Castle level ${F.ATTACK_AT}</b>`
+      + `<small>Your Castle is level ${th}. Raise it to march on the computer’s realms${heroes.length ? `; the ${heroes.join(' and the ')} join you there too` : ''}.</small></span></div>`
+      + `<div class="rl-acts"><button type="button" class="rl-act is-go" data-rl-tokeep>Go to your Castle</button></div>`
+      + `<h3 class="rl-sh-h">The computer’s realms</h3>${rows(false, 0)}`
+      + `<p class="rl-sh-note">Their raids on you start at Castle level 2 all the same: walls, towers and heroes keep them out.</p>`;
+  }
   const army = F.roomOf(s.ar) || Object.keys(F.heroArmy(s)).length;
   const march = [...F.TROOP_ORDER.filter(t => s.ar[t]).map(t => `${esc(F.TROOPS[t].name)} ×${s.ar[t]}`), ...F.HERO_ORDER.filter(k => F.heroArmy(s)['hero_' + k]).map(k => `${esc(F.HEROES[k].name)} level ${F.heroLevel(s, k)}`)];
   return (army ? `<p class="rl-sh-lead">Ready to march: ${march.join(', ')}. Send them round the edge of a realm; they carry off what its treasuries, cellars, mines and breweries hold. Each realm’s stores fill again every morning.</p>`
       : `<p class="rl-sh-lead">Open Army to recruit a hero or train troops before attacking.</p>`)
-    + targets(now, s).map(x => `<div class="rl-tg"><span class="rl-tg-lv">${x.th}</span><span class="rl-tg-n"><b>${esc(x.name)}</b>`
-      + `<small>${x.loot.gold || x.loot.grain ? `${curHTML('gold', x.loot.gold)} ${curHTML('grain', x.loot.grain)}` : 'Raided today: nothing left to take'}</small></span>`
-      + `<button type="button" class="rl-act rl-tg-go" data-rl-scout="${esc(x.k)}">Scout</button>`
-      + `<button type="button" class="rl-act is-go rl-tg-go" data-rl-go="${esc(x.k)}" ${army ? '' : 'disabled'}>Attack</button></div>`).join('')
-    + `<p class="rl-sh-note">Scout a realm to look round it first: where its towers reach, where its walls run, where its gold and ale are kept.</p>`;
+    + rows(true, army)
+    + `<p class="rl-sh-note">Scout a realm to look round it first: where its towers reach, where its walls run, where its gold and ale are kept. You can attack realms up to a level above your Castle.</p>`;
+}
+/** The Castle, chosen and in view (from Attack's lock). */
+function toKeep(st) {
+  const b = F.mine().b.find(x => x.t === 'keep');
+  if (!b) return;
+  if (st.v) { const sz = F.KINDS[b.t].size; st.v.look(b.x + sz / 2, b.y + sz / 2, Math.min(42, st.v.zoom)); }
+  select(st, b.i);
 }
 function raidSheet(st, ctx) {
   const sh = realmSheet({title: 'Attack', cls: 'sh-rl', detents: ['large'], body: raidHTML(F.mine(), Date.now())});
   sh.body.addEventListener('click', e => {
     if (st.dead || !F.mayPlay()) return;
+    if (e.target.closest('[data-rl-tokeep]')) { sh.close(); toKeep(st); return; }
     const sc = e.target.closest('[data-rl-scout]');
     if (sc) { sh.close(); ctx.nav('/realm/scout/' + encodeURIComponent(sc.dataset.rlScout)); return; }
     const go = e.target.closest('[data-rl-go]');
@@ -534,16 +650,60 @@ function raidSheet(st, ctx) {
     ctx.nav('/realm/raid/' + encodeURIComponent(go.dataset.rlGo));
   });
 }
-function logSheet() {
-  realmSheet({title: 'The Chronicle', cls: 'sh-rl', detents: ['large'], body: logHTML(F.mine(), Date.now())});
+function logSheet(st) {
+  // (the realm the board has now, first: a Watch tapped here finds what's listed; and drawn again whenever it changes or
+  // another phone's copy comes in, while it's open)
+  try { F.sync(); } catch (e) { console.error(e); }
+  let stop = () => {};
+  const sh = realmSheet({title: 'The Chronicle', cls: 'sh-rl', detents: ['large'], body: `<div data-rl-logbody>${logHTML(F.mine(), Date.now())}</div>`,
+    onClose: () => { stop(); if (LOG_DRAW === draw) LOG_DRAW = null; }});
+  const draw = () => {
+    const host = sh.body.querySelector('[data-rl-logbody]');
+    if (!host || !host.isConnected || st.dead || !F.mayPlay()) return;
+    const html = logHTML(F.mine(), Date.now());
+    if (host.dataset.html !== html) { host.dataset.html = html; host.innerHTML = html; }
+  };
+  stop = F.subscribe(why => { if (why === 'sync' || why === 'change') draw(); });
+  LOG_DRAW = draw;
+  sh.body.addEventListener('click', e => {
+    if (!st || st.dead || !F.mayPlay()) return;
+    const w = e.target.closest('[data-rl-watch]');
+    if (w) { sh.close(); st.ctx.nav('/realm/replay/' + encodeURIComponent(w.dataset.rlWatch)); return; }
+    const make = e.target.closest('[data-rl-ex-new]'), clear = e.target.closest('[data-rl-ex-clear]');
+    if (!make && !clear) return;
+    if (make) {
+      if (make.disabled || examplesBusy()) return;
+      // (played out for real on your base as it stands, a slice at a time: Keepfall stays in hand; put on the realm as it
+      // is when they're done, while Keepfall is open on the owner's phone)
+      const run = exampleRaidsAsync(F.mine(), Date.now(), {still: () => !st.dead && F.mayPlay(), into: () => F.mine()});
+      draw();
+      run.then(ex => {
+        if (!ex || st.dead || !F.mayPlay()) return;
+        const n = ex.length;
+        F.touch(); ui.haptic('success'); ui.toast(n ? `${n === 3 ? 'Three' : n === 2 ? 'Two' : 'One'} new example raid${n === 1 ? '' : 's'}` : 'No example raids could be made', {icon: 'shield'});
+      }, err => { console.error(err); if (!st.dead && F.mayPlay()) ui.toast('The examples couldn’t be made', {icon: 'info'}); }).finally(draw);
+      return;
+    }
+    if (examplesBusy()) return;
+    F.clearExamples(F.mine()); F.touch(); ui.haptic('light'); draw();
+  });
 }
-/** The Chronicle: glory, the raids on your realm, your attacks. */
+// (a raid's ▶ Watch, where its replay was kept: its label says which raid, how it went and when)
+const watchHTML = (r, s, what) => canWatch(r, s) ? `<button type="button" class="rl-act rl-log-go" data-rl-watch="${esc(r.id)}" aria-label="Watch ${esc(what)}, ${r.st || 0} star${r.st === 1 ? '' : 's'}, ${r.pc || 0}%${r.ex ? '' : `, ${esc(ago(r.at))}`}">${ui.icon('play-fill')}<span>Watch</span></button>` : '';
+/** The Chronicle: glory, the raids on your realm, your attacks and the example raids, each with ▶ Watch where its
+ *  replay was kept. */
 function logHTML(s, now) {
   const off = s.rd.slice().sort((a, b) => b.at - a.at).slice(0, 20), def = s.df.slice().sort((a, b) => b.at - a.at);
+  const ex = (Array.isArray(s.ex) ? s.ex : []).slice().sort((a, b) => (a.st || 0) - (b.st || 0) || b.at - a.at);
   const won = s.rd.filter(r => r.st > 0).length, held = s.df.filter(r => !r.st).length;
   return `<div class="rl-sh-big"><span class="rl-amt"><i class="rl-crown"></i>${nf(s.tp)}</span><small>glory · ${won} realm${won === 1 ? '' : 's'} sacked · ${held} raid${held === 1 ? '' : 's'} driven off${s.sh > now ? ` · truce for ${dur(s.sh - now)}` : ''}</small></div>`
-    + `<h3 class="rl-sh-h">Raids on your realm</h3>${def.length ? def.map(r => `<div class="rl-log"><span>${starsHTML(r.st || 0)}</span><span class="rl-log-t"><span><b>${esc(r.by)}</b> ${r.st ? `took ${curHTML('gold', (r.lt || [])[0])} ${curHTML('grain', (r.lt || [])[1])}` : 'were driven off'}</span><small>${ago(r.at)} · ${r.pc || 0}% · ${r.td > 0 ? '+' : ''}${r.td || 0} glory</small></span></div>`).join('') : `<p class="rl-sh-note">${F.keepOf(s) < 2 ? 'No one bothers with a realm this small yet. Once your Castle is level 2, the computer’s realms will start raiding you, now and then.' : 'No one has raided you yet.'}</p>`}`
-    + `<h3 class="rl-sh-h">Your attacks</h3>${off.length ? off.map(r => `<div class="rl-log"><span>${starsHTML(r.st || 0)}</span><span class="rl-log-t"><span><b>${esc(r.nm)}</b> · you took ${curHTML('gold', (r.lt || [])[0])} ${curHTML('grain', (r.lt || [])[1])}</span><small>${ago(r.at)} · ${r.pc || 0}% · +${r.ta || 0} glory</small></span></div>`).join('') : '<p class="rl-sh-note">You haven’t attacked anyone yet.</p>'}`;
+    + `<h3 class="rl-sh-h">Raids on your realm</h3>${def.length ? def.map(r => `<div class="rl-log"><span>${starsHTML(r.st || 0)}</span><span class="rl-log-t"><span><b>${esc(r.by)}</b> ${r.st ? `took ${curHTML('gold', (r.lt || [])[0])} ${curHTML('grain', (r.lt || [])[1])}` : 'were driven off'}</span><small>${ago(r.at)} · ${r.pc || 0}% · ${r.td > 0 ? '+' : ''}${r.td || 0} glory</small></span>${watchHTML(r, s, `${r.by}’s raid on your realm`)}</div>`).join('') : `<p class="rl-sh-note">${F.keepOf(s) < 2 ? 'No one bothers with a realm this small yet. Once your Castle is level 2, the computer’s realms will start raiding you, now and then.' : 'No one has raided you yet.'}</p>`}`
+    + `<h3 class="rl-sh-h">Your attacks</h3>${off.length ? off.map(r => `<div class="rl-log"><span>${starsHTML(r.st || 0)}</span><span class="rl-log-t"><span><b>${esc(r.nm)}</b> · you took ${curHTML('gold', (r.lt || [])[0])} ${curHTML('grain', (r.lt || [])[1])}</span><small>${ago(r.at)} · ${r.pc || 0}% · +${r.ta || 0} glory</small></span>${watchHTML(r, s, `your attack on ${r.nm}`)}</div>`).join('') : `<p class="rl-sh-note">${F.attackOpen(s) ? 'You haven’t attacked anyone yet.' : `You haven’t attacked anyone yet: raids open at Castle level ${F.ATTACK_AT}.`}</p>`}`
+    + `<h3 class="rl-sh-h">Example raids <span>on your base as it stands · nothing taken</span></h3>`
+    + (ex.length ? ex.map(r => `<div class="rl-log is-ex"><span>${starsHTML(r.st || 0)}</span><span class="rl-log-t"><span><b>${esc(r.by)}</b> ${r.st === 3 ? 'broke through' : r.st === 2 ? 'took two stars' : r.st ? 'took a star' : 'were driven off'}</span><small>Example · ${r.pc || 0}% · nothing taken</small></span>${watchHTML(r, s, `the example raid by ${r.by}`)}</div>`).join('')
+      : '<p class="rl-sh-note">No example raids. New examples plays three of the computer’s raids on your base as it stands, to watch: nothing is taken.</p>')
+    + (examplesBusy() ? '<div class="rl-acts rl-ex-acts"><button type="button" class="rl-act" data-rl-ex-new disabled>Riding out…</button></div>'
+      : `<div class="rl-acts rl-ex-acts"><button type="button" class="rl-act" data-rl-ex-new>New examples</button>${ex.length ? '<button type="button" class="rl-act" data-rl-ex-clear>Clear examples</button>' : ''}</div>`);
 }
 /** Build: everything you can put up, what it costs, how many more the Castle allows. */
 function shopHTML(s) {
@@ -829,14 +989,21 @@ function markSeen() {
   dispatchEvent(new Event('gg:badge'));
 }
 const WELCOME_TITLE = 'Keepfall';
+// (when the heroes join: "recruit the Knight and the Wizard at Castle level 4", from core/realm.js HEROES)
+const heroesAtHTML = () => {
+  const by = {};
+  F.HERO_ORDER.forEach(k => { const H = F.HEROES[k]; (by[H.at] = by[H.at] || []).push(H.name.replace(/ Hero$/, '')); });
+  return 'recruit ' + Object.keys(by).sort((a, b) => a - b).map(at => `the ${by[at].join(' and the ')} at Castle level ${at}`).join(' and ');
+};
 const welcomeHTML = () => `<p class="rl-sh-lead">Raise your house, fill your treasuries, sack the realms around you. The daily games pay your realm, and everything you’ve played this season already has. It’s yours alone.</p>`
   + `<div class="rl-rows">`
-  + `<div class="rl-row"><span><b>Ale</b>: your place on the Daily Puzzles, 17–0 and Two-Minute Drill boards, paid the next morning. <b>Gold</b>: every 5th Kick It make, and the coins on your first Return Man run.</span></div>`
+  + `<div class="rl-row"><span>${payCopyHTML()}</span></div>`
   + `<div class="rl-row"><span><b>Your coffers</b> hold your pay until your Castle, treasuries and cellars have room. Raiders can’t touch them.</span></div>`
   + `<div class="rl-row"><span><b>Gold mines</b> dig Gold and <b>breweries</b> brew Ale while you’re away: tap them to collect.</span></div>`
   + `<div class="rl-row"><span><b>Your builder</b> raises or upgrades one thing at a time. Raise your <b>Castle</b> to unlock more of everything.</span></div>`
-  + `<div class="rl-row"><span><b>Attack</b>: train an army at the barracks with Ale (footmen, archers, knights, thieves, and in time dragons from your hatchery) and sack the computer’s realms for their gold and ale.</span></div>`
-  + `<div class="rl-row"><span><b>Heroes</b>: recruit the Knight at Castle level 2 and Wizard at level 4 from Army. Upgrade with Gold, send each once per attack, and let them defend automatically. They return after battle.</span></div>`
+  + `<div class="rl-row"><span><b>Attack</b>: from Castle level ${F.ATTACK_AT}, train an army at the barracks with Ale (footmen, archers, knights, thieves, and in time dragons from your hatchery) and sack the computer’s realms for their gold and ale.</span></div>`
+  + `<div class="rl-row"><span><b>Heroes</b>: ${heroesAtHTML()} from Army. Upgrade with Gold, send each once per attack, and let them defend automatically. They return after battle.</span></div>`
+  + `<div class="rl-row"><span><b>The Chronicle</b> keeps every raid, yours and theirs: tap Watch to see one of the latest again.</span></div>`
   + `<div class="rl-row"><span><b>Your people</b>: guards patrol the village. A dragon keeper arrives when the Dragon Hatchery unlocks at Castle level 6.</span></div>`
   + `<div class="rl-row"><span><b>Defend</b>: once your Castle is level 2, those realms raid you too, now and then. Cannons, ballistas, archer towers, trebuchets, pitch cauldrons and walls keep them out.</span></div>`
   + `</div><p class="rl-sh-note">Drag to look around, pinch to zoom. Tap a building for what it does; tap your house’s name to rename it.</p>`;
@@ -939,7 +1106,7 @@ export default {
       if (t.closest('[data-rl-cur]')) { cofferSheet(); return; }
       if (t.closest('[data-rl-army]')) { armySheet(st); return; }
       if (t.closest('[data-rl-shop]')) { shopSheet(st); return; }
-      if (t.closest('[data-rl-log]')) { logSheet(); return; }
+      if (t.closest('[data-rl-log]')) { logSheet(st); return; }
       if (t.closest('[data-rl-house]')) { houseSheet(st); return; }
       if (t.closest('[data-rl-raid]')) { raidSheet(st, ctx); return; }
       if (t.closest('[data-rl-unsel]')) { select(st, null); return; }
@@ -969,7 +1136,10 @@ export default {
     openingLore(st);
     fullScreen(st, true);
     F.sync(); refresh(st); if (st.v) st.v.want();
-    defenses(st);
+    // (back from a replay: the Chronicle again, unless there's news of a raid to tell first)
+    const told = defenses(st), log = LOG_NEXT;
+    LOG_NEXT = false;
+    if (log && !told && !st.lore) logSheet(st);
   },
 
   onHide(ctx) { const st = ST.get(ctx); if (st) { cancelLore(st); fullScreen(st, false); } },

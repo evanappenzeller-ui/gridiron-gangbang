@@ -27,7 +27,8 @@
 //   dayState(n, real), record(n, kick, call), score(list), totals()   localStorage 'gg-kick1'
 //   setTest(on, n), testing()                   test play (the owner's sandbox, below; his way to play it again)
 //   autoPost(), boardRows(n), weekRows(n), weekDays(n), boardState()   the league scoreboard (below)
-//   GOLD, goldDay(n), goldOf(made), goldMake(made), countingRun(n)   what a day pays The Keep (the owner's: below)
+//   GOLD, goldDay(n), goldOf(made), goldMake(made), countingRun(n)   what a day pays Keepfall (the owner's: below;
+//                                               the base for the run plus every 5th make)
 //
 // THE RULE (CLAUDE.md): the scoreboard reads daily.LB.raw, the board as this phone may see it: league members and
 // Ryan D for everyone; a guest (or Ryan S) only on their own phones.
@@ -440,13 +441,18 @@ function totalsOver(days, list) {
 // from: the first day paid this way, in Kick It's numbering (day 5, Thu Oct 22 2026: core/realm.js NEW_PAY.kick, the
 // same day, the kit checks they agree; Wed Oct 21, when it was asked for, is day 4 and keeps the old pay). Days before
 // it show nothing of it (goldDay).
-export const GOLD = {every: 5, each: 1000, from: 5};
+// Competitive pay (the owner's ask, Oct 22 2026: "playing games alone should give the users a good amount of
+// resources"): each 3,000 (was 1,000), and base: 500 for the day's counting run whatever it made (0 makes included),
+// so a day with a run pays 500 + 3,000 for every 5th make (24,500 at most). core/realm.js KICK_GOLD, KICK_BASE and
+// kickGold say the same (the kit checks they agree for 0 to 40 makes).
+export const GOLD = {every: 5, each: 3000, base: 500, from: 5};
 /** Whether day n pays The Keep this way (from GOLD.from on). */
 export const goldDay = n => Number.isInteger(n) && n >= GOLD.from;
-/** The Gold a run with made field goals pays: GOLD.each for every GOLD.every-th make (40 makes at most: 8,000). */
+/** The Gold a day's counting run with made field goals pays: GOLD.base for the run, and GOLD.each for every
+ *  GOLD.every-th make (40 makes at most: 500 + 8 x 3,000 = 24,500). */
 export function goldOf(made) {
   const m = Math.max(0, Math.min(MAX_KICKS, Math.floor(Number(made) || 0)));
-  return Math.floor(m / GOLD.every) * GOLD.each;
+  return GOLD.base + Math.floor(m / GOLD.every) * GOLD.each;
 }
 /** Whether a run's made-th make (1 the first) is one that pays: the 5th, 10th, 15th... */
 export const goldMake = made => Number.isInteger(made) && made > 0 && made <= MAX_KICKS && made % GOLD.every === 0;

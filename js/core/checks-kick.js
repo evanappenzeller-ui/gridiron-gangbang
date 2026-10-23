@@ -254,12 +254,12 @@ export async function kickChecks(check) {
     return {pass, detail: `restart gone ${gone}; an old practice day counts its first run: ${off && off.made} made at ${off && off.at}`};
   });
   // 5. Keepfall's Gold (the owner's alone)
-  check('Kick It: Keepfall\'s Gold (the owner\'s alone, Oct 21 2026; paid from Thu Oct 22, the day realm.js NEW_PAY switches Kick It, his Test play showing it any day): every 5th make pays 1,000 Gold (floor(makes / 5) x 1,000, 8,000 at most), the burst comes on the 5th, 10th, 15th... make and no other (and not on a run when one from another of his phones already counts); the day\'s pay is the counting entry\'s makes (kk1[n].m: the first finished run, across a person\'s phones the earliest posted; Test play is never posted); the final card says "+N Gold for Keepfall" on the owner\'s profile and nothing (the card as it was) on anyone else\'s; the burst is drawn, no picture', async () => {
+  check('Kick It: Keepfall\'s Gold (the owner\'s alone, Oct 21 2026; paid from Thu Oct 22, the day realm.js NEW_PAY switches Kick It, his Test play showing it any day): the day\'s counting run pays 500 whatever it made (the base, Oct 22 2026) and every 5th make 3,000 Gold more (500 + floor(makes / 5) x 3,000, 24,500 at most), the burst ("+3,000") comes on the 5th, 10th, 15th... make and no other (and not on a run when one from another of his phones already counts); the day\'s pay is the counting entry\'s makes (kk1[n].m: the first finished run, across a person\'s phones the earliest posted; Test play is never posted); the final card says "+N Gold for Keepfall" on the owner\'s profile (never "No Gold" for a real run: the base) and nothing (the card as it was) on anyone else\'s; the burst is drawn, no picture', async () => {
     const gold = [0, 4, 5, 9, 10, 14, 15, 39, 40, 41, -3, 'x'].map(K.goldOf).join();
-    const goldOk = gold === '0,0,1000,1000,2000,2000,3000,7000,8000,8000,0,0' && K.GOLD.every === 5 && K.GOLD.each === 1000;
+    const goldOk = gold === '500,500,3500,3500,6500,6500,9500,21500,24500,24500,500,500' && K.GOLD.every === 5 && K.GOLD.each === 3000 && K.GOLD.base === 500;
     const bursts = [];
     for (let m = 0; m <= K.MAX_KICKS + 1; m++) if (K.goldMake(m)) bursts.push(m);
-    const burstOk = bursts.join() === '5,10,15,20,25,30,35,40' && bursts.length * K.GOLD.each === K.goldOf(K.MAX_KICKS) && !K.goldMake(5.5);
+    const burstOk = bursts.join() === '5,10,15,20,25,30,35,40' && bursts.length * K.GOLD.each + K.GOLD.base === K.goldOf(K.MAX_KICKS) && !K.goldMake(5.5);
     // the counting entry: a person's earliest posted run across their phones, never someone else's
     const LB = daily.LB, uid = LB.uid, nick = LB.nick;
     let run, none, entryM;
@@ -279,10 +279,10 @@ export async function kickChecks(check) {
     const others = [{made: 10}, {made: 10, test: true}, {made: 3, run}].every(o => keepHTML(Object.assign({owner: false}, o)) === '');
     const ten = plain(keepHTML({owner: true, made: 10})), three = plain(keepHTML({owner: true, made: 3}));
     const other = plain(keepHTML({owner: true, made: 10, run: {m: 4, from: 'board'}})), test = plain(keepHTML({owner: true, made: 15, test: true}));
-    const cardOk = others && ten === '+2,000 Gold for Keepfall' && three === 'No Gold for Keepfall today 1,000 Gold for every 5th field goal.'
-      && other === 'No Gold for Keepfall today From your first run today: 4 field goals.' && /^\+3,000 Gold Test play/.test(test);
+    const cardOk = others && ten === '+6,500 Gold for Keepfall 500 for the run + 3,000 for every 5th field goal.' && three === '+500 Gold for Keepfall 500 for the run + 3,000 for every 5th field goal.'
+      && other === '+500 Gold for Keepfall From your first run today: 4 field goals.' && /^\+9,500 Gold Test play/.test(test) && !/No Gold/.test(ten + three + other + test);
     const b = burstHTML();
-    const drawn = (b.match(/kk-coin-f/g) || []).length === 14 && plain(b) === '+1,000' && !/url\(|<img|\.webp|\.png/.test(b);
+    const drawn = (b.match(/kk-coin-f/g) || []).length === 14 && plain(b) === '+3,000' && !/url\(|<img|\.webp|\.png/.test(b);
     // and the code: the burst checks the profile itself (nothing for anyone else), and goes when the profile changes
     const src = await fetch(new URL('../views/kick.js', import.meta.url)).then(r => r.text()).catch(() => '');
     const gated = /function coinBurst\(st\) \{[^]*?if \(st\.dead \|\| !stage \|\| !data\.isOwner\(\)\) return false;/.test(src)

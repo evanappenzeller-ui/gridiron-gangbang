@@ -41,7 +41,8 @@ const spend = (s, c, n) => { if (!testing(s)) s.r[c] -= n; };
 // ---------------------------------------------------------------------------------------------------- the buildings
 // Per level (index level - 1): cost (to build it, then to reach each level), time (seconds: each level takes longer
 // than the last, minutes at first, a day or two at the top; the owner, Oct 2026), hp, th (the Castle level it needs);
-// and what it does: rate (an hour) and hold (hours of it) for mines and breweries; cap for treasuries and cellars; store
+// and what it does: rate (an hour) and hold (hours of it: a day's, 24, from Oct 22 2026, was 10, so a day away isn't
+// lost) for mines and breweries; cap for treasuries and cellars; store
 // for the Castle; room (soldiers) for war camps; dps, range, every (seconds a shot), splash, min, air (can it hit a
 // dragon) for defenses; the dragons it has room for (a level each) for the hatchery. pay: what it's paid for in.
 // size: tiles square. (keep is the Castle, farm the Brewery, granary the Cellar: the ids from before, the names now.)
@@ -59,14 +60,14 @@ export const KINDS = {
     time: [10, 300, 900, 1800, 3600, 7200, 14400, 28800, 43200, 64800, 86400, 129600],
     hp: [400, 440, 480, 520, 560, 600, 640, 680, 720, 780, 840, 900],
     th: [1, 1, 2, 2, 3, 3, 4, 4, 5, 6, 7, 8],
-    rate: [20, 35, 50, 70, 90, 115, 140, 170, 200, 240, 280, 330], hold: 10},
+    rate: [20, 35, 50, 70, 90, 115, 140, 170, 200, 240, 280, 330], hold: 24},
   farm: {name: 'Brewery', size: 3, pay: 'gold', role: 'make', makes: 'grain',
     blurb: 'Brews Ale while you’re away: it piles up until you collect it.',
     cost: [150, 300, 700, 1400, 3000, 6000, 12000, 24000, 45000, 80000, 140000, 220000],
     time: [10, 300, 900, 1800, 3600, 7200, 14400, 28800, 43200, 64800, 86400, 129600],
     hp: [400, 440, 480, 520, 560, 600, 640, 680, 720, 780, 840, 900],
     th: [1, 1, 2, 2, 3, 3, 4, 4, 5, 6, 7, 8],
-    rate: [20, 35, 50, 70, 90, 115, 140, 170, 200, 240, 280, 330], hold: 10},
+    rate: [20, 35, 50, 70, 90, 115, 140, 170, 200, 240, 280, 330], hold: 24},
   treasury: {name: 'Treasury', size: 3, pay: 'grain', role: 'store', holds: 'gold',
     blurb: 'Holds your Gold. More room means bigger upgrades, and more for raiders to take.',
     cost: [300, 750, 1500, 3000, 6000, 12000, 25000, 50000, 100000, 180000, 300000],
@@ -201,9 +202,12 @@ export const TROOP_ORDER = ['footman', 'archer', 'knight', 'thief', 'dragon'];
 
 // Unique champions live outside the trained army. Gold buys permanent levels; a fallen hero returns home after
 // the raid and can march again. The ordinary Knight troop remains a separate, expendable soldier.
+// Castle 4 unlocks (the owner, Oct 22 2026: "Level 4 is where the user unlocks raids and other items such as wizard and
+// knight"): both heroes are recruited from Castle level 4 (the Knight Hero was 2). One recruited before keeps his level
+// (heroLevel: the cap table is as it was, so a Castle 2 or 3 Knight Hero stays).
 export const HERO_ORDER = ['knight', 'wizard'];
 export const HEROES = {
-  knight: {name: 'Knight Hero', at: 2, troop: 'hero_knight', hp: 500, dps: 24, speed: 1.5, range: .8, aim: 'def', air: false,
+  knight: {name: 'Knight Hero', at: 4, troop: 'hero_knight', hp: 500, dps: 24, speed: 1.5, range: .8, aim: 'def', air: false,
     cap: [0, 2, 3, 4, 6, 8, 9, 10], cost: [1500, 2200, 4000, 7000, 12000, 20000, 32000, 50000, 75000, 110000],
     blurb: 'A champion in heavy armor. Leads your attacks and meets ground raiders with sword and shield.'},
   wizard: {name: 'Wizard Hero', at: 4, troop: 'hero_wizard', hp: 230, dps: 30, speed: 1.7, range: 4.5, aim: 'any', air: true, splash: 1.2,
@@ -266,9 +270,15 @@ export const upgradeHero = (s, k) => changeHero(s, k, false);
 //   Two-Minute Drill (ALE_BY_PLACE: tied rows share the higher place), ranked as each game's own board ranks it (the
 //   league's board, the members' and Ryan D's rows: never the guests and app users the owner's phone also shows; a
 //   person once across their phones), paid once that game's day is over (the next morning) and then frozen (the realm's
-//   pd: freezePaid), so a late post on that day's board can't take it back; today's place is pending till then. Gold is every 5th make on the Kick It run that counts (the day's
-//   first finished: kickGold) and 10 a coin on the day's first Return Man run (coinGold: the coins that run's board
-//   entry carries, COIN_FIELD), paid as soon as the run is on the board. Those three pay no Gold now, these two no Ale.
+//   pd: freezePaid), so a late post on that day's board can't take it back; today's place is pending till then. Gold is
+//   Kick It's run that counts (the day's first finished: kickGold, KICK_BASE for the run and KICK_GOLD for every 5th
+//   make) and Return Man's day (RETURN_BASE for a day with a run on the board, and COIN_GOLD a coin, up to
+//   COIN_PAID_MAX of them, on the day's first run: coinGold, the coins that run's board entry carries, COIN_FIELD),
+//   paid as soon as the run is on the board. Those three pay no Gold now, these two no Ale.
+// - Competitive pay (the owner, Oct 22 2026: "Playing games alone should give the users a good amount of resources.
+//   This should get their castle to level four"): from the same first day (NEW_PAY: Oct 22, so it only ever raised
+//   what that day paid), Kick It pays 500 + 3,000 for every 5th make (was 1,000 a 5th) and Return Man 500 a day with a
+//   run + 25 a coin, the first 200 (was 10 a coin). Ale by place is as it was.
 export const PAY = {
   puzzles: e => 400 + 5 * Math.max(0, Math.min(600, Number(e.p) || 0)),
   '17-0': e => 400 + 150 * e.w + (e.w === 17 ? 500 : 0),
@@ -292,14 +302,22 @@ export const GOLD_GAMES = ['kick', 'return'];
 /** Ale for a day's place (index place - 1; 7th or lower, having played at all, the last). */
 export const ALE_BY_PLACE = Object.freeze([5000, 4000, 3200, 2600, 2100, 1700, 1200]);
 export const aleFor = place => (Number.isInteger(place) && place >= 1 ? ALE_BY_PLACE[Math.min(place, ALE_BY_PLACE.length) - 1] : 0);
-export const KICK_EVERY = 5, KICK_GOLD = 1000, COIN_GOLD = 10;
+/** Kick It (core/kick.js GOLD, goldOf: the same numbers, the kit checks they agree): KICK_BASE for the day's counting
+ *  run whatever it made (0 makes included), KICK_GOLD for every KICK_EVERY-th make, KICK_MOST makes at most (40). */
+export const KICK_EVERY = 5, KICK_GOLD = 3000, KICK_BASE = 500, KICK_MOST = 40;
+/** Return Man (core/return.js COIN.gold the same): RETURN_BASE for a day with a run on the board, and COIN_GOLD a coin
+ *  on the day's first run, the first COIN_PAID_MAX coins. */
+export const COIN_GOLD = 25, RETURN_BASE = 500, COIN_PAID_MAX = 200;
 /** Return Man's coins on a day's board entry (the day's first run's: core/return.js puts them there, dayCoins reads them),
- *  and the most a run can carry (Return Man's own bound, COIN.most: anything past it pays nothing). */
+ *  and the most a run can carry (Return Man's own bound, COIN.most). */
 export const COIN_FIELD = 'c', COIN_MAX = 1000;
-/** Gold for a Kick It run of `made` makes: 1,000 for every 5th. */
-export const kickGold = made => KICK_GOLD * Math.floor(Math.max(0, Math.floor(Number(made) || 0)) / KICK_EVERY);
-/** Gold for a Return Man run's coins: 10 a coin. */
-export const coinGold = coins => { const c = Math.floor(Number(coins) || 0); return c >= 0 && c <= COIN_MAX ? COIN_GOLD * c : 0; };
+/** Gold for the day's counting Kick It run of `made` makes: 500, and 3,000 for every 5th (40 makes at most: 24,500). */
+export const kickGold = made => KICK_BASE + KICK_GOLD * Math.floor(Math.min(KICK_MOST, Math.max(0, Math.floor(Number(made) || 0))) / KICK_EVERY);
+/** Gold for a Return Man first run's coins: 25 a coin, the first 200 (5,000 at most; nothing for none or a bad number).
+ *  The day's RETURN_BASE comes on top (returnGold). */
+export const coinGold = coins => { const c = Math.floor(Number(coins) || 0); return c > 0 ? COIN_GOLD * Math.min(c, COIN_PAID_MAX) : 0; };
+/** What a Return Man day with a run on the board pays: RETURN_BASE + coinGold(its first run's coins). */
+export const returnGold = coins => RETURN_BASE + coinGold(coins);
 const STARTER = 1500; // (of each, for a new realm, on top of what its games have paid)
 const FIELD = {'17-0': 's17', drill: 'dr5', kick: 'kk1', return: 'rm2'};
 const MOD = {'17-0': 'sv', drill: 'dr', kick: 'kk', return: 'rm'};
@@ -412,7 +430,7 @@ export function incomeOf(docs, mods = {}, {board = null, me, at = null, paid = n
       if (tn[g] && n > tn[g]) return;
       // (Kick It's own rule when its core has it, goldOf: what its end card promises is what's paid)
       if (g === 'kick') pay(g, 'gold', (typeof M.goldOf === 'function' ? M.goldOf : kickGold)(first.e.m), n === tn[g]);
-      else pay(g, 'gold', coinGold(typeof M.dayCoins === 'function' ? M.dayCoins(docs, n) : firstCoins(entries, n, M)), n === tn[g]);
+      else pay(g, 'gold', returnGold(typeof M.dayCoins === 'function' ? M.dayCoins(docs, n) : firstCoins(entries, n, M)), n === tn[g]);
       days++;
     });
   });
@@ -483,7 +501,8 @@ export function pickScenery(s, k) {
 // made], df: [raids on you], lr (when the computer last raided you: core/realm-battle.js defend), sh (a truce until,
 // ms), bt: {realm: day raided}, nb (the next building id), born (ms), sc (the scenery picked: SCENERIES; none: the coast),
 // n (the lot it's laid out on, N; none: N_WAS), pd (the Ale places already paid, frozen: {game: {day: place}},
-// freezePaid)}.
+// freezePaid), ex (the example raids: realm-battle.js exampleRaids; none when there are none), exv (EX_V once they've been
+// made, or cleared)}. A raid record (rd, df, ex) may carry rp, its replay (snapOf).
 export function fresh(now = Date.now()) {
   const M = N / 2;
   const b = [
@@ -550,8 +569,16 @@ export function clean(s) {
   o.q = (Array.isArray(o.q) ? o.q : []).map(x => (Array.isArray(x) ? [OLD_TROOP[x[0]] || x[0], x[1]] : x))
     .filter(x => Array.isArray(x) && TROOPS[x[0]] && num(x[1]) > 0).map(([t, n]) => [t, num(n) | 0]);
   o.qs = o.q.length ? num(o.qs) : 0; o.tp = Math.max(0, num(o.tp)); o.lr = num(o.lr) || o.at; o.sh = num(o.sh);
-  o.rd = Array.isArray(o.rd) ? o.rd.filter(r => r && typeof r.id === 'string' && String(r.vs).startsWith('bot:')).slice(-40) : [];
-  o.df = Array.isArray(o.df) ? o.df.filter(r => r && Number(r.at)).slice(-20) : [];
+  // (the lots the replays were played on, kept once: {key: packed lot}; only what a replay points at stays, gcLots)
+  if (o.lots && typeof o.lots === 'object' && !Array.isArray(o.lots)) o.lots = Object.fromEntries(Object.entries(o.lots).filter(([, t]) => typeof t === 'string' && t.length <= LOT_MAX && RP_TEXT.test(t)));
+  else delete o.lots;
+  o.rd = keepReplays(Array.isArray(o.rd) ? o.rd.filter(r => r && typeof r.id === 'string' && String(r.vs).startsWith('bot:')).slice(-40) : [], o);
+  o.df = keepReplays(Array.isArray(o.df) ? o.df.filter(r => r && Number(r.at)).slice(-20) : [], o);
+  // (the example raids, each with its replay, and whether they've been made: exampleRaids; none, nothing saved)
+  const ex = Array.isArray(o.ex) ? o.ex.filter(r => r && r.ex === true && typeof r.id === 'string' && Number(r.at) && rpWhole(r.rp, o)).slice(-EX_MAX) : [];
+  if (ex.length) o.ex = ex; else delete o.ex;
+  if (isInt(o.exv) && o.exv > 0) o.exv = Math.min(o.exv, EX_V); else delete o.exv;
+  gcLots(o);
   o.bt = o.bt && typeof o.bt === 'object' ? o.bt : {};
   // (the Ale places already paid, frozen: incomeOf's paid, freezePaid)
   const pd = o.pd && typeof o.pd === 'object' ? o.pd : {};
@@ -790,8 +817,10 @@ export function trainedBy(s, now = Date.now()) {
 
 // ---------------------------------------------------------------------------------------------------- raids
 // What a raid can take: from storage, a share of what's stored (up to a cap for the Keep's level), spread over the
-// Keep, treasuries and granaries by how much each holds; from mines and farms, half of what's piled up in each.
-export const STORE_SHARE = .15, MADE_SHARE = .5;
+// Keep, treasuries and granaries by how much each holds; from mines and farms, a quarter of what's piled up in each.
+// (Oct 22 2026, the owner's competitive pay: a tenth of storage, was .15, and a quarter of the piles, was half, so what
+// the games pay mostly stays his.)
+export const STORE_SHARE = .10, MADE_SHARE = .25;
 export const LOOT_CAP = [5000, 10000, 20000, 40000, 70000, 100000, 140000, 180000];
 /** Each building's take in a raid on s: {by: {bid: {gold, grain}}, total}. */
 export function lootOf(s, now = Date.now()) {
@@ -820,8 +849,11 @@ export function lootOf(s, now = Date.now()) {
 /** Glory a raid on a computer realm of level th brings (by stars). */
 export const gloryFor = (stars, th) => stars * th * 4;
 /** A raid's end, on your realm: the take into storage (what won't fit, to your coffers), the army that marched used
- *  up, the glory, the raid on the record (rd, the last 40), the realm raided for today. Returns the record. */
-export function finishRaid(s, rec, used, now = Date.now()) {
+ *  up, the glory, the raid on the record (rd, the last 40), the realm raided for today. B: the battle it was
+ *  (core/realm-battle.js makeBattle, played out), when there's one: the record keeps its replay (rp: snapOf(B)), so it
+ *  can be watched again (the newest RP_KEEP attacks keep theirs). Returns the record. */
+export function finishRaid(s, rec, used, now = Date.now(), B = null) {
+  if (B && !rec.rp) { const rp = snapOf(B, {into: s}); if (rp) rec.rp = rp; }
   const cap = capOf(s);
   CUR.forEach((c, i) => {
     const got = rec.lt[i] || 0, fit = Math.max(0, Math.min(got, cap[c] - s.r[c]));
@@ -832,23 +864,28 @@ export function finishRaid(s, rec, used, now = Date.now()) {
   s.tp = Math.max(0, s.tp + (rec.ta || 0));
   s.bt[rec.vs] = dayKey(now);
   s.rd.push(rec);
-  s.rd = s.rd.slice(-40);
+  s.rd = keepReplays(s.rd.slice(-40), s);
+  gcLots(s);
   return rec;
 }
-/** A raid on your realm, taken off it: what it took from storage and the mines' and farms' piles, the glory. */
+/** A raid on your realm, taken off it: what it took from storage and the mines' and farms' piles, the glory. Its
+ *  replay (rec.rp, core/realm-battle.js defend records it, its lot in s.lots) stays on the newest RP_KEEP. */
 export function takeRaid(s, rec) {
-  const ls = rec.ls || [0, 0];
+  const ls = rec.ls || [0, 0], at = Number(rec.at) || Date.now();
   s.r.gold = Math.max(0, s.r.gold - (ls[0] || 0));
   s.r.grain = Math.max(0, s.r.grain - (ls[1] || 0));
   Object.entries(rec.lb || {}).forEach(([id, v]) => {
     const b = s.b.find(x => x.i === Number(id));
     if (!b || KINDS[b.t].role !== 'make' || !b.c) return;
-    const took = (v && (v[0] || v[1])) || 0, rate = stat(b.t, b.l).rate;
-    if (took > 0 && rate > 0) b.c += took / rate * HOUR;
+    const took = (v && (v[0] || v[1])) || 0, st = stat(b.t, b.l), rate = st.rate;
+    // (a full pile stops growing, so its start comes up first to where it was just full (st.hold: the most it holds):
+    // then what was taken really comes off it, Oct 22 2026; till then a pile left a day took nothing off)
+    if (took > 0 && rate > 0) b.c = Math.max(b.c, at - st.hold / rate * HOUR) + took / rate * HOUR;
   });
   s.tp = Math.max(0, s.tp + (Number(rec.td) || 0));
   s.df.push(rec);
-  s.df = s.df.slice(-20);
+  s.df = keepReplays(s.df.slice(-20), s);
+  gcLots(s);
 }
 export const dayKey = (t = Date.now()) => { const d = new Date(t); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
 
@@ -896,13 +933,358 @@ export function botLoot(bot, base, mine, now = Date.now()) {
   return {by, total};
 }
 
-/** A realm you can scout or attack, by its key: {key, name, th, base, loot} or {why}. The computer's, for now (The
- *  Keep is the owner's alone: no one else's realm is anywhere in it). */
-export function realmOf(key, mine, now = Date.now()) {
+// ---- Castle 4 unlocks (the owner, Oct 22 2026: "Level 4 is where the user unlocks raids and other items such as wizard
+// and knight"): attacking and scouting the computer's realms open at Castle level ATTACK_AT, and then only the realms up
+// to a level above your Castle's (canTarget). The computer raiding you still starts at Castle 2 (realm-battle.js defend).
+export const ATTACK_AT = 4;
+const botOf = bot => (typeof bot === 'string' ? BOTS.find(b => b.k === bot) : bot && BOTS.find(b => b.k === bot.k)) || null;
+/** Whether realm s can attack (and scout) at all: its Castle at ATTACK_AT or higher. */
+export const attackOpen = s => !!(s && Array.isArray(s.b)) && keepOf(s) >= ATTACK_AT;
+/** The Castle level a computer realm (a BOTS entry or its key) can be attacked from: ATTACK_AT, or a level below its own. */
+export const targetAt = bot => { const b = botOf(bot); return b ? Math.max(ATTACK_AT, b.th - 1) : Infinity; };
+/** Whether realm s may attack that computer realm now: attacks open, and its level no more than one above s's Castle. */
+export const canTarget = (s, bot) => { const b = botOf(bot); return !!b && attackOpen(s) && b.th <= keepOf(s) + 1; };
+/** Why s can't attack that realm ('' when it can): "Raids open at Castle level 4" before then, "Castle level N" for a
+ *  realm too strong yet (N: targetAt), or that it isn't there. For scouting (scout: true), only the first. */
+export function attackWhy(s, bot, {scout = false} = {}) {
+  const b = botOf(bot);
+  if (!b) return 'That realm isn’t there.';
+  if (!attackOpen(s)) return `Raids open at Castle level ${ATTACK_AT}`;
+  if (!scout && !canTarget(s, b)) return `Castle level ${targetAt(b)}`;
+  return '';
+}
+
+/** A realm you can scout or attack, by its key: {key, name, th, base, loot} or {why, locked}. The computer's, for now
+ *  (Keepfall is the owner's alone: no one else's realm is anywhere in it). mine: the realm doing it; when it's given,
+ *  Castle 4's rule holds (attackWhy: refused with locked: true before Castle 4 and, unless scout, for a realm out of
+ *  reach); without it (null: the checks, a look at a lot), any realm. */
+export function realmOf(key, mine, now = Date.now(), {scout = false} = {}) {
   const bot = BOTS.find(b => b.k === key);
   if (!bot) return {why: 'That realm isn’t there.'};
+  if (mine && Array.isArray(mine.b)) { const why = attackWhy(mine, bot, {scout}); if (why) return {why, locked: true}; }
   const base = botBase(bot.th);
   return {key, name: bot.name, th: bot.th, base, loot: botLoot(bot, base, mine, now)};
+}
+
+// ---------------------------------------------------------------------------------------------------- replays
+// Raid replays (the owner, Oct 22 2026: "Provide raid replays of both being raided and attacking another player"). A
+// battle is deterministic (core/realm-battle.js: the same lot, take, army and drops play out the same every time), so a
+// record keeps what it needs to be played again, as rp. The realm rides on the owner's board doc, which every phone in
+// the league downloads on each save, so rp is small: a few short text fields, the numbers packed (varints, base64url),
+// never an object or a number a building:
+//   rp = {v: RP_V, bv: battleMark() (the battle's rules it was played under), p: the packed raid (the step it ended on,
+//     the army that marched, the heroes on each side, each building's take, the drops), and the lot it was played on:
+//     L: 'b<th>.<hash>' (a computer realm's lot, botBase(th): rebuilt, not kept, and the hash says it's still the same),
+//     or L: <key> (one of his lots, kept once in the realm's lots, {key: packed lot}: the raids on his realm and the
+//     examples mostly share one), or b: the packed lot itself (a replay made with no realm to keep it in); sc (the
+//     defending realm's scenery, for raids on his)}
+// snapOf(B) makes one from a battle played out; decodeReplay(rp, s) / replayOf(rec, s) turn it back into what makeBattle
+// and replay take (s: the realm whose lots it may point at). Only the newest RP_KEEP of each list (rd: his attacks, df:
+// the raids on his) keep theirs, and the lots no replay points at go (gcLots); older records, and every record from
+// before replays, have none. Example raids (realm-battle.js exampleRaids) live in s.ex, flagged ex: true, every one with
+// its replay. A replay played under other rules than today's (a stat changed, or BATTLE_V) is kept but not shown: it
+// would no longer play out as the raid did.
+export const RP_V = 2, RP_KEEP = 10, EX_V = 1, EX_MAX = 3;
+/** Bump it with any change to how a raid plays out in core/realm-battle.js (its steps, targeting, paths, shots, the
+ *  end): the replays recorded before then stop showing their ▶. (The stats here are in battleMark by themselves.) */
+export const BATTLE_V = 1;
+// (fixed: a kind or unit added later goes on the end, so an old replay still reads the same)
+const RP_KINDS = Object.freeze(['keep', 'hut', 'mine', 'farm', 'treasury', 'granary', 'barracks', 'camp', 'hatchery', 'cannon', 'ballista', 'tower', 'trebuchet', 'cauldron', 'wall']);
+const RP_UNITS = Object.freeze(['footman', 'archer', 'knight', 'thief', 'dragon', 'hero_knight', 'hero_wizard']);
+const isInt = v => Number.isInteger(v);
+const heroMap = h => Object.fromEntries(HERO_ORDER.filter(k => h && isInt(h[k]) && h[k] >= 1 && h[k] <= 10).map(k => [k, h[k]]));
+// ---- packing: numbers as varints (zigzag for the ones that can go down), the bytes as base64url text
+const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+const B64_AT = Object.fromEntries([...B64].map((c, i) => [c, i]));
+const RP_TEXT = /^[A-Za-z0-9_-]*$/, LOT_MAX = 12000;
+function toB64(a) {
+  let o = '';
+  for (let i = 0; i < a.length; i += 3) {
+    const n = (a[i] << 16) | ((a[i + 1] || 0) << 8) | (a[i + 2] || 0), k = a.length - i;
+    o += B64[(n >> 18) & 63] + B64[(n >> 12) & 63] + (k > 1 ? B64[(n >> 6) & 63] : '') + (k > 2 ? B64[n & 63] : '');
+  }
+  return o;
+}
+function fromB64(t) {
+  if (typeof t !== 'string' || !RP_TEXT.test(t) || t.length % 4 === 1) return null;
+  const a = [];
+  for (let i = 0; i < t.length; i += 4) {
+    const c = [0, 1, 2, 3].map(j => (i + j < t.length ? B64_AT[t[i + j]] : -1));
+    const n = (c[0] << 18) | (c[1] << 12) | (Math.max(0, c[2]) << 6) | Math.max(0, c[3]);
+    a.push((n >> 16) & 255);
+    if (c[2] >= 0) a.push((n >> 8) & 255);
+    if (c[3] >= 0) a.push(n & 255);
+  }
+  return a;
+}
+function writer() {
+  const a = [];
+  const uv = v => { v = Math.max(0, Math.floor(v)); while (v >= 128) { a.push((v % 128) | 128); v = Math.floor(v / 128); } a.push(v); };
+  return {a, uv, u8: v => a.push(v & 255), sv: v => uv(v < 0 ? -2 * v - 1 : 2 * v)};
+}
+function reader(a) {
+  let i = 0, bad = !a;
+  const u8 = () => { if (bad || i >= a.length) { bad = true; return 0; } return a[i++]; };
+  const uv = () => { let v = 0, m = 1; for (let k = 0; k < 8; k++) { const b = u8(); v += (b & 127) * m; if (!(b & 128)) return v; m *= 128; } bad = true; return 0; };
+  return {u8, uv, sv: () => { const v = uv(); return v % 2 ? -(v + 1) / 2 : v / 2; }, get bad() { return bad; }, get end() { return !bad && i === a.length; }};
+}
+/** A short, stable hash of a text (FNV-1a, 32 bits, in base 36, with the text's length). */
+function hashOf(t) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+  return h.toString(36) + t.length.toString(36);
+}
+/** A lot (its standing buildings in the battle's order, {i, t, l, x, y}) packed, or '' when it isn't one. */
+function packLot(list) {
+  const w = writer();
+  w.uv(list.length);
+  let pi = 0;
+  for (const e of list) {
+    const k = RP_KINDS.indexOf(e.t);
+    if (k < 0 || ![e.i, e.l, e.x, e.y].every(isInt) || e.i < 0 || e.l < 1 || e.l > 16 || e.x < 0 || e.y < 0) return '';
+    w.sv(e.i - pi); pi = e.i;
+    w.u8(k * 16 + e.l - 1); w.uv(e.x); w.uv(e.y);
+  }
+  return toB64(w.a);
+}
+/** A packed lot back as buildings ({i, t, l, x, y, u: 0}), or null when it isn't one that fits the lot. */
+function unpackLot(t) {
+  if (typeof t !== 'string' || !t || t.length > LOT_MAX) return null;
+  const r = reader(fromB64(t)), n = r.uv(), b = [], seen = new Set();
+  if (r.bad || n < 1 || n > 1000) return null;
+  let i = 0;
+  for (let j = 0; j < n; j++) {
+    i += r.sv();
+    const kl = r.u8(), x = r.uv(), y = r.uv(), kind = RP_KINDS[kl >> 4], l = (kl & 15) + 1;
+    if (r.bad || !kind || l > maxLevel(kind) || i < 0 || seen.has(i) || x + KINDS[kind].size > N || y + KINDS[kind].size > N) return null;
+    seen.add(i);
+    b.push({i, t: kind, l, x, y, u: 0});
+  }
+  return r.end ? b : null;
+}
+// (the computer's lots, packed: botBase is the same every day, so a replay of an attack keeps only which one)
+let BOT_LOTS = null;
+const botLots = () => BOT_LOTS || (BOT_LOTS = new Map(BOTS.map(x => [x.th, packLot(botBase(x.th).b.filter(b => b.l >= 1))])));
+const botLotOf = text => { for (const [th, t] of botLots()) if (t === text) return th; return 0; };
+// (a his-lot replay's key; a lot kept once in the realm, whichever records point at it)
+const isBotRef = L => /^b[1-9]\.[0-9a-z]+$/.test(L);
+function putLot(s, text) {
+  if (!s.lots || typeof s.lots !== 'object' || Array.isArray(s.lots)) s.lots = {};
+  const k0 = hashOf(text);
+  for (let n = 0; n < 50; n++) {
+    const k = n ? `${k0}x${n}` : k0;
+    if (s.lots[k] === text || s.lots[k] == null) { s.lots[k] = text; return k; }
+  }
+  return '';
+}
+let MARK = '';
+/** The battle's rules as a short mark (BATTLE_V, the lot's size, the clock, every stat a raid reads): a replay played
+ *  under another mark wouldn't play out as the raid did. */
+export function battleMark() {
+  if (MARK) return MARK;
+  const skip = new Set(['name', 'blurb', 'cost', 'time', 'pay', 'th', 'at']);
+  const rules = {v: BATTLE_V, N, RAID_S, KINDS, TROOPS, heroes: HERO_ORDER.map(k => Array.from({length: 10}, (_, l) => heroStat(k, l + 1)))};
+  MARK = hashOf(JSON.stringify(rules, (k, v) => (skip.has(k) ? undefined : v)));
+  return MARK;
+}
+/**
+ * A battle played out (core/realm-battle.js makeBattle's B, over or ended) as a record's replay, rp; null when it isn't
+ * one. o.sc: the defending realm's scenery (a raid on his); o.into: the realm a lot that isn't one of the computer's is
+ * kept in (its lots, once: the replay points at it), else the replay carries it (b). (For backward calls, o may be the
+ * scenery's id.) B may be a battle called off part way (realm-battle.js's examples: its drops to then, step then).
+ */
+export function snapOf(B, o = {}) {
+  if (typeof o === 'string') o = {sc: o};
+  o = o || {};
+  if (!B || !Array.isArray(B.bl) || !Array.isArray(B.drops) || !isInt(B.step) || B.step < 0) return null;
+  const lot = packLot(B.bl);
+  if (!lot) return null;
+  const w = writer();
+  w.uv(B.step);
+  TROOP_ORDER.forEach(t => w.uv(((B.left && B.left[t]) || 0) + ((B.used && B.used[t]) || 0)));
+  const h = heroMap(B.heroes), dh = heroMap(Object.fromEntries((B.defenders || []).map(u => [u.hero, u.level])));
+  HERO_ORDER.forEach(k => w.uv(h[k] || 0));
+  HERO_ORDER.forEach(k => w.uv(dh[k] || 0));
+  const take = v => Math.max(0, Math.floor(Number(v) || 0));
+  const lo = B.bl.filter(e => e.loot && (take(e.loot.gold) || take(e.loot.grain)));
+  w.uv(lo.length);
+  let pi = 0;
+  lo.forEach(e => { w.sv(e.i - pi); pi = e.i; w.uv(take(e.loot.gold)); w.uv(take(e.loot.grain)); });
+  w.uv(B.drops.length);
+  let ps = 0, px = 0, py = 0;
+  for (const d of B.drops) {
+    const u = RP_UNITS.indexOf(d[1]);
+    if (u < 0 || ![d[0], d[2], d[3]].every(isInt) || d[0] < ps || d[2] < 0 || d[3] < 0) return null;
+    w.uv(d[0] - ps); w.u8(u); w.sv(d[2] - px); w.sv(d[3] - py);
+    ps = d[0]; px = d[2]; py = d[3];
+  }
+  const rp = {v: RP_V, bv: battleMark(), p: toB64(w.a)}, th = botLotOf(lot);
+  if (th) rp.L = `b${th}.${hashOf(lot)}`;
+  else if (o.into && typeof o.into === 'object') { const k = putLot(o.into, lot); if (!k) return null; rp.L = k; }
+  else rp.b = lot;
+  if (o.sc && typeof o.sc === 'string') rp.sc = o.sc;
+  return rp;
+}
+/** A replay read whole (whatever rules it was played under), or null when it's broken: {b: the lot, rest}. s: the realm
+ *  whose lots it may point at. */
+function readReplay(p, s) {
+  if (!p || typeof p !== 'object' || Array.isArray(p) || p.v !== RP_V || typeof p.bv !== 'string' || typeof p.p !== 'string' || p.p.length > 8000) return null;
+  let b = null, bot = 0;
+  if (typeof p.L === 'string') {
+    if (isBotRef(p.L)) { bot = Number(p.L[1]); b = []; }
+    else { const t = s && s.lots && typeof s.lots === 'object' ? s.lots[p.L] : null; b = unpackLot(t); }
+  } else if (typeof p.b === 'string') b = unpackLot(p.b);
+  if (!b) return null;
+  const r = reader(fromB64(p.p)), end = r.uv(), army = {}, hr = {}, dh = {};
+  TROOP_ORDER.forEach(t => { const n = r.uv(); if (n > 0) army[t] = n; });
+  HERO_ORDER.forEach(k => { const l = r.uv(); if (l >= 1 && l <= 10) hr[k] = l; });
+  HERO_ORDER.forEach(k => { const l = r.uv(); if (l >= 1 && l <= 10) dh[k] = l; });
+  const by = {}, total = {gold: 0, grain: 0}, nl = r.uv();
+  if (r.bad || nl > 1000) return null;
+  let i = 0;
+  for (let j = 0; j < nl; j++) {
+    i += r.sv();
+    const g = r.uv(), a = r.uv();
+    if (r.bad || by[i]) return null;
+    by[i] = {gold: g, grain: a}; total.gold += g; total.grain += a;
+  }
+  const nd = r.uv(), drops = [];
+  if (r.bad || nd > 5000) return null;
+  let st = 0, x = 0, y = 0;
+  for (let j = 0; j < nd; j++) {
+    st += r.uv();
+    const u = RP_UNITS[r.u8()];
+    x += r.sv(); y += r.sv();
+    if (r.bad || !u || x < 0 || y < 0) return null;
+    drops.push([st, u, x, y]);
+  }
+  if (!r.end) return null;
+  return {b, bot, end, army, hr, dh, loot: {by, total}, drops, sc: typeof p.sc === 'string' && SCENERIES.some(q => q.k === p.sc) ? p.sc : ''};
+}
+/** Whether rp reads whole (the lot it points at kept in s): what a save keeps (clean, keepReplays). */
+const rpWhole = (p, s) => !!readReplay(p, s);
+/**
+ * A replay's data (rp, snapOf's) as the battle engine takes it, or null when it isn't one, or was played under other
+ * rules than today's (battleMark; a computer's lot that's since changed): s, the realm whose lots it may point at.
+ *   {base: {b: [{i, t, l, x, y, u: 0}], hr: the defending heroes, r, sc?} (the lot as it was: draw it, and battle it),
+ *    loot: {by: {id: {gold, grain}}, total}, army: {troop: n}, drops: [[step, troop, x*10, y*10]], hr: the raider's
+ *    heroes, dh: the defenders', end (the step it ended on), dur (its length, seconds), sc (scenery, or ''),
+ *    opts: {heroes: hr, defenders: dh, end} (makeBattle's and replay's options)}
+ * Pure and for anyone (the checks); views use replayOf(rec, s), the owner's alone.
+ */
+export function decodeReplay(p, s = null) {
+  const R = readReplay(p, s);
+  if (!R || p.bv !== battleMark()) return null;
+  let b = R.b;
+  if (R.bot) {
+    const t = botLots().get(R.bot);
+    if (!t || p.L !== `b${R.bot}.${hashOf(t)}`) return null;
+    b = unpackLot(t);
+    if (!b) return null;
+  }
+  const ids = new Set(b.map(x => x.i));
+  if (Object.keys(R.loot.by).some(i => !ids.has(Number(i)))) return null;
+  const base = {b, hr: R.dh, r: {gold: 0, grain: 0}};
+  if (R.sc) base.sc = R.sc;
+  // (dur: a step is a tenth of a second, realm-battle.js DT)
+  return {base, loot: R.loot, army: R.army, drops: R.drops, hr: R.hr, dh: R.dh, end: R.end, dur: R.end / 10, sc: R.sc,
+    opts: {heroes: R.hr, defenders: R.dh, end: R.end}};
+}
+/** Whether a record has a replay to watch (its rp reads back under today's rules: decodeReplay). For the log's ▶. s:
+ *  the realm it's on (its lots), the owner's in memory when not given. */
+export const hasReplay = (rec, s = MINE) => !!(rec && rec.rp && decodeReplay(rec.rp, s));
+/** A record's replay (decodeReplay of its rp, s's lots), on the owner's phone; null elsewhere or when it has none. */
+export const replayOf = (rec, s = MINE) => (mayPlay() && rec && rec.rp ? decodeReplay(rec.rp, s) : null);
+/** Keeps rp on the newest RP_KEEP records of a list (the end of it) and drops it, or a broken one, from the rest. s: the
+ *  realm the list is on (its lots). Mutates the records; returns the list. */
+export function keepReplays(list, s = null) {
+  if (!Array.isArray(list)) return [];
+  list.forEach((r, j) => { if (r && r.rp && (j < list.length - RP_KEEP || !rpWhole(r.rp, s))) delete r.rp; });
+  return list;
+}
+/** The lots no replay points at any more, gone (and lots itself, when that's all of them). Mutates s. */
+export function gcLots(s) {
+  if (!s || typeof s !== 'object') return;
+  if (!s.lots || typeof s.lots !== 'object' || Array.isArray(s.lots)) { delete s.lots; return; }
+  const used = new Set();
+  ['rd', 'df', 'ex'].forEach(k => (Array.isArray(s[k]) ? s[k] : []).forEach(r => { const L = r && r.rp && r.rp.L; if (typeof L === 'string' && !isBotRef(L)) used.add(L); }));
+  Object.keys(s.lots).forEach(k => { if (!used.has(k) || typeof s.lots[k] !== 'string') delete s.lots[k]; });
+  if (!Object.keys(s.lots).length) delete s.lots;
+}
+/** A record by its id, from the raids on his realm (df), his attacks (rd) or the example raids (ex): {rec, kind: 'df' |
+ *  'rd' | 'ex'}, or null. */
+export function findRaid(s, id) {
+  if (!s || typeof id !== 'string' || !id) return null;
+  for (const kind of ['df', 'rd', 'ex']) {
+    const rec = Array.isArray(s[kind]) ? s[kind].find(r => r && r.id === id) : null;
+    if (rec) return {rec, kind};
+  }
+  return null;
+}
+/** Puts example raids on s (s.ex, the newest EX_MAX; s.exv = EX_V), each record's lot from lots (the realm they were
+ *  played on: realm-battle.js exampleRaids, which may play them on a copy) kept in s's. Mutates s; returns s.ex. */
+export function putExamples(s, recs, lots = null) {
+  const out = [];
+  (recs || []).forEach(r => {
+    if (!r || !r.rp) return;
+    const rec = copy(r), L = rec.rp.L;
+    if (typeof L === 'string' && !isBotRef(L)) {
+      const t = lots && typeof lots[L] === 'string' ? lots[L] : (s.lots && s.lots[L]);
+      const k = t ? putLot(s, t) : '';
+      if (!k) return;
+      rec.rp.L = k;
+    }
+    out.push(rec);
+  });
+  s.ex = out.slice(-EX_MAX);
+  if (!s.ex.length) delete s.ex;
+  s.exv = EX_V;
+  gcLots(s);
+  return s.ex || [];
+}
+/** Clears the example raids (s.ex), leaving them cleared: they aren't made again by themselves (exv stays). Mutates s;
+ *  true if there were any. Touches nothing else (but the lots only they pointed at). */
+export function clearExamples(s) {
+  if (!s) return false;
+  const had = Array.isArray(s.ex) && s.ex.length > 0;
+  delete s.ex;
+  s.exv = EX_V;
+  gcLots(s);
+  return had;
+}
+/** When sync takes a newer copy of the realm from the board (remote) over this phone's (local): what of this phone's to
+ *  keep. The example raids, when the newer copy was saved by a phone that never had them (no exv: one still on an older
+ *  version of the app, or one that hadn't made them yet), and a record's replay the newer copy lacks; each with the lot
+ *  it points at. Mutates remote; true if it kept anything (the realm's to be saved again, with them). */
+export function keepMine(remote, local) {
+  if (!remote || !local || remote === local) return false;
+  let kept = false;
+  // (the lot a replay points at, from this phone's lots into the newer copy's; false when they'd clash)
+  const lot = rp => {
+    const L = rp && rp.L;
+    if (typeof L !== 'string' || isBotRef(L)) return !!rp;
+    const t = local.lots && local.lots[L];
+    if (typeof t !== 'string') return false;
+    if (remote.lots && remote.lots[L] != null) return remote.lots[L] === t;
+    if (!remote.lots || typeof remote.lots !== 'object' || Array.isArray(remote.lots)) remote.lots = {};
+    remote.lots[L] = t;
+    return true;
+  };
+  if (!('exv' in remote) && local.exv === EX_V && Array.isArray(local.ex) && local.ex.length) {
+    const ex = local.ex.filter(r => r && r.rp && lot(r.rp)).map(copy);
+    if (ex.length) { remote.ex = ex; remote.exv = local.exv; kept = true; }
+  }
+  ['rd', 'df'].forEach(k => {
+    if (!Array.isArray(remote[k])) return;
+    const had = new Map((Array.isArray(local[k]) ? local[k] : []).filter(r => r && r.rp && typeof r.id === 'string').map(r => [r.id, r]));
+    const got = new Set(), list = remote[k];
+    // (only where the newer copy would keep one: its newest RP_KEEP)
+    list.forEach((r, j) => { const m = j >= list.length - RP_KEEP && r && !r.rp && had.get(r.id); if (m && lot(m.rp)) { r.rp = copy(m.rp); got.add(r); } });
+    remote[k] = keepReplays(list, remote);
+    if (remote[k].some(r => got.has(r) && r.rp)) kept = true;
+  });
+  gcLots(remote);
+  return kept;
 }
 
 // ---------------------------------------------------------------------------------------------------- the owner's
@@ -943,6 +1325,8 @@ export function mine(now = Date.now()) {
     const local0 = readLocal(), remote0 = clean(freshest(myDocs()));
     const local = current(local0), remote = current(remote0);
     MINE = (remote && (!local || remote.at > local.at)) ? remote : local;
+    // (this phone's example raids and replays the newer copy lacks, kept, and saved again: see sync)
+    if (MINE === remote && local && keepMine(remote, local)) { writeLocal(MINE); dirty = true; clearTimeout(saveT); saveT = setTimeout(flush, 1500); }
     if (!MINE) {
       // (started over for testing: kept here at once, on the board as soon as it's known)
       const old = [local0, remote0].filter(Boolean).sort((a, b) => b.at - a.at)[0];
@@ -960,9 +1344,15 @@ export function sync(now = Date.now()) {
   const s = mine(now);
   let changed = false;
   const remote = current(clean(freshest(myDocs())));
-  if (remote && (PROVISIONAL || remote.at > s.at + 1000)) { MINE = remote; tick(MINE, now); changed = true; writeLocal(MINE); }
+  let kept = false;
+  if (remote && (PROVISIONAL || remote.at > s.at + 1000)) {
+    // (this phone's example raids and replays the newer copy lacks, kept: one saved by a phone on an older version)
+    kept = !PROVISIONAL && keepMine(remote, s);
+    MINE = remote; tick(MINE, now); changed = true; writeLocal(MINE);
+  }
   if (boardKnown()) { if (PROVISIONAL && !remote) dirty = true; PROVISIONAL = false; }
   if (changed) emit('sync');
+  if (kept) touch();
   return changed;
 }
 /** Marks the realm changed: saved here at once, to the board a moment later. */

@@ -73,7 +73,7 @@ function routeChecks() {
   // Pushed routes and covers: how they open and which tab a cold link sits on.
   const pushes = [['/standings/2024', 'push', 'league'], ['/standings/2024/wrap/3', 'push', 'league'], ['/managers/evan', 'push', 'league'], ['/press', 'push', 'matchup'],
     ['/press/2026-w2', 'push', 'matchup'], ['/_kit', 'push', 'puzzles'], ['/puzzles/play/grid', 'cover', 'puzzles'], ['/puzzles/results', 'cover', 'puzzles'],
-    ['/puzzles/daily', 'push', 'puzzles'], ['/puzzles/17-0', 'push', 'puzzles'], ['/puzzles/drill', 'push', 'puzzles'], ['/puzzles/kick', 'push', 'puzzles'], ['/puzzles/return', 'push', 'puzzles'], ...(data.isOwner() ? [['/puzzles/keep', 'push', 'puzzles'], ['/realm/raid/bot%3A1', 'cover', 'puzzles'], ['/realm/scout/bot%3A1', 'cover', 'puzzles']] : [])];
+    ['/puzzles/daily', 'push', 'puzzles'], ['/puzzles/17-0', 'push', 'puzzles'], ['/puzzles/drill', 'push', 'puzzles'], ['/puzzles/kick', 'push', 'puzzles'], ['/puzzles/return', 'push', 'puzzles'], ...(data.isOwner() ? [['/puzzles/keep', 'push', 'puzzles'], ['/realm/raid/bot%3A1', 'cover', 'puzzles'], ['/realm/scout/bot%3A1', 'cover', 'puzzles'], ['/realm/replay/d1', 'cover', 'puzzles']] : [])];
   miss = bad(pushes, ([p, open, home]) => { const r = parseRoute(p); return r && r.open === open && r.home === home ? null : p; });
   out.push({name: 'Routes: pushes, covers and their home tabs', pass: !miss.length, detail: miss.length ? 'wrong: ' + miss.join(', ') : `${pushes.length} routes`});
   // Unknown and malformed links stay unknown (the app lands on Puzzles with a toast).

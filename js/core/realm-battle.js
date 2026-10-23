@@ -6,9 +6,11 @@
 // nothing random: the same drops at the same moments play out the same every time. What a building holds comes out
 // as it's knocked down (its share by the damage done).
 // makeBattle(base, loot, army) → {t, over, deploy(t, x, y), step1(), canDrop(x, y), pct(), stars(), result(), ...};
-// replay(...) plays a recorded raid again; defend(s, now) plays the computer's raids on your realm since you last
-// looked (a few a day).
-import {KINDS, TROOPS, TROOP_ORDER, HEROES, HERO_ORDER, heroLevels, heroStat, mayPlay, stat, N, RAID_S, BOTS, rng, boxOf, keepOf, lootOf, takeRaid, HOUR} from './realm.js';
+// replay(...) plays a recorded raid again; replayRaid(rec) / replayBattle(P) give one to watch, a step at a time;
+// defend(s, now) plays the computer's raids on your realm since you last looked (a few a day); exampleRaids(s, now)
+// plays three on your realm as it is, for show (the owner's ask, Oct 22 2026), taking nothing.
+import {KINDS, TROOPS, TROOP_ORDER, HEROES, HERO_ORDER, heroLevels, heroStat, mayPlay, stat, N, RAID_S, BOTS, rng, boxOf, keepOf, lootOf, takeRaid, HOUR,
+  snapOf, replayOf, sceneryOf, putExamples, EX_V} from './realm.js';
 
 export const DT = .1;
 const HIT_EVERY = 1;   // seconds between a soldier's hits
@@ -46,11 +48,13 @@ const distTo = (b, x, y) => Math.hypot(Math.max(b.x - x, 0, x - (b.x + b.size)),
 /**
  * A raid on base (a realm state: its buildings), with loot {by: {buildingId: {gold, grain}}}, by an army
  * ({troop: n}). options.heroes is the attacker's permanent-level snapshot, keyed knight/wizard. Defenders come
- * from base.hr. Hero units use hero_knight/hero_wizard so ordinary trained knights keep their original behavior.
+ * from base.hr, or options.defenders when given (a replay's: the levels they had then, whatever the Castle's caps are
+ * now). Hero units use hero_knight/hero_wizard so ordinary trained knights keep their original behavior.
  */
 export function makeBattle(base, loot, army, options = {}) {
   const heroes = mayPlay() ? Object.fromEntries(HERO_ORDER.filter(k => heroStat(k, options?.heroes?.[k])).map(k => [k, options.heroes[k]])) : {};
-  const defending = heroLevels(base);
+  const fixed = options && options.defenders && typeof options.defenders === 'object' ? options.defenders : null;
+  const defending = fixed ? (mayPlay() ? Object.fromEntries(HERO_ORDER.filter(k => heroStat(k, fixed[k])).map(k => [k, fixed[k]])) : {}) : heroLevels(base);
   const left = Object.fromEntries(TROOP_ORDER.filter(t => Number.isInteger(army?.[t]) && army[t] > 0).map(t => [t, army[t]]));
   Object.keys(heroes).forEach(k => { left[HEROES[k].troop] = 1; });
   const B = {t: 0, step: 0, over: false, why: '', bl: [], tr: [], defenders: [], heroes, shots: [], fx: [], left, used: {}, got: {gold: 0, grain: 0}, gotBy: {}, seq: 0, drops: []};
@@ -199,8 +203,9 @@ export function makeBattle(base, loot, army, options = {}) {
   // ---- sending a soldier
   B.deploy = (t, x, y) => {
     if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
-    // Store and use the same coordinates when heroes participate, including automatic defense simulations.
-    if (Object.keys(heroes).length || B.defenders.length) { x = Math.round(x * 10) / 10; y = Math.round(y * 10) / 10; }
+    // Every drop lands where its record says (a tenth of a tile: drops keep x*10, y*10), so a replay of it is the
+    // same raid (Oct 22 2026: with or without heroes; till then only with them).
+    x = Math.round(x * 10) / 10; y = Math.round(y * 10) / 10;
     if (B.over || !(B.left[t] > 0) || !B.canDrop(x, y)) return null;
     const hero = HERO_ORDER.find(k => HEROES[k].troop === t), T = hero ? heroStat(hero, heroes[hero]) : TROOPS[t];
     if (!T || (hero && !mayPlay())) return null;
@@ -340,16 +345,44 @@ export function makeBattle(base, loot, army, options = {}) {
   return B;
 }
 
-/** Plays a recorded raid again from its drops ([[step, troop, x*10, y*10]]): the same raid. */
+/** Plays a recorded raid again from its drops ([[step, troop, x*10, y*10]]): the same raid. options.end: the step it
+ *  ended on (a raid called off, End, or the computer's when no one was left: realm.js decodeReplay's end), where this one
+ *  ends too. */
 export function replay(base, loot, army, drops, until = Infinity, options = {}) {
   const B = makeBattle(base, loot, army, options);
+  const stop = Number.isInteger(options && options.end) ? options.end : Infinity;
   let k = 0;
   while (!B.over && B.t < until) {
     while (k < drops.length && drops[k][0] <= B.step) { const d = drops[k++]; B.deploy(d[1], d[2] / 10, d[3] / 10); }
+    if (B.step >= stop) { B.end(); break; }
     B.step1();
   }
   return B;
 }
+/**
+ * A recorded raid to watch (P: realm.js replayOf(rec) / decodeReplay(rp)): makeBattle's battle B on the recorded lot,
+ * take and army, with B.play(t) to run its clock to t seconds (the drops go in at their steps, as they did; it ends
+ * where it did), B.dur (its length, seconds) and B.P (P). Draw it as a live raid's (views/realm-3d.js raidStart(B),
+ * then raidFrame(t) each frame); to start over, make another. null without a replay.
+ */
+export function replayBattle(P) {
+  if (!P || !P.base || !Array.isArray(P.drops)) return null;
+  const B = makeBattle(P.base, P.loot, P.army, P.opts || {}), drops = P.drops;
+  const stop = Number.isInteger(P.end) ? P.end : Infinity;
+  let k = 0;
+  const feed = () => { while (k < drops.length && drops[k][0] <= B.step) { const d = drops[k++]; B.deploy(d[1], d[2] / 10, d[3] / 10); } };
+  B.P = P;
+  B.dur = Number.isFinite(stop) ? stop * DT : RAID_S;
+  B.play = t => {
+    while (!B.over && B.t + DT <= t + 1e-9) { feed(); if (B.step >= stop) { B.end(); break; } B.step1(); }
+    if (!B.over) { feed(); if (B.step >= stop) B.end(); }
+    return B;
+  };
+  return B;
+}
+/** A record's replay to watch (replayBattle(replayOf(rec, s))): the owner's alone; null for a record without one. s: the
+ *  realm it's on (its lots), the owner's in memory when not given. */
+export const replayRaid = (rec, s) => replayBattle(replayOf(rec, s));
 
 // ---------------------------------------------------------------------------------------------------- raids on you
 // The computer's realms raid yours (The Keep is the owner's alone, so they're the only ones who can): at most one in
@@ -358,13 +391,20 @@ export function replay(base, loot, army, drops, until = Infinity, options = {}) 
 // more than the last two while you were away. The raiders are the realm a level below yours, an army a little smaller
 // than yours could be, all coming from one side: knights and dragons first, the rest a moment later.
 export const TRUCE_H = 12, WINDOW_H = 12;
-/** When the raids on s since it last looked fall (ms), the last two at most. */
+const WARM = 8;
+/** When the raids on s since it last looked fall (ms), the last two at most. A half day that already has a raid on the
+ *  record (s.df) has no other (the hour moved on Oct 22 2026: that day's morning raid had come at the old hour). */
 export function raidsDue(s, now = Date.now()) {
   const from = Math.max(s.lr || 0, (s.born || 0) + 24 * HOUR, now - 2 * 24 * HOUR), out = [];
+  const had = (Array.isArray(s.df) ? s.df : []).map(r => Number(r && r.at)).filter(Number.isFinite);
   const d0 = new Date(from); d0.setHours(0, 0, 0, 0);
   for (let w = d0.getTime(); w <= now; w += WINDOW_H * HOUR) {
     const d = new Date(w), R = rng(d.getFullYear() * 1000 + (d.getMonth() + 1) * 40 + d.getDate() + Math.floor(d.getHours() / WINDOW_H) * 17 + 7);
+    // (one day's seed is the next's but for a little, and the first draw from seeds that close is nearly the same: the
+    // raids came at about 05:26 and 17:26 every day till Oct 22 2026. A few draws thrown away first, and the hour moves.)
+    for (let j = 0; j < WARM; j++) R();
     const at = Math.round(w + (1 + R() * (WINDOW_H - 2)) * HOUR);
+    if (had.some(t => t >= w && t < w + WINDOW_H * HOUR)) continue;
     if (at > from && at <= now) out.push(at);
   }
   return out.slice(-2);
@@ -381,46 +421,209 @@ export function raidArmy(th) {
   add('footman', left);
   return a;
 }
-/** Plays the raids on s that are due (raidsDue) and takes each off it (core/realm.js takeRaid). Mutates s; returns
- *  the raids played. */
+/** The computer's army raiding realm s at moment at (its lot and take then), all from one side (0 top, 1 right, 2
+ *  bottom, 3 left): knights and dragons first, the rest 25 steps later, spread along it. Played out a step at a time (a
+ *  generator: it yields after each step; raidOn runs it through), the battle returned; B.ms[k]: the step it first had k
+ *  stars, and what it had then (pct, got, gotBy), when it came on a step of its own. Reads s, never changes it. */
+function* raidSteps(s, at, army, side) {
+  const B = makeBattle(s, lootOf(s, at), army), box = boxOf(s);
+  // a spot on that side, outside the walls' reach, spread along it
+  const spot = (f, out0) => {
+    for (let o = out0; o < out0 + 6; o += 1) {
+      const along = box.x0 + f * (box.x1 - box.x0), across = box.y0 + f * (box.y1 - box.y0);
+      const p = side === 0 ? [along, box.y0 - o] : side === 1 ? [box.x1 + o, across] : side === 2 ? [along, box.y1 + o] : [box.x0 - o, across];
+      if (B.canDrop(p[0], p[1])) return p;
+    }
+    return null;
+  };
+  const first = ['dragon', 'knight'], plan = [];
+  Object.entries(army).forEach(([t, n]) => { for (let i = 0; i < n; i++) plan.push([first.includes(t) ? 0 : 25, t, (i + .5) / n]); });
+  plan.sort((a, b) => a[0] - b[0]);
+  let k = 0, had = 0;
+  B.ms = [];
+  while (!B.over) {
+    while (k < plan.length && plan[k][0] <= B.step) { const [, t, f] = plan[k++], p = spot(.2 + f * .6, 1.5); if (p) B.deploy(t, p[0], p[1]); }
+    B.step1();
+    const st = B.stars();
+    if (st > had) { had = st; B.ms[st] = {step: B.step, pct: B.pct(), got: Object.assign({}, B.got), gotBy: JSON.parse(JSON.stringify(B.gotBy))}; }
+    if (k >= plan.length && !B.fieldLeft()) break;
+    yield;
+  }
+  return B;
+}
+/** raidSteps played through at once. */
+function raidOn(s, at, army, side) {
+  const g = raidSteps(s, at, army, side);
+  for (;;) { const r = g.next(); if (r.done) return r.value; }
+}
+/** A raid on s as a record (defend's and exampleRaids'), its replay with it (rp: s's lot then, kept in into's lots, and
+ *  the computer's drops). */
+function recordOf(s, B, at, bot, id, into = s) {
+  const r = B.result(), ls = [0, 0], lb = {}, th = keepOf(s);
+  Object.entries(r.gotBy).forEach(([bid, v]) => {
+    const b = s.b.find(x => x.i === Number(bid));
+    if (b && KINDS[b.t].role === 'make') lb[bid] = [v.gold, v.grain];
+    else { ls[0] += v.gold; ls[1] += v.grain; }
+  });
+  const rec = {id, at, by: bot.name, th: bot.th, st: r.stars, pc: r.pct, lt: [r.got.gold, r.got.grain], ls, lb, td: r.stars ? -r.stars * th * 3 : th * 3,
+    hr: heroLevels(s)};
+  const rp = snapOf(B, {sc: s.sc ? sceneryOf(s) : '', into});
+  if (rp) rec.rp = rp;
+  return rec;
+}
+/** Plays the raids on s that are due (raidsDue) and takes each off it (core/realm.js takeRaid), each on the record with
+ *  its replay (rp: realm.js snapOf; the newest RP_KEEP keep theirs). Mutates s; returns the raids played. */
 export function defend(s, now = Date.now()) {
   if (keepOf(s) < 2) { s.lr = Math.max(s.lr || 0, now); return []; }
   const out = [];
   raidsDue(s, now).forEach(at => {
     s.lr = at;
     if (at < (s.sh || 0)) return;
-    const th = keepOf(s), bot = BOTS[Math.max(0, Math.min(BOTS.length - 1, th - 2))], army = raidArmy(th);
-    const B = makeBattle(s, lootOf(s, at), army), box = boxOf(s), R = rng(at % 2147483647);
-    const side = Math.floor(R() * 4);
-    // a spot on that side, outside the walls' reach, spread along it
-    const spot = (f, out0) => {
-      for (let o = out0; o < out0 + 6; o += 1) {
-        const along = box.x0 + f * (box.x1 - box.x0), across = box.y0 + f * (box.y1 - box.y0);
-        const p = side === 0 ? [along, box.y0 - o] : side === 1 ? [box.x1 + o, across] : side === 2 ? [along, box.y1 + o] : [box.x0 - o, across];
-        if (B.canDrop(p[0], p[1])) return p;
-      }
-      return null;
-    };
-    const first = ['dragon', 'knight'], plan = [];
-    Object.entries(army).forEach(([t, n]) => { for (let i = 0; i < n; i++) plan.push([first.includes(t) ? 0 : 25, t, (i + .5) / n]); });
-    plan.sort((a, b) => a[0] - b[0]);
-    let k = 0;
-    while (!B.over) {
-      while (k < plan.length && plan[k][0] <= B.step) { const [, t, f] = plan[k++], p = spot(.2 + f * .6, 1.5); if (p) B.deploy(t, p[0], p[1]); }
-      B.step1();
-      if (k >= plan.length && !B.fieldLeft()) break;
-    }
-    const r = B.result(), ls = [0, 0], lb = {};
-    Object.entries(r.gotBy).forEach(([id, v]) => {
-      const b = s.b.find(x => x.i === Number(id));
-      if (b && KINDS[b.t].role === 'make') lb[id] = [v.gold, v.grain];
-      else { ls[0] += v.gold; ls[1] += v.grain; }
-    });
-    const rec = {id: 'd' + at.toString(36), at, by: bot.name, th: bot.th, st: r.stars, pc: r.pct, lt: [r.got.gold, r.got.grain], ls, lb, td: r.stars ? -r.stars * th * 3 : th * 3,
-      hr: heroLevels(s)};
+    const th = keepOf(s), bot = BOTS[Math.max(0, Math.min(BOTS.length - 1, th - 2))], army = raidArmy(th), R = rng(at % 2147483647);
+    const B = raidOn(s, at, army, Math.floor(R() * 4));
+    const rec = recordOf(s, B, at, bot, 'd' + at.toString(36));
     takeRaid(s, rec);
-    if (r.stars) s.sh = at + TRUCE_H * HOUR;
+    if (rec.st) s.sh = at + TRUCE_H * HOUR;
     out.push(rec);
   });
   return out;
+}
+
+// ---------------------------------------------------------------------------------------------------- example raids
+// The owner's ask (Oct 22 2026): "Provide examples of computer raids for me". Three of the computer's raids on his realm
+// as it is now, played for real by the same engine and recorded like real ones (with their replays), for him to watch:
+// one driven off (no star), one that takes a star, one that breaks through (three). Each outcome is found, the same every
+// time for the same realm, on a fixed ladder of armies, small to large, each from a side of its own: a raid takes more the
+// bigger it is, so halving the ladder finds where the stars start and where it breaks through in a few raids (it played a
+// dozen or more, a few seconds' work at Castle 5 with his heroes defending). Where the ladder has no raid that took just
+// one star, one that took more is called off on the step it first had one (its replay ends there; no raid played again);
+// where none was driven off or broke through, the other sides of the smallest or the biggest army; failing all that, the
+// nearest found. They're played a slice at a time on the owner's phone (exampleRaidsAsync), so Keepfall stays in his hand.
+// They're for show: in s.ex (never s.df), ex: true, td 0, and nothing is ever taken off his realm (lt is what the raid
+// would have carried off), no glory moves and no truce starts.
+const EX_WANT = [0, 1, 3];
+/** The armies the examples try, weakest first, for a Castle of level th. */
+function exLadder(th) {
+  return [{footman: 2}, {footman: 4}, {footman: 6, archer: 3}, raidArmy(Math.max(1, th - 1)), raidArmy(th), raidArmy(th + 1),
+    {footman: 20, archer: 15, knight: 4}, {footman: 25, archer: 20, knight: 6, dragon: 1}, {footman: 30, archer: 25, knight: 8, dragon: 3},
+    {footman: 30, archer: 30, knight: 10, dragon: 6}, {archer: 30, knight: 12, dragon: 12}, {knight: 16, dragon: 24}];
+}
+/** A battle called off on the step it first had k stars (raidSteps' B.ms): what a record and its replay read of it, as
+ *  if it had ended there (its drops till then). null when it never had k on a step of its own. */
+function cutAt(B, k) {
+  const m = B.ms && B.ms[k];
+  if (!m) return null;
+  return {bl: B.bl, step: m.step, drops: B.drops.filter(d => d[0] < m.step), left: B.left, used: B.used, heroes: B.heroes, defenders: B.defenders,
+    stars: () => k, result: () => ({stars: k, pct: m.pct, got: Object.assign({}, m.got), gotBy: JSON.parse(JSON.stringify(m.gotBy))})};
+}
+/** The search for the example raids on s at now, a battle step at a time (a generator: exampleRaids runs it through at
+ *  once, exampleRaidsAsync a slice at a time). Reads s, never changes it. Returns {recs, lots}: the records (ex: true,
+ *  taking nothing) and the lot they were played on (lots, {key: packed}: putExamples keeps it on the realm). */
+function* exampleSearch(s, now) {
+  const th = keepOf(s), ladder = exLadder(th), L = ladder.length, seen = new Map();
+  // (an army from a side, played out once: the same battle isn't played twice; st -1: nowhere to send it)
+  function* play(j, side) {
+    const key = `${j}:${side}`;
+    if (!seen.has(key)) { const B = yield* raidSteps(s, now, ladder[j], side); seen.set(key, {j, side, B, st: B.drops.length ? B.stars() : -1}); }
+    return seen.get(key);
+  }
+  // (the smallest army up to hi, each from a side of its own, that takes k stars or more; hi + 1 when none does)
+  function* first(k, hi) {
+    let lo = 0;
+    while (lo <= hi) { const m = (lo + hi) >> 1, x = yield* play(m, m % 4); if (x.st >= k) hi = m - 1; else lo = m + 1; }
+    return lo;
+  }
+  const j3 = yield* first(3, L - 1);
+  yield* first(1, Math.min(j3, L - 1));
+  const all = () => [...seen.values()], pick = {};
+  // (driven off: the biggest army that was; none, even the smallest took a star: it from the other sides)
+  pick[0] = all().filter(x => x.st === 0).sort((a, b) => b.j - a.j || a.side - b.side)[0] || null;
+  for (let q = 1; q < 4 && !pick[0]; q++) { const x = yield* play(0, q); if (x.st === 0) pick[0] = x; }
+  // (broken through: the smallest army that did; none: the biggest from the other sides)
+  pick[3] = all().filter(x => x.st === 3).sort((a, b) => a.j - b.j || a.side - b.side)[0] || null;
+  for (let q = 1; q < 4 && !pick[3]; q++) { const x = yield* play(L - 1, (L - 1 + q) % 4); if (x.st === 3) pick[3] = x; }
+  // (a star: the smallest army that took just the one; none: the smallest that took more, called off as it took it)
+  pick[1] = all().filter(x => x.st === 1).sort((a, b) => a.j - b.j || a.side - b.side)[0] || null;
+  if (!pick[1]) {
+    const over = all().filter(x => x.st > 1 && x.B.ms[1]).sort((a, b) => a.j - b.j || a.side - b.side)[0];
+    if (over) pick[1] = {j: over.j, side: over.side, B: cutAt(over.B, 1), st: 1};
+  }
+  const shown = new Set(), recs = [], hold = {};
+  EX_WANT.forEach((want, n) => {
+    // (else the nearest found that isn't already one of them, one that did more before one that did less: on a lot where
+    // the Castle falls with half of it, the first star comes with the second, and a raid that took two shows more than
+    // another driven off)
+    const got = pick[want] || all().filter(x => x.st >= 0 && !shown.has(x)).sort((a, b) => Math.abs(a.st - want) - Math.abs(b.st - want) || b.st - a.st || a.j - b.j)[0];
+    if (!got) return;
+    shown.add(got);
+    // (the raiders: a realm below his for the one driven off, his own level's for the star, above his for the sacking)
+    const bot = BOTS[Math.max(0, Math.min(BOTS.length - 1, th - 2 + n))];
+    const rec = recordOf(s, got.B, now, bot, `x${now.toString(36)}${n}`, hold);
+    if (rec.rp) recs.push(Object.assign(rec, {ls: [0, 0], lb: {}, td: 0, ex: true}));
+  });
+  return {recs, lots: hold.lots || {}};
+}
+/**
+ * Makes the three example raids on s at now (EX_WANT: 0, 1 and 3 stars, as far as his realm allows), into s.ex (and
+ * s.exv = EX_V, the lot they were played on in s.lots), all at once (the checks; the owner's phone uses
+ * exampleRaidsAsync); the owner's alone (elsewhere: nothing made, nothing changed, []). Touches nothing else of s: not its
+ * stores, the mines' piles, glory, the truce or when it was last raided. Returns the records (s.ex).
+ */
+export function exampleRaids(s, now = Date.now()) {
+  if (!mayPlay() || !s || !Array.isArray(s.b)) return [];
+  const g = exampleSearch(s, now);
+  let r;
+  do { r = g.next(); } while (!r.done);
+  return putExamples(s, r.value.recs, r.value.lots);
+}
+// (a generator run a slice at a time, about budget ms each with the page's own work between, while ok() holds: its
+// result, or null when ok() stopped holding)
+function sliced(gen, ok, budget) {
+  return new Promise((done, fail) => {
+    const go = () => {
+      try {
+        if (!ok()) { done(null); return; }
+        const t0 = performance.now();
+        for (;;) { const r = gen.next(); if (r.done) { done(r.value); return; } if (performance.now() - t0 >= budget) break; }
+        setTimeout(go, 0);
+      } catch (e) { fail(e); }
+    };
+    setTimeout(go, 0);
+  });
+}
+let EX_RUN = null;
+/**
+ * exampleRaids a slice at a time (a battle step or a few, about budget ms, then the page's own work: played at once, a
+ * dozen battles held Keepfall still for seconds), on a copy of s as it is now, and put (putExamples) on into() — the
+ * realm as it is when they're done (s by default; it may have been synced or changed meanwhile, or say no: null) — only
+ * if still() holds then and all along (Keepfall open) and it's still the owner's phone. Resolves to the records, or null
+ * when stopped. One at a time: asked again while one runs, the same promise.
+ */
+export function exampleRaidsAsync(s, now = Date.now(), {still = () => true, into = () => s, budget = 8} = {}) {
+  if (EX_RUN) return EX_RUN;
+  if (!mayPlay() || !s || !Array.isArray(s.b)) return Promise.resolve(null);
+  const ok = () => mayPlay() && !!still();
+  const gen = exampleSearch(JSON.parse(JSON.stringify(s)), now);
+  EX_RUN = sliced(gen, ok, budget).then(res => {
+    if (!res || !ok()) return null;
+    const t = into();
+    return t && Array.isArray(t.b) ? putExamples(t, res.recs, res.lots) : null;
+  }).finally(() => { EX_RUN = null; });
+  return EX_RUN;
+}
+/** Whether example raids are being made now (exampleRaidsAsync). */
+export const examplesBusy = () => !!EX_RUN;
+/** Makes the example raids once (the owner opening Keepfall after they shipped: s.exv not yet EX_V); true if it did (the
+ *  realm changed: save it). Never again by itself once made or cleared ("New examples": exampleRaids). All at once: the
+ *  checks; the owner's phone uses ensureExamplesAsync. */
+export function ensureExamples(s, now = Date.now()) {
+  if (!mayPlay() || !s || s.exv === EX_V) return false;
+  exampleRaids(s, now);
+  return true;
+}
+/** ensureExamples a slice at a time (exampleRaidsAsync): resolves true if it made them, on into() (the realm when they're
+ *  done, unless it has had them made or cleared meanwhile, on another phone). */
+export function ensureExamplesAsync(s, now = Date.now(), {still = () => true, into = () => s, budget = 8} = {}) {
+  if (!mayPlay() || !s || s.exv === EX_V || EX_RUN) return Promise.resolve(false);
+  return exampleRaidsAsync(s, now, {still, budget, into: () => { const t = into(); return t && t.exv !== EX_V ? t : null; }}).then(r => !!r);
 }
