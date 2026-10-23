@@ -9,7 +9,9 @@
 // marked league: true (Ryan D); a guest's or any other app user's only on their own phones, and the league owner's
 // (data.OWNER), who sees everyone's (pictureShows).
 // A picture set on this phone shows at once and waits (gg-pic-mine) until the board has it: no connection, or a failed
-// write, just means it goes up later. The pictures last seen are kept (gg-pics) so they're there before the board loads.
+// write, just means it goes up later. The pictures last seen are kept (IndexedDB gg-pictures; before Oct 2026 the
+// localStorage key gg-pics, moved over on first load) so they're there before the board loads, without filling the
+// small localStorage that the games' saves need.
 // Exports: myKey(), keyOfNick(nick), pictureShows(key), pictureForAll(key), pictureUrl(key), mine(), setMine(dataUrl),
 // onPictures(fn), picturesOnBoard(docs), PIC_MAX. Owner: core.
 import * as ui from './ui.js';
@@ -80,6 +82,39 @@ const read = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k) || '
 const write = (k, v) => { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch (_) {} };
 let PICS = {};
 Object.entries(read('gg-pics', {})).forEach(([k, v]) => { if (okPic(Object.assign({k}, v))) PICS[k] = {i: v.i, t: v.t}; });
+
+// The kept pictures' own store: one record, key -> {i, t}. Any failure (no IndexedDB, private browsing) falls back to
+// localStorage as before.
+let dbP = null;
+function db() {
+  if (!dbP) dbP = new Promise((resolve, reject) => {
+    const rq = indexedDB.open('gg-pictures', 1);
+    rq.onupgradeneeded = () => rq.result.createObjectStore('p');
+    rq.onsuccess = () => resolve(rq.result);
+    rq.onerror = () => reject(rq.error);
+  });
+  return dbP;
+}
+const stored = (mode, fn) => db().then(d => new Promise((resolve, reject) => {
+  const tx = d.transaction('p', mode), rq = fn(tx.objectStore('p'));
+  tx.oncomplete = () => resolve(rq.result); tx.onerror = tx.onabort = () => reject(tx.error);
+}));
+let boardSeen = false;
+function keepPictures(keep) {
+  stored('readwrite', st => st.put(keep, 'pics'))
+    .then(() => { try { localStorage.removeItem('gg-pics'); } catch (_) {} }, () => write('gg-pics', keep));
+}
+// (read once at start; the board, once it's in, is newer than anything kept)
+try {
+  stored('readonly', st => st.get('pics')).then(kept => {
+    if (boardSeen || !kept || typeof kept !== 'object') return;
+    let more = false;
+    Object.entries(kept).forEach(([k, v]) => {
+      if (v && okPic(Object.assign({k}, v)) && (!PICS[k] || PICS[k].t < v.t)) { PICS[k] = {i: v.i, t: v.t}; more = true; }
+    });
+    if (more) changed();
+  }, () => {});
+} catch (_) {}
 let pending = read('gg-pic-mine', null);
 if (!okPic(pending)) pending = null;
 if (pending && (!PICS[pending.k] || PICS[pending.k].t < pending.t)) PICS[pending.k] = {i: pending.i, t: pending.t};
@@ -126,7 +161,7 @@ function changed() {
   // kept: the pictures this phone shows (and its own)
   const keep = {};
   Object.keys(PICS).forEach(k => { if (pictureShows(k)) keep[k] = PICS[k]; });
-  write('gg-pics', keep);
+  keepPictures(keep);
   ui.patchPictures(document);
   fns.forEach(fn => { try { fn(); } catch (e) { console.error(e); } });
 }
@@ -135,6 +170,7 @@ function changed() {
 function refresh() {
   const LB = daily.LB;
   if (LB.all) {
+    boardSeen = true;
     const next = fromBoard(LB.all);
     if (pending) {
       const got = next[pending.k];

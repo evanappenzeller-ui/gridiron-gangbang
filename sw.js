@@ -7,7 +7,7 @@
 // A slow request falls back to whatever is cached under its path (from the previous worker too), so data whose
 // format changes gets a new file name rather than new content under the old one (data/puzzles-v4.json: see
 // js/core/daily.js).
-const CACHE = 'gg-v407';
+const CACHE = 'gg-v408';
 const CORE = ['ui', 'data', 'daily', 'fire', 'week', 'nfl', 'stats', 'motw', 'press', 'checks', 'checks-stats', 'checks-pickem', 'checks-press', 'checks-seventeen', 'checks-drill', 'checks-kick', 'return', 'checks-return', 'lay', 'plays', 'laytrack', 'seventeen', 'drill-sim', 'drill', 'kick', 'avatars', 'lpick', 'survivor', 'checks-lpick', 'realm', 'realm-battle', 'checks-realm'];
 // The tab roots are puzzles, pickem, rivals (Matchup), league, moves (Draft) and lay (The Lay). Keepfall opens from Daily Games.
 const VIEWS = ['welcome', 'guest', 'puzzles', 'games', 'game-case', 'board', 'you', 'sharecard', 'results', 'run', 'college', 'silhouette', 'mystery', 'journey', 'grid', 'picker',
@@ -37,17 +37,49 @@ const SHELL = [
 ];
 const TIMEOUT = 2500;
 
+// The last version's caches (this app's only), newest last.
+const ours = k => k.startsWith('gg-') || k.startsWith('gridiron-');
+async function previous() {
+  const names = (await caches.keys()).filter(k => k !== CACHE && ours(k));
+  return Promise.all(names.reverse().map(k => caches.open(k)));
+}
+async function cachedIn(olds, req) {
+  for (const c of olds) { const hit = await c.match(req, {ignoreVary: true}); if (hit) return hit; }
+  return null;
+}
+// A file the last version has: asked for only if it changed (its ETag or date, a 304 when not), so an update fetches
+// what's new instead of everything again. Without either, or on any doubt, it's fetched in full as before.
+async function refresh(c, olds, req) {
+  const prev = await cachedIn(olds, req);
+  const tag = prev && prev.headers.get('ETag'), date = prev && prev.headers.get('Last-Modified');
+  if (tag || date) {
+    try {
+      const res = await fetch(req.url, {cache: 'no-store', credentials: 'same-origin', headers: tag ? {'If-None-Match': tag} : {'If-Modified-Since': date}});
+      if (res.status === 304) { await c.put(req, prev); return; }
+      if (res.ok) { await c.put(req, res); return; }
+    } catch (_) {}
+  }
+  await c.add(new Request(req.url, {cache: 'reload'}));
+}
+
 self.addEventListener('install', e => {
   // Each file is added on its own so one failure never blocks the install; network-first fills any gap.
   // Bound background downloads so an update does not flood the connection during navigation.
+  // Artwork and models cached on demand by the last version come along too (checked the same way), rather than being
+  // dropped with its cache and downloaded again the next time they're shown.
   e.waitUntil(caches.open(CACHE)
     .then(async c => {
+      const olds = await previous();
+      const shell = SHELL.map(u => new Request(u));
+      const seen = new Set(shell.map(r => r.url));
+      const extra = [];
+      for (const o of olds) for (const r of await o.keys()) {
+        if (!seen.has(r.url) && isCacheFirst(new URL(r.url))) { seen.add(r.url); extra.push(new Request(r.url)); }
+      }
+      const todo = shell.concat(extra);
       let next = 0;
       await Promise.all(Array.from({length: 6}, async () => {
-        while (next < SHELL.length) {
-          const u = SHELL[next++];
-          await c.add(new Request(u, {cache: 'reload'})).catch(() => {});
-        }
+        while (next < todo.length) await refresh(c, olds, todo[next++]).catch(() => {});
       }));
     })
     .then(() => self.skipWaiting()));
@@ -56,7 +88,7 @@ self.addEventListener('install', e => {
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys()
     .then(keys => Promise.all(keys
-      .filter(k => k !== CACHE && (k.startsWith('gg-') || k.startsWith('gridiron-')))
+      .filter(k => k !== CACHE && ours(k))
       .map(k => caches.delete(k))))
     .then(() => self.clients.claim()));
 });

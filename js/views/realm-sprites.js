@@ -16,7 +16,7 @@ export function init(three, pitch) { T = three; SIN_P = Math.sin(pitch); }
 export function clear() {
   EPOCH++;
   [...PENDING].forEach(cancel => cancel()); PENDING.clear();
-  MATS.forEach(m => { m.map.dispose(); m.dispose(); }); MATS.clear();
+  MATS.forEach(m => { m.map.dispose(); m.map.image.width = m.map.image.height = 0; m.dispose(); }); MATS.clear();
   Object.keys(TEX).forEach(k => { TEX[k].dispose(); delete TEX[k]; });
   URLS.clear(); IMGS = {}; SOURCES = {}; LOADING = null;
   if (SHADOW) { SHADOW.dispose(); SHADOW = null; }
@@ -66,6 +66,17 @@ function texOf(n) {
 function frameTex(n, x, y, w, h, W, H, flip = false) {
   const t = texOf(n).clone(); setFrame(t, x, y, w, h, W, H, flip); return t;
 }
+// A building's level is its own small texture, cut from its sheet with the sheet's 2 px clear border: the GPU holds
+// only the pictures on the lot (about 1 MB each), not every level of every building (some 140 MB a 3D view).
+function cutTex(n, x, y, w, h) {
+  const P = 2, cv = document.createElement('canvas');
+  cv.width = w + P * 2; cv.height = h + P * 2;
+  cv.getContext('2d').drawImage(IMGS[n], x, y, w, h, P, P, w, h);
+  const t = new T.CanvasTexture(cv);
+  t.colorSpace = T.SRGBColorSpace; t.anisotropy = 4;
+  setFrame(t, P, P, w, h, cv.width, cv.height);
+  return t;
+}
 function setFrame(t, x, y, w, h, W, H, flip) {
   t.repeat.set((flip ? -w : w) / W, h / H);
   t.offset.set((flip ? x + w : x) / W, 1 - (y + h) / H);
@@ -108,9 +119,9 @@ function shadowTex() {
 }
 export function building(kind, level, size) {
   if (!has(kind)) return null;
-  const {fam, i, f} = frameData(kind, level), [x, y, w, h, ax, ay, bw] = f;
+  const {i, f} = frameData(kind, level), [x, y, w, h, ax, ay, bw] = f;
   const {k} = dimensionsOf(kind, level, size), key = `${kind}:${SOURCES[kind]}:${i}`;
-  if (!MATS.has(key)) MATS.set(key, new T.SpriteMaterial({map: frameTex(kind, x, y, w, h, fam.w, fam.h), transparent: true, alphaTest: .04, toneMapped: false}));
+  if (!MATS.has(key)) MATS.set(key, new T.SpriteMaterial({map: cutTex(kind, x, y, w, h), transparent: true, alphaTest: .04, toneMapped: false}));
   const sp = new T.Sprite(MATS.get(key));
   sp.center.set(ax / w, 1 - ay / h); sp.scale.set(w * k, h * k, 1);
   const g = ISO * bw * k / SIN_P;
