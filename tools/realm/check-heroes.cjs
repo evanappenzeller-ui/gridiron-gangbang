@@ -1,5 +1,7 @@
 // Isolated core checks: no browser, storage, timers, network or Firebase writes.
 // Run: node tools/realm/check-heroes.cjs
+// (Oct 22 2026: the Dragon Hero took the Wizard Hero's place. The Knight is recruited and upgraded with Gold; the Dragon
+// hatches with the Dragon Hatchery and his level is its level: tools/realm/check-dragon-hero.cjs checks him in full.)
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -17,13 +19,16 @@ const clone = x => JSON.parse(JSON.stringify(x));
   const F = await import(realmUri), {makeBattle, replay, defend, raidsDue} = await import(uri(battleSource));
   const at = Date.UTC(2026, 9, 22, 12);
   const state = (th = 8) => { const s = F.fresh(at); s.b[0].l = th; s.r.gold = 1000000; return s; };
-  const fort = (hr = {}, th = 8) => ({b: [{i: 1, t: 'keep', l: th, x: 20, y: 20, u: 0}], hr, r: {gold: 0, grain: 0}});
+  // (a lot with only a Castle, and a Dragon Hatchery of level hatch when given: his defending Dragon Hero's level)
+  const fort = (hr = {}, th = 8, hatch = 0) => ({b: [{i: 1, t: 'keep', l: th, x: 20, y: 20, u: 0}, ...(hatch ? [{i: 2, t: 'hatchery', l: hatch, x: 8, y: 8, u: 0}] : [])], hr, r: {gold: 0, grain: 0}});
+  const hatchery = (s, l) => { const p = F.spotFor(s, 'hatchery'); s.b.push({i: s.nb++, t: 'hatchery', l, x: p.x, y: p.y, u: 0}); return s.b[s.b.length - 1]; };
 
+  assert.deepEqual(F.HERO_ORDER, ['knight', 'dragon'], 'the Dragon Hero takes the Wizard Hero’s place');
   const legacy = state(); delete legacy.hr;
   assert.deepEqual(F.clean(legacy).hr, {}, 'old saves migrate without awarding free heroes');
-  const dirty = state(); dirty.hr = {knight: 99, wizard: '5', thief: 10};
-  assert.deepEqual(F.clean(dirty).hr, {knight: 10}, 'known integer levels clamp; unknown and malformed values are rejected');
-  dirty.b[0].l = 2; dirty.hr = {knight: 8, wizard: 4};
+  const dirty = state(); dirty.hr = {knight: 99, wizard: '5', thief: 10, dragon: 7};
+  assert.deepEqual(F.clean(dirty).hr, {knight: 10}, 'known integer levels clamp; unknown, malformed, retired and hatched entries are rejected');
+  dirty.b[0].l = 2; dirty.hr = {knight: 8};
   assert.deepEqual(F.clean(dirty).hr, {knight: 2}, 'save roster respects Keep caps and unlocks');
   for (const bad of [null, '', NaN, Infinity, -1, .5, 0, '2', true]) {
     dirty.hr = {knight: bad}; assert.equal(F.heroLevel(dirty, 'knight'), 0);
@@ -31,7 +36,7 @@ const clone = x => JSON.parse(JSON.stringify(x));
   const s = state(1), noSpend = s.r.gold;
   assert.equal(F.recruitHero(s, 'knight'), false);
   s.b[0].l = 3;
-  assert.equal(F.recruitHero(s, 'knight'), false, 'the Knight Hero is recruited from Castle 4 (Oct 22 2026), like the Wizard');
+  assert.equal(F.recruitHero(s, 'knight'), false, 'the Knight Hero is recruited from Castle 4 (Oct 22 2026)');
   s.b[0].l = 4;
   assert.equal(F.recruitHero(s, 'knight'), true);
   assert.equal(s.r.gold, noSpend - F.HEROES.knight.cost[0]);
@@ -42,36 +47,42 @@ const clone = x => JSON.parse(JSON.stringify(x));
   assert.equal(JSON.stringify(s), afterLevel4, 'rejected upgrades do not spend Gold');
   s.b[0].l = 3;
   assert.equal(F.heroLevel(s, 'knight'), 3, 'a hero already recruited stays (under a lower Castle’s cap)');
-  assert.equal(F.recruitHero(s, 'wizard'), false);
   s.b[0].l = 8;
-  assert.equal(F.recruitHero(s, 'wizard'), true);
+  const gold = s.r.gold;
+  for (const fn of [F.recruitHero, F.upgradeHero]) assert.equal(fn(s, 'dragon'), false, 'no Gold buys the Dragon Hero or his levels');
+  assert.equal(s.r.gold, gold);
+  assert.equal(F.heroLevel(s, 'dragon'), 0, 'no hatchery, no Dragon Hero');
+  const hb = hatchery(s, 1);
+  while (F.heroLevel(s, 'knight') < 10) assert.equal(F.upgradeHero(s, 'knight'), true);
+  assert.equal(F.upgradeHero(s, 'knight'), false);
+  for (let l = 1; l <= 10; l++) { hb.l = l; assert.equal(F.heroLevel(s, 'dragon'), l, 'his level is the hatchery’s'); }
   for (const k of F.HERO_ORDER) {
-    while (F.heroLevel(s, k) < 10) assert.equal(F.upgradeHero(s, k), true);
-    assert.equal(F.upgradeHero(s, k), false);
     assert(F.heroStat(k, 10).hp > F.heroStat(k, 1).hp);
     assert(F.heroStat(k, 10).dps > F.heroStat(k, 1).dps);
   }
-  assert.deepEqual(F.clean(s).hr, s.hr, 'levels survive save/load');
-  assert.deepEqual(F.heroArmy(s), {hero_knight: 1, hero_wizard: 1});
-  for (const bad of ['dragon', 'toString', '__proto__', undefined]) {
+  assert.deepEqual(F.clean(s).hr, {knight: 10}, 'levels survive save/load (the Dragon’s is his hatchery’s, not saved)');
+  assert.equal(F.heroLevel(F.clean(s), 'dragon'), 10);
+  assert.deepEqual(F.heroArmy(s), {hero_knight: 1, hero_dragon: 1});
+  for (const bad of ['wizard', 'toString', '__proto__', undefined]) {
     assert.equal(F.recruitHero(s, bad), false); assert.equal(F.upgradeHero(s, bad), false);
   }
   const poor = state(4); poor.r.gold = 0;
-  assert.equal(F.recruitHero(poor, 'wizard'), false);
-  console.log('PASS: legacy saves, strict input validation, recruit costs, uniqueness, upgrades and Keep caps');
+  assert.equal(F.recruitHero(poor, 'knight'), false);
+  console.log('PASS: legacy saves, strict input validation, recruit costs, uniqueness, upgrades, Keep caps and the hatched Dragon Hero');
 
-  const army = {knight: 1}, options = {heroes: {knight: 7, wizard: 6}};
+  const army = {knight: 1}, options = {heroes: {knight: 7, dragon: 6}};
   const A = makeBattle(fort(), null, army, options);
   assert.equal(A.deploy('hero_knight', NaN, 29), null);
   assert.equal(A.deploy('hero_knight', '20', 29), null);
-  assert.equal(A.deploy('hero_wizard', 22, Infinity), null);
+  assert.equal(A.deploy('hero_dragon', 22, Infinity), null);
+  assert.equal(A.deploy('hero_wizard', 22, 29), null, 'no Wizard Hero in a battle under today’s rules');
   assert.equal(A.deploy('toString', 22, 29), null);
   const champion = A.deploy('hero_knight', 19.333, 29.777);
   assert(champion && champion.hero === 'knight' && champion.level === 7);
   assert.equal(champion.hp, F.heroStat('knight', 7).hp);
   assert.equal(A.deploy('hero_knight', 20, 30), null, 'hero deploys once per raid');
-  const wizard = A.deploy('hero_wizard', 23.333, 29.777);
-  assert(wizard && wizard.stats.splash > 0);
+  const drake = A.deploy('hero_dragon', 23.333, 29.777);
+  assert(drake && drake.stats.splash > 0 && drake.stats.fly && drake.hp === F.heroStat('dragon', 6).hp);
   assert(A.deploy('knight', 21, 29), 'ordinary Knights still deploy independently');
   options.heroes.knight = 10;
   assert.equal(A.heroes.knight, 7, 'raid snapshots cannot be changed by later upgrades');
@@ -86,54 +97,69 @@ const clone = x => JSON.parse(JSON.stringify(x));
   };
   assert(speed(8) < speed(1), 'higher hero levels deal more damage in simulation');
   s.ar.knight = 3;
-  const savedHeroes = clone(s.hr);
+  const savedHeroes = clone(s.hr), savedLevels = F.heroLevels(s);
   F.finishRaid(s, {id: 'hero-test', vs: 'bot:8', lt: [0, 0], ta: 0}, A.used, at);
   assert.deepEqual(s.hr, savedHeroes, 'heroes survive raid completion');
+  assert.deepEqual(F.heroLevels(s), savedLevels);
   assert.equal(s.ar.knight, 2, 'ordinary deployed Knights are consumed');
-  assert(!('hero_knight' in s.ar) && !('hero_wizard' in s.ar));
+  assert(!('hero_knight' in s.ar) && !('hero_dragon' in s.ar));
   const again = makeBattle(fort(), null, s.ar, {heroes: F.heroLevels(s)});
   assert.equal(again.left.hero_knight, 1, 'hero is ready again next raid');
+  assert.equal(again.left.hero_dragon, 1, 'the Dragon Hero is ready again next raid');
   console.log('PASS: scaled hero combat, separate troop Knights, one deployment, reusable roster and deterministic replay');
 
-  const defendWith = (heroes, army, seconds = 20) => {
-    const base = fort(heroes), B = makeBattle(base, null, army);
+  const defendWith = (heroes, army, seconds = 20, hatch = 0, attackers = {}) => {
+    const base = fort(heroes, 8, hatch), B = makeBattle(base, null, army, {heroes: attackers});
     Object.entries(army).forEach(([t, count]) => { for (let i = 0; i < count; i++) B.deploy(t, 20 + i * .1, 29); });
+    Object.keys(attackers).forEach(k => B.deploy(F.HEROES[k].troop, 20, 29));
     B.run(seconds);
     return B;
   };
   const ground = defendWith({knight: 2}, {footman: 12}), undefended = defendWith({}, {footman: 12});
   assert(ground.tr.filter(u => u.dead).length > undefended.tr.filter(u => u.dead).length, 'Knight kills ground raiders');
   assert(ground.bl[0].hp > undefended.bl[0].hp, 'Knight reduces actual damage to the Keep');
-  const knightAir = defendWith({knight: 1}, {dragon: 1}, 10), wizardAir = defendWith({wizard: 2}, {dragon: 1}, 10);
-  assert.equal(knightAir.tr[0].hp, F.TROOPS.dragon.hp, 'Knight cannot damage flying dragons');
-  assert(wizardAir.tr[0].hp < F.TROOPS.dragon.hp, 'Wizard damages flying dragons');
-  assert(knightAir.defenders[0].hp < knightAir.defenders[0].max, 'raiders fight and damage defending heroes');
-  const splash = defendWith({wizard: 2}, {knight: 3}, 2);
-  assert(splash.tr.filter(u => u.hp < u.max).length >= 2, 'Wizard splash hurts grouped enemies');
+  // (a flying raider: the computer's Dragon Hero)
+  const knightAir = defendWith({knight: 1}, {}, 10, 0, {dragon: 3}), dragonAir = defendWith({}, {}, 10, 4, {dragon: 3});
+  const flyer = B => B.tr.find(u => u.t === 'hero_dragon');
+  assert.equal(flyer(knightAir).hp, F.heroStat('dragon', 3).hp, 'Knight cannot damage a flying dragon');
+  assert(flyer(dragonAir).hp < F.heroStat('dragon', 3).hp, 'the defending Dragon Hero damages a flying dragon');
+  assert.equal(dragonAir.defenders[0].hero, 'dragon');
+  const brawl = defendWith({knight: 1}, {footman: 6}, 10);
+  assert(brawl.defenders[0].hp < brawl.defenders[0].max, 'raiders fight and damage defending heroes');
+  const splash = defendWith({}, {knight: 3}, 3, 2);
+  assert(splash.tr.filter(u => u.hp < u.max).length >= 2, 'Dragon Hero splash hurts grouped enemies');
+  // (he flies: the footmen can't reach him, archers can)
+  const high = defendWith({}, {footman: 8}, 12, 3), shot = defendWith({}, {archer: 8}, 12, 3);
+  assert.equal(high.defenders[0].hp, high.defenders[0].max, 'footmen can’t reach the flying Dragon Hero');
+  assert(shot.defenders[0].hp < shot.defenders[0].max, 'archers shoot the flying Dragon Hero');
   const defenseReplay = replay(fort({knight: 2}), null, {footman: 12}, ground.drops, ground.t);
   assert.deepEqual(defenseReplay.result(), ground.result(), 'defense replay is deterministic');
   assert.deepEqual(defenseReplay.defenders.map(h => [h.hp, h.x, h.y]), ground.defenders.map(h => [h.hp, h.x, h.y]));
   const dueState = state(4); dueState.born = at - 72 * F.HOUR; dueState.lr = at - 48 * F.HOUR;
-  dueState.hr = {knight: 4, wizard: 2};
+  dueState.hr = {knight: 4}; hatchery(dueState, 2);
   assert(raidsDue(dueState, at).length > 0);
   const raids = defend(dueState, at);
-  assert(raids.length && raids.every(r => r.hr.knight === 4 && r.hr.wizard === 2), 'automatic raids include defense roster snapshots');
-  assert.deepEqual(dueState.hr, {knight: 4, wizard: 2}, 'defense never consumes heroes');
-  console.log('PASS: real ground/air defense, targetable heroes, splash damage and deterministic defense');
+  assert(raids.length && raids.every(r => r.hr.knight === 4 && r.hr.dragon === 2), 'automatic raids include defense roster snapshots');
+  assert.deepEqual(dueState.hr, {knight: 4}, 'defense never consumes heroes');
+  assert.equal(F.heroLevel(dueState, 'dragon'), 2);
+  console.log('PASS: real ground/air defense, a flying defender, targetable heroes, splash damage and deterministic defense');
 
-  const unknown = makeBattle(fort(), null, {bad: 1, footman: NaN, hero_knight: 10}, {heroes: {knight: 100, wizard: '3'}});
+  const unknown = makeBattle(fort(), null, {bad: 1, footman: NaN, hero_knight: 10, dragon: 2}, {heroes: {knight: 100, dragon: '3', wizard: 2}});
   assert.deepEqual(unknown.left, {});
   assert.equal(unknown.deploy('hero_knight', 1, 1), null);
+  assert.equal(unknown.deploy('dragon', 1, 1), null, 'no trained dragon goes into a battle under today’s rules');
   for (const owner of [false, undefined]) {
     globalThis.__keepHeroOwner = owner;
     const before = JSON.stringify(s);
     assert.equal(F.recruitHero(s, 'knight'), false);
-    assert.equal(F.upgradeHero(s, 'wizard'), false);
+    assert.equal(F.upgradeHero(s, 'knight'), false);
+    assert.equal(F.upgradeHero(s, 'dragon'), false);
     assert.equal(JSON.stringify(s), before);
     assert.deepEqual(F.heroLevels(s), {});
-    const B = makeBattle(fort(s.hr), null, {footman: 1}, {heroes: savedHeroes});
+    const B = makeBattle(fort(s.hr, 8, 5), null, {footman: 1}, {heroes: savedLevels});
     assert.equal(B.defenders.length, 0);
     assert.equal(B.deploy('hero_knight', 1, 1), null);
+    assert.equal(B.deploy('hero_dragon', 1, 1), null);
     assert(B.deploy('footman', 1, 1));
   }
   console.log('PASS: member/guest commands and battles exclude owner-only heroes');

@@ -3,7 +3,8 @@
 // own docs only, the computer's realms the only ones to attack or scout), scouting a realm, what the games pay (the old
 // pay kept for the days before NEW_PAY; from then, Ale by place on three boards and Gold from Kick It and Return Man),
 // storage and the coffers (never below nothing, and what their sheet says), mines and breweries, builders and the Castle's limits, training, an attack played out (the same every time), a dragon over walls,
-// the computer's raids on the owner's realm, the cannon and the dragon hatchery, the art the buildings and folk are
+// the computer's raids on the owner's realm, the cannon and the dragon hatchery, the Dragon Hero (Oct 22 2026: hatched at the
+// hatchery, the Wizard Hero and trained dragons retired and refunded, replays from before still playing), the art the buildings and folk are
 // drawn from, an old Franchise save taken up as a realm, and the words on screen (Ale, breweries, cellars, the Castle,
 // Keepfall). checks.js imports
 // realmChecks and calls it with its check(name, fn) helper; every fn returns true or {pass, detail}. Nothing here
@@ -11,10 +12,17 @@
 import * as F from './realm.js';
 import * as daily from './daily.js';
 import * as data from './data.js';
-import {makeBattle, replay, raidsDue, defend, replayBattle, replayRaid, exampleRaids, ensureExamples, raidArmy} from './realm-battle.js';
+import {makeBattle, replay, raidsDue, defend, replayBattle, replayRaid, exampleRaids, ensureExamples, raidArmy, raidHeroes} from './realm-battle.js';
 
 const T0 = Date.UTC(2026, 9, 21, 12);
 const DAY = 24 * F.HOUR;
+// Raid replays recorded by Keepfall as it was before the Dragon Hero (main 6ae4ae3, Oct 22 2026, its core/realm.js and
+// realm-battle.js): attacks on the computer’s Castle 4–8 realms with the Knight and Wizard Heroes and trained dragons (one
+// ended early), the computer’s raids on a Castle 5, 7 and 8 realm (a dragon among the raiders, his Knight and Wizard
+// defending) and example raids on a Castle 4 and 8 realm: each replay (rp, its packing v 2), the lots they point at, the mark
+// they were made under (bv) and how each ended (st, pc, got, step, why; used, hr). They must play again exactly so: core/realm.js
+// decodeReplay’s rules 1. (tools/realm/check-dragon-hero.cjs reads this line too.)
+const RP_FIXTURE_V2 = {"mark":"o0w4m0382","lots":{"1xbfb5j7m":"MwIHFBQCEBUQAiAPFAIwGhQCoBUZApgSEQKYFxECmBEXApgYFwKoEhoCqA8RAqgaEQKoGBoCuBIOArgXDgK4DhcCuBsXArgVHALEDxoCxA8OAsQaDgLUDBQC1B0UAtQbGgJJEh0CSQwRAkkdEQJJGB0CWRQLAlkXCwJZCxcCWR4XAioRCwIqDBoCKg8dAioVHwIqDA4COh0OAjobHQI6GgsCOh4aAjoOCwJmCBMCZiATAmYRIAJmGCACdAsdAnQUBwJ0CA8CdCAPAogHFw","6eobvy7g":"MgIGFBQCEBUQAiAPFAIwGhQCoBUZApYSEQKWFxEClhEXApYYFwKmEhoCpg8RAqYaEQKmGBoCthIOArYXDgK2DhcCthsXAsMVHALDDxoCww8OAtIaDgLSDBQC0h0UAkgbGgJIEh0CSAwRAkgdEQJYGB0CWBQLAlgXCwJYCxcCKR4XAikRCwIpDBoCKQ8dAikVHwI5DA4COR0OAjkbHQI5GgsCOR4aAmUIEwJlIBMCZQ0KAmURIAJ0GCACdAsdAnQUBwJ0CA8ChCAP","dkaqi353":"IgIEFBQCEBUQAiAPFAIwGhQCoBUZApQSEQKUFxEClBEXAqQYFwKkEhoCtA8RArQaEQK0GBoCwRIOAtAXDgLQDhcCRhsXAkYVHAJWDxoCVg8OAicaDgInDBQCJx0UAicbGgI3Eh0CNwwRAjcdEQI3GB0CYxQKAmMKFwJjHhcCchAKAnIYCgJyDh0","sg9gmw47":"HAIDFBQCEBUQAiAPFAIwGhQCoBUZApMSEQKTFxECoxEXAqMYFwKyEhoCsg8RAsAaEQLQGBoCRRIOAkUXDgJVDhcCVRsXAiYVHAImDxoCJg8OAjYaDgI2DBQCNh0UAmIbGgJiER0CYgsQAnEdEAJxFAo"},"recs":[{"n":"th7-dragons-knight-wizard","k":"rd","rp":{"v":2,"bv":"o0w4m0382","p":"2QMMCgIAAgYGAAASAoxH1GEigkcAAoJHAAKCRwACgkcAAgDUYWCCRwACgkcAAoJHAAKCRwACgkcAAoJHAAIA1GECANRhAgDUYQIA1GECANRhAgDUYRwABWT-BQMESA4DBEYNAwZIDgMCRg0DAkgOAwFGDQMBSA4DAUYNAwG3BA4DAUgNAwFGDgMBSA0DAUYOAwFIDQMBRg4DAEgNAwBGDgMAtwQNAwBIDgMARg0DAEgOAwBGDQMASA4DAEYNAwBIDgMARg0DALcEDg","L":"b7.16pt6cxd3"},"st":0,"pc":22,"got":[23264,37644],"step":473,"why":"out","used":{"hero_knight":1,"dragon":2,"hero_wizard":1,"knight":2,"archer":10,"footman":12},"hr":{"knight":6,"wizard":6}},{"n":"th4-heroes","k":"rd","rp":{"v":2,"bv":"o0w4m0382","p":"zAgoHgMAAAICAAANAswYzBgUxhgAAsYYAAIAxhgCAMYYcsYYAALGGAACxhgAAsYYAAIAxhgCAMYYAgDGGAIAxhhLAAVkkgYBBkgOAQJGDQECSA4BAkYNAQFIDgEBRg0BAUgOAQFGDQEBtwQOAQFIDQEBRg4BAUgNAQFGDgEBSA0BAUYOAQFIDQEBRg4BAbcEDQEBSA4BAUYNAQFIDgEBRg0BAUgOAQFGDQEBSA4BAUYNAQG3BA4BAUgNAQFGDgEBSA0BAUYOAQFIDQEBRg4BAUgNAQBGDgEAtwQNAQBIDgEARg0BAEgOAQBGDQEASA4BAEYNAQBIDgEARg0BALcEDgEASA0BAEYOAQBIDQEARg4BAEgNAQBGDgEASA0BAEYOAQC3BA0BAEgOAQBGDQEASA4BAEYNAQBIDgEARg0BAEgOAQBGDQEAtwQOAQBIDQEARg4BAEgNAQBGDgEASA0BAEYOAQBIDQEARg4BALcEDQEASA4BAEYN","L":"b4.1j34agyci"},"st":2,"pc":57,"got":[16455,15156],"step":1100,"why":"out","used":{"hero_knight":1,"hero_wizard":1,"knight":3,"archer":30,"footman":40},"hr":{"knight":2,"wizard":2}},{"n":"th6-dragons","k":"rd","rp":{"v":2,"bv":"o0w4m0382","p":"kwkeHgAABQAEAAATAuQy5DIe5DIAAuQyAALkMgACAOQyAgDkMgIA5DJs5DIAAuQyAALkMgAC5DIAAuQyAALkMgACAOQyAgDkMgIA5DICAOQyAgDkMgIA5DJCBQSgAZIGAQRADgEEQA0BBEIOAQRADQEGQA4BAUANAQFCDgEBQA0BAYMEDgEBQA0BAUAOAQFCDQEBQA4BAUANAQFADgEBQg0BAUAOAQGDBA0BAUAOAQFADQEBQg4BAUANAQFADgEBQA0BAUIOAQFADQEBgwQOAQFADQEBQA4BAUINAQFADgEBQA0BAUAOAQFCDQEBQA4BAIMEDQEAQA4BAEANAQBCDgEAQA0BAEAOAQBADQEAQg4BAEANAQCDBA4BAEANAQBADgEAQg0BAEAOAQBADQEAQA4BAEINAQBADgEAgwQNAQBADgEAQA0BAEIOAQBADQEAQA4BAEANAQBCDgEAQA0BAIMEDgEAQA0BAEAO","L":"b6.1pc087ddu"},"st":2,"pc":50,"got":[39000,37674],"step":1171,"why":"out","used":{"dragon":5,"hero_wizard":1,"archer":30,"footman":30},"hr":{"wizard":4}},{"n":"th8-ended","k":"rd","rp":{"v":2,"bv":"o0w4m0382","p":"yAEAFAQABAkJAAAUAshqmHUkxGoAAsRqAALEagACxGoAAgCYdQIAmHUCAJh1WsRqAALEagACxGoAAsRqAALEagACxGoAAgCYdQIAmHUCAJh1AgCYdQIAmHUCAJh1HgAEoAGmBgMEQA4DBEANAwRCDgMFQA0DBkAOAwJADQMCQg4DAkANAwKDBA4DAUANAwFADgMBQg0DAUAOAwFADQMBQA4DAUINAwFADgMBgwQNAwFADgMBQA0DAUIOAwFADQMBQA4DAUANAwFCDgMBQA0DAYMEDgMBQA0DAUAO","L":"b8.fefp65d3"},"st":0,"pc":11,"got":[20885,0],"step":200,"why":"quit","used":{"dragon":4,"hero_knight":1,"hero_wizard":1,"knight":4,"archer":20},"hr":{"knight":9,"wizard":9}},{"n":"th5-plain","k":"rd","rp":{"v":2,"bv":"o0w4m0382","p":"yAIUDgIGAAAAAAAPAogniCcaiCcAAognAAIAiCcCAIgnbIgnAAKIJwACiCcAAognAAKIJwACAIgnAgCIJwIAiCcCAIgnAgCIJyoAAqAB_gUCAkAOAgBADQIAQg4CAEANAgBADgIAQA0CAEIOAgBADQIAgwQOAgBADQIAQA4CAEINAgBADgIAQA0CAEAOAgBCDQIAQA4CAIMEDQIAQA4CAEANAgBCDgIBQA0CAUAOAgFADQIBQg4CAUANAgGDBA4CAUANAgFADgIBQg0CAUAOAgFADQIBQA4CAUINAgFADgIDgwQNAgNADgIDQA0CA0IOAgNADQIDQA4","L":"b5.1prtwnhcs"},"st":0,"pc":15,"got":[11979,7843],"step":328,"why":"out","used":{"knight":2,"footman":20,"archer":14,"thief":6},"hr":{}},{"n":"df-th8-0","k":"df","rp":{"v":2,"bv":"o0w4m0382","p":"1QEJBwQEAQAACAgVApwEsAMEeAACAHgq2ggAAtoIAALaCAAC2ggAAgD7BgIA-wYCAPsGAgD7BgLdBgAC3QYAAt0GAALdBgAC3QYAAgDdBgIA3QYCAN0GAgDdBgIA3QYZAATuBa4DAAIAgQEAAgBWAAIAWAACAFYZAwCDAgADAFYAAwBYAAMAVgABAJcCAAEAMgABADIAAQAyAAEAMgABADIAAQAyAAAArwIAAAAmAAAAJgAAACgAAAAmAAAAJgAAACgAAAAmAAAAJg","L":"1xbfb5j7m"},"st":0,"pc":4,"got":[0,411],"step":213,"why":"out","used":{"dragon":1,"knight":4,"thief":4,"archer":7,"footman":9},"hr":{}},{"n":"df-th8-1","k":"df","rp":{"v":2,"bv":"o0w4m0382","p":"lwIJBwQEAQAACAgVApwErQMEeAACAHgq2ggAAtoIAALaCAAC2ggAAgD2BgIA9gYCAPYGAgD2BgKQDQACkA0AApANAAKQDQACkA0AAgCQDQIAkA0CAJANAgCQDQIAkA0ZAASuA24AAoEBAAACVgAAAlgAAAJWABkDgwIAAANWAAADWAAAA1YAAAGXAgAAATIAAAEyAAABMgAAATIAAAEyAAABMgAAAK8CAAAAJgAAACYAAAAoAAAAJgAAACYAAAAoAAAAJgAAACYA","L":"1xbfb5j7m"},"st":0,"pc":2,"got":[226,1026],"step":279,"why":"out","used":{"dragon":1,"knight":4,"thief":4,"archer":7,"footman":9},"hr":{}},{"n":"df-th7-0","k":"df","rp":{"v":2,"bv":"o0w4m0382","p":"ogIJBwMEAQAABgYVAqsEvAMEeAACAHgo1wgAAtcIAALXCAAC1wgAAgD4BgIA-AYCAPgGAgD4BgLiBQAC4gUAAuIFAALiBQAC4gUAAgDiBQIA4gUCAOIFAgDiBQIA4gUYAATuBa4DAAIAcwACAHQAAgB0GQMA9QEAAwBWAAMAWAADAFYAAQCXAgABADIAAQAyAAEAMgABADIAAQAyAAEAMgAAAK8CAAAAJgAAACYAAAAoAAAAJgAAACYAAAAoAAAAJgAAACY","L":"6eobvy7g"},"st":0,"pc":4,"got":[734,289],"step":290,"why":"out","used":{"dragon":1,"knight":3,"thief":4,"archer":7,"footman":9},"hr":{}},{"n":"df-th7-1","k":"df","rp":{"v":2,"bv":"o0w4m0382","p":"ogIJBwMEAQAABgYVAqsEvAMEeAACAHgo1wgAAtcIAALXCAAC1wgAAgD4BgIA-AYCAPgGAgD4BgKgCwACoAsAAqALAAKgCwACoAsAAgCgCwIAoAsCAKALAgCgCwIAoAsYAAS4A24AAm8AAAJwAAACcAAZA-0BAAADVAAAA1QAAANUAAABjQIAAAEwAAABMAAAATAAAAEwAAABMAAAATAAAAClAgAAACYAAAAmAAAAJAAAACYAAAAmAAAAJAAAACYAAAAmAA","L":"6eobvy7g"},"st":0,"pc":2,"got":[0,626],"step":290,"why":"out","used":{"dragon":1,"knight":3,"thief":4,"archer":7,"footman":9},"hr":{}},{"n":"df-th5-0","k":"df","rp":{"v":2,"bv":"o0w4m0382","p":"vwEMCQIEAAAAAwQPAsoFuwQEeAACAHga3hAAAt4QAAIAsg0CALINAosEAAKLBAACiwQAAosEAAIAiwQCAIsEAgCLBAIAiwQbAALGBegCAAIAigEZAwCrAQADAEYAAwBEAAMARgABAOEBAAEAHgABAB4AAQAgAAEAHgABAB4AAQAgAAEAHgABAB4AAAD3AQAAABYAAAAYAAAAFgAAABgAAAAWAAAAGAAAABYAAAAYAAAAFgAAABgAAAAW","L":"dkaqi353"},"st":0,"pc":9,"got":[574,523],"step":191,"why":"out","used":{"knight":2,"thief":4,"archer":9,"footman":12},"hr":{}},{"n":"df-th5-1","k":"df","rp":{"v":2,"bv":"o0w4m0382","p":"sAEMCQIEAAAAAwQPAskFuwQEeAACAHga3RAAAt0QAAIAsg0CALINAvwHAAL8BwAC_AcAAvwHAAIA_AcCAPwHAgD8BwIA_AcbAALwAqoBAAKQAQAZA7MBAAADSAAAA0gAAANIAAAB6wEAAAEgAAABIAAAASAAAAEgAAABIAAAASAAAAEgAAABIAAAAIMCAAAAGAAAABgAAAAYAAAAGAAAABgAAAAYAAAAGAAAABgAAAAYAAAAGAAAABgA","L":"dkaqi353"},"st":0,"pc":9,"got":[156,102],"step":176,"why":"out","used":{"knight":2,"thief":4,"archer":9,"footman":12},"hr":{}},{"n":"ex-th8-0","k":"ex","rp":{"v":2,"bv":"o0w4m0382","p":"mwMeHgoABgAACgoVApwEsAMEeAACAHgq2ggAAtoIAALaCAAC2ggAAgD7BgIA-wYCAPsGAgD7BgKQDQACkA0AApANAAKQDQACkA0AAgCQDQIAkA0CAJANAgCQDQIAkA1MAALuBZICAAIAIgACACQAAgAiAAIAIgACACQAAgAiAAIAJAACACIAAgAiAAQAqwIABAA6AAQAOgAEADoABAA6AAQAOhkAALkCAAAADAAAAAwAAAAKAAAADAAAAAwAAAAMAAAADAAAAAoAAAAMAAAADAAAAAwAAAAMAAAACgAAAAwAAAAMAAAADAAAAAwAAAAKAAAADAAAAAwAAAAMAAAADAAAAAoAAAAMAAAADAAAAAwAAAAMAAAACgAAAAwAAQDPAgABAAwAAQAMAAEACgABAAwAAQAMAAEADAABAAwAAQAKAAEADAABAAwAAQAMAAEADAABAAoAAQAMAAEADAABAAwAAQAMAAEACgABAAwAAQAMAAEADAABAAwAAQAKAAEADAABAAwAAQAMAAEADAABAAoAAQAM","L":"1xbfb5j7m"},"st":0,"pc":25,"got":[1146,6436],"step":411,"why":"out","used":{"knight":10,"dragon":6,"footman":30,"archer":30},"hr":{}},{"n":"ex-th8-1","k":"ex","rp":{"v":2,"bv":"o0w4m0382","p":"wQUAHgwADAAACgoVApwEsAMEeAACAHgq2ggAAtoIAALaCAAC2ggAAgD7BgIA-wYCAPsGAgD7BgKQDQACkA0AApANAAKQDQACkA0AAgCQDQIAkA0CAJANAgCQDQIAkA02AAKOAu4FAAIeAAACHAAAAh4AAAIcAAACHgAAAhwAAAIeAAACHAAAAh4AAAIcAAACHgAABL8CAAAEHgAABBwAAAQeAAAEHAAABB4AAAQcAAAEHgAABBwAAAQeAAAEHAAABB4AGQHHAgAAAQwAAAEMAAABCgAAAQwAAAEMAAABDAAAAQwAAAEKAAABDAAAAQwAAAEMAAABDAAAAQoAAAEMAAABDAAAAQwAAAEMAAABCgAAAQwAAAEMAAABDAAAAQwAAAEKAAABDAAAAQwAAAEMAAABDAAAAQoAAAEMAA","L":"1xbfb5j7m"},"st":1,"pc":49,"got":[8353,4683],"step":705,"why":"out","used":{"knight":12,"dragon":12,"archer":30},"hr":{}},{"n":"ex-th8-2","k":"ex","rp":{"v":2,"bv":"o0w4m0382","p":"3QQAABAAGAAACgoVApwEsAMEeAACAHgq2ggAAtoIAALaCAAC2ggAAgD7BgIA-wYCAPsGAgD7BgKQDQACkA0AApANAAKQDQACkA0AAgCQDQIAkA0CAJANAgCQDQIAkA0oAAJuigIAAgAWAAIAFgACABYAAgAWAAIAFgACABYAAgAWAAIAFAACABYAAgAWAAIAFgACABYAAgAWAAIAFgACABYABADJAgAEAA4ABAAOAAQADgAEABAABAAOAAQADgAEAA4ABAAQAAQADgAEAA4ABAAOAAQAEAAEAA4ABAAOAAQADgAEABAABAAOAAQADgAEAA4ABAAQAAQADgAEAA4ABAAO","L":"1xbfb5j7m"},"st":3,"pc":100,"got":[13516,12516],"step":605,"why":"all","used":{"knight":16,"dragon":24},"hr":{}},{"n":"ex-th4-0","k":"ex","rp":{"v":2,"bv":"o0w4m0382","p":"6wQZFAYAAQAAAgINAqsEvAMEeAACAHgUrhEAAq4RAAIA8Q0CAPENAsgGAALIBgACyAYAAgDIBgIAyAYCAMgGNAACvgG8AgACACwAAgAwAAIALgACACwAAgAwAAQAcxkAAIMBAAAACgAAAAwAAAAKAAAADAAAAAoAAAAMAAAACgAAAAwAAAAKAAAADAAAAAoAAAAMAAAADAAAAAoAAAAMAAAACgAAAAwAAAAKAAAADAAAAAoAAAAMAAAACgAAAAwAAAAKAAEAhwIAAQAOAAEADgABAA4AAQAOAAEADgABAA4AAQAOAAEADgABAA4AAQAMAAEADgABAA4AAQAOAAEADgABAA4AAQAOAAEADgABAA4AAQAO","L":"sg9gmw47"},"st":0,"pc":39,"got":[4303,2841],"step":619,"why":"out","used":{"knight":6,"dragon":1,"footman":25,"archer":20},"hr":{}},{"n":"ex-th4-1","k":"ex","rp":{"v":2,"bv":"o0w4m0382","p":"8AEeGQgAAwAAAgINAqsEvAMEeAACAHgUrhEAAq4RAAIA8Q0CAPENAsgGAALIBgACyAYAAgDIBgIAyAYCAMgGQgACxAKqAQACIgAAAiAAAAIiAAACIAAAAiIAAAIgAAACIgAABMsBAAAEWAAABFgAGQDXAQAAAAoAAAAIAAAACAAAAAoAAAAIAAAACgAAAAgAAAAIAAAACgAAAAgAAAAKAAAACAAAAAgAAAAKAAAACAAAAAoAAAAIAAAACAAAAAoAAAAIAAAACgAAAAgAAAAIAAAACgAAAAgAAAAKAAAACAAAAAgAAAAKAAAB_QEAAAEKAAABCgAAAQoAAAEMAAABCgAAAQoAAAEMAAABCgAAAQoAAAEKAAABDAAAAQoAAAEKAAABDAAAAQoAAAEKAAABCgAAAQwAAAEKAAABCgAAAQwAAAEKAAABCgAAAQoA","L":"sg9gmw47"},"st":1,"pc":50,"got":[5585,1231],"step":240,"why":"quit","used":{"knight":8,"dragon":3,"footman":30,"archer":25},"hr":{}},{"n":"ex-th4-2","k":"ex","rp":{"v":2,"bv":"o0w4m0382","p":"gwUeGQgAAwAAAgINAqsEvAMEeAACAHgUrhEAAq4RAAIA8Q0CAPENAsgGAALIBgACyAYAAgDIBgIAyAYCAMgGQgACxAKqAQACIgAAAiAAAAIiAAACIAAAAiIAAAIgAAACIgAABMsBAAAEWAAABFgAGQDXAQAAAAoAAAAIAAAACAAAAAoAAAAIAAAACgAAAAgAAAAIAAAACgAAAAgAAAAKAAAACAAAAAgAAAAKAAAACAAAAAoAAAAIAAAACAAAAAoAAAAIAAAACgAAAAgAAAAIAAAACgAAAAgAAAAKAAAACAAAAAgAAAAKAAAB_QEAAAEKAAABCgAAAQoAAAEMAAABCgAAAQoAAAEMAAABCgAAAQoAAAEKAAABDAAAAQoAAAEKAAABDAAAAQoAAAEKAAABCgAAAQwAAAEKAAABCgAAAQwAAAEKAAABCgAAAQoA","L":"sg9gmw47"},"st":3,"pc":100,"got":[7639,6638],"step":643,"why":"all","used":{"knight":8,"dragon":3,"footman":30,"archer":25},"hr":{}}]};
 
 export async function realmChecks(check) {
   const [kk, rm, sv, dr] = await Promise.all([import('./kick.js'), import('./return.js'), import('./seventeen.js').then(async m => { await m.load(); return m; }),
@@ -503,45 +511,54 @@ export async function realmChecks(check) {
     return {pass: ok, detail: `20: ${B.stars()} stars ${B.pct()}% take ${JSON.stringify(B.got)} in ${B.t.toFixed(0)} s; replay same ${same}; one: ${one.stars()} stars ${one.pct()}%; next to the Castle refused ${blocked}`};
   });
 
-  check('Keepfall: a dragon flies over the walls (it never stops to break one) and the trebuchet and pitch cauldron can’t touch it, though they hit a knight; a ballista can', () => {
+  check('Keepfall: a dragon flies over the walls (it never stops to break one) and the trebuchet and pitch cauldron can’t touch it, though they hit a knight; a ballista can (the Dragon Hero, on his phone; and the trained dragon of a raid recorded before Oct 22 2026, played under its rules)', () => {
+    const owner = !!data.isOwner();
     const b = [{i: 1, t: 'keep', l: 1, x: 16, y: 16, u: 0}, {i: 2, t: 'trebuchet', l: 1, x: 9, y: 17, u: 0}, {i: 3, t: 'cauldron', l: 1, x: 25, y: 17, u: 0}];
     let i = 10;
     for (let d = 13; d <= 23; d++) [[d, 13], [d, 23], [13, d], [23, d]].forEach(([x, y]) => { if (!b.some(q => q.t === 'wall' && q.x === x && q.y === y)) b.push({i: i++, t: 'wall', l: 2, x, y, u: 0}); });
     const base = {b};
-    const A = makeBattle(base, null, {dragon: 1}), drake = A.deploy('dragon', 16, 4);
-    A.run(F.RAID_S);
-    const walls = A.bl.filter(q => q.wall), wallsWhole = walls.every(q => !q.dead && q.hp === q.max);
-    const flew = !!drake && !drake.dead && drake.hp === drake.max && A.stars() === 3 && wallsWhole;
+    // (a flyer: under the old rules (RULES 1) the trained dragon, anyone's; under today's the Dragon Hero, the owner's)
+    const fly = (lot, hero) => { const B = hero ? makeBattle(lot, null, {}, {heroes: {dragon: 1}}) : makeBattle(lot, null, {dragon: 1}, {rules: 1}); return {B, d: B.deploy(hero ? 'hero_dragon' : 'dragon', 16, 4)}; };
+    const each = (owner ? [false, true] : [false]).map(hero => {
+      const {B: A, d: drake} = fly(base, hero);
+      A.run(F.RAID_S);
+      const walls = A.bl.filter(q => q.wall), wallsWhole = walls.every(q => !q.dead && q.hp === q.max);
+      const flew = !!drake && !drake.dead && drake.hp === drake.max && A.stars() === 3 && wallsWhole;
+      const {B: C, d: d2} = fly({b: b.concat({i: 4, t: 'ballista', l: 1, x: 20, y: 20, u: 0})}, hero);
+      C.run(F.RAID_S);
+      const shot = !!d2 && d2.hp < d2.max;
+      return {ok: flew && shot, why: `${hero ? 'the Dragon Hero' : 'a trained dragon (old rules)'}: no ballista ${drake ? `${drake.hp}/${drake.max}` : 'not sent'}, ${A.stars()} stars, ${walls.length} walls whole ${wallsWhole}; with a ballista ${d2 ? `${Math.round(d2.hp)}/${d2.max}` : 'not sent'}`};
+    });
     const K = makeBattle(base, null, {knight: 1}), knight = K.deploy('knight', 31, 18);
     K.run(40);
     const hitKnight = !!knight && knight.hp < knight.max;
-    const withBallista = {b: b.concat({i: 4, t: 'ballista', l: 1, x: 20, y: 20, u: 0})};
-    const C = makeBattle(withBallista, null, {dragon: 1}), d2 = C.deploy('dragon', 16, 4);
-    C.run(F.RAID_S);
-    const shot = !!d2 && d2.hp < d2.max;
-    return {pass: flew && hitKnight && shot, detail: `no ballista: dragon ${drake ? `${drake.hp}/${drake.max}` : 'not sent'}, ${A.stars()} stars, ${walls.length} walls whole ${wallsWhole}; the knight ${knight ? `${knight.hp}/${knight.max}` : 'not sent'}; with a ballista: dragon ${d2 ? `${Math.round(d2.hp)}/${d2.max}` : 'not sent'}`};
+    const none = owner || makeBattle(base, null, {}, {heroes: {dragon: 1}}).deploy('hero_dragon', 16, 4) === null;
+    return {pass: each.every(x => x.ok) && hitKnight && none, detail: `${each.map(x => x.why).join(' · ')}; the knight ${knight ? `${knight.hp}/${knight.max}` : 'not sent'}${owner ? '' : `; no Dragon Hero off his phone ${none}`}`};
   });
 
-  check('Keepfall: the cannon and the dragon hatchery (Oct 2026): a cannon’s crew hits a footman but never a dragon; a dragon trains only with a hatchery, a level of it each dragon’s room; a cannon saved now stays a cannon (only an old Franchise save’s cannons are ballistas)', () => {
+  check('Keepfall: the cannon and the Dragon Hatchery (Oct 2026): a cannon’s crew hits a footman but never a dragon; the hatchery is built from Castle level 4 (one; was 6, Oct 22 2026) and hatches the Dragon Hero, no dragon trains at the barracks; a cannon saved now stays a cannon (only an old Franchise save’s cannons are ballistas); the computer’s realms from Castle 4 have a hatchery (no Dragon Hero defends them)', () => {
+    const owner = !!data.isOwner();
     const base = {b: [{i: 1, t: 'keep', l: 1, x: 16, y: 16, u: 0}, {i: 2, t: 'cannon', l: 1, x: 10, y: 17, u: 0}]};
     const A = makeBattle(base, null, {footman: 1}), man = A.deploy('footman', 4, 18);
     A.run(20);
-    const D = makeBattle(base, null, {dragon: 1}), drake = D.deploy('dragon', 4, 18);
+    // (a flyer: the Dragon Hero on his phone, the old rules' trained dragon elsewhere)
+    const D = owner ? makeBattle(base, null, {}, {heroes: {dragon: 2}}) : makeBattle(base, null, {dragon: 1}, {rules: 1}), drake = D.deploy(owner ? 'hero_dragon' : 'dragon', 4, 18);
     D.run(F.RAID_S);
     const fires = !!man && man.hp < man.max && !!drake && drake.hp === drake.max && D.shots.every(x => x.k !== 'cannon');
     const s = F.fresh(T0);
     s.b.push({i: 50, t: 'barracks', l: 6, x: 3, y: 3, u: 0}, {i: 51, t: 'camp', l: 6, x: 3, y: 9, u: 0});
-    s.r.grain = 100000;
-    const none = F.canTrain(s, 'dragon').why;
+    s.r = {gold: 100000, grain: 100000};
+    const train = F.canTrain(s, 'dragon'), notTrained = !train.ok && /Dragon Hero/.test(train.why) && !F.TROOP_ORDER.includes('dragon');
+    const at = l => { s.b.find(b => b.t === 'keep').l = l; return F.canBuild(s, 'hatchery', T0); };
+    const c3 = at(3), c4 = at(4);
+    const opens = !c3.ok && /Castle level 4/.test(c3.why) && c4.ok && c4.pay === 'grain' && F.COUNT.hatchery.join() === '0,0,0,1,1,1,1,1';
     s.b.push({i: 52, t: 'hatchery', l: 1, x: 27, y: 27, u: 0});
-    const one = F.canTrain(s, 'dragon').ok && F.train(s, 'dragon', 1, T0), full = F.canTrain(s, 'dragon').why;
-    s.b.find(b => b.i === 52).l = 3;
-    const room = F.hatchRoom(s) === 3 && F.canTrain(s, 'dragon', 2).ok && !F.canTrain(s, 'dragon', 3).ok;
-    const hatch = /hatchery/.test(none) && one && /full/.test(full) && room;
+    const one = !F.canBuild(s, 'hatchery', T0).ok && F.heroLevel(s, 'dragon') === 1;
     const kept = F.clean(Object.assign(F.fresh(T0), {b: F.fresh(T0).b.concat({i: 9, t: 'cannon', l: 2, x: 3, y: 3, u: 0})}));
     const stays = !!kept && kept.b.some(b => b.t === 'cannon' && b.l === 2);
-    const bots = F.botBase(6).b.some(b => b.t === 'hatchery') && F.botBase(1).b.some(b => b.t === 'cannon');
-    return {pass: fires && hatch && stays && bots, detail: `cannon: the footman ${man ? `${man.hp}/${man.max}` : 'not sent'}, the dragon ${drake ? `${drake.hp}/${drake.max}` : 'not sent'}; no hatchery: ${none}; one at level 1: ${one}, then ${full}; level 3 room for 3: ${room}; a cannon kept ${stays}; the computer’s realms have them ${bots}`};
+    const bots = [4, 5, 6, 7, 8].every(th => F.botBase(th).b.some(b => b.t === 'hatchery')) && !F.botBase(3).b.some(b => b.t === 'hatchery') && F.botBase(1).b.some(b => b.t === 'cannon')
+      && Object.keys(F.heroLevels(F.botBase(8))).length === 0 && makeBattle(F.botBase(8), null, {footman: 1}).defenders.length === 0;
+    return {pass: fires && notTrained && opens && one && stays && bots, detail: `cannon: the footman ${man ? `${man.hp}/${man.max}` : 'not sent'}, the ${owner ? 'Dragon Hero' : 'dragon (old rules)'} ${drake ? `${drake.hp}/${drake.max}` : 'not sent'}; a dragon to train: ${train.why}; a hatchery at Castle 3: ${c3.why}, at 4: ${c4.ok} (${c4.cost} Ale); one built, another ${F.canBuild(s, 'hatchery', T0).why}, Dragon Hero level ${F.heroLevel(s, 'dragon')}; a cannon kept ${stays}; the computer’s realms have hatcheries from Castle 4, no heroes ${bots}`};
   });
 
   check('Keepfall: every building level has unique growing artwork and all villagers and tower platforms remain intact', async () => {
@@ -565,7 +582,7 @@ export async function realmChecks(check) {
     const missing = [...sheets].filter(n => !S.FOLK[n] || ![4, 8].includes(S.FOLK[n].length));
     const plat = Array.from({length: F.maxLevel('tower')}, (_, i) => S.platform(i + 1)).every((p, i) => p && p[0] > 0 && p[0] < S.BUILD.tower.f[i][2] && p[1] > 0 && p[1] < S.BUILD.tower.f[i][3]);
     const paths = kinds.map(k => 'upgrades-v1/' + k + '.webp').concat('folk.webp');
-    const files = data.isOwner() ? await Promise.all(paths.map(n => fetch(new URL('../../img/realm/' + n, import.meta.url), {method: 'HEAD'}).then(r => r.ok ? '' : n, () => n))) : [];
+    const files = data.isOwner() ? await Promise.all(paths.map(n => fetch(new URL('../../img/realm/' + n, import.meta.url), {method: 'GET'}).then(r => r.ok ? '' : n, () => n))) : [];
     const gone = files.filter(Boolean);
     return {pass: !bad.length && !missing.length && plat && !gone.length && sheets.size >= 20, detail: JSON.stringify({bad, missing, plat, gone, families:kinds.length})};
   });
@@ -578,7 +595,7 @@ export async function realmChecks(check) {
       if (!lay) { pass = false; out.push(`${shape}: no layout`); continue; }
       const A = lay.assets, bg = lay.scene.background_asset_id, Z = lay.build_zone_polygon, L = lay.lot && D3.sceneryLot(lay.lot);
       const unknown = lay.instances.filter(it => !A[it.asset_id] || it.asset_id === bg).map(it => it.id);
-      const files = await Promise.all(Object.values(A).map(a => fetch(new URL(`../../img/realm/scenery/${a.pic && a.pic.file}`, import.meta.url), {method: 'HEAD'}).then(r => r.ok ? '' : a.file, () => a.file)));
+      const files = await Promise.all(Object.values(A).map(a => fetch(new URL(`../../img/realm/scenery/${a.pic && a.pic.file}`, import.meta.url), {method: data.isOwner() ? 'GET' : 'HEAD'}).then(r => r.ok ? '' : a.file, () => a.file)));
       const gone = files.filter(Boolean);
       // (the zone is convex: a point's inside when it's on the same side of every edge)
       const inZone = ([x, y]) => { const sd = Z.map((p, i) => { const q = Z[(i + 1) % Z.length]; return Math.sign((q[0] - p[0]) * (y - p[1]) - (q[1] - p[1]) * (x - p[0])); }).filter(Boolean); return sd.every(v => v === sd[0]); };
@@ -595,8 +612,9 @@ export async function realmChecks(check) {
   check('Keepfall: the army’s pictures (tools/realm/army.py, img/realm/army/): the Footman, Archer, Knight, Thief and Dragon each drawn from his (where he stands inside it, a way he faces, a size: the Dragon bigger than any man, and in the air); the pictures are there', async () => {
     const meta = await fetch(new URL('../../img/realm/army/army.json', import.meta.url)).then(r => r.json(), () => null);
     if (!meta) return {pass: false, detail: 'no army.json'};
-    const want = F.TROOP_ORDER, bad = want.filter(t => { const m = meta[t]; return !m || !(m.w > 50 && m.h > 50) || !(m.ax >= 0 && m.ax <= m.w && m.ay >= 0 && m.ay <= m.h) || typeof m.right !== 'boolean' || !(m.fly ? m.wide > 0 : m.tall > 0); });
-    const files = await Promise.all(want.map(t => fetch(new URL(`../../img/realm/army/${t}.webp`, import.meta.url), {method: 'HEAD'}).then(r => (r.ok ? '' : t), () => t)));
+    // (the Dragon's picture stays: it draws the Dragon Hero, Oct 22 2026)
+    const want = [...F.TROOP_ORDER, 'dragon'], bad = want.filter(t => { const m = meta[t]; return !m || !(m.w > 50 && m.h > 50) || !(m.ax >= 0 && m.ax <= m.w && m.ay >= 0 && m.ay <= m.h) || typeof m.right !== 'boolean' || !(m.fly ? m.wide > 0 : m.tall > 0); });
+    const files = await Promise.all(want.map(t => fetch(new URL(`../../img/realm/army/${t}.webp`, import.meta.url), {method: data.isOwner() ? 'GET' : 'HEAD'}).then(r => (r.ok ? '' : t), () => t)));
     const gone = files.filter(Boolean), men = want.filter(t => t !== 'dragon').map(t => meta[t] && meta[t].tall * meta[t].w / meta[t].h);
     const big = !!meta.dragon && meta.dragon.fly && meta.dragon.wide > Math.max(...men) * 2 && men.every(w => w > 0);
     const pass = !bad.length && !gone.length && !meta.sapper && big && want.every(t => !meta[t] || !!meta[t].fly === !!F.TROOPS[t].fly);
@@ -647,7 +665,7 @@ export async function realmChecks(check) {
     return {pass: kick && ret && ale && shares && loot, detail: `Kick It ${[0, 4, 5, 10, 25, 40].map(m => `${m}: ${F.kickGold(m)}`).join(', ')}${kickTable.length ? ' (wrong at ' + kickTable.join(',') + ')' : ''} ${kick}; Return Man ${coins.map(c => `${c}: ${F.returnGold(c)}`).join(', ')} ${ret}; Ale ${F.ALE_BY_PLACE.join('/')} ${ale}; shares ${F.STORE_SHARE}/${F.MADE_SHARE}, hold ${F.KINDS.mine.hold}h ${shares}; a raid’s take on 10,000/8,000 stored and 200/200 piled: ${JSON.stringify(L.total)} ${loot}`};
   });
 
-  check('Keepfall: Castle 4 unlocks (the owner, Oct 22 2026): attacking and scouting the computer’s realms open at Castle level 4 (before then “Raids open at Castle level 4”), and then only realms up to a level above his Castle (the rest “Castle level N”: scouting them is fine); the Knight Hero is recruited from Castle 4 like the Wizard (one recruited before keeps his level); the computer raids him from Castle 3 (Oct 22 2026, was 2)', () => {
+  check('Keepfall: Castle 4 unlocks (the owner, Oct 22 2026): attacking and scouting the computer’s realms open at Castle level 4 (before then “Raids open at Castle level 4”), and then only realms up to a level above his Castle (the rest “Castle level N”: scouting them is fine); the Knight Hero is recruited from Castle 4 (one recruited before keeps his level) and the Dragon Hero hatches with a Dragon Hatchery there, never for Gold; the computer raids him from Castle 3 (Oct 22 2026, was 2)', () => {
     const at = l => { const s = F.fresh(T0 - 3 * DAY); s.b.find(b => b.t === 'keep').l = l; s.r = {gold: 99999, grain: 99999}; return s; };
     const open = [1, 2, 3, 4, 5, 6, 7, 8].map(l => F.attackOpen(at(l))).join() === 'false,false,false,true,true,true,true,true' && F.ATTACK_AT === 4;
     const reach = l => F.BOTS.filter(b => F.canTarget(at(l), b)).map(b => b.th).join('');
@@ -657,13 +675,13 @@ export async function realmChecks(check) {
     const r3 = F.realmOf('bot:1', at(3), T0), r6 = F.realmOf('bot:6', at(4), T0), sc6 = F.realmOf('bot:6', at(4), T0, {scout: true}), any = F.realmOf('bot:8', null, T0);
     const realms = r3.locked && r3.why === 'Raids open at Castle level 4' && r6.locked && r6.why === 'Castle level 5' && !sc6.why && sc6.th === 6 && !any.why && any.th === 8;
     const owner = !!data.isOwner();
-    const k3 = F.canRecruitHero(at(3), 'knight'), k4 = F.canRecruitHero(at(4), 'knight'), w3 = F.canRecruitHero(at(3), 'wizard');
-    const heroes = F.HEROES.knight.at === 4 && F.HEROES.wizard.at === 4
-      && (owner ? k3.why === 'Needs Castle level 4' && w3.why === 'Needs Castle level 4' && k4.ok : !k3.ok && !k4.ok && /Evan/.test(k4.why));
+    const k3 = F.canRecruitHero(at(3), 'knight'), k4 = F.canRecruitHero(at(4), 'knight'), w3 = F.canRecruitHero(at(4), 'dragon');
+    const heroes = F.HEROES.knight.at === 4 && F.HEROES.dragon.at === 4 && !F.HEROES.wizard
+      && (owner ? k3.why === 'Needs Castle level 4' && !w3.ok && w3.why.includes('Dragon Hatchery (Castle level 4)') && k4.ok : !k3.ok && !k4.ok && !w3.ok && /Evan/.test(k4.why));
     const had = Object.assign(at(2), {hr: {knight: 2}}), kept = F.clean(JSON.parse(JSON.stringify(had)));
     const stays = !!kept && kept.hr.knight === 2 && F.heroLevel(kept, 'knight') === 2 && (owner ? F.heroLevels(kept).knight === 2 : true);
     const raided = defend(at(3), T0).length >= 1 && !defend(at(2), T0).length && !defend(at(1), T0).length;
-    return {pass: open && targets && words && realms && heroes && stays && raided, detail: `open from Castle 4 ${open}; in reach at Castle 3/4/5/7: ${reach(3) || 'none'}/${reach(4)}/${reach(5)}/${reach(7)} ${targets}; why ${JSON.stringify(whys)} ${words}; realmOf refuses ${realms}; heroes at ${F.HEROES.knight.at}/${F.HEROES.wizard.at}, the Knight Hero at Castle 3: ${k3.why}, at 4: ${k4.ok || k4.why} ${heroes}; one recruited at Castle 2 stays ${stays}; raided from Castle 3, not 2 ${raided}`};
+    return {pass: open && targets && words && realms && heroes && stays && raided, detail: `open from Castle 4 ${open}; in reach at Castle 3/4/5/7: ${reach(3) || 'none'}/${reach(4)}/${reach(5)}/${reach(7)} ${targets}; why ${JSON.stringify(whys)} ${words}; realmOf refuses ${realms}; heroes at ${F.HEROES.knight.at}/${F.HEROES.dragon.at}, the Knight Hero at Castle 3: ${k3.why}, at 4: ${k4.ok || k4.why}, the Dragon Hero for Gold: ${w3.why} ${heroes}; one recruited at Castle 2 stays ${stays}; raided from Castle 3, not 2 ${raided}`};
   });
 
   check('Keepfall: raids on him start at Castle 3 (the owner, Oct 22 2026, was 2; DEFEND_AT): the screens say so (the Chronicle of a smaller realm “Once your Castle is level 3”, Attack’s lock “start at Castle level 3”, the welcome “once your Castle is level 3”), never level 2; the example raids aren’t held to it (a Castle 2 realm still gets its three to watch, on his phone)', async () => {
@@ -716,7 +734,7 @@ export async function realmChecks(check) {
 
   check('Keepfall: raid replays: an attack is recorded with its replay (rp: the realm’s lot as it stood, its take, the army, every drop, the step it ended on, the heroes) and played again from it it’s the same raid: the same stars, % and take, building by building, ended where it ended (End pressed or not), however its clock is run (all at once or a frame at a time, at any speed); the replay draws the lot it was, from the record', () => {
     const owner = !!data.isOwner(), s = top();
-    const a = attack(s, 'bot:4', {footman: 14, archer: 8, knight: 2}, owner ? {knight: 3, wizard: 2} : {}, 41.3);
+    const a = attack(s, 'bot:4', {footman: 14, archer: 8, knight: 2}, owner ? {knight: 3, dragon: 2} : {}, 41.3);
     const b = attack(s, 'bot:1', {footman: 20}, {}, F.RAID_S);
     const out = [a, b].map(({T, B, r, rec}) => {
       const P = F.decodeReplay(rec.rp), mine = F.replayOf(rec);
@@ -855,7 +873,7 @@ export async function realmChecks(check) {
     const stars = ex.map(r => r.st).join() === '0,1,3';
     const shape = ex.length === 3 && s.ex === ex && s.exv === F.EX_V && ex.every(r => r.ex === true && r.td === 0 && r.ls.join() === '0,0' && !Object.keys(r.lb).length && r.at === T0 && r.by && r.rp)
       && new Set(ex.map(r => r.id)).size === 3 && ex.every(r => { const f = F.findRaid(s, r.id); return f && f.kind === 'ex' && f.rec === r; }) && s.df.length === 1;
-    const plays = ex.every(r => { const R = replayRaid(r, s); if (!R) return false; R.play(Infinity); return same(R, r) && R.defenders.length === 1; });
+    const plays = ex.every(r => { const R = replayRaid(r, s); if (!R) return false; R.play(Infinity); return same(R, r) && R.defenders.length === Object.keys(r.hr).length && R.defenders.length >= 1; });
     const twin = realm();
     exampleRaids(twin, T0);
     const sameEach = JSON.stringify(twin.ex) === JSON.stringify(s.ex);
@@ -921,7 +939,7 @@ export async function realmChecks(check) {
       const s = F.fresh(T0 - 3 * DAY), B5 = F.botBase(5);
       s.b = B5.b.map(b => Object.assign({}, b, F.KINDS[b.t].role === 'make' ? {c: T0 - 6 * F.HOUR} : {}));
       s.b.find(b => b.t === 'wall').l = 1; // (his own lot, not the computer's)
-      Object.assign(s, {nb: Math.max(...s.b.map(b => b.i)) + 1, r: {gold: 30000, grain: 20000}, hr: {knight: 3, wizard: 2}});
+      Object.assign(s, {nb: Math.max(...s.b.map(b => b.i)) + 1, r: {gold: 30000, grain: 20000}, hr: {knight: 3}});
       return s;
     };
     const RB = await import('./realm-battle.js');
@@ -967,7 +985,7 @@ export async function realmChecks(check) {
     return {pass: !!page && ids === want && route, detail: `▶ on ${ids || 'nothing'} (want ${want}); the route ${route}`};
   });
 
-  check('Keepfall: his old Franchise save is taken up as his realm (Stadium to Castle, booths to gold mines, coolers to breweries, cannons to ballistas, fences to walls; Cash to Gold, Juice to Ale; receivers to footmen, kickers to dragons), the same twice, and raids on people dropped', () => {
+  check('Keepfall: his old Franchise save is taken up as his realm (Stadium to Castle, booths to gold mines, coolers to breweries, cannons to ballistas, fences to walls; Cash to Gold, Juice to Ale; receivers to footmen; kickers were dragons, retired Oct 22 2026: refunded in Ale, 3,000 each), the same twice, and raids on people dropped', () => {
     const old = {v: 1, at: T0, born: T0 - DAY, nm: '', tp: 40, nb: 9, sh: 0,
       b: [{i: 1, t: 'stadium', l: 3, x: 16, y: 16, u: 0}, {i: 2, t: 'office', l: 1, x: 17, y: 12, u: 0}, {i: 3, t: 'booth', l: 2, x: 11, y: 16, u: 0, c: T0 - F.HOUR},
         {i: 4, t: 'cooler', l: 1, x: 22, y: 16, u: 0, c: T0}, {i: 5, t: 'cannon', l: 2, x: 17, y: 21, u: 0}, {i: 6, t: 'fence', l: 2, x: 5, y: 5, u: 0},
@@ -977,12 +995,140 @@ export async function realmChecks(check) {
       rd: [{id: 'r1', vs: 'bot:2', nm: 'Bot', at: T0, st: 2, lt: [10, 10]}, {id: 'r2', vs: 'mason', at: T0, st: 1, lt: [5, 5]}], ap: ['r9']};
     const s = F.clean(old), kinds = s ? s.b.map(b => b.t).join(',') : '';
     const ok = !!s && s.v === 2 && kinds === 'keep,hut,mine,farm,ballista,wall,trebuchet,barracks' && F.keepOf(s) === 3 && s.b[2].c === T0 - F.HOUR && s.b[7].u === T0 + 60e3
-      && JSON.stringify(s.r) === '{"gold":1234,"grain":567}' && JSON.stringify(s.cl) === '{"gold":100,"grain":200}' && JSON.stringify(s.xo) === '{"gold":1500,"grain":1600}'
-      && JSON.stringify(s.ar) === '{"footman":5,"dragon":1}' && JSON.stringify(s.q) === '[["archer",3]]' && s.tp === 40
+      && JSON.stringify(s.r) === '{"gold":1234,"grain":567}' && JSON.stringify(s.cl) === '{"gold":100,"grain":200}' && JSON.stringify(s.xo) === '{"gold":1500,"grain":4600}'
+      && JSON.stringify(s.ar) === '{"footman":5}' && JSON.stringify(s.q) === '[["archer",3]]' && s.tp === 40
       && s.rd.length === 1 && s.rd[0].vs === 'bot:2' && !('ap' in s) && Array.isArray(s.df);
     const twice = !!s && JSON.stringify(F.clean(s)) === JSON.stringify(s);
     const fresh = F.clean(F.fresh(T0)), keptNew = !!fresh && fresh.xo.gold === 1500 && fresh.r.gold === 0;
     return {pass: ok && twice && keptNew, detail: s ? `${kinds}; Castle ${F.keepOf(s)}; stored ${JSON.stringify(s.r)}, coffers taken ${JSON.stringify(s.cl)}, besides ${JSON.stringify(s.xo)}; army ${JSON.stringify(s.ar)}, training ${JSON.stringify(s.q)}; raids kept ${s.rd.map(r => r.vs).join(',')}; the same twice ${twice}; a new realm as it was ${keptNew}` : 'not taken up'};
+  });
+
+  // ---- the Dragon Hero (the owner, Oct 22 2026: "The dragon should be used as a hero in place of the wizzard. the dragon
+  // is unlocked through the hatchery and gets stronger with each upgrade to the hatchery")
+  const withHatch = (th, l, extra = {}) => {
+    const s = F.fresh(T0 - 3 * DAY);
+    s.b.find(b => b.t === 'keep').l = th;
+    if (l != null) { const p = F.spotFor(s, 'hatchery'); s.b.push(Object.assign({i: s.nb++, t: 'hatchery', l, x: p.x, y: p.y, u: 0}, extra)); }
+    return s;
+  };
+
+  check('Keepfall: the Dragon Hero takes the Wizard Hero’s place (Oct 22 2026): the heroes are the Knight and the Dragon; the Dragon hatches when the first Dragon Hatchery is built (level 1) and his level is the hatchery’s, 1 to 10 (one being upgraded counts at the level it has), stronger at every level (health and fire), at 1 a little more than the Wizard Hero was at 2 and at 10 well past a trained dragon; no Gold recruits or upgrades him, and nothing saved (hr.dragon) makes or raises him; the computer’s lots have none', () => {
+    const owner = !!data.isOwner();
+    const order = F.HERO_ORDER.join() === 'knight,dragon' && !F.HEROES.wizard && F.HEROES.dragon.troop === 'hero_dragon' && F.HEROES.dragon.name === 'Dragon Hero';
+    const going = withHatch(4, 0, {u: T0 + F.HOUR}), up = withHatch(8, 3, {u: T0 + F.HOUR});
+    const hatches = F.heroLevel(withHatch(4, null), 'dragon') === 0 && F.heroLevel(going, 'dragon') === 0 && F.heroLevel(withHatch(4, 1), 'dragon') === 1 && F.heroLevel(up, 'dragon') === 3;
+    const follows = Array.from({length: 10}, (_, i) => F.heroLevel(withHatch(8, i + 1), 'dragon')).join() === '1,2,3,4,5,6,7,8,9,10';
+    const st = Array.from({length: 10}, (_, i) => F.heroStat('dragon', i + 1));
+    const stronger = st.every((x, i) => x && x.fly && x.air && x.splash > 0 && (!i || (x.hp > st[i - 1].hp && x.dps > st[i - 1].dps && x.range >= st[i - 1].range && x.splash >= st[i - 1].splash)));
+    const wiz2 = F.heroStat('wizard', 2, 1), big = !!wiz2 && st[0].hp > wiz2.hp && st[0].dps > wiz2.dps && st[9].hp > F.TROOPS.dragon.hp && st[9].dps > F.TROOPS.dragon.dps && F.heroStat('dragon', 11) === null && F.heroStat('dragon', 0) === null;
+    // (no Gold)
+    const rich = withHatch(8, 2); rich.r = {gold: 999999, grain: 999999};
+    const before = JSON.stringify(rich), rc = F.canRecruitHero(rich, 'dragon'), uc = F.canUpgradeHero(rich, 'dragon');
+    const noGold = !rc.ok && !uc.ok && !rc.cost && !uc.cost && !F.recruitHero(rich, 'dragon') && !F.upgradeHero(rich, 'dragon') && JSON.stringify(rich) === before
+      && (owner ? /Dragon Hatchery/.test(uc.why) : /Evan/.test(uc.why));
+    // (forged: the roster can't make him or raise him; clean() drops it)
+    const forged = withHatch(8, null); forged.hr = {knight: 2, dragon: 10};
+    const forged2 = withHatch(8, 2); forged2.hr = {dragon: 10};
+    const noForge = F.heroLevel(forged, 'dragon') === 0 && F.heroLevel(forged2, 'dragon') === 2 && !('dragon' in F.heroLevels(forged))
+      && JSON.stringify(F.clean(forged).hr) === '{"knight":2}' && JSON.stringify(F.clean(forged2).hr) === '{}' && F.heroLevel(F.clean(forged2), 'dragon') === 2;
+    const levels = F.heroLevels(withHatch(8, 5)), army = F.heroArmy(withHatch(8, 5));
+    const mine = owner ? levels.dragon === 5 && army.hero_dragon === 1 : !Object.keys(levels).length && !Object.keys(army).length;
+    // (the computer's lots: a hatchery, but no roster, so no hero)
+    const bots = F.BOTS.every(b => F.heroLevel(F.botBase(b.th), 'dragon') === 0) && F.botDragon(8) === 10 && F.botDragon(3) === 0;
+    return {pass: order && hatches && follows && stronger && big && noGold && noForge && mine && bots,
+      detail: `heroes ${F.HERO_ORDER.join(', ')} ${order}; hatches at hatchery level 1 (none while it goes up, a level-3 one being upgraded is 3) ${hatches}; follows it 1–10 ${follows}; L1–10 ${st.map(x => `${x.hp}/${x.dps}`).join(' ')} stronger each level ${stronger}; L1 vs the Wizard at 2 (${wiz2 ? `${wiz2.hp}/${wiz2.dps}` : '?'}), L10 vs a trained dragon (${F.TROOPS.dragon.hp}/${F.TROOPS.dragon.dps}) ${big}; no Gold: ${uc.why} ${noGold}; hr.dragon can’t forge him ${noForge}; ${owner ? 'his phone' : 'not his phone'}: ${JSON.stringify(levels)} ${mine}; the computer’s lots have none, their hatchery’s level leads their raids (Castle 8: ${F.botDragon(8)}) ${bots}`};
+  });
+
+  check('Keepfall: retired with the Wizard Hero (Oct 22 2026): trained dragons can’t be trained or queued, and a save’s dragons (ready or training, their old kicker name too) come back once as 3,000 Ale each into the coffers; a recruited Wizard Hero’s Gold (his recruiting and each upgrade, to the level he had) comes back once; then neither is anywhere, and loading again pays nothing more', () => {
+    const s = withHatch(8, 3);
+    s.b.push({i: s.nb++, t: 'barracks', l: 8, x: 3, y: 3, u: 0}, {i: s.nb++, t: 'camp', l: 6, x: 3, y: 9, u: 0});
+    s.r = {gold: 1000, grain: 50000};
+    const snap = JSON.stringify(s), chk = F.canTrain(s, 'dragon');
+    const blocked = !chk.ok && !F.train(s, 'dragon', 1, T0) && !F.untrain(s, 'dragon', T0) && JSON.stringify(s) === snap;
+    const old = Object.assign(JSON.parse(snap), {ar: {footman: 4, dragon: 2, kicker: 1}, q: [['dragon', 1], ['archer', 2]], qs: T0 - 5000, hr: {knight: 3, wizard: 4}});
+    const once = F.clean(old), twice = F.clean(once);
+    const wiz = 8000 + 10000 + 16000 + 24000;
+    const refunds = !!once && once.xo.grain === old.xo.grain + 4 * 3000 && once.xo.gold === old.xo.gold + wiz && JSON.stringify(once.ar) === '{"footman":4}'
+      && JSON.stringify(once.q) === '[["archer",2]]' && once.qs === 0 && JSON.stringify(once.hr) === '{"knight":3}' && JSON.stringify(twice) === JSON.stringify(once)
+      && JSON.stringify(once.r) === JSON.stringify(old.r);
+    // (a Wizard at a Castle that capped him lower: what he had, as the cap read him; a malformed one, nothing)
+    const capped = F.clean(Object.assign(withHatch(4, null), {hr: {wizard: 8}})), junk = F.clean(Object.assign(withHatch(8, null), {hr: {wizard: '6'}}));
+    const fair = capped.xo.gold === F.fresh(T0).xo.gold + 18000 && junk.xo.gold === F.fresh(T0).xo.gold && !('wizard' in capped.hr);
+    // (the barracks' level 6 opens nothing new now; no trainable Dragon on the Army sheet's list)
+    const opens = F.TROOP_ORDER.filter(t => F.TROOPS[t].at === 6).length === 0 && F.RETIRED.dragon === 3000 && F.RETIRED.kicker === 3000;
+    return {pass: blocked && refunds && fair && opens, detail: `train a dragon: ${chk.why} ${blocked}; a save with 2 + 1 (kicker) ready and 1 training, and a level 4 Wizard at Castle 8: +${once ? once.xo.grain - old.xo.grain : '?'} Ale, +${once ? once.xo.gold - old.xo.gold : '?'} Gold (want 12,000 and ${wiz}), army ${once && JSON.stringify(once.ar)}, training ${once && JSON.stringify(once.q)}, heroes ${once && JSON.stringify(once.hr)}, again the same ${refunds}; a Wizard 8 at Castle 4 (cap 2) +${capped.xo.gold - F.fresh(T0).xo.gold}, a malformed one +${junk.xo.gold - F.fresh(T0).xo.gold} ${fair}; barracks 6 opens nothing ${opens}`};
+  });
+
+  check('Keepfall: the computer’s raids from Castle 7 bring its Dragon Hero (the hatchery’s level on the raiding realm’s lot), leading with the knights, where a trained dragon came before; none brings a trained dragon, its army still fills its room; the example raids’ biggest armies are knights and archers led by its Dragon Hero, and still find a raid driven off, one taking a star and one breaking through (a Castle 4 realm and a Castle 8 test realm)', () => {
+    const owner = !!data.isOwner();
+    const armies = Array.from({length: 8}, (_, i) => raidArmy(i + 1));
+    const noDragons = armies.every((a, i) => !('dragon' in a) && F.roomOf(a) === 10 + (i + 1) * 5);
+    const heroes = Array.from({length: 8}, (_, i) => raidHeroes(i + 1));
+    const led = heroes.every((h, i) => (i + 1 >= 7 ? h.dragon === F.botDragon(i) && h.dragon >= 1 : !Object.keys(h).length));
+    // (a raid on a Castle 7 realm: the computer's Dragon Hero went in, no trained dragon)
+    const s = withHatch(7, 4); s.r = {gold: 9000, grain: 9000}; s.hr = {knight: 5};
+    const done = defend(s, T0);
+    const recs = done.map(r => ({r, P: F.decodeReplay(r.rp, s)}));
+    const raid = owner ? done.length >= 1 && recs.every(({r, P}) => P && P.hr.dragon === raidHeroes(7).dragon && !P.army.dragon && P.drops.some(d => d[1] === 'hero_dragon') && !P.drops.some(d => d[1] === 'dragon') && r.hr.dragon === 4 && P.dh.dragon === 4)
+      : done.length >= 1 && recs.every(({P}) => P && !Object.keys(P.hr).length && !P.army.dragon);
+    // (the examples: a Castle 4 realm (the computer's Castle 4 lot as his) and a Castle 8 test realm)
+    const c4 = F.fresh(T0 - 3 * DAY), B4 = F.botBase(4);
+    c4.b = B4.b.map(b => Object.assign({}, b, F.KINDS[b.t].role === 'make' ? {c: T0 - 6 * F.HOUR} : {}));
+    Object.assign(c4, {nb: Math.max(...c4.b.map(b => b.i)) + 1, r: {gold: 30000, grain: 20000}, hr: {knight: 3}});
+    const c8 = top();
+    const ex = [c4, c8].map(x => ({x, recs: exampleRaids(x, T0)}));
+    const exOk = owner ? ex.every(({x, recs}) => recs.map(r => r.st).join() === '0,1,3' && recs.every(r => { const P = F.decodeReplay(r.rp, x); return P && !P.army.dragon; }))
+      && ex.some(({x, recs}) => recs.some(r => F.decodeReplay(r.rp, x).hr.dragon >= 1))
+      : ex.every(({recs}) => !recs.length);
+    return {pass: noDragons && led && raid && exOk, detail: `armies ${armies.map((a, i) => `${i + 1}: ${Object.entries(a).map(([t, n]) => `${t} ${n}`).join(' ')}`).join(' · ')} ${noDragons}; leading them ${heroes.map((h, i) => `${i + 1}: ${h.dragon ? 'Dragon ' + h.dragon : '–'}`).join(' ')} ${led}; on a Castle 7 realm: ${recs.map(({r, P}) => `${r.st}★ ${r.pc}% (${P ? JSON.stringify(P.hr) + ' vs ' + JSON.stringify(P.dh) : 'no replay'})`).join('; ')} ${raid}; examples ${ex.map(({x, recs}) => `Castle ${F.keepOf(x)}: ${recs.map(r => `${r.st}★ ${JSON.stringify((F.decodeReplay(r.rp, x) || {}).hr)}`).join(' ') || 'none'}`).join(' · ')} ${exOk}`};
+  });
+
+  check('Keepfall: raid replays recorded before the Dragon Hero (attacks with the Knight and Wizard Heroes and trained dragons, the computer’s raids with a dragon on a realm his Knight and Wizard defended, example raids) still play exactly as recorded: the same stars, %, take and end, the same step; they read under the rules they were played under (packing 2, the old mark, the computer’s lots as they were then), new ones under today’s', () => {
+    const owner = !!data.isOwner(), fx = RP_FIXTURE_V2, lots = {lots: fx.lots};
+    const mark = F.battleMark(1) === fx.mark && F.battleMark() !== fx.mark && F.RP_V === 3;
+    const out = fx.recs.map((r, i) => {
+      const P = F.decodeReplay(r.rp, lots);
+      if (!P) return {ok: false, why: `${r.n}: doesn’t read`};
+      // (heroes in it play on his phone alone: elsewhere only one without them is the same raid)
+      const heroes = Object.keys(P.hr).length + Object.keys(P.dh).length > 0;
+      if (!owner && heroes) return {ok: P.rules === 1 && replayRaid({rp: r.rp}, lots) === null, why: `${r.n}: reads (rules ${P.rules}), his phone’s to watch`};
+      const R = replay(P.base, P.loot, P.army, P.drops, Infinity, P.opts), x = R.result();
+      // (a frame at a time too, as the replay screen plays it: one of each kind, and the one ended early)
+      const S = i % 5 && r.why !== 'quit' ? R : replayBattle(P);
+      let t = 0, guard = 0;
+      while (!S.over && guard++ < 6000) { t += .016 * 4 + (guard % 5) * .004; S.play(t); }
+      const same = B => B.stars() === r.st && B.pct() === r.pc && B.got.gold === r.got[0] && B.got.grain === r.got[1] && B.step === r.step && B.why === r.why;
+      const ok = P.rules === 1 && same(R) && same(S) && JSON.stringify(x.used) === JSON.stringify(r.used) && JSON.stringify(x.heroes) === JSON.stringify(r.hr) && (!owner || F.hasReplay({rp: r.rp}, lots));
+      return {ok, why: `${r.n}: ${R.stars()}★ ${R.pct()}% ${R.got.gold}/${R.got.grain} step ${R.step} ${R.why} (recorded ${r.st}★ ${r.pc}% ${r.got.join('/')} step ${r.step} ${r.why})${ok ? '' : ' DIFFERENT'}`};
+    });
+    // (a new one: packed 3, under today's mark; one claiming the old packing under today's mark, or the reverse, doesn't read)
+    const B = makeBattle(F.botBase(1), null, {footman: 2}), box = F.boxOf(F.botBase(1));
+    B.deploy('footman', box.x0 - 1.5, box.y0); B.run(6); B.end();
+    const rp = F.snapOf(B), fresh = !!rp && rp.v === 3 && rp.bv === F.battleMark() && !!F.decodeReplay(rp) && F.decodeReplay(rp).rules === 2;
+    const crossed = !F.decodeReplay({...rp, v: 2}) && !F.decodeReplay({...fx.recs[0].rp, v: 3}, lots);
+    const kept = (() => { const s = top(); s.rd = fx.recs.filter(r => r.k === 'rd').map((r, i) => ({id: 'a' + i, vs: 'bot:4', nm: 'Cinderholt', at: T0, st: r.st, pc: r.pc, lt: r.got, ta: 0, rp: r.rp})); const c = F.clean(s); return c.rd.length === s.rd.length && c.rd.every(r => r.rp); })();
+    return {pass: mark && out.every(o => o.ok) && fresh && crossed && kept, detail: `the old mark ${F.battleMark(1)} (recorded ${fx.mark}), today’s ${F.battleMark()} ${mark}; ${out.map(o => o.why).join(' · ')}; a new one packed ${rp && rp.v} ${fresh}; crossed refused ${crossed}; kept through clean() ${kept}`};
+  });
+
+  check('Keepfall: the Dragon Hero on screen (Oct 22 2026): the Army sheet’s cards are the Knight Hero’s and the Dragon Hero’s (no Wizard), the Dragon’s with no Gold price: before a hatchery “Build a Dragon Hatchery (Castle level 4)”, then “Hatched at your Dragon Hatchery · level N”, his health and damage, “Next hatchery level: …” and a button to the hatchery; no Dragon to train; the hatchery’s card and upgrade say his health and damage now and next (not dragon room); how to play and the dragon keeper say Castle level 4', async () => {
+    const view = await import('../views/realm.js');
+    const words = (s, w) => { const t = document.createElement('template'); t.innerHTML = ((view._screens(s, T0) || []).find(p => p.where === w) || {}).html || ''; return t.content; };
+    const none = words(withHatch(4, null), 'Your army'), three = withHatch(8, 3), mid = words(three, 'Your army');
+    const card = c => c.querySelector('[data-rl-hero-card="dragon"]'), text = el => (el ? el.textContent : '').replace(/\s+/g, ' ');
+    const cards = [...mid.querySelectorAll('[data-rl-hero-card]')].map(e => e.getAttribute('data-rl-hero-card')).join();
+    const before = text(card(none)), after = text(card(mid)), d3 = F.heroStat('dragon', 3), d4 = F.heroStat('dragon', 4), nf = n => n.toLocaleString('en-US');
+    const hb = three.b.find(b => b.t === 'hatchery');
+    const dragonCard = cards === 'knight,dragon' && before.includes('Build a Dragon Hatchery (Castle level 4)') && !card(none).querySelector('.is-gold')
+      && after.includes('Hatched at your Dragon Hatchery · level 3') && after.includes(nf(d3.hp)) && after.includes(`Next hatchery level: ${nf(d4.hp)} health · ${nf(d4.dps)} damage / sec`)
+      && !card(mid).querySelector('.is-gold') && card(mid).querySelector(`[data-rl-hatch="${hb.i}"]`) && /Upgrade the Dragon Hatchery/.test(after);
+    const train = !mid.querySelector('[data-rl-train="dragon"]') && !/Wizard/.test(text(mid)) && !/Needs a dragon hatchery/i.test(text(mid));
+    const hcard = text(words(three, 'hatchery\'s card'));
+    const hatchCard = hcard.includes(`Dragon Hero level 3: ${nf(d3.hp)} health`) && hcard.includes(`Dragon Hero: ${nf(d3.hp)} → ${nf(d4.hp)} health · ${nf(d3.dps)} → ${nf(d4.dps)} damage/second`) && !/dragon room|Room for \d+ dragon/i.test(hcard);
+    const hi = text(words(withHatch(2, null), 'Keepfall'));
+    const help = !/Wizard|dragons from your hatchery|Castle level 6/.test(hi) && hi.includes('Dragon Hatchery (Castle level 4)') && hi.includes('A dragon keeper arrives when the Dragon Hatchery unlocks at Castle level 4');
+    const H = await import('../views/realm-heroes.js');
+    const keeper = /Castle level 4/.test(H.residentsNote(withHatch(3, null))) && /<svg/.test(H.heroIcon('dragon')) && H.heroIcon('dragon') !== H.heroIcon('knight');
+    return {pass: dragonCard && train && hatchCard && help && keeper, detail: `cards ${cards}; before a hatchery “${before.slice(0, 90)}…”; at level 3 “${after.slice(0, 160)}…” ${dragonCard}; no Dragon to train, no Wizard ${train}; the hatchery’s card “${hcard.slice(0, 160)}…” ${hatchCard}; how to play ${help}; the keeper and the emblem ${keeper}`};
   });
 
   check('Keepfall: the words (the owner, Oct 21 2026): the game is Keepfall (its Daily Games case, its title), its second currency Ale (breweries brew it, cellars hold it, the army trains with it) and its main building the Castle; nothing on its screen, on any building’s card or the card placing one, in any sheet, or in what it says when something can’t be done says Grain, Farm, Granary, Keep level or the Realm (the camera’s Realm view, the whole of the lot’s land, is a place, not the game); the ids and saves keep the old names (grain, farm, granary, keep), so every save loads as it was', async () => {

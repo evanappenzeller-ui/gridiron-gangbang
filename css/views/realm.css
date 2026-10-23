@@ -348,6 +348,7 @@ html.is-realm-playing #tabbar { visibility: hidden; pointer-events: none; }
 .sh-rl .rl-heroes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr)); gap: 12px; }
 .sh-rl .rl-hero { min-width: 0; padding: 15px; border: 1px solid #b7924d66; border-radius: 14px; background: linear-gradient(145deg, #56332166, #211912); }
 .sh-rl .rl-hero.is-wizard { background: linear-gradient(145deg, #47416a66, #211912); border-color: #a79cdb66; }
+.sh-rl .rl-hero.is-dragon { background: linear-gradient(145deg, #7a2e1f66, #211912); border-color: #e0875466; }
 .sh-rl .rl-hero.is-locked { border-style: dashed; }
 .rl-hero-head { display: flex; align-items: center; gap: 12px; }
 .rl-hero-art { display: block; flex: 0 0 64px; width: 64px; height: 64px; border-radius: 12px; background: #0f0c1455; }
@@ -362,6 +363,7 @@ html.is-realm-playing #tabbar { visibility: hidden; pointer-events: none; }
 .sh-rl .rl-hero-next, .sh-rl .rl-hero-note { margin: 10px 0 0; font: 400 12px/1.4 var(--font-text); color: #d9c59b; }
 .rl-hero-action { display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; min-height: 46px; margin-top: 14px; padding: 10px 12px; border: 1px solid #c19a56; border-radius: 9px; background: #67491e; color: #fff1ce; cursor: pointer; font: 700 13px/1.3 var(--font-text); }
 .is-wizard .rl-hero-action { background: #4a4267; border-color: #a79cdb; }
+.is-dragon .rl-hero-action { background: #6e2a1c; border-color: #e08754; }
 .rl-hero-action:disabled { background: #29231f; border-color: #76634866; color: #bbad95; cursor: default; }
 .rl-hero-action:focus-visible { outline: 2px solid #ffe6a4; outline-offset: 3px; }
 .sh-rl .rl-residents { padding: 10px 0 5px; }

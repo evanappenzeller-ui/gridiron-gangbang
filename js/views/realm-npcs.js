@@ -77,9 +77,39 @@ function sculpt(T, pieces, material) {
   return mesh;
 }
 
+/** The Dragon Hero's marker in battle (Oct 22 2026): his body is the dragon's own picture (views/realm-3d.js draws a
+ *  hero_dragon as a dragon); this is the hero's part, as the Knight Hero has it: a ring on the ground under him and his
+ *  named level badge, up where he flies. */
+function dragonMarker(T, level, defending) {
+  const root = new T.Group();
+  root.name = 'keep-npc-dragon'; root.userData.npc = 'dragon'; root.userData.level = level;
+  const ring = new T.Mesh(new T.RingGeometry(.55, .68, 28), new T.MeshBasicMaterial({color: defending ? 0x88D6AD : 0xFF9A4A, transparent: true, opacity: .72, depthWrite: false}));
+  ring.rotation.x = -Math.PI / 2; ring.position.y = .03; root.add(ring);
+  const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#3a1712'; ctx.fillRect(0, 4, 256, 52);
+  ctx.strokeStyle = '#FF9A4A'; ctx.lineWidth = 3; ctx.strokeRect(2, 6, 252, 48);
+  ctx.fillStyle = '#FFF3D8'; ctx.font = '700 27px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(`DRAGON  ${level}`, 128, 31);
+  const texture = new T.CanvasTexture(canvas); texture.colorSpace = T.SRGBColorSpace;
+  // (over everything: up where he flies, buildings would hide it)
+  const badge = new T.Sprite(new T.SpriteMaterial({map: texture, transparent: true, depthWrite: false, depthTest: false, toneMapped: false}));
+  badge.position.y = 4; badge.scale.set(1.86, .47, 1); badge.renderOrder = 6; root.add(badge);
+  let disposed = false;
+  return {root, kind: 'dragon', level,
+    pose(seconds, {face = .6} = {}) { if (!disposed) root.rotation.y = -face + Math.PI / 2; },
+    dispose() {
+      if (disposed) return; disposed = true; root.removeFromParent();
+      ring.geometry.dispose(); ring.material.dispose(); texture.dispose(); badge.material.dispose();
+      root.clear();
+    }
+  };
+}
+
 /** A hero is visibly larger than a soldier, with a named level badge and colored base. */
 export function createNPC(T, kind, {level = 1, house = {}, defending = false} = {}) {
   if (!data.isOwner()) return null;
+  if (kind === 'dragon') return dragonMarker(T, level, defending);
   const hero = kind === 'knight' || kind === 'wizard', wizard = kind === 'wizard', keeper = kind === 'keeper';
   const root = new T.Group(), rig = new T.Group(); root.add(rig);
   root.name = 'keep-npc-' + kind;
@@ -199,7 +229,8 @@ export function createHomeNPCs(T, scene) {
       taken.add(Math.floor(at.y) * N + Math.floor(at.x));
       actors.push({model, at, route: options.route || [], offset: actors.length * 5.1});
     }
-    for (const [index, key] of ['knight', 'wizard'].entries()) {
+    // (the Knight Hero at the Castle's door; the Wizard Hero's gone, Oct 22 2026, and the Dragon Hero lives at his hatchery)
+    for (const [index, key] of ['knight'].entries()) {
       const level = heroLevel(s, key);
       if (level > 0) { add(key, doorstep(keep, index ? 1.5 : -1.5), {level}); counts.heroes++; }
     }

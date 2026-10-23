@@ -1004,6 +1004,9 @@ export function create(host, opts = {}) {
 
   // ---------------------------------------------------------------------------------------------------- a raid
   let raid = null;
+  // (the Dragon Hero, attacking or defending, is drawn as the dragon, core/realm.js HEROES.dragon; realm-npcs.js adds his marker)
+  const heroDragons = B => (B.left.hero_dragon || 0) + (B.used.hero_dragon || 0) + (B.defenders || []).filter(u => u.t === 'hero_dragon').length;
+  const drawnAs = u => (u.t === 'hero_dragon' ? Object.assign(Object.create(u), {t: 'dragon'}) : u);
   /** Draws battle B (core/realm-battle.js) on this lot: call before the raid's first frame; then raidFrame(t)
    *  each frame with the raid's clock (interpolated between its steps). raider: the raiders' house. */
   function raidStart(B, raider) {
@@ -1011,7 +1014,7 @@ export function create(host, opts = {}) {
     const kinds = Object.keys(TROOPS), meshes = {}, m4 = new T.Matrix4();
     let shadows = 0;
     kinds.forEach(k => {
-      const n = Math.max(1, (B.left[k] || 0) + (B.used[k] || 0));
+      const n = Math.max(1, (B.left[k] || 0) + (B.used[k] || 0) + (k === 'dragon' ? heroDragons(B) : 0));
       shadows += n;
       const A = ARMY[k];
       if (A) {
@@ -1083,7 +1086,7 @@ export function create(host, opts = {}) {
    *  all again, and compiling its shaders, held the screen still for a second each time). Otherwise, raidStart. */
   function raidRestart(B, raider) {
     const fits = raid && raid.raider === raider && Object.keys(TROOPS).every(k => {
-      const M = raid.meshes[k], n = (B.left[k] || 0) + (B.used[k] || 0);
+      const M = raid.meshes[k], n = (B.left[k] || 0) + (B.used[k] || 0) + (k === 'dragon' ? heroDragons(B) : 0);
       return !n || (!!M && n <= (M.art || M.body).instanceMatrix.count);
     });
     if (!fits) { raidStart(B, raider); return; }
@@ -1106,7 +1109,7 @@ export function create(host, opts = {}) {
     // the steps' positions: keep the last two
     if (B.step !== R.stepSeen) {
       R.prev = R.cur; R.cur = new Map();
-      B.tr.forEach(u => R.cur.set(u.id, {x: u.x, y: u.y}));
+      [...B.tr, ...(B.defenders || [])].forEach(u => R.cur.set(u.id, {x: u.x, y: u.y}));
       R.heroPrev = R.heroCur; R.heroCur = new Map();
       [...B.tr, ...(B.defenders || [])].forEach(u => { if (u.hero) R.heroCur.set(`${u.targetHero ? 'd' : 'a'}:${u.id}`, {x: u.x, y: u.y}); });
       R.stepSeen = B.step;
@@ -1118,7 +1121,7 @@ export function create(host, opts = {}) {
     const counts = {}, camQ = cam.quaternion, tilt = new T.Quaternion(), zAxis = new T.Vector3(0, 0, 1), ssc = new T.Vector3();
     let nShadow = 0;
     Object.keys(R.meshes).forEach(k => { counts[k] = 0; });
-    B.tr.forEach(u => {
+    [...B.tr, ...(B.defenders || [])].map(drawnAs).forEach(u => {
       if (u.dead) return;
       const M = R.meshes[u.t], c = R.cur.get(u.id), p = R.prev.get(u.id) || c;
       if (!M || !c) return;
@@ -1172,8 +1175,8 @@ export function create(host, opts = {}) {
     });
     R.shadow.count = nShadow; R.shadow.instanceMatrix.needsUpdate = true;
     // what's in the air: each along its arc, pointing the way it's going
-    const KIND = {archer: 'arrow', tower: 'arrow', ballista: 'bolt', trebuchet: 'rock', dragon: 'fire', cannon: 'ball', hero_wizard: 'magic'};
-    const ARC = {trebuchet: 4, archer: 1.1, tower: 1, ballista: .35, dragon: .15, cannon: .3};
+    const KIND = {archer: 'arrow', tower: 'arrow', ballista: 'bolt', trebuchet: 'rock', dragon: 'fire', cannon: 'ball', hero_wizard: 'magic', hero_dragon: 'fire'};
+    const ARC = {trebuchet: 4, archer: 1.1, tower: 1, ballista: .35, dragon: .15, cannon: .3, hero_dragon: .15};
     const n = {arrow: 0, bolt: 0, rock: 0, fire: 0, ball: 0, magic: 0}, dir = new T.Vector3(), fwd = new T.Vector3(0, 0, 1), one = new T.Vector3(1, 1, 1);
     const a0 = new T.Vector3(), a1 = new T.Vector3();
     B.shots.forEach(s => {
@@ -1183,7 +1186,7 @@ export function create(host, opts = {}) {
       const M = R.fly[kind];
       if (n[kind] >= M.instanceMatrix.count) return;
       const u = Math.max(0, Math.min(1, (t - s.t0) / Math.max(.01, s.t1 - s.t0))), arc = ARC[s.k] || .5;
-      const y0 = s.foe ? (s.k === 'tower' ? 2.6 : s.k === 'cannon' ? .68 : 1.1) : (s.k === 'dragon' ? 2.2 : .55), y1 = s.high ? 2.3 : .35;
+      const y0 = s.foe ? (s.k === 'tower' ? 2.6 : s.k === 'cannon' ? .68 : s.k === 'hero_dragon' ? 2.2 : 1.1) : (s.k === 'dragon' || s.k === 'hero_dragon' ? 2.2 : .55), y1 = s.high ? 2.3 : .35;
       // (a tower's arrow leaves from its archer's bow)
       const archer = s.foe && s.k === 'tower' ? archerAt(s.from) : null;
       if (archer) a0.copy(archer); else a0.set(W(s.x0), y0, W(s.y0));
@@ -1210,7 +1213,7 @@ export function create(host, opts = {}) {
       const e = B.fx[R.fxAt];
       if (e.k === 'boom') { for (let j = 0; j < (e.wall ? 1 : 4); j++) puff(e.x + (j % 2 - .5) * .8, e.y + (j > 1 ? .4 : -.4), e.wall ? .9 : 2.4, 0xB5AC9E, 1.1, now); }
       else if (e.k === 'land' && e.splash) puff(e.x, e.y, e.splash * 2.2, e.of === 'cauldron' ? 0xE0641E : 0xC9BCA4, .6, now);
-      else if (e.k === 'hit' && e.of === 'dragon') puff(e.x, e.y, 1.8, 0xFF7A1E, .5, now);
+      else if (e.k === 'hit' && (e.of === 'dragon' || e.of === 'hero_dragon')) puff(e.x, e.y, 1.8, 0xFF7A1E, .5, now);
       else if (e.k === 'down') puff(e.x, e.y, .9, 0xDDDDDD, .6, now);
     }
     R.puffs.forEach(p => {
