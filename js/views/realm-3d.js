@@ -1,3 +1,4 @@
+import * as features from '../core/features.js';
 // The Keep's lot in 3D (views/realm.js and views/realm-raid.js): three.js (js/vendor/three, MIT), the buildings from
 // views/realm-models.js, a camera looking down across the lot corner-on (a diamond, as these games are), dragged to
 // pan, pinched or wheeled to zoom. The lot lies in the middle of its land's open ground (img/realm/scenery/,
@@ -27,8 +28,8 @@ import {createRaidAttacks} from './realm-attack-art.js';
 import {isDragonKind, loadDragon, onDragonReady, createBattleDragons, createHomeDragon, createSceneryDragons} from './realm-dragon.js';
 const V = new URL('../vendor/three/', import.meta.url).href;
 let T = null, RE = null, LOADING = null, DEAD = false, LOAD_EPOCH = 0;
-let ownerActive = data.isOwner();
-data.subscribe(type => { if (type !== 'me') return; const next = data.isOwner(); if (next !== ownerActive) { ownerActive = next; LOAD_EPOCH++; LOADING = null; } });
+let ownerActive = features.available();
+data.subscribe(type => { if (type !== 'me') return; const next = features.available(); if (next !== ownerActive) { ownerActive = next; LOAD_EPOCH++; LOADING = null; } });
 // The sceneries (core/realm.js SCENERIES), each a layout a shape: its own landscape, placements (its village round
 // the lot: tools/realm/village.py, the owner's kit's buildings, Oct 2026) and lot (its layout's lot: where the lot lies
 // in it, px: the middle and its diamond's height, far corner to near; as big as fits in the build zone, the checks hold
@@ -39,7 +40,7 @@ FILES.christmas = {tall: 'layout-tundra.json'};
 export const WORLD_FILES = Object.fromEntries(Object.keys(FILES).map(k => [k, {tall: `world-${k}-v2.json`}]));
 WORLD_FILES.coast.tall = 'world-coast-v3.json';
 const shapeOf = (w, h) => (h > w ? 'tall' : 'wide');
-const fileFor = (theme, shape) => { const files = data.isOwner() ? WORLD_FILES : FILES, f = files[theme] || files.coast; return f[shape] || f.tall || f.wide; };
+const fileFor = (theme, shape) => { const files = features.available() ? WORLD_FILES : FILES, f = files[theme] || files.coast; return f[shape] || f.tall || f.wide; };
 const SCENERY = {}, ASKED = {};
 const sceneryFor = file => ASKED[file] || (ASKED[file] = scenery(file).then(sc => { if (sc) { sc.file = file; SCENERY[file] = sc; } else delete ASKED[file]; return sc; }));
 const SCENERY_AT = new URL('../../img/realm/scenery/', import.meta.url).href;
@@ -53,19 +54,19 @@ const picture = file => new Promise(ok => {
 /** A shape of the scenery: {lay (its layout), ground (the landscape), pics {asset id: picture}}, or null without it. */
 async function scenery(file) {
   const world = file.startsWith('world-');
-  if (!data.isOwner()) return null;
+  if (!features.available()) return null;
   try {
     const lay = await (await fetch(SCENERY_AT + file)).json(), bg = lay.scene.background_asset_id;
-    if (!data.isOwner()) return null;
+    if (!features.available()) return null;
     const ids = Object.keys(lay.assets), got = await Promise.all(ids.map(id => picture(lay.assets[id].pic.file)));
-    if (!data.isOwner()) return null;
+    if (!features.available()) return null;
     const pics = Object.fromEntries(ids.map((id, i) => [id, got[i]]).filter(([id, im]) => im && id !== bg));
     const ground = got[ids.indexOf(bg)];
     if (!ground) throw new Error('no landscape');
     return {lay, ground, pics};
   } catch (e) {
     console.warn('The Keep: no scenery', e);
-    if (world && data.isOwner()) {
+    if (world && features.available()) {
       const key = Object.keys(WORLD_FILES).find(k => Object.values(WORLD_FILES[k]).includes(file));
       return scenery((FILES[key] || FILES.coast).tall);
     }
@@ -91,8 +92,8 @@ async function army() {
 }
 /** Loads three.js, the art and scenery theme's layout for this screen (the coast's if none's given). */
 export function load(theme = 'coast') {
-  if (!data.isOwner()) return Promise.resolve(false);
-  const epoch = LOAD_EPOCH, active = () => data.isOwner() && epoch === LOAD_EPOCH;
+  if (!features.available()) return Promise.resolve(false);
+  const epoch = LOAD_EPOCH, active = () => features.available() && epoch === LOAD_EPOCH;
   if (LOADING) return LOADING.then(async ok => {
     if (!ok || !active()) return false;
     await Promise.all([SPR.load(), sceneryFor(fileFor(theme, shapeOf(innerWidth, innerHeight)))]);
@@ -131,7 +132,7 @@ let THUMB = null;
 const THUMBS = new Map();
 /** A picture (data URL) of kind k at level l in a house's colours, or of a soldier (troop: true). */
 export function thumb(k, l, house, troop = false) {
-  if (!ready() || !data.isOwner()) return '';
+  if (!ready() || !features.available()) return '';
   if (!troop && SPR.has(k)) return SPR.thumbURL(k, l);
   if (troop && ARMY[k]) return ARMY[k].url;
   const key = `${troop ? 't' : 'b'}:${k}:${l}:${house.pri}:${house.sigil}`;
@@ -354,8 +355,8 @@ function sceneryPictures(sc, gr) {
  * that starts here moves something instead of panning: onDrag(tile), onDrop(tile)), onCamera()}.
  */
 export function create(host, opts = {}) {
-  if (!data.isOwner() || !ready()) return null;
-  const village = !!opts.village && data.isOwner();
+  if (!features.available() || !ready()) return null;
+  const village = !!opts.village && features.available();
   const isActive = () => !opts.isActive || opts.isActive();
   let lotState = null, layoutSig = '', autoFrame = false, framing = false, placement = false;
   const renderer = new T.WebGLRenderer({antialias: true, powerPreference: 'high-performance'});
@@ -433,7 +434,7 @@ export function create(host, opts = {}) {
     scene.remove(sceneG); sceneG.clear(); sceneG = scene0 = null;
   }
   function setScenery(sc) {
-    if (!data.isOwner()) return false;
+    if (!features.available()) return false;
     let gr;
     try { gr = sceneryGround(sc.ground, sc.lay.lot, renderer.capabilities.getMaxAnisotropy()); } catch (e) { console.warn('The Keep: no scenery', e); return false; }
     dropScenery();
@@ -461,7 +462,7 @@ export function create(host, opts = {}) {
     if (scene0 && scene0.file === f) return;
     if (SCENERY[f]) { setScenery(SCENERY[f]); return; }
     sceneryFor(f).then(sc => {
-      if (!sc || dead || (village && !data.isOwner()) || (scene0 && scene0.file === f) || fileFor(theme, shapeOf(Wd, Hd)) !== f || !setScenery(sc)) return;
+      if (!sc || dead || (village && !features.available()) || (scene0 && scene0.file === f) || fileFor(theme, shapeOf(Wd, Hd)) !== f || !setScenery(sc)) return;
       zTop = mostOut(); clampView(); want();
     });
   }
@@ -759,7 +760,7 @@ export function create(host, opts = {}) {
   }
   /** All buildings under a tap, nearest first, with each wall instance mapped to its own id. */
   const pickAll = (cx, cy) => {
-    if (!data.isOwner()) return [];
+    if (!features.available()) return [];
     placeCam(); scene.updateMatrixWorld(true); ndcOf(cx, cy); ray.setFromCamera(ndc, cam);
     const extra = village && sel.id != null ? revealPicks : [];
     const ids = ray.intersectObjects([...picks, ...extra], false).map(hit =>
@@ -818,7 +819,7 @@ export function create(host, opts = {}) {
   }
   // (a few frames a second while there are folk about and no raid's drawing every frame)
   const folkTimer = setInterval(() => {
-    if (raid || dead || lost || document.visibilityState !== 'visible' || !data.isOwner()) return;
+    if (raid || dead || lost || document.visibilityState !== 'visible' || !features.available()) return;
     if ((homeNPCs && homeNPCs.animated) || (homeDragon && homeDragon.animated)) { want(); return; }
     if (SPR.folkReady()) for (const e of groups.values()) if (e.folk.length) { want(); break; }
   }, 160);
@@ -836,7 +837,7 @@ export function create(host, opts = {}) {
     if (revealedWall) { scene.remove(revealedWall); revealedWall = null; }
   }
   function reveal(group, id) {
-    if (!village || !data.isOwner() || !group) return;
+    if (!village || !features.available() || !group) return;
     group.traverse(object => {
       if ((!object.isSprite && !object.isMesh) || (object.geometry?.type === 'PlaneGeometry' && object.material?.isMeshBasicMaterial)) return;
       if (![object.material].flat().some(m => m.visible)) return;
@@ -907,7 +908,7 @@ export function create(host, opts = {}) {
     const size = KINDS[g.t].size;
     if (g.run) {
       // a run of new walls, in the level-1 design the lot draws them in (realm-walls.js), rails joining each to the next
-      const run = g.run, design = data.isOwner() ? 1 : 0, parts = FM.wallParts(design), n = run.length, horiz = run[1].y === run[0].y, grp = new T.Group();
+      const run = g.run, design = features.available() ? 1 : 0, parts = FM.wallParts(design), n = run.length, horiz = run[1].y === run[0].y, grp = new T.Group();
       const post = new T.InstancedMesh(parts.post, FM.mats().paint, n), rail = new T.InstancedMesh(parts.rail, FM.mats().paint, n - 1);
       const foot = new T.InstancedMesh(runFoot, runMats[!!g.ok], n);
       const m = new T.Matrix4(), one = new T.Vector3(1, 1, 1), c = new T.Color(FM.WALL_TINT[0]);
@@ -1032,7 +1033,7 @@ export function create(host, opts = {}) {
   // Each soldier chooses its own frame while all soldiers of a kind share one draw call.
   // Keep the current picture/model until the complete atlas is ready, including failed-load fallback.
   function installAttackSheets(R) {
-    if (dead || !data.isOwner() || raid !== R) return;
+    if (dead || !features.available() || raid !== R) return;
     Object.entries(R.meshes).forEach(([kind, M]) => {
       if (M.sheet) return;
       const sheet = R.attacks.sheet(kind);
@@ -1076,7 +1077,7 @@ export function create(host, opts = {}) {
    *  each frame with the raid's clock (interpolated between its steps). raider: the raiders' house. */
   function raidStart(B, raider) {
     raidStop();
-    if (dead || !data.isOwner()) return;
+    if (dead || !features.available()) return;
     const need = armyNeed(B), kinds = Object.keys(need), meshes = {}, m4 = new T.Matrix4();
     let shadows = 0;
     kinds.forEach(k => {
@@ -1139,7 +1140,7 @@ export function create(host, opts = {}) {
       dragons: createBattleDragons(T, scene, {onLand: (x, y) => { if (raid) puff(x, y, 2.6, 0xB5AC9E, 1.1, raid.now); }}), now: 0, f: 0, fireAt: new WeakMap(), byModel: new WeakMap(), need};
     const started = raid;
     started.attacks.load().then(() => {
-      if (dead || raid !== started || !data.isOwner()) return;
+      if (dead || raid !== started || !features.available()) return;
       installAttackSheets(started); want();
     }).catch(() => {}); // Existing pictures and projectiles remain usable if attack artwork fails.
     // (its dragons drawn from the model: fetched now if they're not in yet, the picture meanwhile; the renderer readied
@@ -1175,7 +1176,7 @@ export function create(host, opts = {}) {
    *  the same army by the same house as the one drawn: what draws it is kept, emptied, and B put in its place (building it
    *  all again, and compiling its shaders, held the screen still for a second each time). Otherwise, raidStart. */
   function raidRestart(B, raider) {
-    if (dead || !data.isOwner()) { raidStop(); return; }
+    if (dead || !features.available()) { raidStop(); return; }
     const need = armyNeed(B), fits = raid && raid.raider === raider && Object.keys(need).every(k => {
       const M = raid.meshes[k], n = need[k];
       return !n || (!!M && n <= (M.art || M.body).instanceMatrix.count);
@@ -1197,7 +1198,7 @@ export function create(host, opts = {}) {
   /** One frame of the raid at its clock t (seconds; between steps it eases from where each was to where he is). */
   function raidFrame(t, now = performance.now()) {
     if (!raid) return;
-    if (dead || !data.isOwner()) { raidStop(); return; }
+    if (dead || !features.available()) { raidStop(); return; }
     const B = raid.B, R = raid;
     R.t = t;
     installAttackSheets(R);
@@ -1399,7 +1400,7 @@ export function create(host, opts = {}) {
   const look = (x, y, dist) => { autoFrame = false; view.tx = W(x); view.tz = W(y); if (dist) view.dist = dist; clampView(); want(); };
   /** Frame the village between the HUD and action bar. Manual camera gestures keep their view until recentered. */
   function frameVillage({margin = 1.15, maxDistance = Infinity} = {}) {
-    if (!village || !lotState || !lotState.b.length || !data.isOwner()) return;
+    if (!village || !lotState || !lotState.b.length || !features.available()) return;
     if (!isActive()) { autoFrame = true; return; }
     framing = true;
     resize();
@@ -1447,7 +1448,7 @@ export function create(host, opts = {}) {
   const zoomBy = k => { autoFrame = false; view.dist *= k; clampView(); want(); };
   /** Explore the entire landscape; the 44 × 44 village square keeps its original dimensions. */
   function frameWorld() {
-    if (!village || !data.isOwner()) return;
+    if (!village || !features.available()) return;
     autoFrame = false; resize();
     if (scene0) {
       const center = scene0.under(scene0.w / 2, scene0.h / 2);

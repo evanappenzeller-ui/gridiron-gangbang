@@ -1,3 +1,4 @@
+import * as features from '../core/features.js';
 // Return Man's world (views/return.js draws with it): the places a return runs through (core/return.js THEMES), drawn
 // on its canvas from behind the returner. Each place has its sky and far skyline (drawn once into a canvas of its own
 // and copied in each frame; the next place's fades in as you come to its gate), its ground (the field; a parking lot;
@@ -2031,7 +2032,7 @@ const OWNER_ICONS = {
     c.restore();
   }
 };
-export const ICONS = Object.fromEntries(Object.keys(LEGACY_ICONS).map(kind => [kind, (c, t) => (data.isOwner() ? OWNER_ICONS : LEGACY_ICONS)[kind](c, t)]));
+export const ICONS = Object.fromEntries(Object.keys(LEGACY_ICONS).map(kind => [kind, (c, t) => (features.available() ? OWNER_ICONS : LEGACY_ICONS)[kind](c, t)]));
 const HALO = {salts: '150,225,255', pills: '255,165,60', booze: '255,214,90'};
 // (the hard course's, the owner's: bigger, and each its own colour: return-3dworld.js HALO_BIG)
 const HALO_BIG = {salts: '92,225,255', pills: '255,64,64', booze: '110,240,90'};
@@ -2063,7 +2064,7 @@ function ownerItem(st, c, it, t, X, g) {
 export function item(st, c, it, t) {
   const X = R.xOf(null, it.lane), g = R.groundAt(st.co, it.lane, it.z), bob = Math.sin(t * 3 + it.i) * .12;
   if (it.z < st.camZ + NEAR + 1) return;
-  if (data.isOwner()) { ownerItem(st, c, it, t, X, g); return; }
+  if (features.available()) { ownerItem(st, c, it, t, X, g); return; }
   const big = !!st.co.hard, k = big ? 1.7 : 1, col = (big ? HALO_BIG : HALO)[it.kind];
   const p = P(st, X, g + (big ? 1.35 : 1) + bob, it.z), base = P(st, X, g, it.z), s = p.s;
   if (s < 1.2) return;

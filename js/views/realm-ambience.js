@@ -1,3 +1,4 @@
+import * as features from '../core/features.js';
 // Motion inside the existing landscape painting: flowing water and the flicker
 // of its own lights. The map keeps one texture and one draw call. Region masks,
 // source-color masks and the protected village square leave buildings still.
@@ -84,7 +85,7 @@ export function createAmbience(T, ground, options = {}) {
     active: false, reducedMotion: false, extraDrawCalls: 0, extraTextures: 0};
   const material = ground && ground.mesh && ground.mesh.material;
   const empty = {counts, regions, update: () => false, dispose() {}};
-  if (!data.isOwner() || !material || !material.isMeshBasicMaterial || !material.map ||
+  if (!features.available() || !material || !material.isMeshBasicMaterial || !material.map ||
       !ground.w || !ground.h || !ground.lot) return empty;
 
   const oldCompile = material.onBeforeCompile, oldCacheKey = material.customProgramCacheKey;
@@ -223,7 +224,7 @@ float realmLamp(vec3 c, float violet) {
   counts.reducedMotion = !!(media && media.matches);
   function update(seconds, view = {}) {
     if (dead) return false;
-    if (!data.isOwner()) { dispose(); return false; }
+    if (!features.available()) { dispose(); return false; }
     lastTime = Number.isFinite(seconds) ? seconds : 0; lastView = view;
     counts.active = view.active !== false && !(doc && doc.hidden) && !counts.reducedMotion;
     uniforms.realmMotion.value = counts.active ? 1 : 0;
@@ -254,6 +255,6 @@ float realmLamp(vec3 c, float violet) {
   }
   if (media) { if (media.addEventListener) media.addEventListener('change', changed); else if (media.addListener) media.addListener(changed); }
   if (doc) doc.addEventListener('visibilitychange', changed);
-  stop = data.subscribe(type => { if (type === 'me' && !data.isOwner()) { dispose(); if (options.onChange) options.onChange(); } });
+  stop = data.subscribe(type => { if (type === 'me' && !features.available()) { dispose(); if (options.onChange) options.onChange(); } });
   return {counts, regions, update, dispose};
 }

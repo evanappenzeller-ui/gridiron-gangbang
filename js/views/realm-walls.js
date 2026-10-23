@@ -1,3 +1,4 @@
+import * as features from '../core/features.js';
 // Level-specific wall batches shared by the village, scouting and raids.
 import * as data from '../core/data.js';
 import * as FM from './realm-models.js';
@@ -8,7 +9,7 @@ const legacyMaterials = new Map();
 
 /** A single wall for placement, or a joined pair for a shop thumbnail. */
 export function wallPreview(T, level, span = false) {
-  if (!data.isOwner()) return null;
+  if (!features.available()) return null;
   const design = designOf(level, true), parts = FM.wallParts(design);
   let mat = FM.mats().paint;
   if (!design) {
@@ -39,7 +40,7 @@ export function createWallView(T, root, toWorld) {
     meshes.length = picks.length = 0;
   }
   function setLot(walls) {
-    const owner = data.isOwner();
+    const owner = features.available();
     const next = `${owner}:` + walls.map(w => `${w.i}.${w.x}.${w.y}.${w.l}`).join(',');
     if (next === signature) return;
     signature = next; clear();

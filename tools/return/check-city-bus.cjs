@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Browser regression for the owner-only City bus pilot.
+// Browser regression for the shared v3 City bus pilot.
 // Run: node tools/return/check-city-bus.cjs (no HTTP server required).
 // Uses the real Three.js, account gate, and W3.update; no cloud requests or scores.
 // Playwright fulfills the fixture origin directly from this checkout's files.
@@ -176,7 +176,7 @@ function clean(f, label) {
   assert.deepEqual(f.errors, [], label + ': no browser errors');
 }
 function textureRequests(f, loads = 1) {
-  assert.equal(f.requests.length, 3 * loads, 'one request per texture per owner load');
+  assert.equal(f.requests.length, 3 * loads, 'one request per texture per shared load');
   assert.deepEqual(f.requests.map(u => /bus-(rear|side|roof)-v1\./.exec(u)[1]).sort(),
     Array.from({length: loads}, () => ['rear', 'roof', 'side']).flat().sort());
 }
@@ -186,9 +186,9 @@ function textureRequests(f, loads = 1) {
   try {
     const f = await fixture(browser);
     try {
-      const baseline = await f.inspect();
-      assert.equal(baseline.buses, 2); assert.equal(baseline.pilots.length, 0);
-      assert.equal(f.requests.length, 0, 'nonowner must not fetch pilot art');
+      await f.loaded(); const baseline = await f.inspect();
+      assert.equal(baseline.buses, 2); assert.equal(baseline.pilots.length, 2);
+      textureRequests(f);
       await f.screenshot('city-bus-nonowner');
       await f.identity('evan'); await f.loaded();
       const owner = await f.inspect();
@@ -206,14 +206,14 @@ function textureRequests(f, loads = 1) {
       await f.screenshot('city-bus-owner');
       for (const id of ['ben', 'none', 'evan-invalid', null]) {
         const immediate = await f.page.evaluate(id => { window.busCheck.identity(id); return window.busCheck.inspect(); }, id);
-        assert.equal(immediate.pilots.length, 0, 'profile changes revoke pilot meshes even without a frame');
+        assert.equal(immediate.pilots.length, 2, 'shared art persists across profile changes');
         const state = await f.inspect();
-        assert.equal(state.owner, false); assert.equal(state.pilots.length, 0);
-        assert.deepEqual(state.fingerprints, baseline.fingerprints, 'switching away restores original geometry and materials');
+        assert.equal(state.owner, false); assert.equal(state.pilots.length, 2);
+        assert.deepEqual(state.fingerprints, baseline.fingerprints, 'all profiles share the redesigned geometry and materials');
       }
-      await f.identity('evan'); await f.loaded(); textureRequests(f, 2);
+      await f.identity('evan'); await f.loaded(); textureRequests(f);
       clean(f, 'owner transitions');
-      results.push('Owner-only loading, original public geometry, decoded images, shared textures, UV density, and account transitions passed.');
+      results.push('All-profile loading, decoded images, shared textures, UV density, and account transitions passed.');
     } finally { await f.close(); }
 
     const nonCity = await fixture(browser, {identity: 'evan', theme: 'stadium'});
@@ -246,11 +246,11 @@ function textureRequests(f, loads = 1) {
       });
       await race.identity('ben'); race.release();
       await race.page.waitForLoadState('networkidle');
-      const after = await race.inspect();
-      assert.equal(after.pilots.length, 0, 'late texture completion cannot paint another account');
-      assert.deepEqual(after.fingerprints, baseline.fingerprints);
-      await race.identity('evan'); await race.loaded(); textureRequests(race, 2);
-      clean(race, 'async account transition'); results.push('Switching accounts during loading cannot leak pilot art; switching back succeeds.');
+      await race.loaded(); const after = await race.inspect();
+      assert.equal(after.pilots.length, 2, 'shared textures finish loading across profile changes');
+      assert.equal(after.owner, false); assert.equal(after.buses, baseline.buses);
+      await race.identity('evan'); await race.loaded(); textureRequests(race);
+      clean(race, 'async account transition'); results.push('Shared art survives account changes during loading without duplicate downloads.');
     } finally { await race.close(); }
     fs.writeFileSync(path.join(output, 'city-bus-checks.json'), JSON.stringify({passed: true, origin, results}, null, 2) + '\n');
     console.log(results.join('\n')); console.log('Screenshots and report: ' + output);

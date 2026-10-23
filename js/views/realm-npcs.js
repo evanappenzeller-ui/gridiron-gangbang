@@ -1,3 +1,4 @@
+import * as features from '../core/features.js';
 // The Keep's residents and named champions. Small, merged low-poly models,
 // shared home/battle poses, and home routes built only when the layout changes.
 import * as data from '../core/data.js';
@@ -83,7 +84,7 @@ function sculpt(T, pieces, material) {
  *  plate too). onTop: the badge drawn over everything (in a raid, as the Dragon Hero's is, views/realm-dragon.js: his
  *  name never hidden behind a dragon's wing or a tower; Oct 23 2026). */
 export function createNPC(T, kind, {level = 1, house = {}, defending = false, onChange, onTop = false} = {}) {
-  if (!data.isOwner()) return null;
+  if (!features.available()) return null;
   // (the Dragon Hero isn't one of these: he's drawn as the dragon, his ring and badge with him, views/realm-dragon.js)
   if (kind === 'dragon') return null;
   const hero = kind === 'knight' || kind === 'wizard', wizard = kind === 'wizard', keeper = kind === 'keeper';
@@ -193,9 +194,9 @@ export function createHomeNPCs(T, scene, {onChange} = {}) {
     actors.forEach(a => a.model.dispose()); actors = []; signature = '';
     Object.assign(counts, {guards: 0, heroes: 0, keeper: false, active: false}); group.visible = false;
   }
-  const unsubscribe = data.subscribe(type => { if (type === 'me' && !data.isOwner()) clear(); });
+  const unsubscribe = data.subscribe(type => { if (type === 'me' && !features.available()) clear(); });
   function setLot(s, {house} = {}) {
-    if (disposed || !data.isOwner()) { clear(); return; }
+    if (disposed || !features.available()) { clear(); return; }
     const next = JSON.stringify([s.b.map(b => [b.i, b.t, b.l, b.x, b.y]), s.hr, house]);
     if (signature === next) return;
     clear(); signature = next;
@@ -228,7 +229,7 @@ export function createHomeNPCs(T, scene, {onChange} = {}) {
     group.visible = true;
   }
   function update(seconds, {zoom = 40, active = true, placement = false} = {}) {
-    if (disposed || !data.isOwner()) { clear(); return false; }
+    if (disposed || !features.available()) { clear(); return false; }
     counts.active = !!active && zoom < 125 && !placement;
     group.visible = counts.active;
     if (!counts.active) return false;
@@ -261,11 +262,11 @@ export function createHomeNPCs(T, scene, {onChange} = {}) {
 /** Battle models remain separate from the ordinary, instanced army. At most two heroes per side. */
 export function createBattleHeroes(T, scene, {house, onChange} = {}) {
   const models = new Map(); let disposed = false;
-  const unsubscribe = data.subscribe(type => { if (type === 'me' && !data.isOwner()) clear(); });
+  const unsubscribe = data.subscribe(type => { if (type === 'me' && !features.available()) clear(); });
   function clear() { models.forEach(m => m.dispose()); models.clear(); }
   return {
     update(units, seconds, positions, previous, blend) {
-      if (disposed || !data.isOwner()) { clear(); return; }
+      if (disposed || !features.available()) { clear(); return; }
       const seen = new Set(), still = reduced();
       for (const u of units) {
         // (a Dragon Hero, attacking or defending, is drawn as the dragon, his ring and "DRAGON N" badge with him: the one place

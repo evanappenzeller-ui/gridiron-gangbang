@@ -1,3 +1,4 @@
+import * as features from '../core/features.js';
 // Ambient inhabitants of Evan's expanded Realm landscapes. Everything is scenery:
 // Seven instanced draw calls plus Christmas's optional sleigh sprite; no image
 // fetches, collision or picking surfaces. The caller supplies owner-gated artwork.
@@ -48,7 +49,7 @@ export function createWildlife(T, scene, options = {}) {
   const counts = {birds: 0, dragons: 0, animals: 0, santa: 0, drawCalls: 0, visible: false, opacity: 0, reducedMotion: false};
   const empty = {counts, update: () => false, dispose() {}};
   const gr = options.ground;
-  if (!data.isOwner() || !gr || typeof gr.under !== 'function' || !gr.w || !gr.h) return empty;
+  if (!features.available() || !gr || typeof gr.under !== 'function' || !gr.w || !gr.h) return empty;
   const style = THEMES[options.theme] || THEMES.coast;
   const armor = new T.Color(style.dragon).multiplyScalar(.48);
   const membraneColor = new T.Color(style.wing).multiplyScalar(.64);
@@ -348,7 +349,7 @@ export function createWildlife(T, scene, options = {}) {
   }
   function update(seconds, view = {}) {
     if (dead) return false;
-    if (!data.isOwner()) { dispose(); return false; }
+    if (!features.available()) { dispose(); return false; }
     lastTime = Number.isFinite(seconds) ? seconds : 0; lastView = view;
     const active = view.active !== false && !(doc && doc.hidden), start = options.fadeStart ?? 140, end = options.fadeEnd ?? 250;
     const fade = Number.isFinite(view.wideVisibility) ? clamp(view.wideVisibility) : smooth(((view.zoom || 0) - start) / Math.max(1, end - start));
@@ -389,7 +390,7 @@ export function createWildlife(T, scene, options = {}) {
   }
   if (media) { if (media.addEventListener) media.addEventListener('change', motionChanged); else if (media.addListener) media.addListener(motionChanged); }
   if (doc) doc.addEventListener('visibilitychange', visibilityChanged);
-  unsubscribe = data.subscribe(type => { if (type === 'me' && !data.isOwner()) { dispose(); if (options.onChange) options.onChange(); } });
+  unsubscribe = data.subscribe(type => { if (type === 'me' && !features.available()) { dispose(); if (options.onChange) options.onChange(); } });
   scene.add(group);
   return {counts, update, dispose};
 }

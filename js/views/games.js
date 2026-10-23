@@ -1,3 +1,4 @@
+import * as features from '../core/features.js';
 // The Daily Games list (the tab's root, views/puzzles.js; the owner's asks, Oct 2026): a shelf of retro game cases, one
 // a game (Daily Puzzles, 17-0, the Two-Minute Drill, Kick It, Return Man, and the owner's Keep), swiped along; under it the one you're on.
 // A game is started from its case (the owner's ask, Oct 2026): a tap on its front brings it up close and opens it, and
@@ -39,7 +40,7 @@ export const GAMES = [
 const byId = id => GAMES.find(g => g.id === id);
 // A game the owner keeps to himself while he builds it: id -> the members whose phones list it and open its page
 // (nobody else's phone loads it or posts it). Keepfall remains the owner's alone; the other games are the league's.
-const ONLY = {keep: [data.OWNER]};
+const ONLY = {};
 /** Whether game id is open on this phone (who: the phone's member). */
 export const gameOpen = (id, who = data.me()) => !ONLY[id] || (!!who && ONLY[id].includes(who));
 /** The games this phone's list shows, in order. */
@@ -260,7 +261,7 @@ function seasonRowsOf(id) {
   return safe(() => M.seasonRows()).map(r => ({...r, val: `${nf(r.y)} yds`, sub: `${plural(r.played, 'day')} · longest ${nf(r.l)}`}));
 }
 const sticker = (cls, text) => `<span class="gm-stk ${cls}">${esc(text)}</span>`;
-const isKeepCase = g => g.id === 'keep' && data.isOwner();
+const isKeepCase = g => g.id === 'keep' && features.available();
 const GLOSS = '<span class="gm-z-gl" aria-hidden="true"></span>'; // (the shine on a case up close)
 /** A case's sides, its name down the spine (views/game-case.js: the case is solid, turned on the shelf or up close). */
 const sidesHTML = g => shellHTML(`<span class="gm-spine"><b>GRIDIRON HUB</b><span>${esc(g.name)}</span></span>`);
@@ -354,7 +355,7 @@ function ctaHTML(s) {
 // (a case that turns before it's played, Return Man: a button under it turns it round to its leaderboard and back, the
 // owner's ask, Oct 22 2026, his profile only: "Add a view scoreboard or flip case button"; mountList's syncFlip keeps
 // its words to the side the case is on)
-const flipHTML = s => (s.turns && s.kind !== 'done' && data.isOwner()
+const flipHTML = s => (s.turns && s.kind !== 'done' && features.available()
   ? `<div class="gm-flipw">${ui.button({label: 'View scoreboard', kind: 'secondary', size: 's', icon: 'trophy', attrs: {'data-gm-flip': '', 'aria-pressed': 'false'}, cls: 'gm-flipb'})}</div>` : '');
 function cdHTML(g) {
   if (g.id === 'puzzles' && newDay()) return `<div class="gm-cdw">${countdownHTML(true)}</div>`;
@@ -404,7 +405,7 @@ export function mountList(el, ctx, opts = {}) {
   // Owner preview: request the new styles and launch module only for Evan's profile.
   // Removing the links and cancelling the overlay also handles profile changes from another tab.
   function syncOwner() {
-    const owner = data.isOwner();
+    const owner = features.available();
     if (st.owner === owner) return;
     if (st.zoom) closeZoom(true);
     st.owner = owner;
@@ -580,7 +581,7 @@ export function mountList(el, ctx, opts = {}) {
     const inside = `<div class="gm-z-tray" aria-hidden="true"><span class="gm-z-emb">GRIDIRON HUB</span></div>`
       + `<div class="gm-z-disc" data-gm-zdisc aria-hidden="true"><span class="gm-z-lab">${img(g.disc)}</span><span class="gm-z-sheen"></span></div>`
       + `<span class="gm-z-hub" aria-hidden="true"></span>`
-      + (play && !data.isOwner() ? `<button type="button" class="gm-z-go" data-gm-zgo disabled aria-label="${esc(`${goLabel(s)} ${g.name}`)}">${ui.icon('play-fill')}<span>${goLabel(s)}</span></button>` : '');
+      + (play && !features.available() ? `<button type="button" class="gm-z-go" data-gm-zgo disabled aria-label="${esc(`${goLabel(s)} ${g.name}`)}">${ui.icon('play-fill')}<span>${goLabel(s)}</span></button>` : '');
     const lid = `<div class="gm-z-lid">${frontHTML(g, s, true)}`
       + `<div class="gm-z-in" aria-hidden="true"><span class="gm-z-bk"><span class="gm-z-book">${img(g.book)}</span>`
       + `<span class="gm-z-clip is-t"></span><span class="gm-z-clip is-b"></span></span></div></div>`;
@@ -594,11 +595,11 @@ export function mountList(el, ctx, opts = {}) {
     const g = byId(id), cs = curCase(id);
     if (!g || !gameOpen(id) || st.zoom) return;
     const s = stateOf(g), replay = board && !!s.turns && s.kind !== 'done', play = s.kind !== 'done' && !replay, keep = isKeepCase(g);
-    const hints = keep ? {back: 'Drag or turn over to see the cover', front: 'Drag to turn · tap the cover to open', open: 'Ready to play · drag or turn over to see the back'} : play ? {front: HINT.front, open: data.isOwner() ? 'Ready to play' : `Press ${goLabel(s)} to play`}
+    const hints = keep ? {back: 'Drag or turn over to see the cover', front: 'Drag to turn · tap the cover to open', open: 'Ready to play · drag or turn over to see the back'} : play ? {front: HINT.front, open: features.available() ? 'Ready to play' : `Press ${goLabel(s)} to play`}
       : replay ? {...HINT, back: 'Drag to turn it · open it from the front to play', front: 'Tap the cover to play'}
       : id === '17-0' ? {...HINT, back: 'Tap a name for their team · drag to turn it'} : HINT;
     const z = document.createElement('div');
-    const owner = data.isOwner();
+    const owner = features.available();
     z.className = `gm-zoom${owner ? ' gm-owner' : ''}${owner && play ? ' gm-has-play' : ''}`;
     z.innerHTML = `<div class="gm-z-scrim" data-gm-zclose></div>`
       + `<div class="gm-z-dlg" role="dialog" aria-modal="true" ${owner ? `aria-label="${esc(g.name)} game case"` : 'aria-labelledby="gm-z-t"'} tabindex="-1">`
@@ -642,7 +643,7 @@ export function mountList(el, ctx, opts = {}) {
     const start = async () => {
       const Z = st.zoom;
       if (!Z || Z.el !== z || Z.launching || st.dead || ctx.visible === false) return;
-      if (owner && !data.isOwner()) { closeZoom(true); return; }
+      if (owner && !features.available()) { closeZoom(true); return; }
       ui.haptic('light');
       if (!owner) { closeZoom(true); if (opts.play) opts.play(id); return; }
       Z.launching = true;
@@ -652,14 +653,14 @@ export function mountList(el, ctx, opts = {}) {
       lidBtn.disabled = true;
       hint.textContent = `Preparing ${g.name}…`;
       const finish = () => {
-        if (st.zoom !== Z || st.dead || ctx.visible === false || !data.isOwner() || !z.isConnected) return;
+        if (st.zoom !== Z || st.dead || ctx.visible === false || !features.available() || !z.isConnected) return;
         closeZoom(true);
         if (opts.play) opts.play(id);
       };
       // Artwork/network trouble must never strand the player behind a loading screen.
       const mod = await Promise.race([st.assets, new Promise(resolve => { Z.launchTimer = setTimeout(() => resolve(null), 1500); })]);
       clearTimeout(Z.launchTimer);
-      if (st.zoom !== Z || st.dead || ctx.visible === false || !data.isOwner() || !z.isConnected) return;
+      if (st.zoom !== Z || st.dead || ctx.visible === false || !features.available() || !z.isConnected) return;
       if (!mod) { finish(); return; }
       try { Z.launch = mod.launchGame({host: z, game: g, reducedMotion: ui.RM, onComplete: finish}); }
       catch (_) { finish(); }

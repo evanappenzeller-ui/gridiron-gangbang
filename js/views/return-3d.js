@@ -1,3 +1,4 @@
+import * as features from '../core/features.js';
 // Return Man's players in real 3D (the owner's ask, Oct 2026: smooth, at the screen's frame rate, not pictures): a
 // rigged, animated football player (models/return-player.glb: "American Football Player" by blakeallen25 on Sketchfab,
 // CC-BY-4.0, https://sketchfab.com/3d-models/american-football-player-10bf41a1c05a4c9cb74676b7dd8cb18e; slimmed by
@@ -115,12 +116,12 @@ function revokePlayerStyle() {
   old.forEach(releaseStyledPlayer);
 }
 function syncPlayerStyle() {
-  if (!data.isOwner()) { revokePlayerStyle(); return; }
+  if (!features.available()) { revokePlayerStyle(); return; }
   if (!GL || styleTried) return;
   styleTried = true;
   const attempt = {}; styleAttempt = attempt;
   import('./return-player-style.js').then(({restyleFootball}) => {
-    if (styleAttempt !== attempt || !data.isOwner()) return;
+    if (styleAttempt !== attempt || !features.available()) return;
     const entries = [];
     try {
       entries.push(styledPlayer(restyleFootball, false));

@@ -1,3 +1,4 @@
+import * as features from '../core/features.js';
 // Kick It: the Daily Games' fourth game (a pane of views/puzzles.js; route /puzzles/kick), after Paper Toss. The field
 // from behind and above the kicker and the holder (third person), at night under the lights; the posts stand somewhere
 // new for every kick (distance and angle), the flags on the uprights and the wind arrow show the wind. Flick the ball
@@ -121,7 +122,7 @@ export function keepHTML({owner, test, made, run, practice} = {}) {
 }
 /** Whether this run shows Keepfall's Gold: the owner's, on a day paid this way (core/kick.js goldDay: from Thu Oct 22
  *  2026), or his Test play (a sandbox: it shows what a real run would, on any day). */
-const keepShows = st => data.isOwner() && (K.testing() || K.goldDay(st.n));
+const keepShows = st => features.available() && (K.testing() || K.goldDay(st.n));
 /** keepHTML for this phone now: '' unless it's the owner's (and the day pays this way). */
 function keepNow(st) {
   const owner = keepShows(st), test = K.testing();
@@ -141,7 +142,7 @@ export function burstHTML(amount = K.GOLD.each) {
  *  false (nothing shown) on anyone else's profile. */
 function coinBurst(st) {
   const stage = st.el.querySelector('[data-kk-stage]');
-  if (st.dead || !stage || !data.isOwner()) return false;
+  if (st.dead || !stage || !features.available()) return false;
   clearBurst(st);
   const sc = st.scene || kickNow(st), p = proj(st, sc.gx, K.POST.bar, sc.d), call = st.el.querySelector('[data-kk-call]');
   const under = call ? call.offsetTop + call.offsetHeight + 12 : st.H * .5;
@@ -167,7 +168,7 @@ const otherRunCounts = st => !K.testing() && !st.day.done && (K.countingRun(st.n
  *  without Keepfall's line; a burst on the field goes if it's no longer the owner's. */
 function patchKeep(st) {
   if (st.dead) return;
-  if (!data.isOwner()) clearBurst(st);
+  if (!features.available()) clearBurst(st);
   const over = st.el.querySelector('[data-kk-over]');
   if (over && !over.hidden && st.day.done && keepNow(st) !== st.keepSig) over.innerHTML = overHTML(st);
 }
@@ -1228,7 +1229,7 @@ export function mount(el, ctx) {
   st.unsub = daily.subscribe(type => {
     if (type === 'lb' || type === 'ready' || type === 'error') patchBoard(st);
     // the owner's card says what the run that counts pays: it may have come in from another of his phones
-    if (type === 'lb' && data.isOwner()) patchKeep(st);
+    if (type === 'lb' && features.available()) patchKeep(st);
   });
   // Keepfall's Gold is the owner's alone: a profile change (here or in another tab) puts it on or takes it off
   st.unme = data.subscribe(type => { if (type === 'me') patchKeep(st); });

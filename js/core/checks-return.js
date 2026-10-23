@@ -452,7 +452,7 @@ export async function returnChecks(check) {
     const week = R.weekRows(2, docs, 2).map(r => `${r.name.split(' ')[0]} ${r.y}/${r.a}`).join(', ');
     const sum = R.attemptsOf(docs.slice(0, 2), 1) === 5 && R.attemptsOf([docs[2]], 1) === null && R.attemptsOf([], 1) === null;
     const view = await fetch(new URL('../views/return.js', import.meta.url)).then(r => r.text()).catch(() => '');
-    const gated = /const attemptsSub = r => \(data\.isOwner\(\) && r\.a != null \?/.test(view) && /\+ attemptsSub\(r\);/.test(view);
+    const gated = /const attemptsSub = r => \(features\.available\(\) && r\.a != null \?/.test(view) && /\+ attemptsSub\(r\);/.test(view);
     const pass = kept && sum && day === 'Mason 400/5, Jacob 300/null' && week === 'Mason 500/6, Jacob 300/null, Tommy 250/6' && gated;
     return {pass, detail: `kept ${kept}; added up ${sum}; day ${day}; week ${week}; on the owner's rows alone ${gated}`};
   });
@@ -510,7 +510,7 @@ export async function returnChecks(check) {
   });
   check('Return Man\'s case has a flip button under it (the owner\'s ask, Oct 22 2026, his profile only: "Add a view scoreboard or flip case button"): View scoreboard turns the case in the middle round to its leaderboard, Flip to the cover turns it back; no one else has the button', async () => {
     const [view, turner] = await Promise.all(['../views/games.js', '../views/game-case.js'].map(f => fetch(new URL(f, import.meta.url)).then(r => r.text()).catch(() => '')));
-    const gated = /const flipHTML = s => \(s\.turns && s\.kind !== 'done' && data\.isOwner\(\)/.test(view) && /<span>Tap the case to play<\/span><\/p>` \+ flipHTML\(s\);/.test(view);
+    const gated = /const flipHTML = s => \(s\.turns && s\.kind !== 'done' && features\.available\(\)/.test(view) && /<span>Tap the case to play<\/span><\/p>` \+ flipHTML\(s\);/.test(view);
     const wired = /if \(e\.target\.closest\('\[data-gm-flip\]'\)\) \{/.test(view) && /turner\.flip\(c\) != null/.test(view) && /shelfTurner\(shelf, \{rest: \(\) => syncFlip\(\)\}\)/.test(view)
       && /on \? 'Flip to the cover' : 'View scoreboard'/.test(view);
     const flips = /flip\(cs\) \{\s*\n\s*if \(!cs \|\| !cs\.matches\('\.gm-case\.is-done, \.gm-case\.is-turns'\)/.test(turner) && /S\.goal = target\(S\) === BACK \? FRONT : BACK;/.test(turner) && /rest\(S\.cs\);/.test(turner);
@@ -733,12 +733,12 @@ export async function returnChecks(check) {
     const back = meshes.every((m, i) => m.geometry === sources[i]) && P.ball.position.equals(ballAt) && freed === moved.length;
     const untouched = sources.every((g, i) => sig(g) === kept[i]);
     const hook = /import \{bulkUp\} from '\.\/return-player-bulk\.js';/.test(styleSrc) && /restore\.push\(bulkUp\(P, T\)\)/.test(styleSrc);
-    const offline = !swSrc.includes("'return-player-bulk'") && swSrc.includes('return-player-(style|bulk)');
+    const offline = swSrc.includes("'js/views/return-player-bulk.js'") && swSrc.includes("'js/views/return-player-style.js'") && !swSrc.includes('return-player-(style|bulk)');
     const want = ['Bodymat', 'shirt_0', 'pants', 'Default'].every(n => names.includes(n)) && !names.includes('sepatu_key.obj');
     const pass = ready && want && thick && shaped && maxStill < 1e-6 && kept2 && seamGap < 1e-6 && norms && padOut === 0 && ballOut > .002 && ballOut < .025 &&
       ghostReady && same && back && untouched && hook && offline && page < 25 && ghostPage < 10;
     const pc = x => (x ? Math.round(x.gain * 100) + '%' : 'none'), mm = x => (x * 1000).toFixed(1);
-    return {pass, detail: `sculpted ${ready} (${names.join(', ')}); at the belly: upper arm +${pc(arm)}, forearm +${pc(fore)}, thigh +${pc(thigh)}, calf +${pc(calf)}; shaped ${shaped} (biceps ${arm ? mm(arm.front) : '-'} mm, its inner side ${arm ? mm(arm.inner) : '-'}; calf's back ${calf ? mm(calf.back) : '-'}, its front ${calf ? mm(calf.front) : '-'}); skin of his hands, feet and head moved ${(maxStill * 1000).toFixed(3)} mm (${still} vertices); UVs, weights and faces kept ${kept2}; ${seams} seam vertices, the widest apart ${(seamGap * 1000).toFixed(3)} mm; normals whole ${norms}; out of a pad ${padOut}; the ball out ${mm(ballOut)} mm; the ghost the same ${same} (${ghostPage.toFixed(1)} ms); undone ${back}; the model untouched ${untouched}; the kit's hook ${hook}; out of the offline cache ${offline}; ${page.toFixed(1)} ms on the page, sculpted in ${Math.round(took)} ms`};
+    return {pass, detail: `sculpted ${ready} (${names.join(', ')}); at the belly: upper arm +${pc(arm)}, forearm +${pc(fore)}, thigh +${pc(thigh)}, calf +${pc(calf)}; shaped ${shaped} (biceps ${arm ? mm(arm.front) : '-'} mm, its inner side ${arm ? mm(arm.inner) : '-'}; calf's back ${calf ? mm(calf.back) : '-'}, its front ${calf ? mm(calf.front) : '-'}); skin of his hands, feet and head moved ${(maxStill * 1000).toFixed(3)} mm (${still} vertices); UVs, weights and faces kept ${kept2}; ${seams} seam vertices, the widest apart ${(seamGap * 1000).toFixed(3)} mm; normals whole ${norms}; out of a pad ${padOut}; the ball out ${mm(ballOut)} mm; the ghost the same ${same} (${ghostPage.toFixed(1)} ms); undone ${back}; the model untouched ${untouched}; the kit's hook ${hook}; shared code available offline ${offline}; ${page.toFixed(1)} ms on the page, sculpted in ${Math.round(took)} ms`};
   });
   // The owner's ask (Oct 21 2026): "remove the snow pile obstacle. add a cone in front of the pothole. this should be the
   // only obstacle you fall into." (His hard course; the league's regular course and board as they were.)
@@ -1000,7 +1000,7 @@ export async function returnChecks(check) {
     const ends = /function endPaused\(st\) \{\s*\n\s*if \(!st\.run \|\| st\.mode !== 'paused'\) return;\s*\n\s*keep\(st\); R\.settle\(st\.n\);/.test(view);
     const test = /function testPlay\(st, on\) \{\s*\n[^\n]*\n\s*endPaused\(st\);\s*\n\s*R\.setTest\(on, st\.n\);/.test(view);
     const day = /endPaused\(st\);\s*\n\s*st\.run = null; st\.mode = 'ready'; setDay\(st, R\.todayNumber\(\)\)/.test(view);
-    const kickoff = /if \(R\.live\(st\.n\)\) \{ R\.settle\(st\.n\);[^\n]*setDay\(st, st\.n\); \}\s*\n[^\n]*\n\s*const own = data\.isOwner\(\), k = st\.day\.next/.test(view);
+    const kickoff = /if \(R\.live\(st\.n\)\) \{ R\.settle\(st\.n\);[^\n]*setDay\(st, st\.n\); \}\s*\n[^\n]*\n\s*const own = features\.available\(\), k = st\.day\.next/.test(view);
     const spark = /const a = Math\.min\(1, Math\.max\(0, \(now - s\.at\) \/ SPARK_MS\)\)/.test(view) && /\} finally \{ c\.restore\(\); \}/.test(view);
     // (the core's side: a run left under way, settled, is the day's run 0, and the next is run 1)
     const left = R.settle.length === 1 && R.live.length === 1;
@@ -1012,17 +1012,17 @@ export async function returnChecks(check) {
     const [view, w3, w2, sw] = await Promise.all([get('../views/return.js'), get('../views/return-3dworld.js'), get('../views/return-world.js'), get('../../sw.js')]);
     const start = /coins = own && R\.coinsOpen\(st\.n, k, own\);\s*\n\s*st\.run = R\.startRun\(st\.n, k, own, coins\);/.test(view)
       && /if \(R\.coinsWait\(st\.n, st\.day\.next, true\)\) \{/.test(view); // (his first kickoff waits for the board)
-    const shown = /const coinsShown = st => !!\(st\.run && st\.run\.coins && data\.isOwner\(\)\)/.test(view) && /if \(coinsShown\(st\)\) A\.coins\.forEach/.test(view) && /const runCoins = st => \(st\.run && st\.run\.coins \? st\.run\.c : undefined\);/.test(view)
+    const shown = /const coinsShown = st => !!\(st\.run && st\.run\.coins && features\.available\(\)\)/.test(view) && /if \(coinsShown\(st\)\) A\.coins\.forEach/.test(view) && /const runCoins = st => \(st\.run && st\.run\.coins \? st\.run\.c : undefined\);/.test(view)
       && /else if \(e\.type === 'coin'\) \{ if \(coinsShown\(st\)\) coinGot\(st, e, now\); else if \(st\.run\) st\.run\.c = Math\.max\(0, st\.run\.c - \(e\.add \?\? 1\)\); \}/.test(view);
     // (taken away when the board shows another of his phones ran first; a profile change hides them and, on his hard
     // course, ends the run where it is (the frame's whistle), keeping the ones he took: kept with the run, runCoins)
     const recheck = /recheckCoins\(st\); \/\/ \(the board's in/.test(view) && /recheckCoins\(st\);\s*\n/.test(view)
-      && /if \(!run \|\| !run\.coins \|\| run\.over \|\| R\.testing\(\) \|\| !data\.isOwner\(\)\) return;\s*\n\s*if \(!R\.ranElsewhere\(st\.n\)\) return;\s*\n\s*R\.dropCoins\(run\)/.test(view)
-      && /st\.run\.co\.hard && !data\.isOwner\(\)\) \{ R\.stop\(st\.run\); tackled\(st\); \}/.test(view);
-    const card = /if \(!data\.isOwner\(\) \|\| !run \|\| !run\.co\.hard\) return '';/.test(view) && /if \(!R\.testing\(\) && st\.n < R\.COIN\.fromDay\) return '';/.test(view)
+      && /if \(!run \|\| !run\.coins \|\| run\.over \|\| R\.testing\(\) \|\| !features\.available\(\)\) return;\s*\n\s*if \(!R\.ranElsewhere\(st\.n\)\) return;\s*\n\s*R\.dropCoins\(run\)/.test(view)
+      && /st\.run\.co\.hard && !features\.available\(\)\) \{ R\.stop\(st\.run\); tackled\(st\); \}/.test(view);
+    const card = /if \(!features\.available\(\) \|\| !run \|\| !run\.co\.hard\) return '';/.test(view) && /if \(!R\.testing\(\) && st\.n < R\.COIN\.fromDay\) return '';/.test(view)
       && ['Coins are only on your first run.', 'Your first run today was on another phone: its coins are the ones that count.', 'No coins this run', '(test play: not paid)'].every(w => view.includes(w)) && /Gold for Keepfall/.test(view)
       && /const c = run\.c, gold = nf\(R\.payOf\(c\)\);/.test(view); // (the day's pay: the base and the coins, capped: core payOf)
-    const one = (w3.match(/new T\.InstancedMesh\(/g) || []).length === 1 && /function coinsUpdate\(st, A, t\) \{\s*\n\s*if \(!\(A && st\.run && st\.run\.coins && data\.isOwner\(\)\)\)/.test(w3) && /m\.castShadow = false/.test(w3);
+    const one = (w3.match(/new T\.InstancedMesh\(/g) || []).length === 1 && /function coinsUpdate\(st, A, t\) \{\s*\n\s*if \(!\(A && st\.run && st\.run\.coins && features\.available\(\)\)\)/.test(w3) && /m\.castShadow = false/.test(w3);
     const flat = /export function coin\(st, c, cn, t\)/.test(w2) && !/coin[^'"\n]*\.(png|jpe?g|webp|glb|svg)/i.test(w2 + w3 + view) && !/coin/i.test(sw);
     const host = document.createElement('div');
     host.innerHTML = (await import('../views/return.js')).render({});

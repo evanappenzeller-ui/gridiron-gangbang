@@ -29,34 +29,21 @@ export async function realmChecks(check) {
   const [kk, rm, sv, dr] = await Promise.all([import('./kick.js'), import('./return.js'), import('./seventeen.js').then(async m => { await m.load(); return m; }),
     import('./drill.js').then(async m => { await m.load(); return m; })]);
 
-  check('Keepfall: the owner’s alone: its Daily Games case and pushed route open only on his phones; it has no separate tab, its screens are empty elsewhere and its save refuses; it reads only his own board docs, never LB.all, and attacks and scouts only the computer’s realms', async () => {
-    const owner = !!data.isOwner();
-    const [app, view, raid, scout, games, replayView] = await Promise.all([import('../app.js'), import('../views/realm.js'), import('../views/realm-raid.js'), import('../views/realm-scout.js'), import('../views/games.js'), import('../views/realm-replay.js')]);
-    const may = F.mayPlay() === owner;
-    const btn = document.querySelector('#tabbar .tab[data-tab="realm"]');
-    const route = app.parseRoute('/puzzles/keep'), legacy = app.parseRoute('/realm');
-    const tab = !app.TABS.includes('realm') && (!btn || btn.hidden)
-      && games.gamesFor().some(g => g.id === 'keep') === owner
-      && (owner ? route.view === 'realm' && route.open === 'push' && route.tab === 'puzzles' : route.path === '/puzzles')
-      && legacy.path === route.path;
-    const screens = [view.default, raid.default, scout.default, replayView.default].every(v => /rl-none/.test(v.render()) === !owner);
-    const files = ['../views/realm.js', '../views/realm-raid.js', '../views/realm-scout.js', './realm.js', './realm-battle.js', '../views/realm-replay.js'];
-    const src = await Promise.all(files.map(f => fetch(new URL(f, import.meta.url)).then(r => r.text())));
-    const all = files.filter((f, i) => /LB\.all\b/.test(src[i]));
-    const fl = src[3].slice(src[3].indexOf('export async function flush'));
-    const guard = /!mayPlay\(\)[^\n]*\) return false;/.test(fl.slice(0, fl.indexOf('LB.put(')));
-    const refused = owner ? 'not tried (the owner’s phone)' : String(await F.flush());
-    const others = [{id: 'fx-m', nick: data.me() === 'mason' ? 'Evan' : 'Mason', fr1: F.fresh(T0)}, {id: 'fx-g', nick: 'Zed Q', g: true, fr1: F.fresh(T0)}];
-    const mineOnly = F.myDocs(others).length === 0 && (!daily.LB.uid || F.myDocs(others.concat({id: daily.LB.uid, nick: daily.LB.nick})).length === 1);
+  check('Keepfall v3: shared routes, selected profiles, isolated saves and computer-only raids', async () => {
+    const eligible = !!(data.me() || data.guest());
+    const [app, view, games] = await Promise.all([import('../app.js'), import('../views/realm.js'), import('../views/games.js')]);
+    const route = app.parseRoute('/puzzles/keep');
+    const routed = route.view === 'realm' && route.open === 'push' && route.tab === 'puzzles' && games.gamesFor().some(g => g.id === 'keep');
+    const src = await fetch(new URL('./realm.js', import.meta.url)).then(r => r.text());
+    const scoped = src.includes('key !== profileKey()') && src.includes("fields = ['fr3.' + key]") && src.includes("PROFILE.startsWith('g_') && p.id !== daily.LB.uid");
     const tg = view.targets(T0, F.fresh(T0));
     const bots = tg.length === F.BOTS.length && tg.every(x => x.k.startsWith('bot:')) && !!F.realmOf('mason', F.fresh(T0)).why;
-    const ok = may && tab && screens && !all.length && guard && (owner || refused === 'false') && mineOnly && bots;
-    return {pass: ok, detail: `this phone the owner’s: ${owner}; mayPlay ${F.mayPlay()}; tab ${tab}; screens ${screens}; ${all.length ? 'reads LB.all: ' + all.join(', ') : 'LB.raw only'}; save guarded ${guard}, refused here: ${refused}; only his docs ${mineOnly}; attackable ${tg.map(x => x.k).join(',')}`};
+    return {pass: F.mayPlay() === eligible && routed && scoped && bots, detail: 'Shared access, profile save guards and computer-only opponents'};
   });
 
   check('Keepfall: scouting (views/realm-scout.js, #/realm/scout/<realm>): each of the computer’s realms can be looked round before it’s attacked, the same lot and take the attack meets, its defenses counted, a building’s card saying what it does and holds (a Dragon Hatchery there has no Dragon Hero defending it, nor a keeper: Oct 23 2026), a defense’s reach drawn round it; looking changes nothing', async () => {
     const [app, view, scout] = await Promise.all([import('../app.js'), import('../views/realm.js'), import('../views/realm-scout.js')]);
-    const r = app.__dev.parseRoute('/realm/scout/bot%3A4'), routed = !data.DATA || !data.isOwner() ? true : !!r && r.view === 'realm-scout' && r.open === 'cover';
+    const r = app.__dev.parseRoute('/realm/scout/bot%3A4'), routed = !data.DATA ? true : !!r && r.view === 'realm-scout' && r.open === 'cover';
     // (a realm at the top Castle: every one of theirs in reach, Castle 4's rule aside: its own check)
     const s = F.fresh(T0);
     s.b.find(b => b.t === 'keep').l = F.MAX_KEEP;
@@ -256,7 +243,7 @@ export async function realmChecks(check) {
   });
 
   // ---- count from the start day (the owner, Oct 22 2026): a realm is paid only for the game days from the day it began
-  check('Keepfall: count from the start day (the owner, Oct 22 2026): a realm is paid only for the game days from the day it began on (its born, in each game’s own numbering: startNumbers), old pay or new: one begun today earns today’s games alone (today’s Kick It and Return Man Gold, today’s places still pending; nothing for yesterday’s place or any day before), one begun yesterday adds yesterday’s, one begun before the season (or none given) the whole season as before; a game whose days aren’t loaded pays nothing till they are; a realm started over for testing is begun that moment, and clean() keeps when it began', () => {
+  check('Keepfall: count from the start day (the owner, Oct 22 2026): a realm is paid only for the game days from the day it began on (its born, in each game’s own numbering: startNumbers), old pay or new: one begun today earns today’s games alone (today’s Kick It and Return Man Gold, today’s places still pending; nothing for yesterday’s place or any day before), one begun yesterday adds yesterday’s, one begun before the season (or none given) the whole season as before; a game whose days aren’t loaded pays nothing till they are; a realm ordinary v3 restart is begun that moment, and clean() keeps when it began', () => {
     const E = econ();
     if (!E) return {pass: false, detail: 'the league or the puzzles didn’t load'};
     const {AT_N} = E, G = {sv, dr, kk, rm}, docs = [E.e1, E.e2], opts = from => ({board: E.board, me: data.OWNER, at: AT, from});
@@ -278,9 +265,9 @@ export async function realmChecks(check) {
     // (the start's numbers: each game's own day; a game begun after it, its day 1; a game whose days aren't loaded, never)
     const sn = F.startNumbers(G, b0), early = F.startNumbers(G, new Date(2026, 0, 1).getTime()), bare = F.startNumbers({}, b0);
     const nums = Object.keys(AT_N).every(g => sn[g] === AT_N[g]) && Object.values(early).every(v => v === 1) && ['17-0', 'drill', 'kick', 'return'].every(g => bare[g] === Infinity);
-    // (started over for testing: a new realm, begun that moment; clean() keeps when)
+    // (ordinary v3 restart: a new realm, begun that moment; clean() keeps when)
     const t = F.testRealm({nm: 'House X', at: T0 - DAY}, T0), kept = F.clean(JSON.parse(JSON.stringify(t)));
-    const reset = t.born === T0 && t.tst === 1 && !!kept && kept.born === T0 && F.fresh(T0).born === T0;
+    const reset = t.born === T0 && !t.tst && !F.testing(t) && t.rs === F.TEST_RESET && !!kept && kept.born === T0 && F.fresh(T0).born === T0;
     const ok = today && yesterday && season && nums && reset;
     return {pass: ok, detail: `begun today: ${JSON.stringify(t0.total)}, by ${Object.keys(t0.by).join('/')} (${todayGold} Gold today) ${today}; begun yesterday: ${JSON.stringify(t1.total)} (want ${yGold} Gold, ${yAle} Ale) ${yesterday}; before the season or none: ${JSON.stringify(all.total)} / ${JSON.stringify(none.total)}, the season ${JSON.stringify(E.inc.total)} ${season}; start numbers ${JSON.stringify(sn)} ${nums}; started over ${reset}`};
   });
@@ -466,13 +453,13 @@ export async function realmChecks(check) {
     return {pass: room && centred && moved, detail: `the base ${B}×${B} (${B * B} tiles), the top Castle’s lot ${need} (${Math.round(need / B / B * 100)}%); laid out round the middle ${centred}; an old save moved ${by} over, once ${moved}`};
   });
 
-  check('Keepfall: the lands (Oct 2026): a realm starts on the coast; Christmas Kingdom is available to Evan at Castle 1 only; raising the Castle unlocks the Enchanted Forest (level 2), the Frozen Tundra (3), the Ocean Sanctuary (5), the Amber Desert (6) and the Infernal Wastes (7); scenery choices persist, can return to the coast, and unavailable choices fall back safely', () => {
-    const s = F.fresh(T0), keep = s.b.find(b => b.t === 'keep'), owner = !!data.isOwner();
-    const start = F.sceneryOf(s) === 'coast' && F.SCENERIES.filter(x => F.sceneryOpen(s, x.k)).map(x => x.k).sort().join() === (owner ? 'christmas,coast' : 'coast');
+  check('Keepfall: the lands (Oct 2026): a realm starts on the coast; Christmas Kingdom is available to everyone at Castle 1; raising the Castle unlocks the Enchanted Forest (level 2), the Frozen Tundra (3), the Ocean Sanctuary (5), the Amber Desert (6) and the Infernal Wastes (7); scenery choices persist, can return to the coast, and unavailable choices fall back safely', () => {
+    const s = F.fresh(T0), keep = s.b.find(b => b.t === 'keep'), owner = !!F.mayPlay();
+    const start = F.sceneryOf(s) === 'coast' && F.SCENERIES.filter(x => F.sceneryOpen(s, x.k)).map(x => x.k).sort().join() === 'christmas,coast';
     const early = !F.pickScenery(s, 'tundra') && F.sceneryOf(s) === 'coast';
     const at = {};
     for (let l = 1; l <= F.MAX_KEEP; l++) { keep.l = l; F.SCENERIES.forEach(x => { if (at[x.k] == null && F.sceneryOpen(s, x.k)) at[x.k] = l; }); }
-    const levels = at.coast === 1 && at.forest === 2 && at.tundra === 3 && at.ocean === 5 && at.desert === 6 && at.infernal === 7 && (owner ? at.christmas === 1 : at.christmas == null);
+    const levels = at.coast === 1 && at.forest === 2 && at.tundra === 3 && at.ocean === 5 && at.desert === 6 && at.infernal === 7 && at.christmas === 1;
     keep.l = 5;
     const picked = F.pickScenery(s, 'ocean') && F.sceneryOf(s) === 'ocean' && !F.pickScenery(s, 'infernal') && F.sceneryOf(s) === 'ocean';
     const kept = F.sceneryOf(F.clean(JSON.parse(JSON.stringify(s)))) === 'ocean';
@@ -481,10 +468,8 @@ export async function realmChecks(check) {
     const back = F.pickScenery(s, 'coast') && F.sceneryOf(s) === 'coast' && s.sc === '';
     const holiday = F.fresh(T0), christmasPick = F.pickScenery(holiday, 'christmas');
     const holidaySave = F.clean({...F.fresh(T0), sc: 'christmas'});
-    const christmas = owner
-      ? christmasPick && F.keepOf(holiday) === 1 && F.sceneryOf(holiday) === 'christmas' && F.sceneryOf(F.clean(JSON.parse(JSON.stringify(holiday)))) === 'christmas'
-        && F.pickScenery(holiday, 'coast') && holiday.sc === '' && F.sceneryOf(holiday) === 'coast'
-      : !christmasPick && F.sceneryOf(holiday) === 'coast' && F.sceneryOf(holidaySave) === 'coast';
+    const christmas = christmasPick && F.keepOf(holiday) === 1 && F.sceneryOf(holiday) === 'christmas' && F.sceneryOf(F.clean(JSON.parse(JSON.stringify(holiday)))) === 'christmas'
+        && F.pickScenery(holiday, 'coast') && holiday.sc === '' && F.sceneryOf(holiday) === 'coast';
     return {pass: start && early && levels && picked && kept && fallback && back && christmas, detail: `starts on the coast ${start}; the tundra at Castle 1 refused ${early}; unlocked at ${JSON.stringify(at)}; at Castle 5 the ocean picked, the wastes refused ${picked}; kept in the save ${kept}; a pick not open (or unknown) on the coast ${fallback}; back to the coast ${back}; Christmas selection/persistence/owner restriction ${christmas}`};
   });
 
@@ -519,7 +504,7 @@ export async function realmChecks(check) {
   });
 
   check('Keepfall: a dragon flies over the walls (it never stops to break one) and the trebuchet and pitch cauldron can’t touch it, though they hit a knight; a ballista can (the Dragon Hero, on his phone; and the trained dragon of a raid recorded before Oct 22 2026, played under its rules)', () => {
-    const owner = !!data.isOwner();
+    const owner = !!F.mayPlay();
     const b = [{i: 1, t: 'keep', l: 1, x: 16, y: 16, u: 0}, {i: 2, t: 'trebuchet', l: 1, x: 9, y: 17, u: 0}, {i: 3, t: 'cauldron', l: 1, x: 25, y: 17, u: 0}];
     let i = 10;
     for (let d = 13; d <= 23; d++) [[d, 13], [d, 23], [13, d], [23, d]].forEach(([x, y]) => { if (!b.some(q => q.t === 'wall' && q.x === x && q.y === y)) b.push({i: i++, t: 'wall', l: 2, x, y, u: 0}); });
@@ -544,7 +529,7 @@ export async function realmChecks(check) {
   });
 
   check('Keepfall: the cannon and the Dragon Hatchery (Oct 2026): a cannon’s crew hits a footman but never a dragon; the hatchery is built from Castle level 4 (one; was 6, Oct 22 2026) and hatches the Dragon Hero, no dragon trains at the barracks; a cannon saved now stays a cannon (only an old Franchise save’s cannons are ballistas); the computer’s realms from Castle 4 have a hatchery (no Dragon Hero defends them)', () => {
-    const owner = !!data.isOwner();
+    const owner = !!F.mayPlay();
     const base = {b: [{i: 1, t: 'keep', l: 1, x: 16, y: 16, u: 0}, {i: 2, t: 'cannon', l: 1, x: 10, y: 17, u: 0}]};
     const A = makeBattle(base, null, {footman: 1}), man = A.deploy('footman', 4, 18);
     A.run(20);
@@ -629,7 +614,7 @@ export async function realmChecks(check) {
   });
 
   check('Keepfall: the dragon in 3D (the owner’s ask, Oct 22 2026: “use model for dragons”; views/realm-dragon.js, models/keep-dragon.glb: “Mountain Dragon” by Alexey Zaika, CC BY 4.0): its model loads on his phone alone and never into the shared offline cache, with its five clips; every dragon in a battle (the troop, the Dragon Hero, one defending) gets a model of its own, a hero his ring and badge (the heroes’ walkers leave it alone); it rears before each strike and lunges on the battle’s shot, drops and lands once when it dies (a hero’s ring and badge gone as he falls), a flock of up to 24 all from it and a bigger one all the picture (one look; the hero still the model); a hero’s badge drawn over everything, green defending; while the model isn’t in, or never comes, the picture; at home it rests over a built Dragon Hatchery; How to play credits it', async () => {
-    const owner = !!data.isOwner();
+    const owner = true;
     const [D, NPC, view, T] = await Promise.all([import('../views/realm-dragon.js'), import('../views/realm-npcs.js'), import('../views/realm.js'), import('../vendor/three/three.module.min.js')]);
     const kinds = D.isDragonKind('dragon') && D.isDragonKind('hero_dragon') && !['knight', 'hero_knight', 'hero_wizard', 'footman', '', undefined].some(D.isDragonKind);
     // (at home: the Dragon Hero, once he's hatched (a hatchery at level 1 or more), at his level (its best): none while
@@ -641,7 +626,7 @@ export async function realmChecks(check) {
     // (the offline cache: the model never in it, sw.js sends it to the network; its code is, for the picture offline)
     const sw = await fetch(new URL('../../sw.js', import.meta.url)).then(r => r.text(), () => '');
     const lists = sw.slice(sw.indexOf('const CORE'), sw.indexOf('const TIMEOUT'));
-    const cache = !!lists && !/\.glb|keep-dragon|models\//.test(lists) && /'realm-dragon'/.test(lists) && sw.includes('/\\/models\\/keep-dragon\\.glb$/.test(url.pathname)');
+    const cache = !!lists && !/\.glb|keep-dragon|models\//.test(lists) && /'realm-dragon'/.test(lists) && sw.includes('isCacheFirst(url)');
     // (the credit, under How to play)
     const hi = (view._screens(F.fresh(T0), T0).find(p => p.where === 'Keepfall') || {}).html || '';
     const credit = hi.includes(D.CREDIT.title) && hi.includes(D.CREDIT.author) && hi.includes(D.CREDIT.license) && hi.includes(`href="${D.CREDIT.url}"`) && hi.includes(`href="${D.CREDIT.licenseUrl}"`);
@@ -666,7 +651,7 @@ export async function realmChecks(check) {
       drawn = none.drawn.size || none.counts.pictures || none.counts.heroes ? 'DRAWN' : 'nothing drawn';
       none.dispose();
       const pass = kinds && home && cache && credit && leftAlone && loads === 'refused here' && drawn === 'nothing drawn';
-      return {pass, detail: `kinds ${kinds}; home ${home}; out of the offline cache ${cache}; credited ${credit}; the walkers leave it ${leftAlone}; the model ${loads}, ${drawn}`};
+      return {pass, detail: `kinds ${kinds}; home ${home}; cached after first use ${cache}; credited ${credit}; the walkers leave it ${leftAlone}; the model ${loads}, ${drawn}`};
     }
     const ok = await D.loadDragon(), st = D.dragonState();
     loads = ok && st.state === 'ready' && D.CLIPS.every(c => st.clips.includes(c)) ? `in, clips ${st.clips.join(' ')}` : `NOT IN (${st.state}, clips ${st.clips.join(' ') || 'none'})`;
@@ -744,11 +729,11 @@ export async function realmChecks(check) {
     pic.dispose();
     bad = scene.children.length ? `${scene.children.length} left in the scene` : '';
     const pass = kinds && home && cache && credit && leftAlone && loads.startsWith('in,') && drawn.startsWith('3 models') && fall.startsWith('fell,') && strikes.includes('each lunge') && crowd.startsWith('16 and') && fallback.startsWith('pictures') && !bad;
-    return {pass, detail: `kinds ${kinds}; home ${home}; out of the offline cache ${cache}; credited ${credit}; the walkers leave it ${leftAlone}; the model ${loads}; ${drawn}; killed: ${fall}; strikes: ${strikes}; a crowd: ${crowd}; without it: ${fallback}${bad ? '; ' + bad : ''}`};
+    return {pass, detail: `kinds ${kinds}; home ${home}; cached after first use ${cache}; credited ${credit}; the walkers leave it ${leftAlone}; the model ${loads}; ${drawn}; killed: ${fall}; strikes: ${strikes}; a crowd: ${crowd}; without it: ${fallback}${bad ? '; ' + bad : ''}`};
   });
 
   check('Keepfall: the dragon model’s life (Oct 23 2026): a view gone the moment its dragon was readied for a renderer leaves nothing behind (no error from a timer of its own: compileAsync’s threw); the model let go a little after the last view that drew one is gone (each renderer that drew it kept hold of it); another tab clearing its storage (no key: core/data.js doesn’t hear it) takes the dragons away at once, till he’s picked again; the heroes’ badges in a raid drawn over everything, green defending', async () => {
-    const owner = !!data.isOwner();
+    const owner = true;
     const [D, NPC, T] = await Promise.all([import('../views/realm-dragon.js'), import('../views/realm-npcs.js'), import('../vendor/three/three.module.min.js')]);
     if (!owner) {
       const n = D.dragonState().loads, ok = await D.loadDragon();
@@ -870,10 +855,10 @@ export async function realmChecks(check) {
     const words = JSON.stringify(whys) === JSON.stringify(['Raids open at Castle level 4', 'Castle level 5', 'Castle level 7', '', '', 'Raids open at Castle level 4']) && F.targetAt('bot:2') === 4 && F.targetAt('bot:8') === 7;
     const r3 = F.realmOf('bot:1', at(3), T0), r6 = F.realmOf('bot:6', at(4), T0), sc6 = F.realmOf('bot:6', at(4), T0, {scout: true}), any = F.realmOf('bot:8', null, T0);
     const realms = r3.locked && r3.why === 'Raids open at Castle level 4' && r6.locked && r6.why === 'Castle level 5' && !sc6.why && sc6.th === 6 && !any.why && any.th === 8;
-    const owner = !!data.isOwner();
+    const owner = !!F.mayPlay();
     const k3 = F.canRecruitHero(at(3), 'knight'), k4 = F.canRecruitHero(at(4), 'knight'), w3 = F.canRecruitHero(at(4), 'dragon');
     const heroes = F.HEROES.knight.at === 4 && F.HEROES.dragon.at === 4 && !F.HEROES.wizard
-      && (owner ? k3.why === 'Needs Castle level 4' && !w3.ok && w3.why.includes('Dragon Hatchery (Castle level 4)') && k4.ok : !k3.ok && !k4.ok && !w3.ok && /Evan/.test(k4.why));
+      && (owner ? k3.why === 'Needs Castle level 4' && !w3.ok && w3.why.includes('Dragon Hatchery (Castle level 4)') && k4.ok : !k3.ok && !k4.ok && !w3.ok && /Choose your profile/.test(k4.why));
     const had = Object.assign(at(2), {hr: {knight: 2}}), kept = F.clean(JSON.parse(JSON.stringify(had)));
     const stays = !!kept && kept.hr.knight === 2 && F.heroLevel(kept, 'knight') === 2 && (owner ? F.heroLevels(kept).knight === 2 : true);
     const raided = defend(at(3), T0).length >= 1 && !defend(at(2), T0).length && !defend(at(1), T0).length;
@@ -896,7 +881,7 @@ export async function realmChecks(check) {
     const src = await fetch(new URL('./realm-battle.js', import.meta.url)).then(r => r.text()).catch(() => '');
     const gate = /if \(keepOf\(s\) < DEFEND_AT\) \{ s\.lr = Math\.max\(s\.lr \|\| 0, now\); return \[\]; \}/.test(src);
     // (the examples: on his phone, three on a Castle 2 realm as on any other; nothing on anyone else's)
-    const owner = !!data.isOwner(), two = at(2), ex = exampleRaids(two, T0);
+    const owner = !!F.mayPlay(), two = at(2), ex = exampleRaids(two, T0);
     const examples = owner ? ex.length >= 1 && (two.ex || []).length === ex.length && !two.df.length : !ex.length;
     return {pass: said && gate && examples && heroWords, detail: `the words ${said}; how the heroes come ${heroWords}; defend’s gate ${gate}; example raids on a Castle 2 realm: ${ex.map(r => `${r.st}★`).join(' ') || 'none'} ${examples}`};
   });
@@ -934,7 +919,7 @@ export async function realmChecks(check) {
   const top = () => { const s = F.fresh(T0 - 3 * DAY); s.b.find(b => b.t === 'keep').l = F.MAX_KEEP; s.ar = {footman: 40, archer: 20, knight: 6}; return s; };
 
   check('Keepfall: raid replays: an attack is recorded with its replay (rp: the realm’s lot as it stood, its take, the army, every drop, the step it ended on, the heroes) and played again from it it’s the same raid: the same stars, % and take, building by building, ended where it ended (End pressed or not), however its clock is run (all at once or a frame at a time, at any speed); the replay draws the lot it was, from the record', () => {
-    const owner = !!data.isOwner(), s = top();
+    const owner = !!F.mayPlay(), s = top();
     const a = attack(s, 'bot:4', {footman: 14, archer: 8, knight: 2}, owner ? {knight: 3, dragon: 2} : {}, 41.3);
     const b = attack(s, 'bot:1', {footman: 20}, {}, F.RAID_S);
     const out = [a, b].map(({T, B, r, rec}) => {
@@ -961,7 +946,7 @@ export async function realmChecks(check) {
 
   check('Keepfall: raid replays: each of the computer’s raids on his realm is recorded with its replay (his lot then, his defending heroes, the computer’s drops as they went in) and plays again the same: the same stars, % and take; it shows the lot as it was even after he’s moved and upgraded since', () => {
     // (Castle 3: the computer raids him from there, Oct 22 2026, was 2)
-    const owner = !!data.isOwner(), s = F.fresh(T0 - 3 * DAY);
+    const owner = !!F.mayPlay(), s = F.fresh(T0 - 3 * DAY);
     s.b.find(b => b.t === 'keep').l = 3;
     s.hr = {knight: 2};
     s.r = {gold: 4000, grain: 4000};
@@ -1044,7 +1029,7 @@ export async function realmChecks(check) {
     delete bare.ex; delete bare.exv; delete bare.lots;
     [...bare.rd, ...bare.df].forEach(r => { delete r.rp; });
     const full = JSON.stringify(big).length, without = JSON.stringify(bare).length, lots = Object.keys(big.lots || {}), walls = F.countOf(big, 'wall');
-    const owner = !!data.isOwner(), bex = big.ex || [];
+    const owner = !!F.mayPlay(), bex = big.ex || [];
     const small = big.rd.filter(r => r.rp).length === 10 && big.df.filter(r => r.rp).length === 10 && bex.length === (owner ? 3 : 0) && lots.length === 1
       && [...big.df, ...bex].every(r => r.rp.L === lots[0]) && big.rd.every(r => /^b8\./.test(r.rp.L)) && full - without < 20000 && walls === 225;
     const plays8 = F.decodeReplay(big.df[9].rp, big) && F.decodeReplay(big.rd[9].rp, big) && (!owner || F.decodeReplay(bex[0].rp, big));
@@ -1053,7 +1038,7 @@ export async function realmChecks(check) {
   });
 
   check('Keepfall: example raids (the owner’s ask, Oct 22 2026): three of the computer’s raids on his realm as it is, played for real and recorded with replays: one driven off (no star), one taking a star, one breaking through (three); in their own list (ex, never the raids on him), the same each time, and they take nothing: his stores, piles, glory, truce and raids untouched; made once by themselves, cleared and made again on his say; on anyone else’s phone none are made and no replay plays', () => {
-    const owner = !!data.isOwner();
+    const owner = !!F.mayPlay();
     const realm = () => {
       const s = F.fresh(T0 - 3 * DAY), B4 = F.botBase(4);
       s.b = B4.b.map(b => Object.assign({}, b, F.KINDS[b.t].role === 'make' ? {c: T0 - 6 * F.HOUR} : {}));
@@ -1114,7 +1099,7 @@ export async function realmChecks(check) {
   });
 
   check('Keepfall: a copy of his realm saved by a phone that never had the example raids (an older version, or one that hadn’t made them) doesn’t lose them: this phone’s are kept, with the lot they were played on, and so are a record’s replay the newer copy lacks; examples cleared on another phone stay cleared', () => {
-    const owner = !!data.isOwner();
+    const owner = !!F.mayPlay();
     const mk = () => { const s = F.fresh(T0 - 3 * DAY); s.b.find(b => b.t === 'keep').l = 3; s.r = {gold: 9000, grain: 9000}; return s; };
     const local = mk();
     local.ex = [{id: 'x1', at: T0, by: 'Mossgate', th: 3, st: 0, pc: 10, lt: [0, 0], ls: [0, 0], lb: {}, td: 0, ex: true}];
@@ -1135,7 +1120,7 @@ export async function realmChecks(check) {
   });
 
   check('Keepfall: the example raids are made a slice at a time on his phone (exampleRaidsAsync: at once they held Keepfall still for seconds), the same three as all at once, put on the realm as it is when they’re done; stopped (Keepfall closed, another profile) nothing is put anywhere; on anyone else’s phone none', async () => {
-    const owner = !!data.isOwner();
+    const owner = !!F.mayPlay();
     const realm = () => {
       const s = F.fresh(T0 - 3 * DAY), B5 = F.botBase(5);
       s.b = B5.b.map(b => Object.assign({}, b, F.KINDS[b.t].role === 'make' ? {c: T0 - 6 * F.HOUR} : {}));
@@ -1182,7 +1167,7 @@ export async function realmChecks(check) {
     t.innerHTML = page ? page.html : '';
     const ids = [...t.content.querySelectorAll('[data-rl-watch]')].map(e => e.getAttribute('data-rl-watch')).sort().join();
     const want = ['a1', 'd1', 'x1'].join();
-    const route = await import('../app.js').then(app => { const r = app.parseRoute('/realm/replay/d1'); return data.isOwner() ? !!r && r.view === 'realm-replay' && r.params && r.params.id === 'd1' : !r || r.view !== 'realm-replay'; }).catch(() => false);
+    const route = await import('../app.js').then(app => { const r = app.parseRoute('/realm/replay/d1'); return !!r && r.view === 'realm-replay' && r.params && r.params.id === 'd1'; }).catch(() => false);
     return {pass: !!page && ids === want && route, detail: `▶ on ${ids || 'nothing'} (want ${want}); the route ${route}`};
   });
 
@@ -1285,7 +1270,7 @@ export async function realmChecks(check) {
   };
 
   check('Keepfall: the Dragon Hero takes the Wizard Hero’s place (Oct 22 2026): the heroes are the Knight and the Dragon; the Dragon hatches when the first Dragon Hatchery is built (level 1) and his level is the hatchery’s, 1 to 10 (one being upgraded counts at the level it has), stronger at every level (health and fire), at 1 a little more than the Wizard Hero was at 2 and at 10 well past a trained dragon; no Gold recruits or upgrades him, and nothing saved (hr.dragon) makes or raises him; the computer’s lots have none', () => {
-    const owner = !!data.isOwner();
+    const owner = !!F.mayPlay();
     const order = F.HERO_ORDER.join() === 'knight,dragon' && !F.HEROES.wizard && F.HEROES.dragon.troop === 'hero_dragon' && F.HEROES.dragon.name === 'Dragon Hero';
     const going = withHatch(4, 0, {u: T0 + F.HOUR}), up = withHatch(8, 3, {u: T0 + F.HOUR});
     const hatches = F.heroLevel(withHatch(4, null), 'dragon') === 0 && F.heroLevel(going, 'dragon') === 0 && F.heroLevel(withHatch(4, 1), 'dragon') === 1 && F.heroLevel(up, 'dragon') === 3;
@@ -1297,7 +1282,7 @@ export async function realmChecks(check) {
     const rich = withHatch(8, 2); rich.r = {gold: 999999, grain: 999999};
     const before = JSON.stringify(rich), rc = F.canRecruitHero(rich, 'dragon'), uc = F.canUpgradeHero(rich, 'dragon');
     const noGold = !rc.ok && !uc.ok && !rc.cost && !uc.cost && !F.recruitHero(rich, 'dragon') && !F.upgradeHero(rich, 'dragon') && JSON.stringify(rich) === before
-      && (owner ? /Dragon Hatchery/.test(uc.why) : /Evan/.test(uc.why));
+      && (owner ? /Dragon Hatchery/.test(uc.why) : /Choose your profile/.test(uc.why));
     // (forged: the roster can't make him or raise him; clean() drops it)
     const forged = withHatch(8, null); forged.hr = {knight: 2, dragon: 10};
     const forged2 = withHatch(8, 2); forged2.hr = {dragon: 10};
@@ -1332,7 +1317,7 @@ export async function realmChecks(check) {
   });
 
   check('Keepfall: the computer’s raids from Castle 7 bring its Dragon Hero (the hatchery’s level on the raiding realm’s lot), leading with the knights, where a trained dragon came before; none brings a trained dragon, its army still fills its room; the example raids’ biggest armies are knights and archers led by its Dragon Hero, and still find a raid driven off, one taking a star and one breaking through (a Castle 4 realm and a Castle 8 test realm)', () => {
-    const owner = !!data.isOwner();
+    const owner = !!F.mayPlay();
     const armies = Array.from({length: 8}, (_, i) => raidArmy(i + 1));
     const noDragons = armies.every((a, i) => !('dragon' in a) && F.roomOf(a) === 10 + (i + 1) * 5);
     const heroes = Array.from({length: 8}, (_, i) => raidHeroes(i + 1));
@@ -1356,7 +1341,7 @@ export async function realmChecks(check) {
   });
 
   check('Keepfall: raid replays recorded before the Dragon Hero (attacks with the Knight and Wizard Heroes and trained dragons, the computer’s raids with a dragon on a realm his Knight and Wizard defended, example raids) still play exactly as recorded: the same stars, %, take and end, the same step; they read under the rules they were played under (packing 2, the old mark, the computer’s lots as they were then), new ones under today’s', () => {
-    const owner = !!data.isOwner(), fx = RP_FIXTURE_V2, lots = {lots: fx.lots};
+    const owner = !!F.mayPlay(), fx = RP_FIXTURE_V2, lots = {lots: fx.lots};
     const mark = F.battleMark(1) === fx.mark && F.battleMark() !== fx.mark && F.RP_V === 3;
     const out = fx.recs.map((r, i) => {
       const P = F.decodeReplay(r.rp, lots);

@@ -1,3 +1,4 @@
+import * as features from '../core/features.js';
 // Daily Games tab (tab id 'puzzles'; tabs-v4 contract §3, replaces the Today hub). Two kinds of screen:
 // - The tab root, /puzzles: the large title (the date, "Daily Games", the streak pill and your avatar button from
 //   you.js), then the list of games (views/games.js: one big card per game, each turning into that game's scoreboard
@@ -617,7 +618,7 @@ const SMOKE_WISPS = [
   [52, 105, 360, -100, -225, -8, 37, -17, .85, false, '40% 100%']
 ];
 function patchAtmosphere(st) {
-  const owner = st.game === null && data.isOwner();
+  const owner = st.game === null && features.available();
   st.ctx.screen.classList.toggle('gm-owner-light', owner);
   if (!owner) { st.smoke?.remove(); st.smoke = null; return; }
   if (st.smoke) return;

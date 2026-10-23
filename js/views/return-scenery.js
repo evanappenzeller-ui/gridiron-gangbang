@@ -1,3 +1,4 @@
+import * as features from '../core/features.js';
 // Reference-style roadside accents for Evan's environment preview. These join
 // the world's existing batches: no image requests, extra meshes or collisions.
 // Positions use the world's positive-forward z convention, as Batch does.
@@ -10,7 +11,7 @@ const accent = o => PAINT[Math.abs(Math.floor(o.z0 / 9)) % PAINT.length];
 
 /** Called after the original prop; all additions remain roadside. */
 export function decorate(b, lit, o, g, api = {}) {
-  if (!data.isOwner()) return;
+  if (!features.available()) return;
   const paint = DETAIL[o.k];
   if (paint) paint(b, lit, o);
   void g; void api; // compatible with the world's prop callback; no extra scene objects

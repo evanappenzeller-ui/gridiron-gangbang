@@ -250,7 +250,7 @@ export function windCall(kick, launch, call) {
 // tries are from the owner's replays, while he had them (Test play does it now: his ask, Oct 2026): first, the first
 // finished run, kept when he started one over; a day still holding one stays practice, the first run the one that
 // counts.
-const KEY = 'gg-kick1', KEEP = 60;
+const KEY = 'gg-v3-kick1', KEEP = 60;
 const WHYS = Object.keys(CALLS);
 // Test play (the owner's: views/testplay.js): the day's game again in a sandbox, whenever he needs to test it. While
 // it's on, play reads and writes a store of its own (KEY + '-test', the day started fresh each time), never posted and

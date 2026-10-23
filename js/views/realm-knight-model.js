@@ -1,3 +1,4 @@
+import * as features from '../core/features.js';
 // Evan's supplied Bulky Knight (Arthur Krut, CC BY 4.0). Shared geometry/textures,
 // acquired only by a visible Knight Hero; the procedural hero stays until it loads.
 import * as data from '../core/data.js';
@@ -24,22 +25,22 @@ function releaseUnused() {
   generation++; pending = null;
   releaseScene(template); template = null;
 }
-function clearProfile() { if (!data.isOwner()) [...clients].forEach(c => c.dispose()); }
+function clearProfile() { if (!features.available()) [...clients].forEach(c => c.dispose()); }
 data.subscribe(type => { if (type === 'me') clearProfile(); });
 if (typeof window !== 'undefined') window.addEventListener('storage', e => {
-  if ((e.key === 'gg-me' && e.newValue !== data.OWNER) || e.key === null) [...clients].forEach(c => c.dispose());
+  if (e.key === null) [...clients].forEach(c => c.dispose());
 });
 
 async function load() {
-  if (!data.isOwner() || !clients.size) return null;
+  if (!features.available() || !clients.size) return null;
   if (template) return template;
   if (pending) return pending;
   const epoch = generation;
   const task = (async () => {
     const {GLTFLoader} = await import('../vendor/three/GLTFLoader.js');
-    if (epoch !== generation || !data.isOwner() || !clients.size) return null;
+    if (epoch !== generation || !features.available() || !clients.size) return null;
     const gltf = await new GLTFLoader().loadAsync(MODEL_URL);
-    if (epoch !== generation || !data.isOwner() || !clients.size) { releaseScene(gltf.scene); return null; }
+    if (epoch !== generation || !features.available() || !clients.size) { releaseScene(gltf.scene); return null; }
     template = gltf.scene;
     return template;
   })().catch(() => null).finally(() => { if (pending === task) pending = null; });
@@ -70,10 +71,10 @@ export function attachKnightModel(T, rig, {onChange = () => {}} = {}) {
       clients.delete(control); releaseUnused();
     }
   };
-  if (!data.isOwner()) { disposed = true; return control; }
+  if (!features.available()) { disposed = true; return control; }
   clients.add(control);
   load().then(source => {
-    if (!source || disposed || !data.isOwner() || !clients.has(control)) return;
+    if (!source || disposed || !features.available() || !clients.has(control)) return;
     const model = source.clone(true), pivot = new T.Group(), fit = new T.Group();
     pivot.name = 'bulky-knight-model'; pivot.userData.heroModel = 'bulky-knight-v1';
     model.updateMatrixWorld(true);

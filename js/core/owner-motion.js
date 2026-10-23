@@ -1,5 +1,5 @@
-// Optional owner-only UI polish. Cards stay readable if observation or animation is unavailable.
-import * as data from './data.js';
+// Optional interface polish for every profile. Cards stay readable if observation or animation is unavailable.
+import {available} from './features.js';
 import * as ui from './ui.js';
 
 const CARDS = '[data-enter], .card, .std-scard, .pk-slot';
@@ -7,7 +7,7 @@ const EASE = 'cubic-bezier(.22,1,.36,1)';
 const screens = new Map();
 let visits = new WeakMap();
 let sheet = null, rootObserver = null, started = false, motionAllowed = false;
-const allowed = () => started && data.isOwner() && !ui.RM && !document.documentElement.classList.contains('rm') && !document.hidden;
+const allowed = () => started && available() && !ui.RM && !document.documentElement.classList.contains('rm') && !document.hidden;
 
 // A card replaced by a live score refresh keeps its place in the reveal history.
 function cardKey(el, body) {
@@ -108,7 +108,7 @@ function syncPreference() {
   screens.forEach(record => { if (next) watch(record); else clear(record); });
 }
 export function start() {
-  if (!data.isOwner() || started) return;
+  if (!available() || started) return;
   started = true;
   sheet = document.createElement('link');
   sheet.rel = 'stylesheet';
@@ -131,7 +131,7 @@ export function stop() {
   sheet = null;
 }
 export function show(scr) {
-  if (!started || !data.isOwner() || !scr.visible || scr.dead || scr.entry.kind === 'cover') return;
+  if (!started || !available() || !scr.visible || scr.dead || scr.entry.kind === 'cover') return;
   if (screens.has(scr)) return;
   let visit = visits.get(scr);
   if (!visit || visit.path !== scr.ctx.path) {

@@ -1,3 +1,4 @@
+import * as features from '../core/features.js';
 // A small, resolution-independent grass wallpaper over the painted clearing.
 // One transparent draw call, no video download, and no per-frame canvas uploads.
 import * as data from '../core/data.js';
@@ -5,7 +6,7 @@ import * as data from '../core/data.js';
 export function createGrassWallpaper(T, parent, ground, options = {}) {
   const counts = {drawCalls: 0, active: false, disposed: false};
   const empty = {counts, update: () => false, dispose() {}};
-  if (!data.isOwner() || !['coast', 'forest', 'ocean'].includes(options.theme) || !ground?.lot) return empty;
+  if (!features.available() || !['coast', 'forest', 'ocean'].includes(options.theme) || !ground?.lot) return empty;
   const {lot} = ground;
   // The coast's lawn is wider than the square build plot. Stay inside its walls.
   const region = options.theme === 'coast'
@@ -86,7 +87,7 @@ export function createGrassWallpaper(T, parent, ground, options = {}) {
   let dead = false, stop = null, lastSeconds = null, elapsed = 0;
   function update(seconds, {active = true, camera} = {}) {
     if (dead) return false;
-    if (!data.isOwner()) { dispose(); return false; }
+    if (!features.available()) { dispose(); return false; }
     let inView = true;
     if (camera) { matrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse); frustum.setFromProjectionMatrix(matrix); inView = frustum.intersectsObject(mesh); }
     counts.active = active && inView && !document.hidden && !media.matches;
@@ -104,6 +105,6 @@ export function createGrassWallpaper(T, parent, ground, options = {}) {
     parent.remove(mesh); geometry.dispose(); material.dispose();
   }
   media.addEventListener('change', changed); document.addEventListener('visibilitychange', changed);
-  stop = data.subscribe(type => { if (type === 'me' && !data.isOwner()) { dispose(); if (options.onChange) options.onChange(); } });
+  stop = data.subscribe(type => { if (type === 'me' && !features.available()) { dispose(); if (options.onChange) options.onChange(); } });
   return {counts, region, mesh, update, dispose};
 }

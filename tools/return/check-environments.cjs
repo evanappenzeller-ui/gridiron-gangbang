@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Owner-only environment regression and screenshot capture. No server required.
+// All-profile v3 environment regression and screenshot capture. No server required.
 // Run: node tools/return/check-environments.cjs
 // Baseline modules/assets come from git 337203c; current files come from this checkout.
 // Every request is fulfilled locally or blocked. The app boot/score posting never runs.
@@ -175,7 +175,7 @@ async function fixture(browser, legacy = false) {
       identity(id) { D.setMe(id); },
       ready() {
         frame();
-        return !D.isOwner() || theme.id !== 'city' || !!scene.getObjectByName('city-bus-pilot-body');
+        return legacy || theme.id !== 'city' || !!scene.getObjectByName('city-bus-pilot-body');
       },
       status() {
         let visibleMeshes = 0;
@@ -269,13 +269,14 @@ function unchanged(actual, expected, label) {
     try {
       for (const theme of themes) {
         const s = await current.snapshot(theme); report.themes[theme].public = s;
-        compare(s, report.themes[theme].baseline, 'nonowner ' + theme);
+        rendered(s, 'public ' + theme);
+        assert.notEqual(s.sceneHash, report.themes[theme].baseline.sceneHash, theme + ': v3 redesign reaches public profiles');
       }
-      assert.equal(current.imageRequests.length, 0, 'public profiles do not request owner art');
+      assert(current.imageRequests.length > 0, 'public profiles load v3 art');
       await current.identity('evan');
       for (const theme of themes) {
         const s = await current.snapshot(theme); rendered(s, 'owner ' + theme);
-        assert.equal(s.owner, true); assert.notEqual(s.sceneHash, report.themes[theme].baseline.sceneHash, theme + ': owner redesign is present');
+        assert.equal(s.owner, true); compare(s, report.themes[theme].public, theme + ': shared redesign');
         report.themes[theme].owner = s; await current.screenshot(theme);
         console.log(`Owner ${theme}: ${s.drawCalls} draws, ${s.triangles} triangles, ${s.meshes} meshes`);
       }
@@ -285,11 +286,11 @@ function unchanged(actual, expected, label) {
         await current.identity(identity);
         if (label === 'restored') {
           const hidden = await current.page.evaluate(() => window.environmentCheck.status());
-          assert.deepEqual(hidden, {owner: false, visibleMeshes: 0}, 'hidden world revokes owner art before another frame');
+          assert.equal(hidden.owner, false); assert(hidden.visibleMeshes > 0, 'shared world persists across profiles');
         }
         for (const theme of themes) {
           const s = await current.snapshot(theme); assert.equal(s.owner, false);
-          report.themes[theme][label] = s; compare(s, report.themes[theme].baseline, label + ' ' + theme);
+          report.themes[theme][label] = s; compare(s, report.themes[theme].public, label + ' ' + theme);
         }
       }
       await current.identity('evan'); await current.snapshot('city');
@@ -298,10 +299,10 @@ function unchanged(actual, expected, label) {
         await sibling.goto(origin + '/__environment_check__');
         await sibling.evaluate(() => localStorage.setItem('gg-me', 'ben'));
         await current.page.waitForFunction(() => !window.environmentCheck.status().owner);
-        assert.deepEqual(await current.page.evaluate(() => window.environmentCheck.status()), {owner: false, visibleMeshes: 0},
-          'cross-tab account switch revokes hidden owner world immediately');
+        const switched = await current.page.evaluate(() => window.environmentCheck.status());
+        assert.equal(switched.owner, false); assert(switched.visibleMeshes > 0, 'shared world persists across browser tabs');
         report.crossTab = await current.snapshot('city');
-        compare(report.crossTab, report.themes.city.baseline, 'cross-tab restoration');
+        compare(report.crossTab, report.themes.city.public, 'cross-tab shared world');
       } finally { await sibling.close(); }
       current.clean('current'); assert.equal(report.failures.length, 0, report.failures.join('\n')); report.passed = true;
     } finally { await current.close(); }
@@ -309,6 +310,6 @@ function unchanged(actual, expected, label) {
     fs.writeFileSync(path.join(output, 'environment-checks.json'), JSON.stringify(report, null, 2) + '\n');
     await browser.close();
   }
-  console.log('All nine owner scenes, public/signed-out baselines, role restoration, and 2D fallbacks passed.');
+  console.log('All nine shared scenes, public/signed-out profiles, account transitions, and 2D fallbacks passed.');
   console.log('Screenshots and metrics: ' + output);
 })().catch(error => { console.error(error); process.exitCode = 1; });

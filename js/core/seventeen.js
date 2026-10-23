@@ -152,7 +152,7 @@ export function rankOf(b, pick) {
 // ---------------------------------------------------------------------------------------------- memory
 // 'gg-17': {days: {n: {pick, w?, l?, ppg?, at? (when it was played)}} (the last KEEP days), played, perfect (all-time
 // counts).
-const KEY = 'gg-17', KEEP = 60;
+const KEY = 'gg-v3-17', KEEP = 60;
 // Test play (the owner's: views/testplay.js): the day's game again in a sandbox, whenever he needs to test it. While
 // it's on, play reads and writes a store of its own (KEY + '-test', the day started fresh each time), never posted and
 // never counted; the posts and the all-time totals read the real one (real), and ending it brings the real day back as

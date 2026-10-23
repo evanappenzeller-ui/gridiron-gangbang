@@ -1,3 +1,4 @@
+import * as features from './features.js';
 // Return Man core: the Daily Games' endless runner, after Subway Surfers (the owner's ask, Oct 2026). You field a
 // kickoff in the stadium and run it back as far as you can, and the run goes on out of the stadium into a new place
 // every 100 yards (ZONE: each one a field, a touchdown at its far end): the tailgate, the city, the frozen tundra, the
@@ -52,7 +53,7 @@
 //   dayCoins(docs, n), coinsWithin(n, y)        what a person's day's coins are on the board (for The Keep's pay),
 //                                               never more than the course lays out within their yards
 //   payOf(c)                                    what a day pays Keepfall: the base and the first run's coins (capped)
-//   dayState(n, real), record(n, k, yards, dist, coins), score(list), totals()   localStorage 'gg-ret1'
+//   dayState(n, real), record(n, k, yards, dist, coins), score(list), totals()   localStorage 'gg-v3-ret1'
 //   keepLive(n, k, yards, dist, coins), settle(n), live(n)   a return under way: kept as it goes, counted if it's left
 //                                               behind
 //   setTest(on, n), testing()                   test play (the owner's sandbox; his way to play it again)
@@ -86,7 +87,7 @@ export const dayLabel = (n, o = {weekday: 'short', month: 'short', day: 'numeric
 export const LANE = 3.083, LANES = 3;
 export const SPEED = {start: 9.5, top: 19, ramp: 360};
 // Hard (the owner's ask, Oct 2026: "far too easy", a run should last about 90 seconds to 3 minutes; his profile only
-// for now, data.isOwner(), so the league's course and board stay as they were): off quicker, to a sprint sooner, and
+// for now, features.available(), so the league's course and board stay as they were): off quicker, to a sprint sooner, and
 // never done speeding up: climb more a yard on top, to max.
 export const HARD_SPEED = {start: 11, top: 20, ramp: 220, climb: .0045, max: 36};
 /** Your speed (yards a second) z yards into a return: on the hard course (hard) HARD_SPEED's. */
@@ -839,11 +840,11 @@ export function ahead(run, dist = 90, behind = 6) {
 }
 
 // ---------------------------------------------------------------------------------------------- memory
-// 'gg-ret1': {days: {n: {r: [{y (yards), d (how far you ran)}, ...] (every run that day, in order), at (when the best
+// 'gg-v3-ret1': {days: {n: {r: [{y (yards), d (how far you ran)}, ...] (every run that day, in order), at (when the best
 // one ended)}}, played (runs, all time)}. (A return kept as a plain number, before power-ups, is its yards and its
 // distance.) The day's first run, when it had the coins (COIN: the owner's), keeps them too: c (how many he ran
 // through); no other run ever has a c, and nobody else's runs do.
-const KEY = 'gg-ret1', KEEP = 60, MAX_YARDS = 99999;
+const KEY = 'gg-v3-ret1', KEEP = 60, MAX_YARDS = 99999;
 // Test play (the owner's: views/testplay.js): the day's game again in a sandbox, whenever he needs to test it. While
 // it's on, play reads and writes a store of its own (KEY + '-test', the day started fresh each time), never posted and
 // never counted; the posts and the all-time totals read the real one (real), and ending it brings the real day back as
@@ -1021,7 +1022,7 @@ export const coinsWait = (n, k, hard) => !!hard && k === 0 && !TEST && n >= COIN
 /** The coins this phone would post with day n (the owner's alone): the first run's here, or what the board has from
  *  his other phones (the most of them); null when there are none. */
 function coinsToPost(n, theirs) {
-  if (!data.isOwner()) return null;
+  if (!features.available()) return null;
   const here = dayState(n, true).coins, there = theirs.some(p => { const e = entryOf(p, n); return e && e.c != null; }) ? dayCoins(theirs, n) : null;
   return here == null && there == null ? null : Math.min(COIN.most, Math.max(here || 0, there || 0)); // (held at COIN.most)
 }

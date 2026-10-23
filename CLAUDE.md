@@ -2,6 +2,12 @@
 
 ## All new changes are for Evan's profile only
 
+V3.0 exception (October 22, 2026): Evan explicitly requested all completed updates be released to every user.
+Keepfall, the new Return Man presentation/course, game cases, and navigation motion are now shared features.
+Keep scoreboard and picture visibility rules below unchanged; `data.isOwner()` still identifies only Evan.
+V3 game scoring starts from a clean slate, and Keepfall starts with normal resources, without testing currency.
+Do not restore legacy score or Keepfall save fields into the v3 save namespaces.
+
 Standing owner instruction (October 21, 2026): all future app changes, across every feature,
 must apply only to Evan Appenzeller's profile unless he explicitly authorizes a wider rollout.
 Preserve existing behavior for every other member, app user, guest and unselected profile.

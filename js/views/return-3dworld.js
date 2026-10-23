@@ -1,3 +1,4 @@
+import * as features from '../core/features.js';
 // Return Man's world in real 3D (the owner's ask, Oct 2026): the places a return runs through (core/return.js THEMES),
 // built in three.js around the players (views/return-3d.js, the same scene): each place's ground (the field with its
 // yard lines and numbers; a parking lot; a city street; packed snow; the desert's rails; cobbles; a boardwalk by the
@@ -71,7 +72,7 @@ export function init(three, scene, utils) {
   // so coming to a new place never holds a frame up
   R.THEMES.forEach(th => { roadMat(th.id); baseMat(th.id); obstacleOf('hurdle', th.id); obstacleOf('bar', th.id); gateOf(th); });
   // (the hard course's potholes, their cones and sleds: the owner's only, so only on his phones)
-  if (data.isOwner()) { R.THEMES.forEach(th => R.HARD_OBST.forEach(type => obstacleOf(type, th.id))); coneObj(); }
+  if (features.available()) { R.THEMES.forEach(th => R.HARD_OBST.forEach(type => obstacleOf(type, th.id))); coneObj(); }
   ['salts', 'pills', 'booze'].forEach(itemOf);
   endzoneMat(); logoMat(); seaMat(); for (let n = 10; n <= 50; n += 10) numberMat(n);
 }
@@ -893,7 +894,7 @@ const HALO = {salts: 0x96E1FF, pills: 0xFFA53C, booze: 0xFFD65A};
 // green, BIG times the size, and a beam of its light standing up out of it to spot from far off.
 const HALO_BIG = {salts: 0x5CE1FF, pills: 0xFF4040, booze: 0x6EF05A}, BIG = 1.7;
 function itemOf(kind, big = false) {
-  if (data.isOwner()) return arcadeItemOf(kind);
+  if (features.available()) return arcadeItemOf(kind);
   const key = 'item:' + kind + (big ? ':big' : '');
   if (OBJ.has(key)) return OBJ.get(key);
   const g = new T.Group(), spin = new T.Group(), b = new Batch();
@@ -1081,7 +1082,7 @@ function coinsMesh() {
 }
 /** The coins in view (A: core ahead's, or null with no coin run), spinning and bobbing a little; none off his profile. */
 function coinsUpdate(st, A, t) {
-  if (!(A && st.run && st.run.coins && data.isOwner())) { if (COINS) { COINS.count = 0; COINS.visible = false; } return; }
+  if (!(A && st.run && st.run.coins && features.available())) { if (COINS) { COINS.count = 0; COINS.visible = false; } return; }
   const m = coinsMesh(), M = tm();
   let n = 0;
   for (const {coin} of A.coins) {

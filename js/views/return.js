@@ -1,3 +1,4 @@
+import * as features from '../core/features.js';
 // Return Man (Daily Games, its own page /puzzles/return; core/return.js): the endless kick return, after Subway Surfers.
 // The camera rides behind the returner as he runs out of the stadium and on into a new place every 100 yards (the
 // tailgate, the city, the frozen tundra, the desert, the farmers market, the beach, outer space, the farm: a touchdown
@@ -60,7 +61,7 @@ const WHERE = {stadium: 'in the stadium', tailgate: 'at the tailgate', city: 'in
 const ICON_URL = {};
 let iconOwner = null;
 function iconURL(kind) {
-  const owner = data.isOwner();
+  const owner = features.available();
   if (iconOwner !== owner) { Object.keys(ICON_URL).forEach(k => delete ICON_URL[k]); iconOwner = owner; }
   if (ICON_URL[kind]) return ICON_URL[kind];
   try {
@@ -107,7 +108,7 @@ function cardHTML(st) {
   const again = (label = 'Run it again') => ui.button({label, icon: 'play-fill', attrs: {'data-rm-go': ''}, cls: 'rm-go'});
   const sb = () => ui.button({label: 'See the scoreboard', kind: 'secondary', attrs: {'data-rm-sb': ''}, cls: 'rm-go'});
   const note = (R.testing() ? '<p class="rm-card-s">Test play: not counted, not on the scoreboard.</p>' : '')
-    + (data.isOwner() ? '<p class="rm-card-s">Hard course: faster, potholes, and a bus head on ends it. Just your profile for now.</p>' : '');
+    + (features.available() ? '<p class="rm-card-s">Hard course: faster, potholes, and a bus head on ends it. Available to every player.</p>' : '');
   if (st.mode === 'tackled') {
     const run = st.run, y = Math.floor(run.yards), tds = R.tdsAt(run.z), th = R.zoneAt(run.co, run.z).theme;
     const prev = d.list.slice(0, -1).reduce((m, e) => Math.max(m, e.y), 0); // (the best before this run)
@@ -128,7 +129,7 @@ function cardHTML(st) {
       + `<p class="rm-card-t2">${ui.icon('clock', {size: 14})}<span data-rm-next>${esc(`New course in ${ui.untilText(msToMidnight())}`)}</span></p></div>`;
   }
   // the owner's: no how-to-play, the day's first kickoff starts on its own (autoGo); this only shows if it couldn't
-  if (data.isOwner()) {
+  if (features.available()) {
     // (his day's first run, the one with the coins, waiting for the board to say it's the first: autoGo)
     const wait = R.coinsWait(st.n, 0, true) ? '<p class="rm-card-s rm-card-wait">Getting the scoreboard: it tells this is your first run today, the one with the coins. It kicks off as soon as it’s in; field it now and this run has none.</p>' : '';
     return `<div class="rm-card-in is-first"><p class="rm-card-o">${koLabel(0)}${R.testing() ? ' · Test play' : ''} ${BETA}</p>`
@@ -136,7 +137,7 @@ function cardHTML(st) {
   }
   return `<div class="rm-card-in is-first"><p class="rm-card-o">${koLabel(0)}${R.testing() ? ' · Test play' : ''} ${BETA}</p>`
     + `<h2 class="rm-card-t">Take it to the house</h2>`
-    + keysHTML(data.isOwner()) + note + betaLine()
+    + keysHTML(features.available()) + note + betaLine()
     + again('Field the kick') + creditLine() + `</div>`;
 }
 // The gold coins (core COIN: the owner's hard course, his first run of the day alone; the owner's ask, Oct 21 2026):
@@ -144,7 +145,7 @@ function cardHTML(st) {
 // coin, COIN.paid coins at most); on his later runs, that they're only on the first. Nobody else's card changes.
 const coinGlyph = '<i class="rm-coin" aria-hidden="true"></i>';
 function coinsLine(st, run) {
-  if (!data.isOwner() || !run || !run.co.hard) return '';
+  if (!features.available() || !run || !run.co.hard) return '';
   if (!R.testing() && st.n < R.COIN.fromDay) return ''; // (before the coins' first day: nothing to say of them)
   const C = R.COIN, rule = `${nf(C.base)} for the day’s run + ${nf(C.gold)} a coin (the first ${nf(C.paid)} coins pay).`;
   if (!run.coins) {
@@ -175,7 +176,7 @@ function hudHTML() {
 const SB_MODES = [{id: 'today', label: 'Today'}, {id: 'week', label: 'Week'}];
 // How many attempts each player has made (the day's runs, or the week's: core attemptsOf), on the owner's scoreboard
 // alone (his ask, Oct 22 2026); a row from before attempts were posted says nothing of them.
-const attemptsSub = r => (data.isOwner() && r.a != null ? ` · ${plural(r.a, 'attempt')}` : '');
+const attemptsSub = r => (features.available() && r.a != null ? ` · ${plural(r.a, 'attempt')}` : '');
 function rowHTML(r, mode) {
   const sub = (mode === 'today' ? `Longest ${nf(r.l)}${r.td ? ` · ${plural(r.td, 'TD')}` : ''}` : `${plural(r.played, 'day')} · longest ${nf(r.l)}`) + attemptsSub(r);
   const label = `${ui.ordinal(r.rank)}, ${r.name}${r.me ? ', you' : ''}${r.guest ? ', guest' : ''}: ${nf(r.y)} yards. ${sub}.`;
@@ -205,7 +206,7 @@ function boardHTML(st) {
 // His day's first run, a coin run, waits for the board (core coinsWait: only it can tell the run's the first across his
 // phones, coinsOpen): the stage a moment (BOARD_WAIT_MS), then his card saying so; it kicks off as the board comes in
 // (the 'lb' in mount).
-const autoGoes = st => data.isOwner() && st.mode === 'ready' && !st.day.next;
+const autoGoes = st => features.available() && st.mode === 'ready' && !st.day.next;
 const BOARD_WAIT_MS = 2500;
 function autoGo(st) {
   if (st.dead) return;
@@ -672,14 +673,14 @@ const rgbOf = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)).join(
 const SPARK_MS = 380, COIN_BUZZ_MS = 70;
 /** Whether the coins show: a coin run, on the owner's profile (off it, even from another tab, they're hidden: none
  *  drawn, none counted (onEvents)). */
-const coinsShown = st => !!(st.run && st.run.coins && data.isOwner());
+const coinsShown = st => !!(st.run && st.run.coins && features.available());
 /** A coin run under way, looked at again on his profile (the board's come in, or he's back on it): no longer the
  *  day's first as the board sees it (another of his phones has a run of the day on it), and its coins are gone. A
  *  profile change alone hides them (coinsShown), and ends a run on his hard course where it is (frame), keeping the
  *  ones he's taken (runCoins). */
 function recheckCoins(st) {
   const run = st.run;
-  if (!run || !run.coins || run.over || R.testing() || !data.isOwner()) return;
+  if (!run || !run.coins || run.over || R.testing() || !features.available()) return;
   if (!R.ranElsewhere(st.n)) return;
   R.dropCoins(run);
   st.coinGot = new Set(); st.sparks = [];
@@ -777,7 +778,7 @@ function draw(st, now = performance.now()) {
   if (!c || !st.W) return;
   c.setTransform(st.dpr, 0, 0, st.dpr, 0, 0);
   const run = st.run, dt = st.dt || .016;
-  st.co = run ? run.co : R.course(st.n, 0, data.isOwner());
+  st.co = run ? run.co : R.course(st.n, 0, features.available());
   // the camera: behind him, following him across part of the way a beat behind (a spring, critically damped: it sets
   // off easy and settles without swinging past); up when he's up top; a jolt off a vehicle's side, a stumble's
   const bump = run && run.t - run.bump < .22 ? Math.sin((run.t - run.bump) * 60) * .25 * (1 - (run.t - run.bump) / .22) : 0;
@@ -897,7 +898,7 @@ function go(st) {
   // got to first, so no kickoff is run twice, nor the day's first run with its coins)
   if (R.live(st.n)) { R.settle(st.n); if (!R.testing()) R.autoPost(); setDay(st, st.n); }
   // (the owner's: the hard course; the coins on the day's first run alone, core coinsOpen)
-  const own = data.isOwner(), k = st.day.next, coins = own && R.coinsOpen(st.n, k, own);
+  const own = features.available(), k = st.day.next, coins = own && R.coinsOpen(st.n, k, own);
   st.run = R.startRun(st.n, k, own, coins);
   // (his first run here, but the board shows another of his phones ran the day's first: the end card says so)
   if (own && !coins && !k && !R.testing() && R.ranElsewhere(st.n)) st.run.elsewhere = true;
@@ -974,7 +975,7 @@ function clearPickupPop(st) {
 }
 function catchphrase(st, kind) {
   ungot(st);
-  const owner = data.isOwner(), line = owner ? pickupLine(st, kind) : CATCHPHRASE[kind] || 'WOOOO!';
+  const owner = features.available(), line = owner ? pickupLine(st, kind) : CATCHPHRASE[kind] || 'WOOOO!';
   pop(st, line, `is-${kind} is-catch${owner ? ' is-quippy' : ''}`);
   return owner ? line : '';
 }
@@ -991,7 +992,7 @@ function onEvents(st, evs) {
     }
     else if (e.type === 'zone') { W.warm(skyView(st), e.z); if (!evs.some(x => x.type === 'td')) say(e.theme.name.toUpperCase(), 'is-zone'); }
     // a juke past something: he spins all the way round (not on the owner's phone, his ask, Oct 2026: just the cut)
-    else if (e.type === 'juked') { if (!data.isOwner()) { say('SPIN MOVE!'); st.spinAt = now; st.spinDir = Math.sign(R.xOf(st.run, st.run.lane) - st.run.jFrom) || 1; } }
+    else if (e.type === 'juked') { if (!features.available()) { say('SPIN MOVE!'); st.spinAt = now; st.spinDir = Math.sign(R.xOf(st.run, st.run.lane) - st.run.jFrom) || 1; } }
     else if (e.type === 'hurdled') { say(e.ob === 'hole' ? 'HOP!' : 'HURDLE!'); ui.haptic('light'); }
     else if (e.type === 'slid') { say('SLIDE!'); ui.haptic('light'); }
     else if (e.type === 'pickup') {
@@ -1035,7 +1036,7 @@ function frame(st, now) {
   if ((st.mode === 'run' || st.mode === 'catch') && !st.ctx.visible) { pause(st); return; }
   if (st.mode === 'catch' && now - st.catchAt >= CATCH_MS) st.mode = 'run';
   // (the hard course is the owner's alone: off his profile, even from another tab, a return on it ends where it is)
-  if ((st.mode === 'run' || st.mode === 'catch' || st.mode === 'paused') && st.run.co.hard && !data.isOwner()) { R.stop(st.run); tackled(st); }
+  if ((st.mode === 'run' || st.mode === 'catch' || st.mode === 'paused') && st.run.co.hard && !features.available()) { R.stop(st.run); tackled(st); }
   if (st.mode === 'run') {
     const bumped = st.run.bump;
     onEvents(st, R.step(st.run, dt));
@@ -1231,10 +1232,10 @@ export function mount(el, ctx) {
     if ((st.waitT || st.waited) && autoGoes(st)) autoGo(st); // (his first kickoff, waiting for it: off it goes, with the coins or without)
   });
   // Profile changes also arrive from other tabs. Refresh existing HUD/card images immediately.
-  st.iconOwner = data.isOwner();
+  st.iconOwner = features.available();
   st.unsubIcons = data.subscribe(type => {
-    if (type !== 'me' || st.dead || st.iconOwner === data.isOwner()) return;
-    st.iconOwner = data.isOwner();
+    if (type !== 'me' || st.dead || st.iconOwner === features.available()) return;
+    st.iconOwner = features.available();
     clearPickupPop(st); st.pickupLines = null;
     el.querySelectorAll('[data-rm-icon]').forEach(img => { img.src = iconURL(img.dataset.rmIcon); });
     recheckCoins(st);

@@ -62,7 +62,7 @@ export const team = id => DOC.teams[id];
 // KEEP days), played, wins}
 // (Earlier games, under 'gg-2m' and 'gg-drill2' to 'gg-drill4', were played on other engines or other days' situations
 // and don't replay in this one, so they're left be.)
-const KEY = 'gg-drill5', KEEP = 60;
+const KEY = 'gg-v3-drill5', KEEP = 60;
 // Test play (the owner's: views/testplay.js): the day's game again in a sandbox, whenever he needs to test it. While
 // it's on, play reads and writes a store of its own (KEY + '-test', the day started fresh each time), never posted and
 // never counted; the posts, the resets and the all-time totals read the real one (real), and ending it brings the

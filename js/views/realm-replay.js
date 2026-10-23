@@ -263,7 +263,7 @@ export default {
     speedBtn(st);
     const close = () => { if (F.mayPlay()) reopenLog(); ctx.back(); };
     st.stopProfile = data.subscribe(type => {
-      if (type === 'me' && !F.mayPlay()) {
+      if (type === 'me') {
         st.dead = true; st.playing = false;
         if (st.v) { st.v.dispose(); st.v = null; }
         el.replaceChildren();

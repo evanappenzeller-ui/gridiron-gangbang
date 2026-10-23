@@ -17,7 +17,7 @@ const root = path.resolve(__dirname, '../..');
 const uri = source => 'data:text/javascript;base64,' + Buffer.from(source).toString('base64');
 const realmUri = uri(fs.readFileSync(path.join(root, 'js/core/realm.js'), 'utf8')
   .replace("import * as daily from './daily.js';", 'const daily = {LB: {}};')
-  .replace("import * as data from './data.js';", 'const data = {isOwner: () => globalThis.__dragonOwner === true};'));
+  .replace("import * as data from './data.js';", 'const data = {isOwner: () => globalThis.__dragonOwner === true, me: () => globalThis.__dragonSelected === false ? null : globalThis.__dragonOwner ? "evan" : "ben", guest: () => null, user: () => null};'));
 const battleUri = uri(fs.readFileSync(path.join(root, 'js/core/realm-battle.js'), 'utf8').replace("from './realm.js'", 'from ' + JSON.stringify(realmUri)));
 const fixture = (() => {
   const m = /^const RP_FIXTURE_V2 = (\{.*\});\r?$/m.exec(fs.readFileSync(path.join(root, 'js/core/checks-realm.js'), 'utf8'));
@@ -186,6 +186,8 @@ const fixture = (() => {
 
   // ---- off the owner's phone
   globalThis.__dragonOwner = false;
+  assert.deepEqual(F.heroLevels(realm(8, 6)), {dragon: 6}, 'Another selected player has the Dragon Hero');
+  globalThis.__dragonSelected = false;
   const s = realm(8, 6);
   assert.deepEqual(F.heroLevels(s), {});
   assert.deepEqual(F.heroArmy(s), {});
@@ -193,6 +195,6 @@ const fixture = (() => {
   assert.equal(M.defenders.length, 0); assert.equal(M.deploy('hero_dragon', 1, 1), null);
   assert.deepEqual(B.exampleRaids(realm(8, 6), T0), []);
   assert.equal(await F.flush(), false);
-  console.log('PASS: off the owner’s phone, no Dragon Hero, no example raids, no save');
-  delete globalThis.__dragonOwner;
+  console.log('PASS: without a selected profile, no Dragon Hero, no example raids, no save');
+  delete globalThis.__dragonOwner; delete globalThis.__dragonSelected;
 })().catch(error => { console.error(error); process.exitCode = 1; });

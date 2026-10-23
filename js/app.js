@@ -36,8 +36,10 @@ import * as data from './core/data.js';
 import * as daily from './core/daily.js';
 import './core/avatars.js'; // pictures in place of initials, before anything draws an avatar
 import {needsWelcome, showWelcome} from './views/welcome.js';
+import {available} from './core/features.js';
+import {showReleaseNotice} from './core/release.js';
 
-export const APP_VERSION = '1.0';
+export const APP_VERSION = '3.0';
 
 // ============================================================================ Registry and routes
 // Routed views only. standings.js and the hall-*.js segments are League's sub-modules (league.js imports them).
@@ -67,7 +69,7 @@ const OWNER_TABS = [];
 export const TABS = ALL_TABS.filter(t => !OWNER_TABS.includes(t));
 /** Brings TABS (and the tab bar's buttons) in line with who this phone is. True if they changed. */
 function syncTabs() {
-  const want = ALL_TABS.filter(t => !OWNER_TABS.includes(t) || data.isOwner());
+  const want = ALL_TABS.filter(t => !OWNER_TABS.includes(t) || available());
   document.querySelectorAll('#tabbar .tab[data-tab]').forEach(b => { b.hidden = !want.includes(b.dataset.tab); });
   if (want.join() === TABS.join()) return false;
   TABS.splice(0, TABS.length, ...want);
@@ -110,7 +112,7 @@ function matchSegs(p, q) {
       if (n === 2 && b === 'drill') return R('puzzles', 'push', 'puzzles', {game: 'drill'});
       if (n === 2 && b === 'kick') return R('puzzles', 'push', 'puzzles', {game: 'kick'});
       if (n === 2 && b === 'return') return R('puzzles', 'push', 'puzzles', {game: 'return'});
-      if (n === 2 && b === 'keep') return data.isOwner() ? R('realm', 'push', 'puzzles') : {redirect: '/puzzles', query: false};
+      if (n === 2 && b === 'keep') return available() ? R('realm', 'push', 'puzzles') : {redirect: '/puzzles', query: false};
       return null;
     case 'pickem':
       // NFL Pick'em (optional ?week=N) is a tab root now: links to it switch to the tab.
@@ -140,7 +142,7 @@ function matchSegs(p, q) {
       return null;
     case 'realm':
       // Existing realm links keep working. Scouting and raids return to The Keep, including from a cold link.
-      if (!data.isOwner()) return {redirect: '/puzzles', query: false};
+      if (!available()) return {redirect: '/puzzles', query: false};
       if (n === 1) return {redirect: '/puzzles/keep'};
       if (n === 3 && b === 'raid' && c) return {...R('realm-raid', 'cover', 'puzzles', {key: c}), base: '/puzzles/keep'};
       if (n === 3 && b === 'scout' && c) return {...R('realm-scout', 'cover', 'puzzles', {key: c}), base: '/puzzles/keep'};
@@ -735,7 +737,7 @@ async function animPush(inc, out) {
   pinLayers(inc); pinLayers(out);
   inc.el.classList.add('is-animating'); out.el.classList.add('is-animating');
   const xf = navXfade(out, inc, 1);
-  const motion = data.isOwner() && !ui.RM ? {spring: null, duration: 320, easing: EASE_OUT} : {spring: 'smooth'};
+  const motion = available() && !ui.RM ? {spring: null, duration: 320, easing: EASE_OUT} : {spring: 'smooth'};
   const list = ui.RM
     ? [ui.animate(inc.el, [{opacity: 0}, {opacity: 1}], {duration: 180, easing: 'linear'})]
     : [
@@ -756,7 +758,7 @@ async function animPop(top, under, {v0 = 0} = {}) {
   top.el.classList.add('is-animating');
   if (under) under.el.classList.add('is-animating');
   const xf = under ? navXfade(top, under, -1) : null;
-  const motion = data.isOwner() && !ui.RM ? {spring: null, duration: 280, easing: EASE_OUT} : {spring: 'smooth', v0};
+  const motion = available() && !ui.RM ? {spring: null, duration: 280, easing: EASE_OUT} : {spring: 'smooth', v0};
   const list = ui.RM
     ? [ui.animate(top.el, [{opacity: 1}, {opacity: 0}], {duration: 180, easing: 'linear', fill: 'forwards'})]
     : [
@@ -771,7 +773,7 @@ async function animPop(top, under, {v0 = 0} = {}) {
 }
 async function animCoverIn(wrap, scrim) {
   scrim.style.opacity = '.4';
-  const motion = data.isOwner() && !ui.RM ? {duration: 300, easing: EASE_OUT} : {spring: 'smooth'};
+  const motion = available() && !ui.RM ? {duration: 300, easing: EASE_OUT} : {spring: 'smooth'};
   const list = ui.RM
     ? [ui.animate(wrap, [{opacity: 0}, {opacity: 1}], {duration: 180, easing: 'linear'}), ui.animate(scrim, [{opacity: 0}, {opacity: .4}], {duration: 180})]
     : [ui.animate(wrap, [{transform: 'translateY(100%)'}, {transform: 'translateY(0)'}], {...motion, fill: 'backwards'}), ui.animate(scrim, [{opacity: 0}, {opacity: .4}], motion)];
@@ -781,7 +783,7 @@ async function animCoverIn(wrap, scrim) {
 }
 async function animCoverOut(wrap, scrim) {
   wrap.classList.add('is-animating');
-  const motion = data.isOwner() && !ui.RM ? {duration: 300, easing: EASE_OUT} : {spring: 'smooth'};
+  const motion = available() && !ui.RM ? {duration: 300, easing: EASE_OUT} : {spring: 'smooth'};
   const list = ui.RM
     ? [ui.animate(wrap, [{opacity: 1}, {opacity: 0}], {duration: 180, fill: 'forwards'}), ui.animate(scrim, [{opacity: .4}, {opacity: 0}], {duration: 180, fill: 'forwards'})]
     : [ui.animate(wrap, [{transform: 'translateY(0)'}, {transform: 'translateY(100%)'}], {...motion, fill: 'forwards'}), ui.animate(scrim, [{opacity: .4}, {opacity: 0}], {...motion, fill: 'forwards'})];
@@ -790,7 +792,7 @@ async function animCoverOut(wrap, scrim) {
 async function animSwap(out, inc, dir = 1) {
   if (!out || !inc) return;
   out.el.classList.add('is-animating'); inc.el.classList.add('is-animating');
-  const ownerMotion = data.isOwner() && !ui.RM;
+  const ownerMotion = available() && !ui.RM;
   const list = ui.RM
     ? [ui.animate(out.el, [{opacity: 1}, {opacity: 0}], {duration: 120, fill: 'forwards'}), ui.animate(inc.el, [{opacity: 0}, {opacity: 1}], {duration: 180, delay: 60, fill: 'backwards'})]
     : [
@@ -1112,7 +1114,7 @@ async function pushRoute(r, {morphRect, addEntry = true} = {}) {
   const outE = st[st.length - 1];
   if (!outE.scr) await ensureScreen(outE, {z: st.length, restore: true});
   const {v, err} = await loadViewSafe(r.view);
-  if (isKeepRoute(r) && !data.isOwner()) return goRoot(parseRoute(ROOTS[HOME]));
+  if (isKeepRoute(r) && !available()) return goRoot(parseRoute(ROOTS[HOME]));
   finishTransitions();
   if (st[st.length - 1].route.path === r.path) return;
   const e = newEntry(r, tab, 'push');
@@ -1189,7 +1191,7 @@ async function openCover(r, {dir, addEntry = true} = {}) {
     await rebuildHistory();
   }
   const {v, err} = await loadViewSafe(r.view);
-  if (isKeepRoute(r) && !data.isOwner()) return goRoot(parseRoute(ROOTS[HOME]));
+  if (isKeepRoute(r) && !available()) return goRoot(parseRoute(ROOTS[HOME]));
   finishTransitions();
   const e = buildCover(r, v, err, 'cover');
   e.trigger = trigger && trigger !== document.body ? trigger : null;
@@ -1222,7 +1224,7 @@ async function swapCover(r, {dir} = {}) {
   const c = S.cover;
   const old = c.scr;
   const {v, err} = await loadViewSafe(r.view);
-  if (isKeepRoute(r) && !data.isOwner()) return goRoot(parseRoute(ROOTS[HOME]));
+  if (isKeepRoute(r) && !available()) return goRoot(parseRoute(ROOTS[HOME]));
   finishTransitions();
   const oldView = c.route.view;
   c.route = r;
@@ -1297,10 +1299,10 @@ async function deepLink(hash, {warm = false} = {}) {
   }
   if (T !== S.tab) await switchTabUI(T, {motion: false});
   await showTop();
-  if (isKeepRoute(r) && !data.isOwner()) return deepLink(ROOTS[HOME]);
+  if (isKeepRoute(r) && !available()) return deepLink(ROOTS[HOME]);
   if (r.open === 'cover') {
     const {v, err} = await loadViewSafe(r.view);
-    if (isKeepRoute(r) && !data.isOwner()) return deepLink(ROOTS[HOME]);
+    if (isKeepRoute(r) && !available()) return deepLink(ROOTS[HOME]);
     buildCover(r, v, err, 'none');
     const c = S.cover;
     c.scrimEl.style.opacity = '.4';
@@ -1589,7 +1591,7 @@ function setupTabBar() {
     if (!b) return;
     if (performance.now() - scrubEnd < 450) return; // the click a scrub's release makes
     const T = b.dataset.tab;
-    if (T === S.tab && !(swNew && !typing())) { finishTransitions(); retap(T); return; }
+    if (T === S.tab && !sliding && !pager.on && !(swNew && !typing())) { finishTransitions(); retap(T); return; }
     slideTo(T);
   });
   setupScrub(bar);
@@ -1624,17 +1626,16 @@ function setupTabBar() {
 // fractional between two) and card scale s, tab k's layer sits (k - pos) card-widths across, so the tabs either side
 // of pos show and the rest stay hidden. A tab coming into view is shown and its screen built (its view loaded first if
 // need be). settle() glides to a tab as it grows back, switches to it and puts every layer back.
-const CARD = {dip: .1, gap: 18, radius: 44};
+const CARD = {dip: .045, gap: 14};
 /** A tab's layer as a card: x across (px) at scale s (1: the whole screen, square-cornered, no shadow). */
 function cardAt(layer, x, s) {
-  const k = Math.min(1, (1 - s) / .05); // the corners and shadow come in over the first bit of shrinking
-  layer.style.transform = `translateX(${x}px) scale(${s})`;
-  layer.style.borderRadius = k ? `${CARD.radius * k}px` : '';
-  layer.style.overflow = k ? 'hidden' : '';
-  layer.style.boxShadow = k ? `0 0 0 1px rgba(255,255,255,${.07 * k}), 0 ${24 * k}px ${64 * k}px rgba(0,0,0,${.55 * k})` : '';
+  layer.style.transform = `translate3d(${x}px, 0, 0) scale(${s})`;
+}
+function prepareCard(layer) {
+  layer.classList.add('is-tab-card'); layer.style.willChange = 'transform';
 }
 function uncard(layer) {
-  layer.style.transform = layer.style.borderRadius = layer.style.overflow = layer.style.boxShadow = layer.style.willChange = '';
+  layer.style.transform = layer.style.willChange = ''; layer.classList.remove('is-tab-card');
 }
 /** The distance between two cards' centres at scale s on a stage w wide. */
 const cardStep = (w, s) => w * s + CARD.gap * Math.min(1, (1 - s) / .05);
@@ -1643,10 +1644,13 @@ const pager = {
   begin() {
     if (this.on) return this.on;
     const ci = TABS.indexOf(S.tab), cur = layerOf(S.tab);
-    cur.style.willChange = 'transform';
+    const bar = $('tabbar'), ind = bar.querySelector('.tab-ind');
+    const offsets = [...bar.querySelectorAll('.tab:not([hidden])')].map(b => b.offsetLeft);
+    const w = $('stage').clientWidth;
+    prepareCard(cur);
     if (indAnim) { indAnim.cancel(); indAnim = null; }
     $('stage').classList.add('is-cards');
-    this.on = {ci, pos: ci, s: 1, w: $('stage').clientWidth, shown: new Set([ci]), raf: 0};
+    this.on = {ci, pos: ci, s: 1, w, ind, offsets, shown: new Set([ci]), raf: 0, inputRaf: 0, pending: null};
     ui.busy.inc();
     return this.on;
   },
@@ -1657,7 +1661,7 @@ const pager = {
       if (e.scr) e.scr.el.removeAttribute('data-under');
       restoreLayerScroll(T);
     };
-    layer.style.willChange = 'transform';
+    prepareCard(layer);
     cardAt(layer, (k - P.pos) * cardStep(P.w, P.s), P.s);
     setLayerHidden(layer, false);
     if (e.scr || mods.has(e.route.view)) build();
@@ -1678,12 +1682,26 @@ const pager = {
     const step = cardStep(P.w, s);
     P.shown.forEach(k => cardAt(layerOf(TABS[k]), (k - pos) * step, s));
   },
-  /** The pill under pos (the swipe; the bar's drag moves it under the finger itself). */
+  // Coalesce fast touch events to one compositor update per display frame.
+  move(pos, s, pill = false) {
+    const P = this.on;
+    if (!P) return;
+    P.pending = {pos, s, pill};
+    if (P.inputRaf) return;
+    P.inputRaf = requestAnimationFrame(() => {
+      P.inputRaf = 0;
+      if (this.on !== P || !P.pending) return;
+      const next = P.pending; P.pending = null;
+      this.show(next.pos, next.s);
+      if (next.pill) this.pill(next.pos);
+    });
+  },
+  /** Indicator geometry is captured before gesture styles are written. */
   pill(pos) {
-    const bar = $('tabbar'), ind = bar.querySelector('.tab-ind'), btns = [...bar.querySelectorAll('.tab:not([hidden])')];
-    if (!ind || !btns.length) return;
-    const p = Math.max(0, Math.min(btns.length - 1, pos)), a = Math.floor(p), b = Math.ceil(p);
-    indX = btns[a].offsetLeft + (btns[b].offsetLeft - btns[a].offsetLeft) * (p - a);
+    const {ind, offsets} = this.on;
+    if (!ind || !offsets.length) return;
+    const p = Math.max(0, Math.min(offsets.length - 1, pos)), a = Math.floor(p), b = Math.ceil(p);
+    indX = offsets[a] + (offsets[b] - offsets[a]) * (p - a);
     ind.style.transform = `translateX(${indX}px)`;
   },
   /** Glides to tab index k as the cards grow back to the full screen, opens it and puts every layer back. */
@@ -1691,6 +1709,8 @@ const pager = {
     const P = this.on;
     if (!P) return;
     cancelAnimationFrame(P.raf);
+    cancelAnimationFrame(P.inputRaf);
+    if (P.pending) { this.show(P.pending.pos, P.pending.s); P.pending = null; }
     const from = P.pos, s0 = P.s, to = k, ms = ui.RM ? 1 : Math.min(300, 190 + 100 * Math.abs(to - from));
     moveIndicator($('tabbar').querySelector(`.tab[data-tab="${TABS[k]}"]`), true);
     await new Promise(res => {
@@ -1713,13 +1733,26 @@ const pager = {
       this.on = null;
       ui.busy.dec();
       warmNeighbours(S.tab);
+      drainTabRequest();
     }
   }
 };
-/** Loads the views of the tabs either side of T (so a swipe has a page to show). */
+// Build adjacent root screens outside gestures, with cancelled work ignored after navigation.
+let warmGeneration = 0;
 function warmNeighbours(T) {
-  const i = TABS.indexOf(T);
-  [TABS[i - 1], TABS[i + 1]].forEach(t => { if (t && S.stacks[t]) loadView(topOf(t).route.view).catch(() => {}); });
+  const generation = ++warmGeneration, i = TABS.indexOf(T);
+  [TABS[i - 1], TABS[i + 1]].filter(Boolean).forEach(t => {
+    const e = topOf(t);
+    let retries = 0;
+    const prepare = () => {
+      if (generation !== warmGeneration || S.tab !== T || topOf(t) !== e || e.scr || e.kind !== 'root') return;
+      if (document.hidden) return;
+      if (pager.on || sliding || qBusy || ui.busy.count) { if (++retries < 10) setTimeout(() => ui.onIdle(prepare), 200); return; }
+      ensureScreenSync(e, {z: 1, restore: true, transition: 'none'});
+      if (scrollMap.has(e.route.path)) e.savedTop = scrollMap.get(e.route.path);
+    };
+    loadView(e.route.view).then(() => ui.onIdle(prepare)).catch(() => {});
+  });
 }
 
 // ============================================================================ Tap: switch to the tab
@@ -1727,10 +1760,14 @@ function warmNeighbours(T) {
 // tapped icon as the tab's card slides in from that side, then grows back to fill the screen. A tab further than the
 // next one comes straight in (the ones between are skipped). With reduced motion, a cover or a sheet open, or a new
 // version waiting, it opens as before.
-let sliding = null;
-const TAB_MS = 250;
+let sliding = null, requestedTab = null;
+const TAB_MS = 240;
+function drainTabRequest() {
+  const T = requestedTab; requestedTab = null;
+  if (T && T !== S.tab) slideTo(T);
+}
 function slideTo(T) {
-  if (sliding) { finishTransitions(); return sliding.then(() => slideTo(T)); }
+  if (sliding || pager.on) { requestedTab = T; return sliding || Promise.resolve(); }
   if (ui.RM || pager.on || S.cover || S.sheets.length || (swNew && !typing()) || T === S.tab) return goTab(T);
   sliding = (async () => {
     finishTransitions();
@@ -1741,7 +1778,7 @@ function slideTo(T) {
     if (!e.scr) { await goTab(T); return; } // its view didn't load: the plain switch shows its error
     e.scr.el.removeAttribute('data-under');
     const stage = $('stage'), cur = layerOf(S.tab), nxt = layerOf(T), w = stage.clientWidth;
-    cur.style.willChange = nxt.style.willChange = 'transform';
+    prepareCard(cur); prepareCard(nxt);
     cardAt(nxt, dir * w + CARD.gap, 1);
     setLayerHidden(nxt, false);
     restoreLayerScroll(T);
@@ -1752,10 +1789,9 @@ function slideTo(T) {
     await new Promise(res => {
       const t0 = performance.now();
       const frame = now => {
-        const ownerMotion = data.isOwner() && !ui.RM;
-        const t = ui.RM ? 1 : Math.min(1, (now - t0) / (ownerMotion ? 280 : TAB_MS));
+        const t = ui.RM ? 1 : Math.min(1, (now - t0) / TAB_MS);
         const p = t * t * t * (t * (t * 6 - 15) + 10); // smootherstep: off gently, across, in gently
-        const sc = 1 - (ownerMotion ? .045 : CARD.dip) * Math.pow(Math.sin(Math.PI * Math.min(1, t * 1.08)), .7);
+        const sc = 1 - CARD.dip * Math.pow(Math.sin(Math.PI * Math.min(1, t * 1.08)), .7);
         const step = cardStep(w, sc);
         cardAt(cur, -dir * p * step, sc);
         cardAt(nxt, dir * (1 - p) * step, sc);
@@ -1770,7 +1806,7 @@ function slideTo(T) {
       if (S.tab !== T) setLayerHidden(nxt, true);
       ui.busy.dec();
     }
-  })().finally(() => { sliding = null; warmNeighbours(S.tab); });
+  })().finally(() => { sliding = null; warmNeighbours(S.tab); drainTabRequest(); });
   return sliding;
 }
 
@@ -1784,15 +1820,17 @@ function setupScrub(bar) {
   const tabs = () => [...bar.querySelectorAll('.tab:not([hidden])')];
   const mark = btn => tabs().forEach(t => t.classList.toggle('is-scrub', t === btn));
   // The finger's place along the bar as a tab position: tab k's centre is k, fractional between centres.
-  const posAt = x => {
-    const cs = tabs().map(t => { const r = t.getBoundingClientRect(); return r.left + r.width / 2; });
+  const posAt = (x, cs) => {
     if (x <= cs[0]) return 0;
     for (let k = 0; k < cs.length - 1; k++) if (x <= cs[k + 1]) return k + (x - cs[k]) / (cs[k + 1] - cs[k]);
     return cs.length - 1;
   };
   bar.addEventListener('pointerdown', e => {
-    if (e.button > 0 || !e.isPrimary || S.cover || S.sheets.length || pager.on || running.size || qBusy) return;
-    g = {id: e.pointerId, x0: e.clientX, on: false, k: -1, pages: S.stacks[S.tab].length === 1};
+    if (e.button > 0 || !e.isPrimary || S.cover || S.sheets.length || pager.on || sliding || running.size || qBusy) return;
+    const buttons = tabs(), br = bar.getBoundingClientRect(), ind = bar.querySelector('.tab-ind');
+    const centres = buttons.map(t => { const r = t.getBoundingClientRect(); return r.left + r.width / 2; });
+    g = {id: e.pointerId, x0: e.clientX, on: false, k: -1, pages: S.stacks[S.tab].length === 1,
+      centres, left: br.left, width: bar.clientWidth, ind, indWidth: ind?.offsetWidth || 0};
   });
   bar.addEventListener('pointermove', e => {
     if (!g || e.pointerId !== g.id) return;
@@ -1805,14 +1843,14 @@ function setupScrub(bar) {
       TABS.forEach(t => loadView(topOf(t).route.view).catch(() => {}));
       if (g.pages) pager.begin();
     }
-    const ind = bar.querySelector('.tab-ind'), br = bar.getBoundingClientRect();
+    const {ind, indWidth: w, width, left} = g;
     if (ind) {
-      const w = ind.offsetWidth, pad = 5;
-      indX = Math.max(pad, Math.min(bar.clientWidth - pad - w, e.clientX - br.left - w / 2));
+      const pad = 5;
+      indX = Math.max(pad, Math.min(width - pad - w, e.clientX - left - w / 2));
       ind.style.transform = `translateX(${indX}px)`;
     }
-    const pos = posAt(e.clientX), k = Math.round(pos);
-    if (g.pages) pager.show(pos, 1 - CARD.dip * Math.min(1, Math.abs(e.clientX - g.x0) / 40)); // cards while the finger is down
+    const pos = posAt(e.clientX, g.centres), k = Math.round(pos);
+    if (g.pages) pager.move(pos, 1 - CARD.dip * Math.min(1, Math.abs(e.clientX - g.x0) / 40)); // cards while the finger is down
     if (k !== g.k) { g.k = k; mark(tabs()[k]); ui.haptic('selection'); }
   });
   const end = e => {
@@ -1861,9 +1899,10 @@ function setupTabSwipe() {
   const blocker = e => { if (g && g.locked && e.cancelable) e.preventDefault(); };
   const release = () => stage.removeEventListener('touchmove', blocker, {passive: false});
   stage.addEventListener('touchstart', e => {
+    if (g?.locked && pager.on) { const ci = g.P.ci; g = null; release(); pager.settle(ci); return; }
     g = null;
     release();
-    if (e.touches.length !== 1 || S.cover || S.sheets.length || running.size || qBusy || pager.on) return;
+    if (e.touches.length !== 1 || S.cover || S.sheets.length || running.size || qBusy || pager.on || sliding) return;
     if (S.stacks[S.tab].length !== 1) return; // a pushed screen: its edge swipes back instead
     const t = e.touches[0], r = stage.getBoundingClientRect();
     if (t.clientX - r.left < 24 || r.right - t.clientX < 24) return;
@@ -1876,6 +1915,7 @@ function setupTabSwipe() {
   stage.addEventListener('touchmove', e => {
     if (!g) return;
     const t = e.touches[0];
+    if (!t || e.touches.length !== 1) return;
     const dx = t.clientX - g.x0, dy = t.clientY - g.y0;
     if (!g.locked) {
       if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
@@ -1888,13 +1928,12 @@ function setupTabSwipe() {
     let pos = ci - dx / g.P.w;
     if (pos < 0) pos *= .25; else if (pos > last) pos = last + (pos - last) * .25;
     g.x = dx;
-    pager.show(pos, 1 - CARD.dip * Math.min(1, Math.abs(dx) / 90)); // the screen shrinks to a card as it moves off
-    pager.pill(pos);
+    pager.move(pos, ui.RM ? 1 : 1 - CARD.dip * Math.min(1, Math.abs(dx) / 90), true);
     const now = performance.now();
     g.s.push([now, t.clientX]);
     while (g.s.length > 2 && now - g.s[0][0] > 100) g.s.shift();
   }, {passive: true});
-  const end = () => {
+  const end = e => {
     release();
     if (!g) return;
     const G = g;
@@ -1902,7 +1941,7 @@ function setupTabSwipe() {
     if (!G.locked || !pager.on) return;
     const v = vel(G.s), P = pager.on, dir = G.x < 0 ? 1 : -1, to = P.ci + dir;
     const ok = to >= 0 && to < TABS.length;
-    const commit = ok && (Math.abs(G.x) > P.w / 3 || (Math.abs(G.x) > 30 && Math.abs(v) > .4 && Math.sign(v) === Math.sign(G.x)));
+    const commit = e.type !== 'touchcancel' && ok && (Math.abs(G.x) > P.w / 3 || (Math.abs(G.x) > 30 && Math.abs(v) > .4 && Math.sign(v) === Math.sign(G.x)));
     if (commit) ui.haptic('selection');
     pager.settle(commit ? to : P.ci);
   };
@@ -1935,7 +1974,7 @@ export function enableSwipeBack() {
     const st = S.stacks[S.tab];
     if (st.length < 2) return;
     // The Keep owns every swipe, including at the screen edge; leave it with the Back button.
-    if (data.isOwner() && isKeepRoute(st[st.length - 1].route)) return;
+    if (available() && isKeepRoute(st[st.length - 1].route)) return;
     if (e.target.closest && e.target.closest('[data-hscroll]')) return;
     g = {x0: t.clientX, y0: t.clientY, locked: false, topE: st[st.length - 1], underE: st[st.length - 2], s: [[performance.now(), t.clientX]], x: 0, p: 0};
     // Only an edge gesture gets a non-passive listener (to preventDefault after the axis lock); every other
@@ -2053,11 +2092,11 @@ document.addEventListener('keydown', e => {
 // Who this phone is decides the owner-only screens (The Keep, in Daily Games): off one that's gone, onto Daily Games.
 let ownerEffects = null, ownerEffectsLoad = null;
 function syncOwnerEffects() {
-  const enabled = data.isOwner();
+  const enabled = available();
   document.documentElement.classList.toggle('owner-motion', enabled);
   if (!enabled) { ownerEffects?.stop(); return Promise.resolve(); }
   const activate = () => {
-    if (!data.isOwner()) return;
+    if (!available()) return;
     ownerEffects.start();
     allMounted().filter(s => s.visible).forEach(s => ownerEffects.show(s));
   };
@@ -2076,19 +2115,17 @@ data.subscribe(type => {
   syncOwnerEffects();
 });
 const ownerMotionPreference = matchMedia('(prefers-reduced-motion: reduce)');
-const finishOwnerMotion = e => { if (e.matches && data.isOwner()) finishTransitions(); };
+const finishOwnerMotion = e => { if (e.matches && available()) finishTransitions(); };
 if (ownerMotionPreference.addEventListener) ownerMotionPreference.addEventListener('change', finishOwnerMotion);
 else ownerMotionPreference.addListener?.(finishOwnerMotion);
 
 data.subscribe(type => {
   if (type !== 'me') return;
-  // The owner game now shares the Daily Games stack. A profile change must still leave and discard it,
-  // even though the tab list stays the same (and even when that stack is hidden under another tab).
-  if (!data.isOwner()) {
+  // Always discard mounted Keepfall state when the selected profile changes.
+  {
     const hasKeep = Object.values(S.stacks).some(st => st.some(e => isKeepRoute(e.route)));
     if (hasKeep || isKeepRoute(S.cover && S.cover.route)) {
       run(async () => {
-        if (data.isOwner()) return;
         await stripOverlays();
         Object.entries(S.stacks).forEach(([tab, st]) => {
           const i = st.findIndex(e => isKeepRoute(e.route));
@@ -2241,7 +2278,8 @@ async function start() {
   await deepLink(hash0, {warm: false});
   removeBoot();
   // First open on this phone: ask who they are (a full-screen picker over whatever screen the link opened).
-  if (needsWelcome()) showWelcome();
+  if (needsWelcome()) showWelcome().then(showReleaseNotice);
+  else showReleaseNotice();
   setupTabBar();
   setupTabSwipe();
   if (ui.IOS_STANDALONE) enableSwipeBack();

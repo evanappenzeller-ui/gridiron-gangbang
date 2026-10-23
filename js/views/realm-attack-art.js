@@ -1,3 +1,4 @@
+import * as features from '../core/features.js';
 // Owner-only raid poses and weapon effects. Rendering reads the battle clock and never changes combat state.
 // Atlases load only for an active raid; each soldier selects its own frame on the shared texture.
 import * as data from '../core/data.js';
@@ -26,11 +27,11 @@ export function createRaidAttacks(T, scene, {camera, onChange = () => {}} = {}) 
   const right = new T.Vector3(), up = new T.Vector3(), forward = new T.Vector3();
   const scale = new T.Vector3(), rotation = new T.Quaternion(), turn = new T.Quaternion(), zAxis = new T.Vector3(0, 0, 1);
   const matrix = new T.Matrix4();
-  const active = () => !dead && data.isOwner();
+  const active = () => !dead && features.available();
   // data emits 'me' for both this tab and gg-me storage changes in another tab.
-  const unsubscribe = data.subscribe(type => { if (type === 'me' && !data.isOwner()) dispose(); });
+  const unsubscribe = data.subscribe(type => { if (type === 'me' && !features.available()) dispose(); });
   // localStorage.clear has a null key and does not pass through data's individual-key storage listener.
-  const storageChanged = event => { if (event.key === null || (event.key === 'gg-me' && event.newValue !== data.OWNER)) dispose(); };
+  const storageChanged = event => { if (event.key === null) dispose(); };
   globalThis.addEventListener?.('storage', storageChanged);
 
   const metadata = (kind, entry, texture) => {

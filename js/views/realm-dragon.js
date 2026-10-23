@@ -1,3 +1,4 @@
+import * as features from '../core/features.js';
 // Keepfall's dragon in 3D (the owner's ask, Oct 22 2026: "use model for dragons"; then "The dragon should be used as a
 // hero in place of the wizzard. the dragon is unlocked through the hatchery and gets stronger with each upgrade to the
 // hatchery"): models/keep-dragon.glb, "Mountain Dragon" by Alexey Zaika (Sketchfab, CC-BY-4.0: CREDIT below; cut to five
@@ -100,7 +101,7 @@ const READY = new Set();
 // there comes with no key, which core/data.js doesn't hear (it keeps its own copy of gg-me: this tab still reads as
 // his), so the dragon goes all the same, as the Knight model and the attack art do, till he's picked again (here, or
 // gg-me his once more in the storage).
-const mine = () => data.isOwner() && !AWAY;
+const mine = () => features.available() && !AWAY;
 // The views drawing dragons (a raid's, the home dragon, the scenery's): each {clear()}, cleared when the phone stops
 // being his; the model let go LINGER_MS after the last of them is gone, unless another comes (each renderer that drew
 // it leaves a listener on its geometry, material and textures, three.js's, kept till they're disposed).
@@ -115,16 +116,13 @@ function left(v) {
 }
 data.subscribe(type => {
   if (type !== 'me') return;
-  if (data.isOwner()) AWAY = false; else notHis();
+  if (features.available()) AWAY = false; else notHis();
 });
 function onStorage(e) {
-  let now = null;
-  try { now = localStorage.getItem('gg-me'); } catch (_) { /* (none to read: not his) */ }
-  // (his in the storage, here and in every tab: back, if a clear had taken the dragon away)
-  if (now === data.OWNER) { AWAY = false; return; }
   if (e.key !== null && e.key !== 'gg-me') return;
-  if (e.key === null) AWAY = true;
-  notHis();
+  if (e.key === null) { AWAY = true; notHis(); return; }
+  AWAY = false;
+  if (!features.available()) notHis();
 }
 if (typeof addEventListener === 'function') {
   addEventListener('online', () => { FAILED_AT = 0; });

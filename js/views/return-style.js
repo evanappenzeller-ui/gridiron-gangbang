@@ -1,9 +1,10 @@
+import * as features from '../core/features.js';
 // Evan's Return Man art direction: clean, colorful, low-poly runner environments.
 // These are procedural surfaces, not downloaded pictures. Never change legacy palettes in place.
 import * as data from '../core/data.js';
 import * as R from '../core/return.js';
 
-export const enabled = () => data.isOwner();
+export const enabled = () => features.available();
 export const key = () => enabled() ? 'arcade:' : '';
 const LANES = [-R.LANE, 0, R.LANE];
 const THEMES = {

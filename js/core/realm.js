@@ -29,13 +29,11 @@ export const MAX_KEEP = 8;
 export const RAID_S = 180;         // a raid's clock, seconds
 export const CUR = ['gold', 'grain'];
 export const CUR_NAME = {gold: 'Gold', grain: 'Ale'};
-/** Whether this phone may have Keepfall at all: the owner's alone. */
-export const mayPlay = () => !!(data.isOwner && data.isOwner());
-// Testing (the owner, Oct 22 2026): his realm started over at Castle level 1 with unlimited Gold and Ale and no
-// building time. A realm marked tst spends nothing and builds and upgrades at once; one saved before TEST_RESET is
-// started over (keeping its house name and scenery) when it loads, on whichever phone loads it first.
-export const TEST_RESET = '2026-10-22-lore-restart';
-export const testing = s => !!(s && s.tst);
+/** Keepfall is available to every selected member or guest profile. */
+export const mayPlay = () => !!(data.me() || data.guest());
+// v3 restarts Evan's realm at Castle level 1. Retired testing flags never bypass costs or build times.
+export const TEST_RESET = 'gridiron-hub-v3';
+export const testing = () => false;
 const afford = (s, c, n) => testing(s) || n <= s.r[c];
 const spend = (s, c, n) => { if (!testing(s)) s.r[c] -= n; };
 
@@ -285,7 +283,7 @@ export function heroStat(k, level, v = RULES_V) {
 function heroChange(s, k, recruit) {
   const H = heroKind(k), level = H ? heroLevel(s, k) : 0, to = recruit ? 1 : level + 1;
   const o = {ok: false, why: '', cost: H && !H.hatch ? (H.cost[to - 1] || 0) : 0, pay: 'gold', to};
-  if (!mayPlay()) return {...o, why: 'Keepfall is available on Evan’s profile'};
+  if (!mayPlay()) return {...o, why: 'Choose your profile to play Keepfall'};
   if (!H) return {...o, why: 'Unknown hero'};
   // (the Dragon Hero: no Gold; his hatchery's upgrades are his)
   if (H.hatch) return {...o, why: level ? 'He grows with the Dragon Hatchery: upgrade it' : `He hatches at a Dragon Hatchery (Castle level ${H.at})`};
@@ -549,7 +547,7 @@ export const SCENERIES = [
   {k: 'infernal', name: 'Infernal Wastes', at: 7, blurb: 'Scorched ground ringed by rivers of lava, a volcano beyond'}
 ];
 /** Whether scenery k is open to this realm (its Castle high enough and profile eligible). */
-export const sceneryOpen = (s, k) => { const x = SCENERIES.find(q => q.k === k); return !!x && (!x.ownerOnly || data.isOwner()) && keepOf(s) >= x.at; };
+export const sceneryOpen = (s, k) => { const x = SCENERIES.find(q => q.k === k); return !!x && keepOf(s) >= x.at; };
 /** The scenery this realm lies in: the one picked, while it's open to it; else the coast. */
 export const sceneryOf = s => (s && s.sc && sceneryOpen(s, s.sc) ? s.sc : 'coast');
 /** Picks scenery k (true), if it's open. */
@@ -599,7 +597,7 @@ export function clean(s) {
   o.nm = typeof o.nm === 'string' ? o.nm.slice(0, 28) : '';
   o.sc = SCENERIES.some(x => x.k === o.sc) ? o.sc : '';
   o.rs = typeof o.rs === 'string' ? o.rs : '';
-  if (o.tst) o.tst = 1; else delete o.tst;
+  delete o.tst; // v3 uses ordinary resource costs and build times
   // (laid out on a smaller lot: everything moved over together, so it's in the middle of this one as it was in that)
   const was = Number.isInteger(o.n) && o.n > 0 ? o.n : N_WAS, by = Math.floor((N - was) / 2);
   o.n = N;
@@ -1382,100 +1380,124 @@ export function keepMine(remote, local) {
   return kept;
 }
 
-// ---------------------------------------------------------------------------------------------------- the owner's
-const LS = 'gg-fr1';
-// PROVISIONAL: this phone started a new realm before the board said whether the owner has one (a new phone, a cleared
-// browser): it gives way to his as soon as the board shows it, and isn't put on the board before then.
-let MINE = null, saveT = 0, dirty = false, PROVISIONAL = false;
+// ---------------------------------------------------------------------------------------------------- your realm
+// One save per selected profile. Anonymous Firebase UIDs identify a browser, not a person.
+export function profileKey() {
+  const member = data.me(), user = data.user();
+  if (member) return 'm_' + member;
+  if (user) return 'u_' + user.id;
+  const guest = data.guest();
+  return guest ? 'g_' + Array.from(guest.trim().toLowerCase()).map(c => c.codePointAt(0).toString(16)).join('_') : '';
+}
+const localKey = key => 'gg-v3-fr1-' + key;
+let MINE = null, PROFILE = '', saveT = 0, dirty = false, PROVISIONAL = false;
 const subs = new Set();
 export function subscribe(fn) { subs.add(fn); return () => subs.delete(fn); }
 const emit = why => subs.forEach(fn => { try { fn(why); } catch (e) { console.error(e); } });
-function readLocal() { try { return clean(JSON.parse(localStorage.getItem(LS) || 'null')); } catch (_) { return null; } }
-function writeLocal(s) { try { localStorage.setItem(LS, JSON.stringify(s)); } catch (_) {} }
-const boardKnown = () => !!(daily.LB.ready && !daily.LB.off && daily.LB.uid);
-export const myKey = () => (daily.LB.uid ? daily.boardKey({id: daily.LB.uid, nick: daily.LB.nick}) : null);
-/** The owner's docs on the board (all his phones'). */
-export function myDocs(list = daily.LB.raw || []) {
-  const k = myKey();
-  return k ? list.filter(p => daily.boardKey(p) === k || p.id === daily.LB.uid) : [];
+function selectProfile() {
+  const key = profileKey();
+  if (key !== PROFILE) { clearTimeout(saveT); MINE = null; dirty = false; PROVISIONAL = false; PROFILE = key; }
+  return key;
 }
-/** The freshest realm among a person's docs (raw fr1), or null. */
+function readLocal() { try { return clean(JSON.parse(localStorage.getItem(localKey(PROFILE)) || 'null')); } catch (_) { return null; } }
+function writeLocal(state) { if (PROFILE) { try { localStorage.setItem(localKey(PROFILE), JSON.stringify(state)); } catch (_) {} } }
+const boardKnown = () => !!(daily.LB.ready && daily.LB.synced && !daily.LB.off && daily.LB.uid);
+export const myKey = () => data.me() || (data.user() ? 'user:' + data.user().id : daily.LB.uid ? 'row:' + daily.LB.uid : null);
+export function myDocs(list = daily.LB.raw || []) {
+  const key = myKey();
+  return key ? list.filter(p => daily.boardKey(p) === key || p.id === daily.LB.uid) : [];
+}
+/** Legacy saves are used only to preserve another profile's existing realm. */
 export function freshest(docs) {
   let best = null;
   docs.forEach(p => { const f = p && p.fr1; if (f && Array.isArray(f.b) && (!best || (Number(f.at) || 0) > (Number(best.at) || 0))) best = f; });
   return best;
 }
-/** The testing realm (TEST_RESET): a fresh one at Castle level 1, marked tst, with old's house name and scenery. */
-export function testRealm(old, now = Date.now()) {
-  const s = fresh(now);
-  s.rs = TEST_RESET; s.tst = 1;
-  if (old) { s.nm = old.nm || ''; if (old.sc) s.sc = old.sc; }
-  return s;
+/** Ordinary Castle level 1, without testing privileges. */
+export function testRealm(_old, now = Date.now()) {
+  const state = fresh(now); state.rs = TEST_RESET; return state;
 }
-// (a realm saved before the reset is never taken up again, here or from the board)
-const current = s => (s && s.rs === TEST_RESET ? s : null);
-// A phone still on the previous release must not hide another phone's new progress.
-const currentRemote = () => clean(freshest(myDocs().filter(p => current(p.fr1))));
-/** This phone's realm (loaded once: the freshest of this phone's copy and the owner's docs), brought up to now. */
-export function mine(now = Date.now()) {
-  if (!MINE) {
-    const local0 = readLocal(), remote0 = clean(freshest(myDocs()));
-    const local = current(local0), remote = currentRemote();
-    MINE = (remote && (!local || remote.at > local.at)) ? remote : local;
-    // (this phone's example raids and replays the newer copy lacks, kept, and saved again: see sync)
-    if (MINE === remote && local && keepMine(remote, local)) { writeLocal(MINE); dirty = true; clearTimeout(saveT); saveT = setTimeout(flush, 1500); }
-    if (!MINE) {
-      // (started over for testing: kept here at once, on the board as soon as it's known)
-      const old = [local0, remote0].filter(Boolean).sort((a, b) => b.at - a.at)[0];
-      MINE = testRealm(old, now); PROVISIONAL = !boardKnown();
-      if (old) { writeLocal(MINE); dirty = true; }
-    }
+const current = state => state && state.rs === TEST_RESET ? state : null;
+const allDocs = () => daily.LB.all || daily.LB.raw || [];
+function currentRemote() {
+  let best = null;
+  for (const p of allDocs()) {
+    if (PROFILE.startsWith('g_') && p.id !== daily.LB.uid) continue;
+    const state = current(p && p.fr3 && p.fr3[PROFILE]);
+    if (state && (!best || Number(state.at) > Number(best.at))) best = state;
   }
-  // (what the clock does — a job done, a soldier trained — is kept here only: every phone works it out the same from
-  // the times on the realm, so it isn't worth a trip to the board)
+  return clean(best);
+}
+function legacyRemote() {
+  if (!PROFILE || data.isOwner()) return null; // Evan explicitly requested a complete restart.
+  const key = myKey();
+  if (!key) return null;
+  const docs = allDocs().filter(p => key.startsWith('row:')
+    ? p.id === daily.LB.uid && !!p.g && String(p.nick || '').trim().toLowerCase() === String(data.guest() || '').trim().toLowerCase()
+    : daily.boardKey({...p, id: 'legacy:' + p.id}) === key);
+  const state = clean(freshest(docs));
+  if (state) state.rs = TEST_RESET;
+  return state;
+}
+export function mine(now = Date.now()) {
+  selectProfile();
+  if (!MINE) {
+    const local = current(readLocal()), remote = currentRemote();
+    MINE = remote && (!local || local._provisional || remote.at > local.at) ? remote : local;
+    PROVISIONAL = !!(MINE && MINE._provisional);
+    if (MINE === local && local && (!remote || local.at > remote.at)) dirty = true;
+    if (MINE === remote && local && !local._provisional && keepMine(remote, local)) dirty = true;
+    if (!MINE) {
+      MINE = legacyRemote() || testRealm(null, now);
+      PROVISIONAL = !boardKnown(); dirty = !!PROFILE;
+      if (PROVISIONAL) MINE._provisional = true;
+    }
+    writeLocal(MINE);
+  }
   if (tick(MINE, now)) { writeLocal(MINE); emit('change'); }
   return MINE;
 }
-/** Picks up a newer copy from the owner's other phone. True if it changed. */
 export function sync(now = Date.now()) {
-  const s = mine(now);
-  let changed = false;
-  const remote = currentRemote();
-  let kept = false;
-  if (remote && (PROVISIONAL || remote.at > s.at + 1000)) {
-    // (this phone's example raids and replays the newer copy lacks, kept: one saved by a phone on an older version)
-    kept = !PROVISIONAL && keepMine(remote, s);
+  const state = mine(now), remote = currentRemote();
+  let changed = false, kept = false;
+  if (remote && (PROVISIONAL || remote.at > state.at + 1000)) {
+    kept = !PROVISIONAL && keepMine(remote, state);
     MINE = remote; tick(MINE, now); changed = true; writeLocal(MINE);
   }
-  if (boardKnown()) { if (PROVISIONAL && !remote) dirty = true; PROVISIONAL = false; }
+  if (boardKnown()) {
+    if (PROVISIONAL && !remote) dirty = true;
+    PROVISIONAL = false;
+    if (MINE._provisional) { delete MINE._provisional; writeLocal(MINE); }
+  }
   if (changed) emit('sync');
   if (kept) touch();
+  else if (dirty && !PROVISIONAL) { clearTimeout(saveT); saveT = setTimeout(flush, 1500); }
   return changed;
 }
-/** Marks the realm changed: saved here at once, to the board a moment later. */
 export function touch() {
-  if (!MINE) return;
-  MINE.at = Date.now();
-  writeLocal(MINE);
-  dirty = true;
-  clearTimeout(saveT);
-  saveT = setTimeout(flush, 1500);
-  emit('change');
+  if (!MINE || !PROFILE || PROFILE !== profileKey()) return;
+  MINE.at = Date.now(); writeLocal(MINE); dirty = true;
+  clearTimeout(saveT); saveT = setTimeout(flush, 1500); emit('change');
 }
-/** Puts the realm on the owner's board doc now (when the board takes posts). Never anyone else's. */
 export async function flush() {
   clearTimeout(saveT);
-  const LB = daily.LB;
-  if (!dirty || !MINE || PROVISIONAL || !mayPlay() || !LB.put || !LB.ready || LB.off || !LB.uid) return false;
+  const LB = daily.LB, key = PROFILE, state = MINE;
+  if (!dirty || !state || !key || key !== profileKey() || PROVISIONAL || !mayPlay() || !LB.put || !boardKnown()) return false;
   dirty = false;
-  const body = {fr1: MINE}, fields = ['fr1'];
-  const own = (LB.raw || []).find(p => p.id === LB.uid);
-  if (!own) { Object.assign(body, {nick: (daily.postName() || '').trim().slice(0, 24), g: daily.asGuest(), total: 0}); fields.push('nick', 'g', 'total'); }
-  try { await LB.put(body, fields); return true; } catch (e) { dirty = true; return false; }
+  const body = {fr3: {[key]: copy(state)}}, fields = ['fr3.' + key];
+  delete body.fr3[key]._provisional;
+  const own = allDocs().find(p => p.id === LB.uid);
+  if (!own) {
+    Object.assign(body, {nick: (data.me() ? data.name(data.me()) : data.guest() || '').trim().slice(0, 24), g: daily.asGuest(), total: 0});
+    fields.push('nick', 'g', 'total');
+  }
+  try { await LB.put(body, fields); return true; }
+  catch (_) { if (PROFILE === key && MINE === state) dirty = true; return false; }
 }
 try {
+  data.subscribe(type => { if (type === 'me') { selectProfile(); emit('profile'); } });
   addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flush(); });
-  addEventListener('online', () => flush());
+  addEventListener('online', () => { sync(); flush(); });
+  addEventListener('storage', e => { if (PROFILE && e.key === localKey(PROFILE) && !dirty) { MINE = null; emit('sync'); } });
 } catch (_) {}
-/** For the checks: start over from a given state (or none). */
-export function _set(s) { MINE = s; PROVISIONAL = false; }
+export function _set(state) { clearTimeout(saveT); PROFILE = profileKey(); MINE = state; PROVISIONAL = false; dirty = false; }

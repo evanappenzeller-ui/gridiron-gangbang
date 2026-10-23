@@ -1,7 +1,8 @@
+import * as features from '../core/features.js';
 // Keepfall (the game was the Realm till Oct 21 2026: its route, view id and saves keep that name; core/realm.js
 // says which words changed). core/realm.js: the game; views/realm-3d.js: the lot in 3D; views/realm-raid.js: a raid;
 // views/realm-scout.js: a look round a realm before you raid it. The owner's
-// alone (data.isOwner(): its Daily Games case and route open on his phones only, and this screen shows nothing on anyone else's). Your
+// alone (features.available(): its Daily Games case and route open on his phones only, and this screen shows nothing on anyone else's). Your
 // lot fills the screen: your house, Gold and Ale, a way back to the Hub and a village framing control above;
 // a state-aware next step and Attack, Army, Build and Chronicle below. Tap a building for its current and next-level
 // benefits, upgrade cost/time, moving or collection (a mine or brewery with something in
@@ -29,7 +30,7 @@ let modsAsked = null;
 function realmSheet(options) {
   let stop = () => {};
   const sh = ui.openSheet({...options, onClose: () => { stop(); if (options.onClose) options.onClose(); }});
-  stop = data.subscribe(type => { if (type === 'me' && !F.mayPlay()) { sh.body.replaceChildren(); sh.close(); } });
+  stop = data.subscribe(type => { if (type === 'me') { sh.body.replaceChildren(); sh.close(); } });
   return sh;
 }
 function loadMods() {
@@ -61,9 +62,9 @@ const SURNAME = {evan: 'Appenzeller'};
 /** Your house's name: the one you gave it, else House and your last name (House Appenzeller). (The old default, House
  *  and your first name, kept by saving it unchanged, counts as none.) */
 export function houseName(s = F.mine()) {
-  const m = data.me() || data.OWNER, n = String((data.name ? data.name(m) : '') || '').trim().split(/\s+/);
+  const m = data.me(), n = String((m ? data.name(m) : data.user()?.name || data.guest()) || '').trim().split(/\s+/);
   if (s.nm && s.nm !== `House ${n[0]}`) return s.nm;
-  return `House ${SURNAME[m] || n[n.length - 1] || SURNAME[data.OWNER]}`;
+  return `House ${SURNAME[m] || n[n.length - 1] || 'Wanderer'}`;
 }
 /** A picture of a building or a soldier (thumb() in realm-3d.js), as an <img>, or '' before the 3D is in. */
 export function picOf(k, house, troop = false) {
@@ -98,7 +99,7 @@ export function reopenLog() { LOG_NEXT = F.mayPlay(); }
  *  under today's rules (hasReplay). s: the realm it's on (the lots its replay may point at), the owner's by default. */
 export const canWatch = (r, s) => !!(r && r.rp && typeof r.rp === 'object' && F.hasReplay(r, s || undefined));
 // (another profile on this phone, here or in another tab: the owner's pay isn't kept in memory for it)
-try { data.subscribe(type => { if (type === 'me' && !F.mayPlay()) { EARNED = NO_PAY(); EARNED_DAY = ''; LOG_NEXT = false; ART.clear(); } }); } catch (_) {}
+try { data.subscribe(type => { if (type === 'me') { EARNED = NO_PAY(); EARNED_DAY = ''; LOG_NEXT = false; ART.clear(); } }); } catch (_) {}
 function earned() {
   if (!F.mayPlay()) { EARNED = NO_PAY(); return EARNED.total; }
   // (the places already paid count as they were paid, frozen in the realm: refresh freezes the new ones; and only the
@@ -380,7 +381,7 @@ function tileHTML(t) {
  *  building), then more of a building, then higher levels. */
 function unlocksOf(to) {
   const top = [], more = [], lv = to - 1;
-  F.SCENERIES.filter(x => x.at === to && !x.ownerOnly).forEach(x => top.push({text: `The ${data.isOwner() && x.ownerName || x.name}`, isNew: true}));
+  F.SCENERIES.filter(x => x.at === to && !x.ownerOnly).forEach(x => top.push({text: `The ${features.available() && x.ownerName || x.name}`, isNew: true}));
   if (to === F.ATTACK_AT) top.push({text: 'Raids on the computer’s realms', isNew: true});
   F.HERO_ORDER.filter(k => F.HEROES[k].at === to).forEach(k => top.push({text: `The ${F.HEROES[k].name}`, isNew: true}));
   F.ORDER.forEach(k => {
@@ -1052,7 +1053,7 @@ function shopSheet(st) {
 // marked; tap an open one to move there.
 const sceneriesHTML = s => F.SCENERIES.map(x => {
   const open = F.sceneryOpen(s, x.k), on = F.sceneryOf(s) === x.k;
-  const name = data.isOwner() && x.ownerName || x.name, blurb = data.isOwner() && x.ownerBlurb || x.blurb;
+  const name = features.available() && x.ownerName || x.name, blurb = features.available() && x.ownerBlurb || x.blurb;
   return `<button type="button" class="rl-scn is-${x.k}${on ? ' is-on' : ''}" data-rl-scn="${x.k}" aria-pressed="${on}"${open ? '' : ' aria-disabled="true"'}>`
     + `<i class="rl-scn-sw" aria-hidden="true"></i><span><b>${esc(name)}</b><small>${open ? (on ? 'Your realm lies here' : esc(blurb)) : `Castle level ${x.at} to unlock`}</small></span></button>`;
 }).join('');
@@ -1410,7 +1411,7 @@ export default {
   chrome: 'none',
   title: 'Keepfall',
 
-  render() { return F.mayPlay() ? shellHTML() : '<div class="rl rl-none"></div>'; },
+  render() { return F.mayPlay() ? shellHTML() : '<div class="rl"><div class="empty"><h2 class="empty-title">Build your Keepfall</h2><p class="empty-body">Choose your profile to start your own kingdom.</p><button type="button" class="btn btn-primary" data-you>Choose profile</button><button type="button" class="btn" data-back>Back</button></div></div>'; },
 
   mount(el, ctx) {
     if (!F.mayPlay()) { ST.set(ctx, {el, ctx, dead: true}); return; }
@@ -1418,7 +1419,7 @@ export default {
     ST.set(ctx, st);
     fullScreen(st, ctx.visible);
     st.stops.push(data.subscribe(type => {
-      if (type === 'me' && !F.mayPlay()) { disposeState(st); el.innerHTML = '<div class="rl rl-none"></div>'; }
+      if (type === 'me') { disposeState(st); el.innerHTML = '<div class="rl rl-none"></div>'; }
     }));
     F.mine();
     earned();

@@ -1,3 +1,4 @@
+import * as features from '../core/features.js';
 // Owner-only Keep upgrade art: a unique picture per playable building level.
 // Fixed gameplay footprints; visible buildings grow within those footprints. Legacy art is a per-family fallback.
 import * as data from '../core/data.js';
@@ -20,16 +21,16 @@ export function clear() {
   URLS.clear(); IMGS = {}; SOURCES = {}; LOADING = null;
   if (SHADOW) { SHADOW.dispose(); SHADOW = null; }
 }
-let ownerActive = data.isOwner();
-data.subscribe(type => { if (type !== 'me') return; const next = data.isOwner(); if (next !== ownerActive) { ownerActive = next; clear(); } });
+let ownerActive = features.available();
+data.subscribe(type => { if (type !== 'me') return; const next = features.available(); if (next !== ownerActive) { ownerActive = next; clear(); } });
 function imageAt(file, epoch) {
   return new Promise(resolve => {
-    if (!data.isOwner() || epoch !== EPOCH) { resolve(null); return; }
+    if (!features.available() || epoch !== EPOCH) { resolve(null); return; }
     const im = new Image(); let finished = false;
     const done = image => {
       if (finished) return;
       finished = true; PENDING.delete(cancel); im.onload = im.onerror = null;
-      resolve(data.isOwner() && epoch === EPOCH ? image : null);
+      resolve(features.available() && epoch === EPOCH ? image : null);
     };
     const cancel = () => { done(null); im.removeAttribute('src'); };
     PENDING.add(cancel);
@@ -38,9 +39,9 @@ function imageAt(file, epoch) {
   });
 }
 export function load() {
-  if (!data.isOwner()) return Promise.resolve(false);
+  if (!features.available()) return Promise.resolve(false);
   if (LOADING) return LOADING;
-  const epoch = EPOCH, active = () => data.isOwner() && epoch === EPOCH;
+  const epoch = EPOCH, active = () => features.available() && epoch === EPOCH;
   LOADING = Promise.all([
     ...KINDS.map(async kind => {
       let im = await imageAt(`upgrades-v1/${kind}.webp`, epoch), source = 'upgrade';
@@ -51,7 +52,7 @@ export function load() {
   ]).then(() => active() && Object.keys(IMGS).length > 0);
   return LOADING;
 }
-export const ready = () => data.isOwner() && !!T && Object.keys(IMGS).length > 0;
+export const ready = () => features.available() && !!T && Object.keys(IMGS).length > 0;
 export const has = kind => ready() && !!IMGS[kind] && !!BUILD[kind];
 export const folkReady = () => ready() && !!IMGS.folk;
 export const sourceOf = kind => has(kind) ? SOURCES[kind] : null;

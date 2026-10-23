@@ -19,15 +19,15 @@ vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../../sw.js'), 'utf8'),
   handlers.install({waitUntil(p) { done = p; }});
   await done;
   assert(added.some(url => url.endsWith('/js/views/return-city-bus.js')));
-  assert(!added.some(url => /\/img\/return\/city\//.test(url)), 'Owner art must not be precached');
+  assert(!added.some(url => /\/img\/return\/city\//.test(url)), 'Large city art loads on demand');
   for (const face of ['rear', 'side', 'roof']) {
     handlers.fetch({request: new Request(scope + `img/return/city/bus-${face}-v1.webp`), respondWith(p) { done = p; }});
     await done;
   }
   assert.equal(fetched.length, 3);
-  assert.equal(stored.length, 0, 'Owner art must not enter shared runtime cache');
+  assert.equal(stored.length, 3, 'v3 city art is cached after use for every profile');
   handlers.fetch({request: new Request(scope + 'img/return.webp'), respondWith(p) { done = p; }});
   await done;
   assert(stored.some(url => url.endsWith('/img/return.webp')), 'Existing image caching remains intact');
-  console.log('PASS: owner art excluded from shared install/runtime cache; existing caching preserved.');
+  console.log('PASS: v3 city art loads on demand and is cached for everyone; existing caching preserved.');
 })().catch(error => { console.error(error); process.exitCode = 1; });

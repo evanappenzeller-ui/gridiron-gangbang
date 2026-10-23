@@ -1,0 +1,55 @@
+module.exports = async function checkState(page) {
+  const result = await page.evaluate(async () => {
+    const S=await import('/js/core/score-release.js'), D=await import('/js/core/daily.js'), R=await import('/js/core/realm.js'), data=await import('/js/core/data.js');
+    const ok=(b,m)=>{if(!b)throw Error(m)};
+    for (const id of data.ids) localStorage.setItem('gg-release-3.0:'+id,'1');
+    const legacy={id:'old',nick:'Evan Appenzeller',g:false,total:900,days:{25:{p:600}},s17:{25:{w:17}},dr5:{25:{r:'W'}},kk1:{25:{m:10}},rm2:{25:{y:9000}},fr1:{b:[],tst:1},pic:'keep'};
+    const clean=S.readScores(legacy);for(const key of S.SCORE_MAPS)ok(!Object.keys(clean[key]).length,'Legacy '+key+' cleared');
+    ok(clean.nick===legacy.nick&&clean.pic==='keep'&&clean.fr1===legacy.fr1,'Non-score data preserved');
+    const fresh={...legacy,scoresV3:{days:{25:{p:200}},rm2:{25:{y:80}}}};
+    let read=S.readScores({...fresh,days:{25:{p:600}},rm2:{25:{y:99999}},total:99999});
+    ok(read.days[25].p===200&&read.rm2[25].y===80,'Old phone cannot overwrite v3 scores');
+    const write=S.writeScores({nick:'Evan',total:200,days:{25:{p:200}},rm2:{25:{y:80}}});
+    ok(write.scoresV3.days[25].p===200&&write.scoresV3.rm2[25].y===80&&!write.days&&write.total===200,'Writes namespaced and rules compatible');
+    ok(S.scoreFields(['nick','days','total','fr3.m_evan']).join('|')==='nick|scoresV3.days|scoresV3.total|total|fr3.m_evan','Narrow field replacement');
+    const kv=new Map([['gg-me','evan'],['gg-nick','Evan'],['gg-daily-25','old'],['gg-17','old'],['gg-drill5','old'],['gg-kick1','old'],['gg-ret1','old'],['gg-v3-17','new'],['fantasy-history','keep']]);
+    S.clearRetiredScores({get length(){return kv.size},key:n=>[...kv.keys()][n],removeItem:k=>kv.delete(k)});
+    ok(kv.size===4&&kv.has('gg-me')&&kv.has('gg-nick')&&kv.has('gg-v3-17')&&kv.has('fantasy-history'),'Retired local scores only');
+    const original={...D.LB},selected=data.meRaw(),guest=data.guest(),now=Date.now();
+    try {
+      data.setMe('evan');localStorage.removeItem('gg-v3-fr1-m_evan');
+      const old=R.fresh(now-3600000);old.rs='2026-10-22-lore-restart';old.tst=1;old.b[0].l=8;old.r={gold:999999,grain:999999};
+      localStorage.setItem('gg-fr1',JSON.stringify(old));
+      Object.assign(D.LB,{ready:true,synced:true,off:false,uid:'test',all:[{id:'test',nick:data.name('evan'),fr1:old}],raw:[]});
+      R._set(null);const evan=R.mine(now);
+      ok(R.keepOf(evan)===1&&!R.testing(evan)&&!evan.tst&&evan.rs===R.TEST_RESET&&evan.tp===0,'Evan normal starter replaces old local/cloud test save');
+      evan.nm='Evan v3';R.touch();
+      const other=data.ids.find(k=>k!=='evan');data.setMe(other);localStorage.removeItem('gg-v3-fr1-m_'+other);R._set(null);
+      const second=R.mine(now);ok(second!==evan&&second.nm!=='Evan v3'&&R.mayPlay(),'Independent playable profile');
+      second.nm='Second v3';R.touch();data.setMe('evan');ok(R.mine(now).nm==='Evan v3','Evan local save restored');
+      const remote=R.fresh(now+3000);remote.rs=R.TEST_RESET;remote.nm='Evan other phone';
+      D.LB.all=[{id:'remote',fr3:{m_evan:remote}}];R.sync(now+3000);ok(R.mine(now+3000).nm==='Evan other phone','Freshest v3 remote sync');
+      data.setMe(other);ok(R.mine(now).nm==='Second v3','Remote Evan save never leaks');
+      const writes=[];D.LB.put=async(body,fields)=>writes.push({body,fields});D.LB.all=[{id:'test'}];R.touch();await R.flush();
+      ok(writes.length===1&&Object.keys(writes[0].body.fr3)[0]==='m_'+other&&writes[0].fields[0]==='fr3.m_'+other,'Flush only selected realm');
+      data.setGuest('Offline tester');localStorage.removeItem('gg-v3-fr1-'+R.profileKey());R._set(null);D.LB.synced=false;D.LB.all=[];
+      const offline=R.mine(now);R.touch();await R.flush();ok(offline._provisional&&writes.length===1,'Cached-only board cannot overwrite a remote realm');
+    } finally { R._set(null);Object.assign(D.LB,original);data.setMe(selected);if(guest)data.setGuest(guest); }
+    const W=await import('/js/core/week.js'),at=S.SCORE_RESET_AT;
+    const game=(id,kickoff)=>({id,kickoff:new Date(kickoff),state:'pre',final:false,home:{abbr:'KC'},away:{abbr:'LV'}});
+    const oldG=game('100',at-3600000),newG=game('101',at+3600000);
+    const pick=(g,t)=>({uid:'test',game:g.id,team:'KC',me:'evan',nick:'Evan',at:t,kick:g.kickoff.getTime()});
+    const oldP=pick(oldG,at-7200000),newP=pick(newG,at+1000);
+    ok(W.nflRowsFrom([oldP],[oldG],'test',{me:'evan'}).length===0,'Old weekly picks cleared');
+    ok(W.nflStandingsFrom([{year:2026,week:6,games:[oldG],docs:[oldP]}],'test',{me:'evan'}).length===0,'Old season picks cleared');
+    const rows=W.nflRowsFrom([oldP,newP],[oldG,newG],'test',{me:'evan',at:at+2000});
+    ok(rows.length===1&&rows[0].picked===1&&rows[0].pending===1&&rows[0].missed===0,'Fresh picks count without old penalties: '+JSON.stringify(rows));
+    const locked=W.nflRowsFrom([newP],[newG],'test',{me:'evan',locks:[{uid:'test',me:'evan',nick:'Evan',at:at-1000,n:1}]});
+    ok(locked.length===0,'Server lock remains enforced');
+    const future=W.nflRowsFrom([pick(newG,at-2000)],[newG],'test',{me:'evan',locks:[{uid:'test',me:'evan',nick:'Evan',at:at-1000,n:1}]});
+    ok(future.length===1&&future[0].pending===1,'Existing locked picks for upcoming games survive score reset');
+    ok(W.tallyNfl([oldP],[oldG],'test',{me:'evan'}).count===1,'Saved old pick still visible');
+    return 'PASS reset: old/new cloud scores, local migration, ordinary Keepfall start, profile saves, cross-device sync, Pickem cutoff and locks.';
+  });
+  console.log(result);
+};

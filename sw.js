@@ -7,7 +7,7 @@
 // A slow request falls back to whatever is cached under its path (from the previous worker too), so data whose
 // format changes gets a new file name rather than new content under the old one (data/puzzles-v4.json: see
 // js/core/daily.js).
-const CACHE = 'gg-v402';
+const CACHE = 'gg-v403';
 const CORE = ['ui', 'data', 'daily', 'fire', 'week', 'nfl', 'stats', 'motw', 'press', 'checks', 'checks-stats', 'checks-pickem', 'checks-press', 'checks-seventeen', 'checks-drill', 'checks-kick', 'return', 'checks-return', 'lay', 'plays', 'laytrack', 'seventeen', 'drill-sim', 'drill', 'kick', 'avatars', 'lpick', 'survivor', 'checks-lpick', 'realm', 'realm-battle', 'checks-realm'];
 // The tab roots are puzzles, pickem, rivals (Matchup), league, moves (Draft) and lay (The Lay). Keepfall opens from Daily Games.
 const VIEWS = ['welcome', 'guest', 'puzzles', 'games', 'game-case', 'board', 'you', 'sharecard', 'results', 'run', 'college', 'silhouette', 'mystery', 'journey', 'grid', 'picker',
@@ -17,11 +17,14 @@ const VIEW_CSS = ['welcome', 'puzzles', 'board', 'results', 'you', 'run', 'colle
   'standings', 'season', 'review', 'wrap', 'matchup', 'rivals', 'pickem', 'press', 'hall', 'moves', 'profile', 'lay', 'plays', 'seventeen', 'drill', 'kick', 'return', 'realm', '_kit'];
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest',
+  'js/core/features.js', 'js/core/release.js', 'js/core/score-release.js', 'js/core/owner-motion.js', 'css/owner-motion.css', 'css/release.css',
+  'js/views/game-launch.js', 'js/views/return-player-style.js', 'js/views/return-player-bulk.js',
+  'css/views/game-case-owner.css', 'css/views/game-case-controls.css', 'css/views/game-launch.css',
   'css/tokens.css', 'css/base.css', 'css/components.css', 'css/themes.css', 'css/finish.css', 'js/themes.js', 'js/lock.js',
   ...VIEW_CSS.map(v => `css/views/${v}.css`),
   'js/app.js', ...CORE.map(m => `js/core/${m}.js`),
   ...VIEWS.map(v => `js/views/${v}.js`),
-  // Code only: the new owner artwork/model loads on demand after the profile gate.
+  // Code only: larger artwork and models load and cache on demand.
   'js/views/realm-attack-art.js', 'js/views/realm-knight-model.js',
   'fonts/barlow-condensed-800.woff2', 'fonts/cinzel-latin.woff2', 'fonts/press-start-2p.woff2', 'fonts/vt323.woff2', 'img/logo.webp', 'img/nfl.webp', 'img/ncaa.webp', 'img/league.webp', 'img/survivor.webp', 'img/puzzles.webp', 'img/seventeen.webp', 'img/drill.webp',
   'img/games/puzzles-cover.webp', 'img/games/seventeen-cover.webp', 'img/games/drill-cover.webp', 'img/games/kick-cover.webp', 'img/games/return-cover.webp', 'img/games/smoke.webp',
@@ -36,8 +39,17 @@ const TIMEOUT = 2500;
 
 self.addEventListener('install', e => {
   // Each file is added on its own so one failure never blocks the install; network-first fills any gap.
+  // Bound background downloads so an update does not flood the connection during navigation.
   e.waitUntil(caches.open(CACHE)
-    .then(c => Promise.all(SHELL.map(u => c.add(new Request(u, {cache: 'reload'})).catch(() => {}))))
+    .then(async c => {
+      let next = 0;
+      await Promise.all(Array.from({length: 6}, async () => {
+        while (next < SHELL.length) {
+          const u = SHELL[next++];
+          await c.add(new Request(u, {cache: 'reload'})).catch(() => {});
+        }
+      }));
+    })
     .then(() => self.skipWaiting()));
 });
 
@@ -98,18 +110,7 @@ self.addEventListener('fetch', e => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
-  // Owner-only art is requested by the profile-gated renderer, never precached or
-  // written into this shared offline cache. Offline loads retain the original artwork
-  // (and the original player: his kit, return-player-style.js, and the build it sculpts him to, return-player-bulk.js).
-  // Keepfall's dragon model (views/realm-dragon.js) too: offline, the Dragon's picture.
-  if (/\/img\/return\/city\/bus-(rear|side|roof)-v1\.webp$/.test(url.pathname) ||
-      /\/models\/keep-dragon\.glb$/.test(url.pathname) ||
-      /\/img\/return-toreadors-(?:logo|painted-v1)\.png$/.test(url.pathname) ||
-      /\/js\/views\/return-player-(style|bulk)\.js$/.test(url.pathname) ||
-      /\/img\/realm\/upgrades-v1\/[^/]+\.webp$/.test(url.pathname)) {
-    e.respondWith(fetch(req));
-    return;
-  }
+  // v3 artwork is available to everyone and cached after its first use.
   if (isCacheFirst(url)) { e.respondWith(cacheFirst(req)); return; }
   if (isNetworkFirst(req, url)) e.respondWith(networkFirst(req, url));
 });

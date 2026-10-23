@@ -139,6 +139,9 @@ small { font-size: inherit; }
   }
 }
 .tab-layer { position: absolute; inset: 0; }
+/* Fixed clip and shadow; only transforms change while swiping. */
+.tab-layer.is-tab-card { border-radius: 20px; overflow: hidden; box-shadow: 0 12px 32px #0006; }
+#stage.is-cards .gm-smoke-wisp { animation-play-state: paused; }
 /* A hidden tab layer stays in the render tree but is skipped: content-visibility keeps its style and layout cached,
    so a tab switch never re-runs layout for the whole target screen. Skipped content is unfocusable and out of the
    accessibility tree; pointer-events keeps the empty layer box from catching taps meant for the visible one. */

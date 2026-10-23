@@ -1,3 +1,4 @@
+import * as features from '../core/features.js';
 // Evan's City bus art pilot. Merely importing this module never requests art.
 // The app uses a selected profile (data.isOwner), not a verified personal login.
 import * as data from '../core/data.js';
@@ -10,7 +11,7 @@ export function init(three, onChange) {
   if (!subscribed) {
     subscribed = true;
     // The world survives view remounts, including while Return Man is hidden.
-    data.subscribe(type => { if (type === 'me') revoke(true); });
+    data.subscribe(type => { if (type === 'me' && !features.available()) revoke(true); });
   }
 }
 
@@ -35,10 +36,10 @@ function revoke(profileChanged = false) {
 
 /** Also check per frame, in case the selected profile disappeared without an event. */
 export function sync() {
-  if (!data.isOwner()) revoke();
+  if (!features.available()) revoke();
 }
 
-const current = load => attempt === load && !load.abort.signal.aborted && data.isOwner();
+const current = load => attempt === load && !load.abort.signal.aborted && features.available();
 async function texture(load, file, index) {
   if (!current(load)) throw new Error('City bus profile changed');
   const url = new URL('../../img/return/city/' + file, import.meta.url);
@@ -59,7 +60,7 @@ async function texture(load, file, index) {
 }
 
 function ensure() {
-  if (!T || !data.isOwner() || tried) return;
+  if (!T || !features.available() || tried) return;
   tried = true;
   const load = {abort: new AbortController(), textures: []};
   attempt = load;
@@ -78,7 +79,7 @@ function ensure() {
 /** A UV body for the existing footprint. All buses share materials; repeats live in each geometry. */
 export function body(V) {
   sync();
-  if (!data.isOwner()) return null;
+  if (!features.available()) return null;
   ensure();
   if (!materials) return null;
   const {x0, x1, y1, z0, z1} = V, lo = .35, near = -z0, far = -z1, len = z1 - z0;

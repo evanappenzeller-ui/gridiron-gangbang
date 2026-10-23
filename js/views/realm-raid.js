@@ -105,7 +105,7 @@ function send(st, tile) {
 
 /** The attack's end: the take, the glory, the Chronicle, the card. */
 function finish(st, quiet = false) {
-  if (st.done || !F.mayPlay()) return;
+  if (st.dead || st.done || st.profile !== F.profileKey() || !F.mayPlay()) return;
   st.done = true;
   const B = st.B, r = B.result(), s = F.mine(), now = Date.now();
   if (!B.drops.length) return;
@@ -136,9 +136,10 @@ export default {
     const key = decodeURIComponent((ctx.params && ctx.params.key) || '');
     const st = {el, ctx, key, v: null, B: null, T: null, pick: null, t0: 0, t: 0, done: false, dead: false, hold: null, deadSig: '', coinAt: 0, speed: savedSpeed(), last: 0};
     ST.set(ctx, st);
+    st.profile = F.profileKey();
     speedBtn(st);
     st.stopProfile = data.subscribe(type => {
-      if (type === 'me' && !F.mayPlay()) {
+      if (type === 'me') {
         st.dead = true; st.done = true; stopHold(st);
         if (st.v) { st.v.dispose(); st.v = null; }
         el.replaceChildren();
@@ -189,8 +190,8 @@ export default {
   unmount(el, ctx) {
     const st = ST.get(ctx);
     if (!st) return;
-    st.dead = true;
     if (st.B && st.t0 && !st.done) { st.B.end(); finish(st, true); }
+    st.dead = true;
     stopHold(st);
     if (st.stopProfile) st.stopProfile();
     if (st.v) st.v.dispose();

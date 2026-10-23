@@ -15,6 +15,7 @@
 import {DATA, nf, norm, me as dataMe, name as dataName, guest as dataGuest, user as dataUser, isOwner as dataOwner, userNamed, userReserving, subscribe as dataSub} from './data.js';
 import {getFire, canWrite, isDevHost, devDayFrom, DEV_DAY as fireDevDay} from './fire.js';
 import {roundsFor as playRoundsFor} from './plays.js';
+import {readScores, writeScores, scoreFields} from './score-release.js';
 
 export {nf, norm};
 
@@ -182,7 +183,7 @@ export let TEST = false;
 export function setTest(on) {
   if (!PZ) return false;
   TEST = !!on;
-  SKEY = 'gg-daily-' + PNUM + (TEST ? '-test' : '');
+  SKEY = 'gg-v3-daily-' + PNUM + (TEST ? '-test' : '');
   if (TEST) { try { localStorage.removeItem(SKEY); } catch (_) {} }
   DS = readDS(SKEY, DAY, PNUM);
   emit('progress', {action: 'test'});
@@ -200,7 +201,7 @@ function initDay(pz) {
   PTS = ptsTable(DAY);
   PROMPTS = promptsFor(DAY);
   TODAY_LABEL = devDay ? dayLabel(PNUM, {long: true}) : new Date().toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'});
-  SKEY = 'gg-daily-' + PNUM;
+  SKEY = 'gg-v3-daily-' + PNUM;
   TEST = false;
   DS = readDS(SKEY, DAY, PNUM);
   seenIndex = dayIndex;
@@ -788,7 +789,7 @@ export function lockIn() {
 
 // ---------------------------------------------------------------------------
 // League leaderboard (Firebase Firestore, one document per player, anonymous sign-in)
-export const LB = {save: null, merge: null, uid: null, players: [], names: {}, ready: false, off: false, status: '', posting: false, mode: 'today', dev: DEV_NO_POST};
+export const LB = {save: null, merge: null, uid: null, players: [], names: {}, ready: false, synced: false, off: false, status: '', posting: false, mode: 'today', dev: DEV_NO_POST};
 try { LB.nick = localStorage.getItem('gg-nick') || ''; } catch (_) { LB.nick = ''; }
 
 function lbChanged(why, prev) { emit('lb', {prev: prev || LB.players, why}); }
@@ -882,17 +883,18 @@ async function startFirebase() {
     // fields (days whole, so filtered days still drop), and LB.merge adds fields without touching the daily ones.
     if (canWrite()) {
       const ref = () => fs.doc(db, 'players', LB.uid);
-      LB.save = body => fs.setDoc(ref(), body, {mergeFields: DAILY_FIELDS});
-      LB.merge = body => fs.setDoc(ref(), body, {merge: true});
+      LB.save = body => fs.setDoc(ref(), writeScores(body), {mergeFields: scoreFields(DAILY_FIELDS)});
+      LB.merge = body => fs.setDoc(ref(), writeScores(body), {merge: true});
       // (a field replaced whole: the realm, core/realm.js, where a merge would keep what it took away)
-      LB.put = (body, fields) => fs.setDoc(ref(), body, {mergeFields: fields});
+      LB.put = (body, fields) => fs.setDoc(ref(), writeScores(body), {mergeFields: scoreFields(fields)});
     }
-    fs.onSnapshot(fs.collection(db, 'players'), snap => {
+    fs.onSnapshot(fs.collection(db, 'players'), {includeMetadataChanges: true}, snap => {
       const prev = LB.players;
-      const all = snap.docs.map(d => scoredDoc(Object.assign({id: d.id}, d.data())));
+      const all = snap.docs.map(d => scoredDoc(readScores(Object.assign({id: d.id}, d.data()))));
       LB.all = all;
       boardFilter();
       LB.ready = true;
+      if (!snap.metadata.fromCache && !snap.metadata.hasPendingWrites) LB.synced = true;
       const mine = all.find(p => p.id === LB.uid);
       if (dataGuest()) fixGuestRow(mine);
       else if (mine && mine.nick) LB.nick = mine.nick;
@@ -1310,7 +1312,7 @@ export function streakLocal() {
   try {
     for (let k = 0; k < localStorage.length; k++) {
       const key = localStorage.key(k);
-      const m = /^gg-daily-(\d+)$/.exec(key || '');
+      const m = /^gg-v3-daily-(\d+)$/.exec(key || '');
       if (!m || +m[1] === PNUM) continue;
       let raw = null;
       try { raw = JSON.parse(localStorage.getItem(key)); } catch (_) { raw = null; }
@@ -1320,7 +1322,7 @@ export function streakLocal() {
       consider(+m[1], freshDS(raw, day));
     }
   } catch (_) {}
-  if (PNUM) consider(PNUM, TEST ? readDS('gg-daily-' + PNUM, DAY, PNUM) : DS); // (the real day, not test play)
+  if (PNUM) consider(PNUM, TEST ? readDS('gg-v3-daily-' + PNUM, DAY, PNUM) : DS); // (the real day, not test play)
   const todayDone = done.has(PNUM);
   let current = 0;
   for (let n = todayDone ? PNUM : PNUM - 1; n >= 1 && done.has(n); n--) current++;
