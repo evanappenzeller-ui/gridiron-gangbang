@@ -9,8 +9,8 @@
 // replay(...) plays a recorded raid again; replayRaid(rec) / replayBattle(P) give one to watch, a step at a time;
 // defend(s, now) plays the computer's raids on your realm since you last looked (a few a day); exampleRaids(s, now)
 // plays three on your realm as it is, for show (the owner's ask, Oct 22 2026), taking nothing.
-import {KINDS, TROOPS, TROOP_ORDER, HEROES, HERO_ORDER, heroLevels, heroStat, mayPlay, stat, N, RAID_S, BOTS, rng, boxOf, keepOf, lootOf, takeRaid, HOUR,
-  snapOf, replayOf, sceneryOf, putExamples, EX_V, DEFEND_AT} from './realm.js';
+import {KINDS, TROOPS, HEROES, RULES_V, rulesOf, heroLevels, heroStat, mayPlay, stat, N, RAID_S, BOTS, rng, boxOf, keepOf, lootOf, takeRaid, HOUR,
+  snapOf, replayOf, sceneryOf, putExamples, EX_V, DEFEND_AT, botDragon, topLevel} from './realm.js';
 
 export const DT = .1;
 const HIT_EVERY = 1;   // seconds between a soldier's hits
@@ -47,18 +47,25 @@ const distTo = (b, x, y) => Math.hypot(Math.max(b.x - x, 0, x - (b.x + b.size)),
 
 /**
  * A raid on base (a realm state: its buildings), with loot {by: {buildingId: {gold, grain}}}, by an army
- * ({troop: n}). options.heroes is the attacker's permanent-level snapshot, keyed knight/wizard. Defenders come
- * from base.hr, or options.defenders when given (a replay's: the levels they had then, whatever the Castle's caps are
- * now). Hero units use hero_knight/hero_wizard so ordinary trained knights keep their original behavior.
+ * ({troop: n}). options.heroes is the attacker's permanent-level snapshot, keyed knight/dragon. Defenders come
+ * from base's own (heroLevels: the Knight's roster, the Dragon's hatchery), or options.defenders when given (a replay's:
+ * the levels they had then, whatever the Castle's caps are now). Hero units use hero_knight/hero_dragon so ordinary
+ * trained knights keep their original behavior. options.rules: the rule set (core/realm.js RULES) it's played under,
+ * today's by default; 1 for a replay recorded before Oct 22 2026 (its troops, the trained Dragon among them, and its
+ * heroes, the Knight and the Wizard), so it plays out exactly as it did.
  */
 export function makeBattle(base, loot, army, options = {}) {
-  const heroes = mayPlay() ? Object.fromEntries(HERO_ORDER.filter(k => heroStat(k, options?.heroes?.[k])).map(k => [k, options.heroes[k]])) : {};
+  const rules = options && rulesOf(options.rules) !== rulesOf(RULES_V) ? Number(options.rules) : RULES_V, R = rulesOf(rules);
+  const heroStatOf = (k, l) => heroStat(k, l, rules);
+  const heroes = mayPlay() ? Object.fromEntries(R.heroes.filter(k => heroStatOf(k, options?.heroes?.[k])).map(k => [k, options.heroes[k]])) : {};
   const fixed = options && options.defenders && typeof options.defenders === 'object' ? options.defenders : null;
-  const defending = fixed ? (mayPlay() ? Object.fromEntries(HERO_ORDER.filter(k => heroStat(k, fixed[k])).map(k => [k, fixed[k]])) : {}) : heroLevels(base);
-  const left = Object.fromEntries(TROOP_ORDER.filter(t => Number.isInteger(army?.[t]) && army[t] > 0).map(t => [t, army[t]]));
-  Object.keys(heroes).forEach(k => { left[HEROES[k].troop] = 1; });
-  const B = {t: 0, step: 0, over: false, why: '', bl: [], tr: [], defenders: [], heroes, shots: [], fx: [], left, used: {}, got: {gold: 0, grain: 0}, gotBy: {}, seq: 0, drops: []};
+  const defending = fixed ? (mayPlay() ? Object.fromEntries(R.heroes.filter(k => heroStatOf(k, fixed[k])).map(k => [k, fixed[k]])) : {}) : rules === RULES_V ? heroLevels(base) : {};
+  const left = Object.fromEntries(R.troops.filter(t => Number.isInteger(army?.[t]) && army[t] > 0).map(t => [t, army[t]]));
+  Object.keys(heroes).forEach(k => { left[R.hero[k].troop] = 1; });
+  const B = {t: 0, step: 0, over: false, why: '', bl: [], tr: [], defenders: [], heroes, shots: [], fx: [], left, used: {}, got: {gold: 0, grain: 0}, gotBy: {}, seq: 0, drops: [], rules};
   const combatStats = u => u.stats || TROOPS[u.t];
+  // (who can hit a flying hero defending, the Dragon: those who shoot, archers, and those who hit flyers, the Dragon Hero)
+  const reachesAir = T => !!T.air || T.range > 1;
   const occ = new Int32Array(N * N).fill(-1);
   (base.b || []).forEach(b => {
     if (b.l < 1) return;
@@ -103,8 +110,8 @@ export function makeBattle(base, loot, army, options = {}) {
       if (score < best) { best = score; home = {x: x + .5, y: y + .5}; }
     }
     if (!home) return;
-    const stats = heroStat(hero, level);
-    B.defenders.push({id: 'def_' + hero, i: 'def_' + hero, t: HEROES[hero].troop, hero, l: level, level, stats,
+    const stats = heroStatOf(hero, level);
+    B.defenders.push({id: 'def_' + hero, i: 'def_' + hero, t: R.hero[hero].troop, hero, l: level, level, stats,
       x: home.x, y: home.y, cx: home.x, cy: home.y, size: .6, home, hp: stats.hp, max: stats.hp,
       targetHero: true, cd: 0, dead: false, face: 0, hitAt: -9, born: 0, path: [], pi: 0, nextPath: 0});
   });
@@ -113,7 +120,8 @@ export function makeBattle(base, loot, army, options = {}) {
   // ---- choosing a target
   const pick = u => {
     const T = combatStats(u);
-    const champion = B.defenders.filter(h => !h.dead && targetDistance(h, u.x, u.y) <= 7)
+    // (a hero defending in the air, the Dragon, only for those who can reach him: the rest go on with the raid)
+    const champion = B.defenders.filter(h => !h.dead && (!h.stats.fly || reachesAir(T)) && targetDistance(h, u.x, u.y) <= 7)
       .sort((a, b) => targetDistance(a, u.x, u.y) - targetDistance(b, u.x, u.y))[0];
     if (champion) return champion;
     const alive = B.bl.filter(b => !b.dead);
@@ -207,7 +215,7 @@ export function makeBattle(base, loot, army, options = {}) {
     // same raid (Oct 22 2026: with or without heroes; till then only with them).
     x = Math.round(x * 10) / 10; y = Math.round(y * 10) / 10;
     if (B.over || !(B.left[t] > 0) || !B.canDrop(x, y)) return null;
-    const hero = HERO_ORDER.find(k => HEROES[k].troop === t), T = hero ? heroStat(hero, heroes[hero]) : TROOPS[t];
+    const hero = R.heroes.find(k => R.hero[k].troop === t), T = hero ? heroStatOf(hero, heroes[hero]) : TROOPS[t];
     if (!T || (hero && !mayPlay())) return null;
     B.left[t]--;
     B.used[t] = (B.used[t] || 0) + 1;
@@ -241,7 +249,8 @@ export function makeBattle(base, loot, army, options = {}) {
           u.cd = HIT_EVERY;
           u.hitAt = B.t;
           const d = T.dps * HIT_EVERY * (u.t === 'thief' && foe.money ? 2 : 1);
-          if (T.range > 1) B.shots.push({k: u.t, from: u.id, x0: u.x, y0: u.y, x1: foe.cx, y1: foe.cy, t0: B.t, t1: B.t + .3, b: foe.i, h: foe.targetHero ? foe.id : null, d, splash: T.splash || 0, foe: false});
+          if (T.range > 1) B.shots.push({k: u.t, from: u.id, x0: u.x, y0: u.y, x1: foe.cx, y1: foe.cy, t0: B.t, t1: B.t + .3, b: foe.i, h: foe.targetHero ? foe.id : null, d, splash: T.splash || 0, foe: false,
+            ...(foe.targetHero && foe.stats && foe.stats.fly ? {high: true} : {})});
           else {
             hurt(foe, d);
             B.fx.push({k: 'hit', t: B.t, x: foe.cx, y: foe.cy, id: u.id});
@@ -268,8 +277,10 @@ export function makeBattle(base, loot, army, options = {}) {
       if (d <= go) { u.x = nx; u.y = ny; u.pi++; }
       else { u.x += dx / d * go; u.y += dy / d * go; }
     });
-    // Heroes defend on the ground, walking around their own buildings and walls. The Wizard can target flyers;
-    // the Knight cannot. Both can be attacked and defeated, and return unharmed to the permanent roster afterward.
+    // Heroes defend: the Knight on the ground, walking around their own buildings and walls, and can't target flyers;
+    // the Dragon (and, in replays from before Oct 22 2026, the Wizard) can. The Dragon flies straight over everything,
+    // and only archers and flyers' fire reach him (pick). All can be attacked and defeated, and return unharmed to the
+    // permanent roster afterward.
     B.defenders.forEach(h => {
       if (h.dead) return;
       const T = combatStats(h);
@@ -288,6 +299,12 @@ export function makeBattle(base, loot, army, options = {}) {
         return;
       }
       if (!foe && distance < .7) return;
+      if (T.fly) {
+        const go = Math.min(T.speed * DT, Math.max(0, distance - (foe ? T.range : 0)));
+        if (distance > 1e-6) { h.x += (target.x - h.x) / distance * go; h.y += (target.y - h.y) / distance * go; }
+        h.cx = h.x; h.cy = h.y;
+        return;
+      }
       if (B.step >= h.nextPath) {
         h.path = path(h, {x: target.x, y: target.y, targetHero: true}); h.pi = 0; h.nextPath = B.step + 10;
       }
@@ -390,7 +407,8 @@ export const replayRaid = (rec, s) => replayBattle(replayOf(rec, s));
 // realm's first day or before your Castle is level DEFEND_AT (3: the owner, Oct 22 2026, was 2; the example raids aren't
 // held to it), none during a truce (12 hours after one that took a star), and no
 // more than the last two while you were away. The raiders are the realm a level below yours, an army a little smaller
-// than yours could be, all coming from one side: knights and dragons first, the rest a moment later.
+// than yours could be, all coming from one side: knights (and from Castle 7 the computer's Dragon Hero: raidHeroes) first,
+// the rest a moment later.
 export const TRUCE_H = 12, WINDOW_H = 12;
 const WARM = 8;
 /** When the raids on s since it last looked fall (ms), the last two at most. A half day that already has a raid on the
@@ -410,24 +428,32 @@ export function raidsDue(s, now = Date.now()) {
   }
   return out.slice(-2);
 }
-/** The army a computer realm raids a Castle of level th with. */
+/** The army a computer realm raids a Castle of level th with (its trained troops; raidHeroes, who leads it). From Oct 22
+ *  2026 no trained dragon (the room it took goes to the rest): from Castle 7 the computer's Dragon Hero leads it instead. */
 export function raidArmy(th) {
   const room = 10 + th * 5, a = {};
   let left = room;
   const add = (t, n) => { n = Math.min(n, Math.floor(left / TROOPS[t].room)); if (n > 0) { a[t] = (a[t] || 0) + n; left -= n * TROOPS[t].room; } };
-  if (th >= 7) add('dragon', 1);
   if (th >= 3) add('knight', Math.floor(th / 2));
   if (th >= 5) add('thief', 4);
   add('archer', Math.floor(left * .45));
   add('footman', left);
   return a;
 }
+/** The heroes leading the computer's raid on a Castle of level th ({hero: level}): from Castle 7 (where a trained dragon
+ *  came till Oct 22 2026) the raiding realm's Dragon Hero (the realm a level below, defend's), at the level of the
+ *  hatchery on its lot (core/realm.js botDragon); none below. */
+export function raidHeroes(th) {
+  const l = th >= 7 ? botDragon(Math.max(1, Math.min(BOTS.length, th - 1))) : 0;
+  return l ? {dragon: l} : {};
+}
 /** The computer's army raiding realm s at moment at (its lot and take then), all from one side (0 top, 1 right, 2
- *  bottom, 3 left): knights and dragons first, the rest 25 steps later, spread along it. Played out a step at a time (a
- *  generator: it yields after each step; raidOn runs it through), the battle returned; B.ms[k]: the step it first had k
- *  stars, and what it had then (pct, got, gotBy), when it came on a step of its own. Reads s, never changes it. */
-function* raidSteps(s, at, army, side) {
-  const B = makeBattle(s, lootOf(s, at), army), box = boxOf(s);
+ *  bottom, 3 left): its heroes (raidHeroes: {hero: level}) and knights first, the rest 25 steps later, spread along
+ *  it. Played out a step at a time (a generator: it yields after each step; raidOn runs it through), the battle
+ *  returned; B.ms[k]: the step it first had k stars, and what it had then (pct, got, gotBy), when it came on a step of
+ *  its own. Reads s, never changes it. */
+function* raidSteps(s, at, army, side, heroes = {}) {
+  const B = makeBattle(s, lootOf(s, at), army, {heroes}), box = boxOf(s);
   // a spot on that side, outside the walls' reach, spread along it
   const spot = (f, out0) => {
     for (let o = out0; o < out0 + 6; o += 1) {
@@ -437,7 +463,9 @@ function* raidSteps(s, at, army, side) {
     }
     return null;
   };
-  const first = ['dragon', 'knight'], plan = [];
+  const first = ['knight'], plan = [];
+  // (its heroes lead, at the middle of that side)
+  Object.keys(B.heroes).forEach(k => plan.push([0, HEROES[k].troop, .5]));
   Object.entries(army).forEach(([t, n]) => { for (let i = 0; i < n; i++) plan.push([first.includes(t) ? 0 : 25, t, (i + .5) / n]); });
   plan.sort((a, b) => a[0] - b[0]);
   let k = 0, had = 0;
@@ -453,8 +481,8 @@ function* raidSteps(s, at, army, side) {
   return B;
 }
 /** raidSteps played through at once. */
-function raidOn(s, at, army, side) {
-  const g = raidSteps(s, at, army, side);
+function raidOn(s, at, army, side, heroes = {}) {
+  const g = raidSteps(s, at, army, side, heroes);
   for (;;) { const r = g.next(); if (r.done) return r.value; }
 }
 /** A raid on s as a record (defend's and exampleRaids'), its replay with it (rp: s's lot then, kept in into's lots, and
@@ -481,7 +509,7 @@ export function defend(s, now = Date.now()) {
     s.lr = at;
     if (at < (s.sh || 0)) return;
     const th = keepOf(s), bot = BOTS[Math.max(0, Math.min(BOTS.length - 1, th - 2))], army = raidArmy(th), R = rng(at % 2147483647);
-    const B = raidOn(s, at, army, Math.floor(R() * 4));
+    const B = raidOn(s, at, army, Math.floor(R() * 4), raidHeroes(th));
     const rec = recordOf(s, B, at, bot, 'd' + at.toString(36));
     takeRaid(s, rec);
     if (rec.st) s.sh = at + TRUCE_H * HOUR;
@@ -503,18 +531,24 @@ export function defend(s, now = Date.now()) {
 // They're for show: in s.ex (never s.df), ex: true, td 0, and nothing is ever taken off his realm (lt is what the raid
 // would have carried off), no glory moves and no truce starts.
 const EX_WANT = [0, 1, 3];
-/** The armies the examples try, weakest first, for a Castle of level th. */
+/** The armies the examples try, weakest first, for a Castle of level th: [{army, heroes}] (raidSteps'). From Oct 22 2026
+ *  no trained dragons (the top rungs had 1, 3, 6, 12 and 24): more knights and archers in their place, led by the
+ *  computer's Dragon Hero (at the level a hatchery reaches a Castle above his, rising to the top). (Without a flock of
+ *  dragons, a well-built Castle 6–8 can hold out against all of them: then the third example is the nearest found.) */
 function exLadder(th) {
-  return [{footman: 2}, {footman: 4}, {footman: 6, archer: 3}, raidArmy(Math.max(1, th - 1)), raidArmy(th), raidArmy(th + 1),
-    {footman: 20, archer: 15, knight: 4}, {footman: 25, archer: 20, knight: 6, dragon: 1}, {footman: 30, archer: 25, knight: 8, dragon: 3},
-    {footman: 30, archer: 30, knight: 10, dragon: 6}, {archer: 30, knight: 12, dragon: 12}, {knight: 16, dragon: 24}];
+  const dl = Math.max(1, topLevel('hatchery', Math.min(BOTS.length, th + 1))), up = l => ({dragon: Math.max(1, Math.min(10, l))});
+  const raid = t => ({army: raidArmy(t), heroes: raidHeroes(t)});
+  return [{army: {footman: 2}}, {army: {footman: 4}}, {army: {footman: 6, archer: 3}}, raid(Math.max(1, th - 1)), raid(th), raid(th + 1),
+    {army: {footman: 20, archer: 15, knight: 4}}, {army: {footman: 25, archer: 22, knight: 7}, heroes: up(dl)}, {army: {footman: 30, archer: 30, knight: 10}, heroes: up(dl)},
+    {army: {footman: 35, archer: 45, knight: 16}, heroes: up(dl + 2)}, {army: {footman: 40, archer: 70, knight: 26}, heroes: up(dl + 4)},
+    {army: {footman: 50, archer: 100, knight: 40}, heroes: up(10)}];
 }
 /** A battle called off on the step it first had k stars (raidSteps' B.ms): what a record and its replay read of it, as
  *  if it had ended there (its drops till then). null when it never had k on a step of its own. */
 function cutAt(B, k) {
   const m = B.ms && B.ms[k];
   if (!m) return null;
-  return {bl: B.bl, step: m.step, drops: B.drops.filter(d => d[0] < m.step), left: B.left, used: B.used, heroes: B.heroes, defenders: B.defenders,
+  return {bl: B.bl, step: m.step, drops: B.drops.filter(d => d[0] < m.step), left: B.left, used: B.used, heroes: B.heroes, defenders: B.defenders, rules: B.rules,
     stars: () => k, result: () => ({stars: k, pct: m.pct, got: Object.assign({}, m.got), gotBy: JSON.parse(JSON.stringify(m.gotBy))})};
 }
 /** The search for the example raids on s at now, a battle step at a time (a generator: exampleRaids runs it through at
@@ -525,7 +559,7 @@ function* exampleSearch(s, now) {
   // (an army from a side, played out once: the same battle isn't played twice; st -1: nowhere to send it)
   function* play(j, side) {
     const key = `${j}:${side}`;
-    if (!seen.has(key)) { const B = yield* raidSteps(s, now, ladder[j], side); seen.set(key, {j, side, B, st: B.drops.length ? B.stars() : -1}); }
+    if (!seen.has(key)) { const B = yield* raidSteps(s, now, ladder[j].army, side, ladder[j].heroes || {}); seen.set(key, {j, side, B, st: B.drops.length ? B.stars() : -1}); }
     return seen.get(key);
   }
   // (the smallest army up to hi, each from a side of its own, that takes k stars or more; hi + 1 when none does)

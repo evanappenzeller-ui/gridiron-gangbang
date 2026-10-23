@@ -21,7 +21,7 @@ const battleUri = uri(fs.readFileSync(path.join(root, 'js/core/realm-battle.js')
     s.r.grain = 10000;
     return s;
   };
-  assert.deepEqual(F.TROOP_ORDER, ['footman', 'archer', 'knight', 'thief', 'dragon']);
+  assert.deepEqual(F.TROOP_ORDER, ['footman', 'archer', 'knight', 'thief'], 'the trained Dragon is retired too (Oct 22 2026: tools/realm/check-dragon-hero.cjs)');
   const saved = state();
   saved.ar = {footman: 2, sapper: 3, fullback: 2};
   saved.q = [['sapper', 2], ['fullback', 1], ['archer', 2]]; saved.qs = now - 5000;

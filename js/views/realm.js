@@ -225,7 +225,11 @@ export function upgradeBenefit(b) {
   if (K.role === 'hall') return change('Storage each', a.store, n.store) + ' · New buildings';
   if (K.role === 'def') return change('Damage', a.dps, n.dps, '/second');
   if (K.role === 'camp') return change('Army room', a.room, n.room);
-  if (K.role === 'hatch') return change('Dragon room', a.dragons, n.dragons);
+  if (K.role === 'hatch') {
+    // (its level is the Dragon Hero's, core/realm.js HEROES.dragon: his health and fire, now → then)
+    const d = F.heroStat('dragon', a.dragon), e = F.heroStat('dragon', n.dragon);
+    return `Dragon Hero: ${nf(d.hp)} → ${nf(e.hp)} health · ${nf(d.dps)} → ${nf(e.dps)} damage/second`;
+  }
   if (K.role === 'train') {
     const opens = F.TROOP_ORDER.filter(t => F.TROOPS[t].at === lv + 1).map(t => F.TROOPS[t].name);
     if (opens.length) return `Unlocks ${opens.join(', ')}`;
@@ -303,7 +307,7 @@ export function factsOf(b) {
   if (K.role === 'store') what.push(`Holds ${nf(sv.cap)} ${F.CUR_NAME[K.holds]}`);
   if (K.role === 'hall') what.push(`Holds ${nf(sv.store)} of each`);
   if (K.role === 'camp') what.push(`Room for ${sv.room}`);
-  if (K.role === 'hatch') what.push(`Room for ${sv.dragons} dragon${sv.dragons === 1 ? '' : 's'}`, 'Tended by your dragon keeper');
+  if (K.role === 'hatch') { const d = F.heroStat('dragon', sv.dragon); what.push(`Dragon Hero level ${sv.dragon}: ${nf(d.hp)} health · ${nf(d.dps)} damage a second`, 'Tended by your dragon keeper'); }
   if (K.role === 'def') what.push(`${nf(sv.dps)} damage a second · reach ${sv.range}${sv.splash ? ' · hits a crowd' : ''}${sv.air ? ' · hits dragons' : ''}`);
   if (K.role === 'train') what.push(`Trains: ${F.TROOP_ORDER.filter(t => F.TROOPS[t].at <= lv).map(t => F.TROOPS[t].name).join(', ')}`);
   what.push(`${nf(sv.hp)} strength`);
@@ -318,7 +322,8 @@ export function factsOf(b) {
 //   the next level's gain in green while it can go up (a mine's pile, a treasury's store, the army: how full instead).
 //   Strength for every one; the hour's make and the pile for mines and breweries; capacity and how full for treasuries
 //   and cellars; storage and what the next level unlocks for the Castle; damage a second, range and ground or air for
-//   defenses; room (and the army in it) for war camps and the hatchery; the troops for barracks; the builder for his hut;
+//   defenses; room (and the army in it) for war camps; the Dragon Hero's health and fire, and whether he's hatched, for
+//   the hatchery (his level is its level); the troops for barracks; the builder for his hut;
 //   how many walls; "Max level" at the top;
 // - the chunky row at the bottom: Upgrade with its cost, or what stops it (red when there isn't enough, the Castle level
 //   it waits for, the builder's job), beside the Upgrade time box; while it's going up, how far along and the time left;
@@ -339,6 +344,8 @@ const CARD_IC = {
   tent: svg('<path d="M12 3.2L2.4 20.5h19.2z" fill="#A82A33" stroke="#4A1015" stroke-width="1.3" stroke-linejoin="round"/><path d="M12 3.2l-3.4 17.3h6.8z" fill="#F0E2BE"/><path d="M12 3.4V.9" stroke="#3B2A1D" stroke-width="1.4"/><path d="M12 .9l4.2 1.4L12 3.6z" fill="#F0C23E"/>'),
   helm: svg('<path d="M4.5 14.5C4.5 9 7.8 5 12 5s7.5 4 7.5 9.5V20h-5v-5.2h-5V20h-5z" fill="#B8BEC6" stroke="#333B44" stroke-width="1.3" stroke-linejoin="round"/><path d="M12 5v9.8M8.3 11.2h7.4" stroke="#333B44" stroke-width="1.3"/><path d="M12 5c.6-2.2 2.5-3.4 5-3.4-.6 1.8-1.6 3-3.4 3.6" fill="#B8323D" stroke="#5A1018" stroke-width="1"/>'),
   swords: svg('<path d="M4 3l10.5 10.5M20 3L9.5 13.5" stroke="#D3D8DE" stroke-width="2.6" stroke-linecap="round"/><path d="M4 3l10.5 10.5M20 3L9.5 13.5" stroke="#5A626C" stroke-width="1" stroke-linecap="round"/><path d="M12.6 15.4l3.2-3.2M11.4 15.4l-3.2-3.2" stroke="#8A5A2B" stroke-width="2.4" stroke-linecap="round"/><path d="M15.6 16.5l3.6 3.6M8.4 16.5l-3.6 3.6" stroke="#E8C268" stroke-width="2.6" stroke-linecap="round"/>'),
+  dragon: svg('<path d="M3 15.5c0-5 3.6-8.6 8.6-8.6 2 0 3.4.5 4.6 1.4l4.6.4-1.6 2.4 1.9 2.4-5.1.4c-.6 2.6-2.8 4.4-5.6 4.4H8.6l-2 3.6-1.2-3C4 18.4 3 17.2 3 15.5z" fill="#A82A33" stroke="#4A1015" stroke-width="1.3" stroke-linejoin="round"/><path d="M8 7.4 6.4 3l3.6 3M12 6.9l.6-4.4 1.8 4.6" fill="#E8C268" stroke="#4A1015" stroke-width="1" stroke-linejoin="round"/><circle cx="14.2" cy="10.4" r="1.1" fill="#FFD25A"/>'),
+  fire: svg('<path d="M12 2.2c1.2 3.4 5.6 5.6 5.6 11a5.6 5.6 0 0 1-11.2 0c0-2.6 1.3-4.3 2.6-5.6.2 1.8.9 3 2.2 3.6-.6-3.4.2-6.4.8-9z" fill="#E8641E" stroke="#6E2306" stroke-width="1.3" stroke-linejoin="round"/><path d="M12 11.5c1.3 1.6 2.6 2.6 2.6 4.6a2.6 2.6 0 0 1-5.2 0c0-1.4.9-2.4 1.6-3.1.2.8.5 1.2 1 1.4z" fill="#FFD25A"/>'),
   egg: svg('<path d="M12 2.4c4.1 0 7.2 6.6 7.2 11.6a7.2 7.2 0 0 1-14.4 0C4.8 9 7.9 2.4 12 2.4z" fill="#5E8C3E" stroke="#22381A" stroke-width="1.3"/><path d="M7.4 13.2l2.3-1.7 2.3 1.7 2.3-1.7 2.3 1.7" fill="none" stroke="#E8D9A0" stroke-width="1.3" stroke-linejoin="round"/><circle cx="9.6" cy="7.6" r="1.2" fill="#A8CF7A"/><circle cx="14.6" cy="17.6" r="1.4" fill="#3E6A28"/>'),
   hammer: svg('<path d="M13.4 9.6l-9.1 9.1a1.8 1.8 0 0 0 2.6 2.6l9.1-9.1" fill="#8A5A2B" stroke="#3F2611" stroke-width="1.3" stroke-linejoin="round"/><path d="M10.6 6l4.4-3.4 6.6 6.6-3.4 4.4-2.2-2.2-1.5 1.5-3.7-3.7 1.5-1.5z" fill="#B8BEC6" stroke="#333B44" stroke-width="1.3" stroke-linejoin="round"/>'),
   bricks: svg('<rect x="2.5" y="5" width="19" height="15" rx="1.2" fill="#A79A86" stroke="#3E362C" stroke-width="1.3"/><path d="M2.5 10h19M2.5 15h19M8.5 5v5M15.5 5v5M5.5 10v5M12 10v5M18.5 10v5M8.5 15v5M15.5 15v5" stroke="#3E362C" stroke-width="1.2"/>'),
@@ -418,9 +425,15 @@ function tilesOf(s, b, now) {
     tiles.push({k: 'army', ic: CARD_IC.helm, label: 'Your army, all camps', value: `${nf(have)} / ${nf(room)}`, bar: full(have, room), fill: 'grain', wide: true,
       note: b.l < 1 ? 'Room once it’s up' : ''});
   } else if (K.role === 'hatch') {
-    const have = (s.ar.dragon || 0) + s.q.filter(([t]) => t === 'dragon').reduce((x, [, k]) => x + k, 0), room = F.hatchRoom(s);
-    tiles.push(scaled('dragons', CARD_IC.egg, 'Dragon room', 'dragons'));
-    tiles.push({k: 'hatched', ic: CARD_IC.air, label: 'Your dragons', value: `${have} / ${room}`, bar: full(have, room), fill: 'grain'});
+    // (the Dragon Hero's, Oct 22 2026: his level is the hatchery's, core/realm.js HEROES.dragon; his health and his
+    // fire at this level, the next level's in green, and whether he's hatched)
+    const d = F.heroStat('dragon', lv), dz = F.heroStat('dragon', top), dn = n ? F.heroStat('dragon', lv + 1) : null;
+    const hero = (k, ic, label, key, unit = '') => ({k, ic, label, value: nf(d[key]), next,
+      gain: dn && dn[key] > d[key] ? `+${nf(dn[key] - d[key])}${unit}` : '', bar: [d[key] / (dz[key] || 1), (dn ? dn[key] : d[key]) / (dz[key] || 1)]});
+    tiles.push(hero('herohp', CARD_IC.dragon, 'Dragon Hero health', 'hp'), hero('herodps', CARD_IC.fire, 'Fire damage/second', 'dps', '/second'));
+    const level = b.l >= 1 ? Math.max(b.l, F.heroLevel(s, 'dragon')) : 0;
+    tiles.push(level ? {k: 'hatched', ic: CARD_IC.egg, label: 'Your Dragon Hero', value: 'Hatched', word: true, note: `Dragon Hero level ${level} · stronger with every hatchery level`, wide: true}
+      : {k: 'hatched', ic: CARD_IC.egg, label: 'Your Dragon Hero', value: 'In the egg', word: true, note: 'Build it to hatch your Dragon Hero', wide: true});
   } else if (K.role === 'train') {
     const open = F.TROOP_ORDER.filter(t => F.TROOPS[t].at <= lv), soon = n ? F.TROOP_ORDER.filter(t => F.TROOPS[t].at === lv + 1) : [], all = F.TROOP_ORDER.length;
     tiles.push({k: 'troops', ic: CARD_IC.helm, label: 'Kinds of soldier', value: open.length, unit: `of ${all}`, next,
@@ -464,7 +477,9 @@ function cardFootHTML(s, b, now, overlap = 0) {
   }
   const acts = [], pile = K.role === 'make' ? F.made(b, now) : 0;
   if (pile > 0) acts.push(`<button type="button" class="rl-card-btn is-collect" data-rl-collect="${b.i}" data-rl-card-collect data-rl-focus="collect">Collect ${curHTML(K.makes, pile)}</button>`);
-  if (b.t === 'barracks' || b.t === 'camp' || b.t === 'hatchery') acts.push(`<button type="button" class="rl-card-btn" data-rl-army data-rl-focus="army">Train</button>`);
+  if (b.t === 'barracks' || b.t === 'camp') acts.push(`<button type="button" class="rl-card-btn" data-rl-army data-rl-focus="army">Train</button>`);
+  // (the hatchery's: its Dragon Hero, on the Army sheet's hero cards)
+  if (b.t === 'hatchery') acts.push(`<button type="button" class="rl-card-btn" data-rl-army data-rl-focus="army">Dragon Hero</button>`);
   if (b.t === 'keep') acts.push(`<button type="button" class="rl-card-btn" data-rl-army data-rl-focus="army">Heroes</button>`);
   acts.push(`<button type="button" class="rl-card-btn" data-rl-move="${b.i}" data-rl-focus="move">Move</button>`);
   rows.push(`<div class="rl-card-acts">${acts.join('')}</div>`);
@@ -828,13 +843,14 @@ function armyHTML(s, now) {
   const army = F.TROOP_ORDER.filter(t => s.ar[t]).map(t => `<span class="rl-chip">${esc(F.TROOPS[t].name)} ×${s.ar[t]}</span>`).join('') || '<span class="rl-sh-note">No one yet.</span>';
   const line = s.q.map(([t, n], i) => `<span class="rl-chip is-q">${esc(F.TROOPS[t].name)} ×${n}${i === 0 && s.qs ? ` <small>${dur(s.qs + F.trainTime(s, t) * 1000 - now)}</small>` : ''}<button type="button" class="rl-chip-x" data-rl-untrain="${t}" aria-label="Take one ${esc(F.TROOPS[t].name)} out">−</button></span>`).join('');
   const cards = F.TROOP_ORDER.map(t => {
-    const T = F.TROOPS[t], chk = F.canTrain(s, t), locked = F.barracksLevel(s) < T.at, egg = t === 'dragon' && !locked && !F.hatchRoom(s);
+    const T = F.TROOPS[t], chk = F.canTrain(s, t), locked = F.barracksLevel(s) < T.at;
     return `<button type="button" class="rl-tc${locked ? ' is-locked' : ''}" data-rl-train="${t}" ${chk.ok ? '' : 'aria-disabled="true"'}>`
       + `<span class="rl-tc-ic" aria-hidden="true">${picOf(t, MY_HOUSE, true)}</span><b>${esc(T.name)}</b>`
-      + `<span class="rl-tc-c">${locked ? `Barracks level ${T.at}` : egg ? 'Needs a dragon hatchery' : `${curHTML('grain', T.cost)} · ${T.room} room`}</span>`
+      + `<span class="rl-tc-c">${locked ? `Barracks level ${T.at}` : `${curHTML('grain', T.cost)} · ${T.room} room`}</span>`
       + `<small>${esc(T.blurb)}</small></button>`;
   }).join('');
-  return `<h3 class="rl-sh-h">Heroes of the Castle</h3><p class="rl-sh-note">Recruit once. Upgrade with Gold. Your heroes defend automatically and can each deploy once per attack. They return after every battle and use no camp space.</p>`
+  // (the Knight's recruited and upgraded with Gold; the Dragon hatches at the Dragon Hatchery and grows with it, Oct 22 2026)
+  return `<h3 class="rl-sh-h">Heroes of the Castle</h3><p class="rl-sh-note">Recruit the Knight once and upgrade him with Gold. The Dragon hatches at your Dragon Hatchery and grows with every level of it. Your heroes defend automatically and can each deploy once per attack. They return after every battle and use no camp space.</p>`
     + `<div class="rl-heroes">${heroCards(s)}</div><p class="rl-sh-note rl-residents">${residentsNote(s)}</p>`
     + `<div class="rl-room"><b>${have + q}/${room}</b> room in the war camps${q ? ` (${q} in training)` : ''}</div>`
     + `<h3 class="rl-sh-h">Ready to march</h3><div class="rl-chips">${army}</div>`
@@ -849,7 +865,7 @@ function armySheet(st) {
     const host = sh.body.querySelector('[data-rl-armybody]');
     if (host.innerHTML !== body) {
       const focused = document.activeElement;
-      const key = focused && host.contains(focused) ? ['rlRecruitHero', 'rlUpgradeHero', 'rlTrain', 'rlUntrain'].find(k => focused.dataset[k]) : null;
+      const key = focused && host.contains(focused) ? ['rlRecruitHero', 'rlUpgradeHero', 'rlHatch', 'rlTrain', 'rlUntrain'].find(k => focused.dataset[k]) : null;
       const value = key && focused.dataset[key];
       host.innerHTML = body;
       if (key) Array.from(host.querySelectorAll('button')).find(b => b.dataset[key] === value && !b.disabled)?.focus({preventScroll: true});
@@ -860,7 +876,20 @@ function armySheet(st) {
     if (st.dead || !F.mayPlay()) return;
     const tr = e.target.closest('[data-rl-train]'), un = e.target.closest('[data-rl-untrain]'), s = F.mine();
     const recruit = e.target.closest('[data-rl-recruit-hero]'), upgradeHero = e.target.closest('[data-rl-upgrade-hero]');
-    if (recruit || upgradeHero) {
+    const hatch = e.target.closest('[data-rl-hatch]');
+    if (hatch) {
+      // (the Dragon Hero's button: to his hatchery, chosen and in view, its upgrade on its card; or to place one)
+      if (hatch.dataset.rlHatch === 'build') {
+        const chk = F.canBuild(s, 'hatchery');
+        if (!chk.ok) { ui.toast(chk.why, {icon: 'info'}); return; }
+        sh.close(); startPlace(st, 'hatchery'); return;
+      }
+      const b = s.b.find(x => x.i === Number(hatch.dataset.rlHatch));
+      if (!b) return;
+      sh.close();
+      if (st.v) { const sz = F.KINDS[b.t].size; st.v.look(b.x + sz / 2, b.y + sz / 2, Math.min(42, st.v.zoom)); }
+      select(st, b.i);
+    } else if (recruit || upgradeHero) {
       const k = recruit ? recruit.dataset.rlRecruitHero : upgradeHero.dataset.rlUpgradeHero;
       const check = recruit ? F.canRecruitHero(s, k) : F.canUpgradeHero(s, k);
       if (!check.ok) { ui.toast(check.why, {icon: 'info'}); return; }
@@ -1273,11 +1302,14 @@ function markSeen() {
   dispatchEvent(new Event('gg:badge'));
 }
 const WELCOME_TITLE = 'Keepfall';
-// (when the heroes join: "recruit the Knight and the Wizard at Castle level 4", from core/realm.js HEROES)
+// (when the heroes join, from core/realm.js HEROES: "recruit the Knight at Castle level 4 … build a Dragon Hatchery (Castle
+// level 4) and the Dragon hatches"; the Dragon took the Wizard's place, Oct 22 2026)
 const heroesAtHTML = () => {
   const by = {};
-  F.HERO_ORDER.forEach(k => { const H = F.HEROES[k]; (by[H.at] = by[H.at] || []).push(H.name.replace(/ Hero$/, '')); });
-  return 'recruit ' + Object.keys(by).sort((a, b) => a - b).map(at => `the ${by[at].join(' and the ')} at Castle level ${at}`).join(' and ');
+  F.HERO_ORDER.filter(k => !F.HEROES[k].hatch).forEach(k => { const H = F.HEROES[k]; (by[H.at] = by[H.at] || []).push(H.name.replace(/ Hero$/, '')); });
+  const gold = 'recruit ' + Object.keys(by).sort((a, b) => a - b).map(at => `the ${by[at].join(' and the ')} at Castle level ${at}`).join(' and ') + ' from Army and upgrade with Gold';
+  const hatch = F.HERO_ORDER.filter(k => F.HEROES[k].hatch).map(k => `build a Dragon Hatchery (Castle level ${F.HEROES[k].at}) and the ${F.HEROES[k].name.replace(/ Hero$/, '')} hatches, stronger with every hatchery upgrade`);
+  return [gold, ...hatch].join('; ');
 };
 const welcomeHTML = () => `<p class="rl-sh-lead">Raise your house, fill your treasuries, sack the realms around you. The daily games pay your realm for every day you play from the day it began. It’s yours alone.</p>`
   + `<div class="rl-rows">`
@@ -1285,10 +1317,10 @@ const welcomeHTML = () => `<p class="rl-sh-lead">Raise your house, fill your tre
   + `<div class="rl-row"><span><b>Your coffers</b> hold your pay until your Castle, treasuries and cellars have room. Raiders can’t touch them.</span></div>`
   + `<div class="rl-row"><span><b>Gold mines</b> dig Gold and <b>breweries</b> brew Ale while you’re away: tap them to collect.</span></div>`
   + `<div class="rl-row"><span><b>Your builder</b> raises or upgrades one thing at a time. Raise your <b>Castle</b> to unlock more of everything.</span></div>`
-  + `<div class="rl-row"><span><b>Attack</b>: from Castle level ${F.ATTACK_AT}, train an army at the barracks with Ale (footmen, archers, knights, thieves, and in time dragons from your hatchery) and sack the computer’s realms for their gold and ale.</span></div>`
-  + `<div class="rl-row"><span><b>Heroes</b>: ${heroesAtHTML()} from Army. Upgrade with Gold, send each once per attack, and let them defend automatically. They return after battle.</span></div>`
+  + `<div class="rl-row"><span><b>Attack</b>: from Castle level ${F.ATTACK_AT}, train an army at the barracks with Ale (footmen, archers, knights and thieves) and sack the computer’s realms for their gold and ale.</span></div>`
+  + `<div class="rl-row"><span><b>Heroes</b>: ${heroesAtHTML()}. Send each once per attack, and let them defend automatically. They return after battle.</span></div>`
   + `<div class="rl-row"><span><b>The Chronicle</b> keeps every raid, yours and theirs: tap Watch to see one of the latest again.</span></div>`
-  + `<div class="rl-row"><span><b>Your people</b>: guards patrol the village. A dragon keeper arrives when the Dragon Hatchery unlocks at Castle level 6.</span></div>`
+  + `<div class="rl-row"><span><b>Your people</b>: guards patrol the village. A dragon keeper arrives when the Dragon Hatchery unlocks at Castle level ${F.COUNT.hatchery.findIndex(n => n > 0) + 1}.</span></div>`
   + `<div class="rl-row"><span><b>Defend</b>: once your Castle is level ${F.DEFEND_AT}, those realms raid you too, now and then. Cannons, ballistas, archer towers, trebuchets, pitch cauldrons and walls keep them out.</span></div>`
   + `</div><p class="rl-sh-note">Drag to look around, pinch to zoom. Tap a building for what it does; tap your house’s name to rename it.</p>`;
 const LORE_SEEN_KEY = 'gg-keepfall-lore-seen';

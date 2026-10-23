@@ -84,7 +84,8 @@ async function residentChecks(page) {
         if (s.b.some(b => x >= b.x && x < b.x + F.KINDS[b.t].size && y >= b.y && y < b.y + F.KINDS[b.t].size)) clearPaths = false;
       }
     }
-    s.b.find(b => b.t === 'keep').l = 6;
+    // (Castle 4: the Dragon Hatchery unlocks there from Oct 22 2026, was 6; a stale Wizard on the roster draws nothing)
+    s.b.find(b => b.t === 'keep').l = 4;
     s.hr = {knight: 2, wizard: 2};
     residents.setLot(s); residents.update(0, {zoom: 50});
     const unlocked = counts(), keeper = () => residents.group.children.find(x => x.userData.npc === 'keeper');
@@ -107,8 +108,8 @@ async function residentChecks(page) {
   assert.equal(result.starter.heroes, 0, 'Unrecruited heroes do not appear in the village');
   assert.equal(result.starter.keeper, false, 'Dragon keeper is absent before the hatchery unlock');
   assert(result.moved && result.clearPaths, 'Guards move for two simulated minutes without entering building footprints');
-  assert.equal(result.unlocked.heroes, 2, 'Both recruited heroes appear in the village');
-  assert.equal(result.unlocked.keeper, true, 'Dragon keeper arrives when Keep 6 unlocks the hatchery');
+  assert.equal(result.unlocked.heroes, 1, 'The recruited Knight Hero appears in the village; no Wizard (retired Oct 22 2026)');
+  assert.equal(result.unlocked.keeper, true, 'Dragon keeper arrives when Castle 4 unlocks the hatchery');
   assert(result.keeperMoved, 'Dragon keeper moves from the Keep to the completed hatchery');
   assert(result.hidden && result.distant && result.placement, 'Inactive, distant and building-placement views hide and pause residents');
   await page.emulateMedia({reducedMotion: 'reduce'});
@@ -130,21 +131,23 @@ async function residentChecks(page) {
     return {removed, blocked, detached};
   });
   assert.deepEqual(cleanup, {removed: true, blocked: true, detached: true}, 'Owner loss clears residents, blocks re-creation and disposes their group');
-  console.log('PASS: guards patrol clear paths; hero residents, Keep 6 dragon keeper arrival/relocation, hidden/placement/reduced motion and owner cleanup');
+  console.log('PASS: guards patrol clear paths; hero residents (no Wizard), Castle 4 dragon keeper arrival/relocation, hidden/placement/reduced motion and owner cleanup');
 }
 
 async function ownerChecks(test, url) {
   const {page, context, errors} = test;
   await page.evaluate(async () => {
     const F = await import('/js/core/realm.js');
-    const s = F.fresh(); s.rs = F.TEST_RESET; F._set(s);
+    // (a realm of today's, not one from before the testing reset (TEST_RESET), which a reload would start over; not a testing one either: Gold is spent)
+    F._set(Object.assign(F.fresh(), {rs: F.TEST_RESET}));
     await (await import('/js/app.js')).nav('/realm');
   });
   await readyVillage(page);
   await page.locator('[data-rl-army]').first().click();
   assert.equal(await page.locator('[data-rl-hero-card]').count(), 2, 'Both named heroes appear in Army');
   assert.match(await page.locator('[data-rl-hero-card="knight"]').innerText(), /Castle\s*(level\s*)?4/i, 'Knight unlock is explained (Castle 4 from Oct 22 2026)');
-  assert.match(await page.locator('[data-rl-hero-card="wizard"]').innerText(), /Castle\s*(level\s*)?4/i, 'Wizard unlock is explained');
+  assert.match(await page.locator('[data-rl-hero-card="dragon"]').innerText(), /Build a Dragon Hatchery \(Castle level 4\)/i, 'Dragon unlock is explained (his hatchery, Castle 4)');
+  assert.equal(await page.locator('[data-rl-hero-card="wizard"]').count(), 0, 'no Wizard Hero');
   await page.screenshot({path: path.join(output, 'realm-heroes-locked-390.png')});
   await closeSheet(page);
 
@@ -160,7 +163,8 @@ async function ownerChecks(test, url) {
     const F = await import('/js/core/realm.js'), s = F.mine();
     return {gold: s.r.gold, grain: s.r.grain, costs: F.HERO_ORDER.map(k => F.canRecruitHero(s, k).cost)};
   });
-  for (const hero of ['knight', 'wizard']) {
+  assert.equal(await page.locator('[data-rl-recruit-hero="dragon"], [data-rl-upgrade-hero="dragon"]').count(), 0, 'no Gold button for the Dragon Hero');
+  for (const hero of ['knight']) {
     await page.locator(`[data-rl-recruit-hero="${hero}"]`).click();
     await page.waitForFunction(async hero => {
       const F = await import('/js/core/realm.js'); return F.heroLevel(F.mine(), hero) === 1;
@@ -170,20 +174,28 @@ async function ownerChecks(test, url) {
     const F = await import('/js/core/realm.js'), s = F.mine();
     return {levels: F.heroLevels(s), gold: s.r.gold, grain: s.r.grain, costs: F.HERO_ORDER.map(k => F.canUpgradeHero(s, k).cost)};
   });
-  assert.deepEqual(recruited.levels, {knight: 1, wizard: 1}, 'Recruiting creates both persistent heroes');
+  assert.deepEqual(recruited.levels, {knight: 1}, 'Recruiting creates the persistent Knight Hero');
   assert.equal(before.gold - recruited.gold, before.costs.reduce((a, b) => a + b, 0), 'Recruiting spends the displayed Gold costs once');
   assert.equal(recruited.grain, before.grain, 'Hero recruitment leaves Ale (grain) unchanged');
-  for (const hero of ['knight', 'wizard']) {
+  for (const hero of ['knight']) {
     await page.locator(`[data-rl-upgrade-hero="${hero}"]`).click();
     await page.waitForFunction(async hero => {
       const F = await import('/js/core/realm.js'); return F.heroLevel(F.mine(), hero) === 2;
     }, hero);
   }
+  // (the Dragon Hero: a Dragon Hatchery built (level 2 here) hatches him at its level, Gold untouched)
+  const hatchGold = await page.evaluate(async () => {
+    const F = await import('/js/core/realm.js'), s = F.mine(), p = F.spotFor(s, 'hatchery');
+    s.b.push({i: s.nb++, t: 'hatchery', l: 2, x: p.x, y: p.y, u: 0}); F.touch();
+    return s.r.gold;
+  });
+  await page.waitForFunction(() => /Hatched at your Dragon Hatchery · level 2/.test(document.querySelector('[data-rl-hero-card="dragon"]')?.textContent || ''));
   const upgraded = await page.evaluate(async () => {
     const F = await import('/js/core/realm.js'), s = F.mine();
     return {levels: F.heroLevels(s), gold: s.r.gold, army: s.ar};
   });
-  assert.deepEqual(upgraded.levels, {knight: 2, wizard: 2}, 'Both heroes can level up');
+  assert.equal(upgraded.gold, hatchGold, 'the Dragon Hero costs no Gold');
+  assert.deepEqual(upgraded.levels, {knight: 2, dragon: 2}, 'The Knight levels up with Gold; the Dragon has his hatchery’s level');
   assert.equal(recruited.gold - upgraded.gold, recruited.costs.reduce((a, b) => a + b, 0), 'Leveling spends each displayed cost once');
   assert.deepEqual(upgraded.army, {}, 'Heroes do not create expendable army troops');
   await page.locator('[data-rl-upgrade-hero="knight"]').focus();
@@ -219,7 +231,8 @@ async function ownerChecks(test, url) {
   await page.locator('[data-rls-attack]').click();
   await page.waitForFunction(() => document.querySelector('.rlr')?.__rl?.v && document.querySelector('.rlr')?.__rl?.B);
   assert.equal(await page.locator('[data-rlr-pick="hero_knight"]').count(), 1, 'Knight is in the raid deployment tray');
-  assert.equal(await page.locator('[data-rlr-pick="hero_wizard"]').count(), 1, 'Wizard is in the raid deployment tray');
+  assert.equal(await page.locator('[data-rlr-pick="hero_dragon"]').count(), 1, 'Dragon Hero is in the raid deployment tray');
+  assert.equal(await page.locator('[data-rlr-pick="hero_wizard"], [data-rlr-pick="dragon"]').count(), 0, 'no Wizard Hero or trained dragon in it');
   const dropPoint = await page.evaluate(() => {
     const st = document.querySelector('.rlr').__rl, rect = st.v.canvas.getBoundingClientRect(), options = [];
     for (let y = 1.5; y < 43; y++) for (let x = 1.5; x < 43; x++) {
@@ -230,7 +243,7 @@ async function ownerChecks(test, url) {
     return options.sort((a, b) => a.d - b.d)[0];
   });
   assert(dropPoint, 'A legal visible deployment tile is available');
-  for (const hero of ['knight', 'wizard']) {
+  for (const hero of ['knight', 'dragon']) {
     await page.locator(`[data-rlr-pick="hero_${hero}"]`).click();
     await page.mouse.click(dropPoint.x, dropPoint.y);
     await page.waitForFunction(hero => document.querySelector('.rlr').__rl.B.used['hero_' + hero] === 1, hero);
@@ -240,8 +253,8 @@ async function ownerChecks(test, url) {
     return {used: B.used, units: B.tr.map(t => ({t: t.t, max: t.max})), levels: B.result().heroes};
   });
   assert.equal(battle.used.hero_knight, 1, 'A real canvas tap deploys the Knight exactly once');
-  assert.equal(battle.used.hero_wizard, 1, 'A real canvas tap deploys the Wizard exactly once');
-  assert.deepEqual(battle.levels, {knight: 2, wizard: 2}, 'Raid keeps the recruited hero levels');
+  assert.equal(battle.used.hero_dragon, 1, 'A real canvas tap deploys the Dragon Hero exactly once');
+  assert.deepEqual(battle.levels, {knight: 2, dragon: 2}, 'Raid keeps the heroes’ levels');
   await page.screenshot({path: path.join(output, 'realm-heroes-raid-390.png')});
   await page.locator('[data-rlr-quit]').click();
   await page.waitForSelector('[data-rlr-home]');
@@ -279,8 +292,8 @@ async function nonOwnerChecks(test, profile) {
     s.b.find(b => b.t === 'keep').l = 8; s.r.gold = 160000;
     const before = JSON.stringify(s), recruit = F.recruitHero(s, 'knight');
     const recruitmentUnchanged = JSON.stringify(s) === before;
-    s.hr = {knight: 1, wizard: 1};
-    const ownedBefore = JSON.stringify(s), upgrade = F.upgradeHero(s, 'knight');
+    s.hr = {knight: 1, dragon: 5};
+    const ownedBefore = JSON.stringify(s), upgrade = F.upgradeHero(s, 'knight') || F.upgradeHero(s, 'dragon');
     return {recruit, recruitmentUnchanged, upgrade, upgradeUnchanged: JSON.stringify(s) === ownedBefore};
   });
   assert.deepEqual(denied, {recruit: false, recruitmentUnchanged: true, upgrade: false, upgradeUnchanged: true}, profile + ': direct hero mutations are denied');
