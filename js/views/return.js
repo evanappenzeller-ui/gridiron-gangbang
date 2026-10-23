@@ -946,11 +946,11 @@ function ungot(st) {
 // screen says, Woooo"): no place names, move calls, hit words or the pickup's card. The haptics, the red edges and the
 // screen reader's words stay.
 const CATCHPHRASE = {salts: 'WOOOO!', pills: 'CAN’T FEEL A THING!', booze: 'HOLD MY BEER!'};
-// A shuffled deck per pickup keeps the owner's jokes fresh across runs in this view.
+// The owner's chosen catchphrases; rotate when a pickup has more than one line.
 const PICKUP_LINES = {
-  salts: ['WOOOO! TERMS APPLY.', 'SECOND WIND. SAME EGO.', 'WARRANTY EXTENDED', 'BACK ON THE PAYROLL', 'DEATH CALL OVERTURNED', 'TOO AWAKE FOR THIS', 'YEAH BUDDY'],
-  pills: ['PAIN CLAIM DENIED', 'HR SAYS YOU’RE FINE', 'COMPLAINTS MUTED', 'SIX SECONDS OF DENIAL', 'CLEARED BY THE INTERN', 'TEAM DOCTOR: LOL', 'PUT ME IN COACH'],
-  booze: ['CREATIVE YARD ACCOUNTING', 'DOUBLE YARDS. HALF A PLAN.', 'THE REPLAY LOOKED SOBER', 'STATS UP. STANDARDS DOWN.', 'HOLD MY OTHER BEER!', 'BAD IDEAS. GREAT STATS.', 'LET’S RIDE!', 'WHERE ARE MY KEYS']
+  salts: ['YEAH BUDDY'],
+  pills: ['PUT ME IN COACH'],
+  booze: ['LET’S RIDE!', 'WHERE ARE MY KEYS']
 };
 function pickupLine(st, kind) {
   const lines = PICKUP_LINES[kind];
@@ -962,7 +962,7 @@ function pickupLine(st, kind) {
       const j = Math.floor(Math.random() * (i + 1));
       [deck.left[i], deck.left[j]] = [deck.left[j], deck.left[i]];
     }
-    // Do not repeat the last joke when the next shuffled deck starts.
+    // Do not repeat the last line when the next shuffled deck starts.
     const end = deck.left.length - 1;
     if (end > 0 && deck.left[end] === deck.last) [deck.left[0], deck.left[end]] = [deck.left[end], deck.left[0]];
   }
