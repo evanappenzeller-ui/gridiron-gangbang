@@ -2,6 +2,7 @@
 // shared home/battle poses, and home routes built only when the layout changes.
 import * as data from '../core/data.js';
 import {KINDS, N, keepOf, heroLevel} from '../core/realm.js';
+import {attachKnightModel} from './realm-knight-model.js';
 
 const reduced = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const W = x => x - N / 2;
@@ -78,7 +79,7 @@ function sculpt(T, pieces, material) {
 }
 
 /** A hero is visibly larger than a soldier, with a named level badge and colored base. */
-export function createNPC(T, kind, {level = 1, house = {}, defending = false} = {}) {
+export function createNPC(T, kind, {level = 1, house = {}, defending = false, onChange} = {}) {
   if (!data.isOwner()) return null;
   const hero = kind === 'knight' || kind === 'wizard', wizard = kind === 'wizard', keeper = kind === 'keeper';
   const root = new T.Group(), rig = new T.Group(); root.add(rig);
@@ -153,6 +154,7 @@ export function createNPC(T, kind, {level = 1, house = {}, defending = false} = 
     badge.position.y = wizard ? 1.85 : 1.65; badge.scale.set(1.55, .39, 1); root.add(badge);
   }
   root.scale.setScalar(hero ? 1.2 : 1);
+  const knightModel = kind === 'knight' ? attachKnightModel(T, rig, {onChange}) : null;
   let disposed = false;
   return {root, kind, level,
     pose(seconds, {moving = false, face = .6, attack = 0, hit = 0, still = false} = {}) {
@@ -164,9 +166,11 @@ export function createNPC(T, kind, {level = 1, house = {}, defending = false} = 
       legs[0].rotation.x = walk * .5; legs[1].rotation.x = -walk * .5;
       arm.rotation.x = still ? 0 : (wizard ? .9 * attack : hero ? 1.5 * attack : keeper ? Math.sin(seconds * 1.8) * .08 : walk * .08);
       arm.rotation.z = keeper && !still ? Math.sin(seconds * 1.8) * .06 : 0;
+      knightModel?.pose(seconds, {moving, attack, still});
     },
     dispose() {
       if (disposed) return; disposed = true; root.removeFromParent();
+      knightModel?.dispose();
       const geometries = new Set(), materials = new Set(), textures = new Set();
       root.traverse(o => { if (o.geometry) geometries.add(o.geometry); if (o.material) { materials.add(o.material); if (o.material.map) textures.add(o.material.map); } });
       geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); textures.forEach(t => t.dispose());
@@ -175,7 +179,7 @@ export function createNPC(T, kind, {level = 1, house = {}, defending = false} = 
   };
 }
 
-export function createHomeNPCs(T, scene) {
+export function createHomeNPCs(T, scene, {onChange} = {}) {
   const group = new T.Group(); group.name = 'keep-residents'; scene.add(group);
   let actors = [], signature = '', disposed = false;
   const counts = {guards: 0, heroes: 0, keeper: false, active: false};
@@ -194,7 +198,7 @@ export function createHomeNPCs(T, scene) {
     const doorstep = (b, offset = 0) => paths.nearest(b.x + KINDS[b.t].size / 2 + offset, b.y + KINDS[b.t].size + .7, taken);
     function add(kind, at, options = {}) {
       if (!at) return;
-      const model = createNPC(T, kind, {house, level: options.level}); if (!model) return;
+      const model = createNPC(T, kind, {house, level: options.level, onChange}); if (!model) return;
       group.add(model.root); model.root.position.set(W(at.x), 0, W(at.y));
       taken.add(Math.floor(at.y) * N + Math.floor(at.x));
       actors.push({model, at, route: options.route || [], offset: actors.length * 5.1});
@@ -248,7 +252,7 @@ export function createHomeNPCs(T, scene) {
 }
 
 /** Battle models remain separate from the ordinary, instanced army. At most two heroes per side. */
-export function createBattleHeroes(T, scene, {house} = {}) {
+export function createBattleHeroes(T, scene, {house, onChange} = {}) {
   const models = new Map(); let disposed = false;
   const unsubscribe = data.subscribe(type => { if (type === 'me' && !data.isOwner()) clear(); });
   function clear() { models.forEach(m => m.dispose()); models.clear(); }
@@ -260,7 +264,7 @@ export function createBattleHeroes(T, scene, {house} = {}) {
         if (!u.hero || u.dead) continue;
         const defending = !!u.targetHero, key = `${defending ? 'd' : 'a'}:${u.id}`; seen.add(key);
         let model = models.get(key);
-        if (!model) { model = createNPC(T, u.hero, {level: u.level || u.l || 1, house, defending}); if (!model) continue; models.set(key, model); scene.add(model.root); }
+        if (!model) { model = createNPC(T, u.hero, {level: u.level || u.l || 1, house, defending, onChange}); if (!model) continue; models.set(key, model); scene.add(model.root); }
         const c = positions.get(key) || u, p = previous.get(key) || c;
         const x = p.x + (c.x - p.x) * blend, y = p.y + (c.y - p.y) * blend;
         const moving = Math.hypot(c.x - p.x, c.y - p.y) > .001;

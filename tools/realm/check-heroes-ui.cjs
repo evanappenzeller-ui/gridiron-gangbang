@@ -41,7 +41,7 @@ async function isolatedPage(browser, url, profile) {
   await context.addInitScript(profile => {
     localStorage.setItem('gg-me', profile);
     localStorage.setItem('gg-welcome', '1');
-    localStorage.setItem('gg-realm-seen', '1'); localStorage.setItem('gg-keepfall-lore-seen', '2');
+    localStorage.setItem('gg-realm-seen', '1'); localStorage.setItem('gg-keepfall-lore-seen', '3');
     sessionStorage.setItem('gg-skip-title', '1');
   }, profile);
   const page = await context.newPage(), errors = [], artLoads = [];
@@ -137,7 +137,7 @@ async function ownerChecks(test, url) {
   const {page, context, errors} = test;
   await page.evaluate(async () => {
     const F = await import('/js/core/realm.js');
-    F._set(F.fresh());
+    const s = F.fresh(); s.rs = F.TEST_RESET; F._set(s);
     await (await import('/js/app.js')).nav('/realm');
   });
   await readyVillage(page);

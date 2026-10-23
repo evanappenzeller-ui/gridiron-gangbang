@@ -22,6 +22,7 @@ import {createAmbience} from './realm-ambience.js';
 import {villageGroundTexture} from './realm-ground.js';
 import {createGrassWallpaper} from './realm-grass.js';
 import {createHomeNPCs, createBattleHeroes} from './realm-npcs.js';
+import {createRaidAttacks} from './realm-attack-art.js';
 const V = new URL('../vendor/three/', import.meta.url).href;
 let T = null, RE = null, LOADING = null, DEAD = false, LOAD_EPOCH = 0;
 let ownerActive = data.isOwner();
@@ -645,7 +646,7 @@ export function create(host, opts = {}) {
 
   // ---- the buildings
   let house = opts.house || {pri: 0x7A1F2B, sec: 0xD4A63A, sigil: 'crown'};
-  const homeNPCs = village ? createHomeNPCs(T, scene) : null;
+  const homeNPCs = village ? createHomeNPCs(T, scene, {onChange: () => want()}) : null;
   const groups = new Map(); // id -> {g, key, b}
   const picks = [];
   const root = new T.Group(); scene.add(root);
@@ -1004,10 +1005,44 @@ export function create(host, opts = {}) {
 
   // ---------------------------------------------------------------------------------------------------- a raid
   let raid = null;
+  // Each soldier chooses its own frame while all soldiers of a kind share one draw call.
+  // Keep the current picture/model until the complete atlas is ready, including failed-load fallback.
+  function installAttackSheets(R) {
+    if (dead || !data.isOwner() || raid !== R) return;
+    Object.entries(R.meshes).forEach(([kind, M]) => {
+      if (M.sheet) return;
+      const sheet = R.attacks.sheet(kind);
+      if (!sheet) return;
+      const capacity = (M.art || M.body).instanceMatrix.count;
+      const geometry = new T.PlaneGeometry(1, 1);
+      geometry.translate(.5 - sheet.ax, sheet.ay - .5, 0);
+      const frames = new T.InstancedBufferAttribute(new Float32Array(capacity).fill(sheet.frames - 1), 1);
+      frames.setUsage(T.DynamicDrawUsage);
+      geometry.setAttribute('raidAttackFrame', frames);
+      const material = new T.MeshBasicMaterial({map: sheet.texture, alphaTest: .2, side: T.DoubleSide, toneMapped: false, fog: false});
+      material.onBeforeCompile = shader => {
+        shader.vertexShader = 'attribute float raidAttackFrame;\n' + shader.vertexShader;
+        shader.vertexShader = shader.vertexShader.replace('#include <uv_vertex>', `#include <uv_vertex>
+          #ifdef USE_MAP
+            vec2 raidCell = vec2(mod(raidAttackFrame, ${Number(sheet.cols).toFixed(1)}), ${Number(sheet.rows - 1).toFixed(1)} - floor(raidAttackFrame / ${Number(sheet.cols).toFixed(1)}));
+            vMapUv = (vMapUv + raidCell) / vec2(${Number(sheet.cols).toFixed(1)}, ${Number(sheet.rows).toFixed(1)});
+          #endif`);
+      };
+      material.customProgramCacheKey = () => `keepfall-raid-atlas-v1:${sheet.cols}x${sheet.rows}`;
+      const art = new T.InstancedMesh(geometry, material, capacity);
+      art.name = 'raid-attack-' + kind;
+      art.count = 0; art.frustumCulled = false; art.renderOrder = 3;
+      if (M.art) { scene.remove(M.art); M.art.geometry.dispose(); M.art.material.dispose(); M.art.dispose(); }
+      else { scene.remove(M.body, M.leg); M.body.dispose(); M.leg.dispose(); delete M.body; delete M.leg; }
+      Object.assign(M, {art, sheet, frames});
+      scene.add(art);
+    });
+  }
   /** Draws battle B (core/realm-battle.js) on this lot: call before the raid's first frame; then raidFrame(t)
    *  each frame with the raid's clock (interpolated between its steps). raider: the raiders' house. */
   function raidStart(B, raider) {
     raidStop();
+    if (dead || !data.isOwner()) return;
     const kinds = Object.keys(TROOPS), meshes = {}, m4 = new T.Matrix4();
     let shadows = 0;
     kinds.forEach(k => {
@@ -1061,7 +1096,13 @@ export function create(host, opts = {}) {
     scene.add(zone);
     raid = {B, meshes, shadow, fly, puffs, fxAt: 0, prev: new Map(), cur: new Map(), stepSeen: -1, zone, zoneCv: cv, zoneTex, zoneSig: '', zoneShow: 0, aim: new Map(),
       fired: new Map(), byId: new Map(B.bl.map(b => [b.i, b])), t: 0, shotSeen: new WeakSet(),
-      heroes: createBattleHeroes(T, scene, {house: raider}), heroCur: new Map(), heroPrev: new Map(), raider};
+      heroes: createBattleHeroes(T, scene, {house: raider, onChange: () => want()}), heroCur: new Map(), heroPrev: new Map(), raider,
+      attacks: createRaidAttacks(T, scene, {camera: cam, pitch: PITCH, onChange: want})};
+    const started = raid;
+    started.attacks.load().then(() => {
+      if (dead || raid !== started || !data.isOwner()) return;
+      installAttackSheets(started); want();
+    }).catch(() => {}); // Existing pictures and projectiles remain usable if attack artwork fails.
     drawZone();
     want();
   }
@@ -1082,6 +1123,7 @@ export function create(host, opts = {}) {
    *  the same army by the same house as the one drawn: what draws it is kept, emptied, and B put in its place (building it
    *  all again, and compiling its shaders, held the screen still for a second each time). Otherwise, raidStart. */
   function raidRestart(B, raider) {
+    if (dead || !data.isOwner()) { raidStop(); return; }
     const fits = raid && raid.raider === raider && Object.keys(TROOPS).every(k => {
       const M = raid.meshes[k], n = (B.left[k] || 0) + (B.used[k] || 0);
       return !n || (!!M && n <= (M.art || M.body).instanceMatrix.count);
@@ -1094,6 +1136,7 @@ export function create(host, opts = {}) {
     raid.puffs.forEach(p => { p.sp.visible = false; p.t0 = -9; });
     Object.assign(raid, {B, fxAt: 0, prev: new Map(), cur: new Map(), stepSeen: -1, zoneSig: '', zoneShow: 0, aim: new Map(), fired: new Map(),
       byId: new Map(B.bl.map(b => [b.i, b])), t: 0, shotSeen: new WeakSet(), heroCur: new Map(), heroPrev: new Map()});
+    raid.attacks.restart(B);
     drawZone();
     want();
   }
@@ -1101,8 +1144,11 @@ export function create(host, opts = {}) {
   /** One frame of the raid at its clock t (seconds; between steps it eases from where each was to where he is). */
   function raidFrame(t, now = performance.now()) {
     if (!raid) return;
+    if (dead || !data.isOwner()) { raidStop(); return; }
     const B = raid.B, R = raid;
     R.t = t;
+    installAttackSheets(R);
+    R.attacks.update(B, t);
     // the steps' positions: keep the last two
     if (B.step !== R.stepSeen) {
       R.prev = R.cur; R.cur = new Map();
@@ -1124,18 +1170,25 @@ export function create(host, opts = {}) {
       if (!M || !c) return;
       const x = p.x + (c.x - p.x) * f, y = p.y + (c.y - p.y) * f;
       const moving = Math.hypot(c.x - p.x, c.y - p.y) > .001, swing = moving ? Math.sin(t * 14 + u.id) * .6 : 0;
-      const hit = t - u.hitAt < .35 ? Math.sin((t - u.hitAt) / .35 * Math.PI) : 0;
+      const attackAge = t - u.hitAt;
+      const hit = attackAge >= 0 && attackAge < .35 ? Math.sin(attackAge / .35 * Math.PI) : 0;
       if (M.art) {
         // his picture facing the camera, turned the way he's going (the way the screen sees it), a step's bob and
         // rock as he walks, knocked back a little when he's hit; the Dragon high up, bobbing
-        const A = ARMY[u.t], right = Math.cos(u.face) - Math.sin(u.face) >= 0, sx = right === A.right ? 1 : -1;
-        const wk = A.fly ? A.wide : A.tall * A.w / A.h, hk = A.fly ? A.wide * A.h / A.w : A.tall;
+        const A = ARMY[u.t] || {fly: u.t === 'dragon', wide: 3.4, tall: u.t === 'knight' ? 1.2 : 1.05};
+        const atlas = M.sheet, right = Math.cos(u.face) - Math.sin(u.face) >= 0, sx = right === (atlas ? atlas.right : A.right) ? 1 : -1;
+        const fraction = atlas ? Math.max(.1, atlas.bodyFraction || .85) : 1;
+        const aspect = atlas ? atlas.cellAspect || 1 : A.w / A.h;
+        const wk = A.fly ? A.wide / fraction : A.tall / fraction * aspect, hk = A.fly ? A.wide / fraction / aspect : A.tall / fraction;
         const hy = A.fly ? 2.3 + Math.sin(t * 2.2 + u.id) * .15 : (moving ? Math.abs(Math.sin(t * 9 + u.id)) * .06 : 0);
         tilt.setFromAxisAngle(zAxis, (moving && !A.fly ? Math.sin(t * 9 + u.id) * .06 : 0) + sx * .25 * hit);
         pv.set(W(x), hy, W(y));
         m4.compose(pv, camQ.clone().multiply(tilt), ssc.set(wk * sx, hk, 1));
-        M.art.setMatrixAt(counts[u.t]++, m4);
-        const sw = A.fly ? 1.6 : Math.max(.55, wk * .8);
+        const at = counts[u.t]++;
+        M.art.setMatrixAt(at, m4);
+        if (M.frames) M.frames.setX(at, R.attacks.frame(u, t));
+        const bodyWidth = A.w && A.h ? A.tall * A.w / A.h : A.tall * .65;
+        const sw = A.fly ? 1.6 : Math.max(.55, bodyWidth * .8);
         m4.compose(pv.set(W(x), 0, W(y)), q.identity(), ssc.set(sw, 1, sw * .6));
         R.shadow.setMatrixAt(nShadow++, m4);
         return;
@@ -1167,7 +1220,7 @@ export function create(host, opts = {}) {
       });
     });
     Object.entries(R.meshes).forEach(([k, M]) => {
-      if (M.art) { M.art.count = counts[k]; M.art.instanceMatrix.needsUpdate = true; return; }
+      if (M.art) { M.art.count = counts[k]; M.art.instanceMatrix.needsUpdate = true; if (M.frames) M.frames.needsUpdate = true; return; }
       M.body.count = counts[k]; M.leg.count = counts[k] * 2; M.body.instanceMatrix.needsUpdate = true; M.leg.instanceMatrix.needsUpdate = true;
     });
     R.shadow.count = nShadow; R.shadow.instanceMatrix.needsUpdate = true;
@@ -1178,6 +1231,7 @@ export function create(host, opts = {}) {
     const a0 = new T.Vector3(), a1 = new T.Vector3();
     B.shots.forEach(s => {
       if (s.foe && !R.shotSeen.has(s)) { R.shotSeen.add(s); R.fired.set(s.from, Math.max(R.fired.get(s.from) ?? -9, s.t0)); if (s.k === 'cannon') puff(s.x0 + Math.cos(Math.atan2(s.y1 - s.y0, s.x1 - s.x0)) * 1.1, s.y0 + Math.sin(Math.atan2(s.y1 - s.y0, s.x1 - s.x0)) * 1.1, .7, 0xD8D2C8, .5, now); }
+      if (R.attacks.handlesShot(s)) return;
       const kind = KIND[s.k];
       if (!kind) return;
       const M = R.fly[kind];
@@ -1240,6 +1294,7 @@ export function create(host, opts = {}) {
     if (!raid) return;
     groups.forEach(e => SPR.animateDefense(e.g, e.b.t, Infinity));
     raid.heroes.dispose();
+    raid.attacks.dispose();
     Object.values(raid.meshes).forEach(M => {
       if (M.art) { scene.remove(M.art); M.art.geometry.dispose(); M.art.material.dispose(); M.art.dispose(); return; }
       scene.remove(M.body, M.leg); M.body.dispose(); M.leg.dispose();
@@ -1314,6 +1369,10 @@ export function create(host, opts = {}) {
     clampView(); placeCam(); want();
   }
   resize(); placeCam(); want();
+  // localStorage.clear in another tab has no individual gg-me event. Drop the
+  // atlas meshes as well as their textures when that whole profile store goes.
+  const clearedStorage = event => { if (event.key === null) { raidStop(); want(); } };
+  window.addEventListener('storage', clearedStorage);
   return {
     setLot, select, setGhost, showGrid, showReach, pick, pickAll, tileAt, project, want, setAnim, look, frame: fit, frameVillage, frameWorld, zoomBy, resize,
     raidStart, raidRestart, raidFrame, raidStop, showZone,
@@ -1326,6 +1385,7 @@ export function create(host, opts = {}) {
     canvas,
     dispose() {
       dead = true;
+      window.removeEventListener('storage', clearedStorage);
       clearReveal();
       dropScenery();
       clearInterval(folkTimer);

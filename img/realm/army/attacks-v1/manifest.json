@@ -1,0 +1,76 @@
+{
+  "version": 1,
+  "layout": "Frames run left to right, then top to bottom. Anchors are normalized from top left.",
+  "sheets": {
+    "footman": {
+      "file": "footman.webp",
+      "cols": 3,
+      "rows": 2,
+      "frames": 6,
+      "right": true,
+      "ax": 0.4,
+      "ay": 0.94,
+      "bodyFraction": 0.56,
+      "cellAspect": 1,
+      "width": 1152,
+      "height": 768,
+      "releaseFrame": 2
+    },
+    "knight": {
+      "file": "knight.webp",
+      "cols": 3,
+      "rows": 2,
+      "frames": 6,
+      "right": true,
+      "ax": 0.4,
+      "ay": 0.94,
+      "bodyFraction": 0.56,
+      "cellAspect": 1,
+      "width": 1152,
+      "height": 768,
+      "releaseFrame": 2
+    },
+    "archer": {
+      "file": "archer.webp",
+      "cols": 3,
+      "rows": 2,
+      "frames": 6,
+      "right": true,
+      "ax": 0.4,
+      "ay": 0.94,
+      "bodyFraction": 0.56,
+      "cellAspect": 1,
+      "width": 1152,
+      "height": 768,
+      "releaseFrame": 3
+    },
+    "dragon": {
+      "file": "dragon.webp",
+      "cols": 3,
+      "rows": 2,
+      "frames": 6,
+      "right": true,
+      "ax": 0.45,
+      "ay": 0.5,
+      "bodyFraction": 0.72,
+      "cellAspect": 1,
+      "width": 1152,
+      "height": 768,
+      "releaseFrame": 2
+    },
+    "effects": {
+      "file": "effects.webp",
+      "cols": 4,
+      "rows": 4,
+      "frames": 4,
+      "width": 1024,
+      "height": 1024,
+      "rowsByKind": {
+        "sword": 0,
+        "arrow": 1,
+        "dragon": 2,
+        "fireball": 3
+      }
+    }
+  }
+}

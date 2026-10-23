@@ -26,7 +26,8 @@ export function heroCards(s) {
       + `<div class="rl-hero-stats"><span><b>${nf(stats.hp)}</b> Health</span><span><b>${nf(stats.dps)}</b> Damage / sec</span><span><b>${stats.range}</b> Range</span></div>`
       + (next && level < cap ? `<p class="rl-hero-next">Next level: ${nf(next.hp)} health · ${nf(next.dps)} damage / sec</p>` : '')
       + `<button type="button" class="rl-hero-action" data-rl-${level ? 'upgrade' : 'recruit'}-hero="${k}" ${check.ok ? '' : 'disabled'}><span>${action}</span>${check.cost ? `<span class="rl-amt is-gold"><i class="rl-coin" aria-hidden="true"></i>${nf(check.cost)}<span class="sr-only"> Gold</span></span>` : ''}</button>`
-      + (!check.ok ? `<p class="rl-hero-note">${esc(check.why)}</p>` : '') + '</article>';
+      + (!check.ok ? `<p class="rl-hero-note">${esc(check.why)}</p>` : '')
+      + (k === 'knight' ? '<p class="rl-hero-note">Model: <a href="https://sketchfab.com/3d-models/bulky-knight-002a90cbf12941b792f9685546a7502c" target="_blank" rel="noopener">Bulky Knight</a> by <a href="https://sketchfab.com/OptiCube" target="_blank" rel="noopener">Arthur Krut</a> · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>. Textures optimized for the game.</p>' : '') + '</article>';
   }).join('');
 }
 
