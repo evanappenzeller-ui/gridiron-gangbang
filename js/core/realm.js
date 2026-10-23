@@ -16,7 +16,7 @@
 //
 // Where it lives: the owner's board doc (players/{uid}, daily.js) as fr1 (its name from when this was the Franchise;
 // the football names of then are taken up as this realm's: clean()), so his realm is the same on every phone of his.
-// No one else's realm exists or shows: it's his alone, and it raids only the computer's.
+// It raids only the computer's realms; other players' realms can be visited, looking only (visitable, at the bottom).
 // Everything here is plain data and pure functions of it and the clock, except the sync at the bottom.
 import * as daily from './daily.js';
 import * as data from './data.js';
@@ -1501,3 +1501,45 @@ try {
   addEventListener('storage', e => { if (PROFILE && e.key === localKey(PROFILE) && !dirty) { MINE = null; emit('sync'); } });
 } catch (_) {}
 export function _set(state) { clearTimeout(saveT); PROFILE = profileKey(); MINE = state; PROVISIONAL = false; dirty = false; }
+
+// ---------------------------------------------------------------------------------------------------- other players' realms
+// Visiting (the owner's ask, Oct 23 2026: "Users should be able to view other players bases. Add a visit button").
+// Looking only: nothing here changes a realm, and no player's realm can be raided (realmOf takes only the computer's).
+// Who shows follows the scoreboards' rule (CLAUDE.md, daily.js boardShows) for each saved profile on its own: a
+// member's realm and Ryan D's to everyone; a guest's or any other app user's on the owner's phones only. Never your own.
+const guestName = key => { try { return key.slice(2).split('_').map(h => String.fromCodePoint(parseInt(h, 16))).join(''); } catch (_) { return ''; } };
+/** Who profile key belongs to, as this phone may show them ({name}), or null when they're not to show here. */
+export function visitWho(key, doc, owner = data.isOwner()) {
+  const id = String(key || '').slice(2);
+  if (key.startsWith('m_')) return data.M[id] ? {name: data.name(id), member: id} : null;
+  if (key.startsWith('u_')) { const u = data.USERS.find(x => x.id === id); return u && (u.league || owner) ? {name: u.board || u.name, full: u.name} : null; }
+  if (key.startsWith('g_') && owner && doc && doc.g) {
+    const nm = guestName(key), nick = String(doc.nick || '').trim();
+    return nm ? {name: nick.toLowerCase() === nm ? nick : nm, guest: true} : null;
+  }
+  return null;
+}
+/** The other players' realms this phone may visit, the freshest copy of each: [{key, name, full, member, guest, th, at, state}],
+ *  the highest Castle first. */
+export function visitable(now = Date.now(), docs = allDocs()) {
+  const own = profileKey(), owner = data.isOwner(), best = new Map();
+  for (const p of docs) {
+    const all = p && p.fr3;
+    if (!all || typeof all !== 'object') continue;
+    for (const key of Object.keys(all)) {
+      if (!key || key === own) continue;
+      const s = current(all[key]), who = s && visitWho(key, p, owner);
+      if (who && (!best.has(key) || Number(s.at) > Number(best.get(key).s.at))) best.set(key, {s, who});
+    }
+  }
+  const out = [];
+  best.forEach(({s, who}, key) => {
+    const state = clean(s);
+    if (!state || !state.b.some(b => b.t === 'keep')) return;
+    tick(state, now);
+    out.push({key, name: who.name, full: who.full || who.name, member: who.member || null, guest: !!who.guest, th: keepOf(state), at: state.at, state});
+  });
+  return out.sort((a, b) => b.th - a.th || a.name.localeCompare(b.name));
+}
+/** One player's realm to visit (visitable's), or null when it isn't there or isn't to show here. */
+export const visitOf = (key, now = Date.now(), docs) => visitable(now, docs).find(x => x.key === key) || null;

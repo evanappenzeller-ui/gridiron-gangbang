@@ -59,7 +59,10 @@ How it's enforced, and what to keep doing:
   "Standings show league members and Ryan D to everyone…" (`js/core/checks-pickem.js`) covers it.
 - Keepfall (formerly "The Keep" and "The Realm"; `js/views/realm.js`, `js/core/realm.js`) is the owner's alone (October 2026): its
   Daily Games case and links are on his phones only, it raids only the computer's realms, and no one else's scores,
-  names or realms appear in it. Don't open it to anyone else unless the owner says so. The kit check "Keepfall: the
+  names or realms appear in it. Exception (Oct 23 2026, the owner: "Users should be able to view other players bases"):
+  Visit (`js/views/realm-visit.js`, `core/realm.js` `visitable()`) lets anyone look round other players' realms, read-only
+  and never raidable, by the scoreboard rule above (members and Ryan D to everyone; guests and other app users on the
+  owner's phones only). The kit check "Keepfall: visiting…" covers it. Don't open it to anyone else unless the owner says so. The kit check "Keepfall: the
   owner's alone…" (`js/core/checks-realm.js`) covers it. Its words (Oct 22 2026): the main building is the Castle,
   the second currency is Ale (Breweries, Cellars); internal ids stay keep/grain/farm/granary and the route #/realm.
 - Profile pictures follow the same rule (`js/core/avatars.js` `pictureShows()`): a member's picture, and Ryan D's, shows

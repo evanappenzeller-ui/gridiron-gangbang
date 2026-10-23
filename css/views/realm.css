@@ -10,8 +10,8 @@
   font-display: swap;
   src: url(../../fonts/cinzel-latin.woff2) format("woff2");
 }
-.screen.v-realm, .screen.v-realm-raid, .screen.v-realm-scout, .screen.v-realm-replay { overflow: hidden; padding: 0; background: #9AAEC0; }
-.v-realm > .screen-body, .v-realm-raid > .screen-body, .v-realm-scout > .screen-body, .v-realm-replay > .screen-body { position: absolute; inset: 0; padding: 0; }
+.screen.v-realm, .screen.v-realm-raid, .screen.v-realm-scout, .screen.v-realm-visit, .screen.v-realm-replay { overflow: hidden; padding: 0; background: #9AAEC0; }
+.v-realm > .screen-body, .v-realm-raid > .screen-body, .v-realm-scout > .screen-body, .v-realm-visit > .screen-body, .v-realm-replay > .screen-body { position: absolute; inset: 0; padding: 0; }
 .rl, .sh-rl {
   --rl-glass: rgba(26,18,12,.78); --rl-line: rgba(232,190,96,.34); --rl-gilt: #E8C268; --rl-gold: #F0C23E; --rl-ale: #FFB04A; --rl-gain: #A9C55B;
   --rl-wood: linear-gradient(#5E4330, #3B2A1D); --rl-crimson: linear-gradient(#A82A33, #6E1520);
@@ -382,7 +382,9 @@ html.is-realm-playing #tabbar { visibility: hidden; pointer-events: none; }
 .rl-overlap { width: 100%; min-height: 44px; margin-top: 8px; border: 1px solid var(--rl-line); border-radius: 8px; background: #ffffff0b; color: var(--rl-gilt); cursor: pointer; }
 /* Keepfall's opening story and village Lore control. */
 .rl-utility { gap: 6px; align-items: flex-start; }
-.rl-home-links { display: flex; gap: 6px; }
+/* (Back to the games over Lore and Visit: the row keeps room for the camera's three) */
+.rl-home-links { display: grid; grid-template-columns: auto auto; gap: 6px; }
+.rl-home-links .rl-hub { grid-column: 1 / -1; white-space: nowrap; }
 .rl-lore { color: #FBE7B0; }
 .sheet.sh-rl-intro { height: 100%; max-height: none; border-radius: 0; background: #090a09; --stack-ring: #090a09; }
 .sh-rl-intro > .sheet-grab { display: none; }
@@ -431,7 +433,7 @@ html.is-realm-playing #tabbar { visibility: hidden; pointer-events: none; }
   .rl-intro-help { top: calc(var(--sa-t, 0px) + 56px); }
 }
 @media (max-width: 360px) {
-  .rl-home-links { flex-direction: column; }
+  .rl-home-links { grid-template-columns: auto; }
   .rl-home .rl-utility .rl-frame { padding-inline: 9px; }
   .rl-home .rl-camera-modes { gap: 4px; }
   .rl-intro-caption { left: 20px; right: 20px; }

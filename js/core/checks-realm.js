@@ -66,6 +66,29 @@ export async function realmChecks(check) {
     return {pass: ok, detail: `route ${routed}; every realm the attack’s own ${same}; ${R4.name}: ${def.map(d => `${d.n} ${d.t}`).join(', ')} (${counted}); a cannon: ${facts}; ${nests.length} of their hatcheries: ${nestFacts[0] || 'none'} (${hatch}); an unknown realm refused ${missing}; nothing changed ${untouched}`};
   });
 
+  check('Keepfall: visiting (views/realm-visit.js, #/realm/visit/<profile>; Visit by Lore, Oct 23 2026): other players’ realms can be looked round, the freshest copy of each, by the scoreboards’ rule (members and Ryan D to everyone; a guest or another app user on the owner’s phones only; never your own, never an unsaved v3 realm); looking changes nothing and no player can be raided', async () => {
+    const [app, view, visit] = await Promise.all([import('../app.js'), import('../views/realm.js'), import('../views/realm-visit.js')]);
+    const r = app.__dev.parseRoute('/realm/visit/m_x'), routed = !data.DATA ? true : !!r && r.view === 'realm-visit' && r.open === 'cover' && r.params.key === 'm_x';
+    const member = Object.keys(data.M).find(id => 'm_' + id !== F.profileKey());
+    const v3 = (at, l = 1) => { const s = F.fresh(T0); s.rs = F.TEST_RESET; s.at = at; s.b.find(b => b.t === 'keep').l = l; return s; };
+    const g = 'g_' + Array.from('zed').map(c => c.codePointAt(0).toString(16)).join('_');
+    const docs = [
+      {id: 'v1', nick: 'x', fr3: {...(member ? {['m_' + member]: v3(T0 + 1, 2)} : {}), 'u_ryan-dow': v3(T0, 3), 'u_ryan-stewart': v3(T0), [F.profileKey() || 'm_none']: v3(T0)}},
+      {id: 'v2', nick: 'x', fr3: member ? {['m_' + member]: v3(T0 + 5, 4)} : {}},
+      {id: 'v3', nick: 'Zed', g: true, fr3: {[g]: v3(T0), 'm_nobody-here': v3(T0)}},
+      {id: 'v4', nick: 'x', fr3: {'u_ryan-dow': {...v3(T0 + 9), rs: ''}}}];
+    const before = JSON.stringify(docs), list = F.visitable(T0, docs), keys = list.map(x => x.key).sort().join();
+    const want = [...(member ? ['m_' + member] : []), 'u_ryan-dow', ...(data.isOwner() ? [g, 'u_ryan-stewart'] : [])].sort().join();
+    const freshest = !member || list.find(x => x.key === 'm_' + member).th === 4;
+    const dow = list.find(x => x.key === 'u_ryan-dow'), named = !!dow && dow.name === 'Ryan D' && dow.th === 3 && view.houseName(dow.state, dow) === 'House Dow';
+    const guest = !data.isOwner() || (list.find(x => x.key === g) || {}).name === 'Zed';
+    const html = view.visitHTML(list, T0), buttons = (html.match(/data-rl-visit-go=/g) || []).length === list.length && /Visit/.test(html) && !/data-rl-go|Attack/.test(html);
+    const card = visit.visitSelHTML({i: 9, t: 'hatchery', l: 2, x: 0, y: 0, u: T0 + 3600e3}, T0), cardOk = /their dragon keeper/.test(card) && /Upgrading to level 3/.test(card) && !/\byour\b/i.test(card.replace(/<[^>]+>/g, ''));
+    const raid = list.every(x => !!F.realmOf(x.key, F.fresh(T0), T0).why), untouched = JSON.stringify(docs) === before;
+    const ok = routed && keys === want && freshest && named && guest && buttons && cardOk && raid && untouched;
+    return {pass: ok, detail: `route ${routed}; listed ${keys || 'none'} (want ${want}); freshest ${freshest}; Ryan D ${named}; guest ${guest}; buttons ${buttons}; card ${cardOk}; none raidable ${raid}; nothing changed ${untouched}`};
+  });
+
   check('Keepfall: the old pay, kept for every game day before the new pay (NEW_PAY): in Gold and Ale alike, a day each (the first finished across his phones; Return Man’s best run): Daily Puzzles 400 + 5 a point, 17–0 400 + 150 a win, Kick It 400 + 200 a make (to 15), Return Man 400 + 3 a yard (to 1,000)', () => {
     const a = {id: 'fx-a', nick: 'Evan', days: {10: {v: 4, p: 400, t: 2}}, kk1: {2: {m: 5, l: 40, y: 150, k: 8, t: 10}}, rm2: {1: {y: 300, l: 300, td: 3, t: 5}}, s17: {3: {w: 12, l: 5, p: 21.5, r: 0, k: '01234', t: 3}}};
     const b = {id: 'fx-b', nick: 'Evan', days: {10: {v: 4, p: 600, t: 5}, 11: {v: 4, p: 100, t: 6}}, kk1: {2: {m: 9, l: 48, y: 330, k: 12, t: 20}}, rm2: {1: {y: 900, l: 900, td: 9, t: 9}}};
@@ -1432,7 +1455,7 @@ export async function realmChecks(check) {
     read.forEach(({where, text}) => BAD.forEach(re => { const m = text.match(re); if (m) found.push(`${where}: “${m[0]}”`); }));
     // and in the code's own words (toasts and the rest written out in the views; comments aside, where the old names
     // still explain the ids)
-    const files = ['../views/realm.js', '../views/realm-raid.js', '../views/realm-scout.js', './realm.js', './realm-battle.js', '../views/realm-replay.js'];
+    const files = ['../views/realm.js', '../views/realm-raid.js', '../views/realm-scout.js', './realm.js', './realm-battle.js', '../views/realm-replay.js', '../views/realm-visit.js'];
     const src = await Promise.all(files.map(f => fetch(new URL(f, import.meta.url)).then(r => r.text())));
     const code = t => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|\s)\/\/.*$/gm, '$1').replace(/(data-rl-world[^>]*>)Realm</g, '$1<'); // (the camera's Realm view)
     const CODE_BAD = /\b(?:Grain|Farms?|farms|Granar(?:y|ies)|granaries)\b|\bKeep level\b|\b(?:your|the|a) Keep\b|\bRealm\b/;

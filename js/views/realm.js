@@ -1,7 +1,8 @@
 import * as features from '../core/features.js';
 // Keepfall (the game was the Realm till Oct 21 2026: its route, view id and saves keep that name; core/realm.js
 // says which words changed). core/realm.js: the game; views/realm-3d.js: the lot in 3D; views/realm-raid.js: a raid;
-// views/realm-scout.js: a look round a realm before you raid it. The owner's
+// views/realm-scout.js: a look round a realm before you raid it; views/realm-visit.js: a look round another player's
+// (Visit, by Lore: core/realm.js visitable). The owner's
 // alone (features.available(): its Daily Games case and route open on his phones only, and this screen shows nothing on anyone else's). Your
 // lot fills the screen: your house, Gold and Ale, a way back to the Hub and a village framing control above;
 // a state-aware next step and Attack, Army, Build and Chronicle below. Tap a building for its current and next-level
@@ -60,9 +61,10 @@ export const houseOf = key => {
 // Surnames the league's list doesn't carry (it has first names only): the owner's, for his house (Oct 2026).
 const SURNAME = {evan: 'Appenzeller'};
 /** Your house's name: the one you gave it, else House and your last name (House Appenzeller). (The old default, House
- *  and your first name, kept by saving it unchanged, counts as none.) */
-export function houseName(s = F.mine()) {
-  const m = data.me(), n = String((m ? data.name(m) : data.user()?.name || data.guest()) || '').trim().split(/\s+/);
+ *  and your first name, kept by saving it unchanged, counts as none.) who: another player's ({name, full, member}: core/realm.js
+ *  visitable), for their realm. */
+export function houseName(s = F.mine(), who = null) {
+  const m = who ? who.member : data.me(), n = String((who ? who.full || who.name : m ? data.name(m) : data.user()?.name || data.guest()) || '').trim().split(/\s+/);
   if (s.nm && s.nm !== `House ${n[0]}`) return s.nm;
   return `House ${SURNAME[m] || n[n.length - 1] || 'Wanderer'}`;
 }
@@ -125,7 +127,8 @@ function shellHTML() {
     + F.CUR.map(c => `<button type="button" class="rl-cur is-${c}" data-rl-cur="${c}"><span class="rl-curb"><i data-rl-f></i></span><b data-rl-n>0</b><i class="rl-coin" aria-hidden="true"></i></button>`).join('')
     + `</div></div>`
     + `<div class="rl-utility"><div class="rl-home-links"><button type="button" class="rl-hub" data-nav="/puzzles" aria-label="Back to Daily Games">‹ Games</button>`
-    + `<button type="button" class="rl-frame rl-lore" data-rl-lore aria-label="Read the lore of Keepfall">Lore</button></div>`
+    + `<button type="button" class="rl-frame rl-lore" data-rl-lore aria-label="Read the lore of Keepfall">Lore</button>`
+    + `<button type="button" class="rl-frame rl-visit" data-rl-visit aria-label="Visit other players’ realms">Visit</button></div>`
     + `<div class="rl-camera-modes"><button type="button" class="rl-frame" data-rl-buildings aria-label="Find a building, including hidden buildings">Buildings</button><button type="button" class="rl-frame" data-rl-frame aria-label="Center your village">Village</button>`
     + `<button type="button" class="rl-frame" data-rl-world aria-label="Zoom out to the whole realm">Realm</button></div></div>`
     + `<div class="rl-zoom" role="group" aria-label="Camera zoom"><button type="button" data-rl-zoom="in" aria-label="Zoom in">+</button><button type="button" data-rl-zoom="out" aria-label="Zoom out">−</button></div>`
@@ -304,8 +307,8 @@ function placeTags(st) {
 // ---- the selected building's card
 /** What building b is and does at its level (its card's line, yours or one you're scouting): [text]. own: it's on your
  *  realm (a computer's realm's hatchery has no Dragon Hero defending it, nor a dragon keeper: Oct 23 2026, the scout's
- *  card said it had). */
-export function factsOf(b, {own = false} = {}) {
+ *  card said it had). whose: whose keeper tends a hatchery that's own (another player's realm, visited: 'their'). */
+export function factsOf(b, {own = false, whose = 'your'} = {}) {
   const K = F.KINDS[b.t], lv = Math.max(1, b.l), sv = F.stat(b.t, lv), what = [];
   if (K.role === 'make') what.push(`Makes ${nf(sv.rate)} ${F.CUR_NAME[K.makes]} an hour · holds ${nf(sv.hold)}`);
   if (K.role === 'store') what.push(`Holds ${nf(sv.cap)} ${F.CUR_NAME[K.holds]}`);
@@ -313,7 +316,7 @@ export function factsOf(b, {own = false} = {}) {
   if (K.role === 'camp') what.push(`Room for ${sv.room}`);
   if (K.role === 'hatch') {
     const d = F.heroStat('dragon', sv.dragon);
-    what.push(...(own ? [`Dragon Hero level ${sv.dragon}: ${nf(d.hp)} health · ${nf(d.dps)} damage a second`, 'Tended by your dragon keeper'] : ['No Dragon Hero defends it']));
+    what.push(...(own ? [`Dragon Hero level ${sv.dragon}: ${nf(d.hp)} health · ${nf(d.dps)} damage a second`, `Tended by ${whose} dragon keeper`] : ['No Dragon Hero defends it']));
   }
   if (K.role === 'def') what.push(`${nf(sv.dps)} damage a second · reach ${sv.range}${sv.splash ? ' · hits a crowd' : ''}${sv.air ? ' · hits dragons' : ''}`);
   if (K.role === 'train') what.push(`Trains: ${F.TROOP_ORDER.filter(t => F.TROOPS[t].at <= lv).map(t => F.TROOPS[t].name).join(', ')}`);
@@ -970,6 +973,25 @@ function raidSheet(st, ctx) {
     ctx.nav('/realm/raid/' + encodeURIComponent(go.dataset.rlGo));
   });
 }
+/** Visit: the other players' realms this phone may look round (core/realm.js visitable: the scoreboards' rule), each
+ *  with its Castle level, house, player and Visit. */
+export function visitHTML(list, now = Date.now()) {
+  if (!list.length) return `<p class="rl-sh-lead">No other player’s realm is up yet. When someone else in the league builds theirs, it shows here to visit.</p>`;
+  return `<p class="rl-sh-lead">Look round another player’s realm: how they’ve laid it out, what they’ve built and how far each has gone. Visiting changes nothing.</p>`
+    + list.map(x => `<div class="rl-tg"><span class="rl-tg-lv">${x.th}</span><span class="rl-tg-n"><b>${esc(houseName(x.state, x))}</b>`
+      + `<small><span>${esc(x.name)}${x.guest ? ' · Guest' : ''}</span><span>${esc(ago(Math.min(now, x.at)))}</span></small></span>`
+      + `<button type="button" class="rl-act is-go rl-tg-go" data-rl-visit-go="${esc(x.key)}" aria-label="Visit ${esc(houseName(x.state, x))}, ${esc(x.name)}’s realm">Visit</button></div>`).join('');
+}
+function visitSheet(st) {
+  const sh = realmSheet({title: 'Visit a realm', cls: 'sh-rl', detents: ['large'], body: visitHTML(F.visitable())});
+  sh.body.addEventListener('click', e => {
+    if (st.dead || !F.mayPlay()) return;
+    const go = e.target.closest('[data-rl-visit-go]');
+    if (!go) return;
+    sh.close();
+    st.ctx.nav('/realm/visit/' + encodeURIComponent(go.dataset.rlVisitGo));
+  });
+}
 function logSheet(st) {
   // (the realm the board has now, first: a Watch tapped here finds what's listed; and drawn again whenever it changes or
   // another phone's copy comes in, while it's open)
@@ -1434,6 +1456,7 @@ export default {
       if (t.closest('[data-rl-buildings]')) { buildingsSheet(st); return; }
       if (t.closest('[data-rl-overlap]')) { buildingsSheet(st, st.overlap); return; }
       if (t.closest('[data-rl-lore]')) { loreSheet(st); return; }
+      if (t.closest('[data-rl-visit]')) { visitSheet(st); return; }
       if (t.closest('[data-rl-frame]')) { if (st.v) st.v.frameVillage(); return; }
       if (t.closest('[data-rl-world]')) { if (st.v) st.v.frameWorld(); return; }
       if (t.closest('[data-rl-zoom]')) { if (st.v) st.v.zoomBy(t.closest('[data-rl-zoom]').dataset.rlZoom === 'in' ? .72 : 1 / .72); return; }

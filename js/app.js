@@ -61,6 +61,7 @@ export const REGISTRY = {
   'realm-raid': () => import('./views/realm-raid.js'),
   'realm-scout': () => import('./views/realm-scout.js'),
   'realm-replay': () => import('./views/realm-replay.js'),
+  'realm-visit': () => import('./views/realm-visit.js'),
   _kit: () => import('./views/_kit.js')
 };
 // Every tab, in order. The Keep lives in Daily Games; it has no separate tab or idle tab warm-up.
@@ -85,7 +86,7 @@ const LEGACY = Object.assign(Object.create(null), {daily: '/puzzles', records: '
 const PUZZLES = ['college', 'silhouette', 'mystery', 'journey', 'grid', 'plays']; // every day's steps are some of these (daily.SLUGS)
 const LEAGUE_SEGS = ['standings', 'trophies', 'records', 'shame'];
 const BAD_LINK = "That link didn't lead anywhere.";
-const isKeepRoute = r => !!r && ['realm', 'realm-raid', 'realm-scout', 'realm-replay'].includes(r.view);
+const isKeepRoute = r => !!r && ['realm', 'realm-raid', 'realm-scout', 'realm-replay', 'realm-visit'].includes(r.view);
 // "evan-vs-mason" → {a, b} (strings, not validated: the Matchup view checks them), else null.
 const pairOf = s => { const i = s.indexOf('-vs-'); return i > 0 && i + 4 < s.length ? {a: s.slice(0, i), b: s.slice(i + 4)} : null; };
 const enc = encodeURIComponent;
@@ -146,6 +147,8 @@ function matchSegs(p, q) {
       if (n === 1) return {redirect: '/puzzles/keep'};
       if (n === 3 && b === 'raid' && c) return {...R('realm-raid', 'cover', 'puzzles', {key: c}), base: '/puzzles/keep'};
       if (n === 3 && b === 'scout' && c) return {...R('realm-scout', 'cover', 'puzzles', {key: c}), base: '/puzzles/keep'};
+      // Another player's realm, looked round (views/realm-visit.js, from Visit on Keepfall's home screen).
+      if (n === 3 && b === 'visit' && c) return {...R('realm-visit', 'cover', 'puzzles', {key: c}), base: '/puzzles/keep'};
       // A raid watched again (views/realm-replay.js), from the Chronicle's ▶ Watch: closing it goes back to Keepfall.
       if (n === 3 && b === 'replay' && c) return {...R('realm-replay', 'cover', 'puzzles', {id: c}), base: '/puzzles/keep'};
       return null;
