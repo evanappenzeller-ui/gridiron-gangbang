@@ -6,7 +6,10 @@ import {N, TROOPS} from '../core/realm.js';
 const AT = new URL('../../img/realm/army/attacks-v1/', import.meta.url).href;
 const KINDS = ['footman', 'knight', 'archer', 'dragon', 'effects'];
 const SWORDS = new Set(['footman', 'knight', 'hero_knight']);
-const SHOTS = {archer: 'arrow', dragon: 'dragon', hero_wizard: 'fireball', wizard: 'fireball'};
+const SHOTS = {archer: 'arrow', dragon: 'dragon', hero_dragon: 'dragon', hero_wizard: 'fireball', wizard: 'fireball'};
+// (whose sheet a kind poses from: the Dragon Hero, while he's a picture (views/realm-dragon.js draws him once his model's
+// in), from the dragon's)
+const SHEET_OF = {hero_dragon: 'dragon'};
 const ROWS = {sword: 0, arrow: 1, dragon: 2, fireball: 3};
 // Muzzle points on the six normalized dragon cells (top-left coordinates, matching the manifest's anchors).
 const DRAGON_MOUTH = [[.79, .59], [.72, .34], [.72, .48], [.72, .49], [.79, .52], [.79, .56]];
@@ -125,7 +128,7 @@ export function createRaidAttacks(T, scene, {camera, onChange = () => {}} = {}) 
 
   /** The release frame coincides with hitAt. A future simulation hit winds up, never releasing a weapon early. */
   function frame(u, t) {
-    const atlas = u && sheet(u.t);
+    const atlas = u && sheet(SHEET_OF[u.t] || u.t);
     if (!atlas || u.dead) return 5;
     const release = atlas.releaseFrame, age = t - u.hitAt;
     if (u.hitAt >= 0 && age >= 0 && age < .42) return Math.min(5, release + Math.floor(age / .09));
@@ -170,7 +173,8 @@ export function createRaidAttacks(T, scene, {camera, onChange = () => {}} = {}) 
     end.set(W(s.x1), endHeight, W(s.y1));
     if (kind === 'dragon') {
       if (after > .1) return;
-      const atlas = sheet('dragon'), source = battle?.tr?.find(u => u.id === s.from);
+      // (the dragon that loosed it: a raider's, or a Dragon Hero defending's)
+      const atlas = sheet('dragon'), source = (s.foe ? battle?.defenders : battle?.tr)?.find(u => u.id === s.from);
       if (atlas) {
         // Match the drawn dragon's anchor, facing, bob and attack lean. Ground-direction offsets miss a billboard's mouth.
         const face = source?.face ?? Math.atan2(s.y1 - s.y0, s.x1 - s.x0);
@@ -210,7 +214,9 @@ export function createRaidAttacks(T, scene, {camera, onChange = () => {}} = {}) 
       kind === 'arrow' ? .65 : 1.05);
   }
 
-  function update(B, t) {
+  /** One frame of battle B at its clock t. skip(shot) → true for a shot drawn elsewhere (a dragon's fire the dragon's
+   *  model draws from its mouth: views/realm-3d.js), asked once, as the shot is first seen. */
+  function update(B, t, skip = null) {
     if (!active()) { dispose(); return false; }
     if (B !== battle || t < lastTime - .001) restart(B);
     battle = B; lastTime = t;
@@ -220,11 +226,12 @@ export function createRaidAttacks(T, scene, {camera, onChange = () => {}} = {}) 
     right.set(1, 0, 0).applyQuaternion(camera.quaternion);
     up.set(0, 1, 0).applyQuaternion(camera.quaternion);
     forward.set(0, 0, 1).applyQuaternion(camera.quaternion);
-    shots = shots.filter(s => t <= s.t1 + (s.k === 'dragon' ? .1 : SHOTS[s.k] === 'fireball' ? .16 : .001));
+    shots = shots.filter(s => t <= s.t1 + (SHOTS[s.k] === 'dragon' ? .1 : SHOTS[s.k] === 'fireball' ? .16 : .001));
     // Copy each shot before simulation deletes it: the simulation is one fixed step ahead of the rendered clock.
     for (const s of B.shots || []) {
       if (!handlesShot(s) || seen.has(s)) continue;
       seen.add(s);
+      if (skip && skip(s)) continue;
       // The cap is far above a normal army's concurrent shots. An extreme burst replaces the oldest snapshot.
       if (shots.length >= MAX_EFFECTS * 2) shots.shift();
       shots.push({...s});

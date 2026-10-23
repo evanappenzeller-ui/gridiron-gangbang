@@ -4,7 +4,8 @@
 // pay kept for the days before NEW_PAY; from then, Ale by place on three boards and Gold from Kick It and Return Man),
 // storage and the coffers (never below nothing, and what their sheet says), mines and breweries, builders and the Castle's limits, training, an attack played out (the same every time), a dragon over walls,
 // the computer's raids on the owner's realm, the cannon and the dragon hatchery, the Dragon Hero (Oct 22 2026: hatched at the
-// hatchery, the Wizard Hero and trained dragons retired and refunded, replays from before still playing), the art the buildings and folk are
+// hatchery, the Wizard Hero and trained dragons retired and refunded, replays from before still playing), the dragon's 3D
+// model (views/realm-dragon.js: every dragon, the Dragon Hero's too, and the one over the hatchery at home), the art the buildings and folk are
 // drawn from, an old Franchise save taken up as a realm, and the words on screen (Ale, breweries, cellars, the Castle,
 // Keepfall). checks.js imports
 // realmChecks and calls it with its check(name, fn) helper; every fn returns true or {pass, detail}. Nothing here
@@ -619,6 +620,109 @@ export async function realmChecks(check) {
     const big = !!meta.dragon && meta.dragon.fly && meta.dragon.wide > Math.max(...men) * 2 && men.every(w => w > 0);
     const pass = !bad.length && !gone.length && !meta.sapper && big && want.every(t => !meta[t] || !!meta[t].fly === !!F.TROOPS[t].fly);
     return {pass, detail: `${bad.length ? 'wrong: ' + bad.join(', ') : want.join(', ') + ' ok'}; the dragon ${big ? 'bigger, flying' : 'WRONG'}; ${gone.length ? 'missing: ' + gone.join(', ') : 'pictures there'}`};
+  });
+
+  check('Keepfall: the dragon in 3D (the owner’s ask, Oct 22 2026: “use model for dragons”; views/realm-dragon.js, models/keep-dragon.glb: “Mountain Dragon” by Alexey Zaika, CC BY 4.0): its model loads on his phone alone and never into the shared offline cache, with its five clips; every dragon in a battle (the troop, the Dragon Hero, one defending) gets a model of its own, a hero his ring and badge (the heroes’ walkers leave it alone); it rears before each strike and lunges on the battle’s shot, drops and lands once when it dies, and no more than 12 (and the hero) are drawn from it at once; while the model isn’t in, or never comes, the picture; at home it rests over a built Dragon Hatchery; How to play credits it', async () => {
+    const owner = !!data.isOwner();
+    const [D, NPC, view, T] = await Promise.all([import('../views/realm-dragon.js'), import('../views/realm-npcs.js'), import('../views/realm.js'), import('../vendor/three/three.module.min.js')]);
+    const kinds = D.isDragonKind('dragon') && D.isDragonKind('hero_dragon') && !['knight', 'hero_knight', 'hero_wizard', 'footman', '', undefined].some(D.isDragonKind);
+    // (at home: a hatchery at level 1 or more, its best; none while the first is still going up)
+    const lot = (...b) => ({b: b.map(([t, l], i) => ({i: i + 1, t, l, x: 4 + i * 5, y: 4, u: 0}))}), two = lot(['keep', 8], ['hatchery', 2], ['hatchery', 5]);
+    const home = D.homeDragonLevel(lot(['keep', 6])) === 0 && D.homeDragonLevel(lot(['keep', 6], ['hatchery', 0])) === 0 && D.homeDragonLevel(two) === 5 && (D.homeDragonNest(two) || {}).i === 3;
+    // (the offline cache: the model never in it, sw.js sends it to the network; its code is, for the picture offline)
+    const sw = await fetch(new URL('../../sw.js', import.meta.url)).then(r => r.text(), () => '');
+    const lists = sw.slice(sw.indexOf('const CORE'), sw.indexOf('const TIMEOUT'));
+    const cache = !!lists && !/\.glb|keep-dragon|models\//.test(lists) && /'realm-dragon'/.test(lists) && sw.includes('/\\/models\\/keep-dragon\\.glb$/.test(url.pathname)');
+    // (the credit, under How to play)
+    const hi = (view._screens(F.fresh(T0), T0).find(p => p.where === 'Keepfall') || {}).html || '';
+    const credit = hi.includes(D.CREDIT.title) && hi.includes(D.CREDIT.author) && hi.includes(D.CREDIT.license) && hi.includes(`href="${D.CREDIT.url}"`) && hi.includes(`href="${D.CREDIT.licenseUrl}"`);
+    // (a battle: a dragon troop (an old replay's: rules 1), a Dragon Hero of level 7 sent in after it, one defending)
+    const scene = new T.Scene(), at = u => ({x: u.x, y: u.y, moving: false});
+    const B = makeBattle({b: [{i: 1, t: 'keep', l: 3, x: 20, y: 20, u: 0}]}, null, {dragon: 1}, {rules: 1}), drake = B.deploy('dragon', 16, 4);
+    const S = F.TROOPS.dragon, stats = {hp: S.hp, dps: S.dps, speed: S.speed, range: S.range, aim: 'any', air: true, fly: true, splash: S.splash, room: 0};
+    const hero = {id: ++B.seq, t: 'hero_dragon', hero: 'dragon', l: 7, level: 7, stats, x: 24, y: 4, hp: S.hp, max: S.hp, tg: null, path: [], pi: 0, cd: 0, dead: false, face: 0, hitAt: -9, born: 0};
+    const guard = {id: 'def_dragon', i: 'def_dragon', t: 'hero_dragon', hero: 'dragon', stats, x: 26, y: 26, cx: 26, cy: 26, size: .6, home: {x: 26, y: 26}, hp: S.hp, max: S.hp, targetHero: true, cd: 0, dead: false, face: 0, hitAt: -9, path: [], pi: 0, nextPath: 0};
+    B.tr.push(hero); B.defenders.push(guard);
+    // (the heroes' walkers draw no dragon; a Knight Hero still)
+    const walkers = NPC.createBattleHeroes(T, scene, {house: {pri: 0x7A1F2B}}), n0 = scene.children.length;
+    walkers.update([hero, guard], 0, new Map(), new Map(), 1);
+    const leftAlone = scene.children.length === n0;
+    walkers.dispose();
+    let loads = '', drawn = '', fall = '', fallback = '', bad = '';
+    if (!owner) {
+      // (elsewhere: nothing fetched, nothing drawn)
+      const n = D.dragonState().loads, ok = await D.loadDragon(), none = D.createBattleDragons(T, scene);
+      none.update(B, 1, at);
+      loads = !ok && D.dragonState().loads === n && D.dragonState().state !== 'ready' ? 'refused here' : 'LOADED';
+      drawn = none.drawn.size || none.counts.pictures || none.counts.heroes ? 'DRAWN' : 'nothing drawn';
+      none.dispose();
+      const pass = kinds && home && cache && credit && leftAlone && loads === 'refused here' && drawn === 'nothing drawn';
+      return {pass, detail: `kinds ${kinds}; home ${home}; out of the offline cache ${cache}; credited ${credit}; the walkers leave it ${leftAlone}; the model ${loads}, ${drawn}`};
+    }
+    const ok = await D.loadDragon(), st = D.dragonState();
+    loads = ok && st.state === 'ready' && D.CLIPS.every(c => st.clips.includes(c)) ? `in, clips ${st.clips.join(' ')}` : `NOT IN (${st.state}, clips ${st.clips.join(' ') || 'none'})`;
+    let landed = 0;
+    const bd = D.createBattleDragons(T, scene, {onLand: () => { landed++; }});
+    bd.update(B, 1, at); bd.update(B, 1.1, at);
+    const models = [drake, hero, guard].map(u => { const a = bd.actors.get((u.targetHero ? 'd:' : 'a:') + u.id); return a && a.body; });
+    const own = models.every(A => A && A.mesh && A.mesh.isSkinnedMesh && A.root.parent === bd.group && Object.keys(A.act).length === D.CLIPS.length) && new Set(models.map(A => A && A.mesh.skeleton)).size === 3;
+    const marked = ['a:' + hero.id, 'd:def_dragon'].every(k => { const a = bd.actors.get(k); return a && a.ring && a.ring.parent && a.badge && a.badge.parent; }) && !bd.actors.get('a:' + drake.id).ring;
+    drawn = own && marked && bd.drawn.size === 3 ? '3 models, the heroes marked' : `WRONG (${bd.drawn.size} drawn, own ${own}, marked ${marked})`;
+    // (killed: it drops from where it was hit, faster and faster, lands once (its own dust: the battle's puff under it
+    // left out), lies a moment and is gone)
+    drake.dead = true;
+    const ys = [];
+    const root = () => { const a = bd.actors.get('a:' + drake.id); return a && a.body ? a.body.root.position.y : NaN; };
+    bd.update(B, 1.2, at); ys.push(root()); bd.update(B, 1.6, at); ys.push(root());
+    const dying = !!bd.actors.get('a:' + drake.id).body && bd.actors.get('a:' + drake.id).body.act.death.getEffectiveWeight() > .9 && bd.falling(drake.id);
+    for (let t = 1.8; t < 8; t += .2) { bd.update(B, t, at); ys.push(root()); }
+    // (dT .4, 1.0, 1.4: still dropping; 2.0: on the ground; its drop quickening)
+    const dropped = ys[1] > ys[4] && ys[4] > ys[6] && ys[6] > 0 && ys[9] === 0 && (ys[4] - ys[6]) > (ys[1] - ys[4]) / 3 * 2;
+    fall = dying && dropped && landed === 1 && bd.actors.get('a:' + drake.id).gone && bd.counts.models === 2 ? 'fell, landed once and went' : `WRONG (dying ${dying}, dropped ${dropped} ${ys.slice(0, 10).map(y => +y.toFixed(2)).join(' ')}, landed ${landed})`;
+    bd.dispose();
+    // (its strikes, flown in and struck again and again: it rears before each, lunges on the battle's shot (the clip at
+    // its lunge as the shot goes), never back along the clip)
+    let strikes = '';
+    {
+      const B2 = makeBattle({b: [{i: 1, t: 'keep', l: 3, x: 20, y: 20, u: 0}, {i: 2, t: 'mine', l: 1, x: 14, y: 4, u: 0}]}, null, {dragon: 1}, {rules: 1}), d2 = B2.deploy('dragon', 2, 5);
+      const bs = D.createBattleDragons(T, scene);
+      let cur = new Map(), prev = new Map(), seenStep = -1, back = 0, lastCt = -1, lastW = 0, early = Infinity, lunges = 0, off = 0, seenHit = -9, first = NaN;
+      const loc = u => { const c = cur.get(u.id), p = prev.get(u.id) || c; return c ? {x: c.x, y: c.y, moving: Math.hypot(c.x - p.x, c.y - p.y) > .001} : null; };
+      for (let i = 0; i < 300; i++) {
+        const t = i / 30;
+        B2.run(t + .1);
+        if (B2.step !== seenStep) { prev = cur; cur = new Map(B2.tr.map(u => [u.id, {x: u.x, y: u.y}])); seenStep = B2.step; }
+        bs.update(B2, t, loc);
+        const A = bs.actors.get('a:' + d2.id).body, ct = A.act.attack.time, w = A.act.attack.getEffectiveWeight();
+        if (w > .02 && lastW > .02 && ct < lastCt - 1e-6) back++;
+        if (w > .05 && early === Infinity) early = t;
+        if (d2.hitAt > 0 && d2.hitAt !== seenHit && t >= d2.hitAt) { seenHit = d2.hitAt; if (!(first > 0)) first = d2.hitAt; lunges++; if (Math.abs(ct - .62) > .05 || w < .9) off++; }
+        lastCt = ct; lastW = w;
+      }
+      strikes = !back && !off && lunges >= 4 && first - early >= .4 ? `${lunges} strikes, reared for (the first from ${(first - early).toFixed(2)} s before), each lunge on its shot` : `WRONG (${back} back along the clip, ${off} of ${lunges} lunges off their shot, reared ${(first - early).toFixed(2)} s before the first)`;
+      bs.dispose();
+    }
+    // (a sky full of them, an old raid's: at most 12 from the model and the hero, the rest the picture for good)
+    let crowd = '';
+    {
+      const B3 = makeBattle({b: [{i: 1, t: 'keep', l: 3, x: 20, y: 20, u: 0}]}, null, {dragon: 16}, {rules: 1});
+      for (let i = 0; i < 16; i++) B3.deploy('dragon', 2, 2 + i * 2.5);
+      B3.tr.push(Object.assign({}, hero, {id: ++B3.seq}));
+      const bc = D.createBattleDragons(T, scene);
+      bc.update(B3, 1, at); bc.update(B3, 1.1, at);
+      const heroIn = [...bc.drawn].some(u => u.t === 'hero_dragon');
+      crowd = bc.counts.models === 13 && bc.counts.pictures === 4 && heroIn ? '17: 12 and the hero modelled, 4 pictures' : `WRONG (${bc.counts.models} models, ${bc.counts.pictures} pictures, hero modelled ${heroIn})`;
+      bc.dispose();
+    }
+    // (no model: the picture, the hero still marked; a model that can't be read: refused, nothing thrown)
+    const pic = D.createBattleDragons(T, scene, {source: {gl: null}});
+    pic.update(B, 1, at);
+    const unread = await D._tryRead('data:application/octet-stream;base64,AAAAAAAAAAAAAAAA');
+    fallback = !pic.drawn.size && pic.counts.pictures === 2 && pic.counts.heroes === 2 && !unread ? 'pictures, heroes marked; a bad file refused' : `WRONG (${pic.drawn.size} drawn, ${pic.counts.pictures} pictures, ${pic.counts.heroes} marked, bad file read ${unread})`;
+    pic.dispose();
+    bad = scene.children.length ? `${scene.children.length} left in the scene` : '';
+    const pass = kinds && home && cache && credit && leftAlone && loads.startsWith('in,') && drawn.startsWith('3 models') && fall.startsWith('fell,') && strikes.includes('each lunge') && crowd.startsWith('17:') && fallback.startsWith('pictures') && !bad;
+    return {pass, detail: `kinds ${kinds}; home ${home}; out of the offline cache ${cache}; credited ${credit}; the walkers leave it ${leftAlone}; the model ${loads}; ${drawn}; killed: ${fall}; strikes: ${strikes}; a crowd: ${crowd}; without it: ${fallback}${bad ? '; ' + bad : ''}`};
   });
 
   check('Keepfall: the computer’s realms raid his realm (at most one each half day, the last two while he was away; none in its first day, before Castle level 3 (Oct 22 2026, was 2) or during a truce): played the same every time, taken off his stores and glory once, never his coffers', () => {
