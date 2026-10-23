@@ -1,4 +1,4 @@
-// The Keep (the game was the Realm till Oct 21 2026: its route, view id and saves keep that name; core/realm.js
+// Keepfall (the game was the Realm till Oct 21 2026: its route, view id and saves keep that name; core/realm.js
 // says which words changed). core/realm.js: the game; views/realm-3d.js: the lot in 3D; views/realm-raid.js: a raid;
 // views/realm-scout.js: a look round a realm before you raid it. The owner's
 // alone (data.isOwner(): its Daily Games case and route open on his phones only, and this screen shows nothing on anyone else's). Your
@@ -106,7 +106,8 @@ function shellHTML() {
     + `<div class="rl-res">`
     + F.CUR.map(c => `<button type="button" class="rl-cur is-${c}" data-rl-cur="${c}"><span class="rl-curb"><i data-rl-f></i></span><b data-rl-n>0</b><i class="rl-coin" aria-hidden="true"></i></button>`).join('')
     + `</div></div>`
-    + `<div class="rl-utility"><button type="button" class="rl-hub" data-nav="/puzzles" aria-label="Back to Daily Games">‹ Games</button>`
+    + `<div class="rl-utility"><div class="rl-home-links"><button type="button" class="rl-hub" data-nav="/puzzles" aria-label="Back to Daily Games">‹ Games</button>`
+    + `<button type="button" class="rl-frame rl-lore" data-rl-lore aria-label="Read the lore of Keepfall">Lore</button></div>`
     + `<div class="rl-camera-modes"><button type="button" class="rl-frame" data-rl-buildings aria-label="Find a building, including hidden buildings">Buildings</button><button type="button" class="rl-frame" data-rl-frame aria-label="Center your village">Village</button>`
     + `<button type="button" class="rl-frame" data-rl-world aria-label="Zoom out to the whole realm">Realm</button></div></div>`
     + `<div class="rl-zoom" role="group" aria-label="Camera zoom"><button type="button" data-rl-zoom="in" aria-label="Zoom in">+</button><button type="button" data-rl-zoom="out" aria-label="Zoom out">−</button></div>`
@@ -372,7 +373,7 @@ function refresh(st) {
   if (st.sel != null && !st.place) showSel(st);
 }
 // The board's copy of your realm taken up (the first time it shows, or newer from your other phone), and the raids on
-// it since you last looked played (while The Keep is on screen).
+// it since you last looked played (while Keepfall is on screen).
 function synced(st) {
   if (st.dead || !F.mayPlay()) return;
   const took = F.sync();
@@ -381,7 +382,7 @@ function synced(st) {
 }
 // The computer's raids on your realm since you last looked: played, taken off it, and told.
 function defenses(st) {
-  if (st.dead || !F.mayPlay()) return;
+  if (st.dead || !st.ctx.visible || !F.mayPlay() || st.lore) return;
   const s = F.mine(), done = defend(s);
   if (!done.length) return;
   F.touch();
@@ -806,6 +807,7 @@ function fullScreen(st, on) {
 function disposeState(st) {
   if (st.dead) return;
   st.dead = true;
+  cancelLore(st);
   fullScreen(st, false);
   st.events.abort();
   st.stops.splice(0).forEach(f => f());
@@ -817,16 +819,15 @@ function disposeState(st) {
 
 // ---------------------------------------------------------------------------------------------------- the view
 export function warm() { if (F.mayPlay()) loadMods(); }
-// The first-visit mark (gg-realm-seen; games.js reads it for The Keep's Daily Games case): until the owner has opened The Keep once.
+// The first-visit mark (gg-realm-seen; games.js reads it for Keepfall's Daily Games case): until the owner has opened Keepfall once.
 const SEEN_KEY = 'gg-realm-seen';
 export function badge() { return F.mayPlay() && ui.lsGet(SEEN_KEY) !== '1'; }
 function markSeen() {
   if (!F.mayPlay() || ui.lsGet(SEEN_KEY) === '1') return;
   ui.lsSet(SEEN_KEY, '1');
   dispatchEvent(new Event('gg:badge'));
-  welcome();
 }
-const WELCOME_TITLE = 'The Keep';
+const WELCOME_TITLE = 'Keepfall';
 const welcomeHTML = () => `<p class="rl-sh-lead">Raise your house, fill your treasuries, sack the realms around you. The daily games pay your realm, and everything you’ve played this season already has. It’s yours alone.</p>`
   + `<div class="rl-rows">`
   + `<div class="rl-row"><span><b>Ale</b>: your place on the Daily Puzzles, 17–0 and Two-Minute Drill boards, paid the next morning. <b>Gold</b>: every 5th Kick It make, and the coins on your first Return Man run.</span></div>`
@@ -838,11 +839,62 @@ const welcomeHTML = () => `<p class="rl-sh-lead">Raise your house, fill your tre
   + `<div class="rl-row"><span><b>Your people</b>: guards patrol the village. A dragon keeper arrives when the Dragon Hatchery unlocks at Castle level 6.</span></div>`
   + `<div class="rl-row"><span><b>Defend</b>: once your Castle is level 2, those realms raid you too, now and then. Cannons, ballistas, archer towers, trebuchets, pitch cauldrons and walls keep them out.</span></div>`
   + `</div><p class="rl-sh-note">Drag to look around, pinch to zoom. Tap a building for what it does; tap your house’s name to rename it.</p>`;
-function welcome() {
-  realmSheet({title: WELCOME_TITLE, cls: 'sh-rl', detents: ['large'], body: welcomeHTML()});
+const LORE_SEEN_KEY = 'gg-keepfall-lore-seen';
+const loreActive = st => !st.dead && st.ctx.visible && F.mayPlay();
+const loreUnseen = st => !st.loreSeen && ui.lsGet(LORE_SEEN_KEY) !== '1';
+function loreHTML(first = false) {
+  return `<article class="rl-lore-story"><p class="rl-lore-eyebrow">LORE OF YHARMIN</p>`
+    + `<div class="rl-lore-sigil" aria-hidden="true"><i class="rl-crown"></i><span></span></div>`
+    + `<div class="rl-lore-copy"><p>Yharmin was once united under a single High King, ruling from one great keep. In a single night, that keep was breached and the crown was lost. With no king left to hold it together, Yharmin split into rival houses, each building its own stronghold and fighting to claim the broken throne. That night is remembered as the Keepfall.</p>`
+    + `<p>Now every house builds, raids, and wars for one goal: to rebuild what was lost and rule Yharmin.</p></div>`
+    + `<button type="button" class="btn btn-primary rl-lore-continue" data-rl-lore-close>${first ? 'Begin your reign' : 'Return to your realm'}</button>`
+    + `<details class="rl-lore-help"><summary>How to play</summary><div>${welcomeHTML()}</div></details></article>`;
+}
+function cancelLore(st) {
+  const rec = st.lore;
+  if (!rec) return;
+  rec.cancelled = true;
+  rec.events.abort();
+  st.lore = null;
+  if (rec.sheet) { rec.sheet.body.replaceChildren(); rec.sheet.close(); }
+}
+function loreSheet(st, first = false) {
+  if (!loreActive(st) || st.lore) return;
+  const rec = {sheet: null, events: new AbortController(), explicit: false, cancelled: false};
+  st.lore = rec;
+  const signal = rec.events.signal, route = location.hash;
+  const closed = () => {
+    rec.events.abort();
+    if (st.lore !== rec) return;
+    st.lore = null;
+    // Route cleanup fires before onHide; only the reader's explicit dismissal counts.
+    if (!rec.explicit || rec.cancelled || !loreActive(st) || location.hash !== route) return;
+    st.loreSeen = true;
+    ui.lsSet(LORE_SEEN_KEY, '1');
+    const resume = setTimeout(() => {
+      st.effects.delete(resume);
+      if (loreActive(st) && !st.lore) defenses(st);
+    }, 300);
+    st.effects.add(resume);
+  };
+  rec.sheet = realmSheet({title: WELCOME_TITLE, cls: 'sh-rl sh-rl-lore', detents: ['large'], body: loreHTML(first),
+    returnFocus: () => st.el.querySelector('[data-rl-lore]'), onClose: closed});
+  const sh = rec.sheet;
+  sh.el.addEventListener('click', e => {
+    if (!e.target.closest('[data-rl-lore-close], [data-sheet-close]')) return;
+    rec.explicit = true;
+    if (e.target.closest('[data-rl-lore-close]')) sh.close();
+  }, {capture: true, signal});
+  sh.el.addEventListener('keydown', e => { if (e.key === 'Escape') rec.explicit = true; }, {capture: true, signal});
+  const scrim = sh.el.previousElementSibling;
+  if (scrim && scrim.classList.contains('sheet-scrim')) scrim.addEventListener('click', () => { rec.explicit = true; }, {capture: true, signal});
+}
+function openingLore(st) {
+  markSeen();
+  if (loreUnseen(st)) loreSheet(st, true);
 }
 
-/** For the checks (core/checks-realm.js): every word The Keep's screen can show for realm s at now, as HTML, without
+/** For the checks (core/checks-realm.js): every word Keepfall's screen can show for realm s at now, as HTML, without
  *  opening or changing anything: the screen with its top filled in and the overlays on the lot, every building's card,
  *  the card for placing each kind, and every sheet (done: raids to tell of, as defend() gives them; earned: incomeOf()).
  *  [{where, html}]. */
@@ -856,20 +908,20 @@ export function _screens(s, now, {done = [], earned: E = NO_PAY()} = {}) {
   F.ORDER.forEach(k => out.push({where: `placing a ${k}`, html: placeHTML(s, {t: k, ok: true})}));
   out.push({where: 'While you were away', html: awayHTML(done, s, now)}, {where: 'The coffers', html: cofferHTML(s, E)},
     {where: 'Your army', html: armyHTML(s, now)}, {where: 'Attack', html: raidHTML(s, now)}, {where: 'The Chronicle', html: logHTML(s, now)},
-    {where: 'Build', html: shopHTML(s)}, {where: 'Your house', html: houseHTML(s)}, {where: WELCOME_TITLE, html: welcomeHTML()});
+    {where: 'Build', html: shopHTML(s)}, {where: 'Your house', html: houseHTML(s)}, {where: WELCOME_TITLE, html: welcomeHTML()}, {where: 'Keepfall lore', html: loreHTML()});
   return out;
 }
 
 export default {
   id: 'realm',
   chrome: 'none',
-  title: 'The Keep',
+  title: 'Keepfall',
 
   render() { return F.mayPlay() ? shellHTML() : '<div class="rl rl-none"></div>'; },
 
   mount(el, ctx) {
     if (!F.mayPlay()) { ST.set(ctx, {el, ctx, dead: true}); return; }
-    const st = {el, ctx, v: null, sel: null, place: null, moving: null, drag: null, dead: false, stops: [], events: new AbortController(), effects: new Set(), flights: new Set()};
+    const st = {el, ctx, v: null, sel: null, place: null, moving: null, drag: null, dead: false, lore: null, loreSeen: false, stops: [], events: new AbortController(), effects: new Set(), flights: new Set()};
     ST.set(ctx, st);
     fullScreen(st, ctx.visible);
     st.stops.push(data.subscribe(type => {
@@ -887,6 +939,7 @@ export default {
       const t = e.target;
       if (t.closest('[data-rl-buildings]')) { buildingsSheet(st); return; }
       if (t.closest('[data-rl-overlap]')) { buildingsSheet(st, st.overlap); return; }
+      if (t.closest('[data-rl-lore]')) { loreSheet(st); return; }
       if (t.closest('[data-rl-frame]')) { if (st.v) st.v.frameVillage(); return; }
       if (t.closest('[data-rl-world]')) { if (st.v) st.v.frameWorld(); return; }
       if (t.closest('[data-rl-zoom]')) { if (st.v) st.v.zoomBy(t.closest('[data-rl-zoom]').dataset.rlZoom === 'in' ? .72 : 1 / .72); return; }
@@ -914,21 +967,21 @@ export default {
       if (mv) { st.moving = +mv.dataset.rlMove; if (st.v) st.v.showGrid(true); ui.toast('Drag it where you want it, then tap the lot', {icon: 'info'}); }
     }, {signal: st.events.signal});
     start3d(st);
-    if (ctx.visible) { markSeen(); setTimeout(() => { if (!st.dead && ctx.visible) defenses(st); }, 900); }
+    if (ctx.visible) { openingLore(st); setTimeout(() => { if (!st.dead && ctx.visible) defenses(st); }, 900); }
   },
 
   onShow(ctx) {
     if (!F.mayPlay()) return;
-    markSeen();
     let st = ST.get(ctx);
     if (st && st.dead) { this.update(ctx); st = ST.get(ctx); }
     if (!st) return;
+    openingLore(st);
     fullScreen(st, true);
     F.sync(); refresh(st); if (st.v) st.v.want();
     defenses(st);
   },
 
-  onHide(ctx) { const st = ST.get(ctx); if (st) fullScreen(st, false); },
+  onHide(ctx) { const st = ST.get(ctx); if (st) { cancelLore(st); fullScreen(st, false); } },
 
   update(ctx) {
     const st = ST.get(ctx);

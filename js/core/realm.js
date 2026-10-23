@@ -1,4 +1,4 @@
-// The Keep (the owner's ask, Oct 2026: a Clash of Clans of his own, in a medieval fantasy, a game case on Daily Games; his
+// Keepfall (the owner's ask, Oct 2026: a Clash of Clans of his own, in a medieval fantasy, a game case on Daily Games; his
 // alone: data.isOwner()). Your realm is a lot with your Castle at its heart. The daily games pay for it: every result
 // you've posted to the board this season (and every one from here on) comes in as Gold and Ale (from Oct 22 2026: Ale
 // for your place on three boards, Gold from Kick It and Return Man; incomeOf), waiting in your coffers until the
@@ -8,7 +8,7 @@
 // a day, which is what your walls and towers are for.
 //
 // Names (the owner, Oct 21 2026): the game was the Realm, its second currency Grain, made by farms and held in
-// granaries, its main building the Keep. On screen they're now The Keep (the game), Ale, breweries, cellars and the
+// granaries, its main building the Keep. On screen they're now Keepfall (the game), Ale, breweries, cellars and the
 // Castle; in the code and in every save they keep their old ids (route #/realm, view 'realm', 'grain', 'farm',
 // 'granary', 'keep', fr1, gg-fr1), so every save loads as it was. Only the words people read changed: CUR_NAME,
 // KINDS' names and blurbs, and the views' text.
@@ -28,7 +28,7 @@ export const MAX_KEEP = 8;
 export const RAID_S = 180;         // a raid's clock, seconds
 export const CUR = ['gold', 'grain'];
 export const CUR_NAME = {gold: 'Gold', grain: 'Ale'};
-/** Whether this phone may have The Keep at all: the owner's alone. */
+/** Whether this phone may have Keepfall at all: the owner's alone. */
 export const mayPlay = () => !!(data.isOwner && data.isOwner());
 // Testing (the owner, Oct 22 2026): his realm started over at Castle level 1 with unlimited Gold and Ale and no
 // building time. A realm marked tst spends nothing and builds and upgrades at once; one saved before TEST_RESET is
@@ -230,7 +230,7 @@ export function heroStat(k, level) {
 function heroChange(s, k, recruit) {
   const H = heroKind(k), level = H ? heroLevel(s, k) : 0, to = recruit ? 1 : level + 1;
   const o = {ok: false, why: '', cost: H ? (H.cost[to - 1] || 0) : 0, pay: 'gold', to};
-  if (!mayPlay()) return {...o, why: 'The Keep is available on Evan’s profile'};
+  if (!mayPlay()) return {...o, why: 'Keepfall is available on Evan’s profile'};
   if (!H) return {...o, why: 'Unknown hero'};
   if (keepOf(s) < H.at) return {...o, why: `Needs Castle level ${H.at}`};
   if (recruit && level) return {...o, why: 'Already recruited'};
@@ -496,7 +496,7 @@ export function fresh(now = Date.now()) {
   return {v: 2, n: N, at: now, born: now, nm: '', b, r: {gold: 0, grain: 0}, cl: {gold: 0, grain: 0}, xo: {gold: STARTER, grain: STARTER},
     ar: {}, hr: {}, q: [], qs: 0, tp: 0, rd: [], df: [], lr: now, sh: 0, bt: {}, nb: 6};
 }
-// The Franchise's names (v1, Oct 2026), taken up as the Realm's (now The Keep's: the same ids).
+// The Franchise's names (v1, Oct 2026), taken up as the Realm's (now Keepfall's: the same ids).
 const OLD_KIND = {stadium: 'keep', office: 'hut', booth: 'mine', cooler: 'farm', vault: 'treasury', tank: 'granary', practice: 'barracks',
   locker: 'camp', cannon: 'ballista', pressbox: 'tower', jugs: 'trebuchet', shower: 'cauldron', fence: 'wall'};
 const OLD_TROOP = {receiver: 'footman', qb: 'archer', lineman: 'knight', fullback: 'sapper', mascot: 'thief', kicker: 'dragon'};

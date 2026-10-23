@@ -1,11 +1,11 @@
-// The Keep's checks for the dev gallery (#/_kit) (the game was the Realm till Oct 21 2026: its ids and saves keep that
+// Keepfall's checks for the dev gallery (#/_kit) (the game was the Realm till Oct 21 2026: its ids and saves keep that
 // name): that it's the owner's alone (the case, the screens, the save, his
 // own docs only, the computer's realms the only ones to attack or scout), scouting a realm, what the games pay (the old
 // pay kept for the days before NEW_PAY; from then, Ale by place on three boards and Gold from Kick It and Return Man),
 // storage and the coffers (never below nothing, and what their sheet says), mines and breweries, builders and the Castle's limits, training, an attack played out (the same every time), a dragon over walls,
 // the computer's raids on the owner's realm, the cannon and the dragon hatchery, the art the buildings and folk are
 // drawn from, an old Franchise save taken up as a realm, and the words on screen (Ale, breweries, cellars, the Castle,
-// The Keep). checks.js imports
+// Keepfall). checks.js imports
 // realmChecks and calls it with its check(name, fn) helper; every fn returns true or {pass, detail}. Nothing here
 // writes to storage or the database.
 import * as F from './realm.js';
@@ -20,7 +20,7 @@ export async function realmChecks(check) {
   const [kk, rm, sv, dr] = await Promise.all([import('./kick.js'), import('./return.js'), import('./seventeen.js').then(async m => { await m.load(); return m; }),
     import('./drill.js').then(async m => { await m.load(); return m; })]);
 
-  check('The Keep: the owner’s alone: its Daily Games case and pushed route open only on his phones; it has no separate tab, its screens are empty elsewhere and its save refuses; it reads only his own board docs, never LB.all, and attacks and scouts only the computer’s realms', async () => {
+  check('Keepfall: the owner’s alone: its Daily Games case and pushed route open only on his phones; it has no separate tab, its screens are empty elsewhere and its save refuses; it reads only his own board docs, never LB.all, and attacks and scouts only the computer’s realms', async () => {
     const owner = !!data.isOwner();
     const [app, view, raid, scout, games] = await Promise.all([import('../app.js'), import('../views/realm.js'), import('../views/realm-raid.js'), import('../views/realm-scout.js'), import('../views/games.js')]);
     const may = F.mayPlay() === owner;
@@ -45,7 +45,7 @@ export async function realmChecks(check) {
     return {pass: ok, detail: `this phone the owner’s: ${owner}; mayPlay ${F.mayPlay()}; tab ${tab}; screens ${screens}; ${all.length ? 'reads LB.all: ' + all.join(', ') : 'LB.raw only'}; save guarded ${guard}, refused here: ${refused}; only his docs ${mineOnly}; attackable ${tg.map(x => x.k).join(',')}`};
   });
 
-  check('The Keep: scouting (views/realm-scout.js, #/realm/scout/<realm>): each of the computer’s realms can be looked round before it’s attacked, the same lot and take the attack meets, its defenses counted, a building’s card saying what it does and holds, a defense’s reach drawn round it; looking changes nothing', async () => {
+  check('Keepfall: scouting (views/realm-scout.js, #/realm/scout/<realm>): each of the computer’s realms can be looked round before it’s attacked, the same lot and take the attack meets, its defenses counted, a building’s card saying what it does and holds, a defense’s reach drawn round it; looking changes nothing', async () => {
     const [app, view, scout] = await Promise.all([import('../app.js'), import('../views/realm.js'), import('../views/realm-scout.js')]);
     const r = app.__dev.parseRoute('/realm/scout/bot%3A4'), routed = !data.DATA || !data.isOwner() ? true : !!r && r.view === 'realm-scout' && r.open === 'cover';
     const s = F.fresh(T0), before = JSON.stringify(s);
@@ -61,7 +61,7 @@ export async function realmChecks(check) {
     return {pass: ok, detail: `route ${routed}; every realm the attack’s own ${same}; ${R4.name}: ${def.map(d => `${d.n} ${d.t}`).join(', ')} (${counted}); a cannon: ${facts}; an unknown realm refused ${missing}; nothing changed ${untouched}`};
   });
 
-  check('The Keep: the old pay, kept for every game day before the new pay (NEW_PAY): in Gold and Ale alike, a day each (the first finished across his phones; Return Man’s best run): Daily Puzzles 400 + 5 a point, 17–0 400 + 150 a win, Kick It 400 + 200 a make (to 15), Return Man 400 + 3 a yard (to 1,000)', () => {
+  check('Keepfall: the old pay, kept for every game day before the new pay (NEW_PAY): in Gold and Ale alike, a day each (the first finished across his phones; Return Man’s best run): Daily Puzzles 400 + 5 a point, 17–0 400 + 150 a win, Kick It 400 + 200 a make (to 15), Return Man 400 + 3 a yard (to 1,000)', () => {
     const a = {id: 'fx-a', nick: 'Evan', days: {10: {v: 4, p: 400, t: 2}}, kk1: {2: {m: 5, l: 40, y: 150, k: 8, t: 10}}, rm2: {1: {y: 300, l: 300, td: 3, t: 5}}, s17: {3: {w: 12, l: 5, p: 21.5, r: 0, k: '01234', t: 3}}};
     const b = {id: 'fx-b', nick: 'Evan', days: {10: {v: 4, p: 600, t: 5}, 11: {v: 4, p: 100, t: 6}}, kk1: {2: {m: 9, l: 48, y: 330, k: 12, t: 20}}, rm2: {1: {y: 900, l: 900, td: 9, t: 9}}};
     const inc = F.incomeOf([a, b], {kk, rm, sv}, {board: [], me: null});
@@ -119,7 +119,7 @@ export async function realmChecks(check) {
   };
   const by = (inc, g, c) => (inc.by[g] ? inc.by[g][c] : 0);
 
-  check('The Keep: the new pay starts on Thu Oct 22 2026, the first day played after it shipped (the owner had played all of Oct 21’s games under the old pay), in every game’s own numbering (NEW_PAY: the Daily Puzzles’ 25th day, 17–0’s 14th, the Drill’s 8th, Kick It’s 5th, Return Man’s 3rd), written down, not worked out from the clock; the day before, each game’s last old day, keeps the old pay exactly, in Gold and Ale alike', () => {
+  check('Keepfall: the new pay starts on Thu Oct 22 2026, the first day played after it shipped (the owner had played all of Oct 21’s games under the old pay), in every game’s own numbering (NEW_PAY: the Daily Puzzles’ 25th day, 17–0’s 14th, the Drill’s 8th, Kick It’s 5th, Return Man’s 3rd), written down, not worked out from the clock; the day before, each game’s last old day, keeps the old pay exactly, in Gold and Ale alike', () => {
     const G = {sv, dr, kk, rm}, first = F.todayNumbers(G, new Date(2026, 9, 22, 12)), eve = F.todayNumbers(G, new Date(2026, 9, 21, 23, 59));
     const ship = Object.keys(F.NEW_PAY).every(g => first[g] === F.NEW_PAY[g] && eve[g] === F.NEW_PAY[g] - 1) && Object.isFrozen(F.NEW_PAY) && SHIP.getTime() === new Date(2026, 9, 22).getTime()
       && F.NEW_PAY_DATE === '2026-10-22' && F.oldPayToday({day: eve}) && !F.oldPayToday({day: first});
@@ -134,7 +134,7 @@ export async function realmChecks(check) {
     return {pass: ship && split && totals, detail: `Oct 22: ${JSON.stringify(first)}, Oct 21: ${JSON.stringify(eve)} (${ship}); by game ${JSON.stringify(E.inc.by)} (${split}); total ${JSON.stringify(E.inc.total)} (${totals})`};
   });
 
-  check('The Keep: from the new pay on, Ale for his place on the day’s final board in the Daily Puzzles, 17–0 and the Two-Minute Drill (1st 5,000 · 2nd 4,000 · 3rd 3,200 · 4th 2,600 · 5th 2,100 · 6th 1,700 · 7th or lower 1,200), ranked as each game’s own board ranks it, on the league’s board: a tie shares the higher place, he counts once across his phones (the board’s counting entry, not a later better one), a guest or an app user who isn’t in the league (Ryan S) above him on his phone’s boards doesn’t lower his place (they’re not on the league’s), Ryan D would, and a row that is no one’s doesn’t; paid the morning after (yesterday’s place came in today), today’s place pending (“#2 right now”), and no Gold from those three', () => {
+  check('Keepfall: from the new pay on, Ale for his place on the day’s final board in the Daily Puzzles, 17–0 and the Two-Minute Drill (1st 5,000 · 2nd 4,000 · 3rd 3,200 · 4th 2,600 · 5th 2,100 · 6th 1,700 · 7th or lower 1,200), ranked as each game’s own board ranks it, on the league’s board: a tie shares the higher place, he counts once across his phones (the board’s counting entry, not a later better one), a guest or an app user who isn’t in the league (Ryan S) above him on his phone’s boards doesn’t lower his place (they’re not on the league’s), Ryan D would, and a row that is no one’s doesn’t; paid the morning after (yesterday’s place came in today), today’s place pending (“#2 right now”), and no Gold from those three', () => {
     const E = econ();
     if (!E) return {pass: false, detail: 'the league or the puzzles didn’t load'};
     const {P, AT_N, inc, board, leagueBoard} = E;
@@ -170,7 +170,7 @@ export async function realmChecks(check) {
     return {pass: ok, detail: `table ${table}; his places on the league’s board: Daily #${rowPz && rowPz.rank} (${rowPz && rowPz.pts}), 17–0 #${row17 && row17.rank}, Drill #${rowDr && rowDr.rank} (${places}); on his phone’s, with the guest and Ryan S above him: Daily #${his && his.rank}, 17–0 #${his17 && his17.rank}, not counted ${outsiders}; Ryan D above him counts ${ryanD}; Ale ${['puzzles', '17-0', 'drill'].map(g => by(inc, g, 'grain')).join('/')} (${ale}); no new Gold ${noGold}; pending ${JSON.stringify(inc.pending)} (${pend}); this morning ${JSON.stringify(inc.today.puzzles)} (${morning}); the next day paid ${paid}; on its first day still pending ${notYet}; no docs no pay ${none}`};
   });
 
-  check('The Keep: from the new pay on, Gold from Kick It and Return Man, paid as soon as the run is on the board: 1,000 for every 5th make on the run that counts (the day’s first finished across his phones, not a later better try), and 10 a coin on the day’s first Return Man run (its board entry’s c, whatever the best run was; none on a later run, nothing for a number no run could have); no Ale from those two', () => {
+  check('Keepfall: from the new pay on, Gold from Kick It and Return Man, paid as soon as the run is on the board: 1,000 for every 5th make on the run that counts (the day’s first finished across his phones, not a later better try), and 10 a coin on the day’s first Return Man run (its board entry’s c, whatever the best run was; none on a later run, nothing for a number no run could have); no Ale from those two', () => {
     const E = econ();
     if (!E) return {pass: false, detail: 'the league or the puzzles didn’t load'};
     const {inc} = E;
@@ -182,17 +182,17 @@ export async function realmChecks(check) {
     // (his runs alone pay: the board's others don't)
     const solo = F.incomeOf([E.e1], {sv, dr, kk, rm}, {board: E.board, me: data.OWNER, at: AT});
     const one = by(solo, 'kick', 'gold') === 1600 + 2000 + 2000 + 1000 + 2000 && by(solo, 'return', 'gold') === 1900 + 840 + 0 + E.cut + 120;
-    // (the coins as Return Man's core reads them, dayCoins, and as The Keep reads them without it: the same)
+    // (the coins as Return Man's core reads them, dayCoins, and as Keepfall reads them without it: the same)
     const own = typeof rm.dayCoins === 'function' && rm.dayCoins([E.e1, E.e2], F.NEW_PAY.return + 1) === 30;
     const bare = F.incomeOf([E.e1, E.e2], {sv, dr, kk, rm: Object.assign({}, rm, {dayCoins: null})}, {board: E.board, me: data.OWNER, at: AT});
     const same = JSON.stringify(bare.by.return) === JSON.stringify(inc.by.return);
-    // (what the games' own screens promise, "+N Gold for The Keep", is what The Keep pays)
+    // (what the games' own screens promise, "+N Gold for Keepfall", is what Keepfall pays)
     const agree = (typeof kk.goldOf !== 'function' || Array.from({length: 41}, (_, m) => kk.goldOf(m) === F.kickGold(m)).every(Boolean))
       && (!rm.COIN || (rm.COIN.gold === F.COIN_GOLD && rm.COIN.most === F.COIN_MAX && rm.COIN.fromDay === F.NEW_PAY.return));
-    return {pass: helpers && cut && kick && ret && one && own && same && agree, detail: `the games’ own numbers agree (Return Man’s coins out from The Keep’s first day of paying for them, ${rm.COIN && rm.COIN.fromDay}) ${agree}; helpers ${helpers}; a forged count paid only what the course lays out (${E.cut} Gold) ${cut}; Kick It ${JSON.stringify(inc.by.kick)}, today ${JSON.stringify(inc.today.kick)} (${kick}); Return Man ${JSON.stringify(inc.by.return)}, today ${JSON.stringify(inc.today.return)} (${ret}); one phone’s docs alone ${one}; Return Man’s dayCoins ${own}, the same without it ${same}`};
+    return {pass: helpers && cut && kick && ret && one && own && same && agree, detail: `the games’ own numbers agree (Return Man’s coins out from Keepfall’s first day of paying for them, ${rm.COIN && rm.COIN.fromDay}) ${agree}; helpers ${helpers}; a forged count paid only what the course lays out (${E.cut} Gold) ${cut}; Kick It ${JSON.stringify(inc.by.kick)}, today ${JSON.stringify(inc.today.kick)} (${kick}); Return Man ${JSON.stringify(inc.by.return)}, today ${JSON.stringify(inc.today.return)} (${ret}); one phone’s docs alone ${one}; Return Man’s dayCoins ${own}, the same without it ${same}`};
   });
 
-  check('The Keep: a day’s place, once paid, stays paid: incomeOf lists the places it pays that weren’t frozen yet (fresh: the final days, never today’s), the realm keeps them (pd, through clean(), junk dropped), and a frozen day pays its place whatever’s posted to its board later; frozen only from the board as it really is (freezePaid refuses before it’s in); the coffers freeze them after the sync, from the realm’s own', async () => {
+  check('Keepfall: a day’s place, once paid, stays paid: incomeOf lists the places it pays that weren’t frozen yet (fresh: the final days, never today’s), the realm keeps them (pd, through clean(), junk dropped), and a frozen day pays its place whatever’s posted to its board later; frozen only from the board as it really is (freezePaid refuses before it’s in); the coffers freeze them after the sync, from the realm’s own', async () => {
     const E = econ();
     if (!E) return {pass: false, detail: 'the league or the puzzles didn’t load'};
     const {P, AT_N} = E, G = {sv, dr, kk, rm}, fr = E.inc.fresh || {};
@@ -224,7 +224,7 @@ export async function realmChecks(check) {
     return {pass: ok, detail: `fresh ${JSON.stringify(fr)} (${listed}); a late post above him: unfrozen ${by(loose, 'puzzles', 'grain')} Ale (${drops}), frozen ${by(held, 'puzzles', 'grain')} (${holds}); today’s still pending ${live}; kept by clean() ${kept}; frozen once ${into}, never changed ${once}; refused without the board ${refused}; the coffers freeze from the realm’s, after the sync ${view}`};
   });
 
-  check('The Keep: the coffers never go below nothing: pay of each (Gold and Ale apart, or one number for both as before) waits there and moves into storage as there’s room, one currency without the other; pay that falls short of what’s been taken (a day’s place lower than when it paid) leaves nothing waiting, never less, and storage untouched', () => {
+  check('Keepfall: the coffers never go below nothing: pay of each (Gold and Ale apart, or one number for both as before) waits there and moves into storage as there’s room, one currency without the other; pay that falls short of what’s been taken (a day’s place lower than when it paid) leaves nothing waiting, never less, and storage untouched', () => {
     const s = F.fresh(T0), moved = F.claim(s, {gold: 10000, grain: 0}), p = F.pending(s, {gold: 10000, grain: 0});
     const split = moved.gold === 2500 && moved.grain === 1500 && p.gold === 10000 + 1500 - 2500 && p.grain === 0;
     const same = JSON.stringify(F.pending(F.fresh(T0), 4000)) === JSON.stringify(F.pending(F.fresh(T0), {gold: 4000, grain: 4000}));
@@ -237,7 +237,7 @@ export async function realmChecks(check) {
     return {pass: split && same && never && safe, detail: `Gold alone: moved ${JSON.stringify(moved)}, waiting ${JSON.stringify(p)} (${split}); one number for both ${same}; short pay: waiting ${JSON.stringify(short)}, moved ${JSON.stringify(took)}, stored ${JSON.stringify(t.r)} (${never}); bad numbers ${JSON.stringify(junk)}`};
   });
 
-  check('The Keep: the coffers say how the games pay now (“Ale: your place on the Daily Puzzles, 17–0 and Two-Minute Drill boards, paid the next morning. Gold: every 5th Kick It make, and the coins on your first Return Man run.”), today’s place (“#2 right now · 4,000 Ale tomorrow if it holds”), what came in today and the season’s Gold and Ale for each game; on the old pay’s last day, that day’s pay the old way and what tomorrow brings; so does the welcome', async () => {
+  check('Keepfall: the coffers say how the games pay now (“Ale: your place on the Daily Puzzles, 17–0 and Two-Minute Drill boards, paid the next morning. Gold: every 5th Kick It make, and the coins on your first Return Man run.”), today’s place (“#2 right now · 4,000 Ale tomorrow if it holds”), what came in today and the season’s Gold and Ale for each game; on the old pay’s last day, that day’s pay the old way and what tomorrow brings; so does the welcome', async () => {
     const view = await import('../views/realm.js');
     const E = econ();
     if (!E) return {pass: false, detail: 'the league or the puzzles didn’t load'};
@@ -253,7 +253,7 @@ export async function realmChecks(check) {
       while (wk.nextNode()) out.push(wk.currentNode.nodeValue);
       return t.content.textContent.replace(/\s+/g, ' ') + ' \n ' + out.join(' ').replace(/\s+/g, ' ');
     };
-    const cof = text('The coffers'), hi = text('The Keep');
+    const cof = text('The coffers'), hi = text('Keepfall');
     const copy = 'Ale: your place on the Daily Puzzles, 17–0 and Two-Minute Drill boards, paid the next morning. Gold: every 5th Kick It make, and the coins on your first Return Man run.';
     const lines = [copy, '#2 right now · 4,000 Ale tomorrow if it holds', '#1 right now · 5,000 Ale tomorrow if it holds', '#1 yesterday: paid this morning', 'Not played yet: your place pays Ale tomorrow',
       '10+ makes on your run', '12 coins on your first run', `All told ${E.inc.total.gold.toLocaleString('en-US')} Gold ${E.inc.total.grain.toLocaleString('en-US')} Ale`, '1st 5,000', '7th or lower 1,200'];
@@ -270,7 +270,7 @@ export async function realmChecks(check) {
       detail: `${missing.length ? 'the coffers never say: ' + missing.join(' | ') : 'the coffers say it all'}; the old pay’s words ${old ? 'still there' : 'gone'}; the welcome ${welcome}; the old pay’s last day ${lastMissing.length ? 'never says: ' + lastMissing.join(' | ') : 'says it'}${lastNew ? ', but speaks of the new pay' : ''}`};
   });
 
-  check('The Keep: a new realm holds 2,500 of each in its Castle; the coffers keep what doesn’t fit (the games’ pay and the starter 1,500) and move it in as room opens; a gold mine digs 20 an hour up to 10 hours’ worth, collected as far as there’s room, and stops while it’s upgraded', () => {
+  check('Keepfall: a new realm holds 2,500 of each in its Castle; the coffers keep what doesn’t fit (the games’ pay and the starter 1,500) and move it in as room opens; a gold mine digs 20 an hour up to 10 hours’ worth, collected as far as there’s room, and stops while it’s upgraded', () => {
     const s = F.fresh(T0), cap = F.capOf(s);
     const moved = F.claim(s, 10000), pend = F.pending(s, 10000);
     const mine = s.b.find(b => b.t === 'mine');
@@ -287,7 +287,7 @@ export async function realmChecks(check) {
     return {pass: ok, detail: `cap ${JSON.stringify(cap)}, moved ${moved.gold}, waiting ${pend.gold}; mine 3h ${m3}, 30h ${m30}; full ${full}, then ${got} (left ${left}); upgrading ${up}, digging ${during}; after ${after}`};
   });
 
-  check('The Keep: one builder, one job at a time (the owner, Oct 2026): while anything’s going up or being upgraded nothing else can be, walls included (a new wall still goes up at once); no more huts, and a save with two is still one builder; the Castle’s level caps how many of each and how high (one gold mine at level 1, a ballista past level 2 needs Castle 2)', () => {
+  check('Keepfall: one builder, one job at a time (the owner, Oct 2026): while anything’s going up or being upgraded nothing else can be, walls included (a new wall still goes up at once); no more huts, and a save with two is still one builder; the Castle’s level caps how many of each and how high (one gold mine at level 1, a ballista past level 2 needs Castle 2)', () => {
     const s = F.fresh(T0);
     s.r.gold = 2500; s.r.grain = 2500;
     const v = F.spotFor(s, 'treasury'), built = F.build(s, 'treasury', v.x, v.y, T0);
@@ -312,7 +312,7 @@ export async function realmChecks(check) {
     return {pass: ok, detail: `treasury ${!!built}; then: ${busy}; a hut: ${hut}; with 2 huts builders ${JSON.stringify(two)}, a cellar: ${still}; mine: ${mine}; ballista 3: ${gate}; wall at 1: ${wall}; at 2: ${wb ? 'up at once' : 'no'}, its upgrade: ${wUp}; the treasury up ${built.l === 1}, the ballista upgraded ${balUp}, then: ${after.join(' / ')}`};
   });
 
-  check('The Keep: upgrades take time (the owner, Oct 2026): every level past the first takes longer than the one before (minutes at first, a day or two at the top); the Castle isn’t a level higher till its time’s up, and its builder’s busy till then; a wall’s upgrade takes time too (an hour or few at the top), the builder’s whole time', () => {
+  check('Keepfall: upgrades take time (the owner, Oct 2026): every level past the first takes longer than the one before (minutes at first, a day or two at the top); the Castle isn’t a level higher till its time’s up, and its builder’s busy till then; a wall’s upgrade takes time too (an hour or few at the top), the builder’s whole time', () => {
     const slow = F.ORDER.filter(k => k !== 'hut' && F.KINDS[k].time.slice(1).some((t, i, a) => t < 60 || (i && t <= a[i - 1])));
     const tops = F.ORDER.filter(k => k !== 'hut' && k !== 'wall').map(k => F.KINDS[k].time[F.maxLevel(k) - 1]);
     const s = F.fresh(T0), keep = s.b.find(b => b.t === 'keep');
@@ -332,7 +332,7 @@ export async function realmChecks(check) {
     return {pass: ok, detail: `too quick or not longer than the level before: ${slow.join(', ') || 'none'}; quickest top level ${Math.min(...tops) / 3600}h; Castle upgraded ${up} (${why}, ${free} builders free), a second before ${early}, at its time ${late}; a wall upgraded ${wUp}, a mine refused meanwhile ${busy}, ${wTime / 1000}s, then level ${w && w.l}`};
   });
 
-  check('The Keep: the base: everything stands inside it (EDGE tiles in from the lot’s sides) and nothing overlaps: building or moving onto taken ground, part of it, or off the base is refused, onto clear ground anywhere on it is fine; a save with two on the same ground (or one off the base) is laid out clear when it’s taken up', () => {
+  check('Keepfall: the base: everything stands inside it (EDGE tiles in from the lot’s sides) and nothing overlaps: building or moving onto taken ground, part of it, or off the base is refused, onto clear ground anywhere on it is fine; a save with two on the same ground (or one off the base) is laid out clear when it’s taken up', () => {
     const s = F.fresh(T0), keep = s.b.find(b => b.t === 'keep'), K = F.KINDS.keep.size;
     s.r.gold = s.r.grain = 99999;
     const onKeep = !F.fits(s, 3, keep.x, keep.y) && !F.fits(s, 1, keep.x + K - 1, keep.y + K - 1) && !F.fits(s, 3, keep.x - 2, keep.y - 2);
@@ -349,7 +349,7 @@ export async function realmChecks(check) {
     return {pass: onKeep && off && corner && refused && moved && kept && clear(s.b), detail: `onto the Castle refused ${onKeep}; off the base refused ${off}; its corners fine ${corner}; a build on the Castle refused ${refused}; a move onto it refused, to a clear corner fine ${moved}; a save piled on the Castle and off the base: ${fixed ? `${fixed.b.length} of ${bad.b.length} kept, ${kept ? 'laid out clear, the Castle where it was' : 'NOT clear'}` : 'not taken up'}`};
   });
 
-  check('The Keep: room for everything (the owner, Oct 2026): the base is big enough that everything the top Castle allows takes up no more than half of it; a new realm and the computer’s are laid out round its middle; a save from the smaller lot (36 tiles) is moved over whole, into the middle of this one, once', () => {
+  check('Keepfall: room for everything (the owner, Oct 2026): the base is big enough that everything the top Castle allows takes up no more than half of it; a new realm and the computer’s are laid out round its middle; a save from the smaller lot (36 tiles) is moved over whole, into the middle of this one, once', () => {
     const B = F.N - 2 * F.EDGE, need = F.ORDER.reduce((t, k) => t + F.COUNT[k][F.MAX_KEEP - 1] * F.KINDS[k].size ** 2, 0);
     const room = need <= B * B / 2;
     const mid = s => { const k = s.b.find(b => b.t === 'keep'); return !!k && k.x + F.KINDS.keep.size / 2 === F.N / 2 && k.y + F.KINDS.keep.size / 2 === F.N / 2; };
@@ -362,7 +362,7 @@ export async function realmChecks(check) {
     return {pass: room && centred && moved, detail: `the base ${B}×${B} (${B * B} tiles), the top Castle’s lot ${need} (${Math.round(need / B / B * 100)}%); laid out round the middle ${centred}; an old save moved ${by} over, once ${moved}`};
   });
 
-  check('The Keep: the lands (Oct 2026): a realm starts on the coast; Christmas Kingdom is available to Evan at Castle 1 only; raising the Castle unlocks the Enchanted Forest (level 2), the Frozen Tundra (3), the Ocean Sanctuary (5), the Amber Desert (6) and the Infernal Wastes (7); scenery choices persist, can return to the coast, and unavailable choices fall back safely', () => {
+  check('Keepfall: the lands (Oct 2026): a realm starts on the coast; Christmas Kingdom is available to Evan at Castle 1 only; raising the Castle unlocks the Enchanted Forest (level 2), the Frozen Tundra (3), the Ocean Sanctuary (5), the Amber Desert (6) and the Infernal Wastes (7); scenery choices persist, can return to the coast, and unavailable choices fall back safely', () => {
     const s = F.fresh(T0), keep = s.b.find(b => b.t === 'keep'), owner = !!data.isOwner();
     const start = F.sceneryOf(s) === 'coast' && F.SCENERIES.filter(x => F.sceneryOpen(s, x.k)).map(x => x.k).sort().join() === (owner ? 'christmas,coast' : 'coast');
     const early = !F.pickScenery(s, 'tundra') && F.sceneryOf(s) === 'coast';
@@ -384,7 +384,7 @@ export async function realmChecks(check) {
     return {pass: start && early && levels && picked && kept && fallback && back && christmas, detail: `starts on the coast ${start}; the tundra at Castle 1 refused ${early}; unlocked at ${JSON.stringify(at)}; at Castle 5 the ocean picked, the wastes refused ${picked}; kept in the save ${kept}; a pick not open (or unknown) on the coast ${fallback}; back to the coast ${back}; Christmas selection/persistence/owner restriction ${christmas}`};
   });
 
-  check('The Keep: the army trains one at a time with Ale (a footman 5 s at one barracks), into the war camps’ room; a full camp takes no more; one taken out of training gives its Ale back', () => {
+  check('Keepfall: the army trains one at a time with Ale (a footman 5 s at one barracks), into the war camps’ room; a full camp takes no more; one taken out of training gives its Ale back', () => {
     const s = F.fresh(T0);
     s.b.push({i: 50, t: 'barracks', l: 1, x: 3, y: 3, u: 0}, {i: 51, t: 'camp', l: 1, x: 3, y: 9, u: 0});
     s.r.grain = 2500;
@@ -399,7 +399,7 @@ export async function realmChecks(check) {
     return {pass: ok, detail: `20 in ${ok20}; 21st: ${more}; archer: ${archerLocked}; after 60 s ${at60}; one out +${back}; in the end ${s.ar.footman}`};
   });
 
-  check('The Keep: an attack plays out the same every time from the same drops; 20 footmen sack the computer’s first realm (three stars, all it holds), one alone does little; no one can be sent onto or next to a building', () => {
+  check('Keepfall: an attack plays out the same every time from the same drops; 20 footmen sack the computer’s first realm (three stars, all it holds), one alone does little; no one can be sent onto or next to a building', () => {
     const base = F.botBase(1), loot = F.botLoot(F.BOTS[0], base, null, T0), box = F.boxOf(base);
     const B = makeBattle(base, loot, {footman: 20});
     for (let i = 0; i < 20; i++) B.deploy('footman', box.x0 - 1.5, box.y0 + i * .8);
@@ -414,7 +414,7 @@ export async function realmChecks(check) {
     return {pass: ok, detail: `20: ${B.stars()} stars ${B.pct()}% take ${JSON.stringify(B.got)} in ${B.t.toFixed(0)} s; replay same ${same}; one: ${one.stars()} stars ${one.pct()}%; next to the Castle refused ${blocked}`};
   });
 
-  check('The Keep: a dragon flies over the walls (it never stops to break one) and the trebuchet and pitch cauldron can’t touch it, though they hit a knight; a ballista can', () => {
+  check('Keepfall: a dragon flies over the walls (it never stops to break one) and the trebuchet and pitch cauldron can’t touch it, though they hit a knight; a ballista can', () => {
     const b = [{i: 1, t: 'keep', l: 1, x: 16, y: 16, u: 0}, {i: 2, t: 'trebuchet', l: 1, x: 9, y: 17, u: 0}, {i: 3, t: 'cauldron', l: 1, x: 25, y: 17, u: 0}];
     let i = 10;
     for (let d = 13; d <= 23; d++) [[d, 13], [d, 23], [13, d], [23, d]].forEach(([x, y]) => { if (!b.some(q => q.t === 'wall' && q.x === x && q.y === y)) b.push({i: i++, t: 'wall', l: 2, x, y, u: 0}); });
@@ -433,7 +433,7 @@ export async function realmChecks(check) {
     return {pass: flew && hitKnight && shot, detail: `no ballista: dragon ${drake ? `${drake.hp}/${drake.max}` : 'not sent'}, ${A.stars()} stars, ${walls.length} walls whole ${wallsWhole}; the knight ${knight ? `${knight.hp}/${knight.max}` : 'not sent'}; with a ballista: dragon ${d2 ? `${Math.round(d2.hp)}/${d2.max}` : 'not sent'}`};
   });
 
-  check('The Keep: the cannon and the dragon hatchery (Oct 2026): a cannon’s crew hits a footman but never a dragon; a dragon trains only with a hatchery, a level of it each dragon’s room; a cannon saved now stays a cannon (only an old Franchise save’s cannons are ballistas)', () => {
+  check('Keepfall: the cannon and the dragon hatchery (Oct 2026): a cannon’s crew hits a footman but never a dragon; a dragon trains only with a hatchery, a level of it each dragon’s room; a cannon saved now stays a cannon (only an old Franchise save’s cannons are ballistas)', () => {
     const base = {b: [{i: 1, t: 'keep', l: 1, x: 16, y: 16, u: 0}, {i: 2, t: 'cannon', l: 1, x: 10, y: 17, u: 0}]};
     const A = makeBattle(base, null, {footman: 1}), man = A.deploy('footman', 4, 18);
     A.run(20);
@@ -455,7 +455,7 @@ export async function realmChecks(check) {
     return {pass: fires && hatch && stays && bots, detail: `cannon: the footman ${man ? `${man.hp}/${man.max}` : 'not sent'}, the dragon ${drake ? `${drake.hp}/${drake.max}` : 'not sent'}; no hatchery: ${none}; one at level 1: ${one}, then ${full}; level 3 room for 3: ${room}; a cannon kept ${stays}; the computer’s realms have them ${bots}`};
   });
 
-  check('The Keep: every building level has unique growing artwork and all villagers and tower platforms remain intact', async () => {
+  check('Keepfall: every building level has unique growing artwork and all villagers and tower platforms remain intact', async () => {
     const S = await import('../views/realm-sprites.js'), bad = [];
     const kinds = F.ORDER.filter(k => k !== 'wall');
     if (kinds.some(k => !S.KINDS.includes(k)) || S.KINDS.length !== kinds.length) bad.push('missing family');
@@ -481,13 +481,13 @@ export async function realmChecks(check) {
     return {pass: !bad.length && !missing.length && plat && !gone.length && sheets.size >= 20, detail: JSON.stringify({bad, missing, plat, gone, families:kinds.length})};
   });
 
-  check('The Keep: the scenery (tools/realm/sceneries.py; img/realm/scenery/: every land a blank portrait landscape, the owner’s, Oct 2026, and its village round the lot, tools/realm/village.py): every land has its layout, tall, and its landscape and every picture placed on it are there; nothing’s placed in its build zone, its lot lies inside it, and the zone inside the landscape', async () => {
+  check('Keepfall: the scenery (tools/realm/sceneries.py; img/realm/scenery/: every land a blank portrait landscape, the owner’s, Oct 2026, and its village round the lot, tools/realm/village.py): every land has its layout, tall, and its landscape and every picture placed on it are there; nothing’s placed in its build zone, its lot lies inside it, and the zone inside the landscape', async () => {
     const D3 = await import('../views/realm-3d.js'), out = [];
     let pass = F.SCENERIES.every(x => D3.FILES[x.k] && D3.FILES[x.k].tall);
     for (const [shape, file] of Object.entries(D3.FILES).flatMap(([k, f]) => Object.entries(f).map(([sh, fl]) => [`${k} ${sh}`, fl]))) {
       const lay = await fetch(new URL(`../../img/realm/scenery/${file}`, import.meta.url)).then(r => r.json(), () => null);
       if (!lay) { pass = false; out.push(`${shape}: no layout`); continue; }
-      const A = lay.assets, bg = lay.scene.background_asset_id, Z = lay.build_zone_polygon, L = lay.lot;
+      const A = lay.assets, bg = lay.scene.background_asset_id, Z = lay.build_zone_polygon, L = lay.lot && D3.sceneryLot(lay.lot);
       const unknown = lay.instances.filter(it => !A[it.asset_id] || it.asset_id === bg).map(it => it.id);
       const files = await Promise.all(Object.values(A).map(a => fetch(new URL(`../../img/realm/scenery/${a.pic && a.pic.file}`, import.meta.url), {method: 'HEAD'}).then(r => r.ok ? '' : a.file, () => a.file)));
       const gone = files.filter(Boolean);
@@ -503,7 +503,7 @@ export async function realmChecks(check) {
     return {pass, detail: out.join(' · ')};
   });
 
-  check('The Keep: the army’s pictures (tools/realm/army.py, img/realm/army/): the Footman, Archer, Knight, Thief and Dragon each drawn from his (where he stands inside it, a way he faces, a size: the Dragon bigger than any man, and in the air); the pictures are there', async () => {
+  check('Keepfall: the army’s pictures (tools/realm/army.py, img/realm/army/): the Footman, Archer, Knight, Thief and Dragon each drawn from his (where he stands inside it, a way he faces, a size: the Dragon bigger than any man, and in the air); the pictures are there', async () => {
     const meta = await fetch(new URL('../../img/realm/army/army.json', import.meta.url)).then(r => r.json(), () => null);
     if (!meta) return {pass: false, detail: 'no army.json'};
     const want = F.TROOP_ORDER, bad = want.filter(t => { const m = meta[t]; return !m || !(m.w > 50 && m.h > 50) || !(m.ax >= 0 && m.ax <= m.w && m.ay >= 0 && m.ay <= m.h) || typeof m.right !== 'boolean' || !(m.fly ? m.wide > 0 : m.tall > 0); });
@@ -514,7 +514,7 @@ export async function realmChecks(check) {
     return {pass, detail: `${bad.length ? 'wrong: ' + bad.join(', ') : want.join(', ') + ' ok'}; the dragon ${big ? 'bigger, flying' : 'WRONG'}; ${gone.length ? 'missing: ' + gone.join(', ') : 'pictures there'}`};
   });
 
-  check('The Keep: the computer’s realms raid his realm (at most one each half day, the last two while he was away; none in its first day, before Castle level 2 or during a truce): played the same every time, taken off his stores and glory once, never his coffers', () => {
+  check('Keepfall: the computer’s realms raid his realm (at most one each half day, the last two while he was away; none in its first day, before Castle level 2 or during a truce): played the same every time, taken off his stores and glory once, never his coffers', () => {
     const born = T0 - 3 * DAY;
     const small = F.fresh(born), none = defend(small, T0), skipped = !none.length && small.lr === T0;
     const s = F.fresh(born);
@@ -540,7 +540,7 @@ export async function realmChecks(check) {
     return {pass: ok1 && skipped && firstDay && inTruce, detail: `Castle 1: none ${skipped}; due ${due.length}, played ${done.length} (${done.map(r => `${r.by} ${r.st}★ ${r.pc}% took ${r.lt.join('/')}`).join('; ')}), again ${again.length}; the same twice ${same}; stores ${JSON.stringify(s.r)} ok ${stores}; glory ${s.tp} ok ${glory}; truce ${truced}; coffers untouched ${JSON.stringify(F.pending(s, 5000)) === coffers}; first day none ${firstDay}; in a truce none ${inTruce}`};
   });
 
-  check('The Keep: his old Franchise save is taken up as his realm (Stadium to Castle, booths to gold mines, coolers to breweries, cannons to ballistas, fences to walls; Cash to Gold, Juice to Ale; receivers to footmen, kickers to dragons), the same twice, and raids on people dropped', () => {
+  check('Keepfall: his old Franchise save is taken up as his realm (Stadium to Castle, booths to gold mines, coolers to breweries, cannons to ballistas, fences to walls; Cash to Gold, Juice to Ale; receivers to footmen, kickers to dragons), the same twice, and raids on people dropped', () => {
     const old = {v: 1, at: T0, born: T0 - DAY, nm: '', tp: 40, nb: 9, sh: 0,
       b: [{i: 1, t: 'stadium', l: 3, x: 16, y: 16, u: 0}, {i: 2, t: 'office', l: 1, x: 17, y: 12, u: 0}, {i: 3, t: 'booth', l: 2, x: 11, y: 16, u: 0, c: T0 - F.HOUR},
         {i: 4, t: 'cooler', l: 1, x: 22, y: 16, u: 0, c: T0}, {i: 5, t: 'cannon', l: 2, x: 17, y: 21, u: 0}, {i: 6, t: 'fence', l: 2, x: 5, y: 5, u: 0},
@@ -558,7 +558,7 @@ export async function realmChecks(check) {
     return {pass: ok && twice && keptNew, detail: s ? `${kinds}; Castle ${F.keepOf(s)}; stored ${JSON.stringify(s.r)}, coffers taken ${JSON.stringify(s.cl)}, besides ${JSON.stringify(s.xo)}; army ${JSON.stringify(s.ar)}, training ${JSON.stringify(s.q)}; raids kept ${s.rd.map(r => r.vs).join(',')}; the same twice ${twice}; a new realm as it was ${keptNew}` : 'not taken up'};
   });
 
-  check('The Keep: the words (the owner, Oct 21 2026): the game is The Keep (its Daily Games case, its title), its second currency Ale (breweries brew it, cellars hold it, the army trains with it) and its main building the Castle; nothing on its screen, on any building’s card or the card placing one, in any sheet, or in what it says when something can’t be done says Grain, Farm, Granary, Keep level or the Realm (the camera’s Realm view, the whole of the lot’s land, is a place, not the game); the ids and saves keep the old names (grain, farm, granary, keep), so every save loads as it was', async () => {
+  check('Keepfall: the words (the owner, Oct 21 2026): the game is Keepfall (its Daily Games case, its title), its second currency Ale (breweries brew it, cellars hold it, the army trains with it) and its main building the Castle; nothing on its screen, on any building’s card or the card placing one, in any sheet, or in what it says when something can’t be done says Grain, Farm, Granary, Keep level or the Realm (the camera’s Realm view, the whole of the lot’s land, is a place, not the game); the ids and saves keep the old names (grain, farm, granary, keep), so every save loads as it was', async () => {
     const [view, games] = await Promise.all([import('../views/realm.js'), import('../views/games.js')]);
     // two realms to read: a new one, and one with everything in it (a brewery going up, a cellar being upgraded, Ale
     // piled up to collect, an army and a line in training, a raid each way, a truce), nothing written anywhere
@@ -615,7 +615,7 @@ export async function realmChecks(check) {
     const missing = ['Ale', 'brew Ale', 'Brews Ale', 'Brewery', 'breweries', 'Cellar', 'cellars', 'Castle level', 'Not enough Ale'].filter(w => !all.includes(w));
     // the Daily Games case and the title (it has no tab of its own)
     const kase = games.GAMES.find(g => g.id === 'keep');
-    const tab = !!kase && kase.name === 'The Keep' && kase.title === 'The Keep' && view.default.title === 'The Keep';
+    const tab = !!kase && kase.name === 'Keepfall' && kase.title === 'Keepfall' && view.default.title === 'Keepfall';
     // the names on screen are new; the ids and what's saved are as they were
     const names = F.CUR_NAME.gold === 'Gold' && F.CUR_NAME.grain === 'Ale' && F.KINDS.keep.name === 'Castle' && F.KINDS.farm.name === 'Brewery' && F.KINDS.granary.name === 'Cellar';
     const ids = F.CUR.join() === 'gold,grain' && F.KINDS.farm.makes === 'grain' && F.KINDS.granary.holds === 'grain' && F.ORDER.includes('farm') && F.ORDER.includes('granary') && F.ORDER[0] === 'keep'

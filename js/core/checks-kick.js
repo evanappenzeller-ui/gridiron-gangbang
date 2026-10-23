@@ -253,8 +253,8 @@ export async function kickChecks(check) {
     const pass = gone && off.made === 1 && off.at === 111 && plain.made === 1 && plain.at === 222 && K.officialOf({r: [['good', 20]]}) === null;
     return {pass, detail: `restart gone ${gone}; an old practice day counts its first run: ${off && off.made} made at ${off && off.at}`};
   });
-  // 5. The Keep's Gold (the owner's alone)
-  check('Kick It: The Keep\'s Gold (the owner\'s alone, Oct 21 2026; paid from Thu Oct 22, the day realm.js NEW_PAY switches Kick It, his Test play showing it any day): every 5th make pays 1,000 Gold (floor(makes / 5) x 1,000, 8,000 at most), the burst comes on the 5th, 10th, 15th... make and no other (and not on a run when one from another of his phones already counts); the day\'s pay is the counting entry\'s makes (kk1[n].m: the first finished run, across a person\'s phones the earliest posted; Test play is never posted); the final card says "+N Gold for The Keep" on the owner\'s profile and nothing (the card as it was) on anyone else\'s; the burst is drawn, no picture', async () => {
+  // 5. Keepfall's Gold (the owner's alone)
+  check('Kick It: Keepfall\'s Gold (the owner\'s alone, Oct 21 2026; paid from Thu Oct 22, the day realm.js NEW_PAY switches Kick It, his Test play showing it any day): every 5th make pays 1,000 Gold (floor(makes / 5) x 1,000, 8,000 at most), the burst comes on the 5th, 10th, 15th... make and no other (and not on a run when one from another of his phones already counts); the day\'s pay is the counting entry\'s makes (kk1[n].m: the first finished run, across a person\'s phones the earliest posted; Test play is never posted); the final card says "+N Gold for Keepfall" on the owner\'s profile and nothing (the card as it was) on anyone else\'s; the burst is drawn, no picture', async () => {
     const gold = [0, 4, 5, 9, 10, 14, 15, 39, 40, 41, -3, 'x'].map(K.goldOf).join();
     const goldOk = gold === '0,0,1000,1000,2000,2000,3000,7000,8000,8000,0,0' && K.GOLD.every === 5 && K.GOLD.each === 1000;
     const bursts = [];
@@ -279,8 +279,8 @@ export async function kickChecks(check) {
     const others = [{made: 10}, {made: 10, test: true}, {made: 3, run}].every(o => keepHTML(Object.assign({owner: false}, o)) === '');
     const ten = plain(keepHTML({owner: true, made: 10})), three = plain(keepHTML({owner: true, made: 3}));
     const other = plain(keepHTML({owner: true, made: 10, run: {m: 4, from: 'board'}})), test = plain(keepHTML({owner: true, made: 15, test: true}));
-    const cardOk = others && ten === '+2,000 Gold for The Keep' && three === 'No Gold for The Keep today 1,000 Gold for every 5th field goal.'
-      && other === 'No Gold for The Keep today From your first run today: 4 field goals.' && /^\+3,000 Gold Test play/.test(test);
+    const cardOk = others && ten === '+2,000 Gold for Keepfall' && three === 'No Gold for Keepfall today 1,000 Gold for every 5th field goal.'
+      && other === 'No Gold for Keepfall today From your first run today: 4 field goals.' && /^\+3,000 Gold Test play/.test(test);
     const b = burstHTML();
     const drawn = (b.match(/kk-coin-f/g) || []).length === 14 && plain(b) === '+1,000' && !/url\(|<img|\.webp|\.png/.test(b);
     // and the code: the burst checks the profile itself (nothing for anyone else), and goes when the profile changes
@@ -289,7 +289,7 @@ export async function kickChecks(check) {
       && /keepShows\(st\) && !otherRunCounts\(st\) && coinBurst\(st\)/.test(src)
       && /const keepShows = st => data\.isOwner\(\) && \(K\.testing\(\) \|\| K\.goldDay\(st\.n\)\);/.test(src)
       && /data\.subscribe\(type => \{ if \(type === 'me'\) patchKeep\(st\); \}\)/.test(src) && /if \(!data\.isOwner\(\)\) clearBurst\(st\);/.test(src);
-    // from the day The Keep's pay switched (core/realm.js NEW_PAY.kick: Thu Oct 22 2026, day 5); the days before it
+    // from the day Keepfall's pay switched (core/realm.js NEW_PAY.kick: Thu Oct 22 2026, day 5); the days before it
     // keep the old pay and show nothing of this
     const F = await import('./realm.js').catch(() => null), from = F && F.NEW_PAY ? F.NEW_PAY.kick : null;
     const dayOk = K.GOLD.from === from && K.dateOf(K.GOLD.from).getDate() === 22 && !K.goldDay(4) && K.goldDay(5) && K.goldDay(40) && !K.goldDay('5');

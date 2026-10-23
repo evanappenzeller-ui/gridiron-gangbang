@@ -34,11 +34,11 @@ export const GAMES = [
   {id: 'drill', name: 'Two-Minute Drill', title: 'Two-Minute Drill', art: 'img/games/drill-cover.webp', book: 'img/games/drill-book.webp', disc: 'img/games/drill-disc.webp', badge: 'img/drill.webp', cd: 'Next drill in'},
   {id: 'kick', name: 'Kick It', title: 'Kick It', art: 'img/games/kick-cover.webp', book: 'img/games/kick-book.webp', disc: 'img/games/kick-disc.webp', badge: 'img/kick.webp', cd: 'New kicks in'},
   {id: 'return', name: 'Return Man', title: 'Return Man', art: 'img/games/return-cover.webp', book: 'img/games/return-book.webp', disc: 'img/games/return-disc.webp', badge: 'img/return.webp', cd: 'Next kickoff in', beta: true},
-  {id: 'keep', name: 'The Keep', title: 'The Keep', art: 'img/games/keep-cover.webp', book: 'img/games/keep-book.webp', disc: 'img/games/keep-disc.webp'}
+  {id: 'keep', name: 'Keepfall', title: 'Keepfall', art: 'img/games/keepfall-cover-v1.webp', book: 'img/games/keepfall-book-v1.webp', disc: 'img/games/keepfall-disc-v1.webp'}
 ];
 const byId = id => GAMES.find(g => g.id === id);
 // A game the owner keeps to himself while he builds it: id -> the members whose phones list it and open its page
-// (nobody else's phone loads it or posts it). The Keep remains the owner's alone; the other games are the league's.
+// (nobody else's phone loads it or posts it). Keepfall remains the owner's alone; the other games are the league's.
 const ONLY = {keep: [data.OWNER]};
 /** Whether game id is open on this phone (who: the phone's member). */
 export const gameOpen = (id, who = data.me()) => !ONLY[id] || (!!who && ONLY[id].includes(who));
@@ -313,7 +313,7 @@ function backHTML(g, s) {
     + `<span class="gm-scr"><span class="gm-scr-h">Today’s leaderboard</span>${rows}</span>`
     + `<span class="gm-bk-foot"><span class="gm-bk-tap">Tap for the full leaderboard ›</span></span></span></div>`;
 }
-/** The Keep has a printed back in every play state, never a league scoreboard. */
+/** Keepfall has a printed back in every play state, never a league scoreboard. */
 function keepBackHTML(g, up = false) {
   return `<div class="gm-face gm-back gm-keep-back${up ? ' gm-z-back' : ''}">${bandHTML()}
     <span class="gm-keep-print">
@@ -323,7 +323,7 @@ function keepBackHTML(g, up = false) {
       <span class="gm-keep-scenes"><img src="img/games/keep-back-scenes-v1.webp" alt="A sunlit castle, an army under red banners, and a dragon above snowy ramparts" decoding="async" draggable="false">
         <span class="gm-keep-captions"><b>BUILD</b><b>COMMAND</b><b>CONQUER</b></span>
       </span>
-      <span class="gm-keep-signature"><span aria-hidden="true">✧</span><strong>THE KEEP</strong><small>A kingdom worth fighting for.</small></span>
+      <span class="gm-keep-signature"><span aria-hidden="true">✧</span><strong>KEEPFALL</strong><small>A kingdom worth fighting for.</small></span>
       <span class="gm-keep-footer"><b>1 PLAYER</b><span>STRATEGY · FANTASY</span><i class="gm-keep-barcode" aria-hidden="true"></i></span>
     </span>${up ? GLOSS : ''}</div>`;
 }
@@ -822,7 +822,7 @@ export function mountList(el, ctx, opts = {}) {
   const refresh = (animate = true) => {
     if (st.dead) return;
     syncOwner();
-    // A profile change can add or remove The Keep, including from a hidden shelf.
+    // A profile change can add or remove Keepfall, including from a hidden shelf.
     const ids = gamesFor().map(g => g.id).join(' ');
     if (el.dataset.ids !== ids) {
       const t = document.createElement('div');

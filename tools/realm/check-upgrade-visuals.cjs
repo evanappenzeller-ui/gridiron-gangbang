@@ -12,7 +12,7 @@ const server=http.createServer((req,res)=>{const u=new URL(req.url,'http://local
   for(const profile of ['evan','mason','none']){
    const context=await browser.newContext({viewport:{width:390,height:844},serviceWorkers:'block'});
    await context.route('**/*',route=>{const u=new URL(route.request().url());return u.origin===url||['data:','blob:'].includes(u.protocol)?route.continue():route.abort()});
-   await context.addInitScript(p=>{localStorage.setItem('gg-me',p);localStorage.setItem('gg-welcome','1');localStorage.setItem('gg-realm-seen','1');sessionStorage.setItem('gg-skip-title','1')},profile);
+   await context.addInitScript(p=>{localStorage.setItem('gg-me',p);localStorage.setItem('gg-welcome','1');localStorage.setItem('gg-realm-seen','1');localStorage.setItem('gg-keepfall-lore-seen','1');sessionStorage.setItem('gg-skip-title','1')},profile);
    const page=await context.newPage(),errors=[],assets=[];page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(r.url().includes('/img/realm/upgrades-v1/'))assets.push(r.url())});
    await page.goto(url+'/#/realm');await page.waitForFunction(()=>window.__ggBooted);
    assert.equal(await page.evaluate(async()=>(await import('/js/core/fire.js')).canWrite()),false);

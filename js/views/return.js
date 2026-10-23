@@ -13,7 +13,7 @@
 // On the hard course a pothole (an orange cone just before each, kicked flying if he runs through it) is the one thing
 // he falls into: down into it, the camera dipping, and scrambling out (FALL; the owner's ask, Oct 2026).
 // On his first run of the day there, lines of gold coins to run through (core COIN; the owner's ask, Oct 21 2026): a
-// sparkle and a tick of the counter beside the yards for each, and on the end card what they pay The Keep.
+// sparkle and a tick of the counter beside the yards for each, and on the end card what they pay Keepfall.
 // Every 100 yards is a touchdown.
 // The scene is in real 3D (the owner's ask, Oct 2026): the world (views/return-3dworld.js: each place's ground, what
 // stands beside the road, the gates, the barricades and banners, the vehicles, the power-ups) and the players
@@ -140,7 +140,7 @@ function cardHTML(st) {
     + again('Field the kick') + creditLine() + `</div>`;
 }
 // The gold coins (core COIN: the owner's hard course, his first run of the day alone; the owner's ask, Oct 21 2026):
-// on the end card, what the run's coins pay The Keep (COIN.gold Gold each); on his later runs, that they're only on the
+// on the end card, what the run's coins pay Keepfall (COIN.gold Gold each); on his later runs, that they're only on the
 // first. Nobody else's card changes.
 const coinGlyph = '<i class="rm-coin" aria-hidden="true"></i>';
 function coinsLine(st, run) {
@@ -155,7 +155,7 @@ function coinsLine(st, run) {
   }
   const c = run.c, gold = nf(c * R.COIN.gold);
   if (!c) return `<p class="rm-card-coins">${coinGlyph}<span>No coins this run</span></p>`;
-  const pay = R.testing() ? `${gold} Gold (test play: not paid)` : `${gold} Gold for The Keep`;
+  const pay = R.testing() ? `${gold} Gold (test play: not paid)` : `${gold} Gold for Keepfall`;
   return `<p class="rm-card-coins">${coinGlyph}<span>${esc(`${nf(c)} ${c === 1 ? 'coin' : 'coins'} · ${pay}`)}</span></p>`;
 }
 function hudHTML() {

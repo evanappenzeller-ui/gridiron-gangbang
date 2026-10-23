@@ -478,7 +478,7 @@ export async function returnChecks(check) {
     const who = ['evan', 'mitch', null];
     const open = who.every(w => gameFor('return', w) === 'return');
     const lists = who.map(w => gamesFor(w).map(g => g.id).join());
-    // (the owner's list has The Keep's case too, his alone: views/games.js)
+    // (the owner's list has Keepfall's case too, his alone: views/games.js)
     const all = lists.every(l => l.split(',').filter(g => g !== 'keep').join() === 'puzzles,17-0,drill,kick,return') && lists.slice(1).every(l => !l.split(',').includes('keep'));
     const host = document.createElement('div');
     host.innerHTML = listHTML();
@@ -933,7 +933,7 @@ export async function returnChecks(check) {
     const pass = !bad.length && lines > 80 && all === lines && edges === arcs && slid === flats && jukes > flats / 2 && juked === jukes && hopped === flats && none === lines && regular;
     return {pass, detail: `${all} of ${lines} lines all his, without a hit${bad.length ? ` (WRONG: ${bad.join('; ')})` : ''}; ${edges} of ${arcs} arcs early or late too; ${slid} of ${flats} flat lines in a slide; juked out of ${juked} of ${jukes} (missed them all), jumped over ${hopped} of ${flats} (missed some); a run without them took none on ${none}; only the hard course's runs have them ${regular}`};
   });
-  check('Return Man coins: the first run of the day alone (the owner\'s word: "coins are only available on the 1st attempt"): coinsOpen says so for run 0 on the hard course while none of this person\'s phones has a run of the day on the board (as the board sees it: this phone\'s doc or another of theirs), never for a later run or the regular course; kept on the first run\'s record (c) and no other (no c ever on anyone else\'s runs: their records as they were); the board entry carries it, and The Keep\'s pay reads the most of a person\'s docs (dayCoins)', () => {
+  check('Return Man coins: the first run of the day alone (the owner\'s word: "coins are only available on the 1st attempt"): coinsOpen says so for run 0 on the hard course while none of this person\'s phones has a run of the day on the board (as the board sees it: this phone\'s doc or another of theirs), never for a later run or the regular course; kept on the first run\'s record (c) and no other (no c ever on anyone else\'s runs: their records as they were); the board entry carries it, and Keepfall\'s pay reads the most of a person\'s docs (dayCoins)', () => {
     const LB = daily.LB, raw = LB.raw, all = LB.all, players = LB.players, uid = LB.uid, nick = LB.nick;
     // (the boards take this phone's own doc as the profile the kit runs on, whatever its name: "his" docs carry that
     // profile's name, "someone else's" another member's)
@@ -990,7 +990,7 @@ export async function returnChecks(check) {
     const pass = ends && test && day && kickoff && spark && left;
     return {pass, detail: `a paused run ended where it got to ${ends}: before Test play ${test}, at midnight ${day}; a kickoff ends a run left under way first ${kickoff}; the sparkle guarded ${spark}`};
   });
-  check('Return Man coins are the owner\'s alone (CLAUDE.md: his profile only): the page starts a coin run only on his profile (and asks coinsOpen), shows the coins, the counter beside the yards and the sparkles only on a coin run on his profile (counting them only there), takes them away when the board shows his first run was on another phone, and on a profile change (another tab too) hides them, the run on his hard course ending where it is with the ones he took kept; his first kickoff waits for the board to tell it\'s the first; its end card says what they pay The Keep (or why a run has none: a later run, his first on another phone, the board not in) on his profile only, from the coins\' first day; the 3D coins are one instanced mesh (one draw call), made only on his profile; no picture to load, nothing new in the offline cache; the counter\'s there for everyone but hidden', async () => {
+  check('Return Man coins are the owner\'s alone (CLAUDE.md: his profile only): the page starts a coin run only on his profile (and asks coinsOpen), shows the coins, the counter beside the yards and the sparkles only on a coin run on his profile (counting them only there), takes them away when the board shows his first run was on another phone, and on a profile change (another tab too) hides them, the run on his hard course ending where it is with the ones he took kept; his first kickoff waits for the board to tell it\'s the first; its end card says what they pay Keepfall (or why a run has none: a later run, his first on another phone, the board not in) on his profile only, from the coins\' first day; the 3D coins are one instanced mesh (one draw call), made only on his profile; no picture to load, nothing new in the offline cache; the counter\'s there for everyone but hidden', async () => {
     const get = f => fetch(new URL(f, import.meta.url)).then(r => r.text()).catch(() => '');
     const [view, w3, w2, sw] = await Promise.all([get('../views/return.js'), get('../views/return-3dworld.js'), get('../views/return-world.js'), get('../../sw.js')]);
     const start = /coins = own && R\.coinsOpen\(st\.n, k, own\);\s*\n\s*st\.run = R\.startRun\(st\.n, k, own, coins\);/.test(view)
@@ -1003,7 +1003,7 @@ export async function returnChecks(check) {
       && /if \(!run \|\| !run\.coins \|\| run\.over \|\| R\.testing\(\) \|\| !data\.isOwner\(\)\) return;\s*\n\s*if \(!R\.ranElsewhere\(st\.n\)\) return;\s*\n\s*R\.dropCoins\(run\)/.test(view)
       && /st\.run\.co\.hard && !data\.isOwner\(\)\) \{ R\.stop\(st\.run\); tackled\(st\); \}/.test(view);
     const card = /if \(!data\.isOwner\(\) \|\| !run \|\| !run\.co\.hard\) return '';/.test(view) && /if \(!R\.testing\(\) && st\.n < R\.COIN\.fromDay\) return '';/.test(view)
-      && ['Coins are only on your first run.', 'Your first run today was on another phone: its coins are the ones that count.', 'No coins this run', '(test play: not paid)'].every(w => view.includes(w)) && /Gold for The Keep/.test(view);
+      && ['Coins are only on your first run.', 'Your first run today was on another phone: its coins are the ones that count.', 'No coins this run', '(test play: not paid)'].every(w => view.includes(w)) && /Gold for Keepfall/.test(view);
     const one = (w3.match(/new T\.InstancedMesh\(/g) || []).length === 1 && /function coinsUpdate\(st, A, t\) \{\s*\n\s*if \(!\(A && st\.run && st\.run\.coins && data\.isOwner\(\)\)\)/.test(w3) && /m\.castShadow = false/.test(w3);
     const flat = /export function coin\(st, c, cn, t\)/.test(w2) && !/coin[^'"\n]*\.(png|jpe?g|webp|glb|svg)/i.test(w2 + w3 + view) && !/coin/i.test(sw);
     const host = document.createElement('div');
