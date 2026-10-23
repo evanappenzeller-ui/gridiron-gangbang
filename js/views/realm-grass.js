@@ -10,7 +10,7 @@ export function createGrassWallpaper(T, parent, ground, options = {}) {
   // The coast's lawn is wider than the square build plot. Stay inside its walls.
   const region = options.theme === 'coast'
     ? {x: lot.cx - 4, y: lot.cy, rx: 150, ry: 60}
-    : {x: lot.cx, y: lot.cy, rx: lot.h / (2 * Math.sin(.9)) * .95, ry: lot.h * .46};
+    : {x: lot.cx, y: lot.cy, rx: lot.h / (2 * Math.sin(ground.pitch ?? .9)) * .95, ry: lot.h * .46};
   const positions = [], uvs = [];
   for (const [u, v] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
     const point = ground.under(region.x + (u * 2 - 1) * region.rx, region.y + (1 - v * 2) * region.ry);
@@ -23,12 +23,13 @@ export function createGrassWallpaper(T, parent, ground, options = {}) {
   const uniforms = {grassTime: {value: 0}, grassColor: {value: new T.Color(options.color || '#606625')}};
   const material = new T.ShaderMaterial({
     uniforms, transparent: true, depthWrite: false, toneMapped: false, side: T.DoubleSide,
-    vertexShader: `varying vec2 grassUv;
-      void main() { grassUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    vertexShader: `varying vec2 grassUv; varying vec2 grassGround;
+      void main() { grassUv = uv; grassGround = position.xz; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
     fragmentShader: `
       uniform float grassTime;
       uniform vec3 grassColor;
       varying vec2 grassUv;
+      varying vec2 grassGround;
       float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
       float noise(vec2 p) {
         vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
@@ -38,9 +39,9 @@ export function createGrassWallpaper(T, parent, ground, options = {}) {
       // traveling gust, while the underlying soil stays fixed in place.
       vec2 tuft(vec2 p, float wind) {
         vec2 cell = floor(p), q = fract(p) - .5;
-        float seed = hash(cell), h = .45 + seed * .45; q.x += (seed - .5) * .2; q.y += (hash(cell + 3.7) - .5) * .1;
+        float seed = hash(cell), h = .45 + seed * .45; q.x += (seed - .5) * .6; q.y += (hash(cell + 3.7) - .5) * .4;
         float t = (q.y + .45) / h;
-        float alive = step(0.0, t) * (1.0 - step(1.0, t));
+        float alive = step(0.0, t) * (1.0 - step(1.0, t)) * step(.22, hash(cell + 9.3));
         float aa = max(.008, fwidth(p.x) * .7);
         float blade = 0.0, light = 0.0;
         for (int i = 0; i < 3; i++) {
@@ -58,13 +59,14 @@ export function createGrassWallpaper(T, parent, ground, options = {}) {
         float boundary = d.x + d.y;
         float feather = 1.0 - smoothstep(.36, .98, boundary);
         if (feather < .001) discard;
-        float broad = noise(uv * vec2(27.0, 17.0));
-        float fine = noise(uv * vec2(170.0, 110.0));
-        float gust = sin(uv.x * 19.0 + uv.y * 13.0 - grassTime * 1.65
-          + sin(uv.y * 9.0 + grassTime * .4)) * .7;
-        float flutter = sin(uv.x * 51.0 - uv.y * 37.0 - grassTime * 3.0) * .14;
-        vec2 a = tuft(uv * vec2(110.0, 70.0), gust + flutter);
-        vec2 b = tuft(uv * vec2(67.0, 43.0) + vec2(17.37, 9.19), gust * .8);
+        vec2 p = grassGround;
+        float broad = noise(p * .27);
+        float fine = noise(p * 1.7);
+        float gust = sin(p.x * .19 + p.y * .13 - grassTime * 1.65
+          + sin(p.y * .09 + grassTime * .4)) * .7;
+        float flutter = sin(p.x * .51 - p.y * .37 - grassTime * 3.0) * .14;
+        vec2 a = tuft(p * 1.7, gust + flutter);
+        vec2 b = tuft(p * 1.05 + vec2(17.37, 9.19), gust * .8);
         float coverage = max(a.x, b.x * .8), tips = max(a.y, b.y * .8);
         // Analytical detail stays sharp at village zoom; wind bands remain
         // readable at the photographed middle zoom without a low-res upsample.

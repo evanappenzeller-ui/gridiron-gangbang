@@ -107,7 +107,7 @@ function shellHTML() {
     + F.CUR.map(c => `<button type="button" class="rl-cur is-${c}" data-rl-cur="${c}"><span class="rl-curb"><i data-rl-f></i></span><b data-rl-n>0</b><i class="rl-coin" aria-hidden="true"></i></button>`).join('')
     + `</div></div>`
     + `<div class="rl-utility"><button type="button" class="rl-hub" data-nav="/puzzles" aria-label="Back to Daily Games">‹ Games</button>`
-    + `<div class="rl-camera-modes"><button type="button" class="rl-frame" data-rl-frame aria-label="Center your village">Village</button>`
+    + `<div class="rl-camera-modes"><button type="button" class="rl-frame" data-rl-buildings aria-label="Find a building, including hidden buildings">Buildings</button><button type="button" class="rl-frame" data-rl-frame aria-label="Center your village">Village</button>`
     + `<button type="button" class="rl-frame" data-rl-world aria-label="Zoom out to the whole realm">Realm</button></div></div>`
     + `<div class="rl-zoom" role="group" aria-label="Camera zoom"><button type="button" data-rl-zoom="in" aria-label="Zoom in">+</button><button type="button" data-rl-zoom="out" aria-label="Zoom out">−</button></div>`
     + `<button type="button" class="rl-objective" data-rl-objective hidden></button>`
@@ -273,7 +273,8 @@ export function factsOf(b) {
   what.push(`${nf(sv.hp)} strength`);
   return what;
 }
-const selHTML = st => cardHTML(F.mine(), st.sel, Date.now());
+const selHTML = st => cardHTML(F.mine(), st.sel, Date.now())
+  + (st.overlap?.length > 1 ? '<button type="button" class="rl-overlap" data-rl-overlap>Choose overlapping building (' + st.overlap.length + ')</button>' : '');
 /** Building id's card on realm s. */
 function cardHTML(s, id, now) {
   const b = s.b.find(x => x.i === id);
@@ -328,11 +329,30 @@ function placeHTML(s, place) {
     + `<div class="rl-acts"><button type="button" class="rl-act" data-rl-cancel>Cancel</button>`
     + `<button type="button" class="rl-act is-go" data-rl-place ${why ? 'disabled' : ''}>Build ${curHTML(chk.pay, cost)}<small>${why ? esc(why) : chk.time && place.t !== 'hut' ? dur(chk.time * 1000) : 'at once'}</small></button></div>`;
 }
-function select(st, id) {
-  st.sel = id; st.moving = null;
+function select(st, id, overlap = []) {
+  st.sel = id; st.moving = null; st.overlap = overlap;
   if (st.v) { st.v.select(id); st.v.showGrid(false); }
   showSel(st);
   tags(st);
+}
+
+// Every placed object remains reachable even when its entire picture is hidden.
+function buildingsSheet(st, ids = null) {
+  if (st.place || st.dead || !F.mayPlay()) return;
+  const buildings = F.mine().b.filter(b => !ids || ids.includes(b.i));
+  const body = '<p class="rl-sh-lead">Choose a building to reveal it, view its details or move it.</p><div class="rl-building-list">'
+    + buildings.map(b => '<button type="button" class="rl-building-row" data-rl-find="' + b.i + '"><span class="rl-building-pic" aria-hidden="true">' + picOf(b.t, MY_HOUSE) + '</span><span><b>' + esc(F.KINDS[b.t].name) + '</b><small>' + (b.l ? 'Level ' + b.l : 'Going up') + ' · Tile ' + (b.x + 1) + ', ' + (b.y + 1) + '</small></span><span aria-hidden="true">›</span></button>').join('') + '</div>';
+  const sh = realmSheet({title: ids ? 'Overlapping buildings' : 'Your buildings', cls: 'sh-rl', detents: ['large'], body});
+  sh.body.addEventListener('click', event => {
+    const button = event.target.closest('[data-rl-find]');
+    if (!button || st.dead || !F.mayPlay()) return;
+    const b = F.mine().b.find(b => b.i === +button.dataset.rlFind);
+    if (!b) return;
+    sh.close();
+    const size = F.KINDS[b.t].size;
+    if (st.v) st.v.look(b.x + size / 2, b.y + size / 2, Math.min(42, st.v.zoom));
+    select(st, b.i, ids || []);
+  });
 }
 
 // ---- keeping it all current
@@ -741,7 +761,7 @@ function onLotTap(st, hit) {
     if (st.sel != null && st.sel !== b.i) select(st, null);
     return;
   }
-  select(st, hit.id);
+  select(st, hit.id, hit.ids || []);
 }
 function collectOne(st, id) {
   if (st.dead || !F.mayPlay()) return;
@@ -865,6 +885,8 @@ export default {
     el.addEventListener('click', e => {
       if (st.dead || !F.mayPlay()) return;
       const t = e.target;
+      if (t.closest('[data-rl-buildings]')) { buildingsSheet(st); return; }
+      if (t.closest('[data-rl-overlap]')) { buildingsSheet(st, st.overlap); return; }
       if (t.closest('[data-rl-frame]')) { if (st.v) st.v.frameVillage(); return; }
       if (t.closest('[data-rl-world]')) { if (st.v) st.v.frameWorld(); return; }
       if (t.closest('[data-rl-zoom]')) { if (st.v) st.v.zoomBy(t.closest('[data-rl-zoom]').dataset.rlZoom === 'in' ? .72 : 1 / .72); return; }

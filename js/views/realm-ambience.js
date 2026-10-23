@@ -94,7 +94,7 @@ export function createAmbience(T, ground, options = {}) {
     realmTime: {value: 0}, realmMotion: {value: 0},
     realmPixel: {value: new T.Vector2(1 / ground.w, 1 / ground.h)},
     realmLot: {value: new T.Vector4(lot.cx / ground.w, lot.cy / ground.h,
-      lot.h / (2 * Math.sin(.9) * ground.w), lot.h / (2 * ground.h))},
+      lot.h / (2 * Math.sin(ground.pitch ?? .9) * ground.w), lot.h / (2 * ground.h))},
     realmFlows: {value: regions.water.map(r => new T.Vector4(r.x, r.y, r.rx, r.ry))},
     realmFlowKinds: {value: regions.water.map(r => TYPES[r.kind])},
     realmLights: {value: regions.lights.map(r => new T.Vector4(r.x, r.y, r.rx, r.ry))},

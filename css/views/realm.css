@@ -367,3 +367,14 @@ html.is-realm-playing #tabbar { visibility: hidden; pointer-events: none; }
 .sh-rl .rl-residents { padding: 10px 0 5px; }
 .rlr-t.is-hero { border-color: #e7bd67; }
 .rlr-t.is-hero .rl-tc-ic { background: radial-gradient(ellipse at center, #6c517e88, #24171f); }
+
+/* Hidden buildings can always be reached from the village controls. */
+.rl-home .rl-camera-modes .rl-frame { padding-inline: 8px; }
+.rl-building-list { display: grid; gap: 8px; }
+.rl-building-row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 64px; padding: 8px 12px; border: 1px solid var(--rl-line); border-radius: 10px; background: #ffffff09; color: inherit; text-align: left; cursor: pointer; }
+.rl-building-row > span:nth-child(2) { flex: 1; min-width: 0; }
+.rl-building-row b, .rl-building-row small { display: block; }
+.rl-building-row small { margin-top: 4px; opacity: .75; }
+.rl-building-pic { display: grid; place-items: center; flex: 0 0 46px; height: 46px; }
+.rl-building-pic img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.rl-overlap { width: 100%; min-height: 44px; margin-top: 8px; border: 1px solid var(--rl-line); border-radius: 8px; background: #ffffff0b; color: var(--rl-gilt); cursor: pointer; }

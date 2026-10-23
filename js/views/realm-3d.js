@@ -117,7 +117,10 @@ export function load(theme = 'coast') {
 }
 export const ready = () => !!T && !DEAD;
 
-export const YAW = Math.PI / 4, PITCH = .9;
+// The painted bases are .54 as deep as they are wide. Match the floor to that diamond.
+export const YAW = Math.PI / 4, PITCH = Math.asin(.54);
+// Layouts were authored at .9 radians. Preserve their clearing width at the shallower angle.
+export const sceneryLot = lot => ({...lot, h: lot.h * Math.sin(PITCH) / Math.sin(.9)});
 const W = (x) => x - N / 2; // a tile coordinate to the world's (the lot centred on the origin)
 
 // ---- pictures of the models for the shop and the army (rendered once each, on a small canvas of their own)
@@ -260,7 +263,8 @@ function bladesTexture(T) {
  * perspective as the lot (lot: where it lies, its layout's). → {mesh, px(world point) → where it is on the painting
  * (px), under(x, y) → the ground under a px of it (world), per (world a px of it, standing facing the camera), lot, w, h}.
  */
-function sceneryGround(img, lot, maxAniso) {
+function sceneryGround(img, authoredLot, maxAniso) {
+  const lot = sceneryLot(authoredLot);
   // A small lot makes the surrounding realm hundreds of tiles deep. Keep the
   // reference ray origins above the whole painting, including its far corners.
   const w = img.naturalWidth, h = img.naturalHeight, D = Math.max(200, N * h / lot.h * 4);
@@ -294,7 +298,7 @@ function sceneryGround(img, lot, maxAniso) {
     ray.setFromCamera(v.set((x - lot.cx) / (w / 2) * k, mid - (y - lot.cy) / (h / 2) * k), rc);
     return ray.ray.intersectPlane(ground, new T.Vector3());
   };
-  return {mesh, px, under, per: 2 * k / h, lot, w, h};
+  return {mesh, px, under, per: 2 * k / h, lot, pitch: PITCH, w, h};
 }
 
 /**
@@ -432,7 +436,7 @@ export function create(host, opts = {}) {
     hemi.intensity = dusk ? .55 : .75;
     sun.intensity = dusk ? (village ? 1.05 : 1.6) : (village ? 1.8 : 2.8);
     sun.color.set(dusk ? 0xFFD0A0 : 0xFFE8C8);
-    if (village && sc.file.startsWith('world-')) wildlife = createWildlife(T, sceneG, {theme: key, ground: gr, sleighImage: sc.pics['christmas:sleigh'], onChange: () => want()});
+    if (village && sc.file.startsWith('world-')) wildlife = createWildlife(T, sceneG, {theme: key, ground: gr, pitch: gr.pitch, sleighImage: sc.pics['christmas:sleigh'], onChange: () => want()});
     if (village && /world-v[23]\.webp$/.test(sc.lay.assets[sc.lay.scene.background_asset_id].pic.file)) ambience = createAmbience(T, gr, {theme: key, onChange: () => want()});
     return true;
   }
@@ -617,6 +621,7 @@ export function create(host, opts = {}) {
     const windy = windGrass && windGrass.update(now / 1000, {camera: cam});
     if (homeNPCs) homeNPCs.update(now / 1000, {zoom: view.dist, active: !raid, placement});
     folkFrame(now);
+    revealDepthCleared = false;
     renderer.render(scene, cam);
     if (opts.onCamera && sig !== cameraSig) { cameraSig = sig; opts.onCamera(); }
     clearTimeout(windTimer); windTimer = 0;
@@ -681,6 +686,7 @@ export function create(host, opts = {}) {
     wear.tex.needsUpdate = true;
   }
   function setLot(s, o = {}) {
+    clearReveal();
     lotState = s;
     const layout = s.b.map(b => `${b.i}:${b.t}:${b.x}:${b.y}:${b.l}`).join('|'), layoutChanged = layout !== layoutSig;
     layoutSig = layout;
@@ -706,7 +712,7 @@ export function create(host, opts = {}) {
           if (art) g.userData = art.userData;
           if (status === 'up') g.add(FM.scaffold(size));
         }
-        g.traverse(m => { if (m.isMesh) m.userData.bid = b.i; });
+        g.traverse(m => { if (m.isMesh || m.isSprite) m.userData.bid = b.i; });
         root.add(g);
         e = {g, key, b, folk: []};
         groups.set(b.i, e);
@@ -722,16 +728,24 @@ export function create(host, opts = {}) {
     picks.length = 0;
     groups.forEach(e => e.g.traverse(m => { if (m.isMesh) picks.push(m); }));
     picks.push(...wallView.picks);
+    if (sel.id != null) select(sel.id, sel.moving);
     if (village && autoFrame && layoutChanged && !placement) frameVillage();
     want();
   }
-  /** The building under a point on the screen (its id), or null. */
+  /** All buildings under a tap, nearest first, with each wall instance mapped to its own id. */
+  const pickAll = (cx, cy) => {
+    if (!data.isOwner()) return [];
+    placeCam(); scene.updateMatrixWorld(true); ndcOf(cx, cy); ray.setFromCamera(ndc, cam);
+    const extra = village && sel.id != null ? revealPicks : [];
+    const ids = ray.intersectObjects([...picks, ...extra], false).map(hit =>
+      hit.object.isInstancedMesh && hit.object.userData.walls
+        ? hit.object.userData.walls[hit.instanceId]?.i : hit.object.userData.bid);
+    return [...new Set(ids.filter(id => id != null))];
+  };
+  /** The revealed selection takes grab priority so an object behind the Castle can be moved. */
   const pick = (cx, cy) => {
-    placeCam(); ndcOf(cx, cy); ray.setFromCamera(ndc, cam);
-    const hit = ray.intersectObjects(picks, false)[0];
-    if (!hit) return null;
-    if (hit.object.isInstancedMesh && hit.object.userData.walls) { const f = hit.object.userData.walls[hit.instanceId]; return f ? f.i : null; }
-    return hit.object.userData.bid ?? null;
+    const ids = pickAll(cx, cy);
+    return village && ids.includes(sel.id) ? sel.id : ids[0] ?? null;
   };
 
   // ---- the folk: each a picture standing where it works, posed for the moment. A villager loops his work (six poses a
@@ -785,29 +799,70 @@ export function create(host, opts = {}) {
   }, 160);
 
   // ---- the selected building: a ring of light round its footprint; moving it, a green or red square under it
-  const sel = {id: null, mesh: null, foot: null, t0: 0};
+  const sel = {id: null, mesh: null, foot: null, t0: 0, moving: null};
+  const revealed = [], revealPicks = [];
+  let revealedWall = null, revealDepthCleared = false;
+  function clearReveal() {
+    revealed.forEach(({object, material, order, beforeRender}) => {
+      [object.material].flat().forEach(m => m.dispose());
+      object.material = material; object.renderOrder = order; object.onBeforeRender = beforeRender;
+    });
+    revealed.length = revealPicks.length = 0;
+    if (revealedWall) { scene.remove(revealedWall); revealedWall = null; }
+  }
+  function reveal(group, id) {
+    if (!village || !data.isOwner() || !group) return;
+    group.traverse(object => {
+      if ((!object.isSprite && !object.isMesh) || (object.geometry?.type === 'PlaneGeometry' && object.material?.isMeshBasicMaterial)) return;
+      if (![object.material].flat().some(m => m.visible)) return;
+      revealed.push({object, material: object.material, order: object.renderOrder, beforeRender: object.onBeforeRender});
+      const clones = [object.material].flat().map(m => {
+        const clone = m.clone(); clone.depthTest = true; clone.depthWrite = true; clone.transparent = true; return clone;
+      });
+      object.material = Array.isArray(object.material) ? clones : clones[0];
+      object.renderOrder = 10001; object.userData.bid = id;
+      const beforeRender = object.onBeforeRender;
+      object.onBeforeRender = function (...args) {
+        // Clear the foreground depth once, then keep self-occlusion within the revealed model.
+        if (!revealDepthCleared) { renderer.state.buffers.depth.setMask(true); renderer.clearDepth(); revealDepthCleared = true; }
+        beforeRender.apply(this, args);
+      };
+      // Sprites raycast their transparent rectangular corners; the building's existing box is its touch target.
+      if (object.isMesh) revealPicks.push(object);
+    });
+  }
   {
     const shape = new T.Shape(), hole = new T.Path();
     shape.moveTo(-.5, -.5); shape.lineTo(.5, -.5); shape.lineTo(.5, .5); shape.lineTo(-.5, .5); shape.lineTo(-.5, -.5);
     const i = .44; hole.moveTo(-i, -i); hole.lineTo(-i, i); hole.lineTo(i, i); hole.lineTo(i, -i); hole.lineTo(-i, -i);
     shape.holes.push(hole);
     sel.mesh = new T.Mesh(new T.ShapeGeometry(shape), new T.MeshBasicMaterial({color: 0xFFFFFF, transparent: true, opacity: .9, depthWrite: false, toneMapped: false}));
-    sel.mesh.rotation.x = -Math.PI / 2; sel.mesh.position.y = .03; sel.mesh.visible = false; sel.mesh.renderOrder = 2;
+    sel.mesh.rotation.x = -Math.PI / 2; sel.mesh.position.y = .03; sel.mesh.visible = false; sel.mesh.renderOrder = village ? 10000 : 2; sel.mesh.material.depthTest = !village;
     sel.foot = new T.Mesh(new T.PlaneGeometry(1, 1), new T.MeshBasicMaterial({color: 0x3BD16F, transparent: true, opacity: .45, depthWrite: false, toneMapped: false}));
-    sel.foot.rotation.x = -Math.PI / 2; sel.foot.position.y = .025; sel.foot.visible = false; sel.foot.renderOrder = 1;
+    sel.foot.rotation.x = -Math.PI / 2; sel.foot.position.y = .025; sel.foot.visible = false; sel.foot.renderOrder = village ? 9999 : 1; sel.foot.material.depthTest = !village;
     scene.add(sel.mesh, sel.foot);
   }
   /** Marks building id (or none); moving: {x, y, size, ok} lifts it there over a green (fits) or red square. */
   function select(id, moving = null) {
-    sel.id = id;
+    clearReveal();
+    sel.id = id; sel.moving = moving;
     const e = id != null ? groups.get(id) : null;
+    const b = e?.b || (village && lotState?.b.find(b => b.i === id));
     groups.forEach(x => { x.g.position.y = 0; });
-    if (!e && !moving) { sel.mesh.visible = sel.foot.visible = false; want(); return; }
-    const size = moving ? moving.size : KINDS[e.b.t].size, x = moving ? moving.x : e.b.x, y = moving ? moving.y : e.b.y;
+    if (!b && !moving) { sel.mesh.visible = sel.foot.visible = false; want(); return; }
+    const size = moving ? moving.size : KINDS[b.t].size, x = moving ? moving.x : b.x, y = moving ? moving.y : b.y;
     sel.mesh.visible = true;
     sel.mesh.scale.set(size + .3, size + .3, 1);
     sel.mesh.position.set(W(x + size / 2), .03, W(y + size / 2));
     sel.foot.visible = !!moving;
+    if (e) reveal(e.g, id);
+    else if (b?.t === 'wall' && village) {
+      revealedWall = wallPreview(T, b.l);
+      if (revealedWall) {
+        revealedWall.position.set(W(x + size / 2), moving ? .25 : 0, W(y + size / 2));
+        scene.add(revealedWall); reveal(revealedWall, id);
+      }
+    }
     if (moving) {
       sel.foot.scale.set(size, size, 1); sel.foot.position.set(W(x + size / 2), .025, W(y + size / 2));
       sel.foot.material.color.set(moving.ok ? 0x3BD16F : 0xE5484D);
@@ -924,7 +979,7 @@ export function create(host, opts = {}) {
     if (!p || !gesture) return;
     if (gesture.kind === 'grab' && gesture.moved) { const t = tileAt(p.x, p.y); if (opts.onDrop) opts.onDrop(t); }
     else if (!gesture.moved && e.type === 'pointerup' && performance.now() - p.t0 < 500 && opts.onTap) {
-      opts.onTap({id: pick(p.x, p.y), tile: tileAt(p.x, p.y), x: p.x, y: p.y});
+      opts.onTap({id: pick(p.x, p.y), ids: village ? pickAll(p.x, p.y) : undefined, tile: tileAt(p.x, p.y), x: p.x, y: p.y});
     }
     if (!ptr.size) gesture = null;
     else if (ptr.size === 1) { const q = [...ptr.values()][0]; gesture = {kind: 'pan', moved: true, anchor: tileAt(q.x, q.y)}; }
@@ -1241,7 +1296,7 @@ export function create(host, opts = {}) {
   }
   resize(); placeCam(); want();
   return {
-    setLot, select, setGhost, showGrid, showReach, pick, tileAt, project, want, setAnim, look, frame: fit, frameVillage, frameWorld, zoomBy, resize,
+    setLot, select, setGhost, showGrid, showReach, pick, pickAll, tileAt, project, want, setAnim, look, frame: fit, frameVillage, frameWorld, zoomBy, resize,
     raidStart, raidFrame, raidStop, showZone,
     get zoom() { return view.dist; },
     get overlayScale() { return village ? Math.max(.5, Math.min(1, 70 / view.dist)) : 1; },
@@ -1252,6 +1307,7 @@ export function create(host, opts = {}) {
     canvas,
     dispose() {
       dead = true;
+      clearReveal();
       dropScenery();
       clearInterval(folkTimer);
       if (homeNPCs) homeNPCs.dispose();

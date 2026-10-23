@@ -105,7 +105,8 @@ async function assetsCheck(page) {
         }).filter(Boolean);
         return signs.every(s => s === signs[0]);
       };
-      const halfHeight = lay.lot.h / 2, halfWidth = halfHeight / Math.sin(D3.PITCH);
+      const lot = D3.sceneryLot(lay.lot), halfHeight = lot.h / 2, halfWidth = halfHeight / Math.sin(D3.PITCH);
+      if (Math.abs(halfWidth - lay.lot.h / (2 * Math.sin(.9))) > 1e-8) throw Error("Scenery clearing width changed");
       const lotCorners = [[lay.lot.cx - halfWidth, lay.lot.cy], [lay.lot.cx, lay.lot.cy - halfHeight], [lay.lot.cx + halfWidth, lay.lot.cy], [lay.lot.cx, lay.lot.cy + halfHeight]];
       result.push({theme, file, background: background.pic.file, image, scene: lay.scene, sleigh,
         lotHeightFraction: lay.lot.h / lay.scene.height,
