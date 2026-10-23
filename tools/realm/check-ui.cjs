@@ -160,7 +160,7 @@ async function loadingGuard(browser, url) {
     return route.continue();
   });
   await context.addInitScript(() => {
-    localStorage.setItem('gg-me', 'evan'); localStorage.setItem('gg-welcome', '1'); localStorage.setItem('gg-realm-seen', '1'); localStorage.setItem('gg-keepfall-lore-seen', '1');
+    localStorage.setItem('gg-me', 'evan'); localStorage.setItem('gg-welcome', '1'); localStorage.setItem('gg-realm-seen', '1'); localStorage.setItem('gg-keepfall-lore-seen', '2');
     sessionStorage.setItem('gg-skip-title', '1');
   });
   const page = await context.newPage(), errors = [];
@@ -226,7 +226,7 @@ async function navigationChecks(browser, url) {
     await context.addInitScript(profile => {
       localStorage.setItem('gg-me', profile);
       localStorage.setItem('gg-welcome', '1');
-      localStorage.setItem('gg-realm-seen', '1'); localStorage.setItem('gg-keepfall-lore-seen', '1');
+      localStorage.setItem('gg-realm-seen', '1'); localStorage.setItem('gg-keepfall-lore-seen', '2');
       sessionStorage.setItem('gg-skip-title', '1');
     }, profile);
     const page = await context.newPage(), errors = [], artLoads = [];
@@ -350,7 +350,7 @@ async function run(url) {
       await context.addInitScript(profile => {
         localStorage.setItem('gg-me', profile);
         localStorage.setItem('gg-welcome', '1');
-        localStorage.setItem('gg-realm-seen', '1'); localStorage.setItem('gg-keepfall-lore-seen', '1');
+        localStorage.setItem('gg-realm-seen', '1'); localStorage.setItem('gg-keepfall-lore-seen', '2');
         sessionStorage.setItem('gg-skip-title', '1');
       }, profile);
       const page = await context.newPage();

@@ -14,6 +14,7 @@ import * as daily from '../core/daily.js';
 import * as F from '../core/realm.js';
 import {defend} from '../core/realm-battle.js';
 import {heroCards, residentsNote} from './realm-heroes.js';
+import {LORE_VERSION, introHTML, mountIntro} from './realm-lore.js';
 
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const nf = n => Math.round(Number(n) || 0).toLocaleString('en-US');
@@ -841,15 +842,8 @@ const welcomeHTML = () => `<p class="rl-sh-lead">Raise your house, fill your tre
   + `</div><p class="rl-sh-note">Drag to look around, pinch to zoom. Tap a building for what it does; tap your house’s name to rename it.</p>`;
 const LORE_SEEN_KEY = 'gg-keepfall-lore-seen';
 const loreActive = st => !st.dead && st.ctx.visible && F.mayPlay();
-const loreUnseen = st => !st.loreSeen && ui.lsGet(LORE_SEEN_KEY) !== '1';
-function loreHTML(first = false) {
-  return `<article class="rl-lore-story"><p class="rl-lore-eyebrow">LORE OF YHARMIN</p>`
-    + `<div class="rl-lore-sigil" aria-hidden="true"><i class="rl-crown"></i><span></span></div>`
-    + `<div class="rl-lore-copy"><p>Yharmin was once united under a single High King, ruling from one great keep. In a single night, that keep was breached and the crown was lost. With no king left to hold it together, Yharmin split into rival houses, each building its own stronghold and fighting to claim the broken throne. That night is remembered as the Keepfall.</p>`
-    + `<p>Now every house builds, raids, and wars for one goal: to rebuild what was lost and rule Yharmin.</p></div>`
-    + `<button type="button" class="btn btn-primary rl-lore-continue" data-rl-lore-close>${first ? 'Begin your reign' : 'Return to your realm'}</button>`
-    + `<details class="rl-lore-help"><summary>How to play</summary><div>${welcomeHTML()}</div></details></article>`;
-}
+const loreUnseen = st => !st.loreSeen && ui.lsGet(LORE_SEEN_KEY) !== LORE_VERSION;
+function loreHTML() { return introHTML(welcomeHTML()); }
 function cancelLore(st) {
   const rec = st.lore;
   if (!rec) return;
@@ -870,21 +864,18 @@ function loreSheet(st, first = false) {
     // Route cleanup fires before onHide; only the reader's explicit dismissal counts.
     if (!rec.explicit || rec.cancelled || !loreActive(st) || location.hash !== route) return;
     st.loreSeen = true;
-    ui.lsSet(LORE_SEEN_KEY, '1');
+    ui.lsSet(LORE_SEEN_KEY, LORE_VERSION);
     const resume = setTimeout(() => {
       st.effects.delete(resume);
       if (loreActive(st) && !st.lore) defenses(st);
     }, 300);
     st.effects.add(resume);
   };
-  rec.sheet = realmSheet({title: WELCOME_TITLE, cls: 'sh-rl sh-rl-lore', detents: ['large'], body: loreHTML(first),
+  rec.sheet = realmSheet({chrome: false, label: 'Keepfall — Lore of Yharmin', cls: 'sh-rl sh-rl-lore sh-rl-intro', detents: ['large'], body: loreHTML(),
     returnFocus: () => st.el.querySelector('[data-rl-lore]'), onClose: closed});
   const sh = rec.sheet;
-  sh.el.addEventListener('click', e => {
-    if (!e.target.closest('[data-rl-lore-close], [data-sheet-close]')) return;
-    rec.explicit = true;
-    if (e.target.closest('[data-rl-lore-close]')) sh.close();
-  }, {capture: true, signal});
+  mountIntro(sh, {first, signal, active: () => loreActive(st) && st.lore === rec && location.hash === route,
+    onClose: () => { rec.explicit = true; sh.close(); }});
   sh.el.addEventListener('keydown', e => { if (e.key === 'Escape') rec.explicit = true; }, {capture: true, signal});
   const scrim = sh.el.previousElementSibling;
   if (scrim && scrim.classList.contains('sheet-scrim')) scrim.addEventListener('click', () => { rec.explicit = true; }, {capture: true, signal});
