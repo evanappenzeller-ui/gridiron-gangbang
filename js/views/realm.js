@@ -850,7 +850,7 @@ export function payCopyHTML() {
     + `<b>Gold</b>: ${base}, plus ${nf(F.KICK_GOLD)} for every ${ordinal(F.KICK_EVERY)} Kick It make and ${F.COIN_GOLD} a coin on your first Return Man run.`;
 }
 /** Your army and heroes: the heroes to recruit or upgrade, who's ready, who's training, who you can train (with Ale). */
-function armyHTML(s, now) {
+function armyParts(s, now) {
   const room = F.armyRoom(s), have = F.roomOf(s.ar), q = F.queued(s);
   const army = F.TROOP_ORDER.filter(t => s.ar[t]).map(t => `<span class="rl-chip">${esc(F.TROOPS[t].name)} ×${s.ar[t]}</span>`).join('') || '<span class="rl-sh-note">No one yet.</span>';
   const line = s.q.map(([t, n], i) => `<span class="rl-chip is-q">${esc(F.TROOPS[t].name)} ×${n}${i === 0 && s.qs ? ` <small>${dur(s.qs + F.trainTime(s, t) * 1000 - now)}</small>` : ''}<button type="button" class="rl-chip-x" data-rl-untrain="${t}" aria-label="Take one ${esc(F.TROOPS[t].name)} out">−</button></span>`).join('');
@@ -862,26 +862,36 @@ function armyHTML(s, now) {
       + `<small>${esc(T.blurb)}</small></button>`;
   }).join('');
   // (the Knight's recruited and upgraded with Gold; the Dragon hatches at the Dragon Hatchery and grows with it, Oct 22 2026)
-  return `<h3 class="rl-sh-h">Heroes of the Castle</h3><p class="rl-sh-note">Recruit the Knight once and upgrade him with Gold. The Dragon hatches at your Dragon Hatchery and grows with every level of it. Your heroes defend automatically and can each deploy once per attack. They return after every battle and use no camp space.</p>`
-    + `<div class="rl-heroes">${heroCards(s)}</div><p class="rl-sh-note rl-residents">${residentsNote(s)}</p>`
-    + `<div class="rl-room"><b>${have + q}/${room}</b> room in the war camps${q ? ` (${q} in training)` : ''}</div>`
-    + `<h3 class="rl-sh-h">Ready to march</h3><div class="rl-chips">${army}</div>`
-    + (line ? `<h3 class="rl-sh-h">Training${s.q.length ? ` · done in ${dur(F.trainedBy(s, now) - now)}` : ''}</h3><div class="rl-chips">${line}</div>` : '')
-    + `<h3 class="rl-sh-h">Train <span>(tap to add one · ${F.CUR_NAME.grain} ${nf(s.r.grain)})</span></h3><div class="rl-tcs">${cards}</div>`;
+  return {
+    heroes: `<h3 class="rl-sh-h">Heroes of the Castle</h3><p class="rl-sh-note">Recruit the Knight once and upgrade him with Gold. The Dragon hatches at your Dragon Hatchery and grows with every level of it. Your heroes defend automatically and can each deploy once per attack. They return after every battle and use no camp space.</p>`
+      + `<div class="rl-heroes">${heroCards(s)}</div><p class="rl-sh-note rl-residents">${residentsNote(s)}</p>`,
+    room: `<div class="rl-room"><b>${have + q}/${room}</b> room in the war camps${q ? ` (${q} in training)` : ''}</div>`,
+    ready: `<h3 class="rl-sh-h">Ready to march</h3><div class="rl-chips">${army}</div>`,
+    training: line ? `<h3 class="rl-sh-h">Training${s.q.length ? ` · done in ${dur(F.trainedBy(s, now) - now)}` : ''}</h3><div class="rl-chips">${line}</div>` : '',
+    train: `<h3 class="rl-sh-h">Train <span>(tap to add one · ${F.CUR_NAME.grain} ${nf(s.r.grain)})</span></h3><div class="rl-tcs">${cards}</div>`
+  };
 }
+function armyHTML(s, now) { return Object.values(armyParts(s, now)).join(''); }
 function armySheet(st) {
   const sh = realmSheet({title: 'Your army & heroes', cls: 'sh-rl', detents: ['large'], body: '<div data-rl-armybody></div>'});
+  // (each second, only the parts that changed are put back, the rest left in place, and where you'd scrolled to kept: a
+  // whole new sheet under your finger each tick threw a phone's scroll back to the top, Oct 23 2026)
+  const host = sh.body.querySelector('[data-rl-armybody]'), was = {};
   const draw = () => {
     if (st.dead || !F.mayPlay()) return;
-    const body = armyHTML(F.mine(), Date.now());
-    const host = sh.body.querySelector('[data-rl-armybody]');
-    if (host.innerHTML !== body) {
-      const focused = document.activeElement;
-      const key = focused && host.contains(focused) ? ['rlRecruitHero', 'rlUpgradeHero', 'rlHatch', 'rlTrain', 'rlUntrain'].find(k => focused.dataset[k]) : null;
-      const value = key && focused.dataset[key];
-      host.innerHTML = body;
-      if (key) Array.from(host.querySelectorAll('button')).find(b => b.dataset[key] === value && !b.disabled)?.focus({preventScroll: true});
-    }
+    const parts = armyParts(F.mine(), Date.now());
+    const changed = Object.keys(parts).filter(k => was[k] !== parts[k]);
+    if (!changed.length) return;
+    const focused = document.activeElement, top = sh.body.scrollTop;
+    const key = focused && host.contains(focused) ? ['rlRecruitHero', 'rlUpgradeHero', 'rlHatch', 'rlTrain', 'rlUntrain'].find(k => focused.dataset[k]) : null;
+    const value = key && focused.dataset[key];
+    changed.forEach(k => {
+      let el = host.querySelector(`[data-rl-armypart="${k}"]`);
+      if (!el) { el = document.createElement('div'); el.dataset.rlArmypart = k; host.append(el); }
+      el.innerHTML = parts[k]; was[k] = parts[k];
+    });
+    if (sh.body.scrollTop !== top) sh.body.scrollTop = top;
+    if (key && !host.contains(focused)) Array.from(host.querySelectorAll('button')).find(b => b.dataset[key] === value && !b.disabled)?.focus({preventScroll: true});
   };
   draw();
   sh.body.addEventListener('click', e => {
