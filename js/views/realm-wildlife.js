@@ -222,6 +222,8 @@ export function createWildlife(T, scene, options = {}) {
   counts.birds = 10; counts.dragons = 2; counts.animals = Math.min(8, zones.animals.length * 2);
   const birds = batch('realm-birds', birdBody, counts.birds), birdWings = batch('realm-bird-wings', membrane(false), counts.birds * 2);
   const dragons = batch('realm-dragons', dragonBody, counts.dragons), dragonWings = batch('realm-dragon-wings', membrane(true), counts.dragons * 2);
+  // (the dragons drawn from Keepfall's dragon model once it's in, views/realm-dragon.js: these silhouettes till then)
+  const models = typeof options.dragonModels === 'function' ? options.dragonModels(T, group, counts.dragons) : null;
   const animals = batch('realm-grazing-animals', animalBody, counts.animals), legs = batch('realm-animal-legs', legGeo, counts.animals * 4);
   const shadows = batch('realm-wildlife-shadows', shadowGeo, counts.animals, true);
   counts.drawCalls = meshes.length;
@@ -272,7 +274,7 @@ export function createWildlife(T, scene, options = {}) {
     mesh.setMatrixAt(index, body.matrix);
   }
   function flying(mesh, wings, key, n, time, dragon) {
-    const zz = zones[key], speed = .105, s0 = unit * (dragon ? .012 : .0026);
+    const zz = zones[key], speed = .105, s0 = unit * (dragon ? .012 : .0026), model = dragon && models && models.ready;
     for (let i = 0; i < n; i++) {
       const z = zz[i % zz.length], phase = i * 2.399963, a = phase + time * speed * (1 + (i % 3) * .11);
       const pos = dragon ? path(z, a) : birdPath(z, i, time), next = dragon ? path(z, a + .008) : birdPath(z, i, time + .2);
@@ -280,6 +282,7 @@ export function createWildlife(T, scene, options = {}) {
       // Height is modest: flight reads in silhouette while staying aligned to the
       // outer scenery's routes, safely clear of the playable center.
       const h = dragon ? s * 1.6 + Math.sin(a * 2) * s * .2 : s * (3.8 + Math.sin(time * .51 + phase) * .6);
+      if (model) models.hide(i);
       if (!safe(pos.x, pos.y, s * (dragon ? 2.35 : 1.55), h)) { mesh.setMatrixAt(i, invisible); wings.setMatrixAt(i * 2, invisible); wings.setMatrixAt(i * 2 + 1, invisible); continue; }
       const p = gr.under(pos.x * gr.w, pos.y * gr.h), q = gr.under(next.x * gr.w, next.y * gr.h);
       heading.subVectors(q, p);
@@ -290,6 +293,11 @@ export function createWildlife(T, scene, options = {}) {
         heading.subVectors(r, q);
         const turn = Math.atan2(heading.x, heading.z) - yaw;
         bank = clamp(-Math.atan2(Math.sin(turn), Math.cos(turn)) * 3.5, -.24, .24);
+      }
+      if (model) {
+        models.place(i, p, h, yaw, s, bank, time);
+        mesh.setMatrixAt(i, invisible); wings.setMatrixAt(i * 2, invisible); wings.setMatrixAt(i * 2 + 1, invisible);
+        continue;
       }
       setBody(mesh, i, p, yaw, s, h, bank);
       // Brief wingbeat bursts give way to extended glides; each bird has its
@@ -347,6 +355,7 @@ export function createWildlife(T, scene, options = {}) {
     counts.opacity = active ? fade : 0; counts.visible = active && fade > .015; group.visible = counts.visible;
     if (!counts.visible) return false;
     for (const mat of materials) mat.opacity = fade * mat.userData.opacityMultiplier;
+    if (models) models.opacity(fade);
     const time = reduced ? 17 : lastTime;
     flying(birds, birdWings, 'birds', counts.birds, time, false);
     flying(dragons, dragonWings, 'dragons', counts.dragons, time, true);
@@ -369,6 +378,7 @@ export function createWildlife(T, scene, options = {}) {
     dead = true; group.visible = false; scene.remove(group);
     counts.visible = false; counts.opacity = 0;
     if (unsubscribe) unsubscribe();
+    if (models) models.dispose();
     if (doc) doc.removeEventListener('visibilitychange', visibilityChanged);
     if (media) { if (media.removeEventListener) media.removeEventListener('change', motionChanged); else if (media.removeListener) media.removeListener(motionChanged); }
     for (const geo of geometries) geo.dispose();

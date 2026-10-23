@@ -9,7 +9,8 @@
 // draws when something moved (a finger, a raid) and, while there are folk about, a few times a second for them.
 // In a raid it also draws the raiders (instanced: a few draw calls however many), each drawn from his picture (img/realm/
 // army/, tools/realm/army.py: stood up facing the camera, turned the way he's going, a soft shadow under him; the
-// Dragon in the air), what
+// Dragon in the air: drawn in 3D from its model once that's in, views/realm-dragon.js, as is the Dragon Hero, the
+// dragon over the hatchery at home and the scenery's), what
 // the defenses loose and what the raiders shoot (arrows, bolts, boulders, fire), dust where a building goes down.
 // load() → true when three.js is in and this phone has WebGL; create(host, opts) → the view (see its methods).
 import * as FM from './realm-models.js';
@@ -22,6 +23,7 @@ import {createAmbience} from './realm-ambience.js';
 import {villageGroundTexture} from './realm-ground.js';
 import {createGrassWallpaper} from './realm-grass.js';
 import {createHomeNPCs, createBattleHeroes} from './realm-npcs.js';
+import {isDragonKind, loadDragon, onDragonReady, createBattleDragons, createHomeDragon, createSceneryDragons} from './realm-dragon.js';
 const V = new URL('../vendor/three/', import.meta.url).href;
 let T = null, RE = null, LOADING = null, DEAD = false, LOAD_EPOCH = 0;
 let ownerActive = data.isOwner();
@@ -197,6 +199,17 @@ function blobTexture(T) {
   gr.addColorStop(0, 'rgba(0,0,0,.42)'); gr.addColorStop(.6, 'rgba(0,0,0,.22)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
   g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
   return new T.CanvasTexture(cv);
+}
+// A dragon's fire (a raid's): a hot white heart, yellow, then orange going to nothing (drawn adding its light).
+const FLAME = 4;
+function flameTexture(T) {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 64;
+  const g = cv.getContext('2d'), gr = g.createRadialGradient(32, 32, 1, 32, 32, 31);
+  gr.addColorStop(0, 'rgba(255,248,220,1)'); gr.addColorStop(.22, 'rgba(255,214,90,.95)'); gr.addColorStop(.5, 'rgba(255,120,24,.6)');
+  gr.addColorStop(.78, 'rgba(200,48,8,.22)'); gr.addColorStop(1, 'rgba(120,20,0,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  const t = new T.CanvasTexture(cv); t.colorSpace = T.SRGBColorSpace;
+  return t;
 }
 function puffTexture(T) {
   const cv = document.createElement('canvas'); cv.width = cv.height = 64;
@@ -436,7 +449,8 @@ export function create(host, opts = {}) {
     hemi.intensity = dusk ? .55 : .75;
     sun.intensity = dusk ? (village ? 1.05 : 1.6) : (village ? 1.8 : 2.8);
     sun.color.set(dusk ? 0xFFD0A0 : 0xFFE8C8);
-    if (village && sc.file.startsWith('world-')) wildlife = createWildlife(T, sceneG, {theme: key, ground: gr, pitch: gr.pitch, sleighImage: sc.pics['christmas:sleigh'], onChange: () => want()});
+    if (village && sc.file.startsWith('world-')) wildlife = createWildlife(T, sceneG, {theme: key, ground: gr, pitch: gr.pitch, sleighImage: sc.pics['christmas:sleigh'], onChange: () => want(),
+      dragonModels: (three, group, n) => createSceneryDragons(three, group, n)});
     if (village && /world-v[23]\.webp$/.test(sc.lay.assets[sc.lay.scene.background_asset_id].pic.file)) ambience = createAmbience(T, gr, {theme: key, onChange: () => want()});
     return true;
   }
@@ -620,13 +634,15 @@ export function create(host, opts = {}) {
     if (wildlife) more = wildlife.update(now / 1000, {zoom: view.dist, active: document.visibilityState === 'visible'}) || more;
     const windy = windGrass && windGrass.update(now / 1000, {camera: cam});
     if (homeNPCs) homeNPCs.update(now / 1000, {zoom: view.dist, active: !raid, placement});
+    // (the dragon over the hatchery: about 30 frames a second while it's on the screen, not every refresh)
+    const flying = !!homeDragon && homeDragon.update(now / 1000, {zoom: view.dist, active: !raid, placement, camera: cam});
     folkFrame(now);
     revealDepthCleared = false;
     renderer.render(scene, cam);
     if (opts.onCamera && sig !== cameraSig) { cameraSig = sig; opts.onCamera(); }
     clearTimeout(windTimer); windTimer = 0;
     if (more) want();
-    else if (windy) windTimer = setTimeout(() => { windTimer = 0; want(); }, 50);
+    else if (windy || flying) windTimer = setTimeout(() => { windTimer = 0; want(); }, flying ? 33 : 50);
   }
 
   // ---- picking and projecting
@@ -646,6 +662,13 @@ export function create(host, opts = {}) {
   // ---- the buildings
   let house = opts.house || {pri: 0x7A1F2B, sec: 0xD4A63A, sigil: 'crown'};
   const homeNPCs = village ? createHomeNPCs(T, scene) : null;
+  // the dragon over the hatchery (views/realm-dragon.js); its model is fetched when a dragon's wanted (a built hatchery,
+  // a raid with one, the scenery's first in view), and each view redraws when it comes in
+  const homeDragon = village ? createHomeDragon(T, scene, {renderer, camera: cam}) : null;
+  const offDragon = onDragonReady(() => {
+    want();
+    if (raid && raid.need.dragon) raid.dragons.warm(renderer, cam, Math.min(4, raid.need.dragon));
+  });
   const groups = new Map(); // id -> {g, key, b}
   const picks = [];
   const root = new T.Group(); scene.add(root);
@@ -694,6 +717,7 @@ export function create(host, opts = {}) {
     const now = o.now || Date.now(), gone = o.gone || new Set();
     if (o.house) house = o.house;
     if (homeNPCs) homeNPCs.setLot(s, {house});
+    if (homeDragon) homeDragon.setLot(s);
     const seen = new Set();
     s.b.forEach(b => {
       if (b.t === 'wall') return;
@@ -794,7 +818,7 @@ export function create(host, opts = {}) {
   // (a few frames a second while there are folk about and no raid's drawing every frame)
   const folkTimer = setInterval(() => {
     if (raid || dead || lost || document.visibilityState !== 'visible' || !data.isOwner()) return;
-    if (homeNPCs && homeNPCs.animated) { want(); return; }
+    if ((homeNPCs && homeNPCs.animated) || (homeDragon && homeDragon.animated)) { want(); return; }
     if (SPR.folkReady()) for (const e of groups.values()) if (e.folk.length) { want(); break; }
   }, 160);
 
@@ -1004,14 +1028,24 @@ export function create(host, opts = {}) {
 
   // ---------------------------------------------------------------------------------------------------- a raid
   let raid = null;
+  /** How many of each kind battle B can put on the field, for what draws them: every dragon (the troop, the Dragon Hero,
+   *  a defending one) counted as 'dragon' (one picture while its model isn't in). */
+  function armyNeed(B) {
+    const need = {};
+    Object.keys(TROOPS).forEach(k => { need[k] = (B.left[k] || 0) + (B.used[k] || 0); });
+    const dragons = [...new Set([...Object.keys(B.left || {}), ...Object.keys(B.used || {})])].filter(isDragonKind).reduce((n, k) => n + (B.left[k] || 0) + (B.used[k] || 0), 0)
+      + (B.defenders || []).filter(u => isDragonKind(u.t)).length;
+    if (dragons) need.dragon = dragons + 2; // (and room for one sent in a test)
+    return need;
+  }
   /** Draws battle B (core/realm-battle.js) on this lot: call before the raid's first frame; then raidFrame(t)
    *  each frame with the raid's clock (interpolated between its steps). raider: the raiders' house. */
   function raidStart(B, raider) {
     raidStop();
-    const kinds = Object.keys(TROOPS), meshes = {}, m4 = new T.Matrix4();
+    const need = armyNeed(B), kinds = Object.keys(need), meshes = {}, m4 = new T.Matrix4();
     let shadows = 0;
     kinds.forEach(k => {
-      const n = Math.max(1, (B.left[k] || 0) + (B.used[k] || 0));
+      const n = Math.max(1, need[k]);
       shadows += n;
       const A = ARMY[k];
       if (A) {
@@ -1044,10 +1078,14 @@ export function create(host, opts = {}) {
       arrow: mk(arrowGeo, new T.MeshStandardMaterial({color: 0x6B4A2A, roughness: .7}), 160),
       bolt: mk(boltGeo, new T.MeshStandardMaterial({color: 0x4A3220, roughness: .6}), 40),
       rock: mk(new T.DodecahedronGeometry(.22, 0), new T.MeshStandardMaterial({color: 0x77726A, roughness: 1, flatShading: true}), 24),
-      fire: mk(new T.SphereGeometry(.22, 10, 8), new T.MeshBasicMaterial({color: 0xFF8A1E, toneMapped: false}), 24),
+      // (a dragon's fire: a burst of flame facing the camera, FLAME of them along its way, the leading the biggest,
+      // glowing as they add up)
+      fire: mk(new T.PlaneGeometry(1, 1), new T.MeshBasicMaterial({map: flameTexture(T), transparent: true, depthWrite: false, blending: T.AdditiveBlending, toneMapped: false, fog: false}), 24 * FLAME),
       ball: mk(new T.SphereGeometry(.11, 10, 8), new T.MeshStandardMaterial({color: 0x26272A, roughness: .45, metalness: .7}), 40),
       magic: mk(new T.OctahedronGeometry(.2), new T.MeshBasicMaterial({color: 0x8FE6FF, toneMapped: false}), 12)
     };
+    fly.fire.instanceColor = new T.InstancedBufferAttribute(new Float32Array(24 * FLAME * 3), 3);
+    fly.fire.renderOrder = 4;
     const puffTex = puffTexture(T), puffs = [];
     for (let i = 0; i < 40; i++) {
       const sp = new T.Sprite(new T.SpriteMaterial({map: puffTex, color: 0xBFB7AA, transparent: true, depthWrite: false, opacity: 0}));
@@ -1061,9 +1099,23 @@ export function create(host, opts = {}) {
     scene.add(zone);
     raid = {B, meshes, shadow, fly, puffs, fxAt: 0, prev: new Map(), cur: new Map(), stepSeen: -1, zone, zoneCv: cv, zoneTex, zoneSig: '', zoneShow: 0, aim: new Map(),
       fired: new Map(), byId: new Map(B.bl.map(b => [b.i, b])), t: 0, shotSeen: new WeakSet(),
-      heroes: createBattleHeroes(T, scene, {house: raider}), heroCur: new Map(), heroPrev: new Map(), raider};
+      heroes: createBattleHeroes(T, scene, {house: raider}), heroCur: new Map(), heroPrev: new Map(), raider,
+      dragons: createBattleDragons(T, scene, {onLand: (x, y) => { if (raid) puff(x, y, 2.6, 0xB5AC9E, 1.1, raid.now); }}), now: 0, f: 0, fireAt: new WeakMap(), need};
+    // (its dragons drawn from the model: fetched now if they're not in yet, the picture meanwhile; the renderer readied
+    // for it and a few made now, so the first sent doesn't hold the screen still)
+    if (need.dragon) { const R = raid; loadDragon().then(ok => { if (ok && raid === R) R.dragons.warm(renderer, cam, Math.min(4, need.dragon)); }); }
     drawZone();
     want();
+  }
+  // where unit u is drawn this frame (between its last two steps, eased by raid.f): {x, y (tiles), moving}, or null
+  const spot = {x: 0, y: 0, moving: false}, mouthV = new T.Vector3();
+  function locate(u) {
+    const R = raid;
+    if (!R) return null;
+    const def = !!u.targetHero, key = def ? 'd:' + u.id : u.id, c = (def ? R.heroCur : R.cur).get(key), p = (def ? R.heroPrev : R.prev).get(key) || c;
+    if (!c) return null;
+    spot.x = p.x + (c.x - p.x) * R.f; spot.y = p.y + (c.y - p.y) * R.f; spot.moving = Math.hypot(c.x - p.x, c.y - p.y) > .001;
+    return spot;
   }
   function drawZone() {
     if (!raid) return;
@@ -1082,11 +1134,12 @@ export function create(host, opts = {}) {
    *  the same army by the same house as the one drawn: what draws it is kept, emptied, and B put in its place (building it
    *  all again, and compiling its shaders, held the screen still for a second each time). Otherwise, raidStart. */
   function raidRestart(B, raider) {
-    const fits = raid && raid.raider === raider && Object.keys(TROOPS).every(k => {
-      const M = raid.meshes[k], n = (B.left[k] || 0) + (B.used[k] || 0);
+    const need = armyNeed(B), fits = raid && raid.raider === raider && Object.keys(need).every(k => {
+      const M = raid.meshes[k], n = need[k];
       return !n || (!!M && n <= (M.art || M.body).instanceMatrix.count);
     });
     if (!fits) { raidStart(B, raider); return; }
+    raid.dragons.reset(); raid.need = need;
     groups.forEach(e => SPR.animateDefense(e.g, e.b.t, Infinity));
     Object.values(raid.meshes).forEach(M => { if (M.art) M.art.count = 0; else M.body.count = M.leg.count = 0; });
     raid.shadow.count = 0;
@@ -1108,33 +1161,37 @@ export function create(host, opts = {}) {
       R.prev = R.cur; R.cur = new Map();
       B.tr.forEach(u => R.cur.set(u.id, {x: u.x, y: u.y}));
       R.heroPrev = R.heroCur; R.heroCur = new Map();
-      [...B.tr, ...(B.defenders || [])].forEach(u => { if (u.hero) R.heroCur.set(`${u.targetHero ? 'd' : 'a'}:${u.id}`, {x: u.x, y: u.y}); });
+      [...B.tr, ...(B.defenders || [])].forEach(u => { if (u.hero || (u.targetHero && isDragonKind(u.t))) R.heroCur.set(`${u.targetHero ? 'd' : 'a'}:${u.id}`, {x: u.x, y: u.y}); });
       R.stepSeen = B.step;
     }
     const f = Math.max(0, Math.min(1, (t - (B.t - .1)) / .1));
     R.heroes.update([...B.tr, ...(B.defenders || [])], t, R.heroCur, R.heroPrev, f);
+    // the dragons, from the model once it's in (realm-dragon.js: those it draws are left out below)
+    R.f = f; R.now = now;
+    R.dragons.update(B, t, locate, now);
+    const drawn = R.dragons.drawn;
     // the soldiers
     const m4 = new T.Matrix4(), q = new T.Quaternion(), sc = new T.Vector3(1.5, 1.5, 1.5), up = new T.Vector3(0, 1, 0), pv = new T.Vector3();
     const counts = {}, camQ = cam.quaternion, tilt = new T.Quaternion(), zAxis = new T.Vector3(0, 0, 1), ssc = new T.Vector3();
     let nShadow = 0;
     Object.keys(R.meshes).forEach(k => { counts[k] = 0; });
-    B.tr.forEach(u => {
-      if (u.dead) return;
-      const M = R.meshes[u.t], c = R.cur.get(u.id), p = R.prev.get(u.id) || c;
-      if (!M || !c) return;
-      const x = p.x + (c.x - p.x) * f, y = p.y + (c.y - p.y) * f;
-      const moving = Math.hypot(c.x - p.x, c.y - p.y) > .001, swing = moving ? Math.sin(t * 14 + u.id) * .6 : 0;
+    // (every kind of dragon its picture, kind 'dragon', till the model draws it; one defending too)
+    const soldier = u => {
+      if (u.dead || drawn.has(u)) return;
+      const kind = isDragonKind(u.t) ? 'dragon' : u.t, M = R.meshes[kind], at = M && locate(u);
+      if (!at || counts[kind] >= (M.art || M.body).instanceMatrix.count || nShadow >= R.shadow.instanceMatrix.count) return;
+      const x = at.x, y = at.y, moving = at.moving, uid = Number(u.id) || 0, swing = moving ? Math.sin(t * 14 + uid) * .6 : 0;
       const hit = t - u.hitAt < .35 ? Math.sin((t - u.hitAt) / .35 * Math.PI) : 0;
       if (M.art) {
         // his picture facing the camera, turned the way he's going (the way the screen sees it), a step's bob and
         // rock as he walks, knocked back a little when he's hit; the Dragon high up, bobbing
-        const A = ARMY[u.t], right = Math.cos(u.face) - Math.sin(u.face) >= 0, sx = right === A.right ? 1 : -1;
+        const A = ARMY[kind], right = Math.cos(u.face) - Math.sin(u.face) >= 0, sx = right === A.right ? 1 : -1;
         const wk = A.fly ? A.wide : A.tall * A.w / A.h, hk = A.fly ? A.wide * A.h / A.w : A.tall;
-        const hy = A.fly ? 2.3 + Math.sin(t * 2.2 + u.id) * .15 : (moving ? Math.abs(Math.sin(t * 9 + u.id)) * .06 : 0);
-        tilt.setFromAxisAngle(zAxis, (moving && !A.fly ? Math.sin(t * 9 + u.id) * .06 : 0) + sx * .25 * hit);
+        const hy = A.fly ? 2.3 + Math.sin(t * 2.2 + uid) * .15 : (moving ? Math.abs(Math.sin(t * 9 + uid)) * .06 : 0);
+        tilt.setFromAxisAngle(zAxis, (moving && !A.fly ? Math.sin(t * 9 + uid) * .06 : 0) + sx * .25 * hit);
         pv.set(W(x), hy, W(y));
         m4.compose(pv, camQ.clone().multiply(tilt), ssc.set(wk * sx, hk, 1));
-        M.art.setMatrixAt(counts[u.t]++, m4);
+        M.art.setMatrixAt(counts[kind]++, m4);
         const sw = A.fly ? 1.6 : Math.max(.55, wk * .8);
         m4.compose(pv.set(W(x), 0, W(y)), q.identity(), ssc.set(sw, 1, sw * .6));
         R.shadow.setMatrixAt(nShadow++, m4);
@@ -1142,10 +1199,10 @@ export function create(host, opts = {}) {
       }
       const face = -u.face + Math.PI / 2;
       q.setFromAxisAngle(up, face);
-      const i = counts[u.t]++;
-      if (u.t === 'dragon') {
+      const i = counts[kind]++;
+      if (kind === 'dragon') {
         // in the air, bobbing, its wings beating
-        const flap = Math.sin(t * 7 + u.id) * .55, hy = 2.3 + Math.sin(t * 2.2 + u.id) * .12;
+        const flap = Math.sin(t * 7 + uid) * .55, hy = 2.3 + Math.sin(t * 2.2 + uid) * .12;
         pv.set(W(x), hy, W(y));
         m4.compose(pv, q.clone().multiply(new T.Quaternion().setFromAxisAngle(new T.Vector3(1, 0, 0), -.08 - .25 * hit)), sc); M.body.setMatrixAt(i, m4);
         [-1, 1].forEach((sd, j) => {
@@ -1157,15 +1214,17 @@ export function create(host, opts = {}) {
       }
       const lean = new T.Quaternion().setFromAxisAngle(new T.Vector3(1, 0, 0), .15 * (moving ? 1 : 0) + .5 * hit);
       const qq = q.clone().multiply(lean);
-      const bob = moving ? Math.abs(Math.sin(t * 14 + u.id)) * .04 : 0;
+      const bob = moving ? Math.abs(Math.sin(t * 14 + uid)) * .04 : 0;
       pv.set(W(x), .33 + bob, W(y));
       m4.compose(pv, qq, sc); M.body.setMatrixAt(i, m4);
       [-1, 1].forEach((sd, j) => {
         const lq = q.clone().multiply(new T.Quaternion().setFromAxisAngle(new T.Vector3(1, 0, 0), sd * swing));
-        const off = new T.Vector3(sd * .09 * (u.t === 'knight' ? 1.35 : 1), 0, 0).applyQuaternion(q);
+        const off = new T.Vector3(sd * .09 * (kind === 'knight' ? 1.35 : 1), 0, 0).applyQuaternion(q);
         m4.compose(new T.Vector3(pv.x + off.x, .33 + bob, pv.z + off.z), lq, sc); M.leg.setMatrixAt(i * 2 + j, m4);
       });
-    });
+    };
+    B.tr.forEach(soldier);
+    (B.defenders || []).forEach(u => { if (isDragonKind(u.t)) soldier(u); });
     Object.entries(R.meshes).forEach(([k, M]) => {
       if (M.art) { M.art.count = counts[k]; M.art.instanceMatrix.needsUpdate = true; return; }
       M.body.count = counts[k]; M.leg.count = counts[k] * 2; M.body.instanceMatrix.needsUpdate = true; M.leg.instanceMatrix.needsUpdate = true;
@@ -1175,26 +1234,41 @@ export function create(host, opts = {}) {
     const KIND = {archer: 'arrow', tower: 'arrow', ballista: 'bolt', trebuchet: 'rock', dragon: 'fire', cannon: 'ball', hero_wizard: 'magic'};
     const ARC = {trebuchet: 4, archer: 1.1, tower: 1, ballista: .35, dragon: .15, cannon: .3};
     const n = {arrow: 0, bolt: 0, rock: 0, fire: 0, ball: 0, magic: 0}, dir = new T.Vector3(), fwd = new T.Vector3(0, 0, 1), one = new T.Vector3(1, 1, 1);
-    const a0 = new T.Vector3(), a1 = new T.Vector3();
+    const a0 = new T.Vector3(), a1 = new T.Vector3(), flameC = new T.Color();
     B.shots.forEach(s => {
       if (s.foe && !R.shotSeen.has(s)) { R.shotSeen.add(s); R.fired.set(s.from, Math.max(R.fired.get(s.from) ?? -9, s.t0)); if (s.k === 'cannon') puff(s.x0 + Math.cos(Math.atan2(s.y1 - s.y0, s.x1 - s.x0)) * 1.1, s.y0 + Math.sin(Math.atan2(s.y1 - s.y0, s.x1 - s.x0)) * 1.1, .7, 0xD8D2C8, .5, now); }
-      const kind = KIND[s.k];
+      const dragon = isDragonKind(s.k), kind = dragon ? 'fire' : KIND[s.k];
       if (!kind) return;
       const M = R.fly[kind];
       if (n[kind] >= M.instanceMatrix.count) return;
-      const u = Math.max(0, Math.min(1, (t - s.t0) / Math.max(.01, s.t1 - s.t0))), arc = ARC[s.k] || .5;
-      const y0 = s.foe ? (s.k === 'tower' ? 2.6 : s.k === 'cannon' ? .68 : 1.1) : (s.k === 'dragon' ? 2.2 : .55), y1 = s.high ? 2.3 : .35;
-      // (a tower's arrow leaves from its archer's bow)
+      const u = Math.max(0, Math.min(1, (t - s.t0) / Math.max(.01, s.t1 - s.t0))), arc = dragon ? ARC.dragon : ARC[s.k] || .5;
+      const y0 = dragon ? 2.2 : s.foe ? (s.k === 'tower' ? 2.6 : s.k === 'cannon' ? .68 : 1.1) : .55, y1 = s.high ? 2.3 : .35;
+      // (a tower's arrow leaves from its archer's bow; a dragon's fire from its mouth, where it was as it struck, when
+      // it's drawn from the model)
       const archer = s.foe && s.k === 'tower' ? archerAt(s.from) : null;
-      if (archer) a0.copy(archer); else a0.set(W(s.x0), y0, W(s.y0));
+      let mouth = dragon ? R.fireAt.get(s) : null;
+      if (dragon && !mouth && drawn.size && (mouth = R.dragons.mouth((s.foe ? 'd:' : 'a:') + s.from, mouthV)) && t >= s.t0) R.fireAt.set(s, mouth = mouth.clone());
+      if (archer) a0.copy(archer); else if (mouth) a0.copy(mouth); else a0.set(W(s.x0), y0, W(s.y0));
       a1.set(W(s.x1), y1, W(s.y1));
+      if (kind === 'fire') {
+        // the flame and its trail, each a little behind the one before (back at the mouth as it leaves: a glow there),
+        // smaller and dimmer down the line, swelling as it goes
+        for (let j = 0; j < FLAME && n.fire < M.instanceMatrix.count; j++) {
+          const uj = Math.max(0, u - j * .075), size = (.95 + .95 * uj) * (1 - j * .16);
+          pv.lerpVectors(a0, a1, uj); pv.y += arc * 4 * uj * (1 - uj);
+          m4.compose(pv, camQ, ssc.set(size, size, size));
+          M.setMatrixAt(n.fire, m4);
+          M.setColorAt(n.fire++, flameC.setScalar(1 - j * .2));
+        }
+        return;
+      }
       dir.subVectors(a1, a0); dir.y += arc * 4 * (1 - 2 * u); dir.normalize();
       q.setFromUnitVectors(fwd, dir);
       pv.lerpVectors(a0, a1, u); pv.y += arc * 4 * u * (1 - u);
-      m4.compose(pv, q, kind === 'fire' ? new T.Vector3(1 + u, 1 + u, 1 + u) : one);
+      m4.compose(pv, q, one);
       M.setMatrixAt(n[kind]++, m4);
     });
-    Object.entries(R.fly).forEach(([k, M]) => { M.count = n[k]; M.instanceMatrix.needsUpdate = true; });
+    Object.entries(R.fly).forEach(([k, M]) => { M.count = n[k]; M.instanceMatrix.needsUpdate = true; if (M.instanceColor) M.instanceColor.needsUpdate = true; });
     // Painted weapons recoil on actual shots; procedural fallbacks retain aiming and tipping.
     B.bl.forEach(b => {
       if (!b.def) return;
@@ -1210,8 +1284,8 @@ export function create(host, opts = {}) {
       const e = B.fx[R.fxAt];
       if (e.k === 'boom') { for (let j = 0; j < (e.wall ? 1 : 4); j++) puff(e.x + (j % 2 - .5) * .8, e.y + (j > 1 ? .4 : -.4), e.wall ? .9 : 2.4, 0xB5AC9E, 1.1, now); }
       else if (e.k === 'land' && e.splash) puff(e.x, e.y, e.splash * 2.2, e.of === 'cauldron' ? 0xE0641E : 0xC9BCA4, .6, now);
-      else if (e.k === 'hit' && e.of === 'dragon') puff(e.x, e.y, 1.8, 0xFF7A1E, .5, now);
-      else if (e.k === 'down') puff(e.x, e.y, .9, 0xDDDDDD, .6, now);
+      else if (e.k === 'hit' && isDragonKind(e.of)) puff(e.x, e.y, 1.8, 0xFF7A1E, .5, now);
+      else if (e.k === 'down' && !R.dragons.falling(e.id)) puff(e.x, e.y, .9, 0xDDDDDD, .6, now);
     }
     R.puffs.forEach(p => {
       if (!p.sp.visible) return;
@@ -1240,6 +1314,7 @@ export function create(host, opts = {}) {
     if (!raid) return;
     groups.forEach(e => SPR.animateDefense(e.g, e.b.t, Infinity));
     raid.heroes.dispose();
+    raid.dragons.dispose();
     Object.values(raid.meshes).forEach(M => {
       if (M.art) { scene.remove(M.art); M.art.geometry.dispose(); M.art.material.dispose(); M.art.dispose(); return; }
       scene.remove(M.body, M.leg); M.body.dispose(); M.leg.dispose();
@@ -1314,7 +1389,7 @@ export function create(host, opts = {}) {
     clampView(); placeCam(); want();
   }
   resize(); placeCam(); want();
-  return {
+  return canvas.__keep3d = {
     setLot, select, setGhost, showGrid, showReach, pick, pickAll, tileAt, project, want, setAnim, look, frame: fit, frameVillage, frameWorld, zoomBy, resize,
     raidStart, raidRestart, raidFrame, raidStop, showZone,
     get zoom() { return view.dist; },
@@ -1324,12 +1399,16 @@ export function create(host, opts = {}) {
     setTheme(k) { theme = k || 'coast'; wantScenery(Wd, Hd); if (scene0) { zTop = mostOut(); clampView(); } want(); },
     get theme() { return theme; },
     canvas,
+    /** The dragons drawn here (for the checks' and tests' hands): {home, battle} (realm-dragon.js), and the scene. */
+    get dragons() { return {home: homeDragon, battle: raid && raid.dragons, scene, camera: cam, renderer}; },
     dispose() {
       dead = true;
       clearReveal();
       dropScenery();
       clearInterval(folkTimer);
       if (homeNPCs) homeNPCs.dispose();
+      if (homeDragon) homeDragon.dispose();
+      offDragon();
       groups.forEach(e => { dropFolk(e); SPR.release(e.g); });
       wallView.dispose();
       if (raf) cancelAnimationFrame(raf);

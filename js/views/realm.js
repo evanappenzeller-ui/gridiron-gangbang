@@ -18,6 +18,7 @@ import * as F from '../core/realm.js';
 import {defend, exampleRaidsAsync, ensureExamplesAsync, examplesBusy} from '../core/realm-battle.js';
 import {heroCards, residentsNote} from './realm-heroes.js';
 import {LORE_VERSION, introHTML, mountIntro} from './realm-lore.js';
+import {CREDIT as DRAGON_CREDIT} from './realm-dragon.js';
 
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const nf = n => Math.round(Number(n) || 0).toLocaleString('en-US');
@@ -1010,7 +1011,13 @@ const welcomeHTML = () => `<p class="rl-sh-lead">Raise your house, fill your tre
   + `<div class="rl-row"><span><b>The Chronicle</b> keeps every raid, yours and theirs: tap Watch to see one of the latest again.</span></div>`
   + `<div class="rl-row"><span><b>Your people</b>: guards patrol the village. A dragon keeper arrives when the Dragon Hatchery unlocks at Castle level 6.</span></div>`
   + `<div class="rl-row"><span><b>Defend</b>: once your Castle is level ${F.DEFEND_AT}, those realms raid you too, now and then. Cannons, ballistas, archer towers, trebuchets, pitch cauldrons and walls keep them out.</span></div>`
-  + `</div><p class="rl-sh-note">Drag to look around, pinch to zoom. Tap a building for what it does; tap your house’s name to rename it.</p>`;
+  + `</div><p class="rl-sh-note">Drag to look around, pinch to zoom. Tap a building for what it does; tap your house’s name to rename it.</p>`
+  + dragonCreditHTML();
+// The dragon model's credit (its licence asks for one: views/realm-dragon.js), as Return Man credits its players'.
+function dragonCreditHTML() {
+  const C = DRAGON_CREDIT, a = (href, text) => `<a href="${href}" target="_blank" rel="noopener">${esc(text)}</a>`;
+  return `<p class="rl-sh-note rl-credit">Dragon: ${a(C.url, C.title)} by ${a(C.authorUrl, C.author)}, ${a(C.licenseUrl, C.license)}, adapted</p>`;
+}
 const LORE_SEEN_KEY = 'gg-keepfall-lore-seen';
 const loreActive = st => !st.dead && st.ctx.visible && F.mayPlay();
 const loreUnseen = st => !st.loreSeen && ui.lsGet(LORE_SEEN_KEY) !== LORE_VERSION;

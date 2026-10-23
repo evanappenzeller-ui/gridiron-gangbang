@@ -1,0 +1,53 @@
+keep-dragon.glb: Keepfall's dragon (owner-only art, Evan's profile only; keep it out of sw.js precache)
+
+Credit (CC-BY-4.0, show wherever the dragon is credited):
+This work is based on "Mountain Dragon" (https://sketchfab.com/3d-models/mountain-dragon-0a0665396f634b0e9d0872720087f52c) by Alexey Zaika (https://sketchfab.com/lexazaixa25) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+Changes from the original: reduced to five clips cut from the single 96.77 s "Take 001" reel (two of them derived, see below),
+re-scaled and re-oriented, the two duplicate-vertex meshes merged into one primitive, textures shrunk to 1024 px JPEG,
+and the KHR_materials_clearcoat layer dropped.
+
+Model (2.22 MB GLB, three.js GLTFLoader, no extensions):
+- 1 skinned mesh "DragonMesh" (12,058 vertices, 20,460 triangles), 96 joints, 1 material (MeshStandardMaterial, double-sided):
+  baseColor, normal, occlusion+roughness+metallic packed in one texture (R/G/B), and emissive (glowing eyes and mouth), each 1024 px.
+- Units: 1 unit = nose to tail of the outstretched glide pose (source 23.0 s spans z -0.5..+0.5). Wingspan about 1.48.
+  The dragon faces +Z with +Y up, so its left wing is +X. y = 0 is the ground under its feet in the standing idle.
+  x = 0 is its centre line. The scene root is "KeepDragon".
+- Joint names have been cleaned up: COG (hips/root motion), Pelvis, Spine, Spine1, Neck..Neck3, Head, WingL_/WingR_*, L_/R_ legs,
+  Tail..Tail10. Use Head as the origin for fire.
+- Original bounds: mesh POSITION x -946.75..946.75, y -1018.70..548.76, z -869.07..65.26 (source units, vertical bind pose).
+  Sketchfab scene about 2185 x 1112 x 2072. Animated glide pose: 1544.43 long, wingspan 2285. The source faced yaw 16.8 deg,
+  and its ground was at y = -319.89. Scale is 1/1544.43 = 0.00064749.
+
+Clips (all sampled at the reel's own 30 fps, with redundant keys dropped; only rotations plus COG/Spine1 translation are animated):
+  fly     0.800 s  loop  Derived: the hover loop (29.167-29.967 s) with the COG pitched 30 deg nose-down and the neck lifted
+                         14 deg, so the body is near-level, wings flap and legs and tail trail behind. The reel has no
+                         forward-flapping cycle, only a glide pose and the upright hover. Seamless.
+  hover   0.800 s  loop  29.167-29.967 s (frames 875-899), the upright flapping hover. The last 0.2 s are cross-blended with
+                         28.967-29.167 s so the wrap is seamless in pose and speed. COG bobs between y 0.13 and 0.22.
+  attack  0.833 s  once  32.000-32.833 s (frames 960-985), an aerial strike from the hover. It rears with the head high
+                         (0-0.5 s), lunges the head forward and down (0.53-0.75 s; fire or bite at about 0.6-0.7 s), then
+                         returns to the hover base pose. It starts abruptly, so cross-fade into it over about 0.15 s.
+  hit     0.800 s  once  Derived: the recoil that opens the in-air death (41.000-41.350 s), then eased back by 0.8 s to the
+                         hover base pose (32.000 s). The reel has no in-air hit or flinch, so drop this clip if it reads wrong.
+  death   3.600 s  once  41.000-44.600 s (frames 1230-1338), shot down. Recoil (0-0.6 s), tip over head-first (0.6-1.3 s),
+                         hang head-down with wings folded IN PLACE (1.3-3.0 s, COG y about 0.48). The impact at 3.0-3.2 s
+                         drops the COG to about 0.08, and it lies on the ground until 3.6 s. Play it with clampWhenFinished,
+                         and move the dragon down during 1.3-3.0 s so it lands at the impact.
+Clip bounds (x / y / z), for culling and sizing. They include the dangling legs and tail, which go below y = 0 in the air:
+  fly    -0.70..0.69 / -0.18..0.75 / -0.44..0.63      hover  -0.70..0.69 / -0.35..0.90 / -0.30..0.52
+  attack -0.57..0.59 / -0.40..0.89 / -0.28..0.50      hit    -0.53..0.54 / -0.35..1.12 / -0.28..0.50
+  death  -0.69..0.70 / -0.35..1.15 / -0.46..0.69
+Skinned bounding spheres are computed from the first pose. Set frustumCulled = false or give the mesh a generous sphere.
+For several dragons, use SkeletonUtils.clone(gltf.scene) with one AnimationMixer each (tested).
+
+Reel map ("Take 001", source seconds; ground segments named by eye):
+  0.0-0.3 blend-in | 0.3-2.4 idle | 2.4-5.0 idle, looking around | 5.0-7.3 head-low breath or stalk then lunge forward |
+  7.4-9.3 two short idle fidgets | 9.7-12.0 turn right and left | 12.0-13.4 fidget |
+  13.4-16.6 crouch, head low and forward, held (ground fire breath?) | 17.0-18.3 rear | 18.7-20.3 lunge or charge forward |
+  20.4-22.1 take-off into glide | 22.1-24.5 glide (static) | 24.5-26.0 glide to hover |
+  26.0-26.8, 27.17-27.97 single hover cycles | 28.33-31.53 hover loop (0.8 s period) | 32.00-32.83 aerial attack |
+  32.83-34.3 hover to glide | 34.4-36.4 land from glide | 36.8-38.9 land from hover |
+  39.0-40.7 leap from the ground, rise, tip into a dive | 41.0-44.6 in-air death (fall, crash, lie) |
+  44.8-45.0 snap to idle | 45-47.7 ground fidgets | 47.7-50.1 ground death (rear, collapse) |
+  50.2-67.8 repeated ground bite and claw attacks (about 2 s each) | 68.3-71.6 turn in place | 71.6-76.8 long idle |
+  76.8-79.3 roar | 79.6-88 shuffles and steps | 88-92.4 fast turns and jumps | 92.4-96.77 ground fidgets.

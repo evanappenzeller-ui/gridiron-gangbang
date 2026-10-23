@@ -2,6 +2,7 @@
 // shared home/battle poses, and home routes built only when the layout changes.
 import * as data from '../core/data.js';
 import {KINDS, N, keepOf, heroLevel} from '../core/realm.js';
+import {isDragonKind} from './realm-dragon.js';
 
 const reduced = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const W = x => x - N / 2;
@@ -257,7 +258,8 @@ export function createBattleHeroes(T, scene, {house} = {}) {
       if (disposed || !data.isOwner()) { clear(); return; }
       const seen = new Set(), still = reduced();
       for (const u of units) {
-        if (!u.hero || u.dead) continue;
+        // (a Dragon Hero is drawn as the dragon, with the hero's marks: views/realm-dragon.js)
+        if (!u.hero || u.dead || isDragonKind(u.t)) continue;
         const defending = !!u.targetHero, key = `${defending ? 'd' : 'a'}:${u.id}`; seen.add(key);
         let model = models.get(key);
         if (!model) { model = createNPC(T, u.hero, {level: u.level || u.l || 1, house, defending}); if (!model) continue; models.set(key, model); scene.add(model.root); }
