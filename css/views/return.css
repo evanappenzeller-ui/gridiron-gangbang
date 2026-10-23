@@ -4,7 +4,7 @@
    laid over it; the scoreboard below on the theme's surfaces. */
 
 /* The version mark views/return.js checks (CSS_V): bump both when the pane needs rules an older file lacks. */
-:root { --rm-css: 6; }
+:root { --rm-css: 7; }
 
 .rm-pane {
   --rm-good: #3EF08F; --rm-gold: #FFD23F; --rm-hot: #FF6A2B;
@@ -117,6 +117,9 @@
 /* a pickup's catchphrase (the hard course): bigger, and up a little longer */
 .rm-pane .rm-pop.is-catch { font-size: 42px; padding: 0 16px; }
 .rm-pane .rm-pop.is-catch.is-on { animation-duration: 1.4s; }
+/* The owner's longer pickup jokes stay legible on narrow phones. */
+.rm-pane .rm-pop.is-quippy { max-width: 500px; margin: 0 auto; box-sizing: border-box; font-size: clamp(24px, 5vw, 36px); line-height: 1.08; text-wrap: balance; }
+.rm-pane .rm-pop.is-quippy.is-on { animation-duration: 2.1s; }
 @keyframes rm-pop-still { 0%, 92% { opacity: 1; } 100% { opacity: 0; } }
 @keyframes rm-pop {
   0% { opacity: 0; transform: translateY(14px) scale(.7); }
@@ -197,5 +200,6 @@
 @media (prefers-reduced-motion: reduce) {
   .rm-pane .rm-pop.is-on { animation-duration: .01s; }
   .rm-pane .rm-pop.is-catch.is-on { animation: rm-pop-still 1.4s linear forwards; }
+  .rm-pane .rm-pop.is-quippy.is-on { animation-duration: 2.1s; }
   .rm-pane .rm-got.is-on { animation: none; }
 }

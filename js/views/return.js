@@ -39,7 +39,7 @@ const esc = data.esc;
 const nf = n => data.nf(n);
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 // The version mark css/views/return.css carries (--rm-css): an older cached stylesheet gets the new one linked.
-const CSS_V = '6';
+const CSS_V = '7';
 function ensureCss() {
   try {
     if (getComputedStyle(document.documentElement).getPropertyValue('--rm-css').trim() === CSS_V) return;
@@ -900,6 +900,7 @@ function go(st) {
   st.knocked = new Map(); st.got = new Set(); st.flashAt = 0; st.hitAt = 0; st.chX = null; st.spinAt = 0; st.landAt = 0; st.edgeAt = 0; st.fall = null; st.splash = null; st.lagOut = null; st.dip = 0;
   st.coinGot = new Set(); st.sparks = [];
   ungot(st);
+  clearPickupPop(st);
   st.co = st.run.co;
   W.warm(skyView(st), 0);
   st.mode = 'catch'; st.catchAt = performance.now();
@@ -911,7 +912,7 @@ function go(st) {
 }
 function tackled(st) {
   st.mode = 'tackled'; st.downAt = performance.now();
-  ungot(st);
+  ungot(st); clearPickupPop(st);
   ui.haptic('error');
   st.day = R.record(st.n, st.run.k, st.run.yards, st.run.z, runCoins(st)) || R.dayState(st.n);
   R.autoPost();
@@ -941,9 +942,37 @@ function ungot(st) {
 // screen says, Woooo"): no place names, move calls, hit words or the pickup's card. The haptics, the red edges and the
 // screen reader's words stay.
 const CATCHPHRASE = {salts: 'WOOOO!', pills: 'CAN’T FEEL A THING!', booze: 'HOLD MY BEER!'};
+// A shuffled deck per pickup keeps the owner's jokes fresh across runs in this view.
+const PICKUP_LINES = {
+  salts: ['WOOOO! TERMS APPLY.', 'SECOND WIND. SAME EGO.', 'WARRANTY EXTENDED', 'BACK ON THE PAYROLL', 'DEATH CALL OVERTURNED', 'TOO AWAKE FOR THIS'],
+  pills: ['PAIN CLAIM DENIED', 'HR SAYS YOU’RE FINE', 'COMPLAINTS MUTED', 'SIX SECONDS OF DENIAL', 'CLEARED BY THE INTERN', 'TEAM DOCTOR: LOL'],
+  booze: ['CREATIVE YARD ACCOUNTING', 'DOUBLE YARDS. HALF A PLAN.', 'THE REPLAY LOOKED SOBER', 'STATS UP. STANDARDS DOWN.', 'HOLD MY OTHER BEER!', 'BAD IDEAS. GREAT STATS.']
+};
+function pickupLine(st, kind) {
+  const lines = PICKUP_LINES[kind];
+  if (!lines) return CATCHPHRASE[kind] || 'WOOOO!';
+  const decks = st.pickupLines || (st.pickupLines = {}), deck = decks[kind] || (decks[kind] = {left: [], last: null});
+  if (!deck.left.length) {
+    deck.left = lines.slice();
+    for (let i = deck.left.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [deck.left[i], deck.left[j]] = [deck.left[j], deck.left[i]];
+    }
+    // Do not repeat the last joke when the next shuffled deck starts.
+    const end = deck.left.length - 1;
+    if (end > 0 && deck.left[end] === deck.last) [deck.left[0], deck.left[end]] = [deck.left[end], deck.left[0]];
+  }
+  return deck.last = deck.left.pop();
+}
+function clearPickupPop(st) {
+  const el = st.el.querySelector('[data-rm-pop].is-quippy');
+  if (el) { el.className = 'rm-pop'; el.textContent = ''; }
+}
 function catchphrase(st, kind) {
   ungot(st);
-  pop(st, CATCHPHRASE[kind] || 'WOOOO!', `is-${kind} is-catch`);
+  const owner = data.isOwner(), line = owner ? pickupLine(st, kind) : CATCHPHRASE[kind] || 'WOOOO!';
+  pop(st, line, `is-${kind} is-catch${owner ? ' is-quippy' : ''}`);
+  return owner ? line : '';
 }
 function onEvents(st, evs) {
   const now = performance.now();
@@ -963,8 +992,9 @@ function onEvents(st, evs) {
     else if (e.type === 'slid') { say('SLIDE!'); ui.haptic('light'); }
     else if (e.type === 'pickup') {
       const pw = R.powerOf(e.kind, st.run.co.hard); st.got.add(e.item.i);
-      if (quiet) catchphrase(st, e.kind); else got(st, e.kind);
-      ui.haptic('success'); ui.announce(`${pw.name}: ${pw.is}. ${pw.does}.`);
+      const line = quiet ? catchphrase(st, e.kind) : '';
+      if (!quiet) got(st, e.kind);
+      ui.haptic('success'); ui.announce(`${line ? line + '. ' : ''}${pw.name}: ${pw.is}. ${pw.does}.`);
     }
     else if (e.type === 'landed') st.landAt = now;
     // (a coin: his, on his profile; off it, where they're hidden, it isn't counted)
@@ -1201,6 +1231,7 @@ export function mount(el, ctx) {
   st.unsubIcons = data.subscribe(type => {
     if (type !== 'me' || st.dead || st.iconOwner === data.isOwner()) return;
     st.iconOwner = data.isOwner();
+    clearPickupPop(st); st.pickupLines = null;
     el.querySelectorAll('[data-rm-icon]').forEach(img => { img.src = iconURL(img.dataset.rmIcon); });
     recheckCoins(st);
     // (an end card's coins line is the owner's: off his profile it goes)
