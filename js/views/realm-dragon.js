@@ -4,7 +4,9 @@
 // clips, re-scaled and its textures shrunk, models/keep-dragon.txt), the owner's alone. Every Keepfall dragon is drawn
 // from it once it's in: a dragon in a raid, a replay or an example raid (kind 'dragon', the old troop, or 'hero_dragon',
 // the Dragon Hero: isDragonKind), the dragon resting over his Dragon Hatchery at home (createHomeDragon) and the two that
-// fly round the scenery far out (createSceneryDragons, placed by views/realm-wildlife.js). Till it's in, or if it never
+// fly round the scenery far out (createSceneryDragons, placed by views/realm-wildlife.js). The one over the hatchery is
+// the Dragon Hero (core/realm.js HEROES.dragon): there once he's hatched (a Dragon Hatchery at level 1 or more), bigger
+// with his level (the hatchery's), gone with another profile. Till it's in, or if it never
 // comes (offline, a load that fails), the raid keeps the Dragon's picture and the scenery its silhouettes; at home there's
 // nothing.
 // It loads only on the owner's phone, when a dragon is about to be drawn (a raid with one, a built hatchery, the
@@ -16,7 +18,7 @@
 // ahead of each strike and the fire leaves the mouth as the battle looses it, a flinch when it's hurt, the death when
 // it's killed (it drops from where it was hit, lands as the clip's impact comes, lies a moment, then sinks away).
 import * as data from '../core/data.js';
-import {KINDS, N, TROOPS} from '../core/realm.js';
+import {KINDS, N, TROOPS, heroLevel} from '../core/realm.js';
 import {DT} from '../core/realm-battle.js';
 
 const V = new URL('../vendor/three/', import.meta.url).href;
@@ -28,15 +30,16 @@ export const CREDIT = Object.freeze({title: 'Mountain Dragon', url: 'https://ske
   author: 'Alexey Zaika', authorUrl: 'https://sketchfab.com/lexazaixa25', license: 'CC BY 4.0', licenseUrl: 'https://creativecommons.org/licenses/by/4.0/'});
 /** A battle unit's kind that's drawn as the dragon: the old dragon troop or the Dragon Hero. */
 export const isDragonKind = kind => kind === 'dragon' || kind === 'hero_dragon';
-/** The dragon at home: the level it shows, 0 for none. Now: his best Dragon Hatchery's level (one at level 1 or more
- *  hatches it). The one place that decides it (it can become heroLevel(s, 'dragon')). */
+/** The dragon at home: the Dragon Hero, his level (0: not hatched, none shown). The one place that decides it: the
+ *  hero's own level (core/realm.js heroLevel: his best Dragon Hatchery's, one at level 1 or more hatches him; worked out
+ *  from the buildings, never from a saved roster entry; none for a realm without a roster, the computer's lots). */
 export function homeDragonLevel(s) {
-  return (s && Array.isArray(s.b) ? s.b : []).reduce((l, b) => (b && b.t === 'hatchery' && b.l >= 1 ? Math.max(l, b.l) : l), 0);
+  return s && Array.isArray(s.b) ? heroLevel(s, 'dragon') : 0;
 }
-/** Where it rests: over his best hatchery (else by the Castle), {x, y} its middle in tiles, or null. */
+/** Where it rests: over his best hatchery, {x, y} its middle in tiles, or null (none built). */
 export function homeDragonNest(s) {
   const all = s && Array.isArray(s.b) ? s.b : [];
-  const nest = all.filter(b => b && b.t === 'hatchery' && b.l >= 1).sort((a, b) => b.l - a.l)[0] || all.find(b => b && b.t === 'keep' && b.l >= 1);
+  const nest = all.filter(b => b && b.t === 'hatchery' && b.l >= 1).sort((a, b) => b.l - a.l)[0];
   if (!nest || !KINDS[nest.t]) return null;
   const size = KINDS[nest.t].size;
   return {x: nest.x + size / 2, y: nest.y + size / 2, i: nest.i, t: nest.t};
@@ -481,14 +484,15 @@ export function createBattleDragons(T, scene, opts = {}) {
 }
 
 // ---------------------------------------------------------------------------------------------------- at home
-// The dragon over his hatchery: hovering just above its roof (the hover clip, a lazy wingbeat), looking about, and
-// every forty seconds or so a slow circle out over the village and back. As wide as the hatchery, a little bigger with
-// each of its levels; a soft shadow under it. A flyer over a village of pictures: drawn after them, over them (no
-// picture covers it, not the hatchery's, not a taller neighbour's in front, the Castle's), its own parts in their
-// order; a little nearer the camera than it is (bias: its place and size on the screen kept, as the folk are). Nothing
-// while the model isn't in. With the camera pulled out past grow0 it grows (to half as big again by grow1), as the
-// village's folk keep their size on the screen: at the village's usual framing it's a dragon, not a speck. It's drawn
-// about 30 times a second at most (views/realm-3d.js), not at the screen's every refresh: the quiet village stays quiet.
+// The Dragon Hero over his hatchery: hovering just above its roof (the hover clip, a lazy wingbeat), looking about, and
+// every forty seconds or so a slow circle out over the village and back. As wide as the hatchery, bigger with each of
+// his levels (its levels: 1 the smallest, 10 about a third bigger); a soft shadow under it. A flyer over a village of
+// pictures: drawn after them, over them (no picture covers it, not the hatchery's, not a taller neighbour's in front,
+// the Castle's), its own parts in their order; a little nearer the camera than it is (bias: its place and size on the
+// screen kept, as the folk are). Nothing while the model isn't in. With the camera pulled out past grow0 it grows (to
+// half as big again by grow1), as the village's folk keep their size on the screen: at the village's usual framing
+// it's a dragon, not a speck. It's drawn about 30 times a second at most (views/realm-3d.js), not at the screen's every
+// refresh: the quiet village stays quiet.
 // opts.renderer, opts.camera: readied for it before it first shows.
 const HOME = Object.freeze({scale: 4.2 / SPAN, alt: 3.2, circle: 3.8, every: 40, loop: 11, bias: 3, grow0: 100, grow1: 210, grow: .55, order: 9000});
 export function createHomeDragon(T, scene, opts = {}) {
@@ -519,7 +523,7 @@ export function createHomeDragon(T, scene, opts = {}) {
     pose(A, 0, 0);
     prepareRenderer(opts.renderer, opts.camera, scene, A);
   }
-  /** The village as it stands (its hatcheries). */
+  /** The village as it stands (its Dragon Hero: its hatchery). */
   function setLot(s) {
     if (disposed || !data.isOwner()) { clear(); return; }
     level = homeDragonLevel(s); nest = level ? homeDragonNest(s) : null;
@@ -533,7 +537,7 @@ export function createHomeDragon(T, scene, opts = {}) {
     if (!data.isOwner()) { clear(); return false; }
     if (!nest || !active || placement || zoom > 230 || !dragonReady()) { group.visible = counts.visible = false; return false; }
     if (!A) prepare();
-    const still = reduced(), k0 = HOME.scale * (.9 + .025 * (clamp(level, 1, 10) - 1));
+    const still = reduced(), k0 = HOME.scale * (.9 + .035 * (clamp(level, 1, 10) - 1));
     const k = k0 * (1 + HOME.grow * smooth((zoom - HOME.grow0) / (HOME.grow1 - HOME.grow0)));
     // hovering where it rests, drifting a little; now and then a lazy circle out to one side and back
     const drift = still ? 0 : 1, hx = nest.x + Math.sin(seconds * .31) * .25 * drift, hy = nest.y + Math.cos(seconds * .23) * .2 * drift;

@@ -626,9 +626,12 @@ export async function realmChecks(check) {
     const owner = !!data.isOwner();
     const [D, NPC, view, T] = await Promise.all([import('../views/realm-dragon.js'), import('../views/realm-npcs.js'), import('../views/realm.js'), import('../vendor/three/three.module.min.js')]);
     const kinds = D.isDragonKind('dragon') && D.isDragonKind('hero_dragon') && !['knight', 'hero_knight', 'hero_wizard', 'footman', '', undefined].some(D.isDragonKind);
-    // (at home: a hatchery at level 1 or more, its best; none while the first is still going up)
-    const lot = (...b) => ({b: b.map(([t, l], i) => ({i: i + 1, t, l, x: 4 + i * 5, y: 4, u: 0}))}), two = lot(['keep', 8], ['hatchery', 2], ['hatchery', 5]);
-    const home = D.homeDragonLevel(lot(['keep', 6])) === 0 && D.homeDragonLevel(lot(['keep', 6], ['hatchery', 0])) === 0 && D.homeDragonLevel(two) === 5 && (D.homeDragonNest(two) || {}).i === 3;
+    // (at home: the Dragon Hero, once he's hatched (a hatchery at level 1 or more), at his level (its best): none while
+    // the first is still going up, none a saved roster entry makes, none on a lot with no roster (the computer's))
+    const lot = (...b) => ({hr: {}, b: b.map(([t, l], i) => ({i: i + 1, t, l, x: 4 + i * 5, y: 4, u: 0}))}), two = lot(['keep', 8], ['hatchery', 2], ['hatchery', 5]);
+    const home = D.homeDragonLevel(lot(['keep', 6])) === 0 && D.homeDragonLevel(lot(['keep', 6], ['hatchery', 0])) === 0 && D.homeDragonLevel(two) === 5 && (D.homeDragonNest(two) || {}).i === 3
+      && D.homeDragonLevel(two) === F.heroLevel(two, 'dragon') && D.homeDragonLevel(Object.assign(lot(['keep', 8]), {hr: {dragon: 9}})) === 0
+      && D.homeDragonLevel({b: two.b}) === 0 && !D.homeDragonNest(lot(['keep', 6]));
     // (the offline cache: the model never in it, sw.js sends it to the network; its code is, for the picture offline)
     const sw = await fetch(new URL('../../sw.js', import.meta.url)).then(r => r.text(), () => '');
     const lists = sw.slice(sw.indexOf('const CORE'), sw.indexOf('const TIMEOUT'));
@@ -1107,7 +1110,7 @@ export async function realmChecks(check) {
     return {pass: ok && twice && keptNew, detail: s ? `${kinds}; Castle ${F.keepOf(s)}; stored ${JSON.stringify(s.r)}, coffers taken ${JSON.stringify(s.cl)}, besides ${JSON.stringify(s.xo)}; army ${JSON.stringify(s.ar)}, training ${JSON.stringify(s.q)}; raids kept ${s.rd.map(r => r.vs).join(',')}; the same twice ${twice}; a new realm as it was ${keptNew}` : 'not taken up'};
   });
 
-  check('Keepfall: a building’s card (the owner’s ask, Oct 22 2026, after Clash of Clans’ info screen): every kind’s card has its name and level over a bar of its levels, the red close, a picture of it at its level, its stat tiles (strength for all; the hour’s make and the pile for mines and breweries; capacity and how full for treasuries and cellars; storage and what the next level unlocks for the Castle; damage a second, range and ground or air for defenses; room for war camps; for the hatchery its Dragon Hero’s health and fire at its level, the next level’s gain in green, and “Hatched · Dragon Hero level N” or, going up, “Build it to hatch your Dragon Hero”; the soldiers for barracks; the builder; the walls), the next level’s gain in green while it can go up, Upgrade with its cost beside the Upgrade time box, and Move; going up shows how far along and the time left; at the top, Max level and no Upgrade; not enough says so in red; a level the Castle doesn’t allow yet names the Castle level', async () => {
+  check('Keepfall: a building’s card (the owner’s ask, Oct 22 2026, after Clash of Clans’ info screen): every kind’s card has its name and level over a bar of its levels, the red close, a picture of it at its level, its stat tiles (strength for all; the hour’s make and the pile for mines and breweries; capacity and how full for treasuries and cellars; storage and what the next level unlocks for the Castle; damage a second, range and ground or air for defenses; room for war camps; for the hatchery its Dragon Hero’s health and fire at its level, the next level’s gain in green, and “Dragon Hero · Hatched · Level N” or, going up, “Build it to hatch your Dragon Hero”; the soldiers for barracks; the builder; the walls), the next level’s gain in green while it can go up, Upgrade with its cost beside the Upgrade time box, and Move; going up shows how far along and the time left; at the top, Max level and no Upgrade; not enough says so in red; a level the Castle doesn’t allow yet names the Castle level', async () => {
     const view = await import('../views/realm.js');
     const M = 60e3;
     // (a realm at Castle level keep with the buildings listed, [kind, level, extra], none of it kept anywhere)
@@ -1156,7 +1159,7 @@ export async function realmChecks(check) {
       // (the hatchery: its Dragon Hero, level 1, his health and fire with level 2's gain in green; no dragon room)
       hatchery: nest.text('[data-tile="herohp"]').includes(`Dragon Hero health ${nfm(d1.hp)} Level 2: +${nfm(d2.hp - d1.hp)}`)
         && nest.text('[data-tile="herodps"]').includes(`Fire damage/second ${d1.dps} Level 2: +${d2.dps - d1.dps}/second`)
-        && /Hatched/.test(nest.text('[data-tile="hatched"]')) && /Dragon Hero level 1/.test(nest.text('[data-tile="hatched"]'))
+        && /^Dragon Hero Hatched Level 1$/.test(nest.text('[data-tile="hatched"]'))
         && /Dragon Hero/.test(nest.text('[data-rl-army]')) && !/dragon room|your dragons/i.test(nest.text('[data-rl-part="tiles"]'))
     };
     // a job on: the treasury going up a level, the cannon waiting on the builder, a mine waiting on the Castle
@@ -1298,12 +1301,12 @@ export async function realmChecks(check) {
       && !card(mid).querySelector('.is-gold') && card(mid).querySelector(`[data-rl-hatch="${hb.i}"]`) && /Upgrade the Dragon Hatchery/.test(after);
     const train = !mid.querySelector('[data-rl-train="dragon"]') && !/Wizard/.test(text(mid)) && !/Needs a dragon hatchery/i.test(text(mid));
     // (the hatchery's card, Oct 22 2026's new one: its tiles are his health and fire at its level, the next level's gain,
-    // and "Hatched · Dragon Hero level 3"; its upgrade's line (the objective's, views/realm.js upgradeBenefit) now → next)
+    // and "Dragon Hero · Hatched · Level 3"; its upgrade's line (the objective's, views/realm.js upgradeBenefit) now → next)
     const hq = words(three, 'hatchery\'s card'), hcard = text(hq), tile = k => text(hq.querySelector(`[data-tile="${k}"]`));
     const gainOf = k => text(hq.querySelector(`[data-tile="${k}"] .rl-tile-gain`));
     const hatchCard = [...hq.querySelectorAll('[data-tile]')].map(e => e.dataset.tile).join() === 'hp,herohp,herodps,hatched'
       && tile('herohp').includes(nf(d3.hp)) && gainOf('herohp').includes(`+${nf(d4.hp - d3.hp)}`) && tile('herodps').includes(String(d3.dps)) && gainOf('herodps').includes(`+${d4.dps - d3.dps}/second`)
-      && /Hatched/.test(tile('hatched')) && /Dragon Hero level 3/.test(tile('hatched'))
+      && /Dragon Hero\s*Hatched\s*Level 3/.test(tile('hatched'))
       && view.upgradeBenefit(hb) === `Dragon Hero: ${nf(d3.hp)} → ${nf(d4.hp)} health · ${nf(d3.dps)} → ${nf(d4.dps)} damage/second` && !/dragon room|Room for \d+ dragon|your dragons/i.test(hcard);
     const hi = text(words(withHatch(2, null), 'Keepfall'));
     const help = !/Wizard|dragons from your hatchery|Castle level 6/.test(hi) && hi.includes('Dragon Hatchery (Castle level 4)') && hi.includes('A dragon keeper arrives when the Dragon Hatchery unlocks at Castle level 4');

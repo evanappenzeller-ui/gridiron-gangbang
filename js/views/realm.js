@@ -427,14 +427,14 @@ function tilesOf(s, b, now) {
       note: b.l < 1 ? 'Room once it’s up' : ''});
   } else if (K.role === 'hatch') {
     // (the Dragon Hero's, Oct 22 2026: his level is the hatchery's, core/realm.js HEROES.dragon; his health and his
-    // fire at this level, the next level's in green, and whether he's hatched)
+    // fire at this level, the next level's in green, and whether he's hatched: "Dragon Hero · Hatched · Level N")
     const d = F.heroStat('dragon', lv), dz = F.heroStat('dragon', top), dn = n ? F.heroStat('dragon', lv + 1) : null;
     const hero = (k, ic, label, key, unit = '') => ({k, ic, label, value: nf(d[key]), next,
       gain: dn && dn[key] > d[key] ? `+${nf(dn[key] - d[key])}${unit}` : '', bar: [d[key] / (dz[key] || 1), (dn ? dn[key] : d[key]) / (dz[key] || 1)]});
     tiles.push(hero('herohp', CARD_IC.dragon, 'Dragon Hero health', 'hp'), hero('herodps', CARD_IC.fire, 'Fire damage/second', 'dps', '/second'));
     const level = b.l >= 1 ? Math.max(b.l, F.heroLevel(s, 'dragon')) : 0;
-    tiles.push(level ? {k: 'hatched', ic: CARD_IC.egg, label: 'Your Dragon Hero', value: 'Hatched', word: true, note: `Dragon Hero level ${level} · stronger with every hatchery level`, wide: true}
-      : {k: 'hatched', ic: CARD_IC.egg, label: 'Your Dragon Hero', value: 'In the egg', word: true, note: 'Build it to hatch your Dragon Hero', wide: true});
+    tiles.push(level ? {k: 'hatched', ic: CARD_IC.egg, label: 'Dragon Hero', value: 'Hatched', word: true, note: `Level ${level}`}
+      : {k: 'hatched', ic: CARD_IC.egg, label: 'Dragon Hero', value: 'In the egg', word: true, note: 'Build it to hatch your Dragon Hero'});
   } else if (K.role === 'train') {
     const open = F.TROOP_ORDER.filter(t => F.TROOPS[t].at <= lv), soon = n ? F.TROOP_ORDER.filter(t => F.TROOPS[t].at === lv + 1) : [], all = F.TROOP_ORDER.length;
     tiles.push({k: 'troops', ic: CARD_IC.helm, label: 'Kinds of soldier', value: open.length, unit: `of ${all}`, next,

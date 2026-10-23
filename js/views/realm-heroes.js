@@ -1,5 +1,6 @@
 // Shared hero cards and emblems for the village's Army sheet and raid picker.
 import * as F from '../core/realm.js';
+import {CREDIT as DRAGON_MODEL} from './realm-dragon.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const nf = n => Math.round(n || 0).toLocaleString('en-US');
@@ -53,7 +54,10 @@ function dragonCard(s) {
     + `<p class="rl-hero-desc">A dragon who flies over walls and burns crowds and buildings alike. Only ballistas and archer towers can reach him. He grows stronger with every hatchery level.</p>`
     + statsHTML(stats) + nextLine
     + `<button type="button" class="rl-hero-action" ${attr}><span>${action}</span></button>`
-    + (note ? `<p class="rl-hero-note">${esc(note)}</p>` : '') + '</article>';
+    + (note ? `<p class="rl-hero-note">${esc(note)}</p>` : '')
+    // (his model, drawn in raids and over the hatchery at home: credited as the Knight's is)
+    + `<p class="rl-hero-note">Model: <a href="${DRAGON_MODEL.url}" target="_blank" rel="noopener">${esc(DRAGON_MODEL.title)}</a> by <a href="${DRAGON_MODEL.authorUrl}" target="_blank" rel="noopener">${esc(DRAGON_MODEL.author)}</a> · <a href="${DRAGON_MODEL.licenseUrl}" target="_blank" rel="noopener">${esc(DRAGON_MODEL.license)}</a>, adapted for the game.</p>`
+    + '</article>';
 }
 
 export function heroCards(s) {
