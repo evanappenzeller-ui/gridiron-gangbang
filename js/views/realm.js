@@ -677,7 +677,7 @@ function buildingsSheet(st, ids = null) {
   if (st.place || st.dead || !F.mayPlay()) return;
   const buildings = F.mine().b.filter(b => !ids || ids.includes(b.i));
   const body = '<p class="rl-sh-lead">Choose a building to reveal it, view its details or move it.</p><div class="rl-building-list">'
-    + buildings.map(b => '<button type="button" class="rl-building-row" data-rl-find="' + b.i + '"><span class="rl-building-pic" aria-hidden="true">' + picOf(b.t, MY_HOUSE) + '</span><span><b>' + esc(F.KINDS[b.t].name) + '</b><small>' + (b.l ? 'Level ' + b.l : 'Going up') + ' · Tile ' + (b.x + 1) + ', ' + (b.y + 1) + '</small></span><span aria-hidden="true">›</span></button>').join('') + '</div>';
+    + buildings.map(b => '<button type="button" class="rl-building-row" data-rl-find="' + b.i + '"><span class="rl-building-pic" aria-hidden="true">' + picOf(b.t, MY_HOUSE) + '</span><span><b>' + esc(F.KINDS[b.t].name) + '</b><small>' + (b.l ? 'Level ' + b.l : 'Going up') + '</small></span><span aria-hidden="true">›</span></button>').join('') + '</div>';
   // (closed by choosing one, the focus goes to its card)
   const sh = realmSheet({title: ids ? 'Overlapping buildings' : 'Your buildings', cls: 'sh-rl', detents: ['large'], body,
     returnFocus: () => st.el.querySelector('[data-rl-card]')});
