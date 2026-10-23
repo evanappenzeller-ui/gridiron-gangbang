@@ -10,7 +10,7 @@
 // defend(s, now) plays the computer's raids on your realm since you last looked (a few a day); exampleRaids(s, now)
 // plays three on your realm as it is, for show (the owner's ask, Oct 22 2026), taking nothing.
 import {KINDS, TROOPS, TROOP_ORDER, HEROES, HERO_ORDER, heroLevels, heroStat, mayPlay, stat, N, RAID_S, BOTS, rng, boxOf, keepOf, lootOf, takeRaid, HOUR,
-  snapOf, replayOf, sceneryOf, putExamples, EX_V} from './realm.js';
+  snapOf, replayOf, sceneryOf, putExamples, EX_V, DEFEND_AT} from './realm.js';
 
 export const DT = .1;
 const HIT_EVERY = 1;   // seconds between a soldier's hits
@@ -387,7 +387,8 @@ export const replayRaid = (rec, s) => replayBattle(replayOf(rec, s));
 // ---------------------------------------------------------------------------------------------------- raids on you
 // The computer's realms raid yours (The Keep is the owner's alone, so they're the only ones who can): at most one in
 // each half of the day (12 hours from midnight), at an hour of it that's the same on every phone; none in your
-// realm's first day or before your Castle is level 2, none during a truce (12 hours after one that took a star), and no
+// realm's first day or before your Castle is level DEFEND_AT (3: the owner, Oct 22 2026, was 2; the example raids aren't
+// held to it), none during a truce (12 hours after one that took a star), and no
 // more than the last two while you were away. The raiders are the realm a level below yours, an army a little smaller
 // than yours could be, all coming from one side: knights and dragons first, the rest a moment later.
 export const TRUCE_H = 12, WINDOW_H = 12;
@@ -474,7 +475,7 @@ function recordOf(s, B, at, bot, id, into = s) {
 /** Plays the raids on s that are due (raidsDue) and takes each off it (core/realm.js takeRaid), each on the record with
  *  its replay (rp: realm.js snapOf; the newest RP_KEEP keep theirs). Mutates s; returns the raids played. */
 export function defend(s, now = Date.now()) {
-  if (keepOf(s) < 2) { s.lr = Math.max(s.lr || 0, now); return []; }
+  if (keepOf(s) < DEFEND_AT) { s.lr = Math.max(s.lr || 0, now); return []; }
   const out = [];
   raidsDue(s, now).forEach(at => {
     s.lr = at;

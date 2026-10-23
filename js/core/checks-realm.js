@@ -233,10 +233,72 @@ export async function realmChecks(check) {
     const was = daily.LB.ready;
     try { daily.LB.ready = false; refused = !F.freezePaid(F.fresh(T0), fr); } finally { daily.LB.ready = was; }
     const src = await fetch(new URL('../views/realm.js', import.meta.url)).then(r => r.text()).catch(() => '');
-    // (the docs his own, F.myDocs(), straight in or by way of a const docs: Oct 22 2026, for today's runs too)
-    const view = (src.includes('F.incomeOf(F.myDocs(), MODS, {paid: F.mine().pd})') || /const docs = F\.myDocs\(\);\s+EARNED = F\.incomeOf\(docs, MODS, \{paid: F\.mine\(\)\.pd\}\)/.test(src)) && /const froze = F\.freezePaid\(s, EARNED\.fresh\);\s+if \(got\.gold \|\| got\.grain \|\| froze\) F\.touch\(\);/.test(src);
+    // (the docs his own, F.myDocs(), by way of a const docs: Oct 22 2026, for today's runs too; the realm's own pd, and
+    // its born: count from the start day)
+    const view = /const docs = F\.myDocs\(\), s = F\.mine\(\);\s+EARNED = F\.incomeOf\(docs, MODS, \{paid: s\.pd, from: s\.born\}\)/.test(src) && /const froze = F\.freezePaid\(s, EARNED\.fresh\);\s+if \(got\.gold \|\| got\.grain \|\| froze\) F\.touch\(\);/.test(src);
     const ok = listed && drops && holds && live && kept && into && once && refused && view;
     return {pass: ok, detail: `fresh ${JSON.stringify(fr)} (${listed}); a late post above him: unfrozen ${by(loose, 'puzzles', 'grain')} Ale (${drops}), frozen ${by(held, 'puzzles', 'grain')} (${holds}); today’s still pending ${live}; kept by clean() ${kept}; frozen once ${into}, never changed ${once}; refused without the board ${refused}; the coffers freeze from the realm’s, after the sync ${view}`};
+  });
+
+  // ---- count from the start day (the owner, Oct 22 2026): a realm is paid only for the game days from the day it began
+  check('Keepfall: count from the start day (the owner, Oct 22 2026): a realm is paid only for the game days from the day it began on (its born, in each game’s own numbering: startNumbers), old pay or new: one begun today earns today’s games alone (today’s Kick It and Return Man Gold, today’s places still pending; nothing for yesterday’s place or any day before), one begun yesterday adds yesterday’s, one begun before the season (or none given) the whole season as before; a game whose days aren’t loaded pays nothing till they are; a realm started over for testing is begun that moment, and clean() keeps when it began', () => {
+    const E = econ();
+    if (!E) return {pass: false, detail: 'the league or the puzzles didn’t load'};
+    const {AT_N} = E, G = {sv, dr, kk, rm}, docs = [E.e1, E.e2], opts = from => ({board: E.board, me: data.OWNER, at: AT, from});
+    const b0 = on(4, 8).getTime(), b1 = on(3, 21).getTime();
+    const t0 = F.incomeOf(docs, G, opts(b0)), t1 = F.incomeOf(docs, G, opts(b1));
+    const all = F.incomeOf(docs, G, opts(new Date(2026, 8, 1).getTime())), none = F.incomeOf(docs, G, opts(null));
+    // (begun today: today's Gold alone; today's places pending as ever; nothing to freeze)
+    const todayGold = E.kickNew[AT_N.kick] + E.retNew[AT_N.return];
+    const today = t0.total.gold === todayGold && t0.total.grain === 0 && Object.keys(t0.by).sort().join() === 'kick,return'
+      && JSON.stringify(t0.pending) === JSON.stringify(E.inc.pending) && !!t0.pending.puzzles && !Object.keys(t0.fresh).length
+      && t0.today.kick.gold === E.inc.today.kick.gold && t0.today.return.gold === E.inc.today.return.gold && t0.from === b0 && t0.days < E.inc.days;
+    // (begun yesterday: and yesterday's, its place paid this morning)
+    const yGold = todayGold + (E.kickNew[AT_N.kick - 1] || 0) + (E.retNew[AT_N.return - 1] || 0);
+    const yAle = F.RANKED.reduce((a, g) => a + ((E.inc.today[g] || {}).grain || 0), 0);
+    const yesterday = yAle > 0 && t1.total.gold === yGold && t1.total.grain === yAle && Object.keys(t1.fresh.puzzles || {}).join() === String(AT_N.puzzles - 1);
+    // (begun before the season, or no start given: the season as before)
+    const season = JSON.stringify(all.total) === JSON.stringify(E.inc.total) && JSON.stringify(all.by) === JSON.stringify(E.inc.by)
+      && JSON.stringify(none.total) === JSON.stringify(E.inc.total) && none.from === 0;
+    // (the start's numbers: each game's own day; a game begun after it, its day 1; a game whose days aren't loaded, never)
+    const sn = F.startNumbers(G, b0), early = F.startNumbers(G, new Date(2026, 0, 1).getTime()), bare = F.startNumbers({}, b0);
+    const nums = Object.keys(AT_N).every(g => sn[g] === AT_N[g]) && Object.values(early).every(v => v === 1) && ['17-0', 'drill', 'kick', 'return'].every(g => bare[g] === Infinity);
+    // (started over for testing: a new realm, begun that moment; clean() keeps when)
+    const t = F.testRealm({nm: 'House X', at: T0 - DAY}, T0), kept = F.clean(JSON.parse(JSON.stringify(t)));
+    const reset = t.born === T0 && t.tst === 1 && !!kept && kept.born === T0 && F.fresh(T0).born === T0;
+    const ok = today && yesterday && season && nums && reset;
+    return {pass: ok, detail: `begun today: ${JSON.stringify(t0.total)}, by ${Object.keys(t0.by).join('/')} (${todayGold} Gold today) ${today}; begun yesterday: ${JSON.stringify(t1.total)} (want ${yGold} Gold, ${yAle} Ale) ${yesterday}; before the season or none: ${JSON.stringify(all.total)} / ${JSON.stringify(none.total)}, the season ${JSON.stringify(E.inc.total)} ${season}; start numbers ${JSON.stringify(sn)} ${nums}; started over ${reset}`};
+  });
+
+  check('Keepfall: counting from the start day never takes back what’s been taken: a realm that took more from the coffers than it’s paid now (the whole season, counted before) has nothing waiting, never less; nothing moves, storage and what’s been taken stay as they were (a testing realm too); new pay waits again once it passes what was taken', () => {
+    const s = F.fresh(T0);
+    s.cl = {gold: 90000, grain: 80000}; s.r = {gold: 2200, grain: 2100};
+    const before = JSON.stringify({r: s.r, cl: s.cl}), now = {gold: 7300, grain: 0};
+    const p0 = F.pending(s, now), m0 = F.claim(s, now);
+    const held = p0.gold === 0 && p0.grain === 0 && m0.gold === 0 && m0.grain === 0 && JSON.stringify({r: s.r, cl: s.cl}) === before;
+    const p1 = F.pending(s, {gold: 95000, grain: 79000}), m1 = F.claim(s, {gold: 95000, grain: 79000});
+    const passes = p1.gold === 95000 + 1500 - 90000 && p1.grain === 79000 + 1500 - 80000 && m1.gold === Math.min(p1.gold, F.capOf(s).gold - 2200) && m1.grain === 400;
+    const t = F.testRealm(null, T0);
+    t.cl = {gold: 90000, grain: 80000};
+    const tp = F.pending(t, now), tm = F.claim(t, now);
+    const testing = tp.gold === 0 && tp.grain === 0 && tm.gold === 0 && tm.grain === 0 && t.cl.gold === 90000 && t.cl.grain === 80000;
+    return {pass: held && passes && testing, detail: `taken 90,000/80,000, paid now 7,300/0: waiting ${JSON.stringify(p0)}, moved ${JSON.stringify(m0)}, stored ${JSON.stringify(s.r)} ${held}; paid 95,000/79,000: waiting ${JSON.stringify(p1)}, moved ${JSON.stringify(m1)} ${passes}; a testing realm ${testing}`};
+  });
+
+  check('Keepfall: the coffers and the welcome say it: what the games have paid “Since your realm began” (the day it began), never “This season”; the welcome “from the day it began”; and his phone works the pay out from his realm’s own start, again whenever the realm is one begun another day (taken up from the board, or started over)', async () => {
+    const view = await import('../views/realm.js');
+    const E = econ();
+    if (!E) return {pass: false, detail: 'the league or the puzzles didn’t load'};
+    const s = F.fresh(on(4, 8).getTime()), inc = F.incomeOf([E.e1, E.e2], {sv, dr, kk, rm}, {board: E.board, me: data.OWNER, at: AT, from: s.born});
+    const pages = view._screens(s, AT.getTime(), {earned: inc});
+    const words = w => { const t = document.createElement('template'); t.innerHTML = (pages.find(p => p.where === w) || {}).html || ''; return t.content.textContent.replace(/\s+/g, ' '); };
+    const cof = words('The coffers'), hi = words('Keepfall');
+    const day = new Date(s.born).toLocaleDateString('en-US', {weekday: 'short', month: 'short', day: 'numeric'}).replace(',', '');
+    const said = cof.includes('Since your realm began ' + day) && cof.includes('paid for the games you play from the day it began') && !/this season/i.test(cof + hi)
+      && hi.includes('The daily games pay your realm for every day you play from the day it began.');
+    const src = await fetch(new URL('../views/realm.js', import.meta.url)).then(r => r.text()).catch(() => '');
+    const wired = /EARNED = F\.incomeOf\(docs, MODS, \{paid: s\.pd, from: s\.born\}\)/.test(src) && /if \(EARNED_DAY && \(EARNED_DAY !== F\.dayKey\(now\) \|\| EARNED\.from !== s\.born\)\) earned\(\);/.test(src);
+    return {pass: said && wired, detail: `the coffers and the welcome ${said}; worked out from the realm’s start, again when it’s another ${wired}`};
   });
 
   check('Keepfall: the coffers never go below nothing: pay of each (Gold and Ale apart, or one number for both as before) waits there and moves into storage as there’s room, one currency without the other; pay that falls short of what’s been taken (a day’s place lower than when it paid) leaves nothing waiting, never less, and storage untouched', () => {
@@ -541,11 +603,13 @@ export async function realmChecks(check) {
     return {pass, detail: `${bad.length ? 'wrong: ' + bad.join(', ') : want.join(', ') + ' ok'}; the dragon ${big ? 'bigger, flying' : 'WRONG'}; ${gone.length ? 'missing: ' + gone.join(', ') : 'pictures there'}`};
   });
 
-  check('Keepfall: the computer’s realms raid his realm (at most one each half day, the last two while he was away; none in its first day, before Castle level 2 or during a truce): played the same every time, taken off his stores and glory once, never his coffers', () => {
+  check('Keepfall: the computer’s realms raid his realm (at most one each half day, the last two while he was away; none in its first day, before Castle level 3 (Oct 22 2026, was 2) or during a truce): played the same every time, taken off his stores and glory once, never his coffers', () => {
     const born = T0 - 3 * DAY;
-    const small = F.fresh(born), none = defend(small, T0), skipped = !none.length && small.lr === T0;
+    const small = F.fresh(born), none = defend(small, T0), two = F.fresh(born);
+    two.b.find(b => b.t === 'keep').l = 2;
+    const skipped = !none.length && small.lr === T0 && !defend(two, T0).length && two.lr === T0 && !two.df.length && F.DEFEND_AT === 3;
     const s = F.fresh(born);
-    s.b.find(b => b.t === 'keep').l = 2;
+    s.b.find(b => b.t === 'keep').l = 3;
     s.r = {gold: 4000, grain: 4000};
     s.tp = 100;
     const before = JSON.parse(JSON.stringify(s)), due = raidsDue(s, T0), coffers = JSON.stringify(F.pending(s, 5000));
@@ -559,12 +623,12 @@ export async function realmChecks(check) {
     const ok1 = due.length >= 1 && due.length <= 2 && done.length >= 1 && done.length <= due.length && done.every(r => due.includes(r.at) && r.by && Array.isArray(r.lt))
       && !again.length && s.lr === due[due.length - 1] && s.df.length === done.length && JSON.stringify(F.pending(s, 5000)) === coffers && same && stores && glory && truced;
     const young = F.fresh(T0 - 12 * F.HOUR);
-    young.b.find(b => b.t === 'keep').l = 2;
+    young.b.find(b => b.t === 'keep').l = 3;
     const firstDay = raidsDue(young, T0).length === 0;
     const calm = F.clean(before);
     calm.sh = T0 + F.HOUR;
     const inTruce = !defend(calm, T0).length && calm.lr === due[due.length - 1];
-    return {pass: ok1 && skipped && firstDay && inTruce, detail: `Castle 1: none ${skipped}; due ${due.length}, played ${done.length} (${done.map(r => `${r.by} ${r.st}★ ${r.pc}% took ${r.lt.join('/')}`).join('; ')}), again ${again.length}; the same twice ${same}; stores ${JSON.stringify(s.r)} ok ${stores}; glory ${s.tp} ok ${glory}; truce ${truced}; coffers untouched ${JSON.stringify(F.pending(s, 5000)) === coffers}; first day none ${firstDay}; in a truce none ${inTruce}`};
+    return {pass: ok1 && skipped && firstDay && inTruce, detail: `Castle 1 and 2: none ${skipped}; due ${due.length}, played ${done.length} (${done.map(r => `${r.by} ${r.st}★ ${r.pc}% took ${r.lt.join('/')}`).join('; ')}), again ${again.length}; the same twice ${same}; stores ${JSON.stringify(s.r)} ok ${stores}; glory ${s.tp} ok ${glory}; truce ${truced}; coffers untouched ${JSON.stringify(F.pending(s, 5000)) === coffers}; first day none ${firstDay}; in a truce none ${inTruce}`};
   });
 
   // ---- the batch of Oct 22 2026: competitive pay, Castle 4 unlocks, raid replays and example raids
@@ -583,7 +647,7 @@ export async function realmChecks(check) {
     return {pass: kick && ret && ale && shares && loot, detail: `Kick It ${[0, 4, 5, 10, 25, 40].map(m => `${m}: ${F.kickGold(m)}`).join(', ')}${kickTable.length ? ' (wrong at ' + kickTable.join(',') + ')' : ''} ${kick}; Return Man ${coins.map(c => `${c}: ${F.returnGold(c)}`).join(', ')} ${ret}; Ale ${F.ALE_BY_PLACE.join('/')} ${ale}; shares ${F.STORE_SHARE}/${F.MADE_SHARE}, hold ${F.KINDS.mine.hold}h ${shares}; a raid’s take on 10,000/8,000 stored and 200/200 piled: ${JSON.stringify(L.total)} ${loot}`};
   });
 
-  check('Keepfall: Castle 4 unlocks (the owner, Oct 22 2026): attacking and scouting the computer’s realms open at Castle level 4 (before then “Raids open at Castle level 4”), and then only realms up to a level above his Castle (the rest “Castle level N”: scouting them is fine); the Knight Hero is recruited from Castle 4 like the Wizard (one recruited before keeps his level); the computer still raids him from Castle 2', () => {
+  check('Keepfall: Castle 4 unlocks (the owner, Oct 22 2026): attacking and scouting the computer’s realms open at Castle level 4 (before then “Raids open at Castle level 4”), and then only realms up to a level above his Castle (the rest “Castle level N”: scouting them is fine); the Knight Hero is recruited from Castle 4 like the Wizard (one recruited before keeps his level); the computer raids him from Castle 3 (Oct 22 2026, was 2)', () => {
     const at = l => { const s = F.fresh(T0 - 3 * DAY); s.b.find(b => b.t === 'keep').l = l; s.r = {gold: 99999, grain: 99999}; return s; };
     const open = [1, 2, 3, 4, 5, 6, 7, 8].map(l => F.attackOpen(at(l))).join() === 'false,false,false,true,true,true,true,true' && F.ATTACK_AT === 4;
     const reach = l => F.BOTS.filter(b => F.canTarget(at(l), b)).map(b => b.th).join('');
@@ -598,8 +662,24 @@ export async function realmChecks(check) {
       && (owner ? k3.why === 'Needs Castle level 4' && w3.why === 'Needs Castle level 4' && k4.ok : !k3.ok && !k4.ok && /Evan/.test(k4.why));
     const had = Object.assign(at(2), {hr: {knight: 2}}), kept = F.clean(JSON.parse(JSON.stringify(had)));
     const stays = !!kept && kept.hr.knight === 2 && F.heroLevel(kept, 'knight') === 2 && (owner ? F.heroLevels(kept).knight === 2 : true);
-    const raided = defend(at(2), T0).length >= 1 && !defend(at(1), T0).length;
-    return {pass: open && targets && words && realms && heroes && stays && raided, detail: `open from Castle 4 ${open}; in reach at Castle 3/4/5/7: ${reach(3) || 'none'}/${reach(4)}/${reach(5)}/${reach(7)} ${targets}; why ${JSON.stringify(whys)} ${words}; realmOf refuses ${realms}; heroes at ${F.HEROES.knight.at}/${F.HEROES.wizard.at}, the Knight Hero at Castle 3: ${k3.why}, at 4: ${k4.ok || k4.why} ${heroes}; one recruited at Castle 2 stays ${stays}; raided from Castle 2 ${raided}`};
+    const raided = defend(at(3), T0).length >= 1 && !defend(at(2), T0).length && !defend(at(1), T0).length;
+    return {pass: open && targets && words && realms && heroes && stays && raided, detail: `open from Castle 4 ${open}; in reach at Castle 3/4/5/7: ${reach(3) || 'none'}/${reach(4)}/${reach(5)}/${reach(7)} ${targets}; why ${JSON.stringify(whys)} ${words}; realmOf refuses ${realms}; heroes at ${F.HEROES.knight.at}/${F.HEROES.wizard.at}, the Knight Hero at Castle 3: ${k3.why}, at 4: ${k4.ok || k4.why} ${heroes}; one recruited at Castle 2 stays ${stays}; raided from Castle 3, not 2 ${raided}`};
+  });
+
+  check('Keepfall: raids on him start at Castle 3 (the owner, Oct 22 2026, was 2; DEFEND_AT): the screens say so (the Chronicle of a smaller realm “Once your Castle is level 3”, Attack’s lock “start at Castle level 3”, the welcome “once your Castle is level 3”), never level 2; the example raids aren’t held to it (a Castle 2 realm still gets its three to watch, on his phone)', async () => {
+    const view = await import('../views/realm.js');
+    const at = l => { const s = F.fresh(T0 - 3 * DAY); s.b.find(b => b.t === 'keep').l = l; return s; };
+    const words = (s, w) => { const t = document.createElement('template'); t.innerHTML = ((view._screens(s, T0) || []).find(p => p.where === w) || {}).html || ''; return t.content.textContent.replace(/\s+/g, ' '); };
+    const log2 = words(at(2), 'The Chronicle'), log3 = words(at(3), 'The Chronicle'), atk = words(at(2), 'Attack'), hi = words(at(2), 'Keepfall');
+    const said = F.DEFEND_AT === 3 && log2.includes('Once your Castle is level 3, the computer’s realms will start raiding you') && log3.includes('No one has raided you yet.')
+      && atk.includes('Their raids on you start at Castle level 3 all the same') && hi.includes('once your Castle is level 3, those realms raid you too')
+      && !/(once your Castle is|start at Castle) level 2\b/i.test(log2 + atk + hi);
+    const src = await fetch(new URL('./realm-battle.js', import.meta.url)).then(r => r.text()).catch(() => '');
+    const gate = /if \(keepOf\(s\) < DEFEND_AT\) \{ s\.lr = Math\.max\(s\.lr \|\| 0, now\); return \[\]; \}/.test(src);
+    // (the examples: on his phone, three on a Castle 2 realm as on any other; nothing on anyone else's)
+    const owner = !!data.isOwner(), two = at(2), ex = exampleRaids(two, T0);
+    const examples = owner ? ex.length >= 1 && (two.ex || []).length === ex.length && !two.df.length : !ex.length;
+    return {pass: said && gate && examples, detail: `the words ${said}; defend’s gate ${gate}; example raids on a Castle 2 realm: ${ex.map(r => `${r.st}★`).join(' ') || 'none'} ${examples}`};
   });
 
   check('Keepfall: the computer’s raids come at an hour that moves from day to day, the same on every phone (Oct 22 2026: they’d come at about 05:26 and 17:26 every day), one in each half of the day', () => {
@@ -661,8 +741,9 @@ export async function realmChecks(check) {
   });
 
   check('Keepfall: raid replays: each of the computer’s raids on his realm is recorded with its replay (his lot then, his defending heroes, the computer’s drops as they went in) and plays again the same: the same stars, % and take; it shows the lot as it was even after he’s moved and upgraded since', () => {
+    // (Castle 3: the computer raids him from there, Oct 22 2026, was 2)
     const owner = !!data.isOwner(), s = F.fresh(T0 - 3 * DAY);
-    s.b.find(b => b.t === 'keep').l = 2;
+    s.b.find(b => b.t === 'keep').l = 3;
     s.hr = {knight: 2};
     s.r = {gold: 4000, grain: 4000};
     [['cannon', 1], ['tower', 1], ['wall', 1], ['wall', 1], ['treasury', 2]].forEach(([t, l]) => { const p = F.spotFor(s, t); if (p) s.b.push({i: s.nb++, t, l, x: p.x, y: p.y, u: 0}); });
@@ -676,7 +757,7 @@ export async function realmChecks(check) {
     // (since: the cannon moved, the Castle up a level; the replay's lot is the record's)
     const cannon = s.b.find(b => b.t === 'cannon'), spot = cannon && F.spotFor(Object.assign({}, s, {b: s.b.filter(b => b !== cannon)}), 'cannon', {x: 4, y: 4});
     if (spot) F.move(s, cannon.i, spot.x, spot.y);
-    s.b.find(b => b.t === 'keep').l = 3;
+    s.b.find(b => b.t === 'keep').l = 4;
     const still = done.every(rec => JSON.stringify(F.decodeReplay(rec.rp, s).base.b.map(b => [b.i, b.t, b.l, b.x, b.y])) === lot);
     // (his lot kept once, in the realm's lots, however many raids were played on it)
     const once = !!s.lots && Object.keys(s.lots).length === 1 && done.every(rec => rec.rp.L === Object.keys(s.lots)[0]);

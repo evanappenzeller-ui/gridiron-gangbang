@@ -100,10 +100,11 @@ export const canWatch = (r, s) => !!(r && r.rp && typeof r.rp === 'object' && F.
 try { data.subscribe(type => { if (type === 'me' && !F.mayPlay()) { EARNED = NO_PAY(); EARNED_DAY = ''; LOG_NEXT = false; } }); } catch (_) {}
 function earned() {
   if (!F.mayPlay()) { EARNED = NO_PAY(); return EARNED.total; }
-  // (the places already paid count as they were paid, frozen in the realm: refresh freezes the new ones)
+  // (the places already paid count as they were paid, frozen in the realm: refresh freezes the new ones; and only the
+  // days from the one the realm began on: count from the start day, Oct 22 2026)
   try {
-    const docs = F.myDocs();
-    EARNED = F.incomeOf(docs, MODS, {paid: F.mine().pd}); EARNED_DAY = F.dayKey();
+    const docs = F.myDocs(), s = F.mine();
+    EARNED = F.incomeOf(docs, MODS, {paid: s.pd, from: s.born}); EARNED_DAY = F.dayKey();
     // (today's makes and coins, read from the runs themselves for the coffers' words: payToday)
     if (!EARNED.runs) EARNED.runs = runsOf(docs, MODS, EARNED.day);
   } catch (e) { console.error(e); }
@@ -395,8 +396,9 @@ function buildingsSheet(st, ids = null) {
 function refresh(st) {
   if (st.dead || !F.mayPlay()) return;
   const s = F.mine(), now = Date.now();
-  // (past midnight a ranked game's day is over: its place pays, and today's games start again)
-  if (EARNED_DAY && EARNED_DAY !== F.dayKey(now)) earned();
+  // (past midnight a ranked game's day is over: its place pays, and today's games start again; and a realm that began
+  // on another day than the pay was worked out for, one taken up from the board or started over, is paid from its own)
+  if (EARNED_DAY && (EARNED_DAY !== F.dayKey(now) || EARNED.from !== s.born)) earned();
   const got = F.claim(s, EARNED.total);
   // (a day's place, once paid, frozen: a late post on its board can't take it back; after sync, so it's on the realm
   // that's kept)
@@ -509,8 +511,8 @@ export function runsOf(docs, mods, day) {
   }
   return out;
 }
-/** The coffers: how the games pay, what's waiting for room, today's pay, what's in store, the season's pay (E:
- *  incomeOf()). */
+/** The coffers: how the games pay, what's waiting for room, today's pay, what's in store, what the games have paid
+ *  since the realm began (E: incomeOf(), from its born: count from the start day, Oct 22 2026). */
 function cofferHTML(s, E) {
   const tot = E.total || {gold: 0, grain: 0}, p = F.pending(s, tot), cap = F.capOf(s), by = E.by || {}, games = Object.keys(F.GAME_NAME);
   const today = games.map(g => {
@@ -519,7 +521,7 @@ function cofferHTML(s, E) {
       + `<span class="rl-row-v">${got.length ? `<em class="rl-pay-got">+</em>${got.map(x => curHTML(x.c, x.n)).join('')}` : ''}</span></div>`;
   }).join('');
   const cells = v => F.CUR.map(c => `<span role="cell">${curHTML(c, (v && v[c]) || 0)}</span>`).join('');
-  const ledger = `<div class="rl-ledger" role="table" aria-label="What the games have paid this season">`
+  const ledger = `<div class="rl-ledger" role="table" aria-label="What the games have paid since your realm began">`
     + `<div class="rl-lg-row is-head" role="row"><span role="columnheader">Game</span>${F.CUR.map(c => `<span role="columnheader">${F.CUR_NAME[c]}</span>`).join('')}</div>`
     + games.map(g => `<div class="rl-lg-row" role="row"><span role="cell">${esc(F.GAME_NAME[g])}</span>${cells(by[g])}</div>`).join('')
     + `<div class="rl-lg-row is-sum" role="row"><span role="cell">All told</span>${cells(tot)}</div></div>`;
@@ -527,12 +529,14 @@ function cofferHTML(s, E) {
   // (while a game's still on the old pay, the lead says when this starts)
   const [py, pm, pdd] = F.NEW_PAY_DATE.split('-').map(Number);
   const from = F.oldPayToday(E) ? `<b>Starting ${esc(new Date(py, pm - 1, pdd).toLocaleDateString('en-US', {weekday: 'short', month: 'short', day: 'numeric'}).replace(',', ''))}.</b> ` : '';
+  // (the day the realm began: its pay counts from then)
+  const began = Number(s.born) > 0 ? ` <span>${esc(new Date(Number(s.born)).toLocaleDateString('en-US', {weekday: 'short', month: 'short', day: 'numeric'}).replace(',', ''))}</span>` : '';
   return `<p class="rl-sh-lead">${from}${payCopyHTML()}</p>`
     + `<div class="rl-sh-big">${curHTML('gold', p.gold)}${curHTML('grain', p.grain)}<small>waiting now, safe from raiders, till your Castle, treasuries and cellars have room</small></div>`
     + `<h3 class="rl-sh-h">Today</h3><div class="rl-rows">${today}</div>`
     + `<h3 class="rl-sh-h">In store</h3><div class="rl-rows">${F.CUR.map(c => `<div class="rl-row"><span>${F.CUR_NAME[c]}</span><span class="rl-row-v">${nf(s.r[c])} of ${nf(cap[c])}</span></div>`).join('')}</div>`
-    + `<h3 class="rl-sh-h">This season</h3>${ledger}`
-    + `<p class="rl-sh-note">A day’s place pays Ale: ${places} (a tie shares the higher place). Kick It: ${nf(F.KICK_BASE)} Gold for the day’s run, and ${nf(F.KICK_GOLD)} more for every ${ordinal(F.KICK_EVERY)} make (the first ${F.KICK_MOST} makes). Return Man: ${nf(F.RETURN_BASE)} Gold for a day you run, and ${F.COIN_GOLD} a coin on your first run (the first ${F.COIN_PAID_MAX} coins). More room: upgrade your treasuries, cellars and Castle.</p>`;
+    + `<h3 class="rl-sh-h">Since your realm began${began}</h3>${ledger}`
+    + `<p class="rl-sh-note">Your realm is paid for the games you play from the day it began. A day’s place pays Ale: ${places} (a tie shares the higher place). Kick It: ${nf(F.KICK_BASE)} Gold for the day’s run, and ${nf(F.KICK_GOLD)} more for every ${ordinal(F.KICK_EVERY)} make (the first ${F.KICK_MOST} makes). Return Man: ${nf(F.RETURN_BASE)} Gold for a day you run, and ${F.COIN_GOLD} a coin on your first run (the first ${F.COIN_PAID_MAX} coins). More room: upgrade your treasuries, cellars and Castle.</p>`;
 }
 const ordinal = n => `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th'}`;
 /** How the games pay, in a line (the coffers' lead and the welcome's): Ale for a place on three boards; Gold for each
@@ -621,7 +625,7 @@ function raidHTML(s, now) {
       + `<small>Your Castle is level ${th}. Raise it to march on the computer’s realms${heroes.length ? `; the ${heroes.join(' and the ')} join you there too` : ''}.</small></span></div>`
       + `<div class="rl-acts"><button type="button" class="rl-act is-go" data-rl-tokeep>Go to your Castle</button></div>`
       + `<h3 class="rl-sh-h">The computer’s realms</h3>${rows(false, 0)}`
-      + `<p class="rl-sh-note">Their raids on you start at Castle level 2 all the same: walls, towers and heroes keep them out.</p>`;
+      + `<p class="rl-sh-note">Their raids on you start at Castle level ${F.DEFEND_AT} all the same: walls, towers and heroes keep them out.</p>`;
   }
   const army = F.roomOf(s.ar) || Object.keys(F.heroArmy(s)).length;
   const march = [...F.TROOP_ORDER.filter(t => s.ar[t]).map(t => `${esc(F.TROOPS[t].name)} ×${s.ar[t]}`), ...F.HERO_ORDER.filter(k => F.heroArmy(s)['hero_' + k]).map(k => `${esc(F.HEROES[k].name)} level ${F.heroLevel(s, k)}`)];
@@ -697,7 +701,7 @@ function logHTML(s, now) {
   const ex = (Array.isArray(s.ex) ? s.ex : []).slice().sort((a, b) => (a.st || 0) - (b.st || 0) || b.at - a.at);
   const won = s.rd.filter(r => r.st > 0).length, held = s.df.filter(r => !r.st).length;
   return `<div class="rl-sh-big"><span class="rl-amt"><i class="rl-crown"></i>${nf(s.tp)}</span><small>glory · ${won} realm${won === 1 ? '' : 's'} sacked · ${held} raid${held === 1 ? '' : 's'} driven off${s.sh > now ? ` · truce for ${dur(s.sh - now)}` : ''}</small></div>`
-    + `<h3 class="rl-sh-h">Raids on your realm</h3>${def.length ? def.map(r => `<div class="rl-log"><span>${starsHTML(r.st || 0)}</span><span class="rl-log-t"><span><b>${esc(r.by)}</b> ${r.st ? `took ${curHTML('gold', (r.lt || [])[0])} ${curHTML('grain', (r.lt || [])[1])}` : 'were driven off'}</span><small>${ago(r.at)} · ${r.pc || 0}% · ${r.td > 0 ? '+' : ''}${r.td || 0} glory</small></span>${watchHTML(r, s, `${r.by}’s raid on your realm`)}</div>`).join('') : `<p class="rl-sh-note">${F.keepOf(s) < 2 ? 'No one bothers with a realm this small yet. Once your Castle is level 2, the computer’s realms will start raiding you, now and then.' : 'No one has raided you yet.'}</p>`}`
+    + `<h3 class="rl-sh-h">Raids on your realm</h3>${def.length ? def.map(r => `<div class="rl-log"><span>${starsHTML(r.st || 0)}</span><span class="rl-log-t"><span><b>${esc(r.by)}</b> ${r.st ? `took ${curHTML('gold', (r.lt || [])[0])} ${curHTML('grain', (r.lt || [])[1])}` : 'were driven off'}</span><small>${ago(r.at)} · ${r.pc || 0}% · ${r.td > 0 ? '+' : ''}${r.td || 0} glory</small></span>${watchHTML(r, s, `${r.by}’s raid on your realm`)}</div>`).join('') : `<p class="rl-sh-note">${F.keepOf(s) < F.DEFEND_AT ? `No one bothers with a realm this small yet. Once your Castle is level ${F.DEFEND_AT}, the computer’s realms will start raiding you, now and then.` : 'No one has raided you yet.'}</p>`}`
     + `<h3 class="rl-sh-h">Your attacks</h3>${off.length ? off.map(r => `<div class="rl-log"><span>${starsHTML(r.st || 0)}</span><span class="rl-log-t"><span><b>${esc(r.nm)}</b> · you took ${curHTML('gold', (r.lt || [])[0])} ${curHTML('grain', (r.lt || [])[1])}</span><small>${ago(r.at)} · ${r.pc || 0}% · +${r.ta || 0} glory</small></span>${watchHTML(r, s, `your attack on ${r.nm}`)}</div>`).join('') : `<p class="rl-sh-note">${F.attackOpen(s) ? 'You haven’t attacked anyone yet.' : `You haven’t attacked anyone yet: raids open at Castle level ${F.ATTACK_AT}.`}</p>`}`
     + `<h3 class="rl-sh-h">Example raids <span>on your base as it stands · nothing taken</span></h3>`
     + (ex.length ? ex.map(r => `<div class="rl-log is-ex"><span>${starsHTML(r.st || 0)}</span><span class="rl-log-t"><span><b>${esc(r.by)}</b> ${r.st === 3 ? 'broke through' : r.st === 2 ? 'took two stars' : r.st ? 'took a star' : 'were driven off'}</span><small>Example · ${r.pc || 0}% · nothing taken</small></span>${watchHTML(r, s, `the example raid by ${r.by}`)}</div>`).join('')
@@ -995,7 +999,7 @@ const heroesAtHTML = () => {
   F.HERO_ORDER.forEach(k => { const H = F.HEROES[k]; (by[H.at] = by[H.at] || []).push(H.name.replace(/ Hero$/, '')); });
   return 'recruit ' + Object.keys(by).sort((a, b) => a - b).map(at => `the ${by[at].join(' and the ')} at Castle level ${at}`).join(' and ');
 };
-const welcomeHTML = () => `<p class="rl-sh-lead">Raise your house, fill your treasuries, sack the realms around you. The daily games pay your realm, and everything you’ve played this season already has. It’s yours alone.</p>`
+const welcomeHTML = () => `<p class="rl-sh-lead">Raise your house, fill your treasuries, sack the realms around you. The daily games pay your realm for every day you play from the day it began. It’s yours alone.</p>`
   + `<div class="rl-rows">`
   + `<div class="rl-row"><span>${payCopyHTML()}</span></div>`
   + `<div class="rl-row"><span><b>Your coffers</b> hold your pay until your Castle, treasuries and cellars have room. Raiders can’t touch them.</span></div>`
@@ -1005,7 +1009,7 @@ const welcomeHTML = () => `<p class="rl-sh-lead">Raise your house, fill your tre
   + `<div class="rl-row"><span><b>Heroes</b>: ${heroesAtHTML()} from Army. Upgrade with Gold, send each once per attack, and let them defend automatically. They return after battle.</span></div>`
   + `<div class="rl-row"><span><b>The Chronicle</b> keeps every raid, yours and theirs: tap Watch to see one of the latest again.</span></div>`
   + `<div class="rl-row"><span><b>Your people</b>: guards patrol the village. A dragon keeper arrives when the Dragon Hatchery unlocks at Castle level 6.</span></div>`
-  + `<div class="rl-row"><span><b>Defend</b>: once your Castle is level 2, those realms raid you too, now and then. Cannons, ballistas, archer towers, trebuchets, pitch cauldrons and walls keep them out.</span></div>`
+  + `<div class="rl-row"><span><b>Defend</b>: once your Castle is level ${F.DEFEND_AT}, those realms raid you too, now and then. Cannons, ballistas, archer towers, trebuchets, pitch cauldrons and walls keep them out.</span></div>`
   + `</div><p class="rl-sh-note">Drag to look around, pinch to zoom. Tap a building for what it does; tap your house’s name to rename it.</p>`;
 const LORE_SEEN_KEY = 'gg-keepfall-lore-seen';
 const loreActive = st => !st.dead && st.ctx.visible && F.mayPlay();

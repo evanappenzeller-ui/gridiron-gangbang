@@ -1,6 +1,7 @@
 // Keepfall (the owner's ask, Oct 2026: a Clash of Clans of his own, in a medieval fantasy, a game case on Daily Games; his
 // alone: data.isOwner()). Your realm is a lot with your Castle at its heart. The daily games pay for it: every result
-// you've posted to the board this season (and every one from here on) comes in as Gold and Ale (from Oct 22 2026: Ale
+// you've posted to the board from the day your realm began (its born; the owner, Oct 22 2026: "count from the start
+// day") comes in as Gold and Ale (from Oct 22 2026: Ale
 // for your place on three boards, Gold from Kick It and Return Man; incomeOf), waiting in your coffers until the
 // treasuries and cellars have room. Gold mines dig Gold and breweries brew Ale while you're
 // away. Your builder raises and upgrades one thing at a time (the owner, Oct 2026), on a clock. Ale trains an army at the barracks; the army raids the
@@ -333,6 +334,16 @@ export function todayNumbers(mods = {}, at = null) {
   Object.keys(MOD).forEach(g => { const M = mods[MOD[g]]; let n = 0; try { n = M && M.todayNumber ? M.todayNumber(at || new Date()) : 0; } catch (_) { n = 0; } out[g] = n || 0; });
   return out;
 }
+// Count from the start day (the owner, Oct 22 2026): a realm is paid for the game days from the day it began on (its
+// born, in each game's own numbering: todayNumbers), never for the results before it, so a new realm doesn't open with
+// the whole season's pay. A testing realm started over (testRealm) is a new realm, born that moment: it counts from
+// the day it started over. What's already been taken from the coffers stays where it went (pending: never below nothing).
+/** Each game's day number on the day a realm began (from: ms, its born), the first day it's paid for (a game that began
+ *  after it: its day 1), or Infinity for a game whose days aren't loaded yet (nothing paid for it till they are). */
+export function startNumbers(mods = {}, from) {
+  const n = todayNumbers(mods, new Date(Number(from) || 0));
+  return Object.fromEntries(Object.entries(n).map(([g, v]) => [g, Number.isInteger(v) && v >= 1 ? v : Infinity]));
+}
 
 /**
  * What a person's games have paid, from their board docs (docs: all of them one person's):
@@ -347,10 +358,11 @@ export function todayNumbers(mods = {}, at = null) {
  * a guest's or another app user's, which the owner's phone shows him but which aren't on the league's boards; his docs
  * are counted on it whether or not it has them), me (whose row is his on the boards: a board key, default this
  * phone's, myKey()), at (the moment: default now), paid (the places already paid, frozen: {game: {n: place}}, a
- * realm's pd; a day there pays that place whatever its board says now). Per game and day the entry that counts is the
- * boards' own (old days: the first finished across his phones, Return Man's best run).
+ * realm's pd; a day there pays that place whatever its board says now), from (when the realm began, ms: its born; only
+ * the game days from that day on are paid, startNumbers; none given: every day). Per game and day the entry that counts
+ * is the boards' own (old days: the first finished across his phones, Return Man's best run).
  */
-export function incomeOf(docs, mods = {}, {board = null, me, at = null, paid = null} = {}) {
+export function incomeOf(docs, mods = {}, {board = null, me, at = null, paid = null, from = null} = {}) {
   docs = (docs || []).filter(p => p && typeof p === 'object');
   // (the league's board: never the guests and app users his phone shows him, so none of them can push his place down)
   const list = (board || daily.LB.raw || []).filter(p => p && daily.boardShows(p, false));
@@ -363,6 +375,9 @@ export function incomeOf(docs, mods = {}, {board = null, me, at = null, paid = n
   const total = zero(), by = {}, today = {}, pending = {}, last = {}, fresh = {};
   let days = 0;
   const tn = todayNumbers(mods, at);
+  // (count from the start day: a day before the realm began pays nothing, old pay or new)
+  const sn = Number(from) > 0 ? startNumbers(mods, from) : null;
+  const counts = (g, n) => !sn || n >= sn[g];
   // (a day of today's is in today's, if it paid nothing: a Kick It run without a 5th make)
   const pay = (g, c, v, isToday) => {
     if (isToday) today[g] = today[g] || zero();
@@ -403,7 +418,7 @@ export function incomeOf(docs, mods = {}, {board = null, me, at = null, paid = n
   let players = null;
   pz.forEach(({e}, k) => {
     const n = Number(k);
-    if (!(n >= 1)) return;
+    if (!(n >= 1) || !counts('puzzles', n)) return;
     if (n < NEW_PAY.puzzles) { old('puzzles', PAY.puzzles(e), n); return; }
     place('puzzles', n, () => daily.boardRows('today', players || (players = daily.onePerMember(list)), n, daily.dayFor(n)), r => isMine(r.id));
   });
@@ -413,7 +428,7 @@ export function incomeOf(docs, mods = {}, {board = null, me, at = null, paid = n
     const keys = new Set();
     docs.forEach(p => Object.keys((p[F] && typeof p[F] === 'object' && p[F]) || {}).forEach(k => keys.add(Number(k))));
     keys.forEach(n => {
-      if (!Number.isInteger(n) || n < 1) return;
+      if (!Number.isInteger(n) || n < 1 || !counts(g, n)) return;
       const entries = [];
       docs.forEach(p => { let e = null; try { e = M.entryOf(p, n); } catch (_) { e = null; } if (e) entries.push({e, p}); });
       if (!entries.length) return;
@@ -434,7 +449,7 @@ export function incomeOf(docs, mods = {}, {board = null, me, at = null, paid = n
       days++;
     });
   });
-  return {total, by, today, pending, last, days, day: tn, fresh};
+  return {total, by, today, pending, last, days, day: tn, fresh, from: sn ? Number(from) : 0};
 }
 /** Freezes the places incomeOf has just paid (its fresh) into a realm (s.pd: {game: {n: place}}), so a day's Ale, once
  *  paid, stays what it was; only from the board as it really is (loaded, and this realm the board's or taken up from
@@ -935,8 +950,9 @@ export function botLoot(bot, base, mine, now = Date.now()) {
 
 // ---- Castle 4 unlocks (the owner, Oct 22 2026: "Level 4 is where the user unlocks raids and other items such as wizard
 // and knight"): attacking and scouting the computer's realms open at Castle level ATTACK_AT, and then only the realms up
-// to a level above your Castle's (canTarget). The computer raiding you still starts at Castle 2 (realm-battle.js defend).
-export const ATTACK_AT = 4;
+// to a level above your Castle's (canTarget). The computer raiding you starts at Castle DEFEND_AT (realm-battle.js defend;
+// the owner, Oct 22 2026: level 3, was 2).
+export const ATTACK_AT = 4, DEFEND_AT = 3;
 const botOf = bot => (typeof bot === 'string' ? BOTS.find(b => b.k === bot) : bot && BOTS.find(b => b.k === bot.k)) || null;
 /** Whether realm s can attack (and scout) at all: its Castle at ATTACK_AT or higher. */
 export const attackOpen = s => !!(s && Array.isArray(s.b)) && keepOf(s) >= ATTACK_AT;
