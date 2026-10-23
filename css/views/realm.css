@@ -315,9 +315,6 @@ html.is-realm-playing #tabbar { visibility: hidden; pointer-events: none; }
 .rl-objective-arrow { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--rl-gilt); font: 400 28px/1 var(--font-text); }
 .rl-home .rl-sel { padding: 10px 12px 12px; max-height: min(45%, 310px); overflow-y: auto; touch-action: pan-y; }
 .rl-home .rl-sel-h b { font-size: 18px; }
-.rl-sel-benefit { margin: 7px 0 0; color: #E5CF98; font: 500 12px/1.35 var(--font-text); }
-.rl-sel-benefit b { color: #F7E5BA; }
-.rl-sel-cost { margin: 5px 0 0; color: #DCD0BB; font: 600 12px/1.3 var(--font-text); }
 .rl-home .rl-tag.is-made { width: 44px; height: 44px; margin: -22px 0 0 -22px; background: transparent; box-shadow: none; border-radius: 50%; animation: none; }
 .rl-collect-disc { width: 30px; height: 34px; display: grid; place-items: center; border-radius: 50% 50% 50% 8px; background: #EFE2BF; box-shadow: inset 0 0 0 1.5px #BA963F, 0 3px 6px #0005; transform: scale(var(--rl-tag-scale, 1)); transform-origin: center bottom; }
 .rl-home .rl-tag.is-made .rl-coin { width: 19px; height: 19px; }
@@ -524,3 +521,229 @@ html.is-realm-playing #tabbar { visibility: hidden; pointer-events: none; }
 .rlp .rlr-end { z-index: 1; background: rgba(10,6,3,.45); }
 .rlp .rlp-dock { z-index: 2; } /* (over the end card's shade: the bar and the buttons still work there) */
 .rlp .rlr-card-note { margin: 0; font: 600 13px/1.35 var(--font-text); color: rgba(247,238,221,.78); text-align: center; }
+/* ---- a building's card (Oct 22 2026, the owner's ask: Clash of Clans' info screen, in Keepfall's dress; views/realm.js
+   cardHTML). Over a shade on the lot, under the HUD's Gold and Ale: a dark oak panel with a gilt rim; the name and level
+   over a slim bar of its levels, the red square close; a big picture on a grass tile; the numbers as parchment tiles (an
+   icon, a label, a big value over a bar, the next level's gain in green); the chunky row at the bottom (Upgrade and its
+   cost, the Upgrade time box, or how far along it is; Collect, Train or Heroes, Move). A phone held upright: the picture
+   on top, the tiles two across, the buttons the full width; a wide screen: side by side. It slides in as the sheets do
+   (ui.animate: a fade only with reduced motion). */
+.rl-home .rl-top { z-index: 3; }
+/* (the shade only dims the lot: a tap or a drag on it reaches the lot under it, as it did before the card: another
+   building's card, empty ground closes it, a pan or a pinch; the lot's buttons stay over it, in reach, and so do a
+   collect's "+60 Ale" and its coins. The card stops short of the buttons' row: .rl-utility, at --rl-hud-t + 57px, 40px
+   high.) */
+.rl-home .rl-sel.is-card { inset: 0; z-index: 2; display: flex; flex-direction: column; justify-content: flex-end; align-items: center;
+  padding: calc(var(--rl-hud-t) + 105px) 10px var(--rl-bottom); max-height: none; overflow: visible; border-radius: 0; background: none;
+  -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none; pointer-events: none; }
+.rl-home .rl-sel.is-card[hidden] { display: none; }
+@media (max-height: 600px) { .rl-home .rl-sel.is-card { padding-top: calc(var(--rl-hud-t) + 99px); } }
+/* (a narrow phone stacks Games over Lore, the buttons' row two high: the card starts under both) */
+@media (max-width: 360px) {
+  .rl-home .rl-sel.is-card { padding-top: calc(var(--rl-hud-t) + 157px); }
+  .rl-home .rl-card-stage { height: clamp(112px, 18cqh, 190px); }
+}
+.rl-home .rl-sel.is-card .rl-card { pointer-events: auto; }
+.rl-home .rl-sel.is-leaving .rl-card { pointer-events: none; }
+.rl-home:has(> .rl-sel.is-card:not([hidden])) .rl-utility, .rl-home:has(> .rl-sel.is-card:not([hidden])) .rl-effects { z-index: 3; }
+.rl-card-scrim { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 62%, rgba(14,9,4,.42), rgba(14,9,4,.74)); }
+.rl-card { position: relative; display: flex; flex-direction: column; width: 100%; max-width: 520px; max-height: 100%; min-height: 0; border-radius: 18px; outline: none;
+  background: linear-gradient(#4B3524, #2D1F14 34%, #22170E); color: #F7EEDD;
+  box-shadow: inset 0 0 0 1.5px #C99A45, inset 0 0 0 4px #24180F, inset 0 0 0 5px rgba(232,190,96,.3), 0 4px 0 #120B06, 0 18px 40px rgba(0,0,0,.55); }
+.rl-card-in { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+
+/* the head: the name and level, the levels' bar, the close */
+/* (the name and its level on one line: sized to the frame, the level never broken off it) */
+.rl-card-h { position: relative; flex: none; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 15px 56px 12px; text-align: center; }
+.rl-card-t { margin: 0; font: 800 clamp(16px, 4.9cqi, 21px)/1.12 var(--rl-face); letter-spacing: .02em; color: #FBEFD5; text-shadow: 0 2px 0 #140D07, 0 0 14px rgba(0,0,0,.45); text-wrap: balance; }
+.rl-card-t.is-long { font-size: clamp(14px, 4.3cqi, 18.5px); } /* (Dragon Hatchery, Pitch Cauldron) */
+.rl-card-t em { font-style: normal; color: #F5C542; white-space: nowrap; }
+/* (the levels' bar: a notch a level, gilt to its level, hatched as far as the Castle lets it go now, "2/10" at its end) */
+.rl-card-lv { display: flex; align-items: center; gap: 8px; width: min(272px, 100%); }
+.rl-card-lv small { flex: none; font: 800 12px/1 var(--font-text); font-variant-numeric: tabular-nums; color: #E8C268; }
+.rl-card-lvbar { position: relative; display: block; flex: 1 1 auto; min-width: 0; height: 10px; border-radius: 5px; overflow: hidden;
+  background: #110B06; box-shadow: inset 0 1px 2px rgba(0,0,0,.85), 0 0 0 1px rgba(232,190,96,.38); }
+.rl-card-lvbar i, .rl-card-lvbar u { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 5px 0 0 5px; }
+.rl-card-lvbar u { background: repeating-linear-gradient(-45deg, rgba(232,194,104,.55) 0 2.5px, rgba(232,194,104,.2) 2.5px 5px); }
+.rl-card-lvbar i { background: linear-gradient(#FFE38A, #E3AA2C 55%, #AD7714); box-shadow: inset 0 1px 0 rgba(255,255,255,.5); }
+.rl-card-lvbar::after { content: ''; position: absolute; inset: 0;
+  background: repeating-linear-gradient(90deg, transparent 0 calc(100% / var(--n, 10) - 2px), #110B06 calc(100% / var(--n, 10) - 2px) calc(100% / var(--n, 10))); }
+.rl-card-x { position: absolute; top: 9px; right: 9px; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 10px; cursor: pointer;
+  color: #FFF6E0; background: linear-gradient(#D8403C, #A9201F 55%, #7E1216);
+  box-shadow: inset 0 1px 0 rgba(255,214,196,.6), inset 0 0 0 2px rgba(255,226,150,.85), 0 3px 0 #470A0D, 0 5px 10px rgba(0,0,0,.35); }
+.rl-card-x svg { width: 22px; height: 22px; filter: drop-shadow(0 1.5px 0 rgba(70,0,0,.65)); }
+.rl-card-x:active { transform: translateY(2px); box-shadow: inset 0 1px 0 rgba(255,214,196,.6), inset 0 0 0 2px rgba(255,226,150,.85), 0 1px 0 #470A0D; }
+
+/* the picture on its grass tile, and the blurb */
+.rl-card-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: 0 12px 2px;
+  overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; scrollbar-width: thin; scrollbar-color: rgba(232,190,96,.4) transparent; }
+.rl-card-side { flex: none; display: flex; flex-direction: column; gap: 8px; }
+.rl-card-stage { position: relative; flex: none; height: clamp(130px, 23cqh, 240px); border-radius: 12px; overflow: hidden;
+  background:
+    radial-gradient(ellipse 46% 26% at 50% 80%, rgba(176,206,112,.42), rgba(176,206,112,0) 70%),
+    repeating-linear-gradient(61.6deg, rgba(255,255,255,0) 0 21px, rgba(255,255,255,.07) 21px 22px),
+    repeating-linear-gradient(-61.6deg, rgba(255,255,255,0) 0 21px, rgba(255,255,255,.07) 21px 22px),
+    radial-gradient(ellipse at 50% 40%, #84AE55, #5F8E3B 48%, #3C6126);
+  box-shadow: inset 0 0 0 1.5px rgba(232,190,96,.6), inset 0 0 0 4px rgba(24,14,6,.32), inset 0 -26px 36px rgba(0,0,0,.2); }
+.rl-card-art { position: absolute; left: 6%; right: 6%; top: 5%; bottom: 7%; display: flex; align-items: flex-end; justify-content: center; }
+.rl-card-art img { display: block; max-width: 100%; max-height: 100%; object-fit: contain; filter: drop-shadow(0 7px 5px rgba(20,30,8,.45)); -webkit-user-drag: none; }
+/* (a wall, the 3D's own small picture: one tile, so small on its grass, and not blown up past its pixels) */
+.rl-card-art.is-small img { max-width: min(100%, 112px); max-height: min(100%, 112px); margin-bottom: 6%; }
+/* (still going up: the picture a little dim till it's built) */
+.rl-card-stage.is-raising .rl-card-art img { filter: saturate(.55) brightness(.86) drop-shadow(0 7px 5px rgba(20,30,8,.45)); }
+.rl-card-art:not(.has-art)::after { content: ''; width: 34%; max-width: 120px; aspect-ratio: 1 / .54; margin-bottom: 4%; border-radius: 50%; background: rgba(30,45,15,.28); }
+.rl-card-badge { position: absolute; top: 9px; left: 9px; display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px 5px 7px; border-radius: 999px;
+  background: rgba(26,18,12,.84); box-shadow: inset 0 0 0 1px var(--rl-line); font: 700 12px/1 var(--font-text); color: #FBE7B0; }
+.rl-card-badge svg { width: 16px; height: 16px; }
+.rl-card-blurb { margin: 0 4px; font: italic 400 13px/1.4 Georgia, "Times New Roman", serif; color: rgba(247,238,221,.74); text-align: center; text-wrap: pretty; }
+
+/* the tiles, on parchment */
+.rl-card-tiles { flex: none; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-content: start; padding: 10px; border-radius: 12px;
+  background: linear-gradient(#F1E4C2, #E2CD9C); box-shadow: inset 0 0 0 1.5px #B8924A, inset 0 2px 7px rgba(90,60,20,.28); }
+/* (the words at the top, the bar at the bottom: tiles side by side line up whatever their words) */
+.rl-tile { position: relative; min-width: 0; display: grid; grid-template-columns: 36px minmax(0, 1fr); grid-template-rows: 1fr; column-gap: 8px; row-gap: 7px; align-items: start;
+  padding: 8px 9px 9px 8px; border-radius: 10px; background: linear-gradient(#FFFAEC, #F5E8C8); color: #3A2A18;
+  box-shadow: inset 0 0 0 1px #CDB07A, 0 2px 0 #BF9F66, 0 3px 6px rgba(80,50,15,.14); }
+.rl-tile.is-wide { grid-column: 1 / -1; }
+.rl-tile-ic { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 9px;
+  background: radial-gradient(circle at 50% 32%, #5C4331, #2B1D13); box-shadow: inset 0 0 0 1px rgba(232,190,96,.6), 0 1px 0 rgba(255,255,255,.65); }
+.rl-tile-ic svg { width: 25px; height: 25px; filter: drop-shadow(0 1px 1px rgba(0,0,0,.4)); }
+.rl-tile-ic .rl-coin { font-size: 22px; }
+.rl-tile-t { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.rl-tile-t > small { font: 700 11px/1.2 var(--font-text); color: #6B5233; }
+.rl-tile-v { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 6px; row-gap: 1px; }
+.rl-tile-v > b { font: 800 19px/1.1 var(--rl-face); font-variant-numeric: tabular-nums lining-nums; letter-spacing: .01em; color: #2A1B0E; overflow-wrap: anywhere; }
+.rl-tile.is-word .rl-tile-v > b { font: 800 15px/1.2 var(--font-text); letter-spacing: 0; } /* (a word in Cinzel's capitals was too wide for a tile) */
+.rl-tile-u { margin-left: -2px; font: 700 12px/1 var(--font-text); color: #6B5233; }
+/* (the next level's gain: always its own line under the value) */
+.rl-tile-gain { flex-basis: 100%; font: 800 12.5px/1.15 var(--font-text); font-style: normal; color: #2E7811; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rl-tile-note { font: 600 11px/1.25 var(--font-text); color: #7A5E3A; text-wrap: balance; }
+.rl-tile-bar { grid-column: 1 / -1; align-self: end; position: relative; height: 7px; border-radius: 4px; overflow: hidden; background: #D6C095; box-shadow: inset 0 1px 2px rgba(70,45,10,.45); }
+.rl-tile-bar i, .rl-tile-bar em { position: absolute; top: 0; bottom: 0; }
+.rl-tile-bar i { left: 0; border-radius: 4px; background: linear-gradient(#F4D068, #BF8A1E); }
+.rl-tile-bar em { background: linear-gradient(#A6DA62, #4C981C); box-shadow: inset 1px 0 0 rgba(255,255,255,.5); }
+.rl-tile-bar.is-fill.is-grain i { background: linear-gradient(#FFC874, #D07516); }
+/* (a level the Castle doesn't allow yet: its gains muted) */
+.rl-card-tiles.is-wait .rl-tile-gain { color: #7F8A6C; }
+.rl-card-tiles.is-wait .rl-tile-bar em { background: linear-gradient(#CBD3B5, #9BA88A); }
+.rl-tile.is-max { background: linear-gradient(#FFF4CF, #F3DE9C); box-shadow: inset 0 0 0 1.5px #C99A2E, 0 2px 0 #B98F3A, 0 3px 8px rgba(160,110,10,.25); }
+.rl-tile.is-max .rl-tile-v > b { color: #8C5E05; }
+.rl-uchips { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 5px; }
+.rl-uchip { padding: 4px 8px; border-radius: 999px; background: #EADBB5; box-shadow: inset 0 0 0 1px #C9AE78; font: 700 12px/1.25 var(--font-text); color: #3A2A18; }
+.rl-uchip.is-new { background: #DCEFC2; box-shadow: inset 0 0 0 1px #79AD45; color: #22540B; }
+.rl-uchip.is-off { color: #6B5638; background: #E6D7B3; box-shadow: inset 0 0 0 1px #D2BC8E; }
+.rl-uchip small { font: 600 11px/1 var(--font-text); }
+
+/* the bottom row */
+/* (a shade along its top: the tiles scroll under it when they don't all fit) */
+.rl-card-foot { position: relative; flex: none; display: flex; flex-direction: column; gap: 9px; padding: 11px 12px 12px;
+  box-shadow: 0 -1px 0 rgba(232,190,96,.22), 0 -14px 14px -12px rgba(0,0,0,.8); border-radius: 0 0 18px 18px; }
+.rl-card-up-row { display: flex; gap: 8px; min-width: 0; }
+.rl-card-up { flex: 1 1 auto; min-width: 0; min-height: 62px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 7px 12px;
+  border: 0; border-radius: 12px; cursor: pointer; text-align: center; }
+.rl-card-up.is-go { color: #2A1B08; background: linear-gradient(#F6D77F, #DFAA3E 50%, #B47F1E);
+  box-shadow: inset 0 1px 0 rgba(255,250,220,.8), inset 0 0 0 1.5px #8A6114, 0 4px 0 #6B4910, 0 7px 12px rgba(0,0,0,.35); }
+.rl-card-up.is-go:active { transform: translateY(2px); box-shadow: inset 0 1px 0 rgba(255,250,220,.8), inset 0 0 0 1.5px #8A6114, 0 2px 0 #6B4910; }
+.rl-card-up-k { display: inline-flex; align-items: center; gap: 6px; font: 800 16px/1 var(--rl-face); letter-spacing: .06em; }
+.rl-card-up-k .ic { width: 15px; height: 15px; stroke-width: 2.4; color: var(--rl-gilt); }
+.rl-card-up-c .rl-amt { font: 800 17px/1 var(--font-text); }
+.rl-card-up small { font: 600 11.5px/1.25 var(--font-text); }
+/* (blocked: short of it, the gold button stays, a little dull, its cost in red, as Clash's; the builder busy, the gold
+   greyed; only waiting on the Castle turns it dark, with its lock) */
+.rl-card-up.is-off { cursor: default; color: rgba(247,238,221,.86); background: linear-gradient(#2E2117, #1D140D);
+  box-shadow: inset 0 0 0 1px rgba(232,190,96,.32), 0 3px 0 #0E0905; }
+.rl-card-up.is-off .rl-card-up-c { opacity: .8; }
+.rl-card-up.is-off small { color: rgba(247,238,221,.74); }
+.rl-card-up.is-short, .rl-card-up.is-busy { color: #2A1B08; background: linear-gradient(#F6D77F, #DFAA3E 50%, #B47F1E);
+  box-shadow: inset 0 1px 0 rgba(255,250,220,.8), inset 0 0 0 1.5px #8A6114, 0 4px 0 #6B4910, 0 7px 12px rgba(0,0,0,.35); }
+.rl-card-up.is-short { filter: saturate(.72); }
+.rl-card-up.is-busy { filter: grayscale(.8) brightness(.94); }
+.rl-card-up.is-short .rl-card-up-c, .rl-card-up.is-busy .rl-card-up-c { opacity: 1; }
+.rl-card-up.is-short .rl-card-up-c .rl-amt { color: #A3150A; text-shadow: 0 1px 0 rgba(255,236,180,.55); }
+.rl-card-up.is-short small { color: #6E1007; font-weight: 700; }
+.rl-card-up.is-busy small { color: rgba(42,27,8,.82); font-weight: 700; }
+.rl-card-time { flex: 0 0 32%; min-width: 0; min-height: 62px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; padding: 6px;
+  border-radius: 12px; background: #150E08; box-shadow: inset 0 0 0 1px rgba(232,190,96,.3), inset 0 2px 7px rgba(0,0,0,.6); text-align: center; }
+.rl-card-time small { font: 600 11px/1.1 var(--font-text); color: rgba(247,238,221,.72); }
+.rl-card-time b { font: 800 19px/1 var(--font-text); font-variant-numeric: tabular-nums; color: #FBEFD5; white-space: nowrap; } /* (not Cinzel: its small capitals made 5m read 5M) */
+.rl-card-prog { flex: 1 1 auto; min-width: 0; min-height: 62px; display: flex; flex-direction: column; justify-content: center; gap: 9px; padding: 8px 12px; border-radius: 12px;
+  background: linear-gradient(#3B2A1D, #2A1D13); box-shadow: inset 0 0 0 1px rgba(232,190,96,.35); }
+.rl-card-prog-k { display: inline-flex; align-items: center; gap: 7px; font: 700 14px/1.15 var(--rl-face); letter-spacing: .02em; color: #FBE7B0; }
+.rl-card-prog-k svg { flex: none; width: 18px; height: 18px; }
+.rl-card-prog-bar { position: relative; height: 10px; border-radius: 5px; overflow: hidden; background: #100A05; box-shadow: inset 0 1px 2px #000, 0 0 0 1px rgba(232,190,96,.3); }
+.rl-card-prog-bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 5px; background: linear-gradient(#BCE27E, #5C9C28); box-shadow: inset 0 1px 0 rgba(255,255,255,.45); }
+.rl-card-acts { display: flex; gap: 8px; }
+.rl-card-btn { flex: 1 1 0; min-width: 0; min-height: 50px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 10px; border: 0; border-radius: 12px;
+  cursor: pointer; color: #F7EEDD; background: var(--rl-wood); font: 700 15px/1 var(--rl-face); letter-spacing: .05em;
+  box-shadow: inset 0 1px 0 rgba(255,230,180,.22), inset 0 0 0 1px rgba(232,190,96,.45), 0 4px 0 #140D07, 0 6px 12px rgba(0,0,0,.3); }
+.rl-card-btn .rl-amt { font: 800 15px/1 var(--font-text); }
+.rl-card-btn.is-collect { background: linear-gradient(#6E8D3B, #44602A); box-shadow: inset 0 1px 0 rgba(230,255,190,.28), inset 0 0 0 1px rgba(232,190,96,.55), 0 4px 0 #1B2810, 0 6px 12px rgba(0,0,0,.3); }
+.rl-card-btn:active { transform: translateY(2px); box-shadow: inset 0 1px 0 rgba(255,230,180,.22), inset 0 0 0 1px rgba(232,190,96,.45), 0 2px 0 #140D07; }
+.rl-card .rl-overlap { width: 100%; min-height: 46px; margin-top: 0; border: 0; font: 700 13px/1.15 var(--font-text); letter-spacing: 0; color: #FBE7B0; }
+/* the bar while a building's moved: the card's frame, its red close and a gold Done */
+.rl-home .rl-sel.is-moving { padding: 0; max-height: none; overflow: visible; border-radius: 18px; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none; }
+.rl-card.is-bar { gap: 10px; max-width: 520px; margin: 0 auto; padding: 11px 11px 13px; }
+.rl-card-bar-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.rl-card-bar-t { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding-left: 5px; }
+.rl-card-bar-t b { font: 800 19px/1.1 var(--rl-face); letter-spacing: .02em; color: #FBEFD5; text-shadow: 0 2px 0 #140D07; }
+.rl-card-bar-t small { font: 600 12.5px/1.2 var(--font-text); color: #E8C268; }
+.rl-card.is-bar .rl-card-x { position: static; flex: none; }
+.rl-card-up.is-done { min-height: 50px; }
+.rl-home .rl-card button:focus-visible { outline: 2px solid #FFE6A4; outline-offset: 2px; }
+/* (by the app's frame, not the window: it's a 480px column on a computer or tablet, and a phone on its side is drawn
+   upright: js/lock.js) */
+@container app (max-width: 599px) {
+  /* (the cards with a list of chips, the Castle's and the Barracks': the blurb dropped and the picture smaller, so the
+     whole of it shows without scrolling on a phone) */
+  .rl-card:has(.rl-uchips) .rl-card-blurb { display: none; }
+  .rl-card:has(.rl-uchips) .rl-card-stage { height: clamp(104px, 16cqh, 168px); }
+}
+/* (a tall phone has the room: the Castle's picture not so much smaller than the others') */
+@container app (max-width: 599px) and (min-height: 800px) {
+  .rl-card:has(.rl-uchips) .rl-card-stage { height: clamp(150px, 19cqh, 190px); }
+}
+@container app (max-height: 819px) {
+  .rl-card-blurb { display: none; }
+  .rl-card-h { padding-top: 12px; padding-bottom: 10px; }
+}
+@container app (max-height: 680px) {
+  .rl-card-h { gap: 6px; padding-top: 10px; padding-bottom: 8px; }
+  .rl-card-x { top: 6px; }
+  .rl-card-foot { padding-top: 9px; padding-bottom: 10px; gap: 8px; }
+  .rl-card-up, .rl-card-time, .rl-card-prog { min-height: 54px; }
+  .rl-card-btn { min-height: 46px; }
+}
+@container app (max-width: 370px) {
+  .rl-card-h { padding-left: 54px; padding-right: 54px; }
+  .rl-card-body { padding: 0 10px 2px; }
+  .rl-card-tiles { padding: 8px; gap: 7px; }
+  .rl-tile { grid-template-columns: 32px minmax(0, 1fr); column-gap: 7px; padding: 7px 8px 8px 7px; }
+  .rl-tile-ic { width: 32px; height: 32px; }
+  .rl-tile-ic svg { width: 22px; height: 22px; }
+  .rl-tile-ic .rl-coin { font-size: 20px; }
+  .rl-tile-t > small { font-size: 10.5px; }
+  .rl-tile-v > b { font-size: 17px; }
+  .rl-tile.is-word .rl-tile-v > b { font-size: 14px; }
+  .rl-card-foot { padding-left: 10px; padding-right: 10px; }
+  .rl-card-up-k, .rl-card-btn { font-size: 14px; }
+  /* (the Castle's and the Barracks' chips a little tighter, their picture a little smaller) */
+  .rl-uchips { gap: 4px; }
+  .rl-uchip { padding: 3px 7px; font-size: 11.5px; }
+  .rl-card:has(.rl-uchips) .rl-card-stage { height: clamp(92px, 14cqh, 150px); }
+}
+/* a wide frame: the picture beside the tiles, the bottom row in one line */
+@container app (min-width: 600px) {
+  .rl-home .rl-sel.is-card { justify-content: center; }
+  .rl-card { max-width: 900px; }
+  .rl-card-t { font-size: 25px; }
+  .rl-card-t.is-long { font-size: 23px; }
+  .rl-card-body { flex-direction: row; align-items: stretch; gap: 12px; padding: 0 14px 2px; }
+  .rl-card-side { flex: 0 0 41%; min-height: 0; }
+  .rl-card-stage { flex: 1 1 auto; height: auto; min-height: 240px; }
+  .rl-card-blurb { display: block; }
+  .rl-card-tiles { flex: 1 1 auto; min-width: 0; }
+  .rl-card-foot { flex-direction: row; align-items: stretch; padding: 12px 14px 14px; }
+  .rl-card-up-row { flex: 1 1 58%; }
+  .rl-card-acts { flex: 1 1 42%; }
+  .rl-card-btn { min-height: 62px; }
+}

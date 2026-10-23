@@ -97,7 +97,7 @@ export function reopenLog() { LOG_NEXT = F.mayPlay(); }
  *  under today's rules (hasReplay). s: the realm it's on (the lots its replay may point at), the owner's by default. */
 export const canWatch = (r, s) => !!(r && r.rp && typeof r.rp === 'object' && F.hasReplay(r, s || undefined));
 // (another profile on this phone, here or in another tab: the owner's pay isn't kept in memory for it)
-try { data.subscribe(type => { if (type === 'me' && !F.mayPlay()) { EARNED = NO_PAY(); EARNED_DAY = ''; LOG_NEXT = false; } }); } catch (_) {}
+try { data.subscribe(type => { if (type === 'me' && !F.mayPlay()) { EARNED = NO_PAY(); EARNED_DAY = ''; LOG_NEXT = false; ART.clear(); } }); } catch (_) {}
 function earned() {
   if (!F.mayPlay()) { EARNED = NO_PAY(); return EARNED.total; }
   // (the places already paid count as they were paid, frozen in the realm: refresh freezes the new ones; and only the
@@ -309,43 +309,315 @@ export function factsOf(b) {
   what.push(`${nf(sv.hp)} strength`);
   return what;
 }
-const selHTML = st => cardHTML(F.mine(), st.sel, Date.now())
-  + (st.overlap?.length > 1 ? '<button type="button" class="rl-overlap" data-rl-overlap>Choose overlapping building (' + st.overlap.length + ')</button>' : '');
-/** Building id's card on realm s. */
-function cardHTML(s, id, now) {
+// A building's card (the owner's ask, Oct 22 2026: "Change the design for the pop up for each building", after Clash of
+// Clans' info screen, in Keepfall's oak, gilt and parchment). Over the lot, the HUD's Gold and Ale still in sight:
+// - its name and level, a slim bar of its levels under them (gilt up to its level, lighter as far as the Castle lets it
+//   go now, dark beyond), and the red square close;
+// - a big picture of it at its level (the base's own art: views/realm-sprites.js) on a grass tile, and its blurb;
+// - its numbers as tiles, each an icon, a label and a big value over a bar of how far along its kind's top level it is,
+//   the next level's gain in green while it can go up (a mine's pile, a treasury's store, the army: how full instead).
+//   Strength for every one; the hour's make and the pile for mines and breweries; capacity and how full for treasuries
+//   and cellars; storage and what the next level unlocks for the Castle; damage a second, range and ground or air for
+//   defenses; room (and the army in it) for war camps and the hatchery; the troops for barracks; the builder for his hut;
+//   how many walls; "Max level" at the top;
+// - the chunky row at the bottom: Upgrade with its cost, or what stops it (red when there isn't enough, the Castle level
+//   it waits for, the builder's job), beside the Upgrade time box; while it's going up, how far along and the time left;
+//   Collect, Train or Heroes, and Move.
+// A phone held upright has the picture on top and the tiles two across; a wide screen, side by side. cardHTML is a pure
+// function of the realm (the checks read every card: _screens); showSel keeps the card's frame (and its picture, drawn
+// once) while its insides are drawn again each second, so it slides in once and holds its place.
+const svg = body => `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">${body}</svg>`;
+const CARD_IC = {
+  hp: svg('<path d="M12 2.2l8.2 3v6.1c0 5.1-3.5 9.2-8.2 10.9-4.7-1.7-8.2-5.8-8.2-10.9V5.2z" fill="#8E1F2B" stroke="#E8C268" stroke-width="1.5" stroke-linejoin="round"/><path d="M12 5l5.4 2v4.3c0 3.5-2.2 6.4-5.4 7.8z" fill="#C2414C"/><path d="M12 5v14.1" stroke="#F3D48A" stroke-width="1.2"/>'),
+  dps: svg('<path d="M12 1.6l2.2 5.4 5.6-2.1-2.6 5.3 5.1 2.8-5.7 1.4 1.5 5.8-4.8-3.4-3.3 5-.6-5.9-5.9.2 4.2-4.1-4.1-4 5.8 1z" fill="#E98A1E" stroke="#6E2E06" stroke-width="1.1" stroke-linejoin="round"/><circle cx="12" cy="12.2" r="3.4" fill="#FFE59A"/>'),
+  range: svg('<circle cx="12" cy="12" r="9.6" fill="#F7EEDD" stroke="#6E2027" stroke-width="1.5"/><circle cx="12" cy="12" r="6.3" fill="#B8323D"/><circle cx="12" cy="12" r="3.3" fill="#F7EEDD"/><circle cx="12" cy="12" r="1.3" fill="#6E2027"/><path d="M12 12l8.5-8.5M17.5 3.5h3v3" fill="none" stroke="#3B2A1D" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>'),
+  air: svg('<path d="M1.8 7.2C6 4 11.5 3 22.2 3.6c-1.6 1.3-2.3 3-2 5-1.8-.5-3.4-.2-4.6.9 1.4.5 2.3 1.6 2.6 3.2-1.8-.6-3.5-.4-5 .7 1 .8 1.5 2 1.4 3.6-1.8-1-3.6-1.2-5.4-.5C8.4 12.6 5.7 9.4 1.8 7.2z" fill="#A9C7D4" stroke="#1E3340" stroke-width="1.3" stroke-linejoin="round"/><path d="M2.5 7.4l19.3-3.5M8.4 8.2l7.2 1.3M9.6 11.3l3.6 1.6" fill="none" stroke="#1E3340" stroke-width="1" stroke-linecap="round"/><path d="M3.5 7.2l-1.6 2.6 2.7-.9" fill="#E8C268" stroke="#1E3340" stroke-width=".9" stroke-linejoin="round"/>'),
+  coinGold: '<i class="rl-coin" aria-hidden="true"></i>',
+  coinGrain: '<i class="rl-coin is-grain" aria-hidden="true"></i>',
+  chest: svg('<rect x="3" y="9.5" width="18" height="10.5" rx="1.6" fill="#8A5A2B" stroke="#3F2611" stroke-width="1.3"/><path d="M3 10.5C3 6.6 6 4.5 12 4.5s9 2.1 9 6z" fill="#A86E36" stroke="#3F2611" stroke-width="1.3"/><path d="M3 11h18" stroke="#E8C268" stroke-width="2"/><rect x="10" y="9.6" width="4" height="5.2" rx="1" fill="#F0C23E" stroke="#6E4C12" stroke-width=".9"/><path d="M7 4.9v15M17 4.9v15" stroke="#3F2611" stroke-width=".9" opacity=".6"/>'),
+  barrel: svg('<path d="M6.5 2.8h11c1.8 3.2 1.8 15.2 0 18.4h-11c-1.8-3.2-1.8-15.2 0-18.4z" fill="#A8692E" stroke="#3F2611" stroke-width="1.3"/><path d="M5.2 8h13.6M5.2 16h13.6" stroke="#3B2A1D" stroke-width="1.9"/><path d="M9.5 3.2v17.6M14.5 3.2v17.6" stroke="#C98A46" stroke-width="1" opacity=".75"/>'),
+  tent: svg('<path d="M12 3.2L2.4 20.5h19.2z" fill="#A82A33" stroke="#4A1015" stroke-width="1.3" stroke-linejoin="round"/><path d="M12 3.2l-3.4 17.3h6.8z" fill="#F0E2BE"/><path d="M12 3.4V.9" stroke="#3B2A1D" stroke-width="1.4"/><path d="M12 .9l4.2 1.4L12 3.6z" fill="#F0C23E"/>'),
+  helm: svg('<path d="M4.5 14.5C4.5 9 7.8 5 12 5s7.5 4 7.5 9.5V20h-5v-5.2h-5V20h-5z" fill="#B8BEC6" stroke="#333B44" stroke-width="1.3" stroke-linejoin="round"/><path d="M12 5v9.8M8.3 11.2h7.4" stroke="#333B44" stroke-width="1.3"/><path d="M12 5c.6-2.2 2.5-3.4 5-3.4-.6 1.8-1.6 3-3.4 3.6" fill="#B8323D" stroke="#5A1018" stroke-width="1"/>'),
+  swords: svg('<path d="M4 3l10.5 10.5M20 3L9.5 13.5" stroke="#D3D8DE" stroke-width="2.6" stroke-linecap="round"/><path d="M4 3l10.5 10.5M20 3L9.5 13.5" stroke="#5A626C" stroke-width="1" stroke-linecap="round"/><path d="M12.6 15.4l3.2-3.2M11.4 15.4l-3.2-3.2" stroke="#8A5A2B" stroke-width="2.4" stroke-linecap="round"/><path d="M15.6 16.5l3.6 3.6M8.4 16.5l-3.6 3.6" stroke="#E8C268" stroke-width="2.6" stroke-linecap="round"/>'),
+  egg: svg('<path d="M12 2.4c4.1 0 7.2 6.6 7.2 11.6a7.2 7.2 0 0 1-14.4 0C4.8 9 7.9 2.4 12 2.4z" fill="#5E8C3E" stroke="#22381A" stroke-width="1.3"/><path d="M7.4 13.2l2.3-1.7 2.3 1.7 2.3-1.7 2.3 1.7" fill="none" stroke="#E8D9A0" stroke-width="1.3" stroke-linejoin="round"/><circle cx="9.6" cy="7.6" r="1.2" fill="#A8CF7A"/><circle cx="14.6" cy="17.6" r="1.4" fill="#3E6A28"/>'),
+  hammer: svg('<path d="M13.4 9.6l-9.1 9.1a1.8 1.8 0 0 0 2.6 2.6l9.1-9.1" fill="#8A5A2B" stroke="#3F2611" stroke-width="1.3" stroke-linejoin="round"/><path d="M10.6 6l4.4-3.4 6.6 6.6-3.4 4.4-2.2-2.2-1.5 1.5-3.7-3.7 1.5-1.5z" fill="#B8BEC6" stroke="#333B44" stroke-width="1.3" stroke-linejoin="round"/>'),
+  bricks: svg('<rect x="2.5" y="5" width="19" height="15" rx="1.2" fill="#A79A86" stroke="#3E362C" stroke-width="1.3"/><path d="M2.5 10h19M2.5 15h19M8.5 5v5M15.5 5v5M5.5 10v5M12 10v5M18.5 10v5M8.5 15v5M15.5 15v5" stroke="#3E362C" stroke-width="1.2"/>'),
+  star: svg('<path d="M12 1.9l3 6.3 6.8.9-5 4.7 1.3 6.8L12 17.3l-6.1 3.3 1.3-6.8-5-4.7 6.8-.9z" fill="#F0C23E" stroke="#6E4C12" stroke-width="1.2" stroke-linejoin="round"/><path d="M12 5.6l1.8 3.8" stroke="#FFF4BF" stroke-width="1.2" stroke-linecap="round"/>'),
+  crown: svg('<path d="M3 8l4.6 4L12 4.5 16.4 12 21 8l-1.8 11H4.8z" fill="#F0C23E" stroke="#6E4C12" stroke-width="1.3" stroke-linejoin="round"/><path d="M4.8 16.2h14.4" stroke="#6E4C12" stroke-width="1.2"/><circle cx="12" cy="13.2" r="1.5" fill="#B8323D"/>'),
+  x: svg('<path d="M6.5 6.5l11 11M17.5 6.5l-11 11" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/>')
+};
+const coinIC = c => (c === 'gold' ? CARD_IC.coinGold : CARD_IC.coinGrain);
+const pct = f => `${(Math.max(0, Math.min(1, Number(f) || 0)) * 100).toFixed(1)}%`;
+/** A stat tile: {k (its data-tile), ic, label, value (HTML; word: a word, not a number), unit, gain (the next level's,
+ *  in green), next (whose gain, read out), note (HTML), bar: [now, with the next level] as parts of the kind's top
+ *  (fill: how full, of gold or grain), chips: [{text, isNew, off, at}] (a list across the tile), wide, cls}. */
+function tileHTML(t) {
+  const [a, z] = t.bar || [0, 0];
+  const bar = t.bar ? `<span class="rl-tile-bar${t.fill ? ` is-fill is-${t.fill}` : ''}" aria-hidden="true"><i style="width:${pct(a)}"></i>`
+    + (z > a ? `<em style="left:${pct(a)};width:${pct(z - a)}"></em>` : '') + `</span>` : '';
+  const chips = t.chips ? `<span class="rl-uchips">${t.chips.map(c => `<span class="rl-uchip${c.isNew ? ' is-new' : c.off ? ' is-off' : ''}">${esc(c.text)}`
+    + (c.at ? `<small> · ${esc(c.at)}</small>` : '') + `</span>`).join('')}</span>` : '';
+  return `<div class="rl-tile${t.wide || t.chips ? ' is-wide' : ''}${t.word ? ' is-word' : ''}${t.cls ? ' ' + t.cls : ''}" data-tile="${t.k}"><span class="rl-tile-ic" aria-hidden="true">${t.ic}</span>`
+    + `<span class="rl-tile-t"><small>${esc(t.label)}</small>`
+    + (t.value != null ? `<span class="rl-tile-v"><b>${t.value}</b>${t.unit ? `<span class="rl-tile-u">${esc(t.unit)}</span>` : ''}`
+      + (t.gain ? `<em class="rl-tile-gain"><span class="sr-only">${esc(t.next)}: </span>${esc(t.gain)}</em>` : '') + `</span>` : '')
+    + (t.note ? `<span class="rl-tile-note">${t.note}</span>` : '') + `</span>${bar}${chips}</div>`;
+}
+/** What the Castle's next level (to) opens: [{text, isNew}], the headline first (a land, raids, heroes, a new kind of
+ *  building), then more of a building, then higher levels. */
+function unlocksOf(to) {
+  const top = [], more = [], lv = to - 1;
+  F.SCENERIES.filter(x => x.at === to && !x.ownerOnly).forEach(x => top.push({text: `The ${data.isOwner() && x.ownerName || x.name}`, isNew: true}));
+  if (to === F.ATTACK_AT) top.push({text: 'Raids on the computer’s realms', isNew: true});
+  F.HERO_ORDER.filter(k => F.HEROES[k].at === to).forEach(k => top.push({text: `The ${F.HEROES[k].name}`, isNew: true}));
+  F.ORDER.forEach(k => {
+    if (k === 'keep' || k === 'hut') return;
+    const was = F.COUNT[k][lv - 1] || 0, n = (F.COUNT[k][to - 1] || 0) - was;
+    if (n > 0) (was ? more : top).push(was ? {text: `+${n} ${F.KINDS[k].name}${n > 1 ? 's' : ''}`} : {text: F.KINDS[k].name, isNew: true});
+  });
+  // (higher levels for the kinds there were already)
+  const had = F.ORDER.filter(k => k !== 'keep' && k !== 'hut' && (F.COUNT[k][lv - 1] || 0) > 0);
+  const higher = had.filter(k => F.topLevel(k, to) > F.topLevel(k, lv)).length;
+  if (higher) more.push({text: higher === had.length ? 'Higher levels for every building' : `Higher levels for ${higher} kind${higher === 1 ? '' : 's'} of building`});
+  return top.concat(more);
+}
+/** Building b's stat tiles on realm s at now. */
+function tilesOf(s, b, now) {
+  const K = F.KINDS[b.t], lv = Math.max(1, b.l), top = F.maxLevel(b.t), a = F.stat(b.t, lv), z = F.stat(b.t, top);
+  // (the next level's numbers, while it can go up: idle, built, not at its top)
+  const n = b.u <= now && b.l >= 1 && lv < top && b.t !== 'hut' ? F.stat(b.t, lv + 1) : null, next = `Level ${lv + 1}`;
+  const scaled = (k, ic, label, key, unit = '') => ({k, ic, label, value: nf(a[key]), next,
+    gain: n && n[key] > a[key] ? `+${nf(n[key] - a[key])}${unit}` : '', bar: [a[key] / (z[key] || 1), (n ? n[key] : a[key]) / (z[key] || 1)]});
+  const full = (have, of) => [of ? have / of : 0, of ? have / of : 0];
+  const tiles = [scaled('hp', CARD_IC.hp, 'Strength', 'hp')];
+  if (K.role === 'make') {
+    const pile = F.made(b, now), c = K.makes;
+    tiles.push(scaled('rate', coinIC(c), `${F.CUR_NAME[c]} per hour`, 'rate', '/hour'));
+    // (the next level's gain is room, not more in the pile: said so)
+    tiles.push({k: 'pile', ic: CARD_IC[c === 'gold' ? 'chest' : 'barrel'], label: 'Capacity', value: `${nf(pile)} / ${nf(a.hold)}`, next,
+      gain: n ? `+${nf(n.hold - a.hold)} room` : '', bar: full(pile, a.hold), fill: c, wide: true,
+      note: b.u > now ? (b.l < 1 ? 'Starts once it’s up' : 'Paused while it’s upgraded') : pile >= a.hold ? 'Full: collect it' : pile >= 1 ? 'Ready to collect' : ''});
+  } else if (K.role === 'store') {
+    // (the store is one pool, the Castle's and every treasury's or cellar's together: the HUD's own figure, not a share
+    // made up for this one)
+    const c = K.holds, all = F.capOf(s)[c], have = s.r[c];
+    tiles.push(scaled('cap', CARD_IC[c === 'gold' ? 'chest' : 'barrel'], 'Capacity', 'cap'));
+    tiles.push(F.testing(s) ? {k: 'stored', ic: coinIC(c), label: `All your ${F.CUR_NAME[c]}`, value: 'Unlimited', word: true, note: 'While testing', bar: [1, 1], fill: c, wide: true}
+      : {k: 'stored', ic: coinIC(c), label: `All your ${F.CUR_NAME[c]}`, value: `${nf(have)} / ${nf(all)}`, bar: full(have, all), fill: c, wide: true,
+        note: b.l < 1 ? 'Holds nothing till it’s up' : `${have >= all ? 'Full · ' : ''}Kept in the Castle and every ${K.name} together`});
+  } else if (K.role === 'hall') {
+    tiles.push(scaled('store', CARD_IC.chest, 'Storage, each', 'store'));
+    if (lv < top) tiles.push({k: 'unlocks', ic: CARD_IC.star, label: `Castle level ${lv + 1} unlocks`, chips: unlocksOf(lv + 1)});
+  } else if (K.role === 'def') {
+    tiles.push(scaled('dps', CARD_IC.dps, 'Damage/second', 'dps', '/second'));
+    tiles.push({k: 'range', ic: CARD_IC.range, label: 'Range', value: a.range, unit: 'tiles', note: a.min ? `Can’t hit within ${a.min}` : `A shot every ${a.every}s`});
+    tiles.push({k: 'targets', ic: a.air ? CARD_IC.air : CARD_IC.helm, label: 'Targets', value: a.air ? 'Ground &amp; air' : 'Ground only', word: true, note: a.splash ? 'Hits a crowd' : 'One at a time'});
+  } else if (K.role === 'camp') {
+    const have = F.roomOf(s.ar) + F.queued(s), room = F.armyRoom(s);
+    tiles.push(scaled('room', CARD_IC.tent, 'Army room', 'room'));
+    tiles.push({k: 'army', ic: CARD_IC.helm, label: 'Your army, all camps', value: `${nf(have)} / ${nf(room)}`, bar: full(have, room), fill: 'grain', wide: true,
+      note: b.l < 1 ? 'Room once it’s up' : ''});
+  } else if (K.role === 'hatch') {
+    const have = (s.ar.dragon || 0) + s.q.filter(([t]) => t === 'dragon').reduce((x, [, k]) => x + k, 0), room = F.hatchRoom(s);
+    tiles.push(scaled('dragons', CARD_IC.egg, 'Dragon room', 'dragons'));
+    tiles.push({k: 'hatched', ic: CARD_IC.air, label: 'Your dragons', value: `${have} / ${room}`, bar: full(have, room), fill: 'grain'});
+  } else if (K.role === 'train') {
+    const open = F.TROOP_ORDER.filter(t => F.TROOPS[t].at <= lv), soon = n ? F.TROOP_ORDER.filter(t => F.TROOPS[t].at === lv + 1) : [], all = F.TROOP_ORDER.length;
+    tiles.push({k: 'troops', ic: CARD_IC.helm, label: 'Kinds of soldier', value: open.length, unit: `of ${all}`, next,
+      gain: soon.length ? `+${soon.map(t => F.TROOPS[t].name).join(', ')}` : '', bar: [open.length / all, (open.length + soon.length) / all]});
+    tiles.push({k: 'trains', ic: CARD_IC.swords, label: 'Trains',
+      chips: F.TROOP_ORDER.map(t => { const T = F.TROOPS[t]; return T.at <= lv ? {text: T.name} : {text: T.name, isNew: soon.includes(t), off: true, at: `level ${T.at}`}; })});
+  } else if (K.role === 'builder') {
+    const job = s.b.filter(x => x.u > now).sort((x, y) => x.u - y.u)[0];
+    tiles.push({k: 'builder', ic: CARD_IC.hammer, label: 'Your builder', value: job ? 'At work' : 'Free', word: true,
+      note: job ? `${job.l < 1 ? 'Raising' : 'Upgrading'} the ${esc(F.KINDS[job.t].name)} · ${dur(job.u - now)} left` : 'Ready for the next job'});
+  } else if (K.role === 'wall') {
+    const have = F.countOf(s, 'wall'), cap = F.allowed(s, 'wall');
+    tiles.push({k: 'walls', ic: CARD_IC.bricks, label: 'Walls built', value: `${nf(have)} / ${nf(cap)}`, bar: full(have, cap), fill: 'gold'});
+  }
+  if (lv >= top) tiles.push({k: 'max', ic: CARD_IC.crown, label: `Level ${lv} of ${top}`, value: 'Max level', word: true, cls: 'is-max'});
+  // (an odd one out at the end takes the whole row)
+  const small = tiles.filter(t => !t.wide && !t.chips);
+  if (small.length % 2) small[small.length - 1].wide = true;
+  return tiles;
+}
+/** What the builder's at, when he's busy: why another upgrade waits. */
+const busyWhy = (s, now) => { const job = s.b.find(x => x.u > now); return job ? `Your builder is busy on the ${F.KINDS[job.t].name}` : 'Your builder is busy'; };
+/** Building b's bottom row: its upgrade (or how far along it is), then Collect, Train or Heroes, and Move. */
+function cardFootHTML(s, b, now, overlap = 0) {
+  const K = F.KINDS[b.t], up = F.canUpgrade(s, b.i, now), top = F.maxLevel(b.t), rows = [];
+  if (b.u > now) {
+    const total = (b.l < 1 ? K.time[0] : K.time[b.l]) * 1000 || 1, f = Math.max(0, Math.min(1, 1 - (b.u - now) / total));
+    const what = b.l < 1 ? 'Under construction' : `Upgrading to level ${b.l + 1}`;
+    rows.push(`<div class="rl-card-up-row"><div class="rl-card-prog" data-rl-card-prog role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(f * 100)}" aria-label="${what}: ${dur(b.u - now)} left">`
+      + `<span class="rl-card-prog-k">${CARD_IC.hammer}${what}</span><span class="rl-card-prog-bar" aria-hidden="true"><i style="width:${pct(f)}"></i></span></div>`
+      + `<div class="rl-card-time"><small>Time left</small><b>${dur(b.u - now)}</b></div></div>`);
+  } else if (b.t !== 'hut' && up.to <= top) {
+    const short = /^Not enough/.test(up.why), need = /Castle level/.test(up.why) ? K.th[up.to - 1] : 0, busy = /builder is busy/.test(up.why);
+    const why = need ? `Castle level ${need} to upgrade` : short ? `${up.why} · ${nf(up.cost - s.r[up.pay])} more` : busy ? busyWhy(s, now) : up.why;
+    // (as Clash: short of it, the gold button stays with its cost in red; waiting on the Castle, dark with its lock; on
+    // the builder, plain wood)
+    rows.push(`<div class="rl-card-up-row"><button type="button" class="rl-card-up ${up.ok ? 'is-go' : 'is-off'}${short ? ' is-short' : ''}${need ? ' is-locked' : ''}${busy ? ' is-busy' : ''}" data-rl-up="${b.i}" data-rl-focus="up"${up.ok ? '' : ' aria-disabled="true"'}>`
+      + `<span class="rl-card-up-k">${need ? ui.icon('lock') : ''}Upgrade<span class="sr-only"> to level ${up.to}</span></span>`
+      + `<span class="rl-card-up-c">${curHTML(up.pay, up.cost)}</span>${up.ok ? '' : `<small>${esc(why)}</small>`}</button>`
+      + `<div class="rl-card-time"><small>Upgrade time</small><b>${up.time ? dur(up.time * 1000) : 'At once'}</b></div></div>`);
+  }
+  const acts = [], pile = K.role === 'make' ? F.made(b, now) : 0;
+  if (pile > 0) acts.push(`<button type="button" class="rl-card-btn is-collect" data-rl-collect="${b.i}" data-rl-card-collect data-rl-focus="collect">Collect ${curHTML(K.makes, pile)}</button>`);
+  if (b.t === 'barracks' || b.t === 'camp' || b.t === 'hatchery') acts.push(`<button type="button" class="rl-card-btn" data-rl-army data-rl-focus="army">Train</button>`);
+  if (b.t === 'keep') acts.push(`<button type="button" class="rl-card-btn" data-rl-army data-rl-focus="army">Heroes</button>`);
+  acts.push(`<button type="button" class="rl-card-btn" data-rl-move="${b.i}" data-rl-focus="move">Move</button>`);
+  rows.push(`<div class="rl-card-acts">${acts.join('')}</div>`);
+  if (overlap > 1) rows.push(`<button type="button" class="rl-overlap rl-card-btn" data-rl-overlap data-rl-focus="overlap">Choose overlapping building (${overlap})</button>`);
+  return `<footer class="rl-card-foot" data-rl-part="foot">${rows.join('')}</footer>`;
+}
+/** Building id's card on realm s at now (its insides: cardShell holds them). overlap: how many buildings share the spot
+ *  tapped. */
+function cardHTML(s, id, now, overlap = 0) {
   const b = s.b.find(x => x.i === id);
   if (!b) return '';
-  const K = F.KINDS[b.t], lv = Math.max(1, b.l), what = factsOf(b);
-  const opens = b.t === 'keep' ? F.SCENERIES.find(x => x.at === lv + 1) : null;
-  if (opens) what.splice(1, 0, `Level ${lv + 1} unlocks the ${opens.name}`);
-  if (b.t === 'keep' && lv + 1 === F.ATTACK_AT) what.splice(1, 0, `Level ${F.ATTACK_AT} opens raids on the computer’s realms`);
-  const job = b.u > now ? `<p class="rl-sel-job">${b.l < 1 ? 'Going up' : `Upgrading to level ${b.l + 1}`} · ${dur(b.u - now)} left</p>` : '';
-  const up = F.canUpgrade(s, b.i, now), btns = [];
-  if (K.role === 'make' && F.made(b, now) > 0) btns.push(`<button type="button" class="rl-act" data-rl-collect="${b.i}">Collect ${curHTML(K.makes, F.made(b, now))}</button>`);
-  if (b.t === 'barracks' || b.t === 'camp' || b.t === 'hatchery') btns.push(`<button type="button" class="rl-act" data-rl-army>Train</button>`);
-  if (b.t === 'keep') btns.push(`<button type="button" class="rl-act" data-rl-army>Heroes</button>`);
-  if (b.t !== 'hut' && b.u <= now && up.to <= F.maxLevel(b.t)) {
-    btns.push(up.ok ? `<button type="button" class="rl-act is-go" data-rl-up="${b.i}">Upgrade ${curHTML(up.pay, up.cost)}<small>${up.time ? dur(up.time * 1000) : 'at once'}</small></button>`
-      : `<button type="button" class="rl-act" disabled>Upgrade<small>${esc(up.why)}${/Not enough/.test(up.why) ? ` (${nf(up.cost)})` : ''}</small></button>`);
-  }
-  btns.push(`<button type="button" class="rl-act" data-rl-move="${b.i}">Move</button>`);
-  return `<div class="rl-sel-h"><div><b>${esc(K.name)}</b><span class="rl-sel-lv">${b.l < 1 ? 'Going up' : `Level ${b.l}`}</span></div>${ui.iconButton({icon: 'close', label: 'Done', cls: 'rl-sel-x', attrs: 'data-rl-unsel'})}</div>`
-    + `<p class="rl-sel-what">${what.map(esc).join(' · ')}</p>${job}`
-    + (b.u <= now && b.l > 0 && b.l < F.maxLevel(b.t) && b.t !== 'hut' ? `<p class="rl-sel-benefit"><b>Level ${b.l + 1}</b> · ${esc(upgradeBenefit(b))}</p><p class="rl-sel-cost">${curHTML(up.pay, up.cost)} · ${up.time ? dur(up.time * 1000) : 'at once'}</p>` : '')
-    + `<div class="rl-acts">${btns.join('')}</div>`;
+  const K = F.KINDS[b.t], lv = Math.max(1, b.l), top = F.maxLevel(b.t), allow = Math.min(top, Math.max(b.l, F.topLevel(b.t, F.keepOf(s))));
+  // (the levels' bar: a notch a level, gilt to its level, hatched as far as the Castle lets it go now, and "2/10" at
+  // its end)
+  const lvbar = `<span class="rl-card-lv"><span class="rl-card-lvbar" style="--n:${top}" role="img" aria-label="${b.l < 1 ? 'Going up to level 1' : `Level ${b.l}`} of ${top}${allow < top ? `; up to ${allow} at Castle level ${F.keepOf(s)}` : ''}">`
+    + (allow > b.l ? `<u style="width:${pct(allow / top)}"></u>` : '') + `<i style="width:${pct(Math.max(0, b.l) / top)}"></i></span>`
+    + `<small aria-hidden="true">${Math.max(0, b.l)}/${top}</small></span>`;
+  // (a level the Castle doesn't allow yet: its gains muted, they can't be had now)
+  const wait = b.u <= now && b.t !== 'hut' && b.l >= 1 && b.l < top && /Castle level/.test(F.canUpgrade(s, b.i, now).why);
+  const raising = b.l < 1 && b.u > now;
+  return `<header class="rl-card-h" data-rl-part="h"><h2 class="rl-card-t${K.name.length > 13 ? ' is-long' : ''}" id="rl-card-t"><span>${esc(K.name)}</span> <em>${b.l < 1 ? 'Going up' : `Level ${b.l}`}</em></h2>${lvbar}`
+    + `<button type="button" class="rl-card-x" data-rl-unsel data-rl-focus="x" aria-label="Close">${CARD_IC.x}</button></header>`
+    + `<div class="rl-card-body"><div class="rl-card-side" data-rl-part="side"><div class="rl-card-stage${raising ? ' is-raising' : ''}">`
+    + `<span class="rl-card-art${b.t === 'wall' ? ' is-small' : ''}" data-rl-art="${b.t}:${lv}" role="img" aria-label="${esc(K.name)}, level ${lv}${raising ? ', under construction' : ''}"></span>`
+    + (b.u > now && !raising ? `<span class="rl-card-badge">${CARD_IC.hammer}Upgrading</span>` : '')
+    + `</div><p class="rl-card-blurb">${esc(K.blurb)}</p></div>`
+    + `<div class="rl-card-tiles${wait ? ' is-wait' : ''}" data-rl-part="tiles">${tilesOf(s, b, now).map(tileHTML).join('')}</div></div>`
+    + cardFootHTML(s, b, now, overlap);
+}
+/** The card's frame (kept while it's open): the shade over the lot (a tap there closes it) and the panel. */
+const cardShell = id => `<div class="rl-card-scrim" data-rl-scrim aria-hidden="true"></div>`
+  + `<section class="rl-card" data-rl-card="${id}" role="dialog" aria-modal="false" aria-labelledby="rl-card-t" tabindex="-1"><div class="rl-card-in" data-rl-card-in></div></section>`;
+const selHTML = st => cardHTML(F.mine(), st.sel, Date.now(), st.overlap?.length || 0);
+/** The bar while a building's being moved: what, Done (as a tap on the lot: its card again) and the close (none). */
+function movingHTML(s, id) {
+  const b = s.b.find(x => x.i === id);
+  if (!b) return '';
+  // (in the card's dress: its gilt rim, the red close and a gold Done)
+  return `<div class="rl-card is-bar"><div class="rl-card-bar-h"><div class="rl-card-bar-t"><b>${esc(F.KINDS[b.t].name)}</b><small>Drag it where it goes</small></div>`
+    + `<button type="button" class="rl-card-x" data-rl-unsel aria-label="Close">${CARD_IC.x}</button></div>`
+    + `<button type="button" class="rl-card-up is-go is-done" data-rl-moved><span class="rl-card-up-k">Done</span></button></div>`;
+}
+// (the card's picture: the base's own art of the building at its level, drawn once and kept, so the card drawn again
+// each second doesn't decode it again; walls are the 3D's own)
+const ART = new Map();
+let SPR = null; // views/realm-sprites.js, once the 3D is in
+function artOf(key) {
+  if (ART.has(key)) return ART.get(key);
+  if (!D3 || !D3.ready() || !F.mayPlay()) return null;
+  const [k, l] = key.split(':'), lv = Math.max(1, +l || 1);
+  const url = SPR && SPR.has(k) ? SPR.thumbURL(k, lv, 360, 1.6, F.KINDS[k] ? F.KINDS[k].size : 0) : D3.thumb(k, lv, MY_HOUSE);
+  if (!url) return null;
+  const im = new Image();
+  im.alt = ''; im.draggable = false; im.decoding = 'async'; im.src = url;
+  ART.set(key, im);
+  return im;
+}
+function fillArt(root) {
+  root.querySelectorAll('[data-rl-art]').forEach(slot => {
+    if (slot.firstElementChild) return;
+    const im = artOf(slot.dataset.rlArt);
+    if (im) { slot.appendChild(im); slot.classList.add('has-art'); }
+  });
 }
 function showSel(st) {
   objective(st);
-  const box = st.el.querySelector('[data-rl-sel]'), bar = st.el.querySelector('[data-rl-bar]');
-  if (st.place) {
-    box.hidden = false; bar.hidden = true;
-    box.innerHTML = placeHTML(F.mine(), st.place);
+  const box = st.el.querySelector('[data-rl-sel]'), bar = st.el.querySelector('[data-rl-bar]'), s = F.mine();
+  // (a building gone from under its card, the realm taken up from another phone: nothing chosen)
+  if (st.sel != null && !st.place && !s.b.some(x => x.i === st.sel)) {
+    st.sel = st.moving = null; st.overlap = [];
+    if (st.v) { st.v.select(null); st.v.showGrid(false); }
+  }
+  const mode = st.place ? 'place' : st.sel == null ? '' : st.moving != null ? 'move' : 'card';
+  // (a card on its way out, stopped: something's shown again)
+  if (st.leaving && mode) { const was = st.leaving; st.leaving = null; was.forEach(a => a.cancel()); box.classList.remove('is-leaving'); }
+  if (!mode && (st.leaving || (!box.hidden && box.classList.contains('is-card')))) {
+    // (a card closed: it pops out, a quick fade and drop (a fade alone with reduced motion), and then the box hides; the
+    // lot's buttons are back at once, and the focus with them)
+    bar.hidden = false;
+    if (st.leaving) return;
+    const lost = box.contains(document.activeElement);
+    st.boxHTML = ''; st.cardHTML = null;
+    box.classList.add('is-leaving');
+    const anims = [
+      ui.animate(box.querySelector('[data-rl-card]'), [{opacity: 1, transform: 'none'}, {opacity: 0, transform: 'translateY(12px) scale(.98)'}], {duration: 140, easing: 'cubic-bezier(.4,0,1,1)', fill: 'forwards'}),
+      ui.animate(box.querySelector('[data-rl-scrim]'), [{opacity: 1}, {opacity: 0}], {duration: 160, easing: 'ease-in', fill: 'forwards'})
+    ];
+    st.leaving = anims;
+    const gone = () => {
+      if (st.leaving !== anims) return;
+      st.leaving = null;
+      if (st.dead) return;
+      box.hidden = true; box.innerHTML = ''; box.classList.remove('is-card', 'is-leaving');
+    };
+    Promise.all(anims.map(a => a.finished)).then(gone, () => {});
+    // (and should a hidden tab hold its animations back)
+    const timer = setTimeout(() => { st.effects.delete(timer); gone(); }, 400);
+    st.effects.add(timer);
+    if (lost) st.el.querySelector('[data-rl-buildings]')?.focus({preventScroll: true});
     return;
   }
-  if (st.sel == null) { box.hidden = true; bar.hidden = false; box.innerHTML = ''; box.dataset.html = ''; return; }
-  box.hidden = false; bar.hidden = true;
+  box.hidden = !mode; bar.hidden = !!mode;
+  box.classList.toggle('is-card', mode === 'card');
+  box.classList.toggle('is-moving', mode === 'move');
+  if (mode !== 'card') {
+    const html = mode === 'place' ? placeHTML(s, st.place) : mode === 'move' ? movingHTML(s, st.moving) : '';
+    if (st.boxHTML !== html) {
+      // (the focus kept from a card closed or moved: Done, or the Buildings button, where another is chosen)
+      const lost = box.contains(document.activeElement);
+      st.boxHTML = html; st.cardHTML = null; box.innerHTML = html;
+      if (lost && mode !== 'place') (box.querySelector('button') || st.el.querySelector('[data-rl-buildings]'))?.focus({preventScroll: true});
+    }
+    return;
+  }
+  // the card: its frame once (it slides in), its insides whenever they change (a clock, a pile), the focus and the
+  // scroll kept
+  let shell = box.querySelector(`[data-rl-card="${st.sel}"]`);
+  const opened = !shell;
+  if (opened) {
+    box.innerHTML = cardShell(st.sel); st.boxHTML = null; st.cardHTML = null;
+    shell = box.querySelector('[data-rl-card]');
+  }
   const html = selHTML(st);
-  if (box.dataset.html !== html) { box.dataset.html = html; box.innerHTML = html; }
+  if (st.cardHTML !== html) {
+    // (only its parts that changed are drawn again: the head, the picture, the tiles, the bottom row; so the picture
+    // isn't taken out and put back each second while a clock runs, which can blank it for a frame on a phone)
+    const el = document.activeElement, had = box.contains(el) ? el.dataset.rlFocus : '';
+    const inner = shell.querySelector('[data-rl-card-in]'), tpl = document.createElement('template');
+    tpl.innerHTML = html;
+    const parts = [...tpl.content.querySelectorAll('[data-rl-part]')], live = [...inner.querySelectorAll('[data-rl-part]')];
+    const strs = parts.map(p => p.outerHTML), was = st.cardParts || [];
+    if (st.cardHTML != null && parts.length === live.length && parts.every((p, i) => live[i].dataset.rlPart === p.dataset.rlPart)) {
+      parts.forEach((p, i) => { if (was[i] !== strs[i]) live[i].replaceWith(p); });
+    } else {
+      const body = inner.querySelector('.rl-card-body'), top = body ? body.scrollTop : 0;
+      inner.replaceChildren(tpl.content);
+      if (top) inner.querySelector('.rl-card-body').scrollTop = top;
+    }
+    st.cardHTML = html; st.cardParts = strs;
+    if (had && !box.contains(document.activeElement)) shell.querySelector(`[data-rl-focus="${had}"]`)?.focus({preventScroll: true});
+  }
+  fillArt(shell);
+  if (opened) {
+    shell.focus({preventScroll: true});
+    ui.animate(shell, [{opacity: 0, transform: 'translateY(28px) scale(.97)'}, {opacity: 1, transform: 'none'}], {spring: 'smooth'});
+    ui.animate(box.querySelector('.rl-card-scrim'), [{opacity: 0}, {opacity: 1}], {duration: 220, easing: 'ease-out'});
+  }
+}
+/** A move done (Done, or a tap on the lot): the building's card again. */
+function endMove(st) {
+  st.moving = null;
+  if (st.v) st.v.showGrid(false);
+  select(st, st.sel);
 }
 /** The card while something new is being placed ({t, ok, run}: its kind, whether where it is now fits, and for a run of
  *  walls their tiles), walls with how many go down at once. */
@@ -379,7 +651,9 @@ function buildingsSheet(st, ids = null) {
   const buildings = F.mine().b.filter(b => !ids || ids.includes(b.i));
   const body = '<p class="rl-sh-lead">Choose a building to reveal it, view its details or move it.</p><div class="rl-building-list">'
     + buildings.map(b => '<button type="button" class="rl-building-row" data-rl-find="' + b.i + '"><span class="rl-building-pic" aria-hidden="true">' + picOf(b.t, MY_HOUSE) + '</span><span><b>' + esc(F.KINDS[b.t].name) + '</b><small>' + (b.l ? 'Level ' + b.l : 'Going up') + ' · Tile ' + (b.x + 1) + ', ' + (b.y + 1) + '</small></span><span aria-hidden="true">›</span></button>').join('') + '</div>';
-  const sh = realmSheet({title: ids ? 'Overlapping buildings' : 'Your buildings', cls: 'sh-rl', detents: ['large'], body});
+  // (closed by choosing one, the focus goes to its card)
+  const sh = realmSheet({title: ids ? 'Overlapping buildings' : 'Your buildings', cls: 'sh-rl', detents: ['large'], body,
+    returnFocus: () => st.el.querySelector('[data-rl-card]')});
   sh.body.addEventListener('click', event => {
     const button = event.target.closest('[data-rl-find]');
     if (!button || st.dead || !F.mayPlay()) return;
@@ -867,6 +1141,8 @@ async function start3d(st) {
   if (st.dead || !F.mayPlay()) return;
   const theme = F.sceneryOf(F.mine());
   if (!D3) D3 = await import('./realm-3d.js');
+  // (the module the 3D draws the buildings with: a building's card draws its picture from it)
+  if (!SPR) SPR = await import('./realm-sprites.js').catch(() => null);
   if (st.dead || !F.mayPlay()) return;
   const ok = await D3.load(theme);
   if (st.dead || !F.mayPlay()) return;
@@ -918,7 +1194,7 @@ async function start3d(st) {
 function onLotTap(st, hit) {
   if (st.place) return;
   const s = F.mine();
-  if (st.moving != null) { st.moving = null; st.v.showGrid(false); select(st, st.sel); return; }
+  if (st.moving != null) { endMove(st); return; }
   if (hit.id == null) { if (st.sel != null) select(st, null); return; }
   const b = s.b.find(x => x.i === hit.id);
   // (a mine or brewery with something in it: the tap collects it, no card; tap it again, empty, for its card. With no
@@ -929,19 +1205,22 @@ function onLotTap(st, hit) {
   }
   select(st, hit.id, hit.ids || []);
 }
-function collectOne(st, id) {
+/** Collects building id's pile; from: the card's Collect button, where the "+60 Ale" rises from (over the card). */
+function collectOne(st, id, from = null) {
   if (st.dead || !F.mayPlay()) return;
   const s = F.mine(), b = s.b.find(x => x.i === id);
   if (!b) return;
   const c = F.KINDS[b.t].makes, got = F.collect(s, id);
-  if (got > 0) { F.touch(); ui.haptic('light'); floatText(st, b, `+${nf(got)} ${F.CUR_NAME[c]}`, c); }
+  if (got > 0) { F.touch(); ui.haptic('light'); floatText(st, b, `+${nf(got)} ${F.CUR_NAME[c]}`, c, from); }
   else if (F.made(b) > 0) ui.toast(`No room for more ${F.CUR_NAME[c]}: upgrade a ${c === 'gold' ? 'treasury' : 'cellar'}`, {icon: 'info'});
   refresh(st);
   return got;
 }
-function floatText(st, b, text, c) {
+function floatText(st, b, text, c, from = null) {
   if (!st.v) return;
-  const sz = F.KINDS[b.t].size, p = st.v.project(b.x + sz / 2, b.y + sz / 2, 2.4), el = document.createElement('div');
+  const sz = F.KINDS[b.t].size, el = document.createElement('div');
+  let p = st.v.project(b.x + sz / 2, b.y + sz / 2, 2.4);
+  if (from && from.isConnected) { const r = from.getBoundingClientRect(), o = st.el.getBoundingClientRect(); p = {x: r.left - o.left + r.width / 2, y: r.top - o.top + 4}; }
   el.className = `rl-float is-${c}`; el.textContent = text;
   el.style.left = p.x + 'px'; el.style.top = p.y + 'px';
   const layer = st.el.querySelector('.rl-effects'), target = st.el.querySelector(`[data-rl-cur="${c}"]`), bounds = st.el.getBoundingClientRect(), dest = target.getBoundingClientRect();
@@ -978,6 +1257,7 @@ function disposeState(st) {
   st.stops.splice(0).forEach(f => f());
   st.effects.forEach(clearTimeout); st.effects.clear();
   st.flights.forEach(a => a.cancel()); st.flights.clear();
+  ART.clear();
   if (st.v) { st.v.dispose(); st.v = null; }
   st.sel = st.place = st.goal = st.moving = st.drag = null;
 }
@@ -1066,7 +1346,8 @@ export function _screens(s, now, {done = [], earned: E = NO_PAY()} = {}) {
   hud({el}, s);
   el.querySelector('.rl-tags').innerHTML = tagsHTML(s, now);
   const out = [{where: 'the screen', html: el.innerHTML}];
-  s.b.forEach(b => out.push({where: `${b.t}'s card`, html: cardHTML(s, b.i, now)}));
+  s.b.forEach(b => out.push({where: `${b.t}'s card`, html: cardShell(b.i) + cardHTML(s, b.i, now)}));
+  if (s.b.length) out.push({where: 'moving a building', html: movingHTML(s, s.b[s.b.length - 1].i)});
   F.ORDER.forEach(k => out.push({where: `placing a ${k}`, html: placeHTML(s, {t: k, ok: true})}));
   out.push({where: 'While you were away', html: awayHTML(done, s, now)}, {where: 'The coffers', html: cofferHTML(s, E)},
     {where: 'Your army', html: armyHTML(s, now)}, {where: 'Attack', html: raidHTML(s, now)}, {where: 'The Chronicle', html: logHTML(s, now)},
@@ -1106,14 +1387,16 @@ export default {
       if (t.closest('[data-rl-world]')) { if (st.v) st.v.frameWorld(); return; }
       if (t.closest('[data-rl-zoom]')) { if (st.v) st.v.zoomBy(t.closest('[data-rl-zoom]').dataset.rlZoom === 'in' ? .72 : 1 / .72); return; }
       if (t.closest('[data-rl-objective]')) { followObjective(st); return; }
-      if (t.closest('[data-rl-collect]')) { collectOne(st, +t.closest('[data-rl-collect]').dataset.rlCollect); return; }
+      const col = t.closest('[data-rl-collect]');
+      if (col) { collectOne(st, +col.dataset.rlCollect, col.hasAttribute('data-rl-card-collect') ? col : null); return; }
       if (t.closest('[data-rl-cur]')) { cofferSheet(); return; }
       if (t.closest('[data-rl-army]')) { armySheet(st); return; }
       if (t.closest('[data-rl-shop]')) { shopSheet(st); return; }
       if (t.closest('[data-rl-log]')) { logSheet(st); return; }
       if (t.closest('[data-rl-house]')) { houseSheet(st); return; }
       if (t.closest('[data-rl-raid]')) { raidSheet(st, ctx); return; }
-      if (t.closest('[data-rl-unsel]')) { select(st, null); return; }
+      if (t.closest('[data-rl-unsel]') || t.closest('[data-rl-scrim]')) { select(st, null); return; }
+      if (t.closest('[data-rl-moved]')) { endMove(st); return; }
       if (t.closest('[data-rl-cancel]')) { endPlace(st); return; }
       if (t.closest('[data-rl-place]')) { commitPlace(st); return; }
       if (t.closest('[data-rl-qty]')) { changeWalls(st, +t.closest('[data-rl-qty]').dataset.rlQty); return; }
@@ -1126,7 +1409,14 @@ export default {
         return;
       }
       const mv = t.closest('[data-rl-move]');
-      if (mv) { st.moving = +mv.dataset.rlMove; if (st.v) st.v.showGrid(true); ui.toast('Drag it where you want it, then tap the lot', {icon: 'info'}); }
+      // (the card makes way for the lot while it's moved: a bar with Done, as a tap on the lot)
+      if (mv) { st.moving = +mv.dataset.rlMove; if (st.v) st.v.showGrid(true); showSel(st); ui.toast('Drag it where you want it, then tap the lot', {icon: 'info'}); }
+    }, {signal: st.events.signal});
+    // (Escape: a move done, else a building's card closed)
+    el.addEventListener('keydown', e => {
+      if (e.key !== 'Escape' || st.dead || !F.mayPlay() || st.place || st.sel == null) return;
+      e.preventDefault();
+      if (st.moving != null) endMove(st); else select(st, null);
     }, {signal: st.events.signal});
     start3d(st);
     if (ctx.visible) { openingLore(st); setTimeout(() => { if (!st.dead && ctx.visible) defenses(st); }, 900); }

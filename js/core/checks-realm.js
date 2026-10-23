@@ -985,6 +985,69 @@ export async function realmChecks(check) {
     return {pass: ok && twice && keptNew, detail: s ? `${kinds}; Castle ${F.keepOf(s)}; stored ${JSON.stringify(s.r)}, coffers taken ${JSON.stringify(s.cl)}, besides ${JSON.stringify(s.xo)}; army ${JSON.stringify(s.ar)}, training ${JSON.stringify(s.q)}; raids kept ${s.rd.map(r => r.vs).join(',')}; the same twice ${twice}; a new realm as it was ${keptNew}` : 'not taken up'};
   });
 
+  check('Keepfall: a building’s card (the owner’s ask, Oct 22 2026, after Clash of Clans’ info screen): every kind’s card has its name and level over a bar of its levels, the red close, a picture of it at its level, its stat tiles (strength for all; the hour’s make and the pile for mines and breweries; capacity and how full for treasuries and cellars; storage and what the next level unlocks for the Castle; damage a second, range and ground or air for defenses; room for war camps and the hatchery; the soldiers for barracks; the builder; the walls), the next level’s gain in green while it can go up, Upgrade with its cost beside the Upgrade time box, and Move; going up shows how far along and the time left; at the top, Max level and no Upgrade; not enough says so in red; a level the Castle doesn’t allow yet names the Castle level', async () => {
+    const view = await import('../views/realm.js');
+    const M = 60e3;
+    // (a realm at Castle level keep with the buildings listed, [kind, level, extra], none of it kept anywhere)
+    const realm = (keep, list, extra = {}) => {
+      const s = F.fresh(T0 - DAY);
+      s.b = s.b.filter(b => b.t === 'keep' || b.t === 'hut');
+      s.b.find(b => b.t === 'keep').l = keep;
+      Object.assign(s, {r: {gold: 30000, grain: 30000}, ar: {footman: 12}}, extra);
+      list.forEach(([t, l, x]) => { const p = F.spotFor(s, t); if (p) s.b.push(Object.assign({i: s.nb++, t, l, x: p.x, y: p.y, u: 0}, F.KINDS[t].role === 'make' ? {c: T0 - 3 * F.HOUR} : {}, x || {})); });
+      return s;
+    };
+    const tpl = document.createElement('template'), pages = new WeakMap();
+    // (a card's words, a text node at a time, so a label and its value stay apart)
+    const words = el => { if (!el) return ''; const out = [], w = document.createTreeWalker(el, 4); while (w.nextNode()) out.push(w.currentNode.nodeValue); return out.join(' ').replace(/\s+/g, ' ').trim(); };
+    const cardOf = (s, t) => {
+      const b = s.b.find(x => x.t === t);
+      if (!pages.has(s)) pages.set(s, view._screens(s, T0));
+      const page = b && pages.get(s).find(p => p.html.includes(`data-rl-card="${b.i}"`));
+      tpl.innerHTML = page ? page.html : '';
+      const c = tpl.content.cloneNode(true), q = sel => c.querySelector(sel);
+      return {b, q, text: sel => words(q(sel)), tiles: [...c.querySelectorAll('[data-tile]')].map(e => e.dataset.tile)};
+    };
+    const TILES = {hall: ['hp', 'store', 'unlocks'], builder: ['hp', 'builder', 'max'], make: ['hp', 'rate', 'pile'], store: ['hp', 'cap', 'stored'], train: ['hp', 'troops', 'trains'],
+      camp: ['hp', 'room', 'army'], hatch: ['hp', 'dragons', 'hatched'], def: ['hp', 'dps', 'range', 'targets'], wall: ['hp', 'walls']};
+    // every kind, idle, at Castle 6 (the Castle can't afford its next level)
+    const A = realm(6, [['mine', 3], ['farm', 1], ['treasury', 2], ['granary', 4], ['barracks', 4], ['camp', 2], ['hatchery', 1], ['cannon', 2], ['ballista', 3], ['tower', 2], ['trebuchet', 1], ['cauldron', 1], ['wall', 2]]);
+    const bad = [];
+    F.ORDER.forEach(t => {
+      const c = cardOf(A, t), K = F.KINDS[t];
+      if (!c.b) { bad.push(`${t}: no building`); return; }
+      const lv = Math.max(1, c.b.l), top = F.maxLevel(t), idle = t !== 'hut' && lv < top;
+      const head = c.text('.rl-card-t') === `${K.name} Level ${c.b.l}` && !!c.q('.rl-card-lvbar i') && !!c.q('.rl-card-x[data-rl-unsel]') && !!c.q(`[data-rl-art="${t}:${lv}"]`);
+      const tiles = JSON.stringify(c.tiles) === JSON.stringify(TILES[K.role]);
+      const gain = !idle || !!c.q('[data-tile="hp"] .rl-tile-gain');
+      const up = !idle || (!!c.q(`[data-rl-up="${c.b.i}"]`) && /Upgrade time/.test(c.text('.rl-card-time')) && c.text('.rl-card-up-c').includes(Number(K.cost[lv]).toLocaleString('en-US')));
+      const move = !!c.q(`[data-rl-move="${c.b.i}"]`);
+      if (!(head && tiles && gain && up && move)) bad.push(`${t}: head ${head}, tiles ${c.tiles.join('/')} ${tiles}, gain ${gain}, upgrade ${up}, move ${move}`);
+    });
+    const brew = cardOf(A, 'farm'), castle = cardOf(A, 'keep'), barracks = cardOf(A, 'barracks'), cannon = cardOf(A, 'cannon'), tower = cardOf(A, 'tower');
+    const said = {
+      brewery: /Ale per hour 20 Level 2: \+15\/hour/.test(brew.text('[data-tile="rate"]')) && /60 \/ 480/.test(brew.text('[data-tile="pile"]')) && !!brew.q('[data-rl-collect]'),
+      castle: /Infernal Wastes/.test(castle.text('[data-tile="unlocks"]')) && !!castle.q('.rl-card-up.is-short[aria-disabled="true"]') && /Not enough Gold/.test(castle.text('.rl-card-up')) && !!castle.q('[data-rl-army]'),
+      barracks: /\+Thief/.test(barracks.text('[data-tile="troops"]')) && !!barracks.q('[data-tile="trains"] .rl-uchip.is-new'),
+      defenses: /8 tiles/.test(cannon.text('[data-tile="range"]')) && /Ground only/.test(cannon.text('[data-tile="targets"]')) && /Ground & air/.test(tower.text('[data-tile="targets"]'))
+    };
+    // a job on: the treasury going up a level, the cannon waiting on the builder, a mine waiting on the Castle
+    const B = realm(5, [['treasury', 2, {u: T0 + 25 * M}], ['cannon', 2], ['mine', 9]]);
+    const job = cardOf(B, 'treasury'), wait = cardOf(B, 'cannon'), locked = cardOf(B, 'mine');
+    const prog = job.q('[data-rl-card-prog]');
+    const states = {
+      upgrading: !!prog && +prog.getAttribute('aria-valuenow') > 0 && /Upgrading to level 3/.test(job.text('[data-rl-card-prog]')) && /Time left 25m/.test(job.text('.rl-card-time')) && !job.q('[data-rl-up]') && !job.q('.rl-tile-gain'),
+      busy: /busy on the Treasury/.test(wait.text('.rl-card-up')) && !!wait.q('.rl-card-up[aria-disabled="true"]'),
+      castleLevel: /Castle level 6 to upgrade/.test(locked.text('.rl-card-up')) && !!locked.q('.rl-card-up.is-locked')
+    };
+    // at the top: Max level, nothing to upgrade; and testing, upgrades at once
+    const C = realm(8, [['wall', 8], ['cannon', 10], ['granary', 3]], {tst: 1});
+    const maxed = ['keep', 'wall', 'cannon'].every(t => { const c = cardOf(C, t); return !!c.q('[data-tile="max"]') && !c.q('[data-rl-up]') && !c.q('[data-tile="unlocks"]'); });
+    const once = /At once/.test(cardOf(C, 'granary').text('.rl-card-time'));
+    const ok = !bad.length && Object.values(said).every(Boolean) && Object.values(states).every(Boolean) && maxed && once;
+    return {pass: ok, detail: `${F.ORDER.length} kinds: ${bad.length ? bad.join('; ') : 'each with its head, tiles, gain, Upgrade and Move'}; ${Object.entries(said).map(([k, v]) => `${k} ${v}`).join(', ')}; ${Object.entries(states).map(([k, v]) => `${k} ${v}`).join(', ')}; max level ${maxed}; testing at once ${once}`};
+  });
+
   check('Keepfall: the words (the owner, Oct 21 2026): the game is Keepfall (its Daily Games case, its title), its second currency Ale (breweries brew it, cellars hold it, the army trains with it) and its main building the Castle; nothing on its screen, on any building’s card or the card placing one, in any sheet, or in what it says when something can’t be done says Grain, Farm, Granary, Keep level or the Realm (the camera’s Realm view, the whole of the lot’s land, is a place, not the game); the ids and saves keep the old names (grain, farm, granary, keep), so every save loads as it was', async () => {
     const [view, games] = await Promise.all([import('../views/realm.js'), import('../views/games.js')]);
     // two realms to read: a new one, and one with everything in it (a brewery going up, a cellar being upgraded, Ale

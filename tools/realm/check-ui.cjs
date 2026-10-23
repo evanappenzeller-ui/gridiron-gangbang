@@ -94,9 +94,10 @@ async function uiChecks(page, context, url) {
   assert(pure.unchanged && pure.goal.kind === 'select' && /Gold Mine/.test(pure.goal.title), 'Objective is useful and does not spend resources');
   assert(/20 → 35/.test(pure.benefit), 'Upgrade benefit compares current and next production');
   await page.locator('[data-rl-objective]').click();
-  await page.waitForSelector('.rl-sel-benefit');
+  await page.waitForSelector('[data-rl-card] [data-tile="rate"]');
   const selection = await page.locator('[data-rl-sel]').innerText();
-  assert(/Gold Mine/.test(selection) && /Level 1/.test(selection) && /20 → 35/.test(selection) && /300/.test(selection) && /5m/.test(selection), 'Selection shows name, level, benefit, cost and time');
+  // (the building's card, Oct 22 2026: the rate's tile, 20 an hour, with the next level's +15 in green)
+  assert(/Gold Mine/.test(selection) && /Level 1/.test(selection) && /\b20\b/.test(selection) && /\+15\/hour/.test(selection) && /300/.test(selection) && /5m/.test(selection), 'Card shows name, level, benefit, cost and time');
   await page.screenshot({path: path.join(output, 'realm-selected-390.png')});
   await page.locator('[data-rl-unsel]').click();
   await page.locator('[data-rl-shop]').click();

@@ -131,14 +131,30 @@ export function release(group) {
   owned.forEach(mesh => { mesh.geometry.dispose(); mesh.material.dispose(); });
   group.userData.owned = [];
 }
-export function thumbURL(kind, level) {
+/** A building's picture at a level, a PNG data URL: side x side px (160, for the lists) and drawn as big as its top
+ *  level's, so it grows with each level. With wide (a building's card, views/realm.js: its width to its height) and
+ *  foot (its footprint in tiles), side px high, on the lighter diamond of its footprint, as Clash draws its info
+ *  screen's: bigger for a higher level and a bigger footprint. */
+export function thumbURL(kind, level, side = 160, wide = 0, foot = 0) {
   if (!has(kind)) return '';
-  const key = kind + ':' + SOURCES[kind] + ':' + frameOf(kind, level);
+  const key = kind + ':' + SOURCES[kind] + ':' + frameOf(kind, level) + (side === 160 && !wide ? '' : `@${side}x${wide}x${foot}`);
   if (URLS.has(key)) return URLS.get(key);
-  const {f} = frameData(kind, level), [x, y, w, h] = f, dim = dimensionsOf(kind, level);
-  const last = dimensionsOf(kind, BUILD[kind].f.length), px = 152 / Math.max(last.width, last.height), scale = dim.k * px;
-  const cv = document.createElement('canvas'); cv.width = cv.height = 160;
-  cv.getContext('2d').drawImage(IMGS[kind], x, y, w, h, (160 - w * scale) / 2, 156 - h * scale, w * scale, h * scale);
+  const {f} = frameData(kind, level), [x, y, w, h, ax, ay, bw] = f, dim = dimensionsOf(kind, level), W = Math.round(side * (wide || 1));
+  const last = dimensionsOf(kind, BUILD[kind].f.length), px = side * .95 / Math.max(last.width, last.height);
+  // (the card: its own picture fitted to the tile, then as much smaller as it is to its kind's top level, gently (a first
+  // level still well seen), and smaller for a smaller footprint: a Castle's 4 tiles, a hut's 2)
+  const grown = Math.min(1, Math.max(dim.width / last.width, dim.height / last.height));
+  const scale = wide ? Math.min(1.6, W * .9 / w, side * .86 / h) * (.58 + .42 * grown) * (foot ? .6 + .1 * Math.min(4, foot) : 1) : dim.k * px;
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = side;
+  const g = cv.getContext('2d'), left = (W - w * scale) / 2, top = side * (wide ? .95 : .975) - h * scale;
+  if (wide) {
+    // (the footprint: a lighter diamond of grass under its base, ISO high to its width, a little wider than the base)
+    const cx = left + ax * scale, cy = top + (ay - ISO * bw) * scale, hw = bw * scale * .59, hh = ISO * bw * scale * 1.18;
+    g.beginPath(); g.moveTo(cx, cy - hh); g.lineTo(cx + hw, cy); g.lineTo(cx, cy + hh); g.lineTo(cx - hw, cy); g.closePath();
+    g.fillStyle = 'rgba(214,236,160,.2)'; g.fill();
+    g.lineWidth = Math.max(1.5, side / 160); g.strokeStyle = 'rgba(250,246,214,.3)'; g.stroke();
+  }
+  g.drawImage(IMGS[kind], x, y, w, h, left, top, w * scale, h * scale);
   const url = cv.toDataURL('image/png'); URLS.set(key, url); return url;
 }
 /** Actual shot times drive recoil; transforms belong to each sprite, with shared materials. */
