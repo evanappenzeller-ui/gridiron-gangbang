@@ -390,8 +390,7 @@ html.is-realm-playing #tabbar { visibility: hidden; pointer-events: none; }
 .rl-intro button { min-height: 44px; border: 0; background: transparent; color: #dbc28d; font: 500 12px/1.3 var(--font-text); cursor: pointer; touch-action: manipulation; }
 .rl-intro button:focus-visible { outline: 2px solid #f2d295; outline-offset: -3px; }
 .rl-intro button:disabled { opacity: .25; cursor: default; }
-.rl-intro-top { position: absolute; inset: 0 0 auto; z-index: 2; display: flex; align-items: center; justify-content: space-between; padding: calc(var(--sa-t, 0px) + 12px) 22px 22px; background: linear-gradient(#080a09cc, transparent); }
-.rl-intro-brand { color: #e7d3a5; font: 400 20px/1 Georgia, serif; letter-spacing: .14em; text-transform: uppercase; text-shadow: 0 2px 12px #000; }
+.rl-intro-top { position: absolute; inset: 0 0 auto; z-index: 2; display: flex; align-items: center; justify-content: flex-end; padding: calc(var(--sa-t, 0px) + 12px) 22px 22px; background: linear-gradient(#080a09cc, transparent); }
 .rl-intro-top button { padding: 0 10px; color: #eee5d2; text-shadow: 0 1px 4px #000; }
 .rl-intro-top button span { margin-left: 5px; }
 .rl-intro-story { height: 100%; display: flex; flex-direction: column; }
@@ -400,9 +399,6 @@ html.is-realm-playing #tabbar { visibility: hidden; pointer-events: none; }
 .rl-intro-art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 43%; pointer-events: none; animation: rl-intro-reveal .7s ease-out both; }
 .rl-intro-slide::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, #090a0922 0%, transparent 35%, #090a0944 50%, #090a09e8 78%, #090a09 100%); }
 .rl-intro-caption { position: absolute; z-index: 1; bottom: 8px; left: 24px; right: 24px; max-width: 620px; margin: 0 auto; text-align: center; text-shadow: 0 2px 12px #000; animation: rl-intro-reveal .45s ease-out both; }
-.rl-intro-chapter { margin: 0 0 12px; font: 500 9px/1.4 var(--font-text); letter-spacing: .24em; color: #c5ab72; }
-.rl-intro-chapter span { margin: 0 9px; opacity: .5; }
-.rl-intro-caption h2 { margin: 0 0 14px; color: #f2e3be; font: 400 clamp(26px, 4vw, 38px)/1.12 Georgia, 'Times New Roman', serif; }
 .rl-intro-copy { margin: 0; color: #e2d9c9; font: 400 16px/1.6 Georgia, 'Times New Roman', serif; }
 .rl-intro-footer { flex: none; position: relative; z-index: 1; width: 100%; max-width: 660px; margin: 0 auto; padding: 0 20px max(10px, var(--sa-b, 0px)); background: #090a09; }
 .rl-intro-progress { display: flex; justify-content: center; }
@@ -427,10 +423,7 @@ html.is-realm-playing #tabbar { visibility: hidden; pointer-events: none; }
 }
 @media (max-height: 600px) {
   .rl-intro-top { padding-top: max(4px, var(--sa-t, 0px)); padding-bottom: 8px; }
-  .rl-intro-brand { font-size: 16px; }
   .rl-intro-caption { bottom: 0; left: 18px; right: 18px; }
-  .rl-intro-chapter { margin-bottom: 6px; font-size: 8px; }
-  .rl-intro-caption h2 { font-size: 25px; margin-bottom: 8px; }
   .rl-intro-copy { font-size: 15px; line-height: 1.4; }
   .rl-intro-footer { padding-bottom: max(4px, var(--sa-b, 0px)); }
   .rl-intro-help { top: calc(var(--sa-t, 0px) + 56px); }

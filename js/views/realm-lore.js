@@ -1,6 +1,6 @@
 // Owner-only cinematic, mounted by realm.js after its profile/route checks.
 // Rendering is pure: images are requested only when an eligible reader mounts it.
-export const LORE_VERSION = '2';
+export const LORE_VERSION = '3';
 export const SLIDES = [
   {title: 'One kingdom', text: 'Yharmin was once united under a single High King, ruling from one great keep.', image: '01-united', alt: 'The High King overlooks a united Yharmin from a towering golden-lit stronghold.'},
   {title: 'One night', text: 'In a single night, that keep was breached.', image: '02-breach', alt: 'Shadowy soldiers enter a shattered fortress gate amid smoke and embers.'},
@@ -12,13 +12,12 @@ export const SLIDES = [
 ];
 export function introHTML(helpHTML) {
   return '<div class="rl-intro" aria-roledescription="carousel" aria-label="Lore of Yharmin">'
-    + '<header class="rl-intro-top"><span class="rl-intro-brand">Keepfall</span><button type="button" data-intro-skip>Skip <span aria-hidden="true">›</span></button></header>'
+    + '<header class="rl-intro-top"><button type="button" data-intro-skip>Skip <span aria-hidden="true">›</span></button></header>'
     + '<div class="rl-intro-story">'
     + '<div class="rl-intro-stage">' + SLIDES.map((s, i) =>
       '<article class="rl-intro-slide" role="group" aria-roledescription="slide" aria-label="' + (i + 1) + ' of 7: ' + s.title + '"' + (i ? ' hidden inert' : '') + '>'
       + '<img class="rl-intro-art" data-src="img/realm/lore-v2/' + s.image + '.webp" alt="' + s.alt + '" draggable="false" decoding="async">'
-      + '<div class="rl-intro-caption"><p class="rl-intro-chapter">LORE OF YHARMIN <span aria-hidden="true">/</span> 0' + (i + 1) + '</p>'
-      + '<h2>' + s.title + '</h2><p class="rl-intro-copy">' + s.text + '</p></div></article>').join('') + '</div>'
+      + '<div class="rl-intro-caption"><p class="rl-intro-copy">' + s.text + '</p></div></article>').join('') + '</div>'
     + '<footer class="rl-intro-footer"><div class="rl-intro-progress" aria-label="Choose a lore slide">'
     + SLIDES.map((s, i) => '<button type="button" data-intro-slide="' + i + '" aria-label="Slide ' + (i + 1) + ': ' + s.title + '"' + (i ? '' : ' aria-current="step"') + '><span></span></button>').join('')
     + '</div><div class="rl-intro-nav"><button type="button" data-intro-prev disabled aria-label="Previous slide">‹ <span>Back</span></button>'

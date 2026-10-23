@@ -34,7 +34,7 @@ export const mayPlay = () => !!(data.isOwner && data.isOwner());
 // Testing (the owner, Oct 22 2026): his realm started over at Castle level 1 with unlimited Gold and Ale and no
 // building time. A realm marked tst spends nothing and builds and upgrades at once; one saved before TEST_RESET is
 // started over (keeping its house name and scenery) when it loads, on whichever phone loads it first.
-export const TEST_RESET = '2026-10-22';
+export const TEST_RESET = '2026-10-22-lore-restart';
 export const testing = s => !!(s && s.tst);
 const afford = (s, c, n) => testing(s) || n <= s.r[c];
 const spend = (s, c, n) => { if (!testing(s)) s.r[c] -= n; };
@@ -1335,11 +1335,13 @@ export function testRealm(old, now = Date.now()) {
 }
 // (a realm saved before the reset is never taken up again, here or from the board)
 const current = s => (s && s.rs === TEST_RESET ? s : null);
+// A phone still on the previous release must not hide another phone's new progress.
+const currentRemote = () => clean(freshest(myDocs().filter(p => current(p.fr1))));
 /** This phone's realm (loaded once: the freshest of this phone's copy and the owner's docs), brought up to now. */
 export function mine(now = Date.now()) {
   if (!MINE) {
     const local0 = readLocal(), remote0 = clean(freshest(myDocs()));
-    const local = current(local0), remote = current(remote0);
+    const local = current(local0), remote = currentRemote();
     MINE = (remote && (!local || remote.at > local.at)) ? remote : local;
     // (this phone's example raids and replays the newer copy lacks, kept, and saved again: see sync)
     if (MINE === remote && local && keepMine(remote, local)) { writeLocal(MINE); dirty = true; clearTimeout(saveT); saveT = setTimeout(flush, 1500); }
@@ -1359,7 +1361,7 @@ export function mine(now = Date.now()) {
 export function sync(now = Date.now()) {
   const s = mine(now);
   let changed = false;
-  const remote = current(clean(freshest(myDocs())));
+  const remote = currentRemote();
   let kept = false;
   if (remote && (PROVISIONAL || remote.at > s.at + 1000)) {
     // (this phone's example raids and replays the newer copy lacks, kept: one saved by a phone on an older version)

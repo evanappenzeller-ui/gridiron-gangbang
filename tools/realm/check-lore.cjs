@@ -13,7 +13,8 @@ const closeLore=async p=>{await p.locator('[data-intro-skip]').click();await p.l
 async function lore(p){
  await p.locator('.sh-rl-lore').waitFor();
  assert.equal(await p.locator('.sh-rl-lore').count(),1);
- assert.equal(await p.locator('.rl-intro-brand').textContent(),'Keepfall');
+ assert.equal(await p.locator('.rl-intro-brand,.rl-intro-chapter,.rl-intro-caption h2').count(),0);
+ assert.equal(await p.locator('.rl-intro-caption > :not(.rl-intro-copy)').count(),0);
  assert.equal(await p.locator('.rl-intro-slide').count(),7);
  const texts=await p.locator('.rl-intro-copy').allTextContents();
  assert(texts[0].includes('single High King')&&texts[1].includes('breached')&&texts[2].includes('crown was lost')&&texts[3].includes('rival houses')&&texts[4].includes('broken throne')&&texts[5].includes('remembered as the Keepfall')&&texts[6]===LORE[1]);
@@ -46,11 +47,11 @@ const seed=p=>p.evaluate(async()=>{const F=await import('/js/core/realm.js'),s=F
     assert.equal(await marker(p),null);
     await p.waitForTimeout(500);const before=await snap(p);
     const visible=()=>p.locator('.rl-intro-slide:not([hidden])');
-    const title=()=>visible().locator('h2').innerText();
-    assert.equal(await title(),'One kingdom');
-    await p.keyboard.press('ArrowRight');assert.equal(await title(),'One night');
-    await p.keyboard.press('Home');assert.equal(await title(),'One kingdom');
-    await p.keyboard.press('ArrowLeft');assert.equal(await title(),'One kingdom');
+    const copy=()=>visible().locator('.rl-intro-copy').innerText();
+    assert.equal(await copy(),'Yharmin was once united under a single High King, ruling from one great keep.');
+    await p.keyboard.press('ArrowRight');assert.equal(await copy(),'In a single night, that keep was breached.');
+    await p.keyboard.press('Home');assert.equal(await copy(),'Yharmin was once united under a single High King, ruling from one great keep.');
+    await p.keyboard.press('ArrowLeft');assert.equal(await copy(),'Yharmin was once united under a single High King, ruling from one great keep.');
     const session=await c.newCDPSession(p);
     const swipe=async(dx,dy=0,target='.rl-intro-stage')=>{
      const b=await p.locator(target).evaluate(el=>{const r=el.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height,turn:window.GGLock.turn()}}),x=b.x+b.width/2-dx/2,y=b.y+Math.min(240,b.height/2),v=p.viewportSize();
@@ -59,10 +60,10 @@ const seed=p=>p.evaluate(async()=>{const F=await import('/js/core/realm.js'),s=F
      for(let i=1;i<=6;i++)await session.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[point(x+dx*i/6,y+dy*i/6)]});
      await session.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
     };
-    await swipe(-140);assert.equal(await title(),'One night');
-    await swipe(140);assert.equal(await title(),'One kingdom');
-    await swipe(0,110);await lore(p);assert.equal(await title(),'One kingdom');
-    await swipe(-20);assert.equal(await title(),'One kingdom');
+    await swipe(-140);assert.equal(await copy(),'In a single night, that keep was breached.');
+    await swipe(140);assert.equal(await copy(),'Yharmin was once united under a single High King, ruling from one great keep.');
+    await swipe(0,110);await lore(p);assert.equal(await copy(),'Yharmin was once united under a single High King, ruling from one great keep.');
+    await swipe(-20);assert.equal(await copy(),'Yharmin was once united under a single High King, ruling from one great keep.');
     for(let i=0;i<7;i++){
      await p.locator('[data-intro-slide="'+i+'"]').click();
      await visible().locator('img').evaluate(img=>img.decode());
@@ -70,7 +71,7 @@ const seed=p=>p.evaluate(async()=>{const F=await import('/js/core/realm.js'),s=F
      await p.screenshot({path:path.join(out,'keepfall-slide-'+(i+1)+'-390.png')});
     }
     assert.equal(await p.locator('[data-intro-next]').innerText(),'Begin your reign');
-    await p.keyboard.press('ArrowRight');assert.equal(await title(),'Your house. Your reign.');
+    await p.keyboard.press('ArrowRight');assert.equal(await copy(),LORE[1]);
     for(const [width,height] of [[320,740],[390,844],[1280,900],[844,390],[320,568]]){
      await p.setViewportSize({width,height});
      for(const i of [0,2,6]){
@@ -87,20 +88,20 @@ const seed=p=>p.evaluate(async()=>{const F=await import('/js/core/realm.js'),s=F
      }
     }
     await p.setViewportSize({width:844,height:390});await p.waitForFunction(()=>window.GGLock.turn()!==0);
-    await p.keyboard.press('Home');await swipe(-140);assert.equal(await title(),'One night');await swipe(140);assert.equal(await title(),'One kingdom');
+    await p.keyboard.press('Home');await swipe(-140);assert.equal(await copy(),'In a single night, that keep was breached.');await swipe(140);assert.equal(await copy(),'Yharmin was once united under a single High King, ruling from one great keep.');
     await p.locator('[data-intro-help]').click();await swipe(0,-140,'.rl-intro-help');assert(await p.locator('.rl-intro-help').evaluate(el=>el.scrollTop>0),'Sideways help touch scrolling');await p.locator('[data-intro-resume]').click();
     await p.setViewportSize({width:320,height:740});await p.keyboard.press('End');
     await p.locator('[data-intro-help]').click();
     const help=await p.locator('.rl-intro-help').innerText();for(const t of ['Your coffers','Gold mines','Your builder','Attack','Heroes','Your people','Defend','pinch to zoom'])assert(help.includes(t),t);
     const scroll=await p.locator('.rl-intro-help').evaluate(el=>{el.scrollTop=el.scrollHeight;return {top:el.scrollTop,over:el.scrollWidth-el.clientWidth}});assert(scroll.top>0&&scroll.over<=1);
-    await p.locator('[data-intro-resume]').click();assert.equal(await title(),'Your house. Your reign.');
+    await p.locator('[data-intro-resume]').click();assert.equal(await copy(),LORE[1]);
     await p.locator('[data-intro-next]').click();await p.locator('.sh-rl-lore').waitFor({state:'detached'});
-    assert.equal(await marker(p),'2');assert.deepEqual(await snap(p),before);
-    await p.locator('[data-rl-lore]').click();await lore(p);assert.equal(await title(),'One kingdom');
+    assert.equal(await marker(p),'3');assert.deepEqual(await snap(p),before);
+    await p.locator('[data-rl-lore]').click();await lore(p);assert.equal(await copy(),'Yharmin was once united under a single High King, ruling from one great keep.');
     await p.keyboard.press('End');assert.equal(await p.locator('[data-intro-next]').innerText(),'Return to your realm');
     await p.keyboard.press('Home');await closeLore(p);assert.deepEqual(await snap(p),before);
     await p.reload();await p.waitForFunction(()=>window.__ggBooted);await p.locator('[data-rl-lore]').waitFor();
-    assert.equal(await p.locator('.sh-rl-lore').count(),0);assert.equal(await marker(p),'2');
+    assert.equal(await p.locator('.sh-rl-lore').count(),0);assert.equal(await marker(p),'3');
     await p.locator('[data-rl-lore]').click();await lore(p);await p.keyboard.press('Escape');await p.locator('.sh-rl-lore').waitFor({state:'detached'});
     assert.deepEqual(errors,[]);assert.deepEqual(failed,[]);
     console.log('PASS: seven illustrated slides, real touch swipes, vertical-drag protection, keyboard, boundaries, skip/finish/replay, responsive layout, help, saved progress and reload');
@@ -108,7 +109,7 @@ const seed=p=>p.evaluate(async()=>{const F=await import('/js/core/realm.js'),s=F
   }
   {const {c,p,errors}=await env('evan',true);
    try{
-    await seed(p);await p.evaluate(()=>localStorage.setItem('gg-keepfall-lore-seen','1'));const before=await snap(p);await nav(p,'/realm');await lore(p);await closeLore(p);assert.deepEqual(await snap(p),before);
+    await seed(p);await p.evaluate(()=>localStorage.setItem('gg-keepfall-lore-seen','2'));const before=await snap(p);await nav(p,'/realm');await lore(p);await closeLore(p);assert.deepEqual(await snap(p),before);
     await p.reload();await p.waitForFunction(()=>window.__ggBooted);await p.locator('[data-rl-lore]').waitFor();assert.equal(await p.locator('.sh-rl-lore').count(),0);assert.deepEqual(await snap(p),before);
     assert.deepEqual(errors,[]);console.log('PASS: existing owners receive lore once without resetting their saved realm');
    }finally{await c.close()}
@@ -128,7 +129,7 @@ const seed=p=>p.evaluate(async()=>{const F=await import('/js/core/realm.js'),s=F
     await p.evaluate(async()=>{const F=await import('/js/core/realm.js'),d=await import('/js/core/daily.js'),s=JSON.parse(JSON.stringify(F.mine())),now=Date.now();s.nm='Late synced house';s.at=now+10000;s.born=now-72*F.HOUR;s.lr=now-48*F.HOUR;s.sh=0;Object.assign(d.LB,{uid:'local-lore',nick:'Evan Appenzeller',ready:true,off:false,put:null,raw:[{id:'local-lore',nick:'Evan Appenzeller',fr1:s}]});d.__dev.emit('lb',{why:'local lore check'})});
     await p.waitForFunction(async()=>(await import('/js/core/realm.js')).mine().nm==='Late synced house');await p.waitForTimeout(1200);await lore(p);assert.equal(await p.locator('.sheet').count(),1);
     const due=await p.evaluate(async()=>{const F=await import('/js/core/realm.js'),B=await import('/js/core/realm-battle.js');return {due:B.raidsDue(F.mine()).length,played:F.mine().df.length}});assert(due.due>0&&due.played===0);
-    await closeLore(p);await p.locator('.sheet-title').filter({hasText:'While you were away'}).waitFor();assert.equal(await marker(p),'2');assert.deepEqual(errors,[]);
+    await closeLore(p);await p.locator('.sheet-title').filter({hasText:'While you were away'}).waitFor();assert.equal(await marker(p),'3');assert.deepEqual(errors,[]);
     console.log('PASS: late sync and due raids cannot cover unread lore; defense report resumes after dismissal');
    }finally{await c.close()}
   }
@@ -139,8 +140,43 @@ const seed=p=>p.evaluate(async()=>{const F=await import('/js/core/realm.js'),s=F
     await p.waitForFunction(()=>document.querySelector('.rl-intro-slide:not([hidden]) img').hidden);
     assert((await p.locator('.rl-intro-slide:not([hidden])').innerText()).includes('Yharmin was once united'));
     await p.keyboard.press('End');await p.locator('[data-intro-next]').click();await p.locator('.sh-rl-lore').waitFor({state:'detached'});
-    assert.equal(await marker(p),'2');assert.deepEqual(errors,[]);
+    assert.equal(await marker(p),'3');assert.deepEqual(errors,[]);
     console.log('PASS: failed artwork keeps the story readable and navigation usable');
+   }finally{await c.close()}
+  }
+
+  {const {c,p,errors}=await env('evan',true);
+   try{
+    const reset=await p.evaluate(async()=>{
+     const F=await import('/js/core/realm.js'),d=await import('/js/core/daily.js'),data=await import('/js/core/data.js'),now=Date.now(),writes=[];
+     const clone=s=>JSON.parse(JSON.stringify(s)),level=s=>s.b.find(b=>b.t==='keep').l;
+     const old=F.testRealm(null,now-60000);old.rs='2026-10-22';old.nm='Old local house';old.sc='forest';old.b.find(b=>b.t==='keep').l=6;old.ar={footman:12};old.hr={knight:2};old.tp=123;
+     localStorage.setItem('gg-fr1',JSON.stringify(old));
+     const remote=clone(old);remote.nm='Old remote house';remote.sc='coast';remote.at=now-30000;
+     const doc=s=>({id:'reset-fixture',nick:'Evan Appenzeller',fr1:s});
+     Object.assign(d.LB,{uid:'reset-fixture',nick:'Evan Appenzeller',ready:true,off:false,raw:[doc(remote)],put:async(body,fields)=>writes.push(clone({body,fields}))});
+     F._set(null);const s=F.mine(now);
+     const fresh=s.rs===F.TEST_RESET&&level(s)===1&&s.b.length===5&&s.nb===6&&s.tp===0
+       &&['ar','hr','q','rd','df'].every(k=>Object.keys(s[k]).length===0)&&F.testing(s)&&s.nm===remote.nm&&s.sc===remote.sc;
+     const saved=await F.flush(),scoped=writes.length===1&&Object.keys(writes[0].body).join()==='fr1'&&writes[0].fields.join()==='fr1';
+     s.b.find(b=>b.t==='keep').l=2;F.touch();await F.flush();
+     remote.at=now+60000;d.LB.raw=[doc(remote)];
+     const ignored=!F.sync(now+1000)&&level(F.mine(now+1000))===2;
+     F._set(null);const once=level(F.mine(now+1000))===2;
+     const valid=clone(F.mine(now+1000));valid.at=now+10000;valid.b.find(b=>b.t==='keep').l=3;
+     d.LB.raw=[doc(remote),{id:'reset-second-phone',nick:'Evan Appenzeller',fr1:valid}];
+     const synced=F.sync(now+1000)&&level(F.mine(now+1000))===3;
+     localStorage.removeItem('gg-fr1');F._set(null);
+     const newPhone=level(F.mine(now+1000))===3;
+     F.touch();await F.flush();F.touch();const count=writes.length;data.setMe('mason');
+     const guarded=!(await F.flush())&&writes.length===count;data.setMe('evan');
+     return {fresh,saved,scoped,ignored,once,synced,newPhone,guarded};
+    });
+    for(const [name,ok] of Object.entries(reset))assert(ok,'Reset: '+name);
+    await p.reload();await p.waitForFunction(()=>window.__ggBooted);
+    const retained=await p.evaluate(async()=>{const F=await import('/js/core/realm.js'),s=F.mine();return s.rs===F.TEST_RESET&&s.b.find(b=>b.t==='keep').l===3&&s.nm==='Old remote house'&&s.sc==='coast'&&F.testing(s)});
+    assert(retained,'New progress survives reload');assert.deepEqual(errors,[]);
+    console.log('PASS: one-time owner reset, scoped save, stale-device rejection, current-device sync, reload and profile guard');
    }finally{await c.close()}
   }
   for(const [profile,guest] of [['mason',null],['none',null],['none','Local QA guest']]){
