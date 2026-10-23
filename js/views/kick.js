@@ -239,7 +239,8 @@ function size(st) {
   // the whole screen between the nav bar and the tab bar (8 px clear of each), within limits
   const room = screenRoom(st);
   const H = Math.round(room > 300 ? Math.max(360, Math.min(860, room)) : Math.max(380, Math.min(620, W * 1.3, (innerHeight || 800) - 170)));
-  const dpr = Math.min(3, devicePixelRatio || 1);
+  // (2x at most: at 3x the stage and its three cached layers are over twice the memory, and every frame's fill)
+  const dpr = Math.min(2, devicePixelRatio || 1);
   cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
   cv.style.height = H + 'px';
   st.W = W; st.H = H; st.dpr = dpr;
@@ -1288,5 +1289,8 @@ export function unmount(el, ctx) {
   if (st.unme) st.unme();
   if (st.stopTick) st.stopTick();
   if (st.stopLife) st.stopLife();
+  // (iOS frees a canvas's memory late, and caps the total: the stage and its cached layers go now)
+  [st.cv, st.bg && st.bg.cv, st.tex && st.tex.cv, st.fl && st.fl.cv].forEach(cv => { if (cv) cv.width = cv.height = 0; });
+  st.bg = st.tex = st.fl = null;
   ST.delete(ctx);
 }

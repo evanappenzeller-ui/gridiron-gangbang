@@ -889,6 +889,10 @@ async function startFirebase() {
       LB.put = (body, fields) => fs.setDoc(ref(), writeScores(body), {mergeFields: scoreFields(fields)});
     }
     fs.onSnapshot(fs.collection(db, 'players'), {includeMetadataChanges: true}, snap => {
+      // (nothing in it changed, and it doesn't newly confirm the board's synced: every board on the phone would only
+      // redo the same work, so it goes no further)
+      const synced = !snap.metadata.fromCache && !snap.metadata.hasPendingWrites;
+      if (LB.ready && LB.all && !snap.docChanges({includeMetadataChanges: true}).length && (LB.synced || !synced)) return;
       const prev = LB.players;
       const all = snap.docs.map(d => scoredDoc(readScores(Object.assign({id: d.id}, d.data()))));
       LB.all = all;

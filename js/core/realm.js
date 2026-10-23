@@ -1521,13 +1521,13 @@ export function visitWho(key, doc, owner = data.isOwner()) {
 }
 /** The other players' realms this phone may visit, the freshest copy of each: [{key, name, full, member, guest, th, at, state}],
  *  the highest Castle first. */
-export function visitable(now = Date.now(), docs = allDocs()) {
+export function visitable(now = Date.now(), docs = allDocs(), only = null) {
   const own = profileKey(), owner = data.isOwner(), best = new Map();
   for (const p of docs) {
     const all = p && p.fr3;
     if (!all || typeof all !== 'object') continue;
     for (const key of Object.keys(all)) {
-      if (!key || key === own) continue;
+      if (!key || key === own || (only != null && key !== only)) continue;
       const s = current(all[key]), who = s && visitWho(key, p, owner);
       if (who && (!best.has(key) || Number(s.at) > Number(best.get(key).s.at))) best.set(key, {s, who});
     }
@@ -1542,4 +1542,4 @@ export function visitable(now = Date.now(), docs = allDocs()) {
   return out.sort((a, b) => b.th - a.th || a.name.localeCompare(b.name));
 }
 /** One player's realm to visit (visitable's), or null when it isn't there or isn't to show here. */
-export const visitOf = (key, now = Date.now(), docs) => visitable(now, docs).find(x => x.key === key) || null;
+export const visitOf = (key, now = Date.now(), docs) => visitable(now, docs, key).find(x => x.key === key) || null;

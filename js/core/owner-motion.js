@@ -93,8 +93,10 @@ function watch(record, quiet = false) {
     });
   }, {root: record.scr.el, threshold: 0, rootMargin: '0px 0px -20px 0px'});
   if (typeof MutationObserver !== 'undefined') {
-    record.mo = new MutationObserver(() => {
-      if (record.frame) return;
+    // (only new elements can be new cards: a game's counters changing text every frame never need a scan)
+    const addsElements = list => list.some(m => { for (const n of m.addedNodes) if (n.nodeType === 1) return true; return false; });
+    record.mo = new MutationObserver(list => {
+      if (record.frame || !addsElements(list)) return;
       record.frame = requestAnimationFrame(() => { record.frame = 0; scan(record); });
     });
     record.mo.observe(record.scr.body, {childList: true, subtree: true});

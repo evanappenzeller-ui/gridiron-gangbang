@@ -230,9 +230,10 @@ async function start3d(st) {
   st.v.setAnim(now => {
     if (st.dead) return false;
     const B = st.B;
-    // (the battle's clock runs at the raid's speed: each frame moves it on by the time since the last, times that)
+    // (the battle's clock runs at the raid's speed: each frame moves it on by the time since the last, times that;
+    // at most a quarter second a frame, so coming back to the app doesn't fight the rest of the raid in one frame)
     if (st.t0 && !B.over) {
-      st.t = Math.min(F.RAID_S, st.t + Math.max(0, now - (st.last || st.t0)) / 1000 * st.speed);
+      st.t = Math.min(F.RAID_S, st.t + Math.min(.25, Math.max(0, now - (st.last || st.t0)) / 1000) * st.speed);
       B.run(st.t + .1);
     }
     st.last = now;

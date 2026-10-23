@@ -788,6 +788,7 @@ function syncStyle() {
   for (const [key, entry] of LIVE) {
     ROOT.remove(entry.obj);
     if (key.startsWith('c:') || key.startsWith('v:')) entry.obj.traverse(o => { if (o.isMesh && o.geometry && !o.userData.shared) o.geometry.dispose(); });
+    else if (key.startsWith('g:')) entry.obj.traverse(o => { if (o.userData.own) o.geometry.dispose(); });
   }
   LIVE.clear();
   if (FAR_GROUND) FAR_GROUND.visible = false;
@@ -1288,7 +1289,13 @@ export function update(st, now) {
   for (let z = Math.ceil((cz - 4) / R.ZONE) * R.ZONE; z < cz + AHEAD; z += R.ZONE) {
     if (z <= 0) continue;
     const th = R.zoneAt(st.co, z + .01).theme;
-    keep(`g:${key}|${z}`, () => { const g = gateOf(th).clone(); g.position.set(0, 0, -z); const b = new Batch(); pylons(b, z, th.id); g.add(b.mesh(mats().vcs)); return g; });
+    keep(`g:${key}|${z}`, () => {
+      const g = gateOf(th).clone(); g.position.set(0, 0, -z);
+      const b = new Batch(); pylons(b, z, th.id);
+      const m = b.mesh(mats().vcs);
+      if (m) { m.userData.own = true; g.add(m); } // (the pylons are this gate's own: the gate itself is shared)
+      return g;
+    });
   }
   if (run) {
     const A = R.ahead(run, 120, 4 + (st.lag || 0)); // (and further back while he's held back in a pothole: views/return.js)
@@ -1339,6 +1346,7 @@ export function update(st, now) {
     if (e.seen === FRAME) continue;
     ROOT.remove(e.obj);
     if (k.startsWith('c:') || k.startsWith('v:')) e.obj.traverse(o => { if (o.isMesh && o.geometry && !o.userData.shared) o.geometry.dispose(); });
+    else if (k.startsWith('g:')) e.obj.traverse(o => { if (o.userData.own) o.geometry.dispose(); });
     LIVE.delete(k);
   }
 }

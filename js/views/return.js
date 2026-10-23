@@ -249,7 +249,8 @@ function size(st) {
   const cv = st.cv, Wd = cv.parentElement.clientWidth || 360;
   const room = screenRoom(st);
   const H = Math.round(room > 300 ? Math.max(380, Math.min(860, room)) : Math.max(400, Math.min(640, Wd * 1.4, (innerHeight || 800) - 170)));
-  const dpr = Math.min(3, devicePixelRatio || 1);
+  // (2x at most: the 3D under it renders at 2x anyway, and a 3x canvas this size is over twice the memory and fill)
+  const dpr = Math.min(2, devicePixelRatio || 1);
   cv.width = Math.round(Wd * dpr); cv.height = Math.round(H * dpr);
   cv.style.height = H + 'px';
   st.W = Wd; st.H = H; st.dpr = dpr;
@@ -907,7 +908,8 @@ function go(st) {
   ungot(st);
   clearPickupPop(st);
   st.co = st.run.co;
-  W.warm(skyView(st), 0);
+  // (the painted skies only show without the 3D: built ahead for that alone, each a screen-sized canvas)
+  if (!D3.ready()) W.warm(skyView(st), 0);
   st.mode = 'catch'; st.catchAt = performance.now();
   setCard(st, false);
   patchHud(st);
@@ -990,7 +992,7 @@ function onEvents(st, evs) {
       const into = evs.find(x => x.type === 'zone');
       st.cheer = now + 2600; ui.haptic('success'); ui.announce(`Touchdown! ${plural(e.n, 'touchdown')}.${into ? ` ${into.theme.name}.` : ''}`);
     }
-    else if (e.type === 'zone') { W.warm(skyView(st), e.z); if (!evs.some(x => x.type === 'td')) say(e.theme.name.toUpperCase(), 'is-zone'); }
+    else if (e.type === 'zone') { if (!D3.ready()) W.warm(skyView(st), e.z); if (!evs.some(x => x.type === 'td')) say(e.theme.name.toUpperCase(), 'is-zone'); }
     // a juke past something: he spins all the way round (not on the owner's phone, his ask, Oct 2026: just the cut)
     else if (e.type === 'juked') { if (!features.available()) { say('SPIN MOVE!'); st.spinAt = now; st.spinDir = Math.sign(R.xOf(st.run, st.run.lane) - st.run.jFrom) || 1; } }
     else if (e.type === 'hurdled') { say(e.ob === 'hole' ? 'HOP!' : 'HURDLE!'); ui.haptic('light'); }
@@ -1246,8 +1248,12 @@ export function mount(el, ctx) {
     draw(st);
   });
   st.stopTick = ctx.timer(() => tick(st), 20000);
-  // the stands twinkle while nothing's moving
-  st.stopLife = ctx.timer(() => { if (!st.raf && !ui.RM && st.cv.getBoundingClientRect().bottom > 0) draw(st); }, 90);
+  // the stands twinkle while nothing's moving (a full 3D frame each time in 3D, so there a third as often)
+  st.lifeN = 0;
+  st.stopLife = ctx.timer(() => {
+    if (st.raf || ui.RM || (D3.ready() && ++st.lifeN % 3)) return;
+    if (st.cv.getBoundingClientRect().bottom > 0) draw(st);
+  }, 90);
   R.autoPost();
   SP.load().then(() => { if (!st.dead) draw(st); });
   D3.load().then(ok => { if (ok && !st.dead) draw(st); });
@@ -1284,5 +1290,7 @@ export function unmount(el, ctx) {
   if (st.unsubIcons) st.unsubIcons();
   if (st.stopTick) st.stopTick();
   if (st.stopLife) st.stopLife();
+  // (iOS frees a canvas's memory late, and caps the total: let it go now)
+  if (st.cv) st.cv.width = st.cv.height = 0;
   STATE.delete(el);
 }

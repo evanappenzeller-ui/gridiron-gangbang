@@ -167,8 +167,19 @@ export function thumb(k, l, house, troop = false) {
     const url = r.domElement.toDataURL('image/png');
     sc.remove(obj);
     THUMBS.set(key, url);
+    // (its own GPU context, let go a few seconds after the last picture: the pictures stay, as data URLs)
+    clearTimeout(THUMB.idle);
+    THUMB.idle = setTimeout(releaseThumb, 4000);
     return url;
   } catch (e) { return ''; }
+}
+function releaseThumb() {
+  if (!THUMB) return;
+  const {r, sc} = THUMB;
+  THUMB = null;
+  if (sc.environment) sc.environment.dispose();
+  r.dispose();
+  try { r.forceContextLoss(); } catch (_) {}
 }
 
 function grassTexture(T) {
@@ -367,9 +378,14 @@ export function create(host, opts = {}) {
   const canvas = renderer.domElement;
   canvas.className = 'rl-canvas';
   host.appendChild(canvas);
-  let lost = false;
-  canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); lost = true; });
-  canvas.addEventListener('webglcontextrestored', () => { lost = false; want(); });
+  let lost = false, lostTimer = 0;
+  // (a phone short of memory can take the GPU back and never return it: then the owner builds the view again)
+  canvas.addEventListener('webglcontextlost', e => {
+    e.preventDefault(); lost = true;
+    clearTimeout(lostTimer);
+    if (opts.onLost) lostTimer = setTimeout(() => { if (lost && !dead) opts.onLost(); }, 2500);
+  });
+  canvas.addEventListener('webglcontextrestored', () => { lost = false; clearTimeout(lostTimer); want(); });
 
   const scene = new T.Scene();
   scene.background = new T.Color(0x9AAEC0);
@@ -1390,8 +1406,10 @@ export function create(host, opts = {}) {
     });
     scene.remove(raid.shadow); raid.shadow.geometry.dispose(); raid.shadow.material.map.dispose(); raid.shadow.material.dispose(); raid.shadow.dispose();
     Object.values(raid.fly).forEach(M => { scene.remove(M); M.geometry.dispose(); M.material.dispose(); M.dispose(); });
-    scene.remove(raid.zone);
-    raid.puffs.forEach(p => scene.remove(p.sp));
+    scene.remove(raid.zone); raid.zone.geometry.dispose(); raid.zone.material.dispose(); raid.zoneTex.dispose();
+    raid.zoneCv.width = raid.zoneCv.height = 0;
+    raid.puffs.forEach(p => { scene.remove(p.sp); p.sp.material.dispose(); });
+    if (raid.puffs[0]) raid.puffs[0].sp.material.map.dispose();
     raid = null;
   }
 
@@ -1462,10 +1480,15 @@ export function create(host, opts = {}) {
   // atlas meshes as well as their textures when that whole profile store goes.
   const clearedStorage = event => { if (event.key === null) { raidStop(); want(); } };
   window.addEventListener('storage', clearedStorage);
+  // (frames stop while the app is in the background; a raid, scout or replay has nothing else to wake them on return)
+  document.addEventListener('visibilitychange', want);
   return canvas.__keep3d = {
     setLot, select, setGhost, showGrid, showReach, pick, pickAll, tileAt, project, want, setAnim, look, frame: fit, frameVillage, frameWorld, zoomBy, resize,
     raidStart, raidRestart, raidFrame, raidStop, showZone,
     get zoom() { return view.dist; },
+    /** Where the camera is (for setCamera on a view built again later). */
+    get camera() { return {tx: view.tx, tz: view.tz, dist: view.dist, auto: autoFrame}; },
+    setCamera(c) { view.tx = c.tx; view.tz = c.tz; view.dist = c.dist; autoFrame = !!c.auto; clampView(); placeCam(); want(); },
     get overlayScale() { return village ? Math.max(.5, Math.min(1, 70 / view.dist)) : 1; },
     get overview() { return village && view.dist > 145; },
     /** Lays scenery theme k round the lot (once it's in). */
@@ -1476,7 +1499,9 @@ export function create(host, opts = {}) {
     get dragons() { return {home: homeDragon, battle: raid && raid.dragons, scene, camera: cam, renderer}; },
     dispose() {
       dead = true;
+      clearTimeout(lostTimer);
       window.removeEventListener('storage', clearedStorage);
+      document.removeEventListener('visibilitychange', want);
       clearReveal();
       dropScenery();
       clearInterval(folkTimer);
@@ -1487,8 +1512,12 @@ export function create(host, opts = {}) {
       wallView.dispose();
       if (raf) cancelAnimationFrame(raf);
       if (ro) ro.disconnect();
-      if (wear) { wear.mesh.geometry.dispose(); wear.mesh.material.dispose(); wear.tex.dispose(); }
-      if (village && base.plot.material.map) base.plot.material.map.dispose();
+      // Big canvases go back to zero size: iOS caps total canvas memory, and three.js's listeners on the shared
+      // sprite textures keep this renderer (and through it this canvas) reachable after the screen has gone.
+      const freeTex = t => { if (!t) return; const im = t.image; t.dispose(); if (im && im.getContext) im.width = im.height = 0; };
+      if (wear) { wear.mesh.geometry.dispose(); wear.mesh.material.dispose(); freeTex(wear.tex); wear = null; }
+      if (village && base.plot) freeTex(base.plot.material.map);
+      if (base.tex) Object.values(base.tex).forEach(freeTex);
       setGhost(null); runFoot.dispose(); runMats.true.dispose(); runMats.false.dispose();
       raidStop();
       canvas.removeEventListener('pointerdown', down); canvas.removeEventListener('pointermove', move);
@@ -1496,6 +1525,7 @@ export function create(host, opts = {}) {
       renderer.dispose();
       try { renderer.forceContextLoss(); } catch (_) {}
       canvas.remove();
+      delete canvas.__keep3d;
     }
   };
 }

@@ -74,7 +74,7 @@ export function subscribe(year, wk, fn) {
     e = {docs: [], fns: new Set(), stop: null, err: null};
     subs.set(key, e);
     fire.getFire().then(F => {
-      if (!subs.has(key)) return;
+      if (subs.get(key) !== e) return; // (closed, or opened again since: that one has its own listener)
       e.stop = F.fs.onSnapshot(F.fs.collection(F.db, 'lay', key, 'legs'), snap => {
         e.docs = snap.docs.map(d => {
           const v = d.data({serverTimestamps: 'estimate'});

@@ -1227,6 +1227,16 @@ async function start3d(st) {
     house: MY_HOUSE, zoom: 64, scenery: F.sceneryOf(F.mine()), village: true,
     isActive: () => !st.dead && st.ctx.visible && F.mayPlay(),
     onCamera: () => placeTags(st),
+    onLost: () => {
+      if (st.dead || !st.v) return;
+      st.cam = st.v.camera; st.v.dispose(); st.v = null;
+      if ((st.rebuilds = (st.rebuilds || 0) + 1) > 2) {
+        st.el.querySelector('.rl-gl').innerHTML = '<div class="rl-loading">This phone ran out of room to show your realm in 3D. Close a few apps, then open Keepfall again.</div>';
+        return;
+      }
+      st.parked = true;
+      if (st.ctx.visible) unpark(st);
+    },
     onTap: hit => onLotTap(st, hit),
     onGrab: (tile, id) => {
       if (st.place) {
@@ -1263,7 +1273,32 @@ async function start3d(st) {
     }
   });
   refresh(st);
-  st.v.frameVillage();
+  if (st.cam) { st.v.setCamera(st.cam); st.cam = null; if (st.sel != null) st.v.select(st.sel); }
+  else st.v.frameVillage();
+}
+// While another screen covers Keepfall, its 3D is let go (a phone can't hold two scenes, a raid's or a visit's and this
+// one, for long) and built again, the camera where it was, on the way back: soon under a raid, scout, visit or replay,
+// after a minute anywhere else.
+function parkLater(st) {
+  clearTimeout(st.parkT);
+  const park = () => {
+    st.parkT = 0;
+    if (st.dead || st.ctx.visible || !st.v || st.place || st.moving != null) return;
+    st.cam = st.v.camera;
+    st.v.dispose(); st.v = null;
+    st.parked = true;
+  };
+  // (the cover's route is in the address by the time its screen has slid in)
+  st.parkT = setTimeout(() => {
+    if (/^#\/realm\/(raid|scout|visit|replay)\//.test(location.hash)) park();
+    else st.parkT = setTimeout(park, 59000);
+  }, 900);
+}
+function unpark(st) {
+  clearTimeout(st.parkT); st.parkT = 0;
+  if (!st.parked || st.dead) return;
+  st.parked = false;
+  start3d(st);
 }
 function onLotTap(st, hit) {
   if (st.place) return;
@@ -1331,6 +1366,7 @@ function disposeState(st) {
   st.stops.splice(0).forEach(f => f());
   st.effects.forEach(clearTimeout); st.effects.clear();
   st.flights.forEach(a => a.cancel()); st.flights.clear();
+  clearTimeout(st.parkT);
   ART.clear();
   if (st.v) { st.v.dispose(); st.v = null; }
   st.sel = st.place = st.goal = st.moving = st.drag = null;
@@ -1513,6 +1549,7 @@ export default {
     if (!st) return;
     openingLore(st);
     fullScreen(st, true);
+    unpark(st);
     F.sync(); refresh(st); if (st.v) st.v.want();
     // (back from a replay: the Chronicle again, unless there's news of a raid to tell first)
     const told = defenses(st), log = LOG_NEXT;
@@ -1520,7 +1557,7 @@ export default {
     if (log && !told && !st.lore) logSheet(st);
   },
 
-  onHide(ctx) { const st = ST.get(ctx); if (st) { cancelLore(st); fullScreen(st, false); } },
+  onHide(ctx) { const st = ST.get(ctx); if (st) { cancelLore(st); fullScreen(st, false); if (!st.dead) parkLater(st); } },
 
   update(ctx) {
     const st = ST.get(ctx);

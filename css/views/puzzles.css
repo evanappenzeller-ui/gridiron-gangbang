@@ -187,6 +187,9 @@ html.rm .v-puzzles .c-prog-f, html.rm .v-puzzles .c-prog-f::after, html.rm .v-pu
   88% { opacity: calc(var(--density) * .055); transform: translate3d(calc(-50% + var(--dx) * .88), calc(-50% + var(--dy) * .88), 0) rotate(calc(var(--turn) + 14deg)) scale(1.89,1.48); }
   100% { opacity: 0; transform: translate3d(calc(-50% + var(--dx)), calc(-50% + var(--dy)), 0) rotate(calc(var(--turn) + 16deg)) scale(2.06,1.58); }
 }
+/* Under a game's page the haze goes altogether: hidden, its two screen-sized layers would still hold GPU memory. */
+:root:not([data-light]) .screen.v-puzzles[data-path="/puzzles"][data-under]::before,
+:root:not([data-light]) .screen.v-puzzles[data-path="/puzzles"][data-under]::after { content: none; }
 /* Pause the dispersion while a game covers the shelf or another tab is selected. */
 .gm-owner-light[data-under] .gm-smoke-wisp,
 .tab-layer[hidden] .gm-owner-light .gm-smoke-wisp { animation-play-state: paused; }
