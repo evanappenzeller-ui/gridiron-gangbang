@@ -29,7 +29,6 @@ import * as motw from './motw.js';
 import * as daily from './daily.js';
 import * as fire from './fire.js';
 import * as nfl from './nfl.js';
-import {SCORE_RESET_AT} from './score-release.js';
 
 // Week 1 Thursday of each NFL season (lock = that Thursday's 8:15 PM US Eastern kickoff, then every 7 days;
 // Thanksgiving and LOCK_AT below are the exceptions).
@@ -602,11 +601,9 @@ function finishRows(rows, uid, me, extra, all, card) {
 // without one), pct, rank (nobody who missed a game is first: finishRows), locked (when they locked in, ms, or
 // null)}], ranked. opt.me: your manager id; opt.locks: the week's lock docs; opt.at: the clock for missed games
 // (default now()); opt.all: every row, not just the ones this phone shows (THE RULE, above).
-// Reset standings without changing saved picks or server-enforced kickoff locks.
-const currentGames = games => (games || []).filter(g => toMs(g.kickoff) >= SCORE_RESET_AT);
 export function nflRowsFrom(docs, games, uid, opt = {}) {
   const L = lockIndex(opt.locks);
-  return finishRows(rowsOf(countNfl(docs, currentGames(games), uid, opt.locks), opt.at != null ? toMs(opt.at) : now()), uid, opt.me, r => {
+  return finishRows(rowsOf(countNfl(docs, games, uid, opt.locks), opt.at != null ? toMs(opt.at) : now()), uid, opt.me, r => {
     let t = r.me ? L.byMe.get(r.me) : undefined;
     r.uids.forEach(u => { const x = L.byUid.get(u); if (x != null && (t == null || x < t)) t = x; });
     return {locked: t == null ? null : t};
@@ -618,7 +615,7 @@ export function nflRowsFrom(docs, games, uid, opt = {}) {
 export function nflStandingsFrom(weeks, uid, opt = {}) {
   const rows = new Map();
   (weeks || []).forEach(({year, week, games, docs, locks}) => {
-    rowsOf(countNfl(docs, currentGames(games), uid, locks)).forEach((w, k) => {
+    rowsOf(countNfl(docs, games, uid, locks)).forEach((w, k) => {
       let r = rows.get(k);
       if (!r) rows.set(k, r = {uid: w.uid, uids: new Set(), me: w.me, nick: w.nick, _o: -1, right: 0, wrong: 0, push: 0, pending: 0, picked: 0, weeks: 0});
       w.uids.forEach(u => r.uids.add(u));
