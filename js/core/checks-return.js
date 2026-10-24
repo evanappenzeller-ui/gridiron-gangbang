@@ -506,7 +506,7 @@ export async function returnChecks(check) {
     const shows = /Today’s leaderboard/.test(txt) && /TODAY/.test(txt) && !/FINAL/.test(txt) && (board === 'ready' ? /Mason/.test(txt) : !!back.querySelector('.gm-scr-note'));
     const [turner, css] = await Promise.all(['../views/game-case.js', '../../css/views/puzzles.css'].map(f => fetch(new URL(f, import.meta.url)).then(r => r.text()).catch(() => '')));
     const turns = /is-turns'\) \? \[FRONT, BACK\]/.test(turner) && /closest\('\.gm-case\.is-done, \.gm-case\.is-turns'\)/.test(turner) && /\.gm-case:not\(\.is-done\):not\(\.is-turns\) \.gm-grip \{ display: none; \}/.test(css);
-    const pass = /\bis-turns\b/.test(cls) && !/\bis-done\b/.test(cls) && shows && others === 'return' && turns;
+    const pass = /\bis-turns\b/.test(cls) && !/\bis-done\b/.test(cls) && shows && others === 'drill,return' && turns; // (the Drill's turns unplayed too: the owner, Oct 24 2026)
     return {pass, detail: `the case ${cls}; its back ${shows ? 'today\'s leaderboard' : 'WRONG: ' + txt.slice(0, 80)} (board ${board}); cases that turn unplayed: ${others || 'none'}; grabbed and turned like a finished one ${turns}`};
   });
   check('Return Man\'s case has a flip button under it (the owner\'s ask, Oct 22 2026, his profile only: "Add a view scoreboard or flip case button"): View scoreboard turns the case in the middle round to its leaderboard, Flip to the cover turns it back; no one else has the button', async () => {

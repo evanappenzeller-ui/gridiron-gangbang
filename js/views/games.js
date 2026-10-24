@@ -170,8 +170,12 @@ function drillState() {
   const rows = boardOf(dr) === 'ready' ? safe(() => dr.boardRows(n)).map(r => ({...r, val: `${r.r} ${r.u}–${r.h}`})) : [];
   const mine = rows.find(r => r.me);
   if (!day.result && !(mine && !test)) {
-    return day.acts ? {kind: 'started', test, meta: '<p class="gm-note">Under way. Pick up where you left off.</p>'}
-      : {kind: 'new', test};
+    // Today's leaderboard before your game's over too (the owner's ask, Oct 24 2026): the case turns round to it, as
+    // Return Man's does, and View scoreboard under it; standing on its front, a tap plays.
+    const back = {turns: true, board: boardOf(dr), rows, tag: 'TODAY', vis: '',
+      head: day.acts ? 'Your game’s under way' : 'Not played yet today', lines: [day.acts ? 'Pick up where you left off' : 'One game a day, to 0:00']};
+    return day.acts ? {kind: 'started', test, meta: '<p class="gm-note">Under way. Pick up where you left off.</p>', ...back}
+      : {kind: 'new', test, ...back};
   }
   const r = day.result || mine.r;
   let us = mine && mine.u, them = mine && mine.h, how = '', grade = mine ? mine.grade : null;
