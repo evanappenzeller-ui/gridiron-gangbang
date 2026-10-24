@@ -265,6 +265,7 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
   will-change: transform;
 }
 .v-puzzles .gm-slot.is-cur { z-index: 12; }
+.v-puzzles .gm-slot.is-far { visibility: hidden; }
 /* the cases either side are dimmed, not see-through (the owner's ask, Oct 2026: a case is solid, its back too) */
 .v-puzzles .gm-case::before {
   content: ""; position: absolute; inset: 0; z-index: 1; border-radius: 5.6cqw; pointer-events: none;
@@ -526,6 +527,10 @@ button.gm-r:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
 .gm-z-best .gm-r-t { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .gm-z-best .gm-r-v.is-gold { color: #F2C230; }
 
+/* Only the case in the middle (or one being turned) draws its sides: each case's sixteen strips are layers of their own,
+   and the whole shelf's (eighteen cases, three of each game for its loop) came to some 300, more than a phone's memory
+   wants. The cases either side, tilted a little, show their faces alone. (Oct 2026, the owner's call) */
+.v-puzzles .gm-slot:not(.is-cur) .gm-case:not(.is-turning) .gm-sd { display: none; }
 /* its sides (views/game-case.js shellHTML): glossy green plastic round the edge, the corners rounded, each strip
    darkened (--dk) and caught by the light (--hi) as the way it faces turns; the seam where the cover shuts down the
    middle of all but the spine, the finger notch in the opening side, the name down the spine */

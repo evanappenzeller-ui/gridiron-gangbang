@@ -226,7 +226,7 @@ const playing = st => !st.day.runs || st.mode === 'run' || st.mode === 'catch' |
 function bodyHTML(st) {
   return `<div class="rm${playing(st) ? ' is-playing' : ''}" data-rm>`
     + `<div class="rm-stage" data-rm-stage data-hscroll aria-label="Return Man: swipe left or right to juke, up to jump, down to slide">`
-    + `<canvas class="rm-cv" data-rm-cv></canvas>${hudHTML()}`
+    + `<div class="rm-layers" data-rm-layers><canvas class="rm-cv" data-rm-cv></canvas><div class="rm-gl" data-rm-gl></div><canvas class="rm-fx" data-rm-fx></canvas></div>${hudHTML()}`
     + `<div class="rm-pop" data-rm-pop aria-hidden="true"></div>`
     + `<div class="rm-card" data-rm-card role="group" aria-live="polite"${autoGoes(st) ? ' hidden' : ''}>${cardHTML(st)}</div></div>`
     + `<div class="rm-fill" data-rm-fill></div>`
@@ -253,6 +253,7 @@ function size(st) {
   const dpr = Math.min(2, devicePixelRatio || 1);
   cv.width = Math.round(Wd * dpr); cv.height = Math.round(H * dpr);
   cv.style.height = H + 'px';
+  if (st.fx) { st.fx.width = cv.width; st.fx.height = cv.height; st.fxDirty = true; }
   st.W = Wd; st.H = H; st.dpr = dpr;
   st.f = Wd * 1.05;
   st.back = 7;
@@ -737,7 +738,7 @@ function draw3(st, c, now) {
   if (run && !run.over && run.booze > 0) who.ghost = {spec: us, x: bx + .45 * Math.sin(now / 430), y: ry, z: az + .2, alpha: .32 * Math.min(1, run.booze / .8)};
   const ch = chaserAt(st);
   if (ch) { const a = chaser3(st, now, ch.cz); who.them = {spec: a, x: ch.cx, y: 0, z: ch.cz + (a.dz || 0)}; }
-  c.drawImage(D3.render(st, now, who), 0, 0, st.W, st.H);
+  showGL(st, D3.render(st, now, who));
   // down in a pothole: the pit's shadow on him, darkest at the road where it cuts him off
   const fl = run ? fallOf(st, now) : null;
   if (fl && fl.k > .05) {
@@ -808,16 +809,50 @@ function draw(st, now = performance.now()) {
     c.translate(st.W / 2, st.H * .62); c.rotate(rot * drunk * Math.sin(t * 1.7)); c.scale(sc, sc);
     c.translate(-st.W / 2 + dx * drunk * Math.sin(t * 1.1), -st.H * .62 + dy * drunk * Math.sin(t * 1.35 + 1));
   }
-  // (the blur's on the canvas itself, so the score and the power-ups over it stay sharp)
+  // (the blur's on the stage's pictures, so the score and the power-ups over them stay sharp)
   // (in half pixels, changed at most four times a second: each change has the phone blur the whole screen again)
   const blur = hardDrunk ? Math.round((1.8 + .9 * Math.sin(t * 2.3)) * drunk * 2) / 2 : 0;
-  if (blur !== (st.blur || 0) && (!blur || now - (st.blurAt || 0) >= 250)) { st.blur = blur; st.blurAt = now; c.canvas.style.filter = blur ? `blur(${blur}px)` : ''; }
+  if (blur !== (st.blur || 0) && (!blur || now - (st.blurAt || 0) >= 250)) { st.blur = blur; st.blurAt = now; st.layers.style.filter = blur ? `blur(${blur}px)` : ''; }
   st.bend = D3.ready() ? W.BEND : 0;
+  // In 3D the stage is three layers the phone puts together itself, rather than the 3D copied into this canvas every
+  // frame (a whole screen of pixels, each frame): the sky here, the 3D's own canvas over it, and over that (o) the
+  // glows, hints, speed lines, weather and tints. Without the 3D it's all drawn here, as before.
+  const o = D3.ready() && st.c3 ? st.c3 : c;
+  if (o !== c) {
+    o.setTransform(1, 0, 0, 1, 0, 0); o.clearRect(0, 0, o.canvas.width, o.canvas.height); st.fxDirty = false;
+    o.setTransform(st.dpr, 0, 0, st.dpr, 0, 0);
+    if (drunk > 0) { const m = c.getTransform(); o.setTransform(m); }
+    glSway(st, drunk > 0 ? c.getTransform() : null);
+  } else { hideGL(st); if (st.fxDirty === false && st.c3) { st.c3.setTransform(1, 0, 0, 1, 0, 0); st.c3.clearRect(0, 0, st.fx.width, st.fx.height); st.fxDirty = true; } }
   if (!(D3.ready() && style.sky(skyView(st), c, t, z))) W.sky(skyView(st), c, t, z);
-  if (D3.ready()) { draw3(st, c, now); drawSpeed(st, c, now); }
+  if (D3.ready()) { draw3(st, o, now); drawSpeed(st, o, now); }
   else { W.ground(st, c); W.sides(st, c); drawSpeed(st, c, now); drawLanes(st, c, now); }
-  W.weather(st, c, t, z);
+  W.weather(st, o, t, z);
   c.setTransform(st.dpr, 0, 0, st.dpr, 0, 0);
+  if (o !== c) o.setTransform(st.dpr, 0, 0, st.dpr, 0, 0);
+  drawTints(st, o, now, t, run, drunk);
+}
+/** The 3D's canvas shown on the stage, over the sky (moved here if another stage had it). */
+function showGL(st, cv) {
+  if (!cv || !st.glHost) return;
+  if (cv.parentNode !== st.glHost) { cv.className = 'rm-glc'; st.glHost.appendChild(cv); }
+  if (st.glHost.hidden) st.glHost.hidden = false;
+  const w = st.W + 'px', h = st.H + 'px';
+  if (cv.style.width !== w) cv.style.width = w;
+  if (cv.style.height !== h) cv.style.height = h;
+}
+function hideGL(st) { if (st.glHost && !st.glHost.hidden) st.glHost.hidden = true; }
+/** Booze's sway on the 3D's layer: the same turn the sky's canvas takes (m: its transform, in device pixels), or none. */
+function glSway(st, m) {
+  const cv = D3.canvas();
+  if (!cv) return;
+  // (m is the dpr scale then the sway, in device pixels: the sway alone, in CSS pixels, is m over dpr)
+  const k = 1 / st.dpr;
+  const v = m ? `matrix(${(m.a * k).toFixed(5)},${(m.b * k).toFixed(5)},${(m.c * k).toFixed(5)},${(m.d * k).toFixed(5)},${(m.e * k).toFixed(2)},${(m.f * k).toFixed(2)})` : '';
+  if (st.glSway !== v) { st.glSway = v; cv.style.transform = v; }
+}
+/** Over everything: the vignette, the power-ups' tints and the salts' flash (each tint's gradient made once a size). */
+function drawTints(st, c, now, t, run, drunk) {
   if (!st.vig || st.vig.w !== st.W || st.vig.h !== st.H) {
     const g = c.createRadialGradient(st.W / 2, st.H * .55, st.H * .3, st.W / 2, st.H * .55, st.H * .85);
     g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.42)');
@@ -825,7 +860,20 @@ function draw(st, now = performance.now()) {
   }
   c.fillStyle = st.vig.g; c.fillRect(0, 0, st.W, st.H);
   // the power-ups' tints: booze warm at the edges, painkillers hot; the salts' flash
-  const edge = (col, a) => { const g = c.createRadialGradient(st.W / 2, st.H * .55, st.H * .28, st.W / 2, st.H * .55, st.H * .8); g.addColorStop(0, `rgba(${col},0)`); g.addColorStop(1, `rgba(${col},${a.toFixed(2)})`); c.fillStyle = g; c.fillRect(0, 0, st.W, st.H); };
+  // (each colour's gradient made once a size, full strength; how strong it is now is the fill's alpha)
+  const edge = (col, a) => {
+    const key = `${col}|${st.W}|${st.H}`, E = st.edges || (st.edges = new Map());
+    let g = E.get(key);
+    if (!g) {
+      g = c.createRadialGradient(st.W / 2, st.H * .55, st.H * .28, st.W / 2, st.H * .55, st.H * .8);
+      g.addColorStop(0, `rgba(${col},0)`); g.addColorStop(1, `rgba(${col},1)`);
+      if (E.size > 12) E.clear();
+      E.set(key, g);
+    }
+    const k = Math.min(1, Math.max(0, +a.toFixed(2)));
+    if (!k) return;
+    c.globalAlpha = k; c.fillStyle = g; c.fillRect(0, 0, st.W, st.H); c.globalAlpha = 1;
+  };
   if (drunk > 0) edge('214,150,40', .35 * drunk);
   if (run && !run.over && run.pills > 0) edge('255,110,40', .42 * Math.min(1, run.pills / .8) * (.75 + .25 * Math.sin(t * 9)));
   if (run && !run.over && run.burst > 0) edge('120,220,255', 1.2 * R.burstOf(run)); // (the salts' burst: cold air rushing by)
@@ -1204,6 +1252,10 @@ export function mount(el, ctx) {
   ui.hydrate(el);
   st.cv = el.querySelector('[data-rm-cv]');
   st.c2 = st.cv.getContext('2d');
+  st.layers = el.querySelector('[data-rm-layers]');
+  st.glHost = el.querySelector('[data-rm-gl]');
+  st.fx = el.querySelector('[data-rm-fx]');
+  st.c3 = st.fx.getContext('2d');
   st.cv.__rm = st; // (for the tests: the return under way)
   size(st); patchHud(st); draw(st);
   const stage = el.querySelector('[data-rm-stage]');
@@ -1298,5 +1350,8 @@ export function unmount(el, ctx) {
   if (st.stopLife) st.stopLife();
   // (iOS frees a canvas's memory late, and caps the total: let it go now)
   if (st.cv) st.cv.width = st.cv.height = 0;
+  if (st.fx) st.fx.width = st.fx.height = 0;
+  const gl = D3.canvas();
+  if (gl && st.glHost && gl.parentNode === st.glHost) { gl.remove(); gl.style.transform = ''; }
   STATE.delete(el);
 }

@@ -3,7 +3,6 @@ import * as features from '../core/features.js';
 // shared home/battle poses, and home routes built only when the layout changes.
 import * as data from '../core/data.js';
 import {KINDS, N, keepOf, heroLevel} from '../core/realm.js';
-import {attachKnightModel} from './realm-knight-model.js';
 import {isDragonKind, BADGE_ON_TOP} from './realm-dragon.js';
 
 const reduced = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -161,7 +160,6 @@ export function createNPC(T, kind, {level = 1, house = {}, defending = false, on
     badge.name = 'hero-badge'; if (onTop) badge.renderOrder = BADGE_ON_TOP;
   }
   root.scale.setScalar(hero ? 1.2 : 1);
-  const knightModel = kind === 'knight' ? attachKnightModel(T, rig, {onChange}) : null;
   let disposed = false;
   return {root, kind, level,
     pose(seconds, {moving = false, face = .6, attack = 0, hit = 0, still = false} = {}) {
@@ -173,11 +171,9 @@ export function createNPC(T, kind, {level = 1, house = {}, defending = false, on
       legs[0].rotation.x = walk * .5; legs[1].rotation.x = -walk * .5;
       arm.rotation.x = still ? 0 : (wizard ? .9 * attack : hero ? 1.5 * attack : keeper ? Math.sin(seconds * 1.8) * .08 : walk * .08);
       arm.rotation.z = keeper && !still ? Math.sin(seconds * 1.8) * .06 : 0;
-      knightModel?.pose(seconds, {moving, attack, still});
     },
     dispose() {
       if (disposed) return; disposed = true; root.removeFromParent();
-      knightModel?.dispose();
       const geometries = new Set(), materials = new Set(), textures = new Set();
       root.traverse(o => { if (o.geometry) geometries.add(o.geometry); if (o.material) { materials.add(o.material); if (o.material.map) textures.add(o.material.map); } });
       geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); textures.forEach(t => t.dispose());

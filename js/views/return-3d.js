@@ -64,6 +64,8 @@ export function load() {
   return LOADING;
 }
 export const ready = () => !!GL && !DEAD;
+/** The canvas render() draws on (one for the session), for the stage to show as a layer of its own. */
+export const canvas = () => (GL ? GL.canvas : null);
 
 // The reviewed kit is only loaded for Evan's selected profile. Keep the original players intact:
 // fresh clones give accessories their bind-pose attachment points, even after a mid-run profile switch.

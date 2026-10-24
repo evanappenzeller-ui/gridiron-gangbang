@@ -444,6 +444,9 @@ export function mountList(el, ctx, opts = {}) {
       if (sl._gmK !== k) { sl._gmK = k; sl.style.setProperty('--k', k); }
       if (sl._gmD !== dd) { sl._gmD = dd; sl.style.setProperty('--d', dd); }
       if (sl._gmCur !== (a < .5)) { sl._gmCur = a < .5; sl.classList.toggle('is-cur', a < .5); }
+      // (a case more than two places out is off the screen: hidden, it holds its place but no memory for its pictures)
+      const far = Math.abs(d) > 2.2;
+      if (sl._gmFar !== far) { sl._gmFar = far; sl.classList.toggle('is-far', far); }
       if (Math.abs(d) < bd) { bd = Math.abs(d); best = i; }
     });
     if (best !== st.cur) {
