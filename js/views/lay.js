@@ -564,6 +564,10 @@ const ST = new WeakMap();
 function fill(ctx) {
   const st = ST.get(ctx);
   if (!st) return;
+  // (not while the tab's out of sight, built ahead from Pick'em or Matchup or left behind: the live legs and box
+  // scores would redraw the whole season's slips every 30 seconds for no one. Drawn on the way back instead)
+  if (!ctx.visible) { st.stale = true; return; }
+  st.stale = false;
   const inp = st.body.querySelector('.ly-in');
   const focused = !!inp && document.activeElement === inp;
   if (inp) st.draft = inp.value;
@@ -739,6 +743,8 @@ export default {
   // Back on the tab: results in data/lay.json may have changed (refetched at most once every 2 minutes).
   onShow(ctx) {
     markSeen();
+    const st = ST.get(ctx);
+    if (st && st.stale) fill(ctx);
     if (Date.now() - layAt > 2 * 60e3) { layAt = Date.now(); loadLay({fresh: true}).then(() => fill(ctx), () => {}); }
   },
 

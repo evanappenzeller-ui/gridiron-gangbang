@@ -260,22 +260,38 @@
 })();
 </script>
 <script>
-// Watchdog: if the app hasn't started 12 s after the page loaded (typically a saved copy of the app caught halfway
-// through an update: files from two versions that don't fit together), drop the saved copy (service worker and
-// caches) and load fresh, once per session. Still not started after that: say so, with a button to reload.
+// Watchdog: if the app hasn't started 12 s after the page loaded because a script failed (typically a saved copy of
+// the app caught halfway through an update: files from two versions that don't fit together), drop the saved copy
+// (service worker and caches) and load fresh, once per session. Still not started after that: say so, with a button
+// to reload. A start that's only slow (a weak signal: every file waits on the network first) is never wiped: that
+// would leave a phone with no saved copy at all on the very connection that can't fetch one. It's given a minute,
+// then offered a reload. (Oct 2026)
 (function () {
+  var broke = false, waited = 0;
+  var bad = function (err, msg) {
+    var m = String(msg || (err && err.message) || '');
+    if (/fetch|network|load failed|Load failed/i.test(m)) return; // (the connection, not the files)
+    if (!err || err instanceof SyntaxError || err instanceof ReferenceError || err instanceof TypeError) broke = true;
+  };
+  addEventListener('error', function (e) { if (!window.__ggBooted) bad(e.error, e.message); });
+  addEventListener('unhandledrejection', function (e) { if (!window.__ggBooted && e.reason instanceof Error) bad(e.reason); });
+  var notice = function (text) {
+    var d = document.createElement('div');
+    d.setAttribute('style', 'position:fixed;inset:0;z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;background:#070E22;color:#fff;font:17px/22px -apple-system,system-ui,sans-serif;text-align:center');
+    d.innerHTML = '<p style="margin:0">' + text + '</p><button type="button" style="min-height:48px;padding:0 24px;border:0;border-radius:24px;background:#7CF058;color:#06210A;font:600 17px/22px -apple-system,system-ui,sans-serif">Reload</button>';
+    d.querySelector('button').onclick = function () { try { sessionStorage.removeItem('gg-healed'); } catch (_) {} location.reload(); };
+    document.body.appendChild(d);
+  };
   var stuck = function () {
     if (window.__ggBooted) return;
-    var healed = false;
-    try { healed = !!sessionStorage.getItem('gg-healed'); } catch (_) {}
-    if (healed) {
-      var d = document.createElement('div');
-      d.setAttribute('style', 'position:fixed;inset:0;z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;background:#070E22;color:#fff;font:17px/22px -apple-system,system-ui,sans-serif;text-align:center');
-      d.innerHTML = '<p style="margin:0">Gridiron couldn\u2019t start.</p><button type="button" style="min-height:48px;padding:0 24px;border:0;border-radius:24px;background:#7CF058;color:#06210A;font:600 17px/22px -apple-system,system-ui,sans-serif">Reload</button>';
-      d.querySelector('button').onclick = function () { try { sessionStorage.removeItem('gg-healed'); } catch (_) {} location.reload(); };
-      document.body.appendChild(d);
+    if (!broke) {
+      if (waited < 48000) { waited += 4000; setTimeout(stuck, 4000); return; }
+      notice('Gridiron is taking a long time to start. The connection may be slow.');
       return;
     }
+    var healed = false;
+    try { healed = !!sessionStorage.getItem('gg-healed'); } catch (_) {}
+    if (healed) { notice('Gridiron couldn\u2019t start.'); return; }
     try { sessionStorage.setItem('gg-healed', '1'); sessionStorage.setItem('gg-skip-title', '1'); } catch (_) { return; }
     var jobs = [];
     try { if (navigator.serviceWorker) jobs.push(navigator.serviceWorker.getRegistrations().then(function (rs) { return Promise.all(rs.map(function (r) { return r.unregister(); })); })); } catch (_) {}

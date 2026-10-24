@@ -65,19 +65,27 @@ function score(st) {
   if (c.textContent !== clock) c.textContent = clock;
   c.classList.toggle('is-low', !!st.t0 && left < 30);
 }
-// bars over damaged buildings (views/realm-replay.js draws them too)
+// bars over damaged buildings (views/realm-replay.js draws them too): one element a building, kept while it's damaged,
+// touched only when its health or place on the screen changes (this runs every frame of a fight)
 export function bars(st) {
   if (!st.v) return;
-  const box = st.el.querySelector('.rl-tags');
-  let html = '';
-  st.B.bl.forEach(b => { if (!b.dead && !b.wall && b.hp < b.max) html += `<div class="rlr-hp" data-b="${b.i}"><i style="width:${(b.hp / b.max * 100).toFixed(0)}%"></i></div>`; });
-  if (box.dataset.html !== html) { box.dataset.html = html; box.querySelectorAll('.rlr-hp').forEach(x => x.remove()); box.insertAdjacentHTML('afterbegin', html); }
-  box.querySelectorAll('.rlr-hp').forEach(x => {
-    const b = st.B.bl.find(q => q.i === +x.dataset.b);
-    if (!b) return;
-    const p = st.v.project(b.cx, b.cy, b.size > 2 ? 2.6 : 1.7);
-    x.style.transform = `translate(${p.x.toFixed(1)}px, ${p.y.toFixed(1)}px)`;
+  const box = st.el.querySelector('.rl-tags'), have = st.hpBars || (st.hpBars = new Map()), now = new Set();
+  st.B.bl.forEach(b => {
+    if (b.dead || b.wall || !(b.hp < b.max)) return;
+    now.add(b.i);
+    let e = have.get(b.i);
+    if (!e || !e.el.isConnected) {
+      const el = document.createElement('div');
+      el.className = 'rlr-hp'; el.dataset.b = b.i; el.innerHTML = '<i></i>';
+      box.prepend(el);
+      have.set(b.i, e = {el, w: '', t: ''});
+    }
+    const w = (b.hp / b.max * 100).toFixed(0) + '%';
+    if (w !== e.w) { e.w = w; e.el.firstChild.style.width = w; }
+    const p = st.v.project(b.cx, b.cy, b.size > 2 ? 2.6 : 1.7), t = `translate(${p.x.toFixed(1)}px, ${p.y.toFixed(1)}px)`;
+    if (t !== e.t) { e.t = t; e.el.style.transform = t; }
   });
+  have.forEach((e, i) => { if (!now.has(i)) { e.el.remove(); have.delete(i); } });
 }
 export function floatText(st, x, y, text, c) {
   const p = st.v.project(x, y, 2.6), el = document.createElement('div');
@@ -192,6 +200,7 @@ export default {
     if (!st) return;
     if (st.B && st.t0 && !st.done) { st.B.end(); finish(st, true); }
     st.dead = true;
+    clearTimeout(st.idleT);
     stopHold(st);
     if (st.stopProfile) st.stopProfile();
     if (st.v) st.v.dispose();
@@ -247,6 +256,13 @@ async function start3d(st) {
     }
     score(st);
     if (B.over && !st.done) finish(st);
+    // (before the first troop's down nothing's fighting: the defenders' idling at about 20 frames a second is plenty, and
+    // a tap or a pan draws at once)
+    if (!st.t0 && !st.done) {
+      clearTimeout(st.idleT);
+      st.idleT = setTimeout(() => { if (!st.dead && st.v) st.v.want(); }, 50);
+      return false;
+    }
     return !st.done || (now - (st.endAt || (st.endAt = now))) < 2000;
   });
 }

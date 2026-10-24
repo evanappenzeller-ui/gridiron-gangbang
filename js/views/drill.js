@@ -30,6 +30,7 @@ import * as data from '../core/data.js';
 import * as dr from '../core/drill.js';
 import * as daily from '../core/daily.js';
 import * as camLib from './drill-cam.js';
+import * as SP from './drill-sprites.js';
 import {msToMidnight} from './board.js';
 import {canTest, testRowHTML} from './testplay.js';
 
@@ -2390,8 +2391,16 @@ function errorHTML() {
 const WP_SALTS = [7, 8, 9, 10], WP_CHUNK = 20;
 const OPT_SALTS = [11, 12, 13], OPT_CHUNK = 12;
 const stateKey = s => `${s.sc.s}|${E.actsOf(s)}`;
+// (never while a snap plays on the field: the breakdown only shows after it, and a phone's frames need the time)
 function slice(st, fn) {
-  return new Promise(res => { st.timers.push(setTimeout(() => { if (st.dead) { res(null); return; } res(fn()); }, 0)); });
+  return new Promise(res => {
+    const run = () => {
+      if (st.dead) { res(null); return; }
+      if (st.busy) { st.timers.push(setTimeout(run, 200)); return; }
+      res(fn());
+    };
+    st.timers.push(setTimeout(run, 0));
+  });
 }
 function wpNow(st, s) {
   const k = stateKey(s);
@@ -2646,6 +2655,8 @@ function setDaily(st) {
   st.side = 's';
   st.routes = st.s && st.s.routes ? Object.assign({}, st.s.routes) : {};
   if (st.s && !st.s.result && st.el && st.wp) st.timers.push(setTimeout(() => wpNow(st, st.s), 400));
+  // (the two teams' uniforms on the players, made while nothing's playing: not in the first snap's frame)
+  if (st.s && st.s.sc && !st.s.result) SP.warm([[tcol(st.s.sc.o), true], [tcol(st.s.sc.d), false]]);
 }
 /** The owner's Test play (views/testplay.js): today's drill fresh in the sandbox (never posted, never counted), or
  *  back to the real game as it was. Not while a snap plays. */

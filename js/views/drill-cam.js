@@ -931,12 +931,14 @@ export function open(field, scene, big = null) {
     CY = (h0 + (cssH - h0) * k) * S / 2;
   }
   fit(0);
-  function remove() { closed = true; wrap.remove(); }
+  // (its pixels let go at once: iOS frees a canvas late and caps the total, and a game makes one a snap)
+  const gone = () => { wrap.remove(); cv.width = cv.height = 0; };
+  function remove() { closed = true; gone(); }
   function close() {
     if (closed) return;
     closed = true;
     wrap.classList.remove('is-on');
-    setTimeout(() => wrap.remove(), 220);
+    setTimeout(gone, 220);
   }
   // On next frame, so the fade in runs.
   requestAnimationFrame(() => { if (!closed) wrap.classList.add('is-on'); });

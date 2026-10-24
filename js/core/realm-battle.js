@@ -158,6 +158,11 @@ export function makeBattle(base, loot, army, options = {}) {
   // it did, step for step, a few times quicker on a full lot)
   let falls = 0, ways = 0;
   const noWay = new Map();
+  // (and a way found is the same way again, from that tile to that target for that kind, till anything that can be
+  // walked through or broken changes: `ways` counts every such change. With heroes defending, every soldier asks again
+  // every 10 steps, mostly from where he asked last time. Oct 24 2026: every battle still plays exactly as it did)
+  const found = new Map();
+  let foundAt = 0;
   const path = (u, tg) => {
     const T = combatStats(u), reach = T.range + REACH - .05, dps = T.dps || 30;
     const sx = Math.max(0, Math.min(N - 1, Math.floor(u.x))), sy = Math.max(0, Math.min(N - 1, Math.floor(u.y)));
@@ -166,6 +171,9 @@ export function makeBattle(base, loot, army, options = {}) {
     const tgIdx = B.bl.indexOf(tg), key = `${sx},${sy},${tg.targetHero ? `h${tg.id}@${tg.x},${tg.y}` : tgIdx},${reach},${dps},${T.speed},${u.targetHero ? 1 : 0}`;
     const was = noWay.get(key);
     if (was && (was[2] ? was[0] === falls : was[1] === ways)) return [];
+    if (foundAt !== ways) { found.clear(); foundAt = ways; }
+    const known = found.get(key);
+    if (known) return known.slice();
     const W = way(N * N), g = W.g, from = W.from, at = W.at, done = W.done, now = W.n;
     const H = (x, y) => Math.max(0, targetDistance(tg, x + .5, y + .5) - reach);
     const heap = W.heap, s = sy * N + sx;
@@ -201,7 +209,9 @@ export function makeBattle(base, loot, army, options = {}) {
     if (goal < 0) { noWay.set(key, [falls, ways, !heap.k.length]); return []; }
     const out = [];
     for (let c = goal; c !== s && c >= 0; c = from[c]) out.push(c);
-    return out.reverse();
+    out.reverse();
+    found.set(key, out.slice());
+    return out;
   };
   const retarget = u => {
     u.tg = pick(u);

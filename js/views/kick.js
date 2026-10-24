@@ -1025,6 +1025,8 @@ function loop(st) {
  *  flash; not while the field is off the screen, and not at all with reduced motion. */
 function idle(st) {
   if (st.dead || st.raf || ui.RM || !st.cv) return;
+  // (the day's kicks all taken: nothing's coming, the crowd twinkles at half the rate)
+  if (st.day && st.day.done && (st.idleN = (st.idleN || 0) + 1) % 2) return;
   const r = st.cv.getBoundingClientRect();
   if (!r.width || r.bottom < 0 || r.top > innerHeight || r.right < 0 || r.left > innerWidth) return;
   draw(st);

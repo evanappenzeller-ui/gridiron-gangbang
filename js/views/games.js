@@ -35,7 +35,7 @@ export const GAMES = [
   {id: 'drill', name: 'Two-Minute Drill', title: 'Two-Minute Drill', art: 'img/games/drill-cover.webp', book: 'img/games/drill-book.webp', disc: 'img/games/drill-disc.webp', badge: 'img/drill.webp', cd: 'Next drill in'},
   {id: 'kick', name: 'Kick It', title: 'Kick It', art: 'img/games/kick-cover.webp', book: 'img/games/kick-book.webp', disc: 'img/games/kick-disc.webp', badge: 'img/kick.webp', cd: 'New kicks in'},
   {id: 'return', name: 'Return Man', title: 'Return Man', art: 'img/games/return-cover.webp', book: 'img/games/return-book.webp', disc: 'img/games/return-disc.webp', badge: 'img/return.webp', cd: 'Next kickoff in', beta: true},
-  {id: 'keep', name: 'Keepfall', title: 'Keepfall', art: 'img/games/keepfall-cover-v1.webp', book: 'img/games/keepfall-book-v1.webp', disc: 'img/games/keepfall-disc-v1.webp'}
+  {id: 'keep', name: 'Keepfall', title: 'Keepfall', art: 'img/games/keepfall-cover-v2.webp', book: 'img/games/keepfall-book-v2.webp', disc: 'img/games/keepfall-disc-v2.webp'}
 ];
 const byId = id => GAMES.find(g => g.id === id);
 // A game the owner keeps to himself while he builds it: id -> the members whose phones list it and open its page
@@ -321,7 +321,7 @@ function keepBackHTML(g, up = false) {
       <span class="gm-keep-hero"><img src="${g.book}" alt="" decoding="async" draggable="false">
         <span class="gm-keep-pitch"><strong>YOUR REALM.<br>YOUR RULE.</strong><span>Raise your Castle. Rally your army.<br>Defend what is yours.</span></span>
       </span>
-      <span class="gm-keep-scenes"><img src="img/games/keep-back-scenes-v1.webp" alt="A sunlit castle, an army under red banners, and a dragon above snowy ramparts" decoding="async" draggable="false">
+      <span class="gm-keep-scenes"><img src="img/games/keep-back-scenes-v2.webp" alt="A sunlit castle, an army under red banners, and a dragon above snowy ramparts" decoding="async" draggable="false">
         <span class="gm-keep-captions"><b>BUILD</b><b>COMMAND</b><b>CONQUER</b></span>
       </span>
       <span class="gm-keep-signature"><span aria-hidden="true">✧</span><strong>KEEPFALL</strong><small>A kingdom worth fighting for.</small></span>
@@ -436,11 +436,14 @@ export function mountList(el, ctx, opts = {}) {
     st.raf = 0;
     const box = shelf.getBoundingClientRect(), mid = box.left + box.width / 2;
     let best = 0, bd = Infinity;
-    slots().forEach((sl, i) => {
-      const r = sl.getBoundingClientRect(), d = (r.left + r.width / 2 - mid) / (r.width || 1), a = Math.min(1, Math.abs(d));
-      sl.style.setProperty('--k', a.toFixed(3));
-      sl.style.setProperty('--d', Math.max(-1.5, Math.min(1.5, d)).toFixed(3));
-      sl.classList.toggle('is-cur', a < .5);
+    // (every case measured first, then every change written, and only what changed: a measure after a write has the
+    // phone work out the whole shelf's styles again, once a case, every frame of a swipe)
+    const all = slots(), ds = all.map(sl => { const r = sl.getBoundingClientRect(); return (r.left + r.width / 2 - mid) / (r.width || 1); });
+    all.forEach((sl, i) => {
+      const d = ds[i], a = Math.min(1, Math.abs(d)), k = a.toFixed(3), dd = Math.max(-1.5, Math.min(1.5, d)).toFixed(3);
+      if (sl._gmK !== k) { sl._gmK = k; sl.style.setProperty('--k', k); }
+      if (sl._gmD !== dd) { sl._gmD = dd; sl.style.setProperty('--d', dd); }
+      if (sl._gmCur !== (a < .5)) { sl._gmCur = a < .5; sl.classList.toggle('is-cur', a < .5); }
       if (Math.abs(d) < bd) { bd = Math.abs(d); best = i; }
     });
     if (best !== st.cur) {

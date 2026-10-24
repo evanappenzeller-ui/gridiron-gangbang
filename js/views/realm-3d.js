@@ -628,9 +628,14 @@ export function create(host, opts = {}) {
   // ---- drawing on demand
   let raf = 0, dead = false, anim = null, cameraSig = '';
   const want = () => { if (!raf && !dead && isActive() && !document.hidden) raf = requestAnimationFrame(frame); };
+  let drawnAt = 0;
   function frame(now) {
     raf = 0;
     if (dead || lost || !isActive() || document.hidden) return;
+    // (about 60 a second at most: a 90 or 120 Hz phone would draw everything up to twice as often for nothing; the
+    // raid's and the folk's clocks run by the time gone, so they play the same)
+    if (drawnAt && now - drawnAt < 12) { raf = requestAnimationFrame(frame); return; }
+    drawnAt = now;
     resize();
     placeCam();
     if (village && base.plot) base.plot.material.opacity = scene0 ? Math.max(0, Math.min(.9, (180 - view.dist) / 100)) : 1;

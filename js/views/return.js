@@ -809,8 +809,9 @@ function draw(st, now = performance.now()) {
     c.translate(-st.W / 2 + dx * drunk * Math.sin(t * 1.1), -st.H * .62 + dy * drunk * Math.sin(t * 1.35 + 1));
   }
   // (the blur's on the canvas itself, so the score and the power-ups over it stay sharp)
-  const blur = hardDrunk ? (Math.round((1.8 + .9 * Math.sin(t * 2.3)) * drunk * 10) / 10) : 0;
-  if (blur !== (st.blur || 0)) { st.blur = blur; c.canvas.style.filter = blur ? `blur(${blur}px)` : ''; }
+  // (in half pixels, changed at most four times a second: each change has the phone blur the whole screen again)
+  const blur = hardDrunk ? Math.round((1.8 + .9 * Math.sin(t * 2.3)) * drunk * 2) / 2 : 0;
+  if (blur !== (st.blur || 0) && (!blur || now - (st.blurAt || 0) >= 250)) { st.blur = blur; st.blurAt = now; c.canvas.style.filter = blur ? `blur(${blur}px)` : ''; }
   st.bend = D3.ready() ? W.BEND : 0;
   if (!(D3.ready() && style.sky(skyView(st), c, t, z))) W.sky(skyView(st), c, t, z);
   if (D3.ready()) { draw3(st, c, now); drawSpeed(st, c, now); }
@@ -1056,9 +1057,14 @@ const keep = st => R.keepLive(st.n, st.run.k, st.run.yards, st.run.z, runCoins(s
 function loop(st) {
   if (st.raf || st.dead) return;
   st.last = 0;
+  let drawn = 0;
   const tick = now => {
     st.raf = 0;
     if (st.dead) return;
+    // (about 60 a second at most: a 90 or 120 Hz phone would draw the 3D up to twice as often for nothing; the run
+    // moves by the time gone, so it plays the same)
+    if (drawn && now - drawn < 12) { st.raf = requestAnimationFrame(tick); return; }
+    drawn = now;
     frame(st, now);
     const moving = st.mode === 'run' || st.mode === 'catch' || (st.mode === 'tackled' && now - st.downAt < 1400);
     if (moving) st.raf = requestAnimationFrame(tick);

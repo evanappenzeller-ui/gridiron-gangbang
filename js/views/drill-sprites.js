@@ -136,32 +136,26 @@ function kitOf(team, colored) {
 }
 const KITS = new Map(); // 'J,P,H' -> canvas
 let PIX = null; // the atlas's and the mask's pixels, read once
-/** The atlas in a uniform: a canvas, made once a uniform. */
-function atlasFor(kit) {
-  const key = `${kit.J},${kit.P},${kit.H}`;
-  if (KITS.has(key)) return KITS.get(key);
-  const W = ART.naturalWidth, H = ART.naturalHeight;
-  const cv = document.createElement('canvas');
-  cv.width = W; cv.height = H;
-  const g = cv.getContext('2d', {willReadFrequently: false});
-  if (!PIX) {
-    g.drawImage(ART, 0, 0);
-    const art = g.getImageData(0, 0, W, H);
-    const mc = document.createElement('canvas');
-    mc.width = W; mc.height = H;
-    const mg = mc.getContext('2d');
-    mg.drawImage(MASK, 0, 0);
-    PIX = {art: art.data, mask: mg.getImageData(0, 0, W, H).data};
-    g.clearRect(0, 0, W, H);
-  }
-  const out = g.createImageData(W, H), o = out.data, a = PIX.art, m = PIX.mask;
-  // Each colour, with how much of the grey's light and shade it takes (a pale colour less contrast, so a white
-  // jersey's folds don't go grey).
-  const T = [kit.J, kit.P, kit.H].map(h => {
-    const c = rgbOf(h).map(v => v / 255), l = 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2];
-    return {c, k: 1 - 0.55 * Math.min(1, Math.max(0, (l - 0.55) / 0.35))};
-  });
-  for (let i = 0; i < o.length; i += 4) {
+const keyOf = kit => `${kit.J},${kit.P},${kit.H}`;
+function pixels() {
+  if (PIX) return PIX;
+  const W = ART.naturalWidth, H = ART.naturalHeight, read = im => {
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const g = c.getContext('2d'); g.drawImage(im, 0, 0);
+    const d = g.getImageData(0, 0, W, H).data; c.width = c.height = 0; return d;
+  };
+  return (PIX = {art: read(ART), mask: read(MASK)});
+}
+// Each colour, with how much of the grey's light and shade it takes (a pale colour less contrast, so a white
+// jersey's folds don't go grey).
+const tonesOf = kit => [kit.J, kit.P, kit.H].map(h => {
+  const c = rgbOf(h).map(v => v / 255), l = 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2];
+  return {c, k: 1 - 0.55 * Math.min(1, Math.max(0, (l - 0.55) / 0.35))};
+});
+/** The atlas's pixels from i0 to i1 (bytes) in a uniform's tones T, into o. */
+function paint(o, T, i0, i1) {
+  const a = PIX.art, m = PIX.mask;
+  for (let i = i0; i < i1; i += 4) {
     o[i] = a[i]; o[i + 1] = a[i + 1]; o[i + 2] = a[i + 2]; o[i + 3] = a[i + 3];
     if (!a[i + 3]) continue;
     const r = m[i], gn = m[i + 1], b = m[i + 2], w = Math.max(r, gn, b);
@@ -173,9 +167,51 @@ function atlasFor(kit) {
       o[i + c] = Math.round(a[i + c] * (1 - wk) + v * 255 * wk);
     }
   }
-  g.putImageData(out, 0, 0);
-  KITS.set(key, cv);
+}
+function finish(kit, out) {
+  const cv = document.createElement('canvas');
+  cv.width = out.width; cv.height = out.height;
+  cv.getContext('2d', {willReadFrequently: false}).putImageData(out, 0, 0);
+  KITS.set(keyOf(kit), cv);
   return cv;
+}
+/** The atlas in a uniform: a canvas, made once a uniform (at once, if warm() hasn't made it yet). */
+function atlasFor(kit) {
+  const key = keyOf(kit);
+  if (KITS.has(key)) return KITS.get(key);
+  pixels();
+  const out = new ImageData(ART.naturalWidth, ART.naturalHeight);
+  paint(out.data, tonesOf(kit), 0, out.data.length);
+  return finish(kit, out);
+}
+// Recolouring an atlas is some 800,000 pixels: on a phone half a second or more in one go, which landed in the first
+// frame of the first snap each uniform played in. warm() makes them ahead, a slice at a time while nothing else is
+// going on. Oct 2026.
+const WARMING = new Set();
+/** Makes the atlases of [team, colored] pairs ahead (the drill's two teams), in slices. */
+export function warm(pairs) {
+  if (DEAD) return;
+  load().then(ok => {
+    if (!ok) return;
+    pairs.forEach(([team, colored]) => {
+      const kit = kitOf(team, colored), key = keyOf(kit);
+      if (KITS.has(key) || WARMING.has(key)) return;
+      WARMING.add(key);
+      const later = fn => (window.requestIdleCallback ? requestIdleCallback(fn, {timeout: 1500}) : setTimeout(fn, 30));
+      let out = null, T = null, at = 0;
+      const step = () => {
+        if (KITS.has(key)) { WARMING.delete(key); return; } // (needed before it was done: made at once)
+        if (!out) { pixels(); out = new ImageData(ART.naturalWidth, ART.naturalHeight); T = tonesOf(kit); later(step); return; }
+        const end = Math.min(out.data.length, at + ART.naturalWidth * 4 * 48); // 48 rows a slice
+        paint(out.data, T, at, end);
+        at = end;
+        if (at < out.data.length) { later(step); return; }
+        WARMING.delete(key);
+        finish(kit, out);
+      };
+      later(step);
+    });
+  });
 }
 
 // ---------------------------------------------------------------------------- Which picture

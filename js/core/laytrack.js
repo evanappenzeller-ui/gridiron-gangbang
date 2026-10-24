@@ -642,7 +642,18 @@ export function suggest(text, games, max = 6) {
  *  'recYds', 'rushYds', 'passYds' or 'yds' (rushing + receiving); a team's 'spread', 'ml' or 'teamTotal'; a
  *  'gameTotal'. Read as the tracker reads it, else (a name the players list would have read) by its bet words; null
  *  when it can't be told. */
+// (remembered by its text: what kind a bet is depends on nothing else but whether the players are in yet, and
+// The Lay's "by kind" table asks for every settled leg of the season each time it's drawn)
+const KIND_OF = new Map();
 export function betKind(text) {
+  const key = (PL ? '+' : '-') + text;
+  if (KIND_OF.has(key)) return KIND_OF.get(key);
+  if (KIND_OF.size > 2000) KIND_OF.clear();
+  const k = kindOf(text);
+  KIND_OF.set(key, k);
+  return k;
+}
+function kindOf(text) {
   const b = parseLeg(text, teamsOf(null));
   if (b) return b.kind === 'prop' ? b.stat : b.kind;
   const s = ' ' + norm(text) + ' ', yds = /\b(yards?|yds)\b/.test(s);
