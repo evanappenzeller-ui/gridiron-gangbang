@@ -58,8 +58,10 @@ export const houseOf = key => {
   const [pri, sec, sigil] = BOT_HOUSES[b];
   return {pri, sec, sigil};
 };
-// Surnames the league's list doesn't carry (it has first names only): the owner's, for his house (Oct 2026).
-const SURNAME = {evan: 'Appenzeller'};
+// The members' surnames, which the league's list doesn't carry (it has first names only), for their houses: House
+// Hulse, House Wilson (the owner's, Oct 2026; his own first, then everyone's on Oct 24).
+const SURNAME = {evan: 'Appenzeller', ben: 'Wagner', corbin: 'Wafful', dresden: 'Wilson', jackson: 'Zehr', jacob: 'Carswell',
+  jaymin: 'Sutton', jayton: 'Hull', john: 'Imerman', mason: 'Hulse', mitch: 'Moore', sayer: 'Woodson'};
 /** Your house's name: the one you gave it, else House and your last name (House Appenzeller). (The old default, House
  *  and your first name, kept by saving it unchanged, counts as none.) who: another player's ({name, full, member}: core/realm.js
  *  visitable), for their realm. */
