@@ -9,12 +9,12 @@ import * as data from '../core/data.js';
 import * as daily from '../core/daily.js';
 
 const esc = data.esc;
-const LEAD = 'Not in the league? Make your own player to keep your Daily Puzzles, 17–0 and Two-Minute Drill scores. They show on your own boards under this name, tagged Guest; only Evan, who runs the league, sees them too.';
+const LEAD = 'Not in the league? Make your own player to keep your Daily Puzzles, 17–0 and Two-Minute Drill scores. They show on the league’s boards under this name, tagged Guest.';
 
 /** The form: what it's for, the name field, the error line, the button (submit: its label). */
 export function guestFormHTML(cur, {submit} = {}) {
   return `<form class="c-gs" novalidate>`
-    + `<p class="c-gs-lead">${esc(cur ? 'Your scores show under this name on your own boards.' : LEAD)}</p>`
+    + `<p class="c-gs-lead">${esc(cur ? 'Your scores show under this name on the league’s boards.' : LEAD)}</p>`
     + `<label class="c-gs-field"><span class="c-gs-lab">Your name</span>`
     + `<input class="c-gs-in" type="text" name="name" maxlength="24" value="${esc(cur || '')}" placeholder="Name or nickname" autocomplete="nickname" autocapitalize="words" autocorrect="off" spellcheck="false" enterkeyhint="done" aria-describedby="c-gs-err" required></label>`
     + `<p class="c-gs-err" id="c-gs-err" role="alert"></p>`

@@ -12,7 +12,7 @@
 // behavior.
 // Owner: foundation (core).
 
-import {DATA, nf, norm, me as dataMe, name as dataName, guest as dataGuest, user as dataUser, isOwner as dataOwner, userNamed, userReserving, subscribe as dataSub} from './data.js';
+import {DATA, nf, norm, me as dataMe, name as dataName, guest as dataGuest, isOwner as dataOwner, userNamed, userReserving, subscribe as dataSub} from './data.js';
 import {getFire, canWrite, isDevHost, devDayFrom, DEV_DAY as fireDevDay} from './fire.js';
 import {roundsFor as playRoundsFor} from './plays.js';
 import {readScores, writeScores, scoreFields} from './score-release.js';
@@ -909,21 +909,24 @@ async function startFirebase() {
   } catch (_) { LB.off = true; LB.ready = true; lbChanged('off'); }
 }
 
-/** Whether a board doc's scores show on this phone. THE RULE (CLAUDE.md): the league's boards are the league's. A
- *  member's rows show to everyone, and so do an app user's marked league: true (data.USERS: Ryan D only). Anyone else
- *  (a guest, any other app user like Ryan S, a row that is no one's) shows only on their own phones: the phone that
- *  posted it, or any of an app user's phones. The league owner's phones (data.OWNER) also show every guest's and
- *  app user's rows; a row that is no one's stays hidden there too. owner: judge as the owner's phone or not (default:
- *  this phone). Every board reads LB.raw / LB.players, which this filters. */
+/** Whether a board doc's scores show on this phone. THE RULE (CLAUDE.md; the owner, Oct 24 2026: "Everyone should be
+ *  visible on the scoreboards and Keepfall. No longer shall names be hidden from league members"): everyone's rows
+ *  show on every phone, the members', every app user's (Ryan D, Ryan S, anyone added) and every guest's (tagged Guest).
+ *  Only a row that is no one's (an old test row: no member, app user or guest) stays hidden, as it always has, except
+ *  on the phone that posted it. (owner: kept for callers; who's watching no longer matters.) Every board reads
+ *  LB.raw / LB.players, which this filters. */
 export function boardShows(p, owner = dataOwner()) {
   if (!p || p.id === LB.uid) return true;
-  if (memberOf(p)) return true;
+  return !!(memberOf(p) || userOf(p) || p.g);
+}
+/** Whether a board doc is the league's own (a member's, or an app user's marked league: true: Ryan D), or this phone's:
+ *  the rows Keepfall's pay ranks a place among (core/realm.js incomeOf). Everyone else shows on the boards (boardShows)
+ *  without changing what a member's place pays. */
+export function leagueRow(p) {
+  if (!p) return false;
+  if (p.id === LB.uid || memberOf(p)) return true;
   const u = userOf(p);
-  if (owner && (u || p.g)) return true;
-  if (!u) return false;
-  if (u.league) return true;
-  const me = dataUser();
-  return !!me && me.id === u.id;
+  return !!(u && u.league);
 }
 /** The board as this phone sees it (LB.raw, LB.players) from every doc (LB.all). */
 function boardFilter() {

@@ -404,9 +404,9 @@ export function startNumbers(mods = {}, from) {
  *    fresh: {game: {n: place}} (the places paid now that weren't frozen yet: paidPlaces keeps them)}
  * mods: the loaded game cores {sv, dr, kk, rm} (entryOf, todayNumber, boardRows); a missing one pays nothing yet. The
  * Daily Puzzles' board is daily.js's own. Options: board (the docs the places are ranked among: default daily.LB.raw;
- * either way only the rows the LEAGUE's boards show count, daily.boardShows(p, false): the members' and Ryan D's, never
- * a guest's or another app user's, which the owner's phone shows him but which aren't on the league's boards; his docs
- * are counted on it whether or not it has them), me (whose row is his on the boards: a board key, default this
+ * either way only the league's rows count, daily.leagueRow: the members' and Ryan D's. Everyone shows on the boards
+ * since Oct 24 2026, but a guest or another app user never pushes a member's paid place down; his docs are counted on
+ * it whether or not it has them), me (whose row is his on the boards: a board key, default this
  * phone's, myKey()), at (the moment: default now), paid (the places already paid, frozen: {game: {n: place}}, a
  * realm's pd; a day there pays that place whatever its board says now), from (when the realm began, ms: its born; only
  * the game days from that day on are paid, startNumbers; none given: every day). Per game and day the entry that counts
@@ -414,8 +414,8 @@ export function startNumbers(mods = {}, from) {
  */
 export function incomeOf(docs, mods = {}, {board = null, me, at = null, paid = null, from = null} = {}) {
   docs = (docs || []).filter(p => p && typeof p === 'object');
-  // (the league's board: never the guests and app users his phone shows him, so none of them can push his place down)
-  const list = (board || daily.LB.raw || []).filter(p => p && daily.boardShows(p, false));
+  // (the league's rows only: the guests and app users on the boards never push his paid place down)
+  const list = (board || daily.LB.raw || []).filter(p => p && daily.leagueRow(p));
   docs.forEach(p => { if (!list.some(q => q.id === p.id)) list.push(p); });
   if (me === undefined) me = myKey();
   const myIds = new Set(docs.map(p => p.id));
@@ -1505,15 +1505,15 @@ export function _set(state) { clearTimeout(saveT); PROFILE = profileKey(); MINE 
 // ---------------------------------------------------------------------------------------------------- other players' realms
 // Visiting (the owner's ask, Oct 23 2026: "Users should be able to view other players bases. Add a visit button").
 // Looking only: nothing here changes a realm, and no player's realm can be raided (realmOf takes only the computer's).
-// Who shows follows the scoreboards' rule (CLAUDE.md, daily.js boardShows) for each saved profile on its own: a
-// member's realm and Ryan D's to everyone; a guest's or any other app user's on the owner's phones only. Never your own.
+// Who shows follows the scoreboards' rule (CLAUDE.md, daily.js boardShows) for each saved profile on its own: everyone's
+// realm to everyone (Oct 24 2026), the members', every app user's and every guest's. Never your own.
 const guestName = key => { try { return key.slice(2).split('_').map(h => String.fromCodePoint(parseInt(h, 16))).join(''); } catch (_) { return ''; } };
 /** Who profile key belongs to, as this phone may show them ({name}), or null when they're not to show here. */
 export function visitWho(key, doc, owner = data.isOwner()) {
   const id = String(key || '').slice(2);
   if (key.startsWith('m_')) return data.M[id] ? {name: data.name(id), member: id} : null;
-  if (key.startsWith('u_')) { const u = data.USERS.find(x => x.id === id); return u && (u.league || owner) ? {name: u.board || u.name, full: u.name} : null; }
-  if (key.startsWith('g_') && owner && doc && doc.g) {
+  if (key.startsWith('u_')) { const u = data.USERS.find(x => x.id === id); return u ? {name: u.board || u.name, full: u.name} : null; }
+  if (key.startsWith('g_') && doc && doc.g) {
     const nm = guestName(key), nick = String(doc.nick || '').trim();
     return nm ? {name: nick.toLowerCase() === nm ? nick : nm, guest: true} : null;
   }

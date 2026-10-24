@@ -456,23 +456,24 @@ export async function returnChecks(check) {
     const pass = kept && sum && day === 'Mason 400/5, Jacob 300/null' && week === 'Mason 500/6, Jacob 300/null, Tommy 250/6' && gated;
     return {pass, detail: `kept ${kept}; added up ${sum}; day ${day}; week ${week}; on the owner's rows alone ${gated}`};
   });
-  check('Return Man: THE RULE (CLAUDE.md): the scoreboard reads the board as this phone may see it (daily.LB.raw), never every doc: a guest on the board only on their own phones and the league owner\'s; Ryan D for everyone', async () => {
+  check('Return Man: THE RULE (CLAUDE.md): the scoreboard reads the board as this phone may see it (daily.LB.raw), never every doc: everyone on it on every phone (Oct 24 2026: a guest, Ryan S, Ryan D, the members), a row that is no one\'s nowhere', async () => {
     const LB = daily.LB, raw = LB.raw, all = LB.all, players = LB.players;
     const member = doc('rr-m', 'Mason', {1: e(300, 150, 1, 1)}), guest = doc('rr-g', 'Zed Q', {1: e(900, 500, 4, 1)}, {g: true});
+    const nobody = doc('rr-x', 'Setup test', {1: e(100, 50, 0, 1)});
     const ryanD = doc('rr-d', 'Ryan Dow', {1: e(200, 90, 0, 1)});
     let out;
     try {
-      LB.all = [member, guest, ryanD];
+      LB.all = [member, guest, ryanD, nobody];
       LB.raw = LB.all.filter(p => daily.boardShows(p, false)); // a league phone's board
       LB.players = LB.raw;
       const rows = R.boardRows(1), week = R.weekRows(1, undefined, 1);
-      out = {rows: rows.map(r => r.name).join(), week: week.map(r => r.name).join(), shown: daily.boardShows(guest, false), owner: daily.boardShows(guest, true), ryan: rows.some(r => r.name === 'Ryan D')};
+      out = {rows: rows.map(r => r.name).join(), week: week.map(r => r.name).join(), shown: daily.boardShows(guest, false), owner: daily.boardShows(guest, true), ryan: rows.some(r => r.name === 'Ryan D'), nobody: daily.boardShows(nobody, false) || daily.boardShows(nobody, true)};
     } finally { LB.raw = raw; LB.all = all; LB.players = players; }
     const files = ['./return.js', '../views/return.js'];
     const srcs = await Promise.all(files.map(f => fetch(new URL(f, import.meta.url)).then(r => r.text()).catch(() => '')));
     const reads = srcs.map((s, i) => (s && !s.split('\n').some(l => /LB\.all\b/.test(l.replace(/\/\/.*$/, '').replace(/\/\*.*?\*\//g, ''))) ? '' : files[i])).filter(Boolean);
-    const pass = !out.shown && out.owner && !/Zed/.test(out.rows) && !/Zed/.test(out.week) && out.ryan && /Mason/.test(out.rows) && !reads.length;
-    return {pass, detail: `rows ${out.rows}; week ${out.week}; guest shown ${out.shown} (on the owner's phone ${out.owner}); ${reads.length ? 'reads LB.all: ' + reads.join() : 'no LB.all reads'}`};
+    const pass = out.shown && out.owner && /Zed/.test(out.rows) && /Zed/.test(out.week) && out.ryan && /Mason/.test(out.rows) && !out.nobody && !/Setup/.test(out.rows) && !reads.length;
+    return {pass, detail: `rows ${out.rows}; week ${out.week}; guest shown ${out.shown} (on the owner's phone ${out.owner}); no one's row shown ${out.nobody}; ${reads.length ? 'reads LB.all: ' + reads.join() : 'no LB.all reads'}`};
   });
   check('Return Man is open to the league in beta (Oct 2026): on every phone\'s list and /puzzles/return opens its page (the owner\'s, a member\'s, a guest\'s); its case wears a BETA tag (front and back), the other games\' don\'t', () => {
     const who = ['evan', 'mitch', null];

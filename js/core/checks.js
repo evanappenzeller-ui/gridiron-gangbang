@@ -554,7 +554,7 @@ export async function runChecks() {
     return {pass, detail: `guest row ${gr ? `${gr.guest}/${gr.managerId}` : 'missing'}; Mason's row ${mr ? mr.id : 'missing'}; names ${names}`};
   });
 
-  check("an app user (Ryan Dow) has a login: one row on the boards from any number of phones, by his board name (Ryan D), no Guest tag, no member's, and no guest can take the name; Ryan Stewart's old guest row (RyStew) is his, as Ryan S, shown only on his own phones, as a guest's is, and on the league owner's (Evan's), who sees every guest and app user", () => {
+  check("an app user (Ryan Dow) has a login: one row on the boards from any number of phones, by his board name (Ryan D), no Guest tag, no member's, and no guest can take the name; Ryan Stewart's old guest row (RyStew) is his, as Ryan S; THE RULE (Oct 24 2026): everyone shows on every phone (Ryan S, Ryan D, guests, members), a row that is no one's nowhere but its own phone; Keepfall's pay ranks among the league's rows only (members and Ryan D)", () => {
     needDaily();
     const P = daily.dayVersion() === 1 ? daily.PNUM : 1, players = fakePlayers(P), mason = players.find(p => p.id === 'fake-3');
     // Ryan on two phones (both rows guest-flagged, as a user's are), the names in any case and spacing.
@@ -579,24 +579,22 @@ export async function runChecks() {
     const stew = daily.boardKey(s1) === 'user:ryan-stewart' && daily.boardKey(s2) === 'user:ryan-stewart' && srows.length === 1 && !srows[0].guest;
     daily.LB.raw = all;
     const snames = ['Ryan Stewart', 'ryan s', 'RYSTEW'].map(n => (daily.guestNameProblem(n) ? 'no' : 'ok')).join(' ');
-    // Ryan S is solo: his rows show only on his own phones (Ryan D's show to everyone). Judged as a league phone
-    // (owner false) and as the owner's (true), whoever this phone is.
+    // THE RULE (CLAUDE.md, Oct 24 2026): everyone shows on every phone, the league's or the owner's alike: Ryan S, Ryan D,
+    // a guest, a member. A row that is no one's (an old test row) only on the phone that posted it.
     const isRyanS = (data.user() || {}).id === 'ryan-stewart';
     const g2 = {id: 'fake-g2', nick: 'Tommy T', g: true}, nobody = {id: 'fake-x', nick: 'Setup test'};
-    const solo = daily.boardShows(s1, false) === isRyanS && daily.boardShows(s2, false) === isRyanS && daily.boardShows(r1, false) && daily.boardShows(r2, false)
-      // and a guest's row, or a row that is no one's, is on the phone that posted it only; a member's on every phone
-      && !daily.boardShows(g2, false) && !daily.boardShows(nobody, false)
-      && daily.boardShows({id: 'fake-m', nick: 'Mason'}, false) && (!daily.LB.uid || daily.boardShows({id: daily.LB.uid, nick: 'Tommy T', g: true}, false))
-      // THE RULE (CLAUDE.md): Ryan D is the only one outside the league on the league's boards.
-      && data.USERS.filter(x => x.league).map(x => x.id).join() === 'ryan-dow';
-    // The league owner's phones (Evan's) see every guest and app user; a row that is no one's stays hidden there too.
-    const owner = data.OWNER === 'evan' && daily.boardShows(s1, true) && daily.boardShows(s2, true) && daily.boardShows(g2, true) && !daily.boardShows(nobody, true)
-      && daily.boardShows(g2) === data.isOwner() && daily.boardShows(s1) === (isRyanS || data.isOwner());
+    const solo = [false, true].every(o => daily.boardShows(s1, o) && daily.boardShows(s2, o) && daily.boardShows(r1, o) && daily.boardShows(r2, o)
+      && daily.boardShows(g2, o) && !daily.boardShows(nobody, o) && daily.boardShows({id: 'fake-m', nick: 'Mason'}, o))
+      && (!daily.LB.uid || daily.boardShows({id: daily.LB.uid, nick: 'Setup test'}, false));
+    // Keepfall's pay ranks a place among the league's rows alone: the members' and Ryan D's (the one app user marked
+    // league), never a guest's or Ryan S's; and only Ryan D is marked.
+    const owner = data.OWNER === 'evan' && daily.leagueRow(r1) && daily.leagueRow({id: 'fake-m', nick: 'Mason'}) && !daily.leagueRow(s1) && !daily.leagueRow(g2)
+      && !daily.leagueRow(nobody) && data.USERS.filter(x => x.league).map(x => x.id).join() === 'ryan-dow';
     daily.LB.raw = raw;
     const pass = once.every(x => x.length === 1) && !!row && !row.guest && row.managerId === null && keys
       && daily.memberOf(r1) === null && !daily.guestOf(r1) && !!u && u.id === 'ryan-dow' && names === 'no no ok no' && stew && snames === 'no no no'
       && solo && owner;
-    return {pass, detail: `rows today ${once[0].length}, season ${once[1].length}; tag ${row ? row.guest : '-'}; keys ${keys}; names ${names}; Ryan S (RyStew) ${stew}, names ${snames}; Ryan S shown here ${daily.boardShows(s1)} (this phone is him: ${isRyanS}, the owner's: ${data.isOwner()}); league phones ${solo}, owner's ${owner}`};
+    return {pass, detail: `rows today ${once[0].length}, season ${once[1].length}; tag ${row ? row.guest : '-'}; keys ${keys}; names ${names}; Ryan S (RyStew) ${stew}, names ${snames}; Ryan S shown here ${daily.boardShows(s1)} (this phone is him: ${isRyanS}, the owner's: ${data.isOwner()}); everyone on every phone ${solo}, pay's league rows ${owner}`};
   });
 
   check('pictures: your own picture in place of your initials, for a person on all their phones (the newest counts), and only from a doc that is that person\'s; a member\'s and Ryan D\'s show to everyone, a guest\'s or Ryan S\'s only on their own phones and the league owner\'s (THE RULE, CLAUDE.md); taking it away brings the initials back; an avatar with a picture draws it, and gets it (or loses it) in place', () => {

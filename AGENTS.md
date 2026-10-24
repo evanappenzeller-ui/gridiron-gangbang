@@ -9,4 +9,4 @@ Use the existing profile mechanism; do not claim it is verified authentication o
 
 The owner explicitly authorized the Gridiron Hub v3.0 rollout to everyone on October 22, 2026.
 Its existing Keepfall, Return Man, game presentation and navigation features are now shared baseline behavior
-(`core/features.js`). Preserve the separate owner privileges for scoreboard/avatar visibility.
+(`core/features.js`). Preserve the owner's privilege for avatar visibility; scoreboards show everyone to everyone since Oct 24, 2026 (CLAUDE.md).

@@ -4,7 +4,7 @@
 
 V3.0 exception (October 22, 2026): Evan explicitly requested all completed updates be released to every user.
 Keepfall, the new Return Man presentation/course, game cases, and navigation motion are now shared features.
-Keep scoreboard and picture visibility rules below unchanged; `data.isOwner()` still identifies only Evan.
+Keep the scoreboard and picture visibility rules below as they stand (scoreboards opened to everyone on Oct 24, 2026); `data.isOwner()` still identifies only Evan.
 V3 game scoring starts from a clean slate, and Keepfall starts with normal resources, without testing currency.
 Do not restore legacy score or Keepfall save fields into the v3 save namespaces.
 
@@ -27,19 +27,19 @@ Keep gameplay dimensions and collisions intact, retain the 2D fallback, and pres
 and its complete loading-failure fallback. Verify `node tools/return/check-environments.cjs`,
 `node tools/return/check-city-bus.cjs`, and `node tools/return/check-city-cache.cjs` before further visual releases.
 
-## Scoreboards are for the league
+## Scoreboards show everyone
 
-Standing rule from the league's owner (October 2026):
+Standing rule from the league's owner (October 24, 2026: "Everyone should be visible on the scoreboards and Keepfall.
+No longer shall names be hidden from league members"). It replaces the October 2026 rule that showed only members and
+Ryan D to the league:
 
-- **Only league members appear on the league's scoreboards**, plus **Ryan Dow ("Ryan D")**, the one exception.
-- **Guests never appear on anyone else's scoreboard** (except the owner's, below). A guest still sees their own scores
-  on their own phone (tagged Guest, ranked among the league), and no other league member sees them.
-- **Any other app user (Ryan Stewart, "Ryan S", and anyone added later)** is treated the same way: visible only on
-  their own phones.
-- Rows that belong to no one (old test rows) are hidden the same way.
-- **The league's owner (Evan) sees every user** (October 2026): on his phones every guest's and app user's scores,
-  Pick'em rows and pictures show; the rest of the league still sees only members and Ryan D. A scoreboard row that
-  belongs to no one stays hidden on his phones too (Pick'em can't tell a guest's row from no one's, so he sees all of those).
+- **Everyone appears on every phone's scoreboards**: league members, every app user (Ryan Dow "Ryan D", Ryan Stewart
+  "Ryan S", anyone added later) and every guest (tagged Guest). Pick'em standings and Keepfall's Visit list too.
+- Rows that belong to no one (old test rows) stay hidden, except on the phone that posted them; the duplicate rows in
+  `daily.js` `HIDDEN` stay hidden.
+- **Keepfall's pay is unchanged**: a member's paid place on a board is ranked among the league's rows only (members and
+  Ryan D, `daily.js` `leagueRow()`), so a guest or another app user on the boards never lowers what a place pays.
+- **Profile pictures keep the earlier rule** (below): the owner asked about names, not pictures.
 
 How it's enforced, and what to keep doing:
 
@@ -48,25 +48,26 @@ How it's enforced, and what to keep doing:
 - Every scoreboard (Daily Puzzles, 17-0, the Two-Minute Drill, Kick It and Return Man, today and week, the
   finished-game cards on the Daily Games list in `js/views/games.js`, and any new game) must read `daily.LB.raw` /
   `daily.LB.players`, never `LB.all`.
-- The owner is `js/core/data.js` `OWNER` (`isOwner()`); `boardShows()`, `pictureShows()` and `week.js` `finishRows()`
-  honor it. Don't give it to anyone else unless the owner says so.
-- App users live in `js/core/data.js` `USERS`. A new app user is hidden from the league by default. Only an entry
-  marked `league: true` shows to everyone, and only Ryan Dow has it. Don't add it to anyone else unless the owner
-  says so.
-- The kit check "an app user (Ryan Dow) has a login…" (`js/core/checks.js`) fails if this changes.
-- The Pick'em standings (week and season tables, and the leader line built from them) follow the same rule:
-  `js/core/week.js` `finishRows()` drops any row that isn't a member's, Ryan D's or this phone's own. The kit check
-  "Standings show league members and Ryan D to everyone…" (`js/core/checks-pickem.js`) covers it.
+- The owner is `js/core/data.js` `OWNER` (`isOwner()`); `pictureShows()` still honors it. Don't give it to anyone else
+  unless the owner says so.
+- App users live in `js/core/data.js` `USERS`. `league: true` (Ryan Dow only) now means two things: the user's row
+  counts in Keepfall's pay ranking (`leagueRow()`), and their picture shows to everyone. Don't add it to anyone else
+  unless the owner says so.
+- The kit check "an app user (Ryan Dow) has a login…" (`js/core/checks.js`) covers both the visibility and the pay rows.
+- The Pick'em standings (week and season tables, and the leader line built from them) show every row on every phone
+  (`js/core/week.js` `finishRows()`). The kit check "Standings show everyone to everyone…" (`js/core/checks-pickem.js`)
+  covers it.
 - Keepfall (formerly "The Keep" and "The Realm"; `js/views/realm.js`, `js/core/realm.js`) is the owner's alone (October 2026): its
   Daily Games case and links are on his phones only, it raids only the computer's realms, and no one else's scores,
   names or realms appear in it. Exception (Oct 23 2026, the owner: "Users should be able to view other players bases"):
   Visit (`js/views/realm-visit.js`, `core/realm.js` `visitable()`) lets anyone look round other players' realms, read-only
-  and never raidable, by the scoreboard rule above (members and Ryan D to everyone; guests and other app users on the
-  owner's phones only). The kit check "Keepfall: visiting…" covers it. Don't open it to anyone else unless the owner says so. The kit check "Keepfall: the
+  and never raidable, by the scoreboard rule above (since Oct 24 2026: everyone's realm to everyone). The kit check
+  "Keepfall: visiting…" covers it. Don't open it to anyone else unless the owner says so. The kit check "Keepfall: the
   owner's alone…" (`js/core/checks-realm.js`) covers it. Its words (Oct 22 2026): the main building is the Castle,
   the second currency is Ale (Breweries, Cellars); internal ids stay keep/grain/farm/granary and the route #/realm.
-- Profile pictures follow the same rule (`js/core/avatars.js` `pictureShows()`): a member's picture, and Ryan D's, shows
-  to everyone; a guest's or any other app user's only on their own phones. The kit check "pictures: …" covers it.
+- Profile pictures keep the earlier rule (`js/core/avatars.js` `pictureShows()`): a member's picture, and Ryan D's, shows
+  to everyone; a guest's or any other app user's only on their own phones and the owner's. The kit check "pictures: …"
+  covers it.
 
 ## Deploying
 

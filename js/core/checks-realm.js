@@ -66,7 +66,7 @@ export async function realmChecks(check) {
     return {pass: ok, detail: `route ${routed}; every realm the attack’s own ${same}; ${R4.name}: ${def.map(d => `${d.n} ${d.t}`).join(', ')} (${counted}); a cannon: ${facts}; ${nests.length} of their hatcheries: ${nestFacts[0] || 'none'} (${hatch}); an unknown realm refused ${missing}; nothing changed ${untouched}`};
   });
 
-  check('Keepfall: visiting (views/realm-visit.js, #/realm/visit/<profile>; Visit by Lore, Oct 23 2026): other players’ realms can be looked round, the freshest copy of each, by the scoreboards’ rule (members and Ryan D to everyone; a guest or another app user on the owner’s phones only; never your own, never an unsaved v3 realm); looking changes nothing and no player can be raided', async () => {
+  check('Keepfall: visiting (views/realm-visit.js, #/realm/visit/<profile>; Visit by Lore, Oct 23 2026): other players’ realms can be looked round, the freshest copy of each, by the scoreboards’ rule (Oct 24 2026: everyone to everyone, the members, Ryan D, Ryan S and the guests; never your own, never an unsaved v3 realm); looking changes nothing and no player can be raided', async () => {
     const [app, view, visit] = await Promise.all([import('../app.js'), import('../views/realm.js'), import('../views/realm-visit.js')]);
     const r = app.__dev.parseRoute('/realm/visit/m_x'), routed = !data.DATA ? true : !!r && r.view === 'realm-visit' && r.open === 'cover' && r.params.key === 'm_x';
     const member = Object.keys(data.M).find(id => 'm_' + id !== F.profileKey());
@@ -78,10 +78,10 @@ export async function realmChecks(check) {
       {id: 'v3', nick: 'Zed', g: true, fr3: {[g]: v3(T0), 'm_nobody-here': v3(T0)}},
       {id: 'v4', nick: 'x', fr3: {'u_ryan-dow': {...v3(T0 + 9), rs: ''}}}];
     const before = JSON.stringify(docs), list = F.visitable(T0, docs), keys = list.map(x => x.key).sort().join();
-    const want = [...(member ? ['m_' + member] : []), 'u_ryan-dow', ...(data.isOwner() ? [g, 'u_ryan-stewart'] : [])].sort().join();
+    const want = [...(member ? ['m_' + member] : []), 'u_ryan-dow', g, 'u_ryan-stewart'].sort().join();
     const freshest = !member || list.find(x => x.key === 'm_' + member).th === 4;
     const dow = list.find(x => x.key === 'u_ryan-dow'), named = !!dow && dow.name === 'Ryan D' && dow.th === 3 && view.houseName(dow.state, dow) === 'House Dow';
-    const guest = !data.isOwner() || (list.find(x => x.key === g) || {}).name === 'Zed';
+    const guest = (list.find(x => x.key === g) || {}).name === 'Zed';
     const html = view.visitHTML(list, T0), buttons = (html.match(/data-rl-visit-go=/g) || []).length === list.length && /Visit/.test(html) && !/data-rl-go|Attack/.test(html);
     const card = visit.visitSelHTML({i: 9, t: 'hatchery', l: 2, x: 0, y: 0, u: T0 + 3600e3}, T0), cardOk = /their dragon keeper/.test(card) && /Upgrading to level 3/.test(card) && !/\byour\b/i.test(card.replace(/<[^>]+>/g, ''));
     const raid = list.every(x => !!F.realmOf(x.key, F.fresh(T0), T0).why), untouched = JSON.stringify(docs) === before;
@@ -139,7 +139,7 @@ export async function realmChecks(check) {
       doc('fx-u', 'RyStew', {s17: {[P['17-0']]: {w: 15, l: 2, p: 26, t: 45}}, days: {[AT_N.puzzles]: pe(AT_N.puzzles, 950, 45)}}),
       doc('fx-x', 'Testy McTest', {days: {[P.puzzles]: pe(P.puzzles, 2000, 30)}, s17: {[P['17-0']]: {w: 17, l: 0, p: 40, t: 30}}})
     ];
-    const all = [e1, e2, ...league], board = all.filter(p => daily.boardShows(p, true)), leagueBoard = all.filter(p => daily.boardShows(p, false));
+    const all = [e1, e2, ...league], board = all.filter(p => daily.boardShows(p, true)), leagueBoard = all.filter(p => daily.leagueRow(p)); // (the rows Keepfall's pay ranks among: Oct 24 2026, everyone shows on the boards, but only these count)
     const inc = F.incomeOf([e1, e2], {sv, dr, kk, rm}, {board, me: data.OWNER, at: AT});
     // (a day whose entry says more coins than a 150-yard run could have run through: paid what the course lays out there,
     // and the day a forged count: what Return Man's own reading makes of it, dayCoins, whatever that is)

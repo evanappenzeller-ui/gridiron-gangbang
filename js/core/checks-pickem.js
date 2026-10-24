@@ -358,7 +358,7 @@ export async function pickemChecks(check) {
   });
 
   // 8b. Who shows (THE RULE, CLAUDE.md)
-  check('Standings show league members and Ryan D to everyone; Ryan S, a guest or a row that is no one\'s only on their own phone and the league owner\'s (Evan sees every row)', () => {
+  check('Standings show everyone to everyone (the owner, Oct 24 2026: no names hidden from league members): the members, Ryan D, Ryan S and a guest on every phone, the league owner\'s or not', () => {
     need();
     const E = mgr('evan'), M = mgr('mitch');
     const g3 = nfl.parse(clone(W3)).games, k = g => g.kickoff.getTime();
@@ -369,9 +369,8 @@ export async function pickemChecks(check) {
     const onMitch = names(week.nflRowsFrom(docs, g3, 'm1', {me: M})), onRyanS = names(week.nflRowsFrom(docs, g3, 'rs', {me: null}));
     const seasonMitch = names(week.nflStandingsFrom([{year: 2026, week: 3, games: g3, docs}], 'm1', {me: M}));
     const onEvan = names(week.nflRowsFrom(docs, g3, 'e1', {me: E})), seasonEvan = names(week.nflStandingsFrom([{year: 2026, week: 3, games: g3, docs}], 'e1', {me: E}));
-    const want = [data.name(E), data.name(M), 'Ryan D'].sort().join(', '), wantS = [data.name(E), data.name(M), 'Ryan D', 'Ryan S'].sort().join(', ');
     const wantE = [data.name(E), data.name(M), 'Ryan D', 'Ryan S', 'RyStew', 'Fan'].sort().join(', ');
-    const pass = E === data.OWNER && onMitch === want && seasonMitch === want && onRyanS === wantS && onEvan === wantE && seasonEvan === wantE;
+    const pass = E === data.OWNER && [onMitch, seasonMitch, onRyanS, onEvan, seasonEvan].every(x => x === wantE);
     return {pass, detail: `Mitch's phone: ${onMitch}; season: ${seasonMitch}; Ryan S's phone: ${onRyanS}; Evan's (the owner's): ${onEvan}; season: ${seasonEvan}`};
   });
 
