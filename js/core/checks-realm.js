@@ -139,7 +139,7 @@ export async function realmChecks(check) {
       doc('fx-u', 'RyStew', {s17: {[P['17-0']]: {w: 15, l: 2, p: 26, t: 45}}, days: {[AT_N.puzzles]: pe(AT_N.puzzles, 950, 45)}}),
       doc('fx-x', 'Testy McTest', {days: {[P.puzzles]: pe(P.puzzles, 2000, 30)}, s17: {[P['17-0']]: {w: 17, l: 0, p: 40, t: 30}}})
     ];
-    const all = [e1, e2, ...league], board = all.filter(p => daily.boardShows(p, true)), leagueBoard = all.filter(p => daily.leagueRow(p)); // (the rows Keepfall's pay ranks among: Oct 24 2026, everyone shows on the boards, but only these count)
+    const all = [e1, e2, ...league], board = all.filter(p => daily.boardShows(p)); // (the board as everyone sees it, Oct 24 2026: the guest and Ryan S on it, the row that's no one's not)
     const inc = F.incomeOf([e1, e2], {sv, dr, kk, rm}, {board, me: data.OWNER, at: AT});
     // (a day whose entry says more coins than a 150-yard run could have run through: paid what the course lays out there,
     // and the day a forged count: what Return Man's own reading makes of it, dayCoins, whatever that is)
@@ -148,7 +148,7 @@ export async function realmChecks(check) {
     // (the competitive pay, Oct 22 2026: Kick It 500 + 3,000 a 5th make; Return Man 500 a day + 25 a coin, the first 200)
     const kickNew = {[P.kick]: 500 + 3000 * 2, [P.kick + 1]: 500, [P.kick + 2]: 500 + 3000, [AT_N.kick]: 500 + 3000 * 2};
     const retNew = {[P.return]: 500 + 25 * 84, [P.return + 1]: 500 + 25 * 30, [P.return + 2]: 500 + forged, [P.return + 3]: 500 + cut, [AT_N.return]: 500 + 25 * 12};
-    return {P, AT_N, e1, e2, all, board, leagueBoard, inc, pe, cut, cutCoins, forged, kickNew, retNew};
+    return {P, AT_N, e1, e2, all, board, inc, pe, cut, cutCoins, forged, kickNew, retNew};
   };
   const sumOf = o => Object.values(o).reduce((a, b) => a + b, 0);
   const by = (inc, g, c) => (inc.by[g] ? inc.by[g][c] : 0);
@@ -161,47 +161,46 @@ export async function realmChecks(check) {
     if (!E) return {pass: false, detail: `the league or the puzzles didn’t load; Oct 22: ${JSON.stringify(first)}`};
     const old = {puzzles: 400 + 5 * 400, '17-0': 400 + 150 * 10, drill: 3000, kick: 400 + 200 * 6, return: 400 + 3 * 500};
     // (each game’s Gold and Ale: the old day’s in both; the new days’ in their own one only)
-    const newGold = {kick: sumOf(E.kickNew), return: sumOf(E.retNew)}, newAle = {puzzles: 4000 + 5000, '17-0': 4000, drill: 1200};
+    const newGold = {kick: sumOf(E.kickNew), return: sumOf(E.retNew)}, newAle = {puzzles: 3200 + 5000, '17-0': 3200, drill: 1200}; // (third on the first new day's boards, the guest and Ryan S above him: Oct 24 2026)
     const split = Object.keys(old).every(g => by(E.inc, g, 'gold') === old[g] + (newGold[g] || 0) && by(E.inc, g, 'grain') === old[g] + (newAle[g] || 0));
     const sum = o => Object.values(o).reduce((a, b) => a + b, 0);
     const totals = E.inc.total.gold === sum(old) + sum(newGold) && E.inc.total.grain === sum(old) + sum(newAle);
     return {pass: ship && split && totals, detail: `Oct 22: ${JSON.stringify(first)}, Oct 21: ${JSON.stringify(eve)} (${ship}); by game ${JSON.stringify(E.inc.by)} (${split}); total ${JSON.stringify(E.inc.total)} (${totals})`};
   });
 
-  check('Keepfall: from the new pay on, Ale for his place on the day’s final board in the Daily Puzzles, 17–0 and the Two-Minute Drill (1st 5,000 · 2nd 4,000 · 3rd 3,200 · 4th 2,600 · 5th 2,100 · 6th 1,700 · 7th or lower 1,200), ranked as each game’s own board ranks it, on the league’s board: a tie shares the higher place, he counts once across his phones (the board’s counting entry, not a later better one), a guest or an app user who isn’t in the league (Ryan S) above him on his phone’s boards doesn’t lower his place (they’re not on the league’s), Ryan D would, and a row that is no one’s doesn’t; paid the morning after (yesterday’s place came in today), today’s place pending (“#2 right now”), and no Gold from those three', () => {
+  check('Keepfall: from the new pay on, Ale for his place on the day’s final board in the Daily Puzzles, 17–0 and the Two-Minute Drill (1st 5,000 · 2nd 4,000 · 3rd 3,200 · 4th 2,600 · 5th 2,100 · 6th 1,700 · 7th or lower 1,200), ranked as each game’s own board ranks it, on the board as everyone sees it (Oct 24 2026): a tie shares the higher place, he counts once across his phones (the board’s counting entry, not a later better one), a guest, Ryan S or Ryan D above him lowers his place and a row that is no one’s doesn’t; paid the morning after (yesterday’s place came in today), today’s place pending (“#3 right now”), and no Gold from those three', () => {
     const E = econ();
     if (!E) return {pass: false, detail: 'the league or the puzzles didn’t load'};
-    const {P, AT_N, inc, board, leagueBoard} = E;
+    const {P, AT_N, inc, board} = E;
     const table = [1, 2, 3, 4, 5, 6, 7, 8, 20].map(F.aleFor).join() === '5000,4000,3200,2600,2100,1700,1200,1200,1200' && F.aleFor(0) === 0;
-    // (the boards themselves, as the games rank them: his row on each, the league’s; and on his phone’s, where the
-    // guest and Ryan S are above him)
+    // (the boards themselves, as the games rank them, his row on each: the guest (1000) and a member (900) above his 700
+    // on the Daily board, a member's 700 tied with him; Ryan S (15 wins) and a member (14) above his 12 on 17–0's, a
+    // member tied; the row that's no one's (2000, 17 wins) on neither)
     const pzOn = b => daily.boardRows('today', daily.onePerMember(b), P.puzzles, daily.dayFor(P.puzzles)).find(r => r.id === 'fx-e1' || r.id === 'fx-e2');
-    const rowPz = pzOn(leagueBoard), row17 = sv.boardRows('today', P['17-0'], leagueBoard).find(r => r.key === data.OWNER), rowDr = dr.boardRows(P.drill, leagueBoard).find(r => r.key === data.OWNER);
-    const places = !!rowPz && rowPz.rank === 2 && rowPz.pts === 700 && !!row17 && row17.rank === 2 && row17.w === 12 && !!rowDr && rowDr.rank === 8;
-    const his = pzOn(board), his17 = sv.boardRows('today', P['17-0'], board).find(r => r.key === data.OWNER);
-    const outsiders = !!his && his.rank === 3 && !!his17 && his17.rank === 3 && board.some(p => p.id === 'fx-u') && board.some(p => p.id === 'fx-g')
-      && !leagueBoard.some(p => p.id === 'fx-u' || p.id === 'fx-g' || p.id === 'fx-x');
-    // (and Ryan D, the one app user on the league’s boards, does push him down)
+    const rowPz = pzOn(board), row17 = sv.boardRows('today', P['17-0'], board).find(r => r.key === data.OWNER), rowDr = dr.boardRows(P.drill, board).find(r => r.key === data.OWNER);
+    const places = !!rowPz && rowPz.rank === 3 && rowPz.pts === 700 && !!row17 && row17.rank === 3 && row17.w === 12 && !!rowDr && rowDr.rank === 8;
+    const outsiders = board.some(p => p.id === 'fx-u') && board.some(p => p.id === 'fx-g') && !board.some(p => p.id === 'fx-x');
+    // (and Ryan D's 16 wins over him as well: fourth)
     const rd = {id: 'fx-rd', nick: 'Ryan Dow', s17: {[P['17-0']]: {w: 16, l: 1, p: 29, t: 44}}};
     const withRd = F.incomeOf([E.e1, E.e2], {sv, dr, kk, rm}, {board: board.concat(rd), me: data.OWNER, at: AT});
-    const ryanD = by(withRd, '17-0', 'grain') === 1900 + 3200;
-    const ale = by(inc, 'puzzles', 'grain') === 2400 + 4000 + 5000 && by(inc, '17-0', 'grain') === 1900 + 4000 && by(inc, 'drill', 'grain') === 3000 + 1200;
+    const ryanD = by(withRd, '17-0', 'grain') === 1900 + 2600;
+    const ale = by(inc, 'puzzles', 'grain') === 2400 + 3200 + 5000 && by(inc, '17-0', 'grain') === 1900 + 3200 && by(inc, 'drill', 'grain') === 3000 + 1200;
     const noGold = by(inc, 'puzzles', 'gold') === 2400 && by(inc, '17-0', 'gold') === 1900 && by(inc, 'drill', 'gold') === 3000;
-    const pend = inc.pending.puzzles && inc.pending.puzzles.n === AT_N.puzzles && inc.pending.puzzles.place === 2 && inc.pending.puzzles.grain === 4000
+    const pend = inc.pending.puzzles && inc.pending.puzzles.n === AT_N.puzzles && inc.pending.puzzles.place === 3 && inc.pending.puzzles.grain === 3200
       && inc.pending.drill && inc.pending.drill.place === 1 && inc.pending.drill.grain === 5000 && !inc.pending['17-0'] && !inc.pending.kick && !inc.pending.return;
     const morning = inc.today.puzzles && inc.today.puzzles.grain === 5000 && inc.last.puzzles && inc.last.puzzles.n === AT_N.puzzles - 1 && inc.last.puzzles.place === 1
       && !(inc.today['17-0'] && inc.today['17-0'].grain) && !(inc.today.drill && inc.today.drill.grain);
     // (seen the next day, today's place is paid, and a day still to come pays nothing)
     const next = F.incomeOf([E.e1, E.e2], {sv, dr, kk, rm}, {board, me: data.OWNER, at: on(5, 9)});
-    const paid = by(next, 'puzzles', 'grain') === 2400 + 4000 + 5000 + 4000 && by(next, 'drill', 'grain') === 3000 + 1200 + 5000 && !next.pending.puzzles;
+    const paid = by(next, 'puzzles', 'grain') === 2400 + 3200 + 5000 + 3200 && by(next, 'drill', 'grain') === 3000 + 1200 + 5000 && !next.pending.puzzles;
     // (and seen on the first day itself, its places are pending, the day after the old pay's last)
     const early = F.incomeOf([E.e1, E.e2], {sv, dr, kk, rm}, {board, me: data.OWNER, at: on(0, 23, 59)});
-    const notYet = by(early, 'puzzles', 'grain') === 2400 && early.pending.puzzles && early.pending.puzzles.place === 2 && by(early, '17-0', 'grain') === 1900 && early.pending['17-0'].place === 2;
+    const notYet = by(early, 'puzzles', 'grain') === 2400 && early.pending.puzzles && early.pending.puzzles.place === 3 && by(early, '17-0', 'grain') === 1900 && early.pending['17-0'].place === 3;
     // (someone else's view of the same board: never his)
     const nobody = F.incomeOf([], {sv, dr, kk, rm}, {board, me: null, at: AT}).total;
     const none = nobody.gold === 0 && nobody.grain === 0;
     const ok = table && places && outsiders && ryanD && ale && noGold && pend && morning && paid && notYet && none;
-    return {pass: ok, detail: `table ${table}; his places on the league’s board: Daily #${rowPz && rowPz.rank} (${rowPz && rowPz.pts}), 17–0 #${row17 && row17.rank}, Drill #${rowDr && rowDr.rank} (${places}); on his phone’s, with the guest and Ryan S above him: Daily #${his && his.rank}, 17–0 #${his17 && his17.rank}, not counted ${outsiders}; Ryan D above him counts ${ryanD}; Ale ${['puzzles', '17-0', 'drill'].map(g => by(inc, g, 'grain')).join('/')} (${ale}); no new Gold ${noGold}; pending ${JSON.stringify(inc.pending)} (${pend}); this morning ${JSON.stringify(inc.today.puzzles)} (${morning}); the next day paid ${paid}; on its first day still pending ${notYet}; no docs no pay ${none}`};
+    return {pass: ok, detail: `table ${table}; his places on the board: Daily #${rowPz && rowPz.rank} (${rowPz && rowPz.pts}), 17–0 #${row17 && row17.rank}, Drill #${rowDr && rowDr.rank} (${places}); the guest and Ryan S on it, no one's row not ${outsiders}; Ryan D above him counts ${ryanD}; Ale ${['puzzles', '17-0', 'drill'].map(g => by(inc, g, 'grain')).join('/')} (${ale}); no new Gold ${noGold}; pending ${JSON.stringify(inc.pending)} (${pend}); this morning ${JSON.stringify(inc.today.puzzles)} (${morning}); the next day paid ${paid}; on its first day still pending ${notYet}; no docs no pay ${none}`};
   });
 
   check('Keepfall: from the new pay on, Gold from Kick It and Return Man, paid as soon as the run is on the board (the competitive pay, Oct 22 2026): 500 for the run that counts and 3,000 for every 5th make on it (the day’s first finished across his phones, not a later better try; 0 makes still 500), and 500 a Return Man day with a run on the board plus 25 a coin on the day’s first run, the first 200 (its board entry’s c, whatever the best run was; none on a later run, never more than the course lays out); no Ale from those two', () => {
@@ -235,23 +234,23 @@ export async function realmChecks(check) {
     const E = econ();
     if (!E) return {pass: false, detail: 'the league or the puzzles didn’t load'};
     const {P, AT_N} = E, G = {sv, dr, kk, rm}, fr = E.inc.fresh || {};
-    const listed = !!fr.puzzles && fr.puzzles[P.puzzles] === 2 && fr.puzzles[AT_N.puzzles - 1] === 1 && !(AT_N.puzzles in fr.puzzles)
-      && !!fr['17-0'] && fr['17-0'][P['17-0']] === 2 && !!fr.drill && fr.drill[P.drill] === 8 && !(AT_N.drill in fr.drill) && !fr.kick && !fr.return;
+    const listed = !!fr.puzzles && fr.puzzles[P.puzzles] === 3 && fr.puzzles[AT_N.puzzles - 1] === 1 && !(AT_N.puzzles in fr.puzzles)
+      && !!fr['17-0'] && fr['17-0'][P['17-0']] === 3 && !!fr.drill && fr.drill[P.drill] === 8 && !(AT_N.drill in fr.drill) && !fr.kick && !fr.return;
     // (a member's late post above him on a day already paid: unfrozen his place would drop, frozen it holds)
     const late = Object.assign({}, E.all.find(p => p.id === 'fx-o4'), {id: 'fx-late', days: {[P.puzzles]: E.pe(P.puzzles, 990, 20)}});
     const board = E.board.concat(late);
     const loose = F.incomeOf([E.e1, E.e2], G, {board, me: data.OWNER, at: AT}), held = F.incomeOf([E.e1, E.e2], G, {board, me: data.OWNER, at: AT, paid: fr});
-    const drops = by(loose, 'puzzles', 'grain') === 2400 + 3200 + 5000;
-    const holds = by(held, 'puzzles', 'grain') === 2400 + 4000 + 5000 && JSON.stringify(held.total) === JSON.stringify(E.inc.total) && !Object.keys(held.fresh).length;
+    const drops = by(loose, 'puzzles', 'grain') === 2400 + 2600 + 5000;
+    const holds = by(held, 'puzzles', 'grain') === 2400 + 3200 + 5000 && JSON.stringify(held.total) === JSON.stringify(E.inc.total) && !Object.keys(held.fresh).length;
     // (today's place is never frozen: it's still pending, and moves with the board)
     const today = F.incomeOf([E.e1, E.e2], G, {board: E.board, me: data.OWNER, at: AT, paid: {puzzles: {[AT_N.puzzles]: 1}}});
-    const live = today.pending.puzzles && today.pending.puzzles.place === 2 && by(today, 'puzzles', 'grain') === by(E.inc, 'puzzles', 'grain');
+    const live = today.pending.puzzles && today.pending.puzzles.place === 3 && by(today, 'puzzles', 'grain') === by(E.inc, 'puzzles', 'grain');
     // (the realm keeps them)
     const s = F.fresh(T0);
     s.pd = {puzzles: {[P.puzzles]: 2, 26: 'x', 0: 3}, '17-0': {14: 1.5}, kick: {5: 1}, junk: 4};
     const kept = JSON.stringify(F.clean(s).pd) === JSON.stringify({puzzles: {[P.puzzles]: 2}}) && JSON.stringify(F.clean(F.fresh(T0)).pd) === '{}';
     const t = F.fresh(T0), a1 = F.freezeInto(t, fr), a2 = F.freezeInto(t, fr);
-    const into = a1 && !a2 && t.pd.puzzles[P.puzzles] === 2 && t.pd.drill[P.drill] === 8 && !t.pd.kick;
+    const into = a1 && !a2 && t.pd.puzzles[P.puzzles] === 3 && t.pd.drill[P.drill] === 8 && !t.pd.kick;
     t.pd.puzzles[P.puzzles] = 1;
     const once = !F.freezeInto(t, fr) && t.pd.puzzles[P.puzzles] === 1; // (what's frozen stays frozen)
     let refused;
@@ -339,7 +338,7 @@ export async function realmChecks(check) {
     return {pass: split && same && never && safe, detail: `Gold alone: moved ${JSON.stringify(moved)}, waiting ${JSON.stringify(p)} (${split}); one number for both ${same}; short pay: waiting ${JSON.stringify(short)}, moved ${JSON.stringify(took)}, stored ${JSON.stringify(t.r)} (${never}); bad numbers ${JSON.stringify(junk)}`};
   });
 
-  check('Keepfall: the coffers say how the games pay now (“Ale: your place on the Daily Puzzles, 17–0 and Two-Minute Drill boards, paid the next morning. Gold: …”, the Gold line with the competitive pay’s numbers), today’s place (“#2 right now · 4,000 Ale tomorrow if it holds”), today’s makes and coins as the runs have them (never the Gold worked back), what came in today and the season’s Gold and Ale for each game, and the competitive pay’s numbers (Oct 22 2026: 500 a run and 3,000 a 5th make; 500 a day and 25 a coin); on the old pay’s last day, that day’s pay the old way and what tomorrow brings; so does the welcome', async () => {
+  check('Keepfall: the coffers say how the games pay now (“Ale: your place on the Daily Puzzles, 17–0 and Two-Minute Drill boards, paid the next morning. Gold: …”, the Gold line with the competitive pay’s numbers), today’s place (“#3 right now · 3,200 Ale tomorrow if it holds”), today’s makes and coins as the runs have them (never the Gold worked back), what came in today and the season’s Gold and Ale for each game, and the competitive pay’s numbers (Oct 22 2026: 500 a run and 3,000 a 5th make; 500 a day and 25 a coin); on the old pay’s last day, that day’s pay the old way and what tomorrow brings; so does the welcome', async () => {
     const view = await import('../views/realm.js');
     const E = econ();
     if (!E) return {pass: false, detail: 'the league or the puzzles didn’t load'};
@@ -367,7 +366,7 @@ export async function realmChecks(check) {
     const copy = tc.content.textContent.replace(/\s+/g, ' ').trim();
     const copyOk = copy.startsWith('Ale: your place on the Daily Puzzles, 17–0 and Two-Minute Drill boards, paid the next morning. Gold: ')
       && /\b500\b.*\b3,000 for every 5th Kick It make\b.*\b25 a coin on your first Return Man run\b/.test(copy);
-    const lines = [copyOk ? copy : 'the line on how the games pay (payCopyHTML) with the new Gold', '#2 right now · 4,000 Ale tomorrow if it holds', '#1 right now · 5,000 Ale tomorrow if it holds', '#1 yesterday: paid this morning', 'Not played yet: your place pays Ale tomorrow',
+    const lines = [copyOk ? copy : 'the line on how the games pay (payCopyHTML) with the new Gold', '#3 right now · 3,200 Ale tomorrow if it holds', '#1 right now · 5,000 Ale tomorrow if it holds', '#1 yesterday: paid this morning', 'Not played yet: your place pays Ale tomorrow',
       '10 makes on your run', '12 coins on your first run', `All told ${E.inc.total.gold.toLocaleString('en-US')} Gold ${E.inc.total.grain.toLocaleString('en-US')} Ale`, '1st 5,000', '7th or lower 1,200',
       /Kick It\b.*\b500 Gold\b.*\b3,000\b.*\b5th make/, /Return Man\b.*\b500 Gold\b.*\b25 a coin/];
     const missing = lines.filter(l => !says('The coffers', pages, l)).map(String);

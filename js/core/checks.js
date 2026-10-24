@@ -554,7 +554,7 @@ export async function runChecks() {
     return {pass, detail: `guest row ${gr ? `${gr.guest}/${gr.managerId}` : 'missing'}; Mason's row ${mr ? mr.id : 'missing'}; names ${names}`};
   });
 
-  check("an app user (Ryan Dow) has a login: one row on the boards from any number of phones, by his board name (Ryan D), no Guest tag, no member's, and no guest can take the name; Ryan Stewart's old guest row (RyStew) is his, as Ryan S; THE RULE (Oct 24 2026): everyone shows on every phone (Ryan S, Ryan D, guests, members), a row that is no one's nowhere but its own phone; Keepfall's pay ranks among the league's rows only (members and Ryan D)", () => {
+  check("an app user (Ryan Dow) has a login: one row on the boards from any number of phones, by his board name (Ryan D), no Guest tag, no member's, and no guest can take the name; Ryan Stewart's old guest row (RyStew) is his, as Ryan S; THE RULE (Oct 24 2026): everyone shows on every phone (Ryan S, Ryan D, guests, members), a row that is no one's nowhere but its own phone, no app user set apart", () => {
     needDaily();
     const P = daily.dayVersion() === 1 ? daily.PNUM : 1, players = fakePlayers(P), mason = players.find(p => p.id === 'fake-3');
     // Ryan on two phones (both rows guest-flagged, as a user's are), the names in any case and spacing.
@@ -586,18 +586,17 @@ export async function runChecks() {
     const solo = [false, true].every(o => daily.boardShows(s1, o) && daily.boardShows(s2, o) && daily.boardShows(r1, o) && daily.boardShows(r2, o)
       && daily.boardShows(g2, o) && !daily.boardShows(nobody, o) && daily.boardShows({id: 'fake-m', nick: 'Mason'}, o))
       && (!daily.LB.uid || daily.boardShows({id: daily.LB.uid, nick: 'Setup test'}, false));
-    // Keepfall's pay ranks a place among the league's rows alone: the members' and Ryan D's (the one app user marked
-    // league), never a guest's or Ryan S's; and only Ryan D is marked.
-    const owner = data.OWNER === 'evan' && daily.leagueRow(r1) && daily.leagueRow({id: 'fake-m', nick: 'Mason'}) && !daily.leagueRow(s1) && !daily.leagueRow(g2)
-      && !daily.leagueRow(nobody) && data.USERS.filter(x => x.league).map(x => x.id).join() === 'ryan-dow';
+    // No app user is set apart any more (Ryan D's old league: true is gone): Keepfall's pay ranks among the boards as
+    // everyone sees them.
+    const owner = data.OWNER === 'evan' && !data.USERS.some(x => 'league' in x);
     daily.LB.raw = raw;
     const pass = once.every(x => x.length === 1) && !!row && !row.guest && row.managerId === null && keys
       && daily.memberOf(r1) === null && !daily.guestOf(r1) && !!u && u.id === 'ryan-dow' && names === 'no no ok no' && stew && snames === 'no no no'
       && solo && owner;
-    return {pass, detail: `rows today ${once[0].length}, season ${once[1].length}; tag ${row ? row.guest : '-'}; keys ${keys}; names ${names}; Ryan S (RyStew) ${stew}, names ${snames}; Ryan S shown here ${daily.boardShows(s1)} (this phone is him: ${isRyanS}, the owner's: ${data.isOwner()}); everyone on every phone ${solo}, pay's league rows ${owner}`};
+    return {pass, detail: `rows today ${once[0].length}, season ${once[1].length}; tag ${row ? row.guest : '-'}; keys ${keys}; names ${names}; Ryan S (RyStew) ${stew}, names ${snames}; Ryan S shown here ${daily.boardShows(s1)} (this phone is him: ${isRyanS}, the owner's: ${data.isOwner()}); everyone on every phone ${solo}, no app user set apart ${owner}`};
   });
 
-  check('pictures: your own picture in place of your initials, for a person on all their phones (the newest counts), and only from a doc that is that person\'s; a member\'s and Ryan D\'s show to everyone, a guest\'s or Ryan S\'s only on their own phones and the league owner\'s (THE RULE, CLAUDE.md); taking it away brings the initials back; an avatar with a picture draws it, and gets it (or loses it) in place', () => {
+  check('pictures: your own picture in place of your initials, for a person on all their phones (the newest counts), and only from a doc that is that person\'s; everyone\'s shows to everyone, a member\'s, an app user\'s, a guest\'s (THE RULE, CLAUDE.md, Oct 24 2026); taking it away brings the initials back; an avatar with a picture draws it, and gets it (or loses it) in place', () => {
     needDaily();
     const px = c => 'data:image/jpeg;base64,' + c.repeat(8);
     const on = avatars.picturesOnBoard([
@@ -612,12 +611,11 @@ export async function runChecks() {
     ]);
     const board = on.jacob && on.jacob.i === px('BBBB') && !on.mason && on['guest:zed q'] && on.corbin && on.corbin.i === '' && on['user:ryan-dow'];
     const me = avatars.myKey();
-    const shows = avatars.pictureShows('jacob', false) && avatars.pictureShows('user:ryan-dow', false) && avatars.pictureShows('guest:zed q', false) === (me === 'guest:zed q')
-      && avatars.pictureShows('user:ryan-stewart', false) === (me === 'user:ryan-stewart') && avatars.pictureForAll('mason') && !avatars.pictureForAll('guest:zed q')
-      // the league owner's phones show everyone's
-      && avatars.pictureShows('guest:zed q', true) && avatars.pictureShows('user:ryan-stewart', true) && !avatars.pictureShows('', true)
-      && avatars.pictureShows('guest:zed q') === (me === 'guest:zed q' || data.isOwner())
-      && !avatars.pictureForAll('user:ryan-stewart') && avatars.keyOfNick('Ryan D') === 'user:ryan-dow' && avatars.keyOfNick(' Zed  Q ') === 'guest:zed q';
+    // THE RULE (Oct 24 2026): everyone's picture on every phone, a member's, an app user's, a guest's; no one's for a
+    // key that's no one (an app user the app doesn't know, nothing)
+    const shows = ['jacob', 'user:ryan-dow', 'user:ryan-stewart', 'guest:zed q'].every(k => avatars.pictureShows(k) && avatars.pictureForAll(k))
+      && !avatars.pictureShows('') && !avatars.pictureShows('user:nobody-here') && !avatars.pictureForAll('user:nobody-here')
+      && avatars.keyOfNick('Ryan D') === 'user:ryan-dow' && avatars.keyOfNick(' Zed  Q ') === 'guest:zed q';
     // drawing: with a picture the avatar carries it; patchPictures puts one in and takes it out in place
     let url = '';
     ui.setPictures({url: k => (k === 'jacob' ? url : '')});

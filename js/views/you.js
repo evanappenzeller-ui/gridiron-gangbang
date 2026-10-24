@@ -87,7 +87,7 @@ function picSec() {
     attrs: {'data-pic': ''}, cls: 'c-ys-act c-ys-pic', chevron: true})
     + (m.url ? ui.row({lead: `<span class="c-ys-ic">${ui.icon('x', {size: 20})}</span>`, title: 'Remove picture', attrs: {'data-pic-rm': ''}, cls: 'c-ys-act c-ys-pic-rm'}) : '');
   return sec('Your picture', ui.group(rows, {cls: 'c-ys-picg'}), avatars.pictureForAll(m.key)
-    ? 'Everyone in the league sees it, wherever your initials were.' : 'It shows on your own phones and Evan’s.', 'data-pic-sec');
+    ? 'Everyone sees it, wherever your initials were.' : 'It shows on your own phones.', 'data-pic-sec');
 }
 function patchPicSec(s) {
   const el = s.body.querySelector('[data-pic-sec]');

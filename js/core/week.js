@@ -560,11 +560,8 @@ function rowsOf(counted, at = now()) {
 
 const nameOf = (me, nick) => (me ? data.name(me) : String(nick || '').trim() || 'Someone');
 
-// THE RULE (CLAUDE.md), for the pick'em tables as for the daily boards: a league member's row shows to everyone, and
-// so does an app user's marked league: true (Ryan D); anyone else's (Ryan S, a guest, a row that belongs to no one)
-// only on their own phones, ranked among the league there, and on the league owner's (data.OWNER), who sees every row.
-// all: every row (the kit's counting checks).
-// (THE RULE, Oct 24 2026: everyone's row shows on every phone; a Pick'em row can't tell a guest from no one, so all do)
+// THE RULE (CLAUDE.md, Oct 24 2026), for the pick'em tables as for the daily boards: everyone's row shows on every
+// phone (a Pick'em row can't tell a guest's from no one's, so all do). all: every row (the kit's counting checks).
 const rowShows = () => true;
 
 // Rows -> ranked output rows. Ranked by right (desc), then fewer wrong; a rank is shared only when both are equal

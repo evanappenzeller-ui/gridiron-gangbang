@@ -4,7 +4,7 @@
 
 V3.0 exception (October 22, 2026): Evan explicitly requested all completed updates be released to every user.
 Keepfall, the new Return Man presentation/course, game cases, and navigation motion are now shared features.
-Keep the scoreboard and picture visibility rules below as they stand (scoreboards opened to everyone on Oct 24, 2026); `data.isOwner()` still identifies only Evan.
+Keep the scoreboard and picture visibility rules below as they stand (scoreboards, pictures and Keepfall opened to everyone on Oct 24, 2026); `data.isOwner()` still identifies only Evan.
 V3 game scoring starts from a clean slate, and Keepfall starts with normal resources, without testing currency.
 Do not restore legacy score or Keepfall save fields into the v3 save namespaces.
 
@@ -37,9 +37,9 @@ Ryan D to the league:
   "Ryan S", anyone added later) and every guest (tagged Guest). Pick'em standings and Keepfall's Visit list too.
 - Rows that belong to no one (old test rows) stay hidden, except on the phone that posted them; the duplicate rows in
   `daily.js` `HIDDEN` stay hidden.
-- **Keepfall's pay is unchanged**: a member's paid place on a board is ranked among the league's rows only (members and
-  Ryan D, `daily.js` `leagueRow()`), so a guest or another app user on the boards never lowers what a place pays.
-- **Profile pictures keep the earlier rule** (below): the owner asked about names, not pictures.
+- **Profile pictures follow it too**: everyone's picture shows on every phone (the owner, Oct 24 2026).
+- **Keepfall's pay ranks against everyone on the board** (the owner, Oct 24 2026): the place paid is the place shown,
+  so a guest or an app user above a member lowers what that place pays. A row that is no one's never counts.
 
 How it's enforced, and what to keep doing:
 
@@ -48,12 +48,11 @@ How it's enforced, and what to keep doing:
 - Every scoreboard (Daily Puzzles, 17-0, the Two-Minute Drill, Kick It and Return Man, today and week, the
   finished-game cards on the Daily Games list in `js/views/games.js`, and any new game) must read `daily.LB.raw` /
   `daily.LB.players`, never `LB.all`.
-- The owner is `js/core/data.js` `OWNER` (`isOwner()`); `pictureShows()` still honors it. Don't give it to anyone else
-  unless the owner says so.
-- App users live in `js/core/data.js` `USERS`. `league: true` (Ryan Dow only) now means two things: the user's row
-  counts in Keepfall's pay ranking (`leagueRow()`), and their picture shows to everyone. Don't add it to anyone else
-  unless the owner says so.
-- The kit check "an app user (Ryan Dow) has a login…" (`js/core/checks.js`) covers both the visibility and the pay rows.
+- The owner is `js/core/data.js` `OWNER` (`isOwner()`). Visibility no longer depends on it; keep it for his other
+  privileges and don't give it to anyone else unless the owner says so.
+- App users live in `js/core/data.js` `USERS`; none is set apart from the others (Ryan Dow's old `league: true` is gone).
+- The kit check "an app user (Ryan Dow) has a login…" (`js/core/checks.js`) covers the visibility; Keepfall's
+  "from the new pay on, Ale for his place…" (`js/core/checks-realm.js`) covers the pay ranking.
 - The Pick'em standings (week and season tables, and the leader line built from them) show every row on every phone
   (`js/core/week.js` `finishRows()`). The kit check "Standings show everyone to everyone…" (`js/core/checks-pickem.js`)
   covers it.
@@ -65,9 +64,8 @@ How it's enforced, and what to keep doing:
   "Keepfall: visiting…" covers it. Don't open it to anyone else unless the owner says so. The kit check "Keepfall: the
   owner's alone…" (`js/core/checks-realm.js`) covers it. Its words (Oct 22 2026): the main building is the Castle,
   the second currency is Ale (Breweries, Cellars); internal ids stay keep/grain/farm/granary and the route #/realm.
-- Profile pictures keep the earlier rule (`js/core/avatars.js` `pictureShows()`): a member's picture, and Ryan D's, shows
-  to everyone; a guest's or any other app user's only on their own phones and the owner's. The kit check "pictures: …"
-  covers it.
+- Profile pictures (`js/core/avatars.js` `pictureShows()`): everyone's shows to everyone, a member's, an app user's and a
+  guest's. The kit check "pictures: …" covers it.
 
 ## Deploying
 

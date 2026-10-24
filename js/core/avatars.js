@@ -5,9 +5,9 @@
 // the rules already let a phone write; every phone reads the docs with the board (daily.js), so a member's picture is
 // on all their phones and everyone else's: per person the newest one counts, and only from a doc that is that
 // person's (a doc's av for anyone else is ignored). i '' takes a picture away (initials again).
-// THE RULE (CLAUDE.md), for pictures as for scores: a member's picture shows to everyone, and so does an app user's
-// marked league: true (Ryan D); a guest's or any other app user's only on their own phones, and the league owner's
-// (data.OWNER), who sees everyone's (pictureShows).
+// THE RULE (CLAUDE.md), for pictures as for scores (the owner, Oct 24 2026: everyone visible to everyone): every
+// person's picture shows on every phone, a member's, any app user's (Ryan D, Ryan S, anyone added) and a guest's
+// (pictureShows).
 // A picture set on this phone shows at once and waits (gg-pic-mine) until the board has it: no connection, or a failed
 // write, just means it goes up later. The pictures last seen are kept (IndexedDB gg-pictures; before Oct 2026 the
 // localStorage key gg-pics, moved over on first load) so they're there before the board loads, without filling the
@@ -40,18 +40,13 @@ export function keyOfNick(nick) {
   const n = norm(nick);
   return n ? 'guest:' + n : '';
 }
-/** Whether this phone shows a person's picture (THE RULE, above). owner: judge as the owner's phone or not (default:
- *  this phone). */
-export function pictureShows(key, owner = data.isOwner()) {
-  if (!key) return false;
-  if (key === myKey()) return true;
-  if (data.ids.includes(key)) return true;
-  if (owner && /^(user|guest):/.test(key)) return true;
-  const u = /^user:/.test(key) ? data.USERS.find(x => 'user:' + x.id === key) : null;
-  return !!(u && u.league);
+/** Whether a person's picture shows on other people's phones too: anyone's who is someone (a member, an app user the
+ *  app knows, a guest by their name), since Oct 24 2026. */
+export const pictureForAll = key => !!key && (data.ids.includes(key) || data.USERS.some(u => 'user:' + u.id === key) || /^guest:./.test(key));
+/** Whether this phone shows a person's picture (THE RULE, above): everyone's, on every phone, whoever's watching. */
+export function pictureShows(key) {
+  return !!key && (key === myKey() || pictureForAll(key));
 }
-/** Whether a person's picture shows on other people's phones too (a member's, Ryan D's), not just their own. */
-export const pictureForAll = key => !!key && (data.ids.includes(key) || data.USERS.some(u => u.league && 'user:' + u.id === key));
 // Whose a board doc is, as a picture key: its member, its app user, or its guest; null for anyone else.
 function keyOfDoc(p) {
   const m = daily.memberOf(p);

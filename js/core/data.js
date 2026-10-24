@@ -507,10 +507,10 @@ export function guest() { return me() ? null : guestRead(); }
 // by their board name (board) without a Guest tag and keep their phones together, and no one else can take the name
 // (daily.guestNameProblem).
 // aka: names they already played under (a guest row called that is theirs: its scores count, under their board name).
-// THE RULE (CLAUDE.md, Oct 24 2026): everyone's scores show on every phone's boards (daily.js boardShows). league:
-// true (Ryan Dow alone) marks the one app user whose row counts in Keepfall's pay (daily.js leagueRow) and whose
-// picture shows to everyone (avatars.js pictureShows).
-export const USERS = [{id: 'ryan-dow', name: 'Ryan Dow', board: 'Ryan D', league: true},
+// THE RULE (CLAUDE.md, Oct 24 2026): everyone's scores and pictures show on every phone (daily.js boardShows,
+// avatars.js pictureShows), an app user's like a member's, and Keepfall's pay ranks among them all. (Ryan Dow's old
+// league: true, the one app user the league saw before that, went with it.)
+export const USERS = [{id: 'ryan-dow', name: 'Ryan Dow', board: 'Ryan D'},
   {id: 'ryan-stewart', name: 'Ryan Stewart', board: 'Ryan S', aka: ['RyStew']}];
 // The league's owner (Evan, Oct 2026): his phones see every player on the boards, the Pick'em tables and their
 // pictures (guests, Ryan S, any app user); the rest of the league still sees only members and Ryan D (THE RULE).

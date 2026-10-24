@@ -404,9 +404,9 @@ export function startNumbers(mods = {}, from) {
  *    fresh: {game: {n: place}} (the places paid now that weren't frozen yet: paidPlaces keeps them)}
  * mods: the loaded game cores {sv, dr, kk, rm} (entryOf, todayNumber, boardRows); a missing one pays nothing yet. The
  * Daily Puzzles' board is daily.js's own. Options: board (the docs the places are ranked among: default daily.LB.raw;
- * either way only the league's rows count, daily.leagueRow: the members' and Ryan D's. Everyone shows on the boards
- * since Oct 24 2026, but a guest or another app user never pushes a member's paid place down; his docs are counted on
- * it whether or not it has them), me (whose row is his on the boards: a board key, default this
+ * either way the rows the boards show count, daily.boardShows: since Oct 24 2026 everyone's, the members', the app
+ * users' and the guests' (the owner: pay ranks against everyone on the board), so the place paid is the place shown;
+ * his docs are counted on it whether or not it has them), me (whose row is his on the boards: a board key, default this
  * phone's, myKey()), at (the moment: default now), paid (the places already paid, frozen: {game: {n: place}}, a
  * realm's pd; a day there pays that place whatever its board says now), from (when the realm began, ms: its born; only
  * the game days from that day on are paid, startNumbers; none given: every day). Per game and day the entry that counts
@@ -414,8 +414,8 @@ export function startNumbers(mods = {}, from) {
  */
 export function incomeOf(docs, mods = {}, {board = null, me, at = null, paid = null, from = null} = {}) {
   docs = (docs || []).filter(p => p && typeof p === 'object');
-  // (the league's rows only: the guests and app users on the boards never push his paid place down)
-  const list = (board || daily.LB.raw || []).filter(p => p && daily.leagueRow(p));
+  // (the board as everyone sees it: the place paid is the place shown)
+  const list = (board || daily.LB.raw || []).filter(p => p && daily.boardShows(p));
   docs.forEach(p => { if (!list.some(q => q.id === p.id)) list.push(p); });
   if (me === undefined) me = myKey();
   const myIds = new Set(docs.map(p => p.id));

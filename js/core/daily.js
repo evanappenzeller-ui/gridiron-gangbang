@@ -919,15 +919,6 @@ export function boardShows(p, owner = dataOwner()) {
   if (!p || p.id === LB.uid) return true;
   return !!(memberOf(p) || userOf(p) || p.g);
 }
-/** Whether a board doc is the league's own (a member's, or an app user's marked league: true: Ryan D), or this phone's:
- *  the rows Keepfall's pay ranks a place among (core/realm.js incomeOf). Everyone else shows on the boards (boardShows)
- *  without changing what a member's place pays. */
-export function leagueRow(p) {
-  if (!p) return false;
-  if (p.id === LB.uid || memberOf(p)) return true;
-  const u = userOf(p);
-  return !!(u && u.league);
-}
 /** The board as this phone sees it (LB.raw, LB.players) from every doc (LB.all). */
 function boardFilter() {
   LB.raw = (LB.all || []).filter(p => !HIDDEN.has(p.id) && boardShows(p));
