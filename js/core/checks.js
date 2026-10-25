@@ -15,7 +15,8 @@ import * as ui from './ui.js';
 import college from '../views/college.js';
 import silhouette from '../views/silhouette.js';
 import plays from '../views/plays.js';
-import {GAMES, gamesFor, gamePath, listHTML, miniRows} from '../views/games.js';
+import {GAMES, gamesFor, gamePath, listHTML, miniRows, rowHTML} from '../views/games.js';
+import * as realmPay from './realm-pay.js';
 
 // ---------------------------------------------------------------------------
 // Old formulas, copied from the old index.html
@@ -1603,6 +1604,18 @@ export async function runChecks() {
     if (!old || old.view !== r.view) bad.push('old #/lay/live link');
     if (!(r && r.view === 'live' && r.open === 'root' && r.tab === 'live')) bad.push('route ' + JSON.stringify(r && {view: r.view, open: r.open}));
     return {pass: !bad.length, detail: bad.length ? bad.join('; ') : `the ball at the ${s.spot} in the red zone; Allen ${P['Josh Allen'].pts}, Cook ${P['James Cook'].pts} PPR; #/live opens the Live tab`};
+  });
+
+  check('Daily Games boards: each place on today\'s board of Daily Puzzles, 17-0 and the Drill shows what it pays in Keepfall\'s Ale ("+5K" on a case, "+5,000" up close; the owner\'s ask, Oct 25 2026), the pay Keepfall pays by', async () => {
+    const F = await import('./realm.js'), bad = [];
+    if (F.aleFor !== realmPay.aleFor || F.ALE_BY_PLACE !== realmPay.ALE_BY_PLACE || F.RANKED !== realmPay.RANKED) bad.push('Keepfall and the boards read different tables');
+    const row = rank => ({rank, name: 'P' + rank, val: 'W 21–19'});
+    const tag = (rank, ale) => { const m = /gm-r-ale[^>]*><i class="rl-coin"><\/i>([^<]+)</.exec(rowHTML(row(rank), {ale})); return m ? m[1] : ''; };
+    const want = [[1, '+5K', '+5,000'], [2, '+4K', '+4,000'], [3, '+3.2K', '+3,200'], [6, '+1.7K', '+1,700'], [7, '+1.2K', '+1,200'], [12, '+1.2K', '+1,200']];
+    want.forEach(([k, s, l]) => { if (tag(k, 'short') !== s || tag(k, true) !== l) bad.push(`${k}: ${tag(k, 'short')} / ${tag(k, true)} (want ${s} / ${l})`); });
+    if (tag(1, false)) bad.push('a board that pays nothing shows Ale');
+    if (!/pays 5,000 Ale/.test(rowHTML(row(1), {ale: 'short'}))) bad.push('not read out');
+    return {pass: !bad.length, detail: bad.length ? bad.join('; ') : `1st ${tag(1, 'short')}, 3rd ${tag(3, 'short')}, 7th and lower ${tag(9, 'short')} (up close ${tag(1, true)})`};
   });
 
   check('The Lay\'s hit rate by bet type: every leg on file reads as a kind of bet (an anytime TD, a player prop, a spread, a moneyline, a total)', async () => {

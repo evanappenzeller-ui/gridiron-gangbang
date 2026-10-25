@@ -399,6 +399,10 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
 .gm-r-you { margin-left: .6cqw; padding: .5cqw 1cqw .4cqw; border-radius: .8cqw; background: var(--gc); color: #fff; font: 800 2.2cqw/1 var(--font-text); font-style: normal; letter-spacing: .1em; vertical-align: .3cqw; }
 .gm-r-you.is-g { background: #FFD23F; color: #141414; }
 .gm-r-v { flex: none; font: 800 5.4cqw/1 var(--gm-cond); color: #fff; font-variant-numeric: tabular-nums; }
+/* What the place pays in Keepfall's Ale (ranked games, today): the tankard and "+5K". */
+.gm-r-ale { flex: none; display: inline-flex; align-items: center; gap: .12em; margin: 0 .6cqw 0 0; font: 800 3.3cqw/1 var(--gm-cond); color: #F4AE42; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.gm-r-ale > .rl-coin { width: 1.1em; height: 1.1em; }
+.gm-zoom .gm-r-ale { font-size: .8em; }
 /* a graded game's letter (the Two-Minute Drill), coloured by it as on the drill's own board */
 .gm-r-gr {
   flex: none; min-width: 8.4cqw; padding: .9cqw 1.1cqw .7cqw; border-radius: 1.6cqw; text-align: center;

@@ -20,6 +20,7 @@
 // Everything here is plain data and pure functions of it and the clock, except the sync at the bottom.
 import * as daily from './daily.js';
 import * as data from './data.js';
+import {RANKED, ALE_BY_PLACE, aleFor} from './realm-pay.js';
 
 export const N = 44;               // the lot: N x N tiles (36 till Oct 2026: more room on the base, the owner's ask; clean())
 const N_WAS = 36;                  // (a save from then, laid out on the smaller lot)
@@ -347,12 +348,10 @@ export const NEW_PAY = Object.freeze({puzzles: 25, '17-0': 14, drill: 8, kick: 5
 export const NEW_PAY_DATE = '2026-10-22';
 /** Whether a game is still on the old pay today (E: incomeOf()'s, its day numbers). */
 export const oldPayToday = E => Object.keys(NEW_PAY).some(g => { const n = ((E && E.day) || {})[g]; return n > 0 && n < NEW_PAY[g]; });
-/** The games that pay Ale by your place on their board, and the two that pay Gold. */
-export const RANKED = ['puzzles', '17-0', 'drill'];
+/** The games that pay Ale by your place on their board (RANKED, ALE_BY_PLACE, aleFor: core/realm-pay.js, which the
+ *  Daily Games boards read too), and the two that pay Gold. */
+export {RANKED, ALE_BY_PLACE, aleFor};
 export const GOLD_GAMES = ['kick', 'return'];
-/** Ale for a day's place (index place - 1; 7th or lower, having played at all, the last). */
-export const ALE_BY_PLACE = Object.freeze([5000, 4000, 3200, 2600, 2100, 1700, 1200]);
-export const aleFor = place => (Number.isInteger(place) && place >= 1 ? ALE_BY_PLACE[Math.min(place, ALE_BY_PLACE.length) - 1] : 0);
 /** Kick It (core/kick.js GOLD, goldOf: the same numbers, the kit checks they agree): KICK_BASE for the day's counting
  *  run whatever it made (0 makes included), KICK_GOLD for every KICK_EVERY-th make, KICK_MOST makes at most (40). */
 export const KICK_EVERY = 5, KICK_GOLD = 3000, KICK_BASE = 500, KICK_MOST = 40;

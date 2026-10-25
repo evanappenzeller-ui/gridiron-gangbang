@@ -12,13 +12,15 @@ import * as features from '../core/features.js';
 // 17-0's, the drill's, Kick It's and Return Man's cores load at idle (17-0's and the drill's with their day files);
 // until then their cases open to Start. Return Man is open to the league in beta (a BETA tag on its case: GAMES beta).
 // Exports: GAMES, gameOpen(id), gamesFor(), gamePath(id), dailyKind(), progHTML() (and its fracOf, perfectOf, doneCount),
-// miniRows(rows), listHTML(), mountList(el, ctx) → {refresh(animate), tick(), destroy()}, testingAll(), testAll(on).
+// miniRows(rows), rowHTML(row, {sub, who, ale}), listHTML(), mountList(el, ctx) → {refresh(animate), tick(), destroy()},
+// testingAll(), testAll(on).
 // Owner: PUZZLES.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as daily from '../core/daily.js';
 import {ringHTML, stepParts, maxPts, gradeGold, msToMidnight, countdownHTML, itemCount} from './board.js';
 import {turnable, shelfTurner, shellHTML} from './game-case.js';
+import {RANKED, aleFor} from '../core/realm-pay.js';
 
 const esc = data.esc;
 const nf = n => data.nf(n);
@@ -275,9 +277,15 @@ function frontHTML(g, s, up = false) {
   const stk = s.test ? sticker('is-test', 'TEST PLAY') : s.kind === 'started' ? sticker('is-go', 'IN PROGRESS') : '';
   return `<div class="gm-face gm-front${up ? ' gm-z-front" data-gm-zfront aria-hidden="true' : ''}">${bandHTML('', g.beta)}<span class="gm-art"><img class="gm-img" src="${g.art}" alt="" decoding="async" draggable="false">${stk}</span>${up ? `<span class="gm-z-foot"><i></i>${ui.icon('football')}</span>${GLOSS}` : ''}</div>`;
 }
-/** A board row. who: a tap shows the row's team (17-0's board up close: a button, data-gm-who its key). */
-function rowHTML(r, {sub = false, who = false} = {}) {
-  const label = `${ui.ordinal(r.rank)}, ${r.name}${r.me ? ', you' : ''}${r.guest ? ', guest' : ''}: ${r.val}${r.letter ? `, grade ${r.letter}` : ''}${sub && r.sub ? `. ${r.sub}` : ''}`;
+// What a place on today's board pays in Keepfall's Ale (the owner's ask, Oct 25 2026: "+#" by each position), on the
+// ranked games' boards (core/realm-pay.js: Daily Puzzles, 17-0, the Two-Minute Drill). short: "+3.2K" on a case's back.
+const aleTxt = (n, short) => '+' + (short ? (n >= 1000 ? `${+(n / 1000).toFixed(1)}K` : String(n)) : nf(n));
+/** A board row. who: a tap shows the row's team (17-0's board up close: a button, data-gm-who its key). ale: show what
+ *  the place pays in Ale ('short' on a case's back). */
+export function rowHTML(r, {sub = false, who = false, ale = false} = {}) {
+  const pay = ale ? aleFor(r.rank) : 0;
+  const label = `${ui.ordinal(r.rank)}, ${r.name}${r.me ? ', you' : ''}${r.guest ? ', guest' : ''}: ${r.val}${r.letter ? `, grade ${r.letter}` : ''}${pay ? `, pays ${nf(pay)} Ale` : ''}${sub && r.sub ? `. ${r.sub}` : ''}`;
+  const aleTag = pay ? `<span class="gm-r-ale is-grain" aria-hidden="true"><i class="rl-coin"></i>${aleTxt(pay, ale === 'short')}</span>` : '';
   // a graded game (the Two-Minute Drill) shows its letter by the score, coloured as on the drill's own board
   const grade = r.letter ? `<span class="gm-r-gr is-${esc(String(r.letter)[0])}" aria-hidden="true">${esc(r.letter)}</span>` : '';
   const open = who && r.key
@@ -287,7 +295,7 @@ function rowHTML(r, {sub = false, who = false} = {}) {
     + `<span class="gm-r-rk${r.rank <= 3 ? ' is-r' + r.rank : ''}" aria-hidden="true">${r.rank}</span>`
     + `<span class="gm-r-av" aria-hidden="true">${ui.nickAvatar(r.name, {size: sub ? 30 : 22, managerId: r.managerId || null, you: r.me})}</span>`
     + `<span class="gm-r-nm" aria-hidden="true"><span class="gm-r-t">${esc(r.name)}${r.me ? ' <i class="gm-r-you">YOU</i>' : r.guest ? ' <i class="gm-r-you is-g">GUEST</i>' : ''}</span>${sub && r.sub ? `<span class="gm-r-s">${esc(r.sub)}</span>` : ''}</span>`
-    + `${grade}<span class="gm-r-v" aria-hidden="true">${esc(r.val)}</span>${who && r.key ? '</button></div>' : '</div>'}`;
+    + `${aleTag}${grade}<span class="gm-r-v" aria-hidden="true">${esc(r.val)}</span>${who && r.key ? '</button></div>' : '</div>'}`;
 }
 /** The rows a case's back shows (null: a gap): today's top n with you among them. You lead the people you're tied
  *  with, and when you're further down the top n - 1 come first, then a gap, then you. */
@@ -310,7 +318,7 @@ function placeText(s) {
  *  case's label still says it, and up close it's in the band). */
 function backHTML(g, s) {
   const place = placeText(s), note = boardNote(s.board, s.rows || []);
-  const rows = note || `<div class="gm-scr-rows" role="list" aria-label="Today’s leaderboard">${miniRows(s.rows, 5).map(r => (r ? rowHTML(r) : '<div class="gm-r-gap" aria-hidden="true">· · ·</div>')).join('')}</div>`;
+  const rows = note || `<div class="gm-scr-rows" role="list" aria-label="Today’s leaderboard">${miniRows(s.rows, 5).map(r => (r ? rowHTML(r, {ale: RANKED.includes(g.id) && 'short'}) : '<div class="gm-r-gap" aria-hidden="true">· · ·</div>')).join('')}</div>`;
   return `<div class="gm-face gm-back" style="--gc:${ACCENT[g.id]}">${bandHTML(`<span class="gm-bk-tag">${s.test ? 'TEST' : s.tag || 'FINAL'}</span>`, g.beta)}`
     + `<span class="gm-bk-in">`
     + `<span class="gm-bk-res"><span class="gm-bk-vis">${s.vis || ''}</span><span class="gm-bk-tt"><b class="gm-bk-h${s.gold ? ' is-gold' : ''}">${esc(s.head || '')}</b>`
@@ -533,7 +541,7 @@ export function mountList(el, ctx, opts = {}) {
     const {board, rows} = rowsFor(g, mode), note = boardNote(board, rows, mode === 'season');
     const me = rows.find(r => r.me);
     return (me ? `<p class="gm-z-me">You: ${esc(ui.ordinal(me.rank))} of ${rows.length} · ${esc(me.val)}</p>` : '')
-      + (note || `<div class="gm-scr-rows" role="list" aria-label="${mode === 'season' ? 'The season' : 'Today'}">${rows.map(r => rowHTML(r, {sub: true, who: g.id === '17-0'})).join('')}</div>`)
+      + (note || `<div class="gm-scr-rows" role="list" aria-label="${mode === 'season' ? 'The season' : 'Today'}">${rows.map(r => rowHTML(r, {sub: true, who: g.id === '17-0', ale: mode === 'today' && RANKED.includes(g.id)})).join('')}</div>`)
       + (g.id === '17-0' && mode === 'today' ? bestHTML() : '');
   }
   // Under 17-0's Today up close, the board's best possible team (the owner's ask, Oct 2026; the case is up close only
