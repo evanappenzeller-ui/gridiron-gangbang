@@ -57,6 +57,7 @@ export const REGISTRY = {
   press: () => import('./views/press.js'),
   profile: () => import('./views/profile.js'),
   lay: () => import('./views/lay.js'),
+  live: () => import('./views/live.js'),
   realm: () => import('./views/realm.js'),
   'realm-raid': () => import('./views/realm-raid.js'),
   'realm-scout': () => import('./views/realm-scout.js'),
@@ -64,13 +65,14 @@ export const REGISTRY = {
   'realm-visit': () => import('./views/realm-visit.js'),
   _kit: () => import('./views/_kit.js')
 };
-// Every tab, in order. The Keep lives in Daily Games; it has no separate tab or idle tab warm-up.
-const ALL_TABS = ['puzzles', 'pickem', 'lay', 'matchup', 'league', 'draft'];
-const OWNER_TABS = [];
+// Every tab, in order. The Keep lives in Daily Games; it has no separate tab or idle tab warm-up. Live (views/live.js:
+// the week's games, top performers and PPR stats) is the owner's alone (Oct 25 2026): its button shows on his phone only.
+const ALL_TABS = ['puzzles', 'pickem', 'lay', 'live', 'matchup', 'league', 'draft'];
+const OWNER_TABS = ['live'];
 export const TABS = ALL_TABS.filter(t => !OWNER_TABS.includes(t));
 /** Brings TABS (and the tab bar's buttons) in line with who this phone is. True if they changed. */
 function syncTabs() {
-  const want = ALL_TABS.filter(t => !OWNER_TABS.includes(t) || available());
+  const want = ALL_TABS.filter(t => !OWNER_TABS.includes(t) || data.isOwner());
   document.querySelectorAll('#tabbar .tab[data-tab]').forEach(b => { b.hidden = !want.includes(b.dataset.tab); });
   if (want.join() === TABS.join()) return false;
   TABS.splice(0, TABS.length, ...want);
@@ -78,9 +80,9 @@ function syncTabs() {
 }
 export const ownerTab = t => OWNER_TABS.includes(t);
 const HOME = 'puzzles'; // the tab the app opens on: the history base, where Back from another tab's root lands
-const TAB_VIEW = {puzzles: 'puzzles', pickem: 'pickem', matchup: 'rivals', league: 'league', draft: 'moves', lay: 'lay'}; // root view ids
-const ROOTS = {puzzles: '/puzzles', pickem: '/pickem', matchup: '/matchup', league: '/league/standings', draft: '/draft', lay: '/lay'};
-const TAB_TITLES = {puzzles: 'Daily Games', pickem: "Pick'em", matchup: 'Matchup', league: 'League', draft: 'Draft', lay: 'The Lay'};
+const TAB_VIEW = {puzzles: 'puzzles', pickem: 'pickem', matchup: 'rivals', league: 'league', draft: 'moves', lay: 'lay', live: 'live'}; // root view ids
+const ROOTS = {puzzles: '/puzzles', pickem: '/pickem', matchup: '/matchup', league: '/league/standings', draft: '/draft', lay: '/lay', live: '/live'};
+const TAB_TITLES = {puzzles: 'Daily Games', pickem: "Pick'em", matchup: 'Matchup', league: 'League', draft: 'Draft', lay: 'The Lay', live: 'Live'};
 // Old bare hashes (#daily, #records...) from the first app. Null prototype: '#constructor' is not a legacy hash.
 const LEGACY = Object.assign(Object.create(null), {daily: '/puzzles', records: '/league/records', trophies: '/league/trophies', standings: '/league/standings', rivals: '/matchup', moves: '/draft'});
 const PUZZLES = ['college', 'silhouette', 'mystery', 'journey', 'grid', 'plays']; // every day's steps are some of these (daily.SLUGS)
@@ -140,8 +142,12 @@ function matchSegs(p, q) {
     case 'lay':
       // The Lay: the weekly 12-leg parlay (data/lay.json).
       if (n === 1) return R('lay', 'root', 'lay');
-      // Live Games (views/live.js, the Lay's Live tile): the owner's alone (Oct 25 2026).
-      if (n === 2 && b === 'live') return data.isOwner() ? R('lay', 'root', 'lay', {mode: 'live'}) : {redirect: '/lay', query: false};
+      // The old Live Games link: the Live tab now.
+      if (n === 2 && b === 'live') return {redirect: '/live', query: false};
+      return null;
+    case 'live':
+      // Live (views/live.js): the owner's tab alone (Oct 25 2026); other phones land on the Lay.
+      if (n === 1) return data.isOwner() ? R('live', 'root', 'live') : {redirect: '/lay', query: false};
       return null;
     case 'realm':
       // Existing realm links keep working. Scouting and raids return to The Keep, including from a cold link.
@@ -2312,7 +2318,9 @@ async function boot() {
   try { history.scrollRestoration = 'manual'; } catch (_) {}
   const h = location.hash.replace(/^#/, '');
   if (LEGACY[h]) { try { history.replaceState(null, '', '#' + LEGACY[h]); } catch (_) {} }
-  ALL_TABS.forEach(t => { S.stacks[t] = [newEntry(parseRoute(ROOTS[t]), t, 'root')]; });
+  // (Live's root on a phone that isn't the owner's: the route itself sends links elsewhere, but the tab keeps its own.)
+  const rootOf = t => t === 'live' && !data.isOwner() ? {view: 'live', open: 'root', tab: 'live', params: {}, home: 'live', query: {}, path: '/live'} : parseRoute(ROOTS[t]);
+  ALL_TABS.forEach(t => { S.stacks[t] = [newEntry(rootOf(t), t, 'root')]; });
   try { await data.load(); } catch (e) { console.error(e); showFatal(); return; }
   await start();
 }

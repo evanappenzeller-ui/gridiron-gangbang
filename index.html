@@ -121,6 +121,8 @@
   <symbol id="i-flame" viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></symbol>
   <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M9.94 15.5A2 2 0 0 0 8.5 14.06l-6.14-1.58a.5.5 0 0 1 0-.96L8.5 9.94A2 2 0 0 0 9.94 8.5l1.58-6.14a.5.5 0 0 1 .96 0l1.58 6.14a2 2 0 0 0 1.44 1.44l6.14 1.58a.5.5 0 0 1 0 .96l-6.14 1.58a2 2 0 0 0-1.44 1.44l-1.58 6.14a.5.5 0 0 1-.96 0z"/></symbol>
   <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></symbol>
+  <symbol id="i-live" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.5"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49"/><path d="M7.76 16.24a6 6 0 0 1 0-8.49"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M4.93 19.07a10 10 0 0 1 0-14.14"/></symbol>
+  <symbol id="i-live-fill" viewBox="0 0 24 24"><g stroke-width="2.4"><circle cx="12" cy="12" r="3.2" fill="currentColor"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49"/><path d="M7.76 16.24a6 6 0 0 1 0-8.49"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M4.93 19.07a10 10 0 0 1 0-14.14"/></g></symbol>
   <symbol id="i-pulse" viewBox="0 0 24 24"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/></symbol>
   <symbol id="i-anchor" viewBox="0 0 24 24"><path d="M12 22V8"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/><circle cx="12" cy="5" r="3"/></symbol>
   <symbol id="i-football" viewBox="0 0 24 24"><path d="M20.6 3.4c-5.1-1-10.4.3-13.9 3.8S2.4 16.1 3.4 20.6c4.5 1 9.8-.2 13.3-3.7s4.9-8.8 3.9-13.5z"/><path d="M9 15l6-6"/><path d="M9.6 12.6l1.8 1.8"/><path d="M11.1 11.1l1.8 1.8"/><path d="M12.6 9.6l1.8 1.8"/><path d="M4.4 15.4l4.2 4.2"/><path d="M15.4 4.4l4.2 4.2"/></symbol>
@@ -189,6 +191,7 @@
     <div class="tab-layer" data-tab="puzzles"></div>
     <div class="tab-layer" data-tab="pickem" hidden></div>
     <div class="tab-layer" data-tab="lay" hidden></div>
+    <div class="tab-layer" data-tab="live" hidden></div>
     <div class="tab-layer" data-tab="matchup" hidden></div>
     <div class="tab-layer" data-tab="league" hidden></div>
     <div class="tab-layer" data-tab="draft" hidden></div>
@@ -197,6 +200,7 @@
     <button class="tab" type="button" data-tab="puzzles" aria-label="Daily Games" aria-current="page"><span class="tab-ic"><svg class="ic ic-off" aria-hidden="true"><use href="#i-grid-3"/></svg><svg class="ic ic-on" aria-hidden="true"><use href="#i-grid-3-fill"/></svg><span class="tab-dot" hidden></span></span><span class="tab-lb" aria-hidden="true">Daily Games</span></button>
     <button class="tab" type="button" data-tab="pickem" aria-label="Pick'em"><span class="tab-ic"><svg class="ic ic-off" aria-hidden="true"><use href="#i-football"/></svg><svg class="ic ic-on" aria-hidden="true"><use href="#i-football-fill"/></svg><span class="tab-dot" hidden></span></span><span class="tab-lb" aria-hidden="true">Pick'em</span></button>
     <button class="tab" type="button" data-tab="lay" aria-label="The Lay"><span class="tab-ic"><svg class="ic ic-off" aria-hidden="true"><use href="#i-ticket"/></svg><svg class="ic ic-on" aria-hidden="true"><use href="#i-ticket-fill"/></svg><span class="tab-dot" hidden></span></span><span class="tab-lb" aria-hidden="true">The Lay</span></button>
+    <button class="tab" type="button" data-tab="live" aria-label="Live" hidden><span class="tab-ic"><svg class="ic ic-off" aria-hidden="true"><use href="#i-live"/></svg><svg class="ic ic-on" aria-hidden="true"><use href="#i-live-fill"/></svg><span class="tab-dot" hidden></span></span><span class="tab-lb" aria-hidden="true">Live</span></button>
     <button class="tab" type="button" data-tab="matchup" aria-label="Matchup"><span class="tab-ic"><svg class="ic ic-off" aria-hidden="true"><use href="#i-versus"/></svg><svg class="ic ic-on" aria-hidden="true"><use href="#i-versus-fill"/></svg><span class="tab-dot" hidden></span></span><span class="tab-lb" aria-hidden="true">Matchup</span></button>
     <button class="tab" type="button" data-tab="league" aria-label="League"><span class="tab-ic"><svg class="ic ic-off" aria-hidden="true"><use href="#i-trophy"/></svg><svg class="ic ic-on" aria-hidden="true"><use href="#i-trophy-fill"/></svg></span><span class="tab-lb" aria-hidden="true">League</span></button>
     <button class="tab" type="button" data-tab="draft" aria-label="Draft"><span class="tab-ic"><svg class="ic ic-off" aria-hidden="true"><use href="#i-list-number"/></svg><svg class="ic ic-on" aria-hidden="true"><use href="#i-list-number-fill"/></svg></span><span class="tab-lb" aria-hidden="true">Draft</span></button>

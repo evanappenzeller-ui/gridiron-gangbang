@@ -661,10 +661,13 @@ function markSeen() {
   dispatchEvent(new Event('gg:badge'));
 }
 
-const PARLAY = {
+export default {
+  id: 'lay',
+  title: 'The Lay',
+
   render() {
     return ui.largeTitle({eyebrow: eyebrow(), title: 'The Lay', subtitle: subtitle(), trailing: youButtonHTML()})
-      + modeTabsHTML('parlay') + `<div class="ly-body">${bodyHTML({})}</div>`;
+      + `<div class="ly-body">${bodyHTML({})}</div>`;
   },
 
   mount(el, ctx) {
@@ -760,130 +763,5 @@ const PARLAY = {
     const st = ST.get(ctx);
     if (st) st.stops.forEach(f => f());
     ST.delete(ctx);
-  }
-};
-
-// ---------------------------------------------------------------------------------------------- Parlay · Live
-// The owner's switch under the title (Oct 25 2026), like Pick'em's: two scoreboard tiles, the Parlay (above) and Live
-// Games (views/live.js: an octobox of the week's games, top performers and PPR stats), the one shown lit. A tap swaps
-// the screen in place; the choice is kept on his phone ('gg-lay-mode'). Everyone else sees the Parlay alone, as before.
-// #/lay/live opens Live on his phone (the other phones get #/lay).
-const MODE_KEY = 'gg-lay-mode';
-// Pixel badges (16 x 16, drawn here: no artwork to load): a slip with its legs hit and missed; a TV with a game on.
-const PAL = {K: '#0B1020', W: '#F4EBD0', L: '#8A94B8', G: '#4CD964', R: '#FF5A4A', Y: '#FFC531', D: '#3A4670', F: '#2A9A3E', S: '#FFFFFF', O: '#B5652E'};
-const ART = {
-  parlay: ['................', '..KKKKKKKKKKKK..', '..KWWWWWWWWWWK..', '..KWGWLLLLLLWK..', '..KWWWWWWWWWWK..', '..KWGWLLLLLWWK..', '..KWWWWWWWWWWK..',
-    '..KWRWLLLLLLWK..', '..KWWWWWWWWWWK..', '..KWGWLLLLWWWK..', '..KWWWWWWWWWWK..', '..KYYYYYYYYYYK..', '..KYYYYYYYYYYK..', '..KKKKKKKKKKKK..', '................', '................'],
-  live: ['................', '...K......K.....', '....K....K......', '.....K..K.......', '.DDDDDDDDDDDDDD.', '.DFFFFFFFFFFDDD.', '.DFSFFFSFFRFDYD.', '.DFSFFFSFFFFDDD.',
-    '.DFSFOOSFFFFDYD.', '.DFSFFFSFFFFDDD.', '.DFFFFFFFFFFDDD.', '.DDDDDDDDDDDDDD.', '..DD........DD..', '................', '................', '................']
-};
-const artSVG = rows => `<svg class="ly-badge" viewBox="0 0 16 16" width="46" height="46" shape-rendering="crispEdges" aria-hidden="true">${rows.map((r, y) => {
-  let out = '';
-  for (let x = 0; x < 16;) {
-    const c = r[x];
-    let n = 1;
-    while (x + n < 16 && r[x + n] === c) n++;
-    if (PAL[c]) out += `<rect x="${x}" y="${y}" width="${n}" height="1" fill="${PAL[c]}"/>`;
-    x += n;
-  }
-  return out;
-}).join('')}</svg>`;
-const MODES = [{id: 'parlay', label: 'Parlay'}, {id: 'live', label: 'Live'}];
-/** The switch, with `on` lit: the owner's phone only ('' elsewhere). The Live screen draws it too. */
-export function modeTabsHTML(on) {
-  if (!data.isOwner()) return '';
-  return `<div class="ly-mode" role="tablist" aria-label="The Lay">${MODES.map(m => `<button type="button" role="tab" class="ly-mode-t is-${m.id}" data-ly-mode="${m.id}"`
-    + ` aria-selected="${m.id === on}"${m.id === on ? '' : ' tabindex="-1"'} aria-label="${m.id === 'live' ? 'Live games' : 'The parlay'}">`
-    + `<span class="ly-mode-ic" aria-hidden="true">${artSVG(ART[m.id])}</span><span class="ly-mode-s" aria-hidden="true">${m.label}</span></button>`).join('')}</div>`;
-}
-
-const host = {mode: 'parlay', on: PARLAY, el: null, ctx: null, wrap: null, owner: false, live: null, liveP: null};
-const wantMode = ctx => data.isOwner() && ((ctx && ctx.params && ctx.params.mode === 'live') || ui.lsGet(MODE_KEY) === 'live') ? 'live' : 'parlay';
-function loadLive() {
-  if (!host.liveP) host.liveP = import('./live.js').then(m => (host.live = m.default)).catch(e => { host.liveP = null; throw e; });
-  return host.liveP;
-}
-const viewFor = mode => mode === 'live' && host.live && data.isOwner() ? host.live : PARLAY;
-function mountSub(w) {
-  host.wrap = w;
-  // The switch's taps (on this wrapper: it is replaced on every swap, so its listeners go with it).
-  w.addEventListener('click', e => {
-    const t = e.target.closest && e.target.closest('[data-ly-mode]');
-    if (t && t.dataset.lyMode !== host.mode) setMode(t.dataset.lyMode, true);
-  });
-  host.on.mount(w, host.ctx);
-}
-function swap(animate) {
-  const el = host.el, ctx = host.ctx, next = viewFor(host.mode);
-  if (!el || !ctx || !el.isConnected || !host.wrap || (next === host.on && host.owner === data.isOwner())) return;
-  const old = host.on;
-  try { if (old.onHide) old.onHide(ctx); old.unmount(host.wrap, ctx); } catch (e) { console.error(e); }
-  host.on = next; host.owner = data.isOwner();
-  const put = () => {
-    const w = document.createElement('div');
-    w.className = 'ly-host';
-    w.innerHTML = next.render(ctx);
-    host.wrap.replaceWith(w);
-    ui.hydrate(w);
-    mountSub(w);
-  };
-  if (animate && ctx.visible && !ui.RM) ui.crossfade(el, put, {duration: 160}); else put();
-  ctx.refreshChrome();
-  if (ctx.visible && next.onShow) next.onShow(ctx);
-  const to = el.querySelector(`.ly-mode-t[data-ly-mode="${host.mode}"]`);
-  if (animate && to && ctx.visible && !ui.RM) ui.animate(to, [{transform: 'scale(.94)'}, {transform: 'none'}], {spring: 'bouncy'});
-  if (animate) { ui.haptic('selection'); ui.announce(host.mode === 'live' ? 'Live games.' : 'The parlay.'); }
-}
-async function setMode(mode, animate) {
-  mode = mode === 'live' && data.isOwner() ? 'live' : 'parlay';
-  host.mode = mode;
-  if (data.isOwner()) ui.lsSet(MODE_KEY, mode);
-  if (mode === 'live') {
-    try { await loadLive(); } catch (e) { console.error(e); ui.toast("Live games didn't load. Try again.", {icon: 'x-circle'}); host.mode = 'parlay'; ui.lsSet(MODE_KEY, 'parlay'); return; }
-    if (host.mode !== 'live') return;
-  }
-  swap(animate);
-  // #/lay/live once the screen has moved on: back to #/lay.
-  if (host.ctx && host.ctx.params && host.ctx.params.mode && host.ctx.params.mode !== host.mode) host.ctx.replace('/lay');
-}
-
-export default {
-  id: 'lay',
-  title: 'The Lay',
-
-  render(ctx) {
-    host.mode = wantMode(ctx);
-    host.on = viewFor(host.mode);
-    host.owner = data.isOwner();
-    return `<div class="ly-host">${host.on.render(ctx)}</div>`;
-  },
-
-  mount(el, ctx) {
-    host.el = el; host.ctx = ctx;
-    mountSub(el.querySelector('.ly-host'));
-    // Live was last chosen but isn't loaded yet: the Parlay shows meanwhile, then Live takes over.
-    if (host.mode === 'live' && host.on !== host.live) loadLive().then(() => { if (host.mode === 'live') swap(false); }, () => { host.mode = 'parlay'; });
-  },
-
-  onShow(ctx) { if (host.on.onShow) host.on.onShow(ctx); },
-  onHide(ctx) { if (host.on.onHide) host.on.onHide(ctx); },
-
-  update(ctx) {
-    // Another profile (here or in another tab): Live and the switch are the owner's alone. Leaving his profile drops
-    // his choice too.
-    if (ctx.reason === 'me' && host.owner !== data.isOwner()) {
-      if (!data.isOwner()) { ui.lsSet(MODE_KEY, null); host.mode = 'parlay'; }
-      else host.mode = wantMode(ctx);
-      if (host.mode === 'live') setMode('live', false); else swap(false);
-      if (!data.isOwner() && ctx.params && ctx.params.mode) ctx.replace('/lay');
-      return;
-    }
-    if (ctx.reason === 'params' && wantMode(ctx) !== host.mode && ctx.params && ctx.params.mode) { setMode(wantMode(ctx), false); return; }
-    if (host.on.update) host.on.update(ctx);
-  },
-
-  unmount(el, ctx) {
-    try { if (host.on.unmount) host.on.unmount(host.wrap || el, ctx); } catch (e) { console.error(e); }
-    host.el = host.ctx = host.wrap = null;
   }
 };

@@ -1,15 +1,14 @@
-// Live Games (the Lay tab's Live tile, #/lay/live; the owner's alone: Oct 25 2026): the NFL week's games as they play, an
+// Live (its own tab, #/live; the owner's alone: Oct 25 2026, app.js OWNER_TABS): the NFL week's games as they play, an
 // octobox like RedZone (eight games at once, the ones in the red zone first, each with the score, the clock, who has
 // the ball, the down and distance, the ball on a little field and the last play; a score flashes on its box), the
 // rest of the week's games under it, then the top performers (the best QB, RB, WR and TE so far) and every player's
 // line with his points in the league's scoring (PPR, core/gameday.js). A tap on a box shows that game's players only.
 // Data: core/gameday.js (ESPN's scoreboard and box scores, every 30 s while a game is on). Its stylesheet
-// (css/views/live.css) loads with it, on the owner's phone only. Shown by views/lay.js (its Parlay · Live switch), which
-// mounts it, swaps it out and drops it when another profile is picked. Owner: LIVE.
+// (css/views/live.css) loads with it, on the owner's phone only. Another profile picked: the screen empties, its feed
+// stops and its stylesheet goes (app.js moves off the tab). Owner: LIVE.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as gd from '../core/gameday.js';
-import {modeTabsHTML} from './lay.js';
 import {youButtonHTML} from './you.js';
 
 const esc = data.esc;
@@ -234,14 +233,25 @@ function start(ctx, st) {
 }
 function stopFeed(st) { if (st && st.stop) { st.stop(); st.stop = null; } }
 
-export default {
-  title: 'The Lay',
+// The screen, or nothing on a phone that isn't the owner's. Another profile picked (here or in another tab) empties
+// every Live screen at once, shown or not, and drops the stylesheet.
+const ELS = new WeakMap(), ON = new Set();
+function teardown(ctx) {
+  const st = ST.get(ctx);
+  if (st) { stopFeed(st); clearTimeout(st.flashT); st.el.innerHTML = ''; }
+  ST.delete(ctx);
+  if (sheet) { sheet.remove(); sheet = null; }
+}
+data.subscribe(t => { if (t === 'me' && !data.isOwner()) ON.forEach(teardown); });
+const VIEW = {
+  id: 'live',
+  title: 'Live',
 
   render() {
     loadStyle();
     if (!data.isOwner()) return '';
-    return ui.largeTitle({eyebrow: 'NFL · Live', title: 'The Lay', subtitle: 'Every game as it plays, the red zone first', trailing: youButtonHTML()})
-      + modeTabsHTML('live') + `<div class="lg-body"><section class="lg-games" data-lg-games>${gamesHTML({D: null})}</section>`
+    return ui.largeTitle({eyebrow: 'NFL · Live', title: 'Live', subtitle: 'Every game as it plays, the red zone first', trailing: youButtonHTML()})
+      + `<div class="lg-body"><section class="lg-games" data-lg-games>${gamesHTML({D: null})}</section>`
       + `<section class="lg-leaders" data-lg-leaders></section>`
       + `<section class="lg-stats"><div class="sh lg-sh"><h2>Player stats</h2><span class="lg-at">PPR points</span></div>`
       + ui.seg({name: 'lg-pos', items: POS.map(p => ({id: p, label: p === 'all' ? 'All' : p})), value: 'all', small: true, label: 'Position'})
@@ -253,6 +263,7 @@ export default {
   },
 
   mount(el, ctx) {
+    ELS.set(ctx, el); ON.add(ctx);
     if (!data.isOwner()) return;
     const st = {ctx, el, games: el.querySelector('[data-lg-games]'), leaders: el.querySelector('[data-lg-leaders]'), list: el.querySelector('[data-lg-list]'),
       D: null, pos: 'all', q: '', mine: false, game: null, more: false, prev: new Map(), flash: new Map(), flashT: 0, stop: null};
@@ -293,13 +304,20 @@ export default {
 
   onHide(ctx) { stopFeed(ST.get(ctx)); },
 
-  update(ctx) { if (ST.get(ctx) && data.isOwner()) draw(ctx); },
+  // Another profile: emptied (and built again when the owner's is picked back).
+  update(ctx) {
+    if (!data.isOwner()) { teardown(ctx); return; }
+    if (ST.get(ctx)) { draw(ctx); return; }
+    const el = ELS.get(ctx);
+    if (el) { el.innerHTML = VIEW.render(ctx); ui.hydrate(el); VIEW.mount(el, ctx); ctx.refreshChrome(); }
+  },
 
-  // (views/lay.js unmounts it when another profile is picked: his stylesheet goes too.)
   unmount(el, ctx) {
     const st = ST.get(ctx);
     if (st) { stopFeed(st); clearTimeout(st.flashT); }
     ST.delete(ctx);
+    ELS.delete(ctx); ON.delete(ctx);
     if (!data.isOwner() && sheet) { sheet.remove(); sheet = null; }
   }
 };
+export default VIEW;
