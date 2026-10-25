@@ -57,7 +57,6 @@ export const REGISTRY = {
   press: () => import('./views/press.js'),
   profile: () => import('./views/profile.js'),
   lay: () => import('./views/lay.js'),
-  live: () => import('./views/live.js'),
   realm: () => import('./views/realm.js'),
   'realm-raid': () => import('./views/realm-raid.js'),
   'realm-scout': () => import('./views/realm-scout.js'),
@@ -141,8 +140,8 @@ function matchSegs(p, q) {
     case 'lay':
       // The Lay: the weekly 12-leg parlay (data/lay.json).
       if (n === 1) return R('lay', 'root', 'lay');
-      // Live Games (views/live.js), pushed over the Lay: the owner's alone (Oct 25 2026).
-      if (n === 2 && b === 'live') return data.isOwner() ? R('live', 'push', 'lay') : {redirect: '/lay', query: false};
+      // Live Games (views/live.js, the Lay's Live tile): the owner's alone (Oct 25 2026).
+      if (n === 2 && b === 'live') return data.isOwner() ? R('lay', 'root', 'lay', {mode: 'live'}) : {redirect: '/lay', query: false};
       return null;
     case 'realm':
       // Existing realm links keep working. Scouting and raids return to The Keep, including from a cold link.

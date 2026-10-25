@@ -1575,7 +1575,7 @@ export async function runChecks() {
     return {pass: !bad.length, detail: bad.length ? bad.join('; ') : `${want.length} legs scored right`};
   });
 
-  check('Live Games (the owner\'s alone, Oct 25 2026): the ball\'s spot and the red zone from ESPN, every player\'s line and his PPR points, and #/lay/live opens on the owner\'s phone only', async () => {
+  check('Live Games (the owner\'s alone, Oct 25 2026): the ball\'s spot and the red zone from ESPN, every player\'s line and his PPR points, and #/lay/live (the Lay\'s Live tile) opens on the owner\'s phone only', async () => {
     const [nfl, gd, app] = await Promise.all([import('./nfl.js'), import('./gameday.js'), import('../app.js')]);
     const bad = [];
     const H = {id: '12', abbr: 'KC'}, A = {id: '7', abbr: 'DEN'};
@@ -1595,7 +1595,7 @@ export async function runChecks() {
     if (P['Josh Allen'] && gd.statLine(P['Josh Allen']) !== '24/31, 288 yds, 3 TD, 1 INT · 6 car, 41 yds') bad.push('line: ' + gd.statLine(P['Josh Allen']));
     if (P['James Cook'] && gd.posOf(P['James Cook'], new Map()) !== 'RB') bad.push('position from stats');
     const r = app.parseRoute('/lay/live');
-    if (data.isOwner() ? !(r && r.view === 'live' && r.open === 'push' && r.tab === 'lay') : !(r && r.view === 'lay')) bad.push('route ' + JSON.stringify(r && {view: r.view, open: r.open}));
+    if (data.isOwner() ? !(r && r.view === 'lay' && r.open === 'root' && r.params.mode === 'live') : !(r && r.view === 'lay' && !r.params.mode)) bad.push('route ' + JSON.stringify(r && {view: r.view, open: r.open}));
     return {pass: !bad.length, detail: bad.length ? bad.join('; ') : `the ball at the ${s.spot} in the red zone; Allen ${P['Josh Allen'].pts}, Cook ${P['James Cook'].pts} PPR; #/lay/live ${data.isOwner() ? 'opens here (the owner)' : 'goes back to the Lay here'}`};
   });
 

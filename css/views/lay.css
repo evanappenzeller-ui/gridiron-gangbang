@@ -1,7 +1,26 @@
 /* lay.css: The Lay tab (the weekly 12-leg parlay). Owner: LAY. Every selector starts with .v-lay. Motion: none of its own. */
 
 .v-lay .ly-body { padding-top: 8px; }
-.v-lay .ly-live { margin-bottom: 12px; } /* Live Games, the owner's way in (views/live.js) */
+/* Parlay · Live (the owner's switch, views/lay.js modeTabsHTML; drawn on his phone only): Pick'em's scoreboard tiles,
+   the one shown lit like the field. */
+.v-lay .ly-mode { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 10px 0 14px; }
+.v-lay .ly-mode-t {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; min-height: 82px; padding: 8px 4px 9px;
+  border-radius: 12px; background: var(--surface-1); color: var(--ink-3);
+  box-shadow: 0 4px 0 rgba(0,0,0,.45), inset 0 0 0 2px var(--separator);
+  transition: transform var(--spring-snappy-dur) var(--spring-snappy), color 160ms linear;
+}
+.v-lay .ly-mode-t.is-pressed { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0,0,0,.45), inset 0 0 0 2px var(--separator); transition: none; }
+.v-lay .ly-mode-t[aria-selected="true"] {
+  color: #fff;
+  background: repeating-linear-gradient(90deg, rgba(255,255,255,.07) 0 2px, transparent 2px 22px), linear-gradient(180deg, #2A9A3E, #17672B);
+  box-shadow: 0 4px 0 #0C3D18, inset 0 0 0 2px var(--tint), 0 0 22px rgba(124,240,88,.25);
+}
+.v-lay .ly-mode-ic { display: grid; place-items: center; width: 46px; height: 46px; }
+.v-lay .ly-badge { width: 46px; height: 46px; filter: drop-shadow(2px 2px 0 rgba(0,0,0,.55)); }
+.v-lay .ly-mode-t[aria-selected="false"] .ly-badge { opacity: .55; filter: grayscale(.5) drop-shadow(2px 2px 0 rgba(0,0,0,.55)); }
+.v-lay .ly-mode-s { font: 400 13px/14px var(--font-num); text-transform: uppercase; letter-spacing: .05em; color: var(--ink-4); }
+.v-lay .ly-mode-t[aria-selected="true"] .ly-mode-s { color: rgba(255,255,255,.75); }
 
 /* ================================================================ This week */
 .v-lay .ly-hero { overflow: hidden; }
