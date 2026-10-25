@@ -122,17 +122,25 @@ function gamesHTML(st) {
 }
 
 // ---------------------------------------------------------------------------------------------- Players
+// Who has each player in the league (core/gameday.js ownersOf: the season's draft and its trades), worked out once per
+// season and league file.
+let OWN = {src: null, year: 0, map: null};
+function owners(year) {
+  if (OWN.src !== data.DATA || OWN.year !== year) OWN = {src: data.DATA, year, map: gd.ownersOf(data.DATA, year)};
+  return OWN.map;
+}
 function playersOf(st) {
   const D = st.D;
   if (!D) return [];
-  const out = [];
+  const out = [], own = owners(D.year), me = data.me();
   D.boxes.forEach((box, id) => {
     const g = D.games.find(x => x.id === id);
     if (!g) return;
     box.players.forEach(p => {
       const s = p.s;
       if (!(s.att || s.car || s.rec || s.tgt || s.recYds || s.retTd || s.fumLost)) return;
-      out.push(Object.assign({}, p, {pos: gd.posOf(p), g, live: g.state === 'in'}));
+      const owner = gd.ownerOf(own, p);
+      out.push(Object.assign({}, p, {pos: gd.posOf(p), g, live: g.state === 'in', owner, mine: !!owner && owner === me}));
     });
   });
   return out.sort((a, b) => b.pts - a.pts || a.name.localeCompare(b.name));
@@ -143,13 +151,19 @@ function head(p, size) {
   return `<span class="lg-hs" style="--sz:${size}px" aria-hidden="true"><span>${ini}</span>`
     + (p.head ? `<img src="${esc(p.head)}" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : '') + `</span>`;
 }
+// His manager: the avatar on the headshot's corner and the name (yours: "You").
+const ownerName = p => p.mine ? 'You' : data.name(p.owner);
+function ownerTag(p) {
+  if (!p.owner) return '';
+  return `<span class="lg-own${p.mine ? ' is-me' : ''}">${ui.avatar(p.owner, {size: 20})}<span>${esc(ownerName(p))}</span></span>`;
+}
 const vsTxt = p => { const g = p.g, opp = g.home.abbr === p.team ? g.away.abbr : g.home.abbr; return `${g.home.abbr === p.team ? 'vs' : '@'} ${opp}`; };
 function leaderCard(pos, p) {
   if (!p) return `<div class="lg-lead is-none"><span class="lg-pos pos-${pos}">${pos}</span><p class="lg-ln">No ${pos} yet</p></div>`;
-  return `<div class="lg-lead pos-${pos}"><div class="lg-lh">${head(p, 40)}<span class="lg-pos pos-${pos}">${pos}</span>`
+  return `<div class="lg-lead pos-${pos}${p.mine ? ' is-mine' : ''}"><div class="lg-lh">${head(p, 40)}<span class="lg-pos pos-${pos}">${pos}</span>`
     + `<span class="lg-lp"><b class="n4">${ptsTxt(p.pts)}</b><small>PTS</small></span></div>`
     + `<p class="lg-ln">${esc(p.name)}</p><p class="lg-lt">${esc(p.team)} ${esc(vsTxt(p))}${p.live ? ' <i class="lg-dot" aria-label="playing now"></i>' : ''}</p>`
-    + `<p class="lg-ls">${esc(gd.statLine(p))}</p></div>`;
+    + `<p class="lg-ls">${esc(gd.statLine(p))}</p>${ownerTag(p)}</div>`;
 }
 function leadersHTML(st, all) {
   if (!st.D) return '';
@@ -159,17 +173,18 @@ function leadersHTML(st, all) {
     + `<div class="lg-leads">${['QB', 'RB', 'WR', 'TE'].map(pos => leaderCard(pos, pick(pos))).join('')}</div>`;
 }
 function rowHTML(p, i) {
-  return `<li class="lg-p${i < 3 ? ' is-top' : ''}"><span class="lg-rk n5">${i + 1}</span>${head(p, 40)}`
+  return `<li class="lg-p${i < 3 ? ' is-top' : ''}${p.mine ? ' is-mine' : ''}"><span class="lg-rk n5">${i + 1}</span>${head(p, 40)}`
     + `<div class="lg-pm"><p class="lg-pn">${esc(p.name)} <span class="lg-pos pos-${p.pos}">${p.pos}</span>${p.live ? ' <i class="lg-dot" aria-label="playing now"></i>' : ''}</p>`
-    + `<p class="lg-ps"><span class="lg-pt">${esc(p.team)} ${esc(vsTxt(p))}</span> · ${esc(gd.statLine(p))}</p></div>`
+    + `<p class="lg-ps"><span class="lg-pt">${esc(p.team)} ${esc(vsTxt(p))}</span> · ${esc(gd.statLine(p))}</p>${ownerTag(p)}</div>`
     + `<b class="lg-pp n4">${ptsTxt(p.pts)}</b></li>`;
 }
 function listHTML(st, all) {
   if (!st.D) return ui.skeleton('rows', 6, {label: 'Loading the stats.'});
   if (!st.D.boxes.size) return ui.empty({icon: 'chart', title: 'No stats yet.', body: 'Player lines show up here once the games kick off.'});
   const q = st.q.trim().toLowerCase();
-  const list = all.filter(p => (st.pos === 'all' || p.pos === st.pos) && (!st.game || p.g.id === st.game)
-    && (!q || p.name.toLowerCase().includes(q) || p.team.toLowerCase() === q));
+  const list = all.filter(p => (st.pos === 'all' || p.pos === st.pos) && (!st.game || p.g.id === st.game) && (!st.mine || p.mine)
+    && (!q || p.name.toLowerCase().includes(q) || p.team.toLowerCase() === q
+      || (p.owner && (data.name(p.owner).toLowerCase().startsWith(q) || data.team(p.owner).toLowerCase().includes(q)))));
   const g = st.game && st.D.games.find(x => x.id === st.game);
   const scope = g ? `<p class="lg-scope">${esc(`${g.away.abbr} @ ${g.home.abbr}`)} only <button type="button" class="btn btn-plain" data-lg-all><span class="btn-label">Show every game</span></button></p>` : '';
   if (!list.length) return scope + ui.empty({icon: 'search', title: 'No one matches.', body: ''});
@@ -230,15 +245,17 @@ export default {
       + `<section class="lg-leaders" data-lg-leaders></section>`
       + `<section class="lg-stats"><div class="sh lg-sh"><h2>Player stats</h2><span class="lg-at">PPR points</span></div>`
       + ui.seg({name: 'lg-pos', items: POS.map(p => ({id: p, label: p === 'all' ? 'All' : p})), value: 'all', small: true, label: 'Position'})
-      + `<div class="lg-search">${ui.searchField({name: 'lg-q', placeholder: 'Player or team', label: 'Search players'})}</div>`
+      + `<div class="lg-search">${ui.searchField({name: 'lg-q', placeholder: 'Player or manager', label: 'Search players'})}`
+      + `<button type="button" class="lg-mine" data-lg-mine aria-pressed="false">My players</button></div>`
       + `<div data-lg-list></div>`
-      + `<p class="lg-foot">PPR: 1 a catch, 0.1 a rushing or receiving yard, 0.04 a passing yard, 6 a TD (4 passing), −1 an interception, −2 a fumble lost. From ESPN's box scores, every 30 seconds while games are on.</p></section></div>`;
+      + `<p class="lg-foot">PPR: 1 a catch, 0.1 a rushing or receiving yard, 0.04 a passing yard, 6 a TD (4 passing), −1 an interception, −2 a fumble lost. From ESPN's box scores, every 30 seconds while games are on.</p>`
+      + `<p class="lg-foot">Owners are from this season\u2019s draft and the trades on file. Waiver pickups and drops aren't known yet (Yahoo rosters don't sync), so those players show no owner or the one who drafted them.</p></section></div>`;
   },
 
   mount(el, ctx) {
     if (!data.isOwner()) return;
     const st = {ctx, el, games: el.querySelector('[data-lg-games]'), leaders: el.querySelector('[data-lg-leaders]'), list: el.querySelector('[data-lg-list]'),
-      D: null, pos: 'all', q: '', game: null, more: false, prev: new Map(), flash: new Map(), flashT: 0, stop: null};
+      D: null, pos: 'all', q: '', mine: false, game: null, more: false, prev: new Map(), flash: new Map(), flashT: 0, stop: null};
     ST.set(ctx, st);
     el.addEventListener('click', e => {
       const t = e.target;
@@ -251,6 +268,8 @@ export default {
         return;
       }
       if (t.closest('[data-lg-all]')) { st.game = null; draw(ctx); return; }
+      const mb = t.closest('[data-lg-mine]');
+      if (mb) { st.mine = !st.mine; st.more = false; mb.setAttribute('aria-pressed', String(st.mine)); draw(ctx, 'stats'); return; }
       if (t.closest('[data-lg-more]')) { st.more = true; draw(ctx, 'stats'); }
     });
     el.addEventListener('ui:change', e => {

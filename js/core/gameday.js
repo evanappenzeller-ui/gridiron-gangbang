@@ -11,6 +11,10 @@
 //   statLine(p)        -> "24/31, 288 yds, 3 TD, 1 INT · 6 car, 41 yds" (the parts he has)
 //   posOf(p, list)     -> 'QB' | 'RB' | 'WR' | 'TE': the player list's (data/nfl-players.json), else read off his stats
 //   loadPositions()    -> Promise of the player list's positions (name|team -> pos)
+//   ownersOf(league, year) -> Map(player's name, normalized -> manager id): who has him in the league, from that season's
+//                         draft (league.json drafts) and its trades since, in week order. Waiver pickups and drops
+//                         aren't on file (no Yahoo rosters yet), so a player picked up off waivers shows no one.
+//   ownerOf(owners, p) -> his manager's id, or null
 //
 // Scoring (PPR, Yahoo's standard, which the league plays): 1 a catch, 0.1 a rushing or receiving yard, 0.04 a passing
 // yard, 6 a rushing, receiving or return TD, 4 a passing TD, -1 an interception thrown, -2 a fumble lost. Two-point
@@ -84,6 +88,18 @@ export function statLine(p) {
   if (s.fumLost) out.push(`${s.fumLost} fum lost`);
   return out.join(' · ');
 }
+
+// The league's owners: the season's draft, then its trades.
+export function ownersOf(league, year) {
+  const m = new Map();
+  const d = league && Array.isArray(league.drafts) ? league.drafts.find(x => x && x.year === year) : null;
+  if (!d) return m;
+  (Array.isArray(d.picks) ? d.picks : []).forEach(p => { if (p && p.player && p.manager) m.set(norm(p.player), p.manager); });
+  (Array.isArray(league.trades) ? league.trades : []).filter(t => t && t.year === year).sort((a, b) => (a.week || 0) - (b.week || 0))
+    .forEach(t => (t.sides || []).forEach(sd => (sd.got || []).forEach(nm => { if (sd.manager) m.set(norm(nm), sd.manager); })));
+  return m;
+}
+export const ownerOf = (owners, p) => (owners && owners.get(norm(p.name))) || null;
 
 // Positions from the current player list (data/nfl-players.json: [name, team, pos, score]).
 const POS_URL = new URL('../../data/nfl-players.json', import.meta.url).href;

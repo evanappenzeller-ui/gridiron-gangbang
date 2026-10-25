@@ -142,7 +142,22 @@
 
 /* ================================================================ Player stats */
 .lg-body .lg-stats .seg { margin-bottom: 8px; }
-.lg-body .lg-search { margin-bottom: 8px; }
+.lg-body .lg-search { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.lg-body .lg-search > .search { flex: 1; min-width: 0; }
+.lg-body .lg-mine {
+  flex: none; height: 36px; padding: 0 12px; border-radius: var(--r-pill);
+  background: var(--surface-1); color: var(--ink-2); box-shadow: inset 0 0 0 1px var(--separator);
+  font: 600 var(--fs-foot)/1 var(--font-text); white-space: nowrap;
+}
+.lg-body .lg-mine[aria-pressed="true"] { background: var(--tint-soft); color: var(--tint); box-shadow: inset 0 0 0 1px var(--tint); }
+/* His manager in the league (yours lit). */
+.lg-body .lg-own { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; margin-top: 4px; font: 600 var(--fs-cap)/20px var(--font-text); color: var(--ink-2); }
+.lg-body .lg-own > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lg-body .lg-own.is-me { color: var(--tint); }
+.lg-body .lg-p.is-mine { box-shadow: inset 3px 0 0 var(--tint); background: linear-gradient(90deg, var(--tint-soft), transparent 55%); }
+.lg-body .lg-p.is-mine + .lg-p { box-shadow: 0 -1px 0 var(--separator); }
+.lg-body .lg-p + .lg-p.is-mine { box-shadow: inset 3px 0 0 var(--tint), 0 -1px 0 var(--separator); }
+.lg-body .lg-lead.is-mine { box-shadow: var(--pixel-shadow), inset 0 3px 0 var(--pc, var(--tint)), inset 0 0 0 1px var(--tint); }
 .lg-body .lg-scope { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 6px; font: 600 var(--fs-foot)/28px var(--font-text); color: var(--ink-2); }
 .lg-body .lg-list { list-style: none; margin: 0; padding: 0; border-radius: var(--r-group); background: var(--surface-1); overflow: hidden; }
 .lg-body .lg-p { display: flex; align-items: center; gap: 10px; min-height: 60px; padding: 8px 12px; }

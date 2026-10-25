@@ -1575,7 +1575,7 @@ export async function runChecks() {
     return {pass: !bad.length, detail: bad.length ? bad.join('; ') : `${want.length} legs scored right`};
   });
 
-  check('Live Games (the owner\'s alone, Oct 25 2026): the ball\'s spot and the red zone from ESPN, every player\'s line and his PPR points, and #/lay/live (the Lay\'s Live tile) opens on the owner\'s phone only', async () => {
+  check('Live Games (the owner\'s alone, Oct 25 2026): the ball\'s spot and the red zone from ESPN, every player\'s line, his PPR points and his league owner (the draft, then trades), and #/lay/live (the Lay\'s Live tile) opens on the owner\'s phone only', async () => {
     const [nfl, gd, app] = await Promise.all([import('./nfl.js'), import('./gameday.js'), import('../app.js')]);
     const bad = [];
     const H = {id: '12', abbr: 'KC'}, A = {id: '7', abbr: 'DEN'};
@@ -1594,6 +1594,11 @@ export async function runChecks() {
     if (!P['James Cook'] || P['James Cook'].pts !== 16) bad.push('Cook ' + (P['James Cook'] && P['James Cook'].pts) + ' (want 16)');
     if (P['Josh Allen'] && gd.statLine(P['Josh Allen']) !== '24/31, 288 yds, 3 TD, 1 INT · 6 car, 41 yds') bad.push('line: ' + gd.statLine(P['Josh Allen']));
     if (P['James Cook'] && gd.posOf(P['James Cook'], new Map()) !== 'RB') bad.push('position from stats');
+    // Owners: the season's draft, then its trades (a later trade wins); suffixes and punctuation don't matter.
+    const owns = gd.ownersOf({drafts: [{year: 2026, picks: [{player: 'Luther Burden III', manager: 'john'}, {player: 'Drake Maye', manager: 'evan'}, {player: 'Old Guy', manager: 'ben'}]}, {year: 2025, picks: [{player: 'Drake Maye', manager: 'ben'}]}],
+      trades: [{year: 2026, week: 5, sides: [{manager: 'mitch', got: ['Drake Maye']}]}, {year: 2026, week: 3, sides: [{manager: 'sayer', got: ['Drake Maye']}]}, {year: 2025, week: 9, sides: [{manager: 'jacob', got: ['Luther Burden III']}]}]}, 2026);
+    const ow = n => gd.ownerOf(owns, {name: n});
+    if (ow('Luther Burden') !== 'john' || ow('Drake Maye') !== 'mitch' || ow('Nobody Here') !== null) bad.push(`owners: Burden ${ow('Luther Burden')}, Maye ${ow('Drake Maye')} (want john, mitch)`);
     const r = app.parseRoute('/lay/live');
     if (data.isOwner() ? !(r && r.view === 'lay' && r.open === 'root' && r.params.mode === 'live') : !(r && r.view === 'lay' && !r.params.mode)) bad.push('route ' + JSON.stringify(r && {view: r.view, open: r.open}));
     return {pass: !bad.length, detail: bad.length ? bad.join('; ') : `the ball at the ${s.spot} in the red zone; Allen ${P['Josh Allen'].pts}, Cook ${P['James Cook'].pts} PPR; #/lay/live ${data.isOwner() ? 'opens here (the owner)' : 'goes back to the Lay here'}`};
