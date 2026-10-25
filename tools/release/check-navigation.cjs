@@ -9,12 +9,12 @@ module.exports=async function checkNavigation(page,context){
   };
   await page.evaluate(async()=>(await import('/js/app.js')).nav('/puzzles'));await settled('puzzles');
   const tabs=await page.locator('#tabbar .tab:not([hidden])').evaluateAll(es=>es.map(e=>e.dataset.tab));
-  assert.deepEqual(tabs,['puzzles','pickem','lay','matchup','league','draft']);
+  assert.deepEqual(tabs,['puzzles','pickem','lay','live','matchup','league','draft']);
   for(const tab of tabs){await page.locator('#tabbar .tab[data-tab="'+tab+'"]').click();await settled(tab);assert.equal(await page.locator('.tab-layer:not([hidden])').getByText("This screen didn't load.",{exact:true}).count(),0);}
   const begin=Date.now();
-  await page.evaluate(()=>{for(const tab of [...['puzzles','pickem','lay','matchup','league','draft'],...['puzzles','pickem','lay','matchup','league','draft'],'puzzles'])document.querySelector('#tabbar .tab[data-tab="'+tab+'"]').click();});
+  await page.evaluate(()=>{for(const tab of [...['puzzles','pickem','lay','live','matchup','league','draft'],...['puzzles','pickem','lay','live','matchup','league','draft'],'puzzles'])document.querySelector('#tabbar .tab[data-tab="'+tab+'"]').click();});
   await settled('puzzles');assert(Date.now()-begin<2500,'Rapid taps converge without replaying old targets');
-  console.log('PASS navigation: six tabs and rapid latest-target convergence.');
+  console.log('PASS navigation: seven tabs and rapid latest-target convergence.');
   const cdp=await context.newCDPSession(page);
   async function swipe({dx=-230,dy=0,cancel=false}={}){
     const start=await page.evaluate(({dx,dy})=>{

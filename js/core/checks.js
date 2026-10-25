@@ -1557,7 +1557,7 @@ export async function runChecks() {
     return {pass, detail: `cases ${order}${ring ? ', round in a circle' : ' (not in a circle)'}; covers and bands ${art}; covers ${loads.filter(Boolean).length}/${visibleGames.length} load${own ? '' : ' (not each its own)'}; swiped ${swipe}; pages ${pages}; rows: tie "${tie}", 5th "${low}", 2nd "${mid}", top five "${five}"; season boards ${season}; ${all ? 'reads LB.all' : 'no LB.all reads'}`};
   });
 
-  check('The Lay live tracking reads the league\'s kinds of legs and scores them against a game (on the owner\'s phone, never another K. Williams\'s)', () => {
+  check('The Lay live tracking reads the league\'s kinds of legs and scores them against a game (never another K. Williams\'s)', () => {
     const T = (abbr, short, name, score) => ({abbr, short, name, score});
     const g = {id: '1', state: 'post', final: true, period: 4, clock: '0:00', detail: 'Final', kickoff: new Date(), home: T('BUF', 'Bills', 'Buffalo Bills', 24), away: T('NE', 'Patriots', 'New England Patriots', 20), line: {fav: 'home', pts: 3.5}};
     const box = {players: [{key: 'james cook', name: 'James Cook', team: 'BUF', s: {rushYds: 61, rushTd: 1, rec: 2, recYds: 12, recTd: 0}}, {key: 'amon-ra st brown', name: 'Amon-Ra St. Brown', team: 'BUF', s: {rec: 7, recYds: 104}},
@@ -1565,8 +1565,8 @@ export async function runChecks() {
     const W = {games: [g], boxes: new Map([['1', box]])};
     const want = [['Bills -3.5', 'hit'], ['Patriots ML', 'miss'], ['Bills alt team total over 23.5', 'hit'], ['Patriots Bills Over 44.5', 'miss'],
       ['James Cook Anytime', 'hit'], ['James Cook 70+ Rush Yards', 'miss'], ['James Cook over 1.5 Rec', 'hit'], ['J Cook 60+ Yards', 'hit'], ['Buffalo spread', 'hit'], ['Parker Washington Over Rec', 'na'], ['James Cook Over Rush Yards', 'na'], ['Amon Ra St Brown 100+ Rec Yards', 'hit'], ['James Cookk Anytime TD', 'hit']];
-    // The owner's phone (Oct 25 2026): Kyle Williams's game never settles Kyren Williams's TD.
-    if (data.isOwner()) want.push(['Kyren Williams Anytime TD', 'na']);
+    // Kyle Williams's game never settles Kyren Williams's TD (Oct 25 2026).
+    want.push(['Kyren Williams Anytime TD', 'na']);
     const bad = want.filter(([t, st]) => laytrack.evaluate(t, W).st !== st).map(([t, st]) => `${t}: ${laytrack.evaluate(t, W).st} (want ${st})`);
     // The standard wording a leg saves as reads back as the same bet (and scores the same).
     want.forEach(([t, st]) => { const d = laytrack.describe(t, [g]); if (d && laytrack.evaluate(d, W).st !== st) bad.push(`${t} → ${d}: ${laytrack.evaluate(d, W).st}`); });
@@ -1575,7 +1575,7 @@ export async function runChecks() {
     return {pass: !bad.length, detail: bad.length ? bad.join('; ') : `${want.length} legs scored right`};
   });
 
-  check('Live Games (the owner\'s alone, Oct 25 2026): the ball\'s spot and the red zone from ESPN, every player\'s line, his PPR points and his league owner (the draft, then trades), and the Live tab (#/live) opens on the owner\'s phone only', async () => {
+  check('Live Games (everyone\'s, Oct 25 2026): the ball\'s spot and the red zone from ESPN, every player\'s line, his PPR points and his league owner (the draft, then trades), and the Live tab (#/live) opens on every phone', async () => {
     const [nfl, gd, app] = await Promise.all([import('./nfl.js'), import('./gameday.js'), import('../app.js')]);
     const bad = [];
     const H = {id: '12', abbr: 'KC'}, A = {id: '7', abbr: 'DEN'};
@@ -1601,8 +1601,8 @@ export async function runChecks() {
     if (ow('Luther Burden') !== 'john' || ow('Drake Maye') !== 'mitch' || ow('Nobody Here') !== null) bad.push(`owners: Burden ${ow('Luther Burden')}, Maye ${ow('Drake Maye')} (want john, mitch)`);
     const r = app.parseRoute('/live'), old = app.parseRoute('/lay/live');
     if (!old || old.view !== r.view) bad.push('old #/lay/live link');
-    if (data.isOwner() ? !(r && r.view === 'live' && r.open === 'root' && r.tab === 'live') : !(r && r.view === 'lay')) bad.push('route ' + JSON.stringify(r && {view: r.view, open: r.open}));
-    return {pass: !bad.length, detail: bad.length ? bad.join('; ') : `the ball at the ${s.spot} in the red zone; Allen ${P['Josh Allen'].pts}, Cook ${P['James Cook'].pts} PPR; #/live ${data.isOwner() ? 'opens here (the owner)' : 'goes to the Lay here'}`};
+    if (!(r && r.view === 'live' && r.open === 'root' && r.tab === 'live')) bad.push('route ' + JSON.stringify(r && {view: r.view, open: r.open}));
+    return {pass: !bad.length, detail: bad.length ? bad.join('; ') : `the ball at the ${s.spot} in the red zone; Allen ${P['Josh Allen'].pts}, Cook ${P['James Cook'].pts} PPR; #/live opens the Live tab`};
   });
 
   check('The Lay\'s hit rate by bet type: every leg on file reads as a kind of bet (an anytime TD, a player prop, a spread, a moneyline, a total)', async () => {

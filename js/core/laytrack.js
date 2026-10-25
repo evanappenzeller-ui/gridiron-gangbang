@@ -23,7 +23,6 @@
 // "N+" means at least N, "over X" more than X, "under X" less than X. Overs hit the moment they get there; unders,
 // moneylines and spreads wait for the final. A player missing from every finished box score stays unsettled ('na').
 import * as nfl from './nfl.js';
-import * as data from './data.js';
 
 const SUMMARY = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=';
 const LIVE_TTL = 30e3;
@@ -296,9 +295,9 @@ const ROSTER = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams
 const PT_LS = 'gg-pteam3', PT_TTL = 7 * 864e5, PT_MISS = 6 * 36e5;
 function ptLoad() { try { const o = JSON.parse(localStorage.getItem(PT_LS) || '{}'); return o && typeof o === 'object' ? o : {}; } catch (_) { return {}; } }
 const PT = ptLoad();
-// On the owner's phone (Oct 25 2026) only entries found with strict first names count (marked 2): older ones may have
-// put a player on another K. Williams's team.
-const ptFresh = e => Array.isArray(e) && Date.now() - e[1] < (e[0] ? PT_TTL : PT_MISS) && (!data.isOwner() || e[2] === 2);
+// Only entries found with strict first names count (marked 2, Oct 25 2026): older ones may have put a player on another
+// K. Williams's team.
+const ptFresh = e => Array.isArray(e) && Date.now() - e[1] < (e[0] ? PT_TTL : PT_MISS) && e[2] === 2;
 // Names match with hyphens as spaces ("Jaxon Smith Njigba" is Jaxon Smith-Njigba): full name, else first initial + last.
 const unhyph = x => x.replace(/-/g, ' ').replace(/\s+/g, ' ').trim();
 const sameMan = (key, want) => {
@@ -306,14 +305,13 @@ const sameMan = (key, want) => {
   const [f, ...l] = want.split(' ');
   return key === want || (key.endsWith(' ' + l.join(' ')) && key[0] === f[0]);
 };
-// The owner's phone (Oct 25 2026): the first names must agree too, one the start of the other ("J Cook", "Cam" for
-// Cameron), so Kyle Williams is never taken for Kyren Williams.
+// A box score or roster match: the first names must agree too, one the start of the other ("J Cook", "Cam" for
+// Cameron), so Kyle Williams is never taken for Kyren Williams (Oct 25 2026).
 const strictMan = (key, want) => {
   if (!sameMan(key, want)) return false;
   const a = unhyph(key).split(' ')[0], b = unhyph(want).split(' ')[0];
   return a.startsWith(b) || b.startsWith(a);
 };
-const manIs = (key, want) => data.isOwner() ? strictMan(key, want) : sameMan(key, want);
 // A typo in the last name ("Christian McCafferey"): the same first name and a last name one or two letters off (one
 // for short names). Used only when no exact match exists, and only when it points at one player.
 function editDist(a, b) {
@@ -353,22 +351,22 @@ function findTeams(names, games) {
   if (!need.size || ptBusy) return ptBusy || null;
   if (Date.now() - ptFailAt < 60e3) return null; // a roster failed to load: try again in a minute
   ptBusy = (async () => {
-    const teams = [], mark = data.isOwner() ? 2 : 0;
+    const teams = [];
     games.forEach(g => [g.home, g.away].forEach(t => { if (t && t.id && !teams.some(x => x.id === t.id)) teams.push(t); }));
     let failed = false;
     const near = new Map(); // name -> teams with a near match (a typo), used when no roster has it exactly
     for (let i = 0; i < teams.length && need.size; i += 4) {
       const got = await Promise.all(teams.slice(i, i + 4).map(t => rosterOf(t).then(n => [t, n], () => { failed = true; return [t, null]; })));
       got.forEach(([t, list]) => (list || []).forEach(k => need.forEach(n => {
-        if (manIs(k, n)) { PT[n] = mark ? [t.abbr, Date.now(), mark] : [t.abbr, Date.now()]; need.delete(n); }
+        if (strictMan(k, n)) { PT[n] = [t.abbr, Date.now(), 2]; need.delete(n); }
         else if (nearMan(k, n)) { if (!near.has(n)) near.set(n, new Set()); near.get(n).add(t.abbr); }
       })));
     }
-    need.forEach(n => { const ts = near.get(n); if (ts && ts.size === 1) { PT[n] = mark ? [[...ts][0], Date.now(), mark] : [[...ts][0], Date.now()]; need.delete(n); } });
+    need.forEach(n => { const ts = near.get(n); if (ts && ts.size === 1) { PT[n] = [[...ts][0], Date.now(), 2]; need.delete(n); } });
     // Not on any roster: remembered as a miss (retried in 6 h) only when every roster loaded; else retried soon.
     const found = names.some(n => PT[n] && PT[n][0]);
     if (failed) ptFailAt = Date.now();
-    else need.forEach(n => { PT[n] = mark ? [null, Date.now(), mark] : [null, Date.now()]; });
+    else need.forEach(n => { PT[n] = [null, Date.now(), 2]; });
     try { localStorage.setItem(PT_LS, JSON.stringify(PT)); } catch (_) {}
     return found;
   })().finally(() => { ptBusy = null; });
@@ -434,10 +432,10 @@ function findIn(T, player) {
   T.boxes.forEach((box, id) => box.players.forEach(p => all.push({p, g: T.games.find(x => x.id === id)})));
   const hit = all.filter(x => unhyph(x.p.key) === unhyph(player));
   if (hit.length) return hit;
-  // The owner's phone: a looser match must also be on the player's own team, when that is known.
-  const e = PT[player], known = data.isOwner() && ((e && ptFresh(e) && e[0]) || (byName(player) || {}).team);
+  // A looser match must also be on the player's own team, when that is known.
+  const e = PT[player], known = (e && ptFresh(e) && e[0]) || (byName(player) || {}).team;
   const mine = x => !known || x.p.team === known;
-  const same = all.filter(x => manIs(x.p.key, player) && mine(x));
+  const same = all.filter(x => strictMan(x.p.key, player) && mine(x));
   if (same.length) return same;
   const near = all.filter(x => nearMan(x.p.key, player) && mine(x));
   return near.length === 1 ? near : [];
@@ -513,7 +511,7 @@ export function evaluate(text, T) {
   if (!hit.length) {
     // Not in a box score yet: his game from the rosters (kickoff before it starts; 0 so far once it has).
     // his team: the roster lookup, else the current player list (fills in until the lookup answers)
-    const e = PT[b.player], known = byName(b.player), team = e && e[0] && (!data.isOwner() || e[2] === 2) ? e[0] : known ? known.team : null;
+    const e = PT[b.player], known = byName(b.player), team = e && e[0] && e[2] === 2 ? e[0] : known ? known.team : null;
     const g = team ? gameOf(team) : null;
     if (g && g.state === 'pre') return {st: 'pre', note: kickTxt(g), game: g};
     if (g && g.state === 'in') {

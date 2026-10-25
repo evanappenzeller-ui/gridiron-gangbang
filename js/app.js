@@ -66,13 +66,13 @@ export const REGISTRY = {
   _kit: () => import('./views/_kit.js')
 };
 // Every tab, in order. The Keep lives in Daily Games; it has no separate tab or idle tab warm-up. Live (views/live.js:
-// the week's games, top performers and PPR stats) is the owner's alone (Oct 25 2026): its button shows on his phone only.
+// the week's games, top performers and PPR stats) is everyone's (Oct 25 2026).
 const ALL_TABS = ['puzzles', 'pickem', 'lay', 'live', 'matchup', 'league', 'draft'];
-const OWNER_TABS = ['live'];
+const OWNER_TABS = [];
 export const TABS = ALL_TABS.filter(t => !OWNER_TABS.includes(t));
 /** Brings TABS (and the tab bar's buttons) in line with who this phone is. True if they changed. */
 function syncTabs() {
-  const want = ALL_TABS.filter(t => !OWNER_TABS.includes(t) || data.isOwner());
+  const want = ALL_TABS.filter(t => !OWNER_TABS.includes(t) || available());
   document.querySelectorAll('#tabbar .tab[data-tab]').forEach(b => { b.hidden = !want.includes(b.dataset.tab); });
   if (want.join() === TABS.join()) return false;
   TABS.splice(0, TABS.length, ...want);
@@ -146,8 +146,8 @@ function matchSegs(p, q) {
       if (n === 2 && b === 'live') return {redirect: '/live', query: false};
       return null;
     case 'live':
-      // Live (views/live.js): the owner's tab alone (Oct 25 2026); other phones land on the Lay.
-      if (n === 1) return data.isOwner() ? R('live', 'root', 'live') : {redirect: '/lay', query: false};
+      // Live (views/live.js): the week's games, top performers and PPR stats.
+      if (n === 1) return R('live', 'root', 'live');
       return null;
     case 'realm':
       // Existing realm links keep working. Scouting and raids return to The Keep, including from a cold link.
@@ -2318,9 +2318,7 @@ async function boot() {
   try { history.scrollRestoration = 'manual'; } catch (_) {}
   const h = location.hash.replace(/^#/, '');
   if (LEGACY[h]) { try { history.replaceState(null, '', '#' + LEGACY[h]); } catch (_) {} }
-  // (Live's root on a phone that isn't the owner's: the route itself sends links elsewhere, but the tab keeps its own.)
-  const rootOf = t => t === 'live' && !data.isOwner() ? {view: 'live', open: 'root', tab: 'live', params: {}, home: 'live', query: {}, path: '/live'} : parseRoute(ROOTS[t]);
-  ALL_TABS.forEach(t => { S.stacks[t] = [newEntry(rootOf(t), t, 'root')]; });
+  ALL_TABS.forEach(t => { S.stacks[t] = [newEntry(parseRoute(ROOTS[t]), t, 'root')]; });
   try { await data.load(); } catch (e) { console.error(e); showFatal(); return; }
   await start();
 }

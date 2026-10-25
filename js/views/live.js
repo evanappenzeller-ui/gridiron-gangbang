@@ -1,11 +1,11 @@
-// Live (its own tab, #/live; the owner's alone: Oct 25 2026, app.js OWNER_TABS): the NFL week's games as they play, an
+// Live (its own tab, #/live; Oct 25 2026, everyone's): the NFL week's games as they play, an
 // octobox like RedZone (eight games at once, the ones in the red zone first, each with the score, the clock, who has
 // the ball, the down and distance, the ball on a little field and the last play; a score flashes on its box), the
 // rest of the week's games under it, then the top performers (the best QB, RB, WR and TE so far) and every player's
 // line with his points in the league's scoring (PPR, core/gameday.js). A tap on a box shows that game's players only.
-// Data: core/gameday.js (ESPN's scoreboard and box scores, every 30 s while a game is on). Its stylesheet
-// (css/views/live.css) loads with it, on the owner's phone only. Another profile picked: the screen empties, its feed
-// stops and its stylesheet goes (app.js moves off the tab). Owner: LIVE.
+// Each player's owner in the league (the draft, then trades); "My players" and "You" follow the profile picked.
+// Data: core/gameday.js (ESPN's scoreboard and box scores, every 30 s while a game is on). Styles: css/views/live.css.
+// Owner: LIVE.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as gd from '../core/gameday.js';
@@ -15,15 +15,6 @@ const esc = data.esc;
 const OCTO = 8, LIST_MAX = 60;
 const POS = ['all', 'QB', 'RB', 'WR', 'TE'];
 const FLASH_MS = 9e3;
-
-let sheet = null;
-function loadStyle() {
-  if (sheet || !data.isOwner()) return;
-  sheet = document.createElement('link');
-  sheet.rel = 'stylesheet';
-  sheet.href = new URL('../../css/views/live.css', import.meta.url).href;
-  document.head.appendChild(sheet);
-}
 
 // ---------------------------------------------------------------------------------------------- Games
 const kickTxt = g => g.tbd ? 'TBD' : g.kickoff.toLocaleString('en-US', {weekday: 'short', hour: 'numeric', minute: '2-digit'});
@@ -222,10 +213,10 @@ function noteScores(st, D) {
   if (st.flash.size) st.flashT = setTimeout(() => { st.flash.forEach((f, id) => { if (f.until <= Date.now()) st.flash.delete(id); }); if (ST.get(st.ctx) === st) draw(st.ctx, 'games'); }, FLASH_MS + 50);
 }
 function start(ctx, st) {
-  if (st.stop || !data.isOwner()) return;
+  if (st.stop) return;
   gd.loadPositions().then(() => { if (ST.get(ctx) === st && st.D) draw(ctx); }, () => {});
   st.stop = gd.watch(D => {
-    if (ST.get(ctx) !== st || !data.isOwner()) return;
+    if (ST.get(ctx) !== st) return;
     noteScores(st, D);
     st.D = D;
     draw(ctx);
@@ -233,23 +224,11 @@ function start(ctx, st) {
 }
 function stopFeed(st) { if (st && st.stop) { st.stop(); st.stop = null; } }
 
-// The screen, or nothing on a phone that isn't the owner's. Another profile picked (here or in another tab) empties
-// every Live screen at once, shown or not, and drops the stylesheet.
-const ELS = new WeakMap(), ON = new Set();
-function teardown(ctx) {
-  const st = ST.get(ctx);
-  if (st) { stopFeed(st); clearTimeout(st.flashT); st.el.innerHTML = ''; }
-  ST.delete(ctx);
-  if (sheet) { sheet.remove(); sheet = null; }
-}
-data.subscribe(t => { if (t === 'me' && !data.isOwner()) ON.forEach(teardown); });
-const VIEW = {
+export default {
   id: 'live',
   title: 'Live',
 
   render() {
-    loadStyle();
-    if (!data.isOwner()) return '';
     return ui.largeTitle({eyebrow: 'NFL · Live', title: 'Live', subtitle: 'Every game as it plays, the red zone first', trailing: youButtonHTML()})
       + `<div class="lg-body"><section class="lg-games" data-lg-games>${gamesHTML({D: null})}</section>`
       + `<section class="lg-leaders" data-lg-leaders></section>`
@@ -263,8 +242,6 @@ const VIEW = {
   },
 
   mount(el, ctx) {
-    ELS.set(ctx, el); ON.add(ctx);
-    if (!data.isOwner()) return;
     const st = {ctx, el, games: el.querySelector('[data-lg-games]'), leaders: el.querySelector('[data-lg-leaders]'), list: el.querySelector('[data-lg-list]'),
       D: null, pos: 'all', q: '', mine: false, game: null, more: false, prev: new Map(), flash: new Map(), flashT: 0, stop: null};
     ST.set(ctx, st);
@@ -304,20 +281,12 @@ const VIEW = {
 
   onHide(ctx) { stopFeed(ST.get(ctx)); },
 
-  // Another profile: emptied (and built again when the owner's is picked back).
-  update(ctx) {
-    if (!data.isOwner()) { teardown(ctx); return; }
-    if (ST.get(ctx)) { draw(ctx); return; }
-    const el = ELS.get(ctx);
-    if (el) { el.innerHTML = VIEW.render(ctx); ui.hydrate(el); VIEW.mount(el, ctx); ctx.refreshChrome(); }
-  },
+  // 'me': whose players are "You" and "My players"; 'data': the league file (owners).
+  update(ctx) { if (ST.get(ctx)) draw(ctx); },
 
   unmount(el, ctx) {
     const st = ST.get(ctx);
     if (st) { stopFeed(st); clearTimeout(st.flashT); }
     ST.delete(ctx);
-    ELS.delete(ctx); ON.delete(ctx);
-    if (!data.isOwner() && sheet) { sheet.remove(); sheet = null; }
   }
 };
-export default VIEW;

@@ -1,4 +1,4 @@
-/* live.css: the Live tab (the owner's alone; loaded by views/live.js on his phone only). Owner: LIVE.
+/* live.css: the Live tab (views/live.js). Owner: LIVE.
    Every selector starts with .lg-body. Motion: the red zone's pulse, a score's flash, the "playing now" dot. */
 
 .lg-body { padding: 4px 0 32px; }

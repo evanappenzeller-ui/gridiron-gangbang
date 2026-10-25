@@ -1,21 +1,21 @@
 # Gridiron Gangbang: rules for working on this app
 
-## All new changes are for Evan's profile only
+## All new changes are for every user
+
+Standing owner instruction (October 25, 2026, Evan: "Push all changes to every user. This is the standard from here on
+out unless I say otherwise"): every new change ships to everyone (league members, app users, guests and unselected
+profiles), not behind the owner gate. It replaces the October 21, 2026 rule that kept new changes on Evan's profile
+only. Ship a change to his profile alone only when he says so for that change. The Lay's player matching (Kyren vs Kyle
+Williams) and the Live tab, first released to him alone on Oct 25, went to everyone the same day.
+Verify behavior on Evan's profile and on another member's (and a visitor's where it matters) before deploying.
+`data.isOwner()` / `data.OWNER === 'evan'` still identifies only Evan, for his own privileges (e.g. editing anyone's
+Lay leg) and anything he asks to keep his; never match a typed display name.
 
 V3.0 exception (October 22, 2026): Evan explicitly requested all completed updates be released to every user.
 Keepfall, the new Return Man presentation/course, game cases, and navigation motion are now shared features.
-Keep the scoreboard and picture visibility rules below as they stand (scoreboards, pictures and Keepfall opened to everyone on Oct 24, 2026); `data.isOwner()` still identifies only Evan.
+Keep the scoreboard and picture visibility rules below as they stand (scoreboards, pictures and Keepfall opened to everyone on Oct 24, 2026).
 V3 game scoring starts from a clean slate, and Keepfall starts with normal resources, without testing currency.
 Do not restore legacy score or Keepfall save fields into the v3 save namespaces.
-
-Standing owner instruction (October 21, 2026): all future app changes, across every feature,
-must apply only to Evan Appenzeller's profile unless he explicitly authorizes a wider rollout.
-Preserve existing behavior for every other member, app user, guest and unselected profile.
-Use the existing stable `data.OWNER === 'evan'` / `data.isOwner()` gate; never match a typed display name.
-This app uses local profile selection and anonymous Firebase sessions, not a verified per-person auth UID.
-Gate new visuals and asset loads, recheck eligibility after asynchronous work, and clear owner-only state
-when the profile changes (including another tab). Do not add owner-only artwork to the shared offline precache.
-Verify both owner and non-owner behavior before deploying. These rules also apply to future work outside Return Man.
 
 ## Return Man art direction
 
@@ -72,6 +72,6 @@ How it's enforced, and what to keep doing:
 - Standing owner instruction (October 21, 2026): after completing and verifying requested changes,
   automatically commit and push them through the deployment process below. Evan will give feedback
   on each published update; do not wait for a separate push/deploy confirmation. Include only the
-  completed task's changes, preserving unrelated work in progress. Keep the owner-only rollout rule.
+  completed task's changes, preserving unrelated work in progress. Ship to every user (the rule above).
 - Work on branch `claude/17-0-game-mode`, then fast-forward `main` (the live site).
 - Bump `CACHE` in `sw.js` on every deploy.
