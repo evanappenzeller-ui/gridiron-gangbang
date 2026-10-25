@@ -533,21 +533,28 @@ function weeksHTML(me) {
   }).join('') + `</div>`;
 }
 
+// The owner's way in to Live Games (#/lay/live; Oct 25 2026): his phone only.
+function liveLinkHTML() {
+  if (!data.isOwner()) return '';
+  const gs = weekGames() || [], on = gs.filter(g => g.state === 'in').length;
+  const sub = on ? `${on} ${on === 1 ? 'game' : 'games'} on now · the red zone, PPR leaders` : 'Scores, the red zone, PPR leaders';
+  return ui.group(ui.row({lead: ui.icon('pulse'), title: 'Live Games', sub, chevron: true, attrs: {'data-nav': '/lay/live'}}), {cls: 'ly-live'});
+}
 function bodyHTML(st) {
   if (!LAY) {
     if (layErr) return ui.empty({icon: 'football', title: "Couldn't load the Lay.", body: 'Check your connection.', action: {label: 'Try again', attrs: {'data-ly-retry': ''}}});
     return ui.skeleton('rows', 4, {label: 'Loading the Lay.'});
   }
   buildWeeks();
-  const me = data.me();
+  const me = data.me(), lk = liveLinkHTML();
   // Before legs close the entry box leads; once they close (games under way) the live tracker does.
   const lw = live.liveWeek(), w = currentWeek();
   const tracking = lw && w && w.year === lw.year && w.week === lw.week && live.isClosed(lw.year, lw.week) && legsOf(w).length;
-  if (tracking) return (live.isAdmin(me) && (st || {}).editing ? entryHTML(st, me) : '') + trackerHTML(w, me) + tilesHTML() + recordsHTML(me) + betTypesHTML() + weeksHTML(me);
+  if (tracking) return lk + (live.isAdmin(me) && (st || {}).editing ? entryHTML(st, me) : '') + trackerHTML(w, me) + tilesHTML() + recordsHTML(me) + betTypesHTML() + weeksHTML(me);
   // Before: the entry box, "Get your legs in", then a preview of the tracker (the live week's legs, scored as they play).
   const thisWeek = lw && w && w.year === lw.year && w.week === lw.week;
-  if (thisWeek) return weekCardHTML(st || {}, me) + (legsOf(w).length ? trackerHTML(w, me, {preview: true}) : '') + tilesHTML() + recordsHTML(me) + betTypesHTML() + weeksHTML(me);
-  return entryHTML(st || {}, me) + heroHTML(me) + tilesHTML() + recordsHTML(me) + betTypesHTML() + weeksHTML(me);
+  if (thisWeek) return lk + weekCardHTML(st || {}, me) + (legsOf(w).length ? trackerHTML(w, me, {preview: true}) : '') + tilesHTML() + recordsHTML(me) + betTypesHTML() + weeksHTML(me);
+  return lk + entryHTML(st || {}, me) + heroHTML(me) + tilesHTML() + recordsHTML(me) + betTypesHTML() + weeksHTML(me);
 }
 
 function subtitle() {

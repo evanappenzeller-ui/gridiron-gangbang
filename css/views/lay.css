@@ -1,6 +1,7 @@
 /* lay.css: The Lay tab (the weekly 12-leg parlay). Owner: LAY. Every selector starts with .v-lay. Motion: none of its own. */
 
 .v-lay .ly-body { padding-top: 8px; }
+.v-lay .ly-live { margin-bottom: 12px; } /* Live Games, the owner's way in (views/live.js) */
 
 /* ================================================================ This week */
 .v-lay .ly-hero { overflow: hidden; }

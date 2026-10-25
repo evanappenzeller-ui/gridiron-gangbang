@@ -1,0 +1,167 @@
+/* live.css: Live Games (#/lay/live, the owner's alone; loaded by views/live.js on his phone only). Owner: LIVE.
+   Every selector starts with .v-live. Motion: the red zone's pulse, a score's flash, the "playing now" dot. */
+
+.v-live .lg-body { padding: 4px 0 32px; }
+.v-live .lg-sh { margin-top: 20px; }
+.v-live .lg-games > .lg-sh:first-child { margin-top: 8px; }
+.v-live .lg-at { display: inline-flex; align-items: center; gap: 6px; flex: none; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+.v-live .lg-pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--wrong); animation: lg-blink 1.6s ease-in-out infinite; }
+.v-live .lg-h3 { margin: 20px 0 8px; font: 400 12px/18px var(--font-pixel); text-transform: uppercase; color: var(--ink-2); }
+
+/* ================================================================ Red zone ticker */
+.v-live .lg-ticker {
+  margin: 0 0 10px; padding: 8px 12px; border-radius: var(--r-cell);
+  background: var(--wrong-soft); box-shadow: inset 0 0 0 1px rgba(255,90,74,.45);
+  font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink);
+}
+.v-live .lg-ticker b { margin-right: 6px; font: 400 10px/18px var(--font-pixel); text-transform: uppercase; color: var(--wrong); }
+
+/* ================================================================ The octobox */
+.v-live .lg-octo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+@media (min-width: 720px) { .v-live .lg-octo { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+.v-live .lg-tile {
+  position: relative; display: flex; flex-direction: column; gap: 4px; min-width: 0; overflow: hidden;
+  padding: 10px 10px 9px; border-radius: var(--r-card);
+  background: var(--surface-1); color: var(--ink); text-align: left;
+  box-shadow: var(--pixel-shadow), inset 0 0 0 1px var(--separator);
+  transition: transform var(--spring-snappy-dur) var(--spring-snappy);
+}
+.v-live .lg-tile:active { transform: scale(.97); }
+.v-live .lg-tile.is-in { background: linear-gradient(180deg, var(--surface-2), var(--surface-1) 70%); }
+.v-live .lg-tile.is-post { opacity: .78; }
+.v-live .lg-tile.is-sel { box-shadow: var(--pixel-shadow), inset 0 0 0 2px var(--tint); }
+.v-live .lg-tile.is-rz { box-shadow: var(--pixel-shadow), inset 0 0 0 2px var(--wrong); animation: lg-rz 1.8s ease-in-out infinite; }
+.v-live .lg-tile.is-scored { box-shadow: var(--pixel-shadow), inset 0 0 0 2px var(--gold); }
+.v-live .lg-tile.is-rz.is-sel { box-shadow: var(--pixel-shadow), inset 0 0 0 2px var(--wrong), inset 0 0 0 4px var(--tint); }
+
+.v-live .lg-top { display: flex; align-items: center; gap: 6px; min-height: 18px; }
+.v-live .lg-clock { font: 400 var(--fs-n5)/18px var(--font-num); color: var(--ink-2); white-space: nowrap; }
+.v-live .lg-tile.is-in .lg-clock { color: var(--ink); }
+.v-live .lg-tv { margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 400 var(--fs-cap)/16px var(--font-text); color: var(--ink-3); }
+.v-live .lg-flag, .v-live .lg-live {
+  flex: none; padding: 1px 5px; border-radius: 4px; font: 400 8px/14px var(--font-pixel); text-transform: uppercase;
+}
+.v-live .lg-flag { background: var(--wrong); color: #fff; }
+.v-live .lg-live { background: var(--tint-soft); color: var(--tint); }
+
+.v-live .lg-team { display: flex; align-items: center; gap: 6px; min-width: 0; height: 30px; }
+.v-live .lg-logo { flex: none; width: 26px; height: 26px; object-fit: contain; }
+.v-live .lg-logo-x { display: grid; place-items: center; border-radius: 50%; background: var(--surface-3); font: 600 9px/1 var(--font-text); }
+.v-live .lg-abbr { font: 600 var(--fs-callout)/1 var(--font-text); letter-spacing: .02em; }
+.v-live .lg-ball { flex: none; width: 12px; height: 8px; border-radius: 50%; background: #B5652E; box-shadow: inset 0 0 0 1px #6B3313; position: relative; }
+.v-live .lg-ball::after { content: ""; position: absolute; left: 3px; right: 3px; top: 3.5px; height: 1px; background: #fff; }
+.v-live .lg-to { display: inline-flex; gap: 2px; }
+.v-live .lg-to i { width: 5px; height: 3px; border-radius: 1px; background: var(--surface-3); }
+.v-live .lg-to i.on { background: var(--gold); }
+.v-live .lg-sc { margin-left: auto; font-family: var(--font-num); }
+.v-live .lg-rec { margin-left: auto; font: 400 var(--fs-cap)/1 var(--font-text); color: var(--ink-3); }
+.v-live .lg-team.is-lost { color: var(--ink-3); }
+.v-live .lg-team.is-won .lg-sc { color: var(--tint); }
+
+/* The ball on the field: away end zone left, home end zone right; the yellow first-down line. */
+.v-live .lg-field {
+  position: relative; height: 14px; margin-top: 4px; border-radius: 3px; overflow: hidden;
+  background: repeating-linear-gradient(90deg, #1E6B33 0 10%, #237A3A 10% 20%);
+}
+.v-live .lg-ez { position: absolute; top: 0; bottom: 0; width: 8%; opacity: .9; }
+.v-live .lg-ez-a { left: 0; background: var(--ac); }
+.v-live .lg-ez-h { right: 0; background: var(--hc); }
+.v-live .lg-yd { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: rgba(255,255,255,.45); }
+.v-live .lg-fd { position: absolute; top: 0; bottom: 0; width: 2px; left: calc(8% + var(--x) * .84%); margin-left: -1px; background: #FFE14D; }
+.v-live .lg-los {
+  position: absolute; top: 50%; left: calc(8% + var(--x) * .84%); width: 10px; height: 7px; margin: -3.5px 0 0 -5px;
+  border-radius: 50%; background: #C06A2E; box-shadow: 0 0 0 1px #fff;
+}
+.v-live .lg-field.is-rz { box-shadow: inset 0 0 0 1px var(--wrong); }
+.v-live .lg-dd { font: 600 var(--fs-cap)/16px var(--font-text); color: var(--ink); }
+.v-live .lg-tile.is-rz .lg-dd { color: #FF8A7E; }
+.v-live .lg-last {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  font: 400 11px/14px var(--font-text); color: var(--ink-3);
+}
+
+/* A score: the box flashes and says what it was. */
+.v-live .lg-burst {
+  position: absolute; inset: 0; display: grid; place-content: center; gap: 4px; text-align: center; pointer-events: none;
+  background: radial-gradient(circle at 50% 50%, rgba(255,197,49,.92), rgba(255,122,47,.88));
+  color: #1A0C00; animation: lg-burst 4.5s ease-out forwards;
+}
+.v-live .lg-burst b { font: 400 12px/16px var(--font-pixel); text-transform: uppercase; text-shadow: 1px 1px 0 rgba(255,255,255,.5); }
+.v-live .lg-burst span { font: 400 var(--fs-n4)/1 var(--font-num); }
+
+/* The rest of the week's games: a row to swipe. */
+.v-live .lg-minis { display: flex; gap: 8px; overflow-x: auto; margin: 0 calc(-1 * var(--gutter)); padding: 0 var(--gutter) 4px; scrollbar-width: none; }
+.v-live .lg-minis::-webkit-scrollbar { display: none; }
+.v-live .lg-mini {
+  flex: none; display: grid; gap: 2px; min-width: 116px; padding: 8px 10px; border-radius: var(--r-cell);
+  background: var(--surface-1); color: var(--ink); text-align: left; box-shadow: inset 0 0 0 1px var(--separator);
+}
+.v-live .lg-mini.is-sel { box-shadow: inset 0 0 0 2px var(--tint); }
+.v-live .lg-mt { display: flex; align-items: center; gap: 6px; font: 600 var(--fs-foot)/20px var(--font-text); }
+.v-live .lg-mt .lg-logo { width: 18px; height: 18px; }
+.v-live .lg-mt .n5 { margin-left: auto; }
+.v-live .lg-mc { font: 400 var(--fs-cap)/16px var(--font-text); color: var(--ink-3); }
+
+/* ================================================================ Top performers */
+.v-live .lg-leads { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+@media (min-width: 720px) { .v-live .lg-leads { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.v-live .lg-lead {
+  min-width: 0; padding: 10px 12px 12px; border-radius: var(--r-card);
+  background: var(--surface-1); box-shadow: var(--pixel-shadow), inset 0 3px 0 var(--pc, var(--tint));
+}
+.v-live .lg-lead.is-none { display: grid; align-content: center; justify-items: start; gap: 6px; color: var(--ink-3); }
+.v-live .lg-lh { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.v-live .lg-ln { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 var(--fs-sub)/var(--lh-sub) var(--font-text); }
+.v-live .lg-lt { font: 400 var(--fs-cap)/16px var(--font-text); color: var(--ink-3); }
+.v-live .lg-ls { margin-top: 4px; font: 400 var(--fs-cap)/16px var(--font-text); color: var(--ink-2); }
+.v-live .lg-lp { margin-left: auto; display: grid; justify-items: end; }
+.v-live .lg-lp b { font-family: var(--font-num); color: var(--gold); }
+.v-live .lg-lp small { font: 400 7px/10px var(--font-pixel); color: var(--ink-3); }
+
+/* Position colours */
+.v-live .pos-QB { --pc: #FF6B8B; }
+.v-live .pos-RB { --pc: #4FD1C5; }
+.v-live .pos-WR { --pc: #64A8FF; }
+.v-live .pos-TE { --pc: #FFB547; }
+.v-live .lg-pos {
+  display: inline-block; vertical-align: 1px; padding: 0 4px; border-radius: 3px;
+  background: color-mix(in srgb, var(--pc, var(--ink-3)) 22%, transparent); color: var(--pc, var(--ink-2));
+  font: 700 10px/15px var(--font-text); letter-spacing: .04em;
+}
+
+/* Headshots (initials until the picture loads, and when it doesn't) */
+.v-live .lg-hs {
+  position: relative; flex: none; display: grid; place-items: center; width: var(--sz); height: var(--sz);
+  border-radius: 50%; overflow: hidden; background: var(--surface-3);
+  font: 600 calc(var(--sz) * .34)/1 var(--font-text); color: var(--ink-2);
+}
+.v-live .lg-hs img { position: absolute; left: 50%; bottom: 0; height: 100%; width: auto; transform: translateX(-50%) scale(1.25); transform-origin: 50% 100%; }
+
+/* ================================================================ Player stats */
+.v-live .lg-stats .seg { margin-bottom: 8px; }
+.v-live .lg-search { margin-bottom: 8px; }
+.v-live .lg-scope { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 6px; font: 600 var(--fs-foot)/28px var(--font-text); color: var(--ink-2); }
+.v-live .lg-list { list-style: none; margin: 0; padding: 0; border-radius: var(--r-group); background: var(--surface-1); overflow: hidden; }
+.v-live .lg-p { display: flex; align-items: center; gap: 10px; min-height: 60px; padding: 8px 12px; }
+.v-live .lg-p + .lg-p { box-shadow: 0 -1px 0 var(--separator); }
+.v-live .lg-rk { flex: none; width: 22px; text-align: right; color: var(--ink-3); font-family: var(--font-num); }
+.v-live .lg-p.is-top .lg-rk { color: var(--gold); }
+.v-live .lg-pm { flex: 1; min-width: 0; }
+.v-live .lg-pn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 var(--fs-sub)/var(--lh-sub) var(--font-text); }
+.v-live .lg-ps { font: 400 var(--fs-cap)/16px var(--font-text); color: var(--ink-2); }
+.v-live .lg-pt { color: var(--ink-3); }
+.v-live .lg-pp { flex: none; min-width: 52px; text-align: right; font-family: var(--font-num); }
+.v-live .lg-p.is-top .lg-pp { color: var(--gold); }
+.v-live .lg-dot { display: inline-block; width: 6px; height: 6px; margin-left: 2px; vertical-align: 2px; border-radius: 50%; background: var(--wrong); animation: lg-blink 1.6s ease-in-out infinite; }
+.v-live .lg-morewrap { display: flex; justify-content: center; margin-top: 12px; }
+.v-live .lg-foot { margin-top: 16px; font: 400 var(--fs-cap)/var(--lh-cap) var(--font-text); color: var(--ink-4); }
+
+@keyframes lg-blink { 50% { opacity: .25; } }
+@keyframes lg-rz { 50% { box-shadow: var(--pixel-shadow), inset 0 0 0 2px var(--wrong), 0 0 18px rgba(255,90,74,.45); } }
+@keyframes lg-burst { 0% { opacity: 0; transform: scale(1.15); } 8% { opacity: 1; transform: scale(1); } 65% { opacity: 1; } 100% { opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .v-live .lg-tile.is-rz, .v-live .lg-pulse, .v-live .lg-dot { animation: none; }
+  .v-live .lg-burst { animation-duration: .01s; animation-fill-mode: none; }
+}

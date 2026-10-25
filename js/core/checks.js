@@ -1575,6 +1575,30 @@ export async function runChecks() {
     return {pass: !bad.length, detail: bad.length ? bad.join('; ') : `${want.length} legs scored right`};
   });
 
+  check('Live Games (the owner\'s alone, Oct 25 2026): the ball\'s spot and the red zone from ESPN, every player\'s line and his PPR points, and #/lay/live opens on the owner\'s phone only', async () => {
+    const [nfl, gd, app] = await Promise.all([import('./nfl.js'), import('./gameday.js'), import('../app.js')]);
+    const bad = [];
+    const H = {id: '12', abbr: 'KC'}, A = {id: '7', abbr: 'DEN'};
+    const s = nfl.sitOf({possession: '12', down: 2, distance: 6, possessionText: 'DEN 14', shortDownDistanceText: '2nd & 6', isRedZone: true, homeTimeouts: 3, awayTimeouts: 1, lastPlay: {text: 'Mahomes pass to Kelce for 9', type: {text: 'Pass Reception'}}}, H, A);
+    if (!s || s.poss !== 'home' || s.x !== 14 || s.toGo !== 14 || !s.rz || s.down !== 2 || s.dist !== 6 || s.to.away !== 1 || !/Kelce/.test(s.last)) bad.push('situation ' + JSON.stringify(s));
+    const own = nfl.sitOf({possession: '7', possessionText: 'DEN 25'}, H, A);
+    if (!own || own.x !== 25 || own.toGo !== 75 || own.rz) bad.push('own territory ' + JSON.stringify(own));
+    const cat = (name, keys, rows) => ({name, keys, labels: [], athletes: rows.map(([id, nm, st]) => ({athlete: {id, displayName: nm}, stats: st}))});
+    const box = gd.parseBox({boxscore: {players: [{team: {abbreviation: 'BUF'}, statistics: [
+      cat('passing', ['completions/passingAttempts', 'passingYards', 'yardsPerPassAttempt', 'passingTouchdowns', 'interceptions'], [['1', 'Josh Allen', ['24/31', '288', '9.3', '3', '1']]]),
+      cat('rushing', ['rushingAttempts', 'rushingYards', 'yardsPerRushAttempt', 'rushingTouchdowns', 'longRushing'], [['1', 'Josh Allen', ['6', '41', '6.8', '0', '12']], ['2', 'James Cook', ['15', '72', '4.8', '1', '20']]]),
+      cat('receiving', ['receptions', 'receivingYards', 'yardsPerReception', 'receivingTouchdowns', 'longReception', 'receivingTargets'], [['2', 'James Cook', ['3', '18', '6.0', '0', '9', '4']]]),
+      cat('fumbles', ['fumbles', 'fumblesLost', 'fumblesRecovered'], [['2', 'James Cook', ['1', '1', '0']]])]}]}});
+    const P = Object.fromEntries(box.players.map(p => [p.name, p]));
+    if (!P['Josh Allen'] || P['Josh Allen'].pts !== 26.62) bad.push('Allen ' + (P['Josh Allen'] && P['Josh Allen'].pts) + ' (want 26.62)');
+    if (!P['James Cook'] || P['James Cook'].pts !== 16) bad.push('Cook ' + (P['James Cook'] && P['James Cook'].pts) + ' (want 16)');
+    if (P['Josh Allen'] && gd.statLine(P['Josh Allen']) !== '24/31, 288 yds, 3 TD, 1 INT · 6 car, 41 yds') bad.push('line: ' + gd.statLine(P['Josh Allen']));
+    if (P['James Cook'] && gd.posOf(P['James Cook'], new Map()) !== 'RB') bad.push('position from stats');
+    const r = app.parseRoute('/lay/live');
+    if (data.isOwner() ? !(r && r.view === 'live' && r.open === 'push' && r.tab === 'lay') : !(r && r.view === 'lay')) bad.push('route ' + JSON.stringify(r && {view: r.view, open: r.open}));
+    return {pass: !bad.length, detail: bad.length ? bad.join('; ') : `the ball at the ${s.spot} in the red zone; Allen ${P['Josh Allen'].pts}, Cook ${P['James Cook'].pts} PPR; #/lay/live ${data.isOwner() ? 'opens here (the owner)' : 'goes back to the Lay here'}`};
+  });
+
   check('The Lay\'s hit rate by bet type: every leg on file reads as a kind of bet (an anytime TD, a player prop, a spread, a moneyline, a total)', async () => {
     const L = await (await fetch(new URL('../../data/lay.json', import.meta.url).href)).json();
     const legs = (L.weeks || []).flatMap(w => w.legs || []), none = legs.filter(l => !laytrack.betKind(l.bet)).map(l => l.bet);

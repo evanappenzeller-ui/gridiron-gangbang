@@ -14,7 +14,8 @@
 //           period, clock ('4:12'), final (a real result: post and completed, not postponed or canceled),
 //           tie (final with no winner), winner: 'home'|'away'|null, home, away, label ('PIT @ CLE'),
 //           name ('Pittsburgh Steelers at Cleveland Browns'), neutral, site, city, country, intl (the country
-//           when it is not the USA, e.g. 'England', else ''), note ('NFL London Games' or ''), tv ('Prime Video')}
+//           when it is not the USA, e.g. 'England', else ''), note ('NFL London Games' or ''), tv ('Prime Video'),
+//           sit (while it is on: the ball, sitOf below; else null)}
 // A team:  {id, abbr ('PIT'), name ('Pittsburgh Steelers'), short ('Steelers'), logo (https://a.espncdn.com/...),
 //           color ('#000000' or null), alt, score (number; null before kickoff: ESPN sends '0'), winner (bool,
 //           final games only), record ('2–1', en dash; '' when ESPN has none)}
@@ -139,7 +140,34 @@ function eventOf(e, o = {}) {
     site: String((c.venue && c.venue.fullName) || ''), city: String(addr.city || ''), country,
     intl: country && !/^(USA|US|United States)$/i.test(country) ? country : '',
     note: notes[0] || '', tv: tv.join(' / '),
-    line: lineOf(c, home, away)
+    line: lineOf(c, home, away),
+    sit: state === 'in' ? sitOf(c.situation, home, away) : null
+  };
+}
+
+// Where the ball is in a game that's on (ESPN's situation; for the live games tracker, views/live.js): {poss: 'home' |
+// 'away' | null (who has it), down (1-4, or null), dist (yards to go), text ('3rd & 4'), spot ('KC 25'), x (the ball
+// from the away team's goal line, 0-100, or null), toGo (yards to the goal for the team with it, or null), rz (in
+// the red zone), last (the last play's words), lastType ('Passing Touchdown'), to: {home, away} (timeouts left)},
+// or null when ESPN sends none.
+export function sitOf(s, home, away) {
+  if (!s || typeof s !== 'object' || !home || !away) return null;
+  const pid = String(s.possession == null ? '' : s.possession);
+  const poss = pid && pid === home.id ? 'home' : pid && pid === away.id ? 'away' : null;
+  const down = num(s.down), dist = num(s.distance);
+  const spot = typeof s.possessionText === 'string' ? s.possessionText.trim() : '';
+  let x = null;
+  const m = /^([A-Z0-9&-]{2,6})\s+(\d{1,2})$/.exec(spot);
+  if (m && +m[2] <= 50) x = m[1] === away.abbr ? +m[2] : m[1] === home.abbr ? 100 - +m[2] : null;
+  else if (spot === '50') x = 50;
+  const toGo = x == null || !poss ? null : poss === 'away' ? 100 - x : x;
+  const lp = s.lastPlay && typeof s.lastPlay === 'object' ? s.lastPlay : {};
+  return {
+    poss, down: down >= 1 && down <= 4 ? down : null, dist: dist != null && dist >= 0 ? dist : null,
+    text: String(s.shortDownDistanceText || s.downDistanceText || ''), spot, x, toGo,
+    rz: s.isRedZone === true, last: typeof lp.text === 'string' ? lp.text : '',
+    lastType: lp.type && typeof lp.type.text === 'string' ? lp.type.text : '',
+    to: {home: num(s.homeTimeouts), away: num(s.awayTimeouts)}
   };
 }
 
@@ -513,7 +541,8 @@ function makeFeed(cfg) {
       state, final, tie: final && !winner, winner, home, away, kickoff: isFinite(kick.getTime()) ? kick : g.kickoff, tbd: p.tbd != null ? !!p.tbd : g.tbd,
       status: p.off ? 'STATUS_POSTPONED' : state === 'pre' ? 'STATUS_SCHEDULED' : state === 'in' ? 'STATUS_IN_PROGRESS' : 'STATUS_FINAL',
       detail: typeof p.detail === 'string' ? p.detail : state === 'in' ? 'In progress' : state === 'post' ? (p.off ? 'Postponed' : 'Final') : g.detail,
-      period: p.period != null ? num(p.period) : g.period, clock: typeof p.clock === 'string' ? p.clock : g.clock
+      period: p.period != null ? num(p.period) : g.period, clock: typeof p.clock === 'string' ? p.clock : g.clock,
+      sit: state !== 'in' ? null : p.sit !== undefined ? p.sit : g.sit
     });
   }
   function patched(year, week, games) {
