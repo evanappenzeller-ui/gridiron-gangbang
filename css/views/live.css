@@ -136,7 +136,9 @@
   border-radius: 50%; overflow: hidden; background: var(--surface-3);
   font: 600 calc(var(--sz) * .34)/1 var(--font-text); color: var(--ink-2);
 }
-.lg-body .lg-hs img { position: absolute; left: 50%; bottom: 0; height: 100%; width: auto; transform: translateX(-50%) scale(1.25); transform-origin: 50% 100%; }
+.lg-body .lg-hs img { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; object-fit: cover; object-position: 50% 15%; }
+/* ESPN's headshots are cut out (transparent): the initials step aside once one is there (it removes itself if it fails). */
+.lg-body .lg-hs:has(img) > span { visibility: hidden; }
 
 /* ================================================================ Player stats */
 .lg-body .lg-stats .seg { margin-bottom: 8px; }
