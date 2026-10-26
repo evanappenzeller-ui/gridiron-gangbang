@@ -856,7 +856,7 @@ const OBJ = new Map();
 function obstacleOf(type, id) {
   const key = type + ':' + id;
   if (OBJ.has(key)) return OBJ.get(key);
-  const [a, b, word] = OBS[id] || OBS.stadium, g = new T.Group(), parts = new Batch();
+  const [a, b] = OBS[id] || OBS.stadium, g = new T.Group(), parts = new Batch();
   if (type === 'hole') {
     // a pothole (each place's own: return-world.js HOLE_COL): its broken edge and its dark inside, flat in the road
     const [rim, deep] = HOLE_COL[id] || HOLE_COL.city;
@@ -890,10 +890,10 @@ function obstacleOf(type, id) {
     [-.98, .98].forEach(x => { const l = lamp.clone(); l.position.set(x, 1.08, 0); l.userData.blink = true; g.add(l); });
   } else {
     [-1.4, 1.4].forEach(x => { parts.add('cyl', '#8E98A4', x, 1.35, 0, .05, 2.7, .05); parts.add('sph', '#E9EDF1', x, 2.72, 0, .08, .08, .08); });
+    // (the place's colour, trimmed top and bottom in the other: no words on it, the owner's ask, Oct 25 2026)
     const ban = new T.Mesh(new T.BoxGeometry(2.72, 1.21, .04), new T.MeshLambertMaterial({map: texOf('banner:' + id, () => canvasTex(512, 228, (c2, w, h) => {
       c2.fillStyle = a; c2.fillRect(0, 0, w, h);
       c2.fillStyle = b; c2.fillRect(0, 0, w, 16); c2.fillRect(0, h - 16, w, 16);
-      c2.font = `800 ${h * .5}px ${DISPLAY}`; c2.textAlign = 'center'; c2.textBaseline = 'middle'; c2.fillText(word, w / 2, h / 2 + 4, w - 40);
     }, false))}));
     ban.position.set(0, 1.845, 0); ban.castShadow = true; g.add(ban);
   }

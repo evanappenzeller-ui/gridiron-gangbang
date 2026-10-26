@@ -1837,11 +1837,11 @@ export function vehicle(st, c, p) {
 // ============================================================================ The rows: barricades and banners
 // What stands across a lane a row at a time (core/return.js OBST): a barricade to jump (a striped board on two
 // sawhorse legs, about a yard up) and a banner to slide under (slung between two poles, its bottom 1.15 yards up). Each
-// in the colours of the place it stands in, the banner with the place's word on it. k (0 to 1): knocked flying, after
-// a hit (or smashed through on painkillers).
-const OB = {stadium: ['#C8102E', '#FFFFFF', 'RETURN MAN'], tailgate: ['#F28C28', '#FFFFFF', 'TAILGATE'], city: ['#F2A900', '#1B1B1B', 'DETOUR'],
-  tundra: ['#2E6FB5', '#FFFFFF', 'FROZEN TUNDRA'], desert: ['#B5652B', '#F3D9A4', 'WILD WEST'], market: ['#2E9E4F', '#FFF4D6', 'FRESH'],
-  beach: ['#1FA6C9', '#FFFFFF', 'SURF’S UP'], space: ['#6B3CFF', '#5CF4FF', 'ZERO G'], farm: ['#C8322B', '#F3E6C8', 'FARM FRESH']};
+// in the colours of the place it stands in, no words on either (the owner's ask, Oct 25 2026). k (0 to 1): knocked
+// flying, after a hit (or smashed through on painkillers).
+const OB = {stadium: ['#C8102E', '#FFFFFF'], tailgate: ['#F28C28', '#FFFFFF'], city: ['#F2A900', '#1B1B1B'],
+  tundra: ['#2E6FB5', '#FFFFFF'], desert: ['#B5652B', '#F3D9A4'], market: ['#2E9E4F', '#FFF4D6'],
+  beach: ['#1FA6C9', '#FFFFFF'], space: ['#6B3CFF', '#5CF4FF'], farm: ['#C8322B', '#F3E6C8']};
 // The hard course's two (core/return.js HARD_OBST): a pothole, each place's own (HOLE_COL: its broken edge, its
 // inside), sunk in the lane about two yards across and two long; and a tackling sled, two pads on a skid in the place's colours.
 const HOLE_COL = {stadium: ['#6B4A2B', '#24160B'], tailgate: ['#5B5E63', '#141518'], city: ['#5B5E63', '#141518'], tundra: ['#DDEFFF', '#0F3552'],
@@ -1888,7 +1888,7 @@ export function cone(st, c, lane, z, u = 0, side = 0, ahead) {
 export function obstacle(st, c, type, lane, z, k = 0) {
   if (z < st.camZ + NEAR + .2) return;
   if (type === 'hole') { hole(st, c, R.xOf(null, lane), z, themeOf(st, z).id); return; }
-  const [a, b, word] = OB[themeOf(st, z).id] || OB.stadium;
+  const [a, b] = OB[themeOf(st, z).id] || OB.stadium;
   const side = lane === 0 ? -1 : 1, X = R.xOf(null, lane) + side * k * 4.5, lift = Math.max(0, 3.2 * k - 4 * k * k);
   c.save();
   c.globalAlpha = Math.max(0, 1 - k * k);
@@ -1928,8 +1928,6 @@ export function obstacle(st, c, type, lane, z, k = 0) {
     rr(c, -1.36, -2.45, 2.72, 1.3, .04); c.fillStyle = a; c.fill();
     c.fillStyle = b; c.fillRect(-1.36, -2.45, 2.72, .09); c.fillRect(-1.36, -1.24, 2.72, .09);
     c.fillStyle = 'rgba(0,0,0,.18)'; c.fillRect(-1.36, -1.24, 2.72, .03);
-    c.fillStyle = b; c.font = `800 .52px ${DISPLAY}`; c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.fillText(word, 0, -1.8, 2.45);
   }
   c.restore();
   c.restore();
