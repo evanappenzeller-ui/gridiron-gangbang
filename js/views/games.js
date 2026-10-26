@@ -7,7 +7,9 @@ import * as features from '../core/features.js';
 // Evan's profile has the physical green case skin, a full-size Play / Continue control below the open case,
 // and a cancellable disc-to-console transition before that same game route opens.
 // A game finished today turns its case round: on its back, your result, your place and the top of today's league
-// board; tap it and it comes up close with the whole board, Today's or the Season's. The rows come from each game's core
+// board; tap it and it comes up close with the whole board, Today's or the Season's. Every case but Keepfall's has
+// that scoreboard at any point, played or not (the owner's ask, Oct 26 2026): one not finished stands on its front,
+// today's board so far on its back, and View scoreboard under it turns it round and back. The rows come from each game's core
 // (boardRows: daily.LB.raw / LB.players, the board as this phone may see it: THE RULE, CLAUDE.md).
 // 17-0's, the drill's, Kick It's and Return Man's cores load at idle (17-0's and the drill's with their day files);
 // until then their cases open to Start. Return Man is open to everyone with the supplied Return Man cover.
@@ -97,9 +99,9 @@ function puzzlesState() {
   const k = dailyKind(), test = !!daily.TEST;
   if (k === 'loading') return {kind: 'loading'};
   if (k === 'error') return {kind: 'error', meta: '<p class="gm-note">Puzzles need a connection the first time.</p>'};
-  if (k === 'new') return {kind: 'new', test, meta: socialHTML()};
-  if (k === 'started') return {kind: 'started', test, meta: `<div class="gm-prog">${progHTML()}</div>`};
   const rows = dailyBoard() === 'ready' ? safe(() => daily.boardRows('today')).map(r => ({...r, val: nf(r.pts)})) : [];
+  if (k === 'new') return {kind: 'new', test, meta: socialHTML(), ...unplayed(dailyBoard(), rows, false, 'New puzzles every day')};
+  if (k === 'started') return {kind: 'started', test, meta: `<div class="gm-prog">${progHTML()}</div>`, ...unplayed(dailyBoard(), rows, true, `${doneCount()} of ${daily.STEPS.length} done`)};
   const base = {kind: 'done', test, board: dailyBoard(), rows};
   if (k === 'played') {
     const e = daily.playedElsewhere() || {};
@@ -114,6 +116,11 @@ function puzzlesState() {
       {label: 'Share', kind: 'secondary', icon: 'share', attrs: {'data-share': ''}}]};
 }
 const safe = f => { try { return f() || []; } catch (e) { console.error(e); return []; } };
+/** What a case not finished today has on its back (the owner's ask, Oct 26 2026: "All game cases, except Keepfall,
+ *  should have a scoreboard that can be toggled at any point"): today's board so far, TODAY in its band; it stands on
+ *  its front to play (shelfTurner's .is-turns). line: the line under the head. */
+const unplayed = (board = 'loading', rows = [], started = false, line = '') => ({turns: true, board, rows, tag: 'TODAY', vis: '',
+  head: started ? 'Your game’s under way' : 'Not played yet today', lines: [line || (started ? 'Pick up where you left off' : 'One game a day, to 0:00')]});
 
 // ============================================================================ 17-0, the drill, Kick It
 // Their cores, once loaded (17-0's and the drill's need their day files).
@@ -149,14 +156,15 @@ const boardOf = m => safe(() => [m.boardState()])[0] || 'loading';
 const SEASON = [[17, 'Perfect season'], [16, 'One from perfect'], [14, 'A juggernaut'], [11, 'Playoff team'], [8, 'On the bubble'], [5, 'Rebuilding year'], [0, 'Top-three pick']];
 function seventeenState() {
   const sv = C.sv;
-  if (!sv) return {kind: 'new'};
+  if (!sv) return {kind: 'new', ...unplayed()};
   const n = sv.todayNumber(), day = sv.dayState(n), test = sv.testing();
   const rows = boardOf(sv) === 'ready' ? safe(() => sv.boardRows('today', n)).map(r => ({...r, val: `${r.w}–${r.l}`})) : [];
   const mine = rows.find(r => r.me);
   const res = day.played || (!test && mine ? {w: mine.w, l: mine.l, ppg: mine.p} : null);
   if (!res) {
     const k = day.pick.filter(x => x != null).length;
-    return k ? {kind: 'started', test, meta: `<p class="gm-note">${esc(`${k} of 5 picked`)}</p>`} : {kind: 'new', test};
+    return k ? {kind: 'started', test, meta: `<p class="gm-note">${esc(`${k} of 5 picked`)}</p>`, ...unplayed(boardOf(sv), rows, true, `${k} of 5 picked`)}
+      : {kind: 'new', test, ...unplayed(boardOf(sv), rows, false, 'One lineup a day, to 0:00')};
   }
   return {kind: 'done', test, board: boardOf(sv), rows, gold: res.w === 17,
     vis: tileHTML(`${res.w}–${res.l}`, 'record', res.w === 17 ? 'is-gold' : ''),
@@ -166,15 +174,14 @@ function seventeenState() {
 }
 function drillState() {
   const dr = C.dr;
-  if (!dr) return {kind: 'new'};
+  if (!dr) return {kind: 'new', ...unplayed()};
   const n = dr.todayNumber(), day = dr.dayState(n), test = dr.testing();
   const rows = boardOf(dr) === 'ready' ? safe(() => dr.boardRows(n)).map(r => ({...r, val: `${r.r} ${r.u}–${r.h}`})) : [];
   const mine = rows.find(r => r.me);
   if (!day.result && !(mine && !test)) {
     // Today's leaderboard before your game's over too (the owner's ask, Oct 24 2026): the case turns round to it, as
     // Return Man's does, and View scoreboard under it; standing on its front, a tap plays.
-    const back = {turns: true, board: boardOf(dr), rows, tag: 'TODAY', vis: '',
-      head: day.acts ? 'Your game’s under way' : 'Not played yet today', lines: [day.acts ? 'Pick up where you left off' : 'One game a day, to 0:00']};
+    const back = unplayed(boardOf(dr), rows, !!day.acts);
     return day.acts ? {kind: 'started', test, meta: '<p class="gm-note">Under way. Pick up where you left off.</p>', ...back}
       : {kind: 'new', test, ...back};
   }
@@ -196,14 +203,14 @@ function drillState() {
 }
 function kickState() {
   const K = C.kk;
-  if (!K) return {kind: 'new'};
+  if (!K) return {kind: 'new', ...unplayed()};
   const n = K.todayNumber(), day = K.dayState(n), test = K.testing();
   const rows = boardOf(K) === 'ready' ? safe(() => K.boardRows(n)).map(r => ({...r, val: String(r.m)})) : [];
   const mine = rows.find(r => r.me);
   const off = day.official || (!test && mine ? {made: mine.m, longest: mine.l} : null);
   if (!off) {
-    return day.list.length ? {kind: 'started', test, meta: `<p class="gm-note">${esc(`${day.made} made, ${day.missed} missed so far`)}</p>`}
-      : {kind: 'new', test};
+    return day.list.length ? {kind: 'started', test, meta: `<p class="gm-note">${esc(`${day.made} made, ${day.missed} missed so far`)}</p>`, ...unplayed(boardOf(K), rows, true, `${day.made} made, ${day.missed} missed so far`)}
+      : {kind: 'new', test, ...unplayed(boardOf(K), rows, false, 'One round of kicks a day')};
   }
   return {kind: 'done', test, board: boardOf(K), rows,
     vis: tileHTML(String(off.made), 'made'),
@@ -217,7 +224,7 @@ function returnState() {
   // shows it), a finished day's, like Kick It's: your yards, the scoreboard, the next kickoff's countdown. Test play's
   // sandbox still runs it back as often as the owner likes.
   const RM = C.rm;
-  if (!RM) return {kind: 'new'};
+  if (!RM) return {kind: 'new', ...unplayed('loading', [], false, 'One kickoff a day')};
   const n = RM.todayNumber(), day = RM.dayState(n), test = RM.testing(), board = boardOf(RM);
   const rows = board === 'ready' ? safe(() => RM.boardRows(n)).map(r => ({...r, val: nf(r.y)})) : [];
   const mine = rows.find(r => r.me), best = day.official ? day.official.yards : !test && mine ? mine.y : null;
@@ -369,11 +376,15 @@ function ctaHTML(s) {
   if (s.kind === 'error') return `<div class="gm-ctas">${ui.button({label: 'Try again', kind: 'primary', block: true, attrs: {'data-gm-retry': ''}, cls: 'gm-cta'})}</div>`;
   return `<p class="gm-cd gm-tap">${ui.icon('play-fill', {size: 15})}<span>Tap the case to play</span></p>` + flipHTML(s);
 }
-// (a case that turns before it's played, Return Man: a button under it turns it round to its leaderboard and back, the
-// owner's ask, Oct 22 2026, his profile only: "Add a view scoreboard or flip case button"; mountList's syncFlip keeps
-// its words to the side the case is on)
-const flipHTML = s => (s.turns && s.kind !== 'done' && features.available()
-  ? `<div class="gm-flipw">${ui.button({label: 'View scoreboard', kind: 'secondary', size: 's', icon: 'trophy', attrs: {'data-gm-flip': '', 'aria-pressed': 'false'}, cls: 'gm-flipb'})}</div>` : '');
+// (a button under the case turns it round to its leaderboard and back, the owner's ask, Oct 22 2026: "Add a view
+// scoreboard or flip case button", first Return Man's; every case but Keepfall's since Oct 26 2026, finished or not: a
+// finished one stands on its board, so it starts as Flip to the cover. mountList's syncFlip keeps its words to the side
+// the case is on)
+const flipHTML = s => {
+  if (!(s.turns || s.kind === 'done') || !features.available()) return '';
+  const on = s.kind === 'done';
+  return `<div class="gm-flipw">${ui.button({label: on ? 'Flip to the cover' : 'View scoreboard', kind: 'secondary', size: 's', icon: on ? 'swap' : 'trophy', attrs: {'data-gm-flip': '', 'aria-pressed': String(on)}, cls: 'gm-flipb'})}</div>`;
+};
 function cdHTML(g) {
   if (g.id === 'puzzles' && newDay()) return `<div class="gm-cdw">${countdownHTML(true)}</div>`;
   return `<p class="gm-cd">${ui.icon('clock', {size: 15})}<span>${esc(g.cd)} <span class="gm-cd-v" data-gm-cd>${esc(ui.untilText(msToMidnight()))}</span></span></p>`;
@@ -386,7 +397,7 @@ function selHTML(g, s) {
   // on it brings the whole board up close (with the way into the game's own page).
   return `<h2 class="sr-only">${esc(g.name)}</h2>`
     + (!done && s.meta ? `<div class="gm-meta">${s.meta}</div>` : '')
-    + (done ? cdHTML(g) : ctaHTML(s));
+    + (done ? cdHTML(g) + flipHTML(s) : ctaHTML(s));
 }
 function stateOf(g) {
   try { return STATE[g.id](); } catch (e) { console.error(e); return {kind: 'new'}; }
@@ -545,12 +556,14 @@ export function mountList(el, ctx, opts = {}) {
   function zoomBody(g, mode) {
     const {board, rows} = rowsFor(g, mode), note = boardNote(board, rows, mode === 'season');
     const me = rows.find(r => r.me);
+    // (17-0's teams, a tap on a name, and its best team only once you've played: before, they'd give today's away)
+    const teams = g.id === '17-0' && stateOf(g).kind === 'done';
     return (me ? `<p class="gm-z-me">You: ${esc(ui.ordinal(me.rank))} of ${rows.length} · ${esc(me.val)}</p>` : '')
-      + (note || `<div class="gm-scr-rows" role="list" aria-label="${mode === 'season' ? 'The season' : 'Today'}">${rows.map(r => rowHTML(r, {sub: true, who: g.id === '17-0', ale: mode === 'today' && RANKED.includes(g.id)})).join('')}</div>`)
-      + (g.id === '17-0' && mode === 'today' ? bestHTML() : '');
+      + (note || `<div class="gm-scr-rows" role="list" aria-label="${mode === 'season' ? 'The season' : 'Today'}">${rows.map(r => rowHTML(r, {sub: true, who: teams, ale: mode === 'today' && RANKED.includes(g.id)})).join('')}</div>`)
+      + (teams && mode === 'today' ? bestHTML() : '');
   }
-  // Under 17-0's Today up close, the board's best possible team (the owner's ask, Oct 2026; the case is up close only
-  // once you've played, so it gives nothing away): its five players and its season; a tap shows it whole.
+  // Under 17-0's Today up close, the board's best possible team (the owner's ask, Oct 2026; only once you've played,
+  // zoomBody, so it gives nothing away): its five players and its season; a tap shows it whole.
   function bestHTML() {
     const sv = C.sv;
     if (!sv) return '';

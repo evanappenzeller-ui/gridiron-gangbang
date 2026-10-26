@@ -281,10 +281,11 @@ export function turnable(surface, dlg, on = () => {}, opts = {}) {
  * .gm-grip, on the case in the middle only) a case turns where it stands, and let go it springs to the nearer of its
  * sides, its back or its front; a swipe across its middle still goes along the shelf. Only a game finished turns (the
  * owner's ask, Oct 2026): till then its case stands still, facing front, here and up close. At rest on the side it shows on its own, its turn is handed back to the stylesheet.
- * A game played again and again (.is-turns: Return Man, the owner's ask, Oct 22 2026, for everyone) turns too, played
- * today or not, its leaderboard on its back; it stands on its front (to play), and goes back to it off the middle.
- * A button can turn one round too (flip(cs): the owner's ask, Oct 22 2026, his profile only: "a view scoreboard or flip
- * case button" under Return Man's case); opts.rest(cs) is told each time a case comes to rest on a side.
+ * A game not finished today turns too (.is-turns: first Return Man's, the owner's ask, Oct 22 2026; every case but
+ * Keepfall's since Oct 26 2026, its scoreboard at any point), its leaderboard on its back; it stands on its front (to
+ * play), and goes back to it off the middle.
+ * A button can turn one round too (flip(cs): the owner's ask, Oct 22 2026: "a view scoreboard or flip case button",
+ * under every case but Keepfall's); opts.rest(cs) is told each time a case comes to rest on a side.
  * Returns {home(cs): ease a case back to that side, back(cs): whether it's showing its back now, flip(cs): turn it to
  * its other side (whether that's its back), stop()}.
  */
@@ -326,7 +327,7 @@ export function shelfTurner(shelf, {rest = () => {}} = {}) {
   const down = e => {
     if (P || e.button > 0) return;
     dragged = false;
-    const g = e.target.closest('.gm-grip'), cs = g && (g.closest('.gm-case.is-done, .gm-case.is-turns') || g.closest('.gm-case.is-swivel')); // (only a game finished turns, and one played again and again)
+    const g = e.target.closest('.gm-grip'), cs = g && (g.closest('.gm-case.is-done, .gm-case.is-turns') || g.closest('.gm-case.is-swivel')); // (a case with a scoreboard on its back, and Keepfall's)
     if (cs) P = {id: e.pointerId, cs, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, on: false, moves: []};
   };
   const move = e => {

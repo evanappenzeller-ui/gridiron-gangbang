@@ -499,7 +499,7 @@ export async function returnChecks(check) {
     const art = game.art === 'img/games/return-man-cover.webp' && [...host.querySelectorAll('[data-gm="return"] .gm-front img')].every(img => img.getAttribute('src') === game.art);
     return {pass: open && all && beta && art, detail: `opens on every phone ${open}; lists ${lists.join(' | ')}; BETA on ${tagged || 'none'}; supplied cover ${art}`};
   });
-  check('Return Man\'s case turns before it\'s played (the owner\'s ask, Oct 22 2026, for everyone: "the game is repeatable"): on the shelf it stands on its front to play, today\'s leaderboard on its back (TODAY, not FINAL), its edges grab to turn it like a finished game\'s; an unplayed game\'s case still doesn\'t turn', async () => {
+  check('Return Man\'s case turns before it\'s played (the owner\'s ask, Oct 22 2026, for everyone: "the game is repeatable"): on the shelf it stands on its front to play, today\'s leaderboard on its back (TODAY, not FINAL), its edges grab to turn it like a finished game\'s; every case but Keepfall\'s has its scoreboard at any point (the owner, Oct 26 2026: "All game cases, except Keepfall, should have a scoreboard that can be toggled at any point")', async () => {
     const LB = daily.LB, saved = {raw: LB.raw, all: LB.all, players: LB.players, ready: LB.ready, off: LB.off, err: LB.err}, was = shelfDev.cores.rm;
     const n = R.todayNumber(), mason = doc('rt-m', 'Mason', {[n]: e(300, 150, 1, 1)});
     let back = null, cls = '', others = '', board = '';
@@ -512,22 +512,25 @@ export async function returnChecks(check) {
       const cs = host.querySelector('.gm-slot:not([data-gm-clone]) .gm-case[data-gm="return"]');
       cls = cs ? cs.className : '';
       back = cs && cs.querySelector('.gm-back');
-      others = [...host.querySelectorAll('.gm-slot:not([data-gm-clone]) .gm-case.is-turns')].map(c => c.dataset.gm).join();
+      // (a case with no board to turn to: neither finished nor turning, Keepfall and a loading or failed Daily Puzzles aside)
+      others = [...host.querySelectorAll('.gm-slot:not([data-gm-clone]) .gm-case:not(.is-turns):not(.is-done)')]
+        .filter(c => c.dataset.gm !== 'keep' && c.dataset.kind !== 'loading' && c.dataset.kind !== 'error').map(c => c.dataset.gm).join();
     } finally { Object.assign(LB, saved); shelfDev.cores.rm = was; }
     const txt = back ? back.textContent : '';
     const shows = /Today’s leaderboard/.test(txt) && /TODAY/.test(txt) && !/FINAL/.test(txt) && (board === 'ready' ? /Mason/.test(txt) : !!back.querySelector('.gm-scr-note'));
     const [turner, css] = await Promise.all(['../views/game-case.js', '../../css/views/puzzles.css'].map(f => fetch(new URL(f, import.meta.url)).then(r => r.text()).catch(() => '')));
     const turns = /is-turns'\) \? \[FRONT, BACK\]/.test(turner) && /closest\('\.gm-case\.is-done, \.gm-case\.is-turns'\)/.test(turner) && /\.gm-case:not\(\.is-done\):not\(\.is-turns\) \.gm-grip \{ display: none; \}/.test(css);
-    const pass = /\bis-turns\b/.test(cls) && !/\bis-done\b/.test(cls) && shows && others === 'drill,return' && turns; // (the Drill's turns unplayed too: the owner, Oct 24 2026)
-    return {pass, detail: `the case ${cls}; its back ${shows ? 'today\'s leaderboard' : 'WRONG: ' + txt.slice(0, 80)} (board ${board}); cases that turn unplayed: ${others || 'none'}; grabbed and turned like a finished one ${turns}`};
+    const pass = /\bis-turns\b/.test(cls) && !/\bis-done\b/.test(cls) && shows && !others && turns;
+    return {pass, detail: `the case ${cls}; its back ${shows ? 'today\'s leaderboard' : 'WRONG: ' + txt.slice(0, 80)} (board ${board}); cases with no scoreboard: ${others || 'none'}; grabbed and turned like a finished one ${turns}`};
   });
-  check('Return Man\'s case has a flip button under it (the owner\'s ask, Oct 22 2026, his profile only: "Add a view scoreboard or flip case button"): View scoreboard turns the case in the middle round to its leaderboard, Flip to the cover turns it back; no one else has the button', async () => {
+  check('Every case but Keepfall\'s has a flip button under it (the owner\'s ask, Oct 22 2026: "Add a view scoreboard or flip case button"; every game\'s, Oct 26 2026): View scoreboard turns the case in the middle round to its leaderboard, Flip to the cover turns it back, finished or not', async () => {
     const [view, turner] = await Promise.all(['../views/games.js', '../views/game-case.js'].map(f => fetch(new URL(f, import.meta.url)).then(r => r.text()).catch(() => '')));
-    const gated = /const flipHTML = s => \(s\.turns && s\.kind !== 'done' && features\.available\(\)/.test(view) && /<span>Tap the case to play<\/span><\/p>` \+ flipHTML\(s\);/.test(view);
+    const gated = /if \(!\(s\.turns \|\| s\.kind === 'done'\) \|\| !features\.available\(\)\) return '';/.test(view) && /<span>Tap the case to play<\/span><\/p>` \+ flipHTML\(s\);/.test(view)
+      && /\(done \? cdHTML\(g\) \+ flipHTML\(s\) : ctaHTML\(s\)\)/.test(view);
     const wired = /if \(e\.target\.closest\('\[data-gm-flip\]'\)\) \{/.test(view) && /turner\.flip\(c\) != null/.test(view) && /shelfTurner\(shelf, \{rest: \(\) => syncFlip\(\)\}\)/.test(view)
       && /on \? 'Flip to the cover' : 'View scoreboard'/.test(view);
     const flips = /flip\(cs\) \{\s*\n\s*if \(!cs \|\| !cs\.matches\('\.gm-case\.is-done, \.gm-case\.is-turns'\)/.test(turner) && /S\.goal = target\(S\) === BACK \? FRONT : BACK;/.test(turner) && /rest\(S\.cs\);/.test(turner);
-    return {pass: gated && wired && flips, detail: `the owner's alone ${gated}; wired to the case in the middle ${wired}; the turner turns it ${flips}`};
+    return {pass: gated && wired && flips, detail: `under every case with a board ${gated}; wired to the case in the middle ${wired}; the turner turns it ${flips}`};
   });
   // ------------------------------------------------------------------------------------------- the hard course
   check('Return Man: the hard course (the owner\'s ask, Oct 2026: a run of 90 seconds to 3 minutes, his profile only for now): a course of its own (the regular one as it was); quicker from the start and never done speeding up (past 30 yards a second by 3,000 yards; the regular course tops out at 19); the beats keep closing in; potholes, none in the first 40 yards; no tackling sleds (the owner\'s ask, Oct 22 2026: "Remove the obstacle with the two pillars"), their lanes left open where they were drawn (sl: only with the road open all the way across, never in every lane)', () => {
