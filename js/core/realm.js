@@ -597,7 +597,7 @@ function firstCoins(entries, n, M) {
 // and farms (views/realm-world.js).
 export const SCENERIES = [
   {k: 'coast', name: 'The Coast', at: 1, blurb: 'Meadows and fields by the sea, villages and windmills round your walls, pines along the shore', ownerName: 'Twilight Highlands', ownerBlurb: 'Rolling hills and torchlit gates beneath the last light of sunset'},
-  {k: 'forest', name: 'Enchanted Forest', at: 2, blurb: 'A glade in a deep wood, fireflies and giant mushrooms, old statues by a river'},
+  {k: 'forest', name: 'Enchanted Forest', at: 2, blurb: 'A glade in a deep wood, fireflies and mushrooms, old statues by a river'},
   {k: 'tundra', name: 'Frozen Tundra', at: 3, blurb: 'A snowfield by an icy sea, snowbound villages, pines and mountains all round'},
   {k: 'desert', name: 'Amber Desert', at: 6, blurb: 'Sand under a setting sun, red rock and an oasis beyond'}
 ];

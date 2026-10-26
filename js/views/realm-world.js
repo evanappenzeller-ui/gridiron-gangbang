@@ -5,7 +5,7 @@
 // barrels and crates, fields of rye and sunflowers on tilled earth, windmills turning, a wizard's tower on a rise, old
 // statues in a grove, watchtowers where the roads leave the walls, groves and woods, undergrowth, mountains behind (the
 // camera looks from +x +z). Each scenery (core/realm.js SCENERIES: the four the Unity packs build) is its own land: the
-// coast's sea, the forest's river, giant mushrooms and fireflies, the tundra's snow, icy sea and snowfall, the desert's
+// coast's sea, the forest's river, mushrooms and fireflies, the tundra's snow, icy sea and snowfall, the desert's
 // sand, red rock and oasis. Its ground is the hand-painted Unity textures (models/realm/world-v1/textures), its trees,
 // rocks, plants and village the Unity models (nature.glb, village.glb: tools/realm/convert-world.mjs), instanced: a few
 // draw calls whatever the count. Until they're in (or if they fail) plain 3D pines and rocks stand in.
@@ -159,7 +159,7 @@ const FOOT = {
   wagon: [2.8, 7.19, 4.42], barrel: [.98, .98, 1.03], barrels: [3.6, 2, 2.8], sack: [.98, .65, .78], basket: [.86, .79, 1.07], crate: [1.5, 1.5, 1.5],
   firewood: [2.04, 1, 1.08], wizardTower: [.72, .69, 1.5], watchtower: [2.85, 2.85, 11.07], statue: [2.36, 1.78, 5.23], statueBroken: [2.36, 1.78, 4.05],
   statueHead: [2.23, 1.26, 1.53], slab: [4.59, 2.45, 1.25], rye: [.98, .95, 1.09], sunflower: [1.19, 1.32, 2.23], bush: [1.23, 1.2, 1.04],
-  fern: [1.2, 1.1, 2.3], flowers: [.8, .72, .7], blooms: [.75, .62, .76], mushroom: [.39, .52, .42], mushrooms: [.35, .38, .53], toadstool: [.34, .41, .51],
+  fern: [1.2, 1.1, 2.3], flowers: [.8, .72, .7], blooms: [.75, .62, .76], mushroom: [.39, .52, .42], mushrooms: [.35, .38, .53], toadstool: [.34, .51, .41],
   ruinWall: [5, 1.2, 6], ruinArch: [5, 1.2, 6], ruinEnd: [1.29, 1.23, 6], pillar: [1, 1, 3], fence: [3.16, .16, 1.2],
   pineLow: [2.37, 2.46, 4.6], pine1: [2.76, 2.81, 4.6], pine2: [2.84, 2.81, 4.6], pine3: [2.4, 2.29, 4.6], oak1: [6.84, 6.59, 4.6], oak2: [6.63, 7.96, 4.6],
   birch1: [4.25, 4.29, 4.6], birch2: [4.16, 4.08, 4.6], deciduous1: [6.17, 4.95, 4.6], deciduous2: [6.17, 5.93, 4.6], willow1: [6.36, 7.09, 4.6],
@@ -292,7 +292,7 @@ function groundMaterial(T, list, theme) {
 }
 
 // ---- the models (shared by every view; each pack loaded once): name → {parts: [[geometry, material]], fan?, height, width}
-const packs = {}, packLoading = {};
+const packs = {}, packLoading = {}, LYING = {toadstool: Math.PI / 2};
 function loadPack(T, file) {
   if (packs[file]) return Promise.resolve(packs[file]);
   if (packLoading[file]) return packLoading[file];
@@ -318,6 +318,14 @@ function loadPack(T, file) {
           (inFan ? fan : parts).push([o.geometry.clone().applyMatrix4(new T.Matrix4().multiplyMatrices(to, o.matrixWorld)), o.material]);
         });
         const box = new T.Box3(); parts.forEach(([g]) => { g.computeBoundingBox(); box.union(g.boundingBox); });
+        // (a model that came over lying on its side: stood up, centred and set on the ground; Oct 26 2026, the owner:
+        // "The mushrooms are sideways")
+        if (LYING[node.name] != null) {
+          const up = new T.Matrix4().makeRotationX(LYING[node.name]);
+          box.makeEmpty(); parts.forEach(([g]) => { g.applyMatrix4(up); g.computeBoundingBox(); box.union(g.boundingBox); });
+          const c = box.getCenter(new T.Vector3()), floor = box.min.y;
+          box.makeEmpty(); parts.forEach(([g]) => { g.translate(-c.x, -floor, -c.z); g.computeBoundingBox(); box.union(g.boundingBox); });
+        }
         const size = box.getSize(new T.Vector3());
         // (the sails turn about their thinnest axis: the hub's)
         const fb = new T.Box3(); fan.forEach(([g]) => { g.computeBoundingBox(); fb.union(g.boundingBox); });
@@ -391,6 +399,7 @@ export function createWorld(T, scene, {theme = 'coast', onChange = () => {}, max
       (out[name] ||= []).push({x, z, y: shape.height(x, z), s, r});
       return true;
     };
+    const MUSHROOM = () => .45 + R() * .25; // (a mushroom's size: .2 to .35 tall, where a flower's .6 and a bush 1.2)
     const tries = (n, f) => { for (let i = 0; i < n; i++) if (f(i)) return true; return false; };
     const pick = table => { const e = Object.entries(table), total = e.reduce((a, [, w]) => a + w, 0); let v = R() * total; for (const [n, w] of e) if ((v -= w) <= 0) return n; return e[0][0]; };
     // ---- the village first: each hamlet's cottages round its square (a woodpile in its middle), facing in, smoke from
@@ -500,10 +509,14 @@ export function createWorld(T, scene, {theme = 'coast', onChange = () => {}, max
     // (the ruin's grove: old trees round the statues)
     for (const h of places.filter(p => p.ruin)) for (let i = 0; i < 9; i++) { const a = R() * Math.PI * 2, d = h.r + 1.5 + R() * 4; const x = h.x + Math.cos(a) * d, z = h.z + Math.sin(a) * d; if (ok(x, z, 6, 0)) put(Th.trees.oak2 ? 'oak2' : Th.trees.birch1 ? 'birch1' : Th.trees.pineLow ? 'pineLow' : pick(Th.trees), x, z, .85 + R() * .3); }
     if (Th.oasisTrees) for (let i = 0; i < 11; i++) tries(3, () => { const a = R() * Math.PI * 2, d = 13 + R() * 6, x = -58 + Math.cos(a) * d, z = 34 + Math.sin(a) * d; return shape.water(x, z) < .05 && put(pick(Th.oasisTrees), x, z, .7 + R() * .3); });
-    // ---- giant mushrooms in the enchanted forest, in the clearings between the trees
-    if (Th.mushrooms) for (let i = 0, n = 0; i < 2000 && n < 48 * detail; i++) {
+    // ---- mushrooms in the enchanted forest, in little clumps in the clearings between the trees: true to life, under a
+    // flower's height (Oct 26 2026, the owner: "All mushrooms across the scenery are too large. Shrink them to realistic
+    // scale")
+    if (Th.mushrooms) for (let i = 0, n = 0, c = 0; i < 2000 && n < 48 * detail; i++) {
       const a = R() * Math.PI * 2, d = LOT + 7 + R() * 48, x = Math.cos(a) * d, z = Math.sin(a) * d;
-      if (ok(x, z, 6, 1) && woods(x, z) >= .5 && put(['toadstool', 'mushroom', 'mushrooms'][n % 3], x, z, 3.2 + R() * 3.4)) n++;
+      if (!ok(x, z, 6, 1) || woods(x, z) < .5) continue;
+      const kind = ['toadstool', 'mushroom', 'mushrooms'][c++ % 3];
+      for (let j = 0; j < 3; j++) if (put(kind, x + (R() - .5) * .9, z + (R() - .5) * .9, MUSHROOM())) n++;
     }
     // ---- undergrowth last (under the trees, against the walls, never inside anything): bushes, ferns and flowers at
     // the groves' edges, round the hamlets and along the lot; the desert's dry scrub and stones, the tundra's frosted
@@ -525,7 +538,7 @@ export function createWorld(T, scene, {theme = 'coast', onChange = () => {}, max
     }
     if (key === 'coast') for (let i = 0, n = 0; i < 2000 && n < 50 * detail; i++) {
       const a = R() * Math.PI * 2, d = LOT + 7 + R() * 50, x = Math.cos(a) * d, z = Math.sin(a) * d;
-      if (ok(x, z, 6, 1) && woods(x, z) >= .5 && put(['toadstool', 'mushroom', 'mushrooms'][n % 3], x, z, 1.2 + R() * .8)) n++;
+      if (ok(x, z, 6, 1) && woods(x, z) >= .5 && put(['toadstool', 'mushroom', 'mushrooms'][n % 3], x, z, MUSHROOM())) n++;
     }
     // (flowers and bushes round each hamlet's edge; in the snow and the sand, bushes)
     for (const h of places.filter(p => p.hamlet)) for (let i = 0; i < 10; i++) { const a = R() * Math.PI * 2, d = h.r + R() * 3; const x = h.x + Math.cos(a) * d, z = h.z + Math.sin(a) * d; if (ok(x, z, 4, -h.r)) put(key === 'tundra' || key === 'desert' ? 'bush' : ['flowers', 'blooms', 'bush'][i % 3], x, z, .8 + R() * .3); }

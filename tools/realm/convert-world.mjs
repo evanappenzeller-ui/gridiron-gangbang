@@ -253,6 +253,8 @@ const VILLAGE = {
   // (these plants' prefabs lie on their backs: their models' own turn upright isn't in them; stood up here)
   rye: [NAT + 'Rye.prefab', 60, {upright: true}], sunflower: [NAT + 'Sunflower.prefab', 400, {upright: true}],
   bush: [NAT + 'Bush1.prefab', 60, {upright: true}], fern: [NAT + 'Plant3.prefab', 400], flowers: [NAT + 'Flower5.prefab', 160, {upright: true}], blooms: [NAT + 'Flower1.prefab', 80, {upright: true}],
+  // (Mushroom1 comes out lying on its side too: views/realm-world.js LYING stands it up when it loads; stand it up here
+  // instead and drop it there)
   mushroom: [NAT + 'Mushroom2.prefab', 240], mushrooms: [NAT + 'Mushroom4.prefab', 270], toadstool: [NAT + 'Mushroom1.prefab', 270],
   // (a dark castle's broken walls by the old statues; a timber fence round the fields: posts and two rails, 3 m)
   ruinWall: [PART + 'Wall_ArrowSlit.prefab', 120], ruinArch: [PART + 'Wall_Window.prefab', 160], ruinEnd: [PART + 'Wall_End.prefab', 120], pillar: [PART + 'Pillar.prefab', 140],
