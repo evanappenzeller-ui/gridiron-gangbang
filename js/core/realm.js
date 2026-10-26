@@ -34,6 +34,8 @@ export const CUR = ['gold', 'grain'];
 export const CUR_NAME = {gold: 'Gold', grain: 'Ale'};
 /** Keepfall is available to every selected member or guest profile. */
 export const mayPlay = () => !!(data.me() || data.guest());
+// Evan requested a personal set of dragon demonstration raids.
+export const dragonExamplesForMe = () => data.isOwner();
 // v3 restarts Evan's realm at Castle level 1. Retired testing flags never bypass costs or build times.
 export const TEST_RESET = 'gridiron-hub-v3';
 export const testing = () => false;
@@ -710,6 +712,7 @@ export function clean(s) {
   const ex = Array.isArray(o.ex) ? o.ex.filter(r => r && r.ex === true && typeof r.id === 'string' && Number(r.at) && rpWhole(r.rp, o)).slice(-EX_MAX) : [];
   if (ex.length) o.ex = ex; else delete o.ex;
   if (isInt(o.exv) && o.exv > 0) o.exv = Math.min(o.exv, EX_V); else delete o.exv;
+  if (o.exdv !== 1) delete o.exdv;
   gcLots(o);
   o.bt = o.bt && typeof o.bt === 'object' ? o.bt : {};
   // (the Ale places already paid, frozen: incomeOf's paid, freezePaid)
@@ -1424,6 +1427,7 @@ export function putExamples(s, recs, lots = null) {
   s.ex = out.slice(-EX_MAX);
   if (!s.ex.length) delete s.ex;
   s.exv = EX_V;
+  if (out.length && out.every(r => r.demo === 'dragons-v1')) s.exdv = 1;
   gcLots(s);
   return s.ex || [];
 }
@@ -1434,6 +1438,7 @@ export function clearExamples(s) {
   const had = Array.isArray(s.ex) && s.ex.length > 0;
   delete s.ex;
   s.exv = EX_V;
+  if (dragonExamplesForMe()) s.exdv = 1;
   gcLots(s);
   return had;
 }
@@ -1457,7 +1462,7 @@ export function keepMine(remote, local) {
   };
   if (!('exv' in remote) && local.exv === EX_V && Array.isArray(local.ex) && local.ex.length) {
     const ex = local.ex.filter(r => r && r.rp && lot(r.rp)).map(copy);
-    if (ex.length) { remote.ex = ex; remote.exv = local.exv; kept = true; }
+    if (ex.length) { remote.ex = ex; remote.exv = local.exv; if (local.exdv === 1) remote.exdv = 1; kept = true; }
   }
   ['rd', 'df'].forEach(k => {
     if (!Array.isArray(remote[k])) return;

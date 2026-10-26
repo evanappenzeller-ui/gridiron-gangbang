@@ -1,10 +1,10 @@
 // Exercises production event handlers on a local fixture; only 3D/network/lore startup is replaced.
 const fs=require('node:fs'),path=require('node:path'),http=require('node:http'),assert=require('node:assert/strict');
-const root=path.resolve(__dirname,'../..'),out=path.resolve(root,'../dragon-ui-qa');fs.mkdirSync(out,{recursive:true});
+const root=path.resolve(__dirname,'../..'),out=path.resolve(root,process.argv.includes('--examples')?'../dragon-examples-qa':'../dragon-ui-qa');fs.mkdirSync(out,{recursive:true});
 const fixture=`<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/css/tokens.css"><link rel="stylesheet" href="/css/base.css"><link rel="stylesheet" href="/css/components.css"><link rel="stylesheet" href="/css/views/realm.css"><style>html,body,#app,#screen{margin:0;width:100%;height:100%;background:#1b2b26}.rl-gl{background:radial-gradient(ellipse,#304a3b,#15261f)}.rl-loading{display:none}</style></head><body><main id="app"><section id="screen" class="screen"></section></main><script type="module">
 import * as data from '/js/core/data.js';import * as F from '/js/core/realm.js';import * as daily from '/js/core/daily.js';import view,{__dragonUI} from '/js/views/realm.js';import raid,{__raidUI} from '/js/views/realm-raid.js';
 await data.load();const profile=new URL(location).searchParams.get('profile')||'evan';data.setGuest(null);data.setMe(profile==='guest'||profile==='unselected'?null:profile);if(profile==='guest')data.setGuest('Dragon QA Guest');
-const el=document.querySelector('#screen');let ctx,active;const makeCtx=()=>({visible:true,on:()=>()=>{},timer:()=>()=>{},nav:()=>{},back:()=>{},params:{key:F.BOTS[0].k}});
+const el=document.querySelector('#screen');let ctx,active;const makeCtx=()=>({visible:true,on:()=>()=>{},timer:()=>()=>{},nav:p=>{window.lastRoute=p},back:()=>{},params:{key:F.BOTS[0].k}});
 function mount(v=view){if(active)active.unmount(el,ctx);active=v;ctx=makeCtx();el.innerHTML=v.render();v.mount(el,ctx)}
 function seed(level=8,legacy=false){if(active){active.unmount(el,ctx);active=null}const s=F.fresh();s.rs=F.TEST_RESET;s.b[0].l=level;s.r={gold:2000000,grain:2000000};s.sh=Date.now()+86400000;if(legacy){const p=F.spotFor(s,'hatchery');s.b.push({i:s.nb++,t:'hatchery',l:3,x:p.x,y:p.y,u:Date.now()+3600000})}F._set(s);F.touch();mount();return s}
 mount();window.qa={F,data,ready:true,seed,snapshot:()=>JSON.parse(JSON.stringify(F.mine())),place:()=>__dragonUI.state(ctx)?.place,complete:()=>{const s=F.mine();s.b.filter(b=>b.u).forEach(b=>b.u=Date.now()-1);F.tick(s);F.touch();__dragonUI.refresh(ctx)},raid:()=>{seed();const s=F.mine();s.hr.knight=3;s.ar={footman:2,archer:2,knight:2,thief:2};const colors=['green','purple','albino','black'];F.DRAGON_ORDER.forEach((species,i)=>{const p=F.spotFor(s,'hatchery');s.b.push({i:s.nb++,t:'hatchery',l:i+1,x:p.x,y:p.y,u:0,dragon:{species,color:colors[i]}})});F.touch();daily.LB.ready=true;mount(raid)},pick:()=>__raidUI.state(ctx)?.pick,overflow:()=>({viewport:innerWidth,body:document.documentElement.scrollWidth,items:[...document.querySelectorAll('.sheet,.sheet-body,.rl-dragon-picker,.rl-dragon-grid,.rl-hero')].filter(e=>e.getBoundingClientRect().width).filter(e=>e.scrollWidth>e.clientWidth+2||e.getBoundingClientRect().right>innerWidth+2).map(e=>({class:e.className,width:e.clientWidth,scroll:e.scrollWidth}))})};
@@ -22,6 +22,29 @@ try{
   async function swipeRaid(){const bar=page.locator('[data-rlr-troops]'),box=await bar.boundingBox(),cdp=await context.newCDPSession(page);await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:true});await bar.evaluate(e=>e.scrollLeft=0);const extent=await bar.evaluate(e=>e.scrollWidth-e.clientWidth);if(extent>2){for(let i=0;i<6;i++){const y=box.y+box.height*.55,x=box.width-28;await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});for(let j=1;j<=9;j++){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:x-(box.width-60)*j/9,y}]});await page.waitForTimeout(25)}await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await page.waitForTimeout(200);if(await bar.evaluate(e=>e.scrollLeft>=e.scrollWidth-e.clientWidth-2))break;}const scroll=await bar.evaluate(e=>e.scrollLeft);assert(scroll>extent-3,'Touch swipe must reach final raid card: '+scroll+'/'+extent);}await cdp.detach();}
   async function build(species,color){await army();await page.locator('[data-rl-hatch="build"]:enabled').click();await page.waitForSelector('[data-dragon-picker]');assert(await page.locator('[data-dragon-confirm]').isDisabled());await page.locator('[data-dragon-species="'+species+'"]').click();assert(await page.locator('[data-dragon-confirm]').isDisabled());await page.locator('[data-dragon-color="'+color+'"]').click();await page.locator('[data-dragon-confirm]').click();await page.waitForSelector('[data-rl-place]');assert.deepEqual(await page.evaluate(()=>qa.place().dragon),{species,color});const before=await page.evaluate(()=>qa.snapshot().r.grain);await page.locator('[data-rl-place]').click();const s=await page.evaluate(()=>qa.snapshot()),b=s.b.filter(b=>b.t==='hatchery').at(-1);assert.deepEqual(b.dragon,{species,color});assert.equal(b.l,0);assert(b.u>Date.now());assert.equal(before-s.r.grain,12000);await page.evaluate(()=>qa.complete());await page.waitForTimeout(400);return b.i;}
   await open();
+  if(process.argv.includes('--examples')){
+    const baseline=await page.evaluate(async()=>{const daily=await import('/js/core/daily.js');daily.LB.ready=true;qa.seed(8);qa.F.mine().exv=qa.F.EX_V;return JSON.stringify(qa.snapshot().b)});
+    await page.locator('[data-rl-log]').click();
+    await page.waitForFunction(()=>qa.F.mine().exdv===1,{},{timeout:30000});
+    await page.waitForFunction(()=>document.querySelectorAll('[data-rl-watch]').length===3);
+    assert((await page.locator('.sheet').last().textContent()).includes('Dragon sample raids'));
+    assert.equal(await page.evaluate(()=>JSON.stringify(qa.snapshot().b)),baseline);
+    const ids=await page.locator('[data-rl-watch]').evaluateAll(a=>a.map(b=>b.dataset.rlWatch));
+    const visible=await page.locator('.rl-log.is-ex').allTextContents();
+    for(const name of ['Nightmare & Soul Eater','Terror Bringer & Usurper','Four-Dragon Siege'])assert(visible.some(t=>t.includes(name)));
+    await noOverflow();await shot('evan-dragon-samples-390');
+    await page.locator('[data-rl-watch]').first().click();
+    assert.equal(await page.evaluate(()=>window.lastRoute),'/realm/replay/'+ids[0]);
+    assert(await page.evaluate(async id=>{const R=await import('/js/views/realm-replay.js');const s=qa.F.mine(),r=R.raidOf(s,id);return r?.kind==='example'&&!!R.partsOf(r.rec,s)},ids[0]));
+    await page.reload();await page.waitForFunction(()=>window.qa?.ready);
+    assert.deepEqual((await page.evaluate(()=>qa.snapshot().ex.map(r=>r.id))).sort(),ids.sort());
+    await page.locator('[data-rl-log]').click();await page.locator('[data-rl-ex-new]').click();
+    await page.waitForFunction(old=>qa.F.mine().ex?.length===3&&qa.F.mine().ex[0].id!==old,ids[0]);
+    await open('mason');await page.evaluate(()=>qa.seed(8));await page.locator('[data-rl-log]').click();
+    assert.equal(await page.locator('[data-rl-ex-new]').innerText(),'New examples');
+    assert.deepEqual(report.errors,[]);report.passed=true;report.checks.push('Evan automatically receives three dragon samples; Watch resolves to replay; saved samples reload; manual regeneration works; member Chronicle unchanged');
+    console.log('PASS: '+report.checks[0]);return;
+  }
   for(let level=3;level<=7;level++){await close();await page.evaluate(l=>qa.seed(l),level);await army();assert.equal(await page.locator('[data-rl-hatchery-slot]').count(),4);for(let slot=1;slot<=4;slot++)assert.equal(await page.locator('[data-rl-hatchery-slot="'+slot+'"]').evaluate(e=>e.classList.contains('is-locked')),level<slot+3);}
   report.checks.push('Four Army cards track Castle unlocks 4, 5, 6, 7');await close();await page.evaluate(()=>qa.seed(8));
   const choices=[['nightmare','green'],['soul-eater','purple'],['terror-bringer','albino'],['usurper','black']],ids=[];

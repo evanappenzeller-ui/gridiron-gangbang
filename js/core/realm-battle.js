@@ -10,7 +10,7 @@
 // defend(s, now) plays the computer's raids on your realm since you last looked (a few a day); exampleRaids(s, now)
 // plays three on your realm as it is, for show (the owner's ask, Oct 22 2026), taking nothing.
 import {KINDS, TROOPS, HEROES, RULES_V, rulesOf, heroLevels, heroDragons, dragonSnapshot, heroStat, mayPlay, stat, N, RAID_S, BOTS, rng, boxOf, keepOf, lootOf, takeRaid, HOUR,
-  snapOf, replayOf, sceneryOf, putExamples, EX_V, DEFEND_AT, botDragon, topLevel} from './realm.js';
+  snapOf, replayOf, sceneryOf, putExamples, EX_V, DEFEND_AT, botDragon, topLevel, DRAGONS, DRAGON_ORDER, dragonExamplesForMe, profileKey} from './realm.js';
 
 export const DT = .1;
 const HIT_EVERY = 1;   // seconds between a soldier's hits
@@ -498,8 +498,8 @@ export function raidHeroes(th) {
  *  it. Played out a step at a time (a generator: it yields after each step; raidOn runs it through), the battle
  *  returned; B.ms[k]: the step it first had k stars, and what it had then (pct, got, gotBy), when it came on a step of
  *  its own. Reads s, never changes it. */
-function* raidSteps(s, at, army, side, heroes = {}) {
-  const B = makeBattle(s, lootOf(s, at), army, {heroes}), box = boxOf(s);
+function* raidSteps(s, at, army, side, heroes = {}, dragons = {}) {
+  const B = makeBattle(s, lootOf(s, at), army, {heroes, dragons}), box = boxOf(s);
   // a spot on that side, outside the walls' reach, spread along it
   const spot = (f, out0) => {
     for (let o = out0; o < out0 + 6; o += 1) {
@@ -511,7 +511,8 @@ function* raidSteps(s, at, army, side, heroes = {}) {
   };
   const first = ['knight'], plan = [];
   // (its heroes lead, at the middle of that side)
-  Object.keys(B.heroes).forEach(k => plan.push([0, HEROES[k].troop, .5]));
+  const leaders = Object.keys(B.heroes), spread = Object.keys(dragons).length > 0;
+  leaders.forEach((k, i) => plan.push([0, HEROES[k].troop, spread ? (i + .5) / leaders.length : .5]));
   Object.entries(army).forEach(([t, n]) => { for (let i = 0; i < n; i++) plan.push([first.includes(t) ? 0 : 25, t, (i + .5) / n]); });
   plan.sort((a, b) => a[0] - b[0]);
   let k = 0, had = 0;
@@ -650,6 +651,29 @@ function* exampleSearch(s, now) {
   });
   return {recs, lots: hold.lots || {}};
 }
+/** Three explicit demonstrations on a snapshot of Evan's base. They use the
+ * real simulator and replay format, but never apply their loot or destruction. */
+function* dragonExampleSearch(s, now) {
+  const th = keepOf(s), level = Math.max(1, topLevel('hatchery', th));
+  const chosen = heroDragons(s), colors = {nightmare: 'green', 'soul-eater': 'purple', 'terror-bringer': 'albino', usurper: 'black'};
+  const scenes = [
+    {name: 'Nightmare & Soul Eater', species: ['nightmare', 'soul-eater'], army: {footman: 24, archer: 16}, side: 0, level},
+    {name: 'Terror Bringer & Usurper', species: ['terror-bringer', 'usurper'], army: {footman: 30, archer: 30, knight: 8}, side: 1, level},
+    {name: 'Four-Dragon Siege', species: DRAGON_ORDER, army: {footman: 80, archer: 80, knight: 40}, side: 2, level: Math.min(10, level + 2)}
+  ];
+  const recs = [], hold = {};
+  for (const [i, scene] of scenes.entries()) {
+    const heroes = {}, dragons = {};
+    for (const species of scene.species) {
+      const D = DRAGONS[species]; heroes[D.hero] = scene.level;
+      dragons[D.hero] = {species, color: chosen[D.hero]?.color || colors[species]};
+    }
+    const B = yield* raidSteps(s, now, scene.army, scene.side, heroes, dragons);
+    const rec = recordOf(s, B, now, {name: scene.name, th}, `xd${now.toString(36)}${i}`, hold);
+    if (rec.rp) recs.push({...rec, ls: [0, 0], lb: {}, td: 0, ex: true, demo: 'dragons-v1'});
+  }
+  return {recs, lots: hold.lots || {}};
+}
 /**
  * Makes the three example raids on s at now (EX_WANT: 0, 1 and 3 stars, as far as his realm allows), into s.ex (and
  * s.exv = EX_V, the lot they were played on in s.lots), all at once (the checks; the owner's phone uses
@@ -686,11 +710,12 @@ let EX_RUN = null;
  * if still() holds then and all along (Keepfall open) and it's still the owner's phone. Resolves to the records, or null
  * when stopped. One at a time: asked again while one runs, the same promise.
  */
-export function exampleRaidsAsync(s, now = Date.now(), {still = () => true, into = () => s, budget = 8} = {}) {
+export function exampleRaidsAsync(s, now = Date.now(), {still = () => true, into = () => s, budget = 8, dragonDemo = false} = {}) {
   if (EX_RUN) return EX_RUN;
   if (!mayPlay() || !s || !Array.isArray(s.b)) return Promise.resolve(null);
-  const ok = () => mayPlay() && !!still();
-  const gen = exampleSearch(JSON.parse(JSON.stringify(s)), now);
+  const profile = profileKey(), showDragons = dragonDemo && dragonExamplesForMe();
+  const ok = () => mayPlay() && profileKey() === profile && !!still();
+  const gen = (showDragons ? dragonExampleSearch : exampleSearch)(JSON.parse(JSON.stringify(s)), now);
   EX_RUN = sliced(gen, ok, budget).then(res => {
     if (!res || !ok()) return null;
     const t = into();
@@ -710,7 +735,8 @@ export function ensureExamples(s, now = Date.now()) {
 }
 /** ensureExamples a slice at a time (exampleRaidsAsync): resolves true if it made them, on into() (the realm when they're
  *  done, unless it has had them made or cleared meanwhile, on another phone). */
-export function ensureExamplesAsync(s, now = Date.now(), {still = () => true, into = () => s, budget = 8} = {}) {
-  if (!mayPlay() || !s || s.exv === EX_V || EX_RUN) return Promise.resolve(false);
-  return exampleRaidsAsync(s, now, {still, budget, into: () => { const t = into(); return t && t.exv !== EX_V ? t : null; }}).then(r => !!r);
+export function ensureExamplesAsync(s, now = Date.now(), {still = () => true, into = () => s, budget = 8, dragonDemo = false} = {}) {
+  const showDragons = dragonDemo && dragonExamplesForMe(), current = t => showDragons ? t.exdv === 1 : t.exv === EX_V;
+  if (!mayPlay() || !s || current(s) || EX_RUN) return Promise.resolve(false);
+  return exampleRaidsAsync(s, now, {still, budget, dragonDemo: showDragons, into: () => { const t = into(); return t && !current(t) ? t : null; }}).then(r => !!r);
 }

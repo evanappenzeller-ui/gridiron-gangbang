@@ -782,7 +782,7 @@ function examplesOnce(st) {
   const t = setTimeout(() => {
     st.effects.delete(t);
     if (st.dead || !F.mayPlay()) return;
-    const run = ensureExamplesAsync(F.mine(), Date.now(), {still: () => !st.dead && F.mayPlay(), into: () => F.mine()});
+    const run = ensureExamplesAsync(F.mine(), Date.now(), {still: () => !st.dead && F.mayPlay(), into: () => F.mine(), dragonDemo: F.dragonExamplesForMe()});
     if (LOG_DRAW) LOG_DRAW();
     run.then(made => { if (made && !st.dead && F.mayPlay()) F.touch(); }, e => console.error(e)).finally(() => { if (LOG_DRAW) LOG_DRAW(); });
   }, 1500);
@@ -1082,7 +1082,7 @@ function logSheet(st) {
       if (make.disabled || examplesBusy()) return;
       // (played out for real on your base as it stands, a slice at a time: Keepfall stays in hand; put on the realm as it
       // is when they're done, while Keepfall is open on the owner's phone)
-      const run = exampleRaidsAsync(F.mine(), Date.now(), {still: () => !st.dead && F.mayPlay(), into: () => F.mine()});
+      const run = exampleRaidsAsync(F.mine(), Date.now(), {still: () => !st.dead && F.mayPlay(), into: () => F.mine(), dragonDemo: F.dragonExamplesForMe()});
       draw();
       run.then(ex => {
         if (!ex || st.dead || !F.mayPlay()) return;
@@ -1106,11 +1106,11 @@ function logHTML(s, now) {
   return `<div class="rl-sh-big"><span class="rl-amt"><i class="rl-crown"></i>${nf(s.tp)}</span><small>glory · ${won} realm${won === 1 ? '' : 's'} sacked · ${held} raid${held === 1 ? '' : 's'} driven off${s.sh > now ? ` · truce for ${dur(s.sh - now)}` : ''}</small></div>`
     + `<h3 class="rl-sh-h">Raids on your realm</h3>${def.length ? def.map(r => `<div class="rl-log"><span>${starsHTML(r.st || 0)}</span><span class="rl-log-t"><span><b>${esc(r.by)}</b> ${r.st ? `took ${curHTML('gold', (r.lt || [])[0])} ${curHTML('grain', (r.lt || [])[1])}` : 'were driven off'}</span><small>${ago(r.at)} · ${r.pc || 0}% · ${r.td > 0 ? '+' : ''}${r.td || 0} glory</small></span>${watchHTML(r, s, `${r.by}’s raid on your realm`)}</div>`).join('') : `<p class="rl-sh-note">${F.keepOf(s) < F.DEFEND_AT ? `No one bothers with a realm this small yet. Once your Castle is level ${F.DEFEND_AT}, the computer’s realms will start raiding you, now and then.` : 'No one has raided you yet.'}</p>`}`
     + `<h3 class="rl-sh-h">Your attacks</h3>${off.length ? off.map(r => `<div class="rl-log"><span>${starsHTML(r.st || 0)}</span><span class="rl-log-t"><span><b>${esc(r.nm)}</b> · you took ${curHTML('gold', (r.lt || [])[0])} ${curHTML('grain', (r.lt || [])[1])}</span><small>${ago(r.at)} · ${r.pc || 0}% · +${r.ta || 0} glory</small></span>${watchHTML(r, s, `your attack on ${r.nm}`)}</div>`).join('') : `<p class="rl-sh-note">${F.attackOpen(s) ? 'You haven’t attacked anyone yet.' : `You haven’t attacked anyone yet: raids open at Castle level ${F.ATTACK_AT}.`}</p>`}`
-    + `<h3 class="rl-sh-h">Example raids <span>on your base as it stands · nothing taken</span></h3>`
+    + `<h3 class="rl-sh-h">${F.dragonExamplesForMe() ? 'Dragon sample raids' : 'Example raids'} <span>on your base as it stands · nothing taken</span></h3>`
     + (ex.length ? ex.map(r => `<div class="rl-log is-ex"><span>${starsHTML(r.st || 0)}</span><span class="rl-log-t"><span><b>${esc(r.by)}</b> ${r.st === 3 ? 'broke through' : r.st === 2 ? 'took two stars' : r.st ? 'took a star' : 'were driven off'}</span><small>Example · ${r.pc || 0}% · nothing taken</small></span>${watchHTML(r, s, `the example raid by ${r.by}`)}</div>`).join('')
-      : '<p class="rl-sh-note">No example raids. New examples plays three of the computer’s raids on your base as it stands, to watch: nothing is taken.</p>')
+      : `<p class="rl-sh-note">${F.dragonExamplesForMe() ? 'Watch Nightmare with Soul Eater, Terror Bringer with Usurper, and a siege with all four dragons. Create new samples below.' : 'No example raids. New examples plays three of the computer’s raids on your base as it stands, to watch: nothing is taken.'}</p>`)
     + (examplesBusy() ? '<div class="rl-acts rl-ex-acts"><button type="button" class="rl-act" data-rl-ex-new disabled>Riding out…</button></div>'
-      : `<div class="rl-acts rl-ex-acts"><button type="button" class="rl-act" data-rl-ex-new>New examples</button>${ex.length ? '<button type="button" class="rl-act" data-rl-ex-clear>Clear examples</button>' : ''}</div>`);
+      : `<div class="rl-acts rl-ex-acts"><button type="button" class="rl-act" data-rl-ex-new>${F.dragonExamplesForMe() ? 'New dragon samples' : 'New examples'}</button>${ex.length ? '<button type="button" class="rl-act" data-rl-ex-clear>Clear examples</button>' : ''}</div>`);
 }
 /** Build: everything you can put up, what it costs, how many more the Castle allows. */
 function shopHTML(s) {
