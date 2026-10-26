@@ -90,6 +90,8 @@ export function light(id, original) {
     hemi: 1.6, sun: id === 'space' ? '#CEEFFF' : '#FFF1D8', sunI: 1.8};
 }
 export const haze = id => THEMES[id].haze;
+/** The place's ground colour (the stage before the 3D's in: return.js). */
+export const base = id => THEMES[id].base;
 export function gate(id, original) {
   return enabled() ? ['#F9E8C5', THEMES[id].accent, '#FFE3A1', '#FFFFFF'] : original;
 }

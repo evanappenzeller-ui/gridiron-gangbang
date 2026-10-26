@@ -813,29 +813,52 @@ function draw(st, now = performance.now()) {
   // (in half pixels, changed at most four times a second: each change has the phone blur the whole screen again)
   const blur = hardDrunk ? Math.round((1.8 + .9 * Math.sin(t * 2.3)) * drunk * 2) / 2 : 0;
   if (blur !== (st.blur || 0) && (!blur || now - (st.blurAt || 0) >= 250)) { st.blur = blur; st.blurAt = now; st.layers.style.filter = blur ? `blur(${blur}px)` : ''; }
-  st.bend = D3.ready() ? W.BEND : 0;
+  const three = in3D(st), wait = waiting3D(st);
+  st.bend = three || wait ? W.BEND : 0;
   // In 3D the stage is three layers the phone puts together itself, rather than the 3D copied into this canvas every
   // frame (a whole screen of pixels, each frame): the sky here, the 3D's own canvas over it, and over that (o) the
   // glows, hints, speed lines, weather and tints. Without the 3D it's all drawn here, as before.
-  const o = D3.ready() && st.c3 ? st.c3 : c;
+  const o = three && st.c3 ? st.c3 : c;
   if (o !== c) {
     o.setTransform(1, 0, 0, 1, 0, 0); o.clearRect(0, 0, o.canvas.width, o.canvas.height); st.fxDirty = false;
     o.setTransform(st.dpr, 0, 0, st.dpr, 0, 0);
     if (drunk > 0) { const m = c.getTransform(); o.setTransform(m); }
     glSway(st, drunk > 0 ? c.getTransform() : null);
   } else { hideGL(st); if (st.fxDirty === false && st.c3) { st.c3.setTransform(1, 0, 0, 1, 0, 0); st.c3.clearRect(0, 0, st.fx.width, st.fx.height); st.fxDirty = true; } }
-  if (!(D3.ready() && style.sky(skyView(st), c, t, z))) W.sky(skyView(st), c, t, z);
-  if (D3.ready()) { draw3(st, o, now); drawSpeed(st, o, now); }
+  if (wait) { waitStage(st, c, t, z, now); return; }
+  if (!(three && style.sky(skyView(st), c, t, z))) W.sky(skyView(st), c, t, z);
+  if (three) { draw3(st, o, now); drawSpeed(st, o, now); }
   else { W.ground(st, c); W.sides(st, c); drawSpeed(st, c, now); drawLanes(st, c, now); }
   W.weather(st, o, t, z);
   c.setTransform(st.dpr, 0, 0, st.dpr, 0, 0);
   if (o !== c) o.setTransform(st.dpr, 0, 0, st.dpr, 0, 0);
   drawTints(st, o, now, t, run, drunk);
 }
+// The 3D takes a moment to come in after the page opens (three.js, the players' model: views/return-3d.js). Till it's
+// in (or this phone can't, or WAIT_3D_MS go by) the stage is the place's sky over its ground's colour, nothing more,
+// and a kickoff waits for it (go): the run is never begun in the old pictures only to swap to the 3D a moment in (the
+// owner's ask, Oct 26 2026: "the first half second of return man is glitchy"). A run begun without the 3D (it never
+// came in time) stays in the pictures to its end (st.flat). The 3D fades in over the stage the first time it shows.
+const WAIT_3D_MS = 6000;
+const in3D = st => D3.ready() && !st.flat;
+const waiting3D = st => !D3.settled() && !st.gaveUp3D;
+function waitStage(st, c, t, z, now) {
+  const v = skyView(st);
+  if (!style.sky(v, c, t, z)) W.sky(v, c, t, z);
+  c.fillStyle = style.base(R.zoneAt(st.co, z).theme.id); c.fillRect(0, v.y0 + 1, st.W, st.H - v.y0 - 1);
+  drawTints(st, c, now, t, null, 0);
+  // (a word that it's coming, if it's slow)
+  if (now - (st.mountAt || now) > 900) {
+    c.font = `800 ${Math.round(Math.min(st.W, st.H) * .045)}px "Barlow Condensed", "Arial Narrow", sans-serif`;
+    c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = 'rgba(255,255,255,.85)';
+    c.fillText('LOADING', st.W / 2, v.y0 + (st.H - v.y0) * .45);
+  }
+}
 /** The 3D's canvas shown on the stage, over the sky (moved here if another stage had it). */
 function showGL(st, cv) {
   if (!cv || !st.glHost) return;
   if (cv.parentNode !== st.glHost) { cv.className = 'rm-glc'; st.glHost.appendChild(cv); }
+  if (!st.glIn) { st.glIn = true; if (!ui.RM && cv.animate) cv.animate([{opacity: 0}, {opacity: 1}], {duration: 220, easing: 'ease-out'}); }
   if (st.glHost.hidden) st.glHost.hidden = false;
   const w = st.W + 'px', h = st.H + 'px';
   if (cv.style.width !== w) cv.style.width = w;
@@ -943,6 +966,9 @@ function pop(st, text, cls = '', sub = '') {
 /** A kickoff: the ball comes down into his hands, then he's off. */
 function go(st) {
   if (st.mode === 'run' || st.mode === 'catch') return;
+  // (the 3D still coming: the kickoff waits for it, mount's settle3D; a run begun without it stays in the pictures)
+  if (waiting3D(st)) { st.goOn3D = true; return; }
+  st.flat = !D3.ready();
   clearTimeout(st.waitT); st.waitT = 0; st.waited = false;
   // (a run of the day's left under way here and never ended (paused, then dropped some other way): it counts where it
   // got to first, so no kickoff is run twice, nor the day's first run with its coins)
@@ -958,7 +984,7 @@ function go(st) {
   clearPickupPop(st);
   st.co = st.run.co;
   // (the painted skies only show without the 3D: built ahead for that alone, each a screen-sized canvas)
-  if (!D3.ready()) W.warm(skyView(st), 0);
+  if (!in3D(st)) W.warm(skyView(st), 0);
   st.mode = 'catch'; st.catchAt = performance.now();
   setCard(st, false);
   patchHud(st);
@@ -973,7 +999,11 @@ function tackled(st) {
   st.day = R.record(st.n, st.run.k, st.run.yards, st.run.z, runCoins(st)) || R.dayState(st.n);
   R.autoPost();
   patchHud(st);
-  st.later = setTimeout(() => { if (!st.dead) { setCard(st, true); patchBoard(st); } }, ui.RM ? 200 : 950);
+  st.later = setTimeout(() => {
+    if (st.dead) return;
+    setCard(st, true); patchBoard(st);
+    if (st.flat && D3.ready()) { st.flat = false; draw(st); } // (a run in the pictures over: the 3D, in since, from now)
+  }, ui.RM ? 200 : 950);
 }
 /** A power-up he's just picked up: what it is and what it does, under the HUD for a moment. */
 const GOT_MS = 3200;
@@ -1041,7 +1071,7 @@ function onEvents(st, evs) {
       const into = evs.find(x => x.type === 'zone');
       st.cheer = now + 2600; ui.haptic('success'); ui.announce(`Touchdown! ${plural(e.n, 'touchdown')}.${into ? ` ${into.theme.name}.` : ''}`);
     }
-    else if (e.type === 'zone') { if (!D3.ready()) W.warm(skyView(st), e.z); if (!evs.some(x => x.type === 'td')) say(e.theme.name.toUpperCase(), 'is-zone'); }
+    else if (e.type === 'zone') { if (!in3D(st)) W.warm(skyView(st), e.z); if (!evs.some(x => x.type === 'td')) say(e.theme.name.toUpperCase(), 'is-zone'); }
     // a juke past something: he spins all the way round (not on the owner's phone, his ask, Oct 2026: just the cut)
     else if (e.type === 'juked') { if (!features.available()) { say('SPIN MOVE!'); st.spinAt = now; st.spinDir = Math.sign(R.xOf(st.run, st.run.lane) - st.run.jFrom) || 1; } }
     else if (e.type === 'hurdled') { say(e.ob === 'hole' ? 'HOP!' : 'HURDLE!'); ui.haptic('light'); }
@@ -1243,7 +1273,7 @@ export function render(ctx) {
 }
 export function mount(el, ctx) {
   ensureCss();
-  const st = {el, ctx, mode: 'ready', sbMode: 'today', run: null, knocked: new Map(), got: new Set(), coinGot: new Set(), sparks: [], dead: false, raf: 0, camX: null, camF: null, cheer: 0, lift: 0};
+  const st = {el, ctx, mode: 'ready', sbMode: 'today', run: null, knocked: new Map(), got: new Set(), coinGot: new Set(), sparks: [], dead: false, raf: 0, camX: null, camF: null, cheer: 0, lift: 0, mountAt: performance.now()};
   STATE.set(el, st);
   // a return left under way (the app closed mid-run) ends where it was
   R.settle(R.todayNumber());
@@ -1309,12 +1339,15 @@ export function mount(el, ctx) {
   // the stands twinkle while nothing's moving (a full 3D frame each time in 3D, so there a third as often)
   st.lifeN = 0;
   st.stopLife = ctx.timer(() => {
-    if (st.raf || ui.RM || (D3.ready() && ++st.lifeN % 3)) return;
+    if (st.raf || ui.RM || (in3D(st) && ++st.lifeN % 3)) return;
     if (st.cv.getBoundingClientRect().bottom > 0) draw(st);
   }, 90);
   R.autoPost();
   SP.load().then(() => { if (!st.dead) draw(st); });
-  D3.load().then(ok => { if (ok && !st.dead) draw(st); });
+  // (the 3D in, or not to be had, or too slow: a kickoff that waited for it goes now)
+  const settle3D = () => { clearTimeout(st.wait3T); if (st.dead) return; if (st.goOn3D) { st.goOn3D = false; go(st); } else draw(st); };
+  st.wait3T = setTimeout(() => { st.gaveUp3D = true; settle3D(); }, WAIT_3D_MS);
+  D3.load().then(settle3D);
   requestAnimationFrame(() => { if (st.dead) return; size(st); draw(st); fitScreen(st, true); autoGo(st); });
 }
 export function params(el, ctx) {
@@ -1329,7 +1362,7 @@ export function unmount(el, ctx) {
   // a return under way when the page goes: it counts where it got to (no kickoff run twice)
   if (st.run && (st.mode === 'run' || st.mode === 'catch' || st.mode === 'paused')) { keep(st); R.settle(st.n); R.autoPost(); }
   st.dead = true;
-  clearTimeout(st.later); clearTimeout(st.gotT); clearTimeout(st.waitT);
+  clearTimeout(st.later); clearTimeout(st.gotT); clearTimeout(st.waitT); clearTimeout(st.wait3T);
   if (st.raf) cancelAnimationFrame(st.raf);
   const stage = el.querySelector('[data-rm-stage]');
   if (stage) {

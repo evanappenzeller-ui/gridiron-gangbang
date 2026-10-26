@@ -64,6 +64,8 @@ export function load() {
   return LOADING;
 }
 export const ready = () => !!GL && !DEAD;
+/** Whether the 3D's settled either way (in, or this phone can't): till then the stage waits for it (views/return.js). */
+export const settled = () => !!GL || DEAD;
 /** The canvas render() draws on (one for the session), for the stage to show as a layer of its own. */
 export const canvas = () => (GL ? GL.canvas : null);
 
