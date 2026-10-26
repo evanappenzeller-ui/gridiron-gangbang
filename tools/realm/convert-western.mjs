@@ -84,7 +84,7 @@ const tga = new TGALoader().parse(read(textureSource)), texture = resizeTexture(
 const units = {
   footman: {model: 'WK_SM_Light_Infantry_A.FBX', folder: 'Infantry', prefix: 'WK_infantry', actions: {idle: '01_idle', walk: '02_walk', run: '03_run', attack: '07_attack_A', hit: '09_take_damage', death: '10_death_A'}},
   archer: {model: 'WK_SM_Archer_A.FBX', folder: 'Archer', prefix: 'WK_archer', actions: {idle: '01_idle', walk: '02_walk', run: '03_run', attack: '07_attack', hit: '09_take_damage', death: '10_death_A'}},
-  worker: {model: 'WK_Worker_A.FBX', folder: 'Worker', prefix: 'WK_worker', actions: {idle: '01_idle', walk: '02_walk', run: '03_run', attack: '07_attack', hit: '09_take_damage', death: '10_death_A', work: '12_working_A'}}
+  worker: {model: 'WK_Worker_A.FBX', folder: 'Worker', prefix: 'WK_worker', actions: {idle: '01_idle', walk: '02_walk', run: '03_run', attack: '07_attack', hit: '09_take_damage', death: '10_death_A', work: '12_working_A', work_b: '12_working_B', work_c: '12_working_C'}}
 };
 const manifest = {version: 1, generator: 'convert-western.mjs / three@0.160.0', sourcePackage: 'Toon RTS Units 1.4 / WesternKingdoms', axes: {up: '+Y', forward: '+Z'}, normalizedHeight: 1, rootMotion: 'Horizontal translation removed from idle/walk/run; game controls travel.', texture: {source: textureSource, sha256: digest(textureSource), width: texture.width, height: texture.height, sourceWidth: tga.width, sourceHeight: tga.height}, units: {}};
 fs.mkdirSync(out, {recursive: true});
@@ -111,7 +111,7 @@ for (const [kind, spec] of Object.entries(units)) {
       // Remove redundant rest tracks, especially FBX's per-frame near-unit scale keys.
       return !Array.from(track.values).every((v, i) => Math.abs(v - target[property][i % size]) < (property === 'quaternion' ? 1e-6 : 1e-4));
     });
-    clip.optimize(); clips.push(clip); clipMeta.push({name, duration: clip.duration, tracks: clip.tracks.length, loop: ['idle', 'walk', 'run', 'work'].includes(name), source: file, sha256: digest(file)});
+    clip.optimize(); clips.push(clip); clipMeta.push({name, duration: clip.duration, tracks: clip.tracks.length, loop: ['idle', 'walk', 'run', 'work', 'work_b', 'work_c'].includes(name), source: file, sha256: digest(file)});
   }
   // A stable standing reference establishes size and ground contact for all animations.
   const mixer = new T.AnimationMixer(model), idle = mixer.clipAction(clips[0]); idle.play(); mixer.setTime(0); model.updateMatrixWorld(true);

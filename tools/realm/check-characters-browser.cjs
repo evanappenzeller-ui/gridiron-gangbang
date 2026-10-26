@@ -147,7 +147,7 @@ async function server() {
     if(!file.startsWith(root+path.sep))return res.writeHead(403).end();
     fs.readFile(file,(error,bytes)=>{
       if(error)return res.writeHead(404).end();
-      if(url.pathname==='/js/views/realm-3d.js') bytes=Buffer.from(bytes.toString().replace('renderer.render(scene, cam);','renderer.render(scene, cam); window.__characterRender={scene,renderer,camera:cam,raid};'));
+      if(url.pathname==='/js/views/realm-3d.js') bytes=Buffer.from(bytes.toString().replace('renderer.render(scene, cam);','renderer.render(scene, cam); window.__characterRender={scene,renderer,camera:cam,raid,folkFrame,groups};'));
       res.writeHead(200,{'Content-Type':mime[path.extname(file)]||'application/octet-stream','Cache-Control':'no-store'}).end(bytes);
     });
   });
@@ -160,7 +160,7 @@ async function isolated(browser,url,{profile='evan',width=390,height=844,fail=fa
   await context.route('**/*',route=>{
     const target=new URL(route.request().url());
     if(disabled && target.pathname==='/js/core/features.js')return route.fulfill({contentType:'text/javascript',body:'export const available=()=>false;'});
-    if(fail && /\/models\/realm\/western\//.test(target.pathname))return route.fulfill({status:404,body:'Intentional missing character asset'});
+    if(fail && /\/models\/realm\/western-v2\//.test(target.pathname))return route.fulfill({status:404,body:'Intentional missing character asset'});
     return target.origin===url||['data:','blob:'].includes(target.protocol)?route.continue():route.abort();
   });
   const page=await context.newPage();
@@ -190,6 +190,26 @@ async function main(){
         assert(village.skinnedMeshes>0,'Village includes imported animated workers');
         await page.evaluate(()=>qa.view.look(20,22,14));await page.waitForTimeout(200);
         await page.screenshot({path:path.join(output,'workers-close-'+size.join('x')+'.png')});
+        const peaceful=await page.evaluate(()=>{
+          const {folkFrame,groups}=window.__characterRender, states=new Set(), positions=new Map();let moved=false, watch=0;
+          for(let t=0;t<120;t+=.25){folkFrame(t*1000);groups.forEach(e=>e.folk.forEach(f=>{
+            if(!f.actor?.root.visible)return; const a=f.actor;states.add(a.state);
+            if(['attack','hit','death','run'].includes(a.state))throw Error('Combat pose in a peaceful base');
+            if(f.c.role==='archer'){if(a.state!=='idle')throw Error('Tower soldier must stand watch');watch++;}
+            if(f.c.role==='work'||f.c.role==='build'){
+              const x=a.root.position.x+qa.F.N/2,y=a.root.position.z+qa.F.N/2;
+              if(qa.base.b.some(b=>x>=b.x&&x<b.x+qa.F.KINDS[b.t].size&&y>=b.y&&y<b.y+qa.F.KINDS[b.t].size))throw Error('Civilian inside building');
+              const pos=a.root.position.toArray().join(',');if(positions.has(a)&&positions.get(a)!==pos)moved=true;positions.set(a,pos);
+            }
+          }));}
+          return {states:[...states],moved,watch};
+        });
+        assert(peaceful.states.includes('idle')&&peaceful.states.includes('walk')&&peaceful.states.includes('work'));
+        assert(peaceful.moved&&peaceful.watch>0,'Civilians walk and tower soldiers stand watch');
+        await page.emulateMedia({reducedMotion:'reduce'});
+        assert.equal(await page.evaluate(()=>{const {folkFrame,groups}=window.__characterRender;const sample=t=>{folkFrame(t);return [...groups.values()].flatMap(e=>e.folk.filter(f=>f.actor?.root.visible).map(f=>[f.actor.state,...f.actor.root.position.toArray(),f.actor.root.rotation.y]));};return JSON.stringify(sample(1000))===JSON.stringify(sample(60000));}),true,'Reduced motion keeps home residents stationary');
+        await page.emulateMedia({reducedMotion:'no-preference'});
+        console.log('PASS: peaceful home routines',peaceful);
         const deployed=await page.evaluate(()=>qa.battle());
         assert.equal(deployed.capacity,200,'Maximum current army capacity');assert.equal(deployed.deployed,200);
         await page.waitForTimeout(600);
@@ -224,7 +244,7 @@ async function main(){
       const test=await isolated(browser,url,{profile});
       try{
         assert.equal(await test.page.evaluate(()=>qa.loaded),true,'Shared Keepfall scene loads for every profile');
-        assert.equal(test.requests.filter(u=>/\/models\/realm\/western\/.*\.glb/.test(u)).length,3,'Every profile can load the three imported characters');
+        assert.equal(test.requests.filter(u=>/\/models\/realm\/western-v2\/.*\.glb/.test(u)).length,3,'Every profile can load the three imported characters');
         await test.page.evaluate(()=>qa.village());await test.page.waitForTimeout(250);
         assert((await test.page.evaluate(()=>qa.snapshot())).skinnedMeshes>0,'Shared scene uses imported workers');
         assert.deepEqual(test.errors,[]);console.log('PASS:',profile,'shared imported character access');
@@ -233,7 +253,7 @@ async function main(){
     const disabled=await isolated(browser,url,{disabled:true});
     try{
       assert.equal(await disabled.page.evaluate(()=>qa.loaded),false,'Unavailable feature does not load Keepfall');
-      assert.equal(disabled.requests.filter(u=>/\/models\/realm\/western\//.test(u)).length,0,'Unavailable feature does not request character assets');
+      assert.equal(disabled.requests.filter(u=>/\/models\/realm\/western-v2\//.test(u)).length,0,'Unavailable feature does not request character assets');
       assert.deepEqual(disabled.errors,[]);console.log('PASS: unavailable feature makes no character requests');
     }finally{await disabled.context.close();}
     const fail=await isolated(browser,url,{fail:true});

@@ -165,8 +165,10 @@ export function createNPC(T, kind, {level = 1, house = {}, defending = false, on
     pose(seconds, {moving = false, face = .6, attack = 0, hit = 0, still = false} = {}) {
       if (disposed) return;
       const walk = moving && !still ? Math.sin(seconds * 10) : 0;
-      root.rotation.y = -face + Math.PI / 2;
-      rig.position.y = Math.abs(walk) * .035;
+      root.rotation.y = -face + Math.PI / 2 + (still || moving || attack ? 0 : Math.sin(seconds * .32) * .12);
+      const breath = still || moving || attack ? 0 : Math.sin(seconds * 1.6) * .008;
+      rig.position.y = Math.abs(walk) * .035 + breath;
+      rig.rotation.z = still || moving || attack ? 0 : Math.sin(seconds * .55) * .018;
       rig.rotation.x = hit * .2;
       legs[0].rotation.x = walk * .5; legs[1].rotation.x = -walk * .5;
       arm.rotation.x = still ? 0 : (wizard ? .9 * attack : hero ? 1.5 * attack : keeper ? Math.sin(seconds * 1.8) * .08 : walk * .08);

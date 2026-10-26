@@ -24,7 +24,8 @@ import {createWildlife} from './realm-wildlife.js';
 import {createAmbience} from './realm-ambience.js';
 import {villageGroundTexture} from './realm-ground.js';
 import {createGrassWallpaper} from './realm-grass.js';
-import {createHomeNPCs, createBattleHeroes} from './realm-npcs.js';
+import {createHomeNPCs, createBattleHeroes, npcPaths} from './realm-npcs.js';
+import {routineRoute, homeRoutine} from './realm-routines.js';
 import * as CH from './realm-characters.js';
 import {createRaidAttacks} from './realm-attack-art.js';
 import {isDragonKind, dragonCanFly, loadDragon, onDragonReady, createBattleDragons, createHomeDragon, createSceneryDragons} from './realm-dragon.js';
@@ -744,6 +745,7 @@ export function create(host, opts = {}) {
     if (homeNPCs) homeNPCs.setLot(s, {house});
     if (homeDragon) homeDragon.setLot(s);
     const seen = new Set();
+    let folkChanged = layoutChanged;
     s.b.forEach(b => {
       if (b.t === 'wall') return;
       seen.add(b.i);
@@ -751,6 +753,7 @@ export function create(host, opts = {}) {
       const key = `${b.t}:${b.l}:${status}:${house.pri}:${house.sigil}`;
       let e = groups.get(b.i);
       if (!e || e.key !== key) {
+        folkChanged = true;
         if (e) { root.remove(e.g); SPR.release(e.g); dropFolk(e); }
         const g = new T.Group();
         if (status === 'down') g.add(FM.rubble(size));
@@ -767,7 +770,8 @@ export function create(host, opts = {}) {
         groups.set(b.i, e);
         if (SPR.folkReady()) SPR.crewOf(b, status, size).forEach((c, j) => {
           const sp = SPR.folk(), ph = ((b.i * 7919 + j * 104729) % 1000) / 1000;
-          const actor = (c.role === 'work' || c.role === 'build') ? CH.create('worker', {height: 1.05, phase: ph}) : null;
+          const actor = CH.create(c.role === 'archer' ? 'archer' : 'worker', {height: c.role === 'archer' ? 1.15 : 1.05, phase: ph});
+          if (actor) actor.root.userData.homeRole = c.role;
           scene.add(sp); if (actor) scene.add(actor.root);
           e.folk.push({sp, c, ph, actor});
         });
@@ -776,6 +780,13 @@ export function create(host, opts = {}) {
       e.g.position.set(W(b.x + size / 2), 0, W(b.y + size / 2));
     });
     [...groups.keys()].forEach(id => { if (!seen.has(id)) { root.remove(groups.get(id).g); SPR.release(groups.get(id).g); dropFolk(groups.get(id)); groups.delete(id); } });
+    if (folkChanged) {
+      const paths = npcPaths(s.b);
+      groups.forEach(e => e.folk.forEach(f => {
+        f.route = f.c.role === 'work' || f.c.role === 'build'
+          ? routineRoute(paths, e.b, f.c, KINDS[e.b.t].size, f.ph) : [];
+      }));
+    }
     // Walls retain their own design at mixed-level joins and remain selectable along each run.
     const walls = s.b.filter(b => b.t === 'wall' && !gone.has(b.i));
     wallView.setLot(walls);
@@ -802,29 +813,43 @@ export function create(host, opts = {}) {
     return village && ids.includes(sel.id) ? sel.id : ids[0] ?? null;
   };
 
-  // ---- the folk: each a picture standing where it works, posed for the moment. A villager loops his work (six poses a
-  // second, then a rest), at home only; in a raid a tower's archer draws and looses as the tower shoots (the release
-  // as the arrow goes) and a cannon's crew works the gun while it's firing. Each is drawn a little nearer the camera
-  // than where he stands (his place on the screen kept), so the building he's by never covers him.
+  // Peaceful routines use independent schedules and clear courtyard paths.
+  // Tower/cannon firing pictures remain synchronized to actual raid shots.
   const camR = new T.Vector3(), camU = new T.Vector3(), fp = new T.Vector3(), toCam = new T.Vector3();
   function dropFolk(e) { (e.folk || []).forEach(f => { if (f.actor) f.actor.dispose(); scene.remove(f.sp); f.sp.material.map.dispose(); f.sp.material.dispose(); }); e.folk = []; }
   function folkFrame(now) {
     if (!SPR.folkReady()) return;
     camR.setFromMatrixColumn(cam.matrixWorld, 0); camU.setFromMatrixColumn(cam.matrixWorld, 1);
     const sec = now / 1000;
+    const still = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
     groups.forEach(e => e.folk.forEach(f => {
       const c = f.c, n = SPR.FOLK[c.sheet].length;
-      if (f.actor) {
+      const civilian = c.role === 'work' || c.role === 'build';
+      if (f.actor) f.actor.root.visible = false;
+      if (placement || view.dist >= 145 || (raid && civilian)) { f.sp.visible = false; return; }
+      const routine = homeRoutine(f.route || [], {role: c.role, building: e.b.t, phase: f.ph}, sec, still);
+      if (f.actor && !raid) {
         f.sp.visible = false;
-        f.actor.root.visible = features.available() && !(c.role === 'work' && raid) && view.dist < 145;
+        f.actor.root.visible = features.available();
         if (!f.actor.root.visible) return;
-        const g = e.g.position, cycle = (sec + f.ph * 9) % 7;
+        const g = e.g.position, U = e.g.userData;
         f.actor.root.position.set(g.x + c.u, g.y, g.z + c.v);
-        f.actor.root.rotation.y = Math.atan2(-c.u, -c.v);
-        f.actor.pose(cycle < 5 ? 'work' : 'idle', sec);
+        if (civilian) {
+          if (!routine.point) { f.actor.root.visible = false; return; }
+          f.actor.root.position.set(W(routine.point.x), 0, W(routine.point.y));
+        } else if (c.role === 'archer') {
+          if (!U?.sprite) { f.actor.root.visible = false; return; }
+          const [px, py] = SPR.platform(e.b.l);
+          fp.copy(g).add(U.sprite.position).addScaledVector(camR, (px - U.ax) * U.k).addScaledVector(camU, (U.ay - py) * U.k);
+          toCam.copy(cam.position).sub(fp).normalize();
+          f.actor.root.position.copy(fp).addScaledVector(toCam, .35);
+        }
+        const idleLook = still || routine.state !== 'idle' ? 0 : Math.sin(sec * .28 + f.ph * 17) * .16;
+        f.actor.root.rotation.y = routine.face ?? (Math.atan2(-c.u, -c.v) + idleLook);
+        f.actor.root.userData.duty = routine.state;
+        f.actor.pose(routine.state, sec, {rate: routine.rate});
         return;
       }
-      if (c.role === 'work' && raid) { f.sp.visible = false; return; }
       f.sp.visible = true;
       let i = 0, flip = c.flip;
       const fired = raid ? raid.fired.get(e.b.i) : undefined, rt = raid ? raid.t : 0;
@@ -836,9 +861,8 @@ export function create(host, opts = {}) {
       } else if (raid && c.role === 'crew') {
         const dt = fired == null ? 9 : rt - fired;
         i = dt < 2.5 ? Math.floor(Math.max(0, dt) * 10 + f.ph * n) % n : 0;
-      } else {
-        const run = n / 6, rest = c.role === 'archer' ? 7 + f.ph * 6 : .6 + f.ph * 2.4, p = (sec + f.ph * 9) % (run + rest);
-        i = p < run ? Math.floor(p * 6) : 0;
+      } else if (!still && civilian && routine.state.startsWith('work')) {
+        i = Math.floor((sec + f.ph * 9) * 6) % n;
       }
       SPR.pose(f.sp, c.sheet, i, flip, c.size || 1);
       const g = e.g.position, U = e.g.userData;
@@ -848,6 +872,7 @@ export function create(host, opts = {}) {
         fp.copy(g).add(U.sprite.position).addScaledVector(camR, (px - U.ax) * U.k).addScaledVector(camU, (U.ay - py) * U.k);
         bias = .35;
       } else if (c.role === 'archer') { f.sp.visible = false; return; }
+      else if (!raid && civilian && routine.point) fp.set(W(routine.point.x), 0, W(routine.point.y));
       else fp.set(g.x + c.u, g.y, g.z + c.v);
       toCam.copy(cam.position).sub(fp);
       const d = toCam.length(), sc = (d - bias) / d;

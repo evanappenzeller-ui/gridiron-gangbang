@@ -5,9 +5,9 @@ import * as data from '../core/data.js';
 import * as features from '../core/features.js';
 
 const V = new URL('../vendor/three/', import.meta.url).href;
-const AT = new URL('../../models/realm/western/', import.meta.url).href;
+const AT = new URL('../../models/realm/western-v2/', import.meta.url).href;
 export const KINDS = Object.freeze(['footman', 'archer', 'worker']);
-const LOOP = new Set(['idle', 'walk', 'run', 'work']);
+const LOOP = new Set(['idle', 'walk', 'run', 'work', 'work_b', 'work_c']);
 const motion = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
 const templates = new Map(), actors = new Set();
 let T = null, cloneRig = null, pending = null, generation = 0, subscribed = false;

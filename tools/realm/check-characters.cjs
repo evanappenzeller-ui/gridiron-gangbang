@@ -27,7 +27,7 @@ const uri = source => 'data:text/javascript;base64,' + Buffer.from(source).toStr
     const mesh = new T.SkinnedMesh(geometry, new T.MeshStandardMaterial());
     const joint = new T.Bone(); joint.name = 'joint'; mesh.add(joint);
     mesh.bind(new T.Skeleton([joint])); mesh.position.y = 1; scene.add(mesh);
-    const amounts = {idle: .1, walk: .5, run: 1, attack: 2, hit: -1, death: 3, work: .7};
+    const amounts = {idle: .1, walk: .5, run: 1, attack: 2, hit: -1, death: 3, work: .7, work_b: .8, work_c: .9};
     const animations = Object.entries(amounts).map(([name, amount]) => new T.AnimationClip(name, 1,
       [new T.NumberKeyframeTrack('joint.rotation[z]', [0, 1], [0, amount])]));
     const result = {scene, animations}; loaded.push(result); return result;
@@ -46,7 +46,7 @@ const uri = source => 'data:text/javascript;base64,' + Buffer.from(source).toStr
     .replace("import * as data from '../core/data.js';", 'const data = globalThis.__keepCharacterData;')
     .replace("import * as features from '../core/features.js';", 'const features = globalThis.__keepCharacterFeatures;')
     .replace("new URL('../vendor/three/', import.meta.url).href", "'https://keep.invalid/vendor/'")
-    .replace("new URL('../../models/realm/western/', import.meta.url).href", "'https://keep.invalid/characters/'")
+    .replace("new URL('../../models/realm/western-v2/', import.meta.url).href", "'https://keep.invalid/characters/'")
     .replace("import(V + 'GLTFLoader.js')", 'Promise.resolve(globalThis.__keepCharacterLoader)')
     .replace("import(V + 'SkeletonUtils.js')", 'Promise.resolve(globalThis.__keepCharacterClone)');
   const C = await import(uri(source));
@@ -88,6 +88,11 @@ const uri = source => 'data:text/javascript;base64,' + Buffer.from(source).toStr
   a.pose('attack', 21, {event: 21}); close(jointOf(a).rotation.z, 0);
   a.pose('attack', 21.5, {event: 21}); close(jointOf(a).rotation.z, 1);
   a.pose('unknown', 30); a.pose('unknown', 30.5); assert.equal(a.state, 'idle');
+  for (const clip of ['work_b', 'work_c']) {
+    b.pose(clip, 35); b.pose(clip, 35.25); const first=jointOf(b).rotation.z;
+    b.pose(clip, 37.25); close(jointOf(b).rotation.z, first);
+    assert.equal(b.state, clip, 'Additional job animation loops instead of falling back to idle');
+  }
   motion.matches = true;
   b.pose('work', 40); b.pose('work', 41); const frozen = jointOf(b).rotation.z;
   b.pose('work', 43); close(jointOf(b).rotation.z, frozen);
