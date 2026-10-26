@@ -58,13 +58,14 @@ async function launch() {
 async function fixture(browser, legacy = false) {
   const context = await browser.newContext({viewport: {width: 1280, height: 800}, serviceWorkers: 'block'});
   await context.addInitScript(() => { performance.now = () => 1234; }); // Match explicit render time, including legacy blinking lamps.
-  const page = await context.newPage(), errors = [], external = [], failed = [], imageRequests = [];
+  const page = await context.newPage(), errors = [], external = [], failed = [], imageRequests = [], modelRequests = [];
   await context.route('**/*', async route => {
     const url = route.request().url();
     if (!url.startsWith(origin + '/')) { external.push(url); return route.abort('blockedbyclient'); }
     if (new URL(url).pathname === '/__environment_check__') return route.fulfill({contentType: 'text/html', body:
       '<!doctype html><title>Return Man environment check</title><link rel="icon" href="data:,"><style>body{margin:0;background:#000}canvas{position:absolute;inset:0;width:1280px;height:800px}p{position:absolute;z-index:3;left:16px;top:0;margin:12px 0;padding:9px 14px;border-radius:8px;background:#ffffffe8;color:#18344c;font:16px sans-serif}</style><p id="label"></p>'});
     if (/\.(png|webp|jpe?g)(\?|$)/.test(url)) imageRequests.push(url);
+    if (/\/models\/return\/[a-z]+-v\d+\.glb(\?|$)/.test(url)) modelRequests.push(new URL(url).pathname);
     try { return await route.fulfill({status: 200, ...source(url, legacy)}); }
     catch (error) { errors.push(`Serving ${url}: ${error.message}`); return route.fulfill({status: 404, body: 'Missing fixture source'}); }
   });
@@ -175,6 +176,11 @@ async function fixture(browser, legacy = false) {
       identity(id) { D.setMe(id); },
       ready() {
         frame();
+        // (each place's scenery models, once in: what was built before they came, built again with them)
+        if (!legacy && !W3.sceneryReady(theme.id)) return false;
+        if (!legacy) { W3.renewScenery(); frame(); }
+        // (and the stadium's painted midfield logo, decoded after the network's gone quiet)
+        if (!legacy && theme.id === 'stadium' && !scene.getObjectByName('toreadors-midfield-logo')) return false;
         return legacy || theme.id !== 'city' || !!scene.getObjectByName('city-bus-pilot-body');
       },
       status() {
@@ -221,7 +227,7 @@ async function fixture(browser, legacy = false) {
       fallbackImage() { return fallback.toDataURL('image/png'); }
     };
   }, legacy).catch(error => { error.message += '\nFixture diagnostics: ' + JSON.stringify({legacy, errors, failed, external}); throw error; });
-  return {page, context, errors, failed, external, imageRequests,
+  return {page, context, errors, failed, external, imageRequests, modelRequests,
     async identity(id) { await page.evaluate(id => window.environmentCheck.identity(id), id); },
     async snapshot(theme) {
       await page.evaluate(theme => window.environmentCheck.prepare(theme), theme);
@@ -273,6 +279,10 @@ function unchanged(actual, expected, label) {
         assert.notEqual(s.sceneHash, report.themes[theme].baseline.sceneHash, theme + ': v3 redesign reaches public profiles');
       }
       assert(current.imageRequests.length > 0, 'public profiles load v3 art');
+      // (the Unity-pack scenery: every place but the stadium has its models, asked for once each, for everyone)
+      const asked = [...new Set(current.modelRequests)].map(p => p.replace(/^.*\/([a-z]+)-v\d+\.glb$/, '$1')).sort();
+      assert.deepEqual(asked, themes.filter(t => t !== 'stadium').sort(), 'public profiles load each place\'s scenery models');
+      assert.equal(current.modelRequests.length, asked.length, 'each place\'s models are fetched once');
       await current.identity('evan');
       for (const theme of themes) {
         const s = await current.snapshot(theme); rendered(s, 'owner ' + theme);

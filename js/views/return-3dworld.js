@@ -9,11 +9,15 @@ import * as features from '../core/features.js';
 // behind it all (the camera only ever looks straight ahead), the fog its haze.
 // Everything is built as the road comes up and let go behind: the ground and the roadside in 20-yard chunks (each a few
 // merged meshes, coloured by vertex), the lane things one by one (shared shapes and materials).
+// The owner's Unity packs (Oct 25 2026, views/return-models.js): each place's models, once they've loaded, build what
+// they can of its roadside and some of its lane things (in the same boxes), copied into the same batches (Batch.model),
+// and add what the 2D world never had; until then (or offline) the shapes here. What was built before a place's models
+// came in is built again with them while it's still out in the haze.
 // The world in yards (x across, y up, z ahead); three.js's z is the other way (-z).
 // The curved world (the owner's ask, Oct 2026): every material here and on the players is bent (bend(): its vertex
 // shader sinks each point BEND_U * d^2 yards, d its depth ahead of the camera, after it's placed), so the ground needs
 // vertices along it to bend: the ground's planes come in 2-yard strips, long boxes in 5-yard pieces.
-// Exports: init(three, scene, utils), update(st, now), look(st, z), bend(obj), BEND_U.
+// Exports: init(three, scene, utils), update(st, now), look(st, z), bend(obj), BEND_U, sceneryReady(id), renewScenery().
 import * as R from '../core/return.js';
 import {dressList, LOOKS, OBS, GOODS_COL, HOLE_COL, coneFly, CONE_MS} from './return-world.js';
 import {seeded} from './stadium.js';
@@ -22,6 +26,7 @@ import * as fieldLogo from './return-field-logo.js';
 import * as data from '../core/data.js';
 import * as style from './return-style.js';
 import {decorate} from './return-scenery.js';
+import * as models from './return-models.js';
 
 let T = null, U = null, SCENE = null, ROOT = null;
 /** The bend (yards down per yard of depth squared: return-3d.js sets it each frame from st.bend). */
@@ -140,6 +145,23 @@ class Batch {
       let ex = nm[0] * nx + nm[3] * ny + nm[6] * nz, ey = nm[1] * nx + nm[4] * ny + nm[7] * nz, ez = nm[2] * nx + nm[5] * ny + nm[8] * nz;
       const l = Math.hypot(ex, ey, ez) || 1; nr[w] = ex / l; nr[w + 1] = ey / l; nr[w + 2] = ez / l;
       cc[w] = c.r; cc[w + 1] = c.g; cc[w + 2] = c.b;
+    }
+    this.n += k;
+    return this;
+  }
+  /** A scenery model (return-models.js: its corners, normals and colours) with its foot's middle at (x, y, z), turned
+   *  ry about the up, sized (sx, sy, sz) along its own x, y, z. */
+  model(M, x, y, z, ry = 0, sx = 1, sy = sx, sz = sx) {
+    const k = M.k, cs = Math.cos(ry), sn = Math.sin(ry), P = M.p, N = M.n, C = M.c;
+    this.room(k);
+    const o = this.n * 3, p = this.p, nr = this.nr, cc = this.c;
+    for (let i = 0; i < k * 3; i += 3) {
+      const vx = P[i] * sx, vy = P[i + 1] * sy, vz = P[i + 2] * sz, w = o + i;
+      p[w] = x + vx * cs + vz * sn; p[w + 1] = y + vy; p[w + 2] = -z - vx * sn + vz * cs;
+      let nx = N[i] / sx, ny = N[i + 1] / sy, nz = N[i + 2] / sz;
+      const l = Math.hypot(nx, ny, nz) || 1; nx /= l; ny /= l; nz /= l;
+      nr[w] = nx * cs + nz * sn; nr[w + 1] = ny; nr[w + 2] = -nx * sn + nz * cs;
+      cc[w] = C[i]; cc[w + 1] = C[i + 1]; cc[w + 2] = C[i + 2];
     }
     this.n += k;
     return this;
@@ -336,16 +358,21 @@ function chunk(st, i) {
   g.add(plane(baseMat(id), -260, -G.half, z0, z1, -.01), plane(baseMat(id), G.half, 260, z0, z1, -.01));
   const b = new Batch(id), lit = new Batch(id);
   GROUND_EXTRA[id] && GROUND_EXTRA[id](g, b, lit, z0, z1, zone, st);
-  // what stands beside the road here (the 2D world's list for this place, the bits in this chunk)
-  const D = dressList(st, Math.floor(z0 / R.ZONE));
+  // what stands beside the road here (the 2D world's list for this place, the bits in this chunk): from the place's
+  // models where it has them (return-models.js, once they're in), else the shapes here
+  const D = dressList(st, Math.floor(z0 / R.ZONE)), withModels = models.ready(id);
   // (each thing with the chunk its far end is in, so it's kept till all of it's behind you)
   D.list.forEach(o => {
     const at = Math.max(o.z0, o.z1 || o.z0);
     if (at < z0 || at >= z1) return;
+    if (models.prop(b, lit, o, id)) return;
     const f = PROPS[o.k];
     if (f) f(b, lit, o, g, st);
     if (style.enabled()) decorate(b, lit, o, g);
   });
+  // and what the models add that the 2D world never had
+  models.extras(b, lit, id, z0, z1, D.list, `${st.co.n}|${st.co.k}`);
+  g.userData.theme = id; g.userData.models = withModels;
   const m = b.mesh(mats().vc), l = lit.mesh(mats().glow);
   if (m) g.add(m);
   if (l) g.add(l);
@@ -809,7 +836,21 @@ function keep(key, make, may = true) {
   e.seen = FRAME;
   return e.obj;
 }
-let FRAME = 0, FAR_GROUND = null;
+let FRAME = 0, FAR_GROUND = null, MODELS_SEEN = 0;
+/** Lets go of what was built without its place's models (in since) from z yards on, to be built again with them. */
+function renew(from) {
+  for (const [k, e] of LIVE) {
+    const u = e.obj.userData;
+    if (u.models !== false || !models.ready(u.theme) || !(u.z0 >= from)) continue;
+    ROOT.remove(e.obj);
+    e.obj.traverse(o => { if (o.isMesh && o.geometry && !o.userData.shared) o.geometry.dispose(); });
+    LIVE.delete(k);
+  }
+}
+/** Everything built before its place's models came in, built again with them (the environment checks' still frames). */
+export const renewScenery = () => renew(-Infinity);
+/** Whether a place's scenery models are in (or never will be: then it's built as it always was). */
+export const sceneryReady = id => models.ready(id) || models.failed(id);
 // ---------------------------------------------------------------- The barricades and banners
 const OBJ = new Map();
 function obstacleOf(type, id) {
@@ -1156,11 +1197,13 @@ function vehicleOf(p, th) {
   const painted = isCityBus ? cityBus.body({x0, x1, y0, y1, z0, z1}) : null;
   if (isCityBus) { g.userData.cityBus = true; g.userData.cityBusPilot = !!painted; }
   const f = KIND[p.kind];
+  g.userData.theme = th.id; g.userData.models = models.ready(th.id); g.userData.z0 = z0;
   if (painted) {
     g.add(painted);
     // Keep the original wheel geometry, placement, ramp and collision footprint.
     [z0 + 1.8, z1 - 2.2].forEach(z => [x0 + .1, x1 - .1].forEach(x => wheel(b, x, z, .55, .35)));
   }
+  else if (models.vehicle(b, lit, {x0, x1, y0, y1, z0, z1, X, w}, p, th.id)) { /* (the place's models, in its box) */ }
   else if (f) f(b, lit, {x0, x1, y0, y1, z0, z1, X, w}, p, g);
   else if (TALL[p.kind]) tallOne(b, lit, {x0, x1, y0, y1, z0, z1, X, w}, p, TALL[p.kind], g);
   else b.box('#888888', x0, x1, y0, y1, z0, z1);
@@ -1269,6 +1312,10 @@ export function update(st, now) {
   fieldLogo.sync();
   FRAME++;
   const t = now / 1000, run = st.run, cz = st.camZ, key = `${st.co.n}|${st.co.k}${st.co.hard ? 'h' : ''}`;
+  // the places' models (return-models.js): this one's and the next two's asked for in time; what was built before its
+  // place's came in, built again with them while it's still off in the haze
+  for (let z = cz; z <= cz + 2 * R.ZONE; z += R.ZONE) models.want(R.zoneAt(st.co, z).theme.id);
+  if (models.version() !== MODELS_SEEN) { MODELS_SEEN = models.version(); renew(cz + 75); }
   // the ground beyond the last chunk, out to the horizon (all haze by then)
   if (!FAR_GROUND) { FAR_GROUND = new T.Mesh(new T.PlaneGeometry(4000, 3000).rotateX(-Math.PI / 2), new T.MeshLambertMaterial({color: 0x808080})); ROOT.add(bend(FAR_GROUND)); }
   FAR_GROUND.position.set(0, -.03, -(cz + AHEAD + 1500));

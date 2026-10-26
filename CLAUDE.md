@@ -27,6 +27,15 @@ Keep gameplay dimensions and collisions intact, retain the 2D fallback, and pres
 and its complete loading-failure fallback. Verify `node tools/return/check-environments.cjs`,
 `node tools/return/check-city-bus.cjs`, and `node tools/return/check-city-cache.cjs` before further visual releases.
 
+Unity-pack scenery (October 25, 2026, Evan: "use the assets to create new and improved sceneries in the game"):
+eight places (all but the stadium) also use models from his packs in D:\Unity\My project\Assets (Western, Desert,
+Winter, Tropical Beach/Island, Sci-Fi City, Spaceships, Environment, Playground, Currency).
+`tools/return/scenery-models.json` picks them and sizes them; `tools/return/scenery-models.mjs` (with
+`unity-assets.mjs`: FBX/OBJ/PNG/PSD/.mat readers, no Unity needed) bakes each face's colour and writes
+`models/return/<place>-v1.glb` (give changed output a new version number). `return-models.js` loads a place's GLB as
+the run nears it and places the models (roadside, extras, and the in-lane kinds it re-skins inside their exact
+collision boxes); without them the world falls back to its procedural shapes.
+
 ## Scoreboards show everyone
 
 Standing rule from the league's owner (October 24, 2026: "Everyone should be visible on the scoreboards and Keepfall.
