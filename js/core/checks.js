@@ -1576,7 +1576,7 @@ export async function runChecks() {
     return {pass: !bad.length, detail: bad.length ? bad.join('; ') : `${want.length} legs scored right`};
   });
 
-  check('Live Games (everyone\'s, Oct 25 2026): the ball\'s spot and the red zone from ESPN, every player\'s line, his PPR points and his league owner (the draft, then trades), and the Live tab (#/live) opens on every phone', async () => {
+  check('Live Games (everyone\'s, Oct 25 2026): the ball\'s spot and the red zone from ESPN, every player\'s line, his PPR points and his league owner (the draft, then trades), and the Scores tab (#/live) opens on every phone', async () => {
     const [nfl, gd, app] = await Promise.all([import('./nfl.js'), import('./gameday.js'), import('../app.js')]);
     const bad = [];
     const H = {id: '12', abbr: 'KC'}, A = {id: '7', abbr: 'DEN'};
@@ -1603,7 +1603,7 @@ export async function runChecks() {
     const r = app.parseRoute('/live'), old = app.parseRoute('/lay/live');
     if (!old || old.view !== r.view) bad.push('old #/lay/live link');
     if (!(r && r.view === 'live' && r.open === 'root' && r.tab === 'live')) bad.push('route ' + JSON.stringify(r && {view: r.view, open: r.open}));
-    return {pass: !bad.length, detail: bad.length ? bad.join('; ') : `the ball at the ${s.spot} in the red zone; Allen ${P['Josh Allen'].pts}, Cook ${P['James Cook'].pts} PPR; #/live opens the Live tab`};
+    return {pass: !bad.length, detail: bad.length ? bad.join('; ') : `the ball at the ${s.spot} in the red zone; Allen ${P['Josh Allen'].pts}, Cook ${P['James Cook'].pts} PPR; #/live opens the Scores tab`};
   });
 
   check('Daily Games boards: each place on today\'s board of Daily Puzzles, 17-0 and the Drill shows what it pays in Keepfall\'s Ale ("+5K" on a case, "+5,000" up close; the owner\'s ask, Oct 25 2026), the pay Keepfall pays by', async () => {

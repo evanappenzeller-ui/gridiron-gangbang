@@ -82,7 +82,7 @@ export const ownerTab = t => OWNER_TABS.includes(t);
 const HOME = 'puzzles'; // the tab the app opens on: the history base, where Back from another tab's root lands
 const TAB_VIEW = {puzzles: 'puzzles', pickem: 'pickem', matchup: 'rivals', league: 'league', draft: 'moves', lay: 'lay', live: 'live'}; // root view ids
 const ROOTS = {puzzles: '/puzzles', pickem: '/pickem', matchup: '/matchup', league: '/league/standings', draft: '/draft', lay: '/lay', live: '/live'};
-const TAB_TITLES = {puzzles: 'Daily Games', pickem: "Pick'em", matchup: 'Matchup', league: 'League', draft: 'Draft', lay: 'The Lay', live: 'Live'};
+const TAB_TITLES = {puzzles: 'Daily Games', pickem: "Pick'em", matchup: 'Matchup', league: 'League', draft: 'Draft', lay: 'The Lay', live: 'Scores'};
 // Old bare hashes (#daily, #records...) from the first app. Null prototype: '#constructor' is not a legacy hash.
 const LEGACY = Object.assign(Object.create(null), {daily: '/puzzles', records: '/league/records', trophies: '/league/trophies', standings: '/league/standings', rivals: '/matchup', moves: '/draft'});
 const PUZZLES = ['college', 'silhouette', 'mystery', 'journey', 'grid', 'plays']; // every day's steps are some of these (daily.SLUGS)
@@ -142,7 +142,7 @@ function matchSegs(p, q) {
     case 'lay':
       // The Lay: the weekly 12-leg parlay (data/lay.json).
       if (n === 1) return R('lay', 'root', 'lay');
-      // The old Live Games link: the Live tab now.
+      // The old Live Games link: the Scores tab now.
       if (n === 2 && b === 'live') return {redirect: '/live', query: false};
       return null;
     case 'live':

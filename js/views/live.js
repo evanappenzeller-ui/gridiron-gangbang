@@ -226,10 +226,10 @@ function stopFeed(st) { if (st && st.stop) { st.stop(); st.stop = null; } }
 
 export default {
   id: 'live',
-  title: 'Live',
+  title: 'Scores',
 
   render() {
-    return ui.largeTitle({eyebrow: 'NFL · Live', title: 'Live', subtitle: 'Every game as it plays, the red zone first', trailing: youButtonHTML()})
+    return ui.largeTitle({eyebrow: 'NFL · Live', title: 'Scores', subtitle: 'Every game as it plays, the red zone first', trailing: youButtonHTML()})
       + `<div class="lg-body"><section class="lg-games" data-lg-games>${gamesHTML({D: null})}</section>`
       + `<section class="lg-leaders" data-lg-leaders></section>`
       + `<section class="lg-stats"><div class="sh lg-sh"><h2>Player stats</h2><span class="lg-at">PPR points</span></div>`
