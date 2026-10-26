@@ -75,6 +75,10 @@ How it's enforced, and what to keep doing:
   the second currency is Ale (Breweries, Cellars); internal ids stay keep/grain/farm/granary and the route #/realm.
 - Profile pictures (`js/core/avatars.js` `pictureShows()`): everyone's shows to everyone, a member's, an app user's and a
   guest's. The kit check "pictures: …" covers it.
+- Keepfall's case on Daily Games shows the pictures of everyone active in Keepfall today (Oct 26 2026, the owner: "Add
+  league member profile pictures to show those that were active today"): `js/core/realm-active.js` `activeToday()`
+  reads each realm's last change (`fr3[key].at`) from `daily.LB.raw`, so it follows this rule. The kit check
+  "Keepfall: who was active today…" covers it.
 
 ## Keepfall asset refresh: preserve current progress
 

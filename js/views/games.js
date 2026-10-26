@@ -23,6 +23,7 @@ import * as daily from '../core/daily.js';
 import {ringHTML, stepParts, maxPts, gradeGold, msToMidnight, countdownHTML, itemCount} from './board.js';
 import {turnable, shelfTurner, shellHTML} from './game-case.js';
 import {RANKED, aleFor} from '../core/realm-pay.js';
+import {activeToday} from '../core/realm-active.js';
 
 const esc = data.esc;
 const nf = n => data.nf(n);
@@ -244,7 +245,9 @@ function returnState() {
 function keepState() {
   // The existing first-visit marker follows the same saved realm. This is a persistent game: no daily final,
   // countdown or league board, and showing its case never starts or mutates the realm.
-  return {kind: ui.lsGet('gg-realm-seen') === '1' ? 'started' : 'new',
+  // Who was in it today shows on its cover (the owner's ask, Oct 26 2026: core/realm-active.js, everyone by the
+  // scoreboards' rule).
+  return {kind: ui.lsGet('gg-realm-seen') === '1' ? 'started' : 'new', active: safe(() => activeToday()),
     meta: '<p class="gm-note">Raise your Castle. Train your army. Defend your realm.</p>'};
 }
 const STATE = {puzzles: puzzlesState, '17-0': seventeenState, drill: drillState, kick: kickState, return: returnState, keep: keepState};
@@ -287,8 +290,15 @@ const sidesHTML = g => shellHTML(`<span class="gm-spine"><b>GRIDIRON HUB</b><spa
  *  opens it, a shine moves over it as it turns). */
 function frontHTML(g, s, up = false) {
   const stk = s.test ? sticker('is-test', 'TEST PLAY') : s.kind === 'started' ? sticker('is-go', 'IN PROGRESS') : '';
-  return `<div class="gm-face gm-front${up ? ' gm-z-front" data-gm-zfront aria-hidden="true' : ''}">${bandHTML('', g.beta)}<span class="gm-art"><img class="gm-img" src="${g.art}" alt="" decoding="async" draggable="false">${stk}</span>${up ? `<span class="gm-z-foot"><i></i>${ui.icon('football')}</span>${GLOSS}` : ''}</div>`;
+  return `<div class="gm-face gm-front${up ? ' gm-z-front" data-gm-zfront aria-hidden="true' : ''}">${bandHTML('', g.beta)}<span class="gm-art"><img class="gm-img" src="${g.art}" alt="" decoding="async" draggable="false">${stk}${activeHTML(s.active)}</span>${up ? `<span class="gm-z-foot"><i></i>${ui.icon('football')}</span>${GLOSS}` : ''}</div>`;
 }
+/** Who played a game today, on its cover (Keepfall's): their pictures overlapping, the latest first, and TODAY. */
+function activeHTML(list) {
+  if (!list || !list.length) return '';
+  const items = list.map(p => (p.member ? {id: p.member, you: p.me} : {nick: p.name, you: p.me}));
+  return `<span class="gm-act">${ui.avatarStack(items, {max: 4, size: 30})}<span class="gm-act-t">TODAY</span></span>`;
+}
+const activeText = list => (list && list.length ? `, ${list.length} active today: ${list.map(p => (p.me ? 'you' : p.name)).join(', ')}` : '');
 // What a place on today's board pays in Keepfall's Ale (the owner's ask, Oct 25 2026: "+#" by each position), on the
 // ranked games' boards (core/realm-pay.js: Daily Puzzles, 17-0, the Two-Minute Drill). short: "+3.2K" on a case's back.
 const aleTxt = (n, short) => '+' + (short ? (n >= 1000 ? `${+(n / 1000).toFixed(1)}K` : String(n)) : nf(n));
@@ -355,7 +365,7 @@ function keepBackHTML(g, up = false) {
 const caseLabel = (g, s) => {
   const name = `${g.name}${g.beta ? ' (beta)' : ''}`;
   if (s.kind === 'done') return `${name}: played today${placeText(s) ? `, ${placeText(s)}` : ''}. Show the leaderboard`;
-  return `${name}${s.kind === 'started' ? ', under way' : ''}${s.kind === 'loading' || s.kind === 'error' ? '' : '. Open the case to play'}`;
+  return `${name}${s.kind === 'started' ? ', under way' : ''}${activeText(s.active)}${s.kind === 'loading' || s.kind === 'error' ? '' : '. Open the case to play'}`;
 };
 /** A case's faces: its front, and its back when it has one (a game finished; one that turns before it's played). */
 const facesHTML = (g, s) => sidesHTML(g) + frontHTML(g, s) + (isKeepCase(g) ? keepBackHTML(g) : s.kind === 'done' || s.turns ? backHTML(g, s) : '');

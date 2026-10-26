@@ -66,6 +66,25 @@ export async function realmChecks(check) {
     return {pass: ok, detail: `route ${routed}; every realm the attack’s own ${same}; ${R4.name}: ${def.map(d => `${d.n} ${d.t}`).join(', ')} (${counted}); a cannon: ${facts}; ${nests.length} of their hatcheries: ${nestFacts[0] || 'none'} (${hatch}); an unknown realm refused ${missing}; nothing changed ${untouched}`};
   });
 
+  check('Keepfall: who was active today shows on its case (the owner’s ask, Oct 26 2026: “Add league member profile pictures to show those that were active today”; core/realm-active.js): everyone whose v3 realm changed since midnight, by the scoreboards’ rule (members, app users, guests, you too), the latest first, once each; yesterday’s, unsaved and no one’s realms left out', async () => {
+    const A = await import('./realm-active.js');
+    const now = new Date(); now.setHours(12, 0, 0, 0); const t = now.getTime(), y = t - 13 * 3600e3;
+    const member = Object.keys(data.M).find(id => 'm_' + id !== F.profileKey());
+    const v3 = at => { const s = F.fresh(at); s.rs = F.TEST_RESET; s.at = at; return s; };
+    const g = 'g_' + Array.from('zed').map(c => c.codePointAt(0).toString(16)).join('_'), own = F.profileKey() || 'm_none';
+    const docs = [
+      {id: 'a0', nick: data.guest() || 'x', g: own.startsWith('g_'), fr3: {[own]: v3(t - 120e3)}},
+      {id: 'a1', nick: 'x', fr3: {...(member ? {['m_' + member]: v3(t - 60e3)} : {}), 'u_ryan-dow': v3(t - 3600e3), 'u_ryan-stewart': v3(y)}},
+      {id: 'a2', nick: 'x', fr3: member ? {['m_' + member]: v3(t - 5000e3)} : {}},
+      {id: 'a3', nick: 'Zed', g: true, fr3: {[g]: v3(t - 7200e3), 'm_nobody-here': v3(t)}},
+      {id: 'a4', nick: 'x', fr3: {'u_ryan-dow': {...v3(t), rs: ''}}}];
+    const list = A.activeToday(docs, t), keys = list.map(p => p.key).join();
+    const want = [...(member ? ['m_' + member] : []), ...(F.profileKey() ? [own] : []), 'u_ryan-dow', g].join();
+    const me = !F.profileKey() || list.some(p => p.key === own && p.me), dow = (list.find(p => p.key === 'u_ryan-dow') || {}).name === 'Ryan D';
+    const ok = keys === want && me && dow && A.activeToday([], t).length === 0;
+    return {pass: ok, detail: `active ${keys || 'none'} (want ${want}); you marked ${me}; Ryan D ${dow}`};
+  });
+
   check('Keepfall: visiting (views/realm-visit.js, #/realm/visit/<profile>; Visit by Lore, Oct 23 2026): other players’ realms can be looked round, the freshest copy of each, by the scoreboards’ rule (Oct 24 2026: everyone to everyone, the members, Ryan D, Ryan S and the guests; never your own, never an unsaved v3 realm); looking changes nothing and no player can be raided', async () => {
     const [app, view, visit] = await Promise.all([import('../app.js'), import('../views/realm.js'), import('../views/realm-visit.js')]);
     const r = app.__dev.parseRoute('/realm/visit/m_x'), routed = !data.DATA ? true : !!r && r.view === 'realm-visit' && r.open === 'cover' && r.params.key === 'm_x';

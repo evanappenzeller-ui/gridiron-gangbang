@@ -22,6 +22,8 @@ import * as daily from './daily.js';
 import * as data from './data.js';
 import {RANKED, ALE_BY_PLACE, aleFor} from './realm-pay.js';
 import {DRAGON_ORDER, DRAGONS, dragonHeroKey, dragonSpeciesOfHero, validDragonChoice, dragonSnapshot} from './realm-dragons.js';
+import {TEST_RESET, profileKey, visitWho} from './realm-active.js';
+export {TEST_RESET, profileKey, visitWho} from './realm-active.js';
 export {DRAGON_ORDER, DRAGONS, dragonHeroKey, dragonSpeciesOfHero, validDragonChoice, dragonSnapshot} from './realm-dragons.js';
 
 export const N = 44;               // the lot: N x N tiles (36 till Oct 2026: more room on the base, the owner's ask; clean())
@@ -36,8 +38,8 @@ export const CUR_NAME = {gold: 'Gold', grain: 'Ale'};
 export const mayPlay = () => !!(data.me() || data.guest());
 // Evan requested a personal set of dragon demonstration raids.
 export const dragonExamplesForMe = () => data.isOwner();
-// v3 restarts Evan's realm at Castle level 1. Retired testing flags never bypass costs or build times.
-export const TEST_RESET = 'gridiron-hub-v3';
+// v3 restarts Evan's realm at Castle level 1 (TEST_RESET, core/realm-active.js). Retired testing flags never bypass
+// costs or build times.
 export const testing = () => false;
 const afford = (s, c, n) => testing(s) || n <= s.r[c];
 const spend = (s, c, n) => { if (!testing(s)) s.r[c] -= n; };
@@ -1482,14 +1484,7 @@ export function keepMine(remote, local) {
 }
 
 // ---------------------------------------------------------------------------------------------------- your realm
-// One save per selected profile. Anonymous Firebase UIDs identify a browser, not a person.
-export function profileKey() {
-  const member = data.me(), user = data.user();
-  if (member) return 'm_' + member;
-  if (user) return 'u_' + user.id;
-  const guest = data.guest();
-  return guest ? 'g_' + Array.from(guest.trim().toLowerCase()).map(c => c.codePointAt(0).toString(16)).join('_') : '';
-}
+// One save per selected profile (profileKey, core/realm-active.js). Anonymous Firebase UIDs identify a browser, not a person.
 const localKey = key => 'gg-v3-fr1-' + key;
 let MINE = null, PROFILE = '', saveT = 0, dirty = false, PROVISIONAL = false;
 const subs = new Set();
@@ -1608,28 +1603,17 @@ export function _set(state) { clearTimeout(saveT); PROFILE = profileKey(); MINE 
 // Looking only: nothing here changes a realm, and no player's realm can be raided (realmOf takes only the computer's).
 // Who shows follows the scoreboards' rule (CLAUDE.md, daily.js boardShows) for each saved profile on its own: everyone's
 // realm to everyone (Oct 24 2026), the members', every app user's and every guest's. Never your own.
-const guestName = key => { try { return key.slice(2).split('_').map(h => String.fromCodePoint(parseInt(h, 16))).join(''); } catch (_) { return ''; } };
-/** Who profile key belongs to, as this phone may show them ({name}), or null when they're not to show here. */
-export function visitWho(key, doc, owner = data.isOwner()) {
-  const id = String(key || '').slice(2);
-  if (key.startsWith('m_')) return data.M[id] ? {name: data.name(id), member: id} : null;
-  if (key.startsWith('u_')) { const u = data.USERS.find(x => x.id === id); return u ? {name: u.board || u.name, full: u.name} : null; }
-  if (key.startsWith('g_') && doc && doc.g) {
-    const nm = guestName(key), nick = String(doc.nick || '').trim();
-    return nm ? {name: nick.toLowerCase() === nm ? nick : nm, guest: true} : null;
-  }
-  return null;
-}
+// (visitWho, who a profile key belongs to: core/realm-active.js, which the Daily Games shelf reads too)
 /** The other players' realms this phone may visit, the freshest copy of each: [{key, name, full, member, guest, th, at, state}],
  *  the highest Castle first. */
 export function visitable(now = Date.now(), docs = allDocs(), only = null) {
-  const own = profileKey(), owner = data.isOwner(), best = new Map();
+  const own = profileKey(), best = new Map();
   for (const p of docs) {
     const all = p && p.fr3;
     if (!all || typeof all !== 'object') continue;
     for (const key of Object.keys(all)) {
       if (!key || key === own || (only != null && key !== only)) continue;
-      const s = current(all[key]), who = s && visitWho(key, p, owner);
+      const s = current(all[key]), who = s && visitWho(key, p);
       if (who && (!best.has(key) || Number(s.at) > Number(best.get(key).s.at))) best.set(key, {s, who});
     }
   }
