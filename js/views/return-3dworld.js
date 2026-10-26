@@ -1152,12 +1152,8 @@ function gateOf(th) {
   const key = style.key() + 'gate:' + th.id;
   if (OBJ.has(key)) return OBJ.get(key);
   const [post, board, small, ink] = style.gate(th.id, GATE_LOOK[th.id] || GATE_LOOK.stadium), g = new T.Group(), b = new Batch(th.id);
+  // (its two posts and the sign: no goalposts standing up out of it, the owner's ask, Oct 25 2026)
   b.box(post, -7.3, -6.5, 0, 8.2, -.4, .4); b.box(post, 6.5, 7.3, 0, 8.2, -.4, .4);
-  // the goalposts standing up out of the sign
-  const bar = 10.2;
-  b.box('#F7C62F', -.17, .17, 8.2, bar, -.17, .17); b.box('#F7C62F', -3.2, 3.2, bar - .15, bar + .15, -.15, .15);
-  b.box('#F7C62F', -3.2, -2.93, bar, bar + 4.6, -.14, .14); b.box('#F7C62F', 2.93, 3.2, bar, bar + 4.6, -.14, .14);
-  b.box('#FF6A2B', -3.16, -3.02, bar + 4.6, bar + 5, -.05, .05); b.box('#FF6A2B', 3.06, 3.2, bar + 4.6, bar + 5, -.05, .05);
   const m = b.mesh(mats().vcs); m.castShadow = true; g.add(m);
   const big = th.name.toUpperCase(), name = big.replace(/^THE /, ''), the = big.startsWith('THE ');
   const face = new T.Mesh(new T.BoxGeometry(14.8, 2.4, .3), [0, 1, 2, 3].map(() => new T.MeshLambertMaterial({color: col(board)})).concat([new T.MeshLambertMaterial({map: canvasTex(1024, 166, (c2, w, h) => {

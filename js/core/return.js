@@ -146,7 +146,7 @@ export const fallsIn = e => !!e && e.ob === 'hole' && FALL_IN.includes(e.type);
 export const HIGH_H = 3, LOW_H = .95, RAMP = 8, BODY = 2, SLIDE_BODY = .9;
 // The places, one after another, ZONE yards each (a field each: you score as you go into the next): the stadium first,
 // then the other eight in the kickoff's own order, and round again. A vehicle never sits across the line between two
-// (there are goalposts on it).
+// (its gate stands on it).
 export const ZONE = 100;
 export const THEMES = [
   {id: 'stadium', name: 'The Stadium', kinds: [['teambus', 1], ['bench', 1.2]]},

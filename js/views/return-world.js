@@ -2104,7 +2104,7 @@ export function coin(st, c, cn, t) {
 
 // ============================================================================ The gates
 // Into each place, across the road at its first yard (z), on the goal line (you score as you go under it): two posts,
-// the place's name over the lanes with a football either side, and the goalposts standing up out of it. Each gate draws
+// the place's name over the lanes with a football either side (no goalposts over it, the owner's ask, Oct 25 2026). Each gate draws
 // its posts and sign (in yards about the road's middle, y up = minus) and says where its sign is and how to letter it.
 const GATES = {
   stadium(c) {
@@ -2178,22 +2178,11 @@ const GATES = {
     return {ink: '#FFFFFF', small: '#FFE08A', top: -8.6, hgt: 2.2, bar: -9.6};
   }
 };
-/** The goalposts over a gate, their crossbar at bar (yards, up = minus): the uprights 18 ft 6 in apart, ribbons on top. */
-function goalposts(c, bar) {
-  c.fillStyle = '#F7C62F';
-  c.fillRect(-.17, bar, .34, 3);
-  c.fillRect(-3.2, bar - .15, 6.4, .3);
-  c.fillRect(-3.2, bar - 4.6, .27, 4.6); c.fillRect(2.93, bar - 4.6, .27, 4.6);
-  c.fillStyle = 'rgba(160,110,0,.35)'; c.fillRect(-3.02, bar - 4.6, .09, 4.45); c.fillRect(3.11, bar - 4.6, .09, 4.45);
-  c.fillStyle = '#FF6A2B'; c.fillRect(-3.16, bar - 5, .14, .42); c.fillRect(3.06, bar - 5, .14, .42);
-}
 /** The gate into a place, at its first yard z. */
 export function gate(st, c, z, th, t) {
   if (z < st.camZ + NEAR + .5) return;
   const s = flat(st, c, 0, 0, z);
   if (s < .8) { c.restore(); return; }
-  const bar = {stadium: -9.6, tailgate: -9.4, city: -9.9, tundra: -9.7, desert: -11.2, market: -9.6, beach: -9.4, space: -9.8, farm: -9.6}[th.id];
-  goalposts(c, bar);
   const g = GATES[th.id](c, t);
   const big = th.name.toUpperCase(), name = big.replace(/^THE /, ''), the = big.startsWith('THE ');
   c.textAlign = 'center'; c.textBaseline = 'middle';

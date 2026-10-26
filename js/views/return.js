@@ -2,7 +2,7 @@ import * as features from '../core/features.js';
 // Return Man (Daily Games, its own page /puzzles/return; core/return.js): the endless kick return, after Subway Surfers.
 // The camera rides behind the returner as he runs out of the stadium and on into a new place every 100 yards (the
 // tailgate, the city, the frozen tundra, the desert, the farmers market, the beach, outer space, the farm: a touchdown
-// under the goalposts into each), the barricades and banners across the lanes a row at a time (no coverage men: the
+// under the gate into each), the barricades and banners across the lanes a row at a time (no coverage men: the
 // owner's ask, Oct 2026) and the vehicles parked in them. A swipe on the stage (or the arrow keys) jukes a lane over,
 // jumps (a barricade; up onto a low vehicle) or slides (under a banner; in the air, it drops him first). Ramps take him
 // up onto the roofs. The power-ups he runs through: smelling salts (shake the linebacker off once), painkillers
