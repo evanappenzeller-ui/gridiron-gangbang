@@ -52,7 +52,8 @@ function troopsHTML(st) {
   const B = st.B;
   return DEPLOY_ORDER.filter(t => (B.left[t] || 0) + (B.used[t] || 0) > 0).map(t => {
     const k = t.startsWith('hero_') ? t.slice(5) : null, hero = k && F.HEROES[k];
-    return `<button type="button" class="rlr-t${hero ? ' is-hero' : ''}${st.pick === t ? ' is-on' : ''}${B.left[t] ? '' : ' is-out'}" role="radio" aria-checked="${st.pick === t}" aria-label="${esc(hero ? `${hero.name}, level ${st.heroLevels[k]}, ${B.left[t] ? 'ready' : 'deployed'}` : `${F.TROOPS[t].name}, ${B.left[t] || 0} ready`)}" data-rlr-pick="${t}"><span class="rl-tc-ic" aria-hidden="true">${hero ? heroIcon(k) : picOf(t, MY_HOUSE, true)}</span><b>${hero ? 'Lv ' + st.heroLevels[k] : B.left[t] || 0}</b><small>${esc(hero ? hero.name : F.TROOPS[t].name)}</small></button>`;
+    const color = st.heroDragons?.[k]?.color;
+    return `<button type="button" class="rlr-t${hero ? ' is-hero' : ''}${st.pick === t ? ' is-on' : ''}${B.left[t] ? '' : ' is-out'}" role="radio" aria-checked="${st.pick === t}" aria-label="${esc(hero ? `${hero.name}${color ? ', ' + color : ''}, level ${st.heroLevels[k]}, ${B.left[t] ? 'ready' : 'deployed'}` : `${F.TROOPS[t].name}, ${B.left[t] || 0} ready`)}" data-rlr-pick="${t}"><span class="rl-tc-ic" aria-hidden="true">${hero ? heroIcon(k, st.heroDragons?.[k]) : picOf(t, MY_HOUSE, true)}</span><b>${hero ? 'Lv ' + st.heroLevels[k] : B.left[t] || 0}</b><small>${esc(hero ? hero.name : F.TROOPS[t].name)}</small></button>`;
   }).join('');
 }
 function score(st) {
@@ -182,10 +183,11 @@ export default {
       if (T.why) { msg.hidden = false; msg.textContent = T.why; return; }
       const s = F.mine(), army = Object.assign({}, s.ar);
       st.heroLevels = F.heroLevels(s);
-      if (!F.roomOf(army) && !Object.keys(F.heroArmy(s)).length) { msg.hidden = false; msg.textContent = 'Recruit the Knight Hero, hatch the Dragon Hero (build a Dragon Hatchery) or train troops first (Army, in your realm).'; return; }
+      st.heroDragons = F.heroDragons(s);
+      if (!F.roomOf(army) && !Object.keys(F.heroArmy(s)).length) { msg.hidden = false; msg.textContent = 'Recruit the Knight Hero, choose a dragon and build its hatchery, or train troops first (Army, in your realm).'; return; }
       msg.hidden = true;
       st.T = T;
-      st.B = makeBattle(T.base, T.loot, army, {heroes: st.heroLevels});
+      st.B = makeBattle(T.base, T.loot, army, {heroes: st.heroLevels, dragons: st.heroDragons});
       st.pick = DEPLOY_ORDER.find(t => st.B.left[t] > 0);
       el.querySelector('[data-rlr-who]').innerHTML = `<span class="rl-tg-lv">${T.th}</span><span><b>${esc(T.name)}</b><small>${T.loot.total.gold || T.loot.total.grain ? `To take ${curHTML('gold', T.loot.total.gold)} ${curHTML('grain', T.loot.total.grain)}` : 'Sacked today: nothing left to take'}</small></span>`;
       el.querySelector('[data-rlr-troops]').innerHTML = troopsHTML(st);

@@ -9,7 +9,7 @@
 // replay(...) plays a recorded raid again; replayRaid(rec) / replayBattle(P) give one to watch, a step at a time;
 // defend(s, now) plays the computer's raids on your realm since you last looked (a few a day); exampleRaids(s, now)
 // plays three on your realm as it is, for show (the owner's ask, Oct 22 2026), taking nothing.
-import {KINDS, TROOPS, HEROES, RULES_V, rulesOf, heroLevels, heroStat, mayPlay, stat, N, RAID_S, BOTS, rng, boxOf, keepOf, lootOf, takeRaid, HOUR,
+import {KINDS, TROOPS, HEROES, RULES_V, rulesOf, heroLevels, heroDragons, dragonSnapshot, heroStat, mayPlay, stat, N, RAID_S, BOTS, rng, boxOf, keepOf, lootOf, takeRaid, HOUR,
   snapOf, replayOf, sceneryOf, putExamples, EX_V, DEFEND_AT, botDragon, topLevel} from './realm.js';
 
 export const DT = .1;
@@ -74,10 +74,12 @@ export function makeBattle(base, loot, army, options = {}) {
   const heroStatOf = (k, l) => heroStat(k, l, rules);
   const heroes = mayPlay() ? Object.fromEntries(R.heroes.filter(k => heroStatOf(k, options?.heroes?.[k])).map(k => [k, options.heroes[k]])) : {};
   const fixed = options && options.defenders && typeof options.defenders === 'object' ? options.defenders : null;
-  const defending = fixed ? (mayPlay() ? Object.fromEntries(R.heroes.filter(k => heroStatOf(k, fixed[k])).map(k => [k, fixed[k]])) : {}) : rules === RULES_V ? heroLevels(base) : {};
+  const defending = fixed ? (mayPlay() ? Object.fromEntries(R.heroes.filter(k => heroStatOf(k, fixed[k])).map(k => [k, fixed[k]])) : {}) : rules === 1 ? {} : heroLevels(base, rules);
+  const dragons = rules >= 3 ? dragonSnapshot(heroes, options.dragons) : {};
+  const defenderDragons = rules >= 3 ? dragonSnapshot(defending, fixed ? options.defenderDragons : heroDragons(base)) : {};
   const left = Object.fromEntries(R.troops.filter(t => Number.isInteger(army?.[t]) && army[t] > 0).map(t => [t, army[t]]));
   Object.keys(heroes).forEach(k => { left[R.hero[k].troop] = 1; });
-  const B = {t: 0, step: 0, over: false, why: '', bl: [], tr: [], defenders: [], heroes, shots: [], fx: [], left, used: {}, got: {gold: 0, grain: 0}, gotBy: {}, seq: 0, drops: [], rules};
+  const B = {t: 0, step: 0, over: false, why: '', bl: [], tr: [], defenders: [], heroes, dragons, defenderDragons, shots: [], fx: [], left, used: {}, got: {gold: 0, grain: 0}, gotBy: {}, seq: 0, drops: [], rules};
   const combatStats = u => u.stats || TROOPS[u.t];
   // (who can hit a flying hero defending, the Dragon: those who shoot, archers, and those who hit flyers, the Dragon Hero)
   const reachesAir = T => !!T.air || T.range > 1;
@@ -113,20 +115,24 @@ export function makeBattle(base, loot, army, options = {}) {
   };
   B.fieldLeft = () => B.tr.some(u => !u.dead) || Object.values(B.left).some(n => n > 0);
 
-  // Champions muster on clear tiles beside the Castle (KINDS.keep). They occupy no building footprint and never affect stars,
-  // loot or destruction percentage. A fixed search order gives every replay the same starting positions.
+  // The Knight musters beside the Castle. Each chosen dragon guards its own hatchery; flyers hover over it,
+  // while Nightmare starts on clear ground beside it. Historical rules retain their original Castle positions.
+  // Heroes never affect stars, loot or destruction percentage. The search order is deterministic for replays.
   const keep = B.bl.find(b => b.t === 'keep');
   Object.entries(defending).forEach(([hero, level], i) => {
     if (!keep) return;
-    let home = null, best = Infinity;
-    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-      if (occ[y * N + x] >= 0 || B.defenders.some(u => u.x === x + .5 && u.y === y + .5)) continue;
-      const score = (x + .5 - (keep.cx + (i ? 1.5 : -1.5))) ** 2 + (y + .5 - keep.y - keep.size - 1) ** 2;
-      if (score < best) { best = score; home = {x: x + .5, y: y + .5}; }
+    const stats = heroStatOf(hero, level), nest = rules >= 3 && B.bl.find(b => b.t === 'hatchery' && b.i === defenderDragons[hero]?.buildingId);
+    const anchor = nest || keep;
+    let home = nest && stats.fly ? {x: nest.cx, y: nest.cy} : null, best = Infinity;
+    if (!home) {
+      for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+        if (occ[y * N + x] >= 0 || B.defenders.some(u => u.x === x + .5 && u.y === y + .5)) continue;
+        const score = (x + .5 - (anchor.cx + (nest ? 0 : i ? 1.5 : -1.5))) ** 2 + (y + .5 - anchor.y - anchor.size - 1) ** 2;
+        if (score < best) { best = score; home = {x: x + .5, y: y + .5}; }
+      }
     }
     if (!home) return;
-    const stats = heroStatOf(hero, level);
-    B.defenders.push({id: 'def_' + hero, i: 'def_' + hero, t: R.hero[hero].troop, hero, l: level, level, stats,
+    B.defenders.push({id: 'def_' + hero, i: 'def_' + hero, t: R.hero[hero].troop, hero, l: level, level, stats, ...defenderDragons[hero],
       x: home.x, y: home.y, cx: home.x, cy: home.y, size: .6, home, hp: stats.hp, max: stats.hp,
       targetHero: true, cd: 0, dead: false, face: 0, hitAt: -9, born: 0, path: [], pi: 0, nextPath: 0});
   });
@@ -258,7 +264,7 @@ export function makeBattle(base, loot, army, options = {}) {
     B.left[t]--;
     B.used[t] = (B.used[t] || 0) + 1;
     const u = {id: ++B.seq, t, x, y, hp: T.hp, max: T.hp, tg: null, path: [], pi: 0, cd: 0, dead: false, face: 0, hitAt: -9, wallAt: null, born: B.t};
-    if (hero) Object.assign(u, {hero, l: heroes[hero], level: heroes[hero], stats: T});
+    if (hero) Object.assign(u, {hero, l: heroes[hero], level: heroes[hero], stats: T}, dragons[hero]);
     B.tr.push(u);
     B.drops.push([B.step, t, Math.round(x * 10), Math.round(y * 10)]);
     retarget(u);
@@ -288,6 +294,7 @@ export function makeBattle(base, loot, army, options = {}) {
           u.hitAt = B.t;
           const d = T.dps * HIT_EVERY * (u.t === 'thief' && foe.money ? 2 : 1);
           if (T.range > 1) B.shots.push({k: u.t, from: u.id, x0: u.x, y0: u.y, x1: foe.cx, y1: foe.cy, t0: B.t, t1: B.t + .3, b: foe.i, h: foe.targetHero ? foe.id : null, d, splash: T.splash || 0, foe: false,
+            ...(u.species ? {species: u.species, color: u.color} : {}),
             ...(foe.targetHero && foe.stats && foe.stats.fly ? {high: true} : {})});
           else {
             hurt(foe, d);
@@ -330,7 +337,7 @@ export function makeBattle(base, loot, army, options = {}) {
       if (foe && distance <= T.range + REACH) {
         if (h.cd <= 0) {
           h.cd = HIT_EVERY; h.hitAt = B.t;
-          if (T.range > 1) B.shots.push({k: h.t, from: h.id, x0: h.x, y0: h.y, x1: foe.x, y1: foe.y,
+          if (T.range > 1) B.shots.push({k: h.t, from: h.id, x0: h.x, y0: h.y, x1: foe.x, y1: foe.y, ...(h.species ? {species: h.species, color: h.color} : {}),
             t0: B.t, t1: B.t + .3, u: foe.id, d: T.dps, splash: T.splash, air: T.air, foe: true, high: !!combatStats(foe).fly});
           else { hurtTroop(foe, T.dps); B.fx.push({k: 'hit', t: B.t, x: foe.x, y: foe.y, id: h.id}); }
         }
@@ -396,7 +403,8 @@ export function makeBattle(base, loot, army, options = {}) {
   B.end = () => end('quit');
   /** Runs the clock to t seconds (steps of DT). */
   B.run = t => { while (!B.over && B.t + DT <= t + 1e-9) B.step1(); };
-  B.result = () => ({stars: B.stars(), pct: B.pct(), got: Object.assign({}, B.got), gotBy: JSON.parse(JSON.stringify(B.gotBy)), used: Object.assign({}, B.used), t: B.t, drops: B.drops.slice(), heroes: {...heroes}});
+  B.result = () => ({stars: B.stars(), pct: B.pct(), got: Object.assign({}, B.got), gotBy: JSON.parse(JSON.stringify(B.gotBy)), used: Object.assign({}, B.used), t: B.t, drops: B.drops.slice(), heroes: {...heroes},
+    ...(rules >= 3 ? {dragons: dragonSnapshot(heroes, dragons), defenderDragons: dragonSnapshot(defending, defenderDragons)} : {})});
   return B;
 }
 
@@ -483,7 +491,7 @@ export function raidArmy(th) {
  *  hatchery on its lot (core/realm.js botDragon); none below. */
 export function raidHeroes(th) {
   const l = th >= 7 ? botDragon(Math.max(1, Math.min(BOTS.length, th - 1))) : 0;
-  return l ? {dragon: l} : {};
+  return l ? {dragon_soul_eater: l} : {};
 }
 /** The computer's army raiding realm s at moment at (its lot and take then), all from one side (0 top, 1 right, 2
  *  bottom, 3 left): its heroes (raidHeroes: {hero: level}) and knights first, the rest 25 steps later, spread along
@@ -533,7 +541,8 @@ function recordOf(s, B, at, bot, id, into = s) {
     else { ls[0] += v.gold; ls[1] += v.grain; }
   });
   const rec = {id, at, by: bot.name, th: bot.th, st: r.stars, pc: r.pct, lt: [r.got.gold, r.got.grain], ls, lb, td: r.stars ? -r.stars * th * 3 : th * 3,
-    hr: heroLevels(s)};
+    hr: heroLevels(s), dragons: dragonSnapshot(B.heroes, B.dragons),
+    defenderDragons: dragonSnapshot(Object.fromEntries(B.defenders.map(u => [u.hero, u.level])), B.defenderDragons)};
   const rp = snapOf(B, {sc: s.sc ? sceneryOf(s) : '', into});
   if (rp) rec.rp = rp;
   return rec;
@@ -575,7 +584,7 @@ const EX_WANT = [0, 1, 3];
  *  dragons a full Castle 7 or 8 lot, his Knight and Dragon Hero at 10 defending it, held out against 190 troops, so the
  *  ladder goes on to two hosts the size of a siege (300 and 430 troops) that break through it from most sides. */
 function exLadder(th) {
-  const dl = Math.max(1, topLevel('hatchery', Math.min(BOTS.length, th + 1))), up = l => ({dragon: Math.max(1, Math.min(10, l))});
+  const dl = Math.max(1, topLevel('hatchery', Math.min(BOTS.length, th + 1))), up = l => ({dragon_soul_eater: Math.max(1, Math.min(10, l))});
   const raid = t => ({army: raidArmy(t), heroes: raidHeroes(t)});
   return [{army: {footman: 2}}, {army: {footman: 4}}, {army: {footman: 6, archer: 3}}, raid(Math.max(1, th - 1)), raid(th), raid(th + 1),
     {army: {footman: 20, archer: 15, knight: 4}}, {army: {footman: 25, archer: 22, knight: 7}, heroes: up(dl)}, {army: {footman: 30, archer: 30, knight: 10}, heroes: up(dl)},
@@ -588,7 +597,7 @@ function exLadder(th) {
 function cutAt(B, k) {
   const m = B.ms && B.ms[k];
   if (!m) return null;
-  return {bl: B.bl, step: m.step, drops: B.drops.filter(d => d[0] < m.step), left: B.left, used: B.used, heroes: B.heroes, defenders: B.defenders, rules: B.rules,
+  return {bl: B.bl, step: m.step, drops: B.drops.filter(d => d[0] < m.step), left: B.left, used: B.used, heroes: B.heroes, defenders: B.defenders, dragons: B.dragons, defenderDragons: B.defenderDragons, rules: B.rules,
     stars: () => k, result: () => ({stars: k, pct: m.pct, got: Object.assign({}, m.got), gotBy: JSON.parse(JSON.stringify(m.gotBy))})};
 }
 /** The search for the example raids on s at now, a battle step at a time (a generator: exampleRaids runs it through at

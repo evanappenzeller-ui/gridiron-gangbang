@@ -27,7 +27,7 @@ import {createGrassWallpaper} from './realm-grass.js';
 import {createHomeNPCs, createBattleHeroes} from './realm-npcs.js';
 import * as CH from './realm-characters.js';
 import {createRaidAttacks} from './realm-attack-art.js';
-import {isDragonKind, loadDragon, onDragonReady, createBattleDragons, createHomeDragon, createSceneryDragons} from './realm-dragon.js';
+import {isDragonKind, dragonCanFly, loadDragon, onDragonReady, createBattleDragons, createHomeDragon, createSceneryDragons} from './realm-dragon.js';
 const V = new URL('../vendor/three/', import.meta.url).href;
 let T = null, RE = null, LOADING = null, DEAD = false, LOAD_EPOCH = 0;
 let ownerActive = features.available();
@@ -1185,13 +1185,17 @@ export function create(host, opts = {}) {
       attacks: createRaidAttacks(T, scene, {camera: cam, pitch: PITCH, onChange: want}),
       dragons: createBattleDragons(T, scene, {onLand: (x, y) => { if (raid) puff(x, y, 2.6, 0xB5AC9E, 1.1, raid.now); }}), now: 0, f: 0, fireAt: new WeakMap(), byModel: new WeakMap(), need};
     const started = raid;
+    started.dragons.warm(renderer, cam, 0);
+    started.dragons.preload(B).then(ok => { if (ok && raid === started && !dead) { started.dragons.warm(renderer, cam, 0); want(); } });
     started.attacks.load().then(() => {
       if (dead || raid !== started || !features.available()) return;
       installAttackSheets(started); want();
     }).catch(() => {}); // Existing pictures and projectiles remain usable if attack artwork fails.
     // (its dragons drawn from the model: fetched now if they're not in yet, the picture meanwhile; the renderer readied
     // for it and a few made now, so the first sent doesn't hold the screen still)
-    if (need.dragon) { const R = raid; loadDragon().then(ok => { if (ok && raid === R) R.dragons.warm(renderer, cam, Math.min(4, need.dragon)); }); }
+    const legacyDragon = [...Object.keys(B.left || {}), ...Object.keys(B.used || {}), ...(B.defenders || []).map(u => u.t)]
+      .some(kind => kind === 'dragon' || kind === 'hero_dragon');
+    if (legacyDragon) { const R = raid; loadDragon().then(ok => { if (ok && raid === R) R.dragons.warm(renderer, cam, Math.min(4, need.dragon || 1)); }); }
     drawZone();
     want();
   }
@@ -1240,6 +1244,7 @@ export function create(host, opts = {}) {
     Object.assign(raid, {B, fxAt: 0, prev: new Map(), cur: new Map(), stepSeen: -1, zoneSig: '', zoneShow: 0, aim: new Map(), fired: new Map(),
       byId: new Map(B.bl.map(b => [b.i, b])), t: 0, shotSeen: new WeakSet(), heroCur: new Map(), heroPrev: new Map(), fireAt: new WeakMap(), byModel: new WeakMap()});
     raid.attacks.restart(B);
+    raid.dragons.preload(B);
     drawZone();
     want();
   }
@@ -1333,7 +1338,10 @@ export function create(host, opts = {}) {
         const fraction = atlas ? Math.max(.1, atlas.bodyFraction || .85) : 1;
         const aspect = atlas ? atlas.cellAspect || 1 : A.w / A.h;
         const wk = A.fly ? A.wide / fraction : A.tall / fraction * aspect, hk = A.fly ? A.wide / fraction / aspect : A.tall / fraction;
-        const hy = A.fly ? 2.3 + Math.sin(t * 2.2 + uid) * .15 : (moving ? Math.abs(Math.sin(t * 9 + uid)) * .06 : 0);
+        const groundedDragon = kind === 'dragon' && !dragonCanFly(u.t);
+        const groundAnchor = atlas ? 1 - atlas.ay : A.h ? 1 - A.ay / A.h : .5;
+        const camUpY = 1 - 2 * (camQ.x * camQ.x + camQ.z * camQ.z);
+        const hy = groundedDragon ? hk * groundAnchor * camUpY : A.fly ? 2.3 + Math.sin(t * 2.2 + uid) * .15 : (moving ? Math.abs(Math.sin(t * 9 + uid)) * .06 : 0);
         tilt.setFromAxisAngle(zAxis, (moving && !A.fly ? Math.sin(t * 9 + uid) * .06 : 0) + sx * .25 * hit);
         pv.set(W(x), hy, W(y));
         m4.compose(pv, camQ.clone().multiply(tilt), ssc.set(wk * sx, hk, 1));
@@ -1352,7 +1360,8 @@ export function create(host, opts = {}) {
       const i = counts[kind]++;
       if (kind === 'dragon') {
         // in the air, bobbing, its wings beating
-        const flap = Math.sin(t * 7 + uid) * .55, hy = 2.3 + Math.sin(t * 2.2 + uid) * .12;
+        const groundedDragon = !dragonCanFly(u.t);
+        const flap = groundedDragon ? 0 : Math.sin(t * 7 + uid) * .55, hy = groundedDragon ? .5 : 2.3 + Math.sin(t * 2.2 + uid) * .12;
         pv.set(W(x), hy, W(y));
         m4.compose(pv, q.clone().multiply(new T.Quaternion().setFromAxisAngle(new T.Vector3(1, 0, 0), -.08 - .25 * hit)), sc); M.body.setMatrixAt(i, m4);
         [-1, 1].forEach((sd, j) => {
@@ -1398,7 +1407,7 @@ export function create(host, opts = {}) {
       const M = R.fly[kind];
       if (n[kind] >= M.instanceMatrix.count) return;
       const u = Math.max(0, Math.min(1, (t - s.t0) / Math.max(.01, s.t1 - s.t0))), arc = dragon ? ARC.dragon : ARC[s.k] || .5;
-      const y0 = dragon ? 2.2 : s.foe ? (s.k === 'tower' ? 2.6 : s.k === 'cannon' ? .68 : 1.1) : (s.k === 'archer' && byModel(s) ? .72 : .55), y1 = s.high ? 2.3 : .35;
+      const y0 = dragon ? (dragonCanFly(s.k) ? 2.2 : .8) : s.foe ? (s.k === 'tower' ? 2.6 : s.k === 'cannon' ? .68 : 1.1) : (s.k === 'archer' && byModel(s) ? .72 : .55), y1 = s.high ? 2.3 : .35;
       // (a tower's arrow leaves from its archer's bow; a dragon's fire from its mouth, where it was as it struck, when
       // it's drawn from the model)
       const archer = s.foe && s.k === 'tower' ? archerAt(s.from) : null;

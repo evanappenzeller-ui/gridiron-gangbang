@@ -1,0 +1,949 @@
+{
+  "version": 1,
+  "generator": "convert-dragons.mjs / three@0.160.0",
+  "sourcePackage": "Four Evil Dragons Pack PBR",
+  "axes": {
+    "up": "+Y",
+    "forward": "+Z"
+  },
+  "normalizedHeight": 1,
+  "textureOrientation": "glTF: flipY=false; albedo/emission sRGB, normal linear",
+  "species": {
+    "nightmare": {
+      "name": "Nightmare",
+      "file": "nightmare.glb",
+      "source": "Mesh/DragonTheNightmareMesh.fbx",
+      "sha256": "cdd3c3a25e619f02c74c15c9bd5bbd2f07e3aa93b619092f39d5548a4f71525b",
+      "bytes": 1565620,
+      "meshes": 1,
+      "triangles": 4382,
+      "vertices": 2767,
+      "bones": 70,
+      "height": 1,
+      "standingLength": 2.5043198143970087,
+      "standingWidth": 1.5499252070944838,
+      "dimensions": {
+        "height": 1,
+        "length": 2.5043198143970087,
+        "width": 1.5499252070944838
+      },
+      "sourceHeight": 4.384459456258775,
+      "sourceGround": -0.018093413204128543,
+      "forward": "+Z",
+      "mouthBone": "UpperHead02",
+      "mouthOffset": [
+        0,
+        0,
+        0
+      ],
+      "flight": false,
+      "defaultColor": "red",
+      "colors": {
+        "red": {
+          "albedo": "textures/nightmare-red.webp",
+          "normal": "textures/nightmare-red-normal.webp"
+        },
+        "green": {
+          "albedo": "textures/nightmare-green.webp",
+          "normal": "textures/nightmare-green-normal.webp"
+        },
+        "blue": {
+          "albedo": "textures/nightmare-blue.webp",
+          "normal": "textures/nightmare-blue-normal.webp"
+        },
+        "albino": {
+          "albedo": "textures/nightmare-albino.webp",
+          "normal": "textures/nightmare-albino-normal.webp"
+        }
+      },
+      "textureSources": {
+        "red": {
+          "albedo": {
+            "source": "Texture/DragonNightmare/Red/Albedo.png",
+            "sha256": "7beae8f28adfb8c903d83bde9283241df244bd90d50f7fa2535cbc672c086bbb",
+            "size": 1024,
+            "bytes": 229522
+          },
+          "normal": {
+            "source": "Texture/DragonNightmare/Red/Normal.png",
+            "sha256": "debdd9efa714420e70405418e6338114c53d4f98d38a0a28e69152bb71e371cd",
+            "size": 512,
+            "bytes": 102414
+          }
+        },
+        "green": {
+          "albedo": {
+            "source": "Texture/DragonNightmare/Green/Albedo.png",
+            "sha256": "87a248f732a58d49f68d4551e3fafda9c406d082286c7fd8b8d18aa52961b758",
+            "size": 1024,
+            "bytes": 223690
+          },
+          "normal": {
+            "source": "Texture/DragonNightmare/Green/Normal.png",
+            "sha256": "2ffddebc70034f43126dc485972623b7ce0c53de78a923068998367f2f325907",
+            "size": 512,
+            "bytes": 101764
+          }
+        },
+        "blue": {
+          "albedo": {
+            "source": "Texture/DragonNightmare/Blue/Albedo.png",
+            "sha256": "201b402809c525522a7fe0a07516797ffd109d1a84542b1cef2775f99ae0bceb",
+            "size": 1024,
+            "bytes": 242748
+          },
+          "normal": {
+            "source": "Texture/DragonNightmare/Blue/Normal.png",
+            "sha256": "2ffddebc70034f43126dc485972623b7ce0c53de78a923068998367f2f325907",
+            "size": 512,
+            "bytes": 101764
+          }
+        },
+        "albino": {
+          "albedo": {
+            "source": "Texture/DragonNightmare/Albino/Albedo.png",
+            "sha256": "f6b2b15a6629ba819b1b862c4f3a8e0add66eb4ee8d8e4023d13e7b789b1a2ce",
+            "size": 1024,
+            "bytes": 245024
+          },
+          "normal": {
+            "source": "Texture/DragonNightmare/Albino/Normal.png",
+            "sha256": "098a048da4cb7412a3762eeeb9b8f5b9efd643e97a27995a70b7b09b6d395b73",
+            "size": 512,
+            "bytes": 91810
+          }
+        }
+      },
+      "thumbnails": {
+        "red": "thumbs/nightmare-red.webp",
+        "green": "thumbs/nightmare-green.webp",
+        "blue": "thumbs/nightmare-blue.webp",
+        "albino": "thumbs/nightmare-albino.webp"
+      },
+      "animations": [
+        {
+          "name": "idle",
+          "duration": 1.3333333730697632,
+          "loop": true,
+          "tracks": 40,
+          "keys": 426,
+          "source": "Animations/DragonNightMare/idle01.fbx",
+          "sha256": "9233da451ff8e506548713c4fdf877ff43edf22fe4e912367dc9dda6cbfaf382"
+        },
+        {
+          "name": "walk",
+          "duration": 1.3333333730697632,
+          "loop": true,
+          "tracks": 58,
+          "keys": 1036,
+          "source": "Animations/DragonNightMare/walk.fbx",
+          "sha256": "4b1917746fdfd7e6a64f1f5f006aa3c38e2eaf6d010d4f3178a9a18c20fda359"
+        },
+        {
+          "name": "run",
+          "duration": 1,
+          "loop": true,
+          "tracks": 60,
+          "keys": 1027,
+          "source": "Animations/DragonNightMare/run.fbx",
+          "sha256": "d39c3484c15b91995b709a77719074b15d65a6b35e687bd0fc781319b38f40eb"
+        },
+        {
+          "name": "attack",
+          "duration": 1.2000000476837158,
+          "loop": false,
+          "tracks": 42,
+          "keys": 936,
+          "source": "Animations/DragonNightMare/Basic Attack.fbx",
+          "sha256": "637c8fc4e36f613d6841ab1cf084b40cd8cad64fffdb52dcab32a41784341489"
+        },
+        {
+          "name": "hit",
+          "duration": 1.399999976158142,
+          "loop": false,
+          "tracks": 54,
+          "keys": 1158,
+          "source": "Animations/DragonNightMare/getHit.fbx",
+          "sha256": "9f8003be7aa10970729d61b1d91d70d978638a35f3d1f6c6b3ce96b439c376f9"
+        },
+        {
+          "name": "death",
+          "duration": 1.899999976158142,
+          "loop": false,
+          "tracks": 48,
+          "keys": 1265,
+          "source": "Animations/DragonNightMare/die.fbx",
+          "sha256": "816c30532e52b46dbcd9344874039cd0837e150d7eb6f3b54574c0f78fe901e6"
+        },
+        {
+          "name": "roar",
+          "duration": 2.799999952316284,
+          "loop": false,
+          "tracks": 42,
+          "keys": 1482,
+          "source": "Animations/DragonNightMare/scream.fbx",
+          "sha256": "22ec6a6aca1140e7466995a1153d881e0e3f586fd07f245f7924b92f44f5c346"
+        }
+      ]
+    },
+    "soul-eater": {
+      "name": "Soul Eater",
+      "file": "soul-eater.glb",
+      "source": "Mesh/DragonSoulEaterMesh.fbx",
+      "sha256": "bb040fce3d19be5d9f012e8a2ce0b62992dfe63b55df5078061c3ce8e3ee875f",
+      "bytes": 1936708,
+      "meshes": 1,
+      "triangles": 3864,
+      "vertices": 2709,
+      "bones": 57,
+      "height": 1,
+      "standingLength": 2.249328994995371,
+      "standingWidth": 1.065743130427503,
+      "dimensions": {
+        "height": 1,
+        "length": 2.249328994995371,
+        "width": 1.065743130427503,
+        "flightWidth": 2.564892678127366,
+        "flightMinY": -0.37973102260360825,
+        "flightHeight": 2.3493544614918656
+      },
+      "sourceHeight": 4.254508195599918,
+      "sourceGround": -0.023216021120490295,
+      "forward": "+Z",
+      "mouthBone": "UpperMouth",
+      "mouthOffset": [
+        0,
+        0,
+        0
+      ],
+      "flight": true,
+      "defaultColor": "red",
+      "colors": {
+        "red": {
+          "albedo": "textures/soul-eater-red.webp",
+          "normal": "textures/soul-eater-red-normal.webp",
+          "emission": "textures/soul-eater-red-emission.webp"
+        },
+        "blue": {
+          "albedo": "textures/soul-eater-blue.webp",
+          "normal": "textures/soul-eater-blue-normal.webp",
+          "emission": "textures/soul-eater-blue-emission.webp"
+        },
+        "green": {
+          "albedo": "textures/soul-eater-green.webp",
+          "normal": "textures/soul-eater-green-normal.webp",
+          "emission": "textures/soul-eater-green-emission.webp"
+        },
+        "purple": {
+          "albedo": "textures/soul-eater-purple.webp",
+          "normal": "textures/soul-eater-purple-normal.webp",
+          "emission": "textures/soul-eater-purple-emission.webp"
+        }
+      },
+      "textureSources": {
+        "red": {
+          "albedo": {
+            "source": "Texture/DragonSoulEater/Red/Albedo.png",
+            "sha256": "d8906400c1a8c7131216135b015bcf6c2b728c140e3cd0e5858d202b11a606ff",
+            "size": 1024,
+            "bytes": 121230
+          },
+          "normal": {
+            "source": "Texture/DragonSoulEater/Red/Normal.png",
+            "sha256": "8f18fbfa1b254a1da00abdbe632b17d3bdc39106daa01680e6e8b08b85438e93",
+            "size": 512,
+            "bytes": 97988
+          },
+          "emission": {
+            "source": "Texture/DragonSoulEater/Red/Emission.png",
+            "sha256": "2d4fb001de4e6a8e7039ccdcf6d659d9b47eea11d730eca6eb6c599e4168b365",
+            "size": 256,
+            "bytes": 1424
+          }
+        },
+        "blue": {
+          "albedo": {
+            "source": "Texture/DragonSoulEater/Blue/Albedo.png",
+            "sha256": "d46dc40ebe733bd882e407a511c955297e8218d038acf406429940ca90b3492d",
+            "size": 1024,
+            "bytes": 123214
+          },
+          "normal": {
+            "source": "Texture/DragonSoulEater/Blue/Normal.png",
+            "sha256": "8f18fbfa1b254a1da00abdbe632b17d3bdc39106daa01680e6e8b08b85438e93",
+            "size": 512,
+            "bytes": 97988
+          },
+          "emission": {
+            "source": "Texture/DragonSoulEater/Blue/Emission.png",
+            "sha256": "2d4fb001de4e6a8e7039ccdcf6d659d9b47eea11d730eca6eb6c599e4168b365",
+            "size": 256,
+            "bytes": 1424
+          }
+        },
+        "green": {
+          "albedo": {
+            "source": "Texture/DragonSoulEater/green/Albedo.png",
+            "sha256": "adb1a0b7dcba8a69d5051a9635f6ebb6dc74df9656f021d0402a737649b2057a",
+            "size": 1024,
+            "bytes": 149550
+          },
+          "normal": {
+            "source": "Texture/DragonSoulEater/green/Normal.png",
+            "sha256": "8f18fbfa1b254a1da00abdbe632b17d3bdc39106daa01680e6e8b08b85438e93",
+            "size": 512,
+            "bytes": 97988
+          },
+          "emission": {
+            "source": "Texture/DragonSoulEater/green/Emission.png",
+            "sha256": "2d4fb001de4e6a8e7039ccdcf6d659d9b47eea11d730eca6eb6c599e4168b365",
+            "size": 256,
+            "bytes": 1424
+          }
+        },
+        "purple": {
+          "albedo": {
+            "source": "Texture/DragonSoulEater/purple/Albedo.png",
+            "sha256": "b68b6102a09e481207e2b250b1611bdccf46b3412a190a284f7691578f9c8fc8",
+            "size": 1024,
+            "bytes": 124230
+          },
+          "normal": {
+            "source": "Texture/DragonSoulEater/purple/Normal.png",
+            "sha256": "8f18fbfa1b254a1da00abdbe632b17d3bdc39106daa01680e6e8b08b85438e93",
+            "size": 512,
+            "bytes": 97988
+          },
+          "emission": {
+            "source": "Texture/DragonSoulEater/purple/Emission.png",
+            "sha256": "2d4fb001de4e6a8e7039ccdcf6d659d9b47eea11d730eca6eb6c599e4168b365",
+            "size": 256,
+            "bytes": 1424
+          }
+        }
+      },
+      "thumbnails": {
+        "red": "thumbs/soul-eater-red.webp",
+        "blue": "thumbs/soul-eater-blue.webp",
+        "green": "thumbs/soul-eater-green.webp",
+        "purple": "thumbs/soul-eater-purple.webp"
+      },
+      "animations": [
+        {
+          "name": "idle",
+          "duration": 1.3333333730697632,
+          "loop": true,
+          "tracks": 41,
+          "keys": 488,
+          "source": "Animations/DragonSoulEater/Idle.fbx",
+          "sha256": "a94adec35352a9083ea61373ea78a8c785d518b17cda3ff91f477ba14152d9b7"
+        },
+        {
+          "name": "walk",
+          "duration": 1.3333333730697632,
+          "loop": true,
+          "tracks": 41,
+          "keys": 784,
+          "source": "Animations/DragonSoulEater/Walk.fbx",
+          "sha256": "a57eaf39758566455f59d460d9d5aad8de70bc0a2bc6e61e6130d2de5a5275e9"
+        },
+        {
+          "name": "run",
+          "duration": 1.3333333730697632,
+          "loop": true,
+          "tracks": 72,
+          "keys": 1079,
+          "source": "Animations/DragonSoulEater/Run.fbx",
+          "sha256": "45edf3c5a7ed8b62b1b3baafae12ac88aa3c8dd030db8786ca9c7ea3508682c7"
+        },
+        {
+          "name": "attack",
+          "duration": 1,
+          "loop": false,
+          "tracks": 71,
+          "keys": 1331,
+          "source": "Animations/DragonSoulEater/Fireball Shoot.fbx",
+          "sha256": "b1e66789c7f33fc226235eff7ea28dcb9f8650515d85a9e34283cd9d932db036"
+        },
+        {
+          "name": "hit",
+          "duration": 1.3333333730697632,
+          "loop": false,
+          "tracks": 72,
+          "keys": 1613,
+          "source": "Animations/DragonSoulEater/Get Hit.fbx",
+          "sha256": "e1b9c89ef0e0ee965896cd4a339fbb1ed2ac84eb3da6d56f422b4005ea5a0a84"
+        },
+        {
+          "name": "death",
+          "duration": 1.5,
+          "loop": false,
+          "tracks": 73,
+          "keys": 1576,
+          "source": "Animations/DragonSoulEater/Die.fbx",
+          "sha256": "256100df402a5f899e4b5c68d215bddc4fd808560a2ed89ed865b478b5d63bb3"
+        },
+        {
+          "name": "fly",
+          "duration": 1.100000023841858,
+          "loop": true,
+          "tracks": 72,
+          "keys": 1235,
+          "source": "Animations/DragonSoulEater/Fly Forward.fbx",
+          "sha256": "dfdbca5480b2586f2fdda483d44f9d5ce90e4f08ff6a1e00ffebfc2d3bde72de"
+        },
+        {
+          "name": "fly-idle",
+          "duration": 1.100000023841858,
+          "loop": true,
+          "tracks": 77,
+          "keys": 1448,
+          "source": "Animations/DragonSoulEater/Fly Float.fbx",
+          "sha256": "4b69dfbd1684438af22fa7e5363b143e5f14fbf1f7c333f2525e3840795dfe57"
+        },
+        {
+          "name": "fly-attack",
+          "duration": 1.100000023841858,
+          "loop": false,
+          "tracks": 79,
+          "keys": 1581,
+          "source": "Animations/DragonSoulEater/Fly Fireball Shoot.fbx",
+          "sha256": "6bd9f542a1947d1bddc16fe7311fd8ed1740e8e694a530497f81f13914d4f8a7"
+        },
+        {
+          "name": "takeoff",
+          "duration": 2.6666667461395264,
+          "loop": false,
+          "tracks": 77,
+          "keys": 3592,
+          "source": "Animations/DragonSoulEater/Take Off.fbx",
+          "sha256": "1f419f373123801ec2ff43b8664963f6ff80530b6d764c25ccf95907a538e929"
+        },
+        {
+          "name": "land",
+          "duration": 2.5999999046325684,
+          "loop": false,
+          "tracks": 79,
+          "keys": 3639,
+          "source": "Animations/DragonSoulEater/Land.fbx",
+          "sha256": "1c78216209d8b0b6f67b7eb1ad8a720f8fa18ed63dc833b436b944cf549d88f8"
+        },
+        {
+          "name": "roar",
+          "duration": 2.3333332538604736,
+          "loop": false,
+          "tracks": 74,
+          "keys": 2094,
+          "source": "Animations/DragonSoulEater/Scream.fbx",
+          "sha256": "2df003bb489de3f32ad604ca7ec8c9e96ef460c8ab0425c947fac2e447e56e73"
+        }
+      ]
+    },
+    "terror-bringer": {
+      "name": "Terror Bringer",
+      "file": "terror-bringer.glb",
+      "source": "Mesh/DragonTerrorBringerMesh.fbx",
+      "sha256": "e5a373f78daedfdba36c9de4a18f2f546218dbc4d492794e20dc5133070c8147",
+      "bytes": 1868536,
+      "meshes": 1,
+      "triangles": 4686,
+      "vertices": 2876,
+      "bones": 83,
+      "height": 1,
+      "standingLength": 1.7764395089450389,
+      "standingWidth": 1.660070446360743,
+      "dimensions": {
+        "height": 1,
+        "length": 1.7764395089450389,
+        "width": 1.660070446360743,
+        "flightWidth": 4.429741556161879,
+        "flightMinY": -0.7842381335053753,
+        "flightHeight": 3.3085933675832697
+      },
+      "sourceHeight": 5.703923241759465,
+      "sourceGround": -0.004917017420283056,
+      "forward": "+Z",
+      "mouthBone": "UpperHead2",
+      "mouthOffset": [
+        0,
+        0,
+        0
+      ],
+      "flight": true,
+      "defaultColor": "red",
+      "colors": {
+        "red": {
+          "albedo": "textures/terror-bringer-red.webp",
+          "normal": "textures/terror-bringer-red-normal.webp",
+          "emission": "textures/terror-bringer-red-emission.webp"
+        },
+        "green": {
+          "albedo": "textures/terror-bringer-green.webp",
+          "normal": "textures/terror-bringer-green-normal.webp",
+          "emission": "textures/terror-bringer-green-emission.webp"
+        },
+        "grey": {
+          "albedo": "textures/terror-bringer-grey.webp",
+          "normal": "textures/terror-bringer-grey-normal.webp",
+          "emission": "textures/terror-bringer-grey-emission.webp"
+        },
+        "albino": {
+          "albedo": "textures/terror-bringer-albino.webp",
+          "normal": "textures/terror-bringer-albino-normal.webp",
+          "emission": "textures/terror-bringer-albino-emission.webp"
+        }
+      },
+      "textureSources": {
+        "red": {
+          "albedo": {
+            "source": "Texture/DragonTerrorBringer/Red/ForSP_lambert1_AlbedoTransparency.png",
+            "sha256": "b7cfa2d102661bc808d49d02eab151fdc21cf9141b1cf87c51624e0a1a7f4ae9",
+            "size": 1024,
+            "bytes": 161552
+          },
+          "normal": {
+            "source": "Texture/DragonTerrorBringer/Red/ForSP_lambert1_Normal.png",
+            "sha256": "274c0125155bf3e181e58745cf8bc239336bce40b224fb3c0745d01673a60e04",
+            "size": 512,
+            "bytes": 89300
+          },
+          "emission": {
+            "source": "Texture/DragonTerrorBringer/Red/ForSP_lambert1_Emission.png",
+            "sha256": "843b3138f206fb2a7b3c178a482dd769e250e198e4d86e6534188ad5a402949e",
+            "size": 256,
+            "bytes": 1984
+          }
+        },
+        "green": {
+          "albedo": {
+            "source": "Texture/DragonTerrorBringer/Green/ForSP_lambert1_AlbedoTransparency.png",
+            "sha256": "e3ea872dce6091bc276c0240cc4f5098cf525d6d656413a23d497580f00d24fe",
+            "size": 1024,
+            "bytes": 132562
+          },
+          "normal": {
+            "source": "Texture/DragonTerrorBringer/Green/ForSP_lambert1_Normal.png",
+            "sha256": "26a0d14f4286424b27f51956ca4171e970e73207b82a5fd5aa51c6fe0fae61b8",
+            "size": 512,
+            "bytes": 74640
+          },
+          "emission": {
+            "source": "Texture/DragonTerrorBringer/Green/ForSP_lambert1_Emission.png",
+            "sha256": "76d2925fbb0814966e455735dfe9d2cfeade55a70e9b4f5d389e00b55cba2727",
+            "size": 256,
+            "bytes": 2952
+          }
+        },
+        "grey": {
+          "albedo": {
+            "source": "Texture/DragonTerrorBringer/Grey/ForSP_lambert1_AlbedoTransparency.png",
+            "sha256": "4239b5fd480fefc2b6162dff81d2999209c3c81bcbff0f7d624f1e7076f2f94a",
+            "size": 1024,
+            "bytes": 182610
+          },
+          "normal": {
+            "source": "Texture/DragonTerrorBringer/Grey/ForSP_lambert1_Normal.png",
+            "sha256": "0dab8e8fe67c080f74e769b046e14b72c449443bf63fb4ae72d20a1a7a456262",
+            "size": 512,
+            "bytes": 88866
+          },
+          "emission": {
+            "source": "Texture/DragonTerrorBringer/Grey/ForSP_lambert1_Emission.png",
+            "sha256": "fc55c654a768f8df4a690f5556b616b6eb6d021569426500fceda98ddfa0b2ee",
+            "size": 256,
+            "bytes": 1492
+          }
+        },
+        "albino": {
+          "albedo": {
+            "source": "Texture/DragonTerrorBringer/Albino/ForSP_lambert1_AlbedoTransparency.png",
+            "sha256": "53a1634403354c9cfd5c893fc9197229a92f0cf737501025bfa722942cac4939",
+            "size": 1024,
+            "bytes": 160730
+          },
+          "normal": {
+            "source": "Texture/DragonTerrorBringer/Albino/ForSP_lambert1_Normal.png",
+            "sha256": "ec76a20dab960522c4eb8f9cb5c46cd61bda4b30c46692054a8616a6e122a6af",
+            "size": 512,
+            "bytes": 74196
+          },
+          "emission": {
+            "source": "Texture/DragonTerrorBringer/Albino/ForSP_lambert1_Emission.png",
+            "sha256": "3bd0ed6e38abf6cfb7e806f39d7fb1130bf6844510d26c8ba6ab75686e9dad8f",
+            "size": 256,
+            "bytes": 2430
+          }
+        }
+      },
+      "thumbnails": {
+        "red": "thumbs/terror-bringer-red.webp",
+        "green": "thumbs/terror-bringer-green.webp",
+        "grey": "thumbs/terror-bringer-grey.webp",
+        "albino": "thumbs/terror-bringer-albino.webp"
+      },
+      "animations": [
+        {
+          "name": "idle",
+          "duration": 1.3333333730697632,
+          "loop": true,
+          "tracks": 43,
+          "keys": 280,
+          "source": "Animations/DragonTerrorBringer/idle01.fbx",
+          "sha256": "80eb21adab29048cc90e9398062f7bcc8a81f831e83b152fa1e4cc9f16d38d70"
+        },
+        {
+          "name": "walk",
+          "duration": 1.3333333730697632,
+          "loop": true,
+          "tracks": 52,
+          "keys": 720,
+          "source": "Animations/DragonTerrorBringer/walk.fbx",
+          "sha256": "e10baec56b76b6170ce08e09208ade7ccc2f76095f6c41786d94526ebdf357a1"
+        },
+        {
+          "name": "run",
+          "duration": 0.800000011920929,
+          "loop": true,
+          "tracks": 52,
+          "keys": 776,
+          "source": "Animations/DragonTerrorBringer/Run.fbx",
+          "sha256": "e2aebc75d8422c9f2028887a92c1e019abddfa4be2fda76a5b4e3b017b2d4da5"
+        },
+        {
+          "name": "attack",
+          "duration": 2.3333332538604736,
+          "loop": false,
+          "tracks": 58,
+          "keys": 1646,
+          "source": "Animations/DragonTerrorBringer/Flame Attack.fbx",
+          "sha256": "296a423bf68940a9f4d876cdd97b88765e85efba6c9e7139446b27a7dec9bfa8"
+        },
+        {
+          "name": "hit",
+          "duration": 1.3333333730697632,
+          "loop": false,
+          "tracks": 55,
+          "keys": 958,
+          "source": "Animations/DragonTerrorBringer/GetHit.fbx",
+          "sha256": "cc674cffc39d12736d9b486d3d1dfee5b354a75264960a850dc86eff30759b55"
+        },
+        {
+          "name": "death",
+          "duration": 1.5,
+          "loop": false,
+          "tracks": 56,
+          "keys": 1021,
+          "source": "Animations/DragonTerrorBringer/die.fbx",
+          "sha256": "0069931b7073f8c84d803f4ee7be7f734cea57544bcd486aa3f5155e3105629a"
+        },
+        {
+          "name": "fly",
+          "duration": 1,
+          "loop": true,
+          "tracks": 60,
+          "keys": 649,
+          "source": "Animations/DragonTerrorBringer/FlyForward.fbx",
+          "sha256": "1373683f6ab935fbe95b4640c3f6e84648171cb97b2343a9d98d50b705395ce2"
+        },
+        {
+          "name": "fly-idle",
+          "duration": 1.0333333015441895,
+          "loop": true,
+          "tracks": 59,
+          "keys": 854,
+          "source": "Animations/DragonTerrorBringer/FlyIdle.fbx",
+          "sha256": "8e8e486bddb95b66078107f5aae25e6bfe5e795f5cf6adcbc1f21da57e131848"
+        },
+        {
+          "name": "fly-attack",
+          "duration": 3.2666666507720947,
+          "loop": false,
+          "tracks": 62,
+          "keys": 2664,
+          "source": "Animations/DragonTerrorBringer/FlyAttack.fbx",
+          "sha256": "84792b3e1ac93974b873f9abe7d30f4051fc0047ae94039196d21e1d18822245"
+        },
+        {
+          "name": "takeoff",
+          "duration": 2.866666555404663,
+          "loop": false,
+          "tracks": 59,
+          "keys": 2064,
+          "source": "Animations/DragonTerrorBringer/TakeOff.fbx",
+          "sha256": "a985fe3836665e24bdf76b23bc4fc553804a2e5bf259e380417d5f61dff3f762"
+        },
+        {
+          "name": "land",
+          "duration": 3.700000047683716,
+          "loop": false,
+          "tracks": 59,
+          "keys": 2821,
+          "source": "Animations/DragonTerrorBringer/Landing.fbx",
+          "sha256": "b8d79e2fa0373af1a34bfd37146a82c3a798828d938bc8ee9663866d99e727b9"
+        },
+        {
+          "name": "roar",
+          "duration": 3,
+          "loop": false,
+          "tracks": 57,
+          "keys": 1978,
+          "source": "Animations/DragonTerrorBringer/scream.fbx",
+          "sha256": "6e2650285892a65698dbd431f0dad5f2892f55f42b2515c981fa068f20ca7f62"
+        }
+      ]
+    },
+    "usurper": {
+      "name": "Usurper",
+      "file": "usurper.glb",
+      "source": "Mesh/DragonUsurperMesh.fbx",
+      "sha256": "b7e40e4c2fb53d1430d58a0aa4a317cafa5d18d8b20f32c3b2919a90ce515f11",
+      "bytes": 2343280,
+      "meshes": 1,
+      "triangles": 4832,
+      "vertices": 3313,
+      "bones": 119,
+      "height": 1,
+      "standingLength": 2.8745409811412124,
+      "standingWidth": 1.5279899208238246,
+      "dimensions": {
+        "height": 1,
+        "length": 2.8745409811412124,
+        "width": 1.5279899208238246,
+        "flightWidth": 5.358840539097608,
+        "flightMinY": -1.0812224090211158,
+        "flightHeight": 3.091875940456018
+      },
+      "sourceHeight": 6.673318777546199,
+      "sourceGround": -0.04302501755536286,
+      "forward": "+Z",
+      "mouthBone": "UpperMouth02",
+      "mouthOffset": [
+        0,
+        0,
+        0
+      ],
+      "flight": true,
+      "defaultColor": "red",
+      "colors": {
+        "red": {
+          "albedo": "textures/usurper-red.webp",
+          "normal": "textures/usurper-red-normal.webp",
+          "emission": "textures/usurper-red-emission.webp"
+        },
+        "blue": {
+          "albedo": "textures/usurper-blue.webp",
+          "normal": "textures/usurper-blue-normal.webp",
+          "emission": "textures/usurper-blue-emission.webp"
+        },
+        "black": {
+          "albedo": "textures/usurper-black.webp",
+          "normal": "textures/usurper-black-normal.webp",
+          "emission": "textures/usurper-black-emission.webp"
+        },
+        "albino": {
+          "albedo": "textures/usurper-albino.webp",
+          "normal": "textures/usurper-albino-normal.webp",
+          "emission": "textures/usurper-albino-emission.webp"
+        }
+      },
+      "textureSources": {
+        "red": {
+          "albedo": {
+            "source": "Texture/DragonUsurper/Red/Albedo.png",
+            "sha256": "dd038102e392140baced251a9b6a059105e3ac91a1a0afd3724fbb6148dc9156",
+            "size": 1024,
+            "bytes": 190920
+          },
+          "normal": {
+            "source": "Texture/DragonUsurper/Red/Normal.png",
+            "sha256": "cf35e36bd9ace8c57db1ccf9672a0d32a1c2fc3aa8ed81da0120d316084c8a83",
+            "size": 512,
+            "bytes": 101718
+          },
+          "emission": {
+            "source": "Texture/DragonUsurper/Red/Emission.png",
+            "sha256": "61a2c3a160c4c837ebc85b16835d4030f4542076bc208a12c1eef386d878dd3e",
+            "size": 256,
+            "bytes": 11098
+          }
+        },
+        "blue": {
+          "albedo": {
+            "source": "Texture/DragonUsurper/Blue/Albedo.png",
+            "sha256": "ea2086881fd23971999247cebe808ed3663ea582c5d793c641343d9ca911625b",
+            "size": 1024,
+            "bytes": 208826
+          },
+          "normal": {
+            "source": "Texture/DragonUsurper/Blue/Normal.png",
+            "sha256": "1f0727745603582c606b51c35ffdc8601ef7958fa12fe151afd1e168c1d7a290",
+            "size": 512,
+            "bytes": 101510
+          },
+          "emission": {
+            "source": "Texture/DragonUsurper/Blue/Emission.png",
+            "sha256": "8875e4db4e23f8f7d32be4967ab730fb8e33f12aa84d5e969c0310658b8dfe61",
+            "size": 256,
+            "bytes": 8214
+          }
+        },
+        "black": {
+          "albedo": {
+            "source": "Texture/DragonUsurper/Dark/Albedo.png",
+            "sha256": "64f90cf036925716173f7826e80ded442000f390f5f5af99be48ee8ef9a80dd5",
+            "size": 1024,
+            "bytes": 219766
+          },
+          "normal": {
+            "source": "Texture/DragonUsurper/Dark/Normal.png",
+            "sha256": "a0174ac1101b19e13722d3f69f276c216b75c9a55f34f3ade12193b03a9ff70f",
+            "size": 512,
+            "bytes": 88578
+          },
+          "emission": {
+            "source": "Texture/DragonUsurper/Dark/Emission.png",
+            "sha256": "73cb56f842ece2018ffcf89837dc1bd7feadc663ea159a1953d2d129eb960370",
+            "size": 256,
+            "bytes": 11124
+          }
+        },
+        "albino": {
+          "albedo": {
+            "source": "Texture/DragonUsurper/Albino/Albedo.png",
+            "sha256": "6d5d034d8a550fc5e4962bfc666cee28b02f03bac6444a255ad2f7200fe68487",
+            "size": 1024,
+            "bytes": 201892
+          },
+          "normal": {
+            "source": "Texture/DragonUsurper/Albino/Normal.png",
+            "sha256": "31271c3e1d8424e935967dae01a2d45e8bb0de1d2d9979919095286babba0f67",
+            "size": 512,
+            "bytes": 86144
+          },
+          "emission": {
+            "source": "Texture/DragonUsurper/Albino/Emission.png",
+            "sha256": "73cb56f842ece2018ffcf89837dc1bd7feadc663ea159a1953d2d129eb960370",
+            "size": 256,
+            "bytes": 11124
+          }
+        }
+      },
+      "thumbnails": {
+        "red": "thumbs/usurper-red.webp",
+        "blue": "thumbs/usurper-blue.webp",
+        "black": "thumbs/usurper-black.webp",
+        "albino": "thumbs/usurper-albino.webp"
+      },
+      "animations": [
+        {
+          "name": "idle",
+          "duration": 1.3333333730697632,
+          "loop": true,
+          "tracks": 58,
+          "keys": 450,
+          "source": "Animations/DragonUsurper/idle01.fbx",
+          "sha256": "9cb1be3074a07075b6d4c9c8c7ce2e19ae2b071472c3c128e898efe6718c3914"
+        },
+        {
+          "name": "walk",
+          "duration": 1.3333333730697632,
+          "loop": true,
+          "tracks": 88,
+          "keys": 1329,
+          "source": "Animations/DragonUsurper/Walk.fbx",
+          "sha256": "b8d7505cccb88f2e04d37511dd269012c1ff8385ecbbd71cde4f9c24e2dcac75"
+        },
+        {
+          "name": "run",
+          "duration": 0.6666666865348816,
+          "loop": true,
+          "tracks": 86,
+          "keys": 871,
+          "source": "Animations/DragonUsurper/Run.fbx",
+          "sha256": "6b0b43cbe89c8fa91e21e886c3421c88c5d4ad1afc6c42a508b37d1097bc84cc"
+        },
+        {
+          "name": "attack",
+          "duration": 2.6666667461395264,
+          "loop": false,
+          "tracks": 70,
+          "keys": 1200,
+          "source": "Animations/DragonUsurper/attackFlame.fbx",
+          "sha256": "9da8e53cd076143d3084ef1c29c49350ca00376895c3a076c7d70037612b4428"
+        },
+        {
+          "name": "hit",
+          "duration": 1.3333333730697632,
+          "loop": false,
+          "tracks": 75,
+          "keys": 1155,
+          "source": "Animations/DragonUsurper/getHit.fbx",
+          "sha256": "ac0aa4a23236c3fef530be10b3a599c49a5dabcd30d48ff43fe5805d266c8e2a"
+        },
+        {
+          "name": "death",
+          "duration": 2.133333444595337,
+          "loop": false,
+          "tracks": 89,
+          "keys": 1598,
+          "source": "Animations/DragonUsurper/Die.fbx",
+          "sha256": "cca33c7b8cc8e75f73c4ec01e0a4e8a04d59ca26d3a518ef900ec6fd52e7093e"
+        },
+        {
+          "name": "fly",
+          "duration": 1,
+          "loop": true,
+          "tracks": 98,
+          "keys": 790,
+          "source": "Animations/DragonUsurper/FlyForward.fbx",
+          "sha256": "cb6063be2d2c71d8634c7d5993fb173f9e591c06fd1b13b940cf9014b8b523a9"
+        },
+        {
+          "name": "fly-idle",
+          "duration": 1,
+          "loop": true,
+          "tracks": 96,
+          "keys": 896,
+          "source": "Animations/DragonUsurper/FlyIdle.fbx",
+          "sha256": "2e55d8b124f883eed8a33c3c04d570f76c523a868b68e51cb014cf1a0f36d7ed"
+        },
+        {
+          "name": "fly-attack",
+          "duration": 3,
+          "loop": false,
+          "tracks": 98,
+          "keys": 2732,
+          "source": "Animations/DragonUsurper/FlyFlame.fbx",
+          "sha256": "d088e7c540bbd1e34ac9f877911afdb7583e139388f3c76ceda012c9a7f8b834"
+        },
+        {
+          "name": "takeoff",
+          "duration": 4,
+          "loop": false,
+          "tracks": 96,
+          "keys": 4060,
+          "source": "Animations/DragonUsurper/takeOff.fbx",
+          "sha256": "89c2b6dd9a2fb38f2078e9699ea4482bc31499e363a7f2e439cdf633f0f3d6e8"
+        },
+        {
+          "name": "land",
+          "duration": 4,
+          "loop": false,
+          "tracks": 96,
+          "keys": 4045,
+          "source": "Animations/DragonUsurper/Land.fbx",
+          "sha256": "d566c0151ff60b49df7f9ee69aea9dd67ef86918bd720cfc3ccd8575d4f61387"
+        },
+        {
+          "name": "roar",
+          "duration": 3.3333332538604736,
+          "loop": false,
+          "tracks": 71,
+          "keys": 1740,
+          "source": "Animations/DragonUsurper/Scream.fbx",
+          "sha256": "c5bde2938054cf32ef1886e8f584f299101b9e9f588abea70fb34dba7b8f2b78"
+        }
+      ]
+    }
+  }
+}

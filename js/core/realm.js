@@ -21,6 +21,8 @@
 import * as daily from './daily.js';
 import * as data from './data.js';
 import {RANKED, ALE_BY_PLACE, aleFor} from './realm-pay.js';
+import {DRAGON_ORDER, DRAGONS, dragonHeroKey, dragonSpeciesOfHero, validDragonChoice, dragonSnapshot} from './realm-dragons.js';
+export {DRAGON_ORDER, DRAGONS, dragonHeroKey, dragonSpeciesOfHero, validDragonChoice, dragonSnapshot} from './realm-dragons.js';
 
 export const N = 44;               // the lot: N x N tiles (36 till Oct 2026: more room on the base, the owner's ask; clean())
 const N_WAS = 36;                  // (a save from then, laid out on the smaller lot)
@@ -101,7 +103,7 @@ export const KINDS = {
   // were 20,000 and 40,000), so a Castle 4 realm (10–15,000 Ale a day from the games) hatches him in a day and has
   // level 2 a couple of days on. (Only cost, time, th and the words changed: hp stays, it's in battleMark.)
   hatchery: {name: 'Dragon Hatchery', size: 4, pay: 'grain', role: 'hatch',
-    blurb: 'Where your Dragon Hero hatches and grows. Build it and he hatches; every level it goes up makes him stronger.',
+    blurb: 'Choose one dragon species and its color. Each hatchery raises its own dragon; upgrading it makes that dragon stronger.',
     cost: [12000, 25000, 70000, 110000, 160000, 220000, 300000, 400000, 520000, 660000],
     time: [3600, 10800, 21600, 32400, 43200, 64800, 86400, 108000, 129600, 172800],
     hp: [800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700],
@@ -162,7 +164,7 @@ export const COUNT = {
   granary: [1, 1, 2, 2, 2, 3, 4, 4],
   barracks: [1, 2, 2, 3, 3, 3, 4, 4],
   camp: [1, 1, 2, 2, 3, 3, 4, 4],
-  hatchery: [0, 0, 0, 1, 1, 1, 1, 1],
+  hatchery: [0, 0, 0, 1, 2, 3, 4, 4],
   cannon: [1, 1, 2, 2, 3, 3, 4, 4],
   ballista: [2, 2, 2, 3, 3, 4, 5, 5],
   tower: [0, 1, 1, 2, 3, 3, 4, 5],
@@ -226,7 +228,7 @@ export const RETIRED = Object.freeze({sapper: 600, fullback: 600, dragon: 3000, 
 // every level: at 1 a little more than the Wizard Hero was at 2; at 10 well past a trained Dragon (900 hp, 60 a second),
 // but one of him alone doesn't take a computer realm of his Castle's level (tools/realm/check-dragon-hero.cjs).
 // The Wizard Hero is gone (a recruited one's Gold refunded once: clean()); kept in RULES[1] for old replays only.
-export const HERO_ORDER = ['knight', 'dragon'];
+export const HERO_ORDER = ['knight', ...DRAGON_ORDER.map(s => DRAGONS[s].hero)];
 export const HEROES = {
   knight: {name: 'Knight Hero', at: 4, troop: 'hero_knight', hp: 500, dps: 24, speed: 1.5, range: .8, aim: 'def', air: false,
     cap: [0, 2, 3, 4, 6, 8, 9, 10], cost: [1500, 2200, 4000, 7000, 12000, 20000, 32000, 50000, 75000, 110000],
@@ -238,37 +240,87 @@ export const HEROES = {
     splash: [.8, .8, .8, .9, .9, .9, 1, 1, 1, 1.1],
     blurb: 'Hatched at your Dragon Hatchery and as strong as it is high. Flies over walls, burns crowds and buildings, and only ballistas and archer towers can reach him.'}
 };
-// ---- the rules a raid is played under: 2 now; 1 till Oct 22 2026 (the Wizard Hero and the trained Dragon), kept only
-// so a raid recorded then plays again exactly as it did (decodeReplay: a replay says which it was played under)
+// The legacy Dragon stays unchanged for rules-2 replays. Each new species is
+// independently levelled by its own hatchery; Nightmare fights on the ground.
+DRAGON_ORDER.forEach(species => {
+  const D = DRAGONS[species];
+  HEROES[D.hero] = {...HEROES.dragon, name: D.name, troop: D.troop, species, fly: D.fly, air: D.fly,
+    ...(D.fly ? {} : {range: Array(10).fill(.8), splash: Array(10).fill(0)}),
+    blurb: D.fly ? `${D.name} flies over walls and attacks with fire. Its own hatchery determines its level.`
+      : 'Nightmare fights on the ground with claws and teeth. It follows paths and breaks through walls.'};
+});
+// Rule sets remain immutable for replays: 1 has the Wizard and trained dragon, 2 the single Dragon Hero,
+// and 3 the four chosen hatchery species (decodeReplay supplies the recorded rules).
 const WIZARD = {name: 'Wizard Hero', at: 4, troop: 'hero_wizard', hp: 230, dps: 30, speed: 1.7, range: 4.5, aim: 'any', air: true, splash: 1.2,
   cap: [0, 0, 0, 2, 4, 6, 8, 10], cost: [8000, 10000, 16000, 24000, 36000, 52000, 75000, 105000, 145000, 200000]};
-export const RULES_V = 2;
+export const RULES_V = 3;
 export const RULES = Object.freeze({
   1: Object.freeze({battle: 1, troops: Object.freeze(['footman', 'archer', 'knight', 'thief', 'dragon']), heroes: Object.freeze(['knight', 'wizard']),
     hero: Object.freeze({knight: HEROES.knight, wizard: WIZARD}), hatch: Object.freeze({count: [0, 0, 0, 0, 0, 1, 1, 1], th: [6, 6, 6, 7, 7, 7, 8, 8, 8, 8]})}),
-  2: Object.freeze({troops: TROOP_ORDER, heroes: HERO_ORDER, hero: HEROES, hatch: null}) // (its battle version: BATTLE_V)
+  2: Object.freeze({battle: 2, troops: TROOP_ORDER, heroes: Object.freeze(['knight', 'dragon']),
+    hero: Object.freeze({knight: HEROES.knight, dragon: HEROES.dragon}),
+    hatch: Object.freeze({count: [0, 0, 0, 1, 1, 1, 1, 1], th: [4, 4, 5, 5, 6, 6, 7, 7, 8, 8]})}),
+  3: Object.freeze({troops: TROOP_ORDER, heroes: HERO_ORDER, hero: HEROES, hatch: null})
 });
 /** A rule set (RULES) by its number: today's for anything else. */
 export const rulesOf = v => RULES[v] || RULES[RULES_V];
 const heroKind = (k, v = RULES_V) => { const R = rulesOf(v); return R.heroes.includes(k) ? R.hero[k] : null; };
 /** The Dragon Hatchery's level in realm s (the best one standing; one being upgraded counts at the level it has). */
 export const hatchLevel = s => Math.min(10, Math.max(0, ...((s && Array.isArray(s.b) ? s.b : []).filter(b => b && b.t === 'hatchery' && Number.isInteger(b.l) && b.l >= 1).map(b => b.l))));
+/** Assigned species, including a hatchery under construction (level zero). */
+export function dragonOfBuilding(s, building) {
+  const b = (s?.b || []).find(x => x === building || x.i === (typeof building === 'object' ? building?.i : building));
+  if (!b || b.t !== 'hatchery' || !validDragonChoice(b.dragon)) return null;
+  const first = s.b.filter(x => x.t === 'hatchery' && validDragonChoice(x.dragon) && x.dragon.species === b.dragon.species)
+    .sort((a, b) => a.i - b.i)[0];
+  if (first !== b) return null;
+  return {...DRAGONS[b.dragon.species], species: b.dragon.species, color: b.dragon.color,
+    level: Number.isInteger(b.l) ? Math.max(0, Math.min(10, b.l)) : 0, buildingId: b.i};
+}
+/** Species already reserved by construction also count against uniqueness. */
+export function hatcheryChoices(s, buildingId = null) {
+  const taken = new Set((s?.b || []).filter(b => b.t === 'hatchery' && b.i !== buildingId && validDragonChoice(b.dragon)).map(b => b.dragon.species));
+  const current = (s?.b || []).find(b => b.i === buildingId)?.dragon;
+  return DRAGON_ORDER.filter(id => !taken.has(id) && (!validDragonChoice(current) || id === current.species)).map(id => DRAGONS[id]);
+}
+export function canChooseHatcheryDragon(s, id, species, color) {
+  if (!mayPlay()) return {ok: false, why: 'Choose your profile to play Keepfall'};
+  const b = (s?.b || []).find(x => x.i === id);
+  if (!b || b.t !== 'hatchery') return {ok: false, why: 'Hatchery not found'};
+  if (keepOf(s) < 4) return {ok: false, why: 'Needs Castle level 4'};
+  if (!validDragonChoice({species, color})) return {ok: false, why: 'Choose a valid dragon species and color'};
+  if (validDragonChoice(b.dragon) && b.dragon.species !== species) return {ok: false, why: 'This hatchery already raises another species'};
+  if (!hatcheryChoices(s, id).some(d => d.id === species)) return {ok: false, why: 'Each species can have only one hatchery'};
+  return {ok: true, why: ''};
+}
+export function chooseHatcheryDragon(s, id, species, color) {
+  if (!canChooseHatcheryDragon(s, id, species, color).ok) return false;
+  s.b.find(b => b.i === id).dragon = {species, color};
+  return true;
+}
 /** The highest level hero k can have at this Castle: the Knight's cap; the Dragon's, the hatchery's top level there. */
-export const heroCap = (s, k) => { const H = heroKind(k); return !H ? 0 : H.hatch ? topLevel(H.hatch, keepOf(s)) : (H.cap[keepOf(s) - 1] || 0); };
+export const heroCap = (s, k, v = RULES_V) => { const H = heroKind(k, v); return !H ? 0 : H.hatch ? topLevel(H.hatch, keepOf(s)) : (H.cap[keepOf(s) - 1] || 0); };
 // (a realm's roster: every realm has one, fresh() and clean(); the computer's lots (botBase) have none, so no heroes)
 const roster = s => !!(s && s.hr && typeof s.hr === 'object' && !Array.isArray(s.hr));
 /** A hero's level in realm s: the Knight's, recruited and restricted to the current Castle's cap (bad or unknown entries
  *  cannot create one); the Dragon's, his hatchery's (never s.hr's). 0: none. */
-export function heroLevel(s, k) {
-  const H = heroKind(k);
+export function heroLevel(s, k, v = RULES_V) {
+  const H = heroKind(k, v);
   if (!H || !roster(s)) return 0;
-  if (H.hatch) return hatchLevel(s);
+  if (H.hatch) {
+    if (!H.species) return hatchLevel(s);
+    const dragon = s.b.map(b => dragonOfBuilding(s, b)).find(d => d && d.hero === k);
+    return dragon ? dragon.level : 0;
+  }
   const l = s.hr[k];
-  return Number.isInteger(l) && l > 0 ? Math.min(l, 10, heroCap(s, k)) : 0;
+  return Number.isInteger(l) && l > 0 ? Math.min(l, 10, heroCap(s, k, v)) : 0;
 }
 /** Snapshot this roster for a raid/replay. Eligibility is checked again when battle units are created. */
-export const heroLevels = s => mayPlay() ? Object.fromEntries(HERO_ORDER.map(k => [k, heroLevel(s, k)]).filter(([, l]) => l > 0)) : {};
+export const heroLevels = (s, v = RULES_V) => mayPlay() ? Object.fromEntries(rulesOf(v).heroes.map(k => [k, heroLevel(s, k, v)]).filter(([, l]) => l > 0)) : {};
 export const heroArmy = s => Object.fromEntries(Object.keys(heroLevels(s)).map(k => [HEROES[k].troop, 1]));
+/** Colors are copied with the level snapshot, so later recoloring cannot change a raid or replay. */
+export const heroDragons = s => mayPlay() ? Object.fromEntries((s?.b || []).map(b => dragonOfBuilding(s, b)).filter(d => d && d.level > 0)
+  .map(d => [d.hero, {species: d.species, color: d.color, buildingId: d.buildingId}])) : {};
 /** A hero's combat stats at a level (1–10), under rules v (RULES: today's by default), or null. Copied, so a battle
  *  never changes the permanent roster. */
 export function heroStat(k, level, v = RULES_V) {
@@ -276,7 +328,7 @@ export function heroStat(k, level, v = RULES_V) {
   if (!H || !Number.isInteger(level) || level < 1 || level > 10) return null;
   if (H.hatch) {
     const i = level - 1;
-    return {hp: H.hp[i], dps: H.dps[i], speed: H.speed, range: H.range[i], aim: H.aim, air: H.air, splash: H.splash[i], room: 0, fly: true};
+    return {hp: H.hp[i], dps: H.dps[i], speed: H.speed, range: H.range[i], aim: H.aim, air: H.air, splash: H.splash[i], room: 0, fly: H.fly};
   }
   return {hp: Math.round(H.hp * (1 + .18 * (level - 1))), dps: Math.round(H.dps * (1 + .16 * (level - 1))),
     speed: H.speed, range: H.range, aim: H.aim, air: H.air, splash: H.splash || 0, room: 0};
@@ -603,7 +655,8 @@ export function clean(s) {
   o.b = o.b.map(b => (b && by && Number.isInteger(b.x) && Number.isInteger(b.y) ? Object.assign({}, b, {x: b.x + by, y: b.y + by}) : b));
   o.b = o.b.map(b => (b && old && OLD_KIND[b.t] ? Object.assign({}, b, {t: OLD_KIND[b.t]}) : b))
     .filter(b => b && KINDS[b.t] && Number.isInteger(b.x) && Number.isInteger(b.y))
-    .map(b => ({i: num(b.i), t: b.t, l: Math.max(0, Math.min(maxLevel(b.t), num(b.l) | 0)), x: b.x, y: b.y, u: num(b.u), ...(KINDS[b.t].role === 'make' ? {c: num(b.c)} : {})}));
+    .map(b => ({i: num(b.i), t: b.t, l: Math.max(0, Math.min(maxLevel(b.t), num(b.l) | 0)), x: b.x, y: b.y, u: num(b.u), ...(KINDS[b.t].role === 'make' ? {c: num(b.c)} : {}),
+      ...(b.t === 'hatchery' && validDragonChoice(b.dragon) ? {dragon: {species: b.dragon.species, color: b.dragon.color}} : {})}));
   if (!o.b.some(b => b.t === 'keep')) return null;
   // nothing on the same ground as anything else, nothing off the base (an old save, or one from before a rule): one
   // that doesn't fit where it is goes to the nearest spot it does (the Keep first, then the rest in order), or, with
@@ -614,6 +667,14 @@ export function clean(s) {
     laid.b.push(b);
   });
   o.b = o.b.filter(b => laid.b.includes(b));
+  // Never invent a selection for an old hatchery or discard its build progress.
+  // Corrupt duplicate assignments keep the lowest-ID building's choice.
+  const species = new Set();
+  [...o.b].sort((a, b) => a.i - b.i).forEach(b => {
+    if (!b.dragon) return;
+    if (species.has(b.dragon.species)) delete b.dragon;
+    else species.add(b.dragon.species);
+  });
   ['r', 'cl', 'xo'].forEach(f => {
     const v = o[f] || {};
     o[f] = Object.fromEntries(CUR.map(c => [c, Math.max(0, num(v[c] != null ? v[c] : (old ? v[OLD_CUR[c]] : 0)))]));
@@ -801,11 +862,13 @@ export function canBuild(s, k, now = Date.now()) {
 }
 /** Builds kind k at (x, y): paid now, up when its time's done (at once for walls and huts). The new building, or null
  *  if it can't. */
-export function build(s, k, x, y, now = Date.now()) {
+export function build(s, k, x, y, now = Date.now(), choice = null) {
   const K = KINDS[k], chk = canBuild(s, k, now);
   if (!chk.ok || !fits(s, K.size, x, y)) return null;
+  if (k === 'hatchery' && (!mayPlay() || !validDragonChoice(choice) || !hatcheryChoices(s).some(d => d.id === choice.species))) return null;
   spend(s, K.pay, chk.cost);
   const b = {i: s.nb++, t: k, l: 0, x, y, u: now + chk.time * 1000};
+  if (k === 'hatchery') b.dragon = {species: choice.species, color: choice.color};
   if (!chk.time || k === 'hut') { b.l = 1; b.u = 0; }
   if (K.role === 'make') b.c = b.u || now;
   s.b.push(b);
@@ -919,6 +982,10 @@ export const gloryFor = (stars, th) => stars * th * 4;
  *  (core/realm-battle.js makeBattle, played out), when there's one: the record keeps its replay (rp: snapOf(B)), so it
  *  can be watched again (the newest RP_KEEP attacks keep theirs). Returns the record. */
 export function finishRaid(s, rec, used, now = Date.now(), B = null) {
+  if (B?.rules >= 3) {
+    rec.dragons = dragonSnapshot(B.heroes, B.dragons);
+    rec.defenderDragons = dragonSnapshot(Object.fromEntries(B.defenders.map(u => [u.hero, u.level])), B.defenderDragons);
+  }
   if (B && !rec.rp) { const rp = snapOf(B, {into: s}); if (rp) rec.rp = rp; }
   const cap = capOf(s);
   CUR.forEach((c, i) => {
@@ -1063,18 +1130,19 @@ export function realmOf(key, mine, now = Date.now(), {scout = false} = {}) {
 // Versions (Oct 22 2026, the Dragon Hero): rp.v says how p is packed and so which rules it was played under (RP_RULES):
 // v 2, every replay made before the Dragon Hero, packs the five troops then trained and the Knight and Wizard Heroes
 // (RULES[1]) and plays again under those rules (the Wizard, the trained Dragon, the computer's lots as they were then:
-// botBase(th, 1)), checked by their mark (battleMark(1), the same mark they were made with); v 3, from then on, packs
-// today's (RULES[2]: four troops, the Knight and Dragon Heroes). decodeReplay hands the battle the rules (opts.rules).
-export const RP_V = 3, RP_KEEP = 10, EX_V = 1, EX_MAX = 3;
-const RP_RULES = Object.freeze({2: 1, 3: 2});
+// botBase(th, 1)), checked by their mark (battleMark(1), the same mark they were made with); v 3 packs RULES[2],
+// the Knight and single Dragon Hero. v 4 packs RULES[3], including species colors and hatchery IDs for both sides.
+// decodeReplay hands the battle its recorded rules and immutable hero choices in opts.
+export const RP_V = 4, RP_KEEP = 10, EX_V = 2, EX_MAX = 3;
+const RP_RULES = Object.freeze({2: 1, 3: 2, 4: 3});
 /** Bump it with any change to how a raid plays out in core/realm-battle.js (its steps, targeting, paths, shots, the
  *  end): the replays recorded before then stop showing their ▶. (The stats here are in battleMark by themselves.) 2 from
  *  Oct 22 2026 (a flying hero); a rule set's own (RULES[v].battle) goes in its mark, so the replays made under 1 keep
  *  theirs. */
-export const BATTLE_V = 2;
+export const BATTLE_V = 3;
 // (fixed: a kind or unit added later goes on the end, so an old replay still reads the same)
 const RP_KINDS = Object.freeze(['keep', 'hut', 'mine', 'farm', 'treasury', 'granary', 'barracks', 'camp', 'hatchery', 'cannon', 'ballista', 'tower', 'trebuchet', 'cauldron', 'wall']);
-const RP_UNITS = Object.freeze(['footman', 'archer', 'knight', 'thief', 'dragon', 'hero_knight', 'hero_wizard', 'hero_dragon']);
+const RP_UNITS = Object.freeze(['footman', 'archer', 'knight', 'thief', 'dragon', 'hero_knight', 'hero_wizard', 'hero_dragon', ...DRAGON_ORDER.map(s => DRAGONS[s].troop)]);
 const isInt = v => Number.isInteger(v);
 const heroMap = (h, v = RULES_V) => Object.fromEntries(rulesOf(v).heroes.filter(k => h && isInt(h[k]) && h[k] >= 1 && h[k] <= 10).map(k => [k, h[k]]));
 // ---- packing: numbers as varints (zigzag for the ones that can go down), the bytes as base64url text
@@ -1195,6 +1263,16 @@ export function snapOf(B, o = {}) {
   const h = heroMap(B.heroes), dh = heroMap(Object.fromEntries((B.defenders || []).map(u => [u.hero, u.level])));
   HERO_ORDER.forEach(k => w.uv(h[k] || 0));
   HERO_ORDER.forEach(k => w.uv(dh[k] || 0));
+  // Fixed species order and explicit colors preserve appearance independently
+  // of later hatchery recoloring. Missing legacy building IDs stay absent.
+  for (const [levels, choices] of [[h, B.dragons], [dh, B.defenderDragons]]) {
+    const snapshot = dragonSnapshot(levels, choices);
+    DRAGON_ORDER.forEach(species => {
+      const D = DRAGONS[species], d = snapshot[D.hero];
+      w.u8(d ? D.colors.indexOf(d.color) + 1 : 0);
+      w.uv(d && Number.isInteger(d.buildingId) ? d.buildingId + 1 : 0);
+    });
+  }
   const take = v => Math.max(0, Math.floor(Number(v) || 0));
   const lo = B.bl.filter(e => e.loot && (take(e.loot.gold) || take(e.loot.grain)));
   w.uv(lo.length);
@@ -1230,6 +1308,16 @@ function readReplay(p, s) {
   Ru.troops.forEach(t => { const n = r.uv(); if (n > 0) army[t] = n; });
   Ru.heroes.forEach(k => { const l = r.uv(); if (l >= 1 && l <= 10) hr[k] = l; });
   Ru.heroes.forEach(k => { const l = r.uv(); if (l >= 1 && l <= 10) dh[k] = l; });
+  const dragons = {}, defenderDragons = {};
+  if (rules >= 3) {
+    for (const [levels, into] of [[hr, dragons], [dh, defenderDragons]]) {
+      for (const species of DRAGON_ORDER) {
+        const D = DRAGONS[species], color = r.u8(), bid = r.uv();
+        if (r.bad || color > D.colors.length || (levels[D.hero] ? !color : color || bid)) return null;
+        if (color) into[D.hero] = {species, color: D.colors[color - 1], ...(bid ? {buildingId: bid - 1} : {})};
+      }
+    }
+  }
   const by = {}, total = {gold: 0, grain: 0}, nl = r.uv();
   if (r.bad || nl > 1000) return null;
   let i = 0;
@@ -1250,7 +1338,7 @@ function readReplay(p, s) {
     drops.push([st, u, x, y]);
   }
   if (!r.end) return null;
-  return {b, bot, rules, end, army, hr, dh, loot: {by, total}, drops, sc: typeof p.sc === 'string' && SCENERIES.some(q => q.k === p.sc) ? p.sc : ''};
+  return {b, bot, rules, end, army, hr, dh, dragons, defenderDragons, loot: {by, total}, drops, sc: typeof p.sc === 'string' && SCENERIES.some(q => q.k === p.sc) ? p.sc : ''};
 }
 /** Whether rp reads whole (the lot it points at kept in s): what a save keeps (clean, keepReplays). */
 const rpWhole = (p, s) => !!readReplay(p, s);
@@ -1277,10 +1365,15 @@ export function decodeReplay(p, s = null) {
   const ids = new Set(b.map(x => x.i));
   if (Object.keys(R.loot.by).some(i => !ids.has(Number(i)))) return null;
   const base = {b, hr: R.dh, r: {gold: 0, grain: 0}};
+  Object.values(R.defenderDragons).forEach(d => {
+    const hatchery = b.find(x => x.i === d.buildingId && x.t === 'hatchery');
+    if (hatchery) hatchery.dragon = {species: d.species, color: d.color};
+  });
   if (R.sc) base.sc = R.sc;
   // (dur: a step is a tenth of a second, realm-battle.js DT)
   return {base, loot: R.loot, army: R.army, drops: R.drops, hr: R.hr, dh: R.dh, end: R.end, dur: R.end / 10, sc: R.sc, rules: R.rules,
-    opts: {heroes: R.hr, defenders: R.dh, end: R.end, rules: R.rules}};
+    dragons: R.dragons, defenderDragons: R.defenderDragons,
+    opts: {heroes: R.hr, defenders: R.dh, dragons: R.dragons, defenderDragons: R.defenderDragons, end: R.end, rules: R.rules}};
 }
 /** Whether a record has a replay to watch (its rp reads back under today's rules: decodeReplay). For the log's ▶. s:
  *  the realm it's on (its lots), the owner's in memory when not given. */

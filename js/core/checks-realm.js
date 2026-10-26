@@ -58,8 +58,8 @@ export async function realmChecks(check) {
     // hatchery's card line says his Dragon Hero's level and numbers)
     const nests = all.map(({R}) => R.base.b.find(b => b.t === 'hatchery')).filter(Boolean), nestFacts = nests.map(b => view.factsOf(b).join(' · '));
     const own = view.factsOf({t: 'hatchery', l: 3, x: 0, y: 0, i: 1}, {own: true}).join(' · ');
-    const hatch = nests.length >= 4 && nestFacts.every(f => /No Dragon Hero defends it/.test(f) && !/keeper|Dragon Hero level/.test(f)) && all.every(({R}) => !Object.keys(F.heroLevels(R.base)).length)
-      && /Dragon Hero level 3/.test(own) && /dragon keeper/.test(own);
+    const hatch = nests.length >= 4 && nestFacts.every(f => /No dragon defends it/.test(f) && !/keeper|Dragon Hero level/.test(f)) && all.every(({R}) => !Object.keys(F.heroLevels(R.base)).length)
+      && /Choose a dragon species and color/.test(own) && /dragon keeper/.test(own);
     const missing = !!F.realmOf('nowhere', s, T0).why;
     const untouched = JSON.stringify(s) === before;
     const ok = routed && same && counted && card && hatch && missing && untouched;
@@ -532,7 +532,7 @@ export async function realmChecks(check) {
     for (let d = 13; d <= 23; d++) [[d, 13], [d, 23], [13, d], [23, d]].forEach(([x, y]) => { if (!b.some(q => q.t === 'wall' && q.x === x && q.y === y)) b.push({i: i++, t: 'wall', l: 2, x, y, u: 0}); });
     const base = {b};
     // (a flyer: under the old rules (RULES 1) the trained dragon, anyone's; under today's the Dragon Hero, the owner's)
-    const fly = (lot, hero) => { const B = hero ? makeBattle(lot, null, {}, {heroes: {dragon: 1}}) : makeBattle(lot, null, {dragon: 1}, {rules: 1}); return {B, d: B.deploy(hero ? 'hero_dragon' : 'dragon', 16, 4)}; };
+    const fly = (lot, hero) => { const B = hero ? makeBattle(lot, null, {}, {heroes: {dragon_soul_eater: 1}}) : makeBattle(lot, null, {dragon: 1}, {rules: 1}); return {B, d: B.deploy(hero ? 'hero_dragon_soul_eater' : 'dragon', 16, 4)}; };
     const each = (owner ? [false, true] : [false]).map(hero => {
       const {B: A, d: drake} = fly(base, hero);
       A.run(F.RAID_S);
@@ -546,7 +546,7 @@ export async function realmChecks(check) {
     const K = makeBattle(base, null, {knight: 1}), knight = K.deploy('knight', 31, 18);
     K.run(40);
     const hitKnight = !!knight && knight.hp < knight.max;
-    const none = owner || makeBattle(base, null, {}, {heroes: {dragon: 1}}).deploy('hero_dragon', 16, 4) === null;
+    const none = owner || makeBattle(base, null, {}, {heroes: {dragon_soul_eater: 1}}).deploy('hero_dragon_soul_eater', 16, 4) === null;
     return {pass: each.every(x => x.ok) && hitKnight && none, detail: `${each.map(x => x.why).join(' · ')}; the knight ${knight ? `${knight.hp}/${knight.max}` : 'not sent'}${owner ? '' : `; no Dragon Hero off his phone ${none}`}`};
   });
 
@@ -556,7 +556,7 @@ export async function realmChecks(check) {
     const A = makeBattle(base, null, {footman: 1}), man = A.deploy('footman', 4, 18);
     A.run(20);
     // (a flyer: the Dragon Hero on his phone, the old rules' trained dragon elsewhere)
-    const D = owner ? makeBattle(base, null, {}, {heroes: {dragon: 2}}) : makeBattle(base, null, {dragon: 1}, {rules: 1}), drake = D.deploy(owner ? 'hero_dragon' : 'dragon', 4, 18);
+    const D = owner ? makeBattle(base, null, {}, {heroes: {dragon_soul_eater: 2}}) : makeBattle(base, null, {dragon: 1}, {rules: 1}), drake = D.deploy(owner ? 'hero_dragon_soul_eater' : 'dragon', 4, 18);
     D.run(F.RAID_S);
     const fires = !!man && man.hp < man.max && !!drake && drake.hp === drake.max && D.shots.every(x => x.k !== 'cannon');
     const s = F.fresh(T0);
@@ -565,14 +565,14 @@ export async function realmChecks(check) {
     const train = F.canTrain(s, 'dragon'), notTrained = !train.ok && /Dragon Hero/.test(train.why) && !F.TROOP_ORDER.includes('dragon');
     const at = l => { s.b.find(b => b.t === 'keep').l = l; return F.canBuild(s, 'hatchery', T0); };
     const c3 = at(3), c4 = at(4);
-    const opens = !c3.ok && /Castle level 4/.test(c3.why) && c4.ok && c4.pay === 'grain' && F.COUNT.hatchery.join() === '0,0,0,1,1,1,1,1';
-    s.b.push({i: 52, t: 'hatchery', l: 1, x: 27, y: 27, u: 0});
-    const one = !F.canBuild(s, 'hatchery', T0).ok && F.heroLevel(s, 'dragon') === 1;
+    const opens = !c3.ok && /Castle level 4/.test(c3.why) && c4.ok && c4.pay === 'grain' && F.COUNT.hatchery.join() === '0,0,0,1,2,3,4,4';
+    s.b.push({i: 52, t: 'hatchery', l: 1, x: 27, y: 27, u: 0, dragon: {species: 'soul-eater', color: 'red'}});
+    const one = !F.canBuild(s, 'hatchery', T0).ok && F.heroLevel(s, 'dragon_soul_eater') === 1;
     const kept = F.clean(Object.assign(F.fresh(T0), {b: F.fresh(T0).b.concat({i: 9, t: 'cannon', l: 2, x: 3, y: 3, u: 0})}));
     const stays = !!kept && kept.b.some(b => b.t === 'cannon' && b.l === 2);
     const bots = [4, 5, 6, 7, 8].every(th => F.botBase(th).b.some(b => b.t === 'hatchery')) && !F.botBase(3).b.some(b => b.t === 'hatchery') && F.botBase(1).b.some(b => b.t === 'cannon')
       && Object.keys(F.heroLevels(F.botBase(8))).length === 0 && makeBattle(F.botBase(8), null, {footman: 1}).defenders.length === 0;
-    return {pass: fires && notTrained && opens && one && stays && bots, detail: `cannon: the footman ${man ? `${man.hp}/${man.max}` : 'not sent'}, the ${owner ? 'Dragon Hero' : 'dragon (old rules)'} ${drake ? `${drake.hp}/${drake.max}` : 'not sent'}; a dragon to train: ${train.why}; a hatchery at Castle 3: ${c3.why}, at 4: ${c4.ok} (${c4.cost} Ale); one built, another ${F.canBuild(s, 'hatchery', T0).why}, Dragon Hero level ${F.heroLevel(s, 'dragon')}; a cannon kept ${stays}; the computer’s realms have hatcheries from Castle 4, no heroes ${bots}`};
+    return {pass: fires && notTrained && opens && one && stays && bots, detail: `cannon: the footman ${man ? `${man.hp}/${man.max}` : 'not sent'}, the ${owner ? 'Dragon Hero' : 'dragon (old rules)'} ${drake ? `${drake.hp}/${drake.max}` : 'not sent'}; a dragon to train: ${train.why}; a hatchery at Castle 3: ${c3.why}, at 4: ${c4.ok} (${c4.cost} Ale); one built, another ${F.canBuild(s, 'hatchery', T0).why}, Soul Eater level ${F.heroLevel(s, 'dragon_soul_eater')}; a cannon kept ${stays}; the computer’s realms have hatcheries from Castle 4, no heroes ${bots}`};
   });
 
   check('Keepfall: every building level has unique growing artwork and all villagers and tower platforms remain intact', async () => {
@@ -643,7 +643,7 @@ export async function realmChecks(check) {
     // the first is still going up, none a saved roster entry makes, none on a lot with no roster (the computer's))
     const lot = (...b) => ({hr: {}, b: b.map(([t, l], i) => ({i: i + 1, t, l, x: 4 + i * 5, y: 4, u: 0}))}), two = lot(['keep', 8], ['hatchery', 2], ['hatchery', 5]);
     const home = D.homeDragonLevel(lot(['keep', 6])) === 0 && D.homeDragonLevel(lot(['keep', 6], ['hatchery', 0])) === 0 && D.homeDragonLevel(two) === 5 && (D.homeDragonNest(two) || {}).i === 3
-      && D.homeDragonLevel(two) === F.heroLevel(two, 'dragon') && D.homeDragonLevel(Object.assign(lot(['keep', 8]), {hr: {dragon: 9}})) === 0
+      && D.homeDragonLevel(two) === F.heroLevel(two, 'dragon', 2) && D.homeDragonLevel(Object.assign(lot(['keep', 8]), {hr: {dragon: 9}})) === 0
       && D.homeDragonLevel({b: two.b}) === 0 && !D.homeDragonNest(lot(['keep', 6]));
     // (the offline cache: the model never in it, sw.js sends it to the network; its code is, for the picture offline)
     const sw = await fetch(new URL('../../sw.js', import.meta.url)).then(r => r.text(), () => '');
@@ -777,9 +777,10 @@ export async function realmChecks(check) {
       const bd = D.createBattleDragons(T, scene);
       bd.warm(renderer, camera, 1);
       bd.dispose();
-      const hd = D.createHomeDragon(T, scene, {renderer, camera});
+      const hd = D.createHomeDragon(T, scene, {renderer, camera, legacyHome: true});
       hd.setLot({hr: {}, b: [{i: 1, t: 'keep', l: 6, x: 20, y: 20, u: 0}, {i: 2, t: 'hatchery', l: 4, x: 10, y: 10, u: 0}]});
       await wait(0);
+      hd.update(0, {camera});
       const made = hd.counts.model;
       hd.dispose();
       if (renderer) { renderer.dispose(); renderer.forceContextLoss(); }
@@ -878,7 +879,7 @@ export async function realmChecks(check) {
     const r3 = F.realmOf('bot:1', at(3), T0), r6 = F.realmOf('bot:6', at(4), T0), sc6 = F.realmOf('bot:6', at(4), T0, {scout: true}), any = F.realmOf('bot:8', null, T0);
     const realms = r3.locked && r3.why === 'Raids open at Castle level 4' && r6.locked && r6.why === 'Castle level 5' && !sc6.why && sc6.th === 6 && !any.why && any.th === 8;
     const owner = !!F.mayPlay();
-    const k3 = F.canRecruitHero(at(3), 'knight'), k4 = F.canRecruitHero(at(4), 'knight'), w3 = F.canRecruitHero(at(4), 'dragon');
+    const k3 = F.canRecruitHero(at(3), 'knight'), k4 = F.canRecruitHero(at(4), 'knight'), w3 = F.canRecruitHero(at(4), 'dragon_soul_eater');
     const heroes = F.HEROES.knight.at === 4 && F.HEROES.dragon.at === 4 && !F.HEROES.wizard
       && (owner ? k3.why === 'Needs Castle level 4' && !w3.ok && w3.why.includes('Dragon Hatchery (Castle level 4)') && k4.ok : !k3.ok && !k4.ok && !w3.ok && /Choose your profile/.test(k4.why));
     const had = Object.assign(at(2), {hr: {knight: 2}}), kept = F.clean(JSON.parse(JSON.stringify(had)));
@@ -895,8 +896,8 @@ export async function realmChecks(check) {
     // (and how each hero comes, Oct 23 2026: the Knight Hero joins at Castle 4, the Dragon Hero hatches there only once a
     // Dragon Hatchery is built; with no army, Attack says to recruit the one, hatch the other or train troops)
     const atk4 = words(at(4), 'Attack');
-    const heroWords = atk.includes('the Knight Hero joins you there, and the Dragon Hero once you build a Dragon Hatchery') && !/Knight Hero and the Dragon Hero join/.test(atk)
-      && atk4.includes('recruit the Knight Hero or train troops, or build a Dragon Hatchery to hatch the Dragon Hero');
+    const heroWords = atk.includes('the Knight Hero joins you there, and your first dragon once you choose it and build a Dragon Hatchery') && !/Knight Hero and the Dragon Hero join/.test(atk)
+      && atk4.includes('recruit the Knight Hero or train troops, or choose a dragon and build its hatchery');
     const said = F.DEFEND_AT === 3 && log2.includes('Once your Castle is level 3, the computer’s realms will start raiding you') && log3.includes('No one has raided you yet.')
       && atk.includes('Their raids on you start at Castle level 3 all the same') && hi.includes('once your Castle is level 3, those realms raid you too')
       && !/(once your Castle is|start at Castle) level 2\b/i.test(log2 + atk + hi);
@@ -942,7 +943,7 @@ export async function realmChecks(check) {
 
   check('Keepfall: raid replays: an attack is recorded with its replay (rp: the realm’s lot as it stood, its take, the army, every drop, the step it ended on, the heroes) and played again from it it’s the same raid: the same stars, % and take, building by building, ended where it ended (End pressed or not), however its clock is run (all at once or a frame at a time, at any speed); the replay draws the lot it was, from the record', () => {
     const owner = !!F.mayPlay(), s = top();
-    const a = attack(s, 'bot:4', {footman: 14, archer: 8, knight: 2}, owner ? {knight: 3, dragon: 2} : {}, 41.3);
+    const a = attack(s, 'bot:4', {footman: 14, archer: 8, knight: 2}, owner ? {knight: 3, dragon_soul_eater: 2} : {}, 41.3);
     const b = attack(s, 'bot:1', {footman: 20}, {}, F.RAID_S);
     const out = [a, b].map(({T, B, r, rec}) => {
       const P = F.decodeReplay(rec.rp), mine = F.replayOf(rec);
@@ -1251,7 +1252,7 @@ export async function realmChecks(check) {
       if (!(head && tiles && gain && up && move)) bad.push(`${t}: head ${head}, tiles ${c.tiles.join('/')} ${tiles}, gain ${gain}, upgrade ${up}, move ${move}`);
     });
     const brew = cardOf(A, 'farm'), castle = cardOf(A, 'keep'), barracks = cardOf(A, 'barracks'), cannon = cardOf(A, 'cannon'), tower = cardOf(A, 'tower'), nest = cardOf(A, 'hatchery');
-    const d1 = F.heroStat('dragon', 1), d2 = F.heroStat('dragon', 2), nfm = x => Number(x).toLocaleString('en-US');
+    const d1 = F.heroStat('dragon', 1, 2), d2 = F.heroStat('dragon', 2, 2), nfm = x => Number(x).toLocaleString('en-US');
     const said = {
       brewery: /Ale per hour 20 Level 2: \+15\/hour/.test(brew.text('[data-tile="rate"]')) && /60 \/ 480/.test(brew.text('[data-tile="pile"]')) && !!brew.q('[data-rl-collect]'),
       castle: /Infernal Wastes/.test(castle.text('[data-tile="unlocks"]')) && !!castle.q('.rl-card-up.is-short[aria-disabled="true"]') && /Not enough Gold/.test(castle.text('.rl-card-up')) && !!castle.q('[data-rl-army]'),
@@ -1259,9 +1260,9 @@ export async function realmChecks(check) {
       defenses: /8 tiles/.test(cannon.text('[data-tile="range"]')) && /Ground only/.test(cannon.text('[data-tile="targets"]')) && /Ground & air/.test(tower.text('[data-tile="targets"]')),
       // (the hatchery: its Dragon Hero, level 1, his health and fire with level 2's gain in green; no dragon room)
       hatchery: nest.text('[data-tile="herohp"]').includes(`Hero health ${nfm(d1.hp)} Level 2: +${nfm(d2.hp - d1.hp)}`)
-        && nest.text('[data-tile="herodps"]').includes(`Fire/second ${d1.dps} Level 2: +${d2.dps - d1.dps}/second`)
-        && /^Dragon Hero Hatched Level 1$/.test(nest.text('[data-tile="hatched"]'))
-        && /Dragon Hero/.test(nest.text('[data-rl-army]')) && !/dragon room|your dragons/i.test(nest.text('[data-rl-part="tiles"]'))
+        && nest.text('[data-tile="herodps"]').includes(`Damage/second ${d1.dps} Level 2: +${d2.dps - d1.dps}/second`)
+        && /Your dragon Choose a dragon Choose its species and color/.test(nest.text('[data-tile="hatched"]'))
+        && !!nest.q('[data-rl-dragon]') && !/dragon room|your dragons/i.test(nest.text('[data-rl-part="tiles"]'))
     };
     // a job on: the treasury going up a level, the cannon waiting on the builder, a mine waiting on the Castle
     const B = realm(5, [['treasury', 2, {u: T0 + 25 * M}], ['cannon', 2], ['mine', 9], ['hatchery', 0, {u: T0 + 40 * M}]]);
@@ -1272,14 +1273,14 @@ export async function realmChecks(check) {
       busy: /busy on the Treasury/.test(wait.text('.rl-card-up')) && !!wait.q('.rl-card-up[aria-disabled="true"]'),
       castleLevel: /Castle level 6 to upgrade/.test(locked.text('.rl-card-up')) && !!locked.q('.rl-card-up.is-locked'),
       // (a hatchery going up: no Dragon Hero yet, he hatches when it's finished (Oct 23 2026: it said to build it))
-      hatching: /Hatches when the hatchery is finished/.test(egg.text('[data-tile="hatched"]')) && !/Hatched|Build it/.test(egg.text('[data-tile="hatched"]')) && /Under construction/.test(egg.text('[data-rl-card-prog]'))
+      hatching: /Choose a dragon/.test(egg.text('[data-tile="hatched"]')) && !/Hatched|Build it/.test(egg.text('[data-tile="hatched"]')) && /Under construction/.test(egg.text('[data-rl-card-prog]'))
     };
     // at the top: Max level, nothing to upgrade; and testing, upgrades at once
     const C = realm(8, [['wall', 8], ['cannon', 10], ['granary', 3]], {tst: 1});
     const maxed = ['keep', 'wall', 'cannon'].every(t => { const c = cardOf(C, t); return !!c.q('[data-tile="max"]') && !c.q('[data-rl-up]') && !c.q('[data-tile="unlocks"]'); });
-    const once = /At once/.test(cardOf(C, 'granary').text('.rl-card-time'));
+    const once = !F.testing(C) && !/At once/.test(cardOf(C, 'granary').text('.rl-card-time'));
     const ok = !bad.length && Object.values(said).every(Boolean) && Object.values(states).every(Boolean) && maxed && once;
-    return {pass: ok, detail: `${F.ORDER.length} kinds: ${bad.length ? bad.join('; ') : 'each with its head, tiles, gain, Upgrade and Move'}; ${Object.entries(said).map(([k, v]) => `${k} ${v}`).join(', ')}; ${Object.entries(states).map(([k, v]) => `${k} ${v}`).join(', ')}; max level ${maxed}; testing at once ${once}`};
+    return {pass: ok, detail: `${F.ORDER.length} kinds: ${bad.length ? bad.join('; ') : 'each with its head, tiles, gain, Upgrade and Move'}; ${Object.entries(said).map(([k, v]) => `${k} ${v}`).join(', ')}; ${Object.entries(states).map(([k, v]) => `${k} ${v}`).join(', ')}; max level ${maxed}; retired testing flag ignored ${once}`};
   });
 
   // ---- the Dragon Hero (the owner, Oct 22 2026: "The dragon should be used as a hero in place of the wizzard. the dragon
@@ -1287,35 +1288,35 @@ export async function realmChecks(check) {
   const withHatch = (th, l, extra = {}) => {
     const s = F.fresh(T0 - 3 * DAY);
     s.b.find(b => b.t === 'keep').l = th;
-    if (l != null) { const p = F.spotFor(s, 'hatchery'); s.b.push(Object.assign({i: s.nb++, t: 'hatchery', l, x: p.x, y: p.y, u: 0}, extra)); }
+    if (l != null) { const p = F.spotFor(s, 'hatchery'); s.b.push(Object.assign({i: s.nb++, t: 'hatchery', l, x: p.x, y: p.y, u: 0, dragon: {species: 'soul-eater', color: 'purple'}}, extra)); }
     return s;
   };
 
-  check('Keepfall: the Dragon Hero takes the Wizard Hero’s place (Oct 22 2026): the heroes are the Knight and the Dragon; the Dragon hatches when the first Dragon Hatchery is built (level 1) and his level is the hatchery’s, 1 to 10 (one being upgraded counts at the level it has), stronger at every level (health and fire), at 1 a little more than the Wizard Hero was at 2 and at 10 well past a trained dragon; no Gold recruits or upgrades him, and nothing saved (hr.dragon) makes or raises him; the computer’s lots have none', () => {
-    const owner = !!F.mayPlay();
-    const order = F.HERO_ORDER.join() === 'knight,dragon' && !F.HEROES.wizard && F.HEROES.dragon.troop === 'hero_dragon' && F.HEROES.dragon.name === 'Dragon Hero';
+  check('Keepfall: four unique chosen dragons unlock at Castle 4, 5, 6 and 7; each follows its own hatchery level, no roster entry creates one, and Nightmare stays on the ground', () => {
+    const k = 'dragon_soul_eater', owner = !!F.mayPlay();
+    const order = F.HERO_ORDER.join() === 'knight,dragon_nightmare,dragon_soul_eater,dragon_terror_bringer,dragon_usurper'
+      && F.COUNT.hatchery.join() === '0,0,0,1,2,3,4,4';
     const going = withHatch(4, 0, {u: T0 + F.HOUR}), up = withHatch(8, 3, {u: T0 + F.HOUR});
-    const hatches = F.heroLevel(withHatch(4, null), 'dragon') === 0 && F.heroLevel(going, 'dragon') === 0 && F.heroLevel(withHatch(4, 1), 'dragon') === 1 && F.heroLevel(up, 'dragon') === 3;
-    const follows = Array.from({length: 10}, (_, i) => F.heroLevel(withHatch(8, i + 1), 'dragon')).join() === '1,2,3,4,5,6,7,8,9,10';
-    const st = Array.from({length: 10}, (_, i) => F.heroStat('dragon', i + 1));
-    const stronger = st.every((x, i) => x && x.fly && x.air && x.splash > 0 && (!i || (x.hp > st[i - 1].hp && x.dps > st[i - 1].dps && x.range >= st[i - 1].range && x.splash >= st[i - 1].splash)));
-    const wiz2 = F.heroStat('wizard', 2, 1), big = !!wiz2 && st[0].hp > wiz2.hp && st[0].dps > wiz2.dps && st[9].hp > F.TROOPS.dragon.hp && st[9].dps > F.TROOPS.dragon.dps && F.heroStat('dragon', 11) === null && F.heroStat('dragon', 0) === null;
-    // (no Gold)
+    const unassigned = withHatch(8, 6, {dragon: undefined});
+    const hatches = F.heroLevel(withHatch(4, null), k) === 0 && F.heroLevel(going, k) === 0 && F.heroLevel(withHatch(4, 1), k) === 1
+      && F.heroLevel(up, k) === 3 && !F.dragonOfBuilding(unassigned, unassigned.b.find(b => b.t === 'hatchery'));
+    const follows = Array.from({length: 10}, (_, i) => F.heroLevel(withHatch(8, i + 1), k)).join() === '1,2,3,4,5,6,7,8,9,10';
+    const stronger = F.DRAGON_ORDER.every(species => {
+      const D = F.DRAGONS[species], stats = Array.from({length: 10}, (_, i) => F.heroStat(D.hero, i + 1));
+      return stats.every((x, i) => x && x.fly === D.fly && (!i || x.hp > stats[i-1].hp && x.dps > stats[i-1].dps));
+    });
+    const ground = F.heroStat('dragon_nightmare', 10);
+    const grounded = !ground.fly && !ground.air && ground.range === .8;
     const rich = withHatch(8, 2); rich.r = {gold: 999999, grain: 999999};
-    const before = JSON.stringify(rich), rc = F.canRecruitHero(rich, 'dragon'), uc = F.canUpgradeHero(rich, 'dragon');
-    const noGold = !rc.ok && !uc.ok && !rc.cost && !uc.cost && !F.recruitHero(rich, 'dragon') && !F.upgradeHero(rich, 'dragon') && JSON.stringify(rich) === before
-      && (owner ? /Dragon Hatchery/.test(uc.why) : /Choose your profile/.test(uc.why));
-    // (forged: the roster can't make him or raise him; clean() drops it)
-    const forged = withHatch(8, null); forged.hr = {knight: 2, dragon: 10};
-    const forged2 = withHatch(8, 2); forged2.hr = {dragon: 10};
-    const noForge = F.heroLevel(forged, 'dragon') === 0 && F.heroLevel(forged2, 'dragon') === 2 && !('dragon' in F.heroLevels(forged))
-      && JSON.stringify(F.clean(forged).hr) === '{"knight":2}' && JSON.stringify(F.clean(forged2).hr) === '{}' && F.heroLevel(F.clean(forged2), 'dragon') === 2;
+    const before = JSON.stringify(rich), rc = F.canRecruitHero(rich, k), uc = F.canUpgradeHero(rich, k);
+    const noGold = !rc.ok && !uc.ok && !rc.cost && !uc.cost && !F.recruitHero(rich, k) && !F.upgradeHero(rich, k) && JSON.stringify(rich) === before;
+    const forged = withHatch(8, null); forged.hr = {knight: 2, dragon: 10, [k]: 10};
+    const noForge = F.heroLevel(forged, k) === 0 && JSON.stringify(F.clean(forged).hr) === '{"knight":2}';
     const levels = F.heroLevels(withHatch(8, 5)), army = F.heroArmy(withHatch(8, 5));
-    const mine = owner ? levels.dragon === 5 && army.hero_dragon === 1 : !Object.keys(levels).length && !Object.keys(army).length;
-    // (the computer's lots: a hatchery, but no roster, so no hero)
-    const bots = F.BOTS.every(b => F.heroLevel(F.botBase(b.th), 'dragon') === 0) && F.botDragon(8) === 10 && F.botDragon(3) === 0;
-    return {pass: order && hatches && follows && stronger && big && noGold && noForge && mine && bots,
-      detail: `heroes ${F.HERO_ORDER.join(', ')} ${order}; hatches at hatchery level 1 (none while it goes up, a level-3 one being upgraded is 3) ${hatches}; follows it 1–10 ${follows}; L1–10 ${st.map(x => `${x.hp}/${x.dps}`).join(' ')} stronger each level ${stronger}; L1 vs the Wizard at 2 (${wiz2 ? `${wiz2.hp}/${wiz2.dps}` : '?'}), L10 vs a trained dragon (${F.TROOPS.dragon.hp}/${F.TROOPS.dragon.dps}) ${big}; no Gold: ${uc.why} ${noGold}; hr.dragon can’t forge him ${noForge}; ${owner ? 'his phone' : 'not his phone'}: ${JSON.stringify(levels)} ${mine}; the computer’s lots have none, their hatchery’s level leads their raids (Castle 8: ${F.botDragon(8)}) ${bots}`};
+    const mine = owner ? levels[k] === 5 && army.hero_dragon_soul_eater === 1 : !Object.keys(levels).length && !Object.keys(army).length;
+    const bots = F.BOTS.every(b => !Object.keys(F.heroLevels(F.botBase(b.th))).length);
+    return {pass: order && hatches && follows && stronger && grounded && noGold && noForge && mine && bots,
+      detail: JSON.stringify({order, hatches, follows, stronger, grounded, noGold, noForge, mine, bots})};
   });
 
   check('Keepfall: retired with the Wizard Hero (Oct 22 2026): trained dragons can’t be trained or queued, and a save’s dragons (ready or training, their old kicker name too) come back once as 3,000 Ale each into the coffers; a recruited Wizard Hero’s Gold (his recruiting and each upgrade, to the level he had) comes back once; then neither is anywhere, and loading again pays nothing more', () => {
@@ -1343,12 +1344,12 @@ export async function realmChecks(check) {
     const armies = Array.from({length: 8}, (_, i) => raidArmy(i + 1));
     const noDragons = armies.every((a, i) => !('dragon' in a) && F.roomOf(a) === 10 + (i + 1) * 5);
     const heroes = Array.from({length: 8}, (_, i) => raidHeroes(i + 1));
-    const led = heroes.every((h, i) => (i + 1 >= 7 ? h.dragon === F.botDragon(i) && h.dragon >= 1 : !Object.keys(h).length));
+    const led = heroes.every((h, i) => (i + 1 >= 7 ? h.dragon_soul_eater === F.botDragon(i) && h.dragon_soul_eater >= 1 : !Object.keys(h).length));
     // (a raid on a Castle 7 realm: the computer's Dragon Hero went in, no trained dragon)
     const s = withHatch(7, 4); s.r = {gold: 9000, grain: 9000}; s.hr = {knight: 5};
     const done = defend(s, T0);
     const recs = done.map(r => ({r, P: F.decodeReplay(r.rp, s)}));
-    const raid = owner ? done.length >= 1 && recs.every(({r, P}) => P && P.hr.dragon === raidHeroes(7).dragon && !P.army.dragon && P.drops.some(d => d[1] === 'hero_dragon') && !P.drops.some(d => d[1] === 'dragon') && r.hr.dragon === 4 && P.dh.dragon === 4)
+    const raid = owner ? done.length >= 1 && recs.every(({r, P}) => P && P.hr.dragon_soul_eater === raidHeroes(7).dragon_soul_eater && !P.army.dragon && P.drops.some(d => d[1] === 'hero_dragon_soul_eater') && !P.drops.some(d => d[1] === 'dragon') && r.hr.dragon_soul_eater === 4 && P.dh.dragon_soul_eater === 4)
       : done.length >= 1 && recs.every(({P}) => P && !Object.keys(P.hr).length && !P.army.dragon);
     // (the examples: a Castle 4 realm (the computer's Castle 4 lot as his) and a Castle 8 test realm)
     const c4 = F.fresh(T0 - 3 * DAY), B4 = F.botBase(4);
@@ -1357,14 +1358,14 @@ export async function realmChecks(check) {
     const c8 = top();
     const ex = [c4, c8].map(x => ({x, recs: exampleRaids(x, T0)}));
     const exOk = owner ? ex.every(({x, recs}) => recs.map(r => r.st).join() === '0,1,3' && recs.every(r => { const P = F.decodeReplay(r.rp, x); return P && !P.army.dragon; }))
-      && ex.some(({x, recs}) => recs.some(r => F.decodeReplay(r.rp, x).hr.dragon >= 1))
+      && ex.some(({x, recs}) => recs.some(r => F.decodeReplay(r.rp, x).hr.dragon_soul_eater >= 1))
       : ex.every(({recs}) => !recs.length);
-    return {pass: noDragons && led && raid && exOk, detail: `armies ${armies.map((a, i) => `${i + 1}: ${Object.entries(a).map(([t, n]) => `${t} ${n}`).join(' ')}`).join(' · ')} ${noDragons}; leading them ${heroes.map((h, i) => `${i + 1}: ${h.dragon ? 'Dragon ' + h.dragon : '–'}`).join(' ')} ${led}; on a Castle 7 realm: ${recs.map(({r, P}) => `${r.st}★ ${r.pc}% (${P ? JSON.stringify(P.hr) + ' vs ' + JSON.stringify(P.dh) : 'no replay'})`).join('; ')} ${raid}; examples ${ex.map(({x, recs}) => `Castle ${F.keepOf(x)}: ${recs.map(r => `${r.st}★ ${JSON.stringify((F.decodeReplay(r.rp, x) || {}).hr)}`).join(' ') || 'none'}`).join(' · ')} ${exOk}`};
+    return {pass: noDragons && led && raid && exOk, detail: `armies ${armies.map((a, i) => `${i + 1}: ${Object.entries(a).map(([t, n]) => `${t} ${n}`).join(' ')}`).join(' · ')} ${noDragons}; leading them ${heroes.map((h, i) => `${i + 1}: ${h.dragon_soul_eater ? 'Dragon ' + h.dragon_soul_eater : '–'}`).join(' ')} ${led}; on a Castle 7 realm: ${recs.map(({r, P}) => `${r.st}★ ${r.pc}% (${P ? JSON.stringify(P.hr) + ' vs ' + JSON.stringify(P.dh) : 'no replay'})`).join('; ')} ${raid}; examples ${ex.map(({x, recs}) => `Castle ${F.keepOf(x)}: ${recs.map(r => `${r.st}★ ${JSON.stringify((F.decodeReplay(r.rp, x) || {}).hr)}`).join(' ') || 'none'}`).join(' · ')} ${exOk}`};
   });
 
   check('Keepfall: raid replays recorded before the Dragon Hero (attacks with the Knight and Wizard Heroes and trained dragons, the computer’s raids with a dragon on a realm his Knight and Wizard defended, example raids) still play exactly as recorded: the same stars, %, take and end, the same step; they read under the rules they were played under (packing 2, the old mark, the computer’s lots as they were then), new ones under today’s', () => {
     const owner = !!F.mayPlay(), fx = RP_FIXTURE_V2, lots = {lots: fx.lots};
-    const mark = F.battleMark(1) === fx.mark && F.battleMark() !== fx.mark && F.RP_V === 3;
+    const mark = F.battleMark(1) === fx.mark && F.battleMark() !== fx.mark && F.RP_V === 4;
     const out = fx.recs.map((r, i) => {
       const P = F.decodeReplay(r.rp, lots);
       if (!P) return {ok: false, why: `${r.n}: doesn’t read`};
@@ -1383,37 +1384,34 @@ export async function realmChecks(check) {
     // (a new one: packed 3, under today's mark; one claiming the old packing under today's mark, or the reverse, doesn't read)
     const B = makeBattle(F.botBase(1), null, {footman: 2}), box = F.boxOf(F.botBase(1));
     B.deploy('footman', box.x0 - 1.5, box.y0); B.run(6); B.end();
-    const rp = F.snapOf(B), fresh = !!rp && rp.v === 3 && rp.bv === F.battleMark() && !!F.decodeReplay(rp) && F.decodeReplay(rp).rules === 2;
-    const crossed = !F.decodeReplay({...rp, v: 2}) && !F.decodeReplay({...fx.recs[0].rp, v: 3}, lots);
+    const rp = F.snapOf(B), fresh = !!rp && rp.v === 4 && rp.bv === F.battleMark() && !!F.decodeReplay(rp) && F.decodeReplay(rp).rules === 3;
+    const crossed = !F.decodeReplay({...rp, v: 2}) && !F.decodeReplay({...fx.recs[0].rp, v: 4}, lots);
     const kept = (() => { const s = top(); s.rd = fx.recs.filter(r => r.k === 'rd').map((r, i) => ({id: 'a' + i, vs: 'bot:4', nm: 'Cinderholt', at: T0, st: r.st, pc: r.pc, lt: r.got, ta: 0, rp: r.rp})); const c = F.clean(s); return c.rd.length === s.rd.length && c.rd.every(r => r.rp); })();
     return {pass: mark && out.every(o => o.ok) && fresh && crossed && kept, detail: `the old mark ${F.battleMark(1)} (recorded ${fx.mark}), today’s ${F.battleMark()} ${mark}; ${out.map(o => o.why).join(' · ')}; a new one packed ${rp && rp.v} ${fresh}; crossed refused ${crossed}; kept through clean() ${kept}`};
   });
 
-  check('Keepfall: the Dragon Hero on screen (Oct 22 2026): the Army sheet’s cards are the Knight Hero’s and the Dragon Hero’s (no Wizard), the Dragon’s with no Gold price: before a hatchery “Build a Dragon Hatchery (Castle level 4)”, then “Hatched at your Dragon Hatchery · level N”, his health and damage, “Next hatchery level: …” and a button to the hatchery; no Dragon to train; the hatchery’s card and upgrade say his health and damage now and next (not dragon room); how to play and the dragon keeper say Castle level 4', async () => {
-    const view = await import('../views/realm.js');
+  check('Keepfall: Army shows the Knight plus four hatchery slots; unassigned buildings require a choice, chosen dragons show their color and own level, with no Gold recruitment', async () => {
+    const view = await import('../views/realm.js'), H = await import('../views/realm-heroes.js');
     const words = (s, w) => { const t = document.createElement('template'); t.innerHTML = ((view._screens(s, T0) || []).find(p => p.where === w) || {}).html || ''; return t.content; };
-    const none = words(withHatch(4, null), 'Your army'), three = withHatch(8, 3), mid = words(three, 'Your army');
-    const card = c => c.querySelector('[data-rl-hero-card="dragon"]'), text = el => (el ? el.textContent : '').replace(/\s+/g, ' ');
-    const cards = [...mid.querySelectorAll('[data-rl-hero-card]')].map(e => e.getAttribute('data-rl-hero-card')).join();
-    const before = text(card(none)), after = text(card(mid)), d3 = F.heroStat('dragon', 3), d4 = F.heroStat('dragon', 4), nf = n => n.toLocaleString('en-US');
-    const hb = three.b.find(b => b.t === 'hatchery');
-    const dragonCard = cards === 'knight,dragon' && before.includes('Build a Dragon Hatchery (Castle level 4)') && !card(none).querySelector('.is-gold')
-      && after.includes('Hatched at your Dragon Hatchery · level 3') && after.includes(nf(d3.hp)) && after.includes(`Next hatchery level: ${nf(d4.hp)} health · ${nf(d4.dps)} damage / sec`)
-      && !card(mid).querySelector('.is-gold') && card(mid).querySelector(`[data-rl-hatch="${hb.i}"]`) && /Upgrade the Dragon Hatchery/.test(after);
-    const train = !mid.querySelector('[data-rl-train="dragon"]') && !/Wizard/.test(text(mid)) && !/Needs a dragon hatchery/i.test(text(mid));
-    // (the hatchery's card, Oct 22 2026's new one: its tiles are his health and fire at its level, the next level's gain,
-    // and "Dragon Hero · Hatched · Level 3"; its upgrade's line (the objective's, views/realm.js upgradeBenefit) now → next)
-    const hq = words(three, 'hatchery\'s card'), hcard = text(hq), tile = k => text(hq.querySelector(`[data-tile="${k}"]`));
-    const gainOf = k => text(hq.querySelector(`[data-tile="${k}"] .rl-tile-gain`));
-    const hatchCard = [...hq.querySelectorAll('[data-tile]')].map(e => e.dataset.tile).join() === 'hp,herohp,herodps,hatched'
-      && tile('herohp').includes(nf(d3.hp)) && gainOf('herohp').includes(`+${nf(d4.hp - d3.hp)}`) && tile('herodps').includes(String(d3.dps)) && gainOf('herodps').includes(`+${d4.dps - d3.dps}/second`)
-      && /Dragon Hero\s*Hatched\s*Level 3/.test(tile('hatched'))
-      && view.upgradeBenefit(hb) === `Dragon Hero: ${nf(d3.hp)} → ${nf(d4.hp)} health · ${nf(d3.dps)} → ${nf(d4.dps)} damage/second` && !/dragon room|Room for \d+ dragon|your dragons/i.test(hcard);
-    const hi = text(words(withHatch(2, null), 'Keepfall'));
-    const help = !/Wizard|dragons from your hatchery|Castle level 6/.test(hi) && hi.includes('Dragon Hatchery (Castle level 4)') && hi.includes('A dragon keeper arrives when the Dragon Hatchery unlocks at Castle level 4');
-    const H = await import('../views/realm-heroes.js');
-    const keeper = /Castle level 4/.test(H.residentsNote(withHatch(3, null))) && /<svg/.test(H.heroIcon('dragon')) && H.heroIcon('dragon') !== H.heroIcon('knight');
-    return {pass: dragonCard && train && hatchCard && help && keeper, detail: `cards ${cards}; before a hatchery “${before.slice(0, 90)}…”; at level 3 “${after.slice(0, 160)}…” ${dragonCard}; no Dragon to train, no Wizard ${train}; the hatchery’s card “${hcard.slice(0, 160)}…” ${hatchCard}; how to play ${help}; the keeper and the emblem ${keeper}`};
+    const text = el => (el ? el.textContent : '').replace(/\s+/g, ' ');
+    const bare = words(withHatch(4, null), 'Your army'), three = withHatch(8, 3), mid = words(three, 'Your army');
+    const unassigned = words(withHatch(8, 6, {dragon: undefined}), 'Your army');
+    const first = c => c.querySelector('[data-rl-hatchery-slot="1"]');
+    const cards = mid.querySelectorAll('[data-rl-hatchery-slot]').length === 4 && !!mid.querySelector('[data-rl-hero-card="knight"]');
+    const choice = !!first(unassigned).querySelector('[data-rl-dragon]') && text(first(unassigned)).includes('Choose its dragon and color')
+      && !first(unassigned).querySelector('.rl-hero-stats');
+    const d3 = F.heroStat('dragon_soul_eater', 3), d4 = F.heroStat('dragon_soul_eater', 4), nf = n => n.toLocaleString('en-US');
+    const after = text(first(mid)), hb = three.b.find(b => b.t === 'hatchery');
+    const chosen = after.includes('Soul Eater') && after.includes('Purple') && after.includes('Level 3') && after.includes(nf(d3.hp))
+      && after.includes('Next hatchery level: '+nf(d4.hp)) && !!first(mid).querySelector('[data-rl-dragon]') && !!first(mid).querySelector('[data-rl-hatch]') && !first(mid).querySelector('.is-gold');
+    const train = !mid.querySelector('[data-rl-train="dragon"]') && !/Wizard/.test(text(mid));
+    const hq = words(three, "hatchery's card"), tile = k => text(hq.querySelector('[data-tile="'+k+'"]'));
+    const hatchCard = tile('herohp').includes(nf(d3.hp)) && tile('herodps').includes(String(d3.dps)) && /Soul Eater.*Level 3.*Purple/.test(tile('hatched'))
+      && view.upgradeBenefit(hb) === 'Soul Eater: '+nf(d3.hp)+' → '+nf(d4.hp)+' health · '+nf(d3.dps)+' → '+nf(d4.dps)+' damage/second';
+    const help = text(words(withHatch(2, null), 'Keepfall')).includes('Castle levels 4, 5, 6, and 7');
+    const keeper = /Castle level 4/.test(H.residentsNote(withHatch(3, null)));
+    return {pass: cards && choice && chosen && train && hatchCard && help && keeper,
+      detail: JSON.stringify({cards, choice, chosen, train, hatchCard, help, keeper})};
   });
 
   check('Keepfall: the words (the owner, Oct 21 2026): the game is Keepfall (its Daily Games case, its title), its second currency Ale (breweries brew it, cellars hold it, the army trains with it) and its main building the Castle; nothing on its screen, on any building’s card or the card placing one, in any sheet, or in what it says when something can’t be done says Grain, Farm, Granary, Keep level or the Realm (the camera’s Realm view, the whole of the lot’s land, is a place, not the game); the ids and saves keep the old names (grain, farm, granary, keep), so every save loads as it was', async () => {

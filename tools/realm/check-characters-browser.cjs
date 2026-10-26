@@ -102,7 +102,7 @@ qa.finishRendered=async()=>{
 };
 qa.restartRegression=async()=>{
   view.setAnim(null);view.setLot(base);
-  const b=makeBattle(base,null,{footman:100,archer:100,knight:1,thief:1},{heroes:{knight:3,dragon:3}});
+  const b=makeBattle(base,null,{footman:100,archer:100,knight:1,thief:1},{rules:2,heroes:{knight:3,dragon:3}});
   for(const [i,kind] of ['footman','archer','knight','thief','hero_knight','hero_dragon'].entries()){
     if(!b.deploy(kind,5+i,3))throw Error('Regression deployment failed '+kind);
   }

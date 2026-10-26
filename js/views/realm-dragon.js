@@ -21,7 +21,9 @@ import * as features from '../core/features.js';
 // ahead of each strike and the fire leaves the mouth as the battle looses it, a flinch when it's hurt, the death when
 // it's killed (it drops from where it was hit, lands as the clip's impact comes, lies a moment, then sinks away).
 import * as data from '../core/data.js';
-import {KINDS, N, TROOPS, heroLevel} from '../core/realm.js';
+import {KINDS, N, TROOPS, heroLevel, dragonOfBuilding} from '../core/realm.js';
+import {DRAGONS, DRAGON_ORDER} from '../core/realm-dragons.js';
+import {speciesOfUnit, dragonColor, loadDragonAsset, createDragonAsset, onDragonAssetReady, clearDragonAssets} from './realm-dragon-assets.js';
 import {DT} from '../core/realm-battle.js';
 
 const V = new URL('../vendor/three/', import.meta.url).href;
@@ -32,12 +34,13 @@ export const CLIPS = Object.freeze(['fly', 'hover', 'attack', 'hit', 'death']);
 export const CREDIT = Object.freeze({title: 'Mountain Dragon', url: 'https://sketchfab.com/3d-models/mountain-dragon-0a0665396f634b0e9d0872720087f52c',
   author: 'Alexey Zaika', authorUrl: 'https://sketchfab.com/lexazaixa25', license: 'CC BY 4.0', licenseUrl: 'https://creativecommons.org/licenses/by/4.0/'});
 /** A battle unit's kind that's drawn as the dragon: the old dragon troop or the Dragon Hero. */
-export const isDragonKind = kind => kind === 'dragon' || kind === 'hero_dragon';
+export const isDragonKind = kind => kind === 'dragon' || kind === 'hero_dragon' || DRAGON_ORDER.some(s => DRAGONS[s].troop === kind);
+export const dragonCanFly = kind => { const species = DRAGON_ORDER.find(s => DRAGONS[s].troop === kind); return species ? !!DRAGONS[species].fly : true; };
 /** The dragon at home: the Dragon Hero, his level (0: not hatched, none shown). The one place that decides it: the
  *  hero's own level (core/realm.js heroLevel: his best Dragon Hatchery's, one at level 1 or more hatches him; worked out
  *  from the buildings, never from a saved roster entry; none for a realm without a roster, the computer's lots). */
 export function homeDragonLevel(s) {
-  return s && Array.isArray(s.b) ? heroLevel(s, 'dragon') : 0;
+  return s && Array.isArray(s.b) ? heroLevel(s, 'dragon', 2) : 0;
 }
 /** Where it rests: over his best hatchery, {x, y} its middle in tiles, or null (none built). */
 export function homeDragonNest(s) {
@@ -106,7 +109,7 @@ const mine = () => features.available() && !AWAY;
 // being his; the model let go LINGER_MS after the last of them is gone, unless another comes (each renderer that drew
 // it leaves a listener on its geometry, material and textures, three.js's, kept till they're disposed).
 const VIEWS = new Set();
-function letGo() { EPOCH++; LOADING = null; FAILED_AT = 0; if (GL) { const g = GL; GL = null; drop(g); } }
+function letGo() { EPOCH++; LOADING = null; FAILED_AT = 0; clearDragonAssets(); if (GL) { const g = GL; GL = null; drop(g); } }
 function notHis() { letGo(); [...VIEWS].forEach(v => { try { v.clear(); } catch (_) { /* (the rest still cleared) */ } }); }
 function joined(v) { VIEWS.add(v); clearTimeout(LINGER); LINGER = 0; return v; }
 function left(v) {
@@ -145,7 +148,7 @@ export function _letGo() { const had = !!GL; clearTimeout(LINGER); LINGER = 0; l
 /** For the checks and tests: on, every dragon drawn from here on is a picture, as if the model weren't in. */
 export function _holdModel(on) { HOLD = !!on; if (!HOLD && GL) READY.forEach(fn => { try { fn(); } catch (_) {} }); }
 /** fn() each time the model comes in (a view redraws); → stop. */
-export function onDragonReady(fn) { READY.add(fn); return () => READY.delete(fn); }
+export function onDragonReady(fn) { READY.add(fn); const off = onDragonAssetReady(fn); return () => { READY.delete(fn); off(); }; }
 
 /** Loads the model (once; on the owner's phone only): resolves true when it's in, false if not (not his phone, or it
  *  couldn't be had: the picture stays). */
@@ -267,7 +270,7 @@ function heroBadge(T, text, def = false) {
   const ctx = canvas.getContext('2d');
   ctx.fillStyle = def ? '#1F3129' : '#352524'; ctx.fillRect(0, 4, 256, 52);
   ctx.strokeStyle = def ? '#88D6AD' : '#F5CD67'; ctx.lineWidth = 3; ctx.strokeRect(2, 6, 252, 48);
-  ctx.fillStyle = '#FFF3D8'; ctx.font = '700 27px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#FFF3D8'; ctx.font = `700 ${text.length > 15 ? 20 : 27}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText(text, 128, 31);
   const texture = new T.CanvasTexture(canvas); texture.colorSpace = T.SRGBColorSpace;
   const badge = new T.Sprite(new T.SpriteMaterial({map: texture, transparent: true, depthTest: false, depthWrite: false, toneMapped: false, fog: false}));
@@ -289,6 +292,7 @@ const levelOf = u => (Number.isInteger(u.level) && u.level > 0 ? u.level : Numbe
  * more than MAX_MODELS).
  */
 export function createBattleDragons(T, scene, opts = {}) {
+  const speciesView = createSpeciesBattle(T, scene, opts);
   const source = opts.source || {get gl() { return dragonReady() ? GL : null; }};
   const group = new T.Group(); group.name = 'keep-battle-dragons'; scene.add(group);
   const actors = new Map(), drawn = new Set(), seen = new Set(), pool = [];
@@ -332,10 +336,11 @@ export function createBattleDragons(T, scene, opts = {}) {
     if (a.ring) a.ring.removeFromParent();
     if (a.badge) { a.badge.removeFromParent(); a.badge.material.map.dispose(); a.badge.material.dispose(); a.badge = null; }
   }
-  function clear() { actors.forEach(let_go); actors.clear(); drawn.clear(); lastT = -1; lastNow = -1; inUse = 0; }
+  function clear() { speciesView.reset(); actors.forEach(let_go); actors.clear(); drawn.clear(); lastT = -1; lastNow = -1; inUse = 0; }
   function reset() { clear(); }
   /** The renderer readied for the model, and n dragons made at idle, one at a time (the first one now). */
   function warm(renderer, camera, n = 2) {
+    speciesView.warm(renderer, camera);
     const G = source.gl;
     if (disposed || !G || !mine()) return;
     if (warmed !== G) {
@@ -392,10 +397,13 @@ export function createBattleDragons(T, scene, opts = {}) {
     const crowd = counts.models; tick++;
     drawn.clear(); seen.clear();
     counts.models = counts.pictures = counts.heroes = 0;
-    if (disposed || !mine() || !B) { if (actors.size) clear(); return; }
+    if (disposed || !mine() || !B) { if (actors.size || speciesView.actors.size) clear(); return; }
     // (the battle's trained dragons, all it has: sent in and still to come)
     flock = counts.flock = ((B.used && B.used.dragon) || 0) + ((B.left && B.left.dragon) || 0);
     if (t < lastT - .05) clear(); // (the battle from its start again)
+    speciesView.update(B, t, locate, now);
+    speciesView.drawn.forEach(u => drawn.add(u));
+    counts.models = speciesView.counts.models; counts.pictures = speciesView.counts.pictures; counts.heroes = speciesView.counts.heroes;
     const dt = lastT < 0 ? 0 : clamp(t - lastT, 0, .25);
     const rdt = Number.isFinite(now) && lastNow >= 0 ? clamp((now - lastNow) / 1000, 0, .25) : dt;
     lastT = t; if (Number.isFinite(now)) lastNow = now;
@@ -403,7 +411,7 @@ export function createBattleDragons(T, scene, opts = {}) {
     flapT += dt > 0 ? Math.min(dt, rdt * 2) : 0;
     const still = reduced();
     for (const list of [B.tr, B.defenders || []]) for (const u of list) {
-      if (!isDragonKind(u.t)) continue;
+      if (!isDragonKind(u.t) || speciesOfUnit(u)) continue;
       const def = !!u.targetHero, key = (def ? 'd:' : 'a:') + u.id;
       let a = actors.get(key);
       if (!a) {
@@ -506,6 +514,7 @@ export function createBattleDragons(T, scene, opts = {}) {
   }
   /** Where unit u's fire leaves its mouth (world, into out), or null when it isn't drawn from the model. */
   function mouth(key, out) {
+    const special = speciesView.mouth(key, out); if (special) return special;
     const a = actors.get(key);
     if (!a || !a.body || !a.body.head) return null;
     const A = a.body;
@@ -515,20 +524,133 @@ export function createBattleDragons(T, scene, opts = {}) {
     return out.addScaledVector(fwd, .1 * A.root.scale.x).add(v.set(0, -.04 * A.root.scale.x, 0));
   }
   /** True when the dragon key ('a:' or 'd:' and its id) is drawn from the model (its fire then leaves the model's mouth). */
-  function modelled(key) { const a = actors.get(key); return !!a && !!a.body; }
+  function modelled(key) { const a = actors.get(key); return speciesView.modelled(key) || (!!a && !!a.body); }
   /** True for a dragon (unit id) drawn from the model and falling: it raises its own dust where it lands. */
   function falling(id) {
+    if (speciesView.falling(id)) return true;
     return ['a:', 'd:'].some(p => { const a = actors.get(p + id); return !!a && !!a.body && a.u.dead && a.u.id === id; });
   }
   function dispose() {
     if (disposed) return;
     disposed = true; clear();
+    speciesView.dispose();
     pool.forEach(releaseActor); pool.length = 0;
     group.removeFromParent();
     blobGeo.dispose(); blobMat.dispose(); blobTex.dispose(); ringGeo.dispose(); ringMats.forEach(m => m.dispose());
     left(view);
   }
-  return {update, drawn, mouth, modelled, falling, warm, reset, dispose, counts, group, actors, get pooled() { return pool.length; }};
+  return {update, drawn, mouth, modelled, falling, warm, reset, dispose, counts, group, actors, preload: speciesView.preload, speciesActors: speciesView.actors, get pooled() { return pool.length; }};
+}
+
+// Four separately identified hatchery heroes. This renderer uses the same
+// battle/replay positions and shot clock as the legacy dragon above.
+function createSpeciesBattle(T, scene, opts) {
+  const group = new T.Group(); group.name = 'keep-battle-dragon-species'; scene.add(group);
+  const actors = new Map(), drawn = new Set(), counts = {models: 0, pictures: 0, heroes: 0};
+  const shadowTexture = blobTexture(T), shadowGeometry = new T.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
+  const shadowMaterial = new T.MeshBasicMaterial({map: shadowTexture, transparent: true, depthWrite: false, toneMapped: false, opacity: .75});
+  const ringGeometry = new T.RingGeometry(.88, 1, 48).rotateX(-Math.PI / 2);
+  const ringMaterials = [0xF5CD67, 0x88D6AD].map(color => new T.MeshBasicMaterial({color, transparent: true, opacity: .75, depthWrite: false, toneMapped: false}));
+  let disposed = false, last = -1, renderer = null, camera = null;
+  const wanted = new Map(), warmed = new Set();
+  function release(a) {
+    a.body?.dispose(); a.shadow.removeFromParent(); a.ring.removeFromParent(); a.badge.removeFromParent();
+    a.badge.material.map.dispose(); a.badge.material.dispose();
+  }
+  function reset() { actors.forEach(release); actors.clear(); drawn.clear(); last = -1; }
+  function warm(r, c) {
+    renderer = r; camera = c;
+    actors.forEach(a => { if (a.body) try { r?.compile(a.body.root, c, scene); } catch (_) {} });
+    // Compile selected species/materials before deployment, even while there
+    // are no actors yet. The temporary skeleton is released immediately.
+    wanted.forEach((choice, key) => {
+      if (disposed || warmed.has(key) || !renderer || !camera) return;
+      const actor = createDragonAsset(choice.species, choice.color);
+      if (!actor) return;
+      try { renderer.compile(actor.root, camera, scene); warmed.add(key); } catch (_) {}
+      actor.dispose();
+    });
+  }
+  async function preload(B) {
+    const choices = [...Object.values(B?.dragons || {}), ...Object.values(B?.defenderDragons || {}), ...(B?.tr || []), ...(B?.defenders || [])];
+    for (const choice of choices) {
+      const species = speciesOfUnit(choice); if (!species) continue;
+      const color = dragonColor(species, choice.color); wanted.set(species + ':' + color, {species, color});
+    }
+    const loaded = await Promise.all([...wanted.values()].map(choice => loadDragonAsset(choice.species, choice.color)));
+    if (!disposed && mine()) warm(renderer, camera);
+    return !disposed && loaded.some(Boolean);
+  }
+  function update(B, time, locate) {
+    drawn.clear(); counts.models = counts.pictures = counts.heroes = 0;
+    if (disposed || !mine()) { reset(); return; }
+    if (time < last - .05) reset();
+    const dt = last < 0 ? 0 : clamp(time - last, 0, .25); last = time;
+    const seen = new Set(), still = reduced();
+    for (const u of [...B.tr, ...(B.defenders || [])]) {
+      const species = speciesOfUnit(u); if (!species) continue;
+      const def = !!u.targetHero, key = (def ? 'd:' : 'a:') + u.id, color = dragonColor(species, u.color);
+      let a = actors.get(key);
+      if (a && (a.species !== species || a.color !== color)) { release(a); actors.delete(key); a = null; }
+      if (!a) {
+        if (u.dead) continue;
+        const level = Math.max(1, levelOf(u)), badge = heroBadge(T, `${DRAGONS[species].name.toUpperCase()} ${level}`, def);
+        a = {u, species, color, level, body: null, x: u.x, y: u.y, yaw: Math.PI / 2 - (u.face || 0), hp: u.hp, hurt: -9, death: null, landed: false, gone: false,
+          shadow: new T.Mesh(shadowGeometry, shadowMaterial), ring: new T.Mesh(ringGeometry, ringMaterials[def ? 1 : 0]), badge};
+        a.shadow.renderOrder = a.ring.renderOrder = 2;
+        a.shadow.raycast = a.ring.raycast = () => {};
+        actors.set(key, a); group.add(a.shadow, a.ring, badge);
+      }
+      seen.add(key); if (a.gone) continue;
+      const at = locate(u); if (at && !u.dead) { a.x = at.x; a.y = at.y; }
+      const flying = !!DRAGONS[species].fly, span = (flying ? 4.5 : 3.8) * (1 + .035 * (a.level - 1));
+      if (!a.body) {
+        a.body = createDragonAsset(species, color, {span, phase: (Number(u.id) || 0) * .31});
+        if (a.body) { group.add(a.body.root); if (renderer && camera) try { renderer.compile(a.body.root, camera, scene); } catch (_) {} }
+        else loadDragonAsset(species, color);
+      }
+      const x = W(a.x), z = W(a.y);
+      a.ring.position.set(x, .03, z); a.ring.scale.setScalar(span * .28);
+      a.badge.position.set(x, flying ? 4.7 : 2.6, z); a.badge.visible = a.ring.visible = !u.dead;
+      if (!a.body) { a.shadow.visible = false; if (!u.dead) { counts.pictures++; counts.heroes++; } continue; }
+      if (u.dead && a.death === null) a.death = time;
+      const deathAge = a.death === null ? -1 : time - a.death;
+      const goneAt = a.body.durationOf('death') + .8;
+      if (deathAge >= goneAt) { a.body.dispose(); a.body = null; a.gone = true; a.shadow.visible = false; continue; }
+      drawn.add(u); counts.models++; if (!u.dead) counts.heroes++;
+      const moving = !!at?.moving && !u.dead;
+      const desired = Math.PI / 2 - (u.face || 0);
+      if (!u.dead) a.yaw += clamp(turnTo(a.yaw, desired), -4 * dt, 4 * dt);
+      let altitude = flying ? 2.15 + (still ? 0 : Math.sin(time * 1.8 + (Number(u.id) || 0)) * .1) : 0;
+      if (u.dead) {
+        altitude *= 1 - smooth(deathAge / .85);
+        if (!a.landed && deathAge >= (flying ? .85 : .3)) { a.landed = true; opts.onLand?.(a.x, a.y); }
+        if (deathAge > goneAt - .6) altitude -= .8 * smooth((deathAge - goneAt + .6) / .6);
+        a.body.pose('death', time, {event: a.death});
+      } else {
+        if (u.hp < a.hp) a.hurt = time; a.hp = u.hp;
+        const attack = flying && a.body.hasClip('fly-attack') ? 'fly-attack' : 'attack';
+        const shot = Number.isFinite(u.hitAt) ? u.hitAt : -99, attackAge = time - shot;
+        const target = u.wallAt && !u.wallAt.dead ? u.wallAt : u.tg, stats = u.stats || {};
+        const reach = target && !target.dead && (target.targetHero ? Math.hypot(target.x - u.x, target.y - u.y) : distTo(target, u.x, u.y)) <= (stats.range || 0) + REACH;
+        const predicted = reach && !moving && u.cd > 0 ? B.t + u.cd : Infinity;
+        const onset = attackAge >= -.12 && attackAge < .6 ? shot - .45 : predicted - .45;
+        if (time >= onset && time < onset + 1.05 && (!moving || attackAge >= -.1 && attackAge < .6)) {
+          a.body.pose(attack, time, {event: onset, rate: a.body.durationOf(attack) / 1.05});
+        } else if (time - a.hurt < .3) a.body.pose('hit', time, {event: a.hurt});
+        else a.body.pose(flying ? moving ? 'fly' : 'fly-idle' : moving ? 'run' : 'idle', time, {still});
+      }
+      a.body.root.position.set(x, altitude, z); a.body.root.rotation.set(0, a.yaw, 0);
+      a.shadow.visible = true; a.shadow.position.set(x, .023, z); a.shadow.scale.set(span * .75, 1, span * .48);
+      a.badge.position.y = altitude + a.body.nativeHeight * a.body.root.scale.y + .45;
+    }
+    actors.forEach((a, key) => { if (!seen.has(key)) { release(a); actors.delete(key); } });
+  }
+  function dispose() { if (disposed) return; disposed = true; reset(); group.removeFromParent(); shadowGeometry.dispose(); shadowMaterial.dispose(); shadowTexture.dispose(); ringGeometry.dispose(); ringMaterials.forEach(m => m.dispose()); }
+  return {actors, drawn, counts, update, reset, warm, preload, dispose,
+    mouth(key, out) { return actors.get(key)?.body?.mouth(out) || null; },
+    modelled(key) { return !!actors.get(key)?.body; },
+    falling(id) { return ['a:', 'd:'].some(prefix => { const a = actors.get(prefix + id); return !!a?.body && a.death !== null; }); }};
 }
 
 // ---------------------------------------------------------------------------------------------------- at home
@@ -547,7 +669,7 @@ export function createBattleDragons(T, scene, opts = {}) {
 // opts.renderer, opts.camera: readied for it before it first shows.
 // (up: how much higher he rests at each level, over the roof of that level's picture; size0 + size a level: his size)
 const HOME = Object.freeze({scale: 4.2 / SPAN, alt: 3.2, up: Object.freeze([0, .15, .35, .55, .7, .9, 1.1, 1.45, 1.9, 2.4]), size0: .9, size: .07, circle: 3.8, every: 40, loop: 11, bias: 3, grow0: 100, grow1: 210, grow: .55, order: 9000});
-export function createHomeDragon(T, scene, opts = {}) {
+function createLegacyHomeDragon(T, scene, opts = {}) {
   const group = new T.Group(); group.name = 'keep-home-dragon'; group.visible = false; scene.add(group);
   const blobTex = blobTexture(T), blob = new T.Mesh(new T.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new T.MeshBasicMaterial({map: blobTex, transparent: true, depthWrite: false, toneMapped: false, fog: false, opacity: .8}));
   blob.renderOrder = -1999; blob.raycast = () => {};
@@ -633,6 +755,91 @@ export function createHomeDragon(T, scene, opts = {}) {
     left(view);
   }
   return {setLot, update, dispose, counts, group, get animated() { return !!A && !!nest && group.visible && !reduced(); }};
+}
+
+/** A separate home dragon for each configured hatchery. Current hatcheries wait
+ * for a species choice; an explicit historical viewer may request legacyHome. */
+export function createHomeDragon(T, scene, opts = {}) {
+  const legacy = createLegacyHomeDragon(T, scene, opts), group = new T.Group();
+  group.name = 'keep-home-dragons'; scene.add(group); group.add(legacy.group);
+  const entries = new Map(), counts = {level: 0, model: false, models: 0, visible: false, circling: false, bySpecies: {}};
+  const shadowTexture = blobTexture(T), shadowGeometry = new T.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
+  const shadowMaterial = new T.MeshBasicMaterial({map: shadowTexture, transparent: true, depthWrite: false, toneMapped: false, opacity: .7});
+  let disposed = false, state = null, visible = false;
+  const screen = new T.Vector3();
+  function release(entry) { entry.actor?.dispose(); entry.shadow.removeFromParent(); }
+  function clear() { entries.forEach(release); entries.clear(); visible = false; Object.assign(counts, {level: 0, model: false, models: 0, visible: false, bySpecies: {}}); }
+  const view = joined({clear});
+  function prepare(entry) {
+    if (disposed || entry.actor || !mine() || entries.get(entry.id) !== entry) return;
+    entry.actor = createDragonAsset(entry.species, entry.color, {span: entry.span, phase: entry.id * .31, overlay: true});
+    if (!entry.actor) return;
+    group.add(entry.actor.root);
+    if (opts.renderer && opts.camera) try { opts.renderer.compile(entry.actor.root, opts.camera, scene); } catch (_) {}
+  }
+  function setLot(s) {
+    state = s;
+    if (disposed || !mine()) { clear(); legacy.setLot(null); return; }
+    // Unassigned current hatcheries never silently choose a dragon. Configured
+    // species come from the viewed realm, not the selected user's roster.
+    legacy.setLot({...s, b: (s?.b || []).filter(b => b.t !== 'hatchery' || opts.legacyHome && !dragonOfBuilding(s, b))});
+    const seen = new Set();
+    for (const b of s?.b || []) {
+      const dragon = dragonOfBuilding(s, b); if (!dragon || dragon.level < 1) continue;
+      seen.add(b.i);
+      let entry = entries.get(b.i);
+      const signature = `${dragon.species}:${dragon.color}`;
+      if (entry && entry.signature !== signature) { release(entry); entries.delete(b.i); entry = null; }
+      if (!entry) {
+        const shadow = new T.Mesh(shadowGeometry, shadowMaterial); shadow.renderOrder = -1999; shadow.raycast = () => {};
+        entry = {...dragon, id: b.i, signature, actor: null, shadow}; entries.set(b.i, entry); group.add(shadow);
+      }
+      Object.assign(entry, {level: dragon.level, building: b, span: (dragon.fly ? 3.4 : 3.1) * (1 + .045 * (dragon.level - 1))});
+      prepare(entry);
+      if (!entry.actor) loadDragonAsset(entry.species, entry.color).then(ok => { if (ok) prepare(entry); });
+    }
+    entries.forEach((entry, id) => { if (!seen.has(id)) { release(entry); entries.delete(id); } });
+  }
+  function groundPoint(entry) {
+    const b = entry.building, size = KINDS[b.t].size, cx = b.x + size / 2, cy = b.y + size / 2;
+    const radius = entry.span * .28, offset = size / 2 + radius + .2;
+    const candidates = [[cx, cy + offset], [cx + offset, cy], [cx - offset, cy], [cx, cy - offset]];
+    return candidates.find(([x, y]) => x > radius && y > radius && x < N - radius && y < N - radius
+      && !(state?.b || []).some(other => { if (other.i === b.i) return false; const n = KINDS[other.t]?.size || 1;
+        return x + radius > other.x && x - radius < other.x + n && y + radius > other.y && y - radius < other.y + n; })) || candidates[0];
+  }
+  function update(seconds, {zoom = 40, active = true, placement = false, camera = null} = {}) {
+    if (disposed) return false;
+    if (!mine()) { clear(); return false; }
+    const legacyMoving = legacy.update(seconds, {zoom, active, placement, camera});
+    counts.level = legacy.counts.level; counts.models = legacy.counts.model ? 1 : 0;
+    counts.visible = legacy.counts.visible; counts.circling = legacy.counts.circling; counts.bySpecies = {};
+    visible = false;
+    for (const entry of entries.values()) {
+      prepare(entry); const actor = entry.actor;
+      if (!actor) { entry.shadow.visible = false; continue; }
+      const fly = !!DRAGONS[entry.species].fly, building = entry.building, size = KINDS[building.t].size;
+      const [x, y] = fly ? [building.x + size / 2, building.y + size / 2] : groundPoint(entry);
+      const altitude = fly ? 2.6 + HOME.up[Math.min(9, entry.level - 1)] + (reduced() ? 0 : Math.sin(seconds + entry.id) * .08) : 0;
+      actor.root.scale.setScalar(entry.span / actor.nativeSpan);
+      actor.root.position.set(W(x), altitude, W(y));
+      actor.root.rotation.y = Math.PI / 4 + (reduced() ? 0 : Math.sin(seconds * .15 + entry.id) * .25);
+      actor.pose(fly ? 'fly-idle' : 'idle', seconds, {still: reduced()});
+      let onScreen = active && !placement && zoom < 230;
+      if (camera && onScreen) { screen.copy(actor.root.position).project(camera); onScreen = screen.z < 1 && Math.abs(screen.x) < 1.3 && Math.abs(screen.y) < 1.3; }
+      actor.root.visible = onScreen; entry.shadow.visible = onScreen && !fly;
+      entry.shadow.position.set(W(x), .024, W(y)); entry.shadow.scale.set(entry.span * .72, 1, entry.span * .4);
+      counts.models++; counts.level = Math.max(counts.level, entry.level); counts.bySpecies[entry.species] = {level: entry.level, color: entry.color, visible: onScreen, buildingId: entry.id};
+      if (onScreen) visible = counts.visible = true;
+    }
+    counts.model = counts.models > 0;
+    return legacyMoving || (visible && !reduced());
+  }
+  function dispose() {
+    if (disposed) return; disposed = true; clear(); legacy.dispose(); group.removeFromParent();
+    shadowGeometry.dispose(); shadowMaterial.dispose(); shadowTexture.dispose(); left(view);
+  }
+  return {setLot, update, dispose, counts, group, entries, get animated() { return legacy.animated || (visible && !reduced()); }};
 }
 
 // ---------------------------------------------------------------------------------------------------- the scenery
