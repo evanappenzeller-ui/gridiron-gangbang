@@ -475,24 +475,22 @@ export async function realmChecks(check) {
     return {pass: room && centred && moved, detail: `the base ${B}×${B} (${B * B} tiles), the top Castle’s lot ${need} (${Math.round(need / B / B * 100)}%); laid out round the middle ${centred}; an old save moved ${by} over, once ${moved}`};
   });
 
-  check('Keepfall: the lands (Oct 2026): a realm starts on the coast; Christmas Kingdom is available to everyone at Castle 1; raising the Castle unlocks the Enchanted Forest (level 2), the Frozen Tundra (3), the Ocean Sanctuary (5), the Amber Desert (6) and the Infernal Wastes (7); scenery choices persist, can return to the coast, and unavailable choices fall back safely', () => {
-    const s = F.fresh(T0), keep = s.b.find(b => b.t === 'keep'), owner = !!F.mayPlay();
-    const start = F.sceneryOf(s) === 'coast' && F.SCENERIES.filter(x => F.sceneryOpen(s, x.k)).map(x => x.k).sort().join() === 'christmas,coast';
+  check('Keepfall: the lands (Oct 26 2026: the four the Unity packs build in full): a realm starts on the coast; raising the Castle unlocks the Enchanted Forest (level 2), the Frozen Tundra (3) and the Amber Desert (6); scenery choices persist, can return to the coast, and unavailable or unknown choices fall back safely; a save that picked a retired land (the Ocean Sanctuary, the Christmas Kingdom, the Infernal Wastes) keeps its pick, drawn as its nearest land once that is open', () => {
+    const s = F.fresh(T0), keep = s.b.find(b => b.t === 'keep');
+    const start = F.sceneryOf(s) === 'coast' && F.SCENERIES.filter(x => F.sceneryOpen(s, x.k)).map(x => x.k).join() === 'coast';
     const early = !F.pickScenery(s, 'tundra') && F.sceneryOf(s) === 'coast';
     const at = {};
     for (let l = 1; l <= F.MAX_KEEP; l++) { keep.l = l; F.SCENERIES.forEach(x => { if (at[x.k] == null && F.sceneryOpen(s, x.k)) at[x.k] = l; }); }
-    const levels = at.coast === 1 && at.forest === 2 && at.tundra === 3 && at.ocean === 5 && at.desert === 6 && at.infernal === 7 && at.christmas === 1;
-    keep.l = 5;
-    const picked = F.pickScenery(s, 'ocean') && F.sceneryOf(s) === 'ocean' && !F.pickScenery(s, 'infernal') && F.sceneryOf(s) === 'ocean';
-    const kept = F.sceneryOf(F.clean(JSON.parse(JSON.stringify(s)))) === 'ocean';
-    const low = F.clean(Object.assign(JSON.parse(JSON.stringify(s)), {sc: 'infernal'})), junk = F.clean(Object.assign(JSON.parse(JSON.stringify(s)), {sc: 'moon'}));
-    const fallback = F.sceneryOf(low) === 'coast' && junk.sc === '' && F.sceneryOf(junk) === 'coast';
+    const levels = JSON.stringify(at) === JSON.stringify({coast: 1, forest: 2, tundra: 3, desert: 6});
+    keep.l = 6;
+    const picked = F.pickScenery(s, 'desert') && F.sceneryOf(s) === 'desert' && !F.pickScenery(s, 'ocean') && !F.pickScenery(s, 'infernal') && F.sceneryOf(s) === 'desert';
+    const kept = F.sceneryOf(F.clean(JSON.parse(JSON.stringify(s)))) === 'desert';
+    const junk = F.clean(Object.assign(JSON.parse(JSON.stringify(s)), {sc: 'moon'}));
+    const fallback = junk.sc === '' && F.sceneryOf(junk) === 'coast';
+    const retired = (sc, l) => { const r = F.clean(Object.assign(F.fresh(T0), {sc})); r.b.find(b => b.t === 'keep').l = l; return r.sc === sc ? F.sceneryOf(r) : 'LOST'; };
+    const old = retired('ocean', 5) === 'coast' && retired('infernal', 7) === 'desert' && retired('infernal', 5) === 'coast' && retired('christmas', 1) === 'coast' && retired('christmas', 3) === 'tundra';
     const back = F.pickScenery(s, 'coast') && F.sceneryOf(s) === 'coast' && s.sc === '';
-    const holiday = F.fresh(T0), christmasPick = F.pickScenery(holiday, 'christmas');
-    const holidaySave = F.clean({...F.fresh(T0), sc: 'christmas'});
-    const christmas = christmasPick && F.keepOf(holiday) === 1 && F.sceneryOf(holiday) === 'christmas' && F.sceneryOf(F.clean(JSON.parse(JSON.stringify(holiday)))) === 'christmas'
-        && F.pickScenery(holiday, 'coast') && holiday.sc === '' && F.sceneryOf(holiday) === 'coast';
-    return {pass: start && early && levels && picked && kept && fallback && back && christmas, detail: `starts on the coast ${start}; the tundra at Castle 1 refused ${early}; unlocked at ${JSON.stringify(at)}; at Castle 5 the ocean picked, the wastes refused ${picked}; kept in the save ${kept}; a pick not open (or unknown) on the coast ${fallback}; back to the coast ${back}; Christmas selection/persistence/owner restriction ${christmas}`};
+    return {pass: start && early && levels && picked && kept && fallback && old && back, detail: `starts on the coast ${start}; the tundra at Castle 1 refused ${early}; unlocked at ${JSON.stringify(at)}; at Castle 6 the desert picked, retired lands refused ${picked}; kept in the save ${kept}; an unknown pick on the coast ${fallback}; retired picks kept, drawn as the nearest land ${old}; back to the coast ${back}`};
   });
 
   check('Keepfall: the army trains one at a time with Ale (a footman 5 s at one barracks), into the war camps’ room; a full camp takes no more; one taken out of training gives its Ale back', () => {
@@ -595,17 +593,18 @@ export async function realmChecks(check) {
     return {pass: !bad.length && !gone.length, detail: `${kinds.length} kinds; ${bad.length ? 'wrong: ' + bad.join(', ') : 'stages all in order'}; ${gone.length ? 'missing: ' + gone.join(', ') : urls.length + ' models there'}`};
   });
 
-  check('Keepfall: the land is 3D (the owner’s ask, Oct 25 2026: “remove the super wide 2d picture i am currently using for the scenery”; views/realm-world.js): every scenery is a land of its own, its terrain, water, trees and rocks modelled; the four wall designs, the trees and the ground’s textures are there', async () => {
+  check('Keepfall: the land is 3D (the owner’s ask, Oct 25 2026: “remove the super wide 2d picture i am currently using for the scenery”; views/realm-world.js): every scenery is a land of its own, its terrain, water, trees and rocks modelled, and the country round the lot lived in (Oct 26 2026: hamlets, fields, windmills, a ruined keep, each piece where it has room); the four wall designs, the trees, the village’s pieces and the ground’s textures are there', async () => {
     const Wd = await import('../views/realm-world.js');
     const lands = F.SCENERIES.every(x => Wd.THEME_KEYS.includes(x.k));
     const world = await fetch(new URL('../../models/realm/world-v1/manifest.json', import.meta.url)).then(r => r.json(), () => null);
     if (!world) return {pass: false, detail: 'no world-v1 manifest'};
     const walls = [1, 2, 3, 4].every(d => ['post', 'rail'].every(p => world.files['walls.glb']?.nodes[`wall-${d}-${p}`]));
     const trees = ['pine1', 'pine3', 'oak1', 'birch1', 'rock1'].every(n => world.files['nature.glb']?.nodes[n]);
-    const urls = ['walls.glb', 'nature.glb', ...Object.values(world.ground)];
+    const village = ['house1', 'house2', 'house3', 'windmill', 'wagon', 'fence', 'statue', 'ruinWall', 'watchtower', 'rye'].every(n => world.files['village.glb']?.nodes[n]);
+    const urls = ['walls.glb', 'nature.glb', 'village.glb', ...Object.values(world.ground)];
     const files = await Promise.all(urls.map(u => fetch(new URL('../../models/realm/world-v1/' + u, import.meta.url), {method: data.isOwner() ? 'GET' : 'HEAD'}).then(r => r.ok ? '' : u, () => u)));
     const gone = files.filter(Boolean);
-    return {pass: lands && walls && trees && !gone.length, detail: `lands ${lands ? 'all' : 'MISSING'}; walls ${walls ? '4 designs' : 'MISSING'}; trees ${trees ? 'there' : 'MISSING'}; ${gone.length ? 'missing: ' + gone.join(', ') : 'files there'}`};
+    return {pass: lands && walls && trees && village && !gone.length, detail: `lands ${lands ? 'all' : 'MISSING'}; walls ${walls ? '4 designs' : 'MISSING'}; trees ${trees ? 'there' : 'MISSING'}; village ${village ? 'there' : 'MISSING'}; ${gone.length ? 'missing: ' + gone.join(', ') : 'files there'}`};
   });
 
   check('Keepfall: every soldier, villager, guard and hero is an animated 3D model (Western Kingdoms, realm-characters.js): the Footman, Archer, Knight and Thief, the workers, guards, the dragon keeper, the Knight Hero, an old replay’s Wizard Hero and the trebuchet’s catapult, each with its clips (some sharing another’s), and their files there', async () => {
@@ -1242,7 +1241,8 @@ export async function realmChecks(check) {
     const d1 = F.heroStat('dragon', 1, 2), d2 = F.heroStat('dragon', 2, 2), nfm = x => Number(x).toLocaleString('en-US');
     const said = {
       brewery: /Ale per hour 20 Level 2: \+15\/hour/.test(brew.text('[data-tile="rate"]')) && /60 \/ 480/.test(brew.text('[data-tile="pile"]')) && !!brew.q('[data-rl-collect]'),
-      castle: /Infernal Wastes/.test(castle.text('[data-tile="unlocks"]')) && !!castle.q('.rl-card-up.is-short[aria-disabled="true"]') && /Not enough Gold/.test(castle.text('.rl-card-up')) && !!castle.q('[data-rl-army]'),
+      // (Castle 7 opens no land since the four lands (Oct 26 2026); Castle 6 opens the Amber Desert)
+      castle: /Higher levels/.test(castle.text('[data-tile="unlocks"]')) && /Amber Desert/.test(cardOf(realm(5, []), 'keep').text('[data-tile="unlocks"]')) && !!castle.q('.rl-card-up.is-short[aria-disabled="true"]') && /Not enough Gold/.test(castle.text('.rl-card-up')) && !!castle.q('[data-rl-army]'),
       barracks: /\+Thief/.test(barracks.text('[data-tile="troops"]')) && !!barracks.q('[data-tile="trains"] .rl-uchip.is-new'),
       defenses: /8 tiles/.test(cannon.text('[data-tile="range"]')) && /Ground only/.test(cannon.text('[data-tile="targets"]')) && /Ground & air/.test(tower.text('[data-tile="targets"]')),
       // (the hatchery: its Dragon Hero, level 1, his health and fire with level 2's gain in green; no dragon room)

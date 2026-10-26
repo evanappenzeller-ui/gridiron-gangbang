@@ -300,5 +300,11 @@ export async function createUnity({assets, three, packs}) {
     g.updateMatrixWorld(true);
     return g;
   }
-  return {T, TGALoader, prefab, fbxModel, material, guids, used, rel, root};
+  /** An FBX placed as it is (no prefab of its own), its materials found by name in its pack (as Unity's import does). */
+  function model(relPath) {
+    const g = modelPrefab(path.join(root, relPath), '').root;
+    g.updateMatrixWorld(true);
+    return g;
+  }
+  return {T, TGALoader, prefab, fbxModel, model, material, guids, used, rel, root};
 }

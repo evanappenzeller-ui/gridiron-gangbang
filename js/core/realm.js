@@ -590,19 +590,23 @@ function firstCoins(entries, n, M) {
 // ---------------------------------------------------------------------------------------------------- the scenery
 // Where your realm lies (views/realm-world.js lays its land in 3D): the coast from the start; the rest unlocked by
 // raising the Castle (the owner's ask, Oct 2026), each yours to pick (the house card) once it is.
+// The lands are those the owner's Unity packs build in full (Oct 26 2026: "Reduce the number of unlockable scenes to
+// match however many we can create with the given assets"): their grass, sand and snow, their trees, rocks, villages
+// and farms (views/realm-world.js).
 export const SCENERIES = [
-  {k: 'coast', name: 'The Coast', at: 1, blurb: 'A meadow by the sea, pines along the shore, mountains and lakes beyond', ownerName: 'Twilight Highlands', ownerBlurb: 'Rolling hills and torchlit gates beneath the last light of sunset'},
-  {k: 'christmas', name: 'Christmas Kingdom', at: 1, ownerOnly: true, blurb: 'A snowy kingdom of festive castles, glowing village streets, decorated firs and wandering reindeer'},
-  {k: 'forest', name: 'Enchanted Forest', at: 2, blurb: 'A glade in a moonlit wood, glowing streams and blooms all round'},
-  {k: 'tundra', name: 'Frozen Tundra', at: 3, blurb: 'A snowfield by an icy sea, pines and mountains all round'},
-  {k: 'ocean', name: 'Ocean Sanctuary', at: 5, blurb: 'An island of grass and palms in a turquoise sea'},
-  {k: 'desert', name: 'Amber Desert', at: 6, blurb: 'Sand under a setting sun, red rock and an oasis beyond'},
-  {k: 'infernal', name: 'Infernal Wastes', at: 7, blurb: 'Scorched ground ringed by rivers of lava, a volcano beyond'}
+  {k: 'coast', name: 'The Coast', at: 1, blurb: 'Meadows and fields by the sea, villages and windmills round your walls, pines along the shore', ownerName: 'Twilight Highlands', ownerBlurb: 'Rolling hills and torchlit gates beneath the last light of sunset'},
+  {k: 'forest', name: 'Enchanted Forest', at: 2, blurb: 'A glade in a deep wood, fireflies and giant mushrooms, old statues by a river'},
+  {k: 'tundra', name: 'Frozen Tundra', at: 3, blurb: 'A snowfield by an icy sea, snowbound villages, pines and mountains all round'},
+  {k: 'desert', name: 'Amber Desert', at: 6, blurb: 'Sand under a setting sun, red rock and an oasis beyond'}
 ];
+// The lands retired then (the Ocean Sanctuary, the Christmas Kingdom, the Infernal Wastes): a save that picked one keeps
+// its pick as it was, drawn as the nearest land still made (once that's open to it; else the coast).
+export const RETIRED_SCENERIES = Object.freeze({ocean: 'coast', christmas: 'tundra', infernal: 'desert'});
+const sceneryKnown = k => SCENERIES.some(x => x.k === k) || Object.hasOwn(RETIRED_SCENERIES, k);
 /** Whether scenery k is open to this realm (its Castle high enough and profile eligible). */
 export const sceneryOpen = (s, k) => { const x = SCENERIES.find(q => q.k === k); return !!x && keepOf(s) >= x.at; };
-/** The scenery this realm lies in: the one picked, while it's open to it; else the coast. */
-export const sceneryOf = s => (s && s.sc && sceneryOpen(s, s.sc) ? s.sc : 'coast');
+/** The scenery this realm lies in: the one picked (a retired one's nearest land), while it's open to it; else the coast. */
+export const sceneryOf = s => { const k = s && s.sc ? RETIRED_SCENERIES[s.sc] || s.sc : ''; return k && sceneryOpen(s, k) ? k : 'coast'; };
 /** Picks scenery k (true), if it's open. */
 export function pickScenery(s, k) {
   if (!sceneryOpen(s, k)) return false;
@@ -648,7 +652,7 @@ export function clean(s) {
   const old = !(Number(o.v) >= 2);
   o.v = 2; o.at = num(o.at); o.born = num(o.born) || o.at;
   o.nm = typeof o.nm === 'string' ? o.nm.slice(0, 28) : '';
-  o.sc = SCENERIES.some(x => x.k === o.sc) ? o.sc : '';
+  o.sc = sceneryKnown(o.sc) ? o.sc : '';
   o.rs = typeof o.rs === 'string' ? o.rs : '';
   delete o.tst; // v3 uses ordinary resource costs and build times
   // (laid out on a smaller lot: everything moved over together, so it's in the middle of this one as it was in that)
@@ -1341,7 +1345,7 @@ function readReplay(p, s) {
     drops.push([st, u, x, y]);
   }
   if (!r.end) return null;
-  return {b, bot, rules, end, army, hr, dh, dragons, defenderDragons, loot: {by, total}, drops, sc: typeof p.sc === 'string' && SCENERIES.some(q => q.k === p.sc) ? p.sc : ''};
+  return {b, bot, rules, end, army, hr, dh, dragons, defenderDragons, loot: {by, total}, drops, sc: typeof p.sc === 'string' && sceneryKnown(p.sc) ? p.sc : ''};
 }
 /** Whether rp reads whole (the lot it points at kept in s): what a save keeps (clean, keepReplays). */
 const rpWhole = (p, s) => !!readReplay(p, s);

@@ -139,11 +139,12 @@ export async function createPacker({T, three, modules, out, TGALoader, textureSi
       } else node.add(mesh);
       parts.forEach(p => p.dispose());
     }
-    // a kept part pivots about its own base centre (a turret turns where it stands)
-    for (const pivot of kept.values()) {
-      const b = new T.Box3().setFromObject(pivot), c = b.getCenter(new T.Vector3());
-      pivot.children.forEach(m => m.geometry.translate(-c.x, -b.min.y, -c.z));
-      pivot.position.set(c.x, b.min.y, c.z);
+    // a kept part pivots about its own base centre (a turret turns where it stands), or its very middle when it spins
+    // there (opts.spin: a windmill's sails)
+    for (const [name, pivot] of kept) {
+      const b = new T.Box3().setFromObject(pivot), c = b.getCenter(new T.Vector3()), y = (opts.spin || []).includes(name) ? c.y : b.min.y;
+      pivot.children.forEach(m => m.geometry.translate(-c.x, -y, -c.z));
+      pivot.position.set(c.x, y, c.z);
     }
     const info = {triangles, materials: [...new Set([...byMat.values()].map(v => v.material.name))], height: size.y / span, footprint: [size.x / span, size.z / span], metres: size.toArray().map(v => +v.toFixed(3))};
     node.userData = {...(opts.userData || {}), height: info.height};

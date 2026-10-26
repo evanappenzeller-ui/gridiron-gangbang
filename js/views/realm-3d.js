@@ -317,6 +317,8 @@ export function create(host, opts = {}) {
     const sig = [view.tx, view.tz, view.dist, Wd, Hd].join(':');
     // (the wildlife, like the dragon over the hatchery, about 30 frames a second: the whole land needn't be drawn at 60)
     const lively = !!wildlife && wildlife.update(now / 1000, {zoom: view.dist, active: document.visibilityState === 'visible'});
+    // (and the land's own: windmill sails, chimney smoke, fireflies or snow; still under reduced motion)
+    const stirring = world.update(now / 1000, {camera: cam, still: typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches});
     if (homeNPCs) homeNPCs.update(now / 1000, {zoom: view.dist, active: !raid, placement});
     // (the dragon over the hatchery: about 30 frames a second while it's on the screen, not every refresh)
     const flying = !!homeDragon && homeDragon.update(now / 1000, {zoom: view.dist, active: !raid, placement, camera: cam});
@@ -326,7 +328,7 @@ export function create(host, opts = {}) {
     if (opts.onCamera && sig !== cameraSig) { cameraSig = sig; opts.onCamera(); }
     clearTimeout(flyTimer); flyTimer = 0;
     if (more) want();
-    else if (flying || lively) flyTimer = setTimeout(() => { flyTimer = 0; want(); }, 33);
+    else if (flying || lively || stirring) flyTimer = setTimeout(() => { flyTimer = 0; want(); }, 33);
   }
 
   // ---- picking and projecting

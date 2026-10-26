@@ -98,6 +98,11 @@ copper kettle, gold dome, cask door, pavilion, dragon horns, cauldron gantry; th
 realm-buildings.js swaps them in only when that stage's imported model loaded, so the plain-3D fallback still stands. Verify tools/realm/check-buildings-browser.cjs, check-world.cjs, check-ui-3d.cjs and
 check-spread.cjs before Keepfall visual releases.
 
+The country round the lot (Evan, Oct 26 2026: "They should not overlap unless it is natural looking") is laid
+out through realm-world.js roomOf(): every piece has a footprint (FOOT, from the world-v1 manifest) and goes only
+where it has room; only natural meetings are allowed (tree crowns, undergrowth under trees and against walls, fence
+rails, the ruined keep's walls). A new scenery model needs its FOOT entry; check-world.cjs asserts no faults.
+
 ## Deploying
 
 - Standing owner instruction (October 21, 2026): after completing and verifying requested changes,

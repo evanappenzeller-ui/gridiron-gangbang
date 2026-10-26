@@ -785,6 +785,22 @@
   },
   "nature.glb": {
    "nodes": {
+    "pineLow": {
+     "triangles": 375,
+     "materials": [
+      "Tree"
+     ],
+     "height": 5.1052782204933465,
+     "footprint": [
+      2.6309016942977905,
+      2.727983832359314
+     ],
+     "metres": [
+      2.631,
+      5.105,
+      2.728
+     ]
+    },
     "pine1": {
      "triangles": 1554,
      "materials": [
@@ -1084,7 +1100,527 @@
      ]
     }
    },
-   "bytes": 648492
+   "bytes": 661256
+  },
+  "village.glb": {
+   "nodes": {
+    "house1": {
+     "triangles": 822,
+     "materials": [
+      "House1"
+     ],
+     "height": 7.261711120605469,
+     "footprint": [
+      8.206214904785156,
+      7.49911904335022
+     ],
+     "metres": [
+      8.206,
+      7.262,
+      7.499
+     ]
+    },
+    "house2": {
+     "triangles": 904,
+     "materials": [
+      "House1"
+     ],
+     "height": 7.261747360229492,
+     "footprint": [
+      9.178190231323242,
+      7.673670768737793
+     ],
+     "metres": [
+      9.178,
+      7.262,
+      7.674
+     ]
+    },
+    "house3": {
+     "triangles": 574,
+     "materials": [
+      "House1"
+     ],
+     "height": 7.261737823486328,
+     "footprint": [
+      3.893096923828125,
+      7.705577611923218
+     ],
+     "metres": [
+      3.893,
+      7.262,
+      7.706
+     ]
+    },
+    "windmill": {
+     "triangles": 2504,
+     "materials": [
+      "WindmillAtlas"
+     ],
+     "height": 15.034544497728348,
+     "footprint": [
+      9.770845890045166,
+      11.549935340881348
+     ],
+     "metres": [
+      9.771,
+      15.035,
+      11.55
+     ]
+    },
+    "cart": {
+     "triangles": 1164,
+     "materials": [
+      "cart"
+     ],
+     "height": 1.5499920845031738,
+     "footprint": [
+      2.020599365234375,
+      5.234118819236755
+     ],
+     "metres": [
+      2.021,
+      1.55,
+      5.234
+     ]
+    },
+    "wagon": {
+     "triangles": 3716,
+     "materials": [
+      "cart"
+     ],
+     "height": 4.421664237976074,
+     "footprint": [
+      2.801156997680664,
+      7.193927764892578
+     ],
+     "metres": [
+      2.801,
+      4.422,
+      7.194
+     ]
+    },
+    "barrel": {
+     "triangles": 242,
+     "materials": [
+      "Storage"
+     ],
+     "height": 1.033768653869629,
+     "footprint": [
+      0.97650146484375,
+      0.976495623588562
+     ],
+     "metres": [
+      0.977,
+      1.034,
+      0.976
+     ]
+    },
+    "barrels": {
+     "triangles": 376,
+     "materials": [
+      "mat_interior"
+     ],
+     "height": 2.800349620581855,
+     "footprint": [
+      3.600698471069336,
+      2.0000000596046448
+     ],
+     "metres": [
+      3.601,
+      2.8,
+      2
+     ]
+    },
+    "sack": {
+     "triangles": 158,
+     "materials": [
+      "Storage"
+     ],
+     "height": 0.7811307907104492,
+     "footprint": [
+      0.9819183349609375,
+      0.646371603012085
+     ],
+     "metres": [
+      0.982,
+      0.781,
+      0.646
+     ]
+    },
+    "basket": {
+     "triangles": 220,
+     "materials": [
+      "Storage"
+     ],
+     "height": 1.0690631866455078,
+     "footprint": [
+      0.8561630249023438,
+      0.7876288890838623
+     ],
+     "metres": [
+      0.856,
+      1.069,
+      0.788
+     ]
+    },
+    "crate": {
+     "triangles": 144,
+     "materials": [
+      "mat_interior"
+     ],
+     "height": 1.5000002115974809,
+     "footprint": [
+      1.5,
+      1.500000238418579
+     ],
+     "metres": [
+      1.5,
+      1.5,
+      1.5
+     ]
+    },
+    "firewood": {
+     "triangles": 128,
+     "materials": [
+      "mat_interior"
+     ],
+     "height": 1.0837505334056914,
+     "footprint": [
+      2.0426331162452698,
+      1.000000221092506
+     ],
+     "metres": [
+      2.043,
+      1.084,
+      1
+     ]
+    },
+    "wizardTower": {
+     "triangles": 1887,
+     "materials": [
+      "Tower"
+     ],
+     "height": 1.5021647596731782,
+     "footprint": [
+      0.717665821313858,
+      0.6881956160068512
+     ],
+     "metres": [
+      0.718,
+      1.502,
+      0.688
+     ]
+    },
+    "watchtower": {
+     "triangles": 692,
+     "materials": [
+      "Wall1"
+     ],
+     "height": 11.070123672485352,
+     "footprint": [
+      2.8497562408447266,
+      2.8541698455810547
+     ],
+     "metres": [
+      2.85,
+      11.07,
+      2.854
+     ]
+    },
+    "statue": {
+     "triangles": 890,
+     "materials": [
+      "statue"
+     ],
+     "height": 5.227291889488697,
+     "footprint": [
+      2.358819007873535,
+      1.778021216392517
+     ],
+     "metres": [
+      2.359,
+      5.227,
+      1.778
+     ]
+    },
+    "statueBroken": {
+     "triangles": 322,
+     "materials": [
+      "statue"
+     ],
+     "height": 4.050492115318775,
+     "footprint": [
+      2.357400417327881,
+      1.778021216392517
+     ],
+     "metres": [
+      2.357,
+      4.05,
+      1.778
+     ]
+    },
+    "statueHead": {
+     "triangles": 536,
+     "materials": [
+      "statue"
+     ],
+     "height": 1.5334497094154358,
+     "footprint": [
+      2.23111629486084,
+      1.259698510169983
+     ],
+     "metres": [
+      2.231,
+      1.533,
+      1.26
+     ]
+    },
+    "slab": {
+     "triangles": 140,
+     "materials": [
+      "rocks"
+     ],
+     "height": 1.2476849555969238,
+     "footprint": [
+      4.591630935668945,
+      2.448156237602234
+     ],
+     "metres": [
+      4.592,
+      1.248,
+      2.448
+     ]
+    },
+    "rye": {
+     "triangles": 6,
+     "materials": [
+      "Plant"
+     ],
+     "height": 1.0944690704345703,
+     "footprint": [
+      0.9819443225860596,
+      0.9521037489175797
+     ],
+     "metres": [
+      0.982,
+      1.094,
+      0.952
+     ]
+    },
+    "sunflower": {
+     "triangles": 396,
+     "materials": [
+      "Plant"
+     ],
+     "height": 2.7913084030151367,
+     "footprint": [
+      1.4845929145812988,
+      1.645225167274475
+     ],
+     "metres": [
+      1.485,
+      2.791,
+      1.645
+     ]
+    },
+    "bush": {
+     "triangles": 54,
+     "materials": [
+      "Plant"
+     ],
+     "height": 1.295581340789795,
+     "footprint": [
+      1.537773609161377,
+      1.4965586066246033
+     ],
+     "metres": [
+      1.538,
+      1.296,
+      1.497
+     ]
+    },
+    "fern": {
+     "triangles": 391,
+     "materials": [
+      "Plant"
+     ],
+     "height": 2.876680374145508,
+     "footprint": [
+      1.5006284713745117,
+      1.3742313385009766
+     ],
+     "metres": [
+      1.501,
+      2.877,
+      1.374
+     ]
+    },
+    "flowers": {
+     "triangles": 154,
+     "materials": [
+      "Plant"
+     ],
+     "height": 0.8761405386030674,
+     "footprint": [
+      1.00112846493721,
+      0.9005651473999023
+     ],
+     "metres": [
+      1.001,
+      0.876,
+      0.901
+     ]
+    },
+    "blooms": {
+     "triangles": 60,
+     "materials": [
+      "Plant"
+     ],
+     "height": 0.9504051208496094,
+     "footprint": [
+      0.9367664158344269,
+      0.7711572647094727
+     ],
+     "metres": [
+      0.937,
+      0.95,
+      0.771
+     ]
+    },
+    "mushroom": {
+     "triangles": 232,
+     "materials": [
+      "Plant"
+     ],
+     "height": 0.41596394032239914,
+     "footprint": [
+      0.39220619201660156,
+      0.5222439765930176
+     ],
+     "metres": [
+      0.392,
+      0.416,
+      0.522
+     ]
+    },
+    "mushrooms": {
+     "triangles": 264,
+     "materials": [
+      "Plant"
+     ],
+     "height": 0.5252004582434893,
+     "footprint": [
+      0.3515663146972656,
+      0.3761296272277832
+     ],
+     "metres": [
+      0.352,
+      0.525,
+      0.376
+     ]
+    },
+    "toadstool": {
+     "triangles": 264,
+     "materials": [
+      "Plant"
+     ],
+     "height": 0.5055427104234695,
+     "footprint": [
+      0.33945798873901367,
+      0.4144134521484375
+     ],
+     "metres": [
+      0.339,
+      0.506,
+      0.414
+     ]
+    },
+    "ruinWall": {
+     "triangles": 56,
+     "materials": [
+      "mat_floorTile",
+      "mat_brick"
+     ],
+     "height": 6,
+     "footprint": [
+      5,
+      1.2000016793608665
+     ],
+     "metres": [
+      5,
+      6,
+      1.2
+     ]
+    },
+    "ruinArch": {
+     "triangles": 136,
+     "materials": [
+      "mat_floorTile",
+      "mat_brick"
+     ],
+     "height": 6,
+     "footprint": [
+      5,
+      1.2000004723668098
+     ],
+     "metres": [
+      5,
+      6,
+      1.2
+     ]
+    },
+    "ruinEnd": {
+     "triangles": 80,
+     "materials": [
+      "mat_floorTile",
+      "mat_brick"
+     ],
+     "height": 6,
+     "footprint": [
+      1.289344236254692,
+      1.2295274972995003
+     ],
+     "metres": [
+      1.289,
+      6,
+      1.23
+     ]
+    },
+    "pillar": {
+     "triangles": 132,
+     "materials": [
+      "mat_floorTile"
+     ],
+     "height": 3.001000031363219,
+     "footprint": [
+      1.000321626663208,
+      1.0003221035003662
+     ],
+     "metres": [
+      1,
+      3.001,
+      1
+     ]
+    },
+    "fence": {
+     "triangles": 48,
+     "materials": [
+      "timber"
+     ],
+     "height": 1.200000071525574,
+     "footprint": [
+      3.1600000858306885,
+      0.1599999964237213
+     ],
+     "metres": [
+      3.16,
+      1.2,
+      0.16
+     ]
+    }
+   },
+   "bytes": 941180
   }
  },
  "ground": {
@@ -1092,7 +1628,17 @@
   "ground_soil": "textures/ground_soil.jpg",
   "ground_rock": "textures/ground_rock.jpg",
   "ground_road": "textures/ground_road.jpg",
-  "ground_stones": "textures/ground_stones.jpg"
+  "ground_stones": "textures/ground_stones.jpg",
+  "grass": "textures/Grass_normal_down.jpg",
+  "grassDark": "textures/Grass_darked_down.jpg",
+  "grassLight": "textures/Grass_lighted_down.jpg",
+  "swamp": "textures/Grass_swamp_normal_down.jpg",
+  "earth": "textures/dirt_clay_down.jpg",
+  "sand": "textures/dirt_normal_down.jpg",
+  "sandStones": "textures/dirt_lighted_rocks_down.jpg",
+  "dust": "textures/dirt_desatured_down.jpg",
+  "snow": "textures/snow_normal.jpg",
+  "snowDark": "textures/snow_dark.jpg"
  },
  "sources": [
   {
@@ -1768,6 +2314,62 @@
    "sha256": "16b2d6e01d45f25401b66cb5f4320a104311a10bd205c4dfdaa6a022bd6202ac"
   },
   {
+   "path": "FantasyEnvironments/Environments/FBX/Bush1.fbx",
+   "sha256": "4a882f6179ddcf552367598d5fddb0383c8f00039c0ebfe39c503b4039b9b87f"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/FBX/Bush1.fbx.meta",
+   "sha256": "b94bcb36d06bd78b3022cb982cf106cea4a6db01401eba832afb162d99f778ce"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/FBX/Flower1.fbx",
+   "sha256": "bc7bdf762b1e19b25e3445c9c6f7affcdbea3e7c43d33daa9a32a0f2711f4cb6"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/FBX/Flower1.fbx.meta",
+   "sha256": "a9bbc0a433fbb6fe12078b04fa818363c437eb46b3da4afeccf4b2c83003192a"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/FBX/Flower5.fbx",
+   "sha256": "6e5a50650e29bbf5e43dda80099949e1c06a039d5da3fb184a0693f2daf2396a"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/FBX/Flower5.fbx.meta",
+   "sha256": "f68ac2f38f1130aa90f27a422d512924ffd9f4b4ac28fd3098c0277ee1e561ba"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/FBX/Mushroom1.fbx",
+   "sha256": "677f74d30da977b5d5443e2b897b20dd50c4d2e6bed42d665eab4d5cd058bf46"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/FBX/Mushroom1.fbx.meta",
+   "sha256": "cb177e68b8b2a5fedb5a6ae100d44d664861e63684858ed7b0c3ce353455a433"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/FBX/Mushroom2.FBX",
+   "sha256": "5e42fd76de6864f55d55dfbe311d1f6aae473c34425f612591504092d24f38b4"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/FBX/Mushroom2.FBX.meta",
+   "sha256": "d5183ae780ba1069a630b987f434a874e228ed94e07ca236f8d8585f8e99bcab"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/FBX/Mushroom4.FBX",
+   "sha256": "acc6a13f813fa9506789a0abb5e3b5fbcf60784d783637997a549fe6ad967524"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/FBX/Mushroom4.FBX.meta",
+   "sha256": "a520db7c00184767b10c2b6b368ee9a3460bda383a0006186d38ee6f4a09ccd8"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/FBX/Plant3.FBX",
+   "sha256": "ff3a3a8d0422a4676e820ddb03dff96287043ceffbc12021134874d595f4a62c"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/FBX/Plant3.FBX.meta",
+   "sha256": "c6c2bbac813d6946928592fc136d03ef6fad991ba902b81af9a93acd6a83b024"
+  },
+  {
    "path": "FantasyEnvironments/Environments/FBX/Rock1.fbx",
    "sha256": "10d054eb74299f5ab0aba02daa31e6271ce1331e5846deee754074a3ec31aa8b"
   },
@@ -1792,6 +2394,14 @@
    "sha256": "7faf54ed04a6395c7201813c710295f20af54d563452584aef08456c593164ad"
   },
   {
+   "path": "FantasyEnvironments/Environments/FBX/Rye.fbx",
+   "sha256": "21ffdf7543a8e6161c634b3e83731d2fc16f799e5c948e27bd8387c4303a0cc6"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/FBX/Rye.fbx.meta",
+   "sha256": "8eb2ab527282c1bd7b78c93634dea230dd624c9dcabdcfac112f74a211604a99"
+  },
+  {
    "path": "FantasyEnvironments/Environments/FBX/Stone1.fbx",
    "sha256": "fa9672b4d0c765eee6acf179010b5037f328d5b7f53acf92797a6f7b2e01a5a9"
   },
@@ -1814,6 +2424,22 @@
   {
    "path": "FantasyEnvironments/Environments/FBX/Stone3.fbx.meta",
    "sha256": "c4efc309e181165092318e182a89dabbcd66e479b2711fdda19ab972cd1bf1e9"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/FBX/Sunflower.fbx",
+   "sha256": "103141b54b8aab609e0d71be61a71f712a7cc2ad86b73d0792e2e7b84cb0c801"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/FBX/Sunflower.fbx.meta",
+   "sha256": "3955ac799b6df6054b57ac70e36ba7431b48027b540b926d6d64d8aff128e1c8"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Materials/Plant.mat",
+   "sha256": "5b65fd02ad449f19484dc00d0e01b2fb775b14686bf8ad6da2d4426a7fdfbb22"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Materials/Plant.mat.meta",
+   "sha256": "e6e33655e35470db1dd7d6e5e6dc23038574a4e8bacc75754904466cc6796808"
   },
   {
    "path": "FantasyEnvironments/Environments/Materials/Rock1.mat",
@@ -1848,6 +2474,62 @@
    "sha256": "bb1ecf46c5a90c378091990ade06c94a67504d3e683017a9b46f98d784f16fc2"
   },
   {
+   "path": "FantasyEnvironments/Environments/Prefabs/Bush1.prefab",
+   "sha256": "99eafe312bb15f99c4302f34dfbcfafe085cdcfdea7f5098eed5e97cc3d99755"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Prefabs/Bush1.prefab.meta",
+   "sha256": "34dfd0bca84a32d9e3f1d8793b49575321e2a5fb0a5c9cc38f6fb6402d23e544"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Prefabs/Flower1.prefab",
+   "sha256": "35b0395d9cb8a7b8a5afdbd4b5362e61d7699b1834d9e3b054099a0f8b58042b"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Prefabs/Flower1.prefab.meta",
+   "sha256": "49e689862ea27751540eca113d5b0ced5aa150137ca6778d592ee4db6485f4a5"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Prefabs/Flower5.prefab",
+   "sha256": "ab441997d25d481afcd097a8b8b15b1cf04ae38b832384b69b7482a0bba56d6c"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Prefabs/Flower5.prefab.meta",
+   "sha256": "493eeefd516691093c9c5bf8dea17afd0b1fd33ff5ecff3536dfd095d34ea658"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Prefabs/Mushroom1.prefab",
+   "sha256": "621c96f59794b71ccfe51d0ef5b80303aac42de0b2e99ba57de1e16f7b4979d8"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Prefabs/Mushroom1.prefab.meta",
+   "sha256": "1ab7fa51c90f3c17d0a9b1b6546c1926b735a26180637b5f9849f231feccc612"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Prefabs/Mushroom2.prefab",
+   "sha256": "a81374950b001cb35e0ae9f58c21de0feb1a1808f70cfc22664a27dfdfc033aa"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Prefabs/Mushroom2.prefab.meta",
+   "sha256": "a204d514ee53f9616d528d261749df56d7d946df411eea437e125bd0ab580064"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Prefabs/Mushroom4.prefab",
+   "sha256": "2bc959f890273c6c7883f10edab3d18ef5fe451c9607a5fbbb9e88655749d431"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Prefabs/Mushroom4.prefab.meta",
+   "sha256": "a58bbdd4080e2a3bec3b3a5a6948fc51bbfbf5e3c833027303bb62bf6acff9a9"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Prefabs/Plant3.prefab",
+   "sha256": "940cf9d5861e0ac0060a8856a265c8f7e76aa03712e35e892a91cd777c3ddeab"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Prefabs/Plant3.prefab.meta",
+   "sha256": "99930056899d4de06fdbdca3facf1189357d70086f22b483fd6ba0ce7c751100"
+  },
+  {
    "path": "FantasyEnvironments/Environments/Prefabs/Rock1.prefab",
    "sha256": "01b02cb0e64880f0ea020160eee54ce82c3946a50399aaf343e3ccec7f04a455"
   },
@@ -1872,6 +2554,14 @@
    "sha256": "b4af4738e501c8764b096d0284b4b073bc2fd8490208294964f81e5adb4bca8f"
   },
   {
+   "path": "FantasyEnvironments/Environments/Prefabs/Rye.prefab",
+   "sha256": "7cbb487f587da8ada4c3e3cf23160887c9e65250dc9aafe1e18f54e34168f319"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Prefabs/Rye.prefab.meta",
+   "sha256": "c780726921e18b0eb03abbdfebc788a9a312011bdd8a1d143da7085231ff213c"
+  },
+  {
    "path": "FantasyEnvironments/Environments/Prefabs/Stone1.prefab",
    "sha256": "5a3313d9f31cde89b6896f75be890caf9a9a232d790336deab46e95395907c19"
   },
@@ -1894,6 +2584,22 @@
   {
    "path": "FantasyEnvironments/Environments/Prefabs/Stone3.prefab.meta",
    "sha256": "379e1335e3fb1ef8d3389d130f1c866f71a81f28633c45fc5143704a1aef1671"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Prefabs/Sunflower.prefab",
+   "sha256": "3ab41286a637acc0410fd24e1a5e13a9d0b8b3bd8e10a1c6b0801e15ce5a5dcd"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Prefabs/Sunflower.prefab.meta",
+   "sha256": "32f0677756e170b5dddcc1084b3195ef0cd9d506ddd542fc3fe9bea71835a235"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Textures/Plant.tga",
+   "sha256": "1dbba60ac9d97a402141925941128c5051c9feec8e393a4310456dd78794a3f8"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Textures/Plant.tga.meta",
+   "sha256": "369edfe8c1c96e5541bb0b789eb1b614f90b9c44f2e949cd2d286ca6cb1ca6a6"
   },
   {
    "path": "FantasyEnvironments/Environments/Textures/Rock1.png",
@@ -2324,6 +3030,14 @@
    "sha256": "cba430c1dd2a96421e4b74eedb44618c645e452116fe6a3b456359bc3f8d00a9"
   },
   {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Wall_tower2.fbx",
+   "sha256": "83f3de424b7f85fcb8a7effe984d2cd02e074a9592cdbd102090426e8d8dbc51"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Wall_tower2.fbx.meta",
+   "sha256": "ff802a223f8f4d2c5899d342883ab26d9775bb2803edc791549c8ae802495684"
+  },
+  {
    "path": "FantasyEnvironments/Environments/Town/FBXs/WoodenHouse_1.fbx",
    "sha256": "c6ea5fecf877143029ca1bb5372cb69ba52daa368b1c7e27c50317832d581ed2"
   },
@@ -2388,12 +3102,28 @@
    "sha256": "78b65ffb4ac9cbbcc011721bf914ef7146f61dcd625ef2e1f2621bb174ba147e"
   },
   {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/cart2.fbx",
+   "sha256": "ffac458c27d8a6e655823270c68df63e9d3e6e9b4f3b89789215f096ebfe76a9"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/cart2.fbx.meta",
+   "sha256": "b324f9a87b32e141b556b9b3731084257cd150e953539b7d2485cb0c81047444"
+  },
+  {
    "path": "FantasyEnvironments/Environments/Town/FBXs/cart3.fbx",
    "sha256": "668dbaeece1a89abf22280c67496be2bf6df33f5d40bfd7bc74ceb950a21fdfe"
   },
   {
    "path": "FantasyEnvironments/Environments/Town/FBXs/cart3.fbx.meta",
    "sha256": "46f7128dbfb74a0b00dd130595a1aef879138a4eff3dbbb3ac0e654e99d43091"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/cart4.fbx",
+   "sha256": "09e979009e28fffa9e5afc3fae389c6885bb2e6939fff2cbbef8b8d7835be974"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/cart4.fbx.meta",
+   "sha256": "56ac70f207a918d0315aed4758a9d58ac63c5fe3c9751c219193286714278d34"
   },
   {
    "path": "FantasyEnvironments/Environments/Town/FBXs/storage_bag.fbx",
@@ -2604,6 +3334,14 @@
    "sha256": "b0375fcf077c8719016e5726b89fb463c7566f7265e259e00e66ccf7b351a382"
   },
   {
+   "path": "FantasyEnvironments/Environments/Town/Prefabs/Wall_tower2.prefab",
+   "sha256": "4aee20ee5bdde524acb2081cf131e260a38680e0c1e356426ecdfd8d92d3e012"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Prefabs/Wall_tower2.prefab.meta",
+   "sha256": "cf346744e365150c6c78f20e64be81976c61b6c6f993e93d2b73da926c5ea067"
+  },
+  {
    "path": "FantasyEnvironments/Environments/Town/Prefabs/WoodenHouse_1.prefab",
    "sha256": "d30ad919094bb203cadb88836cc67e24291a80b4d18711b949e959b296775fbf"
   },
@@ -2636,12 +3374,28 @@
    "sha256": "bd666219e66cb2fe8fd31316f147c2b9520d9520c78558d4d160223818f6ad94"
   },
   {
+   "path": "FantasyEnvironments/Environments/Town/Prefabs/cart2.prefab",
+   "sha256": "db7bd647f8258a87cf70f395d9e76b75d0f956053df70bd93bd6c0a90fb1da24"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Prefabs/cart2.prefab.meta",
+   "sha256": "7a58302e842ef3d3f7c05485dc0788e1d44dd1f7a6611763b9d15b722c0382ce"
+  },
+  {
    "path": "FantasyEnvironments/Environments/Town/Prefabs/cart3.prefab",
    "sha256": "ba13ac8dad1b42787114ff4ec89e84d715784ba920fb6f426fba049ddaa74d09"
   },
   {
    "path": "FantasyEnvironments/Environments/Town/Prefabs/cart3.prefab.meta",
    "sha256": "835e3e4cdcfa269f22ca27992d9be06bebae9bc896faa8248999e0434d53cd91"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Prefabs/cart4.prefab",
+   "sha256": "b06606271c29b7384932e8fd1ccdc57a95da9139fa5a04ca5bf650e1ae03a354"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Prefabs/cart4.prefab.meta",
+   "sha256": "4ea5e616e4407dfff11477f6551c9b3e71ecde8fb766663c072dc9b923a23830"
   },
   {
    "path": "FantasyEnvironments/Environments/Town/Prefabs/storage_bag.prefab",
@@ -2756,6 +3510,110 @@
    "sha256": "b70a5e9e468e64eee4a5be7aa816c08ff21eb21abd7ff4a2a51f68788f00d203"
   },
   {
+   "path": "Handpainted_Grass_and_Ground_Textures/Textures/Dirt/dirt_clay/dirt_clay_down.png",
+   "sha256": "a21fd0bd10aa413513621c23456f673e006b1a991bd6c72371fe1930441d7303"
+  },
+  {
+   "path": "Handpainted_Grass_and_Ground_Textures/Textures/Dirt/dirt_desatured/dirt_desatured_down.png",
+   "sha256": "1f23cda91bb52e85652999a9e53a8e3bd6c3aa171d4bcce10eaa8294eca43922"
+  },
+  {
+   "path": "Handpainted_Grass_and_Ground_Textures/Textures/Dirt/dirt_lighted_rocks/dirt_lighted_rocks_down.png",
+   "sha256": "8065e055f31f3dcfc90abec6f8983a08ea9e37f01eeb2fb418b7028c962a504e"
+  },
+  {
+   "path": "Handpainted_Grass_and_Ground_Textures/Textures/Dirt/dirt_normal/dirt_normal_down.png",
+   "sha256": "7b788871cf1e52ebed75fa9405538602b4db9ead34951157a283e674b2285e17"
+  },
+  {
+   "path": "Handpainted_Grass_and_Ground_Textures/Textures/Grass/Grass_darked/Grass_darked_down.png",
+   "sha256": "039a2b7a3a0d8fc45d440fae06956300a0bb92c14b435b518acc451f046917a0"
+  },
+  {
+   "path": "Handpainted_Grass_and_Ground_Textures/Textures/Grass/Grass_lighted/Grass_lighted_down.png",
+   "sha256": "53d1f3b1af2dbb8044121cf63b269a94c1d4227ceb7f89bf932e9055fb695a69"
+  },
+  {
+   "path": "Handpainted_Grass_and_Ground_Textures/Textures/Grass/Grass_normal/Grass_normal_down.png",
+   "sha256": "26a9eb5fd509012721cc2adf6d60eb316811c181127f51faff8d553b68ca76ab"
+  },
+  {
+   "path": "Handpainted_Grass_and_Ground_Textures/Textures/Grass/Grass_swamp_normal/Grass_swamp_normal_down.png",
+   "sha256": "6f94bde34ae8aeb1d58bcc0c5f2a00dd5395cb71dbcf4ba763284a5644ca4a0f"
+  },
+  {
+   "path": "Handpainted_Grass_and_Ground_Textures/Textures/Snow/snow_dark.png",
+   "sha256": "c01a828eefed4ca48b6cd24ebb14715e9b550abf9adb178d69df415ae2893129"
+  },
+  {
+   "path": "Handpainted_Grass_and_Ground_Textures/Textures/Snow/snow_normal.png",
+   "sha256": "07c5daccea6d570088f9ce1b8f1f7a148ba984364e23d678c47cc9715d36874b"
+  },
+  {
+   "path": "Polygrade/Top_Down Medieval City/Windmill_Free/Fbxs_Textures_Mats/Materials/Tree.mat",
+   "sha256": "6c730f32fdcf3c2bd59cba73e25130064bf21bdcf6ff8b1a85fb01208aebcb9b"
+  },
+  {
+   "path": "Polygrade/Top_Down Medieval City/Windmill_Free/Fbxs_Textures_Mats/Materials/Tree.mat.meta",
+   "sha256": "2247fabd60d1b577e37321a9c9ba6dc9246d671ac963b5d9a2ae80e6dc52e50b"
+  },
+  {
+   "path": "Polygrade/Top_Down Medieval City/Windmill_Free/Fbxs_Textures_Mats/Materials/WindmillAtlas.mat",
+   "sha256": "5e2f0b67740881c4def78d8fd030e7a3b50f6bf03f63bcce735b6b6addac243a"
+  },
+  {
+   "path": "Polygrade/Top_Down Medieval City/Windmill_Free/Fbxs_Textures_Mats/Materials/WindmillAtlas.mat.meta",
+   "sha256": "fda42d5f8c7ab49670c63f6720a6bc54b77fc8143fdd81773f9d0a0e733d662b"
+  },
+  {
+   "path": "Polygrade/Top_Down Medieval City/Windmill_Free/Fbxs_Textures_Mats/Medieval_Windmill.FBX",
+   "sha256": "c1eb40b5df56619ad604cb27560525b3e6b259ccd6ded8efd0acc4af4a484b18"
+  },
+  {
+   "path": "Polygrade/Top_Down Medieval City/Windmill_Free/Fbxs_Textures_Mats/Medieval_Windmill.FBX.meta",
+   "sha256": "d9b350370aab327121a9c77b2b8f2331b76d82ef6a133bb0ff972e759fad977e"
+  },
+  {
+   "path": "Polygrade/Top_Down Medieval City/Windmill_Free/Fbxs_Textures_Mats/Tree.FBX",
+   "sha256": "ae0dd2ba0a9a8429590bf8b502c0eb2cf70e6c981e8ec556d9a10aa5f47dfad8"
+  },
+  {
+   "path": "Polygrade/Top_Down Medieval City/Windmill_Free/Fbxs_Textures_Mats/Tree.FBX.meta",
+   "sha256": "7dbb3c0c4fcd2b8fbc02fb2b95f266206e995a9598dbe643d118dfe0709a21a1"
+  },
+  {
+   "path": "Polygrade/Top_Down Medieval City/Windmill_Free/Fbxs_Textures_Mats/Tree.tga",
+   "sha256": "d1cd2c56e94c1f9a6e3c6fdb561383eebcbde1cc550ca2a2193cb40931eb830d"
+  },
+  {
+   "path": "Polygrade/Top_Down Medieval City/Windmill_Free/Fbxs_Textures_Mats/Tree.tga.meta",
+   "sha256": "232ba7b379daa78aea4796974534b4afb4f7538b485a90335e268725c08919c8"
+  },
+  {
+   "path": "Polygrade/Top_Down Medieval City/Windmill_Free/Fbxs_Textures_Mats/WindmillAtlas.tga",
+   "sha256": "ddbddbc830f1bdb47567ad5839d83e7bdf12d422ded488f53595f2aab1a1013b"
+  },
+  {
+   "path": "Polygrade/Top_Down Medieval City/Windmill_Free/Fbxs_Textures_Mats/WindmillAtlas.tga.meta",
+   "sha256": "7e08a8a13cfe41a549084afc0f3d3194e79c7b4f1cfed18abfc7c298423b0033"
+  },
+  {
+   "path": "Polygrade/Top_Down Medieval City/Windmill_Free/Prefabs/Medieval_Windmill.prefab",
+   "sha256": "1f3c17e97d0d1b2ecdc71e3e79f8fa7842676a16a8edf769de6ca47fce86d349"
+  },
+  {
+   "path": "Polygrade/Top_Down Medieval City/Windmill_Free/Prefabs/Medieval_Windmill.prefab.meta",
+   "sha256": "185b1a6d445da0db9667fefdb2e010a3dc21551664682b23a01f88f95feabed9"
+  },
+  {
+   "path": "Polygrade/Top_Down Medieval City/Windmill_Free/Prefabs/Tree.prefab",
+   "sha256": "3dd83d10f9237f1df267c519a10f12f2d356f502223f277702413c9564250f88"
+  },
+  {
+   "path": "Polygrade/Top_Down Medieval City/Windmill_Free/Prefabs/Tree.prefab.meta",
+   "sha256": "bf8935eba3a0629a8ef601405cc7612b43c64f0a923bd5c7b8b104ba2b259ec5"
+  },
+  {
    "path": "StylizedDarkCastle/Materials/mat_brick.mat",
    "sha256": "628a664c36c4e4b8f0c53335262c8c80de82f16e765f929f0aaf7641ad07e1a0"
   },
@@ -2836,6 +3694,14 @@
    "sha256": "e09a8e22617fe212ccfbf560e9af67ee25f95202b06a3cef7b9e4908bd10704e"
   },
   {
+   "path": "StylizedDarkCastle/Prefabs/CastleInterior/Crate.prefab",
+   "sha256": "ef3246045a01a1239a8d52620d38604143d8afb75a6135409a90903873e5c1e4"
+  },
+  {
+   "path": "StylizedDarkCastle/Prefabs/CastleInterior/Crate.prefab.meta",
+   "sha256": "649a33406ee0f090fa2af8f13c45cccc6598c69422c894df3ced7d9a5d3ee164"
+  },
+  {
    "path": "StylizedDarkCastle/Prefabs/CastleInterior/FireWood.prefab",
    "sha256": "d2a9fcbb98bc56c3c21bcfbdb3a206c4955d1eb9c6edc9f45277fe886e45d109"
   },
@@ -2908,6 +3774,14 @@
    "sha256": "fad53a27d80e59f90dbcba435536f7053f69e529f6cc1b26a14fc11d88ad5fbb"
   },
   {
+   "path": "StylizedDarkCastle/Prefabs/CastlePartBase/Wall_End.prefab",
+   "sha256": "a7b4c9f5561fbc28225cfcd4f5dadecadb72e976207fb24c894c28f0b695dcb5"
+  },
+  {
+   "path": "StylizedDarkCastle/Prefabs/CastlePartBase/Wall_End.prefab.meta",
+   "sha256": "da75425d17abeb30b1168d04c4125ae2c961660563849b5ab6a11cb2ae30c3b9"
+  },
+  {
    "path": "StylizedDarkCastle/Prefabs/CastlePartBase/Wall_Merlons.prefab",
    "sha256": "db07f1d0e04f5ae73d8de6a3c8932e4a92f6eede4bb8abc5590530fcc90f12a1"
   },
@@ -2930,6 +3804,14 @@
   {
    "path": "StylizedDarkCastle/Prefabs/CastlePartBase/Wall_RoofSide.prefab.meta",
    "sha256": "765d9865cfcb5d1c6184a39ff38b2a002c0860c9b9e93712077cdf1960edacc3"
+  },
+  {
+   "path": "StylizedDarkCastle/Prefabs/CastlePartBase/Wall_Window.prefab",
+   "sha256": "c5439aed053e658c171ea6dc7fab5b19be2b290fb583b9455b2338e3c345f1de"
+  },
+  {
+   "path": "StylizedDarkCastle/Prefabs/CastlePartBase/Wall_Window.prefab.meta",
+   "sha256": "e17a87684d567c66291a4b1d83308afec5b78dd854756d2114e4dd719fdbbfad"
   },
   {
    "path": "StylizedDarkCastle/Prefabs/CastlePartsRooms/Roof_x2.prefab",
@@ -2982,6 +3864,102 @@
   {
    "path": "StylizedDarkCastle/Textures/tex_wood.png",
    "sha256": "468a473c27e6a7eef44be4dabdd6b4ec446a80dc3e807362c1fea1942bff5c48"
+  },
+  {
+   "path": "Tower/Materials/Tower.mat",
+   "sha256": "afaa1c64345f8f25998e6d70d4ad545e0d018147e16ddd3f48710e2677fb267a"
+  },
+  {
+   "path": "Tower/Materials/Tower.mat.meta",
+   "sha256": "e77cd8c1a7a24e2a083ea1fb8769cf0c30cb1ab73df6aa673d40fcd70a465f80"
+  },
+  {
+   "path": "Tower/Model/Tower Mage.FBX",
+   "sha256": "cfacad13abcac46822539e431c542b3cfc312babef7237d802c795d86bf7cab5"
+  },
+  {
+   "path": "Tower/Model/Tower Mage.FBX.meta",
+   "sha256": "d479b55caf47969aea535d12b3725dd0a413464c539fa2c71231c8fc220e7368"
+  },
+  {
+   "path": "Tower/Prefab/Tower Mage.prefab",
+   "sha256": "eae98f94336cc2dc8d9e1a46367daac0b5001bc7a587ff2e0ce95ea08eb71235"
+  },
+  {
+   "path": "Tower/Prefab/Tower Mage.prefab.meta",
+   "sha256": "043a028cb5e22eb8d75864ed073994d99a9101adc920f124ee8c6f697a5516a5"
+  },
+  {
+   "path": "Tower/Textures/texture.png",
+   "sha256": "b038466b1e2cca1d26ea8c9d6ee74f09ce415e67400b69966079ce0c4980a283"
+  },
+  {
+   "path": "Tower/Textures/texture.png.meta",
+   "sha256": "af30e9fa73e09ac286ad4cd6aa667d5acba6a3b9735195d8fc2786872a01316a"
+  },
+  {
+   "path": "forest/props/Materials/statue.mat",
+   "sha256": "82e9ba1be3197d75aaa0733d3e6705d705363a9dd9f76c39391a1363389e914c"
+  },
+  {
+   "path": "forest/props/Materials/statue.mat.meta",
+   "sha256": "9b61dd54c17aeaa30e7174bc31c87a4460dc0eb529ac2ae60b112131f8266bfa"
+  },
+  {
+   "path": "forest/props/statue broken.FBX",
+   "sha256": "7a70e8c890a896f2561a36a7f2e5c542d49244add35721d2ca0954075147e29b"
+  },
+  {
+   "path": "forest/props/statue broken.FBX.meta",
+   "sha256": "86372a504edd3fec8861c0173f0b50b829fa50558afdc8c5459abe58629cac7f"
+  },
+  {
+   "path": "forest/props/statue head.FBX",
+   "sha256": "a120e067326796737b256f7c5734bb5b329ca15d5fe281650a27d64a454e5ec3"
+  },
+  {
+   "path": "forest/props/statue head.FBX.meta",
+   "sha256": "85208091ee580bc6b79027fb7db733faabae05c93cbafe026f0429a6497b0f4c"
+  },
+  {
+   "path": "forest/props/statue.FBX",
+   "sha256": "ea8db7cdb2f2d0e18e09b8a523a6e68ac5c0beecc85c47c0450a14d57d32db7e"
+  },
+  {
+   "path": "forest/props/statue.FBX.meta",
+   "sha256": "852d0b8379fd321e3d44d99989f0fa04be9a6a36d12617ed203b3a2ff60828df"
+  },
+  {
+   "path": "forest/props/statue.tga",
+   "sha256": "736540219d00dbaad6b1b3b1bd9f970a1b5f77e9498c509920a09f3ba6a6fdc4"
+  },
+  {
+   "path": "forest/props/statue.tga.meta",
+   "sha256": "f12c4590b6a8b96820329fb0bf6afb1b051e1e022155564986f7ad56b371e101"
+  },
+  {
+   "path": "forest/rock_clifs/Materials/rocks.mat",
+   "sha256": "b3709e9ae22ffc88d2db5ff5d06b8ea45fbf693d1f615d74afe5d92fe20da820"
+  },
+  {
+   "path": "forest/rock_clifs/Materials/rocks.mat.meta",
+   "sha256": "f5d677f594945fe0ca57e7d542fee7c6039c991ce5ea4ec0e8f3bffe4015d0fd"
+  },
+  {
+   "path": "forest/rock_clifs/rock flat.FBX",
+   "sha256": "c792a1d02a81d1fb7cd3b6b8e1c0f70a070faeb9c8cef92564c64a7392861531"
+  },
+  {
+   "path": "forest/rock_clifs/rock flat.FBX.meta",
+   "sha256": "448b26c99f0c74f9a1568c1c91a188320f36544a75e6e6be067512608e8257c5"
+  },
+  {
+   "path": "forest/rock_clifs/rocks.tga",
+   "sha256": "c2ba8d9411dceaede511bd73e10f471936ee4f5543d5306e4bf5826bca58b98c"
+  },
+  {
+   "path": "forest/rock_clifs/rocks.tga.meta",
+   "sha256": "a7f332a14692fc3a79323a090e3d11fbd95d30a6893d8ccb317ebb2107e0bc2d"
   }
  ],
  "textures": {
@@ -3007,6 +3985,7 @@
   "textures/tex_roof.jpg": 39587,
   "textures/House1.jpg": 42213,
   "textures/Wall1.jpg": 40341,
+  "textures/Tree-256.png": 19875,
   "textures/Pine_bark-256.jpg": 10059,
   "textures/Pine_leaves-256.png": 44357,
   "textures/Oak_bark-256.jpg": 5464,
@@ -3023,10 +4002,33 @@
   "textures/Rock2-256.jpg": 7853,
   "textures/Rock3-256.jpg": 8646,
   "textures/Stone-256.jpg": 8102,
+  "textures/House1-256.jpg": 13494,
+  "textures/WindmillAtlas-256.png": 35026,
+  "textures/cart-256.jpg": 11790,
+  "textures/Storage-256.jpg": 14486,
+  "textures/tex_sheet_interior-256.jpg": 12313,
+  "textures/texture-256.jpg": 15632,
+  "textures/Wall1-256.jpg": 13701,
+  "textures/statue-256.jpg": 13749,
+  "textures/rocks-256.jpg": 9429,
+  "textures/Plant-256.png": 33784,
+  "textures/tex_floorTile-256.jpg": 7202,
+  "textures/tex_brick-256.jpg": 9696,
+  "textures/tex_wood-256.jpg": 10319,
   "textures/ground_grass.jpg": 36018,
   "textures/ground_soil.jpg": 38393,
   "textures/ground_rock.jpg": 16771,
   "textures/ground_road.jpg": 17581,
-  "textures/ground_stones.jpg": 44075
+  "textures/ground_stones.jpg": 44075,
+  "textures/Grass_normal_down.jpg": 9075,
+  "textures/Grass_darked_down.jpg": 7094,
+  "textures/Grass_lighted_down.jpg": 12309,
+  "textures/Grass_swamp_normal_down.jpg": 9547,
+  "textures/dirt_clay_down.jpg": 3565,
+  "textures/dirt_normal_down.jpg": 4289,
+  "textures/dirt_lighted_rocks_down.jpg": 10540,
+  "textures/dirt_desatured_down.jpg": 4130,
+  "textures/snow_normal.jpg": 3069,
+  "textures/snow_dark.jpg": 4963
  }
 }

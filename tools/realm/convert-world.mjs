@@ -17,7 +17,7 @@ if (!args.source || !args.three || !args.modules) throw Error('Required: --sourc
 const out = path.resolve(args.out || path.join(path.dirname(fileURLToPath(import.meta.url)), '../../models/realm/world-v1'));
 const only = args.only ? new Set(args.only.split(',')) : null;
 fs.mkdirSync(out, {recursive: true});
-const U = await createUnity({assets: args.source, three: args.three, packs: ['3DForge', 'FantasyEnvironments', 'StylizedDarkCastle', 'Toon_RTS']});
+const U = await createUnity({assets: args.source, three: args.three, packs: ['3DForge', 'FantasyEnvironments', 'StylizedDarkCastle', 'Toon_RTS', 'Polygrade', 'Tower', 'forest']});
 const {T} = U;
 const P = await createPacker({T, three: args.three, modules: args.modules, out, TGALoader: U.TGALoader, textureSize: 512});
 
@@ -223,7 +223,9 @@ const WALLS = [
   {post: () => group(place(PART + 'Pillar.prefab', {scale: [.62, .6, .62]}), place(PART + 'Pillar.prefab', {at: [0, 1.75, 0], scale: [.7, .06, .7]})),
     rail: () => curtain(PART + 'Wall_ArrowSlit.prefab', .22)}
 ];
+const POLY = 'Polygrade/Top_Down Medieval City/Windmill_Free/Prefabs/';
 const NATURE = {
+  pineLow: POLY + 'Tree.prefab',
   pine1: TREES + 'Pine_tree1.prefab', pine2: TREES + 'Pine_tree2.prefab', pine3: TREES + 'Pine_tree3.prefab', oak1: TREES + 'Oak_tree1.prefab',
   oak2: TREES + 'Oak_tree2.prefab', birch1: TREES + 'Birch_tree1.prefab', birch2: TREES + 'Birch_tree2.prefab', deciduous1: TREES + 'Deciduous_tree1.prefab',
   deciduous2: TREES + 'Deciduous_tree2.prefab', willow1: TREES + 'Willow_tree1.prefab', pineStump: TREES + 'Pine_stump.prefab', stump: TREES + 'Deciduous_tree_stump.prefab',
@@ -231,6 +233,32 @@ const NATURE = {
   // (no undergrowth: ferns and grass blades read as specks from the game's camera)
 };
 const GROUND = ['ground_grass', 'ground_soil', 'ground_rock', 'ground_road', 'ground_stones'];
+// The hand-painted ground (Handpainted_Grass_and_Ground_Textures): each land's grass, earth, sand and snow.
+const HP = 'Handpainted_Grass_and_Ground_Textures/Textures/';
+const PAINTED = {grass: HP + 'Grass/Grass_normal/Grass_normal_down.png', grassDark: HP + 'Grass/Grass_darked/Grass_darked_down.png',
+  grassLight: HP + 'Grass/Grass_lighted/Grass_lighted_down.png', swamp: HP + 'Grass/Grass_swamp_normal/Grass_swamp_normal_down.png',
+  earth: HP + 'Dirt/dirt_clay/dirt_clay_down.png', sand: HP + 'Dirt/dirt_normal/dirt_normal_down.png', sandStones: HP + 'Dirt/dirt_lighted_rocks/dirt_lighted_rocks_down.png',
+  dust: HP + 'Dirt/dirt_desatured/dirt_desatured_down.png', snow: HP + 'Snow/snow_normal.png', snowDark: HP + 'Snow/snow_dark.png'};
+// The country round the base: hamlets, farms, windmills, landmarks and the undergrowth (metres; views/realm-world.js).
+const FOREST = 'forest/';
+const VILLAGE = {
+  house1: [TOWN + 'House1.prefab', 900], house2: [TOWN + 'House2.prefab', 1000], house3: [TOWN + 'House3.prefab', 600],
+  windmill: [POLY + 'Medieval_Windmill.prefab', 2600, {keep: ['Fan'], spin: ['Fan']}],
+  cart: [TOWN + 'cart2.prefab', 1200], wagon: [TOWN + 'cart4.prefab', 4000], barrel: [TOWN + 'storage_barrel.prefab', 300],
+  barrels: [INT + 'Barrel_Stack.prefab', 400], sack: [TOWN + 'storage_bag.prefab', 160], basket: [TOWN + 'storage_basket.prefab', 220],
+  crate: [INT + 'Crate.prefab', 160], firewood: [INT + 'FireWood.prefab', 140],
+  wizardTower: ['Tower/Prefab/Tower Mage.prefab', 1800], watchtower: [TOWN + 'Wall_tower2.prefab', 700],
+  statue: [FOREST + 'props/statue.FBX', 900], statueBroken: [FOREST + 'props/statue broken.FBX', 400], statueHead: [FOREST + 'props/statue head.FBX', 540],
+  slab: [FOREST + 'rock_clifs/rock flat.FBX', 140],
+  // (these plants' prefabs lie on their backs: their models' own turn upright isn't in them; stood up here)
+  rye: [NAT + 'Rye.prefab', 60, {upright: true}], sunflower: [NAT + 'Sunflower.prefab', 400, {upright: true}],
+  bush: [NAT + 'Bush1.prefab', 60, {upright: true}], fern: [NAT + 'Plant3.prefab', 400], flowers: [NAT + 'Flower5.prefab', 160, {upright: true}], blooms: [NAT + 'Flower1.prefab', 80, {upright: true}],
+  mushroom: [NAT + 'Mushroom2.prefab', 240], mushrooms: [NAT + 'Mushroom4.prefab', 270], toadstool: [NAT + 'Mushroom1.prefab', 270],
+  // (a dark castle's broken walls by the old statues; a timber fence round the fields: posts and two rails, 3 m)
+  ruinWall: [PART + 'Wall_ArrowSlit.prefab', 120], ruinArch: [PART + 'Wall_Window.prefab', 160], ruinEnd: [PART + 'Wall_End.prefab', 120], pillar: [PART + 'Pillar.prefab', 140],
+  fence: [() => group(mesh(new T.BoxGeometry(.16, 1.2, .16), TIMBER, [-1.5, .6, 0]), mesh(new T.BoxGeometry(.16, 1.2, .16), TIMBER, [1.5, .6, 0]),
+    mesh(new T.BoxGeometry(3.1, .1, .07), TIMBER, [0, .45, 0]), mesh(new T.BoxGeometry(3.1, .1, .07), TIMBER, [0, .95, 0])), 80]
+};
 
 const manifest = {version: 1, generator: 'convert-world.mjs / three@0.160.0', units: 'Buildings: largest horizontal side 1. Walls: 1 = one tile. Nature: metres.', files: {}, ground: {}, sources: []};
 const want = k => !only || only.has(k);
@@ -272,9 +300,30 @@ if (want('nature')) {
   manifest.files['nature.glb'].bytes = await P.write('nature.glb', nodes);
   console.log('nature', manifest.files['nature.glb'].bytes);
 }
+if (want('village')) {
+  const nodes = [];
+  for (const [name, [src, budget, extra]] of Object.entries(VILLAGE)) {
+    try {
+      let g = typeof src === 'function' ? src() : src.endsWith('.prefab') ? U.prefab(src) : U.model(src);
+      if (extra?.upright) { const w = new T.Group(); w.rotation.x = Math.PI / 2; w.add(g); g = w; }
+      const {node, info} = await P.unit(name, g, {unit: 1, textureSize: {default: 256}, maxTriangles: budget, ...extra});
+      nodes.push(node);
+      (manifest.files['village.glb'] ||= {nodes: {}}).nodes[name] = info;
+    } catch (e) { console.warn('village: skipped', name, e.message); }
+  }
+  P.prepare();
+  manifest.files['village.glb'].bytes = await P.write('village.glb', nodes);
+  console.log('village', manifest.files['village.glb'].bytes, nodes.length, 'props');
+}
 if (want('ground')) {
   for (const name of GROUND) {
     const file = path.join(U.root, FE + 'Textures', name + '.png');
+    U.used.add(file);
+    const t = await P.texture(file, 512);
+    manifest.ground[name] = t.uri;
+  }
+  for (const [name, rel] of Object.entries(PAINTED)) {
+    const file = path.join(U.root, rel);
     U.used.add(file);
     const t = await P.texture(file, 512);
     manifest.ground[name] = t.uri;
