@@ -8,7 +8,8 @@ import * as features from '../core/features.js';
 // moat round it, pines beyond and mountains far off). The Castle, gold mines, archer towers and dragon hatcheries are drawn
 // from their art (views/realm-sprites.js), and folk stand about: villagers at work by their buildings, an archer up each tower, a cannon's crew round it. It
 // draws when something moved (a finger, a raid) and, while there are folk about, a few times a second for them.
-// In a raid it also draws the raiders (instanced: a few draw calls however many), each drawn from his picture (img/realm/
+// Footmen, archers and village workers use animated Western Kingdoms models (realm-characters.js).
+// Other raid troops retain their instanced pictures (img/realm/
 // army/, tools/realm/army.py: stood up facing the camera, turned the way he's going, a soft shadow under him; the
 // Dragon in the air: drawn in 3D from its model once that's in, views/realm-dragon.js, as is the Dragon Hero, the
 // dragon over the hatchery at home and the scenery's), what
@@ -24,6 +25,7 @@ import {createAmbience} from './realm-ambience.js';
 import {villageGroundTexture} from './realm-ground.js';
 import {createGrassWallpaper} from './realm-grass.js';
 import {createHomeNPCs, createBattleHeroes} from './realm-npcs.js';
+import * as CH from './realm-characters.js';
 import {createRaidAttacks} from './realm-attack-art.js';
 import {isDragonKind, loadDragon, onDragonReady, createBattleDragons, createHomeDragon, createSceneryDragons} from './realm-dragon.js';
 const V = new URL('../vendor/three/', import.meta.url).href;
@@ -96,7 +98,7 @@ export function load(theme = 'coast') {
   const epoch = LOAD_EPOCH, active = () => features.available() && epoch === LOAD_EPOCH;
   if (LOADING) return LOADING.then(async ok => {
     if (!ok || !active()) return false;
-    await Promise.all([SPR.load(), sceneryFor(fileFor(theme, shapeOf(innerWidth, innerHeight)))]);
+    await Promise.all([SPR.load(), CH.load(T), sceneryFor(fileFor(theme, shapeOf(innerWidth, innerHeight)))]);
     return active();
   });
   const task = (async () => {
@@ -107,7 +109,7 @@ export function load(theme = 'coast') {
       if (!active()) return false;
       T = three; RE = RoomEnvironment;
       FM.init(T, BU); SPR.init(T, PITCH);
-      await Promise.all([SPR.load(), army(), sceneryFor(fileFor(theme, shapeOf(innerWidth, innerHeight)))]);
+      await Promise.all([SPR.load(), army(), CH.load(T), sceneryFor(fileFor(theme, shapeOf(innerWidth, innerHeight)))]);
       if (!active()) return false;
       try { await document.fonts.load('800 60px "Barlow Condensed"'); } catch (_) {}
       return active();
@@ -763,7 +765,12 @@ export function create(host, opts = {}) {
         root.add(g);
         e = {g, key, b, folk: []};
         groups.set(b.i, e);
-        if (SPR.folkReady()) SPR.crewOf(b, status, size).forEach((c, j) => { const sp = SPR.folk(); scene.add(sp); e.folk.push({sp, c, ph: ((b.i * 7919 + j * 104729) % 1000) / 1000}); });
+        if (SPR.folkReady()) SPR.crewOf(b, status, size).forEach((c, j) => {
+          const sp = SPR.folk(), ph = ((b.i * 7919 + j * 104729) % 1000) / 1000;
+          const actor = (c.role === 'work' || c.role === 'build') ? CH.create('worker', {height: 1.05, phase: ph}) : null;
+          scene.add(sp); if (actor) scene.add(actor.root);
+          e.folk.push({sp, c, ph, actor});
+        });
       }
       e.b = b;
       e.g.position.set(W(b.x + size / 2), 0, W(b.y + size / 2));
@@ -800,13 +807,23 @@ export function create(host, opts = {}) {
   // as the arrow goes) and a cannon's crew works the gun while it's firing. Each is drawn a little nearer the camera
   // than where he stands (his place on the screen kept), so the building he's by never covers him.
   const camR = new T.Vector3(), camU = new T.Vector3(), fp = new T.Vector3(), toCam = new T.Vector3();
-  function dropFolk(e) { (e.folk || []).forEach(f => { scene.remove(f.sp); f.sp.material.map.dispose(); f.sp.material.dispose(); }); e.folk = []; }
+  function dropFolk(e) { (e.folk || []).forEach(f => { if (f.actor) f.actor.dispose(); scene.remove(f.sp); f.sp.material.map.dispose(); f.sp.material.dispose(); }); e.folk = []; }
   function folkFrame(now) {
     if (!SPR.folkReady()) return;
     camR.setFromMatrixColumn(cam.matrixWorld, 0); camU.setFromMatrixColumn(cam.matrixWorld, 1);
     const sec = now / 1000;
     groups.forEach(e => e.folk.forEach(f => {
       const c = f.c, n = SPR.FOLK[c.sheet].length;
+      if (f.actor) {
+        f.sp.visible = false;
+        f.actor.root.visible = features.available() && !(c.role === 'work' && raid) && view.dist < 145;
+        if (!f.actor.root.visible) return;
+        const g = e.g.position, cycle = (sec + f.ph * 9) % 7;
+        f.actor.root.position.set(g.x + c.u, g.y, g.z + c.v);
+        f.actor.root.rotation.y = Math.atan2(-c.u, -c.v);
+        f.actor.pose(cycle < 5 ? 'work' : 'idle', sec);
+        return;
+      }
       if (c.role === 'work' && raid) { f.sp.visible = false; return; }
       f.sp.visible = true;
       let i = 0, flip = c.flip;
@@ -839,11 +856,15 @@ export function create(host, opts = {}) {
     }));
   }
   // (a few frames a second while there are folk about and no raid's drawing every frame)
+  let folkTick = 0;
   const folkTimer = setInterval(() => {
     if (raid || dead || lost || document.visibilityState !== 'visible' || !features.available()) return;
+    const now = performance.now(), animatedWorker = [...groups.values()].some(e => e.folk.some(f => f.actor && f.actor.root.visible));
+    if (now - folkTick < (animatedWorker ? 45 : 150)) return;
+    folkTick = now;
     if ((homeNPCs && homeNPCs.animated) || (homeDragon && homeDragon.animated)) { want(); return; }
     if (SPR.folkReady()) for (const e of groups.values()) if (e.folk.length) { want(); break; }
-  }, 160);
+  }, 50);
 
   // ---- the selected building: a ring of light round its footprint; moving it, a green or red square under it
   const sel = {id: null, mesh: null, foot: null, t0: 0, moving: null};
@@ -1056,7 +1077,7 @@ export function create(host, opts = {}) {
   function installAttackSheets(R) {
     if (dead || !features.available() || raid !== R) return;
     Object.entries(R.meshes).forEach(([kind, M]) => {
-      if (M.sheet) return;
+      if (M.sheet || M.characters) return;
       const sheet = R.attacks.sheet(kind);
       if (!sheet) return;
       const capacity = (M.art || M.body).instanceMatrix.count;
@@ -1104,6 +1125,10 @@ export function create(host, opts = {}) {
     kinds.forEach(k => {
       const n = Math.max(1, need[k]);
       shadows += n;
+      if ((k === 'footman' || k === 'archer') && CH.ready(k)) {
+        meshes[k] = {characters: new Map(), capacity: n};
+        return;
+      }
       const A = ARMY[k];
       if (A) {
         // his picture on a card a tile across, its anchor (where he stands) at the origin; scaled to size each frame
@@ -1200,12 +1225,15 @@ export function create(host, opts = {}) {
     if (dead || !features.available()) { raidStop(); return; }
     const need = armyNeed(B), fits = raid && raid.raider === raider && Object.keys(need).every(k => {
       const M = raid.meshes[k], n = need[k];
-      return !n || (!!M && n <= (M.art || M.body).instanceMatrix.count);
+      return !n || (!!M && n <= (M.characters ? M.capacity : (M.art || M.body).instanceMatrix.count));
     });
     if (!fits) { raidStart(B, raider); return; }
     raid.dragons.reset(); raid.need = need;
     groups.forEach(e => SPR.animateDefense(e.g, e.b.t, Infinity));
-    Object.values(raid.meshes).forEach(M => { if (M.art) M.art.count = 0; else M.body.count = M.leg.count = 0; });
+    Object.values(raid.meshes).forEach(M => {
+      if (M.characters) { M.characters.forEach(a => a.model.dispose()); M.characters.clear(); }
+      else if (M.art) M.art.count = 0; else M.body.count = M.leg.count = 0;
+    });
     raid.shadow.count = 0;
     Object.values(raid.fly).forEach(M => { M.count = 0; });
     raid.puffs.forEach(p => { p.sp.visible = false; p.t0 = -9; });
@@ -1241,7 +1269,10 @@ export function create(host, opts = {}) {
     // drawn from the model, so the attack art (main's, from the picture's mouth) and the model never both draw it)
     const byModel = s => {
       let m = R.byModel.get(s);
-      if (m === undefined) { m = isDragonKind(s.k) && R.dragons.modelled((s.foe ? 'd:' : 'a:') + s.from); R.byModel.set(s, m); }
+      if (m === undefined) {
+        m = (s.k === 'archer' && !!R.meshes.archer?.characters) || (isDragonKind(s.k) && R.dragons.modelled((s.foe ? 'd:' : 'a:') + s.from));
+        R.byModel.set(s, m);
+      }
       return m;
     };
     R.attacks.update(B, t, byModel);
@@ -1253,8 +1284,43 @@ export function create(host, opts = {}) {
     // (every kind of dragon its picture, kind 'dragon' (main's attack atlas once that's in), till the model draws it;
     // one defending too)
     const soldier = u => {
-      if (u.dead || drawn.has(u)) return;
+      if (drawn.has(u)) return;
       const kind = isDragonKind(u.t) ? 'dragon' : u.t, M = R.meshes[kind], at = M && locate(u);
+      if (M && M.characters && at) {
+        let a = M.characters.get(u.id);
+        if (!a && !u.dead && M.characters.size < M.capacity) {
+          const model = CH.create(u.t, {height: 1.15, phase: (u.id * .618) % 1});
+          if (!model) return;
+          a = {model, hp: u.hp, hurt: -9, death: null}; M.characters.set(u.id, a); scene.add(model.root);
+        }
+        if (!a) return;
+        if (u.dead) {
+          if (a.death == null) a.death = t;
+          a.model.pose('death', t, {event: a.death});
+          if (t - a.death > Math.max(1.5, a.model.duration)) { a.model.dispose(); M.characters.delete(u.id); }
+          return;
+        }
+        if (u.hp < a.hp) a.hurt = t;
+        a.hp = u.hp;
+        const attackAge = t - u.hitAt;
+        // The simulation is up to one step ahead of this interpolated frame.
+        const attacking = !at.moving && attackAge >= -.101 && attackAge < 1;
+        const state = attacking ? 'attack' : t - a.hurt < .25 ? 'hit' : at.moving ? 'run' : 'idle';
+        // Source clips release the bow at frame 10–11/40 and strike with the
+        // sword at frame 11–12/40. Align those poses to hitAt; recovery wraps
+        // into the next windup before the next one-second simulation hit.
+        const release = u.t === 'archer' ? .265 : .29;
+        const attackStart = u.hitAt - release + Math.floor(Math.max(0, attackAge + release));
+        a.model.root.position.set(W(at.x), 0, W(at.y)); a.model.root.rotation.y = Math.PI / 2 - u.face;
+        a.model.pose(state, t, {event: state === 'attack' ? attackStart : state === 'hit' ? a.hurt : undefined,
+          rate: state === 'attack' ? a.model.durationOf('attack') : 1});
+        if (nShadow < R.shadow.instanceMatrix.count) {
+          m4.compose(pv.set(W(at.x), 0, W(at.y)), q.identity(), ssc.set(.65, 1, .42));
+          R.shadow.setMatrixAt(nShadow++, m4);
+        }
+        return;
+      }
+      if (u.dead) return;
       if (!at || counts[kind] >= (M.art || M.body).instanceMatrix.count || nShadow >= R.shadow.instanceMatrix.count) return;
       const x = at.x, y = at.y, moving = at.moving, uid = Number(u.id) || 0, swing = moving ? Math.sin(t * 14 + uid) * .6 : 0;
       const attackAge = t - u.hitAt;
@@ -1310,6 +1376,7 @@ export function create(host, opts = {}) {
     B.tr.forEach(soldier);
     (B.defenders || []).forEach(u => { if (isDragonKind(u.t)) soldier(u); });
     Object.entries(R.meshes).forEach(([k, M]) => {
+      if (M.characters) return;
       if (M.art) { M.art.count = counts[k]; M.art.instanceMatrix.needsUpdate = true; if (M.frames) M.frames.needsUpdate = true; return; }
       M.body.count = counts[k]; M.leg.count = counts[k] * 2; M.body.instanceMatrix.needsUpdate = true; M.leg.instanceMatrix.needsUpdate = true;
     });
@@ -1325,13 +1392,13 @@ export function create(host, opts = {}) {
       // from the model (byModel); else main's attack art draws it from the picture's mouth once that's in; else the flame
       // below from where the picture flies)
       const dragon = isDragonKind(s.k);
-      if (!(dragon && byModel(s)) && R.attacks.handlesShot(s)) return;
+      if (!byModel(s) && R.attacks.handlesShot(s)) return;
       const kind = dragon ? 'fire' : KIND[s.k];
       if (!kind) return;
       const M = R.fly[kind];
       if (n[kind] >= M.instanceMatrix.count) return;
       const u = Math.max(0, Math.min(1, (t - s.t0) / Math.max(.01, s.t1 - s.t0))), arc = dragon ? ARC.dragon : ARC[s.k] || .5;
-      const y0 = dragon ? 2.2 : s.foe ? (s.k === 'tower' ? 2.6 : s.k === 'cannon' ? .68 : 1.1) : .55, y1 = s.high ? 2.3 : .35;
+      const y0 = dragon ? 2.2 : s.foe ? (s.k === 'tower' ? 2.6 : s.k === 'cannon' ? .68 : 1.1) : (s.k === 'archer' && byModel(s) ? .72 : .55), y1 = s.high ? 2.3 : .35;
       // (a tower's arrow leaves from its archer's bow; a dragon's fire from its mouth, where it was as it struck, when
       // it's drawn from the model)
       const archer = s.foe && s.k === 'tower' ? archerAt(s.from) : null;
@@ -1406,6 +1473,7 @@ export function create(host, opts = {}) {
     raid.attacks.dispose();
     raid.dragons.dispose();
     Object.values(raid.meshes).forEach(M => {
+      if (M.characters) { M.characters.forEach(a => a.model.dispose()); M.characters.clear(); return; }
       if (M.art) { scene.remove(M.art); M.art.geometry.dispose(); M.art.material.dispose(); M.art.dispose(); return; }
       scene.remove(M.body, M.leg); M.body.dispose(); M.leg.dispose();
     });

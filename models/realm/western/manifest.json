@@ -1,0 +1,215 @@
+{
+  "version": 1,
+  "generator": "convert-western.mjs / three@0.160.0",
+  "sourcePackage": "Toon RTS Units 1.4 / WesternKingdoms",
+  "axes": {
+    "up": "+Y",
+    "forward": "+Z"
+  },
+  "normalizedHeight": 1,
+  "rootMotion": "Horizontal translation removed from idle/walk/run; game controls travel.",
+  "texture": {
+    "source": "models/Materials/textures/WK_Standard_Units.tga",
+    "sha256": "ab493ca4bbc7c464759698e9ea793b0ace621e149e300fddca79aa6b21263183",
+    "width": 512,
+    "height": 512,
+    "sourceWidth": 2048,
+    "sourceHeight": 2048
+  },
+  "units": {
+    "footman": {
+      "file": "footman.glb",
+      "source": "models/single_mesh/WK_SM_Light_Infantry_A.FBX",
+      "sha256": "944e9e7461d97ad48a0da5164a61dcef25673f4b1a81ab352beef0012f1d6769",
+      "bytes": 754468,
+      "meshes": 1,
+      "vertices": 1230,
+      "triangles": 410,
+      "sourceStandingHeight": 60.274195922018,
+      "sourceGroundY": -0.354994414234376,
+      "height": 1,
+      "animations": [
+        {
+          "name": "idle",
+          "duration": 3.3333332538604736,
+          "tracks": 24,
+          "loop": true,
+          "source": "animation/Infantry/WK_infantry_01_idle.FBX",
+          "sha256": "38e8fd2e5c6bb620e63544f3293e18e5d89accb06ea9240925eea5ac98055356"
+        },
+        {
+          "name": "walk",
+          "duration": 1.2000000476837158,
+          "tracks": 24,
+          "loop": true,
+          "source": "animation/Infantry/WK_infantry_02_walk.FBX",
+          "sha256": "190d8a209280cb2ac92e3657e418527be458b94f4fc490ecc1a26e68243d297f"
+        },
+        {
+          "name": "run",
+          "duration": 1,
+          "tracks": 24,
+          "loop": true,
+          "source": "animation/Infantry/WK_infantry_03_run.FBX",
+          "sha256": "a272315ad446eee58a57b8041fb87a7cfb9611beef5331bd451482a9da1a2465"
+        },
+        {
+          "name": "attack",
+          "duration": 1.3333333730697632,
+          "tracks": 24,
+          "loop": false,
+          "source": "animation/Infantry/WK_infantry_07_attack_A.FBX",
+          "sha256": "9496cba1f073412daf59c4642e892ffacbf147e86818f041ddc3599ea5573c9d"
+        },
+        {
+          "name": "hit",
+          "duration": 0.6666666865348816,
+          "tracks": 24,
+          "loop": false,
+          "source": "animation/Infantry/WK_infantry_09_take_damage.FBX",
+          "sha256": "a149f6c3d592279dd6b35f3108b26dc9df3ce8fd97ededf1a3d2cebad3abe28f"
+        },
+        {
+          "name": "death",
+          "duration": 1.6666666269302368,
+          "tracks": 24,
+          "loop": false,
+          "source": "animation/Infantry/WK_infantry_10_death_A.FBX",
+          "sha256": "ca4a8be6c377245b550c3e71396d6ac28186932a9d500b0f76dac1c4e3b55b4a"
+        }
+      ]
+    },
+    "archer": {
+      "file": "archer.glb",
+      "source": "models/single_mesh/WK_SM_Archer_A.FBX",
+      "sha256": "917df3b118d7309e71039efc8d13a811de7143e6ac0d1a6cdbc700fa1dfb915a",
+      "bytes": 764640,
+      "meshes": 1,
+      "vertices": 1311,
+      "triangles": 437,
+      "sourceStandingHeight": 61.73096068790036,
+      "sourceGroundY": -0.34969109439273904,
+      "height": 1,
+      "animations": [
+        {
+          "name": "idle",
+          "duration": 3.3333332538604736,
+          "tracks": 24,
+          "loop": true,
+          "source": "animation/Archer/WK_archer_01_idle.FBX",
+          "sha256": "6cd8eda9f713097da5849ad642a3aa02ebb4ef5fb0da7f6b4228eb2a3f9b8a4b"
+        },
+        {
+          "name": "walk",
+          "duration": 1.2000000476837158,
+          "tracks": 24,
+          "loop": true,
+          "source": "animation/Archer/WK_archer_02_walk.FBX",
+          "sha256": "9b448807ca884292744c2b3aab1023ea6b770645a56f2047cec2ccfac63a436d"
+        },
+        {
+          "name": "run",
+          "duration": 1,
+          "tracks": 24,
+          "loop": true,
+          "source": "animation/Archer/WK_archer_03_run.FBX",
+          "sha256": "f40644dd7eb4bb0c8fabe103a0d2e16b1d45dbadcdad755dfbef41a29382bd42"
+        },
+        {
+          "name": "attack",
+          "duration": 1.3333333730697632,
+          "tracks": 24,
+          "loop": false,
+          "source": "animation/Archer/WK_archer_07_attack.FBX",
+          "sha256": "5d7e4a7db0df7a8848464264d9a312eea5126156763b5a65a993311a63ebff72"
+        },
+        {
+          "name": "hit",
+          "duration": 0.6666666865348816,
+          "tracks": 24,
+          "loop": false,
+          "source": "animation/Archer/WK_archer_09_take_damage.FBX",
+          "sha256": "4f806c8dd9d191a4c8fbaa830387956077bb55bfdeee2da02cff7cbb8043bd0a"
+        },
+        {
+          "name": "death",
+          "duration": 1.6666666269302368,
+          "tracks": 24,
+          "loop": false,
+          "source": "animation/Archer/WK_archer_10_death_A.FBX",
+          "sha256": "69ae35c38c67828be70dabce2d1f0f620efa7177ac976fb8b0ce3acde9812e22"
+        }
+      ]
+    },
+    "worker": {
+      "file": "worker.glb",
+      "source": "models/single_mesh/WK_Worker_A.FBX",
+      "sha256": "23b748391c2e9f6b5f7a414f343485d9e7c7c9d553e60e7ae9399b982accf6c0",
+      "bytes": 798688,
+      "meshes": 1,
+      "vertices": 1374,
+      "triangles": 458,
+      "sourceStandingHeight": 56.26797955005509,
+      "sourceGroundY": -0.2699458934327565,
+      "height": 1,
+      "animations": [
+        {
+          "name": "idle",
+          "duration": 3.3333332538604736,
+          "tracks": 30,
+          "loop": true,
+          "source": "animation/Worker/WK_worker_01_idle.FBX",
+          "sha256": "d75438827172b1227f3d5e395fa8242a0b1d64171616e8ee595e483ed2dc1924"
+        },
+        {
+          "name": "walk",
+          "duration": 1.2000000476837158,
+          "tracks": 30,
+          "loop": true,
+          "source": "animation/Worker/WK_worker_02_walk.FBX",
+          "sha256": "5fefa0296d1c8c7fca5dcee49155e64607faa79fcc961bcd77114692b0b84fc2"
+        },
+        {
+          "name": "run",
+          "duration": 1,
+          "tracks": 30,
+          "loop": true,
+          "source": "animation/Worker/WK_worker_03_run.FBX",
+          "sha256": "293953d76dc775ab1bccb8f5b6d20a4852a5f9c020d9dadbec344af78b1822d2"
+        },
+        {
+          "name": "attack",
+          "duration": 1.3333333730697632,
+          "tracks": 30,
+          "loop": false,
+          "source": "animation/Worker/WK_worker_07_attack.FBX",
+          "sha256": "63ccdd5c90fc523a3d7c7fe23bc0813b231ef10d004390fee60186e928baf8a3"
+        },
+        {
+          "name": "hit",
+          "duration": 0.6666666865348816,
+          "tracks": 30,
+          "loop": false,
+          "source": "animation/Worker/WK_worker_09_take_damage.FBX",
+          "sha256": "b06dc7b7438028f63e16bbb67d1ddb37d036303f93ef23683e554a79b111f626"
+        },
+        {
+          "name": "death",
+          "duration": 1.6666666269302368,
+          "tracks": 30,
+          "loop": false,
+          "source": "animation/Worker/WK_worker_10_death_A.FBX",
+          "sha256": "9c6720885a7ea6c7e7d4b358fd91e4c6d3c762b84f924023eda8c96ba0095190"
+        },
+        {
+          "name": "work",
+          "duration": 0.8999999761581421,
+          "tracks": 30,
+          "loop": true,
+          "source": "animation/Worker/WK_worker_12_working_A.FBX",
+          "sha256": "cdaea54c65f6928700e930a98d010b94618ec84f8487d7540afc1589ea12db34"
+        }
+      ]
+    }
+  }
+}
