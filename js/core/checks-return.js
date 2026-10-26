@@ -475,7 +475,7 @@ export async function returnChecks(check) {
     const pass = out.shown && out.owner && /Zed/.test(out.rows) && /Zed/.test(out.week) && out.ryan && /Mason/.test(out.rows) && !out.nobody && !/Setup/.test(out.rows) && !reads.length;
     return {pass, detail: `rows ${out.rows}; week ${out.week}; guest shown ${out.shown} (on the owner's phone ${out.owner}); no one's row shown ${out.nobody}; ${reads.length ? 'reads LB.all: ' + reads.join() : 'no LB.all reads'}`};
   });
-  check('Return Man is open to everyone: on every phone\'s list and /puzzles/return opens its page; its supplied Return Man 2 cover has no BETA tag', () => {
+  check('Return Man is open to everyone: on every phone\'s list and /puzzles/return opens its page; its supplied Return Man cover has no BETA tag', () => {
     const who = ['evan', 'mitch', null];
     const open = who.every(w => gameFor('return', w) === 'return');
     const lists = who.map(w => gamesFor(w).map(g => g.id).join());
@@ -485,7 +485,7 @@ export async function returnChecks(check) {
     const tagged = [...host.querySelectorAll('.gm-slot:not([data-gm-clone])')].filter(sl => sl.querySelector('.gm-front .gm-beta')).map(sl => sl.dataset.gmSlot).join();
     const game = GAMES.find(g => g.id === 'return');
     const beta = !tagged && !game.beta && !host.querySelector('[data-gm="return"] .gm-beta');
-    const art = game.art === 'img/games/return-man-2-cover.webp' && [...host.querySelectorAll('[data-gm="return"] .gm-front img')].every(img => img.getAttribute('src') === game.art);
+    const art = game.art === 'img/games/return-man-cover.webp' && [...host.querySelectorAll('[data-gm="return"] .gm-front img')].every(img => img.getAttribute('src') === game.art);
     return {pass: open && all && beta && art, detail: `opens on every phone ${open}; lists ${lists.join(' | ')}; BETA on ${tagged || 'none'}; supplied cover ${art}`};
   });
   check('Return Man\'s case turns before it\'s played (the owner\'s ask, Oct 22 2026, for everyone: "the game is repeatable"): on the shelf it stands on its front to play, today\'s leaderboard on its back (TODAY, not FINAL), its edges grab to turn it like a finished game\'s; an unplayed game\'s case still doesn\'t turn', async () => {

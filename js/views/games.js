@@ -10,7 +10,7 @@ import * as features from '../core/features.js';
 // board; tap it and it comes up close with the whole board, Today's or the Season's. The rows come from each game's core
 // (boardRows: daily.LB.raw / LB.players, the board as this phone may see it: THE RULE, CLAUDE.md).
 // 17-0's, the drill's, Kick It's and Return Man's cores load at idle (17-0's and the drill's with their day files);
-// until then their cases open to Start. Return Man is open to everyone with the supplied Return Man 2 cover.
+// until then their cases open to Start. Return Man is open to everyone with the supplied Return Man cover.
 // Exports: GAMES, gameOpen(id), gamesFor(), gamePath(id), dailyKind(), progHTML() (and its fracOf, perfectOf, doneCount),
 // miniRows(rows), rowHTML(row, {sub, who, ale}), listHTML(), mountList(el, ctx) → {refresh(animate), tick(), destroy()},
 // testingAll(), testAll(on).
@@ -35,7 +35,7 @@ export const GAMES = [
   {id: '17-0', name: '17–0', title: '17–0', art: 'img/games/seventeen-cover.webp', book: 'img/games/seventeen-book.webp', disc: 'img/games/seventeen-disc.webp', badge: 'img/seventeen.webp', cd: 'New board in'},
   {id: 'drill', name: 'Two-Minute Drill', title: 'Two-Minute Drill', art: 'img/games/drill-cover.webp', book: 'img/games/drill-book.webp', disc: 'img/games/drill-disc.webp', badge: 'img/drill.webp', cd: 'Next drill in'},
   {id: 'kick', name: 'Kick It', title: 'Kick It', art: 'img/games/kick-cover.webp', book: 'img/games/kick-book.webp', disc: 'img/games/kick-disc.webp', badge: 'img/kick.webp', cd: 'New kicks in'},
-  {id: 'return', name: 'Return Man', title: 'Return Man', art: 'img/games/return-man-2-cover.webp', book: 'img/games/return-book.webp', disc: 'img/games/return-disc.webp', badge: 'img/return.webp', cd: 'Next kickoff in'},
+  {id: 'return', name: 'Return Man', title: 'Return Man', art: 'img/games/return-man-cover.webp', book: 'img/games/return-book.webp', disc: 'img/games/return-disc.webp', badge: 'img/return.webp', cd: 'Next kickoff in'},
   {id: 'keep', name: 'Keepfall', title: 'Keepfall', art: 'img/games/keepfall-cover-v2.webp', book: 'img/games/keepfall-book-v2.webp', disc: 'img/games/keepfall-disc-v2.webp'}
 ];
 const byId = id => GAMES.find(g => g.id === id);
