@@ -296,10 +296,10 @@ const isKeepCase = g => g.id === 'keep' && features.available();
 const GLOSS = '<span class="gm-z-gl" aria-hidden="true"></span>'; // (the shine on a case up close)
 /** A case's sides, its name down the spine (views/game-case.js: the case is solid, turned on the shelf or up close). */
 const sidesHTML = g => shellHTML(`<span class="gm-spine"><b>GRIDIRON HUB</b><span>${esc(g.name)}</span></span>`);
-/** A case's front: the band, the cover (a sticker on it while it's under way). up: the case up close (a tap on it
- *  opens it, a shine moves over it as it turns). */
+/** A case's front: the band, the cover (a sticker on it while it's under way; never on Keepfall's, the owner's ask, Oct
+ *  26 2026: a realm is never finished). up: the case up close (a tap on it opens it, a shine moves over it as it turns). */
 function frontHTML(g, s, up = false) {
-  const stk = s.test ? sticker('is-test', 'TEST PLAY') : s.kind === 'started' ? sticker('is-go', 'IN PROGRESS') : '';
+  const stk = s.test ? sticker('is-test', 'TEST PLAY') : s.kind === 'started' && g.id !== 'keep' ? sticker('is-go', 'IN PROGRESS') : '';
   return `<div class="gm-face gm-front${up ? ' gm-z-front" data-gm-zfront aria-hidden="true' : ''}">${bandHTML('', g.beta)}<span class="gm-art"><img class="gm-img" src="${g.art}" alt="" decoding="async" draggable="false">${stk}</span>${up ? `<span class="gm-z-foot"><i></i>${ui.icon('football')}</span>${GLOSS}` : ''}</div>`;
 }
 // What a place on today's board pays in Keepfall's Ale (the owner's ask, Oct 25 2026: "+#" by each position), on the
@@ -368,7 +368,7 @@ function keepBackHTML(g, up = false) {
 const caseLabel = (g, s) => {
   const name = `${g.name}${g.beta ? ' (beta)' : ''}`;
   if (s.kind === 'done') return `${name}: played today${placeText(s) ? `, ${placeText(s)}` : ''}. Show the leaderboard`;
-  return `${name}${s.kind === 'started' ? ', under way' : ''}${s.kind === 'loading' || s.kind === 'error' ? '' : '. Open the case to play'}`;
+  return `${name}${s.kind === 'started' && g.id !== 'keep' ? ', under way' : ''}${s.kind === 'loading' || s.kind === 'error' ? '' : '. Open the case to play'}`;
 };
 /** A case's faces: its front, and its back when it has one (a game finished; one that turns before it's played). */
 const facesHTML = (g, s) => sidesHTML(g) + frontHTML(g, s) + (isKeepCase(g) ? keepBackHTML(g) : s.kind === 'done' || s.turns ? backHTML(g, s) : '');
