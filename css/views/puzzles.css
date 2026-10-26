@@ -649,10 +649,12 @@ button.gm-r:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
 
 /* A game's own page (pushed over the list): Daily Puzzles' card and leaderboard start under the nav bar. */
 .v-puzzles .c-pz-pane > .c-hero-wrap { margin-top: 8px; }
-/* who was in Keepfall today (the owner's ask, Oct 26 2026): their pictures, bottom left of the cover, across from the sticker */
-.gm-act {
-  position: absolute; bottom: 3cqw; left: 2.6cqw; display: inline-flex; align-items: center; gap: 1.8cqw; padding: .9cqw 2.2cqw .9cqw 1cqw;
-  border-radius: 99px; background: rgba(12,14,16,.78); box-shadow: 0 .8cqw 2cqw rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.12);
-}
-.gm-act .stack { --stack-ring: #121417; }
-.gm-act-t { color: #EEF0F4; font: 800 2.6cqw/1 var(--font-text); letter-spacing: .12em; }
+/* who was in Keepfall today (the owner's asks, Oct 26 2026): under its case, each one's picture and name */
+.v-puzzles .gm-keep-meta { display: flex; flex-direction: column; align-items: center; gap: 12px; max-width: 100%; }
+.gm-act { display: flex; flex-direction: column; align-items: center; gap: 8px; max-width: 100%; }
+.gm-act-h { margin: 0; color: var(--ink-3); font: 700 11px/1 var(--font-text); letter-spacing: .14em; text-transform: uppercase; }
+.gm-act-l { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 0; padding: 0 16px; list-style: none; }
+.gm-act-p { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 3px; border-radius: 999px; background: var(--surface-2);
+  color: var(--ink-2); font: 600 13px/1 var(--font-text); }
+.gm-act-p.is-me { color: var(--ink); box-shadow: inset 0 0 0 1px rgba(255,255,255,.22); }
+.gm-act-p.is-more { padding-left: 10px; color: var(--ink-3); }

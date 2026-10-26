@@ -66,7 +66,7 @@ export async function realmChecks(check) {
     return {pass: ok, detail: `route ${routed}; every realm the attack’s own ${same}; ${R4.name}: ${def.map(d => `${d.n} ${d.t}`).join(', ')} (${counted}); a cannon: ${facts}; ${nests.length} of their hatcheries: ${nestFacts[0] || 'none'} (${hatch}); an unknown realm refused ${missing}; nothing changed ${untouched}`};
   });
 
-  check('Keepfall: who was active today shows on its case (the owner’s ask, Oct 26 2026: “Add league member profile pictures to show those that were active today”; core/realm-active.js): everyone whose v3 realm changed since midnight, by the scoreboards’ rule (members, app users, guests, you too), the latest first, once each; yesterday’s, unsaved and no one’s realms left out', async () => {
+  check('Keepfall: who was active today shows under its case (the owner’s asks, Oct 26 2026: “Add league member profile pictures to show those that were active today”, “Insert the names below the case not on it”; core/realm-active.js): everyone whose v3 realm changed since midnight, by the scoreboards’ rule (members, app users, guests, you too), the latest first, once each; yesterday’s, unsaved and no one’s realms left out', async () => {
     const A = await import('./realm-active.js');
     const now = new Date(); now.setHours(12, 0, 0, 0); const t = now.getTime(), y = t - 13 * 3600e3;
     const member = Object.keys(data.M).find(id => 'm_' + id !== F.profileKey());
