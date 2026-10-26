@@ -211,10 +211,11 @@ function kickState() {
     actions: [{label: 'See your kicks', kind: 'secondary', attrs: {'data-gm-open': 'kick'}}]};
 }
 function returnState() {
-  // Return Man is replayed as often as you like (the owner's ask, Oct 2026): its case keeps its front, opened to Start again,
-  // your best today (and where it puts you) under the shelf; the scoreboard is on its page.
-  // Its case turns round too, played today or not (turns: the owner's ask, Oct 22 2026, for everyone: "the game is
-  // repeatable"): today's leaderboard on its back (shelfTurner's .is-turns), standing on its front to play.
+  // One return a day (the owner's ask, Oct 26 2026: "Change to one attempt a day"; from Oct 20 it was replayed as often
+  // as you liked): before it's run, its case turns round as it did (the owner's ask, Oct 22 2026: today's leaderboard on
+  // its back, shelfTurner's .is-turns, standing on its front to play); once it's run (on any of your phones: the board
+  // shows it), a finished day's, like Kick It's: your yards, the scoreboard, the next kickoff's countdown. Test play's
+  // sandbox still runs it back as often as the owner likes.
   const RM = C.rm;
   if (!RM) return {kind: 'new'};
   const n = RM.todayNumber(), day = RM.dayState(n), test = RM.testing(), board = boardOf(RM);
@@ -222,11 +223,16 @@ function returnState() {
   const mine = rows.find(r => r.me), best = day.official ? day.official.yards : !test && mine ? mine.y : null;
   const back = {turns: true, board, rows, tag: 'TODAY',
     vis: best == null ? '' : tileHTML(nf(best), 'yds'),
-    head: best == null ? 'No runs yet today' : 'Your best today', lines: best == null ? ['Run it back as often as you like'] : []};
+    head: best == null ? 'No runs yet today' : 'Your return today', lines: best == null ? ['One kickoff a day'] : []};
   if (RM.live(n)) return {kind: 'started', test, meta: '<p class="gm-note">A return under way.</p>', ...back};
   if (best == null) return {kind: 'new', test, ...back};
   const place = mine && !test ? ` · ${ui.ordinal(mine.rank)} of ${rows.length} today` : '';
-  return {kind: 'new', test, again: true, played: true, meta: `<p class="gm-note">${esc(`Your best today: ${nf(best)} yards${place}`)}</p>`, ...back};
+  if (test) return {kind: 'new', test, again: true, played: true, meta: `<p class="gm-note">${esc(`Your best today: ${nf(best)} yards${place}`)}</p>`, ...back};
+  const tds = day.official ? day.official.tds : mine ? mine.td : 0;
+  return {kind: 'done', test, board, rows,
+    vis: tileHTML(nf(best), 'yds'),
+    head: 'Your return today', lines: [[tds ? plural(tds, 'touchdown') : '', place.slice(3)].filter(Boolean).join(' · ')].filter(Boolean),
+    actions: [{label: 'See your return', kind: 'secondary', attrs: {'data-gm-open': 'return'}}]};
 }
 function keepState() {
   // The existing first-visit marker follows the same saved realm. This is a persistent game: no daily final,

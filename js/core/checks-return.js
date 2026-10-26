@@ -411,6 +411,17 @@ export async function returnChecks(check) {
     const kept = typeof R.keepLive === 'function' && typeof R.settle === 'function' && typeof R.live === 'function' && typeof R.setTest === 'function';
     return {pass: gone && kept, detail: `restart gone ${gone}; a left return counts ${kept}`};
   });
+  check('Return Man: one return a day (the owner\'s ask, Oct 26 2026: "Change to one attempt a day"): core keeps no second run of a day (RUNS, runsLeft; Test play\'s sandbox has no limit); the page kicks off no run once today\'s is run here or on another of the person\'s phones, and says so; on the shelf a run day is a finished one', async () => {
+    const get = f => fetch(new URL(f, import.meta.url)).then(r => r.text()).catch(() => '');
+    const [view, games] = await Promise.all([get('../views/return.js'), get('../views/games.js')]);
+    const core = R.RUNS === 1 && R.runsLeft(0, false) === 1 && R.runsLeft(1, false) === 0 && R.runsLeft(4, false) === 0 && R.runsLeft(4, true) === Infinity
+      && 'done' in R.dayState(R.todayNumber());
+    const page = /const doneToday = st => !R\.testing\(\) && \(st\.day\.done \|\| R\.ranElsewhere\(st\.n\)\);/.test(view)
+      && /function go\(st\) \{\s*\n[^\n]*\n\s*if \(doneToday\(st\)\) \{/.test(view) && /const autoGoes = st => [^\n]*&& !doneToday\(st\);/.test(view)
+      && view.includes('That’s today’s return');
+    const shelf = /if \(test\) return \{kind: 'new', test, again: true/.test(games) && /return \{kind: 'done', test, board, rows,\s*\n\s*vis: tileHTML\(nf\(best\), 'yds'\)/.test(games);
+    return {pass: core && page && shelf, detail: `core: one a day, none left after it, Test play unlimited ${core}; the page holds the kickoff ${page}; the shelf finishes the day ${shelf}`};
+  });
   // ------------------------------------------------------------------------------------------- the scoreboard
   const doc = (id, nick, rm, extra = {}) => Object.assign({id, nick, total: 0, last: 1, rm2: rm}, extra);
   const e = (y, l, td, t) => ({y, l, td, t});

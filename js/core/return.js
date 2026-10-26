@@ -18,9 +18,10 @@ import * as features from './features.js';
 // On the way, three power-ups: smelling salts (a burst of speed, BURST: the owner's ask, Oct 2026; and an extra life:
 // the next time he'd catch you, you shake him off, and away you burst again; on Evan's course, never an obstacle shield),
 // prescription painkillers (a few seconds when nothing can stop you) and booze (a few seconds of double yards). You
-// speed up as you go, and every 100 yards is a touchdown. Run it back as often as you like (the owner's ask, Oct 2026:
-// replayed, an arcade game), the day's course the same on every phone and every run; the day's score is your best
-// run's yards. No DOM. Owner: RETURN.
+// speed up as you go, and every 100 yards is a touchdown. One return a day (RUNS: the owner's ask, Oct 26 2026: "Change
+// to one attempt a day"; from Oct 20 it could be run back as often as you liked, the best run counting), the day's
+// course the same on every phone; the day's score is its yards (a day run more than once before then keeps its best).
+// No DOM. Owner: RETURN.
 //
 //   todayNumber(), dateOf(n), dayLabel(n)       day 1 on START, a new day at local midnight
 //   course(n, k, hard), fill(course, z)         day n's course (k 0: every run of the day runs it; hard: HARD_SPEED,
@@ -890,12 +891,18 @@ export function score(list) {
   list.forEach(e => { yards += e.y; longest = Math.max(longest, e.y); tds += tdsAt(e.d); });
   return {yards, longest, tds};
 }
-/** Day n on this phone: {list ([{y, d}] every run), runs, next (the next run's number), best (its yards; 0 with none),
- *  at, official (the day that counts: the best run, {list: [it], at} plus its score, or null before a run), coins (the
- *  first run's, when it had them: else null)} plus the best run's score (yards, longest, tds). */
+// RUNS: returns a day (one: the owner's ask, Oct 26 2026). Test play's sandbox (the owner's, for testing) has no limit.
+export const RUNS = 1;
+/** Runs left of a day that's had runs of them (test: in Test play's sandbox, as many as he likes). */
+export const runsLeft = (runs, test = TEST) => (test ? Infinity : Math.max(0, RUNS - runs));
+/** Day n on this phone: {list ([{y, d}] every run), runs, next (the next run's number), done (no run left today),
+ *  best (its yards; 0 with none), at, official (the day that counts: the best run, {list: [it], at} plus its score, or
+ *  null before a run), coins (the first run's, when it had them: else null)} plus the best run's score (yards, longest,
+ *  tds). */
 export function dayState(n, real) {
   const d = read(real).days[n] || {}, list = cleanList(d.r), b = bestOf(list);
-  return Object.assign({list, runs: list.length, next: list.length, best: b ? b.y : 0, at: Number(d.at) || 0, official: officialOf(d), coins: firstCoins(d)}, score(b ? [b] : []));
+  return Object.assign({list, runs: list.length, next: list.length, done: !runsLeft(list.length, TEST && !real), best: b ? b.y : 0, at: Number(d.at) || 0,
+    official: officialOf(d), coins: firstCoins(d)}, score(b ? [b] : []));
 }
 /** The day that counts: its best run ({list: [it], at} plus score), or null. */
 export function officialOf(d) {
@@ -904,11 +911,11 @@ export function officialOf(d) {
 }
 const yardsOf = v => clamp(Math.floor(v) || 0, 0, MAX_YARDS);
 /** Saves run k's return (its yards, and how far you ran; k must be the next; coins: the first run's, when it had them).
- *  Returns the day's state, or null (a return out of turn). */
+ *  Returns the day's state, or null (a return out of turn, or none left today: RUNS). */
 export function record(n, k, yards, dist = yards, coins) {
   const v = read(), day = v.days[n] || (v.days[n] = {r: []});
   const list = cleanList(day.r), was = bestOf(list);
-  if (k !== list.length) return null;
+  if (k !== list.length || !runsLeft(list.length)) return null;
   const e = runEntry(k, yards, dist, coins);
   list.push(e);
   day.r = list;

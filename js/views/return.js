@@ -94,8 +94,12 @@ const BETA = '<span class="rm-beta">Beta</span>';
 const betaLine = () => `<p class="rm-card-s rm-beta-l">${esc(`Still being worked on: ${(data.M[data.OWNER] || {name: 'the commissioner'}).name}’s tuning it, so it may change.`)}</p>`;
 // The players' model's credit (its licence asks for one: views/return-3d.js)
 const creditLine = () => '<p class="rm-card-s rm-beta-l rm-credit">Players: <a href="https://sketchfab.com/3d-models/american-football-player-10bf41a1c05a4c9cb74676b7dd8cb18e" target="_blank" rel="noopener">American Football Player</a> by blakeallen25, <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>, recoloured</p>';
-// The eyebrow over a kickoff: today's first, or which run of the day (as many as you like: the best one counts).
+// The eyebrow over a kickoff: today's, or which run of Test play's sandbox (as many as he likes there).
 const koLabel = k => (k ? `Run ${k + 1} today` : 'Today’s kickoff');
+// One return a day (core RUNS: the owner's ask, Oct 26 2026): today's is run once it's been run on this phone, or the
+// board shows it on another of this person's (core ranElsewhere); then there's no kickoff till tomorrow's course.
+// Test play's sandbox runs as often as he likes.
+const doneToday = st => !R.testing() && (st.day.done || R.ranElsewhere(st.n));
 /** The card over the stage: before a kickoff (the first of the day: how to play), after he's run down, or paused. */
 function cardHTML(st) {
   const d = st.day, k = d.next;
@@ -104,9 +108,11 @@ function cardHTML(st) {
       + `<p class="rm-card-s">${esc(`${nf(Math.floor(st.run.yards))} yards and counting.`)}</p>`
       + ui.button({label: 'Keep running', icon: 'play-fill', attrs: {'data-rm-resume': ''}, cls: 'rm-go'}) + `</div>`;
   }
-  // as many runs as you like (the owner's ask, Oct 2026): each ends with Run it again; the day's best is what counts
+  // one return a day (doneToday): after it, the scoreboard and when the next kickoff comes; in Test play, Run it again
   const again = (label = 'Run it again') => ui.button({label, icon: 'play-fill', attrs: {'data-rm-go': ''}, cls: 'rm-go'});
   const sb = () => ui.button({label: 'See the scoreboard', kind: 'secondary', attrs: {'data-rm-sb': ''}, cls: 'rm-go'});
+  const nextKick = () => `<p class="rm-card-t2">${ui.icon('clock', {size: 14})}<span data-rm-next>${esc(`Next kickoff in ${ui.untilText(msToMidnight())}`)}</span></p>`;
+  const done = st.cardDone = doneToday(st);
   const note = (R.testing() ? '<p class="rm-card-s">Test play: not counted, not on the scoreboard.</p>' : '')
     + (features.available() ? '<p class="rm-card-s">Hard course: faster, potholes, and a bus head on ends it. Available to every player.</p>' : '');
   if (st.mode === 'tackled') {
@@ -117,7 +123,16 @@ function cardHTML(st) {
     return `<div class="rm-card-in"><p class="rm-card-o">${koLabel(run.k)}</p>`
       + `<p class="rm-big"><span class="n1">${esc(nf(y))}</span><small>yards</small></p>`
       + `<p class="rm-card-s">${esc(`${R.endOf(run)} ${WHERE[th.id]}.${tds ? ` ${plural(tds, 'touchdown')}!` : ''}`)}</p>`
-      + coinsLine(st, run) + best + note + again() + sb() + `</div>`;
+      + coinsLine(st, run) + best + note
+      + (done ? `<p class="rm-card-s">That’s your return for today.</p>${sb()}${nextKick()}` : again() + sb()) + `</div>`;
+  }
+  if (done) {
+    // today's return run: its yards (or, run on another phone, that it was), and when the next kickoff comes
+    return `<div class="rm-card-in is-day"><p class="rm-card-o">Return Man · ${esc(R.dayLabel(st.n))} ${BETA}</p>`
+      + (d.runs ? `<p class="rm-big"><span class="n1">${esc(nf(d.best))}</span><small>yards today</small></p>` : '')
+      + `<h2 class="rm-card-t">That’s today’s return</h2>`
+      + `<p class="rm-card-s">${esc(d.runs ? 'One kickoff a day. Come back tomorrow for the next one.' : 'You ran today’s kickoff on another phone. One a day: come back tomorrow for the next one.')}</p>`
+      + sb() + nextKick() + `</div>`;
   }
   if (k > 0) {
     // back for another: today's best to beat, and when the course changes
@@ -206,7 +221,7 @@ function boardHTML(st) {
 // His day's first run, a coin run, waits for the board (core coinsWait: only it can tell the run's the first across his
 // phones, coinsOpen): the stage a moment (BOARD_WAIT_MS), then his card saying so; it kicks off as the board comes in
 // (the 'lb' in mount).
-const autoGoes = st => features.available() && st.mode === 'ready' && !st.day.next;
+const autoGoes = st => features.available() && st.mode === 'ready' && !st.day.next && !doneToday(st);
 const BOARD_WAIT_MS = 2500;
 function autoGo(st) {
   if (st.dead) return;
@@ -966,6 +981,7 @@ function pop(st, text, cls = '', sub = '') {
 /** A kickoff: the ball comes down into his hands, then he's off. */
 function go(st) {
   if (st.mode === 'run' || st.mode === 'catch') return;
+  if (doneToday(st)) { st.mode = 'ready'; st.run = null; setCard(st, true); return; } // (one a day: today's is run)
   // (the 3D still coming: the kickoff waits for it, mount's settle3D; a run begun without it stays in the pictures)
   if (waiting3D(st)) { st.goOn3D = true; return; }
   st.flat = !D3.ready();
@@ -1263,7 +1279,7 @@ function tick(st) {
     st.run = null; st.mode = 'ready'; setDay(st, R.todayNumber()); setCard(st, true); patchHud(st); patchBoard(st); draw(st);
   }
   const nx = st.el.querySelector('[data-rm-next]');
-  if (nx) nx.textContent = `New course in ${ui.untilText(msToMidnight())}`;
+  if (nx) nx.textContent = `${doneToday(st) ? 'Next kickoff' : 'New course'} in ${ui.untilText(msToMidnight())}`;
 }
 
 export function render(ctx) {
@@ -1320,6 +1336,8 @@ export function mount(el, ctx) {
     if (type !== 'lb' || st.dead) return;
     recheckCoins(st); // (the board's in: the day's first run may have been on another of his phones)
     if ((st.waitT || st.waited) && autoGoes(st)) autoGo(st); // (his first kickoff, waiting for it: off it goes, with the coins or without)
+    // (or today's return turns out run on another of this person's phones: one a day, the card says so)
+    else if (st.mode === 'ready' && doneToday(st) && !st.cardDone) { clearTimeout(st.waitT); st.waitT = 0; setCard(st, true); }
   });
   // Profile changes also arrive from other tabs. Refresh existing HUD/card images immediately.
   st.iconOwner = features.available();
