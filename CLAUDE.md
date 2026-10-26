@@ -67,6 +67,17 @@ How it's enforced, and what to keep doing:
 - Profile pictures (`js/core/avatars.js` `pictureShows()`): everyone's shows to everyone, a member's, an app user's and a
   guest's. The kit check "pictures: …" covers it.
 
+## Keepfall asset refresh: preserve current progress
+
+Evan approved upgrading the existing Keepfall in phases using the Unity assets
+in D:\Unity\My project\Assets. Preserve every player's current progress.
+Art imports must keep existing building IDs, footprints, levels, balances,
+training queues/timers, armies, heroes, hatchery species/colors, trophies and
+raid history. Keep the current gg-v3-fr1 profile keys, fr3 remote records and
+gridiron-hub-v3 reset marker. A graphics release must never start a new season
+or reset a realm. Any later schema change needs a versioned, repeatable migration
+with a preserved original save and tests for members, app users and guests.
+
 ## Deploying
 
 - Standing owner instruction (October 21, 2026): after completing and verifying requested changes,

@@ -27,6 +27,7 @@ import {createGrassWallpaper} from './realm-grass.js';
 import {createHomeNPCs, createBattleHeroes, npcPaths} from './realm-npcs.js';
 import {routineRoute, homeRoutine} from './realm-routines.js';
 import * as CH from './realm-characters.js';
+import * as BUILD from './realm-buildings.js';
 import {createRaidAttacks} from './realm-attack-art.js';
 import {isDragonKind, dragonCanFly, loadDragon, onDragonReady, createBattleDragons, createHomeDragon, createSceneryDragons} from './realm-dragon.js';
 const V = new URL('../vendor/three/', import.meta.url).href;
@@ -99,7 +100,7 @@ export function load(theme = 'coast') {
   const epoch = LOAD_EPOCH, active = () => features.available() && epoch === LOAD_EPOCH;
   if (LOADING) return LOADING.then(async ok => {
     if (!ok || !active()) return false;
-    await Promise.all([SPR.load(), CH.load(T), sceneryFor(fileFor(theme, shapeOf(innerWidth, innerHeight)))]);
+    await Promise.all([SPR.load(), CH.load(T), BUILD.load(T), sceneryFor(fileFor(theme, shapeOf(innerWidth, innerHeight)))]);
     return active();
   });
   const task = (async () => {
@@ -110,7 +111,7 @@ export function load(theme = 'coast') {
       if (!active()) return false;
       T = three; RE = RoomEnvironment;
       FM.init(T, BU); SPR.init(T, PITCH);
-      await Promise.all([SPR.load(), army(), CH.load(T), sceneryFor(fileFor(theme, shapeOf(innerWidth, innerHeight)))]);
+      await Promise.all([SPR.load(), army(), CH.load(T), BUILD.load(T), sceneryFor(fileFor(theme, shapeOf(innerWidth, innerHeight)))]);
       if (!active()) return false;
       try { await document.fonts.load('800 60px "Barlow Condensed"'); } catch (_) {}
       return active();
@@ -759,7 +760,7 @@ export function create(host, opts = {}) {
         if (status === 'down') g.add(FM.rubble(size));
         else if (status === 'new') { g.add(FM.scaffold(size)); }
         else {
-          const art = SPR.has(b.t) ? SPR.building(b.t, b.l, size) : null;
+          const art = BUILD.create(b.t, b.l, size) || (SPR.has(b.t) ? SPR.building(b.t, b.l, size) : null);
           g.add(art || FM.model(b.t, b.l, house));
           if (art) g.userData = art.userData;
           if (status === 'up') g.add(FM.scaffold(size));
@@ -838,11 +839,15 @@ export function create(host, opts = {}) {
           if (!routine.point) { f.actor.root.visible = false; return; }
           f.actor.root.position.set(W(routine.point.x), 0, W(routine.point.y));
         } else if (c.role === 'archer') {
-          if (!U?.sprite) { f.actor.root.visible = false; return; }
-          const [px, py] = SPR.platform(e.b.l);
-          fp.copy(g).add(U.sprite.position).addScaledVector(camR, (px - U.ax) * U.k).addScaledVector(camU, (U.ay - py) * U.k);
-          toCam.copy(cam.position).sub(fp).normalize();
-          f.actor.root.position.copy(fp).addScaledVector(toCam, .35);
+          if (U?.importedBuilding === 'tower') {
+            f.actor.root.position.set(g.x, g.y + U.platformY, g.z);
+          } else {
+            if (!U?.sprite) { f.actor.root.visible = false; return; }
+            const [px, py] = SPR.platform(e.b.l);
+            fp.copy(g).add(U.sprite.position).addScaledVector(camR, (px - U.ax) * U.k).addScaledVector(camU, (U.ay - py) * U.k);
+            toCam.copy(cam.position).sub(fp).normalize();
+            f.actor.root.position.copy(fp).addScaledVector(toCam, .35);
+          }
         }
         const idleLook = still || routine.state !== 'idle' ? 0 : Math.sin(sec * .28 + f.ph * 17) * .16;
         f.actor.root.rotation.y = routine.face ?? (Math.atan2(-c.u, -c.v) + idleLook);
@@ -867,7 +872,9 @@ export function create(host, opts = {}) {
       SPR.pose(f.sp, c.sheet, i, flip, c.size || 1);
       const g = e.g.position, U = e.g.userData;
       let bias = c.role === 'crew' ? .08 : .9;
-      if (c.role === 'archer' && U && U.sprite) {
+      if (c.role === 'archer' && U?.importedBuilding === 'tower') {
+        fp.set(g.x, g.y + U.platformY, g.z); bias = .1;
+      } else if (c.role === 'archer' && U && U.sprite) {
         const [px, py] = SPR.platform(e.b.l);
         fp.copy(g).add(U.sprite.position).addScaledVector(camR, (px - U.ax) * U.k).addScaledVector(camU, (U.ay - py) * U.k);
         bias = .35;
@@ -995,7 +1002,7 @@ export function create(host, opts = {}) {
       select(null);
       return;
     }
-    const grp = g.t === 'wall' ? wallPreview(T, 1) : SPR.has(g.t) ? SPR.building(g.t, 1, size) : FM.model(g.t, 1, house);
+    const grp = g.t === 'wall' ? wallPreview(T, 1) : BUILD.create(g.t, 1, size) || (SPR.has(g.t) ? SPR.building(g.t, 1, size) : FM.model(g.t, 1, house));
     if (!grp) return;
     grp.traverse(m => { if (m.isMesh) { m.castShadow = false; } });
     grp.position.set(W(g.x + size / 2), .25, W(g.y + size / 2));
@@ -1258,7 +1265,7 @@ export function create(host, opts = {}) {
     });
     if (!fits) { raidStart(B, raider); return; }
     raid.dragons.reset(); raid.need = need;
-    groups.forEach(e => SPR.animateDefense(e.g, e.b.t, Infinity));
+    groups.forEach(e => { BUILD.animateDefense(e.g, Infinity); SPR.animateDefense(e.g, e.b.t, Infinity); });
     Object.values(raid.meshes).forEach(M => {
       if (M.characters) { M.characters.forEach(a => a.model.dispose()); M.characters.clear(); }
       else if (M.art) M.art.count = 0; else M.body.count = M.leg.count = 0;
@@ -1432,7 +1439,8 @@ export function create(host, opts = {}) {
       const M = R.fly[kind];
       if (n[kind] >= M.instanceMatrix.count) return;
       const u = Math.max(0, Math.min(1, (t - s.t0) / Math.max(.01, s.t1 - s.t0))), arc = dragon ? ARC.dragon : ARC[s.k] || .5;
-      const y0 = dragon ? (dragonCanFly(s.k) ? 2.2 : .8) : s.foe ? (s.k === 'tower' ? 2.6 : s.k === 'cannon' ? .68 : 1.1) : (s.k === 'archer' && byModel(s) ? .72 : .55), y1 = s.high ? 2.3 : .35;
+      const defenseArt = s.foe ? groups.get(s.from)?.g.userData : null;
+      const y0 = defenseArt?.importedBuilding === 'ballista' ? defenseArt.height * .91 : dragon ? (dragonCanFly(s.k) ? 2.2 : .8) : s.foe ? (s.k === 'tower' ? 2.6 : s.k === 'cannon' ? .68 : 1.1) : (s.k === 'archer' && byModel(s) ? .72 : .55), y1 = s.high ? 2.3 : .35;
       // (a tower's arrow leaves from its archer's bow; a dragon's fire from its mouth, where it was as it struck, when
       // it's drawn from the model)
       const archer = s.foe && s.k === 'tower' ? archerAt(s.from) : null;
@@ -1463,7 +1471,7 @@ export function create(host, opts = {}) {
     B.bl.forEach(b => {
       if (!b.def) return;
       const e = groups.get(b.i);
-      if (e && SPR.animateDefense(e.g, b.t, R.t - (R.fired.get(b.i) ?? -9), b.aim)) return;
+      if (e && (BUILD.animateDefense(e.g, R.t - (R.fired.get(b.i) ?? -9), b.aim) || SPR.animateDefense(e.g, b.t, R.t - (R.fired.get(b.i) ?? -9), b.aim))) return;
       const top = e && e.g.getObjectByName('top');
       if (!top) return;
       if (b.t === 'cauldron') { const tip = B.t - (b.cd > 0 ? (b.def.every - b.cd) : 9) < .5 ? .6 : .15; top.rotation.z += (tip - top.rotation.z) * .3; }
@@ -1502,7 +1510,7 @@ export function create(host, opts = {}) {
   }
   function raidStop() {
     if (!raid) return;
-    groups.forEach(e => SPR.animateDefense(e.g, e.b.t, Infinity));
+    groups.forEach(e => { BUILD.animateDefense(e.g, Infinity); SPR.animateDefense(e.g, e.b.t, Infinity); });
     raid.heroes.dispose();
     raid.attacks.dispose();
     raid.dragons.dispose();
@@ -1547,7 +1555,7 @@ export function create(host, opts = {}) {
           const p = project(at.x + N / 2, at.z + N / 2, at.y), d = at.distanceTo(cam.position);
           const px = Hd / (2 * Math.tan(cam.fov * Math.PI / 360) * d);
           points.push({x: p.x - art.ax * art.k * px, y: p.y - art.ay * art.k * px}, {x: p.x + (art.w - art.ax) * art.k * px, y: p.y + (art.h - art.ay) * art.k * px});
-        } else points.push(project(b.x + sz / 2, b.y + sz / 2, b.t === 'wall' ? 1.8 : 3.5));
+        } else points.push(project(b.x + sz / 2, b.y + sz / 2, (art?.height ? art.height + (b.t === 'tower' ? 1.2 : 0) : (b.t === 'wall' ? 1.8 : 3.5))));
       });
       const minX = Math.min(...points.map(p => p.x)), maxX = Math.max(...points.map(p => p.x));
       const minY = Math.min(...points.map(p => p.y)), maxY = Math.max(...points.map(p => p.y));

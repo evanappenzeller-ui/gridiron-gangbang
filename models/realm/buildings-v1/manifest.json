@@ -1,0 +1,277 @@
+{
+  "sourcePack": "3DForge/TowerDefence/Humans",
+  "textureSize": 1024,
+  "units": {
+    "barracks-1": {
+      "file": "barracks-1.glb",
+      "prefab": "3DForge/TowerDefence/Humans/Prefabs/td_humans_Malitia_stage1.prefab",
+      "bytes": 93684,
+      "meshes": 2,
+      "triangles": 948,
+      "height": 2.101015655576745,
+      "platformY": 0,
+      "footprint": [
+        1,
+        0.9999999595303137
+      ]
+    },
+    "barracks-2": {
+      "file": "barracks-2.glb",
+      "prefab": "3DForge/TowerDefence/Humans/Prefabs/td_humans_Malitia_stage2.prefab",
+      "bytes": 148564,
+      "meshes": 2,
+      "triangles": 1520,
+      "height": 2.101015655576745,
+      "platformY": 0,
+      "footprint": [
+        1,
+        0.9999999595303137
+      ]
+    },
+    "barracks-3": {
+      "file": "barracks-3.glb",
+      "prefab": "3DForge/TowerDefence/Humans/Prefabs/td_humans_Malitia_stage3.prefab",
+      "bytes": 203080,
+      "meshes": 2,
+      "triangles": 2088,
+      "height": 2.101015655576745,
+      "platformY": 0,
+      "footprint": [
+        1,
+        0.9999999595303137
+      ]
+    },
+    "tower-1": {
+      "file": "tower-1.glb",
+      "prefab": "3DForge/TowerDefence/Humans/Prefabs/td_humans_WatchTower_stage1.prefab",
+      "bytes": 57680,
+      "meshes": 1,
+      "triangles": 584,
+      "height": 1.6736028336550606,
+      "platformY": 1.5504086298422466,
+      "footprint": [
+        1,
+        0.9999999595303137
+      ]
+    },
+    "tower-2": {
+      "file": "tower-2.glb",
+      "prefab": "3DForge/TowerDefence/Humans/Prefabs/td_humans_WatchTower_stage2.prefab",
+      "bytes": 77648,
+      "meshes": 1,
+      "triangles": 792,
+      "height": 1.6736028336550606,
+      "platformY": 1.5504086298422466,
+      "footprint": [
+        1,
+        0.9999999595303137
+      ]
+    },
+    "tower-3": {
+      "file": "tower-3.glb",
+      "prefab": "3DForge/TowerDefence/Humans/Prefabs/td_humans_WatchTower_stage3.prefab",
+      "bytes": 86096,
+      "meshes": 1,
+      "triangles": 880,
+      "height": 1.6736028336550606,
+      "platformY": 1.5504086298422466,
+      "footprint": [
+        1,
+        0.9999999595303137
+      ]
+    },
+    "ballista-1": {
+      "file": "ballista-1.glb",
+      "prefab": "3DForge/TowerDefence/Humans/Prefabs/td_humans_Balista_stage1.prefab",
+      "bytes": 118004,
+      "meshes": 5,
+      "triangles": 1174,
+      "height": 1.899140395533717,
+      "platformY": 0,
+      "footprint": [
+        1,
+        0.9999999595303137
+      ]
+    },
+    "ballista-2": {
+      "file": "ballista-2.glb",
+      "prefab": "3DForge/TowerDefence/Humans/Prefabs/td_humans_Balista_stage2.prefab",
+      "bytes": 137976,
+      "meshes": 5,
+      "triangles": 1382,
+      "height": 1.899140395533717,
+      "platformY": 0,
+      "footprint": [
+        1,
+        0.9999999595303137
+      ]
+    },
+    "ballista-3": {
+      "file": "ballista-3.glb",
+      "prefab": "3DForge/TowerDefence/Humans/Prefabs/td_humans_Balista_stage3.prefab",
+      "bytes": 165420,
+      "meshes": 6,
+      "triangles": 1658,
+      "height": 1.998429695231291,
+      "platformY": 0,
+      "footprint": [
+        1,
+        0.9999999595303137
+      ]
+    }
+  },
+  "textures": {
+    "td_humans_set.png": 524608,
+    "td_humans_base.png": 665534
+  },
+  "sources": [
+    {
+      "path": "3DForge/TowerDefence/Humans/Materials/td_humans_base.mat",
+      "sha256": "bd718444a737f0281aa4ff1257df15806b642c9143920e4e75ee4d6fc3292968"
+    },
+    {
+      "path": "3DForge/TowerDefence/Humans/Materials/td_humans_sets.mat",
+      "sha256": "e7c31e40626a1af57d491d1e9e66fccded45de9308ea6646d1b0586412124890"
+    },
+    {
+      "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_balista1.fbx",
+      "sha256": "61124dfa9b9167ab64f25104462a63caa3088090638c38b6c4c77d0fd71550be"
+    },
+    {
+      "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_balista1.fbx.meta",
+      "sha256": "4c49ceb6b1e4955b8b7899f551a8410549b164920e76e65956f6ee15a23fbe71"
+    },
+    {
+      "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_balista2.fbx",
+      "sha256": "73000c58fb094eaadc6c91c7d949c6c791be72fceb357ceeb4ef212229c6546b"
+    },
+    {
+      "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_balista2.fbx.meta",
+      "sha256": "e234e5d3d6904031102b9e1d5bf077263b6b3b25d6040cd011b1caa42e22ad48"
+    },
+    {
+      "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_balista3.fbx",
+      "sha256": "a2c184275f9130b0ee68bb8456142314afcdd2ce99a781af2ddedfd18e7ccab0"
+    },
+    {
+      "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_balista3.fbx.meta",
+      "sha256": "572e86b4e839335157417786113d3a94d7d875f73868db9a6c02abf7c509fc2a"
+    },
+    {
+      "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_base1.fbx",
+      "sha256": "5192d602052f2f8ab79d68809376ae58cb32a244759578f242d5f2c8ccea8dbf"
+    },
+    {
+      "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_base1.fbx.meta",
+      "sha256": "854dcad0fe3d2aeabedf1e68d1c3bc32d468f08bd34fca520645b0de4c342b43"
+    },
+    {
+      "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_base2.fbx",
+      "sha256": "24e9c5f6b614a9f27508ebe7e8ef6704ee2d1591a66ef279d434025e8696db2c"
+    },
+    {
+      "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_base2.fbx.meta",
+      "sha256": "5843f6ee4258e34703b56a9e0f04231246c39c4ed51ab43ac5d4eb7bcdcc2c77"
+    },
+    {
+      "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_base3.fbx",
+      "sha256": "51157f05163706d66408a51c1730aee014d9de9a6a76fd3cad53eb413f911e60"
+    },
+    {
+      "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_base3.fbx.meta",
+      "sha256": "e654999f553164ea833befc1f917fbbdda2f61477edc598316019beabe9fcb6f"
+    },
+    {
+      "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_malitia1.fbx",
+      "sha256": "4c64ba4b030978f83dac2801a1802b153c4f9014ae80cb0c25123a63d88c0179"
+    },
+    {
+      "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_malitia1.fbx.meta",
+      "sha256": "7ff877924ab2d58afc304ded290b92b289d3d8f036750e51c94d96508e79f6cc"
+    },
+    {
+      "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_malitia2.fbx",
+      "sha256": "ea914b36c80ccfb41db26440b6abe52322289a38c260b1ec8d74c67982e966e5"
+    },
+    {
+      "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_malitia2.fbx.meta",
+      "sha256": "e3c508dd2991b68fb252d8c5c22761f35a1a99e4573dbea060e6bc859637e9d7"
+    },
+    {
+      "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_malitia3.fbx",
+      "sha256": "50efbf431d7418115518b9dcd315cb73adac68c2e8cf443ad615a3f0d2401c7a"
+    },
+    {
+      "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_malitia3.fbx.meta",
+      "sha256": "dcc83fb8e7cbacde9b442333dbb12fe9c623130fd84d3adb16e42aa063838e1b"
+    },
+    {
+      "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_mount.fbx",
+      "sha256": "5f1c8acf9bf4a74a582d7f83978a7e58a07c3ee2e8f5f28e69eae9ea5a3fba54"
+    },
+    {
+      "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_mount.fbx.meta",
+      "sha256": "8b312ed98e8967c289f02f5e937bd9cd474219128b61cbbf50a7f150fd73f028"
+    },
+    {
+      "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_pully.fbx",
+      "sha256": "5d2b2c73f75d60e7551eba59a4de7e7d72b5641308be14d7a6bc5372e1131558"
+    },
+    {
+      "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_pully.fbx.meta",
+      "sha256": "bfba7f59c35a4df9f7898aec9468fab7cd8128202876c4ec2b7eda879a5cde12"
+    },
+    {
+      "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_swivel.fbx",
+      "sha256": "c38e39951f1e3c93fcdbe3a16fb9ef864c9613bb7f8acdccd3f12a5c9bef41ad"
+    },
+    {
+      "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_swivel.fbx.meta",
+      "sha256": "498a1037872524133c2027ebe030176594e491fce30f394e8a413d6d62662956"
+    },
+    {
+      "path": "3DForge/TowerDefence/Humans/Prefabs/td_humans_Balista_stage1.prefab",
+      "sha256": "468e1287f004abed3b0348f913d1bf608a0d15122f0be936dd81197fa26ab1da"
+    },
+    {
+      "path": "3DForge/TowerDefence/Humans/Prefabs/td_humans_Balista_stage2.prefab",
+      "sha256": "aff03c82c95d2968d32fccb9c2bf9ae30c078bfbfc477317261a81ecb51b32d4"
+    },
+    {
+      "path": "3DForge/TowerDefence/Humans/Prefabs/td_humans_Balista_stage3.prefab",
+      "sha256": "36e773aa0807836d2184752f224e31479bb1a06381aea794c16303bf1954c6fe"
+    },
+    {
+      "path": "3DForge/TowerDefence/Humans/Prefabs/td_humans_Malitia_stage1.prefab",
+      "sha256": "d6b88143ed8a2bef7e8395175b013a5fe568571bb96ebdef05092add831ac195"
+    },
+    {
+      "path": "3DForge/TowerDefence/Humans/Prefabs/td_humans_Malitia_stage2.prefab",
+      "sha256": "9c4fbdfae31872796a0e1575804e79f9173c315b31e3b95914e199fc42dd8a46"
+    },
+    {
+      "path": "3DForge/TowerDefence/Humans/Prefabs/td_humans_Malitia_stage3.prefab",
+      "sha256": "da0d13a121215aa0bca4435868a90fde4b4644ec02de85aa796599df4b9141f9"
+    },
+    {
+      "path": "3DForge/TowerDefence/Humans/Prefabs/td_humans_WatchTower_stage1.prefab",
+      "sha256": "c49eaab2b98c6f0da33dd543aceca03542e41f016565a50e142760c44ccc5127"
+    },
+    {
+      "path": "3DForge/TowerDefence/Humans/Prefabs/td_humans_WatchTower_stage2.prefab",
+      "sha256": "4807ea324edaa18a23f00d1227831ff4e5f12503f4571838dc683065bd910835"
+    },
+    {
+      "path": "3DForge/TowerDefence/Humans/Prefabs/td_humans_WatchTower_stage3.prefab",
+      "sha256": "a467ad6d4fc83263965c52db6a57861d487071a70d0644c3d62265e5831c42e0"
+    },
+    {
+      "path": "3DForge/TowerDefence/Humans/Textures/td_humans_base.png",
+      "sha256": "1f7c55109bae8d92d437801ba754fc05fed62bb31578f458d9c41ef005528ee0"
+    },
+    {
+      "path": "3DForge/TowerDefence/Humans/Textures/td_humans_set.png",
+      "sha256": "4752d460b6c52fafbaedadf39c8fcfe52a75375b3b0494e2e0932575689db9c7"
+    }
+  ]
+}

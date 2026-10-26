@@ -140,7 +140,7 @@ export function building(kind, level, size) {
 export function release(group) {
   const owned = group && group.userData && group.userData.owned;
   if (!owned) return;
-  owned.forEach(mesh => { mesh.geometry.dispose(); mesh.material.dispose(); });
+  owned.forEach(mesh => { mesh.geometry.dispose(); mesh.material.dispose(); if (mesh.isInstancedMesh) mesh.dispose(); });
   group.userData.owned = [];
 }
 /** A building's picture at a level, a PNG data URL: side x side px (160, for the lists) and drawn as big as its top
