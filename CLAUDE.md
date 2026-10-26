@@ -91,7 +91,11 @@ Keepfall is fully 3D (Evan, Oct 25 2026: "this game should be all 3d from here o
 (views/realm-world.js), every building (realm-buildings.js, models/realm/world-v1 + buildings-v1), walls, soldiers,
 villagers, guards, heroes and dragons are models. Never bring back building/army pictures or the painted landscape;
 a missing model falls back to realm-models.js plain 3D geometry. Converters: tools/realm/convert-world.mjs and
-convert-western.mjs. Verify tools/realm/check-buildings-browser.cjs, check-world.cjs, check-ui-3d.cjs and
+convert-western.mjs. Reworked designs (Evan, Oct 26 2026: "The low level buildings need more detail. They are too small
+and hard to tell what they are"): views/realm-lowlevel.js rebuilds the low stages (and the later ones that would
+otherwise look smaller) from those models' own materials and meshes, each filling its lot round a landmark (mine wheel,
+copper kettle, gold dome, cask door, pavilion, dragon horns, cauldron gantry; the Barracks' tower over a drill yard).
+realm-buildings.js swaps them in only when that stage's imported model loaded, so the plain-3D fallback still stands. Verify tools/realm/check-buildings-browser.cjs, check-world.cjs, check-ui-3d.cjs and
 check-spread.cjs before Keepfall visual releases.
 
 ## Deploying

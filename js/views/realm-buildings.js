@@ -2,9 +2,12 @@
 // Art is a projection of a building's existing kind/level; this module never reads or writes a player's save.
 // Barracks, archer towers and ballistas come from models/realm/buildings-v1/ (one GLB a stage); every other kind from
 // models/realm/world-v1/<kind>.glb (nodes <kind>-1..3: tools/realm/convert-world.mjs). Each kind grows through three
-// stages over its levels; small rank studs tell the levels inside a stage apart. A kind whose model can't load returns
-// null here and the caller draws realm-models.js's plain 3D one instead.
+// stages over its levels; small rank studs tell the levels inside a stage apart. The low levels' designs, and the stages
+// after them where the imported ones stood smaller, are reworked (realm-lowlevel.js, Oct 26 2026): built from these
+// models' own materials and parts once they're in, in their place. A kind whose model can't load returns null here and
+// the caller draws realm-models.js's plain 3D one instead.
 import * as features from '../core/features.js';
+import {DESIGNS, design} from './realm-lowlevel.js';
 const V = new URL('../vendor/three/', import.meta.url).href;
 const V1 = new URL('../../models/realm/buildings-v1/', import.meta.url).href;
 const WORLD = new URL('../../models/realm/world-v1/', import.meta.url).href;
@@ -23,8 +26,8 @@ export const stageOf = (kind, level) => {
 // How tall each may stand (tiles) and how much of its footprint it fills: the Castle the tallest thing on the lot.
 const FIT = {keep: [4.2, .98], barracks: [3.3, .82], tower: [3.5, .82], ballista: [3.2, .82], cannon: [3.1, .8], mine: [1.6, .94],
   farm: [2.2, .96], treasury: [1.5, .94], granary: [2.2, .94], camp: [1.3, .96], hatchery: [1.9, .96], hut: [1.7, .9], trebuchet: [1.2, .92], cauldron: [1.6, .92]};
-const templates = new Map(), materials = new Map();
-let T, pending = null;
+const templates = new Map(), materials = new Map(), imported = new Map();
+let T, BU, pending = null;
 const keyOf = (kind, stage) => kind + '-' + stage;
 /** Materials shared by name across every model; the few plain ones tuned (gold shines, embers glow). */
 function share(m, obsolete) {
@@ -73,6 +76,36 @@ function drop(scene) {
     for (const m of [o.material].flat()) if (!kept.has(m)) { m.map?.dispose(); m.dispose(); }
   });
 }
+/** A shared material by name: the imported models' own, else a plain one of that colour (made once, kept). */
+function material(name, color, options = {}) {
+  if (!materials.has(name)) materials.set(name, Object.assign(new T.MeshStandardMaterial({color, roughness: .78, ...options}), {name}));
+  return materials.get(name);
+}
+/** One of an imported model's meshes, by its material, as geometry in the model's own frame (or null). */
+function piece(key, name) {
+  const source = imported.get(key);
+  if (!source) return null;
+  const parts = [];
+  source.scene.traverse(o => { if (o.isMesh && [o.material].flat().some(m => m.name === name)) parts.push(o.geometry.clone().applyMatrix4(o.matrixWorld)); });
+  if (!parts.length) return null;
+  const strip = g => { const n = g.index ? g.toNonIndexed() : g; for (const a of Object.keys(n.attributes)) if (!['position', 'normal', 'uv'].includes(a)) n.deleteAttribute(a); return n; };
+  return parts.length === 1 ? strip(parts[0]) : BU.mergeGeometries(parts.map(strip), false);
+}
+/** Puts the reworked designs in place of the imported stages they replace (each once, and only when its own imported
+ *  model is in: a design is that model reworked, so a missing one still falls back to the plain 3D building). */
+function redesign() {
+  for (const key of Object.keys(DESIGNS)) {
+    const source = templates.get(key);
+    if (!source || source.designed) continue;
+    imported.set(key, source);
+    try {
+      const scene = design(key, {T, BU, material, piece, scene: k => imported.get(k)?.scene || null});
+      if (!scene) continue;
+      adopt(key, scene);
+      templates.get(key).designed = true;
+    } catch (error) { templates.set(key, source); console.warn('Keepfall: imported design kept for ' + key, error); }
+  }
+}
 /** Loads every building's models (once; a later call retries only what failed). → true when any are in. */
 export async function load(three) {
   if (!features.available()) return false;
@@ -81,7 +114,8 @@ export async function load(three) {
   if (KINDS.every(k => [1, 2, 3].every(s => templates.has(keyOf(k, s)) || k === 'hut' && s > 1))) return true;
   pending = (async () => {
     try {
-      const {GLTFLoader} = await import(V + 'GLTFLoader.js'), loader = new GLTFLoader();
+      const [{GLTFLoader}, utils] = await Promise.all([import(V + 'GLTFLoader.js'), import(V + 'BufferGeometryUtils.js')]), loader = new GLTFLoader();
+      BU = utils;
       const v1 = STAGED.flatMap(kind => [1, 2, 3].map(stage => keyOf(kind, stage))).filter(k => !templates.has(k)).map(async key => {
         let scene;
         try { const gltf = await loader.loadAsync(V1 + key + '.glb'); scene = gltf.scene; complete(gltf); adopt(key, scene); }
@@ -101,6 +135,7 @@ export async function load(three) {
         } catch (error) { drop(gltf?.scene); console.warn('Keepfall: plain 3D building for ' + kind, error); }
       });
       await Promise.all([...v1, ...world]);
+      redesign();
       return templates.size > 0;
     } catch (error) { console.warn('Keepfall: plain 3D buildings', error); return false; }
   })();
@@ -114,8 +149,10 @@ export function create(kind, level, footprint) {
   if (!source) return null;
   const root = new T.Group(), model = source.scene.clone(true);
   const [maxHeight, fill] = FIT[kind] || [3, .9];
-  // The saved collision footprint is kept exactly; models stay inside it.
-  const scale = Math.min(footprint * fill / Math.max(.01, source.width), maxHeight / Math.max(.01, source.height));
+  // The saved collision footprint is kept exactly; models stay inside it. (a reworked design is drawn in tiles at its
+  // kind's footprint already)
+  const scale = source.designed ? Math.min(1, footprint / Math.max(.01, source.width))
+    : Math.min(footprint * fill / Math.max(.01, source.width), maxHeight / Math.max(.01, source.height));
   model.scale.setScalar(scale); root.add(model);
   root.name = 'keep-building-' + kind;
   root.userData = {importedBuilding: kind, stage, level, height: source.height * scale, platformY: source.platformY * scale, owned: []};
