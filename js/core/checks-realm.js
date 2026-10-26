@@ -575,64 +575,51 @@ export async function realmChecks(check) {
     return {pass: fires && notTrained && opens && one && stays && bots, detail: `cannon: the footman ${man ? `${man.hp}/${man.max}` : 'not sent'}, the ${owner ? 'Dragon Hero' : 'dragon (old rules)'} ${drake ? `${drake.hp}/${drake.max}` : 'not sent'}; a dragon to train: ${train.why}; a hatchery at Castle 3: ${c3.why}, at 4: ${c4.ok} (${c4.cost} Ale); one built, another ${F.canBuild(s, 'hatchery', T0).why}, Soul Eater level ${F.heroLevel(s, 'dragon_soul_eater')}; a cannon kept ${stays}; the computer’s realms have hatcheries from Castle 4, no heroes ${bots}`};
   });
 
-  check('Keepfall: every building level has unique growing artwork and all villagers and tower platforms remain intact', async () => {
-    const S = await import('../views/realm-sprites.js'), bad = [];
+  check('Keepfall: every building is a 3D model (the full 3D Keepfall, Oct 25 2026: “i do not want to use the 2d sprites for the buildings or army anymore”): each kind but the wall grows through three stages over its levels (the Builder’s Hut one), no level goes back a stage, and every stage’s model is there (models/realm/buildings-v1, world-v1), within its triangle budget', async () => {
+    const B = await import('../views/realm-buildings.js'), bad = [];
     const kinds = F.ORDER.filter(k => k !== 'wall');
-    if (kinds.some(k => !S.KINDS.includes(k)) || S.KINDS.length !== kinds.length) bad.push('missing family');
+    if (kinds.some(k => !B.KINDS.includes(k))) bad.push('missing family');
     kinds.forEach(k => {
-      const fam = S.BUILD[k], fr = fam && fam.f, count = F.maxLevel(k), used = new Set();
-      let previous = {width: 0, height: 0, baseWidth: 0};
-      if (!fr || fr.length !== count) { bad.push(k + ' frame count'); return; }
-      for (let l = 1; l <= count; l++) {
-        const f = fr[S.frameOf(k, l)], d = S.dimensionsOf(k, l);
-        used.add(f.slice(0, 4).join(':'));
-        if (d.baseWidth <= previous.baseWidth || d.width <= previous.width || d.height <= previous.height || f.length !== 7 || f[2] < 30 || f[3] < 30 || f[6] <= 0 || f[0] < 0 || f[1] < 0 || f[0] + f[2] > fam.w || f[1] + f[3] > fam.h) bad.push(k + ' level ' + l);
-        previous = d;
-      }
-      if (used.size !== count) bad.push(k + ' repeated frame');
+      let last = 0;
+      for (let l = 1; l <= F.maxLevel(k); l++) { const s = k === 'hut' ? 1 : B.stageOf(k, l); if (s < last || s < 1 || s > 3) bad.push(`${k} ${l}`); last = s; }
+      if (k !== 'hut' && last !== 3) bad.push(k + ' never reaches its third stage');
     });
-    const sheets = new Set();
-    F.ORDER.forEach(k => { for (let l = 1; l <= F.maxLevel(k); l++) ['ok', 'up'].forEach(st => S.crewOf({i: 1, t: k, l}, st, F.KINDS[k].size).forEach(c => sheets.add(c.sheet))); });
-    const missing = [...sheets].filter(n => !S.FOLK[n] || ![4, 8].includes(S.FOLK[n].length));
-    const plat = Array.from({length: F.maxLevel('tower')}, (_, i) => S.platform(i + 1)).every((p, i) => p && p[0] > 0 && p[0] < S.BUILD.tower.f[i][2] && p[1] > 0 && p[1] < S.BUILD.tower.f[i][3]);
-    const paths = kinds.map(k => 'upgrades-v1/' + k + '.webp').concat('folk.webp');
-    const files = data.isOwner() ? await Promise.all(paths.map(n => fetch(new URL('../../img/realm/' + n, import.meta.url), {method: 'GET'}).then(r => r.ok ? '' : n, () => n))) : [];
+    const world = await fetch(new URL('../../models/realm/world-v1/manifest.json', import.meta.url)).then(r => r.json(), () => null);
+    if (!world) return {pass: false, detail: 'no world-v1 manifest'};
+    const nodes = Object.values(world.files).reduce((o, f) => Object.assign(o, f.nodes), {});
+    const staged = ['barracks', 'tower', 'ballista'];
+    kinds.filter(k => !staged.includes(k)).forEach(k => { for (let s = 1; s <= (k === 'hut' ? 1 : 3); s++) { const n = nodes[`${k}-${s}`]; if (!n || !(n.triangles > 0 && n.triangles <= 9000)) bad.push(`${k}-${s} model`); } });
+    const urls = [...kinds.filter(k => !staged.includes(k)).map(k => `world-v1/${k}.glb`), ...staged.flatMap(k => [1, 2, 3].map(s => `buildings-v1/${k}-${s}.glb`))];
+    const files = await Promise.all(urls.map(u => fetch(new URL('../../models/realm/' + u, import.meta.url), {method: data.isOwner() ? 'GET' : 'HEAD'}).then(r => r.ok ? '' : u, () => u)));
     const gone = files.filter(Boolean);
-    return {pass: !bad.length && !missing.length && plat && !gone.length && sheets.size >= 20, detail: JSON.stringify({bad, missing, plat, gone, families:kinds.length})};
+    return {pass: !bad.length && !gone.length, detail: `${kinds.length} kinds; ${bad.length ? 'wrong: ' + bad.join(', ') : 'stages all in order'}; ${gone.length ? 'missing: ' + gone.join(', ') : urls.length + ' models there'}`};
   });
 
-  check('Keepfall: the scenery (tools/realm/sceneries.py; img/realm/scenery/: every land a blank portrait landscape, the owner’s, Oct 2026, and its village round the lot, tools/realm/village.py): every land has its layout, tall, and its landscape and every picture placed on it are there; nothing’s placed in its build zone, its lot lies inside it, and the zone inside the landscape', async () => {
-    const D3 = await import('../views/realm-3d.js'), out = [];
-    let pass = F.SCENERIES.every(x => D3.FILES[x.k] && D3.FILES[x.k].tall);
-    for (const [shape, file] of Object.entries(D3.FILES).flatMap(([k, f]) => Object.entries(f).map(([sh, fl]) => [`${k} ${sh}`, fl]))) {
-      const lay = await fetch(new URL(`../../img/realm/scenery/${file}`, import.meta.url)).then(r => r.json(), () => null);
-      if (!lay) { pass = false; out.push(`${shape}: no layout`); continue; }
-      const A = lay.assets, bg = lay.scene.background_asset_id, Z = lay.build_zone_polygon, L = lay.lot && D3.sceneryLot(lay.lot);
-      const unknown = lay.instances.filter(it => !A[it.asset_id] || it.asset_id === bg).map(it => it.id);
-      const files = await Promise.all(Object.values(A).map(a => fetch(new URL(`../../img/realm/scenery/${a.pic && a.pic.file}`, import.meta.url), {method: data.isOwner() ? 'GET' : 'HEAD'}).then(r => r.ok ? '' : a.file, () => a.file)));
-      const gone = files.filter(Boolean);
-      // (the zone is convex: a point's inside when it's on the same side of every edge)
-      const inZone = ([x, y]) => { const sd = Z.map((p, i) => { const q = Z[(i + 1) % Z.length]; return Math.sign((q[0] - p[0]) * (y - p[1]) - (q[1] - p[1]) * (x - p[0])); }).filter(Boolean); return sd.every(v => v === sd[0]); };
-      const inside = lay.instances.filter(it => inZone([it.rect.x + it.rect.width / 2, it.rect.y + it.rect.height])).map(it => it.id);
-      const hh = L ? L.h / 2 : 0, hw = hh / Math.sin(D3.PITCH);
-      const lot = !!L && [[L.cx - hw, L.cy], [L.cx, L.cy - hh], [L.cx + hw, L.cy], [L.cx, L.cy + hh]].every(inZone);
-      const S = lay.scene, onIt = !!S && S.height > S.width && Z.every(([x, y]) => x >= 0 && y >= 0 && x <= S.width && y <= S.height);
-      pass = pass && !unknown.length && !gone.length && !inside.length && lot && onIt;
-      out.push(`${shape}: ${lay.instances.length} placed${unknown.length ? `, unknown pictures: ${unknown.join(', ')}` : ''}; ${gone.length ? 'missing: ' + gone.join(', ') : 'all there'}; in the build zone: ${inside.length ? inside.join(', ') : 'nothing'}; the lot ${lot ? 'inside it' : 'NOT inside it'}; ${onIt ? 'portrait, the zone on it' : 'NOT portrait with the zone on it'}`);
-    }
-    return {pass, detail: out.join(' · ')};
+  check('Keepfall: the land is 3D (the owner’s ask, Oct 25 2026: “remove the super wide 2d picture i am currently using for the scenery”; views/realm-world.js): every scenery is a land of its own, its terrain, water, trees and rocks modelled; the four wall designs, the trees and the ground’s textures are there', async () => {
+    const Wd = await import('../views/realm-world.js');
+    const lands = F.SCENERIES.every(x => Wd.THEME_KEYS.includes(x.k));
+    const world = await fetch(new URL('../../models/realm/world-v1/manifest.json', import.meta.url)).then(r => r.json(), () => null);
+    if (!world) return {pass: false, detail: 'no world-v1 manifest'};
+    const walls = [1, 2, 3, 4].every(d => ['post', 'rail'].every(p => world.files['walls.glb']?.nodes[`wall-${d}-${p}`]));
+    const trees = ['pine1', 'pine3', 'oak1', 'birch1', 'rock1'].every(n => world.files['nature.glb']?.nodes[n]);
+    const urls = ['walls.glb', 'nature.glb', ...Object.values(world.ground)];
+    const files = await Promise.all(urls.map(u => fetch(new URL('../../models/realm/world-v1/' + u, import.meta.url), {method: data.isOwner() ? 'GET' : 'HEAD'}).then(r => r.ok ? '' : u, () => u)));
+    const gone = files.filter(Boolean);
+    return {pass: lands && walls && trees && !gone.length, detail: `lands ${lands ? 'all' : 'MISSING'}; walls ${walls ? '4 designs' : 'MISSING'}; trees ${trees ? 'there' : 'MISSING'}; ${gone.length ? 'missing: ' + gone.join(', ') : 'files there'}`};
   });
 
-  check('Keepfall: the army’s pictures (tools/realm/army.py, img/realm/army/): the Footman, Archer, Knight, Thief and Dragon each drawn from his (where he stands inside it, a way he faces, a size: the Dragon bigger than any man, and in the air); the pictures are there', async () => {
-    const meta = await fetch(new URL('../../img/realm/army/army.json', import.meta.url)).then(r => r.json(), () => null);
-    if (!meta) return {pass: false, detail: 'no army.json'};
-    // (the Dragon's picture stays: it draws the Dragon Hero, Oct 22 2026)
-    const want = [...F.TROOP_ORDER, 'dragon'], bad = want.filter(t => { const m = meta[t]; return !m || !(m.w > 50 && m.h > 50) || !(m.ax >= 0 && m.ax <= m.w && m.ay >= 0 && m.ay <= m.h) || typeof m.right !== 'boolean' || !(m.fly ? m.wide > 0 : m.tall > 0); });
-    const files = await Promise.all(want.map(t => fetch(new URL(`../../img/realm/army/${t}.webp`, import.meta.url), {method: data.isOwner() ? 'GET' : 'HEAD'}).then(r => (r.ok ? '' : t), () => t)));
-    const gone = files.filter(Boolean), men = want.filter(t => t !== 'dragon').map(t => meta[t] && meta[t].tall * meta[t].w / meta[t].h);
-    const big = !!meta.dragon && meta.dragon.fly && meta.dragon.wide > Math.max(...men) * 2 && men.every(w => w > 0);
-    const pass = !bad.length && !gone.length && !meta.sapper && big && want.every(t => !meta[t] || !!meta[t].fly === !!F.TROOPS[t].fly);
-    return {pass, detail: `${bad.length ? 'wrong: ' + bad.join(', ') : want.join(', ') + ' ok'}; the dragon ${big ? 'bigger, flying' : 'WRONG'}; ${gone.length ? 'missing: ' + gone.join(', ') : 'pictures there'}`};
+  check('Keepfall: every soldier, villager, guard and hero is an animated 3D model (Western Kingdoms, realm-characters.js): the Footman, Archer, Knight and Thief, the workers, guards, the dragon keeper, the Knight Hero, an old replay’s Wizard Hero and the trebuchet’s catapult, each with its clips (some sharing another’s), and their files there', async () => {
+    const C = await import('../views/realm-characters.js');
+    const want = ['footman', 'archer', 'knight', 'thief', 'worker', 'guard', 'keeper', 'champion', 'mage', 'catapult'];
+    const man = await fetch(new URL('../../models/realm/western-v2/manifest.json', import.meta.url)).then(r => r.json(), () => null);
+    if (!man) return {pass: false, detail: 'no western-v2 manifest'};
+    const clipsOf = k => { const u = man.units[k]; return u ? [...u.animations.map(a => a.name), ...(u.clipsFrom ? clipsOf(u.clipsFrom) : [])] : []; };
+    const bad = want.filter(k => !C.KINDS.includes(k) || !man.units[k] || !['idle', 'attack'].every(c => clipsOf(k).includes(c)) || (k !== 'catapult' && !clipsOf(k).includes('death')));
+    const troops = F.TROOP_ORDER.every(t => want.includes(t));
+    const urls = want.map(k => k + '.glb').concat('wk-units.png', 'wk-units-black.png');
+    const files = await Promise.all(urls.map(u => fetch(new URL('../../models/realm/western-v2/' + u, import.meta.url), {method: data.isOwner() ? 'GET' : 'HEAD'}).then(r => r.ok ? '' : u, () => u)));
+    const gone = files.filter(Boolean);
+    return {pass: !bad.length && troops && !gone.length, detail: `${bad.length ? 'wrong: ' + bad.join(', ') : want.length + ' kinds with their clips'}; every troop ${troops ? 'modelled' : 'NOT modelled'}; ${gone.length ? 'missing: ' + gone.join(', ') : 'files there'}`};
   });
 
   check('Keepfall: the dragon in 3D (the owner’s ask, Oct 22 2026: “use model for dragons”; views/realm-dragon.js, models/keep-dragon.glb: “Mountain Dragon” by Alexey Zaika, CC BY 4.0): its model loads on his phone alone and never into the shared offline cache, with its five clips; every dragon in a battle (the troop, the Dragon Hero, one defending) gets a model of its own, a hero his ring and badge (the heroes’ walkers leave it alone); it rears before each strike and lunges on the battle’s shot, drops and lands once when it dies (a hero’s ring and badge gone as he falls), a flock of up to 24 all from it and a bigger one all the picture (one look; the hero still the model); a hero’s badge drawn over everything, green defending; while the model isn’t in, or never comes, the picture; at home it rests over a built Dragon Hatchery; How to play credits it', async () => {

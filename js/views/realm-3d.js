@@ -1,106 +1,39 @@
 import * as features from '../core/features.js';
-// The Keep's lot in 3D (views/realm.js and views/realm-raid.js): three.js (js/vendor/three, MIT), the buildings from
-// views/realm-models.js, a camera looking down across the lot corner-on (a diamond, as these games are), dragged to
-// pan, pinched or wheeled to zoom. The lot lies in the middle of its land's open ground (img/realm/scenery/,
-// tools/realm/sceneries.py: a blank portrait landscape a land, on any screen) laid on the ground so the camera sees it
-// as painted; the camera never looks past the landscape's edges, nor zooms out further than fills the screen with it
-// (the owner's ask, Oct 2026: each tall enough round the lot to zoom well out; without it: a meadow with a
-// moat round it, pines beyond and mountains far off). The Castle, gold mines, archer towers and dragon hatcheries are drawn
-// from their art (views/realm-sprites.js), and folk stand about: villagers at work by their buildings, an archer up each tower, a cannon's crew round it. It
-// draws when something moved (a finger, a raid) and, while there are folk about, a few times a second for them.
-// Footmen, archers and village workers use animated Western Kingdoms models (realm-characters.js).
-// Other raid troops retain their instanced pictures (img/realm/
-// army/, tools/realm/army.py: stood up facing the camera, turned the way he's going, a soft shadow under him; the
-// Dragon in the air: drawn in 3D from its model once that's in, views/realm-dragon.js, as is the Dragon Hero, the
-// dragon over the hatchery at home and the scenery's), what
-// the defenses loose and what the raiders shoot (arrows, bolts, boulders, fire), dust where a building goes down.
+// The Keep's lot in 3D (views/realm.js and views/realm-raid.js): three.js (js/vendor/three, MIT), a camera looking down
+// across the lot corner-on (a diamond, as these games are), dragged to pan, pinched or wheeled to zoom. The lot lies in
+// the middle of its land; folk stand about: villagers at work by their buildings, an archer up each tower, a cannon's
+// crew round it, a trebuchet's catapult on its platform. It draws when something moved (a finger, a raid) and, while
+// there are folk about, a few times a second for them.
+// The full 3D Keepfall (Oct 25 2026, the owner's ask: "this game should be all 3d from here on out"): the land is real
+// terrain, its forests, rocks and water models (views/realm-world.js), no painting; every building is modelled
+// (views/realm-buildings.js; realm-models.js's plain 3D ones while a model's missing), and every soldier, villager,
+// crew, guard and hero is an animated Western Kingdoms model (realm-characters.js), plain 3D figures while one's
+// missing; dragons are realm-dragon.js's. Only effects face the camera: fire, dust and the hero badges.
+// What the defenses loose and what the raiders shoot (arrows, bolts, boulders, fire), dust where a building goes down.
 // load() → true when three.js is in and this phone has WebGL; create(host, opts) → the view (see its methods).
 import * as FM from './realm-models.js';
-import {createWallView, wallPreview} from './realm-walls.js';
-import * as SPR from './realm-sprites.js';
+import * as WALLS from './realm-walls.js';
 import {KINDS, TROOPS, N, EDGE} from '../core/realm.js';
 import * as data from '../core/data.js';
 import {createWildlife} from './realm-wildlife.js';
-import {createAmbience} from './realm-ambience.js';
-import {villageGroundTexture} from './realm-ground.js';
-import {createGrassWallpaper} from './realm-grass.js';
+import {createWorld} from './realm-world.js';
 import {createHomeNPCs, createBattleHeroes, npcPaths} from './realm-npcs.js';
 import {routineRoute, homeRoutine} from './realm-routines.js';
 import * as CH from './realm-characters.js';
 import * as BUILD from './realm-buildings.js';
-import {createRaidAttacks} from './realm-attack-art.js';
 import {isDragonKind, dragonCanFly, loadDragon, onDragonReady, createBattleDragons, createHomeDragon, createSceneryDragons} from './realm-dragon.js';
+const {createWallView, wallPreview} = WALLS;
 const V = new URL('../vendor/three/', import.meta.url).href;
 let T = null, RE = null, LOADING = null, DEAD = false, LOAD_EPOCH = 0;
 let ownerActive = features.available();
 data.subscribe(type => { if (type !== 'me') return; const next = features.available(); if (next !== ownerActive) { ownerActive = next; LOAD_EPOCH++; LOADING = null; } });
-// The sceneries (core/realm.js SCENERIES), each a layout a shape: its own landscape, placements (its village round
-// the lot: tools/realm/village.py, the owner's kit's buildings, Oct 2026) and lot (its layout's lot: where the lot lies
-// in it, px: the middle and its diamond's height, far corner to near; as big as fits in the build zone, the checks hold
-// it to that). Every land is tall (portrait), on any screen
-// (the owner's ask, Oct 2026). Each loaded when it's first wanted (SCENERY: those in, by file).
-export const FILES = Object.fromEntries(['coast', 'forest', 'tundra', 'ocean', 'desert', 'infernal'].map(k => [k, {tall: `layout-${k}.json`}]));
-FILES.christmas = {tall: 'layout-tundra.json'};
-export const WORLD_FILES = Object.fromEntries(Object.keys(FILES).map(k => [k, {tall: `world-${k}-v2.json`}]));
-WORLD_FILES.coast.tall = 'world-coast-v3.json';
-const shapeOf = (w, h) => (h > w ? 'tall' : 'wide');
-const fileFor = (theme, shape) => { const files = features.available() ? WORLD_FILES : FILES, f = files[theme] || files.coast; return f[shape] || f.tall || f.wide; };
-const SCENERY = {}, ASKED = {};
-const sceneryFor = file => ASKED[file] || (ASKED[file] = scenery(file).then(sc => { if (sc) { sc.file = file; SCENERY[file] = sc; } else delete ASKED[file]; return sc; }));
-const SCENERY_AT = new URL('../../img/realm/scenery/', import.meta.url).href;
-const picture = file => new Promise(ok => {
-  const im = new Image();
-  im.decoding = 'async';
-  im.onload = () => ok(im);
-  im.onerror = () => ok(null);
-  im.src = SCENERY_AT + file;
-});
-/** A shape of the scenery: {lay (its layout), ground (the landscape), pics {asset id: picture}}, or null without it. */
-async function scenery(file) {
-  const world = file.startsWith('world-');
-  if (!features.available()) return null;
-  try {
-    const lay = await (await fetch(SCENERY_AT + file)).json(), bg = lay.scene.background_asset_id;
-    if (!features.available()) return null;
-    const ids = Object.keys(lay.assets), got = await Promise.all(ids.map(id => picture(lay.assets[id].pic.file)));
-    if (!features.available()) return null;
-    const pics = Object.fromEntries(ids.map((id, i) => [id, got[i]]).filter(([id, im]) => im && id !== bg));
-    const ground = got[ids.indexOf(bg)];
-    if (!ground) throw new Error('no landscape');
-    return {lay, ground, pics};
-  } catch (e) {
-    console.warn('The Keep: no scenery', e);
-    if (world && features.available()) {
-      const key = Object.keys(WORLD_FILES).find(k => Object.values(WORLD_FILES[k]).includes(file));
-      return scenery((FILES[key] || FILES.coast).tall);
-    }
-    return null;
-  }
-}
-
-// The army's pictures (tools/realm/army.py): {troop: {w, h, ax, ay (where he stands, px), right (faces right), fly,
-// tall or wide (tiles), img, url}}; troops use 3D models if their pictures cannot load.
-const ARMY = {};
-const ARMY_AT = new URL('../../img/realm/army/', import.meta.url).href;
-async function army() {
-  try {
-    const meta = await (await fetch(ARMY_AT + 'army.json')).json();
-    await Promise.all(Object.entries(meta).map(([k, m]) => new Promise(ok => {
-      const im = new Image();
-      im.decoding = 'async';
-      im.onload = () => { ARMY[k] = Object.assign({}, m, {img: im, url: ARMY_AT + k + '.webp'}); ok(); };
-      im.onerror = () => ok();
-      im.src = ARMY_AT + k + '.webp';
-    })));
-  } catch (e) { console.warn('The Keep: no army pictures', e); }
-}
-/** Loads three.js, the art and scenery theme's layout for this screen (the coast's if none's given). */
-export function load(theme = 'coast') {
+/** Loads three.js and the models (buildings, walls, characters); the land's own models come as each view wants them. */
+export function load() {
   if (!features.available()) return Promise.resolve(false);
   const epoch = LOAD_EPOCH, active = () => features.available() && epoch === LOAD_EPOCH;
   if (LOADING) return LOADING.then(async ok => {
     if (!ok || !active()) return false;
-    await Promise.all([SPR.load(), CH.load(T), BUILD.load(T), sceneryFor(fileFor(theme, shapeOf(innerWidth, innerHeight)))]);
+    await Promise.all([CH.load(T), BUILD.load(T), WALLS.load(T)]);
     return active();
   });
   const task = (async () => {
@@ -110,8 +43,8 @@ export function load(theme = 'coast') {
       const [three, {RoomEnvironment}, BU] = await Promise.all([import(V + 'three.module.min.js'), import(V + 'RoomEnvironment.js'), import(V + 'BufferGeometryUtils.js')]);
       if (!active()) return false;
       T = three; RE = RoomEnvironment;
-      FM.init(T, BU); SPR.init(T, PITCH);
-      await Promise.all([SPR.load(), army(), CH.load(T), BUILD.load(T), sceneryFor(fileFor(theme, shapeOf(innerWidth, innerHeight)))]);
+      FM.init(T, BU);
+      await Promise.all([CH.load(T), BUILD.load(T), WALLS.load(T)]);
       if (!active()) return false;
       try { await document.fonts.load('800 60px "Barlow Condensed"'); } catch (_) {}
       return active();
@@ -125,57 +58,90 @@ export function load(theme = 'coast') {
 }
 export const ready = () => !!T && !DEAD;
 
-// The painted bases are .54 as deep as they are wide. Match the floor to that diamond.
+// The camera looks down across the lot corner-on, the floor .54 as deep as it is wide on the screen.
 export const YAW = Math.PI / 4, PITCH = Math.asin(.54);
-// Layouts were authored at .9 radians. Preserve their clearing width at the shallower angle.
-export const sceneryLot = lot => ({...lot, h: lot.h * Math.sin(PITCH) / Math.sin(.9)});
 const W = (x) => x - N / 2; // a tile coordinate to the world's (the lot centred on the origin)
+
+// Who works round building b (its status: ok, new, up, down), each an animated model: [{role (work: a villager, at
+// home only; crew: a cannon's; archer: on a tower; build: a builder at a job; engine: a trebuchet's catapult), u, v
+// (tiles from its middle), kind (realm-characters.js), height}].
+function crewOf(b, status, size) {
+  if (status === 'down') return [];
+  const s = size, left = [s * .18, s / 2 + .45], right = [s / 2 + .45, s * .18];
+  if (status !== 'ok') return [{role: 'build', u: left[0], v: left[1], kind: 'worker'}];
+  if (b.t === 'cannon') return [{role: 'crew', u: -.35, v: 1.15, kind: 'worker'}, {role: 'crew', u: 1.15, v: -.3, kind: 'worker'}];
+  if (b.t === 'tower') return [{role: 'archer', u: 0, v: 0, kind: 'archer', height: 1.15}];
+  if (b.t === 'trebuchet') return [{role: 'engine', u: 0, v: 0, kind: 'catapult', height: 1.2 + .06 * Math.min(6, b.l)}];
+  const two = {keep: 2, farm: 2, barracks: 2, camp: 2, hut: 1, mine: 1, treasury: 1, granary: 1, hatchery: 1}[b.t] || 0;
+  return [left, right].slice(0, two).map(([u, v]) => ({role: 'work', u, v, kind: 'worker'}));
+}
 
 // ---- pictures of the models for the shop and the army (rendered once each, on a small canvas of their own)
 let THUMB = null;
 const THUMBS = new Map();
-/** A picture (data URL) of kind k at level l in a house's colours, or of a soldier (troop: true). */
-export function thumb(k, l, house, troop = false) {
+/** A plain 3D soldier (realm-models.js's parts) for kind k: the stand-in while its model's missing. */
+function plainTroop(k, house) {
+  const parts = FM.troopParts(k, house), mat = FM.mats().paint, obj = new T.Group();
+  const body = new T.Mesh(parts.body, mat); body.position.y = .22; obj.add(body);
+  if (k === 'dragon') [-1, 1].forEach(sd => { const w = new T.Mesh(parts.leg, mat); w.position.set(sd * .18, .32, .1); w.scale.x = sd; w.rotation.z = sd * .35; obj.add(w); });
+  else [-1, 1].forEach(sd => { const lg = new T.Mesh(parts.leg, mat); lg.position.set(sd * .06 * (k === 'knight' ? 1.35 : 1), .22, 0); lg.rotation.x = sd * .3; obj.add(lg); });
+  return obj;
+}
+// (each troop's model and how tall he stands: a knight in plate a head over a thief)
+const TROOP_MODEL = {footman: ['footman', 1.15], archer: ['archer', 1.15], knight: ['knight', 1.28], thief: ['thief', 1.08]};
+/** A picture (data URL) of kind k at level l in a house's colours, or of a soldier (troop: true): rendered from the
+ *  3D model the lot draws it with. card: {w, h} px for a building's card (on a patch of its ground), else 160 square. */
+export function thumb(k, l, house, troop = false, card = null) {
   if (!ready() || !features.available()) return '';
-  if (!troop && SPR.has(k)) return SPR.thumbURL(k, l);
-  if (troop && ARMY[k]) return ARMY[k].url;
-  const key = `${troop ? 't' : 'b'}:${k}:${l}:${house.pri}:${house.sigil}`;
+  const W0 = card ? card.w : 160, H0 = card ? card.h : 160;
+  const key = `${troop ? 't' : 'b'}:${k}:${l}:${house.pri}:${house.sigil}:${W0}x${H0}:${BUILD.ready(k)}:${CH.ready(TROOP_MODEL[k]?.[0])}`;
   if (THUMBS.has(key)) return THUMBS.get(key);
+  let actor = null;
   try {
     if (!THUMB) {
       const r = new T.WebGLRenderer({antialias: true, alpha: true, preserveDrawingBuffer: true});
-      r.setPixelRatio(1); r.setSize(160, 160, false);
+      r.setPixelRatio(1);
       r.outputColorSpace = T.SRGBColorSpace; r.toneMapping = T.ACESFilmicToneMapping;
       const sc = new T.Scene(), pm = new T.PMREMGenerator(r);
       sc.environment = pm.fromScene(new RE(r), .04).texture; pm.dispose();
       sc.add(new T.HemisphereLight(0xFFFFFF, 0x445533, 1.2));
       const sun = new T.DirectionalLight(0xFFF0D8, 2.2); sun.position.set(-3, 6, 4); sc.add(sun);
-      THUMB = {r, sc, cam: new T.OrthographicCamera(-1, 1, 1, -1, .1, 100)};
+      THUMB = {r, sc, cam: new T.OrthographicCamera(-1, 1, 1, -1, .1, 100), w: 0, h: 0};
     }
     const {r, sc, cam} = THUMB;
+    if (THUMB.w !== W0 || THUMB.h !== H0) { r.setSize(W0, H0, false); THUMB.w = W0; THUMB.h = H0; }
     let obj;
     if (troop) {
-      const parts = FM.troopParts(k, house), mat = FM.mats().paint;
-      obj = new T.Group();
-      const body = new T.Mesh(parts.body, mat); body.position.y = .22; obj.add(body);
-      if (k === 'dragon') [-1, 1].forEach(sd => { const w = new T.Mesh(parts.leg, mat); w.position.set(sd * .18, .32, .1); w.scale.x = sd; w.rotation.z = sd * .35; obj.add(w); });
-      else [-1, 1].forEach(sd => { const lg = new T.Mesh(parts.leg, mat); lg.position.set(sd * .06 * (k === 'knight' ? 1.35 : 1), .22, 0); lg.rotation.x = sd * .3; obj.add(lg); });
-    } else obj = k === 'wall' ? wallPreview(T, l, true) : FM.model(k, l, house);
+      const m = TROOP_MODEL[k];
+      actor = m && CH.ready(m[0]) ? CH.create(m[0], {height: m[1]}) : null;
+      obj = actor ? actor.root : plainTroop(k, house);
+      if (actor) { obj.rotation.y = .5; actor.pose('idle', .4); }
+    } else obj = k === 'wall' ? wallPreview(T, l, true) : BUILD.create(k, l, KINDS[k] ? KINDS[k].size : 3) || FM.model(k, l, house);
     sc.add(obj);
+    let patch = null;
+    if (card && !troop) {
+      // (its footprint: a patch of grass under it, as on the lot)
+      const sz0 = KINDS[k] ? KINDS[k].size : 1;
+      patch = new T.Mesh(new T.PlaneGeometry(sz0 + .4, sz0 + .4).rotateX(-Math.PI / 2), new T.MeshStandardMaterial({color: 0x6f8f4a, roughness: 1}));
+      patch.position.y = -.01; sc.add(patch);
+    }
+    sc.updateMatrixWorld(true);
     const box = new T.Box3().setFromObject(obj), c = box.getCenter(new T.Vector3()), sz = box.getSize(new T.Vector3());
-    const R = Math.max(sz.x, sz.y, sz.z) * .62;
-    cam.left = -R; cam.right = R; cam.top = R; cam.bottom = -R; cam.updateProjectionMatrix();
+    const R = Math.max(sz.x, sz.y, sz.z) * (card ? .7 : .62), aspect = W0 / H0;
+    cam.left = -R * aspect; cam.right = R * aspect; cam.top = R; cam.bottom = -R; cam.updateProjectionMatrix();
     cam.position.set(c.x + R * 2 * Math.sin(YAW), c.y + R * 2 * Math.sin(.6), c.z + R * 2 * Math.cos(YAW)); cam.lookAt(c);
     r.setClearColor(0x000000, 0);
     r.render(sc, cam);
     const url = r.domElement.toDataURL('image/png');
     sc.remove(obj);
+    if (patch) { sc.remove(patch); patch.geometry.dispose(); patch.material.dispose(); }
+    if (actor) actor.dispose();
     THUMBS.set(key, url);
     // (its own GPU context, let go a few seconds after the last picture: the pictures stay, as data URLs)
     clearTimeout(THUMB.idle);
     THUMB.idle = setTimeout(releaseThumb, 4000);
     return url;
-  } catch (e) { return ''; }
+  } catch (e) { if (actor) actor.dispose(); return ''; }
 }
 function releaseThumb() {
   if (!THUMB) return;
@@ -186,28 +152,12 @@ function releaseThumb() {
   try { r.forceContextLoss(); } catch (_) {}
 }
 
-function grassTexture(T) {
-  const cv = document.createElement('canvas'); cv.width = cv.height = 256;
-  const g = cv.getContext('2d');
-  g.fillStyle = '#4A7A35'; g.fillRect(0, 0, 256, 256);
-  let s = 7;
-  const r = () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
-  for (let i = 0; i < 2600; i++) { g.fillStyle = `rgba(${r() < .5 ? '28,60,22' : '120,160,70'},${.08 + r() * .12})`; g.fillRect(r() * 256, r() * 256, 1 + r() * 2, 2 + r() * 4); }
-  const t = new T.CanvasTexture(cv); t.colorSpace = T.SRGBColorSpace; t.wrapS = t.wrapT = T.RepeatWrapping; t.anisotropy = 4;
-  return t;
-}
-function lotTexture(T) {
-  // a meadow: grass in patches, a little worn earth, flowers here and there
-  const cv = document.createElement('canvas'); cv.width = cv.height = 576;
-  const g = cv.getContext('2d');
-  g.fillStyle = '#5B913C'; g.fillRect(0, 0, 576, 576);
-  let s = 11;
-  const r = () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
-  for (let i = 0; i < 40; i++) { const x = r() * 576, y = r() * 576, R = 20 + r() * 60, gr = g.createRadialGradient(x, y, 0, x, y, R); gr.addColorStop(0, r() < .5 ? 'rgba(70,120,45,.45)' : 'rgba(110,150,60,.4)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(x - R, y - R, 2 * R, 2 * R); }
-  for (let i = 0; i < 6000; i++) { g.fillStyle = `rgba(${r() < .5 ? '40,80,25' : '150,190,90'},${.05 + r() * .08})`; g.fillRect(r() * 576, r() * 576, 1 + r() * 2, 2 + r() * 3); }
-  for (let i = 0; i < 160; i++) { g.fillStyle = ['#E8E2C8', '#D9C34A', '#B8A6D8'][i % 3]; g.fillRect(r() * 576, r() * 576, 2, 2); }
-  const t = new T.CanvasTexture(cv); t.colorSpace = T.SRGBColorSpace; t.anisotropy = 8;
-  return t;
+/** Frees what a building group owns (its rank studs): its shared model and materials stay. */
+function releaseOwned(group) {
+  const owned = group && group.userData && group.userData.owned;
+  if (!owned) return;
+  owned.forEach(mesh => { mesh.geometry.dispose(); mesh.material.dispose(); if (mesh.isInstancedMesh) mesh.dispose(); });
+  group.userData.owned = [];
 }
 function blobTexture(T) {
   // a soft round shadow
@@ -235,134 +185,6 @@ function puffTexture(T) {
   g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
   const t = new T.CanvasTexture(cv); t.colorSpace = T.SRGBColorSpace;
   return t;
-}
-
-// The base's ground in each land (its open ground's colours, taken from its landscape under the lot): its check's two
-// tiles, its patches and specks (dark, light), its edge, the kerb, and whether grass blades grow on it close up.
-const GROUND = {
-  coast: {a: '#96952E', b: '#8C8D2A', pd: '110,115,25', pl: '180,170,70', sd: '70,80,15', sl: '190,180,90', edge: 'rgba(60,65,15,.45)', kerb: 0xB4AA94, blades: true},
-  ocean: {a: '#9E9B34', b: '#94932F', pd: '115,118,30', pl: '185,175,75', sd: '75,82,18', sl: '195,185,95', edge: 'rgba(60,65,15,.45)', kerb: 0xC2B48E, blades: true},
-  forest: {a: '#51652C', b: '#4A5E28', pd: '40,55,20', pl: '110,130,60', sd: '30,40,12', sl: '120,140,70', edge: 'rgba(20,30,10,.5)', kerb: 0x7C8070, blades: true},
-  tundra: {a: '#CED3DF', b: '#C6CCDA', pd: '150,165,190', pl: '235,238,245', sd: '130,145,170', sl: '245,247,250', edge: 'rgba(90,110,140,.4)', kerb: 0x8E9AA6, blades: false},
-  christmas: {a: '#C1CDE6', b: '#B9C6DF', pd: '135,151,183', pl: '224,231,246', sd: '119,138,174', sl: '241,244,252', edge: 'rgba(74,90,125,.4)', kerb: 0x8794AA, blades: false},
-  desert: {a: '#ED9F4D', b: '#E59646', pd: '190,110,40', pl: '250,190,110', sd: '160,90,30', sl: '255,210,140', edge: 'rgba(150,80,25,.4)', kerb: 0xB08A5E, blades: false},
-  infernal: {a: '#57362B', b: '#4F3026', pd: '35,20,15', pl: '120,70,50', sd: '25,14,10', sl: '255,120,40', edge: 'rgba(255,90,20,.35)', kerb: 0x3A302C, blades: false}
-};
-function plotTexture(T, B, G, feather = false) {
-  // the base: its ground a tile each in a faint check (lighter and darker by turns), worn a little, a darker line at
-  // its edge under the kerb
-  const px = 32, cv = document.createElement('canvas'); cv.width = cv.height = B * px;
-  const g = cv.getContext('2d');
-  let s = 13;
-  const r = () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
-  for (let y = 0; y < B; y++) for (let x = 0; x < B; x++) { g.fillStyle = !feather && (x + y) % 2 ? G.b : G.a; g.fillRect(x * px, y * px, px, px); }
-  for (let i = 0; i < 60; i++) { const x = r() * B * px, y = r() * B * px, R = 30 + r() * 90, gr = g.createRadialGradient(x, y, 0, x, y, R); gr.addColorStop(0, r() < .5 ? `rgba(${G.pd},.22)` : `rgba(${G.pl},.18)`); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(x - R, y - R, 2 * R, 2 * R); }
-  for (let i = 0; i < 9000; i++) { g.fillStyle = `rgba(${r() < .5 ? G.sd : G.sl},${.06 + r() * .1})`; g.fillRect(r() * B * px, r() * B * px, 1 + r() * 2, 1 + r() * 2); }
-  if (feather) {
-    const pixels = g.getImageData(0, 0, cv.width, cv.height), edge = px * 6;
-    for (let y = 0; y < cv.height; y++) for (let x = 0; x < cv.width; x++) {
-      const d = Math.min(x, y, cv.width - 1 - x, cv.height - 1 - y), f = Math.min(1, d / edge);
-      pixels.data[(y * cv.width + x) * 4 + 3] = Math.round(255 * f * f * (3 - 2 * f));
-    }
-    g.putImageData(pixels, 0, 0);
-  } else { g.strokeStyle = G.edge; g.lineWidth = 6; g.strokeRect(3, 3, B * px - 6, B * px - 6); }
-  const t = new T.CanvasTexture(cv); t.colorSpace = T.SRGBColorSpace; t.anisotropy = 8;
-  return t;
-}
-function bladesTexture(T) {
-  // the painted meadow close up: short blades in its own dark and sunlit greens on nothing (it tiles)
-  const cv = document.createElement('canvas'); cv.width = cv.height = 256;
-  const g = cv.getContext('2d');
-  let s = 5;
-  const r = () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
-  g.lineCap = 'round';
-  for (let i = 0; i < 1500; i++) {
-    const x = r() * 256, y = r() * 256, h = 3 + r() * 5, lean = (r() - .5) * 3, dark = r() < .55;
-    g.strokeStyle = dark ? `rgba(70,92,14,${.3 + r() * .3})` : `rgba(196,192,82,${.25 + r() * .3})`;
-    g.lineWidth = 1 + r() * .8;
-    [-256, 0, 256].forEach(ox => [-256, 0, 256].forEach(oy => { g.beginPath(); g.moveTo(x + ox, y + oy); g.lineTo(x + ox + lean, y + oy - h); g.stroke(); }));
-  }
-  const t = new T.CanvasTexture(cv); t.colorSpace = T.SRGBColorSpace; t.wrapS = t.wrapT = T.RepeatWrapping; t.anisotropy = 8;
-  return t;
-}
-
-/**
- * The landscape laid on the ground (y 0) so that, looked at the way the game's camera looks (the painting has no
- * perspective, so straight along that line, not from a point), it's as painted with the lot on its meadow: a grid of
- * the painting's points, each put where its ray meets the ground. The game's camera then sees it with the same
- * perspective as the lot (lot: where it lies, its layout's). → {mesh, px(world point) → where it is on the painting
- * (px), under(x, y) → the ground under a px of it (world), per (world a px of it, standing facing the camera), lot, w, h}.
- */
-function sceneryGround(img, authoredLot, maxAniso) {
-  const lot = sceneryLot(authoredLot);
-  // A small lot makes the surrounding realm hundreds of tiles deep. Keep the
-  // reference ray origins above the whole painting, including its far corners.
-  const w = img.naturalWidth, h = img.naturalHeight, D = Math.max(200, N * h / lot.h * 4);
-  const rc = new T.OrthographicCamera(-w / h, w / h, 1, -1, 1, 2 * D), hd = Math.cos(PITCH) * D;
-  rc.position.set(Math.sin(YAW) * hd, Math.sin(PITCH) * D, Math.cos(YAW) * hd); rc.lookAt(0, 0, 0); rc.updateMatrixWorld();
-  const far = new T.Vector3(-N / 2, 0, -N / 2).project(rc), near = new T.Vector3(N / 2, 0, N / 2).project(rc);
-  const k = (far.y - near.y) / (lot.h / (h / 2)), mid = (far.y + near.y) / 2; // (the painting's px to the camera's)
-  const ray = new T.Raycaster(), ground = new T.Plane(new T.Vector3(0, 1, 0), 0), at = new T.Vector3(), v = new T.Vector2();
-  const GX = 48, GY = 28, pos = [], uv = [], idx = [];
-  for (let j = 0; j <= GY; j++) {
-    for (let i = 0; i <= GX; i++) {
-      const px = i / GX * w, py = j / GY * h;
-      ray.setFromCamera(v.set((px - lot.cx) / (w / 2) * k, mid - (py - lot.cy) / (h / 2) * k), rc);
-      if (!ray.ray.intersectPlane(ground, at)) throw new Error('scenery: off the ground');
-      pos.push(at.x, 0, at.z); uv.push(px / w, 1 - py / h);
-      if (i < GX && j < GY) { const a = j * (GX + 1) + i, b = a + GX + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
-    }
-  }
-  const geo = new T.BufferGeometry();
-  geo.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
-  geo.setAttribute('uv', new T.Float32BufferAttribute(uv, 2));
-  geo.setIndex(idx);
-  const tex = new T.Texture(img);
-  tex.colorSpace = T.SRGBColorSpace; tex.anisotropy = maxAniso; tex.needsUpdate = true;
-  geo.userData.tex = tex;
-  const mesh = new T.Mesh(geo, new T.MeshBasicMaterial({map: tex, toneMapped: false, fog: false}));
-  mesh.position.y = -.02;
-  const p = new T.Vector3();
-  const px = q => { p.copy(q).project(rc); return {x: lot.cx + p.x / k * (w / 2), y: lot.cy - (p.y - mid) / k * (h / 2)}; };
-  const under = (x, y) => {
-    ray.setFromCamera(v.set((x - lot.cx) / (w / 2) * k, mid - (y - lot.cy) / (h / 2) * k), rc);
-    return ray.ray.intersectPlane(ground, new T.Vector3());
-  };
-  return {mesh, px, under, per: 2 * k / h, lot, pitch: PITCH, w, h};
-}
-
-/**
- * The scenery's pictures, each stood up facing the camera (it never turns, so they look as drawn) on the ground under
- * its instance's anchor (the bottom middle of its rect), as big as its rect: the whole original in the rect, so the
- * trimmed picture where its crop was in it. They're drawn in the layout's draw_order: those behind the lot's middle
- * before everything on the lot (so the lot's buildings stand in front of them), those in front of it after (so they
- * stand in front of the lot's); none of them hides anything else. → [THREE.Sprite].
- */
-function sceneryPictures(sc, gr) {
-  const mats = sc.mats || (sc.mats = {}), out = []; // (its textures shared by every view)
-  sc.lay.instances.forEach(it => {
-    const a = sc.lay.assets[it.asset_id], im = sc.pics[it.asset_id];
-    if (!a || !im || !a.pic) return;
-    const R = it.rect, sx = R.width / a.width, sy = R.height / a.height, [x0, y0, x1, y1] = a.pic.crop;
-    const left = R.x + x0 * sx, top = R.y + y0 * sy, w = (x1 - x0) * sx, h = (y1 - y0) * sy;
-    const ax = R.x + R.width / 2, ay = R.y + R.height, g = gr.under(ax, ay);
-    if (!g) return;
-    const key = it.asset_id + (it.flip_x ? ':f' : '');
-    if (!mats[key]) {
-      const t = new T.Texture(im);
-      t.colorSpace = T.SRGBColorSpace; t.anisotropy = 4; t.needsUpdate = true;
-      if (it.flip_x) { t.wrapS = T.RepeatWrapping; t.repeat.x = -1; t.offset.x = 1; }
-      mats[key] = new T.SpriteMaterial({map: t, transparent: true, depthWrite: false, toneMapped: false, fog: false});
-    }
-    const sp = new T.Sprite(mats[key]);
-    sp.center.set((it.flip_x ? left + w - ax : ax - left) / w, 1 - (ay - top) / h);
-    sp.scale.set(w * gr.per, h * gr.per, 1);
-    sp.position.copy(g);
-    sp.renderOrder = (ay <= gr.lot.cy ? -1000 : 1000) + (it.draw_order || 0);
-    sp.raycast = () => {};
-    out.push(sp);
-  });
-  return out;
 }
 
 /**
@@ -398,162 +220,47 @@ export function create(host, opts = {}) {
   scene.environment = pmrem.fromScene(new RE(renderer), .04).texture;
   pmrem.dispose();
   const hemi = new T.HemisphereLight(0xDCE6F2, 0x3E5530, .75); scene.add(hemi);
-  const sun = new T.DirectionalLight(0xFFE8C8, village ? 1.8 : 2.8);
+  const sun = new T.DirectionalLight(0xFFE8C8, 2.4);
   sun.position.set(-16, 30, 12); sun.target.position.set(0, 0, 0);
   sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -.0005; sun.shadow.normalBias = .03;
   Object.assign(sun.shadow.camera, {left: -N * .7, right: N * .7, top: N * .7, bottom: -N * .7, near: 1, far: 90});
   scene.add(sun, sun.target);
 
-  // ---- the ground: the scenery (opts.scenery: its theme, core/realm.js SCENERIES; the coast if none), the lot on its
-  // ground; or, till it's in or without it, grass all round, a moat round the lot (a stone lip each side), the lot,
-  // pines and mountains (plain)
-  let scene0 = null, sceneG = null, wildlife = null, ambience = null, ambienceSig = '', ambienceVisible = false, theme = opts.scenery || 'coast';
-  const plain = new T.Group();
-  let sceneryTheme = 'coast';
-  let windGrass = null, windTimer = 0;
-  const base = {}; // (the base's ground: below)
-  /** The base's ground for land k (GROUND). */
-  function groundFor(k) {
-    sceneryTheme = k;
-    if (!base.plot) return;
-    const key = GROUND[k] ? k : 'coast', color = village && scene0 && scene0.terrainColor;
-    const G = color ? {...GROUND[key], a: color, b: color} : GROUND[key], textureKey = key + (color || '');
-    if (village) {
-      // Keep only the active high-detail texture resident on mobile GPUs.
-      if (base.textureKey !== textureKey) {
-        const previous = base.plot.material.map;
-        base.plot.material.map = villageGroundTexture(T, base.B, key, G.a);
-        base.textureKey = textureKey;
-        if (previous) previous.dispose();
-      }
-    } else base.plot.material.map = base.tex[textureKey] || (base.tex[textureKey] = plotTexture(T, base.B, G));
-    base.plot.material.needsUpdate = true;
-    base.blades.visible = G.blades;
-    base.kerbM.color.set(G.kerb);
-    if (village) {
-      // Fine ground detail close up, feathered into the same landscape over six tiles at every edge.
-      base.plot.material.transparent = true; base.plot.material.depthWrite = false;
-      base.plot.renderOrder = -2002;
-      base.blades.visible = false;
-      base.kerbs.forEach(k => { k.visible = placement; });
-    }
+  // ---- the land (views/realm-world.js): opts.scenery's (core/realm.js SCENERIES; the coast if none), its terrain,
+  // water, woods and rocks round the lot, its sky and light; the village's wildlife about it
+  let theme = opts.scenery || 'coast', wildlife = null;
+  // (a raid, a scout and a replay look at the lot: fewer trees round it, the same land)
+  const world = createWorld(T, scene, {theme, onChange: () => want(), maxAnisotropy: renderer.capabilities.getMaxAnisotropy(), detail: village ? 1 : .55});
+  function lightFor() {
+    const L = world.light;
+    scene.background = world.background || new T.Color(L.fog);
+    scene.fog.color.set(L.fog);
+    sun.color.set(L.sun[0]); sun.intensity = L.sun[1];
+    hemi.color.set(L.hemi[0]); hemi.groundColor.set(L.hemi[1]); hemi.intensity = L.hemi[2];
   }
-  /** Lays scenery sc (a theme's layout for a shape) round the lot, instead of what's there: true when it's down. */
-  function dropScenery() {
-    clearTimeout(windTimer); windTimer = 0;
-    if (windGrass) { windGrass.dispose(); windGrass = null; }
-    if (ambience) { ambience.dispose(); ambience = null; ambienceSig = ''; }
+  function wildlifeFor() {
     if (wildlife) { wildlife.dispose(); wildlife = null; }
-    if (!sceneG) return;
-    const geometry = new Set(), materials = new Set(), textures = new Set();
-    sceneG.traverse(o => {
-      if (o.geometry) geometry.add(o.geometry);
-      if (o.material) for (const m of [o.material].flat()) { materials.add(m); if (m.map) textures.add(m.map); }
-    });
-    geometry.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); textures.forEach(t => t.dispose());
-    scene.remove(sceneG); sceneG.clear(); sceneG = scene0 = null;
-  }
-  function setScenery(sc) {
-    if (!features.available()) return false;
-    let gr;
-    try { gr = sceneryGround(sc.ground, sc.lay.lot, renderer.capabilities.getMaxAnisotropy()); } catch (e) { console.warn('The Keep: no scenery', e); return false; }
-    dropScenery();
-    scene.remove(plain);
-    scene.background.set(0x16202A); // (never seen: the camera stays over it)
-    sceneG = new T.Group();
-    sceneG.add(gr.mesh, ...sceneryPictures(sc, gr));
-    scene.add(sceneG);
-    scene0 = gr; scene0.file = sc.file; scene0.terrainColor = sc.lay.terrain_color;
-    const key = Object.keys(FILES).find(k => [...Object.values(FILES[k]), ...Object.values(WORLD_FILES[k])].includes(sc.file)) || 'coast';
-    groundFor(key);
-    if (village && sc.file.startsWith('world-')) windGrass = createGrassWallpaper(T, sceneG, gr, {theme: key, color: sc.lay.terrain_color, onChange: () => want()});
-    const dusk = sc.lay.lighting === 'dusk';
-    hemi.intensity = dusk ? .55 : .75;
-    sun.intensity = dusk ? (village ? 1.05 : 1.6) : (village ? 1.8 : 2.8);
-    sun.color.set(dusk ? 0xFFD0A0 : 0xFFE8C8);
-    if (village && sc.file.startsWith('world-')) wildlife = createWildlife(T, sceneG, {theme: key, ground: gr, pitch: gr.pitch, sleighImage: sc.pics['christmas:sleigh'], onChange: () => want(),
+    if (village) wildlife = createWildlife(T, world.group, {theme: world.theme, ground: world.ground, pitch: PITCH, onChange: () => queueMicrotask(() => want()),
       dragonModels: (three, group, n) => createSceneryDragons(three, group, n)});
-    if (village && /world-v[23]\.webp$/.test(sc.lay.assets[sc.lay.scene.background_asset_id].pic.file)) ambience = createAmbience(T, gr, {theme: key, onChange: () => want()});
-    return true;
   }
-  /** The theme's layout for this screen's shape laid down: now, if it's in; else once it is (if it's still wanted). */
-  function wantScenery(w, h) {
-    const f = fileFor(theme, shapeOf(w, h));
-    if (scene0 && scene0.file === f) return;
-    if (SCENERY[f]) { setScenery(SCENERY[f]); return; }
-    sceneryFor(f).then(sc => {
-      if (!sc || dead || (village && !features.available()) || (scene0 && scene0.file === f) || fileFor(theme, shapeOf(Wd, Hd)) !== f || !setScenery(sc)) return;
-      zTop = mostOut(); clampView(); want();
-    });
-  }
-  {
-    const w0 = host.clientWidth || innerWidth, h0 = host.clientHeight || innerHeight, f0 = fileFor(theme, shapeOf(w0, h0));
-    // (the coast's while another's coming)
-    const first = SCENERY[f0] || SCENERY[fileFor('coast', shapeOf(w0, h0))] || Object.values(SCENERY)[0];
-    if (first) setScenery(first);
-  }
-  if (!scene0) scene.add(plain);
-  {
-    const grass = new T.Mesh(new T.PlaneGeometry(260, 260), new T.MeshStandardMaterial({map: grassTexture(T), roughness: 1}));
-    grass.material.map.repeat.set(60, 60);
-    grass.rotation.x = -Math.PI / 2; grass.position.y = -.02; grass.receiveShadow = true;
-    plain.add(grass);
-    const ringAt = (r0, r1, y, mat) => {
-      const m = new T.Mesh(new T.RingGeometry(r0 * Math.SQRT2, r1 * Math.SQRT2, 4, 1), mat);
-      m.rotation.x = -Math.PI / 2; m.rotation.z = Math.PI / 4; m.position.y = y; m.receiveShadow = true;
-      plain.add(m);
-    };
-    ringAt(N / 2 + .9, N / 2 + 3.1, -.06, new T.MeshStandardMaterial({color: 0x2F5F73, roughness: .12, metalness: .2, envMapIntensity: 1.2}));
-    ringAt(N / 2 + .3, N / 2 + .9, .005, new T.MeshStandardMaterial({color: 0x8E887E, roughness: .9}));
-    ringAt(N / 2 + 3.1, N / 2 + 3.6, .005, new T.MeshStandardMaterial({color: 0x8E887E, roughness: .9}));
-    const lot = new T.Mesh(new T.PlaneGeometry(N, N), new T.MeshStandardMaterial({map: lotTexture(T), roughness: .95}));
-    lot.rotation.x = -Math.PI / 2; // (the shadows on it: the base's, below)
-    plain.add(lot);
-    // pines round the outside (a few tiers each), mountains far off with snow on top
-    {
-      let s = 3;
-      const r = () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
-      const needles = new T.MeshStandardMaterial({color: 0x24482A, roughness: .9}), bark = new T.MeshStandardMaterial({color: 0x5A3E2A, roughness: .9});
-      const tiers = [new T.ConeGeometry(1.3, 1.8, 7), new T.ConeGeometry(1.0, 1.5, 7), new T.ConeGeometry(.7, 1.2, 7)], trunk = new T.CylinderGeometry(.16, .22, 1, 6);
-      const n = 90, meshes = tiers.map(g => new T.InstancedMesh(g, needles, n)), tr = new T.InstancedMesh(trunk, bark, n), m = new T.Matrix4(), q = new T.Quaternion();
-      for (let i = 0; i < n; i++) {
-        const a = r() * Math.PI * 2, d = N * .8 + 4 + r() * 18, x = Math.cos(a) * d, z = Math.sin(a) * d, k = .7 + r() * .8;
-        meshes.forEach((M, j) => { m.compose(new T.Vector3(x, (1.5 + j * 1.0) * k, z), q, new T.Vector3(k, k, k)); M.setMatrixAt(i, m); });
-        m.compose(new T.Vector3(x, .5 * k, z), q, new T.Vector3(k, k, k)); tr.setMatrixAt(i, m);
-      }
-      meshes.forEach(M => { M.castShadow = true; plain.add(M); }); plain.add(tr);
-      const rockM = new T.MeshStandardMaterial({color: 0x6F7378, roughness: 1, flatShading: true}), snowM = new T.MeshStandardMaterial({color: 0xEEF2F6, roughness: .9, flatShading: true});
-      for (let i = 0; i < 9; i++) {
-        const a = -2.6 + i * .5 + r() * .2, d = 110 + r() * 20, h = 30 + r() * 25, w = 22 + r() * 16;
-        const mt = new T.Mesh(new T.ConeGeometry(w, h, 6), rockM); mt.position.set(Math.cos(a) * d, h / 2 - 2, Math.sin(a) * d); mt.rotation.y = r() * 3; plain.add(mt);
-        const cap = new T.Mesh(new T.ConeGeometry(w * .32, h * .32, 6), snowM); cap.position.set(mt.position.x, h - 2 - h * .16 + .3, mt.position.z); cap.rotation.y = mt.rotation.y; plain.add(cap);
-      }
-    }
-  }
+  lightFor(); wildlifeFor();
 
-  // ---- the base: a clear square cut out of the land, where everything's built and moved about (the lot inside its
-  // EDGE: core/realm.js fits()), its ground the land's (GROUND: grass, moss, snow, sand or ash) in a faint check a tile each, short
-  // blades over grass close up, a low stone kerb round it
+  // ---- the base: where everything's built and moved about (the lot inside its EDGE: core/realm.js fits()), the land's
+  // own ground; a low stone kerb round it while something's being placed, the buildings' shadows over it all
+  const base = {};
   {
     const B = N - 2 * EDGE;
-    const plot = new T.Mesh(new T.PlaneGeometry(B, B), new T.MeshBasicMaterial({toneMapped: false, fog: false}));
-    plot.rotation.x = -Math.PI / 2; plot.position.y = .006;
-    const blades = new T.Mesh(new T.PlaneGeometry(B, B), new T.MeshBasicMaterial({map: bladesTexture(T), transparent: true, depthWrite: false, toneMapped: false, fog: false}));
-    blades.material.map.repeat.set(B / 2, B / 2);
-    blades.rotation.x = -Math.PI / 2; blades.position.y = .009; blades.renderOrder = -2001;
-    const kerbM = new T.MeshStandardMaterial({color: GROUND.coast.kerb, roughness: .9}), w = .26, hgt = .14, kerbs = [];
+    const kerbM = new T.MeshStandardMaterial({color: 0x9A9284, roughness: .9}), w = .26, hgt = .14, kerbs = [];
     [[0, -1], [0, 1], [-1, 0], [1, 0]].forEach(([sx, sz]) => {
       const k = new T.Mesh(new T.BoxGeometry(sx ? w : B + 2 * w, hgt, sz ? w : B + 2 * w), kerbM);
-      k.position.set(sx * (B + w) / 2, hgt / 2, sz * (B + w) / 2); k.receiveShadow = true;
+      k.position.set(sx * (B + w) / 2, hgt / 2, sz * (B + w) / 2); k.receiveShadow = true; k.visible = false;
       scene.add(k);
       kerbs.push(k);
     });
-    // (the buildings' shadows over it all, the base and the scenery round it)
-    const shade = new T.Mesh(new T.PlaneGeometry(N + 6, N + 6), new T.ShadowMaterial({opacity: .32}));
+    const shade = new T.Mesh(new T.PlaneGeometry(N + 6, N + 6), new T.ShadowMaterial({opacity: .34}));
     shade.rotation.x = -Math.PI / 2; shade.position.y = .016; shade.receiveShadow = true; shade.renderOrder = -2000;
-    scene.add(plot, blades, shade);
-    Object.assign(base, {B, plot, blades, kerbM, kerbs, tex: {}});
-    groundFor(sceneryTheme);
+    scene.add(shade);
+    Object.assign(base, {B, kerbM, kerbs, shade});
   }
 
   // ---- the camera: looking down across the lot corner-on
@@ -563,56 +270,19 @@ export function create(host, opts = {}) {
     const h = Math.cos(PITCH) * view.dist;
     cam.position.set(view.tx + Math.sin(YAW) * h, Math.sin(PITCH) * view.dist, view.tz + Math.cos(YAW) * h);
     cam.lookAt(view.tx, 0, view.tz);
-    // (the near and far planes go with the zoom: zoomed right out to the whole scenery it's hundreds of yards off)
-    const nr = Math.max(.5, view.dist * .03), fr = view.dist * 3 + 100;
+    // (the near and far planes go with the zoom: zoomed right out over the land it's hundreds of yards off)
+    const nr = Math.max(.5, view.dist * .03), fr = view.dist * 3 + 160;
     if (cam.near !== nr || cam.far !== fr) { cam.near = nr; cam.far = fr; cam.updateProjectionMatrix(); }
     cam.updateMatrixWorld();
-    scene.fog.near = view.dist * .9 + 20; scene.fog.far = view.dist * 1.7 + 70;
+    scene.fog.near = view.dist * 1.05 + 35; scene.fog.far = view.dist * 2.1 + 150;
   };
-  const ZMIN = 14, ZMAX = 130, PAN = N / 2 + 2;
-  let zTop = ZMAX; // (with the scenery: out as far as the screen's still all on it, on this screen's shape)
+  // (the village may be looked over from far out and wandered round its land; a raid, a scout and a replay keep to the lot)
+  const ZMIN = 14, ZMAX = village ? 170 : 130, PAN = village ? world.extent : N / 2 + 2;
+  const zTop = ZMAX;
   const clampView = () => {
     view.dist = Math.max(ZMIN, Math.min(zTop, view.dist));
-    // Explore the full realm; painted edges, rather than the small village, bound panning.
-    if (!village || !scene0) { view.tx = Math.max(-PAN, Math.min(PAN, view.tx)); view.tz = Math.max(-PAN, Math.min(PAN, view.tz)); }
-    if (scene0) inScene();
+    view.tx = Math.max(-PAN, Math.min(PAN, view.tx)); view.tz = Math.max(-PAN, Math.min(PAN, view.tz));
   };
-  // over the landscape, never past its edges: where the screen's corners fall on it, then the view slid back in (past
-  // both sides at once can't happen, zTop sees to that; if it did, it'd be centred)
-  const RIGHT = new T.Vector3(Math.cos(YAW), 0, -Math.sin(YAW)), AWAY = new T.Vector3(-Math.sin(YAW), 0, -Math.cos(YAW));
-  const cRay = new T.Raycaster(), cNdc = new T.Vector2(), cAt = new T.Vector3(), flat = new T.Plane(new T.Vector3(0, 1, 0), 0);
-  function inScene() {
-    for (let n = 0; n < 32; n++) {
-      placeCam();
-      let l = 0, r = 0, t = 0, b = 0;
-      for (const [x, y] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
-        cRay.setFromCamera(cNdc.set(x, y), cam);
-        if (!cRay.ray.intersectPlane(flat, cAt)) { t = Infinity; continue; }
-        const p = scene0.px(cAt);
-        l = Math.max(l, -p.x); r = Math.max(r, p.x - scene0.w); t = Math.max(t, -p.y); b = Math.max(b, p.y - scene0.h);
-      }
-      if (t === Infinity) { if (view.dist <= ZMIN) return; view.dist = Math.max(ZMIN, view.dist * .94); continue; }
-      const pxw = N * Math.SQRT2 * Math.sin(PITCH) / scene0.lot.h; // (world a painting px across, about, near the lot)
-      const dx = (l && r ? (l - r) / 2 : l - r) * pxw * .8, dy = (t && b ? (t - b) / 2 : t - b) * pxw / Math.sin(PITCH) * .8;
-      if (Math.abs(dx) + Math.abs(dy) < .01) return;
-      view.tx += RIGHT.x * dx - AWAY.x * dy; view.tz += RIGHT.z * dx - AWAY.z * dy;
-    }
-  }
-  /** How far out the camera can be with the screen still all on the scenery: where the screen's corners fall on it
-   *  takes up no more than its width and height (wherever it's looking: the painting's laid down evenly). */
-  function mostOut() {
-    const was = {...view};
-    let lo = ZMIN, hi = 4000;
-    for (let i = 0; i < 32; i++) {
-      view.dist = (lo + hi) / 2;
-      placeCam();
-      const ps = [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([x, y]) => { cRay.setFromCamera(cNdc.set(x, y), cam); return cRay.ray.intersectPlane(flat, cAt) ? scene0.px(cAt) : null; });
-      const ok = ps.every(Boolean) && Math.max(...ps.map(p => p.x)) - Math.min(...ps.map(p => p.x)) <= scene0.w && Math.max(...ps.map(p => p.y)) - Math.min(...ps.map(p => p.y)) <= scene0.h;
-      if (ok) lo = view.dist; else hi = view.dist;
-    }
-    Object.assign(view, was);
-    return lo * .995;
-  }
   let Wd = 1, Hd = 1;
   const resize = () => {
     if (!isActive()) return;
@@ -622,15 +292,15 @@ export function create(host, opts = {}) {
     renderer.setSize(w, h, false);
     canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
     cam.aspect = w / h; cam.updateProjectionMatrix();
-    wantScenery(w, h); // (the phone turned: the scenery's other shape, if it has one)
-    if (scene0) zTop = mostOut();
+
+
     clampView();
     if (village && autoFrame && lotState && !framing) frameVillage();
     want();
   };
 
   // ---- drawing on demand
-  let raf = 0, dead = false, anim = null, cameraSig = '';
+  let raf = 0, dead = false, anim = null, cameraSig = '', flyTimer = 0;
   const want = () => { if (!raf && !dead && isActive() && !document.hidden) raf = requestAnimationFrame(frame); };
   let drawnAt = 0;
   function frame(now) {
@@ -642,24 +312,11 @@ export function create(host, opts = {}) {
     drawnAt = now;
     resize();
     placeCam();
-    if (village && base.plot) base.plot.material.opacity = scene0 ? Math.max(0, Math.min(.9, (180 - view.dist) / 100)) : 1;
     let more = false;
     if (anim) more = anim(now) !== false;
     const sig = [view.tx, view.tz, view.dist, Wd, Hd].join(':');
-    if (ambience) {
-      // Avoid continuous rendering while the camera sees only the quiet village
-      // clearing. Re-evaluate the painted effect regions only after camera moves.
-      if (sig !== ambienceSig) {
-        ambienceSig = sig;
-        ambienceVisible = [...ambience.regions.water, ...ambience.regions.lights].some(r => {
-          const pts = [r.x - r.rx, r.x + r.rx].flatMap(x => [r.y - r.ry, r.y + r.ry].map(y => scene0.under(x * scene0.w, y * scene0.h).project(cam)));
-          return pts.some(p => p.z > -1 && p.z < 1) && Math.min(...pts.map(p => p.x)) < 1 && Math.max(...pts.map(p => p.x)) > -1 && Math.min(...pts.map(p => p.y)) < 1 && Math.max(...pts.map(p => p.y)) > -1;
-        });
-      }
-      more = ambience.update(now / 1000, {zoom: view.dist, active: ambienceVisible}) || more;
-    }
-    if (wildlife) more = wildlife.update(now / 1000, {zoom: view.dist, active: document.visibilityState === 'visible'}) || more;
-    const windy = windGrass && windGrass.update(now / 1000, {camera: cam});
+    // (the wildlife, like the dragon over the hatchery, about 30 frames a second: the whole land needn't be drawn at 60)
+    const lively = !!wildlife && wildlife.update(now / 1000, {zoom: view.dist, active: document.visibilityState === 'visible'});
     if (homeNPCs) homeNPCs.update(now / 1000, {zoom: view.dist, active: !raid, placement});
     // (the dragon over the hatchery: about 30 frames a second while it's on the screen, not every refresh)
     const flying = !!homeDragon && homeDragon.update(now / 1000, {zoom: view.dist, active: !raid, placement, camera: cam});
@@ -667,9 +324,9 @@ export function create(host, opts = {}) {
     revealDepthCleared = false;
     renderer.render(scene, cam);
     if (opts.onCamera && sig !== cameraSig) { cameraSig = sig; opts.onCamera(); }
-    clearTimeout(windTimer); windTimer = 0;
+    clearTimeout(flyTimer); flyTimer = 0;
     if (more) want();
-    else if (windy || flying) windTimer = setTimeout(() => { windTimer = 0; want(); }, flying ? 33 : 50);
+    else if (flying || lively) flyTimer = setTimeout(() => { flyTimer = 0; want(); }, 33);
   }
 
   // ---- picking and projecting
@@ -755,32 +412,33 @@ export function create(host, opts = {}) {
       let e = groups.get(b.i);
       if (!e || e.key !== key) {
         folkChanged = true;
-        if (e) { root.remove(e.g); SPR.release(e.g); dropFolk(e); }
+        if (e) { root.remove(e.g); releaseOwned(e.g); dropFolk(e); }
         const g = new T.Group();
         if (status === 'down') g.add(FM.rubble(size));
         else if (status === 'new') { g.add(FM.scaffold(size)); }
         else {
-          const art = BUILD.create(b.t, b.l, size) || (SPR.has(b.t) ? SPR.building(b.t, b.l, size) : null);
+          const art = BUILD.create(b.t, b.l, size);
           g.add(art || FM.model(b.t, b.l, house));
           if (art) g.userData = art.userData;
           if (status === 'up') g.add(FM.scaffold(size));
         }
-        g.traverse(m => { if (m.isMesh || m.isSprite) m.userData.bid = b.i; });
+        g.traverse(m => { if (m.isMesh) m.userData.bid = b.i; });
         root.add(g);
         e = {g, key, b, folk: []};
         groups.set(b.i, e);
-        if (SPR.folkReady()) SPR.crewOf(b, status, size).forEach((c, j) => {
-          const sp = SPR.folk(), ph = ((b.i * 7919 + j * 104729) % 1000) / 1000;
-          const actor = CH.create(c.role === 'archer' ? 'archer' : 'worker', {height: c.role === 'archer' ? 1.15 : 1.05, phase: ph});
-          if (actor) actor.root.userData.homeRole = c.role;
-          scene.add(sp); if (actor) scene.add(actor.root);
-          e.folk.push({sp, c, ph, actor});
+        crewOf(b, status, size).forEach((c, j) => {
+          const ph = ((b.i * 7919 + j * 104729) % 1000) / 1000;
+          const actor = CH.create(c.kind, {height: c.height || 1.05, phase: ph});
+          if (actor) { actor.root.userData.homeRole = c.role; actor.root.visible = false; scene.add(actor.root); }
+          // (a trebuchet's catapult while its model's missing: the plain one, standing on its platform)
+          else if (c.role === 'engine') { const top = FM.model('trebuchet', b.l, house); top.scale.setScalar(.7); g.add(top); return; }
+          if (actor) e.folk.push({c, ph, actor});
         });
       }
       e.b = b;
       e.g.position.set(W(b.x + size / 2), 0, W(b.y + size / 2));
     });
-    [...groups.keys()].forEach(id => { if (!seen.has(id)) { root.remove(groups.get(id).g); SPR.release(groups.get(id).g); dropFolk(groups.get(id)); groups.delete(id); } });
+    [...groups.keys()].forEach(id => { if (!seen.has(id)) { root.remove(groups.get(id).g); releaseOwned(groups.get(id).g); dropFolk(groups.get(id)); groups.delete(id); } });
     if (folkChanged) {
       const paths = npcPaths(s.b);
       groups.forEach(e => e.folk.forEach(f => {
@@ -814,77 +472,53 @@ export function create(host, opts = {}) {
     return village && ids.includes(sel.id) ? sel.id : ids[0] ?? null;
   };
 
-  // Peaceful routines use independent schedules and clear courtyard paths.
-  // Tower/cannon firing pictures remain synchronized to actual raid shots.
-  const camR = new T.Vector3(), camU = new T.Vector3(), fp = new T.Vector3(), toCam = new T.Vector3();
-  function dropFolk(e) { (e.folk || []).forEach(f => { if (f.actor) f.actor.dispose(); scene.remove(f.sp); f.sp.material.map.dispose(); f.sp.material.dispose(); }); e.folk = []; }
+  // Peaceful routines use independent schedules and clear courtyard paths. In a raid the tower's archer, the cannon's
+  // crew and the trebuchet's catapult act on the battle's real shots, nothing else.
+  function dropFolk(e) { (e.folk || []).forEach(f => f.actor.dispose()); e.folk = []; }
   function folkFrame(now) {
-    if (!SPR.folkReady()) return;
-    camR.setFromMatrixColumn(cam.matrixWorld, 0); camU.setFromMatrixColumn(cam.matrixWorld, 1);
     const sec = now / 1000;
     const still = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
     groups.forEach(e => e.folk.forEach(f => {
-      const c = f.c, n = SPR.FOLK[c.sheet].length;
-      const civilian = c.role === 'work' || c.role === 'build';
-      if (f.actor) f.actor.root.visible = false;
-      if (placement || view.dist >= 145 || (raid && civilian)) { f.sp.visible = false; return; }
-      const routine = homeRoutine(f.route || [], {role: c.role, building: e.b.t, phase: f.ph}, sec, still);
-      if (f.actor && !raid) {
-        f.sp.visible = false;
-        f.actor.root.visible = features.available();
-        if (!f.actor.root.visible) return;
-        const g = e.g.position, U = e.g.userData;
-        f.actor.root.position.set(g.x + c.u, g.y, g.z + c.v);
-        if (civilian) {
-          if (!routine.point) { f.actor.root.visible = false; return; }
-          f.actor.root.position.set(W(routine.point.x), 0, W(routine.point.y));
-        } else if (c.role === 'archer') {
-          if (U?.importedBuilding === 'tower') {
-            f.actor.root.position.set(g.x, g.y + U.platformY, g.z);
-          } else {
-            if (!U?.sprite) { f.actor.root.visible = false; return; }
-            const [px, py] = SPR.platform(e.b.l);
-            fp.copy(g).add(U.sprite.position).addScaledVector(camR, (px - U.ax) * U.k).addScaledVector(camU, (U.ay - py) * U.k);
-            toCam.copy(cam.position).sub(fp).normalize();
-            f.actor.root.position.copy(fp).addScaledVector(toCam, .35);
-          }
-        }
-        const idleLook = still || routine.state !== 'idle' ? 0 : Math.sin(sec * .28 + f.ph * 17) * .16;
-        f.actor.root.rotation.y = routine.face ?? (Math.atan2(-c.u, -c.v) + idleLook);
-        f.actor.root.userData.duty = routine.state;
-        f.actor.pose(routine.state, sec, {rate: routine.rate});
+      const c = f.c, a = f.actor, civilian = c.role === 'work' || c.role === 'build';
+      a.root.visible = false;
+      if (!features.available() || placement || view.dist >= 145 || (raid && civilian)) return;
+      const g = e.g.position, U = e.g.userData;
+      const fired = raid ? raid.fired.get(e.b.i) : undefined, rt = raid ? raid.t : sec, bl = raid ? raid.byId.get(e.b.i) : null;
+      if (bl && bl.dead) return;
+      a.root.visible = true;
+      a.root.position.set(g.x + c.u, g.y, g.z + c.v);
+      if (c.role === 'archer') {
+        a.root.position.set(g.x, g.y + (U?.platformY || (U?.height || 2) * .8), g.z);
+        if (raid && bl) {
+          const dt = fired == null ? 9 : rt - fired;
+          a.root.rotation.y = Math.PI / 2 - bl.aim;
+          a.pose(dt < 1.1 ? 'attack' : 'idle', rt, {event: dt < 1.1 ? fired - .265 : undefined, rate: 1});
+        } else { a.root.rotation.y = Math.PI / 4 + (still ? 0 : Math.sin(sec * .2 + f.ph * 9) * .6); a.pose('idle', sec); }
         return;
       }
-      f.sp.visible = true;
-      let i = 0, flip = c.flip;
-      const fired = raid ? raid.fired.get(e.b.i) : undefined, rt = raid ? raid.t : 0;
-      if (raid && c.role === 'archer') {
-        const dt = fired == null ? 9 : rt - fired;
-        i = dt < .4 ? 4 + Math.floor(Math.max(0, dt) / .1) : dt < 1.3 ? Math.min(3, Math.floor((dt - .4) / .15)) : 0;
-        const bl = raid.byId.get(e.b.i);
-        if (bl) flip = Math.cos(bl.aim) - Math.sin(bl.aim) < 0; // (aiming left of the screen)
-      } else if (raid && c.role === 'crew') {
-        const dt = fired == null ? 9 : rt - fired;
-        i = dt < 2.5 ? Math.floor(Math.max(0, dt) * 10 + f.ph * n) % n : 0;
-      } else if (!still && civilian && routine.state.startsWith('work')) {
-        i = Math.floor((sec + f.ph * 9) * 6) % n;
+      if (c.role === 'engine') {
+        a.root.position.set(g.x, g.y + .04, g.z);
+        if (raid && bl) {
+          const dt = fired == null ? 99 : rt - fired, dur = a.durationOf('attack');
+          a.root.rotation.y = Math.PI / 2 - bl.aim;
+          a.pose(dt < dur ? 'attack' : 'idle', rt, {event: dt < dur ? fired : undefined});
+        } else { a.root.rotation.y = Math.PI / 4; a.pose('idle', still ? 0 : sec); }
+        return;
       }
-      SPR.pose(f.sp, c.sheet, i, flip, c.size || 1);
-      const g = e.g.position, U = e.g.userData;
-      let bias = c.role === 'crew' ? .08 : .9;
-      if (c.role === 'archer' && U?.importedBuilding === 'tower') {
-        fp.set(g.x, g.y + U.platformY, g.z); bias = .1;
-      } else if (c.role === 'archer' && U && U.sprite) {
-        const [px, py] = SPR.platform(e.b.l);
-        fp.copy(g).add(U.sprite.position).addScaledVector(camR, (px - U.ax) * U.k).addScaledVector(camU, (U.ay - py) * U.k);
-        bias = .35;
-      } else if (c.role === 'archer') { f.sp.visible = false; return; }
-      else if (!raid && civilian && routine.point) fp.set(W(routine.point.x), 0, W(routine.point.y));
-      else fp.set(g.x + c.u, g.y, g.z + c.v);
-      toCam.copy(cam.position).sub(fp);
-      const d = toCam.length(), sc = (d - bias) / d;
-      f.sp.position.copy(fp).addScaledVector(toCam, bias / d);
-      f.sp.scale.set(f.sp.userData.base[0] * sc, f.sp.userData.base[1] * sc, 1);
+      if (c.role === 'crew') {
+        // (loading the cannon after each shot, else at ease beside it)
+        const dt = raid && fired != null ? rt - fired : 9;
+        a.root.rotation.y = Math.atan2(-c.u, -c.v);
+        a.pose(dt < 2.5 ? 'work' : 'idle', rt, {rate: 1.2});
+        return;
+      }
+      const routine = homeRoutine(f.route || [], {role: c.role, building: e.b.t, phase: f.ph}, sec, still);
+      if (!routine.point) { a.root.visible = false; return; }
+      a.root.position.set(W(routine.point.x), 0, W(routine.point.y));
+      const idleLook = still || routine.state !== 'idle' ? 0 : Math.sin(sec * .28 + f.ph * 17) * .16;
+      a.root.rotation.y = routine.face ?? (Math.atan2(-c.u, -c.v) + idleLook);
+      a.root.userData.duty = routine.state;
+      a.pose(routine.state, sec, {rate: routine.rate});
     }));
   }
   // (a few frames a second while there are folk about and no raid's drawing every frame)
@@ -895,7 +529,7 @@ export function create(host, opts = {}) {
     if (now - folkTick < (animatedWorker ? 45 : 150)) return;
     folkTick = now;
     if ((homeNPCs && homeNPCs.animated) || (homeDragon && homeDragon.animated)) { want(); return; }
-    if (SPR.folkReady()) for (const e of groups.values()) if (e.folk.length) { want(); break; }
+    for (const e of groups.values()) if (e.folk.length) { want(); break; }
   }, 50);
 
   // ---- the selected building: a ring of light round its footprint; moving it, a green or red square under it
@@ -977,32 +611,33 @@ export function create(host, opts = {}) {
   const runMat = ok => new T.MeshBasicMaterial({color: ok ? 0x3BD16F : 0xE5484D, transparent: true, opacity: .45, depthWrite: false, toneMapped: false});
   const runMats = {true: runMat(true), false: runMat(false)};
   function setGhost(g) {
-    if (ghost) { root.remove(ghost.g); SPR.release(ghost.g); ghost.g.children.forEach(m => m.isInstancedMesh && m.dispose()); ghost = null; }
+    if (ghost) { root.remove(ghost.g); releaseOwned(ghost.g); ghost.g.children.forEach(m => m.isInstancedMesh && m.dispose()); ghost = null; }
     if (!g) { select(null); return; }
     const size = KINDS[g.t].size;
     if (g.run) {
       // a run of new walls, in the level-1 design the lot draws them in (realm-walls.js), rails joining each to the next
-      const run = g.run, design = features.available() ? 1 : 0, parts = FM.wallParts(design), n = run.length, horiz = run[1].y === run[0].y, grp = new T.Group();
-      const post = new T.InstancedMesh(parts.post, FM.mats().paint, n), rail = new T.InstancedMesh(parts.rail, FM.mats().paint, n - 1);
+      const run = g.run, parts = WALLS.partsOf(1), n = run.length, horiz = run[1].y === run[0].y, grp = new T.Group();
+      const posts = parts.post.map(([geometry, material]) => new T.InstancedMesh(geometry, material, n));
+      const rails = parts.rail.map(([geometry, material]) => new T.InstancedMesh(geometry, material, Math.max(1, n - 1)));
+      rails.forEach(r => { r.count = n - 1; });
       const foot = new T.InstancedMesh(runFoot, runMats[!!g.ok], n);
-      const m = new T.Matrix4(), one = new T.Vector3(1, 1, 1), c = new T.Color(FM.WALL_TINT[0]);
+      const m = new T.Matrix4(), one = new T.Vector3(1, 1, 1);
       const turn = new T.Quaternion().setFromAxisAngle(new T.Vector3(0, 1, 0), horiz ? 0 : -Math.PI / 2), none = new T.Quaternion();
       // from the run's lower tile: rails join each tile to the next along +x or +y
       const tiles = run.slice().sort((a, b) => a.x - b.x || a.y - b.y);
       tiles.forEach((q, i) => {
-        post.setMatrixAt(i, m.compose(new T.Vector3(W(q.x + .5), .25, W(q.y + .5)), none, one));
+        posts.forEach(p => p.setMatrixAt(i, m.compose(new T.Vector3(W(q.x + .5), .25, W(q.y + .5)), none, one)));
         foot.setMatrixAt(i, m.compose(new T.Vector3(W(q.x + .5), .025, W(q.y + .5)), none, one));
-        if (i < n - 1) rail.setMatrixAt(i, m.compose(new T.Vector3(W(q.x + .5), .25, W(q.y + .5)), turn, one));
-        if (!design) { post.setColorAt(i, c); if (i < n - 1) rail.setColorAt(i, c); }
+        if (i < n - 1) rails.forEach(r => r.setMatrixAt(i, m.compose(new T.Vector3(W(q.x + .5), .25, W(q.y + .5)), turn, one)));
       });
       foot.renderOrder = 1;
-      grp.add(post, rail, foot);
+      grp.add(...posts, ...rails, foot);
       root.add(grp);
       ghost = {g: grp};
       select(null);
       return;
     }
-    const grp = g.t === 'wall' ? wallPreview(T, 1) : BUILD.create(g.t, 1, size) || (SPR.has(g.t) ? SPR.building(g.t, 1, size) : FM.model(g.t, 1, house));
+    const grp = g.t === 'wall' ? wallPreview(T, 1) : BUILD.create(g.t, 1, size) || FM.model(g.t, 1, house);
     if (!grp) return;
     grp.traverse(m => { if (m.isMesh) { m.castShadow = false; } });
     grp.position.set(W(g.x + size / 2), .25, W(g.y + size / 2));
@@ -1104,39 +739,6 @@ export function create(host, opts = {}) {
 
   // ---------------------------------------------------------------------------------------------------- a raid
   let raid = null;
-  // Each soldier chooses its own frame while all soldiers of a kind share one draw call.
-  // Keep the current picture/model until the complete atlas is ready, including failed-load fallback.
-  function installAttackSheets(R) {
-    if (dead || !features.available() || raid !== R) return;
-    Object.entries(R.meshes).forEach(([kind, M]) => {
-      if (M.sheet || M.characters) return;
-      const sheet = R.attacks.sheet(kind);
-      if (!sheet) return;
-      const capacity = (M.art || M.body).instanceMatrix.count;
-      const geometry = new T.PlaneGeometry(1, 1);
-      geometry.translate(.5 - sheet.ax, sheet.ay - .5, 0);
-      const frames = new T.InstancedBufferAttribute(new Float32Array(capacity).fill(sheet.frames - 1), 1);
-      frames.setUsage(T.DynamicDrawUsage);
-      geometry.setAttribute('raidAttackFrame', frames);
-      const material = new T.MeshBasicMaterial({map: sheet.texture, alphaTest: .2, side: T.DoubleSide, toneMapped: false, fog: false});
-      material.onBeforeCompile = shader => {
-        shader.vertexShader = 'attribute float raidAttackFrame;\n' + shader.vertexShader;
-        shader.vertexShader = shader.vertexShader.replace('#include <uv_vertex>', `#include <uv_vertex>
-          #ifdef USE_MAP
-            vec2 raidCell = vec2(mod(raidAttackFrame, ${Number(sheet.cols).toFixed(1)}), ${Number(sheet.rows - 1).toFixed(1)} - floor(raidAttackFrame / ${Number(sheet.cols).toFixed(1)}));
-            vMapUv = (vMapUv + raidCell) / vec2(${Number(sheet.cols).toFixed(1)}, ${Number(sheet.rows).toFixed(1)});
-          #endif`);
-      };
-      material.customProgramCacheKey = () => `keepfall-raid-atlas-v1:${sheet.cols}x${sheet.rows}`;
-      const art = new T.InstancedMesh(geometry, material, capacity);
-      art.name = 'raid-attack-' + kind;
-      art.count = 0; art.frustumCulled = false; art.renderOrder = 3;
-      if (M.art) { scene.remove(M.art); M.art.geometry.dispose(); M.art.material.dispose(); M.art.dispose(); }
-      else { scene.remove(M.body, M.leg); M.body.dispose(); M.leg.dispose(); delete M.body; delete M.leg; }
-      Object.assign(M, {art, sheet, frames});
-      scene.add(art);
-    });
-  }
   /** How many of each kind battle B can put on the field, for what draws them: every dragon (the troop, the Dragon Hero,
    *  a defending one) counted as 'dragon' (one picture while its model isn't in). */
   function armyNeed(B) {
@@ -1157,20 +759,11 @@ export function create(host, opts = {}) {
     kinds.forEach(k => {
       const n = Math.max(1, need[k]);
       shadows += n;
-      if ((k === 'footman' || k === 'archer') && CH.ready(k)) {
-        meshes[k] = {characters: new Map(), capacity: n};
-        return;
-      }
-      const A = ARMY[k];
-      if (A) {
-        // his picture on a card a tile across, its anchor (where he stands) at the origin; scaled to size each frame
-        const g = new T.PlaneGeometry(1, 1);
-        g.translate(.5 - A.ax / A.w, A.ay / A.h - .5, 0);
-        if (!A.tex) { A.tex = new T.Texture(A.img); A.tex.colorSpace = T.SRGBColorSpace; A.tex.anisotropy = 4; A.tex.needsUpdate = true; }
-        const art = new T.InstancedMesh(g, new T.MeshBasicMaterial({map: A.tex, alphaTest: .35, side: T.DoubleSide, toneMapped: false, fog: false}), n);
-        art.count = 0; art.frustumCulled = false; art.renderOrder = 3;
-        scene.add(art);
-        meshes[k] = {art};
+      // (each soldier his own animated model; the plain 3D figures, instanced, while a kind's model is missing, and for
+      // a dragon whose model isn't in)
+      const model = TROOP_MODEL[k];
+      if (model && CH.ready(model[0])) {
+        meshes[k] = {characters: new Map(), capacity: n, model};
         return;
       }
       const parts = FM.troopParts(k, raider);
@@ -1179,6 +772,8 @@ export function create(host, opts = {}) {
       body.frustumCulled = leg.frustumCulled = false;
       scene.add(body, leg);
       meshes[k] = {body, leg};
+      // (a grounded dragon's plain figure stands on the ground: its body's lowest point at y 0)
+      if (k === 'dragon') { parts.body.computeBoundingBox(); meshes[k].groundY = -parts.body.boundingBox.min.y * 1.5 + .02; }
     });
     // a soft shadow under each soldier drawn from his picture (a dragon's on the ground under it)
     const shadow = new T.InstancedMesh(new T.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new T.MeshBasicMaterial({map: blobTexture(T), transparent: true, depthWrite: false, toneMapped: false, fog: false}), Math.max(1, shadows));
@@ -1214,16 +809,11 @@ export function create(host, opts = {}) {
     raid = {B, meshes, shadow, fly, puffs, fxAt: 0, prev: new Map(), cur: new Map(), stepSeen: -1, zone, zoneCv: cv, zoneTex, zoneSig: '', zoneShow: 0, aim: new Map(),
       fired: new Map(), byId: new Map(B.bl.map(b => [b.i, b])), t: 0, shotSeen: new WeakSet(),
       heroes: createBattleHeroes(T, scene, {house: raider, onChange: () => want()}), heroCur: new Map(), heroPrev: new Map(), raider,
-      attacks: createRaidAttacks(T, scene, {camera: cam, pitch: PITCH, onChange: want}),
-      dragons: createBattleDragons(T, scene, {onLand: (x, y) => { if (raid) puff(x, y, 2.6, 0xB5AC9E, 1.1, raid.now); }}), now: 0, f: 0, fireAt: new WeakMap(), byModel: new WeakMap(), need};
+      dragons: createBattleDragons(T, scene, {onLand: (x, y) => { if (raid) puff(x, y, 2.6, 0xB5AC9E, 1.1, raid.now); }}), now: 0, f: 0, fireAt: new WeakMap(), byModel: new WeakMap(), need, spread: new Map(), spreadAt: undefined, slots: new Map()};
     const started = raid;
     started.dragons.warm(renderer, cam, 0);
     started.dragons.preload(B).then(ok => { if (ok && raid === started && !dead) { started.dragons.warm(renderer, cam, 0); want(); } });
-    started.attacks.load().then(() => {
-      if (dead || raid !== started || !features.available()) return;
-      installAttackSheets(started); want();
-    }).catch(() => {}); // Existing pictures and projectiles remain usable if attack artwork fails.
-    // (its dragons drawn from the model: fetched now if they're not in yet, the picture meanwhile; the renderer readied
+    // (its dragons drawn from the model: fetched now if they're not in yet, a plain one meanwhile; the renderer readied
     // for it and a few made now, so the first sent doesn't hold the screen still)
     const legacyDragon = [...Object.keys(B.left || {}), ...Object.keys(B.used || {}), ...(B.defenders || []).map(u => u.t)]
       .some(kind => kind === 'dragon' || kind === 'hero_dragon');
@@ -1233,13 +823,93 @@ export function create(host, opts = {}) {
   }
   // where unit u is drawn this frame (between its last two steps, eased by raid.f): {x, y (tiles), moving}, or null
   const spot = {x: 0, y: 0, moving: false}, mouthV = new T.Vector3();
-  function locate(u) {
+  function stepSpot(u) {
     const R = raid;
     if (!R) return null;
     const def = !!u.targetHero, key = def ? 'd:' + u.id : u.id, c = (def ? R.heroCur : R.cur).get(key), p = (def ? R.heroPrev : R.prev).get(key) || c;
     if (!c) return null;
     spot.x = p.x + (c.x - p.x) * R.f; spot.y = p.y + (c.y - p.y) * R.f; spot.moving = Math.hypot(c.x - p.x, c.y - p.y) > .001;
     return spot;
+  }
+  function locate(u) {
+    const at = stepSpot(u), off = at && raid.spread.get(u);
+    if (off) { at.x += off.x; at.y += off.y; }
+    return at;
+  }
+  // Soldiers the battle stacks on one spot (a drop, a crowd at a wall) are drawn apart (the owner, Oct 25 2026: "Ensure
+  // they remain spread out and don't pile up on top of each other"): each takes a place in a formation round the spot he
+  // landed on (a sunflower spiral, by the order they landed: the same in every replay) and keeps it as he marches, then
+  // soldiers still too close are pushed off each other; never into a building or a wall, eased frame to frame. Only the
+  // picture: the battle, its shots and every replay keep their own positions.
+  const ROOM = {footman: .29, archer: .29, thief: .27, knight: .38}, GOLDEN = Math.PI * (3 - Math.sqrt(5));
+  function spreadOut(R, t) {
+    const live = [], cells = new Map(), key = (x, y) => x * 4096 + y;
+    for (const u of R.B.tr) {
+      if (u.dead || u.hero || !ROOM[u.t]) continue;
+      const at = stepSpot(u);
+      if (!at) continue;
+      live.push({u, x: at.x, y: at.y, r: ROOM[u.t], ox: 0, oy: 0});
+    }
+    live.sort((p, q) => p.u.id - q.u.id);
+    for (const p of live) {
+      let slot = R.slots.get(p.u);
+      if (!slot) {
+        // (his place: the next free one round where he landed, counting those already placed there)
+        const here = live.filter(q => q !== p && R.slots.has(q.u) && Math.hypot(q.x - p.x, q.y - p.y) < .3);
+        const i = here.length, r = .33 * Math.sqrt(i), ang = i * GOLDEN;
+        slot = {x: Math.cos(ang) * r, y: Math.sin(ang) * r};
+        R.slots.set(p.u, slot);
+      }
+      p.ox = slot.x; p.oy = slot.y;
+    }
+    // (never drawn standing in a building or a wall that's still up: a place in one is moved out to its nearest free edge,
+    // each round, so the spacing is kept round it)
+    const solid = new Uint8Array(N * N);
+    for (const b of R.B.bl) {
+      if (b.dead) continue;
+      const sz = KINDS[b.t]?.size || 1;
+      for (let y = Math.max(0, b.y); y < Math.min(N, b.y + sz); y++) for (let x = Math.max(0, b.x); x < Math.min(N, b.x + sz); x++) solid[y * N + x] = 1;
+    }
+    const inside = (x, y) => x >= 0 && y >= 0 && x < N && y < N && solid[Math.floor(y) * N + Math.floor(x)] === 1;
+    const eject = p => {
+      if (inside(p.x, p.y)) return;
+      for (let n = 0; n < 4 && inside(p.x + p.ox, p.y + p.oy); n++) {
+        const x = p.x + p.ox, y = p.y + p.oy, fx = Math.floor(x), fy = Math.floor(y);
+        const ways = [[fx - .03 - x, 0], [fx + 1.03 - x, 0], [0, fy - .03 - y], [0, fy + 1.03 - y]].sort((a, b) => Math.abs(a[0] + a[1]) - Math.abs(b[0] + b[1]));
+        const way = ways.find(([dx, dy]) => !inside(x + dx, y + dy)) || ways[0];
+        p.ox += way[0]; p.oy += way[1];
+      }
+    };
+    // (who's near whom, by where each is drawn, each round: two from far apart in the battle may be drawn side by side)
+    const regrid = () => { cells.clear(); for (const p of live) { const k = key(Math.floor(p.x + p.ox), Math.floor(p.y + p.oy)); (cells.get(k) || cells.set(k, []).get(k)).push(p); } };
+    const near = p => { const out = [], cx = Math.floor(p.x + p.ox), cy = Math.floor(p.y + p.oy); for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) for (const q of cells.get(key(cx + i, cy + j)) || []) out.push(q); return out; };
+    for (let round = 0; round < 16; round++) {
+      regrid();
+      for (const p of live) for (const q of near(p)) {
+        if (q.u.id <= p.u.id) continue;
+        let dx = q.x + q.ox - p.x - p.ox, dy = q.y + q.oy - p.y - p.oy, d = Math.hypot(dx, dy);
+        const min = p.r + q.r;
+        if (d >= min) continue;
+        // (two on the very same spot part along a way of their own: the same every frame and every replay)
+        if (d < 1e-4) { const a = (p.u.id * 2.39996 + q.u.id * .7) % (Math.PI * 2); d = 1e-4; dx = Math.cos(a) * d; dy = Math.sin(a) * d; }
+        // (one with a building or a wall at his back stays; the other takes the whole push)
+        const push = (min - d) / 2 / d, pFree = !inside(p.x + p.ox - dx * push, p.y + p.oy - dy * push) || inside(p.x, p.y);
+        const qFree = !inside(q.x + q.ox + dx * push, q.y + q.oy + dy * push) || inside(q.x, q.y);
+        const pk = pFree ? (qFree ? 1 : 2) : 0, qk = qFree ? (pFree ? 1 : 2) : 0;
+        p.ox -= dx * push * pk; p.oy -= dy * push * pk; q.ox += dx * push * qk; q.oy += dy * push * qk;
+      }
+      for (const p of live) { const len = Math.hypot(p.ox, p.oy); if (len > 2.6) { p.ox *= 2.6 / len; p.oy *= 2.6 / len; } eject(p); }
+    }
+    const dt = t - (R.spreadAt ?? -1), ease = dt > 0 && dt < .5 ? 1 - Math.exp(-dt * 20) : 1;
+    R.spreadAt = t;
+    const next = new Map();
+    for (const p of live) {
+      // (still in a building after all that, with no way out: drawn where the battle has him)
+      const blocked = !inside(p.x, p.y) && inside(p.x + p.ox, p.y + p.oy), ox = blocked ? 0 : p.ox, oy = blocked ? 0 : p.oy;
+      const was = R.spread.get(p.u) || {x: 0, y: 0};
+      next.set(p.u, {x: was.x + (ox - was.x) * ease, y: was.y + (oy - was.y) * ease});
+    }
+    R.spread = next;
   }
   function drawZone() {
     if (!raid) return;
@@ -1261,21 +931,20 @@ export function create(host, opts = {}) {
     if (dead || !features.available()) { raidStop(); return; }
     const need = armyNeed(B), fits = raid && raid.raider === raider && Object.keys(need).every(k => {
       const M = raid.meshes[k], n = need[k];
-      return !n || (!!M && n <= (M.characters ? M.capacity : (M.art || M.body).instanceMatrix.count));
+      return !n || (!!M && n <= (M.characters ? M.capacity : M.body.instanceMatrix.count));
     });
     if (!fits) { raidStart(B, raider); return; }
     raid.dragons.reset(); raid.need = need;
-    groups.forEach(e => { BUILD.animateDefense(e.g, Infinity); SPR.animateDefense(e.g, e.b.t, Infinity); });
+    groups.forEach(e => { BUILD.animateDefense(e.g, Infinity); });
     Object.values(raid.meshes).forEach(M => {
       if (M.characters) { M.characters.forEach(a => a.model.dispose()); M.characters.clear(); }
-      else if (M.art) M.art.count = 0; else M.body.count = M.leg.count = 0;
+      else M.body.count = M.leg.count = 0;
     });
     raid.shadow.count = 0;
     Object.values(raid.fly).forEach(M => { M.count = 0; });
     raid.puffs.forEach(p => { p.sp.visible = false; p.t0 = -9; });
     Object.assign(raid, {B, fxAt: 0, prev: new Map(), cur: new Map(), stepSeen: -1, zoneSig: '', zoneShow: 0, aim: new Map(), fired: new Map(),
-      byId: new Map(B.bl.map(b => [b.i, b])), t: 0, shotSeen: new WeakSet(), heroCur: new Map(), heroPrev: new Map(), fireAt: new WeakMap(), byModel: new WeakMap()});
-    raid.attacks.restart(B);
+      byId: new Map(B.bl.map(b => [b.i, b])), t: 0, shotSeen: new WeakSet(), heroCur: new Map(), heroPrev: new Map(), fireAt: new WeakMap(), byModel: new WeakMap(), spread: new Map(), spreadAt: undefined, slots: new Map()});
     raid.dragons.preload(B);
     drawZone();
     want();
@@ -1287,7 +956,6 @@ export function create(host, opts = {}) {
     if (dead || !features.available()) { raidStop(); return; }
     const B = raid.B, R = raid;
     R.t = t;
-    installAttackSheets(R);
     // the steps' positions: keep the last two
     if (B.step !== R.stepSeen) {
       R.prev = R.cur; R.cur = new Map();
@@ -1300,10 +968,10 @@ export function create(host, opts = {}) {
     R.heroes.update([...B.tr, ...(B.defenders || [])], t, R.heroCur, R.heroPrev, f);
     // the dragons, from the model once it's in (realm-dragon.js: those it draws are left out below)
     R.f = f; R.now = now;
+    spreadOut(R, t);
     R.dragons.update(B, t, locate, now);
     const drawn = R.dragons.drawn;
-    // (whose a dragon's fire is to draw, settled once, as it's loosed: the model's when the dragon that loosed it is
-    // drawn from the model, so the attack art (main's, from the picture's mouth) and the model never both draw it)
+    // (whether a shot leaves from a model (an archer's bow, a dragon's mouth): settled once, as it's loosed)
     const byModel = s => {
       let m = R.byModel.get(s);
       if (m === undefined) {
@@ -1312,21 +980,19 @@ export function create(host, opts = {}) {
       }
       return m;
     };
-    R.attacks.update(B, t, byModel);
     // the soldiers
     const m4 = new T.Matrix4(), q = new T.Quaternion(), sc = new T.Vector3(1.5, 1.5, 1.5), up = new T.Vector3(0, 1, 0), pv = new T.Vector3();
-    const counts = {}, camQ = cam.quaternion, tilt = new T.Quaternion(), zAxis = new T.Vector3(0, 0, 1), ssc = new T.Vector3();
+    const counts = {}, camQ = cam.quaternion, ssc = new T.Vector3();
     let nShadow = 0;
     Object.keys(R.meshes).forEach(k => { counts[k] = 0; });
-    // (every kind of dragon its picture, kind 'dragon' (main's attack atlas once that's in), till the model draws it;
-    // one defending too)
+    // (a dragon its plain 3D figure, kind 'dragon', till its model draws it; one defending too)
     const soldier = u => {
       if (drawn.has(u)) return;
       const kind = isDragonKind(u.t) ? 'dragon' : u.t, M = R.meshes[kind], at = M && locate(u);
       if (M && M.characters && at) {
         let a = M.characters.get(u.id);
         if (!a && !u.dead && M.characters.size < M.capacity) {
-          const model = CH.create(u.t, {height: 1.15, phase: (u.id * .618) % 1});
+          const model = CH.create(M.model[0], {height: M.model[1], phase: (u.id * .618) % 1});
           if (!model) return;
           a = {model, hp: u.hp, hurt: -9, death: null}; M.characters.set(u.id, a); scene.add(model.root);
         }
@@ -1358,42 +1024,17 @@ export function create(host, opts = {}) {
         return;
       }
       if (u.dead) return;
-      if (!at || counts[kind] >= (M.art || M.body).instanceMatrix.count || nShadow >= R.shadow.instanceMatrix.count) return;
+      if (!at || counts[kind] >= M.body.instanceMatrix.count || nShadow >= R.shadow.instanceMatrix.count) return;
       const x = at.x, y = at.y, moving = at.moving, uid = Number(u.id) || 0, swing = moving ? Math.sin(t * 14 + uid) * .6 : 0;
       const attackAge = t - u.hitAt;
       const hit = attackAge >= 0 && attackAge < .35 ? Math.sin(attackAge / .35 * Math.PI) : 0;
-      if (M.art) {
-        // his picture facing the camera, turned the way he's going (the way the screen sees it), a step's bob and
-        // rock as he walks, knocked back a little when he's hit; the Dragon high up, bobbing
-        const A = ARMY[kind] || {fly: kind === 'dragon', wide: 3.4, tall: kind === 'knight' ? 1.2 : 1.05};
-        const atlas = M.sheet, right = Math.cos(u.face) - Math.sin(u.face) >= 0, sx = right === (atlas ? atlas.right : A.right) ? 1 : -1;
-        const fraction = atlas ? Math.max(.1, atlas.bodyFraction || .85) : 1;
-        const aspect = atlas ? atlas.cellAspect || 1 : A.w / A.h;
-        const wk = A.fly ? A.wide / fraction : A.tall / fraction * aspect, hk = A.fly ? A.wide / fraction / aspect : A.tall / fraction;
-        const groundedDragon = kind === 'dragon' && !dragonCanFly(u.t);
-        const groundAnchor = atlas ? 1 - atlas.ay : A.h ? 1 - A.ay / A.h : .5;
-        const camUpY = 1 - 2 * (camQ.x * camQ.x + camQ.z * camQ.z);
-        const hy = groundedDragon ? hk * groundAnchor * camUpY : A.fly ? 2.3 + Math.sin(t * 2.2 + uid) * .15 : (moving ? Math.abs(Math.sin(t * 9 + uid)) * .06 : 0);
-        tilt.setFromAxisAngle(zAxis, (moving && !A.fly ? Math.sin(t * 9 + uid) * .06 : 0) + sx * .25 * hit);
-        pv.set(W(x), hy, W(y));
-        m4.compose(pv, camQ.clone().multiply(tilt), ssc.set(wk * sx, hk, 1));
-        const slot = counts[kind]++;
-        M.art.setMatrixAt(slot, m4);
-        // (its frame of the atlas: the Dragon Hero's the dragon's, realm-attack-art.js)
-        if (M.frames) M.frames.setX(slot, R.attacks.frame(u, t));
-        const bodyWidth = A.w && A.h ? A.tall * A.w / A.h : A.tall * .65;
-        const sw = A.fly ? 1.6 : Math.max(.55, bodyWidth * .8);
-        m4.compose(pv.set(W(x), 0, W(y)), q.identity(), ssc.set(sw, 1, sw * .6));
-        R.shadow.setMatrixAt(nShadow++, m4);
-        return;
-      }
       const face = -u.face + Math.PI / 2;
       q.setFromAxisAngle(up, face);
       const i = counts[kind]++;
       if (kind === 'dragon') {
         // in the air, bobbing, its wings beating
         const groundedDragon = !dragonCanFly(u.t);
-        const flap = groundedDragon ? 0 : Math.sin(t * 7 + uid) * .55, hy = groundedDragon ? .5 : 2.3 + Math.sin(t * 2.2 + uid) * .12;
+        const flap = groundedDragon ? 0 : Math.sin(t * 7 + uid) * .55, hy = groundedDragon ? M.groundY ?? .5 : 2.3 + Math.sin(t * 2.2 + uid) * .12;
         pv.set(W(x), hy, W(y));
         m4.compose(pv, q.clone().multiply(new T.Quaternion().setFromAxisAngle(new T.Vector3(1, 0, 0), -.08 - .25 * hit)), sc); M.body.setMatrixAt(i, m4);
         [-1, 1].forEach((sd, j) => {
@@ -1418,7 +1059,6 @@ export function create(host, opts = {}) {
     (B.defenders || []).forEach(u => { if (isDragonKind(u.t)) soldier(u); });
     Object.entries(R.meshes).forEach(([k, M]) => {
       if (M.characters) return;
-      if (M.art) { M.art.count = counts[k]; M.art.instanceMatrix.needsUpdate = true; if (M.frames) M.frames.needsUpdate = true; return; }
       M.body.count = counts[k]; M.leg.count = counts[k] * 2; M.body.instanceMatrix.needsUpdate = true; M.leg.instanceMatrix.needsUpdate = true;
     });
     R.shadow.count = nShadow; R.shadow.instanceMatrix.needsUpdate = true;
@@ -1433,7 +1073,6 @@ export function create(host, opts = {}) {
       // from the model (byModel); else main's attack art draws it from the picture's mouth once that's in; else the flame
       // below from where the picture flies)
       const dragon = isDragonKind(s.k);
-      if (!byModel(s) && R.attacks.handlesShot(s)) return;
       const kind = dragon ? 'fire' : KIND[s.k];
       if (!kind) return;
       const M = R.fly[kind];
@@ -1471,7 +1110,7 @@ export function create(host, opts = {}) {
     B.bl.forEach(b => {
       if (!b.def) return;
       const e = groups.get(b.i);
-      if (e && (BUILD.animateDefense(e.g, R.t - (R.fired.get(b.i) ?? -9), b.aim) || SPR.animateDefense(e.g, b.t, R.t - (R.fired.get(b.i) ?? -9), b.aim))) return;
+      if (e && BUILD.animateDefense(e.g, R.t - (R.fired.get(b.i) ?? -9), b.aim)) return;
       const top = e && e.g.getObjectByName('top');
       if (!top) return;
       if (b.t === 'cauldron') { const tip = B.t - (b.cd > 0 ? (b.def.every - b.cd) : 9) < .5 ? .6 : .15; top.rotation.z += (tip - top.rotation.z) * .3; }
@@ -1498,10 +1137,10 @@ export function create(host, opts = {}) {
     const zt = R.zoneShow > 0 ? (now - R.zoneShow) / 1000 : 9;
     R.zone.material.opacity = zt < 1.2 ? .9 * (1 - Math.max(0, zt - .6) / .6) : 0;
   }
-  /** Where a tower's archer looses from (world), or null when it's drawn in 3D. */
+  /** Where a tower's archer looses from (world: his bow, a little over where he stands), or null without him. */
   function archerAt(id) {
-    const e = groups.get(id), f = e && e.folk.find(x => x.c.role === 'archer' && x.sp.visible);
-    return f ? f.sp.position.clone().addScaledVector(camU, .45) : null;
+    const e = groups.get(id), f = e && e.folk.find(x => x.c.role === 'archer' && x.actor.root.visible);
+    return f ? f.actor.root.position.clone().add(new T.Vector3(0, .78, 0)) : null;
   }
   function puff(x, y, size, color, life, now) {
     const p = raid.puffs.find(q => !q.sp.visible) || raid.puffs[0];
@@ -1510,13 +1149,11 @@ export function create(host, opts = {}) {
   }
   function raidStop() {
     if (!raid) return;
-    groups.forEach(e => { BUILD.animateDefense(e.g, Infinity); SPR.animateDefense(e.g, e.b.t, Infinity); });
+    groups.forEach(e => { BUILD.animateDefense(e.g, Infinity); });
     raid.heroes.dispose();
-    raid.attacks.dispose();
     raid.dragons.dispose();
     Object.values(raid.meshes).forEach(M => {
       if (M.characters) { M.characters.forEach(a => a.model.dispose()); M.characters.clear(); return; }
-      if (M.art) { scene.remove(M.art); M.art.geometry.dispose(); M.art.material.dispose(); M.art.dispose(); return; }
       scene.remove(M.body, M.leg); M.body.dispose(); M.leg.dispose();
     });
     scene.remove(raid.shadow); raid.shadow.geometry.dispose(); raid.shadow.material.map.dispose(); raid.shadow.material.dispose(); raid.shadow.dispose();
@@ -1550,12 +1187,7 @@ export function create(host, opts = {}) {
       bs.forEach(b => {
         const sz = KINDS[b.t].size, e = groups.get(b.i), art = e && e.g.userData;
         for (const x of [b.x, b.x + sz]) for (const y of [b.y, b.y + sz]) points.push(project(x, y, 0));
-        if (art && art.sprite) {
-          const at = new T.Vector3(); art.sprite.getWorldPosition(at);
-          const p = project(at.x + N / 2, at.z + N / 2, at.y), d = at.distanceTo(cam.position);
-          const px = Hd / (2 * Math.tan(cam.fov * Math.PI / 360) * d);
-          points.push({x: p.x - art.ax * art.k * px, y: p.y - art.ay * art.k * px}, {x: p.x + (art.w - art.ax) * art.k * px, y: p.y + (art.h - art.ay) * art.k * px});
-        } else points.push(project(b.x + sz / 2, b.y + sz / 2, (art?.height ? art.height + (b.t === 'tower' ? 1.2 : 0) : (b.t === 'wall' ? 1.8 : 3.5))));
+        points.push(project(b.x + sz / 2, b.y + sz / 2, (art?.height ? art.height + (b.t === 'tower' ? 1.2 : 0) : (b.t === 'wall' ? 1.8 : 3.5))));
       });
       const minX = Math.min(...points.map(p => p.x)), maxX = Math.max(...points.map(p => p.x));
       const minY = Math.min(...points.map(p => p.y)), maxY = Math.max(...points.map(p => p.y));
@@ -1579,15 +1211,11 @@ export function create(host, opts = {}) {
   };
   /** Zooms in (k < 1) or out (k > 1) about the middle of the screen. */
   const zoomBy = k => { autoFrame = false; view.dist *= k; clampView(); want(); };
-  /** Explore the entire landscape; the 44 × 44 village square keeps its original dimensions. */
+  /** Looks out over the whole land round the village (the 44 × 44 lot keeps its own dimensions). */
   function frameWorld() {
     if (!village || !features.available()) return;
     autoFrame = false; resize();
-    if (scene0) {
-      const center = scene0.under(scene0.w / 2, scene0.h / 2);
-      view.tx = center.x; view.tz = center.z;
-      view.dist = zTop;
-    } else { view.tx = view.tz = 0; view.dist = ZMAX; }
+    view.tx = view.tz = -6; view.dist = ZMAX;
     clampView(); placeCam(); want();
   }
   resize(); placeCam(); want();
@@ -1606,8 +1234,10 @@ export function create(host, opts = {}) {
     setCamera(c) { view.tx = c.tx; view.tz = c.tz; view.dist = c.dist; autoFrame = !!c.auto; clampView(); placeCam(); want(); },
     get overlayScale() { return village ? Math.max(.5, Math.min(1, 70 / view.dist)) : 1; },
     get overview() { return village && view.dist > 145; },
-    /** Lays scenery theme k round the lot (once it's in). */
-    setTheme(k) { theme = k || 'coast'; wantScenery(Wd, Hd); if (scene0) { zTop = mostOut(); clampView(); } want(); },
+    /** Lays scenery theme k round the lot. */
+    setTheme(k) { theme = k || 'coast'; if (world.setTheme(theme)) { lightFor(); wildlifeFor(); } want(); },
+    /** The land (realm-world.js), for the checks' hands. */
+    get world() { return world; },
     get theme() { return theme; },
     canvas,
     /** The dragons drawn here (for the checks' and tests' hands): {home, battle} (realm-dragon.js), and the scene. */
@@ -1618,12 +1248,12 @@ export function create(host, opts = {}) {
       window.removeEventListener('storage', clearedStorage);
       document.removeEventListener('visibilitychange', want);
       clearReveal();
-      dropScenery();
+      clearTimeout(flyTimer);
       clearInterval(folkTimer);
       if (homeNPCs) homeNPCs.dispose();
       if (homeDragon) homeDragon.dispose();
       offDragon();
-      groups.forEach(e => { dropFolk(e); SPR.release(e.g); });
+      groups.forEach(e => { dropFolk(e); releaseOwned(e.g); });
       wallView.dispose();
       if (raf) cancelAnimationFrame(raf);
       if (ro) ro.disconnect();
@@ -1631,8 +1261,11 @@ export function create(host, opts = {}) {
       // sprite textures keep this renderer (and through it this canvas) reachable after the screen has gone.
       const freeTex = t => { if (!t) return; const im = t.image; t.dispose(); if (im && im.getContext) im.width = im.height = 0; };
       if (wear) { wear.mesh.geometry.dispose(); wear.mesh.material.dispose(); freeTex(wear.tex); wear = null; }
-      if (village && base.plot) freeTex(base.plot.material.map);
-      if (base.tex) Object.values(base.tex).forEach(freeTex);
+      if (wildlife) { wildlife.dispose(); wildlife = null; }
+      world.dispose();
+      base.kerbs.forEach(k => { k.geometry.dispose(); }); base.kerbM.dispose(); base.shade.geometry.dispose(); base.shade.material.dispose();
+      if (scene.background && scene.background.isTexture) scene.background = null;
+      if (scene.environment) scene.environment.dispose();
       setGhost(null); runFoot.dispose(); runMats.true.dispose(); runMats.false.dispose();
       raidStop();
       canvas.removeEventListener('pointerdown', down); canvas.removeEventListener('pointermove', move);

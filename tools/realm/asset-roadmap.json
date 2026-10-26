@@ -1,13 +1,21 @@
 {
   "sourceRoot": "D:/Unity/My project/Assets",
-  "direction": "Upgrade existing Keepfall in phases; preserve all current progress.",
+  "direction": "Keepfall is fully 3D (the owner, Oct 25 2026: \"this game should be all 3d from here on out\"). Preserve all current progress.",
   "phase1": {
     "status": "implemented",
     "pack": "3DForge/TowerDefence/Humans",
-    "kinds": ["barracks", "tower", "ballista"],
+    "kinds": [
+      "barracks",
+      "tower",
+      "ballista"
+    ],
     "models": 9,
-    "levelMapping": {"1-3": 1, "4-7": 2, "8-10": 3},
-    "notes": "Original levels remain intact. Rank studs distinguish levels within a model stage. Shared texture atlases, original-art fallback, existing building footprints."
+    "levelMapping": {
+      "1-3": 1,
+      "4-7": 2,
+      "8-10": 3
+    },
+    "notes": "Original levels remain intact. Rank studs distinguish levels within a model stage. Shared texture atlases, plain 3D fallback, existing building footprints."
   },
   "alreadyImported": [
     "Toon RTS: footman, archer, worker and peaceful job animations",
@@ -15,38 +23,12 @@
   ],
   "recommendedNext": [
     {
-      "phase": 2,
-      "scope": "Settlement buildings and props",
-      "sources": ["FantasyEnvironments/Environments/Town", "Polygrade/Top_Down Medieval City/Windmill_Free", "StylizedDarkCastle"],
+      "scope": "Later, by the owner's call",
       "changes": [
-        "Use wooden houses for builder huts and town residences.",
-        "Use tavern exterior and barrel/storage props for existing Brewery and Cellar art, retaining Ale and building IDs.",
-        "Assemble castle and wall upgrade appearances from the modular castle kit.",
-        "Add the windmill as scenery initially, without inventing another resource."
-      ],
-      "checks": "Strip unseen interiors, resolve Unity material references, preserve footprints and collision paths, verify mixed-level layouts."
-    },
-    {
-      "phase": 3,
-      "scope": "Complete character replacements",
-      "sources": ["Toon_RTS/WesternKingdoms"],
-      "changes": [
-        "Use heavy infantry for existing knights and model-based soldiers for guards.",
-        "Use additional worker variants to distinguish civilian jobs.",
-        "Consider spearmen, priests and cavalry as later additions only after defining roles and balance."
-      ],
-      "checks": "Preserve existing army counts, hero levels, troop IDs and replay rules. Test a full battle at the actual mobile camera scale."
-    },
-    {
-      "phase": 4,
-      "scope": "Coherent 3D environments",
-      "sources": ["FantasyEnvironments/Environments", "forest", "Handpainted_Grass_and_Ground_Textures", "StylizedDarkCastle", "Tower"],
-      "changes": [
-        "Build 3D ground, roads and forests around the existing build grid.",
-        "Use castle ruins and the mage tower as raid landmarks or future encounter scenery.",
-        "Enable a rotating camera only once the painted scenery and remaining billboards have suitable replacements."
-      ],
-      "checks": "Retain scenery unlocks and building positions. Gates must not silently change existing wall pathing. Unity shaders and particle systems need web equivalents."
+        "Controlled camera orbit now that the land is 3D all round.",
+        "Cavalry, spearmen or priests as new troops only with defined roles and balance.",
+        "Physical-phone performance pass (draw calls ~250, triangles 0.35-0.8M at the widest view)."
+      ]
     }
   ],
   "preserve": [
@@ -62,5 +44,34 @@
     "Unity editor tutorials and TextMesh Pro editor resources",
     "TimmyRobot, platforming starter assets and sci-fi audio unless a separate use is requested",
     "Duplicate prefab color variants as separate gameplay buildings"
-  ]
+  ],
+  "full3d": {
+    "status": "implemented",
+    "date": "2026-10-25",
+    "buildings": "Every kind but the wall from models/realm/buildings-v1 (barracks, tower, ballista) or world-v1/<kind>.glb, three stages each (hut one); converted by tools/realm/convert-world.mjs from 3DForge, FantasyEnvironments and StylizedDarkCastle prefabs (unity-prefab.mjs, glb-pack.mjs). Stage bands in realm-buildings.js; rank studs within a stage.",
+    "walls": "Four designs (palisade 1-2, town stone 3-4, dark brick battlements 5-6, grey stone battlements 7-8): world-v1/walls.glb, a post a tile and rails between.",
+    "land": "views/realm-world.js: terrain, water, sky and instanced Unity trees/rocks per scenery theme; no painted landscape. Plain 3D trees stand in when nature.glb is missing.",
+    "characters": "Western Kingdoms skeletal models for every troop (footman, archer, knight, thief), workers, cannon crews, guards (spearman), the dragon keeper (priest), the Knight Hero (heavy infantry B), an old replay's Wizard Hero (mage) and the trebuchet's animated catapult.",
+    "raids": "Soldiers stacked by the battle are drawn apart in formation (realm-3d.js spreadOut); the battle and replays are untouched.",
+    "fallbacks": "realm-models.js plain 3D geometry for any missing model or texture; never a picture.",
+    "retired": [
+      "views/realm-sprites.js",
+      "realm-upgrade-art.js",
+      "realm-ground.js",
+      "realm-grass.js",
+      "realm-ambience.js",
+      "realm-attack-art.js",
+      "img/realm/scenery",
+      "img/realm/upgrades-v1",
+      "img/realm/army"
+    ],
+    "checks": [
+      "tools/realm/check-buildings-browser.cjs",
+      "check-world.cjs",
+      "check-ui-3d.cjs",
+      "check-spread.cjs",
+      "check-characters-browser.cjs --quick --software",
+      "check-dragon-render.cjs"
+    ]
+  }
 }

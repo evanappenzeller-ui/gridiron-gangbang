@@ -58,15 +58,15 @@ const uri = source => 'data:text/javascript;base64,' + Buffer.from(source).toStr
   assert.equal(C.create('footman'), null);
   setAvailable(true);
   assert.equal(await C.load(T), true);
-  assert.equal(requests, 3);
-  assert.equal(await C.load(T), true); assert.equal(requests, 3, 'session reuses the loaded assets');
+  assert.equal(requests, C.KINDS.length, "one request a character kind");
+  assert.equal(await C.load(T), true); assert.equal(requests, C.KINDS.length, "session reuses the loaded assets");
   const a = C.create('footman', {height: 1.15, phase: .5}), b = C.create('footman');
   assert.equal(a.durationOf('attack'), 1); assert.equal(a.durationOf('missing'), 1);
   const sharedParent = new T.Group(); sharedParent.add(b.root);
   for (const selected of ['evan', 'another-member', 'guest', null]) {
     setProfile(selected);
     assert.equal(C.ready('footman'), true, `characters available for ${selected}`);
-    assert.equal(await C.load(T), true); assert.equal(requests, 3, 'profile changes reuse shared assets');
+    assert.equal(await C.load(T), true); assert.equal(requests, C.KINDS.length, "profile changes reuse shared assets");
     assert.equal(b.root.parent, sharedParent, 'profile changes preserve existing actors');
     const shared = C.create('worker'); assert(shared); shared.dispose();
   }

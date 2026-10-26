@@ -226,7 +226,7 @@ async function main(){
         assert(completed.renderedFrames>0,'Whole battle is rendered through its final state');
         const restart=await page.evaluate(()=>qa.restartRegression());
         assert.equal(restart.first.armyKinds.footman.characters,1);assert.equal(restart.first.armyKinds.archer.characters,1);
-        assert.equal(restart.first.armyKinds.knight.sprites,1,'Existing Knight troop stays visible');assert.equal(restart.first.armyKinds.thief.sprites,1,'Existing Thief stays visible');
+        assert.equal(restart.first.armyKinds.knight.characters,1,'Existing Knight troop is a 3D model');assert.equal(restart.first.armyKinds.thief.characters,1,'Existing Thief is a 3D model');
         assert.equal(restart.first.heroKnight,true,'Knight Hero remains visible');assert.equal(restart.first.dragonModels,1,'Dragon Hero remains visible');
         assert.equal(restart.second.armyKinds.footman.characters,0,'Restart clears earlier footmen');assert.equal(restart.second.armyKinds.archer.characters,1,'Restart renders only the new archer');
         assert.equal(restart.second.heroKnight,false,'Restart clears prior hero');
@@ -244,7 +244,7 @@ async function main(){
       const test=await isolated(browser,url,{profile});
       try{
         assert.equal(await test.page.evaluate(()=>qa.loaded),true,'Shared Keepfall scene loads for every profile');
-        assert.equal(test.requests.filter(u=>/\/models\/realm\/western-v2\/.*\.glb/.test(u)).length,3,'Every profile can load the three imported characters');
+        assert.equal(test.requests.filter(u=>/\/models\/realm\/western-v2\/.*\.glb/.test(u)).length,10,'Every profile can load all ten imported characters');
         await test.page.evaluate(()=>qa.village());await test.page.waitForTimeout(250);
         assert((await test.page.evaluate(()=>qa.snapshot())).skinnedMeshes>0,'Shared scene uses imported workers');
         assert.deepEqual(test.errors,[]);console.log('PASS:',profile,'shared imported character access');

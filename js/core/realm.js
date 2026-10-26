@@ -588,7 +588,7 @@ function firstCoins(entries, n, M) {
 }
 
 // ---------------------------------------------------------------------------------------------------- the scenery
-// Where your realm lies (views/realm-3d.js draws it, img/realm/scenery/): the coast from the start; the rest unlocked by
+// Where your realm lies (views/realm-world.js lays its land in 3D): the coast from the start; the rest unlocked by
 // raising the Castle (the owner's ask, Oct 2026), each yours to pick (the house card) once it is.
 export const SCENERIES = [
   {k: 'coast', name: 'The Coast', at: 1, blurb: 'A meadow by the sea, pines along the shore, mountains and lakes beyond', ownerName: 'Twilight Highlands', ownerBlurb: 'Rolling hills and torchlit gates beneath the last light of sunset'},

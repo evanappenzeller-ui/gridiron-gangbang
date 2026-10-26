@@ -4,6 +4,11 @@ import * as features from '../core/features.js';
 import * as data from '../core/data.js';
 import {KINDS, N, keepOf, heroLevel} from '../core/realm.js';
 import {isDragonKind, BADGE_ON_TOP} from './realm-dragon.js';
+import * as CH from './realm-characters.js';
+// The full 3D Keepfall (Oct 25 2026): each resident and champion an animated Western Kingdoms model (realm-characters.js)
+// once those are in: a spearman on guard, a priest keeping the dragons, the Knight Hero in heavy plate, an old replay's
+// Wizard Hero a mage. The merged low-poly figures below stay as their stand-ins.
+const ACTOR = {guard: 'guard', keeper: 'keeper', knight: 'champion', wizard: 'mage'};
 
 const reduced = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const W = x => x - N / 2;
@@ -90,59 +95,64 @@ export function createNPC(T, kind, {level = 1, house = {}, defending = false, on
   const root = new T.Group(), rig = new T.Group(); root.add(rig);
   root.name = 'keep-npc-' + kind;
   root.userData.npc = kind; root.userData.level = level;
-  const mat = new T.MeshStandardMaterial({vertexColors: true, roughness: .67, metalness: .12, flatShading: true});
-  const box = (x, y, z) => new T.BoxGeometry(x, y, z);
-  const cyl = (a, b, h, n = 8) => new T.CylinderGeometry(a, b, h, n);
-  const orb = r => new T.IcosahedronGeometry(r, 0);
+  const actor = ACTOR[kind] && CH.ready(ACTOR[kind]) ? CH.create(ACTOR[kind], {height: hero ? 1.15 : 1.08, phase: (level * .37 + kind.length * .13) % 1}) : null;
+  if (actor) { rig.add(actor.root); root.userData.actor = ACTOR[kind]; }
   const skin = 0xDFA977, iron = 0xAABAC4, dark = 0x354350, gold = 0xF5CD67;
-  const cloth = wizard ? 0x6E3C98 : keeper ? 0x397E73 : hero ? 0x9E293F : (house.pri || 0x7A2634);
-  const body = [
-    [wizard || keeper ? cyl(.15, .26, .58) : box(hero ? .42 : .32, .39, .25), wizard || keeper ? cloth : iron, [0, .59, 0]],
-    [orb(.145), skin, [0, .97, .025], [], [1, 1.12, 1]],
-    [box(.31, .055, .27), gold, [0, .47, 0]],
-    [box(.085, .23, .085), skin, [-.24, .65, .015]]
-  ];
-  if (wizard) {
-    body.push([cyl(.04, .265, .55), cloth, [-.025, 1.28, 0], [0, 0, -.15]],
-      [cyl(.31, .31, .045), 0xD6AA55, [0, 1.05, 0]],
-      [cyl(.105, .015, .3), 0xF5E9CC, [0, .82, .16]],
-      [box(.05, .2, .025), gold, [0, .61, .18]],
-      [orb(.065), 0x89E2FA, [-.035, 1.35, .19]]);
-  } else if (keeper) {
-    body.push([box(.28, .38, .055), 0x9D6138, [0, .58, .17]],
-      [cyl(.16, .19, .1), 0x9D6138, [0, 1.075, 0]],
-      [box(.19, .06, .08), gold, [0, 1.06, .135]],
-      [box(.11, .2, .18), 0xC68C45, [-.2, .55, .16]]);
-  } else {
-    body.push([orb(.178), iron, [0, 1.015, -.005], [], [1, .9, 1]],
-      [box(.23, .045, .055), dark, [0, 1, .155]],
-      [box(.07, .16, .04), gold, [0, .96, .18]],
-      [box(hero ? .48 : .35, .1, .3), hero ? gold : dark, [0, .8, 0]],
-      [box(.2, .27, .028), cloth, [0, .61, .145]]);
-    if (hero) body.push([box(.4, .65, .055), cloth, [0, .55, -.19], [-.17, 0, 0]],
-      [cyl(.06, .085, .27), 0xD55D5E, [0, 1.24, -.07], [-.4, 0, 0]],
-      [box(.04, .13, .035), gold, [0, .64, .18]], [box(.13, .035, .035), gold, [0, .66, .18]]);
+  let legs = [], arm = null;
+  if (!actor) {
+    const mat = new T.MeshStandardMaterial({vertexColors: true, roughness: .67, metalness: .12, flatShading: true});
+    const box = (x, y, z) => new T.BoxGeometry(x, y, z);
+    const cyl = (a, b, h, n = 8) => new T.CylinderGeometry(a, b, h, n);
+    const orb = r => new T.IcosahedronGeometry(r, 0);
+    const cloth = wizard ? 0x6E3C98 : keeper ? 0x397E73 : hero ? 0x9E293F : (house.pri || 0x7A2634);
+    const body = [
+      [wizard || keeper ? cyl(.15, .26, .58) : box(hero ? .42 : .32, .39, .25), wizard || keeper ? cloth : iron, [0, .59, 0]],
+      [orb(.145), skin, [0, .97, .025], [], [1, 1.12, 1]],
+      [box(.31, .055, .27), gold, [0, .47, 0]],
+      [box(.085, .23, .085), skin, [-.24, .65, .015]]
+    ];
+    if (wizard) {
+      body.push([cyl(.04, .265, .55), cloth, [-.025, 1.28, 0], [0, 0, -.15]],
+        [cyl(.31, .31, .045), 0xD6AA55, [0, 1.05, 0]],
+        [cyl(.105, .015, .3), 0xF5E9CC, [0, .82, .16]],
+        [box(.05, .2, .025), gold, [0, .61, .18]],
+        [orb(.065), 0x89E2FA, [-.035, 1.35, .19]]);
+    } else if (keeper) {
+      body.push([box(.28, .38, .055), 0x9D6138, [0, .58, .17]],
+        [cyl(.16, .19, .1), 0x9D6138, [0, 1.075, 0]],
+        [box(.19, .06, .08), gold, [0, 1.06, .135]],
+        [box(.11, .2, .18), 0xC68C45, [-.2, .55, .16]]);
+    } else {
+      body.push([orb(.178), iron, [0, 1.015, -.005], [], [1, .9, 1]],
+        [box(.23, .045, .055), dark, [0, 1, .155]],
+        [box(.07, .16, .04), gold, [0, .96, .18]],
+        [box(hero ? .48 : .35, .1, .3), hero ? gold : dark, [0, .8, 0]],
+        [box(.2, .27, .028), cloth, [0, .61, .145]]);
+      if (hero) body.push([box(.4, .65, .055), cloth, [0, .55, -.19], [-.17, 0, 0]],
+        [cyl(.06, .085, .27), 0xD55D5E, [0, 1.24, -.07], [-.4, 0, 0]],
+        [box(.04, .13, .035), gold, [0, .64, .18]], [box(.13, .035, .035), gold, [0, .66, .18]]);
+    }
+    const torso = sculpt(T, body, mat); rig.add(torso);
+    legs = [-1, 1].map(side => {
+      const leg = sculpt(T, [[box(.11, .24, .13), wizard || keeper ? 0x594236 : dark, [0, -.12, 0]],
+        [box(.13, .09, .21), dark, [0, -.23, .035]]], mat);
+      leg.position.set(side * .1, .3, 0); rig.add(leg); return leg;
+    });
+    arm = new T.Group(); arm.position.set(.25, .75, .01); rig.add(arm);
+    const weapon = [[box(.09, .25, .09), wizard || keeper ? cloth : iron, [0, -.11, 0]], [orb(.055), skin, [0, -.24, .025]]];
+    if (wizard) weapon.push([cyl(.025, .035, 1.1), 0x8D623C, [.04, -.18, .07]],
+      [new T.OctahedronGeometry(.13), 0x77DDF9, [.04, .44, .07]], [cyl(.09, .04, .1), gold, [.04, .33, .07]]);
+    else if (keeper) weapon.push([orb(.16), 0x92C18A, [.03, -.12, .17], [], [.8, 1.25, .8]],
+      [box(.23, .055, .21), 0xB9884D, [.03, -.3, .15]]);
+    else if (hero) weapon.push([box(.065, .62, .035), 0xE7F2F4, [.02, .07, .08]],
+      [box(.24, .045, .07), gold, [.02, -.23, .08]], [box(.055, .16, .06), 0x61432A, [.02, -.31, .08]]);
+    else weapon.push([cyl(.021, .021, 1.35, 5), 0x825735, [.05, -.05, .06]],
+      [cyl(0, .07, .22, 4), iron, [.05, .72, .06]]);
+    arm.add(sculpt(T, weapon, mat));
+    if (!wizard && !keeper) rig.add(sculpt(T, [[cyl(.19, .13, .065, 5), hero ? gold : dark, [-.29, .57, .13], [Math.PI / 2, 0, 0]],
+      [cyl(.15, .10, .075, 5), cloth, [-.29, .57, .17], [Math.PI / 2, 0, 0]],
+      [box(.035, .2, .025), gold, [-.29, .57, .22]], [box(.14, .035, .025), gold, [-.29, .6, .22]]], mat));
   }
-  const torso = sculpt(T, body, mat); rig.add(torso);
-  const legs = [-1, 1].map(side => {
-    const leg = sculpt(T, [[box(.11, .24, .13), wizard || keeper ? 0x594236 : dark, [0, -.12, 0]],
-      [box(.13, .09, .21), dark, [0, -.23, .035]]], mat);
-    leg.position.set(side * .1, .3, 0); rig.add(leg); return leg;
-  });
-  const arm = new T.Group(); arm.position.set(.25, .75, .01); rig.add(arm);
-  const weapon = [[box(.09, .25, .09), wizard || keeper ? cloth : iron, [0, -.11, 0]], [orb(.055), skin, [0, -.24, .025]]];
-  if (wizard) weapon.push([cyl(.025, .035, 1.1), 0x8D623C, [.04, -.18, .07]],
-    [new T.OctahedronGeometry(.13), 0x77DDF9, [.04, .44, .07]], [cyl(.09, .04, .1), gold, [.04, .33, .07]]);
-  else if (keeper) weapon.push([orb(.16), 0x92C18A, [.03, -.12, .17], [], [.8, 1.25, .8]],
-    [box(.23, .055, .21), 0xB9884D, [.03, -.3, .15]]);
-  else if (hero) weapon.push([box(.065, .62, .035), 0xE7F2F4, [.02, .07, .08]],
-    [box(.24, .045, .07), gold, [.02, -.23, .08]], [box(.055, .16, .06), 0x61432A, [.02, -.31, .08]]);
-  else weapon.push([cyl(.021, .021, 1.35, 5), 0x825735, [.05, -.05, .06]],
-    [cyl(0, .07, .22, 4), iron, [.05, .72, .06]]);
-  arm.add(sculpt(T, weapon, mat));
-  if (!wizard && !keeper) rig.add(sculpt(T, [[cyl(.19, .13, .065, 5), hero ? gold : dark, [-.29, .57, .13], [Math.PI / 2, 0, 0]],
-    [cyl(.15, .10, .075, 5), cloth, [-.29, .57, .17], [Math.PI / 2, 0, 0]],
-    [box(.035, .2, .025), gold, [-.29, .57, .22]], [box(.14, .035, .025), gold, [-.29, .6, .22]]], mat));
   const accent = wizard ? 0x9DCFFF : keeper ? 0x88C999 : defending ? 0x88D6AD : gold;
   const ring = new T.Mesh(hero ? new T.RingGeometry(.3, .38, 24) : new T.CircleGeometry(.25, 16),
     new T.MeshBasicMaterial({color: hero ? accent : 0x16251B, transparent: true, opacity: hero ? .72 : .22, depthWrite: false}));
@@ -162,8 +172,15 @@ export function createNPC(T, kind, {level = 1, house = {}, defending = false, on
   root.scale.setScalar(hero ? 1.2 : 1);
   let disposed = false;
   return {root, kind, level,
-    pose(seconds, {moving = false, face = .6, attack = 0, hit = 0, still = false} = {}) {
+    pose(seconds, {moving = false, face = .6, attack = 0, hit = 0, still = false, attackAt, hitAt} = {}) {
       if (disposed) return;
+      if (actor) {
+        // (the model's own clips: walking, its blow from when it struck, a flinch, else at ease)
+        root.rotation.y = -face + Math.PI / 2 + (still || moving || attack ? 0 : Math.sin(seconds * .32) * .12);
+        const state = moving ? 'walk' : attack > 0 && Number.isFinite(attackAt) ? 'attack' : hit > 0 ? 'hit' : 'idle';
+        actor.pose(still && !moving ? 'idle' : state, seconds, {event: state === 'attack' ? attackAt : state === 'hit' ? hitAt : undefined, rate: state === 'walk' ? 1.1 : 1});
+        return;
+      }
       const walk = moving && !still ? Math.sin(seconds * 10) : 0;
       root.rotation.y = -face + Math.PI / 2 + (still || moving || attack ? 0 : Math.sin(seconds * .32) * .12);
       const breath = still || moving || attack ? 0 : Math.sin(seconds * 1.6) * .008;
@@ -176,6 +193,8 @@ export function createNPC(T, kind, {level = 1, house = {}, defending = false, on
     },
     dispose() {
       if (disposed) return; disposed = true; root.removeFromParent();
+      // (the model's geometry and textures are its kind's, shared: only its own skeleton goes)
+      if (actor) actor.dispose();
       const geometries = new Set(), materials = new Set(), textures = new Set();
       root.traverse(o => { if (o.geometry) geometries.add(o.geometry); if (o.material) { materials.add(o.material); if (o.material.map) textures.add(o.material.map); } });
       geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); textures.forEach(t => t.dispose());
@@ -278,7 +297,7 @@ export function createBattleHeroes(T, scene, {house, onChange} = {}) {
         const moving = Math.hypot(c.x - p.x, c.y - p.y) > .001;
         const sinceAttack = seconds - (u.hitAt ?? -9);
         const attack = !moving && sinceAttack < .45 ? Math.sin(Math.max(0, sinceAttack) / .45 * Math.PI) : 0;
-        model.root.position.set(W(x), 0, W(y)); model.pose(seconds, {moving, face: u.face, attack, still});
+        model.root.position.set(W(x), 0, W(y)); model.pose(seconds, {moving, face: u.face, attack, still, attackAt: u.hitAt});
       }
       models.forEach((m, key) => { if (!seen.has(key)) { m.dispose(); models.delete(key); } });
     },

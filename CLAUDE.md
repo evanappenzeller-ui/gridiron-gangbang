@@ -87,6 +87,13 @@ gridiron-hub-v3 reset marker. A graphics release must never start a new season
 or reset a realm. Any later schema change needs a versioned, repeatable migration
 with a preserved original save and tests for members, app users and guests.
 
+Keepfall is fully 3D (Evan, Oct 25 2026: "this game should be all 3d from here on out"): terrain and scenery
+(views/realm-world.js), every building (realm-buildings.js, models/realm/world-v1 + buildings-v1), walls, soldiers,
+villagers, guards, heroes and dragons are models. Never bring back building/army pictures or the painted landscape;
+a missing model falls back to realm-models.js plain 3D geometry. Converters: tools/realm/convert-world.mjs and
+convert-western.mjs. Verify tools/realm/check-buildings-browser.cjs, check-world.cjs, check-ui-3d.cjs and
+check-spread.cjs before Keepfall visual releases.
+
 ## Deploying
 
 - Standing owner instruction (October 21, 2026): after completing and verifying requested changes,

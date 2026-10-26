@@ -592,7 +592,7 @@ const BUILD = {
     if (tier === 2) [-1, 1].forEach(sd => banner(k, h, [sd * .215, .34, -.05], [0, sd * Math.PI / 2, 0], .3, .22));
   },
   hatchery(k, l, h) {
-    // (drawn from its picture when that's in: realm-sprites.js) a stone pen, a fire pit, eggs in the straw
+    // (its plain 3D stand-in, while realm-buildings.js's model isn't in) a stone pen, a fire pit, eggs in the straw
     pad(k, 4, l, DARKSTONE);
     [[0, -1.6, 3.4, .25], [0, 1.6, 3.4, .25]].forEach(([x, z, w, t]) => k.box(w, .6 + .04 * l, t, DARKSTONE, [x, .08, z]));
     [-1.6, 1.6].forEach(x => k.box(.25, .6 + .04 * l, 3.4, DARKSTONE, [x, .08, 0]));

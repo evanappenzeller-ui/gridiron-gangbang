@@ -6,7 +6,11 @@ import * as features from '../core/features.js';
 
 const V = new URL('../vendor/three/', import.meta.url).href;
 const AT = new URL('../../models/realm/western-v2/', import.meta.url).href;
-export const KINDS = Object.freeze(['footman', 'archer', 'worker']);
+// The full 3D Keepfall (Oct 25 2026): the knight, thief, Knight Hero (champion), guards, the dragon keeper, an old
+// replay's Wizard Hero (mage) and the trebuchet's catapult too. Some carry only their own clips and play another's
+// (CLIPS_FROM: tools/realm/convert-western.mjs exports them so: the same rig, the same animation files).
+export const KINDS = Object.freeze(['footman', 'archer', 'worker', 'knight', 'thief', 'champion', 'guard', 'keeper', 'mage', 'catapult']);
+const CLIPS_FROM = Object.freeze({knight: 'footman', thief: 'footman', champion: 'footman', mage: 'keeper'});
 const LOOP = new Set(['idle', 'walk', 'run', 'work', 'work_b', 'work_c']);
 const motion = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
 const templates = new Map(), actors = new Set();
@@ -55,14 +59,21 @@ export function load(three) {
       const [{GLTFLoader}, SK] = await Promise.all([import(V + 'GLTFLoader.js'), import(V + 'SkeletonUtils.js')]);
       if (!eligible()) return false;
       cloneRig = SK.clone;
-      const loader = new GLTFLoader();
-      await Promise.all(KINDS.filter(kind => !templates.has(kind)).map(async kind => {
-        if (!eligible()) return;
+      const loader = new GLTFLoader(), loads = new Map();
+      const loadKind = kind => loads.get(kind) || loads.set(kind, (async () => {
+        if (!eligible() || templates.has(kind)) return;
         let gltf;
         try {
           gltf = await loader.loadAsync(AT + kind + '.glb');
           if (!eligible()) { releaseScene(gltf.scene); return; }
           const clips = new Map(gltf.animations.map(c => [c.name.toLowerCase(), c]));
+          // (a unit that plays another's clips: its own first, the rest the other's)
+          if (CLIPS_FROM[kind]) {
+            await loadKind(CLIPS_FROM[kind]);
+            const base = templates.get(CLIPS_FROM[kind]);
+            if (!base) throw new Error('Missing shared animations');
+            base.clips.forEach((c, name) => { if (!clips.has(name)) clips.set(name, c); });
+          }
           if (!clips.has('idle')) throw new Error('Missing idle animation');
           gltf.scene.updateMatrixWorld(true);
           const box = new T.Box3().setFromObject(gltf.scene);
@@ -79,9 +90,10 @@ export function load(three) {
           templates.set(kind, {scene: gltf.scene, clips, height, floor: box.min.y});
         } catch (error) {
           if (gltf) releaseScene(gltf.scene);
-          if (eligible()) console.warn('Keepfall: original ' + kind + ' artwork retained', error);
+          if (eligible()) console.warn('Keepfall: plain 3D ' + kind + ' (its model is missing)', error);
         }
-      }));
+      })()).get(kind);
+      await Promise.all(KINDS.filter(kind => !templates.has(kind)).map(loadKind));
       return eligible() && templates.size > 0;
     } catch (error) {
       if (eligible()) console.warn('Keepfall: original character artwork retained', error);

@@ -16,7 +16,8 @@ const npcs = uri(read('js/views/realm-npcs.js')
   .replace("import * as features from '../core/features.js';", 'const features={available:()=>true};')
   .replace("import * as data from '../core/data.js';", 'const data={subscribe:()=>()=>{}};')
   .replace("from '../core/realm.js'", 'from ' + JSON.stringify(realm))
-  .replace("import {isDragonKind, BADGE_ON_TOP} from './realm-dragon.js';", 'const isDragonKind=()=>false,BADGE_ON_TOP=1;'));
+  .replace("import {isDragonKind, BADGE_ON_TOP} from './realm-dragon.js';", 'const isDragonKind=()=>false,BADGE_ON_TOP=1;')
+  .replace("import * as CH from './realm-characters.js';", 'const CH={ready:()=>false,create:()=>null};'));
 (async () => {
   const F = await import(realm), {npcPaths} = await import(npcs);
   const {routineRoute, homeRoutine} = await import(uri(read('js/views/realm-routines.js')));

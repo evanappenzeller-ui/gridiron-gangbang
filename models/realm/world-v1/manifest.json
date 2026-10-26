@@ -1,0 +1,3032 @@
+{
+ "version": 1,
+ "generator": "convert-world.mjs / three@0.160.0",
+ "units": "Buildings: largest horizontal side 1. Walls: 1 = one tile. Nature: metres.",
+ "files": {
+  "keep.glb": {
+   "nodes": {
+    "keep-1": {
+     "triangles": 1424,
+     "materials": [
+      "td_humans_sets",
+      "td_humans_base",
+      "td_humans_castle"
+     ],
+     "height": 0.8358305591363178,
+     "footprint": [
+      1,
+      0.8240022952497527
+     ],
+     "metres": [
+      4.076,
+      3.407,
+      3.358
+     ]
+    },
+    "keep-2": {
+     "triangles": 3078,
+     "materials": [
+      "td_humans_sets",
+      "td_humans_base",
+      "td_humans_castle"
+     ],
+     "height": 0.8706642433314757,
+     "footprint": [
+      1,
+      0.9095594919046197
+     ],
+     "metres": [
+      4.976,
+      4.332,
+      4.526
+     ]
+    },
+    "keep-3": {
+     "triangles": 4747,
+     "materials": [
+      "td_humans_sets",
+      "td_humans_base",
+      "td_humans_castle",
+      "td_humans_magic_runes",
+      "td_humans_magic_ring",
+      "td_humans_magic_crystals"
+     ],
+     "height": 0.9761101887994484,
+     "footprint": [
+      1,
+      1
+     ],
+     "metres": [
+      5.096,
+      4.974,
+      5.096
+     ]
+    }
+   },
+   "bytes": 619520
+  },
+  "cannon.glb": {
+   "nodes": {
+    "cannon-1": {
+     "triangles": 1208,
+     "materials": [
+      "td_humans_sets",
+      "td_humans_base"
+     ],
+     "height": 1.9102224525576903,
+     "footprint": [
+      1,
+      0.9999999595303137
+     ],
+     "metres": [
+      1.473,
+      2.813,
+      1.473
+     ]
+    },
+    "cannon-2": {
+     "triangles": 1486,
+     "materials": [
+      "td_humans_sets",
+      "td_humans_base"
+     ],
+     "height": 1.9130011012206345,
+     "footprint": [
+      1,
+      0.9999999595303137
+     ],
+     "metres": [
+      1.473,
+      2.818,
+      1.473
+     ]
+    },
+    "cannon-3": {
+     "triangles": 1644,
+     "materials": [
+      "td_humans_base",
+      "td_humans_sets"
+     ],
+     "height": 1.9527057485934862,
+     "footprint": [
+      1,
+      0.9999999595303137
+     ],
+     "metres": [
+      1.473,
+      2.876,
+      1.473
+     ]
+    }
+   },
+   "bytes": 273012
+  },
+  "cauldron.glb": {
+   "nodes": {
+    "cauldron-1": {
+     "triangles": 1193,
+     "materials": [
+      "mat_brick",
+      "mat_floorTile",
+      "mat_interior",
+      "ember",
+      "Storage"
+     ],
+     "height": 0.3303809069711195,
+     "footprint": [
+      1,
+      1
+     ],
+     "metres": [
+      12.4,
+      4.097,
+      12.4
+     ]
+    },
+    "cauldron-2": {
+     "triangles": 2146,
+     "materials": [
+      "mat_brick",
+      "mat_floorTile",
+      "mat_interior",
+      "ember",
+      "Storage"
+     ],
+     "height": 0.3868328332541787,
+     "footprint": [
+      1,
+      1
+     ],
+     "metres": [
+      12.4,
+      4.797,
+      12.4
+     ]
+    },
+    "cauldron-3": {
+     "triangles": 4783,
+     "materials": [
+      "mat_brick",
+      "mat_floorTile",
+      "mat_interior",
+      "ember",
+      "Storage"
+     ],
+     "height": 0.4432605275452041,
+     "footprint": [
+      1,
+      1
+     ],
+     "metres": [
+      12.4,
+      5.496,
+      12.4
+     ]
+    }
+   },
+   "bytes": 471716
+  },
+  "trebuchet.glb": {
+   "nodes": {
+    "trebuchet-1": {
+     "triangles": 824,
+     "materials": [
+      "mat_brick",
+      "mat_floorTile",
+      "boulder"
+     ],
+     "height": 0.10982879412867928,
+     "footprint": [
+      1,
+      1
+     ],
+     "metres": [
+      12.4,
+      1.362,
+      12.4
+     ]
+    },
+    "trebuchet-2": {
+     "triangles": 1460,
+     "materials": [
+      "mat_brick",
+      "mat_floorTile",
+      "boulder"
+     ],
+     "height": 0.26621775483215293,
+     "footprint": [
+      1,
+      1
+     ],
+     "metres": [
+      12.4,
+      3.301,
+      12.4
+     ]
+    },
+    "trebuchet-3": {
+     "triangles": 3440,
+     "materials": [
+      "mat_brick",
+      "mat_floorTile",
+      "boulder"
+     ],
+     "height": 0.38722581472192963,
+     "footprint": [
+      1,
+      1
+     ],
+     "metres": [
+      12.4,
+      4.802,
+      12.4
+     ]
+    }
+   },
+   "bytes": 353180
+  },
+  "mine.glb": {
+   "nodes": {
+    "mine-1": {
+     "triangles": 2270,
+     "materials": [
+      "Rock2",
+      "WoodenWall",
+      "timber",
+      "cart",
+      "gold"
+     ],
+     "height": 0.34733010321492885,
+     "footprint": [
+      0.8380081518010402,
+      1
+     ],
+     "metres": [
+      10.399,
+      4.31,
+      12.409
+     ]
+    },
+    "mine-2": {
+     "triangles": 4472,
+     "materials": [
+      "Rock1",
+      "WoodenWall",
+      "timber",
+      "cart",
+      "gold",
+      "mat_interior"
+     ],
+     "height": 0.3808472881216363,
+     "footprint": [
+      0.8191269127219671,
+      1
+     ],
+     "metres": [
+      10.307,
+      4.792,
+      12.583
+     ]
+    },
+    "mine-3": {
+     "triangles": 3282,
+     "materials": [
+      "Rock3",
+      "WoodenWall",
+      "timber",
+      "cart",
+      "gold",
+      "Storage"
+     ],
+     "height": 0.4257668242775038,
+     "footprint": [
+      0.887325454363544,
+      1
+     ],
+     "metres": [
+      12.56,
+      6.027,
+      14.155
+     ]
+    }
+   },
+   "bytes": 515756
+  },
+  "farm.glb": {
+   "nodes": {
+    "farm-1": {
+     "triangles": 4103,
+     "materials": [
+      "WoodenHouse",
+      "Storage"
+     ],
+     "height": 0.589555721793091,
+     "footprint": [
+      0.7509327666406779,
+      1
+     ],
+     "metres": [
+      11.424,
+      8.969,
+      15.213
+     ]
+    },
+    "farm-2": {
+     "triangles": 2818,
+     "materials": [
+      "WoodenHouse",
+      "mat_interior",
+      "cart",
+      "Storage"
+     ],
+     "height": 0.47258174828148575,
+     "footprint": [
+      1,
+      0.972398335389205
+     ],
+     "metres": [
+      19.067,
+      9.011,
+      18.541
+     ]
+    },
+    "farm-3": {
+     "triangles": 4676,
+     "materials": [
+      "Tavern",
+      "Tavern_interior",
+      "mat_interior",
+      "cart"
+     ],
+     "height": 0.5924088561738863,
+     "footprint": [
+      1,
+      0.8751883273759057
+     ],
+     "metres": [
+      31.675,
+      18.764,
+      27.721
+     ]
+    }
+   },
+   "bytes": 630024
+  },
+  "granary.glb": {
+   "nodes": {
+    "granary-1": {
+     "triangles": 4020,
+     "materials": [
+      "timber",
+      "mat_roof",
+      "mat_brick",
+      "mat_interior"
+     ],
+     "height": 0.7312083554710657,
+     "footprint": [
+      0.9711807315555223,
+      1
+     ],
+     "metres": [
+      10.731,
+      8.08,
+      11.05
+     ]
+    },
+    "granary-2": {
+     "triangles": 2926,
+     "materials": [
+      "House1",
+      "mat_interior"
+     ],
+     "height": 0.6828197133061912,
+     "footprint": [
+      0.7716029068404654,
+      1
+     ],
+     "metres": [
+      8.206,
+      7.262,
+      10.635
+     ]
+    },
+    "granary-3": {
+     "triangles": 4740,
+     "materials": [
+      "House1",
+      "mat_interior",
+      "cart"
+     ],
+     "height": 0.5870709578950364,
+     "footprint": [
+      0.9437821753448297,
+      1
+     ],
+     "metres": [
+      11.694,
+      7.274,
+      12.39
+     ]
+    }
+   },
+   "bytes": 733792
+  },
+  "treasury.glb": {
+   "nodes": {
+    "treasury-1": {
+     "triangles": 2224,
+     "materials": [
+      "mat_brick",
+      "mat_floorTile",
+      "gold",
+      "mat_interior"
+     ],
+     "height": 0.19227188551877808,
+     "footprint": [
+      1,
+      1
+     ],
+     "metres": [
+      12.4,
+      2.384,
+      12.4
+     ]
+    },
+    "treasury-2": {
+     "triangles": 3612,
+     "materials": [
+      "mat_brick",
+      "mat_floorTile",
+      "gold",
+      "mat_interior"
+     ],
+     "height": 0.3351529883485805,
+     "footprint": [
+      0.9999999254971926,
+      1
+     ],
+     "metres": [
+      12.801,
+      4.29,
+      12.801
+     ]
+    },
+    "treasury-3": {
+     "triangles": 4009,
+     "materials": [
+      "mat_brick",
+      "mat_floorTile",
+      "gold",
+      "mat_interior"
+     ],
+     "height": 0.4398643398839935,
+     "footprint": [
+      0.999999927203833,
+      1
+     ],
+     "metres": [
+      13.101,
+      5.762,
+      13.101
+     ]
+    }
+   },
+   "bytes": 639776
+  },
+  "camp.glb": {
+   "nodes": {
+    "camp-1": {
+     "triangles": 912,
+     "materials": [
+      "canvas",
+      "pole",
+      "banner",
+      "mat_interior",
+      "ember"
+     ],
+     "height": 0.37102783727710803,
+     "footprint": [
+      1,
+      0.5132920333308632
+     ],
+     "metres": [
+      9.157,
+      3.397,
+      4.7
+     ]
+    },
+    "camp-2": {
+     "triangles": 1636,
+     "materials": [
+      "canvas",
+      "pole",
+      "banner",
+      "mat_interior",
+      "ember"
+     ],
+     "height": 0.28453488928724324,
+     "footprint": [
+      1,
+      0.5499184005428116
+     ],
+     "metres": [
+      11.94,
+      3.397,
+      6.566
+     ]
+    },
+    "camp-3": {
+     "triangles": 1764,
+     "materials": [
+      "canvas",
+      "pole",
+      "banner",
+      "mat_interior",
+      "ember",
+      "timber"
+     ],
+     "height": 0.24566827647031975,
+     "footprint": [
+      1,
+      0.8352014024094948
+     ],
+     "metres": [
+      13.829,
+      3.397,
+      11.55
+     ]
+    }
+   },
+   "bytes": 303660
+  },
+  "hatchery.glb": {
+   "nodes": {
+    "hatchery-1": {
+     "triangles": 1580,
+     "materials": [
+      "mat_brick",
+      "mat_floorTile",
+      "Rock2",
+      "straw",
+      "egg"
+     ],
+     "height": 0.23154025588236335,
+     "footprint": [
+      1,
+      1
+     ],
+     "metres": [
+      12.4,
+      2.871,
+      12.4
+     ]
+    },
+    "hatchery-2": {
+     "triangles": 2414,
+     "materials": [
+      "mat_brick",
+      "mat_floorTile",
+      "Rock1",
+      "straw",
+      "egg"
+     ],
+     "height": 0.4359256800358596,
+     "footprint": [
+      0.999999965941457,
+      1
+     ],
+     "metres": [
+      14.001,
+      6.103,
+      14.001
+     ]
+    },
+    "hatchery-3": {
+     "triangles": 4282,
+     "materials": [
+      "mat_brick",
+      "mat_floorTile",
+      "Rock3",
+      "straw",
+      "egg"
+     ],
+     "height": 0.4884425392385433,
+     "footprint": [
+      0.9999999277551181,
+      1
+     ],
+     "metres": [
+      13.201,
+      6.448,
+      13.201
+     ]
+    }
+   },
+   "bytes": 384536
+  },
+  "hut.glb": {
+   "nodes": {
+    "hut-1": {
+     "triangles": 1762,
+     "materials": [
+      "House1",
+      "mat_interior",
+      "Storage",
+      "cart"
+     ],
+     "height": 0.7669516865152514,
+     "footprint": [
+      0.8964416091894131,
+      1
+     ],
+     "metres": [
+      8.499,
+      7.271,
+      9.481
+     ]
+    }
+   },
+   "bytes": 89820
+  },
+  "walls.glb": {
+   "nodes": {
+    "wall-1-post": {
+     "triangles": 49,
+     "materials": [
+      "timber"
+     ],
+     "height": 1.5499999523162842,
+     "footprint": [
+      0.27297982573509216,
+      0.26613564789295197
+     ],
+     "metres": [
+      0.273,
+      1.55,
+      0.266
+     ]
+    },
+    "wall-1-rail": {
+     "triangles": 234,
+     "materials": [
+      "timber"
+     ],
+     "height": 1.3176332894486862,
+     "footprint": [
+      1,
+      0.27452773600816727
+     ],
+     "metres": [
+      1,
+      1.318,
+      0.275
+     ]
+    },
+    "wall-2-post": {
+     "triangles": 112,
+     "materials": [
+      "Wall1"
+     ],
+     "height": 1.7342319965362094,
+     "footprint": [
+      0.6046983897686005,
+      0.8169038891792297
+     ],
+     "metres": [
+      0.605,
+      1.734,
+      0.817
+     ]
+    },
+    "wall-2-rail": {
+     "triangles": 66,
+     "materials": [
+      "Wall1"
+     ],
+     "height": 1.2853924798964727,
+     "footprint": [
+      1.0018842220306396,
+      0.6108927726745605
+     ],
+     "metres": [
+      1.002,
+      1.285,
+      0.611
+     ]
+    },
+    "wall-3-post": {
+     "triangles": 132,
+     "materials": [
+      "mat_floorTile"
+     ],
+     "height": 1.7405799657281023,
+     "footprint": [
+      0.500160813331604,
+      0.5001610517501831
+     ],
+     "metres": [
+      0.5,
+      1.741,
+      0.5
+     ]
+    },
+    "wall-3-rail": {
+     "triangles": 240,
+     "materials": [
+      "mat_brick",
+      "mat_floorTile"
+     ],
+     "height": 1.4819999933242798,
+     "footprint": [
+      1,
+      0.3668503537774086
+     ],
+     "metres": [
+      1,
+      1.482,
+      0.367
+     ]
+    },
+    "wall-4-post": {
+     "triangles": 264,
+     "materials": [
+      "mat_floorTile"
+     ],
+     "height": 1.9303300288447645,
+     "footprint": [
+      0.7002251148223877,
+      0.7002254724502563
+     ],
+     "metres": [
+      0.7,
+      1.93,
+      0.7
+     ]
+    },
+    "wall-4-rail": {
+     "triangles": 290,
+     "materials": [
+      "mat_floorTile",
+      "mat_brick"
+     ],
+     "height": 1.7160000801086426,
+     "footprint": [
+      1,
+      0.3728545680642128
+     ],
+     "metres": [
+      1,
+      1.716,
+      0.373
+     ]
+    }
+   },
+   "bytes": 90772
+  },
+  "nature.glb": {
+   "nodes": {
+    "pine1": {
+     "triangles": 1554,
+     "materials": [
+      "Pine_bark",
+      "Pine_leaves"
+     ],
+     "height": 19.388874053955078,
+     "footprint": [
+      11.654243469238281,
+      11.841659545898438
+     ],
+     "metres": [
+      11.654,
+      19.389,
+      11.842
+     ]
+    },
+    "pine2": {
+     "triangles": 1872,
+     "materials": [
+      "Pine_bark",
+      "Pine_leaves"
+     ],
+     "height": 19.388874053955078,
+     "footprint": [
+      11.956146240234375,
+      11.841651916503906
+     ],
+     "metres": [
+      11.956,
+      19.389,
+      11.842
+     ]
+    },
+    "pine3": {
+     "triangles": 692,
+     "materials": [
+      "Pine_bark",
+      "Pine_leaves"
+     ],
+     "height": 9.940635681152344,
+     "footprint": [
+      5.195198059082031,
+      4.959409952163696
+     ],
+     "metres": [
+      5.195,
+      9.941,
+      4.959
+     ]
+    },
+    "oak1": {
+     "triangles": 1657,
+     "materials": [
+      "Oak_bark",
+      "Oak_leaves"
+     ],
+     "height": 14.088851928710938,
+     "footprint": [
+      20.955707550048828,
+      20.17801284790039
+     ],
+     "metres": [
+      20.956,
+      14.089,
+      20.178
+     ]
+    },
+    "oak2": {
+     "triangles": 1483,
+     "materials": [
+      "Oak_bark",
+      "Oak_leaves"
+     ],
+     "height": 11.206192016601562,
+     "footprint": [
+      16.152355194091797,
+      19.37970733642578
+     ],
+     "metres": [
+      16.152,
+      11.206,
+      19.38
+     ]
+    },
+    "birch1": {
+     "triangles": 1192,
+     "materials": [
+      "Birch_bark",
+      "Birch_leaves"
+     ],
+     "height": 13.553924560546875,
+     "footprint": [
+      12.521060943603516,
+      12.640931606292725
+     ],
+     "metres": [
+      12.521,
+      13.554,
+      12.641
+     ]
+    },
+    "birch2": {
+     "triangles": 678,
+     "materials": [
+      "Birch_bark",
+      "Birch_leaves"
+     ],
+     "height": 9.35101318359375,
+     "footprint": [
+      8.45737075805664,
+      8.288403034210205
+     ],
+     "metres": [
+      8.457,
+      9.351,
+      8.288
+     ]
+    },
+    "deciduous1": {
+     "triangles": 1547,
+     "materials": [
+      "Tree_bark1",
+      "Tree_leaves1"
+     ],
+     "height": 12.17059326171875,
+     "footprint": [
+      16.318241119384766,
+      13.089559078216553
+     ],
+     "metres": [
+      16.318,
+      12.171,
+      13.09
+     ]
+    },
+    "deciduous2": {
+     "triangles": 1754,
+     "materials": [
+      "Tree_bark2",
+      "Tree_leaves2"
+     ],
+     "height": 16.264389038085938,
+     "footprint": [
+      21.81745147705078,
+      20.976228713989258
+     ],
+     "metres": [
+      21.817,
+      16.264,
+      20.976
+     ]
+    },
+    "willow1": {
+     "triangles": 1395,
+     "materials": [
+      "Willow_bark",
+      "Willow_leaves"
+     ],
+     "height": 11.4163818359375,
+     "footprint": [
+      15.788318634033203,
+      17.58961296081543
+     ],
+     "metres": [
+      15.788,
+      11.416,
+      17.59
+     ]
+    },
+    "pineStump": {
+     "triangles": 918,
+     "materials": [
+      "Pine_stump"
+     ],
+     "height": 2.051158905029297,
+     "footprint": [
+      2.6427040100097656,
+      2.8309860229492188
+     ],
+     "metres": [
+      2.643,
+      2.051,
+      2.831
+     ]
+    },
+    "stump": {
+     "triangles": 1340,
+     "materials": [
+      "Deciduous_tree_stump"
+     ],
+     "height": 1.467620849609375,
+     "footprint": [
+      1.7187728881835938,
+      1.9019586443901062
+     ],
+     "metres": [
+      1.719,
+      1.468,
+      1.902
+     ]
+    },
+    "rock1": {
+     "triangles": 658,
+     "materials": [
+      "Rock1"
+     ],
+     "height": 5.523597717285156,
+     "footprint": [
+      9.290950775146484,
+      8.393122673034668
+     ],
+     "metres": [
+      9.291,
+      5.524,
+      8.393
+     ]
+    },
+    "rock2": {
+     "triangles": 492,
+     "materials": [
+      "Rock2"
+     ],
+     "height": 5.2825927734375,
+     "footprint": [
+      12.361258506774902,
+      7.650194883346558
+     ],
+     "metres": [
+      12.361,
+      5.283,
+      7.65
+     ]
+    },
+    "rock3": {
+     "triangles": 514,
+     "materials": [
+      "Rock3"
+     ],
+     "height": 6.2483062744140625,
+     "footprint": [
+      12.666210174560547,
+      8.385578155517578
+     ],
+     "metres": [
+      12.666,
+      6.248,
+      8.386
+     ]
+    },
+    "stone1": {
+     "triangles": 256,
+     "materials": [
+      "Stone"
+     ],
+     "height": 1.0381546020507812,
+     "footprint": [
+      1.7818145751953125,
+      1.6638965606689453
+     ],
+     "metres": [
+      1.782,
+      1.038,
+      1.664
+     ]
+    },
+    "stone2": {
+     "triangles": 333,
+     "materials": [
+      "Stone"
+     ],
+     "height": 2.3803634643554688,
+     "footprint": [
+      3.9219322204589844,
+      4.02332866191864
+     ],
+     "metres": [
+      3.922,
+      2.38,
+      4.023
+     ]
+    },
+    "stone3": {
+     "triangles": 260,
+     "materials": [
+      "Stone"
+     ],
+     "height": 1.3186416625976562,
+     "footprint": [
+      3.7817230224609375,
+      3.5097551345825195
+     ],
+     "metres": [
+      3.782,
+      1.319,
+      3.51
+     ]
+    }
+   },
+   "bytes": 648492
+  }
+ },
+ "ground": {
+  "ground_grass": "textures/ground_grass.jpg",
+  "ground_soil": "textures/ground_soil.jpg",
+  "ground_rock": "textures/ground_rock.jpg",
+  "ground_road": "textures/ground_road.jpg",
+  "ground_stones": "textures/ground_stones.jpg"
+ },
+ "sources": [
+  {
+   "path": "3DForge/TowerDefence/Humans/Materials/td_humans_base.mat",
+   "sha256": "bd718444a737f0281aa4ff1257df15806b642c9143920e4e75ee4d6fc3292968"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Materials/td_humans_base.mat.meta",
+   "sha256": "34f85014f1a2654bdb51e00586ae8ef0c57aebc9fa0f058b0d6690132847d762"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Materials/td_humans_castle.mat",
+   "sha256": "64e2a8d012535c7b7b9341919034513b8ffd82946b71082f975f2042f75ac5fe"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Materials/td_humans_castle.mat.meta",
+   "sha256": "289c6b66d2ed89a38fb56b3fe34b3112f04ec639be9130ed81573083542db16f"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Materials/td_humans_magic_crystals.mat",
+   "sha256": "fed5f7274f76123776eaad917812270df0b7461d7c987604d6740ad6fcd069f8"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Materials/td_humans_magic_crystals.mat.meta",
+   "sha256": "f46d2fe80bdc965c3d86fda5d81852cadd671565561e9468a21702b229291a43"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Materials/td_humans_magic_ring.mat",
+   "sha256": "f6338f2e3ed33ba18119b8798c9b0d0228c8985b4ccf41cb9728e03d486bb923"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Materials/td_humans_magic_ring.mat.meta",
+   "sha256": "55f2602f564911bd476dd5d4832f1b2c74eadf89e98d7b558d942e161bdacf6b"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Materials/td_humans_magic_runes.mat",
+   "sha256": "0dee2c63fdb7581a078555a3bb5524c3980a1eb39516fe5031f93bb076957b94"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Materials/td_humans_magic_runes.mat.meta",
+   "sha256": "d9866497c70b1a2c15b859bb7fc042a772179f360511d5b4ed34d15cb32a9692"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Materials/td_humans_sets.mat",
+   "sha256": "e7c31e40626a1af57d491d1e9e66fccded45de9308ea6646d1b0586412124890"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Materials/td_humans_sets.mat.meta",
+   "sha256": "d37199897e3e7b35c3061e50677147c8daff2f664f5a6fb05b085009e46be986"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_base1.fbx",
+   "sha256": "5192d602052f2f8ab79d68809376ae58cb32a244759578f242d5f2c8ccea8dbf"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_base1.fbx.meta",
+   "sha256": "854dcad0fe3d2aeabedf1e68d1c3bc32d468f08bd34fca520645b0de4c342b43"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_base2.fbx",
+   "sha256": "24e9c5f6b614a9f27508ebe7e8ef6704ee2d1591a66ef279d434025e8696db2c"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_base2.fbx.meta",
+   "sha256": "5843f6ee4258e34703b56a9e0f04231246c39c4ed51ab43ac5d4eb7bcdcc2c77"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_base3.fbx",
+   "sha256": "51157f05163706d66408a51c1730aee014d9de9a6a76fd3cad53eb413f911e60"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_base3.fbx.meta",
+   "sha256": "e654999f553164ea833befc1f917fbbdda2f61477edc598316019beabe9fcb6f"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_cannon1.fbx",
+   "sha256": "fd34519b601f99450883514bd79d36620e156f890360b42d64756cdc5dca8b76"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_cannon1.fbx.meta",
+   "sha256": "661d13e7f93e99e4b5648d30571caa4b67ea618484a11668a558b4f621815bc8"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_cannon2.fbx",
+   "sha256": "13a2dca315a687c0cb8441eb0e91e448cdf9d8b24249716c3a6f9f17b1241317"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_cannon2.fbx.meta",
+   "sha256": "35aabaab868fc391f9c901ba14556a3f42a3a6e9c65a5eac359a24f109a9a60f"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_cannon3.fbx",
+   "sha256": "95efc6c7e68fbb3b8114f3476a55c00ee2d460f1a1e11f57ae4084a4e8005107"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_cannon3.fbx.meta",
+   "sha256": "069b5da4a53b3d7fe37c7f7f043f5e7c83f7bfecfbe039c14c1f0046eacdb534"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_castle.fbx",
+   "sha256": "4967c3a3aea491decf4ba58dd0367e440b883bc8107a3890888c8f77324ffb0e"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_castle.fbx.meta",
+   "sha256": "6fd1e621fd1ea6e623bbb1e9c08508bc296070d8cb8d80c292b9b769d4910bea"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_command1.fbx",
+   "sha256": "714cb9208e927a73b951cda5d933d62088c5a33bf4e3697bc80fea424cbc0405"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_command1.fbx.meta",
+   "sha256": "087d97ab98b3d1ce4ba03031cb4f44071de849b6296fb18aa3bf9c1ab5480eb1"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_command2.fbx",
+   "sha256": "fc201b126b55d27df65f11b744e22c9eee04d6c1ff329454018e513194a7f0c5"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_command2.fbx.meta",
+   "sha256": "0d6c329cbf019576f10ac2089c3f9cbb42dc166aed9b82a49ca85df60f68a3ca"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_command3.fbx",
+   "sha256": "44ef5616546667ac8767e182f2b2578d578c898face30ec3a8fce1808378bb9a"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_command3.fbx.meta",
+   "sha256": "6d7115b0cebbad8db8a2f76c9d721b9e0ca1b998d4deb8ec5a8e49e657dcc137"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_magic1.fbx",
+   "sha256": "021bc57128e019957fb8cf6daaddd75e43541bfb247f973741cc9bee91c39748"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_magic1.fbx.meta",
+   "sha256": "cb5a5d241289a6f5e961bf0d91bb918278eb9065e424f325e925eaafe0e566dd"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_mount.fbx",
+   "sha256": "5f1c8acf9bf4a74a582d7f83978a7e58a07c3ee2e8f5f28e69eae9ea5a3fba54"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_mount.fbx.meta",
+   "sha256": "8b312ed98e8967c289f02f5e937bd9cd474219128b61cbbf50a7f150fd73f028"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_pully.fbx",
+   "sha256": "5d2b2c73f75d60e7551eba59a4de7e7d72b5641308be14d7a6bc5372e1131558"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_pully.fbx.meta",
+   "sha256": "bfba7f59c35a4df9f7898aec9468fab7cd8128202876c4ec2b7eda879a5cde12"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_swivel.fbx",
+   "sha256": "c38e39951f1e3c93fcdbe3a16fb9ef864c9613bb7f8acdccd3f12a5c9bef41ad"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Meshes/td_humans_swivel.fbx.meta",
+   "sha256": "498a1037872524133c2027ebe030176594e491fce30f394e8a413d6d62662956"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Prefabs/td_humans_Cannon_stage1.prefab",
+   "sha256": "f102a99039ee80790ebfb05b293285618b4b4e9aa960ec5936dbfd646aa99f08"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Prefabs/td_humans_Cannon_stage1.prefab.meta",
+   "sha256": "dd226232c143860557040920fb6e097620d8925a3ce27b0330f527b06f02467a"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Prefabs/td_humans_Cannon_stage2.prefab",
+   "sha256": "85301023295f39064d121727e998f044002f70d913d5ee9363030f0c4620c32c"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Prefabs/td_humans_Cannon_stage2.prefab.meta",
+   "sha256": "36f2dceb671c2a299838f9e444a47aba061a76bab4e471ba5041af331ad348e1"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Prefabs/td_humans_Cannon_stage3.prefab",
+   "sha256": "770ea6f8759fbf4ab2a977547a47c5f22a788d6833afcfc8a3c2b3476e39d5b4"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Prefabs/td_humans_Cannon_stage3.prefab.meta",
+   "sha256": "8fbf88d321e1ce8f2c000a5d4ef0f1777f6e7c043a0ae6a9a763e8ab2ced3310"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Prefabs/td_humans_Command_stage1.prefab",
+   "sha256": "600e6b27393b15ee0eef6bd25e39fe43dbaa009f4d391a1708531bb34992160b"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Prefabs/td_humans_Command_stage1.prefab.meta",
+   "sha256": "fa1abad591756a47ffbfe66c11c996a88d8ac8e35b2086f0be25de53dbd86a32"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Prefabs/td_humans_Command_stage2.prefab",
+   "sha256": "3deff454c467114d8f1be0b2de68f6a4cc3c9c99697f4b6d6b63e5f968d85fc1"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Prefabs/td_humans_Command_stage2.prefab.meta",
+   "sha256": "1eab962080ac938fa56163781e6c4fb6cdcbaef54e12fe157975dbc5252d9ae9"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Prefabs/td_humans_Command_stage3.prefab",
+   "sha256": "5344a1d65bc728461b340670785c965997e029c823e0e84a3e0619425fd47de4"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Prefabs/td_humans_Command_stage3.prefab.meta",
+   "sha256": "db47c29f6fbfb43cd33e152d4f266fd8f5a0f211d577de8e574acf6dd46f53c6"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Prefabs/td_humans_Magic_stage1.prefab",
+   "sha256": "3d1e9c449e808699858adb57364e8c4bd541fb83654c7e00282420f795a1a5f3"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Prefabs/td_humans_Magic_stage1.prefab.meta",
+   "sha256": "cff27b752c1bae9a7f4e53c18004b149ec124840b778e622b25bb4f51a987e6b"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Prefabs/td_humans_castle.prefab",
+   "sha256": "96821ed7d4105eaf50e0f2f24e34090b523b0ed808d3beeb42288c31012e6198"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Prefabs/td_humans_castle.prefab.meta",
+   "sha256": "f6ef2097ac4f0872cd2d119aeffa0e466cd8292de4ab93263a018ae2ada1d7a2"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Textures/td_humans_base.png",
+   "sha256": "1f7c55109bae8d92d437801ba754fc05fed62bb31578f458d9c41ef005528ee0"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Textures/td_humans_base.png.meta",
+   "sha256": "47537d898bdd68ba9656f07b4a42eb7c43440d39ded11af3115be18b9f4ec185"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Textures/td_humans_castle.png",
+   "sha256": "48ac69f2d9098ad88640188d1e55cea1a4f731fef7dab3328ac6ee93ea1c9f9d"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Textures/td_humans_castle.png.meta",
+   "sha256": "cc555a6fc21781458dbce2b0eab8b73f01a2a4c16047560bcbe4e3f4869b8d21"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Textures/td_humans_magic_crystals.png",
+   "sha256": "1251b24a49d9fabe355135dbefe8062d03b672e1b7c5a5b78f5502def0b75ce7"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Textures/td_humans_magic_crystals.png.meta",
+   "sha256": "ec2c5b0c2ac94e922fcdd11553f979a9bb2e7e4a079e4ba70c124b09501e4943"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Textures/td_humans_magic_ring.png",
+   "sha256": "079958389e08aae458c65efb3604cbbf0b182f18c8bdf4c0a98c65a4b40a02e8"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Textures/td_humans_magic_ring.png.meta",
+   "sha256": "e451382cdfbea3ec62a4eb037c1abc45c91c12be52d76098712392e1e49e10a6"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Textures/td_humans_magic_runes.png",
+   "sha256": "7c0e298fd8341028b619d5c5d36e10b61c80b4afc51ae13dbf1adc906fd03be3"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Textures/td_humans_magic_runes.png.meta",
+   "sha256": "3a2ff8a3776abe3f5015469d84656ff8e2ce50260980b7871a0cbc65b2be257a"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Textures/td_humans_set.png",
+   "sha256": "4752d460b6c52fafbaedadf39c8fcfe52a75375b3b0494e2e0932575689db9c7"
+  },
+  {
+   "path": "3DForge/TowerDefence/Humans/Textures/td_humans_set.png.meta",
+   "sha256": "95331f792b2abe2133070d89c704b9d1812eae536f8d71f5c00cfb03b7d79b36"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/FBX/Birch_tree1.fbx",
+   "sha256": "22cfca17ebd402683a2636738f7b7e4352d90fd0bc31f055c2f6dd073e513d87"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/FBX/Birch_tree1.fbx.meta",
+   "sha256": "6c7406ee6100060604e776c487893b8589d7af465388c9f13dfe5b925a27d2ac"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/FBX/Birch_tree2.fbx",
+   "sha256": "6a38f31eae23b83df151f051f0224abf6c7e1f71d2f587b7d37290f894ff2066"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/FBX/Birch_tree2.fbx.meta",
+   "sha256": "ef6b8a4373c6779985faf754a513971331546ed5abaa17a8aa43dd2fb4d9faef"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/FBX/Deciduous_tree1.fbx",
+   "sha256": "d3f24da6011ccc2bac396107a5c5b82bd26f8a8c4249dcd8132bf5a8134b4a90"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/FBX/Deciduous_tree1.fbx.meta",
+   "sha256": "104b42a81a735103c41d8fdd09aff66ab81afa9166332a3dd93e5fcfa5e0882c"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/FBX/Deciduous_tree2.fbx",
+   "sha256": "3a22ab3bd3d682d4c92dd73d656fe7cf7238c7166de488931451d017501e2b7e"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/FBX/Deciduous_tree2.fbx.meta",
+   "sha256": "7ce9be2d1cdde65b1ddd879a91bed67324f6cdbb78e6b5ff1345e19af516d914"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/FBX/Deciduous_tree_stump.fbx",
+   "sha256": "bce25e71a27f19fb20c9503e19a4345653a41c6ee0f9de81360025219f57dd5b"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/FBX/Deciduous_tree_stump.fbx.meta",
+   "sha256": "38b65794016a3d58bfedbac56d8be316226fe7b19e366842c1a88704694af851"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/FBX/Oak_tree1.fbx",
+   "sha256": "316858d5cd9037d0419c210e12886b5c7287eae5b7b66b0a454ce43224c32c30"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/FBX/Oak_tree1.fbx.meta",
+   "sha256": "1e817759e4a2381507358cee1f93a15463412452ef976b086231f6baeb9b6a02"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/FBX/Oak_tree2.fbx",
+   "sha256": "9772ff8acd7f8389578e25e9f8df19958abe2156b2739542620ed0f781416116"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/FBX/Oak_tree2.fbx.meta",
+   "sha256": "d50e558834b0a4a5dabbed5bbab34984a4f405f488c41bab89e540cea16c805c"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/FBX/Pine_stump.fbx",
+   "sha256": "e08fd921569be322710b02776a2929aadb8164777f5f5fe843cfbefc5e080859"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/FBX/Pine_stump.fbx.meta",
+   "sha256": "90c5bb9c2cfffbefa2533acfcaa6389b6aac43d6904f647050fa9b4e09b10a43"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/FBX/Pine_tree1.fbx",
+   "sha256": "e91deddff0595edf592b45cbc3e27cf9668f0f226fe8fd9783fa6e969c02da0e"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/FBX/Pine_tree1.fbx.meta",
+   "sha256": "4ef0260b5c578d80a93d3ba1253fafc517a81e019b3a0e23ce03e9a1a6e9185f"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/FBX/Pine_tree2.fbx",
+   "sha256": "2aae048567404188b8b70ab0fd34dde6ae3217e8db4d6edba15ae827442f77fc"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/FBX/Pine_tree2.fbx.meta",
+   "sha256": "3ab28f50dac7d84fe9ffb6644e88bfa60dbd05f980f8e132f3d85c824f2a6b92"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/FBX/Pine_tree3.fbx",
+   "sha256": "625363640a07dd49ad6e44480a3cbec378e91f9294ecdee0fff2190ed2e786f0"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/FBX/Pine_tree3.fbx.meta",
+   "sha256": "6bb48b31054c854f08e9a8725d05f324c43492d4f1ccc9f229aec765c9c83984"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/FBX/Willow_tree1.fbx",
+   "sha256": "a9cea30fc4c05bf8d3bd0fda9619c6fa147431b863fe8ff156625441b64bbd51"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/FBX/Willow_tree1.fbx.meta",
+   "sha256": "afb9c4359157bc1d9d93bc83db182e0607c04d5121034bf876ee905ca9c36269"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Materials/Birch_bark.mat",
+   "sha256": "234cf0f0b4aa41c390e3794fdfc85330c058092c3d216911965824186b149729"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Materials/Birch_bark.mat.meta",
+   "sha256": "a8bc739945cf16bee60cd62bf66adbca0a06946732e4fd965b4f6914775584f3"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Materials/Birch_leaves.mat",
+   "sha256": "1a05c36c1f0d7a8d5cb415cb6ca02c8e19a94418133f25b7fc70cbd7c1ffa9de"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Materials/Birch_leaves.mat.meta",
+   "sha256": "cc49263302c25b3b589f305b17b1bae46d0e7a7893fcc4704ac0e2705b9de112"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Materials/Deciduous_tree_stump.mat",
+   "sha256": "e67546a0cbe8945c71b48cfe9bf60fb7ba4c4831c055f12e36fc3df1cfbee80c"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Materials/Deciduous_tree_stump.mat.meta",
+   "sha256": "a8bbc9ca832f93f5c48866c6b63859a257bf115385b33c396859e8b4025e69f2"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Materials/Oak_bark.mat",
+   "sha256": "d39ed7d3d22bcac9bec5413b5310c69c38b1de0bab0499d34ffd80440d15ca36"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Materials/Oak_bark.mat.meta",
+   "sha256": "e99936a0fd05c498df7a392a2e67f88af123723bd273a8a25168265460563dc5"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Materials/Oak_leaves.mat",
+   "sha256": "61e770625f1e9bb43b2941935e79809b8dc7ac6a15e565966ac1a552b6680455"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Materials/Oak_leaves.mat.meta",
+   "sha256": "f1ff4223aeab89f5a08e5244e548477155480fe4e5d9f23faef553aa32aec92f"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Materials/Pine_bark.mat",
+   "sha256": "3fda569efae22a2e5f4122454e417e71d8e0a2ed6c26cf4c59fcebc7897e9828"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Materials/Pine_bark.mat.meta",
+   "sha256": "b254a2adb62918f4cc18a35205f2325e2a46a9787fedc6e65cde4565a5a00602"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Materials/Pine_leaves.mat",
+   "sha256": "cd32a6133002b967469616b314dff9ecd7f4dbcace6ce1dca6ffb70291c1c1bb"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Materials/Pine_leaves.mat.meta",
+   "sha256": "690ddf6ad08e096e50513cae1002c1bad17a894144cdef30960d7e80874006b6"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Materials/Pine_stump.mat",
+   "sha256": "14377a59a01189e910fb4ab278be2e4579dc95b519333f2753aadfe610a40981"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Materials/Pine_stump.mat.meta",
+   "sha256": "344b30db57430870f5fd1b8c09c415db54b48652b339dea6362a193dc25a70be"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Materials/Tree_bark1.mat",
+   "sha256": "2546931e53dbd2e7eb276afaa2b48ba8fa2ab50de310fc235166704ea02dedcc"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Materials/Tree_bark1.mat.meta",
+   "sha256": "0f777b5815d672bab5e111f4c2647599853d6b24230eb13fe0784ad8ad31b9a0"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Materials/Tree_bark2.mat",
+   "sha256": "eea7e1c36f8d0bd3235c527e680eadd09f16882b9655da10696123eb6b71059e"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Materials/Tree_bark2.mat.meta",
+   "sha256": "6ab807adf525a31aae9b39dafa85e15a5f467a8061dd2c84b5aa91d1fb5e957e"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Materials/Tree_leaves1.mat",
+   "sha256": "30117cedba1c038e38f94e8e87070b128fa250ca6e346586ce3c4235a0827e27"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Materials/Tree_leaves1.mat.meta",
+   "sha256": "aaa4d27b4510258858d91082dc3db49b36e7c410ef44e537e6b59d18e26f4988"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Materials/Tree_leaves2.mat",
+   "sha256": "b34eace521f8c934ba9859ff0240e39c67c122f91775490e37ce539ac9596d54"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Materials/Tree_leaves2.mat.meta",
+   "sha256": "bc3dd5435c1aa91b70846671fb9b0140ccbdabdc9eb664f52bb34c3174eba2f6"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Materials/Willow_bark.mat",
+   "sha256": "092391b8b9d79d9110068385b823d0bda9886d3214c38ab790a358208848e097"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Materials/Willow_bark.mat.meta",
+   "sha256": "912280e8c18fd45fa55e4b6a8a891616daa7d8b71ed3d5cc9e041e9b747cab1b"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Materials/Willow_leaves.mat",
+   "sha256": "0fc77d9dfa55ea2e16e73fff6d3a3789d857fcd05075e9935f3f47d603848639"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Materials/Willow_leaves.mat.meta",
+   "sha256": "a86bfa7314b8d79e3827514b020ee169743fc588fd2f79466b7fc322bb3c0cbe"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Prefabs/Birch_tree1.prefab",
+   "sha256": "f3882c0e3eaacd7c14348b8631b788ab24211089b2efc9dae89c35995b66d69f"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Prefabs/Birch_tree1.prefab.meta",
+   "sha256": "3a2259bae6f83dbd657c243038c241c803ba0fda0442c79441e4fe1bc7e39070"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Prefabs/Birch_tree2.prefab",
+   "sha256": "5bee5ce5bbfe4efd98262854cb7b95ca4e407b8fdaafecf242bae9aa3989faf9"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Prefabs/Birch_tree2.prefab.meta",
+   "sha256": "abe2dbccf29c16abf59e3fe8432f149247d44037b36be52b92711610dd2b0824"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Prefabs/Deciduous_tree1.prefab",
+   "sha256": "e1ea75afb600953d9e1b0bb0692761cbca5cb118334edfca3407218fbb0fc7e6"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Prefabs/Deciduous_tree1.prefab.meta",
+   "sha256": "55d3d04a84d5fc3930f2209f21182bc4a0aab3cca1a89ed5828602825a299cbf"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Prefabs/Deciduous_tree2.prefab",
+   "sha256": "1c749dc36edb6276fd899608cc20cdcfc7998c57b1b3d6533c955af532a4d788"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Prefabs/Deciduous_tree2.prefab.meta",
+   "sha256": "b693d69d3d11cbed5b0d45c610c376cf45c379f98eb52adf13d9a58b693b12c1"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Prefabs/Deciduous_tree_stump.prefab",
+   "sha256": "0007020fffbb191545e57478fa7e9b38f9fb1e2091fb8638fa79e8c31ec12b2a"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Prefabs/Deciduous_tree_stump.prefab.meta",
+   "sha256": "574ae3eabbb562d09933e00a8e039720d3b86ea9149b3a94e1fbc26f4cee7109"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Prefabs/Oak_tree1.prefab",
+   "sha256": "9b0ae43d36527185fd9b90b0b25ca2f509d8ab4c346a2121c84cb18ada622129"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Prefabs/Oak_tree1.prefab.meta",
+   "sha256": "1c68e842409986e2f0844f56f3221382918603826a3631e341bc166da9f059d8"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Prefabs/Oak_tree2.prefab",
+   "sha256": "e684cc6f7d5ebcac43c19375e35ce5eb33f2a0b73e3fdda93d5bc9c9eb5e8447"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Prefabs/Oak_tree2.prefab.meta",
+   "sha256": "446a142f49eb8f9748ab3db9f9fe563fb53337f424de18ea74d67d5976e60d5f"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Prefabs/Pine_stump.prefab",
+   "sha256": "035790b9dac3b4c27459ef1d52944c65b5c5f80a9eb9af1cd02898b38891337d"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Prefabs/Pine_stump.prefab.meta",
+   "sha256": "8ca4bd46ccde4451bb4c75f40554995a52c4efb47c167ac7a869007527244f51"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Prefabs/Pine_tree1.prefab",
+   "sha256": "2c8a3815bf68e0f09eda72581a09c402941162bfafc06ac5aa33c6412d6bdbdf"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Prefabs/Pine_tree1.prefab.meta",
+   "sha256": "60dc87429e02a64d41fbe686d1bb4c3153011cf8a2e855170a538593f2e23e85"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Prefabs/Pine_tree2.prefab",
+   "sha256": "c547218a74f8b85d8f6eca3976f79589e2c107fe3523cd275be7660d67ca2c99"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Prefabs/Pine_tree2.prefab.meta",
+   "sha256": "eeb6b6e25b25dab1b356b02b135c139431b7458450eac7d9570c91b8297878f2"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Prefabs/Pine_tree3.prefab",
+   "sha256": "346bb7a0cd39d2f2e2044678083677932985d80cd00357cc8a697544138c505b"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Prefabs/Pine_tree3.prefab.meta",
+   "sha256": "f571fb51c8b2203f54ceb6e7338dc52ef97c9f0bea77387bcf426addf3f93ea6"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Prefabs/Willow_tree1.prefab",
+   "sha256": "56e2398c8338816287eec584f4944276f34b8ee2615f34c40b2ad088bdbcbc16"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Prefabs/Willow_tree1.prefab.meta",
+   "sha256": "e7afa18f131d9d5c3eae12621f48f2dcc04b85a60fcad0a7f181e63f7ccc5568"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Textures/Birch_bark.png",
+   "sha256": "7273e6245ef891d36c0a508d7e4867e1b6244fb08d7d21336b5c86766fd9ec51"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Textures/Birch_bark.png.meta",
+   "sha256": "b639974a3118ee28b4c25e183337295e40677804ec926ed05b70fc3170bfbd31"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Textures/Birch_leaves.tga",
+   "sha256": "e7b2785413372887b330623793da0a22ffdf883200304ea6e04242c650b83605"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Textures/Birch_leaves.tga.meta",
+   "sha256": "6abe0b09b079be9d6bad5c62ed6817711a4038945a73d2ae362e59bf7ff923d8"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Textures/Oak_bark.png",
+   "sha256": "344fb7062bf3b2391c13c062bff9c72b460d44b7a7d80fc42525c8cce7aad9f0"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Textures/Oak_bark.png.meta",
+   "sha256": "4fdbcb3e3c321e34a47a378053ea036dc71ed6f43c31af9bf4179637bbfb9030"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Textures/Pine_bark.png",
+   "sha256": "2d99846fce6aac00133342f628962d64b1268b4de585c4a66c39679348895844"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Textures/Pine_bark.png.meta",
+   "sha256": "a9aaaa986e699c1efe73dac5d2fb7e035be7009fa21b7213809f575cb101d085"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Textures/Pine_leaves.tga",
+   "sha256": "3c650aa26a4dc1a19c6aee5182995fc631b67943ee7bff62fc8da589aebf10c3"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Textures/Pine_leaves.tga.meta",
+   "sha256": "55d679acddae46831a71d827599ad3a487808d326c711dbb99a97f5ad8738842"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Textures/Tree_bark1.png",
+   "sha256": "5329b8ce97073d68523150907656ceca0a1e86543a37eb87e844c3cf8cfe44e0"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Textures/Tree_bark1.png.meta",
+   "sha256": "0fb88463be4405314b948b06f999714f4d56528787db4cf516e7b005cf9f5ea4"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Textures/Tree_bark2.png",
+   "sha256": "b75361671a7620405829cb54b7f1e2d54300949810e8288c90d570a478176d94"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Textures/Tree_bark2.png.meta",
+   "sha256": "98f8726e5bfb7346a946174c054195fbcbff180e53e60d75205c8119ae3a90bf"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Textures/Tree_leaves1.tga",
+   "sha256": "207297e113d03f92da6ed47c4a337d2b3616335f98f64539d5b44004a8c0e674"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Textures/Tree_leaves1.tga.meta",
+   "sha256": "997def6a6d9825f0206f2dd6c4e9917d8fbf82a6c44641e27f359dd77dc84617"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Textures/Tree_leaves2.tga",
+   "sha256": "0a95150b02edce8a6c476783a461762f1d957dbd200dbc69e790da991e6ce0c8"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Textures/Tree_leaves2.tga.meta",
+   "sha256": "4f7feccdd3529b8984ce4309933aca91f858dd45cda7674ebdecaaf144d413f7"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Textures/Willow_bark.png",
+   "sha256": "e34c80fe3a381e7f279944b0244bc97c2c1306f93af3d0ae59b93c73b041b823"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Textures/Willow_bark.png.meta",
+   "sha256": "9ffd2ebea2d04c290a32f19a65d461dc15a7c1cf33a627eb0c2156d2cadbb892"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Textures/Willow_leaves.tga",
+   "sha256": "7e04d8747fe8d3af6aa35779f63b80497fe3344a16bc0a06beee5239114e29d8"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Textures/Willow_leaves.tga.meta",
+   "sha256": "54a12cbb5045f2026d36c677355af09fb8c24669074c74b76f579575865cd3cb"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Textures/oak_leaves.tga",
+   "sha256": "1ea90f2a8b0460db9864dcc031a464996384d04494cc4eeff3d94ee84f2cbcd2"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Ambient-Occlusion-Trees/Textures/oak_leaves.tga.meta",
+   "sha256": "16b2d6e01d45f25401b66cb5f4320a104311a10bd205c4dfdaa6a022bd6202ac"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/FBX/Rock1.fbx",
+   "sha256": "10d054eb74299f5ab0aba02daa31e6271ce1331e5846deee754074a3ec31aa8b"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/FBX/Rock1.fbx.meta",
+   "sha256": "9d06e8b6a5378cb284bea448a919f9c88f2afb8dec10d03bdfdf419441f486f3"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/FBX/Rock2.fbx",
+   "sha256": "65b634dcde3ea49e4bfc5c21998ca18fadca87b678aaa5d1b276cc5e52870f29"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/FBX/Rock2.fbx.meta",
+   "sha256": "fba84c9e4cc9b44dd480777a513385fe0f5d6890e608f8a1a188a4bc37a18ce9"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/FBX/Rock3.fbx",
+   "sha256": "f068b13a15aa897049e98fc32392aa2fae190f393e2f507d0d07f36c5dbf386f"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/FBX/Rock3.fbx.meta",
+   "sha256": "7faf54ed04a6395c7201813c710295f20af54d563452584aef08456c593164ad"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/FBX/Stone1.fbx",
+   "sha256": "fa9672b4d0c765eee6acf179010b5037f328d5b7f53acf92797a6f7b2e01a5a9"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/FBX/Stone1.fbx.meta",
+   "sha256": "4fce986933854022fc4be512677c18ef3f8b6d90fa6e22b45f83311260aca07d"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/FBX/Stone2.fbx",
+   "sha256": "9c6438b7fec195c52b40a2032708739fbfe1ddaa7325fc831de8f6cd32c12e98"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/FBX/Stone2.fbx.meta",
+   "sha256": "64db77355c3f18d33faefe3a99c7a185a7b4a2eca9d5500372db1abf0f5fef89"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/FBX/Stone3.fbx",
+   "sha256": "8a57ef949fdd3280578f6dcd8923d55a420e9126a834802f846106ad9d5ffa40"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/FBX/Stone3.fbx.meta",
+   "sha256": "c4efc309e181165092318e182a89dabbcd66e479b2711fdda19ab972cd1bf1e9"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Materials/Rock1.mat",
+   "sha256": "096e5f21c559a06c5d23edd50ae3ed5ac88cfc702c9b3a74a850a2b55751280a"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Materials/Rock1.mat.meta",
+   "sha256": "bc08bea2c5a62cb3302709cff77747cfba2d356c457cfe972b2aeb2e4835c993"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Materials/Rock2.mat",
+   "sha256": "959ffdc550eb5511145bc08dd1b6e95c1aeef825f0d3c33eb1688e2c4703a455"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Materials/Rock2.mat.meta",
+   "sha256": "da545414d4836d6adbc2ab7f510806858454885f12077f46cf4c206d8688a380"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Materials/Rock3.mat",
+   "sha256": "08f90e75177c7f946cea8e370a55f01f690e581405acaccd0f4cf08490db9e95"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Materials/Rock3.mat.meta",
+   "sha256": "d7033f366c78734075630351da8ffc3bffd2a767c0bc04812e6abe9171d2d541"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Materials/Stone.mat",
+   "sha256": "7ca5c55a6da98999eeddf15cedd8a1a5b4ed43ebdf0512b524a2927a772a0fab"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Materials/Stone.mat.meta",
+   "sha256": "bb1ecf46c5a90c378091990ade06c94a67504d3e683017a9b46f98d784f16fc2"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Prefabs/Rock1.prefab",
+   "sha256": "01b02cb0e64880f0ea020160eee54ce82c3946a50399aaf343e3ccec7f04a455"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Prefabs/Rock1.prefab.meta",
+   "sha256": "39ecfd267538664e9a8bd195f6905a819ec53bb85c8ce862e6bc0bdcedd4c145"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Prefabs/Rock2.prefab",
+   "sha256": "57d6ea6f8bcb4360e4b4729b8538fbab59882e2e017518bce4cb2345899fc163"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Prefabs/Rock2.prefab.meta",
+   "sha256": "a563877ff651e5c736dbabdd5e09f4d870ca7449e2e162cca7fbea4cd6f8e9f1"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Prefabs/Rock3.prefab",
+   "sha256": "8ffb8db2a396ef7c04c574c6b39a7244715327917f383028a5d51daf24d3d0d2"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Prefabs/Rock3.prefab.meta",
+   "sha256": "b4af4738e501c8764b096d0284b4b073bc2fd8490208294964f81e5adb4bca8f"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Prefabs/Stone1.prefab",
+   "sha256": "5a3313d9f31cde89b6896f75be890caf9a9a232d790336deab46e95395907c19"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Prefabs/Stone1.prefab.meta",
+   "sha256": "0ae583587b267581b0ec27ea113c958b5a70d1abb072e9967eb478375aac3066"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Prefabs/Stone2.prefab",
+   "sha256": "85eb7ea56efe04bd412c3aeeffd2e0946f21036694acc760f9c96bcafb541503"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Prefabs/Stone2.prefab.meta",
+   "sha256": "3a656e68d2d9ed33d1fef58264174e808d4c4c27391efd38e2519d41f2c346da"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Prefabs/Stone3.prefab",
+   "sha256": "921ed909e3904c923eae3243e58d638a46dd1eb8a004a05db231fa63378104fa"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Prefabs/Stone3.prefab.meta",
+   "sha256": "379e1335e3fb1ef8d3389d130f1c866f71a81f28633c45fc5143704a1aef1671"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Textures/Rock1.png",
+   "sha256": "6867a3b95e84db25110683fd85d51a1efd3b14f718f9e6be30edbba8c25ebbf6"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Textures/Rock1.png.meta",
+   "sha256": "8fc1b906dad8e96efed967ee644fe445a3375d022b43fcc92b11a564882704bd"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Textures/Rock2.png",
+   "sha256": "b32c2d2b40b5f2d7ff7b82c88aa303f051c2c9faec4670f14a887e9c68450257"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Textures/Rock2.png.meta",
+   "sha256": "8044d374d9bf5fc27eb3c25a832541f8405968c68de959f47cd0b5a0945d4977"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Textures/Rock3.png",
+   "sha256": "e8cf8b15c96fadc6766b76f98acfeb7517d6bc5dbda57ab2ba4d57233cf1e9cc"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Textures/Rock3.png.meta",
+   "sha256": "d4f28a38b659230e8dcaac1eded5ac11332aba0966fa7639eee0c7791f1770d6"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Textures/Stone.png",
+   "sha256": "aead821c8d6a7ff198288024a857f6121e13065dfb336675bf4136c417eb774c"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Textures/Stone.png.meta",
+   "sha256": "cce8999f803f217803ace7aba5d996aae42eac7313229941df49a2da43b4952e"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Textures/ground_grass.png",
+   "sha256": "6c67766d418f436cf21e6aee57fc35b3e538175adfe614172e10b5517a44b4df"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Textures/ground_road.png",
+   "sha256": "8c3ae641a0429fd14ec600ae22391929371d6c10a63a534734dac374b7a17134"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Textures/ground_rock.png",
+   "sha256": "11fdadc3f1970070f11a169ba977cccd93fa5bcbcec7fda33b1337a438a959ac"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Textures/ground_soil.png",
+   "sha256": "328635319859f529b0754d44026432c54ef26d16d325b677ad3a18b79d748bcd"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Textures/ground_stones.png",
+   "sha256": "09137e4ead8b38c6f6d2ead842d248d5c26f54af3c8d28e7f6b526380f976a1e"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Food_bottle1.fbx",
+   "sha256": "796ebb3b21dadd0946976e0e2c0aec34a6159eb6629d2a187f7d573afbc394fa"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Food_bottle1.fbx.meta",
+   "sha256": "838dda4c603131dc2022c11a392aef57d2fbbf9edb17ce2bc74aeb48c7bd0a3c"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Food_bottle2.fbx",
+   "sha256": "e0598e48bbbd1a436682b4cc41e7184c5afa7f2673333c0ee8e01d68864773a9"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Food_bottle2.fbx.meta",
+   "sha256": "3e3459ab978b387a47899f312388544e2f9627939e3ac2b29a864af985017c67"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Food_bottle3.fbx",
+   "sha256": "c803a3df6bf10de18ce87bf2d615af3a21adf7797be39e178c3a8be01ab07791"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Food_bottle3.fbx.meta",
+   "sha256": "0b44139331286523ea09511c205e06234acba0615b395c4457df2b0c201cbbbd"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Food_bottle4.fbx",
+   "sha256": "f51b3befe2e6cb49a43153c8aceb315260bd18fe60ae74586bd8e51fe412884b"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Food_bottle4.fbx.meta",
+   "sha256": "a09541d89f7dbfa08f5a0d427727fa42780873f18abddafa4835e5cf28c9dff3"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Food_bottle5.fbx",
+   "sha256": "a9ed5ffcda829937f18b94934b96c3c19bf8af4f8e39420047f7a95f1e642048"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Food_bottle5.fbx.meta",
+   "sha256": "735995e7bb7e5540235aab11ab0eea76978df758fa4468a89ead030b2fb08096"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Food_bottle6.fbx",
+   "sha256": "479d88861cc5624e563d8b816f939b669e20fd9115c88ebb6d18fadfafbc8fb7"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Food_bottle6.fbx.meta",
+   "sha256": "543bf2ab66421ab10ea1e4e83cf687d0101f1e07d3827ea817e3d110d4319668"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Food_bowler1.fbx",
+   "sha256": "6923e8d37b6b801141fac8a47c72caf107631685fd9e968983510155c558fe38"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Food_bowler1.fbx.meta",
+   "sha256": "7ba2ab24a3bb4325682d3bdb0ec5471470cfed716c0b2128545fbab4db355d85"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Food_bread_2.fbx",
+   "sha256": "864bd7d05181b9a6338f220f1203e372ba0c46e9f34225dd7b04510f367dec5d"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Food_bread_2.fbx.meta",
+   "sha256": "3fa6dedf7eb1cf7efbfe8c436b846c60d02dad4fcbd07694533fa79dc6e449b8"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Food_cup1.fbx",
+   "sha256": "cab0a461257533359c65b4e6a22e55794c0ea36cba6734a4dc7f5a73648ec22b"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Food_cup1.fbx.meta",
+   "sha256": "efc1f2a92bd0d558b8c603810d0381b03d9557bd1f535e7e45cf53a528375459"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Food_cup2.fbx",
+   "sha256": "c075c2b0fd9dce9991a717c1131f9a533e7036d9524b46b83e7849cb7e602d88"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Food_cup2.fbx.meta",
+   "sha256": "ad5cc87a99c25aa2e385502bd786eab167026f98ee5e8615cd79d52d9a83773c"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Food_knife.fbx",
+   "sha256": "c271d6c079fd969a3996c7f0675ff566e220804c3c8356a056e498ae6670e861"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Food_knife.fbx.meta",
+   "sha256": "9700ed6a81b528de66ada19a42330173f8f89f21da6a46c26637f1fa0918ea92"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Food_plate.fbx",
+   "sha256": "576e187c8cfe43ac083146002638e405a5f962111804761e82d0a0d35455d003"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Food_plate.fbx.meta",
+   "sha256": "e1b53fb42e79acdbb4565b866bf8b75024f17759cf4fbb4a09aa79508321a83c"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Food_plate_small.fbx",
+   "sha256": "9e2bd1468bc61204087a9e9bd6b17b41d094faa49ac6b04892287bd472960c46"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Food_plate_small.fbx.meta",
+   "sha256": "b7e3ef313129b1fd5e5d9fecc1ef44f936670fe570e0b3d12b0b199d11949851"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Furniture_bed.fbx",
+   "sha256": "f64d4c1f41383aa77abbd99ab1e38ad3ec543777027ba55337a763dd3c8ef5e6"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Furniture_bed.fbx.meta",
+   "sha256": "bcbd7497e06475866355f06a9ac3a1c50ec237be3e0e84dfa753b5f9c159a3a6"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Furniture_book1.fbx",
+   "sha256": "51680d232e4588e7a389f8d0a46a945dbe9320da636312ae331264ede57f26bc"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Furniture_book1.fbx.meta",
+   "sha256": "0e1da5d9ebc7fd0722e96b4aaafa77686e7d3569a963791d84695f2fde92d18c"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Furniture_book2.fbx",
+   "sha256": "33d354848eea5d0a28bf5cb64fedea27c29fefc2e81421ff981cd5f5c8daf602"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Furniture_book2.fbx.meta",
+   "sha256": "8e6f9a02246bd87ef91dfdc0b971413c05fdf8cc4b0e5b1fe008825038128e22"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Furniture_book3.fbx",
+   "sha256": "5aa32a3e54dcdcebd105c61a1a45bedc0b487e68d527d7646e1ffe90f369d315"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Furniture_book3.fbx.meta",
+   "sha256": "72f17fdf99c77628e5db7a54a7590c0e84b2410d9df5234dc8eb2e9a436b0cae"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Furniture_candlestick1.fbx",
+   "sha256": "daeac465d9371d847b842c61bf65b9e62e5f4bde8e018130066f3622ff66e857"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Furniture_candlestick1.fbx.meta",
+   "sha256": "fcc72663cb32a79b233fa5ef9a6a87b2c44df5a89edfaa21a3aaf68ae614942b"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Furniture_candlestick3.fbx",
+   "sha256": "288ea589f6e58550bccb31c30f51af9874f6e3256c009d49f9f242ab19d8d005"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Furniture_candlestick3.fbx.meta",
+   "sha256": "3695156b8e759f4be19e0a708e4fe3dc158881e7e92d958f6693d450d4fea7d7"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Furniture_chair1.fbx",
+   "sha256": "a6c29691db7fcaf1088e7273d00b290e571dbf025c322fa14ee8201c678e9571"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Furniture_chair1.fbx.meta",
+   "sha256": "d6526302241b0d708572a7de2907744caa6a59a86e5a3a9c1c014d0a63c55904"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Furniture_chair2.fbx",
+   "sha256": "a34a61e28d4ae1585d5457a36d04aef16e31c9ebf32a0f2647d80d4b9a5d024c"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Furniture_chair2.fbx.meta",
+   "sha256": "46dfa9d9e6705d837c81728254dfc5f5f6ec5c05d70b1947f095dc954f8b50ab"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Furniture_chair3.fbx",
+   "sha256": "f4be405be968233dbc8dfc15602fd70ee9befdabe13b922513f46ab7f10add53"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Furniture_chair3.fbx.meta",
+   "sha256": "3cac930699d70d2f4c6f95c98a91fe4542c931ed816dc60c047c7cf92e52f2b9"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Furniture_chair4.fbx",
+   "sha256": "95c74bbe16135c234eed15b8e3ed16b9f59c70829abe2a12c79b3aee1d44a1a3"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Furniture_chair4.fbx.meta",
+   "sha256": "523e11b930a0a740ca85eeab79c3f96d794930815796e14eed32402a9da99e34"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Furniture_cupboard1.fbx",
+   "sha256": "60ea499667e94a9af4f1742f80ad82d8a04c9d86c06a56586b839f2fbfd545e0"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Furniture_cupboard1.fbx.meta",
+   "sha256": "310ddcd47291346d0e0df89cf6faf5c4363a5102c9f3bcc7fbf745c5ab2fde7d"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Furniture_cupboard2.fbx",
+   "sha256": "efcec9714080e3c78b76f7bb41fed1b699359ec9a48043d3059d664588a5312c"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Furniture_cupboard2.fbx.meta",
+   "sha256": "5a429f6ac72304e0912aebda84cf83e1b3ca0f9e963ec1f8251aa0704ea4f49d"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Furniture_cupboard3.fbx",
+   "sha256": "b3b4fa8cd02ddcf72b8b8b91252626e14c3b72cc40e2c3747ae053847b68f51e"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Furniture_cupboard3.fbx.meta",
+   "sha256": "d01a8aa18f25b26dff810cc59c30810875a7ba0b3ad6c673a1c95c3796782abc"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Furniture_elixir1.fbx",
+   "sha256": "93ee22988ebf0741eb519bcd29ec2a0d11030a9de0aa861098bc3ddb3c456385"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Furniture_elixir1.fbx.meta",
+   "sha256": "4bcca2f28c881afdae31c3add1bf99d364e98f19243af7094e1bbc220787453b"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Furniture_elixir2.fbx",
+   "sha256": "97eb206cb639bf8fcf8f412a6444d0681f23aa401fc42e16b6fdd67f4d066400"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Furniture_elixir2.fbx.meta",
+   "sha256": "2312c642a52a86cf215761a09884dba6a69b7f0a1a92e7485e22068ca1a54b39"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Furniture_elixir3.fbx",
+   "sha256": "f5e41d370ab603f1c07e30f8f3009659a3c0f0d3dfa8d3190295aed8fe504012"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Furniture_elixir3.fbx.meta",
+   "sha256": "4e95b91318357f7e025ea72a8eb3fa3043e3fbea6f8f615534cf94f2d0fd7b8d"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Furniture_scroll.fbx",
+   "sha256": "586f760cea33402fd4c7b3d7b247dc2ec2f2c11c5065dc3723aa50b7cb09f71e"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Furniture_scroll.fbx.meta",
+   "sha256": "e049a160208732f6a45af82bf43347ce203fe3176387207e67d0479dbcf37004"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Furniture_scrolls.fbx",
+   "sha256": "7b429ba85676ac1e2ef9115b88817009dbb94c3800694440b95dda07111b7ffc"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Furniture_scrolls.fbx.meta",
+   "sha256": "5aaac99016137a2b1fa2ea8aadc9dc48ce1b573ab482d2cfe768e89e03e198b4"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Furniture_table_round.fbx",
+   "sha256": "0bceb6ebbee437c506aa8d1b7d1c0e1b504f392adcf1c6c2036b9e326a4925da"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Furniture_table_round.fbx.meta",
+   "sha256": "6ef843443117ee9a04bc0fa2235814e1c032497a4f8fb17a0dafb41163ea8fbe"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Furniture_table_small.fbx",
+   "sha256": "a00d524d1d0ddb3d83e8e2e1cdc2d9f745ec1f0abbcb1c5d10cf9f4111c2b467"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Furniture_table_small.fbx.meta",
+   "sha256": "c7a9414afc798bbd5d2087217ac94dced510308e684b6e77d931d795b8bf2e0c"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Furniture_tablecloth.fbx",
+   "sha256": "6b37bd163a202fc7945f36798e47cd3bd8747329809e6be804b5cc985cb05901"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Furniture_tablecloth.fbx.meta",
+   "sha256": "f131b14be2799ebc089503ae364f3d69b494c7bfdbebc3db8286b0bf6aba0a95"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Furniture_tablecloth_small.fbx",
+   "sha256": "01b476c9a621b3dafc265a9ab3869acab7271fb26f130e0b269ffa5e4be01474"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Furniture_tablecloth_small.fbx.meta",
+   "sha256": "070c6943ad23bbf502975ae3fb4d2200d326bfad529565687350920c53b6e6d0"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/House1.fbx",
+   "sha256": "b7b195e6d1eef390ddeba9f112c95434e5bcc8be0c4fb0580547c48ddd4433bc"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/House1.fbx.meta",
+   "sha256": "474f43cdab2872840bdc7f5d93f6da65e50d7086565822dfaf6365bc64d8895c"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/House2.fbx",
+   "sha256": "9e20636f07fa3b88583580f9b79eb9774a315da551c87584ceaa67245e20358e"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/House2.fbx.meta",
+   "sha256": "4b1f997c898e8dc214ab19f57b8171758514c29c389ebef470b40d12ad16d125"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/House3.fbx",
+   "sha256": "1154bb493c439fe52e6be266ddb25209992b66a81ed667b7215ca8c5ffc144d0"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/House3.fbx.meta",
+   "sha256": "3cdfee94029375bfb401415e7a981a5c519e6a46285b52f0f525644eea5eb02a"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Tavern.fbx",
+   "sha256": "c24dc77fffcc2328a8fa5f9f3af46bb5409aa4eace7558c9e10ce12b7820b26d"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Tavern.fbx.meta",
+   "sha256": "2dd0a43653c996258da9efe47b83b865237cb178082344fdf323817360274bd3"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Tavern_doorL.fbx",
+   "sha256": "1f64f2ddce480b8a97a41f63031361a0b2d146d92b6fc6c3afeeffd53aea0f0a"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Tavern_doorL.fbx.meta",
+   "sha256": "e0a9808b00051492a101172a866ad78d24e625bd2400888dafaa84bd0f0ea173"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Tavern_doorR.fbx",
+   "sha256": "9af72a493febd738b6895f77c1bbb1fb459bab75b05498f7421d25a52914066b"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Tavern_doorR.fbx.meta",
+   "sha256": "7217fa40ec966509df2a8176149167faf4a7e0ad2a1d19442f468fa7dfda1519"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Tavern_door_room.fbx",
+   "sha256": "1fa9e2d30f61f6026674e61100146ec441f95e610ad8e44452324e7513ef42f9"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Tavern_door_room.fbx.meta",
+   "sha256": "9406a16052208c9fd06742d53ed533de1bac6c61def2117a4c3a4af05f9e6e01"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Tavern_interior_chandelier.fbx",
+   "sha256": "2500b2b825b320a69306abd6085c16e0e3481f2d83910b32265abe53af14b714"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Tavern_interior_chandelier.fbx.meta",
+   "sha256": "44298ac05f53e04376bae59d93b76eb1560b4da6418d1ea45fa6e80b5a15186d"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Tavern_interior_curtain.fbx",
+   "sha256": "77c32a74425ee6bf55f1edd0625efe7c31482df13413e0f2a094f3aac29824bf"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Tavern_interior_curtain.fbx.meta",
+   "sha256": "b28e4d8f601d4f82cb2ed41f7ef1e4a908861cab7e013c86521ffb6607200ef7"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Tavern_interior_lamp.fbx",
+   "sha256": "eb306fbf6847f3bfde26ec6761e5530284dff3afa4c9f71e988918b3e1ce66dc"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Tavern_interior_lamp.fbx.meta",
+   "sha256": "f443066315f7a5ff342ed68f52db391388a07bc3a14ffc5bbaa9b7f1ac75e8b4"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Wall_part1.fbx",
+   "sha256": "de272a0daafee047b7979603ba408358d3f909312d328561c8e197143c9c9a62"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Wall_part1.fbx.meta",
+   "sha256": "eff5190dbf149afd2b598796ac02d14e8e0344dfd36ed7ed811ca5bb387230e5"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Wall_tower1.fbx",
+   "sha256": "c4175f91f972f787c85af6cfb5334f2c413675b19426fee0522cc8ad0ac1e8e7"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/Wall_tower1.fbx.meta",
+   "sha256": "cba430c1dd2a96421e4b74eedb44618c645e452116fe6a3b456359bc3f8d00a9"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/WoodenHouse_1.fbx",
+   "sha256": "c6ea5fecf877143029ca1bb5372cb69ba52daa368b1c7e27c50317832d581ed2"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/WoodenHouse_1.fbx.meta",
+   "sha256": "26f6f5c887e1ef58ce722ef33a2fd88f222b052994655fed370fc444b291ee1f"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/WoodenHouse_2.fbx",
+   "sha256": "6200ea73cfe7f97c1d195e1f4e1f78361118cfd98af4276db570bc92eda15202"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/WoodenHouse_2.fbx.meta",
+   "sha256": "75e85583a5b3b471783a0a69a684827d67254cdea75335c844b1117754a2b71e"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/WoodenHouse_door.fbx",
+   "sha256": "f7c4d8c4ea3089c56521cbd076d7f7474cbc76f487872bf991c5177a5a1c7628"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/WoodenHouse_door.fbx.meta",
+   "sha256": "777e7fa9e83427ba95b5c9154fab5d88dfdb6a727800ddbf2f3f107825dd5089"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/WoodenHouse_fireplace.fbx",
+   "sha256": "bd76b10dcb3b0944e6ea8b0c5d6f26927a7b687801ebf39285317d4abb5fd071"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/WoodenHouse_fireplace.fbx.meta",
+   "sha256": "7d5955d02ae3edfdc5d468ff3ef0c3580478fd5a6c5befced21c82f77b4498b0"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/WoodenHouse_shutter_R_L.fbx",
+   "sha256": "878d426357b59293925e5e9c99814e0365a2dd1d7dd89f8ec3157336ba5f5607"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/WoodenHouse_shutter_R_L.fbx.meta",
+   "sha256": "4bb048416485288e8269a3b3c0a38baa116a84f249c57bea09e064e5598f0432"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/WoodenWall_GateL.fbx",
+   "sha256": "e294a19766493366cffaa8ae6da9b60a58ef94944f05a865c7c33887245db276"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/WoodenWall_GateL.fbx.meta",
+   "sha256": "803f8d4d1531ead7b998aeb1b685164c5e99d4d9c70e6d9c624e07f9c8e14fde"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/WoodenWall_GateR.fbx",
+   "sha256": "86e52eff3f7aae1577802b4aca02fcd8ad662b1a531f433568abb62499b68d07"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/WoodenWall_GateR.fbx.meta",
+   "sha256": "15655f61dc8a51a52249744745c3095a91e872a5281206bc5b6a3785c1edf58f"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/cart1.fbx",
+   "sha256": "0dfac0d99be54da97e5021d51097ba2a378a4664592fe462f1f889bc93573aa7"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/cart1.fbx.meta",
+   "sha256": "78b65ffb4ac9cbbcc011721bf914ef7146f61dcd625ef2e1f2621bb174ba147e"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/cart3.fbx",
+   "sha256": "668dbaeece1a89abf22280c67496be2bf6df33f5d40bfd7bc74ceb950a21fdfe"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/cart3.fbx.meta",
+   "sha256": "46f7128dbfb74a0b00dd130595a1aef879138a4eff3dbbb3ac0e654e99d43091"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/storage_bag.fbx",
+   "sha256": "07c9e5fb610c5335c1f4a2e5ed1a2dbcaa8105dd333e2b71d68b034a0859005a"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/storage_bag.fbx.meta",
+   "sha256": "a4d65a7755d8ecb04ee554409ed25cc9d07492ba38001fec383b000079dbdf52"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/storage_bag_beet.fbx",
+   "sha256": "39b78a496188de3d3f31d1731ac921de82362053dd7bee1ed15722a73f932a61"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/storage_bag_beet.fbx.meta",
+   "sha256": "c2a9603979347f8b18e3ec14e0da8c1d27b5637376dded0d2aa8d656ca8f9e5f"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/storage_bag_carrot.fbx",
+   "sha256": "6d88dfe7393cc492e1cbee37362a39365a08ca9a9d13ae797c8dfba6a096b10a"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/storage_bag_carrot.fbx.meta",
+   "sha256": "74e32f085189bce8bdabb1c450afc266f67fd2964045ed4d10246ebcb1818dec"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/storage_bag_potato.fbx",
+   "sha256": "d262f9faebda4b0b3c666c1b581d340c629e9e5663e6d871d4a9b641417ff660"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/storage_bag_potato.fbx.meta",
+   "sha256": "acf945969578bc2bae9963db46baabee6531782e5afc159017247ae5a3cf0772"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/storage_barrel.fbx",
+   "sha256": "011a5c15653760d21c1ff0c61891d5dba3eeb4b1ecd9e336f21a3b9036674ca5"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/storage_barrel.fbx.meta",
+   "sha256": "46e5b6143f38bb5f4c1849996581832e70e659963137c0878c8cab0b53e10634"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/storage_barrel_drink.fbx",
+   "sha256": "9e3bb6dd65dd41de7cbfb2c9a878b1a41326662ed9f65c1ffef5273746ea88ab"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/storage_barrel_drink.fbx.meta",
+   "sha256": "6746773cba7c58f4c748728f6a25b9cdf7d14a78b340afcf8547dc917ef889aa"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/storage_barrel_fish.fbx",
+   "sha256": "20a52d8ec5399ff7c8f9fe07ad87586e1922bdc916e0c26d0ca8bcbc016981f2"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/storage_barrel_fish.fbx.meta",
+   "sha256": "e7d200441185a23fd47f3a0b01cd3a1265783b247a389ce130bd66f3d5d4b9c6"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/storage_basket.fbx",
+   "sha256": "2171b9acef8b1758cdbc098e32009fa2537c957285edbffd598c9708bf83ab29"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/storage_basket.fbx.meta",
+   "sha256": "3c1101d33778709752fd2c767ae1ee6a5e63a8a3da5da055d4f9c767b1e0a2b9"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/storage_basket_small.fbx",
+   "sha256": "23adac8d46e390ed9ca9702b2161f211ae8f3f7482bda036e121f3670822d70a"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/storage_basket_small.fbx.meta",
+   "sha256": "ce52e1b7d88299dc594cada6709b9f0f133405237c21faa173471ac4db3e7d08"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/storage_jug_small.fbx",
+   "sha256": "600f10590b1c1a67779e5e5430dc5399eee01b3975a933a12023a1fece91c43b"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/FBXs/storage_jug_small.fbx.meta",
+   "sha256": "045b0c1c458bfcb17733ce10698ebabcbb9d2c5b4d61ca5ea25137ac2bd7f1b4"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Materials/Food.mat",
+   "sha256": "5719a126e188867b62af57038d48c73433d0c97af0d7ed904c63c9e23953a3ee"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Materials/Food.mat.meta",
+   "sha256": "044f15ed93749e831523f24e98c8423f874c141a8539482b8a6e6c0ec38d4108"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Materials/Furniture.mat",
+   "sha256": "55ec7a3b6dd61eadaffa561acbf27c216aef55dcbf754e53cd0a5b164705285d"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Materials/Furniture.mat.meta",
+   "sha256": "9f2459d871d989090a990668ebaa41a987e9fb3a9fd465abc0cca72635823600"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Materials/House1.mat",
+   "sha256": "cd846681aeb532a42068acbfc322b439fee7dde4ee8fe1a6c97ef1dc56af9736"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Materials/House1.mat.meta",
+   "sha256": "e7146cdfaf3dfd563fa9218232ecb5265f4a57352fbbdbd9a652bc0eb6e26d78"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Materials/Storage.mat",
+   "sha256": "e39401043badf96663bb82a13637b78d71cc17d44fb988bba235abe824fb2d55"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Materials/Storage.mat.meta",
+   "sha256": "4489af729ef88ea69f166c602b612057a822f7010c4c2063dad080972aaf3a52"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Materials/Tavern.mat",
+   "sha256": "8ca5ab6460381c2c552d3230cc4ff09b6bdeef83c954d60ba578ef47fe1126de"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Materials/Tavern.mat.meta",
+   "sha256": "3f39415a147a27f3f056d002983563f8cdb2abc0fb1285ca9c1ed2ff44f453bc"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Materials/Tavern_interior.mat",
+   "sha256": "f5af104440c078d7c05f3bdc07c99f12b9efeafdc10c6daa1f7fd7edf4d78bdc"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Materials/Tavern_interior.mat.meta",
+   "sha256": "f5d25ad1a678bbb1d53b1d06d1c9248a4bec2ab5be4566e38d9ef644406a60ad"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Materials/Wall1.mat",
+   "sha256": "d81a2fb170fb325b5736491153b9c91b94e9834a7ec81298d6d61108d7147783"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Materials/Wall1.mat.meta",
+   "sha256": "057de8c2a3d9dd88177ddba698a3f05d82e4db316085fd4fa69c2fa4a8aebdbd"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Materials/WoodenHouse.mat",
+   "sha256": "fccf256485753ca74275e97a3e156f1751d61c16ff237a3dfdebf7d30a94b7b7"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Materials/WoodenHouse.mat.meta",
+   "sha256": "5c236d4ed85b22b8f72dee97facfb6f46b1f8874a01f5a1ad0c1cc45fbac665f"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Materials/WoodenWall.mat",
+   "sha256": "78b2f5cf9d5f780a7b84836d93920106ad28b9f6b0739f0dda8119ba317d8f79"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Materials/WoodenWall.mat.meta",
+   "sha256": "79830aae0e44d1efaf0c933d8495d85946c86778f2b0c123e89c2d5d4deae0b8"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Materials/cart.mat",
+   "sha256": "316cf88f06a6008532dffd3be1e8e799f515145fdae589d71fa4fc2862e56795"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Materials/cart.mat.meta",
+   "sha256": "78b8a706b0135d0bbd3f28f68c0e667dca41f8b751f16c06112c7c141ec6c5bd"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Prefabs/House1.prefab",
+   "sha256": "59914d6643b41abfd14bcb94bdcfbb59cfaaf707ea099a2107b58b2280ede702"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Prefabs/House1.prefab.meta",
+   "sha256": "a445f1ac63a0219209e43dd8aa71aa5851113f902a52e242c5c3e713d3fe47f3"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Prefabs/House2.prefab",
+   "sha256": "4c6da93d8808444adfc0f28fddbc5ba1b0c51e5d47b9f50a8f7cd46dd3f6cfce"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Prefabs/House2.prefab.meta",
+   "sha256": "0c6359951b71d16eac004906c5f03c5d82edacc1e73f8cce66a656f498be7ad2"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Prefabs/House3.prefab",
+   "sha256": "b1641d094afd96ad6499694b69c54333446dccb2fcc98203b524cffd7ea1208f"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Prefabs/House3.prefab.meta",
+   "sha256": "70cd9def305b184083c7a67a03fb1567d08ca06c52318de7f513910d8086e7f1"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Prefabs/Tavern.prefab",
+   "sha256": "411f7aa39e4a24b97513cf053400b11b5b9d52454341f48cf817885175a20be3"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Prefabs/Tavern.prefab.meta",
+   "sha256": "63e852d685eb4d518bd38cad3123f9a360f42690cedb904d70e69e1c774f2622"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Prefabs/Wall_part1.prefab",
+   "sha256": "e7af11cac0aa51d18cd604f89673b1ce674b91bdd8d03de0dcd873682d9d5940"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Prefabs/Wall_part1.prefab.meta",
+   "sha256": "92929b0b5af41f039ba704ca3c5c89deb40f0919507b71656557584f71f75770"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Prefabs/Wall_tower1.prefab",
+   "sha256": "c973a4fe7363335286f58fea87ef18f92fcb8988b87e9305fcbbf9c253f7a84a"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Prefabs/Wall_tower1.prefab.meta",
+   "sha256": "b0375fcf077c8719016e5726b89fb463c7566f7265e259e00e66ccf7b351a382"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Prefabs/WoodenHouse_1.prefab",
+   "sha256": "d30ad919094bb203cadb88836cc67e24291a80b4d18711b949e959b296775fbf"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Prefabs/WoodenHouse_1.prefab.meta",
+   "sha256": "580364a567aa8625b8707b9884afab541afc70f71a08f29e30ee3ab002abb5f9"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Prefabs/WoodenHouse_2.prefab",
+   "sha256": "9a8e56fc0df6129fcd33b3dbaac2af0fae8e77fe14ba3da3de65215fa93f1a99"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Prefabs/WoodenHouse_2.prefab.meta",
+   "sha256": "a5f2a231b65f59178a6b1205e27a9821476214776f52c8115d90684b8d073511"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Prefabs/WoodenWall_Gate.prefab",
+   "sha256": "e6bbe591616676e5164239090e5313de9712ad92d35805b7805786930c653278"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Prefabs/WoodenWall_Gate.prefab.meta",
+   "sha256": "e9567f0ba6b739d34b24582316bbb0958ae9497c4292d80fda7e3ef9ca720ee1"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Prefabs/cart1.prefab",
+   "sha256": "7afbc4e15d7e60ad5941b230ef1a1176328491cc450a018a626e4eeecde4e997"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Prefabs/cart1.prefab.meta",
+   "sha256": "bd666219e66cb2fe8fd31316f147c2b9520d9520c78558d4d160223818f6ad94"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Prefabs/cart3.prefab",
+   "sha256": "ba13ac8dad1b42787114ff4ec89e84d715784ba920fb6f426fba049ddaa74d09"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Prefabs/cart3.prefab.meta",
+   "sha256": "835e3e4cdcfa269f22ca27992d9be06bebae9bc896faa8248999e0434d53cd91"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Prefabs/storage_bag.prefab",
+   "sha256": "52f0e5b7e2c4f5fcf8390c888384861b30f2d8a68a31e034a6ac930960b5efeb"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Prefabs/storage_bag.prefab.meta",
+   "sha256": "d73c2cfcc566f94e1f11929d02b34152c87fcb40e15b19e2dd7d5270d51412c9"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Prefabs/storage_barrel.prefab",
+   "sha256": "15170af9142037be2207c928345b00aeba47fbcd947c80037da3a965266175cc"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Prefabs/storage_barrel.prefab.meta",
+   "sha256": "74a5d8d038d1c04423c6401c4dddd687a89dfd52d259b548819d97f742371861"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Prefabs/storage_barrel_drink.prefab",
+   "sha256": "de43be7bbb7b6ab26a962f3784302da83964797038f63eda76d676384e88b5c8"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Prefabs/storage_barrel_drink.prefab.meta",
+   "sha256": "f2a50f4546912bb41aa23b8354dedc10f984a2623a4ce1993f0f8f4ddd4a05c6"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Prefabs/storage_basket.prefab",
+   "sha256": "2eacadbc12a00fe9ec50e61a30e097e8262be2d09c7d26bdb20a332f9b7a39da"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Prefabs/storage_basket.prefab.meta",
+   "sha256": "50af3b15fa961e8be71ab098d9714f5cba31519c3ccedffc14d4ecfa345557ab"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Textures/Food.png",
+   "sha256": "fca5ed4935118dc1fae353be9807ae9bcc585f3793955b7081faabe43850cc88"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Textures/Food.png.meta",
+   "sha256": "44f8ddd518f6e3b95e45c30365c481099ae0c243148a3ee1db83e9d1e50c8ccd"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Textures/Furniture.png",
+   "sha256": "d3a93d3b3da92d7373574b40b2bb2e1c2b9a7da5cdfe9028c622309a58143349"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Textures/Furniture.png.meta",
+   "sha256": "cda0fbaaed192324739cd258780ea527513e2962932f34472d96eaa3969dc5e1"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Textures/House1.png",
+   "sha256": "dd58661180e9cf7a2b38ed7f6a1f560dd8c2135c2576bf235fcca4b7f9fd552b"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Textures/House1.png.meta",
+   "sha256": "ab9712459236389e127c7a39ea4b39ca03f40adcd6f2e4fea926f6b52e5836c0"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Textures/Storage.png",
+   "sha256": "95123b97216afd4a0463bf4e88c67aa39794ad0f6cc8425fc851a992fe1c1577"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Textures/Storage.png.meta",
+   "sha256": "edbd78b9bcbb65125d91bb5dd5d5e83c95eeeffa7664ca9c5428cae891c7fcb2"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Textures/Tavern.png",
+   "sha256": "b6b9bfa143d6066ed3b1e952436b7d4915728c5be5b995fa978c024aac0de114"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Textures/Tavern.png.meta",
+   "sha256": "28f615836c820f16ef61b815d1a9d50365482c1b4b20cf7b9b620684a2792eb0"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Textures/Tavern_interior.png",
+   "sha256": "8ba72473d2ece7bb637961209a38ac8ecc1679e4ec14322ec66b699e319717fe"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Textures/Tavern_interior.png.meta",
+   "sha256": "8921be9970857b721325090fbb93db30b65949168707e41d8952c1478e98ac34"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Textures/Wall1.png",
+   "sha256": "2a2901d03949bd1c9cb6ee73ad1b9dc2410b5a19b51b14045da5283bd7d256a5"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Textures/Wall1.png.meta",
+   "sha256": "5fad16d4e4f1dda77b5ce7a1cc0f6ceca228f4e5e78d59615e71ec4f857f31ec"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Textures/WoodenHouse.png",
+   "sha256": "da15c9066ab2bcf5b786aeb9d19c71bf77bc4daaa71c058a1aaf73a3094841d3"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Textures/WoodenHouse.png.meta",
+   "sha256": "869dccf348fcc36171116b82c991477acbc3b9219834b353f32d43631e480ceb"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Textures/WoodenWall.png",
+   "sha256": "398b706ad72f90519b5c279f4428e481ec231fb814ae1c4748ac742046c4a97b"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Textures/WoodenWall.png.meta",
+   "sha256": "5d8153828018617bb5194d7db89a029a87d514c1bb68ca56d752d18747e92fad"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Textures/cart.png",
+   "sha256": "cb641d3d6d65d46efcc1eba265d986545f4d80a310af046edb634cb89e73b131"
+  },
+  {
+   "path": "FantasyEnvironments/Environments/Town/Textures/cart.png.meta",
+   "sha256": "b70a5e9e468e64eee4a5be7aa816c08ff21eb21abd7ff4a2a51f68788f00d203"
+  },
+  {
+   "path": "StylizedDarkCastle/Materials/mat_brick.mat",
+   "sha256": "628a664c36c4e4b8f0c53335262c8c80de82f16e765f929f0aaf7641ad07e1a0"
+  },
+  {
+   "path": "StylizedDarkCastle/Materials/mat_brick.mat.meta",
+   "sha256": "80555fcd2b642e12ea9dd35af0e96ed76773ca0d3d7f6f9fedbfa1c6c65056e0"
+  },
+  {
+   "path": "StylizedDarkCastle/Materials/mat_floorTile.mat",
+   "sha256": "6d788cd30b0f58158af2bb930c0dffa8f61f0ce18e3efc128783d1d72051c452"
+  },
+  {
+   "path": "StylizedDarkCastle/Materials/mat_floorTile.mat.meta",
+   "sha256": "e5ad8bf36de83a4241747a81abef44471b0b7f43acc6f946bc5a5b2ca96f27f5"
+  },
+  {
+   "path": "StylizedDarkCastle/Materials/mat_interior.mat",
+   "sha256": "0cc41fa5fe442707204ccdae62bbd471368c49ae097087ffdacecb4cd135cabe"
+  },
+  {
+   "path": "StylizedDarkCastle/Materials/mat_interior.mat.meta",
+   "sha256": "b53fe633a76d23ec67c072738b91cf49feb801a6b596aa11a3959e358f3fb1e0"
+  },
+  {
+   "path": "StylizedDarkCastle/Materials/mat_roof.mat",
+   "sha256": "8fa1222eaf9f09f49f860af75c9ec50ac249b564c09044c8e67c2091556aad4c"
+  },
+  {
+   "path": "StylizedDarkCastle/Materials/mat_roof.mat.meta",
+   "sha256": "9166de63454195273a5203e5ad40dbd732608e7f6d029ab2dbff34ede6034117"
+  },
+  {
+   "path": "StylizedDarkCastle/Models/castleInteriorKit.fbx",
+   "sha256": "b41ecd1bc8ffd49efa6bf6c3ebe9773a64c64f08485208e62f25b16d2c098b13"
+  },
+  {
+   "path": "StylizedDarkCastle/Models/castleInteriorKit.fbx.meta",
+   "sha256": "a91c10f1c3537f3537d6402f09aebf6864ca7c990bcf5a9cbb3a7e89ee9f5a20"
+  },
+  {
+   "path": "StylizedDarkCastle/Models/castleModularKit.fbx",
+   "sha256": "7cac9d0c4f06c58e3f21b1390be305a8e45dad7e01950b8d3eb56f232a989b07"
+  },
+  {
+   "path": "StylizedDarkCastle/Models/castleModularKit.fbx.meta",
+   "sha256": "866f065ff016c7d83d0c2a8c59b6475bddf45e5cec1835ae9dfb4517da82d900"
+  },
+  {
+   "path": "StylizedDarkCastle/Prefabs/CastleInterior/Barrel.prefab",
+   "sha256": "e9eecbaf9df5fd3b7c9a8b2a43710493492d10f836751449b1e1e2059ca8ee1a"
+  },
+  {
+   "path": "StylizedDarkCastle/Prefabs/CastleInterior/Barrel.prefab.meta",
+   "sha256": "97e0d3a84f2ad72e335ed275a5135d41e13c8b7cf547f344420c15146d1b7d2a"
+  },
+  {
+   "path": "StylizedDarkCastle/Prefabs/CastleInterior/Barrel_Stack.prefab",
+   "sha256": "f555e43d4fa7f98d38fa87b260f09d5ec0eee47c10d25cb85a35640e0965d0fb"
+  },
+  {
+   "path": "StylizedDarkCastle/Prefabs/CastleInterior/Barrel_Stack.prefab.meta",
+   "sha256": "6e8c4030b2b4705092b6d502de37ee4b6df8fc2c110973ed66113c5357e37b16"
+  },
+  {
+   "path": "StylizedDarkCastle/Prefabs/CastleInterior/Cauldron.prefab",
+   "sha256": "c9e554837d5f3e9402b224ba7afd8cb280ea777bb05fea5d49406a492007b19b"
+  },
+  {
+   "path": "StylizedDarkCastle/Prefabs/CastleInterior/Cauldron.prefab.meta",
+   "sha256": "9caa20d37b125ed603e38f024679f7b478dd15070b07933ed42d2c5b70287510"
+  },
+  {
+   "path": "StylizedDarkCastle/Prefabs/CastleInterior/Chest.prefab",
+   "sha256": "717adb344aedc491e46531a2c2d380a3dd6e716dd9edbacfe1f7212a29e9618c"
+  },
+  {
+   "path": "StylizedDarkCastle/Prefabs/CastleInterior/Chest.prefab.meta",
+   "sha256": "e09a8e22617fe212ccfbf560e9af67ee25f95202b06a3cef7b9e4908bd10704e"
+  },
+  {
+   "path": "StylizedDarkCastle/Prefabs/CastleInterior/FireWood.prefab",
+   "sha256": "d2a9fcbb98bc56c3c21bcfbdb3a206c4955d1eb9c6edc9f45277fe886e45d109"
+  },
+  {
+   "path": "StylizedDarkCastle/Prefabs/CastleInterior/FireWood.prefab.meta",
+   "sha256": "b770045a1158ec19207786844e28256c1c0f842ff6c8c4a0c379e8ea88c2fcad"
+  },
+  {
+   "path": "StylizedDarkCastle/Prefabs/CastleInterior/WeaponRack_Full.prefab",
+   "sha256": "f15bdcb33b8cab2ea7bacdbed7a3344b3e89221f4e81618a1554da4039010c07"
+  },
+  {
+   "path": "StylizedDarkCastle/Prefabs/CastleInterior/WeaponRack_Full.prefab.meta",
+   "sha256": "5466f74a1e645784201d54a4826dcbd733b8b5eecbd16628d885c83588345b0a"
+  },
+  {
+   "path": "StylizedDarkCastle/Prefabs/CastlePartBase/Floor_Stone_2x2.prefab",
+   "sha256": "42e09ed89065b95fc1eecbe7c4b369eed1ed7763d8663a8c54e1c1f677e8dbc5"
+  },
+  {
+   "path": "StylizedDarkCastle/Prefabs/CastlePartBase/Floor_Stone_2x2.prefab.meta",
+   "sha256": "fc894f1a63daaafa4f17c897c509ff7be7c753c6139138538536e8f30afb3752"
+  },
+  {
+   "path": "StylizedDarkCastle/Prefabs/CastlePartBase/Pillar.prefab",
+   "sha256": "e7cd705795fdf99a4690e28eb7f33894b07b3e1f2c2e91beac6fb68ffa7917e8"
+  },
+  {
+   "path": "StylizedDarkCastle/Prefabs/CastlePartBase/Pillar.prefab.meta",
+   "sha256": "ac756905f691b9c1d609e8c15d2f317b615d6ad97daabb26580eaaafb630c708"
+  },
+  {
+   "path": "StylizedDarkCastle/Prefabs/CastlePartBase/Roof_Left.prefab",
+   "sha256": "10e83a50d49c5371e9968e25ef38b81e8a4b8ab15cd889cba53066c0c44ed4d8"
+  },
+  {
+   "path": "StylizedDarkCastle/Prefabs/CastlePartBase/Roof_Left.prefab.meta",
+   "sha256": "b2242705db4da44157e67979feed916da6adaa880d95c4aece7cac0b636e13b8"
+  },
+  {
+   "path": "StylizedDarkCastle/Prefabs/CastlePartBase/Roof_Right.prefab",
+   "sha256": "8a339bcd8cf01c7af52f826893f7e9ffa34ce779e31e83ebaa05957aff86805a"
+  },
+  {
+   "path": "StylizedDarkCastle/Prefabs/CastlePartBase/Roof_Right.prefab.meta",
+   "sha256": "8783ce0936363fed1f70b8e530f8fc79d769d9ba4f6de8f2b27c28e4c7038e6d"
+  },
+  {
+   "path": "StylizedDarkCastle/Prefabs/CastlePartBase/Wall_ArrowSlit.prefab",
+   "sha256": "b81c65b44a3cf4f5dcaac8f002f96dd3848f04f7445e2fcd1af6fbd70b6a4227"
+  },
+  {
+   "path": "StylizedDarkCastle/Prefabs/CastlePartBase/Wall_ArrowSlit.prefab.meta",
+   "sha256": "d796728b8aa4117b00412758023267f32b16a8296ce44d5dd88393c09764961c"
+  },
+  {
+   "path": "StylizedDarkCastle/Prefabs/CastlePartBase/Wall_Corner_Outer_Small.prefab",
+   "sha256": "34d13c45fbe2a427508090192ac7df670a482417fdb2daa301fba76e0bfc51ef"
+  },
+  {
+   "path": "StylizedDarkCastle/Prefabs/CastlePartBase/Wall_Corner_Outer_Small.prefab.meta",
+   "sha256": "fac64898896afa1afaed85a4add7adfbd9cd5b60032d5dff4863f2ba5f445d95"
+  },
+  {
+   "path": "StylizedDarkCastle/Prefabs/CastlePartBase/Wall_Door_Floor_Mid.prefab",
+   "sha256": "8f71b78c47a639a71c047b0a4d028f69e1e6103d32a988d1d46622bcd3381a8c"
+  },
+  {
+   "path": "StylizedDarkCastle/Prefabs/CastlePartBase/Wall_Door_Floor_Mid.prefab.meta",
+   "sha256": "fad53a27d80e59f90dbcba435536f7053f69e529f6cc1b26a14fc11d88ad5fbb"
+  },
+  {
+   "path": "StylizedDarkCastle/Prefabs/CastlePartBase/Wall_Merlons.prefab",
+   "sha256": "db07f1d0e04f5ae73d8de6a3c8932e4a92f6eede4bb8abc5590530fcc90f12a1"
+  },
+  {
+   "path": "StylizedDarkCastle/Prefabs/CastlePartBase/Wall_Merlons.prefab.meta",
+   "sha256": "36fdaf694135d78313eef69510734d91161e9d7cffe72d49094aefecb85f9ffa"
+  },
+  {
+   "path": "StylizedDarkCastle/Prefabs/CastlePartBase/Wall_Plain.prefab",
+   "sha256": "aa4a3b748eb6b1c40363931969bd429b1af398ef62f24b3e874fba24ccbb359f"
+  },
+  {
+   "path": "StylizedDarkCastle/Prefabs/CastlePartBase/Wall_Plain.prefab.meta",
+   "sha256": "c9a12c450421e47c9efabf04cb80e2d37b1343496279047a2c7e3b7085cb4cfa"
+  },
+  {
+   "path": "StylizedDarkCastle/Prefabs/CastlePartBase/Wall_RoofSide.prefab",
+   "sha256": "af4b6f266d6cd6dcb55ac060735c7ce66858237faca5a4dc4246889164308150"
+  },
+  {
+   "path": "StylizedDarkCastle/Prefabs/CastlePartBase/Wall_RoofSide.prefab.meta",
+   "sha256": "765d9865cfcb5d1c6184a39ff38b2a002c0860c9b9e93712077cdf1960edacc3"
+  },
+  {
+   "path": "StylizedDarkCastle/Prefabs/CastlePartsRooms/Roof_x2.prefab",
+   "sha256": "fabd6221d404e55fff424c3dffdd52c15f4b24807b04bc5cf9f1439c3576f4d9"
+  },
+  {
+   "path": "StylizedDarkCastle/Prefabs/CastlePartsRooms/Roof_x2.prefab.meta",
+   "sha256": "041548d7f2f850cad156d930c1cfdfaee9fc1fd94d56a3b1b4a135a6a98410b1"
+  },
+  {
+   "path": "StylizedDarkCastle/Prefabs/CastlePartsRooms/Room_2x2_StoneTiled.prefab",
+   "sha256": "b28e7a3d7c28c991caa051bb75d5e1cad83353ceead01326dda9df7bf45c0740"
+  },
+  {
+   "path": "StylizedDarkCastle/Prefabs/CastlePartsRooms/Room_2x2_StoneTiled.prefab.meta",
+   "sha256": "7a39ad54203c7039c33ce389785c830ad122ea6ad793961153e4453677d293c0"
+  },
+  {
+   "path": "StylizedDarkCastle/Textures/tex_brick.png",
+   "sha256": "cc2a9c58ad3863ec49baa901967db5661c25ad67a35f50516b6b53e970e0af47"
+  },
+  {
+   "path": "StylizedDarkCastle/Textures/tex_brick.png.meta",
+   "sha256": "9f35b30590ab14297975322a504f5e3443192c4ed8e897605927453a8eb64b59"
+  },
+  {
+   "path": "StylizedDarkCastle/Textures/tex_floorTile.png",
+   "sha256": "41b713402f05555f61c49e46a71ef3513942d286c22632eb6c958fa80a4369d8"
+  },
+  {
+   "path": "StylizedDarkCastle/Textures/tex_floorTile.png.meta",
+   "sha256": "39c49f974fa8b46c775132b8df226d43a05f39cb1760fadf897dce21d0033dd7"
+  },
+  {
+   "path": "StylizedDarkCastle/Textures/tex_roof.png",
+   "sha256": "602a124ac8e9b06000743e23db5f48a5772e374d073e422fa3601ceb9dd2bf81"
+  },
+  {
+   "path": "StylizedDarkCastle/Textures/tex_roof.png.meta",
+   "sha256": "3173b1b5f7777cdae51b3cb9706246aa5e9db87e1bd75eeea1f8625d46fa64ca"
+  },
+  {
+   "path": "StylizedDarkCastle/Textures/tex_sheet_interior.png",
+   "sha256": "ae905d8de12d9ddc0dca0c65787a65e1bc66e8f80e688a7e2ef3f45652486d7b"
+  },
+  {
+   "path": "StylizedDarkCastle/Textures/tex_sheet_interior.png.meta",
+   "sha256": "212666a9b47b9b373f4664d8903409469091c5afe39f5ea7bd270ea41e5852e5"
+  },
+  {
+   "path": "StylizedDarkCastle/Textures/tex_wood.png",
+   "sha256": "468a473c27e6a7eef44be4dabdd6b4ec446a80dc3e807362c1fea1942bff5c48"
+  }
+ ],
+ "textures": {
+  "textures/td_humans_set.jpg": 58103,
+  "textures/td_humans_base.jpg": 67134,
+  "textures/td_humans_castle.jpg": 50682,
+  "textures/td_humans_magic_runes.png": 5629,
+  "textures/td_humans_magic_ring.jpg": 33798,
+  "textures/td_humans_magic_crystals.jpg": 49875,
+  "textures/tex_brick.jpg": 24425,
+  "textures/tex_floorTile.jpg": 17038,
+  "textures/tex_sheet_interior.jpg": 35005,
+  "textures/Storage.jpg": 49418,
+  "textures/Rock2.jpg": 20839,
+  "textures/WoodenWall.jpg": 39050,
+  "textures/tex_wood.jpg": 27736,
+  "textures/cart.jpg": 36499,
+  "textures/Rock1.jpg": 21167,
+  "textures/Rock3.jpg": 23886,
+  "textures/WoodenHouse.jpg": 38574,
+  "textures/Tavern.jpg": 38895,
+  "textures/Tavern_interior.jpg": 39773,
+  "textures/tex_roof.jpg": 39587,
+  "textures/House1.jpg": 42213,
+  "textures/Wall1.jpg": 40341,
+  "textures/Pine_bark-256.jpg": 10059,
+  "textures/Pine_leaves-256.png": 44357,
+  "textures/Oak_bark-256.jpg": 5464,
+  "textures/oak_leaves-256.png": 40693,
+  "textures/Birch_bark-256.jpg": 12437,
+  "textures/Birch_leaves-256.png": 41614,
+  "textures/Tree_bark1-256.jpg": 11514,
+  "textures/Tree_leaves1-256.png": 40271,
+  "textures/Tree_bark2-256.jpg": 10479,
+  "textures/Tree_leaves2-256.png": 47328,
+  "textures/Willow_bark-256.jpg": 7362,
+  "textures/Willow_leaves-256.png": 46593,
+  "textures/Rock1-256.jpg": 7376,
+  "textures/Rock2-256.jpg": 7853,
+  "textures/Rock3-256.jpg": 8646,
+  "textures/Stone-256.jpg": 8102,
+  "textures/ground_grass.jpg": 36018,
+  "textures/ground_soil.jpg": 38393,
+  "textures/ground_rock.jpg": 16771,
+  "textures/ground_road.jpg": 17581,
+  "textures/ground_stones.jpg": 44075
+ }
+}

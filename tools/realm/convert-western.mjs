@@ -63,12 +63,13 @@ function resizeTexture(image, target = 512) {
   }
   return {width: target, height: target, data};
 }
-function embedTexture(glb, pngData) {
+/** Embeds the atlas (or, with uri, refers to it beside the GLB: units that share one atlas download it once). */
+function embedTexture(glb, pngData, uri = null) {
   const b = Buffer.from(glb), jsonLength = b.readUInt32LE(12), json = JSON.parse(b.toString('utf8', 20, 20 + jsonLength));
   const oldBin = b.subarray(28 + jsonLength, 28 + jsonLength + b.readUInt32LE(20 + jsonLength));
-  const bin = Buffer.concat([pad(oldBin), pad(pngData)]), imageView = json.bufferViews.length;
-  json.bufferViews.push({buffer: 0, byteOffset: pad(oldBin).length, byteLength: pngData.length});
-  json.images = [{name: 'WK_Standard_Units', mimeType: 'image/png', bufferView: imageView}];
+  const bin = uri ? pad(oldBin) : Buffer.concat([pad(oldBin), pad(pngData)]), imageView = json.bufferViews.length;
+  if (!uri) json.bufferViews.push({buffer: 0, byteOffset: pad(oldBin).length, byteLength: pngData.length});
+  json.images = [uri ? {name: 'WK_Standard_Units', uri} : {name: 'WK_Standard_Units', mimeType: 'image/png', bufferView: imageView}];
   json.samplers = [{magFilter: 9729, minFilter: 9987, wrapS: 10497, wrapT: 10497}];
   json.textures = [{sampler: 0, source: 0}];
   for (const material of json.materials) material.pbrMetallicRoughness.baseColorTexture = {index: 0};
@@ -80,15 +81,35 @@ function embedTexture(glb, pngData) {
 }
 
 const textureSource = 'models/Materials/textures/WK_Standard_Units.tga';
-const tga = new TGALoader().parse(read(textureSource)), texture = resizeTexture(tga), texturePNG = png(texture);
+const textures = new Map();
+function textureOf(source) {
+  if (!textures.has(source)) { const tga = new TGALoader().parse(read(source)), texture = resizeTexture(tga); textures.set(source, {tga, texture, png: png(texture)}); }
+  return textures.get(source);
+}
+const {tga, texture} = textureOf(textureSource);
+const INFANTRY = {idle: '01_idle', walk: '02_walk', run: '03_run', attack: '07_attack_A', hit: '09_take_damage', death: '10_death_A'};
 const units = {
-  footman: {model: 'WK_SM_Light_Infantry_A.FBX', folder: 'Infantry', prefix: 'WK_infantry', actions: {idle: '01_idle', walk: '02_walk', run: '03_run', attack: '07_attack_A', hit: '09_take_damage', death: '10_death_A'}},
+  footman: {model: 'WK_SM_Light_Infantry_A.FBX', folder: 'Infantry', prefix: 'WK_infantry', actions: INFANTRY},
   archer: {model: 'WK_SM_Archer_A.FBX', folder: 'Archer', prefix: 'WK_archer', actions: {idle: '01_idle', walk: '02_walk', run: '03_run', attack: '07_attack', hit: '09_take_damage', death: '10_death_A'}},
-  worker: {model: 'WK_Worker_A.FBX', folder: 'Worker', prefix: 'WK_worker', actions: {idle: '01_idle', walk: '02_walk', run: '03_run', attack: '07_attack', hit: '09_take_damage', death: '10_death_A', work: '12_working_A', work_b: '12_working_B', work_c: '12_working_C'}}
+  worker: {model: 'WK_Worker_A.FBX', folder: 'Worker', prefix: 'WK_worker', actions: {idle: '01_idle', walk: '02_walk', run: '03_run', attack: '07_attack', hit: '09_take_damage', death: '10_death_A', work: '12_working_A', work_b: '12_working_B', work_c: '12_working_C'}},
+  // (the full 3D Keepfall, Oct 25 2026: every soldier, hero and resident drawn from these, none from pictures)
+  // (clipsFrom: the unit plays that unit's clips, so its GLB carries only its own; atlas: a shared PNG beside it)
+  knight: {model: 'WK_SM_Heavy_Infantry_A.FBX', folder: 'Infantry', prefix: 'WK_infantry', actions: INFANTRY, clipsFrom: 'footman', atlas: 'wk-units.png'},
+  thief: {model: 'WK_SM_Light_Infantry_B.FBX', folder: 'Infantry', prefix: 'WK_infantry', actions: {...INFANTRY, attack: '08_attack_B'}, texture: 'models/Materials/Colors/textures/WK_StandardUnits_black.tga', clipsFrom: 'footman', atlas: 'wk-units-black.png'},
+  champion: {model: 'WK_SM_Heavy_Infantry_B.FBX', folder: 'Infantry', prefix: 'WK_infantry', actions: INFANTRY, clipsFrom: 'footman', atlas: 'wk-units.png'},
+  guard: {model: 'WK_Spearman_A.FBX', folder: 'Spearman', prefix: 'WK_spearman', actions: {idle: '01_idle', walk: '02_walk', run: '03_run', attack: '07_attack', hit: '09_take_damage', death: '10_death_A'}, atlas: 'wk-units.png'},
+  keeper: {model: 'WK_SM_Priest_A.FBX', folder: 'Mage', prefix: 'WK_mage', actions: {idle: '01_idle', walk: '02_walk', run: '03_run', attack: '11_cast_A', hit: '09_take_damage', death: '10_death_A', work: '11_cast_B'}, atlas: 'wk-units.png'},
+  mage: {model: 'WK_SM_Mage_A.FBX', folder: 'Mage', prefix: 'WK_mage', actions: {idle: '01_idle', walk: '02_walk', run: '03_run', attack: '07_attack_A', hit: '09_take_damage', death: '10_death_A'}, clipsFrom: 'keeper', atlas: 'wk-units.png'},
+  catapult: {model: '../WK_Catapult.FBX', folder: 'Catapult', prefix: 'WK_catapult', actions: {idle: '01_idle', walk: '02_move', attack: '03_attack', death: '04_death'}, atlas: 'wk-units.png'}
 };
-const manifest = {version: 1, generator: 'convert-western.mjs / three@0.160.0', sourcePackage: 'Toon RTS Units 1.4 / WesternKingdoms', axes: {up: '+Y', forward: '+Z'}, normalizedHeight: 1, rootMotion: 'Horizontal translation removed from idle/walk/run; game controls travel.', texture: {source: textureSource, sha256: digest(textureSource), width: texture.width, height: texture.height, sourceWidth: tga.width, sourceHeight: tga.height}, units: {}};
+const only = args.only ? new Set(args.only.split(',')) : null;
+const manifestFile = path.join(out, 'manifest.json');
+const manifest = only && fs.existsSync(manifestFile) ? JSON.parse(fs.readFileSync(manifestFile, 'utf8'))
+  : {version: 1, generator: 'convert-western.mjs / three@0.160.0', sourcePackage: 'Toon RTS Units 1.4 / WesternKingdoms', axes: {up: '+Y', forward: '+Z'}, normalizedHeight: 1, rootMotion: 'Horizontal translation removed from idle/walk/run; game controls travel.', texture: {source: textureSource, sha256: digest(textureSource), width: texture.width, height: texture.height, sourceWidth: tga.width, sourceHeight: tga.height}, units: {}};
 fs.mkdirSync(out, {recursive: true});
 for (const [kind, spec] of Object.entries(units)) {
+  if (only && !only.has(kind)) continue;
+  const texturePNG = textureOf(spec.texture || textureSource).png;
   const modelSource = `models/single_mesh/${spec.model}`, model = fbx(modelSource), clips = [], clipMeta = [];
   model.name = `${kind}_rig`; model.animations = [];
   const material = new T.MeshStandardMaterial({name: 'Western units', color: 0xFFFFFF, metalness: 0, roughness: 0.85});
@@ -121,10 +142,13 @@ for (const [kind, spec] of Object.entries(units)) {
   idle.stop(); mixer.stopAllAction(); mixer.uncacheRoot(model);
   model.position.y = -bounds.min.y / height; model.scale.setScalar(1 / height);
   const root = new T.Group(); root.name = kind; root.add(model); root.updateMatrixWorld(true);
-  const result = await new GLTFExporter().parseAsync(root, {binary: true, animations: clips, trs: true, onlyVisible: true, maxTextureSize: 1024});
-  const output = embedTexture(result, texturePNG), file = `${kind}.glb`;
+  // (a unit sharing another's clips keeps only those that differ from the other's: another file, or another clip)
+  const base = spec.clipsFrom && units[spec.clipsFrom], own = base ? clips.filter(c => base.folder !== spec.folder || base.actions[c.name] !== spec.actions[c.name]) : clips;
+  const result = await new GLTFExporter().parseAsync(root, {binary: true, animations: own, trs: true, onlyVisible: true, maxTextureSize: 1024});
+  if (spec.atlas) fs.writeFileSync(path.join(out, spec.atlas), texturePNG);
+  const output = embedTexture(result, texturePNG, spec.atlas || null), file = `${kind}.glb`;
   fs.writeFileSync(path.join(out, file), output);
-  manifest.units[kind] = {file, source: modelSource, sha256: digest(modelSource), bytes: output.length, meshes: meshCount, vertices, triangles, sourceStandingHeight: height, sourceGroundY: bounds.min.y, height: 1, animations: clipMeta};
+  manifest.units[kind] = {file, source: modelSource, sha256: digest(modelSource), ...(spec.texture ? {texture: spec.texture, textureSha256: digest(spec.texture)} : {}), ...(base ? {clipsFrom: spec.clipsFrom, ownClips: own.map(c => c.name)} : {}), ...(spec.atlas ? {atlas: spec.atlas} : {}), bytes: output.length, meshes: meshCount, vertices, triangles, sourceStandingHeight: height, sourceGroundY: bounds.min.y, height: 1, animations: clipMeta};
   console.log(`${file}: ${output.length} bytes, ${triangles} triangles, ${clipMeta.map(a => a.name).join(', ')}`);
 }
 fs.writeFileSync(path.join(out, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');

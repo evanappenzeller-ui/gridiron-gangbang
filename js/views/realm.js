@@ -377,7 +377,7 @@ export function factsOf(b, {own = false, whose = 'your'} = {}) {
 // Clans' info screen, in Keepfall's oak, gilt and parchment). Over the lot, the HUD's Gold and Ale still in sight:
 // - its name and level, a slim bar of its levels under them (gilt up to its level, lighter as far as the Castle lets it
 //   go now, dark beyond), and the red square close;
-// - a big picture of it at its level (the base's own art: views/realm-sprites.js) on a grass tile, and its blurb;
+// - a big picture of it at its level (its 3D model, as the lot draws it: views/realm-3d.js thumb) on a grass tile, and its blurb;
 // - its numbers as tiles, each an icon, a label and a big value over a bar of how far along its kind's top level it is,
 //   the next level's gain in green while it can go up (a mine's pile, a treasury's store, the army: how full instead).
 //   Strength for every one; the hour's make and the pile for mines and breweries; capacity and how full for treasuries
@@ -586,15 +586,14 @@ function movingHTML(s, id) {
     + `<button type="button" class="rl-card-x" data-rl-unsel aria-label="Close">${CARD_IC.x}</button></div>`
     + `<button type="button" class="rl-card-up is-go is-done" data-rl-moved><span class="rl-card-up-k">Done</span></button></div>`;
 }
-// (the card's picture: the base's own art of the building at its level, drawn once and kept, so the card drawn again
-// each second doesn't decode it again; walls are the 3D's own)
+// (the card's picture: the building's 3D model at its level, rendered once and kept, so the card drawn again each second
+// doesn't render it again)
 const ART = new Map();
-let SPR = null; // views/realm-sprites.js, once the 3D is in
 function artOf(key) {
   if (ART.has(key)) return ART.get(key);
   if (!D3 || !D3.ready() || !F.mayPlay()) return null;
   const [k, l] = key.split(':'), lv = Math.max(1, +l || 1);
-  const url = SPR && SPR.has(k) ? SPR.thumbURL(k, lv, 360, 1.6, F.KINDS[k] ? F.KINDS[k].size : 0) : D3.thumb(k, lv, MY_HOUSE);
+  const url = D3.thumb(k, lv, MY_HOUSE, false, {w: 576, h: 360});
   if (!url) return null;
   const im = new Image();
   im.alt = ''; im.draggable = false; im.decoding = 'async'; im.src = url;
@@ -1274,8 +1273,6 @@ async function start3d(st) {
   if (st.dead || !F.mayPlay()) return;
   const theme = F.sceneryOf(F.mine());
   if (!D3) D3 = await import('./realm-3d.js');
-  // (the module the 3D draws the buildings with: a building's card draws its picture from it)
-  if (!SPR) SPR = await import('./realm-sprites.js').catch(() => null);
   if (st.dead || !F.mayPlay()) return;
   const ok = await D3.load(theme);
   if (st.dead || !F.mayPlay()) return;
