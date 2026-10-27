@@ -142,9 +142,10 @@ function head(p, size) {
   return `<span class="lg-hs" style="--sz:${size}px" aria-hidden="true"><span>${ini}</span>`
     + (p.head ? `<img src="${esc(p.head)}" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : '') + `</span>`;
 }
-// His manager's picture; a player no one in the league has shows a "+".
+// His manager's picture; a player no one in the league has leaves the spot empty (no "+", Oct 27 2026: "Remove the
+// add button in the scores tab"), so the headshots still line up.
 function ownerMark(p) {
-  if (!p.owner) return `<span class="lg-fa" aria-hidden="true">${ui.icon('plus')}</span>`;
+  if (!p.owner) return `<span class="lg-fa" aria-hidden="true"></span>`;
   return `<span class="lg-ow${p.mine ? ' is-me' : ''}">${ui.avatar(p.owner, {size: 32})}</span>`;
 }
 // Top performers, laid out like ESPN Fantasy's: "P. Nacua", his team's logo and position; his team's score first,

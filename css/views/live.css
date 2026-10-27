@@ -158,11 +158,9 @@
 .lg-body .lg-p + .lg-p { box-shadow: 0 -1px 0 var(--separator); }
 .lg-body .lg-p.is-mine { box-shadow: inset 3px 0 0 var(--tint); background: linear-gradient(90deg, var(--tint-soft), transparent 60%); }
 .lg-body .lg-p + .lg-p.is-mine { box-shadow: inset 3px 0 0 var(--tint), 0 -1px 0 var(--separator); }
-/* Left: his manager's picture (yours ringed), or a "+" for a player no one has (ESPN's free-agent mark). */
+/* Left: his manager's picture (yours ringed), or an empty spot for a player no one has. */
 .lg-body .lg-ow, .lg-body .lg-fa { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; }
 .lg-body .lg-ow.is-me { box-shadow: 0 0 0 2px var(--tint); }
-.lg-body .lg-fa { background: #F5B942; color: #1A1200; }
-.lg-body .lg-fa .ic { width: 18px; height: 18px; stroke-width: 3; }
 .lg-body .lg-p .lg-hs { background: var(--surface-3); }
 .lg-body .lg-pm { flex: 1; min-width: 0; }
 .lg-body .lg-pn { display: flex; align-items: center; gap: 6px; min-width: 0; font: 600 var(--fs-body)/22px var(--font-text); color: var(--ink); }
