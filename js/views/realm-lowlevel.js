@@ -5,10 +5,11 @@
 // Camp's pavilion and standard, the Hatchery's horns and eggs, the Trebuchet's shot and braziers, the Pitch Cauldron's
 // gantry over its pot. The low stages of the kinds whose imported art was small and flat are drawn here, and their
 // later stages too where the imported ones would have stood smaller than the new first stage (a level never looks
-// like a step down); the Barracks keeps its tower and gains a drill yard round it, so it no longer reads as a tower.
+// like a step down); the Barracks is a drill yard (its imported tower taken out, Oct 27 2026, Evan: "Remove the tower in
+// the middle of the barracks").
 // Built in tiles at the kind's own footprint (its lot centred on the origin, y up, the camera looking from +x +z) from
 // the imported models' materials (their planks, stone, roof tiles, gold, canvas, straw) and a few of their meshes (the
-// cottage, the brewhouse, the mine's rock, the barracks' tower). realm-buildings.js adopts each in place of the
+// cottage, the brewhouse, the mine's rock). realm-buildings.js adopts each in place of the
 // imported stage; nothing here reads or writes a player's save.
 let T, BU, ctx;
 /** Every design: kind-stage → (kit, stage). */
@@ -485,8 +486,9 @@ function cauldron(k, stage) {
   if (g >= 2) for (let i = 0; i < 9; i++) if (i % 2 === 0) for (const [x, z] of [[-1.3 + i * .325, 1.36], [1.36, -1.3 + i * .325]]) k.box(.16, .2, .16, 'mat_brick', [x, .1, z]);
 }
 
-/** Barracks (4 tiles): its tower (the imported one, smaller, at the back) over a sanded drill yard: training dummies,
- *  an archery butt, a rack of weapons, a low fence and a gate, the regiment's standard. */
+/** Barracks (4 tiles): a sanded drill yard (no tower: Evan, Oct 27 2026), training dummies in rows, an archery butt,
+ *  racks of weapons, a low fence and a gate, the regiment's standard. (Still drawn only once its imported stage is in,
+ *  so the plain-3D fallback stands as it did.) */
 function barracks(k, stage) {
   const g = stage - 1, sc = ctx.scene('barracks-' + stage);
   if (!sc) return false;
@@ -497,8 +499,8 @@ function barracks(k, stage) {
     for (let i = 0; i <= n; i++) k.box(.06, .36, .06, 'timber', [x0 + (x1 - x0) * i / n, .05, z0 + (z1 - z0) * i / n]);
     [.16, .32].forEach(y => k.rod(.02, [x0, y, z0], [x1, y, z1], 'timber', 4));
   }
-  // dummies, the butt, the rack
-  [[.5, .95], [1.05, .45], [-.15, 1.2]].slice(0, 2 + (g ? 1 : 0)).forEach(([x, z]) => {
+  // dummies (more in rows at the back as it grows), the butt
+  [[.5, .95], [1.05, .45], [-.15, 1.2]].slice(0, 2 + (g ? 1 : 0)).concat([[-1.1, -.25], [-.6, -.75], [-.1, -1.25], [-.35, .05], [.15, -.45]].slice(0, 3 + g)).forEach(([x, z]) => {
     k.cyl(.03, .03, .8, 'timber', [x, .05, z], {seg: 5}); k.rod(.022, [x - .22, .62, z], [x + .22, .62, z], 'timber', 4);
     k.cyl(.11, .13, .3, 'straw', [x, .38, z], {seg: 8}); k.ball(.09, 'straw', [x, .78, z], {seg: 8, rows: 6});
   });
@@ -507,12 +509,13 @@ function barracks(k, stage) {
   k.cyl(.27, .27, .08, 'straw', [tx, .5, tz + .08], {mid: true, rot: [Math.PI / 2 - .25, Math.PI / 4, 0], seg: 14});
   k.cyl(.17, .17, .085, 'll-red', [tx, .5, tz + .08], {mid: true, rot: [Math.PI / 2 - .25, Math.PI / 4, 0], seg: 12});
   k.cyl(.07, .07, .09, 'll-yellow', [tx, .5, tz + .08], {mid: true, rot: [Math.PI / 2 - .25, Math.PI / 4, 0], seg: 10});
-  const rx = -1.05, rz = 1.2;
-  [-.3, .3].forEach(o => k.box(.05, .56, .05, 'timber', [rx + o, .05, rz]));
-  k.rod(.02, [rx - .32, .5, rz], [rx + .32, .5, rz], 'timber', 4);
-  for (let i = 0; i < 4; i++) { const x = rx - .2 + i * .13; k.rod(.012, [x, .06, rz + .07], [x, .82, rz], 'pole', 3); k.put(new T.ConeGeometry(.028, .1, 4), 'll-iron', [x, .87, rz]); }
+  // (racks of spears: by the gate, and along the back fence)
+  for (const [rx, rz] of [[-1.05, 1.2], [-1.15, -1.45]]) {
+    [-.3, .3].forEach(o => k.box(.05, .56, .05, 'timber', [rx + o, .05, rz]));
+    k.rod(.02, [rx - .32, .5, rz], [rx + .32, .5, rz], 'timber', 4);
+    for (let i = 0; i < 4; i++) { const x = rx - .2 + i * .13; k.rod(.012, [x, .06, rz + .07], [x, .82, rz], 'pole', 3); k.put(new T.ConeGeometry(.028, .1, 4), 'll-iron', [x, .87, rz]); }
+  }
   standard(k, [1.62, .05, -1.62], 2.2 + g * .25, .5, .7);
-  return {scene: sc, at: [-.55, .05, -.55], width: 2.45, maxHeight: 3.1};
 }
 
 /** Builds design `key` (a kind-stage) → a Group in tiles, or null when it can't (its imported model isn't in). c: {T, BU,
