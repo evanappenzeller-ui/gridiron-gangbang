@@ -997,9 +997,9 @@ function pastItemHTML(h, hidden) {
   const g = pastGame(h);
   const foot = `WK ${h.week} · ${votesStr(h)}`.toUpperCase();
   const cls = `rv-past-it${hidden ? ' is-more' : ''}`;
-  // (each is the week's matchup with the most votes, history's pick: tagged so, not with this phone's own vote, which
-  // read as if the list were your picks: the owner's ask, Oct 2026)
-  if (g) return ui.scoreBug(g, {footer: foot, cls, key: h.key || `${h.year}-w${h.week}`, badges: [['you', 'Most votes']], attrs: {'data-motw': h.pick, 'data-press': 'row'}});
+  // (each is the week's matchup with the most votes, history's pick; no tag on it: not this phone's own vote, which
+  // read as if the list were your picks, and no "Most votes" either: the owner's ask, Oct 27 2026, "Remove the most votes tag")
+  if (g) return ui.scoreBug(g, {footer: foot, cls, key: h.key || `${h.year}-w${h.week}`, attrs: {'data-motw': h.pick, 'data-press': 'row'}});
   const [a, b] = pairOf(h.pick);
   return `<button type="button" class="bug bug-row rv-past-np ${cls}" data-motw="${esc(h.pick)}" data-press="row" aria-label="${esc(`Week ${h.week}, ${nm(a)} versus ${nm(b)}, not played yet. ${votesStr(h)}`)}">`
     + `<span class="bug-side is-tie">${ui.avatar(a, {size: 24})}<span class="bug-name"><b>${esc(nm(a))}</b></span></span>`
