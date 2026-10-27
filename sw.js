@@ -7,7 +7,7 @@
 // A slow request falls back to whatever is cached under its path (from the previous worker too), so data whose
 // format changes gets a new file name rather than new content under the old one (data/puzzles-v4.json: see
 // js/core/daily.js).
-const CACHE = 'gg-v452';
+const CACHE = 'gg-v453';
 const CORE = ['ui', 'data', 'daily', 'fire', 'week', 'nfl', 'stats', 'motw', 'press', 'checks', 'checks-stats', 'checks-pickem', 'checks-press', 'checks-seventeen', 'checks-drill', 'checks-kick', 'return', 'checks-return', 'lay', 'plays', 'laytrack', 'gameday', 'seventeen', 'drill-sim', 'drill', 'kick', 'avatars', 'lpick', 'survivor', 'checks-lpick', 'realm', 'realm-pay', 'realm-active', 'realm-dragons', 'realm-battle', 'checks-realm'];
 // The tab roots are puzzles, pickem, rivals (Matchup), league, moves (Draft), lay (The Lay) and live (Live). Keepfall opens from Daily Games.
 const VIEWS = ['welcome', 'guest', 'puzzles', 'games', 'game-case', 'board', 'you', 'sharecard', 'results', 'run', 'college', 'silhouette', 'mystery', 'journey', 'grid', 'picker',
@@ -65,7 +65,9 @@ self.addEventListener('install', e => {
   // Each file is added on its own so one failure never blocks the install; network-first fills any gap.
   // Bound background downloads so an update does not flood the connection during navigation.
   // Artwork and models cached on demand by the last version come along too (checked the same way), rather than being
-  // dropped with its cache and downloaded again the next time they're shown.
+  // dropped with its cache and downloaded again the next time they're shown. So does the 3D engine (js/vendor), which
+  // Keepfall and Return Man import on demand: dropped, a phone that went offline after an update couldn't draw Keepfall
+  // in 3D till it was online again. It stays out of SHELL, so a player who never opens them never downloads it.
   e.waitUntil(caches.open(CACHE)
     .then(async c => {
       const olds = await previous();
@@ -73,7 +75,8 @@ self.addEventListener('install', e => {
       const seen = new Set(shell.map(r => r.url));
       const extra = [];
       for (const o of olds) for (const r of await o.keys()) {
-        if (!seen.has(r.url) && isCacheFirst(new URL(r.url))) { seen.add(r.url); extra.push(new Request(r.url)); }
+        const url = new URL(r.url);
+        if (!seen.has(r.url) && (isCacheFirst(url) || isVendor(url))) { seen.add(r.url); extra.push(new Request(r.url)); }
       }
       const todo = shell.concat(extra);
       let next = 0;
@@ -94,6 +97,7 @@ self.addEventListener('activate', e => {
 
 // (jpg: Keepfall's land and building textures, models/realm/world-v1/textures, which its models load beside them)
 const isCacheFirst = url => /\.(woff2|png|webp|jpe?g|ico|glb)$/.test(url.pathname);
+const isVendor = url => url.origin === self.location.origin && url.pathname.includes('/js/vendor/');
 const isNetworkFirst = (req, url) => req.mode === 'navigate' || url.pathname.endsWith('/') || /\.(html|json|js|css|webmanifest)$/.test(url.pathname);
 
 function put(key, res) {
