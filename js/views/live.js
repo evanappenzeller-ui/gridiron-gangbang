@@ -1,8 +1,9 @@
 // Live (its own tab, #/live; Oct 25 2026, everyone's): the NFL week's games as they play, an
 // octobox like RedZone (eight games at once, the ones in the red zone first, each with the score, the clock, who has
 // the ball, the down and distance, the ball on a little field and the last play; a score flashes on its box), the
-// rest of the week's games under it, then the top performers (the best QB, RB, WR and TE so far) and every player's
-// line with his points in the league's scoring (PPR, core/gameday.js). A tap on a box shows that game's players only.
+// rest of the week's games under it, then the top performers: every player's line with his points in the league's
+// scoring (PPR, core/gameday.js), laid out like ESPN Fantasy's (Oct 27 2026), with chips for search, my players and each
+// position. A tap on a box shows that game's players only.
 // Each player's owner in the league (the draft, then trades); "My players" and "You" follow the profile picked.
 // Data: core/gameday.js (ESPN's scoreboard and box scores, every 30 s while a game is on). Styles: css/views/live.css.
 // Owner: LIVE.
@@ -135,38 +136,54 @@ function playersOf(st) {
   });
   return out.sort((a, b) => b.pts - a.pts || a.name.localeCompare(b.name));
 }
-const ptsTxt = n => n.toFixed(2);
+const ptsTxt = n => n.toFixed(2).replace(/(\.\d)0$/, '$1');
 function head(p, size) {
   const ini = esc(p.name.split(' ').map(w => w[0]).slice(0, 2).join(''));
   return `<span class="lg-hs" style="--sz:${size}px" aria-hidden="true"><span>${ini}</span>`
     + (p.head ? `<img src="${esc(p.head)}" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : '') + `</span>`;
 }
-// His manager: the avatar on the headshot's corner and the name (yours: "You").
-const ownerName = p => p.mine ? 'You' : data.name(p.owner);
-function ownerTag(p) {
-  if (!p.owner) return '';
-  return `<span class="lg-own${p.mine ? ' is-me' : ''}">${ui.avatar(p.owner, {size: 20})}<span>${esc(ownerName(p))}</span></span>`;
+// His manager (yours: "You"); a player no one in the league has shows a "+" and "No owner".
+const ownerName = p => p.mine ? 'You' : p.owner ? data.name(p.owner) : 'No owner';
+function ownerMark(p) {
+  if (!p.owner) return `<span class="lg-fa" aria-hidden="true">${ui.icon('plus')}</span>`;
+  return `<span class="lg-ow${p.mine ? ' is-me' : ''}">${ui.avatar(p.owner, {size: 32})}</span>`;
 }
-const vsTxt = p => { const g = p.g, opp = g.home.abbr === p.team ? g.away.abbr : g.home.abbr; return `${g.home.abbr === p.team ? 'vs' : '@'} ${opp}`; };
-function leaderCard(pos, p) {
-  if (!p) return `<div class="lg-lead is-none"><span class="lg-pos pos-${pos}">${pos}</span><p class="lg-ln">No ${pos} yet</p></div>`;
-  return `<div class="lg-lead pos-${pos}${p.mine ? ' is-mine' : ''}"><div class="lg-lh">${head(p, 40)}<span class="lg-pos pos-${pos}">${pos}</span>`
-    + `<span class="lg-lp"><b class="n4">${ptsTxt(p.pts)}</b><small>PTS</small></span></div>`
-    + `<p class="lg-ln">${esc(p.name)}</p><p class="lg-lt">${esc(p.team)} ${esc(vsTxt(p))}${p.live ? ' <i class="lg-dot" aria-label="playing now"></i>' : ''}</p>`
-    + `<p class="lg-ls">${esc(gd.statLine(p))}</p>${ownerTag(p)}</div>`;
+// Top performers, laid out like ESPN Fantasy's: "P. Nacua", his team's logo and position; his team's score first,
+// the clock and the opponent ("35-21 Final @LV"); the line ("8 REC, 68 YDS, TD"); the points, and his manager.
+const shortName = n => { const w = n.split(' '); return w.length > 1 && !/\./.test(w[0]) ? `${w[0][0]}. ${w.slice(1).join(' ')}` : n; };
+const sideOf = p => p.g.home.abbr === p.team ? 'home' : 'away';
+const vsTxt = p => { const g = p.g, home = sideOf(p) === 'home'; return `${home ? 'vs ' : '@'}${g[home ? 'away' : 'home'].abbr}`; };
+function gameTxt(p) {
+  const g = p.g, me = g[sideOf(p)], op = g[sideOf(p) === 'home' ? 'away' : 'home'];
+  return `${g.state === 'pre' ? '' : `${me.score || 0}-${op.score || 0} `}${clockOf(g)} ${vsTxt(p)}`;
 }
-function leadersHTML(st, all) {
-  if (!st.D) return '';
-  if (!all.length) return '';
-  const pick = pos => all.find(p => p.pos === pos);
-  return `<div class="sh lg-sh"><h2>Top performers</h2><span class="lg-at">PPR</span></div>`
-    + `<div class="lg-leads">${['QB', 'RB', 'WR', 'TE'].map(pos => leaderCard(pos, pick(pos))).join('')}</div>`;
+// The line, short like ESPN's: a QB's passing ("213 YDS, 3 TD"), anyone else's catches and yards from scrimmage
+// ("8 REC, 68 YDS, TD"; a back's catches aren't counted out). A TD of the kind his position doesn't usually score is
+// named ("REC TD" for a back, "RUSH TD" for a receiver).
+const tdTxt = (n, kind) => n ? `${n > 1 ? n + ' ' : ''}${kind ? kind + ' ' : ''}TD` : '';
+function lineTxt(p) {
+  const s = p.s || {}, out = [];
+  if (p.pos === 'QB' || (s.att && !s.rec)) {
+    out.push(`${s.passYds || 0} YDS`, tdTxt(s.passTd || 0), s.int ? `${s.int > 1 ? s.int + ' ' : ''}INT` : '');
+    if (s.rushYds >= 10 || s.rushTd) out.push(`${s.rushYds || 0} RUSH YDS`, tdTxt(s.rushTd || 0, 'RUSH'));
+    if (s.recTd) out.push(tdTxt(s.recTd, 'REC'));
+  } else {
+    const rb = p.pos === 'RB';
+    if (!rb && (s.rec || s.tgt)) out.push(`${s.rec || 0} REC`);
+    out.push(`${(s.rushYds || 0) + (s.recYds || 0)} YDS`);
+    if (rb) out.push(tdTxt(s.rushTd || 0), tdTxt(s.recTd || 0, 'REC'));
+    else out.push(tdTxt(s.recTd || 0), tdTxt(s.rushTd || 0, 'RUSH'));
+  }
+  out.push(tdTxt(s.retTd || 0, 'RET'), s.fumLost ? `${s.fumLost > 1 ? s.fumLost + ' ' : ''}FUM` : '');
+  return out.filter(Boolean).join(', ');
 }
-function rowHTML(p, i) {
-  return `<li class="lg-p${i < 3 ? ' is-top' : ''}${p.mine ? ' is-mine' : ''}"><span class="lg-rk n5">${i + 1}</span>${head(p, 40)}`
-    + `<div class="lg-pm"><p class="lg-pn">${esc(p.name)} <span class="lg-pos pos-${p.pos}">${p.pos}</span>${p.live ? ' <i class="lg-dot" aria-label="playing now"></i>' : ''}</p>`
-    + `<p class="lg-ps"><span class="lg-pt">${esc(p.team)} ${esc(vsTxt(p))}</span> · ${esc(gd.statLine(p))}</p>${ownerTag(p)}</div>`
-    + `<b class="lg-pp n4">${ptsTxt(p.pts)}</b></li>`;
+function rowHTML(p) {
+  const t = p.g[sideOf(p)];
+  return `<li class="lg-p${p.mine ? ' is-mine' : ''}">${ownerMark(p)}${head(p, 52)}`
+    + `<div class="lg-pm"><p class="lg-pn"><span class="lg-nm">${esc(shortName(p.name))}</span>${t && t.logo ? logo(t, 18) : ''}<span class="lg-pos pos-${p.pos}">${p.pos}</span></p>`
+    + `<p class="lg-pg">${esc(gameTxt(p))}${p.live ? ' <i class="lg-dot" aria-label="playing now"></i>' : ''}</p>`
+    + `<p class="lg-ps">${esc(lineTxt(p))}</p></div>`
+    + `<div class="lg-pr"><b class="lg-pp">${ptsTxt(p.pts)}</b><span class="lg-po${p.mine ? ' is-me' : ''}">${esc(ownerName(p))}</span></div></li>`;
 }
 function listHTML(st, all) {
   if (!st.D) return ui.skeleton('rows', 6, {label: 'Loading the stats.'});
@@ -179,8 +196,17 @@ function listHTML(st, all) {
   const scope = g ? `<p class="lg-scope">${esc(`${g.away.abbr} @ ${g.home.abbr}`)} only <button type="button" class="btn btn-plain" data-lg-all><span class="btn-label">Show every game</span></button></p>` : '';
   if (!list.length) return scope + ui.empty({icon: 'search', title: 'No one matches.', body: ''});
   const shown = st.more ? list : list.slice(0, LIST_MAX);
-  return scope + `<ol class="lg-list">${shown.map(rowHTML).join('')}</ol>`
+  return scope + `<div class="lg-cols" aria-hidden="true"><span>Players</span><span>Score</span></div><ol class="lg-list">${shown.map(rowHTML).join('')}</ol>`
     + (list.length > shown.length ? `<div class="lg-morewrap">${ui.button({label: `Show all ${list.length}`, kind: 'secondary', size: 's', attrs: {'data-lg-more': ''}})}</div>` : '');
+}
+// The chips across the top: search, my players, then All, QB, RB, WR and TE.
+function chipsHTML() {
+  return `<div class="lg-chips" data-hscroll role="toolbar" aria-label="Filter players">`
+    + `<button type="button" class="lg-chip lg-ic" data-lg-find aria-pressed="false" aria-label="Search players">${ui.icon('search')}</button>`
+    + `<button type="button" class="lg-chip lg-ic" data-lg-mine aria-pressed="false" aria-label="My players">${ui.icon('person')}</button>`
+    + `<i class="lg-chsep" aria-hidden="true"></i>`
+    + POS.map(p => `<button type="button" class="lg-chip" data-lg-pos="${p}" aria-pressed="${p === 'all'}">${p === 'all' ? 'All' : p}</button>`).join('')
+    + `</div>`;
 }
 
 // ---------------------------------------------------------------------------------------------- View
@@ -194,7 +220,6 @@ function draw(ctx, parts = 'all') {
   if (eb && st.D && st.D.week) eb.textContent = `NFL · Week ${st.D.week} · Live`;
   const all = playersOf(st);
   if (parts === 'all' || parts === 'games') st.games.innerHTML = gamesHTML(st);
-  st.leaders.innerHTML = leadersHTML(st, all);
   st.list.innerHTML = listHTML(st, all);
 }
 // Scores that went up since the last update flash on their box (not on the first load).
@@ -231,18 +256,16 @@ export default {
   render() {
     return ui.largeTitle({eyebrow: 'NFL · Live', title: 'Scores', subtitle: 'Every game as it plays, the red zone first', trailing: youButtonHTML()})
       + `<div class="lg-body"><section class="lg-games" data-lg-games>${gamesHTML({D: null})}</section>`
-      + `<section class="lg-leaders" data-lg-leaders></section>`
-      + `<section class="lg-stats"><div class="sh lg-sh"><h2>Player stats</h2><span class="lg-at">PPR points</span></div>`
-      + ui.seg({name: 'lg-pos', items: POS.map(p => ({id: p, label: p === 'all' ? 'All' : p})), value: 'all', small: true, label: 'Position'})
-      + `<div class="lg-search">${ui.searchField({name: 'lg-q', placeholder: 'Player or manager', label: 'Search players'})}`
-      + `<button type="button" class="lg-mine" data-lg-mine aria-pressed="false">My players</button></div>`
+      + `<section class="lg-stats"><div class="sh lg-sh"><h2>Top performers</h2><span class="lg-at">PPR</span></div>`
+      + chipsHTML()
+      + `<div class="lg-search" hidden>${ui.searchField({name: 'lg-q', placeholder: 'Player or manager', label: 'Search players'})}</div>`
       + `<div data-lg-list></div>`
       + `<p class="lg-foot">PPR: 1 a catch, 0.1 a rushing or receiving yard, 0.04 a passing yard, 6 a TD (4 passing), −1 an interception, −2 a fumble lost. From ESPN's box scores, every 30 seconds while games are on.</p>`
       + `<p class="lg-foot">Owners are from this season\u2019s draft and the trades on file. Waiver pickups and drops aren't known yet (Yahoo rosters don't sync), so those players show no owner or the one who drafted them.</p></section></div>`;
   },
 
   mount(el, ctx) {
-    const st = {ctx, el, games: el.querySelector('[data-lg-games]'), leaders: el.querySelector('[data-lg-leaders]'), list: el.querySelector('[data-lg-list]'),
+    const st = {ctx, el, games: el.querySelector('[data-lg-games]'), list: el.querySelector('[data-lg-list]'),
       D: null, pos: 'all', q: '', mine: false, game: null, more: false, prev: new Map(), flash: new Map(), flashT: 0, stop: null};
     ST.set(ctx, st);
     el.addEventListener('click', e => {
@@ -258,10 +281,23 @@ export default {
       if (t.closest('[data-lg-all]')) { st.game = null; draw(ctx); return; }
       const mb = t.closest('[data-lg-mine]');
       if (mb) { st.mine = !st.mine; st.more = false; mb.setAttribute('aria-pressed', String(st.mine)); draw(ctx, 'stats'); return; }
+      const pb = t.closest('[data-lg-pos]');
+      if (pb) {
+        st.pos = pb.dataset.lgPos; st.more = false;
+        el.querySelectorAll('[data-lg-pos]').forEach(b => b.setAttribute('aria-pressed', String(b === pb)));
+        draw(ctx, 'stats');
+        return;
+      }
+      const fb = t.closest('[data-lg-find]');
+      if (fb) {
+        const box = el.querySelector('.lg-search'), open = box.hidden;
+        box.hidden = !open; fb.setAttribute('aria-pressed', String(open));
+        const inp = box.querySelector('input');
+        if (open) inp.focus();
+        else if (st.q) { inp.value = ''; st.q = ''; st.more = false; draw(ctx, 'stats'); }
+        return;
+      }
       if (t.closest('[data-lg-more]')) { st.more = true; draw(ctx, 'stats'); }
-    });
-    el.addEventListener('ui:change', e => {
-      if (e.detail && e.detail.name === 'lg-pos') { st.pos = e.detail.value; st.more = false; draw(ctx, 'stats'); }
     });
     el.addEventListener('input', e => {
       if (!e.target.closest('.lg-search input')) return;

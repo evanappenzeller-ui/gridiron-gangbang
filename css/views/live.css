@@ -103,22 +103,7 @@
 .lg-body .lg-mt .n5 { margin-left: auto; }
 .lg-body .lg-mc { font: 400 var(--fs-cap)/16px var(--font-text); color: var(--ink-3); }
 
-/* ================================================================ Top performers */
-.lg-body .lg-leads { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-@media (min-width: 720px) { .lg-body .lg-leads { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-.lg-body .lg-lead {
-  min-width: 0; padding: 10px 12px 12px; border-radius: var(--r-card);
-  background: var(--surface-1); box-shadow: var(--pixel-shadow), inset 0 3px 0 var(--pc, var(--tint));
-}
-.lg-body .lg-lead.is-none { display: grid; align-content: center; justify-items: start; gap: 6px; color: var(--ink-3); }
-.lg-body .lg-lh { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-.lg-body .lg-ln { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 var(--fs-sub)/var(--lh-sub) var(--font-text); }
-.lg-body .lg-lt { font: 400 var(--fs-cap)/16px var(--font-text); color: var(--ink-3); }
-.lg-body .lg-ls { margin-top: 4px; font: 400 var(--fs-cap)/16px var(--font-text); color: var(--ink-2); }
-.lg-body .lg-lp { margin-left: auto; display: grid; justify-items: end; }
-.lg-body .lg-lp b { font-family: var(--font-num); color: var(--gold); }
-.lg-body .lg-lp small { font: 400 7px/10px var(--font-pixel); color: var(--ink-3); }
-
+/* ================================================================ Top performers (like ESPN Fantasy's) */
 /* Position colours */
 .lg-body .pos-QB { --pc: #FF6B8B; }
 .lg-body .pos-RB { --pc: #4FD1C5; }
@@ -140,36 +125,55 @@
 /* ESPN's headshots are cut out (transparent): the initials step aside once one is there (it removes itself if it fails). */
 .lg-body .lg-hs:has(img) > span { visibility: hidden; }
 
-/* ================================================================ Player stats */
-.lg-body .lg-stats .seg { margin-bottom: 8px; }
-.lg-body .lg-search { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-.lg-body .lg-search > .search { flex: 1; min-width: 0; }
-.lg-body .lg-mine {
-  flex: none; height: 36px; padding: 0 12px; border-radius: var(--r-pill);
-  background: var(--surface-1); color: var(--ink-2); box-shadow: inset 0 0 0 1px var(--separator);
-  font: 600 var(--fs-foot)/1 var(--font-text); white-space: nowrap;
+/* The chips: search and my players (icons), a divider, then All and the positions (the one picked ringed). */
+.lg-body .lg-chips {
+  display: flex; align-items: center; gap: 8px; overflow-x: auto; scrollbar-width: none;
+  margin: 0 calc(-1 * var(--gutter)) 10px; padding: 2px var(--gutter) 4px;
 }
-.lg-body .lg-mine[aria-pressed="true"] { background: var(--tint-soft); color: var(--tint); box-shadow: inset 0 0 0 1px var(--tint); }
-/* His manager in the league (yours lit). */
-.lg-body .lg-own { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; margin-top: 4px; font: 600 var(--fs-cap)/20px var(--font-text); color: var(--ink-2); }
-.lg-body .lg-own > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lg-body .lg-own.is-me { color: var(--tint); }
-.lg-body .lg-p.is-mine { box-shadow: inset 3px 0 0 var(--tint); background: linear-gradient(90deg, var(--tint-soft), transparent 55%); }
-.lg-body .lg-p.is-mine + .lg-p { box-shadow: 0 -1px 0 var(--separator); }
-.lg-body .lg-p + .lg-p.is-mine { box-shadow: inset 3px 0 0 var(--tint), 0 -1px 0 var(--separator); }
-.lg-body .lg-lead.is-mine { box-shadow: var(--pixel-shadow), inset 0 3px 0 var(--pc, var(--tint)), inset 0 0 0 1px var(--tint); }
+.lg-body .lg-chips::-webkit-scrollbar { display: none; }
+.lg-body .lg-chip {
+  flex: none; display: grid; place-items: center; min-width: 56px; height: 40px; padding: 0 16px; border-radius: var(--r-pill);
+  background: var(--surface-1); color: var(--ink-2); box-shadow: inset 0 0 0 1px var(--separator);
+  font: 500 var(--fs-callout)/1 var(--font-text); white-space: nowrap;
+  transition: transform var(--spring-snappy-dur) var(--spring-snappy);
+}
+.lg-body .lg-chip:active { transform: scale(.95); }
+.lg-body .lg-chip.lg-ic { min-width: 48px; padding: 0 14px; }
+.lg-body .lg-chip .ic { width: 20px; height: 20px; }
+.lg-body .lg-chip[aria-pressed="true"] { background: var(--surface-2); color: var(--ink); box-shadow: inset 0 0 0 2.5px var(--ink); font-weight: 600; }
+.lg-body .lg-chsep { flex: none; width: 1px; height: 32px; background: var(--separator); }
+.lg-body .lg-search { margin-bottom: 10px; }
+.lg-body .lg-search[hidden] { display: none; }
+
+/* PLAYERS ... SCORE, then the rows. */
 .lg-body .lg-scope { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 6px; font: 600 var(--fs-foot)/28px var(--font-text); color: var(--ink-2); }
-.lg-body .lg-list { list-style: none; margin: 0; padding: 0; border-radius: var(--r-group); background: var(--surface-1); overflow: hidden; }
-.lg-body .lg-p { display: flex; align-items: center; gap: 10px; min-height: 60px; padding: 8px 12px; }
+.lg-body .lg-cols {
+  display: flex; justify-content: space-between; padding: 8px 14px; border-radius: var(--r-group) var(--r-group) 0 0;
+  background: var(--surface-1); box-shadow: inset 0 -1px 0 var(--separator);
+  font: 700 var(--fs-foot)/18px var(--font-text); letter-spacing: .04em; text-transform: uppercase; color: var(--ink);
+}
+.lg-body .lg-list { list-style: none; margin: 0; padding: 0; border-radius: 0 0 var(--r-group) var(--r-group); background: var(--surface-1); overflow: hidden; }
+.lg-body .lg-p { display: flex; align-items: center; gap: 10px; min-height: 76px; padding: 10px 14px 10px 10px; }
+.lg-body .lg-p:nth-child(even) { background: color-mix(in srgb, var(--surface-2) 45%, transparent); }
 .lg-body .lg-p + .lg-p { box-shadow: 0 -1px 0 var(--separator); }
-.lg-body .lg-rk { flex: none; width: 22px; text-align: right; color: var(--ink-3); font-family: var(--font-num); }
-.lg-body .lg-p.is-top .lg-rk { color: var(--gold); }
+.lg-body .lg-p.is-mine { box-shadow: inset 3px 0 0 var(--tint); background: linear-gradient(90deg, var(--tint-soft), transparent 60%); }
+.lg-body .lg-p + .lg-p.is-mine { box-shadow: inset 3px 0 0 var(--tint), 0 -1px 0 var(--separator); }
+/* Left: his manager's picture (yours ringed), or a "+" for a player no one has (ESPN's free-agent mark). */
+.lg-body .lg-ow, .lg-body .lg-fa { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; }
+.lg-body .lg-ow.is-me { box-shadow: 0 0 0 2px var(--tint); }
+.lg-body .lg-fa { background: #F5B942; color: #1A1200; }
+.lg-body .lg-fa .ic { width: 18px; height: 18px; stroke-width: 3; }
+.lg-body .lg-p .lg-hs { background: var(--surface-3); }
 .lg-body .lg-pm { flex: 1; min-width: 0; }
-.lg-body .lg-pn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 var(--fs-sub)/var(--lh-sub) var(--font-text); }
-.lg-body .lg-ps { font: 400 var(--fs-cap)/16px var(--font-text); color: var(--ink-2); }
-.lg-body .lg-pt { color: var(--ink-3); }
-.lg-body .lg-pp { flex: none; min-width: 52px; text-align: right; font-family: var(--font-num); }
-.lg-body .lg-p.is-top .lg-pp { color: var(--gold); }
+.lg-body .lg-pn { display: flex; align-items: center; gap: 6px; min-width: 0; font: 600 var(--fs-body)/22px var(--font-text); color: var(--ink); }
+.lg-body .lg-nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lg-body .lg-pn .lg-logo { width: 18px; height: 18px; }
+.lg-body .lg-pn .lg-pos { flex: none; padding: 0; background: none; color: var(--ink-3); font: 600 var(--fs-foot)/1 var(--font-text); }
+.lg-body .lg-pg, .lg-body .lg-ps { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 400 var(--fs-foot)/20px var(--font-text); color: var(--ink-2); }
+.lg-body .lg-pr { flex: none; display: grid; justify-items: end; gap: 2px; max-width: 34%; text-align: right; }
+.lg-body .lg-pp { font: 700 var(--fs-3)/24px var(--font-text); color: var(--ink); font-variant-numeric: tabular-nums; }
+.lg-body .lg-po { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 400 var(--fs-foot)/20px var(--font-text); color: var(--ink-3); }
+.lg-body .lg-po.is-me { color: var(--tint); font-weight: 600; }
 .lg-body .lg-dot { display: inline-block; width: 6px; height: 6px; margin-left: 2px; vertical-align: 2px; border-radius: 50%; background: var(--wrong); animation: lg-blink 1.6s ease-in-out infinite; }
 .lg-body .lg-morewrap { display: flex; justify-content: center; margin-top: 12px; }
 .lg-body .lg-foot { margin-top: 16px; font: 400 var(--fs-cap)/var(--lh-cap) var(--font-text); color: var(--ink-4); }
