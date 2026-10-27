@@ -37,7 +37,7 @@ export const GAMES = [
   {id: 'puzzles', name: 'Daily Puzzles', title: 'Daily Puzzles', art: 'img/games/puzzles-cover-v2.webp', book: 'img/games/puzzles-book.webp', disc: 'img/games/puzzles-disc.webp', badge: 'img/puzzles.webp', cd: 'New puzzles in'},
   {id: '17-0', name: '17–0', title: '17–0', art: 'img/games/seventeen-cover.webp', book: 'img/games/seventeen-book.webp', disc: 'img/games/seventeen-disc.webp', badge: 'img/seventeen.webp', cd: 'New board in'},
   {id: 'drill', name: 'Two-Minute Drill', title: 'Two-Minute Drill', art: 'img/games/drill-cover-v2.webp', book: 'img/games/drill-book.webp', disc: 'img/games/drill-disc.webp', badge: 'img/drill.webp', cd: 'Next drill in'},
-  {id: 'kick', name: 'Kick It', title: 'Kick It', art: 'img/games/kick-cover.webp', book: 'img/games/kick-book.webp', disc: 'img/games/kick-disc.webp', badge: 'img/kick.webp', cd: 'New kicks in'},
+  {id: 'kick', name: 'Kick It', title: 'Kick It', art: 'img/games/kick-cover-v2.webp', book: 'img/games/kick-book.webp', disc: 'img/games/kick-disc.webp', badge: 'img/kick.webp', cd: 'New kicks in'},
   {id: 'return', name: 'Return Man', title: 'Return Man', art: 'img/games/return-man-cover.webp', book: 'img/games/return-book.webp', disc: 'img/games/return-disc.webp', badge: 'img/return.webp', cd: 'Next kickoff in'},
   {id: 'keep', name: 'Keepfall', title: 'Keepfall', art: 'img/games/keepfall-cover-v2.webp', book: 'img/games/keepfall-book-v2.webp', disc: 'img/games/keepfall-disc-v2.webp'}
 ];

@@ -7,7 +7,7 @@
 // A slow request falls back to whatever is cached under its path (from the previous worker too), so data whose
 // format changes gets a new file name rather than new content under the old one (data/puzzles-v4.json: see
 // js/core/daily.js).
-const CACHE = 'gg-v463';
+const CACHE = 'gg-v464';
 const CORE = ['ui', 'data', 'daily', 'fire', 'week', 'nfl', 'stats', 'motw', 'press', 'checks', 'checks-stats', 'checks-pickem', 'checks-press', 'checks-seventeen', 'checks-drill', 'checks-kick', 'return', 'checks-return', 'lay', 'plays', 'laytrack', 'gameday', 'seventeen', 'drill-sim', 'drill', 'kick', 'avatars', 'lpick', 'survivor', 'checks-lpick', 'realm', 'realm-pay', 'realm-active', 'realm-dragons', 'realm-battle', 'checks-realm'];
 // The tab roots are puzzles, pickem, rivals (Matchup), league, moves (Draft), lay (The Lay) and live (Live). Keepfall opens from Daily Games.
 const VIEWS = ['welcome', 'guest', 'puzzles', 'games', 'game-case', 'board', 'you', 'sharecard', 'results', 'run', 'college', 'silhouette', 'mystery', 'journey', 'grid', 'picker',
@@ -26,7 +26,7 @@ const SHELL = [
   ...VIEWS.map(v => `js/views/${v}.js`),
   // Code only: larger artwork and models load and cache on demand.
   'fonts/barlow-condensed-800.woff2', 'fonts/cinzel-latin.woff2', 'fonts/press-start-2p.woff2', 'fonts/vt323.woff2', 'img/logo.webp', 'img/nfl.webp', 'img/ncaa.webp', 'img/league.webp', 'img/survivor.webp', 'img/puzzles.webp', 'img/seventeen.webp', 'img/drill.webp',
-  'img/games/puzzles-cover-v2.webp', 'img/games/seventeen-cover.webp', 'img/games/drill-cover-v2.webp', 'img/games/kick-cover.webp', 'img/games/return-man-cover.webp', 'img/games/smoke.webp',
+  'img/games/puzzles-cover-v2.webp', 'img/games/seventeen-cover.webp', 'img/games/drill-cover-v2.webp', 'img/games/kick-cover-v2.webp', 'img/games/return-man-cover.webp', 'img/games/smoke.webp',
   'img/games/puzzles-book.webp', 'img/games/seventeen-book.webp', 'img/games/drill-book.webp', 'img/games/kick-book.webp', 'img/games/return-book.webp',
   'img/games/puzzles-disc.webp', 'img/games/seventeen-disc.webp', 'img/games/drill-disc.webp', 'img/games/kick-disc.webp', 'img/games/return-disc.webp', 'img/return.webp', 'img/kick.webp',
   'img/kick/holder.webp', 'img/kick/holder-empty.webp', 'img/kick/kicker.webp', 'img/kick/kicker-follow.webp', 'img/kick/line.webp', 'img/kick/football.webp',
