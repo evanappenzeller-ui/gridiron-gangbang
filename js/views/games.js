@@ -372,6 +372,11 @@ const caseLabel = (g, s) => {
 };
 /** A case's faces: its front, and its back when it has one (a game finished; one that turns before it's played). */
 const facesHTML = (g, s) => sidesHTML(g) + frontHTML(g, s) + (isKeepCase(g) ? keepBackHTML(g) : s.kind === 'done' || s.turns ? backHTML(g, s) : '');
+// The one place a case on the shelf is taken hold of to turn it, its top right corner (the owner's ask, Oct 27 2026:
+// "It is too easy to flip the game cases. Make the only part to swivel the case in the top right"), and the small mark
+// there that shows where, once you've looked at the case a while (mountList's hint)
+const GRIP = `<span class="gm-grip" aria-hidden="true"><svg class="gm-grip-cue" viewBox="0 0 24 24" focusable="false">`
+  + `<path class="gm-cue-br" d="M10 3h8a3 3 0 0 1 3 3v8"/><path class="gm-cue-ar" d="M16.5 7.5C11 8 7.6 11 7 16.5M4.6 14.2 7 16.6l2.5-2.2"/></svg></span>`;
 function caseHTML(g, s, i, n, clone) {
   const done = s.kind === 'done';
   const what = caseLabel(g, s);
@@ -379,7 +384,7 @@ function caseHTML(g, s, i, n, clone) {
   return `<div class="gm-slot" ${slot} data-gm-slot="${g.id}">`
     + `<button type="button" class="gm-case${done ? ' is-done' : s.turns ? ' is-turns' : ''}${isKeepCase(g) ? ' is-swivel' : ''}" data-gm="${g.id}" data-kind="${s.kind}" aria-label="${esc(what)}"${clone ? ' tabindex="-1"' : ''}>`
     + `<span class="gm-flip">${facesHTML(g, s)}</span><span class="gm-gloss" aria-hidden="true"></span>`
-    + ['t', 'b', 'l', 'r'].map(k => `<span class="gm-grip is-${k}" aria-hidden="true"></span>`).join('') + `</button></div>`; // (views/game-case.js shelfTurner)
+    + GRIP + `</button></div>`; // (views/game-case.js shelfTurner)
 }
 
 // ---------------------------------------------------------------- What's under the shelf: the game you're on
@@ -435,9 +440,9 @@ const SHELF_KEY = 'gg-shelf';
  *  date (a game just finished turns its case round), tick() moves the countdown. opts.play(id): open a game. */
 export function mountList(el, ctx, opts = {}) {
   // st.cur: the slot in the middle, counting every copy (slots()); its game is list()[st.cur % n()]
-  const st = {dead: false, cur: 0, zoom: null, raf: 0, saved: 0, settle: 0, touch: false, owner: null, assets: null, styles: []};
+  const st = {dead: false, cur: 0, zoom: null, raf: 0, saved: 0, settle: 0, hint: 0, touch: false, owner: null, assets: null, styles: []};
   const shelf = el.querySelector('.gm-shelf'), sel = el.querySelector('[data-gm-sel]');
-  const turner = shelfTurner(shelf, {rest: () => syncFlip()}); // (a case grabbed by its edge turns where it stands)
+  const turner = shelfTurner(shelf, {rest: () => syncFlip()}); // (a case grabbed by its top right corner turns where it stands)
   const list = () => gamesFor().filter(g => el.querySelector(`.gm-slot[data-gm-slot="${g.id}"]`));
   const slots = () => [...el.querySelectorAll('.gm-slot')];
   const n = () => Math.max(1, list().length);
@@ -514,6 +519,7 @@ export function mountList(el, ctx, opts = {}) {
     st.settle = 0;
     if (st.dead || st.touch || !shelf.clientWidth) return;
     layout();
+    hintSoon();
     const k = n(), j = st.cur;
     if (j < 0 || (j >= k && j < 2 * k)) return;
     const all = slots(), to = k + (j % k);
@@ -522,14 +528,34 @@ export function mountList(el, ctx, opts = {}) {
     st.cur = to;
     layout();
   };
+  // Looked at a while (the shelf at rest, no finger on it), the case in the middle shows where it's taken hold of to
+  // turn it (.is-hint: the mark in its top right corner, the owner's ask, Oct 27 2026: "If the user is looking at the
+  // game case for a little bit, there should be a subtle indicator showing where to grab it"); a touch or a swipe
+  // puts it away, and it's back the next time the shelf rests a while
+  const HINT_MS = 3500;
+  const hintOff = () => {
+    clearTimeout(st.hint); st.hint = 0;
+    el.querySelectorAll('.gm-case.is-hint').forEach(c => c.classList.remove('is-hint'));
+  };
+  const hintSoon = () => {
+    hintOff();
+    if (st.dead) return;
+    st.hint = setTimeout(() => {
+      st.hint = 0;
+      if (st.dead || st.touch || st.zoom || ctx.visible === false || document.hidden) return;
+      const g = list()[st.cur % n()], cs = g && curCase(g.id), grip = cs && cs.querySelector('.gm-grip');
+      if (grip && !cs.classList.contains('is-turning') && getComputedStyle(grip).display !== 'none') cs.classList.add('is-hint'); // (a case that turns)
+    }, HINT_MS);
+  };
   const onScroll = () => {
+    hintOff();
     if (!st.raf) st.raf = requestAnimationFrame(layout);
     clearTimeout(st.settle);
     st.settle = setTimeout(settle, 140);
     clearTimeout(st.saved);
     st.saved = setTimeout(() => { const g = list()[st.cur % n()]; if (g) try { sessionStorage.setItem(SHELF_KEY, g.id); } catch (_) {} }, 200);
   };
-  const onDown = () => { st.touch = true; };
+  const onDown = () => { st.touch = true; hintOff(); };
   const onUp = () => { st.touch = false; clearTimeout(st.settle); st.settle = setTimeout(settle, 140); };
   function setCur(i, animate = true) {
     const g = list()[i];
@@ -674,6 +700,7 @@ export function mountList(el, ctx, opts = {}) {
       if (goBtn) goBtn.disabled = !open;
     };
     const T = turnable(z, dlg, said, {still: play && !keep, front: play, closeOnDrag: keep, compact: owner});
+    hintOff();
     st.zoom = {el: z, id, mode: 'today', play, owner, launching: false, launch: null, launchTimer: 0, app, prev: app ? app.inert : false, turn: T, fit: () => fitBoard(z.querySelector('[data-gm-zbody]')),
       n: history.state && history.state.n, team: false};
     st.zoom.fit();
@@ -788,6 +815,7 @@ export function mountList(el, ctx, opts = {}) {
     if (!Z) return;
     const restoreFocus = !fast;
     st.zoom = null;
+    hintSoon();
     clearTimeout(Z.launchTimer);
     if (Z.launch) Z.launch.cancel();
     if (Z.launching) fast = true;
@@ -932,6 +960,7 @@ export function mountList(el, ctx, opts = {}) {
     el.classList.remove('gm-owner');
     turner.stop();
     clearTimeout(st.settle);
+    clearTimeout(st.hint);
     shelf.removeEventListener('scroll', onScroll);
     shelf.removeEventListener('pointerdown', onDown);
     shelf.removeEventListener('touchstart', onDown);

@@ -277,9 +277,10 @@ export function turnable(surface, dlg, on = () => {}, opts = {}) {
 
 // ---------------------------------------------------------------- the cases on the shelf
 /**
- * The cases on the shelf turn under a finger too (the owner's ask, Oct 2026): grabbed by its top, bottom or sides (a
- * .gm-grip, on the case in the middle only) a case turns where it stands, and let go it springs to the nearer of its
- * sides, its back or its front; a swipe across its middle still goes along the shelf. Only a game finished turns (the
+ * The cases on the shelf turn under a finger too (the owner's ask, Oct 2026): grabbed by its top right corner, and only
+ * there (a .gm-grip, on the case in the middle only; the owner's ask, Oct 27 2026: "It is too easy to flip the game
+ * cases"), a case turns where it stands, and let go it springs to the nearer of its sides, its back or its front; a
+ * swipe anywhere else on it still goes along the shelf. Only a game finished turns (the
  * owner's ask, Oct 2026): till then its case stands still, facing front, here and up close. At rest on the side it shows on its own, its turn is handed back to the stylesheet.
  * A game not finished today turns too (.is-turns: first Return Man's, the owner's ask, Oct 22 2026; every case but
  * Keepfall's since Oct 26 2026, its scoreboard at any point), its leaderboard on its back; it stands on its front (to
