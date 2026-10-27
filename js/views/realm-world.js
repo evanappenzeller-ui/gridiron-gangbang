@@ -21,20 +21,23 @@ const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
 const smooth = (a, b, v) => { const t = clamp((v - a) / (b - a)); return t * t * (3 - 2 * t); };
 
 // ---- each land: its ground (grass, earth, rock, road: models/realm/world-v1/textures) and their tints, water, sky,
-// light, trees, crops, how many hamlets, its own touches
+// light, trees (near the lot; far: the woods beyond), crops, how many hamlets, its own touches. Only the realistic trees
+// (Oct 27 2026, the owner: "Remove the low poly trees and make the outside more dense with the more realistic trees"):
+// no low-poly pine (pineLow), and the far woods are the light ones of those (pine3, birch2: ~700 triangles), not cones
 const THEMES = {
   coast: {ground: ['grass', 'dust', 'ground_rock', 'ground_stones'], tint: [[.9, .95, .86], [.92, .84, .74], [.95, .95, .95], [.95, .93, .9]],
     water: {kind: 'sea', color: 0x2b6a80}, sky: [0x5a86b8, 0xc2ccd0], fog: 0xb3bec2, sun: [0xffe0b8, 2.4], hemi: [0xcfdbe8, 0x3e4c32, .75],
-    trees: {pineLow: 6, pine1: 1, oak1: 1, birch1: 1, deciduous1: 1}, forest: 1, rocks: 1, crops: ['rye', 'sunflower'], hamlets: 4, windmills: 3},
+    trees: {pine1: 2, pine2: 1, pine3: 4, oak1: 1, birch1: 1, birch2: 2, deciduous1: 1}, far: {pine3: 3, birch2: 2}, forest: 1, rocks: 1, crops: ['rye', 'sunflower'], hamlets: 4, windmills: 3},
   forest: {ground: ['grassDark', 'swamp', 'ground_rock', 'ground_road'], tint: [[.82, .9, .84], [.85, .85, .8], [.8, .84, .82], [.8, .78, .74]],
     water: {kind: 'river', color: 0x1f5a5e, glow: 0x1a6a62}, sky: [0x26345c, 0x5d6d88], fog: 0x56647c, sun: [0xbcd0f4, 1.5], hemi: [0x9aaccc, 0x1e2a1e, .75],
-    trees: {pineLow: 5, pine1: 2, deciduous1: 2, deciduous2: 1, willow1: 1, oak2: 1}, forest: 1.5, rocks: 1, crops: ['rye'], hamlets: 2, windmills: 1, mushrooms: true, fx: 'fireflies'},
+    trees: {pine1: 2, pine2: 1, pine3: 3, deciduous1: 2, deciduous2: 1, willow1: 1, oak2: 1, birch2: 2}, far: {pine3: 3, birch2: 1},
+    forest: 1.5, rocks: 1, crops: ['rye'], hamlets: 2, windmills: 1, mushrooms: true, fx: 'fireflies'},
   tundra: {ground: ['snow', 'snowDark', 'ground_rock', 'ground_stones'], tint: [[.94, .96, 1], [.9, .92, .97], [.88, .9, .95], [.9, .92, .96]],
     water: {kind: 'sea', color: 0x5f8aa2, ice: true}, sky: [0x6d88a8, 0xc4ced8], fog: 0xbcc7d2, sun: [0xfff0dc, 1.8], hemi: [0xd2deea, 0x66768a, .85],
-    trees: {pineLow: 6, pine1: 2, pine2: 1}, forest: 1, rocks: 1.3, frost: .55, crops: [], hamlets: 2, windmills: 0, fx: 'snow'},
+    trees: {pine1: 2, pine2: 1, pine3: 5}, far: {pine3: 1}, forest: 1, rocks: 1.3, frost: .55, crops: [], hamlets: 2, windmills: 0, fx: 'snow'},
   desert: {ground: ['sandStones', 'sand', 'earth', 'ground_road'], tint: [[1, .97, .92], [1, .96, .9], [1.02, .86, .76], [.98, .92, .84]],
     water: {kind: 'oasis', color: 0x2a8a8c}, sky: [0xc77b52, 0xf2c48e], fog: 0xe3b48a, sun: [0xffc48a, 2.5], hemi: [0xf6dcc0, 0x8a5a3a, .8],
-    trees: {pineStump: 1, stump: 2}, forest: .25, rocks: 2.2, oasisTrees: {willow1: 1, oak2: 1}, crops: [], hamlets: 2, windmills: 0, redRock: true}
+    trees: {pineStump: 1, stump: 2}, far: {pineStump: 1, stump: 2}, forest: .25, rocks: 2.2, oasisTrees: {willow1: 1, oak2: 1}, crops: [], hamlets: 2, windmills: 0, redRock: true}
 };
 // (a land retired Oct 26 2026 is drawn as its nearest: core/realm.js RETIRED_SCENERIES)
 const NEAREST = {ocean: 'coast', christmas: 'tundra', infernal: 'desert'};
@@ -151,7 +154,7 @@ function placesOf(k) {
 
 // ---- room on the ground (Oct 26 2026, the owner's ask: "They should not overlap unless it is natural looking"): each
 // model's footprint at scale 1, x by z, and its height (tiles, as drawn: trees 4.6 tall, plants .8 a metre; from
-// models/realm/world-v1/manifest.json; the windmill's its sails' sweep, the far woods' their plain cones), so that
+// models/realm/world-v1/manifest.json; the windmill's its sails' sweep), so that
 // nothing stands inside anything else. Only what's natural meets: trees' crowns, undergrowth under them and against a
 // wall, flowers in their drifts, a fence's rails
 const FOOT = {
@@ -163,14 +166,14 @@ const FOOT = {
   ruinWall: [5, 1.2, 6], ruinArch: [5, 1.2, 6], ruinEnd: [1.29, 1.23, 6], pillar: [1, 1, 3], fence: [3.16, .16, 1.2],
   pineLow: [2.37, 2.46, 4.6], pine1: [2.76, 2.81, 4.6], pine2: [2.84, 2.81, 4.6], pine3: [2.4, 2.29, 4.6], oak1: [6.84, 6.59, 4.6], oak2: [6.63, 7.96, 4.6],
   birch1: [4.25, 4.29, 4.6], birch2: [4.16, 4.08, 4.6], deciduous1: [6.17, 4.95, 4.6], deciduous2: [6.17, 5.93, 4.6], willow1: [6.36, 7.09, 4.6],
-  pineStump: [1.16, 1.24, .9], stump: [1.05, 1.17, .9], farTree: [3.4, 3.4, 5],
+  pineStump: [1.16, 1.24, .9], stump: [1.05, 1.17, .9],
   rock1: [9.29, 8.39, 5.52], rock2: [12.36, 7.65, 5.28], rock3: [12.67, 8.39, 6.25], stone1: [1.78, 1.66, 1.04], stone2: [3.92, 4.02, 2.38], stone3: [3.78, 3.51, 1.32]
 };
 // (where a cottage's chimney tops out, in its model's metres: its smoke rises from there)
 const CHIMNEY = {house1: [3.5, 7.3, 1.25], house2: [2.5, 7.3, 2.5], house3: [1.25, 7.3, 1.25]};
 /** What a piece is to its neighbours: a tree (its crown), cover (undergrowth), or solid ('tall' if a crown can't reach over it). */
 const roleOf = (name, s) => {
-  if (/^(pine|oak|birch|deciduous|willow|stump|farTree)/.test(name)) return 'tree';
+  if (/^(pine|oak|birch|deciduous|willow|stump)/.test(name)) return 'tree';
   const h = FOOT[name][2] * s;
   if (/bush|fern|flower|bloom/.test(name) || (/mushroom|toadstool/.test(name) && h < 1.2) || (/stone/.test(name) && h < .7)) return 'cover';
   return h > 1.2 ? 'tall' : 'solid';
@@ -520,31 +523,31 @@ export function createWorld(T, scene, {theme = 'coast', onChange = () => {}, max
       if (ok(x, z, 4, 0) && -(x + z) >= 0 && put(['rock1', 'rock3'][n % 2], x, z, .45 + R() * .8)) n++;
     }
     // ---- trees: groves round the lot (lone trees in the meadows between), woods further out where the forest noise is
-    // high: the imported trees within ~76 tiles (most the light pine), plain ones beyond, seen small. Their crowns may
-    // meet; their trunks keep apart, and clear of the village, the rocks and the fields
+    // high: the land's trees within ~76 tiles, its far ones beyond, seen small. Their crowns may meet; their trunks keep
+    // apart, and clear of the village, the rocks and the fields
     const woods = (x, z) => fbm(x * .028, z * .028, 21);
-    const near = Math.round(Math.min(420, 360 * Th.forest) * detail), far = Math.round(900 * Th.forest * detail);
-    for (let g = 0, n = 0; g < 800 && n < near; g++) {
+    const near = Math.round(Math.min(1150, 1000 * Th.forest) * detail), far = Math.round(Math.min(800, 700 * Th.forest) * detail);
+    for (let g = 0, n = 0; g < 2400 && n < near; g++) {
       const a = R() * Math.PI * 2, d = LOT + 6 + Math.pow(R(), .85) * 70, cx = Math.cos(a) * d, cz = Math.sin(a) * d;
       if (!ok(cx, cz, 8)) continue;
-      const size = 6 + Math.floor(R() * 12), radius = 3 + size * .45;
+      const size = 8 + Math.floor(R() * 14), radius = 3 + size * .4;
       for (let i = 0; i < size * 3 && n < near; i++) {
         const b = R() * Math.PI * 2, r = Math.sqrt(R()) * radius, x = cx + Math.cos(b) * r, z = cz + Math.sin(b) * r;
         if (ok(x, z, 6) && put(pick(Th.trees), x, z, .75 + R() * .55)) n++;
         if (i > size) break;
       }
     }
-    for (let i = 0, n = 0; i < 900 && n < 60 * Th.forest; i++) {
+    for (let i = 0, n = 0; i < 1400 && n < 80 * Th.forest; i++) {
       const a = R() * Math.PI * 2, d = LOT + 6 + R() * 62, x = Math.cos(a) * d, z = Math.sin(a) * d;
       if (ok(x, z, 6) && put(pick(Th.trees), x, z, .8 + R() * .4)) n++;
     }
     for (let i = 0, n = 0; i < far * 25 && n < far; i++) {
       const a = R() * Math.PI * 2, d = 92 + Math.pow(R(), .8) * 130, x = Math.cos(a) * d, z = Math.sin(a) * d;
-      if (!ok(x, z, 4, 0) || woods(x, z) < .44 - (d - 92) * .0012) continue;
-      if (put('farTree', x, z, .85 + R() * .8)) n++;
+      if (!ok(x, z, 4, 0) || woods(x, z) < .4 - (d - 92) * .0012) continue;
+      if (put(pick(Th.far), x, z, .85 + R() * .8)) n++;
     }
     // (the ruin's grove: old trees round the statues)
-    for (const h of places.filter(p => p.ruin)) for (let i = 0; i < 9; i++) { const a = R() * Math.PI * 2, d = h.r + 1.5 + R() * 4; const x = h.x + Math.cos(a) * d, z = h.z + Math.sin(a) * d; if (ok(x, z, 6, 0)) put(Th.trees.oak2 ? 'oak2' : Th.trees.birch1 ? 'birch1' : Th.trees.pineLow ? 'pineLow' : pick(Th.trees), x, z, .85 + R() * .3); }
+    for (const h of places.filter(p => p.ruin)) for (let i = 0; i < 9; i++) { const a = R() * Math.PI * 2, d = h.r + 1.5 + R() * 4; const x = h.x + Math.cos(a) * d, z = h.z + Math.sin(a) * d; if (ok(x, z, 6, 0)) put(Th.trees.oak2 ? 'oak2' : Th.trees.birch1 ? 'birch1' : pick(Th.trees), x, z, .85 + R() * .3); }
     if (Th.oasisTrees) for (let i = 0; i < 11; i++) tries(3, () => { const a = R() * Math.PI * 2, d = 13 + R() * 6, x = -58 + Math.cos(a) * d, z = 34 + Math.sin(a) * d; return shape.water(x, z) < .05 && put(pick(Th.oasisTrees), x, z, .7 + R() * .3); });
     // ---- mushrooms in the enchanted forest, in little clumps in the clearings between the trees: true to life, under a
     // flower's height (Oct 26 2026, the owner: "All mushrooms across the scenery are too large. Shrink them to realistic
@@ -593,6 +596,11 @@ export function createWorld(T, scene, {theme = 'coast', onChange = () => {}, max
   // metre, rocks as given; the village's pieces their metres times what's given per piece
   const TALL = {tree: 4.6, stump: .9}, UNIT = {cover: .8, rock: 1};
   const kindOf = name => /pine|oak|birch|deciduous|willow|Stump|stump/.test(name) ? 'tree' : /bush|fern|flower|bloom/.test(name) ? 'cover' : /rock|stone/.test(name) ? 'rock' : 'piece';
+  const sectors = list => {
+    const by = new Map(), cell = SIZE / 4;
+    for (const p of list) { const k = Math.floor((p.x + SIZE / 2) / cell) * 4 + Math.floor((p.z + SIZE / 2) / cell); if (by.has(k)) by.get(k).push(p); else by.set(k, [p]); }
+    return [...by.values()];
+  };
   function instanced(name, list, asset) {
     const g = new T.Group(); g.name = 'keep-nature-' + name;
     const m4 = new T.Matrix4(), q = new T.Quaternion(), v = new T.Vector3(), sc = new T.Vector3();
@@ -604,15 +612,19 @@ export function createWorld(T, scene, {theme = 'coast', onChange = () => {}, max
       if (Th.frost && (kind === 'tree' || kind === 'cover') && !/bark|trunk/i.test(material.name)) { mat = own(material.clone()); mat.color.lerp(new T.Color(0xf2f6fa), kind === 'cover' ? .8 : Th.frost); }
       if (Th.redRock && kind === 'cover') { mat = own(material.clone()); mat.color.setRGB(.82, .66, .42); } // (dry scrub)
       if (Th.redRock && kind === 'rock') { mat = own(material.clone()); mat.color.setRGB(1.25, .82, .62); }
-      const mesh = new T.InstancedMesh(geometry, mat, list.length);
-      list.forEach((p, i) => {
-        q.setFromAxisAngle(UP, p.r); const s = p.s * unit; sc.set(s, s, s);
-        mesh.setMatrixAt(i, m4.compose(v.set(p.x, p.y - .05, p.z), q, sc));
-      });
-      mesh.computeBoundingSphere(); mesh.raycast = () => {};
-      // (no shadows cast: one batch spans the whole land, and would be drawn into the sun's shadow every frame)
-      mesh.castShadow = false; mesh.receiveShadow = kind !== 'cover';
-      g.add(mesh);
+      // (trees in batches by quarter of the land, 4 x 4, so the ones off the screen aren't drawn: the woods are
+      // thousands of them; the rest one batch each)
+      for (const part of kind === 'tree' ? sectors(list) : [list]) {
+        const mesh = new T.InstancedMesh(geometry, mat, part.length);
+        part.forEach((p, i) => {
+          q.setFromAxisAngle(UP, p.r); const s = p.s * unit; sc.set(s, s, s);
+          mesh.setMatrixAt(i, m4.compose(v.set(p.x, p.y - .05, p.z), q, sc));
+        });
+        mesh.computeBoundingSphere(); mesh.raycast = () => {};
+        // (no shadows cast: a batch spans much of the land, and would be drawn into the sun's shadow every frame)
+        mesh.castShadow = false; mesh.receiveShadow = kind !== 'cover';
+        g.add(mesh);
+      }
     });
     if (asset.fan) {
       // a windmill's sails: their own instances, turned each frame about the hub (update)
@@ -627,7 +639,7 @@ export function createWorld(T, scene, {theme = 'coast', onChange = () => {}, max
     }
     return g;
   }
-  /** Plain 3D stand-ins: tiered cones and crowns for trees, faceted lumps for rocks (and the far woods always). */
+  /** Plain 3D stand-ins (until their models are in, or if they fail): tiered cones and crowns for trees, faceted lumps for rocks. */
   function plain(list, rock) {
     const g = new T.Group();
     const needles = own(new T.MeshStandardMaterial({color: THEMES[key].frost ? 0xb8c8c6 : key === 'desert' ? 0x6a5a3a : 0x27472c, roughness: .9, flatShading: true}));
@@ -725,10 +737,10 @@ export function createWorld(T, scene, {theme = 'coast', onChange = () => {}, max
     const models = {...(packs['nature.glb'] || {}), ...(packs['village.glb'] || {})};
     for (const [name, list] of Object.entries(built.spots)) {
       if (!list.length || name === 'smoke') continue;
-      const asset = name !== 'farTree' && models[name];
+      const asset = models[name];
       if (asset) natureGroup.add(instanced(name, list, asset));
       // (without its model: trees and rocks plain 3D; the village's pieces and the undergrowth wait for theirs)
-      else if (name === 'farTree' || kindOf(name) === 'tree' || kindOf(name) === 'rock') natureGroup.add(plain(list, kindOf(name) === 'rock'));
+      else if (kindOf(name) === 'tree' || kindOf(name) === 'rock') natureGroup.add(plain(list, kindOf(name) === 'rock'));
     }
     group.add(natureGroup);
   }
