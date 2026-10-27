@@ -586,14 +586,14 @@ function movingHTML(s, id) {
     + `<button type="button" class="rl-card-up is-go is-done" data-rl-moved><span class="rl-card-up-k">Done</span></button></div>`;
 }
 // (the card's picture: the building's 3D model at its level, rendered once and kept, so the card drawn again each second
-// doesn't render it again)
+// doesn't render it again; drawn again when the model it's from changes, one that came late: D3.thumb's own key)
 const ART = new Map();
 function artOf(key) {
-  if (ART.has(key)) return ART.get(key);
-  if (!D3 || !D3.ready() || !F.mayPlay()) return null;
+  if (!D3 || !D3.ready() || !F.mayPlay()) return ART.get(key) || null;
   const [k, l] = key.split(':'), lv = Math.max(1, +l || 1);
   const url = D3.thumb(k, lv, MY_HOUSE, false, {w: 576, h: 360});
-  if (!url) return null;
+  if (!url) return ART.get(key) || null;
+  if (ART.has(key) && ART.get(key).src === url) return ART.get(key);
   const im = new Image();
   im.alt = ''; im.draggable = false; im.decoding = 'async'; im.src = url;
   ART.set(key, im);
@@ -601,9 +601,9 @@ function artOf(key) {
 }
 function fillArt(root) {
   root.querySelectorAll('[data-rl-art]').forEach(slot => {
-    if (slot.firstElementChild) return;
     const im = artOf(slot.dataset.rlArt);
-    if (im) { slot.appendChild(im); slot.classList.add('has-art'); }
+    if (!im || slot.firstElementChild === im) return;
+    slot.replaceChildren(im); slot.classList.add('has-art');
   });
 }
 function showSel(st) {
