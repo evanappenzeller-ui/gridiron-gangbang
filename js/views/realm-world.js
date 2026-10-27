@@ -293,6 +293,42 @@ function groundMaterial(T, list, theme) {
 
 // ---- the models (shared by every view; each pack loaded once): name → {parts: [[geometry, material]], fan?, height, width}
 const packs = {}, packLoading = {}, LYING = {toadstool: Math.PI / 2};
+// (the windmill's porch came over from Unity lying on its back, out past the sails on two poles: its roof pointing
+// away from the tower, its door at the ground. Oct 27 2026, the owner: "The building connected to the windmill is laying
+// on its side". Stood up here on the ground in front of the tower, its door facing out, its back just clear of the
+// sails, whose tips sweep down to 2 m by the tower's foot; the poles, left holding nothing, go.)
+function standPorch(g) {
+  const P = g.attributes.position, N = g.attributes.normal, I = g.index.array, root = Array.from({length: P.count}, (_, i) => i);
+  const find = i => { while (root[i] !== i) i = root[i] = root[root[i]]; return i; };
+  const at = new Map();
+  for (let i = 0; i < P.count; i++) {
+    const k = P.getX(i).toFixed(3) + ',' + P.getY(i).toFixed(3) + ',' + P.getZ(i).toFixed(3);
+    if (at.has(k)) root[find(i)] = find(at.get(k)); else at.set(k, i);
+  }
+  for (let t = 0; t < I.length; t += 3) { root[find(I[t + 1])] = find(I[t]); root[find(I[t + 2])] = find(I[t]); }
+  // (the tower and its sails' hub end at z .16, the porch begins at 2.38; a pole runs between)
+  const GAP = 1.27, lo = new Map(), hi = new Map();
+  for (let i = 0; i < P.count; i++) { const r = find(i), z = P.getZ(i); lo.set(r, Math.min(lo.get(r) ?? z, z)); hi.set(r, Math.max(hi.get(r) ?? z, z)); }
+  const porch = i => lo.get(find(i)) > GAP, pole = i => lo.get(find(i)) < GAP && hi.get(find(i)) > GAP;
+  const box = {y1: -Infinity, z0: Infinity};
+  for (let i = 0; i < P.count; i++) if (porch(i)) {
+    box.y1 = Math.max(box.y1, P.getY(i)); box.z0 = Math.min(box.z0, P.getZ(i));
+  }
+  if (box.z0 === Infinity) return;
+  // (up was +z, the door -y: turned (x, y, z) → (x, z, -y), set on the ground with its back at z .15, the sails' tips
+  // reaching to -.06)
+  for (let i = 0; i < P.count; i++) {
+    if (!porch(i)) continue;
+    const y = P.getY(i), z = P.getZ(i);
+    P.setXYZ(i, P.getX(i), z - box.z0, .15 + box.y1 - y);
+    if (N) N.setXYZ(i, N.getX(i), N.getZ(i), -N.getY(i));
+  }
+  const keep = [];
+  for (let t = 0; t < I.length; t += 3) if (!pole(I[t])) keep.push(I[t], I[t + 1], I[t + 2]);
+  g.setIndex(keep);
+  P.needsUpdate = true; if (N) N.needsUpdate = true;
+  g.computeBoundingBox(); g.computeBoundingSphere();
+}
 function loadPack(T, file) {
   if (packs[file]) return Promise.resolve(packs[file]);
   if (packLoading[file]) return packLoading[file];
@@ -317,6 +353,7 @@ function loadPack(T, file) {
           const to = inFan ? new T.Matrix4().copy(fanNode.matrixWorld).invert() : inv;
           (inFan ? fan : parts).push([o.geometry.clone().applyMatrix4(new T.Matrix4().multiplyMatrices(to, o.matrixWorld)), o.material]);
         });
+        if (node.name === 'windmill') parts.forEach(([g]) => { if (g.index && g.attributes.position) standPorch(g); });
         const box = new T.Box3(); parts.forEach(([g]) => { g.computeBoundingBox(); box.union(g.boundingBox); });
         // (a model that came over lying on its side: stood up, centred and set on the ground; Oct 26 2026, the owner:
         // "The mushrooms are sideways")
