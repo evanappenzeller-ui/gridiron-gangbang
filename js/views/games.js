@@ -794,7 +794,8 @@ export function mountList(el, ctx, opts = {}) {
       if (replay && (e.target.closest('[data-gm-zlid]') || (T.state.front && !T.state.open && e.target.closest('[data-gm-zfront]')))) { toPlay(); return; }
       if (e.target.closest('[data-gm-zgo]')) { if (T.state.open) start(); return; }
       if (e.target.closest('[data-gm-zturn]')) { T.turn(1); return; }
-      if (e.target.closest('[data-gm-zlid]')) { T.lid(); return; }
+      // (shut, the case goes back down to the shelf, to swipe through the games: the owner's ask, Oct 27 2026)
+      if (e.target.closest('[data-gm-zlid]')) { if (T.state.open) closeZoom(); else T.lid(); return; }
       const who = e.target.closest('[data-gm-who], [data-gm-best]');
       if (who) {
         const key = who.dataset.gmWho, mode = st.zoom.mode === 'season' ? 'all' : 'today';
@@ -812,11 +813,11 @@ export function mountList(el, ctx, opts = {}) {
         ui.haptic('selection');
         return;
       }
-      // open, a tap on the disc gives it a spin, anywhere else on the case shuts it; shut, a tap on the cover opens it
+      // open, a tap on the disc gives it a spin, anywhere else on the case shuts it (back to the shelf); shut, a tap on the cover opens it
       if (T.state.open) {
         const lab = e.target.closest('[data-gm-zdisc]') && z.querySelector('.gm-z-lab');
         if (lab) { if (!ui.RM) ui.animate(lab, [{transform: 'rotate(0deg)'}, {transform: 'rotate(360deg)'}], {duration: 1100, easing: 'cubic-bezier(.15,.7,.3,1)'}); ui.haptic('light'); }
-        else if (e.target.closest('.gm-z-obj')) T.lid(false);
+        else if (e.target.closest('.gm-z-obj')) closeZoom();
         return;
       }
       if (e.target.closest('[data-gm-zfront]')) T.lid(true);
@@ -833,7 +834,7 @@ export function mountList(el, ctx, opts = {}) {
       if (st.zoom?.launching) return;
       if (e.target !== dlg) return;
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); T.turn(e.key === 'ArrowLeft' ? -1 : 1); }
-      else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (play && T.state.open) start(); else if (replay && T.state.front) toPlay(); else T.lid(); }
+      else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (play && T.state.open) start(); else if (replay && T.state.front) toPlay(); else if (T.state.open) closeZoom(); else T.lid(); }
     });
     dlg.focus({preventScroll: true});
     ui.haptic('light');
