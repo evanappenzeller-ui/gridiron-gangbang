@@ -282,8 +282,7 @@
   font: 700 12px/1.1 var(--font-text); color: rgba(247,238,221,.9); white-space: nowrap; }
 .rls-zoom { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 6px; }
 .rls-zoom button { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 10px; background: var(--rl-glass); color: #F7EEDD; cursor: pointer;
-  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px var(--rl-line); font: 700 24px/1 var(--rl-face); }
-.rls-zoom button.is-all { font-size: 13px; letter-spacing: .04em; }
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px var(--rl-line); font: 700 13px/1 var(--rl-face); letter-spacing: .04em; }
 .rls-zoom button:active { transform: translateY(2px); }
 .rls .rl-sel { bottom: max(12px, var(--sa-b, 0px)); }
 .rls-bar { position: absolute; left: 10px; right: 10px; bottom: max(12px, var(--sa-b, 0px)); display: flex; flex-direction: column; gap: 8px; }
@@ -306,10 +305,7 @@ html.is-realm-playing #tabbar { visibility: hidden; pointer-events: none; }
 .rl-hub, .rl-frame { pointer-events: auto; min-height: 44px; padding: 0 12px; border: 1px solid var(--rl-line); border-radius: 12px; color: #F7EEDD; background: var(--rl-glass); font: 600 12px/1 var(--font-text); cursor: pointer; box-shadow: 0 3px 12px #0003; }
 .rl-hub { font-size: 14px; }
 .rl-camera-modes { display: flex; gap: 6px; }
-.rl-zoom { position: absolute; right: 10px; top: 43%; display: grid; border: 1px solid var(--rl-line); border-radius: 12px; overflow: hidden; background: var(--rl-glass); box-shadow: 0 3px 12px #0003; }
-.rl-zoom button { width: 44px; height: 44px; padding: 0; border: 0; background: transparent; color: #F7EEDD; font: 400 25px/1 var(--font-text); cursor: pointer; touch-action: manipulation; }
-.rl-zoom button + button { border-top: 1px solid var(--rl-line); }
-.rl-zoom button:active, .rl-frame:active { background: rgba(232,190,96,.2); }
+.rl-frame:active { background: rgba(232,190,96,.2); }
 .rl-objective { position: absolute; left: 12px; right: 12px; bottom: calc(var(--rl-bottom) + 74px); max-width: 420px; margin: 0 auto; min-height: 60px; padding: 9px 36px 10px 13px; border: 1px solid rgba(232,190,96,.4); border-radius: 12px; background: rgba(26,20,13,.88); color: #F7EEDD; text-align: left; cursor: pointer; box-shadow: 0 4px 18px #0003; }
 .rl-objective[hidden] { display: none; }
 .rl-objective-k { display: block; margin-bottom: 3px; color: var(--rl-gilt); font: 700 9px/1.1 var(--font-text); letter-spacing: .13em; text-transform: uppercase; }

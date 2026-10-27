@@ -2,7 +2,7 @@
 // a visit button"), over Keepfall (a cover over Daily Games, #/realm/visit/<profile key>), from Visit by Lore on the home
 // screen. Their realm as they see it at home (core/realm.js visitable: the freshest copy on the board, its builders'
 // finished work counted; views/realm-3d.js draws it in their scenery, their heroes and keeper about it): drag to look
-// round, pinch (or the wheel, or + and −) to zoom, All to see the whole of it again. Their house, name and Castle level at
+// round, pinch (or the wheel) to zoom, All to see the whole of it again. Their house, name and Castle level at
 // the top, what defends it under them; tap a building for what it is and does. Back goes home. Looking only: nothing
 // here changes anything, and players' realms are never raided. Who can be visited follows the scoreboards' rule
 // (CLAUDE.md): checked again whenever the board or this phone's profile changes.
@@ -25,7 +25,6 @@ function shellHTML() {
     + `<div class="rlr-top"><button type="button" class="rlr-quit is-back" data-rlv-back>Back</button><div class="rlr-who" data-rlv-who></div></div>`
     + `<div class="rls-def" data-rlv-def></div>`
     + `<div class="rls-zoom" role="group" aria-label="Zoom">`
-    + `<button type="button" data-rlv-zoom="in" aria-label="Zoom in">+</button><button type="button" data-rlv-zoom="out" aria-label="Zoom out">−</button>`
     + `<button type="button" class="is-all" data-rlv-zoom="all" aria-label="See the whole realm">All</button></div>`
     + `<div class="rl-sel" data-rlv-sel hidden></div>`
     + `<div class="rls-bar" data-rlv-bar><p class="rls-hint">Visiting · drag to look round · pinch to zoom · tap a building</p></div>`
@@ -127,7 +126,7 @@ export default {
       if (t.closest('[data-rlv-back]')) { ctx.back(); return; }
       if (t.closest('[data-rlv-unsel]')) { select(st, null); return; }
       const z = t.closest('[data-rlv-zoom]');
-      if (z && st.v) { const k = z.dataset.rlvZoom; if (k === 'all') fitAll(st); else st.v.zoomBy(k === 'in' ? .72 : 1.38); ui.haptic('selection'); }
+      if (z && st.v) { const k = z.dataset.rlvZoom; if (k === 'all') fitAll(st); ui.haptic('selection'); }
     });
     // (another profile on this phone, here or in another tab: who may be visited goes with it)
     st.stops.push(data.subscribe(type => { if (type === 'me') { st.T = null; if (st.v) { st.v.dispose(); st.v = null; } load(st); } }));

@@ -1,6 +1,6 @@
 // A look round one of the computer's realms before you attack it (core/realm.js realmOf(); views/realm-3d.js draws
-// it), over The Keep (a cover over Daily Games), the owner's alone. The realm fills the screen: drag to look round, pinch (or the wheel, or
-// + and −) to zoom, All to see the whole of it again. Its name, Castle level and what it holds today at the top, what
+// it), over The Keep (a cover over Daily Games), the owner's alone. The realm fills the screen: drag to look round, pinch (or the wheel) to
+// zoom, All to see the whole of it again. Its name, Castle level and what it holds today at the top, what
 // defends it under them; tap a building for what it is, what it does and what it holds, a defense's reach drawn round
 // it. Attack sends your army in (views/realm-raid.js, in its place); Back goes home. Nothing here changes anything.
 import * as ui from '../core/ui.js';
@@ -27,7 +27,6 @@ function shellHTML() {
     + `<div class="rlr-top"><button type="button" class="rlr-quit is-back" data-rls-back>Back</button><div class="rlr-who" data-rls-who></div></div>`
     + `<div class="rls-def" data-rls-def></div>`
     + `<div class="rls-zoom" role="group" aria-label="Zoom">`
-    + `<button type="button" data-rls-zoom="in" aria-label="Zoom in">+</button><button type="button" data-rls-zoom="out" aria-label="Zoom out">−</button>`
     + `<button type="button" class="is-all" data-rls-zoom="all" aria-label="See the whole realm">All</button></div>`
     + `<div class="rl-sel" data-rls-sel hidden></div>`
     + `<div class="rls-bar" data-rls-bar><p class="rls-hint">Drag to look round · pinch to zoom · tap a building</p><div data-rls-go></div></div>`
@@ -97,7 +96,7 @@ export default {
       if (t.closest('[data-rls-unsel]')) { select(st, null); return; }
       if (t.closest('[data-rls-attack]')) { ctx.replace('/realm/raid/' + encodeURIComponent(key)); return; }
       const z = t.closest('[data-rls-zoom]');
-      if (z && st.v) { const k = z.dataset.rlsZoom; if (k === 'all') fitAll(st); else st.v.zoomBy(k === 'in' ? .72 : 1.38); ui.haptic('selection'); }
+      if (z && st.v) { const k = z.dataset.rlsZoom; if (k === 'all') fitAll(st); ui.haptic('selection'); }
     });
     const begin = () => {
       const msg = el.querySelector('[data-rls-msg]');
