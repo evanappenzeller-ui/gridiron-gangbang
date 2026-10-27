@@ -9,6 +9,14 @@ import * as daily from './daily.js';
 
 export async function dynastyChecks(check) {
   await D.load();
+  check('Gridiron Dynasty is the owner’s alone (his ask, Oct 27 2026: "Make available to my profile only"): its case on his list only, /puzzles/dynasty opens for him and sends anyone else to the list, and only his phone plays or saves it', async () => {
+    const [app, games, data] = await Promise.all([import('../app.js'), import('../views/games.js'), import('./data.js')]);
+    const lists = ['evan', 'mason', null].map(w => games.gamesFor(w).some(g => g.id === 'dynasty'));
+    const opens = games.gameOpen('dynasty', 'evan') && !games.gameOpen('dynasty', 'mason') && !games.gameOpen('dynasty', null);
+    const r = app.parseRoute('/puzzles/dynasty');
+    const routed = data.isOwner() ? r.view === 'dynasty' : r.view !== 'dynasty';
+    return {pass: lists.join() === 'true,false,false' && opens && routed && D.mayPlay() === data.isOwner(), detail: `listed for evan, mason, a guest: ${lists.join(', ')}; route ${r.view}`};
+  });
   check('Gridiron Dynasty: the cards: real players in six series, every position, rarity by OVR (Diamond 85+, Gold 80+, Silver 75+, Bronze 65+)', () => {
     const series = new Set(D.CARDS.map(c => c.s)), pos = new Set(D.CARDS.filter(c => c.s === 'L').map(c => c.pos));
     const rar = D.CARDS.every(c => c.r === D.rarityOf(c.o) && c.o >= 40 && c.o <= 99);

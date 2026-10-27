@@ -444,7 +444,8 @@ function shellHTML() {
 function refresh(st) {
   if (st.dead) return;
   const el = st.el;
-  if (!D.mayPlay()) { el.querySelector('[data-dy]').innerHTML = ui.empty({icon: 'person', title: 'Pick who you are first', body: 'Choose your name from the You button, or play as a guest, to start your Dynasty.'}); return; }
+  // (the owner's alone, Oct 27 2026: a profile switched while it's open leaves it)
+  if (!D.mayPlay()) { el.querySelector('[data-dy]').innerHTML = ''; if (!st.left) { st.left = true; st.ctx.back(); } return; }
   if (D.status !== 'ready') {
     el.querySelector('[data-dy-pane]').innerHTML = D.status === 'error' ? ui.empty({icon: 'info', title: 'The cards didn’t load', body: 'Check your connection.', action: {label: 'Try again', kind: 'primary', attrs: {'data-dy-retry': ''}}}) : ui.skeleton('rows', 4, {label: 'Loading the cards'});
     return;

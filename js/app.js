@@ -116,8 +116,8 @@ function matchSegs(p, q) {
       if (n === 2 && b === 'drill') return R('puzzles', 'push', 'puzzles', {game: 'drill'});
       if (n === 2 && b === 'kick') return R('puzzles', 'push', 'puzzles', {game: 'kick'});
       if (n === 2 && b === 'return') return R('puzzles', 'push', 'puzzles', {game: 'return'});
-      // Gridiron Dynasty (views/dynasty.js): the card game, everyone's.
-      if (n === 2 && b === 'dynasty') return R('dynasty', 'push', 'puzzles');
+      // Gridiron Dynasty (views/dynasty.js): the card game, the owner's alone (Oct 27 2026); anyone else's link lands on the list.
+      if (n === 2 && b === 'dynasty') return data.isOwner() ? R('dynasty', 'push', 'puzzles') : {redirect: '/puzzles', query: false};
       if (n === 2 && b === 'keep') return available() ? R('realm', 'push', 'puzzles') : {redirect: '/puzzles', query: false};
       return null;
     case 'pickem':

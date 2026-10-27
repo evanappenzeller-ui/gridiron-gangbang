@@ -1,6 +1,7 @@
 // Gridiron Dynasty (the owner's ask, Oct 27 2026: "most comparable to Ultimate Team in Madden. Players can earn points to
 // open packs to unlock players. Players are based on real life [players]... inspiration [from] how MLB The Show does
-// their player cards with different types and collections"). A persistent game on Daily Games, everyone's (CLAUDE.md).
+// their player cards with different types and collections"). A persistent game on Daily Games, the owner's alone (his
+// ask, Oct 27 2026: "Make available to my profile only"; data.isOwner()): no one else's phone plays it or posts to it.
 //
 // The cards (data/dynasty.json, tools/dynasty/build.py): real NFL players from nflverse, in six series after The Show's
 // card types: Live Series (every active player, OVR from his 2025 and 2026 play), Rookie, Prime, Gameday (a week's best
@@ -29,8 +30,8 @@ export const STARTER_COINS = 2500;
 export const DAILY_PACK = 'std';
 const LOCAL = key => `gg-dy1-${key}`;
 
-/** Whether this phone can play: a member, an app user or a guest picked. */
-export const mayPlay = () => !!(data.me() || data.guest());
+/** Whether this phone can play: the owner's profile only (Oct 27 2026). */
+export const mayPlay = () => data.isOwner();
 
 // ---------------------------------------------------------------------------------------------------- the cards
 export const SERIES = {

@@ -47,8 +47,9 @@ export const GAMES = [
 const LASTING = ['keep', 'dynasty'];
 const byId = id => GAMES.find(g => g.id === id);
 // A game the owner keeps to himself while he builds it: id -> the members whose phones list it and open its page
-// (nobody else's phone loads it or posts it). Keepfall remains the owner's alone; the other games are the league's.
-const ONLY = {};
+// (nobody else's phone loads it or posts it). Gridiron Dynasty is the owner's alone (his ask, Oct 27 2026: "Make
+// available to my profile only"); the other games are the league's.
+const ONLY = {dynasty: [data.OWNER]};
 /** Whether game id is open on this phone (who: the phone's member). */
 export const gameOpen = (id, who = data.me()) => !ONLY[id] || (!!who && ONLY[id].includes(who));
 /** The games this phone's list shows, in order. */
@@ -264,8 +265,8 @@ function keepState() {
   return {kind: ui.lsGet('gg-realm-seen') === '1' ? 'started' : 'new',
     meta: `<div class="gm-keep-meta"><p class="gm-note">Raise your Castle. Train your army. Defend your realm.</p>${activeHTML(safe(() => activeToday()))}</div>`};
 }
-// Gridiron Dynasty (views/dynasty.js, the owner's ask, Oct 27 2026): persistent like Keepfall; showing its case never
-// starts a Dynasty.
+// Gridiron Dynasty (views/dynasty.js, the owner's ask, Oct 27 2026; his profile's alone: ONLY): persistent like
+// Keepfall; showing its case never starts a Dynasty.
 function dynastyState() {
   return {kind: ui.lsGet('gg-dynasty-seen') === '1' ? 'started' : 'new',
     meta: '<div class="gm-keep-meta"><p class="gm-note">Earn coins in the Daily Games. Open packs of real NFL players. Build your squad.</p></div>'};
