@@ -142,14 +142,14 @@ function head(p, size) {
   return `<span class="lg-hs" style="--sz:${size}px" aria-hidden="true"><span>${ini}</span>`
     + (p.head ? `<img src="${esc(p.head)}" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : '') + `</span>`;
 }
-// His manager (yours: "You"); a player no one in the league has shows a "+" and "No owner".
-const ownerName = p => p.mine ? 'You' : p.owner ? data.name(p.owner) : 'No owner';
+// His manager's picture; a player no one in the league has shows a "+".
 function ownerMark(p) {
   if (!p.owner) return `<span class="lg-fa" aria-hidden="true">${ui.icon('plus')}</span>`;
   return `<span class="lg-ow${p.mine ? ' is-me' : ''}">${ui.avatar(p.owner, {size: 32})}</span>`;
 }
 // Top performers, laid out like ESPN Fantasy's: "P. Nacua", his team's logo and position; his team's score first,
-// the clock and the opponent ("35-21 Final @LV"); the line ("8 REC, 68 YDS, TD"); the points, and his manager.
+// the clock and the opponent ("35-21 Final @LV"); the line ("8 REC, 68 YDS, TD"); the points (no manager's name under
+// them, Oct 27 2026: his picture on the left says whose he is).
 const shortName = n => { const w = n.split(' '); return w.length > 1 && !/\./.test(w[0]) ? `${w[0][0]}. ${w.slice(1).join(' ')}` : n; };
 const sideOf = p => p.g.home.abbr === p.team ? 'home' : 'away';
 const vsTxt = p => { const g = p.g, home = sideOf(p) === 'home'; return `${home ? 'vs ' : '@'}${g[home ? 'away' : 'home'].abbr}`; };
@@ -183,7 +183,7 @@ function rowHTML(p) {
     + `<div class="lg-pm"><p class="lg-pn"><span class="lg-nm">${esc(shortName(p.name))}</span>${t && t.logo ? logo(t, 18) : ''}<span class="lg-pos pos-${p.pos}">${p.pos}</span></p>`
     + `<p class="lg-pg">${esc(gameTxt(p))}${p.live ? ' <i class="lg-dot" aria-label="playing now"></i>' : ''}</p>`
     + `<p class="lg-ps">${esc(lineTxt(p))}</p></div>`
-    + `<div class="lg-pr"><b class="lg-pp">${ptsTxt(p.pts)}</b><span class="lg-po${p.mine ? ' is-me' : ''}">${esc(ownerName(p))}</span></div></li>`;
+    + `<div class="lg-pr"><b class="lg-pp">${ptsTxt(p.pts)}</b></div></li>`;
 }
 function listHTML(st, all) {
   if (!st.D) return ui.skeleton('rows', 6, {label: 'Loading the stats.'});
