@@ -63,6 +63,7 @@ export const REGISTRY = {
   'realm-scout': () => import('./views/realm-scout.js'),
   'realm-replay': () => import('./views/realm-replay.js'),
   'realm-visit': () => import('./views/realm-visit.js'),
+  dynasty: () => import('./views/dynasty.js'),
   _kit: () => import('./views/_kit.js')
 };
 // Every tab, in order. The Keep lives in Daily Games; it has no separate tab or idle tab warm-up. Live (views/live.js:
@@ -115,6 +116,8 @@ function matchSegs(p, q) {
       if (n === 2 && b === 'drill') return R('puzzles', 'push', 'puzzles', {game: 'drill'});
       if (n === 2 && b === 'kick') return R('puzzles', 'push', 'puzzles', {game: 'kick'});
       if (n === 2 && b === 'return') return R('puzzles', 'push', 'puzzles', {game: 'return'});
+      // Gridiron Dynasty (views/dynasty.js): the card game, everyone's.
+      if (n === 2 && b === 'dynasty') return R('dynasty', 'push', 'puzzles');
       if (n === 2 && b === 'keep') return available() ? R('realm', 'push', 'puzzles') : {redirect: '/puzzles', query: false};
       return null;
     case 'pickem':

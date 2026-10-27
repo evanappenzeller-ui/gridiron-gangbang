@@ -1528,7 +1528,7 @@ export async function runChecks() {
   check('Daily Games: a shelf of game cases (Daily Puzzles, 17-0, the Two-Minute Drill, Kick It, Return Man), each a green case with the Gridiron Hub band, its own cover and its own page; swiped along in a circle (its own sideways scroll, not the tabs\'); a game played today shows its case\'s back: today\'s board with you among them, and a Season board behind it, read from the board as this phone sees it', async () => {
     const host = document.createElement('div');
     host.innerHTML = listHTML();
-    const want = 'puzzles,17-0,drill,kick,return' + (data.isOwner() ? ',keep' : '');
+    const want = 'puzzles,17-0,drill,kick,return' + (data.isOwner() ? ',keep' : '') + ',dynasty'; // (Gridiron Dynasty, everyone's: Oct 27 2026)
     const visibleGames = gamesFor();
     const cases = [...host.querySelectorAll('.gm-slot:not([data-gm-clone]) .gm-case')];
     const order = cases.map(c => c.dataset.gm).join();
@@ -1923,6 +1923,16 @@ export async function runChecks() {
     try { await rlMod.realmChecks(check); } catch (e) { check('The Keep checks (checks-realm.js)', () => { throw e; }); }
   } else {
     check('The Keep checks (checks-realm.js) loaded', () => ({pass: false, detail: rlErr ? 'did not load: ' + (rlErr.message || rlErr) : 'no realmChecks export'}));
+  }
+
+  // Gridiron Dynasty's checks (js/core/checks-dynasty.js: the cards, packs and their odds, the pay, the save, squads,
+  // collections, games, and the board's rule). Guarded the same way.
+  let dyMod = null, dyErr = null;
+  try { dyMod = await import('./checks-dynasty.js'); } catch (e) { dyErr = e; }
+  if (dyMod && typeof dyMod.dynastyChecks === 'function') {
+    try { await dyMod.dynastyChecks(check); } catch (e) { check('Gridiron Dynasty checks (checks-dynasty.js)', () => { throw e; }); }
+  } else {
+    check('Gridiron Dynasty checks (checks-dynasty.js) loaded', () => ({pass: false, detail: dyErr ? 'did not load: ' + (dyErr.message || dyErr) : 'no dynastyChecks export'}));
   }
 
   await Promise.all(pending);

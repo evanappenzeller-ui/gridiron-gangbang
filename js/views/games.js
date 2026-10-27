@@ -39,8 +39,12 @@ export const GAMES = [
   {id: 'drill', name: 'Two-Minute Drill', title: 'Two-Minute Drill', art: 'img/games/drill-cover-v2.webp', book: 'img/games/drill-book.webp', disc: 'img/games/drill-disc.webp', badge: 'img/drill.webp', cd: 'Next drill in'},
   {id: 'kick', name: 'Kick It', title: 'Kick It', art: 'img/games/kick-cover-v2.webp', book: 'img/games/kick-book.webp', disc: 'img/games/kick-disc.webp', badge: 'img/kick.webp', cd: 'New kicks in'},
   {id: 'return', name: 'Return Man', title: 'Return Man', art: 'img/games/return-man-cover.webp', book: 'img/games/return-book.webp', disc: 'img/games/return-disc.webp', badge: 'img/return.webp', cd: 'Next kickoff in'},
-  {id: 'keep', name: 'Keepfall', title: 'Keepfall', art: 'img/games/keepfall-cover-v2.webp', book: 'img/games/keepfall-book-v2.webp', disc: 'img/games/keepfall-disc-v2.webp'}
+  {id: 'keep', name: 'Keepfall', title: 'Keepfall', art: 'img/games/keepfall-cover-v2.webp', book: 'img/games/keepfall-book-v2.webp', disc: 'img/games/keepfall-disc-v2.webp'},
+  {id: 'dynasty', name: 'Gridiron Dynasty', title: 'Gridiron Dynasty', art: 'img/games/dynasty-cover.webp', book: 'img/games/dynasty-book.webp', disc: 'img/games/dynasty-disc.webp'}
 ];
+// The games that go on with no day's final, countdown or board (Keepfall, Gridiron Dynasty): a printed back on their
+// case, never IN PROGRESS.
+const LASTING = ['keep', 'dynasty'];
 const byId = id => GAMES.find(g => g.id === id);
 // A game the owner keeps to himself while he builds it: id -> the members whose phones list it and open its page
 // (nobody else's phone loads it or posts it). Keepfall remains the owner's alone; the other games are the league's.
@@ -260,7 +264,13 @@ function keepState() {
   return {kind: ui.lsGet('gg-realm-seen') === '1' ? 'started' : 'new',
     meta: `<div class="gm-keep-meta"><p class="gm-note">Raise your Castle. Train your army. Defend your realm.</p>${activeHTML(safe(() => activeToday()))}</div>`};
 }
-const STATE = {puzzles: puzzlesState, '17-0': seventeenState, drill: drillState, kick: kickState, return: returnState, keep: keepState};
+// Gridiron Dynasty (views/dynasty.js, the owner's ask, Oct 27 2026): persistent like Keepfall; showing its case never
+// starts a Dynasty.
+function dynastyState() {
+  return {kind: ui.lsGet('gg-dynasty-seen') === '1' ? 'started' : 'new',
+    meta: '<div class="gm-keep-meta"><p class="gm-note">Earn coins in the Daily Games. Open packs of real NFL players. Build your squad.</p></div>'};
+}
+const STATE = {puzzles: puzzlesState, '17-0': seventeenState, drill: drillState, kick: kickState, return: returnState, keep: keepState, dynasty: dynastyState};
 
 // ============================================================================ The cases
 // The list is a shelf of game cases (the owner's ask, Oct 2026, after a console's shelf of box art): you swipe along
@@ -268,7 +278,7 @@ const STATE = {puzzles: puzzlesState, '17-0': seventeenState, drill: drillState,
 // band across its top and the game's cover under it (the owner's art). Played today, a case turns round:
 // its back is the leaderboard. Tap the back and it comes up close, Today's and the Season's to switch between.
 // ACCENT: each game's colour on its back (the tag, the switch), out of its cover.
-const ACCENT = {puzzles: '#B5452F', '17-0': '#A0721F', drill: '#D23B2F', kick: '#C9A227', return: '#A31F34', keep: '#AEB9BD'};
+const ACCENT = {puzzles: '#B5452F', '17-0': '#A0721F', drill: '#D23B2F', kick: '#C9A227', return: '#A31F34', keep: '#AEB9BD', dynasty: '#3FA9F5'};
 // The band: the name in the middle, a BETA tag at its left end for a game still being worked on, a tag or the close
 // button at its right.
 const bandHTML = (end = '', beta = false) => `<span class="gm-band">${beta ? '<span class="gm-beta">BETA</span>' : ''}<span class="gm-band-t">GRIDIRON HUB</span>${end}</span>`;
@@ -292,14 +302,14 @@ function seasonRowsOf(id) {
   return safe(() => M.seasonRows()).map(r => ({...r, val: `${nf(r.y)} yds`, sub: `${plural(r.played, 'day')} · longest ${nf(r.l)}`}));
 }
 const sticker = (cls, text) => `<span class="gm-stk ${cls}">${esc(text)}</span>`;
-const isKeepCase = g => g.id === 'keep' && features.available();
+const isKeepCase = g => LASTING.includes(g.id) && features.available();
 const GLOSS = '<span class="gm-z-gl" aria-hidden="true"></span>'; // (the shine on a case up close)
 /** A case's sides, its name down the spine (views/game-case.js: the case is solid, turned on the shelf or up close). */
 const sidesHTML = g => shellHTML(`<span class="gm-spine"><b>GRIDIRON HUB</b><span>${esc(g.name)}</span></span>`);
 /** A case's front: the band, the cover (a sticker on it while it's under way; never on Keepfall's, the owner's ask, Oct
  *  26 2026: a realm is never finished). up: the case up close (a tap on it opens it, a shine moves over it as it turns). */
 function frontHTML(g, s, up = false) {
-  const stk = s.test ? sticker('is-test', 'TEST PLAY') : s.kind === 'started' && g.id !== 'keep' ? sticker('is-go', 'IN PROGRESS') : '';
+  const stk = s.test ? sticker('is-test', 'TEST PLAY') : s.kind === 'started' && !LASTING.includes(g.id) ? sticker('is-go', 'IN PROGRESS') : '';
   return `<div class="gm-face gm-front${up ? ' gm-z-front" data-gm-zfront aria-hidden="true' : ''}">${bandHTML('', g.beta)}<span class="gm-art"><img class="gm-img" src="${g.art}" alt="" decoding="async" draggable="false">${stk}</span>${up ? `<span class="gm-z-foot"><i></i>${ui.icon('football')}</span>${GLOSS}` : ''}</div>`;
 }
 // What a place on today's board pays in Keepfall's Ale (the owner's ask, Oct 25 2026: "+#" by each position), on the
@@ -351,8 +361,24 @@ function backHTML(g, s) {
     + `<span class="gm-scr"><span class="gm-scr-h">Today’s leaderboard</span>${rows}</span>`
     + `<span class="gm-bk-foot"><span class="gm-bk-tap">Tap for the full leaderboard ›</span></span></span></div>`;
 }
-/** Keepfall has a printed back in every play state, never a league scoreboard. */
+/** Gridiron Dynasty's printed back, after Keepfall's. */
+function dynastyBackHTML(g, up = false) {
+  return `<div class="gm-face gm-back gm-keep-back gm-dy-back${up ? ' gm-z-back' : ''}">${bandHTML()}
+    <span class="gm-keep-print">
+      <span class="gm-keep-hero"><img src="${g.book}" alt="" decoding="async" draggable="false">
+        <span class="gm-keep-pitch"><strong>EVERY PACK.<br>A NEW LEGEND.</strong><span>Real NFL players. Diamond pulls.<br>Collections to complete.</span></span>
+      </span>
+      <span class="gm-keep-scenes"><img src="img/games/dynasty-back-scenes.webp" alt="Three Legend cards fanned out: Peyton Manning, Tom Brady and Lawrence Taylor" decoding="async" draggable="false">
+        <span class="gm-keep-captions"><b>OPEN</b><b>COLLECT</b><b>COMPETE</b></span>
+      </span>
+      <span class="gm-keep-signature"><span aria-hidden="true">◆</span><strong>DYNASTY</strong><small>Build the greatest team ever.</small></span>
+      <span class="gm-keep-footer"><b>1 PLAYER</b><span>CARDS · FOOTBALL</span><i class="gm-keep-barcode" aria-hidden="true"></i></span>
+    </span>
+  </div>`;
+}
+/** Keepfall has a printed back in every play state, never a league scoreboard (Gridiron Dynasty its own). */
 function keepBackHTML(g, up = false) {
+  if (g.id === 'dynasty') return dynastyBackHTML(g, up);
   return `<div class="gm-face gm-back gm-keep-back${up ? ' gm-z-back' : ''}">${bandHTML()}
     <span class="gm-keep-print">
       <span class="gm-keep-hero"><img src="${g.book}" alt="" decoding="async" draggable="false">
@@ -368,7 +394,7 @@ function keepBackHTML(g, up = false) {
 const caseLabel = (g, s) => {
   const name = `${g.name}${g.beta ? ' (beta)' : ''}`;
   if (s.kind === 'done') return `${name}: played today${placeText(s) ? `, ${placeText(s)}` : ''}. Show the leaderboard`;
-  return `${name}${s.kind === 'started' && g.id !== 'keep' ? ', under way' : ''}${s.kind === 'loading' || s.kind === 'error' ? '' : '. Open the case to play'}`;
+  return `${name}${s.kind === 'started' && !LASTING.includes(g.id) ? ', under way' : ''}${s.kind === 'loading' || s.kind === 'error' ? '' : '. Open the case to play'}`;
 };
 /** A case's faces: its front, and its back when it has one (a game finished; one that turns before it's played). */
 const facesHTML = (g, s) => sidesHTML(g) + frontHTML(g, s) + (isKeepCase(g) ? keepBackHTML(g) : s.kind === 'done' || s.turns ? backHTML(g, s) : '');

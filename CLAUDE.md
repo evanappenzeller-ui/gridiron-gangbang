@@ -75,6 +75,11 @@ How it's enforced, and what to keep doing:
   the second currency is Ale (Breweries, Cellars); internal ids stay keep/grain/farm/granary and the route #/realm.
 - Profile pictures (`js/core/avatars.js` `pictureShows()`): everyone's shows to everyone, a member's, an app user's and a
   guest's. The kit check "pictures: …" covers it.
+- Gridiron Dynasty (Oct 27 2026, the owner's card game after Madden's Ultimate Team and MLB The Show: `js/core/dynasty.js`,
+  `js/views/dynasty.js`, cards from `tools/dynasty/build.py` → `data/dynasty.json`): everyone's. Each profile's save rides
+  on its board doc as `dy1[profileKey]`; its Dynasty board and head-to-head list read `daily.LB.raw` (`others()`), never
+  `LB.all` (that only finds your own saved copy, as Keepfall does). Its coins come from the Daily Games' results on your
+  board docs (`earnedOf`). The kit checks "Gridiron Dynasty: …" (`js/core/checks-dynasty.js`) cover it.
 - Under Keepfall's case on Daily Games, the pictures and names of everyone active in Keepfall today (Oct 26 2026, the
   owner: "Add league member profile pictures to show those that were active today", then "Insert the names below the
   case not on it"): `js/core/realm-active.js` `activeToday()`

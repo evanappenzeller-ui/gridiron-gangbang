@@ -490,7 +490,7 @@ export async function returnChecks(check) {
     const who = ['evan', 'mitch', null];
     const open = who.every(w => gameFor('return', w) === 'return');
     const lists = who.map(w => gamesFor(w).map(g => g.id).join());
-    const all = lists.every(l => l.split(',').filter(g => g !== 'keep').join() === 'puzzles,17-0,drill,kick,return');
+    const all = lists.every(l => l.split(',').filter(g => !['keep', 'dynasty'].includes(g)).join() === 'puzzles,17-0,drill,kick,return'); // (the lasting games aside)
     const host = document.createElement('div');
     host.innerHTML = listHTML();
     const tagged = [...host.querySelectorAll('.gm-slot:not([data-gm-clone])')].filter(sl => sl.querySelector('.gm-front .gm-beta')).map(sl => sl.dataset.gmSlot).join();
@@ -512,9 +512,10 @@ export async function returnChecks(check) {
       const cs = host.querySelector('.gm-slot:not([data-gm-clone]) .gm-case[data-gm="return"]');
       cls = cs ? cs.className : '';
       back = cs && cs.querySelector('.gm-back');
-      // (a case with no board to turn to: neither finished nor turning, Keepfall and a loading or failed Daily Puzzles aside)
+      // (a case with no board to turn to: neither finished nor turning, the lasting games (Keepfall, Gridiron Dynasty: their
+      // printed backs) and a loading or failed Daily Puzzles aside)
       others = [...host.querySelectorAll('.gm-slot:not([data-gm-clone]) .gm-case:not(.is-turns):not(.is-done)')]
-        .filter(c => c.dataset.gm !== 'keep' && c.dataset.kind !== 'loading' && c.dataset.kind !== 'error').map(c => c.dataset.gm).join();
+        .filter(c => !['keep', 'dynasty'].includes(c.dataset.gm) && c.dataset.kind !== 'loading' && c.dataset.kind !== 'error').map(c => c.dataset.gm).join();
     } finally { Object.assign(LB, saved); shelfDev.cores.rm = was; }
     const txt = back ? back.textContent : '';
     const shows = /Today’s leaderboard/.test(txt) && /TODAY/.test(txt) && !/FINAL/.test(txt) && (board === 'ready' ? /Mason/.test(txt) : !!back.querySelector('.gm-scr-note'));
