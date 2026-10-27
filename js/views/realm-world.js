@@ -258,8 +258,17 @@ function groundTexture(T, name, maxAniso, onReady) {
   let e = groundTex.get(name);
   if (!e) {
     e = {ready: false, wait: []};
+    // (one that doesn't come, offline or on a bad signal: its layer a plain colour like it, never black, and asked for
+    // again by the next view)
     e.tex = new T.TextureLoader().load(AT + 'textures/' + FILES[name], () => { e.ready = true; e.wait.splice(0).forEach(f => f()); },
-      undefined, () => { e.ready = true; e.failed = true; e.wait.splice(0).forEach(f => f()); });
+      undefined, () => {
+        e.ready = true; e.failed = true;
+        const cv = document.createElement('canvas'); cv.width = cv.height = 1;
+        const g = cv.getContext('2d'); g.fillStyle = PLAIN[name] || '#808080'; g.fillRect(0, 0, 1, 1);
+        e.tex.image = cv; e.tex.needsUpdate = true;
+        if (groundTex.get(name) === e) groundTex.delete(name);
+        e.wait.splice(0).forEach(f => f());
+      });
     e.tex.colorSpace = T.SRGBColorSpace; e.tex.wrapS = e.tex.wrapT = T.RepeatWrapping; e.tex.anisotropy = Math.min(8, maxAniso);
     groundTex.set(name, e);
   }
@@ -270,6 +279,9 @@ function groundTexture(T, name, maxAniso, onReady) {
 const FILES = {grass: 'Grass_normal_down.jpg', grassDark: 'Grass_darked_down.jpg', grassLight: 'Grass_lighted_down.jpg', swamp: 'Grass_swamp_normal_down.jpg',
   earth: 'dirt_clay_down.jpg', sand: 'dirt_normal_down.jpg', sandStones: 'dirt_lighted_rocks_down.jpg', dust: 'dirt_desatured_down.jpg',
   snow: 'snow_normal.jpg', snowDark: 'snow_dark.jpg', ground_rock: 'ground_rock.jpg', ground_road: 'ground_road.jpg', ground_stones: 'ground_stones.jpg'};
+// (each texture's average colour: its layer's look while the texture's missing)
+const PLAIN = {grass: '#4d692d', grassDark: '#324e20', grassLight: '#788e3d', swamp: '#68652d', earth: '#825030', sand: '#c39364',
+  sandStones: '#e2ac77', dust: '#a67c55', snow: '#e2e4e8', snowDark: '#babfca', ground_rock: '#4b473b', ground_road: '#9c7c42', ground_stones: '#666641'};
 /** The terrain's material: its land's four textures blended by each vertex's weights, tinted for the land. */
 function groundMaterial(T, list, theme) {
   const m = new T.MeshStandardMaterial({color: 0xffffff, roughness: .97, metalness: 0, vertexColors: true});

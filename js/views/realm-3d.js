@@ -27,13 +27,27 @@ const V = new URL('../vendor/three/', import.meta.url).href;
 let T = null, RE = null, LOADING = null, DEAD = false, LOAD_EPOCH = 0;
 let ownerActive = features.available();
 data.subscribe(type => { if (type !== 'me') return; const next = features.available(); if (next !== ownerActive) { ownerActive = next; LOAD_EPOCH++; LOADING = null; } });
+// (the models are waited for MODEL_WAIT at most, and only by Keepfall's first open: a request that stalls, on a bad
+// signal, never keeps the realm from opening; whatever isn't in yet is drawn plain meanwhile, and every open view swaps
+// each model in as it comes: MODELS_IN, told by each model that's put in and each load that settles; setLot's keys. The
+// loaders are asked on every open, so what failed is asked for again, but none waits for them past the first)
+const MODEL_WAIT = 20e3, MODELS_IN = new Set();
+let FIRST = null, DUE = false;
+const modelCame = () => { if (DUE) return; DUE = true; queueMicrotask(() => { DUE = false; MODELS_IN.forEach(f => f()); }); };
+BUILD.onModel(modelCame); CH.onModel(modelCame);
+function models() {
+  const loads = [CH.load(T), BUILD.load(T), WALLS.load(T)];
+  loads.forEach(p => p.then(modelCame));
+  if (!FIRST) { let timer; FIRST = Promise.race([Promise.all(loads), new Promise(r => { timer = setTimeout(r, MODEL_WAIT); })]).finally(() => clearTimeout(timer)); }
+  return FIRST;
+}
 /** Loads three.js and the models (buildings, walls, characters); the land's own models come as each view wants them. */
 export function load() {
   if (!features.available()) return Promise.resolve(false);
   const epoch = LOAD_EPOCH, active = () => features.available() && epoch === LOAD_EPOCH;
   if (LOADING) return LOADING.then(async ok => {
     if (!ok || !active()) return false;
-    await Promise.all([CH.load(T), BUILD.load(T), WALLS.load(T)]);
+    await models();
     return active();
   });
   const task = (async () => {
@@ -44,7 +58,7 @@ export function load() {
       if (!active()) return false;
       T = three; RE = RoomEnvironment;
       FM.init(T, BU);
-      await Promise.all([CH.load(T), BUILD.load(T), WALLS.load(T)]);
+      await models();
       if (!active()) return false;
       try { await document.fonts.load('800 60px "Barlow Condensed"'); } catch (_) {}
       return active();
@@ -94,7 +108,7 @@ const TROOP_MODEL = {footman: ['footman', 1.15], archer: ['archer', 1.15], knigh
 export function thumb(k, l, house, troop = false, card = null) {
   if (!ready() || !features.available()) return '';
   const W0 = card ? card.w : 160, H0 = card ? card.h : 160;
-  const key = `${troop ? 't' : 'b'}:${k}:${l}:${house.pri}:${house.sigil}:${W0}x${H0}:${BUILD.ready(k)}:${CH.ready(TROOP_MODEL[k]?.[0])}`;
+  const key = `${troop ? 't' : 'b'}:${k}:${l}:${house.pri}:${house.sigil}:${W0}x${H0}:${k === 'wall' ? WALLS.imported() : BUILD.version(k, l)}:${CH.ready(TROOP_MODEL[k]?.[0])}`;
   if (THUMBS.has(key)) return THUMBS.get(key);
   let actor = null;
   try {
@@ -351,6 +365,10 @@ export function create(host, opts = {}) {
   // the dragon over the hatchery (views/realm-dragon.js); its model is fetched when a dragon's wanted (a built hatchery,
   // a raid with one, the scenery's first in view), and each view redraws when it comes in
   const homeDragon = village ? createHomeDragon(T, scene, {renderer, camera: cam}) : null;
+  // (a model that comes after the lot's drawn: the lot drawn again as it was last asked, the late model in its place)
+  let lotArgs = null;
+  const modelsIn = () => { if (!dead && lotArgs) { setLot(...lotArgs); want(); } };
+  MODELS_IN.add(modelsIn);
   const offDragon = onDragonReady(() => {
     want();
     if (raid && raid.need.dragon) raid.dragons.warm(renderer, cam, Math.min(4, raid.need.dragon));
@@ -395,6 +413,7 @@ export function create(host, opts = {}) {
     wear.tex.needsUpdate = true;
   }
   function setLot(s, o = {}) {
+    lotArgs = [s, o];
     clearReveal();
     lotState = s;
     const layout = s.b.map(b => `${b.i}:${b.t}:${b.x}:${b.y}:${b.l}`).join('|'), layoutChanged = layout !== layoutSig;
@@ -410,7 +429,10 @@ export function create(host, opts = {}) {
       if (b.t === 'wall') return;
       seen.add(b.i);
       const size = KINDS[b.t].size, down = gone.has(b.i), status = down ? 'down' : b.u > now ? (b.l < 1 ? 'new' : 'up') : 'ok';
-      const key = `${b.t}:${b.l}:${status}:${house.pri}:${house.sigil}`;
+      // (and which model it's drawn from and whether its folk's are in: one that comes after the lot's drawn, past
+      // load()'s MODEL_WAIT or on a retry, or a reworked design that replaces it, takes the old one's place)
+      const key = `${b.t}:${b.l}:${status}:${house.pri}:${house.sigil}:${BUILD.version(b.t, b.l)}:`
+        + crewOf(b, status, size).map(c => +CH.ready(c.kind)).join('');
       let e = groups.get(b.i);
       if (!e || e.key !== key) {
         folkChanged = true;
@@ -1254,7 +1276,7 @@ export function create(host, opts = {}) {
       clearInterval(folkTimer);
       if (homeNPCs) homeNPCs.dispose();
       if (homeDragon) homeDragon.dispose();
-      offDragon();
+      offDragon(); MODELS_IN.delete(modelsIn); lotArgs = null;
       groups.forEach(e => { dropFolk(e); releaseOwned(e.g); });
       wallView.dispose();
       if (raf) cancelAnimationFrame(raf);

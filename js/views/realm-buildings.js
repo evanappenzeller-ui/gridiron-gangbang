@@ -27,7 +27,10 @@ export const stageOf = (kind, level) => {
 const FIT = {keep: [4.2, .98], barracks: [3.3, .82], tower: [3.5, .82], ballista: [3.2, .82], cannon: [3.1, .8], mine: [1.6, .94],
   farm: [2.2, .96], treasury: [1.5, .94], granary: [2.2, .94], camp: [1.3, .96], hatchery: [1.9, .96], hut: [1.7, .9], trebuchet: [1.2, .92], cauldron: [1.6, .92]};
 const templates = new Map(), materials = new Map(), imported = new Map();
-let T, BU, pending = null;
+let T, BU, pending = null, stamps = 0;
+// (told each time a model's put in, or reworked: realm-3d.js swaps it into the views open)
+const CAME = new Set();
+export const onModel = f => { CAME.add(f); return () => CAME.delete(f); };
 const keyOf = (kind, stage) => kind + '-' + stage;
 /** Materials shared by name across every model; the few plain ones tuned (gold shines, embers glow). */
 function share(m, obsolete) {
@@ -66,7 +69,8 @@ function adopt(key, scene) {
   const size = new T.Box3().setFromObject(scene).getSize(new T.Vector3());
   let platformY = 0;
   scene.traverse(o => { if (o.userData.platformY) platformY = o.userData.platformY; });
-  templates.set(key, {scene, height: size.y, width: Math.max(size.x, size.z), platformY});
+  templates.set(key, {scene, height: size.y, width: Math.max(size.x, size.z), platformY, stamp: ++stamps});
+  CAME.forEach(f => f());
 }
 function drop(scene) {
   const kept = new Set(materials.values());
@@ -142,6 +146,9 @@ export async function load(three) {
   try { return await pending; } finally { pending = null; }
 }
 export const ready = kind => templates.has(keyOf(kind, 1));
+/** Which model kind at level is drawn from: 0 while it isn't in, a new number each time one comes or is reworked (a view
+ *  keys its buildings on it, so one that comes after it's drawn takes the plain one's place). */
+export const version = (kind, level) => templates.get(keyOf(kind, kind === 'hut' ? 1 : stageOf(kind, level)))?.stamp || 0;
 /** Kind at level as a Group standing in its footprint (tiles), or null when its model isn't in. */
 export function create(kind, level, footprint) {
   if (!features.available() || !T) return null;

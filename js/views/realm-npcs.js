@@ -214,7 +214,8 @@ export function createHomeNPCs(T, scene, {onChange} = {}) {
   const unsubscribe = data.subscribe(type => { if (type === 'me' && !features.available()) clear(); });
   function setLot(s, {house} = {}) {
     if (disposed || !features.available()) { clear(); return; }
-    const next = JSON.stringify([s.b.map(b => [b.i, b.t, b.l, b.x, b.y]), s.hr, house]);
+    // (and whether their models are in: one that comes after they're drawn takes the plain figures' place)
+    const next = JSON.stringify([s.b.map(b => [b.i, b.t, b.l, b.x, b.y]), s.hr, house, ['guard', 'keeper', 'knight'].map(k => +CH.ready(ACTOR[k])).join('')]);
     if (signature === next) return;
     clear(); signature = next;
     const keep = s.b.find(b => b.t === 'keep' && b.l > 0); if (!keep) return;

@@ -92,7 +92,8 @@ self.addEventListener('activate', e => {
     .then(() => self.clients.claim()));
 });
 
-const isCacheFirst = url => /\.(woff2|png|webp|ico|glb)$/.test(url.pathname);
+// (jpg: Keepfall's land and building textures, models/realm/world-v1/textures, which its models load beside them)
+const isCacheFirst = url => /\.(woff2|png|webp|jpe?g|ico|glb)$/.test(url.pathname);
 const isNetworkFirst = (req, url) => req.mode === 'navigate' || url.pathname.endsWith('/') || /\.(html|json|js|css|webmanifest)$/.test(url.pathname);
 
 function put(key, res) {

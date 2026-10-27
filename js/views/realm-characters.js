@@ -15,6 +15,9 @@ const LOOP = new Set(['idle', 'walk', 'run', 'work', 'work_b', 'work_c']);
 const motion = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
 const templates = new Map(), actors = new Set();
 let T = null, cloneRig = null, pending = null, generation = 0, subscribed = false;
+// (told each time a model's put in: realm-3d.js swaps it into the views open)
+const CAME = new Set();
+export const onModel = f => { CAME.add(f); return () => CAME.delete(f); };
 
 function releaseScene(scene) {
   const geometries = new Set(), materials = new Set(), textures = new Set(), skeletons = new Set();
@@ -88,6 +91,7 @@ export function load(three) {
             o.frustumCulled = false;
           });
           templates.set(kind, {scene: gltf.scene, clips, height, floor: box.min.y});
+          CAME.forEach(f => f());
         } catch (error) {
           if (gltf) releaseScene(gltf.scene);
           if (eligible()) console.warn('Keepfall: plain 3D ' + kind + ' (its model is missing)', error);
