@@ -3,7 +3,8 @@
 // the ball, the down and distance, the ball on a little field and the last play; a score flashes on its box), the
 // rest of the week's games under it, then the top performers: every player's line with his points in the league's
 // scoring (PPR, core/gameday.js), laid out like ESPN Fantasy's (Oct 27 2026), with chips for search, my players and each
-// position. A tap on a box shows that game's players only.
+// position. A tap on a box shows that game's players only. Then the waiver wire: the best players no one in the league
+// has, over this week and the one before.
 // Each player's owner in the league (the draft, then trades); "My players" and "You" follow the profile picked.
 // Data: core/gameday.js (ESPN's scoreboard and box scores, every 30 s while a game is on). Styles: css/views/live.css.
 // Owner: LIVE.
@@ -120,8 +121,7 @@ function owners(year) {
   if (OWN.src !== data.DATA || OWN.year !== year) OWN = {src: data.DATA, year, map: gd.ownersOf(data.DATA, year)};
   return OWN.map;
 }
-function playersOf(st) {
-  const D = st.D;
+function playersOf(D) {
   if (!D) return [];
   const out = [], own = owners(D.year), me = data.me();
   D.boxes.forEach((box, id) => {
@@ -199,6 +199,57 @@ function listHTML(st, all) {
   return scope + `<div class="lg-cols" aria-hidden="true"><span>Players</span><span>Score</span></div><ol class="lg-list">${shown.map(rowHTML).join('')}</ol>`
     + (list.length > shown.length ? `<div class="lg-morewrap">${ui.button({label: `Show all ${list.length}`, kind: 'secondary', size: 's', attrs: {'data-lg-more': ''}})}</div>` : '');
 }
+// ---------------------------------------------------------------------------------------------- Waiver wire
+// The best players no one in the league has (Oct 27 2026), on their points over the last two weeks with stats: this week
+// and the one before, or, before this week's games start, the two before it (gd.pastWeek). A player who sat one of them
+// out counts only the other. "No one has him" is the draft and the trades on file: pickups since aren't known, so a
+// target may already be taken.
+const WAIVER_MAX = 10;
+// The two weeks it's on: [the latest with stats, the one before (null until it's in)], or null.
+function waiverWeeks(st) {
+  const D = st.D, has = W => !!(W && W.boxes.size);
+  if (!D) return null;
+  const A = has(D) ? D : st.past.get(D.week - 1), B = st.past.get(A ? A.week - 1 : 0);
+  return has(A) ? [A, has(B) ? B : null] : null;
+}
+function waiverList(st, A, B, all) {
+  const m = new Map();
+  (A === st.D ? all : playersOf(A)).forEach(p => { if (!p.owner) m.set(p.key, {cur: p, prev: null}); });
+  playersOf(B).forEach(p => {
+    if (p.owner) return;
+    const e = m.get(p.key) || {cur: null, prev: null};
+    e.prev = p;
+    m.set(p.key, e);
+  });
+  return [...m.values()].map(e => Object.assign(e, {p: e.cur || e.prev, pts: (e.cur ? e.cur.pts : 0) + (e.prev ? e.prev.pts : 0)}))
+    .filter(e => st.wpos === 'all' || e.p.pos === st.wpos)
+    .sort((a, b) => b.pts - a.pts || (b.cur ? b.cur.pts : 0) - (a.cur ? a.cur.pts : 0) || a.p.name.localeCompare(b.p.name));
+}
+// wk: [the latest week, the one before (null when it isn't in)]; now: the latest is this week (its games need no "Wk").
+function waiverRow(e, wk, now) {
+  const p = e.p, t = p.g[sideOf(p)], pt = x => x ? ptsTxt(x.pts) : '–';
+  const when = e.cur ? (now ? '' : `Wk ${wk[0]}: `) : `Wk ${wk[1]}: `;
+  const said = wk[1] && `Week ${wk[0]}: ${e.cur ? pt(e.cur) : 'did not play'}. Week ${wk[1]}: ${e.prev ? pt(e.prev) : 'did not play'}.`;
+  return `<li class="lg-p">${ownerMark(p)}${head(p, 52)}`
+    + `<div class="lg-pm"><p class="lg-pn"><span class="lg-nm">${esc(shortName(p.name))}</span>${t && t.logo ? logo(t, 18) : ''}<span class="lg-pos pos-${p.pos}">${p.pos}</span></p>`
+    + `<p class="lg-pg">${esc(when + gameTxt(p))}${p.live ? ' <i class="lg-dot" aria-label="playing now"></i>' : ''}</p>`
+    + `<p class="lg-ps">${esc(lineTxt(p))}</p></div>`
+    + `<div class="lg-pr"><b class="lg-pp">${ptsTxt(e.pts)}</b>${wk[1] ? `<span class="lg-po" role="img" aria-label="${esc(said)}">${pt(e.cur)} + ${pt(e.prev)}</span>` : ''}</div></li>`;
+}
+function waiverHTML(st, all) {
+  const W = waiverWeeks(st);
+  if (!W) return '';
+  const [A, B] = W, wk = [A.week, B ? B.week : null];
+  const list = waiverList(st, A, B, all).slice(0, WAIVER_MAX);
+  return `<div class="sh lg-sh"><h2>Waiver wire</h2><span class="lg-at">Targets · PPR</span></div>`
+    + `<p class="lg-lead-in">The best players no one in the league has, on their points ${B ? `over Week ${wk[0]} and Week ${wk[1]}` : `in Week ${wk[0]}`}.</p>`
+    + `<div class="lg-chips" data-hscroll role="toolbar" aria-label="Waiver wire position">`
+    + POS.map(p => `<button type="button" class="lg-chip" data-lg-wpos="${p}" aria-pressed="${p === st.wpos}">${p === 'all' ? 'All' : p}</button>`).join('') + `</div>`
+    + (list.length
+      ? `<div class="lg-cols" aria-hidden="true"><span>Players</span><span>${B ? `Wk ${wk[0]} + ${wk[1]}` : 'Score'}</span></div><ol class="lg-list">${list.map(e => waiverRow(e, wk, A === st.D)).join('')}</ol>`
+      : ui.empty({icon: 'search', title: 'No one to pick up here.', body: ''}));
+}
+
 // The chips across the top: search, my players, then All, QB, RB, WR and TE.
 function chipsHTML() {
   return `<div class="lg-chips" data-hscroll role="toolbar" aria-label="Filter players">`
@@ -218,9 +269,28 @@ function draw(ctx, parts = 'all') {
   st.stale = false;
   const eb = st.el.querySelector('.lt-eyebrow');
   if (eb && st.D && st.D.week) eb.textContent = `NFL · Week ${st.D.week} · Live`;
-  const all = playersOf(st);
+  const all = playersOf(st.D);
   if (parts === 'all' || parts === 'games') st.games.innerHTML = gamesHTML(st);
   st.list.innerHTML = listHTML(st, all);
+  st.waiver.innerHTML = waiverHTML(st, all);
+}
+// The weeks before (for the waiver wire): the one before this, and the one before that while this week has no stats.
+// Each is fetched once; one that failed or came back short is tried again on the next update.
+function loadPast(ctx, st) {
+  const D = st.D;
+  if (!D || !(D.week > 1)) return;
+  const want = D.boxes.size ? [D.week - 1] : [D.week - 1, D.week - 2];
+  want.filter(w => w >= 1).forEach(w => {
+    const k = D.year + '-' + w;
+    if (st.asked.has(k)) return;
+    st.asked.add(k);
+    gd.pastWeek(D.year, w).then(P => {
+      if (ST.get(ctx) !== st || !st.D || st.D.year !== D.year) return;
+      st.past.set(w, P);
+      if (!P.games.length || P.boxes.size < P.games.filter(g => g.state === 'post').length) st.asked.delete(k);
+      draw(ctx, 'stats');
+    }, () => st.asked.delete(k));
+  });
 }
 // Scores that went up since the last update flash on their box (not on the first load).
 function noteScores(st, D) {
@@ -245,6 +315,7 @@ function start(ctx, st) {
     noteScores(st, D);
     st.D = D;
     draw(ctx);
+    loadPast(ctx, st);
   });
 }
 function stopFeed(st) { if (st && st.stop) { st.stop(); st.stop = null; } }
@@ -260,13 +331,14 @@ export default {
       + chipsHTML()
       + `<div class="lg-search" hidden>${ui.searchField({name: 'lg-q', placeholder: 'Player or manager', label: 'Search players'})}</div>`
       + `<div data-lg-list></div>`
+      + `</section><section class="lg-waiver" data-lg-waiver></section>`
       + `<p class="lg-foot">PPR: 1 a catch, 0.1 a rushing or receiving yard, 0.04 a passing yard, 6 a TD (4 passing), −1 an interception, −2 a fumble lost. From ESPN's box scores, every 30 seconds while games are on.</p>`
-      + `<p class="lg-foot">Owners are from this season\u2019s draft and the trades on file. Waiver pickups and drops aren't known yet (Yahoo rosters don't sync), so those players show no owner or the one who drafted them.</p></section></div>`;
+      + `<p class="lg-foot">Owners are from this season\u2019s draft and the trades on file. Waiver pickups and drops aren't known yet (Yahoo rosters don't sync), so those players show no owner or the one who drafted them, and a waiver target may already be taken.</p></div>`;
   },
 
   mount(el, ctx) {
-    const st = {ctx, el, games: el.querySelector('[data-lg-games]'), list: el.querySelector('[data-lg-list]'),
-      D: null, pos: 'all', q: '', mine: false, game: null, more: false, prev: new Map(), flash: new Map(), flashT: 0, stop: null};
+    const st = {ctx, el, games: el.querySelector('[data-lg-games]'), list: el.querySelector('[data-lg-list]'), waiver: el.querySelector('[data-lg-waiver]'),
+      D: null, past: new Map(), asked: new Set(), wpos: 'all', pos: 'all', q: '', mine: false, game: null, more: false, prev: new Map(), flash: new Map(), flashT: 0, stop: null};
     ST.set(ctx, st);
     el.addEventListener('click', e => {
       const t = e.target;
@@ -288,6 +360,8 @@ export default {
         draw(ctx, 'stats');
         return;
       }
+      const wb = t.closest('[data-lg-wpos]');
+      if (wb) { st.wpos = wb.dataset.lgWpos; draw(ctx, 'stats'); return; }
       const fb = t.closest('[data-lg-find]');
       if (fb) {
         const box = el.querySelector('.lg-search'), open = box.hidden;

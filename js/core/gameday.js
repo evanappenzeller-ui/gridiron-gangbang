@@ -15,6 +15,8 @@
 //                         draft (league.json drafts) and its trades since, in week order. Waiver pickups and drops
 //                         aren't on file (no Yahoo rosters yet), so a player picked up off waivers shows no one.
 //   ownerOf(owners, p) -> his manager's id, or null
+//   pastWeek(year, week) -> Promise<{year, week, games, boxes}>: a finished week's box scores (the waiver wire's week
+//                         before), fetched once a session (again only if a box failed to load)
 //
 // Scoring (PPR, Yahoo's standard, which the league plays): 1 a catch, 0.1 a rushing or receiving yard, 0.04 a passing
 // yard, 6 a rushing, receiving or return TD, 4 a passing TD, -1 an interception thrown, -2 a fumble lost. Two-point
@@ -141,6 +143,25 @@ async function getBox(g) {
   } catch (_) {
     return c ? c.box : null;
   }
+}
+// A past week's boxes (its games are over: fetched once, kept for the session).
+const PAST = new Map();
+export function pastWeek(year, week) {
+  const k = year + '-w' + week;
+  if (!PAST.has(k)) {
+    const p = nfl.scoreboard(year, week).then(async d => {
+      const go = d.games.filter(g => g.state === 'post');
+      const list = await Promise.all(go.map(g => fetch(SUMMARY + encodeURIComponent(g.id))
+        .then(r => { if (!r.ok) throw new Error('summary ' + r.status); return r.json(); })
+        .then(j => [g.id, parseBox(j)], () => null)));
+      const boxes = new Map(list.filter(Boolean));
+      if (boxes.size < go.length || d.stale) PAST.delete(k);
+      return {year: d.year, week: d.week, games: d.games, boxes};
+    });
+    p.catch(() => PAST.delete(k));
+    PAST.set(k, p);
+  }
+  return PAST.get(k);
 }
 const boxDone = id => { const c = BOX.get(id); return !!c && c.final; };
 

@@ -176,6 +176,9 @@
 .lg-body .lg-po.is-me { color: var(--tint); font-weight: 600; }
 .lg-body .lg-dot { display: inline-block; width: 6px; height: 6px; margin-left: 2px; vertical-align: 2px; border-radius: 50%; background: var(--wrong); animation: lg-blink 1.6s ease-in-out infinite; }
 .lg-body .lg-morewrap { display: flex; justify-content: center; margin-top: 12px; }
+/* The waiver wire: the same rows; under the points, this week's + the week before's. */
+.lg-body .lg-lead-in { margin: -2px 0 10px; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
+.lg-body .lg-waiver .lg-po { font-variant-numeric: tabular-nums; }
 .lg-body .lg-foot { margin-top: 16px; font: 400 var(--fs-cap)/var(--lh-cap) var(--font-text); color: var(--ink-4); }
 
 @keyframes lg-blink { 50% { opacity: .25; } }
