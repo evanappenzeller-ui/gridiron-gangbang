@@ -530,8 +530,12 @@ button.card, a.card { width: 100%; text-align: left; color: inherit; }
   user-select: none; -webkit-user-select: none;
   vertical-align: middle;
 }
+/* A member's color carries the whole circle (full-strength ring, a stronger tint inside) so the twelve tell apart at
+   a glance (Oct 27 2026, the owner: "Ensure the league member logos are different colors and can be easily distinguished"). */
+.av:where([class*="mc-"]) { --mc-ring: var(--mc); box-shadow: inset 0 0 0 2px var(--mc-ring); }
 @supports (color: color-mix(in srgb, red 50%, transparent)) {
   .av { --mc-ring: color-mix(in srgb, var(--mc, #888) 50%, transparent); }
+  .av:where([class*="mc-"]) { --mc-ring: var(--mc); background: color-mix(in srgb, var(--mc) 30%, #0E0F11); }
 }
 .av-mono { display: block; transform: translateY(.04em); }
 .av-20 { --sz: 20px; } .av-24 { --sz: 24px; } .av-28 { --sz: 28px; } .av-32 { --sz: 32px; }

@@ -180,31 +180,31 @@
 body { background: var(--bg); color: var(--ink); }
 
 /* 4.2 Manager identity: --mc accent and --mc-deep fill (hex fallback, color-mix when supported). */
-.mc-ben     { --mc: #FF8A4C; --mc-deep: #35231A; }
-.mc-corbin  { --mc: #4C8DFF; --mc-deep: #182337; }
-.mc-dresden { --mc: #FFD84D; --mc-deep: #352F1B; }
-.mc-evan    { --mc: #9D7BFF; --mc-deep: #252037; }
-.mc-jackson { --mc: #FF6B9E; --mc-deep: #351E28; }
-.mc-jacob   { --mc: #2ED3BE; --mc-deep: #132E2D; }
-.mc-jaymin  { --mc: #D6B08A; --mc-deep: #2E2924; }
-.mc-jayton  { --mc: #3CC0F5; --mc-deep: #152B36; }
-.mc-john    { --mc: #EE6BDB; --mc-deep: #321E31; }
-.mc-mason   { --mc: #8C9EFF; --mc-deep: #222637; }
-.mc-mitch   { --mc: #C77DFF; --mc-deep: #2C2137; }
-.mc-sayer   { --mc: #9EB1C8; --mc-deep: #25292E; }
+.mc-ben     { --mc: #FF8A3D; --mc-deep: #352318; }
+.mc-corbin  { --mc: #3366FF; --mc-deep: #141D37; }
+.mc-dresden { --mc: #FFE45C; --mc-deep: #35311D; }
+.mc-evan    { --mc: #A86BFF; --mc-deep: #271E37; }
+.mc-jackson { --mc: #FF94BD; --mc-deep: #35242D; }
+.mc-jacob   { --mc: #2FD178; --mc-deep: #132E21; }
+.mc-jaymin  { --mc: #A8774C; --mc-deep: #27201A; }
+.mc-jayton  { --mc: #22D3EE; --mc-deep: #112E34; }
+.mc-john    { --mc: #E83ECF; --mc-deep: #31172F; }
+.mc-mason   { --mc: #9BE13B; --mc-deep: #253118; }
+.mc-mitch   { --mc: #FF4D4D; --mc-deep: #35191B; }
+.mc-sayer   { --mc: #A3ADBA; --mc-deep: #26282C; }
 /* Fallback set for unknown ids: sum(charCodes) % 12 over the same list. */
-.mc-x0  { --mc: #FF8A4C; --mc-deep: #35231A; }
-.mc-x1  { --mc: #4C8DFF; --mc-deep: #182337; }
-.mc-x2  { --mc: #FFD84D; --mc-deep: #352F1B; }
-.mc-x3  { --mc: #9D7BFF; --mc-deep: #252037; }
-.mc-x4  { --mc: #FF6B9E; --mc-deep: #351E28; }
-.mc-x5  { --mc: #2ED3BE; --mc-deep: #132E2D; }
-.mc-x6  { --mc: #D6B08A; --mc-deep: #2E2924; }
-.mc-x7  { --mc: #3CC0F5; --mc-deep: #152B36; }
-.mc-x8  { --mc: #EE6BDB; --mc-deep: #321E31; }
-.mc-x9  { --mc: #8C9EFF; --mc-deep: #222637; }
-.mc-x10 { --mc: #C77DFF; --mc-deep: #2C2137; }
-.mc-x11 { --mc: #9EB1C8; --mc-deep: #25292E; }
+.mc-x0  { --mc: #FF8A3D; --mc-deep: #352318; }
+.mc-x1  { --mc: #3366FF; --mc-deep: #141D37; }
+.mc-x2  { --mc: #FFE45C; --mc-deep: #35311D; }
+.mc-x3  { --mc: #A86BFF; --mc-deep: #271E37; }
+.mc-x4  { --mc: #FF94BD; --mc-deep: #35242D; }
+.mc-x5  { --mc: #2FD178; --mc-deep: #132E21; }
+.mc-x6  { --mc: #A8774C; --mc-deep: #27201A; }
+.mc-x7  { --mc: #22D3EE; --mc-deep: #112E34; }
+.mc-x8  { --mc: #E83ECF; --mc-deep: #31172F; }
+.mc-x9  { --mc: #9BE13B; --mc-deep: #253118; }
+.mc-x10 { --mc: #FF4D4D; --mc-deep: #35191B; }
+.mc-x11 { --mc: #A3ADBA; --mc-deep: #26282C; }
 /* Opponent drawn in ink when two managers' hues are within 35 degrees (views add .mc-ink on side B). */
 .mc-ink { --mc: #FFFFFF; --mc-deep: #2C2C2E; }
 
