@@ -248,7 +248,7 @@ function activeHTML(list) {
   const MAX = 12, more = list.length - MAX;
   const chip = p => `<li class="gm-act-p${p.me ? ' is-me' : ''}">${p.member ? ui.avatar(p.member, {size: 22, you: p.me}) : ui.nickAvatar(p.name, {size: 22, you: p.me})}`
     + `<span>${esc(p.me ? 'You' : p.name)}</span></li>`;
-  return `<div class="gm-act"><p class="gm-act-h">Active today</p><ul class="gm-act-l">${list.slice(0, MAX).map(chip).join('')}`
+  return `<div class="gm-act"><p class="gm-act-h">Active today</p><ul class="gm-act-l" data-hscroll>${list.slice(0, MAX).map(chip).join('')}`
     + `${more > 0 ? `<li class="gm-act-p is-more"><span>+${more} more</span></li>` : ''}</ul></div>`;
 }
 function keepState() {
@@ -586,6 +586,24 @@ export function mountList(el, ctx, opts = {}) {
     const left = sl.offsetLeft + sl.offsetWidth / 2 - shelf.clientWidth / 2;
     if (smooth && !ui.RM) shelf.scrollTo({left, behavior: 'smooth'}); else jumpTo(left);
   };
+  // The screen doesn't scroll (the owner's ask, Oct 27 2026), so the case leaves room for the tallest of what goes under
+  // the shelf, whichever game is in the middle (Keepfall's who-was-active names can run to more lines): --gm-sel, which
+  // the case's size and the room kept under it go by (css/views/puzzles.css). A change puts the case back in the middle.
+  function room() {
+    if (st.dead || !shelf.clientWidth) return;
+    const m = document.createElement('div');
+    m.className = 'gm-sel';
+    m.setAttribute('aria-hidden', 'true');
+    m.style.cssText = 'position: absolute; left: 0; right: 0; top: 0; min-height: 0; visibility: hidden; pointer-events: none;';
+    el.append(m);
+    let h = 0;
+    for (const g of list()) { m.innerHTML = selHTML(g, stateOf(g)); h = Math.max(h, m.offsetHeight); }
+    m.remove();
+    const v = Math.max(100, Math.ceil(h)) + 'px';
+    if (el.style.getPropertyValue('--gm-sel') === v) return;
+    el.style.setProperty('--gm-sel', v);
+    if (st.cur >= 0 && !st.touch) { center(st.cur, false); layout(); }
+  }
   // ---------------------------------------------------------------- the back, up close
   function rowsFor(g, mode) {
     if (mode === 'season') return {board: g.id === 'puzzles' ? dailyBoard() : boardOf({'17-0': C.sv, drill: C.dr, kick: C.kk, return: C.rm}[g.id] || {boardState: () => 'loading'}), rows: seasonRowsOf(g.id)};
@@ -869,7 +887,7 @@ export function mountList(el, ctx, opts = {}) {
   if ('onscrollend' in shelf) shelf.addEventListener('scrollend', onUp);
   shelf.addEventListener('keydown', onKey);
   el.addEventListener('click', onClick);
-  const onResize = () => { center(st.cur, false); layout(); };
+  const onResize = () => { room(); center(st.cur, false); layout(); };
   addEventListener('resize', onResize, {passive: true});
   // (a team sheet opened over the case pushes a history entry: its back comes down to where the case was opened, and
   // leaves the case up)
@@ -884,6 +902,7 @@ export function mountList(el, ctx, opts = {}) {
   const start = () => {
     let id = null;
     try { id = sessionStorage.getItem(SHELF_KEY); } catch (_) {}
+    room();
     const gs = list();
     let i = gs.findIndex(g => g.id === id);
     if (i < 0) i = Math.max(0, gs.findIndex(g => stateOf(g).kind !== 'done'));
@@ -893,7 +912,7 @@ export function mountList(el, ctx, opts = {}) {
     // and still there once the page has settled (fonts, the covers, the panel under the shelf): back to the middle
     // row if anything moved it out to a copy
     [400, 1200].forEach(ms => setTimeout(settle, ms));
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => setTimeout(settle, 50), () => {});
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => setTimeout(() => { room(); settle(); }, 50), () => {});
   };
   requestAnimationFrame(start);
 
@@ -939,6 +958,7 @@ export function mountList(el, ctx, opts = {}) {
       if (pip) pip.classList.toggle('is-done', s.kind === 'done' || !!s.played);
       if (i === st.cur % n()) setCur(i, animate);
     });
+    room();
     if (st.zoom && !st.zoom.play) {
       const body = st.zoom.el.querySelector('[data-gm-zbody]'), g = byId(st.zoom.id), html = zoomBody(g, st.zoom.mode);
       if (body && body.dataset.html !== html) { body.dataset.html = html; body.innerHTML = html; ui.hydrate(body); fitBoard(body); }

@@ -3,7 +3,7 @@
 
 /* A DVD-sized shell: a consistent shape on the shelf and in the hand. */
 .v-puzzles .gm-owner.gm-list {
-  --cw: max(min(62cqw, 262px), min(calc(100cqw - 40px), 440px, calc((100cqh - var(--nav-h) - var(--tab-h) - 237px) / 1.41)));
+  --cw: min(calc(100cqw - 40px), 440px, calc((100cqh - var(--nav-h) - var(--tab-h) - 137px - var(--gm-sel, 100px)) / 1.41));
   --ch: calc(var(--cw) * 1.41);
 }
 .gm-owner .gm-case { aspect-ratio: 100 / 141; border-radius: 2.8cqw; }
