@@ -59,7 +59,7 @@ const output = path.resolve(__dirname, '../../../keepfall-3d-qa');
       v.frameWorld(); await settle();
       return {out, keys: Wd.THEME_KEYS, back, first: geometriesAfterFirst, moving, turned, retired};
     });
-    await page.screenshot({path: path.join(output, 'world-overview-landscape.png'), timeout: 180000}) // (software-drawn: the woods are thousands of trees);
+    await page.screenshot({path: path.join(output, 'world-overview-landscape.png'), timeout: 180000}); // (software-drawn: the woods are thousands of trees)
     for (const l of lands.out) {
       assert.equal(l.theme, l.k, 'each scenery its own land');
       assert(l.terrain && l.sky && l.water, l.k + ': terrain, sky and water');
