@@ -5,7 +5,7 @@
 // scoring (PPR, core/gameday.js), laid out like ESPN Fantasy's (Oct 27 2026), with chips for search, my players and each
 // position. A tap on a box shows that game's players only. Then the waiver wire: the best players no one in the league
 // has, over this week and the one before.
-// Each player's owner in the league (the draft, then trades); "My players" and "You" follow the profile picked.
+// Each player's owner in the league (the draft, then trades, pickups and drops); "My players" and "You" follow the profile picked.
 // Data: core/gameday.js (ESPN's scoreboard and box scores, every 30 s while a game is on). Styles: css/views/live.css.
 // Owner: LIVE.
 import * as ui from '../core/ui.js';
@@ -114,12 +114,18 @@ function gamesHTML(st) {
 }
 
 // ---------------------------------------------------------------------------------------------- Players
-// Who has each player in the league (core/gameday.js ownersOf: the season's draft and its trades), worked out once per
+// Who has each player in the league (core/gameday.js ownersOf: the season's draft, trades, pickups and drops), worked out once per
 // season and league file.
 let OWN = {src: null, year: 0, map: null};
 function owners(year) {
   if (OWN.src !== data.DATA || OWN.year !== year) OWN = {src: data.DATA, year, map: gd.ownersOf(data.DATA, year)};
   return OWN.map;
+}
+// " (through Oct 27)": the latest pickup or drop on file (league.json pickups/drops), or nothing.
+function movesThrough() {
+  const D = data.DATA || {}, at = [...(D.pickups || []), ...(D.drops || [])].map(x => String(x.at || '')).sort().pop();
+  const t = at ? new Date(at) : null;
+  return t && !isNaN(t) ? ` (through ${t.toLocaleDateString('en-US', {month: 'short', day: 'numeric'})})` : '';
 }
 function playersOf(D) {
   if (!D) return [];
@@ -203,8 +209,8 @@ function listHTML(st, all) {
 // ---------------------------------------------------------------------------------------------- Waiver wire
 // The best players no one in the league has (Oct 27 2026), on their points over the last two weeks with stats: this week
 // and the one before, or, before this week's games start, the two before it (gd.pastWeek). A player who sat one of them
-// out counts only the other. "No one has him" is the draft and the trades on file: pickups since aren't known, so a
-// target may already be taken.
+// out counts only the other. "No one has him" is the draft, trades, pickups and drops on file: moves since aren't known,
+// so a target may already be taken.
 const WAIVER_MAX = 10;
 // The two weeks it's on: [the latest with stats, the one before (null until it's in)], or null.
 function waiverWeeks(st) {
@@ -334,7 +340,7 @@ export default {
       + `<div data-lg-list></div>`
       + `</section><section class="lg-waiver" data-lg-waiver></section>`
       + `<p class="lg-foot">PPR: 1 a catch, 0.1 a rushing or receiving yard, 0.04 a passing yard, 6 a TD (4 passing), −1 an interception, −2 a fumble lost. From ESPN's box scores, every 30 seconds while games are on.</p>`
-      + `<p class="lg-foot">Owners are from this season\u2019s draft and the trades on file. Waiver pickups and drops aren't known yet (Yahoo rosters don't sync), so those players show no owner or the one who drafted them, and a waiver target may already be taken.</p></div>`;
+      + `<p class="lg-foot">Owners are from this season\u2019s draft, then the trades and Yahoo\u2019s pickups and drops on file${movesThrough()}. Yahoo rosters don't sync, so a move since then isn't known yet and a waiver target may already be taken.</p></div>`;
   },
 
   mount(el, ctx) {

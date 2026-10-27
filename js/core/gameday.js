@@ -12,8 +12,9 @@
 //   posOf(p, list)     -> 'QB' | 'RB' | 'WR' | 'TE': the player list's (data/nfl-players.json), else read off his stats
 //   loadPositions()    -> Promise of the player list's positions (name|team -> pos)
 //   ownersOf(league, year) -> Map(player's name, normalized -> manager id): who has him in the league, from that season's
-//                         draft (league.json drafts) and its trades since, in week order. Waiver pickups and drops
-//                         aren't on file (no Yahoo rosters yet), so a player picked up off waivers shows no one.
+//                         draft (league.json drafts), then its trades, pickups and drops (league.json pickups/drops, from
+//                         Yahoo's League Transactions) in time order: a pickup gives him to that manager, a drop frees him.
+//                         Moves not yet on file (Yahoo rosters don't sync) still show the last owner known.
 //   ownerOf(owners, p) -> his manager's id, or null
 //   pastWeek(year, week) -> Promise<{year, week, games, boxes}>: a finished week's box scores (the waiver wire's week
 //                         before), fetched once a session (again only if a box failed to load)
@@ -91,14 +92,20 @@ export function statLine(p) {
   return out.join(' · ');
 }
 
-// The league's owners: the season's draft, then its trades.
+// The league's owners: the season's draft, then its trades, pickups and drops by week and time (a trade's "Sep 18" date,
+// a move's "2026-10-21T05:23"; same week and no time keeps file order, trades first).
 export function ownersOf(league, year) {
   const m = new Map();
   const d = league && Array.isArray(league.drafts) ? league.drafts.find(x => x && x.year === year) : null;
   if (!d) return m;
   (Array.isArray(d.picks) ? d.picks : []).forEach(p => { if (p && p.player && p.manager) m.set(norm(p.player), p.manager); });
-  (Array.isArray(league.trades) ? league.trades : []).filter(t => t && t.year === year).sort((a, b) => (a.week || 0) - (b.week || 0))
-    .forEach(t => (t.sides || []).forEach(sd => (sd.got || []).forEach(nm => { if (sd.manager) m.set(norm(nm), sd.manager); })));
+  const list = k => (Array.isArray(league[k]) ? league[k] : []).filter(x => x && x.year === year);
+  const ev = [];
+  list('trades').forEach(t => ev.push({week: t.week, t: Date.parse(`${t.date} ${year}`), run: () =>
+    (t.sides || []).forEach(sd => (sd.got || []).forEach(nm => { if (sd.manager) m.set(norm(nm), sd.manager); }))}));
+  list('drops').forEach(x => ev.push({week: x.week, t: Date.parse(x.at), run: () => { if (x.player) m.delete(norm(x.player)); }}));
+  list('pickups').forEach(x => ev.push({week: x.week, t: Date.parse(x.at), run: () => { if (x.player && x.manager) m.set(norm(x.player), x.manager); }}));
+  ev.map((e, i) => Object.assign(e, {i, t: e.t || 0})).sort((a, b) => (a.week || 0) - (b.week || 0) || a.t - b.t || a.i - b.i).forEach(e => e.run());
   return m;
 }
 export const ownerOf = (owners, p) => (owners && owners.get(norm(p.name))) || null;

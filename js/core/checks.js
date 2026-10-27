@@ -1576,7 +1576,7 @@ export async function runChecks() {
     return {pass: !bad.length, detail: bad.length ? bad.join('; ') : `${want.length} legs scored right`};
   });
 
-  check('Live Games (everyone\'s, Oct 25 2026): the ball\'s spot and the red zone from ESPN, every player\'s line, his PPR points and his league owner (the draft, then trades), and the Scores tab (#/live) opens on every phone', async () => {
+  check('Live Games (everyone\'s, Oct 25 2026): the ball\'s spot and the red zone from ESPN, every player\'s line, his PPR points and his league owner (the draft, then trades, pickups and drops in time order), and the Scores tab (#/live) opens on every phone', async () => {
     const [nfl, gd, app] = await Promise.all([import('./nfl.js'), import('./gameday.js'), import('../app.js')]);
     const bad = [];
     const H = {id: '12', abbr: 'KC'}, A = {id: '7', abbr: 'DEN'};
@@ -1600,6 +1600,16 @@ export async function runChecks() {
       trades: [{year: 2026, week: 5, sides: [{manager: 'mitch', got: ['Drake Maye']}]}, {year: 2026, week: 3, sides: [{manager: 'sayer', got: ['Drake Maye']}]}, {year: 2025, week: 9, sides: [{manager: 'jacob', got: ['Luther Burden III']}]}]}, 2026);
     const ow = n => gd.ownerOf(owns, {name: n});
     if (ow('Luther Burden') !== 'john' || ow('Drake Maye') !== 'mitch' || ow('Nobody Here') !== null) bad.push(`owners: Burden ${ow('Luther Burden')}, Maye ${ow('Drake Maye')} (want john, mitch)`);
+    // Pickups and drops (Yahoo's League Transactions) play in time order with the trades: dropped, then claimed by another.
+    const mv = gd.ownersOf({drafts: [{year: 2026, picks: [{player: 'Makai Lemon', manager: 'ben'}, {player: 'Jake Ferguson', manager: 'ben'}]}],
+      trades: [{year: 2026, week: 5, date: 'Oct 8', sides: [{manager: 'john', got: ['Makai Lemon']}]}],
+      pickups: [{year: 2026, week: 8, at: '2026-10-26T14:58', manager: 'corbin', player: 'Darius Cooper'}, {year: 2026, week: 8, at: '2026-10-25T08:20', manager: 'corbin', player: 'Makai Lemon'}],
+      drops: [{year: 2026, week: 8, at: '2026-10-26T14:58', manager: 'corbin', player: 'Makai Lemon'}, {year: 2026, week: 7, at: '2026-10-21T05:24', manager: 'john', player: 'Makai Lemon'}, {year: 2026, week: 7, at: '2026-10-23T00:33', manager: 'ben', player: 'Jake Ferguson'}]}, 2026);
+    const om = n => gd.ownerOf(mv, {name: n});
+    if (om('Darius Cooper') !== 'corbin' || om('Makai Lemon') !== null || om('Jake Ferguson') !== null) bad.push(`moves: Cooper ${om('Darius Cooper')}, Lemon ${om('Makai Lemon')}, Ferguson ${om('Jake Ferguson')} (want corbin, none, none)`);
+    // The league file's own moves: claimed off waivers (Brenton Strange to Ben, Oct 23), dropped (the Jets by John, Oct 27).
+    const real = gd.ownersOf(data.DATA || {}, 2026), or = n => gd.ownerOf(real, {name: n});
+    if ((data.DATA && data.DATA.pickups || []).length && (or('Brenton Strange') !== 'ben' || or('Alvin Kamara') !== 'mason' || or('Geno Smith') !== null)) bad.push(`league moves: Strange ${or('Brenton Strange')}, Kamara ${or('Alvin Kamara')}, Geno ${or('Geno Smith')} (want ben, mason, none)`);
     const r = app.parseRoute('/live'), old = app.parseRoute('/lay/live');
     if (!old || old.view !== r.view) bad.push('old #/lay/live link');
     if (!(r && r.view === 'live' && r.open === 'root' && r.tab === 'live')) bad.push('route ' + JSON.stringify(r && {view: r.view, open: r.open}));
