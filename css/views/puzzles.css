@@ -288,9 +288,10 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
   touch-action: none; border-top-right-radius: 5.6cqw; cursor: grab;
 }
 /* looked at a while, the corner shows it's the one to take hold of (views/games.js hint): a soft light in the corner,
-   its edge marked and a little curved arrow, nudging twice and then left faint till the next touch */
+   its edge marked and a little curved arrow that fades in once, stays bright about seven seconds while it nudges slowly
+   three times, and is then left faint till the next touch (the owner, Oct 27 2026: it "is flashing too quickly") */
 .v-puzzles .gm-grip::before {
-  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0; transition: opacity .5s ease;
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0; transition: opacity 1.2s ease;
   background: radial-gradient(circle at 100% 0, rgba(214,255,160,.30), rgba(150,230,80,.10) 45%, transparent 70%);
 }
 .v-puzzles .gm-grip-cue {
@@ -299,11 +300,11 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
   filter: drop-shadow(0 0 .6cqw rgba(0,0,0,.75)) drop-shadow(0 0 1.4cqw rgba(132,230,52,.45)); transition: opacity .5s ease;
 }
 .v-puzzles .gm-case.is-hint:not(.is-turning) .gm-grip::before { opacity: 1; }
-.v-puzzles .gm-case.is-hint:not(.is-turning) .gm-grip-cue { opacity: .62; animation: gm-cue 1.8s cubic-bezier(.45,0,.3,1) .1s 2 both; }
+.v-puzzles .gm-case.is-hint:not(.is-turning) .gm-grip-cue { opacity: .62; animation: gm-cue 8.4s ease .1s both; }
 .v-puzzles .gm-cue-ar { transform-origin: 75% 25%; }
-.v-puzzles .gm-case.is-hint:not(.is-turning) .gm-cue-ar { animation: gm-cue-ar 1.8s cubic-bezier(.45,0,.3,1) .1s 2 both; }
-@keyframes gm-cue { 0% { opacity: 0; } 30%, 60% { opacity: .95; } 100% { opacity: .62; } }
-@keyframes gm-cue-ar { 0%, 15% { transform: none; } 45% { transform: rotate(-14deg) translate(-.6px, .6px); } 75%, 100% { transform: none; } }
+.v-puzzles .gm-case.is-hint:not(.is-turning) .gm-cue-ar { animation: gm-cue-ar 2.4s cubic-bezier(.45,0,.3,1) 1s 3 both; }
+@keyframes gm-cue { 0% { opacity: 0; } 12%, 88% { opacity: .95; } 100% { opacity: .62; } }
+@keyframes gm-cue-ar { 0%, 10% { transform: none; } 40%, 55% { transform: rotate(-14deg) translate(-.6px, .6px); } 85%, 100% { transform: none; } }
 html.rm .v-puzzles .gm-case.is-hint .gm-grip-cue, html.rm .v-puzzles .gm-case.is-hint .gm-cue-ar { animation: none; }
 @media (prefers-reduced-motion: reduce) { .v-puzzles .gm-case.is-hint .gm-grip-cue, .v-puzzles .gm-case.is-hint .gm-cue-ar { animation: none; } }
 .v-puzzles .gm-slot:not(.is-cur) .gm-grip, .v-puzzles .gm-case:not(.is-done):not(.is-turns) .gm-grip { display: none; } /* (a case with no board on its back doesn't turn: its edges swipe the shelf) */
