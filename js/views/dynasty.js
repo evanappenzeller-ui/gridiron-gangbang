@@ -4,8 +4,11 @@
 // card in the game to look through, and the collections: The Show's), Deck (your 20-card battle deck) and Battle (your
 // matches against other players, challenges, and the Dynasty board: everyone's, the scoreboards' rule, CLAUDE.md). A
 // match itself plays on its own screen (views/dynasty-battle.js, /puzzles/dynasty/battle/<id>).
-// A pack opens over everything (openPack): the pack torn, then its cards face down, each glowing its rarity's colour
-// before it turns (The Show's tell), a Diamond with a burst; then the lot, new and duplicate marked.
+// A pack opens over everything (openPack): you rip it open with a swipe across its top (the owner's ask, Oct 28 2026:
+// "ripping it open by swiping across", with "a subtle hint showing players how to do this": a finger gliding along the
+// tear line till you start), the strip tearing along your finger and flying off once you're far enough across (short of
+// it, it springs back; Enter rips it too); then its cards face down, each glowing its rarity's colour before it turns
+// (The Show's tell), a Diamond with a burst; then the lot, new and duplicate marked.
 // The cards themselves (cardHTML) are drawn in HTML: the rarity's frame, the team's colours, the photo (ESPN's headshot,
 // else NFL.com's; a Legend his number), OVR, position, the series and the name; Coach and Stadium cards (trainerHTML)
 // their own. battleHTML: a card's battle side (type, HP, Ability, attacks), on its close-up and in a battle.
@@ -394,14 +397,17 @@ function openPack(st, kind, team = null) {
   ov.className = 'dy-open';
   ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true'); ov.setAttribute('aria-label', `Opening a ${D.PACKS[kind].name}`);
   ov.innerHTML = `<div class="dy-open-bg" style="--pc:${D.PACKS[kind].color}"></div>`
-    + `<div class="dy-open-pack" data-dy-tear>${packHTML(kind, {big: true})}<p>Tap to open</p></div>`
+    + `<div class="dy-open-pack" data-dy-tear tabindex="0" role="button" aria-label="Rip the pack open: swipe across its top, or press Enter">`
+    + `<div class="dy-rip" style="--p:0;--dir:1"><div class="dy-rip-body" style="clip-path:${TEAR.body}">${packHTML(kind, {big: true})}</div>`
+    + `<div class="dy-rip-top" style="clip-path:${TEAR.top}">${packHTML(kind, {big: true})}</div>`
+    + `<span class="dy-rip-line" aria-hidden="true"></span><span class="dy-rip-hint" aria-hidden="true"><i class="dy-rip-trail"></i><i class="dy-rip-finger"></i></span></div>`
+    + `<p class="dy-rip-say">Swipe across the top to rip it open</p></div>`
     + `<div class="dy-open-cards" hidden>${order.map((c, i) => `<div class="dy-flip is-${c.r}${r.dup[c.id] ? ' is-dup' : ''}" data-i="${i}" style="--d:${i}"><div class="dy-flip-in">`
       + `<div class="dy-flip-back"><span>GD</span></div><div class="dy-flip-front">${anyHTML(c.id, {size: 'm', tag: false})}${r.dup[c.id] ? `<span class="dy-dup">Duplicate · ${nf(D.sellValue(c))}</span>` : '<span class="dy-dup is-new">New</span>'}</div></div></div>`).join('')}</div>`
     + `<div class="dy-open-bar" hidden>${ui.button({label: 'Reveal all', kind: 'secondary', attrs: {'data-dy-all': ''}})}${ui.button({label: 'Done', kind: 'primary', attrs: {'data-dy-done': ''}})}</div>`;
   document.body.appendChild(ov);
   const prevFocus = document.activeElement;
   requestAnimationFrame(() => ov.classList.add('is-in'));
-  ov.querySelector('[data-dy-tear]').setAttribute('tabindex', '0');
   ov.querySelector('[data-dy-tear]').focus();
   let next = 0;
   const flip = el => {
@@ -421,12 +427,73 @@ function openPack(st, kind, team = null) {
     if (els.length) { flip(els[0]); next++; }
     if (els.length <= 1) ov.querySelector('[data-dy-all]').hidden = true;
   };
-  const tear = () => {
-    const p = ov.querySelector('.dy-open-pack');
-    if (p.classList.contains('is-torn')) return;
-    p.classList.add('is-torn'); ui.haptic('medium');
-    setTimeout(() => { p.hidden = true; ov.querySelector('.dy-open-cards').hidden = false; ov.querySelector('.dy-open-bar').hidden = false; ov.querySelector('[data-dy-done]').focus(); }, RM() ? 0 : 520);
+  // ---- the rip: drag across the pack's top; the strip tears along the finger (--p, 0..1, from the side you started)
+  const pk = ov.querySelector('.dy-open-pack'), rip = pk.querySelector('.dy-rip');
+  let drag = null, prog = 0, dir = 1, anim = 0, ripped = false;
+  const set = v => {
+    prog = Math.max(0, Math.min(1, v));
+    rip.style.setProperty('--p', prog.toFixed(3)); rip.style.setProperty('--dir', String(dir));
   };
+  const tween = (to, ms, then) => {
+    cancelAnimationFrame(anim);
+    const from = prog, t0 = performance.now();
+    if (RM() || ms <= 0) { set(to); if (then) then(); return; }
+    const step = now => {
+      const k = Math.min(1, (now - t0) / ms), e = 1 - Math.pow(1 - k, 3);
+      set(from + (to - from) * e);
+      if (k < 1) anim = requestAnimationFrame(step); else if (then) then();
+    };
+    anim = requestAnimationFrame(step);
+  };
+  const tear = () => {
+    if (ripped) return;
+    ripped = true; drag = null;
+    pk.classList.remove('is-drag'); pk.classList.add('is-touched');
+    tween(1, 110, () => {
+      pk.classList.add('is-torn'); ui.haptic('medium');
+      setTimeout(() => { pk.hidden = true; ov.querySelector('.dy-open-cards').hidden = false; ov.querySelector('.dy-open-bar').hidden = false; ov.querySelector('[data-dy-done]').focus(); }, RM() ? 0 : 560);
+    });
+  };
+  // (a tap with no swipe: the hint shows itself plainly, and the pack shivers)
+  let nudgeT = 0;
+  const nudge = () => {
+    pk.classList.remove('is-nudge'); void pk.offsetWidth; pk.classList.add('is-nudge');
+    clearTimeout(nudgeT); nudgeT = setTimeout(() => pk.classList.remove('is-nudge'), 1600);
+    ui.haptic('light');
+  };
+  pk.addEventListener('pointerdown', e => {
+    if (ripped || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    cancelAnimationFrame(anim);
+    const r = rip.getBoundingClientRect();
+    drag = {x: e.clientX, w: r.width, moved: false, lx: e.clientX, lt: performance.now(), v: 0, tick: 0, start: prog};
+    try { pk.setPointerCapture(e.pointerId); } catch (_) {}
+    clearTimeout(nudgeT); pk.classList.remove('is-nudge'); pk.classList.add('is-drag');
+  });
+  pk.addEventListener('pointermove', e => {
+    if (!drag || ripped) return;
+    const dx = e.clientX - drag.x;
+    if (!drag.moved) {
+      if (Math.abs(dx) < 6) return;
+      drag.moved = true; dir = dx > 0 ? 1 : -1; pk.classList.add('is-touched');
+    }
+    const now = performance.now();
+    drag.v = (e.clientX - drag.lx) * dir / Math.max(1, now - drag.lt); drag.lx = e.clientX; drag.lt = now;
+    set(dx * dir / (drag.w * 0.85));
+    const tick = Math.floor(prog * 4);
+    if (tick > drag.tick) { drag.tick = tick; ui.haptic('selection'); }
+    if (prog >= 1) tear();
+  });
+  const let_go = () => {
+    if (!drag || ripped) return;
+    const d = drag;
+    drag = null; pk.classList.remove('is-drag');
+    if (!d.moved) { nudge(); return; }
+    // (far enough across, or a quick flick past a quarter: it rips; short of it, the strip springs back)
+    if (prog >= 0.55 || (prog >= 0.25 && d.v > 0.7)) tear();
+    else tween(0, 240, () => pk.classList.remove('is-touched')); // (and the hint comes back)
+  };
+  pk.addEventListener('pointerup', let_go);
+  pk.addEventListener('pointercancel', let_go);
   const close = () => {
     D.markSeen([]);
     ov.classList.remove('is-in'); ov.classList.add('is-out');
@@ -438,7 +505,7 @@ function openPack(st, kind, team = null) {
   const onKey = e => { if (e.key === 'Escape') { e.preventDefault(); close(); } };
   addEventListener('keydown', onKey, true);
   ov.addEventListener('click', e => {
-    if (e.target.closest('[data-dy-tear]')) { tear(); return; }
+    if (e.target.closest('[data-dy-tear]')) return; // (the rip is a swipe: pointer events above)
     if (e.target.closest('[data-dy-done]')) {
       // (a Done before everything's turned turns the rest first)
       const left = ov.querySelectorAll('.dy-flip:not(.is-up)');
@@ -450,8 +517,16 @@ function openPack(st, kind, team = null) {
     if (f) { if (!f.classList.contains('is-up')) flip(f); return; }
     if (!ov.querySelector('.dy-open-cards').hidden) flipNext();
   });
-  ov.querySelector('[data-dy-tear]').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tear(); } });
+  pk.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && !ripped) { e.preventDefault(); dir = 1; pk.classList.add('is-touched'); tween(1, 420, tear); } });
 }
+// The tear line across a pack, a zigzag at CUT down from its top: the strip above it and the body below (clip-paths that
+// meet exactly).
+const TEAR = (() => {
+  const CUT = 13, n = 12, pts = [];
+  for (let i = 0; i <= n; i++) pts.push([+(i * 100 / n).toFixed(2), CUT + (i % 2 ? 1.6 : -0.6)]);
+  const p = a => a.map(([x, y]) => `${x}% ${y}%`).join(',');
+  return {top: `polygon(0% 0%,100% 0%,${p(pts.slice().reverse())})`, body: `polygon(${p(pts)},100% 100%,0% 100%)`, cut: CUT};
+})();
 function teamPicker(done) {
   const teams = Object.values(D.TEAMS).sort((a, b) => a.name.localeCompare(b.name));
   const body = `<div class="dy-teams">${teams.map(t => `<button type="button" class="dy-teamb" data-dy-team="${t.abbr}" style="--tp:${t.pri}"><img src="${esc(logoUrl(t.abbr, 72))}" alt="" loading="lazy" onerror="this.remove()"><span>${esc(t.name)}</span></button>`).join('')}</div>`;
