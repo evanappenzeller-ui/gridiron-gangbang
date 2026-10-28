@@ -1,27 +1,29 @@
 // Gridiron Dynasty (the owner's ask, Oct 27 2026: "most comparable to Ultimate Team in Madden. Players can earn points to
 // open packs to unlock players. Players are based on real life [players]... inspiration [from] how MLB The Show does
-// their player cards with different types and collections"). A persistent game on Daily Games, the owner's alone (his
-// ask, Oct 27 2026: "Make available to my profile only"; data.isOwner()): no one else's phone plays it or posts to it.
+// their player cards with different types and collections"). A persistent game on Daily Games, everyone's (Oct 28 2026,
+// with its battles: CLAUDE.md).
 //
 // The cards (data/dynasty.json, tools/dynasty/build.py): real NFL players from nflverse, in six series after The Show's
 // card types: Live Series (every active player, OVR from his 2025 and 2026 play), Rookie, Prime, Gameday (a week's best
 // real games, The Show's Topps Now), Awards (2025's leaders) and Legends. Rarity by OVR as The Show's: Diamond 85+,
-// Gold 80-84, Silver 75-79, Bronze 65-74, Common.
+// Gold 80-84, Silver 75-79, Bronze 65-74, Common. And the battles' Coach and Stadium cards (core/dynasty-battle.js
+// TRAINERS: Pokémon's Trainer and Stadium cards).
 //
 // Coins: the Daily Games pay them (earnedOf: every game day you play from the day your Dynasty began, read from your
 // board docs, so nothing is paid twice and every phone agrees), with a free Standard Pack a day, quick-selling cards,
-// collection rewards and games won. Spent coins and credits are kept (sp, cr): your balance is starter + earned + cr - sp.
+// collection rewards and battles. Spent coins and credits are kept (sp, cr): your balance is starter + earned + cr - sp.
 // Packs (PACKS, their odds shown in the store), the collection (o: card id -> copies), collections (COLLECTIONS, their
-// rewards claimed once: cl), your squad (sq: slot -> card id, 23 starters: SLOTS), games against the computer's teams
-// (three a day) and against other players' squads (once a day each): sim().
+// rewards claimed once: cl), your battle deck (dk: 20 cards, core/dynasty-battle.js checkDeck) and what battles paid
+// (bt, tr: trophies, rec). The battles themselves: core/dynasty-match.js.
 //
 // Where it lives: this phone's board doc (players/{uid}, daily.js) as dy1 under the profile's own key (profileKey: m_<member>,
 // u_<app user>, g_<guest>), so a player's Dynasty is the same on every phone of theirs; locally under gg-dy1-<key>. Other
-// players' squads and the Dynasty board follow the scoreboards' rule (CLAUDE.md): everyone to everyone, read from
+// players' Dynasties and the Dynasty board follow the scoreboards' rule (CLAUDE.md): everyone to everyone, read from
 // daily.LB.raw (never LB.all, except for finding your own saved copy, as Keepfall does).
 import * as daily from './daily.js';
 import * as data from './data.js';
 import {profileKey, visitWho} from './realm-active.js';
+import * as B from './dynasty-battle.js';
 
 export const FIELD = 'dy1';
 export const VERSION = 1;
@@ -30,8 +32,8 @@ export const STARTER_COINS = 2500;
 export const DAILY_PACK = 'std';
 const LOCAL = key => `gg-dy1-${key}`;
 
-/** Whether this phone can play: the owner's profile only (Oct 27 2026). */
-export const mayPlay = () => data.isOwner();
+/** Whether this phone can play: a member, an app user or a guest picked (everyone's since Oct 28 2026). */
+export const mayPlay = () => !!(data.me() || data.guest());
 
 // ---------------------------------------------------------------------------------------------------- the cards
 export const SERIES = {
@@ -84,9 +86,16 @@ export function setData(d) {
     return card;
   });
   POOLS.clear();
+  B.setCards(card);
   COLLECTIONS = buildCollections();
 }
+/** A player card (null for anything else: a Coach or Stadium card is trainer()'s). */
 export const card = id => BY_ID.get(id) || null;
+/** A Coach or Stadium card: {id, kind, name, r, text, ...}. */
+export const trainer = id => (B.TRAINERS[id] ? {id, ...B.TRAINERS[id]} : null);
+export const TRAINER_IDS = Object.keys(B.TRAINERS);
+/** Whether id is a card of the game, a player or a Coach or Stadium card. */
+export const isCard = id => !!(card(id) || B.TRAINERS[id]);
 export const attrKeys = pos => (DATA && DATA.attrs && DATA.attrs[pos]) || [];
 export const teamOf = abbr => TEAMS[abbr] || {abbr, name: abbr, pri: '#333', sec: '#999', conf: '', div: '', espn: abbr};
 /** The week the Gameday cards go up to. */
@@ -132,12 +141,13 @@ const pickW = (items, weight, R = luck) => {
 // Each pack: its price, and its slots: each slot a draw of a rarity by its odds (the store shows them), then a card of
 // that rarity from the slot's pool (series, and for a Team Pack the team chosen).
 export const PACKS = {
-  std: {name: 'Standard Pack', price: 1000, blurb: 'Five Live Series cards.', color: '#2F6FDE',
-    slots: [{n: 5, pool: 'live', odds: {common: 34, bronze: 38, silver: 18, gold: 8, diamond: 2}}]},
-  team: {name: 'Team Pack', price: 1500, blurb: 'Five Live Series cards from the team you pick.', color: '#1E9E6A', team: true,
-    slots: [{n: 5, pool: 'live', odds: {common: 25, bronze: 40, silver: 22, gold: 10, diamond: 3}}]},
-  prem: {name: 'Premium Pack', price: 3000, blurb: 'Six cards, the last one Gold or better. Rookies and specials inside.', color: '#8B3FD9',
-    slots: [{n: 5, pool: 'all', odds: {common: 10, bronze: 35, silver: 30, gold: 18, diamond: 7}}, {n: 1, pool: 'all', odds: {gold: 75, diamond: 25}}]},
+  std: {name: 'Standard Pack', price: 1000, blurb: 'Four Live Series cards and a Coach or Stadium card.', color: '#2F6FDE',
+    slots: [{n: 4, pool: 'live', odds: {common: 34, bronze: 38, silver: 18, gold: 8, diamond: 2}}, {n: 1, pool: 'trainer', odds: {silver: 70, gold: 30}}]},
+  team: {name: 'Team Pack', price: 1500, blurb: 'Four Live Series cards from the team you pick, and a Coach or Stadium card.', color: '#1E9E6A', team: true,
+    slots: [{n: 4, pool: 'live', odds: {common: 25, bronze: 40, silver: 22, gold: 10, diamond: 3}}, {n: 1, pool: 'trainer', odds: {silver: 70, gold: 30}}]},
+  prem: {name: 'Premium Pack', price: 3000, blurb: 'Six cards: a Coach or Stadium card, and the last one Gold or better. Rookies and specials inside.', color: '#8B3FD9',
+    slots: [{n: 4, pool: 'all', odds: {common: 10, bronze: 35, silver: 30, gold: 18, diamond: 7}}, {n: 1, pool: 'trainer', odds: {silver: 50, gold: 50}},
+      {n: 1, pool: 'all', odds: {gold: 75, diamond: 25}}]},
   gday: {name: 'Gameday Pack', price: 4000, blurb: 'A Gameday card from a real game, and two Gold-or-better cards.', color: '#E0702A',
     slots: [{n: 1, pool: 'gameday', odds: {diamond: 100}}, {n: 2, pool: 'live', odds: {gold: 80, diamond: 20}}]},
   leg: {name: 'Legends Pack', price: 12000, blurb: 'A 90+ special card (Legend, Prime, Award or Gameday) and two Diamonds.', color: '#C9A227',
@@ -158,9 +168,13 @@ function poolOf(pool, team, rarity) {
   POOLS.set(k, list);
   return list;
 }
-/** One card for a slot of a pack: R the randomness (luck by default). */
+/** One card for a slot of a pack: R the randomness (luck by default). {id, ...} (a Coach or Stadium card: trainer()'s). */
 export function drawCard(slot, {team = null, R = luck} = {}) {
   const rar = pickW(Object.keys(slot.odds), r => slot.odds[r], R);
+  if (slot.pool === 'trainer') {
+    const ids = TRAINER_IDS.filter(id => B.TRAINERS[id].r === rar);
+    return trainer((ids.length ? ids : TRAINER_IDS)[Math.floor(R() * (ids.length || TRAINER_IDS.length))]);
+  }
   let list = [];
   if (slot.pool === 'live') list = poolOf('live', team, rar);
   else if (slot.pool === 'gameday') {
@@ -197,55 +211,54 @@ export const packOdds = kind => (PACKS[kind] ? PACKS[kind].slots.map(sl => {
 // ---------------------------------------------------------------------------------------------------- quick sell
 const SELL = {common: 10, bronze: 40, silver: 150, gold: 500, diamond: 1500};
 const SELL_SPECIAL = {R: 1.5, G: 2, A: 2.5, P: 2.5, X: 4};
-/** What a card quick-sells for, in coins. */
-export const sellValue = c => (c ? Math.round((SELL[c.r] || 0) * (c.s === 'L' ? 1 : SELL_SPECIAL[c.s] || 1)) : 0);
+/** What a card quick-sells for, in coins (c: a player card or a Coach or Stadium card). */
+export const sellValue = c => (c ? Math.round((SELL[c.r] || 0) * (c.s === 'L' || !c.s ? 1 : SELL_SPECIAL[c.s] || 1)) : 0);
+/** A card of either kind by id. */
+export const anyCard = id => card(id) || trainer(id);
 
-// ---------------------------------------------------------------------------------------------------- the squad
-// 23 starters: the offense (QB, RB, three WRs, TE, five on the line), the defense (four down linemen, three backers,
-// two corners, two safeties) and the kicker. Each slot's weight in the team's OVR (the quarterback's the most).
-export const SLOTS = [
-  {id: 'QB', pos: 'QB', side: 'off', w: 3}, {id: 'RB', pos: 'RB', side: 'off', w: 1.3},
-  {id: 'WR1', pos: 'WR', side: 'off', w: 1.3}, {id: 'WR2', pos: 'WR', side: 'off', w: 1.1}, {id: 'WR3', pos: 'WR', side: 'off', w: 0.9},
-  {id: 'TE', pos: 'TE', side: 'off', w: 1},
-  {id: 'LT', pos: 'OL', side: 'off', w: 0.9}, {id: 'LG', pos: 'OL', side: 'off', w: 0.7}, {id: 'C', pos: 'OL', side: 'off', w: 0.7},
-  {id: 'RG', pos: 'OL', side: 'off', w: 0.7}, {id: 'RT', pos: 'OL', side: 'off', w: 0.8},
-  {id: 'DL1', pos: 'DL', side: 'def', w: 1.1}, {id: 'DL2', pos: 'DL', side: 'def', w: 0.9}, {id: 'DL3', pos: 'DL', side: 'def', w: 0.9}, {id: 'DL4', pos: 'DL', side: 'def', w: 1.1},
-  {id: 'LB1', pos: 'LB', side: 'def', w: 1}, {id: 'LB2', pos: 'LB', side: 'def', w: 0.9}, {id: 'LB3', pos: 'LB', side: 'def', w: 0.8},
-  {id: 'CB1', pos: 'CB', side: 'def', w: 1.2}, {id: 'CB2', pos: 'CB', side: 'def', w: 1},
-  {id: 'S1', pos: 'S', side: 'def', w: 1}, {id: 'S2', pos: 'S', side: 'def', w: 0.9},
-  {id: 'K', pos: 'K', side: 'st', w: 0.5}
-];
-export const SLOT = Object.fromEntries(SLOTS.map(s => [s.id, s]));
-const EMPTY_OVR = 40; // (an empty slot plays as a 40)
-/** A squad's ratings: {ovr, off, def, st}: weighted averages of its starters' OVRs. sq: slot -> card id. */
-export function squadRating(sq) {
-  const acc = {all: [0, 0], off: [0, 0], def: [0, 0], st: [0, 0]};
-  SLOTS.forEach(s => {
-    const c = card(sq && sq[s.id]), o = c && c.pos === s.pos ? c.o : EMPTY_OVR;
-    acc.all[0] += o * s.w; acc.all[1] += s.w;
-    acc[s.side][0] += o * s.w; acc[s.side][1] += s.w;
+// ---------------------------------------------------------------------------------------------------- the battle deck
+// 20 cards (core/dynasty-battle.js checkDeck: at most 2 of any player or card, a Basic among them).
+const COACH_KIT = {'C-timeout': 2, 'C-twomin': 2, 'C-audible': 2, 'C-scout': 1, 'C-flag': 1};
+/** The best deck out of a collection: the two strongest types' best Basic players (and the evolutions he has of them),
+ *  a kicker, and the Coach and Stadium cards, to 20. */
+export function autoDeck(owned) {
+  const have = Object.keys(owned || {}).filter(id => owned[id] > 0);
+  const players = have.map(card).filter(Boolean).sort((a, b) => b.o - a.o || a.name.localeCompare(b.name));
+  const power = {};
+  players.filter(c => B.isBasic(c.id) && c.pos !== 'K').slice(0, 30).forEach(c => { const t = B.POS_TYPE[c.pos]; power[t] = (power[t] || 0) + c.o; });
+  const types = Object.keys(power).sort((a, b) => power[b] - power[a]).slice(0, 2);
+  const deck = [], per = {};
+  const add = (id, n = 1) => {
+    const st = B.stats(id), k = st ? 'p:' + st.from : id;
+    for (let i = 0; i < n && deck.length < B.DECK_SIZE; i++) {
+      if ((per[k] || 0) >= B.MAX_COPIES || deck.filter(x => x === id).length >= (owned[id] || 0)) return;
+      deck.push(id); per[k] = (per[k] || 0) + 1;
+    }
+  };
+  // (Coach and Stadium cards: the best, at most 7)
+  const tr = have.filter(id => B.TRAINERS[id]).sort((a, b) => (B.TRAINERS[b].r === 'gold') - (B.TRAINERS[a].r === 'gold'));
+  let trainers = 0;
+  tr.forEach(id => { while (trainers < 7 && deck.filter(x => x === id).length < Math.min(2, owned[id])) { add(id); trainers++; } });
+  // (a player's evolution right after his Basic, when he has both)
+  players.filter(c => B.isBasic(c.id) && types.includes(B.POS_TYPE[c.pos])).forEach(c => {
+    if (deck.length >= B.DECK_SIZE - 1) return;
+    add(c.id);
+    const evo = players.find(e => !B.isBasic(e.id) && e.p === c.p);
+    if (evo) add(evo.id);
   });
-  const r = k => (acc[k][1] ? Math.round(acc[k][0] / acc[k][1]) : EMPTY_OVR);
-  return {ovr: r('all'), off: r('off'), def: r('def'), st: r('st')};
+  const k = players.find(c => c.pos === 'K'); if (k) add(k.id);
+  players.forEach(c => { if (deck.length < B.DECK_SIZE && B.isBasic(c.id)) add(c.id); });
+  // (still short: the rest of the Coach and Stadium cards, then anything)
+  tr.forEach(id => { if (deck.length < B.DECK_SIZE) add(id, 2); });
+  players.forEach(c => { if (deck.length < B.DECK_SIZE) add(c.id, 2); });
+  return deck;
 }
-/** The best squad out of a collection: each slot the best card of its position not already in (one card of a player). */
-export function bestSquad(owned) {
-  const ids = Object.keys(owned || {}).filter(id => owned[id] > 0 && card(id));
-  const byPos = {};
-  ids.map(card).sort((a, b) => b.o - a.o || a.name.localeCompare(b.name)).forEach(c => (byPos[c.pos] = byPos[c.pos] || []).push(c));
-  const used = new Set(), sq = {};
-  SLOTS.slice().sort((a, b) => b.w - a.w).forEach(s => {
-    const c = (byPos[s.pos] || []).find(x => !used.has(x.p));
-    if (c) { sq[s.id] = c.id; used.add(c.p); }
-  });
-  return sq;
+/** Your deck and whether it's legal: {ids, ok, why, types}. */
+export function deckOf(s = mine()) {
+  const r = B.checkDeck(s.dk, s.o);
+  return {ids: s.dk.slice(), ...r};
 }
-/** Whether card id can go in slot (its position) without the same player twice. */
-export function fits(sq, slot, id) {
-  const c = card(id), s = SLOT[slot];
-  if (!c || !s || c.pos !== s.pos) return false;
-  return !SLOTS.some(o => o.id !== slot && sq[o.id] && card(sq[o.id]) && card(sq[o.id]).p === c.p);
-}
+export function setDeck(ids, s = mine()) { s.dk = ids.slice(0, B.DECK_SIZE); touch(); return deckOf(s); }
 
 // ---------------------------------------------------------------------------------------------------- collections
 // After The Show's: a team's Headliners (its ten best Live cards), a division (its four teams' Headliners), the whole
@@ -279,6 +292,12 @@ function buildCollections() {
   series('A', 'Award Winners', 0, {packs: {leg: 2}});
   series('R', 'Rookie Class', 20, {coins: 5000, packs: {prem: 3}});
   series('X', 'Hall of Legends', 10, {coins: 25000, packs: {leg: 3}});
+  const tset = (id, name, kind, reward) => {
+    const need = TRAINER_IDS.filter(t => B.TRAINERS[t].kind === kind);
+    out.push({id, kind: 'series', series: kind, name, need, of: need.length, reward});
+  };
+  tset('series-coach', 'The Coaching Staff', 'coach', {coins: 5000, packs: {prem: 2}});
+  tset('series-stadium', 'Road Trip', 'stadium', {coins: 5000, packs: {gday: 1}});
   const weeks = [...new Set(CARDS.filter(c => c.s === 'G').map(c => c.w))].sort((a, b) => b - a);
   weeks.forEach(w => {
     const need = CARDS.filter(c => c.s === 'G' && c.w === w).map(c => c.id);
@@ -305,26 +324,28 @@ export function rewardText(rw) {
 }
 
 // ---------------------------------------------------------------------------------------------------- the save
-// {v, rs, born, at, sp (coins spent), cr (coins credited: sales, rewards, wins, the daily bonus), o {card id: copies},
-//  pk {pack kind: unopened}, cl {collection id: when claimed}, sq {slot: card id}, dd (the last day the daily pack was
-//  taken, YYYY-MM-DD), gm {d: the day, c: {cpu level: result}, h: {opponent key: result}}, rec {w, l}, nm (team name),
-//  lp (the latest pulls, newest first: 24 at most), nw (cards pulled for the first time and not looked at yet: NEW)}
+// {v, rs, born, at, sp (coins spent), cr (coins credited: sales, rewards, battles, the daily bonus), o {card id: copies},
+//  pk {pack kind: unopened}, cl {collection id: when claimed}, dk [the battle deck's 20 ids], kit (the starter Coach
+//  cards given: 1), dd (the last day the daily pack was taken, YYYY-MM-DD), rec {w, l, d}, tr (trophies), bt {match id:
+//  'w'|'l'|'d', paid}, nm (team name), lp (the latest pulls, newest first: 24 at most), nw (cards pulled for the first time
+//  and not looked at yet: NEW)}
 export const dayKey = (t = new Date()) => `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
-/** A new Dynasty: the starter squad (a Common or Bronze card at every slot, the same for this profile on any phone),
- *  and the welcome packs. */
+/** A new Dynasty: a starter deck (two types' Common and Bronze players and the starter Coach cards, the same for this
+ *  profile on any phone), and the welcome packs. */
 export function fresh(key = '', now = Date.now()) {
-  const R = rng('starter|' + key), o = {}, used = new Set();
-  SLOTS.forEach(s => {
-    const all = CARDS.filter(c => c.s === 'L' && c.pos === s.pos && !used.has(c.p));
-    // (a Common or low Bronze; a position with none, its lowest five)
-    let list = all.filter(c => c.o >= 58 && c.o <= 66);
-    if (!list.length) list = all.slice().sort((a, b) => a.o - b.o).slice(0, 5);
+  const R = rng('starter|' + key), o = {};
+  const pairs = [['A', 'C'], ['G', 'B'], ['A', 'B'], ['G', 'C']], types = pairs[Math.floor(R() * pairs.length)];
+  const used = new Set();
+  for (let i = 0; i < 12; i++) {
+    const t = types[i % 2];
+    const list = CARDS.filter(c => c.s === 'L' && B.POS_TYPE[c.pos] === t && c.o >= 58 && c.o <= 68 && !used.has(c.p));
     const c = list.length ? list[Math.floor(R() * list.length)] : null;
     if (c) { o[c.id] = 1; used.add(c.p); }
-  });
-  const s = {v: VERSION, rs: SEASON_MARK, born: now, at: now, sp: 0, cr: 0, o, pk: {std: 2, prem: 1}, cl: {}, sq: {}, dd: '', gm: {d: '', c: {}, h: {}},
-    rec: {w: 0, l: 0}, nm: '', lp: [], nw: []};
-  s.sq = bestSquad(o);
+  }
+  Object.assign(o, COACH_KIT);
+  const s = {v: VERSION, rs: SEASON_MARK, born: now, at: now, sp: 0, cr: 0, o, pk: {std: 2, prem: 1}, cl: {}, dk: [], kit: 1, dd: '',
+    rec: {w: 0, l: 0, d: 0}, tr: 0, bt: {}, nm: '', lp: [], nw: []};
+  s.dk = autoDeck(o);
   return s;
 }
 /** A save as it should be (anything missing or broken put right), or null when it isn't one. */
@@ -332,16 +353,17 @@ export function clean(s) {
   if (!s || typeof s !== 'object' || s.rs !== SEASON_MARK) return null;
   const obj = x => (x && typeof x === 'object' && !Array.isArray(x) ? x : {});
   const n = x => (Number.isFinite(Number(x)) && Number(x) >= 0 ? Math.floor(Number(x)) : 0);
-  const out = {v: VERSION, rs: SEASON_MARK, born: n(s.born) || Date.now(), at: n(s.at), sp: n(s.sp), cr: n(s.cr), o: {}, pk: {}, cl: {}, sq: {},
-    dd: typeof s.dd === 'string' ? s.dd : '', gm: {d: '', c: {}, h: {}}, rec: {w: n(s.rec && s.rec.w), l: n(s.rec && s.rec.l)},
+  const out = {v: VERSION, rs: SEASON_MARK, born: n(s.born) || Date.now(), at: n(s.at), sp: n(s.sp), cr: n(s.cr), o: {}, pk: {}, cl: {}, dk: [],
+    kit: s.kit ? 1 : 0, dd: typeof s.dd === 'string' ? s.dd : '', rec: {w: n(s.rec && s.rec.w), l: n(s.rec && s.rec.l), d: n(s.rec && s.rec.d)},
+    tr: n(s.tr), bt: {},
     nm: typeof s.nm === 'string' ? s.nm.slice(0, 24) : '', lp: Array.isArray(s.lp) ? s.lp.filter(x => typeof x === 'string').slice(0, 24) : [], nw: []};
   Object.entries(obj(s.o)).forEach(([k, v]) => { if (n(v) > 0) out.o[k] = Math.min(99, n(v)); });
   Object.entries(obj(s.pk)).forEach(([k, v]) => { if (PACKS[k] && n(v) > 0) out.pk[k] = Math.min(999, n(v)); });
   Object.entries(obj(s.cl)).forEach(([k, v]) => { if (v) out.cl[k] = n(v) || 1; });
-  Object.entries(obj(s.sq)).forEach(([k, v]) => { if (SLOT[k] && typeof v === 'string' && out.o[v] > 0) out.sq[k] = v; });
+  if (Array.isArray(s.dk)) out.dk = s.dk.filter(id => typeof id === 'string').slice(0, B.DECK_SIZE);
   if (Array.isArray(s.nw)) out.nw = [...new Set(s.nw.filter(k => typeof k === 'string' && out.o[k] > 0))].slice(0, 60);
-  const g = obj(s.gm);
-  if (typeof g.d === 'string') out.gm = {d: g.d, c: obj(g.c), h: obj(g.h)};
+  // (the battles paid: the latest 200)
+  Object.entries(obj(s.bt)).slice(-200).forEach(([k, v]) => { if (['w', 'l', 'd'].includes(v)) out.bt[k] = v; });
   return out;
 }
 
@@ -464,6 +486,11 @@ export function mine() {
     MINE = remote && (!local || remote.at > local.at) ? remote : local;
     if (MINE && MINE === local && (!remote || local.at > remote.at)) dirty = true;
     if (!MINE) { MINE = fresh(PROFILE); dirty = true; }
+    // (a Dynasty from before the battles, Oct 28 2026: the starter Coach cards, and a deck from what it has)
+    if (!MINE.kit) {
+      Object.entries(COACH_KIT).forEach(([id, n]) => { MINE.o[id] = (MINE.o[id] || 0) + n; });
+      MINE.kit = 1; MINE.dk = autoDeck(MINE.o); dirty = true;
+    }
     writeLocal(MINE);
     if (dirty) later();
   }
@@ -545,10 +572,10 @@ export function open(kind, {team = null} = {}, s = mine()) {
   touch('open');
   return {ok: true, cards: ids, dup};
 }
-/** Quick-sells copies of a card (a squad starter keeps one). {ok, coins}. */
+/** Quick-sells copies of a card (the copies in your deck are kept). {ok, coins}. */
 export function sell(id, n = 1, s = mine()) {
-  const c = card(id), have = s.o[id] || 0;
-  const keep = Object.values(s.sq).includes(id) ? 1 : 0;
+  const c = anyCard(id), have = s.o[id] || 0;
+  const keep = s.dk.filter(x => x === id).length;
   n = Math.min(n, have - keep);
   if (!c || n <= 0) return {ok: false, coins: 0};
   s.o[id] = have - n; if (!s.o[id]) { delete s.o[id]; s.nw = s.nw.filter(x => x !== id); }
@@ -556,7 +583,9 @@ export function sell(id, n = 1, s = mine()) {
 }
 /** Every spare copy (beyond the first) of every card: [{id, n, coins}] and the total. */
 export function spares(s = mine()) {
-  const list = Object.entries(s.o).filter(([id, n]) => n > 1 && card(id)).map(([id, n]) => ({id, n: n - 1, coins: sellValue(card(id)) * (n - 1)}));
+  // (spares: beyond the first, or beyond as many as your deck uses)
+  const list = Object.entries(s.o).map(([id, n]) => ({id, n: n - Math.max(1, s.dk.filter(x => x === id).length)})).filter(x => x.n > 0 && anyCard(x.id))
+    .map(x => ({...x, coins: sellValue(anyCard(x.id)) * x.n}));
   return {list, coins: list.reduce((t, x) => t + x.coins, 0)};
 }
 export function sellSpares(s = mine()) {
@@ -577,148 +606,20 @@ export function claim(id, s = mine()) {
 }
 /** The collections ready to claim. */
 export const claimable = (s = mine()) => COLLECTIONS.filter(c => { const p = progress(c, s); return p.done && !p.claimed; });
-/** Puts a card in a slot (null: empties it). True if it went. */
-export function setSlot(slot, id, s = mine()) {
-  if (id == null) { delete s.sq[slot]; touch(); return true; }
-  if (!(s.o[id] > 0) || !fits(s.sq, slot, id)) return false;
-  s.sq[slot] = id; touch(); return true;
-}
-export function autoSquad(s = mine()) { s.sq = bestSquad(s.o); touch(); return s.sq; }
 export const markSeen = (ids, s = mine()) => { const was = s.nw.length; s.nw = s.nw.filter(id => !ids.includes(id)); if (s.nw.length !== was) { writeLocal(s); dirty = true; later(); } };
 export const isNew = (id, s = mine()) => s.nw.includes(id);
 /** The unique cards held, and of how many. */
-export const owned = (s = mine()) => ({have: Object.keys(s.o).filter(id => card(id)).length, of: CARDS.length});
+export const owned = (s = mine()) => ({have: Object.keys(s.o).filter(isCard).length, of: CARDS.length + TRAINER_IDS.length});
 
-// ---------------------------------------------------------------------------------------------------- games
-// Three games a day against the computer (CPU: a squad of about that OVR, its name and colours a city's), and one a
-// day against each other player's squad (their saved one, as it is now). A game is simulated drive by drive from the
-// two squads' ratings (sim): the same two squads on the same day play the same game on every phone.
-export const CPU = [
-  {id: 'rookie', name: 'Rookie', ovr: 70, win: 300, loss: 75},
-  {id: 'pro', name: 'Pro', ovr: 79, win: 500, loss: 100},
-  {id: 'allpro', name: 'All-Pro', ovr: 87, win: 900, loss: 150}
-];
-export const H2H_PAY = {win: 600, loss: 150};
-const CPU_NAMES = ['Ironclads', 'Thunder', 'Outlaws', 'Comets', 'Grizzlies', 'Sentinels', 'Vipers', 'Mustangs', 'Blizzard', 'Marauders', 'Hammerheads', 'Wildcats'];
-const CPU_COLORS = [['#2B2D42', '#EF233C'], ['#1B4332', '#95D5B2'], ['#3A0CA3', '#F72585'], ['#7F5539', '#EDE0D4'], ['#0B132B', '#5BC0BE'], ['#6A040F', '#FFBA08']];
-/** The computer's team of a level for a day: {key, name, pri, sec, sq, ovr}. */
-export function cpuTeam(level, day = dayKey()) {
-  const L = CPU.find(c => c.id === level) || CPU[0], R = rng(`cpu|${level}|${day}`);
-  const sq = {}, used = new Set();
-  SLOTS.forEach(s => {
-    const near = CARDS.filter(c => c.s === 'L' && c.pos === s.pos && Math.abs(c.o - L.ovr) <= 3 && !used.has(c.p));
-    const list = near.length ? near : CARDS.filter(c => c.s === 'L' && c.pos === s.pos && !used.has(c.p));
-    const c = list[Math.floor(R() * list.length)];
-    if (c) { sq[s.id] = c.id; used.add(c.p); }
-  });
-  const [pri, sec] = CPU_COLORS[Math.floor(R() * CPU_COLORS.length)];
-  return {key: 'cpu:' + level, name: `${L.name} ${CPU_NAMES[Math.floor(R() * CPU_NAMES.length)]}`, pri, sec, sq, ovr: squadRating(sq).ovr, cpu: L};
-}
-
-/** Simulates a game: a and b {name, sq}; seed for its randomness. Returns {a: points, b: points, plays: [{q, side, text,
- *  score: [a, b], big}], mvp: card id, win: 'a'|'b'}. Overtime breaks a tie (a field goal). */
-export function sim(A, B, seed) {
-  const R = rng(seed);
-  const side = T => {
-    const at = slot => card(T.sq && T.sq[slot]) || null;
-    const ov = slot => { const c = at(slot); return c && c.pos === SLOT[slot].pos ? c.o : EMPTY_OVR; };
-    const avg = list => list.reduce((t, s) => t + ov(s), 0) / list.length;
-    return {T, at, ol: avg(['LT', 'LG', 'C', 'RG', 'RT']), qb: ov('QB'), rb: ov('RB'), rec: avg(['WR1', 'WR2', 'WR3', 'TE']),
-      dl: avg(['DL1', 'DL2', 'DL3', 'DL4']), lb: avg(['LB1', 'LB2', 'LB3']), db: avg(['CB1', 'CB2', 'S1', 'S2']), k: ov('K')};
-  };
-  const S = {a: side(A), b: side(B)}, pts = {a: 0, b: 0}, plays = [], credit = {};
-  // (any given Sunday: each side's form on the day, up to 4 points of OVR either way)
-  S.a.form = (R() - 0.5) * 8; S.b.form = (R() - 0.5) * 8;
-  const nm = c => (c ? c.name : 'A backup');
-  const give = (c, n) => { if (c) credit[c.id] = (credit[c.id] || 0) + n; };
-  const pick = (o, slots) => { const cs = slots.map(o.at).filter(Boolean); return cs.length ? pickW(cs, c => Math.pow(c.o, 3), R) : null; };
-  const drive = (q, who) => {
-    const O = S[who], D = S[who === 'a' ? 'b' : 'a'];
-    const pass = 0.5 * O.qb + 0.35 * O.rec + 0.15 * O.ol, run = 0.5 * O.rb + 0.35 * O.ol + 0.15 * O.qb;
-    const pd = 0.6 * D.db + 0.4 * (0.6 * D.dl + 0.4 * D.lb), rd = 0.5 * D.dl + 0.4 * D.lb + 0.1 * D.db;
-    const passing = R() < 0.58;
-    // (the matchup on this drive, each side's form on the day counted: about -1.5 .. 1.5)
-    const edge = ((passing ? pass - pd : run - rd) + O.form - D.form + 1) / 10;
-    const td = clamp(0.21 + 0.065 * edge, 0.07, 0.42), fg = clamp(0.17 + 0.02 * edge + 0.02 * ((O.k - 75) / 10), 0.08, 0.3);
-    const to = clamp(0.12 - 0.025 * edge, 0.05, 0.22);
-    const r = R(), qb = O.at('QB');
-    const yds = () => 1 + Math.floor(R() * (R() < 0.3 ? 70 : 28));
-    let text = '', big = false, n = 0;
-    if (r < td) {
-      n = 7;
-      if (passing) {
-        const to2 = pick(O, ['WR1', 'WR2', 'WR3', 'TE', 'RB']), y = yds();
-        text = `${nm(qb)} finds ${nm(to2)} for a ${y}-yard touchdown.`; give(qb, 4); give(to2, 6); big = y >= 40;
-      } else {
-        const ball = R() < 0.85 ? O.at('RB') : qb, y = Math.max(1, Math.floor(yds() / 2));
-        text = `${nm(ball)} runs it in from ${y} yard${y === 1 ? '' : 's'} out.`; give(ball, 6); big = y >= 30;
-      }
-    } else if (r < td + fg) {
-      n = 3;
-      const k = O.at('K'), y = 22 + Math.floor(R() * (O.k >= 85 ? 36 : 30));
-      text = `${nm(k)} hits from ${y}.`; give(k, 2); big = y >= 50;
-    } else if (r < td + fg + to) {
-      if (passing) { const d = pick(D, ['CB1', 'CB2', 'S1', 'S2', 'LB1']); text = `${nm(d)} picks off ${nm(qb)}.`; give(d, 5); big = true; }
-      else { const d = pick(D, ['DL1', 'DL2', 'DL3', 'DL4', 'LB1', 'LB2']); text = `${nm(d)} forces a fumble, and the defense recovers.`; give(d, 5); }
-    } else {
-      const d = R() < 0.45 ? pick(D, ['DL1', 'DL2', 'DL3', 'DL4', 'LB1', 'LB2', 'LB3']) : null;
-      if (d && passing) { text = `${nm(d)} sacks ${nm(qb)} on third down. Punt.`; give(d, 3); }
-      else if (d) { text = `${nm(d)} stuffs ${nm(O.at('RB'))} on third and short. Punt.`; give(d, 2); }
-      else text = [`Three and out for ${O.T.name}.`, `${nm(qb)}’s drive stalls near midfield. Punt.`, `${O.T.name} can’t convert on third down. Punt.`][Math.floor(R() * 3)];
-    }
-    pts[who] += n;
-    plays.push({q, side: who, text, score: [pts.a, pts.b], n, big, quiet: !n && r >= td + fg + to});
-  };
-  // (about eleven drives each, as an NFL game has: the ball changes hands every drive, the second half kicked to the
-  // team that didn't get the first)
-  const first = R() < 0.5 ? 'a' : 'b', other = w => (w === 'a' ? 'b' : 'a');
-  let who = first;
-  for (let q = 1; q <= 4; q++) {
-    if (q === 3) who = other(first);
-    const n = 5 + (R() < 0.5 ? 1 : 0);
-    for (let i = 0; i < n; i++) { drive(q, who); who = other(who); }
-  }
-  if (pts.a === pts.b) {
-    const who = (S.a.k + S.a.qb) / 2 + (R() - 0.5) * 20 > (S.b.k + S.b.qb) / 2 ? 'a' : 'b', k = S[who].at('K');
-    pts[who] += 3; give(k, 5);
-    plays.push({q: 5, side: who, text: `Overtime: ${nm(k)} wins it from ${30 + Math.floor(R() * 20)}.`, score: [pts.a, pts.b], n: 3, big: true});
-  }
-  const win = pts.a > pts.b ? 'a' : 'b';
-  const winners = new Set(SLOTS.map(s => S[win].T.sq && S[win].T.sq[s.id]).filter(Boolean));
-  const mvp = Object.entries(credit).filter(([id]) => winners.has(id)).sort((x, y) => y[1] - x[1])[0];
-  return {a: pts.a, b: pts.b, plays, mvp: mvp ? mvp[0] : null, win};
-}
-const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
-
-function gamesToday(s, t = new Date()) {
-  const d = dayKey(t);
-  if (s.gm.d !== d) s.gm = {d, c: {}, h: {}};
-  return s.gm;
-}
-/** Today's results: {c: {level: result}, h: {key: result}}. */
-export const todayGames = (s = mine()) => (s.gm.d === dayKey() ? s.gm : {d: dayKey(), c: {}, h: {}});
-/** Plays a game today: vs 'cpu:<level>' or another player's profile key. {ok, why, game: sim()'s, pay, opp}. */
-export function play(vs, s = mine()) {
-  const gm = gamesToday(s), me = {name: teamName(s), sq: s.sq};
-  let opp, kind, pay;
-  if (vs.startsWith('cpu:')) {
-    const lvl = vs.slice(4);
-    if (gm.c[lvl]) return {ok: false, why: 'Already played today.'};
-    opp = cpuTeam(lvl, gm.d); kind = 'c'; pay = opp.cpu;
-  } else {
-    if (gm.h[vs]) return {ok: false, why: 'You’ve played them today.'};
-    const o = others().find(x => x.key === vs);
-    if (!o) return {ok: false, why: 'That squad isn’t on the board.'};
-    opp = {key: o.key, name: o.team, sq: o.state.sq, ovr: o.rating.ovr}; kind = 'h'; pay = H2H_PAY;
-  }
-  const g = sim(me, opp, `${gm.d}|${PROFILE}|${vs}|${JSON.stringify(s.sq)}`);
-  const won = g.win === 'a', coins = won ? pay.win : pay.loss;
-  const res = {u: g.a, o: g.b, w: won ? 1 : 0, at: Date.now(), n: opp.name};
-  if (kind === 'c') gm.c[vs.slice(4)] = res; else gm.h[vs] = res;
-  s.rec[won ? 'w' : 'l'] += 1;
-  credit(s, coins);
-  touch('game');
-  return {ok: true, game: g, coins, opp, won};
+// ---------------------------------------------------------------------------------------------------- battles paid
+// What a battle pays, once, when you see it's over (core/dynasty-match.js settle): coins and trophies (never below 0).
+export const BATTLE_PAY = {w: {coins: 400, tr: 30}, l: {coins: 100, tr: -15}, d: {coins: 200, tr: 0}};
+/** Records a finished battle's result for you ('w', 'l' or 'd'): paid once. True if it was new. */
+export function payBattle(mid, res, s = mine()) {
+  if (!BATTLE_PAY[res] || s.bt[mid]) return false;
+  s.bt[mid] = res; credit(s, BATTLE_PAY[res].coins); s.tr = Math.max(0, s.tr + BATTLE_PAY[res].tr);
+  s.rec[res] = (s.rec[res] || 0) + 1;
+  touch('battle'); return true;
 }
 
 // ---------------------------------------------------------------------------------------------------- other players
@@ -729,7 +630,7 @@ export function teamName(s = mine(), who = null) {
   return `${String(n).split(/\s+/)[0]}’s Dynasty`;
 }
 /** Everyone else's Dynasty this phone may see (the scoreboards' rule: everyone, from daily.LB.raw), the freshest copy
- *  of each: [{key, name, member, guest, team, state, rating, cards, cols}], the best squad first. */
+ *  of each: [{key, name, member, guest, team, state, tr, cards, cols, rec, deck (a legal deck)}], the most trophies first. */
 export function others(docs = daily.LB.raw || [], {withMe = false} = {}) {
   const own = profileKey(), best = new Map();
   for (const p of docs) {
@@ -745,7 +646,7 @@ export function others(docs = daily.LB.raw || [], {withMe = false} = {}) {
   const out = [];
   best.forEach(({s, who, me}, key) => {
     out.push({key, me: !!me || key === own, name: who.name, member: who.member || null, guest: !!who.guest, team: teamName(s, who), state: s,
-      rating: squadRating(s.sq), cards: Object.keys(s.o).filter(id => card(id)).length, cols: Object.keys(s.cl).length, rec: s.rec, at: s.at});
+      tr: s.tr, cards: Object.keys(s.o).filter(isCard).length, cols: Object.keys(s.cl).length, rec: s.rec, at: s.at, deck: B.checkDeck(s.dk, s.o).ok});
   });
-  return out.sort((a, b) => b.rating.ovr - a.rating.ovr || b.cards - a.cards || a.name.localeCompare(b.name));
+  return out.sort((a, b) => b.tr - a.tr || b.cards - a.cards || a.name.localeCompare(b.name));
 }

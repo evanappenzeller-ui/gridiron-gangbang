@@ -1,22 +1,24 @@
 // Gridiron Dynasty's page (/puzzles/dynasty, pushed over Daily Games; core/dynasty.js has the game): five panes under
-// a segmented control. Home (your coins, today's free pack, your unopened packs, collections to claim, your latest
-// pulls and what the Daily Games paid), Store (the packs and their odds), Cards (your collection, every card in the game
-// to look through, and the collections: The Show's), Squad (your 23 starters: tap a slot to change it) and Play (three
-// games a day against the computer, one against each other player's squad, and the Dynasty board: everyone's, the
-// scoreboards' rule, CLAUDE.md).
+// a segmented control. Home (your coins, today's free pack, battles waiting on you, your unopened packs, collections to
+// claim, your latest pulls and what the Daily Games paid), Store (the packs and their odds), Cards (your collection, every
+// card in the game to look through, and the collections: The Show's), Deck (your 20-card battle deck) and Battle (your
+// matches against other players, challenges, and the Dynasty board: everyone's, the scoreboards' rule, CLAUDE.md). A
+// match itself plays on its own screen (views/dynasty-battle.js, /puzzles/dynasty/battle/<id>).
 // A pack opens over everything (openPack): the pack torn, then its cards face down, each glowing its rarity's colour
 // before it turns (The Show's tell), a Diamond with a burst; then the lot, new and duplicate marked.
-// A game plays out over everything too (playOut): the scoreboard and the drives one by one, then the final and the pay.
 // The cards themselves (cardHTML) are drawn in HTML: the rarity's frame, the team's colours, the photo (ESPN's headshot,
-// else NFL.com's; a Legend his number), OVR, position, the series and the name.
+// else NFL.com's; a Legend his number), OVR, position, the series and the name; Coach and Stadium cards (trainerHTML)
+// their own. battleHTML: a card's battle side (type, HP, Ability, attacks), on its close-up and in a battle.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as daily from '../core/daily.js';
 import * as D from '../core/dynasty.js';
+import * as B from '../core/dynasty-battle.js';
+import * as MT from '../core/dynasty-match.js';
 
 const esc = data.esc, nf = n => data.nf(n);
 const ST = new WeakMap();
-const TABS = [{id: 'home', label: 'Home'}, {id: 'store', label: 'Store'}, {id: 'cards', label: 'Cards'}, {id: 'squad', label: 'Squad'}, {id: 'play', label: 'Play'}];
+const TABS = [{id: 'home', label: 'Home'}, {id: 'store', label: 'Store'}, {id: 'cards', label: 'Cards'}, {id: 'deck', label: 'Deck'}, {id: 'battle', label: 'Battle'}];
 const RM = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // ---------------------------------------------------------------------------------------------------- pictures
@@ -52,6 +54,45 @@ export function cardHTML(c, o = {}) {
   return o.tag === false ? `<div class="${cls}" style="${style}" role="img" aria-label="${esc(label)}">${inner}</div>`
     : `<button type="button" class="${cls}" style="${style}" data-dy-card="${esc(c.id)}" aria-label="${esc(label)}">${inner}</button>`;
 }
+// A Coach card's whistle and a Stadium's stands, drawn
+const COACH_ART = '<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="24" cy="38" r="14" fill="currentColor"/><rect x="24" y="24" width="30" height="12" rx="3" fill="currentColor"/><circle cx="24" cy="38" r="5" fill="rgba(0,0,0,.35)"/><path d="M50 24 58 14" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>';
+const STADIUM_ART = '<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M6 44c0-10 12-18 26-18s26 8 26 18v8H6z" fill="currentColor"/><path d="M14 44c0-6 8-11 18-11s18 5 18 11" fill="rgba(0,0,0,.35)"/><path d="M12 22v-8M52 22v-8M12 14l4 2-4 2M52 14l4 2-4 2" stroke="currentColor" stroke-width="2.5"/></svg>';
+/** A Coach or Stadium card (t: core/dynasty.js trainer()). o: as cardHTML's. */
+export function trainerHTML(t, o = {}) {
+  if (!t) return '';
+  const T = t.team ? D.teamOf(t.team) : null, coach = t.kind === 'coach';
+  const label = `${t.name}, ${coach ? 'Coach card' : 'Stadium card'}, ${D.RARITY_NAME[t.r]}. ${t.text}${o.count > 1 ? `, ${o.count} copies` : ''}${o.ghost ? ', not in your collection' : ''}`;
+  const inner = `<span class="dy-c-frame" aria-hidden="true"></span><span class="dy-t-art" aria-hidden="true">${coach ? COACH_ART : STADIUM_ART}`
+    + `${T ? `<img class="dy-t-logo" src="${esc(logoUrl(t.team, 80))}" alt="" loading="lazy" decoding="async" draggable="false" onerror="this.remove()">` : ''}</span>`
+    + `<span class="dy-c-ser" aria-hidden="true">${coach ? 'COACH' : 'STADIUM'}</span>`
+    + `<span class="dy-t-name" aria-hidden="true"><b>${esc(t.name)}</b><small>${esc(t.text)}</small></span>`
+    + (o.isNew ? '<span class="dy-c-new" aria-hidden="true">NEW</span>' : '')
+    + (o.count > 1 ? `<span class="dy-c-cnt" aria-hidden="true">×${o.count}</span>` : '')
+    + '<span class="dy-c-shine" aria-hidden="true"></span>';
+  const cls = `dy-card dy-trainer is-${t.r} k-${t.kind} sz-${o.size || 'm'}${o.ghost ? ' is-ghost' : ''}${o.cls ? ' ' + o.cls : ''}`;
+  const style = T ? `--tp:${T.pri};--ts:${T.sec}` : '--tp:#24304F;--ts:#C9A227';
+  return o.tag === false ? `<div class="${cls}" style="${style}" role="img" aria-label="${esc(label)}">${inner}</div>`
+    : `<button type="button" class="${cls}" style="${style}" data-dy-card="${esc(t.id)}" aria-label="${esc(label)}">${inner}</button>`;
+}
+/** Any card by id: a player's or a Coach or Stadium card. */
+export const anyHTML = (id, o = {}) => (D.card(id) ? cardHTML(D.card(id), o) : trainerHTML(D.trainer(id), o));
+/** An energy pip. */
+export const pipHTML = e => `<i class="db-e e-${e === '*' ? 'any' : e}" title="${esc(B.ENERGY[e])}"><span class="sr-only">${esc(B.ENERGY[e])}</span></i>`;
+/** A card's battle side: type, HP, weakness and retreat, its Ability, its attacks. */
+export function battleHTML(id) {
+  const t = D.trainer(id);
+  if (t) return `<div class="db-info"><p class="db-info-k">${t.kind === 'coach' ? 'Coach card · one a turn' : 'Stadium · in play for both sides till another replaces it'}</p><p>${esc(t.text)}</p></div>`;
+  const st = B.stats(id), c = D.card(id);
+  if (!st) return '';
+  const T = B.TYPES[st.type];
+  const ab = st.ability ? `<div class="db-ab"><b>Ability · ${esc(B.ABILITY[st.ability].name)}</b><span>${esc(B.ABILITY[st.ability].text)}</span></div>` : '';
+  const atk = st.attacks.map(a => `<li><span class="db-cost">${a.cost.map(pipHTML).join('')}</span><span class="db-an"><b>${esc(a.name)}</b>`
+    + `${B.fxText(a) ? `<small>${esc(B.fxText(a))}</small>` : ''}${a.note ? `<small>${esc(a.note)}</small>` : ''}${a.flat ? '<small>Ignores weakness.</small>' : ''}</span><em>${a.dmg}</em></li>`).join('');
+  const stage = st.stage ? `Evolves from ${esc(c.name)}’s Basic card` : 'Basic';
+  return `<div class="db-info"><div class="db-info-h"><span class="db-type" style="--ty:${T.color}">${esc(T.name)}</span><span>${stage}${st.ex ? ' · worth 2 touchdowns' : ''}</span><b>${st.hp} HP</b></div>`
+    + ab + `<ul class="db-atk">${atk}</ul>`
+    + `<p class="db-foot">Weak to ${st.weak ? `${esc(B.TYPES[st.weak].name)} (+${B.WEAK_BONUS})` : 'nothing'} · Switch out: ${st.retreat ? `${st.retreat} energy` : 'free'}</p></div>`;
+}
 /** A card's back: its attributes and its real stat lines. */
 function backHTML(c) {
   const keys = D.attrKeys(c.pos), T = D.teamOf(c.team);
@@ -70,36 +111,44 @@ function backHTML(c) {
     + (lines.length ? `<dl class="dy-lines">${lines.filter(l => l[1]).map(([a, b]) => `<dt>${esc(a)}</dt><dd>${esc(b)}</dd>`).join('')}</dl>` : '')
     + `<p class="dy-back-s">${esc(D.SERIES[c.s].name)} · ${esc(D.RARITY_NAME[c.r])}${c.s === 'L' ? '' : ` · ${esc(D.SERIES[c.s].blurb)}`}</p></div>`;
 }
-/** A card up close: the card, its back, and what you can do with it. */
+/** A card up close: the card, its battle side, its back, and what you can do with it. */
 function cardSheet(st, id) {
-  const c = D.card(id);
+  const c = D.anyCard(id);
   if (!c) return;
-  const s = D.mine(), n = s.o[id] || 0, inSq = Object.values(s.sq).includes(id);
+  const s = D.mine(), n = s.o[id] || 0, inDeck = s.dk.filter(x => x === id).length;
   D.markSeen([id]);
-  const sellN = n - (inSq ? 1 : 0);
+  const sellN = n - Math.max(inDeck, 0);
   const acts = [];
   if (sellN > 0) acts.push(ui.button({label: `Quick sell for ${nf(D.sellValue(c))}`, kind: 'secondary', block: true, attrs: {'data-dy-sell': id}}));
-  if (n > 0 && !inSq) acts.push(ui.button({label: 'Put in my squad', kind: 'primary', block: true, attrs: {'data-dy-start': id}}));
-  const body = `<div class="dy-sheet-card">${cardHTML(c, {size: 'l', tag: false, ghost: !n})}</div>`
-    + `<p class="dy-own">${n ? `In your collection${n > 1 ? ` · ${n} copies` : ''}${inSq ? ' · in your squad' : ''}` : 'Not in your collection yet'}</p>`
-    + backHTML(c) + (acts.length ? `<div class="dy-acts">${acts.join('')}</div>` : '');
+  if (n > inDeck && s.dk.length < B.DECK_SIZE) acts.push(ui.button({label: 'Add to my deck', kind: 'primary', block: true, attrs: {'data-dy-add': id}}));
+  if (inDeck) acts.push(ui.button({label: 'Take out of my deck', kind: 'secondary', block: true, attrs: {'data-dy-rm': id}}));
+  const body = `<div class="dy-sheet-card">${anyHTML(id, {size: 'l', tag: false, ghost: !n})}</div>`
+    + `<p class="dy-own">${n ? `In your collection${n > 1 ? ` · ${n} copies` : ''}${inDeck ? ` · ${inDeck} in your deck` : ''}` : 'Not in your collection yet'}</p>`
+    + battleHTML(id) + (D.card(id) ? backHTML(c) : '') + (acts.length ? `<div class="dy-acts">${acts.join('')}</div>` : '');
   const sh = ui.openSheet({title: c.name, body, cls: 'dy-sheet', detents: ['large']});
   sh.body.addEventListener('click', e => {
-    const sb = e.target.closest('[data-dy-sell]');
-    if (sb) {
+    if (e.target.closest('[data-dy-sell]')) {
       const r = D.sell(id, 1);
       if (r.ok) { ui.haptic('success'); ui.toast(`Sold for ${nf(r.coins)} coins`, {icon: 'check-circle'}); sh.close(); refresh(st); }
       return;
     }
-    const pb = e.target.closest('[data-dy-start]');
-    if (pb) {
-      const s2 = D.mine(), slots = D.SLOTS.filter(x => x.pos === c.pos);
-      // (the weakest slot of its position, or one where the same player is)
-      const same = slots.find(x => D.card(s2.sq[x.id]) && D.card(s2.sq[x.id]).p === c.p);
-      const target = same || slots.slice().sort((a, b) => (D.card(s2.sq[a.id])?.o || 0) - (D.card(s2.sq[b.id])?.o || 0))[0];
-      if (target && D.setSlot(target.id, id)) { ui.haptic('success'); ui.toast(`${c.name} starts at ${target.id}`, {icon: 'check-circle'}); sh.close(); refresh(st); }
-    }
+    if (e.target.closest('[data-dy-add]')) { deckAdd(st, id); sh.close(); return; }
+    if (e.target.closest('[data-dy-rm]')) { deckRemove(st, id); sh.close(); }
   });
+}
+function deckAdd(st, id) {
+  const s = D.mine(), ids = s.dk.concat(id);
+  const stt = B.stats(id), k = stt ? 'p:' + stt.from : id;
+  const same = s.dk.filter(x => (B.stats(x) ? 'p:' + B.stats(x).from : x) === k).length;
+  if (s.dk.length >= B.DECK_SIZE) { ui.toast('Your deck is full (20). Take a card out first.', {icon: 'info'}); return false; }
+  if (same >= B.MAX_COPIES) { ui.toast(`At most ${B.MAX_COPIES} of any player or card.`, {icon: 'info'}); return false; }
+  if (s.dk.filter(x => x === id).length >= (s.o[id] || 0)) { ui.toast('You don’t have another copy.', {icon: 'info'}); return false; }
+  D.setDeck(ids); ui.haptic('selection'); refresh(st); return true;
+}
+function deckRemove(st, id) {
+  const s = D.mine(), i = s.dk.indexOf(id);
+  if (i < 0) return;
+  const ids = s.dk.slice(); ids.splice(i, 1); D.setDeck(ids); ui.haptic('selection'); refresh(st);
 }
 
 // ---------------------------------------------------------------------------------------------------- a pack
@@ -116,20 +165,22 @@ function walletHTML(s) {
   return `<div class="dy-wallet">${coin(D.balance(s))}<span class="dy-wallet-s">${today ? `+${nf(today)} from today’s games` : 'Play the Daily Games to earn coins'}</span></div>`;
 }
 function homeHTML(st) {
-  const s = D.mine(), R = D.squadRating(s.sq), packs = D.PACK_ORDER.filter(k => s.pk[k] > 0), ready = D.claimable(s);
+  const s = D.mine(), packs = D.PACK_ORDER.filter(k => s.pk[k] > 0), ready = D.claimable(s), wait = MT.waiting(), dk = D.deckOf(s);
   const daily = D.dailyReady(s);
   let h = '';
   if (daily) h += `<button type="button" class="dy-daily" data-dy-daily>${packHTML(D.DAILY_PACK)}<span><b>Your free pack is here</b><small>A Standard Pack every day. Tap to take it.</small></span>${ui.icon('chevron-right')}</button>`;
+  if (wait) h += `<button type="button" class="dy-daily is-battle" data-dy-tab="battle">${ui.icon('versus', {size: 28})}<span><b>${wait === 1 ? 'A battle is' : `${wait} battles are`} waiting on you</b><small>Your move. Tap to play.</small></span>${ui.icon('chevron-right')}</button>`;
   if (ready.length) h += `<button type="button" class="dy-ready" data-dy-goto="cols">${ui.icon('trophy')}<span><b>${ready.length === 1 ? 'A collection is' : `${ready.length} collections are`} complete</b><small>Claim ${esc(D.rewardText(ready[0].reward))}${ready.length > 1 ? ' and more' : ''}</small></span>${ui.icon('chevron-right')}</button>`;
   h += `<section class="dy-sec"><h2 class="dy-h">Your packs</h2>`;
   h += packs.length ? `<div class="dy-packs" data-hscroll>${packs.map(k => `<button type="button" class="dy-packb" data-dy-open="${k}">${packHTML(k, {count: s.pk[k]})}<span>${esc(D.PACKS[k].name)}</span><b>Open</b></button>`).join('')}</div>`
     : `<p class="dy-note">No packs to open. Get one in the Store${daily ? ', or take today’s free one' : ''}.</p>${ui.button({label: 'Go to the Store', kind: 'secondary', size: 's', attrs: {'data-dy-tab': 'store'}})}`;
   h += '</section>';
-  h += `<section class="dy-sec"><h2 class="dy-h">${esc(D.teamName(s))}</h2><button type="button" class="dy-team" data-dy-tab="squad">`
-    + `<span class="dy-ovr is-${D.rarityOf(R.ovr)}"><b>${R.ovr}</b><small>OVR</small></span>`
-    + `<span class="dy-team-r"><span>Offense <b>${R.off}</b></span><span>Defense <b>${R.def}</b></span><span>Record <b>${s.rec.w}–${s.rec.l}</b></span></span>${ui.icon('chevron-right')}</button></section>`;
-  const lp = s.lp.filter(id => D.card(id)).slice(0, 12);
-  if (lp.length) h += `<section class="dy-sec"><h2 class="dy-h">Latest pulls</h2><div class="dy-rail" data-hscroll>${lp.map(id => cardHTML(D.card(id), {size: 's', isNew: D.isNew(id, s)})).join('')}</div></section>`;
+  h += `<section class="dy-sec"><h2 class="dy-h">${esc(D.teamName(s))}</h2><button type="button" class="dy-team" data-dy-tab="deck">`
+    + `<span class="dy-ovr is-trophy"><b>${nf(s.tr)}</b><small>TROPHIES</small></span>`
+    + `<span class="dy-team-r"><span>Deck <b>${dk.ids.length}/${B.DECK_SIZE}</b>${dk.ok ? ` ${dk.types.map(pipHTML).join('')}` : ''}</span><span>Record <b>${s.rec.w}–${s.rec.l}${s.rec.d ? `–${s.rec.d}` : ''}</b></span>`
+    + `${dk.ok ? '' : `<span class="dy-warn">${esc(dk.why)}</span>`}</span>${ui.icon('chevron-right')}</button></section>`;
+  const lp = s.lp.filter(D.isCard).slice(0, 12);
+  if (lp.length) h += `<section class="dy-sec"><h2 class="dy-h">Latest pulls</h2><div class="dy-rail" data-hscroll>${lp.map(id => anyHTML(id, {size: 's', isNew: D.isNew(id, s)})).join('')}</div></section>`;
   h += earnHTML(s);
   return h;
 }
@@ -138,7 +189,7 @@ function earnHTML(s) {
   const rows = Object.keys(D.PAY).map(g => `<li><span><b>${esc(D.GAME_NAME[g])}</b><small>${esc(D.PAY_WORDS[g])}</small></span><em>${E.today[g] ? '+' + nf(E.today[g]) : '–'}</em></li>`).join('');
   return `<section class="dy-sec"><h2 class="dy-h">How you earn coins</h2><ul class="dy-earn">${rows}</ul>`
     + `<p class="dy-note">Each game’s first finished result of the day pays, from the day your Dynasty began. You’ve earned ${nf(E.total)} from ${E.days} game${E.days === 1 ? '' : 's'}. `
-    + `Games against other squads, quick-selling cards and collections pay too.</p></section>`;
+    + `Battles (a win ${nf(D.BATTLE_PAY.w.coins)}, a loss ${nf(D.BATTLE_PAY.l.coins)}), quick-selling cards and collections pay too.</p></section>`;
 }
 function storeHTML(st) {
   const s = D.mine(), bal = D.balance(s);
@@ -152,7 +203,7 @@ function storeHTML(st) {
 }
 function oddsSheet(kind) {
   const P = D.PACKS[kind];
-  const pool = {live: 'Live Series', all: 'Live Series, Rookie, Gameday, Prime and Awards', gameday: 'a Gameday card (this week’s three times as likely)', elite: 'Legend 25%, Prime 30%, Award 20%, Gameday 25%, all 90+'};
+  const pool = {live: 'Live Series', trainer: 'a Coach or Stadium card', all: 'Live Series, Rookie, Gameday, Prime and Awards', gameday: 'a Gameday card (this week’s three times as likely)', elite: 'Legend 25%, Prime 30%, Award 20%, Gameday 25%, all 90+'};
   const body = D.packOdds(kind).map(g => `<section class="dy-odds"><h3>${g.n} card${g.n === 1 ? '' : 's'}: ${esc(pool[g.pool] || g.pool)}</h3>`
     + `<ul>${g.odds.map(o => `<li><span class="dy-dot is-${o.r}"></span>${esc(D.RARITY_NAME[o.r])}<b>${o.pct}%</b></li>`).join('')}</ul></section>`).join('')
     + '<p class="dy-note">Diamond 85+ · Gold 80–84 · Silver 75–79 · Bronze 65–74 · Common 64 and under.</p>';
@@ -169,7 +220,7 @@ function cardsHTML(st) {
   const s = D.mine();
   const sp = D.spares(s);
   return seg
-    + ui.chips({name: 'dy-ser', items: [{id: '', label: 'All series'}, ...D.SERIES_ORDER.map(k => ({id: k, label: D.SERIES[k].name}))], value: f.ser})
+    + ui.chips({name: 'dy-ser', items: [{id: '', label: 'All series'}, ...D.SERIES_ORDER.map(k => ({id: k, label: D.SERIES[k].name})), {id: 'T', label: 'Coach & Stadium'}], value: f.ser})
     + ui.chips({name: 'dy-pos', items: [{id: '', label: 'All positions'}, ...POS_ORDER.map(p => ({id: p, label: p}))], value: f.pos})
     + ui.chips({name: 'dy-rar', items: [{id: '', label: 'Any rarity'}, ...D.RARITY.slice().reverse().map(r => ({id: r, label: D.RARITY_NAME[r]}))], value: f.rar})
     + `<div class="dy-tools">${ui.searchField({name: 'dy-q', placeholder: 'Search players or teams', value: f.q})}</div>`
@@ -178,9 +229,12 @@ function cardsHTML(st) {
 }
 function filtered(st) {
   const f = st.f, s = D.mine(), q = data.norm(f.q || '');
+  const tr = !f.pos && (!f.ser || f.ser === 'T') ? D.TRAINER_IDS.map(D.trainer).filter(t => (f.view === 'all' || s.o[t.id] > 0) && (!f.rar || t.r === f.rar)
+    && (!q || data.norm(`${t.name} ${t.text}`).includes(q))) : [];
+  if (f.ser === 'T') return tr;
   return D.CARDS.filter(c => (f.view === 'all' || s.o[c.id] > 0) && (!f.ser || c.s === f.ser) && (!f.pos || c.pos === f.pos) && (!f.rar || c.r === f.rar)
     && (!q || data.norm(`${c.name} ${c.team} ${D.teamOf(c.team).name}`).includes(q)))
-    .sort((a, b) => b.o - a.o || D.SERIES_ORDER.indexOf(a.s) - D.SERIES_ORDER.indexOf(b.s) || a.name.localeCompare(b.name));
+    .sort((a, b) => b.o - a.o || D.SERIES_ORDER.indexOf(a.s) - D.SERIES_ORDER.indexOf(b.s) || a.name.localeCompare(b.name)).concat(tr);
 }
 function drawGrid(st, more = false) {
   const host = st.el.querySelector('[data-dy-grid]');
@@ -189,7 +243,7 @@ function drawGrid(st, more = false) {
   st.shown = more ? st.shown + PAGE : PAGE;
   const own = D.owned(s);
   const head = `<p class="dy-count">${st.f.view === 'all' ? `${nf(list.length)} card${list.length === 1 ? '' : 's'} · you have ${nf(own.have)} of ${nf(own.of)}` : `${nf(list.length)} card${list.length === 1 ? '' : 's'}`}</p>`;
-  const cards = list.slice(0, st.shown).map(c => cardHTML(c, {size: 's', count: s.o[c.id] || 0, ghost: !(s.o[c.id] > 0), isNew: D.isNew(c.id, s)})).join('');
+  const cards = list.slice(0, st.shown).map(c => anyHTML(c.id, {size: 's', count: s.o[c.id] || 0, ghost: !(s.o[c.id] > 0), isNew: D.isNew(c.id, s)})).join('');
   host.innerHTML = list.length ? head + `<div class="dy-grid">${cards}</div>` + (list.length > st.shown ? ui.button({label: `Show more (${nf(list.length - st.shown)})`, kind: 'secondary', block: true, attrs: {'data-dy-more': ''}}) : '')
     : ui.empty({icon: 'search', title: st.f.view === 'mine' ? 'No cards like that yet' : 'No cards like that', body: st.f.view === 'mine' ? 'Open packs to fill your collection.' : 'Try another filter.'});
 }
@@ -211,8 +265,8 @@ function colSheet(st, id) {
   const p = D.progress(col, s);
   let body = `<p class="dy-note">Reward: <b>${esc(D.rewardText(col.reward))}</b>. ${p.claimed ? 'Claimed.' : p.done ? 'Complete: claim it!' : `${p.have} of ${p.of} so far.`}</p>`;
   if (col.need) {
-    const need = col.need.map(D.card).filter(Boolean);
-    body += `<p class="dy-note">${col.kind === 'series' || col.kind === 'week' ? `Any ${col.of} of these count.` : 'Every one of these.'}</p><div class="dy-grid">${need.map(c => cardHTML(c, {size: 's', ghost: !(s.o[c.id] > 0)})).join('')}</div>`;
+    const need = col.need.filter(D.isCard);
+    body += `<p class="dy-note">${(col.kind === 'series' || col.kind === 'week') && col.of < need.length ? `Any ${col.of} of these count.` : 'Every one of these.'}</p><div class="dy-grid">${need.map(id => anyHTML(id, {size: 's', ghost: !(s.o[id] > 0)})).join('')}</div>`;
   } else body += `<ul class="dy-cols">${col.sub.map(D.collection).filter(Boolean).map(c => `<li class="dy-col"><span class="dy-col-t"><b>${esc(c.name)}</b></span><span class="dy-col-n">${s.cl[c.id] ? ui.icon('check-circle') : `${D.progress(c, s).have}/${c.of}`}</span></li>`).join('')}</ul>`;
   if (col.reward.card) body += `<p class="dy-note">The reward card:</p><div class="dy-sheet-card is-s">${cardHTML(D.card(col.reward.card), {size: 'm', tag: false})}</div>`;
   if (p.done && !p.claimed) body += `<div class="dy-acts">${ui.button({label: 'Claim reward', kind: 'primary', block: true, attrs: {'data-dy-claim': id}})}</div>`;
@@ -232,36 +286,48 @@ function claimIt(st, id) {
   refresh(st);
 }
 
-// Squad: the offense, the defense and the kicker, each slot its card (or an empty spot)
-const SIDES = [['Offense', 'off'], ['Defense', 'def'], ['Special teams', 'st']];
-function squadHTML(st) {
-  const s = D.mine(), R = D.squadRating(s.sq), best = D.squadRating(D.bestSquad(s.o));
-  const slot = sl => {
-    const c = D.card(s.sq[sl.id]);
-    return `<li class="dy-slot"><span class="dy-slot-l">${esc(sl.id)}</span>${c ? cardHTML(c, {size: 's', cls: 'in-slot', tag: false}) : `<span class="dy-empty">${esc(sl.pos)}</span>`}`
-      + `<button type="button" class="dy-slot-b" data-dy-slot="${sl.id}" aria-label="${esc(`${sl.id}: ${c ? `${c.name}, ${c.o}` : 'empty'}. Change`)}"></button></li>`;
-  };
-  return `<div class="dy-sq-head"><span class="dy-ovr is-${D.rarityOf(R.ovr)}"><b>${R.ovr}</b><small>OVR</small></span>`
-    + `<span class="dy-team-r"><button type="button" class="dy-name" data-dy-rename>${esc(D.teamName(s))} ${ui.icon('gear', {size: 14})}</button><span>Offense <b>${R.off}</b></span><span>Defense <b>${R.def}</b></span></span></div>`
-    + (best.ovr > R.ovr ? `<button type="button" class="dy-ready" data-dy-auto>${ui.icon('bolt')}<span><b>Your best squad rates ${best.ovr}</b><small>Put your best cards in every slot</small></span>${ui.icon('chevron-right')}</button>` : '')
-    + SIDES.map(([t, k]) => `<section class="dy-sec"><h2 class="dy-h">${t}</h2><ul class="dy-slots">${D.SLOTS.filter(x => x.side === k).map(slot).join('')}</ul></section>`).join('');
+// Deck: your 20 battle cards, what makes a deck legal, and the cards to add
+function deckHTML(st) {
+  const s = D.mine(), dk = D.deckOf(s);
+  const groups = [['Players', id => !!D.card(id)], ['Coach cards', id => D.trainer(id) && D.trainer(id).kind === 'coach'], ['Stadiums', id => D.trainer(id) && D.trainer(id).kind === 'stadium']];
+  const counts = {};
+  dk.ids.forEach(id => { counts[id] = (counts[id] || 0) + 1; });
+  const uniq = Object.keys(counts).sort((a, b) => (D.card(b) ? D.card(b).o : 0) - (D.card(a) ? D.card(a).o : 0));
+  let h = `<div class="dy-sq-head"><span class="dy-ovr${dk.ok ? ' is-ok' : ' is-bad'}"><b>${dk.ids.length}</b><small>OF ${B.DECK_SIZE}</small></span>`
+    + `<span class="dy-team-r"><button type="button" class="dy-name" data-dy-rename>${esc(D.teamName(s))} ${ui.icon('gear', {size: 14})}</button>`
+    + `<span>Energy <b>${dk.types.map(pipHTML).join(' ')}</b> ${esc(dk.types.map(e => B.ENERGY[e]).join(' · '))}</span>`
+    + `<span class="${dk.ok ? 'dy-okay' : 'dy-warn'}">${dk.ok ? 'Ready to battle' : esc(dk.why)}</span></span></div>`;
+  h += `<div class="dy-deck-b">${ui.button({label: 'Add cards', kind: 'primary', size: 's', icon: 'plus', attrs: {'data-dy-addsheet': ''}})}`
+    + `${ui.button({label: 'Build my best deck', kind: 'secondary', size: 's', icon: 'bolt', attrs: {'data-dy-autodeck': ''}})}</div>`;
+  h += `<p class="dy-note">Pokémon TCG Pocket’s rules: 20 cards, at most 2 of any player or card, and at least one Basic player. Your players’ types make your energy: one or two types work best. Tap a card to see it or take it out.</p>`;
+  groups.forEach(([t, f]) => {
+    const ids = uniq.filter(f);
+    if (ids.length) h += `<section class="dy-sec"><h2 class="dy-h">${esc(t)} · ${ids.reduce((n, id) => n + counts[id], 0)}</h2><div class="dy-grid">${ids.map(id => anyHTML(id, {size: 's', count: counts[id], cls: 'in-deck'})).join('')}</div></section>`;
+  });
+  return h;
 }
-function slotSheet(st, slotId) {
-  const s = D.mine(), sl = D.SLOT[slotId], cur = D.card(s.sq[slotId]);
-  const list = Object.keys(s.o).map(D.card).filter(c => c && c.pos === sl.pos).sort((a, b) => b.o - a.o);
-  const body = `<p class="dy-note">${esc(D.POS_NAME[sl.pos])}s in your collection${cur ? `. Now: ${esc(cur.name)}, ${cur.o}` : ''}.</p>`
-    + (list.length ? `<div class="dy-grid">${list.map(c => cardHTML(c, {size: 's', cls: c.id === s.sq[slotId] ? 'is-on' : D.fits(s.sq, slotId, c.id) ? '' : 'is-off'})).join('')}</div>`
-      : ui.empty({icon: 'person', title: `No ${sl.pos} cards yet`, body: 'Open packs to find one.'}))
-    + (cur ? `<div class="dy-acts">${ui.button({label: 'Leave this spot empty', kind: 'secondary', block: true, attrs: {'data-dy-clear': ''}})}</div>` : '');
-  const sh = ui.openSheet({title: `Pick your ${sl.id}`, body, cls: 'dy-sheet', detents: ['large']});
+function addSheet(st) {
+  const s = D.mine();
+  const draw = kind => {
+    const inDeck = id => s.dk.filter(x => x === id).length;
+    const ids = Object.keys(s.o).filter(id => D.isCard(id) && s.o[id] > inDeck(id))
+      .filter(id => kind === 'all' || (kind === 'players' ? !!D.card(id) : !!D.trainer(id)))
+      .sort((a, b) => (D.card(b) ? D.card(b).o : 0) - (D.card(a) ? D.card(a).o : 0));
+    return `<p class="dy-note">${s.dk.length} of ${B.DECK_SIZE} in your deck. Tap a card to add it.</p>`
+      + (ids.length ? `<div class="dy-grid">${ids.map(id => anyHTML(id, {size: 's', count: s.o[id] - inDeck(id)})).join('')}</div>` : ui.empty({icon: 'search', title: 'Nothing more to add', body: 'Open packs for more cards.'}));
+  };
+  let kind = 'players';
+  const body = ui.seg({name: 'dy-addk', items: [{id: 'players', label: 'Players'}, {id: 'trainers', label: 'Coach & Stadium'}], value: kind, small: true}) + `<div data-dy-addlist>${draw(kind)}</div>`;
+  const sh = ui.openSheet({title: 'Add to your deck', body, cls: 'dy-sheet', detents: ['large']});
+  sh.body.addEventListener('ui:change', e => { if (e.detail && e.detail.name === 'dy-addk') { kind = e.detail.value; sh.body.querySelector('[data-dy-addlist]').innerHTML = draw(kind); } });
   sh.body.addEventListener('click', e => {
-    if (e.target.closest('[data-dy-clear]')) { D.setSlot(slotId, null); sh.close(); refresh(st); return; }
     const b = e.target.closest('[data-dy-card]');
     if (!b) return;
-    const id = b.dataset.dyCard;
-    if (id === s.sq[slotId]) { sh.close(); return; }
-    if (!D.fits(s.sq, slotId, id)) { ui.toast('He’s already in your squad at another spot.', {icon: 'info'}); return; }
-    D.setSlot(slotId, id); ui.haptic('selection'); sh.close(); refresh(st);
+    if (deckAdd(st, b.dataset.dyCard)) {
+      ui.toast(`${D.anyCard(b.dataset.dyCard).name} added (${D.mine().dk.length}/${B.DECK_SIZE})`, {icon: 'check-circle', duration: 1200});
+      sh.body.querySelector('[data-dy-addlist]').innerHTML = draw(kind);
+      if (D.mine().dk.length >= B.DECK_SIZE) sh.close();
+    }
   });
 }
 function renameSheet(st) {
@@ -276,27 +342,34 @@ function renameSheet(st) {
   });
 }
 
-// Play: the computer's three, the other squads, the board
-function playHTML(st) {
-  const s = D.mine(), G = D.todayGames(s), R = D.squadRating(s.sq);
-  const res = r => (r ? `<span class="dy-res ${r.w ? 'is-w' : 'is-l'}">${r.w ? 'W' : 'L'} ${r.u}–${r.o}</span>` : '');
-  let h = `<p class="dy-note">Your squad (${R.ovr} OVR) plays three computer teams a day and every other player’s squad once a day. Games are played out drive by drive from both squads’ ratings.</p>`;
-  h += `<section class="dy-sec"><h2 class="dy-h">Today’s challenges</h2><ul class="dy-games">${D.CPU.map(L => {
-    const T = D.cpuTeam(L.id), r = G.c[L.id];
-    return `<li class="dy-game"><span class="dy-badge" style="--tp:${T.pri};--ts:${T.sec}">${esc(T.name.split(' ').slice(-1)[0].slice(0, 2).toUpperCase())}</span>`
-      + `<span class="dy-game-t"><b>${esc(T.name)}</b><small>${T.ovr} OVR · win ${nf(L.win)}, lose ${nf(L.loss)}</small></span>`
-      + (r ? res(r) : ui.button({label: 'Play', kind: 'primary', size: 's', attrs: {'data-dy-play': 'cpu:' + L.id}})) + '</li>';
-  }).join('')}</ul></section>`;
+// Battle: your matches (what's yours to do first), challenges sent and finished games, everyone to challenge, the board
+const ago = ms => { const m = Math.round(ms / 60000); return m < 60 ? `${Math.max(1, m)}m` : m < 1440 ? `${Math.round(m / 60)}h` : `${Math.round(m / 1440)}d`; };
+const avatarOf = (o, size = 36) => (o.member ? ui.avatar(o.member, {size}) : ui.nickAvatar(o.name, {size}));
+function battleHTML2(st) {
+  const s = D.mine(), dk = D.deckOf(s), all = MT.list();
+  const row = (x, sub, btns) => `<li class="dy-game">${avatarOf(x.opp)}<span class="dy-game-t"><b>${esc(x.opp.name)}${x.opp.guest ? ' <i class="dy-tag">Guest</i>' : ''}</b><small>${sub}</small></span>${btns}</li>`;
+  const score = x => (x.G ? `${x.G.p[x.you].pts}–${x.G.p[1 - x.you].pts}` : '');
+  const sec = (title, items, f) => (items.length ? `<section class="dy-sec"><h2 class="dy-h">${title}</h2><ul class="dy-games">${items.map(f).join('')}</ul></section>` : '');
+  let h = '';
+  if (!dk.ok) h += `<button type="button" class="dy-ready" data-dy-tab="deck">${ui.icon('info')}<span><b>Your deck isn’t ready</b><small>${esc(dk.why)}</small></span>${ui.icon('chevron-right')}</button>`;
+  h += sec('Your move', all.filter(x => ['invite', 'setup', 'yours'].includes(x.state)), x => x.state === 'invite'
+    ? row(x, 'Challenged you to a battle', `<span class="dy-btns">${ui.button({label: 'Accept', kind: 'primary', size: 's', attrs: {'data-dy-accept': x.mid}, disabled: !dk.ok})}${ui.button({label: 'Decline', kind: 'plain', size: 's', attrs: {'data-dy-decline': x.mid}})}</span>`)
+    : row(x, x.state === 'setup' ? 'Pick your starting lineup' : `Your turn · ${score(x)}`, ui.button({label: 'Play', kind: 'primary', size: 's', attrs: {'data-dy-go': x.mid}})));
+  h += sec('Their move', all.filter(x => x.state === 'theirs'), x => row(x, `Waiting ${ago(x.idle)} · ${score(x) || 'setting up'}`,
+    x.idle >= MT.IDLE_MS ? ui.button({label: 'Claim win', kind: 'secondary', size: 's', attrs: {'data-dy-claimwin': x.mid}}) : ui.button({label: 'View', kind: 'secondary', size: 's', attrs: {'data-dy-go': x.mid}})));
+  h += sec('Challenges sent', all.filter(x => x.state === 'sent'), x => row(x, 'Waiting for them to accept', ui.button({label: 'Cancel', kind: 'plain', size: 's', attrs: {'data-dy-cancel': x.mid}})));
+  const busy = new Set(all.filter(x => !['over', 'closed'].includes(x.state)).map(x => x.opp.key));
   const opp = D.others();
-  h += `<section class="dy-sec"><h2 class="dy-h">Head to head</h2>`;
-  h += opp.length ? `<ul class="dy-games">${opp.map(o => {
-    const r = G.h[o.key];
-    return `<li class="dy-game">${o.member ? ui.avatar(o.member, {size: 36}) : ui.nickAvatar(o.name, {size: 36})}`
-      + `<span class="dy-game-t"><b>${esc(o.team)}</b><small>${esc(o.name)}${o.guest ? ' (Guest)' : ''} · ${o.rating.ovr} OVR · win ${nf(D.H2H_PAY.win)}</small></span>`
-      + (r ? res(r) : ui.button({label: 'Play', kind: 'primary', size: 's', attrs: {'data-dy-play': o.key}})) + '</li>';
-  }).join('')}</ul>` : `<p class="dy-note">${daily.LB.ready ? 'No one else has a Dynasty yet. Their squads show up here once they do.' : 'Loading the other squads…'}</p>`;
+  h += `<section class="dy-sec"><h2 class="dy-h">Challenge someone</h2>`;
+  h += opp.length ? `<ul class="dy-games">${opp.map(o => `<li class="dy-game">${avatarOf(o)}<span class="dy-game-t"><b>${esc(o.name)}${o.guest ? ' <i class="dy-tag">Guest</i>' : ''}</b>`
+    + `<small>${esc(o.team)} · ${nf(o.tr)} trophies · ${o.rec.w}–${o.rec.l}</small></span>`
+    + (busy.has(o.key) ? '<span class="dy-res">In a match</span>' : ui.button({label: 'Challenge', kind: 'primary', size: 's', attrs: {'data-dy-challenge': o.key}, disabled: !dk.ok})) + '</li>').join('')}</ul>`
+    : `<p class="dy-note">${daily.LB.ready ? 'No one else has opened Gridiron Dynasty yet. Once they do, you can challenge them here.' : 'Loading the other players…'}</p>`;
   h += '</section>';
+  h += sec('Finished', all.filter(x => x.state === 'over').slice(0, 10), x => row(x, `${{points: 'Three touchdowns', empty: 'No players left', time: 'Turn limit', resign: 'Resigned', claim: 'Left it 72 hours'}[x.why] || ''} · ${score(x)}`,
+    `<button type="button" class="dy-res ${x.result === 'w' ? 'is-w' : x.result === 'l' ? 'is-l' : ''}" data-dy-go="${x.mid}">${x.result === 'w' ? 'Won' : x.result === 'l' ? 'Lost' : 'Draw'}</button>`));
   h += boardHTML();
+  h += `<p class="dy-note">Battles are Pokémon TCG Pocket’s rules with your cards: knock out three of their players (a Legend or Prime counts two) to win. You play when you like; they get a notice on their Dynasty case when it’s their move. A win pays ${nf(D.BATTLE_PAY.w.coins)} coins and ${D.BATTLE_PAY.w.tr} trophies.</p>`;
   return h;
 }
 function boardHTML() {
@@ -304,8 +377,8 @@ function boardHTML() {
   if (!rows.length) return '';
   return `<section class="dy-sec"><h2 class="dy-h">Dynasty board</h2><ol class="dy-board">${rows.map((r, i) => `<li class="${r.me ? 'is-me' : ''}"><span class="dy-rank">${i + 1}</span>`
     + `${r.member ? ui.avatar(r.member, {size: 30, you: r.me}) : ui.nickAvatar(r.name, {size: 30, you: r.me})}`
-    + `<span class="dy-board-t"><b>${esc(r.me ? `${r.team} (you)` : r.team)}</b><small>${esc(r.name)}${r.guest ? ' · Guest' : ''} · ${nf(r.cards)} cards · ${r.cols} collection${r.cols === 1 ? '' : 's'} · ${r.rec.w}–${r.rec.l}</small></span>`
-    + `<span class="dy-ovr is-s is-${D.rarityOf(r.rating.ovr)}"><b>${r.rating.ovr}</b></span></li>`).join('')}</ol></section>`;
+    + `<span class="dy-board-t"><b>${esc(r.me ? `${r.team} (you)` : r.team)}</b><small>${esc(r.name)}${r.guest ? ' · Guest' : ''} · ${r.rec.w}–${r.rec.l} · ${nf(r.cards)} cards · ${r.cols} collection${r.cols === 1 ? '' : 's'}</small></span>`
+    + `<span class="dy-tro"><b>${nf(r.tr)}</b><small>🏆</small></span></li>`).join('')}</ol></section>`;
 }
 
 // ---------------------------------------------------------------------------------------------------- opening a pack
@@ -314,16 +387,16 @@ function openPack(st, kind, team = null) {
   const r = D.open(kind, {team});
   if (!r.ok) { ui.toast(r.why, {icon: 'info'}); return; }
   refresh(st);
-  const cards = r.cards.map(D.card);
-  // (best last, as The Show reveals)
-  const order = cards.map((c, i) => ({c, i})).sort((a, b) => a.c.o - b.c.o).map(x => x.c);
+  const cards = r.cards.map(D.anyCard);
+  // (best last, as The Show reveals; a Coach or Stadium card first)
+  const order = cards.map((c, i) => ({c, i})).sort((a, b) => (a.c.o || 0) - (b.c.o || 0)).map(x => x.c);
   const ov = document.createElement('div');
   ov.className = 'dy-open';
   ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true'); ov.setAttribute('aria-label', `Opening a ${D.PACKS[kind].name}`);
   ov.innerHTML = `<div class="dy-open-bg" style="--pc:${D.PACKS[kind].color}"></div>`
     + `<div class="dy-open-pack" data-dy-tear>${packHTML(kind, {big: true})}<p>Tap to open</p></div>`
     + `<div class="dy-open-cards" hidden>${order.map((c, i) => `<div class="dy-flip is-${c.r}${r.dup[c.id] ? ' is-dup' : ''}" data-i="${i}" style="--d:${i}"><div class="dy-flip-in">`
-      + `<div class="dy-flip-back"><span>GD</span></div><div class="dy-flip-front">${cardHTML(c, {size: 'm', tag: false})}${r.dup[c.id] ? `<span class="dy-dup">Duplicate · ${nf(D.sellValue(c))}</span>` : '<span class="dy-dup is-new">New</span>'}</div></div></div>`).join('')}</div>`
+      + `<div class="dy-flip-back"><span>GD</span></div><div class="dy-flip-front">${anyHTML(c.id, {size: 'm', tag: false})}${r.dup[c.id] ? `<span class="dy-dup">Duplicate · ${nf(D.sellValue(c))}</span>` : '<span class="dy-dup is-new">New</span>'}</div></div></div>`).join('')}</div>`
     + `<div class="dy-open-bar" hidden>${ui.button({label: 'Reveal all', kind: 'secondary', attrs: {'data-dy-all': ''}})}${ui.button({label: 'Done', kind: 'primary', attrs: {'data-dy-done': ''}})}</div>`;
   document.body.appendChild(ov);
   const prevFocus = document.activeElement;
@@ -337,7 +410,7 @@ function openPack(st, kind, team = null) {
     el.classList.add('is-tell');
     setTimeout(() => {
       el.classList.add('is-up');
-      if (c.r === 'diamond' || c.s !== 'L') {
+      if (c.r === 'diamond' || (c.s && c.s !== 'L')) {
         ui.haptic('success');
         if (c.r === 'diamond') { try { ui.confetti(el.getBoundingClientRect(), {colors: ['#7FD8FF', '#E9FBFF', '#B07CFF', '#FFFFFF'], count: 50}); } catch (_) {} }
       } else ui.haptic('light');
@@ -389,63 +462,15 @@ function teamPicker(done) {
   });
 }
 
-// ---------------------------------------------------------------------------------------------------- a game
-function playOut(st, vs) {
-  const r = D.play(vs);
-  if (!r.ok) { ui.toast(r.why, {icon: 'info'}); return; }
-  const s = D.mine(), g = r.game, me = D.teamName(s), R = D.squadRating(s.sq);
-  const ov = document.createElement('div');
-  ov.className = 'dy-open dy-gameov';
-  ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true'); ov.setAttribute('aria-label', `${me} against ${r.opp.name}`);
-  const oppR = D.squadRating(r.opp.sq);
-  ov.innerHTML = `<div class="dy-open-bg" style="--pc:#1E3A8A"></div><div class="dy-sb">`
-    + `<div class="dy-sb-t"><b>${esc(me)}</b><small>${R.ovr} OVR</small><span class="dy-sb-n" data-sa>0</span></div><span class="dy-sb-q" data-q>Q1</span>`
-    + `<div class="dy-sb-t"><b>${esc(r.opp.name)}</b><small>${oppR.ovr} OVR</small><span class="dy-sb-n" data-sb>0</span></div></div>`
-    + `<ol class="dy-pbp" aria-live="polite"></ol><div class="dy-final" hidden></div>`
-    + `<div class="dy-open-bar">${ui.button({label: 'Skip to the final', kind: 'secondary', attrs: {'data-dy-skip': ''}})}${ui.button({label: 'Done', kind: 'primary', attrs: {'data-dy-done': ''}, cls: 'is-hide'})}</div>`;
-  document.body.appendChild(ov);
-  requestAnimationFrame(() => ov.classList.add('is-in'));
-  const list = ov.querySelector('.dy-pbp'), sa = ov.querySelector('[data-sa]'), sb = ov.querySelector('[data-sb]'), qq = ov.querySelector('[data-q]');
-  let i = 0, timer = 0;
-  const step = () => {
-    const p = g.plays[i++];
-    if (!p) { final(); return; }
-    qq.textContent = p.q > 4 ? 'OT' : 'Q' + p.q;
-    sa.textContent = p.score[0]; sb.textContent = p.score[1];
-    list.insertAdjacentHTML('afterbegin', `<li class="${p.side === 'a' ? 'is-me' : 'is-opp'}${p.n ? ' is-score' : ''}${p.big ? ' is-big' : ''}${p.quiet ? ' is-quiet' : ''}"><span>${p.q > 4 ? 'OT' : 'Q' + p.q}</span>${esc(p.text)}${p.n ? `<b>+${p.n}</b>` : ''}</li>`);
-    if (p.n && p.side === 'a') ui.haptic('light');
-    timer = setTimeout(step, RM() ? 120 : p.n ? 1000 : p.quiet ? 380 : 640);
-  };
-  const final = () => {
-    clearTimeout(timer);
-    sa.textContent = g.a; sb.textContent = g.b; qq.textContent = 'FINAL';
-    const mvp = D.card(g.mvp);
-    const f = ov.querySelector('.dy-final');
-    f.hidden = false;
-    f.innerHTML = `<h2 class="${r.won ? 'is-w' : 'is-l'}">${r.won ? 'You win!' : 'You lose'} ${g.a}–${g.b}</h2><p>${coin(r.coins)} earned</p>`
-      + (mvp ? `<div class="dy-mvp"><span>Player of the game</span>${cardHTML(mvp, {size: 's', tag: false})}</div>` : '');
-    ov.querySelector('[data-dy-skip]').hidden = true;
-    ov.querySelector('[data-dy-done]').classList.remove('is-hide');
-    if (r.won) { ui.haptic('success'); try { ui.confetti(f.getBoundingClientRect()); } catch (_) {} }
-  };
-  const close = () => { clearTimeout(timer); ov.classList.remove('is-in'); ov.classList.add('is-out'); setTimeout(() => ov.remove(), RM() ? 0 : 260); refresh(st); };
-  ov.addEventListener('click', e => {
-    if (e.target.closest('[data-dy-skip]')) { i = g.plays.length; g.plays.forEach((p, k) => { if (k >= list.children.length) list.insertAdjacentHTML('afterbegin', `<li class="${p.side === 'a' ? 'is-me' : 'is-opp'}${p.n ? ' is-score' : ''}"><span>${p.q > 4 ? 'OT' : 'Q' + p.q}</span>${esc(p.text)}${p.n ? `<b>+${p.n}</b>` : ''}</li>`); }); final(); return; }
-    if (e.target.closest('[data-dy-done]')) close();
-  });
-  timer = setTimeout(step, RM() ? 0 : 700);
-}
-
 // ---------------------------------------------------------------------------------------------------- the screen
-const PANES = {home: homeHTML, store: storeHTML, cards: cardsHTML, squad: squadHTML, play: playHTML};
+const PANES = {home: homeHTML, store: storeHTML, cards: cardsHTML, deck: deckHTML, battle: battleHTML2};
 function shellHTML() {
   return `<div class="dy" data-dy><div data-dy-wallet></div><div class="dy-tabs">${ui.seg({name: 'dy-tab', items: TABS, value: 'home'})}</div><div class="dy-pane" data-dy-pane></div></div>`;
 }
 function refresh(st) {
   if (st.dead) return;
   const el = st.el;
-  // (the owner's alone, Oct 27 2026: a profile switched while it's open leaves it)
-  if (!D.mayPlay()) { el.querySelector('[data-dy]').innerHTML = ''; if (!st.left) { st.left = true; st.ctx.back(); } return; }
+  if (!D.mayPlay()) { el.querySelector('[data-dy-pane]').innerHTML = ui.empty({icon: 'person', title: 'Pick who you are first', body: 'Choose your name from the You button, or play as a guest, to start your Dynasty.'}); return; }
   if (D.status !== 'ready') {
     el.querySelector('[data-dy-pane]').innerHTML = D.status === 'error' ? ui.empty({icon: 'info', title: 'The cards didn’t load', body: 'Check your connection.', action: {label: 'Try again', kind: 'primary', attrs: {'data-dy-retry': ''}}}) : ui.skeleton('rows', 4, {label: 'Loading the cards'});
     return;
@@ -517,13 +542,20 @@ export default {
       }
       if ((b = q('[data-dy-claim]'))) { claimIt(st, b.dataset.dyClaim); return; }
       if ((b = q('[data-dy-col]'))) { colSheet(st, b.dataset.dyCol); return; }
-      if ((b = q('[data-dy-slot]'))) { slotSheet(st, b.dataset.dySlot); return; }
-      if (q('[data-dy-auto]')) { D.autoSquad(); ui.haptic('success'); ui.toast('Your best squad is in', {icon: 'check-circle'}); refresh(st); return; }
+      if (q('[data-dy-addsheet]')) { addSheet(st); return; }
+      if (q('[data-dy-autodeck]')) { D.setDeck(D.autoDeck(D.mine().o)); ui.haptic('success'); ui.toast('Your best deck is in', {icon: 'check-circle'}); refresh(st); return; }
       if (q('[data-dy-rename]')) { renameSheet(st); return; }
-      if ((b = q('[data-dy-play]'))) { playOut(st, b.dataset.dyPlay); }
+      const run = (r, then) => { if (!r.ok) { ui.toast(r.why, {icon: 'info'}); return; } ui.haptic('success'); if (then) then(r); refresh(st); };
+      if ((b = q('[data-dy-challenge]'))) { run(MT.challenge(b.dataset.dyChallenge), () => ui.toast('Challenge sent. It’s on their Dynasty now.', {icon: 'check-circle'})); return; }
+      if ((b = q('[data-dy-accept]'))) { run(MT.accept(b.dataset.dyAccept), r => ctx.nav(`/puzzles/dynasty/battle/${r.mid}`)); return; }
+      if ((b = q('[data-dy-decline]'))) { run(MT.decline(b.dataset.dyDecline)); return; }
+      if ((b = q('[data-dy-cancel]'))) { run(MT.cancel(b.dataset.dyCancel)); return; }
+      if ((b = q('[data-dy-claimwin]'))) { run(MT.claim(b.dataset.dyClaimwin), () => ui.toast('Win claimed', {icon: 'trophy'})); return; }
+      if ((b = q('[data-dy-go]'))) { ctx.nav(`/puzzles/dynasty/battle/${b.dataset.dyGo}`); }
     });
-    st.stops.push(D.subscribe(why => { if (why !== 'change' && why !== 'open' && why !== 'game') refresh(st); }));
-    st.stops.push(ctx.on('daily', type => { if (type === 'lb') { if (D.status === 'ready' && D.mayPlay()) { D.sync(); D.earned(D.mine(), true); } if (st.tab === 'play' || st.tab === 'home') refresh(st); } }));
+    st.stops.push(D.subscribe(why => { if (why !== 'change' && why !== 'open') refresh(st); }));
+    st.stops.push(MT.subscribe(() => refresh(st)));
+    st.stops.push(ctx.on('daily', type => { if (type === 'lb') { if (D.status === 'ready' && D.mayPlay()) { D.sync(); D.earned(D.mine(), true); } if (st.tab === 'battle' || st.tab === 'home') refresh(st); } }));
     st.stops.push(data.subscribe(type => { if (type === 'me') refresh(st); }));
     st.stops.push(ctx.timer(() => { if (D.status === 'ready' && D.mayPlay() && st.tab === 'home') { const w = el.querySelector('[data-dy-wallet]'); if (w) w.innerHTML = walletHTML(D.mine()); } }, 15000));
     try { ui.lsSet('gg-dynasty-seen', '1'); } catch (_) {}
@@ -532,12 +564,15 @@ export default {
     refresh(st);
   },
 
+  // (back from a battle: the matches as they stand now)
+  onShow(ctx) { const st = ST.get(ctx); if (st) refresh(st); },
+
   unmount(el, ctx) {
     const st = ST.get(ctx);
     if (!st) return;
     st.dead = true;
     st.stops.forEach(f => { try { f(); } catch (_) {} });
-    D.flush();
+    D.flush(); MT.flush();
     ST.delete(ctx);
   }
 };

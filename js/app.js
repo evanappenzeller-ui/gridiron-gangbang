@@ -64,6 +64,7 @@ export const REGISTRY = {
   'realm-replay': () => import('./views/realm-replay.js'),
   'realm-visit': () => import('./views/realm-visit.js'),
   dynasty: () => import('./views/dynasty.js'),
+  'dynasty-battle': () => import('./views/dynasty-battle.js'),
   _kit: () => import('./views/_kit.js')
 };
 // Every tab, in order. The Keep lives in Daily Games; it has no separate tab or idle tab warm-up. Live (views/live.js:
@@ -116,8 +117,10 @@ function matchSegs(p, q) {
       if (n === 2 && b === 'drill') return R('puzzles', 'push', 'puzzles', {game: 'drill'});
       if (n === 2 && b === 'kick') return R('puzzles', 'push', 'puzzles', {game: 'kick'});
       if (n === 2 && b === 'return') return R('puzzles', 'push', 'puzzles', {game: 'return'});
-      // Gridiron Dynasty (views/dynasty.js): the card game, the owner's alone (Oct 27 2026); anyone else's link lands on the list.
-      if (n === 2 && b === 'dynasty') return data.isOwner() ? R('dynasty', 'push', 'puzzles') : {redirect: '/puzzles', query: false};
+      // Gridiron Dynasty (views/dynasty.js): the card game, everyone's (Oct 28 2026); a battle (views/dynasty-battle.js)
+      // covers it, and closing it goes back to the Dynasty.
+      if (n === 2 && b === 'dynasty') return R('dynasty', 'push', 'puzzles');
+      if (n === 4 && b === 'dynasty' && c === 'battle' && /^[a-z0-9]{4,24}$/.test(d || '')) return {...R('dynasty-battle', 'cover', 'puzzles', {id: d}), base: '/puzzles/dynasty'};
       if (n === 2 && b === 'keep') return available() ? R('realm', 'push', 'puzzles') : {redirect: '/puzzles', query: false};
       return null;
     case 'pickem':

@@ -23,7 +23,7 @@ import * as daily from '../core/daily.js';
 import {ringHTML, stepParts, maxPts, gradeGold, msToMidnight, countdownHTML, itemCount, shortSub} from './board.js';
 import {turnable, shelfTurner, shellHTML} from './game-case.js';
 import {RANKED, aleFor} from '../core/realm-pay.js';
-import {activeToday} from '../core/realm-active.js';
+import {activeToday, profileKey} from '../core/realm-active.js';
 
 const esc = data.esc;
 const nf = n => data.nf(n);
@@ -47,9 +47,9 @@ export const GAMES = [
 const LASTING = ['keep', 'dynasty'];
 const byId = id => GAMES.find(g => g.id === id);
 // A game the owner keeps to himself while he builds it: id -> the members whose phones list it and open its page
-// (nobody else's phone loads it or posts it). Gridiron Dynasty is the owner's alone (his ask, Oct 27 2026: "Make
-// available to my profile only"); the other games are the league's.
-const ONLY = {dynasty: [data.OWNER]};
+// (nobody else's phone loads it or posts it). Every game is the league's now (Gridiron Dynasty too, since its battles,
+// Oct 28 2026).
+const ONLY = {};
 /** Whether game id is open on this phone (who: the phone's member). */
 export const gameOpen = (id, who = data.me()) => !ONLY[id] || (!!who && ONLY[id].includes(who));
 /** The games this phone's list shows, in order. */
@@ -122,6 +122,7 @@ function puzzlesState() {
       {label: 'Share', kind: 'secondary', icon: 'share', attrs: {'data-share': ''}}]};
 }
 const safe = f => { try { return f() || []; } catch (e) { console.error(e); return []; } };
+const safeN = f => { try { return f() || 0; } catch (e) { console.error(e); return 0; } };
 /** What a case not finished today has on its back (the owner's ask, Oct 26 2026: "All game cases, except Keepfall,
  *  should have a scoreboard that can be toggled at any point"): today's board so far, TODAY in its band; it stands on
  *  its front to play (shelfTurner's .is-turns). line: the line under the head. */
@@ -265,11 +266,31 @@ function keepState() {
   return {kind: ui.lsGet('gg-realm-seen') === '1' ? 'started' : 'new',
     meta: `<div class="gm-keep-meta"><p class="gm-note">Raise your Castle. Train your army. Defend your realm.</p>${activeHTML(safe(() => activeToday()))}</div>`};
 }
-// Gridiron Dynasty (views/dynasty.js, the owner's ask, Oct 27 2026; his profile's alone: ONLY): persistent like
-// Keepfall; showing its case never starts a Dynasty.
+// Gridiron Dynasty (views/dynasty.js, the owner's ask, Oct 27 2026; everyone's since its battles, Oct 28): persistent
+// like Keepfall; showing its case never starts a Dynasty. Battles waiting on you put YOUR MOVE on its case: read from the
+// board without loading the cards (core/dynasty-match.js keeps each side of a match as dyb[profileKey][id]): a challenge
+// to you not answered, or a match where they've moved since you last did.
+function dynastyWaiting(key = profileKey(), docs = daily.LB.raw || []) {
+  if (!key) return 0;
+  const side = v => (v && typeof v === 'object' ? v : null), mine = {};
+  try { Object.assign(mine, JSON.parse(localStorage.getItem('gg-dyb-' + key) || '{}') || {}); } catch (_) {}
+  docs.forEach(p => Object.entries((p && p.dyb && p.dyb[key]) || {}).forEach(([mid, v]) => { if (side(v) && (!mine[mid] || v.at > mine[mid].at)) mine[mid] = v; }));
+  let n = 0;
+  docs.forEach(p => Object.entries((p && p.dyb) || {}).forEach(([k, sides]) => {
+    if (k === key) return;
+    Object.entries(sides || {}).forEach(([mid, v]) => {
+      if (!side(v) || v.o !== key || v.z) return;
+      const M = mine[mid];
+      if (!M) { if (v.ch) n++; return; }
+      if (!M.done && !M.z && (Number(v.at) || 0) > (Number(M.at) || 0)) n++;
+    });
+  }));
+  return n;
+}
 function dynastyState() {
-  return {kind: ui.lsGet('gg-dynasty-seen') === '1' ? 'started' : 'new',
-    meta: '<div class="gm-keep-meta"><p class="gm-note">Earn coins in the Daily Games. Open packs of real NFL players. Build your squad.</p></div>'};
+  const n = safeN(() => dynastyWaiting());
+  return {kind: ui.lsGet('gg-dynasty-seen') === '1' ? 'started' : 'new', sticker: n ? 'YOUR MOVE' : '',
+    meta: `<div class="gm-keep-meta"><p class="gm-note">${n ? `${n === 1 ? 'A battle is' : `${n} battles are`} waiting on you.` : 'Open packs of real NFL players. Build a deck. Battle the league, Pokémon style.'}</p></div>`};
 }
 const STATE = {puzzles: puzzlesState, '17-0': seventeenState, drill: drillState, kick: kickState, return: returnState, keep: keepState, dynasty: dynastyState};
 
@@ -310,7 +331,7 @@ const sidesHTML = g => shellHTML(`<span class="gm-spine"><b>GRIDIRON HUB</b><spa
 /** A case's front: the band, the cover (a sticker on it while it's under way; never on Keepfall's, the owner's ask, Oct
  *  26 2026: a realm is never finished). up: the case up close (a tap on it opens it, a shine moves over it as it turns). */
 function frontHTML(g, s, up = false) {
-  const stk = s.test ? sticker('is-test', 'TEST PLAY') : s.kind === 'started' && !LASTING.includes(g.id) ? sticker('is-go', 'IN PROGRESS') : '';
+  const stk = s.test ? sticker('is-test', 'TEST PLAY') : s.sticker ? sticker('is-go', s.sticker) : s.kind === 'started' && !LASTING.includes(g.id) ? sticker('is-go', 'IN PROGRESS') : '';
   return `<div class="gm-face gm-front${up ? ' gm-z-front" data-gm-zfront aria-hidden="true' : ''}">${bandHTML('', g.beta)}<span class="gm-art"><img class="gm-img" src="${g.art}" alt="" decoding="async" draggable="false">${stk}</span>${up ? `<span class="gm-z-foot"><i></i>${ui.icon('football')}</span>${GLOSS}` : ''}</div>`;
 }
 // What a place on today's board pays in Keepfall's Ale (the owner's ask, Oct 25 2026: "+#" by each position), on the
