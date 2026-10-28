@@ -367,7 +367,7 @@ function battleHTML2(st) {
   h += opp.length ? `<ul class="dy-games">${opp.map(o => `<li class="dy-game">${avatarOf(o)}<span class="dy-game-t"><b>${esc(o.name)}${o.guest ? ' <i class="dy-tag">Guest</i>' : ''}</b>`
     + `<small>${esc(o.team)} · ${nf(o.tr)} trophies · ${o.rec.w}–${o.rec.l}</small></span>`
     + (busy.has(o.key) ? '<span class="dy-res">In a match</span>' : ui.button({label: 'Challenge', kind: 'primary', size: 's', attrs: {'data-dy-challenge': o.key}, disabled: !dk.ok})) + '</li>').join('')}</ul>`
-    : `<p class="dy-note">${daily.LB.ready ? 'No one else has opened Gridiron Dynasty yet. Once they do, you can challenge them here.' : 'Loading the other players…'}</p>`;
+    : `<p class="dy-note">${daily.LB.ready ? 'Your opponent hasn’t opened Gridiron Dynasty yet. Once they do, you can challenge them here.' : 'Loading the other players…'}</p>`;
   h += '</section>';
   h += sec('Finished', all.filter(x => x.state === 'over').slice(0, 10), x => row(x, `${{points: 'Three touchdowns', empty: 'No players left', time: 'Turn limit', resign: 'Resigned', claim: 'Left it 72 hours'}[x.why] || ''} · ${score(x)}`,
     `<button type="button" class="dy-res ${x.result === 'w' ? 'is-w' : x.result === 'l' ? 'is-l' : ''}" data-dy-go="${x.mid}">${x.result === 'w' ? 'Won' : x.result === 'l' ? 'Lost' : 'Draw'}</button>`));
@@ -545,7 +545,8 @@ function shellHTML() {
 function refresh(st) {
   if (st.dead) return;
   const el = st.el;
-  if (!D.mayPlay()) { el.querySelector('[data-dy-pane]').innerHTML = ui.empty({icon: 'person', title: 'Pick who you are first', body: 'Choose your name from the You button, or play as a guest, to start your Dynasty.'}); return; }
+  // (Evan's and Ryan Stewart's alone, Oct 28 2026: a profile switched while it's open leaves it)
+  if (!D.mayPlay()) { el.querySelector('[data-dy-pane]').innerHTML = ''; if (!st.left) { st.left = true; st.ctx.back(); } return; }
   if (D.status !== 'ready') {
     el.querySelector('[data-dy-pane]').innerHTML = D.status === 'error' ? ui.empty({icon: 'info', title: 'The cards didn’t load', body: 'Check your connection.', action: {label: 'Try again', kind: 'primary', attrs: {'data-dy-retry': ''}}}) : ui.skeleton('rows', 4, {label: 'Loading the cards'});
     return;

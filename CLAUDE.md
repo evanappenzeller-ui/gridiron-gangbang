@@ -76,9 +76,13 @@ How it's enforced, and what to keep doing:
 - Profile pictures (`js/core/avatars.js` `pictureShows()`): everyone's shows to everyone, a member's, an app user's and a
   guest's. The kit check "pictures: …" covers it.
 - Gridiron Dynasty (Oct 27 2026, the owner's card game after Madden's Ultimate Team and MLB The Show: `js/core/dynasty.js`,
-  `js/views/dynasty.js`, cards from `tools/dynasty/build.py` → `data/dynasty.json`): everyone's since Oct 28 2026, when he
-  chose its battles (Pokémon TCG Pocket's rules with the cards, multiplayer only, in turns like chess:
-  `js/core/dynasty-battle.js` the rules, `js/core/dynasty-match.js` the matches, `js/views/dynasty-battle.js` the screen).
+  `js/views/dynasty.js`, cards from `tools/dynasty/build.py` → `data/dynasty.json`; its battles, Pokémon TCG Pocket's rules
+  with the cards, multiplayer only, in turns like chess: `js/core/dynasty-battle.js` the rules, `js/core/dynasty-match.js`
+  the matches, `js/views/dynasty-battle.js` the screen): Evan's and Ryan Stewart's alone (Oct 28 2026: "Make available to
+  Evan and Ryan Stewart's profiles only"). `js/core/features.js` `DYNASTY` / `dynastyOpen()` / `dynastyKey()` hold it, by
+  his member id and Ryan Stewart's app-user id (`ryan-stewart`), never a typed name: the Daily Games case (`games.js`
+  ONLY), the routes, `mayPlay()` (saving), who can be challenged and the board all go by them. Don't open it to anyone
+  else unless he says so.
   Each profile's save rides on its board doc as `dy1[profileKey]`, its side of each battle as `dyb[profileKey][matchId]`;
   its Dynasty board, who can be challenged and the other side of a battle read `daily.LB.raw` (`others()`, `list()`),
   never `LB.all` (that only finds your own saved copies, as Keepfall does). Its coins come from the Daily Games' results

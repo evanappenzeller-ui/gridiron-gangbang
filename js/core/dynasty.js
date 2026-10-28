@@ -1,7 +1,8 @@
 // Gridiron Dynasty (the owner's ask, Oct 27 2026: "most comparable to Ultimate Team in Madden. Players can earn points to
 // open packs to unlock players. Players are based on real life [players]... inspiration [from] how MLB The Show does
-// their player cards with different types and collections"). A persistent game on Daily Games, everyone's (Oct 28 2026,
-// with its battles: CLAUDE.md).
+// their player cards with different types and collections"). A persistent game on Daily Games, Evan's and Ryan
+// Stewart's alone (Oct 28 2026: "Make available to Evan and Ryan Stewart's profiles only"; core/features.js
+// dynastyOpen): no one else's phone plays it or posts to it, and only their Dynasties show (others()).
 //
 // The cards (data/dynasty.json, tools/dynasty/build.py): real NFL players from nflverse, in six series after The Show's
 // card types: Live Series (every active player, OVR from his 2025 and 2026 play), Rookie, Prime, Gameday (a week's best
@@ -24,6 +25,7 @@ import * as daily from './daily.js';
 import * as data from './data.js';
 import {profileKey, visitWho} from './realm-active.js';
 import * as B from './dynasty-battle.js';
+import {dynastyOpen, dynastyKey} from './features.js';
 
 export const FIELD = 'dy1';
 export const VERSION = 1;
@@ -32,8 +34,8 @@ export const STARTER_COINS = 2500;
 export const DAILY_PACK = 'std';
 const LOCAL = key => `gg-dy1-${key}`;
 
-/** Whether this phone can play: a member, an app user or a guest picked (everyone's since Oct 28 2026). */
-export const mayPlay = () => !!(data.me() || data.guest());
+/** Whether this phone can play: Evan's profile or Ryan Stewart's (core/features.js dynastyOpen, Oct 28 2026). */
+export const mayPlay = () => dynastyOpen();
 
 // ---------------------------------------------------------------------------------------------------- the cards
 export const SERIES = {
@@ -637,7 +639,7 @@ export function others(docs = daily.LB.raw || [], {withMe = false} = {}) {
     const all = p && p[FIELD];
     if (!all || typeof all !== 'object') continue;
     for (const key of Object.keys(all)) {
-      if (!key || (!withMe && key === own)) continue;
+      if (!key || (!withMe && key === own) || !dynastyKey(key)) continue; // (theirs only: features.js dynastyKey)
       const s = clean(all[key]), who = s && visitWho(key, p);
       if (who && (!best.has(key) || s.at > best.get(key).s.at)) best.set(key, {s, who});
     }

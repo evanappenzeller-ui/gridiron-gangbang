@@ -46,12 +46,12 @@ export const GAMES = [
 // case, never IN PROGRESS.
 const LASTING = ['keep', 'dynasty'];
 const byId = id => GAMES.find(g => g.id === id);
-// A game the owner keeps to himself while he builds it: id -> the members whose phones list it and open its page
-// (nobody else's phone loads it or posts it). Every game is the league's now (Gridiron Dynasty too, since its battles,
-// Oct 28 2026).
-const ONLY = {};
+// A game kept to some profiles: id -> whether a profile may have it (who: a member's id, else this phone's app user):
+// its case lists and its page opens only there (nobody else's phone loads it or posts it). Gridiron Dynasty is Evan's
+// and Ryan Stewart's (Oct 28 2026: core/features.js dynastyOpen); the other games are everyone's.
+const ONLY = {dynasty: who => features.dynastyOpen(who, who ? null : data.user())};
 /** Whether game id is open on this phone (who: the phone's member). */
-export const gameOpen = (id, who = data.me()) => !ONLY[id] || (!!who && ONLY[id].includes(who));
+export const gameOpen = (id, who = data.me()) => !ONLY[id] || ONLY[id](who);
 /** The games this phone's list shows, in order. */
 export const gamesFor = (who = data.me()) => GAMES.filter(g => gameOpen(g.id, who));
 /** A game's page (pushed over the list): Daily Puzzles' is /puzzles/daily. */

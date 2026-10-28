@@ -76,6 +76,8 @@ const tds = n => `<span class="db-tds" aria-label="${n} of ${B.WIN_POINTS} touch
 function draw(st) {
   if (st.dead) return;
   const host = st.el.querySelector('[data-db]');
+  // (Evan's and Ryan Stewart's alone, Oct 28 2026: a profile switched while it's open leaves it)
+  if (!D.mayPlay()) { host.innerHTML = ''; if (!st.left) { st.left = true; st.ctx.back(); } return; }
   if (D.status !== 'ready') { host.innerHTML = `<div class="db-msg">${ui.skeleton('rows', 3, {label: 'Loading the battle'})}</div>`; return; }
   const x = MT.get(st.mid);
   const close = ui.iconButton({icon: 'close', label: 'Close', cls: 'db-x', filled: true, attrs: 'data-back'});

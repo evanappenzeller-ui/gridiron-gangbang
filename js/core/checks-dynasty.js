@@ -1,4 +1,4 @@
-// Gridiron Dynasty's checks for the dev gallery (#/_kit): it's everyone's (Oct 28 2026), the cards (every series,
+// Gridiron Dynasty's checks for the dev gallery (#/_kit): it's Evan's and Ryan Stewart's alone (Oct 28 2026), the cards (every series,
 // rarity by OVR; the Coach and Stadium cards), packs (their odds add up, each draws what it says), the pay from the Daily
 // Games (each game's first result a day, from the day the Dynasty began, once), the save (cleaned, a bad one refused,
 // a starter deck that's legal), collections (a reward claimed once), the battles (Pokémon TCG Pocket's rules: decks,
@@ -11,12 +11,17 @@ import * as B from './dynasty-battle.js';
 
 export async function dynastyChecks(check) {
   await D.load();
-  check('Gridiron Dynasty is everyone’s (his ask, Oct 28 2026, with its battles): its case on every phone’s list, /puzzles/dynasty and a battle’s page open for anyone, and any member, app user or guest plays it', async () => {
-    const [app, games, data] = await Promise.all([import('../app.js'), import('../views/games.js'), import('./data.js')]);
-    const lists = ['evan', 'mason', null].map(w => games.gamesFor(w).some(g => g.id === 'dynasty'));
-    const r = app.parseRoute('/puzzles/dynasty'), rb = app.parseRoute('/puzzles/dynasty/battle/b1234abcd');
-    const routed = r.view === 'dynasty' && rb.view === 'dynasty-battle' && rb.open === 'cover' && rb.params.id === 'b1234abcd';
-    return {pass: lists.every(Boolean) && routed && D.mayPlay() === !!(data.me() || data.guest()), detail: `listed for evan, mason, a guest: ${lists.join(', ')}`};
+  check('Gridiron Dynasty is Evan’s and Ryan Stewart’s alone (his ask, Oct 28 2026: "Make available to Evan and Ryan Stewart’s profiles only"): by his member id and Ryan Stewart’s app-user id, its case and pages theirs, and only their Dynasties to challenge or on the board', async () => {
+    const [app, games, data, F] = await Promise.all([import('../app.js'), import('../views/games.js'), import('./data.js'), import('./features.js')]);
+    const ryan = data.USERS.find(u => u.id === 'ryan-stewart'), dow = data.USERS.find(u => u.id === 'ryan-dow');
+    const who = [F.dynastyOpen('evan'), F.dynastyOpen('mason'), F.dynastyOpen(null, ryan), F.dynastyOpen(null, dow), F.dynastyOpen(null, null)];
+    const lists = ['evan', 'mason'].map(w => games.gamesFor(w).some(g => g.id === 'dynasty'));
+    const keys = [F.dynastyKey('m_evan'), F.dynastyKey('u_ryan-stewart'), F.dynastyKey('m_mason'), F.dynastyKey('u_ryan-dow'), F.dynastyKey('g_72_79')];
+    const mine = F.dynastyOpen(), r = app.parseRoute('/puzzles/dynasty'), rb = app.parseRoute('/puzzles/dynasty/battle/b1234abcd');
+    const routed = mine ? r.view === 'dynasty' && rb.view === 'dynasty-battle' && rb.open === 'cover' : r.view !== 'dynasty' && rb.view !== 'dynasty-battle';
+    const shown = D.others(daily.LB.raw || [], {withMe: true}).every(o => F.dynastyKey(o.key));
+    return {pass: who.join() === 'true,false,true,false,false' && lists.join() === 'true,false' && keys.join() === 'true,true,false,false,false' && routed && D.mayPlay() === mine && shown,
+      detail: `Evan, Mason, Ryan S, Ryan D, a guest: ${who.join(', ')}`};
   });
   check('Gridiron Dynasty: the cards: real players in six series, every position, rarity by OVR (Diamond 85+, Gold 80+, Silver 75+, Bronze 65+)', () => {
     const series = new Set(D.CARDS.map(c => c.s)), pos = new Set(D.CARDS.filter(c => c.s === 'L').map(c => c.pos));

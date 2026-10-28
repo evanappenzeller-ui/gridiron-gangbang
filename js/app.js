@@ -36,7 +36,7 @@ import * as data from './core/data.js';
 import * as daily from './core/daily.js';
 import './core/avatars.js'; // pictures in place of initials, before anything draws an avatar
 import {needsWelcome, showWelcome} from './views/welcome.js';
-import {available} from './core/features.js';
+import {available, dynastyOpen} from './core/features.js';
 import {showReleaseNotice} from './core/release.js';
 
 export const APP_VERSION = '3.0';
@@ -117,10 +117,11 @@ function matchSegs(p, q) {
       if (n === 2 && b === 'drill') return R('puzzles', 'push', 'puzzles', {game: 'drill'});
       if (n === 2 && b === 'kick') return R('puzzles', 'push', 'puzzles', {game: 'kick'});
       if (n === 2 && b === 'return') return R('puzzles', 'push', 'puzzles', {game: 'return'});
-      // Gridiron Dynasty (views/dynasty.js): the card game, everyone's (Oct 28 2026); a battle (views/dynasty-battle.js)
-      // covers it, and closing it goes back to the Dynasty.
-      if (n === 2 && b === 'dynasty') return R('dynasty', 'push', 'puzzles');
-      if (n === 4 && b === 'dynasty' && c === 'battle' && /^[a-z0-9]{4,24}$/.test(d || '')) return {...R('dynasty-battle', 'cover', 'puzzles', {id: d}), base: '/puzzles/dynasty'};
+      // Gridiron Dynasty (views/dynasty.js): the card game, Evan's and Ryan Stewart's (Oct 28 2026: features.js
+      // dynastyOpen; anyone else's link lands on the list); a battle (views/dynasty-battle.js) covers it, and closing it
+      // goes back to the Dynasty.
+      if (n === 2 && b === 'dynasty') return dynastyOpen() ? R('dynasty', 'push', 'puzzles') : {redirect: '/puzzles', query: false};
+      if (n === 4 && b === 'dynasty' && c === 'battle' && /^[a-z0-9]{4,24}$/.test(d || '')) return dynastyOpen() ? {...R('dynasty-battle', 'cover', 'puzzles', {id: d}), base: '/puzzles/dynasty'} : {redirect: '/puzzles', query: false};
       if (n === 2 && b === 'keep') return available() ? R('realm', 'push', 'puzzles') : {redirect: '/puzzles', query: false};
       return null;
     case 'pickem':

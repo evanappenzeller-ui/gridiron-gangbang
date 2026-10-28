@@ -1528,7 +1528,7 @@ export async function runChecks() {
   check('Daily Games: a shelf of game cases (Daily Puzzles, 17-0, the Two-Minute Drill, Kick It, Return Man), each a green case with the Gridiron Hub band, its own cover and its own page; swiped along in a circle (its own sideways scroll, not the tabs\'); a game played today shows its case\'s back: today\'s board with you among them, and a Season board behind it, read from the board as this phone sees it', async () => {
     const host = document.createElement('div');
     host.innerHTML = listHTML();
-    const want = 'puzzles,17-0,drill,kick,return' + (data.isOwner() ? ',keep' : '') + ',dynasty'; // (Gridiron Dynasty, everyone's: Oct 28 2026)
+    const want = 'puzzles,17-0,drill,kick,return' + (data.isOwner() ? ',keep' : '') + (gamesFor().some(g => g.id === 'dynasty') ? ',dynasty' : ''); // (Gridiron Dynasty: Evan's and Ryan Stewart's, Oct 28 2026)
     const visibleGames = gamesFor();
     const cases = [...host.querySelectorAll('.gm-slot:not([data-gm-clone]) .gm-case')];
     const order = cases.map(c => c.dataset.gm).join();

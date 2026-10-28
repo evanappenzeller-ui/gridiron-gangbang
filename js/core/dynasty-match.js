@@ -13,6 +13,7 @@ import * as data from './data.js';
 import {profileKey, visitWho} from './realm-active.js';
 import * as D from './dynasty.js';
 import * as B from './dynasty-battle.js';
+import {dynastyKey} from './features.js';
 
 export const FIELD = 'dyb';
 export const IDLE_MS = 72 * 3600e3;
@@ -138,11 +139,12 @@ function matchOf(mid, M) {
 export function list() {
   if (!D.mayPlay() || D.status !== 'ready') return [];
   const M = mine(), out = [];
-  Object.entries(M).forEach(([mid, s]) => { try { out.push(matchOf(mid, s)); } catch (e) { console.error(e); } });
+  // (Evan's and Ryan Stewart's matches only: features.js dynastyKey)
+  Object.entries(M).forEach(([mid, s]) => { if (!dynastyKey(s.o)) return; try { out.push(matchOf(mid, s)); } catch (e) { console.error(e); } });
   // challenges to you: a challenger's side naming you, that you haven't answered
   for (const p of daily.LB.raw || []) {
     Object.entries(obj(p && p[FIELD])).forEach(([key, sides]) => {
-      if (key === PROFILE) return;
+      if (key === PROFILE || !dynastyKey(key)) return;
       Object.entries(obj(sides)).forEach(([mid, v]) => {
         const s = cleanSide(v);
         if (!s || s.o !== PROFILE || !s.ch || s.z || M[mid] || out.some(x => x.mid === mid)) return;
@@ -165,7 +167,7 @@ const newId = () => 'b' + Date.now().toString(36) + Math.floor(Math.random() * 1
 export function challenge(key) {
   const s = D.mine(), dk = D.deckOf(s);
   if (!dk.ok) return {ok: false, why: `Your deck isn’t ready: ${dk.why}`};
-  if (!key || key === PROFILE) return {ok: false, why: 'Pick someone to play.'};
+  if (!key || key === PROFILE || !dynastyKey(key)) return {ok: false, why: 'Pick someone to play.'};
   const open = list().filter(x => x.opp.key === key && !['over', 'closed'].includes(x.state));
   if (open.length) return {ok: false, why: 'You already have a match with them.', mid: open[0].mid};
   const mid = newId(), now = Date.now();
