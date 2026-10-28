@@ -1443,7 +1443,7 @@ export async function realmChecks(check) {
       detail: JSON.stringify({cards, choice, chosen, train, hatchCard, help, keeper})};
   });
 
-  check('Keepfall: the words (the owner, Oct 21 2026): the game is Keepfall (its Daily Games case, its title), its second currency Ale (breweries brew it, cellars hold it, the army trains with it) and its main building the Castle; nothing on its screen, on any building’s card or the card placing one, in any sheet, or in what it says when something can’t be done says Grain, Farm, Granary, Keep level or the Realm (the camera’s Realm view, the whole of the lot’s land, is a place, not the game); the ids and saves keep the old names (grain, farm, granary, keep), so every save loads as it was', async () => {
+  check('Keepfall: the words (the owner, Oct 21 2026): the game is Keepfall (its Daily Games case, its title), its second currency Ale (breweries brew it, cellars hold it, the army trains with it) and its main building the Castle; nothing on its screen, on any building’s card or the card placing one, in any sheet, or in what it says when something can’t be done says Grain, Farm, Granary, Keep level or the Realm; the ids and saves keep the old names (grain, farm, granary, keep), so every save loads as it was', async () => {
     const [view, games] = await Promise.all([import('../views/realm.js'), import('../views/games.js')]);
     // two realms to read: a new one, and one with everything in it (a brewery going up, a cellar being upgraded, Ale
     // piled up to collect, an army and a line in training, a raid each way, a truce), nothing written anywhere
@@ -1467,7 +1467,6 @@ export async function realmChecks(check) {
     const tpl = document.createElement('template');
     const textOf = html => {
       tpl.innerHTML = html;
-      tpl.content.querySelectorAll('[data-rl-world]').forEach(e => e.remove()); // (the camera's Realm view: a place)
       const c = tpl.content, out = [], w = c.ownerDocument.createTreeWalker(c, 4);
       while (w.nextNode()) out.push(w.currentNode.nodeValue);
       c.querySelectorAll('*').forEach(e => ['aria-label', 'title', 'alt', 'placeholder', 'value'].forEach(a => { if (e.getAttribute(a)) out.push(e.getAttribute(a)); }));
@@ -1483,7 +1482,7 @@ export async function realmChecks(check) {
     // still explain the ids)
     const files = ['../views/realm.js', '../views/realm-raid.js', '../views/realm-scout.js', './realm.js', './realm-battle.js', '../views/realm-replay.js', '../views/realm-visit.js'];
     const src = await Promise.all(files.map(f => fetch(new URL(f, import.meta.url)).then(r => r.text())));
-    const code = t => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|\s)\/\/.*$/gm, '$1').replace(/(data-rl-world[^>]*>)Realm</g, '$1<'); // (the camera's Realm view)
+    const code = t => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|\s)\/\/.*$/gm, '$1');
     const CODE_BAD = /\b(?:Grain|Farms?|farms|Granar(?:y|ies)|granaries)\b|\bKeep level\b|\b(?:your|the|a) Keep\b|\bRealm\b/;
     files.forEach((f, i) => { const m = code(src[i]).match(CODE_BAD); if (m) found.push(`${f.replace(/^.*\//, '')}: “${m[0]}”`); });
     // and, in any case, the words in the code's strings (a template's text between its ${…}, every string that isn't a

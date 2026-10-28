@@ -167,8 +167,7 @@ function shellHTML() {
     + `<div class="rl-utility"><div class="rl-home-links"><button type="button" class="rl-hub" data-nav="/puzzles" aria-label="Back to Daily Games">‹ Games</button>`
     + `<button type="button" class="rl-frame rl-lore" data-rl-lore aria-label="Read the lore of Keepfall">Lore</button>`
     + `<button type="button" class="rl-frame rl-visit" data-rl-visit aria-label="Visit other players’ realms">Visit</button></div>`
-    + `<div class="rl-camera-modes"><button type="button" class="rl-frame" data-rl-buildings aria-label="Find a building, including hidden buildings">Buildings</button><button type="button" class="rl-frame" data-rl-frame aria-label="Center your village">Village</button>`
-    + `<button type="button" class="rl-frame" data-rl-world aria-label="Zoom out to the whole realm">Realm</button></div></div>`
+    + `<div class="rl-camera-modes"><button type="button" class="rl-frame" data-rl-buildings aria-label="Find a building, including hidden buildings">Buildings</button></div></div>`
     + `<button type="button" class="rl-objective" data-rl-objective hidden></button>`
     + `<div class="rl-sel" data-rl-sel hidden></div>`
     + `<div class="rl-bar" data-rl-bar>`
@@ -1623,8 +1622,6 @@ export default {
       if (t.closest('[data-rl-overlap]')) { buildingsSheet(st, st.overlap); return; }
       if (t.closest('[data-rl-lore]')) { loreSheet(st); return; }
       if (t.closest('[data-rl-visit]')) { visitSheet(st); return; }
-      if (t.closest('[data-rl-frame]')) { if (st.v) st.v.frameVillage(); return; }
-      if (t.closest('[data-rl-world]')) { if (st.v) st.v.frameWorld(); return; }
       if (t.closest('[data-rl-objective]')) { followObjective(st); return; }
       const col = t.closest('[data-rl-collect]');
       if (col) { collectOne(st, +col.dataset.rlCollect, col.hasAttribute('data-rl-card-collect') ? col : null); return; }

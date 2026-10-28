@@ -63,7 +63,7 @@ async function uiChecks(page, context, url) {
   const afterDisc = await disc.boundingBox();
   assert(afterDisc.width < beforeDisc.width, 'Collection disc shrinks with zoom out');
   await page.screenshot({path: path.join(output, 'realm-overview-390.png')});
-  await page.locator('[data-rl-frame]').click();
+  await page.mouse.wheel(0, -900);
   await page.waitForTimeout(150);
   const beforeGold = await page.evaluate(async () => (await import('/js/core/realm.js')).mine().r.gold);
   await page.locator('.rl-tag.is-made.is-gold').click();
@@ -123,7 +123,6 @@ async function uiChecks(page, context, url) {
   assert(wallsAfter.n - wallsBefore.n === 10 && wallsBefore.gold - wallsAfter.gold === 500 && wallsAfter.xs === 1, 'Ten walls built down one line for 500 Gold');
   await page.locator('[data-rl-cancel]').click();
   await page.setViewportSize({width: 320, height: 740});
-  await page.locator('[data-rl-frame]').click();
   await page.waitForTimeout(150);
   const overflow = await page.locator('[data-rl-log]').evaluate(el => ({outer: el.getBoundingClientRect().right, inner: el.lastElementChild.scrollWidth - el.lastElementChild.clientWidth}));
   assert(overflow.outer <= 320 && overflow.inner <= 1, 'Chronicle fits a 320px screen');
