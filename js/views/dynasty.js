@@ -221,7 +221,7 @@ const TABS = [
   {id: 'battle', label: 'Battle', title: 'Battle', ic: '<path d="M4 20l7-7M6 13l5 5M14.5 4H20v5.5L11 18.5M20 20l-7-7M18 13l-5 5M9.5 4H4v5.5l4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>'}
 ];
 function shellHTML() {
-  return `<div class="pk" data-dy><header class="pk-hdr"><button type="button" class="pk-back" data-back aria-label="Back to Daily Games">${ui.icon('chevron-left')}</button>`
+  return `<div class="pk" data-dy><header class="pk-hdr">${ui.exitButton('data-dy-exit', 'Exit Gridiron Dynasty')}`
     + `<h1 class="pk-title" data-pk-title>Packs</h1><span class="pk-wallet" data-dy-wallet></span></header>`
     + `<nav class="pk-nav" aria-label="Gridiron Dynasty">${TABS.map((t, i) => `<button type="button" class="pk-tab${i === 0 ? ' is-on' : ''}" data-dy-tab="${t.id}" aria-pressed="${i === 0}">`
       + `<svg viewBox="0 0 24 24" aria-hidden="true">${t.ic}</svg><span>${t.label}</span><i class="pk-dot" hidden></i></button>`).join('')}</nav>`
@@ -727,6 +727,7 @@ export default {
       const t = e.target;
       const q = sel => t.closest(sel);
       let b;
+      if (q('[data-dy-exit]')) { ui.confirmExit({game: 'Gridiron Dynasty', cls: 'pk-sheet'}).then(home => { if (home && !st.dead) ctx.back(); }); return; }
       if (q('[data-dy-retry]')) { D.load().then(() => refresh(st), () => refresh(st)); refresh(st); return; }
       if ((b = q('[data-dy-tab]'))) { go(st, b.dataset.dyTab); return; }
       if ((b = q('[data-dy-goto]'))) { st.f.view = 'cols'; go(st, 'cards'); return; }

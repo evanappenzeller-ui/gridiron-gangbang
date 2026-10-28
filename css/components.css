@@ -253,6 +253,13 @@
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* The red X in a full-screen game's top-left corner (ui.exitButton): leave the game mode. */
+.gg-exit { position: relative; flex: none; display: grid; place-items: center; width: 38px; height: 38px; padding: 0; border: 0; border-radius: 50%;
+  color: #fff; background: radial-gradient(circle at 35% 30%, #FF7A70, #E5484D 55%, #B8262B); box-shadow: 0 0 0 2px rgba(255,255,255,.9), 0 3px 10px rgba(150,20,30,.35);
+  cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.gg-exit > .ic { width: 20px; height: 20px; stroke-width: 3; }
+.gg-exit::before { content: ""; position: absolute; inset: -4px; }
+.gg-exit:active { transform: scale(.94); }
 .icon-btn {
   position: relative;
   display: inline-grid; place-items: center;

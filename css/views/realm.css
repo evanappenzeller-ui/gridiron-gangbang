@@ -49,6 +49,9 @@
 .rl { --rl-hud-t: max(8px, calc(var(--sa-t, 0px) + min(44px, var(--sa-t, 0px)))); }
 .rl-top { position: absolute; top: var(--rl-hud-t); left: 10px; right: 10px; display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; pointer-events: none; }
 .rl-top > *, .rl-res > * { pointer-events: auto; }
+/* (the red X to leave, ui.exitButton, first; your house beside it) */
+.rl-top > .gg-exit { margin-top: 2px; }
+.rl-top > .gg-exit + .rl-me { margin-right: auto; }
 .rl-me { flex: 0 1 auto; min-width: 0; display: flex; align-items: center; padding: 0; border: 0; background: none; color: #F7EEDD; text-align: left; cursor: pointer; }
 .rl-me > .rl-crest { z-index: 1; width: 28px; height: 33px; padding-bottom: 5px; font-size: 14px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
 .rl-me > .rl-crest::after { inset: 2px 2px 2.5px; }
@@ -302,8 +305,7 @@ html.is-realm-playing #tabbar { visibility: hidden; pointer-events: none; }
 .rl-home .rl-btn.is-raid { font-size: clamp(12px, 3.5vw, 15px); }
 .rl-home .rl-btn > span:last-of-type { white-space: nowrap; }
 .rl-utility { position: absolute; top: calc(var(--rl-hud-t) + 57px); left: 10px; right: 10px; display: flex; justify-content: space-between; pointer-events: none; }
-.rl-hub, .rl-frame { pointer-events: auto; min-height: 44px; padding: 0 12px; border: 1px solid var(--rl-line); border-radius: 12px; color: #F7EEDD; background: var(--rl-glass); font: 600 12px/1 var(--font-text); cursor: pointer; box-shadow: 0 3px 12px #0003; }
-.rl-hub { font-size: 14px; }
+.rl-frame { pointer-events: auto; min-height: 44px; padding: 0 12px; border: 1px solid var(--rl-line); border-radius: 12px; color: #F7EEDD; background: var(--rl-glass); font: 600 12px/1 var(--font-text); cursor: pointer; box-shadow: 0 3px 12px #0003; }
 .rl-camera-modes { display: flex; gap: 6px; }
 .rl-frame:active { background: rgba(232,190,96,.2); }
 .rl-objective { position: absolute; left: 12px; right: 12px; bottom: calc(var(--rl-bottom) + 74px); max-width: 420px; margin: 0 auto; min-height: 60px; padding: 9px 36px 10px 13px; border: 1px solid rgba(232,190,96,.4); border-radius: 12px; background: rgba(26,20,13,.88); color: #F7EEDD; text-align: left; cursor: pointer; box-shadow: 0 4px 18px #0003; }
@@ -380,7 +382,6 @@ html.is-realm-playing #tabbar { visibility: hidden; pointer-events: none; }
 .rl-utility { gap: 6px; align-items: flex-start; }
 /* (Back to the games over Lore and Visit: the row keeps room for the camera's three) */
 .rl-home-links { display: grid; grid-template-columns: auto auto; gap: 6px; }
-.rl-home-links .rl-hub { grid-column: 1 / -1; white-space: nowrap; }
 .rl-lore { color: #FBE7B0; }
 .sheet.sh-rl-intro { height: 100%; max-height: none; border-radius: 0; background: #090a09; --stack-ring: #090a09; }
 .sh-rl-intro > .sheet-grab { display: none; }
