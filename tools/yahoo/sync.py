@@ -10,7 +10,7 @@ Run by .github/workflows/yahoo-sync.yml. Standard library only.
 Environment: YAHOO_CLIENT_ID and YAHOO_CLIENT_SECRET (repo secrets), optional YAHOO_LEAGUE_ID (the
 number in the league's URL; otherwise the signed-in user's NFL league named like league.json's) and
 YAHOO_REDIRECT_URI (default: the app's yahoo.html page, which shows the code; it must match the Yahoo app's
-redirect URI exactly).
+redirect URI exactly). YAHOO_ROOT, YAHOO_AUTH_BASE and YAHOO_API_BASE point it elsewhere for check-sync.py.
 
 The login is a Yahoo refresh token, kept in TOKEN_FILE encrypted with the client secret (AES-256 via
 openssl), so the workflow can save it, and save a rotated one, without write access to repo secrets.
@@ -22,10 +22,15 @@ What a sync writes, for the season Yahoo is on:
              points (pa, pb) and win chance for a in percent (wa)
   teams      this season's team names, and each manager's current team name
   inProgress false once Yahoo says the season is finished
+  rosters    every manager's players now, [name, position, NFL team, lineup slot], with `at`, when they last changed
+  pickups, drops, trades   the season's moves from Yahoo's League Transactions (same shape as the ones entered by
+             hand). Yahoo's replace the ones on file from the same span; older ones on file Yahoo didn't return stay.
+The rosters and moves are extras: if either fails, the run warns and still syncs the scores.
 Yahoo team ids are matched to managers once per season (by team name, then manager nickname) and
 kept in TEAMS_FILE; fix that file by hand if a match is ever wrong.
 """
 import base64
+import datetime
 import json
 import os
 import re
@@ -36,7 +41,7 @@ import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 
-ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
+ROOT = os.environ.get('YAHOO_ROOT') or os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
 LEAGUE_FILE = os.path.join(ROOT, 'data', 'league.json')
 TEAMS_FILE = os.path.join(ROOT, 'tools', 'yahoo', 'teams.json')
 TOKEN_FILE = os.path.join(ROOT, 'tools', 'yahoo', 'token.enc')
@@ -230,6 +235,166 @@ def read_teams(tok, key):
     return out
 
 
+# --- rosters and moves -----------------------------------------------------------------------------
+
+# Defenses go by their nickname ("Jets"), as Yahoo's pages and league.json's drafts and moves write them.
+NICKS = {'ARI': 'Cardinals', 'ATL': 'Falcons', 'BAL': 'Ravens', 'BUF': 'Bills', 'CAR': 'Panthers', 'CHI': 'Bears',
+         'CIN': 'Bengals', 'CLE': 'Browns', 'DAL': 'Cowboys', 'DEN': 'Broncos', 'DET': 'Lions', 'GB': 'Packers',
+         'HOU': 'Texans', 'IND': 'Colts', 'JAX': 'Jaguars', 'KC': 'Chiefs', 'LV': 'Raiders', 'LAC': 'Chargers',
+         'LAR': 'Rams', 'MIA': 'Dolphins', 'MIN': 'Vikings', 'NE': 'Patriots', 'NO': 'Saints', 'NYG': 'Giants',
+         'NYJ': 'Jets', 'PHI': 'Eagles', 'PIT': 'Steelers', 'SF': '49ers', 'SEA': 'Seahawks', 'TB': 'Buccaneers',
+         'TEN': 'Titans', 'WAS': 'Commanders', 'WSH': 'Commanders'}
+try:
+    from zoneinfo import ZoneInfo
+    EAST = ZoneInfo('America/New_York')
+except Exception:  # no time zone data: Eastern standard time is close enough to order moves and pick their week
+    EAST = datetime.timezone(datetime.timedelta(hours=-5))
+
+
+def player_of(p):
+    """(name, position) of a Yahoo player element."""
+    pos = (txt(p, 'display_position', '') or '').split(',')[0]
+    name = txt(p, 'name/full', '')
+    if pos == 'DEF' or txt(p, 'position_type') == 'DT':
+        team = txt(p, 'editorial_team_full_name')
+        name = team.split(' ')[-1] if team else NICKS.get((txt(p, 'editorial_team_abbr') or '').upper(), name)
+        pos = 'DEF'
+    return name, pos
+
+
+def team_id(key):
+    return (key or '').rsplit('.t.', 1)[-1] if key and '.t.' in key else None
+
+
+def read_rosters(tok, key, ids):
+    """{manager id: [[name, position, NFL team, lineup slot], ...]} as the rosters stand now."""
+    out = {}
+    for t in get(tok, f'league/{key}/teams/roster').iter('team'):
+        m = ids.get(txt(t, 'team_id'))
+        if not m:
+            continue
+        out[m] = [[*player_of(p), (txt(p, 'editorial_team_abbr') or '').upper(), txt(p, 'selected_position/position', '')]
+                  for p in t.iter('player')]
+    return out
+
+
+def read_weeks(tok, key):
+    """[(week, first day, last day)] of the NFL season, days as YYYY-MM-DD."""
+    root = get(tok, f"game/{key.split('.l.')[0]}/game_weeks")
+    return sorted((int(txt(w, 'week')), txt(w, 'start', ''), txt(w, 'end', '')) for w in root.iter('game_week')
+                  if txt(w, 'week'))
+
+
+def read_transactions(tok, key):
+    """Every transaction of the season, newest first, 25 to a page."""
+    out, seen, start = [], set(), 0
+    while True:
+        try:
+            page = list(get(tok, f'league/{key}/transactions;start={start};count=25').iter('transaction'))
+        except Stop:
+            if start:
+                raise
+            return list(get(tok, f'league/{key}/transactions').iter('transaction'))
+        new = [t for t in page if txt(t, 'transaction_key') not in seen]
+        seen.update(txt(t, 'transaction_key') for t in new)
+        out += new
+        if len(page) < 25 or not new:
+            return out
+        start += len(page)
+
+
+def moves_of(trans, ids, weeks, year):
+    """(pickups, drops, trades) in league.json's shapes, from Yahoo's successful adds, drops and trades."""
+    picks, drops, trades = [], [], []
+    for t in trans:
+        kind = txt(t, 'type', '')
+        if txt(t, 'status') != 'successful' or kind not in ('add', 'drop', 'add/drop', 'trade'):
+            continue
+        when = datetime.datetime.fromtimestamp(int(txt(t, 'timestamp', '0')), EAST)
+        day = when.strftime('%Y-%m-%d')
+        week = max([w for w, first, _ in weeks if first <= day] or [weeks[0][0] if weeks else 1])
+        base = {'year': year, 'week': week, 'at': when.strftime('%Y-%m-%dT%H:%M')}
+        if kind == 'trade':
+            got = {}
+            for p in t.iter('player'):
+                m = ids.get(team_id(txt(p, 'transaction_data/destination_team_key')))
+                if m:
+                    got.setdefault(m, []).append(player_of(p)[0])
+            if len(got) >= 2:
+                trades.append({'year': year, 'week': week, 'date': f'{when:%b} {when.day}', 'at': base['at'],
+                               'sides': [{'manager': m, 'got': g} for m, g in got.items()]})
+            continue
+        for p in t.iter('player'):
+            d = p.find('transaction_data')
+            if d is None:
+                continue
+            name, pos = player_of(p)
+            if txt(d, 'type') == 'add':
+                m = ids.get(team_id(txt(d, 'destination_team_key')))
+                if m:
+                    row = dict(base, manager=m, player=name, pos=pos,
+                               how='waivers' if txt(d, 'source_type') == 'waivers' else 'FA')
+                    bid = txt(t, 'faab_bid')
+                    if row['how'] == 'waivers' and bid and bid.isdigit():
+                        row['faab'] = int(bid)
+                    picks.append(row)
+            elif txt(d, 'type') == 'drop':
+                m = ids.get(team_id(txt(d, 'source_team_key')))
+                if m:
+                    drops.append(dict(base, manager=m, player=name, pos=pos))
+    return picks, drops, trades
+
+
+def trade_at(t):
+    if t.get('at'):
+        return t['at']
+    try:
+        return datetime.datetime.strptime(f"{t.get('date')} {t.get('year')}", '%b %d %Y').strftime('%Y-%m-%dT00:00')
+    except ValueError:
+        return ''
+
+
+def merge(old, new, year, key, at):
+    """This season's moves: Yahoo's, plus the ones on file from before the oldest Yahoo returned and not among them
+    (so a short list from Yahoo never loses moves entered by hand). Other seasons stay as they are."""
+    if not new:
+        return old
+    first, have = min(at(x) for x in new), {key(x) for x in new}
+    keep = [x for x in old if x.get('year') != year or (at(x) < first and key(x) not in have)]
+    mine = sorted([x for x in keep if x.get('year') == year] + new, key=at)
+    return [x for x in keep if x.get('year') != year] + mine
+
+
+def sync_moves(tok, key, data, season, ids, year):
+    """Rosters and moves into data; returns what changed (['rosters', 'moves']). A failure here only warns."""
+    changed = []
+    try:
+        teams = read_rosters(tok, key, ids)
+        if teams and (season.get('rosters') or {}).get('teams') != teams:
+            season['rosters'] = {'at': datetime.datetime.now(EAST).strftime('%Y-%m-%dT%H:%M'), 'teams': teams}
+            changed.append('rosters')
+    except Waiting:
+        raise
+    except Exception as e:  # Stop, or an answer shaped unlike the ones this was written for: the scores still sync
+        print(f'::warning::Rosters not synced: {e}')
+    try:
+        picks, drops, trades = moves_of(read_transactions(tok, key), ids, read_weeks(tok, key), year)
+        mv = lambda x: (x.get('manager'), squash(x.get('player')))
+        deal = lambda t: tuple(sorted((s.get('manager'), tuple(sorted(map(squash, s.get('got') or [])))) for s in t.get('sides') or []))
+        for k, new, kf, at in (('pickups', picks, mv, lambda x: x.get('at') or ''), ('drops', drops, mv, lambda x: x.get('at') or ''),
+                               ('trades', trades, deal, trade_at)):
+            got = merge(data.get(k) or [], new, year, kf, at)
+            if got != (data.get(k) or []):
+                data[k] = got
+                if 'moves' not in changed:
+                    changed.append('moves')
+    except Waiting:
+        raise
+    except Exception as e:
+        print(f'::warning::Transactions not synced: {e}')
+    return changed
+
+
 # --- the sync --------------------------------------------------------------------------------------
 
 ROUNDS = ['final', 'semi', 'quarter']
@@ -330,6 +495,7 @@ def sync():
     future = [g for g in season.get('schedule') or [] if g['week'] not in fetched and g['week'] not in done]
     season['schedule'] = sorted(future + sched, key=lambda g: g['week'])
     season['inProgress'] = not finished
+    extras = sync_moves(tok, key, data, season, ids, year)
 
     after = json.dumps(data, ensure_ascii=False, separators=(',', ':'))
     changed = after != before
@@ -351,6 +517,7 @@ def sync():
         bits.append('week ' + ', '.join(map(str, new_weeks)) + ' final' + ('s' if len(new_weeks) > 1 else ''))
     if proj:
         bits.append(f'week {cur_w} projections')
+    bits += [{'rosters': 'rosters', 'moves': 'transactions'}[x] for x in extras]
     msg = 'Yahoo: ' + (', '.join(bits) if bits else 'score and schedule updates') if changed else ''
     print(f'{year} league {key}: finished weeks {finals[0] if finals else "-"}-{finals[-1] if finals else "-"}, '
           f'current week {cur_w}, ' + ('league.json updated' if changed else 'no changes'))

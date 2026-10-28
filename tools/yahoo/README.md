@@ -1,9 +1,10 @@
 # Yahoo sync
 
 `.github/workflows/yahoo-sync.yml` runs `sync.py` twice a day. It copies the league's final scores, next
-games, team names and Yahoo's projections for the current week into `data/league.json`, then commits and
-publishes it. The app picks up the new file on its next refresh, and standings, power rankings, playoff
-odds and the Matchup tab all follow from it.
+games, team names and Yahoo's projections for the current week into `data/league.json`, along with every
+team's roster and the season's pickups, drops and trades, then commits and publishes it. The app picks up
+the new file on its next refresh, and standings, power rankings, playoff odds and the Matchup tab all
+follow from it; the Live tab's owners and waiver wire go by the rosters, and the Draft tab lists the trades.
 
 ## One-time setup
 
@@ -37,6 +38,8 @@ repository variable `YAHOO_LEAGUE_ID` with the number from the league's Yahoo ad
 ## Files
 
 - `sync.py`: the sync. The top of the file explains its commands (`link`, `connect`, `sync`).
+- `check-sync.py`: runs the sync against a stand-in Yahoo on a copy of the league file (rosters, moves,
+  a second run changing nothing, Yahoo refusing the moves). Run it after changing `sync.py`.
 - `token.enc`: the Yahoo login, encrypted with the client secret. Delete it and reconnect to start over.
 - `teams.json`: which Yahoo team is which manager, matched automatically once a season. Edit it if a
   match is ever wrong.
