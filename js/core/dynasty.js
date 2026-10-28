@@ -143,12 +143,12 @@ const pickW = (items, weight, R = luck) => {
 // Each pack: its price, and its slots: each slot a draw of a rarity by its odds (the store shows them), then a card of
 // that rarity from the slot's pool (series, and for a Team Pack the team chosen).
 export const PACKS = {
-  std: {name: 'Standard Pack', price: 1000, blurb: 'Four Live Series cards and a Coach or Stadium card.', color: '#2F6FDE',
+  std: {name: 'Standard Pack', price: 1000, blurb: 'Four Live Series cards and a Trainer card.', color: '#2F6FDE',
     slots: [{n: 4, pool: 'live', odds: {common: 34, bronze: 38, silver: 18, gold: 8, diamond: 2}}, {n: 1, pool: 'trainer', odds: {silver: 70, gold: 30}}]},
-  team: {name: 'Team Pack', price: 1500, blurb: 'Four Live Series cards from the team you pick, and a Coach or Stadium card.', color: '#1E9E6A', team: true,
+  team: {name: 'Team Pack', price: 1500, blurb: 'Four Live Series cards from the team you pick, and a Trainer card.', color: '#1E9E6A', team: true,
     slots: [{n: 4, pool: 'live', odds: {common: 25, bronze: 40, silver: 22, gold: 10, diamond: 3}}, {n: 1, pool: 'trainer', odds: {silver: 70, gold: 30}}]},
-  prem: {name: 'Premium Pack', price: 3000, blurb: 'Six cards: a Coach or Stadium card, and the last one Gold or better. Rookies and specials inside.', color: '#8B3FD9',
-    slots: [{n: 4, pool: 'all', odds: {common: 10, bronze: 35, silver: 30, gold: 18, diamond: 7}}, {n: 1, pool: 'trainer', odds: {silver: 50, gold: 50}},
+  prem: {name: 'Premium Pack', price: 3000, blurb: 'Five cards: a Trainer card, and the last one Gold or better. Rookies and specials inside.', color: '#8B3FD9',
+    slots: [{n: 3, pool: 'all', odds: {common: 10, bronze: 35, silver: 30, gold: 18, diamond: 7}}, {n: 1, pool: 'trainer', odds: {silver: 50, gold: 50}},
       {n: 1, pool: 'all', odds: {gold: 75, diamond: 25}}]},
   gday: {name: 'Gameday Pack', price: 4000, blurb: 'A Gameday card from a real game, and two Gold-or-better cards.', color: '#E0702A',
     slots: [{n: 1, pool: 'gameday', odds: {diamond: 100}}, {n: 2, pool: 'live', odds: {gold: 80, diamond: 20}}]},
@@ -218,11 +218,33 @@ export const sellValue = c => (c ? Math.round((SELL[c.r] || 0) * (c.s === 'L' ||
 /** A card of either kind by id. */
 export const anyCard = id => card(id) || trainer(id);
 
+// ---------------------------------------------------------------------------------------------------- Pocket's marks
+// Rarity marked as Pokémon TCG Pocket marks it (the owner, Oct 28 2026: "match the Pokémon app"): ◆ to ◆◆◆◆ for Common
+// to Gold, ★ for a Diamond, ★★ for the special series (Prime, Gameday, Awards), a crown for a Legend; Trainer cards ◆◆
+// (Silver) and ◆◆◆ (Gold). A ★ or crown card is full art.
+/** {mark: the symbols, kind: 'd' (diamonds) | 's' (stars) | 'c' (crown), n, full (full art)} */
+export function markOf(c) {
+  if (!c) return {mark: '', kind: 'd', n: 0, full: false};
+  if (!c.s) { const n = c.r === 'gold' ? 3 : 2; return {mark: '◆'.repeat(n), kind: 'd', n, full: false}; }
+  if (c.s === 'X') return {mark: '♛', kind: 'c', n: 1, full: true};
+  if (c.s === 'P' || c.s === 'G' || c.s === 'A') return {mark: '★★', kind: 's', n: 2, full: true};
+  if (c.r === 'diamond') return {mark: '★', kind: 's', n: 1, full: true};
+  const n = {common: 1, bronze: 2, silver: 3, gold: 4}[c.r] || 1;
+  return {mark: '◆'.repeat(n), kind: 'd', n, full: false};
+}
+// Pack points (Pocket's): 5 for every pack opened, traded for a card you pick, at Pocket's prices by its mark.
+export const PP_PER_PACK = 5;
+const PP_COST = {d1: 35, d2: 70, d3: 150, d4: 500, s1: 400, s2: 1250, c1: 2500};
+/** What a card costs in pack points. */
+export const ppCost = c => { const m = markOf(c); return PP_COST[m.kind + m.n] || 0; };
+
 // ---------------------------------------------------------------------------------------------------- the battle deck
 // 20 cards (core/dynasty-battle.js checkDeck: at most 2 of any player or card, a Basic among them).
 const COACH_KIT = {'C-timeout': 2, 'C-twomin': 2, 'C-audible': 2, 'C-scout': 1, 'C-flag': 1};
+// (Pocket's starters carry Poké Balls and Potions: Recruit and Water Bottle, from Oct 28 2026)
+const ITEM_KIT = {'I-recruit': 2, 'I-water': 2};
 /** The best deck out of a collection: the two strongest types' best Basic players (and the evolutions he has of them),
- *  a kicker, and the Coach and Stadium cards, to 20. */
+ *  a kicker, and the Trainer cards, to 20. */
 export function autoDeck(owned) {
   const have = Object.keys(owned || {}).filter(id => owned[id] > 0);
   const players = have.map(card).filter(Boolean).sort((a, b) => b.o - a.o || a.name.localeCompare(b.name));
@@ -237,10 +259,16 @@ export function autoDeck(owned) {
       deck.push(id); per[k] = (per[k] || 0) + 1;
     }
   };
-  // (Coach and Stadium cards: the best, at most 7)
-  const tr = have.filter(id => B.TRAINERS[id]).sort((a, b) => (B.TRAINERS[b].r === 'gold') - (B.TRAINERS[a].r === 'gold'));
-  let trainers = 0;
-  tr.forEach(id => { while (trainers < 7 && deck.filter(x => x === id).length < Math.min(2, owned[id])) { add(id); trainers++; } });
+  // (Trainer cards, at most 7: Items first, as Pocket's decks carry Poké Balls and Potions (Recruit, Water Bottle; at
+  // most 4 of them), then the best Coach and Stadium cards)
+  const ITEM_ORDER = ['I-recruit', 'I-water', 'I-cleats'];
+  const rank = id => (B.TRAINERS[id].kind === 'item' ? ITEM_ORDER.indexOf(id) : 10 + (B.TRAINERS[id].r === 'gold' ? 0 : 1));
+  const tr = have.filter(id => B.TRAINERS[id]).sort((a, b) => rank(a) - rank(b));
+  let trainers = 0, items = 0;
+  tr.forEach(id => {
+    const item = B.TRAINERS[id].kind === 'item';
+    while (trainers < 7 && (!item || items < 4) && deck.filter(x => x === id).length < Math.min(2, owned[id])) { add(id); trainers++; if (item) items++; }
+  });
   // (a player's evolution right after his Basic, when he has both)
   players.filter(c => B.isBasic(c.id) && types.includes(B.POS_TYPE[c.pos])).forEach(c => {
     if (deck.length >= B.DECK_SIZE - 1) return;
@@ -328,7 +356,8 @@ export function rewardText(rw) {
 // ---------------------------------------------------------------------------------------------------- the save
 // {v, rs, born, at, sp (coins spent), cr (coins credited: sales, rewards, battles, the daily bonus), o {card id: copies},
 //  pk {pack kind: unopened}, cl {collection id: when claimed}, dk [the battle deck's 20 ids], kit (the starter Coach
-//  cards given: 1), dd (the last day the daily pack was taken, YYYY-MM-DD), rec {w, l, d}, tr (trophies), bt {match id:
+//  cards given: 1), kit2 (the starter Items given: 1), pp (pack points), dd (the last day the daily pack was taken,
+//  YYYY-MM-DD), rec {w, l, d}, tr (trophies), bt {match id:
 //  'w'|'l'|'d', paid}, nm (team name), lp (the latest pulls, newest first: 24 at most), nw (cards pulled for the first time
 //  and not looked at yet: NEW)}
 export const dayKey = (t = new Date()) => `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
@@ -344,8 +373,8 @@ export function fresh(key = '', now = Date.now()) {
     const c = list.length ? list[Math.floor(R() * list.length)] : null;
     if (c) { o[c.id] = 1; used.add(c.p); }
   }
-  Object.assign(o, COACH_KIT);
-  const s = {v: VERSION, rs: SEASON_MARK, born: now, at: now, sp: 0, cr: 0, o, pk: {std: 2, prem: 1}, cl: {}, dk: [], kit: 1, dd: '',
+  Object.assign(o, COACH_KIT, ITEM_KIT);
+  const s = {v: VERSION, rs: SEASON_MARK, born: now, at: now, sp: 0, cr: 0, o, pk: {std: 2, prem: 1}, cl: {}, dk: [], kit: 1, kit2: 1, pp: 0, dd: '',
     rec: {w: 0, l: 0, d: 0}, tr: 0, bt: {}, nm: '', lp: [], nw: []};
   s.dk = autoDeck(o);
   return s;
@@ -356,7 +385,7 @@ export function clean(s) {
   const obj = x => (x && typeof x === 'object' && !Array.isArray(x) ? x : {});
   const n = x => (Number.isFinite(Number(x)) && Number(x) >= 0 ? Math.floor(Number(x)) : 0);
   const out = {v: VERSION, rs: SEASON_MARK, born: n(s.born) || Date.now(), at: n(s.at), sp: n(s.sp), cr: n(s.cr), o: {}, pk: {}, cl: {}, dk: [],
-    kit: s.kit ? 1 : 0, dd: typeof s.dd === 'string' ? s.dd : '', rec: {w: n(s.rec && s.rec.w), l: n(s.rec && s.rec.l), d: n(s.rec && s.rec.d)},
+    kit: s.kit ? 1 : 0, kit2: s.kit2 ? 1 : 0, pp: n(s.pp), dd: typeof s.dd === 'string' ? s.dd : '', rec: {w: n(s.rec && s.rec.w), l: n(s.rec && s.rec.l), d: n(s.rec && s.rec.d)},
     tr: n(s.tr), bt: {},
     nm: typeof s.nm === 'string' ? s.nm.slice(0, 24) : '', lp: Array.isArray(s.lp) ? s.lp.filter(x => typeof x === 'string').slice(0, 24) : [], nw: []};
   Object.entries(obj(s.o)).forEach(([k, v]) => { if (n(v) > 0) out.o[k] = Math.min(99, n(v)); });
@@ -493,6 +522,11 @@ export function mine() {
       Object.entries(COACH_KIT).forEach(([id, n]) => { MINE.o[id] = (MINE.o[id] || 0) + n; });
       MINE.kit = 1; MINE.dk = autoDeck(MINE.o); dirty = true;
     }
+    // (and the starter Items, Oct 28 2026: a 20-card deck that's short of 20 is filled again)
+    if (!MINE.kit2) {
+      Object.entries(ITEM_KIT).forEach(([id, n]) => { MINE.o[id] = (MINE.o[id] || 0) + n; });
+      MINE.kit2 = 1; if (MINE.dk.length < B.DECK_SIZE) MINE.dk = autoDeck(MINE.o); dirty = true;
+    }
     writeLocal(MINE);
     if (dirty) later();
   }
@@ -570,9 +604,30 @@ export function open(kind, {team = null} = {}, s = mine()) {
   ids.forEach(id => { if (s.o[id] > 0) dup[id] = true; else if (!s.nw.includes(id)) s.nw.unshift(id); addCard(s, id); });
   s.nw = s.nw.slice(0, 60);
   s.pk[kind] -= 1; if (!s.pk[kind]) delete s.pk[kind];
+  s.pp += PP_PER_PACK;
   s.lp = [...ids.slice().reverse(), ...s.lp].slice(0, 24);
   touch('open');
   return {ok: true, cards: ids, dup};
+}
+/** Trades pack points for a card. {ok, why}. */
+export function exchange(id, s = mine()) {
+  const c = anyCard(id), cost = ppCost(c);
+  if (!c || !cost) return {ok: false, why: 'That card can’t be traded for.'};
+  if (s.pp < cost) return {ok: false, why: `You need ${data.nf(cost - s.pp)} more pack points.`};
+  s.pp -= cost;
+  if (!(s.o[id] > 0) && !s.nw.includes(id)) s.nw.unshift(id);
+  addCard(s, id); s.lp = [id, ...s.lp].slice(0, 24);
+  touch('open'); return {ok: true};
+}
+/** Opens today's free pack straight away (Pocket's daily pack). */
+export function openFree(s = mine(), t = new Date()) {
+  if (!claimDaily(s, t)) return {ok: false, why: 'Today’s free pack is taken.'};
+  return open(DAILY_PACK, {}, s);
+}
+/** Buys a pack and opens it. */
+export function buyOpen(kind, {team = null} = {}, s = mine()) {
+  const r = buy(kind, s);
+  return r.ok ? open(kind, {team}, s) : r;
 }
 /** Quick-sells copies of a card (the copies in your deck are kept). {ok, coins}. */
 export function sell(id, n = 1, s = mine()) {

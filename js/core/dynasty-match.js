@@ -33,7 +33,8 @@ const obj = x => (x && typeof x === 'object' && !Array.isArray(x) ? x : {});
 export function cleanSide(M) {
   if (!M || typeof M !== 'object' || typeof M.o !== 'string' || !M.o) return null;
   return {o: M.o, k: Array.isArray(M.k) ? M.k.filter(x => typeof x === 'string').slice(0, B.DECK_SIZE) : [], m: Array.isArray(M.m) ? M.m.slice(0, 200) : [],
-    ch: M.ch ? 1 : 0, z: ['decline', 'cancel', 'resign', 'claim'].includes(M.z) ? M.z : '', c: Number(M.c) || 0, at: Number(M.at) || 0, ...(M.done ? {done: 1} : {})};
+    ch: M.ch ? 1 : 0, z: ['decline', 'cancel', 'resign', 'claim'].includes(M.z) ? M.z : '', c: Number(M.c) || 0, at: Number(M.at) || 0, ...(M.done ? {done: 1} : {}),
+    ...(Number(M.v) >= 2 ? {v: 2} : {})};
 }
 function selectProfile() {
   const key = profileKey();
@@ -120,7 +121,8 @@ function matchOf(mid, M) {
   if (!them) return {...base, state: 'sent'};
   const decks = base.you === 0 ? [M.k, them.k] : [them.k, M.k];
   const moves = base.you === 0 ? [M.m, them.m] : [them.m, M.m];
-  const {G, bad} = B.replay(mid, decks, moves);
+  // (the rules' version is the challenger's: core/dynasty-battle.js newGame)
+  const {G, bad} = B.replay(mid, decks, moves, (base.you === 0 ? M : them).v || 1);
   // (your moves this turn, not sent yet)
   const pend = PENDING[mid];
   if (pend && pend.base === M.m.length && G.phase !== 'over') for (const m of pend.list) { if (!B.play(G, base.you, m).ok) break; }
@@ -171,7 +173,7 @@ export function challenge(key) {
   const open = list().filter(x => x.opp.key === key && !['over', 'closed'].includes(x.state));
   if (open.length) return {ok: false, why: 'You already have a match with them.', mid: open[0].mid};
   const mid = newId(), now = Date.now();
-  mine()[mid] = {o: key, k: dk.ids, m: [], ch: 1, z: '', c: now, at: now};
+  mine()[mid] = {o: key, k: dk.ids, m: [], ch: 1, z: '', c: now, at: now, v: 2};
   save('challenge'); return {ok: true, mid};
 }
 /** Accepts a challenge with your deck. */

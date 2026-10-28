@@ -1,8 +1,8 @@
 // A Gridiron Dynasty battle (/puzzles/dynasty/battle/<match id>, a cover over Daily Games; the owner's asks, Oct 28 2026:
 // Pokémon TCG Pocket's rules with the Dynasty's cards, between players, in turns like chess). The rules are
 // core/dynasty-battle.js's, the match (both sides' moves, whose turn) core/dynasty-match.js's.
-// The screen: their bench and active player at the top, yours below, your hand along the bottom, then this turn's
-// energy, Switch and End turn. Tap your active player to attack (his attacks, each lit when its energy is on him); tap a
+// The screen (Pocket's light mat): their bench and active player at the top, yours below, your hand along the bottom,
+// then the Energy Zone (this turn's energy, the next one beside it), Switch and End turn. Tap your active player to attack (his attacks, each lit when its energy is on him); tap a
 // card in your hand to play it; tap a player to see his card. Your setup (an active player and up to 3 on the bench)
 // before the first turn. What they did since you last looked comes up first (their turn, line by line).
 import * as ui from '../core/ui.js';
@@ -29,6 +29,7 @@ function evText(ev, you, opp) {
     case 'evolve': return `${who} evolved ${short(ev.from)} into ${D.card(ev.id) && D.card(ev.id).t ? D.card(ev.id).t : D.SERIES[(D.card(ev.id) || {}).s] ? D.SERIES[D.card(ev.id).s].name : ''} ${short(ev.id)}.`;
     case 'energy': return `${who} gave ${short(ev.id)} a ${B.ENERGY[ev.e]} energy.`;
     case 'stadium': return `${who} played ${nameOf(ev.id)}.`;
+    case 'item': return `${who} played ${nameOf(ev.id)}${ev.got && mine ? `: ${nameOf(ev.got)}` : ''}${ev.heal ? `: healed ${ev.heal}` : ''}.`;
     case 'retreat': return `${who} switched ${short(ev.from)} out for ${short(ev.to)}.`;
     case 'promote': return `${who} sent in ${short(ev.id)}.`;
     case 'injury': return `${short(ev.id)} took 10 from his injury.`;
@@ -99,6 +100,7 @@ function draw(st) {
     if (mode.k === 'energy') return can({a: 'energy', on: u});
     if (mode.k === 'evolve') return can({a: 'evolve', id: mode.id, on: u});
     if (mode.k === 'coach') return can({a: 'coach', id: mode.id, on: u});
+    if (mode.k === 'item') return can({a: 'item', id: mode.id, on: u});
     if (mode.k === 'retreat') return can({a: 'retreat', to: u});
     return false;
   };
@@ -108,7 +110,7 @@ function draw(st) {
   else if (x.state === 'setup') status = st.setup.act ? `Bench: tap up to ${B.BENCH_MAX} more Basic players, then Ready.` : 'Pick your starting player: tap a Basic player in your hand.';
   else if (x.state === 'theirs') status = G.phase === 'setup' ? `Waiting for ${esc(x.opp.name)} to set up.` : `${esc(x.opp.name)}’s turn. You’ll see it here when they move.`;
   else if (me.promote) status = 'Your player was knocked out: pick who comes in from your bench.';
-  else if (mode) status = {energy: 'Tap a player to give him the energy.', evolve: 'Tap the player to evolve.', coach: 'Tap a player for it.', retreat: 'Tap the bench player to send in.'}[mode.k] + ' <button type="button" class="db-link" data-db-cancel>Cancel</button>';
+  else if (mode) status = {energy: 'Tap a player to give him the energy.', evolve: 'Tap the player to evolve.', coach: 'Tap a player for it.', item: 'Tap a player for it.', retreat: 'Tap the bench player to send in.'}[mode.k] + ' <button type="button" class="db-link" data-db-cancel>Cancel</button>';
   else status = `<b>Your turn.</b> ${me.en && !me.used.energy ? `Attach your ${B.ENERGY[me.en]} energy, then tap` : 'Tap'} your active player to attack.`;
   // the hand (yours; theirs, face down)
   const handHTML = me.hand.map((id, i) => {
@@ -137,7 +139,7 @@ function draw(st) {
     st.shown = true;
     let seen = Number(ui.lsGet(SEEN(st.mid))) || 0;
     const fresh = G.ev.slice(seen).filter(e => e.who !== you).map(e => evText(e, you, x.opp.name)).filter(Boolean);
-    if (fresh.length && seen > 0) ui.openSheet({title: `${x.opp.name}’s turn`, body: `<ol class="db-recap">${fresh.map(t => `<li>${esc(t)}</li>`).join('')}</ol>`, cls: 'dy-sheet', detents: ['fit']});
+    if (fresh.length && seen > 0) ui.openSheet({title: `${x.opp.name}’s turn`, body: `<ol class="db-recap">${fresh.map(t => `<li>${esc(t)}</li>`).join('')}</ol>`, cls: 'pk-sheet', detents: ['fit']});
   }
   ui.lsSet(SEEN(st.mid), String(G.ev.length));
   // (the hits since the last draw)
@@ -162,10 +164,14 @@ function barHTML(st, x, G, me, myMove, over) {
   }
   if (x.state === 'setup') return ui.button({label: 'Ready', kind: 'primary', attrs: {'data-db-ready': ''}, disabled: !st.setup.act, cls: 'db-go'});
   if (!myMove) return `<span class="db-wait">${ui.icon('clock', {size: 15})} Their move</span>${ui.button({label: 'Resign', kind: 'plain', size: 's', attrs: {'data-db-resign': ''}})}`;
-  const en = me.en && !me.used.energy
-    ? `<button type="button" class="db-energy" data-db-energy>${pipHTML(me.en)}<span>Attach ${esc(B.ENERGY[me.en])}</span></button>`
-    : `<span class="db-energy is-off">${me.used.energy ? 'Energy attached' : 'No energy this turn'}</span>`;
-  const sw = me.active && me.bench.length && !me.used.retreat && !me.promote ? ui.button({label: `Switch${B.retreatCost(me.active) ? ` (${B.retreatCost(me.active)})` : ''}`, kind: 'secondary', size: 's', attrs: {'data-db-switch': ''}}) : '';
+  // (the Energy Zone: this turn's energy, tap to attach it; the next one shown, as Pocket's)
+  const live = me.en && !me.used.energy;
+  const next = me.next ? `<small>Next ${pipHTML(me.next)}</small>` : '';
+  const en = `<${live ? 'button type="button" data-db-energy' : 'span'} class="db-zone${live ? ' is-live' : ' is-off'}">`
+    + `<span class="db-zone-now">${live ? pipHTML(me.en) : '<i class="db-zone-x"></i>'}</span>`
+    + `<span class="db-zone-t"><b>${live ? `Attach ${esc(B.ENERGY[me.en])}` : me.used.energy ? 'Energy attached' : 'No energy this turn'}</b>${next}</span></${live ? 'button' : 'span'}>`;
+  const cost = me.active ? B.retreatCost(me.active, me) : 0;
+  const sw = me.active && me.bench.length && !me.used.retreat && !me.promote ? ui.button({label: `Switch${cost ? ` (${cost})` : ''}`, kind: 'secondary', size: 's', attrs: {'data-db-switch': ''}}) : '';
   return en + sw + ui.button({label: 'End turn', kind: 'secondary', size: 's', attrs: {'data-db-end': ''}, disabled: me.promote});
 }
 
@@ -181,20 +187,20 @@ function send(st, m) {
 }
 function detail(st, id, slot) {
   const st2 = B.stats(id);
-  const hp = slot && st2 ? `<p class="dy-own">${Math.max(0, st2.hp - slot.dmg)} of ${st2.hp} HP left${slot.en.length ? ` · energy ${slot.en.map(pipHTML).join('')}` : ''}${slot.stun ? ' · Stunned' : ''}${slot.inj ? ' · Injured' : ''}</p>` : '';
-  ui.openSheet({title: nameOf(id), body: `<div class="dy-sheet-card is-s">${anyHTML(id, {size: 'm', tag: false})}</div>${hp}${battleHTML(id)}`, cls: 'dy-sheet', detents: ['large']});
+  const hp = slot && st2 ? `<p class="pk-own">${Math.max(0, st2.hp - slot.dmg)} of ${st2.hp} HP left${slot.en.length ? ` · energy ${slot.en.map(pipHTML).join('')}` : ''}${slot.stun ? ' · Stunned' : ''}${slot.inj ? ' · Injured' : ''}</p>` : '';
+  ui.openSheet({title: nameOf(id), body: `<div class="pk-zoom is-s">${anyHTML(id, {size: 'm', tag: false})}</div>${hp}${battleHTML(id)}`, cls: 'pk-sheet', detents: ['large']});
 }
 function attackSheet(st) {
   const x = st.x, G = x.G, me = G.p[x.you], a = me.active;
   const s = B.stats(a.id);
   const body = `<div class="db-atkpick">${s.attacks.map((t, n) => {
     const ok = B.check(G, x.you, {a: 'attack', n});
-    return `<button type="button" class="db-atkb" data-db-atk="${n}"${ok.ok ? '' : ' disabled'}><span class="db-cost">${t.cost.map(pipHTML).join('')}</span>`
-      + `<span class="db-an"><b>${esc(t.name)}</b><small>${esc(B.fxText(t) || (ok.ok ? 'Ready' : ok.why))}</small></span><em>${t.dmg}</em></button>`;
+    return `<button type="button" class="db-atkb" data-db-atk="${n}"${ok.ok ? '' : ' disabled'}><span class="pk-cost">${t.cost.map(pipHTML).join('')}</span>`
+      + `<span class="pk-an"><b>${esc(t.name)}</b><small>${esc(B.fxText(t) || (ok.ok ? 'Ready' : ok.why))}</small></span><em>${t.dmg}</em></button>`;
   }).join('')}</div>`
-    + (s.ability ? `<div class="db-ab"><b>Ability · ${esc(B.ABILITY[s.ability].name)}</b><span>${esc(B.ABILITY[s.ability].text)}</span></div>` : '')
-    + `<div class="dy-acts">${ui.button({label: 'See his card', kind: 'secondary', block: true, attrs: {'data-db-see': ''}})}</div>`;
-  const sh = ui.openSheet({title: `${nameOf(a.id)} · attack`, body, cls: 'dy-sheet', detents: ['fit']});
+    + (s.ability ? `<div class="pk-ab"><b>Ability · ${esc(B.ABILITY[s.ability].name)}</b><span>${esc(B.ABILITY[s.ability].text)}</span></div>` : '')
+    + `<div class="pk-acts">${ui.button({label: 'See his card', kind: 'secondary', block: true, attrs: {'data-db-see': ''}})}</div>`;
+  const sh = ui.openSheet({title: `${nameOf(a.id)} · attack`, body, cls: 'pk-sheet', detents: ['fit']});
   sh.body.addEventListener('click', e => {
     const b = e.target.closest('[data-db-atk]');
     if (b && !b.disabled) { sh.close(); setTimeout(() => send(st, {a: 'attack', n: Number(b.dataset.dbAtk)}), 200); return; }
@@ -215,11 +221,12 @@ function handTap(st, i) {
   if (x.state !== 'yours') { detail(st, id); return; }
   const t = D.trainer(id), stt = B.stats(id), acts = [];
   if (t && t.kind === 'coach') acts.push({label: `Play ${t.name}`, role: 'primary', value: 'coach'});
+  if (t && t.kind === 'item') acts.push({label: `Play ${t.name}`, role: 'primary', value: 'item'});
   if (t && t.kind === 'stadium') acts.push({label: `Play ${t.name}`, role: 'primary', value: 'stadium'});
   if (stt && stt.stage === 0) acts.push({label: 'Put him on your bench', role: 'primary', value: 'bench'});
   if (stt && stt.stage === 1) acts.push({label: 'Evolve', role: 'primary', value: 'evolve'});
   acts.push({label: 'See the card', value: 'see'});
-  ui.actionSheet({title: nameOf(id), message: t ? t.text : '', actions: acts}).then(v => {
+  ui.actionSheet({title: nameOf(id), message: t ? t.text : '', actions: acts, cls: 'pk-sheet'}).then(v => {
     if (!v) return;
     if (v === 'see') { detail(st, id); return; }
     if (v === 'bench') { send(st, {a: 'bench', id}); return; }
@@ -230,9 +237,9 @@ function handTap(st, i) {
       if (on.length === 1) { send(st, {a: 'evolve', id, on: on[0].u}); return; }
       st.mode = {k: 'evolve', id}; draw(st); return;
     }
-    if (v === 'coach') {
-      if (t.target) { st.mode = {k: 'coach', id}; draw(st); if (!B.slots(me).some(s => B.check(G, you, {a: 'coach', id, on: s.u}).ok)) { st.mode = null; ui.toast(B.check(G, you, {a: 'coach', id, on: 0}).why, {icon: 'info'}); draw(st); } return; }
-      send(st, {a: 'coach', id});
+    if (v === 'coach' || v === 'item') {
+      if (t.target) { st.mode = {k: v, id}; draw(st); if (!B.slots(me).some(s => B.check(G, you, {a: v, id, on: s.u}).ok)) { st.mode = null; ui.toast(B.check(G, you, {a: v, id, on: 0}).why, {icon: 'info'}); draw(st); } return; }
+      send(st, {a: v, id});
     }
   });
 }
@@ -246,7 +253,7 @@ function slotTap(st, u, side) {
     if (me.promote) { send(st, {a: 'promote', u}); return; }
     const mode = st.mode;
     if (mode) {
-      const m = mode.k === 'energy' ? {a: 'energy', on: u} : mode.k === 'evolve' ? {a: 'evolve', id: mode.id, on: u} : mode.k === 'coach' ? {a: 'coach', id: mode.id, on: u} : {a: 'retreat', to: u};
+      const m = mode.k === 'energy' ? {a: 'energy', on: u} : mode.k === 'retreat' ? {a: 'retreat', to: u} : {a: mode.k, id: mode.id, on: u};
       const r = B.check(G, you, m);
       if (!r.ok) { ui.toast(r.why, {icon: 'info'}); return; }
       send(st, m); return;
@@ -256,13 +263,13 @@ function slotTap(st, u, side) {
   detail(st, sl.id, sl);
 }
 function more(st) {
-  ui.actionSheet({title: 'Battle', actions: [{label: 'Whole battle log', value: 'log'}, {label: 'Resign', role: 'destructive', value: 'resign'}]}).then(v => {
+  ui.actionSheet({title: 'Battle', cls: 'pk-sheet', actions: [{label: 'Whole battle log', value: 'log'}, {label: 'Resign', role: 'destructive', value: 'resign'}]}).then(v => {
     if (v === 'log') logSheet(st);
     if (v === 'resign') resign(st);
   });
 }
 function resign(st) {
-  ui.actionSheet({title: 'Resign this battle?', message: 'It counts as a loss.', actions: [{label: 'Resign', role: 'destructive', value: 'y'}]}).then(v => {
+  ui.actionSheet({title: 'Resign this battle?', message: 'It counts as a loss.', cls: 'pk-sheet', actions: [{label: 'Resign', role: 'destructive', value: 'y'}]}).then(v => {
     if (v !== 'y') return;
     const r = MT.resign(st.mid);
     if (!r.ok) ui.toast(r.why, {icon: 'info'}); else draw(st);
@@ -277,7 +284,7 @@ function logSheet(st) {
     if (t) lines.push(`<li>${esc(t)}</li>`);
   });
   void turn;
-  ui.openSheet({title: 'Battle log', body: `<ol class="db-recap">${lines.reverse().join('')}</ol>`, cls: 'dy-sheet', detents: ['large']});
+  ui.openSheet({title: 'Battle log', body: `<ol class="db-recap">${lines.reverse().join('')}</ol>`, cls: 'pk-sheet', detents: ['large']});
 }
 
 export default {
@@ -310,7 +317,7 @@ export default {
         st.mode = {k: 'retreat'}; draw(st); return;
       }
       if (q('[data-db-end]')) {
-        ui.actionSheet({title: 'End your turn without attacking?', actions: [{label: 'End turn', role: 'primary', value: 'y'}]}).then(v => { if (v === 'y') send(st, {a: 'end'}); });
+        ui.actionSheet({title: 'End your turn without attacking?', cls: 'pk-sheet', actions: [{label: 'End turn', role: 'primary', value: 'y'}]}).then(v => { if (v === 'y') send(st, {a: 'end'}); });
         return;
       }
       if (q('[data-db-ready]')) {

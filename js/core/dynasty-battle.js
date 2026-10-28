@@ -7,10 +7,13 @@
 // - A deck is 20 cards: players, Coach cards (one a turn) and Stadiums; at most 2 of a player (any of his cards) or of
 //   a Coach or Stadium card; at least one Basic player. You open with 5 cards (always a Basic among them), put a Basic
 //   out as your active player and up to 3 more on your bench.
-// - Each turn: draw a card; take the turn's energy (a Play Call of one of your deck's types; none on the first player's
-//   first turn) and attach it to one of your players; put Basics on your bench; evolve (a Gameday or Prime card on the
-//   same player's Basic, not on the turn he came out nor on your first turn); play one Coach card and a Stadium; switch
+// - Each turn: draw a card; take the turn's energy from your Energy Zone (a Play Call of one of your deck's types, the
+//   next turn's shown beside it; none on the first player's first turn) and attach it to one of your players; put
+//   Basics on your bench; evolve (a Gameday or Prime card on the same player's Basic, not on the turn he came out nor on
+//   your first turn); play Item cards (as many as you like), one Coach card (Pocket's Supporters) and a Stadium; switch
 //   your active out once (his retreat cost in energy); then attack, which ends your turn (or end it without).
+// - Version 2 (Oct 28 2026, the owner: "the gameplay ... to match the Pokémon app"): each turn's energy is known a turn
+//   ahead (the Energy Zone's next), and Item cards. A match made before keeps version 1's energy draw (newGame's v).
 // - Knock out the other side's active player for a touchdown (a Legend or Prime: two). Three wins it, as does knocking
 //   out their last player. 50 turns between you and it's whoever's ahead.
 // - Types (football's own logic): Air (QB, WR, TE) beats Blitz, Ground (RB, OL) beats Coverage, Blitz (DL, LB) beats
@@ -35,8 +38,12 @@ export const WEAK_BONUS = 20;
 export const DECK_SIZE = 20, HAND_START = 5, BENCH_MAX = 3, WIN_POINTS = 3, MAX_COPIES = 2, TURN_CAP = 50;
 
 // ---------------------------------------------------------------------------------------------------- Coach and Stadium cards
-// (C-: Coach cards, one a turn, Pokémon's Supporters; S-: Stadiums, in play for both sides till another replaces them)
+// (C-: Coach cards, one a turn, Pokémon's Supporters; I-: Items, any number a turn; S-: Stadiums, in play for both sides
+// till another replaces them)
 export const TRAINERS = {
+  'I-recruit': {kind: 'item', name: 'Recruit', r: 'silver', text: 'Put a random Basic player from your deck into your hand.'},
+  'I-water': {kind: 'item', name: 'Water Bottle', r: 'silver', text: 'Heal 20 damage from one of your players.', target: 'mine'},
+  'I-cleats': {kind: 'item', name: 'Speed Cleats', r: 'silver', text: 'During this turn, your active player’s switch-out costs 1 less energy.'},
   'C-timeout': {kind: 'coach', name: 'Timeout', r: 'silver', text: 'Heal 40 damage from one of your players.', target: 'mine'},
   'C-audible': {kind: 'coach', name: 'Audible', r: 'silver', text: 'Switch your active player with one on your bench.', target: 'bench'},
   'C-twomin': {kind: 'coach', name: 'Two-Minute Warning', r: 'silver', text: 'Draw 2 cards.'},
@@ -200,8 +207,8 @@ function shuffle(G, a) { for (let i = a.length - 1; i > 0; i--) { const j = Math
 // slot: {u (id), id (the card on top), under (what it evolved from), dmg, en [energy], stun, inj, shield, at (the turn it
 //  came into play)}
 /** A new game: seed (the match id), decks [[ids], [ids]]. */
-export function newGame(seed, decks) {
-  const G = {seed: String(seed), rn: 0, phase: 'setup', first: 0, cur: 0, turn: 0, uid: 1, stadium: null, over: null, ev: [], p: []};
+export function newGame(seed, decks, v = 1) {
+  const G = {seed: String(seed), v: v >= 2 ? 2 : 1, rn: 0, phase: 'setup', first: 0, cur: 0, turn: 0, uid: 1, stadium: null, over: null, ev: [], p: []};
   G.first = coin(G) ? 0 : 1; G.cur = G.first;
   for (let i = 0; i < 2; i++) {
     const deck = shuffle(G, (decks[i] || []).slice());
@@ -210,8 +217,8 @@ export function newGame(seed, decks) {
       const j = deck.findIndex(isBasic);
       if (j >= 0) [deck[HAND_START - 1], deck[j]] = [deck[j], deck[HAND_START - 1]];
     }
-    G.p.push({deck, hand: deck.splice(0, HAND_START), disc: [], active: null, bench: [], pts: 0, types: deckTypes(decks[i]), en: null, n: 0, set: false,
-      used: {}, promote: false, plan: 0});
+    G.p.push({deck, hand: deck.splice(0, HAND_START), disc: [], active: null, bench: [], pts: 0, types: deckTypes(decks[i]), en: null, next: null, n: 0, set: false,
+      used: {}, promote: false, plan: 0, cleats: 0});
   }
   return G;
 }
@@ -228,7 +235,8 @@ export function canPay(cost, en) {
   for (const c of cost) { if (c === '*') continue; const i = pool.indexOf(c); if (i < 0) return false; pool.splice(i, 1); }
   return pool.length >= cost.filter(c => c === '*').length;
 }
-export const retreatCost = slot => (stats(slot.id) ? stats(slot.id).retreat : 1);
+/** A player's switch-out cost (side: his side, for Speed Cleats played this turn). */
+export const retreatCost = (slot, side = null) => Math.max(0, (stats(slot.id) ? stats(slot.id).retreat : 1) - ((side && side.cleats) || 0));
 
 /** Whose move it is: the side that must act now (a setup still owed by either, else whose turn), or -1 when it's over. */
 export function toMove(G) {
@@ -237,9 +245,16 @@ export function toMove(G) {
   return G.cur;
 }
 
+// (version 2: a side's energy for its turn n, drawn from the seed alone, so the next one is known a turn ahead)
+function energyFor(G, who, n) {
+  const T = G.p[who].types;
+  let t = (hash(`${G.seed}|e|${who}|${n}`) + 0x6D2B79F5) >>> 0;
+  t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return T[Math.floor((((t ^ (t >>> 14)) >>> 0) / 4294967296) * T.length)];
+}
 function startTurn(G) {
   const who = G.cur, me = G.p[who];
-  me.n++; me.used = {}; me.plan = 0;
+  me.n++; me.used = {}; me.plan = 0; me.cleats = 0;
   say(G, who, 'turn');
   // (the Stadium's heal, then an Injured active's 10, at the start of his side's turn)
   if (G.stadium && TRAINERS[G.stadium.id].heal && me.active) me.active.dmg = Math.max(0, me.active.dmg - TRAINERS[G.stadium.id].heal);
@@ -249,13 +264,16 @@ function startTurn(G) {
     if (G.phase === 'over') return;
   }
   if (me.deck.length) { const c = me.deck.shift(); me.hand.push(c); say(G, who, 'draw', {id: c}); }
-  me.en = G.turn === 0 && who === G.first ? null : me.types[Math.floor(rand(G) * me.types.length)];
+  if (G.v >= 2) {
+    me.en = G.turn === 0 && who === G.first ? null : energyFor(G, who, me.n);
+    me.next = energyFor(G, who, me.n + 1);
+  } else me.en = G.turn === 0 && who === G.first ? null : me.types[Math.floor(rand(G) * me.types.length)];
 }
 function endTurn(G) {
   const who = G.cur, me = G.p[who];
   if (me.active) me.active.stun = false; // (Stunned for his own next turn: that turn's over)
   slots(G.p[other(who)]).forEach(s => { s.shield = 0; }); // (the other side's shields lasted through this turn)
-  me.en = null; me.plan = 0;
+  me.en = null; me.plan = 0; me.cleats = 0;
   G.turn++;
   if (G.turn >= TURN_CAP) {
     const [a, b] = [G.p[0].pts, G.p[1].pts];
@@ -278,7 +296,8 @@ function knockOut(G, who) {
 }
 
 /** Plays one move for side who: {a: 'setup', act, bench} | 'promote' {u} | 'bench' {id} | 'evolve' {id, on} |
- *  'energy' {on} | 'coach' {id, on?} | 'stadium' {id} | 'retreat' {to} | 'attack' {n} | 'end'. Returns {ok, why}. */
+ *  'energy' {on} | 'item' {id, on?} | 'coach' {id, on?} | 'stadium' {id} | 'retreat' {to} | 'attack' {n} | 'end'.
+ *  Returns {ok, why}. */
 export function play(G, who, m) {
   const r = check(G, who, m);
   if (!r.ok) return r;
@@ -322,6 +341,13 @@ export function check(G, who, m) {
       if (m.id === 'C-audible' && !me.active) return no('No active player.');
       return {ok: true};
     }
+    case 'item': {
+      const T = TRAINERS[m.id];
+      if (G.v < 2 || !T || T.kind !== 'item' || !me.hand.includes(m.id)) return no('Not an Item card in your hand.');
+      if (T.target === 'mine' && !findSlot(me, m.on)) return no('Pick one of your players.');
+      if (m.id === 'I-cleats' && !me.active) return no('No active player.');
+      return {ok: true};
+    }
     case 'stadium': {
       const T = TRAINERS[m.id];
       if (!T || T.kind !== 'stadium' || !me.hand.includes(m.id)) return no('Not a Stadium in your hand.');
@@ -333,7 +359,7 @@ export function check(G, who, m) {
       if (me.used.retreat) return no('One switch a turn.');
       if (!me.active || !me.bench.some(s => s.u === m.to)) return no('Pick a bench player to come in.');
       if (me.active.stun) return no('He’s Stunned.');
-      if (me.active.en.length < retreatCost(me.active)) return no(`It costs ${retreatCost(me.active)} energy.`);
+      if (me.active.en.length < retreatCost(me.active, me)) return no(`It costs ${retreatCost(me.active, me)} energy.`);
       return {ok: true};
     }
     case 'attack': {
@@ -390,13 +416,21 @@ function doMove(G, who, m) {
       else if (m.id === 'C-fourth') { const s = me.bench.find(x => x.u === m.on); if (me.active) { o.n = s.en.length; me.active.en.push(...s.en); s.en = []; } }
       say(G, who, 'coach', o); return;
     }
+    case 'item': {
+      takeFromHand(me, m.id); me.disc.push(m.id);
+      const o = {id: m.id};
+      if (m.id === 'I-recruit') { const b = me.deck.filter(isBasic); if (b.length) { const id = b[Math.floor(rand(G) * b.length)]; me.deck.splice(me.deck.indexOf(id), 1); me.hand.push(id); o.got = id; } }
+      else if (m.id === 'I-water') { const s = findSlot(me, m.on); o.heal = Math.min(20, s.dmg); s.dmg -= o.heal; o.u = s.u; }
+      else if (m.id === 'I-cleats') me.cleats = 1;
+      say(G, who, 'item', o); return;
+    }
     case 'stadium': {
       takeFromHand(me, m.id);
       if (G.stadium) G.p[G.stadium.by].disc.push(G.stadium.id);
       G.stadium = {id: m.id, by: who}; me.used.stadium = true; say(G, who, 'stadium', {id: m.id}); return;
     }
     case 'retreat': {
-      const cost = retreatCost(me.active), out = me.active, i = me.bench.findIndex(s => s.u === m.to);
+      const cost = retreatCost(me.active, me), out = me.active, i = me.bench.findIndex(s => s.u === m.to);
       out.en.splice(0, cost); out.stun = false; out.inj = false;
       me.active = me.bench[i]; me.bench[i] = out; me.used.retreat = true;
       say(G, who, 'retreat', {from: out.id, to: me.active.id, cost}); return;
@@ -443,10 +477,10 @@ function attack(G, who, n) {
 }
 
 /** A match's game from its moves: seed, decks [[ids], [ids]], moves [[move lists of side 0's turns], [side 1's]] (each
- *  side's list: its setup first, then one list a turn). Replays them in order (a turn's moves until it ends) and stops
- *  at the first bad move. Returns {G, bad: null | {who, i, why}}. */
-export function replay(seed, decks, moves) {
-  const G = newGame(seed, decks);
+ *  side's list: its setup first, then one list a turn), v (the rules' version: newGame's). Replays them in order (a
+ *  turn's moves until it ends) and stops at the first bad move. Returns {G, bad: null | {who, i, why}}. */
+export function replay(seed, decks, moves, v = 1) {
+  const G = newGame(seed, decks, v);
   const at = [0, 0]; // (each side's next turn in its list)
   const run = (who, list) => {
     for (const m of list || []) { const r = play(G, who, m); if (!r.ok) return r.why; }

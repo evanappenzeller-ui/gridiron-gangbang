@@ -94,6 +94,29 @@ export async function dynastyChecks(check) {
     const same = !R.bad && R.G.phase === 'over' && JSON.stringify(R.G.p.map(p => p.pts)) === JSON.stringify(G.p.map(p => p.pts)) && R.G.over.win === G.over.win;
     return {pass: G.phase === 'over' && same && (G.over.why === 'points' || G.over.why === 'empty'), detail: `${G.turn} turns, ${G.p[0].pts}–${G.p[1].pts}, ${G.over.why}`};
   });
+  check('Gridiron Dynasty plays as Pokémon TCG Pocket (the owner, Oct 28 2026: "I want the gameplay and theme/design to match the Pokémon app"): the Energy Zone shows the next energy and it is the one that comes; Items (Recruit, Water Bottle) play as many as you like in a turn, only in a new battle; starter decks carry them; a pack gives 5 pack points, traded for a card', () => {
+    const d0 = D.fresh('m_a', 1000).dk, d1 = D.fresh('m_b', 1000).dk;
+    const kit = ['I-recruit', 'I-water'].every(id => d0.includes(id));
+    const G = B.newGame('pocket1', [d0, d1], 2);
+    for (let i = 0; i < 2; i++) { const who = B.toMove(G), h = G.p[who].hand.filter(B.isBasic); B.play(G, who, {a: 'setup', act: h[0], bench: []}); }
+    let zone = true;
+    for (let t = 0; t < 6 && G.phase !== 'over'; t++) {
+      const who = B.toMove(G), next = G.p[who].next;
+      B.play(G, who, {a: 'end'}); B.play(G, B.toMove(G), {a: 'end'});
+      zone = zone && !!next && G.p[who].en === next;
+    }
+    const who = B.toMove(G), me = G.p[who];
+    me.active.dmg = 30; me.hand.push('I-water', 'I-recruit');
+    const hand = me.hand.length, basics = me.deck.filter(B.isBasic).length;
+    const w = B.play(G, who, {a: 'item', id: 'I-water', on: me.active.u}).ok, r = B.play(G, who, {a: 'item', id: 'I-recruit'}).ok;
+    const items = w && r && me.active.dmg === 10 && me.hand.length === hand - 2 + (basics ? 1 : 0);
+    const V1 = B.newGame('pocket1', [d0, d1]);
+    const old = !B.check(V1, 0, {a: 'item', id: 'I-recruit'}).ok;
+    const s = D.fresh('m_pp', 1000), pp = s.pp, opened = D.open('std', {}, s).ok && s.pp === pp + D.PP_PER_PACK;
+    const want = D.CARDS.find(c => D.ppCost(c) === 35 && !(s.o[c.id] > 0));
+    s.pp = 40; const traded = D.exchange(want.id, s).ok && s.o[want.id] === 1 && s.pp === 5 && !D.exchange(want.id, s).ok;
+    return {pass: kit && zone && items && old && opened && traded, detail: `kit ${kit}, zone ${zone}, items ${items}, v1 without ${old}, pack points ${opened && traded}`};
+  });
   check('Gridiron Dynasty: a collection’s reward is claimed once, when it’s complete', () => {
     const col = D.COLLECTIONS.find(c => c.kind === 'team');
     const s = D.fresh('m_check');

@@ -78,7 +78,9 @@ How it's enforced, and what to keep doing:
 - Gridiron Dynasty (Oct 27 2026, the owner's card game after Madden's Ultimate Team and MLB The Show: `js/core/dynasty.js`,
   `js/views/dynasty.js`, cards from `tools/dynasty/build.py` → `data/dynasty.json`; its battles, Pokémon TCG Pocket's rules
   with the cards, multiplayer only, in turns like chess: `js/core/dynasty-battle.js` the rules, `js/core/dynasty-match.js`
-  the matches, `js/views/dynasty-battle.js` the screen): Evan's and Ryan Stewart's alone (Oct 28 2026: "Make available to
+  the matches, `js/views/dynasty-battle.js` the screen; its look and play match Pocket's app, Oct 28 2026: "I want the
+  gameplay and theme/design to match the Pokémon app": Pocket's light theme in `css/views/dynasty.css`, the Energy Zone with
+  the next energy, Items, pack points): Evan's and Ryan Stewart's alone (Oct 28 2026: "Make available to
   Evan and Ryan Stewart's profiles only"). `js/core/features.js` `DYNASTY` / `dynastyOpen()` / `dynastyKey()` hold it, by
   his member id and Ryan Stewart's app-user id (`ryan-stewart`), never a typed name: the Daily Games case (`games.js`
   ONLY), the routes, `mayPlay()` (saving), who can be challenged and the board all go by them. Don't open it to anyone
