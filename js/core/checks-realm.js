@@ -108,6 +108,29 @@ export async function realmChecks(check) {
     return {pass: ok, detail: `route ${routed}; listed ${keys || 'none'} (want ${want}); freshest ${freshest}; Ryan D ${named}; guest ${guest}; buttons ${buttons}; card ${cardOk}; none raidable ${raid}; nothing changed ${untouched}`};
   });
 
+  check('Keepfall: base layouts (core/realm-layout.js, Buildings › Base layouts; the owner’s ask, Oct 28 2026: “Create default layouts that the player can use for each castle level… have their whole base sorted automatically”): a layout for every Castle level fits the lot with nothing overlapping; sorting moves buildings only (ids, levels, timers, dragons, stores and the army kept) and Undo puts them back; the sheet offers your level and the ones before it, the ones after to look at', async () => {
+    const [L, view] = await Promise.all([import('./realm-layout.js'), import('../views/realm.js')]);
+    const clear = s => { const laid = {b: []}; return s.b.every(b => { const ok = F.fits(laid, F.KINDS[b.t].size, b.x, b.y); laid.b.push(b); return ok; }); };
+    const bad = [];
+    for (let th = 1; th <= F.MAX_KEEP; th++) {
+      const full = L.fullAt(th), want = Object.values(F.COUNT).reduce((n, c) => n + (c[th - 1] || 0), 0);
+      if (full.b.length !== want || !clear(full) || !L.sorted(full, th)) bad.push('full ' + th);
+    }
+    const s = F.fresh(T0);
+    s.b.find(b => b.t === 'keep').l = 4;
+    [['cannon', 2], ['treasury', 2], ['barracks', 2], ['hatchery', 1], ['wall', 40]].forEach(([t, n]) => {
+      for (let k = 0; k < n; k++) { const p = F.spotFor(s, t, {x: 3 + k, y: 38 - k}); s.b.push({i: s.nb++, t, l: 1, x: p.x, y: p.y, u: k ? 0 : T0 + 9e5, ...(t === 'hatchery' ? {dragon: {species: 'ember', color: 'red'}} : {})}); }
+    });
+    s.ar = {footman: 5};
+    const before = JSON.stringify(s), strip = o => JSON.stringify({...o, b: o.b.map(({x, y, ...rest}) => rest)});
+    const was = L.arrange(s), kept = !!was && strip(s) === strip(JSON.parse(before)) && clear(s) && L.sorted(s) && JSON.stringify(s) !== before;
+    const back = L.restore(s, was) && JSON.stringify(s) === before;
+    const html = view.layoutHTML(s, 4), later = view.layoutHTML(s, 6);
+    const sheet = (html.match(/data-rl-layout="/g) || []).length === F.MAX_KEEP && /data-rl-arrange="4" >/.test(html) && /data-rl-arrange="6" disabled/.test(later) && /<svg class="rl-layout-map"/.test(html);
+    const ok = !bad.length && kept && back && sheet;
+    return {pass: ok, detail: `levels ${bad.length ? 'bad: ' + bad.join(', ') : 'all fit'}; sorted, nothing else changed ${kept}; undo ${back}; sheet ${sheet}`};
+  });
+
   check('Keepfall: the old pay, kept for every game day before the new pay (NEW_PAY): in Gold and Ale alike, a day each (the first finished across his phones; Return Man’s best run): Daily Puzzles 400 + 5 a point, 17–0 400 + 150 a win, Kick It 400 + 200 a make (to 15), Return Man 400 + 3 a yard (to 1,000)', () => {
     const a = {id: 'fx-a', nick: 'Evan', days: {10: {v: 4, p: 400, t: 2}}, kk1: {2: {m: 5, l: 40, y: 150, k: 8, t: 10}}, rm2: {1: {y: 300, l: 300, td: 3, t: 5}}, s17: {3: {w: 12, l: 5, p: 21.5, r: 0, k: '01234', t: 3}}};
     const b = {id: 'fx-b', nick: 'Evan', days: {10: {v: 4, p: 600, t: 5}, 11: {v: 4, p: 100, t: 6}}, kk1: {2: {m: 9, l: 48, y: 330, k: 12, t: 20}}, rm2: {1: {y: 900, l: 900, td: 9, t: 9}}};

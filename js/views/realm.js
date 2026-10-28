@@ -22,6 +22,7 @@ import {heroCards, residentsNote} from './realm-heroes.js';
 import {LORE_VERSION, introHTML, mountIntro} from './realm-lore.js';
 import {CREDIT as DRAGON_CREDIT} from './realm-dragon.js';
 import {dragonPickerHTML, colorName} from './realm-dragon-picker.js';
+import * as LAY from '../core/realm-layout.js';
 
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const nf = n => Math.round(Number(n) || 0).toLocaleString('en-US');
@@ -727,12 +728,15 @@ function select(st, id, overlap = []) {
 function buildingsSheet(st, ids = null) {
   if (st.place || st.dead || !F.mayPlay()) return;
   const buildings = F.mine().b.filter(b => !ids || ids.includes(b.i));
-  const body = '<p class="rl-sh-lead">Choose a building to reveal it, view its details or move it.</p><div class="rl-building-list">'
+  const body = (ids ? '' : '<button type="button" class="rl-building-row rl-layout-row" data-rl-layouts><span class="rl-building-pic" aria-hidden="true">'
+      + layoutMapHTML(LAY.fullAt(F.keepOf(F.mine())), true) + '</span><span><b>Base layouts</b><small>Sort your whole base into a layout for your Castle level</small></span><span aria-hidden="true">›</span></button>')
+    + '<p class="rl-sh-lead">Choose a building to reveal it, view its details or move it.</p><div class="rl-building-list">'
     + buildings.map(b => '<button type="button" class="rl-building-row" data-rl-find="' + b.i + '"><span class="rl-building-pic" aria-hidden="true">' + picOf(b.t, MY_HOUSE) + '</span><span><b>' + esc(F.KINDS[b.t].name) + '</b><small>' + (b.l ? 'Level ' + b.l : 'Going up') + '</small></span><span aria-hidden="true">›</span></button>').join('') + '</div>';
   // (closed by choosing one, the focus goes to its card)
   const sh = realmSheet({title: ids ? 'Overlapping buildings' : 'Your buildings', cls: 'sh-rl', detents: ['large'], body,
     returnFocus: () => st.el.querySelector('[data-rl-card]')});
   sh.body.addEventListener('click', event => {
+    if (event.target.closest('[data-rl-layouts]') && !st.dead && F.mayPlay()) { sh.close(); layoutSheet(st); return; }
     const button = event.target.closest('[data-rl-find]');
     if (!button || st.dead || !F.mayPlay()) return;
     const b = F.mine().b.find(b => b.i === +button.dataset.rlFind);
@@ -741,6 +745,67 @@ function buildingsSheet(st, ids = null) {
     const size = F.KINDS[b.t].size;
     if (st.v) st.v.look(b.x + size / 2, b.y + size / 2, Math.min(42, st.v.zoom));
     select(st, b.i, ids || []);
+  });
+}
+
+// ---- base layouts (core/realm-layout.js; the owner's ask, Oct 28 2026: "Create default layouts that the player can use
+// for each castle level. The player can select a button and have their whole base sorted automatically"). A layout for
+// each Castle level, pictured; yours and the ones before it sort your whole base at a tap (Undo puts it back), the ones
+// after it are there to look at.
+const LAYOUT_ROLE = {hall: 'keep', def: 'def', store: 'store', make: 'make', train: 'army', camp: 'army', hatch: 'army', builder: 'hut', wall: 'wall'};
+/** A realm's lot from above ({b}), each building a square coloured by what it's for, framed round them. */
+export function layoutMapHTML(s, small = false) {
+  const box = s.b.length ? F.boxOf(s) : {x0: 0, y0: 0, x1: F.N, y1: F.N}, pad = 1;
+  const x0 = box.x0 - pad, y0 = box.y0 - pad, w = Math.max(box.x1 - box.x0, box.y1 - box.y0) + pad * 2;
+  const cx = x0 + (w - (box.x1 - box.x0) - pad * 2) / 2, cy = y0 + (w - (box.y1 - box.y0) - pad * 2) / 2;
+  const rects = s.b.map(b => {
+    const z = F.KINDS[b.t].size, wall = b.t === 'wall', inset = wall ? 0 : .12;
+    return `<rect class="is-${LAYOUT_ROLE[F.KINDS[b.t].role] || 'make'}" x="${b.x + inset}" y="${b.y + inset}" width="${z - inset * 2}" height="${z - inset * 2}" rx="${wall ? 0 : .35}"/>`;
+  }).join('');
+  return `<svg class="rl-layout-map${small ? ' is-small' : ''}" viewBox="${cx} ${cy} ${w} ${w}" aria-hidden="true" focusable="false">`
+    + `<rect class="is-ground" x="${cx}" y="${cy}" width="${w}" height="${w}"/>${rects}</svg>`;
+}
+/** The base layouts sheet's body: the Castle levels to pick from, the one picked (th) pictured (yours: your base as it
+ *  would be sorted; another: that level's base with everything it allows), and what sorting does. */
+export function layoutHTML(s, th) {
+  const mine = F.keepOf(s), open = th <= mine, done = open && LAY.sorted(s, th);
+  const pic = open ? (() => { const c = {b: s.b.map(b => ({...b}))}; LAY.arrange(c, th); return c; })() : LAY.fullAt(th);
+  const tabs = Array.from({length: F.MAX_KEEP}, (_, i) => i + 1).map(l => `<button type="button" class="rl-layout-tab${l === th ? ' is-on' : ''}${l > mine ? ' is-locked' : ''}" data-rl-layout="${l}" aria-pressed="${l === th}" aria-label="Castle level ${l} layout${l > mine ? ' (locked)' : ''}">${l}</button>`).join('');
+  const walls = s.b.filter(b => b.t === 'wall').length;
+  const note = !open ? `Reach Castle level ${th} to use this layout. This is how a Castle level ${th} base looks with everything built.`
+    : th === mine ? `Your Castle level ${th} base, sorted: the Castle in the middle, treasuries, cellars and defenses round it inside your walls, everything else round the outside.`
+      : `The Castle level ${th} layout, with your buildings in it. Anything it has no lot for goes to the nearest open ground.`;
+  return `<p class="rl-sh-lead">Pick a layout and sort your whole base at a tap. Only where things stand changes: levels, upgrades, stores and your army stay as they are.</p>`
+    + `<div class="rl-layout-tabs" role="group" aria-label="Castle level">${tabs}</div>`
+    + `<div class="rl-layout-pic">${layoutMapHTML(pic)}</div>`
+    + `<div class="rl-layout-key" aria-hidden="true"><span class="is-keep">Castle</span><span class="is-def">Defenses</span><span class="is-store">Stores</span><span class="is-make">Mines &amp; breweries</span><span class="is-army">Army</span><span class="is-hut">Huts</span><span class="is-wall">Walls</span></div>`
+    + `<p class="rl-sh-note">${esc(note)}${open && walls ? ` Your ${nf(walls)} wall${walls === 1 ? '' : 's'} ring the middle first.` : ''}</p>`
+    + `<div class="rl-acts"><button type="button" class="rl-act is-go" data-rl-arrange="${th}" ${open && !done ? '' : 'disabled'}>${done ? 'Already sorted' : 'Sort my base'}<small>${open ? `Castle level ${th} layout` : `Castle level ${th}`}</small></button></div>`;
+}
+function layoutSheet(st, th = null) {
+  if (st.place || st.dead || !F.mayPlay()) return;
+  let pick = th || F.keepOf(F.mine());
+  const sh = realmSheet({title: 'Base layouts', cls: 'sh-rl', detents: ['large'], body: layoutHTML(F.mine(), pick)});
+  const draw = focus => { sh.body.innerHTML = layoutHTML(F.mine(), pick); if (focus) sh.body.querySelector(focus)?.focus({preventScroll: true}); };
+  sh.body.addEventListener('click', e => {
+    if (st.dead || !F.mayPlay()) return;
+    const tab = e.target.closest('[data-rl-layout]');
+    if (tab) { pick = +tab.dataset.rlLayout; draw(`[data-rl-layout="${pick}"]`); ui.haptic('light'); return; }
+    const go = e.target.closest('[data-rl-arrange]');
+    if (!go || go.disabled) return;
+    if (st.place) endPlace(st);
+    const s = F.mine(), was = pick <= F.keepOf(s) ? LAY.arrange(s, pick) : null;
+    if (!was) { ui.toast('Your base couldn’t be sorted', {icon: 'info'}); return; }
+    F.touch(); ui.haptic('success');
+    sh.close();
+    if (st.moving != null) { st.moving = null; if (st.v) st.v.showGrid(false); }
+    select(st, null);
+    refresh(st);
+    if (st.v) st.v.frameVillage();
+    ui.toast(`Base sorted · Castle level ${pick} layout`, {icon: 'check', duration: 6000, action: {label: 'Undo', fn: () => {
+      if (st.dead || !F.mayPlay()) return;
+      if (LAY.restore(F.mine(), was)) { F.touch(); refresh(st); } else ui.toast('Your base has changed since it was sorted', {icon: 'info'});
+    }}});
   });
 }
 

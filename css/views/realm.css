@@ -778,3 +778,26 @@ html.is-realm-playing #tabbar { visibility: hidden; pointer-events: none; }
 .rl-hero-art .rl-dragon-portrait { width: 100%; height: 100%; object-fit: contain; }
 .rlr-t .rl-dragon-portrait { width: 100%; height: 100%; object-fit: contain; }
 @media (max-width: 360px) { .rl-dragon-option b { font-size: 14px; } .rl-dragon-option .rl-dragon-portrait { height: 90px; } }
+/* ---- base layouts (views/realm.js layoutSheet): the Castle levels, the lot from above, a key */
+.rl-layout-row { margin-bottom: 14px; border-color: var(--rl-gilt); background: rgba(232,194,104,.1); }
+.rl-layout-row .rl-building-pic { flex: none; width: 48px; height: 48px; }
+.rl-layout-tabs { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 6px; margin: 0 0 12px; }
+.rl-layout-tab { display: grid; place-items: center; min-height: 44px; padding: 0; text-align: center; border: 1px solid var(--rl-line); border-radius: 9px; background: #ffffff09; color: #F7EEDD; font: 700 16px/1 var(--font-text); cursor: pointer; }
+.rl-layout-tab.is-on { background: linear-gradient(#E6BE58, #B58424); color: #2A1B08; border-color: transparent; }
+.rl-layout-tab.is-locked:not(.is-on) { opacity: .5; }
+.rl-layout-tab:focus-visible { outline: 3px solid #80c9ff; outline-offset: 2px; }
+.rl-layout-pic { width: 100%; max-width: 360px; margin: 0 auto 10px; aspect-ratio: 1; border-radius: 12px; overflow: hidden; border: 1px solid var(--rl-line); }
+.rl-layout-map { display: block; width: 100%; height: 100%; }
+.rl-layout-map .is-ground { fill: #4E6B34; }
+.rl-layout-map .is-keep, .rl-layout-key .is-keep::before { fill: #F0C23E; background: #F0C23E; }
+.rl-layout-map .is-def, .rl-layout-key .is-def::before { fill: #D2553F; background: #D2553F; }
+.rl-layout-map .is-store, .rl-layout-key .is-store::before { fill: #6FB0E0; background: #6FB0E0; }
+.rl-layout-map .is-make, .rl-layout-key .is-make::before { fill: #E8A040; background: #E8A040; }
+.rl-layout-map .is-army, .rl-layout-key .is-army::before { fill: #A988DA; background: #A988DA; }
+.rl-layout-map .is-hut, .rl-layout-key .is-hut::before { fill: #E9DCC0; background: #E9DCC0; }
+.rl-layout-map .is-wall, .rl-layout-key .is-wall::before { fill: #2B2420; background: #2B2420; }
+.rl-layout-map.is-small .is-ground { fill: #3E5A2A; }
+.rl-layout-key { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 12px; margin: 0 0 4px; font: 600 12px/1.2 var(--font-text); color: rgba(247,238,221,.78); }
+.rl-layout-key span { display: inline-flex; align-items: center; gap: 5px; }
+.rl-layout-key span::before { content: ''; width: 10px; height: 10px; border-radius: 3px; }
+.rl-layout-key .is-wall::before { border: 1px solid rgba(247,238,221,.4); }
