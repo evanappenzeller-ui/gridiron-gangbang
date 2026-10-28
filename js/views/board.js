@@ -307,7 +307,8 @@ const SUB_PARTS = [
   [/^plays (\d+\/\d+)$/i, m => `Plays ${m[1]}`]
 ];
 const V1_SUB = /^College \d+\/\d+, grid \d+\/\d+, (?:ID on clue \d+|no ID)$/;
-function shortSub(sub) {
+/** The compact form of a Daily Puzzles sub line, or null to show it as it is (also on Daily Games' boards up close). */
+export function shortSub(sub) {
   const s = String(sub || '');
   if (!s || V1_SUB.test(s)) return null;
   const parts = s.split(', ');

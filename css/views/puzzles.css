@@ -539,6 +539,11 @@ html.rm .v-puzzles .gm-case.is-hint .gm-grip-cue, html.rm .v-puzzles .gm-case.is
 .gm-zoom .gm-r-gr { font-size: .9em; min-width: 2em; }
 .gm-zoom .gm-r-gr + .gm-r-v { min-width: 3.4em; }
 .gm-z-body.is-tight .gm-r-s { display: none; }
+.gm-zoom .gm-r-s.is-two { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+/* up close, a ranked game's Ale sits under the score (views/games.js rowHTML) */
+.gm-r-vs { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: .2em; }
+.gm-zoom .gm-r-vs > .gm-r-ale { margin: 0; font-size: .7em; }
+.gm-zoom .gm-r-gr + .gm-r-vs { min-width: 3.4em; }
 /* 17-0's rows are buttons: a tap shows that person's team (a drag still turns the case) */
 .gm-r-w { display: contents; }
 button.gm-r { width: 100%; text-align: left; -webkit-tap-highlight-color: transparent; }

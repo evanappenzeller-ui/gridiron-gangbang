@@ -20,7 +20,7 @@ import * as features from '../core/features.js';
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as daily from '../core/daily.js';
-import {ringHTML, stepParts, maxPts, gradeGold, msToMidnight, countdownHTML, itemCount} from './board.js';
+import {ringHTML, stepParts, maxPts, gradeGold, msToMidnight, countdownHTML, itemCount, shortSub} from './board.js';
 import {turnable, shelfTurner, shellHTML} from './game-case.js';
 import {RANKED, aleFor} from '../core/realm-pay.js';
 import {activeToday} from '../core/realm-active.js';
@@ -321,6 +321,9 @@ const aleTxt = (n, short) => '+' + (short ? (n >= 1000 ? `${+(n / 1000).toFixed(
 export function rowHTML(r, {sub = false, who = false, ale = false} = {}) {
   const pay = ale ? aleFor(r.rank) : 0;
   const label = `${ui.ordinal(r.rank)}, ${r.name}${r.me ? ', you' : ''}${r.guest ? ', guest' : ''}: ${r.val}${r.letter ? `, grade ${r.letter}` : ''}${pay ? `, pays ${nf(pay)} Ale` : ''}${sub && r.sub ? `. ${r.sub}` : ''}`;
+  // Up close (sub), the line under the name in its compact form (a puzzle day's "Clue 5 · Path 2/3 · Plays 1/2", up to
+  // two lines; the label keeps the full text), and the Ale under the score, so neither cuts the line off.
+  const short = sub && r.sub ? shortSub(r.sub) : null, line = sub ? short || r.sub : '';
   const aleTag = pay ? `<span class="gm-r-ale is-grain" aria-hidden="true"><i class="rl-coin"></i>${aleTxt(pay, ale === 'short')}</span>` : '';
   // a graded game (the Two-Minute Drill) shows its letter by the score, coloured as on the drill's own board
   const grade = r.letter ? `<span class="gm-r-gr is-${esc(String(r.letter)[0])}" aria-hidden="true">${esc(r.letter)}</span>` : '';
@@ -330,8 +333,11 @@ export function rowHTML(r, {sub = false, who = false, ale = false} = {}) {
   return open
     + `<span class="gm-r-rk${r.rank <= 3 ? ' is-r' + r.rank : ''}" aria-hidden="true">${r.rank}</span>`
     + `<span class="gm-r-av" aria-hidden="true">${ui.nickAvatar(r.name, {size: sub ? 30 : 22, managerId: r.managerId || null, you: r.me})}</span>`
-    + `<span class="gm-r-nm" aria-hidden="true"><span class="gm-r-t">${esc(r.name)}${r.me ? ' <i class="gm-r-you">YOU</i>' : r.guest ? ' <i class="gm-r-you is-g">GUEST</i>' : ''}</span>${sub && r.sub ? `<span class="gm-r-s">${esc(r.sub)}</span>` : ''}</span>`
-    + `${aleTag}${grade}<span class="gm-r-v" aria-hidden="true">${esc(r.val)}</span>${who && r.key ? '</button></div>' : '</div>'}`;
+    + `<span class="gm-r-nm" aria-hidden="true"><span class="gm-r-t">${esc(r.name)}${r.me ? ' <i class="gm-r-you">YOU</i>' : r.guest ? ' <i class="gm-r-you is-g">GUEST</i>' : ''}</span>${line ? `<span class="gm-r-s${short ? ' is-two' : ''}">${esc(line)}</span>` : ''}</span>`
+    + (sub && aleTag
+      ? `${grade}<span class="gm-r-vs"><span class="gm-r-v" aria-hidden="true">${esc(r.val)}</span>${aleTag}</span>`
+      : `${aleTag}${grade}<span class="gm-r-v" aria-hidden="true">${esc(r.val)}</span>`)
+    + (who && r.key ? '</button></div>' : '</div>');
 }
 /** The rows a case's back shows (null: a gap): today's top n with you among them. You lead the people you're tied
  *  with, and when you're further down the top n - 1 come first, then a gap, then you. */
