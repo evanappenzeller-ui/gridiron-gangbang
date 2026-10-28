@@ -32,7 +32,7 @@ const PLAIN = {
   ember: [0xff7a1e, {emissive: 0xff5a14, emissiveIntensity: 1.4}],
   'll-iron': [0x3d4045, {metalness: .6, roughness: .45}], 'll-copper': [0xc8743a, {metalness: .55, roughness: .33}],
   'll-dark': [0x14100d, {roughness: 1}], 'll-earth': [0x6f5b40, {roughness: 1}], 'll-sand': [0xb39a6a, {roughness: 1}],
-  'll-grass': [0x5d7a36, {roughness: .95}], 'll-yellow': [0xe7b43a, {roughness: .6}], 'll-foam': [0xf4ebd4, {roughness: .7}],
+  'll-grass': [0x526d91, {roughness: .95}], 'll-yellow': [0xe7b43a, {roughness: .6}], 'll-foam': [0xf4ebd4, {roughness: .7}],
   'll-pitch': [0x1c1816, {roughness: .2, metalness: .15}], 'll-bone': [0xe6dcc1, {roughness: .55}], 'll-hops': [0x6f9a3c, {roughness: .8}],
   'll-teal': [0x2f8f8a, {roughness: .4, emissive: 0x0b2b2a}], 'll-crimson': [0xa3243a, {roughness: .4, emissive: 0x2a0710}],
   'll-violet': [0x5b3c9a, {roughness: .4, emissive: 0x150c2a}], 'll-red': [0x9b2230, {roughness: .8}]
@@ -278,7 +278,7 @@ function brewery(k, stage) {
   k.cyl(.06, .06, .12, 'timber', [sx, .41, 1.06], {seg: 8}); k.cyl(.065, .065, .04, 'll-foam', [sx, .53, 1.06], {seg: 8});
 }
 
-/** Cellar (3 tiles, its first stage): a grassy mound, a stone arch with a great cask's head for its door, lanterns
+/** Cellar (3 tiles, its first stage): a slate-blue vaulted roof, a stone arch with a great cask's head for its door, lanterns
  *  either side, kegs piled, a tankard sign. */
 function cellar(k) {
   ground(k, 3, 'mat_floorTile');
