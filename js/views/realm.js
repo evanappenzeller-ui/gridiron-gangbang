@@ -966,14 +966,14 @@ export function payCopyHTML() {
 }
 /** Your army and heroes: the heroes to recruit or upgrade, who's ready, who's training, who you can train (with Ale). */
 function armyParts(s, now) {
-  const room = F.armyRoom(s), have = F.roomOf(s.ar), q = F.queued(s);
+  const room = F.armyRoom(s), have = F.roomOf(s.ar), q = F.queued(s), open = F.attackOpen(s);
   const army = F.TROOP_ORDER.filter(t => s.ar[t]).map(t => `<span class="rl-chip">${esc(F.TROOPS[t].name)} ×${s.ar[t]}</span>`).join('') || '<span class="rl-sh-note">No one yet.</span>';
   const line = s.q.map(([t, n], i) => `<span class="rl-chip is-q">${esc(F.TROOPS[t].name)} ×${n}${i === 0 && s.qs ? ` <small>${dur(s.qs + F.trainTime(s, t) * 1000 - now)}</small>` : ''}<button type="button" class="rl-chip-x" data-rl-untrain="${t}" aria-label="Take one ${esc(F.TROOPS[t].name)} out">−</button></span>`).join('');
   const cards = F.TROOP_ORDER.map(t => {
-    const T = F.TROOPS[t], chk = F.canTrain(s, t), locked = F.barracksLevel(s) < T.at;
+    const T = F.TROOPS[t], chk = F.canTrain(s, t), locked = !open || F.barracksLevel(s) < T.at;
     return `<button type="button" class="rl-tc${locked ? ' is-locked' : ''}" data-rl-train="${t}" ${chk.ok ? '' : 'aria-disabled="true"'}>`
       + `<span class="rl-tc-ic" aria-hidden="true">${picOf(t, MY_HOUSE, true)}</span><b>${esc(T.name)}</b>`
-      + `<span class="rl-tc-c">${locked ? `Barracks level ${T.at}` : `${curHTML('grain', T.cost)} · ${T.room} room`}</span>`
+      + `<span class="rl-tc-c">${!open ? `Castle level ${F.ATTACK_AT}` : locked ? `Barracks level ${T.at}` : `${curHTML('grain', T.cost)} · ${T.room} room`}</span>`
       + `<small>${esc(T.blurb)}</small></button>`;
   }).join('');
   // (the Knight's recruited and upgraded with Gold; the Dragon hatches at the Dragon Hatchery and grows with it, Oct 22 2026)
@@ -983,7 +983,8 @@ function armyParts(s, now) {
     room: `<div class="rl-room"><b>${have + q}/${room}</b> room in the war camps${q ? ` (${q} in training)` : ''}</div>`,
     ready: `<h3 class="rl-sh-h">Ready to march</h3><div class="rl-chips">${army}</div>`,
     training: line ? `<h3 class="rl-sh-h">Training${s.q.length ? ` · done in ${dur(F.trainedBy(s, now) - now)}` : ''}</h3><div class="rl-chips">${line}</div>` : '',
-    train: `<h3 class="rl-sh-h">Train <span>(tap to add one · ${F.CUR_NAME.grain} ${nf(s.r.grain)})</span></h3><div class="rl-tcs">${cards}</div>`
+    // (till raids open at Castle level 4, the troops show locked: core/realm.js canTrain)
+    train: `<h3 class="rl-sh-h">Train <span>(${open ? `tap to add one · ${F.CUR_NAME.grain} ${nf(s.r.grain)}` : `opens at Castle level ${F.ATTACK_AT}, with raids`})</span></h3><div class="rl-tcs">${cards}</div>`
   };
 }
 function armyHTML(s, now) { return Object.values(armyParts(s, now)).join(''); }

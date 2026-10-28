@@ -535,10 +535,13 @@ export async function realmChecks(check) {
     return {pass: start && early && levels && picked && kept && fallback && old && back, detail: `starts on the coast ${start}; the tundra at Castle 1 refused ${early}; unlocked at ${JSON.stringify(at)}; at Castle 6 the desert picked, retired lands refused ${picked}; kept in the save ${kept}; an unknown pick on the coast ${fallback}; retired picks kept, drawn as the nearest land ${old}; back to the coast ${back}`};
   });
 
-  check('Keepfall: the army trains one at a time with Ale (a footman 5 s at one barracks), into the war camps’ room; a full camp takes no more; one taken out of training gives its Ale back', () => {
-    const s = F.fresh(T0);
+  check('Keepfall: the army trains from Castle level 4, where raids open (the owner, Oct 28 2026), one at a time with Ale (a footman 5 s at one barracks), into the war camps’ room; a full camp takes no more; one taken out of training gives its Ale back', () => {
+    const s = F.fresh(T0), keep = s.b.find(b => b.t === 'keep');
     s.b.push({i: 50, t: 'barracks', l: 1, x: 3, y: 3, u: 0}, {i: 51, t: 'camp', l: 1, x: 3, y: 9, u: 0});
     s.r.grain = 2500;
+    keep.l = F.ATTACK_AT - 1;
+    const early = F.canTrain(s, 'footman').why, refused = !F.train(s, 'footman', 1, T0) && !s.q.length && s.r.grain === 2500;
+    keep.l = F.ATTACK_AT;
     const ok20 = F.train(s, 'footman', 20, T0), more = F.canTrain(s, 'footman').why, archerLocked = F.canTrain(s, 'archer').why;
     F.tick(s, T0 + 61e3);
     const at60 = s.ar.footman;
@@ -546,8 +549,8 @@ export async function realmChecks(check) {
     F.untrain(s, 'footman', T0 + 61e3);
     const back = s.r.grain - grain;
     F.tick(s, T0 + 200e3);
-    const ok = ok20 && /full/.test(more) && /level 2/.test(archerLocked) && at60 === 12 && back === 25 && s.ar.footman === 19 && !s.q.length;
-    return {pass: ok, detail: `20 in ${ok20}; 21st: ${more}; archer: ${archerLocked}; after 60 s ${at60}; one out +${back}; in the end ${s.ar.footman}`};
+    const ok = /Castle level 4/.test(early) && refused && ok20 && /full/.test(more) && /level 2/.test(archerLocked) && at60 === 12 && back === 25 && s.ar.footman === 19 && !s.q.length;
+    return {pass: ok, detail: `at Castle 3: ${early}, refused ${refused}; 20 in ${ok20}; 21st: ${more}; archer: ${archerLocked}; after 60 s ${at60}; one out +${back}; in the end ${s.ar.footman}`};
   });
 
   check('Keepfall: an attack plays out the same every time from the same drops; 20 footmen sack the computer’s first realm (three stars, all it holds), one alone does little; no one can be sent onto or next to a building', () => {

@@ -919,6 +919,9 @@ export function canTrain(s, t, n = 1) {
   const T = TROOPS[t];
   // (the Dragon isn't trained from Oct 22 2026: he hatches as the Dragon Hero, HEROES.dragon)
   if (!TROOP_ORDER.includes(t)) return {ok: false, why: t === 'dragon' ? 'Dragons hatch as your Dragon Hero now' : 'Unknown troop'};
+  // (no army till raids open, the owner, Oct 28 2026: "Players should not be able to train their army until they reach
+  // level 4 where they can attack"; troops already in training or ready stay as they are)
+  if (!attackOpen(s)) return {ok: false, why: `Train your army at Castle level ${ATTACK_AT}`};
   if (!trainers(s)) return {ok: false, why: 'Build barracks first'};
   if (barracksLevel(s) < T.at) return {ok: false, why: `Barracks level ${T.at}`};
   if (roomOf(s.ar) + queued(s) + T.room * n > armyRoom(s)) return {ok: false, why: armyRoom(s) ? 'The war camps are full' : 'Build a war camp first'};
