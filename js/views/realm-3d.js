@@ -692,11 +692,22 @@ export function create(host, opts = {}) {
     want();
   }
 
-  // ---- fingers: drag to pan (or to move what onGrab took), pinch or wheel to zoom, tap to pick
+  // ---- fingers: drag to pan (or to move what onGrab took), pinch or wheel to zoom, tap to pick. Only two fingers that
+  // both move zoom (the owner, Oct 28 2026: "zooming in and out is only controlled when two fingers are on the screen"):
+  // a finger whose lift never reached the canvas (it came up over a button or a sheet) is forgotten when the next first
+  // finger lands, so it can't make that one a pinch; and while a second contact stays still (a resting thumb or palm),
+  // the finger that moves pans.
   const ptr = new Map();
   let gesture = null;
+  const panTo = (anchor, x, y) => {
+    // keep the ground that was under the finger under it
+    const t = tileAt(x, y);
+    if (t && anchor) { view.tx -= t.x - anchor.x; view.tz -= t.y - anchor.y; clampView(); placeCam(); }
+    want();
+  };
   const down = e => {
     if (e.button > 0) return;
+    if (e.isPrimary) ptr.clear();
     canvas.setPointerCapture && (() => { try { canvas.setPointerCapture(e.pointerId); } catch (_) {} })();
     ptr.set(e.pointerId, {x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, t0: performance.now()});
     if (ptr.size === 1) {
@@ -704,8 +715,8 @@ export function create(host, opts = {}) {
       const grab = tile && opts.onGrab ? opts.onGrab(tile, pick(e.clientX, e.clientY)) : false;
       gesture = {kind: grab ? 'grab' : 'pan', moved: false, start: tile, anchor: tile, view: {...view}};
     } else if (ptr.size === 2) {
-      const [a, b] = [...ptr.values()];
-      gesture = {kind: 'pinch', moved: true, d0: Math.hypot(a.x - b.x, a.y - b.y), dist0: view.dist, mid0: tileAt((a.x + b.x) / 2, (a.y + b.y) / 2)};
+      for (const q of ptr.values()) { q.px = q.x; q.py = q.y; q.anchor = tileAt(q.x, q.y); }
+      gesture = {kind: 'pinch', moved: true, zoom: false};
     }
   };
   const move = e => {
@@ -716,15 +727,20 @@ export function create(host, opts = {}) {
     gesture.moved = true;
     autoFrame = false;
     if (gesture.kind === 'grab') { const t = tileAt(p.x, p.y); if (t && opts.onDrag) opts.onDrag(t); return; }
-    if (gesture.kind === 'pan' && gesture.anchor) {
-      // keep the ground that was under the finger under it
-      const t = tileAt(p.x, p.y);
-      if (t) { view.tx -= t.x - gesture.anchor.x; view.tz -= t.y - gesture.anchor.y; clampView(); placeCam(); }
-      want();
-      return;
-    }
+    if (gesture.kind === 'pan' && gesture.anchor) { panTo(gesture.anchor, p.x, p.y); return; }
     if (gesture.kind === 'pinch' && ptr.size >= 2) {
-      const [a, b] = [...ptr.values()], d = Math.hypot(a.x - b.x, a.y - b.y);
+      const [a, b] = [...ptr.values()];
+      if (p !== a && p !== b) return;
+      if (!gesture.zoom) {
+        // (till both fingers have moved, the one that moves pans; then the pinch starts from where they are)
+        const went = q => Math.hypot(q.x - q.px, q.y - q.py) >= 8, other = p === a ? b : a;
+        if (!went(a) || !went(b)) {
+          if (went(p)) { panTo(p.anchor, p.x, p.y); other.anchor = tileAt(other.x, other.y); }
+          return;
+        }
+        Object.assign(gesture, {zoom: true, d0: Math.hypot(a.x - b.x, a.y - b.y), dist0: view.dist, mid0: tileAt((a.x + b.x) / 2, (a.y + b.y) / 2)});
+      }
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
       view.dist = gesture.dist0 * gesture.d0 / Math.max(10, d);
       clampView(); placeCam();
       const mid = tileAt((a.x + b.x) / 2, (a.y + b.y) / 2);
@@ -732,17 +748,19 @@ export function create(host, opts = {}) {
       want();
     }
   };
-  const up = e => {
+  const up = (e, gone = false) => {
     const p = ptr.get(e.pointerId);
     ptr.delete(e.pointerId);
     if (!p || !gesture) return;
     if (gesture.kind === 'grab' && gesture.moved) { const t = tileAt(p.x, p.y); if (opts.onDrop) opts.onDrop(t); }
-    else if (!gesture.moved && e.type === 'pointerup' && performance.now() - p.t0 < 500 && opts.onTap) {
+    else if (!gone && !gesture.moved && e.type === 'pointerup' && performance.now() - p.t0 < 500 && opts.onTap) {
       opts.onTap({id: pick(p.x, p.y), ids: village ? pickAll(p.x, p.y) : undefined, tile: tileAt(p.x, p.y), x: p.x, y: p.y});
     }
     if (!ptr.size) gesture = null;
     else if (ptr.size === 1) { const q = [...ptr.values()][0]; gesture = {kind: 'pan', moved: true, anchor: tileAt(q.x, q.y)}; }
   };
+  // (a lift heard anywhere else, or the canvas losing hold of the finger, ends it too; never a tap)
+  const lifted = e => { if (ptr.has(e.pointerId)) up(e, true); };
   const wheel = e => {
     e.preventDefault();
     autoFrame = false;
@@ -757,6 +775,8 @@ export function create(host, opts = {}) {
   canvas.addEventListener('pointermove', move);
   canvas.addEventListener('pointerup', up);
   canvas.addEventListener('pointercancel', up);
+  canvas.addEventListener('lostpointercapture', lifted);
+  window.addEventListener('pointerup', lifted); window.addEventListener('pointercancel', lifted);
   canvas.addEventListener('wheel', wheel, {passive: false});
   const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => want()) : null;
   if (ro) ro.observe(host);
@@ -1294,6 +1314,7 @@ export function create(host, opts = {}) {
       raidStop();
       canvas.removeEventListener('pointerdown', down); canvas.removeEventListener('pointermove', move);
       canvas.removeEventListener('pointerup', up); canvas.removeEventListener('pointercancel', up); canvas.removeEventListener('wheel', wheel);
+      canvas.removeEventListener('lostpointercapture', lifted); window.removeEventListener('pointerup', lifted); window.removeEventListener('pointercancel', lifted);
       renderer.dispose();
       try { renderer.forceContextLoss(); } catch (_) {}
       canvas.remove();
