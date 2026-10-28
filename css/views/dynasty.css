@@ -18,6 +18,10 @@
   color: var(--ink);
 }
 .v-dynasty { background: #E9EFF4; }
+/* (playing: the app's menu at the foot goes, views/dynasty.js fullScreen) */
+html.is-dynasty-playing #tabbar, html.is-dynasty-battle #tabbar { visibility: hidden; pointer-events: none; }
+html.is-dynasty-playing .v-dynasty { padding-bottom: 0; }
+html.is-dynasty-playing .pk-pane { padding-bottom: max(24px, calc(env(safe-area-inset-bottom) + 16px)); }
 .v-dynasty > .screen-body { padding: 0; }
 .sheet.pk-sheet { background: #F4F7FA; }
 .sheet.pk-sheet .sheet-title { color: var(--ink); }

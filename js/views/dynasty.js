@@ -673,11 +673,17 @@ function teamPicker(done) {
 
 // ---------------------------------------------------------------------------------------------------- the screen
 const PANES = {packs: packsHTML, cards: cardsHTML, decks: decksHTML, battle: battleHTML2};
+// While you're playing, the app's menu at the foot of the screen goes (the owner, Oct 28 2026: "Remove the menu at the
+// bottom of the screen when the user is actively playing in the game"), as Keepfall's does; the header's back button
+// leaves. (A battle covers the menu already.)
+function fullScreen(st, on) {
+  document.documentElement.classList.toggle('is-dynasty-playing', !!on && !st.dead && D.mayPlay());
+}
 function refresh(st) {
   if (st.dead) return;
   const el = st.el;
   // (Evan's and Ryan Stewart's alone, Oct 28 2026: a profile switched while it's open leaves it)
-  if (!D.mayPlay()) { el.querySelector('[data-dy-pane]').innerHTML = ''; if (!st.left) { st.left = true; st.ctx.back(); } return; }
+  if (!D.mayPlay()) { fullScreen(st, false); el.querySelector('[data-dy-pane]').innerHTML = ''; if (!st.left) { st.left = true; st.ctx.back(); } return; }
   if (D.status !== 'ready') {
     el.querySelector('[data-dy-pane]').innerHTML = D.status === 'error' ? ui.empty({icon: 'info', title: 'The cards didn’t load', body: 'Check your connection.', action: {label: 'Try again', kind: 'primary', attrs: {'data-dy-retry': ''}}}) : ui.skeleton('rows', 4, {label: 'Loading the cards'});
     return;
@@ -712,6 +718,7 @@ export default {
   mount(el, ctx) {
     const st = {el, ctx, tab: 'packs', pack: D.DAILY_PACK, bv: '', f: {view: 'mine', ser: '', pos: '', rar: '', q: ''}, shown: PAGE, dead: false, stops: []};
     ST.set(ctx, st);
+    fullScreen(st, ctx.visible);
     ctx.setBackTitle('Dynasty');
     el.addEventListener('input', e => {
       if (e.target.name === 'dy-q') { st.f.q = e.target.value; clearTimeout(st.qT); st.qT = setTimeout(() => drawGrid(st), 160); }
@@ -767,11 +774,14 @@ export default {
   },
 
   // (back from a battle: the matches as they stand now)
-  onShow(ctx) { const st = ST.get(ctx); if (st) refresh(st); },
+  onShow(ctx) { const st = ST.get(ctx); if (st) { fullScreen(st, true); refresh(st); } },
+
+  onHide(ctx) { const st = ST.get(ctx); if (st) fullScreen(st, false); },
 
   unmount(el, ctx) {
     const st = ST.get(ctx);
     if (!st) return;
+    fullScreen(st, false);
     st.dead = true;
     st.stops.forEach(f => { try { f(); } catch (_) {} });
     D.flush(); MT.flush();

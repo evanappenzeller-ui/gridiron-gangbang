@@ -74,11 +74,15 @@ function slotHTML(slot, side, act, pick) {
 }
 const tds = n => `<span class="db-tds" aria-label="${n} of ${B.WIN_POINTS} touchdowns">${Array.from({length: B.WIN_POINTS}, (_, i) => `<i class="${i < n ? 'is-on' : ''}"></i>`).join('')}</span>`;
 
+// (no app menu at the foot while you play, as on the Dynasty page: views/dynasty.js fullScreen)
+function fullScreen(st, on) {
+  document.documentElement.classList.toggle('is-dynasty-battle', !!on && !st.dead && D.mayPlay());
+}
 function draw(st) {
   if (st.dead) return;
   const host = st.el.querySelector('[data-db]');
   // (Evan's and Ryan Stewart's alone, Oct 28 2026: a profile switched while it's open leaves it)
-  if (!D.mayPlay()) { host.innerHTML = ''; if (!st.left) { st.left = true; st.ctx.back(); } return; }
+  if (!D.mayPlay()) { fullScreen(st, false); host.innerHTML = ''; if (!st.left) { st.left = true; st.ctx.back(); } return; }
   if (D.status !== 'ready') { host.innerHTML = `<div class="db-msg">${ui.skeleton('rows', 3, {label: 'Loading the battle'})}</div>`; return; }
   const x = MT.get(st.mid);
   const close = ui.iconButton({icon: 'close', label: 'Close', cls: 'db-x', filled: true, attrs: 'data-back'});
@@ -297,6 +301,7 @@ export default {
   mount(el, ctx) {
     const st = {el, ctx, mid: String((ctx.params && ctx.params.id) || ''), mode: null, setup: {act: null, actI: -1, bench: [], benchI: []}, dead: false, stops: [], evAt: null};
     ST.set(ctx, st);
+    fullScreen(st, ctx.visible);
     el.addEventListener('click', e => {
       const q = s => e.target.closest(s);
       let b;
@@ -337,9 +342,14 @@ export default {
     draw(st);
   },
 
+  onShow(ctx) { const st = ST.get(ctx); if (st) fullScreen(st, true); },
+
+  onHide(ctx) { const st = ST.get(ctx); if (st) fullScreen(st, false); },
+
   unmount(el, ctx) {
     const st = ST.get(ctx);
     if (!st) return;
+    fullScreen(st, false);
     st.dead = true;
     st.stops.forEach(f => { try { f(); } catch (_) {} });
     MT.flush(); D.flush();
