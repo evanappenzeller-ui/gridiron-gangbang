@@ -4,6 +4,7 @@ import * as features from '../core/features.js';
 // town's stone wall 3-4, dark brick battlements 5-6 and grey stone battlements 7-8; a post on every wall's tile and a
 // rail to each neighbour. Without them (still loading, or failed) realm-models.js's plain 3D walls stand in.
 import * as FM from './realm-models.js';
+import {enhanceMaterial, loadSurfaceMaps} from './realm-materials.js';
 
 const AT = new URL('../../models/realm/world-v1/', import.meta.url).href;
 const V = new URL('../vendor/three/', import.meta.url).href;
@@ -21,6 +22,7 @@ export function load(T) {
   pending = (async () => {
     try {
       const {GLTFLoader} = await import(V + 'GLTFLoader.js');
+      loadSurfaceMaps(T);
       const gltf = await new GLTFLoader().loadAsync(AT + 'walls.glb');
       // (a texture that didn't come would draw the walls white: the plain ones instead)
       const json = gltf.parser.json.materials || [];
@@ -33,6 +35,7 @@ export function load(T) {
         const parts = [], toNode = new T.Matrix4().copy(node.matrixWorld).invert();
         node.traverse(o => {
           if (!o.isMesh) return;
+          enhanceMaterial(T, o.material);
           parts.push([o.geometry.clone().applyMatrix4(new T.Matrix4().multiplyMatrices(toNode, o.matrixWorld)), o.material]);
         });
         if (!designs.has(+m[1])) designs.set(+m[1], {post: [], rail: []});

@@ -25,7 +25,7 @@ const smooth = (a, b, v) => { const t = clamp((v - a) / (b - a)); return t * t *
 // (Oct 27 2026, the owner: "Remove the low poly trees and make the outside more dense with the more realistic trees"):
 // no low-poly pine (pineLow), and the far woods are the light ones of those (pine3, birch2: ~700 triangles), not cones
 const THEMES = {
-  coast: {ground: ['grass', 'dust', 'ground_rock', 'ground_stones'], tint: [[.9, .95, .86], [.92, .84, .74], [.95, .95, .95], [.95, .93, .9]],
+  coast: {ground: ['grass', 'dust', 'ground_rock', 'ground_stones'], tint: [[.82, .91, .79], [.92, .84, .74], [.95, .95, .95], [.95, .93, .9]],
     water: {kind: 'sea', color: 0x2b6a80}, sky: [0x5a86b8, 0xc2ccd0], fog: 0xb3bec2, sun: [0xffe0b8, 2.4], hemi: [0xcfdbe8, 0x3e4c32, .75],
     trees: {pine1: 2, pine2: 1, pine3: 4, oak1: 1, birch1: 1, birch2: 2, deciduous1: 1}, far: {pine3: 3, birch2: 2}, forest: 1, rocks: 1, crops: ['rye', 'sunflower'], hamlets: 4, windmills: 3},
   forest: {ground: ['grassDark', 'swamp', 'ground_rock', 'ground_road'], tint: [[.82, .9, .84], [.85, .85, .8], [.8, .84, .82], [.8, .78, .74]],
@@ -276,33 +276,53 @@ function groundTexture(T, name, maxAniso, onReady) {
   if (e.ready) queueMicrotask(onReady); else e.wait.push(onReady);
   return e.tex;
 }
-const FILES = {grass: 'Grass_normal_down.jpg', grassDark: 'Grass_darked_down.jpg', grassLight: 'Grass_lighted_down.jpg', swamp: 'Grass_swamp_normal_down.jpg',
+const FILES = {fineGrass: 'ground_grass.jpg', fineSoil: 'ground_soil.jpg', grass: 'Grass_normal_down.jpg', grassDark: 'Grass_darked_down.jpg', grassLight: 'Grass_lighted_down.jpg', swamp: 'Grass_swamp_normal_down.jpg',
   earth: 'dirt_clay_down.jpg', sand: 'dirt_normal_down.jpg', sandStones: 'dirt_lighted_rocks_down.jpg', dust: 'dirt_desatured_down.jpg',
   snow: 'snow_normal.jpg', snowDark: 'snow_dark.jpg', ground_rock: 'ground_rock.jpg', ground_road: 'ground_road.jpg', ground_stones: 'ground_stones.jpg'};
 // (each texture's average colour: its layer's look while the texture's missing)
-const PLAIN = {grass: '#4d692d', grassDark: '#324e20', grassLight: '#788e3d', swamp: '#68652d', earth: '#825030', sand: '#c39364',
+const PLAIN = {fineGrass: '#4d692d', fineSoil: '#6d573b', grass: '#4d692d', grassDark: '#324e20', grassLight: '#788e3d', swamp: '#68652d', earth: '#825030', sand: '#c39364',
   sandStones: '#e2ac77', dust: '#a67c55', snow: '#e2e4e8', snowDark: '#babfca', ground_rock: '#4b473b', ground_road: '#9c7c42', ground_stones: '#666641'};
 /** The terrain's material: its land's four textures blended by each vertex's weights, tinted for the land. */
-function groundMaterial(T, list, theme) {
+function groundMaterial(T, list, detail, theme) {
   const m = new T.MeshStandardMaterial({color: 0xffffff, roughness: .97, metalness: 0, vertexColors: true});
   const U = {tGrass: {value: list[0]}, tSoil: {value: list[1]}, tRock: {value: list[2]}, tRoad: {value: list[3]},
+    tFineGrass: {value: detail[0]}, tFineSoil: {value: detail[1]}, fineOrganic: {value: theme.ground[0].startsWith('grass') ? 1 : 0},
     tint0: {value: new T.Vector3(...theme.tint[0])}, tint1: {value: new T.Vector3(...theme.tint[1])}, tint2: {value: new T.Vector3(...theme.tint[2])}, tint3: {value: new T.Vector3(...theme.tint[3])}};
   m.userData.uniforms = U;
   m.onBeforeCompile = shader => {
     Object.assign(shader.uniforms, U);
     shader.vertexShader = 'attribute vec4 splat;\nvarying vec4 vSplat;\nvarying vec3 vWorld;\n' + shader.vertexShader
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvSplat = splat; vWorld = (modelMatrix * vec4(position, 1.0)).xyz;');
-    shader.fragmentShader = 'uniform sampler2D tGrass, tSoil, tRock, tRoad;\nuniform vec3 tint0, tint1, tint2, tint3;\nvarying vec4 vSplat;\nvarying vec3 vWorld;\n' + shader.fragmentShader
+    shader.fragmentShader = 'uniform sampler2D tGrass, tSoil, tRock, tRoad, tFineGrass, tFineSoil;\nuniform float fineOrganic;\nuniform vec3 tint0, tint1, tint2, tint3;\nvarying vec4 vSplat;\nvarying vec3 vWorld;\n' + shader.fragmentShader
       .replace('#include <map_fragment>', `
         vec2 wuv = vWorld.xz * 0.085;
         // (the ground sampled twice, at scales and angles apart, so its tiling never lines up)
         vec3 cg = mix(texture2D(tGrass, wuv).rgb, texture2D(tGrass, vec2(wuv.y, -wuv.x) * 0.43 + 0.37).rgb, 0.45) * tint0;
         vec3 cs = mix(texture2D(tSoil, wuv * 1.2).rgb, texture2D(tSoil, vec2(-wuv.y, wuv.x) * 0.5).rgb, 0.35) * tint1;
-        vec3 cr = texture2D(tRock, wuv * 0.7).rgb * tint2, cd = texture2D(tRoad, wuv * 1.6).rgb * tint3;
+        vec3 cr = texture2D(tRock, wuv * 1.35).rgb * tint2, cd = texture2D(tRoad, wuv * 2.4).rgb * tint3;
         vec4 w = max(vSplat, 0.0); w /= max(0.0001, w.x + w.y + w.z + w.w);
-        diffuseColor.rgb *= cg * w.x + cs * w.y + cr * w.z + cd * w.w;`);
+        // Fine grass and gravel share existing assets; no extra geometry or draw calls.
+        vec2 fineUV = vWorld.xz * 0.62;
+        vec3 fineG = mix(texture2D(tFineGrass, fineUV).rgb, texture2D(tFineGrass, mat2(0.8,-0.6,0.6,0.8)*fineUV*0.61+0.27).rgb, 0.28);
+        vec3 fineS = texture2D(tFineSoil, mat2(0.6,0.8,-0.8,0.6)*fineUV*0.8+0.53).rgb;
+        float grassGrain = dot(fineG, vec3(0.299,0.587,0.114)), soilGrain = dot(fineS, vec3(0.299,0.587,0.114));
+        // Subpixel detail fades out in the overview to prevent shimmer.
+        float footprint = max(length(dFdx(vWorld.xz)), length(dFdy(vWorld.xz)));
+        float fineFade = 1.0-smoothstep(0.045,0.22,footprint);
+        float grassVariation = mix((grassGrain-dot(cg/tint0,vec3(0.299,0.587,0.114)))*0.7,clamp((grassGrain-0.11)*2.3,-0.19,0.25),fineOrganic);
+        float soilVariation = mix((soilGrain-dot(cs/tint1,vec3(0.299,0.587,0.114)))*0.7,clamp((soilGrain-0.14)*1.7,-0.16,0.22),fineOrganic);
+        cg *= 1.0+grassVariation*fineFade; cs *= 1.0+soilVariation*fineFade;
+        diffuseColor.rgb *= cg * w.x + cs * w.y + cr * w.z + cd * w.w;
+        float groundRelief = fineFade*(grassGrain*w.x*0.045+soilGrain*w.y*0.065+dot(cr,vec3(0.299,0.587,0.114))*w.z*0.07+dot(cd,vec3(0.299,0.587,0.114))*w.w*0.045);`)
+      .replace('#include <normal_fragment_maps>', `
+        #include <normal_fragment_maps>
+        vec3 groundDx=dFdx(-vViewPosition), groundDy=dFdy(-vViewPosition);
+        vec3 groundR1=cross(groundDy,normal), groundR2=cross(normal,groundDx);
+        float groundDet=dot(groundDx,groundR1);
+        vec3 groundGrad=sign(groundDet)*(dFdx(groundRelief)*groundR1+dFdy(groundRelief)*groundR2);
+        normal=normalize(abs(groundDet)*normal-groundGrad);`);
   };
-  m.customProgramCacheKey = () => 'keepfall-ground-v2';
+  m.customProgramCacheKey = () => 'keepfall-ground-v3';
   return m;
 }
 
@@ -427,7 +447,9 @@ export function createWorld(T, scene, {theme = 'coast', onChange = () => {}, max
     g.setAttribute('splat', new T.BufferAttribute(splat, 4));
     g.setAttribute('color', new T.BufferAttribute(tone, 3));
     const list = Th.ground.map(name => groundTexture(T, name, maxAnisotropy, tellWhenIn));
-    const mesh = new T.Mesh(g, own(groundMaterial(T, list, Th)));
+    const fineNames = Th.ground[0].startsWith('grass') ? ['fineGrass', 'fineSoil'] : Th.ground.slice(0, 2);
+    const detail = fineNames.map(name => groundTexture(T, name, maxAnisotropy, tellWhenIn));
+    const mesh = new T.Mesh(g, own(groundMaterial(T, list, detail, Th)));
     mesh.receiveShadow = true; mesh.name = 'keep-terrain'; mesh.position.y = -.015; mesh.raycast = () => {};
     return mesh;
   }

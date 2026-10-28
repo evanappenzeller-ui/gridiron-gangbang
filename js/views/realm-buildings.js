@@ -8,6 +8,7 @@
 // the caller draws realm-models.js's plain 3D one instead.
 import * as features from '../core/features.js';
 import {DESIGNS, design} from './realm-lowlevel.js';
+import {enhanceMaterial, loadSurfaceMaps} from './realm-materials.js';
 const V = new URL('../vendor/three/', import.meta.url).href;
 const V1 = new URL('../../models/realm/buildings-v1/', import.meta.url).href;
 const WORLD = new URL('../../models/realm/world-v1/', import.meta.url).href;
@@ -31,6 +32,11 @@ let T, BU, pending = null, stamps = 0;
 // (told each time a model's put in, or reworked: realm-3d.js swaps it into the views open)
 const CAME = new Set();
 export const onModel = f => { CAME.add(f); return () => CAME.delete(f); };
+function surfacesReady() {
+  // Invalidate cached thumbnails and ask open views to redraw when optional relief arrives.
+  templates.forEach(source => { source.stamp = ++stamps; });
+  CAME.forEach(f => f());
+}
 const keyOf = (kind, stage) => kind + '-' + stage;
 /** Materials shared by name across every model; the few plain ones tuned (gold shines, embers glow). */
 function share(m, obsolete) {
@@ -40,6 +46,7 @@ function share(m, obsolete) {
     if (m.name === 'ember') m.emissive?.setHex(0xff5a14), m.emissiveIntensity = 1.4;
     if (m.name === 'egg') Object.assign(m, {roughness: .45});
     if (m.alphaTest > 0) m.side = T.DoubleSide;
+    enhanceMaterial(T, m);
   }
   const kept = materials.get(m.name);
   if (kept !== m) obsolete.add(m);
@@ -83,7 +90,7 @@ function drop(scene) {
 /** A shared material by name: the imported models' own, else a plain one of that colour (made once, kept). */
 function material(name, color, options = {}) {
   if (!materials.has(name)) materials.set(name, Object.assign(new T.MeshStandardMaterial({color, roughness: .78, ...options}), {name}));
-  return materials.get(name);
+  return enhanceMaterial(T, materials.get(name));
 }
 /** One of an imported model's meshes, by its material, as geometry in the model's own frame (or null). */
 function piece(key, name) {
@@ -120,6 +127,7 @@ export async function load(three) {
     try {
       const [{GLTFLoader}, utils] = await Promise.all([import(V + 'GLTFLoader.js'), import(V + 'BufferGeometryUtils.js')]), loader = new GLTFLoader();
       BU = utils;
+      loadSurfaceMaps(T, surfacesReady); // Optional detail must never delay a building's model.
       const v1 = STAGED.flatMap(kind => [1, 2, 3].map(stage => keyOf(kind, stage))).filter(k => !templates.has(k)).map(async key => {
         let scene;
         try { const gltf = await loader.loadAsync(V1 + key + '.glb'); scene = gltf.scene; complete(gltf); adopt(key, scene); }

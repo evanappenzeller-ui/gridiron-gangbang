@@ -1,0 +1,18 @@
+{
+  "source": "StylizedDarkCastle/Textures (existing licensed Unity asset pack)",
+  "conversion": "512 x 512, vertically flipped to match Keepfall glTF diffuse maps, lossless WebP, linear normal data",
+  "files": [
+    {
+      "source": "tex_brick_normal.png",
+      "file": "tex_brick_normal.webp"
+    },
+    {
+      "source": "tex_wood_normal.png",
+      "file": "tex_wood_normal.webp"
+    },
+    {
+      "source": "tex_floorTile_normal.png",
+      "file": "tex_floorTile_normal.webp"
+    }
+  ]
+}
