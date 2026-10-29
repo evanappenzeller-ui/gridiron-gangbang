@@ -23,7 +23,7 @@ import * as D from '../core/dynasty.js';
 import * as B from '../core/dynasty-battle.js';
 import * as MT from '../core/dynasty-match.js';
 import * as SOLO from '../core/dynasty-solo.js';
-import {packHTML} from './dynasty-packs.js';
+import {packHTML, designsOf} from './dynasty-packs.js';
 import {openScene, holo} from './dynasty-open.js';
 
 const esc = data.esc, nf = n => data.nf(n);
@@ -237,9 +237,15 @@ function packsHTML(st) {
     + `<button type="button" class="pk-q" data-dy-earn aria-label="How you earn coins">?</button></div>`;
   h += `<div class="pk-show" style="--pc:${P.color}"><span class="pk-show-tag">${ui.icon('star', {size: 14})}Top cards in this pack</span>`
     + `<div class="pk-show-row">${best.map(c => cardHTML(c, {size: 's', tag: false, noCount: true})).join('')}</div></div>`;
+  // (the pack in its chosen design, the arrows either side and the dots under it when it has more than one: artTo)
+  const ds = designsOf(kind), di = artAt(st, kind), many = ds.length > 1;
   h += `<div class="pk-stage" style="--pc:${P.color}"><div class="pk-ribbon"><b>${esc(P.name)}</b><span>1 pack contains ${slots} cards</span><span>${esc(note)}</span></div>`
-    + `<button type="button" class="pk-bigpack" data-dy-openhere aria-label="${esc(`${open}: ${P.name}`)}">${packHTML(kind, {big: true, count: have})}</button>`
-    + `<span class="pk-reflect" aria-hidden="true">${packHTML(kind, {big: true})}</span>`
+    + `<div class="pk-car${many ? ' is-many' : ''}" data-dy-car>${many ? `<button type="button" class="pk-car-b" data-dy-art="-1" aria-label="Previous pack design">${ui.icon('chevron-left', {size: 18})}</button>` : ''}`
+    + `<div class="pk-car-move"><button type="button" class="pk-bigpack" data-dy-openhere data-dy-label="${esc(`${open}: ${P.name}`)}" aria-label="${esc(artLabel(`${open}: ${P.name}`, ds, di))}">${packHTML(kind, {big: true, count: have, design: di})}</button></div>`
+    + `${many ? `<button type="button" class="pk-car-b" data-dy-art="1" aria-label="Next pack design">${ui.icon('chevron-right', {size: 18})}</button>` : ''}</div>`
+    + `<span class="pk-reflect" aria-hidden="true">${packHTML(kind, {big: true, design: di})}</span>`
+    + (many ? `<div class="pk-car-dots" role="group" aria-label="Pack designs">${ds.map((d, i) => `<button type="button" class="pk-car-dot" data-dy-artat="${i}" aria-label="${esc(d.name)}" aria-pressed="${i === di}"></button>`).join('')}</div>`
+      + '<span class="sr-only" aria-live="polite" data-dy-artsay></span>' : '')
     + `<button type="button" class="pk-pts" data-dy-points aria-label="Pack points: ${nf(s.pp)}"><i class="pk-pts-i"></i><b>${nf(s.pp)} pts</b></button></div>`;
   h += `<div class="pk-actions"><button type="button" class="pk-pill" data-dy-odds="${kind}">Offering Rates</button>`
     + `<button type="button" class="pk-open" data-dy-openhere>${esc(open)}</button>`
@@ -260,13 +266,66 @@ function oddsSheet(kind) {
 function packsSheet(st) {
   const s = D.mine();
   const kinds = (s.pk.start ? ['start'] : []).concat(D.PACK_ORDER);
-  const body = `<div class="pk-pick">${kinds.map(k => `<button type="button" class="pk-pickb${k === st.pack ? ' is-on' : ''}" data-dy-pick="${k}">${packHTML(k, {count: s.pk[k]})}`
+  const body = `<div class="pk-pick">${kinds.map(k => `<button type="button" class="pk-pickb${k === st.pack ? ' is-on' : ''}" data-dy-pick="${k}">${packHTML(k, {count: s.pk[k], design: artAt(st, k)})}`
     + `<span><b>${esc(D.PACKS[k].name)}</b><small>${esc(D.PACKS[k].blurb)}</small><em>${D.unlimited() ? 'Unlimited' : s.pk[k] ? `${s.pk[k]} to open` : `${nf(D.PACKS[k].price)} coins`}</em></span></button>`).join('')}</div>`;
   const sh = ui.openSheet({title: 'Select a booster pack', body, cls: 'pk-sheet', detents: ['large']});
   sh.body.addEventListener('click', e => {
     const b = e.target.closest('[data-dy-pick]');
     if (b) { st.pack = b.dataset.dyPick; ui.haptic('selection'); sh.close(); refresh(st); }
   });
+}
+// A pack's designs, as Pocket's artworks of a pack (views/dynasty-packs.js designsOf; the owner, Oct 29 2026: "Add more
+// art designs to the packs"): swipe the big pack sideways, or the arrows either side, or a dot, to flip between them (a
+// tap still opens it, a swipe never does); the pack list and the opening show the one chosen. The choice per pack is
+// this viewer's own (localStorage, by design id): cosmetic, never the save or the odds.
+const ART_KEY = 'gg-dy-art';
+const RM = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+function artLoad() {
+  const o = {};
+  let j = null;
+  try { j = JSON.parse(ui.lsGet(ART_KEY) || 'null'); } catch (_) {}
+  if (j && typeof j === 'object') for (const k in D.PACKS) { const i = designsOf(k).findIndex(d => d.id === j[k]); if (i > 0) o[k] = i; }
+  return o;
+}
+function artSave(st) {
+  const j = {};
+  for (const k in st.art) { const d = designsOf(k)[st.art[k]]; if (d) j[k] = d.id; }
+  ui.lsSet(ART_KEY, JSON.stringify(j));
+}
+const artAt = (st, kind) => { const n = designsOf(kind).length; return ((st.art[kind] || 0) % n + n) % n; };
+const artLabel = (base, ds, i) => ds.length > 1 ? `${base}, ${ds[i].name} (design ${i + 1} of ${ds.length})` : base;
+/** Shows the home's pack in design `to` (wrapped): the pack slides out the way it's going (dir: 1 to the next, -1 back)
+ *  and the new one in from the other side (none under reduced motion). */
+function artTo(st, to, dir) {
+  const kind = st.pack, ds = designsOf(kind), n = ds.length, car = st.el.querySelector('[data-dy-car]');
+  if (!car) return;
+  const mv = car.querySelector('.pk-car-move'), big = car.querySelector('.pk-bigpack'), rf = st.el.querySelector('.pk-reflect');
+  const was = mv.style.transform || 'none';
+  mv.style.transform = '';
+  if (mv.getAnimations) mv.getAnimations().forEach(a => a.cancel());
+  const i = (to % n + n) % n;
+  if (n < 2 || i === artAt(st, kind)) { if (!RM() && was !== 'none' && mv.animate) mv.animate([{transform: was}, {transform: 'none'}], {duration: 240, easing: 'cubic-bezier(.2,.9,.3,1.2)'}); return; }
+  st.art[kind] = i; artSave(st); ui.haptic('selection');
+  const draw = () => {
+    const at = artAt(st, kind);
+    big.innerHTML = packHTML(kind, {big: true, count: D.mine().pk[kind] || 0, design: at});
+    big.setAttribute('aria-label', artLabel(big.dataset.dyLabel || '', ds, at));
+    if (rf) rf.innerHTML = packHTML(kind, {big: true, design: at});
+    car.parentNode.querySelectorAll('[data-dy-artat]').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.dyArtat === at)));
+    const say = car.parentNode.querySelector('[data-dy-artsay]');
+    if (say) say.textContent = `${ds[at].name}, design ${at + 1} of ${n}`;
+  };
+  if (RM() || !mv.animate) { draw(); return; }
+  const w = mv.offsetWidth, off = (s, o) => ({transform: `translateX(${s * w * .6}px) rotate(${s * 5}deg)`, opacity: o});
+  if (rf && rf.getAnimations) rf.getAnimations().forEach(a => a.cancel());
+  const ro = rf ? +getComputedStyle(rf).opacity : 0, fade = (a, b, ms) => { if (rf) rf.animate([{opacity: a}, {opacity: b}], {duration: ms}); };
+  const out = mv.animate([{transform: was, opacity: 1}, off(-dir, 0)], {duration: 150, easing: 'cubic-bezier(.5,0,.8,.5)', fill: 'forwards'});
+  fade(ro, 0, 150);
+  out.onfinish = () => {
+    draw(); out.cancel();
+    mv.animate([off(dir, 0), {transform: 'none', opacity: 1}], {duration: 320, easing: 'cubic-bezier(.2,.9,.3,1.1)'});
+    fade(0, ro, 320);
+  };
 }
 function earnSheet() {
   const s = D.mine(), E = D.earned(s);
@@ -609,7 +668,7 @@ export default {
   render() { return shellHTML(); },
 
   mount(el, ctx) {
-    const st = {el, ctx, tab: 'packs', pack: D.DAILY_PACK, art: {}, bv: '', f: {view: 'mine', ser: '', pos: '', rar: '', q: ''}, shown: PAGE, dead: false, stops: []};
+    const st = {el, ctx, tab: 'packs', pack: D.DAILY_PACK, art: artLoad(), bv: '', f: {view: 'mine', ser: '', pos: '', rar: '', q: ''}, shown: PAGE, dead: false, stops: []};
     ST.set(ctx, st);
     fullScreen(st, ctx.visible);
     ctx.setBackTitle('Dynasty');
@@ -627,6 +686,10 @@ export default {
       if ((b = q('[data-dy-cv]'))) { st.f.view = b.dataset.dyCv; refresh(st); return; }
       if (q('[data-dy-all]')) { st.f.view = st.f.view === 'all' ? 'mine' : 'all'; ui.haptic('selection'); refresh(st); return; }
       if (q('[data-dy-filter]')) { filterSheet(st); return; }
+      // (the pack's designs: a swipe that just ended never opens it)
+      if (q('[data-dy-car]') && performance.now() - (st.swiped || -1e4) < 450) return;
+      if ((b = q('[data-dy-art]'))) { const d = +b.dataset.dyArt; artTo(st, artAt(st, st.pack) + d, d); return; }
+      if ((b = q('[data-dy-artat]'))) { const i = +b.dataset.dyArtat; artTo(st, i, i < artAt(st, st.pack) ? -1 : 1); return; }
       if (q('[data-dy-openhere]')) { openHere(st); return; }
       if (q('[data-dy-packs]')) { packsSheet(st); return; }
       if (q('[data-dy-points]')) { pointsSheet(st); return; }
@@ -656,6 +719,45 @@ export default {
       if ((b = q('[data-dy-cancel]'))) { run(MT.cancel(b.dataset.dyCancel)); return; }
       if ((b = q('[data-dy-claimwin]'))) { run(MT.claim(b.dataset.dyClaimwin), () => ui.toast('Win claimed', {icon: 'trophy'})); return; }
       if ((b = q('[data-dy-go]'))) { ctx.nav(`/puzzles/dynasty/battle/${b.dataset.dyGo}`); }
+    });
+    // (the pack's designs: the big pack follows a sideways swipe and flips to the next design past 50px or a flick, else
+    // springs back; an up-and-down drag scrolls the page as ever; ← and → step through them too)
+    el.addEventListener('pointerdown', e => {
+      const car = e.target.closest('.pk-car.is-many');
+      if (!car || e.target.closest('[data-dy-art]') || (e.pointerType === 'mouse' && e.button !== 0)) return;
+      st.sw = {id: e.pointerId, x: e.clientX, y: e.clientY, dx: 0, on: false, lx: e.clientX, lt: performance.now(), v: 0, car};
+    });
+    el.addEventListener('pointermove', e => {
+      const w = st.sw;
+      if (!w || e.pointerId !== w.id) return;
+      const dx = e.clientX - w.x, dy = e.clientY - w.y, now = performance.now();
+      if (!w.on) {
+        if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { st.sw = null; return; }
+        if (Math.abs(dx) < 8) return;
+        w.on = true; w.car.classList.add('is-drag');
+        try { w.car.setPointerCapture(e.pointerId); } catch (_) {}
+      }
+      w.v = (e.clientX - w.lx) / Math.max(1, now - w.lt); w.lx = e.clientX; w.lt = now; w.dx = dx;
+      const mv = w.car.querySelector('.pk-car-move');
+      if (mv) mv.style.transform = `translateX(${(dx * .85).toFixed(1)}px) rotate(${(dx / 50).toFixed(2)}deg)`;
+    });
+    const swEnd = e => {
+      const w = st.sw;
+      if (!w || e.pointerId !== w.id) return;
+      st.sw = null;
+      if (!w.on) return;
+      w.car.classList.remove('is-drag');
+      st.swiped = performance.now();
+      const d = w.dx < 0 ? 1 : -1, go = e.type === 'pointerup' && (Math.abs(w.dx) > 50 || (Math.abs(w.dx) > 16 && Math.abs(w.v) > .45));
+      artTo(st, artAt(st, st.pack) + (go ? d : 0), d);
+    };
+    el.addEventListener('pointerup', swEnd);
+    el.addEventListener('pointercancel', swEnd);
+    el.addEventListener('keydown', e => {
+      if ((e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') || !e.target.closest('.pk-car.is-many')) return;
+      e.preventDefault();
+      const d = e.key === 'ArrowRight' ? 1 : -1;
+      artTo(st, artAt(st, st.pack) + d, d);
     });
     st.stops.push(D.subscribe(why => { if (why !== 'change' && why !== 'open') refresh(st); }));
     st.stops.push(MT.subscribe(() => refresh(st)));

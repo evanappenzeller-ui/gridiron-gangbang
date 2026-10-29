@@ -1,41 +1,70 @@
-/* Opening a Gridiron Dynasty pack (js/views/dynasty-open.js), over everything; after css/views/dynasty.css (its light
-   theme tokens cover div.pk-open) and css/views/dynasty-packs.css. */
+/* Opening a Gridiron Dynasty pack (js/views/dynasty-open.js), over everything, as Pokémon TCG Pocket plays it (the owner,
+   Oct 29 2026, with a recording of Pocket's: "Opening packs should have this animation"); after css/views/dynasty.css (its
+   light theme tokens cover div.pk-open) and css/views/dynasty-packs.css. Nothing 3D sits under an overflow, opacity or
+   filter (they flatten a card's turn, on iOS too): a card's slot holds the perspective, its tilt and its turn keep
+   preserve-3d, its two faces hide their backs. Motion is transforms and opacity. */
 
-/* ---------------------------------------------------------------- opening a pack (over everything) */
-div.pk-open { position: fixed; inset: 0; z-index: 200; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
-  padding: max(24px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom)); opacity: 0; transition: opacity .25s; overflow-y: auto; }
+/* ---------------------------------------------------------------- the overlay and Pocket's ground */
+div.pk-open { --cw: min(290px, 74vw, calc((100vh - 250px) * .716));
+  position: fixed; inset: 0; z-index: 200; overflow: hidden; opacity: 0; transition: opacity .25s;
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+@supports (height: 100dvh) { div.pk-open { --cw: min(290px, 74vw, calc((100dvh - 250px) * .716)); } }
 div.pk-open.is-in { opacity: 1; }
 div.pk-open.is-out { opacity: 0; }
-.pk-open-bg { position: fixed; inset: 0; z-index: -1; overflow: hidden;
-  background: radial-gradient(70% 50% at 50% 42%, #fff, color-mix(in srgb, var(--pc) 16%, #EEF3F7) 70%, color-mix(in srgb, var(--pc) 28%, #DCE5EC)); }
-.pk-open-bg::after { content: ""; position: absolute; inset: -50%; background: repeating-conic-gradient(from 0deg at 50% 50%, color-mix(in srgb, var(--pc) 10%, transparent) 0 6deg, transparent 6deg 18deg);
-  animation: pk-spin 50s linear infinite; }
-@keyframes pk-spin { to { transform: rotate(1turn); } }
-/* the rip (views/dynasty.js openPack): the strip above the tear line (13% down) peels up from the side you started,
-   pivoting on its far end, as --p goes 0 to 1; torn, it flies off and the pack drops away */
-.dy-open-pack { display: flex; flex-direction: column; align-items: center; gap: 16px; cursor: grab; outline: none; touch-action: none; user-select: none; -webkit-user-select: none; }
+div.pk-open.is-results { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+/* (Pocket's pale blue-lavender, a soft white spotlight in the middle, touched with the pack's colour; violet for a ★ or
+   ★★ card, violet and gold for a Legend, with sparkles drifting up) */
+.pk-open-bg { position: fixed; inset: 0; overflow: hidden; pointer-events: none;
+  background: radial-gradient(64% 40% at 50% 46%, rgba(255,255,255,.92), rgba(255,255,255,0) 72%),
+    linear-gradient(180deg, color-mix(in srgb, var(--pc) 7%, #E2E8F3), color-mix(in srgb, var(--pc) 9%, #C8D3EC) 56%, color-mix(in srgb, var(--pc) 11%, #A9BAE2)); }
+.pk-open-bg > i { position: absolute; inset: 0; opacity: 0; transition: opacity .7s ease; }
+.dy-bg-star { background: radial-gradient(62% 40% at 50% 46%, rgba(232,228,255,.8), rgba(232,228,255,0) 72%), linear-gradient(180deg, #B8BDF2, #9C97E8 52%, #7B69D6); }
+.dy-bg-crown { background: radial-gradient(58% 36% at 50% 46%, rgba(255,214,120,.9), rgba(255,186,70,.3) 48%, rgba(255,186,70,0) 74%), linear-gradient(180deg, #5C2FA4, #3B1A7C 52%, #210B50); }
+div.pk-open[data-ground="star"] .dy-bg-star, div.pk-open[data-ground="crown"] .dy-bg-crown { opacity: 1; }
+.dy-bg-spk { position: absolute; inset: 0; opacity: 0; transition: opacity .9s; }
+div.pk-open[data-ground="star"] .dy-bg-spk, div.pk-open[data-ground="crown"] .dy-bg-spk { opacity: 1; }
+.dy-bg-spk .dy-spk { left: var(--x); top: var(--y); opacity: 0; }
+div.pk-open[data-ground="star"] .dy-bg-spk .dy-spk, div.pk-open[data-ground="crown"] .dy-bg-spk .dy-spk { animation: dy-drift var(--t) linear var(--d) infinite both; }
+@keyframes dy-drift { 0% { opacity: 0; transform: translateY(0) scale(.2); } 20% { opacity: 1; transform: translateY(-5vh) scale(1); } 45% { opacity: .5; transform: translateY(-11vh) scale(.45); }
+  70% { opacity: 1; transform: translateY(-17vh) scale(.9); } 100% { opacity: 0; transform: translateY(-24vh) scale(.2); } }
+/* a sparkle: a 4-point star in a soft glow */
+.dy-spk { position: absolute; width: var(--s, 12px); aspect-ratio: 1; margin: calc(var(--s, 12px) / -2) 0 0 calc(var(--s, 12px) / -2); pointer-events: none; }
+.dy-spk::before { content: ""; position: absolute; inset: -70%; border-radius: 50%; background: radial-gradient(closest-side, rgba(255,255,255,.75), rgba(255,255,255,0)); }
+.dy-spk::after { content: ""; position: absolute; inset: 0; background: #fff; clip-path: polygon(50% 0, 59% 41%, 100% 50%, 59% 59%, 50% 100%, 41% 59%, 0 50%, 41% 41%); }
+/* (a flash over everything as the pack tears) */
+.dy-wash { position: fixed; inset: 0; z-index: 4; pointer-events: none; opacity: 0; background: radial-gradient(80% 55% at 50% 38%, #fff, rgba(255,255,255,.55)); }
+div.pk-open.is-flash .dy-wash { animation: dy-wash .5s ease-out both; }
+@keyframes dy-wash { 0% { opacity: 0; } 25% { opacity: .6; } 100% { opacity: 0; } }
+/* (confetti for a Legend, over the overlay: ui.confetti's canvas comes after it) */
+div.pk-open ~ .confetti-canvas { z-index: 210; }
+
+/* ---------------------------------------------------------------- the stage: the pack, then the cards, in one place */
+.dy-stage { position: absolute; inset: 0; display: grid; place-items: center; touch-action: none;
+  padding: max(56px, env(safe-area-inset-top)) 16px max(88px, env(safe-area-inset-bottom)); }
+.dy-stage[hidden] { display: none; }
+.dy-stage > * { grid-area: 1 / 1; }
+
+/* ---------------------------------------------------------------- the rip: the strip above the tear line (13% down) peels
+   up from the side you started, pivoting on its far end, as --p goes 0 to 1 */
+.dy-open-pack { position: relative; z-index: 3; display: flex; flex-direction: column; align-items: center; gap: 16px; cursor: grab; outline: none;
+  touch-action: none; user-select: none; -webkit-user-select: none; }
+.dy-open-pack[hidden] { display: none; }
 .dy-open-pack.is-drag { cursor: grabbing; }
+.dy-open-pack:focus-visible .dy-rip-say { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
 @keyframes dy-wiggle { 0%, 100% { transform: rotate(-2deg); } 50% { transform: rotate(2deg) translateY(-6px); } }
-.dy-rip { position: relative; width: min(210px, 54vw); aspect-ratio: 5 / 8; }
+.dy-rip { position: relative; width: min(232px, 58vw); aspect-ratio: 5 / 8; }
 .dy-open-pack:not(.is-drag):not(.is-touched) .dy-rip { animation: dy-wiggle 1.6s ease-in-out infinite; }
 .dy-rip .pk-pack { position: absolute; inset: 0; width: 100%; }
 .dy-rip .pk-pack-foil { animation: none; }
 .dy-rip-top, .dy-rip-body { position: absolute; inset: 0; }
-.dy-rip-top { transform-origin: calc(50% + var(--dir) * 50%) 13%;
+.dy-rip-body { z-index: 1; }
+.dy-rip-top { z-index: 2; transform-origin: calc(50% + var(--dir) * 50%) 13%;
   transform: translateY(calc(var(--p) * -10px)) rotate(calc(var(--dir) * var(--p) * 22deg)); filter: drop-shadow(0 calc(var(--p) * 8px) 6px rgba(0,0,0,.3)); }
-.dy-rip-line { position: absolute; top: 13%; height: 3px; margin-top: -1px; width: calc(var(--p) * 100%); border-radius: 2px; pointer-events: none;
+.dy-rip-line { position: absolute; z-index: 3; top: 13%; height: 3px; margin-top: -1px; width: calc(var(--p) * 100%); border-radius: 2px; pointer-events: none;
   left: calc(50% - var(--dir) * 50%); transform: translateX(calc((var(--dir) - 1) / 2 * 100%));
   background: repeating-linear-gradient(90deg, #fff 0 5px, rgba(255,255,255,.5) 5px 8px); box-shadow: 0 0 8px 2px rgba(255,255,255,.75); opacity: min(1, calc(var(--p) * 6)); }
-.dy-open-pack.is-torn .dy-rip-top { transition: transform .5s cubic-bezier(.3,.7,.4,1), opacity .5s;
-  transform: translate(calc(var(--dir) * 140%), -70%) rotate(calc(var(--dir) * 48deg)); opacity: 0; }
-.dy-open-pack.is-torn .dy-rip-body { transition: transform .5s .12s cubic-bezier(.5,0,.8,.4), opacity .45s .18s; transform: translateY(45vh) rotate(calc(var(--dir) * -6deg)); opacity: 0; }
-.dy-open-pack.is-torn .dy-rip-line { transition: opacity .2s; opacity: 0; }
-.dy-rip::after { content: ""; position: absolute; left: -30%; right: -30%; top: -12%; height: 50%; pointer-events: none; opacity: 0;
-  background: radial-gradient(closest-side, rgba(255,255,255,.98), rgba(255,240,180,.5) 45%, transparent); }
-.dy-open-pack.is-torn .dy-rip::after { animation: dy-burst .5s ease-out; }
-@keyframes dy-burst { 0% { opacity: 0; transform: scale(.4); } 30% { opacity: 1; } 100% { opacity: 0; transform: scale(1.4); } }
 /* the hint: a fingertip glides along the tear line, a dotted trail behind it, till you start */
-.dy-rip-hint { position: absolute; left: 4%; right: 4%; top: 13%; height: 0; pointer-events: none; opacity: .8; transition: opacity .25s; }
+.dy-rip-hint { position: absolute; z-index: 3; left: 4%; right: 4%; top: 13%; height: 0; pointer-events: none; opacity: .8; transition: opacity .25s; }
 .dy-open-pack.is-touched .dy-rip-hint, .dy-open-pack.is-drag .dy-rip-hint { opacity: 0; }
 .dy-rip-finger { position: absolute; left: 0; top: -11px; width: 22px; height: 22px; border-radius: 50%; margin-left: -11px;
   background: radial-gradient(circle, rgba(255,255,255,.98) 0 38%, rgba(255,255,255,.4) 40% 62%, transparent 64%); box-shadow: 0 0 10px rgba(255,255,255,.6), 0 1px 4px rgba(0,0,0,.25);
@@ -50,35 +79,200 @@ div.pk-open.is-out { opacity: 0; }
 .dy-open-pack.is-nudge .dy-rip-say { color: var(--ink); }
 .dy-open-pack.is-nudge .dy-rip { animation: dy-shiver .4s; }
 @keyframes dy-shiver { 25% { transform: translateX(-4px) rotate(-1.5deg); } 50% { transform: translateX(4px) rotate(1.5deg); } 75% { transform: translateX(-2px); } }
-/* the cards, one at a time, then the lot */
-.pk-deal { display: flex; flex-direction: column; align-items: center; gap: 14px; cursor: pointer; }
-.pk-deal[hidden], .pk-results[hidden], .pk-open-bar[hidden], .dy-open-pack[hidden], .pk-open-bar [hidden] { display: none; }
-.pk-deal-stack { position: relative; width: min(290px, 74vw); aspect-ratio: 63 / 88; }
-.pk-deal-c { position: absolute; inset: 0; animation: pk-in .42s cubic-bezier(.2,.8,.3,1.15) both; }
-.pk-deal-c > .pk-card { box-shadow: 0 14px 30px rgba(30,45,70,.3); }
-.pk-deal-c.is-gone { animation: pk-out .42s cubic-bezier(.5,0,.7,.4) both; }
-@keyframes pk-in { from { opacity: 0; transform: translateY(60px) scale(.86) rotate(4deg); } }
-@keyframes pk-out { to { opacity: 0; transform: translateX(-120%) rotate(-14deg); } }
-.pk-deal-c.is-rare::before { content: ""; position: absolute; inset: -18%; z-index: -1; border-radius: 50%; pointer-events: none;
-  background: radial-gradient(closest-side, rgba(255,255,255,.95), rgba(120,220,255,.5) 50%, transparent); animation: pk-glow 1.8s ease-in-out infinite alternate; }
-.pk-deal-c.is-crown::before { background: radial-gradient(closest-side, rgba(255,250,220,.98), rgba(255,200,60,.55) 50%, transparent); }
-@keyframes pk-glow { to { transform: scale(1.08); opacity: .75; } }
-.pk-deal-c > .pk-c-new { top: -12px; left: -10px; font-size: 15px; padding: 6px 12px; }
-.pk-deal-n { margin: 0; font: 800 13px var(--font-text); color: var(--ink-3); }
-.pk-results { width: min(440px, 100%); text-align: center; }
-.pk-results h2 { margin: 0 0 12px; font: 900 italic 26px/1 var(--font-text); color: var(--ink); }
+
+/* ---------------------------------------------------------------- torn: the burst */
+.dy-open-pack.is-torn { cursor: default; }
+.dy-open-pack.is-torn .dy-rip-line, .dy-open-pack.is-torn .dy-rip-hint { transition: opacity .15s; opacity: 0; }
+/* (a white flare, rainbow-rimmed, along the tear line) */
+.dy-flare { position: absolute; z-index: 3; left: -34%; right: -34%; top: 13%; height: 24%; pointer-events: none; opacity: 0; transform: translateY(-50%); }
+.dy-flare::before { content: ""; position: absolute; inset: 0; border-radius: 50%;
+  background: conic-gradient(from 220deg, #FF6FD8, #FFB45E, #FFF27A, #7DFFAA, #62D6FF, #9D8CFF, #FF6FD8);
+  -webkit-mask: radial-gradient(closest-side, transparent 60%, #000 76%, transparent 100%); mask: radial-gradient(closest-side, transparent 60%, #000 76%, transparent 100%); }
+.dy-flare::after { content: ""; position: absolute; inset: 7% 5%; border-radius: 50%; background: radial-gradient(closest-side, #fff 58%, rgba(255,255,255,.9) 74%, rgba(255,255,255,0)); }
+.dy-open-pack.is-torn .dy-flare { animation: dy-flare .5s cubic-bezier(.2,.7,.3,1) both; }
+@keyframes dy-flare { 0% { opacity: 0; transform: translateY(-50%) scale(.2, .35); } 20% { opacity: 1; transform: translateY(-50%) scale(1, 1); }
+  55% { opacity: .9; transform: translateY(-50%) scale(1.1, .8); } 100% { opacity: 0; transform: translateY(-50%) scale(1.22, .4); } }
+/* (the strip spins away, up and toward the side the swipe went, about its own middle: --sx, --sy keep the pose the tear
+   left it in, views/dynasty-open.js burst) */
+.dy-open-pack.is-torn .dy-rip-top { transform-origin: 50% 6.5%; filter: none; animation: dy-strip .74s cubic-bezier(.3,.5,.5,1) both; }
+@keyframes dy-strip {
+  0% { transform: perspective(700px) translate3d(var(--sx), var(--sy), 0) rotateZ(calc(var(--dir) * 22deg)) rotateY(0deg) rotateX(0deg) scale(1); }
+  35% { transform: perspective(700px) translate3d(calc(var(--sx) + var(--dir) * 14vw), calc(var(--sy) - 17vh), 0) rotateZ(calc(var(--dir) * 95deg)) rotateY(calc(var(--dir) * 150deg)) rotateX(35deg) scale(.85); }
+  100% { transform: perspective(700px) translate3d(calc(var(--sx) + var(--dir) * 62vw), calc(var(--sy) - 68vh), 0) rotateZ(calc(var(--dir) * 250deg)) rotateY(calc(var(--dir) * 430deg)) rotateX(110deg) scale(.4); }
+}
+/* (a fan of rainbow light up out of the pack's mouth, behind its front, and sparkles rising) */
+.dy-rays { position: absolute; z-index: 0; left: -50%; right: -50%; bottom: 87%; height: 125%; pointer-events: none; opacity: 0; }
+.dy-rays > i { position: absolute; left: 50%; bottom: 0; width: 12%; height: 100%; margin-left: -6%; transform-origin: 50% 100%; transform: rotate(var(--a));
+  background: linear-gradient(to top, rgba(255,255,255,.95), hsl(var(--h) 100% 76% / .78) 20%, hsl(var(--h) 100% 80% / .3) 62%, hsl(var(--h) 100% 82% / 0) 96%);
+  clip-path: polygon(43% 100%, 57% 100%, 100% 0, 0 0); }
+.dy-rays::after { content: ""; position: absolute; left: 28%; right: 28%; bottom: -5%; height: 12%; border-radius: 50%; background: radial-gradient(closest-side, #fff, rgba(255,255,255,.6) 50%, rgba(255,255,255,0)); }
+.dy-open-pack.is-torn .dy-rays { animation: dy-rays 1.05s ease-out .05s both; }
+.dy-open-pack.is-torn .dy-rays > i { animation: dy-ray .55s ease-in-out var(--d) infinite alternate; }
+@keyframes dy-rays { 0% { opacity: 0; transform: scaleY(.3); } 18% { opacity: 1; transform: scaleY(1); } 58% { opacity: .85; } 100% { opacity: 0; transform: scaleY(1.12); } }
+@keyframes dy-ray { from { transform: rotate(var(--a)) scaleY(.82); opacity: .7; } to { transform: rotate(var(--a)) scaleY(1.05); opacity: 1; } }
+.dy-open-pack.is-sink .dy-rays { transition: translate .42s cubic-bezier(.45,0,.25,1); translate: 0 var(--sink); }
+.dy-motes { position: absolute; z-index: 3; left: 0; right: 0; top: 13%; height: 0; pointer-events: none; }
+.dy-motes .dy-spk { left: var(--x); top: 0; opacity: 0; }
+.dy-open-pack.is-torn .dy-motes .dy-spk { animation: dy-mote var(--t) cubic-bezier(.25,.6,.45,1) var(--d) both; }
+@keyframes dy-mote { 0% { opacity: 0; transform: translate(0, 0) scale(.3); } 15% { opacity: 1; transform: translate(calc(var(--w) * .25), -7vh) scale(1); }
+  45% { opacity: .55; transform: translate(calc(var(--w) * .6), -20vh) scale(.5); } 70% { opacity: 1; transform: translate(calc(var(--w) * .85), -30vh) scale(.95); }
+  100% { opacity: 0; transform: translate(var(--w), -40vh) scale(.3); } }
+/* (the pack sinks toward the foot of the screen, the first card rises out of it, and it drops away) */
+.dy-open-pack.is-sink .dy-rip-body { transition: transform .42s cubic-bezier(.45,0,.25,1); transform: translateY(var(--sink)); }
+.dy-open-pack.is-drop .dy-rip-body { transition: transform .5s cubic-bezier(.55,0,.85,.35), opacity .3s .2s; transform: translateY(calc(var(--sink) + 50vh)); opacity: 0; }
+.dy-open-pack.is-gone { transition: opacity .2s; opacity: 0; }
+
+/* ---------------------------------------------------------------- the cards: a stack, the top one showing */
+.dy-deal { position: relative; z-index: 2; width: var(--cw); aspect-ratio: 63 / 88; }
+.dy-deck { position: absolute; inset: 0; outline: none; }
+.dy-dc { position: absolute; inset: 0; z-index: 1; perspective: 1100px; transform: scale(.96); transition: transform .3s cubic-bezier(.2,.8,.3,1); }
+.dy-dc.is-top { z-index: 2; transform: none; }
+/* (the next card waits unseen under the top one, so nothing shows past it as it turns; a drag or a flight shows it) */
+.dy-dc:not(.is-top):not(.is-fly) { visibility: hidden; }
+.dy-deck.is-drag .dy-dc { visibility: visible; }
+.dy-dc.is-fly { z-index: 3; pointer-events: none; }
+/* (the first card, hidden under the sunk pack till it rises out of it: --y0, --s0, --h0 from views/dynasty-open.js burst) */
+.dy-dc.is-hid { visibility: hidden; transition: none; transform-origin: 50% 0; transform: translateY(var(--y0)) scale(var(--s0)); }
+.dy-dc.is-rise { transform-origin: 50% 0; animation: dy-rise .76s cubic-bezier(.3,.55,.25,1) both; }
+@keyframes dy-rise { 0% { transform: translateY(var(--y0)) scale(var(--s0)); } 36% { transform: translateY(calc(var(--y0) - var(--h0) * .8)) scale(var(--s0)); }
+  100% { transform: translateY(0) scale(1); } }
+.dy-dc.is-fade { animation: dy-fade .3s ease both; }
+@keyframes dy-fade { from { opacity: 0; } }
+.dy-tilt, .dy-spin { position: absolute; inset: 0; transform-style: preserve-3d; }
+.dy-tilt { transform: rotateX(calc(var(--rx, 0) * 1deg)) rotateY(calc(var(--ry, 0) * 1deg)); }
+.dy-front, .dy-back { position: absolute; inset: 0; border-radius: 5% / 3.6%; -webkit-backface-visibility: hidden; backface-visibility: hidden; }
+.dy-back { transform: rotateY(180deg); }
+/* (Safari lets a face's own layers show from behind unless they hide their backs too) */
+.dy-front > *, .dy-front .pk-c-shine, .dy-back > * { -webkit-backface-visibility: hidden; backface-visibility: hidden; }
+.dy-front > .pk-card { position: absolute; inset: 0; width: auto; transition: none; box-shadow: 0 14px 30px rgba(30,45,70,.3), 0 0 0 1px rgba(30,45,70,.06); }
+.dy-front > .pk-c-new { top: -12px; left: -10px; font-size: 15px; padding: 6px 12px; }
+.dy-dc.t-2 .dy-front > .pk-card, .dy-dc.t-3 .dy-front > .pk-card { box-shadow: 0 16px 36px rgba(40,20,90,.42), 0 0 0 1px rgba(255,255,255,.25); }
+/* (ordinary cards: a quick sheen as they come up) */
+.dy-sheen, .dy-bloom { position: absolute; inset: 0; z-index: 1; border-radius: inherit; pointer-events: none; opacity: 0; }
+.dy-sheen { background: linear-gradient(105deg, rgba(255,255,255,0) 38%, rgba(255,255,255,.8) 50%, rgba(255,255,255,0) 62%) no-repeat; background-size: 260% 100%; }
+.dy-dc.is-sheen .dy-sheen { animation: dy-sheen .7s ease-out .04s both; }
+@keyframes dy-sheen { 0% { opacity: 1; background-position: 115% 0; } 100% { opacity: 1; background-position: -15% 0; } }
+
+/* ---------------------------------------------------------------- a rare card's reveal (views/dynasty-open.js REVEAL
+   times it): a beat, a tilt, one full turn (its back showing), a white bloom over its face, a glint at its corner */
+.dy-dc.is-rv .dy-spin { animation: dy-turn .95s cubic-bezier(.5,.05,.25,1) .3s both; }
+.dy-dc.t-3.is-rv .dy-spin { animation-duration: 1.05s; animation-delay: .65s; }
+@keyframes dy-turn {
+  0% { transform: rotateY(0deg) rotateX(0deg) rotateZ(0deg) scale(1); }
+  16% { transform: rotateY(-24deg) rotateX(9deg) rotateZ(-3deg) scale(1.02); }
+  78% { transform: rotateY(372deg) rotateX(-4deg) rotateZ(1deg) scale(1.05); }
+  100% { transform: rotateY(360deg) rotateX(0deg) rotateZ(0deg) scale(1); }
+}
+.dy-bloom { background: radial-gradient(95% 72% at 50% 45%, #fff 42%, rgba(255,255,255,.88) 76%, rgba(255,255,255,.6)); box-shadow: 0 0 34px 12px rgba(255,255,255,.85); }
+.dy-dc.is-rv .dy-bloom { animation: dy-bloom .7s ease-out 1.1s both; }
+.dy-dc.t-3.is-rv .dy-bloom { animation-duration: .8s; animation-delay: 1.5s; }
+@keyframes dy-bloom { 0% { opacity: 0; } 28% { opacity: .96; } 100% { opacity: 0; } }
+.dy-glint { position: absolute; z-index: 4; right: -11%; top: -9%; width: 36%; aspect-ratio: 1; pointer-events: none; opacity: 0; }
+.dy-glint::before { content: ""; position: absolute; inset: 8%; border-radius: 50%; background: radial-gradient(closest-side, rgba(255,255,255,.98), rgba(255,250,215,.45) 42%, rgba(255,255,255,0)); }
+.dy-glint::after { content: ""; position: absolute; inset: 0; background: #fff; clip-path: polygon(50% 0, 53.6% 46.4%, 100% 50%, 53.6% 53.6%, 50% 100%, 46.4% 53.6%, 0 50%, 46.4% 46.4%); }
+.dy-dc.is-rv .dy-glint { animation: dy-glint .75s ease-out 1.5s both; }
+.dy-dc.t-3.is-rv .dy-glint { animation-duration: .8s; animation-delay: 2.05s; }
+@keyframes dy-glint { 0% { opacity: 0; transform: scale(.15) rotate(-35deg); } 30% { opacity: 1; transform: scale(1.12) rotate(0deg); } 100% { opacity: 0; transform: scale(.55) rotate(30deg); } }
+/* (a Legend: a slow burst of light behind it) */
+.dy-burst { position: absolute; left: 50%; top: 50%; width: min(170vw, 720px); aspect-ratio: 1; translate: -50% -50%; pointer-events: none; opacity: 0; transition: opacity .9s;
+  background: repeating-conic-gradient(from 0deg, rgba(255,226,150,.42) 0 6deg, rgba(255,226,150,0) 6deg 17deg);
+  -webkit-mask: radial-gradient(closest-side, #000 18%, rgba(0,0,0,.55) 48%, transparent 100%); mask: radial-gradient(closest-side, #000 18%, rgba(0,0,0,.55) 48%, transparent 100%); }
+div.pk-open[data-ground="crown"] .dy-burst { opacity: 1; animation: dy-spin 46s linear infinite; }
+@keyframes dy-spin { to { transform: rotate(1turn); } }
+
+/* ---------------------------------------------------------------- the foil and the glare: they follow the tilt (--fx,
+   --fy, --gx, --gy, --ta, set as it moves); the foil on rare cards only. Here and up close in a card's sheet (holo) */
+.dy-foil, .dy-glare { position: absolute; inset: 0; z-index: 1; border-radius: inherit; pointer-events: none; }
+.dy-foil { display: none; mix-blend-mode: color-dodge; opacity: calc(.28 + var(--ta, 0) * .32);
+  background: linear-gradient(115deg, rgba(255,255,255,0) 16%, rgba(255,70,190,.55) 30%, rgba(255,210,70,.55) 38%, rgba(70,255,160,.55) 46%, rgba(60,190,255,.55) 54%, rgba(165,95,255,.55) 62%, rgba(255,255,255,0) 76%),
+    repeating-linear-gradient(115deg, rgba(255,255,255,0) 0 1.6%, rgba(255,255,255,.14) 2% 2.4%);
+  background-size: 280% 280%, 100% 100%; background-position: var(--fx, 50%) var(--fy, 50%), 0 0; }
+.dy-dc.is-foil .dy-foil, .pk-card.dy-holo.is-foil > .dy-foil { display: block; }
+.dy-glare { mix-blend-mode: overlay; opacity: var(--ta, 0);
+  background: radial-gradient(circle at var(--gx, 50%) var(--gy, 50%), rgba(255,255,255,.75), rgba(255,255,255,.28) 24%, rgba(255,255,255,0) 54%); }
+/* (up close: the card itself tilts, and it still scrolls the sheet up and down) */
+.pk-card.dy-holo { transition: none; touch-action: pan-y; transform: perspective(900px) rotateX(calc(var(--rx, 0) * 1deg)) rotateY(calc(var(--ry, 0) * 1deg)); }
+
+/* ---------------------------------------------------------------- a card's back */
+.dy-back { container-type: inline-size; padding: 3.2cqw; background: linear-gradient(135deg, #F5F7F9, #AEB7C2 26%, #EEF1F4 48%, #98A2AE 72%, #F2F4F6);
+  box-shadow: 0 14px 30px rgba(30,45,70,.3), inset 0 0 0 .5cqw rgba(255,255,255,.7); }
+.dy-back-in { position: relative; height: 100%; overflow: hidden; border-radius: 3.5% / 2.5%; display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+  padding: 9cqw 0; background: radial-gradient(circle at 50% 50%, #64B8FF 0 9%, #2F74E6 26%, #1546AE 50%, #0B2A7E 74%, #061650); }
+.dy-back-swirl { position: absolute; inset: 0; width: 100%; height: 100%; }
+.dy-back-swirl polyline { stroke: rgba(120,190,255,.3); stroke-width: 6; }
+.dy-back-swirl polyline:nth-child(even) { stroke: rgba(170,220,255,.22); stroke-width: 2.4; }
+.dy-back-word { position: relative; display: flex; flex-direction: column; align-items: center; font: 900 italic 12cqw/.9 var(--font-text); letter-spacing: .01em; color: #FFD43B;
+  -webkit-text-stroke: 1.1cqw #17378F; paint-order: stroke fill; text-shadow: 0 1cqw 0 #0C2266; }
+.dy-back-word small { font-size: 6.4cqw; letter-spacing: .3em; margin-top: .8cqw; color: #fff; -webkit-text-stroke-width: .9cqw; }
+.dy-back-word.is-flip { transform: rotate(180deg); }
+.dy-back-ball { position: relative; width: 46cqw; aspect-ratio: 1; border-radius: 50%; display: grid; place-items: center;
+  background: radial-gradient(circle at 36% 30%, rgba(255,255,255,.45), rgba(255,255,255,0) 32%), linear-gradient(180deg, #9A5527 0 45%, #1C2330 45% 55%, #F3F5F8 55%);
+  box-shadow: 0 0 0 1.4cqw #1C2330, 0 0 0 3cqw rgba(255,255,255,.85), 0 0 9cqw 4cqw rgba(110,200,255,.75); }
+/* (the ball's laces, on its leather half) */
+.dy-back-ball::before { content: ""; position: absolute; left: 34%; right: 34%; top: 20%; height: 3cqw; border-radius: 1cqw;
+  background: repeating-linear-gradient(90deg, #fff 0 1.6cqw, transparent 1.6cqw 3.2cqw); box-shadow: 0 1.6cqw 0 -1cqw #fff; }
+.dy-back-ball > i { width: 34%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle, #fff 0 46%, #1C2330 48% 58%, #fff 60%); box-shadow: 0 0 0 1.4cqw #1C2330; }
+
+/* ---------------------------------------------------------------- under the card: which one it is, and the hint */
+.dy-deck-meta { position: absolute; left: -24px; right: -24px; top: calc(100% + 14px); margin: 0; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  pointer-events: none; font: 800 13px/1.2 var(--font-text); color: var(--ink-3); transition: color .6s, opacity .3s; }
+div.pk-open:not([data-phase="deal"]) .dy-deck-meta { opacity: 0; }
+.dy-deal-hint { font-weight: 700; color: var(--ink-2); }
+.dy-deal-hint[hidden] { display: none; }
+div.pk-open[data-ground="star"] .dy-deck-meta, div.pk-open[data-ground="star"] .dy-deal-hint { color: rgba(255,255,255,.9); }
+div.pk-open[data-ground="crown"] .dy-deck-meta, div.pk-open[data-ground="crown"] .dy-deal-hint { color: #FFE9A8; }
+
+/* ---------------------------------------------------------------- Skip (top right) and ⏩ (bottom right: a tap for the
+   next card, held for the rest) */
+.dy-skip { position: absolute; z-index: 5; top: max(14px, env(safe-area-inset-top)); right: 16px; }
+.dy-skip[hidden], .dy-ff[hidden] { display: none; }
+.dy-ff { position: absolute; z-index: 5; right: 14px; bottom: max(16px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; align-items: center; gap: 5px;
+  padding: 2px; border: 0; background: none; color: #33415C; cursor: pointer; font: inherit; touch-action: manipulation; -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
+.dy-ff-b { position: relative; width: 50px; height: 50px; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,.78);
+  box-shadow: inset 0 0 0 2px rgba(51,65,92,.4), 0 3px 10px rgba(30,45,70,.16); transition: transform .4s cubic-bezier(.3,.7,.3,1), background .2s; }
+.dy-ff-b svg { width: 24px; height: 24px; }
+.dy-ff small { font: 700 10px/1 var(--font-text); color: var(--ink-2); letter-spacing: .01em; }
+.dy-ff:focus-visible .dy-ff-b { outline: 3px solid var(--tint); outline-offset: 3px; }
+@property --hp { syntax: "<number>"; inherits: false; initial-value: 0; }
+.dy-ff-b::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; opacity: 0; background: conic-gradient(var(--tint) calc(var(--hp) * 1turn), transparent 0);
+  -webkit-mask: radial-gradient(closest-side, transparent 84%, #000 87%); mask: radial-gradient(closest-side, transparent 84%, #000 87%); }
+.dy-ff.is-hold .dy-ff-b { transform: scale(.92); }
+.dy-ff.is-hold .dy-ff-b::after { opacity: 1; animation: dy-hold .4s linear both; }
+.dy-ff.is-on .dy-ff-b { background: #fff; color: var(--tint); }
+.dy-ff.is-on .dy-ff-b::after { opacity: 1; --hp: 1; }
+@keyframes dy-hold { from { --hp: 0; } to { --hp: 1; } }
+div.pk-open[data-ground="star"] .dy-ff small, div.pk-open[data-ground="crown"] .dy-ff small { color: #fff; }
+
+/* ---------------------------------------------------------------- the results: the lot, new ones marked */
+.pk-results { position: relative; z-index: 2; box-sizing: border-box; min-height: 100%; width: min(440px, 100%); margin: 0 auto; text-align: center;
+  display: flex; flex-direction: column; justify-content: center; align-items: center; padding: max(24px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom)); }
+.pk-results[hidden] { display: none; }
+.pk-results h2 { margin: 0 0 14px; font: 900 italic 26px/1 var(--font-text); color: var(--ink); }
+.pk-results > .pk-grid { width: 100%; }
+.pk-results .pk-note { margin: 4px 0 18px; }
+.pk-results button.pk-open { min-width: 160px; position: sticky; bottom: max(16px, env(safe-area-inset-bottom)); z-index: 1; } /* (in reach under a Starter's twenty) */
+.pk-results:not(.is-ready) button.pk-open { pointer-events: none; }
 .pk-grid.is-results { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 16px 10px; }
-.pk-grid.is-results > .pk-res-c { grid-column: span 2; position: relative; animation: pk-in .4s cubic-bezier(.2,.8,.3,1.15) both; }
-.pk-grid.is-results > .pk-res-c:nth-child(2) { animation-delay: .06s; }
-.pk-grid.is-results > .pk-res-c:nth-child(3) { animation-delay: .12s; }
-.pk-grid.is-results > .pk-res-c:nth-child(4) { animation-delay: .18s; }
-.pk-grid.is-results > .pk-res-c:nth-child(5) { animation-delay: .24s; }
+.pk-grid.is-results > .pk-res-c { grid-column: span 2; position: relative; animation: pk-in .4s cubic-bezier(.2,.8,.3,1.15) both; animation-delay: calc(var(--i, 0) * 60ms); }
 .pk-grid.is-results > .pk-res-c:nth-child(4):nth-last-child(2) { grid-column: 2 / span 2; }
+/* (a big pack, the Starter's twenty: four a row) */
+.pk-grid.is-results.is-many { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 8px; }
+.pk-grid.is-results.is-many > .pk-res-c { grid-column: auto; animation-delay: calc(var(--i, 0) * 35ms); }
+@keyframes pk-in { from { opacity: 0; transform: translateY(40px) scale(.86) rotate(4deg); } }
 .pk-res-c > .pk-c-new { top: -8px; left: -6px; font-size: 11px; padding: 4px 8px; }
-.pk-open-bar { display: flex; align-items: center; justify-content: center; gap: 12px; }
-.pk-open-bar button.pk-open { min-width: 160px; }
+
+/* ---------------------------------------------------------------- reduced motion: nothing flies, spins or sways; the
+   rip completes, a quick fade to the first card, cards change with fades, the bloom and glint a fade */
 @media (prefers-reduced-motion: reduce) {
-  .pk-pack-foil, .pk-c-shine, .pk-open-bg::after, .pk-bigpack, .dy-open-pack .dy-rip, .pk-deal-c, .pk-deal-c::before, .pk-res-c { animation: none !important; }
+  .pk-pack-foil, .pk-c-shine, .dy-open-pack .dy-rip, .pk-res-c, .dy-bg-spk .dy-spk, .dy-burst, .dy-rays > i { animation: none !important; }
+  .dy-rays, .dy-motes, .dy-flare, .dy-wash { display: none; }
+  .dy-open-pack.is-torn .dy-rip-top { animation: none; transition: opacity .15s; opacity: 0; }
+  .dy-dc, .dy-dc.is-top { transform: none; transition: opacity .2s; }
+  .dy-dc.is-hid { transform: none; }
+  .dy-dc.is-rv-rm .dy-bloom { animation: dy-bloom .5s ease .1s both; }
+  .dy-dc.is-rv-rm .dy-glint { animation: dy-glint-rm .5s ease .4s both; }
+  @keyframes dy-glint-rm { 0%, 100% { opacity: 0; } 40% { opacity: 1; } }
+  .pk-card.dy-holo { transform: none; }
   /* (the hint holds still: the fingertip at the start, the trail drawn along the tear line) */
   .dy-rip-finger { animation: none; opacity: 1; }
   .dy-rip-trail { animation: none; transform: none; }
