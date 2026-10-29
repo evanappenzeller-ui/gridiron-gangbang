@@ -59,19 +59,23 @@ export const REVEAL = [
   {tier: 4, name: 'mythic', hold: 1000, flip: 620, sparks: 16, confetti: 70, haptics: [[0, 'medium'], [400, 'medium'], [800, 'medium'], [1310, 'success']], palette: ['#FF7FD8', '#B388FF', '#FFFFFF', '#7CF0FF'], label: 'Mythic'},
   {tier: 5, name: 'star2', hold: 1150, flip: 650, sparks: 18, confetti: 85, haptics: [[0, 'medium'], [380, 'medium'], [760, 'medium'], [1000, 'medium'], [1475, 'celebrate']], palette: ['#FFFFFF', '#8FE3FF', '#FFD94A'], label: 'Special'},
   {tier: 6, name: 'crown', hold: 1300, flip: 700, sparks: 22, confetti: 110, haptics: [[0, 'medium'], [400, 'medium'], [700, 'medium'], [1000, 'success'], [1650, 'celebrate'], [2300, 'success']], palette: ['#FFE68A', '#FFFFFF', '#FFB300', '#FFF6D6'], label: 'Legend'}
-].map(r => Object.freeze({...r, total: r.hold + r.flip + (r.tier ? 900 : 420)}));
-/** The reveal a card gets, by its mark (core/dynasty.js markOf): ◆ to ◆◆◆◆ tiers 0 to 3, ★ 4, ★★ 5, ♛ 6. */
+].map(r => Object.freeze({...r, total: r.hold + r.flip + (r.tier >= 4 ? 1120 : r.tier ? 900 : 420)})); // (the sweep runs 1s after the flip from Mythic)
+/** The reveal a card gets, by its mark (core/dynasty.js markOf): ◆ to ◆◆◆◆ tiers 0 to 3, ★ 4, ★★ 5, ♛ 6; a Trainer card
+ *  by its rarity, Epic (◆◆) 2 or Legendary (◆◆◆) 3. */
 export function revealOf(c) {
   const m = D.markOf(c);
-  const tier = m.kind === 'c' ? 6 : m.kind === 's' ? (m.n >= 2 ? 5 : 4) : Math.min(3, Math.max(0, m.n - 1));
+  const tier = c && !c.s && c.r ? (c.r === 'legendary' ? 3 : 2) : m.kind === 'c' ? 6 : m.kind === 's' ? (m.n >= 2 ? 5 : 4) : Math.min(3, Math.max(0, m.n - 1));
   const R = REVEAL[tier];
   const label = tier === 5 && c ? ({P: 'Prime', G: 'Gameday', A: 'Award'}[c.s] || R.label) : R.label;
   return {...R, label};
 }
+/** The order a pack's cards come out: the rarest last (as Pocket reveals), the better player last within a tier. */
+export const dealOrder = cards => cards.slice().sort((a, b) => revealOf(a).tier - revealOf(b).tier || (a.o || 0) - (b.o || 0) || String(a.id).localeCompare(String(b.id)));
 /** A card's reveal on the deal: the card (face down past tier 0, with Pocket's back) inside its effects; it plays once
  *  its slot is the top card's (css: .dy-dc.is-go). */
 export function dealHTML(c, R, cardHTML, isNew) {
-  const sparks = Array.from({length: R.sparks}, (_, i) => `<i class="pk-spk" style="--a:${Math.round(i * 360 / R.sparks + (i % 2) * 11)}deg;--d:${110 + (i % 3) * 40}px;--t:${(i % 4) * 45}ms;--c:${R.palette[i % R.palette.length]}"></i>`).join('');
+  // (the sparks fly past the card's edges: 160 to 280px from its centre, the card 145 by 202 from it)
+  const sparks = Array.from({length: R.sparks}, (_, i) => `<i class="pk-spk" style="--a:${Math.round(i * 360 / R.sparks + (i % 2) * 11)}deg;--d:${160 + (i % 3) * 60}px;--t:${(i % 4) * 45}ms;--c:${R.palette[i % R.palette.length]}"></i>`).join('');
   return `<div class="pk-deal-c t-${R.tier}${R.tier ? ' is-flip' : ' is-face'}${R.tier >= 4 ? ' is-shake' : ''}" style="--hold:${R.hold}ms;--flip:${R.flip}ms">`
     + (R.tier >= 3 ? '<i class="pk-fx-rays" aria-hidden="true"></i>' : '') + (R.tier >= 2 ? '<i class="pk-fx-ring" aria-hidden="true"></i>' : '')
     + (R.tier >= 5 ? '<i class="pk-fx-ring is-2" aria-hidden="true"></i>' : '') + (R.tier >= 6 ? '<i class="pk-fx-crown" aria-hidden="true">♛</i>' : '')
@@ -87,9 +91,8 @@ export function dealHTML(c, R, cardHTML, isNew) {
  *  gone), focusBack (optional: where focus goes after onClose when what had it is gone, an element or a selector)}. */
 export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onClose, focusBack}) {
   const r = {cards, dup}, P = D.PACKS[kind];
-  // (the best last, as Pocket reveals: Trainer cards first, then by the reveal's tier, the biggest last, then OVR)
-  const rank = c => (c.o ? 10 : 0) + revealOf(c).tier;
-  const order = r.cards.map(D.anyCard).sort((a, b) => rank(a) - rank(b) || (a.o || 0) - (b.o || 0));
+  // (the rarest last, as Pocket reveals: dealOrder)
+  const order = dealOrder(r.cards.map(D.anyCard));
   const N = order.length, fresh = order.filter(c => !r.dup[c.id]).length;
   const ov = document.createElement('div');
   ov.className = 'pk-open';
@@ -158,11 +161,15 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
       [b.left + b.width * .06, b.right - b.width * .06].forEach(x => ui.confetti({left: x - 16, top: b.top - 4, width: 32, height: 8}, {colors: R.palette, count}));
     } catch (_) {}
   };
+  // (the reveal's own animations, the ones that end; the rays' turning and the foil go on. A finish runs them to their
+  // end; where a browser can't, is-skip puts them there)
+  const finite = el => { try { return el.getAnimations({subtree: true}).filter(a => a.effect.getComputedTiming().endTime !== Infinity); } catch (_) { return null; } };
+  const playing = el => { const A = finite(el); return A ? A.some(a => a.playState === 'running') : true; };
   const endReveal = (skip = true) => {
     if (!rv) return;
     const el = rv;
     rv = null; delete ov.dataset.rv; drop(rvT);
-    if (skip) { el.classList.add('is-skip'); ui.haptic('light'); }
+    if (skip) { const A = finite(el); if (A) A.forEach(a => { try { a.finish(); } catch (_) {} }); else el.classList.add('is-skip'); ui.haptic('light'); }
     kick();
   };
   const begin = (fast = false) => {
@@ -252,7 +259,8 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
   const step = (dir = -1) => {
     if (phase === 'open' || phase === 'rise') { settle(); return; }
     if (phase !== 'deal') return;
-    if (rv) { endReveal(); return; }
+    // (a reveal still playing: the tap finishes it; one that's over (a Rare's flip is 0.7s): the tap moves on)
+    if (rv) { if (playing(rv)) { endReveal(); return; } endReveal(false); }
     advance(dir);
   };
   const showResults = () => {
