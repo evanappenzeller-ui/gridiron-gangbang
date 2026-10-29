@@ -1,5 +1,5 @@
 // The Legends Pack's art designs (views/dynasty-packs.js frames them: tier 5, gold #C9A227; the frame already draws its
-// foil sheen, crimped seals, an embossed quilt, rainbow holo foil, a light sweep, seven sparkles, a gold filigree
+// foil sheen, crimped seals, an embossed quilt, champagne holo foil, a light sweep, seven sparkles, a gold filigree
 // border with scrolled corners, and gold-foil lettering on the brand bar and name plate). Pocket's packs come in
 // several artworks; so do ours, more detailed the rarer the pack (the owner, Oct 29 2026: "Add more art designs to the
 // packs. The more rare the pack, the more detailed the art design should be"). Each design: {id: 'leg-<slug>', name
@@ -27,7 +27,7 @@ const ball = (u, g, x, y, s, r) => rad(`${u}${g}`, [[0, '#FFF6CC'], [.35, '#E9B9
 
 export default [
   // The Trophy: a polished silver loving cup with a gold football on its lid, gold bands and an engraved star medallion,
-  // standing on a two-tier cream marble plinth (its gold plaque, its reflection in the floor) inside a gold laurel
+  // standing on a two-tier cream marble plinth (its gold plaque, its foot reflected in the floor) inside a gold laurel
   // wreath, a spotlight from above and a slow starburst behind.
   {id: 'leg-trophy', name: 'The Trophy: a polished silver trophy topped by a gold football, on a marble plinth inside a laurel wreath', svg: (u, k) => {
     // (the laurel's left branch on a circle about (50, 70), r 36, from its foot behind the plinth at 104° up to its tip
@@ -42,6 +42,8 @@ export default [
       + `<g class="pa-spin" style="--oy:58px">${k.burst({cx: 50, cy: 58, n: 22, r: 130, w: .42, a: .22, c: '#FFF6D8'})}</g>`
       + `<g class="pa-fine">${k.burst({cx: 50, cy: 58, n: 44, r: 130, w: .12, a: .14, c: '#FFFBEA'})}</g>`
       + `<path class="pa-fine" d="${specks}" fill="#FFFBEA" fill-opacity=".7"/>`
+      // (the rest a little lower, the finial clear of the tear)
+      + '<g transform="translate(0 2)">'
       // the spotlight from above, and the glow round the cup
       + lin(`${u}sp`, [[0, '#FFFBEA', .4], [1, '#FFFBEA', 0]]) + `<path class="pa-pulse" style="--t:6s" d="M41 21H59L84 121H16Z" fill="url(#${u}sp)"/>`
       + k.glow({cx: 50, cy: 62, r: 32, c: '#FFF8DE', a: .7})
@@ -71,7 +73,7 @@ export default [
       + `<path d="M34 99.4h32v1.8H34zM32 108.2h36v2H32zM28.4 118.2h43.2v2.4H28.4z" fill="url(#${u}au)"/>`
       + `<rect x="41" y="111.6" width="18" height="5.2" rx=".6" fill="url(#${u}au)" stroke="#6E4505" stroke-width=".3"/>`
       + `<path d="${k.star(45, 114.2, 1.4)}${k.star(50, 114.2, 1.6)}${k.star(55, 114.2, 1.4)}" fill="#7A4E06"/></g>`
-      + `<use href="#${u}pl" transform="matrix(1 0 0 -1 0 241.2)" opacity=".2"/>`
+      + lin(`${u}rf`, [[0, '#F1E8D4', .45], [1, '#F1E8D4', 0]]) + `<path d="M28.4 120.6h43.2l-2 4.6H30.4Z" fill="url(#${u}rf)"/>`
       + `<path d="M0 120.6H100" stroke="#FFE7A0" stroke-opacity=".5" stroke-width=".4"/>`
       // the handles, the bowl (shaded below, engraved, a gold medallion with a star), the specular streaks
       + `<path d="M35 52.5C23.5 50 21.5 66 39.5 70M65 52.5C76.5 50 78.5 66 60.5 70" fill="none" stroke="url(#${u}ah)" stroke-width="2.7" stroke-linecap="round"/>`
@@ -98,7 +100,7 @@ export default [
       + `<rect x="40.2" y="96.8" width="19.6" height="2.6" rx=".8" fill="url(#${u}au)" stroke="#6E4505" stroke-width=".3"/>`
       // motes rising in the light, glints on the polish
       + [[29, 96, 0], [71, 88, 1.3], [60, 108, 2.4]].map(([x, y, d]) => `<circle class="pa-rise" style="--d:${d}s;--t:4.4s" cx="${x}" cy="${y}" r=".7" fill="#FFFBEA"/>`).join('')
-      + [[58.6, 28.8, 3, 0], [34.4, 47.2, 2.4, .9], [54.6, 84, 2, 1.7], [39.2, 60, 2.2, 2.3]].map(([x, y, r, d]) => `<path class="pa-twinkle" style="--d:${d}s" fill="#fff" d="${glint(x, y, r)}"/>`).join('');
+      + [[58.6, 28.8, 3, 0], [34.4, 47.2, 2.4, .9], [54.6, 84, 2, 1.7], [39.2, 60, 2.2, 2.3]].map(([x, y, r, d]) => `<path class="pa-twinkle" style="--d:${d}s" fill="#fff" d="${glint(x, y, r)}"/>`).join('') + '</g>';
   }},
   // Crown and Crest: a heraldic achievement: a gold-bordered shield in burgundy bearing a gold football between laurel
   // sprigs under a gold chief of three stars, a jewelled crown (strawberry-leaf fleurons, pearl-strung arches, a little
@@ -113,7 +115,8 @@ export default [
       const L = Math.hypot(tx - bx, ty - by), dx = (tx - bx) / L, dy = (ty - by) / L, nx = s * dy, ny = -s * dx;
       const p = (a, b) => `${f1(tx + dx * a + nx * b)} ${f1(ty + dy * a + ny * b)}`, q = (a, b) => [f1(tx + dx * a + nx * b), f1(ty + dy * a + ny * b)];
       return {shaft: `M${f1(bx)} ${f1(by)}L${p(0, 0)}`, head: `M${p(6, 0)}L${p(1.4, 1.6)}L${p(-.6, 0)}L${p(1.4, -1.6)}Z`, tip: q(6.4, 0),
-        flag: `M${p(-2, 0)}Q${p(0, 6)} ${p(-1.4, 13.4)}L${p(-6.2, 9.6)}L${p(-3.4, 14.6)}Q${p(-8.6, 7)} ${p(-10.4, 0)}Z`, star: k.star(...q(-5.4, 5.6), 1.5)};
+        ferrule: `M${p(-.4, -1.2)}L${p(-.4, 1.2)}L${p(-2.2, 1.1)}L${p(-2.2, -1.1)}Z`, a: q(-6, 0), b: q(-6, 14),
+        flag: `M${p(-2, 0)}Q${p(0, 6)} ${p(-1.4, 13.4)}L${p(-6.2, 9.6)}L${p(-3.4, 14.6)}Q${p(-8.6, 7)} ${p(-10.4, 0)}Z`, star: k.star(...q(-5.4, 4.6), 1.5)};
     };
     const A = lance(80, 116, 24, 38, 1), B = lance(20, 116, 76, 38, -1);
     // (an almond leaf from (x, y), a degrees, l long; a strawberry-leaf fleuron on the crown's rim at x, s its size)
@@ -122,10 +125,9 @@ export default [
     const fleur = (x, s) => { const p = (dx, dy) => `${f1(x + dx * s)} ${f1(50.8 + dy * s)}`;
       return `M${p(-1.6, 0)}C${p(-1.8, -3.4)} ${p(-4.4, -4)} ${p(-4, -6.4)}C${p(-3.6, -8.4)} ${p(-1.4, -8.2)} ${p(-1, -6.8)}C${p(-1.8, -9.4)} ${p(-.8, -11.6)} ${p(0, -12.4)}`
         + `C${p(.8, -11.6)} ${p(1.8, -9.4)} ${p(1, -6.8)}C${p(1.4, -8.2)} ${p(3.6, -8.4)} ${p(4, -6.4)}C${p(4.4, -4)} ${p(1.8, -3.4)} ${p(1.6, 0)}Z`; };
-    // (the mantling's leaves, off the backs of its two scrolls, and their veins)
+    // (the mantling's acanthus leaves, off the backs of its two scrolls: x, y, angle, length)
     const ML = [[27.6, 57.2, -115, 6], [21.4, 58.4, -142, 6.6], [16.6, 62.6, -168, 6.6], [14.8, 69, 168, 6.2], [15.8, 75.6, 146, 5.4],
       [26, 83, -150, 5.2], [20.6, 88.4, -178, 5.8], [18.6, 95, 160, 5.8], [20.4, 101.6, 134, 5.2]];
-    const veins = ML.map(([x, y, a, l]) => { const r = a * Math.PI / 180; return `M${x} ${y}L${f1(x + Math.cos(r) * l * .8)} ${f1(y + Math.sin(r) * l * .8)}`; }).join('');
     const sprig = [[41.6, 99, -118, 4.4], [39.2, 95.4, -150, 4.4], [37.6, 91, -100, 4], [36, 87.6, -160, 4], [35.8, 83, -116, 3.8]];
     // (the ribbon's top edge at x, along its curve)
     const rib = x => { const t = (x - 22) / 56; return f1(106.4 + 11.2 * t * (1 - t)); };
@@ -138,20 +140,28 @@ export default [
       + k.glow({cx: 50, cy: 72, r: 40, c: '#FFF8DE', a: .75})
       // the lances behind, their pennants flying
       + lin(`${u}al`, GOLD, 'gradientUnits="userSpaceOnUse" x1="10" y1="0" x2="90" y2="0"')
-      + `<path d="${A.shaft}${B.shaft}" stroke="#4A2C02" stroke-width="2" stroke-linecap="round"/><path d="${A.shaft}${B.shaft}" stroke="url(#${u}al)" stroke-width="1.2" stroke-linecap="round"/>`
+      + `<path d="${A.shaft}${B.shaft}" stroke="#4A2C02" stroke-width="2.7" stroke-linecap="round"/><path d="${A.shaft}${B.shaft}" stroke="url(#${u}al)" stroke-width="1.6" stroke-linecap="round"/>`
+      + `<path class="pa-fine" d="${A.shaft}${B.shaft}" stroke="#FFF8DA" stroke-opacity=".6" stroke-width=".35" transform="translate(-.3 -.2)"/>`
       + lin(`${u}hd`, SILVER, 'x1="0" y1="0" x2="1" y2="0"') + `<path d="${A.head}${B.head}" fill="url(#${u}hd)" stroke="#3F4552" stroke-width=".3"/>`
-      + lin(`${u}pn`, [[0, '#B8304C'], [.55, '#7A1228'], [1, '#480818']]) + `<path d="${A.flag}${B.flag}" fill="url(#${u}pn)" stroke="#E9BD48" stroke-width=".45" stroke-linejoin="round"/>`
-      + `<path d="${A.star}${B.star}" fill="#F6D66E"/>`
+      + `<path d="${A.ferrule}${B.ferrule}" fill="url(#${u}al)" stroke="#4A2C02" stroke-width=".3"/>`
+      // (the pennants in the shield's burgundy, a fold shadow across each where it waves)
+      + [A, B].map((L, i) => lin(`${u}p${i}`, [[0, '#B8304C'], [.38, '#8E1830'], [.5, '#5A0A1C'], [.6, '#8E1830'], [1, '#5A0A1C']], `gradientUnits="userSpaceOnUse" x1="${L.a[0]}" y1="${L.a[1]}" x2="${L.b[0]}" y2="${L.b[1]}"`)
+        + `<path d="${L.flag}" fill="url(#${u}p${i})" stroke="#E9BD48" stroke-width=".55" stroke-linejoin="round"/>`).join('')
+      + `<path d="${A.star}${B.star}" fill="#F6D66E" stroke="#6E4505" stroke-width=".15"/>`
       // the scrollwork either side (one side drawn, mirrored): two acanthus C-scrolls curling in, leaves off their backs,
       // fine tendrils and beads between
       + lin(`${u}am`, GOLD, 'gradientUnits="userSpaceOnUse" x1="8" y1="0" x2="36" y2="0"')
-      + `<defs><g id="${u}ma" fill="none" stroke-linecap="round"><path d="${ML.map(a => leaf(...a)).join('')}" fill="url(#${u}am)" stroke="#5A3804" stroke-width=".3"/>`
-      + `<path class="pa-fine" d="${veins}" stroke="#5A3804" stroke-opacity=".55" stroke-width=".3"/>`
+      + lin(`${u}lv`, [[0, '#FFF4C4'], [.45, '#E9B940'], [1, '#8A5A0A']])
+      + `<defs><g id="${u}ac"><path d="M0 0C1.8-3 5.2-4.4 8.2-3.8C9.6-3.6 10.6-2.6 10.4-1.4C9.6-2.2 8.4-2.2 8-1.4C9.8-1.4 11.6-.2 11.4 1.4C10.6.6 9.6.6 9 1.2C9.6 2 9.4 3 8.6 3.4C8.2 2.2 6.8 1.8 5.6 2.4C4.2 1.4 2 1.2 0 0Z" fill="url(#${u}lv)" stroke="#5A3804" stroke-width=".3" stroke-linejoin="round"/>`
+      + `<path class="pa-fine" d="M.8 0Q5.6-1.4 9.6-.2M5.4-.8Q7-1.6 7.6-2.8M6.4-.6Q7.6.6 7.8 2" fill="none" stroke="#6E4505" stroke-opacity=".7" stroke-width=".28" stroke-linecap="round"/></g></defs>`
+      + `<defs><g id="${u}ma" fill="none" stroke-linecap="round">`
       + `<path d="M34 59C22 56 14 64 16 75C17.6 83 26.4 84.4 27.6 78.6C28.6 74 23.4 72.4 21.8 76.2M32 80C21 86 18.4 97 24.6 103.4C28.6 107.4 34.4 104.6 32.8 100.4C31.6 97.4 27.6 98.4 28 101.2" stroke="#5A3804" stroke-width="3.3"/>`
       + `<path d="M34 59C22 56 14 64 16 75C17.6 83 26.4 84.4 27.6 78.6C28.6 74 23.4 72.4 21.8 76.2M32 80C21 86 18.4 97 24.6 103.4C28.6 107.4 34.4 104.6 32.8 100.4C31.6 97.4 27.6 98.4 28 101.2" stroke="url(#${u}am)" stroke-width="2.3"/>`
       + `<path class="pa-fine" d="M31 58.2C21.6 56.2 15.6 63.6 17 73.6M30.4 81.4C21.6 87 19.6 96 24.4 101.6" stroke="#FFF8DA" stroke-opacity=".9" stroke-width=".45"/>`
       + `<path class="pa-fine" d="M30.6 64.6C26.4 64.4 24 67.6 25.6 70.2C26.8 72 29.2 71 28.6 69.4M30.8 87.4C27.6 88.6 26.8 92 28.8 93.4C30.4 94.4 32 92.6 30.8 91.4" stroke="url(#${u}am)" stroke-width=".7"/>`
-      + `<path class="pa-fine" d="M24.6 66.4h.01M27.4 74.6h.01M25 91.6h.01M29.8 96.6h.01M12.6 80.6h.01M14.2 85.4h.01" stroke="#FFF1B8" stroke-width="1.3"/></g></defs>`
+      + `<path class="pa-fine" d="M24.6 66.4h.01M27.4 74.6h.01M25 91.6h.01M29.8 96.6h.01M12.6 80.6h.01M14.2 85.4h.01" stroke="#FFF1B8" stroke-width="1.3"/>`
+      // (layered acanthus over the scrolls' backs, curling outward)
+      + ML.map(([x, y, a, l]) => `<use href="#${u}ac" transform="translate(${x} ${y}) rotate(${a}) scale(${f1(l / 6.4)} ${f1(l / 7.2)})"/>`).join('') + '</g></defs>'
       + `<use href="#${u}ma"/><use href="#${u}ma" transform="matrix(-1 0 0 1 100 0)"/>`
       // the shield: its shadow, gold border bevelled, the burgundy field latticed, the chief with three stars, the
       // football between two laurel sprigs
@@ -197,46 +207,50 @@ export default [
       + [[51.6, 52.6, 2.4, 0], [52.6, 28.6, 2.6, 1.2], [32, 57, 2.4, 2], [...A.tip, 2.4, .6], [...B.tip, 2.4, 1.6]].map(([x, y, r, d]) => `<path class="pa-twinkle" style="--d:${d}s" fill="#fff" d="${glint(x, y, r)}"/>`).join('');
   }},
 
-  // Hall of Legends: down a marble hall to a glowing arched door: fluted columns with gold capitals either side under
-  // gold-friezed beams, a coffered ceiling, burgundy banners hanging in rows, a checkered marble floor, shafts of light
-  // falling across, and in front a golden helmet on a marble pedestal.
-  {id: 'leg-hall', name: 'Hall of Legends: a marble hall of columns and hanging banners, a golden helmet on a pedestal in shafts of light', svg: (u, k) => {
-    // (the hall in perspective, looking down it: a point wx across and wy down at depth s (1.3 nearest, .42 the far
+  // Hall of Legends: down a marble hall to a great lit portal: fluted columns with gold capitals either side under
+  // gold-friezed beams, a coffered ceiling, burgundy banners hung from gilded crossbars, a checkered marble floor,
+  // shafts of light falling across, and in front, against the light, a golden helmet on a marble pedestal.
+  {id: 'leg-hall', name: 'Hall of Legends: a marble hall of columns and hanging banners, a golden helmet on a pedestal before a glowing portal', svg: (u, k) => {
+    // (the hall in perspective, looking down it: a point wx across and wy down at depth s (1.3 nearest, .5 the far
     // wall) sits at (50 + wx s, 64 + wy s); the floor is at wy 52, the ceiling at -44, the side walls at wx ±50)
-    const pt = (wx, wy, s) => `${f1(50 + wx * s)} ${f1(64 + wy * s)}`, N = 1.3, F = .42;
+    const pt = (wx, wy, s) => `${f1(50 + wx * s)} ${f1(64 + wy * s)}`, N = 1.3, F = .5;
     const quad = (a, b, c, d) => `M${a}L${b}L${c}L${d}Z`;
     // (the floor's checks: rows evenly spaced in depth, every other one filled)
     const rows = Array.from({length: 9}, (_, i) => 1 / (1 / N + i * (1 / F - 1 / N) / 8));
     let chk = '';
     for (let i = 0; i < 8; i++) for (let j = 0; j < 10; j++) if ((i + j) % 2) chk += quad(pt(j * 10 - 50, 52, rows[i]), pt(j * 10 - 40, 52, rows[i]), pt(j * 10 - 40, 52, rows[i + 1]), pt(j * 10 - 50, 52, rows[i + 1]));
-    const coffer = [-30, -10, 10, 30].map(x => `M${pt(x, -44, N)}L${pt(x, -44, F)}`).join('') + [.95, .7, .55].map(s => `M${pt(-50, -44, s)}L${pt(50, -44, s)}`).join('');
-    // (the beams along the colonnades: their inner faces and undersides; the columns and banners far to near)
+    const coffer = [-30, -10, 10, 30].map(x => `M${pt(x, -44, N)}L${pt(x, -44, F)}`).join('') + [1.1, .82, .62].map(s => `M${pt(-50, -44, s)}L${pt(50, -44, s)}`).join('');
+    // (the beams along the colonnades: their inner faces and undersides; gilded crossbars between them that the banners
+    // hang from; the columns and banners far to near)
     const beam = w => quad(pt(w * 34, -46, N), pt(w * 34, -46, F), pt(w * 34, -36, F), pt(w * 34, -36, N));
     const under = w => quad(pt(w * 46, -36, N), pt(w * 46, -36, F), pt(w * 34, -36, F), pt(w * 34, -36, N));
-    const dent = [-1, 1].map(w => Array.from({length: 18}, (_, i) => { const s = 1 / (1 / N + i * (1 / F - 1 / N) / 18); return `M${pt(w * 34, -38.4, s)}V${f1(64 - 36 * s)}`; }).join('')).join('');
+    const dent = [-1, 1].map(w => Array.from({length: 16}, (_, i) => { const s = 1 / (1 / N + i * (1 / F - 1 / N) / 16); return `M${pt(w * 34, -38.4, s)}V${f1(64 - 36 * s)}`; }).join('')).join('');
+    const bars = [.74, .95].map(s => `M${pt(-34, -41.6, s)}H${f1(50 + 34 * s)}V${f1(64 - 40 * s)}H${f1(50 - 34 * s)}Z`).join('');
     const col = s => `<use href="#${u}col" transform="translate(${f1(50 - 40 * s)} ${f1(64 - 36 * s)}) scale(${s})"/><use href="#${u}col" transform="translate(${f1(50 + 40 * s)} ${f1(64 - 36 * s)}) scale(${s})"/>`;
-    const ban = s => `<use href="#${u}ban" transform="translate(${f1(50 - 22 * s)} ${f1(64 - 44 * s)}) scale(${s})"/><use href="#${u}ban" transform="translate(${f1(50 + 22 * s)} ${f1(64 - 44 * s)}) scale(${s})"/>`;
+    const ban = s => `<use href="#${u}ban" transform="translate(${f1(50 - 24 * s)} ${f1(64 - 40 * s)}) scale(${s})"/><use href="#${u}ban" transform="translate(${f1(50 + 24 * s)} ${f1(64 - 40 * s)}) scale(${s})"/>`;
+    // (the portal: an arch x0..x1 from the floor at y 90 up to its crown at top)
+    const arch = (x0, x1, top) => { const r = (x1 - x0) / 2; return `M${x0} 90V${f1(top + r)}A${r} ${r} 0 0 1 ${x1} ${f1(top + r)}V90Z`; };
     return lin(`${u}cl`, [[0, '#5A3A08'], [1, '#A8761E']]) + `<rect width="100" height="160" fill="url(#${u}cl)"/>`
-      // the ceiling, coffered; the side walls; the far wall and its door pouring light
-      + `<path d="${quad(pt(-50, -44, N), pt(50, -44, N), pt(50, -44, F), pt(-50, -44, F))}" fill="url(#${u}cl)"/>`
+      // the ceiling, coffered; the side walls (the left drawn, mirrored); the far wall and its portal pouring light
       + `<path class="pa-fine" d="${coffer}" fill="none" stroke="#FFE7A0" stroke-opacity=".3" stroke-width=".4"/>`
       + lin(`${u}wl`, [[0, '#8E5E14'], [1, '#D9A440']], 'x1="0" y1="0" x2="1" y2="0"')
       + `<path d="${quad(pt(-50, -44, N), pt(-50, -44, F), pt(-50, 52, F), pt(-50, 52, N))}" fill="url(#${u}wl)"/>`
-      + `<path d="${quad(pt(50, -44, N), pt(50, -44, F), pt(50, 52, F), pt(50, 52, N))}" fill="url(#${u}wl)" transform="matrix(-1 0 0 1 100 0)"/>`
-      + lin(`${u}bw`, [[0, '#E9C46A'], [1, '#F7E3AE']]) + `<path d="${quad(pt(-50, -44, F), pt(50, -44, F), pt(50, 52, F), pt(-50, 52, F))}" fill="url(#${u}bw)"/>`
-      + k.glow({cx: 50, cy: 72, r: 30, c: '#FFFBEA', a: .95})
-      + rad(`${u}dr`, [[0, '#FFFFFF'], [.6, '#FFF6D6'], [1, '#FFE19A']], 'cx=".5" cy=".7" r=".8"')
-      + `<path d="M43.4 85.8V67A6.6 6.6 0 0 1 56.6 67V85.8Z" fill="url(#${u}dr)" stroke="#B98314" stroke-width=".8"/>`
-      + `<path class="pa-fine" d="M41.8 85.8V66.6A8.2 8.2 0 0 1 58.2 66.6V85.8" fill="none" stroke="#B98314" stroke-width=".4"/>`
-      // the floor: cream marble checked in gold, polished, the door's light running down it
-      + lin(`${u}fl`, [[0, '#FFF3D2'], [1, '#E9CF8E']]) + `<path d="${quad(pt(-50, 52, N), pt(50, 52, N), pt(50, 52, F), pt(-50, 52, F))}" fill="url(#${u}fl)"/>`
-      + lin(`${u}ck`, [[0, '#C8901C'], [1, '#8A5A0E']]) + `<path d="${chk}" fill="url(#${u}ck)"/>`
-      + lin(`${u}rl`, [[0, '#FFFBEA', .85], [1, '#FFFBEA', 0]]) + `<path d="M43.4 85.8H56.6L66 131H34Z" fill="url(#${u}rl)"/>`
-      + k.burst({cx: 50, cy: 70, n: 18, r: 90, w: .3, a: .12, c: '#FFFBEA'})
-      // the beams, gold-friezed, over the colonnades
+      + `<path d="${quad(pt(-50, -44, N), pt(-50, -44, F), pt(-50, 52, F), pt(-50, 52, N))}" fill="url(#${u}wl)" transform="matrix(-1 0 0 1 100 0)"/>`
+      + lin(`${u}bw`, [[0, '#E2B85A'], [1, '#F2D898']]) + `<path d="${quad(pt(-50, -44, F), pt(50, -44, F), pt(50, 52, F), pt(-50, 52, F))}" fill="url(#${u}bw)"/>`
+      + k.glow({cx: 50, cy: 66, r: 34, c: '#FFFBEA', a: .95})
+      + `<path d="${arch(30, 70, 38)}" fill="#FFF8E4" fill-opacity=".28"/><path d="${arch(33, 67, 41)}" fill="#FFFBEA" fill-opacity=".45"/>`
+      + rad(`${u}dr`, [[0, '#FFFFFF'], [.55, '#FFFBEA'], [.85, '#FFF1C4'], [1, '#FBE3A0']], 'cx=".5" cy=".62" r=".75"')
+      + `<path d="${arch(36, 64, 44)}" fill="url(#${u}dr)"/>`
+      // the floor: cream marble softly checked in gold, polished, the portal's light running down it
+      + lin(`${u}fl`, [[0, '#FFF3D2'], [1, '#EBD39A']]) + `<path d="${quad(pt(-50, 52, N), pt(50, 52, N), pt(50, 52, F), pt(-50, 52, F))}" fill="url(#${u}fl)"/>`
+      + lin(`${u}ck`, [[0, '#D9B060'], [1, '#B98A2E']]) + `<path d="${chk}" fill="url(#${u}ck)" fill-opacity=".62"/>`
+      + lin(`${u}rl`, [[0, '#FFFBEA', .9], [1, '#FFFBEA', 0]]) + `<path d="M36 90H64L76 131H24Z" fill="url(#${u}rl)"/>`
+      + k.burst({cx: 50, cy: 64, n: 18, r: 90, w: .3, a: .12, c: '#FFFBEA'})
+      // the beams, gold-friezed, over the colonnades, and the crossbars
       + lin(`${u}bm`, GOLD, 'x1="0" y1="0" x2="0" y2="1"')
       + `<path d="${beam(-1)}${beam(1)}" fill="url(#${u}bm)" stroke="#5A3804" stroke-width=".3"/><path d="${under(-1)}${under(1)}" fill="#6E4505"/>`
       + `<path class="pa-fine" d="${dent}" stroke="#5A3804" stroke-opacity=".6" stroke-width=".7"/>`
+      + `<path d="${bars}" fill="url(#${u}bm)" stroke="#5A3804" stroke-width=".3"/>`
       // a column (fluted marble, a gold capital and base) and a banner (burgundy, gold-trimmed, a star over two stripes)
       + lin(`${u}mc`, [[0, '#B8A47A'], [.3, '#FFFDF6'], [.62, '#F1E6CC'], [1, '#9C8760']], 'x1="0" y1="0" x2="1" y2="0"')
       + lin(`${u}gc`, GOLD, 'x1="0" y1="0" x2="1" y2="0"') + lin(`${u}bn`, [[0, '#B8304C'], [.5, '#8E1830'], [1, '#5A0A1C']], 'x1="0" y1="0" x2="1" y2="0"')
@@ -244,84 +258,127 @@ export default [
       + `<path d="M-5.6 0H5.6V2.4H-5.6ZM-4.8 2.4H4.8L3.8 5H-3.8ZM-4.2 80H4.2L5 83H-5ZM-5.6 83H5.6V88H-5.6Z" fill="url(#${u}gc)" stroke="#5A3804" stroke-width=".25"/>`
       + `<path d="M-5.4 3.8a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0M2.4 3.8a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0" fill="url(#${u}gc)" stroke="#5A3804" stroke-width=".25"/></g>`
       + `<g id="${u}ban"><path d="M-5 1H5V30L0 26.2L-5 30Z" fill="url(#${u}bn)"/><path d="M-4 2V27.6L0 24.6L4 27.6V2" fill="none" stroke="#F3CF6A" stroke-width=".5"/>`
-      + `<path d="${k.star(0, 11, 3.4)}M-3.2 17H3.2V18.4H-3.2ZM-3.2 19.6H3.2V20.4H-3.2Z" fill="#F6D66E"/><path d="M-6 0H6V1.4H-6Z" fill="url(#${u}gc)"/></g></defs>`
-      + col(.49) + ban(.54) + col(.6) + ban(.7) + col(.78) + ban(.95) + col(1.12)
+      + `<path d="${k.star(0, 11, 3.4)}M-3.2 17H3.2V18.4H-3.2ZM-3.2 19.6H3.2V20.4H-3.2Z" fill="#F6D66E"/><path d="M-6 -.4H6V1.4H-6Z" fill="url(#${u}gc)"/></g></defs>`
+      + col(.56) + col(.72) + ban(.74) + col(.94) + ban(.95)
       // the shafts of light falling across, motes in them
-      + lin(`${u}sh`, [[0, '#FFFBEA', .55], [1, '#FFFBEA', 0]])
-      + `<path class="pa-pulse" style="--t:5s" d="M14 21H23L64 124H44Z" fill="url(#${u}sh)"/><path class="pa-pulse" style="--t:5s;--d:2.5s" d="M80 21H87L60 124H48Z" fill="url(#${u}sh)"/>`
-      + [[36, 88, 0], [62, 94, 1.5], [44, 104, 2.8]].map(([x, y, d]) => `<circle class="pa-rise" style="--d:${d}s;--t:4.6s" cx="${x}" cy="${y}" r=".7" fill="#FFFBEA"/>`).join('')
+      + lin(`${u}sh`, [[0, '#FFFBEA', .5], [1, '#FFFBEA', 0]])
+      + `<path class="pa-pulse" style="--t:5s" d="M12 21H21L62 124H43Z" fill="url(#${u}sh)"/><path class="pa-pulse" style="--t:5s;--d:2.5s" d="M82 21H89L60 124H49Z" fill="url(#${u}sh)"/>`
+      + [[34, 86, 0], [64, 92, 1.5], [44, 108, 2.8]].map(([x, y, d]) => `<circle class="pa-rise" style="--d:${d}s;--t:4.6s" cx="${x}" cy="${y}" r=".7" fill="#FFFBEA"/>`).join('')
       // the pedestal: gold slabs, a marble body with a gold-framed panel, its shadow on the floor
-      + `<ellipse cx="50" cy="123" rx="17" ry="2.6" fill="#5A3804" fill-opacity=".35"/>`
-      + lin(`${u}pg`, GOLD, 'gradientUnits="userSpaceOnUse" x1="34" y1="0" x2="66" y2="0"') + lin(`${u}pm`, [[0, '#C9B994'], [.3, '#FFFDF6'], [.65, '#F1E6CC'], [1, '#A8976E']], 'x1="0" y1="0" x2="1" y2="0"')
+      + `<ellipse cx="50" cy="123" rx="18" ry="2.6" fill="#5A3804" fill-opacity=".35"/>`
+      + lin(`${u}pg`, GOLD, 'gradientUnits="userSpaceOnUse" x1="33" y1="0" x2="67" y2="0"') + lin(`${u}pm`, [[0, '#C9B994'], [.3, '#FFFDF6'], [.65, '#F1E6CC'], [1, '#A8976E']], 'x1="0" y1="0" x2="1" y2="0"')
       + `<rect x="38.6" y="101" width="22.8" height="17" fill="url(#${u}pm)"/>`
       + `<path class="pa-fine" d="M40 104Q44 106 43 110M58 103Q55 108 59.6 112M46 113Q50 114 52 117" fill="none" stroke="#9C8762" stroke-opacity=".55" stroke-width=".3"/>`
       + `<rect x="43" y="104" width="14" height="10.6" rx=".6" fill="none" stroke="url(#${u}pg)" stroke-width=".9"/><path d="${k.star(50, 109.3, 3)}" fill="url(#${u}pg)" stroke="#6E4505" stroke-width=".25"/>`
-      + `<path d="M36 98.4H64V101H36ZM35 118H65V122.4H35Z" fill="url(#${u}pg)" stroke="#5A3804" stroke-width=".3"/>`
-      // the golden helmet, turned to the right: its shell, the burgundy stripe, a star decal, the ear hole, the
-      // facemask, the shine
-      + rad(`${u}hm`, [[0, '#FFF6CC'], [.3, '#F2C64E'], [.7, '#A8740E'], [1, '#5A3804']], 'cx=".36" cy=".26" r=".85"')
-      + `<path d="M60.6 85.4L66.4 84.6L67.4 94.4L60.6 95Z" fill="#2E1D03"/>`
-      + `<path d="M38.4 94.6C35.4 84.6 40.4 73.4 51 72.8C59.8 72.4 65.8 77.6 66 84.6L61 85.4C59.4 85.6 58.8 87 59.2 88.6L60.6 95C55 97.4 46.4 98.2 41.4 97.6C40 97.2 39 96.2 38.4 94.6Z" fill="url(#${u}hm)" stroke="#4A2C02" stroke-width=".45"/>`
-      + `<path d="M39.6 87.6C38.6 79 44.4 74 51 73.6C57.6 73.2 63.2 76.8 64.6 81.6" fill="none" stroke="#8E1830" stroke-width="2.6"/>`
-      + `<path class="pa-fine" d="M39.6 87.6C38.6 79 44.4 74 51 73.6C57.6 73.2 63.2 76.8 64.6 81.6" fill="none" stroke="#FFF1B8" stroke-width=".35" stroke-dasharray="1.2 .6"/>`
-      + `<path d="${k.star(49, 84.6, 3.4)}" fill="#8E1830" stroke="#FFF1B8" stroke-width=".35"/>`
-      + `<circle cx="55.4" cy="89.6" r="1.5" fill="#3A2404" stroke="#FFE7A0" stroke-width=".4"/>`
-      + `<path d="M59.4 86.6H67.4Q69.6 86.6 69.6 88.8V93.2Q69.6 95.6 67.2 95.6H60.4M59.8 91H69.6M64.4 86.6V95.6" fill="none" stroke="#4A2C02" stroke-width="1.5" stroke-linejoin="round"/>`
-      + `<path d="M59.4 86.6H67.4Q69.6 86.6 69.6 88.8V93.2Q69.6 95.6 67.2 95.6H60.4M59.8 91H69.6M64.4 86.6V95.6" fill="none" stroke="#F3CF6A" stroke-width=".8" stroke-linejoin="round"/>`
-      + `<path d="M42.4 82C43 77.6 46.6 75 50.6 74.8" fill="none" stroke="#fff" stroke-opacity=".85" stroke-width="1" stroke-linecap="round"/>`
-      // glints: the helmet, the capitals, the door
-      + [[45, 76, 2.6, 0], [67.4, 87.4, 2, 1.1], [21.4, 37.6, 2, 2], [78.6, 37.6, 2, .6], [50, 60.6, 2.6, 1.6]].map(([x, y, r, d]) => `<path class="pa-twinkle" style="--d:${d}s" fill="#fff" d="${glint(x, y, r)}"/>`).join('');
+      + `<path d="M34 98.4H66V101H34ZM35 118H65V122.4H35Z" fill="url(#${u}pg)" stroke="#5A3804" stroke-width=".3"/>`
+      // the golden helmet, turned three-quarter to the right, against the light: its shell, the jaw's shade, the
+      // burgundy stripe, a star decal, the ear hole, the dark face opening and the facemask's bars wrapping the jaw
+      + `<ellipse cx="51" cy="98.6" rx="19" ry="1.6" fill="#5A3804" fill-opacity=".4"/>`
+      + `<g transform="translate(50 98.6) scale(.66) translate(-52 -100.4)">`
+      + rad(`${u}hm`, [[0, '#FFF6CC'], [.3, '#F2C64E'], [.7, '#A8740E'], [1, '#5A3804']], 'cx=".34" cy=".24" r=".9"')
+      + `<path d="M64 66.6l13.4-1.4c2 9.4 1.8 20.4-1.4 30.4L63 98.4z" fill="#2E1D03"/>`
+      + `<path d="M76.5 61C75 47 63 39 48 39 32 39 20.5 50.5 20.5 66.5c0 11 3.4 21 10 27.4L45 96c5.6.6 9 4 15.6 4.4 2.6.2 4.4-.6 5.4-2.4l.2-6.4c-4.6-5.4-6.8-13.4-4.6-20.6 1-2.6 3-4 5.6-4.4l9.4-1z" fill="url(#${u}hm)" stroke="#4A2C02" stroke-width=".7"/>`
+      + `<path d="M20.5 66.5c0 11 3.4 21 10 27.4L45 96c5.6.6 9 4 15.6 4.4 2.6.2 4.4-.6 5.4-2.4-6 1-11-1.6-16-4.4-9.6-.4-17-3-22-9.6-4-5.6-6.6-11.6-7.5-17.5z" fill="#8A5A0A" fill-opacity=".7"/>`
+      + `<path d="M71.6 56.6C68.4 48 59 43.6 48 43.6c-12.6 0-22.4 8.2-23.2 20.6" fill="none" stroke="#8E1830" stroke-width="5.2" stroke-linecap="round"/>`
+      + `<path class="pa-fine" d="M71.6 56.6C68.4 48 59 43.6 48 43.6c-12.6 0-22.4 8.2-23.2 20.6" fill="none" stroke="#FFF1B8" stroke-width=".5" stroke-dasharray="1.6 .9"/>`
+      + `<path d="${k.star(36.4, 63, 6.2)}" fill="#8E1830" stroke="#FFF1B8" stroke-width=".6"/>`
+      + `<circle cx="47.6" cy="74.4" r="2.6" fill="#3A2404"/><circle cx="47.6" cy="74.4" r="5" fill="none" stroke="#FFE7A0" stroke-width="1.2"/>`
+      + `<path d="M76.6 64.4C81.4 64 85 65.6 85.6 69.6C86.4 77 86 84 84 89.6C80.4 95 73.4 97.6 66 97.2M64.6 76C72 75 80 75.4 86.2 77.6M65 85.4C72 86.6 79 87 85.4 85.2M77.2 64.8C75.8 74 75.6 84 77.4 95.6" fill="none" stroke="#2E1D03" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>`
+      + `<path d="M76.6 64.4C81.4 64 85 65.6 85.6 69.6C86.4 77 86 84 84 89.6C80.4 95 73.4 97.6 66 97.2M64.6 76C72 75 80 75.4 86.2 77.6M65 85.4C72 86.6 79 87 85.4 85.2M77.2 64.8C75.8 74 75.6 84 77.4 95.6" fill="none" stroke="#F3CF6A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>`
+      + `<path d="M28 58C31 48.6 38.6 43.4 47.6 42.8" fill="none" stroke="#fff" stroke-opacity=".85" stroke-width="1.6" stroke-linecap="round"/></g>`
+      // glints: the helmet, the capitals, the portal
+      + [[39, 77.4, 2.6, 0], [71.2, 82, 2, 1.1], [27.6, 44.4, 2, 2], [72.4, 44.4, 2, .6], [50, 46.4, 2.8, 1.6]].map(([x, y, r, d]) => `<path class="pa-twinkle" style="--d:${d}s" fill="#fff" d="${glint(x, y, r)}"/>`).join('');
   }},
-  // The Ring: a gold championship ring in a burgundy velvet cushion: its octagonal top set with a gold football on a
-  // field of pavé diamonds, ringed with rubies, stars engraved at its corners; starred shoulders, the polished band
-  // sinking into the cushion's slit; the cushion piped in gold with tassels, a spotlight and a burst of light.
-  {id: 'leg-ring', name: 'The Ring: a gold championship ring set with diamonds and rubies on a velvet cushion', svg: (u, k) => {
-    // (the ring's top: an octagon about (50, y), 36 across and 27 deep, its corners cut c)
-    const oct = (y, w = 18, h = 13.5, c = 5.8) => `M${f1(50 - w + c)} ${f1(y - h)}H${f1(50 + w - c)}L${50 + w} ${f1(y - h + c * .74)}V${f1(y + h - c * .74)}L${f1(50 + w - c)} ${f1(y + h)}`
-      + `H${f1(50 - w + c)}L${50 - w} ${f1(y + h - c * .74)}V${f1(y - h + c * .74)}Z`;
-    const E = (cx, cy, rx, ry) => `M${f1(cx - rx)} ${cy}a${rx} ${ry} 0 1 0 ${2 * rx} 0a${rx} ${ry} 0 1 0 ${-2 * rx} 0Z`;
-    return rad(`${u}bg`, [[0, '#FFF3C8'], [.26, '#F0C04E'], [.55, '#B67C14'], [.84, '#6A4208'], [1, '#3A2404']], 'cx="50%" cy="40%" r="72%"')
+  // The Ring: a gold championship ring standing in an open ring box: its octagonal top tipped toward you, set with a
+  // gold football on pavé diamonds inside a ring of rubies and a halo of round brilliants, rubies channel-set in its
+  // side wall; engraved shoulders (a star and laurel, the year '26), the polished hoop sinking into the velvet's slit;
+  // the box's lid standing open behind in ivory satin, a gold hinge, a laurel and clasp on its front, loose diamonds
+  // on the velvet, a spotlight and a burst of light.
+  {id: 'leg-ring', name: 'The Ring: a gold championship ring set with diamonds and rubies, standing in an open velvet ring box', svg: (u, k) => {
+    // (the top: an octagon about (50, 50), 40 across, its depth foreshortened to .62 as it tips toward you; o(i) its
+    // corners from the top left, clockwise, inset i)
+    const o = (i = 0) => { const w = 20 - i, h = 15 - i, c = 6.2 - i * .4; return [[-w + c, -h], [w - c, -h], [w, -h + c * .74], [w, h - c * .74], [w - c, h], [-w + c, h], [-w, h - c * .74], [-w, -h + c * .74]].map(([x, y]) => [f1(50 + x), f1(50 + y * .62)]); };
+    const poly = p => 'M' + p.map(q => q.join(' ')).join('L') + 'Z', O = o(), dn = (q, d = 6) => [q[0], f1(q[1] + d)];
+    const E = (cx, cy, rx, ry) => `M${f1(cx - rx)} ${cy}a${rx} ${ry} 0 1 0 ${f1(2 * rx)} 0a${rx} ${ry} 0 1 0 ${f1(-2 * rx)} 0Z`;
+    // (the halo's brilliants round the rubies, and the loose ones on the velvet: x, y, size)
+    const halo = Array.from({length: 18}, (_, i) => { const a = Math.PI * 2 * i / 18; return [f1(50 + 16.4 * Math.cos(a)), f1(50 + 7.3 * Math.sin(a)), .95]; });
+    const gem = ([x, y, s]) => `<use href="#${u}dm" transform="translate(${x} ${y}) scale(${s})"/>`;
+    return rad(`${u}bg`, [[0, '#FFF3C8'], [.26, '#F0C04E'], [.55, '#B67C14'], [.84, '#6A4208'], [1, '#3A2404']], 'cx="50%" cy="36%" r="72%"')
       + `<rect width="100" height="160" fill="url(#${u}bg)"/>`
-      + `<g class="pa-spin" style="--oy:62px">${k.burst({cx: 50, cy: 62, n: 26, r: 130, w: .38, a: .2, c: '#FFF6D8'})}</g>`
-      + `<g class="pa-fine">${k.burst({cx: 50, cy: 62, n: 52, r: 130, w: .1, a: .12, c: '#FFFBEA'})}</g>`
-      + lin(`${u}sp`, [[0, '#FFFBEA', .45], [1, '#FFFBEA', 0]]) + `<path class="pa-pulse" style="--t:6s" d="M38 21H62L90 118H10Z" fill="url(#${u}sp)"/>`
-      + k.glow({cx: 50, cy: 64, r: 36, c: '#FFF8DE', a: .8})
-      // the cushion behind the ring: its top in velvet, the back edge piped
-      + rad(`${u}vt`, [[0, '#D2506A'], [.55, '#9A1E38'], [1, '#5A0A1C']], 'cx=".5" cy=".3" r=".7"')
-      + `<path d="M10 100Q50 88 90 100L92 110Q50 120 8 110Z" fill="url(#${u}vt)"/>`
-      + lin(`${u}pi`, GOLD, 'gradientUnits="userSpaceOnUse" x1="8" y1="0" x2="92" y2="0"')
-      + `<path d="M10 100Q50 88 90 100" fill="none" stroke="url(#${u}pi)" stroke-width="1.2"/>`
-      + `<path d="M23 99.4Q50 103.6 77 99.4" fill="none" stroke="#3A0410" stroke-width="1.6" stroke-linecap="round"/>`
-      // the band: polished gold, its inner face showing at the top of the hole, starred shoulders, the shine
-      + lin(`${u}au`, GOLD, 'gradientUnits="userSpaceOnUse" x1="30" y1="0" x2="70" y2="0"')
-      + `<path d="${E(50, 84, 20, 18)}${E(50, 86, 13.4, 11.6)}" fill="url(#${u}au)" fill-rule="evenodd" stroke="#4A2C02" stroke-width=".45"/>`
-      + lin(`${u}in`, [[0, '#5A3804'], [1, '#C8901C']]) + `<path d="${E(50, 86, 13.4, 11.6)}${E(50, 88.6, 13.4, 10.4)}" fill="url(#${u}in)" fill-rule="evenodd"/>`
-      + `<path d="M30.8 79.4Q30.2 90 36.4 97.4M69.2 79.4Q69.8 90 63.6 97.4" fill="none" stroke="#FFF8DA" stroke-opacity=".8" stroke-width=".7" stroke-linecap="round"/>`
-      + `<path d="M31.6 74.4L36.6 76.6L37.2 88L32.6 86ZM68.4 74.4L63.4 76.6L62.8 88L67.4 86Z" fill="url(#${u}au)" stroke="#4A2C02" stroke-width=".35"/>`
-      + `<path d="${k.star(34.5, 81.2, 1.7)}${k.star(65.5, 81.2, 1.7)}" fill="#6E4505"/>`
-      // the top: its side (the setting's depth), the gold face, the dotted border, stars at its corners, a ring of rubies,
-      // the pavé of diamonds, the gold football
-      + `<path d="${oct(60.6)}" fill="#7A4E06" stroke="#4A2C02" stroke-width=".45"/>`
-      + `<path d="${oct(57)}" fill="url(#${u}au)" stroke="#4A2C02" stroke-width=".45"/>`
-      + `<path class="pa-fine" d="${oct(57, 16.6, 12.2, 5.2)}" fill="none" stroke="#5A3804" stroke-opacity=".7" stroke-width=".5" stroke-dasharray=".4 .7"/>`
-      + `<path d="${k.star(37.4, 47.6, 1.6)}${k.star(62.6, 47.6, 1.6)}${k.star(37.4, 66.4, 1.6)}${k.star(62.6, 66.4, 1.6)}" fill="#6E4505"/>`
-      + `<path d="${E(50, 57, 13.4, 9.8)}" fill="#3A0410"/><path d="${E(50, 57, 12.6, 9.1)}" fill="none" stroke="#D0203C" stroke-width="2" stroke-linecap="round" stroke-dasharray="0 3.3"/>`
-      + `<path class="pa-fine" d="${E(50, 56.6, 12.6, 9.1)}" fill="none" stroke="#FFC2CC" stroke-width=".7" stroke-linecap="round" stroke-dasharray="0 3.3"/>`
-      + rad(`${u}dg`, [[0, '#FFFFFF'], [.5, '#E4EEFA'], [1, '#8C9CB4']], 'cx=".35" cy=".3" r=".8"')
-      + `<pattern id="${u}pv" width="2.2" height="1.9" patternUnits="userSpaceOnUse"><circle cx=".55" cy=".48" r=".52" fill="url(#${u}dg)"/><circle cx="1.65" cy="1.43" r=".52" fill="url(#${u}dg)"/></pattern>`
-      + `<path d="${E(50, 57, 10.8, 7.8)}" fill="#B9C6D8"/><path d="${E(50, 57, 10.8, 7.8)}" fill="url(#${u}pv)"/>`
-      + ball(u, 'ball', 50, 57, .82, -22)
-      // the cushion in front: the lip over the slit, its front face, gold piping, tufted buttons, the tassels
-      + `<path d="M23 99.4Q50 103.6 77 99.4L92 110Q50 120 8 110Z" fill="url(#${u}vt)"/>`
-      + lin(`${u}vf`, [[0, '#7A1228'], [1, '#3A0410']]) + `<path d="M8 110Q50 120 92 110L90 121Q50 130 10 121Z" fill="url(#${u}vf)"/>`
-      + `<path d="M8 110Q50 120 92 110" fill="none" stroke="url(#${u}pi)" stroke-width="1.4"/>`
-      + `<path class="pa-fine" d="M8 110Q50 120 92 110" fill="none" stroke="#5A3804" stroke-width="1.4" stroke-dasharray=".5 1"/>`
-      + `<path class="pa-fine" d="M22 107.2l-3-1.6M22 107.2l3-1.4M22 107.2l-.4 2.8M78 107.2l3-1.6M78 107.2l-3-1.4M78 107.2l.4 2.8" stroke="#3A0410" stroke-opacity=".7" stroke-width=".4"/>`
-      + `<path d="M22 107.2m-1.2 0a1.2 1 0 1 0 2.4 0a1.2 1 0 1 0-2.4 0M78 107.2m-1.2 0a1.2 1 0 1 0 2.4 0a1.2 1 0 1 0-2.4 0" fill="url(#${u}pi)"/>`
-      + `<defs><g id="${u}ts"><circle cx="8.6" cy="111" r="1.8" fill="url(#${u}pi)"/><path d="M7.4 112.4h2.4l2 11.4q-3.2 1.2-6.4 0z" fill="url(#${u}pi)" stroke="#5A3804" stroke-width=".3"/>`
-      + `<path class="pa-fine" d="M7.8 114V123.6M8.6 114V124M9.4 114V123.6M10.2 114L11 123.2" stroke="#6E4505" stroke-width=".25"/></g></defs>`
-      + `<use href="#${u}ts"/><use href="#${u}ts" transform="matrix(-1 0 0 1 100 0)"/>`
-      // glints: the diamonds, the rubies, the band
-      + [[44, 52.6, 2.4, 0], [56.6, 61, 2.2, 1], [61.8, 50.4, 2.4, 1.8], [36.8, 54, 2, .5], [31.4, 84, 2.4, 2.3]].map(([x, y, r, d]) => `<path class="pa-twinkle" style="--d:${d}s" fill="#fff" d="${glint(x, y, r)}"/>`).join('');
+      + `<g class="pa-spin" style="--oy:52px">${k.burst({cx: 50, cy: 52, n: 26, r: 130, w: .38, a: .2, c: '#FFF6D8'})}</g>`
+      + `<g class="pa-fine">${k.burst({cx: 50, cy: 52, n: 52, r: 130, w: .1, a: .12, c: '#FFFBEA'})}</g>`
+      + lin(`${u}sp`, [[0, '#FFFBEA', .45], [1, '#FFFBEA', 0]]) + `<path class="pa-pulse" style="--t:6s" d="M36 21H64L92 122H8Z" fill="url(#${u}sp)"/>`
+      // the box's lid, standing open behind: burgundy leather edged in gold, lined in ivory satin, padded and pleated, a
+      // gold foil star and laurel stamped at its head
+      + lin(`${u}lw`, [[0, '#8A1A34'], [1, '#4A0817']])
+      + `<path d="M16.4 82V33Q16.4 25.6 23.8 25.6H76.2Q83.6 25.6 83.6 33V82Z" fill="url(#${u}lw)" stroke="#2E0410" stroke-width=".4"/>`
+      + rad(`${u}st`, [[0, '#FFFDF6'], [.55, '#F6EBD2'], [.86, '#DCC79C'], [1, '#B89E6E']], 'cx=".5" cy=".42" r=".7"')
+      + `<path d="M19.6 81V34.4Q19.6 28.8 25.2 28.8H74.8Q80.4 28.8 80.4 34.4V81Z" fill="url(#${u}st)"/>`
+      + `<path d="M19.6 81V34.4Q19.6 28.8 25.2 28.8H74.8Q80.4 28.8 80.4 34.4V81" fill="none" stroke="#E9BD48" stroke-width=".6"/>`
+      + `<path class="pa-fine" d="M50 36.4L22 80M50 36.4L33 80M50 36.4L67 80M50 36.4L78 80M50 36.4L20 56M50 36.4L80 56" stroke="#B89E6E" stroke-opacity=".4" stroke-width=".35"/>`
+      + `<path class="pa-fine" d="M24 34Q50 40 76 34" fill="none" stroke="#fff" stroke-opacity=".8" stroke-width=".8" stroke-linecap="round"/>`
+      + `<path d="${k.star(50, 34.6, 2.4)}" fill="#E2AE3A" stroke="#8A5C0A" stroke-width=".2"/>`
+      + `<path class="pa-fine" d="M46.6 36.6Q43 36.4 41 33.6M53.4 36.6Q57 36.4 59 33.6M44.4 36.2l-.8-1.6M42.6 35.2l-.4-1.6M55.6 36.2l.8-1.6M57.4 35.2l.4-1.6" fill="none" stroke="#C8901C" stroke-width=".5" stroke-linecap="round"/>`
+      + k.glow({cx: 50, cy: 54, r: 30, c: '#FFFFFF', a: .7})
+      // the hinge
+      + lin(`${u}au`, GOLD, 'gradientUnits="userSpaceOnUse" x1="28" y1="0" x2="72" y2="0"')
+      + `<path d="M18 80.6H82V83H18ZM25.6 79.4H31.4V84.2H25.6ZM68.6 79.4H74.4V84.2H68.6Z" fill="url(#${u}au)" stroke="#5A3804" stroke-width=".3"/>`
+      // the velvet behind the slit, deep burgundy
+      + rad(`${u}vt`, [[0, '#A8243F'], [.6, '#841A33'], [1, '#6E0F24']], 'cx=".5" cy=".2" r=".8"')
+      + `<path d="M16 84Q50 80 84 84L85 96Q50 101 15 96Z" fill="url(#${u}vt)"/>`
+      + `<path d="M24 90.6Q50 95 76 90.6" fill="none" stroke="#2A0410" stroke-width="1.8" stroke-linecap="round"/>`
+      // the hoop: polished gold, its inner face at the top of the hole, the shine down its sides
+      + `<path d="${E(50, 80, 19, 19)}${E(50, 81.6, 13.4, 13.4)}" fill="url(#${u}au)" fill-rule="evenodd" stroke="#4A2C02" stroke-width=".45"/>`
+      + lin(`${u}in`, [[0, '#4A2C02'], [.6, '#9A6608'], [1, '#D9A936']]) + `<path d="${E(50, 81.6, 13.4, 13.4)}${E(50, 84.4, 13.4, 11.6)}" fill="url(#${u}in)" fill-rule="evenodd"/>`
+      + `<path d="M32.2 74Q31.4 86 37 94M67.8 74Q68.6 86 63 94" fill="none" stroke="#FFF8DA" stroke-opacity=".85" stroke-width=".8" stroke-linecap="round"/>`
+      // the shoulders: broad plates flaring up to the top, engraved (a star over laurel; the year under a star)
+      + `<path d="M29.4 58.6L38.4 62L37.2 79.6L31.2 77.8Q28.8 68 29.4 58.6ZM70.6 58.6L61.6 62L62.8 79.6L68.8 77.8Q71.2 68 70.6 58.6Z" fill="url(#${u}au)" stroke="#4A2C02" stroke-width=".4"/>`
+      + `<path class="pa-fine" d="M30.6 60.8L37 63.2L36.1 77.8L32 76.6Q30.2 68.6 30.6 60.8ZM69.4 60.8L63 63.2L63.9 77.8L68 76.6Q69.8 68.6 69.4 60.8Z" fill="none" stroke="#6E4505" stroke-width=".3"/>`
+      + `<path d="${k.star(33.9, 67, 2.6)}${k.star(66.1, 66.4, 1.6)}" fill="#6E4505"/>`
+      + `<path class="pa-fine" d="M33.9 77.2Q31.8 75.2 32.2 71.6M33.9 77.2Q36 75.2 35.6 71.6" fill="none" stroke="#6E4505" stroke-width=".35" stroke-linecap="round"/>`
+      + `<path class="pa-fine" d="${[[32.2, 71.6, -100], [32.3, 73.8, -150], [33, 75.8, -160], [35.6, 71.6, -80], [35.5, 73.8, -30], [34.8, 75.8, -20]].map(([x, y, a]) => { const r = a * Math.PI / 180, c = Math.cos(r) * 1.6, n = Math.sin(r) * 1.6;
+        return `M${x} ${y}q${f1(c / 2 - n * .35)} ${f1(n / 2 + c * .35)} ${f1(c)} ${f1(n)}q${f1(-c / 2 - n * .35)} ${f1(-n / 2 + c * .35)} ${f1(-c)} ${f1(-n)}Z`; }).join('')}" fill="#6E4505"/>`
+      + `<text x="66.1" y="73.6" text-anchor="middle" font-family="system-ui, sans-serif" font-weight="900" font-size="4.4" fill="#6E4505">26</text>`
+      // the top's side wall, three faces lit from the left, rubies channel-set along its front
+      + `<path d="${poly([O[6], O[5], dn(O[5]), dn(O[6])])}" fill="#8A5A0A" stroke="#4A2C02" stroke-width=".4"/>`
+      + `<path d="${poly([O[3], O[4], dn(O[4]), dn(O[3])])}" fill="#C8901C" stroke="#4A2C02" stroke-width=".4"/>`
+      + `<path d="${poly([O[5], O[4], dn(O[4]), dn(O[5])])}" fill="url(#${u}au)" stroke="#4A2C02" stroke-width=".4"/>`
+      + rad(`${u}rb`, [[0, '#FFC2CC'], [.45, '#E0213E'], [1, '#6A0014']], 'cx=".4" cy=".3" r=".8"')
+      + `<path d="M${O[5][0] + 1.2} ${O[5][1] + 1.4}H${O[4][0] - 1.2}V${O[4][1] + 4.6}H${O[5][0] + 1.2}Z" fill="#3A2404"/>`
+      + `<path d="${Array.from({length: 6}, (_, i) => `M${f1(O[5][0] + 1.7 + i * 3.97)} ${O[5][1] + 1.8}h3.3v2.4h-3.3Z`).join('')}" fill="url(#${u}rb)"/>`
+      + `<path class="pa-fine" d="${Array.from({length: 6}, (_, i) => `M${f1(O[5][0] + 2.1 + i * 3.97)} ${O[5][1] + 2.3}h1.6`).join('')}" stroke="#FFE0E6" stroke-width=".4"/>`
+      // the top's face: gold, a dotted border, stars at its corners, the halo of brilliants, the ring of rubies, the pavé,
+      // the football raised on it
+      + `<path d="${poly(O)}" fill="url(#${u}au)" stroke="#4A2C02" stroke-width=".45"/>`
+      + `<path d="M${O[7].join(' ')}L${O[0].join(' ')}L${O[1].join(' ')}" fill="none" stroke="#FFF8DA" stroke-width=".6" stroke-linejoin="round"/>`
+      + `<path class="pa-fine" d="${poly(o(1.2))}" fill="none" stroke="#5A3804" stroke-opacity=".7" stroke-width=".4" stroke-dasharray=".4 .7"/>`
+      + `<path d="${k.star(34.6, 43.6, 1.2)}${k.star(65.4, 43.6, 1.2)}${k.star(34.6, 56.4, 1.2)}${k.star(65.4, 56.4, 1.2)}" fill="#6E4505"/>`
+      + `<path d="${E(50, 50, 18.4, 8.6)}" fill="#5A3804" fill-opacity=".35"/>`
+      + rad(`${u}dg`, [[0, '#FFFFFF'], [.45, '#EAF2FC'], [.8, '#A6B6CE'], [1, '#6C7C96']], 'cx=".36" cy=".3" r=".8"')
+      + `<defs><g id="${u}dm"><circle r="1.15" fill="url(#${u}dg)" stroke="#5A6478" stroke-width=".15"/><path class="pa-fine" d="M-.8-.8L.8.8M.8-.8L-.8.8M0-1.15V1.15" stroke="#fff" stroke-opacity=".7" stroke-width=".14"/></g></defs>`
+      + halo.map(gem).join('')
+      + `<path d="${E(50, 50, 13, 5.9)}" fill="#3A0410"/><path d="${E(50, 50, 12.2, 5.3)}" fill="none" stroke="#D0203C" stroke-width="1.7" stroke-linecap="round" stroke-dasharray="0 2.65"/>`
+      + `<path class="pa-fine" d="${E(50, 49.7, 12.2, 5.3)}" fill="none" stroke="#FFC2CC" stroke-width=".6" stroke-linecap="round" stroke-dasharray="0 2.65"/>`
+      + `<pattern id="${u}pv" width="2" height="1.4" patternUnits="userSpaceOnUse"><circle cx=".5" cy=".35" r=".48" fill="url(#${u}dg)"/><circle cx="1.5" cy="1.05" r=".48" fill="url(#${u}dg)"/></pattern>`
+      + `<path d="${E(50, 50, 10.6, 4.4)}" fill="#B9C6D8"/><path d="${E(50, 50, 10.6, 4.4)}" fill="url(#${u}pv)"/>`
+      + `<g transform="translate(0 47.6) scale(1 .78) translate(0 -47.6)">${ball(u, 'ball', 50, 47.6, .86, -14)}</g>`
+      // the velvet's lip over the slit and the box's front: burgundy leather, gold trim, the clasp between laurel sprays
+      + `<path d="M24 90.6Q50 95 76 90.6L85 96Q50 101 15 96Z" fill="url(#${u}vt)"/>`
+      + `<path class="pa-fine" d="M28 93.4Q50 97 72 93.4" fill="none" stroke="#C84862" stroke-opacity=".6" stroke-width=".5" stroke-linecap="round"/>`
+      + lin(`${u}fr`, [[0, '#6E0F24'], [.5, '#560A1C'], [1, '#3A0410']]) + `<path d="M15 96Q50 101 85 96L85 115Q50 121 15 115Z" fill="url(#${u}fr)" stroke="#2A0410" stroke-width=".4"/>`
+      + `<path d="M15 96Q50 101 85 96" fill="none" stroke="url(#${u}au)" stroke-width="1.3"/><path d="M15.6 113.6Q50 119.6 84.4 113.6" fill="none" stroke="url(#${u}au)" stroke-width=".7"/>`
+      + `<path class="pa-fine" d="M17 98.4Q50 103.4 83 98.4" fill="none" stroke="#E9BD48" stroke-opacity=".7" stroke-width=".3" stroke-dasharray=".8 .6"/>`
+      + `<path d="M46.2 102.6H53.8V108.8Q50 111.2 46.2 108.8Z" fill="url(#${u}au)" stroke="#4A2C02" stroke-width=".35"/><path d="M50 104.4a1 1 0 1 0 .01 0ZM49.5 105.6h1l.4 2.4h-1.8Z" fill="#3A2404"/>`
+      + lin(`${u}lg`, [[0, '#FFF1B0'], [.45, '#E2AE3A'], [1, '#7E520A']])
+      + `<defs><g id="${u}lr"><path d="M43.6 106.2Q36 109.6 26.6 105.4" fill="none" stroke="#C8901C" stroke-width=".55" stroke-linecap="round"/>`
+      + `<path d="M40.8 107.4c-.4-2.2 1-3.6 3-3.6-.2 2.2-1.4 3.4-3 3.6ZM37 108c-.6-2.2.6-3.8 2.6-4-.1 2.2-1.2 3.6-2.6 4ZM33.2 107.8c-.8-2 .2-3.8 2.2-4.2.1 2.2-.8 3.6-2.2 4.2ZM29.6 106.8c-1-1.8-.2-3.8 1.8-4.4.2 2-.6 3.6-1.8 4.4Z`
+      + `M39.6 107.6c1.4 1.8 3.2 2 4.6.8-1.6-1.4-3.2-1.6-4.6-.8ZM35.8 108c1.2 1.9 3 2.3 4.4 1.2-1.4-1.5-3-1.9-4.4-1.2ZM32 107.6c1.1 2 2.8 2.5 4.3 1.6-1.3-1.6-2.9-2.1-4.3-1.6Z" fill="url(#${u}lg)" stroke="#6E4505" stroke-width=".2"/></g></defs>`
+      + `<use href="#${u}lr"/><use href="#${u}lr" transform="matrix(-1 0 0 1 100 0)"/>`
+      + `<ellipse cx="50" cy="121" rx="38" ry="2.6" fill="#3A2404" fill-opacity=".4"/>`
+      // loose diamonds on the velvet, and glints: the top, the brilliants, the hoop, the loose stones
+      + [[22.4, 89.6, 1.9], [78, 90.4, 1.6], [28.6, 95.6, 1.3], [72, 96.2, 1.2]].map(gem).join('')
+      + [[38.4, 44, 2.6, 0], [61.6, 52.4, 2.2, 1], [64.8, 43.8, 2.4, 1.8], [33.4, 50.6, 2, .5], [31.8, 84, 2.4, 2.3], [22.4, 89.6, 2.6, 1.4], [78, 90.4, 2.2, .3]]
+        .map(([x, y, r, d]) => `<path class="pa-twinkle" style="--d:${d}s" fill="#fff" d="${glint(x, y, r)}"/>`).join('')
+      + [[26, 70, 0], [74, 64, 1.5], [60, 104, 2.8]].map(([x, y, d]) => `<circle class="pa-rise" style="--d:${d}s;--t:4.4s" cx="${x}" cy="${y}" r=".7" fill="#FFFBEA"/>`).join('');
   }}
 ];

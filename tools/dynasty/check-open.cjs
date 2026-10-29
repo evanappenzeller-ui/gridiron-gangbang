@@ -74,7 +74,7 @@ const SAVE = {v: 1, born: Date.now() - 864e5, at: Date.now(), o: {'C-timeout': 2
   // (the title screen on entering, Oct 29 2026, views/dynasty.js startHTML: a tap through it once the cards are in)
   if (await page.locator('.pk-start').count()) {
     await page.locator('.pk-start.is-ready').waitFor({timeout: 30000});
-    await page.locator('.pk-start').click({position: {x: 195, y: 640}});
+    await page.locator('.pk-start').click({position: {x: Math.round(SIZE[0] / 2), y: Math.round(SIZE[1] * .76)}}); // (low on the screen, whatever its size)
     await page.waitForFunction(() => !document.querySelector('.pk-start'), null, {timeout: 10000});
   }
   await page.waitForTimeout(600);
@@ -100,7 +100,10 @@ const SAVE = {v: 1, born: Date.now() - 864e5, at: Date.now(), o: {'C-timeout': 2
     const w = await page.evaluate(() => document.getElementById('qa-gallery').scrollWidth);
     await page.setViewportSize({width: Math.max(390, w), height: Math.min(4000, h + 24)});
     await page.waitForTimeout(400);
-    made.push(await shot('gallery'));
+    // (the whole gallery, however tall: the element itself, not the viewport)
+    const gf = path.join(OUT, 'gallery.png');
+    await page.locator('#qa-gallery').screenshot({path: gf});
+    made.push(gf);
     // the Packs home with its big pack, and the picker sheet
     await page.evaluate(() => document.getElementById('qa-gallery').remove());
     await page.setViewportSize({width: 390, height: 844});
@@ -162,7 +165,8 @@ const SAVE = {v: 1, born: Date.now() - 864e5, at: Date.now(), o: {'C-timeout': 2
       for (let i = 1; i <= 14; i++) { await page.mouse.move(x0 + (x1 - x0) * i / 14, y); await page.waitForTimeout(16); }
       await page.mouse.up();
     }
-    await page.waitForTimeout(600);
+    // (the tear's tween runs on frames: on a busy machine it can take longer than a fixed wait)
+    await page.waitForFunction(() => document.querySelector('.dy-open-pack').classList.contains('is-torn'), null, {timeout: 3000}).catch(() => {});
     assert.ok(await torn(), 'it rips');
     mark('ripped');
     if (KEYS) {

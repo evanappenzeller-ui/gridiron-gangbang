@@ -39,16 +39,17 @@
 .pk-pack-n { position: absolute; z-index: 6; right: 4cqw; bottom: 3cqw; font: 800 8cqw/1 var(--font-text); background: #fff; color: var(--ink); padding: 1.6cqw 3cqw; border-radius: 99px; }
 
 /* ---------------------------------------------------------------- tier 2 and up (Team): crimped seals and side seams,
-   an embossed quilt toward the edges, a metal rule under the brand bar, a ribbon behind the name */
+   an embossed quilt on the margins only (a foil pack's seams, softly blended, never over the subject), a metal rule
+   under the brand bar, a ribbon behind the name */
 .pk-pack:not(.tier-1) .pk-pack-crimp {
   background: linear-gradient(180deg, rgba(255,255,255,.45), transparent 1.2%) top / 100% 4.4% no-repeat,
     repeating-linear-gradient(90deg, rgba(255,255,255,.42) 0 1.6cqw, rgba(0,0,0,.16) 1.6cqw 2.4cqw, transparent 2.4cqw 3.6cqw) top / 100% 4.4% no-repeat,
     repeating-linear-gradient(90deg, rgba(0,0,0,.3) 0 1.6cqw, rgba(255,255,255,.18) 1.6cqw 2.4cqw, transparent 2.4cqw 3.6cqw) bottom / 100% 4.8% no-repeat,
     linear-gradient(90deg, rgba(255,255,255,.3), rgba(255,255,255,0) 2.6%, transparent 97.4%, rgba(0,0,0,.24)); }
-.pk-pack-emboss { position: absolute; inset: 0; z-index: 1;
-  background: repeating-linear-gradient(45deg, rgba(255,255,255,.1) 0 .4cqw, rgba(0,0,0,.08) .4cqw .8cqw, transparent .8cqw 7cqw),
-    repeating-linear-gradient(-45deg, rgba(255,255,255,.1) 0 .4cqw, rgba(0,0,0,.08) .4cqw .8cqw, transparent .8cqw 7cqw);
-  -webkit-mask-image: radial-gradient(64% 42% at 50% 46%, transparent 50%, #000 95%); mask-image: radial-gradient(64% 42% at 50% 46%, transparent 50%, #000 95%); }
+.pk-pack-emboss { position: absolute; inset: 0; z-index: 1; mix-blend-mode: soft-light;
+  background: repeating-linear-gradient(45deg, rgba(255,255,255,.22) 0 .4cqw, rgba(0,0,0,.14) .4cqw .8cqw, transparent .8cqw 7cqw),
+    repeating-linear-gradient(-45deg, rgba(255,255,255,.22) 0 .4cqw, rgba(0,0,0,.14) .4cqw .8cqw, transparent .8cqw 7cqw);
+  -webkit-mask-image: radial-gradient(80% 58% at 50% 46%, transparent 74%, #000 100%); mask-image: radial-gradient(80% 58% at 50% 46%, transparent 74%, #000 100%); }
 .pk-pack:not(.tier-1) .pk-pack-top { box-shadow: 0 .6cqw 0 rgba(255,255,255,.5), 0 1.2cqw 0 color-mix(in srgb, var(--pd) 60%, #000);
   background: repeating-linear-gradient(135deg, rgba(255,255,255,.07) 0 1cqw, transparent 1cqw 3cqw), linear-gradient(180deg, color-mix(in srgb, var(--pd) 70%, #000), var(--pd)); }
 .pk-pack:not(.tier-1) .pk-pack-name b { position: relative; padding: 1.4cqw 7cqw 1.8cqw; }
@@ -56,15 +57,17 @@
   background: linear-gradient(180deg, color-mix(in srgb, var(--pd) 80%, transparent), color-mix(in srgb, var(--pd) 55%, #000));
   box-shadow: inset 0 .5cqw 0 rgba(255,255,255,.35), inset 0 -.5cqw 0 rgba(0,0,0,.25), 0 1cqw 2cqw rgba(0,0,0,.3); }
 
-/* ---------------------------------------------------------------- tier 3 and up (Premium): a holo rainbow sheen over the
-   art, a holo foil brand bar, the name's ribbon edged in holo */
-.pk-pack-holo { position: absolute; inset: 0; z-index: 1; mix-blend-mode: color-dodge; opacity: .3;
-  -webkit-mask-image: radial-gradient(66% 44% at 50% 46%, rgba(0,0,0,.35) 30%, #000 85%); mask-image: radial-gradient(66% 44% at 50% 46%, rgba(0,0,0,.35) 30%, #000 85%);
-  background: repeating-linear-gradient(115deg, rgba(255,255,255,.35) 0 .6cqw, transparent .6cqw 2.6cqw),
-    linear-gradient(125deg, #FF7AC8, #FFD36E 14%, #7CF5C0 28%, #6EC8FF 42%, #B98BFF 56%, #FF7AC8 70%, #FFD36E 84%, #7CF5C0 98%) 0 0 / 300% 300%; }
+/* ---------------------------------------------------------------- tier 3 and up (Premium): a holo sheen toward the
+   edges, clear of the subject, in each tier's own colours (--holo: Premium's pink, blue and violet, Gameday's warm,
+   Legends' champagne) and blended gently, so it lights the art without shifting its hues; a holo foil brand bar, the
+   name's ribbon edged in holo */
+.pk-pack-holo { position: absolute; inset: 0; z-index: 1; mix-blend-mode: overlay; opacity: .38;
+  --holo: linear-gradient(125deg, #FF7AC8, #B98BFF 20%, #6EC8FF 40%, #FF9AD8 60%, #B98BFF 80%, #FF7AC8);
+  -webkit-mask-image: radial-gradient(70% 46% at 50% 46%, transparent 42%, #000 88%); mask-image: radial-gradient(70% 46% at 50% 46%, transparent 42%, #000 88%);
+  background: repeating-linear-gradient(115deg, rgba(255,255,255,.18) 0 .6cqw, transparent .6cqw 2.6cqw), var(--holo) 0 0 / 300% 300%; }
 .pk-pack.is-big .pk-pack-holo { animation: pa-holo 10s ease-in-out infinite alternate; }
 @keyframes pa-holo { to { background-position: 0 0, 100% 100%; } }
-.pk-pack.tier-3 .pk-pack-top, .pk-pack.tier-4 .pk-pack-top { background-blend-mode: soft-light, normal, normal;
+.pk-pack.tier-3 .pk-pack-top { background-blend-mode: soft-light, normal, normal;
   background: linear-gradient(100deg, #FF8CD2, #FFDC82 22%, #82FFD2 44%, #78BEFF 66%, #C896FF 88%),
     repeating-linear-gradient(115deg, rgba(255,255,255,.1) 0 .6cqw, transparent .6cqw 2.4cqw), linear-gradient(180deg, color-mix(in srgb, var(--pd) 75%, #000), color-mix(in srgb, var(--pc) 80%, #000)); }
 .pk-pack.tier-3 .pk-pack-top b, .pk-pack.tier-4 .pk-pack-top b { text-shadow: 0 .5cqw 0 rgba(0,0,0,.35); }
@@ -74,8 +77,13 @@
 
 /* ---------------------------------------------------------------- tier 4 and up (Gameday): a light sweep crossing the
    pack now and then, sparkles twinkling clear of the art's middle, stars beside the plate's words */
+/* (Gameday's foil is ember, warm all through: its own holo, an ember brand bar and ribbon; the cool rainbow is Premium's) */
+.pk-pack.tier-4 .pk-pack-holo { --holo: linear-gradient(125deg, #FFB0D8, #FFE29A 18%, #FFC08A 36%, #FFF3D0 54%, #FF9FC4 72%, #FFE29A 90%); }
+.pk-pack.tier-4 .pk-pack-top { background-blend-mode: soft-light, normal, normal;
+  background: linear-gradient(100deg, #FFC46E, #FF8A5A 35%, #FF6F9E 65%, #FFD36E), repeating-linear-gradient(115deg, rgba(255,255,255,.1) 0 .6cqw, transparent .6cqw 2.4cqw), linear-gradient(180deg, #3A1204, #7A2E0E); }
+.pk-pack.tier-4 .pk-pack-name b::before { background: linear-gradient(100deg, #FFD36E, #FF9A5A 40%, #FF6FA8 70%, #FFE3A0), linear-gradient(180deg, #8E2A0E, #4A1404); }
 .pk-pack-sweep { position: absolute; inset: -10% -60%; z-index: 4; mix-blend-mode: soft-light; opacity: 0;
-  background: linear-gradient(100deg, transparent 40%, rgba(255,255,255,.15) 45%, #fff 50%, rgba(255,255,255,.15) 55%, transparent 60%); transform: translateX(-60%); }
+  background: linear-gradient(100deg, transparent 42%, rgba(255,255,255,.12) 47%, rgba(255,255,255,.55) 50%, rgba(255,255,255,.12) 53%, transparent 58%); transform: translateX(-60%); }
 .pk-pack.is-big .pk-pack-sweep { animation: pa-sweep-x 5.2s cubic-bezier(.45,.05,.35,1) 1.2s infinite; }
 @keyframes pa-sweep-x { 0% { transform: translateX(-60%); opacity: 0; } 6% { opacity: 1; } 34% { transform: translateX(60%); opacity: 1; } 40%, 100% { transform: translateX(60%); opacity: 0; } }
 .pk-pack-spark { position: absolute; inset: 0; z-index: 4; }
@@ -88,11 +96,11 @@
 .pk-pack.tier-5 .pk-pack-name small::before, .pk-pack.tier-5 .pk-pack-name small::after { content: "✦"; margin: 0 1.6cqw; letter-spacing: 0; color: #FFF3C4; }
 .pk-pack.tier-4 .pk-pack-top em { background: rgba(255,255,255,.3); box-shadow: 0 0 2.4cqw rgba(255,255,255,.55); }
 
-/* ---------------------------------------------------------------- tier 5 (Legends): rainbow holo foil, a gold filigree
+/* ---------------------------------------------------------------- tier 5 (Legends): champagne holo foil, a gold filigree
    border with scrolled corners, a gold brand bar and embossed gold-foil lettering */
 .pk-pack.tier-5 { box-shadow: 0 6px 16px rgba(60,40,0,.32), inset 0 0 0 1px rgba(255,236,170,.75); }
-.pk-pack.tier-5 .pk-pack-holo { opacity: .4;
-  -webkit-mask-image: radial-gradient(70% 46% at 50% 46%, rgba(0,0,0,.45) 30%, #000 80%); mask-image: radial-gradient(70% 46% at 50% 46%, rgba(0,0,0,.45) 30%, #000 80%); }
+.pk-pack.tier-5 .pk-pack-holo { mix-blend-mode: soft-light; opacity: .5;
+  --holo: linear-gradient(125deg, #FFF6D8, #FFD3B8 16%, #FFE9A0 32%, #F8C8E0 48%, #FFF1C0 64%, #EAD6FF 80%, #FFF6D8); }
 .pk-pack-frame { position: absolute; inset: 0; z-index: 4; width: 100%; height: 100%; filter: drop-shadow(0 .3cqw 0 rgba(70,40,0,.45)); }
 .pk-pack.tier-5 .pk-pack-top { padding-left: 8cqw; padding-right: 8cqw;
   background: linear-gradient(180deg, rgba(255,236,170,.0) 70%, rgba(255,236,170,.25)), repeating-linear-gradient(115deg, rgba(255,226,140,.1) 0 .6cqw, transparent .6cqw 2.4cqw),
@@ -117,13 +125,14 @@
 .pk-car { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; touch-action: pan-y; -webkit-user-select: none; user-select: none; }
 .pk-car-move { display: flex; }
 .pk-car.is-drag .pk-bigpack { animation-play-state: paused; }
-.pk-car-dots { position: absolute; left: 50%; bottom: 6px; z-index: 2; display: flex; align-items: center; gap: 2px; transform: translateX(-50%); }
-.pk-car-b { flex: none; display: grid; place-items: center; width: 30px; height: 30px; margin: 0 4px; padding: 0; border: 0; border-radius: 50%; cursor: pointer;
-  background: rgba(255,255,255,.9); color: var(--ink-2); box-shadow: var(--pk-shadow); transition: transform .15s; }
+.pk-car-dots { position: absolute; left: 50%; bottom: 6px; z-index: 2; display: flex; align-items: center; padding: 2px; border-radius: 99px; transform: translateX(-50%);
+  background: rgba(255,255,255,.9); box-shadow: var(--pk-shadow); } /* (in a pill, as Pocket's, over the reflection) */
+.pk-car-b { flex: none; display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 50%; cursor: pointer;
+  background: none; color: var(--ink-2); transition: transform .15s; }
 .pk-car-b:active { transform: scale(.9); }
-.pk-car-dot { display: grid; place-items: center; width: 20px; height: 30px; padding: 0; border: 0; background: none; cursor: pointer; }
+.pk-car-dot { display: grid; place-items: center; width: 24px; height: 30px; padding: 0; border: 0; border-radius: 99px; background: none; cursor: pointer; }
 .pk-car-dot::before { content: ""; width: 7px; height: 7px; border-radius: 99px; background: var(--ink-4); transition: width .2s, background-color .2s; }
-.pk-car-dot[aria-pressed="true"]::before { width: 18px; background: var(--tint); }
+.pk-car-dot[aria-current="true"]::before { width: 18px; background: var(--tint); }
 @media (prefers-reduced-motion: reduce) { .pk-car-b, .pk-car-dot::before { transition: none; } }
 
 /* ---------------------------------------------------------------- the art's helpers (put on SVG elements in a design):
@@ -133,6 +142,12 @@
 @container pk-pack (max-width: 120px) {
   .pa-fine, .pk-pack-spark, .pk-pack-emboss, .pk-pack-sweep { display: none; }
   .pa-small { display: inline; }
+  /* (the picker's 64px packs: GRIDIRON alone on the brand bar, plain gold letters on Legends, the count up on the bar
+     clear of the name) */
+  .pk-pack-top b small, .pk-pack-top em { display: none; }
+  .pk-pack-top b { font-size: 8cqw; }
+  .pk-pack.tier-5 .pk-pack-top b, .pk-pack.tier-5 .pk-pack-name b > span { filter: none; background: none; color: #F6D778; -webkit-text-fill-color: #F6D778; text-shadow: 0 1px 0 rgba(40,22,0,.9); }
+  .pk-pack-n { top: 3cqw; bottom: auto; }
 }
 .pa-twinkle, .pa-pulse, .pa-float, .pa-drift, .pa-rise { transform-box: fill-box; transform-origin: center; }
 .pa-spin, .pa-sweep { transform-box: view-box; transform-origin: var(--ox, 50px) var(--oy, 74px); }
@@ -151,8 +166,10 @@
 @keyframes pa-rise { 0% { opacity: 0; transform: translateY(6px) scale(.6); } 20% { opacity: 1; } 100% { opacity: 0; transform: translateY(-22px) scale(1); } }
 @keyframes pa-spin { to { transform: rotate(1turn); } }
 @keyframes pa-sweep { 0% { transform: translateX(-110px); opacity: 0; } 8% { opacity: 1; } 40% { transform: translateX(110px); opacity: 1; } 46%, 100% { transform: translateX(110px); opacity: 0; } }
-/* (the reflection under the home's pack holds still) */
+/* (the reflection under the home's pack holds still; and nothing plays while a sheet or the opening covers the page:
+   the art's SVG motion can't be composited, so it would lay the page out every frame unseen) */
 .pk-reflect .pk-pack *, .pk-reflect .pk-pack *::before, .pk-reflect .pk-pack *::after { animation: none !important; }
+#stage[inert] .pk-pack *, #stage[inert] .pk-bigpack { animation-play-state: paused !important; }
 @media (prefers-reduced-motion: reduce) {
   .pk-pack *, .pk-pack *::before, .pk-pack *::after { animation: none !important; }
   .pk-pack-sweep { opacity: 0; }

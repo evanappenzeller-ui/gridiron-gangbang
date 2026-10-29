@@ -272,7 +272,7 @@ function packsHTML(st) {
     + `<div class="pk-car${many ? ' is-many' : ''}" data-dy-car><div class="pk-car-move"><button type="button" class="pk-bigpack" data-dy-openhere data-dy-label="${esc(label)}" aria-label="${esc(artLabel(label, ds, di))}">${packHTML(kind, {big: true, count: have, design: di})}</button></div></div>`
     + `<span class="pk-reflect" aria-hidden="true">${packHTML(kind, {big: true, design: di})}</span>`
     + (many ? `<div class="pk-car-dots" role="group" aria-label="Pack designs"><button type="button" class="pk-car-b" data-dy-art="-1" aria-label="Previous pack design">${ui.icon('chevron-left', {size: 16})}</button>`
-      + `${ds.map((d, i) => `<button type="button" class="pk-car-dot" data-dy-artat="${i}" aria-label="${esc(d.name)}" aria-pressed="${i === di}"></button>`).join('')}`
+      + `${ds.map((d, i) => `<button type="button" class="pk-car-dot" data-dy-artat="${i}" aria-label="${esc(d.name)}"${i === di ? ' aria-current="true"' : ''}></button>`).join('')}`
       + `<button type="button" class="pk-car-b" data-dy-art="1" aria-label="Next pack design">${ui.icon('chevron-right', {size: 16})}</button></div>`
       + '<span class="sr-only" aria-live="polite" data-dy-artsay></span>' : '')
     + `<button type="button" class="pk-pts" data-dy-points aria-label="Pack points: ${nf(s.pp)}"><i class="pk-pts-i"></i><b>${nf(s.pp)} pts</b></button></div>`;
@@ -328,20 +328,26 @@ function artTo(st, to, dir) {
   const kind = st.pack, ds = designsOf(kind), n = ds.length, car = st.el.querySelector('[data-dy-car]');
   if (!car) return;
   const mv = car.querySelector('.pk-car-move'), big = car.querySelector('.pk-bigpack'), rf = st.el.querySelector('.pk-reflect');
-  const was = mv.style.transform || 'none';
-  mv.style.transform = '';
-  if (mv.getAnimations) mv.getAnimations().forEach(a => a.cancel());
+  // (the reflection's pack went along with a drag: it springs back or slides out with it)
+  const rp = rf && rf.firstElementChild, was = mv.style.transform || 'none', rwas = (rp && rp.style.transform) || 'none';
+  mv.style.transform = ''; if (rp) rp.style.transform = '';
+  car.classList.remove('is-drag');
+  [mv, rp].forEach(x => { if (x && x.getAnimations) x.getAnimations().forEach(a => a.cancel()); });
   const i = (to % n + n) % n;
-  if (n < 2 || i === artAt(st, kind)) { if (!RM() && was !== 'none' && mv.animate) mv.animate([{transform: was}, {transform: 'none'}], {duration: 240, easing: 'cubic-bezier(.2,.9,.3,1.2)'}); return; }
+  if (n < 2 || i === artAt(st, kind)) {
+    if (!RM() && was !== 'none' && mv.animate) { const o = {duration: 240, easing: 'cubic-bezier(.2,.9,.3,1.2)'}; mv.animate([{transform: was}, {transform: 'none'}], o); if (rp) rp.animate([{transform: rwas}, {transform: 'none'}], o); }
+    return;
+  }
   st.art[kind] = i; artSave(st); ui.haptic('selection');
   const draw = () => {
     const at = artAt(st, kind);
     big.innerHTML = packHTML(kind, {big: true, count: D.mine().pk[kind] || 0, design: at});
     big.setAttribute('aria-label', artLabel(big.dataset.dyLabel || '', ds, at));
     if (rf) rf.innerHTML = packHTML(kind, {big: true, design: at});
-    car.parentNode.querySelectorAll('[data-dy-artat]').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.dyArtat === at)));
+    car.parentNode.querySelectorAll('[data-dy-artat]').forEach(b => { if (+b.dataset.dyArtat === at) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current'); });
+    // (said once: the focused big pack's own label says it already)
     const say = car.parentNode.querySelector('[data-dy-artsay]');
-    if (say) say.textContent = `${ds[at].name}, design ${at + 1} of ${n}`;
+    if (say) say.textContent = document.activeElement === big ? '' : `${ds[at].name}, design ${at + 1} of ${n}`;
   };
   if (RM() || !mv.animate) { draw(); return; }
   const w = mv.offsetWidth, off = (s, o) => ({transform: `translateX(${s * w * .6}px) rotate(${s * 5}deg)`, opacity: o});
@@ -349,6 +355,7 @@ function artTo(st, to, dir) {
   const ro = rf ? +getComputedStyle(rf).opacity : 0, fade = (a, b, ms) => { if (rf) rf.animate([{opacity: a}, {opacity: b}], {duration: ms}); };
   const out = mv.animate([{transform: was, opacity: 1}, off(-dir, 0)], {duration: 150, easing: 'cubic-bezier(.5,0,.8,.5)', fill: 'forwards'});
   fade(ro, 0, 150);
+  if (rp && rwas !== 'none') rp.animate([{transform: rwas}, {transform: `translateX(${-dir * w * .6}px)`}], {duration: 150, fill: 'forwards'});
   out.onfinish = () => {
     draw(); out.cancel();
     mv.animate([off(dir, 0), {transform: 'none', opacity: 1}], {duration: 320, easing: 'cubic-bezier(.2,.9,.3,1.1)'});
@@ -805,8 +812,13 @@ function refresh(st) {
   const pane = el.querySelector('[data-dy-pane]');
   const keep = pane.querySelector('input[name="dy-q"]') === document.activeElement;
   if (keep && st.tab === 'cards') { drawGrid(st); return; }
+  // (a finger on the big pack mid-swipe: the redraw waits till it's let go, swEnd)
+  if (st.tab === 'packs' && st.sw && st.sw.on) { st.dirty = true; return; }
+  // (the pack, an arrow or a dot focused: the same one after the redraw)
+  const had = document.activeElement, fk = had && pane.contains(had) ? (had.matches('[data-dy-art]') ? `[data-dy-art="${had.dataset.dyArt}"]` : had.matches('[data-dy-artat]') ? `[data-dy-artat="${had.dataset.dyArtat}"]` : had.matches('.pk-bigpack') ? '.pk-bigpack' : '') : '';
   pane.innerHTML = PANES[st.tab](st);
   ui.hydrate(pane);
+  if (fk) { const again = pane.querySelector(fk); if (again) try { again.focus({preventScroll: true}); } catch (_) {} }
   if (st.tab === 'cards' && st.f.view !== 'cols') drawGrid(st);
 }
 function go(st, tab, {keep = false} = {}) {
@@ -888,12 +900,15 @@ export default {
     // springs back; an up-and-down drag scrolls the page as ever; ← and → step through them too)
     el.addEventListener('pointerdown', e => {
       const car = e.target.closest('.pk-car.is-many');
-      if (!car || e.target.closest('[data-dy-art]') || (e.pointerType === 'mouse' && e.button !== 0)) return;
+      // (one finger at a time: a second one landing mid-swipe is ignored, never takes the swipe over)
+      if (!car || !e.isPrimary || (st.sw && st.sw.on) || e.target.closest('[data-dy-art]') || (e.pointerType === 'mouse' && e.button !== 0)) return;
       st.sw = {id: e.pointerId, x: e.clientX, y: e.clientY, dx: 0, on: false, lx: e.clientX, lt: performance.now(), v: 0, car};
     });
     el.addEventListener('pointermove', e => {
       const w = st.sw;
       if (!w || e.pointerId !== w.id) return;
+      // (the pane redrawn under the finger: the swipe goes on with the new pack)
+      if (!w.car.isConnected) { const c = st.el.querySelector('.pk-car.is-many'); if (!c) { st.sw = null; return; } w.car = c; if (w.on) c.classList.add('is-drag'); }
       const dx = e.clientX - w.x, dy = e.clientY - w.y, now = performance.now();
       if (!w.on) {
         if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { st.sw = null; return; }
@@ -902,8 +917,10 @@ export default {
         try { w.car.setPointerCapture(e.pointerId); } catch (_) {}
       }
       w.v = (e.clientX - w.lx) / Math.max(1, now - w.lt); w.lx = e.clientX; w.lt = now; w.dx = dx;
-      const mv = w.car.querySelector('.pk-car-move');
+      const mv = w.car.querySelector('.pk-car-move'), rp = st.el.querySelector('.pk-reflect > .pk-pack');
       if (mv) mv.style.transform = `translateX(${(dx * .85).toFixed(1)}px) rotate(${(dx / 50).toFixed(2)}deg)`;
+      // (its reflection goes with it, mirrored)
+      if (rp) rp.style.transform = `translateX(${(dx * .85).toFixed(1)}px) rotate(${(-dx / 50).toFixed(2)}deg)`;
     });
     const swEnd = e => {
       const w = st.sw;
@@ -914,14 +931,18 @@ export default {
       st.swiped = performance.now();
       const d = w.dx < 0 ? 1 : -1, go = e.type === 'pointerup' && (Math.abs(w.dx) > 50 || (Math.abs(w.dx) > 16 && Math.abs(w.v) > .45));
       artTo(st, artAt(st, st.pack) + (go ? d : 0), d);
+      // (a redraw held off while the finger was down (refresh: st.dirty) comes once the pack has settled)
+      if (st.dirty) { st.dirty = false; setTimeout(() => refresh(st), 500); }
     };
     el.addEventListener('pointerup', swEnd);
     el.addEventListener('pointercancel', swEnd);
     el.addEventListener('keydown', e => {
       if ((e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') || !e.target.closest('.pk-car.is-many, .pk-car-dots')) return;
       e.preventDefault();
-      const d = e.key === 'ArrowRight' ? 1 : -1;
+      const d = e.key === 'ArrowRight' ? 1 : -1, dot = e.target.closest('[data-dy-artat]');
       artTo(st, artAt(st, st.pack) + d, d);
+      // (on a dot, the focus goes along to the one now chosen)
+      if (dot) { const to = st.el.querySelector(`[data-dy-artat="${artAt(st, st.pack)}"]`); if (to) to.focus(); }
     });
     st.stops.push(D.subscribe(why => { if (why !== 'change' && why !== 'open') refresh(st); }));
     st.stops.push(MT.subscribe(() => refresh(st)));

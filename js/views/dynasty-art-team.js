@@ -10,7 +10,8 @@
 
 const INK = '#0B3323';
 const f = n => +n.toFixed(2);
-// (the helmet's shell, side on and facing right, its face mask's front at 0 0; absolute commands only, so shift() moves it)
+// (the helmet's shell, side on and facing right, its face mask's front at 0 0, on the Starter helmet's profile: the dome,
+// the jaw flap sweeping down and forward, the face opening's edge; absolute commands only, so shift() moves it)
 const HS = 'M-10-8C-12-22-24-31-38-31C-53-31-63-19-63-3C-63 7-60 15-54 20L-40 22.5C-34 23-30 27.5-22 28.5C-18 29-15.5 27.5-15 25.5L-15 19C-19.5 13-21 5-19-1C-18-4.5-16-7-12.5-7.5Z';
 // (a path of absolute commands moved by dx dy)
 const shift = (d, dx, dy) => { let i = 0; return d.replace(/-?\d*\.?\d+/g, n => f(+n + (i++ % 2 ? dy : dx))); };
@@ -34,15 +35,18 @@ export default [
       + `<path d="${L(0)}" stroke="#fff" stroke-width="1.8" stroke-opacity=".9"/>`
       + k.glow({cy: 70, r: 30, a: .55})
       + `<ellipse cx="50" cy="101.5" rx="34" ry="3" fill="#000" opacity=".25"/>`
-      // the helmet, facing right, its mask's front at 0 0 (currentColor its shell, the use's stroke its stripes)
+      // the helmet, facing right, its mask's front at 0 0 (currentColor its shell, the use's stroke its stripes): the dark
+      // face opening behind the mask, the shell, its shading and stripe, the jaw flap's seam, the ear hole, the mask's
+      // bars fixed to the shell at the brow, the ear and the jaw
       + `<defs><clipPath id="${u}hc"><path id="${u}hs" d="${HS}"/></clipPath>`
-      + `<path id="${u}fm" fill="none" stroke-linecap="round" stroke-linejoin="round" d="M-11-7.5H-3C-.5-7.5 1-6 1-3.5V15C1 22-4 27-14 27M-19.5 3H1M-16 13H1M-6.5-7.5V26"/>`
+      + `<path id="${u}fm" fill="none" stroke-linecap="round" stroke-linejoin="round" d="M-12.5-7.5H-3C-.5-7.5 1-6 1-3.5V15C1 22-4 27-15 26.6M-20 3H1M-17 13H1M-6.5-7.5V26"/>`
       + `<path id="${u}st" fill="none" d="M-60.4 6C-62.4-14-51-28.6-38-29C-24-29.6-15-22-12.4-11"/>`
-      + `<g id="${u}h"><use href="#${u}hs" fill="currentColor"/>`
+      + `<g id="${u}h"><path d="M-14-7.6H-2C.2-7.6 1.6-6 1.6-3.6V15C1.6 21.6-3 25.6-12 26.6L-15 25.5V19C-19.5 13-21 5-19-1C-18-4.5-16-7-14-7.6Z" fill="#14231C"/><use href="#${u}hs" fill="currentColor"/>`
       + `<g clip-path="url(#${u}hc)"><path fill="#000" fill-opacity=".22" fill-rule="evenodd" stroke="none" d="M-80-50H20V50H-80Z${shift(HS, 3.4, -6)}"/>`
       + `<use href="#${u}st" stroke-width="6.4"/><use href="#${u}st" stroke="currentColor" stroke-width="2"/></g>`
       + `<path fill="#fff" fill-opacity=".55" stroke="none" d="M-50-19C-42-26.5-30-27.5-20.5-21.5C-30-24.5-41-23.5-50-16Z"/>`
       + `<use href="#${u}hs" fill="none" stroke="${INK}" stroke-width="2" stroke-linejoin="round"/>`
+      + `<path d="M-55 13C-46 15.6-36 15.8-27 13.6C-24 13-22 11.6-20.6 9.6" fill="none" stroke="${INK}" stroke-opacity=".55" stroke-width="1.2" stroke-linecap="round"/>`
       + `<circle cx="-37" cy="2" r="2.8" fill="#3C4650" stroke="${INK}" stroke-width="1.2"/>`
       + `<use href="#${u}fm" stroke="${INK}" stroke-width="4.6"/><use href="#${u}fm" stroke="#B4BEC8" stroke-width="2.1"/></g></defs>`
       + `<use href="#${u}h" transform="translate(48.6 76) rotate(5) scale(.65)" color="${k.pc}" stroke="#fff"/>`
@@ -94,5 +98,33 @@ export default [
     + `<path fill="#000" fill-opacity=".14" d="M16-33V-4L17 8C17 14 14 18 9 18H4C10 16 13 12 13 6V-35.4C14.8-35 16-34.2 16-33ZM-18-6C-16-4-15 0-15 4V18H-10C-15 18-18 15-18 10Z"/>`
     + `<path fill="none" stroke="${INK}" stroke-width="1.2" stroke-linecap="round" d="M-18-4.4H2M-18 3.6H-2M-17.4 11H4M4-13V-3"/>`
     + `<path d="M16 2C9-2 1-3-4.4-.4-7 1-6.4 5.4-2.6 5.6 4 6 10 7.6 16.4 10.4" fill="#fff" stroke="${INK}" stroke-width="1.3" stroke-linejoin="round"/>`
-    + `<path class="pa-fine" fill="#fff" fill-opacity=".9" d="M6.4-34.6C7.4-36 10-36.2 10.6-34.6V-14H6.4Z"/></g>`}
+    + `<path class="pa-fine" fill="#fff" fill-opacity=".9" d="M6.4-34.6C7.4-36 10-36.2 10.6-34.6V-14H6.4Z"/></g>`},
+  // Coin Toss: the referee's thumb flicking the captain's coin up over midfield, the coin spinning silver against the
+  // light, its star embossed, the midfield ring on the turf below.
+  {id: 'team-toss', name: 'Coin Toss: the referee flicking the coin over midfield', svg: (u, k) => {
+    const H = 104, strip = i => `M${f(50 + i * 13)} ${H}L${f(50 + (i + 1) * 13)} ${H}L${f(50 + (i + 1) * 40)} 160L${f(50 + i * 40)} 160Z`;
+    return ground(u, k, 36) + k.burst({cy: 52, n: 22, a: .12})
+      + `<linearGradient id="${u}fd" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${k.pd}"/><stop offset="1" stop-color="${INK}"/></linearGradient>`
+      + `<path d="M0 ${H}H100V160H0z" fill="url(#${u}fd)"/><path fill="#fff" fill-opacity=".07" d="${[-5, -3, -1, 1, 3].map(strip).join('')}"/>`
+      + `<path d="M0 ${H}H100M50 ${H}V160" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="1"/>`
+      + `<ellipse cx="50" cy="122" rx="26" ry="7" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="1.6"/><path d="${k.star(50, 122, 6)}" fill="#fff" fill-opacity=".5" transform="translate(0 122) scale(1 .4) translate(0 -122)"/>`
+      + k.glow({cx: 46, cy: 50, r: 30, a: .55}) + `<ellipse cx="47" cy="106" rx="9" ry="1.6" fill="#000" opacity=".25"/>`
+      // the flick's path up from the thumb, the coin's spin round it
+      + `<path class="pa-fine" d="M60.4 75C57 70 52 66 48 62" fill="none" stroke="#fff" stroke-width="1.2" stroke-linecap="round" stroke-dasharray=".1 2.6"/>`
+      + `<path d="M28.4 58C26 48 31 38.6 40 35.4M64 42.4C67 51 63 60.4 54.6 64" fill="none" stroke="#fff" stroke-opacity=".75" stroke-width="1.6" stroke-linecap="round"/>`
+      // the coin, tipped: its edge milled, its face silver with a rim and an embossed star, a gleam
+      + `<radialGradient id="${u}cn" cx=".36" cy=".3" r=".8"><stop offset="0" stop-color="#fff"/><stop offset=".55" stop-color="#C9D2DA"/><stop offset="1" stop-color="#7E8A95"/></radialGradient>`
+      + `<g transform="translate(46 50) rotate(-22) scale(1 .62)"><circle cy="5.4" r="14" fill="#6E7A86" stroke="${INK}" stroke-width="1.8"/><path d="M-14 0H14V5.4H-14Z" fill="#6E7A86"/>`
+      + `<path class="pa-fine" d="${Array.from({length: 9}, (_, i) => `M${f(-12 + i * 3)} ${f(Math.sqrt(196 - (-12 + i * 3) ** 2) + .6)}v4`).join('')}" stroke="#C9D2DA" stroke-width=".8"/>`
+      + `<circle r="14" fill="url(#${u}cn)" stroke="${INK}" stroke-width="1.8"/><circle r="11.2" fill="none" stroke="#7E8A95" stroke-width="1.2"/>`
+      + `<path d="${k.star(0, .6, 7.6)}" fill="#E3E8ED" stroke="#7E8A95" stroke-width="1"/><path d="M-9.6-6.4C-6.4-10.4-1-11.4 3-10.6" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/></g>`
+      + `<path class="pa-twinkle" fill="#fff" d="${k.star(36, 40, 3.4, 4, .22)}"/><path class="pa-twinkle" style="--d:1.3s" fill="#fff" d="${k.star(59, 57, 2.6, 4, .22)}"/>`
+      // the referee's arm in from the corner: the striped sleeve, its black cuff, the fist and the flicking thumb
+      + `<path d="M76.2 95.8L104.2 123.8L95.8 132.2L67.8 104.2Z" fill="#F4F6F5"/><path d="M74.6 97.6L102.6 125.6M70.4 101.6L98.4 129.6" stroke="#1C2420" stroke-width="2.6"/>`
+      + `<path d="M76.2 95.8L104.2 123.8L95.8 132.2L67.8 104.2Z" fill="none" stroke="${INK}" stroke-width="1.4" stroke-linejoin="round"/><path d="M77 96.6L68.6 105" stroke="#1C2420" stroke-width="3.4"/>`
+      + `<path d="M61.4 75.6C63.2 74.6 65 76.2 64.8 78.2L64.6 84.6L59.6 86.2C59.4 82.6 59.4 79 60 77Z" fill="#E8B086" stroke="${INK}" stroke-width="1.3" stroke-linejoin="round"/>`
+      + `<path d="M62 99.4C57.4 96.6 57.2 89.6 60.8 86.2L67.6 84C71.8 83.8 74.2 87.8 72.4 91.8L68.4 97.8C66.6 100.2 64.2 100.6 62 99.4Z" fill="#E8B086"/>`
+      + `<path d="M72.4 91.8L68.4 97.8C66.6 100.2 64.2 100.6 62 99.4C66 98 69 95 70.6 90.8Z" fill="#C98A62"/>`
+      + `<path d="M62 99.4C57.4 96.6 57.2 89.6 60.8 86.2L67.6 84C71.8 83.8 74.2 87.8 72.4 91.8L68.4 97.8C66.6 100.2 64.2 100.6 62 99.4ZM61.4 90.6L67 87.6M60.6 94.6L66.4 91.6" fill="none" stroke="${INK}" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round"/>`;
+  }}
 ];

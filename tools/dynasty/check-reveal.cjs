@@ -32,7 +32,8 @@ function server() {
 }
 const snap = (page, name) => (shots ? page.screenshot({path: path.join(shots, name + '.png')}) : Promise.resolve());
 
-/** Opens a pack of one card a tier on the page; returns the reveals in the order they'll come (openScene deals the best last). */
+/** Opens a pack of one card a tier on the page; returns the reveals in the order they'll come (openScene deals the best
+ *  last: by the reveal's tier, then OVR). */
 async function openAll(page) {
   return page.evaluate(async () => {
     const D = await import('/js/core/dynasty.js'), V = await import('/js/views/dynasty.js'), O = await import('/js/views/dynasty-open.js');
@@ -42,7 +43,7 @@ async function openAll(page) {
       pick(c => c.r === 'mythic' && c.s === 'L'), pick(c => c.s === 'P'), pick(c => c.s === 'X')];
     window.__closed = false;
     O.openScene({kind: 'leg', cards: cards.map(c => c.id), dup: {[cards[1].id]: true}, cardHTML: V.anyHTML, onClose: () => { window.__closed = true; }});
-    return cards.slice().sort((a, b) => a.o - b.o).map(c => ({id: c.id, name: c.name, ...O.revealOf(c)}));
+    return cards.map(c => ({id: c.id, name: c.name, o: c.o, ...O.revealOf(c)})).sort((a, b) => a.tier - b.tier || a.o - b.o);
   });
 }
 async function rip(page) {
@@ -80,7 +81,9 @@ async function timedPass(page, order) {
     assert.equal(s0.tag, R.label, T + ': its stamp');
     assert.equal(s0.backShown, R.tier >= 1, T + ': face down past Common');
     assert.equal(s0.isNew, R.tier !== 1, T + ': NEW on every card but the copy held');
-    assert.equal(s0.n.includes(R.label || `${i + 1} of ${order.length}`), true, T + ': the count line names it');
+    // (the count line counts only: a face-down card's tier is told by its stamp once it turns, not before)
+    assert.equal(s0.n, `${i + 1} of ${order.length}`, T + ': the count line counts');
+    if (i) assert.ok(R.tier >= order[i - 1].tier, T + ': no bigger reveal before it');
     // (frames at exact moments of the reveal's clock: every animation paused and set to that time, then let run on)
     const frame = async (ms, name) => {
       if (!shots) return;

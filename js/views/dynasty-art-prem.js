@@ -115,26 +115,31 @@ export default [
       + k.glow({cx: 10, cy: 90, r: 9, c: '#FFF6D8', a: .7}) + k.glow({cx: 90, cy: 90, r: 9, c: '#FFF6D8', a: .7})
       + `<path class="pa-fine" fill="none" stroke="#C9A6FF" stroke-opacity=".4" stroke-width=".5" stroke-dasharray=".6 1.4" d="M0 107C16 115 32 118 50 118S84 115 100 107M0 113C16 120.6 32 123.4 50 123.4S84 120.6 100 113"/>`;
   }},
-  // The Tunnel: down the players' tunnel, its arches lit one by one, to the bright mouth and the field and stands in
-  // the light beyond; the light floods back in rays, motes of dust rise in it.
+  // The Tunnel: down the players' tunnel, dark near us, its arches lit one by one along their inner rims, to the bright
+  // mouth: beyond it the floodlights over the stands and their crowd in silhouette, the field's mown stripes; the light
+  // floods back in rays, motes of dust rise in it.
   {id: 'prem-tunnel', name: 'The Tunnel: a players’ tunnel opening onto the lit field', svg: (u, k) => {
     const V = [50, 78], rib = sc => `translate(${V[0]} ${V[1]}) scale(${sc}) translate(${-V[0]} ${-V[1]})`;
-    return `<radialGradient id="${u}bg" cx="50" cy="76" r="80" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#F0E2FF"/><stop offset=".14" stop-color="#B57CF0"/><stop offset=".3" stop-color="${k.pc}"/><stop offset=".58" stop-color="#3D1468"/><stop offset="1" stop-color="#12041F"/></radialGradient>`
+    return `<radialGradient id="${u}bg" cx="50" cy="76" r="80" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#F0E2FF"/><stop offset=".12" stop-color="#B57CF0"/><stop offset=".22" stop-color="#6A2AB0"/><stop offset=".4" stop-color="#3D1468"/><stop offset=".62" stop-color="#2A0E4A"/><stop offset="1" stop-color="#12041F"/></radialGradient>`
       + `<rect width="100" height="160" fill="url(#${u}bg)"/>`
       // beyond the mouth: the light, the stands with their dots of light, the field with its lines
       + `<defs><path id="${u}ar" d="M39 94V73.4A11 11 0 0 1 61 73.4V94"/><path id="${u}rl" d="M39 86V73.4A11 11 0 0 1 61 73.4V86"/></defs>`
       + `<radialGradient id="${u}sky" cx="50%" cy="70%" r="70%"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#E2CCFF"/></radialGradient>`
       + `<use href="#${u}ar" fill="url(#${u}sky)"/>`
-      + `<path d="M39 80L50 77.6L61 80V86H39Z" fill="#A98AD6"/><path class="pa-fine" d="${dots(scatter(14, 3, 40, 60, 80, 84.6))}" stroke="#fff" stroke-width=".7" stroke-linecap="round"/>`
-      + `<path d="M39 86H61V94H39Z" fill="#8FDCAE"/><path d="M42 94L44.4 86M50 94V86M58 94L55.6 86" stroke="#fff" stroke-width=".5" stroke-opacity=".9"/>`
+      + k.glow({cx: 43, cy: 70.4, r: 4.6, c: '#fff', a: 1}) + k.glow({cx: 57, cy: 70.4, r: 4.6, c: '#fff', a: 1})
+      + `<path d="M42.6 79.6V71.4M57.4 79.6V71.4" stroke="#3A1668" stroke-width=".6"/><path d="M41 69.6h4v1.8h-4zM55 69.6h4v1.8h-4z" fill="#3A1668"/><path d="M41.5 70.1h3v.8h-3zM55.5 70.1h3v.8h-3z" fill="#FFFBEA"/>`
+      + `<path d="M39 79.4L50 77L61 79.4V86H39Z" fill="#4A2280"/><path d="M39 79.4L50 77L61 79.4" fill="none" stroke="#C9A6FF" stroke-width=".4"/>`
+      + `<path d="${dots(scatter(22, 3, 39.6, 60.4, 79.6, 85.4))}" stroke="#F1E4FF" stroke-width=".6" stroke-linecap="round"/>`
+      + `<path d="M39 86H61V94H39Z" fill="#1F8C74"/><path d="M41.4 86H45.4L44.2 94H39.6ZM49 86H53L53.4 94H48.6ZM56.6 86H60.4L61 94H57Z" fill="#43C29C"/>`
+      + `<path d="M42 94L44.4 86M50 94V86M58 94L55.6 86M39 86.2H61" stroke="#fff" stroke-width=".45" stroke-opacity=".9"/>`
       // the tunnel: the floor running up to the mouth, a runner along it, seams across
-      + `<linearGradient id="${u}fl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9C6AE0"/><stop offset=".35" stop-color="#4A1C7E"/><stop offset="1" stop-color="#12041F"/></linearGradient>`
+      + `<linearGradient id="${u}fl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9C6AE0"/><stop offset=".3" stop-color="#3D1468"/><stop offset="1" stop-color="#0E0318"/></linearGradient>`
       + `<path d="M39 94H61L106.4 160H-6.4Z" fill="url(#${u}fl)"/>`
       + `<path d="M46.4 94H53.6L68 160H32Z" fill="#7B34C6" fill-opacity=".85"/><path d="M46.4 94L32 160M53.6 94L68 160" stroke="#E9DEFF" stroke-opacity=".55" stroke-width=".7"/>`
       + `<path class="pa-fine" d="M35 98.6H65M28.4 106.2H71.6M17 119.4H83M-2 141.6H102" stroke="#000" stroke-opacity=".3" stroke-width=".6"/>`
       // the arches, nearest last: each a dark band with its rim lit from the mouth, a lamp at its crown
       + [1.42, 2.02, 2.9, 4.2].map((sc, i) => `<use href="#${u}ar" transform="${rib(sc)}" fill="none" stroke="#260A43" stroke-width="${f(1.5 + i * .12)}"/>`
-        + `<use href="#${u}rl" transform="${rib(sc - .05)}" fill="none" stroke="#E2CCFF" stroke-opacity="${f(.85 - i * .12)}" stroke-width=".4"/>`).join('')
+        + `<use href="#${u}rl" transform="${rib(sc - .06)}" fill="none" stroke="#F4EAFF" stroke-opacity="${f(.95 - i * .14)}" stroke-width="${f(.6 - i * .06)}"/>`).join('')
       + [1.42, 2.02, 2.9].map((sc, i) => `<rect class="pa-pulse" style="--d:${f(i * .5)}s;--t:2.4s" x="${f(V[0] - 2.4 * sc)}" y="${f(V[1] + (62.4 - V[1]) * sc - .6 * sc)}" width="${f(4.8 * sc)}" height="${f(1.2 * sc)}" rx="${f(.5 * sc)}" fill="#FFF3D6"/>`).join('')
       // a banner hung on each wall, between the second and third arches
       + `<linearGradient id="${u}bn" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#A45CF0"/><stop offset="1" stop-color="#5A1E98"/></linearGradient>`
@@ -146,8 +151,9 @@ export default [
       + k.glow({cy: 100, r: 22, c: '#E7D3FF', a: .45})
       + scatter(6, 19, 36, 64, 92, 112).map(([x, y], i) => `<circle class="pa-rise" style="--d:${f(i * .55)}s;--t:${f(3.2 + (i % 3) * .5)}s" cx="${x}" cy="${y}" r="${f(.5 + (i % 3) * .25)}" fill="#fff"/>`).join('');
   }},
-  // Amethyst: the ball cut as a gem, its facets catching the light in shades of violet, floating in a spotlight over a
-  // platinum-rimmed plinth on a quilt of dots, sparkles glinting off it.
+  // Amethyst: the ball cut as a gem, its facets catching the light in shades of violet, its girdle dark, fire flashing
+  // off its edges in pink, cyan and gold, floating in a spotlight over a two-step platinum-rimmed pedestal topped in
+  // velvet, the light thrown through it dancing on the floor in caustics; a quilt of dots, sparkles glinting off it.
   {id: 'prem-gem', name: 'Amethyst: a football cut as a purple gem', svg: (u, k) => {
     // (the facets: a top edge, a staggered row, the girdle, a staggered row, the bottom edge; each triangle shaded by
     // where it faces, the light from the upper left)
@@ -169,13 +175,24 @@ export default [
       // the spotlight from above, the plinth under it
       + `<linearGradient id="${u}sp" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".05"/><stop offset="1" stop-color="#F1E4FF" stop-opacity=".4"/></linearGradient>`
       + `<path d="M40 21H60L82 108H18Z" fill="url(#${u}sp)"/>` + k.glow({cy: 70, r: 40, c: '#E7D3FF', a: .6})
+      // (the floor in the cone, the light thrown through the gem dancing on it)
+      + `<path d="M0 112H100V160H0Z" fill="#14052A" fill-opacity=".5"/>`
+      + `<path d="M18 108H82L88 128H12Z" fill="#F1E4FF" fill-opacity=".1"/>`
+      + `<path class="pa-fine pa-pulse" style="--t:3.6s" d="${[[15, 118, 2.4], [22, 122.6, 1.8], [82, 117.4, 2.2], [86, 122.4, 1.6], [12.6, 124.6, 1.4], [77.6, 125, 1.6], [26.6, 126.4, 1.2]].map(([x, y, r]) => `M${f(x - r)} ${y}Q${x} ${f(y - r * .55)} ${f(x + r)} ${y}Q${x} ${f(y + r * .35)} ${f(x - r)} ${y}Z`).join('')}" fill="#F4EAFF" fill-opacity=".55"/>`
+      // the pedestal: a wide lower step, a narrower upper one, each rimmed in platinum, the top in violet velvet with
+      // the gem's fire spilled on it
       + `<linearGradient id="${u}pl" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#24093F"/><stop offset=".45" stop-color="#5A2896"/><stop offset="1" stop-color="#1A0630"/></linearGradient>`
-      + `<path d="M24 106V116C24 120.4 35.6 124 50 124S76 120.4 76 116V106Z" fill="url(#${u}pl)"/><path d="M24 109.4C24 113.8 35.6 117.4 50 117.4S76 113.8 76 109.4" fill="none" stroke="#E2D2FF" stroke-opacity=".7" stroke-width=".8"/>`
-      + `<ellipse cx="50" cy="106" rx="26" ry="7" fill="#3C1470" stroke="#F1E8FF" stroke-width="1.1"/><ellipse cx="50" cy="106" rx="14" ry="3.2" fill="#C9A6FF" fill-opacity=".45"/>`
+      + `<path d="M20 112V117C20 121 33.4 124.4 50 124.4S80 121 80 117V112Z" fill="url(#${u}pl)"/><ellipse cx="50" cy="112" rx="30" ry="6.6" fill="#2E0E58" stroke="#F1E8FF" stroke-width=".9"/>`
+      + `<path d="M28 104V111C28 114 37.8 116.4 50 116.4S72 114 72 111V104Z" fill="url(#${u}pl)"/><path d="M28 107.6C28 110.6 37.8 113 50 113S72 110.6 72 107.6" fill="none" stroke="#E2D2FF" stroke-opacity=".6" stroke-width=".6"/>`
+      + `<radialGradient id="${u}vv" cx=".42" cy=".35" r=".75"><stop offset="0" stop-color="#9A52E8"/><stop offset=".6" stop-color="#5A1E9E"/><stop offset="1" stop-color="#2E0A5A"/></radialGradient>`
+      + `<ellipse cx="50" cy="104" rx="22" ry="5.2" fill="url(#${u}vv)" stroke="#F1E8FF" stroke-width="1.1"/><path d="M30.4 102.6C34 100.4 42 99.2 50 99.2" fill="none" stroke="#fff" stroke-opacity=".8" stroke-width=".7" stroke-linecap="round"/>`
+      + `<ellipse cx="50" cy="104" rx="11" ry="2.4" fill="#C9A6FF" fill-opacity=".5"/><ellipse cx="44.6" cy="104.4" rx="3.2" ry="1" fill="#FF9AE0" fill-opacity=".55"/><ellipse cx="55.6" cy="103.6" rx="3" ry=".9" fill="#9AE8FF" fill-opacity=".55"/>`
       // the gem, turned along its flight, floating: its facets by shade, their edges, its rim, white laces
       + `<g class="pa-float" style="--t:5s"><g transform="translate(50 68) rotate(-28) scale(1.16)">${by.map((d, i) => d ? `<path d="${d}" fill="${TONE[i]}"/>` : '').join('')}`
       + `<path class="pa-fine" d="${edges}" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width=".3" stroke-linejoin="round"/>`
+      + `<path d="M${G.map(([x, y]) => `${f(x)} ${f(y)}`).join('L')}" fill="none" stroke="#1E0640" stroke-opacity=".8" stroke-width=".7"/>`
       + `<path d="${rim}" fill="none" stroke="#1E0640" stroke-width=".9" stroke-linejoin="round"/>`
+      + [[-12, -11.2, 2.4, '#FF9AE0', .3], [12, -9.6, 2, '#9AE8FF', 1.4], [-20, 0, 2.2, '#FFE38A', 2.1], [4, 11.8, 1.8, '#FF9AE0', .9]].map(([x, y, r, c, d]) => `<path class="pa-twinkle" style="--d:${d}s" d="${spark(k, x, y, r)}" fill="${c}"/>`).join('')
       + `<path d="M-7-6.6H7M-4.6-9V-4.2M-1.6-9.4V-3.8M1.6-9.4V-3.8M4.6-9V-4.2" fill="none" stroke="#fff" stroke-width="1.3" stroke-linecap="round" stroke-opacity=".92"/></g></g>`
       + [[33, 56, 5, 0], [64, 88, 3.4, 1.2], [80, 46, 3, .6], [18, 84, 2.6, 1.8], [72, 30, 2.2, 2.3], [27, 34, 2.4, .9]].map(([x, y, r, d]) => `<path class="pa-twinkle" style="--d:${d}s" d="${spark(k, x, y, r)}" fill="#fff"/>`).join('');
   }}

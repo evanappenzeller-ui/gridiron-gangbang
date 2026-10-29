@@ -4,8 +4,8 @@
 // should be"). Each design: {id: 'std-<slug>', name (for screen readers), svg: (u, k) => markup in a 100 x 160 viewBox,
 // full-bleed, the subject in y 24..122; ids `${u}name`; at most 30 elements}. The guide is at the top of
 // views/dynasty-packs.js.
-// Tier 1: clean and flat, the everyday game: the ball in flight, through the posts, on the 50 and in the huddle (two or
-// three tones, a shade and a gleam) on the pack's blue, in one burst or glow of light; nothing moves.
+// Tier 1: clean and flat, the everyday game: the ball in flight, through the posts, on the 50 and over the goal line
+// (two or three tones, a shade and a gleam) on the pack's blue, in one burst or glow of light; nothing moves.
 
 // (the blue ground every design shares, light behind the subject: 5 elements)
 const ground = (u, k, cy = 44) => `<radialGradient id="${u}bg" cx="50%" cy="${cy}%" r="72%"><stop offset="0" stop-color="${k.pl}"/><stop offset=".5" stop-color="${k.pc}"/>`
@@ -48,11 +48,16 @@ export default [
     + `<rect x="57.5" y="88.5" width="13.5" height="24.5" rx="6.75" fill="none" stroke="#fff" stroke-opacity=".92" stroke-width="5"/>`
     + k.glow({cx: 50, cy: 57, r: 32, a: .5}) + `<ellipse cx="50" cy="67" rx="17" ry="3" fill="#0B1F4A" opacity=".35"/>`
     + ball(50, 57, 21, 12, -16)},
-  // Huddle: the eleven seen from above, helmets in a ring round the ball, every face mask turned in to the play call.
-  {id: 'std-huddle', name: 'Huddle: eleven helmets in a ring round the ball', svg: (u, k) => ground(u, k, 46) + k.burst({cy: 74, a: .12})
-    + `<circle cx="50" cy="74" r="19" fill="#fff" fill-opacity=".16"/>`
-    + `<defs><g id="${u}h"><ellipse cx="1" cy="1.6" rx="6.2" ry="7.2" fill="#0B1F4A" opacity=".3"/><ellipse rx="6.2" ry="7.2" fill="#F5F6F8" stroke="${k.pd}" stroke-opacity=".5" stroke-width=".5"/>`
-    + `<path d="M0 -7.2V7.2" stroke="${k.pc}" stroke-width="2.2"/><path d="M-4.8 -4C-4.8 -10.8 4.8 -10.8 4.8 -4M-3 -8.9L-1.8 -5.6M3 -8.9L1.8 -5.6" fill="none" stroke="#4E5866" stroke-width="1.2" stroke-linecap="round"/></g></defs>`
-    + Array.from({length: 11}, (_, i) => { const a = i * 2 * Math.PI / 11; return `<use href="#${u}h" transform="translate(${f(50 + 28.5 * Math.sin(a))} ${f(74 - 28.5 * Math.cos(a))}) rotate(${f(i * 360 / 11 + 180)})"/>`; }).join('')
-    + ball(50, 74, 12.5, 7.4, -24)}
+  // Touchdown: side on at the goal line, the ball breaking the plane past the orange pylon, the end zone's stripes
+  // beyond, a flash where it crosses.
+  {id: 'std-touchdown', name: 'Touchdown: the ball crossing the goal line past the pylon', svg: (u, k) => ground(u, k, 40) + k.burst({cx: 56, cy: 64, a: .13})
+    + `<path d="M0 100H100V160H0z" fill="${k.pd}" fill-opacity=".5"/><path d="M0 100.4H100" stroke="#fff" stroke-opacity=".4" stroke-width="1"/>`
+    + `<path d="M66 100h6l-9 60h-6zM82 100h6l-9 60h-6zM98 100h6l-9 60h-6z" fill="#fff" fill-opacity=".1"/>`
+    + `<path d="M53 100h4.4l-9 60H40z" fill="#fff"/><path d="M53 100h4.4V38H53z" fill="#fff" fill-opacity=".14"/>`
+    + `<ellipse cx="44" cy="121" rx="10" ry="2" fill="#000" opacity=".25"/>`
+    + `<path d="M38.6 121V84h9v37z" fill="#FF7A1A"/><path d="M47.6 121l4.4-3.2V80.8l-4.4 3.2z" fill="#C65A0E"/><path d="M38.6 84l4.4-3.2h9L47.6 84z" fill="#FFB070"/>`
+    + `<path class="pa-fine" d="M40.4 86v33" stroke="#fff" stroke-opacity=".35" stroke-width="1"/>`
+    + `<path fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" d="${trail(61, 60, -14, [[-8, 20, 16], [0, 24, 26], [8, 20, 12]])}"/>`
+    + k.glow({cx: 56, cy: 62, r: 18, a: .7}) + `<ellipse cx="63" cy="101" rx="11" ry="1.8" fill="#000" opacity=".2"/>`
+    + ball(61, 60, 21, 12.4, -14)}
 ];

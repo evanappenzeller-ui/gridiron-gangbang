@@ -89,20 +89,22 @@ export function designsOf(kind) {
   return a.length ? a : [{id: kind, name: D.PACKS[kind] ? D.PACKS[kind].name : kind, svg: plain}];
 }
 let uid = 0;
-// (one bad design never breaks the page: the pack's first design, else its emblem)
+// (one bad design never breaks the page: the pack's first design, else its emblem; `by` says which drew it, so the
+// pack can own up to it: data-art-fallback)
 function artOf(kind, d, list, u, k) {
-  for (const f of [d.svg, list[0].svg, plain]) { try { const s = f(u, k); if (typeof s === 'string' && s) return s; } catch (_) {} }
-  return '';
+  for (const [by, f] of [[d.id, d.svg], [list[0].id, list[0].svg], ['plain', plain]]) { try { const s = f(u, k); if (typeof s === 'string' && s) return {svg: s, by}; } catch (_) {} }
+  return {svg: '', by: 'none'};
 }
 // The frame's tier-5 gold filigree round the art's window (between the brand bar and the foot's seal, y 22..152): a
-// double rule, scrolled corners (one drawn, mirrored), lozenges at the sides, top and foot.
+// double rule, scrolled corners (one drawn, mirrored; the foot's pair smaller, about its corner, so their curls stay
+// clear of the name plate's points at x 22 and 78), lozenges at the sides, top and foot.
 const filigree = u => `<linearGradient id="${u}_fg" gradientUnits="userSpaceOnUse" x1="0" y1="20" x2="100" y2="160"><stop offset="0" stop-color="#FFF4C2"/>`
   + `<stop offset=".22" stop-color="#E9BD48"/><stop offset=".48" stop-color="#9A6A10"/><stop offset=".7" stop-color="#F6D978"/><stop offset="1" stop-color="#A8780F"/></linearGradient>`
   + `<defs><g id="${u}_fc" fill="none" stroke="url(#${u}_fg)" stroke-linecap="round"><path d="M4.6 24C4.6 12 12 4.6 24 4.6" stroke-width="1"/>`
   + `<path class="pa-fine" d="M24 4.6c3.4 0 5 2.4 3.8 4.2-.9 1.3-3.1.9-3-.8M4.6 24c0 3.4 2.4 5 4.2 3.8 1.3-.9.9-3.1-.8-3M8.4 17.5c1.2-4.6 4.6-8 9.1-9.1" stroke-width=".5"/>`
   + `<path d="M2.4 2.4l6.4 2.2-2.2 2-2 2.2z" fill="url(#${u}_fg)" stroke="none"/><circle class="pa-fine" cx="11" cy="11" r="1.2" fill="url(#${u}_fg)" stroke="none"/></g></defs>`
   + `<g fill="none" stroke="url(#${u}_fg)"><rect x="2.4" y="22.4" width="95.2" height="129.2" rx="2.4" stroke-width="1.2"/><rect class="pa-fine" x="4.6" y="24.6" width="90.8" height="124.8" rx="1.4" stroke-width=".4"/></g>`
-  + `<use href="#${u}_fc" transform="translate(0 20)"/><use href="#${u}_fc" transform="matrix(-1 0 0 1 100 20)"/><use href="#${u}_fc" transform="matrix(1 0 0 -1 0 154)"/><use href="#${u}_fc" transform="matrix(-1 0 0 -1 100 154)"/>`
+  + `<use href="#${u}_fc" transform="translate(0 20)"/><use href="#${u}_fc" transform="matrix(-1 0 0 1 100 20)"/><use href="#${u}_fc" transform="matrix(.62 0 0 -.62 .9 153.1)"/><use href="#${u}_fc" transform="matrix(-.62 0 0 -.62 99.1 153.1)"/>`
   + `<path fill="url(#${u}_fg)" d="M2.4 80.5l2.2 6.5-2.2 6.5-2.2-6.5zM97.6 80.5l2.2 6.5-2.2 6.5-2.2-6.5zM50 19.6l4.4 2.8-4.4 2.8-4.4-2.8zM50 148.8l4.4 2.8-4.4 2.8-4.4-2.8z"/>`;
 // (the frame's sparkles, clear of the art's middle: x, y in % of the pack, size in cqw, delay)
 const SPARKS = [[13, 25, 9, 0], [86, 33, 7, 1.1], [11, 66, 6, 1.9], [89, 70, 8, .6], [24, 17.5, 5, 2.4], [77, 50, 5, 1.5], [20, 46, 4, .3]];
@@ -111,9 +113,9 @@ const SPARKS = [[13, 25, 9, 0], [86, 33, 7, 1.1], [11, 66, 6, 1.9], [89, 70, 8, 
 export function packHTML(kind, {count, big, design = 0} = {}) {
   const P = D.PACKS[kind], t = TIER[kind] || 1, list = designsOf(kind), n = list.length;
   const d = list[((Math.floor(+design) || 0) % n + n) % n], u = `pa${(++uid).toString(36)}_`;
-  const name = esc(P.name.replace(' Pack', '').toUpperCase());
-  return `<span class="pk-pack${big ? ' is-big' : ''} k-${kind} tier-${t}" style="--pc:${P.color}" data-art="${esc(d.id)}" aria-hidden="true">`
-    + `<span class="pk-pack-art"><svg viewBox="0 0 100 160" preserveAspectRatio="xMidYMid slice" focusable="false">${artOf(kind, d, list, u, kit(kind, u))}</svg></span>`
+  const name = esc(P.name.replace(' Pack', '').toUpperCase()), art = artOf(kind, d, list, u, kit(kind, u));
+  return `<span class="pk-pack${big ? ' is-big' : ''} k-${kind} tier-${t}" style="--pc:${P.color}" data-art="${esc(d.id)}"${art.by !== d.id ? ` data-art-fallback="${esc(art.by)}"` : ''} aria-hidden="true">`
+    + `<span class="pk-pack-art"><svg viewBox="0 0 100 160" preserveAspectRatio="xMidYMid slice" focusable="false">${art.svg}</svg></span>`
     + (t >= 2 ? '<span class="pk-pack-emboss"></span>' : '') + (t >= 3 ? '<span class="pk-pack-holo"></span>' : '')
     + `<span class="pk-pack-top"><i class="pk-pack-ball"></i><b>GRIDIRON<small>DYNASTY</small></b><em>GD1</em></span>`
     + `<span class="pk-pack-name"><small>${kind === 'leg' ? 'DELUXE PACK' : 'BOOSTER PACK'}</small><b><span>${name}</span></b></span>`

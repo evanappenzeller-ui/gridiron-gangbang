@@ -208,7 +208,9 @@ export async function dynastyChecks(check) {
     const R = cards.map(O.revealOf);
     const tiers = R.map(r => r.tier).join() === '0,1,2,3,4,5,6';
     const up = k => R.every((r, i) => !i || r[k] >= R[i - 1][k]);
-    const more = up('hold') && up('flip') && up('sparks') && up('confetti') && up('total') && R.every((r, i) => !i || r.haptics.length >= R[i - 1].haptics.length) && R[6].total > R[0].total * 4;
+    // (and each tier a clear step past the last in at least one of them: never two the same)
+    const step = R.every((r, i) => !i || ['hold', 'total', 'sparks', 'confetti'].some(k => r[k] > R[i - 1][k]));
+    const more = up('hold') && up('flip') && up('sparks') && up('confetti') && up('total') && step && R.every((r, i) => !i || r.haptics.length >= R[i - 1].haptics.length) && R[6].total > R[0].total * 4;
     const labels = R.map(r => r.label).join() === ',,Epic,Legendary,Mythic,Prime,Legend';
     const trainer = O.revealOf(D.trainer(D.TRAINER_IDS[0])).tier;
     const html = O.dealHTML(cards[6], R[6], '<div class="pk-card"></div>', true);
@@ -230,7 +232,9 @@ export async function dynastyChecks(check) {
       const ds = P.designsOf(k), t = P.TIER[k];
       if (ds.length < 3 || new Set(ds.map(d => d.id)).size !== ds.length) { ok = false; why += `${k}: ${ds.length} designs; `; }
       ds.forEach((d, i) => {
-        const svg = svgOf(P.packHTML(k, {big: true, design: i})), n = svg.querySelectorAll('*').length;
+        const html = P.packHTML(k, {big: true, design: i}), svg = svgOf(html), n = svg.querySelectorAll('*').length;
+        // (a design that threw is drawn by the pack's first, marked data-art-fallback: that's a broken design)
+        if (!html.includes(`data-art="${d.id}"`) || /data-art-fallback=/.test(html)) { ok = false; why += `${d.id} fell back; `; }
         const ids = [...svg.querySelectorAll('[id]')].map(e => e.id), u = ids.length ? ids[0].slice(0, ids[0].indexOf('_') + 1) : '';
         if (n > BUDGET[t] || (t < 4 && svg.querySelector('filter')) || !ids.every(id => id.startsWith(u)) || n < 8) { ok = false; why += `${d.id} (${n}); `; }
         (by[t] = by[t] || []).push(n);

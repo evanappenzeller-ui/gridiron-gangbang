@@ -10,10 +10,11 @@
 // face up; a Rare comes face down (Pocket's card back) and flips; an Epic hovers, a ring pulses and it flips with sparks
 // and its stamp; a Legendary turns the ground gold with rays behind it, flashes as it flips, sparks, confetti; a Mythic ★
 // turns it purple, drums (shakes harder and harder) before the flip, a rainbow sweep after; a ★★ (Prime, Gameday, Award)
-// the same on blue; a Legend ♛ darkens the ground, a crown drops in, the card rises from the foot, drums, flips in the
-// biggest flash, gold sparks and two bursts of confetti; from Epic up a star glints at its corner after. A tap while a
-// reveal plays finishes it; the next moves on. The top card tilts under your finger, a rare one's foil catching the
-// light. Then the lot, new ones marked. Reduced motion: each card simply face up, its ground and stamp still.
+// turns it blue, drums longer and flips in two rings; a Legend ♛ darkens the ground, a crown drops in, the card rises from
+// the foot, drums hardest, flips in the biggest flash, gold sparks and two bursts of confetti; from Epic up a star glints
+// at its corner after, and its stamp lands on the card's foot (clear of its numbers). A tap while a reveal plays finishes
+// it; the next moves on. The top card tilts under your finger, a rare one's foil catching the light (still, it lies flat:
+// its face stays sharp). Then the lot, new ones marked. Reduced motion: each card simply face up, its ground and stamp.
 // css/views/dynasty-open.css dresses it.
 import * as ui from '../core/ui.js';
 import * as D from '../core/dynasty.js';
@@ -27,8 +28,8 @@ const sparkles = (n, f) => Array.from({length: n}, (_, i) => `<i class="dy-spk" 
 const RAYS = [-30, -23, -16, -10, -4, 2, 8, 14, 20, 26, 33].map((a, i) => `<i style="--a:${a}deg;--h:${[320, 18, 46, 62, 140, 178, 200, 228, 262, 292, 335][i]};--d:-${(i * .37 % 1).toFixed(2)}s"></i>`).join('');
 const MOTES = sparkles(16, (a, b, i) => `--x:${(8 + a * 84).toFixed(1)}%;--w:${((b - .5) * 70).toFixed(0)}px;--s:${(8 + b * 12).toFixed(0)}px;--d:${(.08 + (i % 8) * .07).toFixed(2)}s;--t:${(.9 + a * .5).toFixed(2)}s`);
 const DRIFT = sparkles(18, (a, b, i) => `--x:${(a * 100).toFixed(1)}%;--y:${(30 + b * 70).toFixed(1)}%;--s:${(7 + (i % 5) * 3)}px;--d:-${(i * .9 % 7).toFixed(1)}s;--t:${(6 + b * 5).toFixed(1)}s`);
-// A card's back, Pocket's: a deep blue swirl, the emblem (a football in a ring, as Pocket's ball) and the name, upside down
-// at the foot as a real card's back; a silver edge
+// A card's back, Pocket's: a deep blue swirl, the emblem (a football, laced and striped, in a ring where Pocket has its
+// ball) and the name, upside down at the foot as a real card's back; a silver edge
 const SWIRL = (() => {
   let s = '';
   for (let k = 0; k < 10; k++) {
@@ -38,8 +39,11 @@ const SWIRL = (() => {
   }
   return `<svg class="dy-back-swirl" viewBox="0 0 100 140" preserveAspectRatio="xMidYMid slice"><g fill="none" stroke-linecap="round">${s}</g></svg>`;
 })();
+const BALL = '<svg viewBox="0 0 100 100"><path d="M8 50Q50 2 92 50Q50 98 8 50Z" fill="#8E4B1E" stroke="#3A1B08" stroke-width="2.6" stroke-linejoin="round"/>'
+  + '<path d="M20 41Q40 25 62 29" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="3.4" stroke-linecap="round"/>'
+  + '<path d="M23 38Q27.5 50 23 62M77 38Q72.5 50 77 62M35 50H65M39 44.5v11M44.5 44.5v11M50 44.5v11M55.5 44.5v11M61 44.5v11" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/></svg>';
 const BACK = `<div class="dy-back-in">${SWIRL}<b class="dy-back-word">GRIDIRON<small>DYNASTY</small></b>`
-  + `<span class="dy-back-ball"><i></i></span><b class="dy-back-word is-flip">GRIDIRON<small>DYNASTY</small></b></div>`;
+  + `<span class="dy-back-ball">${BALL}</span><b class="dy-back-word is-flip">GRIDIRON<small>DYNASTY</small></b></div>`;
 const FF_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 6.2v11.6L11.6 12zM12.4 6.2v11.6L20.5 12z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
 
 // ---------------------------------------------------------------------------------------------------- the reveals
@@ -53,7 +57,7 @@ export const REVEAL = [
   {tier: 2, name: 'epic', hold: 600, flip: 540, sparks: 8, confetti: 0, haptics: [[0, 'light'], [870, 'medium']], palette: ['#7FD8FF', '#FFFFFF', '#3FA9F5'], label: 'Epic'},
   {tier: 3, name: 'legendary', hold: 850, flip: 600, sparks: 12, confetti: 40, haptics: [[0, 'light'], [500, 'medium'], [1150, 'success']], palette: ['#FFE68A', '#FFFFFF', '#FFB300'], label: 'Legendary'},
   {tier: 4, name: 'mythic', hold: 1000, flip: 620, sparks: 16, confetti: 70, haptics: [[0, 'medium'], [400, 'medium'], [800, 'medium'], [1310, 'success']], palette: ['#FF7FD8', '#B388FF', '#FFFFFF', '#7CF0FF'], label: 'Mythic'},
-  {tier: 5, name: 'star2', hold: 1000, flip: 620, sparks: 16, confetti: 70, haptics: [[0, 'medium'], [400, 'medium'], [800, 'medium'], [1310, 'success']], palette: ['#FFFFFF', '#8FE3FF', '#FFD94A'], label: 'Special'},
+  {tier: 5, name: 'star2', hold: 1150, flip: 650, sparks: 18, confetti: 85, haptics: [[0, 'medium'], [380, 'medium'], [760, 'medium'], [1000, 'medium'], [1475, 'celebrate']], palette: ['#FFFFFF', '#8FE3FF', '#FFD94A'], label: 'Special'},
   {tier: 6, name: 'crown', hold: 1300, flip: 700, sparks: 22, confetti: 110, haptics: [[0, 'medium'], [400, 'medium'], [700, 'medium'], [1000, 'success'], [1650, 'celebrate'], [2300, 'success']], palette: ['#FFE68A', '#FFFFFF', '#FFB300', '#FFF6D6'], label: 'Legend'}
 ].map(r => Object.freeze({...r, total: r.hold + r.flip + (r.tier ? 900 : 420)}));
 /** The reveal a card gets, by its mark (core/dynasty.js markOf): ◆ to ◆◆◆◆ tiers 0 to 3, ★ 4, ★★ 5, ♛ 6. */
@@ -70,9 +74,10 @@ export function dealHTML(c, R, cardHTML, isNew) {
   const sparks = Array.from({length: R.sparks}, (_, i) => `<i class="pk-spk" style="--a:${Math.round(i * 360 / R.sparks + (i % 2) * 11)}deg;--d:${110 + (i % 3) * 40}px;--t:${(i % 4) * 45}ms;--c:${R.palette[i % R.palette.length]}"></i>`).join('');
   return `<div class="pk-deal-c t-${R.tier}${R.tier ? ' is-flip' : ' is-face'}${R.tier >= 4 ? ' is-shake' : ''}" style="--hold:${R.hold}ms;--flip:${R.flip}ms">`
     + (R.tier >= 3 ? '<i class="pk-fx-rays" aria-hidden="true"></i>' : '') + (R.tier >= 2 ? '<i class="pk-fx-ring" aria-hidden="true"></i>' : '')
-    + (R.tier >= 6 ? '<i class="pk-fx-crown" aria-hidden="true">♛</i>' : '')
+    + (R.tier >= 5 ? '<i class="pk-fx-ring is-2" aria-hidden="true"></i>' : '') + (R.tier >= 6 ? '<i class="pk-fx-crown" aria-hidden="true">♛</i>' : '')
     + `<div class="pk-shake"><div class="pk-flip"><div class="pk-flip-back" aria-hidden="true">${BACK}</div>`
-    + `<div class="pk-flip-front">${cardHTML}${isNew ? '<span class="pk-c-new is-big" aria-hidden="true">NEW</span>' : ''}${R.tier >= 4 ? '<i class="pk-fx-sweep" aria-hidden="true"></i>' : ''}</div></div></div>`
+    + `<div class="pk-flip-front">${cardHTML}${isNew ? '<span class="pk-c-new is-big" aria-hidden="true">NEW</span>' : ''}${R.tier >= 4 ? '<i class="pk-fx-sweep" aria-hidden="true"></i>' : ''}`
+    + `${R.tier >= 3 ? '<i class="pk-fx-white" aria-hidden="true"></i>' : ''}</div></div></div>`
     + (R.tier >= 3 ? '<i class="pk-fx-flash" aria-hidden="true"></i>' : '') + (sparks ? `<span class="pk-spks" aria-hidden="true">${sparks}</span>` : '')
     + (R.label ? `<b class="pk-deal-tag">${R.label}</b>` : '') + (R.tier >= 2 ? '<i class="pk-fx-glint" aria-hidden="true"></i>' : '') + '</div>';
 }
@@ -82,8 +87,9 @@ export function dealHTML(c, R, cardHTML, isNew) {
  *  gone), focusBack (optional: where focus goes after onClose when what had it is gone, an element or a selector)}. */
 export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onClose, focusBack}) {
   const r = {cards, dup}, P = D.PACKS[kind];
-  // (the best last, as Pocket reveals: a Trainer card first)
-  const order = r.cards.map(D.anyCard).map((c, i) => ({c, i})).sort((a, b) => (a.c.o || 0) - (b.c.o || 0)).map(x => x.c);
+  // (the best last, as Pocket reveals: Trainer cards first, then by the reveal's tier, the biggest last, then OVR)
+  const rank = c => (c.o ? 10 : 0) + revealOf(c).tier;
+  const order = r.cards.map(D.anyCard).sort((a, b) => rank(a) - rank(b) || (a.o || 0) - (b.o || 0));
   const N = order.length, fresh = order.filter(c => !r.dup[c.id]).length;
   const ov = document.createElement('div');
   ov.className = 'pk-open';
@@ -95,9 +101,8 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
     + `<div class="dy-deck" tabindex="-1" role="group" aria-label="The cards: tap, swipe or press Enter for the next"></div>`
     + `<p class="dy-deck-meta" aria-hidden="true"><b class="pk-deal-n"></b><span class="dy-deal-hint">Tap or swipe</span></p></div>`
     + `<div class="dy-open-pack" data-dy-tear tabindex="0" role="button" aria-label="Rip the pack open: swipe across its top, or press Enter">`
-    + `<div class="dy-rip" style="--p:0;--dir:1"><span class="dy-rays" aria-hidden="true">${RAYS}</span><span class="dy-motes" aria-hidden="true">${MOTES}</span>`
-    + `<div class="dy-rip-body" style="clip-path:${TEAR.body}">${packHTML(kind, {big: true, design})}</div>`
-    + `<div class="dy-rip-top" style="clip-path:${TEAR.top}">${packHTML(kind, {big: true, design})}</div>`
+    + `<div class="dy-rip" style="--p:0;--dir:1;--ct:${TEAR.top};--cb:${TEAR.body}"><span class="dy-rays" aria-hidden="true">${RAYS}</span><span class="dy-motes" aria-hidden="true">${MOTES}</span>`
+    + `<div class="dy-rip-body">${packHTML(kind, {big: true, design})}</div><div class="dy-rip-top">${packHTML(kind, {big: true, design})}</div>`
     + `<span class="dy-rip-line" aria-hidden="true"></span><span class="dy-flare" aria-hidden="true"></span>`
     + `<span class="dy-rip-hint" aria-hidden="true"><i class="dy-rip-trail"></i><i class="dy-rip-finger"></i></span></div>`
     + `<p class="dy-rip-say">Swipe across the top to rip it open</p></div></div>`
@@ -123,28 +128,36 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
   const drop = list => list.splice(0).forEach(t => { clearTimeout(t); timers.delete(t); });
   const setPhase = p => { phase = p; ov.dataset.phase = p; };
   const inRaf = requestAnimationFrame(() => ov.classList.add('is-in'));
+  // (and still once it's covered: nothing behind animates for nothing)
+  later(() => behind.forEach(el => el.classList.add('pk-behind')), 320);
   pk.focus();
 
   // ---- the cards: a stack, the top one showing (slots: each card's element, made as it comes near the top)
   const slots = [];
   let at = 0, top = null;
   // (a slot: the card's tilt round its reveal, dealHTML's; the foil and the glare on its face, a rare one's foil showing)
-  const slotHTML = (c, i) => {
+  const slotHTML = c => {
     const R = revealOf(c), foil = R.tier >= 3 || (!c.s && c.r === 'legendary');
     const face = `${anyHTML(c.id, {size: 'l', tag: false, noCount: true})}<i class="dy-foil"></i><i class="dy-glare"></i><i class="dy-sheen"></i>`;
-    return `<div class="dy-dc t${R.tier}${foil ? ' is-foil' : ''}" data-i="${i}" aria-hidden="true"><div class="dy-tilt">${dealHTML(c, R, face, !r.dup[c.id])}</div></div>`;
+    return `<div class="dy-dc t${R.tier}${foil ? ' is-foil' : ''}" aria-hidden="true"><div class="dy-tilt">${dealHTML(c, R, face, !r.dup[c.id])}</div></div>`;
   };
   // (a card goes in under the others: the top one stays on top)
   const mount = i => {
     if (slots[i] || i >= N) return slots[i];
-    deck.insertAdjacentHTML('afterbegin', slotHTML(order[i], i));
+    deck.insertAdjacentHTML('afterbegin', slotHTML(order[i]));
     return (slots[i] = deck.firstElementChild);
   };
   // ---- a card's reveal, by its rarity (rv: the one playing; its haptics and confetti on the CSS's clock, --hold and
   // --flip; a tap finishes it: everything at its end, is-skip)
   let rv = null;
   const rvT = [];
-  const burst = (R, again) => { try { ui.confetti(top.getBoundingClientRect(), {colors: R.palette, count: again ? Math.round(R.confetti * .6) : R.confetti}); } catch (_) {} };
+  // (confetti from the card's two top corners, out and down round it: not a bar across its face)
+  const burst = (R, again) => {
+    try {
+      const b = top.getBoundingClientRect(), count = Math.round(R.confetti * (again ? .6 : 1) / 2);
+      [b.left + b.width * .06, b.right - b.width * .06].forEach(x => ui.confetti({left: x - 16, top: b.top - 4, width: 32, height: 8}, {colors: R.palette, count}));
+    } catch (_) {}
+  };
   const endReveal = (skip = true) => {
     if (!rv) return;
     const el = rv;
@@ -155,14 +168,17 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
   const begin = (fast = false) => {
     const c = order[at], R = revealOf(c), el = top, deal = el.querySelector('.pk-deal-c');
     drop(rvT);
-    ov.dataset.tier = String(R.tier);
-    nTxt.textContent = `${at + 1} of ${N}${R.label ? ` · ${R.label}` : ''}`;
+    // (⏩ running through: no ground, rays or word for each card it passes, no strobe; the results say the lot)
+    ov.dataset.tier = fast ? '' : String(R.tier);
+    if (!fast && R.tier >= 3) ov.dataset.g = String(R.tier);
+    // (the count only: a face-down card's tier isn't told before it turns; its stamp tells it)
+    nTxt.textContent = `${at + 1} of ${N}`;
     hint.hidden = at > 0;
     const pc = el.querySelector('.pk-card');
-    say.textContent = `${at + 1} of ${N}${R.label ? `, ${R.label}` : ''}: ${(pc && pc.getAttribute('aria-label')) || c.name}${r.dup[c.id] ? '' : ', new'}`;
+    if (!fast) say.textContent = `${at + 1} of ${N}${R.label ? `, ${R.label}` : ''}: ${(pc && pc.getAttribute('aria-label')) || c.name}${r.dup[c.id] ? '' : ', new'}`;
     cur.x = cur.y = cur.a = 0;
     el.classList.add('is-go');
-    if (fast) { deal.classList.add('is-skip'); return; }
+    if (fast) { deal.classList.add('is-skip', 'is-fast'); return; }
     const when = ms => (RM() ? 0 : ms);
     R.haptics.forEach(([t, k]) => rvT.push(later(() => ui.haptic(k), when(t))));
     if (R.confetti) rvT.push(later(() => burst(R), when(R.hold + R.flip / 2)));
@@ -185,7 +201,7 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
     rip.style.setProperty('--sy', (vy - (vx * Math.sin(th) + vy * Math.cos(th)) - 10).toFixed(1) + 'px');
     const mouth = rr.top + rr.height * .13, sink = Math.max(0, innerHeight * .76 - mouth), s0 = Math.min(1, rr.width * .84 / dr.width);
     pk.style.setProperty('--sink', sink.toFixed(0) + 'px');
-    pk.classList.add('is-torn'); ov.classList.add('is-flash');
+    pk.classList.add('is-torn'); ov.classList.add('is-tearflash');
     const el = mount(0);
     el.classList.add('is-top', 'is-hid');
     el.style.setProperty('--y0', (mouth + sink + rr.height * .05 - dr.top).toFixed(0) + 'px');
@@ -199,7 +215,7 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
   const settle = () => {
     if (phase !== 'open' && phase !== 'rise') return;
     drop(opening);
-    pk.hidden = true; ov.classList.remove('is-flash');
+    pk.hidden = true; ov.classList.remove('is-tearflash');
     top = slots[0];
     top.classList.remove('is-hid', 'is-rise', 'is-fade');
     at = 0; setPhase('deal');
@@ -213,19 +229,21 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
     el.classList.remove('is-top', 'is-sheen'); el.classList.add('is-fly');
     if (RM()) { el.style.transition = 'opacity .2s'; el.style.opacity = '0'; }
     else {
+      // (smeared at once and stretched along its way, as Pocket's, at a near even pace: a frame or two of it in sight)
       const w = deck.offsetWidth;
-      el.style.transition = 'transform .3s cubic-bezier(.3,.5,.55,1), opacity .3s ease-in, filter .3s';
-      el.style.transform = `translate(${(dir * (innerWidth / 2 + w * .85)).toFixed(0)}px, ${(-w * .08).toFixed(0)}px) rotate(${dir * 15}deg) scaleX(1.06)`;
-      el.style.filter = 'blur(5px)'; el.style.opacity = '.35';
+      el.style.transition = 'transform .28s cubic-bezier(.35,.25,.65,.85), opacity .28s ease-in, filter .05s';
+      el.style.transform = `translate(${(dir * (innerWidth / 2 + w * .85)).toFixed(0)}px, ${(-w * .06).toFixed(0)}px) rotate(${dir * 10}deg) scaleX(1.22)`;
+      el.style.filter = 'blur(7px)'; el.style.opacity = '.3';
     }
-    later(() => el.remove(), 360);
+    later(() => el.remove(), 340);
   };
   const advance = (dir = -1, fast = false) => {
     if (phase !== 'deal' || !top) return;
     endReveal();
     fly(top, dir);
     at++;
-    if (at >= N) { top = null; setPhase('done'); ffB.hidden = true; later(showResults, fast ? 140 : 300); return; }
+    // (the last one away: the ground fades back to Pocket's as it flies, then the lot)
+    if (at >= N) { top = null; setPhase('done'); ov.dataset.tier = ''; ffB.hidden = true; later(showResults, fast ? 140 : 300); return; }
     top = mount(at); top.classList.add('is-top');
     mount(at + 1);
     begin(fast);
@@ -253,12 +271,11 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
   // ---- ⏩: a tap for the next, held (0.4 s) it runs through the rest to the results
   let ffI = 0, ffHold = 0, held = false;
   const ffAll = () => {
-    if (phase === 'open' || phase === 'rise') settle();
     if (phase !== 'deal') return;
     ffB.classList.add('is-on');
     endReveal();
     const tick = () => { if (phase !== 'deal' || closed) { clearInterval(ffI); return; } advance(-1, true); };
-    tick(); ffI = setInterval(tick, 130);
+    clearInterval(ffI); tick(); ffI = setInterval(tick, 130);
   };
   const unhold = () => { clearTimeout(ffHold); ffB.classList.remove('is-hold'); if (held) later(() => { held = false; }, 400); };
   ffB.addEventListener('pointerdown', e => {
@@ -270,18 +287,17 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
   ffB.addEventListener('contextmenu', e => e.preventDefault());
 
   // ---- the top card under your finger: it tilts toward it, the glare and the foil following; a sideways drag swipes it
-  // (hold: where the finger is, -1..1 across and down; cur: the tilt now, eased toward it; a rare card sways on its own)
+  // (hold: where the finger is, -1..1 across and down; cur: the tilt now, eased toward it. Let go, it settles flat and
+  // stays so, as Pocket's: a card always on the move is drawn soft, its words blurred)
   const hold = {x: 0, y: 0, on: false}, cur = {x: 0, y: 0, a: 0};
   let raf = 0, g = null;
-  const t0 = performance.now();
   const kick = () => { if (!raf && !closed) raf = requestAnimationFrame(frame); };
-  const frame = now => {
+  const frame = () => {
     raf = 0;
     if (closed || !top) return;
-    const sway = !hold.on && !rv && phase === 'deal' && top.classList.contains('is-foil') && !RM(), k = (now - t0) / 1000;
-    const tx = hold.on ? hold.x : sway ? Math.sin(k * .85) * .7 : 0, ty = hold.on ? hold.y : sway ? Math.sin(k * 1.25 + 1) * .42 : 0;
-    cur.x += (tx - cur.x) * .14; cur.y += (ty - cur.y) * .14; cur.a += ((hold.on ? 1 : sway ? .55 : 0) - cur.a) * .1;
-    const s = top.style, still = !hold.on && !sway && Math.abs(cur.x) + Math.abs(cur.y) + cur.a < .004;
+    const tx = hold.on ? hold.x : 0, ty = hold.on ? hold.y : 0;
+    cur.x += (tx - cur.x) * .14; cur.y += (ty - cur.y) * .14; cur.a += ((hold.on ? 1 : 0) - cur.a) * .1;
+    const s = top.style, still = !hold.on && Math.abs(cur.x) + Math.abs(cur.y) + cur.a < .004;
     if (still) cur.x = cur.y = cur.a = 0;
     s.setProperty('--ry', (cur.x * 16).toFixed(2)); s.setProperty('--rx', (-cur.y * 13).toFixed(2));
     s.setProperty('--gx', (50 + cur.x * 50).toFixed(1) + '%'); s.setProperty('--gy', (50 + cur.y * 50).toFixed(1) + '%');
@@ -399,7 +415,14 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
   };
   pk.addEventListener('pointerup', letGo);
   pk.addEventListener('pointercancel', letGo);
-  pk.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && !ripped) { e.preventDefault(); dir = 1; pk.classList.add('is-touched'); tween(1, 420, tear); } });
+  // (Enter or Space: it rips at once, the strip torn across on its own; a touch meanwhile leaves it be)
+  pk.addEventListener('keydown', e => {
+    if ((e.key !== 'Enter' && e.key !== ' ') || ripped) return;
+    e.preventDefault();
+    ripped = true; dir = 1; drag = null;
+    pk.classList.remove('is-drag', 'is-nudge'); pk.classList.add('is-touched');
+    tween(1, 420, torn);
+  });
 
   // ---- closing: everything stops (timers, frames, the window's listener), focus goes back, onClose once
   const close = () => {
@@ -411,7 +434,7 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
     cancelAnimationFrame(anim); cancelAnimationFrame(raf); cancelAnimationFrame(inRaf);
     removeEventListener('keydown', onKey, true);
     ov.classList.remove('is-in'); ov.classList.add('is-out'); ov.style.pointerEvents = 'none';
-    behind.forEach(el => { el.inert = false; });
+    behind.forEach(el => { el.inert = false; el.classList.remove('pk-behind'); });
     setTimeout(() => ov.remove(), RM() ? 0 : 260);
     try { prevFocus && prevFocus.focus && prevFocus.focus(); } catch (_) {}
     if (onClose) onClose();
@@ -433,13 +456,13 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
     if (e.target.closest('[data-dy-done]') && $('.pk-results').classList.contains('is-ready')) close();
   });
 }
-// The tear line across a pack, a zigzag at CUT down from its top: the strip above it and the body below (clip-paths that
-// meet exactly).
+// The tear line across a pack, a zigzag 13% down from its top: the strip above it and the body below (clip-paths that
+// meet exactly; css: --ct, --cb).
 const TEAR = (() => {
   const CUT = 13, n = 12, pts = [];
   for (let i = 0; i <= n; i++) pts.push([+(i * 100 / n).toFixed(2), CUT + (i % 2 ? 1.6 : -0.6)]);
   const p = a => a.map(([x, y]) => `${x}% ${y}%`).join(',');
-  return {top: `polygon(0% 0%,100% 0%,${p(pts.slice().reverse())})`, body: `polygon(${p(pts)},100% 100%,0% 100%)`, cut: CUT};
+  return {top: `polygon(0% 0%,100% 0%,${p(pts.slice().reverse())})`, body: `polygon(${p(pts)},100% 100%,0% 100%)`};
 })();
 /** A card up close (views/dynasty.js cardSheet's): it tilts toward your finger (or the mouse) while it's on the card, a
  *  glare following, and a rare card's foil (◆◆◆◆, ★, ★★, a crown, a Legendary Trainer card) catching the light; flat at

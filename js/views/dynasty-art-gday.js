@@ -1,11 +1,12 @@
 // The Gameday Pack's art designs (views/dynasty-packs.js frames them: tier 4, orange #E0702A; the frame already draws
-// its foil sheen, crimped seals, an embossed quilt, a holo rainbow, a light sweep and four sparkles; a holo brand bar).
+// its foil sheen, crimped seals, an embossed quilt, a warm holo, a light sweep and four sparkles; an ember brand bar).
 // Pocket's packs come in several artworks; so do ours, more detailed the rarer the pack (the owner, Oct 29 2026: "Add
 // more art designs to the packs. The more rare the pack, the more detailed the art design should be"). Each design:
 // {id: 'gday-<slug>', name (for screen readers), svg: (u, k) => markup in a 100 x 160 viewBox, full-bleed, the subject
 // in y 24..122; ids `${u}name`; at most 150 elements}. The guide is at the top of views/dynasty-packs.js.
-// Gameday's are scenes from a game night, one family: warm all through (an ember sky going dark above, the ground in
-// burnt orange, never the Team Pack's green), cream light, the brown game ball.
+// Gameday's are scenes from a game night, one family: warm all through (an ember sky going to deep indigo night above,
+// the ground in dark burnt orange, never the Team Pack's green), white-cream light with hard edges, crisp cream lines,
+// the brown game ball; the night's darks against the lights' whites give it its punch.
 
 const f1 = n => +n.toFixed(1);
 // (the game ball, nose along +x, 20 long at s 1, about (x, y) turned r degrees; g names its gradient: 10 elements)
@@ -44,7 +45,7 @@ export default [
     const lines = [92, ...ys].map(y => `M${X(y, -1)} ${y}H${X(y, 1)}`).join('') + `M35 92L${X(160, -1)} 160M65 92L${X(160, 1)} 160`;
     const hash = [-.12, .12].map(s => `M${X(93.8, s)} 93.8L${X(160, s)} 160`).join('');
     // (the yard numbers by each sideline, lying flat, read from the sideline: 20 to 50)
-    const nums = [80, 70, 60, 50].map(z => [-1, 1].map(s => `<text transform="translate(${X(Y(z), s * .74)} ${Y(z)}) scale(1 .55) rotate(${s * 90})" font-size="${f1(230 / z)}" dy=".36em">${100 - z}</text>`).join('')).join('');
+    const nums = [70, 50].map(z => [-1, 1].map(s => `<text transform="translate(${X(Y(z), s * .72)} ${Y(z)}) scale(1 .55) rotate(${s * 90})" font-size="${f1(330 / z)}" dy=".36em">${100 - z}</text>`).join('')).join('');
     const rows = [.07, .13, .19, .25, .45, .51, .57, .63, .69, .75, .81, .87, .93].map(row).join('');
     // (aisles climbing from the wall (y 128 - 164s(1 - s)) to the rim (y 34 + 72s(1 - s)), fanning out)
     const aisles = [12, 22, 32, 42, 58, 68, 78, 88].map(x => { const r = 50 + (x - 50) * 1.35, a = x / 100, b = r / 100; return `M${x} ${f1(128 - 164 * a * (1 - a))}L${f1(r)} ${f1(34 + 72 * b * (1 - b))}`; }).join('');
@@ -53,15 +54,15 @@ export default [
     // (pennants on the rim, where it stands at y 34 + 72t(1 - t))
     const rim = x => f1(34 + .0072 * x * (100 - x)), pen = [26, 37, 63, 74];
     const flash = [[24, 63, 2.2, 0], [72, 60, 2, 1.3], [37, 78, 1.8, .6], [83, 84, 2.4, 2], [15, 92, 1.8, 1.7]];
-    return lin(`${u}sky`, [[.13, '#2E0C03'], [.24, '#64220A'], [.36, '#B84C14'], [.46, '#F2843A']]) + `<rect width="100" height="160" fill="url(#${u}sky)"/>`
+    return lin(`${u}sky`, [[.13, '#1B0F2E'], [.22, '#3A1430'], [.31, '#5A1A0C'], [.4, '#B84C14'], [.47, '#F2843A']]) + `<rect width="100" height="160" fill="url(#${u}sky)"/>`
       + k.glow({cx: 50, cy: 58, r: 40, c: '#FFB466', a: .7})
       + `<path class="pa-fine" fill="#FFE9C8" fill-opacity=".7" d="M30 25.5h.5v.5h-.5zM44 23.8h.4v.4h-.4zM61 26.4h.5v.5h-.5zM71 23.6h.4v.4h-.4zM37 30.2h.4v.4h-.4zM55 29h.4v.4h-.4zM26 33h.4v.4h-.4zM76 31.6h.4v.4h-.4z"/>`
       + `<path class="pa-twinkle" style="--d:.4s;--t:3.2s" fill="#FFF3DC" d="${glint(33, 27.6, 1.6)}"/><path class="pa-twinkle" style="--d:1.9s;--t:3.2s" fill="#FFF3DC" d="${glint(68, 25.4, 1.4)}"/>`
       // the field, lit amber: its apron, the turf with mown stripes, the far end zone, the lines and hashes, a pool of light
-      + `<rect y="80" width="100" height="80" fill="#4A1806"/>` + lin(`${u}turf`, [[0, '#F79A48'], [.22, '#D46A24'], [.62, '#963810'], [1, '#5E2008']]) + `<path d="${quad(92, 160)}" fill="url(#${u}turf)"/>`
-      + `<path d="${stripes}" fill="#FFE2B8" fill-opacity=".1"/><path d="${quad(92, Y(100))}" fill="#B8320F"/>`
-      + `<path d="${lines}" fill="none" stroke="#FFF4E2" stroke-opacity=".8" stroke-width=".45"/><path class="pa-fine" d="${hash}" fill="none" stroke="#FFF4E2" stroke-opacity=".55" stroke-width=".5" stroke-dasharray=".3 1.6"/>`
-      + `<g class="pa-fine" fill="#FFF4E2" fill-opacity=".6" font-weight="800" text-anchor="middle">${nums}</g>`
+      + `<rect y="80" width="100" height="80" fill="#2A0E06"/>` + lin(`${u}turf`, [[0, '#C8642A'], [.16, '#7A3412'], [.6, '#5A220C'], [1, '#3A1406']]) + `<path d="${quad(92, 160)}" fill="url(#${u}turf)"/>`
+      + `<path d="${stripes}" fill="#FFE2B8" fill-opacity=".08"/><path d="${quad(92, Y(100))}" fill="#A82A0C"/>`
+      + `<path d="${lines}" fill="none" stroke="#FFF6E6" stroke-width=".55"/><path class="pa-fine" d="${hash}" fill="none" stroke="#FFF4E2" stroke-opacity=".7" stroke-width=".5" stroke-dasharray=".3 1.6"/>`
+      + `<g fill="#FFF6E6" fill-opacity=".9" font-family="system-ui, sans-serif" font-weight="900" text-anchor="middle">${nums}</g>`
       + rad(`${u}pool`, [[0, '#FFE6B0', .5], [1, '#FFE6B0', 0]]) + `<ellipse cx="50" cy="102" rx="28" ry="11" fill="url(#${u}pool)"/>`
       // the stands: the bowl, the shadow under the upper deck, the crowd in specks, its LED ribbons, the rim catching light
       + lin(`${u}bowl`, [[0, '#1C0702'], [.55, '#421606'], [1, '#7C2E0C']], 'gradientUnits="userSpaceOnUse" x1="0" y1="40" x2="0" y2="120"')
@@ -80,16 +81,17 @@ export default [
       // the far goalposts
       + `<path d="M50 92v-5.6M46.4 86.4h7.2M46.6 86.4V76.5M53.4 86.4V76.5" fill="none" stroke="#FFD34D" stroke-width=".7" stroke-linecap="round"/>`
       // the beams, crossing over the field
-      + lin(`${u}beam`, [[0, '#FFF4DA', .6], [.5, '#FFE2A8', .2], [1, '#FFD38A', 0]])
+      + lin(`${u}beam`, [[0, '#FFFDF4', .62], [.55, '#FFF1D0', .3], [1, '#FFE2A8', .1]])
       + `<g fill="url(#${u}beam)"><path d="M9 33L23 35.5L74 112L46 121Z"/><path d="M91 33L77 35.5L26 112L54 121Z"/>`
       + `<path class="pa-pulse" style="--t:5s" fill-opacity=".3" d="M7 31L25 35L100 96L100 128L30 132Z"/><path class="pa-pulse" style="--t:5s;--d:2.5s" fill-opacity=".3" d="M93 31L75 35L0 96L0 128L70 132Z"/></g>`
       // the towers on the rim: masts, trusses, a glow behind each bank of lamps
       + `<path d="${mast(14)}${mast(86)}" fill="none" stroke="#1A0702" stroke-width=".9"/><path class="pa-fine" d="${truss(14)}${truss(86)}" fill="none" stroke="#1A0702" stroke-width=".4"/>`
       + k.glow({cx: 15, cy: 29.5, r: 15, c: '#FFF4D8', a: .95}) + k.glow({cx: 85, cy: 29.5, r: 15, c: '#FFF4D8', a: .95})
-      + `<pattern id="${u}lamp" width=".2" height=".3334"><circle cx="1.6" cy="1.17" r=".95" fill="#FFFBEA"/></pattern>`
+      + `<pattern id="${u}lamp" width=".2" height=".3334"><circle cx="1.6" cy="1.17" r=".95" fill="#FFFFFF"/></pattern>`
       + `<g transform="rotate(8 15 29.5)"><rect x="6" y="25" width="18" height="9" rx="1" fill="#2A0D04" stroke="#9A4416" stroke-width=".5"/><rect x="7" y="26" width="16" height="7" fill="url(#${u}lamp)"/></g>`
       + `<g transform="rotate(-8 85 29.5)"><rect x="76" y="25" width="18" height="9" rx="1" fill="#2A0D04" stroke="#9A4416" stroke-width=".5"/><rect x="77" y="26" width="16" height="7" fill="url(#${u}lamp)"/></g>`
-      + `<path d="M1 29.5L15 28.8L29 29.5L15 30.2ZM71 29.5L85 28.8L99 29.5L85 30.2Z" fill="#FFFBEA" fill-opacity=".7"/>`
+      + `<path d="M1 29.5L15 28.8L29 29.5L15 30.2ZM71 29.5L85 28.8L99 29.5L85 30.2Z" fill="#FFFFFF" fill-opacity=".85"/>`
+      + k.glow({cx: 15, cy: 29.5, r: 6.4, c: '#FFFFFF', a: 1}) + k.glow({cx: 85, cy: 29.5, r: 6.4, c: '#FFFFFF', a: 1})
       // camera flashes in the crowd
       + flash.map(([x, y, r, d]) => `<path class="pa-twinkle" style="--d:${d}s;--t:2.2s" fill="#fff" d="${glint(x, y, r)}"/>`).join('')
       // the ball in flight: its trail, a glow, the ball
@@ -99,17 +101,20 @@ export default [
       + `<g class="pa-float">${ball(u, 'ball', 61, 36, .8, -14)}</g>`;
   }},
 
-  // Breakthrough: the ball bursting through a paper run-through banner, its torn flaps curling back to show the paper's
-  // cream underside (the painted face twisting over at an edge), light pouring through the hole, confetti flying.
+  // Breakthrough: the ball bursting through a paper run-through banner, its torn flaps (ragged, no two alike, the lower
+  // ones drooping) curling back to show the paper's cream underside, the painted face twisting over at an edge and one
+  // flap folded right over to show its painted stripe; a shred flying off, light pouring through the hole, confetti.
   {id: 'gday-burst', name: 'Breakthrough: the ball bursting through a paper run-through banner, confetti flying', svg: (u, k) => {
     // (a point on the hole's oval, a degrees round, r times its 21 x 25 radii about (50, 71))
     const P = (a, r, dx = 0, dy = 0) => `${f1(50 + Math.cos(a * Math.PI / 180) * 21 * r + dx)} ${f1(71 + Math.sin(a * Math.PI / 180) * 25 * r + dy)}`;
     const J = [1, .84, 1.07, .9, .98, .8, 1.1, .88, 1, .82, 1.05, .9, .95, .78, 1.1, .86, 1.03, .8, 1.06, .9, .98, .8, 1.08, .87];
     const hole = 'M' + J.map((j, i) => P(i * 15 - 90 + (i % 2 ? 4 : 0), j)).join('L') + 'Z';
     const sheet = 'M9 27Q50 30 91 27L91 117Q50 120 9 117Z' + hole;
-    // (the flaps: centre angle, half its width, how far out its torn tip reaches; each hinged on the rim, its sides
-    // bowing out, its tip torn ragged; one edge of each twists over, showing the painted face)
-    const F = [[-96, 17, 1.64, 3], [-50, 12, 1.4, -2], [-10, 15, 1.6, 4], [33, 13, 1.42, -3], [78, 18, 1.56, 2], [124, 12, 1.4, -4], [164, 16, 1.62, 3], [214, 13, 1.44, -2]];
+    // (the flaps: centre angle, half its width, how far out its torn tip reaches, its tip's turn; each hinged on the rim,
+    // its sides bowing out, its tip torn ragged; the upper ones folded far back, the lower ones drooping (their tips
+    // turned down toward 90°), the rim from 124° to 184° torn away to teeth only; one edge of each twists over, showing
+    // the painted face. The last is folded right over: its painted face, a stripe across it)
+    const F = [[-100, 20, 1.92, -7], [-44, 10, 1.55, 6], [6, 18, 1.52, 14], [60, 9, 1.22, 18], [110, 16, 1.5, -20], [196, 12, 1.62, -10]];
     // (a wedge: hinged on the rim (r .96), narrowing to a ragged tip turned t degrees; its fold down the middle)
     const flap = ([c, w, L, t], dx = 0, dy = 0) => { const p = (a, r) => P(a, r, dx, dy), m = (1 + L) / 2, e = c + t;
       return `M${p(c - w, .96)}Q${p(c - w * .62 + t * .4, m)} ${p(e - w * .3, L - .1)}L${p(e - w * .12, L + .02)}L${p(e + w * .04, L - .07)}L${p(e + w * .16, L)}`
@@ -120,7 +125,7 @@ export default [
       return `M${P(c + s * w, .96)}Q${P(c + s * w * .86 + t * .4, m + .03)} ${P(e + s * w * .3, L - .1)}Q${P(c + s * w * .4 + t * .4, m)} ${P(c + s * w * .45, .97)}Z`; };
     const hinge = ([c, w]) => `M${P(c - w, .98)}L${P(c + w, .98)}`;
     // (small torn teeth round the rim between the wedges)
-    const teeth = [-73, -31, -24, 12, 55, 101, 108, 144, 189, 236].map((a, i) => `M${P(a - 3.2, .97)}L${P(a + (i % 2 ? 1 : -1), 1.1 + (i % 3) * .05)}L${P(a + 3.2, .97)}Z`).join('');
+    const teeth = [-128, -27, 29, 37, 76, 88, 130, 141, 152, 163, 174, 216, 226].map((a, i) => `M${P(a - 3.2, .97)}L${P(a + (i % 2 ? 1 : -1), 1.08 + (i % 3) * .05)}L${P(a + 3.2, .97)}Z`).join('');
     const creases = [[-60, 1.05, 2.1], [-120, 1.05, 2], [0, 1.05, 1.9], [180, 1.05, 1.9], [60, 1.05, 2.05], [120, 1.05, 2], [-10, 1.6, 2.2], [190, 1.6, 2.2]].map(([a, r0, r1]) => `M${P(a, r0)}L${P(a, r1)}`).join('');
     const speed = [-150, -120, -70, -50, 160, 200, 110, 130, 60, 10].map((a, i) => `M${P(a, .5)}L${P(a, 1.25 + (i % 3) * .2)}`).join('');
     const stars = [22, 36, 50, 64, 78].map(x => k.star(x, 33.4, 2.2) + k.star(x, 111.2, 2.2)).join('');
@@ -130,7 +135,9 @@ export default [
     const fly = [[29, 38, 20, '#FFD34D', 0], [74, 44, -30, '#fff', .7], [16, 84, 45, '#C92E12', 1.4], [86, 82, -15, '#FFD34D', .4], [46, 34, 70, '#fff', 1.9], [60, 110, -50, '#FFD34D', 1.1]];
     // (scraps of paper blown out of the hole)
     const scrap = [[36, 54, 0], [66, 58, 1.1], [57, 88, 2.2]];
-    return lin(`${u}bg`, [[.1, '#1A0802'], [.5, '#4A1A06'], [.8, '#3A1404']]) + `<rect width="100" height="160" fill="url(#${u}bg)"/>`
+    // (a shred torn off, flying from the top right corner: its painted face and its cream back, twisting)
+    const shred = 'M76 33.6C79 31 82.4 31.4 85 28.6L86.4 30.4C84 33.4 80.4 33.4 77.6 36Z';
+    return lin(`${u}bg`, [[.1, '#1B0F2E'], [.3, '#3A1430'], [.6, '#4A1A06'], [.85, '#2A0E04']]) + `<rect width="100" height="160" fill="url(#${u}bg)"/>`
       + `<path class="pa-fine" fill="#FFD9A0" fill-opacity=".55" d="M3 24h1v1H3zM15 23.4h1v1h-1zM28 24.2h1v1h-1zM72 23.6h1v1h-1zM85 24.4h1v1h-1zM96 23.4h1v1h-1z"/>`
       // the light beyond, pouring through
       + rad(`${u}light`, [[0, '#fff'], [.3, '#FFF0C4'], [.62, '#FFB255'], [1, '#E0702A', 0]], 'gradientUnits="userSpaceOnUse" cx="50" cy="71" r="40"')
@@ -159,7 +166,10 @@ export default [
       + `<path d="${F.map(f => flap(f)).join('')}" fill="url(#${u}flap)" stroke="#B87A46" stroke-width=".35" stroke-linejoin="round"/>`
       + `<path class="pa-fine" d="${F.map(hinge).join('')}${F.map(fold).join('')}" fill="none" stroke="#A9692F" stroke-opacity=".5" stroke-width=".45"/>`
       + lin(`${u}curl`, [[0, '#FF9A4A'], [1, '#B8501A']])
-      + `<path d="${F.map(curl).join('')}" fill="url(#${u}curl)" stroke="#8E3A10" stroke-width=".3" stroke-linejoin="round"/>`
+      + `<path d="${F.slice(0, -1).map(curl).join('')}" fill="url(#${u}curl)" stroke="#8E3A10" stroke-width=".3" stroke-linejoin="round"/>`
+      + `<clipPath id="${u}fc"><path d="${flap(F[5])}"/></clipPath><g clip-path="url(#${u}fc)"><path d="${flap(F[5])}" fill="url(#${u}curl)"/>`
+      + `<path d="M${P(184, 1.1)}L${P(206, 1.08)}M${P(181, 1.36)}L${P(203, 1.36)}" fill="none" stroke="#FFF1DC" stroke-width="1.6"/><path d="${k.star(...P(190, 1.52).split(' ').map(Number), 1.7)}" fill="#FFF1DC"/></g>`
+      + `<path d="${flap(F[5])}" fill="none" stroke="#8E3A10" stroke-width=".35" stroke-linejoin="round"/>`
       // the poles, their caps and the ties
       + lin(`${u}pole`, [[0, '#4A1E08'], [.45, '#F3C99C'], [1, '#5A2609']], 'x1="0" y1="0" x2="1" y2="0"')
       + `<path d="M4.4 23h2.6v103h-2.6zM93 23h2.6v103H93z" fill="url(#${u}pole)"/><path d="M3.8 22.4a1.9 1.9 0 1 0 3.8 0a1.9 1.9 0 1 0-3.8 0M92.4 22.4a1.9 1.9 0 1 0 3.8 0a1.9 1.9 0 1 0-3.8 0" fill="#FFD9A8"/>`
@@ -173,12 +183,13 @@ export default [
       + `<path d="M38 58c-5-2-4-8-10-9s-6 4-11-1M36 86c-5 1-3 7-9 9s-6-3-10 2" stroke="#fff"/></g>`
       + `<path d="${gold}" fill="#FFD34D"/><path d="${white}" fill="#fff"/><path d="${red}" fill="#C92E12"/>`
       + fly.map(([x, y, a, c, d]) => `<path class="pa-twinkle" style="--d:${d}s;--t:2.4s" fill="${c}" d="${slip(x, y, a, 3, 1.4)}"/>`).join('')
-      + scrap.map(([x, y, d]) => `<path class="pa-rise" style="--d:${d}s" fill="#FFF3E0" stroke="#C48450" stroke-width=".2" d="M${x} ${y}l2.4-1.2.6 2-1.4.4.2 1.4z"/>`).join('');
+      + scrap.map(([x, y, d]) => `<path class="pa-rise" style="--d:${d}s" fill="#FFF3E0" stroke="#C48450" stroke-width=".2" d="M${x} ${y}l2.4-1.2.6 2-1.4.4.2 1.4z"/>`).join('')
+      + `<g class="pa-float" style="--t:2.6s"><path d="${shred}" fill="url(#${u}paper)" stroke="#8E3A10" stroke-width=".3"/><path d="M76 33.6C79 31 82.4 31.4 85 28.6L84.2 28.2C81.6 30.6 78.6 30.6 76 33.6Z" fill="#FFF3E0"/></g>`;
   }},
 
-  // Scoreboard: a giant bulb-lit scoreboard reading GAMEDAY on its marquee, the score below, standing over the end zone
-  // with its pylons; fireworks bursting round it.
-  {id: 'gday-board', name: 'Scoreboard: a bulb-lit scoreboard reading GAMEDAY over the end zone, fireworks round it', svg: (u, k) => {
+  // Scoreboard: a giant bulb-lit scoreboard over the end zone, HOME and AWAY on its marquee, 21 to 17 below and the 4th
+  // quarter between, the pylons standing tall at the corners; fireworks bursting round it in the night.
+  {id: 'gday-board', name: 'Scoreboard: a bulb-lit scoreboard reading HOME 21, AWAY 17 over the end zone, fireworks round it', svg: (u, k) => {
     // (a firework: its bloom, rays from its heart, a ring of sparks at their tips; d < 0 starts it part way through, so
     // the sky is never empty on first sight)
     const fw = (x, y, r, c, d, n = 14) => `<g class="pa-twinkle" style="--d:${d}s;--t:3.6s"><circle cx="${x}" cy="${y}" r="${f1(r * .7)}" fill="url(#${u}fw)"/>`
@@ -186,14 +197,16 @@ export default [
       + `<circle cx="${x}" cy="${y}" r="${r}" fill="none" stroke="${c}" stroke-width="1.3" stroke-linecap="round" stroke-dasharray="0 ${f1(2 * Math.PI * r / n)}" transform="rotate(${f1(180 / n)} ${x} ${y})"/></g>`;
     // (the end zone's stripes in perspective, from the end line (y 101) to the goal line (y 119))
     const ez = Array.from({length: 11}, (_, i) => { const a = 6 + i * 9, b = f1(50 + (a - 50) * 1.3 - 9); return `M${a} 101L${a + 3.4} 101L${f1(b + 4.4)} 119L${b} 119Z`; }).join('');
-    // (a pylon at (x, y), h tall, w wide: its front, its top, its side toward the middle (s 1 on the left, -1 on the right))
-    const py = (x, y, h, w, s) => { const d = f1(w * .35); return [`M${x} ${y}h${w}v${-h}h${-w}z`, `M${x} ${f1(y - h)}h${w}l${f1(s * d)} ${-d}h${-w}z`,
-      s > 0 ? `M${f1(x + w)} ${y}l${d} ${-d}v${-h}l${-d} ${d}z` : `M${x} ${y}l${-d} ${-d}v${-h}l${d} ${d}z`]; };
-    const pyl = [py(14, 102.6, 4.4, 2.2, 1), py(83.8, 102.6, 4.4, 2.2, -1), py(8.4, 121, 7.6, 3.6, 1), py(88, 121, 7.6, 3.6, -1)];
+    // (a pylon standing on a line at (x, y), h tall, w wide, narrowing a little toward its top as it goes off from us:
+    // its front, its side toward the middle (s 1 on the left, -1 on the right), its top)
+    const py = (x, y, h, w, s) => { const d = f1(w * .45), t = f1(w * .12);
+      return [`M${x} ${y}h${w}l${-t} ${-h}h${f1(-w + 2 * t)}z`, s > 0 ? `M${f1(x + w)} ${y}l${d} ${f1(-d * .6)}l${-t} ${-h}l${f1(-d)} ${f1(d * .6)}z` : `M${x} ${y}l${-d} ${f1(-d * .6)}l${t} ${-h}l${d} ${f1(d * .6)}z`,
+        `M${f1(x + t)} ${f1(y - h)}h${f1(w - 2 * t)}l${f1(s * d)} ${f1(-d * .6)}h${f1(-w + 2 * t)}z`]; };
+    const PY = [[14.4, 101.6, 7.4, 1.5, 1], [84.1, 101.6, 7.4, 1.5, -1], [8.6, 120.2, 13.6, 2.6, 1], [88.8, 120.2, 13.6, 2.6, -1]], pyl = PY.map(a => py(...a));
     const bulb = (id, c) => `<pattern id="${u}${id}" width="1.2" height="1.2" patternUnits="userSpaceOnUse"><circle cx=".6" cy=".6" r=".47" fill="${c}"/></pattern>`;
     const word = (x, y, s, w, t, a) => `<text x="${x}" y="${y}" text-anchor="middle" font-size="${s}" font-weight="900" textLength="${w}" lengthAdjust="spacingAndGlyphs" ${a}>${t}</text>`;
     const panels = 'M21 45h58v16H21zM21 65h22v13H21zM57 65h22v13H57z';
-    return lin(`${u}sky`, [[.13, '#2E0C03'], [.34, '#682409'], [.56, '#B84C16'], [.68, '#F08A3A']]) + `<rect width="100" height="160" fill="url(#${u}sky)"/>`
+    return lin(`${u}sky`, [[.13, '#1B0F2E'], [.3, '#3A1430'], [.46, '#5A1A0C'], [.58, '#B84C16'], [.68, '#F08A3A']]) + `<rect width="100" height="160" fill="url(#${u}sky)"/>`
       + k.glow({cx: 50, cy: 90, r: 42, c: '#FFC27A', a: .55})
       + `<path class="pa-fine" fill="#FFE9C8" fill-opacity=".7" d="M36 24.6h.4v.4h-.4zM63 23.4h.4v.4h-.4zM9 46h.4v.4h-.4zM92 45h.4v.4h-.4zM31 30h.4v.4h-.4zM69 31.4h.4v.4h-.4z"/>`
       // the fireworks, and their sparks falling away
@@ -210,14 +223,16 @@ export default [
       + `<path class="pa-fine" d="M0 88.4Q50 96 100 88.4M0 92Q50 99 100 92M0 95.4Q50 101.6 100 95.4" fill="none" stroke="#FFC888" stroke-opacity=".5" stroke-width=".9" stroke-dasharray=".5 1.6"/>`
       + `<path d="M0 99.4Q50 101.6 100 99.4" fill="none" stroke="#FF9A3D" stroke-width="1"/><path d="${glint(8, 91, 1.4)}${glint(23, 95, 1.2)}${glint(78, 94, 1.3)}${glint(93, 89.6, 1.2)}" fill="#fff"/>`
       // the end zone: the turf beyond the goal line, the painted end zone and its stripes, a pool of light, the end and goal lines
-      + lin(`${u}turf`, [[0, '#8A3410'], [1, '#5A1E06']]) + `<path d="M0 101H100V160H0Z" fill="url(#${u}turf)"/>`
-      + lin(`${u}ez`, [[0, '#6A2208'], [1, '#A23E14']]) + `<path d="M0 101H100V119H0Z" fill="url(#${u}ez)"/>`
-      + `<path d="${ez}" fill="${k.pc}" fill-opacity=".7"/>`
+      + lin(`${u}turf`, [[0, '#7A3412'], [1, '#3A1406']]) + `<path d="M0 101H100V160H0Z" fill="url(#${u}turf)"/>`
+      + lin(`${u}ez`, [[0, '#4A1E0C'], [1, '#7A3412']]) + `<path d="M0 101H100V119H0Z" fill="url(#${u}ez)"/>`
+      + `<path d="${ez}" fill="${k.pc}" fill-opacity=".55"/>`
       + rad(`${u}pool`, [[0, '#FFD9A0', .35], [1, '#FFD9A0', 0]]) + `<ellipse cx="50" cy="108" rx="36" ry="8" fill="url(#${u}pool)"/>`
-      + `<path d="M0 101.3H100" stroke="#FFF4E2" stroke-width=".8"/><path d="M0 119.6H100" stroke="#FFF4E2" stroke-width="1.8"/>`
+      + `<path d="M0 101.3H100" stroke="#FFF6E6" stroke-width=".9"/><path d="M0 119.6H100" stroke="#FFF6E6" stroke-width="1.8"/>`
       + `<ellipse cx="50" cy="104" rx="26" ry="4" fill="url(#${u}pool)"/>`
-      // the pylons
-      + `<path d="${pyl.map(p => p[0]).join('')}" fill="#FF7A1A" stroke="#6A2406" stroke-width=".25"/><path d="${pyl.map(p => p[1]).join('')}" fill="#FFC690"/><path d="${pyl.map(p => p[2]).join('')}" fill="#B8480E"/>`
+      // the pylons, their shadows on the turf
+      + `<path d="M14 101.8l-4.4 1.6h3.4zM86 101.8l4.4 1.6h-3.4zM8 120.4l-6.6 2.6h5.4zM92 120.4l6.6 2.6h-5.4z" fill="#1A0601" fill-opacity=".5"/>`
+      + `<path d="${pyl.map(p => p[0]).join('')}" fill="#FF7A1A" stroke="#6A2406" stroke-width=".25"/><path d="${pyl.map(p => p[1]).join('')}" fill="#B8480E"/><path d="${pyl.map(p => p[2]).join('')}" fill="#FFC690"/>`
+      + `<path class="pa-fine" d="${PY.map(([x, y, h]) => `M${f1(x + .4)} ${f1(y - 1)}V${f1(y - h + 1)}`).join('')}" stroke="#FFD2A0" stroke-width=".4"/>`
       // the scoreboard: its legs, its housing and crest, the marquee bulbs, the GAMEDAY board and the score
       + `<path d="M27 83h3v18.5h-3zM70 83h3v18.5h-3zM30 85.6h40v2H30z" fill="#1A0803"/><path class="pa-fine" d="M33 87.6L48 101M67 87.6L52 101M48 101h4" fill="none" stroke="#1A0803" stroke-width=".6"/>`
       + lin(`${u}hs`, [[0, '#4A1C08'], [1, '#150602']])
@@ -231,9 +246,11 @@ export default [
       + `<path d="${glint(17.2, 41.2, 2.4)}${glint(82.8, 41.2, 2.4)}${glint(17.2, 80.8, 2.4)}${glint(82.8, 80.8, 2.4)}" fill="#FFFBEA"/>`
       + bulb('dim', '#3A1808') + bulb('lit', '#FFF0C8') + bulb('amb', '#FFA43C')
       + `<path d="${panels}" fill="#0B0401"/><path class="pa-fine" d="${panels}" fill="url(#${u}dim)"/>`
-      + word(50, 57.6, 13, 52, 'GAMEDAY', 'fill="none" stroke="#FF8A2A" stroke-opacity=".5" stroke-width="1.8"') + word(50, 57.6, 13, 52, 'GAMEDAY', `fill="url(#${u}lit)"`)
+      + word(35.4, 57.4, 10.5, 23, 'HOME', 'fill="none" stroke="#FF8A2A" stroke-opacity=".5" stroke-width="1.6"') + word(64.6, 57.4, 10.5, 23, 'AWAY', 'fill="none" stroke="#FF8A2A" stroke-opacity=".5" stroke-width="1.6"')
+      + word(35.4, 57.4, 10.5, 23, 'HOME', `fill="url(#${u}lit)"`) + word(64.6, 57.4, 10.5, 23, 'AWAY', `fill="url(#${u}lit)"`)
+      + `<path d="M50 47.4v11.2" stroke="#3A1808" stroke-width=".8"/>`
       + word(32, 76.2, 11.5, 14, '21', `fill="url(#${u}amb)"`) + word(68, 76.2, 11.5, 14, '17', `fill="url(#${u}amb)"`)
-      + `<path d="M46.6 68.6c1.4-1.9 5.4-1.9 6.8 0c-1.4 1.9-5.4 1.9-6.8 0Z" fill="#FFA43C"/><path d="M47.2 74.6h1.2v1.2h-1.2zM49.4 74.6h1.2v1.2h-1.2zM51.6 74.6h1.2v1.2h-1.2z" fill="#4A2008"/><path d="M53.8 74.6h1.2v1.2h-1.2z" fill="#FFA43C"/>`;
+      + `<path d="M46.6 68.6c1.4-1.9 5.4-1.9 6.8 0c-1.4 1.9-5.4 1.9-6.8 0Z" fill="#FFA43C"/>` + word(50, 76.4, 4.2, 7, '4TH', 'fill="#FFF0C8"');
   }},
 
   // Kickoff: down at the turf, the ball standing on its orange tee at the 35, backlit by the stadium glowing at the far
@@ -253,7 +270,7 @@ export default [
       const x = i * step - 1, h = h0 + h1 * Math.abs(Math.sin(i * 2.7 + seed)) + 2 * Math.abs(Math.sin(i * 7.3)), lean = 2.2 * Math.sin(i * 1.9 + seed);
       return `M${f1(x)} ${base}L${f1(x + lean + .5)} ${f1(base - h)}L${f1(x + 1.3)} ${base}Z`; }).join('');
     const embers = [[28, 72, 0], [69, 66, .9], [36, 92, 1.7], [74, 88, 2.4], [60, 50, 1.3], [22, 58, 2.9]];
-    return lin(`${u}sky`, [[.13, '#2E0C03'], [.3, '#6A2409'], [.46, '#C8581A'], [.55, '#F48A3A']]) + `<rect width="100" height="160" fill="url(#${u}sky)"/>`
+    return lin(`${u}sky`, [[.13, '#1B0F2E'], [.26, '#3A1430'], [.36, '#6A2409'], [.47, '#C8581A'], [.55, '#F48A3A']]) + `<rect width="100" height="160" fill="url(#${u}sky)"/>`
       + `<path class="pa-fine" fill="#FFE9C8" fill-opacity=".7" d="M24 26h.5v.5h-.5zM41 24h.4v.4h-.4zM63 27h.5v.5h-.5zM79 24.4h.4v.4h-.4zM33 34h.4v.4h-.4zM70 35h.4v.4h-.4zM16 38h.4v.4h-.4zM86 40h.4v.4h-.4z"/>`
       + `<path class="pa-twinkle" style="--d:.8s;--t:3.4s" fill="#FFF3DC" d="${glint(30, 30, 1.5)}"/><path class="pa-twinkle" style="--d:2.2s;--t:3.4s" fill="#FFF3DC" d="${glint(74, 31, 1.3)}"/>`
       + k.glow({cx: 50, cy: 82, r: 52, c: '#FFC27A', a: .85})
@@ -265,16 +282,16 @@ export default [
       + `<path d="${row(0)}" fill="none" stroke="#FFE6BE" stroke-opacity=".7" stroke-width=".5"/><path d="${row(.96)}" fill="none" stroke="#FF9A3D" stroke-width=".9"/>`
       + `<path d="${mast(13)}${mast(87)}" fill="none" stroke="#1A0702" stroke-width=".7"/>`
       + k.glow({cx: 13, cy: 54.6, r: 11, c: '#FFF4D8', a: .95}) + k.glow({cx: 87, cy: 54.6, r: 11, c: '#FFF4D8', a: .95})
-      + `<pattern id="${u}lamp" width=".2" height=".3334"><circle cx="1.04" cy=".74" r=".6" fill="#FFFBEA"/></pattern>`
+      + `<pattern id="${u}lamp" width=".2" height=".3334"><circle cx="1.04" cy=".74" r=".6" fill="#FFFFFF"/></pattern>`
       + `<path d="M7.4 51.6h11.2v6H7.4zM81.4 51.6h11.2v6H81.4z" fill="#2A0D04" stroke="#9A4416" stroke-width=".4"/><path d="M7.8 52.4h10.4v4.4H7.8z" fill="url(#${u}lamp)"/><path d="M81.8 52.4h10.4v4.4H81.8z" fill="url(#${u}lamp)"/>`
       // the field: the apron, the turf (lit far off), mown stripes, the yard lines and sidelines, the light's streak
-      + lin(`${u}turf`, [[0, '#F59446'], [.2, '#C85E1E'], [.55, '#7E2E0C'], [1, '#4A1806']], 'gradientUnits="userSpaceOnUse" x1="0" y1="90" x2="0" y2="160"')
+      + lin(`${u}turf`, [[0, '#E07A34'], [.16, '#9A4416'], [.45, '#5A220C'], [1, '#2A0E06']], 'gradientUnits="userSpaceOnUse" x1="0" y1="90" x2="0" y2="160"')
       + `<path d="M0 104Q50 80 100 104V160H0Z" fill="url(#${u}turf)"/><path d="M0 104Q50 80 100 104V160H0Z" fill="#2A0C02" fill-opacity=".35"/><path d="${quad(Y(20), 160)}" fill="url(#${u}turf)"/>`
       + `<path d="${quad(Y(16), Y(11))}${quad(Y(6), Y(3.6))}" fill="#FFE2B8" fill-opacity=".1"/>`
-      + `<path d="${[20, 16, 11, 6].map(z => `M${X(Y(z), -1)} ${Y(z)}H${X(Y(z), 1)}`).join('')}M${X(92, -1)} 92L${X(160, -1)} 160M${X(92, 1)} 92L${X(160, 1)} 160" fill="none" stroke="#FFF4E2" stroke-opacity=".85" stroke-width=".55"/>`
+      + `<path d="${[20, 16, 11, 6].map(z => `M${X(Y(z), -1)} ${Y(z)}H${X(Y(z), 1)}`).join('')}M${X(92, -1)} 92L${X(160, -1)} 160M${X(92, 1)} 92L${X(160, 1)} 160" fill="none" stroke="#FFF6E6" stroke-width=".65"/>`
       + `<path class="pa-fine" d="${[-.16, .16].map(s => `M${X(93, s)} 93L${X(160, s)} 160`).join('')}" fill="none" stroke="#FFF4E2" stroke-opacity=".5" stroke-width=".5" stroke-dasharray=".4 2"/>`
       + `<path d="M0 86.4L50 85.5L100 86.4L50 87.3Z" fill="#FFF6E0" fill-opacity=".55"/>`
-      + lin(`${u}beam`, [[0, '#FFF4DA', .5], [.6, '#FFE2A8', .12], [1, '#FFD38A', 0]])
+      + lin(`${u}beam`, [[0, '#FFFDF4', .55], [.65, '#FFF1D0', .26], [1, '#FFE2A8', .1]])
       + `<path d="M8 57.6L18 57.6L46 104L30 104ZM82 57.6L92 57.6L70 104L54 104Z" fill="url(#${u}beam)"/>`
       + `<path class="pa-fine" fill="#FFF1D0" fill-opacity=".7" d="M32 64h.5v.5h-.5zM41 56h.4v.4h-.4zM63 60h.5v.5h-.5zM68 74h.4v.4h-.4zM29 82h.4v.4h-.4zM57 50h.4v.4h-.4zM74 70h.5v.5h-.5zM24 70h.4v.4h-.4z"/>`
       // the shadow of the tee and the ball, thrown toward us; light behind the ball
@@ -287,8 +304,10 @@ export default [
       // the ball, standing on the tee
       + ball(u, 'ball', 49.6, 77, 2.05, -82)
       + `<g transform="translate(49.6 77) rotate(-82) scale(2.05)"><path d="M-9.4 1.4C-5.6 7.2 5.6 7.2 9.4 1.4M-8 -2.6C-4.6-6.6 4.6-6.6 8-2.6" fill="none" stroke="#FFE6BC" stroke-opacity=".75" stroke-width=".35" stroke-linecap="round"/></g>`
-      // the grass at our feet, and embers drifting up
-      + `<path d="${blades(64, 1.62, 129, 5, 8, 0)}" fill="#250A01"/><path d="${blades(52, 2, 130, 3, 5, 1.3)}" fill="#5E2208"/>`
+      // the grass at our feet, near black against the glow, a cream rim of light along the back row's tips; embers
+      // drifting up
+      + `<path d="${blades(64, 1.62, 129, 5, 8, 0)}" fill="#2A0E06" stroke="#FFE2B0" stroke-opacity=".55" stroke-width=".3" stroke-linejoin="round"/>`
+      + `<path d="${blades(52, 2, 130, 3, 5, 1.3)}" fill="#1A0803"/>`
       + embers.map(([x, y, d]) => `<circle class="pa-rise" style="--d:${d}s" cx="${x}" cy="${y}" r=".7" fill="#FFC870"/>`).join('');
   }}
 ];
