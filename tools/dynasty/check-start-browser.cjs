@@ -68,7 +68,7 @@ async function playerFlow(page, p, {reduced}) {
   assert.equal(await page.locator('.pk-start-card').count(), 14, T + ': fourteen cards drift on the title screen');
   assert.match(await page.locator('.pk-start-ver').textContent(), /Ver\. 3\.0\.\d+Support ID: [A-Z0-9]{8}/, T + ': the version and a support id');
   assert.equal(await page.locator('.pk-start .gg-exit').count(), 1, T + ': the red X on the title screen');
-  assert.equal(await page.locator('.pk-start-logo').textContent(), 'GridironUltimate Card CollectionDynasty', T + ': the logo');
+  assert.equal(await page.locator('.pk-start-logo').textContent(), 'GridironTrading Card GameRivals', T + ': the logo');
   await snap(page, `${p.tag}${reduced ? '-rm' : ''}-title`);
   // tap anywhere: the Packs
   await page.locator('.pk-start').click({position: {x: 195, y: 640}});

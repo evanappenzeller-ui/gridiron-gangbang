@@ -702,7 +702,7 @@ export function startHTML() {
     + `<div class="pk-start-cards" data-dy-start-cards aria-hidden="true">${D.status === 'ready' ? startCardsHTML() : ''}</div>`
     + `<div class="pk-start-top">${ui.exitButton('data-dy-exit', 'Exit Gridiron Dynasty')}<span class="pk-start-ver"><span>Ver. ${APP_VER}.${D.VERSION}</span><span>Support ID: ${supportId()}</span></span>`
     + `<button type="button" class="pk-start-menu" data-dy-menu aria-label="Menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></button></div>`
-    + `<div class="pk-start-logo" role="img" aria-label="Gridiron Dynasty: Ultimate Card Collection"><span class="pk-logo-top">Gridiron</span><span class="pk-logo-plate">Ultimate Card Collection</span><span class="pk-logo-sub">Dynasty</span></div>`
+    + `<div class="pk-start-logo" role="img" aria-label="Gridiron Rivals: Trading Card Game"><span class="pk-logo-top">Gridiron</span><span class="pk-logo-plate">Trading Card Game</span><span class="pk-logo-sub">Rivals</span></div>`
     + `<p class="pk-start-tap" data-dy-start-say aria-live="polite">${startSay()}</p>`
     + `<p class="pk-start-credits">© Gridiron Gangbang · Gridiron Hub<br>Player photos: ESPN · NFL</p></div>`;
 }

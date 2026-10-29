@@ -185,11 +185,11 @@ export async function dynastyChecks(check) {
     const all = (src.match(/daily\.LB\.all/g) || []).length === 1 && (msrc.match(/daily\.LB\.all/g) || []).length === 1;
     return {pass: raw && all, detail: 'others() and the matches from LB.raw; LB.all only for your own saves'};
   });
-  check('Gridiron Dynasty: Pocket’s title screen on entering (the owner, Oct 29 2026: "Create a start screen when entering the dynasty"): the logo, the cards drifting, Tap to Start, the version and a support id, the menu and the red X; five tabs at the foot with the Menu; the Battle tab’s banner, Versus, Solo, Guide, Decks, Rankings and Missions', async () => {
+  check('Gridiron Dynasty: Pocket’s title screen on entering (the owner, Oct 29 2026: "Create a start screen when entering the dynasty"): the logo (Gridiron Rivals, Trading Card Game, after his case, Oct 29 2026), the cards drifting, Tap to Start, the version and a support id, the menu and the red X; five tabs at the foot with the Menu; the Battle tab’s banner, Versus, Solo, Guide, Decks, Rankings and Missions', async () => {
     const V = await import('../views/dynasty.js');
     const shell = V.shellHTML(), start = V.startHTML();
     const tabs = (shell.match(/class="pk-tab/g) || []).length, menu = /class="pk-tab" data-dy-menu/.test(shell) && /data-dy-hud/.test(shell);
-    const logo = /pk-logo-top">Gridiron<\/span>/.test(start) && /Ultimate Card Collection/.test(start) && /pk-logo-sub">Dynasty<\/span>/.test(start);
+    const logo = /pk-logo-top">Gridiron<\/span>/.test(start) && /Trading Card Game/.test(start) && /pk-logo-sub">Rivals<\/span>/.test(start);
     const bits = /data-dy-start/.test(start) && /role="button"/.test(start) && /Support ID: [A-Z0-9]{8}</.test(start) && /Ver\. 3\.0\.\d+</.test(start) && /data-dy-menu/.test(start) && /data-dy-exit/.test(start);
     const say = D.status === 'ready' ? /Tap to Start/.test(start) : /Loading/.test(start);
     const cards = V.startCards(), teams = new Set(cards.map(c => c.team)).size, drawn = (start.match(/class="pk-start-card z-/g) || []).length;
