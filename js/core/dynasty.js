@@ -371,7 +371,7 @@ export function rewardText(rw) {
 //  pk {pack kind: unopened}, cl {collection id: when claimed}, dk [the battle deck's 20 ids], kit (the starter Coach
 //  cards given: 1), kit2 (the starter Items given: 1), kit3 (the Starter Pack given: 1), pp (pack points), dd (the last day the daily pack was taken,
 //  YYYY-MM-DD), rec {w, l, d}, tr (trophies), bt {match id:
-//  'w'|'l'|'d', paid}, nm (team name), lp (the latest pulls, newest first: 24 at most), nw (cards pulled for the first time
+//  'w'|'l'|'d', paid}, so {computer opponent id: Solo wins}, sl [the latest Solo battles paid], nm (team name), lp (the latest pulls, newest first: 24 at most), nw (cards pulled for the first time
 //  and not looked at yet: NEW)}
 export const dayKey = (t = new Date()) => `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
 /** A new Dynasty: the starter Coach cards and Items, the Starter Pack to open (its players make the deck: open()), and
@@ -379,7 +379,7 @@ export const dayKey = (t = new Date()) => `${t.getFullYear()}-${String(t.getMont
 export function fresh(key = '', now = Date.now()) {
   const o = {...COACH_KIT, ...ITEM_KIT};
   return {v: VERSION, rs: SEASON_MARK, born: now, at: now, sp: 0, cr: 0, o, pk: {start: 1, std: 2, prem: 1}, cl: {}, dk: [], kit: 1, kit2: 1, kit3: 1,
-    pp: 0, dd: '', rec: {w: 0, l: 0, d: 0}, tr: 0, bt: {}, nm: '', lp: [], nw: []};
+    pp: 0, dd: '', rec: {w: 0, l: 0, d: 0}, tr: 0, bt: {}, so: {}, sl: [], nm: '', lp: [], nw: []};
 }
 /** A save as it should be (anything missing or broken put right), or null when it isn't one. */
 export function clean(s) {
@@ -388,7 +388,7 @@ export function clean(s) {
   const n = x => (Number.isFinite(Number(x)) && Number(x) >= 0 ? Math.floor(Number(x)) : 0);
   const out = {v: VERSION, rs: SEASON_MARK, born: n(s.born) || Date.now(), at: n(s.at), sp: n(s.sp), cr: n(s.cr), o: {}, pk: {}, cl: {}, dk: [],
     kit: s.kit ? 1 : 0, kit2: s.kit2 ? 1 : 0, kit3: s.kit3 ? 1 : 0, pp: n(s.pp), dd: typeof s.dd === 'string' ? s.dd : '', rec: {w: n(s.rec && s.rec.w), l: n(s.rec && s.rec.l), d: n(s.rec && s.rec.d)},
-    tr: n(s.tr), bt: {},
+    tr: n(s.tr), bt: {}, so: {}, sl: Array.isArray(s.sl) ? s.sl.filter(x => typeof x === 'string').slice(0, 20) : [],
     nm: typeof s.nm === 'string' ? s.nm.slice(0, 24) : '', lp: Array.isArray(s.lp) ? s.lp.filter(x => typeof x === 'string').slice(0, 24) : [], nw: []};
   Object.entries(obj(s.o)).forEach(([k, v]) => { if (n(v) > 0) out.o[k] = Math.min(99, n(v)); });
   Object.entries(obj(s.pk)).forEach(([k, v]) => { if (PACKS[k] && n(v) > 0) out.pk[k] = Math.min(999, n(v)); });
@@ -397,6 +397,7 @@ export function clean(s) {
   if (Array.isArray(s.nw)) out.nw = [...new Set(s.nw.filter(k => typeof k === 'string' && out.o[k] > 0))].slice(0, 60);
   // (the battles paid: the latest 200)
   Object.entries(obj(s.bt)).slice(-200).forEach(([k, v]) => { if (['w', 'l', 'd'].includes(v)) out.bt[k] = v; });
+  Object.entries(obj(s.so)).slice(0, 40).forEach(([k, v]) => { if (n(v) > 0) out.so[k] = Math.min(9999, n(v)); });
   return out;
 }
 
@@ -683,6 +684,21 @@ export function payBattle(mid, res, s = mine()) {
   s.bt[mid] = res; credit(s, BATTLE_PAY[res].coins); s.tr = Math.max(0, s.tr + BATTLE_PAY[res].tr);
   s.rec[res] = (s.rec[res] || 0) + 1;
   touch('battle'); return true;
+}
+
+// ---------------------------------------------------------------------------------------------------- Solo battles paid
+// (core/dynasty-solo.js, against the computer) A win pays its level's coins, and the first win over each opponent its
+// bonus packs too; a draw 50 coins, a loss nothing. Never trophies or the versus record: Rankings are between players.
+export const SOLO_PAY = {beg: {coins: 150, first: {std: 1}}, int: {coins: 250, first: {std: 2}}, adv: {coins: 400, first: {prem: 1}}, exp: {coins: 600, first: {prem: 2}}};
+/** Pays Solo battle gid (opponent opp at level lv) its result: once. {coins, packs, first} or null when already paid. */
+export function paySolo(gid, opp, lv, res, s = mine()) {
+  if (!SOLO_PAY[lv] || !['w', 'l', 'd'].includes(res) || s.sl.includes(gid)) return null;
+  s.sl = [gid, ...s.sl].slice(0, 20);
+  const first = res === 'w' && !s.so[opp];
+  const pay = {coins: res === 'w' ? SOLO_PAY[lv].coins : res === 'd' ? 50 : 0, packs: first ? SOLO_PAY[lv].first : null, first};
+  if (res === 'w') s.so[opp] = (s.so[opp] || 0) + 1;
+  credit(s, pay.coins); if (pay.packs) addPacks(s, pay.packs);
+  touch('battle'); return pay;
 }
 
 // ---------------------------------------------------------------------------------------------------- other players

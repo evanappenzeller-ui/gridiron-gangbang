@@ -22,6 +22,7 @@ import * as daily from '../core/daily.js';
 import * as D from '../core/dynasty.js';
 import * as B from '../core/dynasty-battle.js';
 import * as MT from '../core/dynasty-match.js';
+import * as SOLO from '../core/dynasty-solo.js';
 
 const esc = data.esc, nf = n => data.nf(n);
 const ST = new WeakMap();
@@ -455,19 +456,22 @@ function renameSheet(st) {
 }
 
 // ---------------------------------------------------------------------------------------------------- Battle
-// Pocket's Battle screen: the banner, then Versus (your matches and challenges) and Rankings, the Guide and Decks.
+// Pocket's Battle screen: the banner, then Solo (against the computer: core/dynasty-solo.js; the owner, Oct 29 2026:
+// "Provide a solo mode against the computer") and Versus (your matches and challenges), then Rankings, the Guide and Decks.
 const ago = ms => { const m = Math.round(ms / 60000); return m < 60 ? `${Math.max(1, m)}m` : m < 1440 ? `${Math.round(m / 60)}h` : `${Math.round(m / 1440)}d`; };
 const avatarOf = (o, size = 36) => (o.member ? ui.avatar(o.member, {size}) : ui.nickAvatar(o.name, {size}));
 function battleHome(st) {
   const wait = MT.waiting(), s = D.mine();
   const fan = ['Tom Brady', 'Jerry Rice', 'Lawrence Taylor'].map(n => D.CARDS.find(c => c.s === 'X' && c.name === n)).filter(Boolean);
   return `<div class="pk-banner"><b>Battle</b><span class="pk-banner-fan">${fan.map((c, i) => `<span style="--i:${i}">${cardHTML(c, {size: 's', tag: false, noCount: true})}</span>`).join('')}</span></div>`
-    + `<div class="pk-modes"><button type="button" class="pk-mode" data-dy-bv="versus">${MODE_IC.versus}<b>Versus</b><small>Challenge a friend</small>${wait ? '<i class="pk-bang">!</i>' : ''}</button>`
-    + `<button type="button" class="pk-mode" data-dy-bv="rank">${MODE_IC.rank}<b>Rankings</b><small>${nf(s.tr)} trophies · ${s.rec.w}–${s.rec.l}</small></button></div>`
-    + `<div class="pk-modes is-small"><button type="button" class="pk-mini" data-dy-guide>${MODE_IC.guide}<span>Guide</span></button>`
+    + `<div class="pk-modes"><button type="button" class="pk-mode" data-dy-bv="solo">${MODE_IC.solo}<b>Solo</b><small>${SOLO.current() ? 'A battle in play' : 'Battle the computer'}</small>${SOLO.current() && SOLO.current().state !== 'theirs' ? '<i class="pk-bang">!</i>' : ''}</button>`
+    + `<button type="button" class="pk-mode" data-dy-bv="versus">${MODE_IC.versus}<b>Versus</b><small>Challenge a friend</small>${wait ? '<i class="pk-bang">!</i>' : ''}</button></div>`
+    + `<div class="pk-modes is-small is-3"><button type="button" class="pk-mini" data-dy-bv="rank">${MODE_IC.rank}<span>${nf(s.tr)}</span></button>`
+    + `<button type="button" class="pk-mini" data-dy-guide>${MODE_IC.guide}<span>Guide</span></button>`
     + `<button type="button" class="pk-mini" data-dy-tab="decks">${TILE.decks}<span>Decks</span></button></div>`;
 }
 const MODE_IC = {
+  solo: '<svg viewBox="0 0 48 48" aria-hidden="true"><rect x="9" y="12" width="30" height="24" rx="8" fill="#FFE8F1" stroke="#F2669F" stroke-width="2.4"/><circle cx="19" cy="24" r="3.2" fill="#F2669F"/><circle cx="29" cy="24" r="3.2" fill="#F2669F"/><path d="M24 12V6M20 6h8M9 24H5M43 24h-4M18 31h12" stroke="#F2669F" stroke-width="2.4" stroke-linecap="round"/></svg>',
   versus: '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 4l4 8 9-3-2 9 9 4-9 4 2 9-9-3-4 8-4-8-9 3 2-9-9-4 9-4-2-9 9 3z" fill="#E8F7FF" stroke="#25A9E0" stroke-width="2.4" stroke-linejoin="round"/><circle cx="19" cy="22" r="4" fill="#25A9E0"/><circle cx="30" cy="26" r="4" fill="#25A9E0"/></svg>',
   rank: '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M14 8h20v8a10 10 0 0 1-20 0z" fill="#FFF6D6" stroke="#E0A31A" stroke-width="2.4"/><path d="M14 11H8a6 6 0 0 0 6 7M34 11h6a6 6 0 0 1-6 7M24 26v8M16 40h16l-2-6H18z" fill="none" stroke="#E0A31A" stroke-width="2.4" stroke-linejoin="round"/></svg>',
   guide: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.6v.6M12 17h.01" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
@@ -513,10 +517,37 @@ function guideSheet() {
     + `<li><b>Each turn</b>Draw a card. Take the energy from your Energy Zone (you see the next one coming) and attach it to a player. Put Basics on your bench, evolve, play Items (as many as you like), one Supporter and a Stadium, and switch out your active player once.</li>`
     + `<li><b>Attack</b>An attack needs its energy on your active player. Attacking ends your turn. Hitting a weakness does +20: Air beats Blitz, Blitz beats Ground, Ground beats Coverage, Coverage beats Air.</li>`
     + `<li><b>Win</b>Knock out a player for a point (a Legend or Prime ex for two). Three points wins.</li>`
-    + `<li><b>Take your time</b>Battles go in turns: play yours when you like, and your opponent gets YOUR MOVE on their Dynasty case.</li></ol>`;
+    + `<li><b>Solo</b>Battle the computer: four levels, three opponents each. A win pays coins, and your first win over each opponent pays packs too.</li>`
+    + `<li><b>Versus</b>Battles go in turns: play yours when you like, and your opponent gets YOUR MOVE on their Dynasty case.</li></ol>`;
   ui.openSheet({title: 'Guide', body, cls: 'pk-sheet', detents: ['large']});
 }
-function battleHTML2(st) { return st.bv === 'versus' ? versusHTML(st) : st.bv === 'rank' ? rankHTML() : battleHome(st); }
+// Solo: your battle in play, then the computer's opponents by level, each with what a win pays and your wins over it.
+function soloHTML() {
+  const s = D.mine(), dk = D.deckOf(s), cur = SOLO.current();
+  let h = `<button type="button" class="pk-backrow" data-dy-bv="">${ui.icon('chevron-left', {size: 16})} Battle</button>`;
+  if (!dk.ok) h += `<button type="button" class="pk-alert is-gold" data-dy-tab="decks">${ui.icon('info', {size: 18})}<span>Your deck isn’t ready: ${esc(dk.why)}</span>${ui.icon('chevron-right', {size: 16})}</button>`;
+  if (cur) h += `<button type="button" class="pk-alert" data-dy-go="${cur.mid}">${MODE_IC.solo}<span>Your battle against ${esc(cur.opp.name)}: ${cur.state === 'theirs' ? 'its move' : 'your move'} · ${cur.G.p[0].pts}–${cur.G.p[1].pts}</span>${ui.icon('chevron-right', {size: 16})}</button>`;
+  const packs = rw => Object.entries(rw).map(([k, n]) => `${n > 1 ? n + ' ' : ''}${D.PACKS[k].name}${n > 1 ? 's' : ''}`).join(', ');
+  SOLO.LEVELS.forEach(L => {
+    const P = D.SOLO_PAY[L.id];
+    h += `<section class="pk-sec"><h2 class="pk-h">${esc(L.name)}</h2><p class="pk-note">${esc(L.blurb)}</p><ul class="pk-list pk-solo">`
+      + SOLO.OPPONENTS.filter(o => o.lv === L.id).map(o => {
+        const wins = s.so[o.id] || 0;
+        return `<li><span class="pk-solo-t">${o.types.map(t => pipHTML(B.TYPES[t].e)).join('')}</span><span class="pk-row-t"><b>${esc(o.name)}${wins ? ` <i class="pk-tag is-won">${ui.icon('check', {size: 11})} ${wins}</i>` : ''}</b>`
+          + `<small>${esc(o.types.map(t => B.TYPES[t].name).join(' · '))}</small><small class="pk-solo-r">${wins ? `${nf(P.coins)} coins a win` : `First win: ${esc(packs(P.first))} + ${nf(P.coins)} coins`}</small></span>`
+          + `<button type="button" class="pk-btn is-go" data-dy-solo="${o.id}"${dk.ok ? '' : ' disabled'}>Battle</button></li>`;
+      }).join('') + '</ul></section>';
+  });
+  return h;
+}
+function startSolo(st, id) {
+  const go = () => { const r = SOLO.start(id); if (!r.ok) { ui.toast(r.why, {icon: 'info'}); return; } ui.haptic('success'); st.ctx.nav(`/puzzles/dynasty/battle/${r.mid}`); };
+  const cur = SOLO.current();
+  if (!cur) { go(); return; }
+  ui.actionSheet({title: 'Start a new battle?', message: `Your battle against ${cur.opp.name} ends unplayed.`, cls: 'pk-sheet', actions: [{label: 'Start the new one', role: 'primary', value: 'y'}]})
+    .then(v => { if (v === 'y') { SOLO.resign(cur.mid); go(); } });
+}
+function battleHTML2(st) { return st.bv === 'versus' ? versusHTML(st) : st.bv === 'rank' ? rankHTML() : st.bv === 'solo' ? soloHTML() : battleHome(st); }
 
 // ---------------------------------------------------------------------------------------------------- opening a pack
 function openHere(st) {
@@ -764,6 +795,7 @@ export default {
       if (q('[data-dy-autodeck]')) { D.setDeck(D.autoDeck(D.mine().o)); ui.haptic('success'); ui.toast('Your best deck is in', {icon: 'check-circle'}); refresh(st); return; }
       if (q('[data-dy-rename]')) { renameSheet(st); return; }
       const run = (r, then) => { if (!r.ok) { ui.toast(r.why, {icon: 'info'}); return; } ui.haptic('success'); if (then) then(r); refresh(st); };
+      if ((b = q('[data-dy-solo]'))) { startSolo(st, b.dataset.dySolo); return; }
       if ((b = q('[data-dy-challenge]'))) { run(MT.challenge(b.dataset.dyChallenge), () => ui.toast('Challenge sent. It’s on their Dynasty now.', {icon: 'check-circle'})); return; }
       if ((b = q('[data-dy-accept]'))) { run(MT.accept(b.dataset.dyAccept), r => ctx.nav(`/puzzles/dynasty/battle/${r.mid}`)); return; }
       if ((b = q('[data-dy-decline]'))) { run(MT.decline(b.dataset.dyDecline)); return; }
@@ -773,6 +805,7 @@ export default {
     });
     st.stops.push(D.subscribe(why => { if (why !== 'change' && why !== 'open') refresh(st); }));
     st.stops.push(MT.subscribe(() => refresh(st)));
+    st.stops.push(SOLO.subscribe(() => { if (st.tab === 'battle') refresh(st); }));
     st.stops.push(ctx.on('daily', type => { if (type === 'lb') { if (D.status === 'ready' && D.mayPlay()) { D.sync(); D.earned(D.mine(), true); } if (st.tab === 'battle' || st.tab === 'packs') refresh(st); } }));
     st.stops.push(data.subscribe(type => { if (type === 'me') refresh(st); }));
     st.stops.push(ctx.timer(() => { if (D.status === 'ready' && D.mayPlay()) { const w = el.querySelector('[data-dy-wallet]'); if (w) w.innerHTML = coinHTML(D.balance(D.mine())); } }, 15000));

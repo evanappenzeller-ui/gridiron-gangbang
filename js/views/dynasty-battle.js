@@ -10,12 +10,15 @@ import * as data from '../core/data.js';
 import * as D from '../core/dynasty.js';
 import * as B from '../core/dynasty-battle.js';
 import * as MT from '../core/dynasty-match.js';
+import * as SOLO from '../core/dynasty-solo.js';
 import {anyHTML, cardHTML, battleHTML, pipHTML} from './dynasty.js';
 
 const esc = data.esc, nf = n => data.nf(n);
 const ST = new WeakMap();
 const SEEN = mid => `gg-dyb-seen-${mid}`;
 const nameOf = id => (D.anyCard(id) ? D.anyCard(id).name : 'a card');
+// (a battle against the computer is a Solo battle's, core/dynasty-solo.js; any other a match between players)
+const src = st => (SOLO.isSolo(st.mid) ? SOLO : MT);
 const short = id => { const c = D.card(id); return c ? D.nameParts(c.name)[1] || c.name : nameOf(id); };
 
 // ---------------------------------------------------------------------------------------------------- what happened
@@ -84,7 +87,7 @@ function draw(st) {
   // (Evan's and Ryan Stewart's alone, Oct 28 2026: a profile switched while it's open leaves it)
   if (!D.mayPlay()) { fullScreen(st, false); host.innerHTML = ''; if (!st.left) { st.left = true; st.ctx.back(); } return; }
   if (D.status !== 'ready') { host.innerHTML = `<div class="db-msg">${ui.skeleton('rows', 3, {label: 'Loading the battle'})}</div>`; return; }
-  const x = MT.get(st.mid);
+  const x = src(st).get(st.mid);
   const close = ui.iconButton({icon: 'close', label: 'Close', cls: 'db-x', filled: true, attrs: 'data-back'});
   if (!x || !x.G) {
     const why = !x ? 'This battle isn’t here (yet). It shows once the board has it.' : x.state === 'invite' ? `${x.opp.name} challenged you. Accept it on the Battle tab.`
@@ -112,7 +115,7 @@ function draw(st) {
   let status;
   if (over) status = `<b class="${x.result === 'w' ? 'is-w' : x.result === 'l' ? 'is-l' : ''}">${x.result === 'w' ? 'You win!' : x.result === 'l' ? 'You lose' : 'A draw'}</b> ${esc({points: 'Three touchdowns.', empty: 'No players left.', time: 'The turn limit.', resign: x.result === 'w' ? 'They resigned.' : 'You resigned.', claim: 'Left 72 hours.'}[x.why] || '')}`;
   else if (x.state === 'setup') status = st.setup.act ? `Bench: tap up to ${B.BENCH_MAX} more Basic players, then Ready.` : 'Pick your starting player: tap a Basic player in your hand.';
-  else if (x.state === 'theirs') status = G.phase === 'setup' ? `Waiting for ${esc(x.opp.name)} to set up.` : `${esc(x.opp.name)}’s turn. You’ll see it here when they move.`;
+  else if (x.state === 'theirs') status = G.phase === 'setup' ? `Waiting for ${esc(x.opp.name)} to set up.` : x.solo ? `${esc(x.opp.name)} is thinking…` : `${esc(x.opp.name)}’s turn. You’ll see it here when they move.`;
   else if (me.promote) status = 'Your player was knocked out: pick who comes in from your bench.';
   else if (mode) status = {energy: 'Tap a player to give him the energy.', evolve: 'Tap the player to evolve.', coach: 'Tap a player for it.', item: 'Tap a player for it.', retreat: 'Tap the bench player to send in.'}[mode.k] + ' <button type="button" class="db-link" data-db-cancel>Cancel</button>';
   else status = `<b>Your turn.</b> ${me.en && !me.used.energy ? `Attach your ${B.ENERGY[me.en]} energy, then tap` : 'Tap'} your active player to attack.`;
@@ -162,12 +165,19 @@ function draw(st) {
   }
 }
 function barHTML(st, x, G, me, myMove, over) {
+  if (over && x.solo) {
+    // (a Solo battle: its coins, the first win's bonus packs, and another go)
+    const p = x.pay || {coins: 0};
+    const packs = p.packs ? Object.entries(p.packs).map(([k, n]) => `${n > 1 ? n + ' ' : ''}${D.PACKS[k].name}${n > 1 ? 's' : ''}`).join(', ') : '';
+    return `<span class="db-pay">${p.coins ? `+${nf(p.coins)} coins` : 'No coins this time'}${packs ? ` · First win: ${esc(packs)}` : ''}</span>`
+      + ui.button({label: 'Rematch', kind: 'secondary', size: 's', attrs: {'data-db-again': ''}}) + ui.button({label: 'Done', kind: 'primary', size: 's', attrs: 'data-back'});
+  }
   if (over) {
     const pay = D.BATTLE_PAY[x.result];
     return `<span class="db-pay">+${nf(pay.coins)} coins · ${pay.tr >= 0 ? '+' : ''}${pay.tr} trophies</span>${ui.button({label: 'Back to Dynasty', kind: 'primary', size: 's', attrs: 'data-back'})}`;
   }
   if (x.state === 'setup') return ui.button({label: 'Ready', kind: 'primary', attrs: {'data-db-ready': ''}, disabled: !st.setup.act, cls: 'db-go'});
-  if (!myMove) return `<span class="db-wait">${ui.icon('clock', {size: 15})} Their move</span>${ui.button({label: 'Resign', kind: 'plain', size: 's', attrs: {'data-db-resign': ''}})}`;
+  if (!myMove) return `<span class="db-wait">${ui.icon('clock', {size: 15})} ${x.solo ? 'Its move' : 'Their move'}</span>${ui.button({label: 'Resign', kind: 'plain', size: 's', attrs: {'data-db-resign': ''}})}`;
   // (the Energy Zone: this turn's energy, tap to attach it; the next one shown, as Pocket's)
   const live = me.en && !me.used.energy;
   const next = me.next ? `<small>Next ${pipHTML(me.next)}</small>` : '';
@@ -181,7 +191,7 @@ function barHTML(st, x, G, me, myMove, over) {
 
 // ---------------------------------------------------------------------------------------------------- moves
 function send(st, m) {
-  const r = MT.move(st.mid, m);
+  const r = src(st).move(st.mid, m);
   if (!r.ok) { ui.toast(r.why, {icon: 'info'}); return false; }
   st.mode = null;
   if (r.sent && m.a !== 'setup') ui.toast(`Turn sent. ${st.x ? st.x.opp.name : 'They'} will see it.`, {icon: 'check-circle'});
@@ -273,9 +283,9 @@ function more(st) {
   });
 }
 function resign(st) {
-  ui.actionSheet({title: 'Resign this battle?', message: 'It counts as a loss.', cls: 'pk-sheet', actions: [{label: 'Resign', role: 'destructive', value: 'y'}]}).then(v => {
+  ui.actionSheet({title: 'Resign this battle?', message: SOLO.isSolo(st.mid) ? 'It counts as a loss against the computer.' : 'It counts as a loss.', cls: 'pk-sheet', actions: [{label: 'Resign', role: 'destructive', value: 'y'}]}).then(v => {
     if (v !== 'y') return;
-    const r = MT.resign(st.mid);
+    const r = src(st).resign(st.mid);
     if (!r.ok) ui.toast(r.why, {icon: 'info'}); else draw(st);
   });
 }
@@ -331,12 +341,18 @@ export default {
         return;
       }
       if (q('[data-db-resign]')) { resign(st); return; }
+      if (q('[data-db-again]')) {
+        const r = SOLO.start(st.x.opp.cpu.id);
+        if (!r.ok) { ui.toast(r.why, {icon: 'info'}); return; }
+        ctx.nav(`/puzzles/dynasty/battle/${r.mid}`); return;
+      }
       if (q('[data-db-more]')) { more(st); return; }
       if (q('[data-db-log]')) logSheet(st);
     });
     // (their moves come in with the board)
     st.stops.push(ctx.on('daily', type => { if (type === 'lb') draw(st); }));
     st.stops.push(MT.subscribe(() => draw(st)));
+    st.stops.push(SOLO.subscribe(() => draw(st)));
     st.stops.push(data.subscribe(type => { if (type === 'me') { st.shown = false; draw(st); } }));
     D.load().then(() => draw(st), () => draw(st));
     draw(st);

@@ -137,6 +137,26 @@ export async function dynastyChecks(check) {
     s.pp = 40; const traded = D.exchange(want.id, s).ok && s.o[want.id] === 1 && s.pp === 5 && !D.exchange(want.id, s).ok;
     return {pass: kit && zone && items && old && opened && traded, detail: `kit ${kit}, zone ${zone}, items ${items}, v1 without ${old}, pack points ${opened && traded}`};
   });
+  check('Gridiron Dynasty Solo (the owner, Oct 29 2026: "Provide a solo mode against the computer"): twelve computer opponents in four levels, each deck legal; the computer only makes legal moves and plays a battle to its end at every level; a win pays coins, the first over an opponent its packs, once', async () => {
+    const S = await import('./dynasty-solo.js');
+    const decks = S.OPPONENTS.map(o => ({o, d: S.deckFor(o.id)}));
+    const legal = decks.every(x => B.checkDeck(x.d).ok) && S.LEVELS.every(L => S.OPPONENTS.filter(o => o.lv === L.id).length === 3);
+    const games = [];
+    for (const [a, b] of [['rookie-camp', 'practice-squad'], ['air-raid', 'blitz-package'], ['prime-time', 'the-dynasty'], ['the-dynasty', 'scout-team']]) {
+      const A = S.opponent(a), Bo = S.opponent(b), G = B.newGame('solo-check|' + a + b, [S.deckFor(a), S.deckFor(b)], 2);
+      let bad = null, n = 0;
+      while (G.phase !== 'over' && n < 3000 && !bad) {
+        const who = B.toMove(G), m = S.nextMove(G, who, who === 0 ? A.lv : Bo.lv);
+        if (!B.play(G, who, m).ok) bad = m; n++;
+      }
+      games.push({ok: !bad && G.phase === 'over', t: `${A.name} ${G.p[0].pts}–${G.p[1].pts} ${Bo.name} (${G.over ? G.over.why : 'unfinished'})`});
+    }
+    const s = D.fresh('m_solo', 1000), cr = s.cr, pk = s.pk.prem || 0;
+    const w1 = D.paySolo('cpu1', 'prime-time', 'exp', 'w', s), again = D.paySolo('cpu1', 'prime-time', 'exp', 'w', s), w2 = D.paySolo('cpu2', 'prime-time', 'exp', 'w', s), l = D.paySolo('cpu3', 'prime-time', 'exp', 'l', s);
+    const pay = w1 && w1.first && !again && w2 && !w2.first && !w2.packs && l && l.coins === 0 && s.cr === cr + 2 * D.SOLO_PAY.exp.coins && s.pk.prem === pk + 2 && s.so['prime-time'] === 2 && s.tr === 0 && s.rec.w === 0;
+    const kept = JSON.stringify(D.clean(s).so) === JSON.stringify(s.so) && D.clean(s).sl.length === 3;
+    return {pass: legal && games.every(g => g.ok) && pay && kept, detail: `decks ${legal}; ${games.map(g => g.t).join('; ')}; pay ${pay}, kept ${kept}`};
+  });
   check('Gridiron Dynasty: a collection’s reward is claimed once, when it’s complete', () => {
     const col = D.COLLECTIONS.find(c => c.kind === 'team');
     const s = D.fresh('m_check');
