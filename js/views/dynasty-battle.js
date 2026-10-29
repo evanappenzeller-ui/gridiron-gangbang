@@ -173,7 +173,7 @@ function barHTML(st, x, G, me, myMove, over) {
   const next = me.next ? `<small>Next ${pipHTML(me.next)}</small>` : '';
   const en = `<${live ? 'button type="button" data-db-energy' : 'span'} class="db-zone${live ? ' is-live' : ' is-off'}">`
     + `<span class="db-zone-now">${live ? pipHTML(me.en) : '<i class="db-zone-x"></i>'}</span>`
-    + `<span class="db-zone-t"><b>${live ? `Attach ${esc(B.ENERGY[me.en])}` : me.used.energy ? 'Energy attached' : 'No energy this turn'}</b>${next}</span></${live ? 'button' : 'span'}>`;
+    + `<span class="db-zone-t"><b>${live ? `Attach<span class="sr-only"> ${esc(B.ENERGY[me.en])} energy</span>` : me.used.energy ? 'Attached' : 'No energy'}</b>${next}</span></${live ? 'button' : 'span'}>`;
   const cost = me.active ? B.retreatCost(me.active, me) : 0;
   const sw = me.active && me.bench.length && !me.used.retreat && !me.promote ? ui.button({label: `Switch${cost ? ` (${cost})` : ''}`, kind: 'secondary', size: 's', attrs: {'data-db-switch': ''}}) : '';
   return en + sw + ui.button({label: 'End turn', kind: 'secondary', size: 's', attrs: {'data-db-end': ''}, disabled: me.promote});

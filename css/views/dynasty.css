@@ -28,7 +28,9 @@ html.is-dynasty-playing .v-dynasty { padding-bottom: 0; }
 
 .pk { min-height: 100dvh; display: flex; flex-direction: column;
   background: linear-gradient(162deg, #F8FAFC 0 38%, #E8EEF3 38% 100%); }
-.pk-hdr { position: relative; display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 8px;
+/* The header stays pinned with a solid background, as the app's nav bars do: iOS frosts whatever page sits loose under
+   the status bar (the owner, Oct 29 2026: "The top of the screen is blurry"). */
+.pk-hdr { position: sticky; top: 0; z-index: 5; background: #F8FAFC; box-shadow: 0 1px 0 rgba(40,60,90,.06); display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 8px;
   padding: max(8px, env(safe-area-inset-top)) 14px 8px; }
 .pk-title { margin: 0; text-align: center; font: 800 19px/1.2 var(--font-text); letter-spacing: .01em; color: var(--ink); }
 .pk-wallet { justify-self: end; }
@@ -520,12 +522,14 @@ div.pk-open.is-out { opacity: 0; }
 /* ---------------------------------------------------------------- the battle (Pocket's mat: their side above, yours below) */
 .v-dynasty-battle { background: #DCEBE2; }
 .v-dynasty-battle > .screen-body { padding: 0; min-height: 100%; }
-.db { min-height: 100dvh; display: flex; flex-direction: column; gap: 4px; padding: max(6px, env(safe-area-inset-top)) 12px max(8px, env(safe-area-inset-bottom));
+.db { min-height: 100dvh; display: flex; flex-direction: column; gap: 4px; padding: 0 12px max(8px, env(safe-area-inset-bottom));
   background: radial-gradient(60% 40% at 50% 50%, rgba(255,255,255,.7), transparent 75%),
     linear-gradient(180deg, rgba(250,236,240,.9), rgba(255,255,255,0) 44%, rgba(255,255,255,0) 56%, rgba(226,244,250,.9)),
     repeating-linear-gradient(0deg, #D3E9DA 0 40px, #CBE3D2 40px 80px);
   background-attachment: fixed; color: var(--ink); }
 .db-top, .db-you { display: flex; align-items: center; gap: 8px; }
+/* (pinned with a solid background under the status bar, as the Dynasty header) */
+.db-top { position: sticky; top: 0; z-index: 5; margin: 0 -12px; padding: max(6px, env(safe-area-inset-top)) 12px 6px; background: #F7EDF0; }
 .db-x { flex: none; }
 .db-who { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; padding: 4px 10px 4px 4px; border-radius: 99px; background: rgba(255,255,255,.85); box-shadow: var(--pk-shadow); }
 .db-who b, .db-you b { font: 800 14px/1.2 var(--font-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -571,7 +575,11 @@ div.pk-open.is-out { opacity: 0; }
 .db-card .pk-card { pointer-events: none; }
 .db-card.is-sel { transform: translateY(-8px); outline: 3px solid var(--tint); outline-offset: 2px; }
 .db-none { color: var(--ink-3); font-size: var(--fs-foot); align-self: center; padding-left: 6px; }
-.db-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: auto; padding-top: 6px; }
+.db-bar { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; margin-top: auto; padding-top: 6px; }
+.db-bar > .db-zone { flex: 0 1 auto; min-width: 0; }
+.db-bar > .btn { flex: none; }
+.db-zone-t { min-width: 0; }
+.db-zone-t b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .db-bar .db-go { flex: 1; }
 /* the Energy Zone: this turn's energy in the big disc (tap to attach it), the next one beside it */
 .db-zone { display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px 4px 4px; border: 0; border-radius: 99px; background: #fff; box-shadow: var(--pk-shadow);
