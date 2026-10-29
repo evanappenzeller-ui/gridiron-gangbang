@@ -191,3 +191,6 @@
 .gm-owner .gm-keep-footer { display: flex; align-items: center; justify-content: space-between; gap: 2cqw; padding: 1.7cqw 3cqw; border-top: .25cqw solid #727b7059; background: #1e2423; font: 600 2.1cqw/1.2 Arial, sans-serif; letter-spacing: .06em; color: #c6cdc5; }
 .gm-owner .gm-keep-footer > b { border: .2cqw solid #a4afa0; padding: .8cqw; font-size: 2cqw; }
 .gm-owner .gm-keep-barcode { width: 14cqw; height: 4.6cqw; flex: none; border: .6cqw solid #d6d9d0; background: repeating-linear-gradient(90deg,#171c1a 0 .3cqw,#d6d9d0 .3cqw .7cqw,#171c1a .7cqw 1.2cqw,#d6d9d0 1.2cqw 1.5cqw,#171c1a 1.5cqw 1.7cqw,#d6d9d0 1.7cqw 2.4cqw); }
+/* Gridiron Dynasty's back is one printed sheet, the owner's art (Oct 29 2026): it fills the insert under the band */
+.gm-owner .gm-dy-print { display: block; }
+.gm-owner .gm-dy-print > img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; }

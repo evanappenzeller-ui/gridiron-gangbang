@@ -40,7 +40,7 @@ export const GAMES = [
   {id: 'kick', name: 'Kick It', title: 'Kick It', art: 'img/games/kick-cover-v3.webp', book: 'img/games/kick-book.webp', disc: 'img/games/kick-disc.webp', badge: 'img/kick.webp', cd: 'New kicks in'},
   {id: 'return', name: 'Return Man', title: 'Return Man', art: 'img/games/return-man-cover.webp', book: 'img/games/return-book.webp', disc: 'img/games/return-disc.webp', badge: 'img/return.webp', cd: 'Next kickoff in'},
   {id: 'keep', name: 'Keepfall', title: 'Keepfall', art: 'img/games/keepfall-cover-v2.webp', book: 'img/games/keepfall-book-v2.webp', disc: 'img/games/keepfall-disc-v2.webp'},
-  {id: 'dynasty', name: 'Gridiron Dynasty', title: 'Gridiron Dynasty', art: 'img/games/dynasty-cover-v2.webp', book: 'img/games/dynasty-book-v2.webp', disc: 'img/games/dynasty-disc-v2.webp'}
+  {id: 'dynasty', name: 'Gridiron Dynasty', title: 'Gridiron Dynasty', art: 'img/games/dynasty-cover-v3.webp', book: 'img/games/dynasty-book-v2.webp', disc: 'img/games/dynasty-disc-v2.webp'}
 ];
 // The games that go on with no day's final, countdown or board (Keepfall, Gridiron Dynasty): a printed back on their
 // case, never IN PROGRESS.
@@ -389,19 +389,11 @@ function backHTML(g, s) {
     + `<span class="gm-scr"><span class="gm-scr-h">Today’s leaderboard</span>${rows}</span>`
     + `<span class="gm-bk-foot"><span class="gm-bk-tap">Tap for the full leaderboard ›</span></span></span></div>`;
 }
-/** Gridiron Dynasty's printed back, after Keepfall's. */
+/** Gridiron Dynasty's printed back: the owner's full back-cover art (Oct 29 2026, his Gridiron Rivals case: "Every pack.
+ *  A new rivalry." with its Open, Collect and Compete panels) under the band, where Keepfall's is composed of parts. */
 function dynastyBackHTML(g, up = false) {
   return `<div class="gm-face gm-back gm-keep-back gm-dy-back${up ? ' gm-z-back' : ''}">${bandHTML()}
-    <span class="gm-keep-print">
-      <span class="gm-keep-hero"><img src="${g.book}" alt="" decoding="async" draggable="false">
-        <span class="gm-keep-pitch"><strong>EVERY PACK.<br>A NEW LEGEND.</strong><span>Real NFL players. Diamond pulls.<br>Collections to complete.</span></span>
-      </span>
-      <span class="gm-keep-scenes"><img src="img/games/dynasty-back-scenes.webp" alt="Three Legend cards fanned out: Peyton Manning, Tom Brady and Lawrence Taylor" decoding="async" draggable="false">
-        <span class="gm-keep-captions"><b>OPEN</b><b>COLLECT</b><b>COMPETE</b></span>
-      </span>
-      <span class="gm-keep-signature"><span aria-hidden="true">◆</span><strong>DYNASTY</strong><small>Build the greatest team ever.</small></span>
-      <span class="gm-keep-footer"><b>1 PLAYER</b><span>CARDS · FOOTBALL</span><i class="gm-keep-barcode" aria-hidden="true"></i></span>
-    </span>
+    <span class="gm-keep-print gm-dy-print"><img src="img/games/dynasty-back-v2.webp" alt="Every pack, a new rivalry: three jersey cards bursting from a pack, and the Open, Collect and Compete panels" decoding="async" draggable="false"></span>${up ? GLOSS : ''}
   </div>`;
 }
 /** Keepfall has a printed back in every play state, never a league scoreboard (Gridiron Dynasty its own). */
