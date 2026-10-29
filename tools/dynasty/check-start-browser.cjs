@@ -80,6 +80,34 @@ async function playerFlow(page, p, {reduced}) {
   for (const sel of ['.pk-packs', '.pk-clock', '.pk-show-tip', '.pk-tags > b', '.pk-round[data-dy-goto="cols"]', '.pk-round[data-dy-earn]', 'button.pk-open.is-round', '.pk-actions .pk-pill[data-dy-odds]', '.pk-actions .pk-pill[data-dy-packs]', '.pk-pts'])
     assert.equal(await page.locator(sel).count(), 1, T + ': the Packs stage has ' + sel);
   await snap(page, `${p.tag}${reduced ? '-rm' : ''}-packs`);
+  // the pack stack (the owner, Oct 29 2026: "User should be able to switch packs like the attached"): the packs that
+  // follow peek out behind, a swipe left brings the next forward, → and ← step through them, a tap on one behind brings
+  // it, the pack list picks one too, and none of it opens a pack
+  const front = async () => (await page.locator('.pk-tags > b').textContent()).trim(), settle = () => page.waitForTimeout(reduced ? 500 : 700); // (a tap within 450ms of a swipe is ignored: no settle shorter)
+  assert.equal(await front(), 'Starter', T + ': the Starter Pack is in front while it waits');
+  assert.deepEqual(await page.locator('.pk-car-bk').evaluateAll(l => l.map(b => b.dataset.dyTo)), ['std', 'team'], T + ': the Standard and Team Packs peek out behind it');
+  const bb = await page.locator('.pk-bigpack').boundingBox();
+  await page.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2); await page.mouse.down();
+  await page.mouse.move(bb.x + bb.width / 2 - 40, bb.y + bb.height / 2, {steps: 4}); await page.mouse.move(bb.x + bb.width / 2 - 130, bb.y + bb.height / 2, {steps: 6});
+  await page.mouse.up(); await settle();
+  assert.equal(await front(), 'Standard', T + ': a swipe left brings the next pack to the front');
+  assert.equal(await page.locator('.dy-rip').count(), 0, T + ': the swipe opened nothing');
+  await page.locator('.pk-bigpack').focus(); await page.keyboard.press('ArrowRight'); await settle();
+  assert.equal(await front(), 'Team', T + ': → steps to the next pack');
+  assert.equal(await page.evaluate(() => document.activeElement && document.activeElement.className), 'pk-bigpack', T + ': the front pack keeps the focus');
+  const b2 = await page.locator('.pk-car-bk[data-bk="2"]').boundingBox(); // (its right edge shows past the pack in front)
+  await page.mouse.click(b2.x + b2.width * .9, b2.y + b2.height * .5); await settle();
+  assert.equal(await front(), 'Gameday', T + ': a tap on the second pack behind brings it to the front');
+  await page.locator('.pk-bigpack').focus(); await page.keyboard.press('ArrowLeft'); await settle();
+  assert.equal(await front(), 'Premium', T + ': ← steps back a pack');
+  assert.deepEqual(await page.locator('.pk-car-bk').evaluateAll(l => l.map(b => b.dataset.dyTo)), ['gday', 'leg'], T + ': the Gameday and Legends Packs peek out behind it');
+  await page.locator('.pk-actions .pk-pill[data-dy-packs]').click();
+  await page.waitForSelector('.pk-pickb.is-on');
+  assert.match(await page.locator('.pk-pickb.is-on').textContent(), /Premium Pack/, T + ': the pack list marks the one in front');
+  await page.locator('.pk-pickb[data-dy-pick="leg"]').click(); await settle();
+  assert.equal(await front(), 'Legends', T + ': the pack list brings a pack to the front');
+  assert.deepEqual(await page.locator('.pk-car-bk').evaluateAll(l => l.map(b => b.dataset.dyTo)), ['start', 'std'], T + ': the stack wraps round to the Starter Pack');
+  await snap(page, `${p.tag}${reduced ? '-rm' : ''}-stack`);
   // the Battle tab
   await page.locator('.pk-tab[data-dy-tab="battle"]').click();
   await page.waitForSelector('.pk-banner-tab');

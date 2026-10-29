@@ -119,12 +119,25 @@
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pack.tier-5 .pk-pack-name b::after { content: ""; position: absolute; inset: .7cqw; z-index: -1;
   clip-path: polygon(4.4cqw 0, calc(100% - 4.4cqw) 0, 100% 50%, calc(100% - 4.4cqw) 100%, 4.4cqw 100%, 0 50%); background: linear-gradient(180deg, #2E2108, #4A3510 60%, #241904); }
 
-/* ---------------------------------------------------------------- the Packs home's designs (js/views/dynasty.js artTo):
-   the big pack swiped sideways to flip between its designs; under its reflection the dots between two arrows (clear of the
-   pack's tags on the left and the pack points on the right) */
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-car { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; touch-action: pan-y; -webkit-user-select: none; user-select: none; }
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-car-move { display: flex; }
+/* ---------------------------------------------------------------- the Packs home's stack (js/views/dynasty.js packTo):
+   the front pack to open, the packs that follow it peeking out behind it to the right, smaller the further back, as
+   Pocket stacks a set's packs (the owner, Oct 29 2026: "User should be able to switch packs like the attached"); a
+   sideways swipe on the front pack brings the next (or the one before) forward, a tap on one behind brings it. The slots
+   (--bk1..3, read by packTo for its slide; 3 is where a new last pack comes in from) are transforms from the front pack's
+   place, in the pack's own width. Under its reflection the dots between two arrows flip the front pack's designs (artTo;
+   clear of the pack's tags on the left and the pack points on the right). */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-car { --bk1: translate(40%, -4%) scale(.84); --bk2: translate(58%, -8%) scale(.7); --bk3: translate(76%, -12%) scale(.58);
+  position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; touch-action: pan-y; -webkit-user-select: none; user-select: none; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-car-move { position: relative; z-index: 1; display: flex; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-car.is-drag .pk-bigpack { animation-play-state: paused; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-car-back { position: absolute; left: 50%; top: 26px; z-index: 0; width: 0; height: 0; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-car-bk { position: absolute; left: 0; top: 0; display: flex; padding: 0; border: 0; background: none; cursor: pointer; translate: -50% 0; transform: var(--bk1); z-index: 2;
+  filter: brightness(.93); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-car-bk[data-bk="2"] { transform: var(--bk2); z-index: 1; filter: brightness(.86); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-car-bk .pk-pack { box-shadow: -6px 6px 16px rgba(0,20,60,.22); }
+/* (a pack behind holds still: no sheen, sweep, sparks or art motion, nothing to vie with the front) */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-car-bk .pk-pack, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-car-bk .pk-pack * { animation: none !important; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-car-bk .pk-pack-spark, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-car-bk .pk-pack-n { display: none; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-car-dots { position: absolute; left: 50%; bottom: 6px; z-index: 2; display: flex; align-items: center; padding: 2px; border-radius: 99px; transform: translateX(-50%);
   background: rgba(255,255,255,.9); box-shadow: var(--pk-shadow); } /* (in a pill, as Pocket's, over the reflection) */
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-car-b { flex: none; display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 50%; cursor: pointer;

@@ -2,8 +2,10 @@
 // play like Pokémon TCG Pocket (the owner, Oct 28 2026: "I want the gameplay and theme/design to match the Pokémon app",
 // with his screenshots of Pocket's booster pack, Battle and My Cards screens): Pocket's light theme, its own header
 // (your packs and coins) and five tabs at the foot. Packs (the home: one big booster pack to open over the pack's colour,
-// its best cards in a showcase above it with Pocket's clock pill, the pack's tags beside it, Offering Rates, a round
-// Open, Select other booster packs, pack points to trade for a card, today's free pack), My Cards (the binder: your
+// the other packs stacked behind it as in Pocket, a sideways swipe bringing the next one to the front (packTo; the
+// owner, Oct 29 2026: "User should be able to switch packs like the attached"), its best cards in a showcase above it
+// with Pocket's clock pill, the pack's tags beside it, Offering Rates, a round Open, Select other booster packs, pack
+// points to trade for a card, today's free pack), My Cards (the binder: your
 // cards, every card, the collections), Decks (your 20-card deck), Battle (Pocket's banner; Versus: your matches against
 // other players and challenges; Solo; the Guide, Decks, Rankings and Missions: the collections) and the Menu (≡: the
 // Guide, coins, rankings, the title screen, the exit). A battle itself plays on its own screen (views/dynasty-battle.js,
@@ -263,14 +265,19 @@ function packsHTML(st) {
   h += `<div class="pk-free"><span class="pk-free-b${inf || D.dailyReady(s) ? ' is-ready' : ''}"><i class="pk-free-i"></i><b>${inf ? 'Unlimited packs' : D.dailyReady(s) ? 'Free pack ready' : `Next free pack in ${esc(ui.untilText(untilMidnight()))}`}</b></span>`
     + `<button type="button" class="pk-round" data-dy-goto="cols" aria-label="Collections${ready.length ? ': a reward to claim' : ''}">${SIDE_IC.book}${ready.length ? '<i class="pk-bang">!</i>' : ''}</button>`
     + `<button type="button" class="pk-round" data-dy-earn aria-label="How you earn coins">?</button></div>`;
-  // (the pack in its chosen design; the dots under it between two arrows when it has more than one: artTo)
+  // (the pack in its chosen design; the dots under it between two arrows when it has more than one: artTo; behind it,
+  // peeking out to the right, the packs that follow it, as Pocket stacks a set's packs: a swipe brings the next to the
+  // front, a tap on one brings it: packTo)
   const ds = designsOf(kind), di = artAt(st, kind), many = ds.length > 1, label = `${open}: ${P.name}, ${slots} cards, ${note}`;
+  const kinds = packKinds(s), ki = kinds.indexOf(kind), back = kinds.length > 1 ? [1, 2].filter(j => j < kinds.length).map(j => kinds[(ki + j) % kinds.length]) : [];
+  const stack = back.map((k, j) => `<button type="button" class="pk-car-bk" data-bk="${j + 1}" data-dy-to="${k}" aria-label="${esc(D.PACKS[k].name)}: bring it to the front">${packHTML(k, {big: true, count: s.pk[k], design: artAt(st, k)})}</button>`).join('');
   h += `<div class="pk-stage"><div class="pk-show"><span class="pk-clock">${ui.icon('clock', {size: 14})}<span>${esc(clock)}</span></span>`
     + `<span class="pk-show-tag">${ui.icon('star', {size: 14})}Top cards in this pack</span>`
     + `<div class="pk-show-row">${best.map(c => cardHTML(c, {size: 's', tag: false, noCount: true})).join('')}</div><i class="pk-show-tip" aria-hidden="true"></i></div>`
     + `<div class="pk-tags" aria-hidden="true"><b>${esc(P.name.replace(/ Pack$/, ''))}</b><span>1 pack contains ${slots} cards</span><span>${esc(note)}</span><span>${esc(cost)}</span></div>`
-    + `<div class="pk-car${many ? ' is-many' : ''}" data-dy-car><div class="pk-car-move"><button type="button" class="pk-bigpack" data-dy-openhere data-dy-label="${esc(label)}" aria-label="${esc(artLabel(label, ds, di))}">${packHTML(kind, {big: true, count: have, design: di})}</button></div></div>`
+    + `<div class="pk-car${kinds.length > 1 ? ' is-many' : ''}" data-dy-car>${stack ? `<div class="pk-car-back">${stack}</div>` : ''}<div class="pk-car-move"><button type="button" class="pk-bigpack" data-dy-openhere data-dy-label="${esc(label)}" aria-label="${esc(artLabel(label, ds, di))}">${packHTML(kind, {big: true, count: have, design: di})}</button></div></div>`
     + `<span class="pk-reflect" aria-hidden="true">${packHTML(kind, {big: true, design: di})}</span>`
+    + '<span class="sr-only" aria-live="polite" data-dy-packsay></span>'
     + (many ? `<div class="pk-car-dots" role="group" aria-label="Pack designs"><button type="button" class="pk-car-b" data-dy-art="-1" aria-label="Previous pack design">${ui.icon('chevron-left', {size: 16})}</button>`
       + `${ds.map((d, i) => `<button type="button" class="pk-car-dot" data-dy-artat="${i}" aria-label="${esc(d.name)}"${i === di ? ' aria-current="true"' : ''}></button>`).join('')}`
       + `<button type="button" class="pk-car-b" data-dy-art="1" aria-label="Next pack design">${ui.icon('chevron-right', {size: 16})}</button></div>`
@@ -292,9 +299,66 @@ function oddsSheet(kind) {
     + '<p class="pk-note">◆ Common (64 and under) · ◆◆ Rare (65–74) · ◆◆◆ Epic (75–79) · ◆◆◆◆ Legendary (80–84) · ★ Mythic (85+) · ★★ Prime, Gameday and Award cards · ♛ Legends. Every pack also gives 5 pack points.</p>';
   ui.openSheet({title: 'Offering Rates', body: `<p class="pk-note">${esc(P.name)}</p>` + body, cls: 'pk-sheet', detents: ['fit']});
 }
+/** The packs on the home, in Pocket's order: the Starter Pack first while it waits, then the rest. */
+const packKinds = s => (s.pk.start ? ['start'] : []).concat(D.PACK_ORDER);
+/** Brings pack `to` (an index into packKinds, wrapped) to the front of the home's stack, the way it's going (dir: 1 the
+ *  next, from behind on the right; -1 the one before, in from the left; the front pack goes the other way); then the
+ *  home redraws round it (the showcase, the tags, Open). Under reduced motion it just redraws. */
+function packTo(st, to, dir) {
+  const s = D.mine(), kinds = packKinds(s), n = kinds.length, car = st.el.querySelector('[data-dy-car]');
+  if (!car) return;
+  const mv = car.querySelector('.pk-car-move'), rf = st.el.querySelector('.pk-reflect'), rp = rf && rf.firstElementChild;
+  const was = mv.style.transform || 'none', rwas = (rp && rp.style.transform) || 'none';
+  mv.style.transform = ''; if (rp) rp.style.transform = '';
+  car.classList.remove('is-drag');
+  [mv, rp].forEach(x => { if (x && x.getAnimations) x.getAnimations().forEach(a => a.cancel()); });
+  const i = (to % n + n) % n;
+  if (n < 2 || kinds[i] === st.pack) {
+    if (!RM() && was !== 'none' && mv.animate) { const o = {duration: 240, easing: 'cubic-bezier(.2,.9,.3,1.2)'}; mv.animate([{transform: was}, {transform: 'none'}], o); if (rp) rp.animate([{transform: rwas}, {transform: 'none'}], o); }
+    return;
+  }
+  st.pack = kinds[i]; ui.haptic('selection');
+  const then = () => {
+    refresh(st);
+    const say = st.el.querySelector('[data-dy-packsay]'), now = st.el.querySelector('.pk-bigpack');
+    if (say) say.textContent = document.activeElement === now ? '' : `${D.PACKS[st.pack].name}, pack ${i + 1} of ${n}`;
+  };
+  if (RM() || !mv.animate || st.dead) { then(); return; }
+  const w = mv.offsetWidth, off = (sg, o) => ({transform: `translateX(${sg * w * .6}px) rotate(${sg * 5}deg)`, opacity: o});
+  const bk = Array.from(car.querySelectorAll('.pk-car-bk')), slot = j => getComputedStyle(car).getPropertyValue(`--bk${j}`).trim() || 'none';
+  if (rf && rf.getAnimations) rf.getAnimations().forEach(a => a.cancel());
+  const ro = rf ? +getComputedStyle(rf).opacity : 0, fade = (a, b, ms) => { if (rf) rf.animate([{opacity: a}, {opacity: b}], {duration: ms}); };
+  const ease = 'cubic-bezier(.5,0,.6,1)';
+  let out;
+  if (dir > 0) {
+    // (the front pack leaves to the left; the one behind comes forward to the middle, the one behind it up a place)
+    out = mv.animate([{transform: was, opacity: 1}, off(-1, 0)], {duration: 170, easing: 'cubic-bezier(.5,0,.8,.5)', fill: 'forwards'});
+    bk.forEach((b, j) => b.animate([{transform: slot(j + 1)}, {transform: j ? slot(j) : 'translateX(-50%)'}], {duration: 170, easing: ease, fill: 'forwards'}));
+  } else {
+    // (the front pack goes back a place; the stack moves back with it, its last fading out)
+    out = mv.animate([{transform: was}, {transform: slot(1)}], {duration: 170, easing: ease, fill: 'forwards'});
+    bk.forEach((b, j) => b.animate([{transform: slot(j + 1), opacity: 1}, {transform: slot(j + 2), opacity: j + 1 < bk.length ? 1 : 0}], {duration: 170, easing: ease, fill: 'forwards'}));
+  }
+  fade(ro, 0, 170);
+  if (rp && rwas !== 'none') rp.animate([{transform: rwas}, {transform: `translateX(${-dir * w * .6}px)`}], {duration: 170, fill: 'forwards'});
+  out.onfinish = () => {
+    then();
+    if (st.dead) return;
+    const car2 = st.el.querySelector('[data-dy-car]'), mv2 = car2 && car2.querySelector('.pk-car-move'), rf2 = st.el.querySelector('.pk-reflect');
+    if (!mv2) return;
+    const w2 = mv2.offsetWidth, bk2 = Array.from(car2.querySelectorAll('.pk-car-bk')), last = bk2[bk2.length - 1];
+    if (dir > 0) {
+      // (the new front is where the one behind arrived; a new last pack slides in behind from the right)
+      if (last) last.animate([{transform: slot(bk2.length + 1), opacity: 0}, {transform: slot(bk2.length), opacity: 1}], {duration: 300, easing: 'cubic-bezier(.2,.9,.3,1.1)'});
+    } else {
+      mv2.animate([{transform: `translateX(${-w2 * .6}px) rotate(-5deg)`, opacity: 0}, {transform: 'none', opacity: 1}], {duration: 320, easing: 'cubic-bezier(.2,.9,.3,1.1)'});
+    }
+    if (rf2) rf2.animate([{opacity: 0}, {opacity: ro}], {duration: 320});
+  };
+}
 function packsSheet(st) {
   const s = D.mine();
-  const kinds = (s.pk.start ? ['start'] : []).concat(D.PACK_ORDER);
+  const kinds = packKinds(s);
   const body = `<div class="pk-pick">${kinds.map(k => `<button type="button" class="pk-pickb${k === st.pack ? ' is-on' : ''}" data-dy-pick="${k}">${packHTML(k, {count: s.pk[k], design: artAt(st, k)})}`
     + `<span><b>${esc(D.PACKS[k].name)}</b><small>${esc(D.PACKS[k].blurb)}</small><em>${D.unlimited() ? 'Unlimited' : s.pk[k] ? `${s.pk[k]} to open` : `${nf(D.PACKS[k].price)} coins`}</em></span></button>`).join('')}</div>`;
   const sh = ui.openSheet({title: 'Select a booster pack', body, cls: 'pk-sheet', detents: ['large']});
@@ -304,9 +368,10 @@ function packsSheet(st) {
   });
 }
 // A pack's designs, as Pocket's artworks of a pack (views/dynasty-packs.js designsOf; the owner, Oct 29 2026: "Add more
-// art designs to the packs"): swipe the big pack sideways, or the arrows either side, or a dot, to flip between them (a
-// tap still opens it, a swipe never does); the pack list and the opening show the one chosen. The choice per pack is
-// this viewer's own (localStorage, by design id): cosmetic, never the save or the odds.
+// art designs to the packs"): the arrows either side of the dots under the pack, or a dot, or ← and → on them, flip
+// between them (a sideways swipe on the pack switches packs since Oct 29 2026: packTo); the pack list and the opening
+// show the one chosen. The choice per pack is this viewer's own (localStorage, by design id): cosmetic, never the save
+// or the odds.
 const ART_KEY = 'gg-dy-art';
 function artLoad() {
   const o = {};
@@ -328,16 +393,11 @@ function artTo(st, to, dir) {
   const kind = st.pack, ds = designsOf(kind), n = ds.length, car = st.el.querySelector('[data-dy-car]');
   if (!car) return;
   const mv = car.querySelector('.pk-car-move'), big = car.querySelector('.pk-bigpack'), rf = st.el.querySelector('.pk-reflect');
-  // (the reflection's pack went along with a drag: it springs back or slides out with it)
-  const rp = rf && rf.firstElementChild, was = mv.style.transform || 'none', rwas = (rp && rp.style.transform) || 'none';
+  const rp = rf && rf.firstElementChild, was = mv.style.transform || 'none';
   mv.style.transform = ''; if (rp) rp.style.transform = '';
-  car.classList.remove('is-drag');
   [mv, rp].forEach(x => { if (x && x.getAnimations) x.getAnimations().forEach(a => a.cancel()); });
   const i = (to % n + n) % n;
-  if (n < 2 || i === artAt(st, kind)) {
-    if (!RM() && was !== 'none' && mv.animate) { const o = {duration: 240, easing: 'cubic-bezier(.2,.9,.3,1.2)'}; mv.animate([{transform: was}, {transform: 'none'}], o); if (rp) rp.animate([{transform: rwas}, {transform: 'none'}], o); }
-    return;
-  }
+  if (n < 2 || i === artAt(st, kind)) return;
   st.art[kind] = i; artSave(st); ui.haptic('selection');
   const draw = () => {
     const at = artAt(st, kind);
@@ -355,7 +415,6 @@ function artTo(st, to, dir) {
   const ro = rf ? +getComputedStyle(rf).opacity : 0, fade = (a, b, ms) => { if (rf) rf.animate([{opacity: a}, {opacity: b}], {duration: ms}); };
   const out = mv.animate([{transform: was, opacity: 1}, off(-dir, 0)], {duration: 150, easing: 'cubic-bezier(.5,0,.8,.5)', fill: 'forwards'});
   fade(ro, 0, 150);
-  if (rp && rwas !== 'none') rp.animate([{transform: rwas}, {transform: `translateX(${-dir * w * .6}px)`}], {duration: 150, fill: 'forwards'});
   out.onfinish = () => {
     draw(); out.cancel();
     mv.animate([off(dir, 0), {transform: 'none', opacity: 1}], {duration: 320, easing: 'cubic-bezier(.2,.9,.3,1.1)'});
@@ -815,7 +874,7 @@ function refresh(st) {
   // (a finger on the big pack mid-swipe: the redraw waits till it's let go, swEnd)
   if (st.tab === 'packs' && st.sw && st.sw.on) { st.dirty = true; return; }
   // (the pack, an arrow or a dot focused: the same one after the redraw)
-  const had = document.activeElement, fk = had && pane.contains(had) ? (had.matches('[data-dy-art]') ? `[data-dy-art="${had.dataset.dyArt}"]` : had.matches('[data-dy-artat]') ? `[data-dy-artat="${had.dataset.dyArtat}"]` : had.matches('.pk-bigpack') ? '.pk-bigpack' : '') : '';
+  const had = document.activeElement, fk = had && pane.contains(had) ? (had.matches('[data-dy-art]') ? `[data-dy-art="${had.dataset.dyArt}"]` : had.matches('[data-dy-artat]') ? `[data-dy-artat="${had.dataset.dyArtat}"]` : had.matches('.pk-bigpack') ? '.pk-bigpack' : had.matches('[data-dy-to]') ? '.pk-car-bk' : '') : '';
   pane.innerHTML = PANES[st.tab](st);
   ui.hydrate(pane);
   if (fk) { const again = pane.querySelector(fk); if (again) try { again.focus({preventScroll: true}); } catch (_) {} }
@@ -860,8 +919,9 @@ export default {
       if ((b = q('[data-dy-cv]'))) { st.f.view = b.dataset.dyCv; refresh(st); return; }
       if (q('[data-dy-all]')) { st.f.view = st.f.view === 'all' ? 'mine' : 'all'; ui.haptic('selection'); refresh(st); return; }
       if (q('[data-dy-filter]')) { filterSheet(st); return; }
-      // (the pack's designs: a swipe that just ended never opens it)
+      // (the packs: a swipe that just ended never opens the front one nor brings one behind forward)
       if (q('[data-dy-car]') && performance.now() - (st.swiped || -1e4) < 450) return;
+      if ((b = q('[data-dy-to]'))) { packTo(st, packKinds(D.mine()).indexOf(b.dataset.dyTo), 1); return; }
       if ((b = q('[data-dy-art]'))) { const d = +b.dataset.dyArt; artTo(st, artAt(st, st.pack) + d, d); return; }
       if ((b = q('[data-dy-artat]'))) { const i = +b.dataset.dyArtat; artTo(st, i, i < artAt(st, st.pack) ? -1 : 1); return; }
       if (q('[data-dy-openhere]')) { openHere(st); return; }
@@ -896,8 +956,9 @@ export default {
       // (a tap anywhere else on the title screen starts)
       if (q('[data-dy-start]')) startGame(st);
     });
-    // (the pack's designs: the big pack follows a sideways swipe and flips to the next design past 50px or a flick, else
-    // springs back; an up-and-down drag scrolls the page as ever; ← and → step through them too)
+    // (the packs: the front pack follows a sideways swipe and the next pack (or the one before) comes to the front past
+    // 50px or a flick, else it springs back; an up-and-down drag scrolls the page as ever; ← and → on the pack step
+    // through the packs too, and on the dots under it through its designs)
     el.addEventListener('pointerdown', e => {
       const car = e.target.closest('.pk-car.is-many');
       // (one finger at a time: a second one landing mid-swipe is ignored, never takes the swipe over)
@@ -930,7 +991,7 @@ export default {
       w.car.classList.remove('is-drag');
       st.swiped = performance.now();
       const d = w.dx < 0 ? 1 : -1, go = e.type === 'pointerup' && (Math.abs(w.dx) > 50 || (Math.abs(w.dx) > 16 && Math.abs(w.v) > .45));
-      artTo(st, artAt(st, st.pack) + (go ? d : 0), d);
+      packTo(st, packKinds(D.mine()).indexOf(st.pack) + (go ? d : 0), d);
       // (a redraw held off while the finger was down (refresh: st.dirty) comes once the pack has settled)
       if (st.dirty) { st.dirty = false; setTimeout(() => refresh(st), 500); }
     };
@@ -940,6 +1001,7 @@ export default {
       if ((e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') || !e.target.closest('.pk-car.is-many, .pk-car-dots')) return;
       e.preventDefault();
       const d = e.key === 'ArrowRight' ? 1 : -1, dot = e.target.closest('[data-dy-artat]');
+      if (!e.target.closest('.pk-car-dots')) { packTo(st, packKinds(D.mine()).indexOf(st.pack) + d, d); return; }
       artTo(st, artAt(st, st.pack) + d, d);
       // (on a dot, the focus goes along to the one now chosen)
       if (dot) { const to = st.el.querySelector(`[data-dy-artat="${artAt(st, st.pack)}"]`); if (to) to.focus(); }
