@@ -200,4 +200,25 @@ export async function dynastyChecks(check) {
     return {pass: tabs === 5 && menu && logo && bits && say && cards.length === 14 && teams >= 10 && drawn === (D.status === 'ready' ? 14 : 0) && ids[0] === ids[1] && ids[0] !== ids[2] && !/EVAN/.test(ids[0]) && modes,
       detail: `${tabs} tabs; ${cards.length} cards from ${teams} teams drift on the title screen; support id ${ids[0]}`};
   });
+  check('Gridiron Dynasty: each rarity’s reveal on the deal grows with it (the owner, Oct 29 2026: "The more rare the player, the more exciting the animation"): ◆ dealt face up, ◆◆ flips, ◆◆◆ a ring, sparks and its stamp, ◆◆◆◆ rays, a flash and confetti, ★ and ★★ the drum and the sweep, ♛ the crown and the most of everything', async () => {
+    const O = await import('../views/dynasty-open.js');
+    const pick = f => D.CARDS.find(f);
+    const cards = [pick(c => c.r === 'common' && c.s === 'L'), pick(c => c.r === 'rare' && c.s === 'L'), pick(c => c.r === 'epic' && c.s === 'L'), pick(c => c.r === 'legendary' && c.s === 'L'),
+      pick(c => c.r === 'mythic' && c.s === 'L'), pick(c => c.s === 'P'), pick(c => c.s === 'X')];
+    const R = cards.map(O.revealOf);
+    const tiers = R.map(r => r.tier).join() === '0,1,2,3,4,5,6';
+    const up = k => R.every((r, i) => !i || r[k] >= R[i - 1][k]);
+    const more = up('hold') && up('flip') && up('sparks') && up('confetti') && up('total') && R.every((r, i) => !i || r.haptics.length >= R[i - 1].haptics.length) && R[6].total > R[0].total * 4;
+    const labels = R.map(r => r.label).join() === ',,Epic,Legendary,Mythic,Prime,Legend';
+    const trainer = O.revealOf(D.trainer(D.TRAINER_IDS[0])).tier;
+    const html = O.dealHTML(cards[6], R[6], '<div class="pk-card"></div>', true);
+    const crown = /class="pk-deal-c t-6 is-flip is-shake"/.test(html) && /pk-fx-crown/.test(html) && /pk-fx-rays/.test(html) && /pk-fx-flash/.test(html) && /pk-fx-sweep/.test(html)
+      && (html.match(/class="pk-spk"/g) || []).length === 22 && /pk-deal-tag">Legend</.test(html) && /pk-flip-back/.test(html) && /NEW/.test(html);
+    const plain = O.dealHTML(cards[0], R[0], '<div class="pk-card"></div>', false);
+    const common = /class="pk-deal-c t-0 is-face"/.test(plain) && !/pk-spk|pk-fx-|pk-deal-tag|NEW/.test(plain);
+    const epic = O.dealHTML(cards[2], R[2], '', false);
+    const mid = /t-2 is-flip"/.test(epic) && /pk-fx-ring/.test(epic) && !/pk-fx-rays|pk-fx-flash|pk-fx-sweep|pk-fx-crown/.test(epic) && /pk-deal-tag">Epic</.test(epic);
+    return {pass: tiers && more && labels && (trainer === 1 || trainer === 2) && crown && common && mid,
+      detail: `tiers ${R.map(r => r.tier).join(' < ')}; ${R.map(r => `${r.name} ${r.total}ms`).join(', ')}`};
+  });
 }
