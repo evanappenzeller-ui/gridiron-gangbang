@@ -223,9 +223,11 @@ const TABS = [
 function shellHTML() {
   return `<div class="pk" data-dy><header class="pk-hdr">${ui.exitButton('data-dy-exit', 'Exit Gridiron Dynasty')}`
     + `<h1 class="pk-title" data-pk-title>Packs</h1><span class="pk-wallet" data-dy-wallet></span></header>`
+    + `<div class="pk-pane" data-dy-pane></div>`
+    // (the tabs at the foot of the screen, icons only, as Pocket's menu: the owner, Oct 29 2026, "Move the navigation
+    // tab to the bottom like the attached picture"; the names stay for screen readers)
     + `<nav class="pk-nav" aria-label="Gridiron Dynasty">${TABS.map((t, i) => `<button type="button" class="pk-tab${i === 0 ? ' is-on' : ''}" data-dy-tab="${t.id}" aria-pressed="${i === 0}">`
-      + `<svg viewBox="0 0 24 24" aria-hidden="true">${t.ic}</svg><span>${t.label}</span><i class="pk-dot" hidden></i></button>`).join('')}</nav>`
-    + `<div class="pk-pane" data-dy-pane></div></div>`;
+      + `<svg viewBox="0 0 24 24" aria-hidden="true">${t.ic}</svg><span class="sr-only">${t.label}</span><i class="pk-dot" hidden></i></button>`).join('')}</nav></div>`;
 }
 
 // ---------------------------------------------------------------------------------------------------- Packs
