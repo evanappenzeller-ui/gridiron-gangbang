@@ -243,12 +243,14 @@ function packsHTML(st) {
   const wait = MT.waiting(), ready = D.claimable(s);
   const best = packBest(kind);
   const slots = P.slots.reduce((t, x) => t + x.n, 0);
-  const open = free ? 'Open free pack' : have ? `Open${have > 1 ? ` (${have})` : ''}` : `Open · ${nf(P.price)}`;
+  const inf = D.unlimited();
+  const open = inf ? 'Open' : free ? 'Open free pack' : have ? `Open${have > 1 ? ` (${have})` : ''}` : `Open · ${nf(P.price)}`;
   const note = kind === 'start' ? '1 Epic or better guaranteed' : kind === 'prem' ? '1 Legendary or better guaranteed' : kind === 'gday' ? '1 Gameday card guaranteed' : kind === 'leg' ? '1 card 90+ guaranteed' : '1 Trainer card in every pack';
   let h = '';
   if (wait) h += `<button type="button" class="pk-alert" data-dy-tab="battle">${ui.icon('versus', {size: 20})}<span>${wait === 1 ? 'A battle is' : `${wait} battles are`} waiting on you</span>${ui.icon('chevron-right', {size: 16})}</button>`;
   if (ready.length) h += `<button type="button" class="pk-alert is-gold" data-dy-goto="cols">${ui.icon('trophy', {size: 20})}<span>${ready.length === 1 ? 'A collection is' : `${ready.length} collections are`} complete: claim your reward</span>${ui.icon('chevron-right', {size: 16})}</button>`;
-  h += `<div class="pk-free"><span class="pk-free-b${D.dailyReady(s) ? ' is-ready' : ''}"><i class="pk-free-i"></i><b>${D.dailyReady(s) ? 'Free pack ready' : `Next free pack in ${esc(ui.untilText(untilMidnight()))}`}</b></span>`
+  // (unlimited packs, Evan's and Ryan Stewart's: Oct 29 2026)
+  h += `<div class="pk-free"><span class="pk-free-b${inf || D.dailyReady(s) ? ' is-ready' : ''}"><i class="pk-free-i"></i><b>${inf ? 'Unlimited packs' : D.dailyReady(s) ? 'Free pack ready' : `Next free pack in ${esc(ui.untilText(untilMidnight()))}`}</b></span>`
     + `<button type="button" class="pk-q" data-dy-earn aria-label="How you earn coins">?</button></div>`;
   h += `<div class="pk-show" style="--pc:${P.color}"><span class="pk-show-tag">${ui.icon('star', {size: 14})}Top cards in this pack</span>`
     + `<div class="pk-show-row">${best.map(c => cardHTML(c, {size: 's', tag: false, noCount: true})).join('')}</div></div>`;
@@ -276,7 +278,7 @@ function packsSheet(st) {
   const s = D.mine();
   const kinds = (s.pk.start ? ['start'] : []).concat(D.PACK_ORDER);
   const body = `<div class="pk-pick">${kinds.map(k => `<button type="button" class="pk-pickb${k === st.pack ? ' is-on' : ''}" data-dy-pick="${k}">${packHTML(k, {count: s.pk[k]})}`
-    + `<span><b>${esc(D.PACKS[k].name)}</b><small>${esc(D.PACKS[k].blurb)}</small><em>${s.pk[k] ? `${s.pk[k]} to open` : `${nf(D.PACKS[k].price)} coins`}</em></span></button>`).join('')}</div>`;
+    + `<span><b>${esc(D.PACKS[k].name)}</b><small>${esc(D.PACKS[k].blurb)}</small><em>${D.unlimited() ? 'Unlimited' : s.pk[k] ? `${s.pk[k]} to open` : `${nf(D.PACKS[k].price)} coins`}</em></span></button>`).join('')}</div>`;
   const sh = ui.openSheet({title: 'Select a booster pack', body, cls: 'pk-sheet', detents: ['large']});
   sh.body.addEventListener('click', e => {
     const b = e.target.closest('[data-dy-pick]');
@@ -552,8 +554,8 @@ function battleHTML2(st) { return st.bv === 'versus' ? versusHTML(st) : st.bv ==
 // ---------------------------------------------------------------------------------------------------- opening a pack
 function openHere(st) {
   const s = D.mine(), kind = st.pack, P = D.PACKS[kind];
-  if (kind === D.DAILY_PACK && D.dailyReady(s) && !s.pk[kind]) { D.claimDaily(); openPack(st, kind); return; }
-  if (s.pk[kind] > 0) { openPack(st, kind); return; }
+  if (kind === D.DAILY_PACK && D.dailyReady(s) && !s.pk[kind] && !D.unlimited()) { D.claimDaily(); openPack(st, kind); return; }
+  if (s.pk[kind] > 0 || (D.unlimited() && !P.unique)) { openPack(st, kind); return; }
   if (D.balance(s) < P.price) { ui.toast(`You need ${nf(P.price - D.balance(s))} more coins. Play the Daily Games to earn them.`, {icon: 'info'}); return; }
   ui.actionSheet({title: `Open a ${P.name}?`, message: `${nf(P.price)} coins. You have ${nf(D.balance(s))}.`, cls: 'pk-sheet', actions: [{label: `Open for ${nf(P.price)}`, role: 'primary', value: 'y'}]}).then(v => {
     if (v !== 'y') return;

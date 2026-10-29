@@ -26,7 +26,7 @@ import * as daily from './daily.js';
 import * as data from './data.js';
 import {profileKey, visitWho} from './realm-active.js';
 import * as B from './dynasty-battle.js';
-import {dynastyOpen, dynastyKey} from './features.js';
+import {dynastyOpen, dynastyKey, packsUnlimited} from './features.js';
 
 export const FIELD = 'dy1';
 export const VERSION = 1;
@@ -586,6 +586,8 @@ const credit = (s, n) => { s.cr += Math.max(0, Math.round(n)); };
 const addCard = (s, id) => { s.o[id] = (s.o[id] || 0) + 1; };
 const addPacks = (s, packs) => Object.entries(packs || {}).forEach(([k, n]) => { if (PACKS[k]) s.pk[k] = (s.pk[k] || 0) + n; });
 
+/** Whether this Dynasty opens packs without end (Evan's and Ryan Stewart's: core/features.js packsUnlimited, Oct 29 2026). */
+export const unlimited = (key = PROFILE) => packsUnlimited(key);
 /** Whether today's free pack is waiting. */
 export const dailyReady = (s = mine(), t = new Date()) => s.dd !== dayKey(t);
 /** Takes today's free Standard Pack. True if it did. */
@@ -600,15 +602,18 @@ export function buy(kind, s = mine()) {
   if (!spend(s, P.price)) return {ok: false, why: `You need ${data.nf(P.price - balance(s))} more coins.`};
   addPacks(s, {[kind]: 1}); touch(); return {ok: true};
 }
-/** Opens one of your packs: its cards go in your collection. {ok, cards: [ids], dup: {id: true}} (team: a Team Pack's). */
-export function open(kind, {team = null} = {}, s = mine()) {
-  if (!(s.pk[kind] > 0)) return {ok: false, why: 'You have none of those to open.'};
+/** Opens one of your packs: its cards go in your collection. {ok, cards: [ids], dup: {id: true}} (team: a Team Pack's;
+ *  free: unlimited packs, one held is used first, then none is needed). */
+export function open(kind, {team = null, free = unlimited()} = {}, s = mine()) {
+  if (!PACKS[kind]) return {ok: false, why: 'No such pack.'};
+  free = free && !PACKS[kind].unique; // (the Starter Pack stays one)
+  if (!free && !(s.pk[kind] > 0)) return {ok: false, why: 'You have none of those to open.'};
   if (PACKS[kind].team && !TEAMS[team]) return {ok: false, why: 'Pick a team first.'};
   const ids = drawPack(kind, {team});
   const dup = {};
   ids.forEach(id => { if (s.o[id] > 0) dup[id] = true; else if (!s.nw.includes(id)) s.nw.unshift(id); addCard(s, id); });
   s.nw = s.nw.slice(0, 60);
-  s.pk[kind] -= 1; if (!s.pk[kind]) delete s.pk[kind];
+  if (s.pk[kind] > 0) { s.pk[kind] -= 1; if (!s.pk[kind]) delete s.pk[kind]; }
   s.pp += PP_PER_PACK;
   s.lp = [...ids.slice().reverse(), ...s.lp].slice(0, 24);
   // (the Starter Pack's players make a deck that isn't ready: a new Dynasty's first)

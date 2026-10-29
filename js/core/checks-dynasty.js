@@ -157,6 +157,17 @@ export async function dynastyChecks(check) {
     const kept = JSON.stringify(D.clean(s).so) === JSON.stringify(s.so) && D.clean(s).sl.length === 3;
     return {pass: legal && games.every(g => g.ok) && pay && kept, detail: `decks ${legal}; ${games.map(g => g.t).join('; ')}; pay ${pay}, kept ${kept}`};
   });
+  check('Gridiron Dynasty: unlimited packs for Evan and Ryan Stewart (his ask, Oct 29 2026: "Give Ryan Stewart and I unlimited packs to open"): by their ids, any pack opens without buying or holding one, a held one used first (the Starter Pack stays one); anyone else still needs one', async () => {
+    const F = await import('./features.js');
+    const keys = ['m_evan', 'u_ryan-stewart', 'm_mason', 'u_ryan-dow', 'g_72_79'].map(F.packsUnlimited);
+    const s = D.fresh('m_inf', 1000), o = Object.values(s.o).reduce((t, n) => t + n, 0);
+    const held = D.open('std', {free: true}, s).ok && s.pk.std === 1;
+    const none = D.open('leg', {free: true}, s).ok && D.open('leg', {free: true}, s).ok && !s.pk.leg && s.sp === 0;
+    const got = Object.values(s.o).reduce((t, n) => t + n, 0) - o === 5 + 3 + 3;
+    const others = !D.open('leg', {free: false}, s).ok;
+    const starter = D.open('start', {free: true}, s).ok && !D.open('start', {free: true}, s).ok;
+    return {pass: keys.join() === 'true,true,false,false,false' && held && none && got && others && starter, detail: `Evan, Ryan S, Mason, Ryan D, a guest: ${keys.join(', ')}`};
+  });
   check('Gridiron Dynasty: a collection’s reward is claimed once, when it’s complete', () => {
     const col = D.COLLECTIONS.find(c => c.kind === 'team');
     const s = D.fresh('m_check');
