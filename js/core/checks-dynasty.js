@@ -208,9 +208,14 @@ export async function dynastyChecks(check) {
     const R = cards.map(O.revealOf);
     const tiers = R.map(r => r.tier).join() === '0,1,2,3,4,5,6';
     const up = k => R.every((r, i) => !i || r[k] >= R[i - 1][k]);
-    const more = up('hold') && up('flip') && up('sparks') && up('confetti') && up('total') && R.every((r, i) => !i || r.haptics.length >= R[i - 1].haptics.length) && R[6].total > R[0].total * 4;
+    const more = up('hold') && up('flip') && up('sparks') && up('confetti') && up('total') && R.every((r, i) => !i || r.haptics.length >= R[i - 1].haptics.length) && R[6].total > R[0].total * 4
+      && R[5].sparks > R[4].sparks && R[5].confetti > R[4].confetti && R[5].total > R[4].total;
     const labels = R.map(r => r.label).join() === ',,Epic,Legendary,Mythic,Prime,Legend';
-    const trainer = O.revealOf(D.trainer(D.TRAINER_IDS[0])).tier;
+    // (a Trainer card by its rarity: an Epic one tier 2, a Legendary one tier 3, stamped so; the rarest dealt last)
+    const tr = D.TRAINER_IDS.map(D.trainer), te = tr.find(t => t.r === 'epic'), tl = tr.find(t => t.r === 'legendary');
+    const trainers = !!te && !!tl && O.revealOf(te).tier === 2 && O.revealOf(te).label === 'Epic' && O.revealOf(tl).tier === 3 && O.revealOf(tl).label === 'Legendary';
+    const dealt = O.dealOrder([cards[6], cards[0], tl, cards[5], cards[2], te, cards[4]]).map(O.revealOf).map(r => r.tier);
+    const order = dealt.every((t, i) => !i || t >= dealt[i - 1]) && dealt[0] === 0 && dealt[6] === 6;
     const html = O.dealHTML(cards[6], R[6], '<div class="pk-card"></div>', true);
     const crown = /class="pk-deal-c t-6 is-flip is-shake"/.test(html) && /pk-fx-crown/.test(html) && /pk-fx-rays/.test(html) && /pk-fx-flash/.test(html) && /pk-fx-sweep/.test(html)
       && (html.match(/class="pk-spk"/g) || []).length === 22 && /pk-deal-tag">Legend</.test(html) && /pk-flip-back/.test(html) && /NEW/.test(html);
@@ -218,7 +223,7 @@ export async function dynastyChecks(check) {
     const common = /class="pk-deal-c t-0 is-face"/.test(plain) && !/pk-spk|pk-fx-|pk-deal-tag|NEW/.test(plain);
     const epic = O.dealHTML(cards[2], R[2], '', false);
     const mid = /t-2 is-flip"/.test(epic) && /pk-fx-ring/.test(epic) && !/pk-fx-rays|pk-fx-flash|pk-fx-sweep|pk-fx-crown/.test(epic) && /pk-deal-tag">Epic</.test(epic);
-    return {pass: tiers && more && labels && (trainer === 1 || trainer === 2) && crown && common && mid,
+    return {pass: tiers && more && labels && trainers && order && crown && common && mid,
       detail: `tiers ${R.map(r => r.tier).join(' < ')}; ${R.map(r => `${r.name} ${r.total}ms`).join(', ')}`};
   });
 }

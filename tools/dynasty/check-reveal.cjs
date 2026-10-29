@@ -4,6 +4,7 @@
 // each tier brings, the card face up at the reveal's end, frames at its key moments (--shots), then a second pass where
 // a tap finishes each reveal and the next moves on, and a third with reduced motion (each card simply face up).
 // Local only: the app is served from this folder with Firebase disabled, so nothing reaches the live board.
+// Then a tap after a Rare's flip moves on at once (no dead tap).
 // Usage: node tools/dynasty/check-reveal.cjs [--shots=<dir>]
 const fs = require('node:fs');
 const path = require('node:path');
@@ -41,8 +42,11 @@ async function openAll(page) {
     const cards = [pick(c => c.r === 'common' && c.s === 'L'), pick(c => c.r === 'rare' && c.s === 'L'), pick(c => c.r === 'epic' && c.s === 'L'), pick(c => c.r === 'legendary' && c.s === 'L'),
       pick(c => c.r === 'mythic' && c.s === 'L'), pick(c => c.s === 'P'), pick(c => c.s === 'X')];
     window.__closed = false;
+    // (every burst of confetti noted as its canvas lands, over the overlay or not: the frames take longer than it falls)
+    window.__bursts = 0;
+    new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => { if (n.classList && n.classList.contains('confetti-canvas') && getComputedStyle(n).zIndex === '201') window.__bursts++; }))).observe(document.body, {childList: true});
     O.openScene({kind: 'leg', cards: cards.map(c => c.id), dup: {[cards[1].id]: true}, cardHTML: V.anyHTML, onClose: () => { window.__closed = true; }});
-    return cards.slice().sort((a, b) => a.o - b.o).map(c => ({id: c.id, name: c.name, ...O.revealOf(c)}));
+    return O.dealOrder(cards).map(c => ({id: c.id, name: c.name, ...O.revealOf(c)}));
   });
 }
 async function rip(page) {
@@ -55,10 +59,14 @@ const dealState = page => page.evaluate(() => {
   const el = document.querySelector('.pk-deal-c:not(.is-gone)');
   if (!el) return null;
   const t = getComputedStyle(el.querySelector('.pk-flip')).transform, m = t === 'none' ? null : new DOMMatrixReadOnly(t);
-  return {cls: el.className, tier: document.querySelector('div.pk-open').dataset.tier, n: document.querySelector('.pk-deal-n').textContent, skip: el.classList.contains('is-skip'),
+  const A = el.getAnimations({subtree: true}).filter(a => a.effect.getComputedTiming().endTime !== Infinity);
+  const ov = document.querySelector('div.pk-open');
+  return {cls: el.className, tier: ov.dataset.tier, lit: !!ov.dataset.lit, tint: ov.dataset.tint || '', dealing: ov.classList.contains('is-dealing'), n: document.querySelector('.pk-deal-n').textContent,
+    done: !A.some(a => a.playState === 'running'), bursts: window.__bursts,
     faceUp: !m || (Math.abs(m.m11 - 1) < .01 && Math.abs(m.m13) < .01), ring: !!el.querySelector('.pk-fx-ring'), rays: !!el.querySelector('.pk-fx-rays'), flash: !!el.querySelector('.pk-fx-flash'),
     crown: !!el.querySelector('.pk-fx-crown'), sweep: !!el.querySelector('.pk-fx-sweep'), sparks: el.querySelectorAll('.pk-spk').length, tag: (el.querySelector('.pk-deal-tag') || {}).textContent || '',
-    back: !!el.querySelector('.pk-flip-back'), backShown: !!el.querySelector('.pk-flip-back') && getComputedStyle(el.querySelector('.pk-flip-back')).display !== 'none', isNew: !!el.querySelector('.pk-c-new'), live: el.querySelectorAll('.pk-deal-c').length};
+    back: !!el.querySelector('.pk-flip-back'), backShown: !!el.querySelector('.pk-flip-back') && getComputedStyle(el.querySelector('.pk-flip-back')).display !== 'none', isNew: !!el.querySelector('.pk-c-new'),
+    live: document.querySelectorAll('.pk-deal-stack > .pk-deal-c:not(.is-gone)').length};
 });
 const tapDeal = page => page.locator('.pk-deal').click({position: {x: 100, y: 100}});
 
@@ -66,7 +74,7 @@ async function timedPass(page, order) {
   for (let i = 0; i < order.length; i++) {
     const R = order[i], T = `tier ${R.tier} (${R.name}, ${R.name === 'common' ? R.id : R.name})`;
     const t0 = Date.now();
-    const s0 = await dealState(page);
+    const s0 = await dealState(page), bursts0 = s0.bursts;
     assert(s0, T + ': a card on the deal');
     assert.match(s0.cls, new RegExp(`\\bt-${R.tier}\\b`), T + ': the deal carries its tier');
     assert.equal(s0.tier, String(R.tier), T + ': the ground knows the tier');
@@ -78,7 +86,10 @@ async function timedPass(page, order) {
     assert.equal(s0.tag, R.label, T + ': its stamp');
     assert.equal(s0.backShown, R.tier >= 1, T + ': face down past Common');
     assert.equal(s0.isNew, R.tier !== 1, T + ': NEW on every card but the copy held');
-    assert.equal(s0.n.includes(R.label || `${i + 1} of ${order.length}`), true, T + ': the count line names it');
+    assert.equal(s0.n, `${i + 1} of ${order.length}`, T + ': the count line keeps the rarity a surprise');
+    assert.equal(s0.lit, R.tier >= 3, T + ': the ground lit from Legendary');
+    if (R.tier >= 3) assert.equal(s0.tint, String(R.tier), T + ': the ground’s colour');
+    assert.equal(s0.dealing, true, T + ': the overlay holds still while dealing');
     // (frames at exact moments of the reveal's clock: every animation paused and set to that time, then let run on)
     const frame = async (ms, name) => {
       if (!shots) return;
@@ -89,12 +100,18 @@ async function timedPass(page, order) {
     if (R.tier >= 1) { await frame(R.hold - 60, `t${R.tier}-b-hold`); await frame(R.hold + R.flip * .45, `t${R.tier}-c-flip`); await frame(R.hold + R.flip / 2 + 260, `t${R.tier}-c2-sparks`); }
     await frame(R.hold + R.flip + 400, `t${R.tier}-d-after`);
     // (then let the ones still to come run on; a finished one stays at its end, as play() would start it over)
-    if (shots) await page.evaluate(() => document.getAnimations().forEach(a => { try { const end = a.effect.getComputedTiming().endTime; if (end === Infinity || a.currentTime < end) a.play(); } catch (_) {} }));
+    if (shots) {
+      const left = await page.evaluate(() => { let left = 0; document.getAnimations().forEach(a => { try { const end = a.effect.getComputedTiming().endTime; if (end === Infinity || a.currentTime < end) { a.play(); if (end !== Infinity) left = Math.max(left, end - a.currentTime); } } catch (_) {} }); return left; });
+      await page.waitForTimeout(left + 80);
+    }
     const atMs = async ms => { const w = ms - (Date.now() - t0); if (w > 0) await page.waitForTimeout(w); };
     await atMs(R.total + 150);
+    // (the frames' screenshots take their own time; the last pieces may still be running out their last frames)
+    await page.waitForFunction(() => { const el = document.querySelector('.pk-deal-c:not(.is-gone)'); return !!el && !el.getAnimations({subtree: true}).some(a => a.effect.getComputedTiming().endTime !== Infinity && a.playState === 'running'); }, null, {timeout: 1500}).catch(() => {});
     const s1 = await dealState(page);
     assert.equal(s1.faceUp, true, T + ': face up at the end');
-    assert.equal(s1.skip, false, T + ': not skipped');
+    assert.equal(s1.done, true, T + ': its reveal over');
+    assert.equal(s1.bursts - bursts0, R.confetti ? (R.tier >= 6 ? 2 : 1) : 0, T + ': its confetti, over the overlay');
     if (i < order.length - 1) { await tapDeal(page); await page.waitForTimeout(80); }
   }
   await tapDeal(page);
@@ -113,14 +130,26 @@ async function skipPass(page, order) {
     if (R.tier >= 1) {
       await tapDeal(page); await page.waitForTimeout(60);
       const s1 = await dealState(page);
-      assert.equal(s1.skip, true, T + ': a tap while it plays finishes it');
+      assert.equal(s1.done, true, T + ': a tap while it plays finishes it');
       assert.match(s1.cls, new RegExp(`\\bt-${R.tier}\\b`), T + ': the same card stays');
       assert.equal(s1.faceUp, true, T + ': face up at once');
-      assert.equal(s1.live, 0, T + ': no second card');
+      assert.equal(s1.live, 1, T + ': no second card');
     }
     await tapDeal(page); await page.waitForTimeout(80);
     if (i < order.length - 1) assert.match((await dealState(page)).cls, new RegExp(`\\bt-${order[i + 1].tier}\\b`), T + ': the next tap moves on');
   }
+  await page.locator('.pk-results:not([hidden])').waitFor({timeout: 5000});
+  await page.locator('[data-dy-next]').click();
+  await page.waitForFunction(() => window.__closed, null, {timeout: 5000});
+}
+/** After a Rare's flip (0.7 s) a tap must move on, not finish a reveal that's over (the dead tap). */
+async function deadTapPass(page, order) {
+  const i = order.findIndex(r => r.tier === 1);
+  for (let k = 0; k < i; k++) { await page.waitForTimeout(60); await tapDeal(page); await page.waitForTimeout(80); }
+  await page.waitForTimeout(order[i].hold + order[i].flip + 250);
+  await tapDeal(page); await page.waitForTimeout(80);
+  assert.match((await dealState(page)).cls, new RegExp(`\\bt-${order[i + 1].tier}\\b`), 'a tap after a Rare’s flip moves on');
+  await page.locator('[data-dy-skip]').click();
   await page.locator('.pk-results:not([hidden])').waitFor({timeout: 5000});
   await page.locator('[data-dy-next]').click();
   await page.waitForFunction(() => window.__closed, null, {timeout: 5000});
@@ -146,7 +175,7 @@ async function run(url) {
   const {chromium} = require('playwright');
   const browser = await chromium.launch();
   try {
-    for (const pass of ['timed', 'skip', 'reduced']) {
+    for (const pass of ['timed', 'skip', 'deadtap', 'reduced']) {
       const context = await browser.newContext({viewport: {width: 390, height: 844}, deviceScaleFactor: 2, serviceWorkers: 'block', reducedMotion: pass === 'reduced' ? 'reduce' : 'no-preference'});
       await context.addInitScript(() => {
         localStorage.setItem('gg-me', 'evan'); localStorage.setItem('gg-welcome', '1'); localStorage.setItem('gg-release-3.0:evan', '1');
@@ -166,6 +195,7 @@ async function run(url) {
       await rip(page);
       if (pass === 'timed') await timedPass(page, order);
       else if (pass === 'skip') await skipPass(page, order);
+      else if (pass === 'deadtap') await deadTapPass(page, order);
       else await reducedPass(page, order);
       assert.deepEqual(errors, [], pass + ': unexpected browser exceptions');
       console.log(`${pass}: ${order.map(r => `${r.tier} ${r.name}`).join(' → ')}`);
