@@ -1378,6 +1378,15 @@ export function actionSheet({title, message, actions = [], cancelLabel = 'Cancel
   });
 }
 
+/** The red X a full-screen game (Gridiron Dynasty, Keepfall) puts in its top-left corner to leave it (the owner, Oct 28
+ *  2026: "There should be a red X in the top left corner to exit the game mode"). attrs: its data attribute. */
+export const exitButton = (attrs, label = 'Exit the game') =>
+  `<button type="button" class="gg-exit" ${attrs} aria-label="${esc(label)}">${icon('close')}</button>`;
+/** What the red X asks: Return to Home (resolves true) or Return to Game (false). cls: the game's sheet scope. */
+export const confirmExit = ({game, cls = ''} = {}) =>
+  actionSheet({title: `Leave ${game}?`, actions: [{label: 'Return to Home', role: 'primary', value: 'home'}], cancelLabel: 'Return to Game', cls})
+    .then(v => v === 'home');
+
 /** Manager picker: 4x3 grid of 56px avatars. Resolves an id, 'none' (allowNone), or null when dismissed. */
 export function pickManager({title = 'Pick a manager', selected, disabled = [], note, allowNone, returnFocus} = {}) {
   return new Promise(res => {

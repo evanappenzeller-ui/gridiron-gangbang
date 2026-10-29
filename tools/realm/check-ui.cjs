@@ -127,7 +127,13 @@ async function uiChecks(page, context, url) {
   const overflow = await page.locator('[data-rl-log]').evaluate(el => ({outer: el.getBoundingClientRect().right, inner: el.lastElementChild.scrollWidth - el.lastElementChild.clientWidth}));
   assert(overflow.outer <= 320 && overflow.inner <= 1, 'Chronicle fits a 320px screen');
   await page.screenshot({path: path.join(output, 'realm-home-320.png')});
-  await page.locator('.rl-hub').click();
+  // (the red X asks first: Return to Game stays, Return to Home leaves)
+  await page.locator('[data-rl-exit]').click();
+  await page.locator('.sh-action .as-btn.is-cancel').click();
+  await page.waitForTimeout(400);
+  assert.equal(await page.evaluate(() => document.documentElement.classList.contains('is-realm-playing')), true, 'Return to Game stays in Keepfall');
+  await page.locator('[data-rl-exit]').click();
+  await page.locator('.sh-action .as-btn.is-primary').click();
   await page.waitForFunction(() => !document.documentElement.classList.contains('is-realm-playing'));
   assert.equal(await page.locator('#tabbar').isVisible(), true, 'Hub navigation returns outside village');
   await page.evaluate(async () => (await import('/js/app.js')).nav('/realm'));

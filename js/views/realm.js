@@ -159,12 +159,12 @@ function shellHTML() {
     + `<div class="rl-gl" aria-hidden="true"><div class="rl-loading">Riding out to your realm…</div></div>`
     + `<div class="rl-tags"></div><div class="rl-effects" aria-hidden="true"></div>`
     + `<div class="sr-only" data-rl-announcement role="status" aria-live="polite"></div>`
-    + `<div class="rl-top">`
+    + `<div class="rl-top">${ui.exitButton('data-rl-exit', 'Exit Keepfall')}`
     + `<button type="button" class="rl-me" data-rl-house aria-label="Your house"><span class="rl-crest" data-rl-lv>1</span><b data-rl-name></b></button>`
     + `<div class="rl-res">`
     + F.CUR.map(c => `<button type="button" class="rl-cur is-${c}" data-rl-cur="${c}"><span class="rl-curb"><i data-rl-f></i></span><b data-rl-n>0</b><i class="rl-coin" aria-hidden="true"></i></button>`).join('')
     + `</div></div>`
-    + `<div class="rl-utility"><div class="rl-home-links"><button type="button" class="rl-hub" data-nav="/puzzles" aria-label="Back to Daily Games">‹ Games</button>`
+    + `<div class="rl-utility"><div class="rl-home-links">`
     + `<button type="button" class="rl-frame rl-lore" data-rl-lore aria-label="Read the lore of Keepfall">Lore</button>`
     + `<button type="button" class="rl-frame rl-visit" data-rl-visit aria-label="Visit other players’ realms">Visit</button></div>`
     + `<div class="rl-camera-modes"><button type="button" class="rl-frame" data-rl-buildings aria-label="Find a building, including hidden buildings">Buildings</button></div></div>`
@@ -1623,6 +1623,8 @@ export default {
       const t = e.target;
       if (t.closest('[data-rl-buildings]')) { buildingsSheet(st); return; }
       if (t.closest('[data-rl-overlap]')) { buildingsSheet(st, st.overlap); return; }
+      // (the red X: Return to Home, the Daily Games, or Return to Game; the owner, Oct 28 2026)
+      if (t.closest('[data-rl-exit]')) { ui.confirmExit({game: 'Keepfall'}).then(home => { if (home && !st.dead) st.ctx.nav('/puzzles'); }); return; }
       if (t.closest('[data-rl-lore]')) { loreSheet(st); return; }
       if (t.closest('[data-rl-visit]')) { visitSheet(st); return; }
       if (t.closest('[data-rl-objective]')) { followObjective(st); return; }
