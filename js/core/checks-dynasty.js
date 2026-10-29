@@ -226,4 +226,26 @@ export async function dynastyChecks(check) {
     return {pass: tiers && more && labels && trainers && order && crown && common && mid,
       detail: `tiers ${R.map(r => r.tier).join(' < ')}; ${R.map(r => `${r.name} ${r.total}ms`).join(', ')}`};
   });
+  check('Gridiron Dynasty: every pack comes in several art designs, more detailed the rarer the pack (the owner, Oct 29 2026: "Add more art designs to the packs. The more rare the pack, the more detailed the art design should be"): at least three each, the average and the plainest design of each tier above the tier below, each within its budget, no SVG filters below Gameday, ids a pack’s own (two on a page share none), a stored design past the end wrapped', async () => {
+    const P = await import('../views/dynasty-packs.js');
+    const BUDGET = {1: 30, 2: 55, 3: 90, 4: 150, 5: 240}, kinds = ['start', ...D.PACK_ORDER], by = {};
+    let ok = true, why = '';
+    const svgOf = html => { const host = document.createElement('div'); host.innerHTML = html; return host.querySelector('.pk-pack-art svg'); };
+    for (const k of kinds) {
+      const ds = P.designsOf(k), t = P.TIER[k];
+      if (ds.length < 3 || new Set(ds.map(d => d.id)).size !== ds.length) { ok = false; why += `${k}: ${ds.length} designs; `; }
+      ds.forEach((d, i) => {
+        const svg = svgOf(P.packHTML(k, {big: true, design: i})), n = svg.querySelectorAll('*').length;
+        const ids = [...svg.querySelectorAll('[id]')].map(e => e.id), u = ids.length ? ids[0].slice(0, ids[0].indexOf('_') + 1) : '';
+        if (n > BUDGET[t] || (t < 4 && svg.querySelector('filter')) || !ids.every(id => id.startsWith(u)) || n < 8) { ok = false; why += `${d.id} (${n}); `; }
+        (by[t] = by[t] || []).push(n);
+      });
+    }
+    const mean = t => by[t].reduce((a, b) => a + b, 0) / by[t].length;
+    const rises = [2, 3, 4, 5].every(t => mean(t) > mean(t - 1) && Math.min(...by[t]) > mean(t - 1));
+    const a = svgOf(P.packHTML('leg', {big: true})), b = svgOf(P.packHTML('leg', {big: true}));
+    const own = ![...a.querySelectorAll('[id]')].some(e => b.querySelector(`[id="${e.id}"]`));
+    const n = P.designsOf('gday').length, wrap = /data-art="([^"]+)"/.exec(P.packHTML('gday', {design: n + 1}))[1] === P.designsOf('gday')[1].id;
+    return {pass: ok && rises && own && wrap, detail: `${why}average elements by tier ${[1, 2, 3, 4, 5].map(t => Math.round(mean(t))).join(' < ')}; ids ${own ? 'its own' : 'shared'}; wrap ${wrap}`};
+  });
 }

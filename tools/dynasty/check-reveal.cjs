@@ -44,7 +44,7 @@ async function openAll(page) {
     window.__closed = false;
     // (every burst of confetti noted as its canvas lands, over the overlay or not: the frames take longer than it falls)
     window.__bursts = 0;
-    new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => { if (n.classList && n.classList.contains('confetti-canvas') && getComputedStyle(n).zIndex === '201') window.__bursts++; }))).observe(document.body, {childList: true});
+    new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => { if (n.classList && n.classList.contains('confetti-canvas') && parseInt(getComputedStyle(n).zIndex, 10) > 200) window.__bursts++; }))).observe(document.body, {childList: true});
     O.openScene({kind: 'leg', cards: cards.map(c => c.id), dup: {[cards[1].id]: true}, cardHTML: V.anyHTML, onClose: () => { window.__closed = true; }});
     return O.dealOrder(cards).map(c => ({id: c.id, name: c.name, ...O.revealOf(c)}));
   });
@@ -53,22 +53,24 @@ async function rip(page) {
   await page.locator('[data-dy-tear]').waitFor({timeout: 10000});
   await page.locator('[data-dy-tear]').focus();
   await page.keyboard.press('Enter');
-  await page.locator('.pk-deal-c').waitFor({timeout: 10000});
+  // (the pack torn, the first card risen out of it and settled: the deal)
+  await page.locator('div.pk-open[data-phase="deal"]').waitFor({timeout: 10000});
 }
 const dealState = page => page.evaluate(() => {
-  const el = document.querySelector('.pk-deal-c:not(.is-gone)');
+  const el = document.querySelector('.dy-dc.is-top .pk-deal-c');
   if (!el) return null;
   const t = getComputedStyle(el.querySelector('.pk-flip')).transform, m = t === 'none' ? null : new DOMMatrixReadOnly(t);
   const A = el.getAnimations({subtree: true}).filter(a => a.effect.getComputedTiming().endTime !== Infinity);
   const ov = document.querySelector('div.pk-open');
-  return {cls: el.className, tier: ov.dataset.tier, lit: !!ov.dataset.lit, tint: ov.dataset.tint || '', dealing: ov.classList.contains('is-dealing'), n: document.querySelector('.pk-deal-n').textContent,
+  return {cls: el.className, tier: ov.dataset.tier, lit: !!ov.dataset.lit, tint: ov.dataset.tint || '', dealing: ov.dataset.phase === 'deal', n: document.querySelector('.pk-deal-n').textContent,
     done: !A.some(a => a.playState === 'running'), bursts: window.__bursts,
     faceUp: !m || (Math.abs(m.m11 - 1) < .01 && Math.abs(m.m13) < .01), ring: !!el.querySelector('.pk-fx-ring'), rays: !!el.querySelector('.pk-fx-rays'), flash: !!el.querySelector('.pk-fx-flash'),
     crown: !!el.querySelector('.pk-fx-crown'), sweep: !!el.querySelector('.pk-fx-sweep'), sparks: el.querySelectorAll('.pk-spk').length, tag: (el.querySelector('.pk-deal-tag') || {}).textContent || '',
     back: !!el.querySelector('.pk-flip-back'), backShown: !!el.querySelector('.pk-flip-back') && getComputedStyle(el.querySelector('.pk-flip-back')).display !== 'none', isNew: !!el.querySelector('.pk-c-new'),
-    live: document.querySelectorAll('.pk-deal-stack > .pk-deal-c:not(.is-gone)').length};
+    live: document.querySelectorAll('.dy-dc.is-top').length};
 });
-const tapDeal = page => page.locator('.pk-deal').click({position: {x: 100, y: 100}});
+const tapDeal = page => page.locator('.dy-deck').click({position: {x: 100, y: 100}});
+const done = async page => { await page.locator('.pk-results.is-ready [data-dy-done]').click(); };
 
 async function timedPass(page, order) {
   for (let i = 0; i < order.length; i++) {
@@ -89,7 +91,7 @@ async function timedPass(page, order) {
     assert.equal(s0.n, `${i + 1} of ${order.length}`, T + ': the count line keeps the rarity a surprise');
     assert.equal(s0.lit, R.tier >= 3, T + ': the ground lit from Legendary');
     if (R.tier >= 3) assert.equal(s0.tint, String(R.tier), T + ': the ground’s colour');
-    assert.equal(s0.dealing, true, T + ': the overlay holds still while dealing');
+    assert.equal(s0.dealing, true, T + ': the deal’s phase');
     // (frames at exact moments of the reveal's clock: every animation paused and set to that time, then let run on)
     const frame = async (ms, name) => {
       if (!shots) return;
@@ -107,7 +109,7 @@ async function timedPass(page, order) {
     const atMs = async ms => { const w = ms - (Date.now() - t0); if (w > 0) await page.waitForTimeout(w); };
     await atMs(R.total + 150);
     // (the frames' screenshots take their own time; the last pieces may still be running out their last frames)
-    await page.waitForFunction(() => { const el = document.querySelector('.pk-deal-c:not(.is-gone)'); return !!el && !el.getAnimations({subtree: true}).some(a => a.effect.getComputedTiming().endTime !== Infinity && a.playState === 'running'); }, null, {timeout: 1500}).catch(() => {});
+    await page.waitForFunction(() => { const el = document.querySelector('.dy-dc.is-top .pk-deal-c'); return !!el && !el.getAnimations({subtree: true}).some(a => a.effect.getComputedTiming().endTime !== Infinity && a.playState === 'running'); }, null, {timeout: 1500}).catch(() => {});
     const s1 = await dealState(page);
     assert.equal(s1.faceUp, true, T + ': face up at the end');
     assert.equal(s1.done, true, T + ': its reveal over');
@@ -118,7 +120,7 @@ async function timedPass(page, order) {
   await page.locator('.pk-results:not([hidden])').waitFor({timeout: 5000});
   assert.equal(await page.evaluate(() => document.querySelector('div.pk-open').dataset.tier), '', 'the ground is plain again on the results');
   await snap(page, 'results');
-  await page.locator('[data-dy-next]').click();
+  await done(page);
   await page.waitForFunction(() => window.__closed, null, {timeout: 5000});
 }
 async function skipPass(page, order) {
@@ -139,7 +141,7 @@ async function skipPass(page, order) {
     if (i < order.length - 1) assert.match((await dealState(page)).cls, new RegExp(`\\bt-${order[i + 1].tier}\\b`), T + ': the next tap moves on');
   }
   await page.locator('.pk-results:not([hidden])').waitFor({timeout: 5000});
-  await page.locator('[data-dy-next]').click();
+  await done(page);
   await page.waitForFunction(() => window.__closed, null, {timeout: 5000});
 }
 /** After a Rare's flip (0.7 s) a tap must move on, not finish a reveal that's over (the dead tap). */
@@ -151,7 +153,7 @@ async function deadTapPass(page, order) {
   assert.match((await dealState(page)).cls, new RegExp(`\\bt-${order[i + 1].tier}\\b`), 'a tap after a Rare’s flip moves on');
   await page.locator('[data-dy-skip]').click();
   await page.locator('.pk-results:not([hidden])').waitFor({timeout: 5000});
-  await page.locator('[data-dy-next]').click();
+  await done(page);
   await page.waitForFunction(() => window.__closed, null, {timeout: 5000});
 }
 async function reducedPass(page, order) {
@@ -167,7 +169,7 @@ async function reducedPass(page, order) {
     await tapDeal(page); await page.waitForTimeout(60);
   }
   await page.locator('.pk-results:not([hidden])').waitFor({timeout: 5000});
-  await page.locator('[data-dy-next]').click();
+  await done(page);
   await page.waitForFunction(() => window.__closed, null, {timeout: 5000});
 }
 
