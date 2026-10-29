@@ -1,11 +1,15 @@
 // Gridiron Dynasty's page (/puzzles/dynasty, pushed over Daily Games; core/dynasty.js has the game), made to look and
 // play like Pokémon TCG Pocket (the owner, Oct 28 2026: "I want the gameplay and theme/design to match the Pokémon app",
 // with his screenshots of Pocket's booster pack, Battle and My Cards screens): Pocket's light theme, its own header
-// and four tabs. Packs (the home: one big booster pack to open, its best cards above it, Offering Rates, Select other
-// booster packs, pack points to trade for a card, today's free pack), My Cards (the binder: your cards, every card,
-// the collections), Decks (your 20-card deck) and Battle (Versus: your matches against other players and challenges;
-// Rankings: the Dynasty board, everyone's by the scoreboards' rule, CLAUDE.md; the Guide). A battle itself plays on its
-// own screen (views/dynasty-battle.js, /puzzles/dynasty/battle/<id>).
+// (your packs and coins) and five tabs at the foot. Packs (the home: one big booster pack to open over the pack's colour,
+// its best cards in a showcase above it with Pocket's clock pill, the pack's tags beside it, Offering Rates, a round
+// Open, Select other booster packs, pack points to trade for a card, today's free pack), My Cards (the binder: your
+// cards, every card, the collections), Decks (your 20-card deck), Battle (Pocket's banner; Versus: your matches against
+// other players and challenges; Solo; the Guide, Decks, Rankings and Missions: the collections) and the Menu (≡: the
+// Guide, coins, rankings, the title screen, the exit). A battle itself plays on its own screen (views/dynasty-battle.js,
+// /puzzles/dynasty/battle/<id>).
+// On entering, Pocket's title screen (the owner, Oct 29 2026: "Create a start screen when entering the dynasty", with
+// his screenshot of it): cards drifting over a pastel wash, the logo, Tap to Start (startHTML, below).
 // A pack opens over everything (openPack): you rip it open with a swipe across its top (the owner's ask, Oct 28 2026:
 // "ripping it open by swiping across", with "a subtle hint showing players how to do this": a fingertip gliding along
 // the tear line till you start), the strip tearing along your finger and flying off once you're far enough across
@@ -23,11 +27,13 @@ import * as D from '../core/dynasty.js';
 import * as B from '../core/dynasty-battle.js';
 import * as MT from '../core/dynasty-match.js';
 import * as SOLO from '../core/dynasty-solo.js';
+import {profileKey} from '../core/realm-active.js';
 import {packHTML, designsOf} from './dynasty-packs.js';
 import {openScene, holo} from './dynasty-open.js';
 
 const esc = data.esc, nf = n => data.nf(n);
 const ST = new WeakMap();
+const RM = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // ---------------------------------------------------------------------------------------------------- pictures
 export const headUrl = (h, w = 300) => {
@@ -199,21 +205,37 @@ function packBest(kind, n = 5) {
 }
 
 // ---------------------------------------------------------------------------------------------------- the header and tabs
+// Pocket's menu at the foot of the screen (the owner, Oct 29 2026, "Move the navigation tab to the bottom like the
+// attached picture"; the names stay for screen readers): Home (the packs), My Cards, Decks, Battle and the Menu (≡: the
+// Guide, coins, rankings, the title screen and the exit; the owner's screenshots, Oct 29 2026), five places as icons.
+// The header carries Pocket's counters: your packs to open (∞ when they're unlimited) and your coins.
 const TABS = [
-  {id: 'packs', label: 'Packs', title: 'Packs', ic: '<path d="M7 4h10l1 3H6zM6 7h12v13H6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 12h6M9 15h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>'},
+  {id: 'packs', label: 'Home', title: 'Packs', ic: '<path d="M4 11.5L12 4.5l8 7V20h-5.5v-5.5h-5V20H4z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/>'},
   {id: 'cards', label: 'My Cards', title: 'My Cards', ic: '<rect x="6" y="3.5" width="12" height="17" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="8.5" y="6" width="7" height="6" rx="1" fill="currentColor"/>'},
   {id: 'decks', label: 'Decks', title: 'Decks', ic: '<path d="M5 8h14v11H5zM7 5h10v3H7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13.5" r="2.2" fill="none" stroke="currentColor" stroke-width="1.8"/>'},
-  {id: 'battle', label: 'Battle', title: 'Battle', ic: '<path d="M4 20l7-7M6 13l5 5M14.5 4H20v5.5L11 18.5M20 20l-7-7M18 13l-5 5M9.5 4H4v5.5l4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>'}
+  {id: 'battle', label: 'Battle', title: 'Battle', ic: '<path d="M4 20l7-7M6 13l5 5M14.5 4H20v5.5L11 18.5M20 20l-7-7M18 13l-5 5M9.5 4H4v5.5l4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>'},
+  {id: 'menu', label: 'Menu', title: 'Menu', ic: '<path d="M5 7h14M5 12h14M5 17h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>'}
 ];
-function shellHTML() {
+const PANE_TABS = TABS.filter(t => t.id !== 'menu');
+export function shellHTML() {
   return `<div class="pk" data-dy><header class="pk-hdr">${ui.exitButton('data-dy-exit', 'Exit Gridiron Dynasty')}`
-    + `<h1 class="pk-title" data-pk-title>Packs</h1><span class="pk-wallet" data-dy-wallet></span></header>`
+    + `<h1 class="pk-title" data-pk-title tabindex="-1">Packs</h1><span class="pk-hud" data-dy-hud></span></header>`
     + `<div class="pk-pane" data-dy-pane></div>`
-    // (the tabs at the foot of the screen, icons only, as Pocket's menu: the owner, Oct 29 2026, "Move the navigation
-    // tab to the bottom like the attached picture"; the names stay for screen readers)
-    + `<nav class="pk-nav" aria-label="Gridiron Dynasty">${TABS.map((t, i) => `<button type="button" class="pk-tab${i === 0 ? ' is-on' : ''}" data-dy-tab="${t.id}" aria-pressed="${i === 0}">`
-      + `<svg viewBox="0 0 24 24" aria-hidden="true">${t.ic}</svg><span class="sr-only">${t.label}</span><i class="pk-dot" hidden></i></button>`).join('')}</nav></div>`;
+    + `<nav class="pk-nav" aria-label="Gridiron Dynasty">${TABS.map((t, i) => `<button type="button" class="pk-tab${i === 0 ? ' is-on' : ''}" ${t.id === 'menu' ? 'data-dy-menu' : `data-dy-tab="${t.id}" aria-pressed="${i === 0}"`}>`
+      + `<svg viewBox="0 0 24 24" aria-hidden="true">${t.ic}</svg><span class="sr-only">${t.label}</span><i class="pk-dot" hidden></i></button>`).join('')}</nav>`
+    + startHTML() + '</div>';
 }
+/** The header's counters: packs to open (tap for the pack list) and coins. */
+function hudHTML(s) {
+  const inf = D.unlimited(), n = Object.keys(s.pk).filter(k => D.PACKS[k]).reduce((t, k) => t + (s.pk[k] || 0), 0);
+  return `<button type="button" class="pk-meter${inf ? ' is-max' : ''}" data-dy-packs aria-label="${inf ? 'Unlimited packs to open' : `${n} pack${n === 1 ? '' : 's'} to open`}: select a booster pack">`
+    + `<i class="pk-meter-p"></i><i class="pk-meter-p"></i><b>${inf ? '∞' : nf(n)}</b>${inf ? '<small>MAX</small>' : ''}</button>` + coinHTML(D.balance(s));
+}
+// Pocket's bookmark (the collections) and the open-pack glyph on the round Open
+const SIDE_IC = {
+  book: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 3.5h11v17l-5.5-3.8-5.5 3.8z" fill="currentColor"/><path d="M12 7.2l1.2 2.5 2.7.3-2 1.9.6 2.7-2.5-1.4-2.5 1.4.6-2.7-2-1.9 2.7-.3z" fill="#fff"/></svg>',
+  open: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8.5h12V21H6z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><path d="M6 8.5l1.5-4h9l1.5 4" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><path d="M12 18v-6M9.5 14.5l2.5-2.5 2.5 2.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+};
 
 // ---------------------------------------------------------------------------------------------------- Packs
 const untilMidnight = () => { const d = new Date(), m = new Date(d); m.setHours(24, 0, 0, 0); return m - d; };
@@ -229,30 +251,37 @@ function packsHTML(st) {
   const inf = D.unlimited();
   const open = inf ? 'Open' : free ? 'Open free pack' : have ? `Open${have > 1 ? ` (${have})` : ''}` : `Open · ${nf(P.price)}`;
   const note = kind === 'start' ? '1 Epic or better guaranteed' : kind === 'prem' ? '1 Legendary or better guaranteed' : kind === 'gday' ? '1 Gameday card guaranteed' : kind === 'leg' ? '1 card 90+ guaranteed' : '1 Trainer card in every pack';
-  let h = '';
+  // (Pocket's clock pill over the showcase: when this pack is yours; and its tags beside the pack: what it is, its
+  // count, its guarantee, what it costs you)
+  const clock = kind === 'start' ? 'Open it once' : kind === 'std' ? (free ? 'Free pack until 11:59 p.m.' : inf ? 'Open as many as you like' : `Next free pack in ${ui.untilText(untilMidnight())}`)
+    : kind === 'gday' ? `Week ${D.lastWeek()}’s Gameday cards` : kind === 'team' ? 'Any team you pick' : kind === 'prem' ? 'Legendary or better inside' : 'Legends and Prime stars';
+  const cost = inf ? 'Unlimited' : free ? 'Free today' : have ? `${have} to open` : `${nf(P.price)} coins`;
+  let h = `<div class="pk-packs" style="--pc:${P.color}">`;
   if (wait) h += `<button type="button" class="pk-alert" data-dy-tab="battle">${ui.icon('versus', {size: 20})}<span>${wait === 1 ? 'A battle is' : `${wait} battles are`} waiting on you</span>${ui.icon('chevron-right', {size: 16})}</button>`;
   if (ready.length) h += `<button type="button" class="pk-alert is-gold" data-dy-goto="cols">${ui.icon('trophy', {size: 20})}<span>${ready.length === 1 ? 'A collection is' : `${ready.length} collections are`} complete: claim your reward</span>${ui.icon('chevron-right', {size: 16})}</button>`;
-  // (unlimited packs, Evan's and Ryan Stewart's: Oct 29 2026)
+  // (unlimited packs, Evan's and Ryan Stewart's: Oct 29 2026; beside it Pocket's bookmark, the collections, and the ?)
   h += `<div class="pk-free"><span class="pk-free-b${inf || D.dailyReady(s) ? ' is-ready' : ''}"><i class="pk-free-i"></i><b>${inf ? 'Unlimited packs' : D.dailyReady(s) ? 'Free pack ready' : `Next free pack in ${esc(ui.untilText(untilMidnight()))}`}</b></span>`
-    + `<button type="button" class="pk-q" data-dy-earn aria-label="How you earn coins">?</button></div>`;
-  h += `<div class="pk-show" style="--pc:${P.color}"><span class="pk-show-tag">${ui.icon('star', {size: 14})}Top cards in this pack</span>`
-    + `<div class="pk-show-row">${best.map(c => cardHTML(c, {size: 's', tag: false, noCount: true})).join('')}</div></div>`;
-  // (the pack in its chosen design, the arrows either side and the dots under it when it has more than one: artTo)
-  const ds = designsOf(kind), di = artAt(st, kind), many = ds.length > 1;
-  h += `<div class="pk-stage" style="--pc:${P.color}"><div class="pk-ribbon"><b>${esc(P.name)}</b><span>1 pack contains ${slots} cards</span><span>${esc(note)}</span></div>`
-    + `<div class="pk-car${many ? ' is-many' : ''}" data-dy-car>${many ? `<button type="button" class="pk-car-b" data-dy-art="-1" aria-label="Previous pack design">${ui.icon('chevron-left', {size: 18})}</button>` : ''}`
-    + `<div class="pk-car-move"><button type="button" class="pk-bigpack" data-dy-openhere data-dy-label="${esc(`${open}: ${P.name}`)}" aria-label="${esc(artLabel(`${open}: ${P.name}`, ds, di))}">${packHTML(kind, {big: true, count: have, design: di})}</button></div>`
-    + `${many ? `<button type="button" class="pk-car-b" data-dy-art="1" aria-label="Next pack design">${ui.icon('chevron-right', {size: 18})}</button>` : ''}</div>`
+    + `<button type="button" class="pk-round" data-dy-goto="cols" aria-label="Collections${ready.length ? ': a reward to claim' : ''}">${SIDE_IC.book}${ready.length ? '<i class="pk-bang">!</i>' : ''}</button>`
+    + `<button type="button" class="pk-round" data-dy-earn aria-label="How you earn coins">?</button></div>`;
+  // (the pack in its chosen design; the dots under it between two arrows when it has more than one: artTo)
+  const ds = designsOf(kind), di = artAt(st, kind), many = ds.length > 1, label = `${open}: ${P.name}, ${slots} cards, ${note}`;
+  h += `<div class="pk-stage"><div class="pk-show"><span class="pk-clock">${ui.icon('clock', {size: 14})}<span>${esc(clock)}</span></span>`
+    + `<span class="pk-show-tag">${ui.icon('star', {size: 14})}Top cards in this pack</span>`
+    + `<div class="pk-show-row">${best.map(c => cardHTML(c, {size: 's', tag: false, noCount: true})).join('')}</div><i class="pk-show-tip" aria-hidden="true"></i></div>`
+    + `<div class="pk-tags" aria-hidden="true"><b>${esc(P.name.replace(/ Pack$/, ''))}</b><span>1 pack contains ${slots} cards</span><span>${esc(note)}</span><span>${esc(cost)}</span></div>`
+    + `<div class="pk-car${many ? ' is-many' : ''}" data-dy-car><div class="pk-car-move"><button type="button" class="pk-bigpack" data-dy-openhere data-dy-label="${esc(label)}" aria-label="${esc(artLabel(label, ds, di))}">${packHTML(kind, {big: true, count: have, design: di})}</button></div></div>`
     + `<span class="pk-reflect" aria-hidden="true">${packHTML(kind, {big: true, design: di})}</span>`
-    + (many ? `<div class="pk-car-dots" role="group" aria-label="Pack designs">${ds.map((d, i) => `<button type="button" class="pk-car-dot" data-dy-artat="${i}" aria-label="${esc(d.name)}" aria-pressed="${i === di}"></button>`).join('')}</div>`
+    + (many ? `<div class="pk-car-dots" role="group" aria-label="Pack designs"><button type="button" class="pk-car-b" data-dy-art="-1" aria-label="Previous pack design">${ui.icon('chevron-left', {size: 16})}</button>`
+      + `${ds.map((d, i) => `<button type="button" class="pk-car-dot" data-dy-artat="${i}" aria-label="${esc(d.name)}" aria-pressed="${i === di}"></button>`).join('')}`
+      + `<button type="button" class="pk-car-b" data-dy-art="1" aria-label="Next pack design">${ui.icon('chevron-right', {size: 16})}</button></div>`
       + '<span class="sr-only" aria-live="polite" data-dy-artsay></span>' : '')
     + `<button type="button" class="pk-pts" data-dy-points aria-label="Pack points: ${nf(s.pp)}"><i class="pk-pts-i"></i><b>${nf(s.pp)} pts</b></button></div>`;
   h += `<div class="pk-actions"><button type="button" class="pk-pill" data-dy-odds="${kind}">Offering Rates</button>`
-    + `<button type="button" class="pk-open" data-dy-openhere>${esc(open)}</button>`
+    + `<button type="button" class="pk-open is-round" data-dy-openhere aria-label="${esc(`${open}: ${P.name}`)}">${SIDE_IC.open}<span>Open</span></button>`
     + `<button type="button" class="pk-pill is-r" data-dy-packs>Select other booster packs ${ui.icon('chevron-right', {size: 14})}</button></div>`;
   const lp = s.lp.filter(D.isCard).slice(0, 10);
   if (lp.length) h += `<section class="pk-sec"><h2 class="pk-h">Latest pulls</h2><div class="pk-rail" data-hscroll>${lp.map(id => anyHTML(id, {size: 's', isNew: D.isNew(id, s), noCount: true})).join('')}</div></section>`;
-  return h;
+  return h + '</div>';
 }
 const RAR_SYM = {common: '◆', rare: '◆◆', epic: '◆◆◆', legendary: '◆◆◆◆', mythic: '★'};
 function oddsSheet(kind) {
@@ -279,7 +308,6 @@ function packsSheet(st) {
 // tap still opens it, a swipe never does); the pack list and the opening show the one chosen. The choice per pack is
 // this viewer's own (localStorage, by design id): cosmetic, never the save or the odds.
 const ART_KEY = 'gg-dy-art';
-const RM = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 function artLoad() {
   const o = {};
   let j = null;
@@ -504,21 +532,26 @@ function renameSheet(st) {
 // "Provide a solo mode against the computer") and Versus (your matches and challenges), then Rankings, the Guide and Decks.
 const ago = ms => { const m = Math.round(ms / 60000); return m < 60 ? `${Math.max(1, m)}m` : m < 1440 ? `${Math.round(m / 60)}h` : `${Math.round(m / 1440)}d`; };
 const avatarOf = (o, size = 36) => (o.member ? ui.avatar(o.member, {size}) : ui.nickAvatar(o.name, {size}));
-function battleHome(st) {
-  const wait = MT.waiting(), s = D.mine();
+export function battleHome(st, s = D.mine()) {
+  const wait = MT.waiting(), cur = SOLO.current(), ready = D.claimable(s).length;
   const fan = ['Tom Brady', 'Jerry Rice', 'Lawrence Taylor'].map(n => D.CARDS.find(c => c.s === 'X' && c.name === n)).filter(Boolean);
-  return `<div class="pk-banner"><b>Battle</b><span class="pk-banner-fan">${fan.map((c, i) => `<span style="--i:${i}">${cardHTML(c, {size: 's', tag: false, noCount: true})}</span>`).join('')}</span></div>`
-    + `<div class="pk-modes"><button type="button" class="pk-mode" data-dy-bv="solo">${MODE_IC.solo}<b>Solo</b><small>${SOLO.current() ? 'A battle in play' : 'Battle the computer'}</small>${SOLO.current() && SOLO.current().state !== 'theirs' ? '<i class="pk-bang">!</i>' : ''}</button>`
-    + `<button type="button" class="pk-mode" data-dy-bv="versus">${MODE_IC.versus}<b>Versus</b><small>Challenge a friend</small>${wait ? '<i class="pk-bang">!</i>' : ''}</button></div>`
-    + `<div class="pk-modes is-small is-3"><button type="button" class="pk-mini" data-dy-bv="rank">${MODE_IC.rank}<span>${nf(s.tr)}</span></button>`
-    + `<button type="button" class="pk-mini" data-dy-guide>${MODE_IC.guide}<span>Guide</span></button>`
-    + `<button type="button" class="pk-mini" data-dy-tab="decks">${TILE.decks}<span>Decks</span></button></div>`;
+  // (the banner: Pocket's slanted blue board, "Battle" on its tab, the mat in perspective, the energy afloat, Legends fanned)
+  return `<div class="pk-banner" aria-hidden="true"><span class="pk-banner-tab">Battle</span><span class="pk-banner-mat"></span>`
+    + `<span class="pk-banner-orbs">${['P', 'B', 'R', 'C'].map((e, i) => `<span style="--i:${i}">${pipHTML(e)}</span>`).join('')}</span>`
+    + `<span class="pk-banner-fan">${fan.map((c, i) => `<span style="--i:${i}">${cardHTML(c, {size: 's', tag: false, noCount: true})}</span>`).join('')}</span></div>`
+    + `<div class="pk-modes"><button type="button" class="pk-mode" data-dy-bv="versus">${MODE_IC.versus}<b>Versus</b><small>${wait ? `${wait === 1 ? 'A battle is' : `${wait} battles are`} waiting on you` : 'Challenge a friend'}</small>${wait ? '<i class="pk-bang">!</i>' : ''}</button>`
+    + `<button type="button" class="pk-mode" data-dy-bv="solo">${MODE_IC.solo}<b>Solo</b><small>${cur ? 'A battle in play' : 'Battle the computer'}</small>${cur && cur.state !== 'theirs' ? '<i class="pk-bang">!</i>' : ''}</button></div>`
+    + `<div class="pk-row-s"><button type="button" class="pk-mini" data-dy-guide>${MODE_IC.guide}<span>Guide</span></button>`
+    + `<button type="button" class="pk-mini" data-dy-tab="decks">${TILE.decks}<span>Decks</span></button>`
+    + `<button type="button" class="pk-mini" data-dy-bv="rank" aria-label="Rankings: ${nf(s.tr)} trophies">${MODE_IC.rank}<span>Rankings</span>${s.tr ? `<i class="pk-mini-n">${nf(s.tr)}</i>` : ''}</button>`
+    + `<button type="button" class="pk-mini is-end" data-dy-goto="cols" aria-label="Missions: the collections${ready ? ', a reward to claim' : ''}">${MODE_IC.missions}<span>Missions</span>${ready ? '<i class="pk-bang">!</i>' : ''}</button></div>`;
 }
 const MODE_IC = {
-  solo: '<svg viewBox="0 0 48 48" aria-hidden="true"><rect x="9" y="12" width="30" height="24" rx="8" fill="#FFE8F1" stroke="#F2669F" stroke-width="2.4"/><circle cx="19" cy="24" r="3.2" fill="#F2669F"/><circle cx="29" cy="24" r="3.2" fill="#F2669F"/><path d="M24 12V6M20 6h8M9 24H5M43 24h-4M18 31h12" stroke="#F2669F" stroke-width="2.4" stroke-linecap="round"/></svg>',
+  solo: '<svg viewBox="0 0 48 48" aria-hidden="true"><rect x="9" y="12" width="30" height="24" rx="8" fill="#E8F7FF" stroke="#25A9E0" stroke-width="2.4"/><circle cx="19" cy="24" r="3.2" fill="#25A9E0"/><circle cx="29" cy="24" r="3.2" fill="#25A9E0"/><path d="M24 12V6M20 6h8M9 24H5M43 24h-4M18 31h12" stroke="#25A9E0" stroke-width="2.4" stroke-linecap="round"/></svg>',
   versus: '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 4l4 8 9-3-2 9 9 4-9 4 2 9-9-3-4 8-4-8-9 3 2-9-9-4 9-4-2-9 9 3z" fill="#E8F7FF" stroke="#25A9E0" stroke-width="2.4" stroke-linejoin="round"/><circle cx="19" cy="22" r="4" fill="#25A9E0"/><circle cx="30" cy="26" r="4" fill="#25A9E0"/></svg>',
   rank: '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M14 8h20v8a10 10 0 0 1-20 0z" fill="#FFF6D6" stroke="#E0A31A" stroke-width="2.4"/><path d="M14 11H8a6 6 0 0 0 6 7M34 11h6a6 6 0 0 1-6 7M24 26v8M16 40h16l-2-6H18z" fill="none" stroke="#E0A31A" stroke-width="2.4" stroke-linejoin="round"/></svg>',
-  guide: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.6v.6M12 17h.01" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
+  guide: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.6v.6M12 17h.01" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+  missions: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4.5" width="14" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="8.5" y="2.5" width="7" height="4" rx="1.2" fill="currentColor"/><path d="M8.5 11h7M8.5 14.5h4M14 16.5l1.3 1.3 2.4-2.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
 };
 function versusHTML(st) {
   const s = D.mine(), dk = D.deckOf(s), all = MT.list();
@@ -611,7 +644,7 @@ function openPack(st, kind, team = null) {
   const r = D.open(kind, {team});
   if (!r.ok) { ui.toast(r.why, {icon: 'info'}); return; }
   refresh(st);
-  openScene({kind, design: st.art[kind] || 0, cards: r.cards, dup: r.dup, cardHTML: anyHTML, onClose: () => refresh(st)});
+  openScene({kind, design: artAt(st, kind), cards: r.cards, dup: r.dup, cardHTML: anyHTML, onClose: () => refresh(st), focusBack: '.pk-actions [data-dy-openhere]'});
 }
 function teamPicker(done) {
   const teams = Object.values(D.TEAMS).sort((a, b) => a.name.localeCompare(b.name));
@@ -620,6 +653,123 @@ function teamPicker(done) {
   sh.body.addEventListener('click', e => {
     const b = e.target.closest('[data-dy-team]');
     if (b) { sh.close(); setTimeout(() => done(b.dataset.dyTeam), 280); }
+  });
+}
+
+// ---------------------------------------------------------------------------------------------------- the start screen
+// Pocket's title screen on entering (the owner, Oct 29 2026: "Create a start screen when entering the dynasty", with
+// his screenshot of it): cards drifting over a pastel wash, the logo, Tap to Start, the version and your support id at
+// the top left (the red X above them still leaves), the menu at the top right, the credits at the foot. It covers the
+// shell till you tap it (or press Enter); back from a battle it doesn't come again (onShow), and the Menu brings it back.
+// The cards drift in once they've loaded; till then it says so, and a load that failed is tried again by a tap.
+const APP_VER = '3.0'; // Gridiron Hub v3.0 (CLAUDE.md), then the Dynasty's save version
+/** Your support id, as Pocket shows one: a short code from your profile's key, the same every time, never the key itself. */
+export const supportId = (key = profileKey()) => (D.hash('support|' + (key || 'guest')).toString(36).toUpperCase() + '00000000').slice(0, 8);
+// Where the cards drift: left and top (% of the screen), their turn, their size (of a card's width) and depth (0 far,
+// blurred and pale, to 2 near), each with its own tempo so they don't move as one.
+const START_SPOTS = [
+  {x: 4, y: 7, r: -9, s: .7, z: 1}, {x: 56, y: 3, r: 8, s: .56, z: 0}, {x: 72, y: 13, r: 6, s: .94, z: 2}, {x: 8, y: 24, r: -6, s: 1, z: 2},
+  {x: 42, y: 20, r: 3, s: .5, z: 0}, {x: 70, y: 37, r: -4, s: .62, z: 1}, {x: -5, y: 50, r: -12, s: .6, z: 0}, {x: 60, y: 54, r: 7, s: 1, z: 2},
+  {x: 10, y: 60, r: 5, s: .9, z: 2}, {x: 86, y: 58, r: -7, s: .55, z: 0}, {x: 40, y: 66, r: -3, s: .7, z: 1}, {x: 70, y: 74, r: 9, s: .8, z: 1},
+  {x: -3, y: 84, r: 6, s: .62, z: 0}, {x: 78, y: 91, r: -8, s: .55, z: 0}
+];
+/** The cards on the title screen: the best Legends, Prime and Award stars, this season's best and Gameday cards, each
+ *  of a different team where it can be, in a fixed order (the Legends nearest). */
+export function startCards(n = START_SPOTS.length) {
+  const by = (f, k) => D.CARDS.filter(f).sort((a, b) => b.o - a.o || a.name.localeCompare(b.name)).slice(0, k);
+  const pool = [...by(c => c.s === 'X', 5), ...by(c => c.s === 'P', 3), ...by(c => c.s === 'A', 2), ...by(c => c.s === 'L', 6), ...by(c => c.s === 'G', 3)];
+  const out = [], teams = new Set();
+  pool.forEach(c => { if (out.length < n && !teams.has(c.team)) { out.push(c); teams.add(c.team); } });
+  pool.forEach(c => { if (out.length < n && !out.includes(c)) out.push(c); });
+  return out;
+}
+function startCardsHTML() {
+  const cards = startCards();
+  const order = START_SPOTS.map((p, i) => ({p, i})).sort((a, b) => b.p.z - a.p.z || a.i - b.i);
+  return order.map(({p, i}, k) => (cards[k] ? `<span class="pk-start-card z-${p.z}" style="--x:${p.x}%;--y:${p.y}%;--r:${p.r}deg;--s:${p.s};--t:${(5.2 + (i % 5) * .9).toFixed(1)}s;--d:${(-((i * 1.37) % 6)).toFixed(2)}s">`
+    + `${cardHTML(cards[k], {size: 's', tag: false, noCount: true})}</span>` : '')).join('');
+}
+const startSay = () => (D.status === 'ready' ? 'Tap to Start' : D.status === 'error' ? 'The cards didn’t load. Tap to try again' : 'Loading the cards…');
+export function startHTML() {
+  return `<div class="pk-start${D.status === 'ready' ? ' is-ready' : ''}" data-dy-start role="button" tabindex="0" aria-label="Tap to start Gridiron Dynasty">`
+    + `<div class="pk-start-cards" data-dy-start-cards aria-hidden="true">${D.status === 'ready' ? startCardsHTML() : ''}</div>`
+    + `<div class="pk-start-top">${ui.exitButton('data-dy-exit', 'Exit Gridiron Dynasty')}<span class="pk-start-ver"><span>Ver. ${APP_VER}.${D.VERSION}</span><span>Support ID: ${supportId()}</span></span>`
+    + `<button type="button" class="pk-start-menu" data-dy-menu aria-label="Menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></button></div>`
+    + `<div class="pk-start-logo" role="img" aria-label="Gridiron Dynasty: Ultimate Card Collection"><span class="pk-logo-top">Gridiron</span><span class="pk-logo-plate">Ultimate Card Collection</span><span class="pk-logo-sub">Dynasty</span></div>`
+    + `<p class="pk-start-tap" data-dy-start-say aria-live="polite">${startSay()}</p>`
+    + `<p class="pk-start-credits">© Gridiron Gangbang · Gridiron Hub<br>Player photos: ESPN · NFL</p></div>`;
+}
+/** Keeps the title screen in step: its cards once they've loaded, its line, the shell inert beneath it. */
+function drawStart(st) {
+  const sc = st.el.querySelector('[data-dy-start]');
+  st.el.querySelector('.pk').classList.toggle('is-start', !!sc);
+  ['.pk-hdr', '[data-dy-pane]', '.pk-nav'].forEach(q => { const el = st.el.querySelector(q); if (el) { if (sc) el.setAttribute('inert', ''); else el.removeAttribute('inert'); } });
+  if (!sc) return;
+  const say = sc.querySelector('[data-dy-start-say]'), cards = sc.querySelector('[data-dy-start-cards]');
+  if (say && say.textContent !== startSay()) say.textContent = startSay();
+  sc.classList.toggle('is-ready', D.status === 'ready');
+  if (D.status === 'ready' && cards && !cards.firstChild) cards.innerHTML = startCardsHTML();
+}
+/** Tap to Start: the title screen lifts and the Packs are there. Before the cards are in, a tap only nudges (or tries
+ *  the load again after it failed). */
+function startGame(st) {
+  const sc = st.el.querySelector('[data-dy-start]');
+  if (!sc || st.starting) return;
+  if (D.status === 'error') { D.load().then(() => refresh(st), () => refresh(st)); refresh(st); return; }
+  if (D.status !== 'ready') { sc.classList.remove('is-wait'); void sc.offsetWidth; sc.classList.add('is-wait'); ui.haptic('light'); return; }
+  st.starting = true;
+  ui.haptic('medium');
+  sc.classList.add('is-out');
+  sc.setAttribute('aria-hidden', 'true');
+  const done = () => {
+    sc.remove(); st.starting = false;
+    if (st.dead) return;
+    drawStart(st);
+    const h = st.el.querySelector('[data-pk-title]');
+    if (h) { try { h.focus({preventScroll: true}); } catch (_) {} }
+  };
+  if (RM()) done(); else setTimeout(done, 460);
+}
+/** Back to the title screen (the Menu). */
+function showStart(st) {
+  if (st.el.querySelector('[data-dy-start]')) return;
+  st.el.querySelector('.pk').insertAdjacentHTML('beforeend', startHTML());
+  drawStart(st);
+  st.ctx.screen.scrollTop = 0;
+  const sc = st.el.querySelector('[data-dy-start]');
+  if (sc) { try { sc.focus({preventScroll: true}); } catch (_) {} }
+}
+
+// ---------------------------------------------------------------------------------------------------- the Menu (≡)
+// Pocket's menu: the Guide, your coins, the rankings, this pack's Offering Rates, the title screen and the exit.
+function menuSheet(st) {
+  const s = D.status === 'ready' ? D.mine() : null, P = D.PACKS[st.pack] || D.PACKS[D.DAILY_PACK];
+  const items = [
+    {id: 'guide', ic: 'info', label: 'Guide', sub: 'How to play'},
+    {id: 'coins', ic: 'sparkle', label: 'Coins', sub: s ? `${nf(D.balance(s))} · how you earn them` : 'How you earn them'},
+    {id: 'rank', ic: 'trophy', label: 'Rankings', sub: s ? `${nf(s.tr)} trophies · ${s.rec.w}–${s.rec.l}` : 'The Dynasty board'},
+    {id: 'odds', ic: 'chart', label: 'Offering Rates', sub: P.name},
+    {id: 'title', ic: 'play-fill', label: 'Title screen', sub: 'Back to the start'},
+    {id: 'exit', ic: 'close', label: 'Exit Gridiron Dynasty', sub: 'Back to Daily Games', cls: 'is-exit'}
+  ];
+  const body = `<ul class="pk-list pk-menu">${items.map(x => `<li><button type="button" class="pk-menu-b${x.cls ? ' ' + x.cls : ''}" data-dy-m="${x.id}"><i class="pk-menu-i">${ui.icon(x.ic, {size: 20})}</i>`
+    + `<span class="pk-row-t"><b>${esc(x.label)}</b><small>${esc(x.sub)}</small></span>${ui.icon('chevron-right', {size: 16})}</button></li>`).join('')}</ul>`
+    + `<p class="pk-note pk-menu-foot">Gridiron Dynasty · Ver. ${APP_VER}.${D.VERSION} · Support ID ${supportId()}</p>`;
+  const sh = ui.openSheet({title: 'Menu', body, cls: 'pk-sheet', detents: ['fit']});
+  sh.body.addEventListener('click', e => {
+    const b = e.target.closest('[data-dy-m]');
+    if (!b) return;
+    const id = b.dataset.dyM;
+    ui.haptic('selection'); sh.close();
+    setTimeout(() => {
+      if (st.dead) return;
+      if (id === 'guide') guideSheet();
+      else if (id === 'coins') { if (s) earnSheet(); }
+      else if (id === 'rank') { if (s) { st.bv = 'rank'; go(st, 'battle', {keep: true}); } }
+      else if (id === 'odds') oddsSheet(st.pack);
+      else if (id === 'title') showStart(st);
+      else if (id === 'exit') ui.confirmExit({game: 'Gridiron Dynasty', cls: 'pk-sheet'}).then(home => { if (home && !st.dead) st.ctx.back(); });
+    }, 280);
   });
 }
 
@@ -635,15 +785,21 @@ function refresh(st) {
   if (st.dead) return;
   const el = st.el;
   // (Evan's and Ryan Stewart's alone, Oct 28 2026: a profile switched while it's open leaves it)
-  if (!D.mayPlay()) { fullScreen(st, false); el.querySelector('[data-dy-pane]').innerHTML = ''; if (!st.left) { st.left = true; st.ctx.back(); } return; }
+  if (!D.mayPlay()) {
+    fullScreen(st, false); el.querySelector('[data-dy-pane]').innerHTML = '';
+    const sc = el.querySelector('[data-dy-start]'); if (sc) sc.remove(); drawStart(st);
+    if (!st.left) { st.left = true; st.ctx.back(); }
+    return;
+  }
+  drawStart(st);
   if (D.status !== 'ready') {
     el.querySelector('[data-dy-pane]').innerHTML = D.status === 'error' ? ui.empty({icon: 'info', title: 'The cards didn’t load', body: 'Check your connection.', action: {label: 'Try again', kind: 'primary', attrs: {'data-dy-retry': ''}}}) : ui.skeleton('rows', 4, {label: 'Loading the cards'});
     return;
   }
   const s = D.mine();
-  el.querySelector('[data-dy-wallet]').innerHTML = coinHTML(D.balance(s));
-  el.querySelector('[data-pk-title]').textContent = TABS.find(t => t.id === st.tab).title;
-  el.querySelectorAll('.pk-tab').forEach(b => { const on = b.dataset.dyTab === st.tab; b.classList.toggle('is-on', on); b.setAttribute('aria-pressed', String(on)); });
+  el.querySelector('[data-dy-hud]').innerHTML = hudHTML(s);
+  el.querySelector('[data-pk-title]').textContent = (PANE_TABS.find(t => t.id === st.tab) || PANE_TABS[0]).title;
+  el.querySelectorAll('.pk-tab[data-dy-tab]').forEach(b => { const on = b.dataset.dyTab === st.tab; b.classList.toggle('is-on', on); b.setAttribute('aria-pressed', String(on)); });
   const dot = el.querySelector('.pk-tab[data-dy-tab="battle"] .pk-dot');
   if (dot) dot.hidden = !MT.waiting();
   const pane = el.querySelector('[data-dy-pane]');
@@ -653,9 +809,9 @@ function refresh(st) {
   ui.hydrate(pane);
   if (st.tab === 'cards' && st.f.view !== 'cols') drawGrid(st);
 }
-function go(st, tab) {
+function go(st, tab, {keep = false} = {}) {
   st.tab = tab;
-  if (tab === 'battle') st.bv = '';
+  if (tab === 'battle' && !keep) st.bv = '';
   refresh(st);
   st.ctx.screen.scrollTop = 0;
 }
@@ -668,18 +824,24 @@ export default {
   render() { return shellHTML(); },
 
   mount(el, ctx) {
-    const st = {el, ctx, tab: 'packs', pack: D.DAILY_PACK, art: artLoad(), bv: '', f: {view: 'mine', ser: '', pos: '', rar: '', q: ''}, shown: PAGE, dead: false, stops: []};
+    const st = {el, ctx, tab: 'packs', pack: D.DAILY_PACK, art: artLoad(), bv: '', f: {view: 'mine', ser: '', pos: '', rar: '', q: ''}, shown: PAGE, dead: false, starting: false, stops: []};
     ST.set(ctx, st);
     fullScreen(st, ctx.visible);
     ctx.setBackTitle('Dynasty');
     el.addEventListener('input', e => {
       if (e.target.name === 'dy-q') { st.f.q = e.target.value; clearTimeout(st.qT); st.qT = setTimeout(() => drawGrid(st), 160); }
     });
+    // (the title screen: Enter or Space on it starts, as a tap does)
+    el.addEventListener('keydown', e => {
+      const sc = e.target && e.target.closest ? e.target.closest('[data-dy-start]') : null;
+      if (sc && e.target === sc && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); startGame(st); }
+    });
     el.addEventListener('click', e => {
       const t = e.target;
       const q = sel => t.closest(sel);
       let b;
       if (q('[data-dy-exit]')) { ui.confirmExit({game: 'Gridiron Dynasty', cls: 'pk-sheet'}).then(home => { if (home && !st.dead) ctx.back(); }); return; }
+      if (q('[data-dy-menu]')) { menuSheet(st); return; }
       if (q('[data-dy-retry]')) { D.load().then(() => refresh(st), () => refresh(st)); refresh(st); return; }
       if ((b = q('[data-dy-tab]'))) { go(st, b.dataset.dyTab); return; }
       if ((b = q('[data-dy-goto]'))) { st.f.view = 'cols'; go(st, 'cards'); return; }
@@ -718,7 +880,9 @@ export default {
       if ((b = q('[data-dy-decline]'))) { run(MT.decline(b.dataset.dyDecline)); return; }
       if ((b = q('[data-dy-cancel]'))) { run(MT.cancel(b.dataset.dyCancel)); return; }
       if ((b = q('[data-dy-claimwin]'))) { run(MT.claim(b.dataset.dyClaimwin), () => ui.toast('Win claimed', {icon: 'trophy'})); return; }
-      if ((b = q('[data-dy-go]'))) { ctx.nav(`/puzzles/dynasty/battle/${b.dataset.dyGo}`); }
+      if ((b = q('[data-dy-go]'))) { ctx.nav(`/puzzles/dynasty/battle/${b.dataset.dyGo}`); return; }
+      // (a tap anywhere else on the title screen starts)
+      if (q('[data-dy-start]')) startGame(st);
     });
     // (the pack's designs: the big pack follows a sideways swipe and flips to the next design past 50px or a flick, else
     // springs back; an up-and-down drag scrolls the page as ever; ← and → step through them too)
@@ -754,7 +918,7 @@ export default {
     el.addEventListener('pointerup', swEnd);
     el.addEventListener('pointercancel', swEnd);
     el.addEventListener('keydown', e => {
-      if ((e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') || !e.target.closest('.pk-car.is-many')) return;
+      if ((e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') || !e.target.closest('.pk-car.is-many, .pk-car-dots')) return;
       e.preventDefault();
       const d = e.key === 'ArrowRight' ? 1 : -1;
       artTo(st, artAt(st, st.pack) + d, d);
@@ -764,14 +928,14 @@ export default {
     st.stops.push(SOLO.subscribe(() => { if (st.tab === 'battle') refresh(st); }));
     st.stops.push(ctx.on('daily', type => { if (type === 'lb') { if (D.status === 'ready' && D.mayPlay()) { D.sync(); D.earned(D.mine(), true); } if (st.tab === 'battle' || st.tab === 'packs') refresh(st); } }));
     st.stops.push(data.subscribe(type => { if (type === 'me') refresh(st); }));
-    st.stops.push(ctx.timer(() => { if (D.status === 'ready' && D.mayPlay()) { const w = el.querySelector('[data-dy-wallet]'); if (w) w.innerHTML = coinHTML(D.balance(D.mine())); } }, 15000));
+    st.stops.push(ctx.timer(() => { if (D.status === 'ready' && D.mayPlay()) { const w = el.querySelector('[data-dy-hud]'); if (w) w.innerHTML = hudHTML(D.mine()); } }, 15000));
     try { ui.lsSet('gg-dynasty-seen', '1'); } catch (_) {}
     D.load().then(() => refresh(st), () => refresh(st));
     D.loadGames().then(() => { if (D.status === 'ready' && D.mayPlay()) { D.earned(D.mine(), true); refresh(st); } });
     refresh(st);
   },
 
-  // (back from a battle: the matches as they stand now)
+  // (back from a battle: the matches as they stand now; the title screen doesn't come again)
   onShow(ctx) { const st = ST.get(ctx); if (st) { fullScreen(st, true); refresh(st); } },
 
   onHide(ctx) { const st = ST.get(ctx); if (st) fullScreen(st, false); },

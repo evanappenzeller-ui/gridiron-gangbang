@@ -71,6 +71,12 @@ const SAVE = {v: 1, born: Date.now() - 864e5, at: Date.now(), o: {'C-timeout': 2
   await page.waitForFunction(() => window.__ggBooted, null, {timeout: 30000});
   await page.evaluate(async () => (await import('/js/app.js')).nav('/puzzles/dynasty'));
   await page.locator('.pk-bigpack').waitFor({timeout: 30000});
+  // (the title screen on entering, Oct 29 2026, views/dynasty.js startHTML: a tap through it once the cards are in)
+  if (await page.locator('.pk-start').count()) {
+    await page.locator('.pk-start.is-ready').waitFor({timeout: 30000});
+    await page.locator('.pk-start').click({position: {x: 195, y: 640}});
+    await page.waitForFunction(() => !document.querySelector('.pk-start'), null, {timeout: 10000});
+  }
   await page.waitForTimeout(600);
   let shotMs = 0, shots = 0;
   const shot = async name => { const f = path.join(OUT, name + '.png'), t0 = Date.now(); await page.screenshot({path: f}); shotMs += Date.now() - t0; shots++; return f; };
@@ -100,7 +106,7 @@ const SAVE = {v: 1, born: Date.now() - 864e5, at: Date.now(), o: {'C-timeout': 2
     await page.setViewportSize({width: 390, height: 844});
     await page.waitForTimeout(300);
     made.push(await shot('home'));
-    await page.locator('[data-dy-packs]').click();
+    await page.locator('.pk-pill[data-dy-packs]').click();
     await page.waitForTimeout(700);
     made.push(await shot('picker'));
   } else {
@@ -109,7 +115,7 @@ const SAVE = {v: 1, born: Date.now() - 864e5, at: Date.now(), o: {'C-timeout': 2
     const before = {wl: await page.evaluate(() => window.__wl), raf: await rafRate()};
     if (!DIRECT) {
       // (the pack asked for, picked from the other booster packs: the Packs home may show another first)
-      await page.locator('[data-dy-packs]').click();
+      await page.locator('.pk-pill[data-dy-packs]').click();
       await page.locator(`[data-dy-pick="${KIND}"]`).click();
       await page.waitForTimeout(500);
     }

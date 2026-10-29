@@ -185,4 +185,62 @@ export async function dynastyChecks(check) {
     const all = (src.match(/daily\.LB\.all/g) || []).length === 1 && (msrc.match(/daily\.LB\.all/g) || []).length === 1;
     return {pass: raw && all, detail: 'others() and the matches from LB.raw; LB.all only for your own saves'};
   });
+  check('Gridiron Dynasty: Pocket’s title screen on entering (the owner, Oct 29 2026: "Create a start screen when entering the dynasty"): the logo, the cards drifting, Tap to Start, the version and a support id, the menu and the red X; five tabs at the foot with the Menu; the Battle tab’s banner, Versus, Solo, Guide, Decks, Rankings and Missions', async () => {
+    const V = await import('../views/dynasty.js');
+    const shell = V.shellHTML(), start = V.startHTML();
+    const tabs = (shell.match(/class="pk-tab/g) || []).length, menu = /class="pk-tab" data-dy-menu/.test(shell) && /data-dy-hud/.test(shell);
+    const logo = /pk-logo-top">Gridiron<\/span>/.test(start) && /Ultimate Card Collection/.test(start) && /pk-logo-sub">Dynasty<\/span>/.test(start);
+    const bits = /data-dy-start/.test(start) && /role="button"/.test(start) && /Support ID: [A-Z0-9]{8}</.test(start) && /Ver\. 3\.0\.\d+</.test(start) && /data-dy-menu/.test(start) && /data-dy-exit/.test(start);
+    const say = D.status === 'ready' ? /Tap to Start/.test(start) : /Loading/.test(start);
+    const cards = V.startCards(), teams = new Set(cards.map(c => c.team)).size, drawn = (start.match(/class="pk-start-card z-/g) || []).length;
+    // (the support id: the same for a profile every time, another's another, never the profile's key)
+    const ids = [V.supportId('m_evan'), V.supportId('m_evan'), V.supportId('u_ryan-stewart')];
+    const battle = V.battleHome({pack: 'std'}, D.fresh('m_check'));
+    const modes = ['pk-banner-tab">Battle<', 'data-dy-bv="versus"', 'data-dy-bv="solo"', 'data-dy-guide', 'data-dy-tab="decks"', 'data-dy-bv="rank"', 'Missions'].every(x => battle.includes(x));
+    return {pass: tabs === 5 && menu && logo && bits && say && cards.length === 14 && teams >= 10 && drawn === (D.status === 'ready' ? 14 : 0) && ids[0] === ids[1] && ids[0] !== ids[2] && !/EVAN/.test(ids[0]) && modes,
+      detail: `${tabs} tabs; ${cards.length} cards from ${teams} teams drift on the title screen; support id ${ids[0]}`};
+  });
+  check('Gridiron Dynasty: each rarity’s reveal on the deal grows with it (the owner, Oct 29 2026: "The more rare the player, the more exciting the animation"): ◆ dealt face up, ◆◆ flips, ◆◆◆ a ring, sparks and its stamp, ◆◆◆◆ rays, a flash and confetti, ★ and ★★ the drum and the sweep, ♛ the crown and the most of everything', async () => {
+    const O = await import('../views/dynasty-open.js');
+    const pick = f => D.CARDS.find(f);
+    const cards = [pick(c => c.r === 'common' && c.s === 'L'), pick(c => c.r === 'rare' && c.s === 'L'), pick(c => c.r === 'epic' && c.s === 'L'), pick(c => c.r === 'legendary' && c.s === 'L'),
+      pick(c => c.r === 'mythic' && c.s === 'L'), pick(c => c.s === 'P'), pick(c => c.s === 'X')];
+    const R = cards.map(O.revealOf);
+    const tiers = R.map(r => r.tier).join() === '0,1,2,3,4,5,6';
+    const up = k => R.every((r, i) => !i || r[k] >= R[i - 1][k]);
+    const more = up('hold') && up('flip') && up('sparks') && up('confetti') && up('total') && R.every((r, i) => !i || r.haptics.length >= R[i - 1].haptics.length) && R[6].total > R[0].total * 4;
+    const labels = R.map(r => r.label).join() === ',,Epic,Legendary,Mythic,Prime,Legend';
+    const trainer = O.revealOf(D.trainer(D.TRAINER_IDS[0])).tier;
+    const html = O.dealHTML(cards[6], R[6], '<div class="pk-card"></div>', true);
+    const crown = /class="pk-deal-c t-6 is-flip is-shake"/.test(html) && /pk-fx-crown/.test(html) && /pk-fx-rays/.test(html) && /pk-fx-flash/.test(html) && /pk-fx-sweep/.test(html)
+      && (html.match(/class="pk-spk"/g) || []).length === 22 && /pk-deal-tag">Legend</.test(html) && /pk-flip-back/.test(html) && /NEW/.test(html);
+    const plain = O.dealHTML(cards[0], R[0], '<div class="pk-card"></div>', false);
+    const common = /class="pk-deal-c t-0 is-face"/.test(plain) && !/pk-spk|pk-fx-|pk-deal-tag|NEW/.test(plain);
+    const epic = O.dealHTML(cards[2], R[2], '', false);
+    const mid = /t-2 is-flip"/.test(epic) && /pk-fx-ring/.test(epic) && !/pk-fx-rays|pk-fx-flash|pk-fx-sweep|pk-fx-crown/.test(epic) && /pk-deal-tag">Epic</.test(epic);
+    return {pass: tiers && more && labels && (trainer === 1 || trainer === 2) && crown && common && mid,
+      detail: `tiers ${R.map(r => r.tier).join(' < ')}; ${R.map(r => `${r.name} ${r.total}ms`).join(', ')}`};
+  });
+  check('Gridiron Dynasty: every pack comes in several art designs, more detailed the rarer the pack (the owner, Oct 29 2026: "Add more art designs to the packs. The more rare the pack, the more detailed the art design should be"): at least three each, the average and the plainest design of each tier above the tier below, each within its budget, no SVG filters below Gameday, ids a pack’s own (two on a page share none), a stored design past the end wrapped', async () => {
+    const P = await import('../views/dynasty-packs.js');
+    const BUDGET = {1: 30, 2: 55, 3: 90, 4: 150, 5: 240}, kinds = ['start', ...D.PACK_ORDER], by = {};
+    let ok = true, why = '';
+    const svgOf = html => { const host = document.createElement('div'); host.innerHTML = html; return host.querySelector('.pk-pack-art svg'); };
+    for (const k of kinds) {
+      const ds = P.designsOf(k), t = P.TIER[k];
+      if (ds.length < 3 || new Set(ds.map(d => d.id)).size !== ds.length) { ok = false; why += `${k}: ${ds.length} designs; `; }
+      ds.forEach((d, i) => {
+        const svg = svgOf(P.packHTML(k, {big: true, design: i})), n = svg.querySelectorAll('*').length;
+        const ids = [...svg.querySelectorAll('[id]')].map(e => e.id), u = ids.length ? ids[0].slice(0, ids[0].indexOf('_') + 1) : '';
+        if (n > BUDGET[t] || (t < 4 && svg.querySelector('filter')) || !ids.every(id => id.startsWith(u)) || n < 8) { ok = false; why += `${d.id} (${n}); `; }
+        (by[t] = by[t] || []).push(n);
+      });
+    }
+    const mean = t => by[t].reduce((a, b) => a + b, 0) / by[t].length;
+    const rises = [2, 3, 4, 5].every(t => mean(t) > mean(t - 1) && Math.min(...by[t]) > mean(t - 1));
+    const a = svgOf(P.packHTML('leg', {big: true})), b = svgOf(P.packHTML('leg', {big: true}));
+    const own = ![...a.querySelectorAll('[id]')].some(e => b.querySelector(`[id="${e.id}"]`));
+    const n = P.designsOf('gday').length, wrap = /data-art="([^"]+)"/.exec(P.packHTML('gday', {design: n + 1}))[1] === P.designsOf('gday')[1].id;
+    return {pass: ok && rises && own && wrap, detail: `${why}average elements by tier ${[1, 2, 3, 4, 5].map(t => Math.round(mean(t))).join(' < ')}; ids ${own ? 'its own' : 'shared'}; wrap ${wrap}`};
+  });
 }

@@ -4,20 +4,22 @@
 // open by swiping across", with "a subtle hint showing players how to do this": a fingertip gliding along the tear line
 // till you start), the strip tearing along your finger (short of far enough it springs back; Enter rips it too). Then a
 // flash along the tear, the strip spun away, rainbow light out of the pack; the pack sinks and the first card rises out of
-// it. The cards are a stack, the best last: swipe the top one away (or tap) for the next. A ◆◆◆◆ card turns over once,
-// its back showing, then a bloom and a glint; ★ and ★★ cards on a violet ground; a Legend on violet and gold, rays and
-// confetti. The top card tilts under your finger, its foil catching the light. Then the lot, new ones marked.
+// it. The cards are a stack, the best last: swipe the top one away (or tap) for the next. Each card is revealed by its
+// rarity as it comes to the top (the owner, Oct 29 2026: "Each player rarity should get a different animation when being
+// opened in a pack. The more rare the player, the more exciting the animation"; revealOf, REVEAL): a Common is dealt
+// face up; a Rare comes face down (Pocket's card back) and flips; an Epic hovers, a ring pulses and it flips with sparks
+// and its stamp; a Legendary turns the ground gold with rays behind it, flashes as it flips, sparks, confetti; a Mythic ★
+// turns it purple, drums (shakes harder and harder) before the flip, a rainbow sweep after; a ★★ (Prime, Gameday, Award)
+// the same on blue; a Legend ♛ darkens the ground, a crown drops in, the card rises from the foot, drums, flips in the
+// biggest flash, gold sparks and two bursts of confetti; from Epic up a star glints at its corner after. A tap while a
+// reveal plays finishes it; the next moves on. The top card tilts under your finger, a rare one's foil catching the
+// light. Then the lot, new ones marked. Reduced motion: each card simply face up, its ground and stamp still.
 // css/views/dynasty-open.css dresses it.
 import * as ui from '../core/ui.js';
 import * as D from '../core/dynasty.js';
 import {packHTML} from './dynasty-packs.js';
 
 const RM = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
-// (how big a show a card gets: 0 a sheen; 1 ◆◆◆◆ or a Legendary Trainer card: the turn, the bloom, the glint; 2 ★ and
-// ★★: on the violet ground too; 3 a Legend's crown: violet and gold, rays and confetti)
-const tierOf = c => { const m = D.markOf(c); return m.kind === 'c' ? 3 : m.kind === 's' ? 2 : m.n >= 4 || (!c.s && c.r === 'legendary') ? 1 : 0; };
-// (a reveal's length by tier, ms: css/views/dynasty-open.css times its turn, bloom and glint to fit)
-const REVEAL = [0, 2250, 2250, 2850], REVEAL_RM = 900;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 // 4-point sparkles, spread by the golden ratio (the same each time); f(a, b, i) gives each its style
 const sparkles = (n, f) => Array.from({length: n}, (_, i) => `<i class="dy-spk" style="${f((i * .618034 + .11) % 1, (i * .414214 + .37) % 1, i)}"></i>`).join('');
@@ -36,9 +38,44 @@ const SWIRL = (() => {
   }
   return `<svg class="dy-back-swirl" viewBox="0 0 100 140" preserveAspectRatio="xMidYMid slice"><g fill="none" stroke-linecap="round">${s}</g></svg>`;
 })();
-const BACK = `<div class="dy-back" aria-hidden="true"><div class="dy-back-in">${SWIRL}<b class="dy-back-word">GRIDIRON<small>DYNASTY</small></b>`
-  + `<span class="dy-back-ball"><i></i></span><b class="dy-back-word is-flip">GRIDIRON<small>DYNASTY</small></b></div></div>`;
+const BACK = `<div class="dy-back-in">${SWIRL}<b class="dy-back-word">GRIDIRON<small>DYNASTY</small></b>`
+  + `<span class="dy-back-ball"><i></i></span><b class="dy-back-word is-flip">GRIDIRON<small>DYNASTY</small></b></div>`;
 const FF_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 6.2v11.6L11.6 12zM12.4 6.2v11.6L20.5 12z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
+
+// ---------------------------------------------------------------------------------------------------- the reveals
+// One a rarity, rising with it (tier 0 to 6): hold (ms face down before the flip), flip (the turn's length), sparks (how
+// many fly), confetti (pieces; 0 none), haptics ([at ms, kind]), palette (the sparks' and confetti's colours), label (its
+// stamp after the flip; a ★★ card's is its series). total: how long it plays (then a tap moves on; before that it
+// finishes it).
+export const REVEAL = [
+  {tier: 0, name: 'common', hold: 0, flip: 0, sparks: 0, confetti: 0, haptics: [[0, 'light']], palette: [], label: ''},
+  {tier: 1, name: 'rare', hold: 220, flip: 480, sparks: 0, confetti: 0, haptics: [[0, 'light'], [460, 'light']], palette: [], label: ''},
+  {tier: 2, name: 'epic', hold: 600, flip: 540, sparks: 8, confetti: 0, haptics: [[0, 'light'], [870, 'medium']], palette: ['#7FD8FF', '#FFFFFF', '#3FA9F5'], label: 'Epic'},
+  {tier: 3, name: 'legendary', hold: 850, flip: 600, sparks: 12, confetti: 40, haptics: [[0, 'light'], [500, 'medium'], [1150, 'success']], palette: ['#FFE68A', '#FFFFFF', '#FFB300'], label: 'Legendary'},
+  {tier: 4, name: 'mythic', hold: 1000, flip: 620, sparks: 16, confetti: 70, haptics: [[0, 'medium'], [400, 'medium'], [800, 'medium'], [1310, 'success']], palette: ['#FF7FD8', '#B388FF', '#FFFFFF', '#7CF0FF'], label: 'Mythic'},
+  {tier: 5, name: 'star2', hold: 1000, flip: 620, sparks: 16, confetti: 70, haptics: [[0, 'medium'], [400, 'medium'], [800, 'medium'], [1310, 'success']], palette: ['#FFFFFF', '#8FE3FF', '#FFD94A'], label: 'Special'},
+  {tier: 6, name: 'crown', hold: 1300, flip: 700, sparks: 22, confetti: 110, haptics: [[0, 'medium'], [400, 'medium'], [700, 'medium'], [1000, 'success'], [1650, 'celebrate'], [2300, 'success']], palette: ['#FFE68A', '#FFFFFF', '#FFB300', '#FFF6D6'], label: 'Legend'}
+].map(r => Object.freeze({...r, total: r.hold + r.flip + (r.tier ? 900 : 420)}));
+/** The reveal a card gets, by its mark (core/dynasty.js markOf): ◆ to ◆◆◆◆ tiers 0 to 3, ★ 4, ★★ 5, ♛ 6. */
+export function revealOf(c) {
+  const m = D.markOf(c);
+  const tier = m.kind === 'c' ? 6 : m.kind === 's' ? (m.n >= 2 ? 5 : 4) : Math.min(3, Math.max(0, m.n - 1));
+  const R = REVEAL[tier];
+  const label = tier === 5 && c ? ({P: 'Prime', G: 'Gameday', A: 'Award'}[c.s] || R.label) : R.label;
+  return {...R, label};
+}
+/** A card's reveal on the deal: the card (face down past tier 0, with Pocket's back) inside its effects; it plays once
+ *  its slot is the top card's (css: .dy-dc.is-go). */
+export function dealHTML(c, R, cardHTML, isNew) {
+  const sparks = Array.from({length: R.sparks}, (_, i) => `<i class="pk-spk" style="--a:${Math.round(i * 360 / R.sparks + (i % 2) * 11)}deg;--d:${110 + (i % 3) * 40}px;--t:${(i % 4) * 45}ms;--c:${R.palette[i % R.palette.length]}"></i>`).join('');
+  return `<div class="pk-deal-c t-${R.tier}${R.tier ? ' is-flip' : ' is-face'}${R.tier >= 4 ? ' is-shake' : ''}" style="--hold:${R.hold}ms;--flip:${R.flip}ms">`
+    + (R.tier >= 3 ? '<i class="pk-fx-rays" aria-hidden="true"></i>' : '') + (R.tier >= 2 ? '<i class="pk-fx-ring" aria-hidden="true"></i>' : '')
+    + (R.tier >= 6 ? '<i class="pk-fx-crown" aria-hidden="true">♛</i>' : '')
+    + `<div class="pk-shake"><div class="pk-flip"><div class="pk-flip-back" aria-hidden="true">${BACK}</div>`
+    + `<div class="pk-flip-front">${cardHTML}${isNew ? '<span class="pk-c-new is-big" aria-hidden="true">NEW</span>' : ''}${R.tier >= 4 ? '<i class="pk-fx-sweep" aria-hidden="true"></i>' : ''}</div></div></div>`
+    + (R.tier >= 3 ? '<i class="pk-fx-flash" aria-hidden="true"></i>' : '') + (sparks ? `<span class="pk-spks" aria-hidden="true">${sparks}</span>` : '')
+    + (R.label ? `<b class="pk-deal-tag">${R.label}</b>` : '') + (R.tier >= 2 ? '<i class="pk-fx-glint" aria-hidden="true"></i>' : '') + '</div>';
+}
 
 /** Opens a pack on screen. o: {kind (core/dynasty.js PACKS key), design (views/dynasty-packs.js designsOf's index), cards
  *  (the ids drawn), dup ({id: true} for copies already held), cardHTML (views/dynasty.js anyHTML), onClose (after it's
@@ -50,11 +87,11 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
   const N = order.length, fresh = order.filter(c => !r.dup[c.id]).length;
   const ov = document.createElement('div');
   ov.className = 'pk-open';
-  ov.dataset.phase = 'rip';
+  ov.dataset.phase = 'rip'; ov.dataset.tier = '';
   ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true'); ov.setAttribute('aria-label', `Opening a ${P.name}`);
   ov.style.setProperty('--pc', P.color);
-  ov.innerHTML = `<div class="pk-open-bg" aria-hidden="true"><i class="dy-bg-star"></i><i class="dy-bg-crown"></i><span class="dy-bg-spk">${DRIFT}</span></div>`
-    + `<div class="dy-stage"><div class="dy-deal"><i class="dy-burst" aria-hidden="true"></i>`
+  ov.innerHTML = `<div class="pk-open-bg" aria-hidden="true"><i class="pk-open-tint"></i><span class="dy-bg-spk">${DRIFT}</span></div>`
+    + `<div class="dy-stage"><div class="dy-deal">`
     + `<div class="dy-deck" tabindex="-1" role="group" aria-label="The cards: tap, swipe or press Enter for the next"></div>`
     + `<p class="dy-deck-meta" aria-hidden="true"><b class="pk-deal-n"></b><span class="dy-deal-hint">Tap or swipe</span></p></div>`
     + `<div class="dy-open-pack" data-dy-tear tabindex="0" role="button" aria-label="Rip the pack open: swipe across its top, or press Enter">`
@@ -91,11 +128,11 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
   // ---- the cards: a stack, the top one showing (slots: each card's element, made as it comes near the top)
   const slots = [];
   let at = 0, top = null;
+  // (a slot: the card's tilt round its reveal, dealHTML's; the foil and the glare on its face, a rare one's foil showing)
   const slotHTML = (c, i) => {
-    const t = tierOf(c);
-    return `<div class="dy-dc t-${t}${t ? ' is-foil' : ''}" data-i="${i}" aria-hidden="true"><div class="dy-tilt"><div class="dy-spin">`
-      + `<div class="dy-front">${anyHTML(c.id, {size: 'l', tag: false, noCount: true})}<i class="dy-foil"></i><i class="dy-glare"></i><i class="dy-sheen"></i><i class="dy-bloom"></i>`
-      + `${r.dup[c.id] ? '' : '<span class="pk-c-new is-big">NEW</span>'}</div>${BACK}</div></div><i class="dy-glint"></i></div>`;
+    const R = revealOf(c), foil = R.tier >= 3 || (!c.s && c.r === 'legendary');
+    const face = `${anyHTML(c.id, {size: 'l', tag: false, noCount: true})}<i class="dy-foil"></i><i class="dy-glare"></i><i class="dy-sheen"></i>`;
+    return `<div class="dy-dc t${R.tier}${foil ? ' is-foil' : ''}" data-i="${i}" aria-hidden="true"><div class="dy-tilt">${dealHTML(c, R, face, !r.dup[c.id])}</div></div>`;
   };
   // (a card goes in under the others: the top one stays on top)
   const mount = i => {
@@ -103,43 +140,41 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
     deck.insertAdjacentHTML('afterbegin', slotHTML(order[i], i));
     return (slots[i] = deck.firstElementChild);
   };
-  // ---- a card's reveal, by its tier (rv: the card revealing; a tap finishes it)
+  // ---- a card's reveal, by its rarity (rv: the one playing; its haptics and confetti on the CSS's clock, --hold and
+  // --flip; a tap finishes it: everything at its end, is-skip)
   let rv = null;
   const rvT = [];
-  const confetti = el => { if (el.dataset.conf) return; el.dataset.conf = '1'; try { ui.confetti(el.getBoundingClientRect(), {colors: ['#FFD94A', '#FFF1B3', '#C9A227', '#FFFFFF', '#B58CFF'], count: 90}); } catch (_) {} };
-  const endReveal = () => {
+  const burst = (R, again) => { try { ui.confetti(top.getBoundingClientRect(), {colors: R.palette, count: again ? Math.round(R.confetti * .6) : R.confetti}); } catch (_) {} };
+  const endReveal = (skip = true) => {
     if (!rv) return;
     const el = rv;
     rv = null; delete ov.dataset.rv; drop(rvT);
-    if (el.classList.contains('t-3')) confetti(el);
-    el.classList.remove('is-rv', 'is-rv-rm'); el.classList.add('is-shown');
+    if (skip) { el.classList.add('is-skip'); ui.haptic('light'); }
     kick();
   };
   const begin = (fast = false) => {
-    const c = order[at], t = tierOf(c), el = top;
-    ov.dataset.ground = fast ? '' : t > 2 ? 'crown' : t > 1 ? 'star' : '';
-    nTxt.textContent = `${at + 1} of ${N}`;
+    const c = order[at], R = revealOf(c), el = top, deal = el.querySelector('.pk-deal-c');
+    drop(rvT);
+    ov.dataset.tier = String(R.tier);
+    nTxt.textContent = `${at + 1} of ${N}${R.label ? ` · ${R.label}` : ''}`;
     hint.hidden = at > 0;
     const pc = el.querySelector('.pk-card');
-    say.textContent = `${at + 1} of ${N}: ${(pc && pc.getAttribute('aria-label')) || c.name}${r.dup[c.id] ? '' : ', new'}`;
+    say.textContent = `${at + 1} of ${N}${R.label ? `, ${R.label}` : ''}: ${(pc && pc.getAttribute('aria-label')) || c.name}${r.dup[c.id] ? '' : ', new'}`;
     cur.x = cur.y = cur.a = 0;
-    if (fast) { el.classList.add('is-shown'); return; }
-    if (t) {
-      ui.haptic('success');
-      rv = el; ov.dataset.rv = String(t);
-      el.classList.add(RM() ? 'is-rv-rm' : 'is-rv');
-      rvT.push(later(endReveal, RM() ? REVEAL_RM : REVEAL[t]));
-      if (t > 2 && !RM()) rvT.push(later(() => confetti(el), 1700));
-    } else {
-      ui.haptic('light');
-      if (!RM()) el.classList.add('is-sheen');
-    }
+    el.classList.add('is-go');
+    if (fast) { deal.classList.add('is-skip'); return; }
+    const when = ms => (RM() ? 0 : ms);
+    R.haptics.forEach(([t, k]) => rvT.push(later(() => ui.haptic(k), when(t))));
+    if (R.confetti) rvT.push(later(() => burst(R), when(R.hold + R.flip / 2)));
+    if (R.tier >= 6) rvT.push(later(() => burst(R, true), when(R.hold + R.flip / 2 + 650)));
+    if (R.tier && !RM()) { rv = deal; ov.dataset.rv = String(R.tier); rvT.push(later(() => endReveal(false), R.total)); }
+    else if (!R.tier && !RM()) el.classList.add('is-sheen');
     kick();
   };
   // ---- the pack torn: a flash along the tear, the strip spun away, light out of the pack; the pack sinks and the first
   // card rises out of it (the pack's front in front of it), grows and settles as the pack drops away
   const opening = [];
-  const burst = () => {
+  const torn = () => {
     if (closed) return;
     ui.haptic('medium');
     setPhase('open');
@@ -205,7 +240,7 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
   const showResults = () => {
     if (closed || phase === 'results') return;
     endReveal(); clearInterval(ffI); drop(opening);
-    setPhase('results'); ov.dataset.ground = '';
+    setPhase('results'); ov.dataset.tier = '';
     stage.hidden = true; skipB.hidden = true; ffB.hidden = true;
     ov.classList.add('is-results');
     const res = $('.pk-results');
@@ -322,7 +357,7 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
     if (ripped) return;
     ripped = true; drag = null;
     pk.classList.remove('is-drag'); pk.classList.add('is-touched');
-    tween(1, 110, burst);
+    tween(1, 110, torn);
   };
   // (a tap with no swipe: the hint shows itself plainly, and the pack shivers)
   let nudgeT = 0;

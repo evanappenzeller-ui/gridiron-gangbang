@@ -112,15 +112,16 @@
   clip-path: polygon(4.4cqw 0, calc(100% - 4.4cqw) 0, 100% 50%, calc(100% - 4.4cqw) 100%, 4.4cqw 100%, 0 50%); background: linear-gradient(180deg, #2E2108, #4A3510 60%, #241904); }
 
 /* ---------------------------------------------------------------- the Packs home's designs (js/views/dynasty.js artTo):
-   the big pack between two arrows, swiped sideways to flip between its designs, dots under its reflection */
-.pk-car { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; gap: 12px; touch-action: pan-y; -webkit-user-select: none; user-select: none; }
+   the big pack swiped sideways to flip between its designs; under its reflection the dots between two arrows (clear of the
+   pack's tags on the left and the pack points on the right) */
+.pk-car { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; touch-action: pan-y; -webkit-user-select: none; user-select: none; }
 .pk-car-move { display: flex; }
 .pk-car.is-drag .pk-bigpack { animation-play-state: paused; }
-.pk-car-b { flex: none; display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 0; border-radius: 50%; cursor: pointer;
+.pk-car-dots { position: absolute; left: 50%; bottom: 6px; z-index: 2; display: flex; align-items: center; gap: 2px; transform: translateX(-50%); }
+.pk-car-b { flex: none; display: grid; place-items: center; width: 30px; height: 30px; margin: 0 4px; padding: 0; border: 0; border-radius: 50%; cursor: pointer;
   background: rgba(255,255,255,.9); color: var(--ink-2); box-shadow: var(--pk-shadow); transition: transform .15s; }
 .pk-car-b:active { transform: scale(.9); }
-.pk-car-dots { position: absolute; left: 50%; bottom: 10px; z-index: 2; display: flex; transform: translateX(-50%); }
-.pk-car-dot { display: grid; place-items: center; width: 20px; height: 24px; padding: 0; border: 0; background: none; cursor: pointer; }
+.pk-car-dot { display: grid; place-items: center; width: 20px; height: 30px; padding: 0; border: 0; background: none; cursor: pointer; }
 .pk-car-dot::before { content: ""; width: 7px; height: 7px; border-radius: 99px; background: var(--ink-4); transition: width .2s, background-color .2s; }
 .pk-car-dot[aria-pressed="true"]::before { width: 18px; background: var(--tint); }
 @media (prefers-reduced-motion: reduce) { .pk-car-b, .pk-car-dot::before { transition: none; } }
