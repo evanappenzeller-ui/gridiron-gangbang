@@ -7,14 +7,14 @@
 // A slow request falls back to whatever is cached under its path (from the previous worker too), so data whose
 // format changes gets a new file name rather than new content under the old one (data/puzzles-v4.json: see
 // js/core/daily.js).
-const CACHE = 'gg-v491';
+const CACHE = 'gg-v492';
 const CORE = ['ui', 'data', 'daily', 'fire', 'week', 'nfl', 'stats', 'motw', 'press', 'checks', 'checks-stats', 'checks-pickem', 'checks-press', 'checks-seventeen', 'checks-drill', 'checks-kick', 'return', 'checks-return', 'lay', 'plays', 'laytrack', 'gameday', 'seventeen', 'drill-sim', 'drill', 'kick', 'avatars', 'lpick', 'survivor', 'checks-lpick', 'realm', 'realm-pay', 'realm-active', 'realm-dragons', 'realm-layout', 'realm-battle', 'checks-realm', 'dynasty', 'dynasty-battle', 'dynasty-match', 'dynasty-solo', 'checks-dynasty'];
 // The tab roots are puzzles, pickem, rivals (Matchup), league, moves (Draft), lay (The Lay) and live (Live). Keepfall opens from Daily Games.
 const VIEWS = ['welcome', 'guest', 'puzzles', 'games', 'game-case', 'board', 'you', 'sharecard', 'results', 'run', 'college', 'silhouette', 'mystery', 'journey', 'grid', 'picker',
   'league', 'standings', 'season', 'review', 'wrap', 'matchup', 'rivals', 'pickem', 'press', 'hall', 'hall-trophies', 'hall-records', 'hall-shame',
-  'moves', 'profile', 'lay', 'live', 'plays', 'seventeen', 'drill', 'drill-cam', 'drill-sprites', 'kick', 'stadium', 'return-world', 'return-3dworld', 'return-field-logo', 'return-style', 'return-scenery', 'return-models', 'return-city-bus', 'return-3d', 'return', 'photo', 'testplay', 'lpick', 'survivor', 'realm', 'realm-3d', 'realm-world', 'realm-materials', 'realm-buildings', 'realm-lowlevel', 'realm-routines', 'realm-models', 'realm-walls', 'realm-wildlife', 'realm-heroes', 'realm-lore', 'realm-npcs', 'realm-characters', 'realm-dragon', 'realm-dragon-assets', 'realm-dragon-picker', 'realm-raid', 'realm-scout', 'realm-replay', 'realm-visit', 'dynasty', 'dynasty-battle', '_kit'];
+  'moves', 'profile', 'lay', 'live', 'plays', 'seventeen', 'drill', 'drill-cam', 'drill-sprites', 'kick', 'stadium', 'return-world', 'return-3dworld', 'return-field-logo', 'return-style', 'return-scenery', 'return-models', 'return-city-bus', 'return-3d', 'return', 'photo', 'testplay', 'lpick', 'survivor', 'realm', 'realm-3d', 'realm-world', 'realm-materials', 'realm-buildings', 'realm-lowlevel', 'realm-routines', 'realm-models', 'realm-walls', 'realm-wildlife', 'realm-heroes', 'realm-lore', 'realm-npcs', 'realm-characters', 'realm-dragon', 'realm-dragon-assets', 'realm-dragon-picker', 'realm-raid', 'realm-scout', 'realm-replay', 'realm-visit', 'dynasty', 'dynasty-packs', 'dynasty-open', 'dynasty-battle', '_kit'];
 const VIEW_CSS = ['welcome', 'puzzles', 'board', 'results', 'you', 'run', 'college', 'silhouette', 'mystery', 'journey', 'grid', 'picker',
-  'standings', 'season', 'review', 'wrap', 'matchup', 'rivals', 'pickem', 'press', 'hall', 'moves', 'profile', 'lay', 'live', 'plays', 'seventeen', 'drill', 'kick', 'return', 'realm', 'dynasty', '_kit'];
+  'standings', 'season', 'review', 'wrap', 'matchup', 'rivals', 'pickem', 'press', 'hall', 'moves', 'profile', 'lay', 'live', 'plays', 'seventeen', 'drill', 'kick', 'return', 'realm', 'dynasty', 'dynasty-packs', 'dynasty-open', '_kit'];
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest',
   'js/core/features.js', 'js/core/release.js', 'js/core/score-release.js', 'js/core/owner-motion.js', 'css/owner-motion.css', 'css/release.css',

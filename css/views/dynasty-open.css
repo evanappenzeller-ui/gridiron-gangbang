@@ -1,0 +1,85 @@
+/* Opening a Gridiron Dynasty pack (js/views/dynasty-open.js), over everything; after css/views/dynasty.css (its light
+   theme tokens cover div.pk-open) and css/views/dynasty-packs.css. */
+
+/* ---------------------------------------------------------------- opening a pack (over everything) */
+div.pk-open { position: fixed; inset: 0; z-index: 200; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+  padding: max(24px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom)); opacity: 0; transition: opacity .25s; overflow-y: auto; }
+div.pk-open.is-in { opacity: 1; }
+div.pk-open.is-out { opacity: 0; }
+.pk-open-bg { position: fixed; inset: 0; z-index: -1; overflow: hidden;
+  background: radial-gradient(70% 50% at 50% 42%, #fff, color-mix(in srgb, var(--pc) 16%, #EEF3F7) 70%, color-mix(in srgb, var(--pc) 28%, #DCE5EC)); }
+.pk-open-bg::after { content: ""; position: absolute; inset: -50%; background: repeating-conic-gradient(from 0deg at 50% 50%, color-mix(in srgb, var(--pc) 10%, transparent) 0 6deg, transparent 6deg 18deg);
+  animation: pk-spin 50s linear infinite; }
+@keyframes pk-spin { to { transform: rotate(1turn); } }
+/* the rip (views/dynasty.js openPack): the strip above the tear line (13% down) peels up from the side you started,
+   pivoting on its far end, as --p goes 0 to 1; torn, it flies off and the pack drops away */
+.dy-open-pack { display: flex; flex-direction: column; align-items: center; gap: 16px; cursor: grab; outline: none; touch-action: none; user-select: none; -webkit-user-select: none; }
+.dy-open-pack.is-drag { cursor: grabbing; }
+@keyframes dy-wiggle { 0%, 100% { transform: rotate(-2deg); } 50% { transform: rotate(2deg) translateY(-6px); } }
+.dy-rip { position: relative; width: min(210px, 54vw); aspect-ratio: 5 / 8; }
+.dy-open-pack:not(.is-drag):not(.is-touched) .dy-rip { animation: dy-wiggle 1.6s ease-in-out infinite; }
+.dy-rip .pk-pack { position: absolute; inset: 0; width: 100%; }
+.dy-rip .pk-pack-foil { animation: none; }
+.dy-rip-top, .dy-rip-body { position: absolute; inset: 0; }
+.dy-rip-top { transform-origin: calc(50% + var(--dir) * 50%) 13%;
+  transform: translateY(calc(var(--p) * -10px)) rotate(calc(var(--dir) * var(--p) * 22deg)); filter: drop-shadow(0 calc(var(--p) * 8px) 6px rgba(0,0,0,.3)); }
+.dy-rip-line { position: absolute; top: 13%; height: 3px; margin-top: -1px; width: calc(var(--p) * 100%); border-radius: 2px; pointer-events: none;
+  left: calc(50% - var(--dir) * 50%); transform: translateX(calc((var(--dir) - 1) / 2 * 100%));
+  background: repeating-linear-gradient(90deg, #fff 0 5px, rgba(255,255,255,.5) 5px 8px); box-shadow: 0 0 8px 2px rgba(255,255,255,.75); opacity: min(1, calc(var(--p) * 6)); }
+.dy-open-pack.is-torn .dy-rip-top { transition: transform .5s cubic-bezier(.3,.7,.4,1), opacity .5s;
+  transform: translate(calc(var(--dir) * 140%), -70%) rotate(calc(var(--dir) * 48deg)); opacity: 0; }
+.dy-open-pack.is-torn .dy-rip-body { transition: transform .5s .12s cubic-bezier(.5,0,.8,.4), opacity .45s .18s; transform: translateY(45vh) rotate(calc(var(--dir) * -6deg)); opacity: 0; }
+.dy-open-pack.is-torn .dy-rip-line { transition: opacity .2s; opacity: 0; }
+.dy-rip::after { content: ""; position: absolute; left: -30%; right: -30%; top: -12%; height: 50%; pointer-events: none; opacity: 0;
+  background: radial-gradient(closest-side, rgba(255,255,255,.98), rgba(255,240,180,.5) 45%, transparent); }
+.dy-open-pack.is-torn .dy-rip::after { animation: dy-burst .5s ease-out; }
+@keyframes dy-burst { 0% { opacity: 0; transform: scale(.4); } 30% { opacity: 1; } 100% { opacity: 0; transform: scale(1.4); } }
+/* the hint: a fingertip glides along the tear line, a dotted trail behind it, till you start */
+.dy-rip-hint { position: absolute; left: 4%; right: 4%; top: 13%; height: 0; pointer-events: none; opacity: .8; transition: opacity .25s; }
+.dy-open-pack.is-touched .dy-rip-hint, .dy-open-pack.is-drag .dy-rip-hint { opacity: 0; }
+.dy-rip-finger { position: absolute; left: 0; top: -11px; width: 22px; height: 22px; border-radius: 50%; margin-left: -11px;
+  background: radial-gradient(circle, rgba(255,255,255,.98) 0 38%, rgba(255,255,255,.4) 40% 62%, transparent 64%); box-shadow: 0 0 10px rgba(255,255,255,.6), 0 1px 4px rgba(0,0,0,.25);
+  animation: dy-glide 2.8s cubic-bezier(.45,0,.3,1) .9s infinite both; }
+.dy-rip-trail { position: absolute; left: 0; top: -1px; height: 2px; width: 100%; transform-origin: 0 50%; border-radius: 2px;
+  background: repeating-linear-gradient(90deg, rgba(255,255,255,.9) 0 4px, transparent 4px 8px); animation: dy-trail 2.8s cubic-bezier(.45,0,.3,1) .9s infinite both; }
+@keyframes dy-glide { 0% { left: 0; opacity: 0; transform: scale(.6); } 12% { opacity: 1; transform: scale(1); } 62% { left: 100%; opacity: 1; transform: scale(1); } 78%, 100% { left: 100%; opacity: 0; transform: scale(.7); } }
+@keyframes dy-trail { 0%, 12% { transform: scaleX(0); opacity: .9; } 62% { transform: scaleX(1); opacity: .9; } 78%, 100% { transform: scaleX(1); opacity: 0; } }
+.dy-rip-say { margin: 0; font: 700 13px var(--font-text); color: var(--ink-3); letter-spacing: .01em; transition: color .25s, opacity .25s; }
+.dy-open-pack.is-touched .dy-rip-say { opacity: 0; }
+.dy-open-pack.is-nudge .dy-rip-hint { opacity: 1; }
+.dy-open-pack.is-nudge .dy-rip-say { color: var(--ink); }
+.dy-open-pack.is-nudge .dy-rip { animation: dy-shiver .4s; }
+@keyframes dy-shiver { 25% { transform: translateX(-4px) rotate(-1.5deg); } 50% { transform: translateX(4px) rotate(1.5deg); } 75% { transform: translateX(-2px); } }
+/* the cards, one at a time, then the lot */
+.pk-deal { display: flex; flex-direction: column; align-items: center; gap: 14px; cursor: pointer; }
+.pk-deal[hidden], .pk-results[hidden], .pk-open-bar[hidden], .dy-open-pack[hidden], .pk-open-bar [hidden] { display: none; }
+.pk-deal-stack { position: relative; width: min(290px, 74vw); aspect-ratio: 63 / 88; }
+.pk-deal-c { position: absolute; inset: 0; animation: pk-in .42s cubic-bezier(.2,.8,.3,1.15) both; }
+.pk-deal-c > .pk-card { box-shadow: 0 14px 30px rgba(30,45,70,.3); }
+.pk-deal-c.is-gone { animation: pk-out .42s cubic-bezier(.5,0,.7,.4) both; }
+@keyframes pk-in { from { opacity: 0; transform: translateY(60px) scale(.86) rotate(4deg); } }
+@keyframes pk-out { to { opacity: 0; transform: translateX(-120%) rotate(-14deg); } }
+.pk-deal-c.is-rare::before { content: ""; position: absolute; inset: -18%; z-index: -1; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(closest-side, rgba(255,255,255,.95), rgba(120,220,255,.5) 50%, transparent); animation: pk-glow 1.8s ease-in-out infinite alternate; }
+.pk-deal-c.is-crown::before { background: radial-gradient(closest-side, rgba(255,250,220,.98), rgba(255,200,60,.55) 50%, transparent); }
+@keyframes pk-glow { to { transform: scale(1.08); opacity: .75; } }
+.pk-deal-c > .pk-c-new { top: -12px; left: -10px; font-size: 15px; padding: 6px 12px; }
+.pk-deal-n { margin: 0; font: 800 13px var(--font-text); color: var(--ink-3); }
+.pk-results { width: min(440px, 100%); text-align: center; }
+.pk-results h2 { margin: 0 0 12px; font: 900 italic 26px/1 var(--font-text); color: var(--ink); }
+.pk-grid.is-results { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 16px 10px; }
+.pk-grid.is-results > .pk-res-c { grid-column: span 2; position: relative; animation: pk-in .4s cubic-bezier(.2,.8,.3,1.15) both; }
+.pk-grid.is-results > .pk-res-c:nth-child(2) { animation-delay: .06s; }
+.pk-grid.is-results > .pk-res-c:nth-child(3) { animation-delay: .12s; }
+.pk-grid.is-results > .pk-res-c:nth-child(4) { animation-delay: .18s; }
+.pk-grid.is-results > .pk-res-c:nth-child(5) { animation-delay: .24s; }
+.pk-grid.is-results > .pk-res-c:nth-child(4):nth-last-child(2) { grid-column: 2 / span 2; }
+.pk-res-c > .pk-c-new { top: -8px; left: -6px; font-size: 11px; padding: 4px 8px; }
+.pk-open-bar { display: flex; align-items: center; justify-content: center; gap: 12px; }
+.pk-open-bar button.pk-open { min-width: 160px; }
+@media (prefers-reduced-motion: reduce) {
+  .pk-pack-foil, .pk-c-shine, .pk-open-bg::after, .pk-bigpack, .dy-open-pack .dy-rip, .pk-deal-c, .pk-deal-c::before, .pk-res-c { animation: none !important; }
+  /* (the hint holds still: the fingertip at the start, the trail drawn along the tear line) */
+  .dy-rip-finger { animation: none; opacity: 1; }
+  .dy-rip-trail { animation: none; transform: none; }
+}

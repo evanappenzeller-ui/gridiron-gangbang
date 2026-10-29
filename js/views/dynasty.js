@@ -28,6 +28,8 @@ import * as B from '../core/dynasty-battle.js';
 import * as MT from '../core/dynasty-match.js';
 import * as SOLO from '../core/dynasty-solo.js';
 import {profileKey} from '../core/realm-active.js';
+import {packHTML} from './dynasty-packs.js';
+import {openScene, holo} from './dynasty-open.js';
 
 const esc = data.esc, nf = n => data.nf(n);
 const ST = new WeakMap();
@@ -164,6 +166,7 @@ function cardSheet(st, id) {
     + `<p class="pk-own">${n ? `${n} in your collection${inDeck ? ` · ${inDeck} in your deck` : ''}` : 'Not in your collection yet'}</p>`
     + (acts.length ? `<div class="pk-acts">${acts.join('')}</div>` : '') + battleHTML(id) + (D.card(id) ? backHTML(c) : '');
   const sh = ui.openSheet({title: c.name, body, cls: 'pk-sheet', detents: ['large']});
+  holo(sh.body.querySelector('.pk-zoom > .pk-card'));
   sh.body.addEventListener('click', e => {
     if (e.target.closest('[data-dy-sell]')) {
       const r = D.sell(id, 1);
@@ -194,25 +197,6 @@ function deckRemove(st, id) {
   const ids = s.dk.slice(); ids.splice(i, 1); D.setDeck(ids); ui.haptic('selection'); refresh(st);
 }
 
-// ---------------------------------------------------------------------------------------------------- a booster pack
-// Pocket's foil packs: the brand bar across the top (where it tears), the pack's art (its emblem in a burst of light, a
-// fan of cards behind), its name in a plate below.
-const PACK_ART = {
-  std: '<ellipse cx="50" cy="50" rx="30" ry="18" transform="rotate(-35 50 50)" fill="#7B4A26"/><path d="M38 55l24-14M43 52.5l-2.5-4M47.5 50l-2.5-4M52 47.5l-2.5-4M56.5 45l-2.5-4" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>',
-  team: '<path d="M24 58c0-18 12-30 28-30 14 0 24 9 24 22v8H62v10H40l-6-10z" fill="#fff"/><path d="M62 50h16M56 58h20" stroke="rgba(0,0,0,.35)" stroke-width="3"/><circle cx="46" cy="44" r="4" fill="rgba(0,0,0,.3)"/>',
-  prem: '<path d="M50 18l9 20 22 2-17 14 5 22-19-12-19 12 5-22-17-14 22-2z" fill="#fff"/>',
-  gday: '<path d="M20 70h60M30 70V36M70 70V36" stroke="#fff" stroke-width="4"/><rect x="22" y="22" width="16" height="12" rx="2" fill="#fff"/><rect x="62" y="22" width="16" height="12" rx="2" fill="#fff"/><path d="M38 28l14 22M62 28L48 50" stroke="rgba(255,255,255,.55)" stroke-width="6"/>',
-  leg: '<path d="M22 64l-4-30 16 12 16-22 16 22 16-12-4 30z" fill="#fff"/><path d="M22 70h56" stroke="#fff" stroke-width="5"/>',
-  start: '<path d="M50 16l26 10v20c0 18-11 30-26 38-15-8-26-20-26-38V26z" fill="#fff"/><path d="M50 30v36M38 42l12-12 12 12" stroke="rgba(0,0,0,.35)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>'
-};
-function packHTML(kind, {count, big} = {}) {
-  const P = D.PACKS[kind];
-  return `<span class="pk-pack${big ? ' is-big' : ''} k-${kind}" style="--pc:${P.color}" aria-hidden="true">`
-    + `<span class="pk-pack-top"><i class="pk-pack-ball"></i><b>GRIDIRON<small>DYNASTY</small></b><em>GD1</em></span>`
-    + `<span class="pk-pack-art"><span class="pk-pack-fan"><i></i><i></i><i></i></span><svg viewBox="0 0 100 100">${PACK_ART[kind] || ''}</svg></span>`
-    + `<span class="pk-pack-name"><small>${kind === 'leg' ? 'DELUXE PACK' : 'BOOSTER PACK'}</small><b>${esc(P.name.replace(' Pack', '').toUpperCase())}</b></span>`
-    + `<span class="pk-pack-foil"></span><span class="pk-pack-crimp"></span>${count > 1 ? `<span class="pk-pack-n">×${count}</span>` : ''}</span>`;
-}
 /** The best cards a pack can give (its preview, above the pack). */
 function packBest(kind, n = 5) {
   const pools = {std: c => c.s === 'L', team: c => c.s === 'L', prem: c => c.s === 'L' || c.s === 'R' || c.s === 'G', gday: c => c.s === 'G', leg: c => c.s === 'X' || c.s === 'P'};
@@ -602,139 +586,8 @@ function openPack(st, kind, team = null) {
   const r = D.open(kind, {team});
   if (!r.ok) { ui.toast(r.why, {icon: 'info'}); return; }
   refresh(st);
-  // (the best last, as Pocket reveals: a Trainer card first)
-  const order = r.cards.map(D.anyCard).map((c, i) => ({c, i})).sort((a, b) => (a.c.o || 0) - (b.c.o || 0)).map(x => x.c);
-  const ov = document.createElement('div');
-  ov.className = 'pk-open';
-  ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true'); ov.setAttribute('aria-label', `Opening a ${D.PACKS[kind].name}`);
-  ov.innerHTML = `<div class="pk-open-bg" style="--pc:${D.PACKS[kind].color}"></div>`
-    + `<div class="dy-open-pack" data-dy-tear tabindex="0" role="button" aria-label="Rip the pack open: swipe across its top, or press Enter">`
-    + `<div class="dy-rip" style="--p:0;--dir:1"><div class="dy-rip-body" style="clip-path:${TEAR.body}">${packHTML(kind, {big: true})}</div>`
-    + `<div class="dy-rip-top" style="clip-path:${TEAR.top}">${packHTML(kind, {big: true})}</div>`
-    + `<span class="dy-rip-line" aria-hidden="true"></span><span class="dy-rip-hint" aria-hidden="true"><i class="dy-rip-trail"></i><i class="dy-rip-finger"></i></span></div>`
-    + `<p class="dy-rip-say">Swipe across the top to rip it open</p></div>`
-    + `<div class="pk-deal" hidden><div class="pk-deal-stack" aria-live="polite"></div><p class="pk-deal-n"></p></div>`
-    + `<div class="pk-results" hidden><h2>Results</h2><div class="pk-grid is-results">${order.map(c => `<div class="pk-res-c">${anyHTML(c.id, {size: 's', tag: false, noCount: true})}`
-      + `${r.dup[c.id] ? '' : '<span class="pk-c-new">NEW</span>'}</div>`).join('')}</div><p class="pk-note">+${D.PP_PER_PACK} pack points</p></div>`
-    + `<div class="pk-open-bar" hidden><button type="button" class="pk-pill" data-dy-skip>Skip</button><button type="button" class="pk-open" data-dy-next>Next</button></div>`;
-  document.body.appendChild(ov);
-  const prevFocus = document.activeElement;
-  requestAnimationFrame(() => ov.classList.add('is-in'));
-  ov.querySelector('[data-dy-tear]').focus();
-  // ---- the cards, one at a time (a ★ or crown card shines first), then the results
-  let at = -1;
-  const stack = ov.querySelector('.pk-deal-stack'), nTxt = ov.querySelector('.pk-deal-n'), bar = ov.querySelector('.pk-open-bar');
-  const showResults = () => {
-    at = order.length;
-    ov.querySelector('.pk-deal').hidden = true; ov.querySelector('.pk-results').hidden = false;
-    ov.querySelector('[data-dy-skip]').hidden = true; ov.querySelector('[data-dy-next]').textContent = 'Done';
-    ov.querySelector('[data-dy-next]').focus();
-  };
-  const next = () => {
-    if (at >= order.length) { close(); return; }
-    if (at === order.length - 1) { showResults(); return; }
-    at++;
-    const c = order[at], m = D.markOf(c), rare = m.kind !== 'd';
-    const old = stack.querySelector('.pk-deal-c:not(.is-gone)');
-    if (old) { old.classList.add('is-gone'); setTimeout(() => old.remove(), RM() ? 0 : 420); }
-    stack.insertAdjacentHTML('beforeend', `<div class="pk-deal-c${rare ? ' is-rare' : ''}${m.kind === 'c' ? ' is-crown' : ''}">${anyHTML(c.id, {size: 'l', tag: false, noCount: true})}`
-      + `${r.dup[c.id] ? '' : '<span class="pk-c-new is-big">NEW</span>'}</div>`);
-    nTxt.textContent = `${at + 1} of ${order.length}`;
-    if (rare) { ui.haptic('success'); if (m.kind === 'c' || m.n > 1) { try { ui.confetti(stack.getBoundingClientRect(), {colors: ['#FFD94A', '#6DD3F5', '#F27BB8', '#FFFFFF'], count: 60}); } catch (_) {} } }
-    else ui.haptic('light');
-  };
-  // ---- the rip: drag across the pack's top; the strip tears along the finger (--p, 0..1, from the side you started)
-  const pk = ov.querySelector('.dy-open-pack'), rip = pk.querySelector('.dy-rip');
-  let drag = null, prog = 0, dir = 1, anim = 0, ripped = false;
-  const set = v => {
-    prog = Math.max(0, Math.min(1, v));
-    rip.style.setProperty('--p', prog.toFixed(3)); rip.style.setProperty('--dir', String(dir));
-  };
-  const tween = (to, ms, then) => {
-    cancelAnimationFrame(anim);
-    const from = prog, t0 = performance.now();
-    if (RM() || ms <= 0) { set(to); if (then) then(); return; }
-    const step = now => {
-      const k = Math.min(1, (now - t0) / ms), e = 1 - Math.pow(1 - k, 3);
-      set(from + (to - from) * e);
-      if (k < 1) anim = requestAnimationFrame(step); else if (then) then();
-    };
-    anim = requestAnimationFrame(step);
-  };
-  const tear = () => {
-    if (ripped) return;
-    ripped = true; drag = null;
-    pk.classList.remove('is-drag'); pk.classList.add('is-touched');
-    tween(1, 110, () => {
-      pk.classList.add('is-torn'); ui.haptic('medium');
-      setTimeout(() => { pk.hidden = true; ov.querySelector('.pk-deal').hidden = false; bar.hidden = false; next(); ov.querySelector('[data-dy-next]').focus(); }, RM() ? 0 : 560);
-    });
-  };
-  // (a tap with no swipe: the hint shows itself plainly, and the pack shivers)
-  let nudgeT = 0;
-  const nudge = () => {
-    pk.classList.remove('is-nudge'); void pk.offsetWidth; pk.classList.add('is-nudge');
-    clearTimeout(nudgeT); nudgeT = setTimeout(() => pk.classList.remove('is-nudge'), 1600);
-    ui.haptic('light');
-  };
-  pk.addEventListener('pointerdown', e => {
-    if (ripped || (e.pointerType === 'mouse' && e.button !== 0)) return;
-    cancelAnimationFrame(anim);
-    const rr = rip.getBoundingClientRect();
-    drag = {x: e.clientX, w: rr.width, moved: false, lx: e.clientX, lt: performance.now(), v: 0, tick: 0};
-    try { pk.setPointerCapture(e.pointerId); } catch (_) {}
-    clearTimeout(nudgeT); pk.classList.remove('is-nudge'); pk.classList.add('is-drag');
-  });
-  pk.addEventListener('pointermove', e => {
-    if (!drag || ripped) return;
-    const dx = e.clientX - drag.x;
-    if (!drag.moved) {
-      if (Math.abs(dx) < 6) return;
-      drag.moved = true; dir = dx > 0 ? 1 : -1; pk.classList.add('is-touched');
-    }
-    const now = performance.now();
-    drag.v = (e.clientX - drag.lx) * dir / Math.max(1, now - drag.lt); drag.lx = e.clientX; drag.lt = now;
-    set(dx * dir / (drag.w * 0.85));
-    const tick = Math.floor(prog * 4);
-    if (tick > drag.tick) { drag.tick = tick; ui.haptic('selection'); }
-    if (prog >= 1) tear();
-  });
-  const letGo = () => {
-    if (!drag || ripped) return;
-    const d = drag;
-    drag = null; pk.classList.remove('is-drag');
-    if (!d.moved) { nudge(); return; }
-    // (far enough across, or a quick flick past a quarter: it rips; short of it, the strip springs back)
-    if (prog >= 0.55 || (prog >= 0.25 && d.v > 0.7)) tear();
-    else tween(0, 240, () => pk.classList.remove('is-touched')); // (and the hint comes back)
-  };
-  pk.addEventListener('pointerup', letGo);
-  pk.addEventListener('pointercancel', letGo);
-  const close = () => {
-    D.markSeen([]);
-    ov.classList.remove('is-in'); ov.classList.add('is-out');
-    setTimeout(() => ov.remove(), RM() ? 0 : 260);
-    removeEventListener('keydown', onKey, true);
-    try { prevFocus && prevFocus.focus && prevFocus.focus(); } catch (_) {}
-    refresh(st);
-  };
-  const onKey = e => { if (e.key === 'Escape') { e.preventDefault(); close(); } };
-  addEventListener('keydown', onKey, true);
-  ov.addEventListener('click', e => {
-    if (e.target.closest('[data-dy-tear]')) return; // (the rip is a swipe: pointer events above)
-    if (e.target.closest('[data-dy-skip]')) { showResults(); return; }
-    if (e.target.closest('[data-dy-next]') || e.target.closest('.pk-deal')) next();
-  });
-  pk.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && !ripped) { e.preventDefault(); dir = 1; pk.classList.add('is-touched'); tween(1, 420, tear); } });
+  openScene({kind, design: st.art[kind] || 0, cards: r.cards, dup: r.dup, cardHTML: anyHTML, onClose: () => refresh(st)});
 }
-// The tear line across a pack, a zigzag at CUT down from its top: the strip above it and the body below (clip-paths that
-// meet exactly).
-const TEAR = (() => {
-  const CUT = 13, n = 12, pts = [];
-  for (let i = 0; i <= n; i++) pts.push([+(i * 100 / n).toFixed(2), CUT + (i % 2 ? 1.6 : -0.6)]);
-  const p = a => a.map(([x, y]) => `${x}% ${y}%`).join(',');
-  return {top: `polygon(0% 0%,100% 0%,${p(pts.slice().reverse())})`, body: `polygon(${p(pts)},100% 100%,0% 100%)`, cut: CUT};
-})();
 function teamPicker(done) {
   const teams = Object.values(D.TEAMS).sort((a, b) => a.name.localeCompare(b.name));
   const body = `<div class="pk-teams">${teams.map(t => `<button type="button" class="pk-teamb" data-dy-team="${t.abbr}" style="--tp:${t.pri}"><img src="${esc(logoUrl(t.abbr, 72))}" alt="" loading="lazy" onerror="this.remove()"><span>${esc(t.name)}</span></button>`).join('')}</div>`;
@@ -913,7 +766,7 @@ export default {
   render() { return shellHTML(); },
 
   mount(el, ctx) {
-    const st = {el, ctx, tab: 'packs', pack: D.DAILY_PACK, bv: '', f: {view: 'mine', ser: '', pos: '', rar: '', q: ''}, shown: PAGE, dead: false, starting: false, stops: []};
+    const st = {el, ctx, tab: 'packs', pack: D.DAILY_PACK, art: {}, bv: '', f: {view: 'mine', ser: '', pos: '', rar: '', q: ''}, shown: PAGE, dead: false, starting: false, stops: []};
     ST.set(ctx, st);
     fullScreen(st, ctx.visible);
     ctx.setBackTitle('Dynasty');

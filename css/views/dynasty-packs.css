@@ -1,0 +1,37 @@
+/* Gridiron Dynasty's booster packs (js/views/dynasty-packs.js), after css/views/dynasty.css. */
+
+/* ---------------------------------------------------------------- a booster pack (Pocket's foil packs) */
+.pk-pack { --pd: color-mix(in srgb, var(--pc) 65%, #000); position: relative; display: flex; flex-direction: column; width: 64px; aspect-ratio: 5 / 8; overflow: hidden;
+  border-radius: 4% / 2.5%; container-type: inline-size; color: #fff;
+  background: radial-gradient(90% 60% at 50% 48%, color-mix(in srgb, var(--pc) 55%, #fff), var(--pc) 55%, var(--pd));
+  box-shadow: 0 6px 14px rgba(20,40,70,.28), inset 0 0 0 1px rgba(255,255,255,.35); }
+.pk-pack.is-big { width: min(184px, 48vw); }
+.dy-rip .pk-pack.is-big { width: 100%; }
+.pk-pack-top { position: relative; flex: none; height: 13%; display: flex; align-items: center; gap: 3cqw; padding: 3cqw 6cqw 0;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--pd) 70%, #000), var(--pd)); box-shadow: 0 .8cqw 0 rgba(255,255,255,.35); }
+.pk-pack-ball { width: 9cqw; height: 9cqw; border-radius: 50%; flex: none; background: linear-gradient(#fff 0 45%, #26313C 45% 55%, #E8E8E8 55%);
+  box-shadow: inset 0 0 0 .8cqw #26313C; }
+.pk-pack-top b { display: flex; flex-direction: column; font: 900 italic 6.4cqw/.9 var(--font-text); letter-spacing: .02em; }
+.pk-pack-top b small { font-size: 4.2cqw; letter-spacing: .18em; opacity: .85; }
+.pk-pack-top em { margin-left: auto; font: 800 4.4cqw/1 var(--font-text); font-style: normal; padding: 1.2cqw 2.4cqw; border-radius: 1.6cqw; background: rgba(255,255,255,.22); }
+.pk-pack-art { position: relative; flex: 1; display: grid; place-items: center;
+  background: repeating-conic-gradient(from 0deg at 50% 50%, rgba(255,255,255,.16) 0 7deg, transparent 7deg 18deg); }
+.pk-pack-art svg { position: relative; width: 62cqw; height: 62cqw; filter: drop-shadow(0 1.4cqw 2cqw rgba(0,0,0,.35)); }
+.pk-pack-fan { position: absolute; inset: 0; display: grid; place-items: center; }
+.pk-pack-fan i { position: absolute; width: 34cqw; aspect-ratio: 63 / 88; border-radius: 2cqw; background: linear-gradient(160deg, rgba(255,255,255,.55), rgba(255,255,255,.15));
+  box-shadow: 0 0 0 .8cqw rgba(255,255,255,.4); transform-origin: 50% 110%; }
+.pk-pack-fan i:nth-child(1) { transform: rotate(-18deg) translateX(-10cqw); }
+.pk-pack-fan i:nth-child(2) { transform: translateY(-4cqw); }
+.pk-pack-fan i:nth-child(3) { transform: rotate(18deg) translateX(10cqw); }
+.pk-pack-name { flex: none; display: flex; flex-direction: column; align-items: center; gap: 1cqw; padding: 4cqw 4cqw 9cqw; text-align: center;
+  background: linear-gradient(transparent, rgba(0,0,0,.28)); }
+.pk-pack-name small { font: 800 4cqw/1 var(--font-text); letter-spacing: .2em; opacity: .85; }
+.pk-pack-name b { font: 900 italic 10cqw/1 var(--font-text); letter-spacing: .01em; text-shadow: 0 .8cqw 0 rgba(0,0,0,.25); }
+.pk-pack-foil { position: absolute; inset: 0; pointer-events: none; mix-blend-mode: overlay;
+  background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,.75) 44%, rgba(160,240,255,.45) 50%, transparent 62%); background-size: 260% 100%;
+  animation: pk-sheen 4.5s ease-in-out infinite; }
+@keyframes pk-sheen { 0%, 100% { background-position: 110% 0; } 50% { background-position: -10% 0; } }
+.pk-pack-crimp { position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(90deg, rgba(255,255,255,.35) 0 2px, transparent 2px 5px) top / 100% 3% no-repeat,
+    repeating-linear-gradient(90deg, rgba(0,0,0,.22) 0 2px, transparent 2px 5px) bottom / 100% 3.5% no-repeat; }
+.pk-pack-n { position: absolute; right: 4cqw; bottom: 3cqw; font: 800 8cqw/1 var(--font-text); background: #fff; color: var(--ink); padding: 1.6cqw 3cqw; border-radius: 99px; }
