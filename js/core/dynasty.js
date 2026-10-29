@@ -6,8 +6,9 @@
 //
 // The cards (data/dynasty.json, tools/dynasty/build.py): real NFL players from nflverse, in six series after The Show's
 // card types: Live Series (every active player, OVR from his 2025 and 2026 play), Rookie, Prime, Gameday (a week's best
-// real games, The Show's Topps Now), Awards (2025's leaders) and Legends. Rarity by OVR as The Show's: Diamond 85+,
-// Gold 80-84, Silver 75-79, Bronze 65-74, Common. And the battles' Coach and Stadium cards (core/dynasty-battle.js
+// real games, The Show's Topps Now), Awards (2025's leaders) and Legends. Rarity by OVR (the owner, Oct 29 2026: "The
+// rarities should be common, rare, epic, legendary, and mythic"): Mythic 85+, Legendary 80-84, Epic 75-79, Rare 65-74,
+// Common. And the battles' Coach and Stadium cards (core/dynasty-battle.js
 // TRAINERS: Pokémon's Trainer and Stadium cards).
 //
 // Coins: the Daily Games pay them (earnedOf: every game day you play from the day your Dynasty began, read from your
@@ -47,9 +48,9 @@ export const SERIES = {
   X: {name: 'Legends', short: 'LEGEND', blurb: 'The all-time greats.'}
 };
 export const SERIES_ORDER = ['X', 'P', 'A', 'G', 'R', 'L'];
-export const RARITY = ['common', 'bronze', 'silver', 'gold', 'diamond'];
-export const RARITY_NAME = {common: 'Common', bronze: 'Bronze', silver: 'Silver', gold: 'Gold', diamond: 'Diamond'};
-export const rarityOf = ovr => (ovr >= 85 ? 'diamond' : ovr >= 80 ? 'gold' : ovr >= 75 ? 'silver' : ovr >= 65 ? 'bronze' : 'common');
+export const RARITY = ['common', 'rare', 'epic', 'legendary', 'mythic'];
+export const RARITY_NAME = {common: 'Common', rare: 'Rare', epic: 'Epic', legendary: 'Legendary', mythic: 'Mythic'};
+export const rarityOf = ovr => (ovr >= 85 ? 'mythic' : ovr >= 80 ? 'legendary' : ovr >= 75 ? 'epic' : ovr >= 65 ? 'rare' : 'common');
 export const POS_NAME = {QB: 'Quarterback', RB: 'Running back', WR: 'Wide receiver', TE: 'Tight end', OL: 'Offensive line', DL: 'Defensive line',
   LB: 'Linebacker', CB: 'Cornerback', S: 'Safety', K: 'Kicker'};
 export const ATTR_NAME = {ARM: 'Arm', ACC: 'Accuracy', IQ: 'Decisions', RUN: 'Rushing', BRK: 'Breakaway', REC: 'Receiving', TD: 'Scoring',
@@ -144,16 +145,21 @@ const pickW = (items, weight, R = luck) => {
 // that rarity from the slot's pool (series, and for a Team Pack the team chosen).
 export const PACKS = {
   std: {name: 'Standard Pack', price: 1000, blurb: 'Four Live Series cards and a Trainer card.', color: '#2F6FDE',
-    slots: [{n: 4, pool: 'live', odds: {common: 34, bronze: 38, silver: 18, gold: 8, diamond: 2}}, {n: 1, pool: 'trainer', odds: {silver: 70, gold: 30}}]},
+    slots: [{n: 4, pool: 'live', odds: {common: 34, rare: 38, epic: 18, legendary: 8, mythic: 2}}, {n: 1, pool: 'trainer', odds: {epic: 70, legendary: 30}}]},
   team: {name: 'Team Pack', price: 1500, blurb: 'Four Live Series cards from the team you pick, and a Trainer card.', color: '#1E9E6A', team: true,
-    slots: [{n: 4, pool: 'live', odds: {common: 25, bronze: 40, silver: 22, gold: 10, diamond: 3}}, {n: 1, pool: 'trainer', odds: {silver: 70, gold: 30}}]},
-  prem: {name: 'Premium Pack', price: 3000, blurb: 'Five cards: a Trainer card, and the last one Gold or better. Rookies and specials inside.', color: '#8B3FD9',
-    slots: [{n: 3, pool: 'all', odds: {common: 10, bronze: 35, silver: 30, gold: 18, diamond: 7}}, {n: 1, pool: 'trainer', odds: {silver: 50, gold: 50}},
-      {n: 1, pool: 'all', odds: {gold: 75, diamond: 25}}]},
-  gday: {name: 'Gameday Pack', price: 4000, blurb: 'A Gameday card from a real game, and two Gold-or-better cards.', color: '#E0702A',
-    slots: [{n: 1, pool: 'gameday', odds: {diamond: 100}}, {n: 2, pool: 'live', odds: {gold: 80, diamond: 20}}]},
-  leg: {name: 'Legends Pack', price: 12000, blurb: 'A 90+ special card (Legend, Prime, Award or Gameday) and two Diamonds.', color: '#C9A227',
-    slots: [{n: 1, pool: 'elite', odds: {diamond: 100}}, {n: 2, pool: 'live', odds: {diamond: 100}}]}
+    slots: [{n: 4, pool: 'live', odds: {common: 25, rare: 40, epic: 22, legendary: 10, mythic: 3}}, {n: 1, pool: 'trainer', odds: {epic: 70, legendary: 30}}]},
+  prem: {name: 'Premium Pack', price: 3000, blurb: 'Five cards: a Trainer card, and the last one Legendary or better. Rookies and specials inside.', color: '#8B3FD9',
+    slots: [{n: 3, pool: 'all', odds: {common: 10, rare: 35, epic: 30, legendary: 18, mythic: 7}}, {n: 1, pool: 'trainer', odds: {epic: 50, legendary: 50}},
+      {n: 1, pool: 'all', odds: {legendary: 75, mythic: 25}}]},
+  gday: {name: 'Gameday Pack', price: 4000, blurb: 'A Gameday card from a real game, and two Legendary-or-better cards.', color: '#E0702A',
+    slots: [{n: 1, pool: 'gameday', odds: {mythic: 100}}, {n: 2, pool: 'live', odds: {legendary: 80, mythic: 20}}]},
+  leg: {name: 'Legends Pack', price: 12000, blurb: 'A 90+ special card (Legend, Prime, Award or Gameday) and two Mythics.', color: '#C9A227',
+    slots: [{n: 1, pool: 'elite', odds: {mythic: 100}}, {n: 2, pool: 'live', odds: {mythic: 100}}]},
+  // (the owner, Oct 29 2026: "Players will get a starter pack when they open the game with 15 common players 4 rare
+  // players and one epic or better player": given once (fresh, and kit3 for a Dynasty begun before it), never sold,
+  // twenty different players)
+  start: {name: 'Starter Pack', price: 0, starter: true, unique: true, blurb: '15 Common players, 4 Rare and one Epic or better.', color: '#D6453D',
+    slots: [{n: 15, pool: 'live', odds: {common: 100}}, {n: 4, pool: 'live', odds: {rare: 100}}, {n: 1, pool: 'live', odds: {epic: 75, legendary: 20, mythic: 5}}]}
 };
 export const PACK_ORDER = ['std', 'team', 'prem', 'gday', 'leg'];
 // What each pool holds, and inside 'all' and 'elite' how often each series comes up (out of 100)
@@ -200,8 +206,15 @@ export function drawCard(slot, {team = null, R = luck} = {}) {
 export function drawPack(kind, {team = null, R = luck} = {}) {
   const P = PACKS[kind];
   if (!P) return [];
-  const out = [];
-  P.slots.forEach(sl => { for (let i = 0; i < sl.n; i++) out.push(drawCard(sl, {team, R}).id); });
+  const out = [], seen = new Set();
+  P.slots.forEach(sl => {
+    for (let i = 0; i < sl.n; i++) {
+      let c = drawCard(sl, {team, R});
+      // (a pack of different players: drawn again, a few times, when he's in it already)
+      for (let k = 0; P.unique && k < 12 && seen.has(c.p || c.id); k++) c = drawCard(sl, {team, R});
+      seen.add(c.p || c.id); out.push(c.id);
+    }
+  });
   return out;
 }
 /** The odds a pack shows: per slot group, each rarity's chance in percent. */
@@ -211,7 +224,7 @@ export const packOdds = kind => (PACKS[kind] ? PACKS[kind].slots.map(sl => {
 }) : []);
 
 // ---------------------------------------------------------------------------------------------------- quick sell
-const SELL = {common: 10, bronze: 40, silver: 150, gold: 500, diamond: 1500};
+const SELL = {common: 10, rare: 40, epic: 150, legendary: 500, mythic: 1500};
 const SELL_SPECIAL = {R: 1.5, G: 2, A: 2.5, P: 2.5, X: 4};
 /** What a card quick-sells for, in coins (c: a player card or a Coach or Stadium card). */
 export const sellValue = c => (c ? Math.round((SELL[c.r] || 0) * (c.s === 'L' || !c.s ? 1 : SELL_SPECIAL[c.s] || 1)) : 0);
@@ -220,16 +233,16 @@ export const anyCard = id => card(id) || trainer(id);
 
 // ---------------------------------------------------------------------------------------------------- Pocket's marks
 // Rarity marked as Pokémon TCG Pocket marks it (the owner, Oct 28 2026: "match the Pokémon app"): ◆ to ◆◆◆◆ for Common
-// to Gold, ★ for a Diamond, ★★ for the special series (Prime, Gameday, Awards), a crown for a Legend; Trainer cards ◆◆
-// (Silver) and ◆◆◆ (Gold). A ★ or crown card is full art.
+// to Legendary, ★ for a Mythic, ★★ for the special series (Prime, Gameday, Awards), a crown for a Legend; Trainer cards ◆◆
+// (Epic) and ◆◆◆ (Legendary). A ★ or crown card is full art.
 /** {mark: the symbols, kind: 'd' (diamonds) | 's' (stars) | 'c' (crown), n, full (full art)} */
 export function markOf(c) {
   if (!c) return {mark: '', kind: 'd', n: 0, full: false};
-  if (!c.s) { const n = c.r === 'gold' ? 3 : 2; return {mark: '◆'.repeat(n), kind: 'd', n, full: false}; }
+  if (!c.s) { const n = c.r === 'legendary' ? 3 : 2; return {mark: '◆'.repeat(n), kind: 'd', n, full: false}; }
   if (c.s === 'X') return {mark: '♛', kind: 'c', n: 1, full: true};
   if (c.s === 'P' || c.s === 'G' || c.s === 'A') return {mark: '★★', kind: 's', n: 2, full: true};
-  if (c.r === 'diamond') return {mark: '★', kind: 's', n: 1, full: true};
-  const n = {common: 1, bronze: 2, silver: 3, gold: 4}[c.r] || 1;
+  if (c.r === 'mythic') return {mark: '★', kind: 's', n: 1, full: true};
+  const n = {common: 1, rare: 2, epic: 3, legendary: 4}[c.r] || 1;
   return {mark: '◆'.repeat(n), kind: 'd', n, full: false};
 }
 // Pack points (Pocket's): 5 for every pack opened, traded for a card you pick, at Pocket's prices by its mark.
@@ -262,7 +275,7 @@ export function autoDeck(owned) {
   // (Trainer cards, at most 7: Items first, as Pocket's decks carry Poké Balls and Potions (Recruit, Water Bottle; at
   // most 4 of them), then the best Coach and Stadium cards)
   const ITEM_ORDER = ['I-recruit', 'I-water', 'I-cleats'];
-  const rank = id => (B.TRAINERS[id].kind === 'item' ? ITEM_ORDER.indexOf(id) : 10 + (B.TRAINERS[id].r === 'gold' ? 0 : 1));
+  const rank = id => (B.TRAINERS[id].kind === 'item' ? ITEM_ORDER.indexOf(id) : 10 + (B.TRAINERS[id].r === 'legendary' ? 0 : 1));
   const tr = have.filter(id => B.TRAINERS[id]).sort((a, b) => rank(a) - rank(b));
   let trainers = 0, items = 0;
   tr.forEach(id => {
@@ -356,28 +369,17 @@ export function rewardText(rw) {
 // ---------------------------------------------------------------------------------------------------- the save
 // {v, rs, born, at, sp (coins spent), cr (coins credited: sales, rewards, battles, the daily bonus), o {card id: copies},
 //  pk {pack kind: unopened}, cl {collection id: when claimed}, dk [the battle deck's 20 ids], kit (the starter Coach
-//  cards given: 1), kit2 (the starter Items given: 1), pp (pack points), dd (the last day the daily pack was taken,
+//  cards given: 1), kit2 (the starter Items given: 1), kit3 (the Starter Pack given: 1), pp (pack points), dd (the last day the daily pack was taken,
 //  YYYY-MM-DD), rec {w, l, d}, tr (trophies), bt {match id:
 //  'w'|'l'|'d', paid}, nm (team name), lp (the latest pulls, newest first: 24 at most), nw (cards pulled for the first time
 //  and not looked at yet: NEW)}
 export const dayKey = (t = new Date()) => `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
-/** A new Dynasty: a starter deck (two types' Common and Bronze players and the starter Coach cards, the same for this
- *  profile on any phone), and the welcome packs. */
+/** A new Dynasty: the starter Coach cards and Items, the Starter Pack to open (its players make the deck: open()), and
+ *  the welcome packs. */
 export function fresh(key = '', now = Date.now()) {
-  const R = rng('starter|' + key), o = {};
-  const pairs = [['A', 'C'], ['G', 'B'], ['A', 'B'], ['G', 'C']], types = pairs[Math.floor(R() * pairs.length)];
-  const used = new Set();
-  for (let i = 0; i < 12; i++) {
-    const t = types[i % 2];
-    const list = CARDS.filter(c => c.s === 'L' && B.POS_TYPE[c.pos] === t && c.o >= 58 && c.o <= 68 && !used.has(c.p));
-    const c = list.length ? list[Math.floor(R() * list.length)] : null;
-    if (c) { o[c.id] = 1; used.add(c.p); }
-  }
-  Object.assign(o, COACH_KIT, ITEM_KIT);
-  const s = {v: VERSION, rs: SEASON_MARK, born: now, at: now, sp: 0, cr: 0, o, pk: {std: 2, prem: 1}, cl: {}, dk: [], kit: 1, kit2: 1, pp: 0, dd: '',
-    rec: {w: 0, l: 0, d: 0}, tr: 0, bt: {}, nm: '', lp: [], nw: []};
-  s.dk = autoDeck(o);
-  return s;
+  const o = {...COACH_KIT, ...ITEM_KIT};
+  return {v: VERSION, rs: SEASON_MARK, born: now, at: now, sp: 0, cr: 0, o, pk: {start: 1, std: 2, prem: 1}, cl: {}, dk: [], kit: 1, kit2: 1, kit3: 1,
+    pp: 0, dd: '', rec: {w: 0, l: 0, d: 0}, tr: 0, bt: {}, nm: '', lp: [], nw: []};
 }
 /** A save as it should be (anything missing or broken put right), or null when it isn't one. */
 export function clean(s) {
@@ -385,7 +387,7 @@ export function clean(s) {
   const obj = x => (x && typeof x === 'object' && !Array.isArray(x) ? x : {});
   const n = x => (Number.isFinite(Number(x)) && Number(x) >= 0 ? Math.floor(Number(x)) : 0);
   const out = {v: VERSION, rs: SEASON_MARK, born: n(s.born) || Date.now(), at: n(s.at), sp: n(s.sp), cr: n(s.cr), o: {}, pk: {}, cl: {}, dk: [],
-    kit: s.kit ? 1 : 0, kit2: s.kit2 ? 1 : 0, pp: n(s.pp), dd: typeof s.dd === 'string' ? s.dd : '', rec: {w: n(s.rec && s.rec.w), l: n(s.rec && s.rec.l), d: n(s.rec && s.rec.d)},
+    kit: s.kit ? 1 : 0, kit2: s.kit2 ? 1 : 0, kit3: s.kit3 ? 1 : 0, pp: n(s.pp), dd: typeof s.dd === 'string' ? s.dd : '', rec: {w: n(s.rec && s.rec.w), l: n(s.rec && s.rec.l), d: n(s.rec && s.rec.d)},
     tr: n(s.tr), bt: {},
     nm: typeof s.nm === 'string' ? s.nm.slice(0, 24) : '', lp: Array.isArray(s.lp) ? s.lp.filter(x => typeof x === 'string').slice(0, 24) : [], nw: []};
   Object.entries(obj(s.o)).forEach(([k, v]) => { if (n(v) > 0) out.o[k] = Math.min(99, n(v)); });
@@ -527,6 +529,8 @@ export function mine() {
       Object.entries(ITEM_KIT).forEach(([id, n]) => { MINE.o[id] = (MINE.o[id] || 0) + n; });
       MINE.kit2 = 1; if (MINE.dk.length < B.DECK_SIZE) MINE.dk = autoDeck(MINE.o); dirty = true;
     }
+    // (and the Starter Pack, Oct 29 2026: to open, once)
+    if (!MINE.kit3) { addPacks(MINE, {start: 1}); MINE.kit3 = 1; dirty = true; }
     writeLocal(MINE);
     if (dirty) later();
   }
@@ -591,7 +595,7 @@ export function claimDaily(s = mine(), t = new Date()) {
 /** Buys a pack (kept to open). {ok, why}. */
 export function buy(kind, s = mine()) {
   const P = PACKS[kind];
-  if (!P) return {ok: false, why: 'No such pack.'};
+  if (!P || P.starter) return {ok: false, why: 'No such pack.'};
   if (!spend(s, P.price)) return {ok: false, why: `You need ${data.nf(P.price - balance(s))} more coins.`};
   addPacks(s, {[kind]: 1}); touch(); return {ok: true};
 }
@@ -606,6 +610,8 @@ export function open(kind, {team = null} = {}, s = mine()) {
   s.pk[kind] -= 1; if (!s.pk[kind]) delete s.pk[kind];
   s.pp += PP_PER_PACK;
   s.lp = [...ids.slice().reverse(), ...s.lp].slice(0, 24);
+  // (the Starter Pack's players make a deck that isn't ready: a new Dynasty's first)
+  if (PACKS[kind].starter && !B.checkDeck(s.dk, s.o).ok) s.dk = autoDeck(s.o);
   touch('open');
   return {ok: true, cards: ids, dup};
 }

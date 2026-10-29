@@ -11,7 +11,7 @@ and collections):
   G  Gameday      each week's best real performances (like The Show's Topps Now), the stat line on the card
   A  Awards       the 2025 season's statistical leaders
   X  Legends      the all-time greats (hand-picked below)
-Rarity is by OVR, as The Show's: Diamond 85+, Gold 80-84, Silver 75-79, Bronze 65-74, Common 64 and under.
+Rarity is by OVR: Mythic 85+, Legendary 80-84, Epic 75-79, Rare 65-74, Common 64 and under.
 """
 import csv, json, math, os, sys, urllib.request, datetime
 
@@ -87,7 +87,7 @@ def curve(x):
 
 
 def rarity(ovr):
-    return 'diamond' if ovr >= 85 else 'gold' if ovr >= 80 else 'silver' if ovr >= 75 else 'bronze' if ovr >= 65 else 'common'
+    return 'mythic' if ovr >= 85 else 'legendary' if ovr >= 80 else 'epic' if ovr >= 75 else 'rare' if ovr >= 65 else 'common'
 
 
 def def_score(s, pos=''):

@@ -1,13 +1,21 @@
 // Gridiron Dynasty's checks for the dev gallery (#/_kit): it's Evan's and Ryan Stewart's alone (Oct 28 2026), the cards (every series,
 // rarity by OVR; the Coach and Stadium cards), packs (their odds add up, each draws what it says), the pay from the Daily
 // Games (each game's first result a day, from the day the Dynasty began, once), the save (cleaned, a bad one refused,
-// a starter deck that's legal), collections (a reward claimed once), the battles (Pokémon TCG Pocket's rules: decks,
+// a Starter Pack of 15 Common, 4 Rare and an Epic-or-better player, and a legal deck from it), collections (a reward claimed once), the battles (Pokémon TCG Pocket's rules: decks,
 // types and weakness, touchdowns, the same game from the same moves) and the board (the scoreboards' rule: everyone's
 // Dynasty to everyone, from daily.LB.raw, never LB.all). checks.js imports dynastyChecks and calls it with its
 // check(name, fn) helper; every fn returns true or {pass, detail}. Nothing here writes to storage or the database.
 import * as D from './dynasty.js';
 import * as daily from './daily.js';
 import * as B from './dynasty-battle.js';
+
+// (a new Dynasty with its Starter Pack opened, the same for a key every time: its deck built from what came out)
+const started = key => {
+  const s = D.fresh(key, 1000);
+  D.drawPack('start', {R: D.rng('starter|' + key)}).forEach(id => { s.o[id] = (s.o[id] || 0) + 1; });
+  delete s.pk.start; s.dk = D.autoDeck(s.o);
+  return s;
+};
 
 export async function dynastyChecks(check) {
   await D.load();
@@ -23,13 +31,14 @@ export async function dynastyChecks(check) {
     return {pass: who.join() === 'true,false,true,false,false' && lists.join() === 'true,false' && keys.join() === 'true,true,false,false,false' && routed && D.mayPlay() === mine && shown,
       detail: `Evan, Mason, Ryan S, Ryan D, a guest: ${who.join(', ')}`};
   });
-  check('Gridiron Dynasty: the cards: real players in six series, every position, rarity by OVR (Diamond 85+, Gold 80+, Silver 75+, Bronze 65+)', () => {
+  check('Gridiron Dynasty: the cards: real players in six series, every position, rarity by OVR (the owner, Oct 29 2026: Mythic 85+, Legendary 80+, Epic 75+, Rare 65+, Common)', () => {
     const series = new Set(D.CARDS.map(c => c.s)), pos = new Set(D.CARDS.filter(c => c.s === 'L').map(c => c.pos));
     const rar = D.CARDS.every(c => c.r === D.rarityOf(c.o) && c.o >= 40 && c.o <= 99);
     const ids = new Set(D.CARDS.map(c => c.id)).size === D.CARDS.length;
     const ok = ['L', 'R', 'P', 'G', 'A', 'X'].every(s => series.has(s)) && ['QB', 'RB', 'WR', 'TE', 'OL', 'DL', 'LB', 'CB', 'S', 'K'].every(p => pos.has(p));
-    const tr = D.TRAINER_IDS.length >= 10 && D.TRAINER_IDS.every(id => D.trainer(id).name && ['silver', 'gold'].includes(D.trainer(id).r));
-    return {pass: ok && rar && ids && tr, detail: `${D.CARDS.length} cards, ${pos.size} positions, ${D.TRAINER_IDS.length} Coach and Stadium cards`};
+    const tr = D.TRAINER_IDS.length >= 10 && D.TRAINER_IDS.every(id => D.trainer(id).name && ['epic', 'legendary'].includes(D.trainer(id).r));
+    const names = D.RARITY.join() === 'common,rare,epic,legendary,mythic' && [64, 65, 75, 80, 85].map(D.rarityOf).join() === D.RARITY.join();
+    return {pass: ok && rar && ids && tr && names, detail: `${D.CARDS.length} cards, ${pos.size} positions, ${D.TRAINER_IDS.length} Coach and Stadium cards`};
   });
   check('Gridiron Dynasty: every pack’s odds add up to 100% and a pack draws its count of real cards (a Team Pack only that team’s, a Gameday Pack a Gameday card)', () => {
     const sums = D.PACK_ORDER.every(k => D.packOdds(k).every(g => Math.abs(g.odds.reduce((t, o) => t + o.pct, 0) - 100) < 0.6));
@@ -37,7 +46,7 @@ export async function dynastyChecks(check) {
     const team = D.drawPack('team', {team: 'KC', R: D.rng('t')}).every(id => D.trainer(id) || (D.card(id).team === 'KC' && D.card(id).s === 'L'));
     const trainerSlot = D.drawPack('std', {R: D.rng('s')}).filter(id => D.trainer(id)).length === 1;
     const gd = D.card(D.drawPack('gday', {R: D.rng('g')})[0]).s === 'G';
-    const prem = D.drawPack('prem', {R: D.rng('p')}).slice(-1).every(id => ['gold', 'diamond'].includes(D.card(id).r));
+    const prem = D.drawPack('prem', {R: D.rng('p')}).slice(-1).every(id => ['legendary', 'mythic'].includes(D.card(id).r));
     return {pass: sums && counts && team && gd && prem && trainerSlot, detail: 'odds, counts, team, gameday, the Premium Pack’s last card, a Coach or Stadium card a Standard Pack'};
   });
   check('Gridiron Dynasty: the Daily Games pay coins once a game a day (the first finished result across phones), only from the day the Dynasty began', () => {
@@ -50,16 +59,27 @@ export async function dynastyChecks(check) {
     const want = D.PAY['17-0']({w: 3});
     return {pass: E.total === want && E.days === 1 && was === daily.PZ, detail: `${E.total} coins from ${E.days} game`};
   });
-  check('Gridiron Dynasty: a save is cleaned (only real packs, a deck of 20 at most), another season’s or a broken one refused; a new one starts with a legal 20-card deck (starter Coach cards in it) and welcome packs', () => {
-    const f = D.fresh('m_check', 1000), deck = B.checkDeck(f.dk, f.o);
-    const c = D.clean({...f, pk: {std: 2, bogus: 4}, dk: [...f.dk, ...f.dk], o: {...f.o, X: -3}, bt: {x: 'w', y: 'nope'}});
+  check('Gridiron Dynasty: a save is cleaned (only real packs, a deck of 20 at most), another season’s or a broken one refused; a new one starts with the starter Coach cards and Items, welcome packs and a Starter Pack (never sold)', () => {
+    const f = D.fresh('m_check', 1000);
+    const c = D.clean({...f, pk: {std: 2, start: 1, bogus: 4}, dk: [...D.TRAINER_IDS, ...D.TRAINER_IDS], o: {...f.o, X: -3}, bt: {x: 'w', y: 'nope'}});
     const refused = D.clean({...f, rs: 'old'}) === null && D.clean(null) === null && D.clean('x') === null;
-    const same = JSON.stringify(D.fresh('m_check', 1000).o) === JSON.stringify(f.o);
-    return {pass: deck.ok && f.dk.some(id => D.trainer(id)) && !c.pk.bogus && c.pk.std === 2 && c.dk.length === B.DECK_SIZE && !('X' in c.o) && c.bt.x === 'w' && !c.bt.y && refused && same,
-      detail: `starter deck ${deck.ok ? 'legal' : deck.why}, types ${deck.types.join('')}`};
+    const kit = f.o['C-timeout'] === 2 && f.o['I-recruit'] === 2 && !Object.keys(f.o).some(D.card) && f.kit3 === 1 && c.kit3 === 1;
+    const packs = f.pk.start === 1 && f.pk.std === 2 && f.pk.prem === 1 && !D.PACK_ORDER.includes('start') && !D.buy('start', f).ok && f.pk.start === 1;
+    return {pass: kit && packs && !c.pk.bogus && c.pk.std === 2 && c.pk.start === 1 && c.dk.length === B.DECK_SIZE && !('X' in c.o) && c.bt.x === 'w' && !c.bt.y && refused,
+      detail: `kit ${kit}, packs ${packs}`};
+  });
+  check('Gridiron Dynasty: the Starter Pack (the owner, Oct 29 2026: "15 common players 4 rare players and one epic or better player") gives twenty different Live players, 15 Common, 4 Rare and one Epic or better, and opening it makes a legal 20-card deck', () => {
+    const P = D.PACKS.start, ids = D.drawPack('start', {R: D.rng('starter-check')}), cs = ids.map(D.card);
+    const by = r => cs.filter(c => c && c.r === r).length;
+    const shape = ids.length === 20 && cs.every(c => c && c.s === 'L') && new Set(cs.map(c => c.p)).size === 20
+      && by('common') === 15 && by('rare') === 4 && ['epic', 'legendary', 'mythic'].includes(cs[19].r);
+    const odds = D.packOdds('start').every(g => Math.abs(g.odds.reduce((t, o) => t + o.pct, 0) - 100) < 0.6);
+    const s = D.fresh('m_start', 1000), r = D.open('start', {}, s), deck = B.checkDeck(s.dk, s.o);
+    const opened = r.ok && r.cards.length === 20 && !s.pk.start && deck.ok && s.dk.some(id => D.trainer(id)) && !D.open('start', {}, s).ok;
+    return {pass: P.price === 0 && P.starter && shape && odds && opened, detail: `${by('common')} Common, ${by('rare')} Rare, last ${cs[19] && cs[19].r}; deck ${deck.ok ? 'legal' : deck.why}`};
   });
   check('Gridiron Dynasty battles: a deck is 20 cards, at most 2 of any player (a Live and a Gameday card of him count together) or card, with a Basic player; the best deck built from a collection is legal', () => {
-    const f = D.fresh('m_deck', 1000), ok = B.checkDeck(f.dk).ok;
+    const f = started('m_deck'), ok = B.checkDeck(f.dk).ok;
     const short = !B.checkDeck(f.dk.slice(1)).ok;
     const g = D.CARDS.find(c => c.s === 'G'), l = D.CARDS.find(c => c.s === 'L' && c.p === g.p);
     const three = !B.checkDeck([l.id, l.id, g.id, ...f.dk.slice(3)]).ok;
@@ -76,7 +96,7 @@ export async function dynastyChecks(check) {
     return {pass: all && weak && ex && evo, detail: `${D.CARDS.length} battle cards`};
   });
   check('Gridiron Dynasty battles: a game played out from both decks and moves is the same game when replayed (every phone sees the same), and it ends with a winner by three touchdowns', () => {
-    const d0 = D.fresh('m_a', 1000).dk, d1 = D.fresh('m_b', 1000).dk, seed = 'bcheck1';
+    const d0 = started('m_a').dk, d1 = started('m_b').dk, seed = 'bcheck1';
     const G = B.newGame(seed, [d0, d1]), log = [[], []], cur = [[], []];
     for (let guard = 0; G.phase !== 'over' && guard < 3000; guard++) {
       const who = B.toMove(G), me = G.p[who];
@@ -95,7 +115,7 @@ export async function dynastyChecks(check) {
     return {pass: G.phase === 'over' && same && (G.over.why === 'points' || G.over.why === 'empty'), detail: `${G.turn} turns, ${G.p[0].pts}–${G.p[1].pts}, ${G.over.why}`};
   });
   check('Gridiron Dynasty plays as Pokémon TCG Pocket (the owner, Oct 28 2026: "I want the gameplay and theme/design to match the Pokémon app"): the Energy Zone shows the next energy and it is the one that comes; Items (Recruit, Water Bottle) play as many as you like in a turn, only in a new battle; starter decks carry them; a pack gives 5 pack points, traded for a card', () => {
-    const d0 = D.fresh('m_a', 1000).dk, d1 = D.fresh('m_b', 1000).dk;
+    const d0 = started('m_a').dk, d1 = started('m_b').dk;
     const kit = ['I-recruit', 'I-water'].every(id => d0.includes(id));
     const G = B.newGame('pocket1', [d0, d1], 2);
     for (let i = 0; i < 2; i++) { const who = B.toMove(G), h = G.p[who].hand.filter(B.isBasic); B.play(G, who, {a: 'setup', act: h[0], bench: []}); }

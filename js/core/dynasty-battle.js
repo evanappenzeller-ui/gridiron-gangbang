@@ -41,25 +41,25 @@ export const DECK_SIZE = 20, HAND_START = 5, BENCH_MAX = 3, WIN_POINTS = 3, MAX_
 // (C-: Coach cards, one a turn, Pokémon's Supporters; I-: Items, any number a turn; S-: Stadiums, in play for both sides
 // till another replaces them)
 export const TRAINERS = {
-  'I-recruit': {kind: 'item', name: 'Recruit', r: 'silver', text: 'Put a random Basic player from your deck into your hand.'},
-  'I-water': {kind: 'item', name: 'Water Bottle', r: 'silver', text: 'Heal 20 damage from one of your players.', target: 'mine'},
-  'I-cleats': {kind: 'item', name: 'Speed Cleats', r: 'silver', text: 'During this turn, your active player’s switch-out costs 1 less energy.'},
-  'C-timeout': {kind: 'coach', name: 'Timeout', r: 'silver', text: 'Heal 40 damage from one of your players.', target: 'mine'},
-  'C-audible': {kind: 'coach', name: 'Audible', r: 'silver', text: 'Switch your active player with one on your bench.', target: 'bench'},
-  'C-twomin': {kind: 'coach', name: 'Two-Minute Warning', r: 'silver', text: 'Draw 2 cards.'},
-  'C-scout': {kind: 'coach', name: 'Scouting Report', r: 'silver', text: 'Put a random Basic player from your deck into your hand.'},
-  'C-flag': {kind: 'coach', name: 'Penalty Flag', r: 'gold', text: 'Discard an energy from your opponent’s active player.'},
-  'C-hail': {kind: 'coach', name: 'Hail Mary', r: 'gold', text: 'Flip 3 coins. 30 damage to your opponent’s active player for each heads.'},
-  'C-plan': {kind: 'coach', name: 'Game Plan', r: 'gold', text: 'Your active player’s attacks do 30 more damage this turn.'},
-  'C-count': {kind: 'coach', name: 'Hard Count', r: 'gold', text: 'Flip a coin. Heads: your opponent’s active player is Stunned.'},
-  'C-room': {kind: 'coach', name: 'Trainer’s Room', r: 'silver', text: 'Heal 20 damage from each of your players and clear their conditions.'},
-  'C-fourth': {kind: 'coach', name: 'Fourth and Inches', r: 'gold', text: 'Move all the energy from one of your benched players to your active player.', target: 'bench'},
-  'S-lambeau': {kind: 'stadium', name: 'Lambeau Field', team: 'GB', r: 'gold', text: 'Frozen tundra: Ground attacks do 10 more damage.', boost: {G: 10}},
-  'S-arrowhead': {kind: 'stadium', name: 'Arrowhead Stadium', team: 'KC', r: 'gold', text: 'The loudest stadium: Blitz attacks do 10 more damage.', boost: {B: 10}},
-  'S-sofi': {kind: 'stadium', name: 'SoFi Stadium', team: 'LA', r: 'gold', text: 'Perfect conditions: Air attacks do 10 more damage.', boost: {A: 10}},
-  'S-lumen': {kind: 'stadium', name: 'Lumen Field', team: 'SEA', r: 'gold', text: 'The 12th Man: Coverage attacks do 10 more damage.', boost: {C: 10}},
-  'S-milehigh': {kind: 'stadium', name: 'Empower Field at Mile High', team: 'DEN', r: 'gold', text: 'Thin air: Special Teams attacks do 20 more damage.', boost: {S: 20}},
-  'S-lucasoil': {kind: 'stadium', name: 'Lucas Oil Stadium', team: 'IND', r: 'gold', text: 'Fresh legs: at the start of each turn, heal 10 damage from that player’s active player.', heal: 10}
+  'I-recruit': {kind: 'item', name: 'Recruit', r: 'epic', text: 'Put a random Basic player from your deck into your hand.'},
+  'I-water': {kind: 'item', name: 'Water Bottle', r: 'epic', text: 'Heal 20 damage from one of your players.', target: 'mine'},
+  'I-cleats': {kind: 'item', name: 'Speed Cleats', r: 'epic', text: 'During this turn, your active player’s switch-out costs 1 less energy.'},
+  'C-timeout': {kind: 'coach', name: 'Timeout', r: 'epic', text: 'Heal 40 damage from one of your players.', target: 'mine'},
+  'C-audible': {kind: 'coach', name: 'Audible', r: 'epic', text: 'Switch your active player with one on your bench.', target: 'bench'},
+  'C-twomin': {kind: 'coach', name: 'Two-Minute Warning', r: 'epic', text: 'Draw 2 cards.'},
+  'C-scout': {kind: 'coach', name: 'Scouting Report', r: 'epic', text: 'Put a random Basic player from your deck into your hand.'},
+  'C-flag': {kind: 'coach', name: 'Penalty Flag', r: 'legendary', text: 'Discard an energy from your opponent’s active player.'},
+  'C-hail': {kind: 'coach', name: 'Hail Mary', r: 'legendary', text: 'Flip 3 coins. 30 damage to your opponent’s active player for each heads.'},
+  'C-plan': {kind: 'coach', name: 'Game Plan', r: 'legendary', text: 'Your active player’s attacks do 30 more damage this turn.'},
+  'C-count': {kind: 'coach', name: 'Hard Count', r: 'legendary', text: 'Flip a coin. Heads: your opponent’s active player is Stunned.'},
+  'C-room': {kind: 'coach', name: 'Trainer’s Room', r: 'epic', text: 'Heal 20 damage from each of your players and clear their conditions.'},
+  'C-fourth': {kind: 'coach', name: 'Fourth and Inches', r: 'legendary', text: 'Move all the energy from one of your benched players to your active player.', target: 'bench'},
+  'S-lambeau': {kind: 'stadium', name: 'Lambeau Field', team: 'GB', r: 'legendary', text: 'Frozen tundra: Ground attacks do 10 more damage.', boost: {G: 10}},
+  'S-arrowhead': {kind: 'stadium', name: 'Arrowhead Stadium', team: 'KC', r: 'legendary', text: 'The loudest stadium: Blitz attacks do 10 more damage.', boost: {B: 10}},
+  'S-sofi': {kind: 'stadium', name: 'SoFi Stadium', team: 'LA', r: 'legendary', text: 'Perfect conditions: Air attacks do 10 more damage.', boost: {A: 10}},
+  'S-lumen': {kind: 'stadium', name: 'Lumen Field', team: 'SEA', r: 'legendary', text: 'The 12th Man: Coverage attacks do 10 more damage.', boost: {C: 10}},
+  'S-milehigh': {kind: 'stadium', name: 'Empower Field at Mile High', team: 'DEN', r: 'legendary', text: 'Thin air: Special Teams attacks do 20 more damage.', boost: {S: 20}},
+  'S-lucasoil': {kind: 'stadium', name: 'Lucas Oil Stadium', team: 'IND', r: 'legendary', text: 'Fresh legs: at the start of each turn, heal 10 damage from that player’s active player.', heal: 10}
 };
 export const isTrainer = id => !!TRAINERS[id];
 

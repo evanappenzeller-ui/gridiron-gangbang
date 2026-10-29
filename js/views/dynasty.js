@@ -196,7 +196,8 @@ const PACK_ART = {
   team: '<path d="M24 58c0-18 12-30 28-30 14 0 24 9 24 22v8H62v10H40l-6-10z" fill="#fff"/><path d="M62 50h16M56 58h20" stroke="rgba(0,0,0,.35)" stroke-width="3"/><circle cx="46" cy="44" r="4" fill="rgba(0,0,0,.3)"/>',
   prem: '<path d="M50 18l9 20 22 2-17 14 5 22-19-12-19 12 5-22-17-14 22-2z" fill="#fff"/>',
   gday: '<path d="M20 70h60M30 70V36M70 70V36" stroke="#fff" stroke-width="4"/><rect x="22" y="22" width="16" height="12" rx="2" fill="#fff"/><rect x="62" y="22" width="16" height="12" rx="2" fill="#fff"/><path d="M38 28l14 22M62 28L48 50" stroke="rgba(255,255,255,.55)" stroke-width="6"/>',
-  leg: '<path d="M22 64l-4-30 16 12 16-22 16 22 16-12-4 30z" fill="#fff"/><path d="M22 70h56" stroke="#fff" stroke-width="5"/>'
+  leg: '<path d="M22 64l-4-30 16 12 16-22 16 22 16-12-4 30z" fill="#fff"/><path d="M22 70h56" stroke="#fff" stroke-width="5"/>',
+  start: '<path d="M50 16l26 10v20c0 18-11 30-26 38-15-8-26-20-26-38V26z" fill="#fff"/><path d="M50 30v36M38 42l12-12 12 12" stroke="rgba(0,0,0,.35)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>'
 };
 function packHTML(kind, {count, big} = {}) {
   const P = D.PACKS[kind];
@@ -233,12 +234,16 @@ function shellHTML() {
 // ---------------------------------------------------------------------------------------------------- Packs
 const untilMidnight = () => { const d = new Date(), m = new Date(d); m.setHours(24, 0, 0, 0); return m - d; };
 function packsHTML(st) {
-  const s = D.mine(), kind = st.pack, P = D.PACKS[kind], have = s.pk[kind] || 0, free = D.dailyReady(s) && kind === D.DAILY_PACK;
+  const s = D.mine();
+  // (the Starter Pack first while it waits; once opened, back to the Standard Pack)
+  if (s.pk.start && !st.startShown) { st.pack = 'start'; st.startShown = true; }
+  if (!D.PACKS[st.pack] || (D.PACKS[st.pack].starter && !s.pk[st.pack])) st.pack = D.DAILY_PACK;
+  const kind = st.pack, P = D.PACKS[kind], have = s.pk[kind] || 0, free = D.dailyReady(s) && kind === D.DAILY_PACK;
   const wait = MT.waiting(), ready = D.claimable(s);
   const best = packBest(kind);
   const slots = P.slots.reduce((t, x) => t + x.n, 0);
   const open = free ? 'Open free pack' : have ? `Open${have > 1 ? ` (${have})` : ''}` : `Open · ${nf(P.price)}`;
-  const note = kind === 'prem' ? '1 Gold or better guaranteed' : kind === 'gday' ? '1 Gameday card guaranteed' : kind === 'leg' ? '1 card 90+ guaranteed' : '1 Trainer card in every pack';
+  const note = kind === 'start' ? '1 Epic or better guaranteed' : kind === 'prem' ? '1 Legendary or better guaranteed' : kind === 'gday' ? '1 Gameday card guaranteed' : kind === 'leg' ? '1 card 90+ guaranteed' : '1 Trainer card in every pack';
   let h = '';
   if (wait) h += `<button type="button" class="pk-alert" data-dy-tab="battle">${ui.icon('versus', {size: 20})}<span>${wait === 1 ? 'A battle is' : `${wait} battles are`} waiting on you</span>${ui.icon('chevron-right', {size: 16})}</button>`;
   if (ready.length) h += `<button type="button" class="pk-alert is-gold" data-dy-goto="cols">${ui.icon('trophy', {size: 20})}<span>${ready.length === 1 ? 'A collection is' : `${ready.length} collections are`} complete: claim your reward</span>${ui.icon('chevron-right', {size: 16})}</button>`;
@@ -257,18 +262,19 @@ function packsHTML(st) {
   if (lp.length) h += `<section class="pk-sec"><h2 class="pk-h">Latest pulls</h2><div class="pk-rail" data-hscroll>${lp.map(id => anyHTML(id, {size: 's', isNew: D.isNew(id, s), noCount: true})).join('')}</div></section>`;
   return h;
 }
+const RAR_SYM = {common: '◆', rare: '◆◆', epic: '◆◆◆', legendary: '◆◆◆◆', mythic: '★'};
 function oddsSheet(kind) {
   const P = D.PACKS[kind];
   const pool = {live: 'Live Series', trainer: 'a Trainer card (Supporter, Item or Stadium)', all: 'Live Series, Rookie, Gameday, Prime and Awards', gameday: 'a Gameday card (this week’s three times as likely)', elite: 'Legend 25%, Prime 30%, Award 20%, Gameday 25%, all 90+'};
-  const sym = {common: '◆', bronze: '◆◆', silver: '◆◆◆', gold: '◆◆◆◆', diamond: '★'};
   const body = D.packOdds(kind).map(g => `<section class="pk-odds"><h3>${g.n === 1 ? '1 card' : `${g.n} cards`}: ${esc(pool[g.pool] || g.pool)}</h3>`
-    + `<ul>${g.odds.map(o => `<li><span class="pk-sym">${g.pool === 'trainer' ? (o.r === 'gold' ? '◆◆◆' : '◆◆') : g.pool === 'elite' || g.pool === 'gameday' ? '★★ ♛' : sym[o.r]}</span>${esc(g.pool === 'trainer' ? (o.r === 'gold' ? 'Gold' : 'Silver') : D.RARITY_NAME[o.r])}<b>${o.pct}%</b></li>`).join('')}</ul></section>`).join('')
-    + '<p class="pk-note">◆ Common (64 and under) · ◆◆ Bronze (65–74) · ◆◆◆ Silver (75–79) · ◆◆◆◆ Gold (80–84) · ★ Diamond (85+) · ★★ Prime, Gameday and Award cards · ♛ Legends. Every pack also gives 5 pack points.</p>';
+    + `<ul>${g.odds.map(o => `<li><span class="pk-sym">${g.pool === 'trainer' ? (o.r === 'legendary' ? '◆◆◆' : '◆◆') : g.pool === 'elite' || g.pool === 'gameday' ? '★★ ♛' : RAR_SYM[o.r]}</span>${esc(g.pool === 'trainer' ? (o.r === 'legendary' ? 'Legendary' : 'Epic') : D.RARITY_NAME[o.r])}<b>${o.pct}%</b></li>`).join('')}</ul></section>`).join('')
+    + '<p class="pk-note">◆ Common (64 and under) · ◆◆ Rare (65–74) · ◆◆◆ Epic (75–79) · ◆◆◆◆ Legendary (80–84) · ★ Mythic (85+) · ★★ Prime, Gameday and Award cards · ♛ Legends. Every pack also gives 5 pack points.</p>';
   ui.openSheet({title: 'Offering Rates', body: `<p class="pk-note">${esc(P.name)}</p>` + body, cls: 'pk-sheet', detents: ['fit']});
 }
 function packsSheet(st) {
   const s = D.mine();
-  const body = `<div class="pk-pick">${D.PACK_ORDER.map(k => `<button type="button" class="pk-pickb${k === st.pack ? ' is-on' : ''}" data-dy-pick="${k}">${packHTML(k, {count: s.pk[k]})}`
+  const kinds = (s.pk.start ? ['start'] : []).concat(D.PACK_ORDER);
+  const body = `<div class="pk-pick">${kinds.map(k => `<button type="button" class="pk-pickb${k === st.pack ? ' is-on' : ''}" data-dy-pick="${k}">${packHTML(k, {count: s.pk[k]})}`
     + `<span><b>${esc(D.PACKS[k].name)}</b><small>${esc(D.PACKS[k].blurb)}</small><em>${s.pk[k] ? `${s.pk[k]} to open` : `${nf(D.PACKS[k].price)} coins`}</em></span></button>`).join('')}</div>`;
   const sh = ui.openSheet({title: 'Select a booster pack', body, cls: 'pk-sheet', detents: ['large']});
   sh.body.addEventListener('click', e => {
@@ -331,7 +337,7 @@ function filterSheet(st) {
   const f = st.f;
   const body = `<h3 class="pk-h">Series</h3>${ui.chips({name: 'dy-ser', items: [{id: '', label: 'All'}, ...D.SERIES_ORDER.map(k => ({id: k, label: D.SERIES[k].name})), {id: 'T', label: 'Trainer'}], value: f.ser})}`
     + `<h3 class="pk-h">Position</h3>${ui.chips({name: 'dy-pos', items: [{id: '', label: 'All'}, ...POS_ORDER.map(p => ({id: p, label: p}))], value: f.pos})}`
-    + `<h3 class="pk-h">Rarity</h3>${ui.chips({name: 'dy-rar', items: [{id: '', label: 'Any'}, ...D.RARITY.slice().reverse().map(r => ({id: r, label: {common: '◆', bronze: '◆◆', silver: '◆◆◆', gold: '◆◆◆◆', diamond: '★'}[r]}))], value: f.rar})}`
+    + `<h3 class="pk-h">Rarity</h3>${ui.chips({name: 'dy-rar', items: [{id: '', label: 'Any'}, ...D.RARITY.slice().reverse().map(r => ({id: r, label: RAR_SYM[r]}))], value: f.rar})}`
     + `<div class="pk-acts">${ui.button({label: 'Clear filters', kind: 'secondary', block: true, attrs: {'data-dy-clearf': ''}})}</div>`;
   const sh = ui.openSheet({title: 'Filter', body, cls: 'pk-sheet', detents: ['fit']});
   sh.body.addEventListener('ui:change', e => { const {name, value} = e.detail || {}; if (/^dy-(ser|pos|rar)$/.test(name)) { f[name.slice(3)] = value; refresh(st); } });
