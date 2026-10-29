@@ -59,15 +59,18 @@ async function rip(page) {
 const dealState = page => page.evaluate(() => {
   const el = document.querySelector('.dy-dc.is-top .pk-deal-c');
   if (!el) return null;
-  const t = getComputedStyle(el.querySelector('.pk-flip')).transform, m = t === 'none' ? null : new DOMMatrixReadOnly(t);
+  // (the front: its own sheet, hidden till its half-turn (css pk-flip-in); face up once it's turned to rotateY(0))
+  const front = el.querySelector('.pk-flip-front'), back = el.querySelector('.pk-flip-back');
+  const t = getComputedStyle(front).transform, m = t === 'none' ? null : new DOMMatrixReadOnly(t);
   const A = el.getAnimations({subtree: true}).filter(a => a.effect.getComputedTiming().endTime !== Infinity);
   const ov = document.querySelector('div.pk-open');
   // (the ground: lit from Legendary (data-tier), its colour the last rare one's (data-g, which stays so it fades off as itself))
   return {cls: el.className, tier: ov.dataset.tier, lit: +ov.dataset.tier >= 3, tint: ov.dataset.g || '', dealing: ov.dataset.phase === 'deal', n: document.querySelector('.pk-deal-n').textContent,
     done: !A.some(a => a.playState === 'running'), bursts: window.__bursts,
-    faceUp: !m || (Math.abs(m.m11 - 1) < .01 && Math.abs(m.m13) < .01), ring: !!el.querySelector('.pk-fx-ring'), rays: !!el.querySelector('.pk-fx-rays'), flash: !!el.querySelector('.pk-fx-flash'),
+    faceUp: getComputedStyle(front).visibility !== 'hidden' && (!m || (Math.abs(m.m11 - 1) < .01 && Math.abs(m.m13) < .01)),
+    frontShown: getComputedStyle(front).visibility !== 'hidden', backUp: !!back && getComputedStyle(back).display !== 'none' && getComputedStyle(back).visibility !== 'hidden', ring: !!el.querySelector('.pk-fx-ring'), rays: !!el.querySelector('.pk-fx-rays'), flash: !!el.querySelector('.pk-fx-flash'),
     crown: !!el.querySelector('.pk-fx-crown'), sweep: !!el.querySelector('.pk-fx-sweep'), sparks: el.querySelectorAll('.pk-spk').length, tag: (el.querySelector('.pk-deal-tag') || {}).textContent || '',
-    back: !!el.querySelector('.pk-flip-back'), backShown: !!el.querySelector('.pk-flip-back') && getComputedStyle(el.querySelector('.pk-flip-back')).display !== 'none', isNew: !!el.querySelector('.pk-c-new'),
+    back: !!back, backShown: !!back && getComputedStyle(back).display !== 'none', isNew: !!el.querySelector('.pk-c-new'),
     live: document.querySelectorAll('.dy-dc.is-top').length};
 });
 const tapDeal = page => page.locator('.dy-deck').click({position: {x: 100, y: 100}});
@@ -88,6 +91,10 @@ async function timedPass(page, order) {
     assert.equal(s0.sparks, R.sparks, T + ': its sparks');
     assert.equal(s0.tag, R.label, T + ': its stamp');
     assert.equal(s0.backShown, R.tier >= 1, T + ': face down past Common');
+    // (nothing of the player before the reveal: the front hidden, the back up, till the back has turned away)
+    assert.equal(s0.frontShown, R.tier === 0, T + ': the front hidden till its turn');
+    assert.equal(s0.backUp, R.tier >= 1, T + ': the back up till its turn');
+    if (R.tier >= 1 && R.hold >= 400) { await page.waitForTimeout(R.hold - 200 - (Date.now() - t0)); const sh = await dealState(page); assert.equal(sh.frontShown, false, T + ': the front still hidden through the hold'); }
     assert.equal(s0.isNew, R.tier !== 1, T + ': NEW on every card but the copy held');
     assert.equal(s0.n, `${i + 1} of ${order.length}`, T + ': the count line keeps the rarity a surprise');
     assert.equal(s0.lit, R.tier >= 3, T + ': the ground lit from Legendary');
@@ -113,6 +120,7 @@ async function timedPass(page, order) {
     await page.waitForFunction(() => { const el = document.querySelector('.dy-dc.is-top .pk-deal-c'); return !!el && !el.getAnimations({subtree: true}).some(a => a.effect.getComputedTiming().endTime !== Infinity && a.playState === 'running'); }, null, {timeout: 1500}).catch(() => {});
     const s1 = await dealState(page);
     assert.equal(s1.faceUp, true, T + ': face up at the end');
+    assert.equal(s1.backUp, false, T + ': the back turned away at the end');
     assert.equal(s1.done, true, T + ': its reveal over');
     // (each burst comes from both top corners of the card: two canvases)
     assert.equal(s1.bursts - bursts0, R.confetti ? (R.tier >= 6 ? 2 : 1) * 2 : 0, T + ': its confetti, over the overlay');

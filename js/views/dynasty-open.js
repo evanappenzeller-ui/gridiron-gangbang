@@ -2,12 +2,15 @@
 // cards are drawn and kept), played as Pokémon TCG Pocket plays it (the owner, Oct 29 2026, with a recording of Pocket's:
 // "Opening packs should have this animation"). You rip it open with a swipe across its top (Oct 28 2026: "ripping it
 // open by swiping across", with "a subtle hint showing players how to do this": a fingertip gliding along the tear line
-// till you start), the strip tearing along your finger (short of far enough it springs back; Enter rips it too). Then a
+// till you start), the strip tearing under your finger as it goes (Oct 29 2026: "The pack should split as I drag my finger
+// across": the torn part lifts behind the finger, the rest lies flat ahead of it; short of far enough it springs back;
+// Enter rips it too). Then a
 // flash along the tear, the strip spun away, rainbow light out of the pack; the pack sinks and the first card rises out of
 // it. The cards are a stack, the best last: swipe the top one away (or tap) for the next. Each card is revealed by its
 // rarity as it comes to the top (the owner, Oct 29 2026: "Each player rarity should get a different animation when being
 // opened in a pack. The more rare the player, the more exciting the animation"; revealOf, REVEAL): a Common is dealt
-// face up; a Rare comes face down (Pocket's card back) and flips; an Epic hovers, a ring pulses and it flips with sparks
+// face up; a Rare comes face down (Pocket's card back, the front hidden till the back has turned edge-on: nothing of the
+// player shows before the reveal, Oct 29 2026) and flips; an Epic hovers, a ring pulses and it flips with sparks
 // and its stamp; a Legendary turns the ground gold with rays behind it, flashes as it flips, sparks, confetti; a Mythic ★
 // turns it purple, drums (shakes harder and harder) before the flip, a rainbow sweep after; a ★★ (Prime, Gameday, Award)
 // turns it blue, drums longer and flips in two rings; a Legend ♛ darkens the ground, a crown drops in, the card rises from
@@ -71,8 +74,8 @@ export function revealOf(c) {
 }
 /** The order a pack's cards come out: the rarest last (as Pocket reveals), the better player last within a tier. */
 export const dealOrder = cards => cards.slice().sort((a, b) => revealOf(a).tier - revealOf(b).tier || (a.o || 0) - (b.o || 0) || String(a.id).localeCompare(String(b.id)));
-/** A card's reveal on the deal: the card (face down past tier 0, with Pocket's back) inside its effects; it plays once
- *  its slot is the top card's (css: .dy-dc.is-go). */
+/** A card's reveal on the deal: the card (face down past tier 0, with Pocket's back; the front its own sheet, hidden till
+ *  the back has turned away) inside its effects; it plays once its slot is the top card's (css: .dy-dc.is-go). */
 export function dealHTML(c, R, cardHTML, isNew) {
   // (the sparks fly past the card's edges: 160 to 280px from its centre, the card 145 by 202 from it)
   const sparks = Array.from({length: R.sparks}, (_, i) => `<i class="pk-spk" style="--a:${Math.round(i * 360 / R.sparks + (i % 2) * 11)}deg;--d:${160 + (i % 3) * 60}px;--t:${(i % 4) * 45}ms;--c:${R.palette[i % R.palette.length]}"></i>`).join('');
@@ -105,7 +108,10 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
     + `<p class="dy-deck-meta" aria-hidden="true"><b class="pk-deal-n"></b><span class="dy-deal-hint">Tap or swipe</span></p></div>`
     + `<div class="dy-open-pack" data-dy-tear tabindex="0" role="button" aria-label="Rip the pack open: swipe across its top, or press Enter">`
     + `<div class="dy-rip" style="--p:0;--dir:1;--ct:${TEAR.top};--cb:${TEAR.body}"><span class="dy-rays" aria-hidden="true">${RAYS}</span><span class="dy-motes" aria-hidden="true">${MOTES}</span>`
-    + `<div class="dy-rip-body">${packHTML(kind, {big: true, design})}</div><div class="dy-rip-top">${packHTML(kind, {big: true, design})}</div>`
+    + `<div class="dy-rip-body">${packHTML(kind, {big: true, design})}</div>`
+    // (the strip's two bands, css: the torn part, lifting behind the finger, and the rest still flat beyond it)
+    + `<div class="dy-rip-top"><div class="dy-rip-strip">${packHTML(kind, {big: true, design})}</div></div>`
+    + `<div class="dy-rip-rest"><div class="dy-rip-strip">${packHTML(kind, {big: true, design})}</div></div>`
     + `<span class="dy-rip-line" aria-hidden="true"></span><span class="dy-flare" aria-hidden="true"></span>`
     + `<span class="dy-rip-hint" aria-hidden="true"><i class="dy-rip-trail"></i><i class="dy-rip-finger"></i></span></div>`
     + `<p class="dy-rip-say">Swipe across the top to rip it open</p></div></div>`
@@ -359,7 +365,8 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
   stage.addEventListener('pointerup', up); stage.addEventListener('pointercancel', up);
   stage.addEventListener('pointerleave', e => { if (!g && e.pointerType === 'mouse') { hold.on = false; kick(); } });
 
-  // ---- the rip: drag across the pack's top; the strip tears along the finger (--p, 0..1, from the side you started)
+  // ---- the rip: drag across the pack's top; the strip tears under the finger (--p, 0..1: where the tear front is, from
+  // the side you started), the torn part lifting behind it (css .dy-rip-top), the rest flat ahead of it (.dy-rip-rest)
   let drag = null, prog = 0, dir = 1, anim = 0, ripped = false;
   const set = v => {
     prog = Math.max(0, Math.min(1, v));
@@ -393,10 +400,11 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
   pk.addEventListener('pointerdown', e => {
     if (ripped || (e.pointerType === 'mouse' && e.button !== 0)) return;
     cancelAnimationFrame(anim);
-    const rr = rip.getBoundingClientRect();
-    drag = {x: e.clientX, w: rr.width, moved: false, lx: e.clientX, lt: performance.now(), v: 0, tick: 0};
-    try { pk.setPointerCapture(e.pointerId); } catch (_) {}
     clearTimeout(nudgeT); pk.classList.remove('is-nudge'); pk.classList.add('is-drag');
+    // (measured once it holds still: is-drag stops its wiggle)
+    const rr = rip.getBoundingClientRect();
+    drag = {x: e.clientX, l: rr.left, r: rr.right, w: rr.width, moved: false, lx: e.clientX, lt: performance.now(), v: 0, tick: 0};
+    try { pk.setPointerCapture(e.pointerId); } catch (_) {}
   });
   pk.addEventListener('pointermove', e => {
     if (!drag || ripped) return;
@@ -407,10 +415,13 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
     }
     const now = performance.now();
     drag.v = (e.clientX - drag.lx) * dir / Math.max(1, now - drag.lt); drag.lx = e.clientX; drag.lt = now;
-    set(dx * dir / (drag.w * 0.85));
+    // (the tear front is under the finger: how far across the pack it is from the side the swipe began. Begun in from
+    // that side, the tear runs up to the finger at four times its pace rather than leaping there)
+    set(Math.min((e.clientX - (dir > 0 ? drag.l : drag.r)) * dir / drag.w, Math.abs(dx) / (drag.w * .25)));
     const tick = Math.floor(prog * 4);
     if (tick > drag.tick) { drag.tick = tick; ui.haptic('selection'); }
-    if (prog >= 1) tear();
+    // (at the far side, near enough: a finger seldom lands on the very edge)
+    if (prog >= .94) tear();
   });
   const letGo = () => {
     if (!drag || ripped) return;

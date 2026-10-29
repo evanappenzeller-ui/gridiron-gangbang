@@ -2,8 +2,9 @@
    Oct 29 2026, with a recording of Pocket's: "Opening packs should have this animation"); after css/views/dynasty.css (its
    light theme tokens cover div.pk-open) and css/views/dynasty-packs.css. Each card's reveal by its rarity (the owner, Oct
    29 2026: "The more rare the player, the more exciting the animation") plays once it's the top card (.dy-dc.is-go).
-   Nothing 3D sits under an overflow, opacity or filter (they flatten a card's turn, on iOS too): the reveal holds the
-   perspective, its flip keeps preserve-3d, its two faces hide their backs. Motion is transforms and opacity. */
+   A card's turn is two half-turns on two flat sheets, the back turned to edge-on then the front turned in from it, so no
+   face's back is ever to the screen (one sheet turned 180° with its faces' backs hidden showed the front mirrored, as the
+   back, on iOS, Oct 29 2026). Nothing here needs preserve-3d. Motion is transforms and opacity. */
 
 /* ---------------------------------------------------------------- the overlay and Pocket's ground */
 div.pk-open { --cw: min(290px, 74vw, calc((100vh - 250px) * .716));
@@ -50,8 +51,10 @@ div.pk-open ~ .confetti-canvas { z-index: 210; }
 .dy-stage[hidden] { display: none; }
 .dy-stage > * { grid-area: 1 / 1; }
 
-/* ---------------------------------------------------------------- the rip: the strip above the tear line (13% down) peels
-   up from the side you started, pivoting on its far end, as --p goes 0 to 1 */
+/* ---------------------------------------------------------------- the rip: the strip above the tear line (13% down) tears
+   from the side you started to your finger (--p, 0 to 1: how far across the tear front is), the torn part lifting hinged at
+   the tear front, the rest still flat on the body beyond it (the owner, Oct 29 2026: "The pack should split as I drag my
+   finger across") */
 .dy-open-pack { position: relative; z-index: 3; display: flex; flex-direction: column; align-items: center; gap: 16px; cursor: grab; outline: none;
   touch-action: none; user-select: none; -webkit-user-select: none; }
 .dy-open-pack[hidden] { display: none; }
@@ -62,14 +65,23 @@ div.pk-open ~ .confetti-canvas { z-index: 210; }
 .dy-open-pack:not(.is-drag):not(.is-touched) .dy-rip { animation: dy-wiggle 1.6s ease-in-out infinite; }
 .dy-rip .pk-pack { position: absolute; inset: 0; width: 100%; }
 .dy-rip .pk-pack-foil { animation: none; }
-.dy-rip-top, .dy-rip-body { position: absolute; inset: 0; }
-/* (one whole pack while it waits: the strip's copy unseen, unshadowed, the body unclipped; touched, the two meet along the
-   tear line, --ct and --cb, views/dynasty-open.js TEAR. Both copies run all along, so their art keeps in step) */
+.dy-rip-top, .dy-rip-rest, .dy-rip-strip, .dy-rip-body { position: absolute; inset: 0; }
+/* (one whole pack while it waits: the strip's two copies unseen, the body unclipped; touched, the body is clipped below
+   the tear line (--cb, views/dynasty-open.js TEAR) and the strip over it is in two bands of the pack's top: the torn part
+   (.dy-rip-top), from the side you started to the tear front, its own copy cut along the tear (--ct) and lifted, hinged
+   at the front, 22° once the tear is a quarter across; and the rest (.dy-rip-rest), from the front to the far side, flat
+   on the body's own art, so the pack looks whole beyond your finger. All three copies run all along, so their art keeps
+   in step. The band's insets: --dir 1 tears from the left, -1 from the right) */
 .dy-rip-body { z-index: 1; }
-.dy-rip-top { z-index: 2; visibility: hidden; transform-origin: calc(50% + var(--dir) * 50%) 13%;
-  transform: translateY(calc(var(--p) * -10px)) rotate(calc(var(--dir) * var(--p) * 22deg)); }
+.dy-rip-top, .dy-rip-rest { z-index: 2; visibility: hidden; }
+.dy-rip-top { clip-path: inset(0 calc((1 - var(--p)) * (1 + var(--dir)) * 50%) 80% calc((1 - var(--p)) * (1 - var(--dir)) * 50%));
+  transform-origin: calc(50% + var(--dir) * (var(--p) - .5) * 100%) 13%;
+  transform: translateY(calc(var(--p) * -10px)) rotate(calc(var(--dir) * min(1, var(--p) * 4) * 22deg)); }
+.dy-rip-top .dy-rip-strip { clip-path: var(--ct); }
+.dy-rip-rest { clip-path: inset(0 calc(var(--p) * (1 - var(--dir)) * 50%) 80% calc(var(--p) * (1 + var(--dir)) * 50%)); }
 .dy-open-pack:is(.is-drag, .is-touched, .is-torn) .dy-rip-body { clip-path: var(--cb); }
-.dy-open-pack:is(.is-drag, .is-touched, .is-torn) .dy-rip-top { visibility: visible; clip-path: var(--ct); filter: drop-shadow(0 calc(var(--p) * 8px) 6px rgba(0,0,0,.3)); }
+.dy-open-pack:is(.is-drag, .is-touched, .is-torn) :is(.dy-rip-top, .dy-rip-rest) { visibility: visible; }
+.dy-open-pack:is(.is-drag, .is-touched, .is-torn) .dy-rip-top { filter: drop-shadow(0 calc(var(--p) * 8px) 6px rgba(0,0,0,.3)); }
 .dy-rip-line { position: absolute; z-index: 3; top: 13%; height: 3px; margin-top: -1px; width: calc(var(--p) * 100%); border-radius: 2px; pointer-events: none;
   left: calc(50% - var(--dir) * 50%); transform: translateX(calc((var(--dir) - 1) / 2 * 100%));
   background: repeating-linear-gradient(90deg, #fff 0 5px, rgba(255,255,255,.5) 5px 8px); box-shadow: 0 0 8px 2px rgba(255,255,255,.75); opacity: min(1, calc(var(--p) * 6)); }
@@ -103,9 +115,10 @@ div.pk-open ~ .confetti-canvas { z-index: 210; }
 .dy-open-pack.is-torn .dy-flare { animation: dy-flare .5s cubic-bezier(.2,.7,.3,1) both; }
 @keyframes dy-flare { 0% { opacity: 0; transform: translateY(-50%) scale(.2, .35); } 20% { opacity: 1; transform: translateY(-50%) scale(1, 1); }
   55% { opacity: .9; transform: translateY(-50%) scale(1.1, .8); } 100% { opacity: 0; transform: translateY(-50%) scale(1.22, .4); } }
-/* (the strip spins away, up and toward the side the swipe went, about its own middle: --sx, --sy keep the pose the tear
-   left it in, views/dynasty-open.js torn) */
-.dy-open-pack.is-torn .dy-rip-top { transform-origin: 50% 6.5%; filter: none; animation: dy-strip .74s cubic-bezier(.3,.5,.5,1) both; }
+/* (the strip, whole now (--p 1: the torn band the whole strip, the rest none), spins away, up and toward the side the swipe
+   went, about its own middle: --sx, --sy keep the pose the tear left it in, views/dynasty-open.js torn) */
+.dy-open-pack.is-torn .dy-rip-rest { display: none; }
+.dy-open-pack.is-torn .dy-rip-top { clip-path: none; transform-origin: 50% 6.5%; filter: none; animation: dy-strip .74s cubic-bezier(.3,.5,.5,1) both; }
 @keyframes dy-strip {
   0% { transform: perspective(700px) translate3d(var(--sx), var(--sy), 0) rotateZ(calc(var(--dir) * 22deg)) rotateY(0deg) rotateX(0deg) scale(1); }
   35% { transform: perspective(700px) translate3d(calc(var(--sx) + var(--dir) * 14vw), calc(var(--sy) - 17vh), 0) rotateZ(calc(var(--dir) * 95deg)) rotateY(calc(var(--dir) * 150deg)) rotateX(35deg) scale(.85); }
@@ -136,7 +149,7 @@ div.pk-open ~ .confetti-canvas { z-index: 210; }
 /* ---------------------------------------------------------------- the cards: a stack, the top one showing */
 .dy-deal { position: relative; z-index: 2; width: var(--cw); aspect-ratio: 63 / 88; }
 .dy-deck { position: absolute; inset: 0; outline: none; }
-.dy-dc { position: absolute; inset: 0; z-index: 1; perspective: 1100px; transform: scale(.96); transition: transform .3s cubic-bezier(.2,.8,.3,1); }
+.dy-dc { position: absolute; inset: 0; z-index: 1; transform: scale(.96); transition: transform .3s cubic-bezier(.2,.8,.3,1); }
 .dy-dc.is-top { z-index: 2; transform: none; }
 /* (the next card waits unseen under the top one, so nothing shows past it as it turns; a drag or a flight shows it, face
    down past a Common, a Legend's not at all: it rises from the foot) */
@@ -150,7 +163,7 @@ div.pk-open ~ .confetti-canvas { z-index: 210; }
   100% { transform: translateY(0) scale(1); } }
 .dy-dc.is-fade { animation: dy-fade .3s ease both; }
 @keyframes dy-fade { from { opacity: 0; } }
-.dy-tilt { position: absolute; inset: 0; transform-style: preserve-3d; transform: rotateX(calc(var(--rx, 0) * 1deg)) rotateY(calc(var(--ry, 0) * 1deg)); }
+.dy-tilt { position: absolute; inset: 0; transform: perspective(1100px) rotateX(calc(var(--rx, 0) * 1deg)) rotateY(calc(var(--ry, 0) * 1deg)); }
 /* (a Common: a quick sheen as it comes up) */
 .dy-sheen { position: absolute; inset: 0; z-index: 1; border-radius: inherit; pointer-events: none; opacity: 0; }
 .dy-sheen { background: linear-gradient(105deg, rgba(255,255,255,0) 38%, rgba(255,255,255,.8) 50%, rgba(255,255,255,0) 62%) no-repeat; background-size: 260% 100%; }
@@ -163,7 +176,7 @@ div.pk-open ~ .confetti-canvas { z-index: 210; }
    at the hold's end, sparks and confetti at the flip's middle, the face whited out as it comes round and the flash as it
    shows (--face), the sweep, the stamp and the glint after it. A tap finishes it (is-skip: everything at its end). */
 .pk-deal-c { position: absolute; inset: 0; --hold: 0ms; --flip: 0ms; --mid: calc(var(--hold) + var(--flip) / 2); --face: calc(var(--hold) + var(--flip) * .55); --after: calc(var(--hold) + var(--flip) + 80ms);
-  --rc: #5BC8F5; --rays: #fff; --tagbg: linear-gradient(180deg, #3FA9F5, #1E6FD8); --tagink: #fff; perspective: 1100px; }
+  --rc: #5BC8F5; --rays: #fff; --tagbg: linear-gradient(180deg, #3FA9F5, #1E6FD8); --tagink: #fff; }
 /* (a Legend rises from the foot as it comes up; the rest are there already, under the one swiped away) */
 .dy-dc.is-go .pk-deal-c.t-6 { animation: pk-rise .8s cubic-bezier(.2,.7,.2,1) both; }
 @keyframes pk-rise { from { opacity: 0; transform: translateY(60vh) scale(.7); } 60% { opacity: 1; } }
@@ -172,16 +185,21 @@ div.pk-open ~ .confetti-canvas { z-index: 210; }
 .pk-deal-c.t-6 { --rays: #FFD34D; }
 .pk-deal-c.t-4 { --rc: #D08BFF; --tagbg: linear-gradient(180deg, #C06BFF, #7B2FD8); }
 .pk-deal-c.t-5 { --rc: #8FE3FF; --tagbg: linear-gradient(180deg, #5FD3F5, #1E8FD8); }
-/* the card, face down then turned: the back (Pocket's) and the front on one flipping sheet */
-.pk-shake { position: absolute; inset: 0; transform-style: preserve-3d; }
-.pk-flip { position: absolute; inset: 0; transform-style: preserve-3d; transform: rotateY(180deg); }
-.pk-deal-c.is-face .pk-flip { transform: none; }
+/* the card, face down then turned: the back (Pocket's) and the front, two flat sheets in the same place. The turn is two
+   half-turns, the back's then the front's: the back turns to edge-on through the first half of --flip (then hidden), the
+   front turns in from edge-on through the second (hidden till then: nothing of it shows before its turn, on iOS either,
+   where one sheet turned 180° showed the front mirrored through the back). Both keyframes carry visibility: hidden only
+   at a keyframe's own end, so the fill-mode holds it over the hold and after the turn */
+.pk-shake { position: absolute; inset: 0; }
+.pk-flip { position: absolute; inset: 0; }
+.pk-flip-front, .pk-flip-back { position: absolute; inset: 0; border-radius: 5% / 3.6%; }
+.pk-flip-front { visibility: hidden; }
+.pk-deal-c.is-face .pk-flip-front { visibility: visible; }
 .pk-deal-c.is-face .pk-flip-back { display: none; }
-.dy-dc.is-go .pk-deal-c.is-flip .pk-flip { animation: pk-flip var(--flip) cubic-bezier(.45,0,.2,1) var(--hold) both; }
-@keyframes pk-flip { from { transform: rotateY(180deg); } to { transform: rotateY(0deg); } }
-.pk-flip-front, .pk-flip-back { position: absolute; inset: 0; border-radius: 5% / 3.6%; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
-/* (Safari lets a face's own layers show from behind unless they hide their backs too) */
-.pk-flip-front > *, .pk-flip-front .pk-c-shine, .pk-flip-back > * { -webkit-backface-visibility: hidden; backface-visibility: hidden; }
+.dy-dc.is-go .pk-deal-c.is-flip .pk-flip-back { animation: pk-flip-away calc(var(--flip) / 2) cubic-bezier(.5,0,.85,.5) var(--hold) both; }
+.dy-dc.is-go .pk-deal-c.is-flip .pk-flip-front { animation: pk-flip-in calc(var(--flip) / 2) cubic-bezier(.15,.5,.25,1) calc(var(--hold) + var(--flip) / 2) both; }
+@keyframes pk-flip-away { from { visibility: visible; transform: perspective(1100px) rotateY(0deg); } to { visibility: hidden; transform: perspective(1100px) rotateY(-90deg); } }
+@keyframes pk-flip-in { from { visibility: hidden; transform: perspective(1100px) rotateY(90deg); } to { visibility: visible; transform: perspective(1100px) rotateY(0deg); } }
 .pk-flip-front > .pk-card { position: absolute; inset: 0; width: auto; transition: none; box-shadow: 0 14px 30px rgba(30,45,70,.3), 0 0 0 1px rgba(30,45,70,.06); }
 .pk-flip-front > .pk-c-new { top: -19px; left: -10px; font-size: 14px; padding: 5px 11px; z-index: 3; } /* (above the name line and a Trainer's word) */
 .dy-dc.is-foil .pk-flip-front > .pk-card { box-shadow: 0 16px 36px rgba(40,20,90,.42), 0 0 0 1px rgba(255,255,255,.25); }
@@ -254,7 +272,7 @@ div.pk-open ~ .confetti-canvas { z-index: 210; }
 .dy-dc.is-go .pk-fx-glint { animation: pk-glint .75s ease-out calc(var(--after) + 380ms) both; }
 @keyframes pk-glint { 0% { opacity: 0; transform: scale(.15) rotate(-35deg); } 30% { opacity: 1; transform: scale(1.12) rotate(0deg); } 100% { opacity: 0; transform: scale(.55) rotate(30deg); } }
 /* a tap finishes the reveal: its own pieces at their end (the card's own foil, .pk-c-shine, drifts on) */
-.pk-deal-c.is-skip, .pk-deal-c.is-skip :is(.pk-shake, .pk-flip, .pk-fx-ring, .pk-fx-flash, .pk-fx-white, .pk-spk, .pk-fx-crown, .pk-fx-sweep, .pk-deal-tag, .pk-fx-glint) {
+.pk-deal-c.is-skip, .pk-deal-c.is-skip :is(.pk-shake, .pk-flip-back, .pk-flip-front, .pk-fx-ring, .pk-fx-flash, .pk-fx-white, .pk-spk, .pk-fx-crown, .pk-fx-sweep, .pk-deal-tag, .pk-fx-glint) {
   animation-duration: 0s !important; animation-delay: 0s !important; }
 .pk-deal-c.is-skip .pk-fx-rays { animation: pk-rays-in 0s both, pk-spin-fast 10s linear infinite !important; }
 /* (⏩ running through: no rays for a card it passes) */
@@ -353,7 +371,7 @@ div.pk-open:is([data-tier="4"], [data-tier="5"], [data-tier="6"]) .dy-ff small {
   .dy-dc, .dy-dc.is-top { transform: none; transition: opacity .2s; }
   .dy-dc.is-hid { transform: none; }
   /* (the reveal: the card simply there, face up, its ground and stamp still) */
-  .pk-flip { transform: none !important; }
+  .pk-flip-front { visibility: visible !important; transform: none !important; }
   .pk-flip-back, .pk-fx-ring, .pk-fx-flash, .pk-fx-white, .pk-spks, .pk-fx-sweep, .pk-fx-crown, .pk-fx-glint { display: none; }
   .pk-fx-rays { opacity: .85; }
   .pk-deal-tag { opacity: 1; }
