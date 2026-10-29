@@ -185,4 +185,19 @@ export async function dynastyChecks(check) {
     const all = (src.match(/daily\.LB\.all/g) || []).length === 1 && (msrc.match(/daily\.LB\.all/g) || []).length === 1;
     return {pass: raw && all, detail: 'others() and the matches from LB.raw; LB.all only for your own saves'};
   });
+  check('Gridiron Dynasty: Pocket’s title screen on entering (the owner, Oct 29 2026: "Create a start screen when entering the dynasty"): the logo, the cards drifting, Tap to Start, the version and a support id, the menu and the red X; five tabs at the foot with the Menu; the Battle tab’s banner, Versus, Solo, Guide, Decks, Rankings and Missions', async () => {
+    const V = await import('../views/dynasty.js');
+    const shell = V.shellHTML(), start = V.startHTML();
+    const tabs = (shell.match(/class="pk-tab/g) || []).length, menu = /class="pk-tab" data-dy-menu/.test(shell) && /data-dy-hud/.test(shell);
+    const logo = /pk-logo-top">Gridiron<\/span>/.test(start) && /Ultimate Card Collection/.test(start) && /pk-logo-sub">Dynasty<\/span>/.test(start);
+    const bits = /data-dy-start/.test(start) && /role="button"/.test(start) && /Support ID: [A-Z0-9]{8}</.test(start) && /Ver\. 3\.0\.\d+</.test(start) && /data-dy-menu/.test(start) && /data-dy-exit/.test(start);
+    const say = D.status === 'ready' ? /Tap to Start/.test(start) : /Loading/.test(start);
+    const cards = V.startCards(), teams = new Set(cards.map(c => c.team)).size, drawn = (start.match(/class="pk-start-card z-/g) || []).length;
+    // (the support id: the same for a profile every time, another's another, never the profile's key)
+    const ids = [V.supportId('m_evan'), V.supportId('m_evan'), V.supportId('u_ryan-stewart')];
+    const battle = V.battleHome({pack: 'std'}, D.fresh('m_check'));
+    const modes = ['pk-banner-tab">Battle<', 'data-dy-bv="versus"', 'data-dy-bv="solo"', 'data-dy-guide', 'data-dy-tab="decks"', 'data-dy-bv="rank"', 'Missions'].every(x => battle.includes(x));
+    return {pass: tabs === 5 && menu && logo && bits && say && cards.length === 14 && teams >= 10 && drawn === (D.status === 'ready' ? 14 : 0) && ids[0] === ids[1] && ids[0] !== ids[2] && !/EVAN/.test(ids[0]) && modes,
+      detail: `${tabs} tabs; ${cards.length} cards from ${teams} teams drift on the title screen; support id ${ids[0]}`};
+  });
 }

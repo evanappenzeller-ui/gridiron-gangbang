@@ -26,14 +26,24 @@ html.is-dynasty-playing .v-dynasty { padding-bottom: 0; }
 .sheet.pk-sheet .sheet-title { color: var(--ink); }
 .sheet.pk-sheet .as-btn + .as-btn { box-shadow: inset 0 1px 0 var(--separator); }
 
-.pk { min-height: 100dvh; display: flex; flex-direction: column;
+.pk { position: relative; min-height: 100dvh; display: flex; flex-direction: column;
   background: linear-gradient(162deg, #F8FAFC 0 38%, #E8EEF3 38% 100%); }
 /* The header stays pinned with a solid background, as the app's nav bars do: iOS frosts whatever page sits loose under
    the status bar (the owner, Oct 29 2026: "The top of the screen is blurry"). */
 .pk-hdr { position: sticky; top: 0; z-index: 5; background: #F8FAFC; box-shadow: 0 1px 0 rgba(40,60,90,.06); display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 8px;
   padding: max(8px, env(safe-area-inset-top)) 14px 8px; }
-.pk-title { margin: 0; text-align: center; font: 800 19px/1.2 var(--font-text); letter-spacing: .01em; color: var(--ink); }
-.pk-wallet { justify-self: end; }
+.pk-title { margin: 0; text-align: center; font: 800 18px/1.2 var(--font-text); letter-spacing: .01em; color: var(--ink); outline: none; }
+/* Pocket's counters at the right: your packs to open (two little packs and the count; ∞ and MAX when unlimited: tap for
+   the pack list) and your coins */
+.pk-hud { justify-self: end; display: inline-flex; align-items: center; gap: 6px; }
+.pk-meter { position: relative; display: inline-flex; align-items: center; gap: 3px; height: 30px; padding: 0 10px 0 8px; border: 0; border-radius: 99px; background: #fff;
+  box-shadow: var(--pk-shadow); color: var(--ink); font: 800 13px/1 var(--font-text); cursor: pointer; }
+.pk-meter-p { width: 11px; height: 16px; border-radius: 2px; background: linear-gradient(180deg, #F7C4DA 0 22%, #E57FB0 22%); box-shadow: 0 0 0 1px rgba(255,255,255,.9); }
+.pk-meter-p + .pk-meter-p { margin-left: -5px; }
+.pk-meter b { margin-left: 3px; }
+.pk-meter.is-max b { font-size: 15px; }
+.pk-meter small { position: absolute; left: 50%; bottom: -7px; transform: translateX(-50%); font: 800 8px/1 var(--font-text); letter-spacing: .06em; color: #fff;
+  background: var(--tint); padding: 2px 5px; border-radius: 99px; box-shadow: 0 0 0 1.5px #fff; }
 .pk-coin-n { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px 0 6px; border-radius: 99px; background: #fff; box-shadow: var(--pk-shadow);
   font: 700 14px/1 var(--font-text); color: var(--ink); }
 .pk-coin { width: 20px; height: 20px; border-radius: 50%; flex: none;
@@ -41,8 +51,8 @@ html.is-dynasty-playing .v-dynasty { padding-bottom: 0; }
 .pk-pane { flex: 1; padding: 4px 16px 24px; min-width: 0; }
 /* Pocket's menu at the foot of the screen (the owner, Oct 29 2026; the app's own tab bar is hidden while playing): the
    four places as icons on a pale bar, the one you're on in teal with a pip under it */
-.pk-nav { position: sticky; bottom: 0; z-index: 4; display: grid; grid-template-columns: repeat(4, 1fr);
-  padding: 6px 12px max(8px, env(safe-area-inset-bottom)); background: rgba(240,244,248,.96); box-shadow: 0 -1px 0 rgba(40,60,90,.06), 0 -6px 18px rgba(40,60,90,.08);
+.pk-nav { position: sticky; bottom: 0; z-index: 4; display: grid; grid-template-columns: repeat(5, 1fr);
+  padding: 6px 8px max(8px, env(safe-area-inset-bottom)); background: rgba(240,244,248,.96); box-shadow: 0 -1px 0 rgba(40,60,90,.06), 0 -6px 18px rgba(40,60,90,.08);
   backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
 .pk-tab { position: relative; display: flex; align-items: center; justify-content: center; min-height: 52px; border: 0; background: none;
   color: #8E9AA6; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: color .2s; }
@@ -79,7 +89,11 @@ button.pk-open:active, .pk-btn.is-go:active { transform: translateY(2px); box-sh
 .pk-btn.is-soft { border: 0; background: var(--surface-2); color: var(--ink-2); cursor: pointer; }
 .pk-btn:disabled { opacity: .45; pointer-events: none; }
 .pk-btns { display: inline-flex; gap: 6px; }
-.pk-q { width: 30px; height: 30px; border-radius: 50%; border: 0; background: #fff; color: var(--ink-3); font: 800 15px/1 var(--font-text); box-shadow: var(--pk-shadow); cursor: pointer; }
+/* Pocket's round buttons beside the free-pack pill: the bookmark (the collections) and the ? */
+.pk-round { position: relative; flex: none; width: 36px; height: 36px; border-radius: 50%; border: 0; display: grid; place-items: center; background: #fff; color: #7A8794;
+  font: 800 16px/1 var(--font-text); box-shadow: var(--pk-shadow); cursor: pointer; }
+.pk-round svg { width: 20px; height: 20px; }
+.pk-round .pk-bang { width: 17px; height: 17px; font-size: 11px; top: -4px; right: -4px; }
 .pk-bang { position: absolute; top: -5px; right: -5px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center;
   background: var(--wrong); color: #fff; font: 800 12px/1 var(--font-text); font-style: normal; box-shadow: 0 0 0 2px #fff; }
 .pk-tag { font: 700 10px/1 var(--font-text); font-style: normal; color: var(--ink-3); background: var(--surface-2); padding: 3px 6px; border-radius: 6px; vertical-align: 2px; }
@@ -247,18 +261,31 @@ button.pk-card:active { transform: scale(.97); }
     repeating-linear-gradient(90deg, rgba(0,0,0,.22) 0 2px, transparent 2px 5px) bottom / 100% 3.5% no-repeat; }
 .pk-pack-n { position: absolute; right: 4cqw; bottom: 3cqw; font: 800 8cqw/1 var(--font-text); background: #fff; color: var(--ink); padding: 1.6cqw 3cqw; border-radius: 99px; }
 
-/* ---------------------------------------------------------------- Packs */
-.pk-free { display: flex; align-items: center; gap: 10px; margin: 2px 0 12px; }
-.pk-free-b { flex: 1; display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 14px 0 6px; border-radius: 99px; background: #fff; box-shadow: var(--pk-shadow);
-  font: 700 12px/1 var(--font-text); color: var(--ink-2); }
+/* ---------------------------------------------------------------- Packs (Pocket's booster screen, the owner's screenshot, Oct 29 2026:
+   the pack's colour over a slant at the top, the showcase in a white bubble with the clock pill, the pack's tags
+   beside it, the pack afloat with its reflection, pack points, then Offering Rates · a round Open · the pack list) */
+.pk-packs { margin: -4px -16px 0; padding: 4px 16px 0;
+  background: linear-gradient(168deg, color-mix(in srgb, var(--pc) 72%, #fff) 0 44%, transparent 44.15%); }
+.pk-free { display: flex; align-items: center; gap: 8px; margin: 2px 0 12px; }
+.pk-free-b { flex: 1; min-width: 0; display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px 0 6px; border-radius: 99px; background: #fff; box-shadow: var(--pk-shadow);
+  color: var(--ink-2); font: 700 12px/1.15 var(--font-text); }
+.pk-free-b b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pk-free-i { width: 24px; height: 24px; border-radius: 50%; background: conic-gradient(var(--tint) 0 75%, var(--surface-3) 75%); position: relative; flex: none; }
 .pk-free-i::after { content: ""; position: absolute; inset: 4px; border-radius: 50%; background: #fff; }
 .pk-free-b.is-ready { color: #fff; background: linear-gradient(90deg, #FF7FB0, #F2669F); }
 .pk-free-b.is-ready .pk-free-i { background: #fff; }
 .pk-free-b.is-ready .pk-free-i::after { inset: 6px; background: var(--pk-pink); }
-.pk-show { position: relative; margin: 0 -4px; padding: 28px 8px 14px; border-radius: 18px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--pc) 14%, #fff), rgba(255,255,255,.55)); box-shadow: inset 0 0 0 1px rgba(255,255,255,.8); }
-.pk-show-tag { position: absolute; top: 8px; left: 12px; display: inline-flex; align-items: center; gap: 4px; font: 800 11px/1 var(--font-text); color: var(--ink-3); letter-spacing: .02em; }
+.pk-stage { position: relative; display: flex; flex-direction: column; align-items: center; margin: 18px 0 0; }
+/* the showcase: a white bubble, its tip at the pack; the clock pill over its top edge */
+.pk-show { position: relative; width: 100%; margin: 0; padding: 30px 10px 14px; border-radius: 22px; background: #fff; box-shadow: var(--pk-shadow); }
+.pk-show-tip { position: absolute; left: 50%; bottom: -8px; width: 20px; height: 20px; margin-left: -10px; border-radius: 4px; background: #fff; transform: rotate(45deg);
+  box-shadow: 3px 3px 5px rgba(40,60,90,.05); }
+.pk-clock { position: absolute; top: -15px; left: 50%; transform: translateX(-50%); z-index: 1; display: inline-flex; align-items: center; gap: 5px; height: 30px; max-width: calc(100% - 20px);
+  padding: 0 14px 0 10px; border-radius: 99px; background: linear-gradient(90deg, #FF7FB0, #F2669F); color: #fff; font: 800 12px/1 var(--font-text); white-space: nowrap;
+  box-shadow: 0 3px 8px rgba(240,80,140,.35); }
+.pk-clock > span { overflow: hidden; text-overflow: ellipsis; }
+.pk-clock .ic { width: 14px; height: 14px; flex: none; }
+.pk-show-tag { position: absolute; top: 10px; left: 12px; display: inline-flex; align-items: center; gap: 4px; font: 800 11px/1 var(--font-text); color: var(--ink-3); letter-spacing: .02em; }
 .pk-show-tag .ic { color: #F2B417; width: 14px; height: 14px; }
 .pk-show-row { display: flex; justify-content: center; }
 .pk-show-row > .pk-card { width: 21%; flex: none; margin: 0 -1.2%; }
@@ -267,25 +294,30 @@ button.pk-card:active { transform: scale(.97); }
 .pk-show-row > .pk-card:nth-child(3) { transform: translateY(-2px); z-index: 2; }
 .pk-show-row > .pk-card:nth-child(4) { transform: rotate(4deg) translateY(2px); z-index: 1; }
 .pk-show-row > .pk-card:nth-child(5) { transform: rotate(8deg) translateY(8px); }
-.pk-stage { position: relative; margin: 14px -16px 0; padding: 92px 16px 0; display: flex; flex-direction: column; align-items: center; overflow: hidden;
-  background: linear-gradient(162deg, transparent 0 40%, color-mix(in srgb, var(--pc) 10%, transparent) 40% 100%); }
-.pk-ribbon { position: absolute; left: -6%; right: -6%; top: 10px; height: 150px; transform: rotate(-3deg); display: flex; flex-direction: column; align-items: center;
-  padding: 12px 6% 0; gap: 2px; color: #fff; background: linear-gradient(90deg, #F583B3, #F2669F 55%, #E8508C); box-shadow: 0 6px 16px rgba(240,80,140,.25); }
-.pk-ribbon b { font: 900 italic 17px/1.1 var(--font-text); letter-spacing: .01em; }
-.pk-ribbon span { font: 700 11px/1.3 var(--font-text); opacity: .92; }
-.pk-bigpack { position: relative; z-index: 1; padding: 0; border: 0; background: none; cursor: pointer; animation: pk-float 3.6s ease-in-out infinite; }
+/* the pack's tags at the left edge: its name on pink, then what's in it and what it costs */
+.pk-tags { position: absolute; left: -16px; top: 54%; z-index: 2; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; max-width: 46%; pointer-events: none; }
+.pk-tags > b { font: 800 15px/1 var(--font-text); color: #fff; padding: 7px 14px 7px 16px; border-radius: 0 10px 10px 0; background: linear-gradient(90deg, #FF7FB0, #F2669F);
+  box-shadow: 0 2px 6px rgba(240,80,140,.35); white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.pk-tags > span { font: 700 11px/1.2 var(--font-text); color: var(--ink-2); padding: 5px 10px 5px 16px; border-radius: 0 8px 8px 0; background: rgba(255,255,255,.82);
+  box-shadow: 0 1px 3px rgba(40,60,90,.1); }
+.pk-bigpack { position: relative; z-index: 1; margin-top: 26px; padding: 0; border: 0; background: none; cursor: pointer; animation: pk-float 3.6s ease-in-out infinite; }
 @keyframes pk-float { 50% { transform: translateY(-6px) rotate(-1deg); } }
 .pk-reflect { display: flex; align-items: flex-end; height: 46px; overflow: hidden; margin-top: 4px; opacity: .22; transform: scaleY(-1); pointer-events: none;
   -webkit-mask-image: linear-gradient(to top, #000, transparent 80%); mask-image: linear-gradient(to top, #000, transparent 80%); }
 .pk-reflect .pk-pack-foil { animation: none; }
-.pk-pts { position: absolute; right: 14px; bottom: 14px; z-index: 2; display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px 0 6px; border: 0; border-radius: 99px;
-  background: #fff; box-shadow: var(--pk-shadow); color: var(--ink); font: 800 12px/1 var(--font-text); cursor: pointer; }
-.pk-pts-i { width: 22px; height: 22px; border-radius: 50%; background: linear-gradient(135deg, #7BE0EE, #18B4CB); position: relative; }
-.pk-pts-i::after { content: "P"; position: absolute; inset: 0; display: grid; place-items: center; font: 900 11px/1 var(--font-text); color: #fff; }
-.pk-actions { display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 10px; margin: 10px 0 0; }
-.pk-actions > button.pk-open { grid-column: 1 / -1; order: -1; justify-self: center; min-width: min(260px, 100%); white-space: nowrap; }
+.pk-pts { position: absolute; right: 0; bottom: 14px; z-index: 2; display: inline-flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 6px 5px; border: 0; border-radius: 16px;
+  background: #fff; box-shadow: var(--pk-shadow); color: var(--ink); font: 800 11px/1 var(--font-text); cursor: pointer; min-width: 60px; }
+.pk-pts-i { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #7BE0EE, #18B4CB); position: relative; }
+.pk-pts-i::after { content: "P"; position: absolute; inset: 0; display: grid; place-items: center; font: 900 14px/1 var(--font-text); color: #fff; }
+.pk-pts b { padding: 3px 8px; border-radius: 99px; background: #6C7986; color: #fff; }
+/* Offering Rates · the round Open · Select other booster packs (the pack itself opens too) */
+.pk-actions { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; margin: 6px 0 0; }
 .pk-actions > .pk-pill:first-child { justify-self: start; }
 .pk-actions > .pk-pill.is-r { justify-self: end; }
+.pk-actions > .pk-pill { min-height: 40px; }
+button.pk-open.is-round { width: 68px; height: 68px; min-height: 0; padding: 0; border-radius: 50%; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  font-size: 12px; letter-spacing: 0; }
+button.pk-open.is-round svg { width: 28px; height: 28px; filter: drop-shadow(0 1px 0 rgba(0,90,110,.35)); }
 .pk-actions.is-deck { grid-template-columns: 1fr 1fr; margin: 14px 0 12px; }
 .pk-actions.is-deck .pk-pill { min-height: 40px; }
 /* Offering Rates, the pack list, coins, pack points */
@@ -363,30 +395,50 @@ button.pk-card:active { transform: scale(.97); }
 .pk-deck-n.is-ok { background: rgba(255,255,255,.95); color: #0E8196; }
 .pk-warn { font: 600 12px/1.3 var(--font-text); color: #FFF2B0; }
 
-/* ---------------------------------------------------------------- Battle */
-.pk-banner { position: relative; height: 150px; margin: 2px 0 14px; padding: 18px 20px; border-radius: 22px; overflow: hidden; color: #fff;
-  background: repeating-conic-gradient(from 0deg at 80% 120%, rgba(255,255,255,.1) 0 6deg, transparent 6deg 15deg), linear-gradient(120deg, #F583B3, #B35CE0 55%, #5A7BEA);
-  box-shadow: 0 8px 20px rgba(150,80,200,.25); }
-.pk-banner > b { position: relative; z-index: 1; font: 900 italic 34px/1 var(--font-text); letter-spacing: .01em; text-shadow: 0 3px 0 rgba(0,0,0,.15); }
-.pk-banner-fan { position: absolute; right: 8px; bottom: -36px; width: 190px; height: 160px; }
-.pk-banner-fan > span { position: absolute; bottom: 0; left: calc(var(--i) * 52px); width: 82px; transform-origin: 50% 100%; transform: rotate(calc(var(--i) * 12deg - 12deg)); }
-.pk-modes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.pk-modes.is-small { margin-top: 10px; }
-.pk-modes.is-3 { grid-template-columns: repeat(3, 1fr); }
+/* ---------------------------------------------------------------- Battle (Pocket's Battle screen, the owner's screenshot, Oct 29 2026:
+   the slanted blue board with "Battle" on its tab, the mat in perspective and the energy afloat, Legends fanned; the
+   Versus and Solo tiles; Guide, Decks, Rankings, and Missions at the right) */
+.pk-banner { position: relative; height: 200px; margin: 0 -16px 16px; padding: 0; border-radius: 0; overflow: hidden; color: #fff;
+  clip-path: polygon(0 0, 100% 0, 100% 85%, 0 100%);
+  background: radial-gradient(70% 80% at 62% 42%, rgba(120,200,255,.55), transparent 70%), repeating-linear-gradient(-28deg, rgba(255,255,255,.06) 0 14px, transparent 14px 28px),
+    linear-gradient(135deg, #1E47C8, #2D8BEA 58%, #1A5FC4); }
+.pk-banner-tab { position: absolute; left: 0; top: 0; z-index: 3; padding: 10px 32px 12px 18px; font: 900 italic 30px/1 var(--font-text); letter-spacing: .01em; color: #fff;
+  background: #1A3AA8; clip-path: polygon(0 0, 100% 0, 86% 100%, 0 100%); text-shadow: 0 2px 0 rgba(0,0,0,.2); }
+.pk-banner-mat { position: absolute; left: 10%; right: -14%; bottom: 2%; height: 56%; border-radius: 16px; background: rgba(226,238,255,.5);
+  background-image: linear-gradient(90deg, transparent calc(50% - 1px), rgba(255,255,255,.85) calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px)),
+    repeating-linear-gradient(0deg, transparent 0 23%, rgba(255,255,255,.55) 23% 25%);
+  box-shadow: inset 0 0 0 2px rgba(255,255,255,.75), 0 10px 20px rgba(0,30,90,.25); transform: perspective(360px) rotateX(52deg) rotate(-6deg); transform-origin: 50% 100%; }
+.pk-banner-orbs span { position: absolute; z-index: 1; font-size: 26px; filter: drop-shadow(0 0 10px rgba(255,255,255,.75)); animation: pk-bob 3.2s ease-in-out infinite alternate;
+  animation-delay: calc(var(--i) * -.8s); }
+.pk-banner-orbs span:nth-child(1) { left: 10%; top: 62%; }
+.pk-banner-orbs span:nth-child(2) { left: 34%; top: 24%; font-size: 36px; }
+.pk-banner-orbs span:nth-child(3) { left: 57%; top: 12%; }
+.pk-banner-orbs span:nth-child(4) { left: 86%; top: 30%; font-size: 22px; }
+@keyframes pk-bob { to { translate: 0 -9px; } }
+.pk-banner-fan { position: absolute; right: 10px; bottom: -30px; z-index: 2; width: 200px; height: 170px; }
+.pk-banner-fan > span { position: absolute; bottom: 0; left: calc(var(--i) * 54px); width: 84px; transform-origin: 50% 100%; transform: rotate(calc(var(--i) * 12deg - 12deg)); }
+.pk-banner-fan .pk-card { box-shadow: 0 8px 18px rgba(0,20,60,.35); }
+.pk-modes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 /* Solo: the computer's opponents (views/dynasty.js soloHTML) */
 .pk-alert > svg { width: 24px; height: 24px; flex: none; }
 .pk-solo-t { flex: none; display: inline-flex; gap: 2px; font-size: 18px; }
 .pk-row-t small.pk-solo-r { white-space: normal; color: var(--tint); font-weight: 700; }
 .pk-tag.is-won { color: #0E8196; background: var(--tint-soft); display: inline-flex; align-items: center; gap: 2px; }
 .pk-tag.is-won .ic { width: 11px; height: 11px; }
-.pk-mode { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 14px; border: 0; border-radius: 18px; background: #fff;
-  box-shadow: var(--pk-shadow); color: var(--ink); text-align: left; cursor: pointer; }
-.pk-mode svg { width: 44px; height: 44px; margin-bottom: 4px; }
-.pk-mode b { font: 900 17px/1.1 var(--font-text); }
-.pk-mode small { font: 600 12px/1.3 var(--font-text); color: var(--ink-3); }
-.pk-mini { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 46px; border: 0; border-radius: 14px; background: #fff; box-shadow: var(--pk-shadow);
-  color: var(--ink-2); font: 700 13px/1 var(--font-text); cursor: pointer; }
-.pk-mini svg { width: 22px; height: 22px; }
+.pk-mode { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 126px; padding: 14px 10px 12px; border: 0; border-radius: 20px;
+  background: linear-gradient(180deg, #fff, #F3F6F9); box-shadow: var(--pk-shadow), inset 0 -3px 0 rgba(40,60,90,.06); color: var(--ink); text-align: center; cursor: pointer; }
+.pk-mode svg { width: 56px; height: 56px; margin-bottom: 2px; }
+.pk-mode b { font: 800 18px/1.1 var(--font-text); }
+.pk-mode small { font: 600 11px/1.3 var(--font-text); color: var(--ink-3); }
+.pk-mode .pk-bang { top: -6px; right: -6px; width: 24px; height: 24px; font-size: 14px; }
+.pk-row-s { display: flex; align-items: stretch; gap: 10px; margin-top: 12px; }
+.pk-mini { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; width: 74px; min-height: 72px; border: 0; border-radius: 16px;
+  background: linear-gradient(180deg, #fff, #F3F6F9); box-shadow: var(--pk-shadow), inset 0 -3px 0 rgba(40,60,90,.06); color: var(--ink-2); font: 700 11.5px/1 var(--font-text); cursor: pointer; }
+.pk-mini svg { width: 28px; height: 28px; }
+.pk-mini.is-end { margin-left: auto; }
+.pk-mini .pk-bang { top: -5px; right: -5px; }
+.pk-mini-n { position: absolute; top: -6px; right: -6px; min-width: 22px; height: 20px; padding: 0 6px; border-radius: 99px; display: inline-flex; align-items: center; justify-content: center;
+  background: linear-gradient(180deg, #FFD34D, #E9A812); color: #4A3800; font: 800 11px/1 var(--font-text); font-style: normal; box-shadow: 0 0 0 2px #fff; }
 .pk-backrow { display: inline-flex; align-items: center; gap: 2px; margin: 0 0 10px -6px; padding: 6px; border: 0; background: none; color: var(--link); font: 700 14px var(--font-text); cursor: pointer; }
 .pk-backrow .ic { width: 16px; height: 16px; }
 .pk-res { flex: none; min-width: 64px; min-height: 30px; border: 0; border-radius: 10px; font: 800 12px var(--font-text); cursor: pointer; background: var(--surface-2); color: var(--ink-2); }
@@ -405,6 +457,15 @@ button.pk-card:active { transform: scale(.97); }
 .pk-guide li::before { content: counter(g); position: absolute; left: 12px; top: 12px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
   background: linear-gradient(180deg, #3FD3E4, #13A9C2); color: #fff; font: 900 13px/1 var(--font-text); }
 .pk-guide b { display: block; color: var(--ink); font-size: 14px; margin-bottom: 2px; }
+/* the Menu (≡): the Guide, coins, rankings, Offering Rates, the title screen, the exit */
+.pk-menu { padding: 0; overflow: hidden; }
+.pk-menu > li { padding: 0; }
+.pk-menu-b { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 58px; padding: 10px 14px; border: 0; background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.pk-menu-b:active { background: var(--surface-2); }
+.pk-menu-i { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; background: var(--tint-soft); color: var(--tint); flex: none; font-style: normal; }
+.pk-menu-b.is-exit .pk-menu-i { background: var(--wrong-soft); color: var(--wrong); }
+.pk-menu-b > .ic:last-child { color: var(--ink-4); width: 16px; height: 16px; flex: none; }
+.pk-menu-foot { text-align: center; margin: 12px 0 0; }
 
 /* ---------------------------------------------------------------- a card up close (its sheet), and other sheets */
 .pk-zoom { width: min(280px, 76%); margin: 4px auto 12px; }
@@ -442,6 +503,45 @@ button.pk-card:active { transform: scale(.97); }
 .pk-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; font: 700 13px var(--font-text); color: var(--ink-3); }
 .pk-field input { height: 46px; padding: 0 14px; border: 0; border-radius: 12px; background: #fff; box-shadow: var(--pk-shadow); color: var(--ink); font: 600 16px var(--font-text); }
 .sheet.pk-sheet .pk-grid { padding: 6px 2px 14px; }
+
+/* ---------------------------------------------------------------- the start screen (Pocket's title screen, the owner's screenshot, Oct 29 2026:
+   cards drifting over a pastel wash, the logo, Tap to Start, the version and support id top left, the menu top right,
+   the credits at the foot; views/dynasty.js startHTML). It covers the shell (inert beneath it) till a tap. */
+.pk.is-start { height: 100dvh; overflow: hidden; }
+.pk-start { position: absolute; inset: 0; z-index: 30; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; cursor: pointer; outline: none;
+  -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; touch-action: manipulation;
+  background: radial-gradient(90% 55% at 8% 0%, #D4F1DE, transparent 62%), radial-gradient(80% 55% at 100% 8%, #D3E7FA, transparent 60%),
+    radial-gradient(90% 60% at 92% 100%, #FAD9E9, transparent 62%), radial-gradient(80% 55% at 0% 100%, #E5D9F6, transparent 60%), #F2F5F9;
+  transition: opacity .42s ease, transform .42s ease; }
+.pk-start:focus-visible { box-shadow: inset 0 0 0 4px var(--tint); }
+.pk-start.is-out { opacity: 0; transform: scale(1.05); pointer-events: none; }
+.pk-start-cards { position: absolute; inset: 0; pointer-events: none; }
+.pk-start-card { position: absolute; left: var(--x); top: var(--y); width: calc(min(31vw, 132px) * var(--s)); transform: rotate(var(--r));
+  animation: pk-drift var(--t) ease-in-out var(--d) infinite alternate; }
+.pk-start-card.z-0 { filter: blur(2.2px); opacity: .5; }
+.pk-start-card.z-1 { filter: blur(.7px); opacity: .8; }
+.pk-start-card.z-2 { filter: drop-shadow(0 10px 18px rgba(30,45,70,.22)); }
+.pk-start-card > .pk-card { box-shadow: 0 4px 12px rgba(30,45,70,.16); }
+@keyframes pk-drift { from { translate: 0 10px; } to { translate: 0 -12px; } }
+.pk-start-top { position: absolute; left: 14px; right: 14px; top: max(10px, env(safe-area-inset-top)); z-index: 2; display: flex; align-items: flex-start; gap: 10px; }
+.pk-start-ver { display: flex; flex-direction: column; gap: 2px; margin-top: 8px; font: 500 12px/1.3 var(--font-text); color: #8A96A3; }
+.pk-start-menu { margin-left: auto; width: 46px; height: 46px; border: 0; border-radius: 50%; background: rgba(255,255,255,.92); box-shadow: var(--pk-shadow); color: #7A8794;
+  display: grid; place-items: center; cursor: pointer; }
+.pk-start-menu svg { width: 26px; height: 26px; }
+/* the logo, after Pocket's: the first word in yellow with a blue edge, the red plate, the second in blue */
+.pk-start-logo { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; margin-top: -8vh; text-align: center; pointer-events: none; }
+.pk-logo-top { font: 900 italic clamp(54px, 17vw, 76px)/1 var(--font-text); letter-spacing: -.03em; color: #FFCB05; -webkit-text-stroke: .085em #2A6EBB; paint-order: stroke fill;
+  text-shadow: .035em .06em 0 #1D4F8C, 0 .12em .3em rgba(30,60,120,.25); padding: 0 .1em; }
+.pk-logo-plate { font: 800 clamp(11px, 3.4vw, 14px)/1 var(--font-text); letter-spacing: .14em; text-transform: uppercase; color: #fff; background: #E0312E; padding: 7px 14px; border-radius: 6px;
+  box-shadow: 0 0 0 2px #fff, 0 0 0 3.5px #2A6EBB; }
+.pk-logo-sub { font: 700 clamp(44px, 13vw, 60px)/1.1 var(--font-text); letter-spacing: -.01em; color: #2A6EBB; }
+.pk-start-tap { position: absolute; left: 16px; right: 16px; bottom: 15vh; z-index: 3; margin: 0; text-align: center; font: 600 24px/1.2 var(--font-text); color: #7E8A97; letter-spacing: .01em;
+  text-shadow: 0 0 10px rgba(255,255,255,.9), 0 0 2px #fff; pointer-events: none; }
+.pk-start.is-ready .pk-start-tap { animation: pk-breathe 1.8s ease-in-out infinite; }
+@keyframes pk-breathe { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+.pk-start.is-wait .pk-start-tap { animation: dy-shiver .4s; color: var(--ink); }
+.pk-start-credits { position: absolute; left: 16px; right: 16px; bottom: max(14px, env(safe-area-inset-bottom)); z-index: 3; margin: 0; text-align: center; font: 500 11px/1.5 var(--font-text);
+  color: #8F9BA7; text-shadow: 0 0 8px rgba(255,255,255,.9), 0 0 2px #fff; pointer-events: none; }
 
 /* ---------------------------------------------------------------- opening a pack (over everything) */
 div.pk-open { position: fixed; inset: 0; z-index: 200; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
@@ -520,7 +620,9 @@ div.pk-open.is-out { opacity: 0; }
 .pk-open-bar { display: flex; align-items: center; justify-content: center; gap: 12px; }
 .pk-open-bar button.pk-open { min-width: 160px; }
 @media (prefers-reduced-motion: reduce) {
-  .pk-pack-foil, .pk-c-shine, .pk-open-bg::after, .pk-bigpack, .dy-open-pack .dy-rip, .pk-deal-c, .pk-deal-c::before, .pk-res-c { animation: none !important; }
+  .pk-pack-foil, .pk-c-shine, .pk-open-bg::after, .pk-bigpack, .dy-open-pack .dy-rip, .pk-deal-c, .pk-deal-c::before, .pk-res-c,
+  .pk-start-card, .pk-start-tap, .pk-banner-orbs span { animation: none !important; }
+  .pk-start { transition: none; }
   /* (the hint holds still: the fingertip at the start, the trail drawn along the tear line) */
   .dy-rip-finger { animation: none; opacity: 1; }
   .dy-rip-trail { animation: none; transform: none; }
