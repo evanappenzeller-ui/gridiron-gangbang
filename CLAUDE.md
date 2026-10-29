@@ -84,7 +84,8 @@ How it's enforced, and what to keep doing:
   phone, paid once through `paySolo`, never trophies; Pocket's title screen on entering, Oct 29 2026: "Create a start
   screen when entering the dynasty", `views/dynasty.js` `startHTML`, cards drifting, the logo, Tap to Start, with the
   five tabs at the foot incl. the Menu (≡), the header's pack and coin counters, the Packs stage and the Battle banner
-  after his Pocket screenshots; verify `node tools/dynasty/check-start-browser.cjs` before Dynasty visual releases;
+  after his Pocket screenshots; verify `node tools/dynasty/check-start-browser.cjs` before Dynasty visual releases (and `node tools/dynasty/check-scope.cjs`: its
+  stylesheets share the pk- prefix with the Pick'em and must stay scoped to the Dynasty's roots);
   a pack's cards revealed by rarity, Oct 29 2026: "The more rare the player, the more exciting the animation",
   `views/dynasty-open.js` `REVEAL`/`revealOf`, ◆ dealt to ♛ with the crown, rays, flash, sparks and confetti, verify
   `node tools/dynasty/check-reveal.cjs`):

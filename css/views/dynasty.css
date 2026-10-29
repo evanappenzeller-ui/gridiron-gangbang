@@ -2,7 +2,11 @@
    2026: "I want the gameplay and theme/design to match the Pokémon app"): Pocket's light screens (soft grey-blue ground,
    white rounded panels, teal buttons, pink ribbon), its foil booster packs, its cards (the type's colours, the art in a
    window, attacks with energy symbols, the rarity mark; ★ and crown cards full art) and its light battle mat.
-   The cards are sized by their own width (a container: cqw), so one card's markup serves every size. */
+   The cards are sized by their own width (a container: cqw), so one card's markup serves every size.
+   Scope roots: .v-dynasty, .v-dynasty-battle, .pk-sheet (its sheets) and div.pk-open (a pack opening). Its classes share
+   the pk- prefix with the Pick'em (css/views/pickem.css: .pk-list, .pk-foot, .pk-tile, .pk-banner, .pk-note, .pk-rk), so
+   every rule here, in dynasty-packs.css and in dynasty-open.css stays under :where(roots) (no specificity added) or
+   names a root itself; tools/dynasty/check-scope.cjs asserts it (the Pick'em's game cards broke when it wasn't). */
 
 /* ---------------------------------------------------------------- Pocket's light theme (the page, its sheets, a pack
    opening and a battle: the shared components follow these tokens) */
@@ -26,578 +30,578 @@ html.is-dynasty-playing .v-dynasty { padding-bottom: 0; }
 .sheet.pk-sheet .sheet-title { color: var(--ink); }
 .sheet.pk-sheet .as-btn + .as-btn { box-shadow: inset 0 1px 0 var(--separator); }
 
-.pk { position: relative; min-height: 100dvh; display: flex; flex-direction: column;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk { position: relative; min-height: 100dvh; display: flex; flex-direction: column;
   background: linear-gradient(162deg, #F8FAFC 0 38%, #E8EEF3 38% 100%); }
 /* The header stays pinned with a solid background, as the app's nav bars do: iOS frosts whatever page sits loose under
    the status bar (the owner, Oct 29 2026: "The top of the screen is blurry"). */
-.pk-hdr { position: sticky; top: 0; z-index: 5; background: #F8FAFC; box-shadow: 0 1px 0 rgba(40,60,90,.06); display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 8px;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-hdr { position: sticky; top: 0; z-index: 5; background: #F8FAFC; box-shadow: 0 1px 0 rgba(40,60,90,.06); display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 8px;
   padding: max(8px, env(safe-area-inset-top)) 14px 8px; }
-.pk-title { margin: 0; text-align: center; font: 800 18px/1.2 var(--font-text); letter-spacing: .01em; color: var(--ink); outline: none; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-title { margin: 0; text-align: center; font: 800 18px/1.2 var(--font-text); letter-spacing: .01em; color: var(--ink); outline: none; }
 /* Pocket's counters at the right: your packs to open (two little packs and the count; ∞ and MAX when unlimited: tap for
    the pack list) and your coins */
-.pk-hud { justify-self: end; display: inline-flex; align-items: center; gap: 6px; }
-.pk-meter { position: relative; display: inline-flex; align-items: center; gap: 3px; height: 30px; padding: 0 10px 0 8px; border: 0; border-radius: 99px; background: #fff;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-hud { justify-self: end; display: inline-flex; align-items: center; gap: 6px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-meter { position: relative; display: inline-flex; align-items: center; gap: 3px; height: 30px; padding: 0 10px 0 8px; border: 0; border-radius: 99px; background: #fff;
   box-shadow: var(--pk-shadow); color: var(--ink); font: 800 13px/1 var(--font-text); cursor: pointer; }
-.pk-meter-p { width: 11px; height: 16px; border-radius: 2px; background: linear-gradient(180deg, #F7C4DA 0 22%, #E57FB0 22%); box-shadow: 0 0 0 1px rgba(255,255,255,.9); }
-.pk-meter-p + .pk-meter-p { margin-left: -5px; }
-.pk-meter b { margin-left: 3px; }
-.pk-meter.is-max b { font-size: 15px; }
-.pk-meter small { position: absolute; left: 50%; bottom: -7px; transform: translateX(-50%); font: 800 8px/1 var(--font-text); letter-spacing: .06em; color: #fff;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-meter-p { width: 11px; height: 16px; border-radius: 2px; background: linear-gradient(180deg, #F7C4DA 0 22%, #E57FB0 22%); box-shadow: 0 0 0 1px rgba(255,255,255,.9); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-meter-p + .pk-meter-p { margin-left: -5px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-meter b { margin-left: 3px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-meter.is-max b { font-size: 15px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-meter small { position: absolute; left: 50%; bottom: -7px; transform: translateX(-50%); font: 800 8px/1 var(--font-text); letter-spacing: .06em; color: #fff;
   background: var(--tint); padding: 2px 5px; border-radius: 99px; box-shadow: 0 0 0 1.5px #fff; }
-.pk-coin-n { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px 0 6px; border-radius: 99px; background: #fff; box-shadow: var(--pk-shadow);
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-coin-n { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px 0 6px; border-radius: 99px; background: #fff; box-shadow: var(--pk-shadow);
   font: 700 14px/1 var(--font-text); color: var(--ink); }
-.pk-coin { width: 20px; height: 20px; border-radius: 50%; flex: none;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-coin { width: 20px; height: 20px; border-radius: 50%; flex: none;
   background: radial-gradient(circle at 35% 30%, #FFF6C4 0 16%, #FFCF3A 42%, #D89A0E 100%); box-shadow: inset 0 0 0 1.5px rgba(150,95,0,.45); }
-.pk-pane { flex: 1; padding: 4px 16px 24px; min-width: 0; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pane { flex: 1; padding: 4px 16px 24px; min-width: 0; }
 /* Pocket's menu at the foot of the screen (the owner, Oct 29 2026; the app's own tab bar is hidden while playing): the
    four places as icons on a pale bar, the one you're on in teal with a pip under it */
-.pk-nav { position: sticky; bottom: 0; z-index: 4; display: grid; grid-template-columns: repeat(5, 1fr);
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-nav { position: sticky; bottom: 0; z-index: 4; display: grid; grid-template-columns: repeat(5, 1fr);
   padding: 6px 8px max(8px, env(safe-area-inset-bottom)); background: rgba(240,244,248,.96); box-shadow: 0 -1px 0 rgba(40,60,90,.06), 0 -6px 18px rgba(40,60,90,.08);
   backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
-.pk-tab { position: relative; display: flex; align-items: center; justify-content: center; min-height: 52px; border: 0; background: none;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-tab { position: relative; display: flex; align-items: center; justify-content: center; min-height: 52px; border: 0; background: none;
   color: #8E9AA6; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: color .2s; }
-.pk-tab svg { width: 30px; height: 30px; filter: drop-shadow(0 1.5px 0 rgba(40,60,90,.18)); transition: transform .25s cubic-bezier(.3,.7,.3,1.4); }
-.pk-tab:active svg { transform: scale(.9); }
-.pk-tab.is-on { color: var(--tint); }
-.pk-tab.is-on svg { transform: scale(1.08); }
-.pk-tab.is-on::after { content: ''; position: absolute; bottom: 2px; left: 50%; width: 16px; height: 3px; margin-left: -8px; border-radius: 2px; background: var(--tint); }
-.pk-dot { position: absolute; top: 6px; left: calc(50% + 10px); width: 10px; height: 10px; border-radius: 50%; background: var(--wrong); box-shadow: 0 0 0 2px #fff; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-tab svg { width: 30px; height: 30px; filter: drop-shadow(0 1.5px 0 rgba(40,60,90,.18)); transition: transform .25s cubic-bezier(.3,.7,.3,1.4); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-tab:active svg { transform: scale(.9); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-tab.is-on { color: var(--tint); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-tab.is-on svg { transform: scale(1.08); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-tab.is-on::after { content: ''; position: absolute; bottom: 2px; left: 50%; width: 16px; height: 3px; margin-left: -8px; border-radius: 2px; background: var(--tint); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-dot { position: absolute; top: 6px; left: calc(50% + 10px); width: 10px; height: 10px; border-radius: 50%; background: var(--wrong); box-shadow: 0 0 0 2px #fff; }
 
 /* bits shared by every tab */
-.pk-sec { margin-top: 22px; }
-.pk-h { margin: 0 0 10px; font: 800 15px/1.3 var(--font-text); color: var(--ink); }
-.pk-note { margin: 0 0 12px; color: var(--ink-3); font-size: var(--fs-foot); line-height: var(--lh-foot); }
-.pk-note b { color: var(--ink); }
-.pk-panel { background: #fff; border-radius: 18px; box-shadow: var(--pk-shadow); padding: 12px; }
-.pk-alert { display: flex; align-items: center; gap: 10px; width: 100%; margin: 0 0 10px; padding: 11px 14px; border: 0; border-radius: 14px; background: #fff;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-sec { margin-top: 22px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-h { margin: 0 0 10px; font: 800 15px/1.3 var(--font-text); color: var(--ink); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-note { margin: 0 0 12px; color: var(--ink-3); font-size: var(--fs-foot); line-height: var(--lh-foot); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-note b { color: var(--ink); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-panel { background: #fff; border-radius: 18px; box-shadow: var(--pk-shadow); padding: 12px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-alert { display: flex; align-items: center; gap: 10px; width: 100%; margin: 0 0 10px; padding: 11px 14px; border: 0; border-radius: 14px; background: #fff;
   box-shadow: var(--pk-shadow); color: var(--ink); font: 600 var(--fs-foot) var(--font-text); text-align: left; cursor: pointer; }
-.pk-alert > span { flex: 1; }
-.pk-alert > .ic:first-child { color: var(--tint); }
-.pk-alert.is-gold > .ic:first-child { color: var(--gold); }
-.pk-alert.is-soft { background: rgba(255,255,255,.7); }
-.pk-alert > .ic:last-child { color: var(--ink-4); }
-.pk-pill { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-height: 34px; padding: 0 14px; border: 0; border-radius: 99px; background: #fff;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-alert > span { flex: 1; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-alert > .ic:first-child { color: var(--tint); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-alert.is-gold > .ic:first-child { color: var(--gold); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-alert.is-soft { background: rgba(255,255,255,.7); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-alert > .ic:last-child { color: var(--ink-4); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pill { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-height: 34px; padding: 0 14px; border: 0; border-radius: 99px; background: #fff;
   color: var(--ink-2); font: 700 12px/1.15 var(--font-text); box-shadow: var(--pk-shadow); cursor: pointer; text-align: center; }
-.pk-pill .ic { width: 14px; height: 14px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pill .ic { width: 14px; height: 14px; }
 /* Pocket's teal button (Open, Next, Challenge, Play) */
-button.pk-open, .pk-btn.is-go { border: 0; cursor: pointer; color: #fff; font: 800 16px/1 var(--font-text); letter-spacing: .02em;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) button.pk-open, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-btn.is-go { border: 0; cursor: pointer; color: #fff; font: 800 16px/1 var(--font-text); letter-spacing: .02em;
   background: linear-gradient(180deg, #3FD3E4, #13A9C2); box-shadow: 0 3px 0 #0E8196, 0 6px 14px rgba(19,169,194,.35); text-shadow: 0 1px 0 rgba(0,90,110,.35); }
-button.pk-open { min-height: 50px; padding: 0 28px; border-radius: 16px; }
-button.pk-open:active, .pk-btn.is-go:active { transform: translateY(2px); box-shadow: 0 1px 0 #0E8196, 0 3px 8px rgba(19,169,194,.3); }
-.pk-btn { min-height: 34px; padding: 0 14px; border-radius: 12px; font: 700 13px/1 var(--font-text); flex: none; }
-.pk-btn.is-go { font-size: 13px; box-shadow: 0 2px 0 #0E8196; }
-.pk-btn.is-soft { border: 0; background: var(--surface-2); color: var(--ink-2); cursor: pointer; }
-.pk-btn:disabled { opacity: .45; pointer-events: none; }
-.pk-btns { display: inline-flex; gap: 6px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) button.pk-open { min-height: 50px; padding: 0 28px; border-radius: 16px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) button.pk-open:active, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-btn.is-go:active { transform: translateY(2px); box-shadow: 0 1px 0 #0E8196, 0 3px 8px rgba(19,169,194,.3); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-btn { min-height: 34px; padding: 0 14px; border-radius: 12px; font: 700 13px/1 var(--font-text); flex: none; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-btn.is-go { font-size: 13px; box-shadow: 0 2px 0 #0E8196; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-btn.is-soft { border: 0; background: var(--surface-2); color: var(--ink-2); cursor: pointer; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-btn:disabled { opacity: .45; pointer-events: none; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-btns { display: inline-flex; gap: 6px; }
 /* Pocket's round buttons beside the free-pack pill: the bookmark (the collections) and the ? */
-.pk-round { position: relative; flex: none; width: 36px; height: 36px; border-radius: 50%; border: 0; display: grid; place-items: center; background: #fff; color: #7A8794;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-round { position: relative; flex: none; width: 36px; height: 36px; border-radius: 50%; border: 0; display: grid; place-items: center; background: #fff; color: #7A8794;
   font: 800 16px/1 var(--font-text); box-shadow: var(--pk-shadow); cursor: pointer; }
-.pk-round svg { width: 20px; height: 20px; }
-.pk-round .pk-bang { width: 17px; height: 17px; font-size: 11px; top: -4px; right: -4px; }
-.pk-bang { position: absolute; top: -5px; right: -5px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-round svg { width: 20px; height: 20px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-round .pk-bang { width: 17px; height: 17px; font-size: 11px; top: -4px; right: -4px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-bang { position: absolute; top: -5px; right: -5px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center;
   background: var(--wrong); color: #fff; font: 800 12px/1 var(--font-text); font-style: normal; box-shadow: 0 0 0 2px #fff; }
-.pk-tag { font: 700 10px/1 var(--font-text); font-style: normal; color: var(--ink-3); background: var(--surface-2); padding: 3px 6px; border-radius: 6px; vertical-align: 2px; }
-.pk-more { display: block; margin: 16px auto 0; min-height: 38px; padding: 0 18px; border: 0; border-radius: 99px; background: #fff; box-shadow: var(--pk-shadow);
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-tag { font: 700 10px/1 var(--font-text); font-style: normal; color: var(--ink-3); background: var(--surface-2); padding: 3px 6px; border-radius: 6px; vertical-align: 2px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-more { display: block; margin: 16px auto 0; min-height: 38px; padding: 0 18px; border: 0; border-radius: 99px; background: #fff; box-shadow: var(--pk-shadow);
   color: var(--ink-2); font: 700 13px var(--font-text); cursor: pointer; }
-.pk-search { margin-top: 10px; }
-.pk-bar { display: block; position: relative; height: 6px; border-radius: 3px; background: var(--surface-3); overflow: hidden; }
-.pk-bar b { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: linear-gradient(90deg, #3FD3E4, #13A9C2); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-search { margin-top: 10px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-bar { display: block; position: relative; height: 6px; border-radius: 3px; background: var(--surface-3); overflow: hidden; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-bar b { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: linear-gradient(90deg, #3FD3E4, #13A9C2); }
 
 /* ---------------------------------------------------------------- an energy symbol (Pokémon's: a coloured disc, a white glyph) */
-.pk-e { display: inline-grid; place-items: center; width: 1.3em; height: 1.3em; border-radius: 50%; flex: none; vertical-align: -.28em;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-e { display: inline-grid; place-items: center; width: 1.3em; height: 1.3em; border-radius: 50%; flex: none; vertical-align: -.28em;
   background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--ec) 70%, #fff), var(--ec) 60%, color-mix(in srgb, var(--ec) 75%, #000));
   box-shadow: 0 0 0 .08em rgba(255,255,255,.85), 0 .06em .12em rgba(0,0,0,.3); color: var(--ec); }
-.pk-e svg { width: 74%; height: 74%; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-e svg { width: 74%; height: 74%; }
 
 /* ---------------------------------------------------------------- a card (a Pokémon card) */
-.pk-card { --t0: #F4F1E6; --t1: #E2DCC6; --t2: #A9A391; --tx: #2D2A22;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card { --t0: #F4F1E6; --t1: #E2DCC6; --t2: #A9A391; --tx: #2D2A22;
   position: relative; display: block; width: 100%; aspect-ratio: 63 / 88; padding: 0; border: 0; background: none; color: var(--tx);
   container-type: inline-size; border-radius: 5% / 3.6%; cursor: pointer; text-align: left; font-family: var(--font-text);
   box-shadow: 0 2px 5px rgba(30,45,70,.22), 0 0 0 1px rgba(30,45,70,.06); -webkit-tap-highlight-color: transparent; transition: transform .15s; }
-button.pk-card:active { transform: scale(.97); }
-.pk-card.t-A { --t0: #E6F5FD; --t1: #A9DBF6; --t2: #3D9BE9; --tx: #12324E; }
-.pk-card.t-G { --t0: #EEF8E3; --t1: #BFE3A0; --t2: #4FAE3E; --tx: #1F3B14; }
-.pk-card.t-B { --t0: #FFF0E8; --t1: #F8B99E; --t2: #E8573A; --tx: #4A1A0C; }
-.pk-card.t-C { --t0: #F4EEFC; --t1: #D3BDF2; --t2: #9562D9; --tx: #2E1650; }
-.pk-card.t-S { --t0: #FAF8F0; --t1: #E6E0CA; --t2: #A9A391; --tx: #2D2A22; }
-.pk-c-face { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; display: flex; flex-direction: column; padding: 3.4cqw 3.6cqw 2.6cqw;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) button.pk-card:active { transform: scale(.97); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.t-A { --t0: #E6F5FD; --t1: #A9DBF6; --t2: #3D9BE9; --tx: #12324E; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.t-G { --t0: #EEF8E3; --t1: #BFE3A0; --t2: #4FAE3E; --tx: #1F3B14; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.t-B { --t0: #FFF0E8; --t1: #F8B99E; --t2: #E8573A; --tx: #4A1A0C; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.t-C { --t0: #F4EEFC; --t1: #D3BDF2; --t2: #9562D9; --tx: #2E1650; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.t-S { --t0: #FAF8F0; --t1: #E6E0CA; --t2: #A9A391; --tx: #2D2A22; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-face { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; display: flex; flex-direction: column; padding: 3.4cqw 3.6cqw 2.6cqw;
   background: radial-gradient(120% 70% at 50% 0%, var(--t0), transparent 70%), linear-gradient(165deg, var(--t1), var(--t0) 45%, var(--t1));
   box-shadow: inset 0 0 0 1.5cqw #F4E7A6, inset 0 0 0 1.9cqw rgba(160,130,40,.35); }
-.pk-card.m-d4 .pk-c-face, .pk-card.m-d3 .pk-c-face { box-shadow: inset 0 0 0 1.5cqw #E8EDF2, inset 0 0 0 1.9cqw rgba(120,135,150,.4); }
-.pk-c-head { display: flex; align-items: center; gap: 1.4cqw; min-height: 10cqw; padding: 0 .6cqw; }
-.pk-c-stage { flex: none; font: 800 2.7cqw/1 var(--font-text); letter-spacing: .03em; color: #fff; padding: .9cqw 1.4cqw; border-radius: 1.2cqw;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.m-d4 .pk-c-face, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.m-d3 .pk-c-face { box-shadow: inset 0 0 0 1.5cqw #E8EDF2, inset 0 0 0 1.9cqw rgba(120,135,150,.4); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-head { display: flex; align-items: center; gap: 1.4cqw; min-height: 10cqw; padding: 0 .6cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-stage { flex: none; font: 800 2.7cqw/1 var(--font-text); letter-spacing: .03em; color: #fff; padding: .9cqw 1.4cqw; border-radius: 1.2cqw;
   background: linear-gradient(180deg, #8C98A6, #5E6B79); }
-.pk-c-stage.is-1 { background: linear-gradient(180deg, #E2B54A, #B07F14); }
-.pk-c-name { flex: 1; min-width: 0; font: 800 6cqw/1.3 var(--font-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: -.01em; }
-.pk-c-hp { flex: none; display: inline-flex; align-items: baseline; gap: .4cqw; font: 800 7cqw/1 var(--font-text); }
-.pk-c-hp small { font-size: 3cqw; font-weight: 800; }
-.pk-c-head .pk-e { font-size: 5.6cqw; }
-.pk-c-art { position: relative; flex: none; height: 54cqw; margin: 2cqw 1.4cqw 0; overflow: hidden; border-radius: .8cqw;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-stage.is-1 { background: linear-gradient(180deg, #E2B54A, #B07F14); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-name { flex: 1; min-width: 0; font: 800 6cqw/1.3 var(--font-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: -.01em; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-hp { flex: none; display: inline-flex; align-items: baseline; gap: .4cqw; font: 800 7cqw/1 var(--font-text); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-hp small { font-size: 3cqw; font-weight: 800; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-head .pk-e { font-size: 5.6cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-art { position: relative; flex: none; height: 54cqw; margin: 2cqw 1.4cqw 0; overflow: hidden; border-radius: .8cqw;
   background: repeating-conic-gradient(from 0deg at 50% 110%, rgba(255,255,255,.14) 0 6deg, transparent 6deg 14deg),
     linear-gradient(160deg, color-mix(in srgb, var(--tp) 85%, #fff), var(--tp) 55%, color-mix(in srgb, var(--ts) 70%, var(--tp)));
   box-shadow: 0 0 0 1.1cqw #E9D78F, 0 0 0 1.5cqw rgba(140,110,30,.4), inset 0 -6cqw 8cqw rgba(0,0,0,.18); }
 /* (the headshot sized by the window's height, so the whole head shows; it's wider than tall) */
-.pk-c-ph { position: absolute; left: 50%; bottom: 0; height: 100%; max-width: none; width: auto; transform: translateX(-50%); object-fit: contain;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-ph { position: absolute; left: 50%; bottom: 0; height: 100%; max-width: none; width: auto; transform: translateX(-50%); object-fit: contain;
   filter: drop-shadow(0 1cqw 1.2cqw rgba(0,0,0,.3)); user-select: none; }
-.pk-c-logo { position: absolute; top: 2cqw; right: 2cqw; width: 13cqw; height: 13cqw; object-fit: contain; filter: drop-shadow(0 .4cqw .6cqw rgba(0,0,0,.35)); }
-.pk-c-num { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); text-align: center; font: 400 34cqw/1 var(--font-num); color: rgba(255,255,255,.28); }
-.pk-c-strip { flex: none; margin: 2.4cqw 1.4cqw 0; padding: .8cqw 1.6cqw; border-radius: 1cqw; text-align: center; font: italic 700 2.9cqw/1.2 var(--font-text);
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-logo { position: absolute; top: 2cqw; right: 2cqw; width: 13cqw; height: 13cqw; object-fit: contain; filter: drop-shadow(0 .4cqw .6cqw rgba(0,0,0,.35)); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-num { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); text-align: center; font: 400 34cqw/1 var(--font-num); color: rgba(255,255,255,.28); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-strip { flex: none; margin: 2.4cqw 1.4cqw 0; padding: .8cqw 1.6cqw; border-radius: 1cqw; text-align: center; font: italic 700 2.9cqw/1.2 var(--font-text);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #5B4A14; background: linear-gradient(90deg, #E8D58C, #F6EBC0 50%, #E8D58C); }
-.pk-c-body { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: center; gap: .8cqw; padding: 1cqw 1.4cqw 0; }
-.pk-c-ab { display: flex; align-items: center; gap: 1.4cqw; font: 800 4.4cqw/1.3 var(--font-text); color: #B3261E; }
-.pk-c-ab i { font: italic 800 2.8cqw/1 var(--font-text); color: #fff; background: linear-gradient(180deg, #E5484D, #A3181D); padding: .8cqw 1.4cqw; border-radius: 1cqw; }
-.pk-c-atk { display: flex; align-items: center; gap: 1.4cqw; font-size: 4.4cqw; }
-.pk-c-cost { flex: none; display: inline-flex; gap: .5cqw; min-width: 13cqw; }
-.pk-c-cost .pk-e { font-size: 4.2cqw; }
-.pk-c-atk b { flex: 1; min-width: 0; font: 800 4.8cqw/1.35 var(--font-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pk-c-atk em { flex: none; font: 800 6.6cqw/1 var(--font-text); font-style: normal; }
-.pk-c-fx { font: 500 3.2cqw/1.25 var(--font-text); opacity: .85; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-top: -.3cqw; }
-.pk-c-foot { flex: none; display: flex; justify-content: space-between; gap: 2cqw; margin: 1cqw 1.4cqw 4.4cqw; padding-top: 1.2cqw;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-body { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: center; gap: .8cqw; padding: 1cqw 1.4cqw 0; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-ab { display: flex; align-items: center; gap: 1.4cqw; font: 800 4.4cqw/1.3 var(--font-text); color: #B3261E; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-ab i { font: italic 800 2.8cqw/1 var(--font-text); color: #fff; background: linear-gradient(180deg, #E5484D, #A3181D); padding: .8cqw 1.4cqw; border-radius: 1cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-atk { display: flex; align-items: center; gap: 1.4cqw; font-size: 4.4cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-cost { flex: none; display: inline-flex; gap: .5cqw; min-width: 13cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-cost .pk-e { font-size: 4.2cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-atk b { flex: 1; min-width: 0; font: 800 4.8cqw/1.35 var(--font-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-atk em { flex: none; font: 800 6.6cqw/1 var(--font-text); font-style: normal; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-fx { font: 500 3.2cqw/1.25 var(--font-text); opacity: .85; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-top: -.3cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-foot { flex: none; display: flex; justify-content: space-between; gap: 2cqw; margin: 1cqw 1.4cqw 4.4cqw; padding-top: 1.2cqw;
   border-top: .4cqw solid color-mix(in srgb, var(--tx) 22%, transparent); font: 800 3.4cqw/1 var(--font-text); min-height: 7cqw; }
-.pk-c-foot > span { display: inline-flex; align-items: center; gap: .8cqw; }
-.pk-c-foot small { font: 700 2.6cqw/1 var(--font-text); text-transform: capitalize; opacity: .75; }
-.pk-c-foot .pk-e { font-size: 3.6cqw; }
-.pk-c-rar { position: absolute; left: 5cqw; bottom: 2.4cqw; font: 400 3.4cqw/1 var(--font-text); letter-spacing: -.02em; color: #fff;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-foot > span { display: inline-flex; align-items: center; gap: .8cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-foot small { font: 700 2.6cqw/1 var(--font-text); text-transform: capitalize; opacity: .75; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-foot .pk-e { font-size: 3.6cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-rar { position: absolute; left: 5cqw; bottom: 2.4cqw; font: 400 3.4cqw/1 var(--font-text); letter-spacing: -.02em; color: #fff;
   -webkit-text-stroke: .5cqw rgba(30,40,55,.75); paint-order: stroke fill; }
-.pk-c-rar.is-s, .pk-c-rar.is-c { color: #FFD43B; -webkit-text-stroke-color: rgba(110,70,0,.8); font-size: 4cqw; }
-.pk-c-set { position: absolute; right: 5cqw; bottom: 2.4cqw; font: 800 2.6cqw/1 var(--font-text); opacity: .6; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-rar.is-s, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-rar.is-c { color: #FFD43B; -webkit-text-stroke-color: rgba(110,70,0,.8); font-size: 4cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-set { position: absolute; right: 5cqw; bottom: 2.4cqw; font: 800 2.6cqw/1 var(--font-text); opacity: .6; }
 /* (small cards: the effect lines go, the rest stays readable) */
-.pk-card.sz-s .pk-c-fx { display: none; }
-.pk-card.sz-s .pk-c-body { gap: 1.6cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.sz-s .pk-c-fx { display: none; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.sz-s .pk-c-body { gap: 1.6cqw; }
 /* full art (★, ★★ and crown cards): the picture fills the card, the words over it */
-.pk-card.is-full { --tx: #fff; }
-.pk-card.is-full .pk-c-face { background: linear-gradient(165deg, var(--tp), color-mix(in srgb, var(--ts) 60%, #000)); box-shadow: inset 0 0 0 1.5cqw rgba(255,255,255,.5); }
-.pk-card.m-c1 .pk-c-face { box-shadow: inset 0 0 0 1.5cqw #F2CF5B, inset 0 0 0 1.9cqw rgba(120,80,0,.5); }
-.pk-card.is-full .pk-c-art { position: absolute; inset: 0; height: auto; margin: 0; border-radius: inherit; box-shadow: none; z-index: 0;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.is-full { --tx: #fff; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.is-full .pk-c-face { background: linear-gradient(165deg, var(--tp), color-mix(in srgb, var(--ts) 60%, #000)); box-shadow: inset 0 0 0 1.5cqw rgba(255,255,255,.5); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.m-c1 .pk-c-face { box-shadow: inset 0 0 0 1.5cqw #F2CF5B, inset 0 0 0 1.9cqw rgba(120,80,0,.5); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.is-full .pk-c-art { position: absolute; inset: 0; height: auto; margin: 0; border-radius: inherit; box-shadow: none; z-index: 0;
   background: repeating-conic-gradient(from 0deg at 50% 38%, rgba(255,255,255,.12) 0 5deg, transparent 5deg 15deg),
     radial-gradient(70% 45% at 50% 34%, color-mix(in srgb, var(--tp) 55%, #fff), transparent 70%), linear-gradient(170deg, var(--tp), color-mix(in srgb, var(--ts) 75%, #000)); }
-.pk-card.is-full .pk-c-art::after { content: ""; position: absolute; inset: 0; background: linear-gradient(transparent 46%, rgba(0,0,0,.55) 66%, rgba(0,0,0,.82)),
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.is-full .pk-c-art::after { content: ""; position: absolute; inset: 0; background: linear-gradient(transparent 46%, rgba(0,0,0,.55) 66%, rgba(0,0,0,.82)),
   linear-gradient(rgba(0,0,0,.4), transparent 16%); }
-.pk-card.is-full .pk-c-ph { bottom: 35%; height: 56%; }
-.pk-card.is-full .pk-c-logo { top: auto; bottom: 40%; right: 4cqw; width: 12cqw; height: 12cqw; }
-.pk-card.is-full .pk-c-num { top: 36%; color: rgba(255,255,255,.22); }
-.pk-card.is-full .pk-c-head, .pk-card.is-full .pk-c-strip, .pk-card.is-full .pk-c-body, .pk-card.is-full .pk-c-foot { position: relative; z-index: 1; }
-.pk-card.is-full .pk-c-head { text-shadow: 0 .4cqw 1cqw rgba(0,0,0,.6); }
-.pk-card.is-full .pk-c-strip { margin-top: auto; background: rgba(255,255,255,.18); color: #fff; }
-.pk-card.is-full .pk-c-body { flex: none; height: 37cqw; text-shadow: 0 .3cqw .8cqw rgba(0,0,0,.6); }
-.pk-card.is-full .pk-c-ab { color: #FFB4A8; }
-.pk-card.is-full .pk-c-foot { border-top-color: rgba(255,255,255,.3); }
-.pk-card.is-full .pk-c-rar, .pk-card.is-full .pk-c-set { z-index: 1; }
-.pk-card.is-full .pk-c-set { color: #fff; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.is-full .pk-c-ph { bottom: 35%; height: 56%; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.is-full .pk-c-logo { top: auto; bottom: 40%; right: 4cqw; width: 12cqw; height: 12cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.is-full .pk-c-num { top: 36%; color: rgba(255,255,255,.22); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.is-full .pk-c-head, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.is-full .pk-c-strip, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.is-full .pk-c-body, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.is-full .pk-c-foot { position: relative; z-index: 1; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.is-full .pk-c-head { text-shadow: 0 .4cqw 1cqw rgba(0,0,0,.6); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.is-full .pk-c-strip { margin-top: auto; background: rgba(255,255,255,.18); color: #fff; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.is-full .pk-c-body { flex: none; height: 37cqw; text-shadow: 0 .3cqw .8cqw rgba(0,0,0,.6); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.is-full .pk-c-ab { color: #FFB4A8; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.is-full .pk-c-foot { border-top-color: rgba(255,255,255,.3); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.is-full .pk-c-rar, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.is-full .pk-c-set { z-index: 1; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.is-full .pk-c-set { color: #fff; }
 /* the shine: a sheen across the card, a slow rainbow foil on full-art and ◆◆◆◆ cards */
-.pk-c-shine { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; mix-blend-mode: soft-light;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-shine { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; mix-blend-mode: soft-light;
   background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,.55) 45%, transparent 60%); background-size: 260% 100%; background-position: 100% 0; }
-.pk-card.is-full .pk-c-shine, .pk-card.m-d4 .pk-c-shine { mix-blend-mode: overlay;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.is-full .pk-c-shine, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.m-d4 .pk-c-shine { mix-blend-mode: overlay;
   background: linear-gradient(115deg, transparent 25%, rgba(255,120,200,.45) 38%, rgba(120,230,255,.5) 46%, rgba(255,240,120,.45) 54%, transparent 66%);
   background-size: 300% 100%; animation: pk-foil 5s ease-in-out infinite; }
 @keyframes pk-foil { 0%, 100% { background-position: 100% 0; } 50% { background-position: 0 0; } }
-.pk-c-new { position: absolute; top: -2.4cqw; left: -2.4cqw; z-index: 2; padding: 1.4cqw 2.6cqw; border-radius: 99px; background: linear-gradient(180deg, #FF6FA6, #E8337B);
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-new { position: absolute; top: -2.4cqw; left: -2.4cqw; z-index: 2; padding: 1.4cqw 2.6cqw; border-radius: 99px; background: linear-gradient(180deg, #FF6FA6, #E8337B);
   color: #fff; font: 800 4.6cqw/1 var(--font-text); letter-spacing: .03em; box-shadow: 0 .6cqw 1.6cqw rgba(200,30,100,.4); }
-.pk-c-cnt { position: absolute; right: -2cqw; bottom: -2cqw; z-index: 2; min-width: 13cqw; height: 13cqw; padding: 0 2.4cqw; border-radius: 99px; display: inline-flex;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-cnt { position: absolute; right: -2cqw; bottom: -2cqw; z-index: 2; min-width: 13cqw; height: 13cqw; padding: 0 2.4cqw; border-radius: 99px; display: inline-flex;
   align-items: center; justify-content: center; background: #fff; color: var(--ink); font: 800 6.6cqw/1 var(--font-text); box-shadow: 0 .8cqw 2cqw rgba(30,45,70,.3); }
-.pk-c-cnt::before { content: "×"; font-size: .8em; margin-right: .3cqw; color: var(--ink-3); }
-.pk-card.is-ghost { box-shadow: 0 0 0 1px rgba(30,45,70,.08); }
-.pk-card.is-ghost > .pk-c-face { filter: grayscale(1) contrast(.85) brightness(1.08); opacity: .32; }
-.pk-card.is-ghost > .pk-c-shine { display: none; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-cnt::before { content: "×"; font-size: .8em; margin-right: .3cqw; color: var(--ink-3); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.is-ghost { box-shadow: 0 0 0 1px rgba(30,45,70,.08); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.is-ghost > .pk-c-face { filter: grayscale(1) contrast(.85) brightness(1.08); opacity: .32; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.is-ghost > .pk-c-shine { display: none; }
 
 /* a Trainer card: Pocket's silver frame, the kind's band (Supporter orange, Item blue, Stadium green) */
-.pk-trainer { --tk: #E0812C; --tx: #2A2F36; }
-.pk-trainer.k-item { --tk: #2F8FE0; }
-.pk-trainer.k-stadium { --tk: #2FA45A; }
-.pk-trainer .pk-c-face { padding: 3.6cqw 4cqw 3cqw; gap: 1.8cqw;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-trainer { --tk: #E0812C; --tx: #2A2F36; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-trainer.k-item { --tk: #2F8FE0; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-trainer.k-stadium { --tk: #2FA45A; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-trainer .pk-c-face { padding: 3.6cqw 4cqw 3cqw; gap: 1.8cqw;
   background: linear-gradient(165deg, #F3F5F8, #DCE2E8 50%, #F3F5F8); box-shadow: inset 0 0 0 1.5cqw #C9D1D9, inset 0 0 0 1.9cqw rgba(90,100,115,.35); }
-.pk-t-head { display: flex; align-items: center; justify-content: space-between; }
-.pk-t-head b { font: 900 italic 6cqw/1 var(--font-text); color: #4D5966; letter-spacing: -.01em; }
-.pk-t-head i { font: 800 3.4cqw/1 var(--font-text); font-style: normal; color: #fff; background: var(--tk); padding: 1.2cqw 2.4cqw; border-radius: 1.2cqw; }
-.pk-t-name { font: 800 6.6cqw/1.1 var(--font-text); padding: 0 .6cqw; }
-.pk-t-art { position: relative; flex: none; height: 62cqw; display: grid; place-items: center; border-radius: 1.2cqw; overflow: hidden; color: color-mix(in srgb, var(--tk) 85%, #000);
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-t-head { display: flex; align-items: center; justify-content: space-between; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-t-head b { font: 900 italic 6cqw/1 var(--font-text); color: #4D5966; letter-spacing: -.01em; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-t-head i { font: 800 3.4cqw/1 var(--font-text); font-style: normal; color: #fff; background: var(--tk); padding: 1.2cqw 2.4cqw; border-radius: 1.2cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-t-name { font: 800 6.6cqw/1.1 var(--font-text); padding: 0 .6cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-t-art { position: relative; flex: none; height: 62cqw; display: grid; place-items: center; border-radius: 1.2cqw; overflow: hidden; color: color-mix(in srgb, var(--tk) 85%, #000);
   background: radial-gradient(70% 70% at 50% 45%, #fff, color-mix(in srgb, var(--tk) 22%, #fff)); box-shadow: 0 0 0 1.1cqw #fff, 0 0 0 1.5cqw rgba(90,100,115,.35); }
-.pk-t-art svg { width: 44cqw; height: 44cqw; }
-.pk-t-logo { position: absolute; right: 3cqw; bottom: 3cqw; width: 18cqw; height: 18cqw; object-fit: contain; }
-.pk-t-text { flex: 1; min-height: 0; overflow: hidden; font: 600 4.8cqw/1.3 var(--font-text); padding: 0 .6cqw; }
-.pk-t-rule { flex: none; font: 600 italic 2.8cqw/1.25 var(--font-text); color: #6B7682; padding: 1.2cqw .6cqw 5cqw; border-top: .4cqw solid rgba(90,100,115,.25); }
-.pk-card.sz-s.pk-trainer .pk-t-text { font-size: 5.2cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-t-art svg { width: 44cqw; height: 44cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-t-logo { position: absolute; right: 3cqw; bottom: 3cqw; width: 18cqw; height: 18cqw; object-fit: contain; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-t-text { flex: 1; min-height: 0; overflow: hidden; font: 600 4.8cqw/1.3 var(--font-text); padding: 0 .6cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-t-rule { flex: none; font: 600 italic 2.8cqw/1.25 var(--font-text); color: #6B7682; padding: 1.2cqw .6cqw 5cqw; border-top: .4cqw solid rgba(90,100,115,.25); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.sz-s.pk-trainer .pk-t-text { font-size: 5.2cqw; }
 
 /* grids and rails of cards */
-.pk-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px 10px; padding: 6px 2px; }
-@media (min-width: 560px) { .pk-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-.pk-rail { display: flex; gap: 10px; overflow-x: auto; margin: 0 -16px; padding: 8px 16px 10px; scrollbar-width: none; }
-.pk-rail::-webkit-scrollbar { display: none; }
-.pk-rail > .pk-card { flex: none; width: 92px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px 10px; padding: 6px 2px; }
+@media (min-width: 560px) { :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-rail { display: flex; gap: 10px; overflow-x: auto; margin: 0 -16px; padding: 8px 16px 10px; scrollbar-width: none; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-rail::-webkit-scrollbar { display: none; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-rail > .pk-card { flex: none; width: 92px; }
 
 /* ---------------------------------------------------------------- Packs (Pocket's booster screen, the owner's screenshot, Oct 29 2026:
    the pack's colour over a slant at the top, the showcase in a white bubble with the clock pill, the pack's tags
    beside it, the pack afloat with its reflection, pack points, then Offering Rates · a round Open · the pack list) */
-.pk-packs { margin: -4px -16px 0; padding: 4px 16px 0;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-packs { margin: -4px -16px 0; padding: 4px 16px 0;
   background: linear-gradient(168deg, color-mix(in srgb, var(--pc) 72%, #fff) 0 44%, transparent 44.15%); }
-.pk-free { display: flex; align-items: center; gap: 8px; margin: 2px 0 12px; }
-.pk-free-b { flex: 1; min-width: 0; display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px 0 6px; border-radius: 99px; background: #fff; box-shadow: var(--pk-shadow);
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-free { display: flex; align-items: center; gap: 8px; margin: 2px 0 12px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-free-b { flex: 1; min-width: 0; display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px 0 6px; border-radius: 99px; background: #fff; box-shadow: var(--pk-shadow);
   color: var(--ink-2); font: 700 12px/1.15 var(--font-text); }
-.pk-free-b b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pk-free-i { width: 24px; height: 24px; border-radius: 50%; background: conic-gradient(var(--tint) 0 75%, var(--surface-3) 75%); position: relative; flex: none; }
-.pk-free-i::after { content: ""; position: absolute; inset: 4px; border-radius: 50%; background: #fff; }
-.pk-free-b.is-ready { color: #fff; background: linear-gradient(90deg, #FF7FB0, #F2669F); }
-.pk-free-b.is-ready .pk-free-i { background: #fff; }
-.pk-free-b.is-ready .pk-free-i::after { inset: 6px; background: var(--pk-pink); }
-.pk-stage { position: relative; display: flex; flex-direction: column; align-items: center; margin: 18px 0 0; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-free-b b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-free-i { width: 24px; height: 24px; border-radius: 50%; background: conic-gradient(var(--tint) 0 75%, var(--surface-3) 75%); position: relative; flex: none; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-free-i::after { content: ""; position: absolute; inset: 4px; border-radius: 50%; background: #fff; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-free-b.is-ready { color: #fff; background: linear-gradient(90deg, #FF7FB0, #F2669F); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-free-b.is-ready .pk-free-i { background: #fff; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-free-b.is-ready .pk-free-i::after { inset: 6px; background: var(--pk-pink); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-stage { position: relative; display: flex; flex-direction: column; align-items: center; margin: 18px 0 0; }
 /* the showcase: a white bubble, its tip at the pack; the clock pill over its top edge */
-.pk-show { position: relative; width: 100%; margin: 0; padding: 30px 10px 14px; border-radius: 22px; background: #fff; box-shadow: var(--pk-shadow); }
-.pk-show-tip { position: absolute; left: 50%; bottom: -8px; width: 20px; height: 20px; margin-left: -10px; border-radius: 4px; background: #fff; transform: rotate(45deg);
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-show { position: relative; width: 100%; margin: 0; padding: 30px 10px 14px; border-radius: 22px; background: #fff; box-shadow: var(--pk-shadow); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-show-tip { position: absolute; left: 50%; bottom: -8px; width: 20px; height: 20px; margin-left: -10px; border-radius: 4px; background: #fff; transform: rotate(45deg);
   box-shadow: 3px 3px 5px rgba(40,60,90,.05); }
-.pk-clock { position: absolute; top: -15px; left: 50%; transform: translateX(-50%); z-index: 1; display: inline-flex; align-items: center; gap: 5px; height: 30px; max-width: calc(100% - 20px);
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-clock { position: absolute; top: -15px; left: 50%; transform: translateX(-50%); z-index: 1; display: inline-flex; align-items: center; gap: 5px; height: 30px; max-width: calc(100% - 20px);
   padding: 0 14px 0 10px; border-radius: 99px; background: linear-gradient(90deg, #FF7FB0, #F2669F); color: #fff; font: 800 12px/1 var(--font-text); white-space: nowrap;
   box-shadow: 0 3px 8px rgba(240,80,140,.35); }
-.pk-clock > span { overflow: hidden; text-overflow: ellipsis; }
-.pk-clock .ic { width: 14px; height: 14px; flex: none; }
-.pk-show-tag { position: absolute; top: 10px; left: 12px; display: inline-flex; align-items: center; gap: 4px; font: 800 11px/1 var(--font-text); color: var(--ink-3); letter-spacing: .02em; }
-.pk-show-tag .ic { color: #F2B417; width: 14px; height: 14px; }
-.pk-show-row { display: flex; justify-content: center; }
-.pk-show-row > .pk-card { width: 21%; flex: none; margin: 0 -1.2%; }
-.pk-show-row > .pk-card:nth-child(1) { transform: rotate(-8deg) translateY(8px); }
-.pk-show-row > .pk-card:nth-child(2) { transform: rotate(-4deg) translateY(2px); z-index: 1; }
-.pk-show-row > .pk-card:nth-child(3) { transform: translateY(-2px); z-index: 2; }
-.pk-show-row > .pk-card:nth-child(4) { transform: rotate(4deg) translateY(2px); z-index: 1; }
-.pk-show-row > .pk-card:nth-child(5) { transform: rotate(8deg) translateY(8px); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-clock > span { overflow: hidden; text-overflow: ellipsis; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-clock .ic { width: 14px; height: 14px; flex: none; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-show-tag { position: absolute; top: 10px; left: 12px; display: inline-flex; align-items: center; gap: 4px; font: 800 11px/1 var(--font-text); color: var(--ink-3); letter-spacing: .02em; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-show-tag .ic { color: #F2B417; width: 14px; height: 14px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-show-row { display: flex; justify-content: center; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-show-row > .pk-card { width: 21%; flex: none; margin: 0 -1.2%; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-show-row > .pk-card:nth-child(1) { transform: rotate(-8deg) translateY(8px); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-show-row > .pk-card:nth-child(2) { transform: rotate(-4deg) translateY(2px); z-index: 1; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-show-row > .pk-card:nth-child(3) { transform: translateY(-2px); z-index: 2; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-show-row > .pk-card:nth-child(4) { transform: rotate(4deg) translateY(2px); z-index: 1; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-show-row > .pk-card:nth-child(5) { transform: rotate(8deg) translateY(8px); }
 /* the pack's tags at the left edge: its name on pink, then what's in it and what it costs */
-.pk-tags { position: absolute; left: -16px; top: 54%; z-index: 2; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; max-width: 46%; pointer-events: none; }
-.pk-tags > b { font: 800 15px/1 var(--font-text); color: #fff; padding: 7px 14px 7px 16px; border-radius: 0 10px 10px 0; background: linear-gradient(90deg, #FF7FB0, #F2669F);
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-tags { position: absolute; left: -16px; top: 54%; z-index: 2; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; max-width: 46%; pointer-events: none; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-tags > b { font: 800 15px/1 var(--font-text); color: #fff; padding: 7px 14px 7px 16px; border-radius: 0 10px 10px 0; background: linear-gradient(90deg, #FF7FB0, #F2669F);
   box-shadow: 0 2px 6px rgba(240,80,140,.35); white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
-.pk-tags > span { font: 700 11px/1.2 var(--font-text); color: var(--ink-2); padding: 5px 10px 5px 16px; border-radius: 0 8px 8px 0; background: rgba(255,255,255,.82);
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-tags > span { font: 700 11px/1.2 var(--font-text); color: var(--ink-2); padding: 5px 10px 5px 16px; border-radius: 0 8px 8px 0; background: rgba(255,255,255,.82);
   box-shadow: 0 1px 3px rgba(40,60,90,.1); }
-.pk-bigpack { position: relative; z-index: 1; margin-top: 26px; padding: 0; border: 0; background: none; cursor: pointer; animation: pk-float 3.6s ease-in-out infinite; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-bigpack { position: relative; z-index: 1; margin-top: 26px; padding: 0; border: 0; background: none; cursor: pointer; animation: pk-float 3.6s ease-in-out infinite; }
 @keyframes pk-float { 50% { transform: translateY(-6px) rotate(-1deg); } }
-.pk-reflect { display: flex; align-items: flex-end; height: 46px; overflow: hidden; margin-top: 4px; opacity: .22; transform: scaleY(-1); pointer-events: none;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-reflect { display: flex; align-items: flex-end; height: 46px; overflow: hidden; margin-top: 4px; opacity: .22; transform: scaleY(-1); pointer-events: none;
   -webkit-mask-image: linear-gradient(to top, #000, transparent 80%); mask-image: linear-gradient(to top, #000, transparent 80%); }
-.pk-reflect .pk-pack-foil { animation: none; }
-.pk-pts { position: absolute; right: 0; bottom: 14px; z-index: 2; display: inline-flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 6px 5px; border: 0; border-radius: 16px;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-reflect .pk-pack-foil { animation: none; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pts { position: absolute; right: 0; bottom: 14px; z-index: 2; display: inline-flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 6px 5px; border: 0; border-radius: 16px;
   background: #fff; box-shadow: var(--pk-shadow); color: var(--ink); font: 800 11px/1 var(--font-text); cursor: pointer; min-width: 60px; }
-.pk-pts-i { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #7BE0EE, #18B4CB); position: relative; }
-.pk-pts-i::after { content: "P"; position: absolute; inset: 0; display: grid; place-items: center; font: 900 14px/1 var(--font-text); color: #fff; }
-.pk-pts b { padding: 3px 8px; border-radius: 99px; background: #6C7986; color: #fff; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pts-i { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #7BE0EE, #18B4CB); position: relative; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pts-i::after { content: "P"; position: absolute; inset: 0; display: grid; place-items: center; font: 900 14px/1 var(--font-text); color: #fff; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pts b { padding: 3px 8px; border-radius: 99px; background: #6C7986; color: #fff; }
 /* Offering Rates · the round Open · Select other booster packs (the pack itself opens too) */
-.pk-actions { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; margin: 6px 0 0; }
-.pk-actions > .pk-pill:first-child { justify-self: start; }
-.pk-actions > .pk-pill.is-r { justify-self: end; }
-.pk-actions > .pk-pill { min-height: 40px; }
-button.pk-open.is-round { width: 68px; height: 68px; min-height: 0; padding: 0; border-radius: 50%; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-actions { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; margin: 6px 0 0; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-actions > .pk-pill:first-child { justify-self: start; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-actions > .pk-pill.is-r { justify-self: end; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-actions > .pk-pill { min-height: 40px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) button.pk-open.is-round { width: 68px; height: 68px; min-height: 0; padding: 0; border-radius: 50%; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
   font-size: 12px; letter-spacing: 0; }
-button.pk-open.is-round svg { width: 28px; height: 28px; filter: drop-shadow(0 1px 0 rgba(0,90,110,.35)); }
-.pk-actions.is-deck { grid-template-columns: 1fr 1fr; margin: 14px 0 12px; }
-.pk-actions.is-deck .pk-pill { min-height: 40px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) button.pk-open.is-round svg { width: 28px; height: 28px; filter: drop-shadow(0 1px 0 rgba(0,90,110,.35)); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-actions.is-deck { grid-template-columns: 1fr 1fr; margin: 14px 0 12px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-actions.is-deck .pk-pill { min-height: 40px; }
 /* Offering Rates, the pack list, coins, pack points */
-.pk-odds { background: #fff; border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; box-shadow: var(--pk-shadow); }
-.pk-odds h3 { margin: 0 0 8px; font: 800 13px/1.3 var(--font-text); }
-.pk-odds ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.pk-odds li { display: flex; align-items: center; gap: 10px; font-size: var(--fs-foot); color: var(--ink-2); }
-.pk-odds li b { margin-left: auto; color: var(--ink); }
-.pk-sym { min-width: 56px; font-size: 12px; color: #7A8794; letter-spacing: -.02em; }
-.pk-pick { display: grid; gap: 10px; }
-.pk-pickb { display: flex; align-items: center; gap: 14px; width: 100%; padding: 10px 14px 10px 10px; border: 0; border-radius: 16px; background: #fff; box-shadow: var(--pk-shadow);
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-odds { background: #fff; border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; box-shadow: var(--pk-shadow); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-odds h3 { margin: 0 0 8px; font: 800 13px/1.3 var(--font-text); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-odds ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-odds li { display: flex; align-items: center; gap: 10px; font-size: var(--fs-foot); color: var(--ink-2); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-odds li b { margin-left: auto; color: var(--ink); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-sym { min-width: 56px; font-size: 12px; color: #7A8794; letter-spacing: -.02em; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pick { display: grid; gap: 10px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pickb { display: flex; align-items: center; gap: 14px; width: 100%; padding: 10px 14px 10px 10px; border: 0; border-radius: 16px; background: #fff; box-shadow: var(--pk-shadow);
   text-align: left; cursor: pointer; color: var(--ink); }
-.pk-pickb.is-on { box-shadow: 0 0 0 2.5px var(--tint), var(--pk-shadow); }
-.pk-pickb > span:last-child { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.pk-pickb > span:last-child > b { font: 800 15px/1.2 var(--font-text); }
-.pk-pickb > span:last-child > small { font-size: var(--fs-cap); color: var(--ink-3); line-height: 1.35; }
-.pk-pickb > span:last-child > em { font: 800 12px/1 var(--font-text); font-style: normal; color: var(--tint); }
-.pk-list { list-style: none; margin: 0; padding: 4px 0; background: #fff; border-radius: 16px; box-shadow: var(--pk-shadow); }
-.pk-list > li { display: flex; align-items: center; gap: 10px; padding: 10px 14px; min-height: 52px; }
-.pk-list > li + li { box-shadow: inset 0 1px 0 var(--separator); }
-.pk-list > li > span:first-child:not(.pk-rk):not(.pk-solo-t), .pk-row-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.pk-list b { font: 700 14px/1.25 var(--font-text); }
-.pk-list small { font-size: var(--fs-cap); color: var(--ink-3); line-height: 1.3; }
-.pk-list em { font: 800 14px/1 var(--font-text); font-style: normal; color: var(--gold); }
-.pk-row-t b, .pk-row-t small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pk-n { font: 700 12px/1 var(--font-text); color: var(--ink-3); flex: none; }
-.pk-ppcell { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-.pk-ppcost { font: 800 11px/1 var(--font-text); color: var(--tint); background: var(--tint-soft); padding: 4px 8px; border-radius: 99px; }
-.pk-ppcost.is-off { color: var(--ink-3); background: var(--surface-2); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pickb.is-on { box-shadow: 0 0 0 2.5px var(--tint), var(--pk-shadow); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pickb > span:last-child { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pickb > span:last-child > b { font: 800 15px/1.2 var(--font-text); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pickb > span:last-child > small { font-size: var(--fs-cap); color: var(--ink-3); line-height: 1.35; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pickb > span:last-child > em { font: 800 12px/1 var(--font-text); font-style: normal; color: var(--tint); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-list { list-style: none; margin: 0; padding: 4px 0; background: #fff; border-radius: 16px; box-shadow: var(--pk-shadow); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-list > li { display: flex; align-items: center; gap: 10px; padding: 10px 14px; min-height: 52px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-list > li + li { box-shadow: inset 0 1px 0 var(--separator); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-list > li > span:first-child:not(.pk-rk):not(.pk-solo-t), :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-row-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-list b { font: 700 14px/1.25 var(--font-text); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-list small { font-size: var(--fs-cap); color: var(--ink-3); line-height: 1.3; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-list em { font: 800 14px/1 var(--font-text); font-style: normal; color: var(--gold); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-row-t b, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-row-t small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-n { font: 700 12px/1 var(--font-text); color: var(--ink-3); flex: none; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ppcell { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ppcost { font: 800 11px/1 var(--font-text); color: var(--tint); background: var(--tint-soft); padding: 4px 8px; border-radius: 99px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ppcost.is-off { color: var(--ink-3); background: var(--surface-2); }
 
 /* ---------------------------------------------------------------- My Cards (the binder) */
-.pk-binder { margin-top: 2px; }
-.pk-binder-b { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.pk-tile { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 4px 8px; border: 0; border-radius: 14px; background: var(--surface-2);
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-binder { margin-top: 2px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-binder-b { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-tile { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 4px 8px; border: 0; border-radius: 14px; background: var(--surface-2);
   color: var(--ink-2); font: 700 12px/1 var(--font-text); cursor: pointer; }
-.pk-tile svg { width: 26px; height: 26px; }
-.pk-tile.is-on { background: linear-gradient(180deg, #3FD3E4, #13A9C2); color: #fff; box-shadow: 0 2px 0 #0E8196; }
-.pk-binder-r { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
-.pk-count { flex: 1; display: inline-flex; align-items: baseline; gap: 4px; color: var(--ink); }
-.pk-count svg { width: 18px; height: 18px; align-self: center; color: var(--ink-3); }
-.pk-count b { font: 800 18px/1 var(--font-text); }
-.pk-count small { font: 700 13px/1 var(--font-text); color: var(--ink-3); }
-.pk-toggle { position: relative; width: 50px; height: 30px; border: 0; border-radius: 99px; background: var(--switch-off); cursor: pointer; transition: background .2s; flex: none; }
-.pk-toggle i { position: absolute; left: 3px; top: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .2s; }
-.pk-toggle.is-on { background: var(--tint); }
-.pk-toggle.is-on i { transform: translateX(20px); }
-.pk-toggle::before { content: "All cards"; position: absolute; right: calc(100% + 6px); top: 50%; transform: translateY(-50%); font: 700 11px/1 var(--font-text); color: var(--ink-3); white-space: nowrap; }
-.pk-iconb { position: relative; width: 36px; height: 36px; border: 0; border-radius: 12px; display: grid; place-items: center; background: var(--surface-2); color: var(--ink-2); cursor: pointer; flex: none; }
-.pk-iconb.is-on { color: var(--tint); background: var(--tint-soft); }
-.pk-iconb > i { position: absolute; top: -4px; right: -4px; min-width: 16px; height: 16px; border-radius: 8px; background: var(--tint); color: #fff; font: 800 10px/16px var(--font-text); font-style: normal; }
-.pk-binder + .pk-alert, .pk-binder + [data-dy-grid], .pk-binder + .pk-note { margin-top: 12px; }
-.pk-cols > li { padding: 8px 12px 8px 8px; gap: 8px; }
-.pk-cols > li.is-ready { background: linear-gradient(90deg, rgba(255,214,60,.18), transparent); }
-.pk-col-b { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 0; border: 0; background: none; color: inherit; text-align: left; cursor: pointer; }
-.pk-col-logo, .pk-col-ic { width: 36px; height: 36px; flex: none; display: grid; place-items: center; object-fit: contain; border-radius: 10px; background: var(--surface-2); color: var(--gold); }
-.pk-col-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.pk-col-t .pk-bar { margin-top: 2px; }
-.pk-claim { flex: none; min-height: 32px; padding: 0 14px; border: 0; border-radius: 10px; cursor: pointer; color: #fff; font: 800 12px var(--font-text);
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-tile svg { width: 26px; height: 26px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-tile.is-on { background: linear-gradient(180deg, #3FD3E4, #13A9C2); color: #fff; box-shadow: 0 2px 0 #0E8196; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-binder-r { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-count { flex: 1; display: inline-flex; align-items: baseline; gap: 4px; color: var(--ink); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-count svg { width: 18px; height: 18px; align-self: center; color: var(--ink-3); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-count b { font: 800 18px/1 var(--font-text); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-count small { font: 700 13px/1 var(--font-text); color: var(--ink-3); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-toggle { position: relative; width: 50px; height: 30px; border: 0; border-radius: 99px; background: var(--switch-off); cursor: pointer; transition: background .2s; flex: none; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-toggle i { position: absolute; left: 3px; top: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .2s; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-toggle.is-on { background: var(--tint); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-toggle.is-on i { transform: translateX(20px); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-toggle::before { content: "All cards"; position: absolute; right: calc(100% + 6px); top: 50%; transform: translateY(-50%); font: 700 11px/1 var(--font-text); color: var(--ink-3); white-space: nowrap; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-iconb { position: relative; width: 36px; height: 36px; border: 0; border-radius: 12px; display: grid; place-items: center; background: var(--surface-2); color: var(--ink-2); cursor: pointer; flex: none; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-iconb.is-on { color: var(--tint); background: var(--tint-soft); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-iconb > i { position: absolute; top: -4px; right: -4px; min-width: 16px; height: 16px; border-radius: 8px; background: var(--tint); color: #fff; font: 800 10px/16px var(--font-text); font-style: normal; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-binder + .pk-alert, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-binder + [data-dy-grid], :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-binder + .pk-note { margin-top: 12px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-cols > li { padding: 8px 12px 8px 8px; gap: 8px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-cols > li.is-ready { background: linear-gradient(90deg, rgba(255,214,60,.18), transparent); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-col-b { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 0; border: 0; background: none; color: inherit; text-align: left; cursor: pointer; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-col-logo, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-col-ic { width: 36px; height: 36px; flex: none; display: grid; place-items: center; object-fit: contain; border-radius: 10px; background: var(--surface-2); color: var(--gold); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-col-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-col-t .pk-bar { margin-top: 2px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-claim { flex: none; min-height: 32px; padding: 0 14px; border: 0; border-radius: 10px; cursor: pointer; color: #fff; font: 800 12px var(--font-text);
   background: linear-gradient(180deg, #FFD34D, #E9A812); box-shadow: 0 2px 0 #B37F06; }
-.pk-done { display: inline-flex; align-items: center; gap: 4px; color: var(--tint); font: 700 12px var(--font-text); flex: none; }
-.pk-done .ic { width: 16px; height: 16px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-done { display: inline-flex; align-items: center; gap: 4px; color: var(--tint); font: 700 12px var(--font-text); flex: none; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-done .ic { width: 16px; height: 16px; }
 
 /* ---------------------------------------------------------------- Decks (the deck box) */
-.pk-deckbox { display: flex; align-items: center; gap: 14px; padding: 14px 16px 14px 12px; border-radius: 20px; color: #fff;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-deckbox { display: flex; align-items: center; gap: 14px; padding: 14px 16px 14px 12px; border-radius: 20px; color: #fff;
   background: linear-gradient(135deg, #3FD3E4, #1E8FD8 70%, #2B6CC7); box-shadow: 0 6px 16px rgba(30,120,200,.25); }
-.pk-deckbox-cards { position: relative; flex: none; width: 104px; height: 108px; }
-.pk-deckbox-cards > span { position: absolute; top: 4px; left: calc(var(--i) * 34px); width: 66px; transform: rotate(calc(var(--i) * 10deg - 5deg)); }
-.pk-deckbox-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.pk-deckname { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; max-width: 100%; padding: 0; border: 0; background: none; color: #fff;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-deckbox-cards { position: relative; flex: none; width: 104px; height: 108px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-deckbox-cards > span { position: absolute; top: 4px; left: calc(var(--i) * 34px); width: 66px; transform: rotate(calc(var(--i) * 10deg - 5deg)); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-deckbox-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-deckname { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; max-width: 100%; padding: 0; border: 0; background: none; color: #fff;
   font: 900 17px/1.2 var(--font-text); cursor: pointer; text-align: left; }
-.pk-deckname .ic { width: 14px; height: 14px; opacity: .8; flex: none; }
-.pk-deck-en { display: flex; align-items: center; gap: 4px; font-size: 18px; flex-wrap: wrap; }
-.pk-deck-en small { font: 700 12px/1 var(--font-text); opacity: .9; margin-left: 4px; }
-.pk-deck-n { align-self: flex-start; font: 800 12px/1 var(--font-text); padding: 5px 10px; border-radius: 99px; background: rgba(0,0,0,.18); }
-.pk-deck-n.is-ok { background: rgba(255,255,255,.95); color: #0E8196; }
-.pk-warn { font: 600 12px/1.3 var(--font-text); color: #FFF2B0; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-deckname .ic { width: 14px; height: 14px; opacity: .8; flex: none; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-deck-en { display: flex; align-items: center; gap: 4px; font-size: 18px; flex-wrap: wrap; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-deck-en small { font: 700 12px/1 var(--font-text); opacity: .9; margin-left: 4px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-deck-n { align-self: flex-start; font: 800 12px/1 var(--font-text); padding: 5px 10px; border-radius: 99px; background: rgba(0,0,0,.18); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-deck-n.is-ok { background: rgba(255,255,255,.95); color: #0E8196; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-warn { font: 600 12px/1.3 var(--font-text); color: #FFF2B0; }
 
 /* ---------------------------------------------------------------- Battle (Pocket's Battle screen, the owner's screenshot, Oct 29 2026:
    the slanted blue board with "Battle" on its tab, the mat in perspective and the energy afloat, Legends fanned; the
    Versus and Solo tiles; Guide, Decks, Rankings, and Missions at the right) */
-.pk-banner { position: relative; height: 200px; margin: 0 -16px 16px; padding: 0; border-radius: 0; overflow: hidden; color: #fff;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-banner { position: relative; height: 200px; margin: 0 -16px 16px; padding: 0; border-radius: 0; overflow: hidden; color: #fff;
   clip-path: polygon(0 0, 100% 0, 100% 85%, 0 100%);
   background: radial-gradient(70% 80% at 62% 42%, rgba(120,200,255,.55), transparent 70%), repeating-linear-gradient(-28deg, rgba(255,255,255,.06) 0 14px, transparent 14px 28px),
     linear-gradient(135deg, #1E47C8, #2D8BEA 58%, #1A5FC4); }
-.pk-banner-tab { position: absolute; left: 0; top: 0; z-index: 3; padding: 10px 32px 12px 18px; font: 900 italic 30px/1 var(--font-text); letter-spacing: .01em; color: #fff;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-banner-tab { position: absolute; left: 0; top: 0; z-index: 3; padding: 10px 32px 12px 18px; font: 900 italic 30px/1 var(--font-text); letter-spacing: .01em; color: #fff;
   background: #1A3AA8; clip-path: polygon(0 0, 100% 0, 86% 100%, 0 100%); text-shadow: 0 2px 0 rgba(0,0,0,.2); }
-.pk-banner-mat { position: absolute; left: 10%; right: -14%; bottom: 2%; height: 56%; border-radius: 16px; background: rgba(226,238,255,.5);
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-banner-mat { position: absolute; left: 10%; right: -14%; bottom: 2%; height: 56%; border-radius: 16px; background: rgba(226,238,255,.5);
   background-image: linear-gradient(90deg, transparent calc(50% - 1px), rgba(255,255,255,.85) calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px)),
     repeating-linear-gradient(0deg, transparent 0 23%, rgba(255,255,255,.55) 23% 25%);
   box-shadow: inset 0 0 0 2px rgba(255,255,255,.75), 0 10px 20px rgba(0,30,90,.25); transform: perspective(360px) rotateX(52deg) rotate(-6deg); transform-origin: 50% 100%; }
-.pk-banner-orbs span { position: absolute; z-index: 1; font-size: 26px; filter: drop-shadow(0 0 10px rgba(255,255,255,.75)); animation: pk-bob 3.2s ease-in-out infinite alternate;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-banner-orbs span { position: absolute; z-index: 1; font-size: 26px; filter: drop-shadow(0 0 10px rgba(255,255,255,.75)); animation: pk-bob 3.2s ease-in-out infinite alternate;
   animation-delay: calc(var(--i) * -.8s); }
-.pk-banner-orbs span:nth-child(1) { left: 10%; top: 62%; }
-.pk-banner-orbs span:nth-child(2) { left: 34%; top: 24%; font-size: 36px; }
-.pk-banner-orbs span:nth-child(3) { left: 57%; top: 12%; }
-.pk-banner-orbs span:nth-child(4) { left: 86%; top: 30%; font-size: 22px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-banner-orbs span:nth-child(1) { left: 10%; top: 62%; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-banner-orbs span:nth-child(2) { left: 34%; top: 24%; font-size: 36px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-banner-orbs span:nth-child(3) { left: 57%; top: 12%; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-banner-orbs span:nth-child(4) { left: 86%; top: 30%; font-size: 22px; }
 @keyframes pk-bob { to { translate: 0 -9px; } }
-.pk-banner-fan { position: absolute; right: 10px; bottom: -30px; z-index: 2; width: 200px; height: 170px; }
-.pk-banner-fan > span { position: absolute; bottom: 0; left: calc(var(--i) * 54px); width: 84px; transform-origin: 50% 100%; transform: rotate(calc(var(--i) * 12deg - 12deg)); }
-.pk-banner-fan .pk-card { box-shadow: 0 8px 18px rgba(0,20,60,.35); }
-.pk-modes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-banner-fan { position: absolute; right: 10px; bottom: -30px; z-index: 2; width: 200px; height: 170px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-banner-fan > span { position: absolute; bottom: 0; left: calc(var(--i) * 54px); width: 84px; transform-origin: 50% 100%; transform: rotate(calc(var(--i) * 12deg - 12deg)); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-banner-fan .pk-card { box-shadow: 0 8px 18px rgba(0,20,60,.35); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-modes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 /* Solo: the computer's opponents (views/dynasty.js soloHTML) */
-.pk-alert > svg { width: 24px; height: 24px; flex: none; }
-.pk-solo-t { flex: none; display: inline-flex; gap: 2px; font-size: 18px; }
-.pk-row-t small.pk-solo-r { white-space: normal; color: var(--tint); font-weight: 700; }
-.pk-tag.is-won { color: #0E8196; background: var(--tint-soft); display: inline-flex; align-items: center; gap: 2px; }
-.pk-tag.is-won .ic { width: 11px; height: 11px; }
-.pk-mode { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 126px; padding: 14px 10px 12px; border: 0; border-radius: 20px;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-alert > svg { width: 24px; height: 24px; flex: none; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-solo-t { flex: none; display: inline-flex; gap: 2px; font-size: 18px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-row-t small.pk-solo-r { white-space: normal; color: var(--tint); font-weight: 700; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-tag.is-won { color: #0E8196; background: var(--tint-soft); display: inline-flex; align-items: center; gap: 2px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-tag.is-won .ic { width: 11px; height: 11px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-mode { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 126px; padding: 14px 10px 12px; border: 0; border-radius: 20px;
   background: linear-gradient(180deg, #fff, #F3F6F9); box-shadow: var(--pk-shadow), inset 0 -3px 0 rgba(40,60,90,.06); color: var(--ink); text-align: center; cursor: pointer; }
-.pk-mode svg { width: 56px; height: 56px; margin-bottom: 2px; }
-.pk-mode b { font: 800 18px/1.1 var(--font-text); }
-.pk-mode small { font: 600 11px/1.3 var(--font-text); color: var(--ink-3); }
-.pk-mode .pk-bang { top: -6px; right: -6px; width: 24px; height: 24px; font-size: 14px; }
-.pk-row-s { display: flex; align-items: stretch; gap: 10px; margin-top: 12px; }
-.pk-mini { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; width: 74px; min-height: 72px; border: 0; border-radius: 16px;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-mode svg { width: 56px; height: 56px; margin-bottom: 2px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-mode b { font: 800 18px/1.1 var(--font-text); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-mode small { font: 600 11px/1.3 var(--font-text); color: var(--ink-3); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-mode .pk-bang { top: -6px; right: -6px; width: 24px; height: 24px; font-size: 14px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-row-s { display: flex; align-items: stretch; gap: 10px; margin-top: 12px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-mini { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; width: 74px; min-height: 72px; border: 0; border-radius: 16px;
   background: linear-gradient(180deg, #fff, #F3F6F9); box-shadow: var(--pk-shadow), inset 0 -3px 0 rgba(40,60,90,.06); color: var(--ink-2); font: 700 11.5px/1 var(--font-text); cursor: pointer; }
-.pk-mini svg { width: 28px; height: 28px; }
-.pk-mini.is-end { margin-left: auto; }
-.pk-mini .pk-bang { top: -5px; right: -5px; }
-.pk-mini-n { position: absolute; top: -6px; right: -6px; min-width: 22px; height: 20px; padding: 0 6px; border-radius: 99px; display: inline-flex; align-items: center; justify-content: center;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-mini svg { width: 28px; height: 28px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-mini.is-end { margin-left: auto; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-mini .pk-bang { top: -5px; right: -5px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-mini-n { position: absolute; top: -6px; right: -6px; min-width: 22px; height: 20px; padding: 0 6px; border-radius: 99px; display: inline-flex; align-items: center; justify-content: center;
   background: linear-gradient(180deg, #FFD34D, #E9A812); color: #4A3800; font: 800 11px/1 var(--font-text); font-style: normal; box-shadow: 0 0 0 2px #fff; }
-.pk-backrow { display: inline-flex; align-items: center; gap: 2px; margin: 0 0 10px -6px; padding: 6px; border: 0; background: none; color: var(--link); font: 700 14px var(--font-text); cursor: pointer; }
-.pk-backrow .ic { width: 16px; height: 16px; }
-.pk-res { flex: none; min-width: 64px; min-height: 30px; border: 0; border-radius: 10px; font: 800 12px var(--font-text); cursor: pointer; background: var(--surface-2); color: var(--ink-2); }
-.pk-res.is-w { background: rgba(24,180,203,.14); color: #0E8196; }
-.pk-res.is-l { background: var(--wrong-soft); color: var(--wrong); }
-.pk-rank > li.is-me { background: var(--tint-soft); }
-.pk-rk { flex: none; width: 22px; text-align: center; font: 900 15px/1 var(--font-text); color: var(--ink-3); }
-.pk-rank > li:nth-child(1) .pk-rk { color: #E0A31A; }
-.pk-rank > li:nth-child(2) .pk-rk { color: #8E9AA6; }
-.pk-rank > li:nth-child(3) .pk-rk { color: #C07A3A; }
-.pk-tro { flex: none; display: inline-flex; align-items: center; gap: 2px; font: 800 13px var(--font-text); }
-.pk-tro svg { width: 22px; height: 22px; }
-.pk-guide { margin: 0; padding: 0; list-style: none; counter-reset: g; display: grid; gap: 10px; }
-.pk-guide li { counter-increment: g; position: relative; padding: 12px 14px 12px 50px; border-radius: 14px; background: #fff; box-shadow: var(--pk-shadow);
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-backrow { display: inline-flex; align-items: center; gap: 2px; margin: 0 0 10px -6px; padding: 6px; border: 0; background: none; color: var(--link); font: 700 14px var(--font-text); cursor: pointer; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-backrow .ic { width: 16px; height: 16px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-res { flex: none; min-width: 64px; min-height: 30px; border: 0; border-radius: 10px; font: 800 12px var(--font-text); cursor: pointer; background: var(--surface-2); color: var(--ink-2); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-res.is-w { background: rgba(24,180,203,.14); color: #0E8196; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-res.is-l { background: var(--wrong-soft); color: var(--wrong); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-rank > li.is-me { background: var(--tint-soft); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-rk { flex: none; width: 22px; text-align: center; font: 900 15px/1 var(--font-text); color: var(--ink-3); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-rank > li:nth-child(1) .pk-rk { color: #E0A31A; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-rank > li:nth-child(2) .pk-rk { color: #8E9AA6; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-rank > li:nth-child(3) .pk-rk { color: #C07A3A; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-tro { flex: none; display: inline-flex; align-items: center; gap: 2px; font: 800 13px var(--font-text); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-tro svg { width: 22px; height: 22px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-guide { margin: 0; padding: 0; list-style: none; counter-reset: g; display: grid; gap: 10px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-guide li { counter-increment: g; position: relative; padding: 12px 14px 12px 50px; border-radius: 14px; background: #fff; box-shadow: var(--pk-shadow);
   font-size: var(--fs-foot); line-height: 1.45; color: var(--ink-2); }
-.pk-guide li::before { content: counter(g); position: absolute; left: 12px; top: 12px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-guide li::before { content: counter(g); position: absolute; left: 12px; top: 12px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
   background: linear-gradient(180deg, #3FD3E4, #13A9C2); color: #fff; font: 900 13px/1 var(--font-text); }
-.pk-guide b { display: block; color: var(--ink); font-size: 14px; margin-bottom: 2px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-guide b { display: block; color: var(--ink); font-size: 14px; margin-bottom: 2px; }
 /* the Menu (≡): the Guide, coins, rankings, Offering Rates, the title screen, the exit */
-.pk-menu { padding: 0; overflow: hidden; }
-.pk-menu > li { padding: 0; }
-.pk-menu-b { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 58px; padding: 10px 14px; border: 0; background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
-.pk-menu-b:active { background: var(--surface-2); }
-.pk-menu-i { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; background: var(--tint-soft); color: var(--tint); flex: none; font-style: normal; }
-.pk-menu-b.is-exit .pk-menu-i { background: var(--wrong-soft); color: var(--wrong); }
-.pk-menu-b > .ic:last-child { color: var(--ink-4); width: 16px; height: 16px; flex: none; }
-.pk-menu-foot { text-align: center; margin: 12px 0 0; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-menu { padding: 0; overflow: hidden; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-menu > li { padding: 0; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-menu-b { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 58px; padding: 10px 14px; border: 0; background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-menu-b:active { background: var(--surface-2); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-menu-i { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; background: var(--tint-soft); color: var(--tint); flex: none; font-style: normal; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-menu-b.is-exit .pk-menu-i { background: var(--wrong-soft); color: var(--wrong); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-menu-b > .ic:last-child { color: var(--ink-4); width: 16px; height: 16px; flex: none; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-menu-foot { text-align: center; margin: 12px 0 0; }
 
 /* ---------------------------------------------------------------- a card up close (its sheet), and other sheets */
-.pk-zoom { width: min(280px, 76%); margin: 4px auto 12px; }
-.pk-zoom.is-s { width: min(190px, 56%); }
-.pk-own { margin: 0 0 12px; text-align: center; font: 700 13px var(--font-text); color: var(--ink-3); }
-.pk-own .pk-e { font-size: 16px; }
-.pk-acts { display: grid; gap: 8px; margin: 0 0 14px; }
-.pk-info { background: #fff; border-radius: 16px; padding: 12px 14px; margin-bottom: 12px; box-shadow: var(--pk-shadow); }
-.pk-info > p { margin: 0 0 6px; font-size: var(--fs-sub); color: var(--ink-2); }
-.pk-info-k { color: var(--tint) !important; font-weight: 700; font-size: var(--fs-foot) !important; }
-.pk-info-h { display: flex; align-items: center; gap: 8px; font-size: var(--fs-foot); color: var(--ink-3); flex-wrap: wrap; }
-.pk-info-h > .pk-e { font-size: 20px; }
-.pk-info-h > b { margin-left: auto; font: 900 18px/1 var(--font-text); color: var(--ink); }
-.pk-ab { margin: 12px 0 0; padding: 8px 10px; border-radius: 10px; background: rgba(229,72,77,.08); display: flex; flex-direction: column; gap: 2px; font-size: var(--fs-foot); color: var(--ink-2); }
-.pk-ab b { color: #B3261E; }
-.pk-atk { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 10px; }
-.pk-atk li { display: flex; align-items: center; gap: 8px; }
-.pk-cost { display: inline-flex; gap: 2px; flex: none; min-width: 64px; font-size: 16px; }
-.pk-an { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-.pk-an b { font: 800 var(--fs-sub) var(--font-text); color: var(--ink); }
-.pk-an small { font-size: var(--fs-cap); color: var(--ink-3); }
-.pk-atk em { font: 900 20px/1 var(--font-text); font-style: normal; color: var(--ink); }
-.pk-foot { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin: 12px 0 0 !important; font-size: var(--fs-cap) !important; color: var(--ink-3) !important; }
-.pk-foot .pk-e { font-size: 14px; }
-.pk-attrs { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 7px; }
-.pk-attrs li { display: grid; grid-template-columns: 96px 1fr 28px; align-items: center; gap: 8px; font-size: var(--fs-cap); color: var(--ink-2); }
-.pk-attrs em { font: 800 13px var(--font-text); font-style: normal; text-align: right; color: var(--ink); }
-.pk-lines { margin: 12px 0 0; display: grid; gap: 2px 0; font-size: var(--fs-cap); }
-.pk-lines dt { color: var(--ink-3); font-weight: 700; margin-top: 6px; }
-.pk-lines dd { margin: 0; color: var(--ink-2); }
-.pk-teams { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.pk-teamb { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 0; border-radius: 12px; background: #fff; box-shadow: var(--pk-shadow), inset 4px 0 0 var(--tp);
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-zoom { width: min(280px, 76%); margin: 4px auto 12px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-zoom.is-s { width: min(190px, 56%); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-own { margin: 0 0 12px; text-align: center; font: 700 13px var(--font-text); color: var(--ink-3); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-own .pk-e { font-size: 16px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-acts { display: grid; gap: 8px; margin: 0 0 14px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-info { background: #fff; border-radius: 16px; padding: 12px 14px; margin-bottom: 12px; box-shadow: var(--pk-shadow); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-info > p { margin: 0 0 6px; font-size: var(--fs-sub); color: var(--ink-2); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-info-k { color: var(--tint) !important; font-weight: 700; font-size: var(--fs-foot) !important; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-info-h { display: flex; align-items: center; gap: 8px; font-size: var(--fs-foot); color: var(--ink-3); flex-wrap: wrap; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-info-h > .pk-e { font-size: 20px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-info-h > b { margin-left: auto; font: 900 18px/1 var(--font-text); color: var(--ink); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ab { margin: 12px 0 0; padding: 8px 10px; border-radius: 10px; background: rgba(229,72,77,.08); display: flex; flex-direction: column; gap: 2px; font-size: var(--fs-foot); color: var(--ink-2); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-ab b { color: #B3261E; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-atk { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 10px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-atk li { display: flex; align-items: center; gap: 8px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-cost { display: inline-flex; gap: 2px; flex: none; min-width: 64px; font-size: 16px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-an { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-an b { font: 800 var(--fs-sub) var(--font-text); color: var(--ink); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-an small { font-size: var(--fs-cap); color: var(--ink-3); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-atk em { font: 900 20px/1 var(--font-text); font-style: normal; color: var(--ink); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-foot { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin: 12px 0 0 !important; font-size: var(--fs-cap) !important; color: var(--ink-3) !important; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-foot .pk-e { font-size: 14px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-attrs { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 7px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-attrs li { display: grid; grid-template-columns: 96px 1fr 28px; align-items: center; gap: 8px; font-size: var(--fs-cap); color: var(--ink-2); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-attrs em { font: 800 13px var(--font-text); font-style: normal; text-align: right; color: var(--ink); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-lines { margin: 12px 0 0; display: grid; gap: 2px 0; font-size: var(--fs-cap); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-lines dt { color: var(--ink-3); font-weight: 700; margin-top: 6px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-lines dd { margin: 0; color: var(--ink-2); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-teams { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-teamb { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 0; border-radius: 12px; background: #fff; box-shadow: var(--pk-shadow), inset 4px 0 0 var(--tp);
   color: var(--ink); font: 700 13px/1.2 var(--font-text); text-align: left; cursor: pointer; }
-.pk-teamb img { width: 30px; height: 30px; object-fit: contain; flex: none; }
-.pk-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; font: 700 13px var(--font-text); color: var(--ink-3); }
-.pk-field input { height: 46px; padding: 0 14px; border: 0; border-radius: 12px; background: #fff; box-shadow: var(--pk-shadow); color: var(--ink); font: 600 16px var(--font-text); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-teamb img { width: 30px; height: 30px; object-fit: contain; flex: none; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; font: 700 13px var(--font-text); color: var(--ink-3); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-field input { height: 46px; padding: 0 14px; border: 0; border-radius: 12px; background: #fff; box-shadow: var(--pk-shadow); color: var(--ink); font: 600 16px var(--font-text); }
 .sheet.pk-sheet .pk-grid { padding: 6px 2px 14px; }
 
 /* ---------------------------------------------------------------- the start screen (Pocket's title screen, the owner's screenshot, Oct 29 2026:
    cards drifting over a pastel wash, the logo, Tap to Start, the version and support id top left, the menu top right,
    the credits at the foot; views/dynasty.js startHTML). It covers the shell (inert beneath it) till a tap. */
-.pk.is-start { height: 100dvh; overflow: hidden; }
-.pk-start { position: absolute; inset: 0; z-index: 30; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; cursor: pointer; outline: none;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk.is-start { height: 100dvh; overflow: hidden; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-start { position: absolute; inset: 0; z-index: 30; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; cursor: pointer; outline: none;
   -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; touch-action: manipulation;
   background: radial-gradient(90% 55% at 8% 0%, #D4F1DE, transparent 62%), radial-gradient(80% 55% at 100% 8%, #D3E7FA, transparent 60%),
     radial-gradient(90% 60% at 92% 100%, #FAD9E9, transparent 62%), radial-gradient(80% 55% at 0% 100%, #E5D9F6, transparent 60%), #F2F5F9;
   transition: opacity .42s ease, transform .42s ease; }
-.pk-start:focus-visible { box-shadow: inset 0 0 0 4px var(--tint); }
-.pk-start.is-out { opacity: 0; transform: scale(1.05); pointer-events: none; }
-.pk-start-cards { position: absolute; inset: 0; pointer-events: none; }
-.pk-start-card { position: absolute; left: var(--x); top: var(--y); width: calc(min(31vw, 132px) * var(--s)); transform: rotate(var(--r));
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-start:focus-visible { box-shadow: inset 0 0 0 4px var(--tint); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-start.is-out { opacity: 0; transform: scale(1.05); pointer-events: none; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-start-cards { position: absolute; inset: 0; pointer-events: none; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-start-card { position: absolute; left: var(--x); top: var(--y); width: calc(min(31vw, 132px) * var(--s)); transform: rotate(var(--r));
   animation: pk-drift var(--t) ease-in-out var(--d) infinite alternate; }
-.pk-start-card.z-0 { filter: blur(2.2px); opacity: .5; }
-.pk-start-card.z-1 { filter: blur(.7px); opacity: .8; }
-.pk-start-card.z-2 { filter: drop-shadow(0 10px 18px rgba(30,45,70,.22)); }
-.pk-start-card > .pk-card { box-shadow: 0 4px 12px rgba(30,45,70,.16); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-start-card.z-0 { filter: blur(2.2px); opacity: .5; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-start-card.z-1 { filter: blur(.7px); opacity: .8; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-start-card.z-2 { filter: drop-shadow(0 10px 18px rgba(30,45,70,.22)); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-start-card > .pk-card { box-shadow: 0 4px 12px rgba(30,45,70,.16); }
 @keyframes pk-drift { from { translate: 0 10px; } to { translate: 0 -12px; } }
-.pk-start-top { position: absolute; left: 14px; right: 14px; top: max(10px, env(safe-area-inset-top)); z-index: 2; display: flex; align-items: flex-start; gap: 10px; }
-.pk-start-ver { display: flex; flex-direction: column; gap: 2px; margin-top: 8px; font: 500 12px/1.3 var(--font-text); color: #8A96A3; }
-.pk-start-menu { margin-left: auto; width: 46px; height: 46px; border: 0; border-radius: 50%; background: rgba(255,255,255,.92); box-shadow: var(--pk-shadow); color: #7A8794;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-start-top { position: absolute; left: 14px; right: 14px; top: max(10px, env(safe-area-inset-top)); z-index: 2; display: flex; align-items: flex-start; gap: 10px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-start-ver { display: flex; flex-direction: column; gap: 2px; margin-top: 8px; font: 500 12px/1.3 var(--font-text); color: #8A96A3; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-start-menu { margin-left: auto; width: 46px; height: 46px; border: 0; border-radius: 50%; background: rgba(255,255,255,.92); box-shadow: var(--pk-shadow); color: #7A8794;
   display: grid; place-items: center; cursor: pointer; }
-.pk-start-menu svg { width: 26px; height: 26px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-start-menu svg { width: 26px; height: 26px; }
 /* the logo, after Pocket's: the first word in yellow with a blue edge, the red plate, the second in blue */
-.pk-start-logo { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; margin-top: -8vh; text-align: center; pointer-events: none; }
-.pk-logo-top { font: 900 italic clamp(54px, 17vw, 76px)/1 var(--font-text); letter-spacing: -.03em; color: #FFCB05; -webkit-text-stroke: .085em #2A6EBB; paint-order: stroke fill;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-start-logo { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; margin-top: -8vh; text-align: center; pointer-events: none; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-logo-top { font: 900 italic clamp(54px, 17vw, 76px)/1 var(--font-text); letter-spacing: -.03em; color: #FFCB05; -webkit-text-stroke: .085em #2A6EBB; paint-order: stroke fill;
   text-shadow: .035em .06em 0 #1D4F8C, 0 .12em .3em rgba(30,60,120,.25); padding: 0 .1em; }
-.pk-logo-plate { font: 800 clamp(11px, 3.4vw, 14px)/1 var(--font-text); letter-spacing: .14em; text-transform: uppercase; color: #fff; background: #E0312E; padding: 7px 14px; border-radius: 6px;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-logo-plate { font: 800 clamp(11px, 3.4vw, 14px)/1 var(--font-text); letter-spacing: .14em; text-transform: uppercase; color: #fff; background: #E0312E; padding: 7px 14px; border-radius: 6px;
   box-shadow: 0 0 0 2px #fff, 0 0 0 3.5px #2A6EBB; }
-.pk-logo-sub { font: 700 clamp(44px, 13vw, 60px)/1.1 var(--font-text); letter-spacing: -.01em; color: #2A6EBB; }
-.pk-start-tap { position: absolute; left: 16px; right: 16px; bottom: 15vh; z-index: 3; margin: 0; text-align: center; font: 600 24px/1.2 var(--font-text); color: #7E8A97; letter-spacing: .01em;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-logo-sub { font: 700 clamp(44px, 13vw, 60px)/1.1 var(--font-text); letter-spacing: -.01em; color: #2A6EBB; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-start-tap { position: absolute; left: 16px; right: 16px; bottom: 15vh; z-index: 3; margin: 0; text-align: center; font: 600 24px/1.2 var(--font-text); color: #7E8A97; letter-spacing: .01em;
   text-shadow: 0 0 10px rgba(255,255,255,.9), 0 0 2px #fff; pointer-events: none; }
-.pk-start.is-ready .pk-start-tap { animation: pk-breathe 1.8s ease-in-out infinite; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-start.is-ready .pk-start-tap { animation: pk-breathe 1.8s ease-in-out infinite; }
 @keyframes pk-breathe { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
-.pk-start.is-wait .pk-start-tap { animation: dy-shiver .4s; color: var(--ink); }
-.pk-start-credits { position: absolute; left: 16px; right: 16px; bottom: max(14px, env(safe-area-inset-bottom)); z-index: 3; margin: 0; text-align: center; font: 500 11px/1.5 var(--font-text);
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-start.is-wait .pk-start-tap { animation: dy-shiver .4s; color: var(--ink); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-start-credits { position: absolute; left: 16px; right: 16px; bottom: max(14px, env(safe-area-inset-bottom)); z-index: 3; margin: 0; text-align: center; font: 500 11px/1.5 var(--font-text);
   color: #8F9BA7; text-shadow: 0 0 8px rgba(255,255,255,.9), 0 0 2px #fff; pointer-events: none; }
 
 @media (prefers-reduced-motion: reduce) {
-  .pk-bigpack, .pk-c-shine, .pk-start-card, .pk-start-tap, .pk-banner-orbs span { animation: none !important; }
-  .pk-start { transition: none; }
+  :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-bigpack, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-shine, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-start-card, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-start-tap, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-banner-orbs span { animation: none !important; }
+  :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-start { transition: none; }
 }
 
 /* ---------------------------------------------------------------- the battle (Pocket's mat: their side above, yours below) */
 .v-dynasty-battle { background: #DCEBE2; }
 .v-dynasty-battle > .screen-body { padding: 0; min-height: 100%; }
-.db { min-height: 100dvh; display: flex; flex-direction: column; gap: 4px; padding: 0 12px max(8px, env(safe-area-inset-bottom));
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db { min-height: 100dvh; display: flex; flex-direction: column; gap: 4px; padding: 0 12px max(8px, env(safe-area-inset-bottom));
   background: radial-gradient(60% 40% at 50% 50%, rgba(255,255,255,.7), transparent 75%),
     linear-gradient(180deg, rgba(250,236,240,.9), rgba(255,255,255,0) 44%, rgba(255,255,255,0) 56%, rgba(226,244,250,.9)),
     repeating-linear-gradient(0deg, #D3E9DA 0 40px, #CBE3D2 40px 80px);
   background-attachment: fixed; color: var(--ink); }
-.db-top, .db-you { display: flex; align-items: center; gap: 8px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-top, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-you { display: flex; align-items: center; gap: 8px; }
 /* (pinned with a solid background under the status bar, as the Dynasty header) */
-.db-top { position: sticky; top: 0; z-index: 5; margin: 0 -12px; padding: max(6px, env(safe-area-inset-top)) 12px 6px; background: #F7EDF0; }
-.db-x { flex: none; }
-.db-who { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; padding: 4px 10px 4px 4px; border-radius: 99px; background: rgba(255,255,255,.85); box-shadow: var(--pk-shadow); }
-.db-who b, .db-you b { font: 800 14px/1.2 var(--font-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.db-you { padding: 4px 10px; border-radius: 99px; background: rgba(255,255,255,.85); box-shadow: var(--pk-shadow); margin-top: 6px; }
-.db-count { font: 600 12px var(--font-text); color: var(--ink-3); display: inline-flex; gap: 4px; align-items: center; margin-left: auto; white-space: nowrap; }
-.db-tds { display: inline-flex; gap: 3px; flex: none; }
-.db-tds i { width: 13px; height: 13px; border-radius: 50%; background: #E3E8ED; box-shadow: inset 0 0 0 1.5px #C5CED8; }
-.db-tds i.is-on { background: radial-gradient(circle at 35% 30%, #FFE68A, #F2B417 60%, #C98C0A); box-shadow: 0 0 0 1.5px #fff, 0 1px 3px rgba(200,140,10,.5); }
-.db-row { display: flex; justify-content: center; gap: 10px; }
-.db-slot { position: relative; padding: 0; border: 0; background: none; cursor: pointer; border-radius: 9px; transition: transform .2s; }
-.db-row.is-bench .db-slot { width: min(15vw, 62px); }
-.db-row.is-active .db-slot { width: min(23vw, 94px); }
-.db-row.is-bench.is-opp, .db-row.is-active.is-me { margin-bottom: 10px; }
-.db-row.is-active .db-slot.is-act { filter: drop-shadow(0 6px 10px rgba(30,60,50,.2)); }
-.db-slot.is-empty { aspect-ratio: 63 / 88; border-radius: 9px; border: 2px dashed rgba(60,110,80,.28); background: rgba(255,255,255,.25); }
-.db-slot .pk-card { pointer-events: none; }
-.db-slot.is-pick { outline: 3px solid var(--tint); outline-offset: 3px; animation: db-pulse 1s ease-in-out infinite alternate; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-top { position: sticky; top: 0; z-index: 5; margin: 0 -12px; padding: max(6px, env(safe-area-inset-top)) 12px 6px; background: #F7EDF0; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-x { flex: none; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-who { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; padding: 4px 10px 4px 4px; border-radius: 99px; background: rgba(255,255,255,.85); box-shadow: var(--pk-shadow); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-who b, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-you b { font: 800 14px/1.2 var(--font-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-you { padding: 4px 10px; border-radius: 99px; background: rgba(255,255,255,.85); box-shadow: var(--pk-shadow); margin-top: 6px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-count { font: 600 12px var(--font-text); color: var(--ink-3); display: inline-flex; gap: 4px; align-items: center; margin-left: auto; white-space: nowrap; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-tds { display: inline-flex; gap: 3px; flex: none; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-tds i { width: 13px; height: 13px; border-radius: 50%; background: #E3E8ED; box-shadow: inset 0 0 0 1.5px #C5CED8; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-tds i.is-on { background: radial-gradient(circle at 35% 30%, #FFE68A, #F2B417 60%, #C98C0A); box-shadow: 0 0 0 1.5px #fff, 0 1px 3px rgba(200,140,10,.5); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-row { display: flex; justify-content: center; gap: 10px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-slot { position: relative; padding: 0; border: 0; background: none; cursor: pointer; border-radius: 9px; transition: transform .2s; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-row.is-bench .db-slot { width: min(15vw, 62px); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-row.is-active .db-slot { width: min(23vw, 94px); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-row.is-bench.is-opp, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-row.is-active.is-me { margin-bottom: 10px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-row.is-active .db-slot.is-act { filter: drop-shadow(0 6px 10px rgba(30,60,50,.2)); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-slot.is-empty { aspect-ratio: 63 / 88; border-radius: 9px; border: 2px dashed rgba(60,110,80,.28); background: rgba(255,255,255,.25); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-slot .pk-card { pointer-events: none; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-slot.is-pick { outline: 3px solid var(--tint); outline-offset: 3px; animation: db-pulse 1s ease-in-out infinite alternate; }
 @keyframes db-pulse { to { outline-color: rgba(24,180,203,.3); } }
-.db-slot.is-hit { animation: db-hit .5s; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-slot.is-hit { animation: db-hit .5s; }
 @keyframes db-hit { 20% { transform: translateX(-6px) rotate(-3deg); filter: brightness(1.5); } 45% { transform: translateX(5px) rotate(2deg); } 70% { transform: translateX(-3px); } }
-.db-hp { position: absolute; left: 4%; right: 4%; bottom: -7px; height: 14px; border-radius: 8px; background: #fff; overflow: hidden; box-shadow: 0 1px 4px rgba(30,45,70,.3), inset 0 0 0 1.5px #fff; }
-.db-hp i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, #4FCB6B, #8BE36A); }
-.db-slot.is-low .db-hp i { background: linear-gradient(90deg, #E5484D, #FF8A5B); }
-.db-hp b { position: relative; display: block; text-align: center; font: 800 10.5px/14px var(--font-text); color: #1E2A36; }
-.db-en { position: absolute; left: -5px; top: 22%; max-height: 70%; display: flex; flex-direction: column; flex-wrap: wrap; align-content: flex-start; gap: 2px; font-size: 13px; }
-.db-row.is-bench .db-en { font-size: 9px; }
-.db-conds { position: absolute; right: -6px; top: 26%; display: flex; flex-direction: column; gap: 2px; }
-.db-conds i { font: 800 9px/1 var(--font-text); font-style: normal; color: #4A3800; background: #FFD24A; padding: 3px 5px; border-radius: 5px; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
-.db-conds i.is-inj { background: #FF8A5B; color: #fff; }
-.db-mid { display: flex; flex-direction: column; align-items: center; gap: 3px; margin: 6px 0 2px; }
-.db-status { margin: 0; padding: 6px 14px; border-radius: 14px; background: rgba(255,255,255,.88); box-shadow: var(--pk-shadow); text-align: center; font: 600 12.5px/1.35 var(--font-text); max-width: 100%; }
-.db-status b.is-w { color: #0E8196; }
-.db-status b.is-l { color: var(--wrong); }
-.db-link { background: none; border: 0; color: var(--link); font: 700 13px var(--font-text); cursor: pointer; padding: 0 4px; }
-.db-stad { display: inline-flex; align-items: center; gap: 4px; font: 700 12px var(--font-text); color: #fff; background: linear-gradient(90deg, #2FA45A, #3CC071); padding: 4px 10px; border-radius: 99px; }
-.db-stad .ic { width: 13px; height: 13px; }
-.db-log { display: flex; flex-direction: column; align-items: center; gap: 1px; background: none; border: 0; color: var(--ink-3); font: 500 12px var(--font-text); cursor: pointer; max-width: 100%; }
-.db-log span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 92vw; }
-.db-log span.is-new { color: var(--ink); font-weight: 600; }
-.db-hand { display: flex; gap: 6px; overflow-x: auto; padding: 10px 8px 8px; margin: 2px -4px 0; scrollbar-width: none; min-height: 86px; border-radius: 16px; background: rgba(255,255,255,.6); }
-.db-hand::-webkit-scrollbar { display: none; }
-.db-card { flex: none; width: 52px; padding: 0; border: 0; background: none; cursor: pointer; border-radius: 7px; transition: transform .18s; }
-.db-card .pk-card { pointer-events: none; }
-.db-card.is-sel { transform: translateY(-8px); outline: 3px solid var(--tint); outline-offset: 2px; }
-.db-none { color: var(--ink-3); font-size: var(--fs-foot); align-self: center; padding-left: 6px; }
-.db-bar { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; margin-top: auto; padding-top: 6px; }
-.db-bar > .db-zone { flex: 0 1 auto; min-width: 0; }
-.db-bar > .btn { flex: none; }
-.db-zone-t { min-width: 0; }
-.db-zone-t b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.db-bar .db-go { flex: 1; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-hp { position: absolute; left: 4%; right: 4%; bottom: -7px; height: 14px; border-radius: 8px; background: #fff; overflow: hidden; box-shadow: 0 1px 4px rgba(30,45,70,.3), inset 0 0 0 1.5px #fff; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-hp i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, #4FCB6B, #8BE36A); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-slot.is-low .db-hp i { background: linear-gradient(90deg, #E5484D, #FF8A5B); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-hp b { position: relative; display: block; text-align: center; font: 800 10.5px/14px var(--font-text); color: #1E2A36; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-en { position: absolute; left: -5px; top: 22%; max-height: 70%; display: flex; flex-direction: column; flex-wrap: wrap; align-content: flex-start; gap: 2px; font-size: 13px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-row.is-bench .db-en { font-size: 9px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-conds { position: absolute; right: -6px; top: 26%; display: flex; flex-direction: column; gap: 2px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-conds i { font: 800 9px/1 var(--font-text); font-style: normal; color: #4A3800; background: #FFD24A; padding: 3px 5px; border-radius: 5px; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-conds i.is-inj { background: #FF8A5B; color: #fff; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-mid { display: flex; flex-direction: column; align-items: center; gap: 3px; margin: 6px 0 2px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-status { margin: 0; padding: 6px 14px; border-radius: 14px; background: rgba(255,255,255,.88); box-shadow: var(--pk-shadow); text-align: center; font: 600 12.5px/1.35 var(--font-text); max-width: 100%; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-status b.is-w { color: #0E8196; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-status b.is-l { color: var(--wrong); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-link { background: none; border: 0; color: var(--link); font: 700 13px var(--font-text); cursor: pointer; padding: 0 4px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-stad { display: inline-flex; align-items: center; gap: 4px; font: 700 12px var(--font-text); color: #fff; background: linear-gradient(90deg, #2FA45A, #3CC071); padding: 4px 10px; border-radius: 99px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-stad .ic { width: 13px; height: 13px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-log { display: flex; flex-direction: column; align-items: center; gap: 1px; background: none; border: 0; color: var(--ink-3); font: 500 12px var(--font-text); cursor: pointer; max-width: 100%; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-log span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 92vw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-log span.is-new { color: var(--ink); font-weight: 600; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-hand { display: flex; gap: 6px; overflow-x: auto; padding: 10px 8px 8px; margin: 2px -4px 0; scrollbar-width: none; min-height: 86px; border-radius: 16px; background: rgba(255,255,255,.6); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-hand::-webkit-scrollbar { display: none; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-card { flex: none; width: 52px; padding: 0; border: 0; background: none; cursor: pointer; border-radius: 7px; transition: transform .18s; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-card .pk-card { pointer-events: none; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-card.is-sel { transform: translateY(-8px); outline: 3px solid var(--tint); outline-offset: 2px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-none { color: var(--ink-3); font-size: var(--fs-foot); align-self: center; padding-left: 6px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-bar { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; margin-top: auto; padding-top: 6px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-bar > .db-zone { flex: 0 1 auto; min-width: 0; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-bar > .btn { flex: none; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-zone-t { min-width: 0; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-zone-t b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-bar .db-go { flex: 1; }
 /* the Energy Zone: this turn's energy in the big disc (tap to attach it), the next one beside it */
-.db-zone { display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px 4px 4px; border: 0; border-radius: 99px; background: #fff; box-shadow: var(--pk-shadow);
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-zone { display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px 4px 4px; border: 0; border-radius: 99px; background: #fff; box-shadow: var(--pk-shadow);
   color: var(--ink); font: 700 12px/1.15 var(--font-text); text-align: left; cursor: pointer; }
-.db-zone-now { position: relative; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; font-size: 23px; flex: none;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-zone-now { position: relative; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; font-size: 23px; flex: none;
   background: radial-gradient(circle, #fff 55%, #E6EEF4); box-shadow: inset 0 0 0 2px #E1E8EE; }
-.db-zone.is-live .db-zone-now { animation: db-glow 1.6s ease-in-out infinite; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-zone.is-live .db-zone-now { animation: db-glow 1.6s ease-in-out infinite; }
 @keyframes db-glow { 0%, 100% { box-shadow: inset 0 0 0 2px #E1E8EE, 0 0 0 0 rgba(24,180,203,.55); } 50% { box-shadow: inset 0 0 0 2px #E1E8EE, 0 0 0 7px rgba(24,180,203,0); } }
-.db-zone-x { width: 22px; height: 22px; border-radius: 50%; background: #E3E8ED; }
-.db-zone-t { display: flex; flex-direction: column; gap: 2px; }
-.db-zone-t small { font: 600 11px var(--font-text); color: var(--ink-3); display: inline-flex; align-items: center; gap: 4px; }
-.db-zone-t small .pk-e { font-size: 13px; }
-.db-zone.is-off { cursor: default; }
-.db-wait { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-3); font: 600 13px var(--font-text); flex: 1; }
-.db-pay { flex: 1; font: 800 14px var(--font-text); color: var(--gold); }
-.db-msg { padding: 40px 0; }
-.db-float { font: 900 26px var(--font-text); color: #E5484D; text-shadow: 0 2px 0 #fff, 0 0 6px #fff; }
-.db-more { flex: none; width: 36px; height: 36px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-zone-x { width: 22px; height: 22px; border-radius: 50%; background: #E3E8ED; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-zone-t { display: flex; flex-direction: column; gap: 2px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-zone-t small { font: 600 11px var(--font-text); color: var(--ink-3); display: inline-flex; align-items: center; gap: 4px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-zone-t small .pk-e { font-size: 13px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-zone.is-off { cursor: default; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-wait { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-3); font: 600 13px var(--font-text); flex: 1; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-pay { flex: 1; font: 800 14px var(--font-text); color: var(--gold); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-msg { padding: 40px 0; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-float { font: 900 26px var(--font-text); color: #E5484D; text-shadow: 0 2px 0 #fff, 0 0 6px #fff; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-more { flex: none; width: 36px; height: 36px; }
 /* the attack sheet, the recap and the log */
-.db-atkpick { display: grid; gap: 8px; margin-bottom: 12px; }
-.db-atkb { display: flex; align-items: center; gap: 8px; width: 100%; padding: 12px 14px; border: 0; border-radius: 14px; background: #fff; box-shadow: var(--pk-shadow);
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-atkpick { display: grid; gap: 8px; margin-bottom: 12px; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-atkb { display: flex; align-items: center; gap: 8px; width: 100%; padding: 12px 14px; border: 0; border-radius: 14px; background: #fff; box-shadow: var(--pk-shadow);
   color: var(--ink); font: inherit; font-size: 16px; text-align: left; cursor: pointer; }
-.db-atkb:not(:disabled) { box-shadow: 0 0 0 2px var(--tint), var(--pk-shadow); }
-.db-atkb:disabled { opacity: .5; }
-.db-atkb em { font: 900 20px/1 var(--font-text); font-style: normal; }
-.db-recap { margin: 0; padding: 0 0 0 20px; display: grid; gap: 8px; font-size: var(--fs-sub); color: var(--ink-2); }
-.db-recap .db-lt { list-style: none; margin-left: -20px; font: 800 12px var(--font-text); color: var(--tint); padding-top: 6px; text-transform: uppercase; letter-spacing: .04em; }
-@media (prefers-reduced-motion: reduce) { .db-slot.is-pick, .db-zone-now, .db-slot.is-hit { animation: none !important; } }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-atkb:not(:disabled) { box-shadow: 0 0 0 2px var(--tint), var(--pk-shadow); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-atkb:disabled { opacity: .5; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-atkb em { font: 900 20px/1 var(--font-text); font-style: normal; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-recap { margin: 0; padding: 0 0 0 20px; display: grid; gap: 8px; font-size: var(--fs-sub); color: var(--ink-2); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-recap .db-lt { list-style: none; margin-left: -20px; font: 800 12px var(--font-text); color: var(--tint); padding-top: 6px; text-transform: uppercase; letter-spacing: .04em; }
+@media (prefers-reduced-motion: reduce) { :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-slot.is-pick, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-zone-now, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .db-slot.is-hit { animation: none !important; } }
