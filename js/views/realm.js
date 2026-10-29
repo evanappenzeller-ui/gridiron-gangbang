@@ -10,7 +10,7 @@ import * as features from '../core/features.js';
 // it collects at a tap); Build puts what you pick on the lot to drag where it goes. When you come back after the
 // computer's realms have raided you, what they did is the first thing you see. Each sheet's body is built by a pure
 // function of the realm (cofferHTML, armyHTML, …), so the checks can read every word of it (_screens()). Raids open at
-// Castle level 4 (core/realm.js ATTACK_AT: Attack shows the lock until then, and the next step points at the Castle).
+// Castle level 3 (core/realm.js ATTACK_AT: Attack shows the lock until then, and the next step points at the Castle).
 // The Chronicle lists the raids on your realm, your attacks and the example raids, each with ▶ Watch where its replay
 // was kept (views/realm-replay.js, #/realm/replay/<id>; closing it opens the Chronicle again).
 import * as ui from '../core/ui.js';
@@ -204,7 +204,7 @@ function hud(st, s = null) {
   });
   const army = F.roomOf(s.ar), room = F.armyRoom(s);
   el.querySelector('[data-rl-armyn]').textContent = room ? `${army}/${room}` : '';
-  // (Attack, locked till Castle level 4: it still opens, to say so)
+  // (Attack, locked till Castle level 3: it still opens, to say so)
   const open = F.attackOpen(s), rb = el.querySelector('[data-rl-raid]');
   rb.classList.toggle('is-locked', !open);
   rb.querySelector('[data-rl-raidlock]').hidden = open;
@@ -223,7 +223,7 @@ export function nextObjective(s, now = Date.now()) {
     return chk.ok ? {kind: 'build', type: k, title: `Build ${F.KINDS[k].name}`, detail: `${nf(chk.cost)} ${F.CUR_NAME[chk.pay]} · Choose a spot`} : null;
   };
   const upgrade = b => b && F.canUpgrade(s, b.i, now).ok ? {kind: 'select', id: b.i, title: `Upgrade ${F.KINDS[b.t].name}`, detail: upgradeBenefit(b)} : null;
-  // (raids open at Castle level 4: till then, whenever the Castle can go up, that's the step, before anything else (a full
+  // (raids open at Castle level 3: till then, whenever the Castle can go up, that's the step, before anything else (a full
   // treasury included: the Castle spends it); when it can't yet, the buildings that pay and hold for it, and the Castle
   // with what it needs when there's nothing else to do)
   const locked = !F.attackOpen(s), keep = s.b.find(b => b.t === 'keep');
@@ -983,7 +983,7 @@ function armyParts(s, now) {
     room: `<div class="rl-room"><b>${have + q}/${room}</b> room in the war camps${q ? ` (${q} in training)` : ''}</div>`,
     ready: `<h3 class="rl-sh-h">Ready to march</h3><div class="rl-chips">${army}</div>`,
     training: line ? `<h3 class="rl-sh-h">Training${s.q.length ? ` · done in ${dur(F.trainedBy(s, now) - now)}` : ''}</h3><div class="rl-chips">${line}</div>` : '',
-    // (till raids open at Castle level 4, the troops show locked: core/realm.js canTrain)
+    // (till raids open at Castle level 3, the troops show locked: core/realm.js canTrain)
     train: `<h3 class="rl-sh-h">Train <span>(${open ? `tap to add one · ${F.CUR_NAME.grain} ${nf(s.r.grain)}` : `opens at Castle level ${F.ATTACK_AT}, with raids`})</span></h3><div class="rl-tcs">${cards}</div>`
   };
 }
@@ -1050,25 +1050,26 @@ export function targets(now = Date.now(), mine = F.mine()) {
   return F.BOTS.map(b => ({k: b.k, name: b.name, th: b.th, loot: F.botLoot(b, F.botBase(b.th), mine, now).total}));
 }
 /** Attack: what marches (troops and heroes), the computer's realms, what each holds today, Scout and Attack for each;
- *  before Castle level 4, the lock (raids open there) and the way to the Castle; a realm more than a level above your
+ *  before Castle level 3, the lock (raids open there) and the way to the Castle; a realm more than a level above your
  *  Castle, locked till it's high enough. */
 function raidHTML(s, now) {
   const th = F.keepOf(s), rows = (open, army) => targets(now, s).map(x => {
     const bot = F.BOTS.find(b => b.k === x.k), ok = open && F.canTarget(s, bot);
     return `<div class="rl-tg${ok ? '' : ' is-locked'}"><span class="rl-tg-lv">${x.th}</span><span class="rl-tg-n"><b>${esc(x.name)}</b>`
       + `<small>${x.loot.gold || x.loot.grain ? `${curHTML('gold', x.loot.gold)} ${curHTML('grain', x.loot.grain)}` : 'Raided today: nothing left to take'}</small></span>`
-      // (from Castle 4 every realm can be scouted, the ones out of reach too: core/realm.js realmOf's scout)
+      // (from Castle 3 every realm can be scouted, the ones out of reach too: core/realm.js realmOf's scout)
       + (open ? `<button type="button" class="rl-act rl-tg-go" data-rl-scout="${esc(x.k)}">Scout</button>` : '')
       + (ok ? `<button type="button" class="rl-act is-go rl-tg-go" data-rl-go="${esc(x.k)}" ${army ? '' : 'disabled'}>Attack</button>`
         : `<span class="rl-tg-lock" role="img" aria-label="Locked: attack it from Castle level ${F.targetAt(bot || x.k)}">${ui.icon('lock')}<span aria-hidden="true">Castle ${F.targetAt(bot || x.k)}</span></span>`) + `</div>`;
   }).join('');
   if (!F.attackOpen(s)) {
-    // (the heroes who come with it: the Knight Hero joins there; the Dragon Hero hatches there too, but only once a
-    // Dragon Hatchery is built)
-    const at = F.HERO_ORDER.filter(k => F.HEROES[k].at === F.ATTACK_AT), name = k => F.HEROES[k].name;
+    // (the heroes who come after it: the Knight Hero joins at Castle 4, a level after raids open since Oct 28 2026; the
+    // Dragon Hero hatches there too, but only once a Dragon Hatchery is built)
+    const at = F.HERO_ORDER.filter(k => F.HEROES[k].at >= F.ATTACK_AT), name = k => F.HEROES[k].name;
     const join = at.filter(k => !F.HEROES[k].hatch).map(name), hatch = at.filter(k => F.HEROES[k].hatch).map(name);
+    const joinAt = join.length ? F.HEROES[at.find(k => !F.HEROES[k].hatch)].at : 0;
     return `<div class="rl-lock"><span class="rl-lock-ic" aria-hidden="true">${ui.icon('lock')}</span><span><b>Raids open at Castle level ${F.ATTACK_AT}</b>`
-      + `<small>Your Castle is level ${th}. Raise it to march on the computer’s realms${join.length ? `; the ${join.join(' and the ')} join${join.length === 1 ? 's' : ''} you there` : ''}`
+      + `<small>Your Castle is level ${th}. Raise it to march on the computer’s realms${join.length ? `; the ${join.join(' and the ')} join${join.length === 1 ? 's' : ''} you ${joinAt === F.ATTACK_AT ? 'there' : `at Castle level ${joinAt}`}` : ''}`
       + `${hatch.length ? ', and your first dragon once you choose it and build a Dragon Hatchery' : ''}.</small></span></div>`
       + `<div class="rl-acts"><button type="button" class="rl-act is-go" data-rl-tokeep>Go to your Castle</button></div>`
       + `<h3 class="rl-sh-h">The computer’s realms</h3>${rows(false, 0)}`
@@ -1077,6 +1078,7 @@ function raidHTML(s, now) {
   const army = F.roomOf(s.ar) || Object.keys(F.heroArmy(s)).length;
   const march = [...F.TROOP_ORDER.filter(t => s.ar[t]).map(t => `${esc(F.TROOPS[t].name)} ×${s.ar[t]}`), ...F.HERO_ORDER.filter(k => F.heroArmy(s)['hero_' + k]).map(k => `${esc(F.HEROES[k].name)} level ${F.heroLevel(s, k)}`)];
   return (army ? `<p class="rl-sh-lead">Ready to march: ${march.join(', ')}. Send them round the edge of a realm; they carry off what its treasuries, cellars, mines and breweries hold. Each realm’s stores fill again every morning.</p>`
+      : th < F.HEROES.knight.at ? `<p class="rl-sh-lead">Open Army to train troops before attacking. The Knight Hero and your first dragon come at Castle level ${F.HEROES.knight.at}.</p>`
       : `<p class="rl-sh-lead">Open Army to recruit the Knight Hero or train troops, or choose a dragon and build its hatchery, before attacking.</p>`)
     + rows(true, army)
     + `<p class="rl-sh-note">Scout a realm to look round it first: where its towers reach, where its walls run, where its gold and ale are kept. You can attack realms up to a level above your Castle.</p>`;

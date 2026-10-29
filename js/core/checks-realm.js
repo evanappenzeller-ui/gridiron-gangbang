@@ -535,7 +535,7 @@ export async function realmChecks(check) {
     return {pass: start && early && levels && picked && kept && fallback && old && back, detail: `starts on the coast ${start}; the tundra at Castle 1 refused ${early}; unlocked at ${JSON.stringify(at)}; at Castle 6 the desert picked, retired lands refused ${picked}; kept in the save ${kept}; an unknown pick on the coast ${fallback}; retired picks kept, drawn as the nearest land ${old}; back to the coast ${back}`};
   });
 
-  check('Keepfall: the army trains from Castle level 4, where raids open (the owner, Oct 28 2026), one at a time with Ale (a footman 5 s at one barracks), into the war camps’ room; a full camp takes no more; one taken out of training gives its Ale back', () => {
+  check('Keepfall: the army trains from Castle level 3, where raids open (the owner, Oct 28 2026), one at a time with Ale (a footman 5 s at one barracks), into the war camps’ room; a full camp takes no more; one taken out of training gives its Ale back', () => {
     const s = F.fresh(T0), keep = s.b.find(b => b.t === 'keep');
     s.b.push({i: 50, t: 'barracks', l: 1, x: 3, y: 3, u: 0}, {i: 51, t: 'camp', l: 1, x: 3, y: 9, u: 0});
     s.r.grain = 2500;
@@ -549,8 +549,8 @@ export async function realmChecks(check) {
     F.untrain(s, 'footman', T0 + 61e3);
     const back = s.r.grain - grain;
     F.tick(s, T0 + 200e3);
-    const ok = /Castle level 4/.test(early) && refused && ok20 && /full/.test(more) && /level 2/.test(archerLocked) && at60 === 12 && back === 25 && s.ar.footman === 19 && !s.q.length;
-    return {pass: ok, detail: `at Castle 3: ${early}, refused ${refused}; 20 in ${ok20}; 21st: ${more}; archer: ${archerLocked}; after 60 s ${at60}; one out +${back}; in the end ${s.ar.footman}`};
+    const ok = /Castle level 3/.test(early) && refused && ok20 && /full/.test(more) && /level 2/.test(archerLocked) && at60 === 12 && back === 25 && s.ar.footman === 19 && !s.q.length;
+    return {pass: ok, detail: `at Castle 2: ${early}, refused ${refused}; 20 in ${ok20}; 21st: ${more}; archer: ${archerLocked}; after 60 s ${at60}; one out +${back}; in the end ${s.ar.footman}`};
   });
 
   check('Keepfall: an attack plays out the same every time from the same drops; 20 footmen sack the computer’s first realm (three stars, all it holds), one alone does little; no one can be sent onto or next to a building', () => {
@@ -900,15 +900,15 @@ export async function realmChecks(check) {
     return {pass: kick && ret && ale && shares && loot, detail: `Kick It ${[0, 4, 5, 10, 25, 40].map(m => `${m}: ${F.kickGold(m)}`).join(', ')}${kickTable.length ? ' (wrong at ' + kickTable.join(',') + ')' : ''} ${kick}; Return Man ${coins.map(c => `${c}: ${F.returnGold(c)}`).join(', ')} ${ret}; Ale ${F.ALE_BY_PLACE.join('/')} ${ale}; shares ${F.STORE_SHARE}/${F.MADE_SHARE}, hold ${F.KINDS.mine.hold}h ${shares}; a raid’s take on 10,000/8,000 stored and 200/200 piled: ${JSON.stringify(L.total)} ${loot}`};
   });
 
-  check('Keepfall: Castle 4 unlocks (the owner, Oct 22 2026): attacking and scouting the computer’s realms open at Castle level 4 (before then “Raids open at Castle level 4”), and then only realms up to a level above his Castle (the rest “Castle level N”: scouting them is fine); the Knight Hero is recruited from Castle 4 (one recruited before keeps his level) and the Dragon Hero hatches with a Dragon Hatchery there, never for Gold; the computer raids him from Castle 3 (Oct 22 2026, was 2)', () => {
+  check('Keepfall: Castle 4 unlocks (the owner, Oct 22 2026), raids from Castle 3 (Oct 28 2026): attacking and scouting the computer’s realms open at Castle level 3 (before then “Raids open at Castle level 3”), and then only realms up to a level above his Castle (the rest “Castle level N”: scouting them is fine); the Knight Hero is recruited from Castle 4 (one recruited before keeps his level) and the Dragon Hero hatches with a Dragon Hatchery there, never for Gold; the computer raids him from Castle 3 (Oct 22 2026, was 2)', () => {
     const at = l => { const s = F.fresh(T0 - 3 * DAY); s.b.find(b => b.t === 'keep').l = l; s.r = {gold: 99999, grain: 99999}; return s; };
-    const open = [1, 2, 3, 4, 5, 6, 7, 8].map(l => F.attackOpen(at(l))).join() === 'false,false,false,true,true,true,true,true' && F.ATTACK_AT === 4;
+    const open = [1, 2, 3, 4, 5, 6, 7, 8].map(l => F.attackOpen(at(l))).join() === 'false,false,true,true,true,true,true,true' && F.ATTACK_AT === 3;
     const reach = l => F.BOTS.filter(b => F.canTarget(at(l), b)).map(b => b.th).join('');
-    const targets = reach(3) === '' && reach(4) === '12345' && reach(5) === '123456' && reach(7) === '12345678' && F.canTarget(at(4), 'bot:5') && !F.canTarget(at(4), 'bot:9');
-    const whys = [F.attackWhy(at(3), 'bot:1'), F.attackWhy(at(4), 'bot:6'), F.attackWhy(at(4), 'bot:8'), F.attackWhy(at(4), 'bot:5'), F.attackWhy(at(4), 'bot:8', {scout: true}), F.attackWhy(at(2), 'bot:1', {scout: true})];
-    const words = JSON.stringify(whys) === JSON.stringify(['Raids open at Castle level 4', 'Castle level 5', 'Castle level 7', '', '', 'Raids open at Castle level 4']) && F.targetAt('bot:2') === 4 && F.targetAt('bot:8') === 7;
-    const r3 = F.realmOf('bot:1', at(3), T0), r6 = F.realmOf('bot:6', at(4), T0), sc6 = F.realmOf('bot:6', at(4), T0, {scout: true}), any = F.realmOf('bot:8', null, T0);
-    const realms = r3.locked && r3.why === 'Raids open at Castle level 4' && r6.locked && r6.why === 'Castle level 5' && !sc6.why && sc6.th === 6 && !any.why && any.th === 8;
+    const targets = reach(2) === '' && reach(3) === '1234' && reach(4) === '12345' && reach(5) === '123456' && reach(7) === '12345678' && F.canTarget(at(4), 'bot:5') && !F.canTarget(at(4), 'bot:9');
+    const whys = [F.attackWhy(at(2), 'bot:1'), F.attackWhy(at(4), 'bot:6'), F.attackWhy(at(4), 'bot:8'), F.attackWhy(at(4), 'bot:5'), F.attackWhy(at(4), 'bot:8', {scout: true}), F.attackWhy(at(2), 'bot:1', {scout: true}), F.attackWhy(at(3), 'bot:4'), F.attackWhy(at(3), 'bot:5')];
+    const words = JSON.stringify(whys) === JSON.stringify(['Raids open at Castle level 3', 'Castle level 5', 'Castle level 7', '', '', 'Raids open at Castle level 3', '', 'Castle level 4']) && F.targetAt('bot:2') === 3 && F.targetAt('bot:8') === 7;
+    const r3 = F.realmOf('bot:1', at(2), T0), r6 = F.realmOf('bot:6', at(4), T0), sc6 = F.realmOf('bot:6', at(4), T0, {scout: true}), any = F.realmOf('bot:8', null, T0);
+    const realms = r3.locked && r3.why === 'Raids open at Castle level 3' && r6.locked && r6.why === 'Castle level 5' && !sc6.why && sc6.th === 6 && !any.why && any.th === 8;
     const owner = !!F.mayPlay();
     const k3 = F.canRecruitHero(at(3), 'knight'), k4 = F.canRecruitHero(at(4), 'knight'), w3 = F.canRecruitHero(at(4), 'dragon_soul_eater');
     const heroes = F.HEROES.knight.at === 4 && F.HEROES.dragon.at === 4 && !F.HEROES.wizard
@@ -916,18 +916,20 @@ export async function realmChecks(check) {
     const had = Object.assign(at(2), {hr: {knight: 2}}), kept = F.clean(JSON.parse(JSON.stringify(had)));
     const stays = !!kept && kept.hr.knight === 2 && F.heroLevel(kept, 'knight') === 2 && (owner ? F.heroLevels(kept).knight === 2 : true);
     const raided = defend(at(3), T0).length >= 1 && !defend(at(2), T0).length && !defend(at(1), T0).length;
-    return {pass: open && targets && words && realms && heroes && stays && raided, detail: `open from Castle 4 ${open}; in reach at Castle 3/4/5/7: ${reach(3) || 'none'}/${reach(4)}/${reach(5)}/${reach(7)} ${targets}; why ${JSON.stringify(whys)} ${words}; realmOf refuses ${realms}; heroes at ${F.HEROES.knight.at}/${F.HEROES.dragon.at}, the Knight Hero at Castle 3: ${k3.why}, at 4: ${k4.ok || k4.why}, the Dragon Hero for Gold: ${w3.why} ${heroes}; one recruited at Castle 2 stays ${stays}; raided from Castle 3, not 2 ${raided}`};
+    return {pass: open && targets && words && realms && heroes && stays && raided, detail: `open from Castle 3 ${open}; in reach at Castle 2/3/4/5/7: ${reach(2) || 'none'}/${reach(3)}/${reach(4)}/${reach(5)}/${reach(7)} ${targets}; why ${JSON.stringify(whys)} ${words}; realmOf refuses ${realms}; heroes at ${F.HEROES.knight.at}/${F.HEROES.dragon.at}, the Knight Hero at Castle 3: ${k3.why}, at 4: ${k4.ok || k4.why}, the Dragon Hero for Gold: ${w3.why} ${heroes}; one recruited at Castle 2 stays ${stays}; raided from Castle 3, not 2 ${raided}`};
   });
 
-  check('Keepfall: raids on him start at Castle 3 (the owner, Oct 22 2026, was 2; DEFEND_AT): the screens say so (the Chronicle of a smaller realm “Once your Castle is level 3”, Attack’s lock “start at Castle level 3”, the welcome “once your Castle is level 3”), never level 2; the example raids aren’t held to it (a Castle 2 realm still gets its three to watch, on his phone); Attack says how each hero comes (the Knight Hero joins at Castle 4, the Dragon Hero once a Dragon Hatchery is built)', async () => {
+  check('Keepfall: raids on him start at Castle 3 (the owner, Oct 22 2026, was 2; DEFEND_AT): the screens say so (the Chronicle of a smaller realm “Once your Castle is level 3”, Attack’s lock “start at Castle level 3”, the welcome “once your Castle is level 3”), never level 2; the example raids aren’t held to it (a Castle 2 realm still gets its three to watch, on his phone); Attack says how each hero comes (the Knight Hero joins at Castle 4, the Dragon Hero once a Dragon Hatchery is built; at Castle 3, where raids open, train troops)', async () => {
     const view = await import('../views/realm.js');
     const at = l => { const s = F.fresh(T0 - 3 * DAY); s.b.find(b => b.t === 'keep').l = l; return s; };
     const words = (s, w) => { const t = document.createElement('template'); t.innerHTML = ((view._screens(s, T0) || []).find(p => p.where === w) || {}).html || ''; return t.content.textContent.replace(/\s+/g, ' '); };
     const log2 = words(at(2), 'The Chronicle'), log3 = words(at(3), 'The Chronicle'), atk = words(at(2), 'Attack'), hi = words(at(2), 'Keepfall');
     // (and how each hero comes, Oct 23 2026: the Knight Hero joins at Castle 4, the Dragon Hero hatches there only once a
-    // Dragon Hatchery is built; with no army, Attack says to recruit the one, hatch the other or train troops)
-    const atk4 = words(at(4), 'Attack');
-    const heroWords = atk.includes('the Knight Hero joins you there, and your first dragon once you choose it and build a Dragon Hatchery') && !/Knight Hero and the Dragon Hero join/.test(atk)
+    // Dragon Hatchery is built; with no army, Attack says to recruit the one, hatch the other or train troops; at Castle 3,
+    // where raids open since Oct 28 2026, to train troops, the heroes a level on)
+    const atk3 = words(at(3), 'Attack'), atk4 = words(at(4), 'Attack');
+    const heroWords = atk.includes('the Knight Hero joins you at Castle level 4, and your first dragon once you choose it and build a Dragon Hatchery') && !/Knight Hero and the Dragon Hero join/.test(atk)
+      && atk3.includes('Open Army to train troops before attacking. The Knight Hero and your first dragon come at Castle level 4')
       && atk4.includes('recruit the Knight Hero or train troops, or choose a dragon and build its hatchery');
     const said = F.DEFEND_AT === 3 && log2.includes('Once your Castle is level 3, the computer’s realms will start raiding you') && log3.includes('No one has raided you yet.')
       && atk.includes('Their raids on you start at Castle level 3 all the same') && hi.includes('once your Castle is level 3, those realms raid you too')

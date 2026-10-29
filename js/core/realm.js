@@ -920,7 +920,7 @@ export function canTrain(s, t, n = 1) {
   // (the Dragon isn't trained from Oct 22 2026: he hatches as the Dragon Hero, HEROES.dragon)
   if (!TROOP_ORDER.includes(t)) return {ok: false, why: t === 'dragon' ? 'Dragons hatch as your Dragon Hero now' : 'Unknown troop'};
   // (no army till raids open, the owner, Oct 28 2026: "Players should not be able to train their army until they reach
-  // level 4 where they can attack"; troops already in training or ready stay as they are)
+  // level 4 where they can attack", now ATTACK_AT, 3; troops already in training or ready stay as they are)
   if (!attackOpen(s)) return {ok: false, why: `Train your army at Castle level ${ATTACK_AT}`};
   if (!trainers(s)) return {ok: false, why: 'Build barracks first'};
   if (barracksLevel(s) < T.at) return {ok: false, why: `Barracks level ${T.at}`};
@@ -1088,10 +1088,11 @@ export function botLoot(bot, base, mine, now = Date.now()) {
 }
 
 // ---- Castle 4 unlocks (the owner, Oct 22 2026: "Level 4 is where the user unlocks raids and other items such as wizard
-// and knight"): attacking and scouting the computer's realms open at Castle level ATTACK_AT, and then only the realms up
+// and knight"); raids moved to Castle 3 (the owner, Oct 28 2026: "Raids should be available at level 3"), the heroes
+// stay at 4: attacking and scouting the computer's realms open at Castle level ATTACK_AT, and then only the realms up
 // to a level above your Castle's (canTarget). The computer raiding you starts at Castle DEFEND_AT (realm-battle.js defend;
 // the owner, Oct 22 2026: level 3, was 2).
-export const ATTACK_AT = 4, DEFEND_AT = 3;
+export const ATTACK_AT = 3, DEFEND_AT = 3;
 const botOf = bot => (typeof bot === 'string' ? BOTS.find(b => b.k === bot) : bot && BOTS.find(b => b.k === bot.k)) || null;
 /** Whether realm s can attack (and scout) at all: its Castle at ATTACK_AT or higher. */
 export const attackOpen = s => !!(s && Array.isArray(s.b)) && keepOf(s) >= ATTACK_AT;
@@ -1099,7 +1100,7 @@ export const attackOpen = s => !!(s && Array.isArray(s.b)) && keepOf(s) >= ATTAC
 export const targetAt = bot => { const b = botOf(bot); return b ? Math.max(ATTACK_AT, b.th - 1) : Infinity; };
 /** Whether realm s may attack that computer realm now: attacks open, and its level no more than one above s's Castle. */
 export const canTarget = (s, bot) => { const b = botOf(bot); return !!b && attackOpen(s) && b.th <= keepOf(s) + 1; };
-/** Why s can't attack that realm ('' when it can): "Raids open at Castle level 4" before then, "Castle level N" for a
+/** Why s can't attack that realm ('' when it can): "Raids open at Castle level 3" before then, "Castle level N" for a
  *  realm too strong yet (N: targetAt), or that it isn't there. For scouting (scout: true), only the first. */
 export function attackWhy(s, bot, {scout = false} = {}) {
   const b = botOf(bot);
@@ -1111,7 +1112,7 @@ export function attackWhy(s, bot, {scout = false} = {}) {
 
 /** A realm you can scout or attack, by its key: {key, name, th, base, loot} or {why, locked}. The computer's, for now
  *  (Keepfall is the owner's alone: no one else's realm is anywhere in it). mine: the realm doing it; when it's given,
- *  Castle 4's rule holds (attackWhy: refused with locked: true before Castle 4 and, unless scout, for a realm out of
+ *  ATTACK_AT's rule holds (attackWhy: refused with locked: true before Castle 3 and, unless scout, for a realm out of
  *  reach); without it (null: the checks, a look at a lot), any realm. */
 export function realmOf(key, mine, now = Date.now(), {scout = false} = {}) {
   const bot = BOTS.find(b => b.k === key);

@@ -27,7 +27,7 @@ function speedBtn(st) {
   b.classList.toggle('is-fast', st.speed > 1);
 }
 
-/** Why realm key can't be attacked (or scouted) from realm s yet, or '': raids open at Castle level 4 (the owner, Oct 22
+/** Why realm key can't be attacked (or scouted) from realm s yet, or '': raids open at Castle level 3 (ATTACK_AT; the owner, Oct 22
  *  2026), and a realm more than a level above your Castle waits for it. */
 export function lockedWhy(s, key) {
   if (!F.attackOpen(s)) return `Raids open at Castle level ${F.ATTACK_AT}.`;
@@ -175,7 +175,7 @@ export default {
       const msg = el.querySelector('[data-rlr-msg]');
       if (!daily.LB.ready) { msg.hidden = false; msg.textContent = 'Riding out…'; const off = ctx.on('daily', type => { if (type === 'lb') { off(); begin(); } }); return; }
       F.sync();
-      // (raids open at Castle level 4, and only on realms up to a level above your Castle: core/realm.js attackOpen,
+      // (raids open at Castle level 3, and only on realms up to a level above your Castle: core/realm.js attackOpen,
       // canTarget)
       const locked = lockedWhy(F.mine(), key);
       if (locked) { msg.hidden = false; msg.textContent = locked; return; }

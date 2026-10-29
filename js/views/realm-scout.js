@@ -102,7 +102,7 @@ export default {
       const msg = el.querySelector('[data-rls-msg]');
       if (!daily.LB.ready) { msg.hidden = false; msg.textContent = 'Riding out…'; const off = ctx.on('daily', type => { if (type === 'lb') { off(); begin(); } }); return; }
       F.sync();
-      // (raids, and scouting, open at Castle level 4; then any of the computer's realms can be looked round, the ones
+      // (raids, and scouting, open at Castle level 3 (ATTACK_AT); then any of the computer's realms can be looked round, the ones
       // more than a level above your Castle too: core/realm.js realmOf's scout)
       const T = F.realmOf(key, F.mine(), Date.now(), {scout: true});
       if (T.why) { msg.hidden = false; msg.textContent = T.locked && !/[.!]$/.test(T.why) ? `${T.why}.` : T.why; el.querySelector('[data-rls-bar]').hidden = true; return; }
