@@ -10,7 +10,10 @@ and collections):
   P  Prime        the top two or three at each position at their best
   G  Gameday      each week's best real performances (like The Show's Topps Now), the stat line on the card
   A  Awards       the 2025 season's statistical leaders
-  X  Legends      the all-time greats (hand-picked below)
+  X  Legends      the all-time greats (hand-picked below): the modern greats, and the Topps-era greats (the owner, Oct 29
+                  2026: "Add legends using the following website", footballcardgallery.com's Topps football cards: the
+                  greats of its 1956-1980s sets), each with the Topps set his first card came in and, once fetched from
+                  the gallery, that card's picture (TOPPS below: the picture's URL goes on the card as its head)
 Rarity is by OVR: Mythic 85+, Legendary 80-84, Epic 75-79, Rare 65-74, Common 64 and under.
 """
 import csv, json, math, os, sys, urllib.request, datetime
@@ -191,24 +194,79 @@ ATTR_KEYS = {'QB': ['ARM', 'ACC', 'IQ', 'RUN'], 'RB': ['RUN', 'BRK', 'REC', 'TD'
              'TE': ['CTH', 'RTE', 'YAC', 'DEEP'], 'K': ['ACC', 'PWR', 'CLU'], 'DL': ['PRS', 'TKL', 'COV'], 'LB': ['TKL', 'PRS', 'COV'],
              'CB': ['COV', 'TKL', 'PRS'], 'S': ['COV', 'TKL', 'PRS'], 'OL': ['PBK', 'RBK', 'DUR']}
 
-# The Legends (hand-picked): name, position, team, era, OVR, number
+# The Legends (hand-picked): name, position, team (today's franchise), era, OVR, number, and the Topps set his first
+# card came in (where it was a Topps card; '' where not). Teams are today's: the Colts IND, the Rams LA, the Raiders LV,
+# the Cardinals ARI, the Oilers TEN, the Chargers LAC.
 LEGENDS = [
-    ('Tom Brady', 'QB', 'NE', '2000–22', 99, 12), ('Jerry Rice', 'WR', 'SF', '1985–2004', 99, 80), ('Lawrence Taylor', 'LB', 'NYG', '1981–93', 99, 56),
-    ('Barry Sanders', 'RB', 'DET', '1989–98', 98, 20), ('Peyton Manning', 'QB', 'IND', '1998–2015', 98, 18), ('Reggie White', 'DL', 'PHI', '1985–2000', 98, 92),
-    ('Jim Brown', 'RB', 'CLE', '1957–65', 98, 32), ('Joe Montana', 'QB', 'SF', '1979–94', 97, 16), ('Deion Sanders', 'CB', 'DAL', '1989–2005', 97, 21),
-    ('Walter Payton', 'RB', 'CHI', '1975–87', 97, 34), ('Randy Moss', 'WR', 'MIN', '1998–2012', 97, 84), ('Aaron Donald', 'DL', 'LA', '2014–23', 97, 99),
-    ('Ray Lewis', 'LB', 'BAL', '1996–2012', 97, 52), ('Anthony Muñoz', 'OL', 'CIN', '1980–92', 96, 78), ('Ed Reed', 'S', 'BAL', '2002–13', 96, 20),
-    ('Ronnie Lott', 'S', 'SF', '1981–94', 96, 42), ('Dan Marino', 'QB', 'MIA', '1983–99', 96, 13), ('Calvin Johnson', 'WR', 'DET', '2007–15', 96, 81),
-    ('Rob Gronkowski', 'TE', 'NE', '2010–21', 96, 87), ('Tony Gonzalez', 'TE', 'KC', '1997–2013', 95, 88), ('LaDainian Tomlinson', 'RB', 'LAC', '2001–11', 96, 21),
-    ('J.J. Watt', 'DL', 'HOU', '2011–22', 95, 99), ('Bruce Smith', 'DL', 'BUF', '1985–2003', 95, 78), ('Darrelle Revis', 'CB', 'NYJ', '2007–17', 95, 24),
-    ('Champ Bailey', 'CB', 'DEN', '1999–2013', 94, 24), ('Troy Polamalu', 'S', 'PIT', '2003–14', 95, 43), ('Dick Butkus', 'LB', 'CHI', '1965–73', 96, 51),
-    ('Derrick Thomas', 'LB', 'KC', '1989–99', 94, 58), ('Brian Urlacher', 'LB', 'CHI', '2000–12', 93, 54), ('Emmitt Smith', 'RB', 'DAL', '1990–2004', 95, 22),
-    ('Adrian Peterson', 'RB', 'MIN', '2007–21', 94, 28), ('Marshall Faulk', 'RB', 'LA', '1994–2005', 94, 28), ('Terrell Owens', 'WR', 'SF', '1996–2010', 94, 81),
-    ('John Elway', 'QB', 'DEN', '1983–98', 95, 7), ('Brett Favre', 'QB', 'GB', '1991–2010', 95, 4), ('Drew Brees', 'QB', 'NO', '2001–20', 95, 9),
-    ('Larry Allen', 'OL', 'DAL', '1994–2007', 95, 73), ('Jonathan Ogden', 'OL', 'BAL', '1996–2007', 95, 75), ('Joe Thomas', 'OL', 'CLE', '2007–17', 94, 73),
-    ('Charles Woodson', 'CB', 'LV', '1998–2015', 94, 24), ('Rod Woodson', 'CB', 'PIT', '1987–2003', 94, 26), ('Adam Vinatieri', 'K', 'NE', '1996–2019', 95, 4),
-    ('Justin Tucker', 'K', 'BAL', '2012–24', 93, 9), ('Junior Seau', 'LB', 'LAC', '1990–2009', 94, 55), ('Michael Strahan', 'DL', 'NYG', '1993–2007', 94, 92),
+    ('Tom Brady', 'QB', 'NE', '2000–22', 99, 12, '2000 Topps'), ('Jerry Rice', 'WR', 'SF', '1985–2004', 99, 80, '1986 Topps'), ('Lawrence Taylor', 'LB', 'NYG', '1981–93', 99, 56, '1982 Topps'),
+    ('Barry Sanders', 'RB', 'DET', '1989–98', 98, 20, '1989 Topps Traded'), ('Peyton Manning', 'QB', 'IND', '1998–2015', 98, 18, '1998 Topps'), ('Reggie White', 'DL', 'PHI', '1985–2000', 98, 92, '1986 Topps'),
+    ('Jim Brown', 'RB', 'CLE', '1957–65', 98, 32, '1958 Topps'), ('Joe Montana', 'QB', 'SF', '1979–94', 97, 16, '1981 Topps'), ('Deion Sanders', 'CB', 'DAL', '1989–2005', 97, 21, '1989 Topps Traded'),
+    ('Walter Payton', 'RB', 'CHI', '1975–87', 97, 34, '1976 Topps'), ('Randy Moss', 'WR', 'MIN', '1998–2012', 97, 84, '1998 Topps'), ('Aaron Donald', 'DL', 'LA', '2014–23', 97, 99, '2014 Topps'),
+    ('Ray Lewis', 'LB', 'BAL', '1996–2012', 97, 52, '1996 Topps'), ('Anthony Muñoz', 'OL', 'CIN', '1980–92', 96, 78, '1981 Topps'), ('Ed Reed', 'S', 'BAL', '2002–13', 96, 20, '2002 Topps'),
+    ('Ronnie Lott', 'S', 'SF', '1981–94', 96, 42, '1982 Topps'), ('Dan Marino', 'QB', 'MIA', '1983–99', 96, 13, '1984 Topps'), ('Calvin Johnson', 'WR', 'DET', '2007–15', 96, 81, '2007 Topps'),
+    ('Rob Gronkowski', 'TE', 'NE', '2010–21', 96, 87, '2010 Topps'), ('Tony Gonzalez', 'TE', 'KC', '1997–2013', 95, 88, '1997 Topps'), ('LaDainian Tomlinson', 'RB', 'LAC', '2001–11', 96, 21, '2001 Topps'),
+    ('J.J. Watt', 'DL', 'HOU', '2011–22', 95, 99, '2011 Topps'), ('Bruce Smith', 'DL', 'BUF', '1985–2003', 95, 78, '1986 Topps'), ('Darrelle Revis', 'CB', 'NYJ', '2007–17', 95, 24, '2007 Topps'),
+    ('Champ Bailey', 'CB', 'DEN', '1999–2013', 94, 24, '1999 Topps'), ('Troy Polamalu', 'S', 'PIT', '2003–14', 95, 43, '2003 Topps'), ('Dick Butkus', 'LB', 'CHI', '1965–73', 96, 51, '1968 Topps'),
+    ('Derrick Thomas', 'LB', 'KC', '1989–99', 94, 58, '1989 Topps Traded'), ('Brian Urlacher', 'LB', 'CHI', '2000–12', 93, 54, '2000 Topps'), ('Emmitt Smith', 'RB', 'DAL', '1990–2004', 95, 22, '1990 Topps Traded'),
+    ('Adrian Peterson', 'RB', 'MIN', '2007–21', 94, 28, '2007 Topps'), ('Marshall Faulk', 'RB', 'LA', '1994–2005', 94, 28, '1994 Topps'), ('Terrell Owens', 'WR', 'SF', '1996–2010', 94, 81, '1996 Topps'),
+    ('John Elway', 'QB', 'DEN', '1983–98', 95, 7, '1984 Topps'), ('Brett Favre', 'QB', 'GB', '1991–2010', 95, 4, '1991 Topps Stadium Club'), ('Drew Brees', 'QB', 'NO', '2001–20', 95, 9, '2001 Topps'),
+    ('Larry Allen', 'OL', 'DAL', '1994–2007', 95, 73, '1994 Topps'), ('Jonathan Ogden', 'OL', 'BAL', '1996–2007', 95, 75, '1996 Topps'), ('Joe Thomas', 'OL', 'CLE', '2007–17', 94, 73, '2007 Topps'),
+    ('Charles Woodson', 'CB', 'LV', '1998–2015', 94, 24, '1998 Topps'), ('Rod Woodson', 'CB', 'PIT', '1987–2003', 94, 26, '1987 Topps'), ('Adam Vinatieri', 'K', 'NE', '1996–2019', 95, 4, ''),
+    ('Justin Tucker', 'K', 'BAL', '2012–24', 93, 9, ''), ('Junior Seau', 'LB', 'LAC', '1990–2009', 94, 55, '1990 Topps'), ('Michael Strahan', 'DL', 'NYG', '1993–2007', 94, 92, '1993 Topps'),
+
+    # The Topps-era greats (footballcardgallery.com's Topps sets, 1956 on)
+    ('Johnny Unitas', 'QB', 'IND', '1956–73', 97, 19, '1957 Topps'), ('Bart Starr', 'QB', 'GB', '1956–71', 94, 15, '1957 Topps'),
+    ('Joe Namath', 'QB', 'NYJ', '1965–77', 94, 12, '1965 Topps'), ('Roger Staubach', 'QB', 'DAL', '1969–79', 95, 12, '1972 Topps'),
+    ('Terry Bradshaw', 'QB', 'PIT', '1970–83', 93, 12, '1971 Topps'), ('Fran Tarkenton', 'QB', 'MIN', '1961–78', 94, 10, '1962 Topps'),
+    ('Len Dawson', 'QB', 'KC', '1957–75', 92, 16, '1964 Topps'), ('Sonny Jurgensen', 'QB', 'WAS', '1957–74', 92, 9, '1958 Topps'),
+    ('Dan Fouts', 'QB', 'LAC', '1973–87', 93, 14, '1975 Topps'), ('Steve Young', 'QB', 'SF', '1985–99', 95, 8, '1986 Topps'),
+    ('Troy Aikman', 'QB', 'DAL', '1989–2000', 93, 8, '1989 Topps Traded'), ('Jim Kelly', 'QB', 'BUF', '1986–96', 93, 12, '1987 Topps'),
+    ('Warren Moon', 'QB', 'TEN', '1984–2000', 92, 1, '1985 Topps'), ('Kurt Warner', 'QB', 'ARI', '1998–2009', 93, 13, '1999 Topps'),
+    ('Gale Sayers', 'RB', 'CHI', '1965–71', 96, 40, '1968 Topps'), ('Earl Campbell', 'RB', 'TEN', '1978–85', 95, 34, '1979 Topps'),
+    ('Eric Dickerson', 'RB', 'LA', '1983–93', 95, 29, '1984 Topps'), ('Tony Dorsett', 'RB', 'DAL', '1977–88', 93, 33, '1978 Topps'),
+    ('Franco Harris', 'RB', 'PIT', '1972–84', 93, 32, '1973 Topps'), ('Marcus Allen', 'RB', 'LV', '1982–97', 93, 32, '1983 Topps'),
+    ('Thurman Thomas', 'RB', 'BUF', '1988–2000', 92, 34, '1989 Topps'), ('Larry Csonka', 'RB', 'MIA', '1968–79', 92, 39, '1969 Topps'),
+    ('John Riggins', 'RB', 'WAS', '1971–85', 91, 44, '1972 Topps'), ('Lenny Moore', 'RB', 'IND', '1956–67', 92, 24, '1957 Topps'),
+    ('Bo Jackson', 'RB', 'LV', '1987–90', 94, 34, '1988 Topps'), ('Curtis Martin', 'RB', 'NYJ', '1995–2005', 92, 28, '1995 Topps'),
+    ('Lance Alworth', 'WR', 'LAC', '1962–72', 95, 19, '1964 Topps'), ('Paul Warfield', 'WR', 'CLE', '1964–77', 93, 42, '1968 Topps'),
+    ('Steve Largent', 'WR', 'SEA', '1976–89', 94, 80, '1977 Topps'), ('Don Maynard', 'WR', 'NYJ', '1958–73', 92, 13, '1964 Topps'),
+    ('Raymond Berry', 'WR', 'IND', '1955–67', 94, 82, '1957 Topps'), ('Michael Irvin', 'WR', 'DAL', '1988–99', 92, 88, '1989 Topps'),
+    ('Cris Carter', 'WR', 'MIN', '1987–2002', 93, 80, '1989 Topps'), ('Art Monk', 'WR', 'WAS', '1980–95', 91, 81, '1981 Topps'),
+    ('Tim Brown', 'WR', 'LV', '1988–2004', 92, 81, '1989 Topps'), ('Marvin Harrison', 'WR', 'IND', '1996–2008', 94, 88, '1996 Topps'),
+    ('Kellen Winslow', 'TE', 'LAC', '1979–87', 93, 80, '1981 Topps'), ('Mike Ditka', 'TE', 'CHI', '1961–72', 92, 89, '1962 Topps'),
+    ('John Mackey', 'TE', 'IND', '1963–72', 92, 88, '1968 Topps'), ('Shannon Sharpe', 'TE', 'DEN', '1990–2003', 93, 84, '1991 Topps'),
+    ('Ozzie Newsome', 'TE', 'CLE', '1978–90', 92, 82, '1979 Topps'),
+    ('Forrest Gregg', 'OL', 'GB', '1956–71', 93, 75, '1959 Topps'), ('Jim Parker', 'OL', 'IND', '1957–67', 94, 77, '1958 Topps'),
+    ('John Hannah', 'OL', 'NE', '1973–85', 95, 73, '1974 Topps'), ('Art Shell', 'OL', 'LV', '1968–82', 93, 78, '1973 Topps'),
+    ('Gene Upshaw', 'OL', 'LV', '1967–81', 93, 63, '1972 Topps'), ('Mike Webster', 'OL', 'PIT', '1974–90', 94, 52, '1978 Topps'),
+    ('Jim Otto', 'OL', 'LV', '1960–74', 93, 0, '1964 Topps'), ('Bruce Matthews', 'OL', 'TEN', '1983–2001', 94, 74, '1985 Topps'),
+    ('Walter Jones', 'OL', 'SEA', '1997–2008', 94, 71, '1997 Topps'),
+    ('Deacon Jones', 'DL', 'LA', '1961–74', 96, 75, '1963 Topps'), ('Bob Lilly', 'DL', 'DAL', '1961–74', 95, 74, '1963 Topps'),
+    ('Merlin Olsen', 'DL', 'LA', '1962–76', 94, 74, '1968 Topps'), ('Joe Greene', 'DL', 'PIT', '1969–81', 96, 75, '1971 Topps'),
+    ('Alan Page', 'DL', 'MIN', '1967–81', 94, 88, '1970 Topps'), ('Jack Youngblood', 'DL', 'LA', '1971–84', 92, 85, '1973 Topps'),
+    ('Lee Roy Selmon', 'DL', 'TB', '1976–84', 92, 63, '1978 Topps'), ('Howie Long', 'DL', 'LV', '1981–93', 93, 75, '1984 Topps'),
+    ('Randy White', 'DL', 'DAL', '1975–88', 93, 54, '1977 Topps'), ('Gino Marchetti', 'DL', 'IND', '1952–66', 94, 89, '1957 Topps'),
+    ('Buck Buchanan', 'DL', 'KC', '1963–75', 92, 86, '1964 Topps'), ('Warren Sapp', 'DL', 'TB', '1995–2007', 93, 99, '1995 Topps'),
+    ('John Randle', 'DL', 'MIN', '1990–2003', 92, 93, '1992 Topps'),
+    ('Jack Lambert', 'LB', 'PIT', '1974–84', 95, 58, '1976 Topps'), ('Jack Ham', 'LB', 'PIT', '1971–82', 94, 59, '1973 Topps'),
+    ('Mike Singletary', 'LB', 'CHI', '1981–92', 94, 50, '1983 Topps'), ('Willie Lanier', 'LB', 'KC', '1967–77', 93, 63, '1971 Topps'),
+    ('Ray Nitschke', 'LB', 'GB', '1958–72', 94, 66, '1963 Topps'), ('Chuck Bednarik', 'LB', 'PHI', '1949–62', 94, 60, '1956 Topps'),
+    ('Bobby Bell', 'LB', 'KC', '1963–74', 93, 78, '1964 Topps'), ('Ted Hendricks', 'LB', 'LV', '1969–83', 92, 83, '1972 Topps'),
+    ('Sam Huff', 'LB', 'NYG', '1956–69', 92, 70, '1959 Topps'), ('Derrick Brooks', 'LB', 'TB', '1995–2008', 93, 55, '1995 Topps'),
+    ('Mel Blount', 'CB', 'PIT', '1970–83', 94, 47, '1975 Topps'), ('Dick "Night Train" Lane', 'CB', 'DET', '1952–65', 95, 81, '1957 Topps'),
+    ('Herb Adderley', 'CB', 'GB', '1961–72', 92, 26, '1968 Topps'), ('Willie Brown', 'CB', 'LV', '1963–78', 93, 24, '1964 Topps'),
+    ('Mike Haynes', 'CB', 'NE', '1976–89', 93, 40, '1977 Topps'), ('Lem Barney', 'CB', 'DET', '1967–77', 92, 20, '1968 Topps'),
+    ('Darrell Green', 'CB', 'WAS', '1983–2002', 94, 28, '1984 Topps'),
+    ('Ken Houston', 'S', 'TEN', '1967–80', 92, 27, '1971 Topps'), ('Larry Wilson', 'S', 'ARI', '1960–72', 92, 8, '1963 Topps'),
+    ('Paul Krause', 'S', 'MIN', '1964–79', 92, 22, '1968 Topps'), ('Emlen Tunnell', 'S', 'NYG', '1948–61', 92, 45, '1956 Topps'),
+    ('Steve Atwater', 'S', 'DEN', '1989–99', 91, 27, '1990 Topps'), ('Brian Dawkins', 'S', 'PHI', '1996–2012', 93, 20, '1996 Topps'),
+    ('Jan Stenerud', 'K', 'KC', '1967–85', 92, 3, '1969 Topps'), ('Morten Andersen', 'K', 'NO', '1982–2007', 92, 7, '1983 Topps'),
+    ('Lou Groza', 'K', 'CLE', '1946–67', 93, 76, '1956 Topps'),
 ]
+
+# The Legends' Topps card pictures (name -> the picture's URL on footballcardgallery.com, the owner's source, Oct 29 2026),
+# filled in as they're fetched: a Legend with one shows it in his card's window, the others his number.
+TOPPS = {}
 
 # The 2025 awards: (id, title, position group filter, stat key, ovr)
 AWARDS = [
@@ -428,12 +486,13 @@ def main():
         cards.append({'id': f"A-{aid}", 's': 'A', 'p': p['key'], 'o': o, 'a': [min(99, x + 5) for x in p['attrs']],
                       'ln': [f'{val} {unit} in {SEASON - 1}', line(p['pos'], s)], 't': f'{SEASON - 1} {title}', 'tm': s['recent_team']})
 
-    # Legends
-    for i, (name, pos, team, era, ovr, jersey) in enumerate(LEGENDS):
+    # Legends (his Topps set on the card's second line; his Topps card's picture, when TOPPS has it, as his head: a full URL)
+    for i, (name, pos, team, era, ovr, jersey, topps) in enumerate(LEGENDS):
         key = 'x' + ''.join(c for c in name.lower() if c.isalnum())[:14]
-        P[key] = [name, team, pos, jersey, '', 0, '', 0]
+        assert key not in P, name
+        P[key] = [name, team, pos, jersey, TOPPS.get(name, ''), 0, '', 0]
         base = [ovr - 1, ovr - 3, ovr - 6, ovr - 9][:len(ATTR_KEYS[pos])]
-        cards.append({'id': 'X' + key[1:], 's': 'X', 'p': key, 'o': ovr, 'a': base, 'ln': [era, ''], 't': f'Legend · {era}'})
+        cards.append({'id': 'X' + key[1:], 's': 'X', 'p': key, 'o': ovr, 'a': base, 'ln': [era, topps], 't': f'Legend · {era}'})
 
     for c in cards:
         c['r'] = rarity(c['o'])

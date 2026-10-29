@@ -18,7 +18,8 @@
 // (short of it, it springs back; Enter rips it too); then, as in Pocket, its cards one at a time (a ★ card with a shine
 // first), tap for the next, and the lot at the end, new ones marked.
 // The cards (cardHTML) are laid out as Pokémon cards: the type's colours, a stage, the name and HP with the type's
-// symbol, the photo in its window (ESPN's headshot, else NFL.com's; a Legend his number), the position, team and OVR,
+// symbol, the photo in its window (ESPN's headshot, else NFL.com's; a Legend his Topps card's picture when it's in, else
+// his number), the position, team and OVR,
 // any Ability, the attacks with their energy costs and damage, weakness and switch-out cost, and Pocket's rarity mark
 // (◆ to ◆◆◆◆, ★, ★★, a crown: core/dynasty.js markOf); a ★ or crown card is full art. Coach, Item and Stadium cards
 // (trainerHTML) are Trainer cards. battleHTML: a card's battle side in words, on its close-up.
@@ -41,6 +42,8 @@ const RM = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 export const headUrl = (h, w = 300) => {
   const s = String(h || '');
   if (!s) return '';
+  // (a Legend's Topps card picture, from the owner's gallery: the whole URL)
+  if (/^https?:\/\//.test(s)) return s;
   if (s.startsWith('n:')) return `https://static.www.nfl.com/image/upload/f_auto,q_auto,w_${w}/league/${encodeURIComponent(s.slice(2))}`;
   return `https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/${s.replace(/[^0-9]/g, '')}.png&w=${w}&h=${Math.round(w * 436 / 600)}`;
 };
@@ -144,7 +147,7 @@ function backHTML(c) {
     return `<li><span>${esc(D.ATTR_NAME[k] || k)}</span><i class="pk-bar"><b style="width:${v}%"></b></i><em>${v}</em></li>`;
   }).join('');
   const lines = [];
-  if (c.s === 'X') lines.push(['Career', c.ln[0]]);
+  if (c.s === 'X') lines.push(['Career', c.ln[0]], ['First Topps card', c.ln[1]]);
   else if (c.s === 'G') lines.push([c.t, c.ln[0]]);
   else if (c.s === 'A') lines.push([c.t, c.ln[0]], ['2025 season', c.ln[1]]);
   else { if (c.ln[0]) lines.push([`${D.DATA.season} so far`, c.ln[0]]); if (c.ln[1]) lines.push([`${D.DATA.season - 1} season`, c.ln[1]]); }
@@ -763,7 +766,7 @@ export function startHTML() {
     + `<button type="button" class="pk-start-menu" data-dy-menu aria-label="Menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></button></div>`
     + `<div class="pk-start-logo" role="img" aria-label="Gridiron Rivals: Trading Card Game"><span class="pk-logo-top">Gridiron</span><span class="pk-logo-plate">Trading Card Game</span><span class="pk-logo-sub">Rivals</span></div>`
     + `<p class="pk-start-tap" data-dy-start-say aria-live="polite">${startSay()}</p>`
-    + `<p class="pk-start-credits">© Gridiron Gangbang · Gridiron Hub<br>Player photos: ESPN · NFL</p></div>`;
+    + `<p class="pk-start-credits">© Gridiron Gangbang · Gridiron Hub<br>Player photos: ESPN · NFL · Football Card Gallery</p></div>`;
 }
 /** Keeps the title screen in step: its cards once they've loaded, its line, the shell inert beneath it. */
 function drawStart(st) {
