@@ -180,6 +180,7 @@ function cardSheet(st, id) {
   const c = D.anyCard(id);
   if (!c) return;
   const s = D.mine(), n = s.o[id] || 0, inDeck = s.dk.filter(x => x === id).length;
+  if (D.isNew(id, s)) invalidatePanes(st);
   D.markSeen([id]);
   const acts = [];
   if (n > inDeck && s.dk.length < B.DECK_SIZE) acts.push(ui.button({label: 'Add to my deck', kind: 'primary', block: true, attrs: {'data-dy-add': id}}));
@@ -268,7 +269,7 @@ function packsHTML(st) {
   if (s.pk.start && !st.startShown) { st.pack = 'start'; st.startShown = true; }
   if (!D.PACKS[st.pack] || (D.PACKS[st.pack].starter && !s.pk[st.pack])) st.pack = D.DAILY_PACK;
   const kind = st.pack, P = D.PACKS[kind], have = s.pk[kind] || 0, free = D.dailyReady(s) && kind === D.DAILY_PACK;
-  const wait = MT.waiting(), ready = D.claimable(s);
+  const wait = waitingOf(st), ready = D.claimable(s);
   const best = packBest(kind);
   const slots = P.slots.reduce((t, x) => t + x.n, 0);
   const inf = D.unlimited();
@@ -340,6 +341,7 @@ function packTo(st, to, dir) {
   }
   st.pack = kinds[i]; ui.haptic('selection');
   const then = () => {
+    if (st.dead || st.hidden || st.tab !== 'packs') return;
     refresh(st);
     const say = st.el.querySelector('[data-dy-packsay]'), now = st.el.querySelector('.pk-bigpack');
     if (say) say.textContent = document.activeElement === now ? '' : `${D.PACKS[st.pack].name}, pack ${i + 1} of ${n}`;
@@ -364,7 +366,7 @@ function packTo(st, to, dir) {
   if (rp && rwas !== 'none') rp.animate([{transform: rwas}, {transform: `translateX(${-dir * w * .6}px)`}], {duration: 170, fill: 'forwards'});
   out.onfinish = () => {
     then();
-    if (st.dead) return;
+    if (st.dead || st.hidden || st.tab !== 'packs') return;
     const car2 = st.el.querySelector('[data-dy-car]'), mv2 = car2 && car2.querySelector('.pk-car-move'), rf2 = st.el.querySelector('.pk-reflect');
     if (!mv2) return;
     const w2 = mv2.offsetWidth, bk2 = Array.from(car2.querySelectorAll('.pk-car-bk')), last = bk2[bk2.length - 1];
@@ -513,12 +515,22 @@ function filtered(st) {
     .sort((a, b) => b.o - a.o || D.SERIES_ORDER.indexOf(a.s) - D.SERIES_ORDER.indexOf(b.s) || a.name.localeCompare(b.name)).concat(tr);
 }
 function drawGrid(st, more = false) {
+  if (st.dead || st.hidden || st.tab !== 'cards') return;
   const host = st.el.querySelector('[data-dy-grid]');
   if (!host) return;
   const list = filtered(st), s = D.mine();
-  st.shown = more ? st.shown + PAGE : PAGE;
-  const cards = list.slice(0, st.shown).map(c => anyHTML(c.id, {size: 's', count: s.o[c.id] || 0, ghost: !(s.o[c.id] > 0), isNew: D.isNew(c.id, s)})).join('');
-  host.innerHTML = list.length ? `<div class="pk-grid">${cards}</div>` + (list.length > st.shown ? `<button type="button" class="pk-more" data-dy-more>Show more (${nf(list.length - st.shown)})</button>` : '')
+  const key = paneKey(st), from = more && st.gridKey === key && host.querySelector('.pk-grid') ? st.shown : 0;
+  st.gridKey = key; st.renderedKey = key;
+  st.shown = from + PAGE;
+  const cards = list.slice(from, st.shown).map(c => anyHTML(c.id, {size: 's', count: s.o[c.id] || 0, ghost: !(s.o[c.id] > 0), isNew: D.isNew(c.id, s)})).join('');
+  const next = list.length > st.shown ? `<button type="button" class="pk-more" data-dy-more>Show more (${nf(list.length - st.shown)})</button>` : '';
+  if (from) {
+    host.querySelector('.pk-grid').insertAdjacentHTML('beforeend', cards);
+    const old = host.querySelector('[data-dy-more]'); if (old) old.remove();
+    host.insertAdjacentHTML('beforeend', next);
+    return;
+  }
+  host.innerHTML = list.length ? `<div class="pk-grid">${cards}</div>` + next
     : ui.empty({icon: 'search', title: st.f.view === 'mine' ? 'No cards like that yet' : 'No cards like that', body: st.f.view === 'mine' ? 'Open packs to fill your binder.' : 'Try another filter.'});
 }
 function colsHTML(st) {
@@ -620,7 +632,7 @@ function renameSheet(st) {
 const ago = ms => { const m = Math.round(ms / 60000); return m < 60 ? `${Math.max(1, m)}m` : m < 1440 ? `${Math.round(m / 60)}h` : `${Math.round(m / 1440)}d`; };
 const avatarOf = (o, size = 36) => (o.member ? ui.avatar(o.member, {size}) : ui.nickAvatar(o.name, {size}));
 export function battleHome(st, s = D.mine()) {
-  const wait = MT.waiting(), cur = SOLO.current(), ready = D.claimable(s).length;
+  const wait = waitingOf(st), cur = SOLO.current(), ready = D.claimable(s).length;
   const fan = ['Tom Brady', 'Jerry Rice', 'Lawrence Taylor'].map(n => D.CARDS.find(c => c.s === 'X' && c.name === n)).filter(Boolean);
   // (the banner: Pocket's slanted blue board, "Battle" on its tab, the mat in perspective, the energy afloat, Legends fanned)
   return `<div class="pk-banner" aria-hidden="true"><span class="pk-banner-tab">Battle</span><span class="pk-banner-mat"></span>`
@@ -641,7 +653,7 @@ const MODE_IC = {
   missions: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4.5" width="14" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="8.5" y="2.5" width="7" height="4" rx="1.2" fill="currentColor"/><path d="M8.5 11h7M8.5 14.5h4M14 16.5l1.3 1.3 2.4-2.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
 };
 function versusHTML(st) {
-  const s = D.mine(), dk = D.deckOf(s), all = MT.list();
+  const s = D.mine(), dk = D.deckOf(s), all = matchesOf(st);
   const row = (x, sub, btns) => `<li>${avatarOf(x.opp)}<span class="pk-row-t"><b>${esc(x.opp.name)}${x.opp.guest ? ' <i class="pk-tag">Guest</i>' : ''}</b><small>${sub}</small></span>${btns}</li>`;
   const score = x => (x.G ? `${x.G.p[x.you].pts}–${x.G.p[1 - x.you].pts}` : '');
   const sec = (title, items, f) => (items.length ? `<section class="pk-sec"><h2 class="pk-h">${title}</h2><ul class="pk-list">${items.map(f).join('')}</ul></section>` : '');
@@ -862,6 +874,36 @@ function menuSheet(st) {
 
 // ---------------------------------------------------------------------------------------------------- the screen
 const PANES = {packs: packsHTML, cards: cardsHTML, decks: decksHTML, battle: battleHTML2};
+// Replaying multiplayer logs is expensive. Share one short-lived snapshot across the badge and screens;
+// match/board/profile events and returning from a battle invalidate it before it can be used again.
+function matchesOf(st) {
+  const key = profileKey(), now = Date.now();
+  if (!st.matches || st.matchKey !== key || now - st.matchAt > 15000) {
+    st.matches = MT.list(); st.matchKey = key; st.matchAt = now;
+  }
+  return st.matches;
+}
+const waitingOf = st => matchesOf(st).filter(x => ['invite', 'setup', 'yours'].includes(x.state)).length;
+const paneKey = st => JSON.stringify([st.tab, st.tab === 'cards' ? st.f : st.tab === 'battle' ? st.bv : st.tab === 'packs' ? [st.pack, st.art] : null]);
+// Pack countdowns and battle idle times age even without a save event. Reusing nodes must not reset their age.
+const paneFresh = (tab, at) => !(tab === 'packs' || tab === 'battle') || Date.now() - at < 15000;
+function invalidatePanes(st, matches = false) {
+  st.revision++; st.panes.clear();
+  if (matches) st.matches = null;
+}
+// Multiple data notifications from one action paint once. A covered hub does no DOM work until shown again.
+function scheduleRefresh(st) {
+  if (st.dead || st.hidden || st.refreshFrame) return;
+  st.refreshFrame = requestAnimationFrame(() => { st.refreshFrame = 0; refresh(st); });
+}
+function updateChrome(st) {
+  const el = st.el, hud = hudHTML(D.mine());
+  if (hud !== st.hud) { el.querySelector('[data-dy-hud]').innerHTML = hud; st.hud = hud; }
+  el.querySelector('[data-pk-title]').textContent = (PANE_TABS.find(t => t.id === st.tab) || PANE_TABS[0]).title;
+  el.querySelectorAll('.pk-tab[data-dy-tab]').forEach(b => { const on = b.dataset.dyTab === st.tab; b.classList.toggle('is-on', on); b.setAttribute('aria-pressed', String(on)); });
+  const dot = el.querySelector('.pk-tab[data-dy-tab="battle"] .pk-dot');
+  if (dot) dot.hidden = !waitingOf(st);
+}
 // While you're playing, the app's menu at the foot of the screen goes (the owner, Oct 28 2026: "Remove the menu at the
 // bottom of the screen when the user is actively playing in the game"), as Keepfall's does; the header's back button
 // leaves. (A battle covers the menu already.)
@@ -869,7 +911,8 @@ function fullScreen(st, on) {
   document.documentElement.classList.toggle('is-dynasty-playing', !!on && !st.dead && D.mayPlay());
 }
 function refresh(st) {
-  if (st.dead) return;
+  if (st.dead || st.hidden) return;
+  if (st.refreshFrame) { cancelAnimationFrame(st.refreshFrame); st.refreshFrame = 0; }
   const el = st.el;
   // (Evan's and Ryan Stewart's alone, Oct 28 2026: a profile switched while it's open leaves it)
   if (!D.mayPlay()) {
@@ -883,15 +926,10 @@ function refresh(st) {
     el.querySelector('[data-dy-pane]').innerHTML = D.status === 'error' ? ui.empty({icon: 'info', title: 'The cards didn’t load', body: 'Check your connection.', action: {label: 'Try again', kind: 'primary', attrs: {'data-dy-retry': ''}}}) : ui.skeleton('rows', 4, {label: 'Loading the cards'});
     return;
   }
-  const s = D.mine();
-  el.querySelector('[data-dy-hud]').innerHTML = hudHTML(s);
-  el.querySelector('[data-pk-title]').textContent = (PANE_TABS.find(t => t.id === st.tab) || PANE_TABS[0]).title;
-  el.querySelectorAll('.pk-tab[data-dy-tab]').forEach(b => { const on = b.dataset.dyTab === st.tab; b.classList.toggle('is-on', on); b.setAttribute('aria-pressed', String(on)); });
-  const dot = el.querySelector('.pk-tab[data-dy-tab="battle"] .pk-dot');
-  if (dot) dot.hidden = !MT.waiting();
+  updateChrome(st);
   const pane = el.querySelector('[data-dy-pane]');
-  const keep = pane.querySelector('input[name="dy-q"]') === document.activeElement;
-  if (keep && st.tab === 'cards') { drawGrid(st); return; }
+  const input = pane.querySelector('input[name="dy-q"]');
+  const selection = input && input === document.activeElement ? [input.selectionStart, input.selectionEnd] : null;
   // (a finger on the big pack mid-swipe: the redraw waits till it's let go, swEnd)
   if (st.tab === 'packs' && st.sw && st.sw.on) { st.dirty = true; return; }
   // (the pack, an arrow or a dot focused: the same one after the redraw)
@@ -900,12 +938,39 @@ function refresh(st) {
   ui.hydrate(pane);
   if (fk) { const again = pane.querySelector(fk); if (again) try { again.focus({preventScroll: true}); } catch (_) {} }
   if (st.tab === 'cards' && st.f.view !== 'cols') drawGrid(st);
+  if (selection && st.tab === 'cards') {
+    const next = pane.querySelector('input[name="dy-q"]');
+    if (next) { next.focus({preventScroll: true}); next.setSelectionRange(...selection); }
+  }
+  st.renderedTab = st.tab; st.renderedKey = paneKey(st); st.renderedRevision = st.revision; st.renderedAt = Date.now();
 }
 function go(st, tab, {keep = false} = {}) {
+  if (!PANES[tab] || st.dead) return;
+  clearTimeout(st.qT);
+  if (st.refreshFrame) { cancelAnimationFrame(st.refreshFrame); st.refreshFrame = 0; }
+  const pane = st.el.querySelector('[data-dy-pane]'), previous = st.tab;
+  // Detached nodes retain decoded images, hydrated controls and pagination without painting hidden tabs.
+  if (previous !== tab && st.renderedTab === previous && st.renderedRevision === st.revision) {
+    const fragment = document.createDocumentFragment(), top = pane.scrollTop;
+    while (pane.firstChild) fragment.append(pane.firstChild);
+    st.panes.set(previous, {fragment, top, shown: st.shown, gridKey: st.gridKey, key: st.renderedKey, at: st.renderedAt});
+  }
   st.tab = tab;
   if (tab === 'battle' && !keep) st.bv = '';
+  if (previous === tab && st.renderedKey === paneKey(st) && st.renderedRevision === st.revision && paneFresh(tab, st.renderedAt)) return;
+  const cached = st.panes.get(tab);
+  st.panes.delete(tab);
+  if (cached && cached.key === paneKey(st) && paneFresh(tab, cached.at)) {
+    const revision = st.revision;
+    updateChrome(st);
+    if (st.revision !== revision) { refresh(st); pane.scrollTop = 0; return; }
+    pane.replaceChildren(cached.fragment); st.shown = cached.shown; st.gridKey = cached.gridKey;
+    st.renderedTab = tab; st.renderedKey = cached.key; st.renderedRevision = st.revision; st.renderedAt = cached.at;
+    pane.scrollTop = cached.top;
+    return;
+  }
   refresh(st);
-  st.el.querySelector('[data-dy-pane]').scrollTop = 0;
+  pane.scrollTop = 0;
 }
 
 export default {
@@ -916,7 +981,7 @@ export default {
   render() { return shellHTML(); },
 
   mount(el, ctx) {
-    const st = {el, ctx, tab: 'packs', pack: D.DAILY_PACK, art: artLoad(), bv: '', f: {view: 'mine', ser: '', pos: '', rar: '', q: ''}, shown: PAGE, dead: false, starting: false, stops: []};
+    const st = {el, ctx, tab: 'packs', pack: D.DAILY_PACK, art: artLoad(), bv: '', f: {view: 'mine', ser: '', pos: '', rar: '', q: ''}, shown: PAGE, dead: false, starting: false, stops: [], panes: new Map(), revision: 0, refreshFrame: 0, hidden: false};
     ST.set(ctx, st);
     fullScreen(st, ctx.visible);
     ctx.setBackTitle('Dynasty');
@@ -1014,7 +1079,7 @@ export default {
       const d = w.dx < 0 ? 1 : -1, go = e.type === 'pointerup' && (Math.abs(w.dx) > 50 || (Math.abs(w.dx) > 16 && Math.abs(w.v) > .45));
       packTo(st, packKinds(D.mine()).indexOf(st.pack) + (go ? d : 0), d);
       // (a redraw held off while the finger was down (refresh: st.dirty) comes once the pack has settled)
-      if (st.dirty) { st.dirty = false; setTimeout(() => refresh(st), 500); }
+      if (st.dirty) { st.dirty = false; setTimeout(() => { if (st.tab === 'packs') refresh(st); }, 500); }
     };
     el.addEventListener('pointerup', swEnd);
     el.addEventListener('pointercancel', swEnd);
@@ -1027,28 +1092,29 @@ export default {
       // (on a dot, the focus goes along to the one now chosen)
       if (dot) { const to = st.el.querySelector(`[data-dy-artat="${artAt(st, st.pack)}"]`); if (to) to.focus(); }
     });
-    st.stops.push(D.subscribe(why => { if (why !== 'change' && why !== 'open') refresh(st); }));
-    st.stops.push(MT.subscribe(() => refresh(st)));
-    st.stops.push(SOLO.subscribe(() => { if (st.tab === 'battle') refresh(st); }));
-    st.stops.push(ctx.on('daily', type => { if (type === 'lb') { if (D.status === 'ready' && D.mayPlay()) { D.sync(); D.earned(D.mine(), true); } if (st.tab === 'battle' || st.tab === 'packs') refresh(st); } }));
-    st.stops.push(data.subscribe(type => { if (type === 'me') refresh(st); }));
-    st.stops.push(ctx.timer(() => { if (D.status === 'ready' && D.mayPlay()) { const w = el.querySelector('[data-dy-hud]'); if (w) w.innerHTML = hudHTML(D.mine()); } }, 15000));
+    st.stops.push(D.subscribe(why => { invalidatePanes(st, why === 'profile' || why === 'data' || why === 'sync'); if (why !== 'change' && why !== 'open') scheduleRefresh(st); }));
+    st.stops.push(MT.subscribe(() => { invalidatePanes(st, true); scheduleRefresh(st); }));
+    st.stops.push(SOLO.subscribe(() => { invalidatePanes(st); if (st.tab === 'battle') scheduleRefresh(st); }));
+    st.stops.push(ctx.on('daily', type => { if (type === 'lb') { invalidatePanes(st, true); if (D.status === 'ready' && D.mayPlay()) { D.sync(); D.earned(D.mine(), true); } if (st.tab === 'battle' || st.tab === 'packs') scheduleRefresh(st); } }));
+    st.stops.push(data.subscribe(type => { if (type === 'me') { invalidatePanes(st, true); refresh(st); } }));
+    st.stops.push(ctx.timer(() => { if (!st.hidden && D.status === 'ready' && D.mayPlay()) updateChrome(st); }, 15000));
     try { ui.lsSet('gg-dynasty-seen', '1'); } catch (_) {}
-    D.load().then(() => refresh(st), () => refresh(st));
-    D.loadGames().then(() => { if (D.status === 'ready' && D.mayPlay()) { D.earned(D.mine(), true); refresh(st); } });
+    D.load().then(() => scheduleRefresh(st), () => scheduleRefresh(st));
+    D.loadGames().then(() => { if (D.status === 'ready' && D.mayPlay()) { D.earned(D.mine(), true); scheduleRefresh(st); } });
     refresh(st);
   },
 
   // (back from a battle: the matches as they stand now; the title screen doesn't come again)
-  onShow(ctx) { const st = ST.get(ctx); if (st) { fullScreen(st, true); refresh(st); } },
+  onShow(ctx) { const st = ST.get(ctx); if (st) { st.hidden = false; invalidatePanes(st, true); fullScreen(st, true); refresh(st); } },
 
-  onHide(ctx) { const st = ST.get(ctx); if (st) fullScreen(st, false); },
+  onHide(ctx) { const st = ST.get(ctx); if (st) { st.hidden = true; clearTimeout(st.qT); cancelAnimationFrame(st.refreshFrame); st.refreshFrame = 0; fullScreen(st, false); } },
 
   unmount(el, ctx) {
     const st = ST.get(ctx);
     if (!st) return;
     fullScreen(st, false);
     st.dead = true;
+    clearTimeout(st.qT); cancelAnimationFrame(st.refreshFrame); st.panes.clear();
     st.stops.forEach(f => { try { f(); } catch (_) {} });
     D.flush(); MT.flush();
     ST.delete(ctx);

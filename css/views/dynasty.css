@@ -264,6 +264,11 @@ html.is-dynasty-playing .v-dynasty { padding-bottom: 0; }
 
 /* grids and rails of cards */
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px 10px; padding: 6px 2px; }
+/* The binder may hold hundreds of cards. Keep off-screen card faces out of layout/paint until they approach the
+   viewport; the fixed card aspect ratio reserves their space so scrolling does not jump. */
+@supports (content-visibility: auto) {
+  :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-grid > .pk-card { content-visibility: auto; }
+}
 @media (min-width: 560px) { :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-rail { display: flex; gap: 10px; overflow-x: auto; margin: 0 -16px; padding: 8px 16px 10px; scrollbar-width: none; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-rail::-webkit-scrollbar { display: none; }
