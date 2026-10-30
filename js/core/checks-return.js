@@ -526,7 +526,7 @@ export async function returnChecks(check) {
   });
   check('Every case but Keepfall\'s has a flip button under it (the owner\'s ask, Oct 22 2026: "Add a view scoreboard or flip case button"; every game\'s, Oct 26 2026): View scoreboard turns the case in the middle round to its leaderboard, Flip to the cover turns it back, finished or not', async () => {
     const [view, turner] = await Promise.all(['../views/games.js', '../views/game-case.js'].map(f => fetch(new URL(f, import.meta.url)).then(r => r.text()).catch(() => '')));
-    const gated = /if \(!\(s\.turns \|\| s\.kind === 'done'\) \|\| !features\.available\(\)\) return '';/.test(view) && /<span>Tap the case to play<\/span><\/p>` \+ flipHTML\(s\);/.test(view)
+    const gated = /if \(!\(s\.turns \|\| s\.kind === 'done'\) \|\| !features\.available\(\)\) return '';/.test(view) && /\n  return flipHTML\(s\);\n\}/.test(view)
       && /\(done \? cdHTML\(g\) \+ flipHTML\(s\) : ctaHTML\(s\)\)/.test(view);
     const wired = /if \(e\.target\.closest\('\[data-gm-flip\]'\)\) \{/.test(view) && /turner\.flip\(c\) != null/.test(view) && /shelfTurner\(shelf, \{rest: \(\) => syncFlip\(\)\}\)/.test(view)
       && /on \? 'Flip to the cover' : 'View scoreboard'/.test(view);

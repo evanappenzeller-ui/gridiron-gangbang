@@ -98,11 +98,6 @@ How it's enforced, and what to keep doing:
   its Dynasty board, who can be challenged and the other side of a battle read `daily.LB.raw` (`others()`, `list()`),
   never `LB.all` (that only finds your own saved copies, as Keepfall does). Its coins come from the Daily Games' results
   on your board docs (`earnedOf`). The kit checks "Gridiron Dynasty…" (`js/core/checks-dynasty.js`) cover it.
-- Under Keepfall's case on Daily Games, the pictures and names of everyone active in Keepfall today (Oct 26 2026, the
-  owner: "Add league member profile pictures to show those that were active today", then "Insert the names below the
-  case not on it"): `js/core/realm-active.js` `activeToday()`
-  reads each realm's last change (`fr3[key].at`) from `daily.LB.raw`, so it follows this rule. The kit check
-  "Keepfall: who was active today…" covers it.
 
 ## Keepfall asset refresh: preserve current progress
 

@@ -23,7 +23,7 @@ import * as daily from '../core/daily.js';
 import {ringHTML, stepParts, maxPts, gradeGold, msToMidnight, countdownHTML, itemCount, shortSub} from './board.js';
 import {turnable, shelfTurner, shellHTML} from './game-case.js';
 import {RANKED, aleFor} from '../core/realm-pay.js';
-import {activeToday, profileKey} from '../core/realm-active.js';
+import {profileKey} from '../core/realm-active.js';
 
 const esc = data.esc;
 const nf = n => data.nf(n);
@@ -248,23 +248,11 @@ function returnState() {
     head: 'Your return today', lines: [[tds ? plural(tds, 'touchdown') : '', place.slice(3)].filter(Boolean).join(' · ')].filter(Boolean),
     actions: [{label: 'See your return', kind: 'secondary', attrs: {'data-gm-open': 'return'}}]};
 }
-/** Who was in Keepfall today, under its case: each one's picture and name, the latest first (you marked). */
-function activeHTML(list) {
-  if (!list.length) return '';
-  const MAX = 12, more = list.length - MAX;
-  const chip = p => `<li class="gm-act-p${p.me ? ' is-me' : ''}">${p.member ? ui.avatar(p.member, {size: 22, you: p.me}) : ui.nickAvatar(p.name, {size: 22, you: p.me})}`
-    + `<span>${esc(p.me ? 'You' : p.name)}</span></li>`;
-  return `<div class="gm-act"><p class="gm-act-h">Active today</p><ul class="gm-act-l" data-hscroll>${list.slice(0, MAX).map(chip).join('')}`
-    + `${more > 0 ? `<li class="gm-act-p is-more"><span>+${more} more</span></li>` : ''}</ul></div>`;
-}
 function keepState() {
   // The existing first-visit marker follows the same saved realm. This is a persistent game: no daily final,
-  // countdown or league board, and showing its case never starts or mutates the realm.
-  // Who was in it today shows under its case, their pictures and names (the owner's asks, Oct 26 2026: "Add league
-  // member profile pictures to show those that were active today", "Insert the names below the case not on it";
-  // core/realm-active.js, everyone by the scoreboards' rule).
-  return {kind: ui.lsGet('gg-realm-seen') === '1' ? 'started' : 'new',
-    meta: `<div class="gm-keep-meta"><p class="gm-note">Raise your Castle. Train your army. Defend your realm.</p>${activeHTML(safe(() => activeToday()))}</div>`};
+  // countdown or league board, and showing its case never starts or mutates the realm. Nothing shows under its case
+  // (the owner's ask, Oct 30 2026: "Remove all this from under the game cases").
+  return {kind: ui.lsGet('gg-realm-seen') === '1' ? 'started' : 'new'};
 }
 // Gridiron Dynasty (views/dynasty.js, the owner's ask, Oct 27 2026; everyone's since its battles, Oct 28): persistent
 // like Keepfall; showing its case never starts a Dynasty. Battles waiting on you put YOUR MOVE on its case: read from the
@@ -289,8 +277,7 @@ function dynastyWaiting(key = profileKey(), docs = daily.LB.raw || []) {
 }
 function dynastyState() {
   const n = safeN(() => dynastyWaiting());
-  return {kind: ui.lsGet('gg-dynasty-seen') === '1' ? 'started' : 'new', sticker: n ? 'YOUR MOVE' : '',
-    meta: `<div class="gm-keep-meta"><p class="gm-note">${n ? `${n === 1 ? 'A battle is' : `${n} battles are`} waiting on you.` : 'Open packs of real NFL players. Build a deck. Battle the league, Pokémon style.'}</p></div>`};
+  return {kind: ui.lsGet('gg-dynasty-seen') === '1' ? 'started' : 'new', sticker: n ? 'YOUR MOVE' : ''};
 }
 const STATE = {puzzles: puzzlesState, '17-0': seventeenState, drill: drillState, kick: kickState, return: returnState, keep: keepState, dynasty: dynastyState};
 
@@ -434,11 +421,12 @@ function caseHTML(g, s, i, n, clone) {
 }
 
 // ---------------------------------------------------------------- What's under the shelf: the game you're on
-// (no Play here: a game starts from its case, the owner's ask, Oct 2026; a line under the shelf says so)
+// (no Play here: a game starts from its case, the owner's ask, Oct 2026; and no words under it, Oct 30 2026: "Remove all
+// this from under the game cases": no taglines, progress notes, who was active or Tap the case to play)
 function ctaHTML(s) {
   if (s.kind === 'loading') return `<div class="gm-ctas">${ui.button({label: 'Loading puzzles', kind: 'primary', block: true, disabled: true, cls: 'gm-cta'})}</div>`;
   if (s.kind === 'error') return `<div class="gm-ctas">${ui.button({label: 'Try again', kind: 'primary', block: true, attrs: {'data-gm-retry': ''}, cls: 'gm-cta'})}</div>`;
-  return `<p class="gm-cd gm-tap">${ui.icon('play-fill', {size: 15})}<span>Tap the case to play</span></p>` + flipHTML(s);
+  return flipHTML(s);
 }
 // (a button under the case turns it round to its leaderboard and back, the owner's ask, Oct 22 2026: "Add a view
 // scoreboard or flip case button", first Return Man's; every case but Keepfall's since Oct 26 2026, finished or not: a
@@ -460,7 +448,7 @@ function selHTML(g, s) {
   // stays for screen readers). A game played today has no buttons here: its case's back is the leaderboard, a tap
   // on it brings the whole board up close (with the way into the game's own page).
   return `<h2 class="sr-only">${esc(g.name)}</h2>`
-    + (!done && s.meta ? `<div class="gm-meta">${s.meta}</div>` : '')
+    + (s.kind === 'error' && s.meta ? `<div class="gm-meta">${s.meta}</div>` : '')
     + (done ? cdHTML(g) + flipHTML(s) : ctaHTML(s));
 }
 function stateOf(g) {
@@ -622,8 +610,6 @@ export function mountList(el, ctx, opts = {}) {
     b.setAttribute('aria-pressed', String(on));
     b.querySelector('.btn-label').textContent = on ? 'Flip to the cover' : 'View scoreboard';
     b.querySelector('use')?.setAttribute('href', on ? '#i-swap' : '#i-trophy');
-    const tap = sel.querySelector('.gm-tap span');
-    if (tap) tap.textContent = on ? 'Tap the case for the whole board' : 'Tap the case to play';
   }
   // i: a slot, counting every copy
   const center = (i, smooth = true) => {
@@ -633,7 +619,7 @@ export function mountList(el, ctx, opts = {}) {
     if (smooth && !ui.RM) shelf.scrollTo({left, behavior: 'smooth'}); else jumpTo(left);
   };
   // The screen doesn't scroll (the owner's ask, Oct 27 2026), so the case leaves room for the tallest of what goes under
-  // the shelf, whichever game is in the middle (Keepfall's who-was-active names can run to more lines): --gm-sel, which
+  // the shelf, whichever game is in the middle: --gm-sel, which
   // the case's size and the room kept under it go by (css/views/puzzles.css). A change puts the case back in the middle.
   function room() {
     if (st.dead || !shelf.clientWidth) return;

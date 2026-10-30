@@ -1,10 +1,7 @@
-// Who was in Keepfall today (Evan, Oct 26 2026: "Add league member profile pictures to show those that were active
-// today"): read from the realms each phone saves on the board (fr3, under each profile's own key, its `at` the last time
-// it changed), light enough for the Daily Games shelf (views/games.js) to read without loading Keepfall. Who shows
-// follows the scoreboards' rule (CLAUDE.md): everyone (members, app users, guests) on every phone, from the board as
-// this phone may see it (daily.LB.raw). core/realm.js takes its profile keys, TEST_RESET and visitWho from here.
-// Exports: TEST_RESET, profileKey(), visitWho(key, doc), activeToday(docs, now) → [{key, name, member, guest, me, at}].
-import * as daily from './daily.js';
+// Whose realm is whose, light enough for the Daily Games shelf (views/games.js) and the Dynasty to read without loading
+// Keepfall. Who shows follows the scoreboards' rule (CLAUDE.md): everyone (members, app users, guests) on every phone.
+// core/realm.js takes its profile keys, TEST_RESET and visitWho from here.
+// Exports: TEST_RESET, profileKey(), visitWho(key, doc).
 import * as data from './data.js';
 
 /** The realms of the current season (Gridiron Hub v3) carry this reset marker; older saves don't count. */
@@ -29,20 +26,4 @@ export function visitWho(key, doc) {
     return nm ? {name: nick.toLowerCase() === nm ? nick : nm, guest: true} : null;
   }
   return null;
-}
-const midnight = now => { const d = new Date(now); d.setHours(0, 0, 0, 0); return d.getTime(); };
-/** Everyone whose realm changed today (since local midnight), you among them: the latest first. */
-export function activeToday(docs = daily.LB.raw || [], now = Date.now()) {
-  const from = midnight(now), own = profileKey(), best = new Map();
-  for (const p of docs) {
-    const all = p && p.fr3;
-    if (!all || typeof all !== 'object') continue;
-    for (const key of Object.keys(all)) {
-      const s = all[key], at = Number(s && s.at) || 0;
-      if (!s || s.rs !== TEST_RESET || at < from || at > now + 60e3 || (best.has(key) && best.get(key).at >= at)) continue;
-      const who = visitWho(key, p);
-      if (who) best.set(key, {key, name: who.name, member: who.member || null, guest: !!who.guest, me: key === own, at});
-    }
-  }
-  return [...best.values()].sort((a, b) => b.at - a.at || a.name.localeCompare(b.name));
 }
