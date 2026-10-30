@@ -291,26 +291,32 @@ div.pk-open ~ .confetti-canvas { z-index: 210; }
 /* (up close: the card itself tilts, and it still scrolls the sheet up and down) */
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.dy-holo { transition: none; touch-action: pan-y; transform: perspective(900px) rotateX(calc(var(--rx, 0) * 1deg)) rotateY(calc(var(--ry, 0) * 1deg)); }
 
-/* ---------------------------------------------------------------- a card's back (Pocket's: a deep blue swirl, the emblem,
-   the name upside down at the foot, a silver edge) */
+/* ---------------------------------------------------------------- the uniform Rivals reverse: silver print over a cobalt
+   vortex, an engraved football crest, and a reversible wordmark. No extra motion or remote assets. */
 /* (its padding a share of the card's width: a percentage, from .pk-flip; cqw here would be the viewport's, it being the
    container its children measure by) */
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-flip-back { container-type: inline-size; padding: 3.2%; background: linear-gradient(135deg, #F5F7F9, #AEB7C2 26%, #EEF1F4 48%, #98A2AE 72%, #F2F4F6);
-  box-shadow: 0 14px 30px rgba(30,45,70,.3), inset 0 0 0 1.5px rgba(255,255,255,.7); }
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-back-in { position: relative; height: 100%; overflow: hidden; border-radius: 3.5% / 2.5%; display: flex; flex-direction: column; align-items: center; justify-content: space-between;
-  padding: 9cqw 0; background: radial-gradient(circle at 50% 50%, #64B8FF 0 9%, #2F74E6 26%, #1546AE 50%, #0B2A7E 74%, #061650); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-flip-back { container-type: inline-size; padding: 2.4%; background: linear-gradient(125deg, #829DAF, #F0F6F1 10%, #B8DAE9 22%, #E3DBF0 35%, #F7F6DF 46%, #7E9AB3 62%, #CEE9E9 76%, #F4F7EF 88%, #8EACC0);
+  box-shadow: 0 14px 30px rgba(18,36,64,.35), inset 0 0 0 1px #F3FAFF, inset 0 0 0 2px #7B92A999; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-back-in { position: relative; isolation: isolate; height: 100%; overflow: hidden; border-radius: 3.5% / 2.5%; display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+  padding: 8cqw 0; background: radial-gradient(ellipse at 50% 50%, #74DDF1 0, #287BCE 24%, #123F8B 43%, #0A2050 69%, #06162F);
+  box-shadow: inset 0 0 0 .6cqw #07152E, inset 0 0 0 1cqw #81BFD0, inset 0 0 9cqw 3cqw #07162E99; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-back-in::before { content: ''; position: absolute; inset: 2cqw; border: .25cqw solid #BCDCEB70; border-radius: 2cqw; pointer-events: none;
+  background: repeating-linear-gradient(45deg, transparent 0 2.2cqw, #BCE9FF08 2.3cqw 2.5cqw, transparent 2.6cqw 4.8cqw); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-back-in::after { content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  background: linear-gradient(125deg, #FFFFFF13, transparent 30% 66%, #9ACCF914); box-shadow: inset 0 0 2cqw #00142E; border-radius: inherit; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-back-swirl { position: absolute; inset: 0; width: 100%; height: 100%; }
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-back-swirl polyline { stroke: rgba(120,190,255,.3); stroke-width: 6; }
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-back-swirl polyline:nth-child(even) { stroke: rgba(170,220,255,.22); stroke-width: 2.4; }
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-back-word { position: relative; display: flex; flex-direction: column; align-items: center; font: 900 italic 12cqw/.9 var(--font-text); letter-spacing: .01em; color: #FFD43B;
-  -webkit-text-stroke: 1.1cqw #17378F; paint-order: stroke fill; text-shadow: 0 1cqw 0 #0C2266; }
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-back-word small { font-size: 6.4cqw; letter-spacing: .3em; margin-top: .8cqw; color: #fff; -webkit-text-stroke-width: .9cqw; }
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-back-word.is-flip { transform: rotate(180deg); }
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-back-ball { position: relative; width: 46cqw; aspect-ratio: 1; border-radius: 50%; display: grid; place-items: center;
-  background: radial-gradient(circle at 36% 30%, #fff, #E3EDFA 52%, #AFC6E8);
-  box-shadow: 0 0 0 1.4cqw #1C2330, 0 0 0 3cqw rgba(255,255,255,.85), 0 0 9cqw 4cqw rgba(110,200,255,.75); }
-/* (the football: a pointed leather oval, laced, striped at the ends, at a slant) */
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-back-ball > svg { width: 84%; height: auto; transform: rotate(-28deg); filter: drop-shadow(0 .8cqw .6cqw rgba(10,25,60,.35)); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-back-brand { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 2cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-back-brand.is-flip { transform: rotate(180deg); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-back-word { display: flex; flex-direction: column; align-items: center; font: 950 italic 12.5cqw/.94 var(--font-text); letter-spacing: -.055em; color: #F8D16D;
+  -webkit-text-stroke: .6cqw #0B244E; paint-order: stroke fill; text-shadow: 0 .5cqw #9F7332, 0 1.2cqw #06172F, 0 0 2cqw #001431; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-back-word small { font: 850 6.2cqw/1 var(--font-text); letter-spacing: .44em; padding-left: .44em; margin-top: 1.5cqw; color: #E7F4FA;
+  -webkit-text-stroke-width: .35cqw; text-shadow: 0 .45cqw #06172F; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-back-tag { padding: 1cqw 3cqw; border-top: .2cqw solid #D7AF6480; border-bottom: .2cqw solid #D7AF6480;
+  font: 650 2.25cqw/1 var(--font-text); letter-spacing: .24em; color: #B6D8EB; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-back-ball { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 55cqw; aspect-ratio: 1; border-radius: 50%; display: grid; place-items: center;
+  background: radial-gradient(circle at 35% 25%, #327BA0, #0D2D56 54%, #061A39 78%);
+  box-shadow: 0 0 0 .7cqw #D9EDF0, 0 0 0 1.4cqw #53768C, 0 0 0 2.1cqw #CFDFDE, 0 0 0 3.1cqw #0F3159, 0 0 0 3.4cqw #A8E2F080, 0 1cqw 3cqw #03152F, 0 0 12cqw 5cqw #5AE0F157; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-back-ball > svg { width: 100%; height: auto; filter: drop-shadow(0 .6cqw .4cqw #02132C80); }
 
 /* ---------------------------------------------------------------- under the card (below its stamp): which one it is, and
    the hint; on a rare one's ground (gold, purple, blue, navy) each on a dark pill, so they read on any of them */

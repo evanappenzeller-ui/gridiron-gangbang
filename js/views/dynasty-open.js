@@ -31,22 +31,36 @@ const sparkles = (n, f) => Array.from({length: n}, (_, i) => `<i class="dy-spk" 
 const RAYS = [-30, -23, -16, -10, -4, 2, 8, 14, 20, 26, 33].map((a, i) => `<i style="--a:${a}deg;--h:${[320, 18, 46, 62, 140, 178, 200, 228, 262, 292, 335][i]};--d:-${(i * .37 % 1).toFixed(2)}s"></i>`).join('');
 const MOTES = sparkles(16, (a, b, i) => `--x:${(8 + a * 84).toFixed(1)}%;--w:${((b - .5) * 70).toFixed(0)}px;--s:${(8 + b * 12).toFixed(0)}px;--d:${(.08 + (i % 8) * .07).toFixed(2)}s;--t:${(.9 + a * .5).toFixed(2)}s`);
 const DRIFT = sparkles(18, (a, b, i) => `--x:${(a * 100).toFixed(1)}%;--y:${(30 + b * 70).toFixed(1)}%;--s:${(7 + (i % 5) * 3)}px;--d:-${(i * .9 % 7).toFixed(1)}s;--t:${(6 + b * 5).toFixed(1)}s`);
-// A card's back, Pocket's: a deep blue swirl, the emblem (a football, laced and striped, in a ring where Pocket has its
-// ball) and the name, upside down at the foot as a real card's back; a silver edge
+// One reverse for every card: a cobalt vortex, a silver football crest and the Rivals wordmark at both ends.
+// No player or rarity information belongs on a face-down card. All artwork is local vector/CSS and scales with it.
 const SWIRL = (() => {
   let s = '';
-  for (let k = 0; k < 10; k++) {
-    const pts = [];
-    for (let j = 0; j <= 40; j++) { const t = j / 40 * 3.3, r = 5 + t * 25, a = k * Math.PI / 5 + t; pts.push(`${(50 + r * Math.cos(a)).toFixed(1)},${(70 + r * Math.sin(a)).toFixed(1)}`); }
-    s += `<polyline points="${pts.join(' ')}"/>`;
+  for (let k = 0; k < 8; k++) {
+    const edge = [], inner = [];
+    for (let j = 0; j <= 32; j++) {
+      const t = j / 32, r = 17 + t * 72, a = k * Math.PI / 4 + t * 2.8, w = .015 + t * .19;
+      edge.push(`${(50 + r * Math.cos(a)).toFixed(1)},${(70 + r * Math.sin(a)).toFixed(1)}`);
+      inner.unshift(`${(50 + r * Math.cos(a + w)).toFixed(1)},${(70 + r * Math.sin(a + w)).toFixed(1)}`);
+    }
+    s += `<path d="M${edge.join('L')}L${inner.join('L')}Z" fill="${k % 2 ? '#85E8FF' : '#3B91F1'}" opacity="${k % 2 ? '.36' : '.3'}"/>`
+      + `<polyline points="${edge.join(' ')}" fill="none" stroke="#B6F4FF" stroke-width=".35" opacity=".55"/>`;
   }
-  return `<svg class="dy-back-swirl" viewBox="0 0 100 140" preserveAspectRatio="xMidYMid slice"><g fill="none" stroke-linecap="round">${s}</g></svg>`;
+  const glints = [[13,45,1.2],[79,35,.8],[88,91,1.2],[22,105,.8]].map(([x,y,r]) => `<path d="M${x-r*2} ${y}l${r*1.6} ${-r*.4}l${r*.4} ${-r*2}l${r*.4} ${r*2}l${r*1.6} ${r*.4}l${-r*1.6} ${r*.4}l${-r*.4} ${r*2}l${-r*.4} ${-r*2}Z" fill="#D9F8FF"/>`).join('');
+  return `<svg class="dy-back-swirl" viewBox="0 0 100 140" aria-hidden="true" preserveAspectRatio="xMidYMid slice">${s}${glints}</svg>`;
 })();
-const BALL = '<svg viewBox="0 0 100 100"><path d="M8 50Q50 2 92 50Q50 98 8 50Z" fill="#8E4B1E" stroke="#3A1B08" stroke-width="2.6" stroke-linejoin="round"/>'
-  + '<path d="M20 41Q40 25 62 29" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="3.4" stroke-linecap="round"/>'
-  + '<path d="M23 38Q27.5 50 23 62M77 38Q72.5 50 77 62M35 50H65M39 44.5v11M44.5 44.5v11M50 44.5v11M55.5 44.5v11M61 44.5v11" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/></svg>';
-const BACK = `<div class="dy-back-in">${SWIRL}<b class="dy-back-word">GRIDIRON<small>DYNASTY</small></b>`
-  + `<span class="dy-back-ball">${BALL}</span><b class="dy-back-word is-flip">GRIDIRON<small>DYNASTY</small></b></div>`;
+const BALL = '<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="46" fill="none" stroke="#99DFF4" stroke-width=".65"/>'
+  + '<path d="M50 8 79 20 78 50Q75 73 50 91Q25 73 22 50L21 20Z" fill="#091E48" stroke="#CAE9F6" stroke-width="1.6"/>'
+  + '<path d="M50 13 74 23 73 49Q70 69 50 84Q30 69 27 49L26 23Z" fill="#174881" stroke="#5E96B7" stroke-width=".65"/>'
+  + '<path d="M50 13 74 23 73 49Q70 69 50 84Z" fill="#102D59"/>'
+  + '<g transform="rotate(-32 50 50)"><path d="M8 50Q50 -1 92 50Q50 101 8 50Z" fill="#05142E" stroke="#05142E" stroke-width="5" stroke-linejoin="round"/>'
+  + '<path d="M8 50Q50 -1 92 50Q50 101 8 50Z" fill="#D6E7EF" stroke="#F4F8F0" stroke-width="1.5" stroke-linejoin="round"/>'
+  + '<path d="M8 50Q50 101 92 50H8Z" fill="#86ACC5"/><path d="M15 47Q51 9 83 46Q49 29 15 47Z" fill="#F7FCF9"/>'
+  + '<path d="M23 36Q29 50 23 64M77 36Q71 50 77 64" fill="none" stroke="#174471" stroke-width="5"/>'
+  + '<path d="M34 50H66M38 44v12M44 44v12M50 44v12M56 44v12M62 44v12" fill="none" stroke="#143352" stroke-width="2.3" stroke-linecap="round"/></g>'
+  + '<path d="m50 88 1.3 3.7 3.9.1-3.1 2.4 1.1 3.8-3.2-2.3-3.2 2.3 1.1-3.8-3.1-2.4 3.9-.1Z" fill="#F5D077"/></svg>';
+const BACK_WORD = '<b class="dy-back-word">GRIDIRON<small>RIVALS</small></b>';
+const BACK = `<div class="dy-back-in">${SWIRL}<span class="dy-back-brand">${BACK_WORD}<span class="dy-back-tag">TRADING CARD GAME</span></span>`
+  + `<span class="dy-back-ball">${BALL}</span><span class="dy-back-brand is-flip">${BACK_WORD}<span class="dy-back-tag">TRADING CARD GAME</span></span></div>`;
 const FF_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 6.2v11.6L11.6 12zM12.4 6.2v11.6L20.5 12z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
 
 // ---------------------------------------------------------------------------------------------------- the reveals
