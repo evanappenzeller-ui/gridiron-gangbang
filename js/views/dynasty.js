@@ -18,8 +18,8 @@
 // (short of it, it springs back; Enter rips it too); then, as in Pocket, its cards one at a time (a ★ card with a shine
 // first), tap for the next, and the lot at the end, new ones marked.
 // The cards (cardHTML) are laid out as Pokémon cards: the type's colours, a stage, the name and HP with the type's
-// symbol, the photo in its window (ESPN's headshot, else NFL.com's; a Legend his Topps card's picture when it's in, else
-// his number), the position, team and OVR,
+// symbol, the photo in its window (his real trading card where he has one: views/dynasty-real.js; else ESPN's headshot,
+// else NFL.com's; a Legend his Topps card's picture when it's in, else his number), the position, team and OVR,
 // any Ability, the attacks with their energy costs and damage, weakness and switch-out cost, and Pocket's rarity mark
 // (◆ to ◆◆◆◆, ★, ★★, a crown: core/dynasty.js markOf); a ★ or crown card is full art. Coach, Item and Stadium cards
 // (trainerHTML) are Trainer cards. battleHTML: a card's battle side in words, on its close-up.
@@ -33,6 +33,7 @@ import * as SOLO from '../core/dynasty-solo.js';
 import {profileKey} from '../core/realm-active.js';
 import {packHTML, designsOf} from './dynasty-packs.js';
 import {openScene, holo} from './dynasty-open.js';
+import {realOf, realCards, realUrl, realName} from './dynasty-real.js';
 
 const esc = data.esc, nf = n => data.nf(n);
 const ST = new WeakMap();
@@ -47,6 +48,8 @@ export const headUrl = (h, w = 300) => {
   if (s.startsWith('n:')) return `https://static.www.nfl.com/image/upload/f_auto,q_auto,w_${w}/league/${encodeURIComponent(s.slice(2))}`;
   return `https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/${s.replace(/[^0-9]/g, '')}.png&w=${w}&h=${Math.round(w * 436 / 600)}`;
 };
+// (a real card that won't load gives way to the headshot it carries, else to the window beneath: a Legend's number)
+const REAL_FAIL = "if(this.dataset.alt){this.className='pk-c-ph';this.src=this.dataset.alt;this.removeAttribute('data-alt')}else this.remove()";
 export const logoUrl = (abbr, w = 80) => `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/${String(D.teamOf(abbr).espn || abbr).toLowerCase()}.png&w=${w}&h=${w}`;
 const coinHTML = n => `<span class="pk-coin-n"><i class="pk-coin" aria-hidden="true"></i><b>${nf(n)}</b><span class="sr-only"> coins</span></span>`;
 
@@ -72,7 +75,10 @@ const typeHTML = t => pipHTML(B.TYPES[t] ? B.TYPES[t].e : '*');
 export function cardHTML(c, o = {}) {
   if (!c) return '';
   const st = B.stats(c.id), T = D.teamOf(c.team), m = D.markOf(c), S = D.SERIES[c.s];
-  const photo = c.head ? `<img class="pk-c-ph" src="${esc(headUrl(c.head, o.size === 'l' ? 520 : 300))}" alt="" loading="lazy" decoding="async" draggable="false" onerror="this.remove()">` : '';
+  // (his real trading card where he has one, standing in the window; should it not load, his headshot or his number)
+  const real = realOf(c), head = c.head ? headUrl(c.head, o.size === 'l' ? 520 : 300) : '';
+  const photo = real ? `<img class="pk-c-ph is-real" src="${esc(realUrl(c.p, real))}"${head ? ` data-alt="${esc(head)}"` : ''} alt="" loading="lazy" decoding="async" draggable="false" onerror="${REAL_FAIL}">`
+    : head ? `<img class="pk-c-ph" src="${esc(head)}" alt="" loading="lazy" decoding="async" draggable="false" onerror="this.remove()">` : '';
   const legend = c.s === 'X' ? `<span class="pk-c-num" aria-hidden="true">${c.num}</span>` : '';
   const ab = st.ability ? `<span class="pk-c-ab"><i>Ability</i><b>${esc(B.ABILITY[st.ability].name)}</b></span><span class="pk-c-fx">${esc(B.ABILITY[st.ability].text)}</span>` : '';
   const atk = st.attacks.map(a => `<span class="pk-c-atk"><span class="pk-c-cost">${a.cost.map(pipHTML).join('')}</span><b>${esc(a.name)}</b><em>${a.dmg}${a.fx === 'coin' || a.fx === 'qb' || a.fx === 'vs' || a.fx === 'finish' ? '+' : ''}</em></span>`
@@ -156,6 +162,14 @@ function backHTML(c) {
   return `<div class="pk-info"><p class="pk-info-k">${esc(D.SERIES[c.s].name)} · OVR ${c.o}</p><p>${esc(facts)}</p><ul class="pk-attrs">${bars}</ul>`
     + (lines.length ? `<dl class="pk-lines">${lines.filter(l => l[1]).map(([a, b]) => `<dt>${esc(a)}</dt><dd>${esc(b)}</dd>`).join('')}</dl>` : '') + '</div>';
 }
+/** A player's real trading cards, the one on this card marked (views/dynasty-real.js), for his card up close. */
+export function realHTML(c) {
+  const list = realCards(c.p), on = realOf(c);
+  if (!list.length) return '';
+  return `<section class="pk-real"><h3 class="pk-h">${esc(c.name)}’s real cards</h3><div class="pk-real-row" data-hscroll>${list.map(r => `<figure class="pk-real-c${r === on ? ' is-on' : ''}">`
+    + `<img src="${esc(realUrl(c.p, r))}" alt="${esc(`${c.name}, ${realName(r)}`)}" width="160" height="225" loading="lazy" decoding="async" draggable="false" onerror="this.remove()">`
+    + `<figcaption>${esc(realName(r))}${r === on ? '<b>On this card</b>' : ''}</figcaption></figure>`).join('')}</div></section>`;
+}
 /** A card up close: the card, its battle side, its back, and what you can do with it. */
 function cardSheet(st, id) {
   const c = D.anyCard(id);
@@ -169,7 +183,7 @@ function cardSheet(st, id) {
   if (!n && D.ppCost(c)) acts.push(ui.button({label: `Get it for ${nf(D.ppCost(c))} pack points`, kind: s.pp >= D.ppCost(c) ? 'primary' : 'secondary', block: true, attrs: {'data-dy-pp': id}, disabled: s.pp < D.ppCost(c)}));
   const body = `<div class="pk-zoom">${anyHTML(id, {size: 'l', tag: false, ghost: !n, noCount: true})}</div>`
     + `<p class="pk-own">${n ? `${n} in your collection${inDeck ? ` · ${inDeck} in your deck` : ''}` : 'Not in your collection yet'}</p>`
-    + (acts.length ? `<div class="pk-acts">${acts.join('')}</div>` : '') + battleHTML(id) + (D.card(id) ? backHTML(c) : '');
+    + (acts.length ? `<div class="pk-acts">${acts.join('')}</div>` : '') + battleHTML(id) + (D.card(id) ? backHTML(c) + realHTML(c) : '');
   const sh = ui.openSheet({title: c.name, body, cls: 'pk-sheet', detents: ['large']});
   holo(sh.body.querySelector('.pk-zoom > .pk-card'));
   sh.body.addEventListener('click', e => {
@@ -766,7 +780,7 @@ export function startHTML() {
     + `<button type="button" class="pk-start-menu" data-dy-menu aria-label="Menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></button></div>`
     + `<div class="pk-start-logo" role="img" aria-label="Gridiron Rivals: Trading Card Game"><span class="pk-logo-top">Gridiron</span><span class="pk-logo-plate">Trading Card Game</span><span class="pk-logo-sub">Rivals</span></div>`
     + `<p class="pk-start-tap" data-dy-start-say aria-live="polite">${startSay()}</p>`
-    + `<p class="pk-start-credits">© Gridiron Gangbang · Gridiron Hub<br>Player photos: ESPN · NFL · Football Card Gallery</p></div>`;
+    + `<p class="pk-start-credits">© Gridiron Gangbang · Gridiron Hub<br>Player photos: ESPN · NFL · Football Card Gallery · CardSight</p></div>`;
 }
 /** Keeps the title screen in step: its cards once they've loaded, its line, the shell inert beneath it. */
 function drawStart(st) {

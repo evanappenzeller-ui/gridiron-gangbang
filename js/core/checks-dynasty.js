@@ -252,4 +252,22 @@ export async function dynastyChecks(check) {
     const n = P.designsOf('gday').length, wrap = /data-art="([^"]+)"/.exec(P.packHTML('gday', {design: n + 1}))[1] === P.designsOf('gday')[1].id;
     return {pass: ok && rises && own && wrap, detail: `${why}average elements by tier ${[1, 2, 3, 4, 5].map(t => Math.round(mean(t))).join(' < ')}; ids ${own ? 'its own' : 'shared'}; wrap ${wrap}`};
   });
+  check('Gridiron Dynasty: real trading cards (the owner, Oct 29 2026: "i got a playing card api. add the pictures to gridiron rivals"): each player with them shows one in his card’s window in place of his headshot or a Legend’s number (the headshot kept to fall back on), a player with several Dynasty cards a different one on each, all of his listed up close with that one marked, every picture there, and a namesake (the Browns’ linebacker Justin Jefferson) and everyone else as before', async () => {
+    const [V, R] = await Promise.all([import('../views/dynasty.js'), import('../views/dynasty-real.js')]);
+    const keys = Object.keys(R.REAL), cards = D.CARDS.filter(c => R.REAL[c.p]);
+    const known = keys.length >= 16 && keys.every(p => D.DATA.players[p] && D.CARDS.some(c => c.p === p) && R.REAL[p].length
+      && R.REAL[p].every(r => /^[0-9a-f]{8}$/.test(r[0]) && r[1] >= 1990 && r[2] && r[4]));
+    const shows = cards.every(c => {
+      const h = V.cardHTML(c);
+      return h.includes(`class="pk-c-ph is-real" src="${R.realUrl(c.p, R.realOf(c))}"`) && (!c.head || h.includes(`data-alt="${V.headUrl(c.head).replace(/&/g, '&amp;')}"`)) && (c.s !== 'X' || h.includes('class="pk-c-num"'));
+    });
+    const allen = D.CARDS.filter(c => c.p === '0034857').map(R.realOf), apart = allen.length >= 3 && new Set(allen).size === allen.length;
+    const up = V.realHTML(D.card('Xtombrady')), close = (up.match(/<figure/g) || []).length === R.REAL.xtombrady.length && (up.match(/On this card/g) || []).length === 1;
+    const lb = D.CARDS.filter(c => c.name === 'Justin Jefferson' && c.pos === 'LB'), namesake = lb.length > 0 && lb.every(c => !R.realOf(c) && !/is-real/.test(V.cardHTML(c)) && !V.realHTML(c));
+    const other = D.CARDS.find(c => c.s === 'L' && c.head && !R.REAL[c.p]), plain = !!other && !/is-real/.test(V.cardHTML(other)) && V.cardHTML(other).includes('class="pk-c-ph" src=');
+    const urls = keys.flatMap(p => R.REAL[p].map(r => R.realUrl(p, r)));
+    const got = await Promise.all(urls.map(u => fetch(u, {method: 'HEAD', cache: 'no-store'}).then(r => r.ok).catch(() => false)));
+    return {pass: known && shows && apart && close && namesake && plain && got.every(Boolean),
+      detail: `${urls.length} pictures for ${keys.length} players on ${cards.length} cards; Josh Allen’s ${allen.map(R.realName).join(', ')}; missing ${urls.filter((u, i) => !got[i]).join(', ') || 'none'}`};
+  });
 }
