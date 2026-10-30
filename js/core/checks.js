@@ -1628,7 +1628,7 @@ export async function runChecks() {
     return {pass: !bad.length, detail: bad.length ? bad.join('; ') : `the ball at the ${s.spot} in the red zone; Allen ${P['Josh Allen'].pts}, Cook ${P['James Cook'].pts} PPR; #/live opens the Scores tab`};
   });
 
-  check('Live league scores (everyone\'s, Oct 30 2026): Yahoo\'s starters (BN and IR sit; WAS is ESPN\'s WSH) scored from ESPN\'s box scores, kickers by distance, defenses by sacks, takeaways, touchdowns and points allowed, two-point conversions, and each player\'s game state', async () => {
+  check('Live league scores (everyone\'s, Oct 30 2026): Yahoo\'s starters (BN and IR sit; WAS is ESPN\'s WSH) scored from ESPN\'s box scores, kickers by distance, defenses by sacks, takeaways, touchdowns and points allowed, two-point conversions, each player\'s game state, and projected totals from Yahoo\'s', async () => {
     const [gd, fl] = await Promise.all([import('./gameday.js'), import('./fantasy-live.js')]);
     const bad = [];
     const cat = (name, keys, rows) => ({name, keys, labels: [], athletes: rows.map(([id, nm, st]) => ({athlete: {id, displayName: nm}, stats: st}))});
@@ -1679,10 +1679,22 @@ export async function runChecks() {
     if (!m || m.b.left !== 4 || m.b.on !== 3 || !m.started || m.over) bad.push(`left ${m && m.b.left}, on ${m && m.b.on}`);
     const dP = m && m.b.rows[4];
     if (!dP || dP.pts !== gd.defPoints(box.defs.WSH, 26) || !/26 pts allowed/.test(dP.line)) bad.push('Commanders defense ' + JSON.stringify(dP && {pts: dP.pts, line: dP.line}));
+    // Projected totals: Yahoo's before kickoff (a bye takes no share), the score once every game is over, and in between
+    // the score plus the share for the time left; none without Yahoo's projection.
+    const gl = fl.gameLeft;
+    if (gl({state: 'pre'}) !== 1 || gl({state: 'post'}) !== 0 || gl({state: 'in', detail: 'Halftime', period: 2}) !== .5
+      || Math.abs(gl({state: 'in', period: 3, clock: '4:12'}) - .32) > 1e-9 || gl({state: 'in', period: 5, clock: '8:00'}) !== 0) bad.push('time left in a game');
+    const when = st => Object.assign({}, feed, {games: feed.games.map(g => Object.assign({}, g, {state: st}))});
+    const pre = fl.teamScore(when('pre'), ups.get('ben'), 120.5), post = fl.teamScore(when('post'), ups.get('ben'), 120.5);
+    const live = fl.matchup(feed, ups, 'evan', 'ben', {a: 110, b: 120.5});
+    if (!m || m.a.proj !== null) bad.push('a projection without Yahoo\'s');
+    if (pre.proj !== 120.5) bad.push(`before kickoff ${pre.proj} (want Yahoo's 120.5)`);
+    if (post.proj !== post.pts) bad.push(`all over ${post.proj} (want the score, ${post.pts})`);
+    if (!live || !(live.b.proj > live.b.pts && live.b.proj < live.b.pts + 120.5) || !(live.a.proj > live.a.pts)) bad.push('live projections ' + JSON.stringify(live && [live.a.pts, live.a.proj, live.b.pts, live.b.proj]));
     // The league file's own rosters, when they carry slots: nine starters a team.
     const real = fl.lineups(data.DATA || {}, 2026, null);
     if (real && [...real.values()].some(l => l.length < 8 || l.length > 10)) bad.push('league rosters: ' + [...real].map(([k, l]) => k + ' ' + l.length).join(', '));
-    return {pass: !bad.length, detail: bad.length ? bad.join('; ') : `Evan ${m.a.pts} live (Bass ${K.pts}, Bills D ${gd.defPoints(D, 9)}), Ben ${m.b.pts} with ${m.b.left} left${real ? `; ${real.size} lineups in the league file` : ''}`};
+    return {pass: !bad.length, detail: bad.length ? bad.join('; ') : `Evan ${m.a.pts} live (Bass ${K.pts}, Bills D ${gd.defPoints(D, 9)}), Ben ${m.b.pts} with ${m.b.left} left, projected ${live.b.proj} of Yahoo's 120.5${real ? `; ${real.size} lineups in the league file` : ''}`};
   });
 
   check('Daily Games boards: each place on today\'s board of Daily Puzzles, 17-0 and the Drill shows what it pays in Keepfall\'s Ale ("+5K" on a case, "+5,000" up close; the owner\'s ask, Oct 25 2026), the pay Keepfall pays by', async () => {

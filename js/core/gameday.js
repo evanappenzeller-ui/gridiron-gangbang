@@ -14,7 +14,9 @@
 //   norm(name)         -> a player's name as the matches go by (no case, accents, punctuation or Jr/III)
 //   statLine(p)        -> "24/31, 288 yds, 3 TD, 1 INT · 6 car, 41 yds" (the parts he has)
 //   posOf(p, list)     -> 'QB' | 'RB' | 'WR' | 'TE': the player list's (data/nfl-players.json), else read off his stats
-//   loadPositions()    -> Promise of the player list's positions (name|team -> pos)
+//   loadPositions()    -> Promise of the player list's positions (name|team -> pos); also loads the ranks
+//   rankOf(p)          -> {score, ref} once the list loaded: his relevance in the list (PPR points, data/nfl-players.json)
+//                         and a starter's at his position (the 12th QB or TE, the 24th RB or WR); else null
 //   ownersOf(league, year) -> Map(player's name, normalized -> manager id): who has him in the league, from Yahoo's
 //                         rosters (league.json seasons[].rosters, synced twice a day) or, without them, that season's
 //                         draft (league.json drafts); then the trades, pickups and drops on file since (league.json
@@ -206,19 +208,33 @@ export const ownerOf = (owners, p) => (owners && owners.get(norm(p.name))) || nu
 
 // Positions from the current player list (data/nfl-players.json: [name, team, pos, score]).
 const POS_URL = new URL('../../data/nfl-players.json', import.meta.url).href;
-let posP = null, POS = null;
+let posP = null, POS = null, RANK = null;
+const STARTER = {QB: 12, RB: 24, WR: 24, TE: 12};
 export function loadPositions() {
   if (!posP) posP = fetch(POS_URL).then(r => { if (!r.ok) throw new Error('nfl-players.json HTTP ' + r.status); return r.json(); }).then(j => {
-    const m = new Map();
-    (Array.isArray(j && j.p) ? j.p : []).forEach(([name, team, pos]) => {
+    const m = new Map(), score = new Map(), by = {};
+    (Array.isArray(j && j.p) ? j.p : []).forEach(([name, team, pos, sc]) => {
       if (!/^(QB|RB|WR|TE)$/.test(pos)) return;
       m.set(norm(name) + '|' + team, pos);
       if (!m.has(norm(name))) m.set(norm(name), pos); else if (m.get(norm(name)) !== pos) m.set(norm(name), '');
+      const v = Number(sc);
+      if (!isFinite(v)) return;
+      score.set(norm(name) + '|' + team, v);
+      score.set(norm(name), score.has(norm(name)) ? null : v);
+      (by[pos] = by[pos] || []).push(v);
     });
+    const ref = {};
+    Object.entries(by).forEach(([pos, v]) => { v.sort((a, b) => b - a); ref[pos] = v[Math.min(v.length, STARTER[pos]) - 1]; });
     POS = m;
+    RANK = {score, ref};
     return m;
   }).catch(e => { posP = null; throw e; });
   return posP;
+}
+export function rankOf(p) {
+  if (!RANK || !p || !RANK.ref[p.pos]) return null;
+  const k = norm(p.name), v = RANK.score.has(k + '|' + p.team) ? RANK.score.get(k + '|' + p.team) : RANK.score.get(k);
+  return v == null ? null : {score: v, ref: RANK.ref[p.pos]};
 }
 export function posOf(p, list = POS) {
   const k = norm(p.name), hit = list && (list.get(k + '|' + p.team) || list.get(k));

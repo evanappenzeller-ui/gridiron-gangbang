@@ -197,6 +197,15 @@
 .lg-body .ll-gm.is-live .bug-side.is-fav, .lg-body .ll-gm.is-live .bug-side.is-fav .ll-pts { color: var(--ink); }
 .lg-body .ll-gm.is-live .bug-side.is-dog { color: var(--ink-2); }
 .lg-body .ll-gm.is-live .bug-side.is-dog .ll-pts { color: var(--ink-3); }
+/* A side's score with its projected total under it (green ahead of the other side's, red behind). */
+.lg-body .ll-gm .bug-side { height: auto; min-height: 36px; padding: 2px 0; }
+.lg-body .ll-sc, .sh-ll .ll-sc { flex: none; display: flex; flex-direction: column; align-items: flex-end; min-width: 60px; }
+.lg-body .ll-proj, .sh-ll .ll-proj { font: 500 12px/14px var(--font-text); font-variant-numeric: tabular-nums; color: var(--ink-3); white-space: nowrap; }
+.lg-body .ll-proj > i, .sh-ll .ll-proj > i { font-style: normal; font-weight: 400; }
+.lg-body .ll-proj.is-up, .sh-ll .ll-proj.is-up { color: var(--tint); }
+.lg-body .ll-proj.is-down, .sh-ll .ll-proj.is-down { color: var(--wrong); }
+.lg-body .ll-proj.is-up > i, .lg-body .ll-proj.is-down > i, .sh-ll .ll-proj.is-up > i, .sh-ll .ll-proj.is-down > i { color: var(--ink-3); }
+.sh-ll .ll-proj { margin-top: 2px; font-size: 13px; line-height: 16px; }
 
 .sh-ll .ll-bug .bug-side { color: var(--ink); }
 .sh-ll .ll-place { color: var(--ink-3); }

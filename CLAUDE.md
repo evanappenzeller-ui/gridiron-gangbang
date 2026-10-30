@@ -161,7 +161,10 @@ once its players kick off, and a game's sheet both lineups slot by slot. Matchup
 2026, the owner: "Remove this from the matchups tab"). `js/core/fantasy-live.js`
 scores Yahoo's starters (`seasons[].rosters` slots, with `week`; BN/IR sit) from ESPN's box scores (`core/gameday.js`
 `parseBox`, which also reads kickers, defenses and two-point conversions) in Yahoo's standard scoring. It is unofficial:
-Yahoo's final (the sync) replaces it. The Yahoo sync also runs as each game-day window kicks off so the lineups are the
+Yahoo's final (the sync) replaces it. Each side's projected total sits under its score (Oct 30 2026, the owner: "Add total
+point projections"): Yahoo gives only the team's projection (schedule `pa`/`pb`, not moved by results), so
+`fantasy-live.js` shares it among the starters (position and `data/nfl-players.json` relevance, `gameday.rankOf`) and
+counts points scored plus each share for the time left in his game; before kickoff it is Yahoo's number. The Yahoo sync also runs as each game-day window kicks off so the lineups are the
 locked ones. Verify `node tools/matchup/check-live-browser.cjs` and the kit check "Live league scores…".
 
 ## Home screen (October 30, 2026)
