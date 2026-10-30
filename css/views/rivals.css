@@ -424,6 +424,11 @@
 .v-rivals .rv-wk-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; min-height: 34px; margin-bottom: 8px; }
 .v-rivals .rv-wk-head .t-2 { margin: 0; }
 .v-rivals .rv-wk-ovl { color: var(--ink-3); white-space: nowrap; }
+/* Once the week kicks off: "Live scores", to the Scores tab's League screen (views/live-league.js). */
+.v-rivals .rv-wk-live { display: inline-flex; align-items: center; gap: 5px; min-height: 30px; padding: 0; background: none; color: var(--tint); font: inherit; letter-spacing: inherit; text-transform: inherit; }
+.v-rivals .rv-wk-live > i { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--tint); animation: rv-live-blink 1.6s ease-in-out infinite; }
+@keyframes rv-live-blink { 50% { opacity: .3; } }
+@media (prefers-reduced-motion: reduce) { .v-rivals .rv-wk-live > i { animation: none; } }
 
 /* ================================================================ This week's games (each opens the matchup sheet) */
 .v-rivals .rv-games { margin: 0 0 28px; }
@@ -607,47 +612,3 @@ html.rm .v-rivals .rv-vt-btn { transition: background-color 200ms linear, color 
 .v-rivals .is-dog .rv-gm-proj { color: var(--ink-3); }
 .sh-rv-pre .rv-pj-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
 .sh-rv-pre .rv-pj-s { display: flex; align-items: center; gap: 8px; }
-
-/* ================================================================ Live scores (core/fantasy-live.js, Oct 30 2026)
-   This week's games once their players kick off: each side's live score, players left as a pill; the leader in ink.
-   The sheet: the live score where the place was, then both lineups slot by slot. */
-.v-rivals .rv-live { display: inline-flex; align-items: center; gap: 5px; color: var(--tint); }
-.v-rivals .rv-live > i, .sh-rv-pre .rv-live-dot, .sh-rv-pre .rv-lu-on {
-  flex: none; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--tint);
-  animation: rv-live-blink 1.6s ease-in-out infinite;
-}
-@keyframes rv-live-blink { 50% { opacity: .3; } }
-.v-rivals .rv-gm-left { flex: none; margin-right: 10px; padding: 1px 7px; border-radius: 999px; background: var(--fill); color: var(--ink-3); font: 600 12px/18px var(--font-text); white-space: nowrap; }
-.v-rivals .rv-gm.is-live .bug-side.is-fav .rv-gm-live { color: var(--ink); }
-.v-rivals .rv-gm.is-live .bug-side.is-dog .rv-gm-live { color: var(--ink-3); }
-
-.sh-rv-pre .rv-pre-bug.is-live .bug-side.is-win { color: var(--ink); }
-.sh-rv-pre .rv-pre-bug.is-live .bug-side.is-lose { color: var(--ink-2); }
-.sh-rv-pre .rv-pre-bug.is-live .bug-side.is-lose .rv-pre-live { color: var(--ink-3); }
-.sh-rv-pre .rv-live-dot { margin-right: 6px; vertical-align: 1px; }
-.sh-rv-pre .rv-lu { list-style: none; margin: 0; padding: 0; }
-.sh-rv-pre .rv-lu-row { position: relative; }
-.sh-rv-pre .rv-lu-row + .rv-lu-row::before { content: ""; position: absolute; top: 0; left: 12px; right: 12px; height: 1px; background: var(--separator); transform: scaleY(.5); transform-origin: top; }
-.sh-rv-pre .rv-lu-in { display: grid; grid-template-columns: minmax(0, 1fr) auto 32px auto minmax(0, 1fr); align-items: center; column-gap: 6px; min-height: 52px; padding: 8px 12px; }
-.sh-rv-pre .rv-lu-p { display: flex; flex-direction: column; min-width: 0; }
-.sh-rv-pre .rv-lu-p.b { text-align: right; align-items: flex-end; }
-.sh-rv-pre .rv-lu-p > b { max-width: 100%; font: 600 14px/18px var(--font-text); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sh-rv-pre .rv-lu-p > span { display: block; max-width: 100%; font: 400 12px/16px var(--font-text); color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sh-rv-pre .rv-lu-p.is-in > span { color: var(--ink-2); }
-.sh-rv-pre .rv-lu-p > em { max-width: 100%; font: 400 11px/14px var(--font-text); color: var(--ink-3); overflow: hidden; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
-.sh-rv-pre .rv-lu-p.is-bye > b, .sh-rv-pre .rv-lu-p.is-empty { color: var(--ink-3); }
-.sh-rv-pre .rv-lu-p.is-empty { font: 400 14px/18px var(--font-text); }
-.sh-rv-pre .rv-lu-on { width: 6px; height: 6px; margin-right: 4px; vertical-align: 1px; }
-.sh-rv-pre .rv-lu-pts { min-width: 40px; text-align: right; color: var(--ink); font-variant-numeric: tabular-nums; }
-.sh-rv-pre .rv-lu-pts.b { text-align: left; }
-.sh-rv-pre .rv-lu-pts.is-0 { color: var(--ink-3); }
-.sh-rv-pre .rv-lu-slot { text-align: center; font: 700 11px/14px var(--font-text); letter-spacing: .04em; color: var(--ink-3); }
-.sh-rv-pre .rv-lu-tot { display: grid; grid-template-columns: minmax(0, 1fr) auto 32px auto minmax(0, 1fr); align-items: center; column-gap: 6px; padding: 10px 12px 12px; background: var(--surface-3); }
-.sh-rv-pre .rv-lu-tot > span:first-child, .sh-rv-pre .rv-lu-tot > span:last-child { font: 400 12px/16px var(--font-text); color: var(--ink-3); }
-.sh-rv-pre .rv-lu-tot > span:last-child { text-align: right; }
-.sh-rv-pre .rv-lu-tot > .ovl { text-align: center; color: var(--ink-2); font-size: 10px; }
-.sh-rv-pre .rv-lu-tot > b { color: var(--ink); font-variant-numeric: tabular-nums; }
-.sh-rv-pre .rv-lu-note { margin: 8px 16px 0; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); text-wrap: pretty; }
-@media (prefers-reduced-motion: reduce) {
-  .v-rivals .rv-live > i, .sh-rv-pre .rv-live-dot, .sh-rv-pre .rv-lu-on { animation: none; }
-}

@@ -46,9 +46,10 @@ html.rm .c-pk-dot::after { animation: none; }
 /* ================================================================ Screen */
 .v-pickem .pk-acc { margin-top: 4px; }
 /* League switch (NFL · College · League · Survivor): the screen's focal point, four scoreboard buttons, the badge over
-   a word. The active one is lit like the field (turf stripes, a neon edge, the arcade bevel); the others wait in navy. */
-.v-pickem .pk-lg { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 10px 0 14px; }
-.v-pickem .pk-lg-t {
+   a word. The active one is lit like the field (turf stripes, a neon edge, the arcade bevel); the others wait in navy.
+   The Scores tab's NFL · League switch (views/live.js) is the same buttons, two of them (css/views/live.css). */
+:is(.v-pickem, .v-live) .pk-lg { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 10px 0 14px; }
+:is(.v-pickem, .v-live) .pk-lg-t {
   position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 4px;
   min-height: 82px; padding: 8px 4px 9px; min-width: 0;
   border-radius: 12px;
@@ -57,22 +58,22 @@ html.rm .c-pk-dot::after { animation: none; }
   color: var(--ink-3); text-align: left;
   transition: transform var(--spring-snappy-dur) var(--spring-snappy), color 160ms linear;
 }
-.v-pickem .pk-lg-t.is-pressed { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0,0,0,.45), inset 0 0 0 2px var(--separator); transition: none; }
-.v-pickem .pk-lg-t[aria-selected="true"] {
+:is(.v-pickem, .v-live) .pk-lg-t.is-pressed { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0,0,0,.45), inset 0 0 0 2px var(--separator); transition: none; }
+:is(.v-pickem, .v-live) .pk-lg-t[aria-selected="true"] {
   color: #fff;
   background: repeating-linear-gradient(90deg, rgba(255,255,255,.07) 0 2px, transparent 2px 22px), linear-gradient(180deg, #2A9A3E, #17672B);
   box-shadow: 0 4px 0 #0C3D18, inset 0 0 0 2px var(--tint), 0 0 22px rgba(124,240,88,.25);
 }
-.v-pickem .pk-lg-ic { flex: none; display: grid; place-items: center; width: 46px; height: 46px; }
-.v-pickem .pk-badge { width: 46px; height: 46px; object-fit: contain; image-rendering: pixelated; filter: drop-shadow(2px 2px 0 rgba(0,0,0,.55)); }
+:is(.v-pickem, .v-live) .pk-lg-ic { flex: none; display: grid; place-items: center; width: 46px; height: 46px; }
+:is(.v-pickem, .v-live) .pk-badge { width: 46px; height: 46px; object-fit: contain; image-rendering: pixelated; filter: drop-shadow(2px 2px 0 rgba(0,0,0,.55)); }
 /* The league not shown: its badge waits, dimmed. */
-.v-pickem .pk-lg-t[aria-selected="false"] .pk-badge { opacity: .55; filter: grayscale(.5) drop-shadow(2px 2px 0 rgba(0,0,0,.55)); }
-.v-pickem .pk-lg-tx { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; max-width: 100%; }
-.v-pickem .pk-lg-l { font: 400 15px/18px var(--font-pixel); text-transform: uppercase; letter-spacing: 0; white-space: nowrap; }
-.v-pickem .pk-lg-t[aria-selected="true"] .pk-lg-l { text-shadow: 2px 2px 0 #000; }
-.v-pickem .pk-lg-s { font: 400 13px/14px var(--font-num); text-transform: uppercase; letter-spacing: .05em; color: var(--ink-4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-.v-pickem .pk-lg-t[aria-selected="true"] .pk-lg-s { color: rgba(255,255,255,.75); }
-.v-pickem .pk-lg-u { display: none; }
+:is(.v-pickem, .v-live) .pk-lg-t[aria-selected="false"] .pk-badge { opacity: .55; filter: grayscale(.5) drop-shadow(2px 2px 0 rgba(0,0,0,.55)); }
+:is(.v-pickem, .v-live) .pk-lg-tx { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; max-width: 100%; }
+:is(.v-pickem, .v-live) .pk-lg-l { font: 400 15px/18px var(--font-pixel); text-transform: uppercase; letter-spacing: 0; white-space: nowrap; }
+:is(.v-pickem, .v-live) .pk-lg-t[aria-selected="true"] .pk-lg-l { text-shadow: 2px 2px 0 #000; }
+:is(.v-pickem, .v-live) .pk-lg-s { font: 400 13px/14px var(--font-num); text-transform: uppercase; letter-spacing: .05em; color: var(--ink-4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+:is(.v-pickem, .v-live) .pk-lg-t[aria-selected="true"] .pk-lg-s { color: rgba(255,255,255,.75); }
+:is(.v-pickem, .v-live) .pk-lg-u { display: none; }
 /* College rank before the team name. */
 .v-pickem .pk-rk { margin-right: 5px; color: var(--ink-3); font-weight: 800; }
 .v-pickem .pk-main { min-width: 0; }

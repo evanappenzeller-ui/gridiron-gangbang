@@ -1,5 +1,10 @@
 /* live.css: the Live tab (views/live.js). Owner: LIVE.
-   Every selector starts with .lg-body. Motion: the red zone's pulse, a score's flash, the "playing now" dot. */
+   Every selector starts with .lg-body (the switch with .v-live; the League screen's game sheet with .sh-ll). Motion: the
+   red zone's pulse, a score's flash, the "playing now" dot. */
+
+/* ================================================================ NFL · League (Pick'em's buttons, css/views/pickem.css) */
+.v-live .lg-sw { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 6px; }
+.lg-panes > [hidden] { display: none; }
 
 .lg-body { padding: 4px 0 32px; }
 .lg-body .lg-sh { margin-top: 20px; }
@@ -179,11 +184,58 @@
 .lg-body .lg-waiver .lg-po { font-variant-numeric: tabular-nums; }
 .lg-body .lg-foot { margin-top: 16px; font: 400 var(--fs-cap)/var(--lh-cap) var(--font-text); color: var(--ink-4); }
 
+/* ================================================================ League (views/live-league.js)
+   This week's league matchups: each side's live score, players left as a pill, the leader in ink; before kickoff the
+   records where the scores will be. The sheet: the live score, then both lineups slot by slot. */
+.lg-body .ll-games > .lg-sh:first-child { margin-top: 8px; }
+.lg-body .ll-gms { --stack-ring: var(--surface-1); }
+.lg-body .ll-gm { padding-top: 8px; padding-bottom: 8px; }
+.lg-body .ll-gm:focus-visible { outline-offset: -2px; border-radius: var(--r-group); }
+.lg-body .ll-gm.is-pre .bug-side { color: var(--ink); }
+.lg-body .ll-rec { font: 500 15px/20px var(--font-text); font-variant-numeric: tabular-nums; color: var(--ink-2); }
+.lg-body .ll-left { flex: none; margin-right: 10px; padding: 1px 7px; border-radius: 999px; background: var(--fill); color: var(--ink-3); font: 600 12px/18px var(--font-text); white-space: nowrap; }
+.lg-body .ll-gm.is-live .bug-side.is-fav, .lg-body .ll-gm.is-live .bug-side.is-fav .ll-pts { color: var(--ink); }
+.lg-body .ll-gm.is-live .bug-side.is-dog { color: var(--ink-2); }
+.lg-body .ll-gm.is-live .bug-side.is-dog .ll-pts { color: var(--ink-3); }
+
+.sh-ll .ll-bug .bug-side { color: var(--ink); }
+.sh-ll .ll-place { color: var(--ink-3); }
+.sh-ll .ll-bug.is-live .bug-side.is-lose { color: var(--ink-2); }
+.sh-ll .ll-bug.is-live .bug-side.is-lose .ll-live { color: var(--ink-3); }
+.sh-ll .ll-dot, .sh-ll .ll-lu-on {
+  flex: none; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--tint);
+  animation: lg-blink 1.6s ease-in-out infinite;
+}
+.sh-ll .ll-dot { margin-right: 6px; vertical-align: 1px; }
+.sh-ll .ll-lu { list-style: none; margin: 0; padding: 0; }
+.sh-ll .ll-lu-row { position: relative; }
+.sh-ll .ll-lu-row + .ll-lu-row::before { content: ""; position: absolute; top: 0; left: 12px; right: 12px; height: 1px; background: var(--separator); transform: scaleY(.5); transform-origin: top; }
+.sh-ll .ll-lu-in { display: grid; grid-template-columns: minmax(0, 1fr) auto 32px auto minmax(0, 1fr); align-items: center; column-gap: 6px; min-height: 52px; padding: 8px 12px; }
+.sh-ll .ll-lu-p { display: flex; flex-direction: column; min-width: 0; }
+.sh-ll .ll-lu-p.b { text-align: right; align-items: flex-end; }
+.sh-ll .ll-lu-p > b { max-width: 100%; font: 600 14px/18px var(--font-text); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sh-ll .ll-lu-p > span { display: block; max-width: 100%; font: 400 12px/16px var(--font-text); color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sh-ll .ll-lu-p.is-in > span { color: var(--ink-2); }
+.sh-ll .ll-lu-p > em { max-width: 100%; font: 400 11px/14px var(--font-text); color: var(--ink-3); overflow: hidden; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+.sh-ll .ll-lu-p.is-bye > b, .sh-ll .ll-lu-p.is-empty { color: var(--ink-3); }
+.sh-ll .ll-lu-p.is-empty { font: 400 14px/18px var(--font-text); }
+.sh-ll .ll-lu-on { width: 6px; height: 6px; margin-right: 4px; vertical-align: 1px; }
+.sh-ll .ll-lu-pts { min-width: 40px; text-align: right; color: var(--ink); font-variant-numeric: tabular-nums; }
+.sh-ll .ll-lu-pts.b { text-align: left; }
+.sh-ll .ll-lu-pts.is-0 { color: var(--ink-3); }
+.sh-ll .ll-lu-slot { text-align: center; font: 700 11px/14px var(--font-text); letter-spacing: .04em; color: var(--ink-3); }
+.sh-ll .ll-lu-tot { display: grid; grid-template-columns: minmax(0, 1fr) auto 32px auto minmax(0, 1fr); align-items: center; column-gap: 6px; padding: 10px 12px 12px; background: var(--surface-3); }
+.sh-ll .ll-lu-tot > span:first-child, .sh-ll .ll-lu-tot > span:last-child { font: 400 12px/16px var(--font-text); color: var(--ink-3); }
+.sh-ll .ll-lu-tot > span:last-child { text-align: right; }
+.sh-ll .ll-lu-tot > .ovl { text-align: center; color: var(--ink-2); font-size: 10px; }
+.sh-ll .ll-lu-tot > b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.sh-ll .ll-note { margin: 8px 16px 0; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); text-wrap: pretty; }
+
 @keyframes lg-blink { 50% { opacity: .25; } }
 @keyframes lg-rz { 50% { box-shadow: var(--pixel-shadow), inset 0 0 0 2px var(--wrong), 0 0 18px rgba(255,90,74,.45); } }
 @keyframes lg-burst { 0% { opacity: 0; transform: scale(1.15); } 8% { opacity: 1; transform: scale(1); } 65% { opacity: 1; } 100% { opacity: 0; } }
 
 @media (prefers-reduced-motion: reduce) {
-  .lg-body .lg-tile.is-rz, .lg-body .lg-pulse, .lg-body .lg-dot { animation: none; }
+  .lg-body .lg-tile.is-rz, .lg-body .lg-pulse, .lg-body .lg-dot, .sh-ll .ll-dot, .sh-ll .ll-lu-on { animation: none; }
   .lg-body .lg-burst { animation-duration: .01s; animation-fill-mode: none; }
 }

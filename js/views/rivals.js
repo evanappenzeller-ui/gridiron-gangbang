@@ -5,8 +5,6 @@
 // The week, top to bottom (core/week.js): 1. Matchup of the Week voting on the league's matchups (with the lock time);
 // 2. this week's six league games (the schedule; a score once the week is in the data), each opening the matchup
 // sheet (views/matchup.js; an unplayed game opens the same sheet's preview: records entering it and the series);
-// once its players kick off, each game shows the live score (Oct 30 2026, everyone's: core/fantasy-live.js, Yahoo's
-// lineups scored from ESPN's box scores every 30 s while a game is on) and the sheet both lineups, player by player;
 // 3. the Press Room card (the MOTW loser's press conference, playable in place: core/press.js + views/press.js, loaded
 // at idle; hidden until they answer; a presser posted in the last 4 days is featured with a "New" pill);
 // 4. Last week: The Wrap card (core/stats.js, loaded at idle; opens the Wrap pushed on this tab); then the past
@@ -21,7 +19,6 @@ import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as motw from '../core/motw.js';
 import * as week from '../core/week.js';
-import * as fl from '../core/fantasy-live.js';
 import * as you from './you.js';
 import {openMatchup, enteringRecord} from './matchup.js';
 
@@ -672,7 +669,9 @@ export function badge() {
 
 // ---------------------------------------------------------------- This week's games (the week's six league matchups)
 // week.current()'s games in schedule order. A game already in the data shows its score (a score bug; it opens the
-// matchup sheet); an unplayed one shows both managers' records and opens the sheet's preview.
+// matchup sheet); an unplayed one shows both managers' records and opens the sheet's preview. Once the week kicks off,
+// "Live scores" in its header opens the live league scores on the Scores tab (views/live-league.js; Oct 30 2026, the
+// owner: "The live league matchups should go in the scores tab").
 function gameOf(cur, x) {
   return data.GAMES.find(g => g.year === cur.year && g.week === cur.week && ((g.a === x.a && g.b === x.b) || (g.a === x.b && g.b === x.a))) || null;
 }
@@ -719,8 +718,6 @@ function gmLabel(s, x, p) {
 function gameItem(cur, s, x) {
   const g = gameOf(cur, x);
   if (g) return ui.scoreBug(g, {teams: true, cls: 'rv-gm', attrs: {'data-wg': x.key, 'data-press': 'row', 'aria-haspopup': 'dialog'}});
-  const lv = liveOf(cur, x);
-  if (lv && lv.started) return liveItem(s, x, lv);
   const p = projOf(cur, x);
   return `<button type="button" class="bug bug-row rv-gm is-open${p ? ' is-proj' : ''}" data-wg="${esc(x.key)}" data-press="row" aria-haspopup="dialog" aria-label="${esc(gmLabel(s, x, p))}">`
     + gmSide(s, x.a, p && {pts: p.pa, win: p.winA}) + gmSide(s, x.b, p && {pts: p.pb, win: 1 - p.winA}) + `</button>`;
@@ -731,10 +728,10 @@ function gamesHTML(cur) {
   const played = cur.games.filter(x => gameOf(cur, x)).length;
   // Projections come from core/stats.js (loaded at idle); this redraws once it's in.
   if (!STATS && played < cur.games.length) loadStats().then(() => patchGames(), () => {});
-  const on = cur.games.some(x => { const lv = !gameOf(cur, x) && liveOf(cur, x); return !!lv && lv.on > 0; });
   return `<section class="rv-games" data-enter aria-labelledby="rv-games-h">`
     + `<div class="rv-wk-head"><h2 class="t-2" id="rv-games-h">This week's games</h2><span class="ovl rv-wk-ovl">`
-    + `${on ? '<span class="rv-live"><i aria-hidden="true"></i>Live</span> · ' : ''}Week ${esc(cur.week)}</span></div>`
+    + (lockedNow(cur) && played < cur.games.length ? `<button type="button" class="rv-wk-live" data-rv-live><i aria-hidden="true"></i>Live scores</button> · ` : '')
+    + `Week ${esc(cur.week)}</span></div>`
     + ui.group(cur.games.map(x => gameItem(cur, s, x)).join(''), {cls: 'rv-gms'})
     + `</section>`;
 }
@@ -753,107 +750,6 @@ function patchGames() {
   syncH2hTitle();
   reland();
 }
-// ---------------------------------------------------------------- Live scores (core/fantasy-live.js)
-// st.live: {key ('2026-w8'), feed (gameday's latest for that week), stop, sheet ({sh, cur, x}: an open game sheet)}.
-// The feed runs while Matchup is on screen and the week has Yahoo's lineups; each update redraws the week's games and
-// an open sheet.
-let UPS = {src: null, key: '', ups: null};
-function upsOf(cur) {
-  const key = cur.year + '-w' + cur.week;
-  if (UPS.src !== data.DATA || UPS.key !== key) UPS = {src: data.DATA, key, ups: fl.lineups(data.DATA, cur.year, cur.week)};
-  return UPS.ups;
-}
-function liveOf(cur, x) {
-  const L = st && st.live;
-  if (!cur || !L || !L.feed || L.key !== cur.year + '-w' + cur.week || L.feed.week !== cur.week) return null;
-  try { return fl.matchup(L.feed, upsOf(cur), x.a, x.b); } catch (e) { console.error(e); return null; }
-}
-function liveStart() {
-  if (!st) return;
-  const cur = curWeek();
-  const key = cur ? cur.year + '-w' + cur.week : '';
-  if (st.live && st.live.key === key && st.live.stop) return;
-  liveStop();
-  if (!cur || !upsOf(cur)) return;
-  const L = st.live = Object.assign(st.live || {}, {key, feed: st.live && st.live.key === key ? st.live.feed : null, stop: null});
-  L.stop = fl.watch(cur.year, cur.week, feed => {
-    if (!st || st.live !== L || L.key !== key) return;
-    L.feed = feed;
-    patchGames();
-    patchSheet();
-  });
-}
-function liveStop() {
-  if (st && st.live && st.live.stop) { st.live.stop(); st.live.stop = null; }
-}
-const liveTotal = v => Number(v || 0).toFixed(2);
-function liveItem(s, x, lv) {
-  const side = (id, t, o) => {
-    const r = tableRow(s, id);
-    return `<span class="bug-side ${t.pts >= o.pts ? 'is-fav' : 'is-dog'}">${ui.avatar(id, {size: 24, you: id === data.me()})}`
-      + `<span class="bug-name"><b>${esc(nm(id))}</b><span class="bug-team">${esc(r ? data.recStr(r.w, r.l, r.t) : '0–0')}</span></span>`
-      + (t.left ? `<span class="rv-gm-left">${t.left} left</span>` : '')
-      + `<span class="bug-score n4 rv-gm-live">${ui.score(t.pts)}</span></span>`;
-  };
-  const label = `${nm(x.a)} ${liveTotal(lv.a.pts)}, ${nm(x.b)} ${liveTotal(lv.b.pts)}, ${lv.over ? 'final, unofficial' : 'live'}. Show the matchup`;
-  return `<button type="button" class="bug bug-row rv-gm is-open is-live" data-wg="${esc(x.key)}" data-press="row" aria-haspopup="dialog" aria-label="${esc(label)}">`
-    + side(x.a, lv.a, lv.b) + side(x.b, lv.b, lv.a) + `</button>`;
-}
-// A player's game, in a word or two: "Sun 1:00 PM", "Q3 4:12", "Half", "Final", "Bye".
-function clockOf(r) {
-  const g = r.game;
-  if (r.state === 'bye' || !g) return 'Bye';
-  if (r.state === 'pre') return g.tbd ? 'TBD' : g.kickoff.toLocaleString('en-US', {weekday: 'short', hour: 'numeric', minute: '2-digit'});
-  if (r.state === 'post') return /OT/.test(g.detail || '') ? 'Final/OT' : 'Final';
-  if (/half/i.test(g.detail || '')) return 'Half';
-  return g.period ? `${g.period > 4 ? 'OT' : 'Q' + g.period} ${g.clock || ''}`.trim() : 'Live';
-}
-// "D. Maye" (Yahoo's way, so a lineup fits a phone); a defense keeps its name.
-const shortName = r => r.pos === 'DEF' ? r.name : r.name.replace(/^([A-Za-z])[A-Za-z'’.-]*\s+(?=\S)/, '$1. ');
-function luPlayer(r, k) {
-  if (!r) return `<span class="rv-lu-p ${k} is-empty">Empty</span>`;
-  const g = r.game, vs = g ? (g.home.abbr === r.team ? 'vs ' + g.away.abbr : '@ ' + g.home.abbr) : '';
-  return `<span class="rv-lu-p ${k} is-${r.state}"><b>${esc(shortName(r))}</b>`
-    + `<span>${r.state === 'in' ? '<i class="rv-lu-on" aria-hidden="true"></i>' : ''}${esc(clockOf(r))}</span>`
-    + ((r.state === 'pre' ? vs : r.line) ? `<em>${esc(r.state === 'pre' ? vs : r.line)}</em>` : '') + `</span>`;
-}
-// Points; a dash until his game kicks off (or all week, on a bye).
-const luPts = (r, k) => {
-  const off = !r || r.state === 'pre' || r.state === 'bye';
-  return `<span class="rv-lu-pts ${k} n5${off ? ' is-0' : ''}">${r ? (off ? '–' : esc(liveTotal(r.pts))) : ''}</span>`;
-};
-// Both lineups, slot by slot (Yahoo's order), with each player's points, his game's clock and his line.
-function lineupHTML(x, lv) {
-  const A = lv.a.rows, B = lv.b.rows, n = Math.max(A.length, B.length);
-  const slot = i => (A[i] || B[i]).slot === 'W/R/T' ? 'FLEX' : (A[i] || B[i]).slot;
-  const say = (id, r) => r ? `${nm(id)}: ${r.name}, ${r.slot}, ${liveTotal(r.pts)} points, ${clockOf(r)}${r.line ? ', ' + r.line : ''}` : `${nm(id)}: empty`;
-  let rows = '';
-  for (let i = 0; i < n; i++) {
-    rows += `<li class="rv-lu-row" aria-label="${esc(say(x.a, A[i]) + '. ' + say(x.b, B[i]))}"><span class="rv-lu-in" aria-hidden="true">`
-      + luPlayer(A[i], 'a') + luPts(A[i], 'a') + `<span class="rv-lu-slot">${esc(slot(i))}</span>` + luPts(B[i], 'b') + luPlayer(B[i], 'b') + `</span></li>`;
-  }
-  const left = t => t.left ? `${t.left} left` : 'Done';
-  return `<ul class="rv-lu" role="list">${rows}</ul>`
-    + `<div class="rv-lu-tot" aria-label="${esc(`Total: ${nm(x.a)} ${liveTotal(lv.a.pts)}, ${left(lv.a)}; ${nm(x.b)} ${liveTotal(lv.b.pts)}, ${left(lv.b)}`)}"><span aria-hidden="true">${esc(left(lv.a))}</span>`
-    + `<b class="n4" aria-hidden="true">${ui.score(lv.a.pts)}</b><span class="ovl" aria-hidden="true">Total</span><b class="n4" aria-hidden="true">${ui.score(lv.b.pts)}</b><span aria-hidden="true">${esc(left(lv.b))}</span></div>`;
-}
-// The open game sheet follows the feed: its score, its foot and its lineups.
-function patchSheet() {
-  const S = st && st.live && st.live.sheet;
-  if (!S || !S.sh.open) return;
-  const hero = S.sh.body.querySelector('.rv-pre-hero'), lu = S.sh.body.querySelector('.rv-lu-w');
-  const h = preHeroHTML(S.cur, S.x), l = liveBlock(S.cur, S.x);
-  if (hero && hero._html !== h) { hero.innerHTML = h; hero._html = h; }
-  if (lu && lu._html !== l) { lu.innerHTML = l; lu._html = l; }
-}
-function liveBlock(cur, x) {
-  const lv = liveOf(cur, x);
-  if (!lv) return '';
-  const head = lv.over ? 'Lineups · final' : lv.started ? 'Lineups · live' : 'Starting lineups';
-  return `<h3 class="mu-h">${esc(head)}</h3><div class="mu-box">${lineupHTML(x, lv)}</div>`
-    + (lv.started ? `<p class="rv-lu-note">Live from ESPN's box scores in the league's scoring. Yahoo's final is the official score.</p>` : '');
-}
-
 // The matchup sheet for an unplayed game (views/matchup.js draws played ones): the same look (.sh-matchup), with the
 // standings place where the score will be, the records entering the game and the all-time series.
 function seriesHTML(a, b) {
@@ -871,55 +767,35 @@ function seriesHTML(a, b) {
     + `<div aria-hidden="true">${ui.splitBar(a, b, share)}</div>`
     + `<p class="mu-cap" aria-hidden="true"><b>${esc(cap)}</b> · ${esc(extra.join(' · '))}</p></div>`;
 }
-// The sheet's score line: the standings place where the score will be, the live score once its players kick off.
-function preHeroHTML(cur, x) {
-  const s = data.seasonByYear(cur.year);
-  const {a, b} = x;
-  const lv = liveOf(cur, x), on = !!(lv && lv.started);
-  const place = id => { const r = tableRow(s, id); return r ? ui.ordinal(r.seed) : ''; };
-  const side = (id, k) => {
-    const t = s ? data.teamIn(s, id) : data.team(id);
-    const me = on && lv[k], o = on && lv[k === 'a' ? 'b' : 'a'];
-    return `<span class="bug-side ${on ? (me.pts > o.pts ? 'is-win' : me.pts < o.pts ? 'is-lose' : 'is-tie') : 'is-tie'}">${ui.avatar(id, {size: 40, you: id === data.me()})}`
-      + `<span class="bug-name"><b>${esc(nm(id))}</b>${t ? `<span class="bug-team">${esc(t)}</span>` : ''}</span>`
-      + (on ? `<span class="bug-score n3 rv-pre-live">${ui.score(me.pts)}</span>` : `<span class="bug-score n4 rv-pre-place">${esc(place(id))}</span>`) + `</span>`;
-  };
-  const left = on ? lv.a.left + lv.b.left : 0;
-  const foot = on ? (lv.over ? 'Final · unofficial until Yahoo’s sync' : `${lv.on ? 'Live' : 'Under way'} · ${left} player${left === 1 ? '' : 's'} left`)
-    : lockedNow(cur) ? 'Under way · Final scores after the week' : `Kickoff ${closeText(cur)}`;
-  const dot = on && !lv.over && lv.on ? '<i class="rv-live-dot" aria-hidden="true"></i>' : '';
-  return `<div class="bug bug-row bug-hero mu-bug rv-pre-bug${on ? ' is-live' : ''}">${side(a, 'a')}${side(b, 'b')}<span class="bug-foot"><span class="ovl">${dot}${esc(foot.toUpperCase())}</span></span></div>`;
-}
 function openPreview(cur, x) {
   const s = data.seasonByYear(cur.year);
   const {a, b} = x;
   const g = {a, b, week: cur.week, year: cur.year, type: 'reg', reg: true};
-  const lv = liveOf(cur, x);
-  const heroH = preHeroHTML(cur, x), luH = liveBlock(cur, x);
-  const hero = `<div class="rv-pre-hero">${heroH}</div>`;
-  const lineups = `<div class="rv-lu-w">${luH}</div>`;
+  const locked = lockedNow(cur);
+  const place = id => { const r = tableRow(s, id); return r ? ui.ordinal(r.seed) : ''; };
+  const side = id => {
+    const t = s ? data.teamIn(s, id) : data.team(id);
+    return `<span class="bug-side is-tie">${ui.avatar(id, {size: 40, you: id === data.me()})}`
+      + `<span class="bug-name"><b>${esc(nm(id))}</b>${t ? `<span class="bug-team">${esc(t)}</span>` : ''}</span>`
+      + `<span class="bug-score n4 rv-pre-place">${esc(place(id))}</span></span>`;
+  };
+  const foot = locked ? 'Under way · Final scores after the week' : `Kickoff ${closeText(cur)}`;
+  const hero = `<div class="bug bug-row bug-hero mu-bug rv-pre-bug">${side(a)}${side(b)}<span class="bug-foot"><span class="ovl">${esc(foot.toUpperCase())}</span></span></div>`;
   const ra = enteringRecord(s, g, a), rb = enteringRecord(s, g, b);
   const better = ra.p == null || rb.p == null || ra.p === rb.p ? null : ra.p > rb.p ? 'a' : 'b';
   const tape = ui.tape({label: g.week === 1 ? 'Season opener' : `Before week ${g.week}`, a: ra.rec, b: rb.rec, aSub: nm(a), bSub: nm(b), better, aId: a, bId: b});
   const ovl = `Week ${cur.week} · ${cur.year}`;
   const body = `<div class="mu">`
     + `<div class="mu-hero">${hero}</div>`
-    + (lv && lv.started ? lineups + projBlock(cur, x, a, b) : projBlock(cur, x, a, b) + lineups)
+    + projBlock(cur, x, a, b)
     + `<h3 class="mu-h">Records entering the game</h3><div class="mu-box">${tape}</div>`
     + `<h3 class="mu-h">All-time series</h3><div class="mu-box mu-pad">${seriesHTML(a, b)}</div>`
     + `<div class="mu-actions">${ui.button({label: 'Full rivalry', kind: 'secondary', icon: 'versus', attrs: {'data-mu': 'rivalry'}})}`
     + `<div class="mu-profiles">${ui.button({label: `${nm(a)}'s profile`, kind: 'plain', attrs: {'data-mu': 'a'}})}${ui.button({label: `${nm(b)}'s profile`, kind: 'plain', attrs: {'data-mu': 'b'}})}</div></div>`
     + `</div>`;
   const ctx = st.ctx;
-  let S = null;
-  const sh = ui.openSheet({header: `<span class="ovl mu-ovl">${esc(ovl)}</span>`, label: `${ovl}: ${nm(a)} vs ${nm(b)}, ${lv && lv.started ? (lv.over ? 'final' : 'under way') : 'not played yet'}`,
-    body, cls: 'sh-matchup sh-rv-pre', detents: ['medium', 'large'],
-    onClose: () => { if (st && st.live && st.live.sheet === S) st.live.sheet = null; }});
-  S = {sh, cur, x};
-  if (st) { st.live = st.live || {key: '', feed: null, stop: null}; st.live.sheet = S; }
-  const hw = sh.body.querySelector('.rv-pre-hero'), lw = sh.body.querySelector('.rv-lu-w');
-  if (hw) hw._html = heroH;
-  if (lw) lw._html = luH;
+  const sh = ui.openSheet({header: `<span class="ovl mu-ovl">${esc(ovl)}</span>`, label: `${ovl}: ${nm(a)} vs ${nm(b)}, not played yet`,
+    body, cls: 'sh-matchup sh-rv-pre', detents: ['medium', 'large']});
   sh.body.addEventListener('click', e => {
     const t = e.target.closest && e.target.closest('[data-mu]');
     if (!t || !sh.open) return;
@@ -1841,10 +1717,11 @@ function chooseOpp(id) {
 
 function onClick(e) {
   const t = e.target.closest && e.target.closest('[data-swap], [data-pick], [data-opp], [data-motw], [data-motw-more], [data-motw-share], '
-    + '[data-vote], [data-vt-who], [data-past-more], [data-wg]');
+    + '[data-vote], [data-vt-who], [data-past-more], [data-wg], [data-rv-live]');
   if (!t || !st) return;
   if (t.hasAttribute('data-vote')) vote(t.dataset.vote);
   else if (t.hasAttribute('data-wg')) openGame(t.dataset.wg);
+  else if (t.hasAttribute('data-rv-live')) { ui.lsSet('gg-live-mode', 'lg'); st.ctx.nav('/live'); } // Scores, on its League screen (views/live.js)
   else if (t.hasAttribute('data-vt-who')) openWeekSheet('votes', t.dataset.vtWho);
   else if (t.hasAttribute('data-past-more')) { ui.haptic('light'); togglePast(); }
   else if (t.hasAttribute('data-motw')) chooseMotw(t.dataset.motw);
@@ -1886,7 +1763,6 @@ export default {
     ui.onIdle(() => { if (st && st.wk === wk) wkStart(); });
     ui.onIdle(() => { if (st && st.wk === wk) pressStart(); });
     ui.onIdle(() => { if (st && st.wk === wk) wrapStart(); });
-    ui.onIdle(() => { if (st && st.wk === wk) liveStart(); });
     el.addEventListener('click', onPressClick);
     ctx.timer(wkTick, 20000);
     const onLens = e => {
@@ -1940,7 +1816,6 @@ export default {
     syncChrome();
     if (st.goSec) revealSec();
     if (st.wk && !st.wk.started) wkStart();
-    liveStart();
     if (st.shown) return;
     st.shown = true;
     if (!st.entrance || !st.m || !st.m.n) return;
@@ -2006,7 +1881,7 @@ export default {
     }
     // New games or a new schedule re-rank the week (and may move it on, with its games and a new Wrap); a new "me"
     // moves the you-rings and your avatar button.
-    if (ctx.reason === 'data') { wkData(); if (ctx.visible) liveStart(); }
+    if (ctx.reason === 'data') wkData();
     if (ctx.reason === 'data' || ctx.reason === 'me') { patchMotw(false); patchGames(); patchPress(); }
     if (ctx.reason === 'data') patchWrap(ctx.visible);
     if (ctx.reason === 'me') patchPast(false);
@@ -2014,8 +1889,8 @@ export default {
   },
 
   onHide(ctx) {
-    // A playing presser stops while Matchup is out of sight, and so do the live scores.
-    if (st && st.ctx === ctx) { pressPause(); liveStop(); }
+    // A playing presser stops while Matchup is out of sight.
+    if (st && st.ctx === ctx) pressPause();
   },
 
   onAction(id, ctx) {
@@ -2033,7 +1908,6 @@ export default {
     el.removeEventListener('click', onPressClick);
     pressEnd();
     wkUnsub();
-    liveStop();
     if (st.wk) { clearTimeout(st.wk.vT); st.wk.sheet = null; } // an open sheet goes with the navigation that unmounts us
     st.cleanups.splice(0).forEach(f => { try { f(); } catch (_) {} });
     if (st.p2) st.p2();

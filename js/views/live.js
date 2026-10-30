@@ -7,11 +7,17 @@
 // has, over this week and the one before.
 // Each player's owner in the league (Yahoo's rosters, or the draft, then the trades, pickups and drops since); "My players" and "You" follow the profile picked.
 // Data: core/gameday.js (ESPN's scoreboard and box scores, every 30 s while a game is on). Styles: css/views/live.css.
+// Under the title, Pick'em's switch (its scoreboard buttons, css/views/pickem.css) toggles NFL and League (Oct 30 2026,
+// the owner: "The live league matchups should go in the scores tab and can be toggled between with the nfl matchups in
+// the same fashion as the pick em screen"): League is this week's league matchups scored live (views/live-league.js).
+// The one shown is remembered on this phone ('gg-live-mode'; Matchup's "Live scores" sets it to League); only its feed
+// runs.
 // Owner: LIVE.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as gd from '../core/gameday.js';
 import {youButtonHTML} from './you.js';
+import * as LL from './live-league.js';
 
 const esc = data.esc;
 const OCTO = 8, LIST_MAX = 60;
@@ -274,15 +280,56 @@ function chipsHTML() {
     + `</div>`;
 }
 
+// ---------------------------------------------------------------------------------------------- NFL · League
+// The switch, Pick'em's scoreboard buttons (views/pickem.js leagueTabsHTML; img/nfl.webp, img/league.webp).
+const MODE_KEY = 'gg-live-mode';
+const MODES = [{id: 'nfl', sub: '', label: 'NFL scores', src: 'img/nfl.webp'}, {id: 'lg', sub: 'League', label: 'League scores', src: 'img/league.webp'}];
+const modeNow = () => (ui.lsGet(MODE_KEY) === 'lg' ? 'lg' : 'nfl');
+const SUBS = {nfl: 'Every game as it plays, the red zone first', lg: 'The league\u2019s matchups as they play'};
+function switchHTML(on) {
+  return `<div class="pk-lg lg-sw" role="tablist" aria-label="Scores">${MODES.map(m => `<button type="button" role="tab" class="pk-lg-t" data-lg-mode="${m.id}"`
+    + ` aria-selected="${m.id === on}"${m.id === on ? '' : ' tabindex="-1"'} aria-label="${m.label}">`
+    + `<span class="pk-lg-ic" aria-hidden="true"><img class="pk-badge" src="${m.src}" alt="" width="44" height="44" decoding="async" draggable="false"></span>`
+    + (m.sub ? `<span class="pk-lg-tx" aria-hidden="true"><span class="pk-lg-s">${m.sub}</span></span>` : '')
+    + `</button>`).join('')}</div>`;
+}
+function eyebrowOf(st) {
+  if (st.mode === 'lg') return LL.eyebrow();
+  return st.D && st.D.week ? `NFL · Week ${st.D.week} · Live` : 'NFL · Live';
+}
+// Shows NFL or League: the other's feed stops, the title's eyebrow and subtitle follow, the chosen button bounces.
+function setMode(ctx, st, mode, animate) {
+  if (mode === st.mode) return;
+  st.mode = mode;
+  ui.lsSet(MODE_KEY, mode);
+  const el = st.el, nflB = el.querySelector('[data-lg-nfl]'), lgB = el.querySelector('[data-ll]');
+  el.querySelectorAll('[data-lg-mode]').forEach(b => {
+    const on = b.dataset.lgMode === mode;
+    b.setAttribute('aria-selected', String(on));
+    if (on) b.removeAttribute('tabindex'); else b.setAttribute('tabindex', '-1');
+  });
+  const eb = el.querySelector('.lt-eyebrow'), sub = el.querySelector('.lt-sub');
+  if (eb) eb.textContent = eyebrowOf(st);
+  if (sub) sub.textContent = SUBS[mode];
+  const put = () => { nflB.hidden = mode !== 'nfl'; lgB.hidden = mode !== 'lg'; };
+  if (animate && ctx.visible && !ui.RM) ui.crossfade(el.querySelector('.lg-panes'), put, {duration: 160}); else put();
+  if (mode === 'lg') { stopFeed(st); if (ctx.visible) st.lg.show(); }
+  else { st.lg.hide(); if (ctx.visible) { start(ctx, st); draw(ctx); } }
+  ctx.refreshChrome();
+  const to = el.querySelector(`[data-lg-mode="${mode}"]`);
+  if (animate && to && ctx.visible && !ui.RM) ui.animate(to, [{transform: 'scale(.94)'}, {transform: 'none'}], {spring: 'bouncy'});
+  if (animate) { ui.haptic('selection'); ui.announce(mode === 'lg' ? 'League scores.' : 'NFL scores.'); }
+}
+
 // ---------------------------------------------------------------------------------------------- View
 const ST = new WeakMap();
 function draw(ctx, parts = 'all') {
   const st = ST.get(ctx);
   if (!st) return;
-  if (!ctx.visible) { st.stale = true; return; }
+  if (!ctx.visible || st.mode !== 'nfl') { st.stale = true; return; }
   st.stale = false;
   const eb = st.el.querySelector('.lt-eyebrow');
-  if (eb && st.D && st.D.week) eb.textContent = `NFL · Week ${st.D.week} · Live`;
+  if (eb) eb.textContent = eyebrowOf(st);
   const all = playersOf(st.D);
   if (parts === 'all' || parts === 'games') st.games.innerHTML = gamesHTML(st);
   st.list.innerHTML = listHTML(st, all);
@@ -339,23 +386,29 @@ export default {
   title: 'Scores',
 
   render() {
-    return ui.largeTitle({eyebrow: 'NFL · Live', title: 'Scores', subtitle: 'Every game as it plays, the red zone first', trailing: youButtonHTML()})
-      + `<div class="lg-body"><section class="lg-games" data-lg-games>${gamesHTML({D: null})}</section>`
+    const mode = modeNow();
+    return ui.largeTitle({eyebrow: mode === 'lg' ? LL.eyebrow() : 'NFL · Live', title: 'Scores', subtitle: SUBS[mode], trailing: youButtonHTML()})
+      + switchHTML(mode) + `<div class="lg-panes">`
+      + `<div class="lg-body" data-lg-nfl${mode === 'nfl' ? '' : ' hidden'}><section class="lg-games" data-lg-games>${gamesHTML({D: null})}</section>`
       + `<section class="lg-stats"><div class="sh lg-sh"><h2>Top performers</h2><span class="lg-at">PPR</span></div>`
       + chipsHTML()
       + `<div class="lg-search" hidden>${ui.searchField({name: 'lg-q', placeholder: 'Player or manager', label: 'Search players'})}</div>`
       + `<div data-lg-list></div>`
       + `</section><section class="lg-waiver" data-lg-waiver></section>`
       + `<p class="lg-foot">PPR: 1 a catch, 0.1 a rushing or receiving yard, 0.04 a passing yard, 6 a TD (4 passing), −1 an interception, −2 a fumble lost. From ESPN's box scores, every 30 seconds while games are on.</p>`
-      + `<p class="lg-foot">${ownersNote()}</p></div>`;
+      + `<p class="lg-foot">${ownersNote()}</p></div>`
+      + LL.html(mode === 'lg') + `</div>`;
   },
 
   mount(el, ctx) {
     const st = {ctx, el, games: el.querySelector('[data-lg-games]'), list: el.querySelector('[data-lg-list]'), waiver: el.querySelector('[data-lg-waiver]'),
-      D: null, past: new Map(), asked: new Set(), wpos: 'all', pos: 'all', q: '', mine: false, game: null, more: false, prev: new Map(), flash: new Map(), flashT: 0, stop: null};
+      D: null, past: new Map(), asked: new Set(), wpos: 'all', pos: 'all', q: '', mine: false, game: null, more: false, prev: new Map(), flash: new Map(), flashT: 0, stop: null,
+      mode: el.querySelector('[data-ll]').hidden ? 'nfl' : 'lg', lg: LL.create(ctx, el.querySelector('[data-ll]'))};
     ST.set(ctx, st);
     el.addEventListener('click', e => {
       const t = e.target;
+      const sw = t.closest('[data-lg-mode]');
+      if (sw) { setMode(ctx, st, sw.dataset.lgMode, true); return; }
       const g = t.closest('[data-lg-game]');
       if (g) {
         st.game = st.game === g.dataset.lgGame ? null : g.dataset.lgGame;
@@ -392,25 +445,28 @@ export default {
       st.q = e.target.value; st.more = false;
       draw(ctx, 'stats');
     });
-    draw(ctx);
-    start(ctx, st);
+    if (st.mode === 'nfl') { draw(ctx); start(ctx, st); }
+    else if (ctx.visible) st.lg.show();
   },
 
   onShow(ctx) {
     const st = ST.get(ctx);
     if (!st) return;
+    // Matchup's "Live scores" may have asked for League meanwhile.
+    if (modeNow() !== st.mode) setMode(ctx, st, modeNow(), false);
+    if (st.mode === 'lg') { st.lg.show(); return; }
     start(ctx, st);
     if (st.stale) draw(ctx);
   },
 
-  onHide(ctx) { stopFeed(ST.get(ctx)); },
+  onHide(ctx) { const st = ST.get(ctx); if (st) { stopFeed(st); st.lg.hide(); } },
 
-  // 'me': whose players are "You" and "My players"; 'data': the league file (owners).
-  update(ctx) { if (ST.get(ctx)) draw(ctx); },
+  // 'me': whose players are "You" and "My players"; 'data': the league file (owners, the league's week and lineups).
+  update(ctx) { const st = ST.get(ctx); if (st) { draw(ctx); st.lg.draw(); } },
 
   unmount(el, ctx) {
     const st = ST.get(ctx);
-    if (st) { stopFeed(st); clearTimeout(st.flashT); }
+    if (st) { stopFeed(st); clearTimeout(st.flashT); st.lg.stop(); }
     ST.delete(ctx);
   }
 };

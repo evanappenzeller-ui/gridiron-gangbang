@@ -1,9 +1,12 @@
-// Live league scores on the Matchup tab (core/fantasy-live.js, views/rivals.js) in a real browser.
+// Live league scores on the Scores tab's League screen (core/fantasy-live.js, views/live-league.js, views/live.js) in a
+// real browser.
 // Local only: the app is served from this folder with Firebase disabled, and ESPN's scoreboard and box scores are
 // stand-ins built from the league file's own lineups (every starter gets a line), so nothing reaches the network.
-// For Evan, another member and a visitor: This week's games show each side's live score and players left; Evan's game
-// opens the sheet with the live score, both lineups (nine slots) whose points add up to the score, and the next feed
-// update moves it; then the kit checks "Live league scores" and "Live Games".
+// For Evan, another member and a visitor: Scores opens on NFL with the NFL · League switch; League shows this week's
+// games with each side's live score and players left; Evan's game opens the sheet with the live score, both lineups
+// (nine slots) whose points add up to the score, and the next feed update moves it; League is remembered after a
+// reload, NFL comes back with the octobox; Matchup's "Live scores" opens League; then the kit checks "Live league
+// scores" and "Live Games".
 // Usage: node tools/matchup/check-live-browser.cjs [--shots=<dir>]   (Playwright's Chromium; screenshots when --shots)
 const fs = require('node:fs');
 const path = require('node:path');
@@ -116,51 +119,80 @@ async function run(url) {
       const errors = [];
       page.on('pageerror', e => errors.push('pageerror: ' + e));
       page.on('console', m => { if (m.type() === 'error' && !/net::ERR|Failed to load resource|firebase|navigator\.vibrate/i.test(m.text())) errors.push(m.text()); });
-      await page.goto(url + '/#/matchup');
+      await page.goto(url + '/#/live');
       await page.waitForFunction(() => window.__ggBooted, null, {timeout: 30000});
-      await page.waitForSelector('.rv-gm.is-live', {timeout: 20000});
-      const items = await page.locator('.rv-gm').count();
-      const liveN = await page.locator('.rv-gm.is-live').count();
-      assert.equal(liveN, items, p.tag + ': every game this week shows a live score');
-      assert.equal(await page.locator('.rv-wk-ovl .rv-live').count(), 1, p.tag + ': the week reads Live');
-      const label = await page.locator('.rv-gm.is-live').first().getAttribute('aria-label');
-      assert.match(label, /\d+\.\d\d, .+ \d+\.\d\d, live\. Show the matchup/, p.tag + ': a live game reads its score');
+      // Scores opens on NFL, the switch's two buttons under the title.
+      await page.waitForSelector('.v-live .lg-sw [data-lg-mode="lg"]', {timeout: 20000});
+      assert.equal(await page.locator('.v-live .lg-sw .pk-lg-t').count(), 2, p.tag + ': NFL and League');
+      assert.equal(await page.locator('.v-live [data-lg-mode="nfl"]').getAttribute('aria-selected'), 'true', p.tag + ': NFL first');
+      await page.waitForSelector('.v-live .lg-tile', {timeout: 20000});
       await page.waitForTimeout(2500); // (the splash goes)
-      await page.locator('#rv-games').scrollIntoViewIfNeeded();
+      await snap(page, p.tag + '-nfl');
+      await page.locator('.v-live [data-lg-mode="lg"]').click();
+      await page.waitForSelector('.v-live .ll-gm.is-live', {timeout: 20000});
+      await page.waitForTimeout(600); // (the cross-fade's snapshot goes)
+      assert.equal(await page.locator('.v-live [data-lg-nfl]').isHidden(), true, p.tag + ': NFL hides');
+      assert.match(await page.locator('.v-live .lt-eyebrow').textContent(), /^League · Week \d+ · Live$/);
+      const items = await page.locator('.v-live .ll-gm').count();
+      const liveN = await page.locator('.v-live .ll-gm.is-live').count();
+      assert.equal(liveN, items, p.tag + ': every game this week shows a live score');
+      assert.ok(items >= 4, p.tag + ': the week\u2019s games');
+      assert.match(await page.locator('.v-live .ll-games .lg-at').textContent(), /Updated/, p.tag + ': the week reads live');
+      const label = await page.locator('.v-live .ll-gm.is-live').first().getAttribute('aria-label');
+      assert.match(label, /\d+\.\d\d, .+ \d+\.\d\d, live\. Show the lineups/, p.tag + ': a live game reads its score');
+      await page.waitForTimeout(400);
       await snap(page, p.tag + '-games');
       // Evan's game (Jayton's for the visitor too): the sheet.
-      const key = await page.evaluate(() => [...document.querySelectorAll('.rv-gm')].map(b => b.dataset.wg).find(k => k.split('|').includes('evan')));
-      await page.locator(`.rv-gm[data-wg="${key}"]`).click();
-      await page.waitForSelector('.sh-rv-pre .rv-lu-row', {timeout: 10000});
+      const key = await page.evaluate(() => [...document.querySelectorAll('.v-live .ll-gm')].map(b => b.dataset.llG).find(k => k.split('|').includes('evan')));
+      await page.locator(`.v-live .ll-gm[data-ll-g="${key}"]`).click();
+      await page.waitForSelector('.sh-ll .ll-lu-row', {timeout: 10000});
       await page.waitForTimeout(600);
       const sheet = await page.evaluate(() => {
-        const b = document.querySelector('.sh-rv-pre');
+        const b = document.querySelector('.sh-ll');
         const num = el => parseFloat(el.textContent.replace(/[^\d.−-]/g, '').replace('−', '-'));
-        const rows = [...b.querySelectorAll('.rv-lu-row')];
-        const sum = k => Math.round(rows.reduce((a, r) => a + (num(r.querySelector('.rv-lu-pts.' + k)) || 0), 0) * 100) / 100;
-        return {rows: rows.length, slots: rows.map(r => r.querySelector('.rv-lu-slot').textContent), hero: [...b.querySelectorAll('.rv-pre-live')].map(num),
-          sumA: sum('a'), sumB: sum('b'), foot: b.querySelector('.rv-pre-bug .bug-foot').textContent, head: b.querySelector('.rv-lu-w .mu-h').textContent};
+        const rows = [...b.querySelectorAll('.ll-lu-row')];
+        const sum = k => Math.round(rows.reduce((a, r) => a + (num(r.querySelector('.ll-lu-pts.' + k)) || 0), 0) * 100) / 100;
+        return {rows: rows.length, slots: rows.map(r => r.querySelector('.ll-lu-slot').textContent), hero: [...b.querySelectorAll('.ll-live')].map(num),
+          sumA: sum('a'), sumB: sum('b'), foot: b.querySelector('.ll-bug .bug-foot').textContent, head: b.querySelector('.ll-lu-w .mu-h').textContent};
       });
       assert.equal(sheet.rows, 9, p.tag + ': nine lineup slots');
-      assert.deepEqual(sheet.slots.slice(0, 1).concat(sheet.slots.slice(-2)), ['QB', 'K', 'DEF'], p.tag + ': Yahoo’s slot order');
+      assert.deepEqual(sheet.slots.slice(0, 1).concat(sheet.slots.slice(-2)), ['QB', 'K', 'DEF'], p.tag + ': Yahoo\u2019s slot order');
       assert.equal(sheet.hero.length, 2, p.tag + ': the live score in the hero');
       assert.ok(Math.abs(sheet.hero[0] - sheet.sumA) < .011 && Math.abs(sheet.hero[1] - sheet.sumB) < .011, `${p.tag}: the lineups add up to the score (${sheet.hero} vs ${sheet.sumA}, ${sheet.sumB})`);
       assert.match(sheet.foot, /LIVE · \d+ PLAYERS? LEFT/, p.tag + ': the foot says live');
       assert.equal(sheet.head, 'Lineups · live');
       await snap(page, p.tag + '-sheet');
-      await page.locator('.sh-rv-pre .rv-lu-note').scrollIntoViewIfNeeded();
+      await page.locator('.sh-ll .ll-note').scrollIntoViewIfNeeded();
       await snap(page, p.tag + '-sheet-lineups');
       // The next update (every 30 s while a game is on): the score moves on the open sheet. (Once, on Evan's phone.)
       if (p.tag === 'evan') {
       tick = 1;
       await page.waitForFunction(was => {
-        const n = [...document.querySelectorAll('.sh-rv-pre .rv-pre-live')].map(el => parseFloat(el.textContent.replace(/[^\d.]/g, '')));
+        const n = [...document.querySelectorAll('.sh-ll .ll-live')].map(el => parseFloat(el.textContent.replace(/[^\d.]/g, '')));
         return n.length === 2 && (n[0] !== was[0] || n[1] !== was[1]);
       }, sheet.hero, {timeout: 45000});
       await snap(page, p.tag + '-sheet-moved');
       }
-      console.log(`${p.tag}: ${liveN} live games; Evan’s game ${sheet.hero.join(' – ')}${p.tag === 'evan' ? ', then moved with the feed' : ''}`);
       await page.keyboard.press('Escape');
+      await page.waitForTimeout(500);
+      // League is remembered: a reload opens on it; then NFL comes back with its games.
+      await page.reload();
+      await page.waitForFunction(() => window.__ggBooted, null, {timeout: 30000});
+      await page.waitForSelector('.v-live .ll-gm.is-live', {timeout: 20000});
+      assert.equal(await page.locator('.v-live [data-lg-mode="lg"]').getAttribute('aria-selected'), 'true', p.tag + ': League remembered');
+      await page.locator('.v-live [data-lg-mode="nfl"]').click();
+      await page.waitForSelector('.v-live [data-lg-nfl]:not([hidden]) .lg-tile', {timeout: 20000});
+      await page.waitForTimeout(600); // (the cross-fade's snapshot goes)
+      assert.equal(await page.locator('.v-live [data-ll]').isHidden(), true, p.tag + ': League hides');
+      // Matchup's "Live scores" (the week is under way) opens Scores on League.
+      await page.goto(url + '/#/matchup');
+      await page.waitForSelector('.v-rivals [data-rv-live]', {timeout: 20000});
+      assert.equal(await page.locator('.v-rivals .rv-gm.is-live').count(), 0, p.tag + ': Matchup no longer scores live');
+      await page.waitForTimeout(800);
+      await page.locator('.v-rivals [data-rv-live]').click();
+      await page.waitForSelector('.v-live [data-ll]:not([hidden]) .ll-gm.is-live', {timeout: 20000});
+      assert.equal(await page.locator('.v-live [data-lg-mode="lg"]').getAttribute('aria-selected'), 'true', p.tag + ': Matchup\u2019s link lands on League');
+      console.log(`${p.tag}: ${liveN} live games; Evan’s game ${sheet.hero.join(' – ')}${p.tag === 'evan' ? ', then moved with the feed' : ''}`);
       if (p.tag === 'evan') {
         const out = await page.evaluate(async () => {
           const {runChecks} = await import('/js/core/checks.js');
@@ -175,7 +207,7 @@ async function run(url) {
       await context.close();
     }
   } finally { await browser.close(); }
-  console.log('PASS: live league scores on the Matchup tab');
+  console.log('PASS: live league scores on the Scores tab');
 }
 
 server().then(async s => {
