@@ -131,6 +131,17 @@ out through realm-world.js roomOf(): every piece has a footprint (FOOT, from the
 where it has room; only natural meetings are allowed (tree crowns, undergrowth under trees and against walls, fence
 rails, the ruined keep's walls). A new scenery model needs its FOOT entry; check-world.cjs asserts no faults.
 
+## Rivals refresh (October 30, 2026)
+
+The owner approved the card-game redesign after asking for easier navigation, better cards and more enjoyable play.
+The visible name is Gridiron Rivals; keep the existing `dynasty` routes, collection IDs, save keys and access boundary.
+Four labeled tabs (Play, Cards, Decks, Packs) replace the five icon-only tabs; Menu is in the header. Keep the title
+screen and pack-opening flow. Collectible cards use clear portraits and names; original scans stay in card details.
+Matches show readable game pieces and inline attacks. New matches explicitly use rules v3: signature attacks spend
+one matching energy and Juke reduces signature damage by 30. Preserve v1/v2 saved matches and unversioned defaults.
+Air Raid and Ground Control presets only use owned cards; no collection reset or free-card grant.
+Verify the existing Dynasty checks plus `check-rivals-rules.cjs`, `check-rivals-decks.cjs` and `check-rivals-battle.cjs`.
+
 ## Deploying
 
 - Standing owner instruction (October 21, 2026): after completing and verifying requested changes,

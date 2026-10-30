@@ -187,10 +187,14 @@ export async function dynastyChecks(check) {
     const all = (src.match(/daily\.LB\.all/g) || []).length === 1 && (msrc.match(/daily\.LB\.all/g) || []).length === 1;
     return {pass: raw && all, detail: 'others() and the matches from LB.raw; LB.all only for your own saves'};
   });
-  check('Gridiron Dynasty: Pocket’s title screen on entering (the owner, Oct 29 2026: "Create a start screen when entering the dynasty"): the logo (Gridiron Rivals, Trading Card Game, after his case, Oct 29 2026), the cards drifting, Tap to Start, the version and a support id, the menu and the red X; five tabs at the foot with the Menu; the Battle tab’s banner, Versus, Solo, Guide, Decks, Rankings and Missions', async () => {
+  check('Gridiron Rivals: the title screen retains its logo, drifting cards, Tap to Start and support id; four labeled tabs open Play first, with Menu in the header and direct match, deck, solo and friend routes', async () => {
     const V = await import('../views/dynasty.js');
     const shell = V.shellHTML(), start = V.startHTML();
-    const tabs = (shell.match(/class="pk-tab/g) || []).length, menu = /class="pk-tab" data-dy-menu/.test(shell) && /data-dy-hud/.test(shell);
+    const root = document.createElement('div'); root.innerHTML = shell;
+    const tabs = root.querySelectorAll('.pk-tab').length;
+    const menu = !!root.querySelector('.pk-hdr [data-dy-menu]') && !!root.querySelector('[data-dy-hud]');
+    const nav = [...root.querySelectorAll('.pk-tab .rh-tab-label')].map(n => n.textContent).join('|') === 'Play|Cards|Decks|Packs'
+      && root.querySelector('.pk-tab.is-on')?.dataset.dyTab === 'battle';
     const logo = /pk-logo-top">Gridiron<\/span>/.test(start) && /Trading Card Game/.test(start) && /pk-logo-sub">Rivals<\/span>/.test(start);
     const bits = /data-dy-start/.test(start) && /role="button"/.test(start) && /Support ID: [A-Z0-9]{8}</.test(start) && /Ver\. 3\.0\.\d+</.test(start) && /data-dy-menu/.test(start) && /data-dy-exit/.test(start);
     const say = D.status === 'ready' ? /Tap to Start/.test(start) : /Loading/.test(start);
@@ -198,8 +202,8 @@ export async function dynastyChecks(check) {
     // (the support id: the same for a profile every time, another's another, never the profile's key)
     const ids = [V.supportId('m_evan'), V.supportId('m_evan'), V.supportId('u_ryan-stewart')];
     const battle = V.battleHome({pack: 'std'}, D.fresh('m_check'));
-    const modes = ['pk-banner-tab">Battle<', 'data-dy-bv="versus"', 'data-dy-bv="solo"', 'data-dy-guide', 'data-dy-tab="decks"', 'data-dy-bv="rank"', 'Missions'].every(x => battle.includes(x));
-    return {pass: tabs === 5 && menu && logo && bits && say && cards.length === 14 && teams >= 10 && drawn === (D.status === 'ready' ? 14 : 0) && ids[0] === ids[1] && ids[0] !== ids[2] && !/EVAN/.test(ids[0]) && modes,
+    const modes = ['class="rh-hero"', 'class="rh-play"', 'class="rh-active-deck" data-dy-tab="decks"', 'data-dy-bv="versus"', 'data-dy-bv="solo"', 'data-dy-guide', 'data-dy-bv="rank"', 'Collections'].every(x => battle.includes(x));
+    return {pass: tabs === 4 && nav && menu && logo && bits && say && cards.length === 14 && teams >= 10 && drawn === (D.status === 'ready' ? 14 : 0) && ids[0] === ids[1] && ids[0] !== ids[2] && !/EVAN/.test(ids[0]) && modes,
       detail: `${tabs} tabs; ${cards.length} cards from ${teams} teams drift on the title screen; support id ${ids[0]}`};
   });
   check('Gridiron Dynasty: each rarity’s reveal on the deal grows with it (the owner, Oct 29 2026: "The more rare the player, the more exciting the animation"): ◆ dealt face up, ◆◆ flips, ◆◆◆ a ring, sparks and its stamp, ◆◆◆◆ rays, a flash and confetti, ★ and ★★ the drum and the sweep, ♛ the crown and the most of everything', async () => {
@@ -254,15 +258,20 @@ export async function dynastyChecks(check) {
     const n = P.designsOf('gday').length, wrap = /data-art="([^"]+)"/.exec(P.packHTML('gday', {design: n + 1}))[1] === P.designsOf('gday')[1].id;
     return {pass: ok && rises && own && wrap, detail: `${why}average elements by tier ${[1, 2, 3, 4, 5].map(t => Math.round(mean(t))).join(' < ')}; ids ${own ? 'its own' : 'shared'}; wrap ${wrap}`};
   });
-  check('Gridiron Dynasty: real trading cards (the owner, Oct 29 2026: "add the pictures to gridiron rivals", then "let the entire image be the card with the info and moves on top of it. add a shine to the epics and above"): every card with one is Rare or better and full art, the real card the whole card (the headshot kept to fall back on); a Common card his headshot in its window, framed; the foil from Epic up; a player with several Dynasty cards a different one on each, all of his listed up close with that one marked, every picture there, and a namesake (the Browns’ linebacker Justin Jefferson) Common', async () => {
+  check('Gridiron Rivals: collectible cards share a clear portrait, name, OVR and rarity layout; original trading-card scans remain in detail with the selected edition marked; collection identity, rarity and namesake matching are preserved', async () => {
     const [V, R] = await Promise.all([import('../views/dynasty.js'), import('./dynasty-real.js')]);
     const keys = Object.keys(R.REAL), cards = D.CARDS.filter(c => R.REAL[c.p]);
     const known = keys.length >= 16 && keys.every(p => D.DATA.players[p] && D.CARDS.some(c => c.p === p) && R.REAL[p].length
       && R.REAL[p].every(r => /^[0-9a-f]{8}$/.test(r[0]) && r[1] >= 1990 && r[2] && r[4]));
     const shows = cards.every(c => {
       const h = V.cardHTML(c);
+      const el = document.createElement('div'); el.innerHTML = h;
+      const portrait = c.head && !/^https?:/.test(c.head);
       return !!c.real && R.REAL[c.p].includes(c.real) && c.r !== 'common' && D.markOf(c).full && /class="pk-card [^"]*is-full r-/.test(h)
-        && h.includes(`class="pk-c-ph is-real" src="${R.realUrl(c.p, c.real)}"`) && (!c.head || h.includes(`data-alt="${V.headUrl(c.head).replace(/&/g, '&amp;')}"`));
+        && el.querySelector('.pk-c-name')?.textContent === c.name && el.querySelector('.pk-c-ovr b')?.textContent === String(c.o)
+        && el.querySelector('.pk-c-rar')?.textContent === c.r && !el.querySelector('.pk-c-ph.is-real')
+        && (portrait ? el.querySelector('.pk-c-ph')?.getAttribute('src') === V.headUrl(c.head) : !!el.querySelector('.pk-c-num'))
+        && V.realHTML(c).includes(R.realUrl(c.p, c.real));
     });
     const commons = D.CARDS.filter(c => c.r === 'common'), framed = commons.length > 0 && commons.every(c => !c.real && !D.markOf(c).full && D.markOf(c).mark === '◆')
       && commons.filter(c => c.head).slice(0, 50).every(c => { const h = V.cardHTML(c); return !/is-real|is-full/.test(h) && h.includes('class="pk-c-ph" src='); });

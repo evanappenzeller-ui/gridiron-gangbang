@@ -130,17 +130,21 @@ export function nextMove(G, who, lv = 'int') {
   if (stad && (!G.stadium || G.stadium.id !== stad) && ok({a: 'stadium', id: stad})) return {a: 'stadium', id: stad};
   // a switch-out before the active player falls (when it can't knock theirs out first)
   if (smart && act && me.bench.length && !me.used.retreat && foe && left(act) <= best(foe.id)) {
-    const kos = atkOf(act.id).some((a, n) => ok({a: 'attack', n}) && a.dmg >= left(foe));
+    const kos = atkOf(act.id).some((a, n) => ok({a: 'attack', n}) && (G.v >= 3 ? B.attackPreview(G, who, n).min : a.dmg) >= left(foe));
     const to = me.bench.slice().sort((x, y) => (y.en.length * 30 + left(y)) - (x.en.length * 30 + left(x)))[0];
     if (!kos && to && left(to) > left(act) && ok({a: 'retreat', to: to.u})) return {a: 'retreat', to: to.u};
   }
   // the strongest attack it can pay (a knockout first)
   if (act) {
-    const opts = atkOf(act.id).map((a, n) => ({n, dmg: a.dmg})).filter(o => ok({a: 'attack', n: o.n}));
+    const opts = atkOf(act.id).map((a, n) => {
+      if (G.v < 3) return {n, dmg: a.dmg};
+      const p = B.attackPreview(G, who, n);
+      return {n, dmg: p.min, score: (p.min + p.max) / 2 - p.energySpent * 15};
+    }).filter(o => ok({a: 'attack', n: o.n}));
     if (opts.length) {
       if (!smart) return {a: 'attack', n: opts[0].n};
       const ko = foe && opts.find(o => o.dmg >= left(foe));
-      return {a: 'attack', n: (ko || opts.sort((x, y) => y.dmg - x.dmg)[0]).n};
+      return {a: 'attack', n: (ko || opts.sort((x, y) => (y.score ?? y.dmg) - (x.score ?? x.dmg))[0]).n};
     }
   }
   return {a: 'end'};
@@ -166,7 +170,8 @@ function write() { try { if (REC) localStorage.setItem(KEY(), JSON.stringify(REC
 /** The game from the battle's log (the same one each time: kept while the log is). */
 function game(r) {
   if (CACHE && CACHE.id === r.id && CACHE.n === r.log.length) return CACHE.G;
-  const G = B.newGame(r.seed, r.decks, 2);
+  // Older solo saves had no version and always used v2. Never reinterpret their recorded moves.
+  const G = B.newGame(r.seed, r.decks, r.v >= 3 ? 3 : 2);
   for (const [w, m] of r.log) { if (!B.play(G, w, m).ok) break; }
   CACHE = {id: r.id, n: r.log.length, G};
   return G;
@@ -202,7 +207,7 @@ export function start(id) {
   if (!dk.ok) return {ok: false, why: `Your deck isn’t ready: ${dk.why}`};
   rec();
   const mid = 'cpu' + Date.now().toString(36) + Math.floor(Math.random() * 46656).toString(36);
-  REC = {id: mid, opp: o.id, seed: mid, decks: [dk.ids.slice(), deckFor(o.id)], log: [], at: Date.now(), z: '', paid: 0, pay: null};
+  REC = {id: mid, opp: o.id, seed: mid, v: B.RULES_VERSION, decks: [dk.ids.slice(), deckFor(o.id)], log: [], at: Date.now(), z: '', paid: 0, pay: null};
   CACHE = null; clearTimeout(timer); timer = 0;
   // (the computer sets up at once)
   const G = game(REC), m = nextMove(G, 1, o.lv);

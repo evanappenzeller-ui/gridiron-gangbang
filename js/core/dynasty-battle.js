@@ -14,6 +14,8 @@
 //   your active out once (his retreat cost in energy); then attack, which ends your turn (or end it without).
 // - Version 2 (Oct 28 2026, the owner: "the gameplay ... to match the Pokémon app"): each turn's energy is known a turn
 //   ahead (the Energy Zone's next), and Item cards. A match made before keeps version 1's energy draw (newGame's v).
+// - Version 3 (Rivals): signature plays spend one matching energy after resolving; quick plays keep their energy.
+//   Juke reduces signature damage by 30 instead of cancelling a whole attack on a coin flip. Old logs retain v1/v2.
 // - Knock out the other side's active player for a touchdown (a Legend or Prime: two). Three wins it, as does knocking
 //   out their last player. 50 turns between you and it's whoever's ahead.
 // - Types (football's own logic): Air (QB, WR, TE) beats Blitz, Ground (RB, OL) beats Coverage, Blitz (DL, LB) beats
@@ -36,6 +38,7 @@ export const POS_TYPE = {QB: 'A', WR: 'A', TE: 'A', RB: 'G', OL: 'G', DL: 'B', L
 export const WEAK = {A: 'C', G: 'B', B: 'A', C: 'G'};
 export const WEAK_BONUS = 20;
 export const DECK_SIZE = 20, HAND_START = 5, BENCH_MAX = 3, WIN_POINTS = 3, MAX_COPIES = 2, TURN_CAP = 50;
+export const RULES_VERSION = 3;
 
 // ---------------------------------------------------------------------------------------------------- Coach and Stadium cards
 // (C-: Coach cards, one a turn, Pokémon's Supporters; I-: Items, any number a turn; S-: Stadiums, in play for both sides
@@ -73,6 +76,12 @@ export const ABILITY = {
   counter: {name: 'Lockdown', text: 'When this player is damaged by an attack, the attacker takes 20 damage (never enough to knock him out).'},
   clutch: {name: 'Ice in the Veins', text: 'This player’s attacks do 30 more damage.'}
 };
+/** Ability wording for the match being viewed; collections describe the current rules. */
+export function abilityText(key, version = RULES_VERSION) {
+  if (key === 'juke' && version >= 3) return 'This player takes 30 less damage from signature plays. Quick plays bypass Juke.';
+  return ABILITY[key] ? ABILITY[key].text : '';
+}
+export const signatureText = (G, n) => G.v >= 3 && n === 1 ? 'Spend 1 energy after this play.' : '';
 const POS_ABILITY = {QB: 'boost', RB: 'speed', WR: 'speed', TE: 'tough', OL: 'tough', DL: 'strip', LB: 'strip', CB: 'counter', S: 'counter', K: 'clutch'};
 // (a few Legends their own)
 const LEGEND_ABILITY = {'Barry Sanders': 'juke', 'Walter Payton': 'juke', 'Deion Sanders': 'speed', 'Randy Moss': 'speed'};
@@ -208,7 +217,7 @@ function shuffle(G, a) { for (let i = a.length - 1; i > 0; i--) { const j = Math
 //  came into play)}
 /** A new game: seed (the match id), decks [[ids], [ids]]. */
 export function newGame(seed, decks, v = 1) {
-  const G = {seed: String(seed), v: v >= 2 ? 2 : 1, rn: 0, phase: 'setup', first: 0, cur: 0, turn: 0, uid: 1, stadium: null, over: null, ev: [], p: []};
+  const G = {seed: String(seed), v: v >= 3 ? 3 : v >= 2 ? 2 : 1, rn: 0, phase: 'setup', first: 0, cur: 0, turn: 0, uid: 1, stadium: null, over: null, ev: [], p: []};
   G.first = coin(G) ? 0 : 1; G.cur = G.first;
   for (let i = 0; i < 2; i++) {
     const deck = shuffle(G, (decks[i] || []).slice());
@@ -439,14 +448,12 @@ function doMove(G, who, m) {
     case 'end': say(G, who, 'end'); endTurn(G);
   }
 }
-/** An attack: the damage (its own, the trick's, the Stadium's, Field General's, Game Plan's, the weakness; less a
- *  shield or Anchor), then its trick, Lockdown, and a knockout. */
-function attack(G, who, n) {
+// Shared by previews and resolution. No randomness or mutations: heads is the attack's already rolled coin.
+function attackDamage(G, who, n, heads = false) {
   const me = G.p[who], opp = G.p[other(who)], A = me.active, D = opp.active;
   const sa = stats(A.id), sd = stats(D.id), a = sa.attacks[n];
-  const o = {u: A.u, id: A.id, n, name: a.name, target: D.id, tu: D.u};
   let dmg = a.dmg;
-  if (a.fx === 'coin') { o.heads = coin(G); if (o.heads) dmg += a.v; }
+  if (a.fx === 'coin' && heads) dmg += a.v;
   if (a.fx === 'plus') dmg += a.v;
   if (a.fx === 'qb' && CARD(D.id) && CARD(D.id).pos === 'QB') dmg += a.v;
   if (a.fx === 'vs' && sd.type === a.v.t) dmg += a.v.n;
@@ -456,10 +463,45 @@ function attack(G, who, n) {
   if (sa.type === 'A' && slots(me).some(s => s !== A && stats(s.id).ability === 'boost')) dmg += 10;
   if (sa.ability === 'clutch') dmg += 30;
   dmg += me.plan;
-  if (!a.flat && sd.weak === sa.type) { dmg += WEAK_BONUS; o.weak = true; }
+  const weak = !a.flat && sd.weak === sa.type;
+  if (weak) dmg += WEAK_BONUS;
   if (sd.ability === 'tough') dmg -= 20;
   dmg -= D.shield;
-  if (sd.ability === 'juke') { o.juke = coin(G); if (o.juke) { dmg = 0; o.missed = true; } }
+  const jukeReduced = G.v >= 3 && sd.ability === 'juke' && n === 1 ? Math.min(30, Math.max(0, dmg)) : 0;
+  dmg -= jukeReduced;
+  return {dmg: Math.max(0, dmg), weak, jukeReduced};
+}
+
+/** Public, non-mutating damage range. It includes board modifiers, never reveals the seeded coin result. */
+export function attackPreview(G, who, n) {
+  const legal = check(G, who, {a: 'attack', n});
+  const A = G.p[who] && G.p[who].active, D = G.p[other(who)] && G.p[other(who)].active;
+  const a = A && stats(A.id) && stats(A.id).attacks[n];
+  const energySpent = G.v >= 3 && n === 1 ? 1 : 0;
+  const notes = [];
+  if (!a || !D) return {ok: legal.ok, why: legal.why || '', min: 0, max: 0, damageText: '—', energySpent, notes, text: signatureText(G, n)};
+  const low = attackDamage(G, who, n, false), high = attackDamage(G, who, n, true);
+  const juke = stats(D.id).ability === 'juke';
+  const min = G.v < 3 && juke ? 0 : low.dmg, max = high.dmg;
+  if (low.weak) notes.push(`Weakness +${WEAK_BONUS}`);
+  if (G.v >= 3 && juke && n === 1) notes.push('Juke reduces signature damage by 30');
+  if (G.v < 3 && juke) notes.push('Juke may cancel this attack');
+  if (a.fx === 'coin') notes.push('Damage range includes the coin flip');
+  const text = [fxText(a), signatureText(G, n)].filter(Boolean).join(' ');
+  return {ok: legal.ok, why: legal.why || '', min, max, damageText: min === max ? String(min) : `${min}–${max}`, energySpent, notes, text};
+}
+
+/** An attack: board damage, then its trick, Lockdown, energy spent, and a knockout. */
+function attack(G, who, n) {
+  const me = G.p[who], opp = G.p[other(who)], A = me.active, D = opp.active;
+  const sa = stats(A.id), sd = stats(D.id), a = sa.attacks[n];
+  const o = {u: A.u, id: A.id, n, name: a.name, target: D.id, tu: D.u};
+  if (a.fx === 'coin') o.heads = coin(G);
+  const hit = attackDamage(G, who, n, o.heads);
+  let dmg = hit.dmg;
+  if (hit.weak) o.weak = true;
+  if (hit.jukeReduced) o.jukeReduced = hit.jukeReduced;
+  if (G.v < 3 && sd.ability === 'juke') { o.juke = coin(G); if (o.juke) { dmg = 0; o.missed = true; } }
   dmg = Math.max(0, dmg);
   D.dmg += dmg; o.dmg = dmg;
   if (!o.missed) {
@@ -471,6 +513,11 @@ function attack(G, who, n) {
     if (a.fx === 'injure') { D.inj = true; o.injured = true; }
     if (sa.ability === 'strip' && dmg > 0 && CARD(D.id) && CARD(D.id).pos === 'QB' && D.en.length) o.sack = D.en.pop();
     if (sd.ability === 'counter' && dmg > 0) { const hit = Math.min(20, Math.max(0, hpOf(A) - 10 - A.dmg)); A.dmg += hit; o.counter = hit; }
+  }
+  if (G.v >= 3 && n === 1) {
+    // Spend a matching type first (any energy for Special Teams), deterministically on both phones.
+    const typed = a.cost.find(e => e !== '*'), i = typed ? A.en.indexOf(typed) : A.en.length - 1;
+    o.spent = A.en.splice(i >= 0 ? i : A.en.length - 1, 1)[0];
   }
   say(G, who, 'attack', o);
   if (D.dmg >= hpOf(D)) knockOut(G, other(who));

@@ -315,6 +315,61 @@ export function autoDeck(owned) {
   players.forEach(c => { if (deck.length < B.DECK_SIZE) add(c.id, 2); });
   return deck;
 }
+/** Optional deck plans built from cards already in your collection. Selecting one never grants cards. */
+export const STRATEGIES = [
+  {id: 'air', name: 'Air Raid', description: 'Use your quarterbacks and receivers to build toward a signature play. Draw cards and switch to keep options open.',
+    weakness: 'Coverage players punish Air. Protect your receiver while you prepare the next play.'},
+  {id: 'ground', name: 'Ground Control', description: 'Run behind durable players, use protection and healing, and save your big play for the right moment.',
+    weakness: 'Blitz players punish Ground. Use healing and switches to keep your runner in the game.'}
+];
+const STRATEGY_PLAN = {
+  air: {type: 'A', roles: ['QB', 'WR', 'TE'], trainers: ['I-recruit', 'C-twomin', 'C-audible', 'I-cleats', 'C-plan', 'S-sofi', 'C-scout', 'C-fourth', 'I-water', 'C-timeout', 'C-flag', 'C-room']},
+  ground: {type: 'G', roles: ['RB', 'OL'], trainers: ['I-water', 'C-timeout', 'I-recruit', 'C-room', 'S-lambeau', 'C-twomin', 'C-audible', 'I-cleats', 'C-plan', 'S-lucasoil', 'C-scout', 'C-flag']}
+};
+/** A legal, single-energy deck, or an explanation of what's missing. Pure: the save and collection are untouched. */
+export function strategyDeck(id, owned = mine().o) {
+  const plan = STRATEGY_PLAN[id];
+  if (!plan) return {ids: [], ok: false, why: 'Choose an available deck strategy.'};
+  const copies = cid => Math.max(0, Math.min(B.MAX_COPIES, Math.floor(Number((owned || {})[cid]) || 0)));
+  const pool = CARDS.filter(c => copies(c.id) && B.stats(c.id).type === plan.type);
+  const score = c => {
+    const st = B.stats(c.id), fx = st.attacks[1].fx;
+    // Reward the plan's useful roles and effects, with a bounded rating contribution.
+    const fit = id === 'air' ? (st.ability === 'boost' ? 18 : st.ability === 'speed' ? 8 : 0) + (fx === 'draw' ? 12 : 0)
+      : (st.ability === 'tough' ? 12 : st.ability === 'juke' ? 8 : 0) + (['heal', 'shield', 'finish'].includes(fx) ? 12 : 0);
+    return Math.min(c.o, 90) + fit;
+  };
+  const rank = (a, b) => score(b) - score(a) || a.id.localeCompare(b.id);
+  // Each package has an owned Basic and at most one more card of that same player. An evolution is never orphaned.
+  const seen = new Set(), packages = [];
+  pool.filter(c => B.isBasic(c.id)).sort(rank).forEach(c => {
+    const key = B.stats(c.id).from;
+    if (seen.has(key)) return;
+    seen.add(key);
+    const evolution = pool.filter(e => !B.isBasic(e.id) && B.stats(e.id).from === key).sort(rank)[0];
+    const second = evolution || (copies(c.id) > 1 ? c : pool.filter(e => B.isBasic(e.id) && e.id !== c.id && B.stats(e.id).from === key).sort(rank)[0]);
+    packages.push({card: c, ids: [c.id, ...(second ? [second.id] : [])]});
+  });
+  // Start with one package per position, then fill by suitability. Quarterbacks/linemen have a place beside scorers.
+  const ordered = [], used = new Set();
+  for (const pos of plan.roles) {
+    const p = packages.find(x => x.card.pos === pos);
+    if (p) { ordered.push(p); used.add(p); }
+  }
+  ordered.push(...packages.filter(p => !used.has(p)));
+  const playerIds = ordered.flatMap(p => p.ids).slice(0, 12);
+  const trainers = [];
+  // First add a varied support hand; then second copies. Only the plan's compatible stadiums are considered.
+  for (let n = 1; n <= B.MAX_COPIES; n++) {
+    for (const tid of plan.trainers) if (copies(tid) >= n) trainers.push(tid);
+  }
+  const supportCount = Math.min(trainers.length, B.DECK_SIZE - playerIds.length);
+  const ids = [...playerIds, ...trainers.slice(0, supportCount)];
+  if (playerIds.length < 10) return {ids, ok: false, why: `Collect ${10 - playerIds.length} more playable ${B.TYPES[plan.type].name} player card${10 - playerIds.length === 1 ? '' : 's'} to build this plan. Evolutions need their Basic player.`};
+  if (ids.length < B.DECK_SIZE) return {ids, ok: false, why: `This plan needs ${B.DECK_SIZE - ids.length} more compatible support card${B.DECK_SIZE - ids.length === 1 ? '' : 's'} from your collection.`};
+  const legal = B.checkDeck(ids, owned);
+  return {ids, ...legal};
+}
 /** Your deck and whether it's legal: {ids, ok, why, types}. */
 export function deckOf(s = mine()) {
   const r = B.checkDeck(s.dk, s.o);
@@ -726,11 +781,11 @@ export function paySolo(gid, opp, lv, res, s = mine()) {
 }
 
 // ---------------------------------------------------------------------------------------------------- other players
-/** Your team's name: the one you gave it, else yours and Dynasty (Evan's Dynasty). */
+/** Your team's saved name, or the Rivals default. Stored names stay unchanged. */
 export function teamName(s = mine(), who = null) {
   if (s && s.nm) return s.nm;
   const n = who ? who.name : data.me() ? data.name(data.me()) : (data.user() && (data.user().board || data.user().name)) || data.guest() || 'Your';
-  return `${String(n).split(/\s+/)[0]}’s Dynasty`;
+  return `${String(n).split(/\s+/)[0]}’s Rivals`;
 }
 /** Everyone else's Dynasty this phone may see (the scoreboards' rule: everyone, from daily.LB.raw), the freshest copy
  *  of each: [{key, name, member, guest, team, state, tr, cards, cols, rec, deck (a legal deck)}], the most trophies first. */

@@ -1,4 +1,4 @@
-// Card readability: separate HP/header, uncropped artwork, and attacks. No live Firebase reads or writes.
+// Card readability: clear identity, portraits, key game values, and full detail rules. No live Firebase reads or writes.
 // Usage: node tools/dynasty/check-card-layout.cjs [--shots=/tmp/rivals-cards]
 const fs = require('node:fs');
 const path = require('node:path');
@@ -9,7 +9,7 @@ const root = path.resolve(__dirname, '../..');
 const shots = (process.argv.find(a => a.startsWith('--shots=')) || '').slice(8);
 if (shots) fs.mkdirSync(shots, {recursive: true});
 const mime = {'.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.png': 'image/png', '.svg': 'image/svg+xml', '.woff2': 'font/woff2'};
-const fixture = '<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="/css/tokens.css"><link rel="stylesheet" href="/css/base.css"><link rel="stylesheet" href="/css/components.css"><link rel="stylesheet" href="/css/views/dynasty.css"><link rel="stylesheet" href="/css/views/dynasty-open.css"><style>html,body{height:auto;overflow:auto;background:#edf2f6}main{display:flex;flex-wrap:wrap;gap:24px;padding:24px}figure{flex:none}</style><main class="pk-sheet"></main>';
+const fixture = '<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="/css/tokens.css"><link rel="stylesheet" href="/css/base.css"><link rel="stylesheet" href="/css/components.css"><link rel="stylesheet" href="/css/views/dynasty.css"><link rel="stylesheet" href="/css/views/dynasty-open.css"><link rel="stylesheet" href="/css/views/dynasty-rivals.css"><style>html,body{height:auto;overflow:auto;background:#edf2f6}main{display:flex;flex-wrap:wrap;gap:24px;padding:24px}figure{flex:none}</style><main class="pk-sheet"></main>';
 const server = http.createServer((req, res) => {
   const pathname = new URL(req.url, 'http://127.0.0.1').pathname;
   if (pathname === '/__cards') { res.writeHead(200, {'Content-Type': 'text/html'}).end(fixture); return; }
@@ -27,30 +27,36 @@ const server = http.createServer((req, res) => {
 async function geometry(page, selector) {
   return page.locator(selector).evaluateAll(cards => cards.map(card => {
     const q = s => card.querySelector(s), rect = el => { const r = el.getBoundingClientRect(); return {top: r.top, bottom: r.bottom, left: r.left, right: r.right}; };
-    const art = q('.pk-c-art'), body = q('.pk-c-body'), image = q('.pk-c-ph'), after = getComputedStyle(art, '::after');
-    return {name: card.getAttribute('aria-label'), card: rect(card), header: rect(q('.pk-c-head')), art: rect(art), body: rect(body),
-      repeatedName: !!q('.pk-c-head .pk-c-name'), faceOpacity: getComputedStyle(q('.pk-c-face')).opacity,
-      bodyClipped: body.scrollHeight > body.clientHeight + 1, imageFit: image && getComputedStyle(image).objectFit,
-      afterVisible: !['none', 'normal'].includes(after.content) && after.display !== 'none' && after.opacity !== '0',
-      attacks: [...card.querySelectorAll('.pk-c-atk')].map(rect)};
+    const art = q('.pk-c-art'), body = q('.pk-c-body'), image = q('.pk-c-ph'), name = q('.pk-c-name');
+    const face = q('.pk-c-face');
+    return {name: card.getAttribute('aria-label'), card: rect(card), header: rect(q('.pk-c-head')), art: rect(art), identity: rect(q('.pk-c-identity')),
+      nameVisible: !!name && name.offsetHeight > 0, nameClipped: name.scrollHeight > name.clientHeight + 1, faceOpacity: getComputedStyle(face).opacity,
+      faceClipped: face.scrollHeight > face.clientHeight + 1, imageFit: image && getComputedStyle(image).objectFit,
+      artFallback: !!q('.pk-c-num'), bodyVisible: getComputedStyle(body).display !== 'none', small: card.classList.contains('sz-s'),
+      rarity: q('.pk-c-rar').textContent, hasPrintedScan: !!q('.is-real'),
+      vitals: rect(q('.pk-c-vitals')), attacks: [...card.querySelectorAll('.pk-c-atk')].map(rect)};
   }));
 }
 function checkGeometry(rows) {
   for (const r of rows) {
-    assert.equal(r.repeatedName, false, r.name + ': the name is not repeated above the printed card');
+    assert.equal(r.nameVisible, true, r.name + ': visible player name independent of image');
+    assert.equal(r.nameClipped, false, r.name + ': player name is not clipped');
     assert.equal(r.faceOpacity, '1', r.name + ': the frame is opaque');
-    assert.ok(r.header.bottom <= r.art.top + 1, r.name + ': HP/header does not overlap artwork');
-    assert.ok(r.art.bottom <= r.body.top + 1, r.name + ': attacks are below the artwork');
-    assert.ok(r.art.left > r.card.left && r.art.right < r.card.right, r.name + ': a border surrounds the artwork');
+    assert.equal(r.faceClipped, false, r.name + ': the content fits inside the frame');
+    assert.ok(r.header.bottom <= r.art.top + 1, r.name + ': overall/header does not overlap portrait');
+    assert.ok(r.art.bottom <= r.identity.top + 1, r.name + ': player name is below the portrait');
     assert.ok(r.art.bottom > r.art.top + 5, r.name + ': artwork has visible space');
-    assert.equal(r.afterVisible, false, r.name + ': no gradient covers the artwork');
-    assert.equal(r.bodyClipped, false, r.name + ': attack text is not clipped');
-    if (r.imageFit) assert.equal(r.imageFit, 'contain', r.name + ': the complete image is shown');
-    for (const a of r.attacks) assert.ok(a.bottom <= r.card.bottom + 1, r.name + ': attacks remain inside the card');
+    assert.equal(r.hasPrintedScan, false, r.name + ': no printed trading card inside the card frame');
+    assert.equal(r.artFallback, true, r.name + ': jersey fallback survives failed portrait');
+    assert.ok(r.rarity.length > 2, r.name + ': rarity is labelled in words');
+    assert.equal(r.bodyVisible, !r.small, r.name + ': small cards omit unreadable attack text');
+    assert.ok(r.vitals.bottom <= r.card.bottom + 1, r.name + ': health and type remain inside the card');
+    if (r.imageFit) assert.equal(r.imageFit, 'contain', r.name + ': portrait is not cropped');
+    if (!r.small) for (const a of r.attacks) assert.ok(a.bottom <= r.card.bottom + 1, r.name + ': attacks remain inside the card');
   }
 }
 async function run(url) {
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({executablePath: process.env.CHROMIUM_PATH || '/usr/bin/chromium', args: ['--no-sandbox']});
   try {
     const context = await browser.newContext({viewport: {width: 1000, height: 1000}, deviceScaleFactor: 2, serviceWorkers: 'block', reducedMotion: 'reduce'});
     // Remote headshots are irrelevant to geometry and must not delay these local checks.
@@ -64,12 +70,12 @@ async function run(url) {
         D.CARDS.find(c => c.r === 'rare'), D.CARDS.find(c => B.stats(c.id).ability), D.CARDS.find(c => B.stats(c.id).ex),
         D.CARDS.find(c => c.name === 'Joe Montana')]; // Joe Montana's scan is landscape.
       if (cards.some(c => !c)) throw new Error('Missing representative card');
-      document.querySelector('main').innerHTML = [280, 92].map(width => cards.map(c => `<figure style="width:${width}px">${cardHTML(c, {size: width === 280 ? 'l' : 's', tag: false})}</figure>`).join('')).join('');
+      document.querySelector('main').innerHTML = [280, 160, 92].map(width => cards.map(c => `<figure style="width:${width}px">${cardHTML(c, {size: width === 280 ? 'l' : 's', tag: false})}</figure>`).join('')).join('');
       return cards.map(c => c.name);
     });
     await page.evaluate(() => document.fonts.ready);
     checkGeometry(await geometry(page, '.pk-card'));
-    if (shots) await page.locator('figure').first().screenshot({path: path.join(shots, 'tyler-warren.png')});
+    if (shots) await page.locator('main').screenshot({path: path.join(shots, 'tyler-warren.png')});
     console.log('PASS: large and small cards — ' + samples.join(', '));
     await context.close();
 
@@ -98,6 +104,8 @@ async function run(url) {
     });
     checkGeometry(await geometry(detail, '.pk-zoom .pk-card'));
     assert.equal(await detail.locator('.pk-zoom .dy-foil, .pk-zoom .dy-glare').count(), 0, 'Card detail has no foil/glare overlay');
+    assert.equal(await detail.locator('.pk-info .pk-atk li').count(), 2, 'Full attack rules remain available in detail');
+    assert.equal(await detail.locator('.pk-signature-note').count(), 1, 'Signature energy spend is explained in detail');
     if (shots) await detail.screenshot({path: path.join(shots, 'tyler-warren-detail.png')});
     console.log('PASS: card detail uses the clear, unobstructed layout');
     await mobile.close();

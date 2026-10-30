@@ -1,17 +1,14 @@
-// A Gridiron Dynasty battle (/puzzles/dynasty/battle/<match id>, a cover over Daily Games; the owner's asks, Oct 28 2026:
-// Pokémon TCG Pocket's rules with the Dynasty's cards, between players, in turns like chess). The rules are
-// core/dynasty-battle.js's, the match (both sides' moves, whose turn) core/dynasty-match.js's.
-// The screen (Pocket's light mat): their bench and active player at the top, yours below, your hand along the bottom,
-// then the Energy Zone (this turn's energy, the next one beside it), Switch and End turn. Tap your active player to attack (his attacks, each lit when its energy is on him); tap a
-// card in your hand to play it; tap a player to see his card. Your setup (an active player and up to 3 on the bench)
-// before the first turn. What they did since you last looked comes up first (their turn, line by line).
+// Gridiron Rivals match (/puzzles/dynasty/battle/<match id>). Rules and saved turns live in the core modules.
+// A compact field shows both lineups, with a readable hand and an inline playbook. Tapping a hand card previews it;
+// explicit Play commits it or highlights legal targets. Attacks show damage ranges and version-aware costs on the board.
+// Collectible card details, the complete log and match options remain available without interrupting ordinary moves.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as D from '../core/dynasty.js';
 import * as B from '../core/dynasty-battle.js';
 import * as MT from '../core/dynasty-match.js';
 import * as SOLO from '../core/dynasty-solo.js';
-import {anyHTML, cardHTML, battleHTML, pipHTML} from './dynasty.js';
+import {anyHTML, battleHTML, pipHTML, headUrl} from './dynasty.js';
 
 const esc = data.esc, nf = n => data.nf(n);
 const ST = new WeakMap();
@@ -55,6 +52,8 @@ function evText(ev, you, opp) {
       if (ev.injured) x += ' Injured!';
       if (ev.counter) x += ` Lockdown hits back for ${ev.counter}.`;
       if (ev.heal) x += ` Heals ${ev.heal}.`;
+      if (ev.spent) x += ` Spends 1 ${B.ENERGY[ev.spent]} energy.`;
+      if (ev.jukeReduced) x += ` Juke blocks ${ev.jukeReduced}.`;
       return x;
     }
     case 'ko': return `${short(ev.id)} is knocked out! ${ev.who === you ? opp : 'You'} score${ev.who === you ? 's' : ''} ${ev.pts === 2 ? '2 touchdowns' : 'a touchdown'}.`;
@@ -64,18 +63,63 @@ function evText(ev, you, opp) {
 }
 
 // ---------------------------------------------------------------------------------------------------- pieces
+// Match cards use a readable game face; the full collectible is available from Details.
+function faceHTML(id, slot = null) {
+  const c = D.card(id), t = D.trainer(id), stats = c && B.stats(id);
+  const team = c && D.teamOf(c.team), type = stats && B.TYPES[stats.type];
+  const hp = stats ? Math.max(0, stats.hp - (slot ? slot.dmg : 0)) : 0;
+  const art = c ? `<span class="db-face-art" style="--team:${team.pri}"><span class="db-face-number">${esc(c.num || c.pos)}</span>${c.head && !/^https?:/.test(c.head) ? `<img src="${esc(headUrl(c.head, 300))}" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : ''}</span>`
+    : `<span class="db-face-art is-tactic">${ui.icon(t.kind === 'stadium' ? 'star' : t.kind === 'coach' ? 'football' : 'bolt', {size: 28})}</span>`;
+  return `<span class="db-face${c ? '' : ' is-tactic'}" style="--type:${type ? type.color : '#C59A48'}">${art}`
+    + `<span class="db-face-copy"><span class="db-face-role">${c ? `${esc(c.pos)} · ${esc(team.abbr || c.team)}` : esc({coach: 'Coach', item: 'Item', stadium: 'Stadium'}[t.kind])}</span>`
+    + `<b class="db-face-name">${esc(nameOf(id))}</b>`
+    + (c ? `<span class="db-face-health"><b>${hp}</b><small> / ${stats.hp} HP</small></span><span class="db-face-meter"><i style="width:${Math.round(hp / stats.hp * 100)}%"></i></span>`
+      : `<span class="db-face-hint">${esc(t.kind === 'coach' ? 'One per turn' : t.kind === 'stadium' ? 'Changes the field' : 'Play from hand')}</span>`)
+    + '</span></span>';
+}
 function slotHTML(slot, side, act, pick) {
-  if (!slot) return `<div class="db-slot is-empty${act ? ' is-act' : ''}" aria-hidden="true"></div>`;
-  const st = B.stats(slot.id), hp = st.hp, left = Math.max(0, hp - slot.dmg), c = D.card(slot.id);
-  const label = `${c.name}, ${left} of ${hp} HP${slot.en.length ? `, ${slot.en.length} energy` : ''}${slot.stun ? ', Stunned' : ''}${slot.inj ? ', Injured' : ''}`;
+  if (!slot) return `<div class="db-slot is-empty${act ? ' is-act' : ''}"><span>${act ? 'Active player' : 'Bench'}</span></div>`;
+  const stats = B.stats(slot.id), hp = stats.hp, left = Math.max(0, hp - slot.dmg);
+  const label = `${nameOf(slot.id)}, ${left} of ${hp} HP, ${slot.en.length} energy${slot.stun ? ', Stunned' : ''}${slot.inj ? ', Injured' : ''}${pick ? ', choose this player' : ', view details'}`;
   return `<button type="button" class="db-slot${act ? ' is-act' : ''}${pick ? ' is-pick' : ''}${left <= hp * 0.3 ? ' is-low' : ''}" data-db-slot="${slot.u}" data-side="${side}" aria-label="${esc(label)}">`
-    + cardHTML(c, {size: 's', tag: false})
-    + `<span class="db-hp" aria-hidden="true"><i style="width:${Math.round(left / hp * 100)}%"></i><b>${left}</b></span>`
-    + `<span class="db-en" aria-hidden="true">${slot.en.map(pipHTML).join('')}</span>`
-    + (slot.stun || slot.inj ? `<span class="db-conds" aria-hidden="true">${slot.stun ? '<i>STUN</i>' : ''}${slot.inj ? '<i class="is-inj">INJ</i>' : ''}</span>` : '')
+    + faceHTML(slot.id, slot)
+    + `<span class="db-en" aria-label="${slot.en.length} attached energy">${slot.en.length ? slot.en.map(pipHTML).join('') : '<small>No energy</small>'}</span>`
+    + (slot.stun || slot.inj ? `<span class="db-conds">${slot.stun ? '<i>Stunned</i>' : ''}${slot.inj ? '<i class="is-inj">Injured</i>' : ''}</span>` : '')
     + '</button>';
 }
-const tds = n => `<span class="db-tds" aria-label="${n} of ${B.WIN_POINTS} touchdowns">${Array.from({length: B.WIN_POINTS}, (_, i) => `<i class="${i < n ? 'is-on' : ''}"></i>`).join('')}</span>`;
+function handAction(G, who, id) {
+  const t = D.trainer(id), stats = B.stats(id), me = G.p[who];
+  const a = t ? t.kind : stats && stats.stage ? 'evolve' : 'bench';
+  const targeted = a === 'evolve' || !!(t && t.target);
+  const candidates = targeted ? B.slots(me).filter(s => B.check(G, who, {a, id, on: s.u}).ok) : [];
+  const result = targeted ? candidates.length ? {ok: true} : B.check(G, who, {a, id, on: (B.slots(me)[0] || {}).u}) : B.check(G, who, {a, id});
+  return {a, candidates, targeted, ...result, label: a === 'bench' ? 'Add to bench' : a === 'evolve' ? 'Upgrade player' : 'Play card'};
+}
+function selectedHTML(st, x) {
+  const me = x.G.p[x.you], i = st.handI;
+  if (i == null || me.hand[i] !== st.handId || x.state === 'setup') return '';
+  const id = me.hand[i], t = D.trainer(id), stats = B.stats(id), action = handAction(x.G, x.you, id);
+  const text = t ? t.text : `${stats.stage ? 'Upgrade the matching Basic player.' : 'Add this player to your bench.'}${stats.ability ? ' ' + B.abilityText(stats.ability, x.G.v) : ''}`;
+  const why = st.mode ? 'Choose a highlighted player on the field.' : x.state !== 'yours' ? 'You can play this card on your turn.' : action.ok ? '' : action.why;
+  return `<section class="db-selection" aria-label="Selected card"><span class="db-selection-art">${faceHTML(id)}</span><div class="db-selection-copy"><b>${esc(nameOf(id))}</b><p>${esc(text)}</p>`
+    + (why ? `<small>${esc(why)}</small>` : '')
+    + `<div class="db-selection-actions"><button type="button" class="db-play-card" data-db-play-hand${x.state === 'yours' && action.ok && !st.mode ? '' : ' disabled'}>${esc(action.label)}</button><button type="button" class="db-link" data-db-details="${esc(id)}">Details</button><button type="button" class="db-link" data-db-deselect aria-label="Close selected card">Close</button></div></div></section>`;
+}
+function attacksHTML(st, x) {
+  const G = x.G, me = G.p[x.you];
+  if (!me.active || G.phase === 'setup' || x.state === 'over') return '';
+  const stats = B.stats(me.active.id);
+  return `<section class="db-playbook" aria-label="Your active player's attacks"><div class="db-playbook-title"><b>${esc(short(me.active.id))}’s plays</b><span>Attacking ends your turn</span></div><div class="db-plays">`
+    + stats.attacks.map((a, n) => {
+      const p = B.attackPreview(G, x.you, n);
+      const disabled = x.state !== 'yours' || !p.ok || !!st.mode;
+      const reason = x.state !== 'yours' ? 'Available on your turn' : st.mode ? 'Finish your selection first' : !p.ok ? p.why : '';
+      return `<button type="button" class="db-play${n ? ' is-signature' : ''}" data-db-attack="${n}"${disabled ? ' disabled' : ''}><span class="db-play-top"><small>${n ? 'SIGNATURE' : 'QUICK PLAY'}</small><span class="db-play-cost" aria-label="Requires ${a.cost.map(e => B.ENERGY[e]).join(', ')}">${a.cost.map(pipHTML).join('')}</span></span>`
+        + `<span class="db-play-name"><b>${esc(a.name)}</b><strong>${esc(p.damageText)}<small>DMG</small></strong></span>`
+        + `<span class="db-play-effect">${esc([p.text || B.fxText(a) || 'Reliable damage. Keep your energy.', ...(p.notes || [])].join(' '))}</span>`
+        + (reason ? `<span class="db-play-why">${esc(reason)}</span>` : '<span class="db-play-why is-ready">Play now</span>') + '</button>';
+    }).join('') + '</div></section>';
+}
 
 // (no app menu at the foot while you play, as on the Dynasty page: views/dynasty.js fullScreen)
 function fullScreen(st, on) {
@@ -88,7 +132,7 @@ function draw(st) {
   if (!D.mayPlay()) { fullScreen(st, false); host.innerHTML = ''; if (!st.left) { st.left = true; st.ctx.back(); } return; }
   if (D.status !== 'ready') { host.innerHTML = `<div class="db-msg">${ui.skeleton('rows', 3, {label: 'Loading the battle'})}</div>`; return; }
   const x = src(st).get(st.mid);
-  const close = ui.iconButton({icon: 'close', label: 'Close', cls: 'db-x', filled: true, attrs: 'data-back'});
+  const close = ui.iconButton({icon: 'close', label: 'Back to Rivals', cls: 'db-x', attrs: 'data-back'});
   if (!x || !x.G) {
     const why = !x ? 'This battle isn’t here (yet). It shows once the board has it.' : x.state === 'invite' ? `${x.opp.name} challenged you. Accept it on the Battle tab.`
       : x.state === 'sent' ? `Waiting for ${x.opp.name} to accept your challenge.` : 'This battle was called off.';
@@ -118,28 +162,31 @@ function draw(st) {
   else if (x.state === 'theirs') status = G.phase === 'setup' ? `Waiting for ${esc(x.opp.name)} to set up.` : x.solo ? `${esc(x.opp.name)} is thinking…` : `${esc(x.opp.name)}’s turn. You’ll see it here when they move.`;
   else if (me.promote) status = 'Your player was knocked out: pick who comes in from your bench.';
   else if (mode) status = {energy: 'Tap a player to give him the energy.', evolve: 'Tap the player to evolve.', coach: 'Tap a player for it.', item: 'Tap a player for it.', retreat: 'Tap the bench player to send in.'}[mode.k] + ' <button type="button" class="db-link" data-db-cancel>Cancel</button>';
-  else status = `<b>Your turn.</b> ${me.en && !me.used.energy ? `Attach your ${B.ENERGY[me.en]} energy, then tap` : 'Tap'} your active player to attack.`;
+  else status = `<b>Your turn.</b> ${me.en && !me.used.energy ? `Attach ${B.ENERGY[me.en]} energy or ` : ''}choose a play below.`;
   // the hand (yours; theirs, face down)
   const handHTML = me.hand.map((id, i) => {
-    const sel = x.state === 'setup' && (st.setup.act === id && st.setup.actI === i || st.setup.benchI.includes(i));
-    return `<button type="button" class="db-card${sel ? ' is-sel' : ''}" data-db-hand="${i}" aria-label="${esc(nameOf(id))}">${anyHTML(id, {size: 's', tag: false})}</button>`;
+    const sel = x.state === 'setup' ? (st.setup.act === id && st.setup.actI === i || st.setup.benchI.includes(i)) : st.handI === i && st.handId === id;
+    const setupLabel = x.state === 'setup' && sel ? st.setup.actI === i ? 'Active' : 'Bench' : '';
+    return `<button type="button" class="db-card${sel ? ' is-sel' : ''}" data-db-hand="${i}" aria-pressed="${sel}" aria-label="${esc(nameOf(id))}${setupLabel ? ', selected for ' + setupLabel : ''}">${faceHTML(id)}${setupLabel ? `<span class="db-hand-role">${setupLabel}</span>` : ''}</button>`;
   }).join('');
   const stadium = G.stadium ? `<span class="db-stad">${ui.icon('star', {size: 13})}${esc(D.trainer(G.stadium.id).name)}</span>` : '';
   // (setup: what you've picked so far, before it goes up)
   const preview = x.state === 'setup' ? {active: st.setup.act ? {u: -1, id: st.setup.act, dmg: 0, en: []} : null, bench: st.setup.bench.map((id, i) => ({u: -2 - i, id, dmg: 0, en: []}))} : null;
   const mySlots = preview || me;
   const log = G.ev.map(e => ({e, t: evText(e, you, x.opp.name)})).filter(l => l.t).slice(-2).reverse();
-  host.innerHTML = `<header class="db-top">${close}<span class="db-who">${x.opp.member ? ui.avatar(x.opp.member, {size: 28}) : ui.nickAvatar(x.opp.name, {size: 28})}`
-    + `<b>${esc(x.opp.name)}</b>${tds(op.pts)}</span><span class="db-count">${op.hand.length} in hand · deck ${op.deck.length}</span>${over ? '' : ui.iconButton({icon: 'list', label: 'Battle log and resign', cls: 'db-more', attrs: 'data-db-more'})}</header>`
-    + `<section class="db-row is-bench is-opp">${[0, 1, 2].map(i => slotHTML(op.bench[i], 'opp', false, false)).join('')}</section>`
-    + `<section class="db-row is-active is-opp">${slotHTML(op.active, 'opp', true, false)}</section>`
-    + `<div class="db-mid"><p class="db-status" aria-live="polite">${status}</p>${stadium}`
-    + `<button type="button" class="db-log" data-db-log>${log.map((l, i) => `<span class="${i === 0 ? 'is-new' : ''}">${esc(l.t)}</span>`).join('') || '<span>The battle begins.</span>'}</button></div>`
-    + `<section class="db-row is-active is-me">${slotHTML(mySlots.active, 'me', true, mySlots.active && pickMine(mySlots.active.u))}</section>`
-    + `<section class="db-row is-bench is-me">${[0, 1, 2].map(i => slotHTML(mySlots.bench[i], 'me', false, mySlots.bench[i] && pickMine(mySlots.bench[i].u))).join('')}</section>`
-    + `<div class="db-you"><b>You</b>${tds(me.pts)}<span class="db-count">deck ${me.deck.length}</span></div>`
-    + `<div class="db-hand" data-hscroll>${handHTML || '<span class="db-none">No cards in hand</span>'}</div>`
+  const handScroll = host.querySelector('.db-hand')?.scrollLeft || 0;
+  const focus = document.activeElement && host.contains(document.activeElement) ? [...document.activeElement.attributes].filter(a => a.name.startsWith('data-db-')).map(a => [a.name, a.value])[0] : null;
+  host.innerHTML = `<header class="db-top">${close}<div class="db-match-title"><small>GRIDIRON RIVALS</small><b>${esc(x.solo ? 'Solo match' : 'Friend match')}</b></div><span class="db-score" aria-label="Score: you ${me.pts}, opponent ${op.pts}"><b>${me.pts}</b><i>:</i><b>${op.pts}</b><small>First to ${B.WIN_POINTS}</small></span>${ui.iconButton({icon: 'list', label: 'Battle log and options', cls: 'db-more', attrs: 'data-db-more'})}</header>`
+    + `<section class="db-team is-opp" aria-label="Opponent's field"><div class="db-team-title"><b>${esc(x.opp.name)}</b><span>${op.hand.length} in hand · ${op.deck.length} in deck</span></div><div class="db-field"><div class="db-row is-active is-opp">${slotHTML(op.active, 'opp', true, false)}</div><div class="db-row is-bench is-opp">${[0, 1, 2].map(i => slotHTML(op.bench[i], 'opp', false, false)).join('')}</div></div></section>`
+    + `<div class="db-mid"><p class="db-status" aria-live="polite">${status}</p>${stadium}</div>`
+    + `<section class="db-team is-me" aria-label="Your field"><div class="db-team-title"><b>Your lineup</b><span>${me.deck.length} in deck</span></div><div class="db-field"><div class="db-row is-active is-me">${slotHTML(mySlots.active, 'me', true, mySlots.active && pickMine(mySlots.active.u))}</div><div class="db-row is-bench is-me">${[0, 1, 2].map(i => slotHTML(mySlots.bench[i], 'me', false, mySlots.bench[i] && pickMine(mySlots.bench[i].u))).join('')}</div></div></section>`
+    + attacksHTML(st, x)
+    + `<button type="button" class="db-log" data-db-log aria-label="Open battle log">${log.map((l, i) => `<span class="${i === 0 ? 'is-new' : ''}">${esc(l.t)}</span>`).join('') || '<span>Set your lineup. First to three touchdowns wins.</span>'}</button>`
+    + selectedHTML(st, x)
+    + `<section class="db-hand-section" aria-label="Your hand"><div class="db-team-title"><b>Your hand <span>${me.hand.length}</span></b><span>${x.state === 'setup' ? 'Choose your lineup' : 'Tap to preview'}</span></div><div class="db-hand" data-hscroll>${handHTML || '<span class="db-none">No cards in hand</span>'}</div></section>`
     + `<footer class="db-bar">${barHTML(st, x, G, me, myMove, over)}</footer>`;
+  host.querySelector('.db-hand').scrollLeft = handScroll;
+  if (focus) host.querySelector(`[${focus[0]}="${CSS.escape(focus[1])}"]`)?.focus({preventScroll: true});
   ui.hydrate(host);
   // (what happened since you last looked: their turn, line by line)
   if (!st.shown) {
@@ -174,7 +221,7 @@ function barHTML(st, x, G, me, myMove, over) {
   }
   if (over) {
     const pay = D.BATTLE_PAY[x.result];
-    return `<span class="db-pay">+${nf(pay.coins)} coins · ${pay.tr >= 0 ? '+' : ''}${pay.tr} trophies</span>${ui.button({label: 'Back to Dynasty', kind: 'primary', size: 's', attrs: 'data-back'})}`;
+    return `<span class="db-pay">+${nf(pay.coins)} coins · ${pay.tr >= 0 ? '+' : ''}${pay.tr} trophies</span>${ui.button({label: 'Back to Rivals', kind: 'primary', size: 's', attrs: 'data-back'})}`;
   }
   if (x.state === 'setup') return ui.button({label: 'Ready', kind: 'primary', attrs: {'data-db-ready': ''}, disabled: !st.setup.act, cls: 'db-go'});
   if (!myMove) return `<span class="db-wait">${ui.icon('clock', {size: 15})} ${x.solo ? 'Its move' : 'Their move'}</span>${ui.button({label: 'Resign', kind: 'plain', size: 's', attrs: {'data-db-resign': ''}})}`;
@@ -193,7 +240,7 @@ function barHTML(st, x, G, me, myMove, over) {
 function send(st, m) {
   const r = src(st).move(st.mid, m);
   if (!r.ok) { ui.toast(r.why, {icon: 'info'}); return false; }
-  st.mode = null;
+  st.mode = null; st.handI = null; st.handId = null;
   if (r.sent && m.a !== 'setup') ui.toast(`Turn sent. ${st.x ? st.x.opp.name : 'They'} will see it.`, {icon: 'check-circle'});
   ui.haptic('selection');
   draw(st);
@@ -202,24 +249,7 @@ function send(st, m) {
 function detail(st, id, slot) {
   const st2 = B.stats(id);
   const hp = slot && st2 ? `<p class="pk-own">${Math.max(0, st2.hp - slot.dmg)} of ${st2.hp} HP left${slot.en.length ? ` · energy ${slot.en.map(pipHTML).join('')}` : ''}${slot.stun ? ' · Stunned' : ''}${slot.inj ? ' · Injured' : ''}</p>` : '';
-  ui.openSheet({title: nameOf(id), body: `<div class="pk-zoom is-s">${anyHTML(id, {size: 'm', tag: false})}</div>${hp}${battleHTML(id)}`, cls: 'pk-sheet', detents: ['large']});
-}
-function attackSheet(st) {
-  const x = st.x, G = x.G, me = G.p[x.you], a = me.active;
-  const s = B.stats(a.id);
-  const body = `<div class="db-atkpick">${s.attacks.map((t, n) => {
-    const ok = B.check(G, x.you, {a: 'attack', n});
-    return `<button type="button" class="db-atkb" data-db-atk="${n}"${ok.ok ? '' : ' disabled'}><span class="pk-cost">${t.cost.map(pipHTML).join('')}</span>`
-      + `<span class="pk-an"><b>${esc(t.name)}</b><small>${esc(B.fxText(t) || (ok.ok ? 'Ready' : ok.why))}</small></span><em>${t.dmg}</em></button>`;
-  }).join('')}</div>`
-    + (s.ability ? `<div class="pk-ab"><b>Ability · ${esc(B.ABILITY[s.ability].name)}</b><span>${esc(B.ABILITY[s.ability].text)}</span></div>` : '')
-    + `<div class="pk-acts">${ui.button({label: 'See his card', kind: 'secondary', block: true, attrs: {'data-db-see': ''}})}</div>`;
-  const sh = ui.openSheet({title: `${nameOf(a.id)} · attack`, body, cls: 'pk-sheet', detents: ['fit']});
-  sh.body.addEventListener('click', e => {
-    const b = e.target.closest('[data-db-atk]');
-    if (b && !b.disabled) { sh.close(); setTimeout(() => send(st, {a: 'attack', n: Number(b.dataset.dbAtk)}), 200); return; }
-    if (e.target.closest('[data-db-see]')) { sh.close(); detail(st, a.id, a); }
-  });
+  ui.openSheet({title: nameOf(id), body: `<div class="pk-zoom is-s">${anyHTML(id, {size: 'm', tag: false})}</div>${hp}${battleHTML(id, st.x.G)}`, cls: 'pk-sheet', detents: ['large']});
 }
 function handTap(st, i) {
   const x = st.x, G = x.G, you = x.you, me = G.p[you], id = me.hand[i];
@@ -232,30 +262,19 @@ function handTap(st, i) {
     else if (S.bench.length < B.BENCH_MAX) { S.bench.push(id); S.benchI.push(i); }
     ui.haptic('selection'); draw(st); return;
   }
-  if (x.state !== 'yours') { detail(st, id); return; }
-  const t = D.trainer(id), stt = B.stats(id), acts = [];
-  if (t && t.kind === 'coach') acts.push({label: `Play ${t.name}`, role: 'primary', value: 'coach'});
-  if (t && t.kind === 'item') acts.push({label: `Play ${t.name}`, role: 'primary', value: 'item'});
-  if (t && t.kind === 'stadium') acts.push({label: `Play ${t.name}`, role: 'primary', value: 'stadium'});
-  if (stt && stt.stage === 0) acts.push({label: 'Put him on your bench', role: 'primary', value: 'bench'});
-  if (stt && stt.stage === 1) acts.push({label: 'Evolve', role: 'primary', value: 'evolve'});
-  acts.push({label: 'See the card', value: 'see'});
-  ui.actionSheet({title: nameOf(id), message: t ? t.text : '', actions: acts, cls: 'pk-sheet'}).then(v => {
-    if (!v) return;
-    if (v === 'see') { detail(st, id); return; }
-    if (v === 'bench') { send(st, {a: 'bench', id}); return; }
-    if (v === 'stadium') { send(st, {a: 'stadium', id}); return; }
-    if (v === 'evolve') {
-      const on = B.slots(me).filter(s => B.check(G, you, {a: 'evolve', id, on: s.u}).ok);
-      if (!on.length) { ui.toast(B.check(G, you, {a: 'evolve', id, on: (B.slots(me)[0] || {}).u}).why, {icon: 'info'}); return; }
-      if (on.length === 1) { send(st, {a: 'evolve', id, on: on[0].u}); return; }
-      st.mode = {k: 'evolve', id}; draw(st); return;
-    }
-    if (v === 'coach' || v === 'item') {
-      if (t.target) { st.mode = {k: v, id}; draw(st); if (!B.slots(me).some(s => B.check(G, you, {a: v, id, on: s.u}).ok)) { st.mode = null; ui.toast(B.check(G, you, {a: v, id, on: 0}).why, {icon: 'info'}); draw(st); } return; }
-      send(st, {a: v, id});
-    }
-  });
+  st.handI = i; st.handId = id; st.mode = null;
+  draw(st);
+}
+function playHand(st) {
+  const x = st.x, me = x.G.p[x.you], id = me.hand[st.handI];
+  if (!id || id !== st.handId || x.state !== 'yours') return;
+  const action = handAction(x.G, x.you, id);
+  if (!action.ok) { ui.toast(action.why, {icon: 'info'}); return; }
+  if (action.targeted) {
+    if (action.candidates.length === 1) { send(st, {a: action.a, id, on: action.candidates[0].u}); return; }
+    st.mode = {k: action.a, id}; draw(st); return;
+  }
+  send(st, {a: action.a, id});
 }
 function slotTap(st, u, side) {
   const x = st.x, G = x.G, you = x.you, me = G.p[you];
@@ -272,7 +291,7 @@ function slotTap(st, u, side) {
       if (!r.ok) { ui.toast(r.why, {icon: 'info'}); return; }
       send(st, m); return;
     }
-    if (sl === me.active) { attackSheet(st); return; }
+    if (sl === me.active) { detail(st, sl.id, sl); return; }
   }
   detail(st, sl.id, sl);
 }
@@ -309,7 +328,7 @@ export default {
   render() { return '<div class="db" data-db data-no-swipe></div>'; },
 
   mount(el, ctx) {
-    const st = {el, ctx, mid: String((ctx.params && ctx.params.id) || ''), mode: null, setup: {act: null, actI: -1, bench: [], benchI: []}, dead: false, stops: [], evAt: null};
+    const st = {el, ctx, mid: String((ctx.params && ctx.params.id) || ''), mode: null, handI: null, handId: null, setup: {act: null, actI: -1, bench: [], benchI: []}, dead: false, stops: [], evAt: null};
     ST.set(ctx, st);
     fullScreen(st, ctx.visible);
     el.addEventListener('click', e => {
@@ -317,6 +336,10 @@ export default {
       let b;
       if (!st.x) return;
       if (q('[data-db-cancel]')) { st.mode = null; draw(st); return; }
+      if ((b = q('[data-db-attack]'))) { if (!b.disabled) send(st, {a: 'attack', n: Number(b.dataset.dbAttack)}); return; }
+      if (q('[data-db-play-hand]')) { playHand(st); return; }
+      if (q('[data-db-deselect]')) { st.handI = null; st.handId = null; st.mode = null; draw(st); return; }
+      if ((b = q('[data-db-details]'))) { detail(st, b.dataset.dbDetails); return; }
       if ((b = q('[data-db-hand]'))) { handTap(st, Number(b.dataset.dbHand)); return; }
       if ((b = q('[data-db-slot]'))) { slotTap(st, Number(b.dataset.dbSlot), b.dataset.side); return; }
       if (q('[data-db-energy]')) {

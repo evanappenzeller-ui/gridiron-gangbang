@@ -1,29 +1,9 @@
-// Gridiron Dynasty's page (/puzzles/dynasty, pushed over Daily Games; core/dynasty.js has the game), made to look and
-// play like Pokémon TCG Pocket (the owner, Oct 28 2026: "I want the gameplay and theme/design to match the Pokémon app",
-// with his screenshots of Pocket's booster pack, Battle and My Cards screens): Pocket's light theme, its own header
-// (your packs and coins) and five tabs at the foot. Packs (the home: one big booster pack to open over the pack's colour,
-// the other packs stacked behind it as in Pocket, a sideways swipe bringing the next one to the front (packTo; the
-// owner, Oct 29 2026: "User should be able to switch packs like the attached"), its best cards in a showcase above it
-// with Pocket's clock pill, the pack's tags beside it, Offering Rates, a round Open, Select other booster packs, pack
-// points to trade for a card, today's free pack), My Cards (the binder: your
-// cards, every card, the collections), Decks (your 20-card deck), Battle (Pocket's banner; Versus: your matches against
-// other players and challenges; Solo; the Guide, Decks, Rankings and Missions: the collections) and the Menu (≡: the
-// Guide, coins, rankings, the title screen, the exit). A battle itself plays on its own screen (views/dynasty-battle.js,
-// /puzzles/dynasty/battle/<id>).
-// On entering, Pocket's title screen (the owner, Oct 29 2026: "Create a start screen when entering the dynasty", with
-// his screenshot of it): cards drifting over a pastel wash, the logo, Tap to Start (startHTML, below).
-// A pack opens over everything (openPack): you rip it open with a swipe across its top (the owner's ask, Oct 28 2026:
-// "ripping it open by swiping across", with "a subtle hint showing players how to do this": a fingertip gliding along
-// the tear line till you start), the strip tearing along your finger and flying off once you're far enough across
-// (short of it, it springs back; Enter rips it too); then, as in Pocket, its cards one at a time (a ★ card with a shine
-// first), tap for the next, and the lot at the end, new ones marked.
-// The cards (cardHTML) are laid out as Pokémon cards: the type's colours, a stage, the name and HP with the type's
-// symbol, the photo in its window (ESPN's headshot, else NFL.com's; a Legend his number), the position, team and OVR; a
-// Rare or better card shows his complete real trading card in a separate window (core/dynasty-real.js), with a foil
-// border from Epic up. Health and attacks sit on opaque panels outside the artwork,
-// any Ability, the attacks with their energy costs and damage, weakness and switch-out cost, and Pocket's rarity mark
-// (◆ to ◆◆◆◆, ★, ★★, a crown: core/dynasty.js markOf). Coach, Item and Stadium cards
-// (trainerHTML) are Trainer cards. battleHTML: a card's battle side in words, on its close-up.
+// Gridiron Rivals (legacy route/save identifiers remain dynasty). The four labeled tabs are
+// Play, Cards, Decks and Packs. Play opens first with a resume/solo action and the active deck.
+// The header menu holds settings/rules; the title screen and pack-opening flow remain available.
+// cardHTML/trainerHTML render collectible faces; the battle view renders compact game pieces.
+// Real printed trading cards stay in the card detail gallery. Match rules are versioned so old
+// turns replay unchanged while new matches use signature energy costs and predictable Juke.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
 import * as daily from '../core/daily.js';
@@ -76,31 +56,23 @@ const typeHTML = t => pipHTML(B.TYPES[t] ? B.TYPES[t].e : '*');
 export function cardHTML(c, o = {}) {
   if (!c) return '';
   const st = B.stats(c.id), T = D.teamOf(c.team), m = D.markOf(c), S = D.SERIES[c.s];
-  // (a Rare or better card: his real trading card, the whole card; should it not load, his headshot or his number. A
-  // Common card: his headshot in the window)
-  const real = c.real, head = c.head ? headUrl(c.head, o.size === 'l' ? 520 : 300) : '';
-  const photo = real ? `<img class="pk-c-ph is-real" src="${esc(realUrl(c.p, real))}"${head ? ` data-alt="${esc(head)}"` : ''} alt="" loading="lazy" decoding="async" draggable="false" onerror="${REAL_FAIL}">`
-    : head ? `<img class="pk-c-ph" src="${esc(head)}" alt="" loading="lazy" decoding="async" draggable="false" onerror="this.remove()">` : '';
-  const legend = c.s === 'X' ? `<span class="pk-c-num" aria-hidden="true">${c.num}</span>` : '';
-  const ab = st.ability ? `<span class="pk-c-ab"><i>Ability</i><b>${esc(B.ABILITY[st.ability].name)}</b></span><span class="pk-c-fx">${esc(B.ABILITY[st.ability].text)}</span>` : '';
-  const atk = st.attacks.map(a => `<span class="pk-c-atk"><span class="pk-c-cost">${a.cost.map(pipHTML).join('')}</span><b>${esc(a.name)}</b><em>${a.dmg}${a.fx === 'coin' || a.fx === 'qb' || a.fx === 'vs' || a.fx === 'finish' ? '+' : ''}</em></span>`
-    + (B.fxText(a) ? `<span class="pk-c-fx">${esc(B.fxText(a))}</span>` : '')).join('');
-  const stage = st.stage ? `<span class="pk-c-stage is-1">STAGE 1</span>` : `<span class="pk-c-stage">BASIC</span>`;
-  const evolution = st.stage ? `<span class="pk-c-evo">Evolves from ${esc(c.name)} · Basic</span>` : '';
-  const rule = st.ex ? '<span class="pk-c-rule"><b>ex rule</b><span>When this player is Knocked Out, your opponent gets 2 points.</span></span>' : '';
-  const strip = `${real ? '' : c.name + ' · '}${c.pos} · ${c.s === 'X' ? `${T.name} legend` : T.name}${c.num ? ` · #${c.num}` : ''} · OVR ${c.o}${c.t ? ` · ${c.t}` : ''}`;
-  const label = `${c.name}, ${S.name} ${D.POS_NAME[c.pos] || c.pos}, ${st.hp} HP, ${B.TYPES[st.type].name} type, ${st.stage ? 'Stage 1' : 'Basic'}${st.ex ? ', ex, worth 2 points when Knocked Out' : ''}, ${m.mark}${o.count > 1 ? `, ${o.count} copies` : ''}${o.ghost ? ', not in your collection' : ''}`;
+  // Portraits give every series one clear visual language. Original printed trading cards remain in realHTML.
+  // Some legacy head values are complete card scans; use a jersey number instead of framing those twice.
+  const head = c.head && !/^https?:/.test(c.head) ? headUrl(c.head, o.size === 'l' ? 520 : 300) : '';
+  const photo = head ? `<img class="pk-c-ph" src="${esc(head)}" alt="" loading="lazy" decoding="async" draggable="false" onerror="this.remove()">` : '';
+  const rarity = String(c.r || 'common');
+  const label = `${c.name}, ${S.name}, ${rarity}, ${D.POS_NAME[c.pos] || c.pos}, overall ${c.o}, ${st.hp} HP, ${B.TYPES[st.type].name}${st.stage ? ', evolves from Basic' : ', Basic'}${st.ex ? ', worth 2 points when knocked out' : ''}${o.count > 1 ? `, ${o.count} copies` : ''}${o.ghost ? ', not in your collection' : ''}`;
+  const atk = st.attacks.map((a, n) => `<span class="pk-c-atk"><span class="pk-c-cost">${a.cost.map(pipHTML).join('')}</span><b>${esc(a.name)}</b><em>${a.dmg}${['coin', 'qb', 'vs', 'finish'].includes(a.fx) ? '+' : ''}</em></span>`).join('');
   const inner = `<span class="pk-c-face" aria-hidden="true">`
-    + `<span class="pk-c-head">${stage}${st.ex ? '<i class="pk-c-ex">ex</i>' : ''}<span class="pk-c-hp"><small>HP</small>${st.hp}</span>${typeHTML(st.type)}</span>${evolution}`
-    + `<span class="pk-c-art">${legend}${photo}</span>`
-    + `<span class="pk-c-strip">${esc(strip)}</span>`
-    + `<span class="pk-c-body${st.ability ? ' has-ability' : ''}">${ab}${atk}</span>`
-    + `<span class="pk-c-foot"><span><small>weakness</small>${st.weak ? `${typeHTML(st.weak)}<b>+${B.WEAK_BONUS}</b>` : '<b>—</b>'}</span>`
-    + `<span><small>retreat</small>${st.retreat ? Array.from({length: st.retreat}, () => pipHTML('*')).join('') : '<b>free</b>'}</span></span>${rule}`
-    + `<span class="pk-c-meta"><span class="pk-c-rar is-${m.kind}">${m.mark}</span><span class="pk-c-set">${esc(S.short)}${st.ex ? ' · ex' : ''}</span>`
-    + (o.isNew ? '<span class="pk-c-new" aria-hidden="true">NEW</span>' : '')
-    + (o.count > 0 && !o.noCount ? `<span class="pk-c-cnt" aria-hidden="true">${o.count}</span>` : '') + '</span></span>';
-  const cls = `pk-card t-${st.type} m-${m.kind}${m.n}${m.full ? ' is-full' : ''} r-${c.r} s-${c.s} sz-${o.size || 'm'}${st.ex ? ' is-ex' : ''}${o.ghost ? ' is-ghost' : ''}${o.cls ? ' ' + o.cls : ''}`;
+    + `<span class="pk-c-head"><span class="pk-c-brand">RIVALS<span>${esc(S.short)}</span></span><span class="pk-c-ovr"><b>${c.o}</b><small>OVR</small></span></span>`
+    + `<span class="pk-c-art"><span class="pk-c-num">${esc(String(c.num || c.pos))}</span>${photo}<span class="pk-c-art-team">${esc(c.team)}</span></span>`
+    + `<span class="pk-c-identity"><b class="pk-c-name">${esc(c.name)}</b><span class="pk-c-strip">${esc(c.pos)} · ${esc(T.name)}</span></span>`
+    + `<span class="pk-c-vitals"><span class="pk-c-hp"><b>${st.hp}</b> HP</span><span>${typeHTML(st.type)}${esc(B.TYPES[st.type].name)}</span></span>`
+    + `<span class="pk-c-body">${atk}</span>`
+    + `<span class="pk-c-meta"><span class="pk-c-rar is-${m.kind}">${esc(rarity)}</span>${st.ex ? '<span class="pk-c-set">2 PT</span>' : st.stage ? '<span class="pk-c-set">EVOLVE</span>' : ''}`
+    + (o.isNew ? '<span class="pk-c-new">NEW</span>' : '')
+    + (o.count > 0 && !o.noCount ? `<span class="pk-c-cnt">${o.count}</span>` : '') + '</span></span>';
+  const cls = `pk-card pk-rivals-card t-${st.type} m-${m.kind}${m.n}${m.full ? ' is-full' : ''} r-${rarity} s-${c.s} sz-${o.size || 'm'}${st.ex ? ' is-ex' : ''}${o.ghost ? ' is-ghost' : ''}${o.cls ? ' ' + o.cls : ''}`;
   const style = `--tp:${T.pri};--ts:${T.sec}`;
   return o.tag === false ? `<div class="${cls}" style="${style}" role="img" aria-label="${esc(label)}">${inner}</div>`
     : `<button type="button" class="${cls}" style="${style}" data-dy-card="${esc(c.id)}" aria-label="${esc(label)}">${inner}</button>`;
@@ -118,15 +90,15 @@ const TRAINER_RULE = {coach: 'You may play only 1 Supporter card during your tur
 export function trainerHTML(t, o = {}) {
   if (!t) return '';
   const T = t.team ? D.teamOf(t.team) : null, m = D.markOf(t);
-  const label = `${t.name}, Trainer card, ${TRAINER_KIND[t.kind]}. ${t.text}${o.count > 1 ? `, ${o.count} copies` : ''}${o.ghost ? ', not in your collection' : ''}`;
-  const inner = `<span class="pk-c-face" aria-hidden="true"><span class="pk-t-head"><b>Trainer</b><i>${TRAINER_KIND[t.kind]}</i></span>`
-    + `<b class="pk-t-name">${esc(t.name)}</b>`
+  const kind = t.kind === 'coach' ? 'Coach' : TRAINER_KIND[t.kind];
+  const label = `${t.name}, ${kind} card. ${t.text}${o.count > 1 ? `, ${o.count} copies` : ''}${o.ghost ? ', not in your collection' : ''}`;
+  const inner = `<span class="pk-c-face" aria-hidden="true"><span class="pk-t-head"><b>RIVALS</b><i>${kind}</i></span>`
     + `<span class="pk-t-art">${TRAINER_ART[t.kind] || ''}${T ? `<img class="pk-t-logo" src="${esc(logoUrl(t.team, 96))}" alt="" loading="lazy" decoding="async" draggable="false" onerror="this.remove()">` : ''}</span>`
-    + `<span class="pk-t-text">${esc(t.text)}</span><span class="pk-t-rule">${TRAINER_RULE[t.kind] || ''}</span>`
-    + `<span class="pk-c-meta"><span class="pk-c-rar is-d">${m.mark}</span>`
-    + (o.isNew ? '<span class="pk-c-new" aria-hidden="true">NEW</span>' : '')
-    + (o.count > 0 && !o.noCount ? `<span class="pk-c-cnt" aria-hidden="true">${o.count}</span>` : '') + '</span></span>';
-  const cls = `pk-card pk-trainer k-${t.kind} m-d${m.n} sz-${o.size || 'm'}${o.ghost ? ' is-ghost' : ''}${o.cls ? ' ' + o.cls : ''}`;
+    + `<b class="pk-t-name">${esc(t.name)}</b><span class="pk-t-text">${esc(t.text)}</span>`
+    + `<span class="pk-c-meta"><span class="pk-c-rar is-d">${kind}</span>`
+    + (o.isNew ? '<span class="pk-c-new">NEW</span>' : '')
+    + (o.count > 0 && !o.noCount ? `<span class="pk-c-cnt">${o.count}</span>` : '') + '</span></span>';
+  const cls = `pk-card pk-rivals-card pk-trainer k-${t.kind} m-d${m.n} sz-${o.size || 'm'}${o.ghost ? ' is-ghost' : ''}${o.cls ? ' ' + o.cls : ''}`;
   const style = T ? `--tp:${T.pri};--ts:${T.sec}` : '';
   return o.tag === false ? `<div class="${cls}" style="${style}" role="img" aria-label="${esc(label)}">${inner}</div>`
     : `<button type="button" class="${cls}" style="${style}" data-dy-card="${esc(t.id)}" aria-label="${esc(label)}">${inner}</button>`;
@@ -136,15 +108,15 @@ export const lockedHTML = (o = {}) => `<div class="pk-card pk-locked sz-${o.size
 /** Any card by id: a player's or a Trainer card. */
 export const anyHTML = (id, o = {}) => (D.card(id) ? cardHTML(D.card(id), o) : trainerHTML(D.trainer(id), o));
 /** A card's battle side in words: type, HP, weakness and retreat, its Ability, its attacks. */
-export function battleHTML(id) {
+export function battleHTML(id, game = {v: B.RULES_VERSION}) {
   const t = D.trainer(id);
   if (t) return `<div class="pk-info"><p class="pk-info-k">${TRAINER_KIND[t.kind]} · ${TRAINER_RULE[t.kind]}</p><p>${esc(t.text)}</p></div>`;
   const st = B.stats(id), c = D.card(id);
   if (!st) return '';
   const T = B.TYPES[st.type];
-  const ab = st.ability ? `<div class="pk-ab"><b>Ability · ${esc(B.ABILITY[st.ability].name)}</b><span>${esc(B.ABILITY[st.ability].text)}</span></div>` : '';
-  const atk = st.attacks.map(a => `<li><span class="pk-cost">${a.cost.map(pipHTML).join('')}</span><span class="pk-an"><b>${esc(a.name)}</b>`
-    + `${B.fxText(a) ? `<small>${esc(B.fxText(a))}</small>` : ''}${a.note ? `<small>${esc(a.note)}</small>` : ''}${a.flat ? '<small>Ignores weakness.</small>' : ''}</span><em>${a.dmg}</em></li>`).join('');
+  const ab = st.ability ? `<div class="pk-ab"><b>Ability · ${esc(B.ABILITY[st.ability].name)}</b><span>${esc(B.abilityText(st.ability, game.v))}</span></div>` : '';
+  const atk = st.attacks.map((a, n) => `<li><span class="pk-cost">${a.cost.map(pipHTML).join('')}</span><span class="pk-an"><b>${esc(a.name)}</b>`
+    + `${B.fxText(a) ? `<small>${esc(B.fxText(a))}</small>` : ''}${a.note ? `<small>${esc(a.note)}</small>` : ''}${a.flat ? '<small>Ignores weakness.</small>' : ''}${B.signatureText(game, n) ? `<small class="pk-signature-note">${esc(B.signatureText(game, n))}</small>` : ''}</span><em>${a.dmg}</em></li>`).join('');
   const stage = st.stage ? `Stage 1: evolves from ${esc(c.name)}’s Basic card` : 'Basic';
   return `<div class="pk-info"><div class="pk-info-h">${typeHTML(st.type)}<span>${esc(T.name)} · ${stage}${st.ex ? ' · ex: worth 2 points' : ''}</span><b>${st.hp} HP</b></div>`
     + ab + `<ul class="pk-atk">${atk}</ul>`
@@ -229,24 +201,21 @@ function packBest(kind, n = 5) {
 }
 
 // ---------------------------------------------------------------------------------------------------- the header and tabs
-// Pocket's menu at the foot of the screen (the owner, Oct 29 2026, "Move the navigation tab to the bottom like the
-// attached picture"; the names stay for screen readers): Home (the packs), My Cards, Decks, Battle and the Menu (≡: the
-// Guide, coins, rankings, the title screen and the exit; the owner's screenshots, Oct 29 2026), five places as icons.
-// The header carries Pocket's counters: your packs to open (∞ when they're unlimited) and your coins.
+// Four labeled destinations; utility actions live in the header menu. The legacy pane IDs stay stable.
 const TABS = [
-  {id: 'packs', label: 'Home', title: 'Packs', ic: '<path d="M4 11.5L12 4.5l8 7V20h-5.5v-5.5h-5V20H4z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/>'},
-  {id: 'cards', label: 'My Cards', title: 'My Cards', ic: '<rect x="6" y="3.5" width="12" height="17" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="8.5" y="6" width="7" height="6" rx="1" fill="currentColor"/>'},
-  {id: 'decks', label: 'Decks', title: 'Decks', ic: '<path d="M5 8h14v11H5zM7 5h10v3H7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13.5" r="2.2" fill="none" stroke="currentColor" stroke-width="1.8"/>'},
-  {id: 'battle', label: 'Battle', title: 'Battle', ic: '<path d="M4 20l7-7M6 13l5 5M14.5 4H20v5.5L11 18.5M20 20l-7-7M18 13l-5 5M9.5 4H4v5.5l4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>'},
-  {id: 'menu', label: 'Menu', title: 'Menu', ic: '<path d="M5 7h14M5 12h14M5 17h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>'}
+  {id: 'battle', label: 'Play', title: 'Play', ic: '<path d="m9 5 11 7-11 7z" fill="currentColor"/>'},
+  {id: 'cards', label: 'Cards', title: 'My Cards', ic: '<rect x="6" y="3" width="13" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3 7v13" stroke="currentColor" stroke-width="1.8"/>'},
+  {id: 'decks', label: 'Decks', title: 'Decks', ic: '<path d="M4 8h16v12H4zM7 4h10v4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9 13h6M9 16h4" stroke="currentColor" stroke-width="1.8"/>'},
+  {id: 'packs', label: 'Packs', title: 'Packs', ic: '<path d="M6 3h12v18H6zM6 7h12M6 17h12" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m12 9 2 3-2 3-2-3z" fill="currentColor"/>'}
 ];
-const PANE_TABS = TABS.filter(t => t.id !== 'menu');
+const PANE_TABS = TABS;
 export function shellHTML() {
-  return `<div class="pk" data-dy><header class="pk-hdr">${ui.exitButton('data-dy-exit', 'Exit Gridiron Dynasty')}`
-    + `<h1 class="pk-title" data-pk-title tabindex="-1">Packs</h1><span class="pk-hud" data-dy-hud></span></header>`
+  return `<div class="pk" data-dy><header class="pk-hdr">${ui.exitButton('data-dy-exit', 'Exit Gridiron Rivals')}`
+    + `<div class="rh-brand"><span>GRIDIRON RIVALS</span><h1 class="pk-title" data-pk-title tabindex="-1">Play</h1></div><span class="pk-hud" data-dy-hud></span>`
+    + `<button type="button" class="rh-menu" data-dy-menu aria-label="Menu">${ui.icon('list', {size: 22})}</button></header>`
     + `<div class="pk-pane" data-dy-pane></div>`
-    + `<nav class="pk-nav" aria-label="Gridiron Dynasty">${TABS.map((t, i) => `<button type="button" class="pk-tab${i === 0 ? ' is-on' : ''}" ${t.id === 'menu' ? 'data-dy-menu' : `data-dy-tab="${t.id}" aria-pressed="${i === 0}"`}>`
-      + `<svg viewBox="0 0 24 24" aria-hidden="true">${t.ic}</svg><span class="sr-only">${t.label}</span><i class="pk-dot" hidden></i></button>`).join('')}</nav>`
+    + `<nav class="pk-nav" aria-label="Gridiron Rivals">${TABS.map((t, i) => `<button type="button" class="pk-tab${i === 0 ? ' is-on' : ''}" data-dy-tab="${t.id}" aria-pressed="${i === 0}">`
+      + `<svg viewBox="0 0 24 24" aria-hidden="true">${t.ic}</svg><span class="rh-tab-label">${t.label}</span><i class="pk-dot" hidden></i></button>`).join('')}</nav>`
     + startHTML() + '</div>';
 }
 /** The header's counters: packs to open (tap for the pack list) and coins. */
@@ -447,7 +416,7 @@ function artTo(st, to, dir) {
 function earnSheet() {
   const s = D.mine(), E = D.earned(s);
   const rows = Object.keys(D.PAY).map(g => `<li><span><b>${esc(D.GAME_NAME[g])}</b><small>${esc(D.PAY_WORDS[g])}</small></span><em>${E.today[g] ? '+' + nf(E.today[g]) : '–'}</em></li>`).join('');
-  const body = `<p class="pk-note">Coins open packs. The Daily Games pay them: each game’s first finished result of the day, from the day your Dynasty began. You’ve earned ${nf(E.total)} from ${E.days} game${E.days === 1 ? '' : 's'}.</p>`
+  const body = `<p class="pk-note">Coins open packs. The Daily Games pay them: each game’s first finished result of the day, from the day your Rivals began. You’ve earned ${nf(E.total)} from ${E.days} game${E.days === 1 ? '' : 's'}.</p>`
     + `<ul class="pk-list">${rows}</ul>`
     + `<p class="pk-note">You also get a free Standard Pack every day, ${nf(D.BATTLE_PAY.w.coins)} coins for a battle won (${nf(D.BATTLE_PAY.l.coins)} for a loss), coins for quick-selling cards, and collection rewards. Every pack opened gives ${D.PP_PER_PACK} pack points, to trade for a card you don’t have.</p>`;
   ui.openSheet({title: 'Coins', body, cls: 'pk-sheet', detents: ['large']});
@@ -587,6 +556,10 @@ function decksHTML(st) {
   h += `<div class="pk-actions is-deck"><button type="button" class="pk-pill" data-dy-addsheet>${ui.icon('plus', {size: 14})} Add cards</button>`
     + `<button type="button" class="pk-pill" data-dy-autodeck>${ui.icon('bolt', {size: 14})} Build my best deck</button></div>`;
   h += `<p class="pk-note">20 cards, at most 2 of any player or card, at least one Basic player. Your players’ types decide your energy: one or two types work best. Tap a card to see it or take it out.</p>`;
+  h += `<section class="rh-strategies"><h2>Find your play style</h2><p>Build from cards you own. Your current deck changes only when you choose a style.</p>${D.STRATEGIES.map(plan => {
+    const candidate = D.strategyDeck(plan.id, s.o);
+    return `<article class="rh-strategy"><div><h3>${esc(plan.name)}</h3><p>${esc(plan.description)}</p><small>${esc(plan.weakness)}</small></div><button type="button" class="pk-btn is-go" data-dy-strategy="${plan.id}"${candidate.ok ? '' : ' disabled'}>Use deck</button>${candidate.ok ? '' : `<p class="rh-strategy-missing">${esc(candidate.why)}</p>`}</article>`;
+  }).join('')}</section>`;
   h += `<div class="pk-grid">${uniq.map(id => anyHTML(id, {size: 's', count: counts[id]})).join('')}</div>`;
   return h;
 }
@@ -632,18 +605,28 @@ function renameSheet(st) {
 const ago = ms => { const m = Math.round(ms / 60000); return m < 60 ? `${Math.max(1, m)}m` : m < 1440 ? `${Math.round(m / 60)}h` : `${Math.round(m / 1440)}d`; };
 const avatarOf = (o, size = 36) => (o.member ? ui.avatar(o.member, {size}) : ui.nickAvatar(o.name, {size}));
 export function battleHome(st, s = D.mine()) {
-  const wait = waitingOf(st), cur = SOLO.current(), ready = D.claimable(s).length;
-  const fan = ['Tom Brady', 'Jerry Rice', 'Lawrence Taylor'].map(n => D.CARDS.find(c => c.s === 'X' && c.name === n)).filter(Boolean);
-  // (the banner: Pocket's slanted blue board, "Battle" on its tab, the mat in perspective, the energy afloat, Legends fanned)
-  return `<div class="pk-banner" aria-hidden="true"><span class="pk-banner-tab">Battle</span><span class="pk-banner-mat"></span>`
-    + `<span class="pk-banner-orbs">${['P', 'B', 'R', 'C'].map((e, i) => `<span style="--i:${i}">${pipHTML(e)}</span>`).join('')}</span>`
-    + `<span class="pk-banner-fan">${fan.map((c, i) => `<span style="--i:${i}">${cardHTML(c, {size: 's', tag: false, noCount: true})}</span>`).join('')}</span></div>`
-    + `<div class="pk-modes"><button type="button" class="pk-mode" data-dy-bv="versus">${MODE_IC.versus}<b>Versus</b><small>${wait ? `${wait === 1 ? 'A battle is' : `${wait} battles are`} waiting on you` : 'Challenge a friend'}</small>${wait ? '<i class="pk-bang">!</i>' : ''}</button>`
-    + `<button type="button" class="pk-mode" data-dy-bv="solo">${MODE_IC.solo}<b>Solo</b><small>${cur ? 'A battle in play' : 'Battle the computer'}</small>${cur && cur.state !== 'theirs' ? '<i class="pk-bang">!</i>' : ''}</button></div>`
-    + `<div class="pk-row-s"><button type="button" class="pk-mini" data-dy-guide>${MODE_IC.guide}<span>Guide</span></button>`
+  const wait = waitingOf(st), cur = SOLO.current(), dk = D.deckOf(s), ready = D.claimable(s).length;
+  const move = matchesOf(st).find(x => ['setup', 'yours'].includes(x.state));
+  const resume = move || cur;
+  const stars = dk.ids.map(id => D.card(id)).filter(Boolean).filter((c, i, a) => a.findIndex(x => x.id === c.id) === i).slice(0, 3);
+  const starter = !dk.ok && s.pk.start > 0;
+  const action = resume ? `data-dy-go="${resume.mid}"` : dk.ok ? 'data-dy-solo="rookie-camp"' : starter ? 'data-dy-tab="packs"' : 'data-dy-tab="decks"';
+  const label = resume ? 'Continue match' : dk.ok ? 'Play solo' : starter ? 'Open starter pack' : 'Prepare your deck';
+  return `<section class="rh-hero" aria-label="Play Rivals"><div class="rh-kicker"><span class="rh-live"></span> YOUR NEXT BIG PLAY</div>`
+    + `<h2>Build your team.<br>Outplay your rival.</h2><p>${resume ? `Your match against ${esc(resume.opp.name)} is waiting.` : 'Collect the stars. Find your combination. First to three touchdowns wins.'}</p>`
+    + `<button type="button" class="rh-play" ${action}>${ui.icon('play-fill', {size: 18})}${label}${ui.icon('chevron-right', {size: 18})}</button>`
+    + `<span class="rh-hero-note">${resume ? 'Your cards and progress are saved' : starter ? 'Your first pack builds a ready-to-play deck' : 'Solo practice · Play at your pace'}</span>`
+    + `<div class="rh-yard" aria-hidden="true"><span>20</span><span>40</span><span>50</span><span>40</span><span>20</span></div></section>`
+    + `<button type="button" class="rh-active-deck" data-dy-tab="decks"><span class="rh-deck-art" aria-hidden="true">${stars.slice(0, 2).map((c, i) => `<span style="--i:${i}">${cardHTML(c, {size: 's', tag: false, noCount: true})}</span>`).join('')}</span>`
+    + `<span class="rh-deck-copy"><small>ACTIVE DECK</small><b>${esc(D.teamName(s))}</b><span>${dk.ids.length}/20 cards · ${dk.ok ? 'Ready to play' : esc(dk.why)}</span></span>${ui.icon('chevron-right', {size: 18})}</button>`
+    + `<div class="rh-section-head"><h2>Choose your matchup</h2><span>${nf(s.rec.w)} W · ${nf(s.rec.l)} L</span></div>`
+    + `<div class="pk-modes"><button type="button" class="pk-mode" data-dy-bv="versus">${MODE_IC.versus}<b>Challenge a friend</b><small>${wait ? `${wait} ${wait === 1 ? 'match needs' : 'matches need'} your attention` : 'Take turns, on your schedule'}</small>${wait ? '<i class="pk-bang">!</i>' : ''}</button>`
+    + `<button type="button" class="pk-mode" data-dy-bv="solo">${MODE_IC.solo}<b>Solo challenges</b><small>12 opponents · 4 difficulties</small></button></div>`
+    + `<details class="rh-how"><summary>Make every card count <span>How to play</span></summary><ol><li><b>Build your lineup.</b> One active player, up to three on the bench.</li><li><b>Prepare your play.</b> Attach energy, use a Coach, or switch players.</li><li><b>Choose your moment.</b> Quick plays keep energy. Signature plays spend one energy for a bigger effect.</li></ol><p>Knockouts score touchdowns. First to three wins. Matches already in progress keep their original rules.</p></details>`
+    + `<div class="pk-row-s"><button type="button" class="pk-mini" data-dy-guide>${MODE_IC.guide}<span>Rules</span></button>`
     + `<button type="button" class="pk-mini" data-dy-tab="decks">${TILE.decks}<span>Decks</span></button>`
-    + `<button type="button" class="pk-mini" data-dy-bv="rank" aria-label="Rankings: ${nf(s.tr)} trophies">${MODE_IC.rank}<span>Rankings</span>${s.tr ? `<i class="pk-mini-n">${nf(s.tr)}</i>` : ''}</button>`
-    + `<button type="button" class="pk-mini is-end" data-dy-goto="cols" aria-label="Missions: the collections${ready ? ', a reward to claim' : ''}">${MODE_IC.missions}<span>Missions</span>${ready ? '<i class="pk-bang">!</i>' : ''}</button></div>`;
+    + `<button type="button" class="pk-mini" data-dy-bv="rank">${MODE_IC.rank}<span>Rankings</span></button>`
+    + `<button type="button" class="pk-mini is-end" data-dy-goto="cols">${MODE_IC.missions}<span>Collections</span>${ready ? '<i class="pk-bang">!</i>' : ''}</button></div>`;
 }
 const MODE_IC = {
   solo: '<svg viewBox="0 0 48 48" aria-hidden="true"><rect x="9" y="12" width="30" height="24" rx="8" fill="#E8F7FF" stroke="#25A9E0" stroke-width="2.4"/><circle cx="19" cy="24" r="3.2" fill="#25A9E0"/><circle cx="29" cy="24" r="3.2" fill="#25A9E0"/><path d="M24 12V6M20 6h8M9 24H5M43 24h-4M18 31h12" stroke="#25A9E0" stroke-width="2.4" stroke-linecap="round"/></svg>',
@@ -658,7 +641,7 @@ function versusHTML(st) {
   const score = x => (x.G ? `${x.G.p[x.you].pts}–${x.G.p[1 - x.you].pts}` : '');
   const sec = (title, items, f) => (items.length ? `<section class="pk-sec"><h2 class="pk-h">${title}</h2><ul class="pk-list">${items.map(f).join('')}</ul></section>` : '');
   const btn = (label, attrs, kind = 'go') => `<button type="button" class="pk-btn is-${kind}" ${attrs}>${label}</button>`;
-  let h = `<button type="button" class="pk-backrow" data-dy-bv="">${ui.icon('chevron-left', {size: 16})} Battle</button>`;
+  let h = `<button type="button" class="pk-backrow" data-dy-bv="">${ui.icon('chevron-left', {size: 16})} Play</button>`;
   if (!dk.ok) h += `<button type="button" class="pk-alert is-gold" data-dy-tab="decks">${ui.icon('info', {size: 18})}<span>Your deck isn’t ready: ${esc(dk.why)}</span>${ui.icon('chevron-right', {size: 16})}</button>`;
   h += sec('Your move', all.filter(x => ['invite', 'setup', 'yours'].includes(x.state)), x => x.state === 'invite'
     ? row(x, 'Challenged you to a battle', `<span class="pk-btns">${btn('Accept', `data-dy-accept="${x.mid}"${dk.ok ? '' : ' disabled'}`)}${btn('Decline', `data-dy-decline="${x.mid}"`, 'soft')}</span>`)
@@ -672,7 +655,7 @@ function versusHTML(st) {
   h += opp.length ? `<ul class="pk-list">${opp.map(o => `<li>${avatarOf(o)}<span class="pk-row-t"><b>${esc(o.name)}${o.guest ? ' <i class="pk-tag">Guest</i>' : ''}</b>`
     + `<small>${esc(o.team)} · ${nf(o.tr)} trophies · ${o.rec.w}–${o.rec.l}</small></span>`
     + (busy.has(o.key) ? '<span class="pk-n">In a battle</span>' : btn('Challenge', `data-dy-challenge="${o.key}"${dk.ok ? '' : ' disabled'}`)) + '</li>').join('')}</ul>`
-    : `<p class="pk-note">${daily.LB.ready ? 'Your opponent hasn’t opened Gridiron Dynasty yet. Once they do, you can challenge them here.' : 'Loading the other players…'}</p>`;
+    : `<p class="pk-note">${daily.LB.ready ? 'Your opponent hasn’t opened Gridiron Rivals yet. Once they do, you can challenge them here.' : 'Loading the other players…'}</p>`;
   h += '</section>';
   h += sec('Finished', all.filter(x => x.state === 'over').slice(0, 10), x => row(x, `${{points: 'Three points', empty: 'No players left', time: 'Turn limit', resign: 'Resigned', claim: 'Left it 72 hours'}[x.why] || ''} · ${score(x)}`,
     `<button type="button" class="pk-res ${x.result === 'w' ? 'is-w' : x.result === 'l' ? 'is-l' : ''}" data-dy-go="${x.mid}">${x.result === 'w' ? 'Won' : x.result === 'l' ? 'Lost' : 'Draw'}</button>`));
@@ -680,7 +663,7 @@ function versusHTML(st) {
 }
 function rankHTML() {
   const rows = D.others(undefined, {withMe: true});
-  return `<button type="button" class="pk-backrow" data-dy-bv="">${ui.icon('chevron-left', {size: 16})} Battle</button>`
+  return `<button type="button" class="pk-backrow" data-dy-bv="">${ui.icon('chevron-left', {size: 16})} Play</button>`
     + (rows.length ? `<ol class="pk-list pk-rank">${rows.map((r, i) => `<li class="${r.me ? 'is-me' : ''}"><span class="pk-rk">${i + 1}</span>`
       + `${r.member ? ui.avatar(r.member, {size: 32, you: r.me}) : ui.nickAvatar(r.name, {size: 32, you: r.me})}`
       + `<span class="pk-row-t"><b>${esc(r.me ? `${r.team} (you)` : r.team)}</b><small>${esc(r.name)}${r.guest ? ' · Guest' : ''} · ${r.rec.w}–${r.rec.l} · ${nf(r.cards)} cards</small></span>`
@@ -691,16 +674,16 @@ function guideSheet() {
     + `<li><b>Build a deck</b>20 cards: players and Trainers, at most 2 of any one, with at least one Basic player.</li>`
     + `<li><b>Set up</b>Start with 5 cards. Put a Basic player out as your active player and up to 3 on your bench.</li>`
     + `<li><b>Each turn</b>Draw a card. Take the energy from your Energy Zone (you see the next one coming) and attach it to a player. Put Basics on your bench, evolve, play Items (as many as you like), one Supporter and a Stadium, and switch out your active player once.</li>`
-    + `<li><b>Attack</b>An attack needs its energy on your active player. Attacking ends your turn. Hitting a weakness does +20: Air beats Blitz, Blitz beats Ground, Ground beats Coverage, Coverage beats Air.</li>`
+    + `<li><b>Attack</b>An attack needs its energy on your active player. Attacking ends your turn. In new matches, the second (signature) attack spends one attached energy; quick plays keep it. Existing matches keep their original rules. Hitting a weakness does +20: Air beats Blitz, Blitz beats Ground, Ground beats Coverage, Coverage beats Air.</li>`
     + `<li><b>Win</b>Knock out a player for a point (a Legend or Prime ex for two). Three points wins.</li>`
     + `<li><b>Solo</b>Battle the computer: four levels, three opponents each. A win pays coins, and your first win over each opponent pays packs too.</li>`
-    + `<li><b>Versus</b>Battles go in turns: play yours when you like, and your opponent gets YOUR MOVE on their Dynasty case.</li></ol>`;
+    + `<li><b>Versus</b>Battles go in turns: play yours when you like, and your opponent gets YOUR MOVE on their Rivals case.</li></ol>`;
   ui.openSheet({title: 'Guide', body, cls: 'pk-sheet', detents: ['large']});
 }
 // Solo: your battle in play, then the computer's opponents by level, each with what a win pays and your wins over it.
 function soloHTML() {
   const s = D.mine(), dk = D.deckOf(s), cur = SOLO.current();
-  let h = `<button type="button" class="pk-backrow" data-dy-bv="">${ui.icon('chevron-left', {size: 16})} Battle</button>`;
+  let h = `<button type="button" class="pk-backrow" data-dy-bv="">${ui.icon('chevron-left', {size: 16})} Play</button>`;
   if (!dk.ok) h += `<button type="button" class="pk-alert is-gold" data-dy-tab="decks">${ui.icon('info', {size: 18})}<span>Your deck isn’t ready: ${esc(dk.why)}</span>${ui.icon('chevron-right', {size: 16})}</button>`;
   if (cur) h += `<button type="button" class="pk-alert" data-dy-go="${cur.mid}">${MODE_IC.solo}<span>Your battle against ${esc(cur.opp.name)}: ${cur.state === 'theirs' ? 'its move' : 'your move'} · ${cur.G.p[0].pts}–${cur.G.p[1].pts}</span>${ui.icon('chevron-right', {size: 16})}</button>`;
   const packs = rw => Object.entries(rw).map(([k, n]) => `${n > 1 ? n + ' ' : ''}${D.PACKS[k].name}${n > 1 ? 's' : ''}`).join(', ');
@@ -790,9 +773,9 @@ function startCardsHTML() {
 }
 const startSay = () => (D.status === 'ready' ? 'Tap to Start' : D.status === 'error' ? 'The cards didn’t load. Tap to try again' : 'Loading the cards…');
 export function startHTML() {
-  return `<div class="pk-start${D.status === 'ready' ? ' is-ready' : ''}" data-dy-start role="button" tabindex="0" aria-label="Tap to start Gridiron Dynasty">`
+  return `<div class="pk-start${D.status === 'ready' ? ' is-ready' : ''}" data-dy-start role="button" tabindex="0" aria-label="Tap to start Gridiron Rivals">`
     + `<div class="pk-start-cards" data-dy-start-cards aria-hidden="true">${D.status === 'ready' ? startCardsHTML() : ''}</div>`
-    + `<div class="pk-start-top">${ui.exitButton('data-dy-exit', 'Exit Gridiron Dynasty')}<span class="pk-start-ver"><span>Ver. ${APP_VER}.${D.VERSION}</span><span>Support ID: ${supportId()}</span></span>`
+    + `<div class="pk-start-top">${ui.exitButton('data-dy-exit', 'Exit Gridiron Rivals')}<span class="pk-start-ver"><span>Ver. ${APP_VER}.${D.VERSION}</span><span>Support ID: ${supportId()}</span></span>`
     + `<button type="button" class="pk-start-menu" data-dy-menu aria-label="Menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></button></div>`
     + `<div class="pk-start-logo" role="img" aria-label="Gridiron Rivals: Trading Card Game"><span class="pk-logo-top">Gridiron</span><span class="pk-logo-plate">Trading Card Game</span><span class="pk-logo-sub">Rivals</span></div>`
     + `<p class="pk-start-tap" data-dy-start-say aria-live="polite">${startSay()}</p>`
@@ -846,14 +829,14 @@ function menuSheet(st) {
   const items = [
     {id: 'guide', ic: 'info', label: 'Guide', sub: 'How to play'},
     {id: 'coins', ic: 'sparkle', label: 'Coins', sub: s ? `${nf(D.balance(s))} · how you earn them` : 'How you earn them'},
-    {id: 'rank', ic: 'trophy', label: 'Rankings', sub: s ? `${nf(s.tr)} trophies · ${s.rec.w}–${s.rec.l}` : 'The Dynasty board'},
+    {id: 'rank', ic: 'trophy', label: 'Rankings', sub: s ? `${nf(s.tr)} trophies · ${s.rec.w}–${s.rec.l}` : 'The Rivals board'},
     {id: 'odds', ic: 'chart', label: 'Offering Rates', sub: P.name},
     {id: 'title', ic: 'play-fill', label: 'Title screen', sub: 'Back to the start'},
-    {id: 'exit', ic: 'close', label: 'Exit Gridiron Dynasty', sub: 'Back to Daily Games', cls: 'is-exit'}
+    {id: 'exit', ic: 'close', label: 'Exit Gridiron Rivals', sub: 'Back to Daily Games', cls: 'is-exit'}
   ];
   const body = `<ul class="pk-list pk-menu">${items.map(x => `<li><button type="button" class="pk-menu-b${x.cls ? ' ' + x.cls : ''}" data-dy-m="${x.id}"><i class="pk-menu-i">${ui.icon(x.ic, {size: 20})}</i>`
     + `<span class="pk-row-t"><b>${esc(x.label)}</b><small>${esc(x.sub)}</small></span>${ui.icon('chevron-right', {size: 16})}</button></li>`).join('')}</ul>`
-    + `<p class="pk-note pk-menu-foot">Gridiron Dynasty · Ver. ${APP_VER}.${D.VERSION} · Support ID ${supportId()}</p>`;
+    + `<p class="pk-note pk-menu-foot">Gridiron Rivals · Ver. ${APP_VER}.${D.VERSION} · Support ID ${supportId()}</p>`;
   const sh = ui.openSheet({title: 'Menu', body, cls: 'pk-sheet', detents: ['fit']});
   sh.body.addEventListener('click', e => {
     const b = e.target.closest('[data-dy-m]');
@@ -867,7 +850,7 @@ function menuSheet(st) {
       else if (id === 'rank') { if (s) { st.bv = 'rank'; go(st, 'battle', {keep: true}); } }
       else if (id === 'odds') oddsSheet(st.pack);
       else if (id === 'title') showStart(st);
-      else if (id === 'exit') ui.confirmExit({game: 'Gridiron Dynasty', cls: 'pk-sheet'}).then(home => { if (home && !st.dead) st.ctx.back(); });
+      else if (id === 'exit') ui.confirmExit({game: 'Gridiron Rivals', cls: 'pk-sheet'}).then(home => { if (home && !st.dead) st.ctx.back(); });
     }, 280);
   });
 }
@@ -976,15 +959,15 @@ function go(st, tab, {keep = false} = {}) {
 export default {
   id: 'dynasty',
   chrome: 'none',
-  title: 'Dynasty',
+  title: 'Rivals',
 
   render() { return shellHTML(); },
 
   mount(el, ctx) {
-    const st = {el, ctx, tab: 'packs', pack: D.DAILY_PACK, art: artLoad(), bv: '', f: {view: 'mine', ser: '', pos: '', rar: '', q: ''}, shown: PAGE, dead: false, starting: false, stops: [], panes: new Map(), revision: 0, refreshFrame: 0, hidden: false};
+    const st = {el, ctx, tab: 'battle', pack: D.DAILY_PACK, art: artLoad(), bv: '', f: {view: 'mine', ser: '', pos: '', rar: '', q: ''}, shown: PAGE, dead: false, starting: false, stops: [], panes: new Map(), revision: 0, refreshFrame: 0, hidden: false};
     ST.set(ctx, st);
     fullScreen(st, ctx.visible);
-    ctx.setBackTitle('Dynasty');
+    ctx.setBackTitle('Rivals');
     el.addEventListener('input', e => {
       if (e.target.name === 'dy-q') { st.f.q = e.target.value; clearTimeout(st.qT); st.qT = setTimeout(() => drawGrid(st), 160); }
     });
@@ -997,7 +980,7 @@ export default {
       const t = e.target;
       const q = sel => t.closest(sel);
       let b;
-      if (q('[data-dy-exit]')) { ui.confirmExit({game: 'Gridiron Dynasty', cls: 'pk-sheet'}).then(home => { if (home && !st.dead) ctx.back(); }); return; }
+      if (q('[data-dy-exit]')) { ui.confirmExit({game: 'Gridiron Rivals', cls: 'pk-sheet'}).then(home => { if (home && !st.dead) ctx.back(); }); return; }
       if (q('[data-dy-menu]')) { menuSheet(st); return; }
       if (q('[data-dy-retry]')) { D.load().then(() => refresh(st), () => refresh(st)); refresh(st); return; }
       if ((b = q('[data-dy-tab]'))) { go(st, b.dataset.dyTab); return; }
@@ -1029,11 +1012,18 @@ export default {
       if ((b = q('[data-dy-claim]'))) { claimIt(st, b.dataset.dyClaim); return; }
       if ((b = q('[data-dy-col]'))) { colSheet(st, b.dataset.dyCol); return; }
       if (q('[data-dy-addsheet]')) { addSheet(st); return; }
+      if ((b = q('[data-dy-strategy]'))) {
+        const plan = D.STRATEGIES.find(x => x.id === b.dataset.dyStrategy), candidate = D.strategyDeck(b.dataset.dyStrategy, D.mine().o);
+        if (!candidate.ok) { ui.toast(candidate.why, {icon: 'info'}); return; }
+        const r = D.setDeck(candidate.ids);
+        if (r && !r.ok) { ui.toast(r.why, {icon: 'info'}); return; }
+        ui.haptic('success'); ui.toast(`${plan.name} deck ready`, {icon: 'check-circle'}); refresh(st); return;
+      }
       if (q('[data-dy-autodeck]')) { D.setDeck(D.autoDeck(D.mine().o)); ui.haptic('success'); ui.toast('Your best deck is in', {icon: 'check-circle'}); refresh(st); return; }
       if (q('[data-dy-rename]')) { renameSheet(st); return; }
       const run = (r, then) => { if (!r.ok) { ui.toast(r.why, {icon: 'info'}); return; } ui.haptic('success'); if (then) then(r); refresh(st); };
       if ((b = q('[data-dy-solo]'))) { startSolo(st, b.dataset.dySolo); return; }
-      if ((b = q('[data-dy-challenge]'))) { run(MT.challenge(b.dataset.dyChallenge), () => ui.toast('Challenge sent. It’s on their Dynasty now.', {icon: 'check-circle'})); return; }
+      if ((b = q('[data-dy-challenge]'))) { run(MT.challenge(b.dataset.dyChallenge), () => ui.toast('Challenge sent. It’s on their Rivals now.', {icon: 'check-circle'})); return; }
       if ((b = q('[data-dy-accept]'))) { run(MT.accept(b.dataset.dyAccept), r => ctx.nav(`/puzzles/dynasty/battle/${r.mid}`)); return; }
       if ((b = q('[data-dy-decline]'))) { run(MT.decline(b.dataset.dyDecline)); return; }
       if ((b = q('[data-dy-cancel]'))) { run(MT.cancel(b.dataset.dyCancel)); return; }

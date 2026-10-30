@@ -1,0 +1,78 @@
+/* Rivals hub. Scoped to the card game; Pick'em also uses the pk- prefix. */
+.v-dynasty .pk { --tint: #15745a; --ink: #152b3c; background: #f4f3ec; }
+.v-dynasty .pk-hdr { grid-template-columns: 40px minmax(0,1fr) auto 40px; gap: 6px; padding-inline: 12px; background: #faf9f4; border-bottom: 1px solid #dce1dc; }
+.v-dynasty .rh-brand { min-width: 0; }
+.v-dynasty .rh-brand > span { display: block; color: #52685f; font-size: 9px; font-weight: 800; letter-spacing: .12em; white-space: nowrap; }
+.v-dynasty .pk-title { text-align: left; font-size: 20px; margin-top: 2px; }
+.v-dynasty .rh-menu { display: grid; place-items: center; width: 40px; height: 44px; color: #183b32; background: none; border-radius: 10px; }
+.v-dynasty .rh-menu:hover { background: #e7ede5; }
+.v-dynasty .pk-pane { padding-top: 16px; background: #f4f3ec; }
+.v-dynasty .pk-nav { grid-template-columns: repeat(4, minmax(0, 1fr)); background: #faf9f4; border-top: 1px solid #d4ddd5; padding-top: 6px; }
+.v-dynasty .pk-tab { flex-direction: column; gap: 4px; min-height: 58px; color: #64736e; border-radius: 12px; }
+.v-dynasty .pk-tab svg { width: 23px; height: 23px; filter: none; }
+.v-dynasty .rh-tab-label { font-size: 11px; font-weight: 750; line-height: 1.2; }
+.v-dynasty .pk-tab.is-on { color: #125d49; background: #e4eee3; }
+.v-dynasty .pk-tab.is-on::after { display: none; }
+.v-dynasty .rh-hero { position: relative; overflow: hidden; isolation: isolate; padding: 24px 22px 18px; border-radius: 22px; background: #142c35; color: #fffdf4; box-shadow: 0 8px 22px #142c3512; }
+.v-dynasty .rh-hero::before { content: ''; position: absolute; inset: 0; z-index: -1; background: radial-gradient(ellipse at 110% 80%, #346a53 0, transparent 64%); }
+.v-dynasty .rh-kicker { display: flex; align-items: center; gap: 7px; font-size: 10px; font-weight: 800; letter-spacing: .13em; color: #c5ddc8; }
+.v-dynasty .rh-live { width: 6px; height: 6px; border-radius: 50%; background: #d9ee9b; box-shadow: 0 0 0 4px #d9ee9b16; }
+.v-dynasty .rh-hero h2 { margin: 16px 0 10px; font: 800 clamp(28px, 7.8vw, 36px)/1.05 var(--font-text); letter-spacing: -.04em; }
+.v-dynasty .rh-hero p { max-width: 32ch; margin: 0 0 20px; font-size: 13px; line-height: 1.6; color: #c9d8d6; }
+.v-dynasty .rh-play { display: flex; width: 100%; min-height: 52px; padding: 12px 16px; align-items: center; justify-content: center; gap: 10px; border-radius: 12px; background: #deedaa; color: #172e2d; font-size: 15px; font-weight: 800; transition: background .15s, transform .15s; }
+.v-dynasty .rh-play .ic:last-child { margin-left: auto; }
+.v-dynasty .rh-play:hover { background: #eaf7be; }
+.v-dynasty .rh-play:active { transform: scale(.98); }
+.v-dynasty .rh-hero-note { display: block; margin-top: 10px; text-align: center; font-size: 10px; color: #bfcec6; }
+.v-dynasty .rh-yard { display: flex; justify-content: space-between; margin: 22px 0 -5px; border-top: 1px solid #ffffff20; padding-top: 6px; color: #a7c6b5; font-size: 9px; letter-spacing: .1em; }
+.v-dynasty .rh-yard span { position: relative; }
+.v-dynasty .rh-yard span::before { content: ''; position: absolute; height: 7px; width: 1px; background: #ffffff35; left: 50%; top: -10px; }
+.v-dynasty .rh-active-deck { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; border: 1px solid #d8dfd6; border-radius: 16px; padding: 14px; margin: 16px 0 24px; background: #fcfbf7; color: #20382e; }
+.v-dynasty .rh-deck-art { display: block; position: relative; width: 62px; height: 68px; flex: none; }
+.v-dynasty .rh-deck-art > span { position: absolute; width: 43px; left: calc(var(--i) * 16px); top: calc(var(--i) * 4px); transform: rotate(calc(-9deg + var(--i) * 16deg)); }
+.v-dynasty .rh-deck-copy { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 4px; }
+.v-dynasty .rh-deck-copy small { color: #647c6c; font-size: 9px; letter-spacing: .1em; font-weight: 800; }
+.v-dynasty .rh-deck-copy b { font-size: 15px; overflow-wrap: anywhere; }
+.v-dynasty .rh-deck-copy > span { font-size: 11px; line-height: 1.4; color: #52685b; }
+.v-dynasty .rh-section-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px; }
+.v-dynasty .rh-section-head h2 { font-size: 16px; margin: 0; letter-spacing: -.02em; }
+.v-dynasty .rh-section-head > span { font-size: 10px; color: #617268; white-space: nowrap; }
+.v-dynasty .pk-modes { gap: 10px; margin-top: 0; }
+.v-dynasty .pk-mode { min-height: 126px; border: 1px solid #d8dfd6; border-radius: 16px; background: #fcfbf7; box-shadow: none; padding: 16px 10px; }
+.v-dynasty .pk-mode > svg { width: 32px; height: 32px; }
+.v-dynasty .pk-mode b { font-size: 13px; color: #20382e; }
+.v-dynasty .pk-mode small { font-size: 10px; line-height: 1.4; color: #627267; }
+.v-dynasty .rh-how { margin: 16px 0; border: 1px solid #d8dfd6; background: #eaf0e5; border-radius: 14px; padding: 15px; color: #294539; }
+.v-dynasty .rh-how summary { cursor: pointer; font-size: 12px; font-weight: 750; }
+.v-dynasty .rh-how summary span { float: right; font-size: 10px; font-weight: 500; }
+.v-dynasty .rh-how ol { padding-left: 18px; margin: 14px 0 8px; }
+.v-dynasty .rh-how li { margin-top: 10px; font-size: 12px; line-height: 1.5; }
+.v-dynasty .rh-how p { font-size: 11px; line-height: 1.5; }
+.v-dynasty .pk-row-s { margin-top: 8px; }
+.v-dynasty .pk-mini { background: #fcfbf7; border: 1px solid #d8dfd6; border-radius: 12px; box-shadow: none; }
+.v-dynasty .pk-mini span { font-size: 10px; }
+.v-dynasty .rh-strategies { margin: 20px 0; }
+.v-dynasty .rh-strategies > h2 { font-size: 17px; margin: 0 0 6px; }
+.v-dynasty .rh-strategies > p { color: #607066; font-size: 12px; line-height: 1.5; }
+.v-dynasty .rh-strategy { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 10px; margin-top: 10px; padding: 14px; border: 1px solid #d5dfd2; border-radius: 14px; background: #fcfbf7; }
+.v-dynasty .rh-strategy h3 { margin: 0 0 5px; font-size: 14px; }
+.v-dynasty .rh-strategy p { margin: 0; font-size: 11px; line-height: 1.5; color: #4d6358; }
+.v-dynasty .rh-strategy small { display: block; margin-top: 6px; font-size: 10px; color: #72633f; line-height: 1.4; }
+.v-dynasty .rh-strategy .rh-strategy-missing { grid-column: 1 / -1; border-top: 1px solid #e2e6dd; padding-top: 8px; }
+.v-dynasty .rh-strategy button { min-height: 44px; }
+.v-dynasty :is(.rh-menu, .rh-play, .rh-active-deck, .pk-tab, .rh-how summary):focus-visible { outline: 3px solid #ae832b; outline-offset: 3px; }
+@media (max-width: 360px) {
+  .v-dynasty .pk-hdr { gap: 3px; padding-inline: 8px; grid-template-columns: 36px minmax(0,1fr) auto 34px; }
+  .v-dynasty .rh-brand > span { font-size: 8px; letter-spacing: .05em; }
+  .v-dynasty .pk-hud { gap: 4px; }
+  .v-dynasty .pk-meter { min-width: 0; padding-inline: 4px; }
+  .v-dynasty .rh-hero { padding: 20px 18px 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .v-dynasty .rh-play { transition: none; }
+}
+/* A collection card must be legible at phone width; small showcase fans retain their own sizing. */
+.v-dynasty .pk-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 12px; }
+@media (min-width: 700px) {
+  .v-dynasty .pk-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}

@@ -1,9 +1,8 @@
-// Gridiron Dynasty's title screen and Pocket's theme details in a real browser (the owner, Oct 29 2026: "Create a start
-// screen when entering the dynasty. Implement more details into the theme of the app similar to the attached images").
+// Rivals' title screen, play-first navigation and collection flows in a real browser.
 // Local only: the app is served from this folder with Firebase disabled, so nothing reaches the live board.
 // For Evan and Ryan Stewart (the Dynasty's two players, features.js dynastyOpen): entering shows the title screen over an
-// inert shell, the cards drift in once they've loaded, a tap (and Enter) starts, the five tabs with the Menu, the header's
-// counters, the Packs stage (the clock pill, the tags, the round Open), the Battle tab (the banner, Versus, Solo, Guide,
+// inert shell, the cards drift in once they've loaded, a tap (and Enter) starts, four labeled tabs, the header's Menu and
+// counters, the Packs stage (the clock pill, the tags, the round Open), the Play tab (Versus, Solo, Guide,
 // Decks, Rankings, Missions), the Menu sheet and its Title screen item, back from a Solo battle without the title screen
 // again, and every kit check in checks-dynasty.js. For a member who isn't theirs and a visitor: the link lands on the list.
 // Usage: node tools/dynasty/check-start-browser.cjs [--shots=<dir>]   (Playwright's Chromium; screenshots when --shots)
@@ -70,13 +69,23 @@ async function playerFlow(page, p, {reduced}) {
   assert.equal(await page.locator('.pk-start .gg-exit').count(), 1, T + ': the red X on the title screen');
   assert.equal(await page.locator('.pk-start-logo').textContent(), 'GridironTrading Card GameRivals', T + ': the logo');
   await snap(page, `${p.tag}${reduced ? '-rm' : ''}-title`);
-  // tap anywhere: the Packs
+  // Tap anywhere: Play is the home, with visible labels for every main destination.
   await page.locator('.pk-start').click({position: {x: 195, y: 640}});
   await page.waitForFunction(() => !document.querySelector('.pk-start'), null, {timeout: 5000});
   assert.equal(await page.locator('.pk.is-start, [inert]').count(), 0, T + ': the shell is live again');
-  assert.equal(await page.locator('.pk-tab').count(), 5, T + ': five tabs at the foot');
-  assert.equal(await page.locator('.pk-tab[data-dy-menu]').count(), 1, T + ': the Menu tab');
+  assert.equal(await page.locator('.pk-tab').count(), 4, T + ': four tabs at the foot');
+  assert.deepEqual(await page.locator('.pk-tab').allTextContents(), ['Play', 'Cards', 'Decks', 'Packs'], T + ': four readable navigation labels');
+  assert.equal(await page.locator('.pk-tab.is-on').getAttribute('data-dy-tab'), 'battle', T + ': Play is selected on entry');
+  assert.equal(await page.locator('[data-pk-title]').textContent(), 'Play', T + ': Play is the current page');
+  assert.equal(await page.locator('.pk-hdr [data-dy-menu]').count(), 1, T + ': Menu is in the header');
+  const labels = await page.locator('.pk-tab span:not(.pk-dot)').evaluateAll(nodes => nodes.map(n => {
+    const s = getComputedStyle(n), r = n.getBoundingClientRect();
+    return s.clip !== 'rect(0px, 0px, 0px, 0px)' && r.width > 8 && r.height >= 10;
+  }));
+  assert.ok(labels.length >= 4 && labels.every(Boolean), T + ': navigation labels are visually readable');
+  await snap(page, `${p.tag}${reduced ? '-rm' : ''}-play`);
   assert.match((await page.locator('[data-dy-hud]').innerText()).replace(/\s+/g, ' '), /∞ MAX [\d,]+ coins/, T + ': the header’s counters (unlimited packs, coins)');
+  await page.locator('.pk-tab[data-dy-tab="packs"]').click();
   for (const sel of ['.pk-packs', '.pk-clock', '.pk-show-tip', '.pk-tags > b', '.pk-round[data-dy-goto="cols"]', '.pk-round[data-dy-earn]', 'button.pk-open.is-round', '.pk-actions .pk-pill[data-dy-odds]', '.pk-actions .pk-pill[data-dy-packs]', '.pk-pts'])
     assert.equal(await page.locator(sel).count(), 1, T + ': the Packs stage has ' + sel);
   await snap(page, `${p.tag}${reduced ? '-rm' : ''}-packs`);
@@ -143,13 +152,12 @@ async function playerFlow(page, p, {reduced}) {
   assert.equal(await front(), 'Legends', T + ': the pack list brings a pack to the front');
   assert.deepEqual(await page.locator('.pk-car-bk').evaluateAll(l => l.map(b => b.dataset.dyTo)), ['start', 'std'], T + ': the stack wraps round to the Starter Pack');
   await snap(page, `${p.tag}${reduced ? '-rm' : ''}-stack`);
-  // the Battle tab
+  // Play: routes to solo, friend challenges, deck editing, rules and collections.
   await page.locator('.pk-tab[data-dy-tab="battle"]').click();
-  await page.waitForSelector('.pk-banner-tab');
-  assert.equal(await page.locator('.pk-banner-tab').textContent(), 'Battle', T + ': the banner’s tab');
-  assert.equal(await page.locator('.pk-banner-orbs .pk-e').count(), 4, T + ': the energy afloat on the banner');
-  assert.deepEqual(await page.locator('.pk-mode b').allTextContents(), ['Versus', 'Solo'], T + ': Versus then Solo');
-  assert.deepEqual(await page.locator('.pk-mini span:not(.sr-only)').allTextContents(), ['Guide', 'Decks', 'Rankings', 'Missions'], T + ': Guide, Decks, Rankings, Missions');
+  await page.waitForSelector('.pk-mode');
+  assert.equal(await page.locator('.pk-mode[data-dy-bv="versus"]').count(), 1, T + ': friend challenges are directly accessible');
+  assert.equal(await page.locator('.pk-mode[data-dy-bv="solo"]').count(), 1, T + ': solo opponents are directly accessible');
+  assert.deepEqual(await page.locator('.pk-mini span:not(.sr-only)').allTextContents(), ['Rules', 'Decks', 'Rankings', 'Collections'], T + ': Guide, Decks, Rankings, Missions');
   await snap(page, `${p.tag}${reduced ? '-rm' : ''}-battle`);
   // Missions: the collections
   await page.locator('.pk-mini[data-dy-goto="cols"]').click();
@@ -172,9 +180,9 @@ async function playerFlow(page, p, {reduced}) {
   await page.locator('.sheet.pk-sheet [aria-label="Close"], .sheet.pk-sheet .sheet-close').first().click().catch(() => page.keyboard.press('Escape'));
   await page.waitForFunction(() => !document.querySelector('.sheet.pk-sheet'), null, {timeout: 5000});
   // the Menu
-  await page.locator('.pk-tab[data-dy-menu]').click();
+  await page.locator('.pk-hdr [data-dy-menu]').click();
   await page.waitForSelector('.pk-menu');
-  assert.deepEqual(await page.locator('.pk-menu b').allTextContents(), ['Guide', 'Coins', 'Rankings', 'Offering Rates', 'Title screen', 'Exit Gridiron Dynasty'], T + ': the Menu’s items');
+  assert.deepEqual(await page.locator('.pk-menu b').allTextContents(), ['Guide', 'Coins', 'Rankings', 'Offering Rates', 'Title screen', 'Exit Gridiron Rivals'], T + ': the Menu’s items');
   await snap(page, `${p.tag}${reduced ? '-rm' : ''}-menu`);
   await page.locator('[data-dy-m="title"]').click();
   await page.waitForSelector('.pk-start.is-ready', {timeout: 5000});
@@ -217,10 +225,11 @@ async function playerFlow(page, p, {reduced}) {
 
 async function run(url) {
   const {chromium} = require('playwright');
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({executablePath: process.env.CHROMIUM_PATH || undefined});
   try {
     for (const p of PROFILES) for (const reduced of (p.plays && p.tag === 'evan' ? [false, true] : [false])) {
       const context = await browser.newContext({viewport: {width: 390, height: 844}, deviceScaleFactor: 2, serviceWorkers: 'block', reducedMotion: reduced ? 'reduce' : 'no-preference'});
+      await context.route('https://**/*', route => route.abort());
       await context.addInitScript(p => {
         localStorage.setItem('gg-me', p.me);
         if (p.guest) localStorage.setItem('gg-guest', p.guest);
@@ -248,7 +257,7 @@ async function run(url) {
       await context.close();
     }
   } finally { await browser.close(); }
-  console.log('PASS: Gridiron Dynasty title screen and Pocket theme');
+  console.log('PASS: Rivals title screen, play-first navigation, collections and access boundaries');
 }
 
 (async () => {

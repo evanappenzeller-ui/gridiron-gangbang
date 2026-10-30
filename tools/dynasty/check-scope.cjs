@@ -7,7 +7,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const root = path.resolve(__dirname, '../..');
-const FILES = ['css/views/dynasty.css', 'css/views/dynasty-packs.css', 'css/views/dynasty-open.css'];
+const FILES = ['css/views/dynasty.css', 'css/views/dynasty-packs.css', 'css/views/dynasty-open.css', 'css/views/dynasty-rivals.css', 'css/views/dynasty-rivals-hub.css', 'css/views/dynasty-rivals-battle.css'];
 const ROOTED = /^(:where\(\.v-dynasty\b[^)]*\)|\.v-dynasty\b|\.v-dynasty-battle\b|\.sheet\.pk-sheet|\.pk-sheet\b|div\.pk-open\b|\.pk-behind\b|html\b|:root|body\b|#stage)/;
 function splitSel(s) {
   const out = []; let d = 0, q = null, cur = '';
