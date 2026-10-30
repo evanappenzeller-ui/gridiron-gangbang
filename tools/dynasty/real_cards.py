@@ -9,6 +9,10 @@ A name goes to the Dynasty player of that name (C.J. and CJ the same); where two
 receiver and a Browns linebacker) to the one with the higher-rated card, the star the downloader searched for. Each
 player's cards are listed newest base card first (the one his Dynasty card shows), then his inserts newest first; FIRST
 puts a chosen card in front instead. A player with more than one Dynasty card shows the next on each (dynasty-real.js).
+
+The downloader's list (the owner, Oct 29 2026, so his free calls go to the best cards first): python3
+tools/dynasty/real_cards.py --players <file> writes every Dynasty player still without real cards, one name a line,
+highest-rated first (a nickname in quotes left out: Dick Lane, not Dick "Night Train" Lane).
 """
 import csv, json, os, re, shutil, sys
 
@@ -26,8 +30,32 @@ FIRST = {
 }
 
 
+def plain(name):
+    return re.sub(r'\s+', ' ', re.sub(r'"[^"]*"', '', name)).strip()
+
+
 def norm(name):
-    return re.sub(r'[^a-z]', '', name.lower())
+    return re.sub(r'[^a-z]', '', plain(name).lower())
+
+
+def players_list(out):
+    with open(DATA, encoding='utf-8') as f:
+        d = json.load(f)
+    with open(JS, encoding='utf-8') as f:
+        done = set(re.findall(r"^  '([^']+)': \[\[", f.read(), re.M))
+    best = {}
+    for c in d['cards']:
+        best[c[2]] = max(best.get(c[2], 0), c[3])
+    names, seen = [], {norm(d['players'][k][0]) for k in done}
+    for k in sorted(best, key=lambda k: (-best[k], d['players'][k][0])):
+        n = plain(d['players'][k][0])
+        if norm(n) not in seen:
+            seen.add(norm(n))
+            names.append(n)
+    with open(out, 'w', encoding='utf-8', newline='\n') as f:
+        f.write('# Gridiron Dynasty players still without real cards, highest-rated first (tools/dynasty/real_cards.py --players)\n')
+        f.write('\n'.join(names) + '\n')
+    print(f'{len(names)} players -> {out}')
 
 
 def js_str(s):
@@ -36,7 +64,9 @@ def js_str(s):
 
 def main():
     if len(sys.argv) < 2:
-        sys.exit('usage: real_cards.py <the nfl_cards folder>')
+        sys.exit('usage: real_cards.py <the nfl_cards folder> | --players <file>')
+    if sys.argv[1] == '--players':
+        return players_list(sys.argv[2])
     src = sys.argv[1]
     with open(DATA, encoding='utf-8') as f:
         d = json.load(f)
