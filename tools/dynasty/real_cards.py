@@ -28,6 +28,10 @@ FIRST = {
     'Adrian Peterson': '063fa3a5',      # 2022 Donruss Downtown
     'Josh Allen': '7ea9a460',           # 2025 Donruss Action All-Pros on his Prime card (Gameday and Live take the next)
 }
+# Scans of a namesake, not our player (checked by eye; the card id's first 8): left out
+WRONG = {
+    '99a0c87c',  # 2005 Bowman #271: the Titans' receiver Brandon Jones, not the Broncos' safety
+}
 
 
 def plain(name):
@@ -88,7 +92,7 @@ def main():
             unknown.add(r['player'])
             continue
         key, cid = max(keys, key=lambda k: best[k]), r['card_id'][:8]
-        if (key, cid) in seen:
+        if (key, cid) in seen or cid in WRONG:
             continue
         seen.add((key, cid))
         part = re.split(r'[\\/]', r['file'])
