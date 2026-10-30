@@ -61,7 +61,7 @@ div.pk-open ~ .confetti-canvas { z-index: 210; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-open-pack.is-drag { cursor: grabbing; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-open-pack:focus-visible .dy-rip-say { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
 @keyframes dy-wiggle { 0%, 100% { transform: rotate(-2deg); } 50% { transform: rotate(2deg) translateY(-6px); } }
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-rip { position: relative; width: min(232px, 58vw); aspect-ratio: 5 / 8; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-rip { position: relative; width: min(300px, 76vw, calc((100vh - 230px) / 1.6)); aspect-ratio: 5 / 8; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-open-pack:not(.is-drag):not(.is-touched) .dy-rip { animation: dy-wiggle 1.6s ease-in-out infinite; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-rip .pk-pack { position: absolute; inset: 0; width: 100%; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-rip .pk-pack-foil { animation: none; }
@@ -368,9 +368,130 @@ div.pk-open:is([data-tier="4"], [data-tier="5"], [data-tier="6"]) .dy-ff small {
 @keyframes pk-in { from { opacity: 0; transform: translateY(40px) scale(.86) rotate(4deg); } }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-res-c > .pk-c-new { top: -11px; left: -7px; font-size: 9px; padding: 2px 6px; } /* (small, above the corner: the name clear) */
 
+/* ---------------------------------------------------------------- Pocket's carousel (the owner, Oct 30 2026: "This is
+   how opening a pack should look"): a ring of the packs, the one in front nearest, a far ring on the horizon, the floor's
+   reflection under them. views/dynasty-open.js places each pack (translate3d, rotateY) from the ring's turn; the overlay's
+   perspective does the rest, so nothing needs preserve-3d */
+div.pk-open .dy-pick { position: absolute; inset: 0; z-index: 3; touch-action: none; outline: none; cursor: grab;
+  transition: opacity .4s ease; }
+div.pk-open .dy-pick[hidden] { display: none; }
+div.pk-open .dy-pick.is-gone { opacity: 0; pointer-events: none; }
+div.pk-open .dy-pick-floor { position: absolute; left: -10%; right: -10%; top: 62%; bottom: 0; pointer-events: none;
+  background: radial-gradient(60% 55% at 50% 18%, rgba(255,255,255,.95), rgba(255,255,255,.55) 45%, rgba(255,255,255,0) 80%); }
+div.pk-open .dy-pick-far, div.pk-open .dy-pick-ring { position: absolute; left: 50%; top: 42%; width: 0; height: 0; perspective: 900px; }
+div.pk-open .dy-fp, div.pk-open .dy-pp { position: absolute; will-change: transform; }
+div.pk-open .dy-fp { width: min(84px, 21vw); aspect-ratio: 5 / 8; left: calc(min(84px, 21vw) / -2); top: calc(min(84px, 21vw) * -.8 - 105px);
+  -webkit-box-reflect: below 4px linear-gradient(transparent 50%, rgba(255,255,255,.28)); }
+div.pk-open .dy-fp .pk-pack { width: 100%; box-shadow: none; filter: saturate(.7) brightness(1.12); opacity: .85; }
+div.pk-open .dy-pp { width: min(180px, 46vw); aspect-ratio: 5 / 8; left: calc(min(180px, 46vw) / -2); top: calc(min(180px, 46vw) * -.8); }
+div.pk-open .dy-pp-f, div.pk-open .dy-pp-b { position: absolute; inset: 0; -webkit-box-reflect: below 10px linear-gradient(transparent 58%, rgba(255,255,255,.4)); }
+div.pk-open .dy-pp .pk-pack.is-big { width: 100%; box-shadow: 0 6px 18px rgba(30,45,90,.22); }
+div.pk-open .dy-pp:not(.is-front) .pk-pack *, div.pk-open .dy-fp .pk-pack * { animation: none !important; }
+div.pk-open .dy-pp-b { display: none; transform: scaleX(-1); }
+div.pk-open .dy-pp.is-back .dy-pp-f { display: none; }
+div.pk-open .dy-pp.is-back .dy-pp-b { display: block; }
+div.pk-open .dy-pick.is-choosing .dy-pp:not(.is-chosen), div.pk-open .dy-pick.is-choosing .dy-fp { transition: opacity .5s; }
+div.pk-open .dy-pick-say { position: absolute; left: 0; right: 0; bottom: max(30px, calc(env(safe-area-inset-bottom) + 18px)); margin: 0; text-align: center;
+  font: 700 13px var(--font-text); color: var(--ink-3); animation: dy-fade .4s ease 1.3s both; }
+div.pk-open .dy-pick:focus-visible .dy-pick-say { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+div.pk-open .dy-pick.is-choosing .dy-pick-say { opacity: 0; transition: opacity .2s; animation: none; }
+/* a pack's back: its colour, the seam down the middle, crimped ends, the brand small */
+div.pk-open .dy-pack-back { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; padding-bottom: 14%;
+  border-radius: 4px; overflow: hidden; color: rgba(255,255,255,.85); box-shadow: 0 6px 18px rgba(30,45,90,.22);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--pc) 70%, #000) 0, var(--pc) 22%, color-mix(in srgb, var(--pc) 70%, #fff) 50%, var(--pc) 78%, color-mix(in srgb, var(--pc) 70%, #000) 100%); }
+div.pk-open .dy-pack-back::before, div.pk-open .dy-pack-back::after { content: ""; position: absolute; left: 0; right: 0; height: 6%;
+  background: repeating-linear-gradient(90deg, rgba(255,255,255,.35) 0 2px, rgba(0,0,0,.12) 2px 4px); }
+div.pk-open .dy-pack-back::before { top: 0; } div.pk-open .dy-pack-back::after { bottom: 0; }
+div.pk-open .dy-pb-seam { position: absolute; top: 6%; bottom: 6%; left: 46%; width: 8%; background: linear-gradient(90deg, rgba(0,0,0,.18), rgba(255,255,255,.35) 50%, rgba(0,0,0,.18)); }
+div.pk-open .dy-pack-back b { position: relative; font: 900 italic 13px/1 var(--font-text); letter-spacing: .04em; text-align: center; }
+div.pk-open .dy-pack-back b small { display: block; font-size: 8px; letter-spacing: .3em; }
+div.pk-open .dy-pack-back em { position: relative; font: 800 8px var(--font-text); font-style: normal; opacity: .8; }
+/* (the chosen pack grown into the rip's) */
+div.pk-open .dy-open-pack.is-zoom .dy-rip { animation: none; }
+div.pk-open .dy-open-pack.is-zoom .dy-rip-say { opacity: 0; }
+
+/* ---------------------------------------------------------------- under the card: its rarity's marks, popping in one by
+   one once it's face up (the count stays for the screen reader) */
+div.pk-open .pk-deal-n { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+div.pk-open .dy-marks { display: flex; gap: 6px; min-height: 30px; align-items: center; }
+div.pk-open .dy-marks > i { position: relative; font: 900 26px/1 var(--font-text); font-style: normal; color: #fff;
+  -webkit-text-stroke: 1.6px #2E3A55; paint-order: stroke fill; text-shadow: 0 2px 6px rgba(30,45,90,.3); animation: dy-mark .5s cubic-bezier(.2,1.6,.4,1) var(--d) both; }
+div.pk-open .dy-marks.is-s > i, div.pk-open .dy-marks.is-c > i { color: #FFD94A; -webkit-text-stroke-color: #7A5200; }
+div.pk-open .dy-marks > i::after { content: ""; position: absolute; left: 50%; top: 50%; width: 34px; height: 34px; margin: -17px 0 0 -17px; background: #fff;
+  clip-path: polygon(50% 0, 56% 44%, 100% 50%, 56% 56%, 50% 100%, 44% 56%, 0 50%, 44% 44%); opacity: 0; animation: dy-mark-spk .6s ease-out var(--d) both; }
+@keyframes dy-mark { 0% { opacity: 0; transform: scale(2.2); filter: brightness(3); } 60% { opacity: 1; filter: brightness(1.6); } 100% { opacity: 1; transform: none; filter: none; } }
+@keyframes dy-mark-spk { 0% { opacity: 0; transform: scale(.2) rotate(0); } 30% { opacity: .95; } 100% { opacity: 0; transform: scale(1.3) rotate(45deg); } }
+
+/* ---------------------------------------------------------------- Opening Results, Pocket's: the title over a coloured
+   rule, the pack points, each card's copies held under it, Next */
+div.pk-open .dy-res-head { position: relative; width: calc(100% + 32px); margin: 0 -16px 22px; padding: 6px 16px 12px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+div.pk-open .dy-res-head::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: linear-gradient(90deg, #6DD3F5, #8E9BFF 45%, #F27BB8); }
+div.pk-open .pk-results .dy-res-head h2 { margin: 0; font: 800 22px/1.1 var(--font-text); font-style: normal; color: var(--ink); }
+div.pk-open .dy-res-pp { align-self: flex-end; display: inline-flex; align-items: center; gap: 8px; padding: 4px 6px 4px 12px; border-radius: 99px;
+  background: linear-gradient(90deg, #C9A8FF, #B48CF7); color: #fff; font: 700 12px var(--font-text); box-shadow: 0 2px 6px rgba(120,80,200,.3); }
+div.pk-open .dy-res-pp i { order: 2; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; background: #fff; color: #8E6BE0; font: 900 11px var(--font-text); font-style: normal; }
+div.pk-open .dy-res-pp b { order: 3; font-weight: 900; padding-right: 4px; }
+div.pk-open .pk-res-c { padding-bottom: 14px; }
+div.pk-open .dy-res-n { position: absolute; left: 0; bottom: 0; min-width: 26px; height: 16px; padding: 0 6px; border-radius: 4px 4px 4px 0; display: grid; place-items: center; box-sizing: border-box;
+  background: #3B4763; color: #fff; font: 800 10px/1 var(--font-text); }
+div.pk-open .pk-results button.pk-open { margin-top: 22px; background: #fff; color: var(--ink); box-shadow: inset 0 0 0 2px #6DD3F5, 0 4px 12px rgba(40,140,200,.2); }
+div.pk-open .pk-results.is-gather .dy-res-head, div.pk-open .pk-results.is-gather button.pk-open { opacity: 0; transition: opacity .25s; }
+
+/* ---------------------------------------------------------------- the grand total, counting up in its pill */
+div.pk-open .dy-total { position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: max(70px, calc(env(safe-area-inset-bottom) + 50px)); }
+div.pk-open .dy-total[hidden], div.pk-open .dy-dex[hidden], div.pk-open .dy-dex-book[hidden], div.pk-open .dy-dex-stack[hidden], div.pk-open .dy-end[hidden] { display: none; }
+div.pk-open .dy-total-pill { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 0; animation: dy-total-in .45s cubic-bezier(.2,1.3,.4,1) both; }
+div.pk-open .dy-total-pill small { position: relative; z-index: 1; margin-bottom: -6px; padding: 3px 12px; border-radius: 99px; background: #3B4763; color: #fff; font: 700 11px var(--font-text); }
+div.pk-open .dy-total-pill b { display: flex; align-items: baseline; gap: 6px; padding: 12px 34px 10px; border-radius: 99px; background: #fff; color: var(--ink);
+  font: 900 30px/1 var(--font-text); font-variant-numeric: tabular-nums; box-shadow: 0 4px 14px rgba(30,45,90,.16); }
+div.pk-open .dy-total-pill em { font: 700 12px var(--font-text); font-style: normal; color: var(--ink-3); }
+div.pk-open .dy-total.is-done .dy-total-pill b { animation: dy-total-pop .35s ease; }
+@keyframes dy-total-in { from { opacity: 0; transform: translateY(30px) scale(.8); } }
+@keyframes dy-total-pop { 50% { transform: scale(1.08); } }
+
+/* ---------------------------------------------------------------- the card dex: swipe the new cards up, each lands in its
+   numbered slot */
+div.pk-open .dy-dex { position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column; align-items: center; padding: max(18px, env(safe-area-inset-top)) 16px 0; box-sizing: border-box; }
+div.pk-open .dy-dex-tip { margin: 0 0 22px; display: flex; align-items: center; gap: 12px; width: min(380px, 100%); box-sizing: border-box; padding: 10px 16px; border-radius: 99px; background: #fff;
+  font: 600 13px/1.35 var(--font-text); color: var(--ink-2); box-shadow: 0 3px 12px rgba(30,45,90,.14); animation: dy-fade .3s ease both; transition: opacity .3s, transform .3s; }
+div.pk-open .dy-dex-tip.is-gone { opacity: 0; transform: translateY(-12px); }
+div.pk-open .dy-dex-tip i { flex: none; width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; background: linear-gradient(180deg, #6DD3F5, #3BA9E0); }
+div.pk-open .dy-dex-tip i svg { width: 22px; height: 22px; }
+div.pk-open .dy-dex-stack { position: relative; width: min(290px, 74vw); aspect-ratio: 63 / 88; margin-top: 30px; touch-action: none; outline: none; cursor: grab; transition: transform .25s; }
+div.pk-open .dy-dex-stack::before { content: ""; position: absolute; left: 50%; top: -30px; width: 22px; height: 22px; margin-left: -11px; border: solid #A9B6D3; border-width: 3px 0 0 3px; transform: rotate(45deg);
+  animation: dy-up-hint 1.4s ease-in-out infinite; }
+@keyframes dy-up-hint { 0%, 100% { transform: translateY(6px) rotate(45deg); opacity: .3; } 50% { transform: translateY(-4px) rotate(45deg); opacity: 1; } }
+div.pk-open .dy-dex-stack:focus-visible { outline: 3px solid var(--tint); outline-offset: 6px; border-radius: 12px; }
+div.pk-open .dy-dex-c { position: absolute; inset: 0; transform: translate(calc(var(--k) * 6px), calc(var(--k) * -6px)) rotate(calc(var(--k) * 2deg)); animation: dy-fade .3s ease both; }
+div.pk-open .dy-dex-c .pk-card { pointer-events: none; }
+div.pk-open .dy-dex-stack.is-up { transition: transform .45s cubic-bezier(.5,0,.75,0), opacity .4s .05s; transform: translateY(-70vh) scale(.6) !important; opacity: 0; }
+div.pk-open .dy-dex-book { position: absolute; left: 0; right: 0; top: 0; bottom: 0; display: flex; flex-direction: column; background: linear-gradient(180deg, #F3F5FB, #E6EAF4); }
+div.pk-open .dy-dex-book.is-in { animation: dy-fade .35s ease both; }
+div.pk-open .dy-dex-head { flex: none; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: max(22px, calc(env(safe-area-inset-top) + 10px)) 16px 14px;
+  background: linear-gradient(160deg, #A9B4FF 0 40%, #E3D3FA 40.2%); border-bottom: 3px solid; border-image: linear-gradient(90deg, #6DD3F5, #8E9BFF 45%, #F27BB8) 1; }
+div.pk-open .dy-dex-name { font: 900 italic 18px/1 var(--font-text); color: #fff; padding: 4px 12px; border-radius: 6px; background: linear-gradient(180deg, #4B5BD8, #2C3797); letter-spacing: .02em; }
+div.pk-open .dy-dex-n { display: inline-flex; align-items: center; gap: 4px; padding: 3px 14px; border-radius: 99px; background: #fff; font: 700 12px var(--font-text); color: var(--ink-3); }
+div.pk-open .dy-dex-n i { font-style: normal; color: #8E9BFF; margin-right: 4px; }
+div.pk-open .dy-dex-n b { font-size: 16px; color: var(--ink); font-variant-numeric: tabular-nums; }
+div.pk-open .dy-dex-grid { flex: 1; overflow-y: auto; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; padding: 14px 12px max(30px, env(safe-area-inset-bottom)); align-content: start;
+  scrollbar-width: none; }
+div.pk-open .dy-dx-t { position: relative; aspect-ratio: 63 / 88; border-radius: 6px; display: grid; place-items: center; background: #E1E6F1; box-shadow: inset 0 0 0 1px rgba(60,80,130,.08); }
+div.pk-open .dy-dx-t > span { font: 700 13px var(--font-text); color: #B7C1D8; }
+div.pk-open .dy-dx-t.is-have { background: linear-gradient(160deg, #CDD6EE, #B9C4E4); }
+div.pk-open .dy-dx-t > .pk-card { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; box-shadow: 0 1px 3px rgba(30,45,70,.25); }
+div.pk-open .dy-dx-t.is-new > .pk-card { animation: dy-dex-land .5s cubic-bezier(.2,1.3,.4,1) both; }
+div.pk-open .dy-dx-t.is-new::after { content: ""; position: absolute; inset: -6px; border-radius: 10px; pointer-events: none; box-shadow: 0 0 0 3px #fff, 0 0 18px 6px rgba(120,200,255,.8); opacity: 0; animation: dy-dex-glow .9s ease-out both; }
+@keyframes dy-dex-land { 0% { opacity: 0; transform: translateY(-60px) scale(1.8); } 100% { opacity: 1; transform: none; } }
+@keyframes dy-dex-glow { 30% { opacity: 1; } 100% { opacity: 0; } }
+/* (⏭: the rest skipped, it closes) */
+div.pk-open .dy-end { position: absolute; z-index: 6; right: 14px; bottom: max(16px, env(safe-area-inset-bottom)); width: 44px; height: 44px; border: 0; border-radius: 50%; display: grid; place-items: center;
+  background: rgba(255,255,255,.85); color: #33415C; box-shadow: inset 0 0 0 2px rgba(51,65,92,.35), 0 3px 10px rgba(30,45,70,.16); cursor: pointer; }
+div.pk-open .dy-end svg { width: 20px; height: 20px; }
+
 /* ---------------------------------------------------------------- reduced motion: nothing flies, spins or sways; the
    rip completes, a quick fade to the first card, cards change with fades, the bloom and glint a fade */
 @media (prefers-reduced-motion: reduce) {
+  div.pk-open .dy-marks > i, div.pk-open .dy-marks > i::after, div.pk-open .dy-total-pill, div.pk-open .dy-dex-stack::before, div.pk-open .dy-dx-t.is-new > .pk-card, div.pk-open .dy-dx-t.is-new::after, div.pk-open .dy-pick-say { animation: none; }
   :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pack-foil, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-shine, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-open-pack .dy-rip, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-res-c, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-bg-spk .dy-spk, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-rays > i, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-deal-c, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-deal-c * { animation: none !important; }
   :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-rays, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-motes, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-flare, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-wash { display: none; }
   :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-open-pack.is-torn .dy-rip-top { animation: none; transition: opacity .15s; opacity: 0; }

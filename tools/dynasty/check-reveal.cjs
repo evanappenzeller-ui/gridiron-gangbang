@@ -50,6 +50,10 @@ async function openAll(page) {
   });
 }
 async function rip(page) {
+  // (the carousel first: Enter takes the pack in front)
+  await page.locator('[data-dy-carousel]').waitFor({timeout: 10000});
+  await page.locator('[data-dy-carousel]').focus();
+  await page.keyboard.press('Enter');
   await page.locator('[data-dy-tear]').waitFor({timeout: 10000});
   await page.locator('[data-dy-tear]').focus();
   await page.keyboard.press('Enter');
@@ -74,7 +78,8 @@ const dealState = page => page.evaluate(() => {
     live: document.querySelectorAll('.dy-dc.is-top').length};
 });
 const tapDeal = page => page.locator('.dy-deck').click({position: {x: 100, y: 100}});
-const done = async page => { await page.locator('.pk-results.is-ready [data-dy-done]').click(); };
+// (Next, then ⏭ past the grand total and the card dex)
+const done = async page => { await page.locator('.pk-results.is-ready [data-dy-done]').click(); await page.locator('[data-dy-end]').click(); };
 
 async function timedPass(page, order) {
   for (let i = 0; i < order.length; i++) {

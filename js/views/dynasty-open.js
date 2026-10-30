@@ -18,6 +18,13 @@
 // at its corner after, and its stamp lands on the card's foot (clear of its numbers). A tap while a reveal plays finishes
 // it; the next moves on. The top card tilts under your finger, a rare one's foil catching the light (still, it lies flat:
 // its face stays sharp). Then the lot, new ones marked. Reduced motion: each card simply face up, its ground and stamp.
+// Around it, as Pocket's own (the owner, Oct 30 2026, three recordings: "This is how opening a pack should look"): Open
+// brings a ring of the packs in, sweeping round from above with a far ring on the horizon and the floor's reflection;
+// swipe to turn it, tap the one in front: it spins once, its back shown, and comes up big for the rip. Under each card its
+// rarity's marks pop in one by one. The results are Pocket's Opening Results (each card's copies held under it, the pack
+// points, Next); Next gathers the cards into a pile and the grand total of cards counts up; then, with new ones, "Swipe up
+// on the cards to register them into the card dex": each new card lands in its numbered slot of its series' dex (the
+// Trainer cards' their own), the count going up. ⏭ or a tap there finishes it.
 // css/views/dynasty-open.css dresses it.
 import * as ui from '../core/ui.js';
 import * as D from '../core/dynasty.js';
@@ -61,6 +68,11 @@ const BALL = '<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="
 const BACK_WORD = '<b class="dy-back-word">GRIDIRON<small>RIVALS</small></b>';
 const BACK = `<div class="dy-back-in">${SWIRL}<span class="dy-back-brand">${BACK_WORD}<span class="dy-back-tag">TRADING CARD GAME</span></span>`
   + `<span class="dy-back-ball">${BALL}</span><span class="dy-back-brand is-flip">${BACK_WORD}<span class="dy-back-tag">TRADING CARD GAME</span></span></div>`;
+const END_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5v13l9.5-6.5zM18.5 5.5v13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+// a pack's back, in its colour: the seam down the middle, the crimps, the brand (the carousel's spin shows it)
+const PACK_BACK = '<span class="dy-pack-back" aria-hidden="true"><i class="dy-pb-seam"></i><b>GRIDIRON<small>DYNASTY</small></b><em>GD1</em></span>';
+// (the carousel: the ring in front, the far ring on the horizon)
+const RING = 10, FAR = 18;
 const FF_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 6.2v11.6L11.6 12zM12.4 6.2v11.6L20.5 12z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
 
 // ---------------------------------------------------------------------------------------------------- the reveals
@@ -113,28 +125,40 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
   const N = order.length, fresh = order.filter(c => !r.dup[c.id]).length;
   const ov = document.createElement('div');
   ov.className = 'pk-open';
-  ov.dataset.phase = 'rip'; ov.dataset.tier = '';
+  ov.dataset.phase = 'pick'; ov.dataset.tier = '';
   ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true'); ov.setAttribute('aria-label', `Opening a ${P.name}`);
   ov.style.setProperty('--pc', P.color);
+  const s0 = D.mine(), heldOf = id => (s0.o && s0.o[id]) || 0;
+  const big = packHTML(kind, {big: true, design}), small = packHTML(kind, {design});
   ov.innerHTML = `<div class="pk-open-bg" aria-hidden="true"><i class="pk-open-tint"></i><span class="dy-bg-spk">${DRIFT}</span></div>`
+    + `<div class="dy-pick" data-dy-carousel tabindex="0" role="button" aria-label="Choose a pack: swipe to turn them, then tap the one in front, or press Enter">`
+    + `<i class="dy-pick-floor" aria-hidden="true"></i><div class="dy-pick-far" aria-hidden="true">${Array.from({length: FAR}, () => `<div class="dy-fp">${small}</div>`).join('')}</div>`
+    + `<div class="dy-pick-ring" aria-hidden="true">${Array.from({length: RING}, () => `<div class="dy-pp"><div class="dy-pp-f">${big}</div><div class="dy-pp-b">${PACK_BACK}</div></div>`).join('')}</div>`
+    + `<p class="dy-pick-say" aria-hidden="true">Swipe to choose a pack, then tap it</p></div>`
     + `<div class="dy-stage"><div class="dy-deal">`
     + `<div class="dy-deck" tabindex="-1" role="group" aria-label="The cards: tap, swipe or press Enter for the next"></div>`
-    + `<p class="dy-deck-meta" aria-hidden="true"><b class="pk-deal-n"></b><span class="dy-deal-hint">Tap or swipe</span></p></div>`
-    + `<div class="dy-open-pack" data-dy-tear tabindex="0" role="button" aria-label="Rip the pack open: swipe across its top, or press Enter">`
+    + `<p class="dy-deck-meta" aria-hidden="true"><span class="dy-marks"></span><b class="pk-deal-n"></b><span class="dy-deal-hint">Tap or swipe</span></p></div>`
+    + `<div class="dy-open-pack" data-dy-tear tabindex="0" role="button" aria-label="Rip the pack open: swipe across its top, or press Enter" hidden>`
     + `<div class="dy-rip" style="--p:0;--dir:1;--ct:${TEAR.top};--cb:${TEAR.body}"><span class="dy-rays" aria-hidden="true">${RAYS}</span><span class="dy-motes" aria-hidden="true">${MOTES}</span>`
-    + `<div class="dy-rip-body">${packHTML(kind, {big: true, design})}</div>`
+    + `<div class="dy-rip-body">${big}</div>`
     // (the strip's two bands, css: the torn part, lifting behind the finger, and the rest still flat beyond it)
-    + `<div class="dy-rip-top"><div class="dy-rip-strip">${packHTML(kind, {big: true, design})}</div></div>`
-    + `<div class="dy-rip-rest"><div class="dy-rip-strip">${packHTML(kind, {big: true, design})}</div></div>`
+    + `<div class="dy-rip-top"><div class="dy-rip-strip">${big}</div></div>`
+    + `<div class="dy-rip-rest"><div class="dy-rip-strip">${big}</div></div>`
     + `<span class="dy-rip-line" aria-hidden="true"></span><span class="dy-flare" aria-hidden="true"></span>`
     + `<span class="dy-rip-hint" aria-hidden="true"><i class="dy-rip-trail"></i><i class="dy-rip-finger"></i></span></div>`
     + `<p class="dy-rip-say">Swipe across the top to rip it open</p></div></div>`
     + `<i class="dy-wash" aria-hidden="true"></i>`
     + `<button type="button" class="pk-pill dy-skip" data-dy-skip hidden>Skip</button>`
     + `<button type="button" class="dy-ff" data-dy-ff hidden aria-label="Fast forward: tap for the next card, or hold to skip to the results"><span class="dy-ff-b">${FF_ICON}</span><small aria-hidden="true">Tap and hold</small></button>`
-    + `<div class="pk-results" hidden><h2>Results</h2><div class="pk-grid is-results${N > 5 ? ' is-many' : ''}">${order.map((c, i) => `<div class="pk-res-c" style="--i:${i}">${anyHTML(c.id, {size: 's', tag: false, noCount: true})}`
-      + `${r.dup[c.id] ? '' : '<span class="pk-c-new">NEW</span>'}</div>`).join('')}</div><p class="pk-note">+${D.PP_PER_PACK} pack points</p>`
-    + `<button type="button" class="pk-open" data-dy-done>Done</button></div>`
+    + `<div class="pk-results" hidden><div class="dy-res-head"><h2>Opening Results</h2><span class="dy-res-pp"><i aria-hidden="true">P</i>Pack points<b>+${D.PP_PER_PACK}</b></span></div>`
+    + `<div class="pk-grid is-results${N > 5 ? ' is-many' : ''}">${order.map((c, i) => `<div class="pk-res-c" style="--i:${i}">${anyHTML(c.id, {size: 's', tag: false, noCount: true})}`
+      + `${r.dup[c.id] ? '' : '<span class="pk-c-new">NEW</span>'}<b class="dy-res-n" aria-label="${Math.max(1, heldOf(c.id))} held">${Math.max(1, heldOf(c.id))}</b></div>`).join('')}</div>`
+    + `<button type="button" class="pk-open" data-dy-done>Next</button></div>`
+    + `<div class="dy-total" hidden><div class="dy-total-pile" aria-hidden="true"></div><p class="dy-total-pill"><small>Grand total cards acquired</small><b><span data-dy-total>0</span><em>cards</em></b></p></div>`
+    + `<div class="dy-dex" hidden><p class="dy-dex-tip"><i aria-hidden="true">${BALL}</i><span>Swipe up on the cards to register them into the card dex.</span></p>`
+    + `<div class="dy-dex-stack" data-dy-reg tabindex="0" role="button" aria-label="Register the new cards into the card dex: swipe up, tap, or press Enter"></div>`
+    + `<div class="dy-dex-book" hidden><div class="dy-dex-head"><b class="dy-dex-name"></b><span class="dy-dex-n"><i aria-hidden="true">◆</i><b data-dy-dexn>0</b>/<span data-dy-dexof>0</span></span></div><div class="dy-dex-grid"></div></div></div>`
+    + `<button type="button" class="dy-end" data-dy-end hidden aria-label="Skip">${END_ICON}</button>`
     + `<p class="sr-only" aria-live="polite" data-dy-say></p>`;
   document.body.appendChild(ov);
   const prevFocus = document.activeElement;
@@ -143,17 +167,17 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
   behind.forEach(el => { el.inert = true; });
   const $ = s => ov.querySelector(s);
   const stage = $('.dy-stage'), deck = $('.dy-deck'), nTxt = $('.pk-deal-n'), hint = $('.dy-deal-hint'), say = $('[data-dy-say]'),
-    skipB = $('[data-dy-skip]'), ffB = $('[data-dy-ff]'), pk = $('.dy-open-pack'), rip = pk.querySelector('.dy-rip');
+    skipB = $('[data-dy-skip]'), ffB = $('[data-dy-ff]'), pk = $('.dy-open-pack'), rip = pk.querySelector('.dy-rip'), marks = $('.dy-marks');
   // (every timer goes through later(), so closing clears the lot; none fires once it's closed)
-  let closed = false, phase = 'rip';
+  let closed = false, phase = 'pick';
   const timers = new Set();
   const later = (fn, ms) => { const t = setTimeout(() => { timers.delete(t); if (!closed) fn(); }, ms); timers.add(t); return t; };
   const drop = list => list.splice(0).forEach(t => { clearTimeout(t); timers.delete(t); });
   const setPhase = p => { phase = p; ov.dataset.phase = p; };
+  const endB = $('[data-dy-end]');
   const inRaf = requestAnimationFrame(() => ov.classList.add('is-in'));
   // (and still once it's covered: nothing behind animates for nothing)
   later(() => behind.forEach(el => el.classList.add('pk-behind')), 320);
-  pk.focus();
 
   // ---- the cards: a stack, the top one showing (slots: each card's element, made as it comes near the top)
   const slots = [];
@@ -201,6 +225,10 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
     // (the count only: a face-down card's tier isn't told before it turns; its stamp tells it)
     nTxt.textContent = `${at + 1} of ${N}`;
     hint.hidden = at > 0;
+    // (its rarity's marks under it, popping in one by one once it's face up, as Pocket's diamonds)
+    const mk = Array.from(D.markOf(c).mark), wait = fast || RM() ? 0 : (R.tier ? R.hold + R.flip : 120);
+    marks.className = `dy-marks is-${D.markOf(c).kind}`;
+    marks.innerHTML = fast ? '' : mk.map((g, i) => `<i style="--d:${wait + i * 140}ms">${g}</i>`).join('');
     const pc = el.querySelector('.pk-card');
     if (!fast) say.textContent = `${at + 1} of ${N}${R.label ? `, ${R.label}` : ''}: ${(pc && pc.getAttribute('aria-label')) || c.name}${r.dup[c.id] ? '' : ', new'}`;
     cur.x = cur.y = cur.a = 0;
@@ -292,10 +320,130 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
     const res = $('.pk-results');
     res.hidden = false;
     say.textContent = `Results: ${N} card${N === 1 ? '' : 's'}${fresh ? `, ${fresh} new` : ''}. Plus ${D.PP_PER_PACK} pack points.`;
+    endB.hidden = true;
     $('[data-dy-done]').focus({preventScroll: true});
     // (Done answers once the lot is in: a quick tap meant for the last card doesn't close it)
     later(() => res.classList.add('is-ready'), 380);
   };
+  // ---- Next: the cards gathered into a pile, the grand total of cards counting up to what's held now; then, with new
+  // ones, the card dex
+  const fresh1 = [...new Set(order.filter(c => !r.dup[c.id]).map(c => c.id))];
+  const totalOf = () => { const s = D.mine(); return Object.values(s.o || {}).reduce((t, n) => t + (n > 0 ? n : 0), 0); };
+  const next = () => {
+    if (phase !== 'results') return;
+    setPhase('total');
+    const res = $('.pk-results'), tot = $('.dy-total'), num = $('[data-dy-total]');
+    const after = Math.max(totalOf(), N), before = Math.max(0, after - N);
+    endB.hidden = false;
+    num.textContent = before.toLocaleString();
+    say.textContent = `Grand total cards acquired: ${after.toLocaleString()}.`;
+    // (each card to the pile at the foot, one after another)
+    const cs = [...res.querySelectorAll('.pk-res-c')];
+    if (!RM()) {
+      const py = innerHeight * .72;
+      cs.forEach((el, i) => {
+        const b = el.getBoundingClientRect();
+        el.style.animation = 'none';
+        el.style.transition = `transform .45s cubic-bezier(.5,0,.3,1) ${i * 45}ms, opacity .3s ${300 + i * 45}ms`;
+        el.style.transform = `translate(${(innerWidth / 2 - (b.left + b.width / 2)).toFixed(0)}px, ${(py - (b.top + b.height / 2)).toFixed(0)}px) rotate(${(i % 2 ? 6 : -5) * (i % 3 + 1) / 2}deg) scale(.5)`;
+        el.style.opacity = '0';
+      });
+    }
+    res.classList.add('is-gather');
+    later(() => {
+      res.hidden = true; ov.classList.remove('is-results');
+      tot.hidden = false;
+      const t1 = performance.now(), ms = RM() ? 0 : 900;
+      const tick = now => {
+        if (closed) return;
+        const k = ms ? Math.min(1, (now - t1) / ms) : 1;
+        num.textContent = Math.round(before + (after - before) * easeOut(k)).toLocaleString();
+        if (k < 1) requestAnimationFrame(tick); else if (!RM()) { tot.classList.add('is-done'); ui.haptic('light'); }
+      };
+      requestAnimationFrame(tick);
+      later(() => (fresh1.length ? dex() : close()), RM() ? 900 : 1900);
+    }, RM() ? 0 : 300 + cs.length * 45 + 300);
+  };
+  // ---- the card dex: each new card to its slot, numbered as its series' cards are (D.CARDS's order; the Trainer cards
+  // their own). A slot shows the card once it's held (those near the new ones drawn, the rest a filled tile)
+  const book = $('.dy-dex-book'), grid = $('.dy-dex-grid'), dexN = $('[data-dy-dexn]'), dexOf = $('[data-dy-dexof]'), stack = $('.dy-dex-stack');
+  const setOf = id => {
+    const c = D.card(id);
+    if (!c) return {key: 'T', name: 'Trainer cards', ids: D.TRAINER_IDS};
+    return {key: c.s, name: D.SERIES[c.s].name, ids: D.CARDS.filter(x => x.s === c.s).map(x => x.id)};
+  };
+  let regging = false;
+  const dex = () => {
+    if (closed) return;
+    setPhase('dex');
+    $('.dy-total').hidden = true;
+    $('.dy-dex').hidden = false;
+    stack.innerHTML = fresh1.slice(0, 3).reverse().map((id, i, a) => `<div class="dy-dex-c" style="--k:${a.length - 1 - i}">${anyHTML(id, {size: 'l', tag: false, noCount: true})}</div>`).join('');
+    say.textContent = `${fresh1.length} new card${fresh1.length === 1 ? '' : 's'}: swipe up, tap or press Enter to register ${fresh1.length === 1 ? 'it' : 'them'} into the card dex.`;
+    stack.focus({preventScroll: true});
+  };
+  const register = () => {
+    if (phase !== 'dex' || regging) return;
+    regging = true;
+    setPhase('reg');
+    ui.haptic('medium');
+    stack.classList.add('is-up');
+    $('.dy-dex-tip').classList.add('is-gone');
+    const s = D.mine(), isFresh = new Set(fresh1);
+    // (the new ones, set by set)
+    const groups = [];
+    fresh1.forEach(id => { const S = setOf(id); let gp = groups.find(x => x.key === S.key); if (!gp) groups.push(gp = {...S, add: []}); gp.add.push(id); });
+    const pad = n => String(n).padStart(3, '0');
+    let gi = 0;
+    const drawSet = gp => {
+      const at = new Set(gp.add.map(id => gp.ids.indexOf(id))), near = i => [...at].some(j => Math.abs(i - j) <= 30);
+      $('.dy-dex-name').textContent = gp.name;
+      dexOf.textContent = gp.ids.length.toLocaleString();
+      let have = 0;
+      grid.innerHTML = gp.ids.map((id, i) => {
+        const own = (s.o && s.o[id] > 0) && !isFresh.has(id);
+        if (own) have++;
+        return `<div class="dy-dx-t${own ? ' is-have' : ''}" data-dx="${i}"><span>${pad(i + 1)}</span>${own && near(i) ? anyHTML(id, {size: 's', tag: false, noCount: true}) : ''}</div>`;
+      }).join('');
+      dexN.textContent = have.toLocaleString();
+      gp.have = have;
+      book.hidden = false; book.classList.remove('is-in'); void book.offsetWidth; book.classList.add('is-in');
+    };
+    const land = (gp, k) => {
+      if (closed) return;
+      if (k >= gp.add.length) { gi++; if (gi < groups.length) later(() => { drawSet(groups[gi]); later(() => land(groups[gi], 0), 500); }, 400); else later(close, 1300); return; }
+      const id = gp.add[k], i = gp.ids.indexOf(id), t = grid.querySelector(`[data-dx="${i}"]`);
+      if (!t) { land(gp, k + 1); return; }
+      // (its slot brought into the middle, then the card set in it)
+      const top = t.offsetTop - grid.clientHeight / 2 + t.offsetHeight / 2;
+      grid.scrollTo({top: Math.max(0, top), behavior: RM() ? 'auto' : 'smooth'});
+      later(() => {
+        t.classList.add('is-have', 'is-new');
+        t.insertAdjacentHTML('beforeend', anyHTML(id, {size: 's', tag: false, noCount: true}));
+        gp.have++; dexN.textContent = gp.have.toLocaleString();
+        ui.haptic('light');
+        say.textContent = `${D.anyCard(id).name} registered: ${gp.have} of ${gp.ids.length} ${gp.name}.`;
+        later(() => land(gp, k + 1), RM() ? 250 : 560);
+      }, RM() ? 0 : 380);
+    };
+    later(() => { stack.hidden = true; drawSet(groups[0]); later(() => land(groups[0], 0), RM() ? 0 : 450); }, RM() ? 0 : 420);
+  };
+  // (a swipe up the new cards)
+  let sg = null;
+  stack.addEventListener('pointerdown', e => { if (phase !== 'dex') return; sg = {id: e.pointerId, y: e.clientY}; try { stack.setPointerCapture(e.pointerId); } catch (_) {} });
+  stack.addEventListener('pointermove', e => {
+    if (!sg || e.pointerId !== sg.id || RM()) return;
+    const dy = Math.min(0, e.clientY - sg.y);
+    stack.style.transform = `translateY(${dy.toFixed(0)}px)`;
+  });
+  const sUp = e => {
+    if (!sg || e.pointerId !== sg.id) return;
+    const dy = e.clientY - sg.y;
+    sg = null; stack.style.transform = '';
+    if (e.type !== 'pointercancel' && (dy < -50 || Math.abs(dy) < 10)) register();
+  };
+  stack.addEventListener('pointerup', sUp); stack.addEventListener('pointercancel', sUp);
+
   // ---- ⏩: a tap for the next, held (0.4 s) it runs through the rest to the results
   let ffI = 0, ffHold = 0, held = false;
   const ffAll = () => {
@@ -344,7 +492,7 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
   };
   const spring = () => { if (top && !RM()) { top.style.transition = 'transform .38s cubic-bezier(.2,.9,.3,1.25)'; top.style.transform = ''; } };
   stage.addEventListener('pointerdown', e => {
-    if (phase === 'rip' || phase === 'results' || phase === 'done' || g || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    if ((phase !== 'open' && phase !== 'rise' && phase !== 'deal') || g || (e.pointerType === 'mouse' && e.button !== 0)) return;
     g = {id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now(), mode: '', dx: 0, lx: e.clientX, lt: performance.now(), v: 0};
     try { stage.setPointerCapture(e.pointerId); } catch (_) {}
     aim(e);
@@ -378,6 +526,120 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
   };
   stage.addEventListener('pointerup', up); stage.addEventListener('pointercancel', up);
   stage.addEventListener('pointerleave', e => { if (!g && e.pointerType === 'mouse') { hold.on = false; kick(); } });
+
+  // ---- the carousel (Pocket's): a ring of the packs, the one in front nearest; behind them a far ring on the horizon.
+  // Each pack is placed from rot (the ring's turn, degrees; the pack at i * STEP is in front at rot = i * STEP), so
+  // nothing needs preserve-3d: a pack past the ring's side is hidden, the nearer drawn over the farther. lift: the
+  // ring's height (it sweeps down into place); spin: the chosen one's own turn (its back shown past a quarter)
+  const pick = $('.dy-pick'), PP = [...pick.querySelectorAll('.dy-pp')], FP = [...pick.querySelectorAll('.dy-fp')];
+  const STEP = 360 / RING, FSTEP = 360 / FAR;
+  let rot = 0, lift = 0, spin = 0, pTw = 0, pg = null, chosen = false;
+  const wrap = a => ((a % 360) + 540) % 360 - 180;
+  const front = () => (((Math.round(rot / STEP)) % RING) + RING) % RING;
+  const place = () => {
+    const w = PP[0].offsetWidth || 180, R = w * 1.12, fw = FP[0].offsetWidth || 80, FR = fw * 4.6, f = front();
+    PP.forEach((el, i) => {
+      const a = wrap(i * STEP - rot), r = a * Math.PI / 180, c = Math.cos(r), own = i === f ? spin : 0, t = ((a + own) % 360 + 360) % 360;
+      el.style.transform = `translate3d(${(R * Math.sin(r)).toFixed(1)}px, ${lift.toFixed(1)}px, ${(R * c - R).toFixed(1)}px) rotateY(${(a + own).toFixed(2)}deg)`;
+      el.style.opacity = c < .05 ? '0' : '1';
+      el.style.zIndex = String(Math.round(c * 100) + 100);
+      el.classList.toggle('is-back', t > 90 && t < 270);
+      el.classList.toggle('is-front', i === f);
+    });
+    // (the far ring, seen from inside it: the ones across the horizon smallest, turning the other way, slower)
+    FP.forEach((el, j) => {
+      const b = wrap(j * FSTEP + rot * .35), r = b * Math.PI / 180, c = Math.cos(r);
+      el.style.transform = `translate3d(${(FR * Math.sin(r)).toFixed(1)}px, ${(lift * .5).toFixed(1)}px, ${(-FR * c - fw * 1.2).toFixed(1)}px) rotateY(${(-b).toFixed(2)}deg)`;
+      el.style.opacity = Math.abs(b) > 78 ? '0' : '1';
+    });
+  };
+  const pTween = (fromTo, ms, ease, then) => {
+    cancelAnimationFrame(pTw);
+    const t1 = performance.now();
+    const go = now => {
+      if (closed) return;
+      const k = ms > 0 ? Math.min(1, (now - t1) / ms) : 1, e = ease(k);
+      fromTo(e); place();
+      if (k < 1) pTw = requestAnimationFrame(go); else if (then) then();
+    };
+    pTw = requestAnimationFrame(go);
+  };
+  const easeOut = k => 1 - Math.pow(1 - k, 3), easeIO = k => (k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2);
+  // (in: from above, sweeping round into place)
+  let intro = true;
+  const settleRing = () => { intro = false; cancelAnimationFrame(pTw); rot = Math.round(rot / STEP) * STEP; lift = 0; place(); };
+  if (RM()) { intro = false; place(); }
+  else {
+    const h = innerHeight;
+    rot = -300; lift = -h * .55; place();
+    pTween(e => { rot = -300 * (1 - e); lift = -h * .55 * (1 - e); }, 1500, easeOut, () => { intro = false; });
+  }
+  pick.focus({preventScroll: true});
+  // (turn by a pack either way)
+  const turn = d => { if (chosen) return; if (intro) settleRing(); const r0 = rot, to = Math.round(rot / STEP + d) * STEP; ui.haptic('selection'); pTween(e => { rot = r0 + (to - r0) * e; }, 320, easeOut); };
+  // ---- the one in front chosen: it spins once round, its back shown, then comes up big where it's ripped (the rip's
+  // pack grows from where it stood), the ring fading away
+  const choose = (fast = false) => {
+    if (chosen || closed) return;
+    chosen = true;
+    if (intro) settleRing();
+    cancelAnimationFrame(pTw);
+    rot = Math.round(rot / STEP) * STEP; place();
+    ui.haptic('medium');
+    setPhase('chosen');
+    const up = () => {
+      if (closed) return;
+      const el = PP[front()], a = el.getBoundingClientRect();
+      pk.hidden = false;
+      const b = rip.getBoundingClientRect();
+      pick.classList.add('is-gone');
+      later(() => { pick.hidden = true; }, 420);
+      setPhase('rip');
+      pk.focus({preventScroll: true});
+      if (RM() || fast || !b.width) return;
+      // (from the carousel's pack to the rip's: the same pack, grown)
+      const sx = a.width / b.width;
+      pk.style.transition = 'none';
+      pk.style.transform = `translate(${(a.left + a.width / 2 - (b.left + b.width / 2)).toFixed(1)}px, ${(a.top + a.height / 2 - (b.top + b.height / 2)).toFixed(1)}px) scale(${sx.toFixed(3)})`;
+      void pk.offsetWidth;
+      pk.style.transition = 'transform .5s cubic-bezier(.2,.8,.25,1)';
+      pk.style.transform = '';
+      pk.classList.add('is-zoom');
+      later(() => { pk.style.transition = ''; pk.classList.remove('is-zoom'); }, 520);
+    };
+    if (RM() || fast) { up(); return; }
+    PP[front()].classList.add('is-chosen');
+    pick.classList.add('is-choosing');
+    pTween(e => { spin = 360 * e; }, 760, easeIO, () => { spin = 0; place(); later(up, 60); });
+  };
+  pick.addEventListener('pointerdown', e => {
+    if (chosen || pg || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    if (intro) settleRing();
+    cancelAnimationFrame(pTw);
+    pg = {id: e.pointerId, x: e.clientX, r0: rot, moved: false, lx: e.clientX, lt: performance.now(), v: 0, w: PP[0].offsetWidth || 180};
+    try { pick.setPointerCapture(e.pointerId); } catch (_) {}
+  });
+  pick.addEventListener('pointermove', e => {
+    if (!pg || e.pointerId !== pg.id) return;
+    const dx = e.clientX - pg.x;
+    if (!pg.moved && Math.abs(dx) < 8) return;
+    pg.moved = true;
+    const now = performance.now();
+    pg.v = (e.clientX - pg.lx) / Math.max(1, now - pg.lt); pg.lx = e.clientX; pg.lt = now;
+    const f0 = front();
+    rot = pg.r0 - dx * STEP / (pg.w * .75); place();
+    if (front() !== f0) ui.haptic('selection');
+  });
+  const pUp = e => {
+    if (!pg || e.pointerId !== pg.id) return;
+    const d = pg;
+    pg = null;
+    if (!d.moved) { if (e.type !== 'pointercancel') choose(); return; }
+    // (let go: it coasts on with the flick and stops with a pack in front)
+    const r0 = rot, to = Math.round((rot - d.v * 220 * STEP / (d.w * .75)) / STEP) * STEP;
+    pTween(k => { rot = r0 + (to - r0) * k; }, 420, easeOut);
+  };
+  pick.addEventListener('pointerup', pUp); pick.addEventListener('pointercancel', pUp);
 
   // ---- the rip: drag across the pack's top; the strip tears under the finger (--p, 0..1: where the tear front is, from
   // the side you started), the torn part lifting behind it (css .dy-rip-top), the rest flat ahead of it (.dy-rip-rest)
@@ -464,7 +726,7 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
     D.markSeen([]);
     timers.forEach(clearTimeout); timers.clear();
     clearTimeout(nudgeT); clearTimeout(ffHold); clearInterval(ffI);
-    cancelAnimationFrame(anim); cancelAnimationFrame(raf); cancelAnimationFrame(inRaf);
+    cancelAnimationFrame(anim); cancelAnimationFrame(raf); cancelAnimationFrame(inRaf); cancelAnimationFrame(pTw);
     removeEventListener('keydown', onKey, true);
     ov.classList.remove('is-in'); ov.classList.add('is-out'); ov.style.pointerEvents = 'none';
     behind.forEach(el => { el.inert = false; el.classList.remove('pk-behind'); });
@@ -478,15 +740,24 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
   };
   const onKey = e => {
     if (e.key === 'Escape') { e.preventDefault(); close(); return; }
-    if (phase !== 'open' && phase !== 'rise' && phase !== 'deal') return;
     const k = e.key, onButton = e.target && e.target.closest && e.target.closest('button');
+    if (phase === 'pick') {
+      if (k === 'ArrowLeft' || k === 'ArrowRight') { e.preventDefault(); turn(k === 'ArrowRight' ? 1 : -1); }
+      else if ((k === 'Enter' || k === ' ') && !onButton) { e.preventDefault(); choose(); }
+      return;
+    }
+    if (phase === 'dex' && (k === 'Enter' || k === ' ' || k === 'ArrowUp') && !onButton) { e.preventDefault(); register(); return; }
+    if (phase !== 'open' && phase !== 'rise' && phase !== 'deal') return;
     if (k === 'ArrowLeft' || k === 'ArrowRight' || ((k === 'Enter' || k === ' ') && !onButton)) { e.preventDefault(); step(k === 'ArrowRight' ? 1 : -1); }
   };
   addEventListener('keydown', onKey, true);
   ov.addEventListener('click', e => {
     if (e.target.closest('[data-dy-ff]')) { if (held) { held = false; return; } step(-1); return; }
     if (e.target.closest('[data-dy-skip]')) { showResults(); return; }
-    if (e.target.closest('[data-dy-done]') && $('.pk-results').classList.contains('is-ready')) close();
+    if (e.target.closest('[data-dy-done]') && $('.pk-results').classList.contains('is-ready')) { next(); return; }
+    if (e.target.closest('[data-dy-end]')) { close(); return; }
+    // (a tap on the dex while it fills: done; not the tap that swiped the cards up)
+    if (phase === 'reg' && e.target.closest('.dy-dex-book')) close();
   });
 }
 // The tear line across a pack, a zigzag 13% down from its top: the strip above it and the body below (clip-paths that

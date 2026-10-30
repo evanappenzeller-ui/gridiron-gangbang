@@ -143,7 +143,20 @@ const SAVE = {v: 1, born: Date.now() - 864e5, at: Date.now(), o: {'C-timeout': 2
       await page.locator('button.pk-open[data-dy-openhere]').click();
       if (KIND === 'team') { await page.locator('[data-dy-team]').first().click(); }
     }
+    // Pocket's carousel: the packs sweep in; a swipe turns the ring, a tap takes the one in front (it spins, then grows)
+    await page.locator('[data-dy-carousel]').waitFor();
+    await page.waitForTimeout(500); made.push(await shot('1-carousel-in'));
+    await page.waitForTimeout(1300); made.push(await shot('1-carousel'));
+    const ring = () => page.evaluate(() => [...document.querySelectorAll('.dy-pp')].findIndex(e => e.classList.contains('is-front')));
+    const f0 = await ring();
+    await page.mouse.move(300, 380); await page.mouse.down();
+    for (let i = 1; i <= 8; i++) { await page.mouse.move(300 - 170 * i / 8, 380); await page.waitForTimeout(16); }
+    await page.mouse.up(); await page.waitForTimeout(600);
+    assert.notEqual(await ring(), f0, 'a swipe turns the carousel');
+    await page.touchscreen.tap(195, 360);
+    await page.waitForTimeout(420); made.push(await shot('1-carousel-spin'));
     await page.locator('[data-dy-tear]').waitFor();
+    assert.equal(await page.evaluate(() => document.querySelector('div.pk-open').dataset.phase), 'rip', 'the chosen pack comes up for the rip');
     await page.waitForTimeout(900);
     made.push(await shot('1-pack'));
     await page.waitForTimeout(700); // (the film steadies after a still)
@@ -266,9 +279,24 @@ const SAVE = {v: 1, born: Date.now() - 864e5, at: Date.now(), o: {'C-timeout': 2
       mark('results');
       await page.waitForTimeout(1200);
       made.push(await shot('4-results'));
-      assert.equal(await page.evaluate(() => document.activeElement && document.activeElement.dataset.dyDone !== undefined), true, 'Done has focus');
+      assert.equal(await page.evaluate(() => document.activeElement && document.activeElement.dataset.dyDone !== undefined), true, 'Next has focus');
       await page.locator('[data-dy-done]').click();
-      await page.waitForTimeout(600);
+      // (the grand total counting up, then the card dex with new ones: swipe them up, each lands in its slot)
+      await page.waitForTimeout(1300); made.push(await shot('5-total'));
+      const ph = () => page.evaluate(() => { const o = document.querySelector('div.pk-open'); return o ? o.dataset.phase : ''; });
+      await page.waitForFunction(() => { const o = document.querySelector('div.pk-open'); return !o || o.dataset.phase === 'dex'; }, null, {timeout: 6000});
+      if (await ph() === 'dex') {
+        await page.waitForTimeout(500); made.push(await shot('6-dex-swipe'));
+        const b = await page.locator('[data-dy-reg]').boundingBox();
+        await page.mouse.move(b.x + b.width / 2, b.y + b.height * .6); await page.mouse.down();
+        for (let i = 1; i <= 8; i++) { await page.mouse.move(b.x + b.width / 2, b.y + b.height * .6 - 160 * i / 8); await page.waitForTimeout(16); }
+        await page.mouse.up();
+        await page.waitForSelector('.dy-dx-t.is-new', {timeout: 4000});
+        await page.waitForTimeout(400); made.push(await shot('6-dex'));
+        assert.ok(await page.evaluate(() => +document.querySelector('[data-dy-dexn]').textContent.replace(/,/g, '') > 0), 'the dex counts the card in');
+      }
+      await page.waitForFunction(() => !document.querySelector('div.pk-open'), null, {timeout: 30000});
+      await page.waitForTimeout(400);
       assert.equal(await page.locator('div.pk-open').count(), 0, 'the overlay is gone');
       if (DIRECT) assert.equal(await page.evaluate(() => window.__dyClosed), 1, 'onClose once');
     }
