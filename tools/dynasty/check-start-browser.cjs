@@ -250,7 +250,8 @@ async function run(url) {
       else {
         assert.equal(await page.evaluate(() => location.hash), '#/puzzles', p.tag + ': the Dynasty link lands on Daily Games');
         assert.equal(await page.locator('.pk, .pk-start').count(), 0, p.tag + ': no Dynasty screen');
-        assert.equal(await page.locator('#tabbar').isVisible(), true, p.tag + ': the app’s tab bar stays');
+        // (Daily Games is the home screen: its app icons stand in for the tab bar there, Oct 30 2026)
+        assert.equal(await page.locator('.hm-apps').isVisible(), true, p.tag + ': the home screen’s apps stay');
         console.log(`${p.tag}: the Dynasty stays closed`);
       }
       assert.deepEqual(errors, [], p.tag + ': unexpected browser exceptions');

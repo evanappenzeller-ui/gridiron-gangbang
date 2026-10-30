@@ -1,8 +1,9 @@
 import * as features from '../core/features.js';
 // Daily Games tab (tab id 'puzzles'; tabs-v4 contract §3, replaces the Today hub). Two kinds of screen:
-// - The tab root, /puzzles: the large title (the date, "Daily Games", the streak pill and your avatar button from
-//   you.js), then the list of games (views/games.js: one big card per game, each turning into that game's scoreboard
-//   once it's played today).
+// - The tab root, /puzzles: the app's home screen (the owner's ask, Oct 30 2026: "Make the games tab the main home page
+//   of the app"): the large title (today's date in bold, the streak pill and your avatar button from you.js), the list
+//   of games (views/games.js: one big card per game, each turning into that game's scoreboard once it's played today),
+//   and at the foot every other tab as an app icon (appsHTML), in place of the tab bar (html.is-home).
 // - A game's own page, pushed over it (params.game): /puzzles/daily is Daily Puzzles' hero card and the league
 //   leaderboard; /puzzles/17-0, /puzzles/drill, /puzzles/kick and /puzzles/return hold the pane modules
 //   views/seventeen.js, views/drill.js, views/kick.js and views/return.js, each imported the first time its page opens.
@@ -19,6 +20,7 @@ import {mountBoard, streakPillHTML, stepParts, zeroParts, gradeGold, stepIcon, w
   msToMidnight, ensureDefs, ringHTML, maxPts, dayLabel} from './board.js';
 import {youButtonHTML, settingsButtonHTML, openStreakSheet} from './you.js';
 import {canTest, testRowHTML} from './testplay.js';
+import {TABS} from '../app.js';
 import {GAMES, gameOpen, gamePath, dailyKind, progHTML, fracOf, perfectOf, doneCount, listHTML, mountList, testingAll, testAll} from './games.js';
 
 const esc = data.esc;
@@ -29,7 +31,9 @@ const COPIED = 'Results copied. Paste them in the league chat.';
 const shown = {pnum: 0, total: 0, parts: null, streak: null};
 const HUB = new WeakMap(); // ctx → hub state
 
-const localLabel = () => new Date().toLocaleDateString('en-US', {weekday: 'long', month: 'long', day: 'numeric'});
+// The home's title is today's date, in bold (the owner's ask, Oct 30 2026): the weekday over the month and day.
+const weekday = () => new Date().toLocaleDateString('en-US', {weekday: 'long'});
+const monthDay = () => new Date().toLocaleDateString('en-US', {month: 'long', day: 'numeric'});
 const ready = () => daily.status === 'ready' && !!daily.DAY;
 const READY_KINDS = new Set(['new', 'started', 'done']);
 const heroKind = dailyKind; // 'error' | 'loading' | 'new' | 'started' | 'played' | 'done' (views/games.js)
@@ -475,6 +479,7 @@ function patchPill(st, animate) {
     const had = !!slot.firstElementChild;
     slot.dataset.sig = sig;
     slot.innerHTML = s ? streakPillHTML(s, {attrs: 'data-streak'}) : '';
+    fitDate(st);
     if (s && !had && animate && !ui.RM) ui.stamp(slot.firstElementChild, {from: .6});
   }
   // Streak +1: odometer roll and a flame pop.
@@ -486,10 +491,44 @@ function patchPill(st, animate) {
 }
 
 function patchEyebrow(st) {
-  const e = st.el.querySelector('.lt-eyebrow');
-  const t = ready() ? daily.TODAY_LABEL : localLabel();
-  if (e && t && e.textContent !== t) e.textContent = t;
+  if (st.game !== null) return;
+  const e = st.el.querySelector('.lt-eyebrow'), h = st.el.querySelector('.lt-title');
+  if (e && e.textContent !== weekday()) e.textContent = weekday();
+  if (h && h.textContent !== monthDay()) { h.textContent = monthDay(); fitDate(st); }
 }
+/** The date stays on one line clear of the buttons beside it: a long month ("September 30") on a narrow phone with a
+ *  streak pill comes down a size or two. */
+function fitDate(st) {
+  const t = st.el.querySelector('.lt-title'), tr = st.el.querySelector('.lt-trail');
+  if (st.game !== null || !t || !tr || !t.getClientRects().length) return;
+  t.style.fontSize = '';
+  const r = document.createRange();
+  r.selectNodeContents(t);
+  const w = r.getBoundingClientRect().width, room = tr.getBoundingClientRect().left - 10 - t.getBoundingClientRect().left;
+  if (w > room && room > 0) t.style.fontSize = Math.floor(parseFloat(getComputedStyle(t).fontSize) * room / w) + 'px';
+}
+
+// ============================================================================ Home screen apps
+// Every other tab as an app icon, like the apps on an iPhone's home screen (the owner's ask, Oct 30 2026: "the bottom
+// should be a grid style of all the different tabs"). A tap opens its tab as the tab bar would (app.js [data-go-tab]);
+// app.js updateBadges() lights the same dots on them as on the bar's tabs. On the home screen the tab bar steps aside
+// (html.is-home, puzzles.css), and comes back on every other screen to lead home.
+const APPS = [
+  {tab: 'pickem', name: "Pick'em", icon: 'football'},
+  {tab: 'lay', name: 'The Lay', icon: 'ticket'},
+  {tab: 'live', name: 'Scores', icon: 'live'},
+  {tab: 'matchup', name: 'Matchup', icon: 'versus'},
+  {tab: 'league', name: 'League', icon: 'trophy'},
+  {tab: 'draft', name: 'Draft', icon: 'list-number'}
+];
+function appsHTML() {
+  return `<nav class="hm-apps" data-key="apps" aria-label="Sections">${APPS.filter(a => TABS.includes(a.tab)).map(a =>
+    `<button type="button" class="hm-app" data-go-tab="${a.tab}" aria-label="${esc(a.name)}">`
+    + `<span class="hm-ic hm-${a.tab}">${ui.icon(a.icon)}<span class="hm-dot" hidden></span></span>`
+    + `<span class="hm-lb" aria-hidden="true">${esc(a.name)}</span></button>`).join('')}</nav>`;
+}
+/** The tab bar steps aside while the home screen shows (its apps take its place). */
+const homeBar = on => document.documentElement.classList.toggle('is-home', !!on);
 
 // ============================================================================ Events
 function onClick(st, e) {
@@ -646,8 +685,8 @@ export default {
   render(ctx) {
     const g = gameOf(ctx);
     if (g === null) {
-      return ui.largeTitle({eyebrow: ready() ? daily.TODAY_LABEL : localLabel(), title: 'Daily Games', trailing: trailHTML()})
-        + listHTML();
+      return ui.largeTitle({eyebrow: weekday(), title: monthDay(), trailing: trailHTML()})
+        + listHTML() + appsHTML();
     }
     if (g === 'puzzles') {
       return `<div class="c-pz-pane">`
@@ -679,10 +718,15 @@ export default {
       ui.whenIdle(syncKick);
       ui.whenIdle(syncReturn);
       ctx.on('daily', type => onDaily(st, type));
-      ctx.timer(() => { st.list.tick(); st.list.refresh(false); }, 20000);
+      ctx.timer(() => { st.list.tick(); st.list.refresh(false); patchEyebrow(st); }, 20000);
+      if (ctx.visible) homeBar(true);
+      requestAnimationFrame(() => fitDate(st));
+      if (document.fonts) document.fonts.ready.then(() => { if (HUB.get(ctx) === st) fitDate(st); });
+      addEventListener('resize', st.fit = () => fitDate(st), {passive: true});
       if (ready()) patchPill(st, false);
       else if (daily.status !== 'error') daily.ensure().catch(() => {});
       emitBadge();
+      try { el.dispatchEvent(new CustomEvent('gg:badge', {bubbles: true})); } catch (_) {} // (the apps' dots)
       if (ctx.first) ui.stagger(el);
       return;
     }
@@ -706,12 +750,13 @@ export default {
     st.pending = false;
     patchAtmosphere(st);
     // Back on the list from a game's page: its card catches up (a game just finished turns into its scoreboard).
-    if (st.game === null) { if (st.list) st.list.refresh(true); patchPill(st, true); return; }
+    if (st.game === null) { homeBar(true); patchEyebrow(st); fitDate(st); if (st.list) st.list.refresh(true); patchPill(st, true); return; }
     if (st.game === 'puzzles' && ready()) sync(st, true);
   },
 
   onHide(ctx) {
     const st = HUB.get(ctx);
+    if (st && st.game === null) homeBar(false);
     if (st && st.list) st.list.hide();
   },
 
@@ -730,6 +775,8 @@ export default {
     const st = HUB.get(ctx);
     if (!st) return;
     ctx.screen.classList.remove('gm-owner-light');
+    if (st.game === null) homeBar(false);
+    if (st.fit) removeEventListener('resize', st.fit);
     st.smoke?.remove();
     st.smoke = null;
     if (st.list) st.list.destroy();

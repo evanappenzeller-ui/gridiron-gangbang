@@ -164,6 +164,15 @@ scores Yahoo's starters (`seasons[].rosters` slots, with `week`; BN/IR sit) from
 Yahoo's final (the sync) replaces it. The Yahoo sync also runs as each game-day window kicks off so the lineups are the
 locked ones. Verify `node tools/matchup/check-live-browser.cjs` and the kit check "Live league scores…".
 
+## Home screen (October 30, 2026)
+
+The owner asked: "Make the games tab the main home page of the app. The top should have a bold writing of today's date
+and the bottom should be a grid style of all the different tabs. Kinda like how the apps are on my homepage." Everyone
+gets it. Daily Games' root (`js/views/puzzles.js`) titles itself with today's date (weekday over month and day, `fitDate`
+keeps it on one line) and ends with `appsHTML()`: every other tab as an app icon (`data-go-tab`, opened by `app.js`'s
+`slideTo`; `updateBadges` lights their dots). While it shows, `html.is-home` hides the tab bar (`css/views/puzzles.css`);
+every other screen keeps the bar. A new tab needs its entry in `APPS` and an `.hm-<tab>` colour.
+
 ## Deploying
 
 - Standing owner instruction (October 21, 2026): after completing and verifying requested changes,
