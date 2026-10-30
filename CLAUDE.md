@@ -147,6 +147,8 @@ Collection previews stay still, with reduced-motion support. Verify `check-card-
 Tabletop battles fan the hand and sort its display without mutating saved order or duplicate-card selections.
 Resolved play events drive the skippable stadium scenes; animations never submit moves or resolve damage.
 Queue opponent scenes while a details sheet is open; clear presentation on profile changes or leaving the battle.
+The shared card reverse uses a royal blue frame, textured teal/cream swirl, copper football and mirrored wordmarks.
+The case's booklet and disc use restrained navy, ivory and silver artwork (`dynasty-book-v3` / `dynasty-disc-v3`).
 Verify the existing Dynasty checks plus `check-rivals-rules.cjs`, `check-rivals-decks.cjs` and `check-rivals-battle.cjs`.
 
 ## Deploying

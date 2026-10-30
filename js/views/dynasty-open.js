@@ -39,33 +39,52 @@ const sparkles = (n, f) => Array.from({length: n}, (_, i) => `<i class="dy-spk" 
 const RAYS = [-30, -23, -16, -10, -4, 2, 8, 14, 20, 26, 33].map((a, i) => `<i style="--a:${a}deg;--h:${[320, 18, 46, 62, 140, 178, 200, 228, 262, 292, 335][i]};--d:-${(i * .37 % 1).toFixed(2)}s"></i>`).join('');
 const MOTES = sparkles(16, (a, b, i) => `--x:${(8 + a * 84).toFixed(1)}%;--w:${((b - .5) * 70).toFixed(0)}px;--s:${(8 + b * 12).toFixed(0)}px;--d:${(.08 + (i % 8) * .07).toFixed(2)}s;--t:${(.9 + a * .5).toFixed(2)}s`);
 const DRIFT = sparkles(18, (a, b, i) => `--x:${(a * 100).toFixed(1)}%;--y:${(30 + b * 70).toFixed(1)}%;--s:${(7 + (i % 5) * 3)}px;--d:-${(i * .9 % 7).toFixed(1)}s;--t:${(6 + b * 5).toFixed(1)}s`);
-// One reverse for every card: a cobalt vortex, a silver football crest and the Rivals wordmark at both ends.
-// No player or rarity information belongs on a face-down card. All artwork is local vector/CSS and scales with it.
+// One reverse for every card: a royal-blue printed frame, a flowing vortex and a warm football emblem.
+// There is deliberately no rarity, player, type or series information on a face-down card.
+// Curves, ellipses and fine printed dots give this local vector artwork depth without extra animation.
 const SWIRL = (() => {
-  let s = '';
-  for (let k = 0; k < 8; k++) {
-    const edge = [], inner = [];
-    for (let j = 0; j <= 32; j++) {
-      const t = j / 32, r = 17 + t * 72, a = k * Math.PI / 4 + t * 2.8, w = .015 + t * .19;
-      edge.push(`${(50 + r * Math.cos(a)).toFixed(1)},${(70 + r * Math.sin(a)).toFixed(1)}`);
-      inner.unshift(`${(50 + r * Math.cos(a + w)).toFixed(1)},${(70 + r * Math.sin(a + w)).toFixed(1)}`);
-    }
-    s += `<path d="M${edge.join('L')}L${inner.join('L')}Z" fill="${k % 2 ? '#85E8FF' : '#3B91F1'}" opacity="${k % 2 ? '.36' : '.3'}"/>`
-      + `<polyline points="${edge.join(' ')}" fill="none" stroke="#B6F4FF" stroke-width=".35" opacity=".55"/>`;
+  const curls = [
+    ['M-12 88C-18 42 23 12 65 27C106 42 118 92 82 117C46 142 6 123 12 86C17 55 52 43 71 61C89 79 70 104 50 94C35 87 38 73 48 68C27 72 23 102 47 113C82 129 110 92 89 58C65 18 10 32 5 68Z', '#93dfdf'],
+    ['M-6 97C-21 55 8 23 45 24C84 25 114 66 99 99C88 122 61 133 39 119C16 105 24 76 47 68C27 71 22 96 42 107C65 120 93 99 91 75C87 37 39 16 11 46C-4 63-1 82 7 95Z', '#eff2d6'],
+    ['M102 39C128 76 109 120 71 128C39 135 9 114 13 84C17 58 44 44 65 53C83 62 85 83 70 93C79 74 64 55 47 60C24 67 22 95 43 106C72 121 105 95 101 70C99 54 92 43 85 38Z', '#2d99c2'],
+    ['M-12 36C18 1 66 13 79 44C90 70 67 97 47 83C31 72 44 59 53 64C39 49 17 67 29 89C44 116 83 96 89 73C101 26 46-7 9 14Z', '#c5eee5'],
+    ['M18 140C-8 111-3 78 21 58C41 41 69 46 77 65C65 52 47 51 34 61C12 78 23 109 49 116C72 122 92 112 110 91L117 123C88 147 42 154 18 140Z', '#1348a5'],
+    ['M-8 60C-9 28 24 10 53 17C78 23 96 45 94 68C88 41 67 25 42 28C17 31 10 56 17 70C7 72 0 69-8 60Z', '#6ec6dc'],
+    ['M88 0C108 31 100 52 83 64C73 44 58 40 41 47C68 27 91 43 94 27C96 17 87 9 77 3Z', '#2464bd']
+  ].map(([d, fill]) => `<path d="${d}" fill="${fill}"/>`).join('');
+  let etched = '';
+  // Offset oval arcs read as flowing print lines, with a few bright cream ribbons among the blues.
+  for (let k = 0; k < 17; k++) {
+    const r = 24 + k * 2.8, angle = -33 + k * 3.8;
+    etched += `<ellipse cx="50" cy="71" rx="${r.toFixed(1)}" ry="${(r * .68).toFixed(1)}" transform="rotate(${angle.toFixed(1)} 50 71)" fill="none" stroke="${k % 4 === 0 ? '#f6f4d7' : k % 2 ? '#123b86' : '#b6eff2'}" stroke-width="${k % 4 === 0 ? '.5' : '.24'}" stroke-dasharray="${(r * 2.1).toFixed(1)} ${(r * 4.2).toFixed(1)}" stroke-dashoffset="${(-k * 11).toFixed(1)}" opacity="${k % 4 === 0 ? '.55' : '.36'}"/>`;
   }
-  const glints = [[13,45,1.2],[79,35,.8],[88,91,1.2],[22,105,.8]].map(([x,y,r]) => `<path d="M${x-r*2} ${y}l${r*1.6} ${-r*.4}l${r*.4} ${-r*2}l${r*.4} ${r*2}l${r*1.6} ${r*.4}l${-r*1.6} ${r*.4}l${-r*.4} ${r*2}l${-r*.4} ${-r*2}Z" fill="#D9F8FF"/>`).join('');
-  return `<svg class="dy-back-swirl" viewBox="0 0 100 140" aria-hidden="true" preserveAspectRatio="xMidYMid slice">${s}${glints}</svg>`;
+  const glints = [[15,49,1.1],[82,38,.75],[89,91,1.15],[20,108,.8]].map(([x,y,r]) => `<path d="M${x-r*2} ${y}l${r*1.6} ${-r*.4}l${r*.4} ${-r*2}l${r*.4} ${r*2}l${r*1.6} ${r*.4}l${-r*1.6} ${r*.4}l${-r*.4} ${r*2}l${-r*.4} ${-r*2}Z" fill="#fff7db"/>`).join('');
+  return `<svg class="dy-back-swirl" viewBox="0 0 100 140" aria-hidden="true" preserveAspectRatio="xMidYMid slice"><rect width="100" height="140" fill="#1259aa"/>${curls}${etched}${glints}</svg>`;
 })();
-const BALL = '<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="46" fill="none" stroke="#99DFF4" stroke-width=".65"/>'
-  + '<path d="M50 8 79 20 78 50Q75 73 50 91Q25 73 22 50L21 20Z" fill="#091E48" stroke="#CAE9F6" stroke-width="1.6"/>'
-  + '<path d="M50 13 74 23 73 49Q70 69 50 84Q30 69 27 49L26 23Z" fill="#174881" stroke="#5E96B7" stroke-width=".65"/>'
-  + '<path d="M50 13 74 23 73 49Q70 69 50 84Z" fill="#102D59"/>'
-  + '<g transform="rotate(-32 50 50)"><path d="M8 50Q50 -1 92 50Q50 101 8 50Z" fill="#05142E" stroke="#05142E" stroke-width="5" stroke-linejoin="round"/>'
-  + '<path d="M8 50Q50 -1 92 50Q50 101 8 50Z" fill="#D6E7EF" stroke="#F4F8F0" stroke-width="1.5" stroke-linejoin="round"/>'
-  + '<path d="M8 50Q50 101 92 50H8Z" fill="#86ACC5"/><path d="M15 47Q51 9 83 46Q49 29 15 47Z" fill="#F7FCF9"/>'
-  + '<path d="M23 36Q29 50 23 64M77 36Q71 50 77 64" fill="none" stroke="#174471" stroke-width="5"/>'
-  + '<path d="M34 50H66M38 44v12M44 44v12M50 44v12M56 44v12M62 44v12" fill="none" stroke="#143352" stroke-width="2.3" stroke-linecap="round"/></g>'
-  + '<path d="m50 88 1.3 3.7 3.9.1-3.1 2.4 1.1 3.8-3.2-2.3-3.2 2.3 1.1-3.8-3.1-2.4 3.9-.1Z" fill="#F5D077"/></svg>';
+const BALL = (() => {
+  let grain = '';
+  for (let y = 32; y < 82; y += 6) for (let x = 24; x < 99; x += 6) {
+    if (((x - 60) / 47) ** 2 + ((y - 56) / 31) ** 2 < .81) grain += `<circle cx="${x}" cy="${y}" r=".45" fill="#542317" opacity=".15"/>`;
+  }
+  return '<svg viewBox="0 0 120 112" aria-hidden="true">'
+    + '<ellipse cx="60" cy="57" rx="52" ry="43" transform="rotate(-27 60 57)" fill="#102c69" opacity=".25"/>'
+    + '<g transform="rotate(-27 60 56)"><path d="M8 56C32 12 88 12 112 56C88 100 32 100 8 56Z" fill="#0b2664" stroke="#0b2664" stroke-width="8" stroke-linejoin="round"/>'
+    + '<path d="M8 56C32 12 88 12 112 56C88 100 32 100 8 56Z" fill="#fff4d6" stroke="#fff4d6" stroke-width="2" stroke-linejoin="round"/>'
+    + '<path d="M9 55C33 12 87 12 111 55Q60 65 9 55Z" fill="#be4b2d"/>'
+    + '<path d="M13 51C36 17 82 16 106 48C81 32 48 29 13 51Z" fill="#e88044"/>'
+    + '<path d="M22 40C44 21 76 21 94 37C71 29 46 29 22 40Z" fill="#f5ad62"/>'
+    + '<path d="M10 58C34 96 87 98 111 57C84 76 46 82 10 58Z" fill="#ced9c6"/>'
+    + '<path d="M23 73C48 90 78 86 96 70C70 79 47 80 23 73Z" fill="#aebfb6"/>'
+    + grain
+    + '<path d="M26 34Q38 55 26 78M94 34Q82 55 94 78" fill="none" stroke="#fff0cc" stroke-width="7"/>'
+    + '<path d="M30 32Q42 55 30 80M90 32Q78 55 90 80" fill="none" stroke="#5d3020" stroke-width=".75" opacity=".55"/>'
+    + '<path d="M9 56Q60 66 111 56" fill="none" stroke="#102c5c" stroke-width="3.5"/>'
+    + '<path d="M40 50Q60 44 80 50L80 62Q60 68 40 62Z" fill="#f8e7b7" stroke="#0d2b60" stroke-width="2.8"/>'
+    + '<path d="M44 56H76M47 50v12M53.5 49v14M60 49v14M66.5 49v14M73 50v12" fill="none" stroke="#153564" stroke-width="2.4" stroke-linecap="round"/>'
+    + '<path d="M10 52C34 13 87 13 110 52" fill="none" stroke="#fff8df" stroke-width="1.35" opacity=".8"/></g>'
+    + '<path d="M23 30l1.1 3.3 3.3 1.1-3.3 1.1-1.1 3.3-1.1-3.3-3.3-1.1 3.3-1.1Z" fill="#fff6d5"/>'
+    + '</svg>';
+})();
 const BACK_WORD = '<b class="dy-back-word">GRIDIRON<small>RIVALS</small></b>';
 const BACK = `<div class="dy-back-in">${SWIRL}<span class="dy-back-brand">${BACK_WORD}<span class="dy-back-tag">TRADING CARD GAME</span></span>`
   + `<span class="dy-back-ball">${BALL}</span><span class="dy-back-brand is-flip">${BACK_WORD}<span class="dy-back-tag">TRADING CARD GAME</span></span></div>`;
