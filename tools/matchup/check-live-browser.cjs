@@ -5,7 +5,7 @@
 // For Evan, another member and a visitor: Scores opens on NFL with the NFL · League switch; League shows this week's
 // games with each side's live score, projected total (Yahoo's, moved by the scores: never under the score) and players
 // left; Evan's game opens the sheet with the live score and projections, both lineups
-// (nine slots) whose points add up to the score, and the next feed update moves it; League is remembered after a
+// (nine slots, under each side's name, which sticks) whose points add up to the score, and the next feed update moves it; League is remembered after a
 // reload, NFL comes back with the octobox; Matchup's "Live scores" opens League; then the kit checks "Live league
 // scores" and "Live Games".
 // Usage: node tools/matchup/check-live-browser.cjs [--shots=<dir>]   (Playwright's Chromium; screenshots when --shots)
@@ -158,7 +158,8 @@ async function run(url) {
         const rows = [...b.querySelectorAll('.ll-lu-row')];
         const sum = k => Math.round(rows.reduce((a, r) => a + (num(r.querySelector('.ll-lu-pts.' + k)) || 0), 0) * 100) / 100;
         return {rows: rows.length, slots: rows.map(r => r.querySelector('.ll-lu-slot').textContent), hero: [...b.querySelectorAll('.ll-live')].map(num),
-          sumA: sum('a'), sumB: sum('b'), foot: b.querySelector('.ll-bug .bug-foot').textContent, head: b.querySelector('.ll-lu-w .mu-h').textContent};
+          sumA: sum('a'), sumB: sum('b'), foot: b.querySelector('.ll-bug .bug-foot').textContent, head: b.querySelector('.ll-lu-w .mu-h').textContent,
+          sides: [...b.querySelectorAll('.ll-bug .bug-name > b')].map(e => e.textContent), teams: [...b.querySelectorAll('.ll-lu-hd .ll-lu-tm > b')].map(e => e.textContent)};
       });
       assert.equal(sheet.rows, 9, p.tag + ': nine lineup slots');
       assert.deepEqual(sheet.slots.slice(0, 1).concat(sheet.slots.slice(-2)), ['QB', 'K', 'DEF'], p.tag + ': Yahoo\u2019s slot order');
@@ -167,8 +168,11 @@ async function run(url) {
       assert.ok(Math.abs(sheet.hero[0] - sheet.sumA) < .011 && Math.abs(sheet.hero[1] - sheet.sumB) < .011, `${p.tag}: the lineups add up to the score (${sheet.hero} vs ${sheet.sumA}, ${sheet.sumB})`);
       assert.match(sheet.foot, /LIVE · \d+ PLAYERS? LEFT/, p.tag + ': the foot says live');
       assert.equal(sheet.head, 'Lineups · live');
+      assert.deepEqual(sheet.teams, sheet.sides, p.tag + ': the lineups name each side over its column');
       await snap(page, p.tag + '-sheet');
       await page.locator('.sh-ll .ll-note').scrollIntoViewIfNeeded();
+      // Scrolled down the lineups, the side names stay at the top of the sheet.
+      assert.ok(await page.evaluate(() => { const h = document.querySelector('.sh-ll .ll-lu-hd').getBoundingClientRect(), s = document.querySelector('.sh-ll .sheet-body').getBoundingClientRect(); return Math.abs(h.top - s.top) < 2; }), p.tag + ': the side names stick');
       await snap(page, p.tag + '-sheet-lineups');
       // The next update (every 30 s while a game is on): the score moves on the open sheet. (Once, on Evan's phone.)
       if (p.tag === 'evan') {

@@ -216,6 +216,19 @@
   animation: lg-blink 1.6s ease-in-out infinite;
 }
 .sh-ll .ll-dot { margin-right: 6px; vertical-align: 1px; }
+/* Which side is which: a header naming each column (sticks while the lineups scroll, -4px past the sheet body's top
+   padding) and each side's colour down its edge. */
+.sh-ll .ll-lu-box { overflow: clip; }
+.sh-ll .ll-lu-hd {
+  position: sticky; top: -4px; z-index: 1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 12px;
+  padding: 10px 12px 9px; background: var(--surface-2); box-shadow: inset 0 -.5px 0 var(--separator);
+}
+.sh-ll .ll-lu-tm { display: flex; align-items: center; gap: 8px; min-width: 0; padding-bottom: 7px; border-bottom: 2px solid var(--ca); }
+.sh-ll .ll-lu-tm.b { flex-direction: row-reverse; border-bottom-color: var(--cb); }
+.sh-ll .ll-lu-tm > b { min-width: 0; font: 700 15px/20px var(--font-text); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sh-ll .ll-lu-in::before, .sh-ll .ll-lu-in::after { content: ""; position: absolute; top: 10px; bottom: 10px; width: 3px; background: var(--ca); }
+.sh-ll .ll-lu-in::before { left: 0; border-radius: 0 3px 3px 0; }
+.sh-ll .ll-lu-in::after { right: 0; background: var(--cb); border-radius: 3px 0 0 3px; }
 .sh-ll .ll-lu { list-style: none; margin: 0; padding: 0; }
 .sh-ll .ll-lu-row { position: relative; }
 .sh-ll .ll-lu-row + .ll-lu-row::before { content: ""; position: absolute; top: 0; left: 12px; right: 12px; height: 1px; background: var(--separator); transform: scaleY(.5); transform-origin: top; }

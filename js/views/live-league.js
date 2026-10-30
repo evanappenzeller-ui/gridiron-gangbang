@@ -139,7 +139,9 @@ const luPts = (r, k) => {
   const off = !r || r.state === 'pre' || r.state === 'bye';
   return `<span class="ll-lu-pts ${k} n5${off ? ' is-0' : ''}">${r ? (off ? '–' : esc(total(r.pts))) : ''}</span>`;
 };
-// Both lineups, slot by slot (Yahoo's order), with each player's points, his game's clock and his line.
+// Both lineups, slot by slot (Yahoo's order), with each player's points, his game's clock and his line, under a header
+// naming each side (avatar and name over its column, Oct 30 2026, the owner: "It's hard to tell which team the players
+// belong to").
 function lineupHTML(x, lv) {
   const A = lv.a.rows, B = lv.b.rows, n = Math.max(A.length, B.length);
   const slot = i => (A[i] || B[i]).slot === 'W/R/T' ? 'FLEX' : (A[i] || B[i]).slot;
@@ -150,7 +152,8 @@ function lineupHTML(x, lv) {
       + luPlayer(A[i], 'a') + luPts(A[i], 'a') + `<span class="ll-lu-slot">${esc(slot(i))}</span>` + luPts(B[i], 'b') + luPlayer(B[i], 'b') + `</span></li>`;
   }
   const left = t => t.left ? `${t.left} left` : 'Done';
-  return `<ul class="ll-lu" role="list">${rows}</ul>`
+  const team = (id, k) => `<span class="ll-lu-tm ${k}">${ui.avatar(id, {size: 24, you: id === data.me()})}<b>${esc(nm(id))}</b></span>`;
+  return `<div class="ll-lu-hd" aria-hidden="true">${team(x.a, 'a')}${team(x.b, 'b')}</div><ul class="ll-lu" role="list">${rows}</ul>`
     + `<div class="ll-lu-tot" aria-label="${esc(`Total: ${nm(x.a)} ${total(lv.a.pts)}, ${left(lv.a)}; ${nm(x.b)} ${total(lv.b.pts)}, ${left(lv.b)}`)}"><span aria-hidden="true">${esc(left(lv.a))}</span>`
     + `<b class="n4" aria-hidden="true">${ui.score(lv.a.pts)}</b><span class="ovl" aria-hidden="true">Total</span><b class="n4" aria-hidden="true">${ui.score(lv.b.pts)}</b><span aria-hidden="true">${esc(left(lv.b))}</span></div>`;
 }
@@ -161,7 +164,9 @@ function lineupsBlock(L, cur, x) {
       : `<p class="ll-note">Yahoo’s Week ${esc(cur.week)} lineups haven’t synced yet. They show here, scored live, once they do.</p>`;
   }
   const head = lv.over ? 'Lineups · final' : lv.started ? 'Lineups · live' : 'Starting lineups';
-  return `<h3 class="mu-h">${esc(head)}</h3><div class="mu-box">${lineupHTML(x, lv)}</div>`
+  // Each side's colour (its avatar's) runs down its edge of the lineups; a second side too close in hue goes white.
+  const ca = data.color(x.a).mc, cb = data.hueClose(x.a, x.b) ? '#FFFFFF' : data.color(x.b).mc;
+  return `<h3 class="mu-h">${esc(head)}</h3><div class="mu-box ll-lu-box" style="--ca:${ca};--cb:${cb}">${lineupHTML(x, lv)}</div>`
     + (lv.started ? `<p class="ll-note">Live from ESPN’s box scores in the league’s scoring. Yahoo’s final is the official score.</p>` : '');
 }
 // The sheet's score line: the live score once its players kick off, before then the records and the kickoff.
