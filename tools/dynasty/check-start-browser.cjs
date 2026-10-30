@@ -80,6 +80,41 @@ async function playerFlow(page, p, {reduced}) {
   for (const sel of ['.pk-packs', '.pk-clock', '.pk-show-tip', '.pk-tags > b', '.pk-round[data-dy-goto="cols"]', '.pk-round[data-dy-earn]', 'button.pk-open.is-round', '.pk-actions .pk-pill[data-dy-odds]', '.pk-actions .pk-pill[data-dy-packs]', '.pk-pts'])
     assert.equal(await page.locator(sel).count(), 1, T + ': the Packs stage has ' + sel);
   await snap(page, `${p.tag}${reduced ? '-rm' : ''}-packs`);
+  // A short phone with a notch: only the pane scrolls. The header and bottom tabs must stay clear of it, and
+  // the Open action must remain reachable. Native iOS status-bar effects still need an on-device check.
+  const viewport = page.viewportSize();
+  await page.setViewportSize({width: 390, height: 667});
+  await page.evaluate(() => {
+    document.documentElement.style.setProperty('--sa-t', '59px');
+    document.documentElement.style.setProperty('--sa-b', '34px');
+  });
+  const frame = () => page.evaluate(() => {
+    const rect = sel => { const r = document.querySelector(sel).getBoundingClientRect(); return {top: r.top, bottom: r.bottom}; };
+    const pane = document.querySelector('.pk-pane');
+    return {header: rect('.pk-hdr'), title: rect('.pk-title'), pane: rect('.pk-pane'), nav: rect('.pk-nav'),
+      top: pane.scrollTop, outerTop: document.querySelector('.v-dynasty').scrollTop};
+  });
+  const before = await frame();
+  assert.ok(before.title.top >= 59, T + ': header controls clear the notch');
+  assert.ok(before.pane.top >= before.header.bottom, T + ': scrolling begins below the opaque header');
+  assert.ok(before.pane.bottom <= before.nav.top && before.nav.bottom <= 667, T + ': the pane ends above the visible tabs');
+  await page.locator('button.pk-open.is-round').scrollIntoViewIfNeeded();
+  const after = await frame();
+  assert.ok(after.top > 0, T + ': pack content scrolls on a short phone');
+  assert.equal(after.outerTop, 0, T + ': the outer screen does not scroll under the status bar');
+  assert.deepEqual(after.header, before.header, T + ': the header stays fixed while the pane scrolls');
+  assert.deepEqual(after.nav, before.nav, T + ': the bottom tabs stay fixed while the pane scrolls');
+  const open = await page.locator('button.pk-open.is-round').boundingBox();
+  assert.ok(open.y >= after.pane.top && open.y + open.height <= after.nav.top, T + ': Open is reachable above the tabs');
+  await snap(page, `${p.tag}${reduced ? '-rm' : ''}-safe-area`);
+  await page.locator('.pk-tab[data-dy-tab="battle"]').click();
+  assert.equal((await frame()).top, 0, T + ': a tab change resets the pane scroll');
+  await page.locator('.pk-tab[data-dy-tab="packs"]').click();
+  await page.evaluate(() => {
+    document.documentElement.style.removeProperty('--sa-t');
+    document.documentElement.style.removeProperty('--sa-b');
+  });
+  await page.setViewportSize(viewport);
   // the pack stack (the owner, Oct 29 2026: "User should be able to switch packs like the attached"): the packs that
   // follow peek out behind, a swipe left brings the next forward, → and ← step through them, a tap on one behind brings
   // it, the pack list picks one too, and none of it opens a pack

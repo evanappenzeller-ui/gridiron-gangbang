@@ -825,7 +825,7 @@ function showStart(st) {
   if (st.el.querySelector('[data-dy-start]')) return;
   st.el.querySelector('.pk').insertAdjacentHTML('beforeend', startHTML());
   drawStart(st);
-  st.ctx.screen.scrollTop = 0;
+  st.el.querySelector('[data-dy-pane]').scrollTop = 0;
   const sc = st.el.querySelector('[data-dy-start]');
   if (sc) { try { sc.focus({preventScroll: true}); } catch (_) {} }
 }
@@ -908,7 +908,7 @@ function go(st, tab, {keep = false} = {}) {
   st.tab = tab;
   if (tab === 'battle' && !keep) st.bv = '';
   refresh(st);
-  st.ctx.screen.scrollTop = 0;
+  st.el.querySelector('[data-dy-pane]').scrollTop = 0;
 }
 
 export default {
@@ -953,7 +953,7 @@ export default {
       if (q('[data-dy-points]')) { pointsSheet(st); return; }
       if (q('[data-dy-earn]')) { earnSheet(); return; }
       if ((b = q('[data-dy-odds]'))) { oddsSheet(b.dataset.dyOdds); return; }
-      if ((b = q('[data-dy-bv]'))) { st.bv = b.dataset.dyBv; refresh(st); ctx.screen.scrollTop = 0; return; }
+      if ((b = q('[data-dy-bv]'))) { st.bv = b.dataset.dyBv; refresh(st); el.querySelector('[data-dy-pane]').scrollTop = 0; return; }
       if (q('[data-dy-guide]')) { guideSheet(); return; }
       if ((b = q('[data-dy-card]'))) { cardSheet(st, b.dataset.dyCard); return; }
       if (q('[data-dy-more]')) { drawGrid(st, true); return; }

@@ -21,21 +21,21 @@
   --pk-pink: #F2669F; --pk-shadow: 0 2px 6px rgba(40,60,90,.1), 0 1px 1px rgba(40,60,90,.06);
   color: var(--ink);
 }
-.v-dynasty { background: #E9EFF4; }
+.v-dynasty { background: #E9EFF4; overflow: clip; }
 /* (playing: the app's menu at the foot goes, views/dynasty.js fullScreen) */
 html.is-dynasty-playing #tabbar, html.is-dynasty-battle #tabbar { visibility: hidden; pointer-events: none; }
 html.is-dynasty-playing .v-dynasty { padding-bottom: 0; }
-.v-dynasty > .screen-body { padding: 0; }
+.v-dynasty > .screen-body { padding: 0; height: 100%; }
 .sheet.pk-sheet { background: #F4F7FA; }
 .sheet.pk-sheet .sheet-title { color: var(--ink); }
 .sheet.pk-sheet .as-btn + .as-btn { box-shadow: inset 0 1px 0 var(--separator); }
 
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk { position: relative; min-height: 100dvh; display: flex; flex-direction: column;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk { position: relative; height: 100%; min-height: 0; display: flex; flex-direction: column;
   background: linear-gradient(162deg, #F8FAFC 0 38%, #E8EEF3 38% 100%); }
-/* The header stays pinned with a solid background, as the app's nav bars do: iOS frosts whatever page sits loose under
-   the status bar (the owner, Oct 29 2026: "The top of the screen is blurry"). */
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-hdr { position: sticky; top: 0; z-index: 5; background: #F8FAFC; box-shadow: 0 1px 0 rgba(40,60,90,.06); display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 8px;
-  padding: max(8px, env(safe-area-inset-top)) 14px 8px; }
+/* Keep the opaque header outside the scrolling pane: a sticky header inside the full-screen scroller still sits
+   beneath iOS's status-bar scroll-edge treatment. The app's safe-area tokens also follow its portrait lock. */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-hdr { position: relative; flex: none; z-index: 5; background: #F8FAFC; box-shadow: 0 1px 0 rgba(40,60,90,.06); display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 8px;
+  padding: calc(8px + var(--sa-t)) 14px 8px; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-title { margin: 0; text-align: center; font: 800 18px/1.2 var(--font-text); letter-spacing: .01em; color: var(--ink); outline: none; }
 /* Pocket's counters at the right: your packs to open (two little packs and the count; ∞ and MAX when unlimited: tap for
    the pack list) and your coins */
@@ -52,11 +52,12 @@ html.is-dynasty-playing .v-dynasty { padding-bottom: 0; }
   font: 700 14px/1 var(--font-text); color: var(--ink); }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-coin { width: 20px; height: 20px; border-radius: 50%; flex: none;
   background: radial-gradient(circle at 35% 30%, #FFF6C4 0 16%, #FFCF3A 42%, #D89A0E 100%); box-shadow: inset 0 0 0 1.5px rgba(150,95,0,.45); }
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pane { flex: 1; padding: 4px 16px 24px; min-width: 0; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-pane { flex: 1; padding: 4px 16px 24px; min-width: 0; min-height: 0;
+  overflow-x: hidden; overflow-y: auto; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; }
 /* Pocket's menu at the foot of the screen (the owner, Oct 29 2026; the app's own tab bar is hidden while playing): the
    four places as icons on a pale bar, the one you're on in teal with a pip under it */
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-nav { position: sticky; bottom: 0; z-index: 4; display: grid; grid-template-columns: repeat(5, 1fr);
-  padding: 6px 8px max(8px, env(safe-area-inset-bottom)); background: rgba(240,244,248,.96); box-shadow: 0 -1px 0 rgba(40,60,90,.06), 0 -6px 18px rgba(40,60,90,.08);
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-nav { position: relative; flex: none; z-index: 4; display: grid; grid-template-columns: repeat(5, 1fr);
+  padding: 6px 8px max(8px, var(--sa-b)); background: rgba(240,244,248,.96); box-shadow: 0 -1px 0 rgba(40,60,90,.06), 0 -6px 18px rgba(40,60,90,.08);
   backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-tab { position: relative; display: flex; align-items: center; justify-content: center; min-height: 52px; border: 0; background: none;
   color: #8E9AA6; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: color .2s; }
@@ -519,7 +520,7 @@ html.is-dynasty-playing .v-dynasty { padding-bottom: 0; }
 /* ---------------------------------------------------------------- the start screen (Pocket's title screen, the owner's screenshot, Oct 29 2026:
    cards drifting over a pastel wash, the logo, Tap to Start, the version and support id top left, the menu top right,
    the credits at the foot; views/dynasty.js startHTML). It covers the shell (inert beneath it) till a tap. */
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk.is-start { height: 100dvh; overflow: hidden; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk.is-start { overflow: hidden; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-start { position: absolute; inset: 0; z-index: 30; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; cursor: pointer; outline: none;
   -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; touch-action: manipulation;
   background: radial-gradient(90% 55% at 8% 0%, #D4F1DE, transparent 62%), radial-gradient(80% 55% at 100% 8%, #D3E7FA, transparent 60%),
