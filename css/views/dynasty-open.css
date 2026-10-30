@@ -376,15 +376,15 @@ div.pk-open .dy-pick { position: absolute; inset: 0; z-index: 3; touch-action: n
   transition: opacity .4s ease; }
 div.pk-open .dy-pick[hidden] { display: none; }
 div.pk-open .dy-pick.is-gone { opacity: 0; pointer-events: none; }
-div.pk-open .dy-pick-floor { position: absolute; left: -10%; right: -10%; top: 62%; bottom: 0; pointer-events: none;
+div.pk-open .dy-pick-floor { position: absolute; left: -10%; right: -10%; top: 68%; bottom: 0; pointer-events: none;
   background: radial-gradient(60% 55% at 50% 18%, rgba(255,255,255,.95), rgba(255,255,255,.55) 45%, rgba(255,255,255,0) 80%); }
-div.pk-open .dy-pick-far, div.pk-open .dy-pick-ring { position: absolute; left: 50%; top: 42%; width: 0; height: 0; perspective: 900px; }
+div.pk-open .dy-pick-far, div.pk-open .dy-pick-ring { position: absolute; left: 50%; top: 48%; width: 0; height: 0; perspective: 900px; }
 div.pk-open .dy-fp, div.pk-open .dy-pp { position: absolute; will-change: transform; }
-div.pk-open .dy-fp { width: min(84px, 21vw); aspect-ratio: 5 / 8; left: calc(min(84px, 21vw) / -2); top: calc(min(84px, 21vw) * -.8 - 105px);
-  -webkit-box-reflect: below 4px linear-gradient(transparent 50%, rgba(255,255,255,.28)); }
+div.pk-open .dy-fp { width: min(84px, 21vw); aspect-ratio: 5 / 8; left: calc(min(84px, 21vw) / -2); top: calc(min(84px, 21vw) * -.8 - 14px);
+  -webkit-box-reflect: below 22px linear-gradient(transparent 50%, rgba(255,255,255,.28)); }
 div.pk-open .dy-fp .pk-pack { width: 100%; box-shadow: none; filter: saturate(.7) brightness(1.12); opacity: .85; }
 div.pk-open .dy-pp { width: min(180px, 46vw); aspect-ratio: 5 / 8; left: calc(min(180px, 46vw) / -2); top: calc(min(180px, 46vw) * -.8); }
-div.pk-open .dy-pp-f, div.pk-open .dy-pp-b { position: absolute; inset: 0; -webkit-box-reflect: below 10px linear-gradient(transparent 58%, rgba(255,255,255,.4)); }
+div.pk-open .dy-pp-f, div.pk-open .dy-pp-b { position: absolute; inset: 0; -webkit-box-reflect: below 56px linear-gradient(transparent 52%, rgba(255,255,255,.34)); }
 div.pk-open .dy-pp .pk-pack.is-big { width: 100%; box-shadow: 0 6px 18px rgba(30,45,90,.22); }
 div.pk-open .dy-pp:not(.is-front) .pk-pack *, div.pk-open .dy-fp .pk-pack * { animation: none !important; }
 div.pk-open .dy-pp-b { display: none; transform: scaleX(-1); }

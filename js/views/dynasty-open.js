@@ -532,15 +532,18 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
   // nothing needs preserve-3d: a pack past the ring's side is hidden, the nearer drawn over the farther. lift: the
   // ring's height (it sweeps down into place); spin: the chosen one's own turn (its back shown past a quarter)
   const pick = $('.dy-pick'), PP = [...pick.querySelectorAll('.dy-pp')], FP = [...pick.querySelectorAll('.dy-fp')];
-  const STEP = 360 / RING, FSTEP = 360 / FAR;
+  const STEP = 360 / RING, FSTEP = 360 / FAR, FACE = .45, DRAG = 1.2; // (FACE: how far a pack turns with the ring; DRAG: pack widths a step)
   let rot = 0, lift = 0, spin = 0, pTw = 0, pg = null, chosen = false;
   const wrap = a => ((a % 360) + 540) % 360 - 180;
   const front = () => (((Math.round(rot / STEP)) % RING) + RING) % RING;
+  // (spaced as Pocket's, the owner, Oct 30 2026: "The cards are too close together": the next pack a clear gap off the one
+  // in front, cut by the screen's edge, the far ring peeking between them; each turned only part of its way round, nearly
+  // facing you, its depth eased so the side ones stay near full size)
   const place = () => {
-    const w = PP[0].offsetWidth || 180, R = w * 1.12, fw = FP[0].offsetWidth || 80, FR = fw * 4.6, f = front();
+    const w = PP[0].offsetWidth || 180, R = w * 2.3, fw = FP[0].offsetWidth || 80, FR = fw * 4.6, f = front();
     PP.forEach((el, i) => {
-      const a = wrap(i * STEP - rot), r = a * Math.PI / 180, c = Math.cos(r), own = i === f ? spin : 0, t = ((a + own) % 360 + 360) % 360;
-      el.style.transform = `translate3d(${(R * Math.sin(r)).toFixed(1)}px, ${lift.toFixed(1)}px, ${(R * c - R).toFixed(1)}px) rotateY(${(a + own).toFixed(2)}deg)`;
+      const a = wrap(i * STEP - rot), r = a * Math.PI / 180, c = Math.cos(r), own = i === f ? spin : 0, t = ((a * FACE + own) % 360 + 360) % 360;
+      el.style.transform = `translate3d(${(R * Math.sin(r)).toFixed(1)}px, ${lift.toFixed(1)}px, ${((R * c - R) * .6).toFixed(1)}px) rotateY(${(a * FACE + own).toFixed(2)}deg)`;
       el.style.opacity = c < .05 ? '0' : '1';
       el.style.zIndex = String(Math.round(c * 100) + 100);
       el.classList.toggle('is-back', t > 90 && t < 270);
@@ -627,7 +630,7 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
     const now = performance.now();
     pg.v = (e.clientX - pg.lx) / Math.max(1, now - pg.lt); pg.lx = e.clientX; pg.lt = now;
     const f0 = front();
-    rot = pg.r0 - dx * STEP / (pg.w * .75); place();
+    rot = pg.r0 - dx * STEP / (pg.w * DRAG); place();
     if (front() !== f0) ui.haptic('selection');
   });
   const pUp = e => {
@@ -636,7 +639,7 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
     pg = null;
     if (!d.moved) { if (e.type !== 'pointercancel') choose(); return; }
     // (let go: it coasts on with the flick and stops with a pack in front)
-    const r0 = rot, to = Math.round((rot - d.v * 220 * STEP / (d.w * .75)) / STEP) * STEP;
+    const r0 = rot, to = Math.round((rot - d.v * 220 * STEP / (d.w * DRAG)) / STEP) * STEP;
     pTween(k => { rot = r0 + (to - r0) * k; }, 420, easeOut);
   };
   pick.addEventListener('pointerup', pUp); pick.addEventListener('pointercancel', pUp);
