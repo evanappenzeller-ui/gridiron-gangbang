@@ -1,6 +1,6 @@
 /* Rivals match surface. These rules cannot affect collection cards or other games. */
-.v-dynasty-battle { background: #10242B; --db-ink: #F4F4E9; --db-muted: #AEC3C7; --db-accent: #A7E3B1; }
-.v-dynasty-battle .db { gap: 10px; width: min(100%, 780px); margin: auto; padding: 0 14px max(14px, env(safe-area-inset-bottom)); color: var(--db-ink); background: radial-gradient(ellipse at 50% 38%, #224C47 0, #152F32 48%, #10242B 85%); background-attachment: fixed; }
+.v-dynasty-battle { background: #151E20; --db-ink: #F4F4E9; --db-muted: #AEC3C7; --db-accent: #A7E3B1; }
+.v-dynasty-battle .db { gap: 10px; width: min(100%, 780px); margin: auto; padding: 0 14px max(14px, env(safe-area-inset-bottom)); color: var(--db-ink); background: radial-gradient(ellipse at 50% 38%, #293C35 0, #172A29 55%, #101F25 100%); background-attachment: fixed; }
 .v-dynasty-battle .db button { touch-action: manipulation; }
 .v-dynasty-battle .db button:focus-visible { outline: 3px solid #F4CA78; outline-offset: 3px; }
 .v-dynasty-battle .db-top { margin: 0 -14px; padding: max(10px, env(safe-area-inset-top)) 12px 10px; background: #10242BF5; border-bottom: 1px solid #FFFFFF18; gap: 8px; }
@@ -149,3 +149,148 @@
 .v-dynasty-battle .db-face.r-legendary .db-face-art { border-bottom: 2px solid #E4C77D; }
 .v-dynasty-battle .db-face.r-mythic .db-face-art { border-bottom: 2px solid #E6BEDC; }
 .v-dynasty-battle .db-row.is-bench .db-face { border-left-color: var(--card-rim); }
+/* Felt, a raised rail, and real card edges make the match a table at every screen size. */
+.v-dynasty-battle .db-table { position: relative; display: grid; gap: 10px; min-width: 0; padding: 13px 10px; border: 5px solid #5B4B38; border-radius: 24px; background: radial-gradient(ellipse at 50% 45%, #38664E, #244C3C 65%, #1B392F), #244C3C; box-shadow: 0 1px 0 #B7A07A, 0 5px 0 #302B26, 0 10px 22px #0005, inset 0 0 0 1px #B6C6A34D, inset 0 0 28px #0B211D99; }
+.v-dynasty-battle .db-table::before { content: ''; position: absolute; inset: 8px; pointer-events: none; border: 1px solid #DEE7BF30; border-radius: 15px; }
+.v-dynasty-battle .db-table .db-team { position: relative; gap: 5px; }
+.v-dynasty-battle .db-table .db-team-title { padding-inline: 3px; }
+.v-dynasty-battle .db-table .db-team-title > b { color: #F5EACD; }
+.v-dynasty-battle .db-table .db-team-title > span { color: #C0D1BF; font-size: 9px; }
+.v-dynasty-battle .db-table .db-field { border-color: #BBD4AF38; border-radius: 11px; padding: 7px; gap: 8px; background: repeating-linear-gradient(90deg, transparent 0 48px, #E1ECC712 48px 49px), #142C2620; }
+.v-dynasty-battle .db-table .db-slot:not(.is-empty) { box-shadow: 1px 2px 0 #B4B4A0, 2px 4px 0 #D1CFB4, 3px 8px 9px #0006; }
+.v-dynasty-battle .db-table .db-row.is-active .db-slot:not(.is-empty) { transform: rotate(-2deg); }
+.v-dynasty-battle .db-table .is-opp .db-row.is-active .db-slot:not(.is-empty) { transform: rotate(2deg); }
+.v-dynasty-battle .db-table .db-status { position: relative; border: 1px solid #E8D79B80; border-radius: 5px; background: #E8E2C9; box-shadow: 0 3px 7px #0003; }
+.v-dynasty-battle .db-opponent-hand { display: flex; justify-content: center; align-items: center; min-height: 38px; padding: 0 12px 4px; pointer-events: none; }
+.v-dynasty-battle .db-opponent-hand span { flex: 0 0 30px; display: grid; place-items: center; height: 38px; margin-left: -8px; border: 2px solid #E8DAB9; border-radius: 4px; background: repeating-linear-gradient(45deg, #E8DAB920 0 1px, transparent 1px 5px), #233B49; box-shadow: 0 3px 4px #0005; transform: rotate(-7deg); color: #F7DCA1; font: 900 italic 19px/1 var(--font-text); }
+.v-dynasty-battle .db-opponent-hand span:first-child { margin-left: 0; }
+.v-dynasty-battle .db-opponent-hand span:nth-child(even) { transform: rotate(5deg); }
+
+/* Keep the full card hit area, even where its edge overlaps its neighbour. */
+.v-dynasty-battle .db-hand-section { position: relative; isolation: isolate; padding-top: 7px; border-top: 1px solid #E2D5AC30; }
+.v-dynasty-battle .db-hand-section > .db-team-title { padding-inline: 3px; }
+.v-dynasty-battle .db-hand-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; padding: 6px 0 0; }
+.v-dynasty-battle .db-sort { display: flex; align-items: center; gap: 6px; margin-right: auto; color: #BED0C4; font: 600 11px/1.2 var(--font-text); }
+.v-dynasty-battle .db-sort select { max-width: 150px; min-height: 40px; padding: 6px 24px 6px 8px; border: 1px solid #C5D4C34D; border-radius: 6px; background: #1E3635; color: #F2EFD9; font: 700 12px/1.2 var(--font-text); color-scheme: dark; }
+.v-dynasty-battle .db-sort select:focus-visible { outline: 3px solid #F4CA78; outline-offset: 2px; }
+.v-dynasty-battle [data-db-browse] { display: grid; place-items: center; min-width: 40px; min-height: 40px; padding: 6px 10px; border: 1px solid #C5D4C34D; border-radius: 6px; background: #28403D; color: #F5E9CD; cursor: pointer; font: 800 15px/1 var(--font-text); }
+.v-dynasty-battle [data-db-browse]:disabled { opacity: .4; cursor: default; }
+.v-dynasty-battle .db-hand { display: block; overflow-x: auto; overflow-y: hidden; margin: 0 -10px; padding: 0; scroll-padding-inline: 20px; scroll-snap-type: x proximity; overscroll-behavior-x: contain; touch-action: pan-x pan-y; background: radial-gradient(ellipse at 50% 100%, #6D765826, transparent 75%); }
+.v-dynasty-battle .db-hand-fan { display: flex; align-items: flex-start; justify-content: center; width: max-content; min-width: 100%; padding: 38px 22px 38px; }
+.v-dynasty-battle .db-hand-fan .db-card { flex: 0 0 122px; width: 122px; min-height: 166px; display: flex; flex-direction: column; margin-left: -16px; overflow: hidden; border: 2px solid #EEE5C9; border-radius: 9px; background: #F6F1DF; box-shadow: 1px 2px 0 #ADA68E, 2px 4px 0 #E1D5B6, 4px 9px 11px #0007; transform: translateY(var(--fan-lift, 0px)) rotate(var(--fan-angle, 0deg)); transform-origin: 50% 100%; transition: transform .2s ease, box-shadow .2s ease; z-index: var(--fan-order, 1); scroll-snap-align: center; }
+.v-dynasty-battle .db-hand-fan .db-card:first-child { margin-left: 0; }
+.v-dynasty-battle .db-hand-fan .db-card .db-face { flex: 1; min-height: 148px; }
+.v-dynasty-battle .db-hand-fan .db-card .db-face-art { height: 74px; }
+.v-dynasty-battle .db-card-hint { display: block; width: 100%; padding: 5px 6px; border-top: 1px solid #CCC5AC; background: #E4DFC9; color: #3B5443; font: 700 9px/1.25 var(--font-text); }
+.v-dynasty-battle .db-hand-fan .db-card.is-sel, .v-dynasty-battle .db-hand-fan .db-card:focus-visible { z-index: 40; transform: translateY(-19px) rotate(0deg); box-shadow: 0 0 0 2px #BEE1A2, 0 12px 22px #0008; outline: 2px solid #DFF2B7; outline-offset: 2px; }
+.v-dynasty-battle .db-hand-fan .db-card.is-sel .db-card-hint { background: #CEE6B7; color: #204A32; }
+@media (hover: hover) {
+  .v-dynasty-battle .db-hand-fan .db-card:hover { z-index: 41; transform: translateY(-23px) rotate(0deg) scale(1.04); box-shadow: 0 14px 22px #0008; }
+}
+@media (min-width: 600px) {
+  .v-dynasty-battle .db-table { padding: 16px; border-width: 7px; border-radius: 32px; }
+  .v-dynasty-battle .db-hand-fan { padding-top: 44px; padding-bottom: 42px; }
+  .v-dynasty-battle .db-hand-fan .db-card { flex-basis: 140px; width: 140px; margin-left: -29px; min-height: 184px; }
+  .v-dynasty-battle .db-hand-fan .db-card .db-face { min-height: 164px; }
+  .v-dynasty-battle .db-hand-fan .db-card .db-face-art { height: 87px; }
+  .v-dynasty-battle .db-hand-fan .db-card .db-face-name { font-size: 13px; }
+  .v-dynasty-battle .db-opponent-hand span { width: 35px; height: 43px; }
+}
+
+/* A committed play turns the table into a short stadium scene. Only the presentation moves. */
+.v-dynasty-battle .db-cinema { position: fixed; inset: 0; z-index: 80; display: flex; flex-direction: column; align-items: center; overflow: auto; padding: max(20px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom)); color: #FFF5D5; background: radial-gradient(ellipse at 50% 35%, #294859 0%, #112832 45%, #0B1920 80%); perspective: 900px; animation: db-cinema-flip .36s ease-out both; }
+.v-dynasty-battle .db-cinema::before { content: ''; position: absolute; inset: 10% 0 25%; pointer-events: none; background: radial-gradient(ellipse at 15% 0, #DDE8CF3D, transparent 42%), radial-gradient(ellipse at 85% 0, #DDE8CF3D, transparent 42%); }
+.v-dynasty-battle .db-cinema-top { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 12px; width: min(100%, 800px); font: 800 10px/1.3 var(--font-text); letter-spacing: 1.3px; text-transform: uppercase; }
+.v-dynasty-battle .db-cinema-top button { flex: none; min-height: 44px; padding: 9px 13px; border: 1px solid #E3DABC66; border-radius: 24px; background: #FFFFFF12; color: #FFF5D5; font: 700 12px/1 var(--font-text); cursor: pointer; }
+.v-dynasty-battle .db-cinema button:focus-visible { outline: 3px solid #F4CA78; outline-offset: 3px; }
+.v-dynasty-battle .db-cinema-title { position: relative; text-align: center; width: min(100%, 700px); margin: auto 0 0; padding-top: 18px; }
+.v-dynasty-battle .db-cinema-title h2 { margin: 0; font: 900 italic clamp(28px, 6vw, 52px)/1.05 var(--font-text); text-transform: uppercase; letter-spacing: -.5px; text-wrap: balance; text-shadow: 0 3px 0 #0008; }
+.v-dynasty-battle .db-cinema-title p { margin: 9px 0 0; color: #B8CCCA; font: 600 13px/1.4 var(--font-text); }
+.v-dynasty-battle .db-cinema-field { position: relative; isolation: isolate; flex: none; width: min(100%, 720px); height: clamp(245px, 43vh, 380px); margin: 12px 0; }
+.v-dynasty-battle .db-cinema-field::before { content: ''; position: absolute; inset: 22% -7% -5%; z-index: -1; border: 2px solid #DFE8BC80; border-radius: 18px; background: repeating-linear-gradient(90deg, transparent 0 13.8%, #E7E9C980 13.8% 14%), repeating-linear-gradient(90deg, #3E754D 0 14%, #346541 14% 28%); transform: perspective(500px) rotateX(38deg); box-shadow: 0 30px 60px #0008; }
+.v-dynasty-battle .db-cinema-field::after { content: 'RIVALS'; position: absolute; left: 50%; top: 62%; z-index: -1; color: #DCE5B72B; font: 900 italic clamp(40px, 12vw, 90px)/1 var(--font-text); transform: translate(-50%, -50%) perspective(500px) rotateX(38deg); }
+.v-dynasty-battle .db-cinema-player { position: absolute; top: 8%; width: 36%; max-width: 210px; display: flex; flex-direction: column; align-items: center; text-align: center; filter: drop-shadow(0 12px 8px #0006); }
+.v-dynasty-battle .db-cinema-player.is-attacker { left: 3%; transform: rotate(-7deg); animation: db-cinema-charge 2.4s ease-in-out both; }
+.v-dynasty-battle .db-cinema-player.is-defender { right: 3%; top: 14%; transform: rotate(7deg); animation: db-cinema-recoil 2.4s ease-in-out both; }
+.v-dynasty-battle .db-athlete { display: block; width: 100%; max-height: clamp(170px, 31vh, 280px); overflow: visible; }
+.v-dynasty-battle .db-cinema-player.is-defender .db-athlete { transform: scaleX(-1); }
+.v-dynasty-battle .db-athlete-arm { transform-box: fill-box; transform-origin: 50% 12%; animation: db-cinema-arm 2.4s ease-in-out both; }
+.v-dynasty-battle .db-athlete-leg { transform-box: fill-box; transform-origin: 50% 5%; animation: db-cinema-leg 2.4s ease-in-out both; }
+.v-dynasty-battle .db-cinema-player > b { display: block; max-width: 100%; padding: 5px 9px; border: 1px solid #DCD5AE55; border-radius: 4px; background: #0A2228DB; color: #FFF4D7; font: 800 clamp(11px, 2.5vw, 17px)/1.2 var(--font-text); }
+.v-dynasty-battle .db-cinema-player > small { display: block; margin-top: 4px; color: #C5D7C7; font: 700 9px/1.2 var(--font-text); letter-spacing: 1px; text-transform: uppercase; }
+.v-dynasty-battle .db-cinema-player .db-face-art { height: clamp(95px, 16vh, 170px); }
+.v-dynasty-battle .db-cinema-player .db-face-name { font-size: clamp(13px, 2.7vw, 21px); }
+.v-dynasty-battle .db-cinema-player .db-face-role { font-size: 10px; }
+.v-dynasty-battle .db-cinema-player .db-face-copy { padding: 9px; }
+.v-dynasty-battle .db-cinema-player .db-face-health, .v-dynasty-battle .db-cinema-player .db-face-meter, .v-dynasty-battle .db-cinema-player .db-face-hint { display: none; }
+.v-dynasty-battle .db-cinema-ball { position: absolute; z-index: 3; left: 25%; top: 36%; display: grid; place-items: center; width: 40px; height: 40px; color: #F9DD94; filter: drop-shadow(0 3px 3px #0008); transform: rotate(-30deg); animation: db-cinema-pass 2.4s ease-in-out both; }
+.v-dynasty-battle .db-cinema-ball .ic, .v-dynasty-battle .db-cinema-ball svg { width: 40px; height: 40px; fill: #925136; }
+.v-dynasty-battle .db-cinema-impact { position: absolute; z-index: 4; right: 4%; top: 22%; display: grid; place-items: center; width: 46%; aspect-ratio: 1; border: 6px solid #FFDB78; border-radius: 50%; color: #FFF3BC; text-shadow: 2px 3px 0 #5D2B1B; font: 900 italic clamp(26px, 8vw, 56px)/1 var(--font-text); animation: db-cinema-impact 2.4s ease-out both; pointer-events: none; }
+.v-dynasty-battle .db-cinema-result { position: relative; width: min(100%, 620px); margin: 0 0 auto; padding: 16px 18px; border: 1px solid #CFD0A04D; border-radius: 12px; background: #061B21C9; color: #EEF3D9; text-align: center; font: 700 14px/1.5 var(--font-text); animation: db-cinema-caption 2.4s ease both; }
+.v-dynasty-battle .db-cinema-result strong { display: block; color: #F9DB8D; font: 900 26px/1.2 var(--font-text); }
+.v-dynasty-battle .db-cinema-result p { margin: 8px 0 0; }
+.v-dynasty-battle .db-cinema.is-miss .db-cinema-player.is-defender { animation-name: db-cinema-dodge; }
+.v-dynasty-battle .db-cinema.is-miss .db-cinema-impact { border-color: #A4E9D9; color: #D5FFF3; }
+.v-dynasty-battle .db-cinema.is-card .db-cinema-player.is-attacker { left: 50%; top: 8%; width: 46%; border: 2px solid #F9E2AC; border-radius: 14px; overflow: hidden; background: #F6F4E9; transform: translateX(-50%) rotate(-5deg); animation: db-cinema-deal 1.6s ease-out both; }
+.v-dynasty-battle .db-cinema.is-card .db-cinema-impact { left: 50%; right: auto; top: 18%; width: 52%; transform: translateX(-50%); }
+.v-dynasty-battle .db-cinema.is-card .db-cinema-result { animation: none; }
+@keyframes db-cinema-flip { from { opacity: 0; transform: perspective(1000px) rotateY(-80deg) scale(.88); } to { opacity: 1; transform: perspective(1000px) rotateY(0) scale(1); } }
+@keyframes db-cinema-charge { 0%, 20% { transform: rotate(-7deg) translateX(-10%); } 42% { transform: rotate(8deg) translateX(28%) scale(1.06); } 64%, 100% { transform: rotate(-4deg) translateX(6%); } }
+@keyframes db-cinema-arm { 0%, 20% { transform: rotate(-12deg); } 42% { transform: rotate(27deg); } 65%, 100% { transform: rotate(0deg); } }
+@keyframes db-cinema-leg { 0%, 20% { transform: rotate(0deg); } 35% { transform: rotate(-15deg); } 48% { transform: rotate(12deg); } 65%, 100% { transform: rotate(0deg); } }
+@keyframes db-cinema-recoil { 0%, 44% { transform: rotate(7deg); } 52% { transform: translate(13%, 8%) rotate(18deg); } 65%, 100% { transform: translate(5%, 3%) rotate(10deg); } }
+@keyframes db-cinema-dodge { 0%, 35% { transform: rotate(7deg); } 46%, 65% { transform: translateY(-28%) rotate(-12deg); } 85%, 100% { transform: rotate(7deg); } }
+@keyframes db-cinema-pass { 0%, 22% { opacity: 0; left: 25%; top: 45%; transform: rotate(-30deg); } 28% { opacity: 1; } 45% { opacity: 1; left: 70%; top: 25%; transform: rotate(220deg) scale(1.15); } 53%, 100% { opacity: 0; left: 74%; top: 40%; transform: rotate(320deg); } }
+@keyframes db-cinema-impact { 0%, 44% { opacity: 0; scale: .3; } 53% { opacity: 1; scale: 1; } 69% { opacity: 1; scale: 1.12; } 100% { opacity: 0; scale: 1.2; } }
+@keyframes db-cinema-caption { 0%, 40% { opacity: 0; transform: translateY(12px); } 55%, 100% { opacity: 1; transform: translateY(0); } }
+@keyframes db-cinema-deal { from { opacity: 0; transform: translate(-50%, 35%) rotateY(75deg) rotate(-15deg) scale(.7); } 55%, to { opacity: 1; transform: translateX(-50%) rotate(-5deg) scale(1); } }
+@media (max-height: 550px) and (min-width: 600px) {
+  .v-dynasty-battle .db-cinema { padding-top: 10px; padding-bottom: 10px; }
+  .v-dynasty-battle .db-cinema-title { padding-top: 5px; }
+  .v-dynasty-battle .db-cinema-title h2 { font-size: 25px; }
+  .v-dynasty-battle .db-cinema-field { height: 215px; margin: 0; }
+  .v-dynasty-battle .db-cinema-player { width: 24%; max-width: 145px; }
+  .v-dynasty-battle .db-cinema-player.is-attacker { left: 13%; }
+  .v-dynasty-battle .db-cinema-player.is-defender { right: 13%; }
+  .v-dynasty-battle .db-cinema-player .db-face-art { height: 90px; }
+  .v-dynasty-battle .db-athlete { max-height: 145px; }
+  .v-dynasty-battle .db-cinema-result { padding: 7px 12px; font-size: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .v-dynasty-battle .db-hand-fan .db-card { transition: none; }
+  .v-dynasty-battle .db-cinema, .v-dynasty-battle .db-cinema *, .v-dynasty-battle .db-cinema::before { animation: none !important; }
+  .v-dynasty-battle .db-cinema-ball, .v-dynasty-battle .db-cinema-impact { display: none; }
+}
+
+/* Use the available desktop table, while keeping the phone's hand within easy reach. */
+html.is-dynasty-battle { --col-w: 1080px; }
+@media (min-width: 850px) {
+  .v-dynasty-battle .db { width: min(100%, 1080px); display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); grid-template-rows: auto auto auto auto 1fr auto; align-content: start; align-items: start; column-gap: 22px; }
+  .v-dynasty-battle .db-top { grid-column: 1 / -1; }
+  .v-dynasty-battle .db-table { grid-column: 1; grid-row: 2 / 6; }
+  .v-dynasty-battle .db-playbook { grid-column: 2; grid-row: 2; }
+  .v-dynasty-battle .db-log { grid-column: 2; grid-row: 3; }
+  .v-dynasty-battle .db-selection { grid-column: 2; grid-row: 4; }
+  .v-dynasty-battle .db-hand-section { grid-column: 2; grid-row: 5; align-self: end; }
+  .v-dynasty-battle .db-bar { grid-column: 1 / -1; grid-row: 6; align-self: end; }
+}
+@media (max-width: 599px) {
+  .v-dynasty-battle .db { gap: 7px; }
+  .v-dynasty-battle .db-table { padding: 7px; gap: 7px; border-width: 4px; }
+  .v-dynasty-battle .db-opponent-hand { min-height: 22px; padding-bottom: 0; }
+  .v-dynasty-battle .db-opponent-hand span { height: 24px; flex-basis: 20px; font-size: 12px; }
+  .v-dynasty-battle .db-table .db-field { padding: 5px; gap: 8px; }
+  .v-dynasty-battle .db-table .db-row.is-active .db-face-art { height: 26px; }
+  .v-dynasty-battle .db-table .db-row.is-active .db-face-number { font-size: 28px; }
+  .v-dynasty-battle .db-table .db-row.is-active .db-face-copy { padding: 4px 5px; }
+  .v-dynasty-battle .db-table .db-row.is-active .db-face-name { font-size: 11px; }
+  .v-dynasty-battle .db-table .db-row.is-bench .db-face-copy { padding-block: 3px; }
+  .v-dynasty-battle .db-table .db-row.is-bench .db-face-meter { display: none; }
+  .v-dynasty-battle .db-table .db-row.is-bench .db-slot.is-empty { min-height: 26px; }
+  .v-dynasty-battle .db-table .db-status { padding: 6px 8px; font-size: 11px; }
+  .v-dynasty-battle .db-hand-fan { padding-block: 28px; }
+  .v-dynasty-battle .db-hand-fan .db-card { min-height: 146px; }
+  .v-dynasty-battle .db-hand-fan .db-card .db-face { min-height: 128px; }
+  .v-dynasty-battle .db-hand-fan .db-card .db-face-art { height: 54px; }
+  .v-dynasty-battle .db-log { display: none; }
+}

@@ -144,6 +144,9 @@ Rarity finishes follow the owner's card references: type-tinted silver Common, g
 illuminated gold Legendary, and prismatic cosmic Mythic. Keep the name/HP header and framed artwork readable.
 `dynasty-rarity.css` and `img/rivals/` own the materials; `dynasty-foil.js` adds reflections in details and reveals.
 Collection previews stay still, with reduced-motion support. Verify `check-card-layout.cjs`.
+Tabletop battles fan the hand and sort its display without mutating saved order or duplicate-card selections.
+Resolved play events drive the skippable stadium scenes; animations never submit moves or resolve damage.
+Queue opponent scenes while a details sheet is open; clear presentation on profile changes or leaving the battle.
 Verify the existing Dynasty checks plus `check-rivals-rules.cjs`, `check-rivals-decks.cjs` and `check-rivals-battle.cjs`.
 
 ## Deploying

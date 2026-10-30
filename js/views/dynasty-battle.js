@@ -1,5 +1,5 @@
 // Gridiron Rivals match (/puzzles/dynasty/battle/<match id>). Rules and saved turns live in the core modules.
-// A compact field shows both lineups, with a readable hand and an inline playbook. Tapping a hand card previews it;
+// A tabletop holds both lineups and a sortable, fanned hand. Tapping a hand card previews it;
 // explicit Play commits it or highlights legal targets. Attacks show damage ranges and version-aware costs on the board.
 // Collectible card details, the complete log and match options remain available without interrupting ordinary moves.
 import * as ui from '../core/ui.js';
@@ -61,6 +61,108 @@ function evText(ev, you, opp) {
     case 'over': return '';
     default: return '';
   }
+}
+
+// ---------------------------------------------------------------------------------------------------- presentation
+// Sort copies carrying original hand indexes: duplicate cards and setup selections keep their identity.
+function handType(id) {
+  const t = D.trainer(id), s = B.stats(id);
+  return t ? {coach: 'Coach', item: 'Item', stadium: 'Stadium'}[t.kind] : `${B.TYPES[s.type].name} · ${s.stage ? 'Upgrade' : 'Basic'}`;
+}
+function handOrder(hand, sort) {
+  const cards = hand.map((id, i) => ({id, i}));
+  const power = id => Math.max(0, ...(B.stats(id)?.attacks || []).map(a => a.dmg));
+  return cards.sort((a, b) => (sort === 'name' ? nameOf(a.id).localeCompare(nameOf(b.id))
+    : sort === 'type' ? handType(a.id).localeCompare(handType(b.id))
+    : sort === 'power' ? power(b.id) - power(a.id) : 0) || a.i - b.i);
+}
+function revealHand(st, card) {
+  const hand = st.el.querySelector('.db-hand');
+  card = card || hand?.querySelector('.is-sel');
+  if (!hand || !card) return;
+  const box = card.getBoundingClientRect(), frame = hand.getBoundingClientRect();
+  hand.scrollLeft += box.left + box.width / 2 - frame.left - frame.width / 2;
+}
+function browseHand(st, step, edge) {
+  const cards = [...st.el.querySelectorAll('[data-db-hand]')];
+  if (!cards.length) return;
+  const at = cards.findIndex(c => c === document.activeElement);
+  const remembered = cards.findIndex(c => Number(c.dataset.dbHand) === st.browseI);
+  const current = at >= 0 ? at : remembered >= 0 ? remembered : cards.findIndex(c => c.classList.contains('is-sel'));
+  const n = edge === 'first' ? 0 : edge === 'last' ? cards.length - 1
+    : current < 0 ? step > 0 ? 0 : cards.length - 1 : (current + step + cards.length) % cards.length;
+  cards[n].focus({preventScroll: true}); revealHand(st, cards[n]);
+}
+function athleteHTML(id, role) {
+  const c = D.card(id), team = c && D.teamOf(c.team);
+  // Vector athletes remain crisp at phone and desktop sizes and need no downloaded animation assets.
+  return `<div class="db-cinema-player is-${role}" style="--jersey:${esc(team?.pri || '#436D7B')}"><svg class="db-athlete" viewBox="0 0 160 220" aria-hidden="true">
+    <ellipse cx="80" cy="211" rx="50" ry="7" fill="#0004"/>
+    <g stroke="#152530" stroke-width="4" stroke-linejoin="round">
+      <path d="M55 143L77 146 65 192 43 196 45 184Z" fill="#F0EEE3"/><path d="M84 145L105 141 125 181 115 196 97 187Z" fill="#F0EEE3"/>
+      <path d="M43 188L66 190 67 207 32 207Q30 198 43 188Z" fill="#23353D"/><path d="M110 187L126 184 139 203 114 209 102 201Z" fill="#23353D"/>
+      <path d="M49 76L31 92 18 126 34 133 55 105Z" fill="var(--jersey)"/><path d="M109 76L129 89 146 115 133 129 105 104Z" fill="var(--jersey)"/>
+      <path d="M20 119L35 126 49 114 58 127 35 144 14 133Z" fill="#C88E64"/><path d="M137 112L148 120 134 143 112 138 114 122 130 127Z" fill="#C88E64"/>
+      <path d="M48 78Q80 62 111 78L111 116 104 151 55 151 47 115Z" fill="var(--jersey)"/>
+      <path d="M54 144H105V155H54Z" fill="#F0EEE3"/>
+      <rect x="68" y="55" width="25" height="22" rx="8" fill="#C88E64"/>
+      <path d="M51 38Q51 9 80 9 111 9 112 40L107 61 91 71 61 63Z" fill="var(--jersey)"/>
+      <path d="M75 12V32M58 38H111" fill="none" stroke="#F0EEE3" stroke-width="7"/>
+      <path d="M87 40H113L109 62H86Z" fill="#162D3C"/><path d="M83 46H118V65H88Z" fill="none" stroke="#D5DFE0" stroke-width="3"/>
+    </g><text x="80" y="124" transform="${role === 'defender' ? 'translate(160 0) scale(-1 1)' : ''}" text-anchor="middle" fill="#FFF" font-family="sans-serif" font-size="34" font-weight="900">${esc(c?.num || c?.pos || 'R')}</text>
+    </svg><b>${esc(nameOf(id))}</b><small>${role === 'attacker' ? 'On the attack' : 'Defending'}</small></div>`;
+}
+function clearCinema(st) {
+  clearTimeout(st.sceneRetry); st.sceneRetry = null;
+  clearTimeout(st.sceneTimer); st.sceneTimer = null;
+  st.scenes = []; st.scene = null;
+  st.el.querySelector('.db-cinema')?.remove();
+  const host = st.el.querySelector('[data-db]');
+  if (host) { host.inert = false; host.classList.remove('is-presenting'); }
+}
+function finishCinema(st) {
+  clearTimeout(st.sceneTimer); st.sceneTimer = null;
+  st.el.querySelector('.db-cinema')?.remove(); st.scene = null;
+  if (st.dead) return;
+  if (st.scenes.length) { nextCinema(st); return; }
+  const host = st.el.querySelector('[data-db]');
+  host.inert = false; host.classList.remove('is-presenting');
+  // Restore the table's latest state; presentation never submits, rerolls, or pays a move.
+  draw(st);
+  const focus = st.returnFocus;
+  const target = focus && host.querySelector(`[${focus[0]}="${CSS.escape(focus[1])}"]:not(:disabled)`);
+  (target || host.querySelector('[data-db-hand], [data-db-more]'))?.focus({preventScroll: true});
+}
+function nextCinema(st) {
+  if (st.scene || !st.scenes.length || st.dead || st.hidden || !D.mayPlay()) return;
+  // Sheets own the app's focus/inert boundary; keep queued moves until the table is available.
+  if (ui.sheetCount() > 0) {
+    clearTimeout(st.sceneRetry);
+    st.sceneRetry = setTimeout(() => nextCinema(st), 150);
+    return;
+  }
+  clearTimeout(st.sceneRetry); st.sceneRetry = null;
+  const scene = st.scenes.shift(), ev = scene.ev, attack = ev.k === 'attack';
+  const host = st.el.querySelector('[data-db]');
+  if (!host.inert) st.returnFocus = document.activeElement && host.contains(document.activeElement)
+    ? [...document.activeElement.attributes].filter(a => a.name.startsWith('data-db-')).map(a => [a.name, a.value])[0] : null;
+  st.scene = scene;
+  const heading = attack ? ev.name : {bench: 'Into the lineup', evolve: 'Player upgraded', coach: 'Coach’s call', item: 'Item played', stadium: 'Field advantage'}[ev.k];
+  const result = attack ? ev.missed ? 'JUKED' : `${ev.dmg} DAMAGE` : ev.dmg != null ? `${ev.dmg} DAMAGE` : ev.heal ? `+${ev.heal} HP` : nameOf(ev.id);
+  const el = document.createElement('section');
+  el.className = `db-cinema${attack ? '' : ' is-card'}${ev.missed ? ' is-miss' : ''}${ev.who !== scene.you ? ' is-opponent' : ''}`;
+  el.dataset.dbScene = attack ? 'attack' : 'card';
+  el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true');
+  el.setAttribute('aria-labelledby', 'db-cinema-heading'); el.setAttribute('aria-describedby', 'db-cinema-description');
+  el.innerHTML = `<div class="db-cinema-top"><span>GRIDIRON RIVALS · ${ev.who === scene.you ? 'YOUR PLAY' : 'OPPONENT’S PLAY'}</span><button type="button" data-db-skip>Skip animation</button></div>`
+    + `<div class="db-cinema-title"><h2 id="db-cinema-heading">${esc(heading)}</h2><p>${esc(attack ? `${short(ev.id)} vs ${short(ev.target)}` : nameOf(ev.id))}</p></div>`
+    + `<div class="db-cinema-field">${attack ? athleteHTML(ev.id, 'attacker') + athleteHTML(ev.target, 'defender') + `<span class="db-cinema-ball" aria-hidden="true">${ui.icon('football', {size: 38})}</span><span class="db-cinema-impact" aria-hidden="true"></span>` : `<div class="db-cinema-player is-attacker">${faceHTML(ev.id)}</div>`}</div>`
+    + `<div class="db-cinema-result" role="status"><strong>${esc(result)}</strong><p id="db-cinema-description">${esc(evText(ev, scene.you, scene.opp))}</p></div>`;
+  st.el.append(el); host.inert = true; host.classList.add('is-presenting');
+  el.querySelector('[data-db-skip]').focus({preventScroll: true});
+  // One control in the dialog: keep keyboard focus here until it closes.
+  el.addEventListener('keydown', e => { if (e.key === 'Tab') { e.preventDefault(); el.querySelector('button').focus(); } });
+  st.sceneTimer = setTimeout(() => finishCinema(st), attack ? 2800 : 1800);
 }
 
 // ---------------------------------------------------------------------------------------------------- pieces
@@ -131,7 +233,7 @@ function draw(st) {
   if (st.dead) return;
   const host = st.el.querySelector('[data-db]');
   // (Evan's and Ryan Stewart's alone, Oct 28 2026: a profile switched while it's open leaves it)
-  if (!D.mayPlay()) { fullScreen(st, false); host.innerHTML = ''; if (!st.left) { st.left = true; st.ctx.back(); } return; }
+  if (!D.mayPlay()) { clearCinema(st); fullScreen(st, false); host.innerHTML = ''; if (!st.left) { st.left = true; st.ctx.back(); } return; }
   if (D.status !== 'ready') { host.innerHTML = `<div class="db-msg">${ui.skeleton('rows', 3, {label: 'Loading the battle'})}</div>`; return; }
   const x = src(st).get(st.mid);
   const close = ui.iconButton({icon: 'close', label: 'Back to Rivals', cls: 'db-x', attrs: 'data-back'});
@@ -166,10 +268,12 @@ function draw(st) {
   else if (mode) status = {energy: 'Tap a player to give him the energy.', evolve: 'Tap the player to evolve.', coach: 'Tap a player for it.', item: 'Tap a player for it.', retreat: 'Tap the bench player to send in.'}[mode.k] + ' <button type="button" class="db-link" data-db-cancel>Cancel</button>';
   else status = `<b>Your turn.</b> ${me.en && !me.used.energy ? `Attach ${B.ENERGY[me.en]} energy or ` : ''}choose a play below.`;
   // the hand (yours; theirs, face down)
-  const handHTML = me.hand.map((id, i) => {
+  const ordered = handOrder(me.hand, st.sort);
+  const handHTML = ordered.map(({id, i}, n) => {
+    const fan = Math.max(-4, Math.min(4, n - (ordered.length - 1) / 2));
     const sel = x.state === 'setup' ? (st.setup.act === id && st.setup.actI === i || st.setup.benchI.includes(i)) : st.handI === i && st.handId === id;
     const setupLabel = x.state === 'setup' && sel ? st.setup.actI === i ? 'Active' : 'Bench' : '';
-    return `<button type="button" class="db-card${sel ? ' is-sel' : ''}" data-db-hand="${i}" aria-pressed="${sel}" aria-label="${esc(nameOf(id))}${setupLabel ? ', selected for ' + setupLabel : ''}">${faceHTML(id)}${setupLabel ? `<span class="db-hand-role">${setupLabel}</span>` : ''}</button>`;
+    return `<button type="button" class="db-card${sel ? ' is-sel' : ''}" style="--fan-angle:${fan * 2.5}deg;--fan-lift:${Math.abs(fan) * 3}px;--fan-order:${n}" data-db-hand="${i}" aria-pressed="${sel}" aria-label="${esc(nameOf(id))}${setupLabel ? ', selected for ' + setupLabel : ''}">${faceHTML(id)}<span class="db-card-hint">${esc(handType(id))}</span>${setupLabel ? `<span class="db-hand-role">${setupLabel}</span>` : ''}</button>`;
   }).join('');
   const stadium = G.stadium ? `<span class="db-stad">${ui.icon('star', {size: 13})}${esc(D.trainer(G.stadium.id).name)}</span>` : '';
   // (setup: what you've picked so far, before it goes up)
@@ -179,13 +283,13 @@ function draw(st) {
   const handScroll = host.querySelector('.db-hand')?.scrollLeft || 0;
   const focus = document.activeElement && host.contains(document.activeElement) ? [...document.activeElement.attributes].filter(a => a.name.startsWith('data-db-')).map(a => [a.name, a.value])[0] : null;
   host.innerHTML = `<header class="db-top">${close}<div class="db-match-title"><small>GRIDIRON RIVALS</small><b>${esc(x.solo ? 'Solo match' : 'Friend match')}</b></div><span class="db-score" aria-label="Score: you ${me.pts}, opponent ${op.pts}"><b>${me.pts}</b><i>:</i><b>${op.pts}</b><small>First to ${B.WIN_POINTS}</small></span>${ui.iconButton({icon: 'list', label: 'Battle log and options', cls: 'db-more', attrs: 'data-db-more'})}</header>`
-    + `<section class="db-team is-opp" aria-label="Opponent's field"><div class="db-team-title"><b>${esc(x.opp.name)}</b><span>${op.hand.length} in hand · ${op.deck.length} in deck</span></div><div class="db-field"><div class="db-row is-active is-opp">${slotHTML(op.active, 'opp', true, false)}</div><div class="db-row is-bench is-opp">${[0, 1, 2].map(i => slotHTML(op.bench[i], 'opp', false, false)).join('')}</div></div></section>`
+    + `<div class="db-table"><div class="db-opponent-hand" aria-hidden="true">${Array.from({length: Math.min(op.hand.length, 7)}, () => '<span>R</span>').join('')}</div><section class="db-team is-opp" aria-label="Opponent's field"><div class="db-team-title"><b>${esc(x.opp.name)}</b><span>${op.hand.length} in hand · ${op.deck.length} in deck</span></div><div class="db-field"><div class="db-row is-active is-opp">${slotHTML(op.active, 'opp', true, false)}</div><div class="db-row is-bench is-opp">${[0, 1, 2].map(i => slotHTML(op.bench[i], 'opp', false, false)).join('')}</div></div></section>`
     + `<div class="db-mid"><p class="db-status" aria-live="polite">${status}</p>${stadium}</div>`
     + `<section class="db-team is-me" aria-label="Your field"><div class="db-team-title"><b>Your lineup</b><span>${me.deck.length} in deck</span></div><div class="db-field"><div class="db-row is-active is-me">${slotHTML(mySlots.active, 'me', true, mySlots.active && pickMine(mySlots.active.u))}</div><div class="db-row is-bench is-me">${[0, 1, 2].map(i => slotHTML(mySlots.bench[i], 'me', false, mySlots.bench[i] && pickMine(mySlots.bench[i].u))).join('')}</div></div></section>`
-    + attacksHTML(st, x)
+    + '</div>' + attacksHTML(st, x)
     + `<button type="button" class="db-log" data-db-log aria-label="Open battle log">${log.map((l, i) => `<span class="${i === 0 ? 'is-new' : ''}">${esc(l.t)}</span>`).join('') || '<span>Set your lineup. First to three touchdowns wins.</span>'}</button>`
     + selectedHTML(st, x)
-    + `<section class="db-hand-section" aria-label="Your hand"><div class="db-team-title"><b>Your hand <span>${me.hand.length}</span></b><span>${x.state === 'setup' ? 'Choose your lineup' : 'Tap to preview'}</span></div><div class="db-hand" data-hscroll>${handHTML || '<span class="db-none">No cards in hand</span>'}</div></section>`
+    + `<section class="db-hand-section" aria-label="Your hand"><div class="db-team-title"><b>Your hand <span>${me.hand.length}</span></b><span>${x.state === 'setup' ? 'Choose your lineup' : 'Browse · select · play'}</span></div><div class="db-hand-tools"><label class="db-sort">Sort <select data-db-sort aria-label="Sort your hand">${[['draw', 'Draw order'], ['name', 'Name'], ['type', 'Type'], ['power', 'Power']].map(([v, label]) => `<option value="${v}"${st.sort === v ? ' selected' : ''}>${label}</option>`).join('')}</select></label><button type="button" data-db-browse="-1" aria-label="Previous card"${me.hand.length ? '' : ' disabled'}>‹</button><button type="button" data-db-browse="1" aria-label="Next card"${me.hand.length ? '' : ' disabled'}>›</button></div><div class="db-hand" data-hscroll><div class="db-hand-fan">${handHTML || '<span class="db-none">No cards in hand</span>'}</div></div></section>`
     + `<footer class="db-bar">${barHTML(st, x, G, me, myMove, over)}</footer>`;
   host.querySelector('.db-hand').scrollLeft = handScroll;
   if (focus) host.querySelector(`[${focus[0]}="${CSS.escape(focus[1])}"]`)?.focus({preventScroll: true});
@@ -198,16 +302,16 @@ function draw(st) {
     if (fresh.length && seen > 0) ui.openSheet({title: `${x.opp.name}’s turn`, body: `<ol class="db-recap">${fresh.map(t => `<li>${esc(t)}</li>`).join('')}</ol>`, cls: 'pk-sheet', detents: ['fit']});
   }
   ui.lsSet(SEEN(st.mid), String(G.ev.length));
-  // (the hits since the last draw)
-  if (st.evAt != null && G.ev.length > st.evAt) {
-    G.ev.slice(st.evAt).forEach(e => {
-      if (e.k !== 'attack' || e.missed) return;
-      const el = host.querySelector(`[data-db-slot="${e.tu}"]`);
-      if (el) { el.classList.add('is-hit'); try { ui.floatText(el, `-${e.dmg}`, {cls: 'db-float'}); } catch (_) {} }
-    });
-    if (G.ev.slice(st.evAt).some(e => e.k === 'ko')) ui.haptic('success');
-  }
+  // Only fresh, resolved public events are presented. Opening a saved match never replays old moves.
+  const freshEvents = st.evAt == null ? [] : G.ev.slice(st.evAt);
   st.evAt = G.ev.length;
+  if (!st.hidden && freshEvents.length) {
+    freshEvents.filter(e => ['attack', 'bench', 'evolve', 'coach', 'item', 'stadium'].includes(e.k)).forEach(e => {
+      st.scenes.push({ev: {...e}, you, opp: x.opp.name});
+    });
+    if (freshEvents.some(e => e.k === 'ko')) ui.haptic('success');
+    nextCinema(st);
+  }
   if (over && !st.cheered) {
     st.cheered = true;
     if (x.result === 'w') { try { ui.confetti(host.getBoundingClientRect()); } catch (_) {} }
@@ -240,9 +344,10 @@ function barHTML(st, x, G, me, myMove, over) {
 
 // ---------------------------------------------------------------------------------------------------- moves
 function send(st, m) {
+  if (st.dead || st.scene || !D.mayPlay()) return false;
   const r = src(st).move(st.mid, m);
   if (!r.ok) { ui.toast(r.why, {icon: 'info'}); return false; }
-  st.mode = null; st.handI = null; st.handId = null;
+  st.mode = null; st.handI = null; st.handId = null; st.browseI = null;
   if (r.sent && m.a !== 'setup') ui.toast(`Turn sent. ${st.x ? st.x.opp.name : 'They'} will see it.`, {icon: 'check-circle'});
   ui.haptic('selection');
   draw(st);
@@ -268,6 +373,7 @@ function handTap(st, i) {
   }
   st.handI = i; st.handId = id; st.mode = null;
   draw(st);
+  revealHand(st);
 }
 function playHand(st) {
   const x = st.x, me = x.G.p[x.you], id = me.hand[st.handI];
@@ -332,13 +438,15 @@ export default {
   render() { return '<div class="db" data-db data-no-swipe></div>'; },
 
   mount(el, ctx) {
-    const st = {el, ctx, mid: String((ctx.params && ctx.params.id) || ''), mode: null, handI: null, handId: null, setup: {act: null, actI: -1, bench: [], benchI: []}, dead: false, stops: [], evAt: null};
+    const st = {el, ctx, mid: String((ctx.params && ctx.params.id) || ''), mode: null, handI: null, handId: null, sort: 'draw', scenes: [], scene: null, hidden: false, setup: {act: null, actI: -1, bench: [], benchI: []}, dead: false, stops: [], evAt: null};
     ST.set(ctx, st);
     fullScreen(st, ctx.visible);
     el.addEventListener('click', e => {
       const q = s => e.target.closest(s);
       let b;
-      if (!st.x) return;
+      if (q('[data-db-skip]')) { finishCinema(st); return; }
+      if (!st.x || st.scene) return;
+      if ((b = q('[data-db-browse]'))) { browseHand(st, Number(b.dataset.dbBrowse)); return; }
       if (q('[data-db-cancel]')) { st.mode = null; draw(st); return; }
       if ((b = q('[data-db-attack]'))) { if (!b.disabled) send(st, {a: 'attack', n: Number(b.dataset.dbAttack)}); return; }
       if (q('[data-db-play-hand]')) { playHand(st); return; }
@@ -376,24 +484,40 @@ export default {
       if (q('[data-db-more]')) { more(st); return; }
       if (q('[data-db-log]')) logSheet(st);
     });
+    el.addEventListener('focusin', e => {
+      const card = e.target.closest('[data-db-hand]');
+      if (card) st.browseI = Number(card.dataset.dbHand);
+    });
+    el.addEventListener('change', e => {
+      if (!e.target.matches('[data-db-sort]') || st.scene) return;
+      st.sort = e.target.value; draw(st);
+      revealHand(st);
+    });
+    el.addEventListener('keydown', e => {
+      if (st.scene) { if (e.key === 'Escape') { e.preventDefault(); finishCinema(st); } return; }
+      if (!e.target.closest('[data-db-hand]') || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+      e.preventDefault();
+      browseHand(st, e.key === 'ArrowLeft' ? -1 : 1, e.key === 'Home' ? 'first' : e.key === 'End' ? 'last' : null);
+    });
     // (their moves come in with the board)
     st.stops.push(ctx.on('daily', type => { if (type === 'lb') draw(st); }));
     st.stops.push(MT.subscribe(() => draw(st)));
     st.stops.push(SOLO.subscribe(() => draw(st)));
-    st.stops.push(data.subscribe(type => { if (type === 'me') { st.shown = false; draw(st); } }));
+    st.stops.push(data.subscribe(type => { if (type === 'me') { clearCinema(st); st.shown = false; st.evAt = null; draw(st); } }));
     D.load().then(() => draw(st), () => draw(st));
     draw(st);
   },
 
-  onShow(ctx) { const st = ST.get(ctx); if (st) fullScreen(st, true); },
+  onShow(ctx) { const st = ST.get(ctx); if (st) { st.hidden = false; fullScreen(st, true); draw(st); } },
 
-  onHide(ctx) { const st = ST.get(ctx); if (st) fullScreen(st, false); },
+  onHide(ctx) { const st = ST.get(ctx); if (st) { st.hidden = true; clearCinema(st); fullScreen(st, false); } },
 
   unmount(el, ctx) {
     const st = ST.get(ctx);
     if (!st) return;
     fullScreen(st, false);
     st.dead = true;
+    clearCinema(st);
     st.stops.forEach(f => { try { f(); } catch (_) {} });
     MT.flush(); D.flush();
     ST.delete(ctx);
