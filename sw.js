@@ -7,8 +7,8 @@
 // A slow request falls back to whatever is cached under its path (from the previous worker too), so data whose
 // format changes gets a new file name rather than new content under the old one (data/puzzles-v4.json: see
 // js/core/daily.js).
-const CACHE = 'gg-v519';
-const CORE = ['ui', 'data', 'daily', 'fire', 'week', 'nfl', 'stats', 'motw', 'press', 'checks', 'checks-stats', 'checks-pickem', 'checks-press', 'checks-seventeen', 'checks-drill', 'checks-kick', 'return', 'checks-return', 'lay', 'plays', 'laytrack', 'gameday', 'seventeen', 'drill-sim', 'drill', 'kick', 'avatars', 'lpick', 'survivor', 'checks-lpick', 'realm', 'realm-pay', 'realm-active', 'realm-dragons', 'realm-layout', 'realm-battle', 'checks-realm', 'dynasty', 'dynasty-battle', 'dynasty-match', 'dynasty-solo', 'dynasty-real', 'checks-dynasty'];
+const CACHE = 'gg-v520';
+const CORE = ['ui', 'data', 'daily', 'fire', 'week', 'nfl', 'stats', 'motw', 'press', 'checks', 'checks-stats', 'checks-pickem', 'checks-press', 'checks-seventeen', 'checks-drill', 'checks-kick', 'return', 'checks-return', 'lay', 'plays', 'laytrack', 'gameday', 'fantasy-live', 'seventeen', 'drill-sim', 'drill', 'kick', 'avatars', 'lpick', 'survivor', 'checks-lpick', 'realm', 'realm-pay', 'realm-active', 'realm-dragons', 'realm-layout', 'realm-battle', 'checks-realm', 'dynasty', 'dynasty-battle', 'dynasty-match', 'dynasty-solo', 'dynasty-real', 'checks-dynasty'];
 // The tab roots are puzzles, pickem, rivals (Matchup), league, moves (Draft), lay (The Lay) and live (Live). Keepfall opens from Daily Games.
 const VIEWS = ['welcome', 'guest', 'puzzles', 'games', 'game-case', 'board', 'you', 'sharecard', 'results', 'run', 'college', 'silhouette', 'mystery', 'journey', 'grid', 'picker',
   'league', 'standings', 'season', 'review', 'wrap', 'matchup', 'rivals', 'pickem', 'press', 'hall', 'hall-trophies', 'hall-records', 'hall-shame',

@@ -2,12 +2,16 @@
 // the ball's spot while one is on) and every player's line from ESPN's box scores (the public summary endpoint, per
 // game once it has kicked off), with his fantasy points in the league's scoring (PPR). No DOM. Owner: LIVE.
 //
-//   watch(fn)          -> stop; fn({year, week, games, boxes: Map(gameId -> box), at, stale}) now and on every update:
+//   watch(fn, want)    -> stop; fn({year, week, games, boxes: Map(gameId -> box), at, stale}) now and on every update
+//                         (want: {year, week}, that week's games; else the NFL's current week):
 //                         every 30 s while a game is on (or just final, until its box settles), every 5 min otherwise,
 //                         not at all while the page is hidden or once every game is over
 //   parseBox(json)     -> {players: [{id, name, team, head, s: {cmp, att, passYds, passTd, int, car, rushYds, rushTd,
-//                         tgt, rec, recYds, recTd, fum, fumLost, retTd}}]} (pure; for the checks)
+//                         tgt, rec, recYds, recTd, fum, fumLost, retTd, two}}], kickers: [{name, key, team, fg: [yards of
+//                         each made], fgAtt, xp, xpAtt, pts}], defs: {TEAM: {sacks, int, fr, td, sfty}}} (pure; for the checks)
 //   points(s)          -> the PPR points of a stat line (2 decimals)
+//   kPoints(k), defPoints(d, allowed) -> a kicker's points, a defense's (Yahoo's standard; core/fantasy-live.js)
+//   norm(name)         -> a player's name as the matches go by (no case, accents, punctuation or Jr/III)
 //   statLine(p)        -> "24/31, 288 yds, 3 TD, 1 INT · 6 car, 41 yds" (the parts he has)
 //   posOf(p, list)     -> 'QB' | 'RB' | 'WR' | 'TE': the player list's (data/nfl-players.json), else read off his stats
 //   loadPositions()    -> Promise of the player list's positions (name|team -> pos)
@@ -21,22 +25,38 @@
 //                         before), fetched once a session (again only if a box failed to load)
 //
 // Scoring (PPR, Yahoo's standard, which the league plays): 1 a catch, 0.1 a rushing or receiving yard, 0.04 a passing
-// yard, 6 a rushing, receiving or return TD, 4 a passing TD, -1 an interception thrown, -2 a fumble lost. Two-point
-// conversions aren't in ESPN's box score; kickers and defenses aren't listed.
+// yard, 6 a rushing, receiving or return TD, 4 a passing TD, -1 an interception thrown, -2 a fumble lost, 2 a two-point
+// conversion (passer and catcher; read off the scoring plays). Kickers: 3 a field goal under 40 yards, 4 from 40-49,
+// 5 from 50+, 1 an extra point. Defenses: 1 a sack, 1 an interception, 2 a fumble recovery, 6 a touchdown (returns and
+// blocked kicks too), 2 a safety, and by points allowed: 0 10, 1-6 7, 7-13 4, 14-20 1, 21-27 0, 28-34 -1, 35+ -4.
+// Kickers and defenses score only in the league's matchups (core/fantasy-live.js); the Live tab lists the four positions.
 import * as nfl from './nfl.js';
 
 const SUMMARY = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=';
 const LIVE_MS = 30e3, IDLE_MS = 5 * 60e3, SETTLE = 15 * 60e3;
 
-export const PPR = {passYds: 0.04, passTd: 4, int: -1, rushYds: 0.1, rushTd: 6, rec: 1, recYds: 0.1, recTd: 6, retTd: 6, fumLost: -2};
+export const PPR = {passYds: 0.04, passTd: 4, int: -1, rushYds: 0.1, rushTd: 6, rec: 1, recYds: 0.1, recTd: 6, retTd: 6, fumLost: -2, two: 2};
 export function points(s) {
   if (!s) return 0;
   const t = Object.entries(PPR).reduce((a, [k, w]) => a + (Number(s[k]) || 0) * w, 0);
   return Math.round(t * 100) / 100;
 }
 
+const r2 = n => Math.round(n * 100) / 100;
+export function kPoints(k) {
+  if (!k) return 0;
+  const fg = Array.isArray(k.fg) ? k.fg : [];
+  return r2(fg.reduce((a, y) => a + (y >= 50 ? 5 : y >= 40 ? 4 : 3), 0) + (Number(k.xp) || 0));
+}
+const PA = [[0, 10], [6, 7], [13, 4], [20, 1], [27, 0], [34, -1]];
+export function defPoints(d, allowed) {
+  const x = d || {}, pa = Number(allowed) || 0;
+  const tier = (PA.find(([hi]) => pa <= hi) || [0, -4])[1];
+  return r2((x.sacks || 0) + (x.int || 0) + 2 * (x.fr || 0) + 6 * (x.td || 0) + 2 * (x.sfty || 0) + tier);
+}
+
 // ---------------------------------------------------------------------------------------------- Box scores
-const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[’'`.]/g, '')
+export const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[’'`.]/g, '')
   .replace(/-/g, ' ').replace(/\b(jr|sr|ii|iii|iv|v)\b/g, '').replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
 // ESPN's box score categories: our field -> [ESPN's key, its column label when the key is missing].
 const FIELDS = {
@@ -47,6 +67,15 @@ const FIELDS = {
   kickReturns: {krTd: ['kickReturnTouchdowns', 'TD']},
   puntReturns: {prTd: ['puntReturnTouchdowns', 'TD']}
 };
+// Kickers' and defenses' columns (core/fantasy-live.js scores them).
+const KICK = {fg: ['fieldGoalsMade/fieldGoalAttempts', 'FG'], xp: ['extraPointsMade/extraPointAttempts', 'XP']};
+const SACKS = ['sacks', 'SACKS'];
+const colOf = (cat, [k, lb]) => { const ks = Array.isArray(cat.keys) ? cat.keys : [], ls = Array.isArray(cat.labels) ? cat.labels : []; return ks.indexOf(k) >= 0 ? ks.indexOf(k) : ls.indexOf(lb); };
+const madeOf = v => { const m = /^(\d+)\s*\/\s*(\d+)/.exec(String(v || '')); return m ? [+m[1], +m[2]] : [0, 0]; };
+// A scoring play's two-point try: "(Joe Burrow Pass to Ja'Marr Chase for Two-Point Conversion)", "(Bijan Robinson Run
+// for Two-Point Conversion)"; a failed one scores nothing.
+const TWO = /\(([^()]*?)\s+(pass to|run for|rush for|pass for)\s*([^()]*?)\s*(?:for\s+)?two[- ]point conversion\)/i;
+const DEF_TD = /return|blocked|interception|defensive/i; // with "touchdown": a pick-six, a fumble or kick return, a blocked kick
 const toNum = v => { const n = parseFloat(String(v == null ? '' : v).replace(/,/g, '')); return isFinite(n) ? n : 0; };
 const headOf = a => {
   const h = a && a.headshot && (typeof a.headshot === 'string' ? a.headshot : a.headshot.href);
@@ -78,8 +107,65 @@ export function parseBox(j) {
     });
   });
   const players = [...P.values()];
-  players.forEach(p => { p.s.retTd = (p.s.krTd || 0) + (p.s.prTd || 0); delete p.s.krTd; delete p.s.prTd; p.pts = points(p.s); });
-  return {players};
+  players.forEach(p => { p.s.retTd = (p.s.krTd || 0) + (p.s.prTd || 0); delete p.s.krTd; delete p.s.prTd; });
+  // Kickers, and each team's sacks (its players' defensive lines).
+  const K = new Map(), defs = {}, order = [], byId = {};
+  const def = t => defs[t] || (defs[t] = {sacks: 0, int: 0, fr: 0, td: 0, sfty: 0});
+  teams.forEach(tm => {
+    const team = String((tm && tm.team && tm.team.abbreviation) || '').toUpperCase();
+    if (!team) return;
+    order.push(team); def(team);
+    if (tm.team.id != null) byId[String(tm.team.id)] = team;
+    (Array.isArray(tm.statistics) ? tm.statistics : []).forEach(cat => {
+      const rows = Array.isArray(cat && cat.athletes) ? cat.athletes : [];
+      if (cat && cat.name === 'kicking') {
+        const fi = colOf(cat, KICK.fg), xi = colOf(cat, KICK.xp);
+        rows.forEach(x => {
+          const nm = x && x.athlete && x.athlete.displayName;
+          if (!nm || !Array.isArray(x.stats)) return;
+          const [fgm, fgAtt] = fi >= 0 ? madeOf(x.stats[fi]) : [0, 0], [xp, xpAtt] = xi >= 0 ? madeOf(x.stats[xi]) : [0, 0];
+          K.set(norm(nm) + '|' + team, {name: String(nm), key: norm(nm), team, fg: [], fgm, fgAtt, xp, xpAtt});
+        });
+      } else if (cat && cat.name === 'defensive') {
+        const si = colOf(cat, SACKS);
+        if (si >= 0) rows.forEach(x => { if (x && Array.isArray(x.stats)) def(team).sacks += toNum(x.stats[si]); });
+      }
+    });
+  });
+  // Takeaways: the other side's interceptions thrown and fumbles lost.
+  players.forEach(p => {
+    const other = order.length === 2 && order.includes(p.team) ? order.find(t => t !== p.team) : null;
+    if (other) { def(other).int += p.s.int || 0; def(other).fr += p.s.fumLost || 0; }
+  });
+  // The scoring plays: each field goal's distance, two-point conversions, and the defenses' touchdowns and safeties.
+  (Array.isArray(j && j.scoringPlays) ? j.scoringPlays : []).forEach(sp => {
+    const text = String((sp && sp.text) || ''), type = String((sp && sp.type && sp.type.text) || '');
+    const team = String((sp && sp.team && (sp.team.abbreviation || byId[String(sp.team.id)])) || '').toUpperCase();
+    const fg = /^(.+?)\s+(\d+)\s*y(?:ar)?ds?\.?\s+field goal/i.exec(text);
+    if (fg && !/no good|missed|blocked/i.test(text)) {
+      const k = K.get(norm(fg[1]) + '|' + team) || [...K.values()].find(x => x.key === norm(fg[1]));
+      if (k && k.fg.length < k.fgm) k.fg.push(+fg[2]);
+      return;
+    }
+    if (defs[team] && /safety/i.test(type) && !/touchdown/i.test(type)) { def(team).sfty++; return; }
+    if (defs[team] && /touchdown/i.test(type) && DEF_TD.test(type)) def(team).td++;
+    const two = TWO.exec(text);
+    if (two && !/fail|no good/i.test(two[0])) {
+      (/pass to/i.test(two[2]) ? [two[1], two[3]] : [two[1]]).map(n => n.trim()).filter(Boolean).forEach(n => {
+        const k = norm(n);
+        const p = players.find(x => x.key === k && (!team || x.team === team)) || players.find(x => x.key === k);
+        if (p) p.s.two = (p.s.two || 0) + 1;
+        else if (team) players.push({id: '', name: n, key: k, team, head: null, s: {two: 1}});
+      });
+    }
+  });
+  const kickers = [...K.values()].map(k => {
+    while (k.fg.length < k.fgm) k.fg.push(0); // a made kick the plays don't list (yet): 3
+    delete k.fgm;
+    return Object.assign(k, {pts: kPoints(k)});
+  });
+  players.forEach(p => { p.pts = points(p.s); });
+  return {players, kickers, defs};
 }
 
 /** His line, the parts he has: passing, then rushing, then receiving, then turnovers and return TDs. */
@@ -89,6 +175,7 @@ export function statLine(p) {
   if (s.car) out.push(`${s.car} car, ${s.rushYds || 0} yds` + (s.rushTd ? `, ${s.rushTd} TD` : ''));
   if (s.rec || s.tgt || s.recYds) out.push(`${s.rec || 0}${s.tgt ? '/' + s.tgt : ''} rec, ${s.recYds || 0} yds` + (s.recTd ? `, ${s.recTd} TD` : ''));
   if (s.retTd) out.push(`${s.retTd} return TD`);
+  if (s.two) out.push(`${s.two} 2PT`);
   if (s.fumLost) out.push(`${s.fumLost} fum lost`);
   return out.join(' · ');
 }
@@ -180,8 +267,8 @@ export function pastWeek(year, week) {
 const boxDone = id => { const c = BOX.get(id); return !!c && c.final; };
 
 // ---------------------------------------------------------------------------------------------- Watching
-export function watch(fn) {
-  let dead = false, timer = 0, seq = 0, wk = null, last = null;
+export function watch(fn, want) {
+  let dead = false, timer = 0, seq = 0, wk = want && want.year && want.week ? {year: want.year, week: want.week} : null, last = null;
   const hidden = () => typeof document !== 'undefined' && document.visibilityState === 'hidden';
   const due = g => g.state === 'pre' && g.kickoff.getTime() <= Date.now() + 60e3;
   const arm = () => {

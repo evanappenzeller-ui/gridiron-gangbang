@@ -1628,6 +1628,63 @@ export async function runChecks() {
     return {pass: !bad.length, detail: bad.length ? bad.join('; ') : `the ball at the ${s.spot} in the red zone; Allen ${P['Josh Allen'].pts}, Cook ${P['James Cook'].pts} PPR; #/live opens the Scores tab`};
   });
 
+  check('Live league scores (everyone\'s, Oct 30 2026): Yahoo\'s starters (BN and IR sit; WAS is ESPN\'s WSH) scored from ESPN\'s box scores, kickers by distance, defenses by sacks, takeaways, touchdowns and points allowed, two-point conversions, and each player\'s game state', async () => {
+    const [gd, fl] = await Promise.all([import('./gameday.js'), import('./fantasy-live.js')]);
+    const bad = [];
+    const cat = (name, keys, rows) => ({name, keys, labels: [], athletes: rows.map(([id, nm, st]) => ({athlete: {id, displayName: nm}, stats: st}))});
+    const box = gd.parseBox({
+      boxscore: {players: [
+        {team: {id: '2', abbreviation: 'BUF'}, statistics: [
+          cat('passing', ['completions/passingAttempts', 'passingYards', 'passingTouchdowns', 'interceptions'], [['1', 'Josh Allen', ['20/30', '250', '2', '1']]]),
+          cat('receiving', ['receptions', 'receivingYards', 'receivingTouchdowns', 'receivingTargets'], [['3', 'Khalil Shakir', ['5', '60', '1', '7']]]),
+          cat('fumbles', ['fumbles', 'fumblesLost', 'fumblesRecovered'], [['3', 'Khalil Shakir', ['1', '1', '0']]]),
+          cat('kicking', ['fieldGoalsMade/fieldGoalAttempts', 'fieldGoalPct', 'longFieldGoalMade', 'extraPointsMade/extraPointAttempts', 'totalKickingPoints'], [['4', 'Tyler Bass', ['3/4', '75.0', '52', '2/2', '13']]]),
+          cat('defensive', ['totalTackles', 'soloTackles', 'sacks'], [['5', 'Greg Rousseau', ['4', '3', '2']], ['6', 'Ed Oliver', ['3', '2', '0.5']]])]},
+        {team: {id: '28', abbreviation: 'WSH'}, statistics: [
+          cat('passing', ['completions/passingAttempts', 'passingYards', 'passingTouchdowns', 'interceptions'], [['7', 'Jayden Daniels', ['18/29', '201', '1', '2']]]),
+          cat('rushing', ['rushingAttempts', 'rushingYards', 'rushingTouchdowns'], [['8', 'Brian Robinson Jr.', ['14', '61', '0']]]),
+          cat('fumbles', ['fumbles', 'fumblesLost', 'fumblesRecovered'], [['8', 'Brian Robinson Jr.', ['1', '1', '0']]]),
+          cat('defensive', ['totalTackles', 'soloTackles', 'sacks'], [['9', 'Bobby Wagner', ['8', '5', '1']]])]}]},
+      scoringPlays: [
+        {type: {text: 'Field Goal Good'}, text: 'Tyler Bass 52 Yd Field Goal', team: {id: '2', abbreviation: 'BUF'}},
+        {type: {text: 'Field Goal Good'}, text: 'Tyler Bass 41 Yd Field Goal', team: {abbreviation: 'BUF'}},
+        {type: {text: 'Field Goal Good'}, text: 'Tyler Bass 23 Yd Field Goal', team: {abbreviation: 'BUF'}},
+        {type: {text: 'Interception Return Touchdown'}, text: 'Taron Johnson 34 Yd Interception Return (Tyler Bass Kick)', team: {abbreviation: 'BUF'}},
+        {type: {text: 'Passing Touchdown'}, text: 'Terry McLaurin 12 Yd pass from Jayden Daniels (Jayden Daniels Pass to Terry McLaurin for Two-Point Conversion)', team: {id: '28'}},
+        {type: {text: 'Safety'}, text: 'Jayden Daniels sacked in end zone for a Safety', team: {abbreviation: 'BUF'}}]});
+    const K = box.kickers.find(k => k.name === 'Tyler Bass'), D = box.defs.BUF, P = Object.fromEntries(box.players.map(p => [p.name, p]));
+    if (!K || K.pts !== 14 || K.fg.join() !== '52,41,23') bad.push('kicker ' + JSON.stringify(K) + ' (want 5+4+3 and 2 XP: 14)');
+    if (!D || D.sacks !== 2.5 || D.int !== 2 || D.fr !== 1 || D.td !== 1 || D.sfty !== 1) bad.push('defense ' + JSON.stringify(D));
+    if (gd.defPoints(D, 9) !== 2.5 + 2 + 2 + 6 + 2 + 4) bad.push('defense points ' + gd.defPoints(D, 9) + ' (want 18.5)');
+    if (gd.defPoints({}, 0) !== 10 || gd.defPoints({}, 35) !== -4 || gd.defPoints({}, 21) !== 0 || gd.defPoints({}, 20) !== 1) bad.push('points-allowed tiers');
+    if (!P['Jayden Daniels'] || P['Jayden Daniels'].s.two !== 1 || P['Jayden Daniels'].pts !== 12.04) bad.push('passer two-point ' + (P['Jayden Daniels'] && P['Jayden Daniels'].pts));
+    if (!P['Terry McLaurin'] || P['Terry McLaurin'].pts !== 2 || P['Terry McLaurin'].team !== 'WSH') bad.push('catcher two-point ' + JSON.stringify(P['Terry McLaurin']));
+    // Lineups: Yahoo's starters only, in order; Yahoo's WAS is ESPN's WSH.
+    const league = {seasons: [{year: 2026, rosters: {at: '2026-10-30T12:00', week: 8, teams: {
+      evan: [['Josh Allen', 'QB', 'BUF', 'QB'], ['Khalil Shakir', 'WR', 'BUF', 'WR'], ['Brian Robinson Jr.', 'RB', 'WAS', 'W/R/T'], ['Bench Guy', 'WR', 'BUF', 'BN'], ['Hurt Guy', 'RB', 'BUF', 'IR'], ['Tyler Bass', 'K', 'BUF', 'K'], ['Bills', 'DEF', 'BUF', 'DEF']],
+      ben: [['Jayden Daniels', 'QB', 'WAS', 'QB'], ['Terry McLaurin', 'WR', 'WAS', 'WR'], ['Late Guy', 'RB', 'KC', 'RB'], ['Rested Guy', 'WR', 'NYJ', 'WR'], ['Commanders', 'DEF', 'WAS', 'DEF']]}}}]};
+    const ups = fl.lineups(league, 2026, 8);
+    if (!ups || ups.get('evan').map(p => p.slot).join() !== 'QB,WR,W/R/T,K,DEF' || ups.get('evan')[2].team !== 'WSH') bad.push('lineups ' + JSON.stringify(ups && ups.get('evan')));
+    if (fl.lineups(league, 2026, 9) !== null) bad.push("another week's lineups were used");
+    const team = (abbr, score) => ({abbr, score});
+    const feed = {year: 2026, week: 8, boxes: new Map([['g1', box]]), games: [
+      {id: 'g1', state: 'in', period: 3, clock: '4:12', detail: '4:12 - 3rd', home: team('BUF', 26), away: team('WSH', 9), kickoff: new Date()},
+      {id: 'g2', state: 'pre', home: team('KC', null), away: team('LV', null), kickoff: new Date(Date.now() + 864e5)}]};
+    const m = fl.matchup(feed, ups, 'evan', 'ben');
+    const want = r2 => Math.round(r2 * 100) / 100;
+    const ev = want(P['Josh Allen'].pts + P['Khalil Shakir'].pts + P['Brian Robinson Jr.'].pts + 14 + 18.5);
+    if (!m || m.a.pts !== ev) bad.push(`Evan's live score ${m && m.a.pts} (want ${ev})`);
+    const st = m ? m.b.rows.map(r => r.state).join() : '';
+    if (st !== 'in,in,pre,bye,in') bad.push('states ' + st + ' (want in,in,pre,bye,in)');
+    if (!m || m.b.left !== 4 || m.b.on !== 3 || !m.started || m.over) bad.push(`left ${m && m.b.left}, on ${m && m.b.on}`);
+    const dP = m && m.b.rows[4];
+    if (!dP || dP.pts !== gd.defPoints(box.defs.WSH, 26) || !/26 pts allowed/.test(dP.line)) bad.push('Commanders defense ' + JSON.stringify(dP && {pts: dP.pts, line: dP.line}));
+    // The league file's own rosters, when they carry slots: nine starters a team.
+    const real = fl.lineups(data.DATA || {}, 2026, null);
+    if (real && [...real.values()].some(l => l.length < 8 || l.length > 10)) bad.push('league rosters: ' + [...real].map(([k, l]) => k + ' ' + l.length).join(', '));
+    return {pass: !bad.length, detail: bad.length ? bad.join('; ') : `Evan ${m.a.pts} live (Bass ${K.pts}, Bills D ${gd.defPoints(D, 9)}), Ben ${m.b.pts} with ${m.b.left} left${real ? `; ${real.size} lineups in the league file` : ''}`};
+  });
+
   check('Daily Games boards: each place on today\'s board of Daily Puzzles, 17-0 and the Drill shows what it pays in Keepfall\'s Ale ("+5K" on a case, "+5,000" up close; the owner\'s ask, Oct 25 2026), the pay Keepfall pays by', async () => {
     const F = await import('./realm.js'), bad = [];
     if (F.aleFor !== realmPay.aleFor || F.ALE_BY_PLACE !== realmPay.ALE_BY_PLACE || F.RANKED !== realmPay.RANKED) bad.push('Keepfall and the boards read different tables');

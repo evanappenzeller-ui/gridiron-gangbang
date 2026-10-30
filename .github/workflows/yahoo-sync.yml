@@ -1,11 +1,18 @@
 # Keeps data/league.json in step with the Yahoo league: final scores once a week ends, next games and Yahoo's
-# projections for the week in play. Setup and how it works: tools/yahoo/README.md.
+# projections for the week in play, and the lineups as they lock on game days. Setup and how it works: tools/yahoo/README.md.
 name: Yahoo sync
 
 on:
   schedule:
     - cron: '23 10 * * *'  # 6:23 AM Eastern (5:23 in winter): picks up Tuesday's finals
     - cron: '23 22 * * *'  # 6:23 PM Eastern: fresher projections before games
+    # Game days: the lineups as they lock, for the app's live scores (js/core/fantasy-live.js). Times are Eastern
+    # standard time (an hour later while daylight time lasts).
+    - cron: '23 1 * * 5'   # Thu 8:23 PM: Thursday night's kickoff
+    - cron: '7 18 * * 0'   # Sun 1:07 PM: the early games
+    - cron: '33 21 * * 0'  # Sun 4:33 PM: the late games
+    - cron: '27 1 * * 1'   # Sun 8:27 PM: Sunday night
+    - cron: '23 1 * * 2'   # Mon 8:23 PM: Monday night
   workflow_dispatch:
     inputs:
       code:

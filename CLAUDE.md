@@ -151,6 +151,15 @@ The shared card reverse uses a royal blue frame, textured teal/cream swirl, copp
 The case's booklet and disc use restrained navy, ivory and silver artwork (`dynasty-book-v3` / `dynasty-disc-v3`).
 Verify the existing Dynasty checks plus `check-rivals-rules.cjs`, `check-rivals-decks.cjs` and `check-rivals-battle.cjs`.
 
+## Live league scores (October 30, 2026)
+
+The owner asked for live scores in the app; everyone gets them. Matchup's "This week's games" and its matchup sheet show
+each game's live score once its players kick off, and the sheet both lineups slot by slot. `js/core/fantasy-live.js`
+scores Yahoo's starters (`seasons[].rosters` slots, with `week`; BN/IR sit) from ESPN's box scores (`core/gameday.js`
+`parseBox`, which also reads kickers, defenses and two-point conversions) in Yahoo's standard scoring. It is unofficial:
+Yahoo's final (the sync) replaces it. The Yahoo sync also runs as each game-day window kicks off so the lineups are the
+locked ones. Verify `node tools/matchup/check-live-browser.cjs` and the kit check "Live league scores…".
+
 ## Deploying
 
 - Standing owner instruction (October 21, 2026): after completing and verifying requested changes,

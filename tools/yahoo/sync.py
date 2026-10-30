@@ -22,7 +22,8 @@ What a sync writes, for the season Yahoo is on:
              points (pa, pb) and win chance for a in percent (wa)
   teams      this season's team names, and each manager's current team name
   inProgress false once Yahoo says the season is finished
-  rosters    every manager's players now, [name, position, NFL team, lineup slot], with `at`, when they last changed
+  rosters    every manager's players now, [name, position, NFL team, lineup slot], with `at`, when they last changed,
+             and `week`, the week those lineups are for (the app scores them live: js/core/fantasy-live.js)
   pickups, drops, trades   the season's moves from Yahoo's League Transactions (same shape as the ones entered by
              hand). Yahoo's replace the ones on file from the same span; older ones on file Yahoo didn't return stay.
 The rosters and moves are extras: if either fails, the run warns and still syncs the scores.
@@ -365,13 +366,14 @@ def merge(old, new, year, key, at):
     return [x for x in keep if x.get('year') != year] + mine
 
 
-def sync_moves(tok, key, data, season, ids, year):
+def sync_moves(tok, key, data, season, ids, year, week):
     """Rosters and moves into data; returns what changed (['rosters', 'moves']). A failure here only warns."""
     changed = []
     try:
         teams = read_rosters(tok, key, ids)
-        if teams and (season.get('rosters') or {}).get('teams') != teams:
-            season['rosters'] = {'at': datetime.datetime.now(EAST).strftime('%Y-%m-%dT%H:%M'), 'teams': teams}
+        old = season.get('rosters') or {}
+        if teams and (old.get('teams') != teams or old.get('week') != week):
+            season['rosters'] = {'at': datetime.datetime.now(EAST).strftime('%Y-%m-%dT%H:%M'), 'week': week, 'teams': teams}
             changed.append('rosters')
     except Waiting:
         raise
@@ -495,7 +497,7 @@ def sync():
     future = [g for g in season.get('schedule') or [] if g['week'] not in fetched and g['week'] not in done]
     season['schedule'] = sorted(future + sched, key=lambda g: g['week'])
     season['inProgress'] = not finished
-    extras = sync_moves(tok, key, data, season, ids, year)
+    extras = sync_moves(tok, key, data, season, ids, year, cur_w)
 
     after = json.dumps(data, ensure_ascii=False, separators=(',', ':'))
     changed = after != before

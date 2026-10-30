@@ -203,7 +203,7 @@ def main():
             bad.append('other seasons\' trades changed')
         ro = next(s for s in d['seasons'] if s['year'] == 2026).get('rosters') or {}
         if ro.get('teams', {}).get(A) != [['Josh Allen', 'QB', 'BUF', 'QB'], ['Swap Two', 'WR', 'DET', 'BN']] or \
-                ro.get('teams', {}).get(B) != [['Jets', 'DEF', 'NYJ', 'DEF']] or len(ro.get('at', '')) != 16:
+                ro.get('teams', {}).get(B) != [['Jets', 'DEF', 'NYJ', 'DEF']] or len(ro.get('at', '')) != 16 or ro.get('week') != 8:
             bad.append(f'rosters: {ro}')
         if pk and list(d['pickups']) != sorted(d['pickups'], key=lambda x: (x['year'], x['at'])):
             bad.append('pickups out of order')
