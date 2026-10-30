@@ -145,11 +145,6 @@ html.is-dynasty-playing .v-dynasty { padding-bottom: 0; }
   filter: drop-shadow(0 1cqw 1.2cqw rgba(0,0,0,.3)); user-select: none; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-logo { position: absolute; top: 2cqw; right: 2cqw; width: 13cqw; height: 13cqw; object-fit: contain; filter: drop-shadow(0 .4cqw .6cqw rgba(0,0,0,.35)); }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-num { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); text-align: center; font: 400 34cqw/1 var(--font-num); color: rgba(255,255,255,.28); }
-/* (a real trading card, views/dynasty-real.js: the whole card standing in the window on its white edge; a Legend's
-   number only shows should it not load) */
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-ph.is-real { bottom: 5%; height: 90%; border-radius: 4% / 2.8%; filter: none;
-  box-shadow: 0 0 0 .5cqw rgba(255,255,255,.85), 0 1.2cqw 2.4cqw rgba(0,0,0,.35); }
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-art:has(> .pk-c-ph.is-real) > .pk-c-num { display: none; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-strip { flex: none; margin: 2.4cqw 1.4cqw 0; padding: .8cqw 1.6cqw; border-radius: 1cqw; text-align: center; font: italic 700 2.9cqw/1.2 var(--font-text);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #5B4A14; background: linear-gradient(90deg, #E8D58C, #F6EBC0 50%, #E8D58C); }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-body { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: center; gap: .8cqw; padding: 1cqw 1.4cqw 0; }
@@ -173,7 +168,7 @@ html.is-dynasty-playing .v-dynasty { padding-bottom: 0; }
 /* (small cards: the effect lines go, the rest stays readable) */
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.sz-s .pk-c-fx { display: none; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.sz-s .pk-c-body { gap: 1.6cqw; }
-/* full art (★, ★★ and crown cards): the picture fills the card, the words over it */
+/* full art (every Rare or better card): the picture fills the card, the words over it */
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.is-full { --tx: #fff; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.is-full .pk-c-face { background: linear-gradient(165deg, var(--tp), color-mix(in srgb, var(--ts) 60%, #000)); box-shadow: inset 0 0 0 1.5cqw rgba(255,255,255,.5); }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.m-c1 .pk-c-face { box-shadow: inset 0 0 0 1.5cqw #F2CF5B, inset 0 0 0 1.9cqw rgba(120,80,0,.5); }
@@ -183,8 +178,13 @@ html.is-dynasty-playing .v-dynasty { padding-bottom: 0; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.is-full .pk-c-art::after { content: ""; position: absolute; inset: 0; background: linear-gradient(transparent 46%, rgba(0,0,0,.55) 66%, rgba(0,0,0,.82)),
   linear-gradient(rgba(0,0,0,.4), transparent 16%); }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.is-full .pk-c-ph { bottom: 35%; height: 56%; }
-/* (a real card between the name and the strip, over the art's shading so it shows true) */
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.is-full .pk-c-ph.is-real { bottom: 42.5%; height: 47%; z-index: 1; }
+/* (a Rare or better card: his real trading card, core/dynasty-real.js, is the whole card, the words over it on a deeper
+   shade; the team logo and a Legend's number go. Should it not load, the headshot it carries takes its place) */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.is-full .pk-c-ph.is-real { left: 0; bottom: 0; width: 100%; height: 100%; transform: none; object-fit: cover;
+  border-radius: inherit; filter: none; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-art:has(> .pk-c-ph.is-real) > .pk-c-num, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-art:has(> .pk-c-ph.is-real) > .pk-c-logo { display: none; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.is-full .pk-c-art:has(> .pk-c-ph.is-real)::after { background: linear-gradient(transparent 38%, rgba(0,0,0,.62) 58%, rgba(0,0,0,.86)),
+  linear-gradient(rgba(0,0,0,.6), transparent 15%); }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.is-full .pk-c-logo { top: auto; bottom: 40%; right: 4cqw; width: 12cqw; height: 12cqw; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.is-full .pk-c-num { top: 36%; color: rgba(255,255,255,.22); }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.is-full .pk-c-head, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.is-full .pk-c-strip, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.is-full .pk-c-body, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.is-full .pk-c-foot { position: relative; z-index: 1; }
@@ -195,12 +195,14 @@ html.is-dynasty-playing .v-dynasty { padding-bottom: 0; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.is-full .pk-c-foot { border-top-color: rgba(255,255,255,.3); }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.is-full .pk-c-rar, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.is-full .pk-c-set { z-index: 1; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.is-full .pk-c-set { color: #fff; }
-/* the shine: a sheen across the card, a slow rainbow foil on full-art and ◆◆◆◆ cards */
+/* the shine: a sheen across the card; a slow rainbow foil from Epic up (the owner, Oct 29 2026: "add a shine to the epics
+   and above"), quicker on a Mythic */
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-shine { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; mix-blend-mode: soft-light;
   background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,.55) 45%, transparent 60%); background-size: 260% 100%; background-position: 100% 0; }
-:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.is-full .pk-c-shine, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.m-d4 .pk-c-shine { mix-blend-mode: overlay;
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.r-epic .pk-c-shine, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.r-legendary .pk-c-shine, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.r-mythic .pk-c-shine { mix-blend-mode: overlay;
   background: linear-gradient(115deg, transparent 25%, rgba(255,120,200,.45) 38%, rgba(120,230,255,.5) 46%, rgba(255,240,120,.45) 54%, transparent 66%);
   background-size: 300% 100%; animation: pk-foil 5s ease-in-out infinite; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.r-mythic .pk-c-shine { animation-duration: 3.4s; }
 @keyframes pk-foil { 0%, 100% { background-position: 100% 0; } 50% { background-position: 0 0; } }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-c-new { position: absolute; top: -2.4cqw; left: -2.4cqw; z-index: 2; padding: 1.4cqw 2.6cqw; border-radius: 99px; background: linear-gradient(180deg, #FF6FA6, #E8337B);
   color: #fff; font: 800 4.6cqw/1 var(--font-text); letter-spacing: .03em; box-shadow: 0 .6cqw 1.6cqw rgba(200,30,100,.4); }

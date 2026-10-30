@@ -14,7 +14,8 @@ and collections):
                   2026: "Add legends using the following website", footballcardgallery.com's Topps football cards: the
                   greats of its 1956-1980s sets), each with the Topps set his first card came in and, once fetched from
                   the gallery, that card's picture (TOPPS below: the picture's URL goes on the card as its head)
-Rarity is by OVR: Mythic 85+, Legendary 80-84, Epic 75-79, Rare 65-74, Common 64 and under.
+Rarity is by OVR: Mythic 85+, Legendary 80-84, Epic 75-79, Rare 65-74, Common 64 and under. (The game rescales it since
+Oct 29 2026: a card with a real trading card is Rare or better, every other Common: core/dynasty.js rarityOf.)
 """
 import csv, json, math, os, sys, urllib.request, datetime
 

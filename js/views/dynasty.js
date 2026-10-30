@@ -18,10 +18,11 @@
 // (short of it, it springs back; Enter rips it too); then, as in Pocket, its cards one at a time (a ★ card with a shine
 // first), tap for the next, and the lot at the end, new ones marked.
 // The cards (cardHTML) are laid out as Pokémon cards: the type's colours, a stage, the name and HP with the type's
-// symbol, the photo in its window (his real trading card where he has one: views/dynasty-real.js; else ESPN's headshot,
-// else NFL.com's; a Legend his Topps card's picture when it's in, else his number), the position, team and OVR,
+// symbol, the photo in its window (ESPN's headshot, else NFL.com's; a Legend his number), the position, team and OVR; a
+// Rare or better card is his real trading card (core/dynasty-real.js) the whole card, the words over it, with a foil
+// shine from Epic up (the owner, Oct 29 2026: "add a shine to the epics and above"),
 // any Ability, the attacks with their energy costs and damage, weakness and switch-out cost, and Pocket's rarity mark
-// (◆ to ◆◆◆◆, ★, ★★, a crown: core/dynasty.js markOf); a ★ or crown card is full art. Coach, Item and Stadium cards
+// (◆ to ◆◆◆◆, ★, ★★, a crown: core/dynasty.js markOf); a Rare or better card is full art. Coach, Item and Stadium cards
 // (trainerHTML) are Trainer cards. battleHTML: a card's battle side in words, on its close-up.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
@@ -33,7 +34,7 @@ import * as SOLO from '../core/dynasty-solo.js';
 import {profileKey} from '../core/realm-active.js';
 import {packHTML, designsOf} from './dynasty-packs.js';
 import {openScene, holo} from './dynasty-open.js';
-import {realOf, realCards, realUrl, realName} from './dynasty-real.js';
+import {realCards, realUrl, realName} from '../core/dynasty-real.js';
 
 const esc = data.esc, nf = n => data.nf(n);
 const ST = new WeakMap();
@@ -75,8 +76,9 @@ const typeHTML = t => pipHTML(B.TYPES[t] ? B.TYPES[t].e : '*');
 export function cardHTML(c, o = {}) {
   if (!c) return '';
   const st = B.stats(c.id), T = D.teamOf(c.team), m = D.markOf(c), S = D.SERIES[c.s];
-  // (his real trading card where he has one, standing in the window; should it not load, his headshot or his number)
-  const real = realOf(c), head = c.head ? headUrl(c.head, o.size === 'l' ? 520 : 300) : '';
+  // (a Rare or better card: his real trading card, the whole card; should it not load, his headshot or his number. A
+  // Common card: his headshot in the window)
+  const real = c.real, head = c.head ? headUrl(c.head, o.size === 'l' ? 520 : 300) : '';
   const photo = real ? `<img class="pk-c-ph is-real" src="${esc(realUrl(c.p, real))}"${head ? ` data-alt="${esc(head)}"` : ''} alt="" loading="lazy" decoding="async" draggable="false" onerror="${REAL_FAIL}">`
     : head ? `<img class="pk-c-ph" src="${esc(head)}" alt="" loading="lazy" decoding="async" draggable="false" onerror="this.remove()">` : '';
   const legend = c.s === 'X' ? `<span class="pk-c-num" aria-hidden="true">${c.num}</span>` : '';
@@ -97,7 +99,7 @@ export function cardHTML(c, o = {}) {
     + `</span><span class="pk-c-shine" aria-hidden="true"></span>`
     + (o.isNew ? '<span class="pk-c-new" aria-hidden="true">NEW</span>' : '')
     + (o.count > 0 && !o.noCount ? `<span class="pk-c-cnt" aria-hidden="true">${o.count}</span>` : '');
-  const cls = `pk-card t-${st.type} m-${m.kind}${m.n}${m.full ? ' is-full' : ''} s-${c.s} sz-${o.size || 'm'}${o.ghost ? ' is-ghost' : ''}${o.cls ? ' ' + o.cls : ''}`;
+  const cls = `pk-card t-${st.type} m-${m.kind}${m.n}${m.full ? ' is-full' : ''} r-${c.r} s-${c.s} sz-${o.size || 'm'}${o.ghost ? ' is-ghost' : ''}${o.cls ? ' ' + o.cls : ''}`;
   const style = `--tp:${T.pri};--ts:${T.sec}`;
   return o.tag === false ? `<div class="${cls}" style="${style}" role="img" aria-label="${esc(label)}">${inner}</div>`
     : `<button type="button" class="${cls}" style="${style}" data-dy-card="${esc(c.id)}" aria-label="${esc(label)}">${inner}</button>`;
@@ -162,9 +164,9 @@ function backHTML(c) {
   return `<div class="pk-info"><p class="pk-info-k">${esc(D.SERIES[c.s].name)} · OVR ${c.o}</p><p>${esc(facts)}</p><ul class="pk-attrs">${bars}</ul>`
     + (lines.length ? `<dl class="pk-lines">${lines.filter(l => l[1]).map(([a, b]) => `<dt>${esc(a)}</dt><dd>${esc(b)}</dd>`).join('')}</dl>` : '') + '</div>';
 }
-/** A player's real trading cards, the one on this card marked (views/dynasty-real.js), for his card up close. */
+/** A player's real trading cards, the one on this card marked (core/dynasty-real.js), for his card up close. */
 export function realHTML(c) {
-  const list = realCards(c.p), on = realOf(c);
+  const list = realCards(c.p), on = c.real;
   if (!list.length) return '';
   return `<section class="pk-real"><h3 class="pk-h">${esc(c.name)}’s real cards</h3><div class="pk-real-row" data-hscroll>${list.map(r => `<figure class="pk-real-c${r === on ? ' is-on' : ''}">`
     + `<img src="${esc(realUrl(c.p, r))}" alt="${esc(`${c.name}, ${realName(r)}`)}" width="160" height="225" loading="lazy" decoding="async" draggable="false" onerror="this.remove()">`
@@ -313,7 +315,7 @@ function oddsSheet(kind) {
   const pool = {live: 'Live Series', trainer: 'a Trainer card (Supporter, Item or Stadium)', all: 'Live Series, Rookie, Gameday, Prime and Awards', gameday: 'a Gameday card (this week’s three times as likely)', elite: 'Legend 25%, Prime 30%, Award 20%, Gameday 25%, all 90+'};
   const body = D.packOdds(kind).map(g => `<section class="pk-odds"><h3>${g.n === 1 ? '1 card' : `${g.n} cards`}: ${esc(pool[g.pool] || g.pool)}</h3>`
     + `<ul>${g.odds.map(o => `<li><span class="pk-sym">${g.pool === 'trainer' ? (o.r === 'legendary' ? '◆◆◆' : '◆◆') : g.pool === 'elite' || g.pool === 'gameday' ? '★★ ♛' : RAR_SYM[o.r]}</span>${esc(g.pool === 'trainer' ? (o.r === 'legendary' ? 'Legendary' : 'Epic') : D.RARITY_NAME[o.r])}<b>${o.pct}%</b></li>`).join('')}</ul></section>`).join('')
-    + '<p class="pk-note">◆ Common (64 and under) · ◆◆ Rare (65–74) · ◆◆◆ Epic (75–79) · ◆◆◆◆ Legendary (80–84) · ★ Mythic (85+) · ★★ Prime, Gameday and Award cards · ♛ Legends. Every pack also gives 5 pack points.</p>';
+    + `<p class="pk-note">◆ Common: his headshot · A real trading card makes it Rare or better, by OVR: ◆◆ Rare (under ${D.SCALE.epic}) · ◆◆◆ Epic (${D.SCALE.epic}–${D.SCALE.legendary - 1}) · ◆◆◆◆ Legendary (${D.SCALE.legendary}–${D.SCALE.mythic - 1}) · ★ Mythic (${D.SCALE.mythic}+) · ★★ Prime, Gameday and Award cards · ♛ Legends. Every pack also gives 5 pack points.</p>`;
   ui.openSheet({title: 'Offering Rates', body: `<p class="pk-note">${esc(P.name)}</p>` + body, cls: 'pk-sheet', detents: ['fit']});
 }
 /** The packs on the home, in Pocket's order: the Starter Pack first while it waits, then the rest. */

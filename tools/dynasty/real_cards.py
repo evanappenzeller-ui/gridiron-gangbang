@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Brings real trading-card pictures into Gridiron Dynasty (the owner, Oct 29 2026: "i got a playing card api. add the
 pictures to gridiron rivals"): the folder his CardSight AI downloader writes (nfl_cards: cards.csv and a folder of JPEGs
-per player) -> img/dynasty/real/<player key>-<card id's first 8>.jpg and the REAL table in js/views/dynasty-real.js
+per player) -> img/dynasty/real/<player key>-<card id's first 8>.jpg and the REAL table in js/core/dynasty-real.js
 (between its <real-cards> marks). Run: python3 tools/dynasty/real_cards.py <the nfl_cards folder> (then bump CACHE in
 sw.js). The downloader adds to cards.csv on every run, so rerunning this after more downloads brings in the new ones.
 
@@ -19,7 +19,7 @@ import csv, json, os, re, shutil, sys
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DATA = os.path.join(ROOT, 'data', 'dynasty.json')
 IMG = os.path.join(ROOT, 'img', 'dynasty', 'real')
-JS = os.path.join(ROOT, 'js', 'views', 'dynasty-real.js')
+JS = os.path.join(ROOT, 'js', 'core', 'dynasty-real.js')
 
 # The card to show first where it isn't his newest base card (the card id's first 8): a showpiece insert
 FIRST = {
@@ -121,7 +121,7 @@ def main():
     a = js.index('\n', a) + 1
     with open(JS, 'w', encoding='utf-8', newline='\n') as f:
         f.write(js[:a] + '\n'.join(lines) + '\n' + js[b:])
-    print(f'{sum(len(c) for c in real.values())} pictures for {len(real)} players -> img/dynasty/real, js/views/dynasty-real.js')
+    print(f'{sum(len(c) for c in real.values())} pictures for {len(real)} players -> img/dynasty/real, js/core/dynasty-real.js')
     if unknown:
         print('not in the Dynasty (skipped): ' + ', '.join(sorted(unknown)))
 

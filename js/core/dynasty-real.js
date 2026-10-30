@@ -1,12 +1,11 @@
 // Real trading cards on Gridiron Dynasty's cards (the owner, Oct 29 2026: "i got a playing card api. add the pictures to
 // gridiron rivals"): the scans his CardSight AI downloader saved (160 x 225 JPEGs), brought in by
-// tools/dynasty/real_cards.py as img/dynasty/real/<player key>-<card id's first 8>.jpg. A player with them has one
-// standing in his card's window (views/dynasty.js cardHTML) in place of his headshot or a Legend's number, and his card up
-// close lists them all (realHTML). They load and cache as they're shown (sw.js: pictures cache-first, not precached).
+// tools/dynasty/real_cards.py as img/dynasty/real/<player key>-<card id's first 8>.jpg. A card with one is Rare or better
+// and the real card is the whole card (core/dynasty.js rarityOf, setData: card.real; views/dynasty.js cardHTML); his card
+// up close lists them all (realHTML). They load and cache as they're shown (sw.js: pictures cache-first, not precached).
 // REAL: player key (data/dynasty.json players) -> his real cards, [card id's first 8, year, release, set, number], the
 // one his Dynasty card shows first. A player with more than one Dynasty card (Josh Allen's Prime, Gameday and Live) has
 // the next on each, in the order the series run (core/dynasty.js SERIES_ORDER).
-import * as D from '../core/dynasty.js';
 
 // <real-cards> (written by tools/dynasty/real_cards.py)
 export const REAL = {
@@ -243,20 +242,3 @@ export const realUrl = (p, r) => `img/dynasty/real/${p}-${r[0]}.jpg`;
 export const realName = r => `${r[1]} ${r[2]}${r[3] && r[3] !== 'Base Set' ? ' ' + r[3] : ''} #${r[4]}`;
 /** A player's real cards (p: his key). */
 export const realCards = p => REAL[p] || [];
-
-// Which real card each Dynasty card shows, worked out once for each set of cards (core/dynasty.js setData)
-let shown = null, of = null;
-/** The real card Dynasty card c shows (one of REAL[c.p]), or null for a player without them. */
-export function realOf(c) {
-  if (!c || !REAL[c.p]) return null;
-  if (of !== D.CARDS) {
-    of = D.CARDS; shown = new Map();
-    const by = new Map();
-    D.CARDS.forEach(x => { if (REAL[x.p]) { if (!by.has(x.p)) by.set(x.p, []); by.get(x.p).push(x); } });
-    by.forEach((list, p) => {
-      list.sort((a, b) => D.SERIES_ORDER.indexOf(a.s) - D.SERIES_ORDER.indexOf(b.s) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-      list.forEach((x, i) => shown.set(x.id, REAL[p][i % REAL[p].length]));
-    });
-  }
-  return shown.get(c.id) || REAL[c.p][0];
-}

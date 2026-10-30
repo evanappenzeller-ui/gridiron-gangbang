@@ -6,9 +6,12 @@
 //
 // The cards (data/dynasty.json, tools/dynasty/build.py): real NFL players from nflverse, in six series after The Show's
 // card types: Live Series (every active player, OVR from his 2025 and 2026 play), Rookie, Prime, Gameday (a week's best
-// real games, The Show's Topps Now), Awards (2025's leaders) and Legends. Rarity by OVR (the owner, Oct 29 2026: "The
-// rarities should be common, rare, epic, legendary, and mythic"): Mythic 85+, Legendary 80-84, Epic 75-79, Rare 65-74,
-// Common. And the battles' Coach and Stadium cards (core/dynasty-battle.js
+// real games, The Show's Topps Now), Awards (2025's leaders) and Legends. The rarities (the owner, Oct 29 2026: "The
+// rarities should be common, rare, epic, legendary, and mythic"), on the scale of the real trading cards (Oct 29 2026:
+// "the common cards should use the images we have now with the player headshots. use the new cards for the rare and
+// above. create a new player ranking scale using this"): a card with a real trading card (core/dynasty-real.js) is Rare
+// or better by its OVR, Mythic 95+, Legendary 91-94, Epic 87-90, Rare under 87; every other card is Common, his
+// headshot on it (rarityOf, SCALE). And the battles' Coach and Stadium cards (core/dynasty-battle.js
 // TRAINERS: Pokémon's Trainer and Stadium cards).
 //
 // Coins: the Daily Games pay them (earnedOf: every game day you play from the day your Dynasty began, read from your
@@ -27,6 +30,7 @@ import * as data from './data.js';
 import {profileKey, visitWho} from './realm-active.js';
 import * as B from './dynasty-battle.js';
 import {dynastyOpen, dynastyKey, packsUnlimited} from './features.js';
+import {REAL} from './dynasty-real.js';
 
 export const FIELD = 'dy1';
 export const VERSION = 1;
@@ -50,7 +54,10 @@ export const SERIES = {
 export const SERIES_ORDER = ['X', 'P', 'A', 'G', 'R', 'L'];
 export const RARITY = ['common', 'rare', 'epic', 'legendary', 'mythic'];
 export const RARITY_NAME = {common: 'Common', rare: 'Rare', epic: 'Epic', legendary: 'Legendary', mythic: 'Mythic'};
-export const rarityOf = ovr => (ovr >= 85 ? 'mythic' : ovr >= 80 ? 'legendary' : ovr >= 75 ? 'epic' : ovr >= 65 ? 'rare' : 'common');
+/** The lowest OVR of each rarity above Rare, for a card with a real trading card (Rare is the rest of them). */
+export const SCALE = Object.freeze({mythic: 95, legendary: 91, epic: 87});
+/** A card's rarity: by its OVR when it has a real trading card (real), else Common. */
+export const rarityOf = (ovr, real) => (!real ? 'common' : ovr >= SCALE.mythic ? 'mythic' : ovr >= SCALE.legendary ? 'legendary' : ovr >= SCALE.epic ? 'epic' : 'rare');
 export const POS_NAME = {QB: 'Quarterback', RB: 'Running back', WR: 'Wide receiver', TE: 'Tight end', OL: 'Offensive line', DL: 'Defensive line',
   LB: 'Linebacker', CB: 'Cornerback', S: 'Safety', K: 'Kicker'};
 export const ATTR_NAME = {ARM: 'Arm', ACC: 'Accuracy', IQ: 'Decisions', RUN: 'Rushing', BRK: 'Breakaway', REC: 'Receiving', TD: 'Scoring',
@@ -58,7 +65,7 @@ export const ATTR_NAME = {ARM: 'Arm', ACC: 'Accuracy', IQ: 'Decisions', RUN: 'Ru
   COV: 'Coverage', PBK: 'Pass block', RBK: 'Run block', DUR: 'Durability'};
 
 export let DATA = null;     // data/dynasty.json as loaded
-export let CARDS = [];      // every card: {id, s, p, o, a, ln, t, tm, w, r, name, pos, team, num, head, college, exp}
+export let CARDS = [];      // every card: {id, s, p, o, a, ln, t, tm, w, r, name, pos, team, num, head, college, exp, real}
 export const BY_ID = new Map();
 export let TEAMS = {};      // abbr -> {abbr, name, pri, sec, conf, div, espn}
 let loading = null;
@@ -83,11 +90,18 @@ export function setData(d) {
   CARDS = (d.cards || []).map(c => {
     const pl = d.players[c[2]] || ['?', '', 'QB', 0, '', 0, '', 0];
     const card = {id: c[0], s: c[1], p: c[2], o: c[3], a: c[4] || [], ln: c[5] || [], t: c[6] || '', tm: c[7] || pl[1], w: c[8] || 0,
-      name: pl[0], team: c[7] || pl[1], pos: pl[2], num: pl[3], head: pl[4], exp: pl[5], college: pl[6], draft: pl[7]};
-    card.r = rarityOf(card.o);
+      name: pl[0], team: c[7] || pl[1], pos: pl[2], num: pl[3], head: pl[4], exp: pl[5], college: pl[6], draft: pl[7], real: null};
     BY_ID.set(card.id, card);
     return card;
   });
+  // (his real trading card on each of his cards, the next on each in the order the series run; then the rarity by it)
+  const mine = new Map();
+  CARDS.forEach(c => { if (REAL[c.p]) { if (!mine.has(c.p)) mine.set(c.p, []); mine.get(c.p).push(c); } });
+  mine.forEach((list, p) => {
+    list.sort((a, b) => SERIES_ORDER.indexOf(a.s) - SERIES_ORDER.indexOf(b.s) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    list.forEach((c, i) => { c.real = REAL[p][i % REAL[p].length]; });
+  });
+  CARDS.forEach(c => { c.r = rarityOf(c.o, !!c.real); });
   POOLS.clear();
   B.setCards(card);
   COLLECTIONS = buildCollections();
@@ -190,8 +204,10 @@ export function drawCard(slot, {team = null, R = luck} = {}) {
     const all = poolOf('gameday', null, ''), lw = lastWeek();
     return pickW(all, c => (c.w === lw ? 3 : 1), R);
   } else if (slot.pool === 'elite') {
+    // (a 90+ card with its real trading card where the series has one)
     const s = pickW(Object.keys(ELITE_MIX), x => ELITE_MIX[x], R);
-    list = CARDS.filter(c => c.s === s && c.o >= 90);
+    list = CARDS.filter(c => c.s === s && c.o >= 90 && c.real);
+    if (!list.length) list = CARDS.filter(c => c.s === s && c.o >= 90);
     if (!list.length) list = CARDS.filter(c => c.s === s);
   } else if (slot.pool === 'all') {
     const s = pickW(Object.keys(ALL_MIX), x => ALL_MIX[x], R);
@@ -234,16 +250,19 @@ export const anyCard = id => card(id) || trainer(id);
 // ---------------------------------------------------------------------------------------------------- Pocket's marks
 // Rarity marked as Pokémon TCG Pocket marks it (the owner, Oct 28 2026: "match the Pokémon app"): ◆ to ◆◆◆◆ for Common
 // to Legendary, ★ for a Mythic, ★★ for the special series (Prime, Gameday, Awards), a crown for a Legend; Trainer cards ◆◆
-// (Epic) and ◆◆◆ (Legendary). A ★ or crown card is full art.
+// (Epic) and ◆◆◆ (Legendary). A Common card (no real trading card: any series) is ◆ and framed round his headshot; every
+// Rare or better card is full art, its real card the whole card (Oct 29 2026: "let the entire image be the card with the
+// info and moves on top of it").
 /** {mark: the symbols, kind: 'd' (diamonds) | 's' (stars) | 'c' (crown), n, full (full art)} */
 export function markOf(c) {
   if (!c) return {mark: '', kind: 'd', n: 0, full: false};
   if (!c.s) { const n = c.r === 'legendary' ? 3 : 2; return {mark: '◆'.repeat(n), kind: 'd', n, full: false}; }
+  if (c.r === 'common') return {mark: '◆', kind: 'd', n: 1, full: false};
   if (c.s === 'X') return {mark: '♛', kind: 'c', n: 1, full: true};
   if (c.s === 'P' || c.s === 'G' || c.s === 'A') return {mark: '★★', kind: 's', n: 2, full: true};
   if (c.r === 'mythic') return {mark: '★', kind: 's', n: 1, full: true};
-  const n = {common: 1, rare: 2, epic: 3, legendary: 4}[c.r] || 1;
-  return {mark: '◆'.repeat(n), kind: 'd', n, full: false};
+  const n = {rare: 2, epic: 3, legendary: 4}[c.r] || 2;
+  return {mark: '◆'.repeat(n), kind: 'd', n, full: true};
 }
 // Pack points (Pocket's): 5 for every pack opened, traded for a card you pick, at Pocket's prices by its mark.
 export const PP_PER_PACK = 5;
