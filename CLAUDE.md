@@ -157,8 +157,8 @@ The owner asked for live scores in the app; everyone gets them. They live on the
 live league matchups should go in the scores tab and can be toggled between with the nfl matchups in the same fashion as
 the pick em screen"): under its title, Pick'em's scoreboard buttons switch NFL and League (`js/views/live.js`, the
 choice remembered as `gg-live-mode`); League (`js/views/live-league.js`) is this week's matchups, each side's live score
-once its players kick off, and a game's sheet both lineups slot by slot. Matchup's "This week's games" no longer scores
-live; once the week kicks off its "Live scores" opens Scores on League. `js/core/fantasy-live.js`
+once its players kick off, and a game's sheet both lineups slot by slot. Matchup no longer lists "This week's games" (Oct 30
+2026, the owner: "Remove this from the matchups tab"). `js/core/fantasy-live.js`
 scores Yahoo's starters (`seasons[].rosters` slots, with `week`; BN/IR sit) from ESPN's box scores (`core/gameday.js`
 `parseBox`, which also reads kickers, defenses and two-point conversions) in Yahoo's standard scoring. It is unofficial:
 Yahoo's final (the sync) replaces it. The Yahoo sync also runs as each game-day window kicks off so the lineups are the

@@ -184,14 +184,10 @@ async function run(url) {
       await page.waitForSelector('.v-live [data-lg-nfl]:not([hidden]) .lg-tile', {timeout: 20000});
       await page.waitForTimeout(600); // (the cross-fade's snapshot goes)
       assert.equal(await page.locator('.v-live [data-ll]').isHidden(), true, p.tag + ': League hides');
-      // Matchup's "Live scores" (the week is under way) opens Scores on League.
+      // Matchup no longer lists this week's games (Oct 30 2026, the owner: "Remove this from the matchups tab").
       await page.goto(url + '/#/matchup');
-      await page.waitForSelector('.v-rivals [data-rv-live]', {timeout: 20000});
-      assert.equal(await page.locator('.v-rivals .rv-gm.is-live').count(), 0, p.tag + ': Matchup no longer scores live');
-      await page.waitForTimeout(800);
-      await page.locator('.v-rivals [data-rv-live]').click();
-      await page.waitForSelector('.v-live [data-ll]:not([hidden]) .ll-gm.is-live', {timeout: 20000});
-      assert.equal(await page.locator('.v-live [data-lg-mode="lg"]').getAttribute('aria-selected'), 'true', p.tag + ': Matchup\u2019s link lands on League');
+      await page.waitForSelector('.v-rivals .rv-h2h-t', {state: 'attached', timeout: 20000});
+      assert.equal(await page.locator('.v-rivals .rv-games, .v-rivals [data-rv-live], .v-rivals .rv-gm').count(), 0, p.tag + ': Matchup has no week\u2019s games');
       console.log(`${p.tag}: ${liveN} live games; Evan’s game ${sheet.hero.join(' – ')}${p.tag === 'evan' ? ', then moved with the feed' : ''}`);
       if (p.tag === 'evan') {
         const out = await page.evaluate(async () => {

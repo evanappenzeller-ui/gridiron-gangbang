@@ -10,8 +10,7 @@
 // Under the title, Pick'em's switch (its scoreboard buttons, css/views/pickem.css) toggles NFL and League (Oct 30 2026,
 // the owner: "The live league matchups should go in the scores tab and can be toggled between with the nfl matchups in
 // the same fashion as the pick em screen"): League is this week's league matchups scored live (views/live-league.js).
-// The one shown is remembered on this phone ('gg-live-mode'; Matchup's "Live scores" sets it to League); only its feed
-// runs.
+// The one shown is remembered on this phone ('gg-live-mode'); only its feed runs.
 // Owner: LIVE.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
@@ -452,7 +451,7 @@ export default {
   onShow(ctx) {
     const st = ST.get(ctx);
     if (!st) return;
-    // Matchup's "Live scores" may have asked for League meanwhile.
+    // Another tab of the app may have switched it meanwhile.
     if (modeNow() !== st.mode) setMode(ctx, st, modeNow(), false);
     if (st.mode === 'lg') { st.lg.show(); return; }
     start(ctx, st);

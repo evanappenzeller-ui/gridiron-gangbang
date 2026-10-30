@@ -3,8 +3,7 @@
 // screen"): this week's six league matchups (core/week.js), each side's live score and players left once their players
 // kick off (core/fantasy-live.js: Yahoo's lineups scored from ESPN's box scores every 30 s while a game is on). A tap
 // opens the game's sheet: the live score and both lineups slot by slot. A game already in the league file shows
-// Yahoo's final and opens the matchup sheet (views/matchup.js). Matchup's "This week's games" links here once the
-// week kicks off. Styles: css/views/live.css (.ll-, .sh-ll). Owner: LIVE.
+// Yahoo's final and opens the matchup sheet (views/matchup.js). Styles: css/views/live.css (.ll-, .sh-ll). Owner: LIVE.
 //
 //   eyebrow()           -> the title's eyebrow for this screen
 //   html(shown)         -> the screen's markup (hidden unless shown)

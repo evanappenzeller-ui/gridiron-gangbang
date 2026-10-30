@@ -20,7 +20,7 @@ import * as data from '../core/data.js';
 import * as motw from '../core/motw.js';
 import * as week from '../core/week.js';
 import * as you from './you.js';
-import {openMatchup, enteringRecord} from './matchup.js';
+import {openMatchup} from './matchup.js';
 
 const esc = s => data.esc(s);
 const nm = id => data.name(id);
@@ -667,167 +667,10 @@ export function badge() {
   return !!m && m.k === cur.key && !m.v;
 }
 
-// ---------------------------------------------------------------- This week's games (the week's six league matchups)
-// week.current()'s games in schedule order. A game already in the data shows its score (a score bug; it opens the
-// matchup sheet); an unplayed one shows both managers' records and opens the sheet's preview. Once the week kicks off,
-// "Live scores" in its header opens the live league scores on the Scores tab (views/live-league.js; Oct 30 2026, the
-// owner: "The live league matchups should go in the scores tab").
-function gameOf(cur, x) {
-  return data.GAMES.find(g => g.year === cur.year && g.week === cur.week && ((g.a === x.a && g.b === x.b) || (g.a === x.b && g.b === x.a))) || null;
-}
-function tableRow(s, id) {
-  const r = s && s.table ? s.table.find(x => x.id === id) : null;
-  return r && (r.w + r.l + r.t) > 0 ? r : null;
-}
-// pj: this side's projection {pts, win} (core/stats.js projectGame) once stats.js is in, else the record alone.
-function gmSide(s, id, pj) {
-  const r = tableRow(s, id);
-  const rec = r ? data.recStr(r.w, r.l, r.t) : '0–0';
-  const team = s ? data.teamIn(s, id) : data.team(id);
-  if (!pj) {
-    return `<span class="bug-side is-tie">${ui.avatar(id, {size: 24, you: id === data.me()})}`
-      + `<span class="bug-name"><b>${esc(nm(id))}</b>${team ? `<span class="bug-team">${esc(team)}</span>` : ''}</span>`
-      + `<span class="bug-score rv-gm-rec">${esc(rec)}</span></span>`;
-  }
-  const fav = pj.win >= .5;
-  return `<span class="bug-side ${fav ? 'is-fav' : 'is-dog'}">${ui.avatar(id, {size: 24, you: id === data.me()})}`
-    + `<span class="bug-name"><b>${esc(nm(id))}</b><span class="bug-team">${esc(rec)}</span></span>`
-    + `<span class="rv-gm-pct${fav ? ' is-fav' : ''}">${Math.round(pj.win * 100)}%</span>`
-    + `<span class="bug-score rv-gm-proj n5">${esc(pj.pts.toFixed(1))}</span></span>`;
-}
-// Projected points and win chances for an unplayed game (null until core/stats.js has loaded).
-// Yahoo's projection for a game, from league.json's schedule ({week, a, b, pa, pb (Yahoo's projected points),
-// wa? (Yahoo's win chance for a, 0-100)}), turned to this game's sides. Without Yahoo's win chance it's worked out
-// from the projected points and the league's week-to-week spread (core/stats.js, loaded at idle). null: Yahoo's
-// numbers aren't in the data for this game (the game then shows records only).
-function projOf(cur, x) {
-  const raw = data.DATA && (data.DATA.seasons || []).find(z => z.year === cur.year);
-  const g = raw && (raw.schedule || []).find(z => z.week === cur.week && ((z.a === x.a && z.b === x.b) || (z.a === x.b && z.b === x.a)));
-  if (!g || !isFinite(g.pa) || !isFinite(g.pb)) return null;
-  const flip = g.a !== x.a;
-  const pa = +(flip ? g.pb : g.pa), pb = +(flip ? g.pa : g.pb);
-  if (isFinite(g.wa)) { const w = Math.max(0, Math.min(100, +g.wa)) / 100; return {pa, pb, winA: flip ? 1 - w : w, yahoo: true}; }
-  if (!STATS || typeof STATS.projectGame !== 'function') return null;
-  try { const p = STATS.projectGame(cur.year, x.a, x.b, {pa, pb}); return p && Object.assign(p, {yahoo: false}); } catch (_) { return null; }
-}
-function gmLabel(s, x, p) {
-  const one = id => { const r = tableRow(s, id); return r ? `${nm(id)}, ${data.recStr(r.w, r.l, r.t)}, ${ui.ordinal(r.seed)}` : nm(id); };
-  const proj = p ? ` Projected ${nm(x.a)} ${p.pa.toFixed(1)}, ${nm(x.b)} ${p.pb.toFixed(1)}; ${nm(p.winA >= .5 ? x.a : x.b)} ${Math.round(Math.max(p.winA, 1 - p.winA) * 100)}% to win.` : '';
-  return `${one(x.a)} versus ${one(x.b)}. Not played yet.${proj} Show the matchup`;
-}
-function gameItem(cur, s, x) {
-  const g = gameOf(cur, x);
-  if (g) return ui.scoreBug(g, {teams: true, cls: 'rv-gm', attrs: {'data-wg': x.key, 'data-press': 'row', 'aria-haspopup': 'dialog'}});
-  const p = projOf(cur, x);
-  return `<button type="button" class="bug bug-row rv-gm is-open${p ? ' is-proj' : ''}" data-wg="${esc(x.key)}" data-press="row" aria-haspopup="dialog" aria-label="${esc(gmLabel(s, x, p))}">`
-    + gmSide(s, x.a, p && {pts: p.pa, win: p.winA}) + gmSide(s, x.b, p && {pts: p.pb, win: 1 - p.winA}) + `</button>`;
-}
-function gamesHTML(cur) {
-  if (!cur || !cur.games || !cur.games.length) return '';
-  const s = data.seasonByYear(cur.year);
-  const played = cur.games.filter(x => gameOf(cur, x)).length;
-  // Projections come from core/stats.js (loaded at idle); this redraws once it's in.
-  if (!STATS && played < cur.games.length) loadStats().then(() => patchGames(), () => {});
-  return `<section class="rv-games" data-enter aria-labelledby="rv-games-h">`
-    + `<div class="rv-wk-head"><h2 class="t-2" id="rv-games-h">This week's games</h2><span class="ovl rv-wk-ovl">`
-    + (lockedNow(cur) && played < cur.games.length ? `<button type="button" class="rv-wk-live" data-rv-live><i aria-hidden="true"></i>Live scores</button> · ` : '')
-    + `Week ${esc(cur.week)}</span></div>`
-    + ui.group(cur.games.map(x => gameItem(cur, s, x)).join(''), {cls: 'rv-gms'})
-    + `</section>`;
-}
-function patchGames() {
+// The title's eyebrow follows the week (it moves on with the data).
+function patchEyebrow() {
   const eb = st && st.el.querySelector('.lt-eyebrow');
   if (eb) { const t = eyebrowText(); if (eb.textContent !== t) eb.textContent = t; }
-  const w = st && st.el.querySelector('.rv-games-w');
-  if (!w) return;
-  const html = gamesHTML(curWeek());
-  if (w._html === html) return;
-  const f = document.activeElement;
-  const fk = f && w.contains(f) && f.dataset ? f.dataset.wg : null;
-  w.innerHTML = html;
-  w._html = html;
-  if (fk) { const n = w.querySelector(`[data-wg="${CSS.escape(fk)}"]`); if (n) n.focus({preventScroll: true}); }
-  syncH2hTitle();
-  reland();
-}
-// The matchup sheet for an unplayed game (views/matchup.js draws played ones): the same look (.sh-matchup), with the
-// standings place where the score will be, the records entering the game and the all-time series.
-function seriesHTML(a, b) {
-  const h = data.h2hC(a, b);
-  const n = h.games.length;
-  const cA = data.color(a).cls, cB = data.hueClose(a, b) ? 'mc-ink' : data.color(b).cls;
-  const lead = h.aw === h.bw ? 0 : h.aw > h.bw ? 1 : -1;
-  const cap = !n ? 'First meeting' : lead === 0 ? `Even at ${h.aw}–${h.bw}` : lead > 0 ? `${nm(a)} leads ${h.aw}–${h.bw}` : `${nm(b)} leads ${h.bw}–${h.aw}`;
-  const extra = [`${n} meeting${n === 1 ? '' : 's'}`];
-  if (h.t) extra.push(`${h.t} tied`);
-  const share = n ? (h.aw + h.t / 2) / n : .5;
-  const side = (k, id, w, cls, on) => `<div class="mu-sv ${k} ${cls}${on ? ' is-lead' : ''}">${ui.avatar(id, {size: 28})}<span class="n3">${w}</span></div>`;
-  return `<div class="mu-series" role="img" aria-label="${esc(`All-time series: ${cap}, ${extra.join(', ')}`)}">`
-    + `<div class="mu-sb" aria-hidden="true">${side('a', a, h.aw, cA, lead >= 0)}<span class="mu-vs ovl">Series</span>${side('b', b, h.bw, cB, lead <= 0)}</div>`
-    + `<div aria-hidden="true">${ui.splitBar(a, b, share)}</div>`
-    + `<p class="mu-cap" aria-hidden="true"><b>${esc(cap)}</b> · ${esc(extra.join(' · '))}</p></div>`;
-}
-function openPreview(cur, x) {
-  const s = data.seasonByYear(cur.year);
-  const {a, b} = x;
-  const g = {a, b, week: cur.week, year: cur.year, type: 'reg', reg: true};
-  const locked = lockedNow(cur);
-  const place = id => { const r = tableRow(s, id); return r ? ui.ordinal(r.seed) : ''; };
-  const side = id => {
-    const t = s ? data.teamIn(s, id) : data.team(id);
-    return `<span class="bug-side is-tie">${ui.avatar(id, {size: 40, you: id === data.me()})}`
-      + `<span class="bug-name"><b>${esc(nm(id))}</b>${t ? `<span class="bug-team">${esc(t)}</span>` : ''}</span>`
-      + `<span class="bug-score n4 rv-pre-place">${esc(place(id))}</span></span>`;
-  };
-  const foot = locked ? 'Under way · Final scores after the week' : `Kickoff ${closeText(cur)}`;
-  const hero = `<div class="bug bug-row bug-hero mu-bug rv-pre-bug">${side(a)}${side(b)}<span class="bug-foot"><span class="ovl">${esc(foot.toUpperCase())}</span></span></div>`;
-  const ra = enteringRecord(s, g, a), rb = enteringRecord(s, g, b);
-  const better = ra.p == null || rb.p == null || ra.p === rb.p ? null : ra.p > rb.p ? 'a' : 'b';
-  const tape = ui.tape({label: g.week === 1 ? 'Season opener' : `Before week ${g.week}`, a: ra.rec, b: rb.rec, aSub: nm(a), bSub: nm(b), better, aId: a, bId: b});
-  const ovl = `Week ${cur.week} · ${cur.year}`;
-  const body = `<div class="mu">`
-    + `<div class="mu-hero">${hero}</div>`
-    + projBlock(cur, x, a, b)
-    + `<h3 class="mu-h">Records entering the game</h3><div class="mu-box">${tape}</div>`
-    + `<h3 class="mu-h">All-time series</h3><div class="mu-box mu-pad">${seriesHTML(a, b)}</div>`
-    + `<div class="mu-actions">${ui.button({label: 'Full rivalry', kind: 'secondary', icon: 'versus', attrs: {'data-mu': 'rivalry'}})}`
-    + `<div class="mu-profiles">${ui.button({label: `${nm(a)}'s profile`, kind: 'plain', attrs: {'data-mu': 'a'}})}${ui.button({label: `${nm(b)}'s profile`, kind: 'plain', attrs: {'data-mu': 'b'}})}</div></div>`
-    + `</div>`;
-  const ctx = st.ctx;
-  const sh = ui.openSheet({header: `<span class="ovl mu-ovl">${esc(ovl)}</span>`, label: `${ovl}: ${nm(a)} vs ${nm(b)}, not played yet`,
-    body, cls: 'sh-matchup sh-rv-pre', detents: ['medium', 'large']});
-  sh.body.addEventListener('click', e => {
-    const t = e.target.closest && e.target.closest('[data-mu]');
-    if (!t || !sh.open) return;
-    const k = t.dataset.mu;
-    sh.close();
-    if (k === 'rivalry') { if (st && st.ctx === ctx) chooseMotw(x.key); return; }
-    const id = k === 'a' ? a : b;
-    const sides = sh.body.querySelectorAll('.rv-pre-bug .bug-side');
-    const av = sides[k === 'a' ? 0 : 1] && sides[k === 'a' ? 0 : 1].querySelector('.av');
-    ctx.nav('/managers/' + encodeURIComponent(id), av ? {morphFrom: av} : undefined);
-  });
-  sh.body.querySelectorAll('.split').forEach(x => ui.splitIn(x));
-  return sh;
-}
-// The sheet's projection: both projected scores and the win chances as a split bar.
-function projBlock(cur, x, a, b) {
-  const p = projOf(cur, x);
-  if (!p) return '';
-  const pa = Math.round(p.winA * 100), fav = p.winA >= .5 ? a : b;
-  return `<h3 class="mu-h">Yahoo projection</h3><div class="mu-box mu-pad"><div class="rv-pj" role="img" aria-label="${esc(`Projected ${nm(a)} ${p.pa.toFixed(1)}, ${nm(b)} ${p.pb.toFixed(1)}. ${nm(fav)} ${Math.max(pa, 100 - pa)}% to win.`)}">`
-    + `<div class="rv-pj-row" aria-hidden="true"><span class="rv-pj-s">${ui.avatar(a, {size: 28})}<span class="n3">${esc(p.pa.toFixed(1))}</span></span><span class="ovl">Proj</span>`
-    + `<span class="rv-pj-s is-b"><span class="n3">${esc(p.pb.toFixed(1))}</span>${ui.avatar(b, {size: 28})}</span></div>`
-    + `<div aria-hidden="true">${ui.splitBar(a, b, p.winA)}</div>`
-    + `<p class="mu-cap" aria-hidden="true"><b>${Math.abs(pa - 50) <= 2 ? 'Toss-up' : esc(`${nm(fav)} ${Math.max(pa, 100 - pa)}% to win`)}</b> · ${p.yahoo ? "Yahoo's projection" : "Yahoo's projected points"}</p></div></div>`;
-}
-function openGame(key) {
-  const cur = curWeek();
-  const x = cur && cur.games.find(g => g.key === key);
-  if (!x || !st) return;
-  ui.haptic('light');
-  const g = gameOf(cur, x);
-  if (g) openMatchup(g, st.ctx); else openPreview(cur, x);
 }
 
 // ---------------------------------------------------------------- Last week: The Wrap (core/stats.js, loaded at idle)
@@ -1214,13 +1057,13 @@ function wkData() {
 function syncH2hTitle() {
   const t = st && st.el.querySelector('.rv-h2h-t');
   if (!t) return;
-  const has = !!st.el.querySelector('.rv-week :is(.rv-motw, .rv-games, .rv-press, .rv-last, .rv-past)');
+  const has = !!st.el.querySelector('.rv-week :is(.rv-motw, .rv-press, .rv-last, .rv-past)');
   t.hidden = !has;
   syncChrome();
 }
-// Deep links from other screens: #/matchup?s=motw | vote | games | press | wrap | past | h2h (the NFL pick'em has
+// Deep links from other screens: #/matchup?s=motw | vote | press | wrap | past | h2h (the NFL pick'em has
 // its own tab: app.js sends the old #/rivals?s=pickem there).
-const SEC = {motw: 'rv-motw', vote: 'rv-motw', votes: 'rv-motw', games: 'rv-games', week: 'rv-games', press: 'rv-press',
+const SEC = {motw: 'rv-motw', vote: 'rv-motw', votes: 'rv-motw', press: 'rv-press',
   wrap: 'rv-wrap', last: 'rv-wrap', past: 'rv-past', h2h: 'rv-h2h'};
 function secOf(q) {
   const v = q && (q.s || q.section || q.focus);
@@ -1272,7 +1115,7 @@ function youHTML() {
   try { return you.youButtonHTML(); } catch (e) { console.error(e); return ''; }
 }
 // Eyebrow "2026 season · Week 4" (every tab root has one, so the title and the avatar sit at the same height on all
-// five); patched by patchGames when the week moves on.
+// five); patched by patchEyebrow when the week moves on.
 function eyebrowText() {
   const c = curWeek();
   if (c) return `${c.year} season · Week ${c.week}`;
@@ -1286,16 +1129,14 @@ function pageHTML(m) {
       + ui.empty({icon: 'versus', title: 'No rivals yet.', body: 'Rivals needs at least two managers in the league.'});
   }
   const motwH = motwHTML(st ? st.lens : readLens());
-  const gamesH = gamesHTML(curWeek());
   const wrapH = wrapHTML(latestWrap());
   const past = st && st.wk && st.wk.hist ? pastHTML(st.wk.hist) : '';
   return titleHTML()
     + `<div class="rv-week">${motwH}`
-    + `<div class="rv-games-w" id="rv-games">${gamesH}</div>`
     + `<div class="rv-press-w" id="rv-press">${pressHTML()}</div>`
     + `<div class="rv-wrap-w" id="rv-wrap">${wrapH}</div>`
     + `<div class="rv-past-w" id="rv-past">${past}</div></div>`
-    + `<h2 class="t-2 rv-h2h-t" id="rv-h2h"${motwH || gamesH || wrapH || past ? '' : ' hidden'}>Head to head</h2>`
+    + `<h2 class="t-2 rv-h2h-t" id="rv-h2h"${motwH || wrapH || past ? '' : ' hidden'}>Head to head</h2>`
     + headerHTML(m)
     + `<div class="rv-main">${mainHTML(m)}</div>`
     + listSecHTML(m);
@@ -1311,8 +1152,6 @@ function grab(el) {
   };
   const pw = el.querySelector('.rv-past-w');
   if (pw) pw._html = pw.innerHTML ? pastHTML(st.wk && st.wk.hist) : '';
-  const gw = el.querySelector('.rv-games-w');
-  if (gw) gw._html = gw.innerHTML ? gamesHTML(curWeek()) : '';
   const ww = el.querySelector('.rv-wrap-w');
   if (ww) ww._html = ww.innerHTML ? wrapHTML(latestWrap()) : '';
   markRendered(el);
@@ -1717,11 +1556,9 @@ function chooseOpp(id) {
 
 function onClick(e) {
   const t = e.target.closest && e.target.closest('[data-swap], [data-pick], [data-opp], [data-motw], [data-motw-more], [data-motw-share], '
-    + '[data-vote], [data-vt-who], [data-past-more], [data-wg], [data-rv-live]');
+    + '[data-vote], [data-vt-who], [data-past-more]');
   if (!t || !st) return;
   if (t.hasAttribute('data-vote')) vote(t.dataset.vote);
-  else if (t.hasAttribute('data-wg')) openGame(t.dataset.wg);
-  else if (t.hasAttribute('data-rv-live')) { ui.lsSet('gg-live-mode', 'lg'); st.ctx.nav('/live'); } // Scores, on its League screen (views/live.js)
   else if (t.hasAttribute('data-vt-who')) openWeekSheet('votes', t.dataset.vtWho);
   else if (t.hasAttribute('data-past-more')) { ui.haptic('light'); togglePast(); }
   else if (t.hasAttribute('data-motw')) chooseMotw(t.dataset.motw);
@@ -1882,7 +1719,7 @@ export default {
     // New games or a new schedule re-rank the week (and may move it on, with its games and a new Wrap); a new "me"
     // moves the you-rings and your avatar button.
     if (ctx.reason === 'data') wkData();
-    if (ctx.reason === 'data' || ctx.reason === 'me') { patchMotw(false); patchGames(); patchPress(); }
+    if (ctx.reason === 'data' || ctx.reason === 'me') { patchMotw(false); patchEyebrow(); patchPress(); }
     if (ctx.reason === 'data') patchWrap(ctx.visible);
     if (ctx.reason === 'me') patchPast(false);
     if (st.goSec) revealSec();

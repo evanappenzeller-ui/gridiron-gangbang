@@ -1,5 +1,5 @@
 /* Matchup tab (view id 'rivals': spec 7.12, 4.2, 6, delight 8.12; tabs-v4 contract 5). Owner: MATCHUP. Every screen
-   selector is scoped under .v-rivals; its sheets under .sh-rv (who voted) and .sh-rv-pre (an unplayed game). */
+   selector is scoped under .v-rivals; its sheets under .sh-rv (who voted). */
 
 /* ================================================================ Matchup header */
 .v-rivals .rv-hdr {
@@ -420,25 +420,10 @@
 .v-rivals .rv-vt-tag.is-lead > .ic { fill: var(--gold); }
 .v-rivals .rv-vt-tag.is-mine { background: var(--tint-soft); color: var(--tint); }
 
-/* ================================================================ Week section heads (this week's games, last week) */
+/* ================================================================ Week section heads (last week) */
 .v-rivals .rv-wk-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; min-height: 34px; margin-bottom: 8px; }
 .v-rivals .rv-wk-head .t-2 { margin: 0; }
 .v-rivals .rv-wk-ovl { color: var(--ink-3); white-space: nowrap; }
-/* Once the week kicks off: "Live scores", to the Scores tab's League screen (views/live-league.js). */
-.v-rivals .rv-wk-live { display: inline-flex; align-items: center; gap: 5px; min-height: 30px; padding: 0; background: none; color: var(--tint); font: inherit; letter-spacing: inherit; text-transform: inherit; }
-.v-rivals .rv-wk-live > i { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--tint); animation: rv-live-blink 1.6s ease-in-out infinite; }
-@keyframes rv-live-blink { 50% { opacity: .3; } }
-@media (prefers-reduced-motion: reduce) { .v-rivals .rv-wk-live > i { animation: none; } }
-
-/* ================================================================ This week's games (each opens the matchup sheet) */
-.v-rivals .rv-games { margin: 0 0 28px; }
-.v-rivals .rv-gms { --stack-ring: var(--surface-1); }
-.v-rivals .rv-gm { padding-top: 8px; padding-bottom: 8px; }
-.v-rivals .rv-gm:focus-visible { outline-offset: -2px; border-radius: var(--r-group); }
-/* Unplayed: both names in ink (nobody has won or lost yet), each manager's season record where the score will be,
-   in plain secondary text: never the Barlow score numerals, so a record before kickoff can't read as a result. */
-.v-rivals .rv-gm.is-open .bug-side { color: var(--ink); }
-.v-rivals .rv-gm-rec { font: 500 15px/20px var(--font-text); font-variant-numeric: tabular-nums; color: var(--ink-2); }
 
 /* ================================================================ Last week: The Wrap */
 .v-rivals .rv-last { margin: 0 0 28px; }
@@ -533,10 +518,6 @@
 .sh-rv .rv-sh-note { margin: 16px 16px 0; font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
 .sh-rv .group-h { text-transform: none; letter-spacing: 0; font-weight: 600; }
 .sh-rv .empty { padding-top: 24px; }
-/* An unplayed game's matchup sheet (views/matchup.js's look, .sh-matchup): names in ink, the standings place where
-   the score will be. */
-.sh-rv-pre .rv-pre-bug .bug-side { color: var(--ink); }
-.sh-rv-pre .rv-pre-place { color: var(--ink-3); }
 
 @container app (max-width: 374px) {
   /* The top pick keeps its avatars, smaller, so "Jaymin vs Jayton" is not "Jay… vs Jay…". */
@@ -605,10 +586,3 @@ html.rm .v-rivals .rv-vt-btn { transition: background-color 200ms linear, color 
 .v-rivals .rv-mc.is-top .rv-mc-n { font-size: 16px; line-height: 21px; letter-spacing: -.01em; }
 .v-rivals .rv-mc.is-top .rv-mc-vs { display: none; } /* the big avatars face off: the names get the room */
 .v-rivals .rv-mc.is-gotw .rv-mc-hype > span:first-child { color: var(--gold); text-shadow: 0 0 12px color-mix(in srgb, var(--gold) 70%, transparent); }
-/* Projections in This week's games: each side's win chance and projected points (core/stats.js projectGame) */
-.v-rivals .rv-gm-pct { flex: none; margin-right: 10px; padding: 1px 7px; border-radius: 999px; background: var(--fill); color: var(--ink-3); font: 600 12px/18px var(--font-text); }
-.v-rivals .rv-gm-pct.is-fav { background: var(--tint-soft); color: var(--tint); }
-.v-rivals .rv-gm-proj { color: var(--ink); }
-.v-rivals .is-dog .rv-gm-proj { color: var(--ink-3); }
-.sh-rv-pre .rv-pj-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
-.sh-rv-pre .rv-pj-s { display: flex; align-items: center; gap: 8px; }
