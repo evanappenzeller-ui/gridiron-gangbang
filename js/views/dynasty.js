@@ -86,21 +86,24 @@ export function cardHTML(c, o = {}) {
   const atk = st.attacks.map(a => `<span class="pk-c-atk"><span class="pk-c-cost">${a.cost.map(pipHTML).join('')}</span><b>${esc(a.name)}</b><em>${a.dmg}${a.fx === 'coin' || a.fx === 'qb' || a.fx === 'vs' || a.fx === 'finish' ? '+' : ''}</em></span>`
     + (B.fxText(a) ? `<span class="pk-c-fx">${esc(B.fxText(a))}</span>` : '')).join('');
   const stage = st.stage ? `<span class="pk-c-stage is-1">STAGE 1</span>` : `<span class="pk-c-stage">BASIC</span>`;
+  const evolution = st.stage ? `<span class="pk-c-evo">Evolves from ${esc(c.name)} · Basic</span>` : '';
+  const rule = st.ex ? '<span class="pk-c-rule"><b>ex rule</b><span>When this player is Knocked Out, your opponent gets 2 points.</span></span>' : '';
   const strip = `${c.pos} · ${c.s === 'X' ? `${T.name} legend` : T.name}${c.num ? ` · #${c.num}` : ''} · OVR ${c.o}${c.t ? ` · ${c.t}` : ''}`;
-  const label = `${c.name}, ${S.name} ${D.POS_NAME[c.pos] || c.pos}, ${st.hp} HP, ${B.TYPES[st.type].name} type, ${m.mark}${o.count > 1 ? `, ${o.count} copies` : ''}${o.ghost ? ', not in your collection' : ''}`;
+  const label = `${c.name}, ${S.name} ${D.POS_NAME[c.pos] || c.pos}, ${st.hp} HP, ${B.TYPES[st.type].name} type, ${st.stage ? 'Stage 1' : 'Basic'}${st.ex ? ', ex, worth 2 points when Knocked Out' : ''}, ${m.mark}${o.count > 1 ? `, ${o.count} copies` : ''}${o.ghost ? ', not in your collection' : ''}`;
   const inner = `<span class="pk-c-face" aria-hidden="true">`
-    + `<span class="pk-c-head">${stage}<b class="pk-c-name">${esc(c.name)}</b><span class="pk-c-hp"><small>HP</small>${st.hp}</span>${typeHTML(st.type)}</span>`
+    + `<span class="pk-c-head">${stage}<b class="pk-c-name">${esc(c.name)}${st.ex ? '<i class="pk-c-ex">ex</i>' : ''}</b><span class="pk-c-hp"><small>HP</small>${st.hp}</span>${typeHTML(st.type)}</span>${evolution}`
     + `<span class="pk-c-art">${legend}${photo}<img class="pk-c-logo" src="${esc(logoUrl(c.team, 80))}" alt="" loading="lazy" decoding="async" draggable="false" onerror="this.remove()"></span>`
     + `<span class="pk-c-strip">${esc(strip)}</span>`
-    + `<span class="pk-c-body">${ab}${atk}</span>`
-    + `<span class="pk-c-foot"><span><small>weakness</small>${st.weak ? `${typeHTML(st.weak)}<b>+${B.WEAK_BONUS}</b>` : ''}</span>`
-    + `<span><small>retreat</small>${Array.from({length: st.retreat}, () => pipHTML('*')).join('')}</span></span>`
+    + `<span class="pk-c-body${st.ability ? ' has-ability' : ''}">${ab}${atk}</span>`
+    + `<span class="pk-c-foot"><span><small>weakness</small>${st.weak ? `${typeHTML(st.weak)}<b>+${B.WEAK_BONUS}</b>` : '<b>—</b>'}</span>`
+    + `<span><small>retreat</small>${st.retreat ? Array.from({length: st.retreat}, () => pipHTML('*')).join('') : '<b>free</b>'}</span></span>${rule}`
     + `<span class="pk-c-rar is-${m.kind}">${m.mark}</span><span class="pk-c-set">${esc(S.short)}${st.ex ? ' · ex' : ''}</span>`
     + `</span><span class="pk-c-shine" aria-hidden="true"></span>`
     + (o.isNew ? '<span class="pk-c-new" aria-hidden="true">NEW</span>' : '')
     + (o.count > 0 && !o.noCount ? `<span class="pk-c-cnt" aria-hidden="true">${o.count}</span>` : '');
-  const cls = `pk-card t-${st.type} m-${m.kind}${m.n}${m.full ? ' is-full' : ''} r-${c.r} s-${c.s} sz-${o.size || 'm'}${o.ghost ? ' is-ghost' : ''}${o.cls ? ' ' + o.cls : ''}`;
-  const style = `--tp:${T.pri};--ts:${T.sec}`;
+  const cls = `pk-card t-${st.type} m-${m.kind}${m.n}${m.full ? ' is-full' : ''} r-${c.r} s-${c.s} sz-${o.size || 'm'}${st.ex ? ' is-ex' : ''}${o.ghost ? ' is-ghost' : ''}${o.cls ? ' ' + o.cls : ''}`;
+  const nameSize = Math.min(5.8, 87 / (c.name.length + (st.ex ? 3 : 0))).toFixed(2);
+  const style = `--tp:${T.pri};--ts:${T.sec};--name-size:${nameSize}cqw`;
   return o.tag === false ? `<div class="${cls}" style="${style}" role="img" aria-label="${esc(label)}">${inner}</div>`
     : `<button type="button" class="${cls}" style="${style}" data-dy-card="${esc(c.id)}" aria-label="${esc(label)}">${inner}</button>`;
 }
