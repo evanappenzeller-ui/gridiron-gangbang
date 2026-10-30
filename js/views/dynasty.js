@@ -133,6 +133,8 @@ export function trainerHTML(t, o = {}) {
   return o.tag === false ? `<div class="${cls}" style="${style}" role="img" aria-label="${esc(label)}">${inner}</div>`
     : `<button type="button" class="${cls}" style="${style}" data-dy-card="${esc(t.id)}" aria-label="${esc(label)}">${inner}</button>`;
 }
+/** A card you don't have yet, face down: no name, picture or stats, just a lock (a collection's missing cards). */
+export const lockedHTML = (o = {}) => `<div class="pk-card pk-locked sz-${o.size || 'm'}" role="img" aria-label="A card not in your collection yet"><span class="pk-l-face" aria-hidden="true">${ui.icon('lock')}</span></div>`;
 /** Any card by id: a player's or a Trainer card. */
 export const anyHTML = (id, o = {}) => (D.card(id) ? cardHTML(D.card(id), o) : trainerHTML(D.trainer(id), o));
 /** A card's battle side in words: type, HP, weakness and retreat, its Ability, its attacks. */
@@ -542,7 +544,7 @@ function colSheet(st, id) {
   if (p.done && !p.claimed) body += `<div class="pk-acts">${ui.button({label: 'Claim reward', kind: 'primary', block: true, attrs: {'data-dy-claim': id}})}</div>`;
   if (col.need) {
     const need = col.need.filter(D.isCard);
-    body += `<p class="pk-note">${(col.kind === 'series' || col.kind === 'week') && col.of < need.length ? `Any ${col.of} of these count.` : 'Every one of these.'}</p><div class="pk-grid">${need.map(id => anyHTML(id, {size: 's', ghost: !(s.o[id] > 0), noCount: true})).join('')}</div>`;
+    body += `<p class="pk-note">${(col.kind === 'series' || col.kind === 'week') && col.of < need.length ? `Any ${col.of} of these count.` : 'Every one of these.'}</p><div class="pk-grid">${need.map(id => (s.o[id] > 0 ? anyHTML(id, {size: 's', noCount: true}) : lockedHTML({size: 's'}))).join('')}</div>`;
   } else body += `<ul class="pk-list">${col.sub.map(D.collection).filter(Boolean).map(c => `<li><span class="pk-col-t"><b>${esc(c.name)}</b></span><span class="pk-n">${s.cl[c.id] ? ui.icon('check-circle', {size: 16}) : `${D.progress(c, s).have}/${c.of}`}</span></li>`).join('')}</ul>`;
   if (col.reward.card) body += `<p class="pk-note">The reward card:</p><div class="pk-zoom is-s">${cardHTML(D.card(col.reward.card), {size: 'm', tag: false})}</div>`;
   const sh = ui.openSheet({title: col.name, body, cls: 'pk-sheet', detents: ['large']});

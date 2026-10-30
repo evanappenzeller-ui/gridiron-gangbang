@@ -120,6 +120,22 @@ async function playerFlow(page, p, {reduced}) {
   await page.locator('.pk-mini[data-dy-goto="cols"]').click();
   await page.waitForSelector('.pk-cols');
   assert.equal(await page.locator('.pk-tab.is-on').getAttribute('data-dy-tab'), 'cards', T + ': Missions opens the collections on My Cards');
+  // a collection's cards you don't have yet stay face down: no name, picture or stats, and no tap to see them
+  await page.locator('[data-dy-col="series-A"]').click();
+  await page.waitForSelector('.sheet.pk-sheet .pk-grid');
+  const sheetCards = await page.evaluate(async () => {
+    const D = await import('/js/core/dynasty.js'), s = D.mine(), col = D.collection('series-A');
+    const need = col.need.filter(D.isCard), have = need.filter(id => s.o[id] > 0).length;
+    const g = document.querySelector('.sheet.pk-sheet .pk-grid');
+    return {need: need.length, have, locked: g.querySelectorAll('.pk-locked').length, open: g.querySelectorAll('[data-dy-card]').length,
+      ghost: g.querySelectorAll('.is-ghost').length, names: g.querySelectorAll('.pk-locked .pk-c-name, .pk-locked img').length};
+  });
+  assert.equal(sheetCards.locked, sheetCards.need - sheetCards.have, T + ': each missing card is a locked slot');
+  assert.equal(sheetCards.open, sheetCards.have, T + ': only cards you have show and open');
+  assert.equal(sheetCards.ghost + sheetCards.names, 0, T + ': no greyed-out faces, no names or pictures on a locked slot');
+  await snap(page, `${p.tag}${reduced ? '-rm' : ''}-collection`);
+  await page.locator('.sheet.pk-sheet [aria-label="Close"], .sheet.pk-sheet .sheet-close').first().click().catch(() => page.keyboard.press('Escape'));
+  await page.waitForFunction(() => !document.querySelector('.sheet.pk-sheet'), null, {timeout: 5000});
   // the Menu
   await page.locator('.pk-tab[data-dy-menu]').click();
   await page.waitForSelector('.pk-menu');
