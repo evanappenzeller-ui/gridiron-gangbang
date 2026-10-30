@@ -7,14 +7,14 @@
 // A slow request falls back to whatever is cached under its path (from the previous worker too), so data whose
 // format changes gets a new file name rather than new content under the old one (data/puzzles-v4.json: see
 // js/core/daily.js).
-const CACHE = 'gg-v516';
+const CACHE = 'gg-v517';
 const CORE = ['ui', 'data', 'daily', 'fire', 'week', 'nfl', 'stats', 'motw', 'press', 'checks', 'checks-stats', 'checks-pickem', 'checks-press', 'checks-seventeen', 'checks-drill', 'checks-kick', 'return', 'checks-return', 'lay', 'plays', 'laytrack', 'gameday', 'seventeen', 'drill-sim', 'drill', 'kick', 'avatars', 'lpick', 'survivor', 'checks-lpick', 'realm', 'realm-pay', 'realm-active', 'realm-dragons', 'realm-layout', 'realm-battle', 'checks-realm', 'dynasty', 'dynasty-battle', 'dynasty-match', 'dynasty-solo', 'dynasty-real', 'checks-dynasty'];
 // The tab roots are puzzles, pickem, rivals (Matchup), league, moves (Draft), lay (The Lay) and live (Live). Keepfall opens from Daily Games.
 const VIEWS = ['welcome', 'guest', 'puzzles', 'games', 'game-case', 'board', 'you', 'sharecard', 'results', 'run', 'college', 'silhouette', 'mystery', 'journey', 'grid', 'picker',
   'league', 'standings', 'season', 'review', 'wrap', 'matchup', 'rivals', 'pickem', 'press', 'hall', 'hall-trophies', 'hall-records', 'hall-shame',
-  'moves', 'profile', 'lay', 'live', 'plays', 'seventeen', 'drill', 'drill-cam', 'drill-sprites', 'kick', 'stadium', 'return-world', 'return-3dworld', 'return-field-logo', 'return-style', 'return-scenery', 'return-models', 'return-city-bus', 'return-3d', 'return', 'photo', 'testplay', 'lpick', 'survivor', 'realm', 'realm-3d', 'realm-world', 'realm-materials', 'realm-buildings', 'realm-lowlevel', 'realm-routines', 'realm-models', 'realm-walls', 'realm-wildlife', 'realm-heroes', 'realm-lore', 'realm-npcs', 'realm-characters', 'realm-dragon', 'realm-dragon-assets', 'realm-dragon-picker', 'realm-raid', 'realm-scout', 'realm-replay', 'realm-visit', 'dynasty', 'dynasty-packs', 'dynasty-art-start', 'dynasty-art-std', 'dynasty-art-team', 'dynasty-art-prem', 'dynasty-art-gday', 'dynasty-art-leg', 'dynasty-open', 'dynasty-battle', '_kit'];
+  'moves', 'profile', 'lay', 'live', 'plays', 'seventeen', 'drill', 'drill-cam', 'drill-sprites', 'kick', 'stadium', 'return-world', 'return-3dworld', 'return-field-logo', 'return-style', 'return-scenery', 'return-models', 'return-city-bus', 'return-3d', 'return', 'photo', 'testplay', 'lpick', 'survivor', 'realm', 'realm-3d', 'realm-world', 'realm-materials', 'realm-buildings', 'realm-lowlevel', 'realm-routines', 'realm-models', 'realm-walls', 'realm-wildlife', 'realm-heroes', 'realm-lore', 'realm-npcs', 'realm-characters', 'realm-dragon', 'realm-dragon-assets', 'realm-dragon-picker', 'realm-raid', 'realm-scout', 'realm-replay', 'realm-visit', 'dynasty', 'dynasty-foil', 'dynasty-packs', 'dynasty-art-start', 'dynasty-art-std', 'dynasty-art-team', 'dynasty-art-prem', 'dynasty-art-gday', 'dynasty-art-leg', 'dynasty-open', 'dynasty-battle', '_kit'];
 const VIEW_CSS = ['welcome', 'puzzles', 'board', 'results', 'you', 'run', 'college', 'silhouette', 'mystery', 'journey', 'grid', 'picker',
-  'standings', 'season', 'review', 'wrap', 'matchup', 'rivals', 'pickem', 'press', 'hall', 'moves', 'profile', 'lay', 'live', 'plays', 'seventeen', 'drill', 'kick', 'return', 'realm', 'dynasty', 'dynasty-packs', 'dynasty-open', 'dynasty-rivals', 'dynasty-rivals-hub', 'dynasty-rivals-battle', '_kit'];
+  'standings', 'season', 'review', 'wrap', 'matchup', 'rivals', 'pickem', 'press', 'hall', 'moves', 'profile', 'lay', 'live', 'plays', 'seventeen', 'drill', 'kick', 'return', 'realm', 'dynasty', 'dynasty-packs', 'dynasty-open', 'dynasty-rivals', 'dynasty-rivals-hub', 'dynasty-rivals-battle', 'dynasty-rarity', '_kit'];
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest',
   'js/core/features.js', 'js/core/release.js', 'js/core/score-release.js', 'js/core/owner-motion.js', 'css/owner-motion.css', 'css/release.css',
@@ -33,7 +33,8 @@ const SHELL = [
   'img/drill/players.webp', 'img/drill/players-mask.webp',
   'icons/hub-192.png', 'icons/hub-512.png', 'icons/hub-maskable-512.png', 'icons/hub-apple-180.png',
   'data/league.json', 'data/pressers.json', 'data/lay.json', 'data/puzzles-v4.json', 'data/nfl-players.json', 'data/seventeen.json', 'data/drill.json', 'data/dynasty.json',
-  'img/games/dynasty-cover-v3.webp', 'img/games/dynasty-book-v2.webp', 'img/games/dynasty-disc-v2.webp', 'img/games/dynasty-back-v2.webp'
+  'img/games/dynasty-cover-v3.webp', 'img/games/dynasty-book-v2.webp', 'img/games/dynasty-disc-v2.webp', 'img/games/dynasty-back-v2.webp',
+  ...['common', 'rare', 'epic', 'legendary', 'mythic'].map(r => `img/rivals/field-${r}.svg`)
 ];
 const TIMEOUT = 2500;
 

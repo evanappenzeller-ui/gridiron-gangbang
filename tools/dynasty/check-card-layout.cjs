@@ -9,7 +9,7 @@ const root = path.resolve(__dirname, '../..');
 const shots = (process.argv.find(a => a.startsWith('--shots=')) || '').slice(8);
 if (shots) fs.mkdirSync(shots, {recursive: true});
 const mime = {'.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.png': 'image/png', '.svg': 'image/svg+xml', '.woff2': 'font/woff2'};
-const fixture = '<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="/css/tokens.css"><link rel="stylesheet" href="/css/base.css"><link rel="stylesheet" href="/css/components.css"><link rel="stylesheet" href="/css/views/dynasty.css"><link rel="stylesheet" href="/css/views/dynasty-open.css"><link rel="stylesheet" href="/css/views/dynasty-rivals.css"><style>html,body{height:auto;overflow:auto;background:#edf2f6}main{display:flex;flex-wrap:wrap;gap:24px;padding:24px}figure{flex:none}</style><main class="pk-sheet"></main>';
+const fixture = '<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="/css/tokens.css"><link rel="stylesheet" href="/css/base.css"><link rel="stylesheet" href="/css/components.css"><link rel="stylesheet" href="/css/views/dynasty.css"><link rel="stylesheet" href="/css/views/dynasty-open.css"><link rel="stylesheet" href="/css/views/dynasty-rivals.css"><link rel="stylesheet" href="/css/views/dynasty-rarity.css"><style>html,body{height:auto;overflow:auto;background:#edf2f6}main{display:flex;flex-wrap:wrap;gap:24px;padding:24px}figure{flex:none}</style><main class="pk-sheet"></main>';
 const server = http.createServer((req, res) => {
   const pathname = new URL(req.url, 'http://127.0.0.1').pathname;
   if (pathname === '/__cards') { res.writeHead(200, {'Content-Type': 'text/html'}).end(fixture); return; }
@@ -29,12 +29,12 @@ async function geometry(page, selector) {
     const q = s => card.querySelector(s), rect = el => { const r = el.getBoundingClientRect(); return {top: r.top, bottom: r.bottom, left: r.left, right: r.right}; };
     const art = q('.pk-c-art'), body = q('.pk-c-body'), image = q('.pk-c-ph'), name = q('.pk-c-name');
     const face = q('.pk-c-face');
-    return {name: card.getAttribute('aria-label'), card: rect(card), header: rect(q('.pk-c-head')), art: rect(art), identity: rect(q('.pk-c-identity')),
+    return {name: card.getAttribute('aria-label'), card: rect(card), header: rect(q('.pk-c-head')), art: rect(art), nameBox: rect(name), hpBox: rect(q('.pk-c-hp')), footer: rect(q('.pk-c-meta')),
       nameVisible: !!name && name.offsetHeight > 0, nameClipped: name.scrollHeight > name.clientHeight + 1, faceOpacity: getComputedStyle(face).opacity,
       faceClipped: face.scrollHeight > face.clientHeight + 1, imageFit: image && getComputedStyle(image).objectFit,
       artFallback: !!q('.pk-c-num'), bodyVisible: getComputedStyle(body).display !== 'none', small: card.classList.contains('sz-s'),
       rarity: q('.pk-c-rar').textContent, hasPrintedScan: !!q('.is-real'),
-      vitals: rect(q('.pk-c-vitals')), attacks: [...card.querySelectorAll('.pk-c-atk')].map(rect)};
+      vitals: rect(q('.pk-c-hp')), attacks: [...card.querySelectorAll('.pk-c-atk')].map(rect)};
   }));
 }
 function checkGeometry(rows) {
@@ -44,7 +44,8 @@ function checkGeometry(rows) {
     assert.equal(r.faceOpacity, '1', r.name + ': the frame is opaque');
     assert.equal(r.faceClipped, false, r.name + ': the content fits inside the frame');
     assert.ok(r.header.bottom <= r.art.top + 1, r.name + ': overall/header does not overlap portrait');
-    assert.ok(r.art.bottom <= r.identity.top + 1, r.name + ': player name is below the portrait');
+    assert.ok(r.nameBox.right <= r.hpBox.left + 1, r.name + ': name and health do not overlap');
+    assert.ok(r.footer.bottom <= r.card.bottom + 1, r.name + ': footer remains inside frame');
     assert.ok(r.art.bottom > r.art.top + 5, r.name + ': artwork has visible space');
     assert.equal(r.hasPrintedScan, false, r.name + ': no printed trading card inside the card frame');
     assert.equal(r.artFallback, true, r.name + ': jersey fallback survives failed portrait');
@@ -66,9 +67,9 @@ async function run(url) {
     const samples = await page.evaluate(async () => {
       const D = await import('/js/core/dynasty.js'), B = await import('/js/core/dynasty-battle.js'), {cardHTML} = await import('/js/views/dynasty.js');
       await D.load();
-      const cards = [D.CARDS.find(c => c.name === 'Tyler Warren' && c.s === 'L'), D.CARDS.find(c => c.r === 'common'),
-        D.CARDS.find(c => c.r === 'rare'), D.CARDS.find(c => B.stats(c.id).ability), D.CARDS.find(c => B.stats(c.id).ex),
-        D.CARDS.find(c => c.name === 'Joe Montana')]; // Joe Montana's scan is landscape.
+      const cards = [...D.RARITY.map(r => D.CARDS.find(c => c.r === r && c.s === 'L')),
+        D.CARDS.find(c => B.stats(c.id).ability), D.CARDS.find(c => c.name === 'Tyler Warren' && c.s === 'L'),
+        [...D.CARDS].sort((a, b) => b.name.length - a.name.length)[0], D.CARDS.find(c => c.name === 'Joe Montana')]; // Joe Montana's scan is landscape.
       if (cards.some(c => !c)) throw new Error('Missing representative card');
       document.querySelector('main').innerHTML = [280, 160, 92].map(width => cards.map(c => `<figure style="width:${width}px">${cardHTML(c, {size: width === 280 ? 'l' : 's', tag: false})}</figure>`).join('')).join('');
       return cards.map(c => c.name);
@@ -76,6 +77,34 @@ async function run(url) {
     await page.evaluate(() => document.fonts.ready);
     checkGeometry(await geometry(page, '.pk-card'));
     if (shots) await page.locator('main').screenshot({path: path.join(shots, 'tyler-warren.png')});
+    const finishes = await page.locator('figure:nth-child(-n+5) .pk-card').evaluateAll(cards => cards.map(card => ({
+      rarity: card.querySelector('.pk-c-rar').textContent,
+      scene: getComputedStyle(card).getPropertyValue('--card-scene'),
+      foil: !!card.querySelector('.pk-c-foil'),
+      motion: card.getAnimations({subtree: true}).some(a => a.playState === 'running')
+    })));
+    assert.equal(new Set(finishes.map(c => c.scene)).size, 5, 'Every rarity has its own stadium artwork');
+    for (const c of finishes) {
+      assert.equal(c.foil, c.rarity !== 'common', c.rarity + ': foil starts at Rare');
+      assert.equal(c.motion, false, c.rarity + ': reduced motion stays still');
+    }
+    await page.emulateMedia({reducedMotion: 'no-preference'});
+    await page.evaluate(async () => {
+      const {bindCardFoil} = await import('/js/views/dynasty-foil.js');
+      window.__stopFoil = bindCardFoil(document.querySelector('main'));
+    });
+    const rare = page.locator('figure:nth-child(2) .pk-card');
+    const bounds = await rare.boundingBox();
+    await page.mouse.move(bounds.x + bounds.width * .8, bounds.y + bounds.height * .25);
+    await page.waitForFunction(() => document.querySelector('figure:nth-child(2) .pk-card').classList.contains('is-foil-active'));
+    const shine = await rare.evaluate(card => ({x: parseFloat(card.style.getPropertyValue('--shine-x')), animation: getComputedStyle(card.querySelector('.pk-c-foil')).animationName}));
+    assert.ok(shine.x > 70 && shine.x < 90, 'Reflection follows pointer position');
+    assert.equal(shine.animation, 'none', 'Idle animation never competes with pointer reflection');
+    await page.emulateMedia({reducedMotion: 'reduce'});
+    await page.waitForFunction(() => !document.querySelector('.is-foil-active'));
+    await page.evaluate(() => window.__stopFoil());
+    assert.equal(await rare.evaluate(card => card.style.getPropertyValue('--shine-x')), '', 'Interaction cleanup removes reflection coordinates');
+    console.log('PASS: five rarity finishes, pointer reflection, reduced motion and cleanup');
     console.log('PASS: large and small cards — ' + samples.join(', '));
     await context.close();
 
@@ -103,7 +132,7 @@ async function run(url) {
       return sheet && !sheet.getAnimations().length && getComputedStyle(sheet).opacity === '1';
     });
     checkGeometry(await geometry(detail, '.pk-zoom .pk-card'));
-    assert.equal(await detail.locator('.pk-zoom .dy-foil, .pk-zoom .dy-glare').count(), 0, 'Card detail has no foil/glare overlay');
+    assert.ok(await detail.locator('.pk-zoom .pk-c-foil, .pk-zoom .pk-c-glint').evaluateAll(els => els.every(el => getComputedStyle(el).pointerEvents === 'none')), 'Decorative foil never blocks card interaction');
     assert.equal(await detail.locator('.pk-info .pk-atk li').count(), 2, 'Full attack rules remain available in detail');
     assert.equal(await detail.locator('.pk-signature-note').count(), 1, 'Signature energy spend is explained in detail');
     if (shots) await detail.screenshot({path: path.join(shots, 'tyler-warren-detail.png')});

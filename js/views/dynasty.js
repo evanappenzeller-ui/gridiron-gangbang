@@ -14,6 +14,7 @@ import * as SOLO from '../core/dynasty-solo.js';
 import {profileKey} from '../core/realm-active.js';
 import {packHTML, designsOf} from './dynasty-packs.js';
 import {openScene} from './dynasty-open.js';
+import {bindCardFoil} from './dynasty-foil.js';
 import {realCards, realUrl, realName} from '../core/dynasty-real.js';
 
 const esc = data.esc, nf = n => data.nf(n);
@@ -62,18 +63,21 @@ export function cardHTML(c, o = {}) {
   const photo = head ? `<img class="pk-c-ph" src="${esc(head)}" alt="" loading="lazy" decoding="async" draggable="false" onerror="this.remove()">` : '';
   const rarity = String(c.r || 'common');
   const label = `${c.name}, ${S.name}, ${rarity}, ${D.POS_NAME[c.pos] || c.pos}, overall ${c.o}, ${st.hp} HP, ${B.TYPES[st.type].name}${st.stage ? ', evolves from Basic' : ', Basic'}${st.ex ? ', worth 2 points when knocked out' : ''}${o.count > 1 ? `, ${o.count} copies` : ''}${o.ghost ? ', not in your collection' : ''}`;
-  const atk = st.attacks.map((a, n) => `<span class="pk-c-atk"><span class="pk-c-cost">${a.cost.map(pipHTML).join('')}</span><b>${esc(a.name)}</b><em>${a.dmg}${['coin', 'qb', 'vs', 'finish'].includes(a.fx) ? '+' : ''}</em></span>`).join('');
+  const atk = st.attacks.map((a, n) => `<span class="pk-c-atk"><span class="pk-c-cost">${a.cost.map(pipHTML).join('')}</span><b>${esc(a.name)}</b><em>${a.dmg}${['coin', 'qb', 'vs', 'finish'].includes(a.fx) ? '+' : ''}</em></span>`
+    + (n === 1 ? `<span class="pk-c-fx">${esc([B.fxText(a), B.signatureText({v: o.rulesVersion || B.RULES_VERSION}, n)].filter(Boolean).join(' '))}</span>` : '')).join('');
+  const ability = st.ability ? `<span class="pk-c-ab"><i>Ability</i><b>${esc(B.ABILITY[st.ability].name)}</b></span>` : '';
+  const finish = rarity !== 'common' ? '<span class="pk-c-foil" aria-hidden="true"></span><span class="pk-c-glint" aria-hidden="true"></span>' : '';
   const inner = `<span class="pk-c-face" aria-hidden="true">`
-    + `<span class="pk-c-head"><span class="pk-c-brand">RIVALS<span>${esc(S.short)}</span></span><span class="pk-c-ovr"><b>${c.o}</b><small>OVR</small></span></span>`
-    + `<span class="pk-c-art"><span class="pk-c-num">${esc(String(c.num || c.pos))}</span>${photo}<span class="pk-c-art-team">${esc(c.team)}</span></span>`
-    + `<span class="pk-c-identity"><b class="pk-c-name">${esc(c.name)}</b><span class="pk-c-strip">${esc(c.pos)} · ${esc(T.name)}</span></span>`
-    + `<span class="pk-c-vitals"><span class="pk-c-hp"><b>${st.hp}</b> HP</span><span>${typeHTML(st.type)}${esc(B.TYPES[st.type].name)}</span></span>`
-    + `<span class="pk-c-body">${atk}</span>`
-    + `<span class="pk-c-meta"><span class="pk-c-rar is-${m.kind}">${esc(rarity)}</span>${st.ex ? '<span class="pk-c-set">2 PT</span>' : st.stage ? '<span class="pk-c-set">EVOLVE</span>' : ''}`
+    + `<span class="pk-c-head"><span class="pk-c-stage">${st.stage ? 'UPGRADE' : 'BASIC'}</span><b class="pk-c-name">${esc(c.name)}</b><span class="pk-c-hp"><small>HP</small><b>${st.hp}</b>${typeHTML(st.type)}</span></span>`
+    + `<span class="pk-c-art"><span class="pk-c-scenery"></span><span class="pk-c-num">${esc(String(c.num || c.pos))}</span>${photo}<span class="pk-c-art-team">${esc(c.team)}</span></span>`
+    + `<span class="pk-c-strip">${esc(c.pos)} · ${esc(T.name)} · ${esc(S.short)}</span>`
+    + `<span class="pk-c-body${st.ability ? ' has-ability' : ''}">${ability}${atk}</span>`
+    + `<span class="pk-c-foot"><span><small>weakness</small>${st.weak ? `${typeHTML(st.weak)}<b>+${B.WEAK_BONUS}</b>` : '<b>—</b>'}</span><span><small>retreat</small>${st.retreat ? Array.from({length: st.retreat}, () => pipHTML('*')).join('') : '<b>free</b>'}</span></span>`
+    + `<span class="pk-c-meta"><span class="pk-c-rar is-${m.kind}">${esc(rarity)}</span><span class="pk-c-ovr"><b>${c.o}</b><small>OVR</small></span>${st.ex ? '<span class="pk-c-set">2 PT</span>' : ''}`
     + (o.isNew ? '<span class="pk-c-new">NEW</span>' : '')
-    + (o.count > 0 && !o.noCount ? `<span class="pk-c-cnt">${o.count}</span>` : '') + '</span></span>';
+    + (o.count > 0 && !o.noCount ? `<span class="pk-c-cnt">${o.count}</span>` : '') + `</span>${finish}</span>`;
   const cls = `pk-card pk-rivals-card t-${st.type} m-${m.kind}${m.n}${m.full ? ' is-full' : ''} r-${rarity} s-${c.s} sz-${o.size || 'm'}${st.ex ? ' is-ex' : ''}${o.ghost ? ' is-ghost' : ''}${o.cls ? ' ' + o.cls : ''}`;
-  const style = `--tp:${T.pri};--ts:${T.sec}`;
+  const style = `--tp:${T.pri};--ts:${T.sec};--type-color:${B.TYPES[st.type].color}`;
   return o.tag === false ? `<div class="${cls}" style="${style}" role="img" aria-label="${esc(label)}">${inner}</div>`
     : `<button type="button" class="${cls}" style="${style}" data-dy-card="${esc(c.id)}" aria-label="${esc(label)}">${inner}</button>`;
 }
@@ -90,15 +94,17 @@ const TRAINER_RULE = {coach: 'You may play only 1 Supporter card during your tur
 export function trainerHTML(t, o = {}) {
   if (!t) return '';
   const T = t.team ? D.teamOf(t.team) : null, m = D.markOf(t);
+  const rarity = D.RARITY.includes(t.r) ? t.r : 'common';
+  const finish = rarity !== 'common' ? '<span class="pk-c-foil" aria-hidden="true"></span><span class="pk-c-glint" aria-hidden="true"></span>' : '';
   const kind = t.kind === 'coach' ? 'Coach' : TRAINER_KIND[t.kind];
   const label = `${t.name}, ${kind} card. ${t.text}${o.count > 1 ? `, ${o.count} copies` : ''}${o.ghost ? ', not in your collection' : ''}`;
   const inner = `<span class="pk-c-face" aria-hidden="true"><span class="pk-t-head"><b>RIVALS</b><i>${kind}</i></span>`
     + `<span class="pk-t-art">${TRAINER_ART[t.kind] || ''}${T ? `<img class="pk-t-logo" src="${esc(logoUrl(t.team, 96))}" alt="" loading="lazy" decoding="async" draggable="false" onerror="this.remove()">` : ''}</span>`
     + `<b class="pk-t-name">${esc(t.name)}</b><span class="pk-t-text">${esc(t.text)}</span>`
-    + `<span class="pk-c-meta"><span class="pk-c-rar is-d">${kind}</span>`
+    + `<span class="pk-c-meta"><span class="pk-c-rar is-d">${esc(rarity)}</span><span class="pk-c-set">${kind}</span>`
     + (o.isNew ? '<span class="pk-c-new">NEW</span>' : '')
-    + (o.count > 0 && !o.noCount ? `<span class="pk-c-cnt">${o.count}</span>` : '') + '</span></span>';
-  const cls = `pk-card pk-rivals-card pk-trainer k-${t.kind} m-d${m.n} sz-${o.size || 'm'}${o.ghost ? ' is-ghost' : ''}${o.cls ? ' ' + o.cls : ''}`;
+    + (o.count > 0 && !o.noCount ? `<span class="pk-c-cnt">${o.count}</span>` : '') + `</span>${finish}</span>`;
+  const cls = `pk-card pk-rivals-card pk-trainer r-${rarity} k-${t.kind} m-d${m.n} sz-${o.size || 'm'}${o.ghost ? ' is-ghost' : ''}${o.cls ? ' ' + o.cls : ''}`;
   const style = T ? `--tp:${T.pri};--ts:${T.sec}` : '';
   return o.tag === false ? `<div class="${cls}" style="${style}" role="img" aria-label="${esc(label)}">${inner}</div>`
     : `<button type="button" class="${cls}" style="${style}" data-dy-card="${esc(t.id)}" aria-label="${esc(label)}">${inner}</button>`;
@@ -162,7 +168,9 @@ function cardSheet(st, id) {
   const body = `<div class="pk-zoom">${anyHTML(id, {size: 'l', tag: false, ghost: !n, noCount: true})}</div>`
     + `<p class="pk-own">${n ? `${n} in your collection${inDeck ? ` · ${inDeck} in your deck` : ''}` : 'Not in your collection yet'}</p>`
     + (acts.length ? `<div class="pk-acts">${acts.join('')}</div>` : '') + battleHTML(id) + (D.card(id) ? backHTML(c) + realHTML(c) : '');
-  const sh = ui.openSheet({title: 'Card details', body, cls: 'pk-sheet', detents: ['large']});
+  let stopFoil = () => {};
+  const sh = ui.openSheet({title: 'Card details', body, cls: 'pk-sheet', detents: ['large'], onClose: () => stopFoil()});
+  stopFoil = bindCardFoil(sh.body);
   sh.body.addEventListener('click', e => {
     if (e.target.closest('[data-dy-sell]')) {
       const r = D.sell(id, 1);

@@ -136,3 +136,16 @@
   .v-dynasty-battle .db-card, .v-dynasty-battle .db-slot { transition: none; }
   .v-dynasty-battle .db-slot.is-hit, .v-dynasty-battle .db-zone.is-live .db-zone-now { animation: none; }
 }
+
+/* Rarity remains visible during play without reflective overlays or moving card faces. */
+.v-dynasty-battle .db-face { --card-rim: #BCA457; border-top-color: var(--card-rim); box-shadow: inset 0 0 0 1px var(--card-rim); }
+.v-dynasty-battle .db-face.r-common { --card-rim: #BCA457; }
+.v-dynasty-battle .db-face.r-rare { --card-rim: #6A9DC6; background: #EDF4F8; }
+.v-dynasty-battle .db-face.r-epic { --card-rim: #A58BC4; background: #F2EEF8; }
+.v-dynasty-battle .db-face.r-legendary { --card-rim: #D8B259; background: #FFF6DD; box-shadow: inset 0 0 0 2px #D8B259; }
+.v-dynasty-battle .db-face.r-mythic { --card-rim: #CBA0C8; background: linear-gradient(135deg, #F4EAF6, #EEF4F7 48%, #F9EEDD); box-shadow: inset 0 0 0 2px #CBA0C8; }
+.v-dynasty-battle .db-face.r-rare .db-face-art { border-bottom: 1px solid #8EB8D3; }
+.v-dynasty-battle .db-face.r-epic .db-face-art { border-bottom: 2px solid #BBA1DA; }
+.v-dynasty-battle .db-face.r-legendary .db-face-art { border-bottom: 2px solid #E4C77D; }
+.v-dynasty-battle .db-face.r-mythic .db-face-art { border-bottom: 2px solid #E6BEDC; }
+.v-dynasty-battle .db-row.is-bench .db-face { border-left-color: var(--card-rim); }

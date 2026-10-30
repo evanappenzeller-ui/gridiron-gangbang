@@ -1,0 +1,241 @@
+/* Rivals rarity editions: the same readable card anatomy, five distinct printed finishes.
+   Decorative light is confined to the artwork and frame. The binder stays still. */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card {
+  --card-ink: #182a2c; --card-muted: #425657; --card-line: #53696160;
+  --card-paper: color-mix(in srgb, var(--type-color, var(--t2)) 29%, #fafbec);
+  --card-panel: color-mix(in srgb, var(--type-color, var(--t2)) 18%, #fffdf2);
+  --card-edge: #aab5b6; --card-inner: #f7fcf3; --card-shadow: #223a3430;
+  --card-scene: url('../../img/rivals/field-common.svg');
+  --card-foil: linear-gradient(120deg, #758992, #f7fffc 20%, #a3b2b6 38%, #e8f0e7 58%, #76868f 80%, #d9e5e2);
+  aspect-ratio: 63 / 88; border-radius: 4.8% / 3.4%; background: var(--card-edge);
+  color: var(--card-ink); box-shadow: 0 3px 8px var(--card-shadow), 0 0 0 1px #142c3420;
+  transform-style: preserve-3d; transition: transform .22s ease, box-shadow .22s ease;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card .pk-c-face {
+  isolation: isolate; inset: 0; padding: 4.6cqw 4.8cqw 3.7cqw; gap: 0; color: var(--card-ink);
+  background: repeating-linear-gradient(105deg, #fff2 0 1px, transparent 1px 5px),
+    radial-gradient(ellipse at 12% 70%, #fff7, transparent 65%), var(--card-paper);
+  box-shadow: inset 0 0 0 1.2cqw var(--card-edge), inset 0 0 0 2.2cqw #f9fffab8,
+    inset 0 0 0 2.9cqw #7f919e, inset 0 0 0 3.3cqw var(--card-inner);
+  opacity: 1; overflow: hidden;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-face::after { display: none; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-head {
+  position: relative; z-index: 4; flex: none; display: flex; align-items: center; gap: 1.5cqw;
+  min-height: 11cqw; padding: 1.8cqw .5cqw 2cqw; margin: 0; border: 0; background: none;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-stage {
+  position: absolute; top: -1.9cqw; left: -.4cqw; padding: .5cqw 1.8cqw; border-radius: 1.2cqw .4cqw;
+  font: italic 800 2.6cqw/1 var(--font-text); text-transform: uppercase; color: #37464a;
+  background: linear-gradient(#fffdf7, #e0e7e1 44%, #b7c3c6 48%, #eef4ec);
+  box-shadow: inset 0 0 0 .3cqw #fff9, 0 .25cqw .5cqw #132d3a35; white-space: nowrap;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-head .pk-c-name {
+  display: block; flex: 1; min-width: 0; color: var(--card-ink); font: 800 var(--name-size, 6.1cqw)/1.06 var(--font-text);
+  letter-spacing: -.045em; white-space: normal; overflow-wrap: normal; overflow: visible; text-overflow: clip;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-head .pk-c-hp {
+  flex: none; display: inline-flex; align-items: baseline; gap: .5cqw; margin: 0; color: var(--card-ink);
+  font: 800 7.3cqw/1 var(--font-text); letter-spacing: -.05em; white-space: nowrap;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-head .pk-c-hp small {
+  font: 700 2.8cqw/1 var(--font-text); letter-spacing: 0;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-head > .pk-e { font-size: 5.1cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-art {
+  position: relative; z-index: 1; flex: 1 1 57cqw; min-height: 35cqw; height: auto; margin: .8cqw .6cqw 0;
+  border: .45cqw solid #e5ece2; border-radius: .6cqw; overflow: hidden;
+  background: var(--card-scene) center / cover no-repeat, #193d3c;
+  box-shadow: 0 0 0 .55cqw #617674, 0 0 0 1cqw #f5f8e6, 0 1cqw 1.3cqw #132f3b50;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-scenery {
+  position: absolute; z-index: 0; inset: 0; background: var(--card-scene) center / cover no-repeat; pointer-events: none;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-ph {
+  position: absolute; z-index: 2; inset: 0; width: 100%; height: 100%; max-width: none; object-fit: contain;
+  object-position: center bottom; transform: none; filter: drop-shadow(0 .8cqw 1.2cqw #07172680); user-select: none;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-num {
+  position: absolute; z-index: 1; top: 51%; left: 0; right: 0; transform: translateY(-50%);
+  color: #f3fff3cc; font: 800 36cqw/1 var(--font-text); text-shadow: 0 1cqw 2cqw #071726a0; letter-spacing: -.06em;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-art-team {
+  z-index: 3; left: auto; right: 1.2cqw; bottom: 1.1cqw; padding: .7cqw 1.2cqw; border-radius: .5cqw;
+  font: 800 3.3cqw/1 var(--font-text); background: #0e2638d9; color: #fff; letter-spacing: .08em;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-strip {
+  position: relative; z-index: 4; flex: none; display: block; margin: 1.4cqw .6cqw 0; padding: .7cqw 1.2cqw;
+  font: 600 2.9cqw/1.15 var(--font-text); color: #3a4b4c; text-align: center; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; border-radius: .4cqw;
+  background: linear-gradient(#f7fcf2, #c4d4ce); box-shadow: inset 0 1px #fff9, 0 .3cqw .45cqw #153f3c30;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-body {
+  position: relative; z-index: 4; flex: none; min-height: 0; display: flex; flex-direction: column; justify-content: center;
+  gap: 1.15cqw; padding: 3.3cqw 1cqw 2.3cqw; margin: 0; border: 0; background: transparent; overflow: visible;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-atk {
+  display: flex; align-items: center; gap: 1.4cqw; min-height: 6.1cqw; font: 700 4.9cqw/1.15 var(--font-text); color: var(--card-ink);
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-atk > b {
+  flex: 1; min-width: 0; font: 800 4.9cqw/1.13 var(--font-text); letter-spacing: -.025em; overflow-wrap: normal;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-atk > em { flex: none; font: 800 6.7cqw/1 var(--font-text); font-style: normal; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-cost { flex: none; display: inline-flex; gap: .7cqw; width: 19cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-cost .pk-e { font-size: 4.3cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-fx { display: block; margin: 0; font: 500 3.05cqw/1.25 var(--font-text); color: var(--card-muted); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-ab { display: flex; gap: 1.5cqw; align-items: center; font: 800 4cqw/1.2 var(--font-text); color: #8b2426; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-ab i { font: italic 800 2.7cqw/1 var(--font-text); padding: .8cqw 1.5cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-foot {
+  position: relative; z-index: 4; flex: none; display: flex; align-items: center; justify-content: space-between; gap: 2cqw;
+  margin: 0 .6cqw; padding: 1.1cqw 0; min-height: 6cqw; border: 0; border-top: .35cqw solid var(--card-line);
+  background: transparent; color: var(--card-ink); font: 700 3.1cqw/1 var(--font-text);
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-foot > span { padding: .6cqw 1cqw; gap: .7cqw; border-radius: 1.5cqw; background: var(--card-panel); box-shadow: inset 0 1px #fff9; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-foot small { font: 600 2.55cqw/1 var(--font-text); margin-right: .5cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-foot .pk-e { font-size: 2.9cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-meta {
+  position: relative; z-index: 4; flex: none; display: flex; align-items: center; gap: 1.6cqw; min-height: 5cqw;
+  margin: 0; padding: 1cqw .6cqw 0; border: 0; color: var(--card-ink);
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-meta .pk-c-rar { position: static; color: var(--card-ink); font: 800 3cqw/1 var(--font-text); text-transform: uppercase; letter-spacing: .025em; -webkit-text-stroke: 0; text-shadow: none; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-meta .pk-c-set { font: 700 2.7cqw/1 var(--font-text); color: var(--card-muted); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-meta .pk-c-ovr { margin-left: auto; font: 700 3cqw/1 var(--font-text); display: inline-flex; align-items: baseline; gap: .6cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-meta .pk-c-ovr b { font: 800 3.7cqw/1 var(--font-text); letter-spacing: 0; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-meta .pk-c-ovr small { font: 700 2.7cqw/1 var(--font-text); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-meta .pk-c-cnt { margin-left: 0; font-size: 3cqw; color: #203b44; background: #f5fcf1; }
+
+/* Rare: warm gilt frame, pearl paper and a fine diagonal foil grain. */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-rare {
+  --card-edge: #b5933c; --card-inner: #fff2b7; --card-shadow: #72520c35;
+  --card-paper: color-mix(in srgb, var(--t0) 35%, #fbf2c5); --card-panel: #fff8dd;
+  --card-scene: url('../../img/rivals/field-rare.svg');
+  --card-foil: linear-gradient(118deg, #7b5720, #e1c769 12%, #fff7c7 25%, #af8032 40%, #ffeeb2 58%, #bb9135 76%, #fff9ce 92%);
+}
+/* Epic: cold platinum, violet/cyan interference foil and twilight field art. */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-epic {
+  --card-edge: #71639e; --card-inner: #e5f9ff; --card-shadow: #573c8c40;
+  --card-paper: #e1ddf1; --card-panel: #f3efff; --card-line: #74609a70;
+  --card-scene: url('../../img/rivals/field-epic.svg');
+  --card-foil: linear-gradient(118deg, #4e387f, #cceaff 14%, #a799e5 29%, #81eadb 43%, #fff0f7 58%, #7e76ca 73%, #bff4ff 88%, #65458e);
+}
+/* Legendary: engraved gold, floodlights, and an ivory panel for the rules. */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-legendary {
+  --card-edge: #805818; --card-inner: #fff3b5; --card-shadow: #85580c45; --card-line: #a67b3570;
+  --card-paper: #e3bb5a; --card-panel: #fff0c8; --card-ink: #39250d; --card-muted: #60451f;
+  --card-scene: url('../../img/rivals/field-legendary.svg');
+  --card-foil: repeating-linear-gradient(120deg, #62420b 0%, #edc555 10%, #fff0a4 16%, #be8f29 25%, #fff3ba 34%, #8b631c 44%);
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-legendary .pk-c-face {
+  background: repeating-conic-gradient(from 30deg at 75% 35%, #ffe7a133 0 6deg, transparent 6deg 13deg),
+    linear-gradient(125deg, #f3dc8a, #bc8b31 43%, #f9e7ad 72%, #d5ac51);
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-legendary .pk-c-art {
+  border-color: #fff0b1; box-shadow: 0 0 0 .6cqw #72521c, 0 0 0 1.2cqw #ffe5a0, 0 1cqw 2cqw #4d350e70;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-legendary .pk-c-body {
+  margin: 1.5cqw .3cqw .8cqw; padding: 2.2cqw 1.5cqw; border-radius: 1cqw;
+  background: #fff4d9; box-shadow: inset 0 0 0 .35cqw #aa7d34, 0 .4cqw .5cqw #8f651d30;
+}
+/* Mythic: cosmic artwork continues behind the frame; all rules sit on opaque pearl panels. */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-mythic {
+  --card-edge: #675bb0; --card-inner: #c9fff5; --card-shadow: #5442b755; --card-line: #d7d3ff80;
+  --card-paper: #252047; --card-panel: #eeeaff; --card-ink: #25213c; --card-muted: #514b6a;
+  --card-scene: url('../../img/rivals/field-mythic.svg');
+  --card-foil: linear-gradient(120deg, #73d4ff, #d99ce5 13%, #ffc0b0 26%, #ffe7a1 39%, #9af5dd 52%, #a6bdff 65%, #e0a3ef 78%, #a1f1ff 91%);
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-mythic .pk-c-face {
+  background: var(--card-scene) 50% 44% / auto 110% no-repeat, #252047;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-mythic .pk-c-head {
+  padding: 1.8cqw 1cqw 1.5cqw; margin: 0 -.8cqw; border-radius: 1.5cqw; background: #f0ecff;
+  box-shadow: inset 0 0 0 .3cqw #fff, 0 .5cqw 1cqw #08061e50;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-mythic .pk-c-art {
+  margin: 1.2cqw -.5cqw 0; border-color: #d8cfff; border-radius: 1cqw;
+  box-shadow: 0 0 0 .55cqw #9583cd, 0 0 0 1cqw #a7eeed, 0 0 4cqw #85b4ff40;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-mythic .pk-c-strip { color: #f4f1ff; background: #282442; box-shadow: inset 0 0 0 .25cqw #c1b3ff80; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-mythic .pk-c-body {
+  margin: 1.4cqw -.5cqw .8cqw; padding: 2.2cqw 2cqw; border-radius: 1.4cqw; background: #eeeaff;
+  box-shadow: inset 0 0 0 .35cqw #fff, 0 0 0 .3cqw #786da6;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-mythic .pk-c-foot { border-top: 0; margin-left: -.5cqw; margin-right: -.5cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-mythic .pk-c-meta { padding: 1cqw .5cqw .4cqw; margin: 0 -.5cqw; border-radius: .5cqw; background: #eeeaff; }
+
+/* The frame's metal is physically separate from the printed information. */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card :is(.pk-c-foil, .pk-c-glint) {
+  position: absolute; display: block; z-index: 6; inset: 0; padding: 3cqw; border-radius: inherit; pointer-events: none;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+  animation: none;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card .pk-c-foil { background: var(--card-foil); background-size: 220% 220%; background-position: var(--shine-x, 38%) var(--shine-y, 45%); opacity: .92; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card .pk-c-glint { background: radial-gradient(ellipse at var(--shine-x, 25%) var(--shine-y, 20%), #fff 0, #fff6 14%, transparent 45%); opacity: .8; mix-blend-mode: screen; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.r-common):not(.pk-trainer) .pk-c-art::after {
+  content: ''; position: absolute; display: block; z-index: 3; inset: 0; pointer-events: none;
+  background: linear-gradient(120deg, transparent 24%, #fff5 40%, #aaf3 46%, transparent 62%);
+  background-size: 250% 200%; background-position: var(--shine-x, 0%) var(--shine-y, 0%); opacity: .26; mix-blend-mode: screen;
+  animation: none;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-epic .pk-c-art::after { background-image: repeating-linear-gradient(115deg, transparent 0 12%, #c5b7ff44 16%, #b8fff444 20%, transparent 25% 42%); opacity: .32; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.r-mythic .pk-c-art::after { background-image: radial-gradient(circle at var(--shine-x, 30%) var(--shine-y, 25%), #f6edff60, transparent 30%), repeating-linear-gradient(120deg, transparent 0 18%, #b6f1ff40 22%, transparent 28% 44%); opacity: .4; }
+
+/* Small cards prioritize player identity and health. Complete moves open in the detail. */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.sz-s:not(.pk-trainer) .pk-c-body { display: none; gap: 1.6cqw; padding-top: 3cqw; padding-bottom: 2cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.sz-s:not(.pk-trainer) :is(.pk-c-fx, .pk-c-ab) { display: none; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.sz-s:not(.pk-trainer) .pk-c-head .pk-c-name { font-size: 7cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.sz-s:not(.pk-trainer) .pk-c-atk > b { font-size: 5.3cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.sz-s:not(.pk-trainer) .pk-c-strip { font-size: 3.5cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.sz-s:not(.pk-trainer) .pk-c-meta .pk-c-rar { font-size: 3.7cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-zoom > .pk-card.pk-rivals-card:not(.pk-trainer) { aspect-ratio: 63 / 88; }
+
+/* Motion belongs to a card being inspected or revealed, never to an idle collection grid. */
+@keyframes rivals-foil-drift { 0%, 100% { background-position: 15% 25%; } 50% { background-position: 85% 75%; } }
+@media (prefers-reduced-motion: no-preference) {
+  :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-zoom .pk-card.pk-rivals-card:not(.r-common) .pk-c-foil,
+  div.pk-open .dy-dc.is-top:not(.is-hid) .pk-card.pk-rivals-card:not(.r-common) .pk-c-foil { animation: rivals-foil-drift 7s ease-in-out infinite; }
+  :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-zoom .pk-card.pk-rivals-card:not(.r-common) .pk-c-art::after,
+  div.pk-open .dy-dc.is-top:not(.is-hid) .pk-card.pk-rivals-card:not(.r-common) .pk-c-art::after { animation: rivals-foil-drift 9s ease-in-out infinite; }
+  :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-zoom .pk-card.pk-rivals-card:not(.r-common):not(.sz-s):focus-visible { transform: perspective(900px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg)); }
+  :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-zoom .pk-card.pk-rivals-card:not(.r-common):not(.sz-s):focus-visible .pk-c-foil { animation: rivals-foil-drift 6s ease-in-out infinite; }
+}
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-zoom .pk-card.pk-rivals-card:not(.r-common):not(.sz-s):hover { transform: perspective(900px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg)); box-shadow: 0 7px 20px var(--card-shadow), 0 0 0 1px var(--card-edge); }
+  :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-zoom .pk-card.pk-rivals-card:not(.r-common):not(.sz-s):hover .pk-c-foil { animation: rivals-foil-drift 6s ease-in-out infinite; }
+}
+/* Active pointer input owns the highlight; idle keyframes must not overwrite its coordinates. */
+@media (prefers-reduced-motion: no-preference) {
+  :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.is-foil-active :is(.pk-c-foil, .pk-c-glint),
+  :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.is-foil-active .pk-c-art::after { animation: none !important; }
+  :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-zoom .pk-card.pk-rivals-card.is-foil-active {
+    transform: perspective(900px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card { transition: none; }
+  :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card :is(.pk-c-foil, .pk-c-glint),
+  :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card .pk-c-art::after { animation: none !important; }
+}
+
+/* Trainer cards use the same edition materials while keeping their own name/rule anatomy. */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-trainer .pk-c-face { gap: 2.4cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-trainer .pk-t-head { position: relative; z-index: 4; padding: 1cqw; border-radius: 1cqw; background: var(--card-panel); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-trainer .pk-t-head b { color: var(--card-ink); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-trainer .pk-t-art {
+  position: relative; z-index: 1; min-height: 32cqw; border: .5cqw solid var(--card-inner); border-radius: .7cqw;
+  background: var(--card-scene) center / cover no-repeat, #193d3c; color: #fff5d9;
+  box-shadow: 0 0 0 .5cqw var(--card-edge), 0 .7cqw 1cqw #20394445;
+}
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-trainer .pk-t-art svg { filter: drop-shadow(0 1cqw 1.5cqw #0c213cd9); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-trainer .pk-t-name { position: relative; z-index: 4; padding: 1.6cqw; border-radius: .7cqw; background: var(--card-panel); color: var(--card-ink); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-trainer .pk-t-text { position: relative; z-index: 4; padding: 1.6cqw; border-radius: .7cqw; background: var(--card-panel); color: var(--card-muted); }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-trainer .pk-c-meta { position: relative; z-index: 4; padding: 1.2cqw; background: var(--card-panel); border: 0; border-radius: .7cqw; }
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card.pk-trainer .pk-c-meta .pk-c-rar { color: var(--card-ink); }
+/* Grid previews never run an infinite effect, even when a pointer rests on them. */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-grid .pk-card.pk-rivals-card :is(.pk-c-foil, .pk-c-glint),
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-grid .pk-card.pk-rivals-card .pk-c-art::after { animation: none !important; }
+
+/* The pack's deal/flip shell owns movement. Card hover must not create extra finite
+   transitions that outlive a skipped reveal or fight that shell's transforms. */
+div.pk-open .pk-card.pk-rivals-card {
+  transition: none !important; transform: none !important;
+}

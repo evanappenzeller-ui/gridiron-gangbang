@@ -140,6 +140,10 @@ screen and pack-opening flow. Collectible cards use clear portraits and names; o
 Matches show readable game pieces and inline attacks. New matches explicitly use rules v3: signature attacks spend
 one matching energy and Juke reduces signature damage by 30. Preserve v1/v2 saved matches and unversioned defaults.
 Air Raid and Ground Control presets only use owned cards; no collection reset or free-card grant.
+Rarity finishes follow the owner's card references: type-tinted silver Common, gold Rare, violet/cyan Epic,
+illuminated gold Legendary, and prismatic cosmic Mythic. Keep the name/HP header and framed artwork readable.
+`dynasty-rarity.css` and `img/rivals/` own the materials; `dynasty-foil.js` adds reflections in details and reveals.
+Collection previews stay still, with reduced-motion support. Verify `check-card-layout.cjs`.
 Verify the existing Dynasty checks plus `check-rivals-rules.cjs`, `check-rivals-decks.cjs` and `check-rivals-battle.cjs`.
 
 ## Deploying

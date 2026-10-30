@@ -26,6 +26,7 @@
 // on the cards to register them into the card dex": each new card lands in its numbered slot of its series' dex (the
 // Trainer cards' their own), the count going up. ⏭ or a tap there finishes it.
 // css/views/dynasty-open.css dresses it.
+import {bindCardFoil} from './dynasty-foil.js';
 import * as ui from '../core/ui.js';
 import * as D from '../core/dynasty.js';
 import {packHTML} from './dynasty-packs.js';
@@ -161,6 +162,7 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
     + `<button type="button" class="dy-end" data-dy-end hidden aria-label="Skip">${END_ICON}</button>`
     + `<p class="sr-only" aria-live="polite" data-dy-say></p>`;
   document.body.appendChild(ov);
+  const stopFoil = bindCardFoil(ov);
   const prevFocus = document.activeElement;
   // (the app behind it is out of reach while it's open, as under a sheet: Tab stays in here)
   const behind = ['stage', 'tabbar'].map(id => document.getElementById(id)).filter(el => el && !el.inert);
@@ -726,6 +728,7 @@ export function openScene({kind, design = 0, cards, dup, cardHTML: anyHTML, onCl
   const close = () => {
     if (closed) return;
     closed = true;
+    stopFoil();
     D.markSeen([]);
     timers.forEach(clearTimeout); timers.clear();
     clearTimeout(nudgeT); clearTimeout(ffHold); clearInterval(ffI);

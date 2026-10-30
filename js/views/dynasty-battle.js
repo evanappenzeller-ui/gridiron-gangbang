@@ -9,6 +9,7 @@ import * as B from '../core/dynasty-battle.js';
 import * as MT from '../core/dynasty-match.js';
 import * as SOLO from '../core/dynasty-solo.js';
 import {anyHTML, battleHTML, pipHTML, headUrl} from './dynasty.js';
+import {bindCardFoil} from './dynasty-foil.js';
 
 const esc = data.esc, nf = n => data.nf(n);
 const ST = new WeakMap();
@@ -67,10 +68,11 @@ function evText(ev, you, opp) {
 function faceHTML(id, slot = null) {
   const c = D.card(id), t = D.trainer(id), stats = c && B.stats(id);
   const team = c && D.teamOf(c.team), type = stats && B.TYPES[stats.type];
+  const rarity = (c || t).r || 'common';
   const hp = stats ? Math.max(0, stats.hp - (slot ? slot.dmg : 0)) : 0;
   const art = c ? `<span class="db-face-art" style="--team:${team.pri}"><span class="db-face-number">${esc(c.num || c.pos)}</span>${c.head && !/^https?:/.test(c.head) ? `<img src="${esc(headUrl(c.head, 300))}" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : ''}</span>`
     : `<span class="db-face-art is-tactic">${ui.icon(t.kind === 'stadium' ? 'star' : t.kind === 'coach' ? 'football' : 'bolt', {size: 28})}</span>`;
-  return `<span class="db-face${c ? '' : ' is-tactic'}" style="--type:${type ? type.color : '#C59A48'}">${art}`
+  return `<span class="db-face r-${esc(rarity)}${c ? '' : ' is-tactic'}" style="--type:${type ? type.color : '#C59A48'}">${art}`
     + `<span class="db-face-copy"><span class="db-face-role">${c ? `${esc(c.pos)} · ${esc(team.abbr || c.team)}` : esc({coach: 'Coach', item: 'Item', stadium: 'Stadium'}[t.kind])}</span>`
     + `<b class="db-face-name">${esc(nameOf(id))}</b>`
     + (c ? `<span class="db-face-health"><b>${hp}</b><small> / ${stats.hp} HP</small></span><span class="db-face-meter"><i style="width:${Math.round(hp / stats.hp * 100)}%"></i></span>`
@@ -249,7 +251,9 @@ function send(st, m) {
 function detail(st, id, slot) {
   const st2 = B.stats(id);
   const hp = slot && st2 ? `<p class="pk-own">${Math.max(0, st2.hp - slot.dmg)} of ${st2.hp} HP left${slot.en.length ? ` · energy ${slot.en.map(pipHTML).join('')}` : ''}${slot.stun ? ' · Stunned' : ''}${slot.inj ? ' · Injured' : ''}</p>` : '';
-  ui.openSheet({title: nameOf(id), body: `<div class="pk-zoom is-s">${anyHTML(id, {size: 'm', tag: false})}</div>${hp}${battleHTML(id, st.x.G)}`, cls: 'pk-sheet', detents: ['large']});
+  let stopFoil = () => {};
+  const sh = ui.openSheet({title: nameOf(id), body: `<div class="pk-zoom is-s">${anyHTML(id, {size: 'm', tag: false, rulesVersion: st.x.G.v})}</div>${hp}${battleHTML(id, st.x.G)}`, cls: 'pk-sheet', detents: ['large'], onClose: () => stopFoil()});
+  stopFoil = bindCardFoil(sh.body);
 }
 function handTap(st, i) {
   const x = st.x, G = x.G, you = x.you, me = G.p[you], id = me.hand[i];
