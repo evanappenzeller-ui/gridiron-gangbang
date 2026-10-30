@@ -169,7 +169,8 @@ and the bottom should be a grid style of all the different tabs. Kinda like how 
 gets it. Daily Games' root (`js/views/puzzles.js`) titles itself with today's date (weekday over month and day, `fitDate`
 keeps it on one line) and ends with `appsHTML()`: every other tab as an app icon (`data-go-tab`, opened by `app.js`'s
 `slideTo`; `updateBadges` lights their dots). While it shows, `html.is-home` hides the tab bar (`css/views/puzzles.css`);
-every other screen keeps the bar. A new tab needs its entry in `APPS` and an `.hm-<tab>` colour.
+every other screen keeps the bar. The tab bar wears the same icons (index.html, `css/components.css` `.app-ic`, a house for Daily Games): a new tab needs
+its entry in `APPS`, its icon in the bar and an `.app-<tab>` colour.
 
 ## Deploying
 

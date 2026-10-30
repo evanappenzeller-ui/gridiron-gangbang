@@ -510,7 +510,8 @@ function fitDate(st) {
 
 // ============================================================================ Home screen apps
 // Every other tab as an app icon, like the apps on an iPhone's home screen (the owner's ask, Oct 30 2026: "the bottom
-// should be a grid style of all the different tabs"). A tap opens its tab as the tab bar would (app.js [data-go-tab]);
+// should be a grid style of all the different tabs"), the same icons as the tab bar's (index.html, components.css
+// .app-ic). A tap opens its tab as the tab bar would (app.js [data-go-tab]);
 // app.js updateBadges() lights the same dots on them as on the bar's tabs. On the home screen the tab bar steps aside
 // (html.is-home, puzzles.css), and comes back on every other screen to lead home.
 const APPS = [
@@ -524,7 +525,7 @@ const APPS = [
 function appsHTML() {
   return `<nav class="hm-apps" data-key="apps" aria-label="Sections">${APPS.filter(a => TABS.includes(a.tab)).map(a =>
     `<button type="button" class="hm-app" data-go-tab="${a.tab}" aria-label="${esc(a.name)}">`
-    + `<span class="hm-ic hm-${a.tab}">${ui.icon(a.icon)}<span class="hm-dot" hidden></span></span>`
+    + `<span class="hm-ic app-ic app-${a.tab}">${ui.icon(a.icon)}<span class="hm-dot" hidden></span></span>`
     + `<span class="hm-lb" aria-hidden="true">${esc(a.name)}</span></button>`).join('')}</nav>`;
 }
 /** The tab bar steps aside while the home screen shows (its apps take its place). */
