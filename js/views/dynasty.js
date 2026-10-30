@@ -19,10 +19,10 @@
 // first), tap for the next, and the lot at the end, new ones marked.
 // The cards (cardHTML) are laid out as Pokémon cards: the type's colours, a stage, the name and HP with the type's
 // symbol, the photo in its window (ESPN's headshot, else NFL.com's; a Legend his number), the position, team and OVR; a
-// Rare or better card is his real trading card (core/dynasty-real.js) the whole card, the words over it, with a foil
-// shine from Epic up (the owner, Oct 29 2026: "add a shine to the epics and above"),
+// Rare or better card shows his complete real trading card in a separate window (core/dynasty-real.js), with a foil
+// border from Epic up. Health and attacks sit on opaque panels outside the artwork,
 // any Ability, the attacks with their energy costs and damage, weakness and switch-out cost, and Pocket's rarity mark
-// (◆ to ◆◆◆◆, ★, ★★, a crown: core/dynasty.js markOf); a Rare or better card is full art. Coach, Item and Stadium cards
+// (◆ to ◆◆◆◆, ★, ★★, a crown: core/dynasty.js markOf). Coach, Item and Stadium cards
 // (trainerHTML) are Trainer cards. battleHTML: a card's battle side in words, on its close-up.
 import * as ui from '../core/ui.js';
 import * as data from '../core/data.js';
@@ -33,7 +33,7 @@ import * as MT from '../core/dynasty-match.js';
 import * as SOLO from '../core/dynasty-solo.js';
 import {profileKey} from '../core/realm-active.js';
 import {packHTML, designsOf} from './dynasty-packs.js';
-import {openScene, holo} from './dynasty-open.js';
+import {openScene} from './dynasty-open.js';
 import {realCards, realUrl, realName} from '../core/dynasty-real.js';
 
 const esc = data.esc, nf = n => data.nf(n);
@@ -88,22 +88,20 @@ export function cardHTML(c, o = {}) {
   const stage = st.stage ? `<span class="pk-c-stage is-1">STAGE 1</span>` : `<span class="pk-c-stage">BASIC</span>`;
   const evolution = st.stage ? `<span class="pk-c-evo">Evolves from ${esc(c.name)} · Basic</span>` : '';
   const rule = st.ex ? '<span class="pk-c-rule"><b>ex rule</b><span>When this player is Knocked Out, your opponent gets 2 points.</span></span>' : '';
-  const strip = `${c.pos} · ${c.s === 'X' ? `${T.name} legend` : T.name}${c.num ? ` · #${c.num}` : ''} · OVR ${c.o}${c.t ? ` · ${c.t}` : ''}`;
+  const strip = `${real ? '' : c.name + ' · '}${c.pos} · ${c.s === 'X' ? `${T.name} legend` : T.name}${c.num ? ` · #${c.num}` : ''} · OVR ${c.o}${c.t ? ` · ${c.t}` : ''}`;
   const label = `${c.name}, ${S.name} ${D.POS_NAME[c.pos] || c.pos}, ${st.hp} HP, ${B.TYPES[st.type].name} type, ${st.stage ? 'Stage 1' : 'Basic'}${st.ex ? ', ex, worth 2 points when Knocked Out' : ''}, ${m.mark}${o.count > 1 ? `, ${o.count} copies` : ''}${o.ghost ? ', not in your collection' : ''}`;
   const inner = `<span class="pk-c-face" aria-hidden="true">`
-    + `<span class="pk-c-head">${stage}<b class="pk-c-name">${esc(c.name)}${st.ex ? '<i class="pk-c-ex">ex</i>' : ''}</b><span class="pk-c-hp"><small>HP</small>${st.hp}</span>${typeHTML(st.type)}</span>${evolution}`
-    + `<span class="pk-c-art">${legend}${photo}<img class="pk-c-logo" src="${esc(logoUrl(c.team, 80))}" alt="" loading="lazy" decoding="async" draggable="false" onerror="this.remove()"></span>`
+    + `<span class="pk-c-head">${stage}${st.ex ? '<i class="pk-c-ex">ex</i>' : ''}<span class="pk-c-hp"><small>HP</small>${st.hp}</span>${typeHTML(st.type)}</span>${evolution}`
+    + `<span class="pk-c-art">${legend}${photo}</span>`
     + `<span class="pk-c-strip">${esc(strip)}</span>`
     + `<span class="pk-c-body${st.ability ? ' has-ability' : ''}">${ab}${atk}</span>`
     + `<span class="pk-c-foot"><span><small>weakness</small>${st.weak ? `${typeHTML(st.weak)}<b>+${B.WEAK_BONUS}</b>` : '<b>—</b>'}</span>`
     + `<span><small>retreat</small>${st.retreat ? Array.from({length: st.retreat}, () => pipHTML('*')).join('') : '<b>free</b>'}</span></span>${rule}`
-    + `<span class="pk-c-rar is-${m.kind}">${m.mark}</span><span class="pk-c-set">${esc(S.short)}${st.ex ? ' · ex' : ''}</span>`
-    + `</span><span class="pk-c-shine" aria-hidden="true"></span>`
+    + `<span class="pk-c-meta"><span class="pk-c-rar is-${m.kind}">${m.mark}</span><span class="pk-c-set">${esc(S.short)}${st.ex ? ' · ex' : ''}</span>`
     + (o.isNew ? '<span class="pk-c-new" aria-hidden="true">NEW</span>' : '')
-    + (o.count > 0 && !o.noCount ? `<span class="pk-c-cnt" aria-hidden="true">${o.count}</span>` : '');
+    + (o.count > 0 && !o.noCount ? `<span class="pk-c-cnt" aria-hidden="true">${o.count}</span>` : '') + '</span></span>';
   const cls = `pk-card t-${st.type} m-${m.kind}${m.n}${m.full ? ' is-full' : ''} r-${c.r} s-${c.s} sz-${o.size || 'm'}${st.ex ? ' is-ex' : ''}${o.ghost ? ' is-ghost' : ''}${o.cls ? ' ' + o.cls : ''}`;
-  const nameSize = Math.min(5.8, 87 / (c.name.length + (st.ex ? 3 : 0))).toFixed(2);
-  const style = `--tp:${T.pri};--ts:${T.sec};--name-size:${nameSize}cqw`;
+  const style = `--tp:${T.pri};--ts:${T.sec}`;
   return o.tag === false ? `<div class="${cls}" style="${style}" role="img" aria-label="${esc(label)}">${inner}</div>`
     : `<button type="button" class="${cls}" style="${style}" data-dy-card="${esc(c.id)}" aria-label="${esc(label)}">${inner}</button>`;
 }
@@ -125,9 +123,9 @@ export function trainerHTML(t, o = {}) {
     + `<b class="pk-t-name">${esc(t.name)}</b>`
     + `<span class="pk-t-art">${TRAINER_ART[t.kind] || ''}${T ? `<img class="pk-t-logo" src="${esc(logoUrl(t.team, 96))}" alt="" loading="lazy" decoding="async" draggable="false" onerror="this.remove()">` : ''}</span>`
     + `<span class="pk-t-text">${esc(t.text)}</span><span class="pk-t-rule">${TRAINER_RULE[t.kind] || ''}</span>`
-    + `<span class="pk-c-rar is-d">${m.mark}</span></span><span class="pk-c-shine" aria-hidden="true"></span>`
+    + `<span class="pk-c-meta"><span class="pk-c-rar is-d">${m.mark}</span>`
     + (o.isNew ? '<span class="pk-c-new" aria-hidden="true">NEW</span>' : '')
-    + (o.count > 0 && !o.noCount ? `<span class="pk-c-cnt" aria-hidden="true">${o.count}</span>` : '');
+    + (o.count > 0 && !o.noCount ? `<span class="pk-c-cnt" aria-hidden="true">${o.count}</span>` : '') + '</span></span>';
   const cls = `pk-card pk-trainer k-${t.kind} m-d${m.n} sz-${o.size || 'm'}${o.ghost ? ' is-ghost' : ''}${o.cls ? ' ' + o.cls : ''}`;
   const style = T ? `--tp:${T.pri};--ts:${T.sec}` : '';
   return o.tag === false ? `<div class="${cls}" style="${style}" role="img" aria-label="${esc(label)}">${inner}</div>`
@@ -191,8 +189,7 @@ function cardSheet(st, id) {
   const body = `<div class="pk-zoom">${anyHTML(id, {size: 'l', tag: false, ghost: !n, noCount: true})}</div>`
     + `<p class="pk-own">${n ? `${n} in your collection${inDeck ? ` · ${inDeck} in your deck` : ''}` : 'Not in your collection yet'}</p>`
     + (acts.length ? `<div class="pk-acts">${acts.join('')}</div>` : '') + battleHTML(id) + (D.card(id) ? backHTML(c) + realHTML(c) : '');
-  const sh = ui.openSheet({title: c.name, body, cls: 'pk-sheet', detents: ['large']});
-  holo(sh.body.querySelector('.pk-zoom > .pk-card'));
+  const sh = ui.openSheet({title: 'Card details', body, cls: 'pk-sheet', detents: ['large']});
   sh.body.addEventListener('click', e => {
     if (e.target.closest('[data-dy-sell]')) {
       const r = D.sell(id, 1);

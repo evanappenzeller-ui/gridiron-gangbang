@@ -271,7 +271,7 @@ div.pk-open ~ .confetti-canvas { z-index: 210; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-fx-glint::after { content: ""; position: absolute; inset: 0; background: #fff; clip-path: polygon(50% 0, 53.6% 46.4%, 100% 50%, 53.6% 53.6%, 50% 100%, 46.4% 53.6%, 0 50%, 46.4% 46.4%); }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-dc.is-go .pk-fx-glint { animation: pk-glint .75s ease-out calc(var(--after) + 380ms) both; }
 @keyframes pk-glint { 0% { opacity: 0; transform: scale(.15) rotate(-35deg); } 30% { opacity: 1; transform: scale(1.12) rotate(0deg); } 100% { opacity: 0; transform: scale(.55) rotate(30deg); } }
-/* a tap finishes the reveal: its own pieces at their end (the card's own foil, .pk-c-shine, drifts on) */
+/* a tap finishes the reveal: its own pieces at their end */
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-deal-c.is-skip, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-deal-c.is-skip :is(.pk-shake, .pk-flip-back, .pk-flip-front, .pk-fx-ring, .pk-fx-flash, .pk-fx-white, .pk-spk, .pk-fx-crown, .pk-fx-sweep, .pk-deal-tag, .pk-fx-glint) {
   animation-duration: 0s !important; animation-delay: 0s !important; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-deal-c.is-skip .pk-fx-rays { animation: pk-rays-in 0s both, pk-spin-fast 10s linear infinite !important; }
@@ -288,6 +288,10 @@ div.pk-open ~ .confetti-canvas { z-index: 210; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-dc.is-foil .dy-foil, :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.dy-holo.is-foil > .dy-foil { display: block; }
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .dy-glare { mix-blend-mode: overlay; opacity: var(--ta, 0);
   background: radial-gradient(circle at var(--gx, 50%) var(--gy, 50%), rgba(255,255,255,.75), rgba(255,255,255,.28) 24%, rgba(255,255,255,0) 54%); }
+/* Reveal sparkle stays on the border; the artwork and printed stats are never under a glare layer. */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) :is(.dy-foil, .dy-glare, .dy-sheen) {
+  padding: 2.2%; -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
 /* (up close: the card itself tilts, and it still scrolls the sheet up and down) */
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.dy-holo { transition: none; touch-action: pan-y; transform: perspective(900px) rotateX(calc(var(--rx, 0) * 1deg)) rotateY(calc(var(--ry, 0) * 1deg)); }
 
