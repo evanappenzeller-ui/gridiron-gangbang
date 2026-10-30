@@ -510,8 +510,9 @@ function fitDate(st) {
 
 // ============================================================================ Home screen apps
 // Every other tab as an app icon, like the apps on an iPhone's home screen (the owner's ask, Oct 30 2026: "the bottom
-// should be a grid style of all the different tabs"), the same icons as the tab bar's (index.html, components.css
-// .app-ic). A tap opens its tab as the tab bar would (app.js [data-go-tab]);
+// should be a grid style of all the different tabs"), in the tab bar's material and with its glyphs (Oct 30 2026: "Remove
+// the colors from the apps and use the navigation bar theme"). A tap opens its tab as the tab bar would (app.js
+// [data-go-tab]);
 // app.js updateBadges() lights the same dots on them as on the bar's tabs. On the home screen the tab bar steps aside
 // (html.is-home, puzzles.css), and comes back on every other screen to lead home.
 const APPS = [
@@ -525,14 +526,145 @@ const APPS = [
 function appsHTML() {
   return `<nav class="hm-apps" data-key="apps" aria-label="Sections">${APPS.filter(a => TABS.includes(a.tab)).map(a =>
     `<button type="button" class="hm-app" data-go-tab="${a.tab}" aria-label="${esc(a.name)}">`
-    + `<span class="hm-ic app-ic app-${a.tab}">${ui.icon(a.icon)}<span class="hm-dot" hidden></span></span>`
+    + `<span class="hm-ic">${ui.icon(a.icon)}<span class="hm-dot" hidden></span></span>`
     + `<span class="hm-lb" aria-hidden="true">${esc(a.name)}</span></button>`).join('')}</nav>`;
 }
 /** The tab bar steps aside while the home screen shows (its apps take its place). */
 const homeBar = on => document.documentElement.classList.toggle('is-home', !!on);
 
+// The apps and the tab bar are one thing in two shapes (the owner's ask, Oct 30 2026: "There should be a transition from
+// the grid style to the navigation bar"): leaving home, each app falls into its tab's place as its tile melts into the
+// bar's capsule, which narrows from round the grid to the bar; coming home, it all runs backwards. Stand-ins fly (a layer
+// over the screens, beside #tabbar) while the bar waits bare (html.hm-morph); then the real bar or apps take over where
+// they land. With reduced motion, or with no bar on screen to start from, the bar simply steps aside or back (the CSS).
+const MORPH_MS = 440, MORPH_EASE = 'cubic-bezier(.3,1.1,.4,1)';
+let barMorph = null;
+function endMorph() {
+  if (!barMorph) return;
+  const m = barMorph; barMorph = null;
+  clearTimeout(m.timer);
+  m.layer.remove();
+  document.documentElement.classList.remove('hm-morph');
+}
+const rectIn = (el, o) => { const r = el.getBoundingClientRect(); return {x: r.left - o.left, y: r.top - o.top, w: r.width, h: r.height}; };
+const lookOf = el => {
+  const cs = getComputedStyle(el);
+  return {backgroundColor: cs.backgroundColor, backgroundImage: cs.backgroundImage, boxShadow: cs.boxShadow,
+    borderRadius: cs.borderRadius, backdropFilter: cs.backdropFilter, webkitBackdropFilter: cs.webkitBackdropFilter};
+};
+/** The bar's look (its computed style, so every theme's), read while it is whole. */
+function barLook() {
+  const bar = document.getElementById('tabbar');
+  if (!bar || !bar.parentElement || ui.RM) return null;
+  const ind = bar.querySelector('.tab-ind.is-ready'), on = bar.querySelector('.tab[aria-current="page"]');
+  const off = bar.querySelector('.tab:not([hidden]):not([aria-current="page"])');
+  return {bar, host: bar.parentElement, look: lookOf(bar), pill: ind && {look: lookOf(ind), at: null},
+    tint: on ? getComputedStyle(on).color : '', ink: off ? getComputedStyle(off).color : ''};
+}
+/** Where everything is: each tab's icon in the bar, each app's tile, the pill. */
+function measure(P, root) {
+  const o = P.host.getBoundingClientRect();
+  P.barAt = rectIn(P.bar, o);
+  P.tabs = [...P.bar.querySelectorAll('.tab:not([hidden])')].map(b => ({tab: b.dataset.tab, at: rectIn(b.querySelector('.tab-ic'), o),
+    on: b.getAttribute('aria-current') === 'page', icon: (b.querySelector('.ic-off use')?.getAttribute('href') || '').replace('#i-', '')}));
+  P.apps = [...root.querySelectorAll('.hm-app')].map(a => ({tab: a.dataset.goTab, at: rectIn(a.querySelector('.hm-ic'), o)}))
+    .filter(a => P.tabs.some(t => t.tab === a.tab));
+  if (P.pill) P.pill.at = rectIn(P.bar.querySelector('.tab-ind'), o);
+  return P.apps.length ? P : null;
+}
+const place = (el, r) => Object.assign(el.style, {left: r.x + 'px', top: r.y + 'px', width: r.w + 'px', height: r.h + 'px'});
+/** Flies it all; out: apps → bar (leaving home for tab T), else bar → apps. done() runs once it lands. */
+function runMorph(P, out, T, done) {
+  const {tabs, apps} = P, anims = [];
+  const layer = document.createElement('div');
+  layer.className = 'hm-morph-layer';
+  layer.setAttribute('aria-hidden', 'true');
+  const opts = (delay = 0) => ({duration: MORPH_MS, delay, easing: MORPH_EASE, fill: 'both'});
+  const fade = (delay = 0) => ({duration: MORPH_MS * .6, delay, easing: 'ease-out', fill: 'both'});
+  const flip = (a, b) => (out ? [a, b] : [b, a]);
+  // The capsule: round the grid, faint, narrowing to the bar (or widening back out of it).
+  const cap = document.createElement('div');
+  Object.assign(cap.style, P.look);
+  layer.append(cap);
+  const xs = apps.map(a => a.at), x = Math.min(...xs.map(r => r.x)) - 14, y = Math.min(...xs.map(r => r.y)) - 14;
+  const grid = {left: x + 'px', top: y + 'px', width: Math.max(...xs.map(r => r.x + r.w)) + 14 - x + 'px',
+    height: Math.max(...xs.map(r => r.y + r.h)) + 14 - y + 'px', borderRadius: '26px', opacity: 0};
+  const b = P.barAt, barKf = {left: b.x + 'px', top: b.y + 'px', width: b.w + 'px', height: b.h + 'px', borderRadius: P.look.borderRadius, opacity: 1};
+  place(cap, b);
+  anims.push(cap.animate(flip(grid, barKf), opts()));
+  if (P.pill && !out) { // (leaving the bar, its pill fades with it; arriving, the bar's own fades in after)
+    const pill = document.createElement('div');
+    Object.assign(pill.style, P.pill.look);
+    place(pill, P.pill.at);
+    layer.append(pill);
+    anims.push(pill.animate([{opacity: 1}, {opacity: 0}], fade()));
+  }
+  // Each app's tile and glyph to its tab's icon; the tab being opened lights in the tint, its glyph filling in.
+  apps.forEach((a, i) => {
+    const t = tabs.find(z => z.tab === a.tab), lit = out && a.tab === T;
+    const el = document.createElement('div');
+    el.className = 'hm-ghost';
+    el.innerHTML = '<span class="hm-ic"></span>' + ui.icon(t.icon) + (lit ? ui.icon(t.icon + '-fill') : '');
+    place(el, a.at);
+    layer.append(el);
+    const dx = t.at.x + t.at.w / 2 - (a.at.x + a.at.w / 2), dy = t.at.y + t.at.h / 2 - (a.at.y + a.at.h / 2);
+    const delay = (out ? i : apps.length - 1 - i) * 16;
+    anims.push(el.animate(flip({transform: 'none', color: P.ink}, {transform: `translate(${dx}px, ${dy}px) scale(${26 / 30})`, color: lit ? P.tint : P.ink}), opts(delay)));
+    anims.push(el.firstChild.animate(flip({opacity: 1, transform: 'none'}, {opacity: 0, transform: 'scale(.8)'}), opts(delay)));
+    if (lit) {
+      const k = {duration: MORPH_MS * .35, delay: MORPH_MS * .6 + delay, easing: 'linear', fill: 'both'};
+      anims.push(el.children[1].animate([{opacity: 1}, {opacity: 0}], k), el.children[2].animate([{opacity: 0}, {opacity: 1}], k));
+    }
+  });
+  // The bar's tabs with no app (Daily Games: home itself) grow in their place (or shrink away there).
+  tabs.filter(t => !apps.some(a => a.tab === t.tab)).forEach(t => {
+    const el = document.createElement('div');
+    el.className = 'hm-ghost';
+    el.innerHTML = ui.icon(t.on && !out ? t.icon + '-fill' : t.icon, {size: 26});
+    el.style.color = t.on && !out ? P.tint : P.ink;
+    place(el, t.at);
+    layer.append(el);
+    anims.push(el.animate(flip({opacity: 0, transform: 'scale(.5)'}, {opacity: 1, transform: 'none'}), out ? fade(MORPH_MS * .35) : fade()));
+  });
+  P.host.append(layer);
+  const m = barMorph = {layer, timer: 0};
+  const land = () => { if (barMorph !== m) return; endMorph(); done(); };
+  Promise.all(anims.map(z => z.finished)).then(land, () => {});
+  m.timer = setTimeout(land, MORPH_MS + 400); // (a hidden page holds its animations: land anyway)
+}
+/** Leaving home for tab T (an app's tap): the apps fall into the bar, as the screens slide. */
+function appsToBar(st, T) {
+  const html = document.documentElement;
+  endMorph();
+  const P = html.classList.contains('is-home') ? barLook() : null;
+  if (P) html.classList.add('hm-morph');
+  homeBar(false); // (the bar at its place now, bare while the stand-ins fly)
+  if (!P) return;
+  if (!measure(P, st.el)) { html.classList.remove('hm-morph'); return; }
+  runMorph(P, true, T, () => {
+    const ind = P.bar.querySelector('.tab-ind');
+    if (ind && !ui.RM) ind.animate([{opacity: 0}, {opacity: 1}], {duration: 180, easing: 'ease-out'});
+    // The tab didn't open after all (a cover was up, a new version swapped in): home again.
+    if (HUB.get(st.ctx) === st && st.ctx.visible && st.game === null) barToApps(st);
+  });
+}
+/** Back home: the bar rises into the apps. */
+function barToApps(st) {
+  const html = document.documentElement;
+  if (html.classList.contains('is-home')) return;
+  endMorph();
+  const bar = document.getElementById('tabbar');
+  const P = bar && getComputedStyle(bar).visibility !== 'hidden' ? barLook() : null;
+  if (P) html.classList.add('hm-morph');
+  if (P && !measure(P, st.el)) { html.classList.remove('hm-morph'); homeBar(true); return; }
+  homeBar(true);
+  if (P) runMorph(P, false, null, () => {});
+}
+
 // ============================================================================ Events
 function onClick(st, e) {
+  const app = st.game === null && e.target.closest('.hm-app[data-go-tab]');
+  if (app && TABS.includes(app.dataset.goTab)) { appsToBar(st, app.dataset.goTab); return; } // (app.js opens the tab)
   const tb = e.target.closest('[data-gm-testall]');
   if (tb) { testAllTap(st, tb); return; }
   if (st.game === null && onListClick(st, e)) return;
@@ -751,7 +883,7 @@ export default {
     st.pending = false;
     patchAtmosphere(st);
     // Back on the list from a game's page: its card catches up (a game just finished turns into its scoreboard).
-    if (st.game === null) { homeBar(true); patchEyebrow(st); fitDate(st); if (st.list) st.list.refresh(true); patchPill(st, true); return; }
+    if (st.game === null) { barToApps(st); patchEyebrow(st); fitDate(st); if (st.list) st.list.refresh(true); patchPill(st, true); return; }
     if (st.game === 'puzzles' && ready()) sync(st, true);
   },
 

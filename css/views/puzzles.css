@@ -240,29 +240,62 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
   display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; padding: 4px 0;
   background: none; border: 0; color: var(--ink); cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
-/* the icon: the tab's app icon (components.css .app-ic, the tab bar's too), home-screen size */
-.hm-app .hm-ic { width: 60px; height: 60px; border-radius: 15px; }
-.hm-app .hm-ic > .ic { width: 32px; height: 32px; }
-.hm-app:active .hm-ic { transform: scale(.9); filter: brightness(.88); transition: none; }
+/* the icon: a rounded square in the tab bar's own material (its colour, rim and shadow), the tab's glyph on it in the
+   bar's ink (the owner's ask, Oct 30 2026: "Remove the colors from the apps and use the navigation bar theme") */
+.hm-ic {
+  position: relative; width: 60px; height: 60px; border-radius: 18px; display: grid; place-items: center; color: var(--ink-2);
+  background: var(--bar);
+  -webkit-backdrop-filter: var(--bar-filter);
+  backdrop-filter: var(--bar-filter);
+  box-shadow: 0 8px 22px rgba(0,0,0,.38), 0 2px 5px rgba(0,0,0,.22),
+    inset 0 0 0 1px var(--rim, rgba(255,255,255,.07)), inset 0 1px 0 var(--edge-hi, rgba(255,255,255,.08));
+  transition: transform var(--spring-snappy-dur) var(--spring-snappy), color .15s ease, opacity .15s ease;
+}
+@supports (color: color-mix(in srgb, red 50%, blue)) {
+  .hm-ic { background: color-mix(in srgb, var(--bar-solid) 94%, transparent); }
+}
+html.lite .hm-ic { background: var(--bar-solid); -webkit-backdrop-filter: none; backdrop-filter: none; }
+.hm-ic > .ic { width: 30px; height: 30px; }
+.hm-app:active .hm-ic { transform: scale(.9); color: var(--ink); transition: none; }
 .hm-app:focus-visible { outline: none; }
 .hm-app:focus-visible .hm-ic { outline: 2px solid var(--tint); outline-offset: 3px; }
 .hm-lb {
   max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font: 500 12px/15px var(--font-text); letter-spacing: .01em; text-shadow: 0 1px 3px rgba(0,0,0,.45);
+  transition: opacity .2s ease;
 }
 :root[data-light] .hm-lb { text-shadow: none; }
-/* a tab with something new (app.js updateBadges: the tab bar's dots) wears a red badge, as an app with news does */
+:root[data-light] .hm-ic { box-shadow: 0 6px 16px rgba(0,0,0,.12), 0 1px 3px rgba(0,0,0,.08), inset 0 0 0 1px var(--rim), inset 0 1px 0 var(--edge-hi); }
+:root[data-radius="sharp"] .hm-ic { border-radius: 6px; }
+:root[data-skin="prime"] .hm-ic { box-shadow: 0 10px 24px rgba(0,0,0,.46), 0 2px 6px rgba(0,0,0,.3), inset 0 0 0 1px var(--rim), inset 0 1px 0 var(--edge-hi); }
+/* a tab with something new (app.js updateBadges: the tab bar's dots) wears the bar's dot, in the theme's tint */
 .hm-dot {
-  position: absolute; top: -5px; right: -5px; width: 16px; height: 16px; border-radius: 50%;
-  background: #FF3B30; box-shadow: 0 0 0 2px var(--bg), 0 2px 4px rgba(0,0,0,.3);
+  position: absolute; top: 9px; right: 9px; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--tint);
 }
 .hm-dot[hidden] { display: none; }
-@media (hover: hover) { .hm-app:hover .hm-ic { filter: brightness(1.08); } }
+@media (hover: hover) { .hm-app:hover .hm-ic { color: var(--ink); } }
+html.rm .hm-ic { transition: none; }
+@media (prefers-reduced-motion: reduce) { .hm-ic { transition: none; } }
+/* Away from home the apps hide (they stand in for the bar): on the way back in they wait, then the bar's icons rise
+   into them (views/puzzles.js barToApps); on the way out they fall into the bar (appsToBar). */
+html:not(.is-home) .hm-app .hm-ic, html.hm-morph .hm-app .hm-ic { opacity: 0; transition: none; }
+html:not(.is-home) .hm-lb { opacity: 0; transition: none; }
 /* the tab bar steps aside on the home screen (the apps lead to every tab), sinking away and rising back */
 #tabbar { transition: opacity .22s ease, translate .3s cubic-bezier(.22,1,.36,1), visibility 0s; }
 html.is-home #tabbar { opacity: 0; translate: 0 24px; visibility: hidden; pointer-events: none; transition: opacity .16s ease, translate .2s ease, visibility 0s .2s; }
 html.rm #tabbar, html.rm.is-home #tabbar { transition: none; }
 @media (prefers-reduced-motion: reduce) { #tabbar, html.is-home #tabbar { transition: none; } }
+/* The morph between them: the bar stands still and bare while stand-ins (its capsule, each icon, the pill) fly between
+   the apps' places and its own, then it takes over where they land. */
+html.hm-morph #tabbar { transition: none !important; background: transparent !important; box-shadow: none !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; } /* (over every theme's) */
+html.hm-morph #tabbar .tab-ic, html.hm-morph #tabbar .tab-ind { visibility: hidden; }
+.hm-morph-layer { position: absolute; inset: 0; z-index: var(--z-tab); pointer-events: none; overflow: hidden; contain: strict; }
+.hm-morph-layer > * { position: absolute; margin: 0; will-change: transform, opacity; }
+.hm-ghost { display: grid; place-items: center; color: var(--ink-2); }
+.hm-ghost > .hm-ic { position: absolute; inset: 0; width: auto; height: auto; transition: none; }
+.hm-ghost > .ic { position: relative; grid-area: 1 / 1; width: 30px; height: 30px; }
+.hm-ghost > .ic + .ic { opacity: 0; }
 /* ---------------------------------------------------------------- The shelf of games (views/games.js) */
 /* A shelf of game cases swiped along (scroll snap): the one in the middle big and lit, a white ring round it; the
    others smaller, turned in toward it. Each is a black case: the Gridiron Hub band, then the game's cover. Under it,
