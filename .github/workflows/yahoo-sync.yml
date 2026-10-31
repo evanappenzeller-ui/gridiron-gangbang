@@ -3,6 +3,10 @@
 name: Yahoo sync
 
 on:
+  # A change to the sync itself runs it straight away (GitHub's schedule can start hours late).
+  push:
+    branches: [main]
+    paths: [tools/yahoo/sync.py, .github/workflows/yahoo-sync.yml]
   schedule:
     # Every hour, all week: Yahoo's projections move with injury news and lineup changes (Oct 31 2026, the owner:
     # "The predictions in the app don't match the yahoo app. Update this more often"). GitHub often starts scheduled
