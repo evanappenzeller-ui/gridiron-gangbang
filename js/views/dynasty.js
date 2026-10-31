@@ -32,7 +32,7 @@ export const headUrl = (h, w = 300) => {
   if (/^https?:\/\//.test(s)) return s;
   // (a Legend's photo, from Wikimedia Commons: core/dynasty-legends.js)
   if (s.startsWith('w:')) return legendUrl(s.slice(2));
-  // (a 90+ card's playing-days photo, from Wikimedia Commons: core/dynasty-action.js)
+  // (a Rare or better card's action photo, cut out, from Wikimedia Commons: core/dynasty-action.js)
   if (s.startsWith('a:')) return actionUrl(s.slice(2));
   if (s.startsWith('n:')) return `https://static.www.nfl.com/image/upload/f_auto,q_auto,w_${w}/league/${encodeURIComponent(s.slice(2))}`;
   return `https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/${s.replace(/[^0-9]/g, '')}.png&w=${w}&h=${Math.round(w * 436 / 600)}`;
@@ -59,9 +59,11 @@ export const pipHTML = e => `<i class="pk-e" style="--ec:${ENERGY_COLOR[e] || '#
 const typeHTML = t => pipHTML(B.TYPES[t] ? B.TYPES[t].e : '*');
 
 // ---------------------------------------------------------------------------------------------------- a card
-/** Whether a head is a photo (a Legend's, or a 90+ card's playing-days photo: a rectangle filling the window), not a
- *  cut-out headshot. */
-export const isPhoto = h => /^[wa]:/.test(String(h || ''));
+/** Whether a head is a photo (a Legend's: a rectangle filling the window), not a cut-out (a headshot, or a Rare or
+ *  better card's action photo). */
+export const isPhoto = h => /^w:/.test(String(h || ''));
+/** Whether a head is a Rare or better card's action photo (a cut-out of him in uniform). */
+export const isAction = h => /^a:/.test(String(h || ''));
 /** A player card, laid out as a Pokémon card. o: {size: 's'|'m'|'l', count (copies held), ghost (not held), isNew, tag
  *  (a button: data-dy-card), cls}. */
 export function cardHTML(c, o = {}) {
@@ -70,7 +72,7 @@ export function cardHTML(c, o = {}) {
   // Portraits give every series one clear visual language. Original printed trading cards remain in realHTML.
   // Some legacy head values are complete card scans; use a jersey number instead of framing those twice.
   const head = c.head && !/^https?:/.test(c.head) ? headUrl(c.head, o.size === 'l' ? 520 : 300) : '';
-  const photo = head ? `<img class="pk-c-ph${isPhoto(c.head) ? ' is-photo' : ''}" src="${esc(head)}" alt="" loading="lazy" decoding="async" draggable="false" onerror="this.remove()">` : '';
+  const photo = head ? `<img class="pk-c-ph${isPhoto(c.head) ? ' is-photo' : isAction(c.head) ? ' is-action' : ''}" src="${esc(head)}" alt="" loading="lazy" decoding="async" draggable="false" onerror="this.remove()">` : '';
   const rarity = String(c.r || 'common');
   const label = `${c.name}, ${S.name}, ${rarity}, ${D.POS_NAME[c.pos] || c.pos}, overall ${c.o}, ${st.hp} HP, ${B.TYPES[st.type].name}${st.stage ? ', evolves from Basic' : ', Basic'}${st.ex ? ', worth 2 points when knocked out' : ''}${o.count > 1 ? `, ${o.count} copies` : ''}${o.ghost ? ', not in your collection' : ''}`;
   const atk = st.attacks.map((a, n) => `<span class="pk-c-atk"><span class="pk-c-cost">${a.cost.map(pipHTML).join('')}</span><b>${esc(a.name)}</b><em>${a.dmg}${['coin', 'qb', 'vs', 'finish'].includes(a.fx) ? '+' : ''}</em></span>`

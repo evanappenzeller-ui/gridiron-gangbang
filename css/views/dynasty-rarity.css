@@ -272,7 +272,12 @@ div.pk-open .pk-card.pk-rivals-card {
   inset: auto auto 0 50%; width: auto; height: 97%; transform: translateX(-50%); object-position: center bottom;
   filter: drop-shadow(.35cqw 0 0 #ffffffb3) drop-shadow(-.35cqw 0 0 #ffffffb3) drop-shadow(0 1cqw 2cqw #02020de6);
 }
-/* A rectangular playing-days portrait fades into the team graphic at its edge. */
+/* A Rare or better card's action photo is cut out (its own headroom built in): he stands on the team's colours. */
+:where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-art:has([data-team-scene]) .pk-c-ph.is-action {
+  height: 100%;
+  filter: drop-shadow(.3cqw 0 0 #ffffffa6) drop-shadow(-.3cqw 0 0 #ffffffa6) drop-shadow(0 -.3cqw 0 #ffffffa6) drop-shadow(0 1cqw 2cqw #02020de6);
+}
+/* A rectangular Legend photo fades into the team graphic at its edge. */
 :where(.v-dynasty, .v-dynasty-battle, .pk-sheet, div.pk-open) .pk-card.pk-rivals-card:not(.pk-trainer) .pk-c-art:has([data-team-scene]) .pk-c-ph.is-photo {
   inset: 0; width: 76%; height: 100%; transform: none; object-position: center 35%; filter: none;
   -webkit-mask-image: linear-gradient(90deg, #000 58%, transparent);

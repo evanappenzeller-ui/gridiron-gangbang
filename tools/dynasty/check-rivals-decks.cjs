@@ -10,7 +10,7 @@ const root = path.resolve(__dirname, '../..');
   const B = await import(pathToFileURL(path.join(root, 'js/core/dynasty-battle.js')));
   const source = fs.readFileSync(path.join(root, 'js/core/dynasty.js'), 'utf8')
     .replace(/^import .*;\r?\n/gm, '').replace(/^export /gm, '');
-  const box = vm.createContext({B, REAL: {}, PHOTO: {}, ACTION: {}, CLUB: 90});
+  const box = vm.createContext({B, REAL: {}, PHOTO: {}, ACTION: {}});
   vm.runInContext(source + '\nthis.api = {setData, strategyDeck, STRATEGIES, card, fresh, get cards() { return CARDS; }};', box);
   const D = box.api;
   D.setData(JSON.parse(fs.readFileSync(path.join(root, 'data/dynasty.json'), 'utf8')));

@@ -1,20 +1,24 @@
 #!/usr/bin/env python3
-"""Playing-days photos on the 90+ cards (the owner, Oct 31 2026: "The pictures being used for the legend players are too
-formal ... for any players that are in the 90+ overall club. Find photos of them playing or some sort of playing card
-design"): a freely licensed Wikimedia Commons photo of each such player in uniform, from his playing days (a game, a Pro
-Bowl, a practice, a period trading card or team handout), on every card of his rated 90 or more, in place of the
-Legends' Wikipedia lead photos (core/dynasty-legends.js, often a suit at an awards night) and the Live headshots.
+"""Action photos on the Rare and better cards (the owner, Oct 31 2026: "Leave the headshot pictures for the common cards.
+For rare or higher, the photo should be an action photo of the player with a background color to match the team"): a
+freely licensed Wikimedia Commons photo of each player whose cards are Rare or better (a real trading card: core/
+dynasty-real.js) in uniform from his playing days (a game, a Pro Bowl, a practice, a period trading card; a college game
+where no NFL one is free), cut out so the card's team colours stand behind him. Common cards keep their headshots.
 
-  python3 tools/dynasty/action_photos.py find   # every 90+ player's candidates -> .cache/action/candidates.json and
-                                                # contact sheets (sheet-NN.jpg) to choose from by eye
-  python3 tools/dynasty/action_photos.py build  # PICK -> img/dynasty/action/<key>.jpg (600 x 450) and the ACTION table
-                                                # in js/core/dynasty-action.js (between its <action-photos> marks)
-Then bump CACHE in sw.js.
+  python3 tools/dynasty/action_photos.py find [missing]  # each Rare+ player's candidates (missing: those without a PICK)
+                                                         # -> .cache/action/candidates.json and contact sheets
+                                                         # (sheet-NN.jpg) to choose from by eye; find 2/4 ...: a quarter
+  python3 tools/dynasty/action_photos.py crops  # PICK -> the crops on contact sheets (.cache/action/crops-NN.jpg)
+  python3 tools/dynasty/action_photos.py build  # PICK -> crop round him, cut out (rembg's BiRefNet portrait model; pip
+                                                # install rembg scipy) -> img/dynasty/action/<key>.webp (600 x 660, alpha)
+                                                # and the ACTION table in js/core/dynasty-action.js (its <action-photos>)
+Then bump CACHE in sw.js. The crops and masks are kept in .cache/action, so a rebuild only cuts out what changed.
 
 Reads Commons' and Wikipedia's ordinary pages (not the API, which rate-limits shared addresses) and the thumbnails on
 upload.wikimedia.org. PICK is chosen by eye from the contact sheets: a photo is only picked when it is our player, in
-uniform (or on his period card), and he is clear in the crop; CROP sets the crop by hand where the face finder misses.
-A player without a pick keeps his portrait (a Legend's lead photo, else his number; a Live player's headshot).
+uniform (or on his period card), and he is clear in the crop; CROP sets the crop by hand where the face finder misses
+or another player stands against him. A player without a pick keeps his portrait (a Legend's lead photo, else his
+number; a Live player's headshot).
 """
 import hashlib, html, json, os, re, sys, time, urllib.error, urllib.parse, urllib.request
 
@@ -26,10 +30,12 @@ sys.dont_write_bytecode = True
 DATA = os.path.join(ROOT, 'data', 'dynasty.json')
 IMG = os.path.join(ROOT, 'img', 'dynasty', 'action')
 JS = os.path.join(ROOT, 'js', 'core', 'dynasty-action.js')
+REAL_JS = os.path.join(ROOT, 'js', 'core', 'dynasty-real.js')
 CACHE = os.path.join(ROOT, 'tools', 'dynasty', '.cache', 'action')
 UA = 'GridironRivalsActionPhotos/1.0 (https://github.com/evanappenzeller-ui/gridiron-gangbang)'
-CLUB = 90       # the 90+ club: a card rated this or more
 W, H = 600, 660  # the card's picture window (a little taller than wide)
+S = 2           # the crop is cut out at twice the window's size
+MODEL = 'birefnet-portrait'  # rembg's model for the cut-out (pip install rembg; it downloads the model once)
 SEASON = 2026   # this season (a Live player's first season: SEASON - his years in the league)
 
 # player key -> the Commons file chosen by eye (its name as the file page has it, without "File:")
@@ -175,6 +181,75 @@ PICK = {
     "0036914": "Gregory_Rousseau_(51528386792)_(cropped).jpg",  # Greg Rousseau, 2021
     "0039111": "Tuli_Tuipulotu.jpg",  # Tuli Tuipulotu, 2025
     "0039337": "Malik_Nabers_Giants_week_1_2025.jpg",  # Malik Nabers, 2025
+    # (Oct 31 2026: the Rare and better cards' players without one yet; a college game where no NFL photo was free)
+    "0038542": "2025_Commanders_at_Falcons_11.jpg",  # Bijan Robinson, 2025
+    "0036994": "Ernest_Jones_South_Carolina.jpg",  # Ernest Jones, 2019
+    "0037192": "George_Karlaftis.jpg",  # George Karlaftis, 2022
+    "0037239": "IX8A4137_(45339431234)_(cropped).jpg",  # Chris Olave, 2018
+    "0038386": "Jalen_Carter.png",  # Jalen Carter, 2023
+    "0038560": "Jordan_Battle,_2021.jpg",  # Jordan Battle, 2021
+    "0037840": "NFL_Playoff_Wildcard_Game_-_Kyren_Williams_Running_Back_Rams_(54266524948).jpg",  # Kyren Williams, 2025
+    "0039065": "SamLaPorta.jpg",  # Sam LaPorta, 2021
+    "0031492": "Jason_Myers_-_51720303739_(cropped).jpg",  # Jason Myers, 2021
+    "0033106": "Jared_Goff_&_D'Andre_Swift_Commanders_vs_Lions_SEP2022_(cropped).jpg",  # Jared Goff, 2022
+    "0033831": "Andrew_Wylie-1st_&_Goal-Chiefs_at_Buccaneers_(52402413344)_(cropped).jpg",  # Andrew Wylie, 2022
+    "0035272": "Andrew_Van_Ginkel_Dolphins-Falcons_OCT2021.png",  # Andrew Van Ginkel, 2021
+    "0036388": "Xavier_McKinney_WFT-NYG_JAN2022_(cropped).jpg",  # Xavier McKinney, 2022
+    "0036554": "Nico_Collins_2019.jpg",  # Nico Collins, 2019
+    "0036986": "Nahshon_Wright.jpg",  # Nahshon Wright, 2025
+    "0036997": "Javonte_Williams_2021_(51650645333)_(cropped).jpg",  # Javonte Williams, 2021
+    "0038038": "Kyle_Hamilton_Ravens_Training_Camp_AUG2023_(cropped).jpg",  # Kyle Hamilton, 2023
+    "0039018": "Jack_Campbell_Iowa_(cropped).jpg",  # Jack Campbell, 2022
+    "0040128": "Tyler_Warren_pro_bowl.png",  # Tyler Warren, 2026
+    "0032764": "Derrick_Henry_Titans_vs_Commanders_OCT2022.jpg",  # Derrick Henry, 2022
+    "0034158": "Brian_O'Neill_2020.png",  # Brian O'Neill, 2020
+    "0035358": "Chase_McLaughlin_(51402814375)_(cropped).jpg",  # Chase McLaughlin, 2021
+    "0036418": "ZackBaunUW2018_(cropped).jpg",  # Zack Baun, 2018
+    "0036442": "Commanders_vs._Bengals_-_54751463192.jpg",  # Joe Burrow, 2025
+    "0036912": "Devonta_Smith_2022_(cropped).jpg",  # DeVonta Smith, 2022
+    "0037240": "Jameson_Williams.png",  # Jameson Williams, 2021
+    "0038996": "2025_Commanders_at_Packers_77.jpg",  # Tucker Kraft, 2025
+    "0039852": "Jared_Verse_(cropped).jpg",  # Jared Verse, 2026
+    "0039888": "Quinyon_Mitchell_Toledo_Rockets_Football,_December_2023.jpg",  # Quinyon Mitchell, 2023
+    "0040122": "2025_Raiders_at_Commanders_106.jpg",  # Ashton Jeanty, 2025
+    "0033131": "Maliek_Collins.jpg",  # Maliek Collins, 2017
+    "0036220": "Derrick_Brown_(American_football).jpg",  # Derrick Brown, 2020
+    "0037692": "Brandon_Aubrey_10_1_2023.jpg",  # Brandon Aubrey, 2023
+    "0039838": "Calen_Bullock_pro_bowl.png",  # Calen Bullock, 2026
+    "0039860": "Kool-Aid_McKinstry_2021.jpg",  # Kool-Aid McKinstry, 2021
+    "0031364": "Jadeveon_Clowney_vs_Redskins_2018.jpg",  # Jadeveon Clowney, 2018
+    "0031898": "Alex_Singleton_1_(cropped).jpg",  # Alex Singleton, 2022
+    "0034429": "Jordan_Mailata.jpg",  # Jordan Mailata, 2020
+    "0034495": "Evan_Brown_(52379162989)_(cropped).jpg",  # Evan Brown, 2022
+    "0034668": "Aaron_Stinnie_2018_08-09.jpg",  # Aaron Stinnie, 2018
+    "0034675": "Jessie_Bates_III_(31015688557)_(cropped).jpg",  # Jessie Bates, 2018
+    "0034759": "Kolton_Miller_2025.jpg",  # Kolton Miller, 2025
+    "0034856": "Denzel_Ward_(cropped).jpg",  # Denzel Ward, 2018
+    "0035230": "Ed_Oliver_2021_(cropped).jpg",  # Ed Oliver, 2021
+    "0035261": "Tony_Pollard_(cropped).jpg",  # Tony Pollard, 2019
+    "0035687": "Bobby_Okereke_(7370935)_(cropped).jpg",  # Bobby Okereke, 2022
+    "0036971": "Trevor_Lawrence_vs_Commanders_2022_(cropped).jpg",  # Trevor Lawrence, 2022
+    "0036974": "Tyson_Campbell_(cropped).jpg",  # Tyson Campbell, 2026
+    "0037228": "Jaylen_Warren_Cropped.jpg",  # Jaylen Warren, 2024
+    "0037250": "Martin_Emerson_(52340507131)_(cropped).jpg",  # Martin Emerson, 2022
+    "0038563": "Tre_Tucker_(54841331175)_(cropped).jpg",  # Tre Tucker, 2025
+    "0039067": "Rashee_Rice_(55090108907)_(cropped).jpg",  # Rashee Rice, 2026
+    "0039491": "Jalen_Coker.jpg",  # Jalen Coker, 2026
+    "0040579": "Carson_Schwesinger_2025_Browns_Camp_(cropped).jpg",  # Carson Schwesinger, 2025
+    "0041528": "Michael_Taaffe.jpg",  # Michael Taaffe, 2024
+    "0032762": "Chris_Jones_(defensive_tackle,_born_1994).JPG",  # Chris Jones, 2017
+    "0033890": "Budda_Baker.JPG",  # Budda Baker, 2017
+    "0034768": "Chukwuma_Okorafor_(50695534763)_(cropped).jpg",  # Chukwuma Okorafor, 2020
+    "0034836": "Braden_Smith_at_Lambeau_Field.jpg",  # Braden Smith, 2024
+    "0035676": "Aj_brown_titans_vs_browns.png",  # A.J. Brown, 2020
+    "0036322": "Jefferson_2022.jpg",  # Justin Jefferson, 2022
+    "0039172": "Jake_Bates_(53752265654)_(cropped).jpg",  # Jake Bates, 2024
+    "0039918": "Commanders_vs._Bears_(54857809842).jpg",  # Caleb Williams, 2025
+    "0040663": "Harold_Fannin_Jr._2026_Cleveland_Browns_training_camp_(cropped).jpg",  # Harold Fannin Jr., 2026
+    "0034796": "Lamar_Jackson_passing_2020_(cropped).jpg",  # Lamar Jackson, 2020
+    "0039163": "CJ_Stroud_in_2026.jpg",  # C.J. Stroud, 2026
+    "0023459": "AaronRodgersSteelers_(cropped).jpg",  # Aaron Rodgers, 2025
+    "0033873": "Patrick_Mahomes_on_the_run_(51616124184).jpg",  # Patrick Mahomes, 2021
 }
 # player key -> (centre x, top, height) as fractions of the photo's width and height
 CROP = {
@@ -200,6 +275,15 @@ CROP = {
     "0035642": (0.15, 0.12, 0.55),  # Josh Hines-Allen
     "0039337": (0.45, 0.04, 0.5),  # Malik Nabers
     "0037834": (0.55, 0, 0.55),  # Brock Purdy
+    "0038542": (0.33, 0.02, 0.62),  # Bijan Robinson
+    "0037840": (0.36, 0.36, 0.4),  # Kyren Williams
+    "0033106": (0.53, 0.03, 0.62),  # Jared Goff
+    "0036442": (0.6, 0.1, 0.6),  # Joe Burrow
+    "0037228": (0.47, 0.12, 0.82),  # Jaylen Warren
+    "0039918": (0.25, 0.08, 0.92),  # Caleb Williams
+    "0039163": (0.45, 0.2, 0.55),  # C.J. Stroud
+    "0023459": (0.6, 0.03, 0.6),  # Aaron Rodgers
+    "0033873": (0.37, 0.18, 0.8),  # Patrick Mahomes
 }
 
 POS = {'QB': ['quarterback'], 'RB': ['running back'], 'WR': ['wide receiver'], 'TE': ['tight end'], 'K': ['placekicker', 'kicker'],
@@ -276,12 +360,19 @@ def years(s):
     return [int(y) for y in re.findall(r'(?<!\d)(1[89]\d\d|20[0-3]\d)(?!\d)', s or '')]
 
 
+def rare_players():
+    """The players whose cards are Rare or better: those with a real trading card (core/dynasty-real.js REAL)."""
+    src = open(REAL_JS, encoding='utf-8').read()
+    return set(re.findall(r"^\s*'([^']+)':\s*\[\[", src, re.M))
+
+
 def club():
-    """The 90+ players: [(key, name, team name, pos, college, (first season, last season))]."""
+    """The players on Rare or better cards: [(key, name, team name, pos, college, (first season, last season))]."""
     d = json.load(open(DATA, encoding='utf-8'))
+    rare = rare_players()
     best, span = {}, {}
     for c in d['cards']:
-        if c[3] >= CLUB:
+        if c[2] in rare:
             best[c[2]] = max(best.get(c[2], 0), c[3])
             if c[1] == 'X' and c[5]:
                 y = years(re.sub(r'[–-](\d\d)\b', lambda m: '–' + c[5][0][:2] + m.group(1), c[5][0]))
@@ -339,7 +430,8 @@ def file_info(name):
     m = re.search(r'datetime="(\d{4})', date)
     lic = re.search(r'class="licensetpl_short[^"]*"[^>]*>(.*?)</span>', h, re.S)
     link = re.search(r'class="licensetpl_link[^"]*"[^>]*>(.*?)</span>', h, re.S)
-    size = re.search(r'([\d,]+) × ([\d,]+) pixels', h)
+    # (the original's size, not the preview's)
+    size = re.search(r'class="fileInfo">\(([\d,]+) × ([\d,]+) pixels', h) or re.search(r'([\d,]+) × ([\d,]+) pixels', h)
     cats = re.search(r'id="mw-normal-catlinks".*?</div>', h, re.S)
     return {'file': name.replace(' ', '_'), 'year': int(m.group(1)) if m else (years(text(date)) or [None])[0],
             'author': text(row('fileinfotpl_aut'))[:120] or 'Unknown author', 'licence': text(lic.group(1)) if lic else '',
@@ -385,10 +477,15 @@ def find():
     out = []
     # (find 2/4: the second quarter of the club, so four can run at once; find <key> ...: just those players)
     part = re.fullmatch(r'(\d+)/(\d+)', sys.argv[2]) if len(sys.argv) > 2 else None
-    only = set() if part else set(sys.argv[2:])
+    only = set(sys.argv[3:] if part else sys.argv[2:])
+    if only == {'missing'}:
+        only = {k for k, *_ in players} - set(PICK)
     name_of = 'candidates-%s-%s.json' % part.groups() if part else 'candidates-some.json' if only else 'candidates.json'
     for n, (key, name, team, pos, college, span) in enumerate(players):
-        if only and key not in only or part and n % int(part.group(2)) != int(part.group(1)) - 1:
+        if only and key not in only:
+            continue
+        # (the n-th of the players asked for, so the parts share them evenly)
+        if part and sum(1 for k, *_ in players[:n] if not only or k in only) % int(part.group(2)) != int(part.group(1)) - 1:
             continue
         legend = key.startswith('x')
         h = article(name, pos, college, legend)
@@ -468,8 +565,8 @@ def sheets(out):
 
 
 def crop(src, out, hand=None):
-    """A W x H crop of the player in action (hand's, else round the largest face with his shoulders and chest below it,
-    else the photo's upper middle), saved as a JPEG."""
+    """A crop of the player in action (hand's, else round the largest face with his shoulders and chest below it, else
+    the photo's upper middle), in the window's shape at twice its size (S), saved as a PNG for the cut-out."""
     from PIL import Image, ImageOps
     img = ImageOps.exif_transpose(Image.open(src)).convert('RGB')
     iw, ih = img.size
@@ -491,29 +588,115 @@ def crop(src, out, hand=None):
             cw = iw; ch = cw * H / W
         left, top = (iw - cw) / 2, 0
     left = max(0, min(left, iw - cw)); top = max(0, min(top, ih - ch))
-    img.crop((round(left), round(top), round(left + cw), round(top + ch))).resize((W, H), Image.LANCZOS) \
-        .save(out, 'JPEG', quality=82, optimize=True, progressive=True)
+    img.crop((round(left), round(top), round(left + cw), round(top + ch))).resize((W * S, H * S), Image.LANCZOS).save(out, 'PNG')
     return bool(f)
 
 
-def build():
-    os.makedirs(IMG, exist_ok=True)
+def masks(todo):
+    """Each crop's cut-out mask (BiRefNet's portrait model through rembg, on the CPU), for [(crop PNG, mask PNG)] whose
+    mask isn't made yet. Without the memory arena, so one process can do them all."""
+    todo = [(c, m) for c, m in todo if not os.path.exists(m)]
+    if not todo:
+        return
+    import onnxruntime as ort
+    from PIL import Image
+    from rembg import new_session
+    opts = ort.SessionOptions()
+    opts.enable_cpu_mem_arena = False
+    opts.enable_mem_pattern = False
+    sess = new_session(MODEL, sess_opts=opts)
+    for n, (c, m) in enumerate(todo):
+        sess.predict(Image.open(c).convert('RGB'))[0].convert('L').save(m)
+        print(f'  cut out {n + 1}/{len(todo)}', os.path.basename(c), file=sys.stderr)
+
+
+def cutout(src, mask, out):
+    """The player cut out of his crop: the largest figure near the middle (with what's small and on him, a ball or a
+    hand), the rest made clear; trimmed to him and set in the W x H window, standing on its foot and centred (or kept
+    against the side the photo cut him at), a little headroom above unless the photo cut his head; a WebP with alpha."""
+    import numpy as np
+    from PIL import Image
+    from scipy import ndimage
+    img = Image.open(src).convert('RGB')
+    a = np.asarray(Image.open(mask).convert('L').resize(img.size, Image.LANCZOS)).astype(np.float32)
+    lab, n = ndimage.label(a > 110)
+    if n:
+        ih, iw = a.shape
+        idx = range(1, n + 1)
+        area = ndimage.sum(np.ones_like(a), lab, idx)
+        cy, cx = zip(*ndimage.center_of_mass(np.ones_like(a), lab, idx))
+        main = max(range(n), key=lambda i: area[i] * (1.15 - abs(cx[i] / iw - .5)))
+        ys, xs = np.nonzero(lab == main + 1)
+        x0, x1, y0, y1 = xs.min(), xs.max(), ys.min(), ys.max()
+        mx, my = (x1 - x0) * .12, (y1 - y0) * .12
+        keep = [i + 1 for i in range(n) if i == main or area[i] < area[main] * .08
+                and x0 - mx <= cx[i] <= x1 + mx and y0 - my <= cy[i] <= y1 + my]
+        # (the soft edge round what's kept, not the faint halo of what isn't)
+        near = ndimage.binary_dilation(np.isin(lab, keep), iterations=6)
+        a = np.where(near, a, 0)
+    rgba = np.dstack([np.asarray(img), a.clip(0, 255).astype(np.uint8)])
+    cut = Image.fromarray(rgba, 'RGBA')
+    box = cut.getchannel('A').point(lambda v: 255 if v > 24 else 0).getbbox() or (0, 0, *cut.size)
+    iw, ih = cut.size
+    edge = 3 * S
+    left, right, top = box[0] <= edge, box[2] >= iw - edge, box[1] <= edge
+    cut = cut.crop(box)
+    room = H if top else round(H * .95)
+    k = min(W / cut.width, room / cut.height)
+    cut = cut.resize((max(1, round(cut.width * k)), max(1, round(cut.height * k))), Image.LANCZOS)
+    x = 0 if left and not right else W - cut.width if right and not left else (W - cut.width) // 2
+    frame = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+    frame.alpha_composite(cut, (x, H - cut.height))
+    frame.save(out, 'WEBP', quality=84, method=6)
+
+
+def prepare():
+    """Each picked Rare+ player's photo, fetched at full size and cropped round him: (rows for ACTION, [(key, crop, mask)])."""
     players = {k: (name, span) for k, name, _, _, _, span in club()[0]}
-    rows = []
+    rows, todo = [], []
     for key, f in PICK.items():
         if key not in players:
-            print('not in the 90+ club:', key, file=sys.stderr)
-            continue
+            continue  # (his cards are Common: they keep the headshot)
         i = file_info(f.replace(' ', '_'))
         if not i or not i['licence']:
             print('no licence found:', key, f, file=sys.stderr)
             continue
-        raw = os.path.join(CACHE, 'raw-' + slug(key) + '.jpg')
-        if not fetch(thumb(i['file'], min(1280, i['w'] or 1280)), raw):
+        width = min(1600, i['w'] or 1600)
+        raw = os.path.join(CACHE, f'raw-{slug(key)}-{width}.jpg')
+        if not fetch(thumb(i['file'], width), raw):
             continue
-        crop(raw, os.path.join(IMG, slug(key) + '.jpg'), CROP.get(key))
+        # (the crop and its mask are named for what made them, so a new pick or crop makes them again)
+        tag = hashlib.sha1(json.dumps([i['file'], width, CROP.get(key), W, H, S]).encode()).hexdigest()[:10]
+        src, mask = os.path.join(CACHE, f'crop-{slug(key)}-{tag}.png'), os.path.join(CACHE, f'mask-{slug(key)}-{tag}.png')
+        if not os.path.exists(src):
+            crop(raw, src, CROP.get(key))
+        todo.append((key, src, mask))
         rows.append(f"  {json.dumps(key)}: {json.dumps([slug(key), i['file'], plain(i['author'])[:120], i['licence'], i['licenceUrl'], i['year'] or 0], ensure_ascii=False)}, // {players[key][0]}")
-    keep = {slug(k) + '.jpg' for k in PICK}
+    return rows, todo, players
+
+
+def crops():
+    """The crops on contact sheets (.cache/action/crops-NN.jpg), to check by eye before the cut-out."""
+    from PIL import Image, ImageDraw
+    _, todo, players = prepare()
+    for n in range(0, len(todo), 30):
+        sheet = Image.new('RGB', (10 * 150, 3 * 185), 'white')
+        d = ImageDraw.Draw(sheet)
+        for i, (key, src, _) in enumerate(todo[n:n + 30]):
+            x, y = i % 10 * 150, i // 10 * 185
+            sheet.paste(Image.open(src).convert('RGB').resize((140, 154)), (x, y))
+            d.text((x, y + 157), f'{key} {players[key][0]}'[:24], fill='black')
+        sheet.save(os.path.join(CACHE, f'crops-{n // 30:02d}.jpg'), quality=80)
+    print(f'{len(todo)} crops on {(len(todo) + 29) // 30} sheets', file=sys.stderr)
+
+
+def build():
+    os.makedirs(IMG, exist_ok=True)
+    rows, todo, players = prepare()
+    masks([(c, m) for _, c, m in todo])
+    for key, src, mask in todo:
+        cutout(src, mask, os.path.join(IMG, slug(key) + '.webp'))
+    keep = {slug(k) + '.webp' for k, _, _ in todo}
     for old in os.listdir(IMG):
         if old not in keep:
             os.remove(os.path.join(IMG, old))
@@ -521,7 +704,7 @@ def build():
     a, b = js.index('// <action-photos>'), js.index('// </action-photos>')
     js = js[:a] + '// <action-photos> (written by tools/dynasty/action_photos.py)\nexport const ACTION = {\n' + '\n'.join(rows) + '\n};\n' + js[b:]
     open(JS, 'w', encoding='utf-8').write(js)
-    print(f'{len(rows)} of {len(players)} players in the 90+ club have a playing-days photo', file=sys.stderr)
+    print(f'{len(rows)} of {len(players)} players on Rare or better cards have an action photo', file=sys.stderr)
 
 
 def merge():
@@ -537,4 +720,4 @@ def merge():
 
 
 if __name__ == '__main__':
-    {'find': find, 'merge': merge, 'build': build}[sys.argv[1] if len(sys.argv) > 1 else 'find']()
+    {'find': find, 'merge': merge, 'crops': crops, 'build': build}[sys.argv[1] if len(sys.argv) > 1 else 'find']()
