@@ -10,7 +10,7 @@ otherwise the top-centre of the photo.
 TITLE names the article where the plain name is ambiguous; FILE puts a chosen Commons file in place of the article's lead
 photo; SKIP leaves a Legend without one (his card keeps his number).
 """
-import html, json, os, re, ssl, sys, time, unicodedata, urllib.error, urllib.parse, urllib.request
+import hashlib, html, json, os, re, ssl, sys, time, unicodedata, urllib.error, urllib.parse, urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DATA = os.path.join(ROOT, 'data', 'dynasty.json')
@@ -33,46 +33,50 @@ FILE = {}
 SKIP = set()
 
 
-def get(params):
+CACHE = None  # (main sets it: the API's answers are kept there, so a rerun after a rate limit picks up where it stopped)
+
+
+def open_url(url):
+    """The bytes at url, waiting out Wikimedia's rate limit (429: its Retry-After, else a growing pause)."""
     ctx = ssl.create_default_context(cafile=os.environ.get('SSL_CERT_FILE')) if os.environ.get('SSL_CERT_FILE') else None
-    url = API + '?' + urllib.parse.urlencode({'format': 'json', 'formatversion': '2', **params})
-    for wait in (10, 30, 60, 120, 0):
+    for n in range(12):
         try:
             with urllib.request.urlopen(urllib.request.Request(url, headers={'User-Agent': UA}), context=ctx, timeout=60) as r:
-                return json.load(r)
+                return r.read()
         except urllib.error.HTTPError as e:
-            if e.code != 429 or not wait:
+            if e.code != 429 or n == 11:
                 raise
-            time.sleep(wait)
+            time.sleep(max(int(e.headers.get('Retry-After') or 0), 5 * (n + 1)) + 2)
+
+
+def get(params):
+    url = API + '?' + urllib.parse.urlencode({'format': 'json', 'formatversion': '2', **params})
+    keep = os.path.join(CACHE, 'api-' + hashlib.sha1(url.encode()).hexdigest()[:16] + '.json') if CACHE else ''
+    if keep and os.path.exists(keep):
+        return json.load(open(keep, encoding='utf-8'))
+    d = json.loads(open_url(url))
+    if keep:
+        json.dump(d, open(keep, 'w', encoding='utf-8'))
+    time.sleep(1)
+    return d
 
 
 def fetch(urls, path):
     """Downloads the first of urls that answers (a thumbnail, then the same on upload.wikimedia.org, then the original)."""
     if os.path.exists(path):
         return
-    ctx = ssl.create_default_context(cafile=os.environ.get('SSL_CERT_FILE')) if os.environ.get('SSL_CERT_FILE') else None
-    data, err = None, None
+    err = None
     for url in dict.fromkeys(u for u in urls if u):
-        for wait in (10, 30, 60, 120, 0):
-            try:
-                with urllib.request.urlopen(urllib.request.Request(url, headers={'User-Agent': UA}), context=ctx, timeout=60) as r:
-                    data = r.read()
-                break
-            except urllib.error.HTTPError as e:
-                err = e
-                if e.code != 429 or not wait:
-                    break
-                time.sleep(wait)
-            except urllib.error.URLError as e:
-                err = e
-                break
-        if data:
-            break
-    if not data:
-        raise err
-    with open(path, 'wb') as f:
-        f.write(data)
-    time.sleep(.5)
+        try:
+            data = open_url(url)
+        except (urllib.error.HTTPError, urllib.error.URLError) as e:
+            err = e
+            continue
+        with open(path, 'wb') as f:
+            f.write(data)
+        time.sleep(1)
+        return
+    raise err
 
 
 def plain(s):
@@ -127,6 +131,8 @@ def crop(src, out):
 
 def main():
     cache = sys.argv[sys.argv.index('--cache') + 1] if '--cache' in sys.argv else os.path.join(ROOT, 'tools', 'dynasty', '.cache', 'legends')
+    global CACHE
+    CACHE = cache
     os.makedirs(cache, exist_ok=True); os.makedirs(IMG, exist_ok=True)
     players = json.load(open(DATA, encoding='utf-8'))['players']
     legends = [(k, v[0]) for k, v in players.items() if k.startswith('x') and v[0] not in SKIP]
@@ -146,7 +152,6 @@ def main():
             p = pages.get(tt, {})
             if p.get('pageimage') and 'disambiguation' not in p.get('pageprops', {}):
                 lead[t] = p['pageimage']
-        time.sleep(1)
     files = {}
     for key, name in legends:
         f = FILE.get(name) or lead.get(want[name])
@@ -167,7 +172,6 @@ def main():
             thumb = ii.get('thumburl') or ''
             info[n] = {'urls': [thumb, re.sub(r'^https://[^/]+/', 'https://upload.wikimedia.org/', thumb) if thumb else '', ii.get('url')], 'url': thumb or ii.get('url'), 'artist': plain(m.get('Artist', {}).get('value')) or 'Unknown author',
                        'lic': plain(m.get('LicenseShortName', {}).get('value')) or 'See file page', 'licUrl': m.get('LicenseUrl', {}).get('value', '')}
-        time.sleep(1)
     rows, found = [], 0
     for key, name in legends:
         f = files.get(key)
