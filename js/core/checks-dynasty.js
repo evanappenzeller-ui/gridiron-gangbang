@@ -296,8 +296,9 @@ export async function dynastyChecks(check) {
       detail: `${urls.length} pictures for ${keys.length} players on ${cards.length} cards, ${commons.length} Common; Josh Allen’s ${allen.map(R.realName).join(', ')}; missing ${urls.filter((u, i) => !got[i]).join(', ') || 'none'}`};
   });
   check('Gridiron Rivals: the Legends’ photos (the owner, Oct 31 2026: "Import into game for me to see"): a Legend with a freely licensed Wikimedia photo shows it as his card’s portrait, filling the window; his card up close credits its author, licence and Commons page; a Legend without one keeps his number; every photo loads', async () => {
-    const [V, L, data] = await Promise.all([import('../views/dynasty.js'), import('./dynasty-legends.js'), import('./data.js')]);
-    const keys = Object.keys(L.PHOTO), legends = D.CARDS.filter(c => c.s === 'X');
+    const [V, L, data, A] = await Promise.all([import('../views/dynasty.js'), import('./dynasty-legends.js'), import('./data.js'), import('./dynasty-action.js')]);
+    // (a Legend with a playing-days photo wears that instead: the next check's)
+    const keys = Object.keys(L.PHOTO), legends = D.CARDS.filter(c => c.s === 'X' && !A.ACTION[c.p]);
     const known = keys.length >= 100 && keys.every(p => D.DATA.players[p] && p.startsWith('x') && L.PHOTO[p].length === 5 && L.PHOTO[p][1] && L.PHOTO[p][2] && L.PHOTO[p][3]);
     const shows = legends.every(c => {
       const el = document.createElement('div'); el.innerHTML = V.cardHTML(c);
@@ -313,5 +314,23 @@ export async function dynastyChecks(check) {
     const got = await Promise.all(urls.map(u => fetch(u, {method: 'HEAD', cache: 'no-store'}).then(r => r.ok).catch(() => false)));
     return {pass: known && shows && cut && got.every(Boolean),
       detail: `${keys.length} of ${legends.length} Legends with a photo; without: ${legends.filter(c => !L.PHOTO[c.p]).map(c => c.name).join(', ') || 'none'}; missing ${urls.filter((u, i) => !got[i]).join(', ') || 'none'}`};
+  });
+  check('Gridiron Rivals: playing-days photos on the 90+ cards (the owner, Oct 31 2026: "for any players that are in the 90+ overall club. Find photos of them playing or some sort of playing card design"): every card of a player with one, rated 90 or more, wears it, filling the window, credited up close (author, licence, Commons page); his cards under 90 keep their portrait; every photo loads', async () => {
+    const [V, A, L, data] = await Promise.all([import('../views/dynasty.js'), import('./dynasty-action.js'), import('./dynasty-legends.js'), import('./data.js')]);
+    const keys = Object.keys(A.ACTION);
+    const known = keys.length >= 50 && keys.every(p => D.DATA.players[p] && A.ACTION[p].length === 6 && A.ACTION[p][1] && A.ACTION[p][2] && A.ACTION[p][3]
+      && D.CARDS.some(c => c.p === p && c.o >= A.CLUB));
+    const club = D.CARDS.filter(c => A.ACTION[c.p] && c.o >= A.CLUB), under = D.CARDS.filter(c => A.ACTION[c.p] && c.o < A.CLUB);
+    const shows = club.length > 0 && club.every(c => {
+      const el = document.createElement('div'); el.innerHTML = V.cardHTML(c);
+      const img = el.querySelector('.pk-c-ph'), cr = V.creditHTML(c), r = A.actionCredit(c.p);
+      return c.head === 'a:' + c.p && img?.classList.contains('is-photo') && img.getAttribute('src') === A.actionUrl(c.p)
+        && cr.includes(data.esc(r.page)) && cr.includes(data.esc(r.author)) && cr.includes(data.esc(r.licence));
+    });
+    const kept = under.every(c => c.head !== 'a:' + c.p && c.head === (D.DATA.players[c.p][4] || (L.PHOTO[c.p] ? 'w:' + c.p : '')));
+    const urls = keys.map(A.actionUrl);
+    const got = await Promise.all(urls.map(u => fetch(u, {method: 'HEAD', cache: 'no-store'}).then(r => r.ok).catch(() => false)));
+    return {pass: known && shows && kept && got.every(Boolean),
+      detail: `${keys.length} players on ${club.length} cards (${club.filter(c => c.s === 'X').length} Legends); ${under.length} of their cards under ${A.CLUB} keep their portrait; missing ${urls.filter((u, i) => !got[i]).join(', ') || 'none'}`};
   });
 }

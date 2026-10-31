@@ -32,6 +32,7 @@ import * as B from './dynasty-battle.js';
 import {dynastyOpen, dynastyKey, packsUnlimited} from './features.js';
 import {REAL} from './dynasty-real.js';
 import {PHOTO} from './dynasty-legends.js';
+import {ACTION, CLUB} from './dynasty-action.js';
 
 export const FIELD = 'dy1';
 export const VERSION = 1;
@@ -91,7 +92,7 @@ export function setData(d) {
   CARDS = (d.cards || []).map(c => {
     const pl = d.players[c[2]] || ['?', '', 'QB', 0, '', 0, '', 0];
     const card = {id: c[0], s: c[1], p: c[2], o: c[3], a: c[4] || [], ln: c[5] || [], t: c[6] || '', tm: c[7] || pl[1], w: c[8] || 0,
-      name: pl[0], team: c[7] || pl[1], pos: pl[2], num: pl[3], head: pl[4] || (PHOTO[c[2]] ? 'w:' + c[2] : ''), exp: pl[5], college: pl[6], draft: pl[7], real: null};
+      name: pl[0], team: c[7] || pl[1], pos: pl[2], num: pl[3], head: (c[3] >= CLUB && ACTION[c[2]] ? 'a:' + c[2] : '') || pl[4] || (PHOTO[c[2]] ? 'w:' + c[2] : ''), exp: pl[5], college: pl[6], draft: pl[7], real: null};
     BY_ID.set(card.id, card);
     return card;
   });
