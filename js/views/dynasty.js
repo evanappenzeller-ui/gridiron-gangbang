@@ -15,6 +15,7 @@ import {profileKey} from '../core/realm-active.js';
 import {packHTML, designsOf} from './dynasty-packs.js';
 import {openScene} from './dynasty-open.js';
 import {bindCardFoil} from './dynasty-foil.js';
+import {teamSceneStyle, teamSceneHTML} from './dynasty-team-scenes.js';
 import {realCards, realUrl, realName} from '../core/dynasty-real.js';
 import {legendUrl, legendCredit} from '../core/dynasty-legends.js';
 
@@ -74,7 +75,7 @@ export function cardHTML(c, o = {}) {
   const finish = rarity !== 'common' ? '<span class="pk-c-foil" aria-hidden="true"></span><span class="pk-c-glint" aria-hidden="true"></span>' : '';
   const inner = `<span class="pk-c-face" aria-hidden="true">`
     + `<span class="pk-c-head"><span class="pk-c-stage">${st.stage ? 'UPGRADE' : 'BASIC'}</span><b class="pk-c-name">${esc(c.name)}</b><span class="pk-c-hp"><small>HP</small><b>${st.hp}</b>${typeHTML(st.type)}</span></span>`
-    + `<span class="pk-c-art"><span class="pk-c-scenery"></span><span class="pk-c-num">${esc(String(c.num || c.pos))}</span>${photo}<span class="pk-c-art-team">${esc(c.team)}</span></span>`
+    + `<span class="pk-c-art">${teamSceneHTML(c.team)}<span class="pk-c-num">${esc(String(c.num || c.pos))}</span>${photo}<span class="pk-c-art-team">${esc(c.team)}</span></span>`
     + `<span class="pk-c-strip">${esc(c.pos)} · ${esc(T.name)} · ${esc(S.short)}</span>`
     + `<span class="pk-c-body${st.ability ? ' has-ability' : ''}">${ability}${atk}</span>`
     + `<span class="pk-c-foot"><span><small>weakness</small>${st.weak ? `${typeHTML(st.weak)}<b>+${B.WEAK_BONUS}</b>` : '<b>—</b>'}</span><span><small>retreat</small>${st.retreat ? Array.from({length: st.retreat}, () => pipHTML('*')).join('') : '<b>free</b>'}</span></span>`
@@ -82,7 +83,7 @@ export function cardHTML(c, o = {}) {
     + (o.isNew ? '<span class="pk-c-new">NEW</span>' : '')
     + (o.count > 0 && !o.noCount ? `<span class="pk-c-cnt">${o.count}</span>` : '') + `</span>${finish}</span>`;
   const cls = `pk-card pk-rivals-card t-${st.type} m-${m.kind}${m.n}${m.full ? ' is-full' : ''} r-${rarity} s-${c.s} sz-${o.size || 'm'}${st.ex ? ' is-ex' : ''}${o.ghost ? ' is-ghost' : ''}${o.cls ? ' ' + o.cls : ''}`;
-  const style = `--tp:${T.pri};--ts:${T.sec};--type-color:${B.TYPES[st.type].color}`;
+  const style = `--tp:${T.pri};--ts:${T.sec};--type-color:${B.TYPES[st.type].color}${teamSceneStyle(c.team)}`;
   return o.tag === false ? `<div class="${cls}" style="${style}" role="img" aria-label="${esc(label)}">${inner}</div>`
     : `<button type="button" class="${cls}" style="${style}" data-dy-card="${esc(c.id)}" aria-label="${esc(label)}">${inner}</button>`;
 }
@@ -104,13 +105,13 @@ export function trainerHTML(t, o = {}) {
   const kind = t.kind === 'coach' ? 'Coach' : TRAINER_KIND[t.kind];
   const label = `${t.name}, ${kind} card. ${t.text}${o.count > 1 ? `, ${o.count} copies` : ''}${o.ghost ? ', not in your collection' : ''}`;
   const inner = `<span class="pk-c-face" aria-hidden="true"><span class="pk-t-head"><b>RIVALS</b><i>${kind}</i></span>`
-    + `<span class="pk-t-art">${TRAINER_ART[t.kind] || ''}${T ? `<img class="pk-t-logo" src="${esc(logoUrl(t.team, 96))}" alt="" loading="lazy" decoding="async" draggable="false" onerror="this.remove()">` : ''}</span>`
+    + `<span class="pk-t-art">${T ? teamSceneHTML(t.team) : ''}${TRAINER_ART[t.kind] || ''}${T ? `<img class="pk-t-logo" src="${esc(logoUrl(t.team, 96))}" alt="" loading="lazy" decoding="async" draggable="false" onerror="this.remove()">` : ''}</span>`
     + `<b class="pk-t-name">${esc(t.name)}</b><span class="pk-t-text">${esc(t.text)}</span>`
     + `<span class="pk-c-meta"><span class="pk-c-rar is-d">${esc(rarity)}</span><span class="pk-c-set">${kind}</span>`
     + (o.isNew ? '<span class="pk-c-new">NEW</span>' : '')
     + (o.count > 0 && !o.noCount ? `<span class="pk-c-cnt">${o.count}</span>` : '') + `</span>${finish}</span>`;
   const cls = `pk-card pk-rivals-card pk-trainer r-${rarity} k-${t.kind} m-d${m.n} sz-${o.size || 'm'}${o.ghost ? ' is-ghost' : ''}${o.cls ? ' ' + o.cls : ''}`;
-  const style = T ? `--tp:${T.pri};--ts:${T.sec}` : '';
+  const style = T ? `--tp:${T.pri};--ts:${T.sec}${teamSceneStyle(t.team)}` : '';
   return o.tag === false ? `<div class="${cls}" style="${style}" role="img" aria-label="${esc(label)}">${inner}</div>`
     : `<button type="button" class="${cls}" style="${style}" data-dy-card="${esc(t.id)}" aria-label="${esc(label)}">${inner}</button>`;
 }
@@ -861,7 +862,7 @@ function menuSheet(st) {
   ];
   const body = `<ul class="pk-list pk-menu">${items.map(x => `<li><button type="button" class="pk-menu-b${x.cls ? ' ' + x.cls : ''}" data-dy-m="${x.id}"><i class="pk-menu-i">${ui.icon(x.ic, {size: 20})}</i>`
     + `<span class="pk-row-t"><b>${esc(x.label)}</b><small>${esc(x.sub)}</small></span>${ui.icon('chevron-right', {size: 16})}</button></li>`).join('')}</ul>`
-    + `<p class="pk-note pk-menu-foot">Gridiron Rivals · Ver. ${APP_VER}.${D.VERSION} · Support ID ${supportId()}</p>`;
+    + `<p class="pk-note pk-menu-foot">Gridiron Rivals · Ver. ${APP_VER}.${D.VERSION} · Support ID ${supportId()}<br><a href="${new URL('../../img/rivals/teams-v1/credits.html', import.meta.url).href}" target="_blank" rel="noopener">Artwork credits</a></p>`;
   const sh = ui.openSheet({title: 'Menu', body, cls: 'pk-sheet', detents: ['fit']});
   sh.body.addEventListener('click', e => {
     const b = e.target.closest('[data-dy-m]');

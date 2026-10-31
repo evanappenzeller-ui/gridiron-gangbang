@@ -28,9 +28,12 @@ async function geometry(page, selector) {
   return page.locator(selector).evaluateAll(cards => cards.map(card => {
     const q = s => card.querySelector(s), rect = el => { const r = el.getBoundingClientRect(); return {top: r.top, bottom: r.bottom, left: r.left, right: r.right}; };
     const art = q('.pk-c-art'), body = q('.pk-c-body'), image = q('.pk-c-ph'), name = q('.pk-c-name');
-    const face = q('.pk-c-face');
+    const face = q('.pk-c-face'), nameStyle = getComputedStyle(name);
+    // Font ink can exceed a tight line box (Segoe UI does by 2px at 280px). Visible overflow is not clipping.
+    const nameRange = document.createRange(); nameRange.selectNodeContents(name);
     return {name: card.getAttribute('aria-label'), card: rect(card), header: rect(q('.pk-c-head')), art: rect(art), nameBox: rect(name), hpBox: rect(q('.pk-c-hp')), footer: rect(q('.pk-c-meta')),
-      nameVisible: !!name && name.offsetHeight > 0, nameClipped: name.scrollHeight > name.clientHeight + 1, faceOpacity: getComputedStyle(face).opacity,
+      nameVisible: !!name && name.offsetHeight > 0, nameClipped: nameStyle.overflowY !== 'visible' && name.scrollHeight > name.clientHeight + 1,
+      nameInk: rect(nameRange), faceOpacity: getComputedStyle(face).opacity,
       faceClipped: face.scrollHeight > face.clientHeight + 1, imageFit: image && getComputedStyle(image).objectFit, isPhoto: !!image && image.classList.contains('is-photo'),
       artFallback: !!q('.pk-c-num'), bodyVisible: getComputedStyle(body).display !== 'none', small: card.classList.contains('sz-s'),
       rarity: q('.pk-c-rar').textContent, hasPrintedScan: !!q('.is-real'),
@@ -41,6 +44,7 @@ function checkGeometry(rows) {
   for (const r of rows) {
     assert.equal(r.nameVisible, true, r.name + ': visible player name independent of image');
     assert.equal(r.nameClipped, false, r.name + ': player name is not clipped');
+    assert.ok(r.nameInk.top >= r.header.top - 1 && r.nameInk.bottom <= r.header.bottom + 1, r.name + ': rendered name stays within its header');
     assert.equal(r.faceOpacity, '1', r.name + ': the frame is opaque');
     assert.equal(r.faceClipped, false, r.name + ': the content fits inside the frame');
     assert.ok(r.header.bottom <= r.art.top + 1, r.name + ': overall/header does not overlap portrait');
@@ -70,7 +74,8 @@ async function run(url) {
       await D.load();
       const cards = [...D.RARITY.map(r => D.CARDS.find(c => c.r === r && c.s === 'L')),
         D.CARDS.find(c => B.stats(c.id).ability), D.CARDS.find(c => c.name === 'Tyler Warren' && c.s === 'L'),
-        [...D.CARDS].sort((a, b) => b.name.length - a.name.length)[0], D.CARDS.find(c => c.name === 'Joe Montana')]; // Joe Montana's scan is landscape.
+        [...D.CARDS].sort((a, b) => b.name.length - a.name.length)[0], D.CARDS.find(c => c.name === 'Joe Montana'),
+        D.CARDS.find(c => c.name === 'Jerry Rice'), D.card('P0033886')];
       if (cards.some(c => !c)) throw new Error('Missing representative card');
       document.querySelector('main').innerHTML = [280, 160, 92].map(width => cards.map(c => `<figure style="width:${width}px">${cardHTML(c, {size: width === 280 ? 'l' : 's', tag: false})}</figure>`).join('')).join('');
       return cards.map(c => c.name);
@@ -84,7 +89,7 @@ async function run(url) {
       foil: !!card.querySelector('.pk-c-foil'),
       motion: card.getAnimations({subtree: true}).some(a => a.playState === 'running')
     })));
-    assert.equal(new Set(finishes.map(c => c.scene)).size, 5, 'Every rarity has its own stadium artwork');
+    assert.equal(new Set(finishes.map(c => c.scene)).size, 5, 'Every rarity keeps its own fallback scenery');
     for (const c of finishes) {
       assert.equal(c.foil, c.rarity !== 'common', c.rarity + ': foil starts at Rare');
       assert.equal(c.motion, false, c.rarity + ': reduced motion stays still');
@@ -110,7 +115,7 @@ async function run(url) {
     await context.close();
 
     const mobile = await browser.newContext({viewport: {width: 390, height: 844}, deviceScaleFactor: 2, serviceWorkers: 'block', reducedMotion: 'reduce'});
-    await mobile.route('https://**/*', route => route.abort());
+    await mobile.route('https://**/*', route => process.env.CARD_LIVE_PORTRAITS === '1' && new URL(route.request().url()).hostname === 'a.espncdn.com' ? route.continue() : route.abort());
     await mobile.addInitScript(() => { localStorage.setItem('gg-me', 'evan'); localStorage.setItem('gg-welcome', '1'); localStorage.setItem('gg-release-3.0:evan', '1'); });
     const detail = await mobile.newPage();
     await detail.goto(url + '/#/puzzles');
@@ -121,7 +126,8 @@ async function run(url) {
     await detail.locator('.pk-start').click({position: {x: 195, y: 640}});
     await detail.waitForFunction(() => !document.querySelector('.pk-start'));
     const id = await detail.evaluate(async () => {
-      const D = await import('/js/core/dynasty.js'), c = D.CARDS.find(c => c.name === 'Tyler Warren' && c.s === 'L');
+      const D = await import('/js/core/dynasty.js'), c = D.card('P0033886');
+      if (!c || c.name !== 'T.J. Watt' || c.team !== 'PIT' || c.r !== 'mythic') throw new Error('Missing screenshot card: T.J. Watt Prime Mythic');
       D.mine().o[c.id] = 1; // Isolated browser save; Firebase remains disabled.
       return c.id;
     });
@@ -133,11 +139,20 @@ async function run(url) {
       return sheet && !sheet.getAnimations().length && getComputedStyle(sheet).opacity === '1';
     });
     checkGeometry(await geometry(detail, '.pk-zoom .pk-card'));
+    const scenery = await detail.locator('.pk-zoom .pk-c-scenery').evaluate(async scene => {
+      const background = getComputedStyle(scene).backgroundImage;
+      const url = /url\(["']?([^"')]+\/teams-v1\/pit\.webp)["']?\)/.exec(background)?.[1];
+      const image = new Image(); image.src = url || ''; await image.decode();
+      return {team: scene.dataset.teamScene, url, width: image.naturalWidth};
+    });
+    assert.equal(scenery.team, 'PIT', 'the reported card uses Pittsburgh scenery in its actual detail sheet');
+    assert.ok(scenery.width >= 500 && scenery.url.includes('/teams-v1/pit.webp'), 'Pittsburgh photograph loads in the Mythic card detail');
     assert.ok(await detail.locator('.pk-zoom .pk-c-foil, .pk-zoom .pk-c-glint').evaluateAll(els => els.every(el => getComputedStyle(el).pointerEvents === 'none')), 'Decorative foil never blocks card interaction');
     assert.equal(await detail.locator('.pk-info .pk-atk li').count(), 2, 'Full attack rules remain available in detail');
     assert.equal(await detail.locator('.pk-signature-note').count(), 1, 'Signature energy spend is explained in detail');
-    if (shots) await detail.screenshot({path: path.join(shots, 'tyler-warren-detail.png')});
-    console.log('PASS: card detail uses the clear, unobstructed layout');
+    if (process.env.CARD_LIVE_PORTRAITS === '1') await detail.locator('.pk-zoom .pk-c-ph').evaluate(image => image.decode());
+    if (shots) await detail.screenshot({path: path.join(shots, 'tj-watt-prime-detail.png')});
+    console.log('PASS: T.J. Watt Prime Mythic detail uses its decoded Pittsburgh photograph and clear rules');
     await mobile.close();
   } finally { await browser.close(); }
 }

@@ -139,6 +139,13 @@ Rarity finishes follow the owner's card references: type-tinted silver Common, g
 illuminated gold Legendary, and prismatic cosmic Mythic. Keep the name/HP header and framed artwork readable.
 `dynasty-rarity.css` and `img/rivals/` own the materials; `dynasty-foil.js` adds reflections in details and reveals.
 Collection previews stay still, with reduced-motion support. Verify `check-card-layout.cjs`.
+Team backgrounds (October 30, 2026): every franchise has its own local hometown photograph,
+team-color poster treatment and crop (`views/dynasty-team-scenes.js`, `img/rivals/teams-v1/`).
+Use the card's team, including historical series, in collectible faces, team Stadiums and battle cards.
+Rarity still controls the frame/foil; portraits and readable game panels stay separate. Keep unknown-team and
+failed-portrait fallbacks. Photos load/cache on demand. The Rivals Menu links the source/author/license page;
+regenerate it with `node tools/dynasty/build-team-credits.cjs` after updating photo metadata. Verify
+`node tools/dynasty/check-team-scenes.cjs` with the card-layout and existing Dynasty checks.
 Card-table battles (Oct 30 2026, the owner: "The gameplay is far too confusing. I want it to include the cards that are
 in play laid out and the available cards in your hand are spread out at the bottom. Clicking on each card will show the
 attacks and allow the player to choose which one or put the card back down. Energy is automatically added to the cards
@@ -164,7 +171,7 @@ The case's booklet and disc use restrained navy, ivory and silver artwork (`dyna
 Verify the existing Dynasty checks plus `check-rivals-rules.cjs`, `check-rivals-decks.cjs` and `check-rivals-battle.cjs`
 (the kit check "Gridiron Rivals Solo ladder…" covers the ladder's decks, moves, unlocking and pay).
 Legends' photos (Oct 31 2026, Evan: "Import into game for me to see"): each Legend's freely licensed Wikipedia lead photo
-is his card's portrait (`js/core/dynasty-legends.js` PHOTO, `img/dynasty/legends/`, head `w:<key>`, filling the window);
+is his card's portrait (`js/core/dynasty-legends.js` PHOTO, `img/dynasty/legends/`, head `w:<key>`, beside its team scenery);
 his card details credit the author, licence and Commons page, which the licences require: keep the credit. Rebuild with
 `tools/dynasty/legend_photos.py` (TITLE/FILE/SKIP/CROP for fixes; check the crops by eye). Legends without one keep their
 number. The kit check "Gridiron Rivals: the Legends' photos…" covers it.

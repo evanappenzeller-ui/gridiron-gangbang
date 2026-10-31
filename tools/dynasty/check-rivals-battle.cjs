@@ -34,6 +34,17 @@ async function main(url) {
       await app.nav('/puzzles/dynasty/battle/' + r.mid);
     });
     await page.waitForSelector('.db-card');
+    const checkScenes = async selector => {
+      const scenes = await page.locator(selector).evaluateAll(nodes => nodes.map(node => {
+        const art = node.querySelector('.db-face-art');
+        return {name: node.getAttribute('aria-label'), team: art?.dataset.teamScene, tactic: art?.classList.contains('is-tactic'), background: art && getComputedStyle(art).backgroundImage};
+      }));
+      assert.ok(scenes.length > 0, selector + ': cards are present');
+      for (const scene of scenes.filter(s => s.team)) assert.ok(scene.background.includes('/teams-v1/' + scene.team.toLowerCase() + '.webp'), scene.name + ': battle paints the matching team photograph');
+      for (const scene of scenes.filter(s => !s.tactic)) assert.ok(scene.team, scene.name + ': player card has team scenery');
+    };
+    await checkScenes('[data-db-hand]');
+    await checkScenes('.db-slot:not(.is-empty)');
     assert.equal(await page.locator('.db-table').count(), 1, 'both lineups share the table');
     assert.equal(await page.locator('.db-hand-fan').count(), 1, 'the hand is spread along the foot');
     const solo = () => page.evaluate(async () => { const x = (await import('/js/core/dynasty-solo.js')).get(window.battleTestMid); return {state: x.state, me: x.G.p[0], v: x.G.v}; });
@@ -44,6 +55,7 @@ async function main(url) {
     const handBefore = await page.locator('[data-db-hand]').count();
     await page.locator('.is-me .is-active .db-slot').click();
     await page.waitForSelector('.db-focus');
+    await checkScenes('.db-focus-card');
     assert.equal(await page.locator('[data-db-lineup="hand"]').count(), 1, 'the lifted starter can go back to the hand');
     await page.locator('[data-db-putback]').click();
     assert.equal(await page.locator('.db-focus').count(), 0, 'Put back sets the card down');
@@ -51,6 +63,7 @@ async function main(url) {
     await page.locator('.is-me .is-active .db-slot').click();
     await page.locator('[data-db-lineup="hand"]').click();
     assert.equal(await page.locator('[data-db-hand]').count(), handBefore + 1, 'Back to hand returns the starter to the hand');
+    await checkScenes('[data-db-hand]');
     await page.locator('[data-db-hand]').first().click();
     await page.locator('[data-db-lineup="act"]').click();
     assert.equal(await page.locator('[data-db-hand]').count(), handBefore, 'a lifted hand card can start');
