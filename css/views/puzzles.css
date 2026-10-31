@@ -313,24 +313,24 @@ html.hm-morph #tabbar .tab-ic, html.hm-morph #tabbar .tab-ind { visibility: hidd
 .screen.v-puzzles[data-path="/puzzles"] > .screen-body { flex: 1 0 auto; display: flex; flex-direction: column; }
 .v-puzzles .gm-list {
   /* the cases big (the owner's ask, Oct 2026): as wide as the screen less a peek at the cases either side, and as tall
-     as the room between the title and the tab bar leaves after the pips and the tallest of what goes under the shelf
+     as the room between the title and the tab bar leaves after the tallest of what goes under the shelf
      (--gm-sel: views/games.js room(); the screen doesn't scroll, so on a short phone the case is the one to give way).
      (The app's frame, cqh, not svh: an iPhone's home-screen app reports svh short by the status bar's height.) */
-  --cw: min(calc(100cqw - 40px), 440px, calc((100cqh - var(--nav-h) - var(--tab-h) - 137px - var(--gm-sel, 100px)) / 1.38));
+  --cw: min(calc(100cqw - 40px), 440px, calc((100cqh - var(--nav-h) - var(--tab-h) - 118px - var(--gm-sel, 60px)) / 1.38));
   --ch: calc(var(--cw) * 1.38);
   position: relative; margin-top: 2px; flex: 1 0 auto; display: flex; flex-direction: column; justify-content: center;
 }
 .v-puzzles .gm-list > * { flex: none; }
-/* (the glow sits 30px over the case's top, wherever the centring puts it: the shelf, pips and Play are --ch + 47px +
+/* (the glow sits 30px over the case's top, wherever the centring puts it: the shelf and what's under it are --ch + 28px +
    --gm-sel) */
 .v-puzzles .gm-list::before {
-  content: ""; position: absolute; left: calc(-1 * var(--gutter)); right: calc(-1 * var(--gutter)); top: calc(50% - var(--ch) / 2 - 33.5px - var(--gm-sel, 100px) / 2); height: var(--ch); pointer-events: none;
+  content: ""; position: absolute; left: calc(-1 * var(--gutter)); right: calc(-1 * var(--gutter)); top: calc(50% - var(--ch) / 2 - 24px - var(--gm-sel, 60px) / 2); height: var(--ch); pointer-events: none;
   background: radial-gradient(ellipse 56% 50% at 50% 47%, rgba(70,180,30,.2), rgba(50,150,20,.08) 46%, transparent 72%);
 }
 .v-puzzles .gm-shelf {
   position: relative; display: flex; align-items: center;
   /* (10px higher than it looks: the lit case's glow fades out before the scroller's edge cuts it off; and 30px lower,
-     room for a case turned in your hand to swing its near corner out, the pips back up under it) */
+     room for a case turned in your hand to swing its near corner out, what's under the shelf back up under it) */
   margin: -10px calc(-1 * var(--gutter)) -30px; padding: 30px calc(50% - var(--cw) / 2) 44px;
   overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch; outline: none;
@@ -730,12 +730,8 @@ button.gm-r:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
 .gm-z-hint { margin: -4px 0 0; max-width: 300px; padding: 0 16px; text-align: center; font: 500 13px/1.35 var(--font-text); color: rgba(238,240,244,.62); }
 
 /* ---- Under the shelf: the game you're on */
-.v-puzzles .gm-pips { display: flex; justify-content: center; align-items: center; gap: 7px; margin: 0 0 12px; }
-.v-puzzles .gm-pip { width: 7px; height: 7px; border-radius: 4px; background: var(--surface-3); transition: width .25s cubic-bezier(.22,1,.36,1), background-color .2s linear; }
-.v-puzzles .gm-pip.is-done { background: var(--tint); opacity: .55; }
-.v-puzzles .gm-pip.is-cur { width: 20px; background: var(--ink); opacity: 1; }
 /* (the centring goes by the tallest of what's under the shelf, a line over Play (94px), not the room kept round it) */
-.v-puzzles .gm-sel { text-align: center; padding: 0 4px; min-height: var(--gm-sel, 100px); margin-bottom: -6px; }
+.v-puzzles .gm-sel { text-align: center; padding: 0 4px; min-height: var(--gm-sel, 60px); margin-bottom: -6px; }
 .v-puzzles .gm-meta { margin-top: 10px; display: flex; justify-content: center; }
 .v-puzzles .gm-meta .c-prog { margin: 2px 0 0; width: 220px; }
 .v-puzzles .gm-note { font: 400 var(--fs-foot)/var(--lh-foot) var(--font-text); color: var(--ink-3); }
@@ -746,8 +742,10 @@ button.gm-r:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
 .v-puzzles .gm-cd .ic { stroke-width: 2; flex: none; }
 .v-puzzles .gm-cd-v { color: var(--ink-2); font-weight: 600; font-variant-numeric: tabular-nums; }
 .v-puzzles .gm-cdw { margin-top: 14px; }
-.v-puzzles .gm-flipw { display: flex; justify-content: center; margin-top: 12px; } /* (the flip button under every case but Keepfall's: views/games.js flipHTML) */
-.v-puzzles .gm-flipb { min-width: 168px; }
+.v-puzzles .gm-flipw { display: flex; justify-content: center; margin-top: 8px; padding-bottom: 10px; } /* (the flip button under every case but Keepfall's: views/games.js flipHTML) */
+/* (small, the owner's ask, Oct 31 2026: "the scoreboard icon smaller") */
+.v-puzzles .gm-flipb { height: 28px; padding: 0 12px; gap: 6px; font-size: 13px; line-height: 16px; }
+.v-puzzles .gm-flipb > .ic { width: 13px; height: 13px; }
 
 /* A game's own page (pushed over the list): Daily Puzzles' card and leaderboard start under the nav bar. */
 .v-puzzles .c-pz-pane > .c-hero-wrap { margin-top: 8px; }

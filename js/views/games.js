@@ -431,7 +431,8 @@ function ctaHTML(s) {
 // (a button under the case turns it round to its leaderboard and back, the owner's ask, Oct 22 2026: "Add a view
 // scoreboard or flip case button", first Return Man's; every case but Keepfall's since Oct 26 2026, finished or not: a
 // finished one stands on its board, so it starts as Flip to the cover. mountList's syncFlip keeps its words to the side
-// the case is on)
+// the case is on). Small, right under the case, with no row of dots between (the owner's ask, Oct 31 2026: "Make the
+// games larger, the scoreboard icon smaller and remove the other icon directly under the case")
 const flipHTML = s => {
   if (!(s.turns || s.kind === 'done') || !features.available()) return '';
   const on = s.kind === 'done';
@@ -464,7 +465,6 @@ export function listHTML() {
   return `<div class="gm-list" data-key="games" data-enter data-ids="${list.map(g => g.id).join(' ')}">`
     + `<div class="gm-shelf" data-hscroll role="region" aria-roledescription="carousel" aria-label="Daily games: swipe across" tabindex="0">`
     + row(true) + row(false) + row(true) + `</div>`
-    + `<div class="gm-pips" aria-hidden="true">${list.map((g, i) => `<i class="gm-pip${states[i].kind === 'done' || states[i].played ? ' is-done' : ''}" data-gm-pip="${g.id}"></i>`).join('')}</div>`
     + `<div class="gm-sel" data-gm-sel aria-live="polite">${selHTML(list[0], states[0])}</div></div>`;
 }
 
@@ -594,7 +594,6 @@ export function mountList(el, ctx, opts = {}) {
   function setCur(i, animate = true) {
     const g = list()[i];
     if (!g) return;
-    el.querySelectorAll('[data-gm-pip]').forEach(p => p.classList.toggle('is-cur', p.dataset.gmPip === g.id));
     const html = selHTML(g, stateOf(g));
     if (sel.dataset.html === html) { syncFlip(); return; }
     const go = () => { sel.dataset.html = html; sel.innerHTML = html; ui.hydrate(sel); syncFlip(); };
@@ -631,7 +630,7 @@ export function mountList(el, ctx, opts = {}) {
     let h = 0;
     for (const g of list()) { m.innerHTML = selHTML(g, stateOf(g)); h = Math.max(h, m.offsetHeight); }
     m.remove();
-    const v = Math.max(100, Math.ceil(h)) + 'px';
+    const v = Math.ceil(h) + 'px'; // (just what's there: the case takes the rest, the owner's ask, Oct 31 2026)
     if (el.style.getPropertyValue('--gm-sel') === v) return;
     el.style.setProperty('--gm-sel', v);
     if (st.cur >= 0 && !st.touch) { center(st.cur, false); layout(); }
@@ -959,7 +958,6 @@ export function mountList(el, ctx, opts = {}) {
       t.innerHTML = listHTML();
       el.dataset.ids = ids;
       shelf.innerHTML = t.querySelector('.gm-shelf').innerHTML;
-      el.querySelector('.gm-pips').innerHTML = t.querySelector('.gm-pips').innerHTML;
       sel.innerHTML = t.querySelector('[data-gm-sel]').innerHTML;
       delete sel.dataset.html;
       shown.clear();
@@ -987,8 +985,6 @@ export function mountList(el, ctx, opts = {}) {
         else cs.classList.toggle('is-done', s.kind === 'done');
         cs.setAttribute('aria-label', caseLabel(g, s));
       });
-      const pip = el.querySelector(`[data-gm-pip="${g.id}"]`);
-      if (pip) pip.classList.toggle('is-done', s.kind === 'done' || !!s.played);
       if (i === st.cur % n()) setCur(i, animate);
     });
     room();
