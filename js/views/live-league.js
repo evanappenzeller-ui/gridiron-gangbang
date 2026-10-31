@@ -7,7 +7,10 @@
 // 2026, the owner: "Add total point projections"): Yahoo's projection before kickoff, then moved by the scores
 // (core/fantasy-live.js). Each side's chance to win sits beside its score, green for the favourite and red for the other
 // (Oct 31 2026, the owner: "Add a percentage to the win probability for each matchup. Use green and red";
-// fantasy-live.js winChance). The week's Matchup of the Week (Oct 31 2026, the owner: "Be sure to highlight the matchup
+// fantasy-live.js winChance; Yahoo's own chance, synced with its projections, while nothing has scored since that sync).
+// The league file is fetched again every few minutes while this screen shows (Oct 31 2026, the owner: "The predictions in
+// the app don't match the yahoo app. Update this more often"; tools/yahoo syncs hourly, every 15 minutes on game days),
+// so Yahoo's newest projections and lineups come in without leaving. The week's Matchup of the Week (Oct 31 2026, the owner: "Be sure to highlight the matchup
 // of the week") leads the list as its own card: the league's vote (core/week.js, the same tally and tie-break as the
 // Matchup tab), "Leading the vote" until kickoff locks it. Styles: css/views/live.css (.ll-, .sh-ll). Owner: LIVE.
 //
@@ -22,6 +25,7 @@ import * as fl from '../core/fantasy-live.js';
 import {openMatchup} from './matchup.js';
 
 const esc = data.esc;
+const RELOAD_MS = 3 * 60e3;
 const nm = id => data.name(id);
 
 // ---------------------------------------------------------------------------------------------- The week
@@ -43,23 +47,39 @@ function tableRow(s, id) {
   return r && (r.w + r.l + r.t) > 0 ? r : null;
 }
 const recOf = (s, id) => { const r = tableRow(s, id); return r ? data.recStr(r.w, r.l, r.t) : '0–0'; };
-// Yahoo's lineups for the week, worked out once per league file and week.
-let UPS = {src: null, key: '', ups: null};
+// Yahoo's lineups and each player's projection for the week, worked out once per league file and week.
+let UPS = {src: null, key: '', ups: null, pps: null};
 function upsOf(cur) {
   const key = keyOf(cur);
-  if (UPS.src !== data.DATA || UPS.key !== key) UPS = {src: data.DATA, key, ups: fl.lineups(data.DATA, cur.year, cur.week)};
+  if (UPS.src !== data.DATA || UPS.key !== key) UPS = {src: data.DATA, key, ups: fl.lineups(data.DATA, cur.year, cur.week), pps: fl.playerProj(data.DATA, cur.year, cur.week)};
   return UPS.ups;
 }
+const ppsOf = cur => (upsOf(cur), UPS.pps);
 // Yahoo's projected points for the game's sides (league.json schedule pa/pb, the current week's), or null.
+const rawOf = cur => data.DATA && (data.DATA.seasons || []).find(z => z.year === cur.year);
+function schedOf(cur, x) {
+  const raw = rawOf(cur);
+  return (raw && (raw.schedule || []).find(z => z.week === cur.week && ((z.a === x.a && z.b === x.b) || (z.a === x.b && z.b === x.a)))) || null;
+}
 function ypOf(cur, x) {
-  const raw = data.DATA && (data.DATA.seasons || []).find(z => z.year === cur.year);
-  const g = raw && (raw.schedule || []).find(z => z.week === cur.week && ((z.a === x.a && z.b === x.b) || (z.a === x.b && z.b === x.a)));
+  const g = schedOf(cur, x);
   if (!g || g.pa == null || g.pb == null || !isFinite(g.pa) || !isFinite(g.pb)) return null;
   return g.a === x.a ? {a: +g.pa, b: +g.pb} : {a: +g.pb, b: +g.pa};
 }
+// Yahoo's chance for side a (0 to 1, schedule wa: a's percent), or null.
+function ywOf(cur, x) {
+  const g = schedOf(cur, x), w = g && g.wa != null ? Number(g.wa) : NaN;
+  if (!isFinite(w) || w < 0 || w > 100) return null;
+  return (g.a === x.a ? w : 100 - w) / 100;
+}
+// When Yahoo's projections were synced (league.json seasons[].proj.at), in ms, or NaN.
+function syncedAt(cur) {
+  const raw = rawOf(cur), pj = raw && raw.proj;
+  return pj && +pj.week === +cur.week && pj.at ? Date.parse(pj.at) : NaN;
+}
 function liveOf(L, cur, x) {
   if (!cur || !L.feed || L.key !== keyOf(cur) || L.feed.week !== cur.week) return null;
-  try { return fl.matchup(L.feed, upsOf(cur), x.a, x.b, ypOf(cur, x)); } catch (e) { console.error(e); return null; }
+  try { return fl.matchup(L.feed, upsOf(cur), x.a, x.b, ypOf(cur, x), ppsOf(cur)); } catch (e) { console.error(e); return null; }
 }
 
 // ---------------------------------------------------------------------------------------------- The list
@@ -68,9 +88,12 @@ const say = n => `${n} player${n === 1 ? '' : 's'} left`;
 // "Proj 126.77" under a score: green while it's ahead of the other side's, red while behind.
 const projLine = (p, o) => p == null ? ''
   : `<span class="ll-proj${o == null || p === o ? '' : p > o ? ' is-up' : ' is-down'}"><i>Proj</i> ${esc(total(p))}</span>`;
-// Each side's chance to win in whole percents adding to 100 ({a, b}; never 0 or 100 while it can still turn), or null.
-function winOf(m) {
-  const c = fl.winChance(m);
+// Each side's chance to win in whole percents adding to 100 ({a, b}; never 0 or 100 while it can still turn), or null:
+// Yahoo's (yw) while nothing has scored since it was synced (and it favours the side projected ahead, so the colours
+// agree), else worked out from the projections.
+function winOf(m, yw = null, at = NaN) {
+  const est = fl.winChance(m);
+  const c = yw != null && (!m.a.rows || fl.quietSince(m, at)) && (est == null || (yw - .5) * (est - .5) >= 0) ? yw : est;
   if (c == null) return null;
   const a = c > 0 && c < 1 ? Math.max(1, Math.min(99, Math.round(c * 100))) : Math.round(c * 100);
   return {a, b: 100 - a};
@@ -80,7 +103,7 @@ const winLine = (p, o) => p == null ? ''
 const winSay = (a, b, w) => w ? `, chance to win ${nm(a)} ${w.a}%, ${nm(b)} ${w.b}%` : '';
 const projSay = (a, b, pa, pb) => pa == null || pb == null ? '' : `, projected ${nm(a)} ${total(pa)}, ${nm(b)} ${total(pb)}`;
 function liveItem(cur, s, x, lv) {
-  const w = lv.over ? null : winOf(lv), k = id => id === x.a ? 'a' : 'b';
+  const w = lv.over ? null : winOf(lv, ywOf(cur, x), syncedAt(cur)), k = id => id === x.a ? 'a' : 'b';
   const side = (id, t, o) => `<span class="bug-side ${t.pts >= o.pts ? 'is-fav' : 'is-dog'}">${ui.avatar(id, {size: 24, you: id === data.me()})}`
     + `<span class="bug-name"><b>${esc(nm(id))}</b><span class="bug-team">${esc(recOf(s, id))}</span></span>`
     + (t.left ? `<span class="ll-left">${t.left} left</span>` : '') + (w ? winLine(w[k(id)], w[k(id) === 'a' ? 'b' : 'a']) : '')
@@ -92,7 +115,7 @@ function liveItem(cur, s, x, lv) {
 }
 // Before kickoff: both managers' records where the scores will be.
 function preItem(cur, s, x) {
-  const yp = ypOf(cur, x), w = yp && winOf({a: {pts: 0, proj: yp.a}, b: {pts: 0, proj: yp.b}});
+  const yp = ypOf(cur, x), w = yp && winOf({a: {pts: 0, proj: yp.a}, b: {pts: 0, proj: yp.b}}, ywOf(cur, x));
   const side = (id, p, o) => { const t = s ? data.teamIn(s, id) : data.team(id); return `<span class="bug-side">${ui.avatar(id, {size: 24, you: id === data.me()})}`
     + `<span class="bug-name"><b>${esc(nm(id))}</b>${t ? `<span class="bug-team">${esc(t)}</span>` : ''}</span>`
     + (w ? winLine(w[id === x.a ? 'a' : 'b'], w[id === x.a ? 'b' : 'a']) : '')
@@ -207,7 +230,7 @@ function lineupsBlock(L, cur, x) {
 function heroHTML(L, cur, x) {
   const s = data.seasonByYear(cur.year);
   const lv = liveOf(L, cur, x), on = !!(lv && lv.started), yp = ypOf(cur, x);
-  const w = on ? (lv.over ? null : winOf(lv)) : yp && winOf({a: {pts: 0, proj: yp.a}, b: {pts: 0, proj: yp.b}});
+  const w = on ? (lv.over ? null : winOf(lv, ywOf(cur, x), syncedAt(cur))) : yp && winOf({a: {pts: 0, proj: yp.a}, b: {pts: 0, proj: yp.b}}, ywOf(cur, x));
   const side = (id, k) => {
     const t = s ? data.teamIn(s, id) : data.team(id), ko = k === 'a' ? 'b' : 'a';
     const me = on && lv[k], o = on && lv[ko];
@@ -275,11 +298,11 @@ export function eyebrow() {
 }
 export function html(shown) {
   return `<div class="lg-body ll" data-ll${shown ? '' : ' hidden'}><section class="ll-games" data-ll-list></section>`
-    + `<p class="lg-foot">Unofficial live scores: each manager’s Yahoo lineup scored from ESPN’s box scores in the league’s scoring (PPR, kickers by distance, defenses by sacks, takeaways and points allowed), every 30 seconds while games are on. Projections start from Yahoo’s and follow the scores: points already scored, plus the rest of the projection for the time left. Yahoo’s final replaces them once the week syncs.</p></div>`;
+    + `<p class="lg-foot">Unofficial live scores: each manager’s Yahoo lineup scored from ESPN’s box scores in the league’s scoring (PPR, kickers by distance, defenses by sacks, takeaways and points allowed), every 30 seconds while games are on. Projections start from Yahoo’s and follow the scores as Yahoo’s app does: points already scored, plus each player’s share of the projection for the time left. Yahoo’s projections and win chances sync hourly, every 15 minutes on game days. Yahoo’s final replaces them once the week syncs.</p></div>`;
 }
 
 export function create(ctx, el) {
-  const L = {ctx, el, key: '', feed: null, stop: null, sheet: null, on: false, html: '', votes: null};
+  const L = {ctx, el, key: '', feed: null, stop: null, sheet: null, on: false, html: '', votes: null, reload: 0};
   const list = () => el.querySelector('[data-ll-list]');
   const draw = () => {
     const w = list();
@@ -324,16 +347,31 @@ export function create(ctx, el) {
       });
     } catch (e) { console.error(e); }
   };
+  // The league file again every RELOAD_MS while this screen shows and the week isn't final (a cheap 304 when Yahoo's sync
+  // brought nothing new); a change comes back as the 'data' event, which redraws (views/live.js update).
+  const stopReload = () => { clearInterval(L.reload); L.reload = 0; };
+  const startReload = () => {
+    stopReload();
+    const tick = () => {
+      const cur = curWeek();
+      if (!L.on || !cur || cur.games.every(x => gameOf(cur, x))) return;
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      if (Date.now() - (data.lastLoad || 0) < RELOAD_MS - 5e3) return;
+      data.reload().catch(() => {});
+    };
+    tick();
+    L.reload = setInterval(tick, RELOAD_MS);
+  };
   const onClick = e => {
     const t = e.target.closest && e.target.closest('[data-ll-g]');
     if (t && L.on) openGame(L, t.dataset.llG);
   };
   el.addEventListener('click', onClick);
   return {
-    show() { L.on = true; draw(); startFeed(); startVotes(); },
-    hide() { L.on = false; stopFeed(); stopVotes(); },
+    show() { L.on = true; draw(); startFeed(); startVotes(); startReload(); },
+    hide() { L.on = false; stopFeed(); stopVotes(); stopReload(); },
     // A new league file or a new "me": the week, the lineups and the you-rings.
     draw() { L.html = ''; draw(); if (L.on) { startFeed(); startVotes(); } },
-    stop() { L.on = false; stopFeed(); stopVotes(); el.removeEventListener('click', onClick); if (L.sheet && L.sheet.sh.open) L.sheet.sh.close(); L.sheet = null; }
+    stop() { L.on = false; stopFeed(); stopVotes(); stopReload(); el.removeEventListener('click', onClick); if (L.sheet && L.sheet.sh.open) L.sheet.sh.close(); L.sheet = null; }
   };
 }

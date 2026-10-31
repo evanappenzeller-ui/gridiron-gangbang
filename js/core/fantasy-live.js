@@ -6,19 +6,25 @@
 // Matchup shows Yahoo's scores instead. No DOM. Owner: MATCHUP.
 //
 // Projected totals (Oct 30 2026, the owner: "Add total point projections"): Yahoo's projection for the team (league.json
-// schedule pa/pb, synced with the lineups; Yahoo gives it for the team, not each player, and doesn't move it with the
-// scores) shared among its starters by position and by how much each one scores (data/nfl-players.json, gameday.rankOf).
-// Then a player whose game is over counts his points; one playing, his points and his share for the time left; one yet to
-// play, his share; one on a bye, nothing. Before kickoff it is Yahoo's projection.
+// schedule pa/pb, synced with the lineups; Yahoo's API gives it for the team, not each player, and doesn't move it with
+// the scores) shared among its starters by each one's own projection (league.json seasons[].proj, Sleeper's, synced with
+// Yahoo's; Oct 31 2026, the owner: "The predictions in the app don't match the yahoo app"), else by position and by how
+// much he scores (data/nfl-players.json, gameday.rankOf). Then, as Yahoo's app counts it, a player whose game is over
+// counts his points; one playing, his points and his share for the time left; one yet to play, his share; one on a bye,
+// nothing. Before kickoff it is Yahoo's projection.
 //
 //   lineups(league, year, week) -> Map(manager -> [{name, pos, team, slot}]): the starters in Yahoo's order; null when
 //                                 that season has no rosters with slots, or they're another week's (rosters.week)
-//   teamScore(feed, lineup, yp) -> {pts, proj (the projected total; null without Yahoo's projection yp), left (yet to play
+//   playerProj(league, year, week) -> Map(manager -> Map(player name -> projected points)), or null (another week's)
+//   teamScore(feed, lineup, yp, pp) -> {pts, proj (the projected total; null without Yahoo's projection yp), left (yet to play
 //                                 or playing), on (playing now), started, done, rows: [{name, pos, team, slot, pts,
 //                                 state: 'pre'|'in'|'post'|'bye'|'out', game, line, p}]}
-//                                 (feed: gameday.watch's update for the week: {games, boxes})
-//   matchup(feed, ups, a, b, yp) -> {a, b (teamScores), started, over, on} or null (no lineup for a side);
-//                                 yp: Yahoo's projections {a, b} or null
+//                                 (feed: gameday.watch's update for the week: {games, boxes}; pp: that manager's
+//                                 players' projections, from playerProj, or null)
+//   matchup(feed, ups, a, b, yp, pps) -> {a, b (teamScores), started, over, on} or null (no lineup for a side);
+//                                 yp: Yahoo's projections {a, b} or null; pps: playerProj's map or null
+//   quietSince(m, at)           -> true when nothing in a matchup has scored since time at (ms): no game of its starters
+//                                 is on, and every one over was over by then (Yahoo's own win chance still stands)
 //   winChance(m)                -> side a's chance of winning, 0 to 1, from {a, b: {pts, proj}} (a matchup's sides, or
 //                                 Yahoo's projections with no points yet); null without both projections
 //   gameLeft(game)              -> how much of a game is still to play, 1 before kickoff to 0 once it's over
@@ -40,6 +46,19 @@ export function lineups(league, year, week) {
     const list = (Array.isArray(ps) ? ps : []).filter(p => Array.isArray(p) && p[0] && p.length >= 4 && !SIT.has(String(p[3] || '').toUpperCase()))
       .map(([name, pos, team, slot]) => ({name: String(name), pos: String(pos || ''), team: espnOf(team), slot: String(slot)}));
     if (list.length) out.set(mgr, list);
+  });
+  return out.size ? out : null;
+}
+
+export function playerProj(league, year, week) {
+  const season = league && Array.isArray(league.seasons) ? league.seasons.find(s => s && s.year === year) : null;
+  const pj = season && season.proj;
+  if (!pj || !pj.teams || typeof pj.teams !== 'object' || (week != null && +pj.week !== +week)) return null;
+  const out = new Map();
+  Object.entries(pj.teams).forEach(([mgr, ps]) => {
+    const m = new Map();
+    Object.entries(ps || {}).forEach(([name, v]) => { const n = Number(v); if (isFinite(n) && n >= 0) m.set(name, n); });
+    if (m.size) out.set(mgr, m);
   });
   return out.size ? out : null;
 }
@@ -102,33 +121,36 @@ export function gameLeft(g) {
   const min = m ? Math.min(15, +m[1] + +m[2] / 60) : 7.5;
   return Math.max(0, Math.min(1, ((4 - q) * 15 + min) / 60));
 }
-// A starter's share of his team's projection, before it's scaled to Yahoo's total: a starter's points at his position,
-// more or less by how much he scores (between 0.6 and 1.4 times; kickers and defenses all alike). Nothing on a bye.
+// A starter's share of his team's projection, before it's scaled to Yahoo's total: his own projection (pp), else a
+// starter's points at his position, more or less by how much he scores (between 0.6 and 1.4 times; kickers and defenses
+// all alike). Nothing on a bye.
 const BASE = {QB: 18, RB: 12, WR: 12, TE: 9, K: 8, DEF: 7};
-function weightOf(r) {
+function weightOf(r, pp) {
   if (r.state === 'bye') return 0;
+  if (pp && pp.has(r.name)) return pp.get(r.name);
   const rk = gd.rankOf(r);
   const f = rk ? Math.max(.6, Math.min(1.4, Math.sqrt(Math.max(0, rk.score) / rk.ref))) : r.pos === 'K' || r.pos === 'DEF' ? 1 : .85;
   return (BASE[r.pos] || 10) * f;
 }
-function projOf(rows, yp) {
+function projOf(rows, yp, pp) {
   if (yp == null || !isFinite(yp)) return null;
-  const w = rows.map(weightOf), sum = w.reduce((a, x) => a + x, 0);
+  const w = rows.map(r => weightOf(r, pp)), sum = w.reduce((a, x) => a + x, 0);
   if (!(sum > 0)) return null;
   return r2(rows.reduce((a, r, i) => a + r.pts + yp * w[i] / sum * gameLeft(r.game), 0));
 }
 
-export function teamScore(feed, lineup, yp = null) {
+export function teamScore(feed, lineup, yp = null, pp = null) {
   const rows = (lineup || []).map(p => rowOf(feed, p));
   const pts = r2(rows.reduce((a, r) => a + r.pts, 0));
   const on = rows.filter(r => r.state === 'in').length;
   const left = rows.filter(r => r.state === 'pre').length + on;
-  return {pts, proj: projOf(rows, yp), rows, on, left, started: rows.some(r => r.state === 'in' || r.state === 'post'), done: rows.length > 0 && left === 0};
+  return {pts, proj: projOf(rows, yp, pp), rows, on, left, started: rows.some(r => r.state === 'in' || r.state === 'post'), done: rows.length > 0 && left === 0};
 }
 
-export function matchup(feed, ups, a, b, yp = null) {
+export function matchup(feed, ups, a, b, yp = null, pps = null) {
   if (!feed || !ups || !ups.get(a) || !ups.get(b)) return null;
-  const A = teamScore(feed, ups.get(a), yp && yp.a), B = teamScore(feed, ups.get(b), yp && yp.b);
+  const pp = id => (pps && pps.get(id)) || null;
+  const A = teamScore(feed, ups.get(a), yp && yp.a, pp(a)), B = teamScore(feed, ups.get(b), yp && yp.b, pp(b));
   return {a: A, b: B, started: A.started || B.started, over: A.done && B.done, on: A.on + B.on};
 }
 
@@ -148,6 +170,18 @@ export function winChance(m) {
   const left = Math.max(0, a.proj - (a.pts || 0)) + Math.max(0, b.proj - (b.pts || 0)), d = a.proj - b.proj;
   if (!(left > .005)) return d > .005 ? 1 : d < -.005 ? 0 : .5;
   return phi(d / Math.sqrt(WIN_VAR * left));
+}
+
+// A game is taken as over by kickoff plus OVER_MS when the feed can't say when it ended.
+const OVER_MS = 4 * 3600e3;
+export function quietSince(m, at) {
+  if (!m || !m.a || !m.b || !isFinite(at)) return false;
+  return [...m.a.rows, ...m.b.rows].every(r => {
+    if (r.state === 'in') return false;
+    if (r.state !== 'post') return true;
+    const k = r.game && r.game.kickoff, t = k instanceof Date ? k.getTime() : Number(k);
+    return isFinite(t) && t + OVER_MS <= at;
+  });
 }
 
 export function watch(year, week, fn) {

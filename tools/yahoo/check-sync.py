@@ -116,6 +116,16 @@ def answer(path):
     return None
 
 
+# Sleeper's weekly projections, as its API answers (only the fields the sync reads, plus noise it must skip).
+SLEEPER = [
+    {'player_id': '4984', 'stats': {'pts_ppr': 22.456}, 'player': {'first_name': 'Josh', 'last_name': 'Allen', 'team': 'BUF', 'position': 'QB'}},
+    {'player_id': '9999', 'stats': {'pts_ppr': 3.0}, 'player': {'first_name': 'Josh', 'last_name': 'Allen', 'team': 'JAX', 'position': 'LB'}},
+    {'player_id': '1', 'stats': {'pts_ppr': 9.04}, 'player': {'first_name': 'Swap', 'last_name': 'Two Jr.', 'team': 'DET', 'position': 'WR'}},
+    {'player_id': 'NYJ', 'stats': {'pts_ppr': 6.5}, 'player': {'first_name': 'New York', 'last_name': 'Jets', 'team': 'NYJ', 'position': 'DEF'}},
+    {'player_id': '2', 'stats': {}, 'player': {'first_name': 'No', 'last_name': 'Points', 'team': 'MIA', 'position': 'RB'}},
+]
+
+
 class Yahoo(http.server.BaseHTTPRequestHandler):
     def log_message(self, *a):
         pass
@@ -133,6 +143,8 @@ class Yahoo(http.server.BaseHTTPRequestHandler):
         self.reply(200, json.dumps({'access_token': 'a', 'refresh_token': 'r'}), 'application/json')
 
     def do_GET(self):
+        if self.path.startswith('/sleeper/projections/nfl/2026/8?'):
+            return self.reply(200, json.dumps(SLEEPER), 'application/json')
         body = answer(self.path.split('/v2/', 1)[-1])
         if body is None:
             return self.reply(500, '<error><description>Something broke</description></error>', 'text/xml')
@@ -153,7 +165,8 @@ def main():
             json.dump({'2026': {'league': KEY, 'teams': {TID[m]: m for m in MGRS}}}, f)
         out = os.path.join(root, 'out.txt')
         env = dict(os.environ, YAHOO_ROOT=root, YAHOO_AUTH_BASE=base + '/oauth2', YAHOO_API_BASE=base + '/v2',
-                   YAHOO_CLIENT_ID='id', YAHOO_CLIENT_SECRET='secret', YAHOO_LEAGUE_ID=KEY, GITHUB_OUTPUT=out)
+                   YAHOO_CLIENT_ID='id', YAHOO_CLIENT_SECRET='secret', YAHOO_LEAGUE_ID=KEY, GITHUB_OUTPUT=out,
+                   SLEEPER_API_BASE=base + '/sleeper')
         env.pop('GITHUB_STEP_SUMMARY', None)
 
         def run(*args):
@@ -205,6 +218,10 @@ def main():
         if ro.get('teams', {}).get(A) != [['Josh Allen', 'QB', 'BUF', 'QB'], ['Swap Two', 'WR', 'DET', 'BN']] or \
                 ro.get('teams', {}).get(B) != [['Jets', 'DEF', 'NYJ', 'DEF']] or len(ro.get('at', '')) != 16 or ro.get('week') != 8:
             bad.append(f'rosters: {ro}')
+        pj = next(s for s in d['seasons'] if s['year'] == 2026).get('proj') or {}
+        if pj.get('week') != 8 or pj.get('teams') != {A: {'Josh Allen': 22.5, 'Swap Two': 9.0}, B: {'Jets': 6.5}} \
+                or len(pj.get('at', '')) != 17 or 'player projections' not in msg:
+            bad.append(f'player projections: {pj} / {msg.strip()}')
         if pk and list(d['pickups']) != sorted(d['pickups'], key=lambda x: (x['year'], x['at'])):
             bad.append('pickups out of order')
 

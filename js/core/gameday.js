@@ -18,7 +18,7 @@
 //   rankOf(p)          -> {score, ref} once the list loaded: his relevance in the list (PPR points, data/nfl-players.json)
 //                         and a starter's at his position (the 12th QB or TE, the 24th RB or WR); else null
 //   ownersOf(league, year) -> Map(player's name, normalized -> manager id): who has him in the league, from Yahoo's
-//                         rosters (league.json seasons[].rosters, synced twice a day) or, without them, that season's
+//                         rosters (league.json seasons[].rosters, synced hourly) or, without them, that season's
 //                         draft (league.json drafts); then the trades, pickups and drops on file since (league.json
 //                         pickups/drops, Yahoo's League Transactions) in time order: a pickup gives him to that manager,
 //                         a drop frees him. A move since the last sync still shows the last owner known.

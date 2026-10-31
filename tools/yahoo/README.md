@@ -1,9 +1,12 @@
 # Yahoo sync
 
-`.github/workflows/yahoo-sync.yml` runs `sync.py` twice a day, and again as each game-day window kicks off
-(Thursday, Sunday early, late and night, Monday), so the lineups the app scores live are the ones that locked. It copies the league's final scores, next
+`.github/workflows/yahoo-sync.yml` runs `sync.py` every hour, and every 15 minutes through the game-day windows
+(Thursday night, Sunday, Sunday night, Monday night), so the lineups the app scores live are the ones that locked and
+Yahoo's projections and win chances stay close to Yahoo's app. It copies the league's final scores, next
 games, team names and Yahoo's projections for the current week into `data/league.json`, along with every
-team's roster and the season's pickups, drops and trades, then commits and publishes it. The app picks up
+team's roster, each rostered player's projection for the week (Sleeper's free projections: Yahoo's API projects only
+the team's total, and the app shares that total out by them) and the season's pickups, drops and trades, then commits
+and publishes it (only when something changed). The app picks up
 the new file on its next refresh, and standings, power rankings, playoff odds and the Matchup tab all
 follow from it; the Live tab's owners and waiver wire go by the rosters, and the Draft tab lists the trades.
 

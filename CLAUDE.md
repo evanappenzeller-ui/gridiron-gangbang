@@ -204,7 +204,11 @@ scores Yahoo's starters (`seasons[].rosters` slots, with `week`; BN/IR sit) from
 Yahoo's final (the sync) replaces it. Each side's projected total sits under its score (Oct 30 2026, the owner: "Add total
 point projections"): Yahoo gives only the team's projection (schedule `pa`/`pb`, not moved by results), so
 `fantasy-live.js` shares it among the starters (position and `data/nfl-players.json` relevance, `gameday.rankOf`) and
-counts points scored plus each share for the time left in his game; before kickoff it is Yahoo's number. Each side's chance to win sits beside its score, green for the favourite and red
+counts points scored plus each share for the time left in his game; before kickoff it is Yahoo's number. The shares go by
+each player's own projection (Oct 31 2026, the owner: "The predictions in the app don't match the yahoo app. Update this more
+often"): Yahoo's API has no player projections, so the sync stores Sleeper's (`seasons[].proj`, scaled to Yahoo's total in
+`fantasy-live.js`), the sync runs hourly and every 15 minutes in game windows, the League screen refetches the league file
+every 3 minutes, and Yahoo's own win chance (`wa`) shows while nothing has scored since its sync (`quietSince`). Each side's chance to win sits beside its score, green for the favourite and red
 for the other (Oct 31 2026, the owner: "Add a percentage to the win probability for each matchup. Use green and red"):
 `fantasy-live.js` `winChance()`, the projected margin against what's left to score; hidden once a game is over. The Yahoo sync also runs as each game-day window kicks off so the lineups are the
 locked ones. The week's Matchup of the Week leads League's list in its own gold card (Oct 31 2026, the owner: "Be sure to highlight

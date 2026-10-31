@@ -24,9 +24,12 @@ What a sync writes, for the season Yahoo is on:
   inProgress false once Yahoo says the season is finished
   rosters    every manager's players now, [name, position, NFL team, lineup slot], with `at`, when they last changed,
              and `week`, the week those lineups are for (the app scores them live: js/core/fantasy-live.js)
+  proj       each rostered player's projected points for the current week (Sleeper's free projections in PPR:
+             Yahoo's API gives only the team's total), {week, at (UTC, when these or Yahoo's projections last changed),
+             src, teams: {manager: {player name: points}}}; the app shares Yahoo's team total out by them
   pickups, drops, trades   the season's moves from Yahoo's League Transactions (same shape as the ones entered by
              hand). Yahoo's replace the ones on file from the same span; older ones on file Yahoo didn't return stay.
-The rosters and moves are extras: if either fails, the run warns and still syncs the scores.
+The rosters, moves and player projections are extras: if one fails, the run warns and still syncs the scores.
 Yahoo team ids are matched to managers once per season (by team name, then manager nickname) and
 kept in TEAMS_FILE; fix that file by hand if a match is ever wrong.
 """
@@ -48,6 +51,7 @@ TEAMS_FILE = os.path.join(ROOT, 'tools', 'yahoo', 'teams.json')
 TOKEN_FILE = os.path.join(ROOT, 'tools', 'yahoo', 'token.enc')
 AUTH = os.environ.get('YAHOO_AUTH_BASE', 'https://api.login.yahoo.com/oauth2')
 API = os.environ.get('YAHOO_API_BASE', 'https://fantasysports.yahooapis.com/fantasy/v2')
+SLEEPER = os.environ.get('SLEEPER_API_BASE', 'https://api.sleeper.app')
 REDIRECT = os.environ.get('YAHOO_REDIRECT_URI') or 'https://evanappenzeller-ui.github.io/gridiron-gangbang/yahoo.html'
 
 
@@ -397,6 +401,100 @@ def sync_moves(tok, key, data, season, ids, year, week):
     return changed
 
 
+# --- player projections ----------------------------------------------------------------------------
+# Yahoo's API projects only a team's total (team_projected_points), and Yahoo's app shows that total moving as games
+# finish: points scored plus the rest of the players' projections. To follow it, the app needs each starter's part of
+# the total; Sleeper's free weekly projections (PPR) give the parts, which the app scales to Yahoo's total.
+
+PROJ_POS = ('QB', 'RB', 'WR', 'TE', 'K', 'DEF')
+SAME_TEAM = {'WSH': 'WAS', 'JAC': 'JAX', 'LA': 'LAR'}
+
+
+def pkey(name):
+    """A player's name as the app matches it (core/gameday.js norm): no case, accents, punctuation or Jr/III."""
+    import unicodedata
+    s = unicodedata.normalize('NFD', str(name or '').lower())
+    s = ''.join(c for c in s if not unicodedata.combining(c))
+    s = re.sub(r"[’'`.]", '', s).replace('-', ' ')
+    s = re.sub(r'\b(jr|sr|ii|iii|iv|v)\b', '', s)
+    return re.sub(r'\s+', ' ', re.sub(r'[^a-z0-9 ]+', ' ', s)).strip()
+
+
+def tm(t):
+    t = (t or '').upper()
+    return SAME_TEAM.get(t, t)
+
+
+def read_projections(year, week):
+    """{(name key or 'DEF', team): points, (name key, None): points when the name is unique} for the week."""
+    q = '&'.join(f'position[]={p}' for p in PROJ_POS)
+    req = urllib.request.Request(f'{SLEEPER}/projections/nfl/{year}/{week}?season_type=regular&{q}',
+                                 headers={'User-Agent': 'gridiron-gangbang-sync'})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        rows = json.load(r)
+    out, names = {}, {}
+    for x in rows if isinstance(rows, list) else []:
+        p, st = x.get('player') or {}, x.get('stats') or {}
+        pts = st.get('pts_ppr')
+        if not isinstance(pts, (int, float)):
+            continue
+        team = tm(p.get('team') or (x.get('player_id') if p.get('position') == 'DEF' else ''))
+        if p.get('position') == 'DEF':
+            out[('DEF', team)] = pts
+            continue
+        k = pkey(f"{p.get('first_name', '')} {p.get('last_name', '')}")
+        if not k:
+            continue
+        out[(k, team)] = pts
+        names.setdefault(k, []).append(pts)
+    for k, v in names.items():
+        if len(v) == 1:
+            out[(k, None)] = v[0]
+    return out
+
+
+def proj_of(found, name, pos, team):
+    if pos == 'DEF':
+        return found.get(('DEF', tm(team)))
+    k = pkey(name)
+    v = found.get((k, tm(team)))
+    return v if v is not None else found.get((k, None))
+
+
+def sync_proj(season, year, week, yahoo_moved):
+    """Each rostered player's projection into season['proj']; returns whether it changed. A failure only warns."""
+    old = season.get('proj') or {}
+    teams = (season.get('rosters') or {}).get('teams') or {}
+    try:
+        found = read_projections(year, week)
+        got = {}
+        for m, ps in teams.items():
+            mine = {}
+            for p in ps:
+                v = proj_of(found, p[0], p[1], p[2]) if len(p) >= 3 else None
+                if v is not None:
+                    mine[p[0]] = round(max(0.0, float(v)), 1)
+            if mine:
+                got[m] = mine
+        if not got:
+            raise Stop('no rostered player matched')
+    except Waiting:
+        raise
+    except Exception as e:
+        print(f'::warning::Player projections not synced: {e}')
+        if old.get('week') == week and yahoo_moved:
+            season['proj'] = dict(old, at=now_utc())
+        return False
+    if old.get('week') == week and old.get('teams') == got and not yahoo_moved:
+        return False
+    season['proj'] = {'week': week, 'at': now_utc(), 'src': 'Sleeper', 'teams': got}
+    return old.get('week') != week or old.get('teams') != got
+
+
+def now_utc():
+    return datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%MZ')
+
+
 # --- the sync --------------------------------------------------------------------------------------
 
 ROUNDS = ['final', 'semi', 'quarter']
@@ -495,9 +593,13 @@ def sync():
     season['matchups'] = sorted(keep + [g for w in sorted(done) for g in done[w]], key=lambda g: g['week'])
     fetched = set(by_week)
     future = [g for g in season.get('schedule') or [] if g['week'] not in fetched and g['week'] not in done]
+    was = [g for g in season.get('schedule') or [] if g['week'] == cur_w]
     season['schedule'] = sorted(future + sched, key=lambda g: g['week'])
+    now_w = [g for g in season['schedule'] if g['week'] == cur_w]
     season['inProgress'] = not finished
     extras = sync_moves(tok, key, data, season, ids, year, cur_w)
+    if cur_w < po_start and not finished and sync_proj(season, year, cur_w, was != now_w):
+        extras.append('proj')
 
     after = json.dumps(data, ensure_ascii=False, separators=(',', ':'))
     changed = after != before
@@ -519,7 +621,7 @@ def sync():
         bits.append('week ' + ', '.join(map(str, new_weeks)) + ' final' + ('s' if len(new_weeks) > 1 else ''))
     if proj:
         bits.append(f'week {cur_w} projections')
-    bits += [{'rosters': 'rosters', 'moves': 'transactions'}[x] for x in extras]
+    bits += [{'rosters': 'rosters', 'moves': 'transactions', 'proj': 'player projections'}[x] for x in extras]
     msg = 'Yahoo: ' + (', '.join(bits) if bits else 'score and schedule updates') if changed else ''
     print(f'{year} league {key}: finished weeks {finals[0] if finals else "-"}-{finals[-1] if finals else "-"}, '
           f'current week {cur_w}, ' + ('league.json updated' if changed else 'no changes'))

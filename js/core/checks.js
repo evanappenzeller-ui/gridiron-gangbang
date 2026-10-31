@@ -1691,6 +1691,21 @@ export async function runChecks() {
     if (pre.proj !== 120.5) bad.push(`before kickoff ${pre.proj} (want Yahoo's 120.5)`);
     if (post.proj !== post.pts) bad.push(`all over ${post.proj} (want the score, ${post.pts})`);
     if (!live || !(live.b.proj > live.b.pts && live.b.proj < live.b.pts + 120.5) || !(live.a.proj > live.a.pts)) bad.push('live projections ' + JSON.stringify(live && [live.a.pts, live.a.proj, live.b.pts, live.b.proj]));
+    // Each player's own projection (league.json seasons[].proj; Oct 31 2026, the owner: "The predictions in the app don't
+    // match the yahoo app"): the shares of Yahoo's total go by them, as Yahoo's app counts its live projection (points
+    // scored, plus the projections of the players yet to play); a bye takes none; another week's are not used.
+    const pjLeague = {seasons: [{year: 2026, proj: {week: 8, at: '2026-11-01T17:00Z', src: 'Sleeper', teams: {
+      ben: {'Jayden Daniels': 20, 'Terry McLaurin': 12, 'Late Guy': 15, 'Rested Guy': 10, 'Commanders': 5, 'Bad': 'x'}}}}]};
+    const pps = fl.playerProj(pjLeague, 2026, 8);
+    if (!pps || pps.get('ben').get('Late Guy') !== 15 || pps.get('ben').has('Bad') || fl.playerProj(pjLeague, 2026, 9) !== null) bad.push('player projections read ' + JSON.stringify(pps && [...pps.get('ben')]));
+    const half = Object.assign({}, feed, {games: [Object.assign({}, feed.games[0], {state: 'post'}), feed.games[1]]});
+    const yh = fl.matchup(half, ups, 'evan', 'ben', {a: 110, b: 104}, pps);
+    if (!yh || yh.b.proj !== want(yh.b.pts + 104 * 15 / 52)) bad.push(`Yahoo's way: ${yh && yh.b.proj} (want ${yh && want(yh.b.pts + 30)})`);
+    const yhPre = fl.matchup(when('pre'), ups, 'evan', 'ben', {a: 110, b: 104}, pps);
+    if (!yhPre || yhPre.b.proj !== 104) bad.push(`before kickoff with player projections ${yhPre && yhPre.b.proj} (want 104)`);
+    // Yahoo's own chance stands while nothing has scored since its sync: no game on, and the ones over were over by then.
+    const t0 = feed.games[0].kickoff.getTime();
+    if (fl.quietSince(live, t0 + 5 * 3600e3) || !fl.quietSince(yh, t0 + 5 * 3600e3) || fl.quietSince(yh, t0 + 3600e3) || !fl.quietSince(yhPre, 0)) bad.push('quiet since the sync');
     // Chance to win (Oct 31 2026): Yahoo's 49% for 42.20 of 127.52 against 0 of 128.85, even at a level projection, the
     // leader's once nothing's left, rising with a lead as time runs out; none without both projections.
     const wc = (pa, ja, pb, jb) => fl.winChance({a: {pts: pa, proj: ja}, b: {pts: pb, proj: jb}});
@@ -1702,7 +1717,7 @@ export async function runChecks() {
     // The league file's own rosters, when they carry slots: nine starters a team.
     const real = fl.lineups(data.DATA || {}, 2026, null);
     if (real && [...real.values()].some(l => l.length < 8 || l.length > 10)) bad.push('league rosters: ' + [...real].map(([k, l]) => k + ' ' + l.length).join(', '));
-    return {pass: !bad.length, detail: bad.length ? bad.join('; ') : `Evan ${m.a.pts} live (Bass ${K.pts}, Bills D ${gd.defPoints(D, 9)}), Ben ${m.b.pts} with ${m.b.left} left, projected ${live.b.proj} of Yahoo's 120.5, Yahoo's 49% read ${yw}%${real ? `; ${real.size} lineups in the league file` : ''}`};
+    return {pass: !bad.length, detail: bad.length ? bad.join('; ') : `Evan ${m.a.pts} live (Bass ${K.pts}, Bills D ${gd.defPoints(D, 9)}), Ben ${m.b.pts} with ${m.b.left} left, projected ${live.b.proj} of Yahoo's 120.5, ${yh.b.proj} by the players' own, Yahoo's 49% read ${yw}%${real ? `; ${real.size} lineups in the league file` : ''}`};
   });
 
   check('Daily Games boards: each place on today\'s board of Daily Puzzles, 17-0 and the Drill shows what it pays in Keepfall\'s Ale ("+5K" on a case, "+5,000" up close; the owner\'s ask, Oct 25 2026), the pay Keepfall pays by', async () => {
