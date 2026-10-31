@@ -519,7 +519,7 @@ const APPS = [
   {tab: 'pickem', name: "Pick'em", icon: 'football'},
   {tab: 'lay', name: 'The Lay', icon: 'ticket'},
   {tab: 'live', name: 'Scores', icon: 'live'},
-  {tab: 'matchup', name: 'Matchup', icon: 'versus'},
+  {tab: 'matchup', name: 'Matchup of the Week', icon: 'versus'},
   {tab: 'league', name: 'League', icon: 'trophy'},
   {tab: 'draft', name: 'Draft', icon: 'list-number'}
 ];

@@ -229,11 +229,11 @@ html.rm .screen.v-puzzles[data-path="/puzzles"]::before, html.rm .screen.v-puzzl
    month and day, kept on one line), and at its foot every other tab as an app icon, like an iPhone's home screen, in
    place of the tab bar (which steps aside while the home shows and comes back everywhere else). The apps take the room
    the bar had and more: --tab-h here is their height, so the case (--cw above) gives way to them. */
-.screen.v-puzzles[data-path="/puzzles"] { --hm-h: 170px; --tab-h: calc(var(--hm-h) + var(--tb-gap)); padding-bottom: var(--tb-gap); }
+.screen.v-puzzles[data-path="/puzzles"] { --hm-h: 184px; --tab-h: calc(var(--hm-h) + var(--tb-gap)); padding-bottom: var(--tb-gap); }
 .screen.v-puzzles[data-path="/puzzles"] .lt-title { white-space: nowrap; }
 .hm-apps {
   flex: none; height: calc(var(--hm-h) - 10px); margin-top: 10px;
-  display: grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: 1fr; align-items: center; gap: 4px 8px;
+  display: grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: 1fr; align-items: start; gap: 4px 8px;
   padding: 0 10px;
 }
 .hm-app {
@@ -259,9 +259,11 @@ html.lite .hm-ic { background: var(--bar-solid); -webkit-backdrop-filter: none; 
 .hm-app:active .hm-ic { transform: scale(.9); color: var(--ink); transition: none; }
 .hm-app:focus-visible { outline: none; }
 .hm-app:focus-visible .hm-ic { outline: 2px solid var(--tint); outline-offset: 3px; }
+/* a long name ("Matchup of the Week") takes a second line under its icon; the row's icons stay level (align-items) */
 .hm-lb {
-  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  font: 500 12px/15px var(--font-text); letter-spacing: .01em; text-shadow: 0 1px 3px rgba(0,0,0,.45);
+  max-width: 100%; overflow: hidden; text-align: center;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+  font: 500 12px/14px var(--font-text); letter-spacing: .01em; text-shadow: 0 1px 3px rgba(0,0,0,.45);
   transition: opacity .2s ease;
 }
 :root[data-light] .hm-lb { text-shadow: none; }
